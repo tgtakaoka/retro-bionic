@@ -1,0 +1,471 @@
+          0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+          0 :                            cpu     f3850
+          0 :
+          0 :                    ;;; i8251 Universal Synchronous/Asynchronous Receiver/Transmitter
+          0 : =FFF0              USART:          equ     0FFF0H
+          0 : =FFF0              USARTD:         equ     USART+0 ; Receive/Transmit data
+          0 : =FFF1              USARTS:         equ     USART+1 ; Srtatus register
+          0 : =FFF1              USARTC:         equ     USART+1 ; Control register
+          0 : =FFF2              USARTRV:        equ     USART+2 ; Receive interrupt vector (ORG_*)
+          0 : =FFF3              USARTTV:        equ     USART+3 ; Transmit interrupt vector (ORG_*)
+          0 :                            include "i8251.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :
+(1)       0 :                    ;;; i8251 USART device emulator.
+(1)       0 : =6                 MODE_STOP_gp:   equ     6
+(1)       0 : =C0                MODE_STOP_gm:   equ     11000000B
+(1)       0 : =40                MODE_STOP1_gc:  equ     (1 << MODE_STOP_gp)
+(1)       0 : =80                MODE_STOP15_gc: equ     (2 << MODE_STOP_gp)
+(1)       0 : =C0                MODE_STOP2_gc:  equ     (3 << MODE_STOP_gp)
+(1)       0 : =20                MODE_EVEN_bm:   equ     00100000B
+(1)       0 : =10                MODE_PARITY_bm: equ     00010000B
+(1)       0 : =2                 MODE_LEN_gp:    equ     2
+(1)       0 : =C                 MODE_LEN_gm:    equ     00001100B
+(1)       0 : =0                 MODE_LEN5_gc:   equ     (0 << MODE_LEN_gp)
+(1)       0 : =4                 MODE_LEN6_gc:   equ     (1 << MODE_LEN_gp)
+(1)       0 : =8                 MODE_LEN7_gc:   equ     (2 << MODE_LEN_gp)
+(1)       0 : =C                 MODE_LEN8_gc:   equ     (3 << MODE_LEN_gp)
+(1)       0 : =0                 MODE_BAUD_gp:   equ     0
+(1)       0 : =3                 MODE_BAUD_gm:   equ     00000011B
+(1)       0 : =1                 MODE_BAUD_X1:   equ     (1 << MODE_BAUD_gp)
+(1)       0 : =2                 MODE_BAUD_X16:  equ (2 << MODE_BAUD_gp)
+(1)       0 : =3                 MODE_BAUD_X64:  equ (3 << MODE_BAUD_gp)
+(1)       0 :                    ;;; Bit Definition of command register
+(1)       0 : =80                CMD_EH_bm:      equ     10000000B   ; Enter hunt mode
+(1)       0 : =40                CMD_IR_bm:      equ     01000000B   ; Internal Reset
+(1)       0 : =20                CMD_RTS_bm:     equ     00100000B   ; Request To Send
+(1)       0 : =10                CMD_ER_bm:      equ     00010000B   ; Error Reset
+(1)       0 : =8                 CMD_SBRK_bm:    equ     00001000B   ; Send Break
+(1)       0 : =4                 CMD_RxEN_bm:    equ     00000100B   ; Receive Enable
+(1)       0 : =2                 CMD_DTR_bm:     equ     00000010B   ; Data Terminal Ready
+(1)       0 : =1                 CMD_TxEN_bm:    equ     00000001B   ; Transmit enable
+(1)       0 :
+(1)       0 :                    ;;; Bit definition of status register
+(1)       0 : =80                ST_DSR_bm:      equ     10000000B   ; Data Set Ready
+(1)       0 : =40                ST_BRK_bm:      equ     01000000B   ; BREAK detected
+(1)       0 : =20                ST_FE_bm:       equ     00100000B   ; Framing Error
+(1)       0 : =10                ST_OE_bm:       equ     00010000B   ; Iverrun Error
+(1)       0 : =8                 ST_PE_bm:       equ     00001000B   ; Parity Error
+(1)       0 : =4                 ST_TxEMPTY_bm:  equ     00000100B   ; Transmitter empty
+(1)       0 : =2                 ST_RxRDY_bm:    equ     00000010B   ; Receiver ready
+(1)       0 : =1                 ST_TxRDY_bm:    equ     00000001B   ; Transmitter ready
+          0 :                    ;;; Async 1stop 8data x16
+          0 : =4E                ASYNC_MODE:     equ     MODE_STOP1_gc|MODE_LEN8_gc|MODE_BAUD_X16
+          0 :                    ;;; RTS/DTR, error reset, Rx enable, Tx enable
+          0 : =37                RX_EN_TX_EN:    equ     CMD_RTS_bm|CMD_DTR_bm|CMD_ER_bm|CMD_RxEN_bm|CMD_TxEN_bm
+          0 :
+       1000 :                            org     1000H
+       1000 :                    stack:  
+       1000 :
+       2000 :                            org     2000H
+       2000 : =80                rx_queue_size:  equ     128
+       2000 :                    rx_queue:       rs      rx_queue_size
+       2080 :
+          0 :                            org     0
+          0 : 29 00 06                   jmp     init
+          3 :
+          3 :                    intr_vec:
+          3 : 29 00 5B                   jmp     isr_intr
+          6 :                            
+          6 :                    init:
+          6 : 28 00 7A                   pi      init_stack
+          9 : 2A 20 00                   dci     rx_queue
+          C : 0E                         lr      Q, DC
+          D : 20 80                      li      rx_queue_size
+          F : 50                         lr      0, A
+         10 : 28 00 DF                   pi      call
+         13 : 01 0B                      da      queue_init
+         15 :                    init_usart:
+         15 : 70                         lis     0
+         16 : 27 F1                      out     USARTC
+         18 : 27 F1                      out     USARTC
+         1A : 27 F1                      out     USARTC          ; safest way to sync mode
+         1C :                    ;;; reset
+         1C : 20 40                      li      CMD_IR_bm
+         1E : 27 F1                      out     USARTC
+         20 : 2B                         nop
+         21 : 2B                         nop
+         22 : 20 4E                      li      ASYNC_MODE
+         24 : 27 F1                      out     USARTC
+         26 : 2B                         nop
+         27 : 2B                         nop
+         28 : 20 37                      li      RX_EN_TX_EN
+         2A : 27 F1                      out     USARTC
+         2C :                    ;;; enable RxRDY interrupt vector
+         2C : 20 03                      li      intr_vec
+         2E : 27 F2                      out     USARTRV
+         30 :                    ;;; disable TxRDY interrupt vector
+         30 : 70                         lis     0
+         31 : 27 F3                      out     USARTTV
+         33 :
+         33 :                    receive_loop:
+         33 : 1B                         ei                      ; Enable INTR
+         34 : 2B                         nop
+         35 : 1A                         di                      ; Disable INTR
+         36 : 2A 20 00                   dci     rx_queue
+         39 : 0E                         lr      Q, DC
+         3A : 28 00 DF                   pi      call
+         3D : 01 4D                      da      queue_remove
+         3F : 92 F3                      bnc     receive_loop
+         41 : 40                         lr      A, 0
+         42 : 22 00                      oi      0
+         44 : 84 15                      bz      halt_to_system
+         46 :                    transmit_loop:
+         46 : 1B                         ei
+         47 : 2B                         nop
+         48 : 1A                         di
+         49 : 26 F1                      in      USARTS
+         4B : 21 01                      ni      ST_TxRDY_bm
+         4D : 84 F8                      bz      transmit_loop
+         4F :                    transmit_data:
+         4F : 40                         lr      A, 0
+         50 : 27 F0                      out     USARTD
+         52 : 25 0D                      ci      H'0D'
+         54 : 94 DE                      bnz     receive_loop
+         56 : 7A                         lis     H'0A'
+         57 : 50                         lr      0, A
+         58 : 90 ED                      br      transmit_loop
+         5A :                    halt_to_system:
+         5A : 2F                         dc      H'2F'           ; unknown instruction
+         5B :
+         5B :                    isr_intr:
+         5B : 08                         lr      K, P
+         5C : 28 00 91                   pi      pushK
+         5F : 28 00 7D                   pi      push0
+         62 : 26 F1                      in      USARTS
+         64 : 21 02                      ni      ST_RxRDY_bm
+         66 : 84 0D                      bz      isr_intr_recv_end
+         68 : 26 F0                      in      USARTD
+         6A : 50                         lr      0, A
+         6B : 2A 20 00                   dci     rx_queue
+         6E : 0E                         lr      Q, DC
+         6F : 28 00 DF                   pi      call
+         72 : 01 1D                      da      queue_add
+         74 :                    isr_intr_recv_end:
+         74 : 28 00 AB                   pi      pop0
+         77 : 29 00 FC                   jmp     return
+         7A :
+         7A :                            include "stack.inc"
+(1)      7A :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)      7A :
+(1)      7A :                    ;;; Stack pointer is 8-bit and pre-decrement and post-increment
+(1)      7A : =8                 SP:     equ     8               ; SP is scratchpad register 8
+(1)      7A : =F                 __STACK_U:      equ     ((stack - 1) >> 8)
+(1)      7A :
+(1)      7A :                    ;;; Initialize stack
+(1)      7A :                    ;;; @param stack
+(1)      7A :                    ;;; @clobber A
+(1)      7A :                    init_stack:
+(1)      7A : 70                         clr
+(1)      7B : 58                         lr      SP, A
+(1)      7C : 1C                         pop
+(1)      7D :
+(1)      7D :                    ;;; Push 0
+(1)      7D :                    ;;; @clobber A H W
+(1)      7D :                    ;;; PI push0
+(1)      7D :                    push0:
+(1)      7D : 38                         ds      SP              ; SP-=1
+(1)      7E : 20 0F                      li      __STACK_U
+(1)      80 : 5A                         lr      HU, A
+(1)      81 : 48                         lr      A, SP
+(1)      82 : 5B                         lr      HL, A
+(1)      83 : 10                         lr      DC, H           ; DC0=SP
+(1)      84 : 40                         lr      A, 0
+(1)      85 : 17                         st
+(1)      86 : 1C                         pop
+(1)      87 :
+(1)      87 :                    ;;; Push 1
+(1)      87 :                    ;;; @clobber A H W
+(1)      87 :                    ;;; PI push1
+(1)      87 :                    push1:
+(1)      87 : 38                         ds      SP              ; SP-=1
+(1)      88 : 20 0F                      li      __STACK_U
+(1)      8A : 5A                         lr      HU, A
+(1)      8B : 48                         lr      A, SP
+(1)      8C : 5B                         lr      HL, A
+(1)      8D : 10                         lr      DC, H           ; DC0=SP
+(1)      8E : 41                         lr      A, 1
+(1)      8F : 17                         st
+(1)      90 : 1C                         pop
+(1)      91 :
+(1)      91 :                    ;;; Push K
+(1)      91 :                    ;;; @clobber A H W
+(1)      91 :                    ;;; PI pushK
+(1)      91 :                    pushK:
+(1)      91 : 38                         ds      SP
+(1)      92 : 38                         ds      SP              ; SP-=2
+(1)      93 : 20 0F                      li      __STACK_U
+(1)      95 : 5A                         lr      HU, A
+(1)      96 : 48                         lr      A, SP
+(1)      97 : 5B                         lr      HL, A
+(1)      98 : 10                         lr      DC, H           ; DC0=SP
+(1)      99 : 00                         lr      A, KU
+(1)      9A : 17                         st
+(1)      9B : 01                         lr      A, KL
+(1)      9C : 17                         st
+(1)      9D : 1C                         pop
+(1)      9E :
+(1)      9E :                    ;;; Push Q
+(1)      9E :                    ;;; @clobber A H W
+(1)      9E :                    ;;; PI pushQ
+(1)      9E :                    pushQ:
+(1)      9E : 38                         ds      SP
+(1)      9F : 38                         ds      SP              ; SP -= 2
+(1)      A0 : 20 0F                      li      __STACK_U
+(1)      A2 : 5A                         lr      HU, A
+(1)      A3 : 48                         lr      A, SP
+(1)      A4 : 5B                         lr      HL, A
+(1)      A5 : 10                         lr      DC, H           ; DC0=SP
+(1)      A6 : 02                         lr      A, QU
+(1)      A7 : 17                         st
+(1)      A8 : 03                         lr      A, QL
+(1)      A9 : 17                         st
+(1)      AA : 1C                         pop
+(1)      AB :
+(1)      AB :                    ;;; POP 0
+(1)      AB :                    ;;; @clobber A H
+(1)      AB :                    ;;; PI pop0
+(1)      AB :                    pop0:
+(1)      AB : 20 0F                      li      __STACK_U
+(1)      AD : 5A                         lr      HU, A
+(1)      AE : 48                         lr      A, SP
+(1)      AF : 5B                         lr      HL, A
+(1)      B0 : 10                         lr      DC, H           ; DC0=SP
+(1)      B1 : 16                         lm
+(1)      B2 : 50                         lr      0, A
+(1)      B3 : 11                         lr      H, DC
+(1)      B4 : 4B                         lr      A, HL
+(1)      B5 : 58                         lr      SP, A
+(1)      B6 : 1C                         pop
+(1)      B7 :
+(1)      B7 :                    ;;; POP 1
+(1)      B7 :                    ;;; @clobber A H
+(1)      B7 :                    ;;; PI pop1
+(1)      B7 :                    pop1:
+(1)      B7 : 20 0F                      li      __STACK_U
+(1)      B9 : 5A                         lr      HU, A
+(1)      BA : 48                         lr      A, SP
+(1)      BB : 5B                         lr      HL, A
+(1)      BC : 10                         lr      DC, H           ; DC0=SP
+(1)      BD : 16                         lm
+(1)      BE : 51                         lr      1, A
+(1)      BF : 11                         lr      H, DC
+(1)      C0 : 4B                         lr      A, HL
+(1)      C1 : 58                         lr      SP, A
+(1)      C2 : 1C                         pop
+(1)      C3 :
+(1)      C3 :                    ;;; Pop K
+(1)      C3 :                    ;;; @clobber A H
+(1)      C3 :                    ;;; PI popK
+(1)      C3 :                    popK:
+(1)      C3 : 20 0F                      li      __STACK_U
+(1)      C5 : 5A                         lr      HU, A
+(1)      C6 : 48                         lr      A, SP
+(1)      C7 : 5B                         lr      HL, A
+(1)      C8 : 10                         lr      DC, H           ; DC0=SP
+(1)      C9 : 16                         lm
+(1)      CA : 04                         lr      KU, A
+(1)      CB : 16                         lm
+(1)      CC : 05                         lr      KL, A
+(1)      CD : 11                         lr      H, DC
+(1)      CE : 4B                         lr      A, HL
+(1)      CF : 58                         lr      SP, A
+(1)      D0 : 1C                         pop
+(1)      D1 :
+(1)      D1 :                    ;;; pop Q
+(1)      D1 :                    ;;; @clobber A H
+(1)      D1 :                    ;;; PI popQ
+(1)      D1 :                    popQ:
+(1)      D1 : 20 0F                      li      __STACK_U
+(1)      D3 : 5A                         lr      HU, A
+(1)      D4 : 48                         lr      A, SP
+(1)      D5 : 5B                         lr      HL, A
+(1)      D6 : 10                         lr      DC, H           ; DC0=SP
+(1)      D7 : 16                         lm
+(1)      D8 : 06                         lr      QU, A
+(1)      D9 : 16                         lm
+(1)      DA : 07                         lr      QL, A
+(1)      DB : 11                         lr      H, DC
+(1)      DC : 4B                         lr      A, HL
+(1)      DD : 58                         lr      SP, A
+(1)      DE : 1C                         pop
+(1)      DF :
+(1)      DF :                    ;;; Call subroutine
+(1)      DF :                    ;;; @clobber A H K W
+(1)      DF :                    ;;; PI call
+(1)      DF :                    ;;; DA subroutine
+(1)      DF :                    call:
+(1)      DF : 08                         lr      K, P
+(1)      E0 : 00                         lr      A, KU
+(1)      E1 : 5A                         lr      HU, A
+(1)      E2 : 01                         lr      A, KL
+(1)      E3 : 5B                         lr      HL, A
+(1)      E4 : 10                         lr      DC, H           ; DC0=PC1
+(1)      E5 : 16                         lm
+(1)      E6 : 04                         lr      KU, A
+(1)      E7 : 16                         lm
+(1)      E8 : 05                         lr      KL, A
+(1)      E9 : 09                         lr      P, K            ; PC1=subroutine address
+(1)      EA : 11                         lr      H, DC
+(1)      EB : 4A                         lr      A, HU
+(1)      EC : 04                         lr      KU, A
+(1)      ED : 4B                         lr      A, HL
+(1)      EE : 05                         lr      KL, A           ; K=return address
+(1)      EF : 38                         ds      SP
+(1)      F0 : 38                         ds      SP              ; SP-=2
+(1)      F1 : 20 0F                      li      __STACK_U
+(1)      F3 : 5A                         lr      HU, A
+(1)      F4 : 48                         lr      A, SP
+(1)      F5 : 5B                         lr      HL, A
+(1)      F6 : 10                         lr      DC, H           ; DC0=SP
+(1)      F7 : 00                         lr      A, KU
+(1)      F8 : 17                         st
+(1)      F9 : 01                         lr      A, KL
+(1)      FA : 17                         st
+(1)      FB : 1C                         pop                     ; jump to subroutine
+(1)      FC :
+(1)      FC :                    ;;; Return from subroutine
+(1)      FC :                    ;;; @clobber A H K
+(1)      FC :                    ;;; JMP return
+(1)      FC :                    return:
+(1)      FC : 20 0F                      li      __STACK_U
+(1)      FE : 5A                         lr      HU, A
+(1)      FF : 48                         lr      A, SP
+(1)     100 : 5B                         lr      HL, A
+(1)     101 : 10                         lr      DC, H           ; DC0=SP
+(1)     102 : 16                         lm
+(1)     103 : 04                         lr      KU, A
+(1)     104 : 16                         lm
+(1)     105 : 05                         lr      KL, A
+(1)     106 : 11                         lr      H, DC
+(1)     107 : 4B                         lr      A, HL
+(1)     108 : 58                         lr      SP, A
+(1)     109 : 09                         lr      P, K            ; PC1=return address
+(1)     10A : 1C                         pop
+        10B :                            include "queue.inc"
+(1)     10B :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)     10B :                    ;;; [queue] queue structure
+(1)     10B : =0                 queue_len:      equ     0       ; queue length
+(1)     10B : =1                 queue_size:     equ     1       ; buffer size
+(1)     10B : =2                 queue_put:      equ     2       ; queue put index
+(1)     10B : =3                 queue_get:      equ     3       ; queue get index
+(1)     10B : =4                 queue_buf:      equ     4       ; buffer start offset
+(1)     10B :
+(1)     10B :                    ;;; [queue] Initialize queue
+(1)     10B :                    ;;; @param Q queue work space pointer
+(1)     10B :                    ;;; @param 0 queue work space size
+(1)     10B :                    ;;; @clobber A H DC
+(1)     10B :                    queue_init:
+(1)     10B : 0F                         lr      DC, Q
+(1)     10C : 70                         clr
+(1)     10D : 17                         st                      ; queue_len = 0
+(1)     10E : 40                         lr      A, 0            ; restore queue size
+(1)     10F : 24 FC                      ai      -queue_buf
+(1)     111 : 17                         st                      ; queue_size
+(1)     112 : 24 02                      ai      2               ; for queue_put and queue_get
+(1)     114 : 50                         lr      0, A            ; save counter
+(1)     115 : 70                         clr
+(1)     116 :                    queue_init_loop:
+(1)     116 : 17                         st
+(1)     117 : 30                         ds      0               ; decrement counter
+(1)     118 : 94 FD                      bnz     queue_init_loop
+(1)     11A : 29 00 FC                   jmp     return
+(1)     11D :
+(1)     11D :                    ;;; [queue] Add an element to queue
+(1)     11D :                    ;;; @param Q queue work space pointer
+(1)     11D :                    ;;; @param 0 an element
+(1)     11D :                    ;;; @return F.C 0 if queue is full
+(1)     11D :                    ;;; @clobber A H DC
+(1)     11D :                    queue_add:
+(1)     11D : 0F                         lr      DC, Q
+(1)     11E : 16                         lm                      ; queue_len
+(1)     11F : 5B                         lr      HL, A           ; HL=queue_len
+(1)     120 : 16                         lm                      ; queue_size
+(1)     121 : 18                         com
+(1)     122 : 1F                         inc                     ; A=-queue_size
+(1)     123 : CB                         as      HL              ; queue_len-queue_size
+(1)     124 : 82 24                      bc      queue_add_end   ; queue_len >= queue_size
+(1)     126 : 4B                         lr      A, HL
+(1)     127 : 1F                         inc                     ; queue_len++
+(1)     128 : 0F                         lr      DC, Q
+(1)     129 : 17                         st                      ; update queue_len
+(1)     12A : 16                         lm                      ; queue_size
+(1)     12B : 16                         lm                      ; queue_put
+(1)     12C : 1F                         inc                     ; for queue_get
+(1)     12D : 8E                         adc                     ; DC=&queue_buf[queue_put]
+(1)     12E : 40                         lr      A, 0            ; get element
+(1)     12F : 17                         st                      ; store element
+(1)     130 : 0F                         lr      DC, Q
+(1)     131 : 16                         lm                      ; queue_len
+(1)     132 : 16                         lm                      ; queue_size
+(1)     133 : 18                         com
+(1)     134 : 1F                         inc
+(1)     135 : 5B                         lr      HL, A           ; HL=-queue_size
+(1)     136 : 16                         lm                      ; queue_put
+(1)     137 : 1F                         inc                     ; queue_put++
+(1)     138 : 5A                         lr      HU, A           ; HU=queue_put
+(1)     139 : CB                         as      HL              ; queue_put-queue_size
+(1)     13A : 92 03                      bnc     queue_add_update ; queue_put < queue_size
+(1)     13C : 70                         clr
+(1)     13D : 5A                         lr      HU, A           ; wrap around
+(1)     13E :                    queue_add_update:
+(1)     13E : 0F                         lr      DC, Q
+(1)     13F : 16                         lm                      ; queue_len
+(1)     140 : 16                         lm                      ; queue_size
+(1)     141 : 4A                         lr      A, HU
+(1)     142 : 17                         st                      ; update queue_put
+(1)     143 : 70                         clr
+(1)     144 : 18                         com
+(1)     145 : 1F                         inc                     ; set carry
+(1)     146 : 29 00 FC                   jmp     return
+(1)     149 :                    queue_add_end:
+(1)     149 : 18                         com                     ; clear carry
+(1)     14A : 29 00 FC                   jmp     return
+(1)     14D :
+(1)     14D :                    ;;; [queue] Remove an element from queue
+(1)     14D :                    ;;; @param Q queue work space pointer
+(1)     14D :                    ;;; @return 0 an element
+(1)     14D :                    ;;; @return F.C 0 if queue is empty
+(1)     14D :                    ;;; @clobber A H DC
+(1)     14D :                    queue_remove:
+(1)     14D : 0F                         lr      DC, Q
+(1)     14E : 70                         clr
+(1)     14F : 8B                         om                      ; queue_len
+(1)     150 : 84 26                      bz      queue_remove_empty
+(1)     152 : 24 FF                      ai      -1              ; queue_len--
+(1)     154 : 0F                         lr      DC, Q
+(1)     155 : 17                         st                      ; update queue_len
+(1)     156 : 16                         lm                      ; queue_size
+(1)     157 : 16                         lm                      ; queue_put
+(1)     158 : 16                         lm                      ; queue_get
+(1)     159 : 8E                         adc                     ; DC=&queue_buf[queue_get]
+(1)     15A : 16                         lm                      ; read element
+(1)     15B : 50                         lr      0, A            ; save element
+(1)     15C : 0F                         lr      DC, Q
+(1)     15D : 16                         lm                      ; queue_len
+(1)     15E : 16                         lm                      ; queue_size
+(1)     15F : 18                         com
+(1)     160 : 1F                         inc
+(1)     161 : 5B                         lr      HL, A           ; HL=-queue_size
+(1)     162 : 16                         lm                      ; queue_put
+(1)     163 : 16                         lm                      ; queue_get
+(1)     164 : 1F                         inc                     ; queue_get++
+(1)     165 : 5A                         lr      HU, A           ; HU=queue_get
+(1)     166 : CB                         as      HL              ; queue_get-queue_size
+(1)     167 : 92 03                      bnc     queue_remove_update ; queue_get<queueu_size
+(1)     169 : 70                         clr
+(1)     16A : 5A                         lr      HU, A           ; wrap around
+(1)     16B :                    queue_remove_update:
+(1)     16B : 0F                         lr      DC, Q
+(1)     16C : 16                         lm                      ; queue_len
+(1)     16D : 16                         lm                      ; queue_size
+(1)     16E : 16                         lm                      ; queue_put
+(1)     16F : 4A                         lr      A, HU
+(1)     170 : 17                         st                      ; update queue_get
+(1)     171 : 70                         clr
+(1)     172 : 18                         com
+(1)     173 : 1F                         inc                     ; set carry
+(1)     174 : 29 00 FC                   jmp     return
+(1)     177 :                    queue_remove_empty:
+(1)     177 : 18                         com                     ; clear carry
+(1)     178 : 29 00 FC                   jmp     return

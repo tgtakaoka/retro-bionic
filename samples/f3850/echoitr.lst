@@ -1,0 +1,622 @@
+          0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+          0 :                            cpu     f3850
+          0 :
+          0 :                    ;;; i8251 Universal Synchronous/Asynchronous Receiver/Transmitter
+          0 : =F0                USART:          equ     0F0H
+          0 : =F0                USARTD:         equ     USART+0 ; Receive/Transmit data
+          0 : =F1                USARTS:         equ     USART+1 ; Srtatus register
+          0 : =F1                USARTC:         equ     USART+1 ; Control register
+          0 : =F2                USARTRV:        equ     USART+2 ; Receive interrupt vector (ORG_*)
+          0 : =F3                USARTTV:        equ     USART+3 ; Transmit interrupt vector (ORG_*)
+          0 :                            include "i8251.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :
+(1)       0 :                    ;;; i8251 USART device emulator.
+(1)       0 : =6                 MODE_STOP_gp:   equ     6
+(1)       0 : =C0                MODE_STOP_gm:   equ     11000000B
+(1)       0 : =40                MODE_STOP1_gc:  equ     (1 << MODE_STOP_gp)
+(1)       0 : =80                MODE_STOP15_gc: equ     (2 << MODE_STOP_gp)
+(1)       0 : =C0                MODE_STOP2_gc:  equ     (3 << MODE_STOP_gp)
+(1)       0 : =20                MODE_EVEN_bm:   equ     00100000B
+(1)       0 : =10                MODE_PARITY_bm: equ     00010000B
+(1)       0 : =2                 MODE_LEN_gp:    equ     2
+(1)       0 : =C                 MODE_LEN_gm:    equ     00001100B
+(1)       0 : =0                 MODE_LEN5_gc:   equ     (0 << MODE_LEN_gp)
+(1)       0 : =4                 MODE_LEN6_gc:   equ     (1 << MODE_LEN_gp)
+(1)       0 : =8                 MODE_LEN7_gc:   equ     (2 << MODE_LEN_gp)
+(1)       0 : =C                 MODE_LEN8_gc:   equ     (3 << MODE_LEN_gp)
+(1)       0 : =0                 MODE_BAUD_gp:   equ     0
+(1)       0 : =3                 MODE_BAUD_gm:   equ     00000011B
+(1)       0 : =1                 MODE_BAUD_X1:   equ     (1 << MODE_BAUD_gp)
+(1)       0 : =2                 MODE_BAUD_X16:  equ (2 << MODE_BAUD_gp)
+(1)       0 : =3                 MODE_BAUD_X64:  equ (3 << MODE_BAUD_gp)
+(1)       0 :                    ;;; Bit Definition of command register
+(1)       0 : =80                CMD_EH_bm:      equ     10000000B   ; Enter hunt mode
+(1)       0 : =40                CMD_IR_bm:      equ     01000000B   ; Internal Reset
+(1)       0 : =20                CMD_RTS_bm:     equ     00100000B   ; Request To Send
+(1)       0 : =10                CMD_ER_bm:      equ     00010000B   ; Error Reset
+(1)       0 : =8                 CMD_SBRK_bm:    equ     00001000B   ; Send Break
+(1)       0 : =4                 CMD_RxEN_bm:    equ     00000100B   ; Receive Enable
+(1)       0 : =2                 CMD_DTR_bm:     equ     00000010B   ; Data Terminal Ready
+(1)       0 : =1                 CMD_TxEN_bm:    equ     00000001B   ; Transmit enable
+(1)       0 :
+(1)       0 :                    ;;; Bit definition of status register
+(1)       0 : =80                ST_DSR_bm:      equ     10000000B   ; Data Set Ready
+(1)       0 : =40                ST_BRK_bm:      equ     01000000B   ; BREAK detected
+(1)       0 : =20                ST_FE_bm:       equ     00100000B   ; Framing Error
+(1)       0 : =10                ST_OE_bm:       equ     00010000B   ; Iverrun Error
+(1)       0 : =8                 ST_PE_bm:       equ     00001000B   ; Parity Error
+(1)       0 : =4                 ST_TxEMPTY_bm:  equ     00000100B   ; Transmitter empty
+(1)       0 : =2                 ST_RxRDY_bm:    equ     00000010B   ; Receiver ready
+(1)       0 : =1                 ST_TxRDY_bm:    equ     00000001B   ; Transmitter ready
+          0 :                    ;;; Async 1stop 8data x16
+          0 : =4E                ASYNC_MODE:     equ     MODE_STOP1_gc|MODE_LEN8_gc|MODE_BAUD_X16
+          0 :                    ;;; RTS/DTR, error reset, Rx enable, Tx enable
+          0 : =37                RX_EN_TX_EN:    equ     CMD_RTS_bm|CMD_DTR_bm|CMD_ER_bm|CMD_RxEN_bm|CMD_TxEN_bm
+          0 : =36                RX_EN_TX_DIS:   equ     CMD_RTS_bm|CMD_DTR_bm|CMD_ER_bm|CMD_RxEN_bm
+          0 :
+       1000 :                            org     1000H
+       1000 :                    stack:
+       1000 :
+       2000 :                            org     2000H
+       2000 : =80                rx_queue_size:  equ     128
+       2000 :                    rx_queue:       rs      rx_queue_size
+       2080 : =80                tx_queue_size:  equ     128
+       2080 :                    tx_queue:       rs      tx_queue_size
+       2100 :
+          0 :                            org     0
+          0 : 29 00 09                   jmp     init
+          3 :
+          3 :                    rx_vec:
+          3 : 29 01 15                   jmp     isr_intr_rx
+          6 :                    tx_vec:
+          6 : 29 01 34                   jmp     isr_intr_tx
+          9 :
+          9 :                    init:
+          9 : 28 01 59                   pi      init_stack
+          C : 2A 20 00                   dci     rx_queue
+          F : 0E                         lr      Q, DC
+         10 : 20 80                      li      rx_queue_size
+         12 : 50                         lr      0, A
+         13 : 28 01 BE                   pi      call
+         16 : 01 EA                      da      queue_init
+         18 : 2A 20 80                   dci     tx_queue
+         1B : 0E                         lr      Q, DC
+         1C : 20 80                      li      tx_queue_size
+         1E : 50                         lr      0, A
+         1F : 28 01 BE                   pi      call
+         22 : 01 EA                      da      queue_init
+         24 :                    init_usart:
+         24 : 70                         lis     0
+         25 : 27 F1                      out     USARTC
+         27 : 27 F1                      out     USARTC
+         29 : 27 F1                      out     USARTC          ; safest way to sync mode
+         2B :                    ;;; reset
+         2B : 20 40                      li      CMD_IR_bm
+         2D : 27 F1                      out     USARTC
+         2F : 2B                         nop
+         30 : 2B                         nop
+         31 : 20 4E                      li      ASYNC_MODE
+         33 : 27 F1                      out     USARTC
+         35 : 2B                         nop
+         36 : 2B                         nop
+         37 : 20 36                      li      RX_EN_TX_DIS
+         39 : 27 F1                      out     USARTC
+         3B : 20 03                      li      rx_vec
+         3D : 27 F2                      out     USARTRV
+         3F : 20 06                      li      tx_vec
+         41 : 27 F3                      out     USARTTV
+         43 :
+         43 :                    receive_loop:
+         43 : 28 01 BE                   pi      call
+         46 : 00 F6                      da      getchar
+         48 : 92 FA                      bnc     receive_loop
+         4A : 40                         lr      A, 0
+         4B : 22 00                      oi      0
+         4D : 84 37                      bz      halt_to_system
+         4F :                    echo_back:
+         4F : 51                         lr      1, A            ; save character
+         50 : 28 01 BE                   pi      call
+         53 : 01 00                      da      putchar         ; echo
+         55 : 20 20                      li      C' '            ; space
+         57 : 50                         lr      0, A
+         58 : 28 01 BE                   pi      call
+         5B : 01 00                      da      putchar
+         5D : 41                         lr      A, 1
+         5E : 50                         lr      0, A
+         5F : 28 01 BE                   pi      call
+         62 : 00 86                      da      put_hex8        ; print in hex
+         64 : 20 20                      li      C' '            ; space
+         66 : 50                         lr      0, A
+         67 : 28 01 BE                   pi      call
+         6A : 01 00                      da      putchar
+         6C : 41                         lr      A, 1
+         6D : 50                         lr      0, A
+         6E : 28 01 BE                   pi      call
+         71 : 00 B3                      da      put_bin8        ; print in binary
+         73 : 20 0D                      li      H'0D'
+         75 : 50                         lr      0, A
+         76 : 28 01 BE                   pi      call
+         79 : 01 00                      da      putchar
+         7B : 20 0A                      li      H'0A'
+         7D : 50                         lr      0, A
+         7E : 28 01 BE                   pi      call
+         81 : 01 00                      da      putchar
+         83 : 90 BF                      br      receive_loop
+         85 :                    halt_to_system:
+         85 : 2F                         dc      H'2F'           ; unknown instruction
+         86 :
+         86 :                    ;;; Print uint8_t in hex
+         86 :                    ;;; @param 1 uint8_t value to be printed in hex.
+         86 :                    ;;; @clobber 0 A
+         86 :                    put_hex8:
+         86 : 20 30                      li      C'0'
+         88 : 50                         lr      0, A
+         89 : 28 01 BE                   pi      call
+         8C : 01 00                      da      putchar
+         8E : 20 78                      li      C'x'
+         90 : 50                         lr      0, A
+         91 : 28 01 BE                   pi      call
+         94 : 01 00                      da      putchar
+         96 : 41                         lr      A, 1
+         97 : 14                         sr      4
+         98 : 50                         lr      0, A
+         99 : 28 01 BE                   pi      call
+         9C : 00 A0                      da      put_hex4
+         9E : 41                         lr      A, 1
+         9F : 50                         lr      0, A
+         A0 :                    put_hex4:
+         A0 : 40                         lr      A, 0
+         A1 : 21 0F                      ni      H'0F'
+         A3 : 25 09                      ci      9               ; 9-A
+         A5 : 81 07                      bp      put_hex8_dec    ; A<10
+         A7 : 24 37                      ai      C'A'-10
+         A9 : 50                         lr      0, A
+         AA : 29 01 00                   jmp     putchar
+         AD :                    put_hex8_dec:
+         AD : 24 30                      ai      C'0'
+         AF : 50                         lr      0, A
+         B0 : 29 01 00                   jmp     putchar
+         B3 :
+         B3 :                    ;;; Print uint8_t in binary
+         B3 :                    ;;; @param 1 uint8_t value to be printed in binary.
+         B3 :                    ;;; @clobber 0 A
+         B3 :                    put_bin8:
+         B3 : 20 30                      li      C'0'
+         B5 : 50                         lr      0, A
+         B6 : 28 01 BE                   pi      call
+         B9 : 01 00                      da      putchar
+         BB : 20 62                      li      C'b'
+         BD : 50                         lr      0, A
+         BE : 28 01 BE                   pi      call
+         C1 : 01 00                      da      putchar
+         C3 : 41                         lr      A, 1
+         C4 : 50                         lr      0, A
+         C5 : 28 01 BE                   pi      call
+         C8 : 00 CD                      da      put_bin4
+         CA : 41                         lr      A, 1
+         CB : 15                         sl      4
+         CC : 50                         lr      0, A
+         CD :                    ;;; Pinrt uint4_t in binary
+         CD :                    ;;; @param 0 4-bit value in upper nibble
+         CD :                    ;;; @clobber 0 A
+         CD :                    put_bin4:
+         CD : 28 01 5C                   pi      push0
+         D0 : 28 01 BE                   pi      call
+         D3 : 00 DC                      da      put_bin2
+         D5 : 28 01 8A                   pi      pop0
+         D8 : 40                         lr      A, 0
+         D9 : 13                         sl      1
+         DA : 13                         sl      1
+         DB : 50                         lr      0, A
+         DC :                    ;;; Print uint2_t in binary
+         DC :                    ;;; @param 0 value in the most upper 2-bit
+         DC :                    ;;; @clobber 0 A
+         DC :                    put_bin2:
+         DC : 28 01 5C                   pi      push0
+         DF : 28 01 BE                   pi      call
+         E2 : 00 EA                      da      put_bin1
+         E4 : 28 01 8A                   pi      pop0
+         E7 : 40                         lr      A, 0
+         E8 : 13                         sl      1
+         E9 : 50                         lr      0, A
+         EA :                    ;;; Print MSB
+         EA :                    ;;; @param 0 value at MSB
+         EA :                    ;;; @clobber 0 A
+         EA :                    put_bin1:
+         EA : 40                         lr      A, 0
+         EB : 22 00                      oi      0
+         ED : 20 30                      li      C'0'            ; '0' for bit value 0
+         EF : 81 02                      bp      put_bin0        ; MSB=0
+         F1 : 1F                         inc                     ; make it '1'
+         F2 :                    put_bin0
+         F2 : 50                         lr      0, A
+         F3 : 29 01 00                   jmp     putchar
+         F6 :
+         F6 :                    ;;; Get character
+         F6 :                    ;;; @return 0
+         F6 :                    ;;; @return CC.C 0 if no character
+         F6 :                    getchar:
+         F6 : 1B                         ei
+         F7 : 2B                         nop
+         F8 : 1A                         di
+         F9 : 2A 20 00                   dci     rx_queue
+         FC : 0E                         lr      Q, DC
+         FD : 29 02 2C                   jmp     queue_remove
+        100 :
+        100 :                    ;;; Put character
+        100 :                    ;;; @param 0
+        100 :                    ;;; @clobber 0
+        100 :                    putchar:
+        100 : 1B                         ei
+        101 : 2B                         nop
+        102 : 1A                         di
+        103 : 2A 20 80                   dci     tx_queue
+        106 : 0E                         lr      Q, DC
+        107 : 28 01 BE                   pi      call
+        10A : 01 FC                      da      queue_add
+        10C : 92 F3                      bnc     putchar         ; branch if queue is full
+        10E : 20 37                      li      RX_EN_TX_EN     ; enable Tx
+        110 : 27 F1                      out     USARTC
+        112 : 29 01 DB                   jmp     return
+        115 :
+        115 :                    isr_intr_rx:
+        115 : 08                         lr      K, P
+        116 : 28 01 70                   pi      pushK
+        119 : 28 01 5C                   pi      push0
+        11C : 26 F1                      in      USARTS
+        11E : 21 02                      ni      ST_RxRDY_bm
+        120 : 84 0D                      bz      isr_intr_end
+        122 : 26 F0                      in      USARTD
+        124 : 50                         lr      0, A
+        125 : 2A 20 00                   dci     rx_queue
+        128 : 0E                         lr      Q, DC
+        129 : 28 01 BE                   pi      call
+        12C : 01 FC                      da      queue_add
+        12E :                    isr_intr_end:
+        12E : 28 01 8A                   pi      pop0
+        131 : 29 01 DB                   jmp     return
+        134 :
+        134 :                    isr_intr_tx:
+        134 : 08                         lr      K, P
+        135 : 28 01 70                   pi      pushK
+        138 : 28 01 5C                   pi      push0
+        13B : 2A 20 80                   dci     tx_queue
+        13E : 0E                         lr      Q, DC
+        13F : 28 01 BE                   pi      call
+        142 : 02 2C                      da      queue_remove
+        144 : 92 0A                      bnc     isr_intr_send_empty
+        146 : 40                         lr      A, 0
+        147 : 27 F0                      out     USARTD          ; send character
+        149 : 28 01 8A                   pi      pop0
+        14C : 29 01 DB                   jmp     return
+        14F :                    isr_intr_send_empty:
+        14F : 20 36                      li      RX_EN_TX_DIS    ; disable Tx
+        151 : 27 F1                      out     USARTC
+        153 : 28 01 8A                   pi      pop0
+        156 : 29 01 DB                   jmp     return
+        159 :
+        159 :                            include "stack.inc"
+(1)     159 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)     159 :
+(1)     159 :                    ;;; Stack pointer is 8-bit and pre-decrement and post-increment
+(1)     159 : =8                 SP:     equ     8               ; SP is scratchpad register 8
+(1)     159 : =F                 __STACK_U:      equ     ((stack - 1) >> 8)
+(1)     159 :
+(1)     159 :                    ;;; Initialize stack
+(1)     159 :                    ;;; @param stack
+(1)     159 :                    ;;; @clobber A
+(1)     159 :                    init_stack:
+(1)     159 : 70                         clr
+(1)     15A : 58                         lr      SP, A
+(1)     15B : 1C                         pop
+(1)     15C :
+(1)     15C :                    ;;; Push 0
+(1)     15C :                    ;;; @clobber A H W
+(1)     15C :                    ;;; PI push0
+(1)     15C :                    push0:
+(1)     15C : 38                         ds      SP              ; SP-=1
+(1)     15D : 20 0F                      li      __STACK_U
+(1)     15F : 5A                         lr      HU, A
+(1)     160 : 48                         lr      A, SP
+(1)     161 : 5B                         lr      HL, A
+(1)     162 : 10                         lr      DC, H           ; DC0=SP
+(1)     163 : 40                         lr      A, 0
+(1)     164 : 17                         st
+(1)     165 : 1C                         pop
+(1)     166 :
+(1)     166 :                    ;;; Push 1
+(1)     166 :                    ;;; @clobber A H W
+(1)     166 :                    ;;; PI push1
+(1)     166 :                    push1:
+(1)     166 : 38                         ds      SP              ; SP-=1
+(1)     167 : 20 0F                      li      __STACK_U
+(1)     169 : 5A                         lr      HU, A
+(1)     16A : 48                         lr      A, SP
+(1)     16B : 5B                         lr      HL, A
+(1)     16C : 10                         lr      DC, H           ; DC0=SP
+(1)     16D : 41                         lr      A, 1
+(1)     16E : 17                         st
+(1)     16F : 1C                         pop
+(1)     170 :
+(1)     170 :                    ;;; Push K
+(1)     170 :                    ;;; @clobber A H W
+(1)     170 :                    ;;; PI pushK
+(1)     170 :                    pushK:
+(1)     170 : 38                         ds      SP
+(1)     171 : 38                         ds      SP              ; SP-=2
+(1)     172 : 20 0F                      li      __STACK_U
+(1)     174 : 5A                         lr      HU, A
+(1)     175 : 48                         lr      A, SP
+(1)     176 : 5B                         lr      HL, A
+(1)     177 : 10                         lr      DC, H           ; DC0=SP
+(1)     178 : 00                         lr      A, KU
+(1)     179 : 17                         st
+(1)     17A : 01                         lr      A, KL
+(1)     17B : 17                         st
+(1)     17C : 1C                         pop
+(1)     17D :
+(1)     17D :                    ;;; Push Q
+(1)     17D :                    ;;; @clobber A H W
+(1)     17D :                    ;;; PI pushQ
+(1)     17D :                    pushQ:
+(1)     17D : 38                         ds      SP
+(1)     17E : 38                         ds      SP              ; SP -= 2
+(1)     17F : 20 0F                      li      __STACK_U
+(1)     181 : 5A                         lr      HU, A
+(1)     182 : 48                         lr      A, SP
+(1)     183 : 5B                         lr      HL, A
+(1)     184 : 10                         lr      DC, H           ; DC0=SP
+(1)     185 : 02                         lr      A, QU
+(1)     186 : 17                         st
+(1)     187 : 03                         lr      A, QL
+(1)     188 : 17                         st
+(1)     189 : 1C                         pop
+(1)     18A :
+(1)     18A :                    ;;; POP 0
+(1)     18A :                    ;;; @clobber A H
+(1)     18A :                    ;;; PI pop0
+(1)     18A :                    pop0:
+(1)     18A : 20 0F                      li      __STACK_U
+(1)     18C : 5A                         lr      HU, A
+(1)     18D : 48                         lr      A, SP
+(1)     18E : 5B                         lr      HL, A
+(1)     18F : 10                         lr      DC, H           ; DC0=SP
+(1)     190 : 16                         lm
+(1)     191 : 50                         lr      0, A
+(1)     192 : 11                         lr      H, DC
+(1)     193 : 4B                         lr      A, HL
+(1)     194 : 58                         lr      SP, A
+(1)     195 : 1C                         pop
+(1)     196 :
+(1)     196 :                    ;;; POP 1
+(1)     196 :                    ;;; @clobber A H
+(1)     196 :                    ;;; PI pop1
+(1)     196 :                    pop1:
+(1)     196 : 20 0F                      li      __STACK_U
+(1)     198 : 5A                         lr      HU, A
+(1)     199 : 48                         lr      A, SP
+(1)     19A : 5B                         lr      HL, A
+(1)     19B : 10                         lr      DC, H           ; DC0=SP
+(1)     19C : 16                         lm
+(1)     19D : 51                         lr      1, A
+(1)     19E : 11                         lr      H, DC
+(1)     19F : 4B                         lr      A, HL
+(1)     1A0 : 58                         lr      SP, A
+(1)     1A1 : 1C                         pop
+(1)     1A2 :
+(1)     1A2 :                    ;;; Pop K
+(1)     1A2 :                    ;;; @clobber A H
+(1)     1A2 :                    ;;; PI popK
+(1)     1A2 :                    popK:
+(1)     1A2 : 20 0F                      li      __STACK_U
+(1)     1A4 : 5A                         lr      HU, A
+(1)     1A5 : 48                         lr      A, SP
+(1)     1A6 : 5B                         lr      HL, A
+(1)     1A7 : 10                         lr      DC, H           ; DC0=SP
+(1)     1A8 : 16                         lm
+(1)     1A9 : 04                         lr      KU, A
+(1)     1AA : 16                         lm
+(1)     1AB : 05                         lr      KL, A
+(1)     1AC : 11                         lr      H, DC
+(1)     1AD : 4B                         lr      A, HL
+(1)     1AE : 58                         lr      SP, A
+(1)     1AF : 1C                         pop
+(1)     1B0 :
+(1)     1B0 :                    ;;; pop Q
+(1)     1B0 :                    ;;; @clobber A H
+(1)     1B0 :                    ;;; PI popQ
+(1)     1B0 :                    popQ:
+(1)     1B0 : 20 0F                      li      __STACK_U
+(1)     1B2 : 5A                         lr      HU, A
+(1)     1B3 : 48                         lr      A, SP
+(1)     1B4 : 5B                         lr      HL, A
+(1)     1B5 : 10                         lr      DC, H           ; DC0=SP
+(1)     1B6 : 16                         lm
+(1)     1B7 : 06                         lr      QU, A
+(1)     1B8 : 16                         lm
+(1)     1B9 : 07                         lr      QL, A
+(1)     1BA : 11                         lr      H, DC
+(1)     1BB : 4B                         lr      A, HL
+(1)     1BC : 58                         lr      SP, A
+(1)     1BD : 1C                         pop
+(1)     1BE :
+(1)     1BE :                    ;;; Call subroutine
+(1)     1BE :                    ;;; @clobber A H K W
+(1)     1BE :                    ;;; PI call
+(1)     1BE :                    ;;; DA subroutine
+(1)     1BE :                    call:
+(1)     1BE : 08                         lr      K, P
+(1)     1BF : 00                         lr      A, KU
+(1)     1C0 : 5A                         lr      HU, A
+(1)     1C1 : 01                         lr      A, KL
+(1)     1C2 : 5B                         lr      HL, A
+(1)     1C3 : 10                         lr      DC, H           ; DC0=PC1
+(1)     1C4 : 16                         lm
+(1)     1C5 : 04                         lr      KU, A
+(1)     1C6 : 16                         lm
+(1)     1C7 : 05                         lr      KL, A
+(1)     1C8 : 09                         lr      P, K            ; PC1=subroutine address
+(1)     1C9 : 11                         lr      H, DC
+(1)     1CA : 4A                         lr      A, HU
+(1)     1CB : 04                         lr      KU, A
+(1)     1CC : 4B                         lr      A, HL
+(1)     1CD : 05                         lr      KL, A           ; K=return address
+(1)     1CE : 38                         ds      SP
+(1)     1CF : 38                         ds      SP              ; SP-=2
+(1)     1D0 : 20 0F                      li      __STACK_U
+(1)     1D2 : 5A                         lr      HU, A
+(1)     1D3 : 48                         lr      A, SP
+(1)     1D4 : 5B                         lr      HL, A
+(1)     1D5 : 10                         lr      DC, H           ; DC0=SP
+(1)     1D6 : 00                         lr      A, KU
+(1)     1D7 : 17                         st
+(1)     1D8 : 01                         lr      A, KL
+(1)     1D9 : 17                         st
+(1)     1DA : 1C                         pop                     ; jump to subroutine
+(1)     1DB :
+(1)     1DB :                    ;;; Return from subroutine
+(1)     1DB :                    ;;; @clobber A H K
+(1)     1DB :                    ;;; JMP return
+(1)     1DB :                    return:
+(1)     1DB : 20 0F                      li      __STACK_U
+(1)     1DD : 5A                         lr      HU, A
+(1)     1DE : 48                         lr      A, SP
+(1)     1DF : 5B                         lr      HL, A
+(1)     1E0 : 10                         lr      DC, H           ; DC0=SP
+(1)     1E1 : 16                         lm
+(1)     1E2 : 04                         lr      KU, A
+(1)     1E3 : 16                         lm
+(1)     1E4 : 05                         lr      KL, A
+(1)     1E5 : 11                         lr      H, DC
+(1)     1E6 : 4B                         lr      A, HL
+(1)     1E7 : 58                         lr      SP, A
+(1)     1E8 : 09                         lr      P, K            ; PC1=return address
+(1)     1E9 : 1C                         pop
+        1EA :                            include "queue.inc"
+(1)     1EA :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)     1EA :                    ;;; [queue] queue structure
+(1)     1EA : =0                 queue_len:      equ     0       ; queue length
+(1)     1EA : =1                 queue_size:     equ     1       ; buffer size
+(1)     1EA : =2                 queue_put:      equ     2       ; queue put index
+(1)     1EA : =3                 queue_get:      equ     3       ; queue get index
+(1)     1EA : =4                 queue_buf:      equ     4       ; buffer start offset
+(1)     1EA :
+(1)     1EA :                    ;;; [queue] Initialize queue
+(1)     1EA :                    ;;; @param Q queue work space pointer
+(1)     1EA :                    ;;; @param 0 queue work space size
+(1)     1EA :                    ;;; @clobber A H DC
+(1)     1EA :                    queue_init:
+(1)     1EA : 0F                         lr      DC, Q
+(1)     1EB : 70                         clr
+(1)     1EC : 17                         st                      ; queue_len = 0
+(1)     1ED : 40                         lr      A, 0            ; restore queue size
+(1)     1EE : 24 FC                      ai      -queue_buf
+(1)     1F0 : 17                         st                      ; queue_size
+(1)     1F1 : 24 02                      ai      2               ; for queue_put and queue_get
+(1)     1F3 : 50                         lr      0, A            ; save counter
+(1)     1F4 : 70                         clr
+(1)     1F5 :                    queue_init_loop:
+(1)     1F5 : 17                         st
+(1)     1F6 : 30                         ds      0               ; decrement counter
+(1)     1F7 : 94 FD                      bnz     queue_init_loop
+(1)     1F9 : 29 01 DB                   jmp     return
+(1)     1FC :
+(1)     1FC :                    ;;; [queue] Add an element to queue
+(1)     1FC :                    ;;; @param Q queue work space pointer
+(1)     1FC :                    ;;; @param 0 an element
+(1)     1FC :                    ;;; @return F.C 0 if queue is full
+(1)     1FC :                    ;;; @clobber A H DC
+(1)     1FC :                    queue_add:
+(1)     1FC : 0F                         lr      DC, Q
+(1)     1FD : 16                         lm                      ; queue_len
+(1)     1FE : 5B                         lr      HL, A           ; HL=queue_len
+(1)     1FF : 16                         lm                      ; queue_size
+(1)     200 : 18                         com
+(1)     201 : 1F                         inc                     ; A=-queue_size
+(1)     202 : CB                         as      HL              ; queue_len-queue_size
+(1)     203 : 82 24                      bc      queue_add_end   ; queue_len >= queue_size
+(1)     205 : 4B                         lr      A, HL
+(1)     206 : 1F                         inc                     ; queue_len++
+(1)     207 : 0F                         lr      DC, Q
+(1)     208 : 17                         st                      ; update queue_len
+(1)     209 : 16                         lm                      ; queue_size
+(1)     20A : 16                         lm                      ; queue_put
+(1)     20B : 1F                         inc                     ; for queue_get
+(1)     20C : 8E                         adc                     ; DC=&queue_buf[queue_put]
+(1)     20D : 40                         lr      A, 0            ; get element
+(1)     20E : 17                         st                      ; store element
+(1)     20F : 0F                         lr      DC, Q
+(1)     210 : 16                         lm                      ; queue_len
+(1)     211 : 16                         lm                      ; queue_size
+(1)     212 : 18                         com
+(1)     213 : 1F                         inc
+(1)     214 : 5B                         lr      HL, A           ; HL=-queue_size
+(1)     215 : 16                         lm                      ; queue_put
+(1)     216 : 1F                         inc                     ; queue_put++
+(1)     217 : 5A                         lr      HU, A           ; HU=queue_put
+(1)     218 : CB                         as      HL              ; queue_put-queue_size
+(1)     219 : 92 03                      bnc     queue_add_update ; queue_put < queue_size
+(1)     21B : 70                         clr
+(1)     21C : 5A                         lr      HU, A           ; wrap around
+(1)     21D :                    queue_add_update:
+(1)     21D : 0F                         lr      DC, Q
+(1)     21E : 16                         lm                      ; queue_len
+(1)     21F : 16                         lm                      ; queue_size
+(1)     220 : 4A                         lr      A, HU
+(1)     221 : 17                         st                      ; update queue_put
+(1)     222 : 70                         clr
+(1)     223 : 18                         com
+(1)     224 : 1F                         inc                     ; set carry
+(1)     225 : 29 01 DB                   jmp     return
+(1)     228 :                    queue_add_end:
+(1)     228 : 18                         com                     ; clear carry
+(1)     229 : 29 01 DB                   jmp     return
+(1)     22C :
+(1)     22C :                    ;;; [queue] Remove an element from queue
+(1)     22C :                    ;;; @param Q queue work space pointer
+(1)     22C :                    ;;; @return 0 an element
+(1)     22C :                    ;;; @return F.C 0 if queue is empty
+(1)     22C :                    ;;; @clobber A H DC
+(1)     22C :                    queue_remove:
+(1)     22C : 0F                         lr      DC, Q
+(1)     22D : 70                         clr
+(1)     22E : 8B                         om                      ; queue_len
+(1)     22F : 84 26                      bz      queue_remove_empty
+(1)     231 : 24 FF                      ai      -1              ; queue_len--
+(1)     233 : 0F                         lr      DC, Q
+(1)     234 : 17                         st                      ; update queue_len
+(1)     235 : 16                         lm                      ; queue_size
+(1)     236 : 16                         lm                      ; queue_put
+(1)     237 : 16                         lm                      ; queue_get
+(1)     238 : 8E                         adc                     ; DC=&queue_buf[queue_get]
+(1)     239 : 16                         lm                      ; read element
+(1)     23A : 50                         lr      0, A            ; save element
+(1)     23B : 0F                         lr      DC, Q
+(1)     23C : 16                         lm                      ; queue_len
+(1)     23D : 16                         lm                      ; queue_size
+(1)     23E : 18                         com
+(1)     23F : 1F                         inc
+(1)     240 : 5B                         lr      HL, A           ; HL=-queue_size
+(1)     241 : 16                         lm                      ; queue_put
+(1)     242 : 16                         lm                      ; queue_get
+(1)     243 : 1F                         inc                     ; queue_get++
+(1)     244 : 5A                         lr      HU, A           ; HU=queue_get
+(1)     245 : CB                         as      HL              ; queue_get-queue_size
+(1)     246 : 92 03                      bnc     queue_remove_update ; queue_get<queueu_size
+(1)     248 : 70                         clr
+(1)     249 : 5A                         lr      HU, A           ; wrap around
+(1)     24A :                    queue_remove_update:
+(1)     24A : 0F                         lr      DC, Q
+(1)     24B : 16                         lm                      ; queue_len
+(1)     24C : 16                         lm                      ; queue_size
+(1)     24D : 16                         lm                      ; queue_put
+(1)     24E : 4A                         lr      A, HU
+(1)     24F : 17                         st                      ; update queue_get
+(1)     250 : 70                         clr
+(1)     251 : 18                         com
+(1)     252 : 1F                         inc                     ; set carry
+(1)     253 : 29 01 DB                   jmp     return
+(1)     256 :                    queue_remove_empty:
+(1)     256 : 18                         com                     ; clear carry
+(1)     257 : 29 01 DB                   jmp     return
