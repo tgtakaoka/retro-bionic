@@ -1,0 +1,973 @@
+          0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+          0 :                            cpu     2650
+          0 :                            include "scn2650.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :                    ;;; PSU
+(1)       0 : =80                PSU_S:  equ     B'10000000'  ; Sense
+(1)       0 : =40                PSU_F:  equ     B'01000000'  ; Flag
+(1)       0 : =20                PSU_II: equ     B'00100000'  ; Interrupt inhibit
+(1)       0 : =7                 PSU_SP: equ     B'00000111'  ; Stack pointer
+(1)       0 :                    ;;; PSL
+(1)       0 : =80                PSL_CC1:        equ     B'10000000' ; Condition code 1 (10=Negative)
+(1)       0 : =40                PSL_CC0:        equ     B'01000000' ; Condition code 0 (01=Positive)
+(1)       0 : =20                PSL_IDC:        equ     B'00100000' ; Inter-digit carry
+(1)       0 : =10                PSL_RS:         equ     B'00010000' ; Register bank select
+(1)       0 : =8                 PSL_WC:         equ     B'00001000' ; With/Without carry
+(1)       0 : =4                 PSL_OVF:        equ     B'00000100' ; Overflow
+(1)       0 : =2                 PSL_COM:        equ     B'00000010' ; Logical arithmetic compare
+(1)       0 : =1                 PSL_C:          equ     B'00000001' ; Carry
+(1)       0 :                    ;;; Reset origin
+(1)       0 : =0                 ORG_RESET:      equ     H'0000'
+          0 :
+          0 :                    ;;; i8251 Universal Synchronous/Asynchronous Receiver/Transmitter
+          0 : =0                 USARTD:         equ     H'00'           ; Data register
+          0 : =1                 USARTS:         equ     H'01'           ; Status register
+          0 : =1                 USARTC:         equ     H'01'           ; Control register
+          0 : =2                 USARTRI:        equ     H'02'           ; Receive interrupt vector
+          0 : =3                 USARTTI:        equ     H'03'           ; Transmit interrupt vector
+          0 :                            include "i8251.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :                    ;;; i8251 USART device emulator.
+(1)       0 : =6                 MODE_STOP_gp:   equ     6
+(1)       0 : =C0                MODE_STOP_gm:   equ     B'11000000'
+(1)       0 : =40                MODE_STOP1_gc:  equ     (1 << MODE_STOP_gp)
+(1)       0 : =80                MODE_STOP15_gc: equ     (2 << MODE_STOP_gp)
+(1)       0 : =C0                MODE_STOP2_gc:  equ     (3 << MODE_STOP_gp)
+(1)       0 : =20                MODE_EVEN_bm:   equ     B'00100000'
+(1)       0 : =10                MODE_PARITY_bm: equ     B'00010000'
+(1)       0 : =2                 MODE_LEN_gp:    equ     2
+(1)       0 : =C                 MODE_LEN_gm:    equ     B'00001100'
+(1)       0 : =0                 MODE_LEN5_gc:   equ     (0 << MODE_LEN_gp)
+(1)       0 : =4                 MODE_LEN6_gc:   equ     (1 << MODE_LEN_gp)
+(1)       0 : =8                 MODE_LEN7_gc:   equ     (2 << MODE_LEN_gp)
+(1)       0 : =C                 MODE_LEN8_gc:   equ     (3 << MODE_LEN_gp)
+(1)       0 : =0                 MODE_BAUD_gp:   equ     0
+(1)       0 : =3                 MODE_BAUD_gm:   equ     B'00000011'
+(1)       0 : =1                 MODE_BAUD_X1:   equ     (1 << MODE_BAUD_gp)
+(1)       0 : =2                 MODE_BAUD_X16:  equ     (2 << MODE_BAUD_gp)
+(1)       0 : =3                 MODE_BAUD_X64:  equ     (3 << MODE_BAUD_gp)
+(1)       0 :                    ;;; Bit Definition of command register
+(1)       0 : =80                CMD_EH_bm:      equ     B'10000000'   ; Enter hunt mode
+(1)       0 : =40                CMD_IR_bm:      equ     B'01000000'   ; Internal Reset
+(1)       0 : =20                CMD_RTS_bm:     equ     B'00100000'   ; Request To Send
+(1)       0 : =10                CMD_ER_bm:      equ     B'00010000'   ; Error Reset
+(1)       0 : =8                 CMD_SBRK_bm:    equ     B'00001000'   ; Send Break
+(1)       0 : =4                 CMD_RxEN_bm:    equ     B'00000100'   ; Receive Enable
+(1)       0 : =2                 CMD_DTR_bm:     equ     B'00000010'   ; Data Terminal Ready
+(1)       0 : =1                 CMD_TxEN_bm:    equ     B'00000001'   ; Transmit enable
+(1)       0 :                    ;;; Bit definition of status register
+(1)       0 : =80                ST_DSR_bm:      equ     B'10000000'   ; Data Set Ready
+(1)       0 : =40                ST_BRK_bm:      equ     B'01000000'   ; BREAK detected
+(1)       0 : =20                ST_FE_bm:       equ     B'00100000'   ; Framing Error
+(1)       0 : =10                ST_OE_bm:       equ     B'00010000'   ; Iverrun Error
+(1)       0 : =8                 ST_PE_bm:       equ     B'00001000'   ; Parity Error
+(1)       0 : =4                 ST_TxEMPTY_bm:  equ     B'00000100'   ; Transmitter empty
+(1)       0 : =2                 ST_RxRDY_bm:    equ     B'00000010'   ; Receiver ready
+(1)       0 : =1                 ST_TxRDY_bm:    equ     B'00000001'   ; Transmitter ready
+(1)       0 :                    ;;; Interrupt name for receive/transmit interrupt
+(1)       0 : =0                 INTR_NONE:      equ     0
+(1)       0 : =1                 INTR_IRQ0:      equ     1
+(1)       0 : =2                 INTR_IRQ1:      equ     2
+(1)       0 : =3                 INTR_IRQ2:      equ     3
+          0 :                    ;;; Async 1stop 8data x16
+          0 : =4E                ASYNC_MODE:     equ     MODE_STOP1_gc|MODE_LEN8_gc|MODE_BAUD_X16
+          0 :                    ;;; RTS/DTR, error reset, Rx enable, Tx enable
+          0 : =27                RX_EN_TX_EN:    equ     CMD_RTS_bm + CMD_DTR_bm + CMD_RxEN_bm + CMD_TxEN_bm
+          0 : =26                RX_EN_TX_DIS:   equ     CMD_RTS_bm + CMD_DTR_bm + CMD_RxEN_bm
+          0 :
+          0 : =27                TXRX_ENABLE:    equ     CMD_RTS_bm + CMD_DTR_bm + CMD_RxEN_bm + CMD_TxEN_bm
+          0 : =37                RXERR_RESET:    equ     TXRX_ENABLE + CMD_ER_bm
+          0 :
+       2000 :                            org     H'2000'
+       2000 : =80                rx_queue_size:  equ     128
+       2000 :                    rx_queue:       res     rx_queue_size
+       2080 : =80                tx_queue_size:  equ     128
+       2080 :                    tx_queue:       res     tx_queue_size
+       2100 :
+          0 :                            org     ORG_RESET
+          0 : 76 20                      ppsu    PSU_II          ; disable interrupt
+          2 : 77 0A                      ppsl    PSL_WC+PSL_COM  ; with carry, logical compare
+          4 : 1F 00 0D                   bcta,un init
+          7 :
+          7 : =7                 RXINTR_VEC:     equ     $
+          7 : 1F 14 48                   bcta,un isr_intr_rx
+          A :
+          A : =A                 TXINTR_VEC:     equ     $
+          A : 1F 14 5B                   bcta,un isr_intr_tx
+          D :
+          D :                    init:
+          D : 06 20                      lodi,r2 >rx_queue
+          F : 07 00                      lodi,r3 <rx_queue
+         11 : 05 80                      lodi,r1 rx_queue_size
+         13 : 3F 13 9F                   bsta,un queue_init
+         16 : 06 20                      lodi,r2 >tx_queue
+         18 : 07 80                      lodi,r3 <tx_queue
+         1A : 05 80                      lodi,r1 tx_queue_size
+         1C : 3F 13 9F                   bsta,un queue_init
+         1F :
+         1F :                    init_usart:
+         1F : 20                         eorz    r0              ; clear R0
+         20 : D4 01                      wrte,r0 USARTC
+         22 : D4 01                      wrte,r0 USARTC
+         24 : D4 01                      wrte,r0 USARTC          ; safest way to sync mode
+         26 : 04 40                      lodi,r0 CMD_IR_bm
+         28 : D4 01                      wrte,r0 USARTC          ; reset
+         2A : C0                         nop
+         2B : C0                         nop
+         2C : 04 4E                      lodi,r0 ASYNC_MODE
+         2E : D4 01                      wrte,r0 USARTC          ; async 1stop 8data x16
+         30 : C0                         nop
+         31 : C0                         nop
+         32 : 04 26                      lodi,r0 RX_EN_TX_DIS
+         34 : D4 01                      wrte,r0 USARTC    ; RTS/DTR, error reset, Rx enable, Tx disable
+         36 : 04 07                      lodi,r0 RXINTR_VEC
+         38 : D4 02                      wrte,r0 USARTRI         ; enable Rx interrupt
+         3A : 04 0A                      lodi,r0 TXINTR_VEC
+         3C : D4 03                      wrte,r0 USARTTI         ; enable Tx interrupt
+         3E :
+         3E : 3F 10 00                   bsta,un mandelbrot
+         41 : 3F 00 84                   bsta,un newline
+         44 : 08 85              wait:   lodr,r0 *tx_queue_len
+         46 : 18 02                      bctr,eq halt_to_system
+         48 : 1B 7A                      bctr,un wait
+         4A :                    halt_to_system:
+         4A : 40                         halt
+         4B :                    tx_queue_len:
+         4B : 20 80                      acon    tx_queue
+         4D :
+         4D :                    ;;; Get character
+         4D :                    ;;; @return r0
+         4D :                    ;;; @return FLAGS.C 0 if no character
+         4D :                    getchar:
+         4D : CA 32                      strr,r2 save_r2
+         4F : CB 31                      strr,r3 save_r3
+         51 : 06 20                      lodi,r2 >rx_queue
+         53 : 07 00                      lodi,r3 <rx_queue
+         55 : 76 20                      ppsu    PSU_II
+         57 : 3F 14 07                   bsta,un queue_remove
+         5A : 74 20                      cpsu    PSU_II
+         5C : 0B 24                      lodr,r3 save_r3
+         5E : 0A 21                      lodr,r2 save_r2
+         60 : 17                         retc,un
+         61 :
+         61 :                    ;;; Put character
+         61 :                    ;;; @param r0
+         61 :                    putchar:
+         61 : C8 20                      strr,r0 save_r0
+         63 : CA 1C                      strr,r2 save_r2
+         65 : CB 1B                      strr,r3 save_r3
+         67 : 06 20                      lodi,r2 >tx_queue
+         69 : 07 80                      lodi,r3 <tx_queue
+         6B :                    putchar_retry:
+         6B : 76 20                      ppsu    PSU_II
+         6D : 3F 13 C9                   bsta,un queue_add
+         70 : 74 20                      cpsu    PSU_II
+         72 : B5 01                      tpsl    PSL_C
+         74 : 98 75                      bcfr,eq putchar_retry   ; branch if queue is full
+         76 : 04 27                      lodi,r0 RX_EN_TX_EN
+         78 : D4 01                      wrte,r0 USARTC          ; enable Tx
+         7A : 0B 06                      lodr,r3 save_r3
+         7C : 0A 03                      lodr,r2 save_r2
+         7E : 08 03                      lodr,r0 save_r0
+         80 : 17                         retc,un
+         81 :                    save_r2:
+         81 :                            res     1
+         82 :                    save_r3:
+         82 :                            res     1
+         83 :                    save_r0:
+         83 :                            res     1
+         84 :
+         84 :                    newline:
+         84 : 04 0D                      lodi,r0 H'0D'
+         86 : 3B 59                      bstr,un putchar
+         88 : 04 0A                      lodi,r0 H'0A'
+         8A : 1B 55                      bctr,un putchar
+         8C :
+         8C :                    putspace:
+         8C : 04 20                      lodi,r0 A' '
+         8E : 1B 51                      bctr,un putchar
+         90 :
+         90 :                            include "mandelbrot.inc"
+(1)      90 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)     F00 :                            org     H'F00'
+(1)     F00 : =F00               arith_work:     equ     $
+(1)     F00 :                    vY:     res     2
+(1)     F02 :                    vX:     res     2
+(1)     F04 :                    vC:     res     2
+(1)     F06 :                    vD:     res     2
+(1)     F08 :                    vA:     res     2
+(1)     F0A :                    vB:     res     2
+(1)     F0C :                    vP:     res     2
+(1)     F0E :                    vQ:     res     2
+(1)     F10 :                    vS:     res     2
+(1)     F12 :                    vT:     res     2
+(1)     F14 :                    tmp:    res     2
+(1)     F16 : 00 32              vF:     acon    50
+(1)     F18 : 00 E5              C229:   acon    229
+(1)     F1A : 00 64              C100:   acon    100
+(1)     F1C : 01 A0              C416:   acon    416
+(1)     F1E : 00 04              C4:     acon    4
+(1)     F20 : 00 01              C1:     acon    1
+(1)     F22 : 00 10              C16:    acon    16
+(1)     F24 : 00 0A              C10:    acon    10
+(1)     F26 : 00 1E              C30:    acon    30
+(1)     F28 : 00 0D              C13:    acon    13
+(1)     F2A :                    vI:     res     1
+(1)     F2B :
+(1)    1000 :                            org     H'1000'
+(1)    1000 :                    mandelbrot:
+(1)    1000 : 04 FF                      lodi,r0 >-12
+(1)    1002 : CC 0F 00                   stra,r0 vY
+(1)    1005 : 05 F4                      lodi,r1 <-12
+(1)    1007 : CD 0F 01                   stra,r1 vY+1            ; Y=-12
+(1)    100A :                    loop_y:
+(1)    100A : 04 FF                      lodi,r0 >-49
+(1)    100C : CC 0F 02                   stra,r0 vX
+(1)    100F : 05 CF                      lodi,r1 <-49
+(1)    1011 : CD 0F 03                   stra,r1 vX+1            ; X=-49
+(1)    1014 :                    loop_x:
+(1)    1014 : 0C 0F 02                   loda,r0 vX
+(1)    1017 : 0D 0F 03                   loda,r1 vX+1
+(1)    101A : CC 0F 04                   stra,r0 vC
+(1)    101D : CD 0F 05                   stra,r1 vC+1            ; C=X
+(1)    1020 : 06 04                      lodi,r2 vC-arith_work
+(1)    1022 : 07 18                      lodi,r3 C229-arith_work
+(1)    1024 : 3F 12 A9                   bsta,un mulsi2          ; C=X*229
+(1)    1027 : 07 1A                      lodi,r3 C100-arith_work
+(1)    1029 : 3F 13 5F                   bsta,un divsi2          ; C=X*229/100
+(1)    102C : 0C 0F 00                   loda,r0 vY
+(1)    102F : 0D 0F 01                   loda,r1 vY+1
+(1)    1032 : CC 0F 06                   stra,r0 vD
+(1)    1035 : CD 0F 07                   stra,r1 vD+1            ; D=Y
+(1)    1038 : 06 06                      lodi,r2 vD-arith_work
+(1)    103A : 07 1C                      lodi,r3 C416-arith_work
+(1)    103C : 3F 12 A9                   bsta,un mulsi2          ; D=Y*416
+(1)    103F : 07 1A                      lodi,r3 C100-arith_work
+(1)    1041 : 3F 13 5F                   bsta,un divsi2          ; D=Y*416/100
+(1)    1044 : 0C 0F 04                   loda,r0 vC
+(1)    1047 : 0D 0F 05                   loda,r1 vC+1
+(1)    104A : CC 0F 08                   stra,r0 vA
+(1)    104D : CD 0F 09                   stra,r1 vA+1            ; A=C
+(1)    1050 : 0C 0F 06                   loda,r0 vD
+(1)    1053 : 0D 0F 07                   loda,r1 vD+1
+(1)    1056 : CC 0F 0A                   stra,r0 vB
+(1)    1059 : CD 0F 0B                   stra,r1 vB+1            ; B=D
+(1)    105C : 20                         eorz    r0
+(1)    105D : CC 0F 2A                   stra,r0 vI              ; I=0
+(1)    1060 :
+(1)    1060 :                            ;; lodi,r2 A'Y'
+(1)    1060 :                            ;; loda,r0 vY
+(1)    1060 :                            ;; loda,r1 vY+1
+(1)    1060 :                            ;; bsta,un print
+(1)    1060 :                            ;; lodi,r2 A'X'
+(1)    1060 :                            ;; loda,r0 vX
+(1)    1060 :                            ;; loda,r1 vX+1
+(1)    1060 :                            ;; bsta,un print
+(1)    1060 :                            ;; lodi,r2 A'C'
+(1)    1060 :                            ;; loda,r0 vC
+(1)    1060 :                            ;; loda,r1 vC+1
+(1)    1060 :                            ;; bsta,un print
+(1)    1060 :                            ;; lodi,r2 A'D'
+(1)    1060 :                            ;; loda,r0 vD
+(1)    1060 :                            ;; loda,r1 vD+1
+(1)    1060 :                            ;; bsta,un print
+(1)    1060 :                            ;; bsta,un newline
+(1)    1060 :
+(1)    1060 :                    loop_i:
+(1)    1060 : 0C 0F 0A                   loda,r0 vB
+(1)    1063 : 0D 0F 0B                   loda,r1 vB+1
+(1)    1066 : CC 0F 0E                   stra,r0 vQ
+(1)    1069 : CD 0F 0F                   stra,r1 vQ+1            ; Q=B
+(1)    106C : 06 0E                      lodi,r2 vQ-arith_work
+(1)    106E : 07 16                      lodi,r3 vF-arith_work
+(1)    1070 : 3F 13 5F                   bsta,un divsi2          ; Q=B/F
+(1)    1073 : 06 10                      lodi,r2 vS-arith_work
+(1)    1075 : 07 0E                      lodi,r3 vQ-arith_work
+(1)    1077 : 3F 12 0E                   bsta,un negsi2          ; S=-Q
+(1)    107A : 07 16                      lodi,r3 vF-arith_work
+(1)    107C : 3F 12 A9                   bsta,un mulsi2          ; S=-Q*F
+(1)    107F : 07 0A                      lodi,r3 vB-arith_work
+(1)    1081 : 3F 12 2A                   bsta,un addsi2          ; S=B-Q*F
+(1)    1084 : 0C 0F 0A                   loda,r0 vB
+(1)    1087 : 0D 0F 0B                   loda,r1 vB+1
+(1)    108A : CC 0F 14                   stra,r0 tmp
+(1)    108D : CD 0F 15                   stra,r1 tmp+1           ; tmp=B
+(1)    1090 : 06 14                      lodi,r2 tmp-arith_work
+(1)    1092 : 3F 12 A9                   bsta,un mulsi2          ; tmp=B*B
+(1)    1095 : 0C 0F 08                   loda,r0 vA
+(1)    1098 : 0D 0F 09                   loda,r1 vA+1
+(1)    109B : CC 0F 12                   stra,r0 vT
+(1)    109E : CD 0F 13                   stra,r1 vT+1            ; T=A
+(1)    10A1 : 06 12                      lodi,r2 vT-arith_work
+(1)    10A3 : 07 08                      lodi,r3 vA-arith_work
+(1)    10A5 : 3F 12 A9                   bsta,un mulsi2          ; T=A*A
+(1)    10A8 : 07 14                      lodi,r3 tmp-arith_work
+(1)    10AA : 3F 12 3F                   bsta,un subsi2          ; T=A*A-B*B
+(1)    10AD : 07 16                      lodi,r3 vF-arith_work
+(1)    10AF : 3F 13 5F                   bsta,un divsi2          ; T=(A*A-B*B)/F
+(1)    10B2 : 07 04                      lodi,r3 vC-arith_work
+(1)    10B4 : 3F 12 2A                   bsta,un addsi2          ; T=(A*A-B*B)/F+C
+(1)    10B7 : 0C 0F 08                   loda,r0 vA
+(1)    10BA : 0D 0F 09                   loda,r1 vA+1
+(1)    10BD : CC 0F 14                   stra,r0 tmp
+(1)    10C0 : CD 0F 15                   stra,r1 tmp+1           ; tmp=A
+(1)    10C3 : 06 14                      lodi,r2 tmp-arith_work
+(1)    10C5 : 07 10                      lodi,r3 vS-arith_work
+(1)    10C7 : 3F 12 A9                   bsta,un mulsi2          ; tmp=A*S
+(1)    10CA : 07 16                      lodi,r3 vF-arith_work
+(1)    10CC : 3F 13 5F                   bsta,un divsi2          ; tmp=A*S/F
+(1)    10CF : 0C 0F 08                   loda,r0 vA
+(1)    10D2 : 0D 0F 09                   loda,r1 vA+1
+(1)    10D5 : CC 0F 0A                   stra,r0 vB
+(1)    10D8 : CD 0F 0B                   stra,r1 vB+1            ; B=A
+(1)    10DB : 06 0A                      lodi,r2 vB-arith_work
+(1)    10DD : 07 0E                      lodi,r3 vQ-arith_work
+(1)    10DF : 3F 12 A9                   bsta,un mulsi2          ; B=A*Q
+(1)    10E2 : 07 14                      lodi,r3 tmp-arith_work
+(1)    10E4 : 3F 12 2A                   bsta,un addsi2          ; B=A*Q+A*S/F
+(1)    10E7 : 07 0A                      lodi,r3 vB-arith_work
+(1)    10E9 : 3F 12 2A                   bsta,un addsi2          ; B=2*(A*Q+A*S/F)
+(1)    10EC : 07 06                      lodi,r3 vD-arith_work
+(1)    10EE : 3F 12 2A                   bsta,un addsi2          ; B=2*(A*Q+A*S/F)+D
+(1)    10F1 : 0C 0F 12                   loda,r0 vT
+(1)    10F4 : 0D 0F 13                   loda,r1 vT+1
+(1)    10F7 : CC 0F 08                   stra,r0 vA
+(1)    10FA : CD 0F 09                   stra,r1 vA+1            ; A=T
+(1)    10FD : CC 0F 0C                   stra,r0 vP
+(1)    1100 : CD 0F 0D                   stra,r1 vP+1            ; P=A
+(1)    1103 : 06 0C                      lodi,r2 vP-arith_work
+(1)    1105 : 07 16                      lodi,r3 vF-arith_work
+(1)    1107 : 3F 13 5F                   bsta,un divsi2          ; P=A/F
+(1)    110A : 0C 0F 0A                   loda,r0 vB
+(1)    110D : 0D 0F 0B                   loda,r1 vB+1
+(1)    1110 : CC 0F 0E                   stra,r0 vQ
+(1)    1113 : CD 0F 0F                   stra,r1 vQ+1            ; B=Q
+(1)    1116 : 06 0E                      lodi,r2 vQ-arith_work
+(1)    1118 : 3F 13 5F                   bsta,un divsi2          ; Q=B/F
+(1)    111B : 0C 0F 0E                   loda,r0 vQ
+(1)    111E : 0D 0F 0F                   loda,r1 vQ+1
+(1)    1121 : CC 0F 14                   stra,r0 tmp
+(1)    1124 : CD 0F 15                   stra,r1 tmp+1           ; tmp=Q
+(1)    1127 : 06 14                      lodi,r2 tmp-arith_work
+(1)    1129 : 07 0E                      lodi,r3 vQ-arith_work
+(1)    112B : 3F 12 A9                   bsta,un mulsi2          ; tmp=Q*Q
+(1)    112E : 0C 0F 0C                   loda,r0 vP
+(1)    1131 : 0D 0F 0D                   loda,r1 vP+1
+(1)    1134 : CC 0F 12                   stra,r0 vT
+(1)    1137 : CD 0F 13                   stra,r1 vT+1            ; T=P
+(1)    113A : 06 12                      lodi,r2 vT-arith_work
+(1)    113C : 07 0C                      lodi,r3 vP-arith_work
+(1)    113E : 3F 12 A9                   bsta,un mulsi2          ; T=P*P
+(1)    1141 : 07 14                      lodi,r3 tmp-arith_work
+(1)    1143 : 3F 12 2A                   bsta,un addsi2          ; T=P*P+Q*Q
+(1)    1146 :
+(1)    1146 :                            ;; bsta,un putspace
+(1)    1146 :                            ;; lodi,r2 A'I'
+(1)    1146 :                            ;; lodi,r0 0
+(1)    1146 :                            ;; loda,r1 vI
+(1)    1146 :                            ;; bsta,un print
+(1)    1146 :                            ;; lodi,r2 A'A'
+(1)    1146 :                            ;; loda,r0 vA
+(1)    1146 :                            ;; loda,r1 vA+1
+(1)    1146 :                            ;; bsta,un print
+(1)    1146 :                            ;; lodi,r2 A'B'
+(1)    1146 :                            ;; loda,r0 vB
+(1)    1146 :                            ;; loda,r1 vB+1
+(1)    1146 :                            ;; bsta,un print
+(1)    1146 :                            ;; lodi,r2 A'P'
+(1)    1146 :                            ;; loda,r0 vP
+(1)    1146 :                            ;; loda,r1 vP+1
+(1)    1146 :                            ;; bsta,un print
+(1)    1146 :                            ;; lodi,r2 A'Q'
+(1)    1146 :                            ;; loda,r0 vQ
+(1)    1146 :                            ;; loda,r1 vQ+1
+(1)    1146 :                            ;; bsta,un print
+(1)    1146 :                            ;; bsta,un newline
+(1)    1146 :
+(1)    1146 : 07 1E                      lodi,r3 C4-arith_work
+(1)    1148 : 3F 12 54                   bsta,un cmpsi2          ; T-4
+(1)    114B : 19 13                      bctr,gt print_i         ; if T>4
+(1)    114D : 0C 0F 2A                   loda,r0 vI
+(1)    1150 : 75 01                      cpsl    PSL_C           ; PSL.C=0
+(1)    1152 : 84 01                      addi,r0 1
+(1)    1154 : CC 0F 2A                   stra,r0 vI              ; I+=1
+(1)    1157 : E4 10                      comi,r0 16              ;
+(1)    1159 : 1E 10 60                   bcta,lt loop_i          ; if I<16
+(1)    115C : 04 20                      lodi,r0 A' '
+(1)    115E : 1B 0D                      bctr,un print_char
+(1)    1160 :                    print_i:
+(1)    1160 : 0C 0F 2A                   loda,r0 vI
+(1)    1163 : 64 30                      iori,r0 A'0'
+(1)    1165 : E4 3A                      comi,r0 A'9'+1
+(1)    1167 : 1A 04                      bctr,lt print_char      ; if I<10
+(1)    1169 : 75 01                      cpsl    PSL_C           ; PSL.C=0
+(1)    116B : 84 07                      addi,r0 A'A'-A'0'-10
+(1)    116D :                    print_char:
+(1)    116D : 3F 00 61                   bsta,un putchar
+(1)    1170 :
+(1)    1170 :                            ;; strz    r3
+(1)    1170 :                            ;; lodi,r0 A'@'
+(1)    1170 :                            ;; bsta,un putchar
+(1)    1170 :                            ;; lodi,r0 A'='
+(1)    1170 :                            ;; bsta,un putchar
+(1)    1170 :                            ;; lodz    r3
+(1)    1170 :                            ;; bsta,un putchar
+(1)    1170 :                            ;; bsta,un newline
+(1)    1170 :
+(1)    1170 : 3F 00 4D                   bsta,un getchar
+(1)    1173 : B5 01                      tpsl    PSL_C
+(1)    1175 : 98 04                      bcfr,eq next_x          ; PSL.C=0
+(1)    1177 : 60                         iorz    r0
+(1)    1178 : 98 01                      bcfr,eq next_x
+(1)    117A : 40                         halt                    ; HALT
+(1)    117B :                    next_x:
+(1)    117B : 06 02                      lodi,r2 vX-arith_work
+(1)    117D : 07 20                      lodi,r3 C1-arith_work
+(1)    117F : 3F 12 2A                   bsta,un addsi2
+(1)    1182 : 07 26                      lodi,r3 C30-arith_work
+(1)    1184 : 3F 12 54                   bsta,un cmpsi2          ; X-30
+(1)    1187 : 1E 10 14                   bcta,lt loop_x          ; if X<30
+(1)    118A : 04 0D                      lodi,r0 H'0D'
+(1)    118C : 3F 00 61                   bsta,un putchar         ; newline
+(1)    118F : 04 0A                      lodi,r0 H'0A'
+(1)    1191 : 3F 00 61                   bsta,un putchar         ; newline
+(1)    1194 : 06 00                      lodi,r2 vY-arith_work
+(1)    1196 : 07 20                      lodi,r3 C1-arith_work
+(1)    1198 : 3F 12 2A                   bsta,un addsi2          ; Y+=1
+(1)    119B : 07 28                      lodi,r3 C13-arith_work
+(1)    119D : 3F 12 54                   bsta,un cmpsi2          ; Y-13
+(1)    11A0 : 1E 10 0A                   bcta,lt loop_y          ; if Y<13
+(1)    11A3 : 17                         retc,un
+(1)    11A4 :
+(1)    11A4 :                    ;;; Print variable
+(1)    11A4 :                    ;;; @param R2 variable name
+(1)    11A4 :                    ;;; @param R0:R1 variable value
+(1)    11A4 :                    print:
+(1)    11A4 : C3                         strz    r3
+(1)    11A5 : 02                         lodz    r2
+(1)    11A6 : 3F 00 61                   bsta,un putchar
+(1)    11A9 : 04 3D                      lodi,r0 A'='
+(1)    11AB : 3F 00 61                   bsta,un putchar
+(1)    11AE : 03                         lodz    r3
+(1)    11AF : 3F 11 FB                   bsta,un print_int16
+(1)    11B2 : 1F 00 8C                   bcta,un putspace
+       11B5 :                            include "arith.inc"
+(1)    11B5 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)    11B5 :                            cpu     2650
+(1)    11B5 :                    ;;; PSL.WC and PSL.COM must be 1
+(1)    11B5 :
+(1)    11B5 :                    ;;; Print unsigned 16-bit integer as decimal
+(1)    11B5 :                    ;;; @param R0:R1: value
+(1)    11B5 :                    ;;; @clobber R0 R1
+(1)    11B5 :                    print_uint16:
+(1)    11B5 : CA 3B                      strr,r2 print_uint16_r2
+(1)    11B7 : 06 00                      lodi,r2 0
+(1)    11B9 : CA 38                      strr,r2 print_uint16_buf
+(1)    11BB :                    print_uint16_inner:
+(1)    11BB : CC 13 43                   stra,r0 udiv16_dividend
+(1)    11BE : CD 13 44                   stra,r1 udiv16_dividend+1
+(1)    11C1 :                    print_uint16_loop:
+(1)    11C1 : 20                         eorz    r0
+(1)    11C2 : CC 13 45                   stra,r0 udiv16_divisor
+(1)    11C5 : 04 0A                      lodi,r0 10
+(1)    11C7 : CC 13 46                   stra,r0 udiv16_divisor+1
+(1)    11CA : 3F 12 E7                   bsta,un udiv16            ; R0:R1=value / 10
+(1)    11CD : CC 13 43                   stra,r0 udiv16_dividend
+(1)    11D0 : 0C 13 44                   loda,r0 udiv16_reminder+1 ; R0=value % 10
+(1)    11D3 : CD 13 44                   stra,r1 udiv16_dividend+1
+(1)    11D6 : 64 30                      iori,r0 A'0'
+(1)    11D8 : CE 31 F3                   stra,r0 print_uint16_buf,r2,+ ; buf[++R2]=R0+'0'
+(1)    11DB : 01                         lodz    r1
+(1)    11DC : 6C 13 43                   iora,r0 udiv16_dividend
+(1)    11DF : 98 60                      bcfr,eq print_uint16_loop
+(1)    11E1 : 75 01                      cpsl    PSL_C           ; PSL.C=0
+(1)    11E3 : 86 01                      addi,r2 1
+(1)    11E5 :                    print_uint16_out:
+(1)    11E5 : 0E 51 F3                   loda,r0 print_uint16_buf,r2,-
+(1)    11E8 : 18 05                      bctr,eq print_uint16_end
+(1)    11EA : 3F 00 61                   bsta,un putchar
+(1)    11ED : 1B 76                      bctr,un print_uint16_out
+(1)    11EF :                    print_uint16_end:
+(1)    11EF : 0A 01                      lodr,r2 print_uint16_r2
+(1)    11F1 : 17                         retc,un
+(1)    11F2 :                    print_uint16_r2:
+(1)    11F2 :                            res     1
+(1)    11F3 :                    print_uint16_buf:
+(1)    11F3 :                            res     8
+(1)    11FB :
+(1)    11FB :                    ;;; Print signed 16-bit integer as decimal
+(1)    11FB :                    ;;; @param R0:R1 value
+(1)    11FB :                    ;;; @clobber R0 R1
+(1)    11FB :                    print_int16:
+(1)    11FB : 60                         iorz    r0
+(1)    11FC : 9E 11 B5                   bcfa,lt print_uint16    ; branch if R0:R1>=0
+(1)    11FF : 3F 12 1F                   bsta,un negsi1          ; R0:R1=-value
+(1)    1202 : C8 6F                      strr,r0 print_uint16_buf
+(1)    1204 : 04 2D                      lodi,r0 A'-'
+(1)    1206 : 3F 00 61                   bsta,un putchar
+(1)    1209 : 08 68                      lodr,r0 print_uint16_buf
+(1)    120B : 1F 11 B5                   bcta,un print_uint16
+(1)    120E :
+(1)    120E :                    ;;; Negation; result = -value
+(1)    120E :                    ;;; @param @R2: result
+(1)    120E :                    ;;; @param @R3: value
+(1)    120E :                    ;;; @clobber R0 R1 PSL
+(1)    120E :                    negsi2:
+(1)    120E : 0F 6F 01                   loda,r0 arith_work+1,r3
+(1)    1211 : C1                         strz    r1
+(1)    1212 : 0F 6F 00                   loda,r0 arith_work,r3
+(1)    1215 : 3B 08                      bstr,un negsi1
+(1)    1217 : CE 6F 00                   stra,r0 arith_work,r2
+(1)    121A : 01                         lodz    r1
+(1)    121B : CE 6F 01                   stra,r0 arith_work+1,r2
+(1)    121E : 17                         retc,un
+(1)    121F :
+(1)    121F :                    ;;; Negation; result = -result
+(1)    121F :                    ;;; @param R0:R1 result
+(1)    121F :                    ;;; @clobber R0 R1 PSL
+(1)    121F :                    negsi1:
+(1)    121F : 25 FF                      eori,r1 H'FF'
+(1)    1221 : 75 01                      cpsl    PSL_C           ; PSL.C=0
+(1)    1223 : 85 01                      addi,r1 1
+(1)    1225 : 24 FF                      eori,r0 H'FF'
+(1)    1227 : 84 00                      addi,r0 0               ; with carry
+(1)    1229 : 17                         retc,un
+(1)    122A :
+(1)    122A :                    ;;; Signed addition: summand += addend
+(1)    122A :                    ;;; @param @R2: summand
+(1)    122A :                    ;;; @param @R3: addend
+(1)    122A :                    ;;; @clobber R0 PSL
+(1)    122A :                    addsi2:
+(1)    122A : 0E 6F 01                   loda,r0 arith_work+1,r2
+(1)    122D : 75 01                      cpsl    PSL_C           ; PSL.C=0
+(1)    122F : 8F 6F 01                   adda,r0 arith_work+1,r3
+(1)    1232 : CE 6F 01                   stra,r0 arith_work+1,r2
+(1)    1235 : 0E 6F 00                   loda,r0 arith_work,r2
+(1)    1238 : 8F 6F 00                   adda,r0 arith_work,r3  ; with carry
+(1)    123B : CE 6F 00                   stra,r0 arith_work,r2
+(1)    123E : 17                         retc,un
+(1)    123F :
+(1)    123F :                    ;;; Singed subtraction: minuend -= subtrahend
+(1)    123F :                    ;;; @param @R2: minuend
+(1)    123F :                    ;;; @param @R3: subtrahend
+(1)    123F :                    ;;; @clobber R0 PSL
+(1)    123F :                    subsi2:
+(1)    123F : 0E 6F 01                   loda,r0 arith_work+1,r2
+(1)    1242 : 77 01                      ppsl    PSL_C           ; PSL.C=1
+(1)    1244 : AF 6F 01                   suba,r0 arith_work+1,r3
+(1)    1247 : CE 6F 01                   stra,r0 arith_work+1,r2
+(1)    124A : 0E 6F 00                   loda,r0 arith_work,r2
+(1)    124D : AF 6F 00                   suba,r0 arith_work,r3  ; with borrow
+(1)    1250 : CE 6F 00                   stra,r0 arith_work,r2
+(1)    1253 : 17                         retc,un
+(1)    1254 :
+(1)    1254 :                    ;;; Signed comparison: minuend - subtrahend
+(1)    1254 :                    ;;; @param @R2: minuend
+(1)    1254 :                    ;;; @param @R3: subtrahend
+(1)    1254 :                    ;;; @clobber R0 R1 PSL
+(1)    1254 :                    cmpsi2:
+(1)    1254 : 0E 6F 01                   loda,r0 arith_work+1,r2
+(1)    1257 : 77 01                      ppsl    PSL_C           ; PSL.C=1
+(1)    1259 : AF 6F 01                   suba,r0 arith_work+1,r3
+(1)    125C : C1                         strz    r1              ; R1=low(@2-@r3)
+(1)    125D : 0E 6F 00                   loda,r0 arith_work,r2
+(1)    1260 : AF 6F 00                   suba,r0 arith_work,r3
+(1)    1263 : C8 0D                      strr,r0 cmpsi2_hi       ; R0=high(@r2-@r3)
+(1)    1265 : 61                         iorz    r1              ; R0=low(@r2-@r3)|high(@r2-@r3)
+(1)    1266 : 14                         retc,eq                 ; return if PSL.CC=Z
+(1)    1267 : 08 09                      lodr,r0 cmpsi2_hi       ; R0.7=N
+(1)    1269 : B5 04                      tpsl    PSL_OVF
+(1)    126B : 98 02                      bcfr,eq cmpsi2_v        ; branch if PSL.OVF=0
+(1)    126D : 24 80                      eori,r0 H'80'           ; R0.7=N^OVF
+(1)    126F :                    cmpsi2_v:
+(1)    126F : 64 01                      iori,r0 H'01'           ; PSL.CC!=Z
+(1)    1271 : 17                         retc,un
+(1)    1272 :                    cmpsi2_hi:
+(1)    1272 :                            res     1
+(1)    1273 :
+(1)    1273 :                    ;;; Unsigned multiplication: result = multiplicand * multiplier
+(1)    1273 :                    ;;; @param mul16_multiplicand
+(1)    1273 :                    ;;; @param mul16_multiplier
+(1)    1273 :                    ;;; @return R0:R1 result
+(1)    1273 :                    ;;; @clobber R0 R1 PSL
+(1)    1273 :                    umul16_r2
+(1)    1273 :                            res     1
+(1)    1274 :                    umul16:
+(1)    1274 : CA 7D                      strr,r2 umul16_r2
+(1)    1276 : 20                         eorz    r0
+(1)    1277 : C1                         strz    r1              ; r0:r1=result
+(1)    1278 : 1B 22                      bctr,un umul16_check
+(1)    127A :                    umul16_loop:
+(1)    127A : 0A 2B                      lodr,r2 umul16_multiplier
+(1)    127C : 75 01                      cpsl    PSL_C           ; PSL.C=0
+(1)    127E : 52                         rrr     r2              ; multiplier >>= 1
+(1)    127F : CA 26                      strr,r2 umul16_multiplier
+(1)    1281 : 0A 25                      lodr,r2 umul16_multiplier+1
+(1)    1283 : 52                         rrr     r2
+(1)    1284 : CA 22                      strr,r2 umul16_multiplier+1
+(1)    1286 : B5 01                      tpsl    PSL_C           ; PSL.C=lsb(multiplier)
+(1)    1288 : 98 06                      bcfr,eq umul16_next     ; branch if PSL.C=0
+(1)    128A : 75 01                      cpsl    PSL_C           ; PSL.C=0
+(1)    128C : 89 18                      addr,r1 umul16_multiplicand+1
+(1)    128E : 88 15                      addr,r0 umul16_multiplicand ; result += multiplicand
+(1)    1290 :                    umul16_next:
+(1)    1290 : 0A 14                      lodr,r2 umul16_multiplicand+1
+(1)    1292 : 75 01                      cpsl    PSL_C           ; PSL.C=0
+(1)    1294 : D2                         rrl     r2
+(1)    1295 : CA 0F                      strr,r2 umul16_multiplicand+1
+(1)    1297 : 0A 0C                      lodr,r2 umul16_multiplicand
+(1)    1299 : D2                         rrl     r2
+(1)    129A : CA 09                      strr,r2 umul16_multiplicand ; multiplicand <<= 1
+(1)    129C :                    umul16_check:
+(1)    129C : 0A 09                      lodr,r2 umul16_multiplier
+(1)    129E : 6A 08                      iorr,r2 umul16_multiplier+1
+(1)    12A0 : 98 58                      bcfr,eq umul16_loop     ; while multiplier != 0
+(1)    12A2 :                    umul16_end:
+(1)    12A2 : 0A 4F                      lodr,r2 umul16_r2
+(1)    12A4 : 17                         retc,un
+(1)    12A5 :
+(1)    12A5 :                    umul16_multiplicand:
+(1)    12A5 :                            res     2
+(1)    12A7 :                    umul16_multiplier
+(1)    12A7 :                            res     2
+(1)    12A9 :
+(1)    12A9 :                    ;;; Signed multiplication: multiplicand *= multiplier
+(1)    12A9 :                    ;;; @param @R2: multiplicand
+(1)    12A9 :                    ;;; @param @R3: multiplier
+(1)    12A9 :                    ;;; @clobber R0 R1 PSL
+(1)    12A9 :                    mulsi2:
+(1)    12A9 : 0E 6F 00                   loda,r0 arith_work,r2
+(1)    12AC : 2F 6F 00                   eora,r0 arith_work,r3
+(1)    12AF : C8 34                      strr,r0 mulsi2_sign
+(1)    12B1 : 0E 6F 01                   loda,r0 arith_work+1,r2
+(1)    12B4 : C1                         strz    r1
+(1)    12B5 : 0E 6F 00                   loda,r0 arith_work,r2
+(1)    12B8 : 3E 12 1F                   bsta,lt negsi1          ; multiplicand=-multiplicand
+(1)    12BB : C8 68                      strr,r0 umul16_multiplicand
+(1)    12BD : 01                         lodz    r1
+(1)    12BE : C8 66                      strr,r0 umul16_multiplicand+1
+(1)    12C0 : 0F 6F 01                   loda,r0 arith_work+1,r3
+(1)    12C3 : C1                         strz    r1
+(1)    12C4 : 0F 6F 00                   loda,r0 arith_work,r3
+(1)    12C7 : 3E 12 1F                   bsta,lt negsi1          ; multiplier=-multiplier
+(1)    12CA : CC 12 A7                   stra,r0 umul16_multiplier
+(1)    12CD : 01                         lodz    r1
+(1)    12CE : CC 12 A8                   stra,r0 umul16_multiplier+1
+(1)    12D1 : 3F 12 74                   bsta,un umul16          ; r0:r1=multiplicand  multiplier
+(1)    12D4 : CA 10                      strr,r2 mulsi2_r2
+(1)    12D6 : 0A 0D                      lodr,r2 mulsi2_sign
+(1)    12D8 : 3E 12 1F                   bsta,lt negsi1          ; result=-result
+(1)    12DB : 0A 09                      lodr,r2 mulsi2_r2
+(1)    12DD : CE 6F 00                   stra,r0 arith_work,r2
+(1)    12E0 : 01                         lodz    r1
+(1)    12E1 : CE 6F 01                   stra,r0 arith_work+1,r2
+(1)    12E4 : 17                         retc,un
+(1)    12E5 :                    mulsi2_sign:
+(1)    12E5 :                            res     1
+(1)    12E6 :                    mulsi2_r2:
+(1)    12E6 :                            res     1
+(1)    12E7 :
+(1)    12E7 :                    ;;; Unsigned division: dividend / divisor = quotient ... reminder
+(1)    12E7 :                    ;;; @praram udiv16_dividend
+(1)    12E7 :                    ;;; @praram udiv16_divisor
+(1)    12E7 :                    ;;; @return udiv16_reminder reminder
+(1)    12E7 :                    ;;; @return R0:R1 quotient
+(1)    12E7 :                    ;;; @clobber R0 R1 PSL
+(1)    12E7 :                    udiv16:
+(1)    12E7 : 0C 13 45                   loda,r0 udiv16_divisor
+(1)    12EA : 6C 13 46                   iora,r0 udiv16_divisor+1
+(1)    12ED : 14                         retc,eq                 ; divide by zero
+(1)    12EE : 05 01                      lodi,r1 1               ; R1=bits
+(1)    12F0 : 1B 14                      bctr,un udiv16_prep
+(1)    12F2 :                    udiv16_prep_loop:
+(1)    12F2 : 75 01                      cpsl    PSL_C           ; PSL.C=0
+(1)    12F4 : 0C 13 46                   loda,r0 udiv16_divisor+1
+(1)    12F7 : D0                         rrl     r0              ; divisor <<= 1
+(1)    12F8 : CC 13 46                   stra,r0 udiv16_divisor+1
+(1)    12FB : 0C 13 45                   loda,r0 udiv16_divisor
+(1)    12FE : D0                         rrl     r0
+(1)    12FF : CC 13 45                   stra,r0 udiv16_divisor
+(1)    1302 : 75 01                      cpsl    PSL_C           ; PSL.C=0
+(1)    1304 : 85 01                      addi,r1 1
+(1)    1306 :                    udiv16_prep:                    ; while msb(divisor) == 0
+(1)    1306 : 08 3D                      lodr,r0 udiv16_divisor
+(1)    1308 : 9A 68                      bcfr,lt udiv16_prep_loop
+(1)    130A : 20                         eorz    r0
+(1)    130B : C8 3A                      strr,r0 udiv16_quotient
+(1)    130D : C8 39                      strr,r0 udiv16_quotient+1
+(1)    130F : 1B 18                      bctr,un udiv16_enter_loop
+(1)    1311 :                    udiv16_loop:
+(1)    1311 : 08 32                      lodr,r0 udiv16_divisor
+(1)    1313 : 75 01                      cpsl    PSL_C           ; PSL.C=0
+(1)    1315 : 50                         rrr     r0
+(1)    1316 : C8 2D                      strr,r0 udiv16_divisor
+(1)    1318 : 08 2C                      lodr,r0 udiv16_divisor+1
+(1)    131A : 50                         rrr     r0
+(1)    131B : C8 29                      strr,r0 udiv16_divisor+1 ; divisor >>= 1
+(1)    131D : 08 29                      lodr,r0 udiv16_quotient+1
+(1)    131F : 75 01                      cpsl    PSL_C           ; PSL.C=0
+(1)    1321 : D0                         rrl     r0
+(1)    1322 : C8 24                      strr,r0 udiv16_quotient+1
+(1)    1324 : 08 21                      lodr,r0 udiv16_quotient
+(1)    1326 : D0                         rrl     r0
+(1)    1327 : C8 1E                      strr,r0 udiv16_quotient ; quotient <<= 1
+(1)    1329 :                    udiv16_enter_loop:
+(1)    1329 : 08 19                      lodr,r0 udiv16_dividend+1
+(1)    132B : 77 01                      ppsl    PSL_C           ; PSL.C=1
+(1)    132D : A8 17                      subr,r0 udiv16_divisor+1
+(1)    132F : C8 13                      strr,r0 udiv16_dividend+1
+(1)    1331 : 08 10                      lodr,r0 udiv16_dividend
+(1)    1333 : A8 10                      subr,r0 udiv16_divisor
+(1)    1335 : C8 0C                      strr,r0 udiv16_dividend ; dividend -= divisor
+(1)    1337 : B5 01                      tpsl    PSL_C
+(1)    1339 : 98 0E                      bcfr,eq udiv16_readd    ; branch if dividend < 0 (PSL.C=0)
+(1)    133B : 08 0B                      lodr,r0 udiv16_quotient+1
+(1)    133D : 64 01                      iori,r0 1
+(1)    133F : C8 07                      strr,r0 udiv16_quotient+1 ; quotient |= 1
+(1)    1341 : 1B 14                      bctr,un udiv16_next
+(1)    1343 :
+(1)    1343 :                    udiv16_dividend:
+(1)    1343 :                    udiv16_reminder:
+(1)    1343 :                            res     2
+(1)    1345 :                    udiv16_divisor:
+(1)    1345 :                            res     2
+(1)    1347 :                    udiv16_quotient:
+(1)    1347 :                            res     2
+(1)    1349 :
+(1)    1349 :                    udiv16_readd:
+(1)    1349 : 08 79                      lodr,r0 udiv16_dividend+1
+(1)    134B : 75 01                      cpsl    PSL_C           ; PSL.C=0
+(1)    134D : 88 77                      addr,r0 udiv16_divisor+1
+(1)    134F : C8 73                      strr,r0 udiv16_dividend+1
+(1)    1351 : 08 70                      lodr,r0 udiv16_dividend
+(1)    1353 : 88 70                      addr,r0 udiv16_divisor
+(1)    1355 : C8 6C                      strr,r0 udiv16_dividend ; dividend += divisor
+(1)    1357 :                    udiv16_next:
+(1)    1357 : FD 13 11                   bdra,r1 udiv16_loop
+(1)    135A : 08 6B                      lodr,r0 udiv16_quotient
+(1)    135C : 09 6A                      lodr,r1 udiv16_quotient+1 ; R0:R1=quotient
+(1)    135E : 17                         retc,un
+(1)    135F :
+(1)    135F :                    ;;; Signed division: dividend /= divisor
+(1)    135F :                    ;;; @param @R2: dividend
+(1)    135F :                    ;;; @param @R3: divisor
+(1)    135F :                    ;;; @return udiv16_reminder: reminder
+(1)    135F :                    ;;; @clobber R0 R1 PSL
+(1)    135F :                    divsi2:
+(1)    135F : 0E 6F 00                   loda,r0 arith_work,r2
+(1)    1362 : 2F 6F 00                   eora,r0 arith_work,r3
+(1)    1365 : C8 36                      strr,r0 divsi2_sign
+(1)    1367 : 0E 6F 01                   loda,r0 arith_work+1,r2
+(1)    136A : C1                         strz    r1
+(1)    136B : 0E 6F 00                   loda,r0 arith_work,r2
+(1)    136E : 3E 12 1F                   bsta,lt negsi1          ; dividend=-dividend
+(1)    1371 : CC 13 43                   stra,r0 udiv16_dividend
+(1)    1374 : 01                         lodz    r1
+(1)    1375 : CC 13 44                   stra,r0 udiv16_dividend+1
+(1)    1378 : 0F 6F 01                   loda,r0 arith_work+1,r3
+(1)    137B : C1                         strz    r1
+(1)    137C : 0F 6F 00                   loda,r0 arith_work,r3
+(1)    137F : 3E 12 1F                   bsta,lt negsi1          ; divisor=-divisor
+(1)    1382 : CC 13 45                   stra,r0 udiv16_divisor
+(1)    1385 : 01                         lodz    r1
+(1)    1386 : CC 13 46                   stra,r0 udiv16_divisor+1
+(1)    1389 : 3F 12 E7                   bsta,un udiv16          ; r0:r1=quotient
+(1)    138C : CA 10                      strr,r2 divsi2_r2
+(1)    138E : 0A 0D                      lodr,r2 divsi2_sign
+(1)    1390 : 3E 12 1F                   bsta,lt negsi1          ; quotient=-quotient
+(1)    1393 : 0A 09                      lodr,r2 divsi2_r2
+(1)    1395 : CE 6F 00                   stra,r0 arith_work,r2
+(1)    1398 : 01                         lodz    r1
+(1)    1399 : CE 6F 01                   stra,r0 arith_work+1,r2
+(1)    139C : 17                         retc,un
+(1)    139D :                    divsi2_sign:
+(1)    139D :                            res     1
+(1)    139E :                    divsi2_r2
+(1)    139E :                            res     1
+       139F :                            include "queue.inc"
+(1)    139F :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)    139F :                    ;;; [queue] queue structure
+(1)    139F : =0                 queue_len:      equ     0       ; queue length
+(1)    139F : =1                 queue_size:     equ     1       ; buffer size
+(1)    139F : =2                 queue_put:      equ     2       ; queue put index
+(1)    139F : =3                 queue_get:      equ     3       ; queue get index
+(1)    139F : =4                 queue_buf:      equ     4       ; buffer start offset
+(1)    139F :
+(1)    139F :                    ;;; [queue] Initialize queue
+(1)    139F :                    ;;; @param r2:r3 queue work space pointer
+(1)    139F :                    ;;; @param r1 queue work space size
+(1)    139F :                    ;;; @clobber r1
+(1)    139F :                    queue_init:
+(1)    139F : CE 14 04                   stra,r2 queue_top
+(1)    13A2 : CF 14 05                   stra,r3 queue_top+1
+(1)    13A5 : CC 14 06                   stra,r0 queue_r0
+(1)    13A8 : 20                         eorz    r0              ; clear R0
+(1)    13A9 : CC 94 04                   stra,r0 *queue_top      ; queue_len
+(1)    13AC : 01                         lodz,r1
+(1)    13AD : 77 01                      ppsl    PSL_C           ; PSL.C=1
+(1)    13AF : A4 04                      subi,r0 queue_buf       ; without borrow
+(1)    13B1 : 06 01                      lodi,r2 queue_size
+(1)    13B3 : CE F4 04                   stra,r0 *queue_top,r2   ; queue_size=R1-queue_buf
+(1)    13B6 : C3                         strz    r3              ; R3=queue_size
+(1)    13B7 : 87 02                      addi,r3 2               ; for queue_put and queue_get
+(1)    13B9 : 20                         eorz    r0              ; clear R0
+(1)    13BA :                    queue_init_loop:
+(1)    13BA : CE B4 04                   stra,r0 *queue_top,r2,+
+(1)    13BD : FB 7B                      bdrr,r3 queue_init_loop
+(1)    13BF : 0C 14 06                   loda,r0 queue_r0
+(1)    13C2 : 0F 14 05                   loda,r3 queue_top+1
+(1)    13C5 : 0E 14 04                   loda,r2 queue_top
+(1)    13C8 : 17                         retc,un
+(1)    13C9 :
+(1)    13C9 :                    ;;; [queue] Add an element to queue
+(1)    13C9 :                    ;;; @param r2:r3 queue work space pointer
+(1)    13C9 :                    ;;; @param r0 an element
+(1)    13C9 :                    ;;; @return FLAGS.C 0 if queue is full
+(1)    13C9 :                    queue_add:
+(1)    13C9 : CA 39                      strr,r2 queue_top
+(1)    13CB : CB 38                      strr,r3 queue_top+1
+(1)    13CD : C8 37                      strr,r0 queue_r0        ; store an element
+(1)    13CF : 08 B3                      lodr,r0 *queue_top      ; R0=queue_len
+(1)    13D1 : 75 01                      cpsl    PSL_C           ; PSL.C=0
+(1)    13D3 : 84 01                      addi,r0 1               ; R0=++queue_len
+(1)    13D5 : 06 01                      lodi,r2 queue_size
+(1)    13D7 : EE F4 04                   coma,r0 *queue_top,r2   ; compare with queue_size
+(1)    13DA : 9A 21                      bcfr,lt queue_add_return ; queue_len >= queue_size, PSL.C=0
+(1)    13DC :                    queue_add_store:
+(1)    13DC : C8 A6                      strr,r0 *queue_top      ; update queue_len
+(1)    13DE : 06 02                      lodi,r2 queue_put
+(1)    13E0 : 0E F4 04                   loda,r0 *queue_top,r2   ; R0=queue_put
+(1)    13E3 : C3                         strz    r3
+(1)    13E4 : 75 01                      cpsl    PSL_C           ; PSL.C=0
+(1)    13E6 : 87 04                      addi,r3 queue_buf
+(1)    13E8 : 08 1C                      lodr,r0 queue_r0        ; restore an element
+(1)    13EA : CF F4 04                   stra,r0 *queue_top,r3   ; store an element
+(1)    13ED : 03                         lodz    r3
+(1)    13EE : 77 01                      ppsl    PSL_C            ; PSL.C=1
+(1)    13F0 : A4 03                      subi,r0 queue_buf-1      ; ++queue_put
+(1)    13F2 : EE D4 04                   coma,r0 *queue_top,r2,-  ; compare with queue_size
+(1)    13F5 : 1A 01                      bctr,lt queue_add_update ; queue_put < queue_size
+(1)    13F7 : 20                         eorz    r0
+(1)    13F8 :                    queue_add_update:
+(1)    13F8 : CE B4 04                   stra,r0 *queue_top,r2,+ ; update queue_put
+(1)    13FB : 77 01                      ppsl    PSL_C           ; set PSL.C=1
+(1)    13FD :                    queue_add_return:
+(1)    13FD : 08 07                      lodr,r0 queue_r0
+(1)    13FF : 0B 04                      lodr,r3 queue_top+1
+(1)    1401 : 0A 01                      lodr,r2 queue_top
+(1)    1403 : 17                         retc,un
+(1)    1404 :
+(1)    1404 :                    queue_top:
+(1)    1404 :                            res     2
+(1)    1406 :                    queue_r0:
+(1)    1406 :                            res     1
+(1)    1407 :
+(1)    1407 :                    ;;; [queue] Remove an element from queue
+(1)    1407 :                    ;;; @param r2:r3 queue work space pointer
+(1)    1407 :                    ;;; @return r0 an element
+(1)    1407 :                    ;;; @return FLAGS.C 0 if queue is empty
+(1)    1407 :                    queue_remove:
+(1)    1407 : CA 7B                      strr,r2 queue_top
+(1)    1409 : CB 7A                      strr,r3 queue_top+1
+(1)    140B : C8 79                      strr,r0 queue_r0
+(1)    140D : 08 F5                      lodr,r0 *queue_top      ; R0=queue_len
+(1)    140F : 98 13                      bcfr,eq queue_remove_elem ; queue_len!=0
+(1)    1411 : 08 73                      lodr,r0 queue_r0
+(1)    1413 : 75 01                      cpsl    PSL_C           ; PSL.C=0
+(1)    1415 : 17                         retc,un
+(1)    1416 :                    queue_remove_update:
+(1)    1416 : 06 03                      lodi,r2 queue_get
+(1)    1418 : CE F4 04                   stra,r0 *queue_top,r2   ; update queue_get
+(1)    141B : 77 01                      ppsl    PSL_C           ; PSL.C=1
+(1)    141D : 08 67                      lodr,r0 queue_r0        ; restore an element
+(1)    141F : 0B 64                      lodr,r3 queue_top+1
+(1)    1421 : 0A 61                      lodr,r2 queue_top
+(1)    1423 : 17                         retc,un
+(1)    1424 :                    queue_remove_elem:
+(1)    1424 : 77 01                      ppsl    PSL_C           ; PSL.C=1
+(1)    1426 : A4 01                      subi,r0 1               ; --queue_len
+(1)    1428 : C8 DA                      strr,r0 *queue_top      ; update queue_len
+(1)    142A : 06 03                      lodi,r2 queue_get
+(1)    142C : 0E F4 04                   loda,r0 *queue_top,r2   ; R0=queue_get
+(1)    142F : C3                         strz    r3
+(1)    1430 : 75 01                      cpsl    PSL_C           ; PSL.C=0
+(1)    1432 : 87 04                      addi,r3 queue_buf
+(1)    1434 : 0F F4 04                   loda,r0 *queue_top,r3   ; read an element
+(1)    1437 : C8 4D                      strr,r0 queue_r0        ; save an element
+(1)    1439 : 03                         lodz    r3
+(1)    143A : 77 01                      ppsl    PSL_C           ; PSL.C=1
+(1)    143C : A4 03                      subi,r0 queue_buf-1     ; ++queue_get
+(1)    143E : 06 01                      lodi,r2 queue_size
+(1)    1440 : EE F4 04                   coma,r0 *queue_top,r2       ; comapre with queue_size
+(1)    1443 : 1A 51                      bctr,lt queue_remove_update ; queue_get < queue_size
+(1)    1445 : 20                         eorz    r0
+(1)    1446 : 1B 4E                      bctr,un queue_remove_update
+       1448 :
+       1448 :                    isr_intr_rx:
+       1448 : 3B 2E                      bstr,un isr_save
+       144A : 54 01                      rede,r0 USARTS
+       144C : F4 02                      tmi,r0  ST_RxRDY_bm
+       144E : 98 39                      bcfr,eq isr_return
+       1450 : 54 00                      rede,r0 USARTD
+       1452 : 06 20                      lodi,r2 >rx_queue
+       1454 : 07 00                      lodi,r3 <rx_queue
+       1456 : 3F 13 C9                   bsta,un queue_add
+       1459 : 1B 2E                      bctr,un isr_return
+       145B :
+       145B :                    isr_intr_tx:
+       145B : 3B 1B                      bstr,un isr_save
+       145D : 54 01                      rede,r0 USARTS
+       145F : F4 01                      tmi,r0  ST_TxRDY_bm
+       1461 : 98 26                      bcfr,eq isr_return
+       1463 : 06 20                      lodi,r2 >tx_queue
+       1465 : 07 80                      lodi,r3 <tx_queue
+       1467 : 3F 14 07                   bsta,un queue_remove
+       146A : B5 01                      tpsl    PSL_C
+       146C : 98 04                      bcfr,eq isr_intr_send_empty
+       146E : D4 00                      wrte,r0 USARTD
+       1470 : 1B 17                      bctr,un isr_return
+       1472 :                    isr_intr_send_empty:
+       1472 : 04 26                      lodi,r0 RX_EN_TX_DIS
+       1474 : D4 01                      wrte,r0 USARTC          ; disable Tx
+       1476 : 1B 11                      bctr,un isr_return
+       1478 :
+       1478 :                    isr_save:
+       1478 : C8 0A                      strr,r0 isr_context
+       147A : C9 09                      strr,r1 isr_context+1
+       147C : CA 08                      strr,r2 isr_context+2
+       147E : CB 07                      strr,r3 isr_context+3
+       1480 : 13                         spsl
+       1481 : C8 05                      strr,r0 isr_context+4
+       1483 : 17                         retc,un
+       1484 :
+       1484 :                    isr_context:
+       1484 :                            res     5
+       1489 :
+       1489 :                    isr_return:
+       1489 : 0B 7C                      lodr,r3 isr_context+3
+       148B : 0A 79                      lodr,r2 isr_context+2
+       148D : 09 76                      lodr,r1 isr_context+1
+       148F : 08 77                      lodr,r0 isr_context+4
+       1491 : 93                         lpsl
+       1492 : 18 09                      bctr,eq isr_reteq
+       1494 : 19 0C                      bctr,gt isr_retgt
+       1496 : 1A 11                      bctr,lt isr_retlt
+       1498 : 08 6A                      lodr,r0 isr_context
+       149A : 77 C0                      ppsl    PSL_CC1+PSL_CC0
+       149C : 37                         rete,un
+       149D :                    isr_reteq:
+       149D : 08 65                      lodr,r0 isr_context
+       149F : 75 C0                      cpsl    PSL_CC1+PSL_CC0
+       14A1 : 37                         rete,un
+       14A2 :                    isr_retgt:
+       14A2 : 08 60                      lodr,r0 isr_context
+       14A4 : 75 80                      cpsl    PSL_CC1
+       14A6 : 77 40                      ppsl    PSL_CC0
+       14A8 : 37                         rete,un
+       14A9 :                    isr_retlt:
+       14A9 : 08 59                      lodr,r0 isr_context
+       14AB : 77 80                      ppsl    PSL_CC1
+       14AD : 75 40                      cpsl    PSL_CC0
+       14AF : 37                         rete,un
+       14B0 :
+       14B0 :                            end

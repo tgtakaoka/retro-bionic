@@ -1,0 +1,717 @@
+          0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+          0 :                            cpu     2650
+          0 :                            include "scn2650.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :                    ;;; PSU
+(1)       0 : =80                PSU_S:  equ     B'10000000'  ; Sense
+(1)       0 : =40                PSU_F:  equ     B'01000000'  ; Flag
+(1)       0 : =20                PSU_II: equ     B'00100000'  ; Interrupt inhibit
+(1)       0 : =7                 PSU_SP: equ     B'00000111'  ; Stack pointer
+(1)       0 :                    ;;; PSL
+(1)       0 : =80                PSL_CC1:        equ     B'10000000' ; Condition code 1 (10=Negative)
+(1)       0 : =40                PSL_CC0:        equ     B'01000000' ; Condition code 0 (01=Positive)
+(1)       0 : =20                PSL_IDC:        equ     B'00100000' ; Inter-digit carry
+(1)       0 : =10                PSL_RS:         equ     B'00010000' ; Register bank select
+(1)       0 : =8                 PSL_WC:         equ     B'00001000' ; With/Without carry
+(1)       0 : =4                 PSL_OVF:        equ     B'00000100' ; Overflow
+(1)       0 : =2                 PSL_COM:        equ     B'00000010' ; Logical arithmetic compare
+(1)       0 : =1                 PSL_C:          equ     B'00000001' ; Carry
+(1)       0 :                    ;;; Reset origin
+(1)       0 : =0                 ORG_RESET:      equ     H'0000'
+          0 :
+          0 :                    ;;; i8251 Universal Synchronous/Asynchronous Receiver/Transmitter
+          0 : =0                 USARTD: equ     H'00'           ; Data register
+          0 : =1                 USARTS: equ     H'01'           ; Status register
+          0 : =1                 USARTC: equ     H'01'           ; Control register
+          0 :                            include "i8251.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :                    ;;; i8251 USART device emulator.
+(1)       0 : =6                 MODE_STOP_gp:   equ     6
+(1)       0 : =C0                MODE_STOP_gm:   equ     B'11000000'
+(1)       0 : =40                MODE_STOP1_gc:  equ     (1 << MODE_STOP_gp)
+(1)       0 : =80                MODE_STOP15_gc: equ     (2 << MODE_STOP_gp)
+(1)       0 : =C0                MODE_STOP2_gc:  equ     (3 << MODE_STOP_gp)
+(1)       0 : =20                MODE_EVEN_bm:   equ     B'00100000'
+(1)       0 : =10                MODE_PARITY_bm: equ     B'00010000'
+(1)       0 : =2                 MODE_LEN_gp:    equ     2
+(1)       0 : =C                 MODE_LEN_gm:    equ     B'00001100'
+(1)       0 : =0                 MODE_LEN5_gc:   equ     (0 << MODE_LEN_gp)
+(1)       0 : =4                 MODE_LEN6_gc:   equ     (1 << MODE_LEN_gp)
+(1)       0 : =8                 MODE_LEN7_gc:   equ     (2 << MODE_LEN_gp)
+(1)       0 : =C                 MODE_LEN8_gc:   equ     (3 << MODE_LEN_gp)
+(1)       0 : =0                 MODE_BAUD_gp:   equ     0
+(1)       0 : =3                 MODE_BAUD_gm:   equ     B'00000011'
+(1)       0 : =1                 MODE_BAUD_X1:   equ     (1 << MODE_BAUD_gp)
+(1)       0 : =2                 MODE_BAUD_X16:  equ     (2 << MODE_BAUD_gp)
+(1)       0 : =3                 MODE_BAUD_X64:  equ     (3 << MODE_BAUD_gp)
+(1)       0 :                    ;;; Bit Definition of command register
+(1)       0 : =80                CMD_EH_bm:      equ     B'10000000'   ; Enter hunt mode
+(1)       0 : =40                CMD_IR_bm:      equ     B'01000000'   ; Internal Reset
+(1)       0 : =20                CMD_RTS_bm:     equ     B'00100000'   ; Request To Send
+(1)       0 : =10                CMD_ER_bm:      equ     B'00010000'   ; Error Reset
+(1)       0 : =8                 CMD_SBRK_bm:    equ     B'00001000'   ; Send Break
+(1)       0 : =4                 CMD_RxEN_bm:    equ     B'00000100'   ; Receive Enable
+(1)       0 : =2                 CMD_DTR_bm:     equ     B'00000010'   ; Data Terminal Ready
+(1)       0 : =1                 CMD_TxEN_bm:    equ     B'00000001'   ; Transmit enable
+(1)       0 :                    ;;; Bit definition of status register
+(1)       0 : =80                ST_DSR_bm:      equ     B'10000000'   ; Data Set Ready
+(1)       0 : =40                ST_BRK_bm:      equ     B'01000000'   ; BREAK detected
+(1)       0 : =20                ST_FE_bm:       equ     B'00100000'   ; Framing Error
+(1)       0 : =10                ST_OE_bm:       equ     B'00010000'   ; Iverrun Error
+(1)       0 : =8                 ST_PE_bm:       equ     B'00001000'   ; Parity Error
+(1)       0 : =4                 ST_TxEMPTY_bm:  equ     B'00000100'   ; Transmitter empty
+(1)       0 : =2                 ST_RxRDY_bm:    equ     B'00000010'   ; Receiver ready
+(1)       0 : =1                 ST_TxRDY_bm:    equ     B'00000001'   ; Transmitter ready
+(1)       0 :                    ;;; Interrupt name for receive/transmit interrupt
+(1)       0 : =0                 INTR_NONE:      equ     0
+(1)       0 : =1                 INTR_IRQ0:      equ     1
+(1)       0 : =2                 INTR_IRQ1:      equ     2
+(1)       0 : =3                 INTR_IRQ2:      equ     3
+          0 :                    ;;; Async 1stop 8data x16
+          0 : =4E                ASYNC_MODE:     equ     MODE_STOP1_gc + MODE_LEN8_gc + MODE_BAUD_X16
+          0 :                    ;;; RTS/DTR, error reset, Rx enable, Tx enable
+          0 : =37                RX_EN_TX_EN:    equ     CMD_RTS_bm + CMD_DTR_bm + CMD_ER_bm + CMD_RxEN_bm + CMD_TxEN_bm
+          0 :
+          0 :                            org     ORG_RESET
+          0 : 76 20                      ppsu    PSU_II          ; disable interrupt
+          2 : 77 0A                      ppsl    PSL_WC+PSL_COM  ; with carry, logical compare
+          4 :                    init_usart:
+          4 : 20                         eorz    r0              ; clear R0
+          5 : D4 01                      wrte,r0 USARTC
+          7 : D4 01                      wrte,r0 USARTC
+          9 : D4 01                      wrte,r0 USARTC          ; safest way to sync mode
+          B : 04 40                      lodi,r0 CMD_IR_bm
+          D : D4 01                      wrte,r0 USARTC          ; reset
+          F : C0                         nop
+         10 : C0                         nop
+         11 : 04 4E                      lodi,r0 ASYNC_MODE
+         13 : D4 01                      wrte,r0 USARTC          ; async 1stop 8data x16
+         15 : C0                         nop
+         16 : C0                         nop
+         17 : 04 37                      lodi,r0 RX_EN_TX_EN
+         19 : D4 01                      wrte,r0 USARTC    ; RTS/DTR, error reset, Rx enable, Tx enable
+         1B :
+         1B : 1F 10 00                   bcta,un arith
+         1E :
+         1E :                    ;;; Print out char
+         1E :                    ;;; @param R0 char
+         1E :                    ;;; @clobber R0
+         1E :                    putchar:
+         1E : C9 13                      strr,r1 putchar_r1
+         20 :                    putchar_loop:
+         20 : 55 01                      rede,r1 USARTS
+         22 : F5 01                      tmi,r1  ST_TxRDY_bm
+         24 : 98 7A                      bcfr,eq putchar_loop
+         26 : D4 00                      wrte,r0 USARTD
+         28 : E4 0D                      comi,r0 H'0D'
+         2A : 18 03                      bctr,eq putchar_nl
+         2C : 09 05                      lodr,r1 putchar_r1
+         2E : 17                         retc,un
+         2F :                    putchar_nl:
+         2F : 04 0A                      lodi,r0 H'0A'
+         31 : 1B 6D                      bctr,un putchar_loop
+         33 :                    putchar_r1:
+         33 :                            res     1
+         34 :
+         34 :                    newline:
+         34 : 04 0D                      lodi,r0 H'0D'
+         36 : 1B 66                      bctr,un putchar
+         38 :
+         38 :                    putspace:
+         38 : 04 20                      lodi,r0 A' '
+         3A : 1B 62                      bctr,un putchar
+         3C :
+         3C :                    expr_r0:
+         3C :                            res     1
+         3D :                    expr:
+         3D : C8 7D                      strr,r0 expr_r0
+         3F : 0E 6F 01                   loda,r0 arith_work+1,r2
+         42 : C1                         strz    r1
+         43 : 0E 6F 00                   loda,r0 arith_work,r2
+         46 : CC 0F 00                   stra,r0 arith_work
+         49 : CD 0F 01                   stra,r1 arith_work+1
+         4C : 3F 11 AF                   bsta,un print_int16
+         4F : 3F 00 38                   bsta,un putspace
+         52 : 06 00                      lodi,r2 arith_work-arith_work
+         54 : 08 66                      lodr,r0 expr_r0
+         56 : 3F 00 1E                   bsta,un putchar
+         59 : 3F 00 38                   bsta,un putspace
+         5C : 0F 6F 01                   loda,r0 arith_work+1,r3
+         5F : C1                         strz    r1
+         60 : 0F 6F 00                   loda,r0 arith_work,r3
+         63 : 1F 11 AF                   bcta,un print_int16
+         66 :
+         66 :                    answer:
+         66 : 3F 00 38                   bsta,un putspace
+         69 : 04 3D                      lodi,r0 A'='
+         6B : 3F 00 1E                   bsta,un putchar
+         6E : 3F 00 38                   bsta,un putspace
+         71 : 0E 6F 01                   loda,r0 arith_work+1,r2
+         74 : C1                         strz    r1
+         75 : 0E 6F 00                   loda,r0 arith_work,r2
+         78 : 3F 11 AF                   bsta,un print_int16
+         7B : 1F 00 34                   bcta,un newline
+         7E :
+         7E :                    comp:
+         7E : 3F 12 08                   bsta,un cmpsi2
+         81 : 19 08                      bctr,gt comp_gt
+         83 : 18 0A                      bctr,eq comp_eq
+         85 : 1A 0C                      bctr,lt comp_lt
+         87 : 04 3F                      lodi,r0 A'?'
+         89 : 1B 0A                      bctr,un comp_out
+         8B :                    comp_gt:
+         8B : 04 3E                      lodi,r0 A'>'
+         8D : 1B 06                      bctr,un comp_out
+         8F :                    comp_eq:
+         8F : 04 3D                      lodi,r0 A'='
+         91 : 1B 02                      bctr,un comp_out
+         93 :                    comp_lt:
+         93 : 04 3C                      lodi,r0 A'<'
+         95 :                    comp_out:
+         95 : 3F 00 3D                   bsta,un expr
+         98 : 1F 00 34                   bcta,un newline
+         9B :
+        F00 :                            org     H'0F00'
+        F00 : =F00               arith_work:     equ     $
+        F00 :                            res     2
+        F02 : 46 50              p18000: acon    18000
+        F04 : 6D 60              p28000: acon    28000
+        F06 : B9 B0              n18000: acon    -18000
+        F08 : 92 A0              n28000: acon    -28000
+        F0A : 01 2C              p300:   acon    300
+        F0C : 00 C8              p200:   acon    200
+        F0E : FF 38              n200:   acon    -200
+        F10 : FF 9C              n100:   acon    -100
+        F12 : 00 64              p100:   acon    100
+        F14 : FE D4              n300:   acon    -300
+        F16 : 00 00              zero:   acon    0
+        F18 : 00 4E              p78     acon    78
+        F1A : 75 30              p30000: acon    30000
+        F1C : 8A D0              n30000: acon    -30000
+        F1E : 13 88              p5000:  acon    5000
+        F20 : 0F A0              p4000:  acon    4000
+        F22 : EC 78              n5000:  acon    -5000
+        F24 : F0 60              n4000:  acon    -4000
+        F26 : 7F BC              p32700: acon    32700
+        F28 : 7F 58              p32600: acon    32600
+        F2A : 80 44              n32700: acon    -32700
+        F2C : 80 A8              n32600: acon    -32600
+        F2E :
+       1000 :                            org     H'1000'
+       1000 :                    arith:
+       1000 : 06 16                      lodi,r2 zero-arith_work
+       1002 : 07 08                      lodi,r3 n28000-arith_work
+       1004 : 04 2D                      lodi,r0 A'-'
+       1006 : 3F 00 3D                   bsta,un expr
+       1009 : 3F 11 C2                   bsta,un negsi2
+       100C : 3F 00 66                   bsta,un answer          ; 28000
+       100F :
+       100F : 06 16                      lodi,r2 zero-arith_work
+       1011 : 07 04                      lodi,r3 p28000-arith_work
+       1013 : 04 2D                      lodi,r0 A'-'
+       1015 : 3F 00 3D                   bsta,un expr
+       1018 : 3F 11 C2                   bsta,un negsi2
+       101B : 3F 00 66                   bsta,un answer          ; -28000
+       101E :
+       101E : 06 02                      lodi,r2 p18000-arith_work
+       1020 : 07 04                      lodi,r3 p28000-arith_work
+       1022 : 04 2B                      lodi,r0 A'+'
+       1024 : 3F 00 3D                   bsta,un expr
+       1027 : 3F 11 DE                   bsta,un addsi2
+       102A : 3F 00 66                   bsta,un answer          ; -19536
+       102D :
+       102D : 06 02                      lodi,r2 p18000-arith_work
+       102F : 07 06                      lodi,r3 n18000-arith_work
+       1031 : 04 2B                      lodi,r0 A'+'
+       1033 : 3F 00 3D                   bsta,un expr
+       1036 : 3F 11 DE                   bsta,un addsi2
+       1039 : 3F 00 66                   bsta,un answer          ; 0
+       103C :
+       103C : 06 06                      lodi,r2 n18000-arith_work
+       103E : 07 06                      lodi,r3 n18000-arith_work
+       1040 : 04 2B                      lodi,r0 A'+'
+       1042 : 3F 00 3D                   bsta,un expr
+       1045 : 3F 11 DE                   bsta,un addsi2
+       1048 : 3F 00 66                   bsta,un answer          ; 29536
+       104B :
+       104B : 06 02                      lodi,r2 p18000-arith_work
+       104D : 07 08                      lodi,r3 n28000-arith_work
+       104F : 04 2D                      lodi,r0 A'-'
+       1051 : 3F 00 3D                   bsta,un expr
+       1054 : 3F 11 F3                   bsta,un subsi2
+       1057 : 3F 00 66                   bsta,un answer          ; -19536
+       105A :
+       105A : 06 02                      lodi,r2 p18000-arith_work
+       105C : 07 06                      lodi,r3 n18000-arith_work
+       105E : 04 2D                      lodi,r0 A'-'
+       1060 : 3F 00 3D                   bsta,un expr
+       1063 : 3F 11 F3                   bsta,un subsi2
+       1066 : 3F 00 66                   bsta,un answer          ; 29536
+       1069 :
+       1069 : 06 08                      lodi,r2 n28000-arith_work
+       106B : 07 06                      lodi,r3 n18000-arith_work
+       106D : 04 2D                      lodi,r0 A'-'
+       106F : 3F 00 3D                   bsta,un expr
+       1072 : 3F 11 F3                   bsta,un subsi2
+       1075 : 3F 00 66                   bsta,un answer          ; -10000
+       1078 :
+       1078 : 06 12                      lodi,r2 p100-arith_work
+       107A : 07 0A                      lodi,r3 p300-arith_work
+       107C : 04 2A                      lodi,r0 A'*'
+       107E : 3F 00 3D                   bsta,un expr
+       1081 : 3F 12 5D                   bsta,un mulsi2
+       1084 : 3F 00 66                   bsta,un answer          ; 30000
+       1087 :
+       1087 : 06 0C                      lodi,r2 p200-arith_work
+       1089 : 07 12                      lodi,r3 p100-arith_work
+       108B : 04 2A                      lodi,r0 A'*'
+       108D : 3F 00 3D                   bsta,un expr
+       1090 : 3F 12 5D                   bsta,un mulsi2
+       1093 : 3F 00 66                   bsta,un answer          ; 20000
+       1096 :
+       1096 : 06 0A                      lodi,r2 p300-arith_work
+       1098 : 07 0E                      lodi,r3 n200-arith_work
+       109A : 04 2A                      lodi,r0 A'*'
+       109C : 3F 00 3D                   bsta,un expr
+       109F : 3F 12 5D                   bsta,un mulsi2
+       10A2 : 3F 00 66                   bsta,un answer          ; 5536
+       10A5 :
+       10A5 : 06 12                      lodi,r2 p100-arith_work
+       10A7 : 07 14                      lodi,r3 n300-arith_work
+       10A9 : 04 2A                      lodi,r0 A'*'
+       10AB : 3F 00 3D                   bsta,un expr
+       10AE : 3F 12 5D                   bsta,un mulsi2
+       10B1 : 3F 00 66                   bsta,un answer          ; -30000
+       10B4 :
+       10B4 : 06 0E                      lodi,r2 n200-arith_work
+       10B6 : 07 10                      lodi,r3 n100-arith_work
+       10B8 : 04 2A                      lodi,r0 A'*'
+       10BA : 3F 00 3D                   bsta,un expr
+       10BD : 3F 12 5D                   bsta,un mulsi2
+       10C0 : 3F 00 66                   bsta,un answer          ; 20000
+       10C3 :
+       10C3 : 06 1A                      lodi,r2 p30000-arith_work
+       10C5 : 07 12                      lodi,r3 p100-arith_work
+       10C7 : 04 2F                      lodi,r0 A'/'
+       10C9 : 3F 00 3D                   bsta,un expr
+       10CC : 3F 13 13                   bsta,un divsi2
+       10CF : 3F 00 66                   bsta,un answer          ; 30
+       10D2 :
+       10D2 : 06 0E                      lodi,r2 n200-arith_work
+       10D4 : 07 12                      lodi,r3 p100-arith_work
+       10D6 : 04 2F                      lodi,r0 A'/'
+       10D8 : 3F 00 3D                   bsta,un expr
+       10DB : 3F 13 13                   bsta,un divsi2
+       10DE : 3F 00 66                   bsta,un answer          ; -2
+       10E1 :
+       10E1 : 06 1C                      lodi,r2 n30000-arith_work
+       10E3 : 07 0E                      lodi,r3 n200-arith_work
+       10E5 : 04 2F                      lodi,r0 A'/'
+       10E7 : 3F 00 3D                   bsta,un expr
+       10EA : 3F 13 13                   bsta,un divsi2
+       10ED : 3F 00 66                   bsta,un answer          ; 150
+       10F0 :
+       10F0 : 06 1C                      lodi,r2 n30000-arith_work
+       10F2 : 07 18                      lodi,r3 p78-arith_work
+       10F4 : 04 2F                      lodi,r0 A'/'
+       10F6 : 3F 00 3D                   bsta,un expr
+       10F9 : 3F 13 13                   bsta,un divsi2
+       10FC : 3F 00 66                   bsta,un answer          ; -384
+       10FF :
+       10FF : 06 1E                      lodi,r2 p5000-arith_work
+       1101 : 07 20                      lodi,r3 p4000-arith_work
+       1103 : 3F 00 7E                   bsta,un comp
+       1106 :
+       1106 : 06 1E                      lodi,r2 p5000-arith_work
+       1108 : 07 1E                      lodi,r3 p5000-arith_work
+       110A : 3F 00 7E                   bsta,un comp
+       110D :
+       110D : 06 20                      lodi,r2 p4000-arith_work
+       110F : 07 1E                      lodi,r3 p5000-arith_work
+       1111 : 3F 00 7E                   bsta,un comp
+       1114 :
+       1114 : 06 22                      lodi,r2 n5000-arith_work
+       1116 : 07 24                      lodi,r3 n4000-arith_work
+       1118 : 3F 00 7E                   bsta,un comp
+       111B :
+       111B : 06 22                      lodi,r2 n5000-arith_work
+       111D : 07 22                      lodi,r3 n5000-arith_work
+       111F : 3F 00 7E                   bsta,un comp
+       1122 :
+       1122 : 06 24                      lodi,r2 n4000-arith_work
+       1124 : 07 22                      lodi,r3 n5000-arith_work
+       1126 : 3F 00 7E                   bsta,un comp
+       1129 :
+       1129 : 06 26                      lodi,r2 p32700-arith_work
+       112B : 07 28                      lodi,r3 p32600-arith_work
+       112D : 3F 00 7E                   bsta,un comp
+       1130 :
+       1130 : 06 26                      lodi,r2 p32700-arith_work
+       1132 : 07 26                      lodi,r3 p32700-arith_work
+       1134 : 3F 00 7E                   bsta,un comp
+       1137 :
+       1137 : 06 28                      lodi,r2 p32600-arith_work
+       1139 : 07 26                      lodi,r3 p32700-arith_work
+       113B : 3F 00 7E                   bsta,un comp
+       113E :
+       113E : 06 2A                      lodi,r2 n32700-arith_work
+       1140 : 07 2C                      lodi,r3 n32600-arith_work
+       1142 : 3F 00 7E                   bsta,un comp
+       1145 :
+       1145 : 06 2A                      lodi,r2 n32700-arith_work
+       1147 : 07 2A                      lodi,r3 n32700-arith_work
+       1149 : 3F 00 7E                   bsta,un comp
+       114C :
+       114C : 06 2C                      lodi,r2 n32600-arith_work
+       114E : 07 2A                      lodi,r3 n32700-arith_work
+       1150 : 3F 00 7E                   bsta,un comp
+       1153 :
+       1153 : 06 02                      lodi,r2 p18000-arith_work
+       1155 : 07 08                      lodi,r3 n28000-arith_work
+       1157 : 3F 00 7E                   bsta,un comp
+       115A :
+       115A : 06 02                      lodi,r2 p18000-arith_work
+       115C : 07 02                      lodi,r3 p18000-arith_work
+       115E : 3F 00 7E                   bsta,un comp
+       1161 :
+       1161 : 06 08                      lodi,r2 n28000-arith_work
+       1163 : 07 02                      lodi,r3 p18000-arith_work
+       1165 : 3F 00 7E                   bsta,un comp
+       1168 :
+       1168 : 40                         halt
+       1169 :
+       1169 :                            include "arith.inc"
+(1)    1169 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)    1169 :                            cpu     2650
+(1)    1169 :                    ;;; PSL.WC and PSL.COM must be 1
+(1)    1169 :
+(1)    1169 :                    ;;; Print unsigned 16-bit integer as decimal
+(1)    1169 :                    ;;; @param R0:R1: value
+(1)    1169 :                    ;;; @clobber R0 R1
+(1)    1169 :                    print_uint16:
+(1)    1169 : CA 3B                      strr,r2 print_uint16_r2
+(1)    116B : 06 00                      lodi,r2 0
+(1)    116D : CA 38                      strr,r2 print_uint16_buf
+(1)    116F :                    print_uint16_inner:
+(1)    116F : CC 12 F7                   stra,r0 udiv16_dividend
+(1)    1172 : CD 12 F8                   stra,r1 udiv16_dividend+1
+(1)    1175 :                    print_uint16_loop:
+(1)    1175 : 20                         eorz    r0
+(1)    1176 : CC 12 F9                   stra,r0 udiv16_divisor
+(1)    1179 : 04 0A                      lodi,r0 10
+(1)    117B : CC 12 FA                   stra,r0 udiv16_divisor+1
+(1)    117E : 3F 12 9B                   bsta,un udiv16            ; R0:R1=value / 10
+(1)    1181 : CC 12 F7                   stra,r0 udiv16_dividend
+(1)    1184 : 0C 12 F8                   loda,r0 udiv16_reminder+1 ; R0=value % 10
+(1)    1187 : CD 12 F8                   stra,r1 udiv16_dividend+1
+(1)    118A : 64 30                      iori,r0 A'0'
+(1)    118C : CE 31 A7                   stra,r0 print_uint16_buf,r2,+ ; buf[++R2]=R0+'0'
+(1)    118F : 01                         lodz    r1
+(1)    1190 : 6C 12 F7                   iora,r0 udiv16_dividend
+(1)    1193 : 98 60                      bcfr,eq print_uint16_loop
+(1)    1195 : 75 01                      cpsl    PSL_C           ; PSL.C=0
+(1)    1197 : 86 01                      addi,r2 1
+(1)    1199 :                    print_uint16_out:
+(1)    1199 : 0E 51 A7                   loda,r0 print_uint16_buf,r2,-
+(1)    119C : 18 05                      bctr,eq print_uint16_end
+(1)    119E : 3F 00 1E                   bsta,un putchar
+(1)    11A1 : 1B 76                      bctr,un print_uint16_out
+(1)    11A3 :                    print_uint16_end:
+(1)    11A3 : 0A 01                      lodr,r2 print_uint16_r2
+(1)    11A5 : 17                         retc,un
+(1)    11A6 :                    print_uint16_r2:
+(1)    11A6 :                            res     1
+(1)    11A7 :                    print_uint16_buf:
+(1)    11A7 :                            res     8
+(1)    11AF :
+(1)    11AF :                    ;;; Print signed 16-bit integer as decimal
+(1)    11AF :                    ;;; @param R0:R1 value
+(1)    11AF :                    ;;; @clobber R0 R1
+(1)    11AF :                    print_int16:
+(1)    11AF : 60                         iorz    r0
+(1)    11B0 : 9E 11 69                   bcfa,lt print_uint16    ; branch if R0:R1>=0
+(1)    11B3 : 3F 11 D3                   bsta,un negsi1          ; R0:R1=-value
+(1)    11B6 : C8 6F                      strr,r0 print_uint16_buf
+(1)    11B8 : 04 2D                      lodi,r0 A'-'
+(1)    11BA : 3F 00 1E                   bsta,un putchar
+(1)    11BD : 08 68                      lodr,r0 print_uint16_buf
+(1)    11BF : 1F 11 69                   bcta,un print_uint16
+(1)    11C2 :
+(1)    11C2 :                    ;;; Negation; result = -value
+(1)    11C2 :                    ;;; @param @R2: result
+(1)    11C2 :                    ;;; @param @R3: value
+(1)    11C2 :                    ;;; @clobber R0 R1 PSL
+(1)    11C2 :                    negsi2:
+(1)    11C2 : 0F 6F 01                   loda,r0 arith_work+1,r3
+(1)    11C5 : C1                         strz    r1
+(1)    11C6 : 0F 6F 00                   loda,r0 arith_work,r3
+(1)    11C9 : 3B 08                      bstr,un negsi1
+(1)    11CB : CE 6F 00                   stra,r0 arith_work,r2
+(1)    11CE : 01                         lodz    r1
+(1)    11CF : CE 6F 01                   stra,r0 arith_work+1,r2
+(1)    11D2 : 17                         retc,un
+(1)    11D3 :
+(1)    11D3 :                    ;;; Negation; result = -result
+(1)    11D3 :                    ;;; @param R0:R1 result
+(1)    11D3 :                    ;;; @clobber R0 R1 PSL
+(1)    11D3 :                    negsi1:
+(1)    11D3 : 25 FF                      eori,r1 H'FF'
+(1)    11D5 : 75 01                      cpsl    PSL_C           ; PSL.C=0
+(1)    11D7 : 85 01                      addi,r1 1
+(1)    11D9 : 24 FF                      eori,r0 H'FF'
+(1)    11DB : 84 00                      addi,r0 0               ; with carry
+(1)    11DD : 17                         retc,un
+(1)    11DE :
+(1)    11DE :                    ;;; Signed addition: summand += addend
+(1)    11DE :                    ;;; @param @R2: summand
+(1)    11DE :                    ;;; @param @R3: addend
+(1)    11DE :                    ;;; @clobber R0 PSL
+(1)    11DE :                    addsi2:
+(1)    11DE : 0E 6F 01                   loda,r0 arith_work+1,r2
+(1)    11E1 : 75 01                      cpsl    PSL_C           ; PSL.C=0
+(1)    11E3 : 8F 6F 01                   adda,r0 arith_work+1,r3
+(1)    11E6 : CE 6F 01                   stra,r0 arith_work+1,r2
+(1)    11E9 : 0E 6F 00                   loda,r0 arith_work,r2
+(1)    11EC : 8F 6F 00                   adda,r0 arith_work,r3  ; with carry
+(1)    11EF : CE 6F 00                   stra,r0 arith_work,r2
+(1)    11F2 : 17                         retc,un
+(1)    11F3 :
+(1)    11F3 :                    ;;; Singed subtraction: minuend -= subtrahend
+(1)    11F3 :                    ;;; @param @R2: minuend
+(1)    11F3 :                    ;;; @param @R3: subtrahend
+(1)    11F3 :                    ;;; @clobber R0 PSL
+(1)    11F3 :                    subsi2:
+(1)    11F3 : 0E 6F 01                   loda,r0 arith_work+1,r2
+(1)    11F6 : 77 01                      ppsl    PSL_C           ; PSL.C=1
+(1)    11F8 : AF 6F 01                   suba,r0 arith_work+1,r3
+(1)    11FB : CE 6F 01                   stra,r0 arith_work+1,r2
+(1)    11FE : 0E 6F 00                   loda,r0 arith_work,r2
+(1)    1201 : AF 6F 00                   suba,r0 arith_work,r3  ; with borrow
+(1)    1204 : CE 6F 00                   stra,r0 arith_work,r2
+(1)    1207 : 17                         retc,un
+(1)    1208 :
+(1)    1208 :                    ;;; Signed comparison: minuend - subtrahend
+(1)    1208 :                    ;;; @param @R2: minuend
+(1)    1208 :                    ;;; @param @R3: subtrahend
+(1)    1208 :                    ;;; @clobber R0 R1 PSL
+(1)    1208 :                    cmpsi2:
+(1)    1208 : 0E 6F 01                   loda,r0 arith_work+1,r2
+(1)    120B : 77 01                      ppsl    PSL_C           ; PSL.C=1
+(1)    120D : AF 6F 01                   suba,r0 arith_work+1,r3
+(1)    1210 : C1                         strz    r1              ; R1=low(@2-@r3)
+(1)    1211 : 0E 6F 00                   loda,r0 arith_work,r2
+(1)    1214 : AF 6F 00                   suba,r0 arith_work,r3
+(1)    1217 : C8 0D                      strr,r0 cmpsi2_hi       ; R0=high(@r2-@r3)
+(1)    1219 : 61                         iorz    r1              ; R0=low(@r2-@r3)|high(@r2-@r3)
+(1)    121A : 14                         retc,eq                 ; return if PSL.CC=Z
+(1)    121B : 08 09                      lodr,r0 cmpsi2_hi       ; R0.7=N
+(1)    121D : B5 04                      tpsl    PSL_OVF
+(1)    121F : 98 02                      bcfr,eq cmpsi2_v        ; branch if PSL.OVF=0
+(1)    1221 : 24 80                      eori,r0 H'80'           ; R0.7=N^OVF
+(1)    1223 :                    cmpsi2_v:
+(1)    1223 : 64 01                      iori,r0 H'01'           ; PSL.CC!=Z
+(1)    1225 : 17                         retc,un
+(1)    1226 :                    cmpsi2_hi:
+(1)    1226 :                            res     1
+(1)    1227 :
+(1)    1227 :                    ;;; Unsigned multiplication: result = multiplicand * multiplier
+(1)    1227 :                    ;;; @param mul16_multiplicand
+(1)    1227 :                    ;;; @param mul16_multiplier
+(1)    1227 :                    ;;; @return R0:R1 result
+(1)    1227 :                    ;;; @clobber R0 R1 PSL
+(1)    1227 :                    umul16_r2
+(1)    1227 :                            res     1
+(1)    1228 :                    umul16:
+(1)    1228 : CA 7D                      strr,r2 umul16_r2
+(1)    122A : 20                         eorz    r0
+(1)    122B : C1                         strz    r1              ; r0:r1=result
+(1)    122C : 1B 22                      bctr,un umul16_check
+(1)    122E :                    umul16_loop:
+(1)    122E : 0A 2B                      lodr,r2 umul16_multiplier
+(1)    1230 : 75 01                      cpsl    PSL_C           ; PSL.C=0
+(1)    1232 : 52                         rrr     r2              ; multiplier >>= 1
+(1)    1233 : CA 26                      strr,r2 umul16_multiplier
+(1)    1235 : 0A 25                      lodr,r2 umul16_multiplier+1
+(1)    1237 : 52                         rrr     r2
+(1)    1238 : CA 22                      strr,r2 umul16_multiplier+1
+(1)    123A : B5 01                      tpsl    PSL_C           ; PSL.C=lsb(multiplier)
+(1)    123C : 98 06                      bcfr,eq umul16_next     ; branch if PSL.C=0
+(1)    123E : 75 01                      cpsl    PSL_C           ; PSL.C=0
+(1)    1240 : 89 18                      addr,r1 umul16_multiplicand+1
+(1)    1242 : 88 15                      addr,r0 umul16_multiplicand ; result += multiplicand
+(1)    1244 :                    umul16_next:
+(1)    1244 : 0A 14                      lodr,r2 umul16_multiplicand+1
+(1)    1246 : 75 01                      cpsl    PSL_C           ; PSL.C=0
+(1)    1248 : D2                         rrl     r2
+(1)    1249 : CA 0F                      strr,r2 umul16_multiplicand+1
+(1)    124B : 0A 0C                      lodr,r2 umul16_multiplicand
+(1)    124D : D2                         rrl     r2
+(1)    124E : CA 09                      strr,r2 umul16_multiplicand ; multiplicand <<= 1
+(1)    1250 :                    umul16_check:
+(1)    1250 : 0A 09                      lodr,r2 umul16_multiplier
+(1)    1252 : 6A 08                      iorr,r2 umul16_multiplier+1
+(1)    1254 : 98 58                      bcfr,eq umul16_loop     ; while multiplier != 0
+(1)    1256 :                    umul16_end:
+(1)    1256 : 0A 4F                      lodr,r2 umul16_r2
+(1)    1258 : 17                         retc,un
+(1)    1259 :
+(1)    1259 :                    umul16_multiplicand:
+(1)    1259 :                            res     2
+(1)    125B :                    umul16_multiplier
+(1)    125B :                            res     2
+(1)    125D :
+(1)    125D :                    ;;; Signed multiplication: multiplicand *= multiplier
+(1)    125D :                    ;;; @param @R2: multiplicand
+(1)    125D :                    ;;; @param @R3: multiplier
+(1)    125D :                    ;;; @clobber R0 R1 PSL
+(1)    125D :                    mulsi2:
+(1)    125D : 0E 6F 00                   loda,r0 arith_work,r2
+(1)    1260 : 2F 6F 00                   eora,r0 arith_work,r3
+(1)    1263 : C8 34                      strr,r0 mulsi2_sign
+(1)    1265 : 0E 6F 01                   loda,r0 arith_work+1,r2
+(1)    1268 : C1                         strz    r1
+(1)    1269 : 0E 6F 00                   loda,r0 arith_work,r2
+(1)    126C : 3E 11 D3                   bsta,lt negsi1          ; multiplicand=-multiplicand
+(1)    126F : C8 68                      strr,r0 umul16_multiplicand
+(1)    1271 : 01                         lodz    r1
+(1)    1272 : C8 66                      strr,r0 umul16_multiplicand+1
+(1)    1274 : 0F 6F 01                   loda,r0 arith_work+1,r3
+(1)    1277 : C1                         strz    r1
+(1)    1278 : 0F 6F 00                   loda,r0 arith_work,r3
+(1)    127B : 3E 11 D3                   bsta,lt negsi1          ; multiplier=-multiplier
+(1)    127E : CC 12 5B                   stra,r0 umul16_multiplier
+(1)    1281 : 01                         lodz    r1
+(1)    1282 : CC 12 5C                   stra,r0 umul16_multiplier+1
+(1)    1285 : 3F 12 28                   bsta,un umul16          ; r0:r1=multiplicand  multiplier
+(1)    1288 : CA 10                      strr,r2 mulsi2_r2
+(1)    128A : 0A 0D                      lodr,r2 mulsi2_sign
+(1)    128C : 3E 11 D3                   bsta,lt negsi1          ; result=-result
+(1)    128F : 0A 09                      lodr,r2 mulsi2_r2
+(1)    1291 : CE 6F 00                   stra,r0 arith_work,r2
+(1)    1294 : 01                         lodz    r1
+(1)    1295 : CE 6F 01                   stra,r0 arith_work+1,r2
+(1)    1298 : 17                         retc,un
+(1)    1299 :                    mulsi2_sign:
+(1)    1299 :                            res     1
+(1)    129A :                    mulsi2_r2:
+(1)    129A :                            res     1
+(1)    129B :
+(1)    129B :                    ;;; Unsigned division: dividend / divisor = quotient ... reminder
+(1)    129B :                    ;;; @praram udiv16_dividend
+(1)    129B :                    ;;; @praram udiv16_divisor
+(1)    129B :                    ;;; @return udiv16_reminder reminder
+(1)    129B :                    ;;; @return R0:R1 quotient
+(1)    129B :                    ;;; @clobber R0 R1 PSL
+(1)    129B :                    udiv16:
+(1)    129B : 0C 12 F9                   loda,r0 udiv16_divisor
+(1)    129E : 6C 12 FA                   iora,r0 udiv16_divisor+1
+(1)    12A1 : 14                         retc,eq                 ; divide by zero
+(1)    12A2 : 05 01                      lodi,r1 1               ; R1=bits
+(1)    12A4 : 1B 14                      bctr,un udiv16_prep
+(1)    12A6 :                    udiv16_prep_loop:
+(1)    12A6 : 75 01                      cpsl    PSL_C           ; PSL.C=0
+(1)    12A8 : 0C 12 FA                   loda,r0 udiv16_divisor+1
+(1)    12AB : D0                         rrl     r0              ; divisor <<= 1
+(1)    12AC : CC 12 FA                   stra,r0 udiv16_divisor+1
+(1)    12AF : 0C 12 F9                   loda,r0 udiv16_divisor
+(1)    12B2 : D0                         rrl     r0
+(1)    12B3 : CC 12 F9                   stra,r0 udiv16_divisor
+(1)    12B6 : 75 01                      cpsl    PSL_C           ; PSL.C=0
+(1)    12B8 : 85 01                      addi,r1 1
+(1)    12BA :                    udiv16_prep:                    ; while msb(divisor) == 0
+(1)    12BA : 08 3D                      lodr,r0 udiv16_divisor
+(1)    12BC : 9A 68                      bcfr,lt udiv16_prep_loop
+(1)    12BE : 20                         eorz    r0
+(1)    12BF : C8 3A                      strr,r0 udiv16_quotient
+(1)    12C1 : C8 39                      strr,r0 udiv16_quotient+1
+(1)    12C3 : 1B 18                      bctr,un udiv16_enter_loop
+(1)    12C5 :                    udiv16_loop:
+(1)    12C5 : 08 32                      lodr,r0 udiv16_divisor
+(1)    12C7 : 75 01                      cpsl    PSL_C           ; PSL.C=0
+(1)    12C9 : 50                         rrr     r0
+(1)    12CA : C8 2D                      strr,r0 udiv16_divisor
+(1)    12CC : 08 2C                      lodr,r0 udiv16_divisor+1
+(1)    12CE : 50                         rrr     r0
+(1)    12CF : C8 29                      strr,r0 udiv16_divisor+1 ; divisor >>= 1
+(1)    12D1 : 08 29                      lodr,r0 udiv16_quotient+1
+(1)    12D3 : 75 01                      cpsl    PSL_C           ; PSL.C=0
+(1)    12D5 : D0                         rrl     r0
+(1)    12D6 : C8 24                      strr,r0 udiv16_quotient+1
+(1)    12D8 : 08 21                      lodr,r0 udiv16_quotient
+(1)    12DA : D0                         rrl     r0
+(1)    12DB : C8 1E                      strr,r0 udiv16_quotient ; quotient <<= 1
+(1)    12DD :                    udiv16_enter_loop:
+(1)    12DD : 08 19                      lodr,r0 udiv16_dividend+1
+(1)    12DF : 77 01                      ppsl    PSL_C           ; PSL.C=1
+(1)    12E1 : A8 17                      subr,r0 udiv16_divisor+1
+(1)    12E3 : C8 13                      strr,r0 udiv16_dividend+1
+(1)    12E5 : 08 10                      lodr,r0 udiv16_dividend
+(1)    12E7 : A8 10                      subr,r0 udiv16_divisor
+(1)    12E9 : C8 0C                      strr,r0 udiv16_dividend ; dividend -= divisor
+(1)    12EB : B5 01                      tpsl    PSL_C
+(1)    12ED : 98 0E                      bcfr,eq udiv16_readd    ; branch if dividend < 0 (PSL.C=0)
+(1)    12EF : 08 0B                      lodr,r0 udiv16_quotient+1
+(1)    12F1 : 64 01                      iori,r0 1
+(1)    12F3 : C8 07                      strr,r0 udiv16_quotient+1 ; quotient |= 1
+(1)    12F5 : 1B 14                      bctr,un udiv16_next
+(1)    12F7 :
+(1)    12F7 :                    udiv16_dividend:
+(1)    12F7 :                    udiv16_reminder:
+(1)    12F7 :                            res     2
+(1)    12F9 :                    udiv16_divisor:
+(1)    12F9 :                            res     2
+(1)    12FB :                    udiv16_quotient:
+(1)    12FB :                            res     2
+(1)    12FD :
+(1)    12FD :                    udiv16_readd:
+(1)    12FD : 08 79                      lodr,r0 udiv16_dividend+1
+(1)    12FF : 75 01                      cpsl    PSL_C           ; PSL.C=0
+(1)    1301 : 88 77                      addr,r0 udiv16_divisor+1
+(1)    1303 : C8 73                      strr,r0 udiv16_dividend+1
+(1)    1305 : 08 70                      lodr,r0 udiv16_dividend
+(1)    1307 : 88 70                      addr,r0 udiv16_divisor
+(1)    1309 : C8 6C                      strr,r0 udiv16_dividend ; dividend += divisor
+(1)    130B :                    udiv16_next:
+(1)    130B : FD 12 C5                   bdra,r1 udiv16_loop
+(1)    130E : 08 6B                      lodr,r0 udiv16_quotient
+(1)    1310 : 09 6A                      lodr,r1 udiv16_quotient+1 ; R0:R1=quotient
+(1)    1312 : 17                         retc,un
+(1)    1313 :
+(1)    1313 :                    ;;; Signed division: dividend /= divisor
+(1)    1313 :                    ;;; @param @R2: dividend
+(1)    1313 :                    ;;; @param @R3: divisor
+(1)    1313 :                    ;;; @return udiv16_reminder: reminder
+(1)    1313 :                    ;;; @clobber R0 R1 PSL
+(1)    1313 :                    divsi2:
+(1)    1313 : 0E 6F 00                   loda,r0 arith_work,r2
+(1)    1316 : 2F 6F 00                   eora,r0 arith_work,r3
+(1)    1319 : C8 36                      strr,r0 divsi2_sign
+(1)    131B : 0E 6F 01                   loda,r0 arith_work+1,r2
+(1)    131E : C1                         strz    r1
+(1)    131F : 0E 6F 00                   loda,r0 arith_work,r2
+(1)    1322 : 3E 11 D3                   bsta,lt negsi1          ; dividend=-dividend
+(1)    1325 : CC 12 F7                   stra,r0 udiv16_dividend
+(1)    1328 : 01                         lodz    r1
+(1)    1329 : CC 12 F8                   stra,r0 udiv16_dividend+1
+(1)    132C : 0F 6F 01                   loda,r0 arith_work+1,r3
+(1)    132F : C1                         strz    r1
+(1)    1330 : 0F 6F 00                   loda,r0 arith_work,r3
+(1)    1333 : 3E 11 D3                   bsta,lt negsi1          ; divisor=-divisor
+(1)    1336 : CC 12 F9                   stra,r0 udiv16_divisor
+(1)    1339 : 01                         lodz    r1
+(1)    133A : CC 12 FA                   stra,r0 udiv16_divisor+1
+(1)    133D : 3F 12 9B                   bsta,un udiv16          ; r0:r1=quotient
+(1)    1340 : CA 10                      strr,r2 divsi2_r2
+(1)    1342 : 0A 0D                      lodr,r2 divsi2_sign
+(1)    1344 : 3E 11 D3                   bsta,lt negsi1          ; quotient=-quotient
+(1)    1347 : 0A 09                      lodr,r2 divsi2_r2
+(1)    1349 : CE 6F 00                   stra,r0 arith_work,r2
+(1)    134C : 01                         lodz    r1
+(1)    134D : CE 6F 01                   stra,r0 arith_work+1,r2
+(1)    1350 : 17                         retc,un
+(1)    1351 :                    divsi2_sign:
+(1)    1351 :                            res     1
+(1)    1352 :                    divsi2_r2
+(1)    1352 :                            res     1
+       1353 :
+       1353 :                            end
