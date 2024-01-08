@@ -1,0 +1,156 @@
+          0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+          0 :                            cpu     8085
+          0 :                            include "i8085.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :                            include "i8080.inc"
+(2)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(2)       0 :                    ;;; i8080
+(2)       0 :                    ;;; FLAGS Register
+(2)       0 : =80                F_SIGN:         equ     10000000B ; set to 1 if negative
+(2)       0 : =40                F_ZERO:         equ     01000000B ; set to 1 if zero
+(2)       0 : =10                F_HALF_CARRY:   equ     00010000B ; set to 1 if carry from bit-3
+(2)       0 : =4                 F_PARITY:       equ     00000100B ; set to 1 if even parity
+(2)       0 : =1                 F_CARRY:        equ     00000001B ; set to 1 if carry
+(2)       0 :                    ;;; Interrupt origin
+(2)       0 : =0                 ORG_RESET:      equ     0000H   ; RESET
+(2)       0 : =0                 ORG_RST0:       equ     0000H   ; RST 0
+(2)       0 : =8                 ORG_RST1:       equ     0008H   ; RST 1
+(2)       0 : =10                ORG_RST2:       equ     0010H   ; RST 2
+(2)       0 : =18                ORG_RST3:       equ     0018H   ; RST 3
+(2)       0 : =20                ORG_RST4:       equ     0020H   ; RST 4
+(2)       0 : =28                ORG_RST5:       equ     0028H   ; RST 5
+(2)       0 : =30                ORG_RST6:       equ     0030H   ; RST 6
+(2)       0 : =38                ORG_RST7:       equ     0038H   ; RST 3
+(1)       0 :                    ;;; i8085
+(1)       0 :                    ;;; Set Innterrupt Maske
+(1)       0 : =80                SIM_SOD:        equ     10000000B ; Serial Output Data
+(1)       0 : =40                SIM_SDE:        equ     01000000B ; Serial Data Enable
+(1)       0 : =10                SIM_R75:        equ     00010000B ; Reset RST 7.5 latch
+(1)       0 : =8                 SIM_MSE:        equ     00001000B ; Mask Set Enable
+(1)       0 : =4                 SIM_M75:        equ     00000100B ; RST 7.5 Mask
+(1)       0 : =2                 SIM_M65:        equ     00000010B ; RST 6.5 Mask
+(1)       0 : =1                 SIM_M55:        equ     00000001B ; RST 5.5 Mask
+(1)       0 :                    ;;; Read Interrupt Mask
+(1)       0 : =80                RIM_SID:        equ     10000000B ; Serial Input Data
+(1)       0 : =40                RIM_I75:        equ     01000000B ; RST 7.5 Pending
+(1)       0 : =20                RIM_I65:        equ     00100000B ; RST 6.5 Pending
+(1)       0 : =10                RIM_I55:        equ     00010000B ; RST 5.5 Pending
+(1)       0 : =8                 RIM_IE:         equ     00001000B ; Interrupt Enable
+(1)       0 : =4                 RIM_M75:        equ     SIM_M75
+(1)       0 : =2                 RIM_M65:        equ     SIM_M65
+(1)       0 : =1                 RIM_M55:        equ     SIM_M55
+(1)       0 :                    ;;; Interrupt origin
+(1)       0 : =24                ORG_TRAP:       equ     0024H   ; TRAP
+(1)       0 : =2C                ORG_RST55:      equ     002CH   ; RST 5.5
+(1)       0 : =34                ORG_RST65:      equ     0034H   ; RST 6.5
+(1)       0 : =3C                ORG_RST75:      equ     003CH   ; RST 7.5
+          0 :
+       1000 :                            org     1000H
+       1000 : =1000              stack:  equ     $
+       1000 :
+          0 :                            org     ORG_RESET
+          0 : 31 00 10                   lxi     sp, stack
+          3 : 3E C0                      mvi     a, SIM_SOD OR SIM_SDE
+          5 : 30                         sim                     ; set mark
+          6 :
+          6 :                    echo:
+          6 : CD 1E 00                   call    getch
+          9 : B7                         ora     a
+          A : CA 1D 00                   jz      halt_to_system
+          D :                    echo_back:
+          D : CD 52 00                   call    putch
+         10 : FE 0D                      cpi     0DH
+         12 : C2 06 00                   jnz     echo
+         15 : 3E 0A                      mvi     a,0AH
+         17 : CD 52 00                   call    putch
+         1A : C3 06 00                   jmp     echo
+         1D :                    halt_to_system:
+         1D : 76                         hlt
+         1E :
+         1E :                    ;;; Assume that 8085 is running with 3MHz CLK.
+         1E :                    ;;; 9,600bps bit duration = 3,000,000/9,600 = 312.5 CLK
+         1E :
+         1E :                    ;;; SID is latched at T3/CLK=0 of RIM instruction
+         1E : C5                 getch:  push    b               ;12
+         1F : D5                         push    d               ;12
+         20 : 20                 get1:   rim                     ;4
+         21 : E6 80                      ani     RIM_SID         ;7
+         23 : CA 20 00                   jz      get1            ;7/10
+         26 : 20                 get2:   rim                     ;4,4
+         27 : E6 80                      ani     RIM_SID         ;7,11
+         29 : C2 26 00                   jnz     get2            ;7/10,18 wait start bit
+         2C :                    ;;; 470 = 312.5*1.504
+         2C : 16 1D                      mvi     d,29            ;7,25
+         2E : CD 8A 00                   call    delay           ;29*14+25,456
+         31 : 0E 08                      mvi     c,8             ;7,463
+         33 : 1E 00                      mvi     e,0             ;7,470
+         35 :                    ;;;
+         35 : 20                 get3:   rim                     ;4,4
+         36 : E6 80                      ani     RIM_SID         ;7,11
+         38 : 47                         mov     b,a             ;4,15
+         39 : 7B                         mov     a,e             ;4,19
+         3A : 0F                         rrc                     ;4,23
+         3B : B0                         ora     b               ;4,27
+         3C : 5F                         mov     e,a             ;4,31
+         3D : 16 10                      mvi     d,16            ;7,38
+         3F : CD 8A 00                   call    delay           ;16*14+25,287
+         42 : 00                         nop                     ;4,291
+         43 : 00                         nop                     ;4,295
+         44 : 00                         nop                     ;4,299
+         45 : 0D                         dcr     c               ;4,303
+         46 : C2 35 00                   jnz     get3            ;7/10,313,310
+         49 :                    ;;; 706 = 312.5*2.259
+         49 : 16 1A                      mvi     d,26            ;7,317
+         4B : CD 8A 00                   call    delay           ;26*14+25,706
+         4E : 7B                         mov     a,e             ;4
+         4F : D1                         pop     d               ;10
+         50 : C1                         pop     b               ;10
+         51 : C9                         ret                     ;10
+         52 :
+         52 :                    ;;; SOD is set at T2/CLK=0 of SIM instruciton
+         52 : F5                 putch:  push    psw             ;12
+         53 : C5                         push    b               ;12
+         54 : D5                         push    d               ;12
+         55 : 47                         mov     b,a             ;4
+         56 : 3E C0                      mvi     a,SIM_SOD OR SIM_SDE ;7
+         58 : 30                         sim                     ;4 set mark
+         59 : 0E 08                      mvi     c,8             ;7
+         5B :                    ;;; 4+7+17*14+25+4*6+7*2 = 312
+         5B : 3E 40                      mvi     a,SIM_SDE       ;7 start bit
+         5D : 30                         sim                     ;4,4
+         5E : 16 11                      mvi     d,17            ;7,11
+         60 : CD 8A 00                   call    delay           ;17*14+25,274
+         63 :                    ;;; 4*8+7*3+10+16*14+25 = 312
+         63 : 78                 put1:   mov     a,b             ;4,278
+         64 : 0F                         rrc                     ;4.282
+         65 : 47                         mov     b,a             ;4,286
+         66 : E6 80                      ani     80H             ;7,293 data bit
+         68 : F6 40                      ori     SIM_SDE         ;7,300
+         6A : 00                         nop                     ;4,304
+         6B : 00                         nop                     ;4,308
+         6C : 00                         nop                     ;4,312
+         6D : 30                         sim                     ;4,4
+         6E : 16 10                      mvi     d,16            ;7,11
+         70 : CD 8A 00                   call    delay           ;16*14+25,260
+         73 : 0D                         dcr     c               ;4,264
+         74 : C2 63 00                   jnz     put1            ;7/10,274,271
+         77 :                    ;;; 4*2+7*2+16*14+25+10*2+4+7
+         77 : C3 7A 00                   jmp     $+3             ;10,281
+         7A : C3 7D 00                   jmp     $+3             ;10,291
+         7D : 00                         nop                     ;4,295
+         7E : 3E C0                      mvi     a,SIM_SOD OR SIM_SDE ;7,302 stop bit
+         80 :                    ;;;
+         80 : 30                         sim                     ;4,306
+         81 : 16 13                      mvi     d,19            ;7,313
+         83 : CD 8A 00                   call    delay           ;19*14+25,604
+         86 :                    ;;;
+         86 : D1                         pop     d               ;10
+         87 : C1                         pop     b               ;10
+         88 : F1                         pop     psw             ;10
+         89 : C9                         ret                     ;10
+         8A :
+         8A :                    ;;; delay D*14+25 (18+D*14-3+10)
+         8A :                    ;;;     call    delay           ;18
+         8A : 15                 delay:  dcr     d               ;4
+         8B : C2 8A 00                   jnz     delay           ;7/10
+         8E : C9                         ret                     ;10

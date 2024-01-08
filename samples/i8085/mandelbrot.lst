@@ -1,0 +1,985 @@
+          0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+          0 :                            cpu     8085
+          0 :                            include "i8085.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :                            include "i8080.inc"
+(2)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(2)       0 :                    ;;; i8080
+(2)       0 :                    ;;; FLAGS Register
+(2)       0 : =80                F_SIGN:         equ     10000000B ; set to 1 if negative
+(2)       0 : =40                F_ZERO:         equ     01000000B ; set to 1 if zero
+(2)       0 : =10                F_HALF_CARRY:   equ     00010000B ; set to 1 if carry from bit-3
+(2)       0 : =4                 F_PARITY:       equ     00000100B ; set to 1 if even parity
+(2)       0 : =1                 F_CARRY:        equ     00000001B ; set to 1 if carry
+(2)       0 :                    ;;; Interrupt origin
+(2)       0 : =0                 ORG_RESET:      equ     0000H   ; RESET
+(2)       0 : =0                 ORG_RST0:       equ     0000H   ; RST 0
+(2)       0 : =8                 ORG_RST1:       equ     0008H   ; RST 1
+(2)       0 : =10                ORG_RST2:       equ     0010H   ; RST 2
+(2)       0 : =18                ORG_RST3:       equ     0018H   ; RST 3
+(2)       0 : =20                ORG_RST4:       equ     0020H   ; RST 4
+(2)       0 : =28                ORG_RST5:       equ     0028H   ; RST 5
+(2)       0 : =30                ORG_RST6:       equ     0030H   ; RST 6
+(2)       0 : =38                ORG_RST7:       equ     0038H   ; RST 3
+(1)       0 :                    ;;; i8085
+(1)       0 :                    ;;; Set Innterrupt Maske
+(1)       0 : =80                SIM_SOD:        equ     10000000B ; Serial Output Data
+(1)       0 : =40                SIM_SDE:        equ     01000000B ; Serial Data Enable
+(1)       0 : =10                SIM_R75:        equ     00010000B ; Reset RST 7.5 latch
+(1)       0 : =8                 SIM_MSE:        equ     00001000B ; Mask Set Enable
+(1)       0 : =4                 SIM_M75:        equ     00000100B ; RST 7.5 Mask
+(1)       0 : =2                 SIM_M65:        equ     00000010B ; RST 6.5 Mask
+(1)       0 : =1                 SIM_M55:        equ     00000001B ; RST 5.5 Mask
+(1)       0 :                    ;;; Read Interrupt Mask
+(1)       0 : =80                RIM_SID:        equ     10000000B ; Serial Input Data
+(1)       0 : =40                RIM_I75:        equ     01000000B ; RST 7.5 Pending
+(1)       0 : =20                RIM_I65:        equ     00100000B ; RST 6.5 Pending
+(1)       0 : =10                RIM_I55:        equ     00010000B ; RST 5.5 Pending
+(1)       0 : =8                 RIM_IE:         equ     00001000B ; Interrupt Enable
+(1)       0 : =4                 RIM_M75:        equ     SIM_M75
+(1)       0 : =2                 RIM_M65:        equ     SIM_M65
+(1)       0 : =1                 RIM_M55:        equ     SIM_M55
+(1)       0 :                    ;;; Interrupt origin
+(1)       0 : =24                ORG_TRAP:       equ     0024H   ; TRAP
+(1)       0 : =2C                ORG_RST55:      equ     002CH   ; RST 5.5
+(1)       0 : =34                ORG_RST65:      equ     0034H   ; RST 6.5
+(1)       0 : =3C                ORG_RST75:      equ     003CH   ; RST 7.5
+          0 :
+          0 :                    ;;; i8251 Universal Synchronous/Asynchronous Receiver/Transmitter
+          0 : =0                 USART:          equ     00H
+          0 : =0                 USARTD:         equ     USART+0 ; Receive/Transmit data
+          0 : =1                 USARTS:         equ     USART+1 ; Srtatus register
+          0 : =1                 USARTC:         equ     USART+1 ; Control register
+          0 : =2                 USARTRV:        equ     USART+2 ; Receive interrupt vector (ORG_*)
+          0 : =3                 USARTTV:        equ     USART+3 ; Transmit interrupt vector (ORG_*)
+          0 :                            include "i8251.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :
+(1)       0 :                    ;;; i8251 USART device emulator.
+(1)       0 : =6                 MODE_STOP_gp:   equ     6
+(1)       0 : =C0                MODE_STOP_gm:   equ     11000000B
+(1)       0 : =40                MODE_STOP1_gc:  equ     (1 << MODE_STOP_gp)
+(1)       0 : =80                MODE_STOP15_gc: equ     (2 << MODE_STOP_gp)
+(1)       0 : =C0                MODE_STOP2_gc:  equ     (3 << MODE_STOP_gp)
+(1)       0 : =20                MODE_EVEN_bm:   equ     00100000B
+(1)       0 : =10                MODE_PARITY_bm: equ     00010000B
+(1)       0 : =2                 MODE_LEN_gp:    equ     2
+(1)       0 : =C                 MODE_LEN_gm:    equ     00001100B
+(1)       0 : =0                 MODE_LEN5_gc:   equ     (0 << MODE_LEN_gp)
+(1)       0 : =4                 MODE_LEN6_gc:   equ     (1 << MODE_LEN_gp)
+(1)       0 : =8                 MODE_LEN7_gc:   equ     (2 << MODE_LEN_gp)
+(1)       0 : =C                 MODE_LEN8_gc:   equ     (3 << MODE_LEN_gp)
+(1)       0 : =0                 MODE_BAUD_gp:   equ     0
+(1)       0 : =3                 MODE_BAUD_gm:   equ     00000011B
+(1)       0 : =1                 MODE_BAUD_X1:   equ     (1 << MODE_BAUD_gp)
+(1)       0 : =2                 MODE_BAUD_X16:  equ (2 << MODE_BAUD_gp)
+(1)       0 : =3                 MODE_BAUD_X64:  equ (3 << MODE_BAUD_gp)
+(1)       0 :                    ;;; Bit Definition of command register
+(1)       0 : =80                CMD_EH_bm:      equ     10000000B   ; Enter hunt mode
+(1)       0 : =40                CMD_IR_bm:      equ     01000000B   ; Internal Reset
+(1)       0 : =20                CMD_RTS_bm:     equ     00100000B   ; Request To Send
+(1)       0 : =10                CMD_ER_bm:      equ     00010000B   ; Error Reset
+(1)       0 : =8                 CMD_SBRK_bm:    equ     00001000B   ; Send Break
+(1)       0 : =4                 CMD_RxEN_bm:    equ     00000100B   ; Receive Enable
+(1)       0 : =2                 CMD_DTR_bm:     equ     00000010B   ; Data Terminal Ready
+(1)       0 : =1                 CMD_TxEN_bm:    equ     00000001B   ; Transmit enable
+(1)       0 :
+(1)       0 :                    ;;; Bit definition of status register
+(1)       0 : =80                ST_DSR_bm:      equ     10000000B   ; Data Set Ready
+(1)       0 : =40                ST_BRK_bm:      equ     01000000B   ; BREAK detected
+(1)       0 : =20                ST_FE_bm:       equ     00100000B   ; Framing Error
+(1)       0 : =10                ST_OE_bm:       equ     00010000B   ; Iverrun Error
+(1)       0 : =8                 ST_PE_bm:       equ     00001000B   ; Parity Error
+(1)       0 : =4                 ST_TxEMPTY_bm:  equ     00000100B   ; Transmitter empty
+(1)       0 : =2                 ST_RxRDY_bm:    equ     00000010B   ; Receiver ready
+(1)       0 : =1                 ST_TxRDY_bm:    equ     00000001B   ; Transmitter ready
+          0 :                    ;;; Async 1stop 8data x16
+          0 : =4E                ASYNC_MODE:     equ     MODE_STOP1_gc|MODE_LEN8_gc|MODE_BAUD_X16
+          0 :                    ;;; RTS/DTR, error reset, Rx enable, Tx enable
+          0 : =37                RX_EN_TX_EN:    equ     CMD_RTS_bm|CMD_DTR_bm|CMD_ER_bm|CMD_RxEN_bm|CMD_TxEN_bm
+          0 : =36                RX_EN_TX_DIS:   equ     CMD_RTS_bm|CMD_DTR_bm|CMD_ER_bm|CMD_RxEN_bm
+          0 :
+       2000 :                            org     2000H
+       2000 : =80                rx_queue_size:  equ     128
+       2000 :                    rx_queue:       ds      rx_queue_size
+       2080 : =80                tx_queue_size:  equ     128
+       2080 :                    tx_queue:       ds      tx_queue_size
+       2100 :
+       1000 :                            org     1000H
+       1000 : =1000              stack:  equ     $
+       1000 :
+          0 :                            org     ORG_RESET
+          0 : C3 00 01                   jmp     init
+          3 :
+         2C :                            org     ORG_RST55
+         2C : C3 AE 13                   jmp     isr_intr_rx
+         2F :
+         34 :                            org     ORG_RST65
+         34 : C3 C3 13                   jmp     isr_intr_tx
+         37 :
+        100 :                            org     0100H
+        100 :                    init:
+        100 : 31 00 10                   lxi     sp, stack
+        103 : 21 00 20                   lxi     h, rx_queue
+        106 : 06 80                      mvi     b, rx_queue_size
+        108 : CD 4C 13                   call    queue_init
+        10B : 21 80 20                   lxi     h, tx_queue
+        10E : 06 80                      mvi     b, tx_queue_size
+        110 : CD 4C 13                   call    queue_init
+        113 :                    init_usart:
+        113 : AF                         xra     a               ; clear A
+        114 : D3 01                      out     USARTC
+        116 : D3 01                      out     USARTC
+        118 : D3 01                      out     USARTC          ; safest way to sync mode
+        11A : 3E 40                      mvi     a, CMD_IR_bm
+        11C : D3 01                      out     USARTC          ; reset
+        11E : 00                         nop
+        11F : 00                         nop
+        120 : 3E 4E                      mvi     a, ASYNC_MODE
+        122 : D3 01                      out     USARTC
+        124 : 00                         nop
+        125 : 00                         nop
+        126 : 3E 36                      mvi     a, RX_EN_TX_DIS
+        128 : D3 01                      out     USARTC
+        12A : 3E 2C                      mvi     a, ORG_RST55
+        12C : D3 02                      out     USARTRV         ; set RxRDY interrupt vector RST 5.5
+        12E : 3E 34                      mvi     a, ORG_RST65
+        130 : D3 03                      out     USARTTV         ; set TxRDY interrupt vector RST 6.5
+        132 :
+        132 : 20                         rim
+        133 : E6 FC                      ani     ~(SIM_M55|SIM_M65) ; enable RST 5.5/RST 5.6
+        135 : F6 18                      ori     SIM_MSE|SIM_R75
+        137 : 30                         sim
+        138 : FB                         ei
+        139 :
+        139 : CD 00 10                   call    mandelbrot
+        13C : CD 67 01                   call    newline
+        13F : 21 80 20                   lxi     h, tx_queue
+        142 : 7E                 wait:   mov     a, m
+        143 : B7                         ora     a
+        144 : C2 42 01                   jnz     wait
+        147 : 76                         hlt
+        148 :
+        148 :                    ;;; Get character
+        148 :                    ;;; @return A
+        148 :                    ;;; @return CC.C 0 if no character
+        148 :                    getchar:
+        148 : E5                         push    h
+        149 : 21 00 20                   lxi     h, rx_queue
+        14C : F3                         di
+        14D : CD 8A 13                   call    queue_remove
+        150 : FB                         ei
+        151 : E1                         pop     h
+        152 : C9                         ret
+        153 :
+        153 :                    ;;; Put character
+        153 :                    ;;; @param A
+        153 :                    putchar:
+        153 : F5                         push    psw
+        154 : E5                         push    h
+        155 : 21 80 20                   lxi     h, tx_queue
+        158 :                    putchar_retry:
+        158 : F3                         di
+        159 : CD 62 13                   call    queue_add
+        15C : FB                         ei
+        15D : D2 58 01                   jnc     putchar_retry   ; branch if queue is full
+        160 : E1                         pop     h
+        161 : 3E 37                      mvi     a, RX_EN_TX_EN  ; enable Tx
+        163 : D3 01                      out     USARTC
+        165 :                    putchar_exit:
+        165 : F1                         pop     psw
+        166 : C9                         ret
+        167 :
+        167 :                    ;;; Put newline
+        167 :                    ;;; @clobber A
+        167 :                    newline:
+        167 : 3E 0D                      mvi     A, 0DH
+        169 : CD 53 01                   call    putchar
+        16C : 3E 0A                      mvi     A, 0AH
+        16E : C3 53 01                   jmp     putchar
+        171 :
+        171 :                    ;;; Put newline
+        171 :                    ;;; @clobber A
+        171 :                    putspace:
+        171 : 3E 20                      mvi     A, ' '
+        173 : C3 53 01                   jmp     putchar
+        176 :
+        176 :                            include "mandelbrot.inc"
+(1)     176 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)    1000 :                            org     1000H
+(1)    1000 :                    mandelbrot:
+(1)    1000 : 21 32 00                   lxi     H, 50
+(1)    1003 : 22 B8 11                   shld    vF              ; F=50
+(1)    1006 : 21 F4 FF                   lxi     H, -12
+(1)    1009 : 22 CC 11                   shld    vY              ; Y=-12
+(1)    100C :                    loop_y:
+(1)    100C : 21 CF FF                   lxi     H, -49
+(1)    100F : 22 CE 11                   shld    vX              ; X=-49
+(1)    1012 :                    loop_x:
+(1)    1012 : 2A CE 11                   lhld    vX
+(1)    1015 : 22 BA 11                   shld    vC              ; C=X
+(1)    1018 : 21 E5 00                   lxi     H, 229
+(1)    101B : 22 CA 11                   shld    tmp
+(1)    101E : 01 BA 11                   lxi     B, vC
+(1)    1021 : 11 CA 11                   lxi     D, tmp
+(1)    1024 : CD 8A 12                   call    mulsi2          ; C=X*229
+(1)    1027 : 21 64 00                   lxi     H, 100
+(1)    102A : 22 CA 11                   shld    tmp
+(1)    102D : CD 0B 13                   call    divsi2          ; C=X*229/100
+(1)    1030 : 2A CC 11                   lhld    vY
+(1)    1033 : 22 BC 11                   shld    vD              ; D=Y
+(1)    1036 : 21 A0 01                   lxi     H, 416
+(1)    1039 : 22 CA 11                   shld    tmp
+(1)    103C : 01 BC 11                   lxi     B, vD
+(1)    103F : CD 8A 12                   call    mulsi2          ; D=Y*416
+(1)    1042 : 21 64 00                   lxi     H, 100
+(1)    1045 : 22 CA 11                   shld    tmp
+(1)    1048 : CD 0B 13                   call    divsi2          ; D=Y*416/100
+(1)    104B : 2A BA 11                   lhld    vC
+(1)    104E : 22 BE 11                   shld    vA              ; A=C
+(1)    1051 : 2A BC 11                   lhld    vD
+(1)    1054 : 22 C0 11                   shld    vB              ; B=D
+(1)    1057 : 21 00 00                   lxi     H, 0
+(1)    105A : 22 D0 11                   shld    vI              ; I=0
+(1)    105D :
+(1)    105D :                            ;; mvi     A, 'Y'
+(1)    105D :                            ;; lhld    vY
+(1)    105D :                            ;; call    print
+(1)    105D :                            ;; mvi     A, 'X'
+(1)    105D :                            ;; lhld    vX
+(1)    105D :                            ;; call    print
+(1)    105D :                            ;; mvi     A, 'C'
+(1)    105D :                            ;; lhld    vC
+(1)    105D :                            ;; call    print
+(1)    105D :                            ;; mvi     A, 'D'
+(1)    105D :                            ;; lhld    vD
+(1)    105D :                            ;; call    print
+(1)    105D :                            ;; call    newline
+(1)    105D :
+(1)    105D :                    loop_i:
+(1)    105D : 2A C0 11                   lhld    vB
+(1)    1060 : 22 C4 11                   shld    vQ              ; Q=B
+(1)    1063 : 01 C4 11                   lxi     B, vQ
+(1)    1066 : 11 B8 11                   lxi     D, vF
+(1)    1069 : CD 0B 13                   call    divsi2          ; Q=B/F
+(1)    106C : 01 C6 11                   lxi     B, vS
+(1)    106F : 11 C4 11                   lxi     D, vQ
+(1)    1072 : CD 15 12                   call    negsi2          ; S=-Q
+(1)    1075 : 11 B8 11                   lxi     D, vF
+(1)    1078 : CD 8A 12                   call    mulsi2          ; S=-Q*F
+(1)    107B : 11 C0 11                   lxi     D, vB
+(1)    107E : CD 24 12                   call    addsi2          ; S=B-Q*F
+(1)    1081 : 2A C0 11                   lhld    vB
+(1)    1084 : 22 CA 11                   shld    tmp
+(1)    1087 : 01 CA 11                   lxi     B, tmp
+(1)    108A : CD 8A 12                   call    mulsi2          ; tmp=B*B
+(1)    108D : 2A BE 11                   lhld    vA
+(1)    1090 : 22 C8 11                   shld    vT
+(1)    1093 : 01 C8 11                   lxi     B, vT
+(1)    1096 : 11 BE 11                   lxi     D, vA
+(1)    1099 : CD 8A 12                   call    mulsi2          ; T=A*A
+(1)    109C : 11 CA 11                   lxi     D, tmp
+(1)    109F : CD 35 12                   call    subsi2          ; T=A*A-B*B
+(1)    10A2 : 11 B8 11                   lxi     D, vF
+(1)    10A5 : CD 0B 13                   call    divsi2          ; T=(A*A-B*B)/F
+(1)    10A8 : 11 BA 11                   lxi     D, vC
+(1)    10AB : CD 24 12                   call    addsi2          ; T=(A*A-B*B)/F+C
+(1)    10AE : 2A BE 11                   lhld    vA
+(1)    10B1 : 22 CA 11                   shld    tmp
+(1)    10B4 : 01 CA 11                   lxi     B, tmp
+(1)    10B7 : 11 C6 11                   lxi     D, vS
+(1)    10BA : CD 8A 12                   call    mulsi2          ; tmp=A*S
+(1)    10BD : 11 B8 11                   lxi     D, vF
+(1)    10C0 : CD 0B 13                   call    divsi2          ; tmp=A*S/F
+(1)    10C3 : 2A BE 11                   lhld    vA
+(1)    10C6 : 22 C0 11                   shld    vB              ; B=A
+(1)    10C9 : 01 C0 11                   lxi     B, vB
+(1)    10CC : 11 C4 11                   lxi     D, vQ
+(1)    10CF : CD 8A 12                   call    mulsi2          ; B=A*Q
+(1)    10D2 : 11 CA 11                   lxi     D, tmp
+(1)    10D5 : CD 24 12                   call    addsi2          ; B=A*Q+A*S/F
+(1)    10D8 : 11 C0 11                   lxi     D, vB
+(1)    10DB : CD 24 12                   call    addsi2          ; B=2*(A*Q+A*S/F)
+(1)    10DE : 11 BC 11                   lxi     D, vD
+(1)    10E1 : CD 24 12                   call    addsi2          ; B=2*(A*Q+A*S/F)+D
+(1)    10E4 : 2A C8 11                   lhld    vT
+(1)    10E7 : 22 BE 11                   shld    vA              ; A=T
+(1)    10EA : 22 C2 11                   shld    vP              ; P=A
+(1)    10ED : 01 C2 11                   lxi     B, vP
+(1)    10F0 : 11 B8 11                   lxi     D, vF
+(1)    10F3 : CD 0B 13                   call    divsi2          ; P=A/F
+(1)    10F6 : 2A C0 11                   lhld    vB
+(1)    10F9 : 22 C4 11                   shld    vQ
+(1)    10FC : 01 C4 11                   lxi     B, vQ
+(1)    10FF : CD 0B 13                   call    divsi2          ; Q=B/F
+(1)    1102 : 2A C4 11                   lhld    vQ
+(1)    1105 : 22 CA 11                   shld    tmp
+(1)    1108 : 01 CA 11                   lxi     B, tmp
+(1)    110B : 11 C4 11                   lxi     D, vQ
+(1)    110E : CD 8A 12                   call    mulsi2          ; tmp=Q*Q
+(1)    1111 : 2A C2 11                   lhld    vP
+(1)    1114 : 22 C8 11                   shld    vT
+(1)    1117 : 01 C8 11                   lxi     B, vT
+(1)    111A : 11 C2 11                   lxi     D, vP
+(1)    111D : CD 8A 12                   call    mulsi2          ; T=P*P
+(1)    1120 : 11 CA 11                   lxi     D, tmp
+(1)    1123 : CD 24 12                   call    addsi2          ; T=P*P+Q*Q
+(1)    1126 :
+(1)    1126 :                            ;; call    putspace
+(1)    1126 :                            ;; mvi     A, 'I'
+(1)    1126 :                            ;; lhld    vI
+(1)    1126 :                            ;; call    print
+(1)    1126 :                            ;; mvi     A, 'A'
+(1)    1126 :                            ;; lhld    vA
+(1)    1126 :                            ;; call    print
+(1)    1126 :                            ;; mvi     A, 'B'
+(1)    1126 :                            ;; lhld    vB
+(1)    1126 :                            ;; call    print
+(1)    1126 :                            ;; mvi     A, 'P'
+(1)    1126 :                            ;; lhld    vP
+(1)    1126 :                            ;; call    print
+(1)    1126 :                            ;; mvi     A, 'Q'
+(1)    1126 :                            ;; lhld    vQ
+(1)    1126 :                            ;; call    print
+(1)    1126 :                            ;; call    newline
+(1)    1126 :
+(1)    1126 : 21 04 00                   lxi     H, 4
+(1)    1129 : 22 CA 11                   shld    tmp
+(1)    112C : 01 CA 11                   lxi     B, tmp
+(1)    112F : 11 C8 11                   lxi     D, vT
+(1)    1132 : CD 46 12                   call    cmpsi2          ; 4-T
+(1)    1135 : FA 56 11                   jm      print_i         ; if 4<T
+(1)    1138 : 2A D0 11                   lhld    vI
+(1)    113B : 23                         inx     H
+(1)    113C : 22 D0 11                   shld    vI              ; I+=1
+(1)    113F : 21 10 00                   lxi     H, 16
+(1)    1142 : 22 CA 11                   shld    tmp
+(1)    1145 : 01 D0 11                   lxi     B, vI
+(1)    1148 : 11 CA 11                   lxi     D, tmp
+(1)    114B : CD 46 12                   call    cmpsi2
+(1)    114E : FA 5D 10                   jm      loop_i          ; if I<16
+(1)    1151 : 3E 20                      mvi     A, ' '
+(1)    1153 : C3 62 11                   jmp     print_char
+(1)    1156 :                    print_i:
+(1)    1156 : 3A D0 11                   lda     vI
+(1)    1159 : FE 0A                      cpi     10
+(1)    115B : DA 60 11                   jc      print_i2        ; if I<10
+(1)    115E : C6 07                      adi     'A'-'0'-10
+(1)    1160 :                    print_i2:
+(1)    1160 : C6 30                      adi     '0'
+(1)    1162 :                    print_char:     
+(1)    1162 : CD 53 01                   call    putchar
+(1)    1165 :
+(1)    1165 :                            ;; push    PSW
+(1)    1165 :                            ;; mvi     A, '@'
+(1)    1165 :                            ;; call    putchar
+(1)    1165 :                            ;; mvi     A, '='
+(1)    1165 :                            ;; call    putchar
+(1)    1165 :                            ;; pop     PSW
+(1)    1165 :                            ;; call    putchar
+(1)    1165 :                            ;; call    newline
+(1)    1165 :
+(1)    1165 : CD 48 01                   call    getchar
+(1)    1168 : D2 6D 11                   jnc     next_x
+(1)    116B : B7                         ora     a
+(1)    116C : C8                         rz                      ; abort
+(1)    116D :                    next_x:
+(1)    116D : 2A CE 11                   lhld    vX
+(1)    1170 : 23                         inx     H
+(1)    1171 : 22 CE 11                   shld    vX              ; X+=1
+(1)    1174 : 21 1E 00                   lxi     H, 30
+(1)    1177 : 22 CA 11                   shld    tmp
+(1)    117A : 01 CE 11                   lxi     B, vX
+(1)    117D : 11 CA 11                   lxi     D, tmp
+(1)    1180 : CD 46 12                   call    cmpsi2
+(1)    1183 : FA 12 10                   jm      loop_x          ; if X<30
+(1)    1186 : 3E 0D                      mvi     A, 0DH
+(1)    1188 : CD 53 01                   call    putchar
+(1)    118B : 3E 0A                      mvi     A, 0AH
+(1)    118D : CD 53 01                   call    putchar
+(1)    1190 : 2A CC 11                   lhld    vY
+(1)    1193 : 23                         inx     H
+(1)    1194 : 22 CC 11                   shld    vY              ; Y+=1
+(1)    1197 : 21 0D 00                   lxi     H, 13
+(1)    119A : 22 CA 11                   shld    tmp
+(1)    119D : 01 CC 11                   lxi     B, vY
+(1)    11A0 : 11 CA 11                   lxi     D, tmp
+(1)    11A3 : CD 46 12                   call    cmpsi2
+(1)    11A6 : FA 0C 10                   jm      loop_y          ; if X<13
+(1)    11A9 : C9                         ret
+(1)    11AA :
+(1)    11AA :                    ;;; Print variable
+(1)    11AA :                    ;;; @param A variable name
+(1)    11AA :                    ;;; @param HL variable value
+(1)    11AA :                    print:  
+(1)    11AA : CD 53 01                   call    putchar
+(1)    11AD : 3E 3D                      mvi     A, '='
+(1)    11AF : CD 53 01                   call    putchar
+(1)    11B2 : CD 00 12                   call    print_int16
+(1)    11B5 : C3 71 01                   jmp     putspace
+(1)    11B8 :
+(1)    11B8 :                    vF:     ds      2
+(1)    11BA :                    vC:     ds      2
+(1)    11BC :                    vD:     ds      2
+(1)    11BE :                    vA:     ds      2
+(1)    11C0 :                    vB:     ds      2
+(1)    11C2 :                    vP:     ds      2
+(1)    11C4 :                    vQ:     ds      2
+(1)    11C6 :                    vS:     ds      2
+(1)    11C8 :                    vT:     ds      2
+(1)    11CA :                    tmp:    ds      2
+(1)    11CC :                    vY:     ds      2
+(1)    11CE :                    vX:     ds      2
+(1)    11D0 :                    vI:     ds      2
+       11D2 :                            include "arith.inc"
+(1)    11D2 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)    11D2 :                            cpu     8085
+(1)    11D2 :
+(1)    11D2 :                    ;;; Print unsigned 16-bit integer as decimal
+(1)    11D2 :                    ;;; @param HL: value
+(1)    11D2 :                    ;;; @clobber HL
+(1)    11D2 :                    print_uint16:
+(1)    11D2 : F5                         push    PSW
+(1)    11D3 :                    print_uint16_inner:
+(1)    11D3 : C5                         push    B
+(1)    11D4 : D5                         push    D
+(1)    11D5 : 44                         mov     B, H
+(1)    11D6 : 4D                         mov     C, L
+(1)    11D7 : 78                         mov     A, B
+(1)    11D8 : B1                         ora     C
+(1)    11D9 : CA F7 11                   jz      print_uint16_zero
+(1)    11DC : CD E3 11                   call    print_uint16_loop
+(1)    11DF : D1                         pop     D
+(1)    11E0 : C1                         pop     B
+(1)    11E1 : F1                         pop     PSW
+(1)    11E2 : C9                         ret
+(1)    11E3 :                    print_uint16_loop:
+(1)    11E3 : 78                         mov     A, B
+(1)    11E4 : B1                         ora     C
+(1)    11E5 : C8                         rz
+(1)    11E6 : 11 0A 00                   lxi     D, 10
+(1)    11E9 : CD C9 12                   call    udiv16
+(1)    11EC : E5                         push    H               ; push reminder
+(1)    11ED : CD E3 11                   call    print_uint16_loop
+(1)    11F0 : E1                         pop     H               ; pop reminder
+(1)    11F1 : 7D                         mov     A, L
+(1)    11F2 : C6 30                      adi     '0'
+(1)    11F4 : C3 53 01                   jmp     putchar
+(1)    11F7 :                    print_uint16_zero:
+(1)    11F7 : 3E 30                      mvi     A, '0'
+(1)    11F9 : CD 53 01                   call    putchar
+(1)    11FC : D1                         pop     D
+(1)    11FD : C1                         pop     B
+(1)    11FE : F1                         pop     PSW
+(1)    11FF : C9                         ret
+(1)    1200 :
+(1)    1200 :                    ;;; Print signed 16-bit integer as decimal
+(1)    1200 :                    ;;; @param HL: value
+(1)    1200 :                    ;;; @clobber HL
+(1)    1200 :                    print_int16:
+(1)    1200 : F5                         push    PSW
+(1)    1201 : 7C                         mov     A, H
+(1)    1202 : B7                         ora     A
+(1)    1203 : F2 D3 11                   jp      print_uint16_inner
+(1)    1206 : 3E 2D                      mvi     A, '-'
+(1)    1208 : CD 53 01                   call    putchar
+(1)    120B : 7D                         mov     A, L
+(1)    120C : 2F                         cma
+(1)    120D : 6F                         mov     L, A
+(1)    120E : 7C                         mov     A, H
+(1)    120F : 2F                         cma
+(1)    1210 : 67                         mov     H, A
+(1)    1211 : 23                         inx     H               ; HL=-value
+(1)    1212 : C3 D3 11                   jmp     print_uint16_inner
+(1)    1215 :
+(1)    1215 :                    ;;; Negation; result = -value
+(1)    1215 :                    ;;; @param @BC: result
+(1)    1215 :                    ;;; @param @DE: value
+(1)    1215 :                    ;;; @clobber A
+(1)    1215 :                    negsi2:
+(1)    1215 : 1A                         ldax    D
+(1)    1216 : 2F                         cma
+(1)    1217 : C6 01                      adi     1
+(1)    1219 : 02                         stax    B
+(1)    121A : 13                         inx     D
+(1)    121B : 1A                         ldax    D
+(1)    121C : 2F                         cma
+(1)    121D : CE 00                      aci     0
+(1)    121F : 03                         inx     B
+(1)    1220 : 02                         stax    B
+(1)    1221 : 1B                         dcx     D
+(1)    1222 : 0B                         dcx     B
+(1)    1223 : C9                         ret
+(1)    1224 :
+(1)    1224 :                    ;;; Signed addition: summand += addend
+(1)    1224 :                    ;;; @param @BC: summand
+(1)    1224 :                    ;;; @param @DE: addend
+(1)    1224 :                    ;;; @clobber A
+(1)    1224 :                    addsi2:
+(1)    1224 : E5                         push    H
+(1)    1225 : 1A                         ldax    D
+(1)    1226 : 6F                         mov     L, A
+(1)    1227 : 13                         inx     D
+(1)    1228 : 1A                         ldax    D
+(1)    1229 : 67                         mov     H, A
+(1)    122A : 1B                         dcx     D
+(1)    122B : 0A                         ldax    B
+(1)    122C : 85                         add     L
+(1)    122D : 02                         stax    B
+(1)    122E : 03                         inx     B
+(1)    122F : 0A                         ldax    B
+(1)    1230 : 8C                         adc     H
+(1)    1231 : 02                         stax    B
+(1)    1232 : 0B                         dcx     B
+(1)    1233 : E1                         pop     H
+(1)    1234 : C9                         ret
+(1)    1235 :
+(1)    1235 :                    ;;; Singed subtraction: minuend -= subtrahend
+(1)    1235 :                    ;;; @param @BC: minuend
+(1)    1235 :                    ;;; @param @DE: subtrahend
+(1)    1235 :                    ;;; @clobber A
+(1)    1235 :                    subsi2:
+(1)    1235 : E5                         push    H
+(1)    1236 : 1A                         ldax    D
+(1)    1237 : 6F                         mov     L, A
+(1)    1238 : 13                         inx     D
+(1)    1239 : 1A                         ldax    D
+(1)    123A : 1B                         dcx     D
+(1)    123B : 67                         mov     H, A
+(1)    123C : 0A                         ldax    B
+(1)    123D : 95                         sub     L
+(1)    123E : 02                         stax    B
+(1)    123F : 03                         inx     B
+(1)    1240 : 0A                         ldax    B
+(1)    1241 : 9C                         sbb     H
+(1)    1242 : 02                         stax    B
+(1)    1243 : 0B                         dcx     B
+(1)    1244 : E1                         pop     H
+(1)    1245 : C9                         ret
+(1)    1246 :
+(1)    1246 :                    ;;; Signed comparison: minuend - subtrahend
+(1)    1246 :                    ;;; @param @BC: minuend
+(1)    1246 :                    ;;; @param @DE: subtrahend
+(1)    1246 :                    ;;; @return PSW.Z, PSW.S
+(1)    1246 :                    ;;; @clobber A
+(1)    1246 :                    cmpsi2:
+(1)    1246 : C5                         push    B
+(1)    1247 : D5                         push    D
+(1)    1248 : E5                         push    H
+(1)    1249 : 1A                         ldax    D
+(1)    124A : 6F                         mov     L, A
+(1)    124B : 13                         inx     D
+(1)    124C : 1A                         ldax    D
+(1)    124D : 57                         mov     D, A
+(1)    124E : 5D                         mov     E, L            ; DE=@DE
+(1)    124F : 0A                         ldax    B
+(1)    1250 : 6F                         mov     L, A
+(1)    1251 : 03                         inx     B
+(1)    1252 : 0A                         ldax    B
+(1)    1253 : 47                         mov     B, A
+(1)    1254 : 4D                         mov     C, L            ; BC=@BC
+(1)    1255 : 79                         mov     A, C
+(1)    1256 : 93                         sub     E
+(1)    1257 : 6F                         mov     L, A
+(1)    1258 : 78                         mov     A, B
+(1)    1259 : 9A                         sbb     D
+(1)    125A : 67                         mov     H, A            ; HL=@BC-@DE
+(1)    125B : B5                         ora     L
+(1)    125C : CA 68 12                   jz      cmpsi2_return   ; PSW.Z=1
+(1)    125F : 7C                         mov     A, H            ; high(@BC-@DE)
+(1)    1260 : A8                         xra     B               ; high((@BC-@DE)^@BC)
+(1)    1261 : 6F                         mov     L, A
+(1)    1262 : 78                         mov     A, B
+(1)    1263 : AA                         xra     D               ; high(@BC^@DE)
+(1)    1264 : A5                         ana     L               ; overflow
+(1)    1265 : AC                         xra     H               ; PSW.S=overflow^sign
+(1)    1266 : F6 01                      ori     1               ; clear PSW.Z
+(1)    1268 :                    cmpsi2_return:
+(1)    1268 : E1                         pop     H
+(1)    1269 : D1                         pop     D
+(1)    126A : C1                         pop     B
+(1)    126B : C9                         ret
+(1)    126C :
+(1)    126C :                    ;;; Unsigned multiplication: result = multiplicand * multiplier
+(1)    126C :                    ;;; @param BC: multiplicand
+(1)    126C :                    ;;; @param DE: multiplier
+(1)    126C :                    ;;; @return HL: result
+(1)    126C :                    ;;; @clobber BC DE HL A
+(1)    126C :                    umul16:
+(1)    126C : 21 00 00                   lxi     H, 0            ; result=0
+(1)    126F : C3 84 12                   jmp     umul16_check
+(1)    1272 :                    umul16_loop:
+(1)    1272 : B7                         ora     A               ; clear PSW.C
+(1)    1273 : 7A                         mov     A, D            ; multiplier >>= 1
+(1)    1274 : 1F                         rar
+(1)    1275 : 57                         mov     D, A
+(1)    1276 : 7B                         mov     A, E
+(1)    1277 : 1F                         rar
+(1)    1278 : 5F                         mov     E, A
+(1)    1279 : D2 7D 12                   jnc     umul16_next     ; if lsb(multiplier) == 0
+(1)    127C : 09                         dad     B               ; result += multiplicand
+(1)    127D :                    umul16_next:
+(1)    127D : B7                         ora     A               ; clear PSW.C
+(1)    127E : 79                         mov     A, C            ; multiplicand <<= 1
+(1)    127F : 17                         ral
+(1)    1280 : 4F                         mov     C, A
+(1)    1281 : 78                         mov     A, B
+(1)    1282 : 17                         ral
+(1)    1283 : 47                         mov     B, A
+(1)    1284 :                    umul16_check:
+(1)    1284 : 7A                         mov     A, D
+(1)    1285 : B3                         ora     E
+(1)    1286 : C2 72 12                   jnz     umul16_loop     ; while multiplier != 0
+(1)    1289 :                    umul16_end:
+(1)    1289 : C9                         ret
+(1)    128A :
+(1)    128A :                    ;;; Signed multiplication: multiplicand *= multiplier
+(1)    128A :                    ;;; @param @BC: multiplicand
+(1)    128A :                    ;;; @param @DE: multiplier
+(1)    128A :                    ;;; @clobber HL A
+(1)    128A :                    mulsi2:
+(1)    128A : C5                         push    B
+(1)    128B : D5                         push    D
+(1)    128C : 0A                         ldax    B
+(1)    128D : 6F                         mov     L, A
+(1)    128E : 03                         inx     B
+(1)    128F : 0A                         ldax    B
+(1)    1290 : 47                         mov     B, A
+(1)    1291 : 4D                         mov     C, L            ; BC=multiplicand
+(1)    1292 : 60                         mov     H, B            ; H=high(multiplicand)
+(1)    1293 : B7                         ora     A
+(1)    1294 : F2 9D 12                   jp      mulsi2_abs_muliplicand
+(1)    1297 : 2F                         cma
+(1)    1298 : 47                         mov     B, A
+(1)    1299 : 79                         mov     A, C
+(1)    129A : 2F                         cma
+(1)    129B : 4F                         mov     C, A
+(1)    129C : 03                         inx     B               ; multiplicand = -multiplicand
+(1)    129D :                    mulsi2_abs_muliplicand:
+(1)    129D : 1A                         ldax    D
+(1)    129E : 6F                         mov     L, A
+(1)    129F : 13                         inx     D
+(1)    12A0 : 1A                         ldax    D
+(1)    12A1 : 57                         mov     D, A
+(1)    12A2 : 5D                         mov     E, L            ; DE=multiplier
+(1)    12A3 : AC                         xra     H               ; H=high(multiplicand^multiplier)
+(1)    12A4 : F5                         push    PSW             ; save sign
+(1)    12A5 : 7A                         mov     A, D
+(1)    12A6 : B7                         ora     A
+(1)    12A7 : F2 B0 12                   jp      mulsi2_multiply
+(1)    12AA : 2F                         cma
+(1)    12AB : 57                         mov     D, A
+(1)    12AC : 7B                         mov     A, E
+(1)    12AD : 2F                         cma
+(1)    12AE : 5F                         mov     E, A
+(1)    12AF : 13                         inx     D               ; multiplier = -multiplier
+(1)    12B0 :                    mulsi2_multiply:
+(1)    12B0 : CD 6C 12                   call    umul16          ; HL = multiplicand * multiplier
+(1)    12B3 : C1                         pop     B               ; B=sign
+(1)    12B4 : 78                         mov     A, B
+(1)    12B5 : B7                         ora     A
+(1)    12B6 : F2 C0 12                   jp      mulsi2_return
+(1)    12B9 : 7C                         mov     A, H
+(1)    12BA : 2F                         cma
+(1)    12BB : 67                         mov     H, A
+(1)    12BC : 7D                         mov     A, L
+(1)    12BD : 2F                         cma
+(1)    12BE : 6F                         mov     L, A
+(1)    12BF : 23                         inx     H               ; result = -result
+(1)    12C0 :                    mulsi2_return:
+(1)    12C0 : D1                         pop     D
+(1)    12C1 : C1                         pop     B
+(1)    12C2 : 7D                         mov     A, L
+(1)    12C3 : 02                         stax    B
+(1)    12C4 : 03                         inx     B
+(1)    12C5 : 7C                         mov     A, H
+(1)    12C6 : 02                         stax    B
+(1)    12C7 : 0B                         dcx     B               ; @BC=result
+(1)    12C8 : C9                         ret
+(1)    12C9 :
+(1)    12C9 :                    ;;; Unsigned division: dividend / divisor = quotient ... reminder
+(1)    12C9 :                    ;;; @praram BC: dividend
+(1)    12C9 :                    ;;; @praram DE: divisor
+(1)    12C9 :                    ;;; @return HL: reminder
+(1)    12C9 :                    ;;; @return BC: quotient
+(1)    12C9 :                    ;;; @clobber BC DE HL A
+(1)    12C9 :                    udiv16:
+(1)    12C9 : 7B                         mov     A, E
+(1)    12CA : B2                         ora     D
+(1)    12CB : C8                         rz                      ; divide by zero
+(1)    12CC : 2E 01                      mvi     L, 1            ; L=bits
+(1)    12CE : C3 D9 12                   jmp     udiv16_prep
+(1)    12D1 :                    udiv16_prep_loop:
+(1)    12D1 : B7                         ora     A               ; clear PSW.C
+(1)    12D2 : 7B                         mov     A, E            ; divisor <<= 1
+(1)    12D3 : 17                         ral
+(1)    12D4 : 5F                         mov     E, A
+(1)    12D5 : 7A                         mov     A, D
+(1)    12D6 : 17                         ral
+(1)    12D7 : 57                         mov     D, A
+(1)    12D8 : 23                         inx     H               ; ++bits
+(1)    12D9 :                    udiv16_prep:                    ; while msb(divisor) == 0
+(1)    12D9 : 7A                         mov     A, D
+(1)    12DA : B7                         ora     A
+(1)    12DB : F2 D1 12                   jp      udiv16_prep_loop
+(1)    12DE : 7D                         mov     A, L
+(1)    12DF : F5                         push    PSW             ; push bits
+(1)    12E0 : 60                         mov     H, B
+(1)    12E1 : 69                         mov     L, C            ; HL=dividend
+(1)    12E2 : AF                         xra     A
+(1)    12E3 : 47                         mov     B, A
+(1)    12E4 : 4F                         mov     C, A            ; BC=quotient
+(1)    12E5 : C3 F7 12                   jmp     udiv16_enter_loop
+(1)    12E8 :                    udiv16_loop:
+(1)    12E8 : F5                         push    PSW             ; push bits
+(1)    12E9 : B7                         ora     A               ; clear PSW.C
+(1)    12EA : 7A                         mov     A, D            ; divisor >>= 1
+(1)    12EB : 1F                         rar
+(1)    12EC : 57                         mov     D, A
+(1)    12ED : 7B                         mov     A, E
+(1)    12EE : 1F                         rar
+(1)    12EF : 5F                         mov     E, A
+(1)    12F0 : B7                         ora     A               ; clear PSW.C
+(1)    12F1 : 79                         mov     A, C            ; quotient <<= 1
+(1)    12F2 : 17                         ral
+(1)    12F3 : 4F                         mov     C, A
+(1)    12F4 : 78                         mov     A, B
+(1)    12F5 : 17                         ral
+(1)    12F6 : 47                         mov     B, A
+(1)    12F7 :                    udiv16_enter_loop:
+(1)    12F7 : 7D                         mov     A, L
+(1)    12F8 : 93                         sub     E
+(1)    12F9 : 6F                         mov     L, A
+(1)    12FA : 7C                         mov     A, H
+(1)    12FB : 9A                         sbb     D
+(1)    12FC : 67                         mov     H, A            ; dividend -= divisor
+(1)    12FD : DA 04 13                   jc      udiv16_readd    ; if dividend < 0
+(1)    1300 : 03                         inx     B               ; quotient |= 1
+(1)    1301 : C3 05 13                   jmp     udiv16_next    ;
+(1)    1304 :                    udiv16_readd:
+(1)    1304 : 19                         dad     D               ; dividend += divisor
+(1)    1305 :                    udiv16_next:
+(1)    1305 : F1                         pop     PSW
+(1)    1306 : 3D                         dcr     A               ; --bits
+(1)    1307 : C2 E8 12                   jnz     udiv16_loop     ; while bits != 0
+(1)    130A : C9                         ret
+(1)    130B :
+(1)    130B :                    ;;; Signed division: dividend *= divisor
+(1)    130B :                    ;;; @param @BC: dividend
+(1)    130B :                    ;;; @param @DE: divisor
+(1)    130B :                    ;;; @clobber HL A
+(1)    130B :                    divsi2:
+(1)    130B : C5                         push    B
+(1)    130C : D5                         push    D
+(1)    130D : 0A                         ldax    B
+(1)    130E : 6F                         mov     L, A
+(1)    130F : 03                         inx     B
+(1)    1310 : 0A                         ldax    B
+(1)    1311 : 47                         mov     B, A
+(1)    1312 : 4D                         mov     C, L            ; BC=dividend
+(1)    1313 : 60                         mov     H, B            ; H=high(dividend)
+(1)    1314 : B7                         ora     A
+(1)    1315 : F2 1E 13                   jp      divsi2_abs_dividend
+(1)    1318 : 2F                         cma
+(1)    1319 : 47                         mov     B, A
+(1)    131A : 79                         mov     A, C
+(1)    131B : 2F                         cma
+(1)    131C : 4F                         mov     C, A
+(1)    131D : 03                         inx     B               ; dividend = -dividend
+(1)    131E :                    divsi2_abs_dividend:
+(1)    131E : 1A                         ldax    D
+(1)    131F : 6F                         mov     L, A
+(1)    1320 : 13                         inx     D
+(1)    1321 : 1A                         ldax    D
+(1)    1322 : 57                         mov     D, A
+(1)    1323 : 5D                         mov     E, L            ; DE=divisor
+(1)    1324 : AC                         xra     H               ; H=high(dividend^divisor)
+(1)    1325 : F5                         push    PSW             ; save sign
+(1)    1326 : 7A                         mov     A, D
+(1)    1327 : B7                         ora     A
+(1)    1328 : F2 31 13                   jp      divsi2_divide
+(1)    132B : 2F                         cma
+(1)    132C : 57                         mov     D, A
+(1)    132D : 7B                         mov     A, E
+(1)    132E : 2F                         cma
+(1)    132F : 5F                         mov     E, A
+(1)    1330 : 13                         inx     D               ; divisor = -divisor
+(1)    1331 :                    divsi2_divide:
+(1)    1331 : CD C9 12                   call    udiv16          ; BC = dividend / divisor
+(1)    1334 : 60                         mov     H, B
+(1)    1335 : 69                         mov     L, C            ; HL=quotient
+(1)    1336 : C1                         pop     B               ; B=sign
+(1)    1337 : 78                         mov     A, B
+(1)    1338 : B7                         ora     A
+(1)    1339 : F2 43 13                   jp      divsi2_return
+(1)    133C : 7C                         mov     A, H
+(1)    133D : 2F                         cma
+(1)    133E : 67                         mov     H, A
+(1)    133F : 7D                         mov     A, L
+(1)    1340 : 2F                         cma
+(1)    1341 : 6F                         mov     L, A
+(1)    1342 : 23                         inx     H               ; quotient=-quotient
+(1)    1343 :                    divsi2_return:
+(1)    1343 : D1                         pop     D
+(1)    1344 : C1                         pop     B
+(1)    1345 : 7D                         mov     A, L
+(1)    1346 : 02                         stax    B
+(1)    1347 : 03                         inx     B
+(1)    1348 : 7C                         mov     A, H
+(1)    1349 : 02                         stax    B
+(1)    134A : 0B                         dcx     B               ; @BC=result
+(1)    134B : C9                         ret
+       134C :                            include "queue.inc"
+(1)    134C :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)    134C :                    ;;; [queue] queue structure
+(1)    134C : =0                 queue_len:      equ     0       ; queue length
+(1)    134C : =1                 queue_size:     equ     1       ; buffer size
+(1)    134C : =2                 queue_put:      equ     2       ; queue put index
+(1)    134C : =3                 queue_get:      equ     3       ; queue get index
+(1)    134C : =4                 queue_buf:      equ     4       ; buffer start offset
+(1)    134C :
+(1)    134C :                    ;;; [queue] Initialize queue
+(1)    134C :                    ;;; @param HL queue work space pointer
+(1)    134C :                    ;;; @param B queue work space size
+(1)    134C :                    ;;; @clobber B
+(1)    134C :                    queue_init:
+(1)    134C : F5                         push    psw
+(1)    134D : E5                         push    h
+(1)    134E : AF                         xra     a
+(1)    134F : 77                         mov     m, a            ; queue_len
+(1)    1350 : 78                         mov     a, b
+(1)    1351 : DE 04                      sbi     queue_buf
+(1)    1353 : 23                         inx     h
+(1)    1354 : 77                         mov     m, a            ; queue_size
+(1)    1355 : C6 02                      adi     2               ; for queue_put and queue_get
+(1)    1357 : 47                         mov     b,a
+(1)    1358 : AF                         xra     a
+(1)    1359 :                    queue_init_loop:
+(1)    1359 : 23                         inx     h
+(1)    135A : 77                         mov     m, a
+(1)    135B : 05                         dcr     b
+(1)    135C : C2 59 13                   jnz     queue_init_loop
+(1)    135F : E1                         pop     h
+(1)    1360 : F1                         pop     psw
+(1)    1361 : C9                         ret
+(1)    1362 :
+(1)    1362 :                    ;;; [queue] Add an element to queue
+(1)    1362 :                    ;;; @param HL queue work space pointer
+(1)    1362 :                    ;;; @param A an element
+(1)    1362 :                    ;;; @return F.C 0 if queue is full
+(1)    1362 :                    queue_add:
+(1)    1362 : D5                         push    d
+(1)    1363 : 57                         mov     d, a            ; save an element
+(1)    1364 : 7E                         mov     a, m            ; queue_len
+(1)    1365 : 23                         inx     h
+(1)    1366 : BE                         cmp     m               ; queue_size
+(1)    1367 : 2B                         dcx     h
+(1)    1368 : 7A                         mov     a, d            ; restore an element
+(1)    1369 : DA 6E 13                   jc      queue_add_store ; queue_len < queue_size
+(1)    136C : D1                         pop     d               ; cleared carry is ensured by |jc|
+(1)    136D : C9                         ret
+(1)    136E :                    queue_add_store:
+(1)    136E : E5                         push    h
+(1)    136F : 34                         inr     m               ; queue_len++
+(1)    1370 : 23                         inx     h
+(1)    1371 : 23                         inx     h
+(1)    1372 : 5E                         mov     e, m            ; queue_put
+(1)    1373 : 16 00                      mvi     d, 0
+(1)    1375 : EB                         xchg                    ; DE points queue_put
+(1)    1376 : 19                         dad     d
+(1)    1377 : 23                         inx     h
+(1)    1378 : 23                         inx     h               ; offset of queue_buf
+(1)    1379 : 77                         mov     m, a            ; store an element
+(1)    137A : EB                         xchg                    ; DE points a stored element
+(1)    137B : 7E                         mov     a, m            ; queue_put
+(1)    137C : 3C                         inr     a               ; queue_put++
+(1)    137D : 2B                         dcx     h
+(1)    137E : BE                         cmp     m               ; queue_size
+(1)    137F : 23                         inx     h
+(1)    1380 : DA 84 13                   jc      queue_add_update ; queue_put < queue_size
+(1)    1383 : AF                         xra     a                ; wrap around
+(1)    1384 :                    queue_add_update:
+(1)    1384 : 77                         mov     m, a            ; queue_put
+(1)    1385 : 1A                         ldax    d               ; restore an element
+(1)    1386 : E1                         pop     h
+(1)    1387 : D1                         pop     d
+(1)    1388 : 37                         stc                     ; set carry
+(1)    1389 : C9                         ret
+(1)    138A :
+(1)    138A :                    ;;; [queue] Remove an element from queue
+(1)    138A :                    ;;; @param HL queue work space pointer
+(1)    138A :                    ;;; @return A an element
+(1)    138A :                    ;;; @return F.C 0 if queue is empty
+(1)    138A :                    queue_remove:
+(1)    138A : 7E                         mov     a, m            ; queue_len
+(1)    138B : B7                         ora     a               ; clear carry
+(1)    138C : C2 90 13                   jnz     queue_remove_elem ; queue_len > 0
+(1)    138F : C9                         ret                     ; carry is cleared by |ora|
+(1)    1390 :                    queue_remove_elem:
+(1)    1390 : D5                         push    d
+(1)    1391 : E5                         push    h
+(1)    1392 : 35                         dcr     m               ; queue_len--
+(1)    1393 : 23                         inx     h
+(1)    1394 : 23                         inx     h
+(1)    1395 : 23                         inx     h
+(1)    1396 : 7E                         mov     a, m            ; queue_get
+(1)    1397 : 5F                         mov     e, a
+(1)    1398 : 16 00                      mvi     d, 0
+(1)    139A : EB                         xchg                    ; DE points queue_get
+(1)    139B : 19                         dad     d
+(1)    139C : 23                         inx     h               ; offset of queue_buf
+(1)    139D : EB                         xchg                    ; DE points an element to read
+(1)    139E : 3C                         inr     a               ; queue_get++
+(1)    139F : 2B                         dcx     h
+(1)    13A0 : 2B                         dcx     h
+(1)    13A1 : BE                         cmp     m               ; queue_size
+(1)    13A2 : 23                         inx     h
+(1)    13A3 : 23                         inx     h
+(1)    13A4 : DA A8 13                   jc      queue_remove_update ; queue_get < queue_size
+(1)    13A7 : AF                         xra     a                   ; wrap around
+(1)    13A8 :                    queue_remove_update:
+(1)    13A8 : 77                         mov     m, a            ; queue_get
+(1)    13A9 : 1A                         ldax    d               ; read an element
+(1)    13AA : E1                         pop     h
+(1)    13AB : D1                         pop     d
+(1)    13AC : 37                         stc                     ; set carry
+(1)    13AD : C9                         ret
+       13AE :
+       13AE :                    isr_intr_rx:
+       13AE : F5                         push    psw
+       13AF : DB 01                      in      USARTS
+       13B1 : E6 02                      ani     ST_RxRDY_bm
+       13B3 : CA C0 13                   jz      isr_intr_rx_exit
+       13B6 : DB 00                      in      USARTD          ; receive character
+       13B8 : E5                         push    h
+       13B9 : 21 00 20                   lxi     h, rx_queue
+       13BC : CD 62 13                   call    queue_add
+       13BF : E1                         pop     h
+       13C0 :                    isr_intr_rx_exit:
+       13C0 : F1                         pop     psw
+       13C1 : FB                         ei
+       13C2 : C9                         ret
+       13C3 :
+       13C3 :                    isr_intr_tx:
+       13C3 : F5                         push    psw
+       13C4 : DB 01                      in      USARTS
+       13C6 : E6 01                      ani     ST_TxRDY_bm
+       13C8 : CA D8 13                   jz      isr_intr_tx_exit
+       13CB : E5                         push    h
+       13CC : 21 80 20                   lxi     h, tx_queue
+       13CF : CD 8A 13                   call    queue_remove
+       13D2 : E1                         pop     h
+       13D3 : D2 DB 13                   jnc     isr_intr_send_empty
+       13D6 : D3 00                      out     USARTD          ; send character
+       13D8 :                    isr_intr_tx_exit:
+       13D8 : F1                         pop     psw
+       13D9 : FB                         ei
+       13DA : C9                         ret
+       13DB :                    isr_intr_send_empty:
+       13DB : 3E 36                      mvi     a, RX_EN_TX_DIS
+       13DD : D3 01                      out     USARTC          ; disable Tx
+       13DF : F1                         pop     psw
+       13E0 : FB                         ei
+       13E1 : C9                         ret
+       13E2 :
+       13E2 :                            end

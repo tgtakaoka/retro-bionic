@@ -1,0 +1,423 @@
+          0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+          0 :                            cpu     8085
+          0 :                            include "i8085.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :                            include "i8080.inc"
+(2)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(2)       0 :                    ;;; i8080
+(2)       0 :                    ;;; FLAGS Register
+(2)       0 : =80                F_SIGN:         equ     10000000B ; set to 1 if negative
+(2)       0 : =40                F_ZERO:         equ     01000000B ; set to 1 if zero
+(2)       0 : =10                F_HALF_CARRY:   equ     00010000B ; set to 1 if carry from bit-3
+(2)       0 : =4                 F_PARITY:       equ     00000100B ; set to 1 if even parity
+(2)       0 : =1                 F_CARRY:        equ     00000001B ; set to 1 if carry
+(2)       0 :                    ;;; Interrupt origin
+(2)       0 : =0                 ORG_RESET:      equ     0000H   ; RESET
+(2)       0 : =0                 ORG_RST0:       equ     0000H   ; RST 0
+(2)       0 : =8                 ORG_RST1:       equ     0008H   ; RST 1
+(2)       0 : =10                ORG_RST2:       equ     0010H   ; RST 2
+(2)       0 : =18                ORG_RST3:       equ     0018H   ; RST 3
+(2)       0 : =20                ORG_RST4:       equ     0020H   ; RST 4
+(2)       0 : =28                ORG_RST5:       equ     0028H   ; RST 5
+(2)       0 : =30                ORG_RST6:       equ     0030H   ; RST 6
+(2)       0 : =38                ORG_RST7:       equ     0038H   ; RST 3
+(1)       0 :                    ;;; i8085
+(1)       0 :                    ;;; Set Innterrupt Maske
+(1)       0 : =80                SIM_SOD:        equ     10000000B ; Serial Output Data
+(1)       0 : =40                SIM_SDE:        equ     01000000B ; Serial Data Enable
+(1)       0 : =10                SIM_R75:        equ     00010000B ; Reset RST 7.5 latch
+(1)       0 : =8                 SIM_MSE:        equ     00001000B ; Mask Set Enable
+(1)       0 : =4                 SIM_M75:        equ     00000100B ; RST 7.5 Mask
+(1)       0 : =2                 SIM_M65:        equ     00000010B ; RST 6.5 Mask
+(1)       0 : =1                 SIM_M55:        equ     00000001B ; RST 5.5 Mask
+(1)       0 :                    ;;; Read Interrupt Mask
+(1)       0 : =80                RIM_SID:        equ     10000000B ; Serial Input Data
+(1)       0 : =40                RIM_I75:        equ     01000000B ; RST 7.5 Pending
+(1)       0 : =20                RIM_I65:        equ     00100000B ; RST 6.5 Pending
+(1)       0 : =10                RIM_I55:        equ     00010000B ; RST 5.5 Pending
+(1)       0 : =8                 RIM_IE:         equ     00001000B ; Interrupt Enable
+(1)       0 : =4                 RIM_M75:        equ     SIM_M75
+(1)       0 : =2                 RIM_M65:        equ     SIM_M65
+(1)       0 : =1                 RIM_M55:        equ     SIM_M55
+(1)       0 :                    ;;; Interrupt origin
+(1)       0 : =24                ORG_TRAP:       equ     0024H   ; TRAP
+(1)       0 : =2C                ORG_RST55:      equ     002CH   ; RST 5.5
+(1)       0 : =34                ORG_RST65:      equ     0034H   ; RST 6.5
+(1)       0 : =3C                ORG_RST75:      equ     003CH   ; RST 7.5
+          0 :
+          0 :                    ;;; i8251 Universal Synchronous/Asynchronous Receiver/Transmitter
+          0 : =0                 USART:          equ     00H
+          0 : =0                 USARTD:         equ     USART+0 ; Receive/Transmit data
+          0 : =1                 USARTS:         equ     USART+1 ; Srtatus register
+          0 : =1                 USARTC:         equ     USART+1 ; Control register
+          0 : =2                 USARTRV:        equ     USART+2 ; Receive interrupt vector (ORG_*)
+          0 : =3                 USARTTV:        equ     USART+3 ; Transmit interrupt vector (ORG_*)
+          0 :                            include "i8251.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :
+(1)       0 :                    ;;; i8251 USART device emulator.
+(1)       0 : =6                 MODE_STOP_gp:   equ     6
+(1)       0 : =C0                MODE_STOP_gm:   equ     11000000B
+(1)       0 : =40                MODE_STOP1_gc:  equ     (1 << MODE_STOP_gp)
+(1)       0 : =80                MODE_STOP15_gc: equ     (2 << MODE_STOP_gp)
+(1)       0 : =C0                MODE_STOP2_gc:  equ     (3 << MODE_STOP_gp)
+(1)       0 : =20                MODE_EVEN_bm:   equ     00100000B
+(1)       0 : =10                MODE_PARITY_bm: equ     00010000B
+(1)       0 : =2                 MODE_LEN_gp:    equ     2
+(1)       0 : =C                 MODE_LEN_gm:    equ     00001100B
+(1)       0 : =0                 MODE_LEN5_gc:   equ     (0 << MODE_LEN_gp)
+(1)       0 : =4                 MODE_LEN6_gc:   equ     (1 << MODE_LEN_gp)
+(1)       0 : =8                 MODE_LEN7_gc:   equ     (2 << MODE_LEN_gp)
+(1)       0 : =C                 MODE_LEN8_gc:   equ     (3 << MODE_LEN_gp)
+(1)       0 : =0                 MODE_BAUD_gp:   equ     0
+(1)       0 : =3                 MODE_BAUD_gm:   equ     00000011B
+(1)       0 : =1                 MODE_BAUD_X1:   equ     (1 << MODE_BAUD_gp)
+(1)       0 : =2                 MODE_BAUD_X16:  equ (2 << MODE_BAUD_gp)
+(1)       0 : =3                 MODE_BAUD_X64:  equ (3 << MODE_BAUD_gp)
+(1)       0 :                    ;;; Bit Definition of command register
+(1)       0 : =80                CMD_EH_bm:      equ     10000000B   ; Enter hunt mode
+(1)       0 : =40                CMD_IR_bm:      equ     01000000B   ; Internal Reset
+(1)       0 : =20                CMD_RTS_bm:     equ     00100000B   ; Request To Send
+(1)       0 : =10                CMD_ER_bm:      equ     00010000B   ; Error Reset
+(1)       0 : =8                 CMD_SBRK_bm:    equ     00001000B   ; Send Break
+(1)       0 : =4                 CMD_RxEN_bm:    equ     00000100B   ; Receive Enable
+(1)       0 : =2                 CMD_DTR_bm:     equ     00000010B   ; Data Terminal Ready
+(1)       0 : =1                 CMD_TxEN_bm:    equ     00000001B   ; Transmit enable
+(1)       0 :
+(1)       0 :                    ;;; Bit definition of status register
+(1)       0 : =80                ST_DSR_bm:      equ     10000000B   ; Data Set Ready
+(1)       0 : =40                ST_BRK_bm:      equ     01000000B   ; BREAK detected
+(1)       0 : =20                ST_FE_bm:       equ     00100000B   ; Framing Error
+(1)       0 : =10                ST_OE_bm:       equ     00010000B   ; Iverrun Error
+(1)       0 : =8                 ST_PE_bm:       equ     00001000B   ; Parity Error
+(1)       0 : =4                 ST_TxEMPTY_bm:  equ     00000100B   ; Transmitter empty
+(1)       0 : =2                 ST_RxRDY_bm:    equ     00000010B   ; Receiver ready
+(1)       0 : =1                 ST_TxRDY_bm:    equ     00000001B   ; Transmitter ready
+          0 :                    ;;; Async 1stop 8data x16
+          0 : =4E                ASYNC_MODE:     equ     MODE_STOP1_gc|MODE_LEN8_gc|MODE_BAUD_X16
+          0 :                    ;;; RTS/DTR, error reset, Rx enable, Tx enable
+          0 : =37                RX_EN_TX_EN:    equ     CMD_RTS_bm|CMD_DTR_bm|CMD_ER_bm|CMD_RxEN_bm|CMD_TxEN_bm
+          0 : =36                RX_EN_TX_DIS:   equ     CMD_RTS_bm|CMD_DTR_bm|CMD_ER_bm|CMD_RxEN_bm
+          0 :
+       2000 :                            org     2000H
+       2000 : =80                rx_queue_size:  equ     128
+       2000 :                    rx_queue:       ds      rx_queue_size
+       2080 : =80                tx_queue_size:  equ     128
+       2080 :                    tx_queue:       ds      tx_queue_size
+       2100 :
+       1000 :                            org     1000H
+       1000 : =1000              stack:  equ     $
+       1000 :
+          0 :                            org     ORG_RESET
+          0 : C3 00 01                   jmp     init
+          3 :
+         2C :                            org     ORG_RST55
+         2C : C3 38 02                   jmp     isr_intr_rx
+         2F :
+         30 :                            org     ORG_RST6
+         30 : C3 4D 02                   jmp     isr_intr_tx
+         33 :
+        100 :                            org     0100H
+        100 :                    init:
+        100 : 31 00 10                   lxi     sp, stack
+        103 : 21 00 20                   lxi     h, rx_queue
+        106 : 06 80                      mvi     b, rx_queue_size
+        108 : CD D6 01                   call    queue_init
+        10B : 21 80 20                   lxi     h, tx_queue
+        10E : 06 80                      mvi     b, tx_queue_size
+        110 : CD D6 01                   call    queue_init
+        113 :                    init_usart:
+        113 : AF                         xra     a               ; clear A
+        114 : D3 01                      out     USARTC
+        116 : D3 01                      out     USARTC
+        118 : D3 01                      out     USARTC          ; safest way to sync mode
+        11A : 3E 40                      mvi     a, CMD_IR_bm
+        11C : D3 01                      out     USARTC          ; reset
+        11E : 00                         nop
+        11F : 00                         nop
+        120 : 3E 4E                      mvi     a, ASYNC_MODE
+        122 : D3 01                      out     USARTC
+        124 : 00                         nop
+        125 : 00                         nop
+        126 : 3E 36                      mvi     a, RX_EN_TX_DIS
+        128 : D3 01                      out     USARTC
+        12A : 3E 2C                      mvi     a, ORG_RST55
+        12C : D3 02                      out     USARTRV         ; set RxRDY interrupt vector RST 5.5
+        12E : 3E 30                      mvi     a, ORG_RST6
+        130 : D3 03                      out     USARTTV         ; set TxRDY interrupt vector RST 6
+        132 :
+        132 : 20                         rim
+        133 : E6 FC                      ani     ~(SIM_M55|SIM_M65) ; enable RST 5.5/RST 5.6
+        135 : F6 18                      ori     SIM_MSE|SIM_R75
+        137 : 30                         sim
+        138 : FB                         ei
+        139 :
+        139 :                    receive_loop:
+        139 : CD AD 01                   call    getchar
+        13C : D2 39 01                   jnc     receive_loop
+        13F : B7                         ora     a
+        140 : CA 5D 01                   jz      halt_to_system
+        143 :                    echo_back:
+        143 : 47                         mov     b, a
+        144 : CD C2 01                   call    putchar         ; echo
+        147 : 3E 20                      mvi     a, ' '          ; space
+        149 : CD C2 01                   call    putchar
+        14C : CD 5E 01                   call    put_hex8        ; print in hex
+        14F : 3E 20                      mvi     a, ' '          ; space
+        151 : CD C2 01                   call    putchar
+        154 : CD 82 01                   call    put_bin8        ; print in binary
+        157 : CD B8 01                   call    newline
+        15A : C3 39 01                   jmp     receive_loop
+        15D :                    halt_to_system:
+        15D : 76                         hlt
+        15E :
+        15E :                    ;;; Print uint8_t in hex
+        15E :                    ;;; @param B uint8_t value to be printed in hex.
+        15E :                    ;;; @clobber A
+        15E :                    put_hex8:
+        15E : 3E 30                      mvi     a, '0'
+        160 : CD C2 01                   call    putchar
+        163 : 3E 78                      mvi     a, 'x'
+        165 : CD C2 01                   call    putchar
+        168 : 78                         mov     a, b
+        169 : 0F                         rrc
+        16A : 0F                         rrc
+        16B : 0F                         rrc
+        16C : 0F                         rrc
+        16D : CD 71 01                   call    put_hex4
+        170 : 78                         mov     a, b
+        171 :                    put_hex4:
+        171 : E6 0F                      ani     0FH
+        173 : FE 0A                      cpi     10
+        175 : DA 7D 01                   jc      put_hex8_dec    ; A<10
+        178 : C6 37                      adi     'A'-10
+        17A : C3 C2 01                   jmp     putchar
+        17D :                    put_hex8_dec:
+        17D : C6 30                      adi     '0'
+        17F : C3 C2 01                   jmp     putchar
+        182 :
+        182 :                    ;;; Print uint8_t in binary
+        182 :                    ;;; @param B uint8_t value to be printed in binary.
+        182 :                    ;;; @clobber A
+        182 :                    put_bin8:
+        182 : C5                         push    b
+        183 : 3E 30                      mvi     a, '0'
+        185 : CD C2 01                   call    putchar
+        188 : 3E 62                      mvi     a, 'b'
+        18A : CD C2 01                   call    putchar
+        18D : 78                         mov     a, b
+        18E : CD 97 01                   call    put_bin4
+        191 : 07                         rlc
+        192 : CD 97 01                   call    put_bin4
+        195 : C1                         pop     b
+        196 : C9                         ret
+        197 :                    put_bin4:
+        197 : CD 9B 01                   call    put_bin2
+        19A : 07                         rlc
+        19B :                    put_bin2:
+        19B : CD 9F 01                   call    put_bin1
+        19E : 07                         rlc
+        19F :                    put_bin1:
+        19F : 0E 30                      mvi     c, '0'
+        1A1 : B7                         ora     a               ; chech MSB
+        1A2 : F2 A6 01                   jp      put_bin0        ; MSB=0
+        1A5 : 0C                         inr     c               ; MSB=1
+        1A6 :                    put_bin0:
+        1A6 : 47                         mov     b, a
+        1A7 : 79                         mov     a, c
+        1A8 : CD C2 01                   call    putchar
+        1AB : 78                         mov     a, b
+        1AC : C9                         ret
+        1AD :
+        1AD :                    ;;; Get character
+        1AD :                    ;;; @return A
+        1AD :                    ;;; @return CC.C 0 if no character
+        1AD :                    getchar:
+        1AD : E5                         push    h
+        1AE : 21 00 20                   lxi     h, rx_queue
+        1B1 : F3                         di
+        1B2 : CD 14 02                   call    queue_remove
+        1B5 : FB                         ei
+        1B6 : E1                         pop     h
+        1B7 : C9                         ret
+        1B8 :
+        1B8 :                    ;;; Put newline
+        1B8 :                    ;;; @clobber A
+        1B8 :                    newline:
+        1B8 : 3E 0D                      mvi     a, 0DH
+        1BA : CD C2 01                   call    putchar
+        1BD : 3E 0A                      mvi     a, 0AH
+        1BF : C3 C2 01                   jmp     putchar
+        1C2 :
+        1C2 :                    ;;; Put character
+        1C2 :                    ;;; @param A
+        1C2 :                    putchar:
+        1C2 : F5                         push    psw
+        1C3 : E5                         push    h
+        1C4 : 21 80 20                   lxi     h, tx_queue
+        1C7 :                    putchar_retry:
+        1C7 : F3                         di
+        1C8 : CD EC 01                   call    queue_add
+        1CB : FB                         ei
+        1CC : D2 C7 01                   jnc     putchar_retry   ; branch if queue is full
+        1CF : E1                         pop     h
+        1D0 : 3E 37                      mvi     a, RX_EN_TX_EN  ; enable Tx
+        1D2 : D3 01                      out     USARTC
+        1D4 : F1                         pop     psw
+        1D5 : C9                         ret
+        1D6 :
+        1D6 :                            include "queue.inc"
+(1)     1D6 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)     1D6 :                    ;;; [queue] queue structure
+(1)     1D6 : =0                 queue_len:      equ     0       ; queue length
+(1)     1D6 : =1                 queue_size:     equ     1       ; buffer size
+(1)     1D6 : =2                 queue_put:      equ     2       ; queue put index
+(1)     1D6 : =3                 queue_get:      equ     3       ; queue get index
+(1)     1D6 : =4                 queue_buf:      equ     4       ; buffer start offset
+(1)     1D6 :
+(1)     1D6 :                    ;;; [queue] Initialize queue
+(1)     1D6 :                    ;;; @param HL queue work space pointer
+(1)     1D6 :                    ;;; @param B queue work space size
+(1)     1D6 :                    ;;; @clobber B
+(1)     1D6 :                    queue_init:
+(1)     1D6 : F5                         push    psw
+(1)     1D7 : E5                         push    h
+(1)     1D8 : AF                         xra     a
+(1)     1D9 : 77                         mov     m, a            ; queue_len
+(1)     1DA : 78                         mov     a, b
+(1)     1DB : DE 04                      sbi     queue_buf
+(1)     1DD : 23                         inx     h
+(1)     1DE : 77                         mov     m, a            ; queue_size
+(1)     1DF : C6 02                      adi     2               ; for queue_put and queue_get
+(1)     1E1 : 47                         mov     b,a
+(1)     1E2 : AF                         xra     a
+(1)     1E3 :                    queue_init_loop:
+(1)     1E3 : 23                         inx     h
+(1)     1E4 : 77                         mov     m, a
+(1)     1E5 : 05                         dcr     b
+(1)     1E6 : C2 E3 01                   jnz     queue_init_loop
+(1)     1E9 : E1                         pop     h
+(1)     1EA : F1                         pop     psw
+(1)     1EB : C9                         ret
+(1)     1EC :
+(1)     1EC :                    ;;; [queue] Add an element to queue
+(1)     1EC :                    ;;; @param HL queue work space pointer
+(1)     1EC :                    ;;; @param A an element
+(1)     1EC :                    ;;; @return F.C 0 if queue is full
+(1)     1EC :                    queue_add:
+(1)     1EC : D5                         push    d
+(1)     1ED : 57                         mov     d, a            ; save an element
+(1)     1EE : 7E                         mov     a, m            ; queue_len
+(1)     1EF : 23                         inx     h
+(1)     1F0 : BE                         cmp     m               ; queue_size
+(1)     1F1 : 2B                         dcx     h
+(1)     1F2 : 7A                         mov     a, d            ; restore an element
+(1)     1F3 : DA F8 01                   jc      queue_add_store ; queue_len < queue_size
+(1)     1F6 : D1                         pop     d               ; cleared carry is ensured by |jc|
+(1)     1F7 : C9                         ret
+(1)     1F8 :                    queue_add_store:
+(1)     1F8 : E5                         push    h
+(1)     1F9 : 34                         inr     m               ; queue_len++
+(1)     1FA : 23                         inx     h
+(1)     1FB : 23                         inx     h
+(1)     1FC : 5E                         mov     e, m            ; queue_put
+(1)     1FD : 16 00                      mvi     d, 0
+(1)     1FF : EB                         xchg                    ; DE points queue_put
+(1)     200 : 19                         dad     d
+(1)     201 : 23                         inx     h
+(1)     202 : 23                         inx     h               ; offset of queue_buf
+(1)     203 : 77                         mov     m, a            ; store an element
+(1)     204 : EB                         xchg                    ; DE points a stored element
+(1)     205 : 7E                         mov     a, m            ; queue_put
+(1)     206 : 3C                         inr     a               ; queue_put++
+(1)     207 : 2B                         dcx     h
+(1)     208 : BE                         cmp     m               ; queue_size
+(1)     209 : 23                         inx     h
+(1)     20A : DA 0E 02                   jc      queue_add_update ; queue_put < queue_size
+(1)     20D : AF                         xra     a                ; wrap around
+(1)     20E :                    queue_add_update:
+(1)     20E : 77                         mov     m, a            ; queue_put
+(1)     20F : 1A                         ldax    d               ; restore an element
+(1)     210 : E1                         pop     h
+(1)     211 : D1                         pop     d
+(1)     212 : 37                         stc                     ; set carry
+(1)     213 : C9                         ret
+(1)     214 :
+(1)     214 :                    ;;; [queue] Remove an element from queue
+(1)     214 :                    ;;; @param HL queue work space pointer
+(1)     214 :                    ;;; @return A an element
+(1)     214 :                    ;;; @return F.C 0 if queue is empty
+(1)     214 :                    queue_remove:
+(1)     214 : 7E                         mov     a, m            ; queue_len
+(1)     215 : B7                         ora     a               ; clear carry
+(1)     216 : C2 1A 02                   jnz     queue_remove_elem ; queue_len > 0
+(1)     219 : C9                         ret                     ; carry is cleared by |ora|
+(1)     21A :                    queue_remove_elem:
+(1)     21A : D5                         push    d
+(1)     21B : E5                         push    h
+(1)     21C : 35                         dcr     m               ; queue_len--
+(1)     21D : 23                         inx     h
+(1)     21E : 23                         inx     h
+(1)     21F : 23                         inx     h
+(1)     220 : 7E                         mov     a, m            ; queue_get
+(1)     221 : 5F                         mov     e, a
+(1)     222 : 16 00                      mvi     d, 0
+(1)     224 : EB                         xchg                    ; DE points queue_get
+(1)     225 : 19                         dad     d
+(1)     226 : 23                         inx     h               ; offset of queue_buf
+(1)     227 : EB                         xchg                    ; DE points an element to read
+(1)     228 : 3C                         inr     a               ; queue_get++
+(1)     229 : 2B                         dcx     h
+(1)     22A : 2B                         dcx     h
+(1)     22B : BE                         cmp     m               ; queue_size
+(1)     22C : 23                         inx     h
+(1)     22D : 23                         inx     h
+(1)     22E : DA 32 02                   jc      queue_remove_update ; queue_get < queue_size
+(1)     231 : AF                         xra     a                   ; wrap around
+(1)     232 :                    queue_remove_update:
+(1)     232 : 77                         mov     m, a            ; queue_get
+(1)     233 : 1A                         ldax    d               ; read an element
+(1)     234 : E1                         pop     h
+(1)     235 : D1                         pop     d
+(1)     236 : 37                         stc                     ; set carry
+(1)     237 : C9                         ret
+        238 :
+        238 :                    isr_intr_rx:
+        238 : F5                         push    psw
+        239 :                    isr_intr_receive:
+        239 : DB 01                      in      USARTS
+        23B : E6 02                      ani     ST_RxRDY_bm
+        23D : CA 4A 02                   jz      isr_intr_rx_exit
+        240 : DB 00                      in      USARTD          ; receive character
+        242 : E5                         push    h
+        243 : 21 00 20                   lxi     h, rx_queue
+        246 : CD EC 01                   call    queue_add
+        249 : E1                         pop     h
+        24A :                    isr_intr_rx_exit:
+        24A : F1                         pop     psw
+        24B : FB                         ei
+        24C : C9                         ret
+        24D :
+        24D :                    isr_intr_tx:
+        24D : F5                         push    psw
+        24E : DB 01                      in      USARTS
+        250 : E6 01                      ani     ST_TxRDY_bm
+        252 : CA 62 02                   jz      isr_intr_tx_exit
+        255 : E5                         push    h
+        256 : 21 80 20                   lxi     h, tx_queue
+        259 : CD 14 02                   call    queue_remove
+        25C : E1                         pop     h
+        25D : D2 65 02                   jnc     isr_intr_send_empty
+        260 : D3 00                      out     USARTD          ; send character
+        262 :                    isr_intr_tx_exit:
+        262 : F1                         pop     psw
+        263 : FB                         ei
+        264 : C9                         ret
+        265 :                    isr_intr_send_empty:
+        265 : 3E 36                      mvi     a, RX_EN_TX_DIS
+        267 : D3 01                      out     USARTC          ; disable Tx
+        269 : F1                         pop     psw
+        26A : FB                         ei
+        26B : C9                         ret
+        26C :
+        26C :                            end
