@@ -1,0 +1,505 @@
+          0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+          0 :                            cpu     z86c
+          0 :                            option  "reg-alias", "disable"
+          0 :
+          0 :                            include "z8.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :                    ;;; Z8
+(1)       0 : =FC                FLAGS:  equ     252               ; R/W: Flags register
+(1)       0 : =80                F_CARRY:        equ     %(2)10000000 ; set to 1 if carry
+(1)       0 : =40                F_ZERO:         equ     %(2)01000000 ; set to 1 if zero
+(1)       0 : =20                F_SIGN:         equ     %(2)00100000 ; set to 1 if negative
+(1)       0 : =10                F_OVERFLOW:     equ     %(2)00010000 ; set to 1 if overflow
+(1)       0 : =8                 F_DECIMAL_ADJ:  equ     %(2)00001000 ; decimal adjust
+(1)       0 : =4                 F_HALF_CARRY:   equ     %(2)00000100 ; set to 1 if carry from bit-3
+(1)       0 : =2                 F_USER2:        equ     %(2)00000010 ; User flag F2
+(1)       0 : =1                 F_USER1:        equ     %(2)00000001 ; User flah F1
+(1)       0 :                    ;;; Interrupt vectors
+(1)       0 : =0                 VEC_IRQ0:       equ     %0000   ; IRQ0
+(1)       0 : =2                 VEC_IRQ1:       equ     %0002   ; IRQ1
+(1)       0 : =4                 VEC_IRQ2:       equ     %0004   ; IRQ2/Tin
+(1)       0 : =6                 VEC_IRQ3:       equ     %0006   ; IRQ3/Serial in
+(1)       0 : =8                 VEC_IRQ4:       equ     %0008   ; IRQ4/Serial out/T0
+(1)       0 : =A                 VEC_IRQ5:       equ     %000A   ; IRQ5/T1
+(1)       0 :                    ;;; Reset origin
+(1)       0 : =C                 ORG_RESET:      equ     %000C   ; RESET
+(1)       0 :                    ;;; I/O Ports
+(1)       0 : =2                 PORT2:          equ     2       ; Port 2
+(1)       0 : =3                 PORT3:          equ     3       ; Port 3
+(1)       0 : =F7                P3M:            equ     247       ; W/O: Port 3 Mode Register
+(1)       0 : =80                P3M_PARITY:     equ     %(2)10000000 ; 1=Parity on
+(1)       0 : =40                P3M_SERIAL:     equ     %(2)01000000 ; 1=P30 is serial in, P37 is serial out
+(1)       0 : =1                 P3M_P2PUSHPULL: equ     %(2)00000001 ; 1=Port 2 is push-pull, 0=open drain
+(1)       0 : =F6                P2M:            equ     246       ; W/O: Port 2 Mode Register, 0=output, 1=input
+(1)       0 : =F8                P01M:           equ     248       ; W/O: Port 0 and 1 Mode Register
+(1)       0 : =82                P01M_P0ADDR:    equ     %(2)10000010 ; Port 0 is A8~A15
+(1)       0 : =10                P01M_P1DATA:    equ     %(2)00010000 ; Port 1 is AD0~AD7
+(1)       0 : =4                 P01M_INTERNAL:  equ     %(2)00000100 ; Stack is on internal memory
+(1)       0 :                    ;;; Interrupt
+(1)       0 : =F9                IPR:    equ     249             ; W/O: Interrupt Priority
+(1)       0 : =1                 IPR_CAB:        equ     %(2)000001 ; C > A > B
+(1)       0 : =8                 IPR_ABC:        equ     %(2)001000 ; A > B > C
+(1)       0 : =9                 IPR_ACB:        equ     %(2)001001 ; A > C > B
+(1)       0 : =10                IPR_BCA:        equ     %(2)010000 ; B > C > A
+(1)       0 : =11                IPR_CBA:        equ     %(2)010001 ; C > B > A
+(1)       0 : =18                IPR_BAC:        equ     %(2)011000 ; B > A > C
+(1)       0 : =0                 IPR_A53:        equ     %(2)000000 ; A: IRQ5 > IRQ3
+(1)       0 : =20                IPR_A35:        equ     %(2)100000 ; A: IRQ3 > IRQ5
+(1)       0 : =0                 IPR_B20:        equ     %(2)000000 ; B: IRQ2 > IRQ0
+(1)       0 : =4                 IPR_B02:        equ     %(2)000100 ; B: IRQ0 > IRQ2
+(1)       0 : =0                 IPR_C14:        equ     %(2)000000 ; C: IRQ0 > IRQ4
+(1)       0 : =2                 IPR_C41:        equ     %(2)000010 ; C: IRQ4 > IRQ0
+(1)       0 : =FB                IMR:    equ     251             ; R/W: Interrupt Mask
+(1)       0 : =80                IMR_ENABLE:     equ     %(2)10000000 ; Interrupt enable
+(1)       0 : =1                 IMR_IRQ0:       equ     (1 SHL 0)
+(1)       0 : =2                 IMR_IRQ1:       equ     (1 SHL 1)
+(1)       0 : =4                 IMR_IRQ2:       equ     (1 SHL 2)
+(1)       0 : =8                 IMR_IRQ3:       equ     (1 SHL 3)
+(1)       0 : =10                IMR_IRQ4:       equ     (1 SHL 4)
+(1)       0 : =20                IMR_IRQ5:       equ     (1 SHL 5)
+(1)       0 : =FA                IRQ:    equ     250             ; R/W: Interrupt Request
+(1)       0 : =1                 IRQ_IRQ0:       equ     IMR_IRQ0
+(1)       0 : =2                 IRQ_IRQ1:       equ     IMR_IRQ1
+(1)       0 : =4                 IRQ_IRQ2:       equ     IMR_IRQ2
+(1)       0 : =8                 IRQ_IRQ3:       equ     IMR_IRQ3
+(1)       0 : =10                IRQ_IRQ4:       equ     IMR_IRQ4
+(1)       0 : =20                IRQ_IRQ5:       equ     IMR_IRQ5
+(1)       0 :                    ;;; Counter/Timers
+(1)       0 : =F5                PRE0:   equ     245             ; W/O: Prescaler 0 register
+(1)       0 : =1                 PRE0_MODULO:    equ     %(2)00000001 ; 1=Modulo-N, 0=Single-pass
+(1)       0 : =FC                PRE0_gm:        equ     %(2)11111100 ; Modulo mask
+(1)       0 : =2                 PRE0_gp:        equ     2         ; Modulo bit position
+(1)       0 : =F3                PRE1:   equ     243               ; W/O: Prescaler 1 register
+(1)       0 : =1                 PRE1_MODULO:    equ     %(2)00000001 ; 1=Modulo-N, 0=SinglePass
+(1)       0 : =2                 PRE1_INTERNAL:  equ     %(2)00000010 ; 1=T1 internal, 0=T1 external
+(1)       0 : =FC                PRE1_gm:        equ     %(2)11111100 ; Modulo mask
+(1)       0 : =2                 PRE1_gp:        equ     2         ; Modulo bit position
+(1)       0 : =F2                T1:     equ     242               ; R/W: Counter/Timer 1 Register
+(1)       0 : =F4                T0:     equ     244               ; R/W: Counter/Timer 0 Register
+(1)       0 : =F1                TMR:    equ     241               ; R/W: Timer Mode Register
+(1)       0 : =1                 TMR_LOAD_T0:    equ     %(2)00000001 ; 1=Load T0
+(1)       0 : =2                 TMR_ENABLE_T0:  equ     %(2)00000010 ; 1=Enable T0
+(1)       0 : =4                 TMR_LOAD_T1:    equ     %(2)00000100 ; 1=Load T1
+(1)       0 : =8                 TMR_ENABLE_T1:  equ     %(2)00001000 ; 1=Enable T1
+(1)       0 : =0                 TMR_TOUT_OFF:   equ     %(2)00000000 ; TOUT off
+(1)       0 : =40                TMR_TOUT_T0:    equ     %(2)01000000 ; TOUT=T0
+(1)       0 : =80                TMR_TOUT_T1:    equ     %(2)10000000 ; TOUT=T1
+(1)       0 : =C0                TMR_TOUT_CLOCK: equ     %(2)11000000 ; TOUT=internal clock
+(1)       0 :                    ;;;
+(1)       0 : =F0                SIO:    equ     240             ; R/W: Serial I/O Register
+(1)       0 : =FD                RP:     equ     253             ; R/W: Register pointer
+(1)       0 : =FE                SPH:    equ     254             ; R/W: Stack Pointer High
+(1)       0 : =FF                SPL:    equ     255             ; R/W: Stack Pointer Low
+          0 :
+          0 :                    ;;; i8251 Universal Synchronous/Asynchronous Receiver/Transmitter
+          0 : =FF00              USART:          equ     %FF00
+          0 : =FF00              USARTD:         equ     USART+0 ; Receive/Transmit data
+          0 : =FF01              USARTS:         equ     USART+1 ; Status register
+          0 : =FF01              USARTC:         equ     USART+1 ; Control register
+          0 : =FF02              USARTRI:        equ     USART+2 ; Receive interrupt name (IRQ0~2)
+          0 : =FF03              USARTTI:        equ     USART+3 ; Transmit interrupt name (IRQ0~2)
+          0 :                            include "i8251.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :                    ;;; i8251 USART device emulator.
+(1)       0 : =6                 MODE_STOP_gp:   equ     6
+(1)       0 : =C0                MODE_STOP_gm:   equ     %(2)11000000
+(1)       0 : =40                MODE_STOP1_gc:  equ     (1 SHL MODE_STOP_gp)
+(1)       0 : =80                MODE_STOP15_gc: equ     (2 SHL MODE_STOP_gp)
+(1)       0 : =C0                MODE_STOP2_gc:  equ     (3 SHL MODE_STOP_gp)
+(1)       0 : =20                MODE_EVEN_bm:   equ     %(2)00100000
+(1)       0 : =10                MODE_PARITY_bm: equ     %(2)00010000
+(1)       0 : =2                 MODE_LEN_gp:    equ     2
+(1)       0 : =C                 MODE_LEN_gm:    equ     %(2)00001100
+(1)       0 : =0                 MODE_LEN5_gc:   equ     (0 SHL MODE_LEN_gp)
+(1)       0 : =4                 MODE_LEN6_gc:   equ     (1 SHL MODE_LEN_gp)
+(1)       0 : =8                 MODE_LEN7_gc:   equ     (2 SHL MODE_LEN_gp)
+(1)       0 : =C                 MODE_LEN8_gc:   equ     (3 SHL MODE_LEN_gp)
+(1)       0 : =0                 MODE_BAUD_gp:   equ     0
+(1)       0 : =3                 MODE_BAUD_gm:   equ     %(2)00000011
+(1)       0 : =1                 MODE_BAUD_X1:   equ     (1 SHL MODE_BAUD_gp)
+(1)       0 : =2                 MODE_BAUD_X16:  equ     (2 SHL MODE_BAUD_gp)
+(1)       0 : =3                 MODE_BAUD_X64:  equ     (3 SHL MODE_BAUD_gp)
+(1)       0 :                    ;;; Bit Definition of command register
+(1)       0 : =80                CMD_EH_bm:      equ     %(2)10000000   ; Enter hunt mode
+(1)       0 : =40                CMD_IR_bm:      equ     %(2)01000000   ; Internal Reset
+(1)       0 : =20                CMD_RTS_bm:     equ     %(2)00100000   ; Request To Send
+(1)       0 : =10                CMD_ER_bm:      equ     %(2)00010000   ; Error Reset
+(1)       0 : =8                 CMD_SBRK_bm:    equ     %(2)00001000   ; Send Break
+(1)       0 : =4                 CMD_RxEN_bm:    equ     %(2)00000100   ; Receive Enable
+(1)       0 : =2                 CMD_DTR_bm:     equ     %(2)00000010   ; Data Terminal Ready
+(1)       0 : =1                 CMD_TxEN_bm:    equ     %(2)00000001   ; Transmit enable
+(1)       0 :                    ;;; Bit definition of status register
+(1)       0 : =80                ST_DSR_bm:      equ     %(2)10000000   ; Data Set Ready
+(1)       0 : =40                ST_BRK_bm:      equ     %(2)01000000   ; BREAK detected
+(1)       0 : =20                ST_FE_bm:       equ     %(2)00100000   ; Framing Error
+(1)       0 : =10                ST_OE_bm:       equ     %(2)00010000   ; Iverrun Error
+(1)       0 : =8                 ST_PE_bm:       equ     %(2)00001000   ; Parity Error
+(1)       0 : =4                 ST_TxEMPTY_bm:  equ     %(2)00000100   ; Transmitter empty
+(1)       0 : =2                 ST_RxRDY_bm:    equ     %(2)00000010   ; Receiver ready
+(1)       0 : =1                 ST_TxRDY_bm:    equ     %(2)00000001   ; Transmitter ready
+(1)       0 :                    ;;; Interrupt name for receive/transmit interrupt
+(1)       0 : =0                 INTR_NONE:      equ     0
+(1)       0 : =1                 INTR_IRQ0:      equ     1
+(1)       0 : =2                 INTR_IRQ1:      equ     2
+(1)       0 : =3                 INTR_IRQ2:      equ     3
+          0 :                    ;;; Async 1stop 8data x16
+          0 : =4E                ASYNC_MODE:     equ     MODE_STOP1_gc LOR MODE_LEN8_gc LOR MODE_BAUD_X16
+          0 :                    ;;; RTS/DTR, error reset, Rx enable, Tx enable
+          0 : =37                RX_EN_TX_EN:    equ     CMD_RTS_bm LOR CMD_DTR_bm LOR CMD_ER_bm LOR CMD_RxEN_bm LOR CMD_TxEN_bm
+          0 : =36                RX_EN_TX_DIS:   equ     CMD_RTS_bm LOR CMD_DTR_bm LOR CMD_ER_bm LOR CMD_RxEN_bm
+          0 :
+       2000 :                            org     %2000
+       2000 : =80                rx_queue_size:  equ     128
+       2000 :                    rx_queue:       ds      rx_queue_size
+       2080 : =80                tx_queue_size:  equ     128
+       2080 :                    tx_queue:       ds      tx_queue_size
+       2100 :
+          0 :                            org     VEC_IRQ0
+          0 : 11 AC                      dw      isr_intr_rx
+          2 :
+          2 :                            org     VEC_IRQ1
+          2 : 11 CF                      dw      isr_intr_tx
+          4 :
+          C :                            org     ORG_RESET
+          C : 8D 10 00                   jp      init_config
+          F :
+       1000 :                            org     %1000
+       1000 : =1000              stack:  equ     $
+       1000 :
+       1000 :                    init_config:
+       1000 : 31 F0                      srp     #%F0
+       1002 :                            setrp   %F0
+       1002 :                            ;; Stack is on external memory
+       1002 : 8C 92                      ld      P01M, #P01M_P0ADDR LOR P01M_P1DATA
+       1004 : 6C FF                      ld      P2M, #%FF       ; Port 2 is input
+       1006 : EC 10                      ld      SPH, #HIGH stack
+       1008 : FC 00                      ld      SPL, #LOW stack
+       100A : 31 10                      srp     #%10
+       100C :                            setrp   %10
+       100C : 2C 20                      ld      r2, #HIGH rx_queue
+       100E : 3C 00                      ld      r3, #LOW rx_queue
+       1010 : 1C 80                      ld      r1, #rx_queue_size
+       1012 : D6 10 FF                   call    queue_init
+       1015 : 2C 20                      ld      r2, #HIGH tx_queue
+       1017 : 3C 80                      ld      r3, #LOW tx_queue
+       1019 : 1C 80                      ld      r1, #tx_queue_size
+       101B : D6 10 FF                   call    queue_init
+       101E :
+       101E :                    init_usart:
+       101E : CC FF                      ld      r12, #HIGH USARTC
+       1020 : DC 01                      ld      r13, #LOW USARTC
+       1022 : B0 E0                      clr     r0
+       1024 : 92 0C                      lde     @rr12, r0
+       1026 : 92 0C                      lde     @rr12, r0
+       1028 : 92 0C                      lde     @rr12, r0       ; safest way to sync mode
+       102A : 0C 40                      ld      r0, #CMD_IR_bm
+       102C : 92 0C                      lde     @rr12, r0       ; reset
+       102E : FF                         nop
+       102F : FF                         nop
+       1030 : 0C 4E                      ld      r0, #ASYNC_MODE
+       1032 : 92 0C                      lde     @rr12, r0       ; async 1stop 8data x16
+       1034 : FF                         nop
+       1035 : FF                         nop
+       1036 : 0C 36                      ld      r0, #RX_EN_TX_DIS
+       1038 : 92 0C                      lde     @rr12, r0       ; RTS/DTR, error reset, Rx enable, Tx disable
+       103A : 0C 01                      ld      r0, #INTR_IRQ0
+       103C : DC 02                      ld      r13, #LOW USARTRI
+       103E : 92 0C                      lde     @rr12, r0       ; enable RxRDY interrupt using IRQ0
+       1040 : 0C 02                      ld      r0, #INTR_IRQ1
+       1042 : DC 03                      ld      r13, #LOW USARTTI
+       1044 : 92 0C                      lde     @rr12, r0       ; enable TxRDY interrupt using IRQ1
+       1046 :
+       1046 : E6 F9 34                   ld      IPR, #IPR_BCA LOR IPR_B02 LOR IPR_C14 LOR IPR_A35
+       1049 :                            ;; enable IRQ0 and IRQ1
+       1049 : E6 FB 03                   ld      IMR, #IMR_IRQ0 LOR IMR_IRQ1
+       104C : 9F                         ei
+       104D :
+       104D :                    receive_loop:
+       104D : D6 10 C4                   call    getchar
+       1050 : FB FB                      jr      nc, receive_loop
+       1052 : 42 00                      or      r0, r0
+       1054 : EB 01                      jr      nz, echo_back
+       1056 : 7F                         halt
+       1057 :                    echo_back:
+       1057 : 18 E0                      ld      r1, r0          ; save letter
+       1059 : D6 10 DF                   call    putchar         ; echo
+       105C : 0C 20                      ld      r0, #' '        ; space
+       105E : D6 10 DF                   call    putchar
+       1061 : D6 10 71                   call    put_hex8        ; print in hex
+       1064 : 0C 20                      ld      r0, #' '        ; space
+       1066 : D6 10 DF                   call    putchar
+       1069 : D6 10 96                   call    put_bin8        ; print in binary
+       106C : D6 10 D6                   call    newline
+       106F : 8B DC                      jr      receive_loop
+       1071 :
+       1071 :                    ;;; Print uint8_t in hex
+       1071 :                    ;;; @param r1 uint8_t value to be printed in hex.
+       1071 :                    ;;; @clobber r0
+       1071 :                    put_hex8:
+       1071 : 0C 30                      ld      r0, #'0'
+       1073 : D6 10 DF                   call    putchar
+       1076 : 0C 78                      ld      r0, #'x'
+       1078 : D6 10 DF                   call    putchar
+       107B : 08 E1                      ld      r0, r1
+       107D : F0 E0                      swap    r0
+       107F : D6 10 84                   call    put_hex4
+       1082 : 08 E1                      ld      r0, r1
+       1084 :                    put_hex4:
+       1084 : 56 E0 0F                   and     r0, #%F
+       1087 : A6 E0 0A                   cp      r0, #10
+       108A : 7B 05                      jr      c, put_hex8_dec ; A<10
+       108C : 06 E0 37                   add     r0, #'A'-10
+       108F : 8B 4E                      jr      putchar
+       1091 :                    put_hex8_dec:
+       1091 : 06 E0 30                   add     r0, #'0'
+       1094 : 8B 49                      jr      putchar
+       1096 :
+       1096 :                    ;;; Print uint8_t in binary
+       1096 :                    ;;; @param r1 uint8_t value to be printed in binary.
+       1096 :                    ;;; @clobber r0
+       1096 :                    put_bin8:
+       1096 : 70 E4                      push    r4
+       1098 : 0C 30                      ld      r0, #'0'
+       109A : D6 10 DF                   call    putchar
+       109D : 0C 62                      ld      r0, #'b'
+       109F : D6 10 DF                   call    putchar
+       10A2 : 48 E1                      ld      r4, r1
+       10A4 : D6 10 AF                   call    put_bin4
+       10A7 : 90 E4                      rl      r4
+       10A9 : D6 10 AF                   call    put_bin4
+       10AC : 50 E4                      pop     r4
+       10AE : AF                         ret
+       10AF :                    put_bin4:
+       10AF : D6 10 B4                   call    put_bin2
+       10B2 : 90 E4                      rl      r4
+       10B4 :                    put_bin2:
+       10B4 : D6 10 B9                   call    put_bin1
+       10B7 : 90 E4                      rl      r4
+       10B9 :                    put_bin1:
+       10B9 : 0C 30                      ld      r0, #'0'
+       10BB : 42 44                      or      r4, r4
+       10BD : DD 10 C2                   jp      pl, put_bin0    ; MSB=0
+       10C0 : 0C 31                      ld      r0, #'1'        ; MSB=1
+       10C2 :                    put_bin0:
+       10C2 : 8B 1B                      jr      putchar
+       10C4 :
+       10C4 :                    ;;; Get character
+       10C4 :                    ;;; @return r0
+       10C4 :                    ;;; @return FLAGS.C 0 if no character
+       10C4 :                    getchar:
+       10C4 : 70 E3                      push    r3
+       10C6 : 70 E2                      push    r2
+       10C8 : 2C 20                      ld      r2, #HIGH rx_queue
+       10CA : 3C 00                      ld      r3, #LOW rx_queue
+       10CC : 8F                         di
+       10CD : D6 11 6A                   call    queue_remove
+       10D0 : 9F                         ei
+       10D1 : 50 E2                      pop     r2
+       10D3 : 50 E3                      pop     r3
+       10D5 : AF                         ret
+       10D6 :
+       10D6 :                    ;;; Put newline
+       10D6 :                    ;;; @clobber r0
+       10D6 :                    newline:
+       10D6 : 0C 0D                      ld      r0, #%0D
+       10D8 : D6 10 DF                   call    putchar
+       10DB : 0C 0A                      ld      r0, #%0A
+       10DD : 8B 00                      jr      putchar
+       10DF :
+       10DF :                    ;;; Put character
+       10DF :                    ;;; @param r0
+       10DF :                    putchar:
+       10DF : 70 E0                      push    r0
+       10E1 : 70 E2                      push    r2
+       10E3 : 70 E3                      push    r3
+       10E5 : 2C 20                      ld      r2, #HIGH tx_queue
+       10E7 : 3C 80                      ld      r3, #LOW tx_queue
+       10E9 :                    putchar_retry:
+       10E9 : 8F                         di
+       10EA : D6 11 26                   call    queue_add
+       10ED : 9F                         ei
+       10EE : FB F9                      jr      nc, putchar_retry ; branch if queue is full
+       10F0 : 2C FF                      ld      r2, #HIGH USARTC
+       10F2 : 3C 01                      ld      r3, #LOW USARTC
+       10F4 : 0C 37                      ld      r0, #RX_EN_TX_EN
+       10F6 : 92 02                      lde     @rr2, r0        ; enable Tx
+       10F8 :                    putchar_exit:
+       10F8 : 50 E3                      pop     r3
+       10FA : 50 E2                      pop     r2
+       10FC : 50 E0                      pop     r0
+       10FE : AF                         ret
+       10FF :
+       10FF :                            include "queue.inc"
+(1)    10FF :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)    10FF :                    ;;; [queue] queue structure
+(1)    10FF : =0                 queue_len:      equ     0       ; queue length
+(1)    10FF : =1                 queue_size:     equ     1       ; buffer size
+(1)    10FF : =2                 queue_put:      equ     2       ; queue put index
+(1)    10FF : =3                 queue_get:      equ     3       ; queue get index
+(1)    10FF : =4                 queue_buf:      equ     4       ; buffer start offset
+(1)    10FF :
+(1)    10FF :                    ;;; [queue] Initialize queue
+(1)    10FF :                    ;;; @param rr2 queue work space pointer
+(1)    10FF :                    ;;; @param r1 queue work space size
+(1)    10FF :                    ;;; @clobber r1
+(1)    10FF :                    queue_init:
+(1)    10FF : 70 E0                      push    r0
+(1)    1101 : 70 E2                      push    r2
+(1)    1103 : 70 E3                      push    r3
+(1)    1105 : B0 E0                      clr     r0
+(1)    1107 : 92 02                      lde     @rr2, r0        ; queue_len
+(1)    1109 : A0 E2                      incw    rr2
+(1)    110B : 08 E1                      ld      r0, r1
+(1)    110D : 26 E0 04                   sub     r0, #queue_buf
+(1)    1110 : 92 02                      lde     @rr2, r0        ; queue_size
+(1)    1112 : A0 E2                      incw    rr2
+(1)    1114 : 06 E0 02                   add     r0, #2          ; for queue_put and queue_get
+(1)    1117 : B0 E1                      clr     r1
+(1)    1119 :                    queue_init_loop:
+(1)    1119 : 92 12                      lde     @rr2, r1
+(1)    111B : A0 E2                      incw    rr2
+(1)    111D : 0A FA                      djnz    r0, queue_init_loop
+(1)    111F : 50 E3                      pop     r3
+(1)    1121 : 50 E2                      pop     r2
+(1)    1123 : 50 E0                      pop     r0
+(1)    1125 : AF                         ret
+(1)    1126 :
+(1)    1126 :                    ;;; [queue] Add an element to queue
+(1)    1126 :                    ;;; @param rr2 queue work space pointer
+(1)    1126 :                    ;;; @param r0 an element
+(1)    1126 :                    ;;; @return FLAGS.C 0 if queue is full
+(1)    1126 :                    queue_add:
+(1)    1126 : 70 E1                      push    r1
+(1)    1128 : 70 E4                      push    r4              ; save r1, r4
+(1)    112A : 82 12                      lde     r1, @rr2        ; queue_len
+(1)    112C : 1E                         inc     r1              ; queue_len++
+(1)    112D : A0 E2                      incw    rr2             ; rr2 points queue_size
+(1)    112F : 82 42                      lde     r4, @rr2        ; r4=queue_size
+(1)    1131 : A2 14                      cp      r1, r4
+(1)    1133 : 80 E2                      decw    rr2                ; rr2 points queue_len
+(1)    1135 : 7B 05                      jr      c, queue_add_store ; queue_len < queue_size
+(1)    1137 : 50 E4                      pop     r4                 ; restore r1, r4
+(1)    1139 : 50 E1                      pop     r1
+(1)    113B : AF                         ret                     ; return with FLAGS.C=0
+(1)    113C :                    queue_add_store:
+(1)    113C : 92 12                      lde     @rr2, r1        ; update queue_len
+(1)    113E : A0 E2                      incw    rr2
+(1)    1140 : A0 E2                      incw    rr2             ; rr2 points to queue_put
+(1)    1142 : 82 12                      lde     r1, @rr2        ; queue_put
+(1)    1144 : 70 E3                      push    r3              ; save rr2
+(1)    1146 : 70 E2                      push    r2
+(1)    1148 : A0 E2                      incw    rr2
+(1)    114A : A0 E2                      incw    rr2             ; rr2 points to queue_buf
+(1)    114C : 02 31                      add     r3, r1
+(1)    114E : 16 E2 00                   adc     r2, #0          ; rr2=&queue_buf[queue_put]
+(1)    1151 : 92 02                      lde     @rr2, r0        ; store an element
+(1)    1153 : 50 E2                      pop     r2              ; restore rr2 points to queue_put
+(1)    1155 : 50 E3                      pop     r3
+(1)    1157 : 1E                         inc     r1              ; queue_put++
+(1)    1158 : A2 14                      cp      r1, r4
+(1)    115A : 7B 02                      jr      c, queue_add_update ; queue_put < queue_size
+(1)    115C : B0 E1                      clr     r1
+(1)    115E :                    queue_add_update:
+(1)    115E : 92 12                      lde     @rr2, r1        ; queue_put
+(1)    1160 : 80 E2                      decw    rr2
+(1)    1162 : 80 E2                      decw    rr2             ; rr2 points queue_len
+(1)    1164 : DF                         scf                     ; set carry flag
+(1)    1165 : 50 E4                      pop     r4              ; restpre r1, r4
+(1)    1167 : 50 E1                      pop     r1              ; restore r1
+(1)    1169 : AF                         ret
+(1)    116A :
+(1)    116A :                    ;;; [queue] Remove an element from queue
+(1)    116A :                    ;;; @param rr2 queue work space pointer
+(1)    116A :                    ;;; @return r0 an element
+(1)    116A :                    ;;; @return FLAGS.C 0 if queue is empty
+(1)    116A :                    queue_remove:
+(1)    116A : 70 E1                      push    r1              ; save r1
+(1)    116C : 82 12                      lde     r1, @rr2        ; queue_len
+(1)    116E : 42 11                      or      r1, r1
+(1)    1170 : EB 04                      jr      nz, queue_remove_elem ; queue_len > 0
+(1)    1172 : CF                         rcf                           ; reset carry flag
+(1)    1173 : 50 E1                      pop     r1
+(1)    1175 : AF                         ret
+(1)    1176 :                    queue_remove_elem:
+(1)    1176 : 70 E4                      push    r4              ; save r4
+(1)    1178 : 00 E1                      dec     r1              ; queue_len--
+(1)    117A : 92 12                      lde     @rr2, r1        ; update queue_len
+(1)    117C : A0 E2                      incw    rr2
+(1)    117E : 82 42                      lde     r4, @rr2        ; r4=queue_size
+(1)    1180 : A0 E2                      incw    rr2
+(1)    1182 : A0 E2                      incw    rr2             ; rr2 points queue_get
+(1)    1184 : 70 E3                      push    r3
+(1)    1186 : 70 E2                      push    r2
+(1)    1188 : 82 12                      lde     r1, @rr2        ; queue_get
+(1)    118A : A0 E2                      incw    rr2             ; rr2 points queue_buf
+(1)    118C : 02 31                      add     r3, r1
+(1)    118E : 16 E2 00                   adc     r2, #0          ; rr2=&queue_buf[queue_get]
+(1)    1191 : 82 02                      lde     r0, @rr2        ; read an element
+(1)    1193 : 50 E2                      pop     r2              ; restore rr2 points to queue_get
+(1)    1195 : 50 E3                      pop     r3
+(1)    1197 : 1E                         inc     r1              ; queue_get++
+(1)    1198 : A2 14                      cp      r1, r4
+(1)    119A : 7B 02                      jr      c, queue_remove_update ; queue_get < queue_size
+(1)    119C : B0 E1                      clr     r1
+(1)    119E :                    queue_remove_update:
+(1)    119E : 92 12                      lde     @rr2, r1        ; update queue_get
+(1)    11A0 : 80 E2                      decw    rr2
+(1)    11A2 : 80 E2                      decw    rr2
+(1)    11A4 : 80 E2                      decw    rr2             ; rr2 points queue_len
+(1)    11A6 : 50 E4                      pop     r4              ; restore r1, r4
+(1)    11A8 : 50 E1                      pop     r1
+(1)    11AA : DF                         scf                     ; set carry
+(1)    11AB : AF                         ret
+       11AC :
+       11AC :                            setrp   -1
+       11AC :                    isr_intr_rx:
+       11AC : 70 E0                      push    r0
+       11AE : 70 E2                      push    r2
+       11B0 : 70 E3                      push    r3
+       11B2 : 2C FF                      ld      r2, #HIGH USARTS
+       11B4 : 3C 01                      ld      r3, #LOW USARTS
+       11B6 : 82 02                      lde     r0, @rr2        ; USARTS
+       11B8 : 56 E0 02                   and     r0, #ST_RxRDY_bm
+       11BB : 6B 0B                      jr      z, isr_intr_rx_exit
+       11BD : 3C 00                      ld      r3, #LOW USARTD
+       11BF : 82 02                      lde     r0, @rr2        ; USARTD
+       11C1 : 2C 20                      ld      r2, #HIGH rx_queue
+       11C3 : 3C 00                      ld      r3, #LOW rx_queue
+       11C5 : D6 11 26                   call    queue_add
+       11C8 :                    isr_intr_rx_exit:
+       11C8 : 50 E3                      pop     r3
+       11CA : 50 E2                      pop     r2
+       11CC : 50 E0                      pop     r0
+       11CE : BF                         iret
+       11CF :
+       11CF :                    isr_intr_tx:
+       11CF : 70 E0                      push    r0
+       11D1 : 70 E2                      push    r2
+       11D3 : 70 E3                      push    r3
+       11D5 : 2C FF                      ld      r2, #HIGH USARTS
+       11D7 : 3C 01                      ld      r3, #LOW USARTS
+       11D9 : 82 02                      lde     r0, @rr2        ; USARTS
+       11DB : 56 E0 01                   and     r0, #ST_TxRDY_bm
+       11DE : 6B 0F                      jr      z, isr_intr_tx_exit
+       11E0 : 2C 20                      ld      r2, #HIGH tx_queue
+       11E2 : 3C 80                      ld      r3, #LOW tx_queue
+       11E4 : D6 11 6A                   call    queue_remove
+       11E7 : 2C FF                      ld      r2, #HIGH USARTD
+       11E9 : 3C 00                      ld      r3, #LOW USARTD
+       11EB : FB 09                      jr      nc, isr_intr_send_empty
+       11ED : 92 02                      lde     @rr2, r0        ; USARTD
+       11EF :                    isr_intr_tx_exit:
+       11EF : 50 E3                      pop     r3
+       11F1 : 50 E2                      pop     r2
+       11F3 : 50 E0                      pop     r0
+       11F5 : BF                         iret
+       11F6 :                    isr_intr_send_empty:
+       11F6 : 3C 01                      ld      r3, #LOW USARTC
+       11F8 : 0C 36                      ld      r0, #RX_EN_TX_DIS
+       11FA : 92 02                      lde     @rr2, r0        ; disable Tx
+       11FC : 50 E3                      pop     r3
+       11FE : 50 E2                      pop     r2
+       1200 : 50 E0                      pop     r0
+       1202 : BF                         iret
+       1203 :
+       1203 :                            end
