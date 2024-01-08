@@ -1,0 +1,689 @@
+          0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+          0 :                            cpu     1802
+          0 :                            option  "smart-branch", "on"
+          0 :                            include "cdp1802.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :
+(1)       0 :                    ;;; CDP1802 register alias
+(1)       0 : =0                 R0:     equ     0
+(1)       0 : =1                 R1:     equ     1
+(1)       0 : =2                 R2:     equ     2
+(1)       0 : =3                 R3:     equ     3
+(1)       0 : =4                 R4:     equ     4
+(1)       0 : =5                 R5:     equ     5
+(1)       0 : =6                 R6:     equ     6
+(1)       0 : =7                 R7:     equ     7
+(1)       0 : =8                 R8:     equ     8
+(1)       0 : =9                 R9:     equ     9
+(1)       0 : =A                 R10:    equ     10
+(1)       0 : =B                 R11:    equ     11
+(1)       0 : =C                 R12:    equ     12
+(1)       0 : =D                 R13:    equ     13
+(1)       0 : =E                 R14:    equ     14
+(1)       0 : =F                 R15:    equ     15
+(1)       0 :
+(1)       0 :                    ;;; Transfer locations
+(1)       0 : =0                 ORG_RESET:      equ     0000H   ; Reset transfer location
+          0 :
+          0 :                    ;;; MC6850 Asynchronous Communication Interface Adapter
+          0 : =DF00              ACIA:   equ     X'0DF00'
+          0 :                            include "mc6850.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :
+(1)       0 :                    ;;; MC6850
+(1)       0 :                    ;;; Asynchronous Communication Interface Adapter
+(1)       0 :
+(1)       0 :                    ;;; Control register
+(1)       0 : =DF00              ACIA_control:   equ     ACIA+0
+(1)       0 :                            ;; Counter Divider Select Bits
+(1)       0 : =3                 CDS_gm:         equ     11b    ; Group mask
+(1)       0 : =0                 CDS_DIV1_gc:    equ     00000000B ; /1
+(1)       0 : =1                 CDS_DIV16_gc:   equ     00000001B ; /16
+(1)       0 : =2                 CDS_DIV64_gc:   equ     00000010B ; /64
+(1)       0 : =3                 CDS_RESET_gc:   equ     00000011B ; Master Reset
+(1)       0 :                            ;; Word Select Bits
+(1)       0 : =1C                WSB_gm:         equ     00011100B ; Group mask
+(1)       0 : =0                 WSB_7E2_gc:     equ     00000000B ; 7 Bits + Even Parity + 2 Stop Bits
+(1)       0 : =4                 WSB_7O2_gc:     equ     00000100B ; 7 bits + Odd Parity  + 2 Stop Bits
+(1)       0 : =8                 WSB_7E1_gc:     equ     00001000B ; 7 bits + Even Parity + 1 Stop Bits
+(1)       0 : =C                 WSB_7O1_gc:     equ     00001100B ; 7 bits + Odd Parity  + 1 Stop Bits
+(1)       0 : =10                WSB_8N2_gc:     equ     00010000B ; 8 bits + No Parity   + 2 Stop Bits
+(1)       0 : =14                WSB_8N1_gc:     equ     00010100B ; 8 bits + No Parity   + 1 Stop Bits
+(1)       0 : =18                WSB_8E1_gc:     equ     00011000B ; 8 bits + Even Parity + 1 Stop Bits
+(1)       0 : =1C                WSB_8O1_gc:     equ     00011100B ; 8 bits + Odd Parity  + 1 Stop Bits
+(1)       0 :                            ;; Transmit Control Bits
+(1)       0 : =60                TCB_gm:         equ     01100000B ; Group mask
+(1)       0 : =0                 TCB_DI_gc:      equ     00000000B ; RTS=Low,  Tx Interrupt Disabled
+(1)       0 : =20                TCB_EI_gc:      equ     00100000B ; RTS=Low,  Tx Interrupt Enabled
+(1)       0 : =40                TCB_RTS_gc:     equ     01000000B ; RTS=High, Tx Interrupt Disabled
+(1)       0 : =60                TCB_BREAK_gc:   equ     01100000B ; RTS=Low,  Tx Interrupt Disabled
+(1)       0 :                                                      ; Transmit Break Level
+(1)       0 : =80                RIEB_bm:        equ     10000000B ; Receive Interrupt Enable Bit mask
+(1)       0 :
+(1)       0 :                    ;;; Status register
+(1)       0 : =DF00              ACIA_status:    equ     ACIA+0
+(1)       0 : =1                 RDRF_bm:        equ     00000001B ; Receive Data Register Full
+(1)       0 : =2                 TDRE_bm:        equ     00000010B ; Transmit Data Register Empty
+(1)       0 : =4                 DCDF_bm:        equ     00000100B ; Data Carrier Detect Flag
+(1)       0 : =8                 CTSF_bm:        equ     00001000B ; Clear To Send Flag
+(1)       0 : =10                FERR_bm:        equ     00010000B ; Frame Error Flag
+(1)       0 : =20                OVRN_bm:        equ     00100000B ; Receiver Overrun Flag
+(1)       0 : =40                PERR_bm:        equ     01000000B ; Parity Error Flag
+(1)       0 : =80                IRQF_bm:        equ     10000000B ; Interrupt Request Flag
+(1)       0 :
+(1)       0 :                    ;;; Data register
+(1)       0 : =DF01              ACIA_data:      equ     ACIA+1          ; Data register
+          0 :
+       2000 :                            org     X'2000'
+       2000 :
+       2000 : =80                rx_queue_size:  equ     128
+       2000 : =80                tx_queue_size:  equ     128
+       2000 : =94                RX_INT_TX_NO:   equ     WSB_8N1_gc|RIEB_bm
+       2000 : =B4                RX_INT_TX_INT:  equ     WSB_8N1_gc|RIEB_bm|TCB_EI_gc
+       2000 :
+       2000 :                    rx_queue:
+       2080 :                            org     *+rx_queue_size
+       2080 :                    tx_queue:
+       2100 :                            org     *+tx_queue_size
+       2100 :
+       2100 : =FFF               stack:  equ     X'1000'-1
+       2100 :
+        100 :                            org     X'0100'
+        100 :                    main:
+        100 : D5                         sep     R5
+        101 : 03 00                      dc      A(queue_init)   ; call queue_init
+        103 : 20 00                      dc      A(rx_queue)
+        105 : 80                         dc      rx_queue_size
+        106 : D5                         sep     R5
+        107 : 03 00                      dc      A(queue_init)   ; call queue_init
+        109 : 20 80                      dc      A(tx_queue)
+        10B : 80                         dc      tx_queue_size
+        10C :                            ;; initialize ACIA
+        10C : F8 DF                      ldi     A.1(ACIA)
+        10E : B8                         phi     R8
+        10F : F8 00                      ldi     A.0(ACIA)
+        111 : A8                         plo     R8
+        112 : F8 03                      ldi     CDS_RESET_gc    ; Master reset
+        114 : 58                         str     R8              ; ACIA_control
+        115 : F8 94                      ldi     RX_INT_TX_NO
+        117 : 58                         str     R8              ; ACIA_control
+        118 : E3                         sex     R3
+        119 : 70                         ret
+        11A : 33                         dc      X'33'           ; enable interrupt
+        11B : E2                         sex     R2
+        11C :
+        11C :                    loop:
+        11C : D5                         sep     R5              ; call getchar
+        11D : 01 95                      dc      A(getchar)
+        11F : 32 1C                      bz      loop
+        121 : 87                         glo     R7
+        122 : 3A 25                      bnz     echo_back
+        124 : 00                         idl
+        125 :                    echo_back:
+        125 : D5                         sep     R5              ; call putchar
+        126 : 01 A3                      dc      A(putchar)
+        128 : F8 20                      ldi     ' '
+        12A : D5                         sep     R5              ; call putchar
+        12B : 01 A3                      dc      A(putchar)
+        12D : 87                         glo     R7
+        12E : D5                         sep     R5              ; call put_hex8
+        12F : 01 46                      dc      A(put_hex8)
+        131 : F8 20                      ldi     ' '
+        133 : D5                         sep     R5              ; call putchar
+        134 : 01 A3                      dc      A(putchar)
+        136 : 87                         glo     R7
+        137 : D5                         sep     R5              ; call put_bin8
+        138 : 01 74                      dc      A(put_bin8)
+        13A : F8 0D                      ldi     x'0d'
+        13C : D5                         sep     R5              ; call putchar
+        13D : 01 A3                      dc      A(putchar)
+        13F : F8 0A                      ldi     x'0a'
+        141 : D5                         sep     R5              ; call putchar
+        142 : 01 A3                      dc      A(putchar)
+        144 : 30 1C                      br      loop
+        146 :
+        146 :                    ;;; Print uint8_t in hex
+        146 :                    ;;; @param D uint8_t value to be printed in binary.
+        146 :                    put_hex8:
+        146 : AF                         plo     R15             ; save D to scratch pad
+        147 : 87                         glo     R7              ; save R7.0
+        148 : 73                         stxd
+        149 : 8F                         glo     R15             ; restore D
+        14A :                            ;;
+        14A : A7                         plo     R7              ; R7.0=data
+        14B : F8 30                      ldi     '0'
+        14D : D5                         sep     R5              ; call putchar
+        14E : 01 A3                      dc      A(putchar)
+        150 : F8 78                      ldi     'x'
+        152 : D5                         sep     R5              ; call putchar
+        153 : 01 A3                      dc      A(putchar)
+        155 : 87                         glo     R7
+        156 : F6                         shr
+        157 : F6                         shr
+        158 : F6                         shr
+        159 : F6                         shr
+        15A : D5                         sep     R5              ; call put_hex4
+        15B : 01 65                      dc      A(put_hex4)
+        15D : 87                         glo     R7
+        15E : D5                         sep     R5              ; call put_hex4
+        15F : 01 65                      dc      A(put_hex4)
+        161 :                            ;;
+        161 : 60                         irx
+        162 : F0                         ldx                     ; restore R7.0
+        163 : A7                         plo     R7
+        164 : D6                         sep     R6              ; return
+        165 :
+        165 :                    ;;; Print hexadecimal digit
+        165 :                    ;;; @param D nibble
+        165 :                    ;;; @clobber D
+        165 :                    put_hex4:
+        165 : FA 0F                      ani     0Fh
+        167 : FF 0A                      smi     10
+        169 : 3B 6E                      bnf     put_hex4_dec    ; branch if D < 10
+        16B : FC 41                      adi     'A'
+        16D : C8                         lskp
+        16E :                    put_hex4_dec:
+        16E : FC 3A                      adi     '0'+10
+        170 : D5                         sep     R5              ; call putchar
+        171 : 01 A3                      dc      A(putchar)
+        173 : D6                         sep     R6              ; return
+        174 :
+        174 :                    ;;; Print uint8_t in binary
+        174 :                    ;;; @param D uint8_t value to be printed in binary.
+        174 :                    ;;; @clobber D
+        174 :                    put_bin8:
+        174 : AF                         plo     R15             ; save D to scratch pad
+        175 : 87                         glo     R7              ; save R7
+        176 : 73                         stxd
+        177 : 97                         ghi     R7
+        178 : 73                         stxd
+        179 : 8F                         glo     R15             ; restore D
+        17A :                            ;;
+        17A : B7                         phi     R7              ; R7.1=data
+        17B : F8 08                      ldi     8
+        17D : A7                         plo     R7              ; R7.0=bit count
+        17E :                    put_bin8_loop:
+        17E : 97                         ghi     R7
+        17F : FE                         shl
+        180 : B7                         phi     R7              ; R7.1<<=1
+        181 : 3B 86                      bnf     put_bin8_zero
+        183 : F8 31                      ldi     '1'
+        185 : C8                         lskp
+        186 :                    put_bin8_zero:
+        186 : F8 30                      ldi     '0'
+        188 : D5                         sep     R5              ; call putchar
+        189 : 01 A3                      dc      A(putchar)
+        18B : 27                         dec     R7              ; R7--
+        18C : 87                         glo     R7
+        18D : 3A 7E                      bnz     put_bin8_loop
+        18F :                            ;;
+        18F : 60                         irx
+        190 : 72                         ldxa                    ; restore R7
+        191 : B7                         phi     R7
+        192 : F0                         ldx
+        193 : A7                         plo     R7
+        194 : D6                         sep     R6              ; return
+        195 :
+        195 :                    ;;; Get character
+        195 :                    ;;; @return R7.0 char
+        195 :                    ;;; @return A 0 if no char received
+        195 :                    getchar:
+        195 : E3                         sex     R3
+        196 : 71                         dis                     ; disable interrupt
+        197 : 33                         dc      X'33'
+        198 : E2                         sex     R2
+        199 : D5                         sep     R5              ; call queue_remove
+        19A : 03 5A                      dc      A(queue_remove)
+        19C : 20 00                      dc      A(rx_queue)
+        19E : E3                         sex     R3
+        19F : 70                         ret                     ; enable interrupt
+        1A0 : 33                         dc      X'33'
+        1A1 : E2                         sex     R2
+        1A2 : D6                         sep     R6              ; return
+        1A3 :
+        1A3 :                    ;;; Put character
+        1A3 :                    ;;; @param D char
+        1A3 :                    ;;; @unchanged D
+        1A3 :                    ;;; @clobber R15
+        1A3 :                    putchar:
+        1A3 : 73                         stxd                    ; save D
+        1A4 : AF                         plo     R15             ; save D to scratch pad
+        1A5 : 87                         glo     R7              ; save R7.0
+        1A6 : 73                         stxd
+        1A7 : 8F                         glo     R15             ; restore D
+        1A8 :                            ;;
+        1A8 : A7                         plo     R7              ; R7.0=char
+        1A9 :                    putchar_loop:
+        1A9 : E3                         sex     R3
+        1AA : 71                         dis                     ; disable interrupt
+        1AB : 33                         dc      X'33'
+        1AC : E2                         sex     R2
+        1AD : D5                         sep     R5              ; call queue_add
+        1AE : 03 1F                      dc      A(queue_add)
+        1B0 : 20 80                      dc      A(tx_queue)
+        1B2 : E3                         sex     R3
+        1B3 : 70                         ret                     ; enable interrupt
+        1B4 : 33                         dc      X'33'
+        1B5 : E2                         sex     R2
+        1B6 : 32 A9                      bz      putchar_loop    ; retry if queue is full
+        1B8 : F8 DF                      ldi     A.1(ACIA)
+        1BA : BF                         phi     R15
+        1BB : F8 00                      ldi     A.0(ACIA)
+        1BD : AF                         plo     R15
+        1BE : F8 B4                      ldi     RX_INT_TX_INT   ; enable Tx interrupt
+        1C0 : 5F                         str     R15             ; ACIA_C
+        1C1 :                    putchar_exit:
+        1C1 : 60                         irx
+        1C2 : 72                         ldxa                    ; restore R7.0
+        1C3 : A7                         plo     R7
+        1C4 : F0                         ldx                     ; restore D
+        1C5 : D6                         sep     R6              ; return
+        1C6 :
+        300 :                            org     X'0300'
+        300 :                            include "queue.inc"
+(1)     300 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)     300 :                    ;;; [queue] queue structure
+(1)     300 : =0                 queue_len:      equ     0       ; queue length
+(1)     300 : =1                 queue_size:     equ     1       ; buffer size
+(1)     300 : =2                 queue_put:      equ     2       ; queue put index
+(1)     300 : =3                 queue_get:      equ     3       ; queue get index
+(1)     300 : =4                 queue_buf:      equ     4       ; buffer start offset
+(1)     300 :
+(1)     300 :                    ;;; [queue] Initialize queue
+(1)     300 :                    ;;; @param R4+0 queue work space pointer
+(1)     300 :                    ;;; @param R4+2 queue work space size
+(1)     300 :                    ;;; @clobber D, R15
+(1)     300 :                    queue_init:
+(1)     300 : 8E                         glo     R14             ; save R14.0
+(1)     301 : 73                         stxd
+(1)     302 :                            ;;
+(1)     302 : 44                         lda     R4
+(1)     303 : BF                         phi     R15
+(1)     304 : 44                         lda     R4
+(1)     305 : AF                         plo     R15             ; R15=queue space pointer
+(1)     306 : F8 00                      ldi     0
+(1)     308 : 5F                         str     R15             ; clear queue_len
+(1)     309 : 1F                         inc     R15
+(1)     30A : 44                         lda     R4              ; queue space size
+(1)     30B : FF 04                      smi     queue_buf       ; calculate queue size
+(1)     30D : 5F                         str     R15             ; store queue_size
+(1)     30E : FC 02                      adi     2               ; for queue_put and queue_get
+(1)     310 : AE                         plo     R14             ; R14.0: byte counter
+(1)     311 :                    queue_init_clear:
+(1)     311 : F8 00                      ldi     0
+(1)     313 : 1F                         inc     R15
+(1)     314 : 5F                         str     R15             ; clear memory
+(1)     315 : 8E                         glo     R14
+(1)     316 : FF 01                      smi     1
+(1)     318 : AE                         plo     R14             ; decrement byte counter
+(1)     319 : 3A 11                      bnz     queue_init_clear
+(1)     31B :                            ;;
+(1)     31B : 60                         irx
+(1)     31C : F0                         ldx                     ; restore R14.0
+(1)     31D : AE                         plo     R14
+(1)     31E : D6                         sep     R6              ; return
+(1)     31F :
+(1)     31F :                    ;;; [queue] Add an element to queue
+(1)     31F :                    ;;; @param R4+0 queue work space pointer
+(1)     31F :                    ;;; @param R7.0 an element
+(1)     31F :                    ;;; @return D 0 if queue is full
+(1)     31F :                    queue_add:
+(1)     31F : 8E                         glo     R14             ; save R14
+(1)     320 : 73                         stxd
+(1)     321 : 9E                         ghi     R14
+(1)     322 : 73                         stxd
+(1)     323 :                            ;;
+(1)     323 : 44                         lda     R4
+(1)     324 : BF                         phi     R15
+(1)     325 : 44                         lda     R4
+(1)     326 : AF                         plo     R15             ; R15=queue space pointer
+(1)     327 : EF                         sex     R15
+(1)     328 : 72                         ldxa                    ; load queue_len
+(1)     329 : F3                         xor                     ; queue_len ^ queue_size
+(1)     32A : 32 51                      bz      queue_add_return ; branch if D=0
+(1)     32C : 2F                         dec     R15
+(1)     32D : 8F                         glo     R15
+(1)     32E : FC 04                      adi     queue_buf
+(1)     330 : AE                         plo     R14
+(1)     331 : 9F                         ghi     R15
+(1)     332 : 7C 00                      adci    0
+(1)     334 : BE                         phi     R14             ; R14=&queue_buf[0]
+(1)     335 : 0F                         ldn     R15
+(1)     336 : FC 01                      adi     1
+(1)     338 : 5F                         str     R15             ; queue_len++
+(1)     339 : 8E                         glo     R14
+(1)     33A : 1F                         inc     R15
+(1)     33B : 1F                         inc     R15
+(1)     33C : EF                         sex     R15
+(1)     33D : F4                         add                     ; add queue_put
+(1)     33E : AE                         plo     R14
+(1)     33F : 9E                         ghi     R14
+(1)     340 : 7C 00                      adci    0
+(1)     342 : BE                         phi     R14             ; R14=&queue_buf[queue_put]
+(1)     343 : 87                         glo     R7              ; R7.0=an element
+(1)     344 : 5E                         str     R14             ; store an element
+(1)     345 : 0F                         ldn     R15             ; load queue_put
+(1)     346 : FC 01                      adi     1
+(1)     348 : 5F                         str     R15             ; update queue_put
+(1)     349 : 2F                         dec     R15
+(1)     34A : F3                         xor                      ; queue_put ^ queue_size
+(1)     34B : 3A 51                      bnz     queue_add_return ; branch if D!=0
+(1)     34D : 1F                         inc     R15
+(1)     34E : 5F                         str     R15             ; queue_put=0
+(1)     34F : F8 01                      ldi     1
+(1)     351 :                    queue_add_return:
+(1)     351 : AF                         plo     R15             ; return flag
+(1)     352 : E2                         sex     R2
+(1)     353 : 60                         irx
+(1)     354 : 72                         ldxa                    ; restore R14
+(1)     355 : BE                         phi     R14
+(1)     356 : F0                         ldx
+(1)     357 : AE                         plo     R14
+(1)     358 : 8F                         glo     R15
+(1)     359 : D6                         sep     R6              ; return
+(1)     35A :
+(1)     35A :                    ;;; [queue] Remove an element from queue
+(1)     35A :                    ;;; @param R4+0 queue work space pointer
+(1)     35A :                    ;;; @return R7.0 an element
+(1)     35A :                    ;;; @return D 0 if queue is empty
+(1)     35A :                    ;;; @clobber R15
+(1)     35A :                    queue_remove:
+(1)     35A : 8E                         glo     R14             ; save R14
+(1)     35B : 73                         stxd
+(1)     35C : 9E                         ghi     R14
+(1)     35D : 73                         stxd
+(1)     35E :                            ;;
+(1)     35E : 44                         lda     R4
+(1)     35F : BF                         phi     R15
+(1)     360 : 44                         lda     R4
+(1)     361 : AF                         plo     R15             ; R15=queue space pointer
+(1)     362 : 0F                         ldn     R15             ; load queue_len
+(1)     363 : 32 8B                      bz      queue_remove_return ; branch if D=0
+(1)     365 : FF 01                      smi     1
+(1)     367 : 5F                         str     R15             ; queue_len--
+(1)     368 : 8F                         glo     R15
+(1)     369 : FC 04                      adi     queue_buf
+(1)     36B : AE                         plo     R14
+(1)     36C : 9F                         ghi     R15
+(1)     36D : 7C 00                      adci    0
+(1)     36F : BE                         phi     R14             ; R14=&queue_buf[0]
+(1)     370 : 8E                         glo     R14
+(1)     371 : 1F                         inc     R15
+(1)     372 : 1F                         inc     R15
+(1)     373 : 1F                         inc     R15
+(1)     374 : EF                         sex     R15
+(1)     375 : F4                         add                     ; add queue_get
+(1)     376 : AE                         plo     R14
+(1)     377 : 9E                         ghi     R14
+(1)     378 : 7C 00                      adci    0
+(1)     37A : BE                         phi     R14             ; R14=&queue_buf[queue_get]
+(1)     37B : 0E                         ldn     R14             ; load an alement
+(1)     37C : A7                         plo     R7              ; R7.0=an element
+(1)     37D : 0F                         ldn     R15             ; load queue_get
+(1)     37E : FC 01                      adi     1
+(1)     380 : 5F                         str     R15             ; update queue_get
+(1)     381 : 2F                         dec     R15
+(1)     382 : 2F                         dec     R15
+(1)     383 : F3                         xor                     ; queue_get ^ queue_size
+(1)     384 : 3A 8B                      bnz     queue_remove_return ; brnach if D!=0
+(1)     386 : 1F                         inc     R15
+(1)     387 : 1F                         inc     R15
+(1)     388 : 5F                         str     R15             ; queue_get=0
+(1)     389 : F8 01                      ldi     1
+(1)     38B :                    queue_remove_return:
+(1)     38B : AF                         plo     R15             ; return flag
+(1)     38C : E2                         sex     R2
+(1)     38D : 60                         irx
+(1)     38E : 72                         ldxa                    ; restore R14
+(1)     38F : BE                         phi     R14
+(1)     390 : F0                         ldx
+(1)     391 : AE                         plo     R14
+(1)     392 : 8F                         glo     R15             ; return flag
+(1)     393 : D6                         sep     R6              ; return
+        394 :
+        394 :                    ;;; From scrt_isr, X=2, P=3
+        394 :                    isr:
+        394 : 88                         glo     R8              ; save R8
+        395 : 73                         stxd
+        396 : 98                         ghi     R8
+        397 : 73                         stxd
+        398 : 87                         glo     R7              ; save R7
+        399 : 73                         stxd
+        39A : 97                         ghi     R7
+        39B : 73                         stxd
+        39C :                            ;;
+        39C : F8 DF                      ldi     A.1(ACIA)
+        39E : B8                         phi     R8
+        39F : F8 00                      ldi     A.0(ACIA)
+        3A1 : A8                         plo     R8              ; R8=ACIA
+        3A2 : 08                         ldn     R8              ; ACIA_status
+        3A3 : FA 80                      ani     IRQF_bm
+        3A5 : 32 CA                      bz      isr_exit
+        3A7 : 08                         ldn     R8              ; ACIA_status
+        3A8 : FA 01                      ani     RDRF_bm
+        3AA : 32 B5                      bz      isr_send        ; no data is received
+        3AC : 18                         inc     R8
+        3AD : 08                         ldn     R8              ; ACIA_data
+        3AE : 28                         dec     R8
+        3AF : A7                         plo     R7
+        3B0 : D5                         sep     R5              ; call queue_add
+        3B1 : 03 1F                      dc      A(queue_add)
+        3B3 : 20 00                      dc      A(rx_queue)
+        3B5 :                    isr_send:
+        3B5 : 08                         ldn     R8              ; ACIA_status
+        3B6 : FA 02                      ani     TDRE_bm
+        3B8 : 32 CA                      bz      isr_exit
+        3BA : D5                         sep     R5              ; call queue_remove
+        3BB : 03 5A                      dc      A(queue_remove)
+        3BD : 20 80                      dc      A(tx_queue)
+        3BF : 32 C7                      bz      isr_send_empty
+        3C1 : 87                         glo     R7
+        3C2 : 18                         inc     R8
+        3C3 : 58                         str     R8              ; ACIA_D
+        3C4 : 28                         dec     R8
+        3C5 : 30 CA                      br      isr_exit
+        3C7 :                    isr_send_empty:
+        3C7 : F8 94                      ldi     RX_INT_TX_NO    ; disable Tx interrupt
+        3C9 : 58                         str     R8              ; ACIA_C
+        3CA :                    isr_exit:
+        3CA : 60                         irx
+        3CB : 72                         ldxa                    ; restore R7
+        3CC : B7                         phi     R7
+        3CD : 72                         ldxa
+        3CE : A7                         plo     R7
+        3CF : 72                         ldxa                    ; restore R8
+        3D0 : B8                         phi     R8
+        3D1 : F0                         ldx
+        3D2 : A8                         plo     R8
+        3D3 : D1                         sep     R1              ; return to scrt_isr
+        3D4 :
+          0 :                            org     ORG_RESET
+          0 : 71                         dis                     ; disable interrupt
+          1 : 00                         dc      X'00'           ; X:P=0:0
+          2 : 30 04                      br      scrt_init
+          4 :
+          4 :                            include "scrt.inc"
+(1)       4 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       4 :
+(1)       4 :                    ;;; Standard Call and Return Technique
+(1)       4 :                    ;;; R0: DMA pointer
+(1)       4 :                    ;;; R1: Program counter for Interrupt routine
+(1)       4 :                    ;;; R2: Stack pointer
+(1)       4 :                    ;;; R3: Program counter
+(1)       4 :                    ;;; R4: Link register, pointer to the return location and arguments
+(1)       4 :                    ;;;     passed by the calling program
+(1)       4 :                    ;;; R5: Dedicated program counter for CALL routine
+(1)       4 :                    ;;; R6: Dedicated program counter for RETURN routine
+(1)       4 :
+(1)       4 :                    ;;; Call subroutine
+(1)       4 :                    ;;;   SEP R5
+(1)       4 :                    ;;;   DC  A(subroutine)
+(1)       4 :                    ;;;   DC  arguments...
+(1)       4 :                    ;;; Subroutine return
+(1)       4 :                    ;;;   SEP R6
+(1)       4 :                    ;;; Return from interrupt
+(1)       4 :                    ;;;   SEP R1
+(1)       4 :
+(1)       4 :                    ;;; Initialize for SCRT, P=0
+(1)       4 :                    ;;; @param P!=3
+(1)       4 :                    ;;; @param stack top address of stack
+(1)       4 :                    ;;; @param main start address of main routine
+(1)       4 :                    ;;; @return P=3
+(1)       4 :                    ;;; @return R1=scrt_isr
+(1)       4 :                    ;;; @return R2=stack
+(1)       4 :                    ;;; @return R3=main
+(1)       4 :                    ;;; @return R5=scrt_call
+(1)       4 :                    ;;; @return R6=scrt_return
+(1)       4 :                    ;;; @clobber D, R15
+(1)       4 :                    scrt_init:
+(1)       4 : F8 00                      ldi     A.1(scrt_start)
+(1)       6 : B3                         phi     R3
+(1)       7 : F8 0B                      ldi     A.0(scrt_start)
+(1)       9 : A3                         plo     R3
+(1)       A : D3                         sep     R3              ; P=3
+(1)       B :                    scrt_start:
+(1)       B : F8 00                      ldi     A.1(scrt_init_tab)
+(1)       D : BF                         phi     R15
+(1)       E : F8 24                      ldi     A.0(scrt_init_tab)
+(1)      10 : AF                         plo     R15
+(1)      11 : 4F                         lda     R15             ; setup interrupt
+(1)      12 : B1                         phi     R1
+(1)      13 : 4F                         lda     R15
+(1)      14 : A1                         plo     R1
+(1)      15 : 4F                         lda     R15             ; setup stack
+(1)      16 : B2                         phi     R2
+(1)      17 : 4F                         lda     R15
+(1)      18 : A2                         plo     R2
+(1)      19 : 4F                         lda     R15             ; setup call
+(1)      1A : B5                         phi     R5
+(1)      1B : 4F                         lda     R15
+(1)      1C : A5                         plo     R5
+(1)      1D : 4F                         lda     R15             ; setup return
+(1)      1E : B6                         phi     R6
+(1)      1F : 4F                         lda     R15
+(1)      20 : A6                         plo     R6
+(1)      21 : C0 01 00                   br      main            ; goto main with P=3
+(1)      24 :
+(1)      24 :                    scrt_init_tab:
+(1)      24 : 00 62                      dc      A(scrt_isr)     ; R1
+(1)      26 : 0F FF                      dc      A(stack)        ; R2
+(1)      28 : 00 2D                      dc      A(scrt_call)    ; R5
+(1)      2A : 00 3F                      dc      A(scrt_return)  ; R6
+(1)      2C :
+(1)      2C :                    ;;; Call subroutine, P=5
+(1)      2C :                    ;;; @param M(R3):M(R3+1) subroutine address
+(1)      2C :                    ;;; @param M(R3+2) optional arguments, depending on a subroutine called.
+(1)      2C :                    ;;; @return R4 points optional arguments
+(1)      2C :                    ;;; @return M(R2) R4.1, R4.0
+(1)      2C :                    ;;; @clobber R15.1, X
+(1)      2C :                    ;;; @unchanged D, DF, IE, R0, R1, R7-R14, R15.0
+(1)      2C :                    scrt_call_exit:
+(1)      2C : D3                         sep     R3              ; go to subroutine
+(1)      2D :                    scrt_call:
+(1)      2D : BF                         phi     R15             ; save D to R15.1
+(1)      2E : E2                         sex     R2              ; select stack
+(1)      2F : 84                         glo     R4              ; push old link register R4
+(1)      30 : 73                         stxd
+(1)      31 : 94                         ghi     R4
+(1)      32 : 73                         stxd
+(1)      33 : 93                         ghi     R3              ; load link register
+(1)      34 : B4                         phi     R4
+(1)      35 : 83                         glo     R3
+(1)      36 : A4                         plo     R4
+(1)      37 : 44                         lda     R4              ; load the address of subroutine
+(1)      38 : B3                         phi     R3
+(1)      39 : 44                         lda     R4
+(1)      3A : A3                         plo     R3              ; R3=subroutine address
+(1)      3B : 9F                         ghi     R15             ; restore D
+(1)      3C : 30 2C                      br      scrt_call_exit
+(1)      3E :
+(1)      3E :                    ;;; Return subroutine, P=6
+(1)      3E :                    ;;; @param R4 return address
+(1)      3E :                    ;;; @oaram M(R2) R4.1, R4.0, X:P(3)
+(1)      3E :                    ;;; @clobber R15.1, X
+(1)      3E :                    ;;; @unchanged D, DF, R0, R1, R7-R14, R15.0
+(1)      3E :                    scrt_return_exit:
+(1)      3E : D3                         sep     R3              ; return to subroutine caller
+(1)      3F :                    scrt_return:
+(1)      3F : BF                         phi     R15             ; save D to R15.1
+(1)      40 : 94                         ghi     R4              ; load return address from link register
+(1)      41 : B3                         phi     R3
+(1)      42 : 84                         glo     R4
+(1)      43 : A3                         plo     R3
+(1)      44 : E2                         sex     R2              ; select stack
+(1)      45 : 60                         irx
+(1)      46 : 72                         ldxa                    ; pop link register R4
+(1)      47 : B4                         phi     R4
+(1)      48 : F0                         ldx
+(1)      49 : A4                         plo     R4
+(1)      4A : 9F                         ghi     R15             ; restore D
+(1)      4B : 30 3E                      br      scrt_return_exit
+(1)      4D :
+(1)      4D :                    ;;; Interrupt exit entry P=1
+(1)      4D :                    ;;;  (Come here by SEP R1)
+(1)      4D :                    scrt_isr_exit:
+(1)      4D : 60                         irx
+(1)      4E : 72                         ldxa                    ; pop program counter R3
+(1)      4F : B3                         phi     R3
+(1)      50 : 72                         ldxa
+(1)      51 : A3                         plo     R3
+(1)      52 : 72                         ldxa                    ; pop call pointer R5
+(1)      53 : B5                         phi     R5
+(1)      54 : 72                         ldxa
+(1)      55 : A5                         plo     R5
+(1)      56 : 72                         ldxa                    ; pop return pointer R6
+(1)      57 : B6                         phi     R6
+(1)      58 : 72                         ldxa
+(1)      59 : A6                         plo     R6
+(1)      5A : 72                         ldxa                    ; pop scratch pad register R15
+(1)      5B : BF                         phi     R15
+(1)      5C : 72                         ldxa
+(1)      5D : AF                         plo     R15
+(1)      5E : 72                         ldxa                    ; pop DF into D:MSB
+(1)      5F : FE                         shl                     ; restore DF
+(1)      60 : 72                         ldxa                    ; pop D
+(1)      61 : 70                         ret                     ; restore X,P IE=1
+(1)      62 :                            ;; R1 points scrt_isr
+(1)      62 :                    ;;; CDP1802 interrupt entry, X=2, P=1, IE=0
+(1)      62 :                    ;;; @unchanged D, DF, X, P, R3, R5, R6, R15
+(1)      62 :                    scrt_isr:
+(1)      62 :                            ;; R2[0] must be preserved because it may be in the pop process
+(1)      62 : 22                         dec     R2
+(1)      63 : 78                         sav                     ; push X,P
+(1)      64 : 22                         dec     R2
+(1)      65 : 73                         stxd                    ; push D
+(1)      66 : 76                         shrc                    ; MSB of D=DF
+(1)      67 : 73                         stxd                    ; push DF
+(1)      68 : 8F                         glo     R15             ; push scratch pad register R15
+(1)      69 : 73                         stxd
+(1)      6A : 9F                         ghi     R15
+(1)      6B : 73                         stxd
+(1)      6C : 86                         glo     R6              ; push return pointer R6
+(1)      6D : 73                         stxd
+(1)      6E : 96                         ghi     R6
+(1)      6F : 73                         stxd
+(1)      70 : 85                         glo     R5              ; push call pointer R5
+(1)      71 : 73                         stxd
+(1)      72 : 95                         ghi     R5
+(1)      73 : 73                         stxd
+(1)      74 : 83                         glo     R3              ; push program counter R3
+(1)      75 : 73                         stxd
+(1)      76 : 93                         ghi     R3
+(1)      77 : 73                         stxd
+(1)      78 :                            ;; Initialize SCRT registers because interrupt service routine
+(1)      78 :                            ;; may use call/return
+(1)      78 : F8 00                      ldi     A.1(scrt_call)  ; initialize call pointer R5
+(1)      7A : B5                         phi     R5
+(1)      7B : F8 2D                      ldi     A.0(scrt_call)
+(1)      7D : A5                         plo     R5
+(1)      7E : F8 00                      ldi     A.1(scrt_return) ; initialize return pointer R6
+(1)      80 : B6                         phi     R6
+(1)      81 : F8 3F                      ldi     A.0(scrt_return)
+(1)      83 : A6                         plo     R6
+(1)      84 :                            ;;
+(1)      84 : F8 03                      ldi     A.1(isr)
+(1)      86 : B3                         phi     R3
+(1)      87 : F8 94                      ldi     A.0(isr)
+(1)      89 : A3                         plo     R3
+(1)      8A : D3                         sep     R3              ; call interrupt service routine with P=3
+(1)      8B : 30 4D                      br      scrt_isr_exit   ; return from isr by SEP R1

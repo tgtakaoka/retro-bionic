@@ -1,0 +1,1347 @@
+          0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+          0 :                            cpu     1802
+          0 :                            option  "smart-branch", "on"
+          0 :                            include "cdp1802.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :
+(1)       0 :                    ;;; CDP1802 register alias
+(1)       0 : =0                 R0:     equ     0
+(1)       0 : =1                 R1:     equ     1
+(1)       0 : =2                 R2:     equ     2
+(1)       0 : =3                 R3:     equ     3
+(1)       0 : =4                 R4:     equ     4
+(1)       0 : =5                 R5:     equ     5
+(1)       0 : =6                 R6:     equ     6
+(1)       0 : =7                 R7:     equ     7
+(1)       0 : =8                 R8:     equ     8
+(1)       0 : =9                 R9:     equ     9
+(1)       0 : =A                 R10:    equ     10
+(1)       0 : =B                 R11:    equ     11
+(1)       0 : =C                 R12:    equ     12
+(1)       0 : =D                 R13:    equ     13
+(1)       0 : =E                 R14:    equ     14
+(1)       0 : =F                 R15:    equ     15
+(1)       0 :
+(1)       0 :                    ;;; Transfer locations
+(1)       0 : =0                 ORG_RESET:      equ     0000H   ; Reset transfer location
+          0 :
+          0 :                            org     ORG_RESET
+          0 : 71                         dis                     ; disable interrupt
+          1 : 00                         dc      X'00'           ; X:P=0:0
+          2 : 30 04                      br      scrt_init
+          4 :                            include "scrt.inc"
+(1)       4 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       4 :
+(1)       4 :                    ;;; Standard Call and Return Technique
+(1)       4 :                    ;;; R0: DMA pointer
+(1)       4 :                    ;;; R1: Program counter for Interrupt routine
+(1)       4 :                    ;;; R2: Stack pointer
+(1)       4 :                    ;;; R3: Program counter
+(1)       4 :                    ;;; R4: Link register, pointer to the return location and arguments
+(1)       4 :                    ;;;     passed by the calling program
+(1)       4 :                    ;;; R5: Dedicated program counter for CALL routine
+(1)       4 :                    ;;; R6: Dedicated program counter for RETURN routine
+(1)       4 :
+(1)       4 :                    ;;; Call subroutine
+(1)       4 :                    ;;;   SEP R5
+(1)       4 :                    ;;;   DC  A(subroutine)
+(1)       4 :                    ;;;   DC  arguments...
+(1)       4 :                    ;;; Subroutine return
+(1)       4 :                    ;;;   SEP R6
+(1)       4 :                    ;;; Return from interrupt
+(1)       4 :                    ;;;   SEP R1
+(1)       4 :
+(1)       4 :                    ;;; Initialize for SCRT, P=0
+(1)       4 :                    ;;; @param P!=3
+(1)       4 :                    ;;; @param stack top address of stack
+(1)       4 :                    ;;; @param main start address of main routine
+(1)       4 :                    ;;; @return P=3
+(1)       4 :                    ;;; @return R1=scrt_isr
+(1)       4 :                    ;;; @return R2=stack
+(1)       4 :                    ;;; @return R3=main
+(1)       4 :                    ;;; @return R5=scrt_call
+(1)       4 :                    ;;; @return R6=scrt_return
+(1)       4 :                    ;;; @clobber D, R15
+(1)       4 :                    scrt_init:
+(1)       4 : F8 00                      ldi     A.1(scrt_start)
+(1)       6 : B3                         phi     R3
+(1)       7 : F8 0B                      ldi     A.0(scrt_start)
+(1)       9 : A3                         plo     R3
+(1)       A : D3                         sep     R3              ; P=3
+(1)       B :                    scrt_start:
+(1)       B : F8 00                      ldi     A.1(scrt_init_tab)
+(1)       D : BF                         phi     R15
+(1)       E : F8 24                      ldi     A.0(scrt_init_tab)
+(1)      10 : AF                         plo     R15
+(1)      11 : 4F                         lda     R15             ; setup interrupt
+(1)      12 : B1                         phi     R1
+(1)      13 : 4F                         lda     R15
+(1)      14 : A1                         plo     R1
+(1)      15 : 4F                         lda     R15             ; setup stack
+(1)      16 : B2                         phi     R2
+(1)      17 : 4F                         lda     R15
+(1)      18 : A2                         plo     R2
+(1)      19 : 4F                         lda     R15             ; setup call
+(1)      1A : B5                         phi     R5
+(1)      1B : 4F                         lda     R15
+(1)      1C : A5                         plo     R5
+(1)      1D : 4F                         lda     R15             ; setup return
+(1)      1E : B6                         phi     R6
+(1)      1F : 4F                         lda     R15
+(1)      20 : A6                         plo     R6
+(1)      21 : C0 10 00                   br      main            ; goto main with P=3
+(1)      24 :
+(1)      24 :                    scrt_init_tab:
+(1)      24 : 00 62                      dc      A(scrt_isr)     ; R1
+(1)      26 : 0F FF                      dc      A(stack)        ; R2
+(1)      28 : 00 2D                      dc      A(scrt_call)    ; R5
+(1)      2A : 00 3F                      dc      A(scrt_return)  ; R6
+(1)      2C :
+(1)      2C :                    ;;; Call subroutine, P=5
+(1)      2C :                    ;;; @param M(R3):M(R3+1) subroutine address
+(1)      2C :                    ;;; @param M(R3+2) optional arguments, depending on a subroutine called.
+(1)      2C :                    ;;; @return R4 points optional arguments
+(1)      2C :                    ;;; @return M(R2) R4.1, R4.0
+(1)      2C :                    ;;; @clobber R15.1, X
+(1)      2C :                    ;;; @unchanged D, DF, IE, R0, R1, R7-R14, R15.0
+(1)      2C :                    scrt_call_exit:
+(1)      2C : D3                         sep     R3              ; go to subroutine
+(1)      2D :                    scrt_call:
+(1)      2D : BF                         phi     R15             ; save D to R15.1
+(1)      2E : E2                         sex     R2              ; select stack
+(1)      2F : 84                         glo     R4              ; push old link register R4
+(1)      30 : 73                         stxd
+(1)      31 : 94                         ghi     R4
+(1)      32 : 73                         stxd
+(1)      33 : 93                         ghi     R3              ; load link register
+(1)      34 : B4                         phi     R4
+(1)      35 : 83                         glo     R3
+(1)      36 : A4                         plo     R4
+(1)      37 : 44                         lda     R4              ; load the address of subroutine
+(1)      38 : B3                         phi     R3
+(1)      39 : 44                         lda     R4
+(1)      3A : A3                         plo     R3              ; R3=subroutine address
+(1)      3B : 9F                         ghi     R15             ; restore D
+(1)      3C : 30 2C                      br      scrt_call_exit
+(1)      3E :
+(1)      3E :                    ;;; Return subroutine, P=6
+(1)      3E :                    ;;; @param R4 return address
+(1)      3E :                    ;;; @oaram M(R2) R4.1, R4.0, X:P(3)
+(1)      3E :                    ;;; @clobber R15.1, X
+(1)      3E :                    ;;; @unchanged D, DF, R0, R1, R7-R14, R15.0
+(1)      3E :                    scrt_return_exit:
+(1)      3E : D3                         sep     R3              ; return to subroutine caller
+(1)      3F :                    scrt_return:
+(1)      3F : BF                         phi     R15             ; save D to R15.1
+(1)      40 : 94                         ghi     R4              ; load return address from link register
+(1)      41 : B3                         phi     R3
+(1)      42 : 84                         glo     R4
+(1)      43 : A3                         plo     R3
+(1)      44 : E2                         sex     R2              ; select stack
+(1)      45 : 60                         irx
+(1)      46 : 72                         ldxa                    ; pop link register R4
+(1)      47 : B4                         phi     R4
+(1)      48 : F0                         ldx
+(1)      49 : A4                         plo     R4
+(1)      4A : 9F                         ghi     R15             ; restore D
+(1)      4B : 30 3E                      br      scrt_return_exit
+(1)      4D :
+(1)      4D :                    ;;; Interrupt exit entry P=1
+(1)      4D :                    ;;;  (Come here by SEP R1)
+(1)      4D :                    scrt_isr_exit:
+(1)      4D : 60                         irx
+(1)      4E : 72                         ldxa                    ; pop program counter R3
+(1)      4F : B3                         phi     R3
+(1)      50 : 72                         ldxa
+(1)      51 : A3                         plo     R3
+(1)      52 : 72                         ldxa                    ; pop call pointer R5
+(1)      53 : B5                         phi     R5
+(1)      54 : 72                         ldxa
+(1)      55 : A5                         plo     R5
+(1)      56 : 72                         ldxa                    ; pop return pointer R6
+(1)      57 : B6                         phi     R6
+(1)      58 : 72                         ldxa
+(1)      59 : A6                         plo     R6
+(1)      5A : 72                         ldxa                    ; pop scratch pad register R15
+(1)      5B : BF                         phi     R15
+(1)      5C : 72                         ldxa
+(1)      5D : AF                         plo     R15
+(1)      5E : 72                         ldxa                    ; pop DF into D:MSB
+(1)      5F : FE                         shl                     ; restore DF
+(1)      60 : 72                         ldxa                    ; pop D
+(1)      61 : 70                         ret                     ; restore X,P IE=1
+(1)      62 :                            ;; R1 points scrt_isr
+(1)      62 :                    ;;; CDP1802 interrupt entry, X=2, P=1, IE=0
+(1)      62 :                    ;;; @unchanged D, DF, X, P, R3, R5, R6, R15
+(1)      62 :                    scrt_isr:
+(1)      62 :                            ;; R2[0] must be preserved because it may be in the pop process
+(1)      62 : 22                         dec     R2
+(1)      63 : 78                         sav                     ; push X,P
+(1)      64 : 22                         dec     R2
+(1)      65 : 73                         stxd                    ; push D
+(1)      66 : 76                         shrc                    ; MSB of D=DF
+(1)      67 : 73                         stxd                    ; push DF
+(1)      68 : 8F                         glo     R15             ; push scratch pad register R15
+(1)      69 : 73                         stxd
+(1)      6A : 9F                         ghi     R15
+(1)      6B : 73                         stxd
+(1)      6C : 86                         glo     R6              ; push return pointer R6
+(1)      6D : 73                         stxd
+(1)      6E : 96                         ghi     R6
+(1)      6F : 73                         stxd
+(1)      70 : 85                         glo     R5              ; push call pointer R5
+(1)      71 : 73                         stxd
+(1)      72 : 95                         ghi     R5
+(1)      73 : 73                         stxd
+(1)      74 : 83                         glo     R3              ; push program counter R3
+(1)      75 : 73                         stxd
+(1)      76 : 93                         ghi     R3
+(1)      77 : 73                         stxd
+(1)      78 :                            ;; Initialize SCRT registers because interrupt service routine
+(1)      78 :                            ;; may use call/return
+(1)      78 : F8 00                      ldi     A.1(scrt_call)  ; initialize call pointer R5
+(1)      7A : B5                         phi     R5
+(1)      7B : F8 2D                      ldi     A.0(scrt_call)
+(1)      7D : A5                         plo     R5
+(1)      7E : F8 00                      ldi     A.1(scrt_return) ; initialize return pointer R6
+(1)      80 : B6                         phi     R6
+(1)      81 : F8 3F                      ldi     A.0(scrt_return)
+(1)      83 : A6                         plo     R6
+(1)      84 :                            ;;
+(1)      84 : F8 10                      ldi     A.1(isr)
+(1)      86 : B3                         phi     R3
+(1)      87 : F8 0F                      ldi     A.0(isr)
+(1)      89 : A3                         plo     R3
+(1)      8A : D3                         sep     R3              ; call interrupt service routine with P=3
+(1)      8B : 30 4D                      br      scrt_isr_exit   ; return from isr by SEP R1
+         8D :
+         8D :                    ;;; MC6850 Asynchronous Communication Interface Adapter
+         8D : =DF00              ACIA:   equ     X'DF00'
+         8D :                            include "mc6850.inc"
+(1)      8D :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)      8D :
+(1)      8D :                    ;;; MC6850
+(1)      8D :                    ;;; Asynchronous Communication Interface Adapter
+(1)      8D :
+(1)      8D :                    ;;; Control register
+(1)      8D : =DF00              ACIA_control:   equ     ACIA+0
+(1)      8D :                            ;; Counter Divider Select Bits
+(1)      8D : =3                 CDS_gm:         equ     11b    ; Group mask
+(1)      8D : =0                 CDS_DIV1_gc:    equ     00000000B ; /1
+(1)      8D : =1                 CDS_DIV16_gc:   equ     00000001B ; /16
+(1)      8D : =2                 CDS_DIV64_gc:   equ     00000010B ; /64
+(1)      8D : =3                 CDS_RESET_gc:   equ     00000011B ; Master Reset
+(1)      8D :                            ;; Word Select Bits
+(1)      8D : =1C                WSB_gm:         equ     00011100B ; Group mask
+(1)      8D : =0                 WSB_7E2_gc:     equ     00000000B ; 7 Bits + Even Parity + 2 Stop Bits
+(1)      8D : =4                 WSB_7O2_gc:     equ     00000100B ; 7 bits + Odd Parity  + 2 Stop Bits
+(1)      8D : =8                 WSB_7E1_gc:     equ     00001000B ; 7 bits + Even Parity + 1 Stop Bits
+(1)      8D : =C                 WSB_7O1_gc:     equ     00001100B ; 7 bits + Odd Parity  + 1 Stop Bits
+(1)      8D : =10                WSB_8N2_gc:     equ     00010000B ; 8 bits + No Parity   + 2 Stop Bits
+(1)      8D : =14                WSB_8N1_gc:     equ     00010100B ; 8 bits + No Parity   + 1 Stop Bits
+(1)      8D : =18                WSB_8E1_gc:     equ     00011000B ; 8 bits + Even Parity + 1 Stop Bits
+(1)      8D : =1C                WSB_8O1_gc:     equ     00011100B ; 8 bits + Odd Parity  + 1 Stop Bits
+(1)      8D :                            ;; Transmit Control Bits
+(1)      8D : =60                TCB_gm:         equ     01100000B ; Group mask
+(1)      8D : =0                 TCB_DI_gc:      equ     00000000B ; RTS=Low,  Tx Interrupt Disabled
+(1)      8D : =20                TCB_EI_gc:      equ     00100000B ; RTS=Low,  Tx Interrupt Enabled
+(1)      8D : =40                TCB_RTS_gc:     equ     01000000B ; RTS=High, Tx Interrupt Disabled
+(1)      8D : =60                TCB_BREAK_gc:   equ     01100000B ; RTS=Low,  Tx Interrupt Disabled
+(1)      8D :                                                      ; Transmit Break Level
+(1)      8D : =80                RIEB_bm:        equ     10000000B ; Receive Interrupt Enable Bit mask
+(1)      8D :
+(1)      8D :                    ;;; Status register
+(1)      8D : =DF00              ACIA_status:    equ     ACIA+0
+(1)      8D : =1                 RDRF_bm:        equ     00000001B ; Receive Data Register Full
+(1)      8D : =2                 TDRE_bm:        equ     00000010B ; Transmit Data Register Empty
+(1)      8D : =4                 DCDF_bm:        equ     00000100B ; Data Carrier Detect Flag
+(1)      8D : =8                 CTSF_bm:        equ     00001000B ; Clear To Send Flag
+(1)      8D : =10                FERR_bm:        equ     00010000B ; Frame Error Flag
+(1)      8D : =20                OVRN_bm:        equ     00100000B ; Receiver Overrun Flag
+(1)      8D : =40                PERR_bm:        equ     01000000B ; Parity Error Flag
+(1)      8D : =80                IRQF_bm:        equ     10000000B ; Interrupt Request Flag
+(1)      8D :
+(1)      8D :                    ;;; Data register
+(1)      8D : =DF01              ACIA_data:      equ     ACIA+1          ; Data register
+         8D :
+       1000 :                            org     X'1000'
+       1000 : =FFF               stack:  equ     *-1
+       1000 :                    main:
+       1000 : F8 DF                      ldi     A.1(ACIA)
+       1002 : B8                         phi     R8
+       1003 : F8 00                      ldi     A.0(ACIA)
+       1005 : A8                         plo     R8              ; R8=ACIA
+       1006 : F8 03                      ldi     CDS_RESET_gc    ; Master reset
+       1008 : 58                         str     R8              ; ACIA_control
+       1009 : F8 14                      ldi     WSB_8N1_gc      ; 8 bits + No Parity + 1 Stop Bits
+       100B :                                                    ; Transmit, Receive interrupts disabled
+       100B : 58                         str     R8              ; ACIA_control
+       100C :
+       100C : D5                         sep     R5
+       100D : 10 9F                      dc      A(arith)        ; call arith
+       100F :                    isr:
+       100F : 00                         idl
+       1010 :
+       1010 :                    ;;; Print out char
+       1010 :                    ;;; @param D char
+       1010 :                    ;;; @clobber R15.0
+       1010 :                    putchar:
+       1010 : AF                         plo     R15             ; save D to R15.0
+       1011 : 88                         glo     R8
+       1012 : 73                         stxd
+       1013 : 98                         ghi     R8
+       1014 : 73                         stxd
+       1015 :                            ;;
+       1015 : F8 DF                      ldi     A.1(ACIA)
+       1017 : B8                         phi     R8
+       1018 : F8 00                      ldi     A.0(ACIA)
+       101A : A8                         plo     R8
+       101B :                    putchar_loop:
+       101B : 08                         ldn     R8              ; ACIA_status
+       101C : FA 02                      ani     TDRE_bm
+       101E : 32 1B                      bz      putchar_loop
+       1020 : 8F                         glo     R15             ; restore D
+       1021 : 18                         inc     R8
+       1022 : 58                         str     R8              ; ACIA_data
+       1023 :                            ;;
+       1023 : 60                         irx
+       1024 : 72                         ldxa
+       1025 : B8                         phi     R8
+       1026 : F0                         ldx
+       1027 : A8                         plo     R8
+       1028 : D6                         sep     R6              ; return
+       1029 :
+       1029 :                    ;;; Print out newline
+       1029 :                    ;;; @clobber D R15.0
+       1029 :                    newline:
+       1029 : F8 0D                      ldi     X'0D'
+       102B : D5                         sep     R5              ; call
+       102C : 10 10                      dc      A(putchar)
+       102E : F8 0A                      ldi     X'0A'
+       1030 : 30 10                      br      putchar
+       1032 :
+       1032 :                    ;;; Print out space
+       1032 :                    ;;; @clobber D R15.0
+       1032 :                    putspace:
+       1032 : F8 20                      ldi     T' '
+       1034 : 30 10                      br      putchar
+       1036 :
+       1036 :                    ;;; Print out expression "operand1 operator operand2"
+       1036 :                    ;;; @param R7 operand1
+       1036 :                    ;;; @param R8 operand2
+       1036 :                    ;;; @param D operator
+       1036 :                    ;;; @clobber D R7 R8 R15
+       1036 :                    expr:
+       1036 : AF                         plo     R15             ; save operator
+       1037 : 87                         glo     R7
+       1038 : 73                         stxd
+       1039 : 97                         ghi     R7
+       103A : 73                         stxd                    ; save R7
+       103B : 88                         glo     R8
+       103C : 73                         stxd
+       103D : 98                         ghi     R8
+       103E : 73                         stxd                    ; save R8
+       103F : 8F                         glo     R15
+       1040 : 73                         stxd                    ; save operator
+       1041 : D5                         sep     R5
+       1042 : 12 EA                      dc      A(print_int16)
+       1044 : D5                         sep     R5
+       1045 : 10 32                      dc      A(putspace)
+       1047 : 12                         inc     R2
+       1048 : 02                         ldn     R2              ; restore operator
+       1049 : D5                         sep     R5
+       104A : 10 10                      dc      A(putchar)
+       104C : D5                         sep     R5
+       104D : 10 32                      dc      A(putspace)
+       104F : 98                         ghi     R8
+       1050 : B7                         phi     R7
+       1051 : 88                         glo     R8
+       1052 : A7                         plo     R7
+       1053 : D5                         sep     R5
+       1054 : 12 EA                      dc      A(print_int16)
+       1056 : 60                         irx
+       1057 : 72                         ldxa
+       1058 : B8                         phi     R8
+       1059 : 72                         ldxa
+       105A : A8                         plo     R8              ; restore R8
+       105B : 72                         ldxa
+       105C : B7                         phi     R7
+       105D : F0                         ldx
+       105E : A7                         plo     R7              ; restore R7
+       105F : D6                         sep     R6
+       1060 :
+       1060 :                    ;;; Print out answer " = result\n"
+       1060 :                    ;;; @params R7 result
+       1060 :                    ;;; @clobber D R7 R15
+       1060 :                    answer:
+       1060 : D5                         sep     R5
+       1061 : 10 32                      dc      A(putspace)
+       1063 : F8 3D                      ldi     T'='
+       1065 : D5                         sep     R5
+       1066 : 10 10                      dc      A(putchar)
+       1068 : D5                         sep     R5
+       1069 : 10 32                      dc      A(putspace)
+       106B : D5                         sep     R5
+       106C : 12 EA                      dc      A(print_int16)
+       106E : 30 29                      br      newline
+       1070 :
+       1070 :                    ;;; Compare 2 integers and print out "operand1 <=> operand2\n"
+       1070 :                    ;;; @param R7 operand1
+       1070 :                    ;;; @param R8 operand2
+       1070 :                    ;;; @clobber R15
+       1070 :                    comp:
+       1070 : 87                         glo     R7
+       1071 : 73                         stxd
+       1072 : 97                         ghi     R7
+       1073 : 73                         stxd                    ; save R7
+       1074 : 88                         glo     R8
+       1075 : 73                         stxd
+       1076 : 98                         ghi     R8
+       1077 : 73                         stxd                    ; save R8
+       1078 : D5                         sep     R5
+       1079 : 13 82                      dc      A(cmp16)
+       107B : 3B 8D                      bl      comp_lt
+       107D : 32 89                      bz      comp_eq
+       107F : 33 85                      bge     comp_gt
+       1081 : F8 3F                      ldi     T'?'
+       1083 : 30 8F                      br      comp_out
+       1085 :                    comp_gt:
+       1085 : F8 3E                      ldi     T'>'
+       1087 : 30 8F                      br      comp_out
+       1089 :                    comp_eq:
+       1089 : F8 3D                      ldi     T'='
+       108B : 30 8F                      br      comp_out
+       108D :                    comp_lt:
+       108D : F8 3C                      ldi     T'<'
+       108F :                    comp_out:
+       108F : AF                         plo     R15             ; save relation
+       1090 : 60                         irx
+       1091 : 72                         ldxa
+       1092 : B8                         phi     R8
+       1093 : 72                         ldxa
+       1094 : A8                         plo     R8              ; restore R8
+       1095 : 72                         ldxa
+       1096 : B7                         phi     R7
+       1097 : F0                         ldx
+       1098 : A7                         plo     R7              ; restore R7
+       1099 : 8F                         glo     R15
+       109A : D5                         sep     R5
+       109B : 10 36                      dc      A(expr)
+       109D : 30 29                      br      newline
+       109F :
+       109F :                    arith:
+       109F : D5                         sep     R5
+       10A0 : 13 43                      dc      A(set_R7)
+       10A2 : 00 00                      dc      A(0)            ; vA=0
+       10A4 : D5                         sep     R5
+       10A5 : 13 4A                      dc      A(set_R8)
+       10A7 : 92 A0                      dc      A(-28000)       ; vB=-28000
+       10A9 : F8 2D                      ldi     T'-'
+       10AB : D5                         sep     R5
+       10AC : 10 36                      dc      A(expr)
+       10AE : D5                         sep     R5              ; vA=-vB
+       10AF : 13 77                      dc      A(sub16)
+       10B1 : D5                         sep     R5
+       10B2 : 10 60                      dc      A(answer)       ; 28000
+       10B4 :
+       10B4 : D5                         sep     R5
+       10B5 : 13 43                      dc      A(set_R7)
+       10B7 : 00 00                      dc      A(0)            ; vA=0
+       10B9 : D5                         sep     R5
+       10BA : 13 4A                      dc      A(set_R8)
+       10BC : 6D 60                      dc      A(28000)        ; vB=28000
+       10BE : F8 2D                      ldi     T'-'
+       10C0 : D5                         sep     R5
+       10C1 : 10 36                      dc      A(expr)
+       10C3 : D5                         sep     R5              ; vA=-vB
+       10C4 : 13 77                      dc      A(sub16)
+       10C6 : D5                         sep     R5
+       10C7 : 10 60                      dc      A(answer)       ; -28000
+       10C9 :
+       10C9 : D5                         sep     R5
+       10CA : 13 43                      dc      A(set_R7)
+       10CC : 46 50                      dc      A(18000)        ; vA=18000
+       10CE : D5                         sep     R5
+       10CF : 13 4A                      dc      A(set_R8)
+       10D1 : 6D 60                      dc      A(28000)        ; vB=28000
+       10D3 : F8 2B                      ldi     T'+'
+       10D5 : D5                         sep     R5
+       10D6 : 10 36                      dc      A(expr)
+       10D8 : D5                         sep     R5              ; vA+=vB
+       10D9 : 13 6C                      dc      A(add16)
+       10DB : D5                         sep     R5
+       10DC : 10 60                      dc      A(answer)       ; -19536
+       10DE :
+       10DE : D5                         sep     R5
+       10DF : 13 43                      dc      A(set_R7)
+       10E1 : 46 50                      dc      A(18000)        ; vA=18000
+       10E3 : D5                         sep     R5
+       10E4 : 13 4A                      dc      A(set_R8)
+       10E6 : B9 B0                      dc      A(-18000)       ; vB=-18000
+       10E8 : F8 2B                      ldi     T'+'
+       10EA : D5                         sep     R5
+       10EB : 10 36                      dc      A(expr)
+       10ED : D5                         sep     R5              ; vA+=vB
+       10EE : 13 6C                      dc      A(add16)
+       10F0 : D5                         sep     R5
+       10F1 : 10 60                      dc      A(answer)       ; 0
+       10F3 :
+       10F3 : D5                         sep     R5
+       10F4 : 13 43                      dc      A(set_R7)
+       10F6 : B9 B0                      dc      A(-18000)       ; vA=-18000
+       10F8 : D5                         sep     R5
+       10F9 : 13 4A                      dc      A(set_R8)
+       10FB : B9 B0                      dc      A(-18000)       ; vB=-18000
+       10FD : F8 2B                      ldi     T'+'
+       10FF : D5                         sep     R5
+       1100 : 10 36                      dc      A(expr)
+       1102 : D5                         sep     R5              ; vA+=vB
+       1103 : 13 6C                      dc      A(add16)
+       1105 : D5                         sep     R5
+       1106 : 10 60                      dc      A(answer)       ; 29536
+       1108 :
+       1108 : D5                         sep     R5
+       1109 : 13 43                      dc      A(set_R7)
+       110B : 46 50                      dc      A(18000)        ; vA=18000
+       110D : D5                         sep     R5
+       110E : 13 4A                      dc      A(set_R8)
+       1110 : 92 A0                      dc      A(-28000)       ; vB=-28000
+       1112 : F8 2D                      ldi     T'-'
+       1114 : D5                         sep     R5
+       1115 : 10 36                      dc      A(expr)
+       1117 : D5                         sep     R5              ; vA-=vB
+       1118 : 13 77                      dc      A(sub16)
+       111A : D5                         sep     R5
+       111B : 10 60                      dc      A(answer)       ; -19536
+       111D :
+       111D : D5                         sep     R5
+       111E : 13 43                      dc      A(set_R7)
+       1120 : 46 50                      dc      A(18000)        ; vA=18000
+       1122 : D5                         sep     R5
+       1123 : 13 4A                      dc      A(set_R8)
+       1125 : B9 B0                      dc      A(-18000)       ; vB=-18000
+       1127 : F8 2D                      ldi     T'-'
+       1129 : D5                         sep     R5
+       112A : 10 36                      dc      A(expr)
+       112C : D5                         sep     R5              ; vA-=vB
+       112D : 13 77                      dc      A(sub16)
+       112F : D5                         sep     R5
+       1130 : 10 60                      dc      A(answer)       ; 29536
+       1132 :
+       1132 : D5                         sep     R5
+       1133 : 13 43                      dc      A(set_R7)
+       1135 : 92 A0                      dc      A(-28000)       ; vA=-28000
+       1137 : D5                         sep     R5
+       1138 : 13 4A                      dc      A(set_R8)
+       113A : B9 B0                      dc      A(-18000)       ; vB=-18000
+       113C : F8 2D                      ldi     T'-'
+       113E : D5                         sep     R5
+       113F : 10 36                      dc      A(expr)
+       1141 : D5                         sep     R5              ; vA-=vB
+       1142 : 13 77                      dc      A(sub16)
+       1144 : D5                         sep     R5
+       1145 : 10 60                      dc      A(answer)       ; -10000
+       1147 :
+       1147 : D5                         sep     R5
+       1148 : 13 43                      dc      A(set_R7)
+       114A : 00 64                      dc      A(100)          ; vA=100
+       114C : D5                         sep     R5
+       114D : 13 4A                      dc      A(set_R8)
+       114F : 01 2C                      dc      A(300)          ; vB=300
+       1151 : F8 2A                      ldi     T'*'
+       1153 : D5                         sep     R5
+       1154 : 10 36                      dc      A(expr)
+       1156 : D5                         sep     R5              ; vA*=vB
+       1157 : 13 D4                      dc      A(mul16)
+       1159 : D5                         sep     R5
+       115A : 10 60                      dc      A(answer)       ; 30000
+       115C :
+       115C : D5                         sep     R5
+       115D : 13 43                      dc      A(set_R7)
+       115F : 00 C8                      dc      A(200)          ; vA=200
+       1161 : D5                         sep     R5
+       1162 : 13 4A                      dc      A(set_R8)
+       1164 : FF 9C                      dc      A(-100)         ; vB=-100
+       1166 : F8 2A                      ldi     T'*'
+       1168 : D5                         sep     R5
+       1169 : 10 36                      dc      A(expr)
+       116B : D5                         sep     R5              ; vA*=vB
+       116C : 13 D4                      dc      A(mul16)
+       116E : D5                         sep     R5
+       116F : 10 60                      dc      A(answer)       ; -20000
+       1171 :
+       1171 : D5                         sep     R5
+       1172 : 13 43                      dc      A(set_R7)
+       1174 : 01 2C                      dc      A(300)          ; vA=300
+       1176 : D5                         sep     R5
+       1177 : 13 4A                      dc      A(set_R8)
+       1179 : FF 38                      dc      A(-200)         ; vB=-200
+       117B : F8 2A                      ldi     T'*'
+       117D : D5                         sep     R5
+       117E : 10 36                      dc      A(expr)
+       1180 : D5                         sep     R5              ; vA*=vB
+       1181 : 13 D4                      dc      A(mul16)
+       1183 : D5                         sep     R5
+       1184 : 10 60                      dc      A(answer)       ; 5536
+       1186 :
+       1186 : D5                         sep     R5
+       1187 : 13 43                      dc      A(set_R7)
+       1189 : FF 9C                      dc      A(-100)         ; vA=-100
+       118B : D5                         sep     R5
+       118C : 13 4A                      dc      A(set_R8)
+       118E : 01 2C                      dc      A(300)          ; vB=300
+       1190 : F8 2A                      ldi     T'*'
+       1192 : D5                         sep     R5
+       1193 : 10 36                      dc      A(expr)
+       1195 : D5                         sep     R5              ; vA*=vB
+       1196 : 13 D4                      dc      A(mul16)
+       1198 : D5                         sep     R5
+       1199 : 10 60                      dc      A(answer)       ; -30000
+       119B :
+       119B : D5                         sep     R5
+       119C : 13 43                      dc      A(set_R7)
+       119E : FF 38                      dc      A(-200)         ; vA=-200
+       11A0 : D5                         sep     R5
+       11A1 : 13 4A                      dc      A(set_R8)
+       11A3 : FF 9C                      dc      A(-100)         ; vB=-100
+       11A5 : F8 2A                      ldi     T'*'
+       11A7 : D5                         sep     R5
+       11A8 : 10 36                      dc      A(expr)
+       11AA : D5                         sep     R5              ; vA*=vB
+       11AB : 13 D4                      dc      A(mul16)
+       11AD : D5                         sep     R5
+       11AE : 10 60                      dc      A(answer)       ; 20000
+       11B0 :
+       11B0 : D5                         sep     R5
+       11B1 : 13 43                      dc      A(set_R7)
+       11B3 : 75 30                      dc      A(30000)        ; vA=30000
+       11B5 : D5                         sep     R5
+       11B6 : 13 4A                      dc      A(set_R8)
+       11B8 : 00 64                      dc      A(100)          ; vB=100
+       11BA : F8 2F                      ldi     T'/'
+       11BC : D5                         sep     R5
+       11BD : 10 36                      dc      A(expr)
+       11BF : D5                         sep     R5              ; vA/=vB
+       11C0 : 14 62                      dc      A(div16)
+       11C2 : D5                         sep     R5
+       11C3 : 10 60                      dc      A(answer)       ; 30
+       11C5 :
+       11C5 : D5                         sep     R5
+       11C6 : 13 43                      dc      A(set_R7)
+       11C8 : FF 38                      dc      A(-200)         ; vA=-200
+       11CA : D5                         sep     R5
+       11CB : 13 4A                      dc      A(set_R8)
+       11CD : 00 64                      dc      A(100)          ; vB=100
+       11CF : F8 2F                      ldi     T'/'
+       11D1 : D5                         sep     R5
+       11D2 : 10 36                      dc      A(expr)
+       11D4 : D5                         sep     R5              ; vA/=vB
+       11D5 : 14 62                      dc      A(div16)
+       11D7 : D5                         sep     R5
+       11D8 : 10 60                      dc      A(answer)       ; -2
+       11DA :
+       11DA : D5                         sep     R5
+       11DB : 13 43                      dc      A(set_R7)
+       11DD : 8A D0                      dc      A(-30000)       ; vA=-30000
+       11DF : D5                         sep     R5
+       11E0 : 13 4A                      dc      A(set_R8)
+       11E2 : FF 38                      dc      A(-200)         ; vB=-200
+       11E4 : F8 2F                      ldi     T'/'
+       11E6 : D5                         sep     R5
+       11E7 : 10 36                      dc      A(expr)
+       11E9 : D5                         sep     R5              ; vA/=vB
+       11EA : 14 62                      dc      A(div16)
+       11EC : D5                         sep     R5
+       11ED : 10 60                      dc      A(answer)       ; 150
+       11EF :
+       11EF : D5                         sep     R5
+       11F0 : 13 43                      dc      A(set_R7)
+       11F2 : 8A D0                      dc      A(-30000)       ; vA=-30000
+       11F4 : D5                         sep     R5
+       11F5 : 13 4A                      dc      A(set_R8)
+       11F7 : 00 4E                      dc      A(78)           ; vB=78
+       11F9 : F8 2F                      ldi     T'/'
+       11FB : D5                         sep     R5
+       11FC : 10 36                      dc      A(expr)
+       11FE : D5                         sep     R5              ; vA/=vB
+       11FF : 14 62                      dc      A(div16)
+       1201 : D5                         sep     R5
+       1202 : 10 60                      dc      A(answer)       ; -384
+       1204 :
+       1204 : D5                         sep     R5
+       1205 : 13 43                      dc      A(set_R7)
+       1207 : 13 88                      dc      A(5000)         ; vA=5000
+       1209 : D5                         sep     R5
+       120A : 13 4A                      dc      A(set_R8)
+       120C : 0F A0                      dc      A(4000)         ; vB=4000
+       120E : D5                         sep     R5
+       120F : 10 70                      dc      A(comp)
+       1211 :
+       1211 : D5                         sep     R5
+       1212 : 13 43                      dc      A(set_R7)
+       1214 : 13 88                      dc      A(5000)         ; vA=5000
+       1216 : D5                         sep     R5
+       1217 : 13 4A                      dc      A(set_R8)
+       1219 : 13 88                      dc      A(5000)         ; vB=5000
+       121B : D5                         sep     R5
+       121C : 10 70                      dc      A(comp)
+       121E :
+       121E : D5                         sep     R5
+       121F : 13 43                      dc      A(set_R7)
+       1221 : 0F A0                      dc      A(4000)         ; vA=4000
+       1223 : D5                         sep     R5
+       1224 : 13 4A                      dc      A(set_R8)
+       1226 : 13 88                      dc      A(5000)         ; vB=5000
+       1228 : D5                         sep     R5
+       1229 : 10 70                      dc      A(comp)
+       122B :
+       122B : D5                         sep     R5
+       122C : 13 43                      dc      A(set_R7)
+       122E : EC 78                      dc      A(-5000)        ; vA=-5000
+       1230 : D5                         sep     R5
+       1231 : 13 4A                      dc      A(set_R8)
+       1233 : F0 60                      dc      A(-4000)        ; vB=-4000
+       1235 : D5                         sep     R5
+       1236 : 10 70                      dc      A(comp)
+       1238 :
+       1238 : D5                         sep     R5
+       1239 : 13 43                      dc      A(set_R7)
+       123B : EC 78                      dc      A(-5000)        ; vA=-5000
+       123D : D5                         sep     R5
+       123E : 13 4A                      dc      A(set_R8)
+       1240 : EC 78                      dc      A(-5000)        ; vB=-5000
+       1242 : D5                         sep     R5
+       1243 : 10 70                      dc      A(comp)
+       1245 :
+       1245 : D5                         sep     R5
+       1246 : 13 43                      dc      A(set_R7)
+       1248 : F0 60                      dc      A(-4000)        ; vA=-4000
+       124A : D5                         sep     R5
+       124B : 13 4A                      dc      A(set_R8)
+       124D : EC 78                      dc      A(-5000)        ; vB=-5000
+       124F : D5                         sep     R5
+       1250 : 10 70                      dc      A(comp)
+       1252 :
+       1252 : D5                         sep     R5
+       1253 : 13 43                      dc      A(set_R7)
+       1255 : 7F BC                      dc      A(32700)        ; vA=32700
+       1257 : D5                         sep     R5
+       1258 : 13 4A                      dc      A(set_R8)
+       125A : 7F 58                      dc      A(32600)        ; vB=32600
+       125C : D5                         sep     R5
+       125D : 10 70                      dc      A(comp)
+       125F :
+       125F : D5                         sep     R5
+       1260 : 13 43                      dc      A(set_R7)
+       1262 : 7F BC                      dc      A(32700)        ; vA=32700
+       1264 : D5                         sep     R5
+       1265 : 13 4A                      dc      A(set_R8)
+       1267 : 7F BC                      dc      A(32700)        ; vB=32700
+       1269 : D5                         sep     R5
+       126A : 10 70                      dc      A(comp)
+       126C :
+       126C : D5                         sep     R5
+       126D : 13 43                      dc      A(set_R7)
+       126F : 7F 58                      dc      A(32600)        ; vA=32600
+       1271 : D5                         sep     R5
+       1272 : 13 4A                      dc      A(set_R8)
+       1274 : 7F BC                      dc      A(32700)        ; vB=32700
+       1276 : D5                         sep     R5
+       1277 : 10 70                      dc      A(comp)
+       1279 :
+       1279 : D5                         sep     R5
+       127A : 13 43                      dc      A(set_R7)
+       127C : 80 44                      dc      A(-32700)       ; vA=-32700
+       127E : D5                         sep     R5
+       127F : 13 4A                      dc      A(set_R8)
+       1281 : 80 A8                      dc      A(-32600)       ; vB=-32600
+       1283 : D5                         sep     R5
+       1284 : 10 70                      dc      A(comp)
+       1286 :
+       1286 : D5                         sep     R5
+       1287 : 13 43                      dc      A(set_R7)
+       1289 : 80 44                      dc      A(-32700)       ; vA=-32700
+       128B : D5                         sep     R5
+       128C : 13 4A                      dc      A(set_R8)
+       128E : 80 44                      dc      A(-32700)       ; vB=-32700
+       1290 : D5                         sep     R5
+       1291 : 10 70                      dc      A(comp)
+       1293 :
+       1293 : D5                         sep     R5
+       1294 : 13 43                      dc      A(set_R7)
+       1296 : 80 A8                      dc      A(-32600)       ; vA=-32600
+       1298 : D5                         sep     R5
+       1299 : 13 4A                      dc      A(set_R8)
+       129B : 80 44                      dc      A(-32700)       ; vB=-32700
+       129D : D5                         sep     R5
+       129E : 10 70                      dc      A(comp)
+       12A0 :
+       12A0 : D5                         sep     R5
+       12A1 : 13 43                      dc      A(set_R7)
+       12A3 : 46 50                      dc      A(18000)        ; vA=18000
+       12A5 : D5                         sep     R5
+       12A6 : 13 4A                      dc      A(set_R8)
+       12A8 : 92 A0                      dc      A(-28000)       ; vB=-28000
+       12AA : D5                         sep     R5
+       12AB : 10 70                      dc      A(comp)
+       12AD :
+       12AD : D5                         sep     R5
+       12AE : 13 43                      dc      A(set_R7)
+       12B0 : 92 A0                      dc      A(-28000)       ; vA=-28000
+       12B2 : D5                         sep     R5
+       12B3 : 13 4A                      dc      A(set_R8)
+       12B5 : 92 A0                      dc      A(-28000)       ; vB=-28000
+       12B7 : D5                         sep     R5
+       12B8 : 10 70                      dc      A(comp)
+       12BA :
+       12BA : D5                         sep     R5
+       12BB : 13 43                      dc      A(set_R7)
+       12BD : 92 A0                      dc      A(-28000)       ; vA=-28000
+       12BF : D5                         sep     R5
+       12C0 : 13 4A                      dc      A(set_R8)
+       12C2 : 46 50                      dc      A(18000)        ; vB=18000
+       12C4 : D5                         sep     R5
+       12C5 : 10 70                      dc      A(comp)
+       12C7 :
+       12C7 : D6                         sep     R6              ; return
+       12C8 :
+       12C8 :                            include "arith.inc"
+(1)    12C8 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)    12C8 :                            cpu     1802
+(1)    12C8 :
+(1)    12C8 :                    ;;; Print unsigned 16-bit integer as decimal
+(1)    12C8 :                    ;;; @param R7 value
+(1)    12C8 :                    ;;; @clobber D R7 R8 R15
+(1)    12C8 :                    print_uint16:
+(1)    12C8 : 97                         ghi     R7
+(1)    12C9 : 3A CE                      bnz     print_uint16_loop
+(1)    12CB : 87                         glo     R7
+(1)    12CC : 32 E5                      bz      print_uint16_zero
+(1)    12CE :                    print_uint16_loop:
+(1)    12CE : 97                         ghi     R7
+(1)    12CF : 3A D5                      bnz     print_uint16_digit
+(1)    12D1 : 87                         glo     R7
+(1)    12D2 : 3A D5                      bnz     print_uint16_digit
+(1)    12D4 : D6                         sep     R6              ; return if value=0
+(1)    12D5 :                    print_uint16_digit:
+(1)    12D5 : F8 00                      ldi     0
+(1)    12D7 : B8                         phi     R8
+(1)    12D8 : F8 0A                      ldi     10
+(1)    12DA : A8                         plo     R8              ; divisor=10
+(1)    12DB : D5                         sep     R5
+(1)    12DC : 14 09                      dc      A(udiv16)       ; call udiv16
+(1)    12DE : 88                         glo     R8
+(1)    12DF : 73                         stxd                    ; push reminder
+(1)    12E0 : D5                         sep     R5
+(1)    12E1 : 12 CE                      dc      A(print_uint16_loop)
+(1)    12E3 : 12                         inc     R2
+(1)    12E4 : 02                         ldn     R2              ; pop reminder
+(1)    12E5 :                    print_uint16_zero:
+(1)    12E5 : FC 30                      adi     T'0'
+(1)    12E7 : C0 10 10                   br      putchar
+(1)    12EA :
+(1)    12EA :                    ;;; Print signed 16-bit integer as decimal
+(1)    12EA :                    ;;; @param R7 value
+(1)    12EA :                    ;;; @clobber D R15
+(1)    12EA :                    print_int16:
+(1)    12EA : 88                         glo     R8
+(1)    12EB : 73                         stxd
+(1)    12EC : 98                         ghi     R8
+(1)    12ED : 73                         stxd                    ; save R8
+(1)    12EE : 87                         glo     R7
+(1)    12EF : 73                         stxd
+(1)    12F0 : 97                         ghi     R7
+(1)    12F1 : 73                         stxd                    ; save R7
+(1)    12F2 : FA 80                      ani     X'80'
+(1)    12F4 : C2 13 05                   bz      print_int16_print
+(1)    12F7 : F8 2D                      ldi     T'-'
+(1)    12F9 : D5                         sep     R5
+(1)    12FA : 10 10                      dc      A(putchar)      ; print '-'
+(1)    12FC : 97                         ghi     R7
+(1)    12FD : FB FF                      xri     X'FF'
+(1)    12FF : B7                         phi     R7
+(1)    1300 : 87                         glo     R7
+(1)    1301 : FB FF                      xri     X'FF'
+(1)    1303 : A7                         plo     R7
+(1)    1304 : 17                         inc     R7              ; negate value
+(1)    1305 :                    print_int16_print:
+(1)    1305 : D5                         sep     R5
+(1)    1306 : 12 C8                      dc      A(print_uint16)
+(1)    1308 : 60                         irx
+(1)    1309 : 72                         ldxa
+(1)    130A : B7                         phi     R7
+(1)    130B : 72                         ldxa
+(1)    130C : A7                         plo     R7              ; restore R7
+(1)    130D : 72                         ldxa
+(1)    130E : B8                         phi     R8
+(1)    130F : F0                         ldx
+(1)    1310 : A8                         plo     R8              ; restore R8
+(1)    1311 : D6                         sep     R6
+(1)    1312 :
+(1)    1312 :                    ;;; Store R7 to variable
+(1)    1312 :                    ;;;   SEP  R5
+(1)    1312 :                    ;;;   DC   A(store_R7)
+(1)    1312 :                    ;;;   DC   A(variable)
+(1)    1312 :                    ;;; @clobber D
+(1)    1312 :                    store_R7:
+(1)    1312 : 88                         glo     R8
+(1)    1313 : 73                         stxd
+(1)    1314 : 98                         ghi     R8
+(1)    1315 : 73                         stxd                    ; save R8
+(1)    1316 : E4                         sex     R4
+(1)    1317 : 72                         ldxa
+(1)    1318 : B8                         phi     R8
+(1)    1319 : 72                         ldxa
+(1)    131A : A8                         plo     R8              ; R8=&valiable
+(1)    131B : 97                         ghi     R7
+(1)    131C : 58                         str     R8
+(1)    131D : 18                         inc     R8
+(1)    131E : 87                         glo     R7
+(1)    131F : 58                         str     R8
+(1)    1320 : E2                         sex     R2
+(1)    1321 : 60                         irx
+(1)    1322 : 72                         ldxa
+(1)    1323 : B8                         phi     R8
+(1)    1324 : F0                         ldx
+(1)    1325 : A8                         plo     R8              ; restore R8
+(1)    1326 : D6                         sep     R6
+(1)    1327 :
+(1)    1327 :                    ;;; Load variable to R7
+(1)    1327 :                    ;;;   SEP  R5
+(1)    1327 :                    ;;;   DC   A(load_R7)
+(1)    1327 :                    ;;;   DC   A(variable)
+(1)    1327 :                    ;;; @return R7 variable
+(1)    1327 :                    ;;; @clobber D R15
+(1)    1327 :                    load_R7:
+(1)    1327 : E4                         sex     R4
+(1)    1328 : 72                         ldxa
+(1)    1329 : B7                         phi     R7
+(1)    132A : 72                         ldxa
+(1)    132B : A7                         plo     R7
+(1)    132C : 07                         ldn     R7
+(1)    132D : AF                         plo     R15
+(1)    132E : 17                         inc     R7
+(1)    132F : 07                         ldn     R7
+(1)    1330 : A7                         plo     R7
+(1)    1331 : 8F                         glo     R15
+(1)    1332 : B7                         phi     R7
+(1)    1333 : E2                         sex     R2
+(1)    1334 : D6                         sep     R6
+(1)    1335 :
+(1)    1335 :                    ;;; Load variable to R8
+(1)    1335 :                    ;;;   SEP  R5
+(1)    1335 :                    ;;;   DC   A(load_R8)
+(1)    1335 :                    ;;;   DC   A(variable)
+(1)    1335 :                    ;;; @clobber R15
+(1)    1335 :                    load_R8:
+(1)    1335 : E4                         sex     R4
+(1)    1336 : 72                         ldxa
+(1)    1337 : B8                         phi     R8
+(1)    1338 : 72                         ldxa
+(1)    1339 : A8                         plo     R8
+(1)    133A : 08                         ldn     R8
+(1)    133B : AF                         plo     R15
+(1)    133C : 18                         inc     R8
+(1)    133D : 08                         ldn     R8
+(1)    133E : A8                         plo     R8
+(1)    133F : 8F                         glo     R15
+(1)    1340 : B8                         phi     R8
+(1)    1341 : E2                         sex     R2
+(1)    1342 : D6                         sep     R6
+(1)    1343 :
+(1)    1343 :                    ;;; Set constant to R7
+(1)    1343 :                    ;;;   SEP  R5
+(1)    1343 :                    ;;;   DC   A(set_R7)
+(1)    1343 :                    ;;;   DC   A(constant)
+(1)    1343 :                    ;;; @return R7 constant
+(1)    1343 :                    ;;; @clobber D
+(1)    1343 :                    set_R7:
+(1)    1343 : E4                         sex     R4
+(1)    1344 : 72                         ldxa
+(1)    1345 : B7                         phi     R7
+(1)    1346 : 72                         ldxa
+(1)    1347 : A7                         plo     R7
+(1)    1348 : E2                         sex     R2
+(1)    1349 : D6                         sep     R6
+(1)    134A :
+(1)    134A :                    ;;; Set constant to R8
+(1)    134A :                    ;;;   SEP  R5
+(1)    134A :                    ;;;   DC   A(set_R8)
+(1)    134A :                    ;;;   DC   A(variable)
+(1)    134A :                    ;;; @clobber R15
+(1)    134A :                    set_R8:
+(1)    134A : E4                         sex     R4
+(1)    134B : 72                         ldxa
+(1)    134C : B8                         phi     R8
+(1)    134D : 72                         ldxa
+(1)    134E : A8                         plo     R8
+(1)    134F : E2                         sex     R2
+(1)    1350 : D6                         sep     R6
+(1)    1351 :
+(1)    1351 :                    ;;; Increment variable
+(1)    1351 :                    ;;;   SEP  R5
+(1)    1351 :                    ;;;   DC   A(inc16)
+(1)    1351 :                    ;;;   DC   A(variable)
+(1)    1351 :                    ;;; @return R7 variable
+(1)    1351 :                    ;;; @clobber D R15
+(1)    1351 :                    inc16:
+(1)    1351 : 88                         glo     R8
+(1)    1352 : 73                         stxd
+(1)    1353 : 98                         ghi     R8
+(1)    1354 : 73                         stxd                    ; save R8
+(1)    1355 : E4                         sex     R4
+(1)    1356 : 72                         ldxa
+(1)    1357 : B8                         phi     R8
+(1)    1358 : 72                         ldxa
+(1)    1359 : A8                         plo     R8
+(1)    135A : 08                         ldn     R8
+(1)    135B : B7                         phi     R7
+(1)    135C : 18                         inc     R8
+(1)    135D : 08                         ldn     R8
+(1)    135E : A7                         plo     R7
+(1)    135F : 17                         inc     R7
+(1)    1360 : 87                         glo     R7
+(1)    1361 : 58                         str     R8
+(1)    1362 : 97                         ghi     R7
+(1)    1363 : 28                         dec     R8
+(1)    1364 : 58                         str     R8
+(1)    1365 : E2                         sex     R2
+(1)    1366 : 60                         irx
+(1)    1367 : 72                         ldxa
+(1)    1368 : B8                         phi     R8
+(1)    1369 : F0                         ldx
+(1)    136A : A8                         plo     R8              ; restore R8
+(1)    136B : D6                         sep     R6
+(1)    136C :
+(1)    136C :                    ;;; Signed addition: summand += addend
+(1)    136C :                    ;;; @param R7 summand
+(1)    136C :                    ;;; @param R8 addend
+(1)    136C :                    ;;; @return R7 summand + addend
+(1)    136C :                    ;;;   SEP R5
+(1)    136C :                    ;;;   DC  A(add16)
+(1)    136C :                    ;;; @clobber D
+(1)    136C :                    add16:
+(1)    136C : 88                         glo     R8
+(1)    136D : 52                         str     R2
+(1)    136E : 87                         glo     R7
+(1)    136F : F4                         add
+(1)    1370 : A7                         plo     R7
+(1)    1371 : 98                         ghi     R8
+(1)    1372 : 52                         str     R2
+(1)    1373 : 97                         ghi     R7
+(1)    1374 : 74                         adc
+(1)    1375 : B7                         phi     R7
+(1)    1376 : D6                         sep     R6
+(1)    1377 :
+(1)    1377 :                    ;;; Singed subtraction: minuend -= subtrahend
+(1)    1377 :                    ;;; @param R7 minuend
+(1)    1377 :                    ;;; @param R8 subtrahend
+(1)    1377 :                    ;;; @return R7 minuend - subtrahend
+(1)    1377 :                    ;;;   SEP R5
+(1)    1377 :                    ;;;   DC  A(sub16)
+(1)    1377 :                    sub16:
+(1)    1377 : 88                         glo     R8
+(1)    1378 : 52                         str     R2
+(1)    1379 : 87                         glo     R7
+(1)    137A : F7                         sm
+(1)    137B : A7                         plo     R7
+(1)    137C : 98                         ghi     R8
+(1)    137D : 52                         str     R2
+(1)    137E : 97                         ghi     R7
+(1)    137F : 77                         smb
+(1)    1380 : B7                         phi     R7
+(1)    1381 : D6                         sep     R6
+(1)    1382 :
+(1)    1382 :                    ;;; Signed comparison: minuend - subtrahend
+(1)    1382 :                    ;;; @param R7 minuend
+(1)    1382 :                    ;;; @param R8 subtrahend
+(1)    1382 :                    ;;; @return D=0 DF=1 (minuend==subtrahend); BZ
+(1)    1382 :                    ;;;         D=1 DF=1 (minuend>subtrahend);  BGE
+(1)    1382 :                    ;;;         D=1 DF=0 (minuend<subtrahend);  BL
+(1)    1382 :                    ;;; @clobber R7 R8
+(1)    1382 :                    ;;; result = minuend - subtrahend
+(1)    1382 :                    ;;; Z=(result.1 | result.0) == 0
+(1)    1382 :                    ;;; N=(result.1 & 0x80) != 0
+(1)    1382 :                    ;;; V=((minuend.1 ^ subtrahend.1) & (result.1 ^ minuend.1) & 0x80) != 0
+(1)    1382 :                    ;;; LT=N ^ V
+(1)    1382 :                    cmp16:
+(1)    1382 : 88                         glo     R8              ; D=subtrahend.0
+(1)    1383 : 52                         str     R2              ; stack top=subtrahend.0
+(1)    1384 : 87                         glo     R7              ; D=minuend.0
+(1)    1385 : F7                         sm                      ; D=minuend.0=subtrahend.0
+(1)    1386 : A7                         plo     R7              ; R7.0=result.0
+(1)    1387 : 98                         ghi     R8              ; D=subtrahend.1
+(1)    1388 : 52                         str     R2              ; stack top=subtrahend.1
+(1)    1389 : 97                         ghi     R7              ; D=minuend.1
+(1)    138A : F3                         xor                     ; D=minuend.1^subtrahend.1
+(1)    138B : A8                         plo     R8              ; R8.0=minuend.1^subtrahend.1
+(1)    138C : 97                         ghi     R7              ; D=minuend.1
+(1)    138D : 77                         smb                     ; D=minuend.1=subtrahend.1
+(1)    138E : B8                         phi     R8              ; R8.1=result.1
+(1)    138F : 3A 98                      bnz     cmp16_neq       ; branch if result.1!=0
+(1)    1391 : 87                         glo     R7              ; D=result.0
+(1)    1392 : 3A 98                      bnz     cmp16_neq       ; branch if result.0!=-
+(1)    1394 : F8 01                      ldi     1
+(1)    1396 : F6                         shr
+(1)    1397 : D6                         sep     R6              ; return with D=0, DF=1
+(1)    1398 :                    cmp16_neq:
+(1)    1398 : 98                         ghi     R8              ; D=result.1
+(1)    1399 : 52                         str     R2
+(1)    139A : 97                         ghi     R7              ; D=minuend.1
+(1)    139B : F3                         xor                     ; D=result.1^minuend.1
+(1)    139C : 52                         str     R2              ; stack top=result.1^minuend.1
+(1)    139D : 88                         glo     R8              ; D=minuend.1^subtrahend.1
+(1)    139E : F2                         and                     ; D=(minuend.1^subtrahend.1)&(result.1^minuend.1)
+(1)    139F : 52                         str     R2              ; stack top=V
+(1)    13A0 : 98                         ghi     R8              ; D=result.1
+(1)    13A1 : F3                         xor                     ; D=N^V
+(1)    13A2 : FB 80                      xri     X'80'           ; D=~(N^V)
+(1)    13A4 : FE                         shl                     ; DF=~(N^V)
+(1)    13A5 : F8 01                      ldi     1
+(1)    13A7 : D6                         sep     R6              ; return with D=1
+(1)    13A8 :
+(1)    13A8 :                    ;;; Unsigned multiplication: result = multiplicand * multiplier
+(1)    13A8 :                    ;;; @param R7 multiplicand
+(1)    13A8 :                    ;;; @param R8 multiplier
+(1)    13A8 :                    ;;; @return R7 result
+(1)    13A8 :                    ;;; @clobber D R7 R8 R15
+(1)    13A8 :                    umul16:
+(1)    13A8 : F8 00                      ldi     0
+(1)    13AA : BF                         phi     R15
+(1)    13AB : AF                         plo     R15             ; R15=result
+(1)    13AC : 30 C9                      br      umul16_check
+(1)    13AE :                    umul16_loop:
+(1)    13AE : 88                         glo     R8
+(1)    13AF : FA 01                      ani     1
+(1)    13B1 : 32 BD                      bz      umul16_sr       ; lsb(multiplier)==0
+(1)    13B3 : 87                         glo     R7
+(1)    13B4 : 52                         str     R2              ; stack top=multiplicand.0
+(1)    13B5 : 8F                         glo     R15
+(1)    13B6 : F4                         add
+(1)    13B7 : AF                         plo     R15
+(1)    13B8 : 97                         ghi     R7
+(1)    13B9 : 52                         str     R2              ; stack top=multiplicand.1
+(1)    13BA : 9F                         ghi     R15
+(1)    13BB : 74                         adc
+(1)    13BC : BF                         phi     R15             ; result += multiplicand
+(1)    13BD :                    umul16_sr:
+(1)    13BD : 98                         ghi     R8
+(1)    13BE : F6                         shr
+(1)    13BF : B8                         phi     R8
+(1)    13C0 : 88                         glo     R8
+(1)    13C1 : 76                         shrc
+(1)    13C2 : A8                         plo     R8              ; multiplier >>= 1
+(1)    13C3 : 87                         glo     R7
+(1)    13C4 : FE                         shl
+(1)    13C5 : A7                         plo     R7
+(1)    13C6 : 97                         ghi     R7
+(1)    13C7 : 7E                         shlc
+(1)    13C8 : B7                         phi     R7              ; multiplicand <<= 1
+(1)    13C9 :                    umul16_check:
+(1)    13C9 : 98                         ghi     R8
+(1)    13CA : 3A AE                      bnz     umul16_loop     ; while multiplier != 0
+(1)    13CC : 88                         glo     R8
+(1)    13CD : 3A AE                      bnz     umul16_loop     ; while multiplier != 0
+(1)    13CF : 9F                         ghi     R15
+(1)    13D0 : B7                         phi     R7
+(1)    13D1 : 8F                         glo     R15
+(1)    13D2 : A7                         plo     R7              ; R7=result
+(1)    13D3 : D6                         sep     R6              ; return
+(1)    13D4 :
+(1)    13D4 :                    ;;; Signed multiplication: multiplicand *= multiplier
+(1)    13D4 :                    ;;; @param R7 multiplicand
+(1)    13D4 :                    ;;; @param R8 multiplier
+(1)    13D4 :                    ;;; @return R7 multiplicand * multiplier
+(1)    13D4 :                    ;;;   SEP R5
+(1)    13D4 :                    ;;;   DC  A(mul16)
+(1)    13D4 :                    ;;; @clobber R8 R15
+(1)    13D4 :                    mul16:
+(1)    13D4 : 98                         ghi     R8
+(1)    13D5 : 52                         str     R2
+(1)    13D6 : 97                         ghi     R7
+(1)    13D7 : F3                         xor
+(1)    13D8 : 73                         stxd                    ; push sign
+(1)    13D9 : 98                         ghi     R8
+(1)    13DA : FA 80                      ani     X'80'
+(1)    13DC : 32 E7                      bz      mul16_multiplicand
+(1)    13DE : 98                         ghi     R8
+(1)    13DF : FB FF                      xri     X'FF'
+(1)    13E1 : B8                         phi     R8
+(1)    13E2 : 88                         glo     R8
+(1)    13E3 : FB FF                      xri     X'FF'
+(1)    13E5 : A8                         plo     R8
+(1)    13E6 : 18                         inc     R8              ; negate multiplier
+(1)    13E7 :                    mul16_multiplicand:
+(1)    13E7 : 97                         ghi     R7
+(1)    13E8 : FA 80                      ani     X'80'
+(1)    13EA : 32 F5                      bz      mul16_multiply
+(1)    13EC : 97                         ghi     R7
+(1)    13ED : FB FF                      xri     X'FF'
+(1)    13EF : B7                         phi     R7
+(1)    13F0 : 87                         glo     R7
+(1)    13F1 : FB FF                      xri     X'FF'
+(1)    13F3 : A7                         plo     R7
+(1)    13F4 : 17                         inc     R7              ; negate multiplicand
+(1)    13F5 :                    mul16_multiply:
+(1)    13F5 : D5                         sep     R5
+(1)    13F6 : 13 A8                      dc      A(umul16)       ; call umul16
+(1)    13F8 : 60                         irx
+(1)    13F9 : F0                         ldx                     ; sign
+(1)    13FA : FA 80                      ani     X'80'
+(1)    13FC : C2 14 08                   bz      mul16_return
+(1)    13FF : 97                         ghi     R7
+(1)    1400 : FB FF                      xri     X'FF'
+(1)    1402 : B7                         phi     R7
+(1)    1403 : 87                         glo     R7
+(1)    1404 : FB FF                      xri     X'FF'
+(1)    1406 : A7                         plo     R7
+(1)    1407 : 17                         inc     R7              ; negate result
+(1)    1408 :                    mul16_return:
+(1)    1408 : D6                         sep     R6
+(1)    1409 :
+(1)    1409 :                    ;;; Unsigned division: dividend / divisor = quotient ... reminder
+(1)    1409 :                    ;;; @praram R7 dividend
+(1)    1409 :                    ;;; @praram R8 divisor
+(1)    1409 :                    ;;; @return R7 quotient
+(1)    1409 :                    ;;; @return R8 reminder
+(1)    1409 :                    ;;; @clobber R7 R8 R15
+(1)    1409 :                    udiv16:
+(1)    1409 : 98                         ghi     R8
+(1)    140A : 3A 10                      bnz     udiv16_calc
+(1)    140C : 88                         glo     R8
+(1)    140D : 3A 10                      bnz     udiv16_calc
+(1)    140F : D6                         sep     R6              ; return divide by zero
+(1)    1410 :                    udiv16_calc:
+(1)    1410 : 89                         glo     R9
+(1)    1411 : 73                         stxd
+(1)    1412 : 99                         ghi     R9
+(1)    1413 : 73                         stxd                    ; save R9
+(1)    1414 : F8 01                      ldi     1
+(1)    1416 : AF                         plo     R15             ; R15.0=bits
+(1)    1417 : 30 20                      br      udiv16_prep
+(1)    1419 :                    udiv16_prep_loop:
+(1)    1419 : 88                         glo     R8
+(1)    141A : FE                         shl
+(1)    141B : A8                         plo     R8
+(1)    141C : 98                         ghi     R8
+(1)    141D : 7E                         shlc
+(1)    141E : B8                         phi     R8              ; divisor <<= 1
+(1)    141F : 1F                         inc     R15             ; ++bits
+(1)    1420 :                    udiv16_prep:
+(1)    1420 : 98                         ghi     R8
+(1)    1421 : FA 80                      ani     X'80'
+(1)    1423 : 32 19                      bz      udiv16_prep_loop ; while msb(divisor) == 0
+(1)    1425 : 97                         ghi     R7
+(1)    1426 : B9                         phi     R9
+(1)    1427 : 87                         glo     R7
+(1)    1428 : A9                         plo     R9              ; R9=dividend
+(1)    1429 : F8 00                      ldi     0
+(1)    142B : B7                         phi     R7
+(1)    142C : A7                         plo     R7              ; R7=quotient
+(1)    142D : 30 3B                      br      udiv16_enter_loop
+(1)    142F :                    udiv16_loop:
+(1)    142F : 98                         ghi     R8
+(1)    1430 : F6                         shr
+(1)    1431 : B8                         phi     R8
+(1)    1432 : 88                         glo     R8
+(1)    1433 : 76                         shrc
+(1)    1434 : A8                         plo     R8              ; divisor >>= 1
+(1)    1435 : 87                         glo     R7
+(1)    1436 : FE                         shl
+(1)    1437 : A7                         plo     R7
+(1)    1438 : 97                         ghi     R7
+(1)    1439 : 7E                         shlc
+(1)    143A : B7                         phi     R7              ; quotient <<= 1
+(1)    143B :                    udiv16_enter_loop:
+(1)    143B : 88                         glo     R8
+(1)    143C : 52                         str     R2
+(1)    143D : 89                         glo     R9
+(1)    143E : F7                         sm
+(1)    143F : A9                         plo     R9
+(1)    1440 : 98                         ghi     R8
+(1)    1441 : 52                         str     R2
+(1)    1442 : 99                         ghi     R9
+(1)    1443 : 77                         smb
+(1)    1444 : B9                         phi     R9              ; dividend-=divisor
+(1)    1445 : 3B 4A                      bm      udiv16_readd    ; branch if dividend < 0
+(1)    1447 : 17                         inc     R7              ; quotient += 1
+(1)    1448 : 30 54                      br      udiv16_next
+(1)    144A :                    udiv16_readd:
+(1)    144A : 88                         glo     R8
+(1)    144B : 52                         str     R2
+(1)    144C : 89                         glo     R9
+(1)    144D : F4                         add
+(1)    144E : A9                         plo     R9
+(1)    144F : 98                         ghi     R8
+(1)    1450 : 52                         str     R2
+(1)    1451 : 99                         ghi     R9
+(1)    1452 : 74                         adc
+(1)    1453 : B9                         phi     R9              ; dividend+=divisor
+(1)    1454 :                    udiv16_next:
+(1)    1454 : 2F                         dec     R15
+(1)    1455 : 8F                         glo     R15
+(1)    1456 : 3A 2F                      bnz     udiv16_loop     ; while bits != 0
+(1)    1458 : 99                         ghi     R9
+(1)    1459 : B8                         phi     R8
+(1)    145A : 89                         glo     R9
+(1)    145B : A8                         plo     R8              ; R8=reminder
+(1)    145C : 60                         irx
+(1)    145D : 72                         ldxa
+(1)    145E : B9                         phi     R9
+(1)    145F : F0                         ldx
+(1)    1460 : A9                         plo     R9              ; restore R9
+(1)    1461 : D6                         sep     R6              ; return
+(1)    1462 :
+(1)    1462 :                    ;;; Signed division: dividend / divisor = quotient ... reminder
+(1)    1462 :                    ;;; @param R7 dividend
+(1)    1462 :                    ;;; @param R8 divisor
+(1)    1462 :                    ;;; @return R7 quotient
+(1)    1462 :                    ;;; @return R8 reminder
+(1)    1462 :                    ;;;   SEP R5
+(1)    1462 :                    ;;;   DC  A(div16)
+(1)    1462 :                    ;;; @clobber R15
+(1)    1462 :                    div16:
+(1)    1462 : 98                         ghi     R8
+(1)    1463 : 52                         str     R2
+(1)    1464 : 97                         ghi     R7
+(1)    1465 : F3                         xor
+(1)    1466 : 73                         stxd                    ; push sign
+(1)    1467 : 98                         ghi     R8
+(1)    1468 : FA 80                      ani     X'80'
+(1)    146A : 32 75                      bz      div16_dividend
+(1)    146C : 98                         ghi     R8
+(1)    146D : FB FF                      xri     X'FF'
+(1)    146F : B8                         phi     R8
+(1)    1470 : 88                         glo     R8
+(1)    1471 : FB FF                      xri     X'FF'
+(1)    1473 : A8                         plo     R8
+(1)    1474 : 18                         inc     R8              ; negate divisor
+(1)    1475 :                    div16_dividend:
+(1)    1475 : 97                         ghi     R7              ; R7=dividend
+(1)    1476 : FA 80                      ani     X'80'
+(1)    1478 : 32 83                      bz      div16_divide
+(1)    147A : 97                         ghi     R7
+(1)    147B : FB FF                      xri     X'FF'
+(1)    147D : B7                         phi     R7
+(1)    147E : 87                         glo     R7
+(1)    147F : FB FF                      xri     X'FF'
+(1)    1481 : A7                         plo     R7
+(1)    1482 : 17                         inc     R7              ; negate dividend
+(1)    1483 :                    div16_divide:
+(1)    1483 : D5                         sep     R5
+(1)    1484 : 14 09                      dc      A(udiv16)       ; call udiv16
+(1)    1486 : 60                         irx
+(1)    1487 : F0                         ldx                     ; pop sign
+(1)    1488 : FA 80                      ani     X'80'
+(1)    148A : 32 95                      bz      div16_return
+(1)    148C : 97                         ghi     R7
+(1)    148D : FB FF                      xri     X'FF'
+(1)    148F : B7                         phi     R7
+(1)    1490 : 87                         glo     R7
+(1)    1491 : FB FF                      xri     X'FF'
+(1)    1493 : A7                         plo     R7
+(1)    1494 : 17                         inc     R7              ; negate quotient
+(1)    1495 :                    div16_return:
+(1)    1495 : D6                         sep     R6
+       1496 :
+       1496 :                            end
