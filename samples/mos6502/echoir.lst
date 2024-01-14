@@ -1,0 +1,250 @@
+          0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+          0 :                            cpu     6502
+          0 :                            .include "mos6502.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :
+(1)       0 :                    ;;; MOS6502
+(1)       0 :                    ;;; Processor Status Register P
+(1)       0 : =1                 P_CARRY         =       %00000001   ; set to 1 if carry occurred
+(1)       0 : =2                 P_ZERO          =       %00000010   ; set to 1 if result is zero
+(1)       0 : =4                 P_IRQ           =       %00000100   ; if 1, IRQ is disabled
+(1)       0 : =8                 P_DECIMAL       =       %00001000   ; if 1, decimal mode
+(1)       0 : =10                P_BRK           =       %00010000   ; if 1, BRK command
+(1)       0 : =2                 P_OVERFLOW      =       %00000010   ; set to 1 if overflow occurred
+(1)       0 : =8                 P_NEGATIVE      =       %00001000   ; set to 1 if result is negative
+(1)       0 :
+(1)       0 :                    ;;; Vector
+(1)       0 : =FFFA              VEC_NMI         =       $FFFA  ; $FFFA: Non Maskable Interrupt
+(1)       0 : =FFFC              VEC_RESET       =       $FFFC  ; $FFFE: Reset
+(1)       0 : =FFFE              VEC_IRQ         =       $FFFE  ; $FFFE: Interrupt Request and BRK command
+          0 :
+          0 :                    ;;; MC6850 Asynchronous Communication Interface Adapter
+          0 : =DF00              ACIA    =       $DF00
+          0 :                            .include "mc6850.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :
+(1)       0 :                    ;;; MC6850
+(1)       0 :                    ;;; Asynchronous Communication Interface Adapter
+(1)       0 :
+(1)       0 :                    ;;; Control register
+(1)       0 : =DF00              ACIA_control    =       ACIA+0
+(1)       0 :                            ;; Counter Divider Select Bits
+(1)       0 : =3                 CDS_gm          =       %11    ; Group mask
+(1)       0 : =0                 CDS_DIV1_gc     =       %00000000 ; /1
+(1)       0 : =1                 CDS_DIV16_gc    =       %00000001 ; /16
+(1)       0 : =2                 CDS_DIV64_gc    =       %00000010 ; /64
+(1)       0 : =3                 CDS_RESET_gc    =       %00000011 ; Master Reset
+(1)       0 :                            ;; Word Select Bits
+(1)       0 : =1C                WSB_gm          =       %00011100 ; Group mask
+(1)       0 : =0                 WSB_7E2_gc      =       %00000000 ; 7 Bits + Even Parity + 2 Stop Bits
+(1)       0 : =4                 WSB_7O2_gc      =       %00000100 ; 7 bits + Odd Parity  + 2 Stop Bits
+(1)       0 : =8                 WSB_7E1_gc      =       %00001000 ; 7 bits + Even Parity + 1 Stop Bits
+(1)       0 : =C                 WSB_7O1_gc      =       %00001100 ; 7 bits + Odd Parity  + 1 Stop Bits
+(1)       0 : =10                WSB_8N2_gc      =       %00010000 ; 8 bits + No Parity   + 2 Stop Bits
+(1)       0 : =14                WSB_8N1_gc      =       %00010100 ; 8 bits + No Parity   + 1 Stop Bits
+(1)       0 : =18                WSB_8E1_gc      =       %00011000 ; 8 bits + Even Parity + 1 Stop Bits
+(1)       0 : =1C                WSB_8O1_gc      =       %00011100 ; 8 bits + Odd Parity  + 1 Stop Bits
+(1)       0 :                            ;; Transmit Control Bits
+(1)       0 : =60                TCB_gm          =       %01100000 ; Group mask
+(1)       0 : =0                 TCB_DI_gc       =       %00000000 ; RTS=Low,  Tx Interrupt Disabled
+(1)       0 : =20                TCB_EI_gc       =       %00100000 ; RTS=Low,  Tx Interrupt Enabled
+(1)       0 : =40                TCB_RTS_gc      =       %01000000 ; RTS=High, Tx Interrupt Disabled
+(1)       0 : =60                TCB_BREAK_gc    =       %01100000 ; RTS=Low,  Tx Interrupt Disabled
+(1)       0 :                                                      ; Transmit Break Level
+(1)       0 : =80                RIEB_bm         =       %10000000 ; Receive Interrupt Enable Bit mask
+(1)       0 :
+(1)       0 :                    ;;; Status register
+(1)       0 : =DF00              ACIA_status     =       ACIA+0
+(1)       0 : =1                 RDRF_bm         =       %00000001 ; Receive Data Register Full
+(1)       0 : =2                 TDRE_bm         =       %00000010 ; Transmit Data Register Empty
+(1)       0 : =4                 DCDF_bm         =       %00000100 ; Data Carrier Detect Flag
+(1)       0 : =8                 CTSF_bm         =       %00001000 ; Clear To Send Flag
+(1)       0 : =10                FERR_bm         =       %00010000 ; Frame Error Flag
+(1)       0 : =20                OVRN_bm         =       %00100000 ; Receiver Overrun Flag
+(1)       0 : =40                PERR_bm         =       %01000000 ; Parity Error Flag
+(1)       0 : =80                IRQF_bm         =       %10000000 ; Interrupt Request Flag
+(1)       0 :
+(1)       0 :                    ;;; Data register
+(1)       0 : =DF01              ACIA_data       =       ACIA+1          ; Data register
+          0 : =94                RX_INT_TX_NO    =     WSB_8N1_gc|RIEB_bm
+          0 :
+       FFFE :                            *=      VEC_IRQ
+       FFFE : A2 10                      .word   isr_irq
+      10000 :
+       FFFC :                            *=      VEC_RESET
+       FFFC : 00 10                      .word   initialize
+       FFFE :
+          0 :                            *=      0
+          0 :                    queue_tmp:
+          2 :                            *=      *+2
+          2 :                    rx_queue:
+          6 :                            *=      *+queue_buf
+          6 : 00 20                      .word   $2000
+          8 : =80                rx_queue_size   =     128
+          8 :
+       1000 :                            *=      $1000
+       1000 : =1FF               stack   =       $01ff
+       1000 :                    initialize:
+       1000 : A2 FF                      ldx     #stack & $FF
+       1002 : 9A                         txs
+       1003 : D8                         cld                     ; clear decimal flag
+       1004 : A2 02                      ldx     #rx_queue
+       1006 : A9 80                      lda     #rx_queue_size
+       1008 : 20 45 10                   jsr     queue_init
+       100B :                            ;; initialize ACIA
+       100B : A9 03                      lda     #CDS_RESET_gc   ; Master reset
+       100D : 8D 00 DF                   sta     ACIA_control
+       1010 : A9 94                      lda     #RX_INT_TX_NO
+       1012 : 8D 00 DF                   sta     ACIA_control
+       1015 : 58                         cli                     ; Enable IRQ
+       1016 :
+       1016 :                    loop:
+       1016 : 20 30 10                   jsr     getchar
+       1019 : B0 FB                      bcs     loop
+       101B : 09 00                      ora     #0
+       101D : F0 0F                      beq     halt_to_system
+       101F : 20 38 10                   jsr     putchar
+       1022 : C9 0D                      cmp     #$0D
+       1024 : D0 F0                      bne     loop
+       1026 : A9 0A                      lda     #$0A
+       1028 : 20 38 10                   jsr     putchar
+       102B : 4C 16 10                   jmp     loop
+       102E :                    halt_to_system:
+       102E : 00                         brk
+       102F : 00                         .byte   0               ; halt to system
+       1030 :
+       1030 :                    getchar:
+       1030 : A2 02                      ldx     #rx_queue
+       1032 : 78                         sei                     ; Disable IRQ
+       1033 : 20 83 10                   jsr     queue_remove
+       1036 : 58                         cli                     ; Enable IRQ
+       1037 : 60                         rts
+       1038 :
+       1038 :                    putchar:
+       1038 : 48                         pha
+       1039 :                    putchar_loop:
+       1039 : AD 00 DF                   lda     ACIA_status
+       103C : 29 02                      and     #TDRE_bm
+       103E : F0 F9                      beq     putchar_loop
+       1040 : 68                         pla
+       1041 : 8D 01 DF                   sta     ACIA_data
+       1044 : 60                         rts
+       1045 :
+       1045 :                            .include "queue.inc"
+(1)    1045 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)    1045 :                    ;;; [queue_tmp] must be allocated 2 bytes on zero page
+(1)    1045 :                    ;;; [queue] queue structure
+(1)    1045 : =0                 queue_len       =       0       ; queue length
+(1)    1045 : =1                 queue_size      =       1       ; buffer size
+(1)    1045 : =2                 queue_put       =       2       ; queue put index
+(1)    1045 : =3                 queue_get       =       3       ; queue get index
+(1)    1045 : =4                 queue_buf       =       4       ; buffer start address
+(1)    1045 :
+(1)    1045 :                    ;;; [queue] Initialize queue
+(1)    1045 :                    ;;; @param X queue work space pointer
+(1)    1045 :                    ;;; @param A queue work space size
+(1)    1045 :                    ;;; @clobber A, Y
+(1)    1045 :                    queue_init:
+(1)    1045 : 95 01                      sta     queue_size,x
+(1)    1047 : 20 59 10                   jsr     init_queue_tmp
+(1)    104A : A8                         tay                     ; Y is queue size
+(1)    104B : A9 00                      lda     #0
+(1)    104D : 95 00                      sta     queue_len,x
+(1)    104F : 95 02                      sta     queue_put,x
+(1)    1051 : 95 03                      sta     queue_get,x
+(1)    1053 :                    queue_init_loop:
+(1)    1053 : 91 00                      sta     (queue_tmp),y
+(1)    1055 : 88                         dey
+(1)    1056 : D0 FB                      bne     queue_init_loop
+(1)    1058 : 60                         rts
+(1)    1059 :
+(1)    1059 :                    ;;; init_tmp
+(1)    1059 :                    ;;; @param X queue work space pointer
+(1)    1059 :                    ;;; store [queue_buf,x] to queue_tmp
+(1)    1059 :                    ;;; @clobber Y
+(1)    1059 :                    init_queue_tmp:
+(1)    1059 : B4 04                      ldy     queue_buf,x
+(1)    105B : 84 00                      sty     queue_tmp
+(1)    105D : B4 05                      ldy     queue_buf+1,x
+(1)    105F : 84 01                      sty     queue_tmp+1
+(1)    1061 : 60                         rts
+(1)    1062 :
+(1)    1062 :                    ;;; [queue] Add an element to queue
+(1)    1062 :                    ;;; @param X queue work space pointer
+(1)    1062 :                    ;;; @param A an element
+(1)    1062 :                    ;;; @return P.C 1 if queue is full
+(1)    1062 :                    queue_add:
+(1)    1062 : 48                         pha                     ; save an element
+(1)    1063 : 20 59 10                   jsr     init_queue_tmp
+(1)    1066 : B5 00                      lda     queue_len,x
+(1)    1068 : D5 01                      cmp     queue_size,x
+(1)    106A : B0 15                      bcs     queue_add_return  ; queue_len >= queue_size
+(1)    106C : B4 02                      ldy     queue_put,x
+(1)    106E : 68                         pla
+(1)    106F : 48                         pha
+(1)    1070 : 91 00                      sta     (queue_tmp),y   ; store an element
+(1)    1072 : F6 00                      inc     queue_len,x
+(1)    1074 : C8                         iny
+(1)    1075 : 94 02                      sty     queue_put,x
+(1)    1077 : 98                         tya
+(1)    1078 : D5 01                      cmp     queue_size,x
+(1)    107A : 90 05                      bcc     queue_add_return ; queue_put < queue_size
+(1)    107C : A9 00                      lda     #0
+(1)    107E : 95 02                      sta     queue_put,x
+(1)    1080 : 18                         clc                     ;  C=0
+(1)    1081 :                    queue_add_return:
+(1)    1081 : 68                         pla
+(1)    1082 : 60                         rts
+(1)    1083 :
+(1)    1083 :                    ;;; [queue] Remove an element from queue
+(1)    1083 :                    ;;; @param X queue work space pointer
+(1)    1083 :                    ;;; @return A an element
+(1)    1083 :                    ;;; @return P.C 1 if queue is empty
+(1)    1083 :                    ;;; @clobber Y
+(1)    1083 :                    queue_remove:
+(1)    1083 : B5 00                      lda     queue_len,x
+(1)    1085 : D0 02                      bne     queue_remove_elem
+(1)    1087 : 38                         sec                     ; C=1
+(1)    1088 : 60                         rts
+(1)    1089 :                    queue_remove_elem
+(1)    1089 : 20 59 10                   jsr     init_queue_tmp
+(1)    108C : B4 03                      ldy     queue_get,x     ; 8 bits offset
+(1)    108E : B1 00                      lda     (queue_tmp),y   ; read an element
+(1)    1090 : 48                         pha                     ; save an element
+(1)    1091 : D6 00                      dec     queue_len,x
+(1)    1093 : C8                         iny
+(1)    1094 : 94 03                      sty     queue_get,x
+(1)    1096 : 98                         tya
+(1)    1097 : D5 01                      cmp     queue_size,x
+(1)    1099 : 90 05                      bcc     queue_remove_return ; queue_get < queue_size
+(1)    109B : A9 00                      lda     #0
+(1)    109D : 95 03                      sta     queue_get,x
+(1)    109F : 18                         clc                     ; C=0
+(1)    10A0 :                    queue_remove_return:
+(1)    10A0 : 68                         pla                     ; restore an element
+(1)    10A1 : 60                         rts
+       10A2 :
+       10A2 :                    isr_irq:
+       10A2 : D8                         cld                     ; clear decimal flag
+       10A3 : 48                         pha                     ; save A
+       10A4 : 8A                         txa
+       10A5 : 48                         pha                     ; save X
+       10A6 : 98                         tya
+       10A7 : 48                         pha                     ; save Y
+       10A8 : AD 00 DF                   lda     ACIA_status
+       10AB : 29 80                      and     #IRQF_bm
+       10AD : F0 0F                      beq     isr_irq_return
+       10AF :                    isr_irq_receive:
+       10AF : AD 00 DF                   lda     ACIA_status
+       10B2 : 29 01                      and     #RDRF_bm
+       10B4 : F0 08                      beq     isr_irq_return
+       10B6 : AD 01 DF                   lda     ACIA_data
+       10B9 : A2 02                      ldx     #rx_queue
+       10BB : 20 62 10                   jsr     queue_add
+       10BE :                    isr_irq_return:
+       10BE : 68                         pla                     ; restore Y
+       10BF : A8                         tay
+       10C0 : 68                         pla                     ; restore X
+       10C1 : AA                         tax
+       10C2 : 68                         pla                     ; restore A
+       10C3 : 40                         rti
