@@ -1,0 +1,93 @@
+          0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+          0 :                    ;;; NIBL Tiny Basic Console I/O
+          0 :                            cpu     ins8060
+          0 :
+          0 : =FFFFFFEB          NUM     =       -21
+          0 : =FFFFFFEA          TEMP    =       -22
+          0 : =FFFFFFE9          TEMP2   =       -23
+          0 : =FFFFFFE8          TEMP3   =       -24
+          0 :
+          0 :                    ;*************************************
+          0 :                    ;*     GET CHARACTER AND ECHO IT     *
+          0 :                    ;*************************************
+        F77 :                            .=      X'0F77
+        F77 : C4 08              GECO:   LDI     8               ;SET COUNT = 8
+        F79 : CA EB                      ST      NUM(P2)
+        F7B : 06                         CSA                     ;SET READER RELAY
+        F7C : DC 02                      ORI     2
+        F7E : 07                         CAS
+        F7F : 06                 GETCO1: CSA                     ;WAIT FOR START BIT
+        F80 : D4 20                      ANI     X'20
+        F82 : 9C FB                      JNZ     GETCO1          ;NOT FOUND
+        F84 : C4 3D                      LDI     61              ; DELAY 1/2 BIT TIME
+        F86 : 8F 00                      DLY     0
+        F88 : 06                         CSA                     ; IS START BIT STILL THERE?
+        F89 : D4 20                      ANI     X'20
+        F8B : 9C F2                      JNZ     GETCO1          ; NO
+        F8D : 06                         CSA                     ;SEND START BIT
+        F8E : D4 FD                      ANI     X'FD           ; RESET READER RELAY
+        F90 : DC 01                      ORI     1
+        F92 : 07                         CAS
+        F93 : C4 76              GETCO2: LDI     118             ; DELAY 1 BIT TIME
+        F95 : 8F 00                      DLY     0
+        F97 : 06                         CSA                     ;GET BIT (SENSED)
+        F98 : D4 20                      ANI     X'20
+        F9A : 98 04                      JZ      GETCO3
+        F9C : C4 01                      LDI     1
+        F9E : 90 04                      JMP     GETCO4
+        FA0 : C4 00              GETCO3: LDI     0
+        FA2 : 9C 00                      JNZ     GETCO4
+        FA4 : CA EA              GETCO4: ST      TEMP(P2)        ;SAVE BIT VALUE (0 OR 1)
+        FA6 : 1F                         RRL                     ;ROTATE INTO LINK
+        FA7 : 01                         XAE
+        FA8 : 1D                         SRL                     ; SHIFT INTO CHARACTER
+        FA9 : 01                         XAE                     ; RETURN CHAR TO E
+        FAA : 06                         CSA                     ;ECHO BIT TO OUTPUT
+        FAB : DC 01                      ORI     1
+        FAD : E2 EA                      XOR     TEMP(P2)
+        FAF : 07                         CAS
+        FB0 : BA EB                      DLD     NUM(P2)         ;DECREMENT BIT COUNT
+        FB2 : 9C DF                      JNZ     GETCO2          ;LOOP UNTIL 0
+        FB4 : C4 76                      LDI     118
+        FB6 : 8F 00                      DLY     0               ; DELAY APPROX. 1 BIT TIME
+        FB8 : 06                         CSA                     ;SET STOP BIT
+        FB9 : D4 FE                      ANI     X'FE
+        FBB : 07                         CAS
+        FBC : 40                         LDE                     ; AC HAS INPUT CHARCTER
+        FBD : 01                         XAE
+        FBE : 40                         LDE
+        FBF : 3F                         XPPC    P3              ;RETURN
+        FC0 : 90 B5                      JMP     GECO
+        FC2 :
+        FC2 :                    ;*************************************
+        FC2 :                    ;*     PRINT CHARACTER  AT  TTY      *
+        FC2 :                    ;*************************************
+        FC2 :                            .=      X'0FC2
+        FC2 : 01                 PUTC:   XAE
+        FC3 : C4 86                      LDI     134              ; DELAY ALMOST
+        FC5 : 8F 01                      DLY     1                ; 3  BIT  TIMES
+        FC7 : 06                         CSA                      ;SET OUTPUT  BIT  TO  LOGIC  0
+        FC8 : DC 01                      ORI     1                ; FOR START  BIT
+        FCA : 07                         CAS
+        FCB : C4 09                      LDI     9                ; INITIALIZE BIT COUNT
+        FCD : CA E8                      ST      TEMP3(P2)
+        FCF : C4 81              PUTC1:  LDI     129              ; DELAY 1 BIT TIME
+        FD1 : 8F 00                      DLY     0
+        FD3 : BA E8                      DLD     TEMP3(P2)        ; DECREMENT BIT COUNT
+        FD5 : 98 10                      JZ      PUTC2
+        FD7 : 40                         LDE                      ; PREPARE NEXT BIT
+        FD8 : D4 01                      ANI     1
+        FDA : CA E9                      ST      TEMP2(P2)
+        FDC : 01                         XAE
+        FDD : 1C                         SR
+        FDE : 01                         XAE
+        FDF : 06                         CSA                      ; SET UP OUTPUT BIT
+        FE0 : DC 01                      ORI    1
+        FE2 : E2 E9                      XOR    TEMP2(P2)
+        FE4 : 07                         CAS                      ; PUT BIT INTO TTY
+        FE5 : 90 E8                      JMP    PUTC1
+        FE7 : 06                 PUTC2:  CSA                      ; SET STOP BIT
+        FE8 : D4 FE                      ANI    X'FE
+        FEA : 07                         CAS
+        FEB : 3F                         XPPC   P3
+        FEC : 90 D4                      JMP    PUTC
