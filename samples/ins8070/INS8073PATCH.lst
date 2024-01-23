@@ -1,0 +1,87 @@
+          0 :                            cpu     8070
+          0 :
+          0 : =48                COLD4           =       X'0048
+          0 : =91E               CHKBRK          =       X'091E
+          0 : =9E5               INITBD          =       X'09E5
+          0 : =A00               ENDNIBL2        =       X'0A00
+          0 : =FD00              BAUDFLG         =       X'FD00
+          0 :
+          0 :                    ;;; MC6850 ACIA
+          0 : =DF00              ACIA    =       X'DF00
+          0 : =0                 ACIA_C  =       0               ; ACIA control offset
+          0 : =0                 ACIA_S  =       0               ; ACIA status offset
+          0 : =1                 ACIA_D  =       1               ; ACIA data register offset
+          0 :
+          0 :                    ;;; Baudrate flag
+       FD00 :                            .=      BAUDFLG
+       FD00 : 00                         .byte   0               ; bit7:0 call extenal routine
+       FD01 : 13 0A                      .dbyte  getchar
+       FD03 : 27 0A                      .dbyte  putchar
+       FD05 :
+       FD05 :                    ;;; Override RAM end check
+         48 :                            .=      COLD4
+         48 : 26 FF 7F                   ld      P2, =X'7fff
+         4B : C6 02                      ld      A, @2, P2
+         4D :
+         4D :                    ;;; Break check
+        922 :                            .=      CHKBRK + 4
+        922 : 20 FF 09                   jsr     check_break
+        925 :
+        925 :                    ;;; Override initialize console
+        9E5 :                            .=      INITBD          ; override INITBD
+        9E5 :                    init_console:
+        9E5 : 22 00 DF                   pli     P2, =ACIA
+        9E8 : C4 03                      ld      A, =3           ; master reset
+        9EA : CA 00                      st      A, ACIA_C, P2
+        9EC : C4 14                      ld      A, =X'14       ; 8bits + no parity + 1stop
+        9EE : CA 00                      st      A, ACIA_C, P2
+        9F0 : 5E                         pop     P2
+        9F1 : 5C                         ret
+        9F2 :
+        9F2 :                    ;;; New code
+        9F2 :
+        A00 :                            .=      ENDNIBL2
+        A00 :
+        A00 :                    check_break:
+        A00 : 22 00 DF                   pli     P2, =ACIA
+        A03 : C2 00                      ld      A, ACIA_S, P2
+        A05 : D4 01                      and     A, =1           ; bit0: receive data ready flag
+        A07 : 6C 06                      bz      no_break
+        A09 : C2 01                      ld      A, ACIA_D, P2   ; receive char
+        A0B : E4 03                      xor     A, =X'03       ; Control-C
+        A0D : 6C 02                      bz      got_break
+        A0F :                    no_break:
+        A0F : C4 01                      ld      A, =1
+        A11 :                    got_break:
+        A11 : 5E                         pop     P2
+        A12 : 5C                         ret
+        A13 :
+        A13 :                    getchar:
+        A13 : 22 00 DF                   pli     P2, =ACIA
+        A16 : 0A                         push    A
+        A17 :                    getchar_loop:
+        A17 : C2 00                      ld      A, ACIA_S, P2
+        A19 : D4 01                      and     A, =1           ; bit0:1 receive data ready flag
+        A1B : 6C FA                      bz      getchar_loop
+        A1D : C2 01                      ld      A, ACIA_D, P2   ; receive char
+        A1F : C9 00                      st      A, 0, SP
+        A21 : E4 0A                      xor     A, =X'0A       ; newline
+        A23 : 6C F2                      bz      getchar_loop
+        A25 : 38                         pop     A
+        A26 : 5E                         pop     P2
+        A27 :                            ;; fall-through to putchar
+        A27 :
+        A27 :                    putchar:
+        A27 : 22 00 DF                   pli     P2, =ACIA
+        A2A : 0A                         push    A               ; save char
+        A2B :                    putchar_loop:
+        A2B : C2 00                      ld      A, ACIA_S, P2
+        A2D : D4 02                      and     A, =2           ; bit1:1 transmit data register empty
+        A2F : 6C FA                      bz      putchar_loop
+        A31 : 38                         pop     A
+        A32 : 0A                         push    A
+        A33 : D4 7F                      and     A, =X'7F       ; clear MSB
+        A35 : CA 01                      st      A, ACIA_D, P2
+        A37 : 38                         pop     A
+        A38 : 5E                         pop     P2
+        A39 : 5C                         ret
