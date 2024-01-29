@@ -1,0 +1,31 @@
+#include "signals_mc6801.h"
+#include "debugger.h"
+#include "digital_bus.h"
+#include "pins_mc6801.h"
+
+namespace debugger {
+namespace mc6801 {
+
+void Signals::getAddr() {
+    addr = busRead(ADDR);
+    vma() = 1;
+}
+
+void Signals::getDirection() {
+    rw() = digitalReadFast(PIN_RW);
+    clearFetch();
+}
+
+void Signals::getData() {
+    data = busRead(AD);
+}
+
+}  // namespace mc6801
+}  // namespace debugger
+
+// Local Variables:
+// mode: c++
+// c-basic-offset: 4
+// tab-width: 4
+// End:
+// vim: set ft=cpp et ts=4 sw=4:
