@@ -1,0 +1,552 @@
+          0 :                            cpu     6811
+          0 :                            include "mc68hc11d.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :                            include "mc68hc11.inc"
+(2)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(2)       0 :                    ;;; MC68HC11
+(2)       0 :                    ;;; Condition Code Register (CC)
+(2)       0 : =1                 CC_CARRY      equ  %00000001   ; set to 1 if carry occurred
+(2)       0 : =2                 CC_OVERFLOW   equ  %00000010   ; set to 1 if overflow occurred
+(2)       0 : =4                 CC_ZERO       equ  %00000100   ; set to 1 if result is zero
+(2)       0 : =8                 CC_NEGATIVE   equ  %00001000   ; set to 1 if result is negative
+(2)       0 : =10                CC_IRQ        equ  %00010000   ; if 1, IRQ is masked
+(2)       0 : =20                CC_HALF_CARRY equ  %00100000   ; if 1, decimal carry from least digit occurred
+(2)       0 : =40                CC_XIRQ       equ  %01000000   ; if 1, XIRQ is masked
+(2)       0 : =80                CC_STOP       equ  %10000000   ; if 1, STOP instruction is disabled
+(2)       0 :
+(2)       0 :                    ;;; Vector
+(2)       0 : =FFF2              VEC_IRQ:        equ     $FFF2  ; $FFF2: #IRQ 
+(2)       0 : =FFF4              VEC_XIRQ:       equ     $FFF4  ; $FFF4: #XIRQ
+(2)       0 : =FFF6              VEC_SWI:        equ     $FFF6  ; $FFF6: Software Interrupt
+(2)       0 : =FFF8              VEC_ILOP:       equ     $FFF8  ; $FFF8: Illegal Opecode Trap
+(2)       0 : =FFFA              VEC_COP:        equ     $FFFA  ; $FFFA: COP (Watchdog) Failure
+(2)       0 : =FFFC              VEC_CMF:        equ     $FFFC  ; $FFFC: Clock Monitor Fail
+(2)       0 : =FFFE              VEC_RESET:      equ     $FFFE  ; $FFFE: Reset
+(1)       0 :                    ;;; MC68HC11D
+(1)       0 :                    ;;; Internal Register Offset
+(1)       0 : =0                 PORTA:  equ     $00             ; $00: Port A Data Register
+(1)       0 : =2                 PIOC:   equ     $02             ; $02: Parallel I/O Control
+(1)       0 : =3                 PORTC:  equ     $03             ; $03: Port C Data Register
+(1)       0 : =4                 PORTB:  equ     $04             ; $04: Port B Data Register
+(1)       0 : =6                 DDRB:   equ     $06             ; $06: Port B Data Direction Register
+(1)       0 : =7                 DDRC:   equ     $07             ; $07: Port C Data Direction Register
+(1)       0 : =8                 PORTD:  equ     $08             ; $08: Port D Data Register
+(1)       0 : =9                 DDRD:   equ     $09             ; $09: Port D Data Direction Register
+(1)       0 : =B                 CFORC:  equ     $0B             ; $0B: Timer Compare Force
+(1)       0 : =C                 OC1M:   equ     $0C             ; $0C: Output Compare 1 Mask
+(1)       0 : =D                 OC1D:   equ     $0D             ; $0D: Output Compare 1 Data
+(1)       0 : =E                 TCNT:   equ     $0E             ; $0E-$0F: Timer Counter
+(1)       0 : =10                TIC1:   equ     $10             ; $10-$11: Timer Input Capture 1
+(1)       0 : =12                TIC2:   equ     $12             ; $12-$13: Timer Input Capture 2
+(1)       0 : =14                TIC3:   equ     $14             ; $14-$15: Timer Input Capture 3
+(1)       0 : =16                TOC1:   equ     $16             ; $16-$17: Timer Output Compare 1
+(1)       0 : =18                TOC2:   equ     $18             ; $18-$19: Timer Output Compare 2
+(1)       0 : =1A                TOC3:   equ     $1A             ; $1A-$1B: Timer Output Compare 3
+(1)       0 : =1C                TOC4:   equ     $1C             ; $1C-$1D: Timer Output Compare 4
+(1)       0 : =1E                TI4O5:  equ     $1E             ; $1E-$1F: Timer Input Capture 4/Timer Output Compare 5
+(1)       0 : =20                TCTL1:  equ     $20             ; $20: Timer Control 1
+(1)       0 : =21                TCTL2:  equ     $21             ; $21: Timer Control 2
+(1)       0 : =22                TMSK1:  equ     $22             ; $22: Timer Interrupt Mask 1
+(1)       0 : =23                TFLG1:  equ     $23             ; $23: Timer Interrupt Flag 1
+(1)       0 : =24                TMSK2:  equ     $24             ; $24: Timer Interrupt Mask 2
+(1)       0 : =25                TFLG2:  equ     $25             ; $25: Timer Interrupt Flag 2
+(1)       0 : =26                PACTL:  equ     $26             ; $26: Pulse Accumulator Control
+(1)       0 : =27                PACNT:  equ     $27             ; $27: Pulse Accumulator Count
+(1)       0 : =28                SPCR:   equ     $28             ; $28: Serial Peripheral Control Register
+(1)       0 : =29                SPSR:   equ     $29             ; $29: Serial Peripheral Status Register
+(1)       0 : =2A                SPDR:   equ     $2A             ; $2A: SPI Data Register 
+(1)       0 : =2B                BAUD:   equ     $2B             ; $2B: Baud Rate
+(1)       0 : =2C                SCCR1:  equ     $2C             ; $2C: SCI Control Register 1
+(1)       0 : =2D                SCCR2:  equ     $2D             ; $2D: SCI Control Register 2
+(1)       0 : =2E                SCSR:   equ     $2E             ; $2E: SCI Status Register
+(1)       0 : =2F                SCDR:   equ     $2F             ; $2F: SCI Data Register
+(1)       0 : =39                OPTION: equ     $39             ; $39: System Configuration Options
+(1)       0 : =3A                COPRST: equ     $3A             ; $3A: Arm/Reset COP Timer Circuitry
+(1)       0 : =3C                HPRIO:  equ     $3C             ; $3C: Highest Priority I-Bit Interrupt and Miscellaneous
+(1)       0 : =3D                INIT:   equ     $3D             ; $3D: RAM and I/O Mapping Register
+(1)       0 : =3E                TEST1:  equ     $3E
+(1)       0 : =3F                CONFIG: equ     $3F             ; $3F: System Configuration
+(1)       0 :
+(1)       0 :                    ;;; PIOC: Parallel I/O Control
+(1)       0 : =20                PIOC_CWOM_bm:   equ     %00100000 ; Port C Wired-Or Mode (1=open-drain)
+(1)       0 :
+(1)       0 :                    ;;; CFORC: Timer Compare Force
+(1)       0 : =80                CFORC_FOC1_bm:  equ     %10000000 ; Write One to Force Compare 1
+(1)       0 : =40                CFORC_FOC2_bm:  equ     %01000000 ; Write One to Force Compare 2
+(1)       0 : =20                CFORC_FOC3_bm:  equ     %00100000 ; Write One to Force Compare 3
+(1)       0 : =10                CFORC_FOC4_bm:  equ     %00010000 ; Write One to Force Compare 4
+(1)       0 : =8                 CFORC_FOC5_bm:  equ     %00001000 ; Write One to Force Compare 5
+(1)       0 :
+(1)       0 :                    ;;; OC1M: Timer Compare 1 Mask
+(1)       0 : =80                OC1M_PA7_bm:    equ     %10000000 ; Output Compare enabled on Port A Bit 7
+(1)       0 : =40                OC1M_PA6_bm:    equ     %01000000 ; Output Compare enabled on Port A Bit 6
+(1)       0 : =20                OC1M_PA5_bm:    equ     %00100000 ; Output Compare enabled on Port A Bit 5
+(1)       0 : =10                OC1M_PA4_bm:    equ     %00010000 ; Output Compare enabled on Port A Bit 4
+(1)       0 : =8                 OC1M_PA3_bm:    equ     %00001000 ; Output Compare enabled on Port A Bit 3
+(1)       0 :
+(1)       0 :                    ;;; OC1D: Timer Compare 1 Data
+(1)       0 : =80                OC1D_PA7_bm:    equ     %10000000 ; Output Compare Data for Port A Bit 7
+(1)       0 : =40                OC1D_PA6_bm:    equ     %01000000 ; Output Compare Data for Port A Bit 6
+(1)       0 : =20                OC1D_PA5_bm:    equ     %00100000 ; Output Compare Data for Port A Bit 5
+(1)       0 : =10                OC1D_PA4_bm:    equ     %00010000 ; Output Compare Data for Port A Bit 4
+(1)       0 : =8                 OC1D_PA3_bm:    equ     %00001000 ; Output Compare Data for Port A Bit 3
+(1)       0 :
+(1)       0 :                    ;;; TCTL1: Timer Control 1
+(1)       0 : =6                 TCTL1_OC2_gp:   equ     6       ; Output Compare Mode and Level for OC2
+(1)       0 : =4                 TCTL1_OC3_gp:   equ     4       ; Output Compare Mode and Level for OC3
+(1)       0 : =2                 TCTL1_OC4_gp:   equ     2       ; Output Compare Mode and Level for OC4
+(1)       0 : =0                 TCTL1_OC5_gp:   equ     0       ; Output Compare Mode and Level for OC5
+(1)       0 : =0                 TCTL1_MODE_DIS_gc:      equ     %00 ; Timer disconnected from output pin logic
+(1)       0 : =1                 TCTL1_MODE_TOGGLE_gc:   equ     %01 ; Toggle OCx output line
+(1)       0 : =2                 TCTL1_MODE_CLEAR_gc:    equ     %10 ; Clear OCx output line to 0
+(1)       0 : =3                 TCTL1_MODE_SET_gc:      equ     %11 ; Set OCx output line to 1
+(1)       0 :
+(1)       0 :                    ;;; TCTL2: Timer Control 2
+(1)       0 : =6                 TCTL2_IC4_gp:   equ     6       ; Input Capture Edge Control for IC4
+(1)       0 : =4                 TCTL2_IC1_gp:   equ     4       ; Input Capture Edge Control for IC1
+(1)       0 : =2                 TCTL2_IC2_gp:   equ     2       ; Input Capture Edge Control for IC2
+(1)       0 : =0                 TCTL2_IC3_gp:   equ     0       ; Input Capture Edge Control for IC3
+(1)       0 : =0                 TCTL2_EDG_DIS_gc:       equ     %00 ; Capture Disabled
+(1)       0 : =1                 TCTL2_EDG_RISING_gc:    equ     %01 ; Capture on rising edges only
+(1)       0 : =2                 TCTL2_EDG_FALLING_gc:   equ     %10 ; Capture on falling edges only
+(1)       0 : =3                 TCTL2_EDG_BOTH_gc:      equ     %11 ; Capture on any edge
+(1)       0 :
+(1)       0 :                    ;;; TMSK1: Timer Interrupt Mask 1
+(1)       0 : =80                TMSK1_OC1I_bm:  equ     %10000000 ; Enable OC1 interrupt
+(1)       0 : =40                TMSK1_OC2I_bm:  equ     %01000000 ; Enable OC2 interrupt
+(1)       0 : =20                TMSK1_OC3I_bm:  equ     %00100000 ; Enable OC3 interrupt
+(1)       0 : =10                TMSK1_OC4I_bm:  equ     %00010000 ; Enable OC4 interrupt
+(1)       0 : =8                 TMSK1_OC5I_bm:  equ     %00001000 ; Enable OC5 interrupt
+(1)       0 : =8                 TMSK1_IC4I_bm:  equ     %00001000 ; Enable IC4 interrupt
+(1)       0 : =4                 TMSK1_IC1I_bm:  equ     %00000100 ; Enable IC1 interrupt
+(1)       0 : =2                 TMSK1_IC2I_bm:  equ     %00000010 ; Enable IC2 interrupt
+(1)       0 : =1                 TMSK1_IC3I_bm:  equ     %00000001 ; Enable IC3 interrupt
+(1)       0 :
+(1)       0 :                    ;;; TFLG1: Timer Interrupt Flag 1
+(1)       0 : =80                TFLG1_OC1F_bm:  equ     %10000000 ; OC1 interrupt Flag
+(1)       0 : =40                TFLG1_OC2F_bm:  equ     %01000000 ; OC2 interrupt Flag
+(1)       0 : =20                TFLG1_OC3F_bm:  equ     %00100000 ; OC3 interrupt Flag
+(1)       0 : =10                TFLG1_OC4F_bm:  equ     %00010000 ; OC4 interrupt Flag
+(1)       0 : =8                 TFLG1_OC5F_bm:  equ     %00001000 ; OC5 interrupt Flag
+(1)       0 : =8                 TFLG1_IC4F_bm:  equ     %00001000 ; IC4 interrupt Flag
+(1)       0 : =4                 TFLG1_IC1F_bm:  equ     %00000100 ; IC1 interrupt Flag
+(1)       0 : =2                 TFLG1_IC2F_bm:  equ     %00000010 ; IC2 interrupt Flag
+(1)       0 : =1                 TFLG1_IC3F_bm:  equ     %00000001 ; IC3 interrupt Flag
+(1)       0 :
+(1)       0 :                    ;;; TMSK2: Timer Interrupt Mask 2
+(1)       0 : =80                TMSK2_TOI_bm:   equ     %10000000 ; Timer Overflow Interrupt Enable
+(1)       0 : =40                TMSK2_RTII_bm:  equ     %01000000 ; Real-time Interrupt Enable
+(1)       0 : =20                TMSK2_PAOVI_bm: equ     %00100000 ; Pulse Accumulator Overflow Interrupt Enable
+(1)       0 : =10                TMSK2_PAII_bm:  equ     %00010000 ; Pulse Accumulator Input Edge Interrupt Enable
+(1)       0 : =3                 TMSK2_PR_gm:    equ     %00000011 ; Timer Prescaler Select
+(1)       0 : =0                 TMSK2_PR1_gc:   equ     %00000000 ; prescaler 1
+(1)       0 : =1                 TMSK2_PR4_gc:   equ     %00000001 ; prescaler 4
+(1)       0 : =2                 TMSK2_PR8_gc:   equ     %00000010 ; prescaler 8
+(1)       0 : =3                 TMSK2_PR16_gc:  equ     %00000011 ; prescaler 16
+(1)       0 :
+(1)       0 :                    ;;; TFLG2: Timer Interrupt Flag 2
+(1)       0 : =80                TFLG2_TOF_gm:   equ     %10000000 ; Timer Overflow Interrupt FLag
+(1)       0 : =40                TFLG2_RTIF_gm:  equ     %01000000 ; Real-time Interrupt FLag
+(1)       0 : =20                TFLG2_PAOVF_gm: equ     %00100000 ; Pulse Accumulator Overflow Interrupt FLag
+(1)       0 : =10                TFLG2_PAIF_gm:  equ     %00010000 ; Pulse Accumulator Input Edge Interrupt FLag
+(1)       0 :
+(1)       0 :                    ;;; PACTL: Pulse Accumulator Control
+(1)       0 : =80                PACTL_DDRA7_bm: equ     %10000000 ; Data Direction Control for Port A Bit 7
+(1)       0 : =40                PACTL_PAEN_bm:  equ     %01000000 ; Pulse Accumulator System Enable
+(1)       0 : =30                PACTL_PAMOD_gm: equ     %00110000 ; Pulse Accumulator Mode
+(1)       0 : =0                 PACTL_PAMOD_FALLING_gc: equ     %00000000 ; PAI Falling Edge Increments the Counter
+(1)       0 : =10                PACTL_PAMOD_RISING_gc:  equ     %00010000 ; PAI Rising Edge Increments the Counter
+(1)       0 : =20                PACTL_PAMOD_ZERO_gc:    equ     %00100000 ; A Zero on PAI Inhibits Counting
+(1)       0 : =30                PACTL_PAMOD_ONE_gc:     equ     %00110000 ; A One on PAI Inhibits Counting
+(1)       0 : =8                 PACTL_DDRA3_bm: equ     %00001000 ; Data Direction Control for Port A Bit 3
+(1)       0 : =4                 PACTL_I4O5_bm:  equ     %00000100 ; Configure TI4/O5 Register (0=OC5, 1=IC4)
+(1)       0 : =3                 PACTL_RTR_gm:   equ     %00000011 ; Real_Time interrupt Rate
+(1)       0 : =0                 PACTL_RTR13_gc: equ     %00000000 ; E/2^13
+(1)       0 : =1                 PACTL_RTR14_gc: equ     %00000001 ; E/2^14
+(1)       0 : =2                 PACTL_RTR15_gc: equ     %00000010 ; E/2^15
+(1)       0 : =3                 PACTL_RTR16_gc: equ     %00000011 ; E/2^16
+(1)       0 :
+(1)       0 :                    ;;; SPCR: Serial Peripheral Control Register
+(1)       0 : =80                SPCR_SPIE_bm:   equ     %10000000 ; Serial Peripheral Interrupt Enable
+(1)       0 : =40                SPCR_SPE_bm:    equ     %01000000 ; Serial Peripheral System Enable
+(1)       0 : =20                SPCR_DWOM_bm:   equ     %00100000 ; Port D Wired-Or Mode
+(1)       0 : =10                SPCR_MSTR_bm:   equ     %00010000 ; Master Mode Select (0=slave, 1=master)
+(1)       0 : =8                 SPCR_CPOL_bm:   equ     %00001000 ; Clock Polarity
+(1)       0 : =4                 SPCR_CPHA_bm:   equ     %00000100 ; Clock Phase
+(1)       0 : =3                 SPCR_SPR_gm:    equ     %00000011 ; SPI Clock Rate Selects
+(1)       0 : =0                 SPCR_SPR2_gc:   equ     %00000000 ; E clock divided by 2
+(1)       0 : =1                 SPCR_SPR4_gc:   equ     %00000001 ; E clock divided by 4
+(1)       0 : =2                 SPCR_SPR16_gc:  equ     %00000010 ; E clock divided by 16
+(1)       0 : =3                 SPCR_SPR32_gc:  equ     %00000011 ; E clock divided by 32
+(1)       0 :
+(1)       0 :                    ;;; SPSR: Serial Peripheral Status Register
+(1)       0 : =80                SPSR_SPIF_bm:   equ     %10000000 ; SPI Transfer Complete Flag
+(1)       0 : =40                SPSR_WCOL_bm:   equ     %01000000 ; Write Collision
+(1)       0 : =10                SPSR_MODF_bm:   equ     %00010000 ; Mode Fault
+(1)       0 :
+(1)       0 :                    ;;; BAUD: Baud Rate
+(1)       0 : =30                BAUD_SCP_gm:    equ     %00110000 ; SCI Baud Rate Prescaler Selects
+(1)       0 : =0                 BAUD_SCP1_gc:   equ     %00000000 ; E is divided by 1
+(1)       0 : =10                BAUD_SCP3_gc:   equ     %00010000 ; E is divided by 3
+(1)       0 : =20                BAUD_SCP4_gc:   equ     %00100000 ; E is divided by 4
+(1)       0 : =30                BAUD_SCP13_gc:  equ     %00110000 ; E is divided by 13
+(1)       0 : =7                 BAUD_SCR_gm:    equ     %00000111 ; SCI Baud Rate Selects (baud rate x16)
+(1)       0 : =0                 BAUD_SCR1_gc:   equ     %00000000 ; Divide Prescaler by 1
+(1)       0 : =1                 BAUD_SCR2_gc:   equ     %00000001 ; Divide Prescaler by 2
+(1)       0 : =2                 BAUD_SCR4_gc:   equ     %00000010 ; Divide Prescaler by 3
+(1)       0 : =3                 BAUD_SCR8_gc:   equ     %00000011 ; Divide Prescaler by 4
+(1)       0 : =4                 BAUD_SCR16_gc:  equ     %00000100 ; Divide Prescaler by 5
+(1)       0 : =5                 BAUD_SCR32_gc:  equ     %00000101 ; Divide Prescaler by 6
+(1)       0 : =6                 BAUD_SCR64_gc:  equ     %00000110 ; Divide Prescaler by 7
+(1)       0 : =7                 BAUD_SCR128_gc: equ     %00000111 ; Divide Prescaler by 8
+(1)       0 :
+(1)       0 :                    ;;; SCCR1: SCI Control Register 1
+(1)       0 : =80                SCCR1_R8_bm:    equ     %10000000 ; Receive Data Bit 8
+(1)       0 : =40                SCCR1_T8_bm:    equ     %01000000 ; Transmit Data Bit 8
+(1)       0 : =10                SCCR1_M_bm:     equ     %00010000 ; Mode (0=8data-1stop, 1=9data-1stop)
+(1)       0 : =8                 SCCR1_WAKE_bm:  equ     %00001000 ; Wake-up by Address Mar/Idle (0=idle, 1=mark)
+(1)       0 :
+(1)       0 :                    ;;; SCCR2: SCI Control Register 2
+(1)       0 : =80                SCCR2_TIE_bm:   equ     %10000000 ; Transmit Interrupt Enable
+(1)       0 : =40                SCCR2_TCIE_bm:  equ     %01000000 ; Transmit Complete Interrupt Enable
+(1)       0 : =20                SCCR2_RIE_bm:   equ     %00100000 ; Receive Interrupt Enable
+(1)       0 : =10                SCCR2_ILIE_bm:  equ     %00010000 ; Idle Line Interrupt Enable
+(1)       0 : =8                 SCCR2_TE_bm:    equ     %00001000 ; Transmitter Enable
+(1)       0 : =4                 SCCR2_RE_bm:    equ     %00000100 ; Receiver Enable
+(1)       0 : =2                 SCCR2_RWU_bm:   equ     %00000010 ; Receiver Wake-Up Control
+(1)       0 : =1                 SCCr2_SBK_bm:   equ     %00000001 ; Send Break
+(1)       0 :
+(1)       0 :                    ;;; SCSR: SCI Status Register
+(1)       0 : =80                SCSR_TDRE_bm:   equ     %10000000 ; Transmit Data Register Empty Flag
+(1)       0 : =40                SCSR_TC_bm:     equ     %01000000 ; Transmit Complete Flag
+(1)       0 : =20                SCSR_RDRF_bm:   equ     %00100000 ; Receiver Data Register Full Flag
+(1)       0 : =10                SCSR_IDLE_bm:   equ     %00010000 ; Idle Line Detected Flag
+(1)       0 : =8                 SCSR_OR_bm:     equ     %00001000 ; Overrun Error Flag
+(1)       0 : =4                 SCSR_NF_bm:     equ     %00000100 ; Noise Error Flag
+(1)       0 : =2                 SCSR_FE_bm:     equ     %00000010 ; Framing Error
+(1)       0 :
+(1)       0 :                    ;;; OPTION: System Configuration Options
+(1)       0 : =20                OPTION_IRQE_bm: equ     %00100000 ; #IRQ Select Edge Sensitivity only (0:level 1:edge)
+(1)       0 : =10                OPTION_DLY_bm:  equ     %00010000 ; Enable Oscillator Startup Delay
+(1)       0 : =8                 OPTION_CME_bm:  equ     %00001000 ; Clock Monitor Enable
+(1)       0 : =3                 OPTION_CR_gm:   equ     %00000011 ; COP Timer Rate Select Bits
+(1)       0 : =0                 OPTION_CR1_gc:  equ     %00       ; Divide E/2 by 1
+(1)       0 : =1                 OPTION_CR4_gc:  equ     %01       ; Divide E/2 by 4
+(1)       0 : =2                 OPTION_CR16_gc: equ     %10       ; Divide E/2 by 16
+(1)       0 : =3                 OPTION_CR64_gc: equ     %11       ; Divide E/2 by 64
+(1)       0 :
+(1)       0 :                    ;;; COPRST: Arm/Reset COP Timer Circuitry
+(1)       0 : =55                COPRST_ARM_gc:          equ     $55     ; Arm the COP timer clearing mechanism, then
+(1)       0 : =AA                COPRST_RESET_gc:        equ     $AA     ; Clear the COP timer.
+(1)       0 :
+(1)       0 :                    ;;; HPRIO: Highest Priority I-Bit Interrupt and Miscellaneous
+(1)       0 : =80                HPRIO_RBOOT_bm: equ     %10000000 ; Read Bootstrap ROM
+(1)       0 : =40                HPRIO_SMOD_bm:  equ     %01000000 ; Special Mode Select
+(1)       0 : =20                HPRIO_MDA_bm:   equ     %00100000 ; Mode Select A
+(1)       0 : =10                HPRIO_IRVNE_bm: equ     %00010000 ; Internal Read Visibility Enable
+(1)       0 : =F                 HPRIO_PSEL_gm:  equ     %00001111 ; Priority Select Bits
+(1)       0 : =0                 HPRIO_PSEL_TOVF_gc:     equ     %0000     ; Timer Overflow
+(1)       0 : =1                 HPRIO_PSEL_PAOVF_gc:    equ     %0001     ; Pulse Accumulator Overflow
+(1)       0 : =2                 HPRIO_PSEL_PAEDGE_gc:   equ     %0010     ; Pulse Accumulator Input Edge
+(1)       0 : =3                 HPRIO_PSEL_SPITX_gc:    equ     %0011     ; SPI Serial Transfer Complete
+(1)       0 : =4                 HPRIO_PSEL_SPI_gc:      equ     %0100     ; SPI Serial System
+(1)       0 : =6                 HPRIO_PSEL_IRQ_gc:      equ     %0110     ; #IRQ
+(1)       0 : =7                 HPRIO_PSEL_RTI_gc:      equ     %0111     ; Real Time Interrupt
+(1)       0 : =8                 HPRIO_PSEL_TIC1_gc:     equ     %1000     ; Timer Input Capture 1
+(1)       0 : =9                 HPRIO_PSEL_TIC2_gc:     equ     %1001     ; Timer Input Capture 2
+(1)       0 : =A                 HPRIO_PSEL_TIC3_gc:     equ     %1010     ; Timer Input Capture 3
+(1)       0 : =F                 HPRIO_PSEL_TIC4_gc:     equ     %1111     ; Timer Input Capture 4
+(1)       0 : =B                 HPRIO_PSEL_TOC1_gc:     equ     %1011     ; Timer Output Compare 1
+(1)       0 : =C                 HPRIO_PSEL_TOC2_gc:     equ     %1100     ; Timer Output Compare 2
+(1)       0 : =D                 HPRIO_PSEL_TOC3_gc:     equ     %1101     ; Timer Output Compare 3
+(1)       0 : =E                 HPRIO_PSEL_TOC4_gc:     equ     %1110     ; Timer Output Compare 4
+(1)       0 : =F                 HPRIO_PSEL_TOC5_gc:     equ     %1111     ; Timer Output Compare 5
+(1)       0 :                            
+(1)       0 :                    ;;; INIT: RAM and I/O Mapping Register
+(1)       0 : =F0                INIT_RAM_gm:    equ     %11110000 ; RAM Map Position
+(1)       0 : =4                 INIT_RAM_gp:    equ     4
+(1)       0 : =F                 INIT_REG_gm:    equ     %00001111 ; 54-Byte Register Block Position
+(1)       0 : =0                 INIT_REG_gp:    equ     0
+(1)       0 :
+(1)       0 :                    ;;; CONFIG: System configuration
+(1)       0 : =4                 CONFIG_NOCOP_bm:        equ     %00000100 ; COP System disable
+(1)       0 : =2                 CONFIG_ROMON_bm:        equ     %00000010 ; ROM enable
+(1)       0 :
+(1)       0 :                    ;;; Vector
+(1)       0 : =FFD6              VEC_SCI:        equ     $FFD6  ; $FFF0: SCI Interrupt (TDRE+TC+RDRF+IDLE+OR/NF/FE)
+(1)       0 : =FFD8              VEC_SPITX:      equ     $FFD8  ; $FFD8: SPI Serial Transfer Complete
+(1)       0 : =FFDA              VEC_PAI:        equ     $FFDA  ; $FFDA: Pulse Accumulator Input Edge
+(1)       0 : =FFDC              VEC_PAOV:       equ     $FFDC  ; $FFDC: Pulse Accumulator Overflow
+(1)       0 : =FFDE              VEC_TO:         equ     $FFDE  ; $FFDE: Timer Overflow
+(1)       0 : =FFE0              VEC_TOC5:       equ     $FFE0  ; $FFE0: Timer Input Compare 5 (=VEC_TICAP4)
+(1)       0 : =FFE2              VEC_TOC4:       equ     $FFE2  ; $FFE2: Timer Input Compare 4
+(1)       0 : =FFE4              VEC_TOC3:       equ     $FFE4  ; $FFE4: Timer Input Compare 3
+(1)       0 : =FFE6              VEC_TOC2:       equ     $FFE6  ; $FFE6: Timer Input Compare 2
+(1)       0 : =FFE8              VEC_TOC1:       equ     $FFE8  ; $FFE8: Timer Input Compare 1
+(1)       0 : =FFE0              VEC_TIC4:       equ     $FFE0  ; $FFE0: Timer Input Capture 4 (=VEC_TOCMP5)
+(1)       0 : =FFEA              VEC_TIC3:       equ     $FFEA  ; $FFEA: Timer Input Capture 3
+(1)       0 : =FFEC              VEC_TIC2:       equ     $FFEC  ; $FFEC: Timer Input Capture 2
+(1)       0 : =FFEE              VEC_TIC1:       equ     $FFEE  ; $FFEE: Timer Input Capture 1
+(1)       0 : =FFF0              VEC_RTI:        equ     $FFF0  ; $FFF0: Real Time Interrupt
+          0 :
+       2000 :                            org     $2000
+       2000 :
+       2000 : =80                rx_queue_size:  equ     128
+       2000 :                    rx_queue:       rmb     rx_queue_size
+       2080 : =80                tx_queue_size:  equ     128
+       2080 :                    tx_queue:       rmb     tx_queue_size
+       2100 :                    tx_int_control: rmb     1
+       2101 :
+       2101 :                    ;;; SCI: Enable Rx interrupt
+       2101 : =2C                RX_INT_TX_NO:   equ     SCCR2_TE_bm|SCCR2_RE_bm|SCCR2_RIE_bm
+       2101 : =AC                RX_INT_TX_INT:  equ     SCCR2_TE_bm|SCCR2_RE_bm|SCCR2_RIE_bm|SCCR2_TIE_bm
+       2101 :
+       1000 :                            org     $1000
+       1000 : =FFF               stack:  equ     *-1             ; MC6801's SP is post-decrement/pre-increment
+       1000 :
+       FFD6 :                            org     VEC_SCI
+       FFD6 : 01 F4                      fdb     isr_sci
+       FFD8 :
+       FFF6 :                            org     VEC_SWI
+       FFF6 : FF F6                      fdb     VEC_SWI         ; for halt to system
+       FFF8 :
+       FFFE :                            org     VEC_RESET
+       FFFE : 01 02                      fdb     initialize
+      10000 :
+        100 :                            org     $0100
+        100 :                    device_base:
+        100 : 00 00                      fdb     $0000           ; device base
+        102 :                    initialize:
+        102 : 8E 0F FF                   lds     #stack
+        105 : CE 20 00                   ldx     #rx_queue
+        108 : C6 80                      ldab    #rx_queue_size
+        10A : BD 01 AD                   jsr     queue_init
+        10D : CE 20 80                   ldx     #tx_queue
+        110 : C6 80                      ldab    #tx_queue_size
+        112 : BD 01 AD                   jsr     queue_init
+        115 :                            ;; Initialize SCI
+        115 : 18 FE 01 00                ldy     device_base
+        119 : 18 6F 2C                   clr     SCCR1,y                    ; 8bit 1stop
+        11C : 86 00                      ldaa    #BAUD_SCP1_gc|BAUD_SCR1_gc ; E/16
+        11E : 18 A7 2B                   staa    BAUD,y
+        121 : 86 2C                      ldaa    #RX_INT_TX_NO
+        123 : 18 A7 2D                   staa    SCCR2,y         ; enable Tx and Rx/Interrupt
+        126 : 7F 21 00                   clr     tx_int_control  ; disable Tx interrupt
+        129 : 0E                         cli                     ; enable IRQ
+        12A : 20 01                      bra     loop
+        12C :
+        12C :                    wait:
+        12C : 3E                         wai
+        12D :                    loop:
+        12D : 8D 5D                      bsr     getchar
+        12F : 24 FB                      bcc     wait
+        131 : 4D                         tsta
+        132 : 27 13                      beq     halt_to_system
+        134 : 16                         tab
+        135 : 8D 60                      bsr     putchar         ; echo
+        137 : 86 20                      ldaa    #' '            ; space
+        139 : 8D 5C                      bsr     putchar
+        13B : 8D 13                      bsr     put_hex8        ; print in hex
+        13D : 86 20                      ldaa    #' '            ; space
+        13F : 8D 56                      bsr     putchar
+        141 : 8D 2B                      bsr     put_bin8        ; print in binary
+        143 : 8D 03                      bsr     newline
+        145 : 20 E6                      bra     loop
+        147 :                    halt_to_system:
+        147 : 3F                         swi
+        148 :
+        148 :                    ;;; Put newline
+        148 :                    ;;; @clobber A
+        148 :                    newline:
+        148 : 86 0D                      ldaa    #$0D
+        14A : 8D 4B                      bsr     putchar
+        14C : 86 0A                      ldaa    #$0A
+        14E : 20 47                      bra     putchar
+        150 :
+        150 :                    ;;; Print uint8_t in hex
+        150 :                    ;;; @param B uint8_t value to be printed in hex.
+        150 :                    ;;; @clobber A
+        150 :                    put_hex8:
+        150 : 86 30                      ldaa    #'0'
+        152 : 8D 43                      bsr     putchar
+        154 : 86 78                      ldaa    #'x'
+        156 : 8D 3F                      bsr    putchar
+        158 : 17                         tba
+        159 : 44                         lsra
+        15A : 44                         lsra
+        15B : 44                         lsra
+        15C : 44                         lsra
+        15D : 8D 01                      bsr     put_hex4
+        15F : 17                         tba
+        160 :                    put_hex4:
+        160 : 84 0F                      anda    #$0f
+        162 : 81 0A                      cmpa    #10
+        164 : 25 04                      blo     put_hex8_dec
+        166 : 8B 37                      adda    #'A'-10
+        168 : 20 2D                      bra     putchar
+        16A :                    put_hex8_dec:
+        16A : 8B 30                      adda    #'0'
+        16C : 20 29                      bra     putchar
+        16E :
+        16E :                    ;;; Print uint8_t in binary
+        16E :                    ;;; @param B uint8_t value to be printed in binary.
+        16E :                    ;;; @clobber A
+        16E :                    put_bin8:
+        16E : 37                         pshb
+        16F : 86 30                      ldaa    #'0'
+        171 : 8D 24                      bsr     putchar
+        173 : 86 62                      ldaa    #'b'
+        175 : 8D 20                      bsr     putchar
+        177 : 8D 05                      bsr     put_bin4
+        179 : 58                         lslb
+        17A : 8D 02                      bsr     put_bin4
+        17C : 33                         pulb
+        17D : 39                         rts
+        17E :                    put_bin4:
+        17E : 8D 01                      bsr     put_bin2
+        180 : 58                         lslb
+        181 :                    put_bin2:
+        181 : 8D 01                      bsr     put_bin1
+        183 : 58                         lslb
+        184 :                    put_bin1:
+        184 : 86 30                      ldaa    #'0'
+        186 : 5D                         tstb                    ; chech MSB
+        187 : 2A 01                      bpl     put_bin0        ; MSB=0
+        189 : 4C                         inca                    ; MSB=1
+        18A :                    put_bin0:
+        18A : 20 0B                      bra     putchar
+        18C :
+        18C :                    ;;; Get character
+        18C :                    ;;; @return A
+        18C :                    ;;; @return CC.C 0 if no character
+        18C :                    getchar:
+        18C : 3C                         pshx
+        18D : 0F                         sei                     ; disable IRQ
+        18E : CE 20 00                   ldx     #rx_queue
+        191 : BD 01 D8                   jsr     queue_remove
+        194 : 0E                         cli                     ; enable IRQ
+        195 : 38                         pulx
+        196 : 39                         rts
+        197 :
+        197 :                    ;;; Put character
+        197 :                    ;;; @param A
+        197 :                    putchar:
+        197 : 36                         psha
+        198 : 3C                         pshx
+        199 : CE 20 80                   ldx     #tx_queue
+        19C :                    putchar_retry:
+        19C : 0F                         sei                     ; disable IRQ
+        19D : BD 01 BC                   jsr     queue_add
+        1A0 : 0E                         cli                     ; enable IRQ
+        1A1 : 24 F9                      bcc     putchar_retry   ; branch if queue is full
+        1A3 : FE 01 00                   ldx     device_base
+        1A6 : 86 AC                      ldaa    #RX_INT_TX_INT  ; Enable Tx interrupt
+        1A8 : A7 2D                      staa    SCCR2,x
+        1AA : 38                         pulx
+        1AB : 32                         pula
+        1AC : 39                         rts
+        1AD :
+        1AD :                            include "queue.inc"
+(1)     1AD :                    ;;; [queue] queue structure
+(1)     1AD : =0                 queue_len:      equ     0       ; queue length
+(1)     1AD : =1                 queue_size:     equ     1       ; buffer size
+(1)     1AD : =2                 queue_put:      equ     2       ; queue put index
+(1)     1AD : =3                 queue_get:      equ     3       ; queue get index
+(1)     1AD : =4                 queue_buf:      equ     4       ; buffer start offset
+(1)     1AD :
+(1)     1AD :                    ;;; [queue] Initialize queue
+(1)     1AD :                    ;;; @param X queue work space pointer
+(1)     1AD :                    ;;; @param B queue work space size
+(1)     1AD :                    ;;; @clobber B
+(1)     1AD :                    queue_init:
+(1)     1AD : 37                         pshb
+(1)     1AE : 3C                         pshx
+(1)     1AF :                    queue_init_loop:
+(1)     1AF : 6F 00                      clr     0,x
+(1)     1B1 : 08                         inx
+(1)     1B2 : 5A                         decb
+(1)     1B3 : 26 FA                      bne     queue_init_loop
+(1)     1B5 : 38                         pulx
+(1)     1B6 : 33                         pulb
+(1)     1B7 : C0 04                      subb    #queue_buf
+(1)     1B9 : E7 01                      stab    queue_size,x
+(1)     1BB : 39                         rts
+(1)     1BC :
+(1)     1BC :                    ;;; [queue] Add an element to queue
+(1)     1BC :                    ;;; @param X queue work space pointer
+(1)     1BC :                    ;;; @param A an element
+(1)     1BC :                    ;;; @return CC.C 0 if queue is full
+(1)     1BC :                    queue_add:
+(1)     1BC : 37                 	pshb
+(1)     1BD : E6 00                      ldab    queue_len,x
+(1)     1BF : E1 01                      cmpb    queue_size,x
+(1)     1C1 : 24 13                      bhs     queue_add_return ; carry is cleared
+(1)     1C3 : E6 02                      ldab    queue_put,x     ; 8 bits offset
+(1)     1C5 : 3C                         pshx
+(1)     1C6 : 3A                         abx                     ; X+=B
+(1)     1C7 : A7 04                      staa    queue_buf,x     ; store an element
+(1)     1C9 : 38                         pulx
+(1)     1CA : 6C 00                      inc     queue_len,x
+(1)     1CC : 5C                         incb
+(1)     1CD : E7 02                      stab    queue_put,x
+(1)     1CF : E1 01                      cmpb    queue_size,x
+(1)     1D1 : 25 03                      blo     queue_add_return ; carry is set
+(1)     1D3 : 6F 02                      clr     queue_put,x
+(1)     1D5 : 0D                         sec                     ; set carry
+(1)     1D6 :                    queue_add_return:
+(1)     1D6 : 33                 	pulb
+(1)     1D7 : 39                         rts
+(1)     1D8 :
+(1)     1D8 :                    ;;; [queue] Remove an element from queue
+(1)     1D8 :                    ;;; @param X queue work space pointer
+(1)     1D8 :                    ;;; @return A an element
+(1)     1D8 :                    ;;; @return CC.C 0 if queue is empty
+(1)     1D8 :                    queue_remove:
+(1)     1D8 : 6D 00                      tst     queue_len,x
+(1)     1DA : 26 02                      bne     queue_remove_elem
+(1)     1DC : 0C                         clc                     ; clear carry
+(1)     1DD : 39                         rts
+(1)     1DE :                    queue_remove_elem
+(1)     1DE : 37                 	pshb
+(1)     1DF : E6 03                      ldab    queue_get,x     ; 8 bits offset
+(1)     1E1 : 3C                         pshx
+(1)     1E2 : 3A                         abx                     ; X+=B
+(1)     1E3 : A6 04                      ldaa    queue_buf,x     ; read an element
+(1)     1E5 : 38                         pulx
+(1)     1E6 : 6A 00                      dec     queue_len,x
+(1)     1E8 : 5C                         incb
+(1)     1E9 : E7 03                      stab    queue_get,x
+(1)     1EB : E1 01                      cmpb    queue_size,x
+(1)     1ED : 25 03                      blo     queue_remove_return ; carry is set
+(1)     1EF : 6F 03                      clr     queue_get,x
+(1)     1F1 : 0D                         sec                     ; set carry
+(1)     1F2 :                    queue_remove_return:
+(1)     1F2 : 33                         pulb
+(1)     1F3 : 39                         rts
+(1)     1F4 :
+(1)     1F4 :                    ;;; Local Variables:
+(1)     1F4 :                    ;;; mode: asm
+(1)     1F4 :                    ;;; End:
+(1)     1F4 :                    ;;; vim: set ft=asm et ts=4 sw=4:
+        1F4 :
+        1F4 :                    isr_sci:
+        1F4 : 18 FE 01 00                ldy     device_base
+        1F8 : 18 1F 2E 0E 03             brclr   SCSR,y, #SCSR_OR_bm|SCSR_NF_bm|SCSR_FE_bm, isr_sci_receive
+        1FD : 18 A6 2F                   ldaa    SCDR,y          ; reset ORFE
+        200 :                    isr_sci_receive:
+        200 : 18 1F 2E 20 09             brclr   SCSR,y, #SCSR_RDRF_bm, isr_sci_send
+        205 : 18 A6 2F                   ldaa    SCDR,y          ; receive character
+        208 : CE 20 00                   ldx     #rx_queue
+        20B : BD 01 BC                   jsr     queue_add
+        20E :                    isr_sci_send:
+        20E : 18 1F 2E 80 0B             brclr   SCSR,y, #SCSR_TDRE_bm, isr_sci_exit
+        213 : CE 20 80                   ldx     #tx_queue
+        216 : BD 01 D8                   jsr     queue_remove
+        219 : 24 04                      bcc     isr_sci_empty
+        21B : 18 A7 2F                   staa    SCDR,y          ; send character
+        21E :                    isr_sci_exit:
+        21E : 3B                         rti
+        21F :                    isr_sci_empty:
+        21F : 86 2C                      ldaa    #RX_INT_TX_NO
+        221 : 18 A7 2D                   staa    SCCR2,y         ; disable Tx interrupt
+        224 : 3B                         rti
