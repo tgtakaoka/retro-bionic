@@ -1,0 +1,852 @@
+          0 :                            include "mc146805e.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :                            include "mc6805.inc"
+(2)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(2)       0 :
+(2)       0 :                    ;;; MC6805
+(2)       0 :                    ;;; Condition Code Register (CC)
+(2)       0 : =1                 CC_CARRY      equ  %00000001   ; set to 1 if carry occurred
+(2)       0 : =2                 CC_ZERO       equ  %00000010   ; set to 1 if result is zero
+(2)       0 : =4                 CC_NEGATIVE   equ  %00000100   ; set to 1 if result is negative
+(2)       0 : =8                 CC_IRQ        equ  %00001000   ; if 1, IRQ is masked
+(2)       0 : =10                CC_HALF_CARRY equ  %00010000   ; if 1, decimal carry from least digit occurred
+(2)       0 :
+(2)       0 :                    ;;; Internal Register Area
+(2)       0 : =0                 PORTA:  equ     $00          ; $00: Port A Data Register
+(2)       0 : =1                 PORTB:  equ     $01          ; $01: Port B Data Register
+(2)       0 : =4                 DDRA:   equ     $04          ; $04: Port A Data Direction Register
+(2)       0 : =5                 DDRB:   equ     $05          ; $05: Port B Data Direction Register
+(2)       0 : =8                 TDR:    equ     $08          ; $08: Timer Data Register
+(2)       0 : =9                 TCR:    equ     $09          ; $09: Timer Control Register
+(2)       0 :
+(2)       0 :                    ;;; Port 2 Data Register
+(2)       0 :
+(2)       0 :                    ;;; Timer Control Register
+(2)       0 : =7                 TCR_SCALER_gm:  equ     %00000111 ; Prescaler
+(2)       0 : =0                 TCR_DIV1_gc:    equ     %00000000 ; - 1/1
+(2)       0 : =1                 TCR_DIV2_gc:    equ     %00000001 ; - 1/2
+(2)       0 : =2                 TCR_DIV4_gc:    equ     %00000010 ; - 1/4
+(2)       0 : =3                 TCR_DIV8_gc:    equ     %00000011 ; - 1/8
+(2)       0 : =4                 TCR_DIV16_gc:   equ     %00000100 ; - 1/16
+(2)       0 : =5                 TCR_DIV32_gc:   equ     %00000101 ; - 1/32
+(2)       0 : =6                 TCR_DIV64_gc:   equ     %00000110 ; - 1/64
+(2)       0 : =7                 TCR_DIV128_gc:  equ     %00000111 ; - 1/128
+(2)       0 : =18                TCR_CS_gm:      equ     %00011000 ; Timer clock source
+(2)       0 : =0                 TCR_AS_gc:      equ     %00000000 ; - Internal Clock (AS)
+(2)       0 : =8                 TCR_AS_AND_gc:  equ     %00001000 ; - Internal Clock (AS) AND TIMER input
+(2)       0 : =10                TCR_DISABLE_gc: equ     %00010000 ; - Timer input is disabled
+(2)       0 : =18                TCR_TIMER_gc:   equ     %00011000 ; - TIMER input
+(2)       0 : =20                TCR_TOF_bm:     equ     %00100000 ; Timer Overflow Flag
+(2)       0 : =40                TCR_IM_bm:      equ     %01000000 ; Timer interrupt mask
+(2)       0 : =80                TCR_IF_bm:      equ     %10000000 ; Timer interrupt request flag
+(1)       0 :                    ;;; MC146805E
+(1)       0 :                    ;;; Vector
+(1)       0 : =1FFA              VEC_IRQ:        equ     $1FFA  ; $1FFA: Maskable Interrupt Request
+(1)       0 : =1FFC              VEC_SWI:        equ     $1FFC  ; $1FFC: Software Interrupt
+(1)       0 : =1FFE              VEC_RESET:      equ     $1FFE  ; $1FFE: Reset
+          0 :                            cpu     6805
+          0 :
+          0 :                    ;;; MC6850 Asynchronous Communication Interface Adapter
+          0 : =17F8              ACIA:   equ     $17F8
+          0 :                            include "mc6850.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :
+(1)       0 :                    ;;; MC6850
+(1)       0 :                    ;;; Asynchronous Communication Interface Adapter
+(1)       0 :
+(1)       0 :                    ;;; Control register
+(1)       0 : =17F8              ACIA_control:   equ     ACIA+0
+(1)       0 :                            ;; Counter Divider Select Bits
+(1)       0 : =3                 CDS_gm:         equ     %11    ; Group mask
+(1)       0 : =0                 CDS_DIV1_gc:    equ     %00000000 ; /1
+(1)       0 : =1                 CDS_DIV16_gc:   equ     %00000001 ; /16
+(1)       0 : =2                 CDS_DIV64_gc:   equ     %00000010 ; /64
+(1)       0 : =3                 CDS_RESET_gc:   equ     %00000011 ; Master Reset
+(1)       0 :                            ;; Word Select Bits
+(1)       0 : =1C                WSB_gm:         equ     %00011100 ; Group mask
+(1)       0 : =0                 WSB_7E2_gc:     equ     %00000000 ; 7 Bits + Even Parity + 2 Stop Bits
+(1)       0 : =4                 WSB_7O2_gc:     equ     %00000100 ; 7 bits + Odd Parity  + 2 Stop Bits
+(1)       0 : =8                 WSB_7E1_gc:     equ     %00001000 ; 7 bits + Even Parity + 1 Stop Bits
+(1)       0 : =C                 WSB_7O1_gc:     equ     %00001100 ; 7 bits + Odd Parity  + 1 Stop Bits
+(1)       0 : =10                WSB_8N2_gc:     equ     %00010000 ; 8 bits + No Parity   + 2 Stop Bits
+(1)       0 : =14                WSB_8N1_gc:     equ     %00010100 ; 8 bits + No Parity   + 1 Stop Bits
+(1)       0 : =18                WSB_8E1_gc:     equ     %00011000 ; 8 bits + Even Parity + 1 Stop Bits
+(1)       0 : =1C                WSB_8O1_gc:     equ     %00011100 ; 8 bits + Odd Parity  + 1 Stop Bits
+(1)       0 :                            ;; Transmit Control Bits
+(1)       0 : =60                TCB_gm:         equ     %01100000 ; Group mask
+(1)       0 : =0                 TCB_DI_gc:      equ     %00000000 ; RTS=Low,  Tx Interrupt Disabled
+(1)       0 : =20                TCB_EI_gc:      equ     %00100000 ; RTS=Low,  Tx Interrupt Enabled
+(1)       0 : =40                TCB_RTS_gc:     equ     %01000000 ; RTS=High, Tx Interrupt Disabled
+(1)       0 : =60                TCB_BREAK_gc:   equ     %01100000 ; RTS=Low,  Tx Interrupt Disabled
+(1)       0 :                                                      ; Transmit Break Level
+(1)       0 : =80                RIEB_bm:        equ     %10000000 ; Receive Interrupt Enable Bit mask
+(1)       0 :
+(1)       0 :                    ;;; Status register
+(1)       0 : =17F8              ACIA_status:    equ     ACIA+0
+(1)       0 : =1                 RDRF_bm:        equ     %00000001 ; Receive Data Register Full
+(1)       0 : =2                 TDRE_bm:        equ     %00000010 ; Transmit Data Register Empty
+(1)       0 : =4                 DCDF_bm:        equ     %00000100 ; Data Carrier Detect Flag
+(1)       0 : =8                 CTSF_bm:        equ     %00001000 ; Clear To Send Flag
+(1)       0 : =10                FERR_bm:        equ     %00010000 ; Frame Error Flag
+(1)       0 : =20                OVRN_bm:        equ     %00100000 ; Receiver Overrun Flag
+(1)       0 : =40                PERR_bm:        equ     %01000000 ; Parity Error Flag
+(1)       0 : =80                IRQF_bm:        equ     %10000000 ; Interrupt Request Flag
+(1)       0 :
+(1)       0 :                    ;;; Data register
+(1)       0 : =17F9              ACIA_data:      equ     ACIA+1          ; Data register
+          0 :
+         10 :                            org     $10
+         10 :                    R0:
+         10 :                    R0H:    rmb     1
+         11 :                    R0L:    rmb     1
+         12 :                    R1:
+         12 :                    R1H:    rmb     1
+         13 :                    R1L:    rmb     1
+         14 :                    R2:
+         14 :                    R2H:    rmb     1
+         15 :                    R2L:    rmb     1
+         16 :                    arith_work:
+         16 :                            rmb     1
+         17 :                    SP:     rmb     1
+        100 :                            org     $0100
+        100 :                    stack:  rmb     200
+        1C8 :
+       1FFC :                            org     VEC_SWI
+       1FFC : 1F FC                      fdb     VEC_SWI         ; for halt to system
+       1FFE :
+       1FFE :                            org     VEC_RESET
+       1FFE : 02 00                      fdb     initialize
+       2000 :
+        200 :                            org     $0200
+        200 :                    initialize:
+        200 : A6 03                      lda     #CDS_RESET_gc   ; Master reset
+        202 : C7 17 F8                   sta     ACIA_control
+        205 : A6 14                      lda     #WSB_8N1_gc     ; 8 bits + No Parity + 1 Stop Bits
+        207 :                                                    ; Transmit, Receive interrupts disabled
+        207 : C7 17 F8                   sta     ACIA_control
+        20A :
+        20A : 3F 17                      clr     SP
+        20C : CD 02 78                   jsr     arith
+        20F : 83                         swi
+        210 :
+        210 :                    ;;; Print out char
+        210 :                    ;;; @param A char
+        210 :                    ;;; @clobber A
+        210 :                    putspace:
+        210 : A6 20                      lda     #' '
+        212 : 20 06                      bra     putchar
+        214 :                    newline:
+        214 : A6 0D                      lda     #$0D
+        216 : AD 02                      bsr     putchar
+        218 : A6 0A                      lda     #$0A
+        21A :                    putchar:
+        21A : C7 02 2B                   sta     putchar_a
+        21D :                    transmit_loop:
+        21D : C6 17 F8                   lda     ACIA_status
+        220 : A5 02                      bit     #TDRE_bm
+        222 : 27 F9                      beq     transmit_loop
+        224 :                    transmit_data:
+        224 : C6 02 2B                   lda     putchar_a
+        227 : C7 17 F9                   sta     ACIA_data
+        22A : 81                         rts
+        22B :                    putchar_a:
+        22B :                            rmb     1
+        22C :
+        22C :                    ;;; Print "R1 op R2"
+        22C :                    ;;; @params A op letter
+        22C :                    ;;; @clobber R2 R3 R4
+        22C :                    expr:
+        22C : C7 02 48                   sta     expr_op
+        22F : AE 12                      ldx     #R1
+        231 : CD 05 95                   jsr     load_R0         ; R0=R1
+        234 : CD 05 2C                   jsr     print_int16     ; print R1
+        237 : AD D7                      bsr     putspace
+        239 : C6 02 48                   lda     expr_op
+        23C : AD DC                      bsr     putchar         ; print op
+        23E : AD D0                      bsr     putspace
+        240 : AE 14                      ldx     #R2
+        242 : CD 05 95                   jsr     load_R0         ; R0=R2
+        245 : CC 05 2C                   jmp     print_int16     ; print R2
+        248 :                    expr_op:
+        248 :                            rmb     1
+        249 :
+        249 :                    ;;; Print " = R0\n"
+        249 :                    ;;; @clobber R0 R1 R2
+        249 :                    answer:
+        249 : CD 02 10                   jsr     putspace
+        24C : A6 3D                      lda     #'='
+        24E : CD 02 1A                   jsr     putchar
+        251 : CD 02 10                   jsr     putspace
+        254 : CD 05 2C                   jsr     print_int16     ; print R0
+        257 : CC 02 14                   jmp     newline
+        25A :
+        25A :                    ;;; Print "R1 rel R2"
+        25A :                    ;;; @clobber R0
+        25A :                    comp:
+        25A : CD 05 CF                   jsr     cmp16
+        25D : B6 11                      lda     R0L
+        25F : 27 0C                      beq     comp_eq
+        261 : 2B 0E                      bmi     comp_lt
+        263 : 2A 04                      bpl     comp_gt
+        265 : A6 3F                      lda     #'?'
+        267 : 20 0A                      bra     comp_out
+        269 :                    comp_gt:
+        269 : A6 3E                      lda     #'>'
+        26B : 20 06                      bra     comp_out
+        26D :                    comp_eq:
+        26D : A6 3D                      lda     #'='
+        26F : 20 02                      bra     comp_out
+        271 :                    comp_lt:
+        271 : A6 3C                      lda     #'<'
+        273 :                    comp_out:
+        273 : AD B7                      bsr     expr
+        275 : CC 02 14                   jmp     newline
+        278 :
+        278 :                    arith:
+        278 : AE 46                      ldx     #18000>>8
+        27A : A6 50                      lda     #18000&255
+        27C : CD 05 8B                   jsr     set_R1
+        27F : AE 6D                      ldx     #28000>>8
+        281 : A6 60                      lda     #28000&255
+        283 : CD 05 90                   jsr     set_R2
+        286 : A6 2B                      lda     #'+'
+        288 : CD 02 2C                   jsr     expr
+        28B : CD 05 B5                   jsr     add16           ; R0=R1+R2
+        28E : CD 02 49                   jsr     answer          ; -19536
+        291 :
+        291 : AE 46                      ldx     #18000>>8
+        293 : A6 50                      lda     #18000&255
+        295 : CD 05 8B                   jsr     set_R1
+        298 : AE B9                      ldx     #(-18000)>>8
+        29A : A6 B0                      lda     #(-18000)&255
+        29C : CD 05 90                   jsr     set_R2
+        29F : A6 2B                      lda     #'+'
+        2A1 : CD 02 2C                   jsr     expr
+        2A4 : CD 05 B5                   jsr     add16           ; R0=R1+R2
+        2A7 : CD 02 49                   jsr     answer          ; 0
+        2AA :
+        2AA : AE B9                      ldx     #(-18000)>>8
+        2AC : A6 B0                      lda     #(-18000)&255
+        2AE : CD 05 8B                   jsr     set_R1
+        2B1 : AE B9                      ldx     #(-18000)>>8
+        2B3 : A6 B0                      lda     #(-18000)&255
+        2B5 : CD 05 90                   jsr     set_R2
+        2B8 : A6 2B                      lda     #'+'
+        2BA : CD 02 2C                   jsr     expr
+        2BD : CD 05 B5                   jsr     add16           ; R0=R1+R2
+        2C0 : CD 02 49                   jsr     answer          ; 29536
+        2C3 :
+        2C3 : AE B9                      ldx     #(-18000)>>8
+        2C5 : A6 B0                      lda     #(-18000)&255
+        2C7 : CD 05 8B                   jsr     set_R1
+        2CA : AE 92                      ldx     #(-28000)>>8
+        2CC : A6 A0                      lda     #(-28000)&255
+        2CE : CD 05 90                   jsr     set_R2
+        2D1 : A6 2D                      lda     #'-'
+        2D3 : CD 02 2C                   jsr     expr
+        2D6 : CD 05 C2                   jsr     sub16           ; R0=R1-R2
+        2D9 : CD 02 49                   jsr     answer          ; -19536
+        2DC :
+        2DC : AE 46                      ldx     #18000>>8
+        2DE : A6 50                      lda     #18000&255
+        2E0 : CD 05 8B                   jsr     set_R1
+        2E3 : AE B9                      ldx     #(-18000)>>8
+        2E5 : A6 B0                      lda     #(-18000)&255
+        2E7 : CD 05 90                   jsr     set_R2
+        2EA : A6 2D                      lda     #'-'
+        2EC : CD 02 2C                   jsr     expr
+        2EF : CD 05 C2                   jsr     sub16           ; R0=R1-R2
+        2F2 : CD 02 49                   jsr     answer          ; 29536
+        2F5 :
+        2F5 : AE 92                      ldx     #(-28000)>>8
+        2F7 : A6 A0                      lda     #(-28000)&255
+        2F9 : CD 05 8B                   jsr     set_R1
+        2FC : AE B9                      ldx     #(-18000)>>8
+        2FE : A6 B0                      lda     #(-18000)&255
+        300 : CD 05 90                   jsr     set_R2
+        303 : A6 2D                      lda     #'-'
+        305 : CD 02 2C                   jsr     expr
+        308 : CD 05 C2                   jsr     sub16           ; R0=R1-R2
+        30B : CD 02 49                   jsr     answer          ; -10000
+        30E :
+        30E : AE 00                      ldx     #100>>8
+        310 : A6 64                      lda     #100&255
+        312 : CD 05 8B                   jsr     set_R1
+        315 : AE 01                      ldx     #300>>8
+        317 : A6 2C                      lda     #300&255
+        319 : CD 05 90                   jsr     set_R2
+        31C : A6 2A                      lda     #'*'
+        31E : CD 02 2C                   jsr     expr
+        321 : CD 06 17                   jsr     mul16           ; R0=R1*R2
+        324 : CD 02 49                   jsr     answer          ; 30000
+        327 :
+        327 : AE 00                      ldx     #200>>8
+        329 : A6 C8                      lda     #200&255
+        32B : CD 05 8B                   jsr     set_R1
+        32E : AE 00                      ldx     #100>>8
+        330 : A6 64                      lda     #100&255
+        332 : CD 05 90                   jsr     set_R2
+        335 : A6 2A                      lda     #'*'
+        337 : CD 02 2C                   jsr     expr
+        33A : CD 06 17                   jsr     mul16           ; R0=R1*R2
+        33D : CD 02 49                   jsr     answer          ; 20000
+        340 :
+        340 : AE 01                      ldx     #300>>8
+        342 : A6 2C                      lda     #300&255
+        344 : CD 05 8B                   jsr     set_R1
+        347 : AE FF                      ldx     #(-200)>>8
+        349 : A6 38                      lda     #(-200)&255
+        34B : CD 05 90                   jsr     set_R2
+        34E : A6 2A                      lda     #'*'
+        350 : CD 02 2C                   jsr     expr
+        353 : CD 06 17                   jsr     mul16           ; R0=R1*R2
+        356 : CD 02 49                   jsr     answer          ; 5536
+        359 :
+        359 : AE 00                      ldx     #100>>8
+        35B : A6 64                      lda     #100&255
+        35D : CD 05 8B                   jsr     set_R1
+        360 : AE FE                      ldx     #(-300)>>8
+        362 : A6 D4                      lda     #(-300)&255
+        364 : CD 05 90                   jsr     set_R2
+        367 : A6 2A                      lda     #'*'
+        369 : CD 02 2C                   jsr     expr
+        36C : CD 06 17                   jsr     mul16           ; R0=R1*R2
+        36F : CD 02 49                   jsr     answer          ; -30000
+        372 :
+        372 : AE FF                      ldx     #(-200)>>8
+        374 : A6 38                      lda     #(-200)&255
+        376 : CD 05 8B                   jsr     set_R1
+        379 : AE FF                      ldx     #(-100)>>8
+        37B : A6 9C                      lda     #(-100)&255
+        37D : CD 05 90                   jsr     set_R2
+        380 : A6 2A                      lda     #'*'
+        382 : CD 02 2C                   jsr     expr
+        385 : CD 06 17                   jsr     mul16           ; R0=R1*R2
+        388 : CD 02 49                   jsr     answer          ; 20000
+        38B :
+        38B : AE 75                      ldx     #30000>>8
+        38D : A6 30                      lda     #30000&255
+        38F : CD 05 8B                   jsr     set_R1
+        392 : AE 00                      ldx     #100>>8
+        394 : A6 64                      lda     #100&255
+        396 : CD 05 90                   jsr     set_R2
+        399 : A6 2F                      lda     #'/'
+        39B : CD 02 2C                   jsr     expr
+        39E : CD 06 82                   jsr     div16           ; R0=R1/R2
+        3A1 : CD 02 49                   jsr     answer          ; 30
+        3A4 :
+        3A4 : AE FF                      ldx     #(-200)>>8
+        3A6 : A6 38                      lda     #(-200)&255
+        3A8 : CD 05 8B                   jsr     set_R1
+        3AB : AE 00                      ldx     #100>>8
+        3AD : A6 64                      lda     #100&255
+        3AF : CD 05 90                   jsr     set_R2
+        3B2 : A6 2F                      lda     #'/'
+        3B4 : CD 02 2C                   jsr     expr
+        3B7 : CD 06 82                   jsr     div16           ; R0=R1/R2
+        3BA : CD 02 49                   jsr     answer          ; -2
+        3BD :
+        3BD : AE 8A                      ldx     #(-30000)>>8
+        3BF : A6 D0                      lda     #(-30000)&255
+        3C1 : CD 05 8B                   jsr     set_R1
+        3C4 : AE FF                      ldx     #(-200)>>8
+        3C6 : A6 38                      lda     #(-200)&255
+        3C8 : CD 05 90                   jsr     set_R2
+        3CB : A6 2F                      lda     #'/'
+        3CD : CD 02 2C                   jsr     expr
+        3D0 : CD 06 82                   jsr     div16           ; R0=R1/R2
+        3D3 : CD 02 49                   jsr     answer          ; 150
+        3D6 :
+        3D6 : AE 8A                      ldx     #(-30000)>>8
+        3D8 : A6 D0                      lda     #(-30000)&255
+        3DA : CD 05 8B                   jsr     set_R1
+        3DD : AE 00                      ldx     #78>>8
+        3DF : A6 4E                      lda     #78&255
+        3E1 : CD 05 90                   jsr     set_R2
+        3E4 : A6 2F                      lda     #'/'
+        3E6 : CD 02 2C                   jsr     expr
+        3E9 : CD 06 82                   jsr     div16           ; R0=R1/R2
+        3EC : CD 02 49                   jsr     answer          ; -384
+        3EF :
+        3EF : AE 13                      ldx     #5000>>8
+        3F1 : A6 88                      lda     #5000&255
+        3F3 : CD 05 8B                   jsr     set_R1
+        3F6 : AE 0F                      ldx     #4000>>8
+        3F8 : A6 A0                      lda     #4000&255
+        3FA : CD 05 90                   jsr     set_R2
+        3FD : CD 02 5A                   jsr     comp
+        400 :
+        400 : AE 13                      ldx     #5000>>8
+        402 : A6 88                      lda     #5000&255
+        404 : CD 05 8B                   jsr     set_R1
+        407 : AE 13                      ldx     #5000>>8
+        409 : A6 88                      lda     #5000&255
+        40B : CD 05 90                   jsr     set_R2
+        40E : CD 02 5A                   jsr     comp
+        411 :
+        411 : AE 0F                      ldx     #4000>>8
+        413 : A6 A0                      lda     #4000&255
+        415 : CD 05 8B                   jsr     set_R1
+        418 : AE 13                      ldx     #5000>>8
+        41A : A6 88                      lda     #5000&255
+        41C : CD 05 90                   jsr     set_R2
+        41F : CD 02 5A                   jsr     comp
+        422 :
+        422 : AE EC                      ldx     #(-5000)>>8
+        424 : A6 78                      lda     #(-5000)&255
+        426 : CD 05 8B                   jsr     set_R1
+        429 : AE F0                      ldx     #(-4000)>>8
+        42B : A6 60                      lda     #(-4000)&255
+        42D : CD 05 90                   jsr     set_R2
+        430 : CD 02 5A                   jsr     comp
+        433 :
+        433 : AE EC                      ldx     #(-5000)>>8
+        435 : A6 78                      lda     #(-5000)&255
+        437 : CD 05 8B                   jsr     set_R1
+        43A : AE EC                      ldx     #(-5000)>>8
+        43C : A6 78                      lda     #(-5000)&255
+        43E : CD 05 90                   jsr     set_R2
+        441 : CD 02 5A                   jsr     comp
+        444 :
+        444 : AE F0                      ldx     #(-4000)>>8
+        446 : A6 60                      lda     #(-4000)&255
+        448 : CD 05 8B                   jsr     set_R1
+        44B : AE EC                      ldx     #(-5000)>>8
+        44D : A6 78                      lda     #(-5000)&255
+        44F : CD 05 90                   jsr     set_R2
+        452 : CD 02 5A                   jsr     comp
+        455 :
+        455 : AE 7F                      ldx     #32700>>8
+        457 : A6 BC                      lda     #32700&255
+        459 : CD 05 8B                   jsr     set_R1
+        45C : AE 7F                      ldx     #32600>>8
+        45E : A6 58                      lda     #32600&255
+        460 : CD 05 90                   jsr     set_R2
+        463 : CD 02 5A                   jsr     comp
+        466 :
+        466 : AE 7F                      ldx     #32700>>8
+        468 : A6 BC                      lda     #32700&255
+        46A : CD 05 8B                   jsr     set_R1
+        46D : AE 7F                      ldx     #32700>>8
+        46F : A6 BC                      lda     #32700&255
+        471 : CD 05 90                   jsr     set_R2
+        474 : CD 02 5A                   jsr     comp
+        477 :
+        477 : AE 7F                      ldx     #32600>>8
+        479 : A6 58                      lda     #32600&255
+        47B : CD 05 8B                   jsr     set_R1
+        47E : AE 7F                      ldx     #32700>>8
+        480 : A6 BC                      lda     #32700&255
+        482 : CD 05 90                   jsr     set_R2
+        485 : CD 02 5A                   jsr     comp
+        488 :
+        488 : AE 80                      ldx     #(-32700)>>8
+        48A : A6 44                      lda     #(-32700)&255
+        48C : CD 05 8B                   jsr     set_R1
+        48F : AE 80                      ldx     #(-32600)>>8
+        491 : A6 A8                      lda     #(-32600)&255
+        493 : CD 05 90                   jsr     set_R2
+        496 : CD 02 5A                   jsr     comp
+        499 :
+        499 : AE 80                      ldx     #(-32700)>>8
+        49B : A6 44                      lda     #(-32700)&255
+        49D : CD 05 8B                   jsr     set_R1
+        4A0 : AE 80                      ldx     #(-32700)>>8
+        4A2 : A6 44                      lda     #(-32700)&255
+        4A4 : CD 05 90                   jsr     set_R2
+        4A7 : CD 02 5A                   jsr     comp
+        4AA :
+        4AA : AE 80                      ldx     #(-32600)>>8
+        4AC : A6 A8                      lda     #(-32600)&255
+        4AE : CD 05 8B                   jsr     set_R1
+        4B1 : AE 80                      ldx     #(-32700)>>8
+        4B3 : A6 44                      lda     #(-32700)&255
+        4B5 : CD 05 90                   jsr     set_R2
+        4B8 : CD 02 5A                   jsr     comp
+        4BB :
+        4BB : AE 46                      ldx     #18000>>8
+        4BD : A6 50                      lda     #18000&255
+        4BF : CD 05 8B                   jsr     set_R1
+        4C2 : AE 92                      ldx     #(-28000)>>8
+        4C4 : A6 A0                      lda     #(-28000)&255
+        4C6 : CD 05 90                   jsr     set_R2
+        4C9 : CD 02 5A                   jsr     comp
+        4CC :
+        4CC : AE 92                      ldx     #(-28000)>>8
+        4CE : A6 A0                      lda     #(-28000)&255
+        4D0 : CD 05 8B                   jsr     set_R1
+        4D3 : AE 92                      ldx     #(-28000)>>8
+        4D5 : A6 A0                      lda     #(-28000)&255
+        4D7 : CD 05 90                   jsr     set_R2
+        4DA : CD 02 5A                   jsr     comp
+        4DD :
+        4DD : AE 92                      ldx     #(-28000)>>8
+        4DF : A6 A0                      lda     #(-28000)&255
+        4E1 : CD 05 8B                   jsr     set_R1
+        4E4 : AE 46                      ldx     #18000>>8
+        4E6 : A6 50                      lda     #18000&255
+        4E8 : CD 05 90                   jsr     set_R2
+        4EB : CD 02 5A                   jsr     comp
+        4EE : 81                         rts
+        4EF :
+        4EF :                            include "arith.inc"
+(1)     4EF :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)     4EF :                            cpu     6805
+(1)     4EF :
+(1)     4EF :                    ;;; Print unsigned 16-bit integer as decimal
+(1)     4EF :                    ;;; @param R0 value
+(1)     4EF :                    ;;; @clobber A X R0 R1 R2
+(1)     4EF :                    print_uint16:
+(1)     4EF : 5F                         clrx
+(1)     4F0 :                    print_uint16_loop:
+(1)     4F0 : B6 10                      lda     R0H
+(1)     4F2 : B7 12                      sta     R1H
+(1)     4F4 : B6 11                      lda     R0L
+(1)     4F6 : B7 13                      sta     R1L             ; dividend = value
+(1)     4F8 : BA 10                      ora     R0H
+(1)     4FA : 27 13                      beq     print_uint16_zero ; branch if value == 0
+(1)     4FC : 3F 14                      clr     R2H
+(1)     4FE : A6 0A                      lda     #10
+(1)     500 : B7 15                      sta     R2L             ; divisor=10
+(1)     502 : CD 06 3B                   jsr     udiv16          ; R0=value/10
+(1)     505 : B6 13                      lda     R1L
+(1)     507 : AA 30                      ora     #'0'
+(1)     509 : D7 05 24                   sta     print_uint16_buf,x
+(1)     50C : 5C                         incx
+(1)     50D : 20 E1                      bra     print_uint16_loop
+(1)     50F :                    print_uint16_zero:
+(1)     50F : 5D                         tstx
+(1)     510 : 26 05                      bne     print_uint16_print
+(1)     512 : A6 30                      lda     #'0'
+(1)     514 : CC 02 1A                   jmp     putchar
+(1)     517 :                    print_uint16_print:
+(1)     517 : 5A                         decx
+(1)     518 : D6 05 24                   lda     print_uint16_buf,x
+(1)     51B : AA 30                      ora     #'0'
+(1)     51D : CD 02 1A                   jsr     putchar
+(1)     520 : 5D                         tstx
+(1)     521 : 26 F4                      bne     print_uint16_print
+(1)     523 : 81                         rts
+(1)     524 :                    print_uint16_buf:
+(1)     524 :                            rmb     8
+(1)     52C :
+(1)     52C :                    ;;; Print signed 16-bit integer as decimal
+(1)     52C :                    ;;; @param R0 value
+(1)     52C :                    ;;; @clobber A X R0
+(1)     52C :                    print_int16:
+(1)     52C : AE 12                      ldx     #R1
+(1)     52E : AD 1B                      bsr     push_RX         ; push R1
+(1)     530 : AE 14                      ldx     #R2
+(1)     532 : AD 17                      bsr     push_RX         ; push R2
+(1)     534 : B6 10                      lda     R0H
+(1)     536 : 2A 09                      bpl     print_int16_print
+(1)     538 : A6 2D                      lda     #'-'
+(1)     53A : CD 02 1A                   jsr     putchar
+(1)     53D : AE 10                      ldx     #R0
+(1)     53F : AD 3C                      bsr     negate_RX
+(1)     541 :                    print_int16_print:
+(1)     541 : AD AC                      bsr     print_uint16
+(1)     543 : AE 14                      ldx     #R2
+(1)     545 : AD 1C                      bsr     pop_RX          ; pop R2
+(1)     547 : AE 12                      ldx     #R1
+(1)     549 : 20 18                      bra     pop_RX          ; pop R1
+(1)     54B :
+(1)     54B :                    ;;; Push register
+(1)     54B :                    ;;; @param X register
+(1)     54B :                    ;;; @clobber A
+(1)     54B :                    push_RX:
+(1)     54B : BF 16                      stx     arith_work      ; save X
+(1)     54D : F6                         lda     0,X             ; high(register)
+(1)     54E : BE 17                      ldx     SP
+(1)     550 : D7 01 00                   sta     stack,X         ; push high(register)
+(1)     553 : BE 16                      ldx     arith_work
+(1)     555 : E6 01                      lda     1,X             ; low(register)
+(1)     557 : BE 17                      ldx     SP
+(1)     559 : D7 01 01                   sta     stack+1,X       ; push low(register)
+(1)     55C : 5C                         incx
+(1)     55D : 5C                         incx
+(1)     55E : BF 17                      stx     SP              ; update stack pointer
+(1)     560 : BE 16                      ldx     arith_work      ; restore X
+(1)     562 : 81                         rts
+(1)     563 :
+(1)     563 :                    ;;; Pop register
+(1)     563 :                    ;;; @param X register
+(1)     563 :                    ;;; @clobber A
+(1)     563 :                    pop_RX:
+(1)     563 : BF 16                      stx     arith_work      ; save X
+(1)     565 : BE 17                      ldx     SP
+(1)     567 : 5A                         decx
+(1)     568 : 5A                         decx
+(1)     569 : BF 17                      stx     SP              ; update stack pointer
+(1)     56B : D6 01 00                   lda     stack,X         ; pop high(register)
+(1)     56E : BE 16                      ldx     arith_work
+(1)     570 : F7                         sta     0,X             ; high(register)
+(1)     571 : BE 17                      ldx     SP
+(1)     573 : D6 01 01                   lda     stack+1,X       ; pop low(register)
+(1)     576 : BE 17                      ldx     SP
+(1)     578 : BE 16                      ldx     arith_work      ; restore X
+(1)     57A : E7 01                      sta     1,X             ; low(register)
+(1)     57C : 81                         rts
+(1)     57D :
+(1)     57D :                    ;;; Negate RX
+(1)     57D :                    ;;; @param X register
+(1)     57D :                    negate_RX:
+(1)     57D : 4F                         clra
+(1)     57E : E0 01                      sub     1,x
+(1)     580 : E7 01                      sta     1,x
+(1)     582 : 4F                         clra
+(1)     583 : F2                         sbc     0,x
+(1)     584 : F7                         sta     0,x
+(1)     585 : 81                         rts
+(1)     586 :
+(1)     586 :                    ;;; Set value to R0
+(1)     586 :                    ;;; @param X high(value)
+(1)     586 :                    ;;; @param A low(value)
+(1)     586 :                    set_R0:
+(1)     586 : BF 10                      stx     R0H
+(1)     588 : B7 11                      sta     R0L
+(1)     58A : 81                         rts
+(1)     58B :
+(1)     58B :                    ;;; Set value to R1
+(1)     58B :                    ;;; @param X high(value)
+(1)     58B :                    ;;; @param A low(value)
+(1)     58B :                    set_R1:
+(1)     58B : BF 12                      stx     R1H
+(1)     58D : B7 13                      sta     R1L
+(1)     58F : 81                         rts
+(1)     590 :
+(1)     590 :                    ;;; Set value to R2
+(1)     590 :                    ;;; @param X high(value)
+(1)     590 :                    ;;; @param A low(value)
+(1)     590 :                    set_R2:
+(1)     590 : BF 14                      stx     R2H
+(1)     592 : B7 15                      sta     R2L
+(1)     594 : 81                         rts
+(1)     595 :
+(1)     595 :                    ;;; Load register to R0
+(1)     595 :                    ;;; @param X register
+(1)     595 :                    ;;; @clobber A
+(1)     595 :                    load_R0:
+(1)     595 : F6                         lda     0,x
+(1)     596 : B7 10                      sta     R0H
+(1)     598 : E6 01                      lda     1,x
+(1)     59A : B7 11                      sta     R0L
+(1)     59C : 81                         rts
+(1)     59D :
+(1)     59D :                    ;;; Load register to R1
+(1)     59D :                    ;;; @param X register
+(1)     59D :                    ;;; @clobber A
+(1)     59D :                    load_R1:
+(1)     59D : F6                         lda     0,x
+(1)     59E : B7 12                      sta     R1H
+(1)     5A0 : E6 01                      lda     1,x
+(1)     5A2 : B7 13                      sta     R1L
+(1)     5A4 : 81                         rts
+(1)     5A5 :
+(1)     5A5 :                    ;;; Load register to R2
+(1)     5A5 :                    ;;; @param X register
+(1)     5A5 :                    ;;; @clobber A
+(1)     5A5 :                    load_R2:
+(1)     5A5 : F6                         lda     0,x
+(1)     5A6 : B7 14                      sta     R2H
+(1)     5A8 : E6 01                      lda     1,x
+(1)     5AA : B7 15                      sta     R2L
+(1)     5AC : 81                         rts
+(1)     5AD :
+(1)     5AD :                    ;;; store R0 to register
+(1)     5AD :                    ;;; @param X register
+(1)     5AD :                    ;;; @clobber A
+(1)     5AD :                    store_R0:
+(1)     5AD : B6 10                      lda     R0H
+(1)     5AF : F7                         sta     0,x
+(1)     5B0 : B6 11                      lda     R0L
+(1)     5B2 : E7 01                      sta     1,x
+(1)     5B4 : 81                         rts
+(1)     5B5 :
+(1)     5B5 :                    ;;; Addition: R0 = R1 + R2
+(1)     5B5 :                    ;;; @clobber A
+(1)     5B5 :                    add16:
+(1)     5B5 : B6 13                      lda     R1L
+(1)     5B7 : BB 15                      add     R2L
+(1)     5B9 : B7 11                      sta     R0L
+(1)     5BB : B6 12                      lda     R1H
+(1)     5BD : B9 14                      adc     R2H
+(1)     5BF : B7 10                      sta     R0H
+(1)     5C1 : 81                         rts
+(1)     5C2 :
+(1)     5C2 :                    ;;; Subtraction: R0 = R1 + R2
+(1)     5C2 :                    ;;; @clobber A
+(1)     5C2 :                    sub16:
+(1)     5C2 : B6 13                      lda     R1L
+(1)     5C4 : B0 15                      sub     R2L
+(1)     5C6 : B7 11                      sta     R0L
+(1)     5C8 : B6 12                      lda     R1H
+(1)     5CA : B2 14                      sbc     R2H
+(1)     5CC : B7 10                      sta     R0H
+(1)     5CE : 81                         rts
+(1)     5CF :
+(1)     5CF :                    ;;; Signed compare R0=sign(R1-R2)
+(1)     5CF :                    ;;; @return R0=A=0;  BEQ (minuend == subtrahend)
+(1)     5CF :                    ;;;         R0=A=1;  BPL (minuend > subtrahend)
+(1)     5CF :                    ;;;         R0=A=-1; BMI (minuend < subtrahend)
+(1)     5CF :                    ;;; @clobber A
+(1)     5CF :                    cmp16:
+(1)     5CF : AD F1                      bsr     sub16
+(1)     5D1 : B6 10                      lda     R0H
+(1)     5D3 : BA 11                      ora     R0L
+(1)     5D5 : 27 1A                      beq     cmp16_end       ; return with R0=0
+(1)     5D7 : B6 10                      lda     R0H
+(1)     5D9 : B8 12                      eor     R1H
+(1)     5DB : B7 11                      sta     R0L             ; R0L=(minuend-subtrahend)^minuend
+(1)     5DD : B6 12                      lda     R1H
+(1)     5DF : B8 14                      eor     R2H             ; minuend^subtrahend
+(1)     5E1 : B4 11                      and     R0L             ; overflow flag
+(1)     5E3 : B8 10                      eor     R0H
+(1)     5E5 : 2B 06                      bmi     cmp16_lt
+(1)     5E7 :                    cmp16_gt:
+(1)     5E7 : 3F 10                      clr     R0H
+(1)     5E9 : A6 01                      lda     #1
+(1)     5EB : 20 04                      bra     cmp16_end
+(1)     5ED :                    cmp16_lt:
+(1)     5ED : A6 FF                      lda     #-1
+(1)     5EF : B7 10                      sta     R0H
+(1)     5F1 :                    cmp16_end:
+(1)     5F1 : B7 11                      sta     R0L
+(1)     5F3 : 81                         rts
+(1)     5F4 :
+(1)     5F4 :                    ;;; Unsigned multiplication: result = multiplicand * multiplier
+(1)     5F4 :                    ;;; @param R1 multiplicand
+(1)     5F4 :                    ;;; @param R2 multiplier
+(1)     5F4 :                    ;;; @return R0 result
+(1)     5F4 :                    ;;; @clobber R0 R1 R2
+(1)     5F4 :                    umul16:
+(1)     5F4 : 3F 10                      clr     R0H
+(1)     5F6 : 3F 11                      clr     R0L
+(1)     5F8 : 20 16                      bra     umul16_check
+(1)     5FA :                    umul16_loop:
+(1)     5FA : 34 14                      lsr     R2H
+(1)     5FC : 36 15                      ror     R2L             ; multiplier >>=1
+(1)     5FE : 24 0C                      bcc     umul16_next     ; if lsb(multiplier) == 0
+(1)     600 : B6 13                      lda     R1L
+(1)     602 : BB 11                      add     R0L
+(1)     604 : B7 11                      sta     R0L
+(1)     606 : B6 12                      lda     R1H
+(1)     608 : B9 10                      adc     R0H
+(1)     60A : B7 10                      sta     R0H             ; result += multiplicand
+(1)     60C :                    umul16_next:
+(1)     60C : 38 13                      lsl     R1L
+(1)     60E : 39 12                      rol     R1H             ; multiplicand <<= 1
+(1)     610 :                    umul16_check:
+(1)     610 : B6 14                      lda     R2H
+(1)     612 : BA 15                      ora     R2L
+(1)     614 : 26 E4                      bne     umul16_loop     ; while multiplier != 0
+(1)     616 :                    umul16_end:
+(1)     616 : 81                         rts
+(1)     617 :
+(1)     617 :                    ;;; Multiply; result = multiplicand * multiplier
+(1)     617 :                    ;;; @param R1 multiplicand
+(1)     617 :                    ;;; @param R2 multiplier
+(1)     617 :                    ;;; @return R0 result
+(1)     617 :                    ;;; @clobber R1 R2
+(1)     617 :                    mul16:
+(1)     617 : B6 12                      lda     R1H
+(1)     619 : B8 14                      eor     R2H
+(1)     61B : B7 16                      sta     arith_work      ; save hi(multiplicand^multiplier)
+(1)     61D : B6 14                      lda     R2H             ; A=hi(multiplier)
+(1)     61F : 2A 05                      bpl     mul16_multiplicand
+(1)     621 : AE 14                      ldx     #R2
+(1)     623 : CD 05 7D                   jsr     negate_RX       ; negate multiplier
+(1)     626 :                    mul16_multiplicand:
+(1)     626 : B6 12                      lda     R1H             ; A=hi(multiplicand)
+(1)     628 : 2A 05                      bpl     mul16_multiply
+(1)     62A : AE 12                      ldx     #R1
+(1)     62C : CD 05 7D                   jsr     negate_RX       ; negate multiplicand
+(1)     62F :                    mul16_multiply:
+(1)     62F : AD C3                      bsr     umul16          ; R0=result
+(1)     631 : B6 16                      lda     arith_work      ; A=(multiplicand^multiplier)
+(1)     633 : 2A 05                      bpl     mul16_end
+(1)     635 : AE 10                      ldx     #R0
+(1)     637 : CD 05 7D                   jsr     negate_RX       ; negate result
+(1)     63A :                    mul16_end:
+(1)     63A : 81                         rts
+(1)     63B :
+(1)     63B :                    ;;; Unsigned division: dividend / divisor = quotient ... reminder
+(1)     63B :                    ;;; @praram R1 dividend
+(1)     63B :                    ;;; @praram R2 divisor
+(1)     63B :                    ;;; @return R0 quotient
+(1)     63B :                    ;;; @return R1 reminder
+(1)     63B :                    ;;; @clobber R2
+(1)     63B :                    udiv16:
+(1)     63B : B6 14                      lda     R2H
+(1)     63D : BA 15                      ora     R2L
+(1)     63F : 27 40                      beq     udiv16_end      ; branch if R2==0
+(1)     641 : A6 01                      lda     #1              ; A=bits
+(1)     643 : B7 16                      sta     arith_work      ; bits=1
+(1)     645 : 20 06                      bra     udiv16_prep
+(1)     647 :                    udiv16_prep_loop:
+(1)     647 : 38 15                      lsl     R2L
+(1)     649 : 39 14                      rol     R2H             ; divisor <<= 1
+(1)     64B : 3C 16                      inc     arith_work      ; ++bits
+(1)     64D :                    udiv16_prep:
+(1)     64D : B6 14                      lda     R2H
+(1)     64F : 2A F6                      bpl     udiv16_prep_loop ; while msb(divisor) == 0
+(1)     651 : 3F 10                      clr     R0H
+(1)     653 : 3F 11                      clr     R0L             ; quotient=0
+(1)     655 : 20 08                      bra     udiv16_enter_loop
+(1)     657 :                    udiv16_loop:
+(1)     657 : 34 14                      lsr     R2H
+(1)     659 : 36 15                      ror     R2L             ; divisor >>= 1
+(1)     65B : 38 11                      lsl     R0L
+(1)     65D : 39 10                      rol     R0H             ; quotient <<= 1
+(1)     65F :                    udiv16_enter_loop:
+(1)     65F : B6 13                      lda     R1L
+(1)     661 : B0 15                      sub     R2L
+(1)     663 : B7 13                      sta     R1L
+(1)     665 : B6 12                      lda     R1H
+(1)     667 : B2 14                      sbc     R2H
+(1)     669 : B7 12                      sta     R1H             ; dividend -= divisor
+(1)     66B : 25 04                      bcs     udiv16_readd
+(1)     66D : 3C 11                      inc     R0L             ; quotient |= 1
+(1)     66F : 20 0C                      bra     udiv16_next
+(1)     671 :                    udiv16_readd:
+(1)     671 : B6 13                      lda     R1L
+(1)     673 : BB 15                      add     R2L
+(1)     675 : B7 13                      sta     R1L
+(1)     677 : B6 12                      lda     R1H
+(1)     679 : B9 14                      adc     R2H
+(1)     67B : B7 12                      sta     R1H             ; dividend += divisor
+(1)     67D :                    udiv16_next:
+(1)     67D : 3A 16                      dec     arith_work      ; --bits
+(1)     67F : 26 D6                      bne     udiv16_loop     ; while bits != 0
+(1)     681 :                    udiv16_end:
+(1)     681 : 81                         rts
+(1)     682 :
+(1)     682 :                    ;;; Division; dividend / divisor = quotient ... reminder
+(1)     682 :                    ;;; @param R1 dividend
+(1)     682 :                    ;;; @param R2 divisor
+(1)     682 :                    ;;; @return R0 quotient
+(1)     682 :                    ;;; @return R1 reminder
+(1)     682 :                    ;;; @clobber R2
+(1)     682 :                    div16:
+(1)     682 : B6 12                      lda     R1H
+(1)     684 : B8 14                      eor     R2H
+(1)     686 : C7 06 A9                   sta     div16_sign      ; save hi(dividend^divisor)
+(1)     689 : B6 14                      lda     R2H             ; A=hi(divisor)
+(1)     68B : 2A 05                      bpl     div16_dividend
+(1)     68D : AE 14                      ldx     #R2
+(1)     68F : CD 05 7D                   jsr     negate_RX       ; negate divisor
+(1)     692 :                    div16_dividend:
+(1)     692 : B6 12                      lda     R1H             ; A=hi(dividend)
+(1)     694 : 2A 05                      bpl     div16_divide
+(1)     696 : AE 12                      ldx     #R1
+(1)     698 : CD 05 7D                   jsr     negate_RX       ; negate dividend
+(1)     69B :                    div16_divide:
+(1)     69B : CD 06 3B                   jsr     udiv16          ; R0=quotient
+(1)     69E : C6 06 A9                   lda     div16_sign      ; A=(dividend^divisor)
+(1)     6A1 : 2A 05                      bpl     div16_end
+(1)     6A3 : AE 10                      ldx     #R0
+(1)     6A5 : CD 05 7D                   jsr     negate_RX       ; negate result
+(1)     6A8 :                    div16_end:
+(1)     6A8 : 81                         rts
+(1)     6A9 :                    div16_sign:
+(1)     6A9 :                            rmb     1
