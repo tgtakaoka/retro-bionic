@@ -1,0 +1,290 @@
+          0 :                            include "hd6309.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :
+(1)       0 :                            include "mc6809.inc"
+(2)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(2)       0 :
+(2)       0 :                    ;;; Condition Code Register (CC)
+(2)       0 : =1                 CC_CARRY      equ  %00000001   ; set to 1 if carry occurred
+(2)       0 : =2                 CC_OVERFLOW   equ  %00000010   ; set to 1 if overflow occurred
+(2)       0 : =4                 CC_ZERO       equ  %00000100   ; set to 1 if result is zero
+(2)       0 : =8                 CC_NEGATIVE   equ  %00001000   ; set to 1 if result is negative
+(2)       0 : =10                CC_IRQ        equ  %00010000   ; if 1, IRQ is masked
+(2)       0 : =20                CC_HALF_CARRY equ  %00100000   ; if 1, decimal carry from least digit occurred
+(2)       0 : =40                CC_FIRQ       equ  %01000000   ; if 1, FIRQ is masked
+(2)       0 : =80                CC_ENTIRE     equ  %10000000   ; set to 1 if entire registers are pushed
+(2)       0 :
+(2)       0 :                    ;;; Vector
+(2)       0 : =FFF2              VEC_SWI3:       equ     $FFF2  ; $FFF2: Software Interrupt 3
+(2)       0 : =FFF4              VEC_SWI2:       equ     $FFF4  ; $FFF4: Software Interrupt 2
+(2)       0 : =FFF6              VEC_FIRQ:       equ     $FFF6  ; $FFF6: Fast Interrupt Request
+(2)       0 : =FFF8              VEC_IRQ:        equ     $FFF8  ; $FFF8: Interrupt Request
+(2)       0 : =FFFA              VEC_SWI:        equ     $FFFA  ; $FFFA: Software Interrupt
+(2)       0 : =FFFC              VEC_NMI:        equ     $FFFC  ; $FFFC: Non Maskable Interrupt
+(2)       0 : =FFFE              VEC_RESET:      equ     $FFFE  ; $FFFE: Reset
+(1)       0 :
+(1)       0 :                    ;;; Mode and Error Register (MD)
+(1)       0 : =1                 MD_EMULATION  equ  %00000001   ; if 1, 6309 native mode
+(1)       0 : =2                 MD_FIRQ_MODE  equ  %00000010   ; if 1, FIRQ operate as IRQ
+(1)       0 : =40                MD_ILLEGAL_OP equ  %01000000   ; set to 1 if illegal instruction occurred
+(1)       0 : =80                MD_DIV_ZERO   equ  %10000000   ; set to 1 if divided by 0 occurred
+(1)       0 :
+(1)       0 :                    ;;; Vector
+(1)       0 : =FFF0              VEC_DIVZERO:    equ     $FFF0   ; $FFF0: Divided by Zero Trap
+(1)       0 : =FFF0              VEC_ILLOPC:     equ     $FFF0   ; $FFF0: Illegal Opcode Trap
+          0 :                            cpu     6309
+          0 :
+       FFF0 :                            org     VEC_ILLOPC
+       FFF0 : 01 18                      fdb     halt_to_system
+       FFF2 :
+       FFFA :                            org     VEC_SWI
+       FFFA : FF FA                      fdb     VEC_SWI
+       FFFC :
+       FFFE :                            org     VEC_RESET
+       FFFE : 01 00                      fdb     main
+      10000 :
+         20 :                            org     $20
+         20 : 7E 01 25           djmp:   jmp     inst6809_jmp
+         23 : 39                 djsr:   rts
+         24 :                    mode:   rmb     1
+         25 :                    mdir:   rmb     4
+         29 :
+       8000 :                            org     $8000
+       8000 :                    mabs:   rmb     4
+       8004 :
+        100 :                            org     $0100
+        100 :                    main:
+        100 : 10 CE 10 00                lds     #$1000
+        104 : 11 3D 00                   ldmd    #0
+        107 : 0F 24                      clr     mode
+        109 : 8D 0E                      bsr     inst6809
+        10B : BD 02 04                   jsr     inst6309
+        10E : 11 3D 01                   ldmd    #1
+        111 : 0C 24                      inc     mode
+        113 : 8D 04                      bsr     inst6809
+        115 : BD 02 04                   jsr     inst6309
+        118 :                    halt_to_system:
+        118 : 3F                         swi
+        119 :
+        119 :                    inst6809:
+        119 : 00 25                      neg     mdir
+        11B : 0D 25                      tst     mdir
+        11D : 70 80 00                   neg     mabs
+        120 : 7D 80 00                   tst     mabs
+        123 : 0E 20                      jmp     djmp
+        125 :                    inst6809_jmp:
+        125 : 9D 23                      jsr     djsr
+        127 : 0F 25                      clr     mdir
+        129 : 12                         nop
+        12A : 16 00 00                   lbra    *+3
+        12D : 17 FE F3                   lbsr    djsr
+        130 : 19                         daa
+        131 : 1D                         sex
+        132 : 1E 88                      exg     A,A
+        134 : 1F 88                      tfr     A,A
+        136 : 31 02                      leay    2,X
+        138 : 31 80                      leay    ,X+
+        13A : 31 81                      leay    ,X++
+        13C : 31 82                      leay    ,-X
+        13E : 31 83                      leay    ,--X
+        140 : 31 84                      leay    ,X
+        142 : 31 85                      leay    B,X
+        144 : 31 88 20                   leay    $20,X
+        147 : 31 89 02 00                leay    $200,X
+        14B : 31 8B                      leay    D,X
+        14D : 31 8C 45                   leay    mem_pcr,PCR
+        150 : 31 8D 00 41                leay    >mem_pcr,PCR
+        154 : 31 91                      leay    [,X++]
+        156 : 31 93                      leay    [,--X]
+        158 : 31 94                      leay    [,X]
+        15A : 31 95                      leay    [B,X]
+        15C : 31 98 00                   leay    [<0,X]
+        15F : 31 99 00 00                leay    [>0,X]
+        163 : 31 96                      leay    [A,X]
+        165 : 31 9B                      leay    [D,X]
+        167 : 31 9C 2B                   leay    [mem_pcr,PCR]
+        16A : 31 9D 00 27                leay    [>mem_pcr,PCR]
+        16E : 31 9F 01 95                leay    [mem_pcr]
+        172 : 34 00                      pshs    #0
+        174 : 35 00                      puls    #0
+        176 : 34 16                      pshs    X,D
+        178 : 35 16                      puls    X,D
+        17A : 3A                         abx
+        17B : 30 8C 0D                   leax    irq_rti,PCR
+        17E : 34 10                      pshs    X
+        180 : 34 78                      pshs    U,Y,X,DP
+        182 : 0D 24                      tst     mode
+        184 : 27 02                      beq     normal_mode
+        186 : 34 06                      pshs    D
+        188 :                    normal_mode:
+        188 : 34 07                      pshs    D,CC
+        18A : 3B                         rti
+        18B :                    irq_rti:
+        18B : 30 8C 09                   leax    firq_rti,PCR
+        18E : 34 10                      pshs    X
+        190 : 86 7F                      lda     #$7F
+        192 : 34 02                      pshs    A
+        194 : 3B                         rti
+        195 :
+        195 :                    mem_pcr:
+        195 : 12 12                      fdb     $1212           ; nop
+        197 :
+        197 :                    firq_rti:
+        197 : 3D                         mul
+        198 : 30 8C 04                   leax    swi_return,PCR
+        19B : BF FF FA                   stx     VEC_SWI
+        19E : 3F                         swi
+        19F :                    swi_return:
+        19F : 32 6C                      leas    12,S
+        1A1 : 0D 24                      tst     mode
+        1A3 : 27 02                      beq     swi_normal
+        1A5 : 32 62                      leas    2,S             ; disacrd W
+        1A7 :                    swi_normal:     
+        1A7 : 8E FF FA                   ldx     #VEC_SWI
+        1AA : BF FF FA                   stx     VEC_SWI         ; for halt to system
+        1AD : 8E 90 00                   ldx     #mabs+$1000
+        1B0 : BF 80 00                   stx     mabs
+        1B3 : BF 01 95                   stx     mem_pcr
+        1B6 : 8E 80 00                   ldx     #mabs
+        1B9 : 4F                         clra
+        1BA : 5F                         clrb
+        1BB : 60 02                      neg     2,X
+        1BD : 60 80                      neg     ,X+
+        1BF : 60 82                      neg     ,-X
+        1C1 : 60 81                      neg     ,X++
+        1C3 : 60 83                      neg     ,--X
+        1C5 : 60 84                      neg     ,X
+        1C7 : 60 85                      neg     B,X
+        1C9 : 60 88 20                   neg     $20,X
+        1CC : 60 89 02 00                neg     $200,X
+        1D0 : 60 8B                      neg     D,X
+        1D2 : 60 8C C0                   neg     mem_pcr,PCR
+        1D5 : 60 8D FF BC                neg     >mem_pcr,PCR
+        1D9 : 60 91                      neg     [,X++]
+        1DB : 60 93                      neg     [,--X]
+        1DD : 60 94                      neg     [,X]
+        1DF : 60 95                      neg     [B,X]
+        1E1 : 60 94                      neg     [0,X]
+        1E3 : 60 99 00 00                neg     [>0,X]
+        1E7 : 60 96                      neg     [A,X]
+        1E9 : 60 9B                      neg     [D,X]
+        1EB : 60 9C A7                   neg     [mem_pcr,PCR]
+        1EE : 60 9D FF A3                neg     [>mem_pcr,PCR]
+        1F2 : 60 9F 01 95                neg     [mem_pcr]
+        1F6 : 6D 02                      tst     2,X
+        1F8 : D3 25                      addd    mdir
+        1FA : DC 25                      ldd     mdir
+        1FC : DD 25                      std     mdir
+        1FE : F3 80 00                   addd    mabs
+        201 : E3 02                      addd    2,X
+        203 :
+        203 : 39                         rts
+        204 :
+        204 :                    inst6309:
+        204 : 01 00 25                   oim     #$00, mdir
+        207 : 0B 00 25                   tim     #$00, mdir
+        20A : 14                         sexw
+        20B : 10 86 90 00                ldw     #$9000
+        20F : 10 B7 80 00                stw     mabs
+        213 : 10 86 80 00                ldw     #mabs
+        217 : 61 00 CF                   oim     #$00, ,W++
+        21A : 61 00 EF                   oim     #$00, ,--W
+        21D : 61 00 8F                   oim     #$00, ,W
+        220 : 61 00 AF 02 00             oim     #$00, $200,W
+        225 : 61 00 D0                   oim     #$00, [,W++]
+        228 : 61 00 F0                   oim     #$00, [,--W]
+        22B : 61 00 90                   oim     #$00, [,W]
+        22E : 61 00 B0 00 00             oim     #$00, [>0,W]
+        233 : 6B 00 CF                   tim     #$00, ,W++
+        236 : 6B 00 EF                   tim     #$00, ,--W
+        239 : 6B 00 8F                   tim     #$00, ,W
+        23C : 6B 00 AF 02 00             tim     #$00, $200,W
+        241 : 6B 00 D0                   tim     #$00, [,W++]
+        244 : 6B 00 F0                   tim     #$00, [,--W]
+        247 : 6B 00 90                   tim     #$00, [,W]
+        24A : 6B 00 B0 00 00             tim     #$00, [>0,W]
+        24F : 10 86 00 00                ldw     #0
+        253 : 61 00 87                   oim     #$00, E,X
+        256 : 61 00 97                   oim     #$00, [E,X]
+        259 : 61 00 8E                   oim     #$00, W,X
+        25C : 61 00 9E                   oim     #$00, [W,X]
+        25F : 6B 00 9E                   tim     #$00, [W,X]
+        262 : 6B 00 8A                   tim     #$00, F,X
+        265 : 6B 00 9A                   tim     #$00, [F,X]
+        268 : 6B 00 8E                   tim     #$00, W,X
+        26B : CD 12 34 56 78             ldq     #$12345678
+        270 : 10 30 88                   addr    A,A
+        273 : 10 31 99                   adcr    B,B
+        276 : 10 32 00                   subr    D,D
+        279 : 10 33 66                   sbcr    W,W
+        27C : 10 34 11                   andr    X,X
+        27F : 10 35 22                   orr     Y,Y
+        282 : 10 36 33                   eorr    U,U
+        285 : 10 37 77                   cmpr    V,V
+        288 : 10 38                      pshsw
+        28A : 10 39                      pulsw
+        28C : 10 40                      negd
+        28E : 10 4F                      clrd
+        290 : 10 4D                      tstd
+        292 : 10 53                      comw
+        294 : 10 5F                      clrw
+        296 : 10 5D                      tstw
+        298 : 10 81 12 34                cmpw    #$1234
+        29C : 10 83 12 34                cmpd    #$1234
+        2A0 : 10 91 25                   cmpw    mdir
+        2A3 : 10 93 25                   cmpd    mdir
+        2A6 : 10 96 25                   ldw     mdir
+        2A9 : DD 25                      std     mdir
+        2AB : 8E 80 00                   ldx     #mabs
+        2AE : 10 A1 8B                   cmpw    D,X
+        2B1 : 10 A6 8B                   ldw     D,X
+        2B4 : 10 A7 8B                   stw     D,X
+        2B7 : 10 DC 25                   ldq     mdir
+        2BA : 10 DD 25                   stq     mdir
+        2BD : 10 EC 88 10                ldq     $10,X
+        2C1 : 10 ED 88 10                stq     $10,X
+        2C5 : 10 FC 80 00                ldq     mabs
+        2C9 : 10 FD 80 00                stq     mabs
+        2CD : CC 00 0A                   ldd     #10
+        2D0 : DD 25                      std     mdir
+        2D2 : FD 80 00                   std     mabs
+        2D5 : 11 8D 0A                   divd    #10
+        2D8 : 11 8E 00 0A                divq    #10
+        2DC : 11 8F 00 0A                muld    #10
+        2E0 : 11 9D 26                   divd    mdir+1
+        2E3 : 11 9E 25                   divq    mdir
+        2E6 : 11 9F 25                   muld    mdir
+        2E9 : 11 BD 80 01                divd    mabs+1
+        2ED : 11 BE 80 00                divq    mabs
+        2F1 : 11 BF 80 00                muld    mabs
+        2F5 : CE 7F 9C                   ldu     #mabs-100
+        2F8 : CC 00 C8                   ldd     #200
+        2FB : 11 AD C8 65                divd    101,u
+        2FF : CD 00 00 00 C8             ldq     #200
+        304 : 11 AE C8 64                divq    100,u
+        308 : CC 00 02                   ldd     #2
+        30B : 11 AF C8 65                muld    101,u
+        30F : 11 32 6C 25                bor     a,4,mdir,5
+        313 : 11 36 6C 25                ldbt    a,4,mdir,5
+        317 : 11 37 6C 25                stbt    a,4,mdir,5
+        31B : 0D 24                      tst     mode
+        31D : 27 05                      beq     mode0
+        31F : 11 3D 01           mode1:  ldmd    #1
+        322 : 20 03                      bra     modex
+        324 : 11 3D 00           mode0:  ldmd    #0
+        327 : 11 3C 80           modex:  bitmd   #$80
+        32A : 11 43                      come
+        32C : 11 5D                      tstf
+        32E : 10 53                      comw
+        330 : 10 5D                      tstw
+        332 : 8E 80 00                   ldx     #$8000
+        335 : CE 90 00                   ldu     #$9000
+        338 : 10 86 00 03                ldw     #3
+        33C : 11 38 13                   tfm     X+, U+
+        33F : 10 86 00 03                ldw     #3
+        343 : 11 39 13                   tfm     X-, U-
+        346 : 10 86 00 03                ldw     #3
+        34A : 11 3A 13                   tfm     X+, U
+        34D : 10 86 00 03                ldw     #3
+        351 : 11 3B 13                   tfm     X, U+
+        354 : 39                         rts

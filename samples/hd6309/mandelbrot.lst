@@ -1,0 +1,469 @@
+          0 :                            cpu     6309
+          0 :                            include "mc6809.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :
+(1)       0 :                    ;;; Condition Code Register (CC)
+(1)       0 : =1                 CC_CARRY      equ  %00000001   ; set to 1 if carry occurred
+(1)       0 : =2                 CC_OVERFLOW   equ  %00000010   ; set to 1 if overflow occurred
+(1)       0 : =4                 CC_ZERO       equ  %00000100   ; set to 1 if result is zero
+(1)       0 : =8                 CC_NEGATIVE   equ  %00001000   ; set to 1 if result is negative
+(1)       0 : =10                CC_IRQ        equ  %00010000   ; if 1, IRQ is masked
+(1)       0 : =20                CC_HALF_CARRY equ  %00100000   ; if 1, decimal carry from least digit occurred
+(1)       0 : =40                CC_FIRQ       equ  %01000000   ; if 1, FIRQ is masked
+(1)       0 : =80                CC_ENTIRE     equ  %10000000   ; set to 1 if entire registers are pushed
+(1)       0 :
+(1)       0 :                    ;;; Vector
+(1)       0 : =FFF2              VEC_SWI3:       equ     $FFF2  ; $FFF2: Software Interrupt 3
+(1)       0 : =FFF4              VEC_SWI2:       equ     $FFF4  ; $FFF4: Software Interrupt 2
+(1)       0 : =FFF6              VEC_FIRQ:       equ     $FFF6  ; $FFF6: Fast Interrupt Request
+(1)       0 : =FFF8              VEC_IRQ:        equ     $FFF8  ; $FFF8: Interrupt Request
+(1)       0 : =FFFA              VEC_SWI:        equ     $FFFA  ; $FFFA: Software Interrupt
+(1)       0 : =FFFC              VEC_NMI:        equ     $FFFC  ; $FFFC: Non Maskable Interrupt
+(1)       0 : =FFFE              VEC_RESET:      equ     $FFFE  ; $FFFE: Reset
+          0 :
+          0 :                    ;;; MC6850 Asynchronous Communication Interface Adapter
+          0 : =DF00              ACIA:   equ     $DF00
+          0 :                            include "mc6850.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :
+(1)       0 :                    ;;; MC6850
+(1)       0 :                    ;;; Asynchronous Communication Interface Adapter
+(1)       0 :
+(1)       0 :                    ;;; Control register
+(1)       0 : =DF00              ACIA_control:   equ     ACIA+0
+(1)       0 :                            ;; Counter Divider Select Bits
+(1)       0 : =3                 CDS_gm:         equ     %11    ; Group mask
+(1)       0 : =0                 CDS_DIV1_gc:    equ     %00000000 ; /1
+(1)       0 : =1                 CDS_DIV16_gc:   equ     %00000001 ; /16
+(1)       0 : =2                 CDS_DIV64_gc:   equ     %00000010 ; /64
+(1)       0 : =3                 CDS_RESET_gc:   equ     %00000011 ; Master Reset
+(1)       0 :                            ;; Word Select Bits
+(1)       0 : =1C                WSB_gm:         equ     %00011100 ; Group mask
+(1)       0 : =0                 WSB_7E2_gc:     equ     %00000000 ; 7 Bits + Even Parity + 2 Stop Bits
+(1)       0 : =4                 WSB_7O2_gc:     equ     %00000100 ; 7 bits + Odd Parity  + 2 Stop Bits
+(1)       0 : =8                 WSB_7E1_gc:     equ     %00001000 ; 7 bits + Even Parity + 1 Stop Bits
+(1)       0 : =C                 WSB_7O1_gc:     equ     %00001100 ; 7 bits + Odd Parity  + 1 Stop Bits
+(1)       0 : =10                WSB_8N2_gc:     equ     %00010000 ; 8 bits + No Parity   + 2 Stop Bits
+(1)       0 : =14                WSB_8N1_gc:     equ     %00010100 ; 8 bits + No Parity   + 1 Stop Bits
+(1)       0 : =18                WSB_8E1_gc:     equ     %00011000 ; 8 bits + Even Parity + 1 Stop Bits
+(1)       0 : =1C                WSB_8O1_gc:     equ     %00011100 ; 8 bits + Odd Parity  + 1 Stop Bits
+(1)       0 :                            ;; Transmit Control Bits
+(1)       0 : =60                TCB_gm:         equ     %01100000 ; Group mask
+(1)       0 : =0                 TCB_DI_gc:      equ     %00000000 ; RTS=Low,  Tx Interrupt Disabled
+(1)       0 : =20                TCB_EI_gc:      equ     %00100000 ; RTS=Low,  Tx Interrupt Enabled
+(1)       0 : =40                TCB_RTS_gc:     equ     %01000000 ; RTS=High, Tx Interrupt Disabled
+(1)       0 : =60                TCB_BREAK_gc:   equ     %01100000 ; RTS=Low,  Tx Interrupt Disabled
+(1)       0 :                                                      ; Transmit Break Level
+(1)       0 : =80                RIEB_bm:        equ     %10000000 ; Receive Interrupt Enable Bit mask
+(1)       0 :
+(1)       0 :                    ;;; Status register
+(1)       0 : =DF00              ACIA_status:    equ     ACIA+0
+(1)       0 : =1                 RDRF_bm:        equ     %00000001 ; Receive Data Register Full
+(1)       0 : =2                 TDRE_bm:        equ     %00000010 ; Transmit Data Register Empty
+(1)       0 : =4                 DCDF_bm:        equ     %00000100 ; Data Carrier Detect Flag
+(1)       0 : =8                 CTSF_bm:        equ     %00001000 ; Clear To Send Flag
+(1)       0 : =10                FERR_bm:        equ     %00010000 ; Frame Error Flag
+(1)       0 : =20                OVRN_bm:        equ     %00100000 ; Receiver Overrun Flag
+(1)       0 : =40                PERR_bm:        equ     %01000000 ; Parity Error Flag
+(1)       0 : =80                IRQF_bm:        equ     %10000000 ; Interrupt Request Flag
+(1)       0 :
+(1)       0 :                    ;;; Data register
+(1)       0 : =DF01              ACIA_data:      equ     ACIA+1          ; Data register
+          0 : =94                RX_INT_TX_NO:   equ     WSB_8N1_gc|RIEB_bm
+          0 : =B4                RX_INT_TX_INT:  equ     WSB_8N1_gc|RIEB_bm|TCB_EI_gc
+          0 :
+         20 :                            org     $20
+         20 :                    ;;; Working space for mandelbrot.inc
+         20 : =32                F:      equ     50
+         20 :                    vC:     rmb     2
+         22 :                    vD:     rmb     2
+         24 :                    vA:     rmb     2
+         26 :                    vB:     rmb     2
+         28 :                    vS:     rmb     2
+         2A :                    vP:     rmb     2
+         2C :                    vQ:     rmb     2
+         2E :                    vY:     rmb     1
+         2F :                    vX:     rmb     1
+         30 :                    vI:     rmb     1
+         31 :
+       2000 :                            org     $2000
+       2000 : =80                rx_queue_size:  equ     128
+       2000 :                    rx_queue:       rmb     rx_queue_size
+       2080 : =80                tx_queue_size:  equ     128
+       2080 :                    tx_queue:       rmb     tx_queue_size
+       2100 :
+       1000 :                            org     $1000
+       1000 : =FFF               stack:  equ     *-1             ; MC6800's SP is post-decrement/pre-increment
+       1000 :
+       FFF6 :                            org     VEC_FIRQ
+       FFF6 : 02 DD                      fdb     isr_firq
+       FFF8 :
+       FFFA :                            org     VEC_SWI
+       FFFA : FF FA                      fdb     VEC_SWI         ; for halt to system
+       FFFC :
+       FFFE :                            org     VEC_RESET
+       FFFE : 01 00                      fdb     main
+      10000 :
+        100 :                            org     $0100
+        100 :                    main:
+        100 : 11 3D 01                   ldmd    #1
+        103 : 10 CE 0F FF                lds     #stack
+        107 : 8E 20 00                   ldx     #rx_queue
+        10A : C6 80                      ldb     #rx_queue_size
+        10C : 17 01 83                   lbsr    queue_init
+        10F : 8E 20 80                   ldx     #tx_queue
+        112 : C6 80                      ldb     #tx_queue_size
+        114 : 17 01 7B                   lbsr    queue_init
+        117 :                            ;; initialize ACIA
+        117 : 86 03                      lda     #CDS_RESET_gc   ; master reset
+        119 : B7 DF 00                   sta     ACIA_control
+        11C : 86 94                      lda     #RX_INT_TX_NO
+        11E : B7 DF 00                   sta     ACIA_control
+        121 : 86 02                      lda     #2              ; FIRQ
+        123 : B7 DF 02                   sta     ACIA+2          ; set #FIRQ name for MC6805 emulator
+        126 : 1C BF                      andcc   #~CC_FIRQ       ; Clear FIRQ mask
+        128 :
+        128 : BD 01 71                   jsr     mandelbrot
+        12B : BD 01 46                   jsr     newline
+        12E : 7D 20 80           wait:   tst     tx_queue        ; tx queue len
+        131 : 26 FB                      bne     wait
+        133 : 3F                         swi
+        134 :
+        134 :                    ;;; Get character
+        134 :                    ;;; @return A
+        134 :                    ;;; @return CC.C 0 if no character
+        134 :                    getchar:
+        134 : 34 10                      pshs    x
+        136 : 8E 20 00                   ldx     #rx_queue
+        139 : 1A 40                      orcc    #CC_FIRQ         ; disable FIRQ
+        13B : 17 01 80                   lbsr     queue_remove
+        13E : 1C BF                      andcc   #~CC_FIRQ        ; enable FIRQ
+        140 : 35 90                      puls    x,pc
+        142 :
+        142 :                    ;;; Put character
+        142 :                    ;;; @param A
+        142 :                    putspace:
+        142 : 86 20                      lda     #' '
+        144 : 20 06                      bra     putchar
+        146 :                    newline:
+        146 : 86 0D                      lda     #$0D
+        148 : 8D 02                      bsr     putchar
+        14A : 86 0A                      lda     #$0A
+        14C :                    putchar:
+        14C : 34 12                      pshs    x,a
+        14E : 8E 20 80                   ldx     #tx_queue
+        151 :                    putchar_retry:
+        151 : 1A 40                      orcc    #CC_FIRQ         ; disable FIRQ
+        153 : 17 01 4A                   lbsr    queue_add
+        156 : 1C BF                      andcc   #~CC_FIRQ        ; enable FIRQ
+        158 : 24 F7                      bcc     putchar_retry    ; branch if queue is full
+        15A : 86 B4                      lda     #RX_INT_TX_INT   ; enable Tx interrupt
+        15C : B7 DF 00                   sta     ACIA_control
+        15F : 35 92                      puls    a,x,pc
+        161 :
+        161 :                            include "mandelbrot.inc"
+(1)     161 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)     161 :                            cpu     6309
+(1)     161 :
+(1)     161 :                    ;;; Print variable: "A=variable "
+(1)     161 :                    ;;; @param W variable
+(1)     161 :                    ;;; @param A variable letter
+(1)     161 :                    print:
+(1)     161 : BD 01 4C                   jsr     putchar         ; print variable letter
+(1)     164 : 86 3D                      lda     #'='
+(1)     166 : BD 01 4C                   jsr     putchar         ; '='
+(1)     169 : 1F 60                      tfr     W, D
+(1)     16B : BD 02 5A                   jsr     print_int16
+(1)     16E : 7E 01 42                   jmp     putspace
+(1)     171 :
+(1)     171 :                    mandelbrot:
+(1)     171 : 86 F4                      lda     #-12
+(1)     173 : 97 2E                      sta     vY              ; Y=-12
+(1)     175 :                    loop_y:
+(1)     175 : 86 CF                      lda     #-49
+(1)     177 : 97 2F                      sta     vX              ; X=-49
+(1)     179 :                    loop_x:
+(1)     179 : D6 2F                      ldb     vX              ; B: X
+(1)     17B : 1D                         sex                     ; D: X
+(1)     17C : 11 8F 00 E5                muld    #229            ; Q: X*229
+(1)     180 : 11 8E 00 64                divq    #100            ; W: X*229/100
+(1)     184 : 10 97 20                   stw     vC              ; C=X*229/100
+(1)     187 : 10 97 24                   stw     vA              ; A=C
+(1)     18A : D6 2E                      ldb     vY              ; B: Y
+(1)     18C : 1D                         sex                     ; D: Y
+(1)     18D : 11 8F 01 A0                muld    #416            ; Q: Y*416
+(1)     191 : 11 8E 00 64                divq    #100            ; W: Y*416/100
+(1)     195 : 10 97 22                   stw     vD              ; D=Y*416/100
+(1)     198 : 10 97 26                   stw     vB              ; B=D
+(1)     19B : 0F 30                      clr     vI              ; I=0
+(1)     19D :
+(1)     19D :                            ;; ldb     vY              ; Y
+(1)     19D :                            ;; sex
+(1)     19D :                            ;; tfr     D,W
+(1)     19D :                            ;; lda     #'Y'
+(1)     19D :                            ;; jsr     print
+(1)     19D :                            ;; ldb     vX              ; X
+(1)     19D :                            ;; sex
+(1)     19D :                            ;; tfr     D,W
+(1)     19D :                            ;; lda     #'X'
+(1)     19D :                            ;; jsr     print
+(1)     19D :                            ;; ldw     vC              ; C
+(1)     19D :                            ;; lda     #'C'
+(1)     19D :                            ;; jsr     print
+(1)     19D :                            ;; ldw     vD              ; D
+(1)     19D :                            ;; lda     #'D'
+(1)     19D :                            ;; jsr     print
+(1)     19D :                            ;; jsr     newline
+(1)     19D :
+(1)     19D :                    loop_i:
+(1)     19D : 10 96 26                   ldw     vB              ; W: B
+(1)     1A0 : 14                         sexw                    ; Q: B
+(1)     1A1 : 11 8E 00 32                divq    #F              ; W: B/F
+(1)     1A5 : 10 97 2C                   stw     vQ              ; Q=B/F
+(1)     1A8 : 1F 60                      tfr     W, D            ; D: Q
+(1)     1AA : 11 8F 00 32                muld    #F              ; Q: Q*F
+(1)     1AE : DC 26                      ldd     vB              ; D: B
+(1)     1B0 : 10 32 60                   subr    W, D            ; D: B-Q*F
+(1)     1B3 : DD 28                      std     vS              ; S=B-Q*F
+(1)     1B5 : DC 24                      ldd     vA              ; D: A
+(1)     1B7 : 11 9F 24                   muld    vA              ; Q: A*A
+(1)     1BA : 10 38                      pshsw                   ; push A*A
+(1)     1BC : DC 26                      ldd     vB              ; D: B
+(1)     1BE : 11 9F 26                   muld    vB              ; Q: B*B
+(1)     1C1 : 35 06                      puls    D               ; D: A*A
+(1)     1C3 : 10 32 60                   subr    W, D            ; D: A*A-B*B
+(1)     1C6 : 1F 06                      tfr     D, W            ; W: A*A-B*B
+(1)     1C8 : 14                         sexw                    ; Q: A*A-B*B
+(1)     1C9 : 11 8E 00 32                divq    #F              ; W: (A*A-B*B)/F
+(1)     1CD : 10 9B 20                   addw    vC              ; W: (A*A-B*B)/F+C
+(1)     1D0 : 10 38                      pshsw                   ; push (A*A-B*B)/F+C
+(1)     1D2 : DC 24                      ldd     vA              ; D: A
+(1)     1D4 : 11 9F 2C                   muld    vQ              ; Q: A*Q
+(1)     1D7 : 10 38                      pshsw                   ; push A*Q
+(1)     1D9 : DC 24                      ldd     vA              ; D: A
+(1)     1DB : 11 9F 28                   muld    vS              ; Q: A*S
+(1)     1DE : 11 8E 00 32                divq    #F              ; W: A*S/F
+(1)     1E2 : 35 06                      puls    D               ; D: A*Q
+(1)     1E4 : 10 30 60                   addr    W, D            ; D: A*Q+A*S/F
+(1)     1E7 : 10 30 00                   addr    D, D            ; D: 2*(A*Q+A*S/F)
+(1)     1EA : D3 22                      addd    vD              ; D: 2*(A*Q+A*S/F)+D
+(1)     1EC : DD 26                      std     vB              ; B=2*(A*Q+A*S/F)+D
+(1)     1EE : 10 39                      pulsw                   ; pop (A*A-B*B)/F+C
+(1)     1F0 : 10 97 24                   stw     vA              ; A=(A*A-B*B)/F+C
+(1)     1F3 : 14                         sexw                    ; Q: A
+(1)     1F4 : 11 8E 00 32                divq    #F              ; W: A/F
+(1)     1F8 : 10 97 2A                   stw     vP              ; P=A/F
+(1)     1FB : 1F 60                      tfr     W, D            ; D: P
+(1)     1FD : 11 9F 2A                   muld    vP              ; Q: P*P
+(1)     200 : 10 38                      pshsw                   ; push P*P
+(1)     202 : 10 96 26                   ldw     vB              ; W: B
+(1)     205 : 14                         sexw                    ; Q: B
+(1)     206 : 11 8E 00 32                divq    #F              ; W: B/F
+(1)     20A : 10 97 2C                   stw     vQ              ; Q=B/F
+(1)     20D : 1F 60                      tfr     W, D            ; D: Q
+(1)     20F : 11 9F 2C                   muld    vQ              ; Q: Q*Q
+(1)     212 : 35 06                      puls    D               ; pop P*P
+(1)     214 : 10 30 06                   addr    D, W            ; W: P*P+Q*Q
+(1)     217 :
+(1)     217 :                            ;; pshsw                   ; save P*P+Q*Q
+(1)     217 :                            ;; jsr     putspace
+(1)     217 :                            ;; ldb     vI              ; I
+(1)     217 :                            ;; sex
+(1)     217 :                            ;; tfr     D, W
+(1)     217 :                            ;; lda     #'I'
+(1)     217 :                            ;; jsr     print
+(1)     217 :                            ;; ldw     vA              ; A
+(1)     217 :                            ;; lda     #'A'
+(1)     217 :                            ;; jsr     print
+(1)     217 :                            ;; ldw     vB              ; B
+(1)     217 :                            ;; lda     #'B'
+(1)     217 :                            ;; jsr     print
+(1)     217 :                            ;; ldw     vP              ; P
+(1)     217 :                            ;; lda     #'P'
+(1)     217 :                            ;; jsr     print
+(1)     217 :                            ;; ldw     vQ              ; Q
+(1)     217 :                            ;; lda     #'Q'
+(1)     217 :                            ;; jsr     print
+(1)     217 :                            ;; jsr     newline
+(1)     217 :                            ;; pulsw                   ; pop P*P+Q*Q
+(1)     217 :
+(1)     217 : 10 81 00 04                cmpw    #4
+(1)     21B : 2E 0E                      bgt     print_i         ; if 4<P*P+Q*Q
+(1)     21D : 0C 30                      inc     vI              ; I+=1
+(1)     21F : 96 30                      lda     vI
+(1)     221 : 81 10                      cmpa    #16
+(1)     223 : 10 25 FF 76                lblo    loop_i          ; if I<16
+(1)     227 : 86 20                      lda     #' '
+(1)     229 : 20 0C                      bra     print_char
+(1)     22B :                    print_i:
+(1)     22B : 96 30                      lda     vI
+(1)     22D : 80 0A                      suba    #10
+(1)     22F : 2A 04                      bpl     print_i2       ; if I>=10
+(1)     231 : 8B 3A                      adda    #10+'0'
+(1)     233 : 20 02                      bra     print_char
+(1)     235 :                    print_i2:
+(1)     235 : 8B 41                      adda    #'A'
+(1)     237 :                    print_char:
+(1)     237 : BD 01 4C                   jsr     putchar
+(1)     23A :
+(1)     23A :                            ;; pshs    A
+(1)     23A :                            ;; lda     #'@'
+(1)     23A :                            ;; jsr     putchar
+(1)     23A :                            ;; lda     #'='
+(1)     23A :                            ;; jsr     putchar
+(1)     23A :                            ;; puls    A
+(1)     23A :                            ;; jsr     putchar
+(1)     23A :                            ;; jsr     newline
+(1)     23A :
+(1)     23A : BD 01 34                   jsr     getchar
+(1)     23D : 24 03                      bcc     next_x
+(1)     23F : 4D                         tsta
+(1)     240 : 27 17                      beq     mandelbrot_end  ; break
+(1)     242 :                    next_x:
+(1)     242 : 0C 2F                      inc     vX              ; X+=1
+(1)     244 : 96 2F                      lda     vX
+(1)     246 : 81 1E                      cmpa    #30
+(1)     248 : 10 2D FF 2D                lblt    loop_x          ; if X<30
+(1)     24C : BD 01 46                   jsr     newline
+(1)     24F : 0C 2E                      inc     vY              ; Y+=1
+(1)     251 : 96 2E                      lda     vY
+(1)     253 : 81 0D                      cmpa    #13
+(1)     255 : 10 2D FF 1C                lblt    loop_y          ; if Y<13
+(1)     259 :                    mandelbrot_end:
+(1)     259 : 39                         rts
+        25A :                            include "arith.inc"
+(1)     25A :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)     25A :                            cpu     6309
+(1)     25A :
+(1)     25A :                    ;;; Print signed 16-bit integer as decimal
+(1)     25A :                    ;;; @param D value
+(1)     25A :                    print_int16:
+(1)     25A : 34 06                      pshs   D
+(1)     25C : 10 4D                      tstd
+(1)     25E : 2A 09                      bpl     print_int16_print
+(1)     260 : 86 2D                      lda     #'-'
+(1)     262 : BD 01 4C                   jsr     putchar
+(1)     265 : EC E4                      ldd     ,S
+(1)     267 : 10 40                      negd
+(1)     269 :                    print_int16_print:
+(1)     269 : 10 38                      pshsw
+(1)     26B : 1F 06                      tfr     D, W
+(1)     26D : 8D 04                      bsr     print_uint16
+(1)     26F : 10 39                      pulsw
+(1)     271 : 35 86                      puls    D, PC
+(1)     273 :                    ;;; Print unsigned 16-bit integer as decimal
+(1)     273 :                    ;;; @param W value
+(1)     273 :                    ;;; @clobber D W
+(1)     273 :                    print_uint16:
+(1)     273 : 10 5D                      tstw
+(1)     275 : 26 05                      bne     print_uint16_loop
+(1)     277 : 86 30                      lda     #'0'
+(1)     279 : 7E 01 4C                   jmp     putchar
+(1)     27C :                    print_uint16_loop:
+(1)     27C : 10 5D                      tstw
+(1)     27E : 27 11                      beq     print_uint16_end ; branch if value == 0
+(1)     280 : 10 4F                      clrd
+(1)     282 : 11 8E 00 0A                divq    #10             ; D:W/10=W...D
+(1)     286 : 34 04                      pshs    B               ; push reminder
+(1)     288 : 8D F2                      bsr     print_uint16_loop
+(1)     28A : 35 02                      puls    A
+(1)     28C : 8A 30                      ora     #'0'
+(1)     28E : 7E 01 4C                   jmp     putchar
+(1)     291 :                    print_uint16_end:
+(1)     291 : 39                         rts
+        292 :                            include "queue.inc"
+(1)     292 :                    ;;; -*- mode: asm; mode: flying-spell; -*-
+(1)     292 :                    ;;; [queue] queue structure
+(1)     292 : =0                 queue_len:      equ     0       ; queue length
+(1)     292 : =1                 queue_size:     equ     1       ; buffer size
+(1)     292 : =2                 queue_put:      equ     2       ; queue put index
+(1)     292 : =3                 queue_get:      equ     3       ; queue get index
+(1)     292 : =4                 queue_buf:      equ     4       ; buffer start offset
+(1)     292 :
+(1)     292 :                    ;;; [queue] Initialize queue
+(1)     292 :                    ;;; @param X queue work space pointer
+(1)     292 :                    ;;; @param B queue work space size
+(1)     292 :                    queue_init:
+(1)     292 : 34 14                      pshs    x,b
+(1)     294 :                    queue_init_loop:
+(1)     294 : 6F 80                      clr     ,x+
+(1)     296 : 5A                         decb
+(1)     297 : 26 FB                      bne     queue_init_loop
+(1)     299 : 35 14                      puls    b,x
+(1)     29B : C0 04                      subb    #queue_buf
+(1)     29D : E7 01                      stb     queue_size,x
+(1)     29F : 39                         rts
+(1)     2A0 :
+(1)     2A0 :                    ;;; [queue] Add an element to queue
+(1)     2A0 :                    ;;; @param X queue work space pointer
+(1)     2A0 :                    ;;; @param A an element
+(1)     2A0 :                    ;;; @return CC.C 0 if queue is full
+(1)     2A0 :                    queue_add:
+(1)     2A0 : 34 54                      pshs    u,x,b
+(1)     2A2 : 1F 13                      tfr     x,u
+(1)     2A4 : E6 C4                      ldb     queue_len,u
+(1)     2A6 : E1 41                      cmpb    queue_size,u
+(1)     2A8 : 24 12                      bhs     queue_add_return ;carry is cleared
+(1)     2AA : E6 42                      ldb     queue_put,u     ; 8 bits offset
+(1)     2AC : 3A                         abx                     ; X+=B
+(1)     2AD : A7 04                      sta     queue_buf,x     ; store an element
+(1)     2AF : 6C C4                      inc     queue_len,u
+(1)     2B1 : 5C                         incb
+(1)     2B2 : E7 42                      stb     queue_put,u
+(1)     2B4 : E1 41                      cmpb    queue_size,u
+(1)     2B6 : 25 04                      blo     queue_add_return ; carry is set
+(1)     2B8 : 6F 42                      clr     queue_put,u
+(1)     2BA : 1A 01                      orcc    #CC_CARRY       ; set carry
+(1)     2BC :                    queue_add_return:
+(1)     2BC : 35 D4                      puls    b,x,u,pc
+(1)     2BE :
+(1)     2BE :                    ;;; [queue] Remove an element from queue
+(1)     2BE :                    ;;; @param X queue work space pointer
+(1)     2BE :                    ;;; @return A an element
+(1)     2BE :                    ;;; @return CC.C 0 if queue is empty
+(1)     2BE :                    queue_remove:
+(1)     2BE : 6D 84                      tst     queue_len,x
+(1)     2C0 : 26 03                      bne     queue_remove_elem
+(1)     2C2 : 1C FE                      andcc   #~CC_CARRY      ; clear carry
+(1)     2C4 : 39                         rts
+(1)     2C5 :                    queue_remove_elem:
+(1)     2C5 : 34 54                      pshs    u,x,b
+(1)     2C7 : 1F 13                      tfr     x,u
+(1)     2C9 : E6 43                      ldb     queue_get,u     ; 8 bits offset
+(1)     2CB : 3A                         abx                     ; X+=B
+(1)     2CC : A6 04                      lda     queue_buf,x
+(1)     2CE : 6A C4                      dec     queue_len,u
+(1)     2D0 : 5C                         incb
+(1)     2D1 : E7 43                      stb     queue_get,u
+(1)     2D3 : E1 41                      cmpb    queue_size,u
+(1)     2D5 : 25 04                      blo     queue_remove_return ; carry is set
+(1)     2D7 : 6F 43                      clr     queue_get,u
+(1)     2D9 : 1A 01                      orcc    #CC_CARRY       ; set carry
+(1)     2DB :                    queue_remove_return:
+(1)     2DB : 35 D4                      puls    b,x,u,pc
+        2DD :
+        2DD :                    isr_firq:
+        2DD : 34 16                      pshs    x,b,a
+        2DF : F6 DF 00                   ldb     ACIA_status
+        2E2 : C5 80                      bitb    #IRQF_bm
+        2E4 : 27 1C                      beq     isr_firq_exit
+        2E6 : C5 01                      bitb    #RDRF_bm
+        2E8 : 27 09                      beq     isr_firq_send
+        2EA : B6 DF 01                   lda     ACIA_data       ; receive character
+        2ED : 8E 20 00                   ldx     #rx_queue
+        2F0 : BD 02 A0                   jsr     queue_add
+        2F3 :                    isr_firq_send:
+        2F3 : C5 02                      bitb    #TDRE_bm
+        2F5 : 27 0B                      beq     isr_firq_exit
+        2F7 : 8E 20 80                   ldx     #tx_queue
+        2FA : BD 02 BE                   jsr     queue_remove
+        2FD : 24 06                      bcc     isr_firq_send_empty
+        2FF : B7 DF 01                   sta     ACIA_data       ; send character
+        302 :                    isr_firq_exit:
+        302 : 35 16                      puls    a,b,x
+        304 : 3B                         rti
+        305 :                    isr_firq_send_empty:
+        305 : 86 94                      lda     #RX_INT_TX_NO
+        307 : B7 DF 00                   sta     ACIA_control    ; disable Tx interrupt
+        30A : 35 16                      puls    a,b,x
+        30C : 3B                         rti

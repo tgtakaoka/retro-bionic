@@ -1,0 +1,379 @@
+          0 :                            cpu     6309
+          0 :                            include "mc6809.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :
+(1)       0 :                    ;;; Condition Code Register (CC)
+(1)       0 : =1                 CC_CARRY      equ  %00000001   ; set to 1 if carry occurred
+(1)       0 : =2                 CC_OVERFLOW   equ  %00000010   ; set to 1 if overflow occurred
+(1)       0 : =4                 CC_ZERO       equ  %00000100   ; set to 1 if result is zero
+(1)       0 : =8                 CC_NEGATIVE   equ  %00001000   ; set to 1 if result is negative
+(1)       0 : =10                CC_IRQ        equ  %00010000   ; if 1, IRQ is masked
+(1)       0 : =20                CC_HALF_CARRY equ  %00100000   ; if 1, decimal carry from least digit occurred
+(1)       0 : =40                CC_FIRQ       equ  %01000000   ; if 1, FIRQ is masked
+(1)       0 : =80                CC_ENTIRE     equ  %10000000   ; set to 1 if entire registers are pushed
+(1)       0 :
+(1)       0 :                    ;;; Vector
+(1)       0 : =FFF2              VEC_SWI3:       equ     $FFF2  ; $FFF2: Software Interrupt 3
+(1)       0 : =FFF4              VEC_SWI2:       equ     $FFF4  ; $FFF4: Software Interrupt 2
+(1)       0 : =FFF6              VEC_FIRQ:       equ     $FFF6  ; $FFF6: Fast Interrupt Request
+(1)       0 : =FFF8              VEC_IRQ:        equ     $FFF8  ; $FFF8: Interrupt Request
+(1)       0 : =FFFA              VEC_SWI:        equ     $FFFA  ; $FFFA: Software Interrupt
+(1)       0 : =FFFC              VEC_NMI:        equ     $FFFC  ; $FFFC: Non Maskable Interrupt
+(1)       0 : =FFFE              VEC_RESET:      equ     $FFFE  ; $FFFE: Reset
+          0 :
+          0 :                    ;;; MC6850 Asynchronous Communication Interface Adapter
+          0 : =DF00              ACIA:   equ     $DF00
+          0 :                            include "mc6850.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :
+(1)       0 :                    ;;; MC6850
+(1)       0 :                    ;;; Asynchronous Communication Interface Adapter
+(1)       0 :
+(1)       0 :                    ;;; Control register
+(1)       0 : =DF00              ACIA_control:   equ     ACIA+0
+(1)       0 :                            ;; Counter Divider Select Bits
+(1)       0 : =3                 CDS_gm:         equ     %11    ; Group mask
+(1)       0 : =0                 CDS_DIV1_gc:    equ     %00000000 ; /1
+(1)       0 : =1                 CDS_DIV16_gc:   equ     %00000001 ; /16
+(1)       0 : =2                 CDS_DIV64_gc:   equ     %00000010 ; /64
+(1)       0 : =3                 CDS_RESET_gc:   equ     %00000011 ; Master Reset
+(1)       0 :                            ;; Word Select Bits
+(1)       0 : =1C                WSB_gm:         equ     %00011100 ; Group mask
+(1)       0 : =0                 WSB_7E2_gc:     equ     %00000000 ; 7 Bits + Even Parity + 2 Stop Bits
+(1)       0 : =4                 WSB_7O2_gc:     equ     %00000100 ; 7 bits + Odd Parity  + 2 Stop Bits
+(1)       0 : =8                 WSB_7E1_gc:     equ     %00001000 ; 7 bits + Even Parity + 1 Stop Bits
+(1)       0 : =C                 WSB_7O1_gc:     equ     %00001100 ; 7 bits + Odd Parity  + 1 Stop Bits
+(1)       0 : =10                WSB_8N2_gc:     equ     %00010000 ; 8 bits + No Parity   + 2 Stop Bits
+(1)       0 : =14                WSB_8N1_gc:     equ     %00010100 ; 8 bits + No Parity   + 1 Stop Bits
+(1)       0 : =18                WSB_8E1_gc:     equ     %00011000 ; 8 bits + Even Parity + 1 Stop Bits
+(1)       0 : =1C                WSB_8O1_gc:     equ     %00011100 ; 8 bits + Odd Parity  + 1 Stop Bits
+(1)       0 :                            ;; Transmit Control Bits
+(1)       0 : =60                TCB_gm:         equ     %01100000 ; Group mask
+(1)       0 : =0                 TCB_DI_gc:      equ     %00000000 ; RTS=Low,  Tx Interrupt Disabled
+(1)       0 : =20                TCB_EI_gc:      equ     %00100000 ; RTS=Low,  Tx Interrupt Enabled
+(1)       0 : =40                TCB_RTS_gc:     equ     %01000000 ; RTS=High, Tx Interrupt Disabled
+(1)       0 : =60                TCB_BREAK_gc:   equ     %01100000 ; RTS=Low,  Tx Interrupt Disabled
+(1)       0 :                                                      ; Transmit Break Level
+(1)       0 : =80                RIEB_bm:        equ     %10000000 ; Receive Interrupt Enable Bit mask
+(1)       0 :
+(1)       0 :                    ;;; Status register
+(1)       0 : =DF00              ACIA_status:    equ     ACIA+0
+(1)       0 : =1                 RDRF_bm:        equ     %00000001 ; Receive Data Register Full
+(1)       0 : =2                 TDRE_bm:        equ     %00000010 ; Transmit Data Register Empty
+(1)       0 : =4                 DCDF_bm:        equ     %00000100 ; Data Carrier Detect Flag
+(1)       0 : =8                 CTSF_bm:        equ     %00001000 ; Clear To Send Flag
+(1)       0 : =10                FERR_bm:        equ     %00010000 ; Frame Error Flag
+(1)       0 : =20                OVRN_bm:        equ     %00100000 ; Receiver Overrun Flag
+(1)       0 : =40                PERR_bm:        equ     %01000000 ; Parity Error Flag
+(1)       0 : =80                IRQF_bm:        equ     %10000000 ; Interrupt Request Flag
+(1)       0 :
+(1)       0 :                    ;;; Data register
+(1)       0 : =DF01              ACIA_data:      equ     ACIA+1          ; Data register
+          0 :
+       1000 :                            org     $1000
+       1000 : =FFF               stack:  equ     *-1             ; MC6800's SP is post-decrement/pre-increment
+       1000 :
+       FFFA :                            org     VEC_SWI
+       FFFA : FF FA                      fdb     VEC_SWI         ; for halt to system
+       FFFC :
+       FFFE :                            org     VEC_RESET
+       FFFE : 01 00                      fdb     initialize
+      10000 :
+        100 :                            org     $0100
+        100 :                    initialize:
+        100 : 11 3D 01                   ldmd    #1
+        103 : 10 CE 0F FF                lds     #stack
+        107 : 86 03                      lda     #CDS_RESET_gc   ; Master reset
+        109 : B7 DF 00                   sta     ACIA_control
+        10C : 86 14                      lda     #WSB_8N1_gc     ; 8 bits + No Parity + 1 Stop Bits
+        10E :                                                    ; Transmit, Receive interrupts disabled
+        10E : B7 DF 00                   sta     ACIA_control
+        111 :
+        111 : BD 01 6B                   jsr     arith
+        114 : 3F                         swi
+        115 :
+        115 :                    ;;; Print out char
+        115 :                    ;;; @param A char
+        115 :                    ;;; @clobber A B
+        115 :                    putspace:
+        115 : 86 20                      lda     #' '
+        117 : 20 06                      bra     putchar
+        119 :                    newline:
+        119 : 86 0D                      lda     #$0D
+        11B : 8D 02                      bsr     putchar
+        11D : 86 0A                      lda     #$0A
+        11F :                    putchar:
+        11F : F6 DF 00                   ldb     ACIA_status
+        122 : C5 02                      bitb    #TDRE_bm
+        124 : 27 F9                      beq     putchar
+        126 : B7 DF 01                   sta     ACIA_data
+        129 : 39                         rts
+        12A :
+        12A :                    ;;; Print "X op U"
+        12A :                    ;;; @params A op letter
+        12A :                    ;;; @return W=X
+        12A :                    ;;; @return D=U
+        12A :                    expr:
+        12A : 34 02                      pshs    A
+        12C : 1F 10                      tfr     X, D
+        12E : BD 03 08                   jsr     print_int16     ; print X
+        131 : 8D E2                      bsr     putspace
+        133 : 35 02                      puls    A
+        135 : 8D E8                      bsr     putchar         ; print op
+        137 : 8D DC                      bsr     putspace
+        139 : 1F 30                      tfr     U, D
+        13B : BD 03 08                   jsr     print_int16     ; print U
+        13E : 1F 16                      tfr     X, W
+        140 : 39                         rts
+        141 :
+        141 :                    ;;; Print " = W\n"
+        141 :                    answer:
+        141 : 8D D2                      bsr     putspace
+        143 : 86 3D                      lda     #'='
+        145 : 8D D8                      bsr     putchar
+        147 : 8D CC                      bsr     putspace
+        149 : 1F 60                      tfr     W, D
+        14B : BD 03 08                   jsr     print_int16     ; print W
+        14E : 20 C9                      bra     newline
+        150 :
+        150 :                    ;;; Print "X rel U"
+        150 :                    ;;; @clobber D
+        150 :                    comp:
+        150 : 10 37 31                   cmpr    U, X            ; X-U
+        153 : 27 0C                      beq     comp_eq
+        155 : 2D 0E                      blt     comp_lt
+        157 : 2E 04                      bgt     comp_gt
+        159 : 86 3F                      lda     #'?'
+        15B : 20 0A                      bra     comp_out
+        15D :                    comp_gt:
+        15D : 86 3E                      lda     #'>'
+        15F : 20 06                      bra     comp_out
+        161 :                    comp_eq:
+        161 : 86 3D                      lda     #'='
+        163 : 20 02                      bra     comp_out
+        165 :                    comp_lt:
+        165 : 86 3C                      lda     #'<'
+        167 :                    comp_out:
+        167 : 8D C1                      bsr     expr
+        169 : 20 AE                      bra     newline
+        16B :
+        16B :                    arith:
+        16B : 8E 46 50                   ldx     #18000
+        16E : CE 6D 60                   ldu     #28000
+        171 : 86 2B                      lda     #'+'
+        173 : BD 01 2A                   jsr     expr
+        176 : 10 30 06                   addr    D, W            ; W+=D
+        179 : BD 01 41                   jsr     answer          ; -19536
+        17C :
+        17C : 8E 46 50                   ldx     #18000
+        17F : CE B9 B0                   ldu     #-18000
+        182 : 86 2B                      lda     #'+'
+        184 : BD 01 2A                   jsr     expr
+        187 : 10 30 06                   addr    D, W            ; W+=D
+        18A : BD 01 41                   jsr     answer          ; 0
+        18D :
+        18D : 8E B9 B0                   ldx     #-18000
+        190 : CE B9 B0                   ldu     #-18000
+        193 : 86 2B                      lda     #'+'
+        195 : BD 01 2A                   jsr     expr
+        198 : 10 30 06                   addr    D, W            ; W+=D
+        19B : BD 01 41                   jsr     answer          ; 29536
+        19E :
+        19E : 8E B9 B0                   ldx     #-18000
+        1A1 : CE 92 A0                   ldu     #-28000
+        1A4 : 86 2D                      lda     #'-'
+        1A6 : BD 01 2A                   jsr     expr
+        1A9 : 10 32 06                   subr    D, W            ; W-=D
+        1AC : BD 01 41                   jsr     answer          ; -19536
+        1AF :
+        1AF : 8E 46 50                   ldx     #18000
+        1B2 : CE B9 B0                   ldu     #-18000
+        1B5 : 86 2D                      lda     #'-'
+        1B7 : BD 01 2A                   jsr     expr
+        1BA : 10 32 06                   subr    D, W            ; W-=D
+        1BD : BD 01 41                   jsr     answer          ; 29536
+        1C0 :
+        1C0 : 8E 92 A0                   ldx     #-28000
+        1C3 : CE B9 B0                   ldu     #-18000
+        1C6 : 86 2D                      lda     #'-'
+        1C8 : BD 01 2A                   jsr     expr
+        1CB : 10 32 06                   subr    D, W            ; W-=D
+        1CE : BD 01 41                   jsr     answer          ; -10000
+        1D1 :
+        1D1 : 8E 00 64                   ldx     #100
+        1D4 : CE 01 2C                   ldu     #300
+        1D7 : 86 2A                      lda     #'*'
+        1D9 : BD 01 2A                   jsr     expr
+        1DC : 10 38                      pshsw
+        1DE : 11 AF E1                   muld    ,S++            ; D:W=D*EA
+        1E1 : BD 01 41                   jsr     answer          ; 30000
+        1E4 :
+        1E4 : 8E 00 C8                   ldx     #200
+        1E7 : CE 00 64                   ldu     #100
+        1EA : 86 2A                      lda     #'*'
+        1EC : BD 01 2A                   jsr     expr
+        1EF : 10 38                      pshsw
+        1F1 : 11 AF E1                   muld    ,S++            ; D:W=D*EA
+        1F4 : BD 01 41                   jsr     answer          ; 20000
+        1F7 :
+        1F7 : 8E 01 2C                   ldx     #300
+        1FA : CE FF 38                   ldu     #-200
+        1FD : 86 2A                      lda     #'*'
+        1FF : BD 01 2A                   jsr     expr
+        202 : 10 38                      pshsw
+        204 : 11 AF E1                   muld    ,S++            ; D:W=D*EA
+        207 : BD 01 41                   jsr     answer          ; 5536
+        20A :
+        20A : 8E 00 64                   ldx     #100
+        20D : CE FE D4                   ldu     #-300
+        210 : 86 2A                      lda     #'*'
+        212 : BD 01 2A                   jsr     expr
+        215 : 10 38                      pshsw
+        217 : 11 AF E1                   muld    ,S++            ; D:W=D*EA
+        21A : BD 01 41                   jsr     answer          ; -30000
+        21D :
+        21D : 8E FF 38                   ldx     #-200
+        220 : CE FF 9C                   ldu     #-100
+        223 : 86 2A                      lda     #'*'
+        225 : BD 01 2A                   jsr     expr
+        228 : 10 38                      pshsw
+        22A : 11 AF E1                   muld    ,S++            ; D:W=D*EA
+        22D : BD 01 41                   jsr     answer          ; 20000
+        230 :
+        230 : 8E 75 30                   ldx     #30000
+        233 : CE 00 64                   ldu     #100
+        236 : 86 2F                      lda     #'/'
+        238 : BD 01 2A                   jsr     expr
+        23B : 34 06                      pshs    D
+        23D : 14                         sexw
+        23E : 11 AE E1                   divq    ,S++            ; D:W/EA=W...D
+        241 : BD 01 41                   jsr     answer          ; 30
+        244 :
+        244 : 8E FF 38                   ldx     #-200
+        247 : CE 00 64                   ldu     #100
+        24A : 86 2F                      lda     #'/'
+        24C : BD 01 2A                   jsr     expr
+        24F : 34 06                      pshs    D
+        251 : 14                         sexw
+        252 : 11 AE E1                   divq    ,S++            ; D:W/EA=W...D
+        255 : BD 01 41                   jsr     answer          ; -2
+        258 :
+        258 : 8E 8A D0                   ldx     #-30000
+        25B : CE FF 38                   ldu     #-200
+        25E : 86 2F                      lda     #'/'
+        260 : BD 01 2A                   jsr     expr
+        263 : 34 06                      pshs    D
+        265 : 14                         sexw
+        266 : 11 AE E1                   divq    ,S++            ; D:W/EA=W...D
+        269 : BD 01 41                   jsr     answer          ; 150
+        26C :
+        26C : 8E 8A D0                   ldx     #-30000
+        26F : CE 00 4E                   ldu     #78
+        272 : 86 2F                      lda     #'/'
+        274 : BD 01 2A                   jsr     expr
+        277 : 34 06                      pshs    D
+        279 : 14                         sexw
+        27A : 11 AE E1                   divq    ,S++            ; D:W/EA=W...D
+        27D : BD 01 41                   jsr     answer          ; -384
+        280 :
+        280 : 8E 13 88                   ldx     #5000
+        283 : CE 0F A0                   ldu     #4000
+        286 : BD 01 50                   jsr     comp
+        289 :
+        289 : 8E 13 88                   ldx     #5000
+        28C : CE 13 88                   ldu     #5000
+        28F : BD 01 50                   jsr     comp
+        292 :
+        292 : 8E 0F A0                   ldx     #4000
+        295 : CE 13 88                   ldu     #5000
+        298 : BD 01 50                   jsr     comp
+        29B :
+        29B : 8E EC 78                   ldx     #-5000
+        29E : CE F0 60                   ldu     #-4000
+        2A1 : BD 01 50                   jsr     comp
+        2A4 :
+        2A4 : 8E EC 78                   ldx     #-5000
+        2A7 : CE EC 78                   ldu     #-5000
+        2AA : BD 01 50                   jsr     comp
+        2AD :
+        2AD : 8E F0 60                   ldx     #-4000
+        2B0 : CE EC 78                   ldu     #-5000
+        2B3 : BD 01 50                   jsr     comp
+        2B6 :
+        2B6 : 8E 7F BC                   ldx     #32700
+        2B9 : CE 7F 58                   ldu     #32600
+        2BC : BD 01 50                   jsr     comp
+        2BF :
+        2BF : 8E 7F BC                   ldx     #32700
+        2C2 : CE 7F BC                   ldu     #32700
+        2C5 : BD 01 50                   jsr     comp
+        2C8 :
+        2C8 : 8E 7F 58                   ldx     #32600
+        2CB : CE 7F BC                   ldu     #32700
+        2CE : BD 01 50                   jsr     comp
+        2D1 :
+        2D1 : 8E 80 44                   ldx     #-32700
+        2D4 : CE 80 A8                   ldu     #-32600
+        2D7 : BD 01 50                   jsr     comp
+        2DA :
+        2DA : 8E 80 44                   ldx     #-32700
+        2DD : CE 80 44                   ldu     #-32700
+        2E0 : BD 01 50                   jsr     comp
+        2E3 :
+        2E3 : 8E 80 A8                   ldx     #-32600
+        2E6 : CE 80 44                   ldu     #-32700
+        2E9 : BD 01 50                   jsr     comp
+        2EC :
+        2EC : 8E 46 50                   ldx     #18000
+        2EF : CE 92 A0                   ldu     #-28000
+        2F2 : BD 01 50                   jsr     comp
+        2F5 :
+        2F5 : 8E 92 A0                   ldx     #-28000
+        2F8 : CE 92 A0                   ldu     #-28000
+        2FB : BD 01 50                   jsr     comp
+        2FE :
+        2FE : 8E 92 A0                   ldx     #-28000
+        301 : CE 46 50                   ldu     #18000
+        304 : BD 01 50                   jsr     comp
+        307 : 39                         rts
+        308 :
+        308 :                            include "arith.inc"
+(1)     308 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)     308 :                            cpu     6309
+(1)     308 :
+(1)     308 :                    ;;; Print signed 16-bit integer as decimal
+(1)     308 :                    ;;; @param D value
+(1)     308 :                    print_int16:
+(1)     308 : 34 06                      pshs   D
+(1)     30A : 10 4D                      tstd
+(1)     30C : 2A 09                      bpl     print_int16_print
+(1)     30E : 86 2D                      lda     #'-'
+(1)     310 : BD 01 1F                   jsr     putchar
+(1)     313 : EC E4                      ldd     ,S
+(1)     315 : 10 40                      negd
+(1)     317 :                    print_int16_print:
+(1)     317 : 10 38                      pshsw
+(1)     319 : 1F 06                      tfr     D, W
+(1)     31B : 8D 04                      bsr     print_uint16
+(1)     31D : 10 39                      pulsw
+(1)     31F : 35 86                      puls    D, PC
+(1)     321 :                    ;;; Print unsigned 16-bit integer as decimal
+(1)     321 :                    ;;; @param W value
+(1)     321 :                    ;;; @clobber D W
+(1)     321 :                    print_uint16:
+(1)     321 : 10 5D                      tstw
+(1)     323 : 26 05                      bne     print_uint16_loop
+(1)     325 : 86 30                      lda     #'0'
+(1)     327 : 7E 01 1F                   jmp     putchar
+(1)     32A :                    print_uint16_loop:
+(1)     32A : 10 5D                      tstw
+(1)     32C : 27 11                      beq     print_uint16_end ; branch if value == 0
+(1)     32E : 10 4F                      clrd
+(1)     330 : 11 8E 00 0A                divq    #10             ; D:W/10=W...D
+(1)     334 : 34 04                      pshs    B               ; push reminder
+(1)     336 : 8D F2                      bsr     print_uint16_loop
+(1)     338 : 35 02                      puls    A
+(1)     33A : 8A 30                      ora     #'0'
+(1)     33C : 7E 01 1F                   jmp     putchar
+(1)     33F :                    print_uint16_end:
+(1)     33F : 39                         rts
