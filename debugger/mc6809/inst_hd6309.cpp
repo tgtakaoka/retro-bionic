@@ -31,87 +31,87 @@ constexpr const char *const SEQUENCES[/*seq*/] = {
         "34xRrx/34Rrx",                                 // 17
         "34x",                                          // 18
         "34xRrx",                                       // 19
-        "123xN",                                        // 20
-        "123xN@123xxk/123xk",                           // 21
-        "12xN",                                         // 22
-        "1NxwWN",                                       // 23
-        "1NxRrN",                                       // 24
-        "1NxwWWWWWWWWWWWxVvxJ/1NxwWWWWWWWWWWWWWXVvxJ",  // 25
-        "1NN/1N",                                       // 26
-        "123xN/123N",                                   // 27
-        "123N",                                         // 28
-        "12xRrxN/12RrN",                                // 29
-        "12xRrN/12RrN",                                 // 30
-        "12xWwN/12WwN",                                 // 31
-        "12YRrxN/12YRrN",                               // 32
-        "12YRrN",                                       // 33
-        "12YWwN",                                       // 34
-        "123xAaxN/123AaN",                              // 35
-        "123xAaN/123AaN",                               // 36
-        "123xBbN/123BbN",                               // 37
-        "12xRrrrN/12RrrrN",                             // 38
-        "12xWwwwN/12WwwwN",                             // 39
-        "12YRrrrN",                                     // 40
-        "12YWwwwN",                                     // 41
-        "123xAaaaN/123AaaaN",                           // 42
-        "123xBbbbN/123BbbbN",                           // 43
-        "123xRxN/123RxN",                               // 44
-        "123xRxWN/123RxWN",                             // 45
-        "12xxxTN",                                      // 46
-        "12XxN",                                        // 47
-        "12N",                                          // 48
-        "12NZN",                                        // 49
-        "123NZN",                                       // 50
-        "12xRN/12RN",                                   // 51
-        "12xWN/12WN",                                   // 52
-        "12xRZN",                                       // 53
-        "12xRrZN",                                      // 54
-        "12YRN",                                        // 55
-        "12YWN",                                        // 56
-        "12YRZN",                                       // 57
-        "12YRrZN",                                      // 58
-        "123xAN/123AN",                                 // 59
-        "123xBN/123BN",                                 // 60
-        "123xRZN",                                      // 61
-        "123xRrZN",                                     // 62
-        "12xRxWN/12RxWN",                               // 63
-        "123RxWN",                                      // 64
-        "123RN",                                        // 65
-        "12xRxxN/12RxN",                                // 66
-        "12xi/12i",                                     // 67
-        "1NXXN",                                        // 68
-        "1NxxN",                                        // 69
-        "123xxk/123xk",                                 // 70
-        "123xxXxwWk/123xxwWk",                          // 71
-        "12NN",                                         // 72
-        "12xxxxxxN/12xxxN",                             // 73
-        "12xxxxN/1NxxN",                                // 74
-        "12xj",                                         // 75
-        "12YxN",                                        // 76
-        "12xxXQN/12xXQN",                               // 77
-        "12xxPXi/12xPXi",                               // 78
-        "1NRrxJ/1NRrJ",                                 // 79
-        "1NxN/1N",                                      // 80
-        "1NRrrrrrrrrrrrXJ@1NRrrXJ/1NRrrrrrrrrrrrrrXJ",  // 81
-        "12NxwWWWWWWWWWWWN/12NxwWWWWWWWWWWWWWN",        // 82
-        "1NZN",                                         // 83
-        "12YRxWN",                                      // 84
-        "123YRxWN",                                     // 85
-        "123YRN",                                       // 86
-        "12YRxxN/12YRxN",                               // 87
-        "12Yi",                                         // 88
-        "123xAxBN/123RxWN",                             // 89
-        "1234AxBN",                                     // 90
-        "1234AN",                                       // 91
-        "123xAxxN/123RxN",                              // 92
-        "123xJ/123J",                                   // 93
-        "12xXxwWj/12xxwWj",                             // 94
-        "12xXxwWi/12xXwWi",                             // 95
-        "12YXxwWi/12YXwWi",                             // 96
-        "123xWN/123WN",                                 // 97
-        "123xAxwWJ/123xAwWJ",                           // 98
-        "123xWwN/123WwN",                               // 99
-        "12345N",                                       // 100
+        "12xRxWN/12RxWN",                               // 20
+        "123RxWN",                                      // 21
+        "123RN",                                        // 22
+        "12xRxxN/12RxN",                                // 23
+        "12xi/12i",                                     // 24
+        "1NN/1N",                                       // 25
+        "1NXXN",                                        // 26
+        "1NxxN",                                        // 27
+        "123xxk/123xk",                                 // 28
+        "123xxXxwWk/123xxwWk",                          // 29
+        "12NN",                                         // 30
+        "12xxxxxxN/12xxxN",                             // 31
+        "12xxxxN/12xxN",                                // 32
+        "12xj",                                         // 33
+        "12xN",                                         // 34
+        "12YxN",                                        // 35
+        "12xxXQN/12xXQN",                               // 36
+        "12xxPXi/12xPXi",                               // 37
+        "1NRrxJ/1NRrJ",                                 // 38
+        "1NxN/1N",                                      // 39
+        "1NRrrrrrrrrrrrXJ@1NRrrXJ/1NRrrrrrrrrrrrrrXJ",  // 40
+        "12NxwWWWWWWWWWWWN/12NxwWWWWWWWWWWWWWN",        // 41
+        "1NZN",                                         // 42
+        "1NxwWWWWWWWWWWWxVvxJ/1NxwWWWWWWWWWWWWWXVvxJ",  // 43
+        "12YRxWN",                                      // 44
+        "123YRxWN",                                     // 45
+        "123YRN",                                       // 46
+        "12YRxxN/12YRxN",                               // 47
+        "12Yi",                                         // 48
+        "123xAxBN/123RxWN",                             // 49
+        "1234AxBN",                                     // 50
+        "1234AN",                                       // 51
+        "123xAxxN/123RxN",                              // 52
+        "123xJ/123J",                                   // 53
+        "12N",                                          // 54
+        "123xN/123N",                                   // 55
+        "12xXxwWj/12xxwWj",                             // 56
+        "123N",                                         // 57
+        "12xRN/12RN",                                   // 58
+        "12xRrxN/12RrN",                                // 59
+        "12xWN/12WN",                                   // 60
+        "12xXxwWi/12xXwWi",                             // 61
+        "12xRrN/12RrN",                                 // 62
+        "12xWwN/12WwN",                                 // 63
+        "12YRN",                                        // 64
+        "12YRrxN/12YRrN",                               // 65
+        "12YWN",                                        // 66
+        "12YXxwWi/12YXwWi",                             // 67
+        "12YRrN",                                       // 68
+        "12YWwN",                                       // 69
+        "123xAN/123AN",                                 // 70
+        "123xAaxN/123AaN",                              // 71
+        "123xWN/123WN",                                 // 72
+        "123xAxwWJ/123xAwWJ",                           // 73
+        "123xAaN/123AaN",                               // 74
+        "123xWwN/123WwN",                               // 75
+        "12345N",                                       // 76
+        "123xBN/123BN",                                 // 77
+        "123xBbN/123BbN",                               // 78
+        "123xN",                                        // 79
+        "123xN@123xxk/123xk",                           // 80
+        "1NxwWN",                                       // 81
+        "1NxRrN",                                       // 82
+        "12xRrrrN/12RrrrN",                             // 83
+        "12xWwwwN/12WwwwN",                             // 84
+        "12YRrrrN",                                     // 85
+        "12YWwwwN",                                     // 86
+        "123xAaaaN/123AaaaN",                           // 87
+        "123xBbbbN/123BbbbN",                           // 88
+        "123xRxN/123RxN",                               // 89
+        "123xRxWN/123RxWN",                             // 90
+        "12xxxTN",                                      // 91
+        "12XxN",                                        // 92
+        "12NZN",                                        // 93
+        "123NZN",                                       // 94
+        "12xRZN",                                       // 95
+        "12xRrZN",                                      // 96
+        "12YRZN",                                       // 97
+        "12YRrZN",                                      // 98
+        "123xRZN",                                      // 99
+        "123xRrZN",                                     // 100
 };
 
 constexpr uint8_t IX_TABLE[] = {
@@ -374,265 +374,265 @@ constexpr uint8_t IX_TABLE[] = {
 };
 
 constexpr uint8_t P00_TABLE[] = {
-        63,  // 00: NEG       d8     6/5   2    1:2:x:R:x:W:N/1:2:R:x:W:N
-        64,  // 01: OIM       #,d8   6     3    1:2:3:R:x:W:N
-        64,  // 02: AIM       #,d8   6     3    1:2:3:R:x:W:N
-        63,  // 03: COM       d8     6/5   2    1:2:x:R:x:W:N/1:2:R:x:W:N
-        63,  // 04: LSR       d8     6/5   2    1:2:x:R:x:W:N/1:2:R:x:W:N
-        64,  // 05: EIM       #,d8   6     3    1:2:3:R:x:W:N
-        63,  // 06: ROR       d8     6/5   2    1:2:x:R:x:W:N/1:2:R:x:W:N
-        63,  // 07: ASR       d8     6/5   2    1:2:x:R:x:W:N/1:2:R:x:W:N
-        63,  // 08: ASL       d8     6/5   2    1:2:x:R:x:W:N/1:2:R:x:W:N
-        63,  // 09: ROL       d8     6/5   2    1:2:x:R:x:W:N/1:2:R:x:W:N
-        63,  // 0A: DEC       d8     6/5   2    1:2:x:R:x:W:N/1:2:R:x:W:N
-        65,  // 0B: TIM       #,d8   4     3    1:2:3:R:N
-        63,  // 0C: INC       d8     6/5   2    1:2:x:R:x:W:N/1:2:R:x:W:N
-        66,  // 0D: TST       d8     6/4   2    1:2:x:R:x:x:N/1:2:R:x:N
-        67,  // 0E: JMP       d8     3/2   2    1:2:x:i/1:2:i
-        63,  // 0F: CLR       d8     6     2    1:2:x:R:x:W:N/1:2:R:x:W:N
+        20,  // 00: NEG       d8     6/5   2    1:2:x:R:x:W:N/1:2:R:x:W:N
+        21,  // 01: OIM       #,d8   6     3    1:2:3:R:x:W:N
+        21,  // 02: AIM       #,d8   6     3    1:2:3:R:x:W:N
+        20,  // 03: COM       d8     6/5   2    1:2:x:R:x:W:N/1:2:R:x:W:N
+        20,  // 04: LSR       d8     6/5   2    1:2:x:R:x:W:N/1:2:R:x:W:N
+        21,  // 05: EIM       #,d8   6     3    1:2:3:R:x:W:N
+        20,  // 06: ROR       d8     6/5   2    1:2:x:R:x:W:N/1:2:R:x:W:N
+        20,  // 07: ASR       d8     6/5   2    1:2:x:R:x:W:N/1:2:R:x:W:N
+        20,  // 08: ASL       d8     6/5   2    1:2:x:R:x:W:N/1:2:R:x:W:N
+        20,  // 09: ROL       d8     6/5   2    1:2:x:R:x:W:N/1:2:R:x:W:N
+        20,  // 0A: DEC       d8     6/5   2    1:2:x:R:x:W:N/1:2:R:x:W:N
+        22,  // 0B: TIM       #,d8   4     3    1:2:3:R:N
+        20,  // 0C: INC       d8     6/5   2    1:2:x:R:x:W:N/1:2:R:x:W:N
+        23,  // 0D: TST       d8     6/4   2    1:2:x:R:x:x:N/1:2:R:x:N
+        24,  // 0E: JMP       d8     3/2   2    1:2:x:i/1:2:i
+        20,  // 0F: CLR       d8     6     2    1:2:x:R:x:W:N/1:2:R:x:W:N
         0,   // 10: P10       -      1+    1+   -
         0,   // 11: P11       -      1+    1+   -
-        26,  // 12: NOP       -      2/1   1    1:N:N/1:N
-        68,  // 13: SYNC      -      4     1    1:N:X:X:N
-        69,  // 14: SEXW      -      4     1    1:N:x:x:N
+        25,  // 12: NOP       -      2/1   1    1:N:N/1:N
+        26,  // 13: SYNC      -      4     1    1:N:X:X:N
+        27,  // 14: SEXW      -      4     1    1:N:x:x:N
         0,   // 15: -         -      -     -    -
-        70,  // 16: LBRA      r16    5/4   3    1:2:3:x:x:k/1:2:3:x:k
-        71,  // 17: LBSR      r16    9/7   3 1:2:3:x:x:X:x:w:W:k/1:2:3:x:x:w:W:k
+        28,  // 16: LBRA      r16    5/4   3    1:2:3:x:x:k/1:2:3:x:k
+        29,  // 17: LBSR      r16    9/7   3 1:2:3:x:x:X:x:w:W:k/1:2:3:x:x:w:W:k
         0,   // 18: -         -      -     -    -
-        26,  // 19: DAA       -      2/1   1    1:N:N/1:N
-        72,  // 1A: ORCC      #n8    3     2    1:2:N:N
+        25,  // 19: DAA       -      2/1   1    1:N:N/1:N
+        30,  // 1A: ORCC      #n8    3     2    1:2:N:N
         0,   // 1B: -         -      -     -    -
-        72,  // 1C: ANDCC     #n8    3     2    1:2:N:N
-        26,  // 1D: SEX       -      2/1   1    1:N:N/1:N
-        73,  // 1E: EXG       #n8    8/5   2    1:2:x:x:x:x:x:x:N/1:2:x:x:x:N
-        74,  // 1F: TFR       #n8    6/4   2    1:2:x:x:x:x:N/1:N:x:x:N
-        75,  // 20: BRA       r8     3     2    1:2:x:j
-        22,  // 21: BRN       r8     3     2    1:2:x:N
-        75,  // 22: BHI       r8     3     2    1:2:x:j
-        75,  // 23: BLS       r8     3     2    1:2:x:j
-        75,  // 24: BCC       r8     3     2    1:2:x:j
-        75,  // 25: BCS       r8     3     2    1:2:x:j
-        75,  // 26: BNE       r8     3     2    1:2:x:j
-        75,  // 27: BEQ       r8     3     2    1:2:x:j
-        75,  // 28: BVC       r8     3     2    1:2:x:j
-        75,  // 29: BVS       r8     3     2    1:2:x:j
-        75,  // 2A: BPL       r8     3     2    1:2:x:j
-        75,  // 2B: BMI       r8     3     2    1:2:x:j
-        75,  // 2C: BGE       r8     3     2    1:2:x:j
-        75,  // 2D: BLT       r8     3     2    1:2:x:j
-        75,  // 2E: BGT       r8     3     2    1:2:x:j
-        75,  // 2F: BLE       r8     3     2    1:2:x:j
-        76,  // 30: LEAX      ix     4+    2+   1:2:Y:x:N
-        76,  // 31: LEAY      ix     4+    2+   1:2:Y:x:N
-        76,  // 32: LEAS      ix     4+    2+   1:2:Y:x:N
-        76,  // 33: LEAU      ix     4+    2+   1:2:Y:x:N
-        77,  // 34: PSHS      #n8    5+/4+ 2    1:2:x:x:X:Q:N/1:2:x:X:Q:N
-        78,  // 35: PULS      #n8    5+/4+ 2    1:2:x:x:P:X:i/1:2:x:P:X:i
-        77,  // 36: PSHU      #n8    5+/4+ 2    1:2:x:x:X:Q:N/1:2:x:X:Q:N
-        78,  // 37: PULU      #n8    5+/4+ 2    1:2:x:x:P:X:i/1:2:x:P:X:i
+        30,  // 1C: ANDCC     #n8    3     2    1:2:N:N
+        25,  // 1D: SEX       -      2/1   1    1:N:N/1:N
+        31,  // 1E: EXG       #n8    8/5   2    1:2:x:x:x:x:x:x:N/1:2:x:x:x:N
+        32,  // 1F: TFR       #n8    6/4   2    1:2:x:x:x:x:N/1:2:x:x:N
+        33,  // 20: BRA       r8     3     2    1:2:x:j
+        34,  // 21: BRN       r8     3     2    1:2:x:N
+        33,  // 22: BHI       r8     3     2    1:2:x:j
+        33,  // 23: BLS       r8     3     2    1:2:x:j
+        33,  // 24: BCC       r8     3     2    1:2:x:j
+        33,  // 25: BCS       r8     3     2    1:2:x:j
+        33,  // 26: BNE       r8     3     2    1:2:x:j
+        33,  // 27: BEQ       r8     3     2    1:2:x:j
+        33,  // 28: BVC       r8     3     2    1:2:x:j
+        33,  // 29: BVS       r8     3     2    1:2:x:j
+        33,  // 2A: BPL       r8     3     2    1:2:x:j
+        33,  // 2B: BMI       r8     3     2    1:2:x:j
+        33,  // 2C: BGE       r8     3     2    1:2:x:j
+        33,  // 2D: BLT       r8     3     2    1:2:x:j
+        33,  // 2E: BGT       r8     3     2    1:2:x:j
+        33,  // 2F: BLE       r8     3     2    1:2:x:j
+        35,  // 30: LEAX      ix     4+    2+   1:2:Y:x:N
+        35,  // 31: LEAY      ix     4+    2+   1:2:Y:x:N
+        35,  // 32: LEAS      ix     4+    2+   1:2:Y:x:N
+        35,  // 33: LEAU      ix     4+    2+   1:2:Y:x:N
+        36,  // 34: PSHS      #n8    5+/4+ 2    1:2:x:x:X:Q:N/1:2:x:X:Q:N
+        37,  // 35: PULS      #n8    5+/4+ 2    1:2:x:x:P:X:i/1:2:x:P:X:i
+        36,  // 36: PSHU      #n8    5+/4+ 2    1:2:x:x:X:Q:N/1:2:x:X:Q:N
+        37,  // 37: PULU      #n8    5+/4+ 2    1:2:x:x:P:X:i/1:2:x:P:X:i
         0,   // 38: -         -      -     -    -
-        79,  // 39: RTS       -      5/4   1    1:N:R:r:x:J/1:N:R:r:J
-        80,  // 3A: ABX       -      3/1   1    1:N:x:N/1:N
-        81,  // 3B: RTI       -     15/17  1
+        38,  // 39: RTS       -      5/4   1    1:N:R:r:x:J/1:N:R:r:J
+        39,  // 3A: ABX       -      3/1   1    1:N:x:N/1:N
+        40,  // 3B: RTI       -     15/17  1
              // 1:N:R:r:r:r:r:r:r:r:r:r:r:r:X:J@1:N:R:r:r:X:J/1:N:R:r:r:r:r:r:r:r:r:r:r:r:r:r:X:J
-        82,  // 3C: CWAI      -     20/22  2
+        41,  // 3C: CWAI      -     20/22  2
              // 1:2:N:x:w:W:W:W:W:W:W:W:W:W:W:W:N/1:2:N:x:w:W:W:W:W:W:W:W:W:W:W:W:W:W:N
-        83,  // 3D: MUL       -     11/10  1    1:N:Z:N
+        42,  // 3D: MUL       -     11/10  1    1:N:Z:N
         0,   // 3E: -         -      -     -    -
-        25,  // 3F: SWI       -     19/21  1
+        43,  // 3F: SWI       -     19/21  1
              // 1:N:x:w:W:W:W:W:W:W:W:W:W:W:W:x:V:v:x:J/1:N:x:w:W:W:W:W:W:W:W:W:W:W:W:W:W:X:V:v:x:J
-        26,  // 40: NEGA      -      2/1   1    1:N:N/1:N
+        25,  // 40: NEGA      -      2/1   1    1:N:N/1:N
         0,   // 41: -         -      -     -    -
         0,   // 42: -         -      -     -    -
-        26,  // 43: COMA      -      2/1   1    1:N:N/1:N
-        26,  // 44: LSRA      -      2/1   1    1:N:N/1:N
+        25,  // 43: COMA      -      2/1   1    1:N:N/1:N
+        25,  // 44: LSRA      -      2/1   1    1:N:N/1:N
         0,   // 45: -         -      -     -    -
-        26,  // 46: RORA      -      2/1   1    1:N:N/1:N
-        26,  // 47: ASRA      -      2/1   1    1:N:N/1:N
-        26,  // 48: ASLA      -      2/1   1    1:N:N/1:N
-        26,  // 49: ROLA      -      2/1   1    1:N:N/1:N
-        26,  // 4A: DECA      -      2/1   1    1:N:N/1:N
+        25,  // 46: RORA      -      2/1   1    1:N:N/1:N
+        25,  // 47: ASRA      -      2/1   1    1:N:N/1:N
+        25,  // 48: ASLA      -      2/1   1    1:N:N/1:N
+        25,  // 49: ROLA      -      2/1   1    1:N:N/1:N
+        25,  // 4A: DECA      -      2/1   1    1:N:N/1:N
         0,   // 4B: -         -      -     -    -
-        26,  // 4C: INCA      -      2/1   1    1:N:N/1:N
-        26,  // 4D: TSTA      -      2/1   1    1:N:N/1:N
+        25,  // 4C: INCA      -      2/1   1    1:N:N/1:N
+        25,  // 4D: TSTA      -      2/1   1    1:N:N/1:N
         0,   // 4E: -         -      -     -    -
-        26,  // 4F: CLRA      -      2/1   1    1:N:N/1:N
-        26,  // 50: NEGB      -      2/1   1    1:N:N/1:N
+        25,  // 4F: CLRA      -      2/1   1    1:N:N/1:N
+        25,  // 50: NEGB      -      2/1   1    1:N:N/1:N
         0,   // 51: -         -      -     -    -
         0,   // 52: -         -      -     -    -
-        26,  // 53: COMB      -      2/1   1    1:N:N/1:N
-        26,  // 54: LSRB      -      2/1   1    1:N:N/1:N
+        25,  // 53: COMB      -      2/1   1    1:N:N/1:N
+        25,  // 54: LSRB      -      2/1   1    1:N:N/1:N
         0,   // 55: -         -      -     -    -
-        26,  // 56: RORB      -      2/1   1    1:N:N/1:N
-        26,  // 57: ASRB      -      2/1   1    1:N:N/1:N
-        26,  // 58: ASLB      -      2/1   1    1:N:N/1:N
-        26,  // 59: ROLB      -      2/1   1    1:N:N/1:N
-        26,  // 5A: DECB      -      2/1   1    1:N:N/1:N
+        25,  // 56: RORB      -      2/1   1    1:N:N/1:N
+        25,  // 57: ASRB      -      2/1   1    1:N:N/1:N
+        25,  // 58: ASLB      -      2/1   1    1:N:N/1:N
+        25,  // 59: ROLB      -      2/1   1    1:N:N/1:N
+        25,  // 5A: DECB      -      2/1   1    1:N:N/1:N
         0,   // 5B: -         -      -     -    -
-        26,  // 5C: INCB      -      2/1   1    1:N:N/1:N
-        26,  // 5D: TSTB      -      2/1   1    1:N:N/1:N
+        25,  // 5C: INCB      -      2/1   1    1:N:N/1:N
+        25,  // 5D: TSTB      -      2/1   1    1:N:N/1:N
         0,   // 5E: -         -      -     -    -
-        26,  // 5F: CLRB      -      2/1   1    1:N:N/1:N
-        84,  // 60: NEG       ix     6+    2    1:2:Y:R:x:W:N
-        85,  // 61: OIM       #,ix   7+    3+   1:2:3:Y:R:x:W:N
-        85,  // 62: AIM       #,ix   7+    3+   1:2:3:Y:R:x:W:N
-        84,  // 63: COM       ix     6+    2+   1:2:Y:R:x:W:N
-        84,  // 64: LSR       ix     6+    2+   1:2:Y:R:x:W:N
-        85,  // 65: EIM       #,ix   7+    3+   1:2:3:Y:R:x:W:N
-        84,  // 66: ROR       ix     6+    2+   1:2:Y:R:x:W:N
-        84,  // 67: ASR       ix     6+    2+   1:2:Y:R:x:W:N
-        84,  // 68: ASL       ix     6+    2+   1:2:Y:R:x:W:N
-        84,  // 69: ROL       ix     6+    2+   1:2:Y:R:x:W:N
-        84,  // 6A: DEC       ix     6+    2+   1:2:Y:R:x:W:N
-        86,  // 6B: TIM       #,ix   5+    3+   1:2:3:Y:R:N
-        84,  // 6C: INC       ix     6+    2+   1:2:Y:R:x:W:N
-        87,  // 6D: TST       ix     6+/5+ 2+   1:2:Y:R:x:x:N/1:2:Y:R:x:N
-        88,  // 6E: JMP       ix     3+    2+   1:2:Y:i
-        84,  // 6F: CLR       ix     6+    2+   1:2:Y:R:x:W:N
-        89,  // 70: NEG       a16    7/6   3    1:2:3:x:A:x:B:N/1:2:3:R:x:W:N
-        90,  // 71: OIM       #,a16  7     4    1:2:3:4:A:x:B:N
-        90,  // 72: AIM       #,a16  7     4    1:2:3:4:A:x:B:N
-        89,  // 73: COM       a16    7/6   3    1:2:3:x:A:x:B:N/1:2:3:R:x:W:N
-        89,  // 74: LSR       a16    7/6   3    1:2:3:x:A:x:B:N/1:2:3:R:x:W:N
-        90,  // 75: EIM       #,a16  7     4    1:2:3:4:A:x:B:N
-        89,  // 76: ROR       a16    7/6   3    1:2:3:x:A:x:B:N/1:2:3:R:x:W:N
-        89,  // 77: ASR       a16    7/6   3    1:2:3:x:A:x:B:N/1:2:3:R:x:W:N
-        89,  // 78: ASL       a16    7/6   3    1:2:3:x:A:x:B:N/1:2:3:R:x:W:N
-        89,  // 79: ROL       a16    7/6   3    1:2:3:x:A:x:B:N/1:2:3:R:x:W:N
-        89,  // 7A: DEC       a16    7/6   3    1:2:3:x:A:x:B:N/1:2:3:R:x:W:N
-        91,  // 7B: TIM       #,a16  5     4    1:2:3:4:A:N
-        89,  // 7C: INC       a16    7/6   3    1:2:3:x:A:x:B:N/1:2:3:R:x:W:N
-        92,  // 7D: TST       a16    7/5   3    1:2:3:x:A:x:x:N/1:2:3:R:x:N
-        93,  // 7E: JMP       a16    4/3   3    1:2:3:x:J/1:2:3:J
-        89,  // 7F: CLR       a16    7/6   3    1:2:3:x:A:x:B:N/1:2:3:R:x:W:N
-        48,  // 80: SUBA      #n8    2     2    1:2:N
-        48,  // 81: CMPA      #n8    2     2    1:2:N
-        48,  // 82: SBCA      #n8    2     2    1:2:N
-        27,  // 83: SUBD      #n16   4/3   3    1:2:3:x:N/1:2:3:N
-        48,  // 84: ANDA      #n8    2     2    1:2:N
-        48,  // 85: BITA      #n8    2     2    1:2:N
-        48,  // 86: LDA       #n8    2     2    1:2:N
+        25,  // 5F: CLRB      -      2/1   1    1:N:N/1:N
+        44,  // 60: NEG       ix     6+    2    1:2:Y:R:x:W:N
+        45,  // 61: OIM       #,ix   7+    3+   1:2:3:Y:R:x:W:N
+        45,  // 62: AIM       #,ix   7+    3+   1:2:3:Y:R:x:W:N
+        44,  // 63: COM       ix     6+    2+   1:2:Y:R:x:W:N
+        44,  // 64: LSR       ix     6+    2+   1:2:Y:R:x:W:N
+        45,  // 65: EIM       #,ix   7+    3+   1:2:3:Y:R:x:W:N
+        44,  // 66: ROR       ix     6+    2+   1:2:Y:R:x:W:N
+        44,  // 67: ASR       ix     6+    2+   1:2:Y:R:x:W:N
+        44,  // 68: ASL       ix     6+    2+   1:2:Y:R:x:W:N
+        44,  // 69: ROL       ix     6+    2+   1:2:Y:R:x:W:N
+        44,  // 6A: DEC       ix     6+    2+   1:2:Y:R:x:W:N
+        46,  // 6B: TIM       #,ix   5+    3+   1:2:3:Y:R:N
+        44,  // 6C: INC       ix     6+    2+   1:2:Y:R:x:W:N
+        47,  // 6D: TST       ix     6+/5+ 2+   1:2:Y:R:x:x:N/1:2:Y:R:x:N
+        48,  // 6E: JMP       ix     3+    2+   1:2:Y:i
+        44,  // 6F: CLR       ix     6+    2+   1:2:Y:R:x:W:N
+        49,  // 70: NEG       a16    7/6   3    1:2:3:x:A:x:B:N/1:2:3:R:x:W:N
+        50,  // 71: OIM       #,a16  7     4    1:2:3:4:A:x:B:N
+        50,  // 72: AIM       #,a16  7     4    1:2:3:4:A:x:B:N
+        49,  // 73: COM       a16    7/6   3    1:2:3:x:A:x:B:N/1:2:3:R:x:W:N
+        49,  // 74: LSR       a16    7/6   3    1:2:3:x:A:x:B:N/1:2:3:R:x:W:N
+        50,  // 75: EIM       #,a16  7     4    1:2:3:4:A:x:B:N
+        49,  // 76: ROR       a16    7/6   3    1:2:3:x:A:x:B:N/1:2:3:R:x:W:N
+        49,  // 77: ASR       a16    7/6   3    1:2:3:x:A:x:B:N/1:2:3:R:x:W:N
+        49,  // 78: ASL       a16    7/6   3    1:2:3:x:A:x:B:N/1:2:3:R:x:W:N
+        49,  // 79: ROL       a16    7/6   3    1:2:3:x:A:x:B:N/1:2:3:R:x:W:N
+        49,  // 7A: DEC       a16    7/6   3    1:2:3:x:A:x:B:N/1:2:3:R:x:W:N
+        51,  // 7B: TIM       #,a16  5     4    1:2:3:4:A:N
+        49,  // 7C: INC       a16    7/6   3    1:2:3:x:A:x:B:N/1:2:3:R:x:W:N
+        52,  // 7D: TST       a16    7/5   3    1:2:3:x:A:x:x:N/1:2:3:R:x:N
+        53,  // 7E: JMP       a16    4/3   3    1:2:3:x:J/1:2:3:J
+        49,  // 7F: CLR       a16    7/6   3    1:2:3:x:A:x:B:N/1:2:3:R:x:W:N
+        54,  // 80: SUBA      #n8    2     2    1:2:N
+        54,  // 81: CMPA      #n8    2     2    1:2:N
+        54,  // 82: SBCA      #n8    2     2    1:2:N
+        55,  // 83: SUBD      #n16   4/3   3    1:2:3:x:N/1:2:3:N
+        54,  // 84: ANDA      #n8    2     2    1:2:N
+        54,  // 85: BITA      #n8    2     2    1:2:N
+        54,  // 86: LDA       #n8    2     2    1:2:N
         0,   // 87: -         -      -     -    -
-        48,  // 88: EORA      #n8    2     2    1:2:N
-        48,  // 89: ADCA      #n8    2     2    1:2:N
-        48,  // 8A: ORA       #n8    2     2    1:2:N
-        48,  // 8B: ADDA      #n8    2     2    1:2:N
-        27,  // 8C: CMPX      #n16   4/3   3    1:2:3:x:N/1:2:3:N
-        94,  // 8D: BSR       r8     7/6   2    1:2:x:X:x:w:W:j/1:2:x:x:w:W:j
-        28,  // 8E: LDX       #n16   3     3    1:2:3:N
+        54,  // 88: EORA      #n8    2     2    1:2:N
+        54,  // 89: ADCA      #n8    2     2    1:2:N
+        54,  // 8A: ORA       #n8    2     2    1:2:N
+        54,  // 8B: ADDA      #n8    2     2    1:2:N
+        55,  // 8C: CMPX      #n16   4/3   3    1:2:3:x:N/1:2:3:N
+        56,  // 8D: BSR       r8     7/6   2    1:2:x:X:x:w:W:j/1:2:x:x:w:W:j
+        57,  // 8E: LDX       #n16   3     3    1:2:3:N
         0,   // 8F: -         -      -     -    -
-        51,  // 90: SUBA      d8     4/3   2    1:2:x:R:N/1:2:R:N
-        51,  // 91: CMPA      d8     4/3   2    1:2:x:R:N/1:2:R:N
-        51,  // 92: SBCA      d8     4/3   2    1:2:x:R:N/1:2:R:N
-        29,  // 93: SUBD      d8     6/4   2    1:2:x:R:r:x:N/1:2:R:r:N
-        51,  // 94: ANDA      d8     4/3   2    1:2:x:R:N/1:2:R:N
-        51,  // 95: BITA      d8     4/3   2    1:2:x:R:N/1:2:R:N
-        51,  // 96: LDA       d8     4/3   2    1:2:x:R:N/1:2:R:N
-        52,  // 97: STA       d8     4/3   2    1:2:x:W:N/1:2:W:N
-        51,  // 98: EORA      d8     4/3   2    1:2:x:R:N/1:2:R:N
-        51,  // 99: ADCA      d8     4/3   2    1:2:x:R:N/1:2:R:N
-        51,  // 9A: ORA       d8     4/3   2    1:2:x:R:N/1:2:R:N
-        51,  // 9B: ADDA      d8     4/3   2    1:2:x:R:N/1:2:R:N
-        29,  // 9C: CMPX      d8     6/4   2    1:2:x:R:r:x:N/1:2:R:r:N
-        95,  // 9D: JSR       d8     7/6   2    1:2:x:X:x:w:W:i/1:2:x:X:w:W:i
-        30,  // 9E: LDX       d8     5/4   2    1:2:x:R:r:N/1:2:R:r:N
-        31,  // 9F: STX       d8     5/4   2    1:2:x:W:w:N/1:2:W:w:N
-        55,  // A0: SUBA      ix     4+    2+   1:2:Y:R:N
-        55,  // A1: CMPA      ix     4+    2+   1:2:Y:R:N
-        55,  // A2: SBCA      ix     4+    2+   1:2:Y:R:N
-        32,  // A3: SUBD      ix     6+/5+ 2+   1:2:Y:R:r:x:N/1:2:Y:R:r:N
-        55,  // A4: ANDA      ix     4+    2+   1:2:Y:R:N
-        55,  // A5: BITA      ix     4+    2+   1:2:Y:R:N
-        55,  // A6: LDA       ix     4+    2+   1:2:Y:R:N
-        56,  // A7: STA       ix     4+    2+   1:2:Y:W:N
-        55,  // A8: EORA      ix     4+    2+   1:2:Y:R:N
-        55,  // A9: ADCA      ix     4+    2+   1:2:Y:R:N
-        55,  // AA: ORA       ix     4+    2+   1:2:Y:R:N
-        55,  // AB: ADDA      ix     4+    2+   1:2:Y:R:N
-        32,  // AC: CMPX      ix     6+/5+ 2+   1:2:Y:R:r:x:N/1:2:Y:R:r:N
-        96,  // AD: JSR       ix     7+/6+ 2+   1:2:Y:X:x:w:W:i/1:2:Y:X:w:W:i
-        33,  // AE: LDX       ix     5+    2+   1:2:Y:R:r:N
-        34,  // AF: STX       ix     5+    2+   1:2:Y:W:w:N
-        59,  // B0: SUBA      a16    5/4   3    1:2:3:x:A:N/1:2:3:A:N
-        59,  // B1: CMPA      a16    5/4   3    1:2:3:x:A:N/1:2:3:A:N
-        59,  // B2: SBCA      a16    5/4   3    1:2:3:x:A:N/1:2:3:A:N
-        35,  // B3: SUBD      a16    7/5   3    1:2:3:x:A:a:x:N/1:2:3:A:a:N
-        59,  // B4: ANDA      a16    5/4   3    1:2:3:x:A:N/1:2:3:A:N
-        59,  // B5: BITA      a16    5/4   3    1:2:3:x:A:N/1:2:3:A:N
-        59,  // B6: LDA       a16    5/4   3    1:2:3:x:A:N/1:2:3:A:N
-        97,  // B7: STA       a16    5/4   3    1:2:3:x:W:N/1:2:3:W:N
-        59,  // B8: EORA      a16    5/4   3    1:2:3:x:A:N/1:2:3:A:N
-        59,  // B9: ADCA      a16    5/4   3    1:2:3:x:A:N/1:2:3:A:N
-        59,  // BA: ORA       a16    5/4   3    1:2:3:x:A:N/1:2:3:A:N
-        59,  // BB: ADDA      a16    5/4   3    1:2:3:x:A:N/1:2:3:A:N
-        35,  // BC: CMPX      a16    7/5   3    1:2:3:x:A:a:x:N/1:2:3:A:a:N
-        98,  // BD: JSR       a16    8/7   3 1:2:3:x:A:x:w:W:J/1:2:3:x:A:w:W:J
-        36,  // BE: LDX       a16    6/5   3    1:2:3:x:A:a:N/1:2:3:A:a:N
-        99,  // BF: STX       a16    6/5   3    1:2:3:x:W:w:N/1:2:3:W:w:N
-        48,  // C0: SUBB      #n8    2     2    1:2:N
-        48,  // C1: CMPB      #n8    2     2    1:2:N
-        48,  // C2: SBCB      #n8    2     2    1:2:N
-        27,  // C3: ADDD      #n16   4/3   3    1:2:3:x:N/1:2:3:N
-        48,  // C4: ANDB      #n8    2     2    1:2:N
-        48,  // C5: BITB      #n8    2     2    1:2:N
-        48,  // C6: LDB       #n8    2     2    1:2:N
+        58,  // 90: SUBA      d8     4/3   2    1:2:x:R:N/1:2:R:N
+        58,  // 91: CMPA      d8     4/3   2    1:2:x:R:N/1:2:R:N
+        58,  // 92: SBCA      d8     4/3   2    1:2:x:R:N/1:2:R:N
+        59,  // 93: SUBD      d8     6/4   2    1:2:x:R:r:x:N/1:2:R:r:N
+        58,  // 94: ANDA      d8     4/3   2    1:2:x:R:N/1:2:R:N
+        58,  // 95: BITA      d8     4/3   2    1:2:x:R:N/1:2:R:N
+        58,  // 96: LDA       d8     4/3   2    1:2:x:R:N/1:2:R:N
+        60,  // 97: STA       d8     4/3   2    1:2:x:W:N/1:2:W:N
+        58,  // 98: EORA      d8     4/3   2    1:2:x:R:N/1:2:R:N
+        58,  // 99: ADCA      d8     4/3   2    1:2:x:R:N/1:2:R:N
+        58,  // 9A: ORA       d8     4/3   2    1:2:x:R:N/1:2:R:N
+        58,  // 9B: ADDA      d8     4/3   2    1:2:x:R:N/1:2:R:N
+        59,  // 9C: CMPX      d8     6/4   2    1:2:x:R:r:x:N/1:2:R:r:N
+        61,  // 9D: JSR       d8     7/6   2    1:2:x:X:x:w:W:i/1:2:x:X:w:W:i
+        62,  // 9E: LDX       d8     5/4   2    1:2:x:R:r:N/1:2:R:r:N
+        63,  // 9F: STX       d8     5/4   2    1:2:x:W:w:N/1:2:W:w:N
+        64,  // A0: SUBA      ix     4+    2+   1:2:Y:R:N
+        64,  // A1: CMPA      ix     4+    2+   1:2:Y:R:N
+        64,  // A2: SBCA      ix     4+    2+   1:2:Y:R:N
+        65,  // A3: SUBD      ix     6+/5+ 2+   1:2:Y:R:r:x:N/1:2:Y:R:r:N
+        64,  // A4: ANDA      ix     4+    2+   1:2:Y:R:N
+        64,  // A5: BITA      ix     4+    2+   1:2:Y:R:N
+        64,  // A6: LDA       ix     4+    2+   1:2:Y:R:N
+        66,  // A7: STA       ix     4+    2+   1:2:Y:W:N
+        64,  // A8: EORA      ix     4+    2+   1:2:Y:R:N
+        64,  // A9: ADCA      ix     4+    2+   1:2:Y:R:N
+        64,  // AA: ORA       ix     4+    2+   1:2:Y:R:N
+        64,  // AB: ADDA      ix     4+    2+   1:2:Y:R:N
+        65,  // AC: CMPX      ix     6+/5+ 2+   1:2:Y:R:r:x:N/1:2:Y:R:r:N
+        67,  // AD: JSR       ix     7+/6+ 2+   1:2:Y:X:x:w:W:i/1:2:Y:X:w:W:i
+        68,  // AE: LDX       ix     5+    2+   1:2:Y:R:r:N
+        69,  // AF: STX       ix     5+    2+   1:2:Y:W:w:N
+        70,  // B0: SUBA      a16    5/4   3    1:2:3:x:A:N/1:2:3:A:N
+        70,  // B1: CMPA      a16    5/4   3    1:2:3:x:A:N/1:2:3:A:N
+        70,  // B2: SBCA      a16    5/4   3    1:2:3:x:A:N/1:2:3:A:N
+        71,  // B3: SUBD      a16    7/5   3    1:2:3:x:A:a:x:N/1:2:3:A:a:N
+        70,  // B4: ANDA      a16    5/4   3    1:2:3:x:A:N/1:2:3:A:N
+        70,  // B5: BITA      a16    5/4   3    1:2:3:x:A:N/1:2:3:A:N
+        70,  // B6: LDA       a16    5/4   3    1:2:3:x:A:N/1:2:3:A:N
+        72,  // B7: STA       a16    5/4   3    1:2:3:x:W:N/1:2:3:W:N
+        70,  // B8: EORA      a16    5/4   3    1:2:3:x:A:N/1:2:3:A:N
+        70,  // B9: ADCA      a16    5/4   3    1:2:3:x:A:N/1:2:3:A:N
+        70,  // BA: ORA       a16    5/4   3    1:2:3:x:A:N/1:2:3:A:N
+        70,  // BB: ADDA      a16    5/4   3    1:2:3:x:A:N/1:2:3:A:N
+        71,  // BC: CMPX      a16    7/5   3    1:2:3:x:A:a:x:N/1:2:3:A:a:N
+        73,  // BD: JSR       a16    8/7   3 1:2:3:x:A:x:w:W:J/1:2:3:x:A:w:W:J
+        74,  // BE: LDX       a16    6/5   3    1:2:3:x:A:a:N/1:2:3:A:a:N
+        75,  // BF: STX       a16    6/5   3    1:2:3:x:W:w:N/1:2:3:W:w:N
+        54,  // C0: SUBB      #n8    2     2    1:2:N
+        54,  // C1: CMPB      #n8    2     2    1:2:N
+        54,  // C2: SBCB      #n8    2     2    1:2:N
+        55,  // C3: ADDD      #n16   4/3   3    1:2:3:x:N/1:2:3:N
+        54,  // C4: ANDB      #n8    2     2    1:2:N
+        54,  // C5: BITB      #n8    2     2    1:2:N
+        54,  // C6: LDB       #n8    2     2    1:2:N
         0,   // C7: -         -      -     -    -
-        48,  // C8: EORB      #n8    2     2    1:2:N
-        48,  // C9: ADCB      #n8    2     2    1:2:N
-        48,  // CA: ORB       #n8    2     2    1:2:N
-        48,  // CB: ADDB      #n8    2     2    1:2:N
-        28,  // CC: LDD       #n16   3     3    1:2:3:N
-        100,  // CD: LDQ       #n32   5     5    1:2:3:4:5:N
-        28,   // CE: LDU       #n16   3     3    1:2:3:N
-        0,    // CF: -         -      -     -    -
-        51,   // D0: SUBB      d8     4/3   2    1:2:x:R:N/1:2:R:N
-        51,   // D1: CMPB      d8     4/3   2    1:2:x:R:N/1:2:R:N
-        51,   // D2: SBCB      d8     4/3   2    1:2:x:R:N/1:2:R:N
-        29,   // D3: ADDD      d8     6/4   2    1:2:x:R:r:x:N/1:2:R:r:N
-        51,   // D4: ANDB      d8     4/3   2    1:2:x:R:N/1:2:R:N
-        51,   // D5: BITB      d8     4/3   2    1:2:x:R:N/1:2:R:N
-        51,   // D6: LDB       d8     4/3   2    1:2:x:R:N/1:2:R:N
-        52,   // D7: STB       d8     4/3   2    1:2:x:W:N/1:2:W:N
-        51,   // D8: EORB      d8     4/3   2    1:2:x:R:N/1:2:R:N
-        51,   // D9: ADCB      d8     4/3   2    1:2:x:R:N/1:2:R:N
-        51,   // DA: ORB       d8     4/3   2    1:2:x:R:N/1:2:R:N
-        51,   // DB: ADDB      d8     4/3   2    1:2:x:R:N/1:2:R:N
-        30,   // DC: LDD       d8     5/4   2    1:2:x:R:r:N/1:2:R:r:N
-        31,   // DD: STD       d8     5/4   2    1:2:x:W:w:N/1:2:W:w:N
-        30,   // DE: LDU       d8     5/4   2    1:2:x:R:r:N/1:2:R:r:N
-        31,   // DF: STU       d8     5/4   2    1:2:x:W:w:N/1:2:W:w:N
-        55,   // E0: SUBB      ix     4+    2+   1:2:Y:R:N
-        55,   // E1: CMPB      ix     4+    2+   1:2:Y:R:N
-        55,   // E2: SBCB      ix     4+    2+   1:2:Y:R:N
-        32,   // E3: ADDD      ix     6+/5+ 2+   1:2:Y:R:r:x:N/1:2:Y:R:r:N
-        55,   // E4: ANDB      ix     4+    2+   1:2:Y:R:N
-        55,   // E5: BITB      ix     4+    2+   1:2:Y:R:N
-        55,   // E6: LDB       ix     4+    2+   1:2:Y:R:N
-        56,   // E7: STB       ix     4+    2+   1:2:Y:W:N
-        55,   // E8: EORB      ix     4+    2+   1:2:Y:R:N
-        55,   // E9: ADCB      ix     4+    2+   1:2:Y:R:N
-        55,   // EA: ORB       ix     4+    2+   1:2:Y:R:N
-        55,   // EB: ADDB      ix     4+    2+   1:2:Y:R:N
-        33,   // EC: LDD       ix     5+    2+   1:2:Y:R:r:N
-        34,   // ED: STD       ix     5+    2+   1:2:Y:W:w:N
-        33,   // EE: LDU       ix     5+    2+   1:2:Y:R:r:N
-        34,   // EF: STU       ix     5+    2+   1:2:Y:W:w:N
-        59,   // F0: SUBB      a16    5/4   3    1:2:3:x:A:N/1:2:3:A:N
-        59,   // F1: CMPB      a16    5/4   3    1:2:3:x:A:N/1:2:3:A:N
-        59,   // F2: SBCB      a16    5/4   3    1:2:3:x:A:N/1:2:3:A:N
-        35,   // F3: ADDD      a16    7/5   3    1:2:3:x:A:a:x:N/1:2:3:A:a:N
-        59,   // F4: ANDB      a16    5/4   3    1:2:3:x:A:N/1:2:3:A:N
-        59,   // F5: BITB      a16    5/4   3    1:2:3:x:A:N/1:2:3:A:N
-        59,   // F6: LDB       a16    5/4   3    1:2:3:x:A:N/1:2:3:A:N
-        60,   // F7: STB       a16    5/4   3    1:2:3:x:B:N/1:2:3:B:N
-        59,   // F8: EORB      a16    5/4   3    1:2:3:x:A:N/1:2:3:A:N
-        59,   // F9: ADCB      a16    5/4   3    1:2:3:x:A:N/1:2:3:A:N
-        59,   // FA: ORB       a16    5/4   3    1:2:3:x:A:N/1:2:3:A:N
-        59,   // FB: ADDB      a16    5/4   3    1:2:3:x:A:N/1:2:3:A:N
-        36,   // FC: LDD       a16    6/5   3    1:2:3:x:A:a:N/1:2:3:A:a:N
-        37,   // FD: STD       a16    6/5   3    1:2:3:x:B:b:N/1:2:3:B:b:N
-        36,   // FE: LDU       a16    6/5   3    1:2:3:x:A:a:N/1:2:3:A:a:N
-        37,   // FF: STU       a16    6/5   3    1:2:3:x:B:b:N/1:2:3:B:b:N
+        54,  // C8: EORB      #n8    2     2    1:2:N
+        54,  // C9: ADCB      #n8    2     2    1:2:N
+        54,  // CA: ORB       #n8    2     2    1:2:N
+        54,  // CB: ADDB      #n8    2     2    1:2:N
+        57,  // CC: LDD       #n16   3     3    1:2:3:N
+        76,  // CD: LDQ       #n32   5     5    1:2:3:4:5:N
+        57,  // CE: LDU       #n16   3     3    1:2:3:N
+        0,   // CF: -         -      -     -    -
+        58,  // D0: SUBB      d8     4/3   2    1:2:x:R:N/1:2:R:N
+        58,  // D1: CMPB      d8     4/3   2    1:2:x:R:N/1:2:R:N
+        58,  // D2: SBCB      d8     4/3   2    1:2:x:R:N/1:2:R:N
+        59,  // D3: ADDD      d8     6/4   2    1:2:x:R:r:x:N/1:2:R:r:N
+        58,  // D4: ANDB      d8     4/3   2    1:2:x:R:N/1:2:R:N
+        58,  // D5: BITB      d8     4/3   2    1:2:x:R:N/1:2:R:N
+        58,  // D6: LDB       d8     4/3   2    1:2:x:R:N/1:2:R:N
+        60,  // D7: STB       d8     4/3   2    1:2:x:W:N/1:2:W:N
+        58,  // D8: EORB      d8     4/3   2    1:2:x:R:N/1:2:R:N
+        58,  // D9: ADCB      d8     4/3   2    1:2:x:R:N/1:2:R:N
+        58,  // DA: ORB       d8     4/3   2    1:2:x:R:N/1:2:R:N
+        58,  // DB: ADDB      d8     4/3   2    1:2:x:R:N/1:2:R:N
+        62,  // DC: LDD       d8     5/4   2    1:2:x:R:r:N/1:2:R:r:N
+        63,  // DD: STD       d8     5/4   2    1:2:x:W:w:N/1:2:W:w:N
+        62,  // DE: LDU       d8     5/4   2    1:2:x:R:r:N/1:2:R:r:N
+        63,  // DF: STU       d8     5/4   2    1:2:x:W:w:N/1:2:W:w:N
+        64,  // E0: SUBB      ix     4+    2+   1:2:Y:R:N
+        64,  // E1: CMPB      ix     4+    2+   1:2:Y:R:N
+        64,  // E2: SBCB      ix     4+    2+   1:2:Y:R:N
+        65,  // E3: ADDD      ix     6+/5+ 2+   1:2:Y:R:r:x:N/1:2:Y:R:r:N
+        64,  // E4: ANDB      ix     4+    2+   1:2:Y:R:N
+        64,  // E5: BITB      ix     4+    2+   1:2:Y:R:N
+        64,  // E6: LDB       ix     4+    2+   1:2:Y:R:N
+        66,  // E7: STB       ix     4+    2+   1:2:Y:W:N
+        64,  // E8: EORB      ix     4+    2+   1:2:Y:R:N
+        64,  // E9: ADCB      ix     4+    2+   1:2:Y:R:N
+        64,  // EA: ORB       ix     4+    2+   1:2:Y:R:N
+        64,  // EB: ADDB      ix     4+    2+   1:2:Y:R:N
+        68,  // EC: LDD       ix     5+    2+   1:2:Y:R:r:N
+        69,  // ED: STD       ix     5+    2+   1:2:Y:W:w:N
+        68,  // EE: LDU       ix     5+    2+   1:2:Y:R:r:N
+        69,  // EF: STU       ix     5+    2+   1:2:Y:W:w:N
+        70,  // F0: SUBB      a16    5/4   3    1:2:3:x:A:N/1:2:3:A:N
+        70,  // F1: CMPB      a16    5/4   3    1:2:3:x:A:N/1:2:3:A:N
+        70,  // F2: SBCB      a16    5/4   3    1:2:3:x:A:N/1:2:3:A:N
+        71,  // F3: ADDD      a16    7/5   3    1:2:3:x:A:a:x:N/1:2:3:A:a:N
+        70,  // F4: ANDB      a16    5/4   3    1:2:3:x:A:N/1:2:3:A:N
+        70,  // F5: BITB      a16    5/4   3    1:2:3:x:A:N/1:2:3:A:N
+        70,  // F6: LDB       a16    5/4   3    1:2:3:x:A:N/1:2:3:A:N
+        77,  // F7: STB       a16    5/4   3    1:2:3:x:B:N/1:2:3:B:N
+        70,  // F8: EORB      a16    5/4   3    1:2:3:x:A:N/1:2:3:A:N
+        70,  // F9: ADCB      a16    5/4   3    1:2:3:x:A:N/1:2:3:A:N
+        70,  // FA: ORB       a16    5/4   3    1:2:3:x:A:N/1:2:3:A:N
+        70,  // FB: ADDB      a16    5/4   3    1:2:3:x:A:N/1:2:3:A:N
+        74,  // FC: LDD       a16    6/5   3    1:2:3:x:A:a:N/1:2:3:A:a:N
+        78,  // FD: STD       a16    6/5   3    1:2:3:x:B:b:N/1:2:3:B:b:N
+        74,  // FE: LDU       a16    6/5   3    1:2:3:x:A:a:N/1:2:3:A:a:N
+        78,  // FF: STU       a16    6/5   3    1:2:3:x:B:b:N/1:2:3:B:b:N
 };
 
 constexpr uint8_t P10_TABLE[] = {
@@ -669,70 +669,70 @@ constexpr uint8_t P10_TABLE[] = {
         0,   // 1E: -         -      -     -    -
         0,   // 1F: -         -      -     -    -
         0,   // 20: -         -      -     -    -
-        20,  // 21: LBRN      r16    4     3    1:2:3:x:N
-        21,  // 22: LBHI      r16    4+/4  3    1:2:3:x:N@1:2:3:x:x:k/1:2:3:x:k
-        21,  // 23: LBLS      r16    4+/4  3    1:2:3:x:N@1:2:3:x:x:k/1:2:3:x:k
-        21,  // 24: LBCC      r16    4+/4  3    1:2:3:x:N@1:2:3:x:x:k/1:2:3:x:k
-        21,  // 25: LBCS      r16    4+/4  3    1:2:3:x:N@1:2:3:x:x:k/1:2:3:x:k
-        21,  // 26: LBNE      r16    4+/4  3    1:2:3:x:N@1:2:3:x:x:k/1:2:3:x:k
-        21,  // 27: LBEQ      r16    4+/4  3    1:2:3:x:N@1:2:3:x:x:k/1:2:3:x:k
-        21,  // 28: LBVC      r16    4+/4  3    1:2:3:x:N@1:2:3:x:x:k/1:2:3:x:k
-        21,  // 29: LBVS      r16    4+/4  3    1:2:3:x:N@1:2:3:x:x:k/1:2:3:x:k
-        21,  // 2A: LBPL      r16    4+/4  3    1:2:3:x:N@1:2:3:x:x:k/1:2:3:x:k
-        21,  // 2B: LBMI      r16    4+/4  3    1:2:3:x:N@1:2:3:x:x:k/1:2:3:x:k
-        21,  // 2C: LBGE      r16    4+/4  3    1:2:3:x:N@1:2:3:x:x:k/1:2:3:x:k
-        21,  // 2D: LBLT      r16    4+/4  3    1:2:3:x:N@1:2:3:x:x:k/1:2:3:x:k
-        21,  // 2E: LBGT      r16    4+/4  3    1:2:3:x:N@1:2:3:x:x:k/1:2:3:x:k
-        21,  // 2F: LBLE      r16    4+/4  3    1:2:3:x:N@1:2:3:x:x:k/1:2:3:x:k
-        22,  // 30: ADDR      r,r    3     2    1:2:x:N
-        22,  // 31: ADCR      r,r    3     2    1:2:x:N
-        22,  // 32: SUBR      r,r    3     2    1:2:x:N
-        22,  // 33: SBCR      r,r    3     2    1:2:x:N
-        22,  // 34: ANDR      r,r    3     2    1:2:x:N
-        22,  // 35: ORR       r,r    3     2    1:2:x:N
-        22,  // 36: EORR      r,r    3     2    1:2:x:N
-        22,  // 37: CMPR      r,r    3     2    1:2:x:N
-        23,  // 38: PSHSW     -      5     1    1:N:x:w:W:N
-        24,  // 39: PULSW     -      5     1    1:N:x:R:r:N
-        23,  // 3A: PSHUW     -      5     1    1:N:x:w:W:N
-        24,  // 3B: PULUW     -      5     1    1:N:x:R:r:N
+        79,  // 21: LBRN      r16    4     3    1:2:3:x:N
+        80,  // 22: LBHI      r16    4+/4  3    1:2:3:x:N@1:2:3:x:x:k/1:2:3:x:k
+        80,  // 23: LBLS      r16    4+/4  3    1:2:3:x:N@1:2:3:x:x:k/1:2:3:x:k
+        80,  // 24: LBCC      r16    4+/4  3    1:2:3:x:N@1:2:3:x:x:k/1:2:3:x:k
+        80,  // 25: LBCS      r16    4+/4  3    1:2:3:x:N@1:2:3:x:x:k/1:2:3:x:k
+        80,  // 26: LBNE      r16    4+/4  3    1:2:3:x:N@1:2:3:x:x:k/1:2:3:x:k
+        80,  // 27: LBEQ      r16    4+/4  3    1:2:3:x:N@1:2:3:x:x:k/1:2:3:x:k
+        80,  // 28: LBVC      r16    4+/4  3    1:2:3:x:N@1:2:3:x:x:k/1:2:3:x:k
+        80,  // 29: LBVS      r16    4+/4  3    1:2:3:x:N@1:2:3:x:x:k/1:2:3:x:k
+        80,  // 2A: LBPL      r16    4+/4  3    1:2:3:x:N@1:2:3:x:x:k/1:2:3:x:k
+        80,  // 2B: LBMI      r16    4+/4  3    1:2:3:x:N@1:2:3:x:x:k/1:2:3:x:k
+        80,  // 2C: LBGE      r16    4+/4  3    1:2:3:x:N@1:2:3:x:x:k/1:2:3:x:k
+        80,  // 2D: LBLT      r16    4+/4  3    1:2:3:x:N@1:2:3:x:x:k/1:2:3:x:k
+        80,  // 2E: LBGT      r16    4+/4  3    1:2:3:x:N@1:2:3:x:x:k/1:2:3:x:k
+        80,  // 2F: LBLE      r16    4+/4  3    1:2:3:x:N@1:2:3:x:x:k/1:2:3:x:k
+        34,  // 30: ADDR      r,r    3     2    1:2:x:N
+        34,  // 31: ADCR      r,r    3     2    1:2:x:N
+        34,  // 32: SUBR      r,r    3     2    1:2:x:N
+        34,  // 33: SBCR      r,r    3     2    1:2:x:N
+        34,  // 34: ANDR      r,r    3     2    1:2:x:N
+        34,  // 35: ORR       r,r    3     2    1:2:x:N
+        34,  // 36: EORR      r,r    3     2    1:2:x:N
+        34,  // 37: CMPR      r,r    3     2    1:2:x:N
+        81,  // 38: PSHSW     -      5     1    1:N:x:w:W:N
+        82,  // 39: PULSW     -      5     1    1:N:x:R:r:N
+        81,  // 3A: PSHUW     -      5     1    1:N:x:w:W:N
+        82,  // 3B: PULUW     -      5     1    1:N:x:R:r:N
         0,   // 3C: -         -      -     -    -
         0,   // 3D: -         -      -     -    -
         0,   // 3E: -         -      -     -    -
-        25,  // 3F: SWI2      -     19/21  1
+        43,  // 3F: SWI2      -     19/21  1
              // 1:N:x:w:W:W:W:W:W:W:W:W:W:W:W:x:V:v:x:J/1:N:x:w:W:W:W:W:W:W:W:W:W:W:W:W:W:X:V:v:x:J
-        26,  // 40: NEGD      -      2/1   1    1:N:N/1:N
+        25,  // 40: NEGD      -      2/1   1    1:N:N/1:N
         0,   // 41: -         -      -     -    -
         0,   // 42: -         -      -     -    -
-        26,  // 43: COMD      -      2/1   1    1:N:N/1:N
-        26,  // 44: LSRD      -      2/1   1    1:N:N/1:N
+        25,  // 43: COMD      -      2/1   1    1:N:N/1:N
+        25,  // 44: LSRD      -      2/1   1    1:N:N/1:N
         0,   // 45: -         -      -     -    -
-        26,  // 46: RORD      -      2/1   1    1:N:N/1:N
-        26,  // 47: ASRD      -      2/1   1    1:N:N/1:N
-        26,  // 48: ASLD      -      2/1   1    1:N:N/1:N
-        26,  // 49: ROLD      -      2/1   1    1:N:N/1:N
-        26,  // 4A: DECD      -      2/1   1    1:N:N/1:N
+        25,  // 46: RORD      -      2/1   1    1:N:N/1:N
+        25,  // 47: ASRD      -      2/1   1    1:N:N/1:N
+        25,  // 48: ASLD      -      2/1   1    1:N:N/1:N
+        25,  // 49: ROLD      -      2/1   1    1:N:N/1:N
+        25,  // 4A: DECD      -      2/1   1    1:N:N/1:N
         0,   // 4B: -         -      -     -    -
-        26,  // 4C: INCD      -      2/1   1    1:N:N/1:N
-        26,  // 4D: TSTD      -      2/1   1    1:N:N/1:N
+        25,  // 4C: INCD      -      2/1   1    1:N:N/1:N
+        25,  // 4D: TSTD      -      2/1   1    1:N:N/1:N
         0,   // 4E: -         -      -     -    -
-        26,  // 4F: CLRD      -      2/1   1    1:N:N/1:N
+        25,  // 4F: CLRD      -      2/1   1    1:N:N/1:N
         0,   // 50: -         -      -     -    -
         0,   // 51: -         -      -     -    -
         0,   // 52: -         -      -     -    -
-        26,  // 53: COMW      -      2/1   1    1:N:N/1:N
-        26,  // 54: LSRW      -      2/1   1    1:N:N/1:N
+        25,  // 53: COMW      -      2/1   1    1:N:N/1:N
+        25,  // 54: LSRW      -      2/1   1    1:N:N/1:N
         0,   // 55: -         -      -     -    -
-        26,  // 56: RORW      -      2/1   1    1:N:N/1:N
+        25,  // 56: RORW      -      2/1   1    1:N:N/1:N
         0,   // 57: -         -      -     -    -
         0,   // 58: -         -      -     -    -
-        26,  // 59: ROLW      -      2/1   1    1:N:N/1:N
-        26,  // 5A: DECW      -      2/1   1    1:N:N/1:N
+        25,  // 59: ROLW      -      2/1   1    1:N:N/1:N
+        25,  // 5A: DECW      -      2/1   1    1:N:N/1:N
         0,   // 5B: -         -      -     -    -
-        26,  // 5C: INCW      -      2/1   1    1:N:N/1:N
-        26,  // 5D: TSTW      -      2/1   1    1:N:N/1:N
+        25,  // 5C: INCW      -      2/1   1    1:N:N/1:N
+        25,  // 5D: TSTW      -      2/1   1    1:N:N/1:N
         0,   // 5E: -         -      -     -    -
-        26,  // 5F: CLRW      -      2/1   1    1:N:N/1:N
+        25,  // 5F: CLRW      -      2/1   1    1:N:N/1:N
         0,   // 60: -         -      -     -    -
         0,   // 61: -         -      -     -    -
         0,   // 62: -         -      -     -    -
@@ -765,70 +765,70 @@ constexpr uint8_t P10_TABLE[] = {
         0,   // 7D: -         -      -     -    -
         0,   // 7E: -         -      -     -    -
         0,   // 7F: -         -      -     -    -
-        27,  // 80: SUBW      #n16   4/3   3    1:2:3:x:N/1:2:3:N
-        27,  // 81: CMPW      #n16   4/3   3    1:2:3:x:N/1:2:3:N
-        27,  // 82: SBCD      #n16   4/3   3    1:2:3:x:N/1:2:3:N
-        27,  // 83: CMPD      #n16   4/3   3    1:2:3:x:N/1:2:3:N
-        27,  // 84: ANDD      #n16   4/3   3    1:2:3:x:N/1:2:3:N
-        27,  // 85: BITD      #n16   4/3   3    1:2:3:x:N/1:2:3:N
-        28,  // 86: LDW       #n16   3     3    1:2:3:N
+        55,  // 80: SUBW      #n16   4/3   3    1:2:3:x:N/1:2:3:N
+        55,  // 81: CMPW      #n16   4/3   3    1:2:3:x:N/1:2:3:N
+        55,  // 82: SBCD      #n16   4/3   3    1:2:3:x:N/1:2:3:N
+        55,  // 83: CMPD      #n16   4/3   3    1:2:3:x:N/1:2:3:N
+        55,  // 84: ANDD      #n16   4/3   3    1:2:3:x:N/1:2:3:N
+        55,  // 85: BITD      #n16   4/3   3    1:2:3:x:N/1:2:3:N
+        57,  // 86: LDW       #n16   3     3    1:2:3:N
         0,   // 87: -         -      -     -    -
-        27,  // 88: EORD      #n16   4/3   3    1:2:3:x:N/1:2:3:N
-        27,  // 89: ADCD      #n16   4/3   3    1:2:3:x:N/1:2:3:N
-        27,  // 8A: ORD       #n16   4/3   3    1:2:3:x:N/1:2:3:N
-        27,  // 8B: ADDW      #n16   4/3   3    1:2:3:x:N/1:2:3:N
-        27,  // 8C: CMPY      #n16   4/3   3    1:2:3:x:N/1:2:3:N
+        55,  // 88: EORD      #n16   4/3   3    1:2:3:x:N/1:2:3:N
+        55,  // 89: ADCD      #n16   4/3   3    1:2:3:x:N/1:2:3:N
+        55,  // 8A: ORD       #n16   4/3   3    1:2:3:x:N/1:2:3:N
+        55,  // 8B: ADDW      #n16   4/3   3    1:2:3:x:N/1:2:3:N
+        55,  // 8C: CMPY      #n16   4/3   3    1:2:3:x:N/1:2:3:N
         0,   // 8D: -         -      -     -    -
-        28,  // 8E: LDY       #n16   3     3    1:2:3:N
+        57,  // 8E: LDY       #n16   3     3    1:2:3:N
         0,   // 8F: -         -      -     -    -
-        29,  // 90: SUBW      d8     6/4   2    1:2:x:R:r:x:N/1:2:R:r:N
-        29,  // 91: CMPW      d8     6/4   2    1:2:x:R:r:x:N/1:2:R:r:N
-        29,  // 92: SBCD      d8     6/4   2    1:2:x:R:r:x:N/1:2:R:r:N
-        29,  // 93: CMPD      d8     6/4   2    1:2:x:R:r:x:N/1:2:R:r:N
-        29,  // 94: ANDD      d8     6/4   2    1:2:x:R:r:x:N/1:2:R:r:N
-        29,  // 95: BITD      d8     6/4   2    1:2:x:R:r:x:N/1:2:R:r:N
-        30,  // 96: LDW       d8     5/4   2    1:2:x:R:r:N/1:2:R:r:N
-        31,  // 97: STW       d8     5/4   2    1:2:x:W:w:N/1:2:W:w:N
-        29,  // 98: EORD      d8     6/4   2    1:2:x:R:r:x:N/1:2:R:r:N
-        29,  // 99: ADCD      d8     6/4   2    1:2:x:R:r:x:N/1:2:R:r:N
-        29,  // 9A: ORD       d8     6/4   2    1:2:x:R:r:x:N/1:2:R:r:N
-        29,  // 9B: ADDW      d8     6/4   2    1:2:x:R:r:x:N/1:2:R:r:N
-        29,  // 9C: CMPY      d8     6/4   2    1:2:x:R:r:x:N/1:2:R:r:N
+        59,  // 90: SUBW      d8     6/4   2    1:2:x:R:r:x:N/1:2:R:r:N
+        59,  // 91: CMPW      d8     6/4   2    1:2:x:R:r:x:N/1:2:R:r:N
+        59,  // 92: SBCD      d8     6/4   2    1:2:x:R:r:x:N/1:2:R:r:N
+        59,  // 93: CMPD      d8     6/4   2    1:2:x:R:r:x:N/1:2:R:r:N
+        59,  // 94: ANDD      d8     6/4   2    1:2:x:R:r:x:N/1:2:R:r:N
+        59,  // 95: BITD      d8     6/4   2    1:2:x:R:r:x:N/1:2:R:r:N
+        62,  // 96: LDW       d8     5/4   2    1:2:x:R:r:N/1:2:R:r:N
+        63,  // 97: STW       d8     5/4   2    1:2:x:W:w:N/1:2:W:w:N
+        59,  // 98: EORD      d8     6/4   2    1:2:x:R:r:x:N/1:2:R:r:N
+        59,  // 99: ADCD      d8     6/4   2    1:2:x:R:r:x:N/1:2:R:r:N
+        59,  // 9A: ORD       d8     6/4   2    1:2:x:R:r:x:N/1:2:R:r:N
+        59,  // 9B: ADDW      d8     6/4   2    1:2:x:R:r:x:N/1:2:R:r:N
+        59,  // 9C: CMPY      d8     6/4   2    1:2:x:R:r:x:N/1:2:R:r:N
         0,   // 9D: -         -      -     -    -
-        30,  // 9E: LDY       d8     5/4   2    1:2:x:R:r:N/1:2:R:r:N
-        31,  // 9F: STY       d8     5/4   2    1:2:x:W:w:N/1:2:W:w:N
-        32,  // A0: SUBW      ix     6+/5+ 2+   1:2:Y:R:r:x:N/1:2:Y:R:r:N
-        32,  // A1: CMPW      ix     6+/5+ 2+   1:2:Y:R:r:x:N/1:2:Y:R:r:N
-        32,  // A2: SBCD      ix     6+/5+ 2+   1:2:Y:R:r:x:N/1:2:Y:R:r:N
-        32,  // A3: CMPD      ix     6+/5+ 2+   1:2:Y:R:r:x:N/1:2:Y:R:r:N
-        32,  // A4: ANDD      ix     6+/5+ 2+   1:2:Y:R:r:x:N/1:2:Y:R:r:N
-        32,  // A5: BITD      ix     6+/5+ 2+   1:2:Y:R:r:x:N/1:2:Y:R:r:N
-        33,  // A6: LDW       ix     5+    2+   1:2:Y:R:r:N
-        34,  // A7: STW       ix     5+    2+   1:2:Y:W:w:N
-        32,  // A8: EORD      ix     6+/5+ 2+   1:2:Y:R:r:x:N/1:2:Y:R:r:N
-        32,  // A9: ADCD      ix     6+/5+ 2+   1:2:Y:R:r:x:N/1:2:Y:R:r:N
-        32,  // AA: ORD       ix     6+/5+ 2+   1:2:Y:R:r:x:N/1:2:Y:R:r:N
-        32,  // AB: ADDW      ix     6+/5+ 2+   1:2:Y:R:r:x:N/1:2:Y:R:r:N
-        32,  // AC: CMPY      ix     6+/5+ 2+   1:2:Y:R:r:x:N/1:2:Y:R:r:N
+        62,  // 9E: LDY       d8     5/4   2    1:2:x:R:r:N/1:2:R:r:N
+        63,  // 9F: STY       d8     5/4   2    1:2:x:W:w:N/1:2:W:w:N
+        65,  // A0: SUBW      ix     6+/5+ 2+   1:2:Y:R:r:x:N/1:2:Y:R:r:N
+        65,  // A1: CMPW      ix     6+/5+ 2+   1:2:Y:R:r:x:N/1:2:Y:R:r:N
+        65,  // A2: SBCD      ix     6+/5+ 2+   1:2:Y:R:r:x:N/1:2:Y:R:r:N
+        65,  // A3: CMPD      ix     6+/5+ 2+   1:2:Y:R:r:x:N/1:2:Y:R:r:N
+        65,  // A4: ANDD      ix     6+/5+ 2+   1:2:Y:R:r:x:N/1:2:Y:R:r:N
+        65,  // A5: BITD      ix     6+/5+ 2+   1:2:Y:R:r:x:N/1:2:Y:R:r:N
+        68,  // A6: LDW       ix     5+    2+   1:2:Y:R:r:N
+        69,  // A7: STW       ix     5+    2+   1:2:Y:W:w:N
+        65,  // A8: EORD      ix     6+/5+ 2+   1:2:Y:R:r:x:N/1:2:Y:R:r:N
+        65,  // A9: ADCD      ix     6+/5+ 2+   1:2:Y:R:r:x:N/1:2:Y:R:r:N
+        65,  // AA: ORD       ix     6+/5+ 2+   1:2:Y:R:r:x:N/1:2:Y:R:r:N
+        65,  // AB: ADDW      ix     6+/5+ 2+   1:2:Y:R:r:x:N/1:2:Y:R:r:N
+        65,  // AC: CMPY      ix     6+/5+ 2+   1:2:Y:R:r:x:N/1:2:Y:R:r:N
         0,   // AD: -         -      -     -    -
-        33,  // AE: LDY       ix     5+    2+   1:2:Y:R:r:N
-        34,  // AF: STY       ix     5+    2+   1:2:Y:W:w:N
-        35,  // B0: SUBW      a16    7/5   3    1:2:3:x:A:a:x:N/1:2:3:A:a:N
-        35,  // B1: CMPW      a16    7/5   3    1:2:3:x:A:a:x:N/1:2:3:A:a:N
-        35,  // B2: SBCD      a16    7/5   3    1:2:3:x:A:a:x:N/1:2:3:A:a:N
-        35,  // B3: CMPD      a16    7/5   3    1:2:3:x:A:a:x:N/1:2:3:A:a:N
-        35,  // B4: ANDD      a16    7/5   3    1:2:3:x:A:a:x:N/1:2:3:A:a:N
-        35,  // B5: BITD      a16    7/5   3    1:2:3:x:A:a:x:N/1:2:3:A:a:N
-        36,  // B6: LDW       a16    6/5   3    1:2:3:x:A:a:N/1:2:3:A:a:N
-        37,  // B7: STW       a16    6/5   3    1:2:3:x:B:b:N/1:2:3:B:b:N
-        35,  // B8: EORD      a16    7/5   3    1:2:3:x:A:a:x:N/1:2:3:A:a:N
-        35,  // B9: ADCD      a16    7/5   3    1:2:3:x:A:a:x:N/1:2:3:A:a:N
-        35,  // BA: ORD       a16    7/5   3    1:2:3:x:A:a:x:N/1:2:3:A:a:N
-        35,  // BB: ADDW      a16    7/5   3    1:2:3:x:A:a:x:N/1:2:3:A:a:N
-        35,  // BC: CMPY      a16    7/5   3    1:2:3:x:A:a:x:N/1:2:3:A:a:N
+        68,  // AE: LDY       ix     5+    2+   1:2:Y:R:r:N
+        69,  // AF: STY       ix     5+    2+   1:2:Y:W:w:N
+        71,  // B0: SUBW      a16    7/5   3    1:2:3:x:A:a:x:N/1:2:3:A:a:N
+        71,  // B1: CMPW      a16    7/5   3    1:2:3:x:A:a:x:N/1:2:3:A:a:N
+        71,  // B2: SBCD      a16    7/5   3    1:2:3:x:A:a:x:N/1:2:3:A:a:N
+        71,  // B3: CMPD      a16    7/5   3    1:2:3:x:A:a:x:N/1:2:3:A:a:N
+        71,  // B4: ANDD      a16    7/5   3    1:2:3:x:A:a:x:N/1:2:3:A:a:N
+        71,  // B5: BITD      a16    7/5   3    1:2:3:x:A:a:x:N/1:2:3:A:a:N
+        74,  // B6: LDW       a16    6/5   3    1:2:3:x:A:a:N/1:2:3:A:a:N
+        78,  // B7: STW       a16    6/5   3    1:2:3:x:B:b:N/1:2:3:B:b:N
+        71,  // B8: EORD      a16    7/5   3    1:2:3:x:A:a:x:N/1:2:3:A:a:N
+        71,  // B9: ADCD      a16    7/5   3    1:2:3:x:A:a:x:N/1:2:3:A:a:N
+        71,  // BA: ORD       a16    7/5   3    1:2:3:x:A:a:x:N/1:2:3:A:a:N
+        71,  // BB: ADDW      a16    7/5   3    1:2:3:x:A:a:x:N/1:2:3:A:a:N
+        71,  // BC: CMPY      a16    7/5   3    1:2:3:x:A:a:x:N/1:2:3:A:a:N
         0,   // BD: -         -      -     -    -
-        36,  // BE: LDY       a16    6/5   3    1:2:3:x:A:a:N/1:2:3:A:a:N
-        37,  // BF: STY       a16    6/5   3    1:2:3:x:B:b:N/1:2:3:B:b:N
+        74,  // BE: LDY       a16    6/5   3    1:2:3:x:A:a:N/1:2:3:A:a:N
+        78,  // BF: STY       a16    6/5   3    1:2:3:x:B:b:N/1:2:3:B:b:N
         0,   // C0: -         -      -     -    -
         0,   // C1: -         -      -     -    -
         0,   // C2: -         -      -     -    -
@@ -843,7 +843,7 @@ constexpr uint8_t P10_TABLE[] = {
         0,   // CB: -         -      -     -    -
         0,   // CC: -         -      -     -    -
         0,   // CD: -         -      -     -    -
-        28,  // CE: LDS       #16    3     3    1:2:3:N
+        57,  // CE: LDS       #16    3     3    1:2:3:N
         0,   // CF: -         -      -     -    -
         0,   // D0: -         -      -     -    -
         0,   // D1: -         -      -     -    -
@@ -857,10 +857,10 @@ constexpr uint8_t P10_TABLE[] = {
         0,   // D9: -         -      -     -    -
         0,   // DA: -         -      -     -    -
         0,   // DB: -         -      -     -    -
-        38,  // DC: LDQ       d8     7/6   2    1:2:x:R:r:r:r:N/1:2:R:r:r:r:N
-        39,  // DD: STQ       d8     7/6   2    1:2:x:W:w:w:w:N/1:2:W:w:w:w:N
-        30,  // DE: LDS       d8     5/4   2    1:2:x:R:r:N/1:2:R:r:N
-        31,  // DF: STS       d8     5/4   2    1:2:x:W:w:N/1:2:W:w:N
+        83,  // DC: LDQ       d8     7/6   2    1:2:x:R:r:r:r:N/1:2:R:r:r:r:N
+        84,  // DD: STQ       d8     7/6   2    1:2:x:W:w:w:w:N/1:2:W:w:w:w:N
+        62,  // DE: LDS       d8     5/4   2    1:2:x:R:r:N/1:2:R:r:N
+        63,  // DF: STS       d8     5/4   2    1:2:x:W:w:N/1:2:W:w:N
         0,   // E0: -         -      -     -    -
         0,   // E1: -         -      -     -    -
         0,   // E2: -         -      -     -    -
@@ -873,10 +873,10 @@ constexpr uint8_t P10_TABLE[] = {
         0,   // E9: -         -      -     -    -
         0,   // EA: -         -      -     -    -
         0,   // EB: -         -      -     -    -
-        40,  // EC: LDQ       ix     7+    2+   1:2:Y:R:r:r:r:N
-        41,  // ED: STQ       ix     7+    2+   1:2:Y:W:w:w:w:N
-        33,  // EE: LDS       ix     5+    2+   1:2:Y:R:r:N
-        34,  // EF: STS       ix     5+    2+   1:2:Y:W:w:N
+        85,  // EC: LDQ       ix     7+    2+   1:2:Y:R:r:r:r:N
+        86,  // ED: STQ       ix     7+    2+   1:2:Y:W:w:w:w:N
+        68,  // EE: LDS       ix     5+    2+   1:2:Y:R:r:N
+        69,  // EF: STS       ix     5+    2+   1:2:Y:W:w:N
         0,   // F0: -         -      -     -    -
         0,   // F1: -         -      -     -    -
         0,   // F2: -         -      -     -    -
@@ -889,10 +889,10 @@ constexpr uint8_t P10_TABLE[] = {
         0,   // F9: -         -      -     -    -
         0,   // FA: -         -      -     -    -
         0,   // FB: -         -      -     -    -
-        42,  // FC: LDQ       a16    8/7   2 1:2:3:x:A:a:a:a:N/1:2:3:A:a:a:a:N
-        43,  // FD: STQ       a16    8/7   2 1:2:3:x:B:b:b:b:N/1:2:3:B:b:b:b:N
-        36,  // FE: LDS       a16    6/5   3    1:2:3:x:A:a:N/1:2:3:A:a:N
-        37,  // FF: STS       a16    6/5   3    1:2:3:x:B:b:N/1:2:3:B:b:N
+        87,  // FC: LDQ       a16    8/7   2 1:2:3:x:A:a:a:a:N/1:2:3:A:a:a:a:N
+        88,  // FD: STQ       a16    8/7   2 1:2:3:x:B:b:b:b:N/1:2:3:B:b:b:b:N
+        74,  // FE: LDS       a16    6/5   3    1:2:3:x:A:a:N/1:2:3:A:a:N
+        78,  // FF: STS       a16    6/5   3    1:2:3:x:B:b:N/1:2:3:B:b:N
 };
 
 constexpr uint8_t P11_TABLE[] = {
@@ -944,55 +944,55 @@ constexpr uint8_t P11_TABLE[] = {
         0,   // 2D: -         -      -     -    -
         0,   // 2E: -         -      -     -    -
         0,   // 2F: -         -      -     -    -
-        44,  // 30: BAND      b,d8   6/5   3    1:2:3:x:R:x:N/1:2:3:R:x:N
-        44,  // 31: BIAND     b,d8   6/5   3    1:2:3:x:R:x:N/1:2:3:R:x:N
-        44,  // 32: BOR       b,d8   6/5   3    1:2:3:x:R:x:N/1:2:3:R:x:N
-        44,  // 33: BIOR      b,d8   6/5   3    1:2:3:x:R:x:N/1:2:3:R:x:N
-        44,  // 34: BEOR      b,d8   6/5   3    1:2:3:x:R:x:N/1:2:3:R:x:N
-        44,  // 35: BIEOR     b,d8   6/5   3    1:2:3:x:R:x:N/1:2:3:R:x:N
-        44,  // 36: LDBT      b,d8   6/5   3    1:2:3:x:R:x:N/1:2:3:R:x:N
-        45,  // 37: STBT      b,d8   7/6   3    1:2:3:x:R:x:W:N/1:2:3:R:x:W:N
-        46,  // 38: TFM       r+,r+  5+    2    1:2:x:x:x:T:N
-        46,  // 39: TFM       r-,r-  5+    2    1:2:x:x:x:T:N
-        46,  // 3A: TFM       r+,r   5+    2    1:2:x:x:x:T:N
-        46,  // 3B: TFM       r,r-   5+    2    1:2:x:x:x:T:N
-        22,  // 3C: BITMD     #n8    3     2    1:2:x:N
-        47,  // 3D: LDMD      #n8    4     2    1:2:X:x:N
+        89,  // 30: BAND      b,d8   6/5   3    1:2:3:x:R:x:N/1:2:3:R:x:N
+        89,  // 31: BIAND     b,d8   6/5   3    1:2:3:x:R:x:N/1:2:3:R:x:N
+        89,  // 32: BOR       b,d8   6/5   3    1:2:3:x:R:x:N/1:2:3:R:x:N
+        89,  // 33: BIOR      b,d8   6/5   3    1:2:3:x:R:x:N/1:2:3:R:x:N
+        89,  // 34: BEOR      b,d8   6/5   3    1:2:3:x:R:x:N/1:2:3:R:x:N
+        89,  // 35: BIEOR     b,d8   6/5   3    1:2:3:x:R:x:N/1:2:3:R:x:N
+        89,  // 36: LDBT      b,d8   6/5   3    1:2:3:x:R:x:N/1:2:3:R:x:N
+        90,  // 37: STBT      b,d8   7/6   3    1:2:3:x:R:x:W:N/1:2:3:R:x:W:N
+        91,  // 38: TFM       r+,r+  5+    2    1:2:x:x:x:T:N
+        91,  // 39: TFM       r-,r-  5+    2    1:2:x:x:x:T:N
+        91,  // 3A: TFM       r+,r   5+    2    1:2:x:x:x:T:N
+        91,  // 3B: TFM       r,r-   5+    2    1:2:x:x:x:T:N
+        34,  // 3C: BITMD     #n8    3     2    1:2:x:N
+        92,  // 3D: LDMD      #n8    4     2    1:2:X:x:N
         0,   // 3E: -         -      -     -    -
-        25,  // 3F: SWI3      -     19/21  1
+        43,  // 3F: SWI3      -     19/21  1
              // 1:N:x:w:W:W:W:W:W:W:W:W:W:W:W:x:V:v:x:J/1:N:x:w:W:W:W:W:W:W:W:W:W:W:W:W:W:X:V:v:x:J
         0,   // 40: -         -      -     -    -
         0,   // 41: -         -      -     -    -
         0,   // 42: -         -      -     -    -
-        26,  // 43: COME      -      2/1   1    1:N:N/1:N
+        25,  // 43: COME      -      2/1   1    1:N:N/1:N
         0,   // 44: -         -      -     -    -
         0,   // 45: -         -      -     -    -
         0,   // 46: -         -      -     -    -
         0,   // 47: -         -      -     -    -
         0,   // 48: -         -      -     -    -
         0,   // 49: -         -      -     -    -
-        26,  // 4A: DECE      -      2/1   1    1:N:N/1:N
+        25,  // 4A: DECE      -      2/1   1    1:N:N/1:N
         0,   // 4B: -         -      -     -    -
-        26,  // 4C: INCE      -      2/1   1    1:N:N/1:N
-        26,  // 4D: TSTE      -      2/1   1    1:N:N/1:N
+        25,  // 4C: INCE      -      2/1   1    1:N:N/1:N
+        25,  // 4D: TSTE      -      2/1   1    1:N:N/1:N
         0,   // 4E: -         -      -     -    -
-        26,  // 4F: CLRE      -      2/1   1    1:N:N/1:N
+        25,  // 4F: CLRE      -      2/1   1    1:N:N/1:N
         0,   // 50: -         -      -     -    -
         0,   // 51: -         -      -     -    -
         0,   // 52: -         -      -     -    -
-        26,  // 53: COMF      -      2/1   1    1:N:N/1:N
+        25,  // 53: COMF      -      2/1   1    1:N:N/1:N
         0,   // 54: -         -      -     -    -
         0,   // 55: -         -      -     -    -
         0,   // 56: -         -      -     -    -
         0,   // 57: -         -      -     -    -
         0,   // 58: -         -      -     -    -
         0,   // 59: -         -      -     -    -
-        26,  // 5A: DECF      -      2/1   1    1:N:N/1:N
+        25,  // 5A: DECF      -      2/1   1    1:N:N/1:N
         0,   // 5B: -         -      -     -    -
-        26,  // 5C: INCF      -      2/1   1    1:N:N/1:N
-        26,  // 5D: TSTF      -      2/1   1    1:N:N/1:N
+        25,  // 5C: INCF      -      2/1   1    1:N:N/1:N
+        25,  // 5D: TSTF      -      2/1   1    1:N:N/1:N
         0,   // 5E: -         -      -     -    -
-        26,  // 5F: CLRF      -      2/1   1    1:N:N/1:N
+        25,  // 5F: CLRF      -      2/1   1    1:N:N/1:N
         0,   // 60: -         -      -     -    -
         0,   // 61: -         -      -     -    -
         0,   // 62: -         -      -     -    -
@@ -1025,134 +1025,134 @@ constexpr uint8_t P11_TABLE[] = {
         0,   // 7D: -         -      -     -    -
         0,   // 7E: -         -      -     -    -
         0,   // 7F: -         -      -     -    -
-        48,  // 80: SUBE      #n8    2     2    1:2:N
-        48,  // 81: CMPE      #n8    2     2    1:2:N
+        54,  // 80: SUBE      #n8    2     2    1:2:N
+        54,  // 81: CMPE      #n8    2     2    1:2:N
         0,   // 82: -         -      -     -    -
-        27,  // 83: CMPU      #n16   4/3   3    1:2:3:x:N/1:2:3:N
+        55,  // 83: CMPU      #n16   4/3   3    1:2:3:x:N/1:2:3:N
         0,   // 84: -         -      -     -    -
         0,   // 85: -         -      -     -    -
-        48,  // 86: LDE       #n8    2     2    1:2:N
+        54,  // 86: LDE       #n8    2     2    1:2:N
         0,   // 87: -         -      -     -    -
         0,   // 88: -         -      -     -    -
         0,   // 89: -         -      -     -    -
         0,   // 8A: -         -      -     -    -
-        48,  // 8B: ADDE      #n8    2     2    1:2:N
-        27,  // 8C: CMPS      #n16   4/3   3    1:2:3:x:N/1:2:3:N
-        49,  // 8D: DIVD      #n8   24     2    1:2:N:Z:N
-        50,  // 8E: DIVQ      #n16  33     3    1:2:3:N:Z:N
-        50,  // 8F: MULD      #n18  27     2    1:2:3:N:Z:N
-        51,  // 90: SUBE      d8     4/3   2    1:2:x:R:N/1:2:R:N
-        51,  // 91: CMPE      d8     4/3   2    1:2:x:R:N/1:2:R:N
+        54,  // 8B: ADDE      #n8    2     2    1:2:N
+        55,  // 8C: CMPS      #n16   4/3   3    1:2:3:x:N/1:2:3:N
+        93,  // 8D: DIVD      #n8   24     2    1:2:N:Z:N
+        94,  // 8E: DIVQ      #n16  33     3    1:2:3:N:Z:N
+        94,  // 8F: MULD      #n18  27     2    1:2:3:N:Z:N
+        58,  // 90: SUBE      d8     4/3   2    1:2:x:R:N/1:2:R:N
+        58,  // 91: CMPE      d8     4/3   2    1:2:x:R:N/1:2:R:N
         0,   // 92: -         -      -     -    -
-        29,  // 93: CMPU      d8     6/4   2    1:2:x:R:r:x:N/1:2:R:r:N
+        59,  // 93: CMPU      d8     6/4   2    1:2:x:R:r:x:N/1:2:R:r:N
         0,   // 94: -         -      -     -    -
         0,   // 95: -         -      -     -    -
-        51,  // 96: LDE       d8     4/3   2    1:2:x:R:N/1:2:R:N
-        52,  // 97: STE       d8     4/3   2    1:2:x:W:N/1:2:W:N
+        58,  // 96: LDE       d8     4/3   2    1:2:x:R:N/1:2:R:N
+        60,  // 97: STE       d8     4/3   2    1:2:x:W:N/1:2:W:N
         0,   // 98: -         -      -     -    -
         0,   // 99: -         -      -     -    -
         0,   // 9A: -         -      -     -    -
-        51,  // 9B: ADDE      d8     4/3   2    1:2:x:R:N/1:2:R:N
-        29,  // 9C: CMPS      d8     6/4   2    1:2:x:R:r:x:N/1:2:R:r:N
-        53,  // 9D: DIVD      d8    26/25  2    1:2:x:R:Z:N
-        54,  // 9E: DIVQ      d8    35/34  2    1:2:x:R:r:Z:N
-        54,  // 9F: MULD      d8    29/28  2    1:2:x:R:r:Z:N
-        55,  // A0: SUBE      ix     4+    2+   1:2:Y:R:N
-        55,  // A1: CMPE      ix     4+    2+   1:2:Y:R:N
+        58,  // 9B: ADDE      d8     4/3   2    1:2:x:R:N/1:2:R:N
+        59,  // 9C: CMPS      d8     6/4   2    1:2:x:R:r:x:N/1:2:R:r:N
+        95,  // 9D: DIVD      d8    26/25  2    1:2:x:R:Z:N
+        96,  // 9E: DIVQ      d8    35/34  2    1:2:x:R:r:Z:N
+        96,  // 9F: MULD      d8    29/28  2    1:2:x:R:r:Z:N
+        64,  // A0: SUBE      ix     4+    2+   1:2:Y:R:N
+        64,  // A1: CMPE      ix     4+    2+   1:2:Y:R:N
         0,   // A2: -         -      -     -    -
-        32,  // A3: CMPU      ix     6+/5+ 2+   1:2:Y:R:r:x:N/1:2:Y:R:r:N
+        65,  // A3: CMPU      ix     6+/5+ 2+   1:2:Y:R:r:x:N/1:2:Y:R:r:N
         0,   // A4: -         -      -     -    -
         0,   // A5: -         -      -     -    -
-        55,  // A6: LDE       ix     4+    2+   1:2:Y:R:N
-        56,  // A7: STE       ix     4+    2+   1:2:Y:W:N
+        64,  // A6: LDE       ix     4+    2+   1:2:Y:R:N
+        66,  // A7: STE       ix     4+    2+   1:2:Y:W:N
         0,   // A8: -         -      -     -    -
         0,   // A9: -         -      -     -    -
         0,   // AA: -         -      -     -    -
-        55,  // AB: ADDE      ix     4+    2+   1:2:Y:R:N
-        32,  // AC: CMPS      ix     6+/5+ 2+   1:2:Y:R:r:x:N/1:2:Y:R:r:N
-        57,  // AD: DIVD      ix    26+    2+   1:2:Y:R:Z:N
-        58,  // AE: DIVQ      ix    35+    2+   1:2:Y:R:r:Z:N
-        58,  // AF: MULD      ix    29+    2+   1:2:Y:R:r:Z:N
-        59,  // B0: SUBE      a16    5/4   3    1:2:3:x:A:N/1:2:3:A:N
-        59,  // B1: CMPE      a16    5/4   3    1:2:3:x:A:N/1:2:3:A:N
+        64,  // AB: ADDE      ix     4+    2+   1:2:Y:R:N
+        65,  // AC: CMPS      ix     6+/5+ 2+   1:2:Y:R:r:x:N/1:2:Y:R:r:N
+        97,  // AD: DIVD      ix    26+    2+   1:2:Y:R:Z:N
+        98,  // AE: DIVQ      ix    35+    2+   1:2:Y:R:r:Z:N
+        98,  // AF: MULD      ix    29+    2+   1:2:Y:R:r:Z:N
+        70,  // B0: SUBE      a16    5/4   3    1:2:3:x:A:N/1:2:3:A:N
+        70,  // B1: CMPE      a16    5/4   3    1:2:3:x:A:N/1:2:3:A:N
         0,   // B2: -         -      -     -    -
-        35,  // B3: CMPU      a16    7/5   3    1:2:3:x:A:a:x:N/1:2:3:A:a:N
+        71,  // B3: CMPU      a16    7/5   3    1:2:3:x:A:a:x:N/1:2:3:A:a:N
         0,   // B4: -         -      -     -    -
         0,   // B5: -         -      -     -    -
-        59,  // B6: LDE       a16    5/4   3    1:2:3:x:A:N/1:2:3:A:N
-        60,  // B7: STE       a16    5/4   3    1:2:3:x:B:N/1:2:3:B:N
+        70,  // B6: LDE       a16    5/4   3    1:2:3:x:A:N/1:2:3:A:N
+        77,  // B7: STE       a16    5/4   3    1:2:3:x:B:N/1:2:3:B:N
         0,   // B8: -         -      -     -    -
         0,   // B9: -         -      -     -    -
         0,   // BA: -         -      -     -    -
-        59,  // BB: ADDE      a16    5/4   3    1:2:3:x:A:N/1:2:3:A:N
-        35,  // BC: CMPS      a16    7/5   3    1:2:3:x:A:a:x:N/1:2:3:A:a:N
-        61,  // BD: DIVD      a16   27/26  3    1:2:3:x:R:Z:N
-        62,  // BE: DIVQ      a16   36/35  3    1:2:3:x:R:r:Z:N
-        62,  // BF: MULD      a16   30/29  3    1:2:3:x:R:r:Z:N
-        48,  // C0: SUBF      #n8    2     2    1:2:N
-        48,  // C1: CMPF      #n8    2     2    1:2:N
-        0,   // C2: -         -      -     -    -
-        0,   // C3: -         -      -     -    -
-        0,   // C4: -         -      -     -    -
-        0,   // C5: -         -      -     -    -
-        48,  // C6: LDF       #n8    2     2    1:2:N
-        0,   // C7: -         -      -     -    -
-        0,   // C8: -         -      -     -    -
-        0,   // C9: -         -      -     -    -
-        0,   // CA: -         -      -     -    -
-        48,  // CB: ADDF      #n8    2     2    1:2:N
-        0,   // CC: -         -      -     -    -
-        0,   // CD: -         -      -     -    -
-        0,   // CE: -         -      -     -    -
-        0,   // CF: -         -      -     -    -
-        51,  // D0: SUBF      d8     4/3   2    1:2:x:R:N/1:2:R:N
-        51,  // D1: CMPF      d8     4/3   2    1:2:x:R:N/1:2:R:N
-        0,   // D2: -         -      -     -    -
-        0,   // D3: -         -      -     -    -
-        0,   // D4: -         -      -     -    -
-        0,   // D5: -         -      -     -    -
-        51,  // D6: LDF       d8     4/3   2    1:2:x:R:N/1:2:R:N
-        52,  // D7: STF       d8     4/3   2    1:2:x:W:N/1:2:W:N
-        0,   // D8: -         -      -     -    -
-        0,   // D9: -         -      -     -    -
-        0,   // DA: -         -      -     -    -
-        51,  // DB: ADDF      d8     4/3   2    1:2:x:R:N/1:2:R:N
-        0,   // DC: -         -      -     -    -
-        0,   // DD: -         -      -     -    -
-        0,   // DE: -         -      -     -    -
-        0,   // DF: -         -      -     -    -
-        55,  // E0: SUBF      ix     4+    2+   1:2:Y:R:N
-        55,  // E1: CMPF      ix     4+    2+   1:2:Y:R:N
-        0,   // E2: -         -      -     -    -
-        0,   // E3: -         -      -     -    -
-        0,   // E4: -         -      -     -    -
-        0,   // E5: -         -      -     -    -
-        55,  // E6: LDF       ix     4+    2+   1:2:Y:R:N
-        56,  // E7: STF       ix     4+    2+   1:2:Y:W:N
-        0,   // E8: -         -      -     -    -
-        0,   // E9: -         -      -     -    -
-        0,   // EA: -         -      -     -    -
-        55,  // EB: ADDF      ix     4+    2+   1:2:Y:R:N
-        0,   // EC: -         -      -     -    -
-        0,   // ED: -         -      -     -    -
-        0,   // EE: -         -      -     -    -
-        0,   // EF: -         -      -     -    -
-        59,  // F0: SUBF      a16    5/4   3    1:2:3:x:A:N/1:2:3:A:N
-        59,  // F1: CMPF      a16    5/4   3    1:2:3:x:A:N/1:2:3:A:N
-        0,   // F2: -         -      -     -    -
-        0,   // F3: -         -      -     -    -
-        0,   // F4: -         -      -     -    -
-        0,   // F5: -         -      -     -    -
-        59,  // F6: LDF       a16    5/4   3    1:2:3:x:A:N/1:2:3:A:N
-        60,  // F7: STF       a16    5/4   3    1:2:3:x:B:N/1:2:3:B:N
-        0,   // F8: -         -      -     -    -
-        0,   // F9: -         -      -     -    -
-        0,   // FA: -         -      -     -    -
-        59,  // FB: ADDF      a16    5/4   3    1:2:3:x:A:N/1:2:3:A:N
-        0,   // FC: -         -      -     -    -
-        0,   // FD: -         -      -     -    -
-        0,   // FE: -         -      -     -    -
-        0,   // FF: -         -      -     -    -
+        70,  // BB: ADDE      a16    5/4   3    1:2:3:x:A:N/1:2:3:A:N
+        71,  // BC: CMPS      a16    7/5   3    1:2:3:x:A:a:x:N/1:2:3:A:a:N
+        99,  // BD: DIVD      a16   27/26  3    1:2:3:x:R:Z:N
+        100,  // BE: DIVQ      a16   36/35  3    1:2:3:x:R:r:Z:N
+        100,  // BF: MULD      a16   30/29  3    1:2:3:x:R:r:Z:N
+        54,   // C0: SUBF      #n8    2     2    1:2:N
+        54,   // C1: CMPF      #n8    2     2    1:2:N
+        0,    // C2: -         -      -     -    -
+        0,    // C3: -         -      -     -    -
+        0,    // C4: -         -      -     -    -
+        0,    // C5: -         -      -     -    -
+        54,   // C6: LDF       #n8    2     2    1:2:N
+        0,    // C7: -         -      -     -    -
+        0,    // C8: -         -      -     -    -
+        0,    // C9: -         -      -     -    -
+        0,    // CA: -         -      -     -    -
+        54,   // CB: ADDF      #n8    2     2    1:2:N
+        0,    // CC: -         -      -     -    -
+        0,    // CD: -         -      -     -    -
+        0,    // CE: -         -      -     -    -
+        0,    // CF: -         -      -     -    -
+        58,   // D0: SUBF      d8     4/3   2    1:2:x:R:N/1:2:R:N
+        58,   // D1: CMPF      d8     4/3   2    1:2:x:R:N/1:2:R:N
+        0,    // D2: -         -      -     -    -
+        0,    // D3: -         -      -     -    -
+        0,    // D4: -         -      -     -    -
+        0,    // D5: -         -      -     -    -
+        58,   // D6: LDF       d8     4/3   2    1:2:x:R:N/1:2:R:N
+        60,   // D7: STF       d8     4/3   2    1:2:x:W:N/1:2:W:N
+        0,    // D8: -         -      -     -    -
+        0,    // D9: -         -      -     -    -
+        0,    // DA: -         -      -     -    -
+        58,   // DB: ADDF      d8     4/3   2    1:2:x:R:N/1:2:R:N
+        0,    // DC: -         -      -     -    -
+        0,    // DD: -         -      -     -    -
+        0,    // DE: -         -      -     -    -
+        0,    // DF: -         -      -     -    -
+        64,   // E0: SUBF      ix     4+    2+   1:2:Y:R:N
+        64,   // E1: CMPF      ix     4+    2+   1:2:Y:R:N
+        0,    // E2: -         -      -     -    -
+        0,    // E3: -         -      -     -    -
+        0,    // E4: -         -      -     -    -
+        0,    // E5: -         -      -     -    -
+        64,   // E6: LDF       ix     4+    2+   1:2:Y:R:N
+        66,   // E7: STF       ix     4+    2+   1:2:Y:W:N
+        0,    // E8: -         -      -     -    -
+        0,    // E9: -         -      -     -    -
+        0,    // EA: -         -      -     -    -
+        64,   // EB: ADDF      ix     4+    2+   1:2:Y:R:N
+        0,    // EC: -         -      -     -    -
+        0,    // ED: -         -      -     -    -
+        0,    // EE: -         -      -     -    -
+        0,    // EF: -         -      -     -    -
+        70,   // F0: SUBF      a16    5/4   3    1:2:3:x:A:N/1:2:3:A:N
+        70,   // F1: CMPF      a16    5/4   3    1:2:3:x:A:N/1:2:3:A:N
+        0,    // F2: -         -      -     -    -
+        0,    // F3: -         -      -     -    -
+        0,    // F4: -         -      -     -    -
+        0,    // F5: -         -      -     -    -
+        70,   // F6: LDF       a16    5/4   3    1:2:3:x:A:N/1:2:3:A:N
+        77,   // F7: STF       a16    5/4   3    1:2:3:x:B:N/1:2:3:B:N
+        0,    // F8: -         -      -     -    -
+        0,    // F9: -         -      -     -    -
+        0,    // FA: -         -      -     -    -
+        70,   // FB: ADDF      a16    5/4   3    1:2:3:x:A:N/1:2:3:A:N
+        0,    // FC: -         -      -     -    -
+        0,    // FD: -         -      -     -    -
+        0,    // FE: -         -      -     -    -
+        0,    // FF: -         -      -     -    -
 };
 }  // namespace
 
