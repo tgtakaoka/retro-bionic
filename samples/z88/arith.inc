@@ -3,280 +3,280 @@
         option  optimize-index, on
 
 ;;; Print unsigned 16-bit integer as decimal
-;;; @param rr0: value
-;;; @clobber rr0
+;;; @param RR0: value
+;;; @clobber RR0
 print_uint16:
-        incw    rr0
-        decw    rr0
+        incw    RR0
+        decw    RR0
         jr      nz, print_uint16_inner
-        ld      r0, #'0'
+        ld      R0, #'0'
         call    putchar
 print_uint16_end:
         ret
 print_uint16_inner:
-        incw    rr0
-        decw    rr0
+        incw    RR0
+        decw    RR0
         jr      z, print_uint16_end
-        ldw     rr14, rr0
-        ldw     rr12, #10
+        ldw     RR14, RR0
+        ldw     RR12, #10
         call    udiv16
-        push    r15
-        ldw     rr0, rr12
+        push    R15
+        ldw     RR0, RR12
         call    print_uint16_inner
-        pop     r0
-        add     r0, #'0'
+        pop     R0
+        add     R0, #'0'
         jp      putchar
 
 ;;; Print signed 16-bit integer as decimal
-;;; @param rr0: value
-;;; @clobber rr0
+;;; @param RR0: value
+;;; @clobber RR0
 print_int16:
-        btjrf   print_uint16, r0, #7
-        push    r0
-        ld      r0, #'-'
+        btjrf   print_uint16, R0, #7
+        push    R0
+        ld      R0, #'-'
         call    putchar
-        pop     r0
-        com     r1
-        com     r0
-        incw    rr0
+        pop     R0
+        com     R1
+        com     R0
+        incw    RR0
         jp      print_uint16
 
 ;;; Negation; result = -value
-;;; @param @r4: result
-;;; @param @r5: value
-;;; @clobber r14, r15
+;;; @param @R4: result
+;;; @param @R5: value
+;;; @clobber R14, R15
 negsi2:
-        ldw     rr14, @r5
-        com     r14
-        com     r15
-        incw    rr14
-        ld      0(r4), r14
-        ld      1(r4), r15
+        ldw     RR14, @R5
+        com     R14
+        com     R15
+        incw    RR14
+        ld      0(R4), R14
+        ld      1(R4), R15
         ret
 
 ;;; Signed addition: summand += addend
-;;; @param @r4: summand
-;;; @param @r5: addend
-;;; @clobber r14, r15
+;;; @param @R4: summand
+;;; @param @R5: addend
+;;; @clobber R14, R15
 addsi2:
-        ldw     rr14, @r4
-        inc     r5
-        add     r15, @r5
-        dec     r5
-        adc     r14, @r5
-        ld      0(r4), r14
-        ld      1(r4), r15
+        ldw     RR14, @R4
+        inc     R5
+        add     R15, @R5
+        dec     R5
+        adc     R14, @R5
+        ld      0(R4), R14
+        ld      1(R4), R15
         ret
 
 ;;; Singed subtraction: minuend -= subtrahend
-;;; @param @r4: minuend
-;;; @param @r5: subtrahend
-;;; @clobber r14, r15
+;;; @param @R4: minuend
+;;; @param @R5: subtrahend
+;;; @clobber R14, R15
 subsi2:
-        ldw     rr14, @r4
-        inc     r5
-        sub     r15, @r5
-        dec     r5
-        sbc     r14, @r5
-        ld      0(r4), r14
-        ld      1(r4), r15
+        ldw     RR14, @R4
+        inc     R5
+        sub     R15, @R5
+        dec     R5
+        sbc     R14, @R5
+        ld      0(R4), R14
+        ld      1(R4), R15
         ret
 
 ;;; Signed comparison: minuend - subtrahend
-;;; @param @r4: minuend
-;;; @param @r5: subtrahend
-;;; @clobber r14, r15
+;;; @param @R4: minuend
+;;; @param @R5: subtrahend
+;;; @clobber R14, R15
 cmpsi2:
-        ldw     rr14, @r4
-        inc     r5
-        sub     r15, @r5
-        dec     r5
-        sbc     r14, @r5        ; rr14=@r4-@r5
+        ldw     RR14, @R4
+        inc     R5
+        sub     R15, @R5
+        dec     R5
+        sbc     R14, @R5        ; RR14=@R4-@R5
         call    addsub_flags    ; set C,Z,S,V
         ret
 
 ;;; Set add/sub flags
-;;; @param @r4: operand 1
-;;; @param @r5: operand 2
-;;; @param rr14: result
+;;; @param @R4: operand 1
+;;; @param @R5: operand 2
+;;; @param RR14: result
 ;;; @param FLAGS
 ;;; @return FLAGS: C, Z, S, V
 addsub_flags:
-        push    r15
-        push    r14
-        push    r13
-        ld      r13, FLAGS
-        or      r13, #F_ZERO LOR F_OVERFLOW ; set Z, V
-        or      r15, r14
+        push    R15
+        push    R14
+        push    R13
+        ld      R13, FLAGS
+        or      R13, #F_ZERO LOR F_OVERFLOW ; set Z, V
+        or      R15, R14
         jr      z, addsub_flags_z
-        xor     r13, #F_ZERO    ; clear Z
+        xor     R13, #F_ZERO    ; clear Z
 addsub_flags_z:
-        xor     r14, @r4
-        xor     r14, @r5        ; r14:7 carry into S
+        xor     R14, @R4
+        xor     R14, @R5        ; R14:7 carry into S
         jr      nc, addsub_flags_nc
-        xor     r14, #%80       ; r14:7=C^(carry into S)
+        xor     R14, #%80       ; R14:7=C^(carry into S)
 addsub_flags_nc:
         jr      mi, addsub_flags_v
-        xor     r13, #F_OVERFLOW ; clear V
+        xor     R13, #F_OVERFLOW ; clear V
 addsub_flags_v:
-        ld      FLAGS, r13
-        pop     r13
-        pop     r14
-        pop     r15
+        ld      FLAGS, R13
+        pop     R13
+        pop     R14
+        pop     R15
         ret
 
 ;;; Unsigned multiplication: product = multiplicand * multiplier
-;;; @param rr14: multiplicand
-;;; @param rr12: multiplier
-;;; @return rr14: product
-;;; @clobber rr10
+;;; @param RR14: multiplicand
+;;; @param RR12: multiplier
+;;; @return RR14: product
+;;; @clobber RR10
 umul16:
-        ldw     rr10, rr14   ; rr10=multiplicand
-        mult    rr14, r13    ; rr14=high(multiplicand)*low(multiplier)
-        push    r15          ; save a part 1 of high(product)
-        ld      r14, r11
-        mult    rr14, r12    ; rr14=low(multiplicand)*high(multiplier)
-        push    r15          ; save a part 2 of high(product)
-        ld      r14, r11
-        mult    rr14, r13     ; rr14=low(multiplicand)*low(multiplier)
-        pop     r10
-        add     r14, r10        ; add a part 1 of high(product)
-        pop     r10
-        add     r14, r10        ; add a part 2 of high(product)
+        ldw     RR10, RR14   ; RR10=multiplicand
+        mult    RR14, R13    ; RR14=high(multiplicand)*low(multiplier)
+        push    R15          ; save a part 1 of high(product)
+        ld      R14, R11
+        mult    RR14, R12    ; RR14=low(multiplicand)*high(multiplier)
+        push    R15          ; save a part 2 of high(product)
+        ld      R14, R11
+        mult    RR14, R13     ; RR14=low(multiplicand)*low(multiplier)
+        pop     R10
+        add     R14, R10        ; add a part 1 of high(product)
+        pop     R10
+        add     R14, R10        ; add a part 2 of high(product)
         ret
 
 ;;; Signed multiplication: multiplicand *= multiplier
-;;; @param @r4: multiplicand
-;;; @param @r5: multiplier
-;;; @clobber r10-r15
+;;; @param @R4: multiplicand
+;;; @param @R5: multiplier
+;;; @clobber R10-R15
 mulsi2:
-        ldw     rr14, @r4
-        ldw     rr12, @r5
-        btjrf   mulsi2_abs_muliplicand, r12, #7
-        com     r12
-        com     r13
-        incw    rr12            ; multiplicand = -multiplicand
+        ldw     RR14, @R4
+        ldw     RR12, @R5
+        btjrf   mulsi2_abs_muliplicand, R12, #7
+        com     R12
+        com     R13
+        incw    RR12            ; multiplicand = -multiplicand
 mulsi2_abs_muliplicand:
-        btjrf   mulsi2_multiply, r14, #7
-        com     r14
-        com     r15
-        incw    rr14            ; multiplier = -multiplier
+        btjrf   mulsi2_multiply, R14, #7
+        com     R14
+        com     R15
+        incw    RR14            ; multiplier = -multiplier
 mulsi2_multiply:
         call    umul16          ; result = multiplicand * multiplier
-        ld      r12, @r4
-        xor     r12, @r5        ; r12=sign(@r4)^sign(@r5)
-        btjrf   mulsi2_end, r12, #7
-        com     r14
-        com     r15
-        incw    rr14            ; result = -result
+        ld      R12, @R4
+        xor     R12, @R5        ; R12=sign(@R4)^sign(@R5)
+        btjrf   mulsi2_end, R12, #7
+        com     R14
+        com     R15
+        incw    RR14            ; result = -result
 mulsi2_end:
-        ld      0(r4), r14
-        ld      1(r4), r15
+        ld      0(R4), R14
+        ld      1(R4), R15
         ret
 
 ;;; Unsigned division: dividend / divisor = quotient ... reminder
-;;; @praram rr14: dividend
-;;; @praram rr12: divisor
-;;; @return rr14: reminder
-;;; @return rr12: quotient
-;;; @clobber r10-r15
+;;; @praram RR14: dividend
+;;; @praram RR12: divisor
+;;; @return RR14: reminder
+;;; @return RR12: quotient
+;;; @clobber R10-R15
 udiv16:
-        incw    rr12
-        decw    rr12
+        incw    RR12
+        decw    RR12
         jp      z, udiv16_end   ; divide by zero erro
-        inc     r12
-        dec     r12
+        inc     R12
+        dec     R12
         jr      nz, udiv16_16   ; branch if high(divisor)!=0
-        ldw     rr10, rr14
-        div     rr10, r13       ; calculate rr14/r13
+        ldw     RR10, RR14
+        div     RR10, R13       ; calculate RR14/R13
         jr      ov, udiv16_8    ; branch if quotient is overflowed
-        ld      r12, #0         ; r10=reminder, r11=quotient
-        ld      r13, r11
-        ld      r14, r12
-        ld      r15, r10
+        ld      R12, #0         ; R10=reminder, R11=quotient
+        ld      R13, R11
+        ld      R14, R12
+        ld      R15, R10
         ret
 udiv16_8:
-        push    r9              ; save r9
-        ld      r9, r13         ; r9=divisor
-        push    r15             ; save low(dividend)
-        ld      r11, r14        ; high(dividend)
-        ld      r10, #0
-        div     rr10, r9
-        ld      r12, r11        ; high(quotient)=high(dividend)/divisor
-        ld      r14, r10        ; high(reminder)=high(dividend)%divisor
-        pop     r11             ; low(dividend)
-        ld      r10, #0
-        div     rr10, r9
-        ld      r13, r11        ; low(quotient)=low(dividend)/divisor
-        ld      r15, r10        ; low(reminder)=low(dividend)%divisor
-        div     rr14, r9        ; r14=reminder, r15=quotient
-        add     r13, r15        ; adjust quotient
-        adc     r12, #0
-        ld      r15, r14        ; reminder
-        ld      r14, r12
-        pop     r9
+        push    R9              ; save R9
+        ld      R9, R13         ; R9=divisor
+        push    R15             ; save low(dividend)
+        ld      R11, R14        ; high(dividend)
+        ld      R10, #0
+        div     RR10, R9
+        ld      R12, R11        ; high(quotient)=high(dividend)/divisor
+        ld      R14, R10        ; high(reminder)=high(dividend)%divisor
+        pop     R11             ; low(dividend)
+        ld      R10, #0
+        div     RR10, R9
+        ld      R13, R11        ; low(quotient)=low(dividend)/divisor
+        ld      R15, R10        ; low(reminder)=low(dividend)%divisor
+        div     RR14, R9        ; R14=reminder, R15=quotient
+        add     R13, R15        ; adjust quotient
+        adc     R12, #0
+        ld      R15, R14        ; reminder
+        ld      R14, R12
+        pop     R9
         ret
 udiv16_16:
-        push    r9
-        ld      r9, #1          ; r9=bits
+        push    R9
+        ld      R9, #1          ; R9=bits
         jp      udiv16_prep
 udiv16_prep_loop:
         rcf                     ; divisor <<= 1
-        rlc     r13
-        rlc     r12
-        inc     r9
+        rlc     R13
+        rlc     R12
+        inc     R9
 udiv16_prep:                    ; while msb(divisor) == 0
-        btjrf   udiv16_prep_loop, r12, #7
-        ldw     rr10, #0        ; rr10=quotient
+        btjrf   udiv16_prep_loop, R12, #7
+        ldw     RR10, #0        ; RR10=quotient
         jp      udiv16_enter_loop
 udiv16_loop:
         rcf                     ; divisor >>= 1
-        rrc     r12
-        rrc     r13
+        rrc     R12
+        rrc     R13
         rcf                     ; quotient <<= 1
-        rlc     r11
-        rlc     r10
+        rlc     R11
+        rlc     R10
 udiv16_enter_loop:
-        sub     r15, r13        ; dividend -= divisor
-        sbc     r14, r12
+        sub     R15, R13        ; dividend -= divisor
+        sbc     R14, R12
         jp      c, udiv16_readd ; if dividend < 0
-        inc     r11             ; quotient |= 1
+        inc     R11             ; quotient |= 1
         jp      udiv16_next
 udiv16_readd:
-        add     r15, r13        ; dividend += divisor
-        adc     r14, r12        ; FLAG.D is always cleared
+        add     R15, R13        ; dividend += divisor
+        adc     R14, R12        ; FLAG.D is always cleared
 udiv16_next:
-        djnz    r9, udiv16_loop ; rr14=reminder
-        ldw     rr12, rr10      ; rr12=quotient
-        pop     r9
+        djnz    R9, udiv16_loop ; RR14=reminder
+        ldw     RR12, RR10      ; RR12=quotient
+        pop     R9
 udiv16_end:
         ret
 
 ;;; Signed division: dividend *= divisor
-;;; @param @r4: dividend
-;;; @param @r5: divisor
-;;; @clobber r10-r15
+;;; @param @R4: dividend
+;;; @param @R5: divisor
+;;; @clobber R10-R15
 divsi2:
-        ldw     rr14, @r4
-        ldw     rr12, @r5
-        btjrf   divsi2_abs_dividend, r14, #7
-        com     r14
-        com     r15
-        incw    rr14            ; dividend = -dividend
+        ldw     RR14, @R4
+        ldw     RR12, @R5
+        btjrf   divsi2_abs_dividend, R14, #7
+        com     R14
+        com     R15
+        incw    RR14            ; dividend = -dividend
 divsi2_abs_dividend:
-        btjrf   divsi2_divide, r12, #7
-        com     r12
-        com     r13
-        incw    rr12            ; divisor = -divisor
+        btjrf   divsi2_divide, R12, #7
+        com     R12
+        com     R13
+        incw    RR12            ; divisor = -divisor
 divsi2_divide:
         call    udiv16
-        ld      r14, @r4
-        xor     r14, @r5        ; r14=sign(@r4)^sign(@r5)
-        btjrf   divsi2_end, r14, #7
-        com     r12
-        com     r13
-        incw    rr12            ; dividend = = -dividend
+        ld      R14, @R4
+        xor     R14, @R5        ; R14=sign(@R4)^sign(@R5)
+        btjrf   divsi2_end, R14, #7
+        com     R12
+        com     R13
+        incw    RR12            ; dividend = = -dividend
 divsi2_end:
-        ld      0(r4), r12
-        ld      1(r4), r13
+        ld      0(R4), R12
+        ld      1(R4), R13
         ret

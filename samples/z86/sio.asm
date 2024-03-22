@@ -5,14 +5,13 @@
         include "z8.inc"
 
         org     ORG_RESET
+        setrp   -1
         jp      init_config
 
         org     %1000
 stack:  equ     $
 
 init_config:
-        srp     #%F0
-        setrp   %F0
         ;; Stack is on external memory
         ld      P01M, #P01M_P0ADDR LOR P01M_P1DATA
         ld      SPH, #HIGH stack
@@ -24,7 +23,7 @@ init_config:
 ;;; p=1 for PRE0, t=12 for T0
 ;;; bit rate = 14754600 / (2 x 4 x p x t x 16) = 9600 bps
 init_sio:
-        ld      r0, SIO          ; dummy read
+        ld      R0, SIO          ; dummy read
         or      PORT3, #%80      ; TxD(P37)=High
         ld      P3M, #P3M_SERIAL ; enable SIO I/O
         ld      T0, #12
@@ -41,18 +40,18 @@ init_irq:
 receive_loop:
         tm      IRQ, #IRQ_IRQ3  ; check IRQ3
         jr      z, receive_loop
-        ld      r0, SIO
+        ld      R0, SIO
         and     IRQ, #LNOT IRQ_IRQ3 ; clear IRQ3
-        or      r0, r0
+        or      R0, R0
         jr      nz, transmit_loop
         halt
 transmit_loop:
         tm      IRQ, #IRQ_IRQ4  ; check IRQ4
         jr      z, transmit_loop
 transmit_data:
-        ld      SIO, r0
+        ld      SIO, R0
         and     IRQ, #LNOT IRQ_IRQ4 ; clear IRQ4
-        cp      r0, #%0D
+        cp      R0, #%0D
         jr      nz, receive_loop
-        ld      r0, #%0A
+        ld      R0, #%0A
         jr      transmit_loop

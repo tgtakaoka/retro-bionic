@@ -4,6 +4,8 @@
 namespace debugger {
 namespace z86 {
 
+const InstZ86 Inst;
+
 namespace {
 
 constexpr uint8_t E(
@@ -20,7 +22,7 @@ constexpr uint8_t external_cycles(uint8_t e) {
     return (e >> 4) & 3;
 }
 
-#if Z8_INTERNAL_STACK == 0
+#if EXTERNAL_STACK == 1
 constexpr uint8_t stack_cycles(uint8_t e) {
     return (e >> 6) & 3;
 }
@@ -28,7 +30,7 @@ constexpr uint8_t stack_cycles(uint8_t e) {
 
 static constexpr uint8_t bus_cycles(uint8_t e) {
     return inst_len(e) + external_cycles(e)
-#if Z8_INTERNAL_STACK == 0
+#if EXTERNAL_STACK == 1
            + stack_cycles(e)
 #endif
             ;
@@ -294,13 +296,25 @@ constexpr uint8_t INST_TABLE[] = {
 };
 }  // namespace
 
-uint8_t InstZ86::instLen(uint8_t inst) {
+uint8_t InstZ86::instLen(uint8_t inst) const {
     return inst_len(INST_TABLE[inst]);
 }
 
-uint8_t InstZ86::busCycles(uint8_t inst) {
+uint8_t InstZ86::busCycles(uint8_t inst) const {
     return bus_cycles(INST_TABLE[inst]);
 }
+
+bool InstZ86::writeOnly(uint8_t rp, uint8_t num) {
+    // 00, 01, 02, 03
+    if (rp == 0x00 && num < 4)
+        return true;
+    // F0, F3, F4, F5, F6, F7, F8, F9
+    if (rp == 0xF0) {
+        return (1 << num) & 0x03E9;
+    }
+    return false;
+}
+
 }  // namespace z86
 }  // namespace debugger
 

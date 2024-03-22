@@ -24,17 +24,11 @@ rx_queue:       ds      rx_queue_size
 tx_queue_size:  equ     128
 tx_queue:       ds      tx_queue_size
 
-        org     VEC_IRQ0
-        dw      isr_intr_rx
-
-        org     VEC_IRQ1
-        dw      isr_intr_tx
-
-        org     ORG_RESET
-        jp      init_config
-
 ;;; work area for mandelbrot.inc
         org     %40
+c229:   ds      2
+c416:   ds      2
+c100:   ds      2
 vF:     ds      2
 vC:     ds      2
 vD:     ds      2
@@ -52,9 +46,15 @@ vI:     ds      2
         org     %1000
 stack:  equ     $
 
+        org     VEC_IRQ0
+        dw      isr_intr_rx
+
+        org     VEC_IRQ1
+        dw      isr_intr_tx
+
+        org     ORG_RESET
+        setrp   -1
 init_config:
-        srp     #%F0
-        setrp   %F0
         ;; Stack is on external memory
         ld      P01M, #P01M_P0ADDR LOR P01M_P1DATA
         ld      P2M, #%FF       ; Port 2 is input
@@ -62,100 +62,95 @@ init_config:
         ld      SPL, #LOW stack
         srp     #%10
         setrp   %10
-        ld      r2, #HIGH rx_queue
-        ld      r3, #LOW rx_queue
-        ld      r1, #rx_queue_size
+        ld      R2, #HIGH rx_queue
+        ld      R3, #LOW rx_queue
+        ld      R1, #rx_queue_size
         call    queue_init
-        ld      r2, #HIGH tx_queue
-        ld      r3, #LOW tx_queue
-        ld      r1, #tx_queue_size
+        ld      R2, #HIGH tx_queue
+        ld      R3, #LOW tx_queue
+        ld      R1, #tx_queue_size
         call    queue_init
 
 init_usart:
-        ld      r12, #HIGH USARTC
-        ld      r13, #LOW USARTC
-        clr     r0
-        lde     @rr12, r0
-        lde     @rr12, r0
-        lde     @rr12, r0       ; safest way to sync mode
-        ld      r0, #CMD_IR_bm
-        lde     @rr12, r0       ; reset
+        ld      R12, #HIGH USARTC
+        ld      R13, #LOW USARTC
+        clr     R0
+        lde     @RR12, R0
+        lde     @RR12, R0
+        lde     @RR12, R0       ; safest way to sync mode
+        ld      R0, #CMD_IR_bm
+        lde     @RR12, R0       ; reset
         nop
         nop
-        ld      r0, #ASYNC_MODE
-        lde     @rr12, r0       ; async 1stop 8data x16
+        ld      R0, #ASYNC_MODE
+        lde     @RR12, R0       ; async 1stop 8data x16
         nop
         nop
-        ld      r0, #RX_EN_TX_DIS
-        lde     @rr12, r0       ; RTS/DTR, error reset, Rx enable, Tx disable
-        ld      r0, #INTR_IRQ0
-        ld      r13, #LOW USARTRI
-        lde     @rr12, r0       ; enable RxRDY interrupt using IRQ0
-        ld      r0, #INTR_IRQ1
-        ld      r13, #LOW USARTTI
-        lde     @rr12, r0       ; enable TxRDY interrupt using IRQ1
+        ld      R0, #RX_EN_TX_DIS
+        lde     @RR12, R0       ; RTS/DTR, error reset, Rx enable, Tx disable
+        ld      R0, #INTR_IRQ0
+        ld      R13, #LOW USARTRI
+        lde     @RR12, R0       ; enable RxRDY interrupt using IRQ0
+        ld      R0, #INTR_IRQ1
+        ld      R13, #LOW USARTTI
+        lde     @RR12, R0       ; enable TxRDY interrupt using IRQ1
 
         ld      IPR, #IPR_BCA LOR IPR_B02 LOR IPR_C14 LOR IPR_A35
         ;; enable IRQ0 and IRQ1
         ld      IMR, #IMR_IRQ0 LOR IMR_IRQ1
         ei
 
+loop:
         call    mandelbrot
         call    newline
-        ld      r2, #HIGH tx_queue
-        ld      r3, #LOW tx_queue
-wait:
-        lde     r0, @rr2
-        or      r0, r0
-        jr      nz, wait
-        halt
+        jr      loop
 
 ;;; Get character
-;;; @return r0
+;;; @return R0
 ;;; @return FLAGS.C 0 if no character
 getchar:
-        push    r3
-        push    r2
-        ld      r2, #HIGH rx_queue
-        ld      r3, #LOW rx_queue
+        push    R3
+        push    R2
+        ld      R2, #HIGH rx_queue
+        ld      R3, #LOW rx_queue
         di
         call    queue_remove
         ei
-        pop     r2
-        pop     r3
+        pop     R2
+        pop     R3
         ret
 
 ;;; Put character
-;;; @param r0
+;;; @param R0
 putchar:
-        push    r0
-        push    r2
-        push    r3
-        ld      r2, #HIGH tx_queue
-        ld      r3, #LOW tx_queue
+        push    R0
+        push    R2
+        push    R3
+        ld      R2, #HIGH tx_queue
+        ld      R3, #LOW tx_queue
 putchar_retry:
         di
         call    queue_add
         ei
         jr      nc, putchar_retry ; branch if queue is full
-        ld      r2, #HIGH USARTC
-        ld      r3, #LOW USARTC
-        ld      r0, #RX_EN_TX_EN
-        lde     @rr2, r0        ; enable Tx
+        ld      R2, #HIGH USARTC
+        ld      R3, #LOW USARTC
+        ld      R0, #RX_EN_TX_EN
+        lde     @RR2, R0        ; enable Tx
 putchar_exit:
-        pop     r3
-        pop     r2
-        pop     r0
+        pop     R3
+        pop     R2
+        pop     R0
         ret
 
 newline:
-        ld      r0, #%0D
+        ld      R0, #%0D
         call    putchar
-        ld      r0, #%0A
+        ld      R0, #%0A
         jr      putchar
 
 putspace:
-        ld      r0, #' '
+        ld      R0, #' '
         jr      putchar
 
         include "mandelbrot.inc"
@@ -164,53 +159,53 @@ putspace:
 
         setrp   -1
 isr_intr_rx:
-        push    r0
-        push    r2
-        push    r3
-        ld      r2, #HIGH USARTS
-        ld      r3, #LOW USARTS
-        lde     r0, @rr2        ; USARTS
-        and     r0, #ST_RxRDY_bm
+        push    R0
+        push    R2
+        push    R3
+        ld      R2, #HIGH USARTS
+        ld      R3, #LOW USARTS
+        lde     R0, @RR2        ; USARTS
+        and     R0, #ST_RxRDY_bm
         jr      z, isr_intr_rx_exit
-        ld      r3, #LOW USARTD
-        lde     r0, @rr2        ; USARTD
-        ld      r2, #HIGH rx_queue
-        ld      r3, #LOW rx_queue
+        ld      R3, #LOW USARTD
+        lde     R0, @RR2        ; USARTD
+        ld      R2, #HIGH rx_queue
+        ld      R3, #LOW rx_queue
         call    queue_add
 isr_intr_rx_exit:
-        pop     r3
-        pop     r2
-        pop     r0
+        pop     R3
+        pop     R2
+        pop     R0
         iret
 
 isr_intr_tx:
-        push    r0
-        push    r2
-        push    r3
-        ld      r2, #HIGH USARTS
-        ld      r3, #LOW USARTS
-        lde     r0, @rr2        ; USARTS
-        and     r0, #ST_TxRDY_bm
+        push    R0
+        push    R2
+        push    R3
+        ld      R2, #HIGH USARTS
+        ld      R3, #LOW USARTS
+        lde     R0, @RR2        ; USARTS
+        and     R0, #ST_TxRDY_bm
         jr      z, isr_intr_tx_exit
-        ld      r2, #HIGH tx_queue
-        ld      r3, #LOW tx_queue
+        ld      R2, #HIGH tx_queue
+        ld      R3, #LOW tx_queue
         call    queue_remove
-        ld      r2, #HIGH USARTD
-        ld      r3, #LOW USARTD
+        ld      R2, #HIGH USARTD
+        ld      R3, #LOW USARTD
         jr      nc, isr_intr_send_empty
-        lde     @rr2, r0        ; USARTD
+        lde     @RR2, R0        ; USARTD
 isr_intr_tx_exit:
-        pop     r3
-        pop     r2
-        pop     r0
+        pop     R3
+        pop     R2
+        pop     R0
         iret
 isr_intr_send_empty:
-        ld      r3, #LOW USARTC
-        ld      r0, #RX_EN_TX_DIS
-        lde     @rr2, r0        ; disable Tx
-        pop     r3
-        pop     r2
-        pop     r0
+        ld      R3, #LOW USARTC
+        ld      R0, #RX_EN_TX_DIS
+        lde     @RR2, R0        ; disable Tx
+        pop     R3
+        pop     R2
+        pop     R0
         iret
 
         end

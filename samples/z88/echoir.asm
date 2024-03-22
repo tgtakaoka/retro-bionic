@@ -35,30 +35,30 @@ init_config:
         ld      P0M, #P0M_ADRH     ; Port 0 is address bus high
         ld      PM, #PM_P1BUS | PM_DM ; Port 1 is data bus and address bus low
         ldw     SPH, #stack
-        ldw     rr2, #rx_queue
-        ld      r1, #rx_queue_size
+        ldw     RR2, #rx_queue
+        ld      R1, #rx_queue_size
         call    queue_init
 
 init_usart:
-        ldw     rr12, #USART
-        clr     r0
-        lde     USARTC(rr12), r0
-        lde     USARTC(rr12), r0
-        lde     USARTC(rr12), r0 ; safest way to sync mode
-        ld      r0, #CMD_IR_bm
-        lde     USARTC(rr12), r0 ; reset
+        ldw     RR12, #USART
+        clr     R0
+        lde     USARTC(RR12), R0
+        lde     USARTC(RR12), R0
+        lde     USARTC(RR12), R0 ; safest way to sync mode
+        ld      R0, #CMD_IR_bm
+        lde     USARTC(RR12), R0 ; reset
         nop
         nop
-        ld      r0, #ASYNC_MODE
-        lde     USARTC(rr12), r0 ; async 1stop 8data x16
+        ld      R0, #ASYNC_MODE
+        lde     USARTC(RR12), R0 ; async 1stop 8data x16
         nop
         nop
-        ld      r0, #RX_EN_TX_EN
-        lde     USARTC(rr12), r0 ; RTS/DTR, error reset, Rx enable, Tx enable
-        ld      r0, #INTR_IRQ0
-        lde     USARTRI(rr12), r0 ; enable RxRDY interrupt using IRQ0
-        ld      r0, #INTR_NONE
-        lde     USARTTI(rr12), r0 ; disable TxRDY interrupt
+        ld      R0, #RX_EN_TX_EN
+        lde     USARTC(RR12), R0 ; RTS/DTR, error reset, Rx enable, Tx enable
+        ld      R0, #INTR_IRQ0
+        lde     USARTRI(RR12), R0 ; enable RxRDY interrupt using IRQ0
+        ld      R0, #INTR_NONE
+        lde     USARTTI(RR12), R0 ; disable TxRDY interrupt
 
         ld      P2BM, #P2M_INTR_gm SHL 2 ; P23=input, interrupt enabled
         ld      IPR, #IPR_ABC ; (IRQ0 > IRQ1) > (IRQ2,3,4) > (IRQ5,6,7)
@@ -70,18 +70,18 @@ receive_loop:
         call    queue_remove
         ei                      ; Enable INTR
         jr      nc, receive_loop
-        or      r0,r0
+        or      R0,R0
         jr      nz,transmit_loop
         wfi                     ; halt to system
 transmit_loop:
-        lde     r1, USARTS(rr12)
-        tm      r1, #ST_TxRDY_bm
+        lde     R1, USARTS(RR12)
+        tm      R1, #ST_TxRDY_bm
         jr      z, transmit_loop
 transmit_data:
-        lde     USARTD(rr12), r0
-        cp      r0, #%0D
+        lde     USARTD(RR12), R0
+        cp      R0, #%0D
         jr      nz, receive_loop
-        ld      r0, #%0A
+        ld      R0, #%0A
         jr      transmit_loop
 
         include "queue.inc"
@@ -89,13 +89,13 @@ transmit_data:
         setrp   -1
 isr_intr:
         ld      P2AIP, #1 SHL 5 ; clear P23 IRQ0
-        push    r0
-        lde     r0, USARTS(rr12)
+        push    R0
+        lde     R0, USARTS(RR12)
 isr_intr_receive:
-        tm      r0, #ST_RxRDY_bm
+        tm      R0, #ST_RxRDY_bm
         jr      z, isr_intr_recv_end
-        lde     r0, USARTD(rr12)
+        lde     R0, USARTD(RR12)
         call    queue_add
 isr_intr_recv_end:
-        pop     r0
+        pop     R0
         iret

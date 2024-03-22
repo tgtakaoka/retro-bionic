@@ -16,6 +16,7 @@ ASYNC_MODE:     equ     MODE_STOP1_gc LOR MODE_LEN8_gc LOR MODE_BAUD_X16
 RX_EN_TX_EN:    equ     CMD_RTS_bm LOR CMD_DTR_bm LOR CMD_ER_bm LOR CMD_RxEN_bm LOR CMD_TxEN_bm
 
         org     ORG_RESET
+        setrp   -1
         jp      init_config
 
         org     %40
@@ -26,8 +27,6 @@ b:      ds      2
 stack:  equ     $
 
 init_config:
-        srp     #%F0
-        setrp   %F0
         ;; Stack is on external memory
         ld      P01M, #P01M_P0ADDR LOR P01M_P1DATA
         ld      P2M, #%FF       ; Port 2 is input
@@ -37,126 +36,126 @@ init_config:
 init_usart:
         srp     #%10
         setrp   %10
-        ld      r12, #HIGH USARTC
-        ld      r13, #LOW USARTC
-        clr     r0
-        lde     @rr12, r0
-        lde     @rr12, r0
-        lde     @rr12, r0       ; safest way to sync mode
-        ld      r0, #CMD_IR_bm
-        lde     @rr12, r0       ; reset
+        ld      R12, #HIGH USARTC
+        ld      R13, #LOW USARTC
+        clr     R0
+        lde     @RR12, R0
+        lde     @RR12, R0
+        lde     @RR12, R0       ; safest way to sync mode
+        ld      R0, #CMD_IR_bm
+        lde     @RR12, R0       ; reset
         nop
         nop
-        ld      r0, #ASYNC_MODE
-        lde     @rr12, r0       ; async 1stop 8data x16
+        ld      R0, #ASYNC_MODE
+        lde     @RR12, R0       ; async 1stop 8data x16
         nop
         nop
-        ld      r0, #RX_EN_TX_EN
-        lde     @rr12, r0 ; RTS/DTR, error reset, Rx enable, Tx enable
-        ld      r8, #HIGH USARTD
-        ld      r9, #LOW USARTD
+        ld      R0, #RX_EN_TX_EN
+        lde     @RR12, R0 ; RTS/DTR, error reset, Rx enable, Tx enable
+        ld      R8, #HIGH USARTD
+        ld      R9, #LOW USARTD
 
         call      arith
         halt
 
 putchar:
-        push    r0
-        incw    rr8
+        push    R0
+        incw    RR8
 putchar_loop:   
-        lde     r0, @rr8
-        tm      r0, #ST_TxRDY_bm
+        lde     R0, @RR8
+        tm      R0, #ST_TxRDY_bm
         jr      z, putchar_loop
-        pop     r0
-        decw    rr8
-        lde     @rr8, r0
+        pop     R0
+        decw    RR8
+        lde     @RR8, R0
         ret
 
 newline:
-        push    r0
-        ld      r0, #%0D
+        push    R0
+        ld      R0, #%0D
         call    putchar
-        ld      r0, #%0A
+        ld      R0, #%0A
         call    putchar
-        pop     r0
+        pop     R0
         ret
 
 putspace:
-        push    r0
-        ld      r0, #' '
+        push    R0
+        ld      R0, #' '
         call    putchar
-        pop     r0
+        pop     R0
         ret
 
 putflags:
-        ld      r1, FLAGS
-        tm      r1, #F_CARRY LOR F_ZERO LOR F_SIGN LOR F_OVERFLOW
+        ld      R1, FLAGS
+        tm      R1, #F_CARRY LOR F_ZERO LOR F_SIGN LOR F_OVERFLOW
         jr      nz, putflags_spc
         ret
 putflags_spc:
         call    putspace
-        ld      FLAGS, r1
+        ld      FLAGS, R1
         jr      nc, putflags_nc
-        ld      r0, #'C'
+        ld      R0, #'C'
         call    putchar
 putflags_nc:
-        ld      FLAGS, r1
+        ld      FLAGS, R1
         jr      nz, putflags_nz
-        ld      r0, #'Z'
+        ld      R0, #'Z'
         call    putchar
 putflags_nz:
-        ld      FLAGS, r1
+        ld      FLAGS, R1
         jr      pl, putflags_pl
-        ld      r0, #'S'
+        ld      R0, #'S'
         call    putchar
 putflags_pl:
-        ld      FLAGS, r1
+        ld      FLAGS, R1
         jr      nov, putflags_nov
-        ld      r0, #'V'
+        ld      R0, #'V'
         call    putchar
 putflags_nov:
         ret
 
 expr:
-        push    r0
-        ld      r0, a
-        ld      r1, a+1
+        push    R0
+        ld      R0, a
+        ld      R1, a+1
         call    print_int16
         call    putspace
-        pop     r0
+        pop     R0
         call    putchar
         call    putspace
-        ld      r0, b
-        ld      r1, b+1
+        ld      R0, b
+        ld      R1, b+1
         jp      print_int16
 
 answer:
         call    putspace
-        ld      r0, #'='
+        ld      R0, #'='
         call    putchar
         call    putspace
-        ld      r0, a
-        ld      r1, a+1
+        ld      R0, a
+        ld      R1, a+1
         call    print_int16
         jp      newline
 
 comp:
-        ld      r4, #a
-        ld      r5, #b
+        ld      R4, #a
+        ld      R5, #b
         call    cmpsi2
         push    FLAGS
         jr      gt, comp_gt
         jr      eq, comp_eq
         jr      lt, comp_lt
-        ld      r0, #'?'
+        ld      R0, #'?'
         jr      comp_out
 comp_gt:
-        ld      r0, #'>'
+        ld      R0, #'>'
         jr      comp_out
 comp_eq:
-        ld      r0, #'='
+        ld      R0, #'='
         jr      comp_out
 comp_lt:
-        ld      r0, #'<'
+        ld      R0, #'<'
 comp_out:
         call    expr
         pop     FLAGS
@@ -164,14 +163,14 @@ comp_out:
         jp      newline
 
 arith:
-        ld      r4, #a
-        ld      r5, #b
+        ld      R4, #a
+        ld      R5, #b
 
         ld      a, #0
         ld      a+1, #0
         ld      b, #HIGH -28000
         ld      b+1, #LOW -28000
-        ld      r0, #'-'
+        ld      R0, #'-'
         call    expr
         call    negsi2
         call    answer          ; 28000
@@ -180,7 +179,7 @@ arith:
         ld      a+1, #0
         ld      b, #HIGH 28000
         ld      b+1, #LOW 28000
-        ld      r0, #'-'
+        ld      R0, #'-'
         call    expr
         call    negsi2
         call    answer          ; -28000
@@ -189,7 +188,7 @@ arith:
         ld      a+1, #LOW 18000
         ld      b, #HIGH 28000
         ld      b+1, #LOW 28000
-        ld      r0, #'+'
+        ld      R0, #'+'
         call    expr
         call    addsi2
         call    answer          ; -19536
@@ -198,14 +197,14 @@ arith:
         ld      a+1, #LOW 18000
         ld      b, #HIGH -18000
         ld      b+1, #LOW -18000
-        ld      r0, #'+'
+        ld      R0, #'+'
         call    expr
         call    addsi2
         call    answer          ; 0
 
         ld      a, #HIGH -28000
         ld      a+1, #LOW -28000
-        ld      r0, #'+'
+        ld      R0, #'+'
         call    expr
         call    addsi2
         call    answer          ; 29536
@@ -214,7 +213,7 @@ arith:
         ld      a+1, #LOW 18000
         ld      b, #HIGH -28000
         ld      b+1, #LOW -28000
-        ld      r0, #'-'
+        ld      R0, #'-'
         call    expr
         call    subsi2
         call    answer          ; -19536
@@ -223,14 +222,14 @@ arith:
         ld      a+1, #LOW 18000
         ld      b, #HIGH -18000
         ld      b+1, #LOW -18000
-        ld      r0, #'-'
+        ld      R0, #'-'
         call    expr
         call    subsi2
         call    answer          ; 29536
 
         ld      a, #HIGH -28000
         ld      a+1, #LOW -28000
-        ld      r0, #'-'
+        ld      R0, #'-'
         call    expr
         call    subsi2
         call    answer          ; -10000
@@ -239,7 +238,7 @@ arith:
         ld      a+1, #LOW 300
         ld      b, #HIGH -200
         ld      b+1, #LOW -200
-        ld      r0, #'*'
+        ld      R0, #'*'
         call    expr
         call    mulsi2
         call    answer          ; 5536
@@ -248,7 +247,7 @@ arith:
         ld      a+1, #LOW 100
         ld      b, #HIGH -300
         ld      b+1, #LOW -300
-        ld      r0, #'*'
+        ld      R0, #'*'
         call    expr
         call    mulsi2
         call    answer          ; -30000
@@ -257,7 +256,7 @@ arith:
         ld      a+1, #LOW -200
         ld      b, #HIGH -100
         ld      b+1, #LOW -100
-        ld      r0, #'*'
+        ld      R0, #'*'
         call    expr
         call    mulsi2
         call    answer          ; 20000
@@ -266,14 +265,14 @@ arith:
         ld      a+1, #LOW -200
         ld      b, #HIGH 100
         ld      b+1, #LOW 100
-        ld      r0, #'/'
+        ld      R0, #'/'
         call    expr
         call    divsi2
         call    answer          ; -2
 
         ld      a, #HIGH 30000
         ld      a+1, #LOW 30000
-        ld      r0, #'/'
+        ld      R0, #'/'
         call    expr
         call    divsi2
         call    answer          ; 30
@@ -282,7 +281,7 @@ arith:
         ld      a+1, #LOW -30000
         ld      b, #HIGH -200
         ld      b+1, #LOW -200
-        ld      r0, #'/'
+        ld      R0, #'/'
         call    expr
         call    divsi2
         call    answer          ; 150
@@ -291,7 +290,7 @@ arith:
         ld      a+1, #LOW -30000
         ld      b, #HIGH 78
         ld      b+1, #LOW 78
-        ld      r0, #'/'
+        ld      R0, #'/'
         call    expr
         call    divsi2
         call    answer          ; -384

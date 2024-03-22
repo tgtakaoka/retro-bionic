@@ -17,34 +17,33 @@ tx_queue:       ds      tx_queue_size
         dw      isr_intr_tx
 
         org     ORG_RESET
+        setrp   -1
         jp      init_config
 
         org     %1000
 stack:  equ     $
 
 init_config:
-        srp     #%F0
-        setrp   %F0
         ;; Stack is on external memory
         ld      P01M, #P01M_P0ADDR LOR P01M_P1DATA
         ld      SPH, #HIGH stack
         ld      SPL, #LOW stack
         srp     #%10
         setrp   %10
-        ld      r2, #HIGH rx_queue
-        ld      r3, #LOW rx_queue
-        ld      r1, #rx_queue_size
+        ld      R2, #HIGH rx_queue
+        ld      R3, #LOW rx_queue
+        ld      R1, #rx_queue_size
         call    queue_init
-        ld      r2, #HIGH tx_queue
-        ld      r3, #LOW tx_queue
-        ld      r1, #tx_queue_size
+        ld      R2, #HIGH tx_queue
+        ld      R3, #LOW tx_queue
+        ld      R1, #tx_queue_size
         call    queue_init
 
 ;;; XTAL=14.7546MHz
 ;;; p=1 for PRE0, t=12 for T0
 ;;; bit rate = 14754600 / (2 x 4 x p x t x 16) = 9600 bps
 init_sio:
-        ld      r0, SIO          ; dummy read
+        ld      R0, SIO          ; dummy read
         or      PORT3, #%80      ; TxD(P37)=High
         ld      P3M, #P3M_SERIAL LOR P3M_P2PUSHPULL ; enable SIO I/O
         ld      T0, #12
@@ -59,110 +58,110 @@ init_irq:
 receive_loop:
         call    getchar
         jr      nc, receive_loop
-        or      r0, r0
+        or      R0, R0
         jr      nz, echo_back
         halt
 echo_back:
-        ld      r1, r0          ; save letter
+        ld      R1, R0          ; save letter
         call    putchar         ; echo
-        ld      r0, #' '        ; space
+        ld      R0, #' '        ; space
         call    putchar
         call    put_hex8        ; print in hex
-        ld      r0, #' '        ; space
+        ld      R0, #' '        ; space
         call    putchar
         call    put_bin8        ; print in binary
         call    newline
         jr      receive_loop
 
 ;;; Put newline
-;;; @clobber r0
+;;; @clobber R0
 newline:
-        ld      r0, #%0D
+        ld      R0, #%0D
         call    putchar
-        ld      r0, #%0A
+        ld      R0, #%0A
         jr      putchar
 
 ;;; Print uint8_t in hex
-;;; @param r1 uint8_t value to be printed in hex.
-;;; @clobber r0
+;;; @param R1 uint8_t value to be printed in hex.
+;;; @clobber R0
 put_hex8:
-        ld      r0, #'0'
+        ld      R0, #'0'
         call    putchar
-        ld      r0, #'x'
+        ld      R0, #'x'
         call    putchar
-        ld      r0, r1
-        swap    r0
+        ld      R0, R1
+        swap    R0
         call    put_hex4
-        ld      r0, r1
+        ld      R0, R1
 put_hex4:
-        and     r0, #%F
-        cp      r0, #10
+        and     R0, #%F
+        cp      R0, #10
         jr      c, put_hex8_dec ; A<10
-        add     r0, #'A'-10
+        add     R0, #'A'-10
         jr      putchar
 put_hex8_dec:
-        add     r0, #'0'
+        add     R0, #'0'
         jr      putchar
 
 ;;; Print uint8_t in binary
-;;; @param r1 uint8_t value to be printed in binary.
-;;; @clobber r0
+;;; @param R1 uint8_t value to be printed in binary.
+;;; @clobber R0
 put_bin8:
-        push    r4
-        ld      r0, #'0'
+        push    R4
+        ld      R0, #'0'
         call    putchar
-        ld      r0, #'b'
+        ld      R0, #'b'
         call    putchar
-        ld      r4, r1
+        ld      R4, R1
         call    put_bin4
-        rl      r4
+        rl      R4
         call    put_bin4
-        pop     r4
+        pop     R4
         ret
 put_bin4:
         call    put_bin2
-        rl      r4
+        rl      R4
 put_bin2:
         call    put_bin1
-        rl      r4
+        rl      R4
 put_bin1:
-        ld      r0, #'0'
-        or      r4, r4
+        ld      R0, #'0'
+        or      R4, R4
         jp      pl, put_bin0    ; MSB=0
-        ld      r0, #'1'        ; MSB=1
+        ld      R0, #'1'        ; MSB=1
 put_bin0:
         jr      putchar
 
 ;;; Get character
-;;; @return r0
+;;; @return R0
 ;;; @return FLAGS.C 0 if no character
 getchar:
-        push    r3
-        push    r2
-        ld      r2, #HIGH rx_queue
-        ld      r3, #LOW rx_queue
+        push    R3
+        push    R2
+        ld      R2, #HIGH rx_queue
+        ld      R3, #LOW rx_queue
         di
         call    queue_remove
         ei
-        pop     r2
-        pop     r3
+        pop     R2
+        pop     R3
         ret
 
 ;;; Put character
-;;; @param r0
+;;; @param R0
 putchar:
-        push    r0
-        push    r3
-        push    r2
-        ld      r2, #HIGH tx_queue
-        ld      r3, #LOW tx_queue
+        push    R0
+        push    R3
+        push    R2
+        ld      R2, #HIGH tx_queue
+        ld      R3, #LOW tx_queue
 putchar_retry:
         di
         call    queue_add
         ei
         jr      nc, putchar_retry ; branch if queue is full
-        pop     r2
-        pop     r3
+        pop     R2
+        pop     R3
         di
         tm      IMR, #IMR_IRQ4
         jr      nz, putchar_exit ; already enabled
@@ -171,41 +170,41 @@ putchar_retry:
         or      IRQ, #IRQ_IRQ4   ; software IRQ4
 putchar_exit:
         ei
-        pop     r0
+        pop     R0
         ret
 
         include "queue.inc"
 
         setrp   -1
 isr_intr_rx:
-        push    r0
-        ld      r0, SIO             ; read received letter
+        push    R0
+        ld      R0, SIO             ; read received letter
         and     IRQ, #LNOT IRQ_IRQ3 ; acknowledge IRQ3
-        push    r3
-        push    r2
-        ld      r2, #HIGH rx_queue
-        ld      r3, #LOW rx_queue
+        push    R3
+        push    R2
+        ld      R2, #HIGH rx_queue
+        ld      R3, #LOW rx_queue
         call    queue_add
-        pop     r2
-        pop     r3
-        pop     r0
+        pop     R2
+        pop     R3
+        pop     R0
         iret
 
 isr_intr_tx:
         and     IRQ, #LNOT IRQ_IRQ4 ; acknowledge IRQ4
-        push    r0
-        push    r3
-        push    r2
-        ld      r2, #HIGH tx_queue
-        ld      r3, #LOW tx_queue
+        push    R0
+        push    R3
+        push    R2
+        ld      R2, #HIGH tx_queue
+        ld      R3, #LOW tx_queue
         call    queue_remove
-        pop     r2
-        pop     r3
+        pop     R2
+        pop     R3
         jr      nc, isr_intr_send_empty
-        ld      SIO, r0         ; write sending letter
-        pop     r0
+        ld      SIO, R0         ; write sending letter
+        pop     R0
         iret
 isr_intr_send_empty:
         and     IMR, #LNOT IMR_IRQ4 ; disable IRQ4
-        pop     r0
+        pop     R0
         iret

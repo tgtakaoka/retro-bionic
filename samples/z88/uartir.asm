@@ -23,8 +23,8 @@ init_config:
         ld      PM, #PM_P1BUS LOR PM_DM ; Port 1 is data bus and address bus low
         ldw     SPH, #stack
 
-        ldw     rr2, #rx_queue
-        ld      r1, #rx_queue_size
+        ldw     RR2, #rx_queue
+        ld      R1, #rx_queue_size
         call    queue_init
 
 ;;; XTAL=14.7546MHz
@@ -36,9 +36,9 @@ init_uart:
         or      FLAGS, #F_BANK              ; select bank1
         ld      UMA, #UMA_CR32 LOR UMA_BCP8 ; clock rate x32, 8 bit char
         ldw     UBG0, #11                   ; UBG=11
-        ld      r0, #UMB_BRGSRC LOR UMB_BRGENB ; enable baud-rate generator, select XTAL/4
-        or      r0, #UMB_RCIS LOR UMB_TCIS ; use baud-rate generator for Rx and Tx
-        ld      UMB, r0
+        ld      R0, #UMB_BRGSRC LOR UMB_BRGENB ; enable baud-rate generator, select XTAL/4
+        or      R0, #UMB_RCIS LOR UMB_TCIS ; use baud-rate generator for Rx and Tx
+        ld      UMB, R0
         and     FLAGS, #LNOT F_BANK            ; select bank0
         ld      URC, #URC_RENB                 ; enable receiver
         ld      UTC, #UTC_TENB LOR UTC_TXDTSEL ; enable transmit and TxD
@@ -54,33 +54,33 @@ receive_loop:
         call    queue_remove
         ei                      ; Enable INTR
         jr      nc, receive_loop
-        or      r0,r0
+        or      R0,R0
         jr      nz,transmit_loop
         wfi                     ; halt to system
 transmit_loop:
         tm      UTC, #UTC_TBE   ; check transmit buffer empty
         jr      z, transmit_loop
 transmit_data:
-        ld      UIO, r0
-        cp      r0, #%0D
+        ld      UIO, R0
+        cp      R0, #%0D
         jr      nz, receive_loop
-        ld      r0, #%0A
+        ld      R0, #%0A
         jr      transmit_loop
 
         include "queue.inc"
 
         setrp   -1
 isr_intr:
-        push    r0
+        push    R0
         tm      URC, #URC_RCA
         jr      z, isr_intr_end
-        ld      r0, UIO
-        push    r3
-        push    r2
-        ldw     rr2, #rx_queue
+        ld      R0, UIO
+        push    R3
+        push    R2
+        ldw     RR2, #rx_queue
         call    queue_add
-        pop     r2
-        pop     r3
-        pop     r0
+        pop     R2
+        pop     R3
+        pop     R0
 isr_intr_end:
         iret

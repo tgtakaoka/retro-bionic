@@ -4,6 +4,8 @@
 namespace debugger {
 namespace z88 {
 
+const InstZ88 Inst;
+
 namespace {
 
 constexpr uint8_t E(
@@ -20,7 +22,7 @@ constexpr uint8_t external_cycles(uint8_t e) {
     return (e >> 4) & 3;
 }
 
-#if Z88_EXTERNAL_STACK == 1
+#if EXTERNAL_STACK == 1
 constexpr uint8_t stack_cycles(uint8_t e) {
     return (e >> 6) & 3;
 }
@@ -28,7 +30,7 @@ constexpr uint8_t stack_cycles(uint8_t e) {
 
 constexpr uint8_t bus_cycles(uint8_t e) {
     return inst_len(e) + external_cycles(e)
-#if Z88_EXTERNAL_STACK == 1
+#if EXTERNAL_STACK == 1
            + stack_cycles(e)
 #endif
             ;
@@ -294,13 +296,24 @@ constexpr uint8_t INST_TABLE[] = {
 };
 }  // namespace
 
-uint8_t InstZ88::instLen(uint8_t inst) {
+uint8_t InstZ88::instLen(uint8_t inst) const {
     return inst_len(INST_TABLE[inst]);
 }
 
-uint8_t InstZ88::busCycles(uint8_t inst) {
+uint8_t InstZ88::busCycles(uint8_t inst) const {
     return bus_cycles(INST_TABLE[inst]);
 }
+
+bool InstZ88::writeOnly(uint8_t rp0, uint8_t rp1, uint8_t num) {
+    const auto addr = (num < 8) ? rp0 + num : rp1 + num;
+    if (addr == 0xEF)
+        return true;
+    // F1, F4, F5, F8, F9, FA, FB
+    if ((addr & 0xF0) == 0xF0)
+        return (1 << (addr & 0xF)) & 0x0F32;
+    return false;
+}
+
 }  // namespace z88
 }  // namespace debugger
 

@@ -28,38 +28,44 @@ init_config:
         ldw     SPH, #stack
 
 init_usart:
-        ldw     rr12, #USART
-        clr     r0
-        lde     USARTC(rr12), r0
-        lde     USARTC(rr12), r0
-        lde     USARTC(rr12), r0 ; safest way to sync mode
-        ld      r0, #CMD_IR_bm
-        lde     USARTC(rr12), r0 ; reset
+        ldw     RR12, #USART
+        clr     R0
+        lde     USARTC(RR12), R0
+        lde     USARTC(RR12), R0
+        lde     USARTC(RR12), R0 ; safest way to sync mode
+        ld      R0, #CMD_IR_bm
+        lde     USARTC(RR12), R0 ; reset
         nop
         nop
-        ld      r0, #ASYNC_MODE
-        lde     USARTC(rr12), r0 ; async 1stop 8data x16
+        ld      R0, #ASYNC_MODE
+        lde     USARTC(RR12), R0 ; async 1stop 8data x16
         nop
         nop
-        ld      r0, #RX_EN_TX_EN
-        lde     USARTC(rr12), r0 ; RTS/DTR, error reset, Rx enable, Tx enable
+        ld      R0, #RX_EN_TX_EN
+        lde     USARTC(RR12), R0 ; RTS/DTR, error reset, Rx enable, Tx enable
 
 receive_loop:
-        lde     r1, USARTS(rr12)
-        tm      r1, #ST_RxRDY_bm
+        lde     R1, USARTS(RR12)
+        tm      R1, #ST_RxRDY_bm
         jr      z, receive_loop
 receive_data:
-        lde     r0, USARTD(rr12)
-        or      r0,r0
+        lde     R0, USARTD(RR12)
+        or      R0,R0
         jr      nz,transmit_loop
         wfi                     ; halt to system
 transmit_loop:
-        lde     r1, USARTS(rr12)
-        tm      r1, #ST_TxRDY_bm
+        lde     R1, USARTS(RR12)
+        tm      R1, #ST_TxRDY_bm
         jr      z, transmit_loop
 transmit_data:
-        lde     USARTD(rr12), r0
-        cp      r0, #%0D
+        lde     USARTD(RR12), R0
+        cp      R0, #%0D
         jr      nz, receive_loop
-        ld      r0, #%0A
+        ld      R0, #%0A
         jr      transmit_loop
+
+        srp1    #0
+        lde     @rr14, r15
+        ld      r15, 0xaa
+        ld      0xaa, #0xbb
+        ldw     SPH, #0x1234

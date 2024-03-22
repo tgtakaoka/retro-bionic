@@ -12,30 +12,29 @@ rx_queue:       ds      rx_queue_size
         dw      isr_intr
 
         org     ORG_RESET
+        setrp   -1
         jp      init_config
 
         org     %1000
 stack:  equ     $
 
 init_config:
-        srp     #%F0
-        setrp   %F0
         ;; Stack is on external memory
         ld      P01M, #P01M_P0ADDR LOR P01M_P1DATA
         ld      SPH, #HIGH stack
         ld      SPL, #LOW stack
         srp     #%10
         setrp   %10
-        ld      r2, #HIGH rx_queue
-        ld      r3, #LOW rx_queue
-        ld      r1, #rx_queue_size
+        ld      R2, #HIGH rx_queue
+        ld      R3, #LOW rx_queue
+        ld      R1, #rx_queue_size
         call    queue_init
 
 ;;; XTAL=14.7546MHz
 ;;; p=1 for PRE0, t=12 for T0
 ;;; bit rate = 14754600 / (2 x 4 x p x t x 16) = 9600 bps
 init_sio:
-        ld      r0, SIO          ; dummy read
+        ld      R0, SIO          ; dummy read
         or      PORT3, #%80      ; TxD(P37)=High
         ld      P3M, #P3M_SERIAL ; enable SIO I/O
         ld      T0, #12
@@ -53,33 +52,33 @@ receive_loop:
         call    queue_remove
         ei                      ; Enable INTR
         jr      nc, receive_loop
-        or      r0, r0
+        or      R0, R0
         jr      nz, transmit_loop
         halt
 transmit_loop:
         tm      IRQ, #IRQ_IRQ4  ; check IRQ4
         jr      z, transmit_loop
 transmit_data:
-        ld      SIO, r0
+        ld      SIO, R0
         and     IRQ, #LNOT IRQ_IRQ4 ; clear IRQ4
-        cp      r0, #%0D
+        cp      R0, #%0D
         jr      nz, receive_loop
-        ld      r0, #%0A
+        ld      R0, #%0A
         jr      transmit_loop
 
         include "queue.inc"
 
         setrp   -1
 isr_intr:
-        push    r0
-        ld      r0, SIO
+        push    R0
+        ld      R0, SIO
         and     IRQ, #LNOT IRQ_IRQ3
-        push    r3
-        push    r2
-        ld      r2, #HIGH rx_queue
-        ld      r3, #LOW rx_queue
+        push    R3
+        push    R2
+        ld      R2, #HIGH rx_queue
+        ld      R3, #LOW rx_queue
         call    queue_add
-        pop     r2
-        pop     r3
-        pop     r0
+        pop     R2
+        pop     R3
+        pop     R0
         iret

@@ -16,14 +16,13 @@ ASYNC_MODE:     equ     MODE_STOP1_gc LOR MODE_LEN8_gc LOR MODE_BAUD_X16
 RX_EN_TX_EN:    equ     CMD_RTS_bm LOR CMD_DTR_bm LOR CMD_ER_bm LOR CMD_RxEN_bm LOR CMD_TxEN_bm
 
         org     ORG_RESET
+        setrp   -1
         jp      init_config
 
         org     %1000
 stack:  equ     $
 
 init_config:
-        srp     #%F0
-        setrp   %F0
         ;; Stack is on external memory
         ld      P01M, #P01M_P0ADDR LOR P01M_P1DATA
         ld      P2M, #%FF       ; Port 2 is input
@@ -33,41 +32,45 @@ init_config:
         setrp   %10
 
 init_usart:
-        ld      r12, #HIGH USARTC
-        ld      r13, #LOW USARTC
-        clr     r0
-        lde     @rr12, r0
-        lde     @rr12, r0
-        lde     @rr12, r0       ; safest way to sync mode
-        ld      r0, #CMD_IR_bm
-        lde     @rr12, r0       ; reset
+        ld      R12, #HIGH USARTC
+        ld      R13, #LOW USARTC
+        clr     R0
+        lde     @RR12, R0
+        lde     @RR12, R0
+        lde     @RR12, R0       ; safest way to sync mode
+        ld      R0, #CMD_IR_bm
+        lde     @RR12, R0       ; reset
         nop
         nop
-        ld      r0, #ASYNC_MODE
-        lde     @rr12, r0       ; async 1stop 8data x16
+        ld      R0, #ASYNC_MODE
+        lde     @RR12, R0       ; async 1stop 8data x16
         nop
         nop
-        ld      r0, #RX_EN_TX_EN
-        lde     @rr12, r0 ; RTS/DTR, error reset, Rx enable, Tx enable
-        ld      r10, #HIGH USARTD
-        ld      r11, #LOW USARTD
+        ld      R0, #RX_EN_TX_EN
+        lde     @RR12, R0 ; RTS/DTR, error reset, Rx enable, Tx enable
+        ld      R10, #HIGH USARTD
+        ld      R11, #LOW USARTD
 
 receive_loop:
-        lde     r1, @rr12       ; USARTS
-        tm      r1, #ST_RxRDY_bm
+        lde     R1, @RR12       ; USARTS
+        tm      R1, #ST_RxRDY_bm
         jr      z, receive_loop
 receive_data:
-        lde     r0, @rr10       ; USARTD
-        or      r0, r0
+        lde     R0, @RR10       ; USARTD
+        or      R0, R0
         jr      nz, transmit_loop
         halt
 transmit_loop:
-        lde     r1, @rr12       ; USARTS
-        tm      r1, #ST_TxRDY_bm
+        lde     R1, @RR12       ; USARTS
+        tm      R1, #ST_TxRDY_bm
         jr      z, transmit_loop
 transmit_data:
-        lde     @rr10, r0       ; USARTD
-        cp      r0, #%0D
+        lde     @RR10, R0       ; USARTD
+        cp      R0, #%0D
         jr      nz, receive_loop
-        ld      r0, #%0A
+        ld      R0, #%0A
         jr      transmit_loop
+
+        lde     @rr14, r15
+        ld      r15, 0xaa
+        ld      0xaa, #0xbb

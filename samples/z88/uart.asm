@@ -25,9 +25,9 @@ init_uart:
         or      FLAGS, #F_BANK              ; select bank1
         ld      UMA, #UMA_CR32 LOR UMA_BCP8 ; clock rate x32, 8 bit char
         ldw     UBG0, #11                   ; UBG=11
-        ld      r0, #UMB_BRGSRC LOR UMB_BRGENB ; enable baud-rate generator, select XTAL/4
-        or      r0, #UMB_RCIS LOR UMB_TCIS ; use baud-rate generator for Rx and Tx
-        ld      UMB, r0
+        ld      R0, #UMB_BRGSRC LOR UMB_BRGENB ; enable baud-rate generator, select XTAL/4
+        or      R0, #UMB_RCIS LOR UMB_TCIS ; use baud-rate generator for Rx and Tx
+        ld      UMB, R0
         and     FLAGS, #LNOT F_BANK            ; select bank0
         ld      URC, #URC_RENB                 ; enable receiver
         ld      UTC, #UTC_TENB LOR UTC_TXDTSEL ; enable transmit and TxD
@@ -35,16 +35,16 @@ init_uart:
 receive_loop:
         tm      URC, #URC_RCA   ; check receive character available
         jr      z, receive_loop
-        ld      r0, UIO
-        or      r0,r0
+        ld      R0, UIO
+        or      R0,R0
         jr      nz,transmit_loop
         wfi                     ; halt to system
 transmit_loop:
         tm      UTC, #UTC_TBE   ; check transmit buffer empty
         jr      z, transmit_loop
 transmit_data:
-        ld      UIO, r0
-        cp      r0, #%0D
+        ld      UIO, R0
+        cp      R0, #%0D
         jr      nz, receive_loop
-        ld      r0, #%0A
+        ld      R0, #%0A
         jr      transmit_loop

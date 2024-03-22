@@ -1,0 +1,171 @@
+#include "regs_z86.h"
+#include "char_buffer.h"
+#include "debugger.h"
+#include "digital_bus.h"
+#include "inst_z86.h"
+#include "pins_z86.h"
+
+namespace debugger {
+namespace z86 {
+
+struct RegsZ86 Regs;
+
+RegsZ86::RegsZ86() : RegsZ8(Pins) {}
+
+const char *RegsZ86::cpu() const {
+    return "Z86C";
+}
+
+const char *RegsZ86::cpuName() const {
+    return "Z86C91";
+}
+
+void RegsZ86::print() const {
+    // clang-format off
+    //                               012345678901234567890123456789012345
+    static constexpr char line1[] = "PC=xxxx SP=xxxx RP=xx FLAGS=CZSVDH21";
+    // clang-format on
+    static auto &buffer1 = *new CharBuffer(line1);
+    buffer1.hex16(3, _pc);
+    buffer1.hex16(11, _sp);
+    buffer1.hex8(19, _rp);
+    buffer1.bits(28, _flags, 0x80, &line1[28]);
+    cli.println(buffer1);
+    RegsZ8::print();
+}
+
+void RegsZ86::reset() {
+    constexpr auto P3M = 247;
+    constexpr auto P01M = 248;
+    write_reg(P3M, 0);
+    write_reg(P01M, 0x92 | ((1 - EXTERNAL_STACK) << 2));
+    static constexpr uint8_t JP_RESET[] = {
+            0x8D,  // JP ORG_RESET
+            hi(InstZ86::ORG_RESET),
+            lo(InstZ86::ORG_RESET),
+    };
+    _pins.execInst(JP_RESET, sizeof(JP_RESET));
+}
+
+uint8_t RegsZ86::save_rp() const {
+    static constexpr uint8_t SAVE_RP[] = {
+            0xA0, SPH,  // INCW SP
+            0x70, RP,   // PUSH RP
+    };
+    uint8_t rp;
+    _pins.captureWrites(SAVE_RP, sizeof(SAVE_RP), nullptr, &rp, sizeof(rp));
+    return rp;
+}
+
+void RegsZ86::restore_rp(uint8_t rp) const {
+    uint8_t RESTORE_RP[] = {
+            0x31, rp,  // SRP #rp
+    };
+    _pins.execInst(RESTORE_RP, sizeof(RESTORE_RP));
+}
+
+void RegsZ86::save_sfrs() {
+    _rp = save_rp();
+    restore_rp(R(0));
+    const auto r0 = save_r(0);
+    _flags = raw_read_reg(FLAGS);
+    _sp = uint16(raw_read_reg(SPH), raw_read_reg(SPL));
+    restore_r(0, r0);
+    restore_rp(_rp);
+}
+
+void RegsZ86::restore_sfrs() {
+    restore_rp(R(0));
+    write_reg(FLAGS, _flags);
+    write_reg(SPH, hi(_sp));
+    write_reg(SPL, lo(_sp));
+    restore_rp(_rp);
+}
+
+uint8_t RegsZ86::save_r(uint8_t num) const {
+    uint8_t SAVE_R[2];
+    SAVE_R[0] = 0x92;  // LDE @RR0,Rn
+    SAVE_R[1] = (num << 4) | 0;
+    uint8_t val;
+    _pins.captureWrites(SAVE_R, sizeof(SAVE_R), nullptr, &val, sizeof(val));
+    return val;
+}
+
+void RegsZ86::restore_r(uint8_t num, uint8_t val) const {
+    if (InstZ86::writeOnly(_rp, num))
+        return;
+    uint8_t LOAD_R[2];
+    LOAD_R[0] = 0x0C | (num << 4);  // LD rn,#val
+    LOAD_R[1] = val;
+    _pins.execInst(LOAD_R, sizeof(LOAD_R));
+}
+
+uint8_t RegsZ86::raw_read_reg(uint8_t addr) const {
+    uint8_t READ_REG[] = {
+            0x08, addr,  // LD R0,addr
+            0x92, 0x00,  // LDE @RR0,R0
+    };
+    uint8_t val;
+    _pins.captureWrites(READ_REG, sizeof(READ_REG), nullptr, &val, sizeof(val));
+    return val;
+}
+
+uint8_t RegsZ86::read_reg(uint8_t addr, RegSpace space) {
+    const auto rp = save_rp();
+    restore_rp(R(0));
+    const auto r0 = save_r(0);
+    uint8_t val = raw_read_reg(addr);
+    if (addr == RP)
+        val = rp;
+    restore_r(0, r0);
+    restore_rp(rp);
+    return val;
+}
+
+void RegsZ86::write_reg(uint8_t addr, uint8_t val, RegSpace space) {
+    uint8_t WRITE_REG[] = {
+            0xE6, addr, val,  // LD addr,#val
+    };
+    _pins.execInst(WRITE_REG, sizeof(WRITE_REG));
+    update_r(addr, val);
+    if (addr == RP)
+        save_all_r();
+}
+
+void RegsZ86::update_r(uint8_t addr, uint8_t val) {
+    const auto rp = _rp & 0xF0;
+    if ((addr & 0xF0) == rp)
+        _r[addr & 0xF] = val;
+}
+
+void RegsZ86::set_r(uint8_t num, uint8_t val) {
+    write_reg(R(num), _r[num] = val);
+}
+
+void RegsZ86::set_flags(uint8_t val) {
+    write_reg(FLAGS, _flags = val);
+}
+
+void RegsZ86::set_sp(uint16_t val) {
+    _sp = val;
+    write_reg(SPH, hi(val));
+    write_reg(SPL, lo(val));
+}
+
+void RegsZ86::set_rp(uint8_t val) {
+    write_reg(RP, _rp = val);
+}
+
+void RegsZ86::helpRegisters() const {
+    cli.println(F("?Reg: PC SP RP FLAGS R0~R15 RR0~14"));
+}
+
+}  // namespace z86
+}  // namespace debugger
+
+// Local Variables:
+// mode: c++
+// c-basic-offset: 4
+// tab-width: 4
+// End:
+// vim: set ft=cpp et ts=4 sw=4:

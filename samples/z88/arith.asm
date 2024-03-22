@@ -28,123 +28,123 @@ init_config:
         ldw     SPH, #stack
 
 init_usart:
-        ldw     rr12, #USART
-        clr     r0
-        lde     USARTC(rr12), r0
-        lde     USARTC(rr12), r0
-        lde     USARTC(rr12), r0 ; safest way to sync mode
-        ld      r0, #CMD_IR_bm
-        lde     USARTC(rr12), r0 ; reset
+        ldw     RR12, #USART
+        clr     R0
+        lde     USARTC(RR12), R0
+        lde     USARTC(RR12), R0
+        lde     USARTC(RR12), R0 ; safest way to sync mode
+        ld      R0, #CMD_IR_bm
+        lde     USARTC(RR12), R0 ; reset
         nop
         nop
-        ld      r0, #MODE_STOP1_gc LOR MODE_LEN8_gc LOR MODE_BAUD_X16
-        lde     USARTC(rr12), r0 ; async 1stop 8data x16
+        ld      R0, #MODE_STOP1_gc LOR MODE_LEN8_gc LOR MODE_BAUD_X16
+        lde     USARTC(RR12), R0 ; async 1stop 8data x16
         nop
         nop
-        ld      r0, #CMD_RTS_bm LOR CMD_DTR_bm LOR CMD_ER_bm LOR CMD_RxEN_bm LOR CMD_TxEN_bm
-        lde     USARTC(rr12), r0 ; RTS/DTR, error reset, Rx enable, Tx enable
+        ld      R0, #CMD_RTS_bm LOR CMD_DTR_bm LOR CMD_ER_bm LOR CMD_RxEN_bm LOR CMD_TxEN_bm
+        lde     USARTC(RR12), R0 ; RTS/DTR, error reset, Rx enable, Tx enable
 
         call    arith
+        call    newline
         wfi                     ; halt to system
-        jr      $
 
 putchar:
-        push    r1
-        ldw     rr12, #USART
+        push    R1
+        ldw     RR12, #USART
 putchar_loop:
-        lde     r1, USARTS(rr12)
-        tm      r1, #ST_TxRDY_bm
+        lde     R1, USARTS(RR12)
+        tm      R1, #ST_TxRDY_bm
         jr      z, putchar_loop
-        lde     USARTD(rr12), r0
-        cp      r0, #%0D
+        lde     USARTD(RR12), R0
+        cp      R0, #%0D
         jr      nz, putchar_end
-        ld      r0, #%0A
+        ld      R0, #%0A
         jr      putchar_loop
 putchar_end:
-        pop     r1
+        pop     R1
         ret
 
 newline:
-        push    r0
-        ld      r0, #%0D
+        push    R0
+        ld      R0, #%0D
         call    putchar
-        pop     r0
+        pop     R0
         ret
 
 putspace:
-        push    r0
-        ld      r0, #' '
+        push    R0
+        ld      R0, #' '
         call    putchar
-        pop     r0
+        pop     R0
         ret
 
 putflags:
-        ld      r1, FLAGS
-        tm      r1, #F_CARRY LOR F_ZERO LOR F_SIGN LOR F_OVERFLOW
+        ld      R1, FLAGS
+        tm      R1, #F_CARRY LOR F_ZERO LOR F_SIGN LOR F_OVERFLOW
         jr      nz, putflags_spc
         ret
 putflags_spc:
         call    putspace
-        ld      FLAGS, r1
+        ld      FLAGS, R1
         jr      nc, putflags_nc
-        ld      r0, #'C'
+        ld      R0, #'C'
         call    putchar
 putflags_nc:
-        ld      FLAGS, r1
+        ld      FLAGS, R1
         jr      nz, putflags_nz
-        ld      r0, #'Z'
+        ld      R0, #'Z'
         call    putchar
 putflags_nz:
-        ld      FLAGS, r1
+        ld      FLAGS, R1
         jr      pl, putflags_pl
-        ld      r0, #'S'
+        ld      R0, #'S'
         call    putchar
 putflags_pl:
-        ld      FLAGS, r1
+        ld      FLAGS, R1
         jr      nov, putflags_nov
-        ld      r0, #'V'
+        ld      R0, #'V'
         call    putchar
 putflags_nov:
         ret
 
 expr:
-        push    r0
-        ldw     rr0, a
+        push    R0
+        ldw     RR0, a
         call    print_int16
         call    putspace
-        pop     r0
+        pop     R0
         call    putchar
         call    putspace
-        ldw     rr0, b
+        ldw     RR0, b
         jp      print_int16
 
 answer:
         call    putspace
-        ld      r0, #'='
+        ld      R0, #'='
         call    putchar
         call    putspace
-        ldw     rr0, a
+        ldw     RR0, a
         call    print_int16
         jp      newline
 
 comp:
-        ld      r4, #a
-        ld      r5, #b
+        ld      R4, #a
+        ld      R5, #b
         call    cmpsi2
         push    FLAGS
         jr      gt, comp_gt
         jr      eq, comp_eq
         jr      lt, comp_lt
-        ld      r0, #'?'
+        ld      R0, #'?'
         jr      comp_out
 comp_gt:
-        ld      r0, #'>'
+        ld      R0, #'>'
         jr      comp_out
 comp_eq:
-        ld      r0, #'='
+        ld      R0, #'='
         jr      comp_out
 comp_lt:
-        ld      r0, #'<'
+        ld      R0, #'<'
 comp_out:
         call    expr
         pop     FLAGS
@@ -158,86 +158,86 @@ b:      ds      2
         org     %1000
 
 arith:
-        ld      r4, #a
-        ld      r5, #b
+        ld      R4, #a
+        ld      R5, #b
 
         ldw     a, #18000
         ldw     b, #28000
-        ld      r0, #'+'
+        ld      R0, #'+'
         call    expr
         call    addsi2
         call    answer
 
         ldw     a, #18000
         ldw     b, #-18000
-        ld      r0, #'+'
+        ld      R0, #'+'
         call    expr
         call    addsi2
         call    answer
 
         ldw     a, #-28000
-        ld      r0, #'+'
+        ld      R0, #'+'
         call    expr
         call    addsi2
         call    answer
 
         ldw     a, #18000
         ldw     b, #-28000
-        ld      r0, #'-'
+        ld      R0, #'-'
         call    expr
         call    subsi2
         call    answer
 
         ldw     a, #18000
         ldw     b, #18000
-        ld      r0, #'-'
+        ld      R0, #'-'
         call    expr
         call    subsi2
         call    answer
 
         ldw     a, #-28000
-        ld      r0, #'-'
+        ld      R0, #'-'
         call    expr
         call    subsi2
         call    answer
 
         ldw     a, #300
         ldw     b, #-200
-        ld      r0, #'*'
+        ld      R0, #'*'
         call    expr
         call    mulsi2
         call    answer
 
         ldw     a, #100
         ldw     b, #-300
-        ld      r0, #'*'
+        ld      R0, #'*'
         call    expr
         call    mulsi2
         call    answer
 
         ldw     a, #-200
         ldw     b, #100
-        ld      r0, #'*'
+        ld      R0, #'*'
         call    expr
         call    mulsi2
         call    answer
 
         ldw     b, #100
-        ld      r0, #'/'
+        ld      R0, #'/'
         call    expr
         call    divsi2
         call    answer
 
         ldw     a, #30000
         ldw     b, #0
-        ld      r0, #'/'
+        ld      R0, #'/'
         call    expr
         call    divsi2
         call    answer
 
         ldw     a, #-30000
         ldw     b, #78
-        ld      r0, #'/'
+        ld      R0, #'/'
         call    expr
         call    divsi2
         call    answer

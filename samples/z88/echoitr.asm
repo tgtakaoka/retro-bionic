@@ -41,33 +41,33 @@ init_config:
         ld      P0M, #P0M_ADRH     ; Port 0 is address bus high
         ld      PM, #PM_P1BUS | PM_DM ; Port 1 is data bus and address bus low
         ldw     SPH, #stack
-        ldw     rr2, #rx_queue
-        ld      r1, #rx_queue_size
+        ldw     RR2, #rx_queue
+        ld      R1, #rx_queue_size
         call    queue_init
-        ldw     rr2, #tx_queue
-        ld      r1, #tx_queue_size
+        ldw     RR2, #tx_queue
+        ld      R1, #tx_queue_size
         call    queue_init
 
 init_usart:
-        ldw     rr12, #USART
-        clr     r0
-        lde     USARTC(rr12), r0
-        lde     USARTC(rr12), r0
-        lde     USARTC(rr12), r0 ; safest way to sync mode
-        ld      r0, #CMD_IR_bm
-        lde     USARTC(rr12), r0 ; reset
+        ldw     RR12, #USART
+        clr     R0
+        lde     USARTC(RR12), R0
+        lde     USARTC(RR12), R0
+        lde     USARTC(RR12), R0 ; safest way to sync mode
+        ld      R0, #CMD_IR_bm
+        lde     USARTC(RR12), R0 ; reset
         nop
         nop
-        ld      r0, #ASYNC_MODE
-        lde     USARTC(rr12), r0 ; async 1stop 8data x16
+        ld      R0, #ASYNC_MODE
+        lde     USARTC(RR12), R0 ; async 1stop 8data x16
         nop
         nop
-        ld      r0, #RX_EN_TX_DIS
-        lde     USARTC(rr12), r0 ; RTS/DTR, error reset, Rx enable, Tx disable
-        ld      r0, #INTR_IRQ0
-        lde     USARTRI(rr12), r0 ; enable RxRDY interrupt using IRQ0
-        ld      r0, #INTR_IRQ1
-        lde     USARTTI(rr12), r0 ; enable TxRDY interrupt using IRQ1
+        ld      R0, #RX_EN_TX_DIS
+        lde     USARTC(RR12), R0 ; RTS/DTR, error reset, Rx enable, Tx disable
+        ld      R0, #INTR_IRQ0
+        lde     USARTRI(RR12), R0 ; enable RxRDY interrupt using IRQ0
+        ld      R0, #INTR_IRQ1
+        lde     USARTTI(RR12), R0 ; enable TxRDY interrupt using IRQ1
 
         ld      P2BM, #P2M_INTR_gm SHL 2 ; P23=input, interrupt enabled
         ld      P2AM, #P2M_INTR_gm SHL 2 ; P21=input, interrupt enabled
@@ -78,112 +78,112 @@ init_usart:
 receive_loop:
         call    getchar
         jr      nc, receive_loop
-        or      r0,r0
+        or      R0,R0
         jr      nz,echo_back
         wfi                     ; halt to system
 echo_back:
-        ld      r1, r0          ; save letter
+        ld      R1, R0          ; save letter
         call    putchar         ; echo
-        ld      r0, #' '        ; space
+        ld      R0, #' '        ; space
         call    putchar
         call    put_hex8        ; print in hex
-        ld      r0, #' '        ; space
+        ld      R0, #' '        ; space
         call    putchar
         call    put_bin8        ; print in binary
         call    newline
         jr      receive_loop
 
 ;;; Put newline
-;;; @clobber r0
+;;; @clobber R0
 newline:
-        ld      r0, #%0D
+        ld      R0, #%0D
         call    putchar
-        ld      r0, #%0A
+        ld      R0, #%0A
         jr      putchar
 
 ;;; Print uint8_t in hex
-;;; @param r1 uint8_t value to be printed in hex.
-;;; @clobber r0
+;;; @param R1 uint8_t value to be printed in hex.
+;;; @clobber R0
 put_hex8:
-        ld      r0, #'0'
+        ld      R0, #'0'
         call    putchar
-        ld      r0, #'x'
+        ld      R0, #'x'
         call    putchar
-        ld      r0, r1
-        swap    r0
+        ld      R0, R1
+        swap    R0
         call    put_hex4
-        ld      r0, r1
+        ld      R0, R1
 put_hex4:
-        and     r0, #%F
-        cp      r0, #10
+        and     R0, #%F
+        cp      R0, #10
         jr      c, put_hex8_dec ; A<10
-        add     r0, #'A'-10
+        add     R0, #'A'-10
         jr      putchar
 put_hex8_dec:
-        add     r0, #'0'
+        add     R0, #'0'
         jr      putchar
 
 ;;; Print uint8_t in binary
-;;; @param r1 uint8_t value to be printed in binary.
-;;; @clobber r0
+;;; @param R1 uint8_t value to be printed in binary.
+;;; @clobber R0
 put_bin8:
-        push    r4
-        ld      r0, #'0'
+        push    R4
+        ld      R0, #'0'
         call    putchar
-        ld      r0, #'b'
+        ld      R0, #'b'
         call    putchar
-        ld      r4, r1
+        ld      R4, R1
         call    put_bin4
-        rl      r4
+        rl      R4
         call    put_bin4
-        pop     r4
+        pop     R4
         ret
 put_bin4:
         call    put_bin2
-        rl      r4
+        rl      R4
 put_bin2:
         call    put_bin1
-        rl      r4
+        rl      R4
 put_bin1:
-        ld      r0, #'0'
-        or      r4, r4
+        ld      R0, #'0'
+        or      R4, R4
         jp      pl, put_bin0    ; MSB=0
-        ld      r0, #'1'        ; MSB=1
+        ld      R0, #'1'        ; MSB=1
 put_bin0:
         jr      putchar
 
 ;;; Get character
-;;; @return r0
+;;; @return R0
 ;;; @return FLAGS.C 0 if no character
 getchar:
-        push    r3
-        push    r2
-        ldw     rr2, #rx_queue
+        push    R3
+        push    R2
+        ldw     RR2, #rx_queue
         di
         call    queue_remove
         ei
-        pop     r2
-        pop     r3
+        pop     R2
+        pop     R3
         ret
 
 ;;; Put character
-;;; @param r0
+;;; @param R0
 putchar:
-        push    r0
-        push    r3
-        push    r2
-        ldw     rr2, #tx_queue
+        push    R0
+        push    R3
+        push    R2
+        ldw     RR2, #tx_queue
 putchar_retry:
         di
         call    queue_add
         ei
         jr      nc, putchar_retry ; branch if queue is full
-        ld      r0, #RX_EN_TX_EN
-        lde     USARTC(rr12), r0 ; enable Tx
+        ld      R0, #RX_EN_TX_EN
+        lde     USARTC(RR12), R0 ; enable Tx
 putchar_exit:
-        pop     r2
-        pop     r3
-        pop     r0
+        pop     R2
+        pop     R3
+        pop     R0
         ret
 
         include "queue.inc"
@@ -191,47 +191,47 @@ putchar_exit:
         setrp   -1
 isr_intr_rx:
         ld      P2AIP, #1 SHL 5 ; clear P23 IRQ0
-        push    r0
-        push    r3
-        push    r2
-        ldw     rr2, #USART
-        lde     r0, USARTS(rr2)
-        and     r0, #ST_RxRDY_bm
+        push    R0
+        push    R3
+        push    R2
+        ldw     RR2, #USART
+        lde     R0, USARTS(RR2)
+        and     R0, #ST_RxRDY_bm
         jr      z, isr_intr_rx_exit
-        lde     r0, USARTD(rr2)
-        ldw     rr2, #rx_queue
+        lde     R0, USARTD(RR2)
+        ldw     RR2, #rx_queue
         call    queue_add
 isr_intr_rx_exit:
-        pop     r2
-        pop     r3
-        pop     r0
+        pop     R2
+        pop     R3
+        pop     R0
         iret
 
 isr_intr_tx:
         ld      P2AIP, #1 SHL 1 ; clear P21 IRQ1
-        push    r0
-        push    r3
-        push    r2
-        ldw     rr2, #USART
-        lde     r0, USARTS(rr2)
-        and     r0, #ST_TxRDY_bm
+        push    R0
+        push    R3
+        push    R2
+        ldw     RR2, #USART
+        lde     R0, USARTS(RR2)
+        and     R0, #ST_TxRDY_bm
         jr      z, isr_intr_tx_exit
-        ldw     rr2, #tx_queue
+        ldw     RR2, #tx_queue
         call    queue_remove
-        ldw     rr2, #USART
+        ldw     RR2, #USART
         jr      nc, isr_intr_send_empty
-        lde     USARTD(rr2), r0
+        lde     USARTD(RR2), R0
 isr_intr_tx_exit:
-        pop     r2
-        pop     r3
-        pop     r0
+        pop     R2
+        pop     R3
+        pop     R0
         iret
 isr_intr_send_empty:
-        ld      r0, #RX_EN_TX_DIS
-        lde     USARTC(rr2), r0 ; disable Tx
-        pop     r2
-        pop     r3
-        pop     r0
+        ld      R0, #RX_EN_TX_DIS
+        lde     USARTC(RR2), R0 ; disable Tx
+        pop     R2
+        pop     R3
+        pop     R0
         iret
 
         end
