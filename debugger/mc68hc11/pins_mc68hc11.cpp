@@ -64,33 +64,30 @@ constexpr auto extal_e_ns = 50;
 constexpr auto extal_hi_ns = 100;   // 125
 constexpr auto extal_lo_ns = 100;   // 125
 constexpr auto c1_lo_ns = 80;       // 125
-constexpr auto c1_hi_ns = 77;       // 125
+constexpr auto c1_hi_ns = 100;      // 125
 constexpr auto c2_lo_ns = 62;       // 125
-constexpr auto c2_hi_read = 54;     // 125
-constexpr auto c3_lo_read = 1;      // 125
-constexpr auto c3_lo_inject = 81;   // 125
-constexpr auto c3_hi_read = 49;     // 125
-constexpr auto c4_lo_read = 73;     // 125
-constexpr auto c4_hi_read = 54;     // 125
-constexpr auto c2_hi_write = 54;    // 125
-constexpr auto c3_lo_write = 78;    // 125
-constexpr auto c3_hi_write = 78;    // 125
-constexpr auto c4_lo_write = 0;     // 125
+constexpr auto c2_hi_read = 70;     // 125
+constexpr auto c3_lo_read = 0;      // 125
+constexpr auto c3_lo_inject = 90;   // 125
+constexpr auto c3_hi_read = 50;     // 125
+constexpr auto c4_lo_read = 75;     // 125
+constexpr auto c4_hi_read = 45;     // 125
+constexpr auto c2_hi_write = 67;    // 125
+constexpr auto c3_lo_write = 79;    // 125
+constexpr auto c3_hi_write = 75;    // 125
+constexpr auto c4_lo_write = 1;     // 125
 constexpr auto c4_lo_capture = 89;  // 125
-constexpr auto c4_hi_write = 53;    // 125
+constexpr auto c4_hi_write = 45;    // 125
 constexpr auto tpcsu = 300;
 
-inline void extal_hi() __attribute__((always_inline));
 inline void extal_hi() {
     digitalWriteFast(PIN_EXTAL, HIGH);
 }
 
-inline void extal_lo() __attribute__((always_inline));
 inline void extal_lo() {
     digitalWriteFast(PIN_EXTAL, LOW);
 }
 
-inline void extal_cycle() __attribute__((always_inline));
 inline void extal_cycle() {
     delayNanoseconds(extal_lo_ns);
     extal_hi();
@@ -98,7 +95,6 @@ inline void extal_cycle() {
     extal_lo();
 }
 
-inline uint8_t clock_e() __attribute__((always_inline));
 inline uint8_t clock_e() {
     return digitalReadFast(PIN_E);
 }
@@ -125,8 +121,8 @@ void negate_irq() {
 
 void assert_reset() {
     // Drive RESET with opend drain
-    digitalWriteFast(PIN_RESET, LOW);
     pinMode(PIN_RESET, OUTPUT_OPENDRAIN);
+    digitalWriteFast(PIN_RESET, LOW);
     negate_xirq();
     negate_irq();
     extal_lo();
@@ -134,14 +130,27 @@ void assert_reset() {
 
 void negate_reset() {
     // Release RESET conditions
-    digitalWriteFast(PIN_RESET, HIGH);
-    pinMode(PIN_RESET, INPUT);
+    pinMode(PIN_RESET, INPUT_PULLUP);
 }
 
-inline uint8_t reset_signal() __attribute__((always_inline));
 inline uint8_t reset_signal() {
     return digitalReadFast(PIN_RESET);
 }
+
+const uint8_t PINS_HIGH[] = {
+        PIN_XIRQ,
+        PIN_IRQ,
+        PIN_MODB,
+};
+
+const uint8_t PINS_LOW[] = {
+        PIN_EXTAL,
+};
+
+const uint8_t PINS_PULLUP[] = {
+        PIN_RESET,
+        PIN_MODA,
+};
 
 const uint8_t PINS_INPUT[] = {
         PIN_AD0,
@@ -165,33 +174,26 @@ const uint8_t PINS_INPUT[] = {
         PIN_E,
 };
 
-inline void inject_mode_pin(uint8_t pin, uint8_t val) {
-    digitalWriteFast(pin, val ? HIGH : LOW);
-    pinMode(pin, OUTPUT_OPENDRAIN);
-}
-
-void inject_mode(uint8_t mode) {
-    inject_mode_pin(PIN_MODB, mode & 2);
-    inject_mode_pin(PIN_MODA, mode & 1);
+void inject_mode() {
+    // Inject MODB=H, MODA=H
+    digitalWriteFast(PIN_MODB, HIGH);
+    pinMode(PIN_MODA, INPUT_PULLUP);
 }
 
 void release_mode() {
-    // PIN_PC0 is now PIN_LIR
-    pinMode(PIN_MODB, INPUT);
-    pinMode(PIN_MODA, INPUT);
+    // PIN_MODB is now Vstby
+    digitalWriteFast(PIN_MODB, HIGH);
+    // PIN_MODA is now PIN_LIR
+    pinMode(PIN_MODA, INPUT_PULLUP);
 }
 
 }  // namespace
 
 void PinsMc68hc11::reset() {
+    pinsMode(PINS_LOW, sizeof(PINS_LOW), OUTPUT, LOW);
+    pinsMode(PINS_HIGH, sizeof(PINS_HIGH), OUTPUT, HIGH);
+    pinsMode(PINS_PULLUP, sizeof(PINS_PULLUP), INPUT_PULLUP);
     pinsMode(PINS_INPUT, sizeof(PINS_INPUT), INPUT);
-    pinMode(PIN_IRQ, OUTPUT_OPENDRAIN);
-    pinMode(PIN_XIRQ, OUTPUT_OPENDRAIN);
-    pinMode(PIN_EXTAL, OUTPUT);
-    pinMode(PIN_MODA, INPUT);
-    pinMode(PIN_MODB, INPUT);
-    pinMode(PIN_RESET, OUTPUT_OPENDRAIN);
-    extal_lo();
 
     // Reset vector should not point internal registers.
     const auto reset_vec = _mems->raw_read16(InstMc6800::VEC_RESET);
@@ -219,7 +221,7 @@ void PinsMc68hc11::reset() {
 
     Signals::resetCycles();
     // Mode Programming Setup Time for #RESET rising is 2 E cycles at minimum.
-    inject_mode(MPU_MODE);
+    inject_mode();
     cycle();
     cycle();
     cycle();
@@ -248,8 +250,8 @@ mc6800::Signals *PinsMc68hc11::cycle() {
 mc6800::Signals *PinsMc68hc11::rawCycle() {
     // MC68HC11 clock E is CLK/4, so we toggle CLK 4 times
     // C1H
-    extal_hi();
     busMode(AD, INPUT);
+    extal_hi();
     delayNanoseconds(c1_hi_ns);
     // C2L
     extal_lo();

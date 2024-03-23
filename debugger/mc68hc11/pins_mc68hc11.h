@@ -1,8 +1,6 @@
 #ifndef __PINS_MC68HC11_H__
 #define __PINS_MC68HC11_H__
 
-#define MPU_MODE 3 /* Normal expanded mode */
-
 #define PORT_AD 6      /* GPIO6 */
 #define AD_gp 16       /* P6.16 */
 #define AD_gm 0xFF     /* P6.16-P6.23 */
