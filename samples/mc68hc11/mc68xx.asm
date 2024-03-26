@@ -7,7 +7,7 @@
         org     VEC_RESET
         fdb     main
 
-        org     $1000
+        org     $0100
 main:
         lds     #main-1
         bsr     mc68xx
