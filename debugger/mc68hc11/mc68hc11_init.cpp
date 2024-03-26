@@ -43,7 +43,7 @@ void Mc68hc11Init::configSystem(uint8_t init) {
     // constexpr uint8_t CME = 0x08;
     _regs->internal_write(_dev_base + OPTION, 0);
 
-    // It can be written to ionly once within the first 64 E-clock
+    // It can be written to only once within the first 64 E-clock
     // cycles after a reset, and then ot becomes a read-only register.
     _regs->internal_write(_dev_base + INIT, init);
     set(init);
