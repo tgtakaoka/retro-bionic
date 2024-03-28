@@ -630,13 +630,15 @@ void Debugger::exec(char c) {
         goto regs;
     case 'G':
         cli.println(F("Go"));
-        if (pins().step(false)) {  // step over possible break point
-            pins().setRun();
-            pins().run();
-            pins().setHalt();
-            goto regs;
+        if (pins().isBreakPoint(regs().nextIp())) {
+            // step over break point
+            if (!pins().step(false))
+                break;
         }
-        break;
+        pins().setRun();
+        pins().run();
+        pins().setHalt();
+        goto regs;
     case 'F':
         cli.print(F("Files? "));
         cli.readLine(handleFileListing, 0, str_buffer, sizeof(str_buffer));

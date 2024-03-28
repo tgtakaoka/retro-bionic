@@ -13,8 +13,10 @@ struct CharBuffer final {
     operator const char *() const { return _str; }
     char &operator[](int pos) { return _str[pos]; }
 
+    void hex1(uint8_t pos, uint8_t value);
     void hex4(uint8_t pos, uint8_t value);
     void hex8(uint8_t pos, uint8_t value);
+    void hex12(uint8_t pos, uint16_t value);
     void hex16(uint8_t pos, uint16_t value);
     void hex20(uint8_t pos, uint32_t value);
     void hex24(uint8_t pos, uint32_t value);

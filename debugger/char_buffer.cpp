@@ -17,6 +17,10 @@ CharBuffer::CharBuffer(const char *str) : _str(new char[strlen(str) + 1]) {
     strcpy(_str, str);
 }
 
+void CharBuffer::hex1(uint8_t pos, uint8_t val) {
+    _str[pos] = val ? '1' : '0';
+}
+
 void CharBuffer::hex4(uint8_t pos, uint8_t val) {
     _str[pos] = toHex4(val & 0xF);
 }
@@ -24,6 +28,11 @@ void CharBuffer::hex4(uint8_t pos, uint8_t val) {
 void CharBuffer::hex8(uint8_t pos, uint8_t val) {
     hex4(pos, val >> 4);
     hex4(pos + 1, val);
+}
+
+void CharBuffer::hex12(uint8_t pos, uint16_t val) {
+    hex4(pos, val >> 8);
+    hex8(pos + 1, val);
 }
 
 void CharBuffer::hex16(uint8_t pos, uint16_t val) {

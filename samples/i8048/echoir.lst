@@ -1,0 +1,294 @@
+          0 :
+          0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+          0 :                            cpu     8048
+          0 :                            include "i8048.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :                    ;;; i8048
+(1)       0 :                    ;;; PSW Register
+(1)       0 : =80                PSW_CY:         equ     10000000B ; set to 1 if carry
+(1)       0 : =40                PSW_AC:         equ     01000000B ; set to 1 if auxillary carry
+(1)       0 : =10                PSW_F0:         equ     00010000B ; flag 0
+(1)       0 : =4                 PSW_BS:         equ     00000100B ; register bank select
+(1)       0 : =7                 PSW_SP:         equ     00000111B ; stack pointer (grow upward)
+(1)       0 :                    ;;; Interrupt origin
+(1)       0 : =0                 ORG_RESET:      equ     000H    ; RESET
+(1)       0 : =3                 ORG_INT:        equ     003H    ; #INT
+(1)       0 :                    ;;; Register bank and stack
+(1)       0 : =0                 BASE_BANK0:     equ     00H     ; R0-R7
+(1)       0 : =8                 BASE_STACK:     equ     08H     ; PSW:PC
+(1)       0 : =18                BASE_BANK1:     equ     18H     ; R0-R7
+(1)       0 : =20                BASE_MEMORY:    equ     20H     ; general purpose memory
+          0 :
+          0 :                    ;;; i8251 Universal Synchronous/Asynchronous Receiver/Transmitter
+          0 : =FC                USART:          equ     0FCH
+          0 : =FC                USARTD:         equ     USART+0 ; Receive/Transmit data
+          0 : =FD                USARTS:         equ     USART+1 ; Srtatus register
+          0 : =FD                USARTC:         equ     USART+1 ; Control register
+          0 : =FE                USARTRV:        equ     USART+2 ; Receive interrupt vector (ORG_*)
+          0 : =FF                USARTTV:        equ     USART+3 ; Transmit interrupt vector (ORG_*)
+          0 :                            include "i8251.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :
+(1)       0 :                    ;;; i8251 USART device emulator.
+(1)       0 : =6                 MODE_STOP_gp:   equ     6
+(1)       0 : =C0                MODE_STOP_gm:   equ     11000000B
+(1)       0 : =40                MODE_STOP1_gc:  equ     (1 << MODE_STOP_gp)
+(1)       0 : =80                MODE_STOP15_gc: equ     (2 << MODE_STOP_gp)
+(1)       0 : =C0                MODE_STOP2_gc:  equ     (3 << MODE_STOP_gp)
+(1)       0 : =20                MODE_EVEN_bm:   equ     00100000B
+(1)       0 : =10                MODE_PARITY_bm: equ     00010000B
+(1)       0 : =2                 MODE_LEN_gp:    equ     2
+(1)       0 : =C                 MODE_LEN_gm:    equ     00001100B
+(1)       0 : =0                 MODE_LEN5_gc:   equ     (0 << MODE_LEN_gp)
+(1)       0 : =4                 MODE_LEN6_gc:   equ     (1 << MODE_LEN_gp)
+(1)       0 : =8                 MODE_LEN7_gc:   equ     (2 << MODE_LEN_gp)
+(1)       0 : =C                 MODE_LEN8_gc:   equ     (3 << MODE_LEN_gp)
+(1)       0 : =0                 MODE_BAUD_gp:   equ     0
+(1)       0 : =3                 MODE_BAUD_gm:   equ     00000011B
+(1)       0 : =1                 MODE_BAUD_X1:   equ     (1 << MODE_BAUD_gp)
+(1)       0 : =2                 MODE_BAUD_X16:  equ (2 << MODE_BAUD_gp)
+(1)       0 : =3                 MODE_BAUD_X64:  equ (3 << MODE_BAUD_gp)
+(1)       0 :                    ;;; Bit Definition of command register
+(1)       0 : =80                CMD_EH_bm:      equ     10000000B   ; Enter hunt mode
+(1)       0 : =40                CMD_IR_bm:      equ     01000000B   ; Internal Reset
+(1)       0 : =20                CMD_RTS_bm:     equ     00100000B   ; Request To Send
+(1)       0 : =10                CMD_ER_bm:      equ     00010000B   ; Error Reset
+(1)       0 : =8                 CMD_SBRK_bm:    equ     00001000B   ; Send Break
+(1)       0 : =4                 CMD_RxEN_bm:    equ     00000100B   ; Receive Enable
+(1)       0 : =2                 CMD_DTR_bm:     equ     00000010B   ; Data Terminal Ready
+(1)       0 : =1                 CMD_TxEN_bm:    equ     00000001B   ; Transmit enable
+(1)       0 :
+(1)       0 :                    ;;; Bit definition of status register
+(1)       0 : =80                ST_DSR_bm:      equ     10000000B   ; Data Set Ready
+(1)       0 : =40                ST_BRK_bm:      equ     01000000B   ; BREAK detected
+(1)       0 : =20                ST_FE_bm:       equ     00100000B   ; Framing Error
+(1)       0 : =10                ST_OE_bm:       equ     00010000B   ; Iverrun Error
+(1)       0 : =8                 ST_PE_bm:       equ     00001000B   ; Parity Error
+(1)       0 : =4                 ST_TxEMPTY_bm:  equ     00000100B   ; Transmitter empty
+(1)       0 : =2                 ST_RxRDY_bm:    equ     00000010B   ; Receiver ready
+(1)       0 : =1                 ST_TxRDY_bm:    equ     00000001B   ; Transmitter ready
+(1)       0 : =1                 ST_RxRDY_bp:    equ     1           ; Receiver ready
+(1)       0 : =0                 ST_TxRDY_bp:    equ     0           ; Transmitter ready
+          0 :                    ;;; Async 1stop 8data x16
+          0 : =4E                ASYNC_MODE:     equ     MODE_STOP1_gc|MODE_LEN8_gc|MODE_BAUD_X16
+          0 :                    ;;; RTS/DTR, error reset, Rx enable, Tx enable
+          0 : =37                RX_EN_TX_EN:    equ     CMD_RTS_bm|CMD_DTR_bm|CMD_ER_bm|CMD_RxEN_bm|CMD_TxEN_bm
+          0 :
+          0 :                    ;;; External data memory
+          0 :                            org     00H
+          0 : =20                rx_queue_size:  equ     32
+          0 :                    rx_queue_buf:   ds      rx_queue_size
+         FC :                            org     USART
+         FC :                    ;;;  Software stack; pre-decrement, post-increment pointed by R1 on
+         FC :                    ;;;  external data memory
+         FC : =FC                stack:          equ     $
+         FC :
+         FC :                    ;;; internal data memory
+         20 :                            org     BASE_MEMORY
+         20 :                    rx_queue:       ds      queue_work_size
+         25 :
+          0 :                            org     ORG_RESET
+          0 : 04 05                      jmp     init
+          3 :                            org     ORG_INT
+          3 : 04 B1                      jmp     isr_intr
+          5 :                    init:
+          5 : B9 FC                      mov     R1, #stack
+          7 : B8 20                      mov     R0, #rx_queue
+          9 : BA 00                      mov     R2, #rx_queue_buf
+          B : 23 20                      mov     A, #rx_queue_size
+          D : 14 46                      call    queue_init
+          F :                    init_usart:
+          F : B8 FD                      mov     R0, #USARTC
+         11 : 27                         clr     A
+         12 : 90                         movx    @R0, A
+         13 : 90                         movx    @R0, A
+         14 : 90                         movx    @R0, A          ; safest way to sync mode
+         15 : 23 40                      mov     A, #CMD_IR_bm
+         17 : 90                         movx    @R0, A          ; reset
+         18 : 00                         nop
+         19 : 00                         nop
+         1A : 23 4E                      mov     A, #ASYNC_MODE
+         1C : 90                         movx    @R0, A
+         1D : 00                         nop
+         1E : 00                         nop
+         1F : 23 37                      mov     A, #RX_EN_TX_EN
+         21 : 90                         movx    @R0, A
+         22 : 23 03                      mov     A, #ORG_INT
+         24 : B8 FE                      mov     R0, #USARTRV
+         26 : 90                         movx    @R0, A          ; enable RxRDY interrupt
+         27 : 05                         en      I
+         28 :
+         28 :                    receive_loop:
+         28 : B8 20                      mov     R0, #rx_queue
+         2A : 15                         dis     I               ; Disable INT
+         2B : 14 89                      call    queue_remove
+         2D : 05                         en      I               ; Enable INT
+         2E : E6 28                      jnc     receive_loop
+         30 : C6 45                      jz      halt_to_system
+         32 : AF                         mov     R7, A           ; save letter
+         33 :                    transmit_loop:
+         33 : B8 FD                      mov     R0, #USARTS
+         35 : 80                         movx    A, @R0
+         36 : 37                         cpl     A
+         37 : 12 33                      jb      ST_TxRDY_bp, transmit_loop
+         39 :                    transmit_data:
+         39 : B8 FC                      mov     R0, #USARTD
+         3B : FF                         mov     A, R7
+         3C : 90                         movx    @R0, A
+         3D : D3 0D                      xrl     A, #0DH
+         3F : 96 28                      jnz     receive_loop
+         41 : BF 0A                      mov     R7, #0AH
+         43 : 04 33                      jmp     transmit_loop
+         45 :                    halt_to_system:
+         45 : 01                         db      01H
+         46 :
+         46 :                            include "queue.inc"
+(1)      46 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)      46 :                    ;;; [queue] queue structure on internal data memory
+(1)      46 : =0                 queue_len:      equ     0       ; queue length
+(1)      46 : =1                 queue_size:     equ     1       ; buffer size
+(1)      46 : =2                 queue_buf:      equ     2       ; buffer pointer to external data memory
+(1)      46 : =3                 queue_put:      equ     3       ; queue put index
+(1)      46 : =4                 queue_get:      equ     4       ; queue get index
+(1)      46 : =5                 queue_work_size:        equ     5
+(1)      46 :
+(1)      46 :                    ;;; [queue] Initialize queue
+(1)      46 :                    ;;; @param R0 queue work space pointer
+(1)      46 :                    ;;; @param R2 queue buffer pointer
+(1)      46 :                    ;;; @param A queue buffer size
+(1)      46 :                    ;;; @clobber A R0
+(1)      46 :                    queue_init:
+(1)      46 : AF                         mov     R7, A
+(1)      47 : B0 00                      mov     @R0, #0         ; queue_len
+(1)      49 : 18                         inc     R0
+(1)      4A : A0                         mov     @R0, A          ; queue_size
+(1)      4B : 18                         inc     R0
+(1)      4C : FA                         mov     A, R2
+(1)      4D : A0                         mov     @R0, A          ; queue_buffer
+(1)      4E : 18                         inc     R0
+(1)      4F : B0 00                      mov     @R0, #0         ; queue_put
+(1)      51 : 18                         inc     R0
+(1)      52 : B0 00                      mov     @R0, #0         ; queue_get
+(1)      54 : FA                         mov     A, R2
+(1)      55 : A8                         mov     R0, A           ; R0=queue_buffer
+(1)      56 : 27                         clr     A
+(1)      57 :                    queue_init_loop:
+(1)      57 : 90                         movx    @R0, A
+(1)      58 : 18                         inc     R0
+(1)      59 : EF 57                      djnz    R7, queue_init_loop
+(1)      5B : 83                         ret
+(1)      5C :
+(1)      5C :                    ;;; [queue] Add an element to queue
+(1)      5C :                    ;;; @param R0 queue work space pointer
+(1)      5C :                    ;;; @param A an element
+(1)      5C :                    ;;; @return PSW.C 0 if queue is full
+(1)      5C :                    ;;; @clobber R0
+(1)      5C :                    queue_add:
+(1)      5C : C9                         dec     R1
+(1)      5D : 91                         movx    @R1, A          ; save A
+(1)      5E : F0                         mov     A, @R0          ; queue_len
+(1)      5F : 18                         inc     R0
+(1)      60 : D0                         xrl     A, @R0          ; queue_size
+(1)      61 : 96 67                      jnz     queue_add_store
+(1)      63 : 81                         movx    A, @R1          ; restore A
+(1)      64 : 19                         inc     R1
+(1)      65 : 97                         clr     C               ; PSW.C=0
+(1)      66 : 83                         ret
+(1)      67 :                    queue_add_store:
+(1)      67 : 81                         movx    A, @R1          ; restore A
+(1)      68 : 2F                         xch     A, R7           ; R7=an element
+(1)      69 : C9                         dec     R1
+(1)      6A : 91                         movx    @R1, A          ; save R7
+(1)      6B : C8                         dec     R0
+(1)      6C : 10                         inc     @R0             ; queue_len++
+(1)      6D : 18                         inc     R0
+(1)      6E : 18                         inc     R0
+(1)      6F : F0                         mov     A, @R0          ; A=queue_buf
+(1)      70 : 18                         inc     R0
+(1)      71 : 60                         add     A, @R0          ; A=queue_buf+queue_put
+(1)      72 : 29                         xch     A, R1           ; A=R1, R0=&queue_buf[queue_put]
+(1)      73 : 2F                         xch     A, R7           ; A=an element, R7=R1
+(1)      74 : 91                         movx    @R1, A          ; add an element
+(1)      75 : FF                         mov     A, R7           ; A=R1
+(1)      76 : A9                         mov     R1, A           ; restore R1
+(1)      77 : C8                         dec     R0
+(1)      78 : C8                         dec     R0
+(1)      79 : F0                         mov     A, @R0          ; A=queue_size
+(1)      7A : 18                         inc     R0
+(1)      7B : 18                         inc     R0
+(1)      7C : 10                         inc     @R0             ; queue_put++
+(1)      7D : D0                         xrl     A, @R0
+(1)      7E : 96 81                      jnz     queue_add_end
+(1)      80 : A0                         mov     @R0, A          ; queue_put=0
+(1)      81 :                    queue_add_end:
+(1)      81 : 81                         movx    A, @R1
+(1)      82 : 19                         inc     R1
+(1)      83 : AF                         mov     R7, A           ; restore R7
+(1)      84 : 81                         movx    A, @R1          ; restore A
+(1)      85 : 19                         inc     R1
+(1)      86 : 97                         clr     C
+(1)      87 : A7                         cpl     C
+(1)      88 : 83                         ret
+(1)      89 :
+(1)      89 :                    ;;; [queue] Remove an element from queue
+(1)      89 :                    ;;; @param R0 queue work space pointer
+(1)      89 :                    ;;; @return A an element
+(1)      89 :                    ;;; @return PSW.C 0 if queue is empty
+(1)      89 :                    ;;; @clobber R0
+(1)      89 :                    queue_remove:
+(1)      89 : F0                         mov     A, @R0            ; queue_len
+(1)      8A : 96 8E                      jnz     queue_remove_elem ; queue_len > 0
+(1)      8C : 97                         clr     C                 ; PSW.C=0
+(1)      8D : 83                         ret
+(1)      8E :                    queue_remove_elem:
+(1)      8E : FF                         mov     A, R7
+(1)      8F : C9                         dec     R1
+(1)      90 : 91                         movx    @R1, A          ; save R7
+(1)      91 : F0                         mov     A, @R0          ; queue_len--
+(1)      92 : 07                         dec     A
+(1)      93 : A0                         mov     @R0, A
+(1)      94 : 18                         inc     R0
+(1)      95 : 18                         inc     R0
+(1)      96 : F0                         mov     A, @R0          ; A=queue_buf
+(1)      97 : 18                         inc     R0
+(1)      98 : 18                         inc     R0
+(1)      99 : 60                         add     A, @R0          ; A=queue_buf+queue_get
+(1)      9A : 29                         xch     A, R1           ; A=R1
+(1)      9B : 2F                         xch     A, R7           ; R7=R1
+(1)      9C : 81                         movx    A, @R1
+(1)      9D : 2F                         xch     A, R7           ; A=R1, R7=an element
+(1)      9E : A9                         mov     R1, A           ; restore R1
+(1)      9F : C8                         dec     R0
+(1)      A0 : C8                         dec     R0
+(1)      A1 : C8                         dec     R0
+(1)      A2 : F0                         mov     A, @R0          ; A=queue_size
+(1)      A3 : 18                         inc     R0
+(1)      A4 : 18                         inc     R0
+(1)      A5 : 18                         inc     R0
+(1)      A6 : 10                         inc     @R0             ; queue_get++
+(1)      A7 : D0                         xrl     A, @R0          ; queue_get
+(1)      A8 : 96 AB                      jnz     queue_remove_end
+(1)      AA : A0                         mov     @R0, A          ; queue_get=0
+(1)      AB :                    queue_remove_end:
+(1)      AB : 81                         movx    A, @R1          ; restore R7
+(1)      AC : 19                         inc     R1
+(1)      AD : 2F                         xch     A, R7           ; A=an element
+(1)      AE : 97                         clr     C
+(1)      AF : A7                         cpl     C
+(1)      B0 : 83                         ret
+         B1 :
+         B1 :                    isr_intr:
+         B1 : D5                         sel     RB1             ; select register bank 1
+         B2 : AA                         mov     R2, A           ; save A
+         B3 :                    isr_intr_receive:
+         B3 : B8 FD                      mov     R0, #USARTS
+         B5 : 80                         movx    A, @R0
+         B6 : 37                         cpl     A
+         B7 : 32 C0                      jb      ST_RxRDY_bp, isr_intr_recv_end
+         B9 : B8 FC                      mov     R0, #USARTD
+         BB : 80                         movx    A, @R0
+         BC : B8 20                      mov     R0, #rx_queue
+         BE : 14 5C                      call    queue_add
+         C0 :                    isr_intr_recv_end:
+         C0 : FA                         mov     A, R2
+         C1 : 93                         retr

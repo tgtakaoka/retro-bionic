@@ -1,0 +1,119 @@
+          0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+          0 :                            cpu     8048
+          0 :                            include "i8048.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :                    ;;; i8048
+(1)       0 :                    ;;; PSW Register
+(1)       0 : =80                PSW_CY:         equ     10000000B ; set to 1 if carry
+(1)       0 : =40                PSW_AC:         equ     01000000B ; set to 1 if auxillary carry
+(1)       0 : =10                PSW_F0:         equ     00010000B ; flag 0
+(1)       0 : =4                 PSW_BS:         equ     00000100B ; register bank select
+(1)       0 : =7                 PSW_SP:         equ     00000111B ; stack pointer (grow upward)
+(1)       0 :                    ;;; Interrupt origin
+(1)       0 : =0                 ORG_RESET:      equ     000H    ; RESET
+(1)       0 : =3                 ORG_INT:        equ     003H    ; #INT
+(1)       0 :                    ;;; Register bank and stack
+(1)       0 : =0                 BASE_BANK0:     equ     00H     ; R0-R7
+(1)       0 : =8                 BASE_STACK:     equ     08H     ; PSW:PC
+(1)       0 : =18                BASE_BANK1:     equ     18H     ; R0-R7
+(1)       0 : =20                BASE_MEMORY:    equ     20H     ; general purpose memory
+          0 :
+          0 :                    ;;; i8251 Universal Synchronous/Asynchronous Receiver/Transmitter
+          0 : =FC                USART:  equ     0FCH
+          0 : =FC                USARTD: equ     USART+0         ; Data register
+          0 : =FD                USARTS: equ     USART+1         ; Status register
+          0 : =FD                USARTC: equ     USART+1         ; Control register
+          0 :                            include "i8251.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :
+(1)       0 :                    ;;; i8251 USART device emulator.
+(1)       0 : =6                 MODE_STOP_gp:   equ     6
+(1)       0 : =C0                MODE_STOP_gm:   equ     11000000B
+(1)       0 : =40                MODE_STOP1_gc:  equ     (1 << MODE_STOP_gp)
+(1)       0 : =80                MODE_STOP15_gc: equ     (2 << MODE_STOP_gp)
+(1)       0 : =C0                MODE_STOP2_gc:  equ     (3 << MODE_STOP_gp)
+(1)       0 : =20                MODE_EVEN_bm:   equ     00100000B
+(1)       0 : =10                MODE_PARITY_bm: equ     00010000B
+(1)       0 : =2                 MODE_LEN_gp:    equ     2
+(1)       0 : =C                 MODE_LEN_gm:    equ     00001100B
+(1)       0 : =0                 MODE_LEN5_gc:   equ     (0 << MODE_LEN_gp)
+(1)       0 : =4                 MODE_LEN6_gc:   equ     (1 << MODE_LEN_gp)
+(1)       0 : =8                 MODE_LEN7_gc:   equ     (2 << MODE_LEN_gp)
+(1)       0 : =C                 MODE_LEN8_gc:   equ     (3 << MODE_LEN_gp)
+(1)       0 : =0                 MODE_BAUD_gp:   equ     0
+(1)       0 : =3                 MODE_BAUD_gm:   equ     00000011B
+(1)       0 : =1                 MODE_BAUD_X1:   equ     (1 << MODE_BAUD_gp)
+(1)       0 : =2                 MODE_BAUD_X16:  equ (2 << MODE_BAUD_gp)
+(1)       0 : =3                 MODE_BAUD_X64:  equ (3 << MODE_BAUD_gp)
+(1)       0 :                    ;;; Bit Definition of command register
+(1)       0 : =80                CMD_EH_bm:      equ     10000000B   ; Enter hunt mode
+(1)       0 : =40                CMD_IR_bm:      equ     01000000B   ; Internal Reset
+(1)       0 : =20                CMD_RTS_bm:     equ     00100000B   ; Request To Send
+(1)       0 : =10                CMD_ER_bm:      equ     00010000B   ; Error Reset
+(1)       0 : =8                 CMD_SBRK_bm:    equ     00001000B   ; Send Break
+(1)       0 : =4                 CMD_RxEN_bm:    equ     00000100B   ; Receive Enable
+(1)       0 : =2                 CMD_DTR_bm:     equ     00000010B   ; Data Terminal Ready
+(1)       0 : =1                 CMD_TxEN_bm:    equ     00000001B   ; Transmit enable
+(1)       0 :
+(1)       0 :                    ;;; Bit definition of status register
+(1)       0 : =80                ST_DSR_bm:      equ     10000000B   ; Data Set Ready
+(1)       0 : =40                ST_BRK_bm:      equ     01000000B   ; BREAK detected
+(1)       0 : =20                ST_FE_bm:       equ     00100000B   ; Framing Error
+(1)       0 : =10                ST_OE_bm:       equ     00010000B   ; Iverrun Error
+(1)       0 : =8                 ST_PE_bm:       equ     00001000B   ; Parity Error
+(1)       0 : =4                 ST_TxEMPTY_bm:  equ     00000100B   ; Transmitter empty
+(1)       0 : =2                 ST_RxRDY_bm:    equ     00000010B   ; Receiver ready
+(1)       0 : =1                 ST_TxRDY_bm:    equ     00000001B   ; Transmitter ready
+(1)       0 : =1                 ST_RxRDY_bp:    equ     1           ; Receiver ready
+(1)       0 : =0                 ST_TxRDY_bp:    equ     0           ; Transmitter ready
+          0 :                    ;;; Async 1stop 8data x16
+          0 : =4E                ASYNC_MODE:     equ     MODE_STOP1_gc|MODE_LEN8_gc|MODE_BAUD_X16
+          0 :                    ;;; RTS/DTR, error reset, Rx enable, Tx enable
+          0 : =37                RX_EN_TX_EN:    equ     CMD_RTS_bm|CMD_DTR_bm|CMD_ER_bm|CMD_RxEN_bm|CMD_TxEN_bm
+          0 :
+          0 :                            org     ORG_RESET
+          0 : 04 05                      jmp     init
+          3 :                            org     ORG_INT
+          3 : 04 05                      jmp     init
+          5 :                    init:
+          5 : B8 FD                      mov     R0, #USARTC
+          7 : 27                         clr     A
+          8 : 90                         movx    @R0, A
+          9 : 90                         movx    @R0, A
+          A : 90                         movx    @R0, A          ; safest way to sync mode
+          B : 23 40                      mov     A, #CMD_IR_bm   ; reset
+          D : 90                         movx    @R0, A
+          E : 00                         nop
+          F : 00                         nop
+         10 : 23 4E                      mov     A, #ASYNC_MODE
+         12 : 90                         movx    @R0, A
+         13 : 00                         nop
+         14 : 00                         nop
+         15 : 23 37                      mov     A, #RX_EN_TX_EN
+         17 : 90                         movx    @R0, A
+         18 :
+         18 :                    receive_loop:
+         18 : B8 FD                      mov     R0, #USARTS
+         1A : 80                         movx    A, @R0
+         1B : 37                         cpl     A
+         1C : 32 18                      jb      ST_RxRDY_bp, receive_loop
+         1E :                    receive_data:
+         1E : B8 FC                      mov     R0, #USARTD
+         20 : 80                         movx    A, @R0
+         21 : C6 36                      jz      halt_to_system
+         23 : AA                         mov     R2, A           ; save character
+         24 :                    transmit_loop:
+         24 : B8 FD                      mov     R0, #USARTS
+         26 : 80                         movx    A, @R0
+         27 : 37                         cpl     A
+         28 : 12 24                      jb      ST_TxRDY_bp, transmit_loop
+         2A :                    transmit_data: 
+         2A : B8 FC                      mov     R0, #USARTD
+         2C : FA                         mov     A, R2
+         2D : 90                         movx    @R0, A
+         2E : 03 F3                      add     A, #-0DH
+         30 : 96 18                      jnz     receive_loop
+         32 : BA 0A                      mov     R2, #0AH
+         34 : 04 24                      jmp     transmit_loop
+         36 :                    halt_to_system:
+         36 : 01                         db      01H             ; halt to system
