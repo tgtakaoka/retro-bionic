@@ -69,13 +69,10 @@ init_usart:
         sim
         ei
 
+loop:
         call    mandelbrot
         call    newline
-        lxi     h, tx_queue
-wait:   mov     a, m
-        ora     a
-        jnz     wait
-        hlt
+        jp      loop
 
 ;;; Get character
 ;;; @return A

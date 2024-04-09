@@ -49,108 +49,112 @@
        1000 : =1000              stack:  equ     $
        1000 :
           0 :                            org     ORG_RESET
-          0 : 31 00 10                   lxi     sp, stack
-          3 : 3E C0                      mvi     a, SIM_SOD OR SIM_SDE
-          5 : 30                         sim                     ; set mark
-          6 :
-          6 :                    echo:
-          6 : CD 1E 00                   call    getch
-          9 : B7                         ora     a
-          A : CA 1D 00                   jz      halt_to_system
-          D :                    echo_back:
-          D : CD 52 00                   call    putch
-         10 : FE 0D                      cpi     0DH
-         12 : C2 06 00                   jnz     echo
-         15 : 3E 0A                      mvi     a,0AH
-         17 : CD 52 00                   call    putch
-         1A : C3 06 00                   jmp     echo
-         1D :                    halt_to_system:
-         1D : 76                         hlt
-         1E :
-         1E :                    ;;; Assume that 8085 is running with 3MHz CLK.
-         1E :                    ;;; 9,600bps bit duration = 3,000,000/9,600 = 312.5 CLK
-         1E :
-         1E :                    ;;; SID is latched at T3/CLK=0 of RIM instruction
-         1E : C5                 getch:  push    b               ;12
-         1F : D5                         push    d               ;12
-         20 : 20                 get1:   rim                     ;4
-         21 : E6 80                      ani     RIM_SID         ;7
-         23 : CA 20 00                   jz      get1            ;7/10
-         26 : 20                 get2:   rim                     ;4,4
-         27 : E6 80                      ani     RIM_SID         ;7,11
-         29 : C2 26 00                   jnz     get2            ;7/10,18 wait start bit
-         2C :                    ;;; 470 = 312.5*1.504
-         2C : 16 1D                      mvi     d,29            ;7,25
-         2E : CD 8A 00                   call    delay           ;29*14+25,456
-         31 : 0E 08                      mvi     c,8             ;7,463
-         33 : 1E 00                      mvi     e,0             ;7,470
-         35 :                    ;;;
-         35 : 20                 get3:   rim                     ;4,4
-         36 : E6 80                      ani     RIM_SID         ;7,11
-         38 : 47                         mov     b,a             ;4,15
-         39 : 7B                         mov     a,e             ;4,19
-         3A : 0F                         rrc                     ;4,23
-         3B : B0                         ora     b               ;4,27
-         3C : 5F                         mov     e,a             ;4,31
-         3D : 16 10                      mvi     d,16            ;7,38
-         3F : CD 8A 00                   call    delay           ;16*14+25,287
-         42 : 00                         nop                     ;4,291
-         43 : 00                         nop                     ;4,295
-         44 : 00                         nop                     ;4,299
-         45 : 0D                         dcr     c               ;4,303
-         46 : C2 35 00                   jnz     get3            ;7/10,313,310
-         49 :                    ;;; 706 = 312.5*2.259
-         49 : 16 1A                      mvi     d,26            ;7,317
-         4B : CD 8A 00                   call    delay           ;26*14+25,706
-         4E : 7B                         mov     a,e             ;4
-         4F : D1                         pop     d               ;10
-         50 : C1                         pop     b               ;10
-         51 : C9                         ret                     ;10
-         52 :
-         52 :                    ;;; SOD is set at T2/CLK=0 of SIM instruciton
-         52 : F5                 putch:  push    psw             ;12
-         53 : C5                         push    b               ;12
-         54 : D5                         push    d               ;12
-         55 : 47                         mov     b,a             ;4
-         56 : 3E C0                      mvi     a,SIM_SOD OR SIM_SDE ;7
-         58 : 30                         sim                     ;4 set mark
-         59 : 0E 08                      mvi     c,8             ;7
-         5B :                    ;;; 4+7+17*14+25+4*6+7*2 = 312
-         5B : 3E 40                      mvi     a,SIM_SDE       ;7 start bit
-         5D : 30                         sim                     ;4,4
-         5E : 16 11                      mvi     d,17            ;7,11
-         60 : CD 8A 00                   call    delay           ;17*14+25,274
-         63 :                    ;;; 4*8+7*3+10+16*14+25 = 312
-         63 : 78                 put1:   mov     a,b             ;4,278
-         64 : 0F                         rrc                     ;4.282
-         65 : 47                         mov     b,a             ;4,286
-         66 : E6 80                      ani     80H             ;7,293 data bit
-         68 : F6 40                      ori     SIM_SDE         ;7,300
-         6A : 00                         nop                     ;4,304
-         6B : 00                         nop                     ;4,308
-         6C : 00                         nop                     ;4,312
-         6D : 30                         sim                     ;4,4
-         6E : 16 10                      mvi     d,16            ;7,11
-         70 : CD 8A 00                   call    delay           ;16*14+25,260
-         73 : 0D                         dcr     c               ;4,264
-         74 : C2 63 00                   jnz     put1            ;7/10,274,271
-         77 :                    ;;; 4*2+7*2+16*14+25+10*2+4+7
-         77 : C3 7A 00                   jmp     $+3             ;10,281
-         7A : C3 7D 00                   jmp     $+3             ;10,291
-         7D : 00                         nop                     ;4,295
-         7E : 3E C0                      mvi     a,SIM_SOD OR SIM_SDE ;7,302 stop bit
-         80 :                    ;;;
-         80 : 30                         sim                     ;4,306
-         81 : 16 13                      mvi     d,19            ;7,313
-         83 : CD 8A 00                   call    delay           ;19*14+25,604
-         86 :                    ;;;
-         86 : D1                         pop     d               ;10
-         87 : C1                         pop     b               ;10
-         88 : F1                         pop     psw             ;10
-         89 : C9                         ret                     ;10
-         8A :
-         8A :                    ;;; delay D*14+25 (18+D*14-3+10)
-         8A :                    ;;;     call    delay           ;18
-         8A : 15                 delay:  dcr     d               ;4
-         8B : C2 8A 00                   jnz     delay           ;7/10
-         8E : C9                         ret                     ;10
+          0 : C3 00 01                   jmp     init
+          3 :
+        100 :                            org     0100H
+        100 :                    init:   
+        100 : 31 00 10                   lxi     sp, stack
+        103 : 3E C0                      mvi     a, SIM_SOD OR SIM_SDE
+        105 : 30                         sim                     ; set mark
+        106 :
+        106 :                    echo:
+        106 : CD 1E 01                   call    getch
+        109 : B7                         ora     a
+        10A : CA 1D 01                   jz      halt_to_system
+        10D :                    echo_back:
+        10D : CD 52 01                   call    putch
+        110 : FE 0D                      cpi     0DH
+        112 : C2 06 01                   jnz     echo
+        115 : 3E 0A                      mvi     a,0AH
+        117 : CD 52 01                   call    putch
+        11A : C3 06 01                   jmp     echo
+        11D :                    halt_to_system:
+        11D : 76                         hlt
+        11E :
+        11E :                    ;;; Assume that 8085 is running with 3MHz CLK.
+        11E :                    ;;; 9,600bps bit duration = 3,000,000/9,600 = 312.5 CLK
+        11E :
+        11E :                    ;;; SID is latched at T3/CLK=0 of RIM instruction
+        11E : C5                 getch:  push    b               ;12
+        11F : D5                         push    d               ;12
+        120 : 20                 get1:   rim                     ;4
+        121 : E6 80                      ani     RIM_SID         ;7
+        123 : CA 20 01                   jz      get1            ;7/10
+        126 : 20                 get2:   rim                     ;4,4
+        127 : E6 80                      ani     RIM_SID         ;7,11
+        129 : C2 26 01                   jnz     get2            ;7/10,18 wait start bit
+        12C :                    ;;; 470 = 312.5*1.504
+        12C : 16 1D                      mvi     d,29            ;7,25
+        12E : CD 8A 01                   call    delay           ;29*14+25,456
+        131 : 0E 08                      mvi     c,8             ;7,463
+        133 : 1E 00                      mvi     e,0             ;7,470
+        135 :                    ;;;
+        135 : 20                 get3:   rim                     ;4,4
+        136 : E6 80                      ani     RIM_SID         ;7,11
+        138 : 47                         mov     b,a             ;4,15
+        139 : 7B                         mov     a,e             ;4,19
+        13A : 0F                         rrc                     ;4,23
+        13B : B0                         ora     b               ;4,27
+        13C : 5F                         mov     e,a             ;4,31
+        13D : 16 10                      mvi     d,16            ;7,38
+        13F : CD 8A 01                   call    delay           ;16*14+25,287
+        142 : 00                         nop                     ;4,291
+        143 : 00                         nop                     ;4,295
+        144 : 00                         nop                     ;4,299
+        145 : 0D                         dcr     c               ;4,303
+        146 : C2 35 01                   jnz     get3            ;7/10,313,310
+        149 :                    ;;; 706 = 312.5*2.259
+        149 : 16 1A                      mvi     d,26            ;7,317
+        14B : CD 8A 01                   call    delay           ;26*14+25,706
+        14E : 7B                         mov     a,e             ;4
+        14F : D1                         pop     d               ;10
+        150 : C1                         pop     b               ;10
+        151 : C9                         ret                     ;10
+        152 :
+        152 :                    ;;; SOD is set at T2/CLK=0 of SIM instruciton
+        152 : F5                 putch:  push    psw             ;12
+        153 : C5                         push    b               ;12
+        154 : D5                         push    d               ;12
+        155 : 47                         mov     b,a             ;4
+        156 : 3E C0                      mvi     a,SIM_SOD OR SIM_SDE ;7
+        158 : 30                         sim                     ;4 set mark
+        159 : 0E 08                      mvi     c,8             ;7
+        15B :                    ;;; 4+7+17*14+25+4*6+7*2 = 312
+        15B : 3E 40                      mvi     a,SIM_SDE       ;7 start bit
+        15D : 30                         sim                     ;4,4
+        15E : 16 11                      mvi     d,17            ;7,11
+        160 : CD 8A 01                   call    delay           ;17*14+25,274
+        163 :                    ;;; 4*8+7*3+10+16*14+25 = 312
+        163 : 78                 put1:   mov     a,b             ;4,278
+        164 : 0F                         rrc                     ;4.282
+        165 : 47                         mov     b,a             ;4,286
+        166 : E6 80                      ani     80H             ;7,293 data bit
+        168 : F6 40                      ori     SIM_SDE         ;7,300
+        16A : 00                         nop                     ;4,304
+        16B : 00                         nop                     ;4,308
+        16C : 00                         nop                     ;4,312
+        16D : 30                         sim                     ;4,4
+        16E : 16 10                      mvi     d,16            ;7,11
+        170 : CD 8A 01                   call    delay           ;16*14+25,260
+        173 : 0D                         dcr     c               ;4,264
+        174 : C2 63 01                   jnz     put1            ;7/10,274,271
+        177 :                    ;;; 4*2+7*2+16*14+25+10*2+4+7
+        177 : C3 7A 01                   jmp     $+3             ;10,281
+        17A : C3 7D 01                   jmp     $+3             ;10,291
+        17D : 00                         nop                     ;4,295
+        17E : 3E C0                      mvi     a,SIM_SOD OR SIM_SDE ;7,302 stop bit
+        180 :                    ;;;
+        180 : 30                         sim                     ;4,306
+        181 : 16 13                      mvi     d,19            ;7,313
+        183 : CD 8A 01                   call    delay           ;19*14+25,604
+        186 :                    ;;;
+        186 : D1                         pop     d               ;10
+        187 : C1                         pop     b               ;10
+        188 : F1                         pop     psw             ;10
+        189 : C9                         ret                     ;10
+        18A :
+        18A :                    ;;; delay D*14+25 (18+D*14-3+10)
+        18A :                    ;;;     call    delay           ;18
+        18A : 15                 delay:  dcr     d               ;4
+        18B : C2 8A 01                   jnz     delay           ;7/10
+        18E : C9                         ret                     ;10

@@ -15,6 +15,7 @@ struct DevsI8085 final : Devs {
     bool isSelected(uint32_t addr) const override;
     uint16_t read(uint32_t addr) const override;
     void write(uint32_t addr, uint16_t data) const override;
+    uint16_t vector() const override;
 
     Device &parseDevice(const char *name) const override;
     void enableDevice(Device &dev) override;

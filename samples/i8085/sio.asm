@@ -6,6 +6,10 @@
 stack:  equ     $
 
         org     ORG_RESET
+        jmp     init
+
+        org     0100H
+init:   
         lxi     sp, stack
         mvi     a, SIM_SOD OR SIM_SDE
         sim                     ; set mark

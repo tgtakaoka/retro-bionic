@@ -8,16 +8,29 @@ namespace debugger {
 namespace i8085 {
 
 void Signals::getAddress() {
-    s() = busRead(S);
-    iom() = digitalReadFast(PIN_IOM);
     addr = busRead(ADDR);
+    iom() = digitalReadFast(PIN_IOM);
+    cntl() = busRead(CNTL);
 }
 
 void Signals::getDirection() {
-    //    s() = busRead(S);
-    rd() = digitalReadFast(PIN_RD);
-    wr() = digitalReadFast(PIN_WR);
-    inta() = digitalReadFast(PIN_INTA);
+    cntl() = busRead(CNTL);
+}
+
+bool Signals::read() const {
+    return (cntl() & CNTL_RD) == 0;
+}
+
+bool Signals::write() const {
+    return (cntl() & CNTL_WR) == 0;
+}
+
+bool Signals::fetch() const {
+    return memory() && (cntl() & CNTL_S) == S_FETCH;
+}
+
+bool Signals::vector() const {
+    return (cntl() & CNTL_INTA) == 0;
 }
 
 void Signals::getData() {

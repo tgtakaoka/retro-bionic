@@ -28,6 +28,7 @@ stack:  equ     $
         org     ORG_RST7
         jmp     isr_intr
 
+        org     0100H
 init:
         lxi     sp, stack
         lxi     h, rx_queue

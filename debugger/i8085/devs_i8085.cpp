@@ -37,6 +37,10 @@ void DevsI8085::write(uint32_t addr, uint16_t data) const {
     USART.write(addr, data);
 }
 
+uint16_t DevsI8085::vector() const {
+    return USART.vector();
+}
+
 Device &DevsI8085::parseDevice(const char *name) const {
     if (strcasecmp(name, USART.name()) == 0)
         return USART;

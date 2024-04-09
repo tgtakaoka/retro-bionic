@@ -28,26 +28,30 @@
 #define PIN_RST55 10   /* P7.00 */
 #define PIN_RST65 12   /* P7.01 */
 #define PIN_RST75 11   /* P7.02 */
-#define PORT_S 7       /* GPIO7 */
-#define S_gp 16        /* P7.16-P7.19 */
-#define S_gm 0x3       /* P7.16-P7.19 */
-#define S_vp 0         /* S0-S1 */
-#define PIN_S0 8       /* P7.16 */
-#define PIN_S1 7       /* P7.17 */
+#define PIN_INTR 8     /* P7.16 */
+#define PIN_TRAP 7     /* P7.17 */
 #define PIN_HLDA 36    /* P7.18 */
 #define PIN_HOLD 37    /* P7.19 */
-#define PIN_ALE 2      /* P9.04 */
-#define PIN_INTR 4     /* P9.06 */
-#define PIN_TRAP 33    /* P9.06 */
+#define PORT_CNTL 9    /* GPIO9 */
+#define CNTL_gp 4      /* P9.04-P9.08 */
+#define CNTL_gm 0x1F   /* P9.04-P9.08 */
+#define CNTL_vp 0      /* CNTL0-CNTL4 */
+#define PIN_S0 2       /* P9.04 */
+#define PIN_S1 3       /* P9.05 */
+#define PIN_RD 4       /* P9.06 */
+#define PIN_WR 33      /* P9.07 */
+#define PIN_INTA 5     /* P9.08 */
+#define CNTL_S 0x03    /* CNTL0-CNTL1 */
+#define CNTL_RD 0x04   /* CNTL2 */
+#define CNTL_WR 0x08   /* CNTL3 */
+#define CNTL_INTA 0x10 /* CNTL4 */
+#define PIN_CLK 29     /* P9.31 */
 #define PIN_SOD 0      /* P6.03 */
 #define PIN_SID 1      /* P6.02 */
-#define PIN_X1 5       /* P9.08 */
-#define PIN_CLK 29     /* P9.09 */
-#define PIN_RD 6       /* P7.10 */
-#define PIN_WR 9       /* P7.11 */
+#define PIN_X1 6       /* P7.10 */
 #define PIN_READY 32   /* P7.12 */
 #define PIN_RESET 28   /* P8.18 */
-#define PIN_INTA 31    /* P8.22 */
+#define PIN_ALE 31     /* P8.22 */
 #define PIN_IOM 30     /* P8.23 */
 
 #include "pins.h"
@@ -68,7 +72,6 @@ enum IntrName : uint8_t {
     INTR_RST55 = 0x2C,  // RST 5.5: 002CH
     INTR_RST65 = 0x34,  // RST 6.5: 0034H
     INTR_RST75 = 0x3C,  // RST 7.5: 003CH
-    INTR_TRAP = 0x24,   // TRAP: 0024H
 };
 
 struct PinsI8085 final : Pins {
@@ -85,22 +88,19 @@ struct PinsI8085 final : Pins {
             uint8_t *buf, uint8_t max);
 
 private:
-    uint8_t _inta;
-
     Signals *cycleT1() const;
     Signals *cycleT2() const;
     Signals *cycleT2Pause() const;
     Signals *cycleT2Ready(uint16_t pc) const;
     Signals *cycleT3(Signals *signals);
     void loop();
-    bool rawStep(uint16_t pc, bool step);
+    void suspend();
+    bool rawStep();
     uint8_t execute(const uint8_t *inst, uint8_t len, uint16_t *addr,
             uint8_t *buf, uint8_t max);
 
     void disassembleCycles();
     void printCycles();
-
-    static uint8_t intrToInta(uint8_t name);
 };
 
 extern struct PinsI8085 Pins;

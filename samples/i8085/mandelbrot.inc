@@ -175,7 +175,8 @@ print_char:
         call    getchar
         jnc     next_x
         ora     a
-        rz                      ; abort
+        jnz     next_x
+        hlt                     ; halt to system
 next_x:
         lhld    vX
         inx     H

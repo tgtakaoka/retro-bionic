@@ -17,6 +17,10 @@ RX_EN_TX_EN:    equ     CMD_RTS_bm|CMD_DTR_bm|CMD_ER_bm|CMD_RxEN_bm|CMD_TxEN_bm
 stack:  equ     $
 
         org     ORG_RESET
+        jmp     init
+
+        org     0100H
+init:
         lxi     sp, stack
 
 init_usart:

@@ -8,10 +8,16 @@ namespace i8085 {
 
 struct InstI8085 {
     static constexpr uint8_t NOP = 0x00;
-    static constexpr uint8_t RST0 = 0xC7;
     static constexpr uint8_t HLT = 0x76;
-    static constexpr uint8_t EI = 0xFB;
+    static constexpr uint8_t RET = 0xC9;
     static constexpr uint8_t DI = 0xF3;
+    static constexpr uint8_t EI = 0xFB;
+
+    static constexpr uint16_t ORG_TRAP = 0x0024;
+    static uint8_t vec2Inst(uint8_t vec) { return RST0 | (vec & 0x38); }
+
+private:
+    static constexpr uint8_t RST0 = 0xC7;
 };
 
 }  // namespace i8085
