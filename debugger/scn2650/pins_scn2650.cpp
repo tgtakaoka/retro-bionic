@@ -89,15 +89,6 @@ void negate_intreq() {
     digitalWriteFast(PIN_INTREQ, HIGH);
 }
 
-void assert_reset() {
-    digitalWriteFast(PIN_RESET, HIGH);
-    negate_intreq();
-}
-
-void negate_reset() {
-    digitalWriteFast(PIN_RESET, LOW);
-}
-
 void negate_pause() {
     digitalWriteFast(PIN_PAUSE, HIGH);
 }
@@ -108,6 +99,16 @@ void assert_opack() {
 
 void negate_opack() {
     digitalWriteFast(PIN_OPACK, HIGH);
+}
+
+void assert_reset() {
+    digitalWriteFast(PIN_RESET, HIGH);
+    negate_opack();
+    negate_intreq();
+}
+
+void negate_reset() {
+    digitalWriteFast(PIN_RESET, LOW);
 }
 
 const uint8_t PINS_LOW[] = {
@@ -248,7 +249,7 @@ Signals *PinsScn2650::completeCycle(Signals *s) {
     negate_opack();
     clock_lo();  // T2L
     delayNanoseconds(clock_lo_input);
-    busMode(DBUS, INPUT_PULLDOWN);
+    busMode(DBUS, INPUT);
     clock_hi();  // T0H
     Signals::nextCycle();
     return s;
@@ -298,14 +299,8 @@ void PinsScn2650::idle() {
 void PinsScn2650::loop() {
     while (true) {
         Devs.loop();
-        if (!rawStep() || haltSwitch()) {
-            restoreBreakInsts();
-            disassembleCycles();
-            assert_debug();
-            Regs.save();
-            negate_debug();
+        if (!rawStep() || haltSwitch())
             return;
-        }
     }
 }
 
@@ -314,6 +309,9 @@ void PinsScn2650::run() {
     Signals::resetCycles();
     saveBreakInsts();
     loop();
+    restoreBreakInsts();
+    disassembleCycles();
+    Regs.save();
 }
 
 bool PinsScn2650::rawStep() {
@@ -328,11 +326,11 @@ bool PinsScn2650::rawStep() {
     completeCycle(s);
     const auto opr = Memory.read(s->addr + 1);
     const auto busCycles = len + InstScn2650::busCycles(inst, opr);
-    s->fetchMark() = true;
+    s->markFetch();
     for (auto i = 1; i < busCycles; ++i) {
         auto s = prepareCycle();
         if (s->vector()) {
-            s->fetchMark() = false;
+            s->clearFetch();
             completeCycle(s);
             if (InstScn2650::busCycles(InstScn2650::ZBSR, s->data)) {
                 // Indirect vector
@@ -349,9 +347,7 @@ bool PinsScn2650::rawStep() {
 bool PinsScn2650::step(bool show) {
     Regs.restore();
     Signals::resetCycles();
-    assert_debug();
     if (rawStep()) {
-        negate_debug();
         if (show)
             printCycles();
         Regs.save();

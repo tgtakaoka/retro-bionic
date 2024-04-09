@@ -65,15 +65,10 @@ init_usart:
         lodi,r0 TXINTR_VEC
         wrte,r0 USARTTI         ; enable Tx interrupt
 
+loop:   
         bsta,un mandelbrot
         bsta,un newline
-wait:   lodr,r0 *tx_queue_len
-        bctr,eq halt_to_system
-        bctr,un wait
-halt_to_system:
-        halt
-tx_queue_len:
-        acon    tx_queue
+        bctr,un loop
 
 ;;; Get character
 ;;; @return r0

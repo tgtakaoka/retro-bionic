@@ -229,7 +229,7 @@ print_char:
         bcfr,eq next_x          ; PSL.C=0
         iorz    r0
         bcfr,eq next_x
-        halt                    ; HALT
+        halt                    ; halt to system
 next_x:
         lodi,r2 vX-arith_work
         lodi,r3 C1-arith_work

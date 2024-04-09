@@ -12,21 +12,19 @@ struct Signals final : SignalsBase<Signals> {
     void outData();
     void print() const;
 
-    bool read() const { return rw() == 0; }
-    bool write() const { return rw() != 0; }
-    bool io() const { return mio() == 0; }
-    bool vector() const { return intack() != 0; }
-    bool fetch() const { return _signals[3]; }
-    uint8_t &fetchMark() { return _signals[3]; }
+    bool read() const;
+    bool write() const;
+    bool io() const;
+    bool vector() const;
+    bool fetch() const { return (cntl() & CNTL_FETCH) != 0; }
+    void markFetch() { cntl() |= CNTL_FETCH; }
+    void clearFetch() { cntl() &= ~CNTL_FETCH; }
 
 private:
-    uint8_t rw() const { return _signals[0]; }
-    uint8_t mio() const { return _signals[1]; }
-    uint8_t intack() const { return _signals[2]; }
+    static constexpr uint8_t CNTL_FETCH = 0x01;
 
-    uint8_t &rw() { return _signals[0]; }
-    uint8_t &mio() { return _signals[1]; }
-    uint8_t &intack() { return _signals[2]; }
+    uint8_t cntl() const { return _signals[0]; }
+    uint8_t &cntl() { return _signals[0]; }
 };
 
 }  // namespace scn2650

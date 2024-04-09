@@ -9,10 +9,23 @@ namespace scn2650 {
 
 void Signals::getAddr() {
     addr = busRead(ADRL) | busRead(ADRM) | busRead(ADRH);
-    rw() = digitalReadFast(PIN_RW);
-    mio() = digitalReadFast(PIN_MIO);
-    intack() = digitalReadFast(PIN_INTACK);
-    fetchMark() = false;
+    cntl() = busRead(CNTL);
+}
+
+bool Signals::read() const {
+    return (cntl() & CNTL_RW) == 0;
+}
+
+bool Signals::write() const {
+    return (cntl() & CNTL_RW) != 0;
+}
+
+bool Signals::io() const {
+    return (cntl() & CNTL_MIO) == 0;
+}
+
+bool Signals::vector() const {
+    return (cntl() & CNTL_INTACK) != 0;
 }
 
 void Signals::getData() {
@@ -28,7 +41,7 @@ void Signals::print() const {
     //                              01234567890123
     static constexpr char line[] = "MR A=xxxx D=xx";
     static auto &buffer = *new CharBuffer(line);
-    buffer[0] = io() ? (intack() ? 'V' : 'I') : 'M';
+    buffer[0] = io() ? (vector() ? 'V' : 'I') : 'M';
     buffer[1] = write() ? 'W' : 'R';
     if (io()) {
         if (addr & 0x2000) {
