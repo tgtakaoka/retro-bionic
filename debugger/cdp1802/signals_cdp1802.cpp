@@ -8,10 +8,7 @@ namespace debugger {
 namespace cdp1802 {
 
 void Signals::getStatus() {
-    auto s = digitalReadFast(PIN_SC0);
-    if (digitalReadFast(PIN_SC1))
-        s += 2;
-    sc() = s;
+    cntl() = busRead(CNTL);
 }
 
 void Signals::getAddr1() {
@@ -23,12 +20,31 @@ void Signals::getAddr2() {
 }
 
 void Signals::getDirection() {
-    mrd() = digitalReadFast(PIN_MRD);
-    mwr() = digitalReadFast(PIN_MWR);
+    cntl() = busRead(CNTL);
 }
 
 void Signals::getData() {
     data = busRead(DBUS);
+}
+
+bool Signals::read() const {
+    return (cntl() & CNTL_MRD) == 0;
+}
+
+bool Signals::write() const {
+    return (cntl() & CNTL_MWR) == 0;
+}
+
+bool Signals::fetch() const {
+    return sc() == 0;
+}
+
+bool Signals::vector() const {
+    return sc() == 3;
+}
+
+uint8_t Signals::sc() const {
+    return cntl() & CNTL_SC;
 }
 
 void Signals::print() const {

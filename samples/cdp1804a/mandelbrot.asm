@@ -46,12 +46,10 @@ main:
         dc      X'33'           ; enable interrupt
         sex     R2
 
+loop:
         scal    R4, mandelbrot
         scal    R4, newline
-        rldi    R8, tx_queue
-wait:   ldn     R8              ; tx queue len
-        bnz     wait
-        idl
+        br      loop
 
 ;;; Get character
 ;;; @return R7.0 char

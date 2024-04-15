@@ -51,17 +51,12 @@ main:
         dc      X'33'           ; enable interrupt
         sex     R2
 
+loop:
         sep     R5              ; call mandelbrot
         dc      A(mandelbrot)
         sep     R5
         dc      A(newline)
-        ldi     A.1(tx_queue)
-        phi     R8
-        ldi     A.0(tx_queue)
-        plo     R8
-wait:   ldn     R8              ; tx queue len
-        bnz     wait
-        idl
+        br      loop
 
 ;;; Get character
 ;;; @return R7.0 char

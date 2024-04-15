@@ -14,19 +14,15 @@ struct Signals final : SignalsBase<Signals> {
     void getData();
     void print() const;
 
-    bool read() const { return mrd() == 0; }
-    bool write() const { return mwr() == 0; }
-    bool fetch() const { return sc() == 0; }
-    bool vector() const { return sc() == 3; }
+    bool read() const;
+    bool write() const;
+    bool fetch() const;
+    bool vector() const;
 
 private:
-    uint8_t sc() const { return _signals[0]; }
-    uint8_t mrd() const { return _signals[1]; }
-    uint8_t mwr() const { return _signals[2]; }
-
-    uint8_t &sc() { return _signals[0]; }
-    uint8_t &mrd() { return _signals[1]; }
-    uint8_t &mwr() { return _signals[2]; }
+    uint8_t cntl() const { return _signals[0]; }
+    uint8_t &cntl() { return _signals[0]; }
+    uint8_t sc() const;
 };
 
 }  // namespace cdp1802
