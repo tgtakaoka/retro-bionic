@@ -1,0 +1,183 @@
+          0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+          0 :                            cpu     8051
+          0 :                            include "i8051.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :                    ;;; i8051
+(1)       0 :                    ;;; Interrupt origin
+(1)       0 : =0                 ORG_RESET:      equ     000H    ; RESET
+(1)       0 : =3                 ORG_IE0:        equ     003H    ; #INT0
+(1)       0 : =B                 ORG_TF0:        equ     00BH    ; Timer 0 overflow
+(1)       0 : =13                ORG_IE1:        equ     013H    ; #INT1
+(1)       0 : =1B                ORG_TF1:        equ     01BH    ; Timer 1 overflow
+(1)       0 : =23                ORG_RITI:       equ     023H    ; Receive & Transmit
+(1)       0 :                    ;;; Register bank and internal memory
+(1)       0 : =0                 BASE_BANK0:     equ     00H     ; Bank 0 R0-R7
+(1)       0 : =8                 BASE_BANK1:     equ     08H     ; Bank 1 R0-R7
+(1)       0 : =10                BASE_BANK2:     equ     10H     ; Bank 2 R0-R7
+(1)       0 : =18                BASE_BANK3:     equ     18H     ; Bank 3 R0-R7
+(1)       0 : =20                BASE_BIT:       equ     20H     ; Bit addressable memory
+(1)       0 : =30                BASE_MEMORY:    equ     30H     ; general purpose memory
+(1)       0 :                    ;;; Special function registers
+(1)       0 : =E0                ACC:    equ     0E0H            ; Accumulator
+(1)       0 : =F0                B:      equ     0F0H            ; B register
+(1)       0 : =D0                PSW:    equ     0D0H            ; Program status word
+(1)       0 : =81                SP:     equ     81H             ; Stack pointer
+(1)       0 : =82                DPL:    equ     82H             ; DPTR low byte
+(1)       0 : =83                DPH:    equ     83H             ; DPTR high byte
+(1)       0 : =80                P0:     equ     80H             ; Port 0
+(1)       0 : =90                P1:     equ     90H             ; Port 1
+(1)       0 : =A0                P2:     equ     0A0H            ; Port 2
+(1)       0 : =B0                P3:     equ     0B0H            ; Port 3
+(1)       0 : =B8                IP:     equ     0B8H            ; Interrupt priority control
+(1)       0 : =A8                IE:     equ     0A8H            ; Interrupt enable control
+(1)       0 : =89                TMOD:   equ     89H             ; Timer/Counter mode control
+(1)       0 : =88                TCON:   equ     88H             ; Timer/Counter control
+(1)       0 : =8C                TH0:    equ     8CH             ; Timer/Counter 0 high byte
+(1)       0 : =8A                TL0:    equ     8AH             ; Timer/Counter 0 low byte
+(1)       0 : =8D                TH1:    equ     8DH             ; Timer/Counter 1 high byte
+(1)       0 : =8B                TL1:    equ     8BH             ; Timer/Counter 1 low byte
+(1)       0 : =98                SCON:   equ     98H             ; Serial control
+(1)       0 : =99                SBUF:   equ     99H             ; Serial data buffer
+(1)       0 : =87                PCON:   equ     87H             ; Power control
+(1)       0 :                    ;;; PSW (0D0H) Program status word (bit addressable)
+(1)       0 : =7                 CY:     equ     7              ; set to 1 if carry
+(1)       0 : =6                 AC:     equ     6              ; set to 1 if auxillary carry
+(1)       0 : =5                 F0:     equ     5              ; user flag 0
+(1)       0 : =4                 RS1:    equ     4              ; register bank select
+(1)       0 : =3                 RS0:    equ     3              ; register bank select
+(1)       0 : =2                 OV:     equ     2              ; set to 1 if overflow
+(1)       0 : =1                 F1:     equ     1              ; user flag 1
+(1)       0 : =0                 P:      equ     0              ; parity bit
+(1)       0 :                    ;;; IE (0A8H) Interrupt enable register
+(1)       0 : =7                 EA:     equ     7               ; enable interrupt
+(1)       0 : =4                 ES:     equ     4               ; Serial
+(1)       0 : =3                 ET1:    equ     3               ; Timer 1 overflow
+(1)       0 : =2                 EX1:    equ     2               ; #INT1
+(1)       0 : =1                 ET0:    equ     1               ; Timer 0 overflow
+(1)       0 : =0                 EX0:    equ     0               ; #INT0
+(1)       0 :                    ;;; SCON (89H) Serial control (bit addressable)
+(1)       0 : =7                 SM0:    equ     7               ; Serial mode SM[0:1:2]=010 8-bit UART
+(1)       0 : =6                 SM1:    equ     6
+(1)       0 : =5                 SM2:    equ     5
+(1)       0 : =4                 REN:    equ     4               ; Enable reception
+(1)       0 : =1                 TI:     equ     1               ; Transmit interrupt flag
+(1)       0 : =0                 RI:     equ     0               ; Receive interrupt flag
+(1)       0 :                    ;;; TCON (88H) Timer/Counter control register
+(1)       0 : =7                 TF1:    equ     7               ; Timer 1 overflow flag
+(1)       0 : =6                 TR1:    equ     6               ; Timer 1 run control
+(1)       0 : =5                 TF0:    equ     5               ; Timer 0 overflow flag
+(1)       0 : =4                 TR0:    equ     4               ; Timer 0 run control
+(1)       0 :                    ;;; TMOD (89H) Timer/Counter mode control register
+(1)       0 : =4                 T1MODE_gp:      equ     4       ; Timer 1 mode
+(1)       0 : =0                 T0MODE_gp:      equ     0       ; Timer 0 mode
+(1)       0 : =8                 TGATE:          equ     1000B
+(1)       0 : =4                 TXPIN:          equ     0100B   ; Input from Tx pin
+(1)       0 : =2                 T8MODE:         equ     0010B   ; 8-bit auto-reload timer/counter
+(1)       0 :                    ;;; PCON (87H) Power control register
+(1)       0 : =40                SMOD:   equ     1000000B        ; Double baudrate
+          0 :
+          0 :                    ;;; i8251 Universal Synchronous/Asynchronous Receiver/Transmitter
+          0 : =FFF0              USART:  equ     0FFF0H
+          0 : =FFF0              USARTD: equ     USART+0         ; Data register
+          0 : =FFF1              USARTS: equ     USART+1         ; Status register
+          0 : =FFF1              USARTC: equ     USART+1         ; Control register
+          0 :                            include "i8251.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :
+(1)       0 :                    ;;; i8251 USART device emulator.
+(1)       0 : =6                 MODE_STOP_gp:   equ     6
+(1)       0 : =C0                MODE_STOP_gm:   equ     11000000B
+(1)       0 : =40                MODE_STOP1_gc:  equ     (1 << MODE_STOP_gp)
+(1)       0 : =80                MODE_STOP15_gc: equ     (2 << MODE_STOP_gp)
+(1)       0 : =C0                MODE_STOP2_gc:  equ     (3 << MODE_STOP_gp)
+(1)       0 : =20                MODE_EVEN_bm:   equ     00100000B
+(1)       0 : =10                MODE_PARITY_bm: equ     00010000B
+(1)       0 : =2                 MODE_LEN_gp:    equ     2
+(1)       0 : =C                 MODE_LEN_gm:    equ     00001100B
+(1)       0 : =0                 MODE_LEN5_gc:   equ     (0 << MODE_LEN_gp)
+(1)       0 : =4                 MODE_LEN6_gc:   equ     (1 << MODE_LEN_gp)
+(1)       0 : =8                 MODE_LEN7_gc:   equ     (2 << MODE_LEN_gp)
+(1)       0 : =C                 MODE_LEN8_gc:   equ     (3 << MODE_LEN_gp)
+(1)       0 : =0                 MODE_BAUD_gp:   equ     0
+(1)       0 : =3                 MODE_BAUD_gm:   equ     00000011B
+(1)       0 : =1                 MODE_BAUD_X1:   equ     (1 << MODE_BAUD_gp)
+(1)       0 : =2                 MODE_BAUD_X16:  equ (2 << MODE_BAUD_gp)
+(1)       0 : =3                 MODE_BAUD_X64:  equ (3 << MODE_BAUD_gp)
+(1)       0 :                    ;;; Bit Definition of command register
+(1)       0 : =80                CMD_EH_bm:      equ     10000000B   ; Enter hunt mode
+(1)       0 : =40                CMD_IR_bm:      equ     01000000B   ; Internal Reset
+(1)       0 : =20                CMD_RTS_bm:     equ     00100000B   ; Request To Send
+(1)       0 : =10                CMD_ER_bm:      equ     00010000B   ; Error Reset
+(1)       0 : =8                 CMD_SBRK_bm:    equ     00001000B   ; Send Break
+(1)       0 : =4                 CMD_RxEN_bm:    equ     00000100B   ; Receive Enable
+(1)       0 : =2                 CMD_DTR_bm:     equ     00000010B   ; Data Terminal Ready
+(1)       0 : =1                 CMD_TxEN_bm:    equ     00000001B   ; Transmit enable
+(1)       0 :
+(1)       0 :                    ;;; Bit definition of status register
+(1)       0 : =80                ST_DSR_bm:      equ     10000000B   ; Data Set Ready
+(1)       0 : =40                ST_BRK_bm:      equ     01000000B   ; BREAK detected
+(1)       0 : =20                ST_FE_bm:       equ     00100000B   ; Framing Error
+(1)       0 : =10                ST_OE_bm:       equ     00010000B   ; Iverrun Error
+(1)       0 : =8                 ST_PE_bm:       equ     00001000B   ; Parity Error
+(1)       0 : =4                 ST_TxEMPTY_bm:  equ     00000100B   ; Transmitter empty
+(1)       0 : =2                 ST_RxRDY_bm:    equ     00000010B   ; Receiver ready
+(1)       0 : =1                 ST_TxRDY_bm:    equ     00000001B   ; Transmitter ready
+(1)       0 : =1                 ST_RxRDY_bp:    equ     1           ; Receiver ready
+(1)       0 : =0                 ST_TxRDY_bp:    equ     0           ; Transmitter ready
+          0 :                    ;;; Async 1stop 8data x16
+          0 : =4E                ASYNC_MODE:     equ     MODE_STOP1_gc|MODE_LEN8_gc|MODE_BAUD_X16
+          0 :                    ;;; RTS/DTR, error reset, Rx enable, Tx enable
+          0 : =37                RX_EN_TX_EN:    equ     CMD_RTS_bm|CMD_DTR_bm|CMD_ER_bm|CMD_RxEN_bm|CMD_TxEN_bm
+          0 :
+          0 :                            org     ORG_RESET
+          0 : 02 00 26                   ljmp    init
+          3 :                            org     ORG_IE0
+          3 : 02 00 26                   ljmp    init
+          B :                            org     ORG_TF0
+          B : 02 00 26                   ljmp    init
+         13 :                            org     ORG_IE1
+         13 : 02 00 26                   ljmp    init
+         1B :                            org     ORG_TF1
+         1B : 02 00 26                   ljmp    init
+         23 :                            org     ORG_RITI
+         23 : 02 00 26                   ljmp    init
+         26 :
+         26 :                    init:
+         26 : 90 FF F1                   mov     DPTR, #USARTC
+         29 : E4                         clr     A
+         2A : F0                         movx    @DPTR, A
+         2B : F0                         movx    @DPTR, A
+         2C : F0                         movx    @DPTR, A        ; safest way to sync mode
+         2D : 74 40                      mov     A, #CMD_IR_bm   ; reset
+         2F : F0                         movx    @DPTR, A
+         30 : 00                         nop
+         31 : 00                         nop
+         32 : 74 4E                      mov     A, #ASYNC_MODE
+         34 : F0                         movx    @DPTR, A
+         35 : 00                         nop
+         36 : 00                         nop
+         37 : 74 37                      mov     A, #RX_EN_TX_EN
+         39 : F0                         movx    @DPTR, A
+         3A :
+         3A :                    receive_loop:
+         3A : 90 FF F1                   mov     DPTR, #USARTS
+         3D : E0                         movx    A, @DPTR
+         3E : 30 E1 F9                   jnb     ACC.ST_RxRDY_bp, receive_loop
+         41 :                    eceive_data:
+         41 : 15 82                      dec     DPL             ; DPTR=USARTD
+         43 : E0                         movx    A, @DPTR
+         44 : 60 13                      jz      halt_to_system
+         46 : FA                         mov     R2, A           ; save character
+         47 :                    transmit_loop:
+         47 : 90 FF F1                   mov     DPTR, #USARTS
+         4A : E0                         movx    A, @DPTR
+         4B : 30 E0 F9                   jnb     ACC.ST_TxRDY_bp, transmit_loop
+         4E :                    transmit_data:
+         4E : 15 82                      dec     DPL             ; DPTR=USARTD
+         50 : EA                         mov     A, R2
+         51 : F0                         movx    @DPTR, A
+         52 : B4 0D E5                   cjne    A, #0DH, receive_loop
+         55 : 7A 0A                      mov     R2, #0AH
+         57 : 80 EE                      sjmp    transmit_loop
+         59 :                    halt_to_system:
+         59 : A5                         db      0A5H            ; halt to system

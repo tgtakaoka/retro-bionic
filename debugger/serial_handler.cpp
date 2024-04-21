@@ -53,15 +53,19 @@ void SerialHandler::txloop(Transmitter &tx) {
 void SerialHandler::rxloop(Receiver &rx) {
     if (rx.bit == 0) {
         if (digitalRead(_txd) == (LOW ^ _polTxd)) {
+            digitalWriteFast(PIN_DEBUG, HIGH);
             rx.bit = 9;
             rx.data = 0;
             rx.delay = _divider + (_divider >> 1);
+            digitalWriteFast(PIN_DEBUG, LOW);
         }
     } else {
         if (--rx.delay == 0) {
             rx.data >>= 1;
+            digitalWriteFast(PIN_DEBUG, HIGH);
             if (digitalRead(_txd) == (HIGH ^ _polTxd))
                 rx.data |= 0x80;
+            digitalWriteFast(PIN_DEBUG, LOW);
             rx.delay = _divider;
             if (--rx.bit == 1) {
                 Console.write(rx.data);

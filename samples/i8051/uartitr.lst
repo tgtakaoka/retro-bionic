@@ -1,0 +1,408 @@
+          0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+          0 :                            cpu     8051
+          0 :                            include "i8051.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :                    ;;; i8051
+(1)       0 :                    ;;; Interrupt origin
+(1)       0 : =0                 ORG_RESET:      equ     000H    ; RESET
+(1)       0 : =3                 ORG_IE0:        equ     003H    ; #INT0
+(1)       0 : =B                 ORG_TF0:        equ     00BH    ; Timer 0 overflow
+(1)       0 : =13                ORG_IE1:        equ     013H    ; #INT1
+(1)       0 : =1B                ORG_TF1:        equ     01BH    ; Timer 1 overflow
+(1)       0 : =23                ORG_RITI:       equ     023H    ; Receive & Transmit
+(1)       0 :                    ;;; Register bank and internal memory
+(1)       0 : =0                 BASE_BANK0:     equ     00H     ; Bank 0 R0-R7
+(1)       0 : =8                 BASE_BANK1:     equ     08H     ; Bank 1 R0-R7
+(1)       0 : =10                BASE_BANK2:     equ     10H     ; Bank 2 R0-R7
+(1)       0 : =18                BASE_BANK3:     equ     18H     ; Bank 3 R0-R7
+(1)       0 : =20                BASE_BIT:       equ     20H     ; Bit addressable memory
+(1)       0 : =30                BASE_MEMORY:    equ     30H     ; general purpose memory
+(1)       0 :                    ;;; Special function registers
+(1)       0 : =E0                ACC:    equ     0E0H            ; Accumulator
+(1)       0 : =F0                B:      equ     0F0H            ; B register
+(1)       0 : =D0                PSW:    equ     0D0H            ; Program status word
+(1)       0 : =81                SP:     equ     81H             ; Stack pointer
+(1)       0 : =82                DPL:    equ     82H             ; DPTR low byte
+(1)       0 : =83                DPH:    equ     83H             ; DPTR high byte
+(1)       0 : =80                P0:     equ     80H             ; Port 0
+(1)       0 : =90                P1:     equ     90H             ; Port 1
+(1)       0 : =A0                P2:     equ     0A0H            ; Port 2
+(1)       0 : =B0                P3:     equ     0B0H            ; Port 3
+(1)       0 : =B8                IP:     equ     0B8H            ; Interrupt priority control
+(1)       0 : =A8                IE:     equ     0A8H            ; Interrupt enable control
+(1)       0 : =89                TMOD:   equ     89H             ; Timer/Counter mode control
+(1)       0 : =88                TCON:   equ     88H             ; Timer/Counter control
+(1)       0 : =8C                TH0:    equ     8CH             ; Timer/Counter 0 high byte
+(1)       0 : =8A                TL0:    equ     8AH             ; Timer/Counter 0 low byte
+(1)       0 : =8D                TH1:    equ     8DH             ; Timer/Counter 1 high byte
+(1)       0 : =8B                TL1:    equ     8BH             ; Timer/Counter 1 low byte
+(1)       0 : =98                SCON:   equ     98H             ; Serial control
+(1)       0 : =99                SBUF:   equ     99H             ; Serial data buffer
+(1)       0 : =87                PCON:   equ     87H             ; Power control
+(1)       0 :                    ;;; PSW (0D0H) Program status word (bit addressable)
+(1)       0 : =7                 CY:     equ     7              ; set to 1 if carry
+(1)       0 : =6                 AC:     equ     6              ; set to 1 if auxillary carry
+(1)       0 : =5                 F0:     equ     5              ; user flag 0
+(1)       0 : =4                 RS1:    equ     4              ; register bank select
+(1)       0 : =3                 RS0:    equ     3              ; register bank select
+(1)       0 : =2                 OV:     equ     2              ; set to 1 if overflow
+(1)       0 : =1                 F1:     equ     1              ; user flag 1
+(1)       0 : =0                 P:      equ     0              ; parity bit
+(1)       0 :                    ;;; IE (0A8H) Interrupt enable register
+(1)       0 : =7                 EA:     equ     7               ; enable interrupt
+(1)       0 : =4                 ES:     equ     4               ; Serial
+(1)       0 : =3                 ET1:    equ     3               ; Timer 1 overflow
+(1)       0 : =2                 EX1:    equ     2               ; #INT1
+(1)       0 : =1                 ET0:    equ     1               ; Timer 0 overflow
+(1)       0 : =0                 EX0:    equ     0               ; #INT0
+(1)       0 :                    ;;; SCON (89H) Serial control (bit addressable)
+(1)       0 : =7                 SM0:    equ     7               ; Serial mode SM[0:1:2]=010 8-bit UART
+(1)       0 : =6                 SM1:    equ     6
+(1)       0 : =5                 SM2:    equ     5
+(1)       0 : =4                 REN:    equ     4               ; Enable reception
+(1)       0 : =1                 TI:     equ     1               ; Transmit interrupt flag
+(1)       0 : =0                 RI:     equ     0               ; Receive interrupt flag
+(1)       0 :                    ;;; TCON (88H) Timer/Counter control register
+(1)       0 : =7                 TF1:    equ     7               ; Timer 1 overflow flag
+(1)       0 : =6                 TR1:    equ     6               ; Timer 1 run control
+(1)       0 : =5                 TF0:    equ     5               ; Timer 0 overflow flag
+(1)       0 : =4                 TR0:    equ     4               ; Timer 0 run control
+(1)       0 :                    ;;; TMOD (89H) Timer/Counter mode control register
+(1)       0 : =4                 T1MODE_gp:      equ     4       ; Timer 1 mode
+(1)       0 : =0                 T0MODE_gp:      equ     0       ; Timer 0 mode
+(1)       0 : =8                 TGATE:          equ     1000B
+(1)       0 : =4                 TXPIN:          equ     0100B   ; Input from Tx pin
+(1)       0 : =2                 T8MODE:         equ     0010B   ; 8-bit auto-reload timer/counter
+(1)       0 :                    ;;; PCON (87H) Power control register
+(1)       0 : =40                SMOD:   equ     1000000B        ; Double baudrate
+          0 :
+          0 :                    ;;; External data memory
+       2000 :                            org     2000H
+       2000 : =80                rx_buffer_size: equ     128
+       2000 :                    rx_buffer:      ds      rx_buffer_size
+       2080 : =80                tx_buffer_size: equ     128
+       2080 :                    tx_buffer:      ds      tx_buffer_size
+       2100 :
+       2100 :                    ;;; Internal data memory
+         20 :                            org     BASE_BIT
+         20 :                    tx_disable:     ds      1
+         30 :                            org     BASE_MEMORY
+         30 :                    rx_queue:       ds      queue_work_size
+         36 :                    tx_queue:       ds      queue_work_size
+         3C : =3C                stack:          equ     $
+         3C :
+          0 :                            org     ORG_RESET
+          0 : 02 00 26                   ljmp    init
+          3 :                            org     ORG_IE0
+          3 : 02 00 26                   ljmp    init
+          B :                            org     ORG_TF0
+          B : 02 00 26                   ljmp    init
+         13 :                            org     ORG_IE1
+         13 : 02 00 26                   ljmp    init
+         1B :                            org     ORG_TF1
+         1B : 02 00 26                   ljmp    init
+         23 :                            org     ORG_RITI
+         23 : 02 01 44                   ljmp    isr_intr
+         26 :
+         26 :                    init:
+         26 : 75 81 3B                   mov     SP, #stack-1
+         29 : 78 30                      mov     R0, #rx_queue
+         2B : 79 80                      mov     R1, #rx_buffer_size
+         2D : 90 20 00                   mov     DPTR, #rx_buffer
+         30 : 11 DD                      acall   queue_init
+         32 : 78 36                      mov     R0, #tx_queue
+         34 : 79 80                      mov     R1, #tx_buffer_size
+         36 : 90 20 80                   mov     DPTR, #tx_buffer
+         39 : 11 DD                      acall   queue_init
+         3B :                    init_uart:
+         3B : 75 98 40                   mov     SCON, #(1 SHL SM1) ; 8-bit UART mode
+         3E : D2 9C                      setb    SCON.REN        ; Enable reception
+         40 :                    init_timer:
+         40 : 43 87 40                   orl     PCON, #SMOD     ; Double baudrate
+         43 : 43 89 20                   orl     TMOD, #T8MODE SHL T1MODE_gp
+         46 :                    ;;; baudrate = K*fosc/(32*12*(256-TH1)
+         46 :                    ;;; TH1=256 - (K*fosc/(384*baudrate))
+         46 :                    ;;; fosc=12MHz, K=2(SMOD=1) baudrate=4,800bps, TH1=243(256-13)
+         46 : 75 8B F3                   mov     TL1, #243
+         49 : 75 8D F3                   mov     TH1, #243
+         4C : D2 8E                      setb    TCON.TR1        ; Run Timer 1
+         4E : D2 00                      setb    tx_disable.0    ; disable Tx
+         50 : D2 AC                      setb    IE.ES           ; enable UART interrupt
+         52 : D2 AF                      setb    IE.EA           ; enable interrupt
+         54 :
+         54 :                    receive_loop:
+         54 : 11 AA                      acall   getchar
+         56 : 50 FC                      jnc     receive_loop
+         58 : 60 0F                      jz      halt_to_system
+         5A : FB                         mov     R3, A           ; save letter
+         5B : 11 C4                      acall   putchar         ; echo
+         5D : 11 BA                      acall   putspace
+         5F : 11 6A                      acall   put_hex8        ; print in hex
+         61 : 11 BA                      acall   putspace
+         63 : 11 83                      acall   put_bin8        ; print in binary
+         65 : 11 BE                      acall   newline
+         67 : 80 EB                      sjmp    receive_loop
+         69 :                    halt_to_system:
+         69 : A5                         db      0A5H
+         6A :
+         6A :                    ;;; Print uint8_t in hex
+         6A :                    ;;; @param R3 uint8_t value to be printed in hex.
+         6A :                    ;;; @clobber A
+         6A :                    put_hex8:
+         6A : 74 30                      mov     A, #'0'
+         6C : 11 C4                      acall   putchar
+         6E : 74 78                      mov     A, #'x'
+         70 : 11 C4                      acall   putchar
+         72 : EB                         mov     A, R3
+         73 : C4                         swap    A
+         74 : 11 77                      acall   put_hex4
+         76 : EB                         mov     A, R3
+         77 :                    put_hex4:
+         77 : 54 0F                      anl     A, #0FH
+         79 : 24 F6                      add     A, #-10
+         7B : 50 02                      jnc     put_hex8_dec    ; A<10
+         7D : 24 07                      add     A, #'A'-('0'+10)
+         7F :                    put_hex8_dec:
+         7F : 24 3A                      add     A, #'0'+10
+         81 : 80 41                      sjmp    putchar
+         83 :
+         83 :                    ;;; Print uint8_t in binary
+         83 :                    ;;; @param R3 uint8_t value to be printed in binary.
+         83 :                    ;;; @clobber A R2
+         83 :                    put_bin8:
+         83 : 74 30                      mov     A, #'0'
+         85 : 11 C4                      acall   putchar
+         87 : 74 62                      mov     A, #'b'
+         89 : 11 C4                      acall   putchar
+         8B : EB                         mov     A, R3
+         8C : C4                         swap    A
+         8D : FA                         mov     R2, A
+         8E : 11 95                      acall   put_bin4
+         90 : EB                         mov     A, R3
+         91 : FA                         mov     R2, A
+         92 : 11 95                      acall   put_bin4
+         94 : 22                         ret
+         95 :                    put_bin4:
+         95 : EA                         mov     A, R2
+         96 : 03                         rr      A
+         97 : 03                         rr      A
+         98 : FA                         mov     R2, A
+         99 : 11 9F                      acall   put_bin2
+         9B : EA                         mov     A, R2
+         9C : 23                         rl      A
+         9D : 23                         rl      A
+         9E : FA                         mov     R2, A
+         9F :                    put_bin2:
+         9F : EA                         mov     A, R2
+         A0 : 03                         rr      A
+         A1 : 11 A4                      acall   put_bin1
+         A3 : EA                         mov     A, R2
+         A4 :                    put_bin1:
+         A4 : 54 01                      anl     A, #1
+         A6 : 24 30                      add     A, #'0'
+         A8 : 80 1A                      sjmp    putchar
+         AA :
+         AA :                    ;;; Get character
+         AA :                    ;;; @return A
+         AA :                    ;;; @return PSW.C 0 if no character
+         AA :                    ;;; @clobber DPTR
+         AA :                    getchar:
+         AA : E8                         mov     A, R0
+         AB : C0 E0                      push    ACC             ; save R0
+         AD : 78 30                      mov     R0, #rx_queue
+         AF : C2 AF                      clr     IE.EA
+         B1 : 31 1D                      acall   queue_remove
+         B3 : D2 AF                      setb    IE.EA
+         B5 : C8                         xch     A, R0           ; R0=character
+         B6 : D0 E0                      pop     ACC
+         B8 : C8                         xch     A, R0           ; restore R0
+         B9 : 22                         ret
+         BA :
+         BA :                    ;;; Put space
+         BA :                    ;;; @clobber A
+         BA :                    putspace:
+         BA : 74 20                      mov     A, #' '
+         BC : 80 06                      sjmp    putchar
+         BE :
+         BE :                    ;;; Put newline
+         BE :                    ;;; @clobber A
+         BE :                    newline:
+         BE : 74 0D                      mov     A, #0DH
+         C0 : 11 C4                      acall   putchar
+         C2 : 74 0A                      mov     A, #0AH
+         C4 :
+         C4 :                    ;;; Put character
+         C4 :                    ;;; @param A
+         C4 :                    ;;; @clobber DPTR A
+         C4 :                    putchar:
+         C4 : C8                         xch     A, R0           ; save character
+         C5 : C0 E0                      push    ACC             ; save R0
+         C7 : E8                         mov     A, R0           ; restore character
+         C8 :                    putchar_loop:
+         C8 : 78 36                      mov     R0, #tx_queue
+         CA : C2 AF                      clr     IE.EA
+         CC : 11 F2                      acall   queue_add
+         CE : D2 AF                      setb    IE.EA
+         D0 : 50 F6                      jnc     putchar_loop    ; branch if queue is full
+         D2 : 10 00 02                   jbc     tx_disable.0, putchar_trigger
+         D5 : 80 02                      sjmp    putchar_exit    ; Tx is already enabled
+         D7 :                    putchar_trigger:
+         D7 : D2 99                      setb    SCON.TI         ; trigger Tx interrupt
+         D9 :                    putchar_exit:
+         D9 : D0 E0                      pop     ACC
+         DB : F8                         mov     R0, A           ; restore R0
+         DC : 22                         ret
+         DD :
+         DD :                            include "queue.inc"
+(1)      DD :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)      DD :                    ;;; [queue] queue structure on internal data memory
+(1)      DD : =0                 queue_len:      equ     0       ; queue length
+(1)      DD : =1                 queue_size:     equ     1       ; buffer size
+(1)      DD : =2                 queue_put:      equ     2       ; queue put index
+(1)      DD : =3                 queue_get:      equ     3       ; queue get index
+(1)      DD : =4                 queue_buf_lo:   equ     4       ; lo(queue buffer) pointer to  external data memory
+(1)      DD : =5                 queue_buf_hi:   equ     5       ; hi(queue_buffer)
+(1)      DD : =6                 queue_work_size: equ    6       ; queue work size
+(1)      DD :
+(1)      DD :                    ;;; [queue] Initialize queue
+(1)      DD :                    ;;; @param R0 queue work space pointer
+(1)      DD :                    ;;; @param R1 queue buffer size
+(1)      DD :                    ;;; @param DPTR queue buffer pointer
+(1)      DD :                    ;;; @clobber DPTR R0 R1 A
+(1)      DD :                    queue_init:
+(1)      DD : E4                         clr     A
+(1)      DE : F6                         mov     @R0, A          ; clear queue_len
+(1)      DF : E9                         mov     A, R1
+(1)      E0 : 08                         inc     R0
+(1)      E1 : F6                         mov     @R0, A          ; save queue_size
+(1)      E2 : E4                         clr     A
+(1)      E3 : 08                         inc     R0
+(1)      E4 : F6                         mov     @R0, A          ; clear queue_put
+(1)      E5 : 08                         inc     R0
+(1)      E6 : F6                         mov     @R0, A          ; clear queue_get
+(1)      E7 : 08                         inc     R0
+(1)      E8 : A6 82                      mov     @R0, DPL        ; lo(queue_buf)
+(1)      EA : 08                         inc     R0
+(1)      EB : A6 83                      mov     @R0, DPH        ; hi(queue_buf)
+(1)      ED :                    queue_init_loop:
+(1)      ED : F0                         movx    @DPTR, A
+(1)      EE : A3                         inc     DPTR
+(1)      EF : D9 FC                      djnz    R1, queue_init_loop
+(1)      F1 : 22                         ret
+(1)      F2 :
+(1)      F2 :                    ;;; [queue] Add an element to queue
+(1)      F2 :                    ;;; @param R0 queue work space pointer
+(1)      F2 :                    ;;; @param A an element
+(1)      F2 :                    ;;; @return PSW.C 0 if queue is full
+(1)      F2 :                    ;;; @clobber DPTR R0 A
+(1)      F2 :                    queue_add:
+(1)      F2 : C0 E0                      push    ACC             ; save an element
+(1)      F4 : E6                         mov     A, @R0          ; A=queue_len
+(1)      F5 : 08                         inc     R0              ; R0=&queue_size
+(1)      F6 : 66                         xrl     A, @R0          ; queue_size
+(1)      F7 : 70 04                      jnz     queue_add_store ; branch if queue is not full
+(1)      F9 : D0 E0                      pop     ACC
+(1)      FB : C3                         clr     C               ; PSW.C=0
+(1)      FC : 22                         ret
+(1)      FD :                    queue_add_store:
+(1)      FD : 18                         dec     R0              ; R0=&queue_len
+(1)      FE : 06                         inc     @R0             ; queue_len+=1
+(1)      FF : 08                         inc     R0
+(1)     100 : 08                         inc     R0
+(1)     101 : E6                         mov     A, @R0          ; A=queue_put
+(1)     102 : 08                         inc     R0
+(1)     103 : 08                         inc     R0
+(1)     104 : 26                         add     A, @R0          ; A=lo(queue_buf)+queue_put
+(1)     105 : F5 82                      mov     DPL, A
+(1)     107 : 08                         inc     R0
+(1)     108 : E6                         mov     A, @R0          ; A=hi(queue_buf)
+(1)     109 : 34 00                      addc    A, #0
+(1)     10B : F5 83                      mov     DPH, A
+(1)     10D : D0 E0                      pop     ACC             ; restore an element
+(1)     10F : F0                         movx    @DPTR, A        ; add an element
+(1)     110 : 18                         dec     R0
+(1)     111 : 18                         dec     R0
+(1)     112 : 18                         dec     R0
+(1)     113 : 06                         inc     @R0             ; queue_put+=1
+(1)     114 : E6                         mov     A, @R0          ; A=queue_put
+(1)     115 : 18                         dec     R0
+(1)     116 : 66                         xrl     A, @R0          ; queue_size
+(1)     117 : 70 02                      jnz     queue_add_end   ; branch if queue_put != queue_size
+(1)     119 : 08                         inc     R0
+(1)     11A : F6                         mov     @R0, A          ; queue_put=0
+(1)     11B :                    queue_add_end:
+(1)     11B : D3                         setb    C
+(1)     11C : 22                         ret
+(1)     11D :
+(1)     11D :                    ;;; [queue] Remove an element from queue
+(1)     11D :                    ;;; @param R0 queue work space pointer
+(1)     11D :                    ;;; @return A an element
+(1)     11D :                    ;;; @return PSW.C 0 if queue is empty
+(1)     11D :                    ;;; @clobber DPTR R0 A
+(1)     11D :                    queue_remove:
+(1)     11D : E6                         mov     A, @R0            ; queue_len
+(1)     11E : 70 02                      jnz     queue_remove_elem ; queue_len > 0
+(1)     120 : C3                         clr     C                 ; PSW.C=0
+(1)     121 : 22                         ret
+(1)     122 :                    queue_remove_elem:
+(1)     122 : 16                         dec     @R0             ; queue_len-=1
+(1)     123 : 08                         inc     R0
+(1)     124 : 08                         inc     R0
+(1)     125 : 08                         inc     R0
+(1)     126 : E6                         mov     A, @R0          ; A=queue_get
+(1)     127 : 08                         inc     R0
+(1)     128 : 26                         add     A, @R0          ; A=lo(queue_buf)+queue_get
+(1)     129 : F5 82                      mov     DPL, A
+(1)     12B : 08                         inc     R0
+(1)     12C : E6                         mov     A, @R0          ; A=hi(queue)
+(1)     12D : 34 00                      addc    A, #0
+(1)     12F : F5 83                      mov     DPH, A
+(1)     131 : E0                         movx    A, @DPTR        ; read an element
+(1)     132 : C0 E0                      push    ACC             ; save an element
+(1)     134 : 18                         dec     R0
+(1)     135 : 18                         dec     R0
+(1)     136 : 06                         inc     @R0             ; queue_get+=1
+(1)     137 : E6                         mov     A, @R0          ; A=queue_get
+(1)     138 : 18                         dec     R0
+(1)     139 : 18                         dec     R0
+(1)     13A : 66                         xrl     A, @R0          ; queue_size
+(1)     13B : 70 03                      jnz     queue_remove_end ; branch if queue_get != queue_size
+(1)     13D : 08                         inc     R0
+(1)     13E : 08                         inc     R0
+(1)     13F : F6                         mov     @R0, A          ; queue_get=0
+(1)     140 :                    queue_remove_end:
+(1)     140 : D0 E0                      pop     ACC             ; restore an element
+(1)     142 : D3                         setb    C
+(1)     143 : 22                         ret
+        144 :
+        144 :                    isr_intr:
+        144 : C0 D0                      push    PSW
+        146 : C2 D4                      clr     PSW.RS1
+        148 : D2 D3                      setb    PSW.RS0         ; select BANK 1
+        14A : A9 82                      mov     R1, DPL
+        14C : AA 83                      mov     R2, DPH         ; save DPTR
+        14E : FB                         mov     R3, A           ; save A
+        14F : 10 98 0B                   jbc     SCON.RI, isr_intr_rx
+        152 : 10 99 10                   jbc     SCON.TI, isr_intr_tx
+        155 :                    isr_intr_exit:
+        155 : EB                         mov     A, R3           ; restore A
+        156 : 8A 83                      mov     DPH, R2
+        158 : 89 82                      mov     DPL, R1         ; restore DPTR
+        15A : D0 D0                      pop     PSW
+        15C : 32                         reti
+        15D :                    isr_intr_rx:
+        15D : E5 99                      mov     A, SBUF
+        15F : 78 30                      mov     R0, #rx_queue
+        161 : 11 F2                      acall   queue_add
+        163 : 80 F0                      sjmp    isr_intr_exit
+        165 :                    isr_intr_tx:
+        165 : 78 36                      mov     R0, #tx_queue
+        167 : 31 1D                      acall   queue_remove
+        169 : 50 04                      jnc     isr_intr_tx_empty
+        16B : F5 99                      mov     SBUF, A         ; send character
+        16D : 80 E6                      sjmp    isr_intr_exit
+        16F :                    isr_intr_tx_empty:
+        16F : D2 00                      setb    tx_disable.0    ; disable Tx
+        171 : 80 E2                      sjmp    isr_intr_exit
+        173 :
+        173 :                            end
