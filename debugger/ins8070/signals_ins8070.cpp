@@ -24,9 +24,16 @@ bool Signals::fetch() const {
 }
 
 bool Signals::getDirection() {
-    rds() = digitalReadFast(PIN_RDS);
-    wds() = digitalReadFast(PIN_WDS);
-    return read() || write();
+    cntl() = busRead(CNTL);
+    return cntl() != (CNTL_RDS | CNTL_WDS);
+}
+
+bool Signals::read() const {
+    return (cntl() & CNTL_RDS) == 0;
+}
+
+bool Signals::write() const {
+    return (cntl() & CNTL_WDS) == 0;
 }
 
 void Signals::getAddr() {

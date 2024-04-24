@@ -15,19 +15,15 @@ struct Signals final : SignalsBase<Signals> {
     void getData();
     void print() const;
 
-    bool read() const { return rds() == 0; }
-    bool write() const { return wds() == 0; }
+    bool read() const;
+    bool write() const;
     bool fetch() const;
-    void markFetch(bool fetch) { _signals[2] = fetch; }
-    bool fetchMark() const { return _signals[2]; };
+    void markFetch(bool fetch) { _signals[1] = fetch; }
+    bool fetchMark() const { return _signals[1]; };
 
 private:
-    uint8_t rds() const { return _signals[0]; }
-    uint8_t wds() const { return _signals[1]; }
-
-
-    uint8_t &rds() { return _signals[0]; }
-    uint8_t &wds() { return _signals[1]; }
+    uint8_t cntl() const { return _signals[0]; }
+    uint8_t &cntl() { return _signals[0]; }
 };
 }  // namespace ins8070
 }  // namespace debugger

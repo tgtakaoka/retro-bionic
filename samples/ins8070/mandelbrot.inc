@@ -113,6 +113,9 @@ loop_i:
         ;; ld      A, ='Q'
         ;; ld      T, vQ, P2
         ;; jsr     print
+        ;; ld      A, ='T'
+        ;; ld      T, vT, P2
+        ;; jsr     print
         ;; jsr     newline
 
         ld      EA, =4

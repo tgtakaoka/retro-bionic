@@ -48,12 +48,10 @@ initialize:
         st      A, ACIA_C, P2
         or      S, =S_IE          ; enable IRQ
 
+loop:
         jsr     mandelbrot
         jsr     newline
-        ld      P2, =tx_queue
-wait:   ld      A, 0, P2        ; tx queue len
-        bnz     wait
-        call    15              ; halt to system
+        jmp     loop
 
 ;;; Get character
 ;;; @return E char
