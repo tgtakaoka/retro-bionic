@@ -425,7 +425,8 @@ print_char:
         bnc     next_x
         lr      A, 0
         oi      0
-        bz      halt_to_system
+        bnz     next_x
+        dc      H'2F'           ; halt to system
 next_x:
         li      vX
         lr      2, A
@@ -452,5 +453,3 @@ jmp_loop_x:
         jmp     loop_x
 jmp_loop_y:
         jmp     loop_y
-halt_to_system:
-        dc      H'2F'           ; break

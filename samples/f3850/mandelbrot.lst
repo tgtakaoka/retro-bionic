@@ -68,26 +68,26 @@
           0 : 29 02 00                   jmp     init
           3 :
           3 :                    rx_vec:
-          3 : 29 02 78                   jmp     isr_intr_rx
+          3 : 29 02 7A                   jmp     isr_intr_rx
           6 :
           6 :                    tx_vec:
-          6 : 29 02 97                   jmp     isr_intr_tx
+          6 : 29 02 99                   jmp     isr_intr_tx
           9 :
         200 :                            org     H'0200'
         200 :                    init:
-        200 : 28 02 BC                   pi      init_stack
+        200 : 28 02 BE                   pi      init_stack
         203 : 2A 20 00                   dci     rx_queue
         206 : 0E                         lr      Q, DC
         207 : 20 80                      li      rx_queue_size
         209 : 50                         lr      0, A
-        20A : 28 03 21                   pi      call
-        20D : 03 4D                      da      queue_init
+        20A : 28 03 23                   pi      call
+        20D : 03 4F                      da      queue_init
         20F : 2A 20 80                   dci     tx_queue
         212 : 0E                         lr      Q, DC
         213 : 20 80                      li      tx_queue_size
         215 : 50                         lr      0, A
-        216 : 28 03 21                   pi      call
-        219 : 03 4D                      da      queue_init
+        216 : 28 03 23                   pi      call
+        219 : 03 4F                      da      queue_init
         21B :                    init_usart:
         21B : 70                         lis     0
         21C : 27 F1                      out     USARTC
@@ -109,985 +109,986 @@
         236 : 20 06                      li      tx_vec
         238 : 27 F3                      out     USARTTV
         23A :
-        23A : 28 03 21                   pi      call
-        23D : 06 65                      da      mandelbrot
-        23F : 28 03 21                   pi      call
-        242 : 02 64                      da      newline
-        244 : 2F                         dc      H'2F'
-        245 :
-        245 :                    ;;; Get character
-        245 :                    ;;; @return 0
-        245 :                    ;;; @return CC.C 0 if no character
-        245 :                    getchar:
-        245 : 1B                         ei
-        246 : 2B                         nop
-        247 : 1A                         di
-        248 : 2A 20 00                   dci     rx_queue
-        24B : 0E                         lr      Q, DC
-        24C : 29 03 8F                   jmp     queue_remove
-        24F :
-        24F :                    ;;; Put character
-        24F :                    ;;; @param 0
-        24F :                    ;;; @clobber 0
-        24F :                    putchar:
-        24F : 1B                         ei
-        250 : 2B                         nop
-        251 : 1A                         di
-        252 : 2A 20 80                   dci     tx_queue
-        255 : 0E                         lr      Q, DC
-        256 : 28 03 21                   pi      call
-        259 : 03 5F                      da      queue_add
-        25B : 92 F3                      bnc     putchar         ; branch if queue is full
-        25D : 20 37                      li      RX_EN_TX_EN     ; enable Tx
-        25F : 27 F1                      out     USARTC
-        261 : 29 03 3E                   jmp     return
-        264 :
-        264 :                    newline:        
-        264 : 20 0D                      li      H'0D'
-        266 : 50                         lr      0, A
-        267 : 28 03 21                   pi      call
-        26A : 02 4F                      da      putchar
-        26C : 20 0A                      li      H'0A'
-        26E : 50                         lr      0,A
-        26F : 29 02 4F                   jmp     putchar
-        272 :
-        272 :                    putspace:
-        272 : 20 20                      li      C' '
-        274 : 50                         lr      0, A
-        275 : 29 02 4F                   jmp     putchar
-        278 :
-        278 :                    isr_intr_rx:
-        278 : 08                         lr      K, P
-        279 : 28 02 D3                   pi      pushK
-        27C : 28 02 BF                   pi      push0
-        27F : 26 F1                      in      USARTS
-        281 : 21 02                      ni      ST_RxRDY_bm
-        283 : 84 0D                      bz      isr_intr_end
-        285 : 26 F0                      in      USARTD
-        287 : 50                         lr      0, A
-        288 : 2A 20 00                   dci     rx_queue
-        28B : 0E                         lr      Q, DC
-        28C : 28 03 21                   pi      call
-        28F : 03 5F                      da      queue_add
-        291 :                    isr_intr_end:
-        291 : 28 02 ED                   pi      pop0
-        294 : 29 03 3E                   jmp     return
-        297 :
-        297 :                    isr_intr_tx:
-        297 : 08                         lr      K, P
-        298 : 28 02 D3                   pi      pushK
-        29B : 28 02 BF                   pi      push0
-        29E : 2A 20 80                   dci     tx_queue
-        2A1 : 0E                         lr      Q, DC
-        2A2 : 28 03 21                   pi      call
-        2A5 : 03 8F                      da      queue_remove
-        2A7 : 92 0A                      bnc     isr_intr_send_empty
-        2A9 : 40                         lr      A, 0
-        2AA : 27 F0                      out     USARTD          ; send character
-        2AC : 28 02 ED                   pi      pop0
-        2AF : 29 03 3E                   jmp     return
-        2B2 :                    isr_intr_send_empty:
-        2B2 : 20 36                      li      RX_EN_TX_DIS    ; disable Tx
-        2B4 : 27 F1                      out     USARTC
-        2B6 : 28 02 ED                   pi      pop0
-        2B9 : 29 03 3E                   jmp     return
-        2BC :
-        2BC :                            include "stack.inc"
-(1)     2BC :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
-(1)     2BC :
-(1)     2BC :                    ;;; Stack pointer is 8-bit and pre-decrement and post-increment
-(1)     2BC : =8                 SP:     equ     8               ; SP is scratchpad register 8
-(1)     2BC : =F                 __STACK_U:      equ     ((stack - 1) >> 8)
-(1)     2BC :
-(1)     2BC :                    ;;; Initialize stack
-(1)     2BC :                    ;;; @param stack
-(1)     2BC :                    ;;; @clobber A
-(1)     2BC :                    init_stack:
-(1)     2BC : 70                         clr
-(1)     2BD : 58                         lr      SP, A
-(1)     2BE : 1C                         pop
-(1)     2BF :
-(1)     2BF :                    ;;; Push 0
-(1)     2BF :                    ;;; @clobber A H W
-(1)     2BF :                    ;;; PI push0
-(1)     2BF :                    push0:
-(1)     2BF : 38                         ds      SP              ; SP-=1
-(1)     2C0 : 20 0F                      li      __STACK_U
-(1)     2C2 : 5A                         lr      HU, A
-(1)     2C3 : 48                         lr      A, SP
-(1)     2C4 : 5B                         lr      HL, A
-(1)     2C5 : 10                         lr      DC, H           ; DC0=SP
-(1)     2C6 : 40                         lr      A, 0
-(1)     2C7 : 17                         st
-(1)     2C8 : 1C                         pop
-(1)     2C9 :
-(1)     2C9 :                    ;;; Push 1
-(1)     2C9 :                    ;;; @clobber A H W
-(1)     2C9 :                    ;;; PI push1
-(1)     2C9 :                    push1:
-(1)     2C9 : 38                         ds      SP              ; SP-=1
-(1)     2CA : 20 0F                      li      __STACK_U
-(1)     2CC : 5A                         lr      HU, A
-(1)     2CD : 48                         lr      A, SP
-(1)     2CE : 5B                         lr      HL, A
-(1)     2CF : 10                         lr      DC, H           ; DC0=SP
-(1)     2D0 : 41                         lr      A, 1
-(1)     2D1 : 17                         st
-(1)     2D2 : 1C                         pop
-(1)     2D3 :
-(1)     2D3 :                    ;;; Push K
-(1)     2D3 :                    ;;; @clobber A H W
-(1)     2D3 :                    ;;; PI pushK
-(1)     2D3 :                    pushK:
-(1)     2D3 : 38                         ds      SP
-(1)     2D4 : 38                         ds      SP              ; SP-=2
-(1)     2D5 : 20 0F                      li      __STACK_U
-(1)     2D7 : 5A                         lr      HU, A
-(1)     2D8 : 48                         lr      A, SP
-(1)     2D9 : 5B                         lr      HL, A
-(1)     2DA : 10                         lr      DC, H           ; DC0=SP
-(1)     2DB : 00                         lr      A, KU
-(1)     2DC : 17                         st
-(1)     2DD : 01                         lr      A, KL
+        23A :                    loop:
+        23A : 28 03 23                   pi      call
+        23D : 06 67                      da      mandelbrot
+        23F : 28 03 23                   pi      call
+        242 : 02 66                      da      newline
+        244 : 29 02 3A                   jmp     loop
+        247 :
+        247 :                    ;;; Get character
+        247 :                    ;;; @return 0
+        247 :                    ;;; @return CC.C 0 if no character
+        247 :                    getchar:
+        247 : 1B                         ei
+        248 : 2B                         nop
+        249 : 1A                         di
+        24A : 2A 20 00                   dci     rx_queue
+        24D : 0E                         lr      Q, DC
+        24E : 29 03 91                   jmp     queue_remove
+        251 :
+        251 :                    ;;; Put character
+        251 :                    ;;; @param 0
+        251 :                    ;;; @clobber 0
+        251 :                    putchar:
+        251 : 1B                         ei
+        252 : 2B                         nop
+        253 : 1A                         di
+        254 : 2A 20 80                   dci     tx_queue
+        257 : 0E                         lr      Q, DC
+        258 : 28 03 23                   pi      call
+        25B : 03 61                      da      queue_add
+        25D : 92 F3                      bnc     putchar         ; branch if queue is full
+        25F : 20 37                      li      RX_EN_TX_EN     ; enable Tx
+        261 : 27 F1                      out     USARTC
+        263 : 29 03 40                   jmp     return
+        266 :
+        266 :                    newline:
+        266 : 20 0D                      li      H'0D'
+        268 : 50                         lr      0, A
+        269 : 28 03 23                   pi      call
+        26C : 02 51                      da      putchar
+        26E : 20 0A                      li      H'0A'
+        270 : 50                         lr      0,A
+        271 : 29 02 51                   jmp     putchar
+        274 :
+        274 :                    putspace:
+        274 : 20 20                      li      C' '
+        276 : 50                         lr      0, A
+        277 : 29 02 51                   jmp     putchar
+        27A :
+        27A :                    isr_intr_rx:
+        27A : 08                         lr      K, P
+        27B : 28 02 D5                   pi      pushK
+        27E : 28 02 C1                   pi      push0
+        281 : 26 F1                      in      USARTS
+        283 : 21 02                      ni      ST_RxRDY_bm
+        285 : 84 0D                      bz      isr_intr_end
+        287 : 26 F0                      in      USARTD
+        289 : 50                         lr      0, A
+        28A : 2A 20 00                   dci     rx_queue
+        28D : 0E                         lr      Q, DC
+        28E : 28 03 23                   pi      call
+        291 : 03 61                      da      queue_add
+        293 :                    isr_intr_end:
+        293 : 28 02 EF                   pi      pop0
+        296 : 29 03 40                   jmp     return
+        299 :
+        299 :                    isr_intr_tx:
+        299 : 08                         lr      K, P
+        29A : 28 02 D5                   pi      pushK
+        29D : 28 02 C1                   pi      push0
+        2A0 : 2A 20 80                   dci     tx_queue
+        2A3 : 0E                         lr      Q, DC
+        2A4 : 28 03 23                   pi      call
+        2A7 : 03 91                      da      queue_remove
+        2A9 : 92 0A                      bnc     isr_intr_send_empty
+        2AB : 40                         lr      A, 0
+        2AC : 27 F0                      out     USARTD          ; send character
+        2AE : 28 02 EF                   pi      pop0
+        2B1 : 29 03 40                   jmp     return
+        2B4 :                    isr_intr_send_empty:
+        2B4 : 20 36                      li      RX_EN_TX_DIS    ; disable Tx
+        2B6 : 27 F1                      out     USARTC
+        2B8 : 28 02 EF                   pi      pop0
+        2BB : 29 03 40                   jmp     return
+        2BE :
+        2BE :                            include "stack.inc"
+(1)     2BE :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)     2BE :
+(1)     2BE :                    ;;; Stack pointer is 8-bit and pre-decrement and post-increment
+(1)     2BE : =8                 SP:     equ     8               ; SP is scratchpad register 8
+(1)     2BE : =F                 __STACK_U:      equ     ((stack - 1) >> 8)
+(1)     2BE :
+(1)     2BE :                    ;;; Initialize stack
+(1)     2BE :                    ;;; @param stack
+(1)     2BE :                    ;;; @clobber A
+(1)     2BE :                    init_stack:
+(1)     2BE : 70                         clr
+(1)     2BF : 58                         lr      SP, A
+(1)     2C0 : 1C                         pop
+(1)     2C1 :
+(1)     2C1 :                    ;;; Push 0
+(1)     2C1 :                    ;;; @clobber A H W
+(1)     2C1 :                    ;;; PI push0
+(1)     2C1 :                    push0:
+(1)     2C1 : 38                         ds      SP              ; SP-=1
+(1)     2C2 : 20 0F                      li      __STACK_U
+(1)     2C4 : 5A                         lr      HU, A
+(1)     2C5 : 48                         lr      A, SP
+(1)     2C6 : 5B                         lr      HL, A
+(1)     2C7 : 10                         lr      DC, H           ; DC0=SP
+(1)     2C8 : 40                         lr      A, 0
+(1)     2C9 : 17                         st
+(1)     2CA : 1C                         pop
+(1)     2CB :
+(1)     2CB :                    ;;; Push 1
+(1)     2CB :                    ;;; @clobber A H W
+(1)     2CB :                    ;;; PI push1
+(1)     2CB :                    push1:
+(1)     2CB : 38                         ds      SP              ; SP-=1
+(1)     2CC : 20 0F                      li      __STACK_U
+(1)     2CE : 5A                         lr      HU, A
+(1)     2CF : 48                         lr      A, SP
+(1)     2D0 : 5B                         lr      HL, A
+(1)     2D1 : 10                         lr      DC, H           ; DC0=SP
+(1)     2D2 : 41                         lr      A, 1
+(1)     2D3 : 17                         st
+(1)     2D4 : 1C                         pop
+(1)     2D5 :
+(1)     2D5 :                    ;;; Push K
+(1)     2D5 :                    ;;; @clobber A H W
+(1)     2D5 :                    ;;; PI pushK
+(1)     2D5 :                    pushK:
+(1)     2D5 : 38                         ds      SP
+(1)     2D6 : 38                         ds      SP              ; SP-=2
+(1)     2D7 : 20 0F                      li      __STACK_U
+(1)     2D9 : 5A                         lr      HU, A
+(1)     2DA : 48                         lr      A, SP
+(1)     2DB : 5B                         lr      HL, A
+(1)     2DC : 10                         lr      DC, H           ; DC0=SP
+(1)     2DD : 00                         lr      A, KU
 (1)     2DE : 17                         st
-(1)     2DF : 1C                         pop
-(1)     2E0 :
-(1)     2E0 :                    ;;; Push Q
-(1)     2E0 :                    ;;; @clobber A H W
-(1)     2E0 :                    ;;; PI pushQ
-(1)     2E0 :                    pushQ:
-(1)     2E0 : 38                         ds      SP
-(1)     2E1 : 38                         ds      SP              ; SP -= 2
-(1)     2E2 : 20 0F                      li      __STACK_U
-(1)     2E4 : 5A                         lr      HU, A
-(1)     2E5 : 48                         lr      A, SP
-(1)     2E6 : 5B                         lr      HL, A
-(1)     2E7 : 10                         lr      DC, H           ; DC0=SP
-(1)     2E8 : 02                         lr      A, QU
-(1)     2E9 : 17                         st
-(1)     2EA : 03                         lr      A, QL
+(1)     2DF : 01                         lr      A, KL
+(1)     2E0 : 17                         st
+(1)     2E1 : 1C                         pop
+(1)     2E2 :
+(1)     2E2 :                    ;;; Push Q
+(1)     2E2 :                    ;;; @clobber A H W
+(1)     2E2 :                    ;;; PI pushQ
+(1)     2E2 :                    pushQ:
+(1)     2E2 : 38                         ds      SP
+(1)     2E3 : 38                         ds      SP              ; SP -= 2
+(1)     2E4 : 20 0F                      li      __STACK_U
+(1)     2E6 : 5A                         lr      HU, A
+(1)     2E7 : 48                         lr      A, SP
+(1)     2E8 : 5B                         lr      HL, A
+(1)     2E9 : 10                         lr      DC, H           ; DC0=SP
+(1)     2EA : 02                         lr      A, QU
 (1)     2EB : 17                         st
-(1)     2EC : 1C                         pop
-(1)     2ED :
-(1)     2ED :                    ;;; POP 0
-(1)     2ED :                    ;;; @clobber A H
-(1)     2ED :                    ;;; PI pop0
-(1)     2ED :                    pop0:
-(1)     2ED : 20 0F                      li      __STACK_U
-(1)     2EF : 5A                         lr      HU, A
-(1)     2F0 : 48                         lr      A, SP
-(1)     2F1 : 5B                         lr      HL, A
-(1)     2F2 : 10                         lr      DC, H           ; DC0=SP
-(1)     2F3 : 16                         lm
-(1)     2F4 : 50                         lr      0, A
-(1)     2F5 : 11                         lr      H, DC
-(1)     2F6 : 4B                         lr      A, HL
-(1)     2F7 : 58                         lr      SP, A
-(1)     2F8 : 1C                         pop
-(1)     2F9 :
-(1)     2F9 :                    ;;; POP 1
-(1)     2F9 :                    ;;; @clobber A H
-(1)     2F9 :                    ;;; PI pop1
-(1)     2F9 :                    pop1:
-(1)     2F9 : 20 0F                      li      __STACK_U
-(1)     2FB : 5A                         lr      HU, A
-(1)     2FC : 48                         lr      A, SP
-(1)     2FD : 5B                         lr      HL, A
-(1)     2FE : 10                         lr      DC, H           ; DC0=SP
-(1)     2FF : 16                         lm
-(1)     300 : 51                         lr      1, A
-(1)     301 : 11                         lr      H, DC
-(1)     302 : 4B                         lr      A, HL
-(1)     303 : 58                         lr      SP, A
-(1)     304 : 1C                         pop
-(1)     305 :
-(1)     305 :                    ;;; Pop K
-(1)     305 :                    ;;; @clobber A H
-(1)     305 :                    ;;; PI popK
-(1)     305 :                    popK:
-(1)     305 : 20 0F                      li      __STACK_U
-(1)     307 : 5A                         lr      HU, A
-(1)     308 : 48                         lr      A, SP
-(1)     309 : 5B                         lr      HL, A
-(1)     30A : 10                         lr      DC, H           ; DC0=SP
-(1)     30B : 16                         lm
-(1)     30C : 04                         lr      KU, A
+(1)     2EC : 03                         lr      A, QL
+(1)     2ED : 17                         st
+(1)     2EE : 1C                         pop
+(1)     2EF :
+(1)     2EF :                    ;;; POP 0
+(1)     2EF :                    ;;; @clobber A H
+(1)     2EF :                    ;;; PI pop0
+(1)     2EF :                    pop0:
+(1)     2EF : 20 0F                      li      __STACK_U
+(1)     2F1 : 5A                         lr      HU, A
+(1)     2F2 : 48                         lr      A, SP
+(1)     2F3 : 5B                         lr      HL, A
+(1)     2F4 : 10                         lr      DC, H           ; DC0=SP
+(1)     2F5 : 16                         lm
+(1)     2F6 : 50                         lr      0, A
+(1)     2F7 : 11                         lr      H, DC
+(1)     2F8 : 4B                         lr      A, HL
+(1)     2F9 : 58                         lr      SP, A
+(1)     2FA : 1C                         pop
+(1)     2FB :
+(1)     2FB :                    ;;; POP 1
+(1)     2FB :                    ;;; @clobber A H
+(1)     2FB :                    ;;; PI pop1
+(1)     2FB :                    pop1:
+(1)     2FB : 20 0F                      li      __STACK_U
+(1)     2FD : 5A                         lr      HU, A
+(1)     2FE : 48                         lr      A, SP
+(1)     2FF : 5B                         lr      HL, A
+(1)     300 : 10                         lr      DC, H           ; DC0=SP
+(1)     301 : 16                         lm
+(1)     302 : 51                         lr      1, A
+(1)     303 : 11                         lr      H, DC
+(1)     304 : 4B                         lr      A, HL
+(1)     305 : 58                         lr      SP, A
+(1)     306 : 1C                         pop
+(1)     307 :
+(1)     307 :                    ;;; Pop K
+(1)     307 :                    ;;; @clobber A H
+(1)     307 :                    ;;; PI popK
+(1)     307 :                    popK:
+(1)     307 : 20 0F                      li      __STACK_U
+(1)     309 : 5A                         lr      HU, A
+(1)     30A : 48                         lr      A, SP
+(1)     30B : 5B                         lr      HL, A
+(1)     30C : 10                         lr      DC, H           ; DC0=SP
 (1)     30D : 16                         lm
-(1)     30E : 05                         lr      KL, A
-(1)     30F : 11                         lr      H, DC
-(1)     310 : 4B                         lr      A, HL
-(1)     311 : 58                         lr      SP, A
-(1)     312 : 1C                         pop
-(1)     313 :
-(1)     313 :                    ;;; pop Q
-(1)     313 :                    ;;; @clobber A H
-(1)     313 :                    ;;; PI popQ
-(1)     313 :                    popQ:
-(1)     313 : 20 0F                      li      __STACK_U
-(1)     315 : 5A                         lr      HU, A
-(1)     316 : 48                         lr      A, SP
-(1)     317 : 5B                         lr      HL, A
-(1)     318 : 10                         lr      DC, H           ; DC0=SP
-(1)     319 : 16                         lm
-(1)     31A : 06                         lr      QU, A
+(1)     30E : 04                         lr      KU, A
+(1)     30F : 16                         lm
+(1)     310 : 05                         lr      KL, A
+(1)     311 : 11                         lr      H, DC
+(1)     312 : 4B                         lr      A, HL
+(1)     313 : 58                         lr      SP, A
+(1)     314 : 1C                         pop
+(1)     315 :
+(1)     315 :                    ;;; pop Q
+(1)     315 :                    ;;; @clobber A H
+(1)     315 :                    ;;; PI popQ
+(1)     315 :                    popQ:
+(1)     315 : 20 0F                      li      __STACK_U
+(1)     317 : 5A                         lr      HU, A
+(1)     318 : 48                         lr      A, SP
+(1)     319 : 5B                         lr      HL, A
+(1)     31A : 10                         lr      DC, H           ; DC0=SP
 (1)     31B : 16                         lm
-(1)     31C : 07                         lr      QL, A
-(1)     31D : 11                         lr      H, DC
-(1)     31E : 4B                         lr      A, HL
-(1)     31F : 58                         lr      SP, A
-(1)     320 : 1C                         pop
-(1)     321 :
-(1)     321 :                    ;;; Call subroutine
-(1)     321 :                    ;;; @clobber A H K W
-(1)     321 :                    ;;; PI call
-(1)     321 :                    ;;; DA subroutine
-(1)     321 :                    call:
-(1)     321 : 08                         lr      K, P
-(1)     322 : 00                         lr      A, KU
-(1)     323 : 5A                         lr      HU, A
-(1)     324 : 01                         lr      A, KL
-(1)     325 : 5B                         lr      HL, A
-(1)     326 : 10                         lr      DC, H           ; DC0=PC1
-(1)     327 : 16                         lm
-(1)     328 : 04                         lr      KU, A
+(1)     31C : 06                         lr      QU, A
+(1)     31D : 16                         lm
+(1)     31E : 07                         lr      QL, A
+(1)     31F : 11                         lr      H, DC
+(1)     320 : 4B                         lr      A, HL
+(1)     321 : 58                         lr      SP, A
+(1)     322 : 1C                         pop
+(1)     323 :
+(1)     323 :                    ;;; Call subroutine
+(1)     323 :                    ;;; @clobber A H K W
+(1)     323 :                    ;;; PI call
+(1)     323 :                    ;;; DA subroutine
+(1)     323 :                    call:
+(1)     323 : 08                         lr      K, P
+(1)     324 : 00                         lr      A, KU
+(1)     325 : 5A                         lr      HU, A
+(1)     326 : 01                         lr      A, KL
+(1)     327 : 5B                         lr      HL, A
+(1)     328 : 10                         lr      DC, H           ; DC0=PC1
 (1)     329 : 16                         lm
-(1)     32A : 05                         lr      KL, A
-(1)     32B : 09                         lr      P, K            ; PC1=subroutine address
-(1)     32C : 11                         lr      H, DC
-(1)     32D : 4A                         lr      A, HU
-(1)     32E : 04                         lr      KU, A
-(1)     32F : 4B                         lr      A, HL
-(1)     330 : 05                         lr      KL, A           ; K=return address
-(1)     331 : 38                         ds      SP
-(1)     332 : 38                         ds      SP              ; SP-=2
-(1)     333 : 20 0F                      li      __STACK_U
-(1)     335 : 5A                         lr      HU, A
-(1)     336 : 48                         lr      A, SP
-(1)     337 : 5B                         lr      HL, A
-(1)     338 : 10                         lr      DC, H           ; DC0=SP
-(1)     339 : 00                         lr      A, KU
-(1)     33A : 17                         st
-(1)     33B : 01                         lr      A, KL
+(1)     32A : 04                         lr      KU, A
+(1)     32B : 16                         lm
+(1)     32C : 05                         lr      KL, A
+(1)     32D : 09                         lr      P, K            ; PC1=subroutine address
+(1)     32E : 11                         lr      H, DC
+(1)     32F : 4A                         lr      A, HU
+(1)     330 : 04                         lr      KU, A
+(1)     331 : 4B                         lr      A, HL
+(1)     332 : 05                         lr      KL, A           ; K=return address
+(1)     333 : 38                         ds      SP
+(1)     334 : 38                         ds      SP              ; SP-=2
+(1)     335 : 20 0F                      li      __STACK_U
+(1)     337 : 5A                         lr      HU, A
+(1)     338 : 48                         lr      A, SP
+(1)     339 : 5B                         lr      HL, A
+(1)     33A : 10                         lr      DC, H           ; DC0=SP
+(1)     33B : 00                         lr      A, KU
 (1)     33C : 17                         st
-(1)     33D : 1C                         pop                     ; jump to subroutine
-(1)     33E :
-(1)     33E :                    ;;; Return from subroutine
-(1)     33E :                    ;;; @clobber A H K
-(1)     33E :                    ;;; JMP return
-(1)     33E :                    return:
-(1)     33E : 20 0F                      li      __STACK_U
-(1)     340 : 5A                         lr      HU, A
-(1)     341 : 48                         lr      A, SP
-(1)     342 : 5B                         lr      HL, A
-(1)     343 : 10                         lr      DC, H           ; DC0=SP
-(1)     344 : 16                         lm
-(1)     345 : 04                         lr      KU, A
+(1)     33D : 01                         lr      A, KL
+(1)     33E : 17                         st
+(1)     33F : 1C                         pop                     ; jump to subroutine
+(1)     340 :
+(1)     340 :                    ;;; Return from subroutine
+(1)     340 :                    ;;; @clobber A H K
+(1)     340 :                    ;;; JMP return
+(1)     340 :                    return:
+(1)     340 : 20 0F                      li      __STACK_U
+(1)     342 : 5A                         lr      HU, A
+(1)     343 : 48                         lr      A, SP
+(1)     344 : 5B                         lr      HL, A
+(1)     345 : 10                         lr      DC, H           ; DC0=SP
 (1)     346 : 16                         lm
-(1)     347 : 05                         lr      KL, A
-(1)     348 : 11                         lr      H, DC
-(1)     349 : 4B                         lr      A, HL
-(1)     34A : 58                         lr      SP, A
-(1)     34B : 09                         lr      P, K            ; PC1=return address
-(1)     34C : 1C                         pop
-        34D :                            include "queue.inc"
-(1)     34D :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
-(1)     34D :                    ;;; [queue] queue structure
-(1)     34D : =0                 queue_len:      equ     0       ; queue length
-(1)     34D : =1                 queue_size:     equ     1       ; buffer size
-(1)     34D : =2                 queue_put:      equ     2       ; queue put index
-(1)     34D : =3                 queue_get:      equ     3       ; queue get index
-(1)     34D : =4                 queue_buf:      equ     4       ; buffer start offset
-(1)     34D :
-(1)     34D :                    ;;; [queue] Initialize queue
-(1)     34D :                    ;;; @param Q queue work space pointer
-(1)     34D :                    ;;; @param 0 queue work space size
-(1)     34D :                    ;;; @clobber A H DC
-(1)     34D :                    queue_init:
-(1)     34D : 0F                         lr      DC, Q
-(1)     34E : 70                         clr
-(1)     34F : 17                         st                      ; queue_len = 0
-(1)     350 : 40                         lr      A, 0            ; restore queue size
-(1)     351 : 24 FC                      ai      -queue_buf
-(1)     353 : 17                         st                      ; queue_size
-(1)     354 : 24 02                      ai      2               ; for queue_put and queue_get
-(1)     356 : 50                         lr      0, A            ; save counter
-(1)     357 : 70                         clr
-(1)     358 :                    queue_init_loop:
-(1)     358 : 17                         st
-(1)     359 : 30                         ds      0               ; decrement counter
-(1)     35A : 94 FD                      bnz     queue_init_loop
-(1)     35C : 29 03 3E                   jmp     return
-(1)     35F :
-(1)     35F :                    ;;; [queue] Add an element to queue
-(1)     35F :                    ;;; @param Q queue work space pointer
-(1)     35F :                    ;;; @param 0 an element
-(1)     35F :                    ;;; @return F.C 0 if queue is full
-(1)     35F :                    ;;; @clobber A H DC
-(1)     35F :                    queue_add:
-(1)     35F : 0F                         lr      DC, Q
-(1)     360 : 16                         lm                      ; queue_len
-(1)     361 : 5B                         lr      HL, A           ; HL=queue_len
-(1)     362 : 16                         lm                      ; queue_size
-(1)     363 : 18                         com
-(1)     364 : 1F                         inc                     ; A=-queue_size
-(1)     365 : CB                         as      HL              ; queue_len-queue_size
-(1)     366 : 82 24                      bc      queue_add_end   ; queue_len >= queue_size
-(1)     368 : 4B                         lr      A, HL
-(1)     369 : 1F                         inc                     ; queue_len++
-(1)     36A : 0F                         lr      DC, Q
-(1)     36B : 17                         st                      ; update queue_len
-(1)     36C : 16                         lm                      ; queue_size
-(1)     36D : 16                         lm                      ; queue_put
-(1)     36E : 1F                         inc                     ; for queue_get
-(1)     36F : 8E                         adc                     ; DC=&queue_buf[queue_put]
-(1)     370 : 40                         lr      A, 0            ; get element
-(1)     371 : 17                         st                      ; store element
-(1)     372 : 0F                         lr      DC, Q
-(1)     373 : 16                         lm                      ; queue_len
-(1)     374 : 16                         lm                      ; queue_size
-(1)     375 : 18                         com
-(1)     376 : 1F                         inc
-(1)     377 : 5B                         lr      HL, A           ; HL=-queue_size
-(1)     378 : 16                         lm                      ; queue_put
-(1)     379 : 1F                         inc                     ; queue_put++
-(1)     37A : 5A                         lr      HU, A           ; HU=queue_put
-(1)     37B : CB                         as      HL              ; queue_put-queue_size
-(1)     37C : 92 03                      bnc     queue_add_update ; queue_put < queue_size
-(1)     37E : 70                         clr
-(1)     37F : 5A                         lr      HU, A           ; wrap around
-(1)     380 :                    queue_add_update:
-(1)     380 : 0F                         lr      DC, Q
-(1)     381 : 16                         lm                      ; queue_len
-(1)     382 : 16                         lm                      ; queue_size
-(1)     383 : 4A                         lr      A, HU
-(1)     384 : 17                         st                      ; update queue_put
-(1)     385 : 70                         clr
-(1)     386 : 18                         com
-(1)     387 : 1F                         inc                     ; set carry
-(1)     388 : 29 03 3E                   jmp     return
-(1)     38B :                    queue_add_end:
-(1)     38B : 18                         com                     ; clear carry
-(1)     38C : 29 03 3E                   jmp     return
-(1)     38F :
-(1)     38F :                    ;;; [queue] Remove an element from queue
-(1)     38F :                    ;;; @param Q queue work space pointer
-(1)     38F :                    ;;; @return 0 an element
-(1)     38F :                    ;;; @return F.C 0 if queue is empty
-(1)     38F :                    ;;; @clobber A H DC
-(1)     38F :                    queue_remove:
-(1)     38F : 0F                         lr      DC, Q
-(1)     390 : 70                         clr
-(1)     391 : 8B                         om                      ; queue_len
-(1)     392 : 84 26                      bz      queue_remove_empty
-(1)     394 : 24 FF                      ai      -1              ; queue_len--
-(1)     396 : 0F                         lr      DC, Q
-(1)     397 : 17                         st                      ; update queue_len
-(1)     398 : 16                         lm                      ; queue_size
-(1)     399 : 16                         lm                      ; queue_put
-(1)     39A : 16                         lm                      ; queue_get
-(1)     39B : 8E                         adc                     ; DC=&queue_buf[queue_get]
-(1)     39C : 16                         lm                      ; read element
-(1)     39D : 50                         lr      0, A            ; save element
-(1)     39E : 0F                         lr      DC, Q
-(1)     39F : 16                         lm                      ; queue_len
-(1)     3A0 : 16                         lm                      ; queue_size
-(1)     3A1 : 18                         com
-(1)     3A2 : 1F                         inc
-(1)     3A3 : 5B                         lr      HL, A           ; HL=-queue_size
-(1)     3A4 : 16                         lm                      ; queue_put
-(1)     3A5 : 16                         lm                      ; queue_get
-(1)     3A6 : 1F                         inc                     ; queue_get++
-(1)     3A7 : 5A                         lr      HU, A           ; HU=queue_get
-(1)     3A8 : CB                         as      HL              ; queue_get-queue_size
-(1)     3A9 : 92 03                      bnc     queue_remove_update ; queue_get<queueu_size
-(1)     3AB : 70                         clr
-(1)     3AC : 5A                         lr      HU, A           ; wrap around
-(1)     3AD :                    queue_remove_update:
-(1)     3AD : 0F                         lr      DC, Q
-(1)     3AE : 16                         lm                      ; queue_len
-(1)     3AF : 16                         lm                      ; queue_size
-(1)     3B0 : 16                         lm                      ; queue_put
-(1)     3B1 : 4A                         lr      A, HU
-(1)     3B2 : 17                         st                      ; update queue_get
-(1)     3B3 : 70                         clr
-(1)     3B4 : 18                         com
-(1)     3B5 : 1F                         inc                     ; set carry
-(1)     3B6 : 29 03 3E                   jmp     return
-(1)     3B9 :                    queue_remove_empty:
-(1)     3B9 : 18                         com                     ; clear carry
-(1)     3BA : 29 03 3E                   jmp     return
-        3BD :                            include "arith.inc"
-(1)     3BD :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
-(1)     3BD :                            cpu     f3850
-(1)     3BD :
-(1)     3BD :                    ;;; Print unsigned 16-bit integer as decimal
-(1)     3BD :                    ;;; @param 0:1 value
-(1)     3BD :                    ;;; @clobber 0 1 4 5 6 7 A
-(1)     3BD :                    print_uint16:
-(1)     3BD : 40                         lr      A, 0
-(1)     3BE : 22 00                      oi      0
-(1)     3C0 : 94 06                      bnz     print_uint16_inner
-(1)     3C2 : 41                         lr      A, 1
-(1)     3C3 : 22 00                      oi      0
-(1)     3C5 : 84 29                      bz      print_uint16_zero
-(1)     3C7 :                    print_uint16_inner:
-(1)     3C7 : 40                         lr      A, 0
-(1)     3C8 : 54                         lr      4, A
-(1)     3C9 : 41                         lr      A, 1
-(1)     3CA : 55                         lr      5, A            ; 4:5=value
-(1)     3CB :                    print_uint16_loop:
-(1)     3CB : 44                         lr      A, 4
-(1)     3CC : 22 00                      oi      0
-(1)     3CE : 94 09                      bnz     print_uint16_digit
-(1)     3D0 : 45                         lr      A, 5
-(1)     3D1 : 22 00                      oi      0
-(1)     3D3 : 94 04                      bnz     print_uint16_digit
-(1)     3D5 : 29 03 3E                   jmp     return
-(1)     3D8 :                    print_uint16_digit:
-(1)     3D8 : 70                         clr
-(1)     3D9 : 56                         lr      6, A
-(1)     3DA : 20 0A                      li      10
-(1)     3DC : 57                         lr      7, A            ; 6:7=10
-(1)     3DD : 28 03 21                   pi      call
-(1)     3E0 : 05 52                      da      udiv16          ; 4:5/6:7=4:5...6:7
-(1)     3E2 : 47                         lr      A, 7
-(1)     3E3 : 50                         lr      0, A
-(1)     3E4 : 28 02 BF                   pi      push0           ; push reminder
-(1)     3E7 : 28 03 21                   pi      call
-(1)     3EA : 03 CB                      da      print_uint16_loop
-(1)     3EC : 28 02 ED                   pi      pop0
-(1)     3EF :                    print_uint16_zero:
-(1)     3EF : 20 30                      li      C'0'
-(1)     3F1 : C0                         as      0
-(1)     3F2 : 50                         lr      0, A
-(1)     3F3 : 29 02 4F                   jmp     putchar
-(1)     3F6 :
-(1)     3F6 :                    ;;; Print signed 16-bit integer as decimal
-(1)     3F6 :                    ;;; @param 0:1 value
-(1)     3F6 :                    ;;; @clobber 0 1 4 5 6 7 A
-(1)     3F6 :                    print_int16:
-(1)     3F6 : 40                         lr      A, 0
-(1)     3F7 : 22 00                      oi      0
-(1)     3F9 : 81 C3                      bp      print_uint16
-(1)     3FB : 28 02 BF                   pi      push0
-(1)     3FE : 20 2D                      li      C'-'
-(1)     400 : 50                         lr      0, A
-(1)     401 : 28 03 21                   pi      call
-(1)     404 : 02 4F                      da      putchar         ; print '-'
-(1)     406 : 28 02 ED                   pi      pop0
-(1)     409 : 40                         lr      A, 0
-(1)     40A : 18                         com
-(1)     40B : 50                         lr      0, A
-(1)     40C : 41                         lr      A, 1
-(1)     40D : 18                         com
-(1)     40E : 1F                         inc
-(1)     40F : 51                         lr      1, A
-(1)     410 : 40                         lr      A, 0
-(1)     411 : 19                         lnk
-(1)     412 : 50                         lr      0, A            ; 0:1=-value
-(1)     413 : 90 A9                      br      print_uint16
-(1)     415 :
-(1)     415 :                    ;;; Negation; result = -value
-(1)     415 :                    ;;; @param @2: result
-(1)     415 :                    ;;; @param @3: value
-(1)     415 :                    ;;; @clobber 0 1 ISAR A
-(1)     415 :                    negsi2:
-(1)     415 : 43                         lr      A, 3
-(1)     416 : 0B                         lr      IS, A           ; point MSB(value)
-(1)     417 : 4D                         lr      A, I
-(1)     418 : 18                         com
-(1)     419 : 50                         lr      0, A            ; MSB(~value)
-(1)     41A : 4C                         lr      A, S
-(1)     41B : 18                         com
-(1)     41C : 51                         lr      1, A            ; LSB(~value)
-(1)     41D : 42                         lr      A, 2
-(1)     41E : 1F                         inc
-(1)     41F : 0B                         lr      IS, A           ; point LSB(@2)
-(1)     420 : 41                         lr      A, 1
-(1)     421 : 1F                         inc
-(1)     422 : 5E                         lr      D, A            ; LSB(-value)
-(1)     423 : 40                         lr      A, 0
-(1)     424 : 19                         lnk
-(1)     425 : 5C                         lr      S, A            ; MSB(-value)
-(1)     426 : 29 03 3E                   jmp     return
-(1)     429 :
-(1)     429 :                    ;;; Negation; result = -result
-(1)     429 :                    ;;; @param 0:1 result
-(1)     429 :                    ;;; @clobber A
-(1)     429 :                    negsi1:
-(1)     429 : 40                         lr      A, 0
-(1)     42A : 18                         com
-(1)     42B : 50                         lr      0, A            ; MSB(~result)
-(1)     42C : 41                         lr      A, 1
-(1)     42D : 18                         com
-(1)     42E : 1F                         inc
-(1)     42F : 51                         lr      1, A            ; LSB(-result)
-(1)     430 : 40                         lr      A, 0
-(1)     431 : 19                         lnk
-(1)     432 : 50                         lr      0, A            ; MSB(-result)
-(1)     433 : 29 03 3E                   jmp     return
-(1)     436 :
-(1)     436 :                    ;;; Signed addition: summand += addend
-(1)     436 :                    ;;; @param @2: summand
-(1)     436 :                    ;;; @param @3: addend
-(1)     436 :                    ;;; @clobber 0 1 ISAR A
-(1)     436 :                    addsi2:
-(1)     436 : 43                         lr      A, 3
-(1)     437 : 0B                         lr      IS, A           ; point MSB(addend)
-(1)     438 : 4D                         lr      A, I
-(1)     439 : 50                         lr      0, A            ; MSB(addend)
-(1)     43A : 4C                         lr      A, S
-(1)     43B : 51                         lr      1, A            ; LSB(addend)
-(1)     43C : 42                         lr      A, 2
-(1)     43D : 1F                         inc
-(1)     43E : 0B                         lr      IS, A           ; point LSB(summand)
-(1)     43F : 4C                         lr      A, S
-(1)     440 : C1                         as      1
-(1)     441 : 5E                         lr      D, A            ; store LSB(summand)
-(1)     442 : 4C                         lr      A, S
-(1)     443 : 19                         lnk
-(1)     444 : C0                         as      0
-(1)     445 : 5C                         lr      S, A
-(1)     446 : 29 03 3E                   jmp     return
-(1)     449 :
-(1)     449 :                    ;;; Singed subtraction: minuend -= subtrahend
-(1)     449 :                    ;;; @param @2: minuend
-(1)     449 :                    ;;; @param @3: subtrahend
-(1)     449 :                    ;;; @clobber 0 1 A
-(1)     449 :                    subsi2:
-(1)     449 : 43                         lr      A, 3
-(1)     44A : 0B                         lr      IS, A           ; point MSB(subtrand)
-(1)     44B : 4D                         lr      A, I
-(1)     44C : 18                         com
-(1)     44D : 50                         lr      0, A            ; MSB(~subtrand)
-(1)     44E : 4C                         lr      A, S
-(1)     44F : 18                         com
-(1)     450 : 1F                         inc
-(1)     451 : 51                         lr      1, A            ; LSB(-subtrand)
-(1)     452 : 40                         lr      A, 0
-(1)     453 : 19                         lnk
-(1)     454 : 50                         lr      0, A            ; MSB(-subtrand)
-(1)     455 : 42                         lr      A, 2
-(1)     456 : 1F                         inc
-(1)     457 : 0B                         lr      IS, A           ; point LSB(minuend)
-(1)     458 : 4C                         lr      A, S
-(1)     459 : C1                         as      1
-(1)     45A : 5E                         lr      D, A            ; store LSB(minuend)
-(1)     45B : 4C                         lr      A, S
-(1)     45C : 19                         lnk
-(1)     45D : C0                         as      0
-(1)     45E : 5C                         lr      S, A
-(1)     45F : 29 03 3E                   jmp     return
-(1)     462 :
-(1)     462 :                    ;;; Signed comparison: minuend - subtrahend
-(1)     462 :                    ;;; @param @2: minuend
-(1)     462 :                    ;;; @param @3: subtrahend
-(1)     462 :                    ;;; @return W.Z, W.S
-(1)     462 :                    ;;; @clobber 0 1 ISAR A J
-(1)     462 :                    cmpsi2:
-(1)     462 : 43                         lr      A, 3
-(1)     463 : 0B                         lr      IS, A           ; point MSB(subtrahend)
-(1)     464 : 4D                         lr      A, I
-(1)     465 : 18                         com
-(1)     466 : 50                         lr      0, A            ; MSB(~subtrahend)
-(1)     467 : 4C                         lr      A, S
-(1)     468 : 18                         com
-(1)     469 : 1F                         inc
-(1)     46A : 51                         lr      1, A            ; LSB(-subtrahend)
-(1)     46B : 40                         lr      A, 0
-(1)     46C : 19                         lnk
-(1)     46D : 50                         lr      0, A            ; MSB(-subtrahend)
-(1)     46E : 42                         lr      A, 2
-(1)     46F : 1F                         inc
-(1)     470 : 0B                         lr      IS, A           ; point LSB(minuend)
-(1)     471 : 4E                         lr      A, D
-(1)     472 : C1                         as      1
-(1)     473 : 51                         lr      1, A            ; LSB(minued-subtrahend)
-(1)     474 : 4C                         lr      A, S
-(1)     475 : 19                         lnk
-(1)     476 : C0                         as      0
-(1)     477 : 50                         lr      0, A            ; MSB(minued-subtrahend)
-(1)     478 : 70                         clr                     ; MSB(A)=overflow
-(1)     479 : 98 03                      bno     cmpsi2_nov      ; no overflow
-(1)     47B : 23 80                      xi      H'80'           ; MSB(A)=overflow
-(1)     47D :                    cmpsi2_nov:
-(1)     47D : 59                         lr      J, A            ; MSB(J)=overflow
-(1)     47E : 40                         lr      A, 0
-(1)     47F : 22 00                      oi      0
-(1)     481 : 94 06                      bnz     cmpsi2_cmp
-(1)     483 : 41                         lr      A, 1
-(1)     484 : 22 00                      oi      0
-(1)     486 : 84 05                      bz      cmpsi2_eq       ; minued==subtrahend
-(1)     488 :                    cmpsi2_cmp
-(1)     488 : 40                         lr      A, 0            ; sign(minued-subtrahend)
-(1)     489 : E9                         xs      J               ; sign^overflow
-(1)     48A : 22 01                      oi      1               ; W.Z=0, W.S=result
-(1)     48C :                    cmpsi2_eq:
-(1)     48C : 29 03 3E                   jmp     return          ; W.Z=1
-(1)     48F :
-(1)     48F :                    ;;; Unsigned multiplication: result = multiplicand * multiplier
-(1)     48F :                    ;;; @param 4:5 multiplicand
-(1)     48F :                    ;;; @param 6:7 multiplier
-(1)     48F :                    ;;; @return 4:5 result
-(1)     48F :                    ;;; @clobber 4 5 6 7
-(1)     48F :                    umul16:
-(1)     48F : 28 02 E0                   pi      pushQ           ; save Q
-(1)     492 : 28 02 BF                   pi      push0           ; save 0
-(1)     495 : 70                         clr
-(1)     496 : 06                         lr      QU, A
-(1)     497 : 07                         lr      QL, A           ; result=0
-(1)     498 : 90 25                      br      umul16_check
-(1)     49A :                    umul16_loop:
-(1)     49A : 47                         lr      A, 7
-(1)     49B : 21 01                      ni      1
-(1)     49D : 84 08                      bz      umul16_sr       ; lsb(multiplier)==0
-(1)     49F : 03                         lr      A, QL
-(1)     4A0 : C5                         as      5
-(1)     4A1 : 07                         lr      QL, A
-(1)     4A2 : 02                         lr      A, QU
-(1)     4A3 : 19                         lnk
-(1)     4A4 : C4                         as      4
-(1)     4A5 : 06                         lr      QU, A           ; result += multiplicand
-(1)     4A6 :                    umul16_sr:
-(1)     4A6 : 70                         clr
-(1)     4A7 : 50                         lr      0, A            ; 0=carry
-(1)     4A8 : 46                         lr      A, 6
-(1)     4A9 : 21 01                      ni      1
-(1)     4AB : 84 04                      bz      umul16_sr_nz
-(1)     4AD : 20 80                      li      H'80'
-(1)     4AF : 50                         lr      0, A            ; set carry
-(1)     4B0 :                    umul16_sr_nz:
-(1)     4B0 : 46                         lr      A, 6
-(1)     4B1 : 12                         sr      1
-(1)     4B2 : 56                         lr      6, A
-(1)     4B3 : 47                         lr      A, 7
-(1)     4B4 : 12                         sr      1
-(1)     4B5 : E0                         xs      0               ; shift in carry
-(1)     4B6 : 57                         lr      7, A            ; multiplier >>= 1
-(1)     4B7 :                    umul16_next:
-(1)     4B7 : 45                         lr      A, 5
-(1)     4B8 : C5                         as      5
-(1)     4B9 : 55                         lr      5, A
-(1)     4BA : 44                         lr      A, 4
-(1)     4BB : 19                         lnk
-(1)     4BC : C4                         as      4
-(1)     4BD : 54                         lr      4, A            ; multiplicand <<= 1
-(1)     4BE :                    umul16_check:
-(1)     4BE : 46                         lr      A, 6
-(1)     4BF : 22 00                      oi      0
-(1)     4C1 : 94 D8                      bnz     umul16_loop
-(1)     4C3 : 47                         lr      A, 7
-(1)     4C4 : 22 00                      oi      0
-(1)     4C6 : 94 D3                      bnz     umul16_loop     ; while multiplier != 0
-(1)     4C8 : 02                         lr      A, QU
-(1)     4C9 : 54                         lr      4, A
-(1)     4CA : 03                         lr      A, QL
-(1)     4CB : 55                         lr      5, A            ; 4:5=result
-(1)     4CC : 28 02 ED                   pi      pop0            ; restore 0
-(1)     4CF : 28 03 13                   pi      popQ            ; restore Q
-(1)     4D2 : 29 03 3E                   jmp     return
-(1)     4D5 :
-(1)     4D5 :                    ;;; Signed multiplication: multiplicand *= multiplier
-(1)     4D5 :                    ;;; @param @2: multiplicand
-(1)     4D5 :                    ;;; @param @3: multiplier
-(1)     4D5 :                    ;;; @clobber 4 5 6 7 A
-(1)     4D5 :                    mulsi2:
-(1)     4D5 : 42                         lr      A, 2
-(1)     4D6 : 1F                         inc
-(1)     4D7 : 0B                         lr      IS, A           ; point LSB(@2)
-(1)     4D8 : 4E                         lr      A, D
-(1)     4D9 : 55                         lr      5, A
-(1)     4DA : 4C                         lr      A, S
-(1)     4DB : 54                         lr      4, A            ; 4:5=multiplicand
-(1)     4DC : 22 00                      oi      0
-(1)     4DE : 81 0A                      bp      mulsi2_multiplier
-(1)     4E0 : 18                         com
-(1)     4E1 : 54                         lr      4, A            ; MSB(~multiplicand)
-(1)     4E2 : 45                         lr      A, 5
-(1)     4E3 : 18                         com
-(1)     4E4 : 1F                         inc
-(1)     4E5 : 55                         lr      5, A            ; LSB(-multiplicand)
-(1)     4E6 : 44                         lr      A, 4
-(1)     4E7 : 19                         lnk
-(1)     4E8 : 54                         lr      4, A            ; MSB(-multiplicand)
-(1)     4E9 :                    mulsi2_multiplier:
-(1)     4E9 : 43                         lr      A, 3
-(1)     4EA : 1F                         inc
-(1)     4EB : 0B                         lr      IS, A           ; point LSB(@3)
-(1)     4EC : 4E                         lr      A, D
-(1)     4ED : 57                         lr      7, A
-(1)     4EE : 4C                         lr      A, S
-(1)     4EF : 56                         lr      6, A
-(1)     4F0 : 22 00                      oi      0
-(1)     4F2 : 81 0A                      bp      mulsi2_multiply
-(1)     4F4 : 18                         com
-(1)     4F5 : 56                         lr      6, A            ; MSB(~multiplyer)
-(1)     4F6 : 47                         lr      A, 7
-(1)     4F7 : 18                         com
-(1)     4F8 : 1F                         inc
-(1)     4F9 : 57                         lr      7, A            ; LSB(-multiplyer)
-(1)     4FA : 46                         lr      A, 6
-(1)     4FB : 19                         lnk
-(1)     4FC : 56                         lr      6, A            ; MSB(-multiplyer)
-(1)     4FD :                    mulsi2_multiply:
-(1)     4FD : 28 03 21                   pi      call
-(1)     500 : 04 8F                      da      umul16
-(1)     502 : 43                         lr      A, 3
-(1)     503 : 0B                         lr      IS, A
-(1)     504 : 4C                         lr      A, S
-(1)     505 : 56                         lr      6, A            ; MSB(multiplyer)
-(1)     506 : 42                         lr      A, 2
-(1)     507 : 0B                         lr      IS, A
-(1)     508 : 4C                         lr      A, S            ; MSB(multiplicand)
-(1)     509 : E6                         xs      6               ; MSB(multiplicand^multiplyer)
-(1)     50A : 81 0B                      bp      mulsi2_store
-(1)     50C : 44                         lr      A, 4
-(1)     50D : 18                         com
-(1)     50E : 54                         lr      4, A            ; MSB(~result)
-(1)     50F : 45                         lr      A, 5
-(1)     510 : 18                         com
-(1)     511 : 1F                         inc
-(1)     512 : 55                         lr      5, A            ; LSB(-result)
-(1)     513 : 44                         lr      A, 4
-(1)     514 : 19                         lnk
-(1)     515 : 54                         lr      4, A            ; MSB(-result)
-(1)     516 :                    mulsi2_store:
-(1)     516 : 44                         lr      A, 4
-(1)     517 : 5D                         lr      I, A
-(1)     518 : 45                         lr      A, 5
-(1)     519 : 5C                         lr      S, A            ; @2=result
-(1)     51A : 29 03 3E                   jmp     return
-(1)     51D :
-(1)     51D :                    ;;; Unsigned comparison: minuend - subtrahend
-(1)     51D :                    ;;; @param 4:5 minuend
-(1)     51D :                    ;;; @param 6:7 subtrahend
-(1)     51D :                    ;;; @clobber J
-(1)     51D :                    ;;; @return W.Z W.S
-(1)     51D :                    ucmp16:
-(1)     51D : 28 02 C9                   pi      push1
-(1)     520 : 28 02 BF                   pi      push0
-(1)     523 : 46                         lr      A, 6
-(1)     524 : 18                         com
-(1)     525 : 50                         lr      0, A
-(1)     526 : 47                         lr      A, 7
-(1)     527 : 18                         com
-(1)     528 : 1F                         inc
-(1)     529 : 51                         lr      1, A
-(1)     52A : 40                         lr      A, 0
-(1)     52B : 19                         lnk
-(1)     52C : 50                         lr      0, A            ; 0:1=-subtrahend
-(1)     52D : 45                         lr      A, 5
-(1)     52E : C1                         as      1
-(1)     52F : 51                         lr      1, A
-(1)     530 : 44                         lr      A, 4
-(1)     531 : 19                         lnk
-(1)     532 : C0                         as      0
-(1)     533 : 50                         lr      0, A            ; 0:1=minuend-subtrahend
-(1)     534 : 1E                         lr      J, W
-(1)     535 : 49                         lr      A, J
-(1)     536 : 15                         sl      4
-(1)     537 : 13                         sl      1
-(1)     538 : 13                         sl      1               ; sign=carry << 6
-(1)     539 : 59                         lr      J, A
-(1)     53A : 40                         lr      A, 0
-(1)     53B : 22 00                      oi      0
-(1)     53D : 94 06                      bnz     ucmp16_cmp
-(1)     53F : 41                         lr      A, 1
-(1)     540 : 22 00                      oi      0
-(1)     542 : 84 06                      bz      ucmp16_eq
-(1)     544 :                    ucmp16_cmp:
-(1)     544 : 49                         lr      A, J
-(1)     545 : 23 80                      xi      H'80'
-(1)     547 : 22 01                      oi      1               ; W.Z=0, W.S=~W.C
-(1)     549 :                    ucmp16_eq:     
-(1)     549 : 28 02 ED                   pi      pop0
-(1)     54C : 28 02 F9                   pi      pop1
-(1)     54F : 29 03 3E                   jmp     return
-(1)     552 :
-(1)     552 :                    ;;; Unsigned division: dividend / divisor = quotient ... reminder
-(1)     552 :                    ;;; @praram 4:5 dividend
-(1)     552 :                    ;;; @praram 6:7 divisor
-(1)     552 :                    ;;; @return 4:5 quotient
-(1)     552 :                    ;;; @return 6:7 reminder
-(1)     552 :                    ;;; @clobber 4 5 6 7 A
-(1)     552 :                    udiv16:
-(1)     552 : 28 02 E0                   pi      pushQ           ; save Q
-(1)     555 : 28 02 C9                   pi      push1           ; save 1
-(1)     558 : 28 02 BF                   pi      push0           ; save 0
-(1)     55B : 71                         lis     1
-(1)     55C : 50                         lr      0, A            ; bits=1
-(1)     55D : 46                         lr      A, 6
-(1)     55E : 22 00                      oi      0
-(1)     560 : 94 1C                      bnz     udiv16_prep
-(1)     562 : 47                         lr      A, 7
-(1)     563 : 22 00                      oi      0
-(1)     565 : 94 17                      bnz     udiv16_prep
-(1)     567 : 28 02 ED                   pi      pop0
-(1)     56A : 28 02 F9                   pi      pop1
-(1)     56D : 28 03 13                   pi      popQ
-(1)     570 : 29 03 3E                   jmp     return          ; divide by zero
-(1)     573 :                    udiv16_prep_loop:
-(1)     573 : 47                         lr      A, 7
-(1)     574 : C7                         as      7
-(1)     575 : 57                         lr      7, A
-(1)     576 : 46                         lr      A, 6
-(1)     577 : 19                         lnk
-(1)     578 : C6                         as      6
-(1)     579 : 56                         lr      6, A            ; divisor <<= 1
-(1)     57A : 40                         lr      A, 0
-(1)     57B : 1F                         inc
-(1)     57C : 50                         lr      0, A            ; ++bits
-(1)     57D :                    udiv16_prep:
-(1)     57D : 46                         lr      A, 6
-(1)     57E : 22 00                      oi      0
-(1)     580 : 81 F2                      bp      udiv16_prep_loop ; while msb(divisor) == 0
-(1)     582 : 70                         clr
-(1)     583 : 06                         lr      QU, A
-(1)     584 : 07                         lr      QL, A           ; Q=quotient
-(1)     585 : 90 21                      br      udiv16_enter_loop
-(1)     587 :                    udiv16_loop:
-(1)     587 : 28 02 ED                   pi      pop0            ; restore bits
-(1)     58A : 30                         ds      0               ; --bits
-(1)     58B : 84 3B                      bz      udiv16_return   ; while bits != 0
-(1)     58D : 70                         clr
-(1)     58E : 51                         lr      1, A            ; clear carry
-(1)     58F : 46                         lr      A, 6
-(1)     590 : 21 01                      ni      1
-(1)     592 : 84 04                      bz      udiv16_sr_lsb
-(1)     594 : 20 80                      li      H'80'
-(1)     596 : 51                         lr      1, A            ; set carry
-(1)     597 :                    udiv16_sr_lsb:
-(1)     597 : 46                         lr      A, 6
-(1)     598 : 12                         sr      1
-(1)     599 : 56                         lr      6, A
-(1)     59A : 47                         lr      A, 7
-(1)     59B : 12                         sr      1
-(1)     59C : E1                         xs      1               ; shift in carry
-(1)     59D : 57                         lr      7, A            ; divisor >>= 1
-(1)     59E : 03                         lr      A, QL
-(1)     59F : 51                         lr      1, A
-(1)     5A0 : C1                         as      1
-(1)     5A1 : 07                         lr      QL, A
-(1)     5A2 : 02                         lr      A, QU
-(1)     5A3 : 51                         lr      1, A
-(1)     5A4 : 19                         lnk
-(1)     5A5 : C1                         as      1
-(1)     5A6 : 06                         lr      QU, A           ; quotient <<= 1
-(1)     5A7 :                    udiv16_enter_loop:
-(1)     5A7 : 28 02 BF                   pi      push0           ; save bits
-(1)     5AA : 28 03 21                   pi      call
-(1)     5AD : 05 1D                      da      ucmp16          ; dividend <=> divisor
-(1)     5AF : 91 D7                      bm      udiv16_loop     ; branch if dividend < divisor
-(1)     5B1 : 46                         lr      A, 6
-(1)     5B2 : 18                         com
-(1)     5B3 : 50                         lr      0, A
-(1)     5B4 : 47                         lr      A, 7
-(1)     5B5 : 18                         com
-(1)     5B6 : 1F                         inc
-(1)     5B7 : 51                         lr      1, A
-(1)     5B8 : 40                         lr      A, 0
-(1)     5B9 : 19                         lnk
-(1)     5BA : 50                         lr      0, A            ; 0:1=-divisor
-(1)     5BB : 45                         lr      A, 5
-(1)     5BC : C1                         as      1
-(1)     5BD : 55                         lr      5, A
-(1)     5BE : 44                         lr      A, 4
-(1)     5BF : 19                         lnk
-(1)     5C0 : C0                         as      0
-(1)     5C1 : 54                         lr      4, A            ; dividend-=divisor
-(1)     5C2 : 03                         lr      A, QL
-(1)     5C3 : 1F                         inc
-(1)     5C4 : 07                         lr      QL, A           ; quotient |= 1
-(1)     5C5 : 90 C1                      br      udiv16_loop
-(1)     5C7 :                    udiv16_return:
-(1)     5C7 : 44                         lr      A, 4
-(1)     5C8 : 56                         lr      6, A
-(1)     5C9 : 45                         lr      A, 5
-(1)     5CA : 57                         lr      7, A            ; 6:7=reminder
-(1)     5CB : 02                         lr      A, QU
-(1)     5CC : 54                         lr      4, A
-(1)     5CD : 03                         lr      A, QL
-(1)     5CE : 55                         lr      5, A            ; 4:5=quotient
-(1)     5CF : 28 02 ED                   pi      pop0            ; restore 0
-(1)     5D2 : 28 02 F9                   pi      pop1            ; restore 1
-(1)     5D5 : 28 03 13                   pi      popQ            ; restore Q
-(1)     5D8 : 29 03 3E                   jmp     return
-(1)     5DB :
-(1)     5DB :                    ;;; Signed division: dividend /= divisor
-(1)     5DB :                    ;;; @param @2: dividend
-(1)     5DB :                    ;;; @param @3: divisor
-(1)     5DB :                    ;;; @clobber 4 5 6 7 A
-(1)     5DB :                    divsi2:
-(1)     5DB : 42                         lr      A, 2
-(1)     5DC : 1F                         inc
-(1)     5DD : 0B                         lr      IS, A           ; point LSB(@2)
-(1)     5DE : 4E                         lr      A, D
-(1)     5DF : 55                         lr      5, A
-(1)     5E0 : 4C                         lr      A, S
-(1)     5E1 : 54                         lr      4, A            ; 4:5=dividend
-(1)     5E2 : 22 00                      oi      0
-(1)     5E4 : 81 0A                      bp      divsi2_divisor
-(1)     5E6 : 18                         com
-(1)     5E7 : 54                         lr      4, A            ; MSB(~dividend)
-(1)     5E8 : 45                         lr      A, 5
-(1)     5E9 : 18                         com
-(1)     5EA : 1F                         inc
-(1)     5EB : 55                         lr      5, A            ; LSB(-dividend)
-(1)     5EC : 44                         lr      A, 4
-(1)     5ED : 19                         lnk
-(1)     5EE : 54                         lr      4, A            ; MSB(-dividend)
-(1)     5EF :                    divsi2_divisor:
-(1)     5EF : 43                         lr      A, 3
-(1)     5F0 : 1F                         inc
-(1)     5F1 : 0B                         lr      IS, A           ; point LSB(@3)
-(1)     5F2 : 4E                         lr      A, D
-(1)     5F3 : 57                         lr      7, A
-(1)     5F4 : 4C                         lr      A, S
-(1)     5F5 : 56                         lr      6, A
-(1)     5F6 : 22 00                      oi      0
-(1)     5F8 : 81 0A                      bp      divsi2_divide
-(1)     5FA : 18                         com
-(1)     5FB : 56                         lr      6, A            ; MSB(~divisor)
-(1)     5FC : 47                         lr      A, 7
-(1)     5FD : 18                         com
-(1)     5FE : 1F                         inc
-(1)     5FF : 57                         lr      7, A            ; LSB(-divisor)
-(1)     600 : 46                         lr      A, 6
-(1)     601 : 19                         lnk
-(1)     602 : 56                         lr      6, A            ; MSB(-divisor)
-(1)     603 :                    divsi2_divide:
-(1)     603 : 28 03 21                   pi      call
-(1)     606 : 05 52                      da      udiv16
-(1)     608 : 43                         lr      A, 3
-(1)     609 : 0B                         lr      IS, A
-(1)     60A : 4C                         lr      A, S
-(1)     60B : 56                         lr      6, A            ; MSB(divisor)
-(1)     60C : 42                         lr      A, 2
-(1)     60D : 0B                         lr      IS, A
-(1)     60E : 4C                         lr      A, S            ; MSB(dividend)
-(1)     60F : E6                         xs      6               ; MSB(dividend^divisor)
-(1)     610 : 81 0B                      bp      divsi2_store
-(1)     612 : 44                         lr      A, 4
-(1)     613 : 18                         com
-(1)     614 : 54                         lr      4, A            ; MSB(~result)
-(1)     615 : 45                         lr      A, 5
-(1)     616 : 18                         com
-(1)     617 : 1F                         inc
-(1)     618 : 55                         lr      5, A            ; LSB(-result)
-(1)     619 : 44                         lr      A, 4
-(1)     61A : 19                         lnk
-(1)     61B : 54                         lr      4, A            ; MSB(-result)
-(1)     61C :                    divsi2_store:
-(1)     61C : 44                         lr      A, 4
-(1)     61D : 5D                         lr      I, A
-(1)     61E : 45                         lr      A, 5
-(1)     61F : 5C                         lr      S, A            ; @2=result
-(1)     620 : 29 03 3E                   jmp     return
-        623 :                            include "mandelbrot.inc"
-(1)     623 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
-(1)     623 : =623               _mandelbrot:    equ     $
-(1)     623 :
-(1)     623 :                    ;;; Scratchpad registers
+(1)     347 : 04                         lr      KU, A
+(1)     348 : 16                         lm
+(1)     349 : 05                         lr      KL, A
+(1)     34A : 11                         lr      H, DC
+(1)     34B : 4B                         lr      A, HL
+(1)     34C : 58                         lr      SP, A
+(1)     34D : 09                         lr      P, K            ; PC1=return address
+(1)     34E : 1C                         pop
+        34F :                            include "queue.inc"
+(1)     34F :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)     34F :                    ;;; [queue] queue structure
+(1)     34F : =0                 queue_len:      equ     0       ; queue length
+(1)     34F : =1                 queue_size:     equ     1       ; buffer size
+(1)     34F : =2                 queue_put:      equ     2       ; queue put index
+(1)     34F : =3                 queue_get:      equ     3       ; queue get index
+(1)     34F : =4                 queue_buf:      equ     4       ; buffer start offset
+(1)     34F :
+(1)     34F :                    ;;; [queue] Initialize queue
+(1)     34F :                    ;;; @param Q queue work space pointer
+(1)     34F :                    ;;; @param 0 queue work space size
+(1)     34F :                    ;;; @clobber A H DC
+(1)     34F :                    queue_init:
+(1)     34F : 0F                         lr      DC, Q
+(1)     350 : 70                         clr
+(1)     351 : 17                         st                      ; queue_len = 0
+(1)     352 : 40                         lr      A, 0            ; restore queue size
+(1)     353 : 24 FC                      ai      -queue_buf
+(1)     355 : 17                         st                      ; queue_size
+(1)     356 : 24 02                      ai      2               ; for queue_put and queue_get
+(1)     358 : 50                         lr      0, A            ; save counter
+(1)     359 : 70                         clr
+(1)     35A :                    queue_init_loop:
+(1)     35A : 17                         st
+(1)     35B : 30                         ds      0               ; decrement counter
+(1)     35C : 94 FD                      bnz     queue_init_loop
+(1)     35E : 29 03 40                   jmp     return
+(1)     361 :
+(1)     361 :                    ;;; [queue] Add an element to queue
+(1)     361 :                    ;;; @param Q queue work space pointer
+(1)     361 :                    ;;; @param 0 an element
+(1)     361 :                    ;;; @return F.C 0 if queue is full
+(1)     361 :                    ;;; @clobber A H DC
+(1)     361 :                    queue_add:
+(1)     361 : 0F                         lr      DC, Q
+(1)     362 : 16                         lm                      ; queue_len
+(1)     363 : 5B                         lr      HL, A           ; HL=queue_len
+(1)     364 : 16                         lm                      ; queue_size
+(1)     365 : 18                         com
+(1)     366 : 1F                         inc                     ; A=-queue_size
+(1)     367 : CB                         as      HL              ; queue_len-queue_size
+(1)     368 : 82 24                      bc      queue_add_end   ; queue_len >= queue_size
+(1)     36A : 4B                         lr      A, HL
+(1)     36B : 1F                         inc                     ; queue_len++
+(1)     36C : 0F                         lr      DC, Q
+(1)     36D : 17                         st                      ; update queue_len
+(1)     36E : 16                         lm                      ; queue_size
+(1)     36F : 16                         lm                      ; queue_put
+(1)     370 : 1F                         inc                     ; for queue_get
+(1)     371 : 8E                         adc                     ; DC=&queue_buf[queue_put]
+(1)     372 : 40                         lr      A, 0            ; get element
+(1)     373 : 17                         st                      ; store element
+(1)     374 : 0F                         lr      DC, Q
+(1)     375 : 16                         lm                      ; queue_len
+(1)     376 : 16                         lm                      ; queue_size
+(1)     377 : 18                         com
+(1)     378 : 1F                         inc
+(1)     379 : 5B                         lr      HL, A           ; HL=-queue_size
+(1)     37A : 16                         lm                      ; queue_put
+(1)     37B : 1F                         inc                     ; queue_put++
+(1)     37C : 5A                         lr      HU, A           ; HU=queue_put
+(1)     37D : CB                         as      HL              ; queue_put-queue_size
+(1)     37E : 92 03                      bnc     queue_add_update ; queue_put < queue_size
+(1)     380 : 70                         clr
+(1)     381 : 5A                         lr      HU, A           ; wrap around
+(1)     382 :                    queue_add_update:
+(1)     382 : 0F                         lr      DC, Q
+(1)     383 : 16                         lm                      ; queue_len
+(1)     384 : 16                         lm                      ; queue_size
+(1)     385 : 4A                         lr      A, HU
+(1)     386 : 17                         st                      ; update queue_put
+(1)     387 : 70                         clr
+(1)     388 : 18                         com
+(1)     389 : 1F                         inc                     ; set carry
+(1)     38A : 29 03 40                   jmp     return
+(1)     38D :                    queue_add_end:
+(1)     38D : 18                         com                     ; clear carry
+(1)     38E : 29 03 40                   jmp     return
+(1)     391 :
+(1)     391 :                    ;;; [queue] Remove an element from queue
+(1)     391 :                    ;;; @param Q queue work space pointer
+(1)     391 :                    ;;; @return 0 an element
+(1)     391 :                    ;;; @return F.C 0 if queue is empty
+(1)     391 :                    ;;; @clobber A H DC
+(1)     391 :                    queue_remove:
+(1)     391 : 0F                         lr      DC, Q
+(1)     392 : 70                         clr
+(1)     393 : 8B                         om                      ; queue_len
+(1)     394 : 84 26                      bz      queue_remove_empty
+(1)     396 : 24 FF                      ai      -1              ; queue_len--
+(1)     398 : 0F                         lr      DC, Q
+(1)     399 : 17                         st                      ; update queue_len
+(1)     39A : 16                         lm                      ; queue_size
+(1)     39B : 16                         lm                      ; queue_put
+(1)     39C : 16                         lm                      ; queue_get
+(1)     39D : 8E                         adc                     ; DC=&queue_buf[queue_get]
+(1)     39E : 16                         lm                      ; read element
+(1)     39F : 50                         lr      0, A            ; save element
+(1)     3A0 : 0F                         lr      DC, Q
+(1)     3A1 : 16                         lm                      ; queue_len
+(1)     3A2 : 16                         lm                      ; queue_size
+(1)     3A3 : 18                         com
+(1)     3A4 : 1F                         inc
+(1)     3A5 : 5B                         lr      HL, A           ; HL=-queue_size
+(1)     3A6 : 16                         lm                      ; queue_put
+(1)     3A7 : 16                         lm                      ; queue_get
+(1)     3A8 : 1F                         inc                     ; queue_get++
+(1)     3A9 : 5A                         lr      HU, A           ; HU=queue_get
+(1)     3AA : CB                         as      HL              ; queue_get-queue_size
+(1)     3AB : 92 03                      bnc     queue_remove_update ; queue_get<queueu_size
+(1)     3AD : 70                         clr
+(1)     3AE : 5A                         lr      HU, A           ; wrap around
+(1)     3AF :                    queue_remove_update:
+(1)     3AF : 0F                         lr      DC, Q
+(1)     3B0 : 16                         lm                      ; queue_len
+(1)     3B1 : 16                         lm                      ; queue_size
+(1)     3B2 : 16                         lm                      ; queue_put
+(1)     3B3 : 4A                         lr      A, HU
+(1)     3B4 : 17                         st                      ; update queue_get
+(1)     3B5 : 70                         clr
+(1)     3B6 : 18                         com
+(1)     3B7 : 1F                         inc                     ; set carry
+(1)     3B8 : 29 03 40                   jmp     return
+(1)     3BB :                    queue_remove_empty:
+(1)     3BB : 18                         com                     ; clear carry
+(1)     3BC : 29 03 40                   jmp     return
+        3BF :                            include "arith.inc"
+(1)     3BF :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)     3BF :                            cpu     f3850
+(1)     3BF :
+(1)     3BF :                    ;;; Print unsigned 16-bit integer as decimal
+(1)     3BF :                    ;;; @param 0:1 value
+(1)     3BF :                    ;;; @clobber 0 1 4 5 6 7 A
+(1)     3BF :                    print_uint16:
+(1)     3BF : 40                         lr      A, 0
+(1)     3C0 : 22 00                      oi      0
+(1)     3C2 : 94 06                      bnz     print_uint16_inner
+(1)     3C4 : 41                         lr      A, 1
+(1)     3C5 : 22 00                      oi      0
+(1)     3C7 : 84 29                      bz      print_uint16_zero
+(1)     3C9 :                    print_uint16_inner:
+(1)     3C9 : 40                         lr      A, 0
+(1)     3CA : 54                         lr      4, A
+(1)     3CB : 41                         lr      A, 1
+(1)     3CC : 55                         lr      5, A            ; 4:5=value
+(1)     3CD :                    print_uint16_loop:
+(1)     3CD : 44                         lr      A, 4
+(1)     3CE : 22 00                      oi      0
+(1)     3D0 : 94 09                      bnz     print_uint16_digit
+(1)     3D2 : 45                         lr      A, 5
+(1)     3D3 : 22 00                      oi      0
+(1)     3D5 : 94 04                      bnz     print_uint16_digit
+(1)     3D7 : 29 03 40                   jmp     return
+(1)     3DA :                    print_uint16_digit:
+(1)     3DA : 70                         clr
+(1)     3DB : 56                         lr      6, A
+(1)     3DC : 20 0A                      li      10
+(1)     3DE : 57                         lr      7, A            ; 6:7=10
+(1)     3DF : 28 03 23                   pi      call
+(1)     3E2 : 05 54                      da      udiv16          ; 4:5/6:7=4:5...6:7
+(1)     3E4 : 47                         lr      A, 7
+(1)     3E5 : 50                         lr      0, A
+(1)     3E6 : 28 02 C1                   pi      push0           ; push reminder
+(1)     3E9 : 28 03 23                   pi      call
+(1)     3EC : 03 CD                      da      print_uint16_loop
+(1)     3EE : 28 02 EF                   pi      pop0
+(1)     3F1 :                    print_uint16_zero:
+(1)     3F1 : 20 30                      li      C'0'
+(1)     3F3 : C0                         as      0
+(1)     3F4 : 50                         lr      0, A
+(1)     3F5 : 29 02 51                   jmp     putchar
+(1)     3F8 :
+(1)     3F8 :                    ;;; Print signed 16-bit integer as decimal
+(1)     3F8 :                    ;;; @param 0:1 value
+(1)     3F8 :                    ;;; @clobber 0 1 4 5 6 7 A
+(1)     3F8 :                    print_int16:
+(1)     3F8 : 40                         lr      A, 0
+(1)     3F9 : 22 00                      oi      0
+(1)     3FB : 81 C3                      bp      print_uint16
+(1)     3FD : 28 02 C1                   pi      push0
+(1)     400 : 20 2D                      li      C'-'
+(1)     402 : 50                         lr      0, A
+(1)     403 : 28 03 23                   pi      call
+(1)     406 : 02 51                      da      putchar         ; print '-'
+(1)     408 : 28 02 EF                   pi      pop0
+(1)     40B : 40                         lr      A, 0
+(1)     40C : 18                         com
+(1)     40D : 50                         lr      0, A
+(1)     40E : 41                         lr      A, 1
+(1)     40F : 18                         com
+(1)     410 : 1F                         inc
+(1)     411 : 51                         lr      1, A
+(1)     412 : 40                         lr      A, 0
+(1)     413 : 19                         lnk
+(1)     414 : 50                         lr      0, A            ; 0:1=-value
+(1)     415 : 90 A9                      br      print_uint16
+(1)     417 :
+(1)     417 :                    ;;; Negation; result = -value
+(1)     417 :                    ;;; @param @2: result
+(1)     417 :                    ;;; @param @3: value
+(1)     417 :                    ;;; @clobber 0 1 ISAR A
+(1)     417 :                    negsi2:
+(1)     417 : 43                         lr      A, 3
+(1)     418 : 0B                         lr      IS, A           ; point MSB(value)
+(1)     419 : 4D                         lr      A, I
+(1)     41A : 18                         com
+(1)     41B : 50                         lr      0, A            ; MSB(~value)
+(1)     41C : 4C                         lr      A, S
+(1)     41D : 18                         com
+(1)     41E : 51                         lr      1, A            ; LSB(~value)
+(1)     41F : 42                         lr      A, 2
+(1)     420 : 1F                         inc
+(1)     421 : 0B                         lr      IS, A           ; point LSB(@2)
+(1)     422 : 41                         lr      A, 1
+(1)     423 : 1F                         inc
+(1)     424 : 5E                         lr      D, A            ; LSB(-value)
+(1)     425 : 40                         lr      A, 0
+(1)     426 : 19                         lnk
+(1)     427 : 5C                         lr      S, A            ; MSB(-value)
+(1)     428 : 29 03 40                   jmp     return
+(1)     42B :
+(1)     42B :                    ;;; Negation; result = -result
+(1)     42B :                    ;;; @param 0:1 result
+(1)     42B :                    ;;; @clobber A
+(1)     42B :                    negsi1:
+(1)     42B : 40                         lr      A, 0
+(1)     42C : 18                         com
+(1)     42D : 50                         lr      0, A            ; MSB(~result)
+(1)     42E : 41                         lr      A, 1
+(1)     42F : 18                         com
+(1)     430 : 1F                         inc
+(1)     431 : 51                         lr      1, A            ; LSB(-result)
+(1)     432 : 40                         lr      A, 0
+(1)     433 : 19                         lnk
+(1)     434 : 50                         lr      0, A            ; MSB(-result)
+(1)     435 : 29 03 40                   jmp     return
+(1)     438 :
+(1)     438 :                    ;;; Signed addition: summand += addend
+(1)     438 :                    ;;; @param @2: summand
+(1)     438 :                    ;;; @param @3: addend
+(1)     438 :                    ;;; @clobber 0 1 ISAR A
+(1)     438 :                    addsi2:
+(1)     438 : 43                         lr      A, 3
+(1)     439 : 0B                         lr      IS, A           ; point MSB(addend)
+(1)     43A : 4D                         lr      A, I
+(1)     43B : 50                         lr      0, A            ; MSB(addend)
+(1)     43C : 4C                         lr      A, S
+(1)     43D : 51                         lr      1, A            ; LSB(addend)
+(1)     43E : 42                         lr      A, 2
+(1)     43F : 1F                         inc
+(1)     440 : 0B                         lr      IS, A           ; point LSB(summand)
+(1)     441 : 4C                         lr      A, S
+(1)     442 : C1                         as      1
+(1)     443 : 5E                         lr      D, A            ; store LSB(summand)
+(1)     444 : 4C                         lr      A, S
+(1)     445 : 19                         lnk
+(1)     446 : C0                         as      0
+(1)     447 : 5C                         lr      S, A
+(1)     448 : 29 03 40                   jmp     return
+(1)     44B :
+(1)     44B :                    ;;; Singed subtraction: minuend -= subtrahend
+(1)     44B :                    ;;; @param @2: minuend
+(1)     44B :                    ;;; @param @3: subtrahend
+(1)     44B :                    ;;; @clobber 0 1 A
+(1)     44B :                    subsi2:
+(1)     44B : 43                         lr      A, 3
+(1)     44C : 0B                         lr      IS, A           ; point MSB(subtrand)
+(1)     44D : 4D                         lr      A, I
+(1)     44E : 18                         com
+(1)     44F : 50                         lr      0, A            ; MSB(~subtrand)
+(1)     450 : 4C                         lr      A, S
+(1)     451 : 18                         com
+(1)     452 : 1F                         inc
+(1)     453 : 51                         lr      1, A            ; LSB(-subtrand)
+(1)     454 : 40                         lr      A, 0
+(1)     455 : 19                         lnk
+(1)     456 : 50                         lr      0, A            ; MSB(-subtrand)
+(1)     457 : 42                         lr      A, 2
+(1)     458 : 1F                         inc
+(1)     459 : 0B                         lr      IS, A           ; point LSB(minuend)
+(1)     45A : 4C                         lr      A, S
+(1)     45B : C1                         as      1
+(1)     45C : 5E                         lr      D, A            ; store LSB(minuend)
+(1)     45D : 4C                         lr      A, S
+(1)     45E : 19                         lnk
+(1)     45F : C0                         as      0
+(1)     460 : 5C                         lr      S, A
+(1)     461 : 29 03 40                   jmp     return
+(1)     464 :
+(1)     464 :                    ;;; Signed comparison: minuend - subtrahend
+(1)     464 :                    ;;; @param @2: minuend
+(1)     464 :                    ;;; @param @3: subtrahend
+(1)     464 :                    ;;; @return W.Z, W.S
+(1)     464 :                    ;;; @clobber 0 1 ISAR A J
+(1)     464 :                    cmpsi2:
+(1)     464 : 43                         lr      A, 3
+(1)     465 : 0B                         lr      IS, A           ; point MSB(subtrahend)
+(1)     466 : 4D                         lr      A, I
+(1)     467 : 18                         com
+(1)     468 : 50                         lr      0, A            ; MSB(~subtrahend)
+(1)     469 : 4C                         lr      A, S
+(1)     46A : 18                         com
+(1)     46B : 1F                         inc
+(1)     46C : 51                         lr      1, A            ; LSB(-subtrahend)
+(1)     46D : 40                         lr      A, 0
+(1)     46E : 19                         lnk
+(1)     46F : 50                         lr      0, A            ; MSB(-subtrahend)
+(1)     470 : 42                         lr      A, 2
+(1)     471 : 1F                         inc
+(1)     472 : 0B                         lr      IS, A           ; point LSB(minuend)
+(1)     473 : 4E                         lr      A, D
+(1)     474 : C1                         as      1
+(1)     475 : 51                         lr      1, A            ; LSB(minued-subtrahend)
+(1)     476 : 4C                         lr      A, S
+(1)     477 : 19                         lnk
+(1)     478 : C0                         as      0
+(1)     479 : 50                         lr      0, A            ; MSB(minued-subtrahend)
+(1)     47A : 70                         clr                     ; MSB(A)=overflow
+(1)     47B : 98 03                      bno     cmpsi2_nov      ; no overflow
+(1)     47D : 23 80                      xi      H'80'           ; MSB(A)=overflow
+(1)     47F :                    cmpsi2_nov:
+(1)     47F : 59                         lr      J, A            ; MSB(J)=overflow
+(1)     480 : 40                         lr      A, 0
+(1)     481 : 22 00                      oi      0
+(1)     483 : 94 06                      bnz     cmpsi2_cmp
+(1)     485 : 41                         lr      A, 1
+(1)     486 : 22 00                      oi      0
+(1)     488 : 84 05                      bz      cmpsi2_eq       ; minued==subtrahend
+(1)     48A :                    cmpsi2_cmp
+(1)     48A : 40                         lr      A, 0            ; sign(minued-subtrahend)
+(1)     48B : E9                         xs      J               ; sign^overflow
+(1)     48C : 22 01                      oi      1               ; W.Z=0, W.S=result
+(1)     48E :                    cmpsi2_eq:
+(1)     48E : 29 03 40                   jmp     return          ; W.Z=1
+(1)     491 :
+(1)     491 :                    ;;; Unsigned multiplication: result = multiplicand * multiplier
+(1)     491 :                    ;;; @param 4:5 multiplicand
+(1)     491 :                    ;;; @param 6:7 multiplier
+(1)     491 :                    ;;; @return 4:5 result
+(1)     491 :                    ;;; @clobber 4 5 6 7
+(1)     491 :                    umul16:
+(1)     491 : 28 02 E2                   pi      pushQ           ; save Q
+(1)     494 : 28 02 C1                   pi      push0           ; save 0
+(1)     497 : 70                         clr
+(1)     498 : 06                         lr      QU, A
+(1)     499 : 07                         lr      QL, A           ; result=0
+(1)     49A : 90 25                      br      umul16_check
+(1)     49C :                    umul16_loop:
+(1)     49C : 47                         lr      A, 7
+(1)     49D : 21 01                      ni      1
+(1)     49F : 84 08                      bz      umul16_sr       ; lsb(multiplier)==0
+(1)     4A1 : 03                         lr      A, QL
+(1)     4A2 : C5                         as      5
+(1)     4A3 : 07                         lr      QL, A
+(1)     4A4 : 02                         lr      A, QU
+(1)     4A5 : 19                         lnk
+(1)     4A6 : C4                         as      4
+(1)     4A7 : 06                         lr      QU, A           ; result += multiplicand
+(1)     4A8 :                    umul16_sr:
+(1)     4A8 : 70                         clr
+(1)     4A9 : 50                         lr      0, A            ; 0=carry
+(1)     4AA : 46                         lr      A, 6
+(1)     4AB : 21 01                      ni      1
+(1)     4AD : 84 04                      bz      umul16_sr_nz
+(1)     4AF : 20 80                      li      H'80'
+(1)     4B1 : 50                         lr      0, A            ; set carry
+(1)     4B2 :                    umul16_sr_nz:
+(1)     4B2 : 46                         lr      A, 6
+(1)     4B3 : 12                         sr      1
+(1)     4B4 : 56                         lr      6, A
+(1)     4B5 : 47                         lr      A, 7
+(1)     4B6 : 12                         sr      1
+(1)     4B7 : E0                         xs      0               ; shift in carry
+(1)     4B8 : 57                         lr      7, A            ; multiplier >>= 1
+(1)     4B9 :                    umul16_next:
+(1)     4B9 : 45                         lr      A, 5
+(1)     4BA : C5                         as      5
+(1)     4BB : 55                         lr      5, A
+(1)     4BC : 44                         lr      A, 4
+(1)     4BD : 19                         lnk
+(1)     4BE : C4                         as      4
+(1)     4BF : 54                         lr      4, A            ; multiplicand <<= 1
+(1)     4C0 :                    umul16_check:
+(1)     4C0 : 46                         lr      A, 6
+(1)     4C1 : 22 00                      oi      0
+(1)     4C3 : 94 D8                      bnz     umul16_loop
+(1)     4C5 : 47                         lr      A, 7
+(1)     4C6 : 22 00                      oi      0
+(1)     4C8 : 94 D3                      bnz     umul16_loop     ; while multiplier != 0
+(1)     4CA : 02                         lr      A, QU
+(1)     4CB : 54                         lr      4, A
+(1)     4CC : 03                         lr      A, QL
+(1)     4CD : 55                         lr      5, A            ; 4:5=result
+(1)     4CE : 28 02 EF                   pi      pop0            ; restore 0
+(1)     4D1 : 28 03 15                   pi      popQ            ; restore Q
+(1)     4D4 : 29 03 40                   jmp     return
+(1)     4D7 :
+(1)     4D7 :                    ;;; Signed multiplication: multiplicand *= multiplier
+(1)     4D7 :                    ;;; @param @2: multiplicand
+(1)     4D7 :                    ;;; @param @3: multiplier
+(1)     4D7 :                    ;;; @clobber 4 5 6 7 A
+(1)     4D7 :                    mulsi2:
+(1)     4D7 : 42                         lr      A, 2
+(1)     4D8 : 1F                         inc
+(1)     4D9 : 0B                         lr      IS, A           ; point LSB(@2)
+(1)     4DA : 4E                         lr      A, D
+(1)     4DB : 55                         lr      5, A
+(1)     4DC : 4C                         lr      A, S
+(1)     4DD : 54                         lr      4, A            ; 4:5=multiplicand
+(1)     4DE : 22 00                      oi      0
+(1)     4E0 : 81 0A                      bp      mulsi2_multiplier
+(1)     4E2 : 18                         com
+(1)     4E3 : 54                         lr      4, A            ; MSB(~multiplicand)
+(1)     4E4 : 45                         lr      A, 5
+(1)     4E5 : 18                         com
+(1)     4E6 : 1F                         inc
+(1)     4E7 : 55                         lr      5, A            ; LSB(-multiplicand)
+(1)     4E8 : 44                         lr      A, 4
+(1)     4E9 : 19                         lnk
+(1)     4EA : 54                         lr      4, A            ; MSB(-multiplicand)
+(1)     4EB :                    mulsi2_multiplier:
+(1)     4EB : 43                         lr      A, 3
+(1)     4EC : 1F                         inc
+(1)     4ED : 0B                         lr      IS, A           ; point LSB(@3)
+(1)     4EE : 4E                         lr      A, D
+(1)     4EF : 57                         lr      7, A
+(1)     4F0 : 4C                         lr      A, S
+(1)     4F1 : 56                         lr      6, A
+(1)     4F2 : 22 00                      oi      0
+(1)     4F4 : 81 0A                      bp      mulsi2_multiply
+(1)     4F6 : 18                         com
+(1)     4F7 : 56                         lr      6, A            ; MSB(~multiplyer)
+(1)     4F8 : 47                         lr      A, 7
+(1)     4F9 : 18                         com
+(1)     4FA : 1F                         inc
+(1)     4FB : 57                         lr      7, A            ; LSB(-multiplyer)
+(1)     4FC : 46                         lr      A, 6
+(1)     4FD : 19                         lnk
+(1)     4FE : 56                         lr      6, A            ; MSB(-multiplyer)
+(1)     4FF :                    mulsi2_multiply:
+(1)     4FF : 28 03 23                   pi      call
+(1)     502 : 04 91                      da      umul16
+(1)     504 : 43                         lr      A, 3
+(1)     505 : 0B                         lr      IS, A
+(1)     506 : 4C                         lr      A, S
+(1)     507 : 56                         lr      6, A            ; MSB(multiplyer)
+(1)     508 : 42                         lr      A, 2
+(1)     509 : 0B                         lr      IS, A
+(1)     50A : 4C                         lr      A, S            ; MSB(multiplicand)
+(1)     50B : E6                         xs      6               ; MSB(multiplicand^multiplyer)
+(1)     50C : 81 0B                      bp      mulsi2_store
+(1)     50E : 44                         lr      A, 4
+(1)     50F : 18                         com
+(1)     510 : 54                         lr      4, A            ; MSB(~result)
+(1)     511 : 45                         lr      A, 5
+(1)     512 : 18                         com
+(1)     513 : 1F                         inc
+(1)     514 : 55                         lr      5, A            ; LSB(-result)
+(1)     515 : 44                         lr      A, 4
+(1)     516 : 19                         lnk
+(1)     517 : 54                         lr      4, A            ; MSB(-result)
+(1)     518 :                    mulsi2_store:
+(1)     518 : 44                         lr      A, 4
+(1)     519 : 5D                         lr      I, A
+(1)     51A : 45                         lr      A, 5
+(1)     51B : 5C                         lr      S, A            ; @2=result
+(1)     51C : 29 03 40                   jmp     return
+(1)     51F :
+(1)     51F :                    ;;; Unsigned comparison: minuend - subtrahend
+(1)     51F :                    ;;; @param 4:5 minuend
+(1)     51F :                    ;;; @param 6:7 subtrahend
+(1)     51F :                    ;;; @clobber J
+(1)     51F :                    ;;; @return W.Z W.S
+(1)     51F :                    ucmp16:
+(1)     51F : 28 02 CB                   pi      push1
+(1)     522 : 28 02 C1                   pi      push0
+(1)     525 : 46                         lr      A, 6
+(1)     526 : 18                         com
+(1)     527 : 50                         lr      0, A
+(1)     528 : 47                         lr      A, 7
+(1)     529 : 18                         com
+(1)     52A : 1F                         inc
+(1)     52B : 51                         lr      1, A
+(1)     52C : 40                         lr      A, 0
+(1)     52D : 19                         lnk
+(1)     52E : 50                         lr      0, A            ; 0:1=-subtrahend
+(1)     52F : 45                         lr      A, 5
+(1)     530 : C1                         as      1
+(1)     531 : 51                         lr      1, A
+(1)     532 : 44                         lr      A, 4
+(1)     533 : 19                         lnk
+(1)     534 : C0                         as      0
+(1)     535 : 50                         lr      0, A            ; 0:1=minuend-subtrahend
+(1)     536 : 1E                         lr      J, W
+(1)     537 : 49                         lr      A, J
+(1)     538 : 15                         sl      4
+(1)     539 : 13                         sl      1
+(1)     53A : 13                         sl      1               ; sign=carry << 6
+(1)     53B : 59                         lr      J, A
+(1)     53C : 40                         lr      A, 0
+(1)     53D : 22 00                      oi      0
+(1)     53F : 94 06                      bnz     ucmp16_cmp
+(1)     541 : 41                         lr      A, 1
+(1)     542 : 22 00                      oi      0
+(1)     544 : 84 06                      bz      ucmp16_eq
+(1)     546 :                    ucmp16_cmp:
+(1)     546 : 49                         lr      A, J
+(1)     547 : 23 80                      xi      H'80'
+(1)     549 : 22 01                      oi      1               ; W.Z=0, W.S=~W.C
+(1)     54B :                    ucmp16_eq:     
+(1)     54B : 28 02 EF                   pi      pop0
+(1)     54E : 28 02 FB                   pi      pop1
+(1)     551 : 29 03 40                   jmp     return
+(1)     554 :
+(1)     554 :                    ;;; Unsigned division: dividend / divisor = quotient ... reminder
+(1)     554 :                    ;;; @praram 4:5 dividend
+(1)     554 :                    ;;; @praram 6:7 divisor
+(1)     554 :                    ;;; @return 4:5 quotient
+(1)     554 :                    ;;; @return 6:7 reminder
+(1)     554 :                    ;;; @clobber 4 5 6 7 A
+(1)     554 :                    udiv16:
+(1)     554 : 28 02 E2                   pi      pushQ           ; save Q
+(1)     557 : 28 02 CB                   pi      push1           ; save 1
+(1)     55A : 28 02 C1                   pi      push0           ; save 0
+(1)     55D : 71                         lis     1
+(1)     55E : 50                         lr      0, A            ; bits=1
+(1)     55F : 46                         lr      A, 6
+(1)     560 : 22 00                      oi      0
+(1)     562 : 94 1C                      bnz     udiv16_prep
+(1)     564 : 47                         lr      A, 7
+(1)     565 : 22 00                      oi      0
+(1)     567 : 94 17                      bnz     udiv16_prep
+(1)     569 : 28 02 EF                   pi      pop0
+(1)     56C : 28 02 FB                   pi      pop1
+(1)     56F : 28 03 15                   pi      popQ
+(1)     572 : 29 03 40                   jmp     return          ; divide by zero
+(1)     575 :                    udiv16_prep_loop:
+(1)     575 : 47                         lr      A, 7
+(1)     576 : C7                         as      7
+(1)     577 : 57                         lr      7, A
+(1)     578 : 46                         lr      A, 6
+(1)     579 : 19                         lnk
+(1)     57A : C6                         as      6
+(1)     57B : 56                         lr      6, A            ; divisor <<= 1
+(1)     57C : 40                         lr      A, 0
+(1)     57D : 1F                         inc
+(1)     57E : 50                         lr      0, A            ; ++bits
+(1)     57F :                    udiv16_prep:
+(1)     57F : 46                         lr      A, 6
+(1)     580 : 22 00                      oi      0
+(1)     582 : 81 F2                      bp      udiv16_prep_loop ; while msb(divisor) == 0
+(1)     584 : 70                         clr
+(1)     585 : 06                         lr      QU, A
+(1)     586 : 07                         lr      QL, A           ; Q=quotient
+(1)     587 : 90 21                      br      udiv16_enter_loop
+(1)     589 :                    udiv16_loop:
+(1)     589 : 28 02 EF                   pi      pop0            ; restore bits
+(1)     58C : 30                         ds      0               ; --bits
+(1)     58D : 84 3B                      bz      udiv16_return   ; while bits != 0
+(1)     58F : 70                         clr
+(1)     590 : 51                         lr      1, A            ; clear carry
+(1)     591 : 46                         lr      A, 6
+(1)     592 : 21 01                      ni      1
+(1)     594 : 84 04                      bz      udiv16_sr_lsb
+(1)     596 : 20 80                      li      H'80'
+(1)     598 : 51                         lr      1, A            ; set carry
+(1)     599 :                    udiv16_sr_lsb:
+(1)     599 : 46                         lr      A, 6
+(1)     59A : 12                         sr      1
+(1)     59B : 56                         lr      6, A
+(1)     59C : 47                         lr      A, 7
+(1)     59D : 12                         sr      1
+(1)     59E : E1                         xs      1               ; shift in carry
+(1)     59F : 57                         lr      7, A            ; divisor >>= 1
+(1)     5A0 : 03                         lr      A, QL
+(1)     5A1 : 51                         lr      1, A
+(1)     5A2 : C1                         as      1
+(1)     5A3 : 07                         lr      QL, A
+(1)     5A4 : 02                         lr      A, QU
+(1)     5A5 : 51                         lr      1, A
+(1)     5A6 : 19                         lnk
+(1)     5A7 : C1                         as      1
+(1)     5A8 : 06                         lr      QU, A           ; quotient <<= 1
+(1)     5A9 :                    udiv16_enter_loop:
+(1)     5A9 : 28 02 C1                   pi      push0           ; save bits
+(1)     5AC : 28 03 23                   pi      call
+(1)     5AF : 05 1F                      da      ucmp16          ; dividend <=> divisor
+(1)     5B1 : 91 D7                      bm      udiv16_loop     ; branch if dividend < divisor
+(1)     5B3 : 46                         lr      A, 6
+(1)     5B4 : 18                         com
+(1)     5B5 : 50                         lr      0, A
+(1)     5B6 : 47                         lr      A, 7
+(1)     5B7 : 18                         com
+(1)     5B8 : 1F                         inc
+(1)     5B9 : 51                         lr      1, A
+(1)     5BA : 40                         lr      A, 0
+(1)     5BB : 19                         lnk
+(1)     5BC : 50                         lr      0, A            ; 0:1=-divisor
+(1)     5BD : 45                         lr      A, 5
+(1)     5BE : C1                         as      1
+(1)     5BF : 55                         lr      5, A
+(1)     5C0 : 44                         lr      A, 4
+(1)     5C1 : 19                         lnk
+(1)     5C2 : C0                         as      0
+(1)     5C3 : 54                         lr      4, A            ; dividend-=divisor
+(1)     5C4 : 03                         lr      A, QL
+(1)     5C5 : 1F                         inc
+(1)     5C6 : 07                         lr      QL, A           ; quotient |= 1
+(1)     5C7 : 90 C1                      br      udiv16_loop
+(1)     5C9 :                    udiv16_return:
+(1)     5C9 : 44                         lr      A, 4
+(1)     5CA : 56                         lr      6, A
+(1)     5CB : 45                         lr      A, 5
+(1)     5CC : 57                         lr      7, A            ; 6:7=reminder
+(1)     5CD : 02                         lr      A, QU
+(1)     5CE : 54                         lr      4, A
+(1)     5CF : 03                         lr      A, QL
+(1)     5D0 : 55                         lr      5, A            ; 4:5=quotient
+(1)     5D1 : 28 02 EF                   pi      pop0            ; restore 0
+(1)     5D4 : 28 02 FB                   pi      pop1            ; restore 1
+(1)     5D7 : 28 03 15                   pi      popQ            ; restore Q
+(1)     5DA : 29 03 40                   jmp     return
+(1)     5DD :
+(1)     5DD :                    ;;; Signed division: dividend /= divisor
+(1)     5DD :                    ;;; @param @2: dividend
+(1)     5DD :                    ;;; @param @3: divisor
+(1)     5DD :                    ;;; @clobber 4 5 6 7 A
+(1)     5DD :                    divsi2:
+(1)     5DD : 42                         lr      A, 2
+(1)     5DE : 1F                         inc
+(1)     5DF : 0B                         lr      IS, A           ; point LSB(@2)
+(1)     5E0 : 4E                         lr      A, D
+(1)     5E1 : 55                         lr      5, A
+(1)     5E2 : 4C                         lr      A, S
+(1)     5E3 : 54                         lr      4, A            ; 4:5=dividend
+(1)     5E4 : 22 00                      oi      0
+(1)     5E6 : 81 0A                      bp      divsi2_divisor
+(1)     5E8 : 18                         com
+(1)     5E9 : 54                         lr      4, A            ; MSB(~dividend)
+(1)     5EA : 45                         lr      A, 5
+(1)     5EB : 18                         com
+(1)     5EC : 1F                         inc
+(1)     5ED : 55                         lr      5, A            ; LSB(-dividend)
+(1)     5EE : 44                         lr      A, 4
+(1)     5EF : 19                         lnk
+(1)     5F0 : 54                         lr      4, A            ; MSB(-dividend)
+(1)     5F1 :                    divsi2_divisor:
+(1)     5F1 : 43                         lr      A, 3
+(1)     5F2 : 1F                         inc
+(1)     5F3 : 0B                         lr      IS, A           ; point LSB(@3)
+(1)     5F4 : 4E                         lr      A, D
+(1)     5F5 : 57                         lr      7, A
+(1)     5F6 : 4C                         lr      A, S
+(1)     5F7 : 56                         lr      6, A
+(1)     5F8 : 22 00                      oi      0
+(1)     5FA : 81 0A                      bp      divsi2_divide
+(1)     5FC : 18                         com
+(1)     5FD : 56                         lr      6, A            ; MSB(~divisor)
+(1)     5FE : 47                         lr      A, 7
+(1)     5FF : 18                         com
+(1)     600 : 1F                         inc
+(1)     601 : 57                         lr      7, A            ; LSB(-divisor)
+(1)     602 : 46                         lr      A, 6
+(1)     603 : 19                         lnk
+(1)     604 : 56                         lr      6, A            ; MSB(-divisor)
+(1)     605 :                    divsi2_divide:
+(1)     605 : 28 03 23                   pi      call
+(1)     608 : 05 54                      da      udiv16
+(1)     60A : 43                         lr      A, 3
+(1)     60B : 0B                         lr      IS, A
+(1)     60C : 4C                         lr      A, S
+(1)     60D : 56                         lr      6, A            ; MSB(divisor)
+(1)     60E : 42                         lr      A, 2
+(1)     60F : 0B                         lr      IS, A
+(1)     610 : 4C                         lr      A, S            ; MSB(dividend)
+(1)     611 : E6                         xs      6               ; MSB(dividend^divisor)
+(1)     612 : 81 0B                      bp      divsi2_store
+(1)     614 : 44                         lr      A, 4
+(1)     615 : 18                         com
+(1)     616 : 54                         lr      4, A            ; MSB(~result)
+(1)     617 : 45                         lr      A, 5
+(1)     618 : 18                         com
+(1)     619 : 1F                         inc
+(1)     61A : 55                         lr      5, A            ; LSB(-result)
+(1)     61B : 44                         lr      A, 4
+(1)     61C : 19                         lnk
+(1)     61D : 54                         lr      4, A            ; MSB(-result)
+(1)     61E :                    divsi2_store:
+(1)     61E : 44                         lr      A, 4
+(1)     61F : 5D                         lr      I, A
+(1)     620 : 45                         lr      A, 5
+(1)     621 : 5C                         lr      S, A            ; @2=result
+(1)     622 : 29 03 40                   jmp     return
+        625 :                            include "mandelbrot.inc"
+(1)     625 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)     625 : =625               _mandelbrot:    equ     $
+(1)     625 :
+(1)     625 :                    ;;; Scratchpad registers
 (1)      10 :                            org     H'10'
 (1)      10 :                    vF:     rs      2
 (1)      12 :                    vC:     rs      2
@@ -1109,434 +1110,433 @@
 (1)      32 :                    c229:   rs      2               ; constant 229
 (1)      34 :                    c416:   rs      2               ; constant 416
 (1)      36 :
-(1)     623 :                            org     _mandelbrot
-(1)     623 :
-(1)     623 :                    ;;; Store DC to scratchpad pointed by 2
-(1)     623 :                    ;;; @param DC value
-(1)     623 :                    ;;; @param 2 scratchpad number
-(1)     623 :                    ;;; @clobber H A
-(1)     623 :                    store_2:
-(1)     623 : 42                         lr      A, 2
-(1)     624 : 0B                         lr      IS, A
-(1)     625 : 11                         lr      H, DC
-(1)     626 : 4A                         lr      A, HU
-(1)     627 : 5D                         lr      I, A
-(1)     628 : 4B                         lr      A, HL
-(1)     629 : 5C                         lr      S, A
-(1)     62A : 1C                         pop
-(1)     62B :
-(1)     62B :                    ;;; Store DC to scratchpad pointed by 3
-(1)     62B :                    ;;; @param DC value
-(1)     62B :                    ;;; @param 3 scratchpad number
-(1)     62B :                    ;;; @clobber H A
-(1)     62B :                    store_3:
-(1)     62B : 43                         lr      A, 3
-(1)     62C : 0B                         lr      IS, A
-(1)     62D : 11                         lr      H, DC
-(1)     62E : 4A                         lr      A, HU
-(1)     62F : 5D                         lr      I, A
-(1)     630 : 4B                         lr      A, HL
-(1)     631 : 5C                         lr      S, A
-(1)     632 : 1C                         pop
-(1)     633 :
-(1)     633 :                    ;;; Assign @3 to @2
-(1)     633 :                    ;;; @param @2 assignee
-(1)     633 :                    ;;; @param @3 value
-(1)     633 :                    ;;; @clobber H A
-(1)     633 :                    assign_2:
-(1)     633 : 43                         lr      A, 3
-(1)     634 : 0B                         lr      IS, A
-(1)     635 : 4D                         lr      A, I
-(1)     636 : 5A                         lr      HU, A
-(1)     637 : 4C                         lr      A, S
-(1)     638 : 5B                         lr      HL, A
-(1)     639 : 42                         lr      A, 2
-(1)     63A : 0B                         lr      IS, A
-(1)     63B : 4A                         lr      A, HU
-(1)     63C : 5D                         lr      I, A
-(1)     63D : 4B                         lr      A, HL
-(1)     63E : 5C                         lr      S, A
-(1)     63F : 1C                         pop
-(1)     640 :
-(1)     640 :                    ;;; Increment: result += 1
-(1)     640 :                    ;;; @param @2: result
-(1)     640 :                    ;;; @clobber A
-(1)     640 :                    inc16:
-(1)     640 : 42                         lr      A, 2
-(1)     641 : 1F                         inc
-(1)     642 : 0B                         lr      IS, A
-(1)     643 : 4C                         lr      A, S
-(1)     644 : 1F                         inc
-(1)     645 : 5E                         lr      D, A
-(1)     646 : 4C                         lr      A, S
-(1)     647 : 19                         lnk
-(1)     648 : 5C                         lr      S, A
-(1)     649 : 1C                         pop
-(1)     64A :
-(1)     64A :                    print_2:
-(1)     64A : 28 03 21                   pi      call
-(1)     64D : 02 4F                      da      putchar
-(1)     64F : 20 3D                      li      C'='
-(1)     651 : 50                         lr      0, A
-(1)     652 : 28 03 21                   pi      call
-(1)     655 : 02 4F                      da      putchar
-(1)     657 : 42                         lr      A, 2
-(1)     658 : 0B                         lr      IS, A
-(1)     659 : 4D                         lr      A, I
-(1)     65A : 50                         lr      0, A
-(1)     65B : 4C                         lr      A, S
-(1)     65C : 51                         lr      1, A
-(1)     65D : 28 03 21                   pi      call
-(1)     660 : 03 F6                      da      print_int16
-(1)     662 : 29 02 72                   jmp     putspace
-(1)     665 :
-(1)     665 :                    mandelbrot:
-(1)     665 : 2A 00 04                   dci     4
-(1)     668 : 20 2A                      li      c4
-(1)     66A : 52                         lr      2, A
-(1)     66B : 28 06 23                   pi      store_2         ; c4=4
-(1)     66E : 2A 00 10                   dci     16
-(1)     671 : 20 2C                      li      c16
-(1)     673 : 52                         lr      2, A
-(1)     674 : 28 06 23                   pi      store_2         ; c16=16
-(1)     677 : 2A 00 1E                   dci     30
-(1)     67A : 20 2E                      li      c30
-(1)     67C : 52                         lr      2, A
-(1)     67D : 28 06 23                   pi      store_2         ; c30=30
-(1)     680 : 2A 00 64                   dci     100
-(1)     683 : 20 30                      li      c100
-(1)     685 : 52                         lr      2, A
-(1)     686 : 28 06 23                   pi      store_2         ; c100=100
-(1)     689 : 2A 00 E5                   dci     229
-(1)     68C : 20 32                      li      c229
-(1)     68E : 52                         lr      2, A
-(1)     68F : 28 06 23                   pi      store_2         ; c229=229
-(1)     692 : 2A 01 A0                   dci     416
-(1)     695 : 20 34                      li      c416
-(1)     697 : 52                         lr      2, A
-(1)     698 : 28 06 23                   pi      store_2         ; c416=416
-(1)     69B : 2A 00 32                   dci     50
-(1)     69E : 20 10                      li      vF
-(1)     6A0 : 52                         lr      2, A
-(1)     6A1 : 28 06 23                   pi      store_2         ; F=50
-(1)     6A4 : 2A FF F4                   dci     -12
-(1)     6A7 : 20 22                      li      vY
-(1)     6A9 : 52                         lr      2, A
-(1)     6AA : 28 06 23                   pi      store_2         ; Y=-12
-(1)     6AD :                    loop_y:
-(1)     6AD : 2A FF CF                   dci     -49
-(1)     6B0 : 20 24                      li      vX
-(1)     6B2 : 52                         lr      2, A
-(1)     6B3 : 28 06 23                   pi      store_2         ; X=-49
-(1)     6B6 :                    loop_x:
-(1)     6B6 : 20 12                      li      vC
-(1)     6B8 : 52                         lr      2, A
-(1)     6B9 : 20 24                      li      vX
-(1)     6BB : 53                         lr      3, A
-(1)     6BC : 28 06 33                   pi      assign_2        ; C=X
-(1)     6BF : 20 32                      li      c229
-(1)     6C1 : 53                         lr      3, A
-(1)     6C2 : 28 03 21                   pi      call
-(1)     6C5 : 04 D5                      da      mulsi2          ; C=X*229
-(1)     6C7 : 20 30                      li      c100
-(1)     6C9 : 53                         lr      3, A
-(1)     6CA : 28 03 21                   pi      call
-(1)     6CD : 05 DB                      da      divsi2          ; C=X*229/100
-(1)     6CF : 20 14                      li      vD
-(1)     6D1 : 52                         lr      2, A
-(1)     6D2 : 20 22                      li      vY
-(1)     6D4 : 53                         lr      3, A
-(1)     6D5 : 28 06 33                   pi      assign_2        ; D=Y
-(1)     6D8 : 20 34                      li      c416
-(1)     6DA : 53                         lr      3, A
-(1)     6DB : 28 03 21                   pi      call
-(1)     6DE : 04 D5                      da      mulsi2          ; D=Y*416
-(1)     6E0 : 20 30                      li      c100
-(1)     6E2 : 53                         lr      3, A
-(1)     6E3 : 28 03 21                   pi      call
-(1)     6E6 : 05 DB                      da      divsi2          ; D=Y*416/100
-(1)     6E8 : 20 16                      li      vA
-(1)     6EA : 52                         lr      2, A
-(1)     6EB : 20 12                      li      vC
-(1)     6ED : 53                         lr      3, A
-(1)     6EE : 28 06 33                   pi      assign_2        ; A=C
-(1)     6F1 : 20 18                      li      vB
-(1)     6F3 : 52                         lr      2, A
-(1)     6F4 : 20 14                      li      vD
-(1)     6F6 : 53                         lr      3, A
-(1)     6F7 : 28 06 33                   pi      assign_2        ; B=D
-(1)     6FA : 2A 00 00                   dci     0
-(1)     6FD : 20 26                      li      vI
-(1)     6FF : 52                         lr      2, A
-(1)     700 : 28 06 23                   pi      store_2         ; I=0
-(1)     703 :
-(1)     703 :                            ;; li      vY
-(1)     703 :                            ;; lr      2, A
-(1)     703 :                            ;; li      C'Y'
-(1)     703 :                            ;; lr      0, A
-(1)     703 :                            ;; pi      call
-(1)     703 :                            ;; da      print_2
-(1)     703 :                            ;; li      vX
-(1)     703 :                            ;; lr      2, A
-(1)     703 :                            ;; li      C'X'
-(1)     703 :                            ;; lr      0, A
-(1)     703 :                            ;; pi      call
-(1)     703 :                            ;; da      print_2
-(1)     703 :                            ;; li      vC
-(1)     703 :                            ;; lr      2, A
-(1)     703 :                            ;; li      C'C'
-(1)     703 :                            ;; lr      0, A
-(1)     703 :                            ;; pi      call
-(1)     703 :                            ;; da      print_2
-(1)     703 :                            ;; li      vD
-(1)     703 :                            ;; lr      2, A
-(1)     703 :                            ;; li      C'D'
-(1)     703 :                            ;; lr      0, A
-(1)     703 :                            ;; pi      call
-(1)     703 :                            ;; da      print_2
-(1)     703 :                            ;; pi      call
-(1)     703 :                            ;; da      newline
-(1)     703 :
-(1)     703 :                    loop_i:
-(1)     703 : 20 1C                      li      vQ
-(1)     705 : 52                         lr      2, A
-(1)     706 : 20 18                      li      vB
-(1)     708 : 53                         lr      3, A
-(1)     709 : 28 06 33                   pi      assign_2        ; Q=B
-(1)     70C : 20 10                      li      vF
-(1)     70E : 53                         lr      3, A
-(1)     70F : 28 03 21                   pi      call
-(1)     712 : 05 DB                      da      divsi2          ; Q=B/F
-(1)     714 : 20 1E                      li      vS
-(1)     716 : 52                         lr      2, A
-(1)     717 : 20 1C                      li      vQ
-(1)     719 : 53                         lr      3, A
-(1)     71A : 28 03 21                   pi      call
-(1)     71D : 04 15                      da      negsi2          ; S=-Q
-(1)     71F : 20 10                      li      vF
-(1)     721 : 53                         lr      3, A
-(1)     722 : 28 03 21                   pi      call
-(1)     725 : 04 D5                      da      mulsi2          ; S=-Q*F
-(1)     727 : 20 18                      li      vB
-(1)     729 : 53                         lr      3, A
-(1)     72A : 28 03 21                   pi      call
-(1)     72D : 04 36                      da      addsi2          ; S=B-Q*F
-(1)     72F : 20 28                      li      vTmp
-(1)     731 : 52                         lr      2, A
-(1)     732 : 20 18                      li      vB
-(1)     734 : 53                         lr      3, A
-(1)     735 : 28 06 33                   pi      assign_2        ; vTmp=B
-(1)     738 : 28 03 21                   pi      call
-(1)     73B : 04 D5                      da      mulsi2          ; vTmp=B*B
-(1)     73D : 20 20                      li      vT
-(1)     73F : 52                         lr      2, A
-(1)     740 : 20 16                      li      vA
-(1)     742 : 53                         lr      3, A
-(1)     743 : 28 06 33                   pi      assign_2        ; T=A
-(1)     746 : 28 03 21                   pi      call
-(1)     749 : 04 D5                      da      mulsi2          ; T=A*A
-(1)     74B : 20 28                      li      vTmp
-(1)     74D : 53                         lr      3, A
-(1)     74E : 28 03 21                   pi      call
-(1)     751 : 04 49                      da      subsi2          ; T=A*A-B*B
-(1)     753 : 20 10                      li      vF
-(1)     755 : 53                         lr      3, A
-(1)     756 : 28 03 21                   pi      call
-(1)     759 : 05 DB                      da      divsi2          ; T=(A*A-B*B)/F
-(1)     75B : 20 12                      li      vC
-(1)     75D : 53                         lr      3, A
-(1)     75E : 28 03 21                   pi      call
-(1)     761 : 04 36                      da      addsi2          ; T=(A*A-B*B)/F+C
-(1)     763 : 20 28                      li      vTmp
-(1)     765 : 52                         lr      2, A
-(1)     766 : 20 16                      li      vA
-(1)     768 : 53                         lr      3, A
-(1)     769 : 28 06 33                   pi      assign_2        ; vTmp=A
-(1)     76C : 20 1E                      li      vS
-(1)     76E : 53                         lr      3, A
-(1)     76F : 28 03 21                   pi      call
-(1)     772 : 04 D5                      da      mulsi2          ; vTmp=A*S
-(1)     774 : 20 10                      li      vF
-(1)     776 : 53                         lr      3, A
-(1)     777 : 28 03 21                   pi      call
-(1)     77A : 05 DB                      da      divsi2          ; vTmp=A*S/F
-(1)     77C : 20 18                      li      vB
-(1)     77E : 52                         lr      2, A
-(1)     77F : 20 16                      li      vA
-(1)     781 : 53                         lr      3, A
-(1)     782 : 28 06 33                   pi      assign_2        ; B=A
-(1)     785 : 20 1C                      li      vQ
-(1)     787 : 53                         lr      3, A
-(1)     788 : 28 03 21                   pi      call
-(1)     78B : 04 D5                      da      mulsi2          ; B=A*Q
-(1)     78D : 20 28                      li      vTmp
-(1)     78F : 53                         lr      3, A
-(1)     790 : 28 03 21                   pi      call
-(1)     793 : 04 36                      da      addsi2          ; B=A*Q+A*S/F
-(1)     795 : 20 18                      li      vB
-(1)     797 : 53                         lr      3, A
-(1)     798 : 28 03 21                   pi      call
-(1)     79B : 04 36                      da      addsi2          ; B=2*(A*Q+A*S/F)
-(1)     79D : 20 14                      li      vD
-(1)     79F : 53                         lr      3, A
-(1)     7A0 : 28 03 21                   pi      call
-(1)     7A3 : 04 36                      da      addsi2          ; B=2*(A*Q+A*S/F)+D
-(1)     7A5 : 20 16                      li      vA
-(1)     7A7 : 52                         lr      2, A
-(1)     7A8 : 20 20                      li      vT
-(1)     7AA : 53                         lr      3, A
-(1)     7AB : 28 06 33                   pi      assign_2        ; A=T
-(1)     7AE : 20 1A                      li      vP
-(1)     7B0 : 52                         lr      2, A
-(1)     7B1 : 20 16                      li      vA
-(1)     7B3 : 53                         lr      3, A
-(1)     7B4 : 28 06 33                   pi      assign_2        ; P=A
-(1)     7B7 : 20 10                      li      vF
-(1)     7B9 : 53                         lr      3, A
-(1)     7BA : 28 03 21                   pi      call
-(1)     7BD : 05 DB                      da      divsi2          ; P=A/F
-(1)     7BF : 20 1C                      li      vQ
-(1)     7C1 : 52                         lr      2, A
-(1)     7C2 : 20 18                      li      vB
-(1)     7C4 : 53                         lr      3, A
-(1)     7C5 : 28 06 33                   pi      assign_2        ; Q=B
-(1)     7C8 : 20 10                      li      vF
-(1)     7CA : 53                         lr      3, A
-(1)     7CB : 28 03 21                   pi      call
-(1)     7CE : 05 DB                      da      divsi2          ; Q=B/F
-(1)     7D0 : 20 28                      li      vTmp
-(1)     7D2 : 52                         lr      2, A
-(1)     7D3 : 20 1C                      li      vQ
-(1)     7D5 : 53                         lr      3, A
-(1)     7D6 : 28 06 33                   pi      assign_2        ; vTmp=Q
-(1)     7D9 : 28 03 21                   pi      call
-(1)     7DC : 04 D5                      da      mulsi2          ; vTmp=Q*Q
-(1)     7DE : 20 20                      li      vT
-(1)     7E0 : 52                         lr      2, A
-(1)     7E1 : 20 1A                      li      vP
-(1)     7E3 : 53                         lr      3, A
-(1)     7E4 : 28 06 33                   pi      assign_2        ; T=P
-(1)     7E7 : 28 03 21                   pi      call
-(1)     7EA : 04 D5                      da      mulsi2          ; T=P*P
-(1)     7EC : 20 28                      li      vTmp
-(1)     7EE : 53                         lr      3, A
-(1)     7EF : 28 03 21                   pi      call
-(1)     7F2 : 04 36                      da      addsi2          ; T=P*P+Q*Q
-(1)     7F4 :
-(1)     7F4 :                            ;; pi      call
-(1)     7F4 :                            ;; da      putspace
-(1)     7F4 :                            ;; li      vI
-(1)     7F4 :                            ;; lr      2, A
-(1)     7F4 :                            ;; li      C'I'
-(1)     7F4 :                            ;; lr      0, A
-(1)     7F4 :                            ;; pi      call
-(1)     7F4 :                            ;; da      print_2
-(1)     7F4 :                            ;; li      vA
-(1)     7F4 :                            ;; lr      2, A
-(1)     7F4 :                            ;; li      C'A'
-(1)     7F4 :                            ;; lr      0, A
-(1)     7F4 :                            ;; pi      call
-(1)     7F4 :                            ;; da      print_2
-(1)     7F4 :                            ;; li      vB
-(1)     7F4 :                            ;; lr      2, A
-(1)     7F4 :                            ;; li      C'B'
-(1)     7F4 :                            ;; lr      0, A
-(1)     7F4 :                            ;; pi      call
-(1)     7F4 :                            ;; da      print_2
-(1)     7F4 :                            ;; li      vP
-(1)     7F4 :                            ;; lr      2, A
-(1)     7F4 :                            ;; li      C'P'
-(1)     7F4 :                            ;; lr      0, A
-(1)     7F4 :                            ;; pi      call
-(1)     7F4 :                            ;; da      print_2
-(1)     7F4 :                            ;; li      vQ
-(1)     7F4 :                            ;; lr      2, A
-(1)     7F4 :                            ;; li      C'Q'
-(1)     7F4 :                            ;; lr      0, A
-(1)     7F4 :                            ;; pi      call
-(1)     7F4 :                            ;; da      print_2
-(1)     7F4 :                            ;; pi      call
-(1)     7F4 :                            ;; da      newline
-(1)     7F4 :
-(1)     7F4 : 20 2A                      li      c4
-(1)     7F6 : 52                         lr      2, A
-(1)     7F7 : 20 20                      li      vT
-(1)     7F9 : 53                         lr      3, A
-(1)     7FA : 28 03 21                   pi      call
-(1)     7FD : 04 62                      da      cmpsi2          ; 4-T
-(1)     7FF : 91 18                      bm      print_i         ; if 4<T
-(1)     801 : 20 26                      li      vI
-(1)     803 : 52                         lr      2, A
-(1)     804 : 28 06 40                   pi      inc16           ; I+=1
-(1)     807 : 20 2C                      li      c16
-(1)     809 : 53                         lr      3, A
-(1)     80A : 28 03 21                   pi      call
-(1)     80D : 04 62                      da      cmpsi2
-(1)     80F : 91 05                      bm      jmp_loop_i      ; if I<16
-(1)     811 : 20 20                      li      C' '
-(1)     813 : 90 10                      br      print_char
-(1)     815 :                    jmp_loop_i:
-(1)     815 : 29 07 03                   jmp     loop_i
-(1)     818 :                    print_i:
-(1)     818 : 20 27                      li      vI+1
-(1)     81A : 0B                         lr      IS, A
-(1)     81B : 4C                         lr      A, S
-(1)     81C : 25 09                      ci      9               ; 9-I
-(1)     81E : 81 03                      bp      print_i2        ; if I<10
-(1)     820 : 24 07                      ai      C'A'-C'0'-10
-(1)     822 :                    print_i2:
-(1)     822 : 24 30                      ai      C'0'
-(1)     824 :                    print_char:
-(1)     824 : 50                         lr      0, A
-(1)     825 : 28 03 21                   pi      call
-(1)     828 : 02 4F                      da      putchar
-(1)     82A :
-(1)     82A :                            ;; pi      push0
-(1)     82A :                            ;; li      C'@'
-(1)     82A :                            ;; lr      0, A
-(1)     82A :                            ;; pi      call
-(1)     82A :                            ;; da      putchar
-(1)     82A :                            ;; li      C'='
-(1)     82A :                            ;; lr      0, A
-(1)     82A :                            ;; pi      call
-(1)     82A :                            ;; da      putchar
-(1)     82A :                            ;; pi      pop0
-(1)     82A :                            ;; pi      call
-(1)     82A :                            ;; da      putchar
-(1)     82A :                            ;; pi      call
-(1)     82A :                            ;; da      newline
-(1)     82A :
-(1)     82A : 28 03 21                   pi      call
-(1)     82D : 02 45                      da      getchar
-(1)     82F : 92 06                      bnc     next_x
-(1)     831 : 40                         lr      A, 0
-(1)     832 : 22 00                      oi      0
-(1)     834 : 84 35                      bz      halt_to_system
-(1)     836 :                    next_x:
-(1)     836 : 20 24                      li      vX
-(1)     838 : 52                         lr      2, A
-(1)     839 : 28 06 40                   pi      inc16           ; X+=1
-(1)     83C : 20 2E                      li      c30
-(1)     83E : 53                         lr      3, A
-(1)     83F : 28 03 21                   pi      call
-(1)     842 : 04 62                      da      cmpsi2
-(1)     844 : 91 1F                      bm      jmp_loop_x      ; if X<30
-(1)     846 : 28 03 21                   pi      call
-(1)     849 : 02 64                      da      newline
-(1)     84B : 20 22                      li      vY
-(1)     84D : 52                         lr      2, A
-(1)     84E : 28 06 40                   pi      inc16           ; Y+=1
-(1)     851 : 2A 00 0D                   dci     13
-(1)     854 : 20 28                      li      vTmp
-(1)     856 : 53                         lr      3, A
-(1)     857 : 28 06 2B                   pi      store_3         ; vTmp=13
-(1)     85A : 28 03 21                   pi      call
-(1)     85D : 04 62                      da      cmpsi2
-(1)     85F : 91 07                      bm      jmp_loop_y      ; if Y<13
-(1)     861 : 29 03 3E                   jmp     return
-(1)     864 :                    jmp_loop_x:
-(1)     864 : 29 06 B6                   jmp     loop_x
-(1)     867 :                    jmp_loop_y:
-(1)     867 : 29 06 AD                   jmp     loop_y
-(1)     86A :                    halt_to_system:
-(1)     86A : 2F                         dc      H'2F'           ; break
+(1)     625 :                            org     _mandelbrot
+(1)     625 :
+(1)     625 :                    ;;; Store DC to scratchpad pointed by 2
+(1)     625 :                    ;;; @param DC value
+(1)     625 :                    ;;; @param 2 scratchpad number
+(1)     625 :                    ;;; @clobber H A
+(1)     625 :                    store_2:
+(1)     625 : 42                         lr      A, 2
+(1)     626 : 0B                         lr      IS, A
+(1)     627 : 11                         lr      H, DC
+(1)     628 : 4A                         lr      A, HU
+(1)     629 : 5D                         lr      I, A
+(1)     62A : 4B                         lr      A, HL
+(1)     62B : 5C                         lr      S, A
+(1)     62C : 1C                         pop
+(1)     62D :
+(1)     62D :                    ;;; Store DC to scratchpad pointed by 3
+(1)     62D :                    ;;; @param DC value
+(1)     62D :                    ;;; @param 3 scratchpad number
+(1)     62D :                    ;;; @clobber H A
+(1)     62D :                    store_3:
+(1)     62D : 43                         lr      A, 3
+(1)     62E : 0B                         lr      IS, A
+(1)     62F : 11                         lr      H, DC
+(1)     630 : 4A                         lr      A, HU
+(1)     631 : 5D                         lr      I, A
+(1)     632 : 4B                         lr      A, HL
+(1)     633 : 5C                         lr      S, A
+(1)     634 : 1C                         pop
+(1)     635 :
+(1)     635 :                    ;;; Assign @3 to @2
+(1)     635 :                    ;;; @param @2 assignee
+(1)     635 :                    ;;; @param @3 value
+(1)     635 :                    ;;; @clobber H A
+(1)     635 :                    assign_2:
+(1)     635 : 43                         lr      A, 3
+(1)     636 : 0B                         lr      IS, A
+(1)     637 : 4D                         lr      A, I
+(1)     638 : 5A                         lr      HU, A
+(1)     639 : 4C                         lr      A, S
+(1)     63A : 5B                         lr      HL, A
+(1)     63B : 42                         lr      A, 2
+(1)     63C : 0B                         lr      IS, A
+(1)     63D : 4A                         lr      A, HU
+(1)     63E : 5D                         lr      I, A
+(1)     63F : 4B                         lr      A, HL
+(1)     640 : 5C                         lr      S, A
+(1)     641 : 1C                         pop
+(1)     642 :
+(1)     642 :                    ;;; Increment: result += 1
+(1)     642 :                    ;;; @param @2: result
+(1)     642 :                    ;;; @clobber A
+(1)     642 :                    inc16:
+(1)     642 : 42                         lr      A, 2
+(1)     643 : 1F                         inc
+(1)     644 : 0B                         lr      IS, A
+(1)     645 : 4C                         lr      A, S
+(1)     646 : 1F                         inc
+(1)     647 : 5E                         lr      D, A
+(1)     648 : 4C                         lr      A, S
+(1)     649 : 19                         lnk
+(1)     64A : 5C                         lr      S, A
+(1)     64B : 1C                         pop
+(1)     64C :
+(1)     64C :                    print_2:
+(1)     64C : 28 03 23                   pi      call
+(1)     64F : 02 51                      da      putchar
+(1)     651 : 20 3D                      li      C'='
+(1)     653 : 50                         lr      0, A
+(1)     654 : 28 03 23                   pi      call
+(1)     657 : 02 51                      da      putchar
+(1)     659 : 42                         lr      A, 2
+(1)     65A : 0B                         lr      IS, A
+(1)     65B : 4D                         lr      A, I
+(1)     65C : 50                         lr      0, A
+(1)     65D : 4C                         lr      A, S
+(1)     65E : 51                         lr      1, A
+(1)     65F : 28 03 23                   pi      call
+(1)     662 : 03 F8                      da      print_int16
+(1)     664 : 29 02 74                   jmp     putspace
+(1)     667 :
+(1)     667 :                    mandelbrot:
+(1)     667 : 2A 00 04                   dci     4
+(1)     66A : 20 2A                      li      c4
+(1)     66C : 52                         lr      2, A
+(1)     66D : 28 06 25                   pi      store_2         ; c4=4
+(1)     670 : 2A 00 10                   dci     16
+(1)     673 : 20 2C                      li      c16
+(1)     675 : 52                         lr      2, A
+(1)     676 : 28 06 25                   pi      store_2         ; c16=16
+(1)     679 : 2A 00 1E                   dci     30
+(1)     67C : 20 2E                      li      c30
+(1)     67E : 52                         lr      2, A
+(1)     67F : 28 06 25                   pi      store_2         ; c30=30
+(1)     682 : 2A 00 64                   dci     100
+(1)     685 : 20 30                      li      c100
+(1)     687 : 52                         lr      2, A
+(1)     688 : 28 06 25                   pi      store_2         ; c100=100
+(1)     68B : 2A 00 E5                   dci     229
+(1)     68E : 20 32                      li      c229
+(1)     690 : 52                         lr      2, A
+(1)     691 : 28 06 25                   pi      store_2         ; c229=229
+(1)     694 : 2A 01 A0                   dci     416
+(1)     697 : 20 34                      li      c416
+(1)     699 : 52                         lr      2, A
+(1)     69A : 28 06 25                   pi      store_2         ; c416=416
+(1)     69D : 2A 00 32                   dci     50
+(1)     6A0 : 20 10                      li      vF
+(1)     6A2 : 52                         lr      2, A
+(1)     6A3 : 28 06 25                   pi      store_2         ; F=50
+(1)     6A6 : 2A FF F4                   dci     -12
+(1)     6A9 : 20 22                      li      vY
+(1)     6AB : 52                         lr      2, A
+(1)     6AC : 28 06 25                   pi      store_2         ; Y=-12
+(1)     6AF :                    loop_y:
+(1)     6AF : 2A FF CF                   dci     -49
+(1)     6B2 : 20 24                      li      vX
+(1)     6B4 : 52                         lr      2, A
+(1)     6B5 : 28 06 25                   pi      store_2         ; X=-49
+(1)     6B8 :                    loop_x:
+(1)     6B8 : 20 12                      li      vC
+(1)     6BA : 52                         lr      2, A
+(1)     6BB : 20 24                      li      vX
+(1)     6BD : 53                         lr      3, A
+(1)     6BE : 28 06 35                   pi      assign_2        ; C=X
+(1)     6C1 : 20 32                      li      c229
+(1)     6C3 : 53                         lr      3, A
+(1)     6C4 : 28 03 23                   pi      call
+(1)     6C7 : 04 D7                      da      mulsi2          ; C=X*229
+(1)     6C9 : 20 30                      li      c100
+(1)     6CB : 53                         lr      3, A
+(1)     6CC : 28 03 23                   pi      call
+(1)     6CF : 05 DD                      da      divsi2          ; C=X*229/100
+(1)     6D1 : 20 14                      li      vD
+(1)     6D3 : 52                         lr      2, A
+(1)     6D4 : 20 22                      li      vY
+(1)     6D6 : 53                         lr      3, A
+(1)     6D7 : 28 06 35                   pi      assign_2        ; D=Y
+(1)     6DA : 20 34                      li      c416
+(1)     6DC : 53                         lr      3, A
+(1)     6DD : 28 03 23                   pi      call
+(1)     6E0 : 04 D7                      da      mulsi2          ; D=Y*416
+(1)     6E2 : 20 30                      li      c100
+(1)     6E4 : 53                         lr      3, A
+(1)     6E5 : 28 03 23                   pi      call
+(1)     6E8 : 05 DD                      da      divsi2          ; D=Y*416/100
+(1)     6EA : 20 16                      li      vA
+(1)     6EC : 52                         lr      2, A
+(1)     6ED : 20 12                      li      vC
+(1)     6EF : 53                         lr      3, A
+(1)     6F0 : 28 06 35                   pi      assign_2        ; A=C
+(1)     6F3 : 20 18                      li      vB
+(1)     6F5 : 52                         lr      2, A
+(1)     6F6 : 20 14                      li      vD
+(1)     6F8 : 53                         lr      3, A
+(1)     6F9 : 28 06 35                   pi      assign_2        ; B=D
+(1)     6FC : 2A 00 00                   dci     0
+(1)     6FF : 20 26                      li      vI
+(1)     701 : 52                         lr      2, A
+(1)     702 : 28 06 25                   pi      store_2         ; I=0
+(1)     705 :
+(1)     705 :                            ;; li      vY
+(1)     705 :                            ;; lr      2, A
+(1)     705 :                            ;; li      C'Y'
+(1)     705 :                            ;; lr      0, A
+(1)     705 :                            ;; pi      call
+(1)     705 :                            ;; da      print_2
+(1)     705 :                            ;; li      vX
+(1)     705 :                            ;; lr      2, A
+(1)     705 :                            ;; li      C'X'
+(1)     705 :                            ;; lr      0, A
+(1)     705 :                            ;; pi      call
+(1)     705 :                            ;; da      print_2
+(1)     705 :                            ;; li      vC
+(1)     705 :                            ;; lr      2, A
+(1)     705 :                            ;; li      C'C'
+(1)     705 :                            ;; lr      0, A
+(1)     705 :                            ;; pi      call
+(1)     705 :                            ;; da      print_2
+(1)     705 :                            ;; li      vD
+(1)     705 :                            ;; lr      2, A
+(1)     705 :                            ;; li      C'D'
+(1)     705 :                            ;; lr      0, A
+(1)     705 :                            ;; pi      call
+(1)     705 :                            ;; da      print_2
+(1)     705 :                            ;; pi      call
+(1)     705 :                            ;; da      newline
+(1)     705 :
+(1)     705 :                    loop_i:
+(1)     705 : 20 1C                      li      vQ
+(1)     707 : 52                         lr      2, A
+(1)     708 : 20 18                      li      vB
+(1)     70A : 53                         lr      3, A
+(1)     70B : 28 06 35                   pi      assign_2        ; Q=B
+(1)     70E : 20 10                      li      vF
+(1)     710 : 53                         lr      3, A
+(1)     711 : 28 03 23                   pi      call
+(1)     714 : 05 DD                      da      divsi2          ; Q=B/F
+(1)     716 : 20 1E                      li      vS
+(1)     718 : 52                         lr      2, A
+(1)     719 : 20 1C                      li      vQ
+(1)     71B : 53                         lr      3, A
+(1)     71C : 28 03 23                   pi      call
+(1)     71F : 04 17                      da      negsi2          ; S=-Q
+(1)     721 : 20 10                      li      vF
+(1)     723 : 53                         lr      3, A
+(1)     724 : 28 03 23                   pi      call
+(1)     727 : 04 D7                      da      mulsi2          ; S=-Q*F
+(1)     729 : 20 18                      li      vB
+(1)     72B : 53                         lr      3, A
+(1)     72C : 28 03 23                   pi      call
+(1)     72F : 04 38                      da      addsi2          ; S=B-Q*F
+(1)     731 : 20 28                      li      vTmp
+(1)     733 : 52                         lr      2, A
+(1)     734 : 20 18                      li      vB
+(1)     736 : 53                         lr      3, A
+(1)     737 : 28 06 35                   pi      assign_2        ; vTmp=B
+(1)     73A : 28 03 23                   pi      call
+(1)     73D : 04 D7                      da      mulsi2          ; vTmp=B*B
+(1)     73F : 20 20                      li      vT
+(1)     741 : 52                         lr      2, A
+(1)     742 : 20 16                      li      vA
+(1)     744 : 53                         lr      3, A
+(1)     745 : 28 06 35                   pi      assign_2        ; T=A
+(1)     748 : 28 03 23                   pi      call
+(1)     74B : 04 D7                      da      mulsi2          ; T=A*A
+(1)     74D : 20 28                      li      vTmp
+(1)     74F : 53                         lr      3, A
+(1)     750 : 28 03 23                   pi      call
+(1)     753 : 04 4B                      da      subsi2          ; T=A*A-B*B
+(1)     755 : 20 10                      li      vF
+(1)     757 : 53                         lr      3, A
+(1)     758 : 28 03 23                   pi      call
+(1)     75B : 05 DD                      da      divsi2          ; T=(A*A-B*B)/F
+(1)     75D : 20 12                      li      vC
+(1)     75F : 53                         lr      3, A
+(1)     760 : 28 03 23                   pi      call
+(1)     763 : 04 38                      da      addsi2          ; T=(A*A-B*B)/F+C
+(1)     765 : 20 28                      li      vTmp
+(1)     767 : 52                         lr      2, A
+(1)     768 : 20 16                      li      vA
+(1)     76A : 53                         lr      3, A
+(1)     76B : 28 06 35                   pi      assign_2        ; vTmp=A
+(1)     76E : 20 1E                      li      vS
+(1)     770 : 53                         lr      3, A
+(1)     771 : 28 03 23                   pi      call
+(1)     774 : 04 D7                      da      mulsi2          ; vTmp=A*S
+(1)     776 : 20 10                      li      vF
+(1)     778 : 53                         lr      3, A
+(1)     779 : 28 03 23                   pi      call
+(1)     77C : 05 DD                      da      divsi2          ; vTmp=A*S/F
+(1)     77E : 20 18                      li      vB
+(1)     780 : 52                         lr      2, A
+(1)     781 : 20 16                      li      vA
+(1)     783 : 53                         lr      3, A
+(1)     784 : 28 06 35                   pi      assign_2        ; B=A
+(1)     787 : 20 1C                      li      vQ
+(1)     789 : 53                         lr      3, A
+(1)     78A : 28 03 23                   pi      call
+(1)     78D : 04 D7                      da      mulsi2          ; B=A*Q
+(1)     78F : 20 28                      li      vTmp
+(1)     791 : 53                         lr      3, A
+(1)     792 : 28 03 23                   pi      call
+(1)     795 : 04 38                      da      addsi2          ; B=A*Q+A*S/F
+(1)     797 : 20 18                      li      vB
+(1)     799 : 53                         lr      3, A
+(1)     79A : 28 03 23                   pi      call
+(1)     79D : 04 38                      da      addsi2          ; B=2*(A*Q+A*S/F)
+(1)     79F : 20 14                      li      vD
+(1)     7A1 : 53                         lr      3, A
+(1)     7A2 : 28 03 23                   pi      call
+(1)     7A5 : 04 38                      da      addsi2          ; B=2*(A*Q+A*S/F)+D
+(1)     7A7 : 20 16                      li      vA
+(1)     7A9 : 52                         lr      2, A
+(1)     7AA : 20 20                      li      vT
+(1)     7AC : 53                         lr      3, A
+(1)     7AD : 28 06 35                   pi      assign_2        ; A=T
+(1)     7B0 : 20 1A                      li      vP
+(1)     7B2 : 52                         lr      2, A
+(1)     7B3 : 20 16                      li      vA
+(1)     7B5 : 53                         lr      3, A
+(1)     7B6 : 28 06 35                   pi      assign_2        ; P=A
+(1)     7B9 : 20 10                      li      vF
+(1)     7BB : 53                         lr      3, A
+(1)     7BC : 28 03 23                   pi      call
+(1)     7BF : 05 DD                      da      divsi2          ; P=A/F
+(1)     7C1 : 20 1C                      li      vQ
+(1)     7C3 : 52                         lr      2, A
+(1)     7C4 : 20 18                      li      vB
+(1)     7C6 : 53                         lr      3, A
+(1)     7C7 : 28 06 35                   pi      assign_2        ; Q=B
+(1)     7CA : 20 10                      li      vF
+(1)     7CC : 53                         lr      3, A
+(1)     7CD : 28 03 23                   pi      call
+(1)     7D0 : 05 DD                      da      divsi2          ; Q=B/F
+(1)     7D2 : 20 28                      li      vTmp
+(1)     7D4 : 52                         lr      2, A
+(1)     7D5 : 20 1C                      li      vQ
+(1)     7D7 : 53                         lr      3, A
+(1)     7D8 : 28 06 35                   pi      assign_2        ; vTmp=Q
+(1)     7DB : 28 03 23                   pi      call
+(1)     7DE : 04 D7                      da      mulsi2          ; vTmp=Q*Q
+(1)     7E0 : 20 20                      li      vT
+(1)     7E2 : 52                         lr      2, A
+(1)     7E3 : 20 1A                      li      vP
+(1)     7E5 : 53                         lr      3, A
+(1)     7E6 : 28 06 35                   pi      assign_2        ; T=P
+(1)     7E9 : 28 03 23                   pi      call
+(1)     7EC : 04 D7                      da      mulsi2          ; T=P*P
+(1)     7EE : 20 28                      li      vTmp
+(1)     7F0 : 53                         lr      3, A
+(1)     7F1 : 28 03 23                   pi      call
+(1)     7F4 : 04 38                      da      addsi2          ; T=P*P+Q*Q
+(1)     7F6 :
+(1)     7F6 :                            ;; pi      call
+(1)     7F6 :                            ;; da      putspace
+(1)     7F6 :                            ;; li      vI
+(1)     7F6 :                            ;; lr      2, A
+(1)     7F6 :                            ;; li      C'I'
+(1)     7F6 :                            ;; lr      0, A
+(1)     7F6 :                            ;; pi      call
+(1)     7F6 :                            ;; da      print_2
+(1)     7F6 :                            ;; li      vA
+(1)     7F6 :                            ;; lr      2, A
+(1)     7F6 :                            ;; li      C'A'
+(1)     7F6 :                            ;; lr      0, A
+(1)     7F6 :                            ;; pi      call
+(1)     7F6 :                            ;; da      print_2
+(1)     7F6 :                            ;; li      vB
+(1)     7F6 :                            ;; lr      2, A
+(1)     7F6 :                            ;; li      C'B'
+(1)     7F6 :                            ;; lr      0, A
+(1)     7F6 :                            ;; pi      call
+(1)     7F6 :                            ;; da      print_2
+(1)     7F6 :                            ;; li      vP
+(1)     7F6 :                            ;; lr      2, A
+(1)     7F6 :                            ;; li      C'P'
+(1)     7F6 :                            ;; lr      0, A
+(1)     7F6 :                            ;; pi      call
+(1)     7F6 :                            ;; da      print_2
+(1)     7F6 :                            ;; li      vQ
+(1)     7F6 :                            ;; lr      2, A
+(1)     7F6 :                            ;; li      C'Q'
+(1)     7F6 :                            ;; lr      0, A
+(1)     7F6 :                            ;; pi      call
+(1)     7F6 :                            ;; da      print_2
+(1)     7F6 :                            ;; pi      call
+(1)     7F6 :                            ;; da      newline
+(1)     7F6 :
+(1)     7F6 : 20 2A                      li      c4
+(1)     7F8 : 52                         lr      2, A
+(1)     7F9 : 20 20                      li      vT
+(1)     7FB : 53                         lr      3, A
+(1)     7FC : 28 03 23                   pi      call
+(1)     7FF : 04 64                      da      cmpsi2          ; 4-T
+(1)     801 : 91 18                      bm      print_i         ; if 4<T
+(1)     803 : 20 26                      li      vI
+(1)     805 : 52                         lr      2, A
+(1)     806 : 28 06 42                   pi      inc16           ; I+=1
+(1)     809 : 20 2C                      li      c16
+(1)     80B : 53                         lr      3, A
+(1)     80C : 28 03 23                   pi      call
+(1)     80F : 04 64                      da      cmpsi2
+(1)     811 : 91 05                      bm      jmp_loop_i      ; if I<16
+(1)     813 : 20 20                      li      C' '
+(1)     815 : 90 10                      br      print_char
+(1)     817 :                    jmp_loop_i:
+(1)     817 : 29 07 05                   jmp     loop_i
+(1)     81A :                    print_i:
+(1)     81A : 20 27                      li      vI+1
+(1)     81C : 0B                         lr      IS, A
+(1)     81D : 4C                         lr      A, S
+(1)     81E : 25 09                      ci      9               ; 9-I
+(1)     820 : 81 03                      bp      print_i2        ; if I<10
+(1)     822 : 24 07                      ai      C'A'-C'0'-10
+(1)     824 :                    print_i2:
+(1)     824 : 24 30                      ai      C'0'
+(1)     826 :                    print_char:
+(1)     826 : 50                         lr      0, A
+(1)     827 : 28 03 23                   pi      call
+(1)     82A : 02 51                      da      putchar
+(1)     82C :
+(1)     82C :                            ;; pi      push0
+(1)     82C :                            ;; li      C'@'
+(1)     82C :                            ;; lr      0, A
+(1)     82C :                            ;; pi      call
+(1)     82C :                            ;; da      putchar
+(1)     82C :                            ;; li      C'='
+(1)     82C :                            ;; lr      0, A
+(1)     82C :                            ;; pi      call
+(1)     82C :                            ;; da      putchar
+(1)     82C :                            ;; pi      pop0
+(1)     82C :                            ;; pi      call
+(1)     82C :                            ;; da      putchar
+(1)     82C :                            ;; pi      call
+(1)     82C :                            ;; da      newline
+(1)     82C :
+(1)     82C : 28 03 23                   pi      call
+(1)     82F : 02 47                      da      getchar
+(1)     831 : 92 07                      bnc     next_x
+(1)     833 : 40                         lr      A, 0
+(1)     834 : 22 00                      oi      0
+(1)     836 : 94 02                      bnz     next_x
+(1)     838 : 2F                         dc      H'2F'           ; halt to system
+(1)     839 :                    next_x:
+(1)     839 : 20 24                      li      vX
+(1)     83B : 52                         lr      2, A
+(1)     83C : 28 06 42                   pi      inc16           ; X+=1
+(1)     83F : 20 2E                      li      c30
+(1)     841 : 53                         lr      3, A
+(1)     842 : 28 03 23                   pi      call
+(1)     845 : 04 64                      da      cmpsi2
+(1)     847 : 91 1F                      bm      jmp_loop_x      ; if X<30
+(1)     849 : 28 03 23                   pi      call
+(1)     84C : 02 66                      da      newline
+(1)     84E : 20 22                      li      vY
+(1)     850 : 52                         lr      2, A
+(1)     851 : 28 06 42                   pi      inc16           ; Y+=1
+(1)     854 : 2A 00 0D                   dci     13
+(1)     857 : 20 28                      li      vTmp
+(1)     859 : 53                         lr      3, A
+(1)     85A : 28 06 2D                   pi      store_3         ; vTmp=13
+(1)     85D : 28 03 23                   pi      call
+(1)     860 : 04 64                      da      cmpsi2
+(1)     862 : 91 07                      bm      jmp_loop_y      ; if Y<13
+(1)     864 : 29 03 40                   jmp     return
+(1)     867 :                    jmp_loop_x:
+(1)     867 : 29 06 B8                   jmp     loop_x
+(1)     86A :                    jmp_loop_y:
+(1)     86A : 29 06 AF                   jmp     loop_y

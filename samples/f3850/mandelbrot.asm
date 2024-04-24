@@ -69,11 +69,12 @@ init_usart:
         li      tx_vec
         out     USARTTV
 
+loop:
         pi      call
         da      mandelbrot
         pi      call
         da      newline
-        dc      H'2F'
+        jmp     loop
 
 ;;; Get character
 ;;; @return 0
@@ -102,7 +103,7 @@ putchar:
         out     USARTC
         jmp     return
 
-newline:        
+newline:
         li      H'0D'
         lr      0, A
         pi      call
