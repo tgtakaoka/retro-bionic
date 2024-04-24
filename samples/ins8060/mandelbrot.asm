@@ -61,6 +61,7 @@ initialize:
         st      ACIA_C(P1)      ;
         ien                     ; enable interrupt
 
+loop:
         ldi     L(ADDR(mandelbrot))
         xpal    P1
         ldi     H(ADDR(mandelbrot))
@@ -71,7 +72,7 @@ initialize:
         ldi     H(ADDR(newline))
         xpah    P1
         xppc    P1              ; call mandelbrot
-        halt
+        jmp     loop
 
         include "mandelbrot.inc"
         include "arith.inc"
