@@ -41,18 +41,24 @@
 #define PIN_AD13 7   /* P7.17 */
 #define PIN_AD14 36  /* P7.18 */
 #define PIN_AD15 37  /* P6.19 */
-#define PIN_INT1 2   /* P9.04 */
-#define PIN_INT0 4   /* P9.06 */
-#define PIN_NMI 33   /* P9.07 */
+#define PORT_CNTL 9  /* GPIO9 */
+#define CNTL_gp 4    /* P9.04-P9.05 */
+#define CNTL_gm 0x3  /* P9.04-P9.05 */
+#define CNTL_vp 0    /* CNTL0-CNTL1 */
+#define PIN_RD 2     /* P9.04 */
+#define PIN_WR 3     /* P9.05 */
+#define CNTL_RD 0x1  /* CNTL0 */
+#define CNTL_WR 0x2  /* CNTL1 */
 #define PIN_TXD 0    /* P6.03 */
 #define PIN_RXD 1    /* P6.04 */
 #define PIN_X1 5     /* P9.08 */
 #define PIN_CLK 29   /* P9.31 */
-#define PIN_RD 6     /* P7.10 */
-#define PIN_WR 9     /* P7.11 */
+#define PIN_INT0 6   /* P7.10 */
+#define PIN_NMI 9    /* P7.11 */
 #define PIN_WAIT 32  /* P7.12 */
 #define PIN_RESET 28 /* P8.18 */
 #define PIN_RTS 31   /* P8.22 */
+#define PIN_INT1 30  /* P8.23 */
 
 #include "pins.h"
 #include "signals_tlcs90.h"

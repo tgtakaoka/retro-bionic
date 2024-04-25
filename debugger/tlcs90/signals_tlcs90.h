@@ -16,21 +16,19 @@ struct Signals final : SignalsBase<Signals> {
     void getData();
     void print() const;
 
-    bool read() const { return rd() == 0; }
-    bool write() const { return wr() == 0; }
+    bool read() const;
+    bool write() const;
 
-    void clearFetch() { _signals[2] = 0; }
-    void markFetch(uint8_t matched) { _signals[2] = matched + 1; }
-    bool fetch() const { return _signals[2] != 0; }
-    uint8_t matched() const { return _signals[2] - 1; }
+    void clearFetch() { _signals[1] = 0; }
+    void markFetch(uint8_t matched) { _signals[1] = matched + 1; }
+    bool fetch() const { return _signals[1] != 0; }
+    uint8_t matched() const { return _signals[1] - 1; }
 
     static Signals *current();
 
 private:
-    uint8_t rd() const { return _signals[0]; }
-    uint8_t wr() const { return _signals[1]; }
-    uint8_t &rd() { return _signals[0]; }
-    uint8_t &wr() { return _signals[1]; }
+    uint8_t cntl() const { return _signals[0]; }
+    uint8_t &cntl() { return _signals[0]; }
 };
 
 }  // namespace tlcs90

@@ -60,12 +60,10 @@ init_usart:
         set     INTEH_IE0_bp, (INTEH)  ; enable INT0
         ei
 
+loop:
         call    mandelbrot
         call    newline
-wait:   ld      A, (tx_queue)   ; tx queue len
-        or      A, A
-        jr      nz, wait
-        swi
+        jr      loop
 
 ;;; Get character
 ;;; @return A

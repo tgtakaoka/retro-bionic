@@ -136,6 +136,9 @@ loop_i:
         ;; ld      A, 'Q'
         ;; ld      HL, (vQ)
         ;; call    print
+        ;; ld      A, 'T'
+        ;; ld      HL, (vT)
+        ;; call    print
         ;; call    newline
         ;; pop     HL
 
@@ -169,7 +172,7 @@ print_char:
         jr      nc, next_x
         or      a, a
         jr      nz, next_x
-        swi
+        swi                     ; halt to system
 next_x:
         inc     (vX)            ; X+=1
         cp      (vX), 30

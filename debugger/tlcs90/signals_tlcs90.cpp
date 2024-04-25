@@ -16,8 +16,15 @@ void Signals::getAddrLow() {
 }
 
 void Signals::getDirection() {
-    rd() = digitalReadFast(PIN_RD);
-    wr() = digitalReadFast(PIN_WR);
+    cntl() = busRead(CNTL);
+}
+
+bool Signals::read() const {
+    return (cntl() & CNTL_RD) == 0;
+}
+
+bool Signals::write() const {
+    return (cntl() & CNTL_WR) == 0;
 }
 
 Signals *Signals::current() {
