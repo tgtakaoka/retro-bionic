@@ -276,14 +276,14 @@ Signals *PinsMos6502::completeCycle(Signals *s) {
         delayNanoseconds(phi0_hi_write);
         s->getData();
         if (s->writeMemory()) {
-            Target6502.mems().write(s->addr, s->data);
+            Target6502.memory().write(s->addr, s->data);
         } else {
             delayNanoseconds(phi0_hi_capture);
         }
         Signals::nextCycle();
     } else {
         if (s->readMemory()) {
-            s->data = Target6502.mems().read(s->addr);
+            s->data = Target6502.memory().read(s->addr);
         } else {
             delayNanoseconds(phi0_hi_inject);
         }
@@ -354,9 +354,9 @@ void PinsMos6502::loop() {
         delayNanoseconds(phi0_lo_fetch);
         auto s = rawPrepareCycle();
         if (s->fetch()) {
-            const auto inst = Target6502.mems().raw_read(s->addr);
+            const auto inst = Target6502.memory().raw_read(s->addr);
             if (inst == InstMos6502::BRK) {
-                const auto opr = Target6502.mems().raw_read(s->addr + 1);
+                const auto opr = Target6502.memory().raw_read(s->addr + 1);
                 if (opr == 0 || isBreakPoint(s->addr)) {
                     suspend();
                     return;
@@ -396,11 +396,11 @@ void PinsMos6502::suspend() {
 
 bool PinsMos6502::rawStep() {
     auto s = rawPrepareCycle();
-    const auto inst = Target6502.mems().raw_read(s->addr);
+    const auto inst = Target6502.memory().raw_read(s->addr);
     if (InstMos6502::isStop(inst))
         return false;
     if (inst == InstMos6502::BRK) {
-        const auto opr = Target6502.mems().raw_read(s->addr + 1);
+        const auto opr = Target6502.memory().raw_read(s->addr + 1);
         if (opr == 0 || isBreakPoint(s->addr))
             return false;
     }
@@ -437,7 +437,7 @@ void PinsMos6502::negateInt(uint8_t name) {
 }
 
 void PinsMos6502::setBreakInst(uint32_t addr) const {
-    Target6502.mems().put_inst(addr, InstMos6502::BRK);
+    Target6502.memory().put_inst(addr, InstMos6502::BRK);
 }
 
 void PinsMos6502::printCycles() {
@@ -456,7 +456,7 @@ void PinsMos6502::disassembleCycles() {
         const auto s = g->next(i);
         if (s->fetch()) {
             const auto len =
-                    Target6502.mems().disassemble(s->addr, 1) - s->addr;
+                    Target6502.memory().disassemble(s->addr, 1) - s->addr;
             i += len;
         } else {
             s->print();

@@ -8,12 +8,15 @@
 namespace debugger {
 namespace mc6801 {
 
+struct Mc6801SciHandler;
+
 struct DevsMc6801 final : Devs {
-    DevsMc6801(Device *sci) : _sci(sci) {}
+    DevsMc6801(Mc6801SciHandler *sci) : _sci(sci) {}
 
     void begin() override;
     void reset() override;
     void loop() override;
+    void setIdle(bool idle) override;
     bool isSelected(uint32_t addr) const override;
     uint16_t read(uint32_t addr) const override;
     void write(uint32_t addr, uint16_t data) const override;
@@ -23,7 +26,7 @@ struct DevsMc6801 final : Devs {
     void printDevices() const override;
 
 private:
-    Device *const _sci;
+    Mc6801SciHandler *const _sci;
 };
 
 extern struct DevsMc6801 Devices;

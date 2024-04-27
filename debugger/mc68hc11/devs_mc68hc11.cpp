@@ -25,6 +25,10 @@ void DevsMc68hc11::loop() {
     _sci->loop();
 }
 
+void DevsMc68hc11::setIdle(bool idle) {
+    _sci->setIdle(idle);
+}
+
 bool DevsMc68hc11::isSelected(uint32_t addr) const {
     return ACIA.isSelected(addr) || _sci->isSelected(addr);
 }

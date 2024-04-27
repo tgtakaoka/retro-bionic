@@ -10,12 +10,16 @@ struct SerialHandler : Device {
             uint8_t rxd, uint8_t txd, bool invRxd = false, bool invTxd = false);
     void reset() override;
     void loop() override;
+    void enable(bool enabled) override { _serialEnabled = enabled; }
+    bool isEnabled() const override { return _serialEnabled; }
+    void setIdle(bool idle) { _enabled = _serialEnabled && !idle; }
 
 private:
     const uint8_t _rxd;
     const uint8_t _txd;
     const uint8_t _polRxd;
     const uint8_t _polTxd;
+    bool _serialEnabled;
     uint16_t _prescaler;
     struct Transmitter {
         uint8_t bit;

@@ -14,8 +14,8 @@ struct Device {
 
     virtual void reset() = 0;
     virtual void loop() = 0;
-    void enable(bool enabled) { _enabled = enabled; }
-    bool isEnabled() const { return _enabled; }
+    virtual void enable(bool enabled) { _enabled = enabled; }
+    virtual bool isEnabled() const { return _enabled; }
 
     virtual bool isSelected(uint32_t addr) const { return addr == baseAddr(); }
     virtual uint16_t read(uint32_t addr) { return 0; }

@@ -127,6 +127,22 @@ void Target::printIdentity() {
     }
 }
 
+void Target::run() {
+    _pins->setRun();
+    _devs->setIdle(false);
+    _pins->run();
+    _devs->setIdle(true);
+    _pins->setHalt();
+}
+
+bool Target::printRomArea() const {
+    if (_mems->hasRomArea()) {
+        _mems->printRomArea();
+        return true;
+    }
+    return false;
+}
+
 }  // namespace debugger
 
 // Local Variables:

@@ -9,7 +9,8 @@ SerialHandler::SerialHandler(uint8_t rxd, uint8_t txd, bool invRxd, bool invTxd)
     : _rxd(rxd),
       _txd(txd),
       _polRxd(invRxd ? HIGH : LOW),
-      _polTxd(invTxd ? HIGH : LOW) {}
+      _polTxd(invTxd ? HIGH : LOW),
+      _serialEnabled(false) {}
 
 void SerialHandler::reset() {
     digitalWrite(_rxd, HIGH ^ _polRxd);

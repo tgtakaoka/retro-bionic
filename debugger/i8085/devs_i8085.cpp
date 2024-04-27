@@ -25,6 +25,10 @@ void DevsI8085::loop() {
     USART.loop();
 }
 
+void DevsI8085::setIdle(bool idle) {
+    SioH.setIdle(idle);
+}
+
 bool DevsI8085::isSelected(uint32_t addr) const {
     return USART.isSelected(addr);
 }

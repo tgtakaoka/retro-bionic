@@ -25,6 +25,10 @@ void DevsZ88::loop() {
     USART.loop();
 }
 
+void DevsZ88::setIdle(bool idle) {
+    UartH.setIdle(idle);
+}
+
 bool DevsZ88::isSelected(uint32_t addr) const {
     return USART.isSelected(addr);
 }

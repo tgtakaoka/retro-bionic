@@ -11,6 +11,7 @@ struct Devs {
     virtual void begin() = 0;
     virtual void reset() = 0;
     virtual void loop() = 0;
+    virtual void setIdle(bool idle) {}
     virtual bool isSelected(uint32_t addr) const { return false; }
     virtual uint16_t read(uint32_t addr) const { return 0; }
     virtual void write(uint32_t addr, uint16_t data) const {}

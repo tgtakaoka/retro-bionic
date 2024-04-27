@@ -26,6 +26,10 @@ void DevsMc6801::loop() {
     _sci->loop();
 }
 
+void DevsMc6801::setIdle(bool idle) {
+    _sci->setIdle(idle);
+}
+
 bool DevsMc6801::isSelected(uint32_t addr) const {
     return ACIA.isSelected(addr) || _sci->isSelected(addr);
 }

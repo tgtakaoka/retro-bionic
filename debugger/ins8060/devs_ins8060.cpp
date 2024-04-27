@@ -25,6 +25,10 @@ void DevsIns8060::loop() {
     ACIA.loop();
 }
 
+void DevsIns8060::setIdle(bool idle) {
+    SciH.setIdle(idle);
+}
+
 bool DevsIns8060::isSelected(uint32_t addr) const {
     return ACIA.isSelected(addr);
 }

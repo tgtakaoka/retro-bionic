@@ -12,6 +12,7 @@ struct DevsI8085 final : Devs {
     void begin() override;
     void reset() override;
     void loop() override;
+    void setIdle(bool idle) override;
     bool isSelected(uint32_t addr) const override;
     uint16_t read(uint32_t addr) const override;
     void write(uint32_t addr, uint16_t data) const override;

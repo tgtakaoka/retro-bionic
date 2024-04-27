@@ -15,10 +15,10 @@ struct Debugger {
     void loop();
 
     Target &target() const { return *_target; }
-    Pins &pins() const { return target().pins(); }
-    Regs &regs() const { return target().regs(); }
-    Mems &mems() const { return target().mems(); }
-    Devs &devs() const { return target().devs(); }
+    Pins &pins() const { return *target()._pins; }
+    Regs &regs() const { return *target()._regs; }
+    Mems &mems() const { return *target()._mems; }
+    Devs &devs() const { return *target()._devs; }
 
 private:
     Target *_target;

@@ -573,7 +573,7 @@ void Debugger::exec(char c) {
     switch (c) {
     case 'R':
         cli.println(F("Reset"));
-        pins().resetPins();
+        target().reset();
         goto regs;
     case 'd':
         cli.print(F("Dump? "));
@@ -596,8 +596,7 @@ void Debugger::exec(char c) {
         cli.readHex(handleMemory, MEMORY_ADDR, maxAddr);
         return;
     case 'M':
-        if (mems().hasRomArea()) {
-            mems().printRomArea();
+        if (target().printRomArea()) {
             cli.print(F("  ROM area? "));
             cli.readHex(handleRomArea, MEMORY_ADDR, maxAddr);
             return;
@@ -608,7 +607,7 @@ void Debugger::exec(char c) {
         cli.readHex(handleSetBreak, 0, maxAddr);
         return;
     case 'b':
-        if (pins().printBreakPoints()) {
+        if (target().printBreakPoints()) {
             cli.print(F("Clear break? "));
             cli.readLine(handleClearBreak, 0, str_buffer, sizeof(str_buffer));
             return;
@@ -617,8 +616,8 @@ void Debugger::exec(char c) {
     case 'r':
         cli.println(F("Registers"));
     regs:
-        regs().print();
-        mems().disassemble(regs().nextIp(), 1);
+        target().printRegisters();
+        target().disassembleNext();
         break;
     case '=':
         cli.print(F("Set register? "));
@@ -626,18 +625,16 @@ void Debugger::exec(char c) {
         return;
     case 'S':
         cli.println(F("Step"));
-        pins().step(true);
+        target().step(true);
         goto regs;
     case 'G':
         cli.println(F("Go"));
-        if (pins().isBreakPoint(regs().nextIp())) {
+        if (target().isOnBreakPoint()) {
             // step over break point
-            if (!pins().step(false))
+            if (!target().step(false))
                 break;
         }
-        pins().setRun();
-        pins().run();
-        pins().setHalt();
+        target().run();
         goto regs;
     case 'F':
         cli.print(F("Files? "));
@@ -655,7 +652,7 @@ void Debugger::exec(char c) {
         return;
     case 'I':
         cli.println();
-        devs().printDevices();
+        target().printDevices();
         cli.print(F("Io? "));
         cli.readWord(handleIo, 0, str_buffer, sizeof(str_buffer));
         return;
@@ -685,7 +682,7 @@ void Debugger::begin(Target &target_) {
 
 void Debugger::loop() {
     cli.loop();
-    pins().idle();
+    target().idle();
 }
 
 }  // namespace debugger

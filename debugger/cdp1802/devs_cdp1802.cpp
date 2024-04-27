@@ -25,6 +25,10 @@ void DevsCdp1802::loop() {
     ACIA.loop();
 }
 
+void DevsCdp1802::setIdle(bool idle) {
+    SciH.enable(!idle);
+}
+
 bool DevsCdp1802::isSelected(uint32_t addr) const {
     return ACIA.isSelected(addr);
 }

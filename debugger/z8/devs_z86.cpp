@@ -25,6 +25,10 @@ void DevsZ86::loop() {
     USART.loop();
 }
 
+void DevsZ86::setIdle(bool idle) {
+    SioH.setIdle(idle);
+}
+
 bool DevsZ86::isSelected(uint32_t addr) const {
     return USART.isSelected(addr);
 }

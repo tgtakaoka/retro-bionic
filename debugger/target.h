@@ -12,19 +12,28 @@ struct Target {
     static void writeIdentity(const char *identity);
     static void printIdentity();
 
+    Target(const char *id, Pins &pins, Regs &regs, Mems &mems, Devs &devs);
+
     void begin() {
         _pins->resetPins();
         _devs->begin();
     }
     const char *identity() const { return _identity; }
-    Pins &pins() { return *_pins; }
-    Regs &regs() { return *_regs; }
-    Mems &mems() { return *_mems; }
-    Devs &devs() { return *_devs; }
 
-    Target(const char *id, Pins &pins, Regs &regs, Mems &mems, Devs &devs);
+    void reset() { _pins->resetPins(); }
+    void run();
+    bool step(bool show) { return _pins->step(show); }
+    void idle() { _pins->idle(); }
+
+    void disassembleNext() const { _mems->disassemble(_regs->nextIp(), 1); }
+    void printRegisters() const { _regs->print(); }
+    void printDevices() const { _devs->printDevices(); }
+    bool printRomArea() const;
+    bool printBreakPoints() const { return _pins->printBreakPoints(); }
+    bool isOnBreakPoint() const { return _pins->isBreakPoint(_regs->nextIp()); }
 
 protected:
+    friend class Debugger;
     const char *const _identity;
     Pins *_pins;
     Regs *_regs;

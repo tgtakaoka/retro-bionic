@@ -25,6 +25,10 @@ void DevsTlcs90::loop() {
     USART.loop();
 }
 
+void DevsTlcs90::setIdle(bool idle) {
+    UartH.setIdle(idle);
+}
+
 bool DevsTlcs90::isSelected(uint32_t addr) const {
     return USART.isSelected(addr);
 }
