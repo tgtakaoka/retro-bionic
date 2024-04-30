@@ -115,6 +115,7 @@ loop_i:
         txa
         clc
         adc     1,S             ; P*P+Q*Q
+        sta     vT              ; T=P*P+Q*Q
         ply                     ; discard P*P
 
         ;; pha
@@ -133,6 +134,9 @@ loop_i:
         ;; jsr     print
         ;; ldx     vQ
         ;; lda     #'Q'
+        ;; jsr     print
+        ;; ldx     vT
+        ;; lda     #'T'
         ;; jsr     print
         ;; jsr     newline
         ;; pla
@@ -174,7 +178,9 @@ print_char:
         jsr     getchar
         bcs     next_x
         and     #$FF
-        beq     mandelbrot_end  ; break
+        bne     next_x
+        brk
+        .byte   0
 next_x:
         lda     vX
         inc     A

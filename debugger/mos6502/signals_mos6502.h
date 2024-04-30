@@ -11,19 +11,14 @@ struct Signals final : SignalsBase<Signals> {
     void getData();
     void print() const;
 
-    bool read() const { return rw() != 0; }
-    bool write() const { return rw() == 0; }
-    bool fetch() const { return _signals[1]; }
-    bool vector() const { return fetchVector(); }
-
-    uint8_t &fetch() { return _signals[1]; }
+    bool read() const;
+    bool write() const;
+    bool fetch() const;
+    bool vector() const;
 
 private:
-    uint8_t rw() const { return _signals[0]; }
-    uint8_t fetchVector() const { return _signals[2]; }
-
-    uint8_t &rw() { return _signals[0]; }
-    uint8_t &fetchVector() { return _signals[2]; }
+    uint8_t cntl() const { return _signals[0]; }
+    uint8_t &cntl() { return _signals[0]; }
 };
 
 }  // namespace mos6502

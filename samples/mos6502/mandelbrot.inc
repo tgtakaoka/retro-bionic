@@ -182,25 +182,6 @@ loop_i:
         jsr     divsi2          ; R0=B/F
         ldx     #vQ
         jsr     store_RX        ; Q=B/F
-
-        ;; jsr     putspace
-        ;; ldx     vI
-        ;; lda     #'I'
-        ;; jsr     print_X
-        ;; ldx     #vA
-        ;; lda     #'A'
-        ;; jsr     print
-        ;; ldx     #vB
-        ;; lda     #'B'
-        ;; jsr     print
-        ;; ldx     #vP
-        ;; lda     #'P'
-        ;; jsr     print
-        ;; ldx     #vQ
-        ;; lda     #'Q'
-        ;; jsr     print
-        ;; jsr     newline
-
         ldx     #vP
         jsr     load_R1
         jsr     load_R2
@@ -219,12 +200,35 @@ loop_i:
         pla
         sta     R2H             ; R2=pop P*P
         jsr     addsi2          ; R0=Q*Q+P*P
-        jsr     store_R2        ; R2=Q*Q+P*P
-        jsr     set_R1          ; R1=4
-        .word   4
-        jsr     cmpsi2          ; 4-P*P+Q*Q
-        lda     R0L
-        bmi     print_i         ; if 4<P*P+Q*Q
+        ldx     #vT
+        jsr     store_RX        ; T=Q*Q+P*P
+
+        ;; jsr     putspace
+        ;; ldx     vI
+        ;; lda     #'I'
+        ;; jsr     print_X
+        ;; ldx     #vA
+        ;; lda     #'A'
+        ;; jsr     print
+        ;; ldx     #vB
+        ;; lda     #'B'
+        ;; jsr     print
+        ;; ldx     #vP
+        ;; lda     #'P'
+        ;; jsr     print
+        ;; ldx     #vQ
+        ;; lda     #'Q'
+        ;; jsr     print
+        ;; ldx     #vT
+        ;; lda     #'T'
+        ;; jsr     print
+        ;; jsr     newline
+
+        lda     vT+1
+        bne     print_i         ; if T(>=0)>=256
+        lda     vT
+        cmp     #4+1
+        bpl     print_i         ; if 4<P*P+Q*Q
         inc     vI              ; I+=1
         lda     vI
         cmp     #16
@@ -259,7 +263,9 @@ print_char:
         jsr     getchar
         bcs     next_x
         ora     #0
-        beq     mandelbrot_end  ; break
+        bne     next_x
+        brk                     ; halt to system
+        .byte   0
 next_x:
         inc     vX              ; X+=1
         lda     vX

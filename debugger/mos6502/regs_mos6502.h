@@ -6,15 +6,6 @@
 namespace debugger {
 namespace mos6502 {
 
-enum SoftwareType : uint8_t {
-    SW_MOS6502 = 0,  // HW_MOS6502
-    SW_G65SC02 = 1,  // HW_MOS6502
-    SW_R65C02 = 2,   // HW_MOS6502
-    SW_W65C02S = 3,  // HW_W65C02S
-    SW_W65C816 = 4,  // HW_W65C816
-    SW_NONE = 5,
-};
-
 struct RegsMos6502 final : Regs {
     const char *cpu() const override;
     const char *cpuName() const override;
@@ -22,7 +13,6 @@ struct RegsMos6502 final : Regs {
     void print() const override;
     void save() override;
     void restore() override;
-    void reset() { _type = SW_NONE; }
 
     uint32_t nextIp() const override { return _pc; }
     void helpRegisters() const override;
@@ -41,7 +31,6 @@ private:
     uint8_t _e;
     uint8_t _pbr;
     uint8_t _dbr;
-    SoftwareType _type;
 
     uint16_t _c() const { return uint16(_b, _a); }
     void _c(uint16_t c) {
@@ -52,7 +41,6 @@ private:
     static constexpr auto P_X = 0x10;
     void setP(uint8_t value);
     void setE(uint8_t value);
-    void checkSoftwareType();
     void save65816();
     void restore65816();
 

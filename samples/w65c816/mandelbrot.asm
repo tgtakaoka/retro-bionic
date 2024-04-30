@@ -8,9 +8,25 @@ ACIA    =       $DF00
 RX_INT_TX_NO    =       WSB_8N1_gc|RIEB_bm
 RX_INT_TX_INT   =       WSB_8N1_gc|RIEB_bm|TCB_EI_gc
 
+        *=      NVEC_COP
+        .word   isr_ncop
+        *=      NVEC_BRK
+        .word   isr_nbrk
+        *=      NVEC_ABORT
+        .word   isr_nabort
+        *=      NVEC_NMI
+        .word   isr_nnmi
         *=      NVEC_IRQ        ; native vector
-        .word   isr_irq
+        .word   isr_nirq
 
+        *=      VEC_ABORT
+        .word   isr_abort
+        *=      VEC_COP
+        .word   isr_cop
+        *=      VEC_NMI
+        .word   isr_nmi
+        *=      VEC_IRQ
+        .word   isr_irq
         *=      VEC_RESET
         .word   initialize
 
@@ -61,13 +77,10 @@ initialize:
         sta     ACIA_control
         cli                     ; enable IRQ
 
+loop:
         jsr     mandelbrot
         jsr     newline
-        sep     #P_M            ; 8-bit memory
-wait:   lda     tx_queue        ; tx queue len
-        bne     wait
-        brk
-        .byte   0               ; halt to system
+        jmp     loop
 
 ;;; Get character
 ;;; @return A
@@ -92,7 +105,7 @@ putchar:
         jsr     _putchar
         plp
         rts
-_putchar:       
+_putchar:
         pha
         phx
 _putchar_retry:
@@ -135,7 +148,7 @@ putspace:
         .include "arith.inc"
         .include "mandelbrot.inc"
 
-isr_irq:
+isr_nirq:
         ;; P_D is cleared on interrupt
         sep     #P_M            ; 8-bit memory
         longa   off
@@ -143,26 +156,58 @@ isr_irq:
         phx                     ; save X
         lda     ACIA_status
         and     #IRQF_bm
-        beq     isr_irq_exit
+        beq     isr_nirq_exit
         lda     ACIA_status
         and     #RDRF_bm
-        beq     isr_irq_send
+        beq     isr_nirq_send
         lda     ACIA_data       ; receive character
         ldx     #rx_queue
         jsr     queue_add
-isr_irq_send:
+isr_nirq_send:
         lda     ACIA_status
         and     #TDRE_bm
-        beq     isr_irq_exit
+        beq     isr_nirq_exit
         ldx     #tx_queue
         jsr     queue_remove
-        bcs     isr_irq_send_empty
+        bcs     isr_nirq_send_empty
         sta     ACIA_data       ; send character
-isr_irq_exit:
+isr_nirq_exit:
         plx                     ; restore X
         pla                     ; restore Y
         rti                     ; restore P and PC
-isr_irq_send_empty:
+isr_nirq_send_empty:
         lda     #RX_INT_TX_NO
         sta     ACIA_control    ; disable Tx interrupt
-        bra     isr_irq_exit
+        bra     isr_nirq_exit
+
+isr_cop:
+        brk
+        .byte   0
+
+isr_abort:
+        brk
+        .byte   0
+
+isr_nmi:
+        brk
+        .byte   0
+
+isr_irq:
+        brk
+        .byte   0
+
+isr_ncop:
+        brk
+        .byte   0
+
+isr_nbrk:
+        brk
+        .byte   0
+
+isr_nabort:
+        brk
+        .byte   0
+
+isr_nnmi:
+        brk
+        .byte   0

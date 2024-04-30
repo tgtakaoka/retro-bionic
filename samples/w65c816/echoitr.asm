@@ -65,7 +65,7 @@ echo_back:
         bra     receive_loop
 halt_to_system:
         brk
-        fcb     0               ; halt to system
+        .byte    0              ; halt to system
 
 ;;; Put newline
 ;;; @clobber A

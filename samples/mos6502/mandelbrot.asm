@@ -8,6 +8,9 @@ ACIA    =       $DF00
 RX_INT_TX_NO    =       WSB_8N1_gc|RIEB_bm
 RX_INT_TX_INT   =       WSB_8N1_gc|RIEB_bm|TCB_EI_gc
 
+        *=      VEC_NMI
+        .word   isr_nmi
+
         *=      VEC_IRQ
         .word   isr_irq
 
@@ -72,12 +75,10 @@ initialize:
         sta     ACIA_control
         cli                     ; enable IRQ
 
+loop:
         jsr     mandelbrot
         jsr     newline
-wait:   lda     tx_queue        ; tx queue len
-        bne     wait
-        brk
-        .byte   0               ; halt to system
+        jmp     loop
 
 ;;; Get character
 ;;; @return A
@@ -159,3 +160,7 @@ isr_irq_send_empty:
         lda     #RX_INT_TX_NO
         sta     ACIA_control    ; disable Tx interrupt
         bne     isr_irq_exit    ; always branch
+
+isr_nmi:
+        brk
+        .byte   0

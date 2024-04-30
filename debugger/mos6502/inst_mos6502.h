@@ -19,9 +19,11 @@ struct InstMos6502 {
     static constexpr uint16_t VECTOR_IRQ = 0xFFFE;
     static constexpr uint16_t VECTOR_RESET = 0xFFFC;
     static constexpr uint16_t VECTOR_NMI = 0xFFFA;
+
+    // 65816 emulation mode
     static constexpr uint16_t VECTOR_ABORT = 0xFFF8;
     static constexpr uint16_t VECTOR_COP = 0xFFF4;
-
+    // 65816 native mode
     static constexpr uint16_t W65816_IRQ = 0xFFEE;
     static constexpr uint16_t W65816_NMI = 0xFFEA;
     static constexpr uint16_t W65816_ABORT = 0xFFE8;

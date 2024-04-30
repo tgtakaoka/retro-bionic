@@ -13,45 +13,6 @@ namespace mos6502 {
 
 struct RegsMos6502 Registers;
 
-void RegsMos6502::checkSoftwareType() {
-    if (Pins.hardwareType() == HW_W65C816) {
-        _type = SW_W65C816;
-        return;
-    }
-
-    digitalWriteFast(PIN_RDY, HIGH);
-    Pins.cycle(InstMos6502::JMP);
-    Pins.cycle(0x00);
-    Pins.cycle(0x10);
-    auto base = Pins.cycle(InstMos6502::BRA);  // 4 clock branch
-    Pins.cycle(InstMos6502::NOP);
-    Pins.cycle(InstMos6502::NOP);
-    Pins.cycle(InstMos6502::NOP);
-    auto det65 = Pins.cycle(InstMos6502::JMP);
-    Pins.cycle(0x00);
-    Pins.cycle(0x10);
-    if (det65->addr == base->addr + 3U) {
-        digitalWriteFast(PIN_RDY, LOW);
-        _type = SW_MOS6502;
-        return;
-    }
-    base = Pins.cycle(InstMos6502::BBR0);  // 6 clock branch
-    Pins.cycle(InstMos6502::NOP);
-    Pins.cycle(InstMos6502::NOP);
-    Pins.cycle(InstMos6502::NOP);
-    Pins.cycle(InstMos6502::NOP);
-    Pins.cycle(InstMos6502::NOP);
-    Pins.cycle(InstMos6502::NOP);
-    det65 = Pins.cycle(InstMos6502::NOP);
-    Pins.cycle(InstMos6502::NOP);
-    digitalWriteFast(PIN_RDY, LOW);
-    if (det65->addr == base->addr + 4) {
-        _type = SW_G65SC02;
-    } else {
-        _type = Pins.hardwareType() == HW_MOS6502 ? SW_R65C02 : SW_W65C02S;
-    }
-}
-
 const char *RegsMos6502::cpu() const {
     static constexpr const char *CPU_NAMES[/*SoftwareType*/] = {
             "MOS6502",
@@ -60,9 +21,7 @@ const char *RegsMos6502::cpu() const {
             "W65C02S",
             "W65C816S",
     };
-    auto type = _type;
-    if (type == SW_NONE)
-        type = (SoftwareType)Pins.hardwareType();
+    const auto type = Pins.softwareType();
     return CPU_NAMES[type];
 }
 
@@ -127,8 +86,6 @@ void RegsMos6502::save() {
 
     uint16_t sp;
     Pins.captureWrites(PUSH_ALL, sizeof(PUSH_ALL), &sp, buffer, sizeof(buffer));
-    if (_type == SW_NONE)
-        checkSoftwareType();
 
     _pc = be16(buffer) - 2;  // pc on stack points the last byte of JSR.
     _s = lo(sp) | 0x0100;
@@ -153,8 +110,6 @@ void RegsMos6502::save65816() {
     uint8_t buffer[13];
 
     Pins.captureWrites(PUSH_ALL, sizeof(PUSH_ALL), &_s, buffer, sizeof(buffer));
-    if (_type == SW_NONE)
-        checkSoftwareType();
 
     _pbr = buffer[0];
     _pc = be16(buffer + 1) - 3;  // pc on stack points the last byte of JSL.

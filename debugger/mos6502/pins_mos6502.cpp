@@ -32,28 +32,34 @@ struct PinsMos6502 Pins;
 
 namespace {
 
-constexpr auto phi0_lo_sync = 30;    // 500
-constexpr auto phi0_lo_ns = 186;     // 500
-constexpr auto phi0_lo_fetch = 118;  // 500
-constexpr auto phi0_lo_loop = 30;    // 500
-constexpr auto phi0_hi_read = 308;   // 500
-constexpr auto phi0_hi_write = 304;  // 500
-constexpr auto phi0_hi_inject = 50;
+constexpr auto phi0_lo_sync = 30;     // 500
+constexpr auto phi0_lo_ns = 210;      // 500
+constexpr auto phi0_lo_fetch = 118;   // 500
+constexpr auto phi0_lo_loop = 30;     // 500
+constexpr auto phi0_lo_execute = 30;  // 500
+constexpr auto phi0_hi_read = 288;    // 500
+constexpr auto phi0_hi_write = 304;   // 500
+constexpr auto phi0_hi_inject = 70;
 constexpr auto phi0_hi_capture = 60;
 
-inline void phi0_hi() __attribute__((always_inline));
 inline void phi0_hi() {
     digitalWriteFast(PIN_PHI0, HIGH);
 }
 
-inline void phi0_lo() __attribute__((always_inline));
 inline void phi0_lo() {
     digitalWriteFast(PIN_PHI0, LOW);
 }
 
-void assert_abort() __attribute__((unused));
-void assert_abort() {
-    digitalWriteFast(W65C816_ABORT, LOW);
+auto signal_e() {
+    return digitalReadFast(PIN_E);
+}
+
+auto signal_phi1o() {
+    return digitalReadFast(PIN_PHI1O);
+}
+
+auto signal_vp() {
+    return digitalReadFast(PIN_VP);
 }
 
 void negate_abort() {
@@ -72,12 +78,10 @@ void negate_irq() {
     digitalWriteFast(PIN_IRQ, HIGH);
 }
 
-void assert_be() __attribute__((unused));
 void assert_be() {
     digitalWriteFast(PIN_BE, HIGH);
 }
 
-void negate_be() __attribute__((unused));
 void negate_be() {
     digitalWriteFast(PIN_BE, LOW);
 }
@@ -96,11 +100,11 @@ void assert_reset() {
     // Drive RESET condition
     phi0_lo();
     negate_be();
+    assert_rdy();
     digitalWriteFast(PIN_RES, LOW);
     negate_abort();
     negate_nmi();
     negate_irq();
-    assert_rdy();
 }
 
 void negate_reset() {
@@ -182,34 +186,73 @@ const uint8_t PINS_INPUT[] = {
 }  // namespace
 
 bool PinsMos6502::native65816() const {
-    return _type == HW_W65C816 && digitalReadFast(PIN_E) == LOW;
+    return _hardType == HW_W65C816 && signal_e() == LOW;
 }
 
 void PinsMos6502::checkHardwareType() {
-    digitalWriteFast(PIN_PHI0, LOW);
+    phi0_lo();
     delayNanoseconds(500);
-    digitalWriteFast(PIN_PHI0, HIGH);
+    phi0_hi();
     delayNanoseconds(500);
-    if (digitalReadFast(PIN_PHI1O) == LOW) {
+    if (signal_phi1o() == LOW) {
         // PIN_PHI1O is iverted PIN_PHI0, means not W65C816_ABORT.
-        if (digitalReadFast(PIN_VP) == LOW) {
+        if (signal_vp() == LOW) {
             // PIN_VP keeps LOW, means Vss of MOS6502, G65SC02, R65C02.
-            _type = HW_MOS6502;
+            _hardType = HW_MOS6502;
         } else {
             // PIN_VP keeps HIGH, means #VP of W65C02S.
-            _type = HW_W65C02S;
-            // Enable BE.
-            digitalWriteFast(PIN_BE, HIGH);
+            _hardType = HW_W65C02S;
+            pinMode(PIN_ML, INPUT);
+            assert_be();  // Enable BE.
         }
         // Keep PIN_SO HIGH using pullup
         Target6502.setMems(mos6502::Memory);
     } else {
-        // W65C816_ABORT keeps HIGH, means W65C816S.
-        _type = HW_W65C816;
-        // Negate #ABORT by using pullup.
-        // Enable BE.
-        digitalWriteFast(PIN_BE, HIGH);
+        // PIN_PHI1O/W65C816_ABORT keeps HIGH, means W65C816S.
+        _hardType = HW_W65C816;
+        digitalWriteFast(W65C816_ABORT, HIGH);
+        pinMode(W65C816_ABORT, OUTPUT);
+        pinMode(PIN_ML, INPUT);
+        pinMode(W65C816_MX, INPUT);
+        pinMode(PIN_E, INPUT);
+        assert_be();  // Enable BE
         Target6502.setMems(w65c816::Memory);
+    }
+}
+
+void PinsMos6502::checkSoftwareType() {
+    if (_hardType == HW_W65C816) {
+        _softType = SW_W65C816;
+        return;
+    }
+
+    cycle(InstMos6502::JMP);
+    cycle(0x00);
+    cycle(0x10);
+    auto base = cycle(InstMos6502::BRA);  // 4 clock branch
+    cycle(InstMos6502::NOP);
+    cycle(InstMos6502::NOP);
+    cycle(InstMos6502::NOP);
+    auto det65 = cycle(InstMos6502::JMP);
+    cycle(0x00);
+    cycle(0x10);
+    if (det65->addr == base->addr + 3U) {
+        _softType = SW_MOS6502;
+        return;
+    }
+    base = cycle(InstMos6502::BBR0);  // 6 clock branch
+    cycle(InstMos6502::NOP);
+    cycle(InstMos6502::NOP);
+    cycle(InstMos6502::NOP);
+    cycle(InstMos6502::NOP);
+    cycle(InstMos6502::NOP);
+    cycle(InstMos6502::NOP);
+    det65 = cycle(InstMos6502::NOP);
+    cycle(InstMos6502::NOP);
+    if (det65->addr == base->addr + 4) {
+        _softType = SW_G65SC02;
+    } else {
+        _softType = _hardType == HW_MOS6502 ? SW_R65C02 : SW_W65C02S;
     }
 }
 
@@ -223,31 +266,28 @@ void PinsMos6502::reset() {
     assert_reset();
     checkHardwareType();
     // #RES must be held low for at lease two clock cycles.
-    for (auto i = 0; i < 10; i++) {
-        // there may be suprious write
-        completeCycle(prepareCycle()->capture());
-    }
+    for (auto i = 0; i < 10; i++)
+        cycle();
     Signals::resetCycles();
-    cycle();
+    auto s = prepareCycle();
     negate_reset();
+    completeCycle(s);
     // When a positive edge is detected, there is an initalization
     // sequence lasting seven clock cycles.
     for (auto i = 0; i < 7; i++) {
         // there may be suprious write
-        auto s = prepareCycle()->capture();
-        if (s->vector() && s->addr == InstMos6502::VECTOR_RESET)
+        const auto s = completeCycle(prepareCycle()->capture());
+        // Read Reset vector
+        if (s->vector() && s->addr == InstMos6502::VECTOR_RESET) {
+            cycle();
             break;
-        completeCycle(s);
+        }
     }
-    // Read Reset vector
-    cycle();
-    cycle();
-    // printCycles() calls idle() and inject clocks.
-    negate_rdy();
-    // The first instruction will be saving registers, and certainly can be
-    // injected.
-    Registers.reset();
+
     Registers.save();
+    assert_rdy();
+    checkSoftwareType();
+    negate_rdy();
 }
 
 Signals *PinsMos6502::rawPrepareCycle() {
@@ -255,12 +295,8 @@ Signals *PinsMos6502::rawPrepareCycle() {
     s->getAddr();
     if (hardwareType() == HW_W65C816) {
         s->addr |= static_cast<uint32_t>(busRead(D)) << 16;
-        const auto vpa = digitalReadFast(W65C816_VPA);
-        const auto vda = digitalReadFast(W65C816_VDA);
-        s->fetch() = (vpa != LOW) && (vda != LOW);
     } else {
         delayNanoseconds(phi0_lo_sync);
-        s->fetch() = digitalReadFast(PIN_SYNC) != LOW;
     }
     return s;
 }
@@ -287,8 +323,8 @@ Signals *PinsMos6502::completeCycle(Signals *s) {
         } else {
             delayNanoseconds(phi0_hi_inject);
         }
-        busMode(D, OUTPUT);
         busWrite(D, s->data);
+        busMode(D, OUTPUT);
         Signals::nextCycle();
         delayNanoseconds(phi0_hi_read);
     }
@@ -326,6 +362,7 @@ void PinsMos6502::execute(const uint8_t *inst, uint8_t len, uint16_t *addr,
             s->inject(inst[inj]);
         if (cap < max)
             s->capture();
+        delayNanoseconds(phi0_lo_execute);
         completeCycle(s);
         if (s->read()) {
             if (inj < len)

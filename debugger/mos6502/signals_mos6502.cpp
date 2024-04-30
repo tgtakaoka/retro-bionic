@@ -9,13 +9,28 @@ namespace debugger {
 namespace mos6502 {
 
 void Signals::getAddr() {
-    rw() = digitalReadFast(PIN_RW);
+    cntl() = busRead(CNTL);
     addr = busRead(AL) | busRead(AM) | busRead(AH);
-    if (Pins.hardwareType() == HW_MOS6502) {
-        fetchVector() = read() && addr >= InstMos6502::VECTOR_NMI;
-    } else {
-        fetchVector() = digitalReadFast(PIN_VP) == LOW;
-    }
+}
+
+bool Signals::read() const {
+    return cntl() & CNTL_RW;
+}
+
+bool Signals::write() const {
+    return (cntl() & CNTL_RW) == 0;
+}
+
+bool Signals::fetch() const {
+    if (Pins.hardwareType() == HW_W65C816)
+        return (~cntl() & (CNTL_VPA | CNTL_VPD)) == 0;
+    return cntl() & CNTL_SYNC;
+}
+
+bool Signals::vector() const {
+    if (Pins.hardwareType() == HW_MOS6502)
+        return read() && addr >= InstMos6502::VECTOR_NMI;
+    return (cntl() & CNTL_VP) == 0;
 }
 
 void Signals::getData() {
