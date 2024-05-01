@@ -8,11 +8,10 @@ namespace mc6801 {
 
 void Signals::getAddr() {
     addr = busRead(ADDR);
-    vma() = 1;
 }
 
 void Signals::getDirection() {
-    rw() = digitalReadFast(PIN_RW);
+    cntl() = busRead(CNTL) | CNTL_VMA;
     clearFetch();
 }
 

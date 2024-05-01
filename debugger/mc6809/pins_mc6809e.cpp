@@ -36,16 +36,17 @@ namespace {
 // tDDQ: max   200 ns ; q_hi to write data
 // tDSR: min    80 ns ; data to e_lo
 // tPCS: min   200 ns ; reset_hi to q_lo
-constexpr auto c1_ns = 146;      // 250 EQ=LL
-constexpr auto c2_ns = 90;       // 250 EQ=LH
-constexpr auto c3_novma = 180;   // 250 EQ=HH
-constexpr auto c4_novma = 132;   // 250 EQ=HL
-constexpr auto c3_write = 162;   // 250 EQ=HH
-constexpr auto c4_write = 34;    // 250 EQ=HL
-constexpr auto c4_capture = 42;  // 250 EQ=HL
-constexpr auto c3_read = 92;     // 250 EQ=HH
-constexpr auto c3_inject = 178;  // 250 EQ=HH
-constexpr auto c4_read = 84;     // 250 EQ=HL
+constexpr auto cycle_ns = 70;     // 250 EQ=LL
+constexpr auto c1_ns = 70;        // 250 EQ=LL
+constexpr auto c2_ns = 156;       // 250 EQ=LH
+constexpr auto c3_novma = 180;    // 250 EQ=HH
+constexpr auto c4_novma = 132;    // 250 EQ=HL
+constexpr auto c3_write = 162;    // 250 EQ=HH
+constexpr auto c4_write = 44;     // 250 EQ=HL
+constexpr auto c4_capture = 130;  // 250 EQ=HL
+constexpr auto c3_read = 90;      // 250 EQ=HH
+constexpr auto c3_inject = 188;   // 250 EQ=HH
+constexpr auto c4_read = 94;      // 250 EQ=HL
 
 inline void c1_clock() __attribute__((always_inline));
 inline void c1_clock() {
@@ -172,6 +173,7 @@ mc6809::Signals *PinsMc6809E::rawCycle() const {
     // c1
     busMode(D, INPUT);
     auto s = Signals::put();
+    delayNanoseconds(c1_ns);
     // c2
     c2_clock();
     delayNanoseconds(c2_ns);
@@ -221,7 +223,7 @@ mc6809::Signals *PinsMc6809E::rawCycle() const {
 }
 
 mc6809::Signals *PinsMc6809E::cycle() const {
-    delayNanoseconds(c1_ns);
+    delayNanoseconds(cycle_ns);
     return rawCycle();
 }
 
@@ -232,13 +234,13 @@ const mc6809::Signals *PinsMc6809E::findFetch(
     for (auto i = 0; i < cycles; ++i) {
         auto s = begin->next(i);
         if (native6309) {
-            if (s->lic()) {
+            if (s->fetch()) {
                 s->markFetch(1);
             } else {
                 s->clearFetch();
             }
         } else {
-            if (i && s->prev()->lic()) {
+            if (i && s->prev()->fetch()) {
                 s->markFetch(1);
             } else {
                 s->clearFetch();

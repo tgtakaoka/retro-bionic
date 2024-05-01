@@ -8,6 +8,9 @@ ACIA:   equ     $DF00
         org     $1000
 stack:  equ     *-1             ; MC6800's SP is post-decrement/pre-increment
 
+        org     $FFF6           ; MC68HC11 SWI
+        fdb     $FFF6
+
         org     VEC_RESET
         fdb     initialize
 

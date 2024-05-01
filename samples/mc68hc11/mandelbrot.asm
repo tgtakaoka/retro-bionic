@@ -66,11 +66,10 @@ initialize:
         staa    ACIA_control
         cli                     ; enable IRQ
 
+loop:
         jsr     mandelbrot
         jsr     newline
-wait:   tst     tx_queue        ; tx queue len
-        bne     wait
-        swi
+        bra     loop
 
 ;;; Get character
 ;;; @return A

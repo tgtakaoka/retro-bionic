@@ -41,17 +41,14 @@
 #define PIN_AH13 7   /* P7.17 */
 #define PIN_AH14 36  /* P7.18 */
 #define PIN_AH15 37  /* P7.19 */
-#define PIN_HALT 2   /* P9.04 */
-#define PIN_RW 3     /* P9.05 */
-#define PIN_IRQ 4    /* P9.06 */
-#define PIN_NMI 33   /* P9.07 */
+#define PIN_VMA 2    /* P9.04 */
+#define PIN_BA 33    /* P9.07 */
+#define CNTL_BA 0x8  /* CNTL3 */
 #define PIN_PHI1 5   /* P9.08 */
 #define PIN_PHI2 29  /* P9.31 */
-#define PIN_VMA 6    /* P7.10 */
 #define PIN_DBE 32   /* P7.12 */
-#define PIN_RESET 28 /* P8.18 */
 #define PIN_TSC 31   /* P8.22 */
-#define PIN_BA 30    /* P8.23 */
+#define PIN_HALT 30  /* P8.23 */
 
 #endif
 

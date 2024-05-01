@@ -5,7 +5,7 @@
 ACIA:   equ     $DF00
         include "mc6850.inc"
 
-        org     $20
+        org     $40
 R0:
 R0H:    rmb     1
 R0L:    rmb     1
@@ -20,6 +20,9 @@ arith_work:
 
         org     $1000
 stack:  equ     *-1             ; MC6800's SP is post-decrement/pre-increment
+
+        org     $FFF6           ; MC68HC11 SWI
+        fdb     $FFF6
 
         org     VEC_SWI
         fdb     VEC_SWI         ; for halt to system

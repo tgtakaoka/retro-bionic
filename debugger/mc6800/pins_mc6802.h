@@ -41,41 +41,36 @@
 #define PIN_AH13 7   /* P7.17 */
 #define PIN_AH14 36  /* P7.18 */
 #define PIN_AH15 37  /* P7.19 */
-#define PIN_HALT 2   /* P9.04 */
+#define PIN_VMA 2    /* P9.04 */
 #define PIN_RW 3     /* P9.05 */
-#define PIN_IRQ 4    /* P9.06 */
-#define PIN_NMI 33   /* P9.07 */
+#define PIN_BA 33    /* P9.07 */
 #define PIN_EXTAL 5  /* P9.08 */
 #define PIN_E 29     /* P9.31 */
-#define PIN_VMA 6    /* P7.10 */
-#define PIN_RE 9     /* P7.11 */
 #define PIN_MR 32    /* P7.12 */
 #define PIN_RESET 28 /* P8.18 */
-#define PIN_BA 30    /* P8.23 */
+#define PIN_RE 31    /* P8.22 */
+#define PIN_HALT 30  /* P8.23 */
 
 #include "pins_mc6800.h"
 #include "regs_mc6802.h"
-#include "signals_mc6802.h"
+#include "signals_mc6800.h"
 
 namespace debugger {
 namespace mc6802 {
 
 using mc6800::InstMc6800;
 using mc6800::PinsMc6800;
+using mc6800::Signals;
 
 struct PinsMc6802 final : PinsMc6800 {
     PinsMc6802(RegsMc6802 *regs, InstMc6800 *inst, const Mems *mems, Devs *devs)
         : PinsMc6800(regs, inst, mems, devs) {}
 
     void reset() override;
-    void assertInt(uint8_t name) override;
-    void negateInt(uint8_t name) override;
 
 protected:
-    mc6800::Signals *cycle() override;
-    mc6800::Signals *rawCycle() override;
-    void assertNmi() const override;
-    void negateNmi() const override;
+    Signals *cycle() override;
+    Signals *rawCycle() override;
 
 private:
     RegsMc6802 &regs() const { return *static_cast<RegsMc6802 *>(_regs); }

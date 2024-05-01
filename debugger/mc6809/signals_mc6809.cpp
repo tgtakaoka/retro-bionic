@@ -16,16 +16,15 @@ void Signals::getLowAddr() {
 }
 
 void Signals::getDirection() {
-    rw() = digitalReadFast(PIN_RW);
-    uint8_t s = digitalReadFast(PIN_BS) ? 1 : 0;
-    if (digitalReadFast(PIN_BA))
-        s += 2;
-    status() = s;
+    cntl() = busRead(CNTL);
 }
 
-void Signals::clearControl() {
-    lic() = 0;
-    vma() = 1;
+void Signals::getControl() {
+    clearFetch();
+}
+
+bool Signals::vector() const {
+    return (cntl() & (CNTL_BA | CNTL_BS)) == CNTL_BS;
 }
 
 void Signals::getData() {
@@ -40,9 +39,10 @@ void Signals::print() const {
     static constexpr char line[] = " W A=xxxx D=xx L";
     static constexpr char STATUS[] = {' ', 'V', 'S', 'H'};
     static auto &buffer = *new CharBuffer(line);
-    buffer[0] = STATUS[status() & 3];
+    auto status = (cntl() & (CNTL_BA | CNTL_BS)) >> 2;
+    buffer[0] = STATUS[status];
     buffer[1] = write() ? 'W' : 'R';
-    buffer[15] = lic() ? 'L' : ' ';
+    buffer[15] = fetch() ? 'L' : ' ';
     buffer.hex16(5, addr);
     buffer.hex8(12, data);
     cli.println(buffer);

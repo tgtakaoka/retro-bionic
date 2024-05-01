@@ -2,6 +2,7 @@
 #include "char_buffer.h"
 #include "debugger.h"
 #include "digital_bus.h"
+#include "pins_mc6800.h"
 #include "pins_mc6800_config.h"
 
 namespace debugger {
@@ -9,12 +10,23 @@ namespace mc6800 {
 
 void Signals::getAddr() {
     addr = busRead(AL) | busRead(AM) | busRead(AH);
-    vma() = digitalReadFast(PIN_VMA);
-    clearFetch();
 }
 
 void Signals::getDirection() {
-    rw() = digitalReadFast(PIN_RW);
+    cntl() = busRead(CNTL);
+    clearFetch();
+}
+
+bool Signals::read() const {
+    return cntl() & CNTL_RW;
+}
+
+bool Signals::write() const {
+    return (cntl() & CNTL_RW) == 0;
+}
+
+bool Signals::valid() const {
+    return cntl() & CNTL_VMA;
 }
 
 void Signals::getData() {

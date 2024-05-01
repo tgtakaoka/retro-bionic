@@ -1,10 +1,10 @@
 #ifndef __PINS_MC6809E_H__
 #define __PINS_MC6809E_H__
 
+#define PIN_AVMA 2 /* P9.04 */
 #define PIN_BUSY 0 /* P6.03 */
 #define PIN_E 5    /* P9.08 */
 #define PIN_Q 29   /* P9.31 */
-#define PIN_AVMA 6 /* P7.10 */
 #define PIN_LIC 32 /* P7.12 */
 #define PIN_TSC 31 /* P8.22 */
 

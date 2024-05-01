@@ -172,11 +172,11 @@ void PinsMc146805E2::reset() {
     // If reset vector pointing internal memory, we can't inject instructions.
     _mems->raw_write16(vec_reset, 0x1000);
 
-    Signals::resetCycles();
     cycle();
     cycle();
     delayNanoseconds(tpcs_ns);
     negate_reset();
+    Signals::resetCycles();
     prepareCycle();
     suspend();
 

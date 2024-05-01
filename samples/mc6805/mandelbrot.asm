@@ -30,7 +30,7 @@ vQ:     rmb     2
 vY:     rmb     1
 vX:     rmb     1
 vI:     rmb     1
-        
+
 ;;; Working space for arith.inc
 R0:
 R0H:    rmb     1
@@ -72,11 +72,10 @@ initialize:
         cli                     ; enable IRQ
 
         clr     SP
+loop:
         jsr     mandelbrot
         jsr     newline
-wait:   tst     tx_queue        ; tx queue len
-        bne     wait
-        swi
+        bra     loop
 
 ;;; Get character
 ;;; @clobber X

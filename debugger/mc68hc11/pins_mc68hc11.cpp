@@ -63,21 +63,21 @@ namespace {
 constexpr auto extal_e_ns = 50;
 constexpr auto extal_hi_ns = 100;   // 125
 constexpr auto extal_lo_ns = 100;   // 125
-constexpr auto c1_lo_ns = 80;       // 125
+constexpr auto c1_lo_ns = 1;        // 125
 constexpr auto c1_hi_ns = 100;      // 125
-constexpr auto c2_lo_ns = 62;       // 125
+constexpr auto c2_lo_ns = 72;       // 125
 constexpr auto c2_hi_read = 70;     // 125
 constexpr auto c3_lo_read = 0;      // 125
 constexpr auto c3_lo_inject = 90;   // 125
 constexpr auto c3_hi_read = 50;     // 125
-constexpr auto c4_lo_read = 75;     // 125
-constexpr auto c4_hi_read = 45;     // 125
-constexpr auto c2_hi_write = 67;    // 125
+constexpr auto c4_lo_read = 80;     // 125
+constexpr auto c4_hi_read = 55;     // 125
+constexpr auto c2_hi_write = 60;    // 125
 constexpr auto c3_lo_write = 79;    // 125
 constexpr auto c3_hi_write = 75;    // 125
 constexpr auto c4_lo_write = 1;     // 125
 constexpr auto c4_lo_capture = 89;  // 125
-constexpr auto c4_hi_write = 45;    // 125
+constexpr auto c4_hi_write = 64;    // 125
 constexpr auto tpcsu = 300;
 
 inline void extal_hi() {
@@ -99,56 +99,25 @@ inline uint8_t clock_e() {
     return digitalReadFast(PIN_E);
 }
 
-void assert_xirq() {
-    digitalWriteFast(PIN_XIRQ, LOW);
-    pinMode(PIN_XIRQ, OUTPUT_OPENDRAIN);
-}
-
-void negate_xirq() {
-    digitalWriteFast(PIN_XIRQ, HIGH);
-    pinMode(PIN_XIRQ, INPUT);
-}
-
-void assert_irq() {
-    digitalWriteFast(PIN_IRQ, LOW);
-    pinMode(PIN_IRQ, OUTPUT_OPENDRAIN);
-}
-
-void negate_irq() {
-    digitalWriteFast(PIN_IRQ, HIGH);
-    pinMode(PIN_IRQ, INPUT);
-}
-
-void assert_reset() {
-    // Drive RESET with opend drain
-    pinMode(PIN_RESET, OUTPUT_OPENDRAIN);
-    digitalWriteFast(PIN_RESET, LOW);
-    negate_xirq();
-    negate_irq();
-    extal_lo();
-}
-
-void negate_reset() {
-    // Release RESET conditions
-    pinMode(PIN_RESET, INPUT_PULLUP);
-}
-
 inline uint8_t reset_signal() {
     return digitalReadFast(PIN_RESET);
 }
-
-const uint8_t PINS_HIGH[] = {
-        PIN_XIRQ,
-        PIN_IRQ,
-        PIN_MODB,
-};
 
 const uint8_t PINS_LOW[] = {
         PIN_EXTAL,
 };
 
-const uint8_t PINS_PULLUP[] = {
+const uint8_t PINS_OPENDRAIN[] = {
         PIN_RESET,
+};
+
+const uint8_t PINS_HIGH[] = {
+        PIN_MODB,
+};
+
+const uint8_t PINS_PULLUP[] = {
+        PIN_IRQ,
+        PIN_NMI,
         PIN_MODA,
 };
 
@@ -191,6 +160,7 @@ void release_mode() {
 
 void PinsMc68hc11::reset() {
     pinsMode(PINS_LOW, sizeof(PINS_LOW), OUTPUT, LOW);
+    pinsMode(PINS_OPENDRAIN, sizeof(PINS_OPENDRAIN), OUTPUT_OPENDRAIN, LOW);
     pinsMode(PINS_HIGH, sizeof(PINS_HIGH), OUTPUT, HIGH);
     pinsMode(PINS_PULLUP, sizeof(PINS_PULLUP), INPUT_PULLUP);
     pinsMode(PINS_INPUT, sizeof(PINS_INPUT), INPUT);
@@ -219,7 +189,6 @@ void PinsMc68hc11::reset() {
     for (auto i = 0; i < 8; i++)
         cycle();
 
-    Signals::resetCycles();
     // Mode Programming Setup Time for #RESET rising is 2 E cycles at minimum.
     inject_mode();
     cycle();
@@ -227,6 +196,7 @@ void PinsMc68hc11::reset() {
     cycle();
     delayNanoseconds(tpcsu);
     negate_reset();
+    Signals::resetCycles();
     // Mode Programming Hold Time: min 10ns
     release_mode();
     cycle();
@@ -255,19 +225,19 @@ mc6800::Signals *PinsMc68hc11::rawCycle() {
     delayNanoseconds(c1_hi_ns);
     // C2L
     extal_lo();
-    auto signals = Signals::put();
+    auto s = Signals::put();
     delayNanoseconds(c2_lo_ns);
-    signals->getAddr();
+    s->getAddr();
     // C2H
     extal_hi();
-    signals->getDirection();
-    if (signals->read()) {
+    s->getDirection();
+    if (s->read()) {
         _writes = 0;
         delayNanoseconds(c2_hi_read);
         // C3L
         extal_lo();
-        if (signals->readMemory()) {
-            signals->data = _mems->read(signals->addr);
+        if (s->readMemory()) {
+            s->data = _mems->read(s->addr);
             if (c3_lo_read)
                 delayNanoseconds(c3_lo_read);
         } else {
@@ -276,12 +246,12 @@ mc6800::Signals *PinsMc68hc11::rawCycle() {
         // C3H
         extal_hi();
         busMode(AD, OUTPUT);
-        busWrite(AD, signals->data);
+        busWrite(AD, s->data);
         delayNanoseconds(c3_hi_read);
         // C4L
         extal_lo();
         delayNanoseconds(c4_lo_read);
-        signals->getLoadInstruction();
+        s->getControl();
         // C4H
         extal_hi();
         // change data bus to output
@@ -293,15 +263,15 @@ mc6800::Signals *PinsMc68hc11::rawCycle() {
         // C3L
         extal_lo();
         delayNanoseconds(c3_lo_write);
-        signals->getLoadInstruction();
+        s->getControl();
         // C3H
         extal_hi();
         delayNanoseconds(c3_hi_write);
-        signals->getData();
+        s->getData();
         // C4L
         extal_lo();
-        if (signals->writeMemory()) {
-            _mems->write(signals->addr, signals->data);
+        if (s->writeMemory()) {
+            _mems->write(s->addr, s->data);
             if (c4_lo_write)
                 delayNanoseconds(c4_lo_write);
         } else {
@@ -315,23 +285,7 @@ mc6800::Signals *PinsMc68hc11::rawCycle() {
     // C1L
     extal_lo();
 
-    return signals;
-}
-
-void PinsMc68hc11::assertNmi() const {
-    assert_xirq();
-}
-
-void PinsMc68hc11::negateNmi() const {
-    negate_xirq();
-}
-
-void PinsMc68hc11::assertInt(uint8_t name) {
-    assert_irq();
-}
-
-void PinsMc68hc11::negateInt(uint8_t name) {
-    negate_irq();
+    return s;
 }
 
 namespace {

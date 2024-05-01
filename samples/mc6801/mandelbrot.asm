@@ -7,7 +7,7 @@ ACIA:   equ     $DF00
 RX_INT_TX_NO:   equ     WSB_8N1_gc|RIEB_bm
 RX_INT_TX_INT:  equ     WSB_8N1_gc|RIEB_bm|TCB_EI_gc
 
-        org     $20
+        org     $40
 ;;; Working space for mandelbrot.inc
 F:      equ     50
 vC:     rmb     2
@@ -41,6 +41,12 @@ tx_queue:       rmb     tx_queue_size
         org     $1000
 stack:  equ     *-1             ; MC6800's SP is post-decrement/pre-increment
 
+        org     $FFF2           ; MC68HC11 IRQ
+        fdb     isr_irq
+
+        org     $FFF6           ; MC68HC11 SWI
+        fdb     $FFF6
+
         org     VEC_IRQ1
         fdb     isr_irq
 
@@ -66,11 +72,10 @@ initialize:
         staa    ACIA_control
         cli                     ; enable IRQ
 
+loop:
         jsr     mandelbrot
         jsr     newline
-wait:   tst     tx_queue        ; tx queue len
-        bne     wait
-        swi
+        bra     loop
 
 ;;; Get character
 ;;; @return A

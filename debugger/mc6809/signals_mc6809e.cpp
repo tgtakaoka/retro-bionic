@@ -6,8 +6,7 @@ namespace debugger {
 namespace mc6809e {
 
 void Signals::getControl() {
-    lic() = digitalReadFast(PIN_LIC);
-    vma() = 1;
+    fetch() = digitalReadFast(PIN_LIC);
 }
 
 }  // namespace mc6809e

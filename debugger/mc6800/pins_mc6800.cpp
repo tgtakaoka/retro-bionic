@@ -51,12 +51,12 @@ namespace {
 // tDBE: min  150 ns; dbe_lo
 // tPCS: min  200 ns; reset_hi to phi2_lo
 constexpr auto dbe_lo_ns = 108;        // 150 ns
-constexpr auto phi1_hi_ns = 140;       // 400 ns
-constexpr auto phi2_hi_novma = 396;    // 500 ns
-constexpr auto phi2_hi_write = 266;    // 500 ns
+constexpr auto phi1_hi_ns = 147;       // 400 ns
+constexpr auto phi2_hi_novma = 386;    // 500 ns
+constexpr auto phi2_hi_write = 244;    // 500 ns
 constexpr auto phi2_hi_read = 238;     // 500 ns
-constexpr auto phi2_hi_capture = 362;  // 500 ns
-constexpr auto phi2_hi_inject = 68;    // 500 ns
+constexpr auto phi2_hi_capture = 336;  // 500 ns
+constexpr auto phi2_hi_inject = 60;    // 500 ns
 constexpr auto tpcs_ns = 200;
 
 inline void phi1_hi() __attribute__((always_inline));
@@ -76,31 +76,8 @@ inline void phi2_lo() {
     digitalWriteFast(PIN_PHI2, LOW);
 }
 
-inline void assert_dbe() __attribute__((always_inline));
 inline void assert_dbe() {
     digitalWriteFast(PIN_DBE, HIGH);
-}
-
-void assert_nmi() {
-    digitalWriteFast(PIN_NMI, LOW);
-}
-
-void negate_nmi() {
-    digitalWriteFast(PIN_NMI, HIGH);
-}
-
-void assert_irq() {
-    digitalWriteFast(PIN_IRQ, LOW);
-}
-
-void negate_irq() {
-    digitalWriteFast(PIN_IRQ, HIGH);
-}
-
-// TODO: Utilize #HALT to Pins.step()
-void assert_halt() __attribute__((unused));
-void assert_halt() {
-    digitalWriteFast(PIN_HALT, LOW);
 }
 
 void negate_halt() {
@@ -111,32 +88,21 @@ void negate_tsc() {
     digitalWriteFast(PIN_TSC, LOW);
 }
 
-void assert_reset() {
-    // Drive RESET condition
-    digitalWriteFast(PIN_RESET, LOW);
-    negate_halt();
-    negate_nmi();
-    negate_irq();
-    negate_tsc();
-    assert_dbe();
-}
-
-void negate_reset() {
-    // Release RESET conditions
-    digitalWriteFast(PIN_RESET, HIGH);
-}
-
 constexpr uint8_t PINS_LOW[] = {
         PIN_PHI1,
         PIN_PHI2,
-        PIN_RESET,
         PIN_TSC,
 };
+
 constexpr uint8_t PINS_HIGH[] = {
         PIN_HALT,
+        PIN_DBE,
+};
+
+constexpr uint8_t PINS_OPENDRAIN[] = {
+        PIN_RESET,
         PIN_IRQ,
         PIN_NMI,
-        PIN_DBE,
 };
 
 constexpr uint8_t PINS_INPUT[] = {
@@ -171,19 +137,57 @@ constexpr uint8_t PINS_INPUT[] = {
 
 }  // namespace
 
+// #RESET may be connected to other signal or switch
+void PinsMc6800::assert_reset() {
+    digitalWriteFast(PIN_RESET, LOW);
+    pinMode(PIN_RESET, OUTPUT_OPENDRAIN);
+    negate_nmi();
+    negate_irq();
+}
+
+void PinsMc6800::negate_reset() {
+    digitalWriteFast(PIN_RESET, HIGH);
+    pinMode(PIN_RESET, INPUT_PULLUP);
+}
+
+// #NMI may be connected to other signal or switch
+void PinsMc6800::assert_nmi() {
+    digitalWriteFast(PIN_NMI, LOW);
+    pinMode(PIN_NMI, OUTPUT_OPENDRAIN);
+}
+
+void PinsMc6800::negate_nmi() {
+    digitalWriteFast(PIN_NMI, HIGH);
+    pinMode(PIN_NMI, INPUT_PULLUP);
+}
+
+// #IRQ may be connected to other signal or switch
+void PinsMc6800::assert_irq() {
+    digitalWriteFast(PIN_IRQ, LOW);
+    pinMode(PIN_IRQ, OUTPUT_OPENDRAIN);
+}
+
+void PinsMc6800::negate_irq() {
+    digitalWriteFast(PIN_IRQ, HIGH);
+    pinMode(PIN_IRQ, INPUT_PULLUP);
+}
+
 void PinsMc6800::reset() {
     pinsMode(PINS_LOW, sizeof(PINS_LOW), OUTPUT, LOW);
+    pinsMode(PINS_OPENDRAIN, sizeof(PINS_OPENDRAIN), OUTPUT_OPENDRAIN, LOW);
     pinsMode(PINS_HIGH, sizeof(PINS_HIGH), OUTPUT, HIGH);
     pinsMode(PINS_INPUT, sizeof(PINS_INPUT), INPUT);
 
     assert_reset();
+    negate_halt();
+    negate_tsc();
     // Assuming a minimum of 8 clock cycles have occurred.
     for (auto i = 0; i < 8; ++i)
         cycle();
-    Signals::resetCycles();
     cycle();
     delayNanoseconds(tpcs_ns);
     negate_reset();
+    Signals::resetCycles();
     cycle();
     // Read Reset vector
     cycle();
@@ -207,41 +211,41 @@ Signals *PinsMc6800::rawCycle() {
     delayNanoseconds(dbe_lo_ns);
     assert_dbe();
     delayNanoseconds(phi1_hi_ns);
-    auto *signals = Signals::put();
-    signals->getAddr();
+    auto s = Signals::put();
+    s->getAddr();
     // PHI2=HIGH
     phi2_hi();
-    signals->getDirection();
+    s->getDirection();
 
-    if (!signals->valid()) {
+    if (!s->valid()) {
         delayNanoseconds(phi2_hi_novma);
-    } else if (signals->write()) {
+    } else if (s->write()) {
         ++_writes;
-        if (signals->writeMemory()) {
+        if (s->writeMemory()) {
             delayNanoseconds(phi2_hi_write);
-            signals->getData();
-            _mems->write(signals->addr, signals->data);
+            s->getData();
+            _mems->write(s->addr, s->data);
         } else {
             delayNanoseconds(phi2_hi_capture);
-            signals->getData();
+            s->getData();
         }
     } else {
         _writes = 0;
-        if (signals->readMemory()) {
-            signals->data = _mems->read(signals->addr);
+        if (s->readMemory()) {
+            s->data = _mems->read(s->addr);
         } else {
-            // inject data from signals->data
+            // inject data from s->data
             delayNanoseconds(phi2_hi_inject);
         }
         busMode(D, OUTPUT);
-        busWrite(D, signals->data);
+        busWrite(D, s->data);
         delayNanoseconds(phi2_hi_read);
     }
     Signals::nextCycle();
     // PHI2=LOW
     phi2_lo();
 
-    return signals;
+    return s;
 }
 
 Signals *PinsMc6800::injectCycle(uint8_t data) {
@@ -309,20 +313,20 @@ void PinsMc6800::loop() {
 }
 
 void PinsMc6800::suspend(bool show) {
-    assertNmi();
+    assert_nmi();
 reentry:
     _writes = 0;
     // Wait for consequtive writes which means registers saved onto stack.
     while (_writes < _regs->contextLength())
         cycle();
-    negateNmi();
+    negate_nmi();
     // Capture registers pushed onto stack.
     const auto frame = Signals::put()->prev(_writes);
     if (nonVmaAfteContextSave())
         cycle();
     const auto v = cycle();  // hi(vector)
     if (v->addr == _inst->vec_swi()) {
-        assertNmi();
+        assert_nmi();
         cycle();  // SWI lo(vector);
         goto reentry;
     }
@@ -352,14 +356,6 @@ bool PinsMc6800::step(bool show) {
     if (show)
         printCycles(Signals::put()->prev());
     return true;
-}
-
-void PinsMc6800::assertNmi() const {
-    assert_nmi();
-}
-
-void PinsMc6800::negateNmi() const {
-    negate_nmi();
 }
 
 void PinsMc6800::assertInt(uint8_t name) {

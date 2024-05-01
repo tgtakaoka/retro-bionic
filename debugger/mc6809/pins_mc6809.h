@@ -41,14 +41,22 @@
 #define PIN_AH13 7   /* P7.17 */
 #define PIN_AH14 36  /* P7.18 */
 #define PIN_AH15 37  /* P7.19 */
-#define PIN_HALT 2   /* P9.04 */
+#define PORT_CNTL 9  /* GPIO9 */
+#define CNTL_gp 4    /* P9.04-P4.07 */
+#define CNTL_gm 0xF  /* P9.04-P9.07 */
+#define CNTL_vp 0    /* CNTL0-CNTL3 */
 #define PIN_RW 3     /* P9.05 */
-#define PIN_IRQ 4    /* P9.06 */
-#define PIN_NMI 33   /* P9.07 */
+#define PIN_BS 4     /* P9.06 */
+#define PIN_BA 33    /* P9.07 */
+#define CNTL_VMA 0x1 /* CNTL0 */
+#define CNTL_RW 0x2  /* CNTL1 */
+#define CNTL_BS 0x4  /* CNTL2 */
+#define CNTL_BA 0x8  /* CNTL3 */
 #define PIN_FIRQ 1   /* P6.04 */
-#define PIN_BS 9     /* P7.11 */
+#define PIN_IRQ 6    /* P7.10 */
+#define PIN_NMI 9    /* P7.11 */
 #define PIN_RESET 28 /* P8.18 */
-#define PIN_BA 30    /* P8.23 */
+#define PIN_HALT 30  /* P8.23 */
 
 #include "mems.h"
 #include "pins.h"

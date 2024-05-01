@@ -14,21 +14,19 @@ struct Signals : SignalsBase<Signals> {
     void getData();
     void print() const;
 
-    bool valid() const { return vma() != 0; }
-    bool read() const { return rw() != 0; }
-    bool write() const { return rw() == 0; }
+    bool valid() const;
+    bool read() const;
+    bool write() const;
 
-    void clearFetch() { _signals[2] = 0; }
-    void markFetch(uint8_t matched) { _signals[2] = matched + 1; }
-    bool fetch() const { return _signals[2] != 0; }
-    uint8_t matched() const { return _signals[2] - 1; }
+    void clearFetch() { _signals[1] = 0; }
+    bool fetch() const { return _signals[1] != 0; }
+    void markFetch(uint8_t matched) { _signals[1] = matched + 1; }
+    uint8_t &fetch() { return _signals[1]; }
+    uint8_t matched() const { return _signals[1] - 1; }
 
 protected:
-    uint8_t rw() const { return _signals[0]; }
-    uint8_t vma() const { return _signals[1]; }
-
-    uint8_t &rw() { return _signals[0]; }
-    uint8_t &vma() { return _signals[1]; }
+    uint8_t cntl() const { return _signals[0]; }
+    uint8_t &cntl() { return _signals[0]; }
 };
 }  // namespace mc6800
 }  // namespace debugger

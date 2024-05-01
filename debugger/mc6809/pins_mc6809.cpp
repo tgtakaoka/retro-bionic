@@ -41,20 +41,20 @@ namespace {
 // tPCS: min   200 ns ; reset_hi to q_lo
 constexpr auto extal_hi_ns = 105;   // 125
 constexpr auto extal_lo_ns = 89;    // 125
-constexpr auto c1_lo_ns = 58;       // 125
+constexpr auto c1_lo_ns = 28;       // 125
 constexpr auto c1_hi_ns = 66;       // 125
-constexpr auto c2_lo_ns = 41;       // 125
-constexpr auto c2_hi_ns = 28;       // 125
-constexpr auto c3_lo_write = 70;    // 125
-constexpr auto c3_hi_write = 75;    // 125
+constexpr auto c2_lo_ns = 50;       // 125
+constexpr auto c2_hi_ns = 76;       // 125
+constexpr auto c3_lo_write = 72;    // 125
+constexpr auto c3_hi_write = 78;    // 125
 constexpr auto c4_lo_write = 1;     // 125
-constexpr auto c4_lo_capture = 75;  // 125
-constexpr auto c4_hi_write = 45;    // 125
-constexpr auto c3_lo_read = 62;     // 125
+constexpr auto c4_lo_capture = 85;  // 125
+constexpr auto c4_hi_write = 52;    // 125
+constexpr auto c3_lo_read = 70;     // 125
 constexpr auto c3_hi_read = 7;      // 125
-constexpr auto c3_hi_inject = 87;   // 125
-constexpr auto c4_lo_read = 55;     // 125
-constexpr auto c4_hi_read = 47;     // 125
+constexpr auto c3_hi_inject = 80;   // 125
+constexpr auto c4_lo_read = 50;     // 125
+constexpr auto c4_hi_read = 52;     // 125
 
 inline void extal_hi() __attribute__((always_inline));
 inline void extal_hi() {
@@ -92,7 +92,6 @@ void negate_irq() {
     digitalWriteFast(PIN_IRQ, HIGH);
 }
 
-void assert_firq() __attribute__((unused));
 void assert_firq() {
     digitalWriteFast(PIN_FIRQ, LOW);
 }
@@ -211,8 +210,8 @@ void PinsMc6809::resetPins() {
 
 void PinsMc6809::reset() {
     resetPins();
-
     Signals::resetCycles();
+
     while (!cycle()->vector())
         ;
     // LSB of reset vector;
@@ -281,8 +280,8 @@ Signals *PinsMc6809::rawCycle() const {
         Signals::nextCycle();
         delayNanoseconds(c4_hi_read);
     }
+    s->getControl();
     // C1L
-    s->clearControl();
     extal_lo();
 
     return s;

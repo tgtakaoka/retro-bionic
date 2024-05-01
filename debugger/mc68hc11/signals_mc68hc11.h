@@ -9,11 +9,8 @@ namespace mc68hc11 {
 struct Signals final : SignalsBase<Signals, mc6800::Signals> {
     void getAddr();
     void getDirection();
-    void getLoadInstruction();
+    void getControl();
     void getData();
-
-private:
-    uint8_t &lir() { return _signals[2]; }
 };
 
 }  // namespace mc68hc11

@@ -218,7 +218,7 @@ print_char:
         bcc     next_x
         tsta
         bne     next_x
-        swi
+        swi                     ; halt to system
 next_x:
         inc     vX              ; X+=1
         ldaa    vX

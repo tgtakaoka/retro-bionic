@@ -39,15 +39,12 @@
 #define PIN_ADDR14 26  /* P6.30 */
 #define PIN_ADDR15 27  /* P6.31 */
 #define PIN_AS 2       /* P9.04 */
-#define PIN_RW 3       /* P9.05 */
-#define PIN_IRQ1 4     /* P9.06 */
-#define PIN_NMI 33     /* P9.07 */
+#define PIN_PC0 4      /* P9.06 */
+#define PIN_PC1 33     /* P9.07 */
 #define PIN_SCITXD 0   /* P6.03 */
 #define PIN_SCIRXD 1   /* P6.02 */
 #define PIN_EXTAL 5    /* P9.08 */
 #define PIN_E 29       /* P9.31 */
-#define PIN_PC0 6      /* P7.10 */
-#define PIN_PC1 9      /* P7.11 */
 #define PIN_PC2 32     /* P7.12 */
 #define PIN_RESET 28   /* P8.18 */
 #define PIN_XTAL 30    /* P8.23 */
@@ -67,8 +64,6 @@ struct PinsMc6801 final : PinsMc6800 {
         : PinsMc6800(regs, inst, mems, devs) {}
 
     void reset() override;
-    void assertInt(uint8_t name) override;
-    void negateInt(uint8_t name) override;
 
     void idle() override;
 
@@ -76,8 +71,6 @@ protected:
     mc6800::Signals *cycle() override;
     mc6800::Signals *rawCycle() override;
     bool nonVmaAfteContextSave() const override { return !isHd63(); };
-    void assertNmi() const override;
-    void negateNmi() const override;
 
     bool isHd63() const;
 };

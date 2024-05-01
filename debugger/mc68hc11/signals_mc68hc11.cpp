@@ -8,15 +8,14 @@ namespace mc68hc11 {
 
 void Signals::getAddr() {
     addr = busRead(ADDR);
-    vma() = 1;
 }
 
 void Signals::getDirection() {
-    rw() = digitalReadFast(PIN_RW);
+    cntl() = busRead(CNTL) | CNTL_VMA;
 }
 
-void Signals::getLoadInstruction() {
-    lir() = digitalReadFast(PIN_LIR) == LOW;
+void Signals::getControl() {
+    fetch() = digitalReadFast(PIN_LIR) == LOW;
 }
 
 void Signals::getData() {

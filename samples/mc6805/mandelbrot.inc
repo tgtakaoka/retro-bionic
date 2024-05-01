@@ -269,7 +269,8 @@ print_char:
         jsr     getchar
         bcc     next_x
         tsta
-        beq     mandelbrot_end  ; break
+        bne     next_x
+        swi                     ; halt to system
 next_x: 
         inc     vX              ; X+=1
         lda     vX

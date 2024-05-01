@@ -53,20 +53,20 @@ namespace {
 //  tPCS: min  200 ns; reset_hi to e_lo
 constexpr auto extal_hi_ns = 108;   // 125
 constexpr auto extal_lo_ns = 108;   // 125
-constexpr auto c1_lo_ns = 100;      // 125
-constexpr auto c1_hi_ns = 94;       // 125
-constexpr auto c2_lo_ns = 77;       // 125
-constexpr auto c2_hi_ns = 64;       // 125
+constexpr auto c1_lo_ns = 1;        // 125
+constexpr auto c1_hi_ns = 93;       // 125
+constexpr auto c2_lo_ns = 80;       // 125
+constexpr auto c2_hi_ns = 80;       // 125
 constexpr auto c3_lo_read = 1;      // 125
-constexpr auto c3_lo_inject = 73;   // 125
-constexpr auto c3_hi_read = 73;     // 125
-constexpr auto c4_lo_read = 80;     // 125
+constexpr auto c3_lo_inject = 84;   // 125
+constexpr auto c3_hi_read = 84;     // 125
+constexpr auto c4_lo_read = 68;     // 125
 constexpr auto c4_hi_read = 49;     // 125
-constexpr auto c3_lo_write = 85;    // 125
+constexpr auto c3_lo_write = 83;    // 125
 constexpr auto c3_hi_write = 80;    // 125
 constexpr auto c4_lo_write = 1;     // 125
-constexpr auto c4_lo_capture = 92;  // 125
-constexpr auto c4_hi_write = 49;    // 125
+constexpr auto c4_lo_capture = 87;  // 125
+constexpr auto c4_hi_write = 52;    // 125
 constexpr auto tpcs_ns = 200;
 
 inline void extal_hi() __attribute__((always_inline));
@@ -91,44 +91,6 @@ uint8_t clock_e() {
     return digitalReadFast(PIN_E);
 }
 
-void assert_nmi() {
-    digitalWriteFast(PIN_NMI, LOW);
-    // #NMI is connected to P21/PC1 for LILBUG trace.
-    pinMode(PIN_NMI, OUTPUT_OPENDRAIN);
-}
-
-void negate_nmi() {
-    digitalWriteFast(PIN_NMI, HIGH);
-    // #NMI is connected to P21/PC1 for LILBUG trace.
-    pinMode(PIN_NMI, INPUT_PULLUP);
-}
-
-void assert_irq1() {
-    digitalWriteFast(PIN_IRQ1, LOW);
-}
-
-void negate_irq1() {
-    digitalWriteFast(PIN_IRQ1, HIGH);
-}
-
-void assert_reset() {
-    // Drive RESET condition
-    digitalWriteFast(PIN_RESET, LOW);
-    negate_nmi();
-    negate_irq1();
-
-    // Toggle reset to put MC6803/HD6303 in reset
-    clock_cycle();
-    clock_cycle();
-    clock_cycle();
-    clock_cycle();
-}
-
-void negate_reset() {
-    // Release RESET conditions
-    digitalWriteFast(PIN_RESET, HIGH);
-}
-
 inline void inject_mode_pin(uint8_t pin, uint8_t val) {
     if (val) {
         pinMode(pin, INPUT_PULLUP);
@@ -145,7 +107,6 @@ void inject_mode(uint8_t mode) {
 }
 
 void release_mode() {
-    // #NMI is connected to P21/PC1 for LILBUG trace.
     pinMode(PIN_PC2, INPUT_PULLUP);
     pinMode(PIN_PC1, INPUT_PULLUP);
     pinMode(PIN_PC0, INPUT_PULLUP);
@@ -153,19 +114,16 @@ void release_mode() {
 
 const uint8_t PINS_LOW[] = {
         PIN_EXTAL,
-        PIN_RESET,
-};
-
-const uint8_t PINS_HIGH[] = {
-        PIN_IRQ1,
 };
 
 const uint8_t PINS_OPENDRAIN[] = {
-        // #NMI is connected to P21/PC1 for LILBUG trace.
-        PIN_NMI,
+        PIN_RESET,
 };
 
 const uint8_t PINS_PULLUP[] = {
+        // #NMI may be connected to P21/PC1 for LILBUG trace.
+        PIN_NMI,
+        PIN_IRQ,  // IRQ1
         PIN_XTAL,
         PIN_PC0,
         PIN_PC1,
@@ -198,8 +156,7 @@ const uint8_t PINS_INPUT[] = {
 
 void PinsMc6801::reset() {
     pinsMode(PINS_LOW, sizeof(PINS_LOW), OUTPUT, LOW);
-    pinsMode(PINS_HIGH, sizeof(PINS_HIGH), OUTPUT, HIGH);
-    pinsMode(PINS_OPENDRAIN, sizeof(PINS_OPENDRAIN), OUTPUT_OPENDRAIN);
+    pinsMode(PINS_OPENDRAIN, sizeof(PINS_OPENDRAIN), OUTPUT_OPENDRAIN, LOW);
     pinsMode(PINS_PULLUP, sizeof(PINS_PULLUP), INPUT_PULLUP);
     pinsMode(PINS_INPUT, sizeof(PINS_INPUT), INPUT);
 
@@ -208,12 +165,16 @@ void PinsMc6801::reset() {
     _mems->raw_write16(InstMc6800::VEC_RESET, 0x8000);
 
     assert_reset();
+    // Toggle reset to put MC6803/HD6303 in reset
+    clock_cycle();
+    clock_cycle();
+    clock_cycle();
+    clock_cycle();
     // Synchronize clock output and E clock input.
     while (clock_e() == LOW)
         clock_cycle();
     while (clock_e() != LOW)
         clock_cycle();
-    Signals::resetCycles();
     // #RESET Low Pulse Width: min 3 E cycles
     cycle();
     // Mode Programming Setup Time: min 2 E cycles
@@ -222,6 +183,7 @@ void PinsMc6801::reset() {
     cycle();
     delayNanoseconds(tpcs_ns);
     negate_reset();
+    Signals::resetCycles();
     // Mode Programming Hold Time: min MC6803:100ns HD6303:150ns
     release_mode();
     if (isHd63())
@@ -250,27 +212,27 @@ mc6800::Signals *PinsMc6801::rawCycle() {
     busMode(AD, INPUT);
     // c1
     extal_hi();
-    auto *signals = Signals::put();
+    auto s = Signals::put();
     delayNanoseconds(c1_hi_ns);
     // c2
     extal_lo();
     delayNanoseconds(c2_lo_ns);
-    signals->getAddr();
+    s->getAddr();
     extal_hi();
     delayNanoseconds(c2_hi_ns);
-    signals->getDirection();
-    // c3
+    s->getDirection();
+    //  c3
     extal_lo();
-    if (signals->write()) {
+    if (s->write()) {
         ++_writes;
         delayNanoseconds(c3_lo_write);
         extal_hi();
         delayNanoseconds(c3_hi_write);
-        signals->getData();
+        s->getData();
         // c4
         extal_lo();
-        if (signals->writeMemory()) {
-            _mems->write(signals->addr, signals->data);
+        if (s->writeMemory()) {
+            _mems->write(s->addr, s->data);
             if (c4_lo_write)
                 delayNanoseconds(c4_lo_write);
         } else {
@@ -280,8 +242,8 @@ mc6800::Signals *PinsMc6801::rawCycle() {
         Signals::nextCycle();
         delayNanoseconds(c4_hi_write);
     } else {
-        if (signals->readMemory()) {
-            signals->data = _mems->read(signals->addr);
+        if (s->readMemory()) {
+            s->data = _mems->read(s->addr);
             if (c3_lo_read)
                 delayNanoseconds(c3_lo_read);
         } else {
@@ -292,7 +254,7 @@ mc6800::Signals *PinsMc6801::rawCycle() {
         busMode(AD, OUTPUT);
         // c4
         extal_lo();
-        busWrite(AD, signals->data);
+        busWrite(AD, s->data);
         delayNanoseconds(c4_lo_read);
         extal_hi();
         _writes = 0;
@@ -302,7 +264,7 @@ mc6800::Signals *PinsMc6801::rawCycle() {
     // c1
     extal_lo();
 
-    return signals;
+    return s;
 }
 
 void PinsMc6801::idle() {
@@ -312,24 +274,6 @@ void PinsMc6801::idle() {
     injectCycle(InstMc6800::BRA_HERE);
     injectCycle(0);
     Signals::discard(s);
-}
-
-void PinsMc6801::assertNmi() const {
-    assert_nmi();
-}
-
-void PinsMc6801::negateNmi() const {
-    negate_nmi();
-}
-
-void PinsMc6801::assertInt(uint8_t name) {
-    (void)name;
-    assert_irq1();
-}
-
-void PinsMc6801::negateInt(uint8_t name) {
-    (void)name;
-    negate_irq1();
 }
 
 bool PinsMc6801::isHd63() const {

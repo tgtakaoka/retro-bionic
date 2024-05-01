@@ -5,7 +5,6 @@
 #include "inst_mc6800.h"
 #include "mems_mc6802.h"
 #include "regs_mc6802.h"
-#include "signals_mc6802.h"
 
 namespace debugger {
 namespace mc6802 {
@@ -44,24 +43,24 @@ namespace {
 // tPCS: min  200 ns; reset_hi to e_lo
 constexpr auto extal_hi_ns = 108;   // 125
 constexpr auto extal_lo_ns = 108;   // 125
-constexpr auto c1_hi_ns = 57;       // 125
-constexpr auto c1_lo_ns = 67;       // 125
-constexpr auto c2_hi_ns = 48;       // 125
-constexpr auto c2_lo_ns = 51;       // 125
-constexpr auto c3_hi_novma = 87;    // 125
-constexpr auto c3_lo_novma = 95;    // 125
-constexpr auto c4_hi_novma = 60;    // 125
-constexpr auto c4_lo_novma = 102;   // 125
+constexpr auto c1_hi_ns = 7;        // 125
+constexpr auto c1_lo_ns = 71;       // 125
+constexpr auto c2_hi_ns = 32;       // 125
+constexpr auto c2_lo_ns = 77;       // 125
+constexpr auto c3_hi_novma = 81;    // 125
+constexpr auto c3_lo_novma = 100;   // 125
+constexpr auto c4_hi_novma = 51;    // 125
+constexpr auto c4_lo_novma = 100;   // 125
 constexpr auto c3_hi_read = 0;      // 125
-constexpr auto c3_hi_inject = 45;   // 125
-constexpr auto c3_lo_read = 46;     // 125
-constexpr auto c4_hi_read = 46;     // 125
-constexpr auto c4_lo_read = 96;     // 125
-constexpr auto c3_hi_write = 93;    // 125
-constexpr auto c3_lo_write = 88;    // 125
+constexpr auto c3_hi_inject = 43;   // 125
+constexpr auto c3_lo_read = 44;     // 125
+constexpr auto c4_hi_read = 44;     // 125
+constexpr auto c4_lo_read = 94;     // 125
+constexpr auto c3_hi_write = 91;    // 125
+constexpr auto c3_lo_write = 87;    // 125
 constexpr auto c4_hi_write = 50;    // 125
 constexpr auto c4_lo_write = 0;     // 125
-constexpr auto c4_lo_capture = 67;  // 125
+constexpr auto c4_lo_capture = 54;  // 125
 constexpr auto tpcs_ns = 200;
 
 inline void extal_hi() __attribute__((always_inline));
@@ -86,28 +85,6 @@ uint8_t clock_e() {
     return digitalReadFast(PIN_E);
 }
 
-void assert_nmi() {
-    digitalWriteFast(PIN_NMI, LOW);
-}
-
-void negate_nmi() {
-    digitalWriteFast(PIN_NMI, HIGH);
-}
-
-void assert_irq() {
-    digitalWriteFast(PIN_IRQ, LOW);
-}
-
-void negate_irq() {
-    digitalWriteFast(PIN_IRQ, HIGH);
-}
-
-// TODO: Utilize #HALT to Pins.step()
-void assert_halt() __attribute__((unused));
-void assert_halt() {
-    digitalWriteFast(PIN_HALT, LOW);
-}
-
 void negate_halt() {
     digitalWriteFast(PIN_HALT, HIGH);
 }
@@ -116,29 +93,15 @@ void negate_mr() {
     digitalWriteFast(PIN_MR, HIGH);
 }
 
-void assert_reset() {
-    // Drive RESET condition
-    digitalWriteFast(PIN_RESET, LOW);
-    negate_halt();
-    negate_nmi();
-    negate_irq();
-    negate_mr();
-}
-
-void negate_reset() {
-    // Release RESET conditions
-    digitalWriteFast(PIN_RESET, HIGH);
-}
-
-const uint8_t PINS_LOW[] = {
+const uint8_t PINS_OPENDRAIN[] = {
         PIN_RESET,
+        PIN_IRQ,
+        PIN_NMI,
 };
 
 const uint8_t PINS_HIGH[] = {
         PIN_EXTAL,
         PIN_HALT,
-        PIN_IRQ,
-        PIN_NMI,
         PIN_MR,
 };
 
@@ -180,7 +143,7 @@ const uint8_t PINS_INPUT[] = {
 }  // namespace
 
 void PinsMc6802::reset() {
-    pinsMode(PINS_LOW, sizeof(PINS_LOW), OUTPUT, LOW);
+    pinsMode(PINS_OPENDRAIN, sizeof(PINS_OPENDRAIN), OUTPUT_OPENDRAIN, LOW);
     pinsMode(PINS_HIGH, sizeof(PINS_HIGH), OUTPUT, HIGH);
     pinsMode(PINS_PULLUP, sizeof(PINS_PULLUP), INPUT_PULLUP);
     pinsMode(PINS_INPUT, sizeof(PINS_INPUT), INPUT);
@@ -190,6 +153,8 @@ void PinsMc6802::reset() {
     _mems->raw_write16(InstMc6800::VEC_RESET, 0x8000);
 
     assert_reset();
+    negate_halt();
+    negate_mr();
     for (auto i = 0; i < 3; ++i)
         extal_cycle();
     // Synchronize clock output and E clock input.
@@ -205,10 +170,10 @@ void PinsMc6802::reset() {
     // #cycles.
     for (auto i = 0; i < 3; i++)
         cycle();
-    Signals::resetCycles();
     cycle();
     delayNanoseconds(tpcs_ns);
     negate_reset();
+    Signals::resetCycles();
     cycle();
     // Read Reset vector
     cycle();
@@ -232,19 +197,19 @@ mc6800::Signals *PinsMc6802::rawCycle() {
     // c1
     extal_lo();
     busMode(D, INPUT);
-    auto *signals = Signals::put();
+    auto s = Signals::put();
     delayNanoseconds(c1_lo_ns);
     // c2
     extal_hi();
     delayNanoseconds(c2_hi_ns);
-    signals->getAddr();
+    s->getAddr();
     extal_lo();
-    signals->getDirection();
+    s->getDirection();
     delayNanoseconds(c2_lo_ns);
     // c3
     extal_hi();
 
-    if (!signals->valid()) {
+    if (!s->valid()) {
         delayNanoseconds(c3_hi_novma);
         extal_lo();
         delayNanoseconds(c3_lo_novma);
@@ -254,18 +219,18 @@ mc6800::Signals *PinsMc6802::rawCycle() {
         delayNanoseconds(c4_hi_novma);
         extal_lo();
         delayNanoseconds(c4_lo_novma);
-    } else if (signals->read() && !Memory.is_internal(signals->addr)) {
-        if (signals->readMemory()) {
-            signals->data = _mems->read(signals->addr);
+    } else if (s->read() && !Memory.is_internal(s->addr)) {
+        if (s->readMemory()) {
+            s->data = _mems->read(s->addr);
             if (c3_hi_read)
                 delayNanoseconds(c3_hi_read);
         } else {
-            // inject data from signals->data
+            // inject data from s->data
             delayNanoseconds(c3_hi_inject);
         }
         extal_lo();
         busMode(D, OUTPUT);
-        busWrite(D, signals->data);
+        busWrite(D, s->data);
         delayNanoseconds(c3_lo_read);
         // c4
         extal_hi();
@@ -277,7 +242,7 @@ mc6800::Signals *PinsMc6802::rawCycle() {
     } else {
         delayNanoseconds(c3_hi_write);
         extal_lo();
-        if (signals->write()) {
+        if (s->write()) {
             ++_writes;
         } else {
             _writes = 0;  // CPU output internal RAM reading to bus
@@ -288,38 +253,20 @@ mc6800::Signals *PinsMc6802::rawCycle() {
         Signals::nextCycle();
         delayNanoseconds(c4_hi_write);
         extal_lo();
-        if (signals->writeMemory()) {
+        if (s->writeMemory()) {
             if (c4_lo_write)
                 delayNanoseconds(c4_lo_write);
-            signals->getData();
-            _mems->write(signals->addr, signals->data);
+            s->getData();
+            _mems->write(s->addr, s->data);
         } else {
             delayNanoseconds(c4_lo_capture);
-            signals->getData();
+            s->getData();
         }
     }
     // c1
     extal_hi();
 
-    return signals;
-}
-
-void PinsMc6802::assertNmi() const {
-    assert_nmi();
-}
-
-void PinsMc6802::negateNmi() const {
-    negate_nmi();
-}
-
-void PinsMc6802::assertInt(uint8_t name) {
-    (void)name;
-    assert_irq();
-}
-
-void PinsMc6802::negateInt(uint8_t name) {
-    (void)name;
-    negate_irq();
+    return s;
 }
 
 }  // namespace mc6802
