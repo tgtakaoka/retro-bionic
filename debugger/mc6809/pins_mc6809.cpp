@@ -405,7 +405,7 @@ reentry:
     cycle();  // non-VMA
     _regs->capture(frame, true);
     if (show) {
-        const auto last = frame->prev(_regs->contextLength() == 14 ? 4 : 3);
+        const auto last = frame->prev(_regs->contextLength() == 14 ? 3 : 2);
         Signals::discard(last);
     }
 }

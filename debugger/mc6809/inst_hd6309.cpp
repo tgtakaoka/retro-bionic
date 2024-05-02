@@ -41,7 +41,7 @@ constexpr const char *const SEQUENCES[/*seq*/] = {
         "1NxxN",                                        // 27
         "123xxk/123xk",                                 // 28
         "123xxXxwWk/123xxwWk",                          // 29
-        "12NN",                                         // 30
+        "12NN/12xN",                                    // 30
         "12xxxxxxN/12xxxN",                             // 31
         "12xxxxN/12xxN",                                // 32
         "12xj",                                         // 33
@@ -400,9 +400,9 @@ constexpr uint8_t P00_TABLE[] = {
         29,  // 17: LBSR      r16    9/7   3 1:2:3:x:x:X:x:w:W:k/1:2:3:x:x:w:W:k
         0,   // 18: -         -      -     -    -
         25,  // 19: DAA       -      2/1   1    1:N:N/1:N
-        30,  // 1A: ORCC      #n8    3     2    1:2:N:N
+        30,  // 1A: ORCC      #n8    3     2    1:2:N:N/1:2:x:N
         0,   // 1B: -         -      -     -    -
-        30,  // 1C: ANDCC     #n8    3     2    1:2:N:N
+        30,  // 1C: ANDCC     #n8    3     2    1:2:N:N/1:2:x:N
         25,  // 1D: SEX       -      2/1   1    1:N:N/1:N
         31,  // 1E: EXG       #n8    8/5   2    1:2:x:x:x:x:x:x:N/1:2:x:x:x:N
         32,  // 1F: TFR       #n8    6/4   2    1:2:x:x:x:x:N/1:2:x:x:N

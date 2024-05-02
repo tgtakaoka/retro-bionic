@@ -73,7 +73,7 @@ BEGIN {
     CYCLES[27]="1NxxN";
     CYCLES[28]="123xxk/123xk";
     CYCLES[29]="123xxXxwWk/123xxwWk";
-    CYCLES[30]="12NN";
+    CYCLES[30]="12NN/12xN";
     CYCLES[31]="12xxxxxxN/12xxxN";
     CYCLES[32]="12xxxxN/12xxN";
     CYCLES[33]="12xj";

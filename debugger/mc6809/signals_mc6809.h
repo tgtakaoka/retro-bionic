@@ -5,7 +5,7 @@
 
 namespace debugger {
 namespace mc6809 {
-    struct Signals : SignalsBase<Signals, mc6800::Signals> {
+struct Signals : SignalsBase<Signals, mc6800::Signals> {
     void getHighAddr();
     void getLowAddr();
     void getDirection();
