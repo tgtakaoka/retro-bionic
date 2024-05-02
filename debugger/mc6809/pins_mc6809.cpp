@@ -490,7 +490,7 @@ bool PinsMc6809::matchAll(Signals *begin, const Signals *end) {
 
 const Signals *PinsMc6809::findFetch(Signals *begin, const Signals *end) {
     const auto cycles = begin->diff(end);
-    const auto limit = cycles < 30 ? cycles : 30;
+    const auto limit = cycles < 40 ? cycles : 40;
     LOG_MATCH(cli.print("@@ findFetch: begin="));
     LOG_MATCH(begin->print());
     LOG_MATCH(cli.print("@@              end="));

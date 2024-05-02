@@ -104,14 +104,14 @@ constexpr const char *const SEQUENCES[/*seq*/] = {
         "123xRxWN/123RxWN",                             // 90
         "12xxxTN",                                      // 91
         "12XxN",                                        // 92
-        "12NZN",                                        // 93
-        "123NZN",                                       // 94
-        "12xRZN",                                       // 95
-        "12xRrZN",                                      // 96
+        "12ZN",                                         // 93
+        "123ZN",                                        // 94
+        "12xRZN/12RZN",                                 // 95
+        "12xRrZN/12RrZN",                               // 96
         "12YRZN",                                       // 97
         "12YRrZN",                                      // 98
-        "123xRZN",                                      // 99
-        "123xRrZN",                                     // 100
+        "123xRZN/123RZN",                               // 99
+        "123xRrZN/123RrZN",                             // 100
 };
 
 constexpr uint8_t IX_TABLE[] = {
@@ -1038,9 +1038,9 @@ constexpr uint8_t P11_TABLE[] = {
         0,   // 8A: -         -      -     -    -
         54,  // 8B: ADDE      #n8    2     2    1:2:N
         55,  // 8C: CMPS      #n16   4/3   3    1:2:3:x:N/1:2:3:N
-        93,  // 8D: DIVD      #n8   24     2    1:2:N:Z:N
-        94,  // 8E: DIVQ      #n16  33     3    1:2:3:N:Z:N
-        94,  // 8F: MULD      #n18  27     2    1:2:3:N:Z:N
+        93,  // 8D: DIVD      #n8   24     2    1:2:Z:N
+        94,  // 8E: DIVQ      #n16  33     3    1:2:3:Z:N
+        94,  // 8F: MULD      #n18  27     2    1:2:3:Z:N
         58,  // 90: SUBE      d8     4/3   2    1:2:x:R:N/1:2:R:N
         58,  // 91: CMPE      d8     4/3   2    1:2:x:R:N/1:2:R:N
         0,   // 92: -         -      -     -    -
@@ -1054,9 +1054,9 @@ constexpr uint8_t P11_TABLE[] = {
         0,   // 9A: -         -      -     -    -
         58,  // 9B: ADDE      d8     4/3   2    1:2:x:R:N/1:2:R:N
         59,  // 9C: CMPS      d8     6/4   2    1:2:x:R:r:x:N/1:2:R:r:N
-        95,  // 9D: DIVD      d8    26/25  2    1:2:x:R:Z:N
-        96,  // 9E: DIVQ      d8    35/34  2    1:2:x:R:r:Z:N
-        96,  // 9F: MULD      d8    29/28  2    1:2:x:R:r:Z:N
+        95,  // 9D: DIVD      d8    26/25  2    1:2:x:R:Z:N/1:2:R:Z:N
+        96,  // 9E: DIVQ      d8    35/34  2    1:2:x:R:r:Z:N/1:2:R:r:Z:N
+        96,  // 9F: MULD      d8    29/28  2    1:2:x:R:r:Z:N/1:2:R:r:Z:N
         64,  // A0: SUBE      ix     4+    2+   1:2:Y:R:N
         64,  // A1: CMPE      ix     4+    2+   1:2:Y:R:N
         0,   // A2: -         -      -     -    -
@@ -1086,9 +1086,9 @@ constexpr uint8_t P11_TABLE[] = {
         0,   // BA: -         -      -     -    -
         70,  // BB: ADDE      a16    5/4   3    1:2:3:x:A:N/1:2:3:A:N
         71,  // BC: CMPS      a16    7/5   3    1:2:3:x:A:a:x:N/1:2:3:A:a:N
-        99,  // BD: DIVD      a16   27/26  3    1:2:3:x:R:Z:N
-        100,  // BE: DIVQ      a16   36/35  3    1:2:3:x:R:r:Z:N
-        100,  // BF: MULD      a16   30/29  3    1:2:3:x:R:r:Z:N
+        99,  // BD: DIVD      a16   27/26  3    1:2:3:x:R:Z:N/1:2:3:R:Z:N
+        100,  // BE: DIVQ      a16   36/35  3    1:2:3:x:R:r:Z:N/1:2:3:R:r:Z:N
+        100,  // BF: MULD      a16   30/29  3    1:2:3:x:R:r:Z:N/1:2:3:R:r:Z:N
         54,   // C0: SUBF      #n8    2     2    1:2:N
         54,   // C1: CMPF      #n8    2     2    1:2:N
         0,    // C2: -         -      -     -    -
