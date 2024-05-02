@@ -120,6 +120,8 @@ uint32_t Mems::disassemble(uint32_t addr, uint8_t numInsn) const {
                 cli.print('\'');
             }
             cli.println();
+            if (insn.getError() == libasm::NO_MEMORY)
+                break;
         }
         addr += insn.length();
         ++num;

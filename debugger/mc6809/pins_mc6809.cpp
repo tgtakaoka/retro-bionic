@@ -143,10 +143,6 @@ constexpr uint8_t PINS_HIGH[] = {
         PIN_BREQ,
 };
 
-constexpr uint8_t PINS_PULLUP[] = {
-        PIN_XTAL,
-};
-
 constexpr uint8_t PINS_INPUT[] = {
         PIN_D0,
         PIN_D1,
@@ -177,6 +173,7 @@ constexpr uint8_t PINS_INPUT[] = {
         PIN_E,
         PIN_BS,
         PIN_BA,
+        PIN_XTAL,
 };
 
 inline void extal_cycle() {
@@ -191,7 +188,6 @@ inline void extal_cycle() {
 void PinsMc6809::resetPins() {
     pinsMode(PINS_LOW, sizeof(PINS_LOW), OUTPUT, LOW);
     pinsMode(PINS_HIGH, sizeof(PINS_HIGH), OUTPUT, HIGH);
-    pinsMode(PINS_PULLUP, sizeof(PINS_PULLUP), INPUT_PULLUP);
     pinsMode(PINS_INPUT, sizeof(PINS_INPUT), INPUT);
 
     assert_reset();
@@ -208,8 +204,8 @@ void PinsMc6809::resetPins() {
     // C1L
     extal_lo();
     // At least one #RESET cycle.
-    cycle();
-    cycle();
+    for (auto i = 0; i < 3; ++i)
+        cycle();
     negate_reset();
 }
 
@@ -233,29 +229,29 @@ Signals *PinsMc6809::rawCycle() const {
     // C1H
     extal_hi();
     busMode(D, INPUT);
-    auto signals = Signals::put();
+    auto s = Signals::put();
     delayNanoseconds(c1_hi_ns);
     // C2L
     extal_lo();
     delayNanoseconds(c2_lo_ns);
-    signals->getHighAddr();
+    s->getHighAddr();
     // C2H
     extal_hi();
-    signals->getDirection();
+    s->getDirection();
     delayNanoseconds(c2_hi_ns);
     // C3L
     extal_lo();
-    signals->getLowAddr();
-    if (signals->write()) {
+    s->getLowAddr();
+    if (s->write()) {
         delayNanoseconds(c3_lo_write);
         // C3H
         extal_hi();
-        signals->getData();
+        s->getData();
         delayNanoseconds(c3_hi_write);
         // C4L
         extal_lo();
-        if (signals->writeMemory()) {
-            _mems->write(signals->addr, signals->data);
+        if (s->writeMemory()) {
+            _mems->write(s->addr, s->data);
             if (c4_lo_write)
                 delayNanoseconds(c4_lo_write);
         } else {
@@ -269,8 +265,8 @@ Signals *PinsMc6809::rawCycle() const {
         delayNanoseconds(c3_lo_read);
         // C3H
         extal_hi();
-        if (signals->readMemory()) {
-            signals->data = _mems->read(signals->addr);
+        if (s->readMemory()) {
+            s->data = _mems->read(s->addr);
             delayNanoseconds(c3_hi_read);
         } else {
             delayNanoseconds(c3_hi_inject);
@@ -278,7 +274,7 @@ Signals *PinsMc6809::rawCycle() const {
         // C4L
         extal_lo();
         busMode(D, OUTPUT);
-        busWrite(D, signals->data);
+        busWrite(D, s->data);
         delayNanoseconds(c4_lo_read);
         // C4H
         extal_hi();
@@ -286,10 +282,10 @@ Signals *PinsMc6809::rawCycle() const {
         delayNanoseconds(c4_hi_read);
     }
     // C1L
-    signals->clearControl();
+    s->clearControl();
     extal_lo();
 
-    return signals;
+    return s;
 }
 
 Signals *PinsMc6809::cycle() const {
@@ -329,18 +325,17 @@ uint8_t PinsMc6809::captureContext(uint8_t *context, uint16_t &sp) {
     injectReads(&SWI, sizeof(SWI));
     uint16_t pc = 0;
     uint8_t cap = 0;
-    auto s = Signals::put();
-    while (!s->vector()) {
-        s->capture();
-        s->inject(hi(pc));
-        s = cycle();
+    const Signals *s;
+    do {
+        s = Signals::put()->inject(hi(pc))->capture();
+        cycle();
         if (s->write()) {
             if (cap == 0)
                 sp = s->addr;
             context[cap++] = s->data;
             pc = uint16(context[1], context[0]);
         }
-    }
+    } while (!s->vector());
     Signals::put()->inject(lo(pc));
     cycle();  // SWI lo(vector)
     cycle();  // non-VMA

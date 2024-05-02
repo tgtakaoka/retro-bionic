@@ -44,8 +44,14 @@ stack:  equ     *-1             ; MC6800's SP is post-decrement/pre-increment
         org     VEC_FIRQ
         fdb     isr_firq
 
+        org     VEC_IRQ
+        fdb     isr_irq
+
         org     VEC_SWI
         fdb     VEC_SWI         ; for halt to system
+
+        org     VEC_NMI
+        fdb     isr_nmi
 
         org     VEC_RESET
         fdb     main
@@ -68,11 +74,10 @@ main:
         sta     ACIA+2          ; set #FIRQ name for MC6805 emulator
         andcc   #~CC_FIRQ       ; Clear FIRQ mask
 
+loop:
         jsr     mandelbrot
         jsr     newline
-wait:   tst     tx_queue
-        bne     wait
-        swi
+        bra     loop
 
 ;;; Get character
 ;;; @return A
@@ -135,3 +140,9 @@ isr_firq_send_empty:
         sta     ACIA_control    ; disable Tx interrupt
         puls    a,b,x
         rti
+
+isr_irq:
+        swi
+
+isr_nmi:
+        swi

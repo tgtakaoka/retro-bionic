@@ -58,11 +58,10 @@ main:
         sta     ACIA+2          ; set #FIRQ name for MC6805 emulator
         andcc   #~CC_FIRQ       ; Clear FIRQ mask
 
+loop:
         jsr     mandelbrot
         jsr     newline
-wait:   tst     tx_queue        ; tx queue len
-        bne     wait
-        swi
+        bra     loop
 
 ;;; Get character
 ;;; @return A

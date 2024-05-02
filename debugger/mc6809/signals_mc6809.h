@@ -15,9 +15,7 @@ struct Signals : SignalsBase<Signals, mc6800::Signals> {
 
     bool vector() const { return status() == S_VEC; }
     uint8_t lic() const { return _signals[4]; }
-    uint8_t avma() const { return _signals[5]; }
     uint8_t &lic() { return _signals[4]; }
-    uint8_t &avma() { return _signals[5]; }
 
 protected:
     enum Status : uint8_t {

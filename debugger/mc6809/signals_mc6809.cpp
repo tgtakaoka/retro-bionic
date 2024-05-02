@@ -25,7 +25,6 @@ void Signals::getDirection() {
 
 void Signals::clearControl() {
     lic() = 0;
-    avma() = 0;
     vma() = 1;
 }
 

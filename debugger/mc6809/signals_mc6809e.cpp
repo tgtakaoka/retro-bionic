@@ -7,7 +7,6 @@ namespace mc6809e {
 
 void Signals::getControl() {
     lic() = digitalReadFast(PIN_LIC);
-    avma() = digitalReadFast(PIN_AVMA);
     vma() = 1;
 }
 

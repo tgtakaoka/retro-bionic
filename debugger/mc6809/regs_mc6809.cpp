@@ -23,7 +23,7 @@ namespace mc6809 {
 
 SoftwareType RegsMc6809::checkSoftwareType() {
     static const uint8_t DETECT_6309[] = {
-            0x5F, 0x10,        // CLRB
+            0x5F, 0x10,        // CLRB            ; 1:N
             0x10, 0x43, 0xF7,  // COMD  on HD6309 ; 1:2:N
                                // NOP   on MC6809 ; 1:x:x
             0xF7, 0x80, 0x00,  // STB  $8000      ; 1:2:3:B

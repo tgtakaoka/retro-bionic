@@ -67,6 +67,10 @@ inline void c4_clock() {
     digitalWriteFast(PIN_Q, LOW);
 }
 
+inline auto signal_avma() {
+    return digitalReadFast(PIN_AVMA);
+}
+
 void negate_irq() {
     digitalWriteFast(PIN_IRQ, HIGH);
 }
@@ -158,46 +162,45 @@ void PinsMc6809E::resetPins() {
 
     assert_reset();
     // At least one #RESET cycle.
-    for (auto i = 0; i < 3; i++)
+    for (auto i = 0; i < 5; i++)
         cycle();
-    cycle();
     negate_reset();
 }
 
 mc6809::Signals *PinsMc6809E::rawCycle() const {
-    static uint8_t vma = LOW;
+    static uint8_t vma_next = LOW;
     // c1
     busMode(D, INPUT);
-    auto signals = Signals::put();
+    auto s = Signals::put();
     // c2
     c2_clock();
     delayNanoseconds(c2_ns);
-    signals->getDirection();
-    signals->getHighAddr();
+    s->getDirection();
+    s->getHighAddr();
     // c3
     c3_clock();
-    signals->getLowAddr();
-    if (vma == LOW) {
+    s->getLowAddr();
+    if (vma_next == LOW) {
         delayNanoseconds(c3_novma);
         // c4
         c4_clock();
         Signals::nextCycle();
         delayNanoseconds(c4_novma);
-    } else if (signals->write()) {
+    } else if (s->write()) {
         delayNanoseconds(c3_write);
-        signals->getData();
+        s->getData();
         // c4
         c4_clock();
-        if (signals->writeMemory()) {
-            _mems->write(signals->addr, signals->data);
+        if (s->writeMemory()) {
+            _mems->write(s->addr, s->data);
             delayNanoseconds(c4_write);
         } else {
             delayNanoseconds(c4_capture);
         }
         Signals::nextCycle();
     } else {
-        if (signals->readMemory()) {
-            signals->data = _mems->read(signals->addr);
+        if (s->readMemory()) {
+            s->data = _mems->read(s->addr);
             delayNanoseconds(c3_read);
         } else {
             delayNanoseconds(c3_inject);
@@ -205,16 +208,16 @@ mc6809::Signals *PinsMc6809E::rawCycle() const {
         // c4
         c4_clock();
         busMode(D, OUTPUT);
-        busWrite(D, signals->data);
+        busWrite(D, s->data);
         Signals::nextCycle();
         delayNanoseconds(c4_read);
     }
+    s->getControl();
+    vma_next = signal_avma();
     // c1
-    signals->getControl();
     c1_clock();
-    vma = signals->avma();
 
-    return signals;
+    return s;
 }
 
 mc6809::Signals *PinsMc6809E::cycle() const {
