@@ -315,7 +315,7 @@ void PinsF3850::setBreakInst(uint32_t addr) const {
     Memory.put_inst(addr, InstF3850::BREAK);
 }
 
-void PinsF3850::printCycles() const {
+void PinsF3850::printCycles() {
     const auto g = Signals::get();
     const auto cycles = g->diff(Signals::put());
     for (auto i = 0; i < cycles; ++i) {

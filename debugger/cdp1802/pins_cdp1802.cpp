@@ -431,7 +431,7 @@ void PinsCdp1802::setBreakInst(uint32_t addr) const {
     Memory.put_inst(addr, InstCdp1802::IDL);
 }
 
-void PinsCdp1802::printCycles() const {
+void PinsCdp1802::printCycles() {
     const auto g = Signals::get();
     const auto cycles = g->diff(Signals::put());
     for (auto i = 0; i < cycles; ++i) {

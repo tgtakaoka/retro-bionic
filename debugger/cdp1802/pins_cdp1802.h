@@ -74,13 +74,15 @@ struct PinsCdp1802 final : Pins {
     void run() override;
     void assertInt(uint8_t name) override;
     void negateInt(uint8_t name) override;
-    void setBreakInst(uint32_t addr) const override;
+    void printCycles() override;
 
     void execInst(const uint8_t *inst, uint8_t len);
     uint8_t captureWrites(const uint8_t *inst, uint8_t len, uint16_t *addr,
             uint8_t *buf, uint8_t max);
 
 private:
+    void setBreakInst(uint32_t addr) const override;
+
     friend struct RegsCdp1802;
     Signals *rawPrepareCycle();
     Signals *prepareCycle();
@@ -94,7 +96,6 @@ private:
             uint8_t *buf, uint8_t max);
     bool skip(uint8_t inst);
 
-    void printCycles() const;
     void disassembleCycles() const;
 };
 

@@ -121,7 +121,7 @@ void PinsMc6805::setBreakInst(uint32_t addr) const {
     _mems->put_inst(addr, InstMc6805::SWI);
 }
 
-void PinsMc6805::printCycles() const {
+void PinsMc6805::printCycles() {
     const auto g = Signals::get();
     const auto cycles = g->diff(currCycle());
     for (auto i = 0; i < cycles; i++) {

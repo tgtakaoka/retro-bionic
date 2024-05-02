@@ -40,6 +40,7 @@ struct NullPins final : Pins {
     void run() override {}
     void assertInt(uint8_t name) override { (void)name; }
     void negateInt(uint8_t name) override { (void)name; }
+    void printCycles() override {}
     void setBreakInst(uint32_t addr) const override { (void)addr; }
 } Pins;
 

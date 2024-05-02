@@ -69,16 +69,14 @@ struct PinsZ8 : Pins {
     bool step(bool show) override;
     void run() override;
     void idle() override;
-
     void assertInt(uint8_t name) override;
     void negateInt(uint8_t name) override;
+    void printCycles() override;
 
     Signals *cycle(uint8_t insn);
     void execInst(const uint8_t *inst, uint8_t len);
     void captureWrites(const uint8_t *inst, uint8_t len, uint16_t *addr,
             uint8_t *buf, uint8_t max);
-
-    void setBreakInst(uint32_t addr) const override;
 
 protected:
     PinsZ8(RegsZ8 &regs, const InstZ8 &inst, Mems &mems, Devs &devs)
@@ -90,6 +88,7 @@ protected:
     Devs &_devs;
     uint8_t _writes;
 
+    void setBreakInst(uint32_t addr) const override;
     virtual void xtal1_cycle() const = 0;
 
     Signals *prepareCycle();
@@ -102,7 +101,6 @@ protected:
     void execute(const uint8_t *inst, uint8_t len, uint16_t *addr, uint8_t *buf,
             uint8_t max);
 
-    void printCycles();
     void disassembleCycles();
 };
 

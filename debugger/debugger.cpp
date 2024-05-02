@@ -52,9 +52,9 @@ constexpr char USAGE_ROM[] = " roM";
 
 void usage() {
     cli.println();
-    cli.print(F("* Bionic"));
+    cli.print("* Bionic");
     Target::printIdentity();
-    cli.print(F(" * "));
+    cli.print(" * ");
     cli.println(F(VERSION_TEXT));
     cli.print(USAGE);
     if (Debugger.mems().hasRomArea())
@@ -68,7 +68,7 @@ void commandHandler(char c, uintptr_t extra) {
 }
 
 void printPrompt() {
-    cli.print(F("> "));
+    cli.print("> ");
     cli.readLetter(commandHandler, 0);
 }
 
@@ -96,7 +96,7 @@ void memoryDump(uint32_t addr, uint16_t len, const char *space = nullptr) {
         for (auto i = 0; i < 16; i++) {
             const auto a = addr + i;
             if (a < start || a >= end) {
-                cli.print(F("   "));
+                cli.print("   ");
             } else {
                 const auto data = Debugger.mems().get(a, space);
                 mem_buffer[i] = data;
@@ -239,7 +239,7 @@ void handleMemory(uint32_t value, uintptr_t extra, State state) {
 void handleAssembleLine(char *line, uintptr_t extra, State state) {
     (void)extra;
     if (state == State::CLI_CANCEL || *line == 0) {
-        cli.println(F("end"));
+        cli.println("end");
         printPrompt();
         return;
     }
@@ -378,7 +378,7 @@ void handleLoadFile(char *line, uintptr_t extra, State state) {
         File file = SD.open(line);
         if (!file) {
             cli.print(line);
-            cli.println(F(" not found"));
+            cli.println(" not found");
         } else {
             uint16_t size = 0;
             char buffer[80];
@@ -406,7 +406,7 @@ void handleLoadFile(char *line, uintptr_t extra, State state) {
             file.close();
             cli.println();
             cli.print(size);
-            cli.println(F(" bytes loaded"));
+            cli.println(" bytes loaded");
         }
     }
     printPrompt();
@@ -425,7 +425,7 @@ void handleUploadFile(char *line, uintptr_t extra, State state) {
     UploadContext *context = UploadContext::context(extra);
     if (state == State::CLI_CANCEL) {
         cli.print(context->size);
-        cli.println(F(" bytes uploaded"));
+        cli.println(" bytes uploaded");
         printPrompt();
         return;
     }
@@ -535,9 +535,9 @@ void handleRomArea(uint32_t value, uintptr_t extra, State state) {
 void handleSetBreak(uint32_t value, uintptr_t extra, State state) {
     if (state != State::CLI_CANCEL) {
         if (Debugger.pins().setBreakPoint(value)) {
-            cli.print(F("Set"));
+            cli.print("Set");
         } else {
-            cli.print(F("Full"));
+            cli.print("Full");
         }
         Debugger.pins().printBreakPoints();
     }
@@ -549,7 +549,7 @@ void handleClearBreak(char *line, uintptr_t extra, State state) {
         if (str_buffer[0]) {
             const auto index = atoi(str_buffer);
             if (Debugger.pins().clearBreakPoint(index)) {
-                cli.print(F(" Clear"));
+                cli.print(" Clear");
                 Debugger.pins().printBreakPoints();
             }
         }
@@ -572,63 +572,65 @@ void Debugger::exec(char c) {
     const auto maxAddr = mems().maxAddr();
     switch (c) {
     case 'R':
-        cli.println(F("Reset"));
+        cli.println("Reset");
         target().reset();
+        if (_verbose)
+            target().printCycles();
         goto regs;
     case 'd':
-        cli.print(F("Dump? "));
+        cli.print("Dump? ");
         cli.readHex(handleDump, DUMP_ADDR, maxAddr);
         return;
 #ifdef WITH_DISASSEMBLER
     case 'D':
-        cli.print(F("Disassemble? "));
+        cli.print("Disassemble? ");
         cli.readHex(handleDisassemble, DIS_ADDR, maxAddr);
         return;
 #endif
 #ifdef WITH_ASSEMBLER
     case 'A':
-        cli.print(F("Assemble? "));
+        cli.print("Assemble? ");
         cli.readHex(handleAssembler, 0, maxAddr);
         return;
 #endif
     case 'm':
-        cli.print(F("Memory? "));
+        cli.print("Memory? ");
         cli.readHex(handleMemory, MEMORY_ADDR, maxAddr);
         return;
     case 'M':
         if (target().printRomArea()) {
-            cli.print(F("  ROM area? "));
+            cli.print("  ROM area? ");
             cli.readHex(handleRomArea, MEMORY_ADDR, maxAddr);
             return;
         }
         break;
     case 'B':
-        cli.print(F("Set break? "));
+        cli.print("Set break? ");
         cli.readHex(handleSetBreak, 0, maxAddr);
         return;
     case 'b':
         if (target().printBreakPoints()) {
-            cli.print(F("Clear break? "));
+            cli.print("Clear break? ");
             cli.readLine(handleClearBreak, 0, str_buffer, sizeof(str_buffer));
             return;
         }
         break;
     case 'r':
-        cli.println(F("Registers"));
+        cli.println("Registers");
     regs:
         target().printRegisters();
         target().disassembleNext();
         break;
     case '=':
-        cli.print(F("Set register? "));
+        cli.print("Set register? ");
         cli.readWord(handleSetRegister, 0, str_buffer, sizeof(str_buffer));
         return;
     case 'S':
-        cli.println(F("Step"));
+        cli.println("Step");
         target().step(true);
         goto regs;
     case 'G':
-        cli.println(F("Go"));
+        cli.println("Go");
         if (target().isOnBreakPoint()) {
             // step over break point
             if (!target().step(false))
@@ -637,15 +639,15 @@ void Debugger::exec(char c) {
         target().run();
         goto regs;
     case 'F':
-        cli.print(F("Files? "));
+        cli.print("Files? ");
         cli.readLine(handleFileListing, 0, str_buffer, sizeof(str_buffer));
         return;
     case 'L':
-        cli.print(F("Load? "));
+        cli.print("Load? ");
         cli.readLine(handleLoadFile, 0, str_buffer, sizeof(str_buffer));
         return;
     case 'U':
-        cli.println(F("Upload waiting..."));
+        cli.println("Upload waiting...");
         upload_context.size = 0;
         cli.readLine(handleUploadFile, upload_context.extra(),
                 upload_context.buffer, sizeof(upload_context.buffer));
@@ -653,13 +655,18 @@ void Debugger::exec(char c) {
     case 'I':
         cli.println();
         target().printDevices();
-        cli.print(F("Io? "));
+        cli.print("Io? ");
         cli.readWord(handleIo, 0, str_buffer, sizeof(str_buffer));
         return;
     case 'W':
-        cli.print(F("Write identity? "));
+        cli.print("Write identity? ");
         cli.readLine(handleWriteIdentity, 0, str_buffer, sizeof(str_buffer));
         return;
+    case 'V':
+        _verbose = !_verbose;
+        cli.print("Verbose ");
+        cli.println(_verbose ? "ON" : "OFF");
+        break;
     case '?':
         usage();
         break;

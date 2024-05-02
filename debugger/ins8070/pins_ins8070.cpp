@@ -454,7 +454,7 @@ void PinsIns8070::setBreakInst(uint32_t addr) const {
 
 void PinsIns8070::printCycles(const Signals *end) {
     const auto g = Signals::get();
-    const auto cycles = g->diff(end);
+    const auto cycles = g->diff(end ? end : Signals::put());
     for (auto i = 0; i < cycles; ++i) {
         g->next(i)->print();
         idle();

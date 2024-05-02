@@ -54,11 +54,11 @@ struct PinsMc68hc11 final : PinsMc6800 {
         : PinsMc6800(regs, inst, mems, devs) {}
 
     void reset() override;
-    void assertInt(uint8_t name) override;
-    void negateInt(uint8_t name) override;
-
     // MC68HC11D is fully static, so we can stop clock safely.
     void idle() override {}
+
+    void assertInt(uint8_t name) override;
+    void negateInt(uint8_t name) override;
 
 protected:
     mc6800::Signals *cycle() override;

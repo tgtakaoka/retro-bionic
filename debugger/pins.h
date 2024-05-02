@@ -10,6 +10,7 @@ struct Pins {
     virtual void idle() = 0;
     virtual bool step(bool show) = 0;
     virtual void run() = 0;
+    virtual void printCycles() = 0;
     virtual void assertInt(uint8_t name = 0) = 0;
     virtual void negateInt(uint8_t name = 0) = 0;
 

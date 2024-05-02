@@ -25,6 +25,7 @@ struct Target {
     bool step(bool show) { return _pins->step(show); }
     void idle() { _pins->idle(); }
 
+    void printCycles() { _pins->printCycles(); }
     void disassembleNext() const { _mems->disassemble(_regs->nextIp(), 1); }
     void printRegisters() const { _regs->print(); }
     void printDevices() const { _devs->printDevices(); }

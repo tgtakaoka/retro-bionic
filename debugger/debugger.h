@@ -22,6 +22,7 @@ struct Debugger {
 
 private:
     Target *_target;
+    bool _verbose;
 };
 
 extern struct Debugger Debugger;

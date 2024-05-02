@@ -448,7 +448,7 @@ void PinsMc6809::setBreakInst(uint32_t addr) const {
 
 void PinsMc6809::printCycles(const Signals *end) {
     const auto g = Signals::get();
-    const auto cycles = g->diff(end);
+    const auto cycles = g->diff(end ? end : Signals::put());
     for (auto i = 0; i < cycles; ++i) {
         const auto s = g->next(i);
         if (s == end)

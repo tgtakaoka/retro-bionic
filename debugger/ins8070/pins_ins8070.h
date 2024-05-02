@@ -74,13 +74,15 @@ struct PinsIns8070 final : Pins {
     void run() override;
     void assertInt(uint8_t name) override;
     void negateInt(uint8_t name) override;
-    void setBreakInst(uint32_t addr) const override;
+    void printCycles() override { printCycles(nullptr); }
 
     void execInst(const uint8_t *inst, uint8_t len);
     void captureWrites(const uint8_t *inst, uint8_t len, uint16_t *addr,
             uint8_t *buf, uint8_t max);
 
 private:
+    void setBreakInst(uint32_t addr) const override;
+
     Signals *prepareCycle();
     Signals *completeCycle(Signals *signals);
     Signals *cycle();
@@ -91,7 +93,7 @@ private:
     void execute(const uint8_t *inst, uint8_t len, uint16_t *addr, uint8_t *buf,
             uint8_t max);
 
-    void printCycles(const Signals *end = Signals::put());
+    void printCycles(const Signals *end);
     bool matchAll(Signals *begin, const Signals *end);
     const Signals *findFetch(Signals *begein, const Signals *end);
     void disassembleCycles();

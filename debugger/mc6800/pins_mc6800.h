@@ -22,7 +22,7 @@ struct PinsMc6800 : Pins {
     void run() override;
     void assertInt(uint8_t name) override;
     void negateInt(uint8_t name) override;
-    void setBreakInst(uint32_t addr) const override;
+    void printCycles() override { printCycles(nullptr); }
 
     void injectReads(const uint8_t *inst, uint8_t len, uint8_t cycles = 0);
     void captureWrites(uint8_t *buf, uint8_t len, uint16_t *addr = nullptr);
@@ -35,13 +35,15 @@ protected:
     Devs *_devs;
     uint8_t _writes;
 
+    void setBreakInst(uint32_t addr) const override;
+
     virtual void assertNmi() const;
     virtual void negateNmi() const;
     virtual Signals *rawCycle();
     virtual Signals *cycle();
+    virtual void suspend();
     Signals *injectCycle(uint8_t data);
     void loop();
-    virtual void suspend();
 
     void printCycles(const Signals *end);
     bool matchAll(Signals *begin, const Signals *end);
