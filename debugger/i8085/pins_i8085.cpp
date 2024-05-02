@@ -439,8 +439,10 @@ bool PinsI8085::rawStep() {
 }
 
 bool PinsI8085::step(bool show) {
-    Regs.restore();
     Signals::resetCycles();
+    Regs.restore();
+    if (show)
+        Signals::resetCycles();
     if (rawStep()) {
         if (show)
             printCycles();

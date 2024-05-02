@@ -106,8 +106,10 @@ bool PinsMc6805::rawStep() const {
 }
 
 bool PinsMc6805::step(bool show) {
-    _regs->restore();
     Signals::resetCycles();
+    _regs->restore();
+    if (show)
+        Signals::resetCycles();
     if (rawStep()) {
         if (show)
             printCycles();

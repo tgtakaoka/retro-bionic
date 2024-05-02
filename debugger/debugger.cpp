@@ -627,7 +627,12 @@ void Debugger::exec(char c) {
         return;
     case 'S':
         cli.println("Step");
-        target().step(true);
+        if (_verbose) {
+            target().step(false);
+            target().printCycles();
+        } else {
+            target().step(true);
+        }
         goto regs;
     case 'G':
         cli.println("Go");

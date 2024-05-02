@@ -93,7 +93,7 @@ protected:
     virtual Signals *rawCycle() const;
     virtual Signals *cycle() const;
     Signals *injectCycle(uint8_t data);
-    void suspend();
+    void suspend(bool show);
     void loop();
     const Signals *stackFrame(const Signals *push) const;
 

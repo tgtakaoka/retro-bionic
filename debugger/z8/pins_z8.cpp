@@ -275,8 +275,10 @@ void PinsZ8::intrAck(Signals *frame) const {
 }
 
 bool PinsZ8::step(bool show) {
-    _regs.restore();
     Signals::resetCycles();
+    _regs.restore();
+    if (show)
+        Signals::resetCycles();
     if (rawStep()) {
         if (show)
             printCycles();

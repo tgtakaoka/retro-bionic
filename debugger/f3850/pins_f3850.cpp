@@ -290,8 +290,10 @@ bool PinsF3850::rawStep() {
 }
 
 bool PinsF3850::step(bool show) {
-    Regs.restore();
     Signals::resetCycles();
+    Regs.restore();
+    if (show)
+        Signals::resetCycles();
     if (rawStep()) {
         if (show)
             printCycles();

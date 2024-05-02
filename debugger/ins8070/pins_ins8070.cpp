@@ -405,6 +405,7 @@ void PinsIns8070::run() {
 }
 
 bool PinsIns8070::step(bool show) {
+    Signals::resetCycles();
     InstIns8070 inst;
     const auto cycles = Regs.busCycles(inst);
     if (cycles == 0)
@@ -413,7 +414,8 @@ bool PinsIns8070::step(bool show) {
             Memory.raw_read16(InstIns8070::VEC_CALL15) == 0)
         return false;
     Regs.restore();
-    Signals::resetCycles();
+    if (show)
+        Signals::resetCycles();
     assert_enin();
     if (inst.addrMode() == M_SSM) {
         // SSM instruction
@@ -423,7 +425,8 @@ bool PinsIns8070::step(bool show) {
             if (s->addr == addr + 3) {
                 completeCycle(s->inject(InstIns8070::BRA));
                 cycle(InstIns8070::BRA_HERE);
-                Signals::discard(s);
+                if (show)
+                    Signals::discard(s);
                 break;
             }
             completeCycle(s);

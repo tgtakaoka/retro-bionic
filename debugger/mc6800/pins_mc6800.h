@@ -41,7 +41,7 @@ protected:
     virtual void negateNmi() const;
     virtual Signals *rawCycle();
     virtual Signals *cycle();
-    virtual void suspend();
+    virtual void suspend(bool show);
     Signals *injectCycle(uint8_t data);
     void loop();
 

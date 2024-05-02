@@ -454,8 +454,10 @@ bool PinsMos6502::rawStep() {
 }
 
 bool PinsMos6502::step(bool show) {
-    Registers.restore();
     Signals::resetCycles();
+    Registers.restore();
+    if (show)
+        Signals::resetCycles();
     if (rawStep()) {
         if (show)
             printCycles();

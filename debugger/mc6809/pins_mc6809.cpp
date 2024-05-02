@@ -375,21 +375,17 @@ void PinsMc6809::loop() {
             const auto swi_vector = _mems->raw_read16(vec_swi);
             if (isBreakPoint(pc) || swi_vector == vec_swi) {
                 _regs->capture(frame);
-                restoreBreakInsts();
                 Signals::discard(frame->prev(2));
-                disassembleCycles();
                 return;
             }
         } else if (haltSwitch()) {
-            restoreBreakInsts();
-            suspend();
-            disassembleCycles();
+            suspend(true);
             return;
         }
     }
 }
 
-void PinsMc6809::suspend() {
+void PinsMc6809::suspend(bool show) {
     assert_nmi();
 reentry:
     auto s = Signals::put();
@@ -408,8 +404,10 @@ reentry:
     cycle();  // NMI lo(vector)
     cycle();  // non-VMA
     _regs->capture(frame, true);
-    const auto last = frame->prev(_regs->contextLength() == 14 ? 4 : 3);
-    Signals::discard(last);
+    if (show) {
+        const auto last = frame->prev(_regs->contextLength() == 14 ? 4 : 3);
+        Signals::discard(last);
+    }
 }
 
 void PinsMc6809::run() {
@@ -417,12 +415,16 @@ void PinsMc6809::run() {
     Signals::resetCycles();
     saveBreakInsts();
     loop();
+    restoreBreakInsts();
+    disassembleCycles();
 }
 
 bool PinsMc6809::step(bool show) {
-    _regs->restore();
     Signals::resetCycles();
-    suspend();
+    _regs->restore();
+    if (show)
+        Signals::resetCycles();
+    suspend(show);
     if (show)
         printCycles(Signals::put());
     return true;

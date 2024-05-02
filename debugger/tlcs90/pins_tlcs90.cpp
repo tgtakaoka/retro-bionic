@@ -338,7 +338,6 @@ void PinsTlcs90::loop() {
                     Regs.saveRegisters();
                     Regs.setIp(pc);
                     assert_wait();
-                    restoreBreakInsts();
                     Signals::discard(s->prev(6));
                     break;
                 }
@@ -347,8 +346,7 @@ void PinsTlcs90::loop() {
         completeCycle(s);
         s = prepareCycle();
         if (haltSwitch()) {
-            restoreBreakInsts();
-            suspend();
+            suspend(true);
             break;
         }
     }
@@ -361,9 +359,11 @@ void PinsTlcs90::run() {
     saveBreakInsts();
     negate_wait();
     loop();
+    restoreBreakInsts();
+    disassembleCycles();
 }
 
-void PinsTlcs90::suspend() {
+void PinsTlcs90::suspend(bool show) {
     negate_wait();
     // Execute at least one cycle before asserting #NMI
     auto s = Signals::current();
@@ -386,19 +386,21 @@ void PinsTlcs90::suspend() {
         completeCycle(s);
         s = prepareCycle();
     }
-    if (s->addr == InstTlcs90::ORG_NMI)
+    if (s->addr == InstTlcs90::ORG_NMI && show)
         Signals::discard(s->prev(6));
 }
 
 bool PinsTlcs90::step(bool show) {
+    Signals::resetCycles();
     const auto opc = Memory.read(Regs.nextIp());
     if (opc == InstTlcs90::HALT || !InstTlcs90::valid(Regs.nextIp())) {
         // HALT or unknown instruction. Just return.
         return false;
     }
     Regs.restore();
-    Signals::resetCycles();
-    suspend();
+    if (show)
+        Signals::resetCycles();
+    suspend(show);
     if (show)
         printCycles();
     return true;

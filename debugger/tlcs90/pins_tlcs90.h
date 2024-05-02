@@ -90,7 +90,7 @@ private:
 
     Signals *prepareCycle();
     Signals *completeCycle(Signals *signals);
-    void suspend();
+    void suspend(bool show);
     void loop();
     void execute(const uint8_t *inst, uint8_t len, uint8_t *buffer, uint8_t max,
             uint16_t *addr);

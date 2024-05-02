@@ -297,23 +297,19 @@ void PinsMc6800::loop() {
                 const auto pc = _regs->capture(frame, false);
                 const auto swi_vector = _mems->raw_read16(vec_swi);
                 if (isBreakPoint(pc) || swi_vector == vec_swi) {
-                    restoreBreakInsts();
                     const auto discard = nonVmaAfteContextSave() ? 1 : 2;
                     Signals::discard(frame->prev(discard));
-                    disassembleCycles();
                     return;
                 }
             }
         } else if (haltSwitch()) {
-            restoreBreakInsts();
-            suspend();
-            disassembleCycles();
+            suspend(true);
             return;
         }
     }
 }
 
-void PinsMc6800::suspend() {
+void PinsMc6800::suspend(bool show) {
     assertNmi();
 reentry:
     _writes = 0;
@@ -333,8 +329,10 @@ reentry:
     }
     cycle();  // NMI lo(vector)
     _regs->capture(frame);
-    const auto discard = nonVmaAfteContextSave() ? 1 : 2;
-    Signals::discard(frame->prev(discard));
+    if (show) {
+        const auto discard = nonVmaAfteContextSave() ? 1 : 2;
+        Signals::discard(frame->prev(discard));
+    }
 }
 
 void PinsMc6800::run() {
@@ -342,12 +340,16 @@ void PinsMc6800::run() {
     Signals::resetCycles();
     saveBreakInsts();
     loop();
+    restoreBreakInsts();
+    disassembleCycles();
 }
 
 bool PinsMc6800::step(bool show) {
-    _regs->restore();
     Signals::resetCycles();
-    suspend();
+    _regs->restore();
+    if (show)
+        Signals::resetCycles();
+    suspend(show);
     if (show)
         printCycles(Signals::put()->prev());
     return true;

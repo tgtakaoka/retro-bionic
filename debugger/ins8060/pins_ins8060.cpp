@@ -414,8 +414,10 @@ bool PinsIns8060::rawStep() const {
 }
 
 bool PinsIns8060::step(bool show) {
-    Regs.restore();
     Signals::resetCycles();
+    Regs.restore();
+    if (show)
+        Signals::resetCycles();
     if (rawStep()) {
         if (show)
             printCycles();
