@@ -15,6 +15,7 @@ struct Signals final : SignalsBase<Signals> {
     bool write() const;
     bool fetch() const;
     bool vector() const;
+    bool addr24() const;
 
 private:
     uint8_t cntl() const { return _signals[0]; }

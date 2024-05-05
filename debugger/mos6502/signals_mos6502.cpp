@@ -33,28 +33,38 @@ bool Signals::vector() const {
     return (cntl() & CNTL_VP) == 0;
 }
 
+bool Signals::addr24() const {
+    return (cntl() & CNTL_E) == 0;
+}
+
 void Signals::getData() {
     data = busRead(D);
 }
 
 void Signals::print() const {
-    if (Pins.native65816()) {
+    if (Pins.hardwareType() == HW_W65C816) {
         //                              0123456789012345
         static constexpr char line[] = "VW A=xxxxxx D=xx";
         static auto &buffer = *new CharBuffer(line);
         buffer[0] = fetch() ? 'S' : (vector() ? 'V' : ' ');
         buffer[1] = write() ? 'W' : 'R';
-        buffer.hex24(5, addr);
+        if (addr24()) {
+            buffer.hex24(5, addr);
+        } else {
+            buffer[5] = buffer[6] = ' ';
+            buffer.hex16(7, addr);
+        }
         buffer.hex8(14, data);
         cli.println(buffer);
     } else {
-        //                              01234567890123
-        static constexpr char line[] = "VW A=xxxx D=xx";
+        //                              0123456789012345
+        static constexpr char line[] = "VW A=xxxx D=xx  ";
         static auto &buffer = *new CharBuffer(line);
         buffer.hex16(5, addr);
         buffer.hex8(12, data);
         buffer[0] = fetch() ? 'S' : (vector() ? 'V' : ' ');
         buffer[1] = write() ? 'W' : 'R';
+        buffer.hex4(15, cntl());
         cli.println(buffer);
     }
 }

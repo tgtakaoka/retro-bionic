@@ -31,14 +31,23 @@ struct PinsMos6502 Pins;
  */
 
 namespace {
+//  TL0: min 480 ns; PHI0 low
+//  TH0: min 460 ns; PHI0 high
+// T02+: max  65 ns; PHI0- to PHI2-
+// T02+: max  75 ns; PHI0+ to PHI2+
+// Tads: max 225 ns; PHI2- to addr
+// Trsw: max 225 ns; PHI2- to R/#W
+// Tsys: max 350 ns; PHI2- to SYNC+
+// Tmds: max 175 ns; PHI2+ to write data
+// Tdsu: min 100 ns; read data to PHI2-
 
 constexpr auto phi0_lo_sync = 30;     // 500
-constexpr auto phi0_lo_ns = 210;      // 500
+constexpr auto phi0_lo_ns = 218;      // 500
 constexpr auto phi0_lo_fetch = 118;   // 500
 constexpr auto phi0_lo_loop = 30;     // 500
 constexpr auto phi0_lo_execute = 30;  // 500
-constexpr auto phi0_hi_read = 288;    // 500
-constexpr auto phi0_hi_write = 304;   // 500
+constexpr auto phi0_hi_read = 328;    // 500
+constexpr auto phi0_hi_write = 334;   // 500
 constexpr auto phi0_hi_inject = 70;
 constexpr auto phi0_hi_capture = 60;
 
@@ -78,14 +87,6 @@ void negate_irq() {
     digitalWriteFast(PIN_IRQ, HIGH);
 }
 
-void assert_be() {
-    digitalWriteFast(PIN_BE, HIGH);
-}
-
-void negate_be() {
-    digitalWriteFast(PIN_BE, LOW);
-}
-
 void assert_rdy() {
     digitalWriteFast(PIN_RDY, HIGH);
     pinMode(PIN_RDY, INPUT_PULLUP);
@@ -99,7 +100,6 @@ void negate_rdy() {
 void assert_reset() {
     // Drive RESET condition
     phi0_lo();
-    negate_be();
     assert_rdy();
     digitalWriteFast(PIN_RES, LOW);
     negate_abort();
@@ -115,9 +115,6 @@ void negate_reset() {
 const uint8_t PINS_LOW[] = {
         PIN_PHI0,
         PIN_RES,
-        // NC on 6502
-        // BE(input) for W65Cxx
-        PIN_BE,
 };
 
 const uint8_t PINS_HIGH[] = {
@@ -126,7 +123,7 @@ const uint8_t PINS_HIGH[] = {
 };
 
 const uint8_t PINS_PULLUP[] = {
-        // RDY(input) for 6502
+        // RDY(input) for 6502, pullup
         // RDY(bi-directional) for W65Cxx, pullup
         PIN_RDY,
         // PHI1O(output) from 6502
@@ -138,12 +135,15 @@ const uint8_t PINS_PULLUP[] = {
         // #SO(input) for 6502, pullup
         // #MX(output) from 65816
         PIN_SO,
-};
-
-const uint8_t PINS_PULLDOWN[] = {
         // NC on 6502
         // E(output) from 65816
         PIN_E,
+        // VSS for 6502
+        // #VP(output) from W65Cxx
+        PIN_VP,
+        // NC on 6502
+        // BE(input) for W65Cxx
+        PIN_BE,
 };
 
 const uint8_t PINS_INPUT[] = {
@@ -178,9 +178,6 @@ const uint8_t PINS_INPUT[] = {
         // PHI2O(output) from 6502
         // VDA(output) from 65816
         PIN_PHI2O,
-        // VSS for 6502
-        // #VP(output) from W65Cxx
-        PIN_VP,
 };
 
 }  // namespace
@@ -202,21 +199,21 @@ void PinsMos6502::checkHardwareType() {
         } else {
             // PIN_VP keeps HIGH, means #VP of W65C02S.
             _hardType = HW_W65C02S;
-            pinMode(PIN_ML, INPUT);
-            assert_be();  // Enable BE.
+            // Enable BE
+            digitalWriteFast(PIN_BE, HIGH);
+            pinMode(PIN_BE, OUTPUT);
         }
         // Keep PIN_SO HIGH using pullup
         Target6502.setMems(mos6502::Memory);
     } else {
         // PIN_PHI1O/W65C816_ABORT keeps HIGH, means W65C816S.
         _hardType = HW_W65C816;
+        // Negate #ABORT
         digitalWriteFast(W65C816_ABORT, HIGH);
         pinMode(W65C816_ABORT, OUTPUT);
-        pinMode(PIN_ML, INPUT);
-        pinMode(W65C816_MX, INPUT);
-        pinMode(PIN_E, INPUT);
-        assert_be();  // Enable BE
-        Target6502.setMems(w65c816::Memory);
+        // Enable BE
+        digitalWriteFast(PIN_BE, HIGH);
+        pinMode(PIN_BE, OUTPUT);
     }
 }
 
@@ -260,7 +257,6 @@ void PinsMos6502::reset() {
     pinsMode(PINS_LOW, sizeof(PINS_LOW), OUTPUT, LOW);
     pinsMode(PINS_HIGH, sizeof(PINS_HIGH), OUTPUT, HIGH);
     pinsMode(PINS_PULLUP, sizeof(PINS_PULLUP), INPUT_PULLUP);
-    pinsMode(PINS_PULLDOWN, sizeof(PINS_PULLDOWN), INPUT_PULLDOWN);
     pinsMode(PINS_INPUT, sizeof(PINS_INPUT), INPUT);
 
     assert_reset();
@@ -268,13 +264,13 @@ void PinsMos6502::reset() {
     // #RES must be held low for at lease two clock cycles.
     for (auto i = 0; i < 10; i++)
         cycle();
-    Signals::resetCycles();
     auto s = prepareCycle();
     negate_reset();
     completeCycle(s);
+    Signals::resetCycles();
     // When a positive edge is detected, there is an initalization
     // sequence lasting seven clock cycles.
-    for (auto i = 0; i < 7; i++) {
+    for (auto i = 0; i < 10; i++) {
         // there may be suprious write
         const auto s = completeCycle(prepareCycle()->capture());
         // Read Reset vector
@@ -292,11 +288,12 @@ void PinsMos6502::reset() {
 
 Signals *PinsMos6502::rawPrepareCycle() {
     auto s = Signals::put();
-    s->getAddr();
-    if (hardwareType() == HW_W65C816) {
-        s->addr |= static_cast<uint32_t>(busRead(D)) << 16;
+    if (_hardType == HW_W65C816 && s->addr24()) {
+        s->getAddr();
+        s->addr |= busRead(BA);
     } else {
         delayNanoseconds(phi0_lo_sync);
+        s->getAddr();
     }
     return s;
 }
@@ -316,7 +313,6 @@ Signals *PinsMos6502::completeCycle(Signals *s) {
         } else {
             delayNanoseconds(phi0_hi_capture);
         }
-        Signals::nextCycle();
     } else {
         if (s->readMemory()) {
             s->data = Target6502.memory().read(s->addr);
@@ -325,10 +321,10 @@ Signals *PinsMos6502::completeCycle(Signals *s) {
         }
         busWrite(D, s->data);
         busMode(D, OUTPUT);
-        Signals::nextCycle();
         delayNanoseconds(phi0_hi_read);
     }
     phi0_lo();
+    Signals::nextCycle();
     busMode(D, INPUT);
 
     return s;

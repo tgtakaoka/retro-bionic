@@ -13,6 +13,10 @@
 #define PIN_D5 41     /* P6.21 */
 #define PIN_D6 17     /* P6.22 */
 #define PIN_D7 16     /* P6.23 */
+#define PORT_BA 6     /* GPIO6 */
+#define BA_gp 16      /* P6.16.P6.23 */
+#define BA_gm 0xFF    /* P6.16-P6.23 */
+#define BA_vp 16      /* A16-A24 */
 #define PORT_AL 6     /* GPIO6 */
 #define AL_gp 24      /* P6.24-P6.31 */
 #define AL_gm 0xFF    /* P6.24-P6.31 */
@@ -42,26 +46,28 @@
 #define PIN_AH14 36   /* P7.18 */
 #define PIN_AH15 37   /* P7.19 */
 #define PORT_CNTL 9   /* GPIO9 */
-#define CNTL_gp 4     /* P9.04-P9.07 */
-#define CNTL_gm 0xF   /* CNTL0-CNTL3 */
-#define CNTL_vp 0     /* CNTL0-CNTL3 */
+#define CNTL_gp 4     /* P9.04-P9.08 */
+#define CNTL_gm 0x1F  /* CNTL0-CNTL4 */
+#define CNTL_vp 0     /* CNTL0-CNTL4 */
 #define PIN_VP 2      /* P9.04 */
 #define PIN_RW 3      /* P9.05 */
 #define PIN_SYNC 4    /* P9.06 */
 #define PIN_PHI2O 33  /* P9.07 */
+#define PIN_E 5       /* P9.08 */
 #define CNTL_VP 0x1   /* CNTL0 */
 #define CNTL_RW 0x2   /* CNTL1 */
 #define CNTL_SYNC 0x4 /* CNTL2 */
+#define CNTL_VPD 0x8  /* CNTL3 */
+#define CNTL_E 0x10   /* CNTL4 */
 #define PIN_ML 0      /* P6.03 */
 #define PIN_SO 1      /* P6.02 */
-#define PIN_PHI0 5    /* P9.08 */
 #define PIN_PHI1O 29  /* P9.31 */
 #define PIN_IRQ 6     /* P7.10 */
 #define PIN_NMI 9     /* P7.11 */
 #define PIN_RDY 32    /* P7.12 */
 #define PIN_RES 28    /* P8.18 */
 #define PIN_BE 31     /* P8.22 */
-#define PIN_E 30      /* P8.23 */
+#define PIN_PHI0 30   /* P8.23 */
 
 // Pin alias for W65C816
 #define W65C816_VPA PIN_SYNC
@@ -69,7 +75,6 @@
 #define W65C816_ABORT PIN_PHI1O
 #define W65C816_MX PIN_SO
 #define CNTL_VPA CNTL_SYNC
-#define CNTL_VPD 0x8 /* CNTL3 */
 
 #include "pins.h"
 #include "signals_mos6502.h"
