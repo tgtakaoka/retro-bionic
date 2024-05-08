@@ -193,8 +193,7 @@ void PinsMc6800::reset() {
     _regs->reset();
     _regs->save();
     _regs->setIp(_mems->raw_read16(InstMc6800::VEC_RESET));
-    if (_regs->checkSoftwareType() == SW_MB8861)
-        _inst = &mb8861::Inst;
+    _regs->checkSoftwareType();
 }
 
 Signals *PinsMc6800::cycle() {

@@ -9,11 +9,19 @@
 namespace debugger {
 namespace mc6800 {
 
-using mb8861::Inst;
+using mb8861::InstMb8861;
 extern struct PinsMc6800 Pins;
 
 struct RegsMc6800 Regs {
     &Pins
+};
+
+struct MemsMc6800 Memory {
+    &Regs
+};
+
+struct InstMb8861 Inst {
+    &Memory,
 };
 
 struct PinsMc6800 Pins {

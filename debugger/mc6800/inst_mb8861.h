@@ -16,8 +16,6 @@ protected:
     const char *intrSequence() const override;
 };
 
-extern struct InstMb8861 Inst;
-
 }  // namespace mb8861
 }  // namespace debugger
 #endif

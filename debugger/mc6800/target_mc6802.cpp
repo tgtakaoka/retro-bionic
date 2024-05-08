@@ -9,9 +9,8 @@
 namespace debugger {
 namespace mc6802 {
 
-using mb8861::Inst;
+using mb8861::InstMb8861;
 using mc6800::Devices;
-
 extern struct PinsMc6802 Pins;
 
 struct RegsMc6802 Regs {
@@ -20,6 +19,10 @@ struct RegsMc6802 Regs {
 
 struct MemsMc6802 Memory {
     &Regs
+};
+
+struct InstMb8861 Inst {
+    &Memory,
 };
 
 struct PinsMc6802 Pins {

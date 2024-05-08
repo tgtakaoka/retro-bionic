@@ -26,8 +26,6 @@ protected:
 #endif
 };
 
-extern struct MemsMc6800 Memory;
-
 }  // namespace mc6800
 }  // namespace debugger
 #endif

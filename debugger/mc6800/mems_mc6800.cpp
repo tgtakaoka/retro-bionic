@@ -1,16 +1,11 @@
+#include "mems_mc6800.h"
 #include <asm_mc6800.h>
 #include <dis_mc6800.h>
-
 #include "devs_mc6800.h"
-#include "mems_mc6800.h"
 #include "regs_mc6800.h"
 
 namespace debugger {
 namespace mc6800 {
-
-struct MemsMc6800 Memory {
-    &Regs
-};
 
 uint16_t MemsMc6800::read(uint32_t addr) const {
     return Devices.isSelected(addr) ? Devices.read(addr) : raw_read(addr);
