@@ -346,9 +346,11 @@ void printBrxxx(const Signals *s, const Mems *mems, uint8_t len) {
     if (opc == 0x18)
         opc = mems->raw_read(s->addr + 1);
     const auto inst = opc & ~1;
-    const auto brxxx = (inst == 0x12 || inst == 0x1E);
-    if (brxxx)
+    if (inst == 0x12) {
+        s->next(2)->print();
+    } else if (inst == 0x1E) {
         s->next(len - 1)->print();
+    }
 }
 }  // namespace
 
