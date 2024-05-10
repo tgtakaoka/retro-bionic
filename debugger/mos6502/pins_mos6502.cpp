@@ -41,20 +41,23 @@ namespace {
 // Tmds: max 175 ns; PHI2+ to write data
 // Tdsu: min 100 ns; read data to PHI2-
 
-constexpr auto phi0_lo_sync = 30;     // 500
-constexpr auto phi0_lo_ns = 218;      // 500
-constexpr auto phi0_lo_fetch = 118;   // 500
-constexpr auto phi0_lo_loop = 30;     // 500
-constexpr auto phi0_lo_execute = 30;  // 500
-constexpr auto phi0_hi_read = 328;    // 500
-constexpr auto phi0_hi_write = 334;   // 500
+constexpr auto phi0_lo_sync = 30;       // 500
+constexpr auto phi0_lo_ns = 218;        // 500
+constexpr auto phi0_lo_fetch = 90;      // 500
+constexpr auto phi0_lo_loop = 30;       // 500
+constexpr auto phi0_lo_execute = 30;    // 500
+constexpr auto phi0_hi_read_pre = 280;  // 500
+constexpr auto phi0_hi_read_post = 30;  // 500
+constexpr auto phi0_hi_write = 334;     // 500
 constexpr auto phi0_hi_inject = 70;
 constexpr auto phi0_hi_capture = 60;
 
+inline void phi0_hi() __attribute__((always_inline));
 inline void phi0_hi() {
     digitalWriteFast(PIN_PHI0, HIGH);
 }
 
+inline void phi0_lo() __attribute__((always_inline));
 inline void phi0_lo() {
     digitalWriteFast(PIN_PHI0, LOW);
 }
@@ -313,19 +316,27 @@ Signals *PinsMos6502::completeCycle(Signals *s) {
         } else {
             delayNanoseconds(phi0_hi_capture);
         }
+        phi0_lo();
     } else {
         if (s->readMemory()) {
             s->data = Target6502.memory().read(s->addr);
         } else {
             delayNanoseconds(phi0_hi_inject);
         }
-        busWrite(D, s->data);
+        // [W65C816] Delay to avoid bus conflict with bank address of
+        // this bus cycle.
+        delayNanoseconds(phi0_hi_read_pre);
+        // [W65C816] This order, mode change then write data, somehow
+        // mitigate a jitter from |phi0_lo| to |busMode(D, INPUT)|.
         busMode(D, OUTPUT);
-        delayNanoseconds(phi0_hi_read);
+        busWrite(D, s->data);
+        delayNanoseconds(phi0_hi_read_post);
+        phi0_lo();
+        // [W65C816] Immediately switch bus direction to avoid bus
+        // conflict with bank address of next bus cycle.
+        busMode(D, INPUT);
     }
-    phi0_lo();
     Signals::nextCycle();
-    busMode(D, INPUT);
 
     return s;
 }
@@ -375,9 +386,9 @@ void PinsMos6502::execute(const uint8_t *inst, uint8_t len, uint16_t *addr,
 
 void PinsMos6502::idle() {
     // CPU is stopping with RDY=L
-    delayNanoseconds(404);
+    delayNanoseconds(370);
     phi0_hi();
-    delayNanoseconds(446);
+    delayNanoseconds(474);
     phi0_lo();
 }
 
