@@ -216,9 +216,6 @@ isr_intr_tx:
         jnc     isr_intr_empty
         mov     R0, #USARTD
         movx    @R0, A          ; send character
-        xrl     A, #'&'
-        jnz     isr_intr_exit
-        db      01H
 isr_intr_exit:
         mov     A, R2           ; restore A
         retr

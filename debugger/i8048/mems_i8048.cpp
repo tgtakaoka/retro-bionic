@@ -1,10 +1,8 @@
-#include <ctype.h>
-
-#include <asm_i8048.h>
-#include <dis_i8048.h>
-
-#include "devs_i8048.h"
 #include "mems_i8048.h"
+#include <asm_i8048.h>
+#include <ctype.h>
+#include <dis_i8048.h>
+#include "devs_i8048.h"
 #include "regs_i8048.h"
 
 namespace debugger {

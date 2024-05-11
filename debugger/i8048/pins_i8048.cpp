@@ -229,7 +229,6 @@ Signals *PinsI8048::prepareCycle() {
             if (s->getControl()) {  // #RD/#WR
                 return s;
             }
-            negate_debug();
             xtal1_lo();
             delayNanoseconds(xtal1_lo_control);
             if (signal_ale() != LOW)
@@ -331,9 +330,7 @@ Signals *PinsI8048::completeCycle(Signals *s) {
 }
 
 Signals *PinsI8048::inject(uint8_t data) {
-    auto s = prepareCycle();
-    s->inject(data);
-    return completeCycle(s);
+    return completeCycle(prepareCycle()->inject(data));
 }
 
 Signals *PinsI8048::cycle(uint8_t data) {
