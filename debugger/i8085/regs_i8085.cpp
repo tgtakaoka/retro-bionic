@@ -33,7 +33,7 @@ void RegsI8085::print() const {
     buffer.hex8(35, _h);
     buffer.hex8(37, _l);
     buffer.hex8(42, _a);
-    buffer.bits(49, _psw, 0x80, &line[49]);
+    buffer.bits(49, _psw, 0x80, line + 49);
     buffer[57] = _ie ? ' ' : 0;
     cli.println(buffer);
     Pins.idle();

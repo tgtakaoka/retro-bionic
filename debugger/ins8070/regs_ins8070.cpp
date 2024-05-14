@@ -32,7 +32,7 @@ void RegsIns8070::print() const {
     buffer.hex8(34, _e);
     buffer.hex8(39, _a);
     buffer.hex16(44, _t);
-    buffer.bits(51, _s, 0x80, &line[51]);
+    buffer.bits(51, _s, 0x80, line + 51);
     cli.println(buffer);
     Pins.idle();
 }

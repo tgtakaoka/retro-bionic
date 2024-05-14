@@ -11,26 +11,24 @@ namespace i8048 {
 
 void RegsI8048::print() const {
     static constexpr char line1[] =
-            "PC=xxx MB=x PSW=xx (CY=x AC=x BS=x F0=x SP=x) F1=x";
-    //       01234567890123456789012345678901234567890123456789
+            "PC=xxx MB=x PSW=CAFB1111 F0=x F1=x SP=x BS=x A=xx";
+    //       0123456789012345678901234567890123456789012345678
     static constexpr char line2[] =
-            "A=xx R0=xx R1=xx R2=xx R3=xx R4=xx R5=xx R6=xx R7=xx";
-    //       0123456789012345678901234567890123456789012345678901
+            "R0=xx R1=xx R2=xx R3=xx R4=xx R5=xx R6=xx R7=xx";
+    //       01234567890123456789012345678901234567890123456
     static auto &buffer = *new CharBuffer(line1);
     buffer.hex12(3, _pc);
     buffer.hex1(10, _mb);
-    buffer.hex8(16, _psw);
-    buffer.hex1(23, _psw & cy);
-    buffer.hex1(28, _psw & ac);
-    buffer.hex1(33, _psw & bs);
-    buffer.hex1(38, _psw & f0);
-    buffer.hex4(43, _psw & sp);
-    buffer.hex1(49, _f1);
+    buffer.bits(16, _psw, 0x80, line1 + 16);
+    buffer.hex1(28, _psw & f0);
+    buffer.hex1(33, _f1);
+    buffer.hex4(38, _psw & sp);
+    buffer.hex1(43, _psw & bs);
+    buffer.hex8(47, _a);
     cli.println(buffer);
     static auto &regs = *new CharBuffer(line2);
-    regs.hex8(2, _a);
     for (auto i = 0; i < 8; ++i)
-        regs.hex8(8 + i * 6, _r[i]);
+        regs.hex8(3 + i * 6, _r[i]);
     cli.println(regs);
     _pins.idle();
 }
@@ -58,11 +56,11 @@ void RegsI8048::save() {
 void RegsI8048::restore() {
     restore_r();
     uint8_t RESTORE[] = {
-            0x23, _psw,                      // MOV A, #_psw
-            0xD7,                            // MOV PSW, A
-            0x23, _a,                        // MOV A, #_a
-            0xA5,                            // CLR F1
-            (uint8_t)(_f1 ? 0xB5 : 0x00),    // CPL F1/NOP
+            0x23, _psw,                    // MOV A, #_psw
+            0xD7,                          // MOV PSW, A
+            0x23, _a,                      // MOV A, #_a
+            0xA5,                          // CLR F1
+            (uint8_t)(_f1 ? 0xB5 : 0x00),  // CPL F1/NOP
     };
     _pins.execInst(RESTORE, sizeof(RESTORE));
     restore_pc(_pc, _mb);
@@ -87,12 +85,17 @@ void RegsI8048::restore_pc(uint16_t pc, uint8_t mb) const {
     // counter.
     const auto offset = InstI8048::offset(pc - 1);
     uint8_t JUMP[] = {
-        InstI8048::SEL_MB(InstI8048::mb(pc)),
-        InstI8048::JMP(offset),
-        lo(offset),
-        InstI8048::SEL_MB(mb),
+            InstI8048::SEL_MB(InstI8048::mb(pc)),
+            InstI8048::JMP(offset),
+            lo(offset),
+            InstI8048::SEL_MB(mb),
     };
     _pins.execInst(JUMP, sizeof(JUMP));
+}
+
+void RegsI8048::set_psw(uint8_t val) {
+    _psw = val;
+    set_rb(val & bs);
 }
 
 void RegsI8048::set_r(uint8_t no, uint8_t val) const {
@@ -183,7 +186,7 @@ const Regs::RegList *RegsI8048::listRegisters(uint8_t n) const {
 void RegsI8048::setRegister(uint8_t reg, uint32_t value) {
     switch (reg) {
     case 1:
-        _psw = value;
+        set_psw(value);
         break;
     case 2:
         _a = value;

@@ -15,7 +15,7 @@ void RegsMc6805::print() const {
     buffer.hex16(11, _sp);
     buffer.hex8(18, _x);
     buffer.hex8(23, _a);
-    buffer.bits(29, _cc, 0x10, &line[29]);
+    buffer.bits(29, _cc, 0x10, line + 29);
     cli.println(buffer);
 }
 

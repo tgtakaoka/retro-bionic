@@ -200,7 +200,7 @@ void RegsF3850::print() const {
     buffer1.hex16(27, _dc1);
     buffer1.hex4(35, (_isar >> 3) & 7);
     buffer1.hex4(36, _isar & 7);
-    buffer1.bits(40, _w, 0x10, &line1[40]);
+    buffer1.bits(40, _w, 0x10, line1 + 40);
     buffer1.hex8(48, _a);
     cli.println(buffer1);
     static auto &buffer2 = *new CharBuffer(line2);

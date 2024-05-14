@@ -37,6 +37,7 @@ private:
     static constexpr uint8_t bs = 0x10;
     static constexpr uint8_t sp = 0x07;
     uint8_t _psw;
+    void set_psw(uint8_t val);
     void set_r(uint8_t no, uint8_t val) const;
     void set_rb(uint8_t value);
     uint8_t r_base() const { return (_psw & bs) ? 0x18 : 0x00; }

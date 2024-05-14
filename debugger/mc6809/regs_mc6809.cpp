@@ -57,7 +57,7 @@ void RegsMc6809::print() const {
     buffer1.hex16(37, _x);
     buffer1.hex8(44, _a);
     buffer1.hex8(49, _b);
-    buffer1.bits(55, _cc, 0x80, &line1[55]);
+    buffer1.bits(55, _cc, 0x80, line1 + 55);
     cli.print(buffer1);
     if (_type == SW_HD6309) {
         //                               0123456789012345

@@ -31,7 +31,7 @@ void RegsIns8060::print() const {
     buffer.hex16(27, _ptr[3]);
     buffer.hex8(34, _e);
     buffer.hex8(39, _a);
-    buffer.bits(44, _s, 0x80, &line[44]);
+    buffer.bits(44, _s, 0x80, line + 44);
     cli.println(buffer);
     Pins.idle();
 }

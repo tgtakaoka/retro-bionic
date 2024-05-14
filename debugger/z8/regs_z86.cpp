@@ -23,13 +23,13 @@ const char *RegsZ86::cpuName() const {
 void RegsZ86::print() const {
     // clang-format off
     //                               012345678901234567890123456789012345
-    static constexpr char line1[] = "PC=xxxx SP=xxxx RP=xx FLAGS=CZSVDH21";
+    static constexpr char line1[] = "PC=xxxx SP=xxxx RP=xx FLAGS=CZSVDH11";
     // clang-format on
     static auto &buffer1 = *new CharBuffer(line1);
     buffer1.hex16(3, _pc);
     buffer1.hex16(11, _sp);
     buffer1.hex8(19, _rp);
-    buffer1.bits(28, _flags, 0x80, &line1[28]);
+    buffer1.bits(28, _flags, 0x80, line1 + 28);
     cli.println(buffer1);
     RegsZ8::print();
 }

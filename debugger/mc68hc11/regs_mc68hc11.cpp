@@ -60,7 +60,7 @@ void RegsMc68hc11::print() const {
     buffer.hex16(25, _y);
     buffer.hex8(32, _a);
     buffer.hex8(37, _b);
-    buffer.bits(43, _cc, 0x80, &line[43]);
+    buffer.bits(43, _cc, 0x80, line + 43);
     cli.println(buffer);
 }
 

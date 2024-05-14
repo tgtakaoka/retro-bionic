@@ -19,17 +19,18 @@ const char *RegsScn2650::cpuName() const {
 }
 
 void RegsScn2650::print() const {
-    //                              012345678901234567890123456789012345
-    static constexpr char line[] = "PC=xxxx PSU=SFI SP=x CC=x PSL=D0WVLC";
+    static constexpr char line[] =
+            "PC=xxxx PSU=SFI11111 PSL=11D1WVLC SP=x CC=x RS=x";
+    //       012345678901234567890123456789012345678901234567
     static auto &buffer = *new CharBuffer(line);
-    static constexpr char cc[] = {'Z', 'P', 'N', '3'};
     buffer.hex16(3, _pc);
-    buffer.bits(12, _psu, 0x80, "SFI");
-    buffer[19] = (_psu & 7) + '0';        // Stack pointer
-    buffer[24] = cc[_psl >> 6];           // Condition code
-    buffer.bits(30, _psl, 0x20, &line[30]);
-    buffer[31] = rs() + '0';              // Register select
-    buffer[34] = (_psl & 2) ? 'L' : 'A';  // Logic ot Arithmetic
+    buffer.bits(12, _psu, 0x80, line + 12);
+    buffer.bits(25, _psl, 0x80, line + 25);
+    buffer[31] = (_psl & 2) ? 'L' : 'A';  // Logic ot Arithmetic
+    buffer.hex4(37, _psu & 7);            // Stack pointer
+    static constexpr char cc[] = {'Z', 'P', 'N', '3'};
+    buffer[42] = cc[_psl >> 6];  // Condition code
+    buffer.hex1(47, rs());       // Register select
     cli.println(buffer);
     static constexpr char regs[] =
             "R0=xx R1=xx R2=xx R3=xx (R1=xx R2=xx R3=xx)";

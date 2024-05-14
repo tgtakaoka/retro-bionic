@@ -32,7 +32,7 @@ void RegsTlcs90::print() const {
     bufmain.hex16(28, _main.de());
     bufmain.hex16(36, _main.hl());
     bufmain.hex8(43, _main.a);
-    bufmain.bits(48, _main.f, 0x80, &main[48]);
+    bufmain.bits(48, _main.f, 0x80, main + 48);
     cli.println(bufmain);
     Pins.idle();
     bufalt.hex16(3, _ix);
@@ -41,7 +41,7 @@ void RegsTlcs90::print() const {
     bufalt.hex16(28, _alt.de());
     bufalt.hex16(36, _alt.hl());
     bufalt.hex8(43, _alt.a);
-    bufalt.bits(48, _alt.f, 0x80, &alt[48]);
+    bufalt.bits(48, _alt.f, 0x80, alt + 48);
     cli.println(bufalt);
 }
 

@@ -44,7 +44,7 @@ void RegsMos6502::print() const {
         buffer.hex16(34, _x);
         buffer.hex16(41, _y);
         buffer.hex16(48, _c());
-        buffer.bits(55, _p, 0x80, &line[55]);
+        buffer.bits(55, _p, 0x80, line + 55);
         cli.println(buffer);
     } else {
         // clang-format off
@@ -57,7 +57,7 @@ void RegsMos6502::print() const {
         buffer.hex8(17, _x);
         buffer.hex8(22, _y);
         buffer.hex8(27, _a);
-        buffer.bits(32, _p, 0x80, &line[32]);
+        buffer.bits(32, _p, 0x80, line + 32);
         buffer[40] = Pins.hardwareType() == HW_W65C816 ? ' ' : 0;
         cli.println(buffer);
     }

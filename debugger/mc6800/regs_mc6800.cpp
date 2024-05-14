@@ -79,7 +79,7 @@ void RegsMc6800::print() const {
     buffer.hex16(18, _x);
     buffer.hex8(25, _a);
     buffer.hex8(30, _b);
-    buffer.bits(36, _cc, 0x20, &line[36]);
+    buffer.bits(36, _cc, 0x20, line + 36);
     _pins->idle();
     cli.println(buffer);
 }
