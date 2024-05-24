@@ -11,9 +11,8 @@ void Signals::getAddress() {
     addr = busRead(AD);
 }
 
-bool Signals::getControl() {
+void Signals::getControl() {
     cntl() = busRead(CNTL);
-    return cntl() != (CNTL_PSEN | CNTL_RD | CNTL_WR);
 }
 
 void Signals::getData() {

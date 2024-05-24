@@ -57,13 +57,15 @@ namespace {
 //   TWHQX: min  33 ns; Data hold after #WR+
 constexpr auto xtal_hi_ns = 17;      // 42 ns
 constexpr auto xtal_lo_ns = 17;      // 42 ns
-constexpr auto xtal_hi_addr = 6;     // 42 ns
-constexpr auto xtal_lo_ale = 60;     // 42 ns
-constexpr auto xtal_lo_cntl = 60;    // 42 ns
-constexpr auto xtal_hi_fetch = 0;    // 42 ns
+constexpr auto xtal_lo_addr = 4;     // 42 ns
+constexpr auto xtal_hi_ale = 7;      // 42 ns
+constexpr auto xtal_lo_cntl = 10;    // 42 ns
+constexpr auto xtal_hi_cntl = 0;     // 42 ns
 constexpr auto xtal_lo_inject = 0;   // 42 ns
 constexpr auto xtal_lo_output = 0;   // 42 ns
-constexpr auto xtal_lo_capture = 0;  // 42 ns
+constexpr auto xtal_hi_capture = 1;  // 42 ns
+constexpr auto xtal_lo_data = 20;    // 42 ns
+constexpr auto xtal_hi_input = 0;    // 42 ns
 // delayNanoseconds(0) takes a bit delay than no delayNanoseconds() call.
 
 inline void assert_int0() {
@@ -228,111 +230,121 @@ void PinsI8051::reset() {
 }
 
 Signals *PinsI8051::prepareCycle() {
-    // S1L2, ALE=H
     auto s = Signals::put();
-    assert_debug();
-    busMode(DB, INPUT);
-    negate_debug();
-    while (signal_ale() != LOW) {
-        xtal_hi();
-        delayNanoseconds(xtal_hi_addr);
-        assert_debug();
+    // #PSEN:S1H2, #RD/#WR:S4H2
+    do {
+        // #PSEN:S2L1/S2L2, #RD/#WR:S5L1/S5L2
+        xtal_lo();  // S2L2/S5L2 triggers ALE-
+        delayNanoseconds(xtal_lo_addr);
         s->getAddress();
-        negate_debug();
-        xtal_lo();
-        delayNanoseconds(xtal_lo_ale);
+        // #PSEN:S2H1/S2H2, #RD/#WR:S5H1/S5H2
+        xtal_hi();
+        delayNanoseconds(xtal_hi_ale);
+    } while (signal_ale() != LOW);
+    // #PSEN:S3L1, #RD/#WR:S6L1
+    xtal_lo();  // S3L1/S6L1 triggers #PSEN-
+    delayNanoseconds(xtal_lo_cntl);
+    // #PSEN:S3H1, #RD/#WR:S6H1
+    xtal_hi();
+    delayNanoseconds(xtal_hi_cntl);
+    s->getControl();  // read #PSEN=L
+    if (s->fetch()) {
+        // #PSEN:S3H1
+        return s;
     }
-    // S2L2
-    while (true) {
-        assert_debug();
-        if (s->getControl()) {
-            negate_debug();
-            break;
-        }
-        negate_debug();
-        xtal_cycle_lo();
-        delayNanoseconds(xtal_lo_cntl);
-    }
-    // #PSEN:S3L2, #RD/#WR:S1L2
+    // #RD/#WR:S6L2
+    xtal_lo();
+    delayNanoseconds(xtal_lo_ns);
+    // #RD/#WR:S6H2/S1L1
+    xtal_cycle();  // S1L1 triggers #RD/WR-
+    // #RD/#WR:S1H1
+    xtal_hi();
+    s->getControl();  // read #RD/#WR read
+    // #RD/#WR:S1H1
     return s;
 }
 
 Signals *PinsI8051::completeCycle(Signals *s) {
-    // #PSEN:S3H2, #RD/#WR:S1H2
-    xtal_hi();
+    // #PSEN:S3H1
     if (s->fetch()) {  // program read
-        delayNanoseconds(xtal_hi_fetch);
-        // S4L1
+        // S3L2
         xtal_lo();
         if (s->readMemory()) {
             s->data = ProgMemory.raw_read(s->addr);
         } else {
             delayNanoseconds(xtal_lo_inject);
         }
-        // S4H1
+        // S3H2
         xtal_hi();
-        assert_debug();
         busWrite(DB, s->data);
-        // S4L2
+        // S1L1
         xtal_lo();
         busMode(DB, OUTPUT);
-        negate_debug();
         delayNanoseconds(xtal_lo_output);
-        // S4H2/S1L1
-        xtal_cycle_lo();
+        // S1H1
+        xtal_hi();
         UartH.loop();
-        // S1H1/S1L2
-        xtal_cycle_lo();
+        // S1L2
+        xtal_lo();  // S1L2 triggers #PSEN+ and ALE+
+        Signals::nextCycle();
+        // S1H2
+        xtal_hi();
+        busMode(DB, INPUT);
         // ALE=H
         return s;
     }
 
+    // #RD/#WR:S1H1
     if (s->read()) {  // external data read
-        // S2L1
+        // S1L2
         xtal_lo();
         if (s->readMemory()) {
             s->data = DataMemory.read(s->addr);
         } else {
             delayNanoseconds(xtal_lo_inject);
         }
-        // S2H1/S2L2
-        xtal_cycle_lo();
-        assert_debug();
+        // S2H1
+        xtal_hi();
         busWrite(DB, s->data);
-        // S2H2/S3L1
-        xtal_cycle_lo();
+        // S2L2
+        xtal_lo();
         busMode(DB, OUTPUT);
-        negate_debug();
         delayNanoseconds(xtal_lo_output);
     } else {  // external data write
-        // S2L1
+        // S1L2
         xtal_lo();
-        assert_debug();
         s->getData();
-        negate_debug();
-        // S2H1/S2L2
-        xtal_cycle_lo();
+        //  S1H2
+        xtal_hi();
         if (s->writeMemory()) {
             DataMemory.write(s->addr, s->data);
         } else {
-            delayNanoseconds(xtal_lo_capture);
+            delayNanoseconds(xtal_hi_capture);
         }
-        // S2H2/S3L1
-        xtal_cycle();
+        // S2L1
+        xtal_lo();
+        delayNanoseconds(xtal_lo_ns);
     }
+    // S2H1/S2L2
+    xtal_cycle();
+    // S2H2/S3L1
+    xtal_cycle_lo();
+    UartH.loop();
     // S3H1/S3L2
     xtal_cycle_lo();
     UartH.loop();
-    // S3H2/S4L1
-    xtal_cycle_lo();
-    UartH.loop();
-    // S4H1/S4L2
-    xtal_cycle_lo();
+    // S3H2/S1L1
+    xtal_cycle_lo();  // S1L1 triggers #RD/#WR+
     Signals::nextCycle();
-    // S4H2/S1L1
-    xtal_cycle();
-    // S1H1/S1L2
-    xtal_cycle_lo();
+    // S1H1
+    xtal_hi();
+    busMode(DB, INPUT);
+    delayNanoseconds(xtal_hi_input);
+    // S1L2
+    xtal_lo();  // S1L2 triggers ALE+
+    delayNanoseconds(xtal_lo_data);
+    // S1H2
+    xtal_hi();
     // ALE=H
     return s;
 }

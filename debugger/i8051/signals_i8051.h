@@ -8,7 +8,7 @@ namespace i8051 {
 
 struct Signals final : SignalsBase<Signals> {
     void getAddress();
-    bool getControl();
+    void getControl();
     void getData();
     void print() const;
 
