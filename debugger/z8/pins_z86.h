@@ -35,15 +35,7 @@ namespace z86 {
 
 using z8::PinsZ8;
 
-struct PinsZ86 final : PinsZ8 {
-    PinsZ86();
-
-private:
-    void xtal1_cycle() const override;
-    bool fetchVectorAfterContextSave() override { return true; }
-};
-
-extern struct PinsZ86 Pins;
+extern struct PinsZ8 Pins;
 
 }  // namespace z86
 }  // namespace debugger

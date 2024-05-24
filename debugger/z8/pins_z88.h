@@ -47,15 +47,7 @@ namespace z88 {
 
 using z8::PinsZ8;
 
-struct PinsZ88 final : PinsZ8 {
-    PinsZ88();
-
-private:
-    void xtal1_cycle() const override;
-    bool fetchVectorAfterContextSave() override { return false; }
-};
-
-extern struct PinsZ88 Pins;
+extern struct PinsZ8 Pins;
 
 }  // namespace z88
 }  // namespace debugger

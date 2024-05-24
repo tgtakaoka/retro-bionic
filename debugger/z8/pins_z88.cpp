@@ -9,10 +9,6 @@
 namespace debugger {
 namespace z88 {
 
-struct PinsZ88 Pins;
-
-PinsZ88::PinsZ88() : PinsZ8(Regs, Inst, Memory, Devs) {}
-
 // clang-format off
 /**
  * Z8 External Bus cycle
@@ -58,15 +54,20 @@ inline void xtal1_hi() {
 inline void xtal1_lo() {
     digitalWriteFast(PIN_XTAL1, LOW);
 }
-}  // namespace
 
-void PinsZ88::xtal1_cycle() const {
+void cycle() {
     xtal1_hi();
     delayNanoseconds(xtal1_hi_ns);
     xtal1_lo();
     if (xtal1_lo_ns)
         delayNanoseconds(xtal1_lo_ns);
 }
+
+}  // namespace
+
+struct PinsZ8 Pins {
+    false, cycle, Regs, Inst, Memory, Devs,
+};
 
 }  // namespace z88
 }  // namespace debugger

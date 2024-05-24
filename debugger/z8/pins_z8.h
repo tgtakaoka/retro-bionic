@@ -64,7 +64,17 @@ enum IntrName : uint8_t {
     INTR_IRQ2 = 3,
 };
 
-struct PinsZ8 : Pins {
+struct PinsZ8 final : Pins {
+    PinsZ8(bool fetchVectorAfterContextSave, void (*cycle)(),
+            RegsZ8 &regs, const InstZ8 &inst, Mems &mems, Devs &devs)
+        : Pins(),
+          _fetchVectorAfterContextSave(fetchVectorAfterContextSave),
+          _xtal1_cycle(cycle),
+          _regs(regs),
+          _inst(inst),
+          _mems(mems),
+          _devs(devs) {}
+
     void reset() override;
     bool step(bool show) override;
     void run() override;
@@ -78,10 +88,9 @@ struct PinsZ8 : Pins {
     void captureWrites(const uint8_t *inst, uint8_t len, uint16_t *addr,
             uint8_t *buf, uint8_t max);
 
-protected:
-    PinsZ8(RegsZ8 &regs, const InstZ8 &inst, Mems &mems, Devs &devs)
-        : Pins(), _regs(regs), _inst(inst), _mems(mems), _devs(devs) {}
-
+private:
+    const bool _fetchVectorAfterContextSave;
+    void (*const _xtal1_cycle)();
     RegsZ8 &_regs;
     const InstZ8 &_inst;
     const Mems &_mems;
@@ -89,13 +98,15 @@ protected:
     uint8_t _writes;
 
     void setBreakInst(uint32_t addr) const override;
-    virtual void xtal1_cycle() const = 0;
+    void xtal1_cycle() const { _xtal1_cycle(); }
 
     Signals *prepareCycle();
     Signals *completeCycle(Signals *signals);
     Signals *cycle();
     void loop();
-    virtual bool fetchVectorAfterContextSave() = 0;
+    bool fetchVectorAfterContextSave() const {
+        return _fetchVectorAfterContextSave;
+    }
     bool rawStep();
     void intrAck(Signals *frame) const;
     void execute(const uint8_t *inst, uint8_t len, uint16_t *addr, uint8_t *buf,
