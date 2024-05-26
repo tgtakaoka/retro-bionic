@@ -60,17 +60,13 @@ private:
         }
     } _main, _alt;
 
-    void saveRegs();
+    static void exchangeRegs();
+    static void saveRegs(reg &regs);
+    static void restoreRegs(const reg &regs);
 
     static constexpr uint16_t r16(const uint8_t hi, const uint8_t lo) {
         return static_cast<uint16_t>(hi) << 8 | lo;
     }
-
-    static void setle16(uint8_t *p, uint8_t h, uint8_t l) {
-        p[0] = l;
-        p[1] = h;
-    }
-    static void setle16(uint8_t *p, uint16_t v) { setle16(p, hi(v), lo(v)); }
 };
 
 extern struct RegsTlcs90 Regs;

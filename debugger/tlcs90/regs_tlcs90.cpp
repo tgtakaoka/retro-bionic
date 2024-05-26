@@ -34,7 +34,6 @@ void RegsTlcs90::print() const {
     bufmain.hex8(43, _main.a);
     bufmain.bits(48, _main.f, 0x80, main + 48);
     cli.println(bufmain);
-    Pins.idle();
     bufalt.hex16(3, _ix);
     bufalt.hex16(11, _iy);
     bufalt.hex16(20, _alt.bc());
@@ -80,93 +79,72 @@ bool RegsTlcs90::saveContext(const Signals *frame) {
 void RegsTlcs90::save() {
     static constexpr uint8_t SAVE_SP[] = {
             0xEB, 0x00, 0x00, 0x46,  // LD (0000H),SP ; 0:2:3:7:N:W:W
-            0x56,                    // PUSH AF;      ; 0:N:d:W:W
             0x00,                    // NOP           ; 0:N
     };
-    uint8_t buffer[4];
+    uint8_t buffer[2];
     Pins.captureWrites(SAVE_SP, sizeof(SAVE_SP), buffer, sizeof(buffer), &_pc);
-    _sp = le16(buffer + 0);
-    _main.a = buffer[2];
-    _main.f = buffer[3];
+    _sp = le16(buffer);
     saveRegisters();
 }
 
 void RegsTlcs90::saveRegisters() {
-    static constexpr uint8_t SAVE_ALL[] = {
-            0x09,  // EX AF,AF' ; 0:N
-            0x56,  // PUSH AF   ; 0:N:d:W:W
-            0x09,  // EX AF,AF' ; 0:N
-            0x50,  // PUSH BC   ; 0:N:d:W:W
-            0x51,  // PUSH DE   ; 0:N:d:W:W
-            0x52,  // PUSH HL   ; 0:N:d:W:W
+    saveRegs(_main);
+    exchangeRegs();
+    saveRegs(_alt);
+    exchangeRegs();
+    static constexpr uint8_t SAVE_INDEX[] = {
             0x54,  // PUSH IX   ; 0:N:d:W:W
             0x55,  // PUSH IY   ; 0:N:d:W:W
+            0x00,  // NOP       ; 0:N
+    };
+    uint8_t buffer[4];
+    Pins.captureWrites(SAVE_INDEX, sizeof(SAVE_INDEX), buffer, sizeof(buffer));
+    _ix = be16(buffer + 0);
+    _iy = be16(buffer + 2);
+}
+
+void RegsTlcs90::exchangeRegs() {
+    static constexpr uint8_t EXCHANGE[] = {
+            0x09,  // EX AF,AF' ; 0:N
             0x0A,  // EXX       ; 0:N
+    };
+    Pins.execInst(EXCHANGE, sizeof(EXCHANGE));
+}
+
+void RegsTlcs90::saveRegs(reg &regs) {
+    static constexpr uint8_t SAVE_ALL[] = {
+            0x56,  // PUSH AF   ; 0:N:d:W:W
             0x50,  // PUSH BC   ; 0:N:d:W:W
             0x51,  // PUSH DE   ; 0:N:d:W:W
             0x52,  // PUSH HL   ; 0:N:d:W:W
-            0x0A,  // EXX       ; 0:N
+            0x00,  // NOP       ; 0:N
     };
-    uint8_t buffer[2 * 9];
-    Pins.captureWrites(SAVE_ALL, sizeof(SAVE_ALL), buffer, sizeof(buffer));
-    _alt.a = buffer[0];
-    _alt.f = buffer[1];
-    _main.b = buffer[2];
-    _main.c = buffer[3];
-    _main.d = buffer[4];
-    _main.e = buffer[5];
-    _main.h = buffer[6];
-    _main.l = buffer[7];
-    _ix = be16(buffer + 8);
-    _iy = be16(buffer + 10);
-    _alt.b = buffer[12];
-    _alt.c = buffer[13];
-    _alt.d = buffer[14];
-    _alt.e = buffer[15];
-    _alt.h = buffer[16];
-    _alt.l = buffer[17];
+    Pins.captureWrites(
+            SAVE_ALL, sizeof(SAVE_ALL), (uint8_t *)&regs, sizeof(regs));
 }
 
 void RegsTlcs90::restore() {
-    uint8_t LD_ALL[42] = {
-            0x09,              //  0: EX AF,AF' ; 0:N
-            0x5E, 0x09, 0, 0,  //  1: POP AF    ; 0:n:R:R:d:N
-            0x09,              //  5: EX AF,AF' ; 0:N
-            0x5E, 0x09, 0, 0,  //  6: POP AF    ; 0:n:R:R:d:N
-            0x0A,              // 10: EXX       ; 0:N
-            0x38, 0, 0,        // 11: LD BC,mn  ; 0:2:3:N
-            0x39, 0, 0,        // 14: LD DE,mn  ; 0:2:3:N
-            0x3A, 0, 0,        // 17: LD HL,nm  ; 0:2:3:N
-            0x0A,              // 20: EXX       ; N
-            0x38, 0, 0,        // 21: LD BC,mn  ; 0:2:3:N
-            0x39, 0, 0,        // 24: LD DE,mn  ; 0:2:3:N
-            0x3A, 0, 0,        // 27: LD HL,nm  ; 0:2:3:N
-            0x3C, 0, 0,        // 30: LD IX,nm  ; 0:2:3:N
-            0x3D, 0, 0,        // 33: LD IY,nm  ; 0:2:3:N
-            0x3E, 0, 0,        // 36: LD SP,nm  ; 0:2:3:N
-            0x1A, 0, 0,        // 39: JP nm     ; 0:2:3:d:J
+    restoreRegs(_main);
+    exchangeRegs();
+    restoreRegs(_alt);
+    exchangeRegs();
+    uint8_t LOAD_ALL[] = {
+            0x3C, lo(_ix), hi(_ix),  // LD IX, _ix  ; 0:2:3:N
+            0x3D, lo(_iy), hi(_iy),  // LD IY, _iy  ; 0:2:3:N
+            0x3E, lo(_sp), hi(_sp),  // LD SP, _sp  ; 0:2:3:N
+            0x1A, lo(_pc), hi(_pc),  // JP _pc     ; 0:2:3:d:J
     };
-    LD_ALL[3] = _alt.f;
-    LD_ALL[4] = _alt.a;
-    LD_ALL[8] = _main.f;
-    LD_ALL[9] = _main.a;
-    LD_ALL[12] = _alt.c;
-    LD_ALL[13] = _alt.b;
-    LD_ALL[15] = _alt.e;
-    LD_ALL[16] = _alt.d;
-    LD_ALL[18] = _alt.l;
-    LD_ALL[19] = _alt.h;
-    LD_ALL[22] = _main.c;
-    LD_ALL[23] = _main.b;
-    LD_ALL[25] = _main.e;
-    LD_ALL[26] = _main.d;
-    LD_ALL[28] = _main.l;
-    LD_ALL[29] = _main.h;
-    setle16(LD_ALL + 31, _ix);
-    setle16(LD_ALL + 34, _iy);
-    setle16(LD_ALL + 37, _sp);
-    setle16(LD_ALL + 40, _pc);
-    Pins.execInst(LD_ALL, sizeof(LD_ALL));
+    Pins.execInst(LOAD_ALL, sizeof(LOAD_ALL));
+}
+
+void RegsTlcs90::restoreRegs(const reg &regs) {
+    uint8_t LOAD_ALL[] = {
+            0x5E, 0x09, regs.f, regs.a,  // POP AF    ; 0:n:R:R:d:N
+            0x38, regs.c, regs.b,        // LD BC, _bc  ; 0:2:3:N
+            0x39, regs.e, regs.d,        // LD DE, _de  ; 0:2:3:N
+            0x3A, regs.l, regs.h,        // LD HL, _hl  ; 0:2:3:N
+    };
+    Pins.execInst(LOAD_ALL, sizeof(LOAD_ALL));
 }
 
 void RegsTlcs90::helpRegisters() const {
