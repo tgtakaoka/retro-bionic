@@ -41,14 +41,14 @@ void RegsI8085::print() const {
 
 void RegsI8085::save() {
     static const uint8_t PUSH_ALL[] = {
-            0xC7,        // RST 0
-            0xF5,        // PUSH PSW
-            0x20,        // RIM
-            0xF3,        // DI
-            0xC5,        // PUSH B
-            0xD5,        // PUSH D
-            0xE5,        // PUSH H
-            0x32, 0, 0,  // STA 0
+            0xC7,  // RST 0
+            0xF5,  // PUSH PSW
+            0x20,  // RIM
+            0xF3,  // DI
+            0xC5,  // PUSH B
+            0xD5,  // PUSH D
+            0xE5,  // PUSH H
+            0x77,  // MOV M, A
     };
     uint8_t buffer[11];
     Pins.captureWrites(
@@ -67,49 +67,34 @@ void RegsI8085::save() {
 }
 
 void RegsI8085::restore() {
-    static uint8_t POP_ALL[] = {
-            0x31, 0, 0,  // LXI SP,sp-10
-            0xE1, 0, 0,  // POP H
-            0xD1, 0, 0,  // POP D
-            0xC1, 0, 0,  // POP B
-            0xF1, 0, 0,  // POP PSW
-            0,           // EI/DI
-            0xC9, 0, 0,  // RET
+    const auto ie = _ie ? InstI8085::EI : InstI8085::DI;
+    uint8_t POP_ALL[] = {
+            0x01, _c, _b,            // LXI B, _bc
+            0x11, _e, _d,            // LXI D, _de
+            0x21, _l, _h,            // LXI H, _hl
+            0xF1, _psw, _a,          // POP PSW
+            0x31, lo(_sp), hi(_sp),  // LXI SP, _sp
+            ie,                      // EI/DI
+            0xC3, lo(_pc), hi(_pc),  // JMP _pc
     };
-    POP_ALL[1] = lo(_sp - 10);
-    POP_ALL[2] = hi(_sp - 10);
-    POP_ALL[4] = _l;
-    POP_ALL[5] = _h;
-    POP_ALL[7] = _e;
-    POP_ALL[8] = _d;
-    POP_ALL[10] = _c;
-    POP_ALL[11] = _b;
-    POP_ALL[13] = _psw;
-    POP_ALL[14] = _a;
-    POP_ALL[15] = _ie ? InstI8085::EI : InstI8085::DI;
-    POP_ALL[17] = lo(_pc);
-    POP_ALL[18] = hi(_pc);
     Pins.execInst(POP_ALL, sizeof(POP_ALL));
 }
 
 uint8_t RegsI8085::read_io(uint8_t addr) const {
-    static uint8_t IN[] = {
-            0xDB, 0,     // IN addr
-            0x32, 0, 0,  // STA 0
+    uint8_t IN[] = {
+            0xDB, addr,  // IN addr
+            0x77,        // MOV M, A
     };
-    IN[1] = addr;
     uint8_t data;
     Pins.captureWrites(IN, sizeof(IN), nullptr, &data, sizeof(data));
     return data;
 }
 
 void RegsI8085::write_io(uint8_t addr, uint8_t data) const {
-    static uint8_t OUT[] = {
-            0x3E, 0,  // MVI data
-            0xD3, 0,  // OUT addr
+    uint8_t OUT[] = {
+            0x3E, data,  // MVI data
+            0xD3, addr,  // OUT addr
     };
-    OUT[1] = data;
-    OUT[3] = addr;
     Pins.execInst(OUT, sizeof(OUT));
 }
 
