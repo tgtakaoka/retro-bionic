@@ -22,7 +22,7 @@ namespace mc6809 {
  */
 
 SoftwareType RegsMc6809::checkSoftwareType() {
-    static const uint8_t DETECT_6309[] = {
+    static constexpr uint8_t DETECT_6309[] = {
             0x5F, 0x10,        // CLRB            ; 1:N
             0x10, 0x43, 0xF7,  // COMD  on HD6309 ; 1:2:N
                                // NOP   on MC6809 ; 1:x:x
@@ -96,11 +96,11 @@ void RegsMc6809::restore() {
     // 1:N:R:r:r:r:r:r:r:r:r:r:r:r:X     MC6809
     // 1:N:R:r:r:r:r:r:r:r:r:r:r:r:r:r:X HD6309 native
     uint8_t RTI[16];
-    RTI[0] = 0x3B;
-    RTI[2] = _cc;
-    RTI[3] = _a;
-    RTI[4] = _b;
-    uint8_t cycle = 5;
+    RTI[0] = 0x3B;  // RTI
+    auto cycle = 2;
+    RTI[cycle++] = _cc;
+    RTI[cycle++] = _a;
+    RTI[cycle++] = _b;
     if (_native6309) {
         RTI[cycle++] = _e;
         RTI[cycle++] = _f;
@@ -151,18 +151,16 @@ void RegsMc6809::saveContext(uint8_t *context, uint8_t n, uint16_t sp) {
 }
 
 void RegsMc6809::loadStack(uint16_t sp) const {
-    uint8_t LDS[4];
-    LDS[0] = 0x10;
-    LDS[1] = 0xCE;
-    be16(LDS + 2, sp);
+    uint8_t LDS[4] = {
+            0x10, 0xCE, hi(sp), lo(sp),  // LDS #sp
+    };
     _pins->injectReads(LDS, sizeof(LDS));
 }
 
 void RegsMc6809::loadMode(bool native) const {
-    uint8_t LDMD[3];
-    LDMD[0] = 0x11;
-    LDMD[1] = 0x3D;
-    LDMD[2] = native ? 1 : 0;
+    uint8_t LDMD[3] = {
+            0x11, 0x3D, uint8(native ? 1 : 0),  // LDMD #native
+    };
     _pins->injectReads(LDMD, sizeof(LDMD), 5);
 }
 
@@ -187,10 +185,9 @@ void RegsMc6809::saveVW() {
 }
 
 void RegsMc6809::loadVW() const {
-    uint8_t LDW[4];  // LDW #val ; 1:2:3:4
-    LDW[0] = 0x10;
-    LDW[1] = 0x86;
-    be16(LDW + 2, _v);
+    uint8_t LDW[4] = {
+            0x10, 0x86, hi(_v), lo(_v),  // LDW #_v ; 1:2:3:4
+    };
     _pins->injectReads(LDW, sizeof(LDW));
     static constexpr uint8_t TFR[] = {
             0x1F, 0x67,  // TFR W,V ; 1:2:x:x:x:x (HD6309)

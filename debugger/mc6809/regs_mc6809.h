@@ -61,8 +61,8 @@ protected:
     }
     uint16_t _v;
     void _q(uint32_t q) {
-        _d(q >> 16);
-        _w(q & 0xFFFF);
+        _d(hi16(q));
+        _w(lo16(q));
     }
 
     void saveContext(uint8_t *context, uint8_t n, uint16_t sp);

@@ -42,6 +42,12 @@ protected:
     static constexpr uint8_t lo(uint16_t v) {
         return static_cast<uint8_t>(v >> 0);
     }
+    static constexpr uint8_t hi8(uint16_t v) {
+        return static_cast<uint8_t>(v >> 8);
+    }
+    static constexpr uint8_t lo8(uint16_t v) {
+        return static_cast<uint8_t>(v >> 0);
+    }
     static constexpr uint16_t uint16(uint16_t v) { return v; }
     static constexpr uint16_t uint16(uint8_t hi, uint8_t lo) {
         return static_cast<uint16_t>(hi) << 8 | lo;
@@ -55,6 +61,12 @@ protected:
     static void be16(uint8_t *p, uint16_t v) {
         p[0] = hi(v);
         p[1] = lo(v);
+    }
+    static constexpr uint16_t hi16(uint32_t v) {
+        return static_cast<uint16_t>(v >> 16);
+    }
+    static constexpr uint16_t lo16(uint32_t v) {
+        return static_cast<uint16_t>(v >> 0);
     }
     static void swap8(uint8_t &a, uint8_t &b) {
         auto tmp = a;
