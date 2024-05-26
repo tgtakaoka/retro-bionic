@@ -195,6 +195,7 @@ void PinsIns8070::reset() {
         xin_cycle();
     negate_reset();
     negate_enin();
+    Signals::resetCycles();
     // The first instruction will be fetched within 13 Tc after #RST
     // has gone high.
     Regs.save();

@@ -38,7 +38,7 @@ void RegsIns8070::print() const {
 }
 
 void RegsIns8070::save() {
-    static const uint8_t PUSH_ALL[] = {
+    static constexpr uint8_t PUSH_ALL[] = {
             0x88, 0xFE,        // ST EA,-1,PC
             0x31, 0x88, 0xFE,  // LD EA,SP; ST EA,-1,PC
             0x25, 0x00, 0x01,  // LD SP,=0x0100
@@ -47,7 +47,7 @@ void RegsIns8070::save() {
             0x0B, 0x08,        // LD EA,T; PUSH EA
             0x06, 0x0A,        // LD A,S; PUSH A
     };
-    static uint8_t buffer[11];
+    uint8_t buffer[11];
     Pins.captureWrites(
             PUSH_ALL, sizeof(PUSH_ALL), &_pc(), buffer, sizeof(buffer));
     _a = buffer[0];
@@ -60,30 +60,16 @@ void RegsIns8070::save() {
 }
 
 void RegsIns8070::restore() {
-    static uint8_t LD_ALL[] = {
-            0x27, 0, 0,  // p3=2:1; LD P3,=p3
-            0x26, 0, 0,  // p2=5:4; LD P2,=p2
-            0x25, 0, 0,  // sp=8:7; LD SP,=sp
-            0xA4, 0, 0,  // t=11:10; LD T,=t
-            0x84, 0, 0,  // e=14 s=13; LD EA,=e|s
-            0x07,        // LD S,A
-            0xC4, 0,     // a=17; LD A,=a
-            0x24, 0, 0,  // pc=20:19; JMP =pc
+    uint8_t LD_ALL[] = {
+            0x27, lo(_p3()), hi(_p3()),  // LD P3,=_p3
+            0x26, lo(_p2()), hi(_p2()),  // LD P2,=_p2
+            0x25, lo(_sp()), hi(_sp()),  // LD SP,=_sp
+            0xA4, lo(_t), hi(_t),        // LD T,=_t
+            0x84, _s, _e,                // LD EA,=_e|_s
+            0x07,                        // LD S,A
+            0xC4, _a,                    // LD A,=_a
+            0x24, lo(_pc()), hi(_pc()),  // JMP =_pc
     };
-
-    LD_ALL[1] = lo(_p3());
-    LD_ALL[2] = hi(_p3());
-    LD_ALL[4] = lo(_p2());
-    LD_ALL[5] = hi(_p2());
-    LD_ALL[7] = lo(_sp());
-    LD_ALL[8] = hi(_sp());
-    LD_ALL[10] = lo(_t);
-    LD_ALL[11] = hi(_t);
-    LD_ALL[13] = _s;
-    LD_ALL[14] = _e;
-    LD_ALL[17] = _a;
-    LD_ALL[19] = lo(_pc());
-    LD_ALL[20] = hi(_pc());
     Pins.execInst(LD_ALL, sizeof(LD_ALL));
 }
 
@@ -168,11 +154,10 @@ void RegsIns8070::setRegister(uint8_t reg, uint32_t value) {
 
 uint8_t RegsIns8070::internal_read(uint16_t addr) {
     // No bus signals while internal RAM bus cycle.
-    static uint8_t LD_ST[] = {
-            0xC5, 0,    // LD A,dir[addr]
-            0xCD, 0x00  // ST A,dir[0x00]
+    uint8_t LD_ST[] = {
+            0xC5, uint8(addr),  // LD A,dir[addr]
+            0xF8, 0xFE          // ST A,-1,PC
     };
-    LD_ST[1] = addr;
     uint8_t data;
     Pins.captureWrites(LD_ST, sizeof(LD_ST), nullptr, &data, sizeof(data));
     return data;
@@ -180,9 +165,9 @@ uint8_t RegsIns8070::internal_read(uint16_t addr) {
 
 void RegsIns8070::internal_write(uint16_t addr, uint8_t data) {
     // No bus signals while internal RAM bus cycle.
-    static uint8_t LD_ST[] = {
-            0xC4, 0,  // LD A,data
-            0xCD, 0   // ST A,dir[addr]
+    uint8_t LD_ST[] = {
+            0xC4, data,        // LD A,data
+            0xCD, uint8(addr)  // ST A,dir[addr]
     };
     LD_ST[1] = data;
     LD_ST[3] = addr;
