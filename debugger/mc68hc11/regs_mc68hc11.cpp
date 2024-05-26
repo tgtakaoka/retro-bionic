@@ -84,22 +84,18 @@ void RegsMc68hc11::save() {
 }
 
 void RegsMc68hc11::restore() {
-    uint8_t LDS_RTI[3 + 12];
     _cc &= ~0x40;  // clear X bit to enable #XIRQ for step/suspend
-    const uint16_t s = _sp - 9;
-    LDS_RTI[0] = 0x8E;  // LDS #sp ; 1:2:3
-    LDS_RTI[1] = hi(s);
-    LDS_RTI[2] = lo(s);
-    LDS_RTI[3] = 0x3B;  // RTI     ; 1:N:n:R:r:r:r:r:r:r:r:r
-    LDS_RTI[6] = _cc;
-    LDS_RTI[7] = _b;
-    LDS_RTI[8] = _a;
-    LDS_RTI[9] = hi(_x);
-    LDS_RTI[10] = lo(_x);
-    LDS_RTI[11] = hi(_y);
-    LDS_RTI[12] = lo(_y);
-    LDS_RTI[13] = hi(_pc);
-    LDS_RTI[14] = lo(_pc);
+    const uint16_t sp = _sp - 9;
+    // clang-format off
+    uint8_t LDS_RTI[3 + 12] = {
+        0x8E, hi(sp), lo(sp),   // LDS #sp ; 1:2:3
+        0x3B, 0, 0,             // RTI     ; 1:N:n:R:r:r:r:r:r:r:r:r
+        _cc, _b, _a,
+        hi(_x), lo(_x),
+        hi(_y), lo(_y),
+        hi(_pc), lo(_pc),
+    };
+    // clang-format on
     _pins->injectReads(LDS_RTI, sizeof(LDS_RTI));
 }
 
@@ -171,10 +167,9 @@ void RegsMc68hc11::setRegister(uint8_t reg, uint32_t value) {
 }
 
 uint8_t RegsMc68hc11::internal_read(uint16_t addr) const {
-    uint8_t LDAA[3];
-    LDAA[0] = 0xB6;  // LDAA addr ; 1:2:3:A
-    LDAA[1] = hi(addr);
-    LDAA[2] = lo(addr);
+    uint8_t LDAA[] = {
+            0xB6, hi(addr), lo(addr),  // LDAA addr ; 1:2:3:A
+    };
     _pins->injectReads(LDAA, sizeof(LDAA), 4);
     static constexpr uint8_t STAA_FF00[] = {0xB7, 0xFF, 0x00};
     const auto staa = _mems->is_internal(0x8000) ? STAA_FF00 : STAA_8000;
@@ -185,12 +180,10 @@ uint8_t RegsMc68hc11::internal_read(uint16_t addr) const {
 }
 
 void RegsMc68hc11::internal_write(uint16_t addr, uint8_t data) const {
-    uint8_t LDAA_STAA[2 + 3];
-    LDAA_STAA[0] = 0x86;  // LDAA #val ; 1:2
-    LDAA_STAA[1] = data;
-    LDAA_STAA[2] = 0xB7;  // STAA addr ; 1:2:3:B
-    LDAA_STAA[3] = hi(addr);
-    LDAA_STAA[4] = lo(addr);
+    uint8_t LDAA_STAA[] = {
+            0x86, data,                // LDAA #val ; 1:2
+            0xB7, hi(addr), lo(addr),  // STAA addr ; 1:2:3:B
+    };
     _pins->injectReads(LDAA_STAA, sizeof(LDAA_STAA), 6);
 }
 
