@@ -12,7 +12,7 @@ namespace mc146805e2 {
 using mc146805::Inst;
 
 struct PinsMc146805E2 Pins {
-    &Regs, &Inst, &Memory, &Devices
+    Regs, Inst, Memory, Devices
 };
 
 /**
@@ -167,10 +167,10 @@ void PinsMc146805E2::reset() {
     }
     // DS=L
 
-    const auto vec_reset = _mems->vecReset();
-    const auto vector = _mems->raw_read16(vec_reset) & _mems->maxAddr();
+    const auto vec_reset = _mems.vecReset();
+    const auto vector = _mems.raw_read16(vec_reset) & _mems.maxAddr();
     // If reset vector pointing internal memory, we can't inject instructions.
-    _mems->raw_write16(vec_reset, 0x1000);
+    _mems.raw_write16(vec_reset, 0x1000);
 
     cycle();
     cycle();
@@ -181,10 +181,10 @@ void PinsMc146805E2::reset() {
     suspend();
 
     // We should certainly inject SWI by pointing external address here.
-    _regs->save();
+    _regs.save();
     // Restore reset vector
-    _mems->raw_write16(vec_reset, vector);
-    _regs->setIp(vector);
+    _mems.raw_write16(vec_reset, vector);
+    _regs.setIp(vector);
 }
 
 mc6805::Signals *PinsMc146805E2::currCycle() const {
@@ -239,7 +239,7 @@ mc6805::Signals *PinsMc146805E2::completeCycle(mc6805::Signals *signals) const {
         // c5
         osc1_lo();  // DS=HIGH
         if (s->writeMemory()) {
-            _mems->write(s->addr, s->data);
+            _mems.write(s->addr, s->data);
             if (c5_lo_write)
                 delayNanoseconds(c5_lo_write);
         } else {
@@ -247,7 +247,7 @@ mc6805::Signals *PinsMc146805E2::completeCycle(mc6805::Signals *signals) const {
         }
     } else {
         if (s->readMemory()) {
-            s->data = _mems->read(s->addr);
+            s->data = _mems.read(s->addr);
             if (c4_lo_read)
                 delayNanoseconds(c4_lo_read);
         } else {

@@ -14,8 +14,8 @@ namespace mc6805 {
 using mc6805::InstMc6805;
 
 struct PinsMc6805 : Pins {
-    PinsMc6805(RegsMc6805 *regs, const InstMc6805 *inst, const MemsMc6805 *mems,
-            Devs *devs)
+    PinsMc6805(RegsMc6805 &regs, const InstMc6805 &inst, const MemsMc6805 &mems,
+            Devs &devs)
         : _regs(regs), _inst(inst), _mems(mems), _devs(devs) {}
 
     void idle() override;
@@ -30,10 +30,10 @@ struct PinsMc6805 : Pins {
     void suspend() const;
 
 protected:
-    RegsMc6805 *const _regs;
-    const InstMc6805 *const _inst;
-    const MemsMc6805 *const _mems;
-    Devs *const _devs;
+    RegsMc6805 &_regs;
+    const InstMc6805 &_inst;
+    const MemsMc6805 &_mems;
+    Devs &_devs;
 
     virtual Signals *currCycle() const = 0;
     virtual Signals *rawPrepareCycle() const = 0;

@@ -9,7 +9,7 @@ namespace debugger {
 namespace mc146805e2 {
 
 struct RegsMc146805E2 Regs {
-    &Pins, &Memory
+    Pins, Memory
 };
 
 struct Target TargetMc146805E2 {

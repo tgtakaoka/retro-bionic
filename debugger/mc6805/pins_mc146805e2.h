@@ -45,8 +45,8 @@ using mc6805::PinsMc6805;
 using mc6805::RegsMc6805;
 
 struct PinsMc146805E2 final : PinsMc6805 {
-    PinsMc146805E2(RegsMc6805 *regs, const InstMc6805 *inst,
-            const MemsMc6805 *mems, Devs *devs)
+    PinsMc146805E2(RegsMc6805 &regs, const InstMc6805 &inst,
+            const MemsMc6805 &mems, Devs &devs)
         : PinsMc6805(regs, inst, mems, devs) {}
 
     void reset() override;

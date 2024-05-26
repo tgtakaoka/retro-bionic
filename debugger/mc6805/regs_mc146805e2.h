@@ -11,7 +11,7 @@ using mc6805::PinsMc6805;
 using mc6805::RegsMc6805;
 
 struct RegsMc146805E2 final : RegsMc6805 {
-    RegsMc146805E2(PinsMc6805 *pins, MemsMc6805 *mems)
+    RegsMc146805E2(PinsMc6805 &pins, MemsMc6805 &mems)
         : RegsMc6805(pins, mems) {}
 
     const char *cpu() const override { return "MC146805"; }
