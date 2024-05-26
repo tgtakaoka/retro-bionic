@@ -26,9 +26,9 @@ void RegsIns8060::print() const {
     //       0123456789012345678901234567890123456789012345678901
     static auto &buffer = *new CharBuffer(line);
     buffer.hex16(3, _pc());
-    buffer.hex16(11, _ptr[1]);
-    buffer.hex16(19, _ptr[2]);
-    buffer.hex16(27, _ptr[3]);
+    buffer.hex16(11, _p1());
+    buffer.hex16(19, _p2());
+    buffer.hex16(27, _p3());
     buffer.hex8(34, _e);
     buffer.hex8(39, _a);
     buffer.bits(44, _s, 0x80, line + 44);
@@ -37,53 +37,52 @@ void RegsIns8060::print() const {
 }
 
 void RegsIns8060::save() {
-    // clang-format off
-    static const uint8_t ST_ALL[] = {
-        0xC8, 0xFE,                         // ST $-1
-        0x40, 0xC8, 0xFF,                   // LDE, ST $
-        0x06, 0xC8, 0xFF,                   // CSA, ST $
-        0x31, 0xC8, 0xFF, 0x35, 0xC8, 0xFF, // XPAL P1, ST $, XPAH P1, ST $
-        0x32, 0xC8, 0xFF, 0x36, 0xC8, 0xFF, // XPAL P1, ST $, XPAH P1, ST $
-        0x33, 0xC8, 0xFF, 0x37, 0xC8, 0xFF, // XPAL P1, ST $, XPAH P1, ST $
+    static constexpr uint8_t ST_ALL[] = {
+            0xC8, 0xFE,                          // ST $-1
+            0x40, 0xC8, 0xFF,                    // LDE, ST $
+            0x06, 0xC8, 0xFF,                    // CSA, ST $
+            0x31, 0xC8, 0xFF, 0x35, 0xC8, 0xFF,  // XPAL P1, ST $, XPAH P1, ST $
+            0x32, 0xC8, 0xFF, 0x36, 0xC8, 0xFF,  // XPAL P1, ST $, XPAH P1, ST $
+            0x33, 0xC8, 0xFF, 0x37, 0xC8, 0xFF,  // XPAL P1, ST $, XPAH P1, ST $
     };
-    // clang-format on
     static uint8_t buffer[9];
-    Pins.captureWrites(
-            ST_ALL, sizeof(ST_ALL), &_ptr[0], buffer, sizeof(buffer));
+    Pins.captureWrites(ST_ALL, sizeof(ST_ALL), &_pc(), buffer, sizeof(buffer));
     _a = buffer[0];
     _e = buffer[1];
     _s = buffer[2];
-    _ptr[1] = le16(buffer + 3);
-    _ptr[2] = le16(buffer + 5);
-    _ptr[3] = le16(buffer + 7);
+    _p1() = le16(buffer + 3);
+    _p2() = le16(buffer + 5);
+    _p3() = le16(buffer + 7);
+}
+
+void RegsIns8060::restorePtr(uint8_t n, uint16_t val) {
+    uint8_t LD_PTR[] = {
+            0xC4, lo(val),    // LDI lo(Pn)
+            uint8(0x30 | n),  // XPAL Pn
+            0xC4, hi(val),    // LDI hi(Pn)
+            uint8(0x34 | n),  // XPAH Pn
+    };
+    Pins.execInst(LD_PTR, sizeof(LD_PTR));
 }
 
 void RegsIns8060::restore() {
     // clang-format off
-    static uint8_t LD_ALL[] = {
-        0xC4, 0, 0x07,                // LDI s, CAS; s=1
-        0xC4, 0, 0x01,                // LDI e, XAE; e=4
-        0xC4, 0, 0x33, 0xC4, 0, 0x37, // LDI lo(p3), XPAL P1, LDI hi(p3), XPAH P1
-        0xC4, 0, 0x32, 0xC4, 0, 0x36, // LDI lo(p2), XPAL P1, LDI hi(p2), XPAH P1
-        0xC4, 0, 0x31, 0xC4, 0, 0x35, // LDI lo(pc), XPAL P1, LDI hi(pc), XPAH P1
-        0x3D,                         // XPPC P1
-        0xC4, 0, 0x31, 0xC4, 0, 0x35, // LDI lo(p1), XPAL P1, LDI hi(p1), XPAH P1
-        0xC4, 0,                      // LDI a
+    uint8_t LD_SE[] = {
+        0xC4, _s, 0x07,                // LDI s, CAS; s=1
+        0xC4, _e, 0x01,                // LDI e, XAE; e=4
     };
-    // clang-format on
-    LD_ALL[1] = _s;
-    LD_ALL[4] = _e;
-    LD_ALL[7] = lo(_ptr[3]);
-    LD_ALL[10] = hi(_ptr[3]);
-    LD_ALL[13] = lo(_ptr[2]);
-    LD_ALL[16] = hi(_ptr[2]);
+    Pins.execInst(LD_SE, sizeof(LD_SE));
+    restorePtr(3, _p3());
+    restorePtr(2, _p2());
     const auto pc = _addr(_pc(), _pc() - 8);  // offset restore P1 and A
-    LD_ALL[19] = lo(pc);
-    LD_ALL[22] = hi(pc);
-    LD_ALL[26] = lo(_ptr[1]);
-    LD_ALL[29] = hi(_ptr[1]);
-    LD_ALL[32] = _a;
-    Pins.execInst(LD_ALL, sizeof(LD_ALL));
+    restorePtr(1, pc);
+    static constexpr uint8_t XPPC_P1[] = { 0x3D };
+    Pins.execInst(XPPC_P1, sizeof(XPPC_P1));
+    restorePtr(1, _p1());
+    uint8_t LD_A[] = {
+        0xC4, _a,               // LDI _a
+    };
+    Pins.execInst(LD_A, sizeof(LD_A));
 }
 
 void RegsIns8060::helpRegisters() const {

@@ -26,8 +26,16 @@ private:
     uint8_t _s;
     uint16_t _ptr[4];
     uint16_t _pc() const { return _ptr[0]; }
+    uint16_t _p1() const { return _ptr[1]; }
+    uint16_t _p2() const { return _ptr[2]; }
+    uint16_t _p3() const { return _ptr[3]; }
+    uint16_t &_pc() { return _ptr[0]; }
+    uint16_t &_p1() { return _ptr[1]; }
+    uint16_t &_p2() { return _ptr[2]; }
+    uint16_t &_p3() { return _ptr[3]; }
+    static void restorePtr(uint8_t n, uint16_t val);
 
-    static uint16_t _addr(uint16_t page, uint16_t offset) {
+    static constexpr uint16_t _addr(uint16_t page, uint16_t offset) {
         return (page & 0xF000) | (offset & 0x0FFF);
     }
 };
