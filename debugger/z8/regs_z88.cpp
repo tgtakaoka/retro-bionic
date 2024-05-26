@@ -129,9 +129,9 @@ uint8_t RegsZ88::save_r(uint8_t num) const {
 void RegsZ88::restore_r(uint8_t num, uint8_t val) const {
     if (InstZ88::writeOnly(_rp0, _rp1, num))
         return;
-    uint8_t LOAD_R[2];
-    LOAD_R[0] = 0x0C | (num << 4);  // LD rn,#val
-    LOAD_R[1] = val;
+    uint8_t LOAD_R[] = {
+            uint8(num, 0x0C), val,  // LD rn,#val
+    };
     _pins.execInst(LOAD_R, sizeof(LOAD_R));
 }
 

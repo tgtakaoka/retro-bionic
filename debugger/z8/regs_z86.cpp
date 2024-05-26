@@ -83,9 +83,9 @@ void RegsZ86::restore_sfrs() {
 }
 
 uint8_t RegsZ86::save_r(uint8_t num) const {
-    uint8_t SAVE_R[2];
-    SAVE_R[0] = 0x92;  // LDE @RR0,Rn
-    SAVE_R[1] = (num << 4) | 0;
+    uint8_t SAVE_R[] = {
+            0x92, uint8(num, 0),  // LDE @RR0,Rn
+    };
     uint8_t val;
     _pins.captureWrites(SAVE_R, sizeof(SAVE_R), nullptr, &val, sizeof(val));
     return val;
@@ -94,9 +94,9 @@ uint8_t RegsZ86::save_r(uint8_t num) const {
 void RegsZ86::restore_r(uint8_t num, uint8_t val) const {
     if (InstZ86::writeOnly(_rp, num))
         return;
-    uint8_t LOAD_R[2];
-    LOAD_R[0] = 0x0C | (num << 4);  // LD rn,#val
-    LOAD_R[1] = val;
+    uint8_t LOAD_R[] = {
+            uint8(num, 0x0C), val,  // LD rn,#val
+    };
     _pins.execInst(LOAD_R, sizeof(LOAD_R));
 }
 
@@ -133,9 +133,9 @@ void RegsZ86::write_reg(uint8_t addr, uint8_t val, RegSpace space) {
 }
 
 void RegsZ86::update_r(uint8_t addr, uint8_t val) {
-    const auto rp = _rp & 0xF0;
-    if ((addr & 0xF0) == rp)
-        _r[addr & 0xF] = val;
+    const auto rp = hi4(_rp);
+    if (hi4(addr) == rp)
+        _r[lo4(addr)] = val;
 }
 
 void RegsZ86::set_r(uint8_t num, uint8_t val) {
