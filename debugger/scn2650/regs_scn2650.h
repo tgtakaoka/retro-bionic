@@ -31,6 +31,13 @@ private:
     uint8_t rs() const { return (_psl & 0x10) ? 1 : 0; }
     uint8_t _r0;
     uint8_t _r[/*rs*/ 2][3];
+
+    static void setRs(uint8_t rs);
+    static void saveRegs(uint8_t *regs);
+    static void restoreRegs(const uint8_t *regs);
+
+    static constexpr uint8_t PPSL = 0x77;
+    static constexpr uint8_t CPSL = 0x75;
 };
 
 extern struct RegsScn2650 Regs;

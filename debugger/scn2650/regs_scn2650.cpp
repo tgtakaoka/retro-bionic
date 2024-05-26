@@ -46,6 +46,31 @@ void RegsScn2650::print() const {
     Pins.idle();
 }
 
+void RegsScn2650::setRs(uint8_t rs) {
+    uint8_t SET_RS[] = {
+            rs, 0x10,  // PPSL|CPSL 0x10
+    };
+    Pins.execInst(SET_RS, sizeof(SET_RS));
+}
+
+void RegsScn2650::saveRegs(uint8_t *regs) {
+    static constexpr uint8_t SAVE[] = {
+            0xC9, 0x00,  // STRR,R1 $
+            0xCA, 0x00,  // STRR,R2,$
+            0xCB, 0x00,  // STRR,R3 $
+    };
+    Pins.captureWrites(SAVE, sizeof(SAVE), nullptr, regs, 3);
+}
+
+void RegsScn2650::restoreRegs(const uint8_t *regs) {
+    uint8_t RESTORE[] = {
+            0x05, regs[0],  // LODI,R1 _r1
+            0x06, regs[1],  // LODI,R2 _r2
+            0x07, regs[2],  // LODI,R3 _r3
+    };
+    Pins.execInst(RESTORE, sizeof(RESTORE));
+}
+
 void RegsScn2650::save() {
     static constexpr uint8_t SAVE_R0PS[] = {
             0xC8, 0x00,        // STRR,R0 $
@@ -58,76 +83,42 @@ void RegsScn2650::save() {
     _r0 = buffer[0];
     _psl = buffer[1];
     _psu = buffer[2];
-    static constexpr uint8_t SAVE_REGS[] = {
-            0xC9, 0x00,  // STRR,R1 $
-            0xCA, 0x00,  // STRR,R2,$
-            0xCB, 0x00,  // STRR,R3 $
-    };
-    Pins.captureWrites(SAVE_REGS, sizeof(SAVE_REGS), nullptr, &_r[rs()][0], 3);
-    constexpr uint8_t PPSL = 0x77;
-    constexpr uint8_t CPSL = 0x75;
-    static uint8_t SET_RS[] = {
-            0, 0x10,  // PPSL|CPSL 0x10
-    };
-    SET_RS[0] = rs() ? CPSL : PPSL;
-    Pins.execInst(SET_RS, sizeof(SET_RS));
-    Pins.captureWrites(
-            SAVE_REGS, sizeof(SAVE_REGS), nullptr, &_r[1 - rs()][0], 3);
-    SET_RS[0] = rs() ? PPSL : CPSL;
-    Pins.execInst(SET_RS, sizeof(SET_RS));
+    saveRegs(_r[rs()]);
+    setRs(rs() ? CPSL : PPSL);
+    saveRegs(_r[1 - rs()]);
+    setRs(rs() ? PPSL : CPSL);
 }
 
 void RegsScn2650::restore() {
-    constexpr uint8_t PPSL = 0x77;
-    constexpr uint8_t CPSL = 0x75;
-    static uint8_t RESTORE[] = {
-            0, 0x10,        // PPSL|CPSL 0x10; switch to !rs bank
-            0x05, 0,        // LODI,R1 _r1
-            0x06, 0,        // LODI,R2 _r2
-            0x07, 0,        // LODI,R3 _r3
-            0, 0x10,        // PPSL|CPSL 0x10; switch to rs bank
-            0x05, 0,        // LODI,R1 _r1
-            0x06, 0,        // LODI,R2 _r2
-            0x07, 0,        // LODI,R3 _r3
-            0x04, 0, 0x92,  // LODI,R0 _psu; LPSU
-            0x04, 0,        // LODI,R0 _r0
-            PPSL, 0,        // PPSL _psl; restore PSL one bits
-            CPSL, 0,        // CPSL ~_psl; restore PSL zero bits
-            0x1F, 0, 0,     // BCTA _pc
+    restoreRegs(_r[rs()]);
+    setRs(rs() ? CPSL : PPSL);
+    restoreRegs(_r[1 - rs()]);
+    setRs(rs() ? PPSL : CPSL);
+    uint8_t RESTORE[] = {
+            0x04, _psu, 0x92,        // LODI,R0 _psu; LPSU
+            0x04, _r0,               // LODI,R0 _r0
+            PPSL, _psl,              // PPSL _psl; restore PSL one bits
+            CPSL, uint8(~_psl),      // CPSL ~_psl; restore PSL zero bits
+            0x1F, hi(_pc), lo(_pc),  // BCTA _pc
     };
-    RESTORE[0] = rs() ? CPSL : PPSL;
-    RESTORE[8] = rs() ? PPSL : CPSL;
-    for (auto n = 0; n < 3; ++n) {
-        RESTORE[n * 2 + 3] = _r[1 - rs()][n];
-        RESTORE[n * 2 + 11] = _r[rs()][n];
-    }
-    RESTORE[17] = _psu;
-    RESTORE[20] = _r0;
-    RESTORE[22] = _psl;
-    RESTORE[24] = ~_psl;
-    RESTORE[26] = hi(_pc);
-    RESTORE[27] = lo(_pc);
     Pins.execInst(RESTORE, sizeof(RESTORE));
 }
 
 uint8_t RegsScn2650::read_io(uint8_t addr) const {
-    static uint8_t REDE[] = {
-            0x54, 0,     // REDE,R0 addr
+    uint8_t REDE[] = {
+            0x54, addr,  // REDE,R0 addr
             0xC8, 0x00,  // STRR,R0 $
     };
-    REDE[1] = addr;
     uint8_t data;
     Pins.captureWrites(REDE, sizeof(REDE), nullptr, &data, sizeof(data));
     return data;
 }
 
 void RegsScn2650::write_io(uint8_t addr, uint8_t data) const {
-    static uint8_t WRTE[] = {
-            0x04, 0,  // LODI,R0 data
-            0xD4, 0,  // WRTE,R0 addr
+    uint8_t WRTE[] = {
+            0x04, data,  // LODI,R0 data
+            0xD4, addr,  // WRTE,R0 addr
     };
-    WRTE[1] = data;
-    WRTE[3] = addr;
     Pins.execInst(WRTE, sizeof(WRTE));
 }
 
