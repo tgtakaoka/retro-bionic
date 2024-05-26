@@ -43,11 +43,6 @@ private:
     void setE(uint8_t value);
     void save65816();
     void restore65816();
-
-    static void setle16(uint8_t *p, uint16_t v) {
-        p[0] = lo(v);
-        p[1] = hi(v);
-    }
 };
 
 extern struct RegsMos6502 Registers;

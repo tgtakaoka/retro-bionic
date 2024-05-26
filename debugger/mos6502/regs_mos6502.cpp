@@ -71,7 +71,7 @@ void RegsMos6502::save() {
         return;
     }
 
-    static const uint8_t PUSH_ALL[] = {
+    static constexpr uint8_t PUSH_ALL[] = {
             // 6502:  JSR PCL --- PCH
             // 65816: JSR PCL PCH ---
             0x20, 0x00, 0x02, 0x02,  // JSR $0200
@@ -124,11 +124,11 @@ void RegsMos6502::save65816() {
 }
 
 void RegsMos6502::setE(uint8_t value) {
-    static uint8_t SET_E[] = {
-            0x38, noop,  // SEC/CLC
+    const auto sec = value ? InstMos6502::SEC : InstMos6502::CLC;
+    uint8_t SET_E[] = {
+            sec, noop,   // SEC/CLC
             0xFB, noop,  // XCE
     };
-    SET_E[0] = value ? InstMos6502::SEC : InstMos6502::CLC;
     Pins.execInst(SET_E, sizeof(SET_E));
 }
 
@@ -141,60 +141,43 @@ void RegsMos6502::restore() {
     if (Pins.hardwareType() == HW_W65C816)
         setE(_e);
 
-    static uint8_t PULL_ALL[] = {
-            0xA2, 0,     // s:1 LDX #s
-            0x9A, noop,  // TXS
-            0xA0, 0,     // y:5 LDY #y
-            0xA2, 0,     // x:7 LDX #x
-            0xA9, 0,     // a:9 LDA #a
-            0x40,        // RTI
-            noop,        // fetch next op code
-            noop,        // discarded stack fetch
-            0,           // p:13
-            0,           // lo(pc):14
-            0,           // hi(pc):15
+    const auto sp = _s - 3;  // offset RTI
+    // clang-format off
+    uint8_t PULL_ALL[] = {
+            0xA2, uint8(sp),  // LDX #sp
+            0x9A, noop,       // TXS
+            0xA0, uint8(_y),  // LDY #_y
+            0xA2, uint8(_x),  // LDX #_x
+            0xA9, uint8(_a),  // LDA #_a
+            0x40,             // RTI
+            noop,             // fetch next op code
+            noop,             // discarded stack fetch
+            _p, lo(_pc), hi(_pc),
     };
-
-    PULL_ALL[1] = _s - 3;  // offset for RTI
-    PULL_ALL[5] = _y;
-    PULL_ALL[7] = _x;
-    PULL_ALL[9] = _a;
-    PULL_ALL[13] = _p;
-    setle16(PULL_ALL + 14, _pc);
-
+    // clang-format on
     Pins.execInst(PULL_ALL, sizeof(PULL_ALL));
 }
 
 void RegsMos6502::restore65816() {
-    static uint8_t PULL_ALL[] = {
-            0xC2, 0x30, noop,     //        REP #$30; M=0, X=0
-            0xA9, 0, 0,           // d:4    LDA #d
-            0x5B, noop,           //        TCD
-            0xA0, 0, 0,           // y:9    LDY #y
-            0xA2, 0, 0,           // x:12   LDX #x
-            0xA9, 0, 0,           // s:15   LDA #s-4
-            0x1B, noop,           //        TCS
-            0xA9, 0, 0,           // c:20   LDA #c
-            0xAB, noop, noop, 0,  // dbr:25 PLB (dbr)
-            0x40,                 //        RTI
-            noop, noop,           //        fetch next op and increment stack
-            0,                    // p:29
-            0, 0,                 // pc:30
-            0,                    // pbr:32
+    const auto sp = _s - 5;  // offset PLB(dbr) and RTI(p,pc,pbr)
+    uint8_t PULL_ALL[] = {
+            0xC2, 0x30, noop,        // REP #$30; M=0, X=0
+            0xA9, lo(_d), hi(_d),    // LDA #_d
+            0x5B, noop,              // TCD
+            0xA0, lo(_y), hi(_y),    // LDY #y
+            0xA2, lo(_x), hi(_x),    // LDX #x
+            0xA9, lo(sp), hi(sp),    // LDA #sp
+            0x1B, noop,              // TCS
+            0xA9, _a, _b,            // LDA #_b|_a
+            0xAB, noop, noop, _dbr,  // PLB (_dbr)
+            0x40,                    // RTI
+            noop, noop,              // fetch next op and increment stack
+            _p,                      // P
+            lo(_pc), hi(_pc),        // PC
+            _pbr,                    // PBR
     };
 
     setE(_e);
-    setle16(PULL_ALL + 4, _d);
-    setle16(PULL_ALL + 9, _y);
-    setle16(PULL_ALL + 12, _x);
-    setle16(PULL_ALL + 15, _s - 5);  // offset PLB(dbr) and RTI(p,pc,pbr)
-    PULL_ALL[20] = _a;
-    PULL_ALL[21] = _b;
-    PULL_ALL[25] = _dbr;
-    PULL_ALL[29] = _p;
-    setle16(PULL_ALL + 30, _pc);
-    PULL_ALL[32] = _pbr;
-
     Pins.execInst(PULL_ALL, sizeof(PULL_ALL));
 }
 
