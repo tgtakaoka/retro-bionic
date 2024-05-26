@@ -40,7 +40,7 @@ struct RegsMc6801 Regs {
  */
 
 SoftwareType RegsMc6801::checkSoftwareType() {
-    static const uint8_t DETECT_6301[] = {
+    static constexpr uint8_t DETECT_6301[] = {
             0xCE, 0xFF, 0xFF,  // LDX #$FFFF ; 1:2:3
             0xC6, 0xFF,        // LDAB #$FF  ; 1:2
             0x86, 0x01,        // LDAA #$01  ; 1:2

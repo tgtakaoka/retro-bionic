@@ -47,7 +47,7 @@ constexpr const char *CPU[] = {
 };
 
 SoftwareType RegsMc6800::checkSoftwareType() {
-    static const uint8_t DETECT_8861[] = {
+    static constexpr uint8_t DETECT_8861[] = {
             0xCE, 0xFF, 0xFF,  // LDX #$FFFF ; 1:2:3
             0xEC, 0x01,        // CPX 1,X    ; 1:2:n:n:R:r
                                // ADX #1     ; 1:2:n:n
@@ -117,19 +117,17 @@ void RegsMc6800::save() {
 }
 
 void RegsMc6800::restore() {
-    uint8_t LDS_RTI[3 + 10];
-    const uint16_t s = _sp - 7;
-    LDS_RTI[0] = 0x8E;  // LDS #sp ; 1:2:3
-    LDS_RTI[1] = hi(s);
-    LDS_RTI[2] = lo(s);
-    LDS_RTI[3] = 0x3B;  // RTI     ; 1:N:n:R:r:r:r:r:r:r
-    LDS_RTI[6] = _cc;
-    LDS_RTI[7] = _b;
-    LDS_RTI[8] = _a;
-    LDS_RTI[9] = hi(_x);
-    LDS_RTI[10] = lo(_x);
-    LDS_RTI[11] = hi(_pc);
-    LDS_RTI[12] = lo(_pc);
+    const uint16_t sp = _sp - 7;  // offset RTI
+    // clang-format off
+    uint8_t LDS_RTI[3 + 10] = {
+            0x8E, hi(sp), lo(sp),  // LDS #sp ; 1:2:3
+            0x3B, 0,0,             // RTI     ; 1:N:n:R:r:r:r:r:r:r
+            _cc,
+            _b, _a,
+            hi(_x), lo(_x),
+            hi(_pc), lo(_pc),
+    };
+    // clang-format on
     _pins->injectReads(LDS_RTI, sizeof(LDS_RTI));
 }
 
