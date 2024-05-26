@@ -56,21 +56,22 @@ void RegsI8048::save() {
 void RegsI8048::restore() {
     restore_r();
     uint8_t RESTORE[] = {
-            0x23, _psw,                    // MOV A, #_psw
-            0xD7,                          // MOV PSW, A
-            0x23, _a,                      // MOV A, #_a
-            0xA5,                          // CLR F1
-            (uint8_t)(_f1 ? 0xB5 : 0x00),  // CPL F1/NOP
+            0x23, _psw,                // MOV A, #_psw
+            0xD7,                      // MOV PSW, A
+            0x23, _a,                  // MOV A, #_a
+            0xA5,                      // CLR F1
+            uint8(_f1 ? 0xB5 : 0x00),  // CPL F1/NOP
     };
     _pins.execInst(RESTORE, sizeof(RESTORE));
     restore_pc(_pc, _mb);
 }
 
 void RegsI8048::save_r() {
-    uint8_t SAVE[2];
     for (auto i = 0; i < 8; ++i) {
-        SAVE[0] = 0xF8 + i;  // MOV A, Ri
-        SAVE[1] = 0x90;      // MOVX @R0, A
+        uint8_t SAVE[] = {
+                uint8(0xF8 | i),  // MOV A, Ri
+                0x90,             // MOVX @R0, A
+        };
         _pins.captureWrites(SAVE, sizeof(SAVE), nullptr, &_r[i], 1);
     }
 }
@@ -137,14 +138,12 @@ void RegsI8048::write_internal(uint8_t addr, uint8_t data) const {
         return;
     }
     uint8_t WRITE[] = {
-            0xF8,     // MOV A, R0
-            0xB8, 0,  // MOV R0, #addr
-            0xB0, 0,  // MOV @R0, #data
-            0xA8,     // MOV R0, A
+            0xF8,        // MOV A, R0
+            0xB8, addr,  // MOV R0, #addr
+            0xB0, data,  // MOV @R0, #data
+            0xA8,        // MOV R0, A
 
     };
-    WRITE[1] = addr;
-    WRITE[3] = data;
     _pins.execInst(WRITE, sizeof(WRITE));
 }
 
