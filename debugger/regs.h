@@ -26,12 +26,23 @@ protected:
     };
     virtual const RegList *listRegisters(uint8_t n) const = 0;
 
+    static constexpr uint8_t hi4(uint8_t v) {
+        return static_cast<uint8_t>(v >> 4);
+    }
+    static constexpr uint8_t lo4(uint8_t v) {
+        return static_cast<uint8_t>(v & 0xF);
+    }
+    static constexpr uint8_t uint8(uint8_t v) { return v; }
+    static constexpr uint8_t uint8(uint8_t hi, uint8_t lo) {
+        return static_cast<uint8_t>(hi) << 4 | lo;
+    }
     static constexpr uint8_t hi(uint16_t v) {
         return static_cast<uint8_t>(v >> 8);
     }
     static constexpr uint8_t lo(uint16_t v) {
         return static_cast<uint8_t>(v >> 0);
     }
+    static constexpr uint16_t uint16(uint16_t v) { return v; }
     static constexpr uint16_t uint16(uint8_t hi, uint8_t lo) {
         return static_cast<uint16_t>(hi) << 8 | lo;
     }

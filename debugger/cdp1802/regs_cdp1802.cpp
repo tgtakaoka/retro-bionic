@@ -79,93 +79,89 @@ void RegsCdp1802::print() const {
 }
 
 void RegsCdp1802::save() {
-    static const uint8_t SAV[] = {0x78};
+    static constexpr uint8_t SAV[] = {0x78};
+    Pins.captureWrites(SAV, sizeof(SAV), nullptr, &_t, sizeof(_t));
+
     // STR R0, STR R1, MARK, STR R3, ...
-    static const uint8_t STR[] = {
+    static constexpr uint8_t STR[] = {
             0x50, 0x51, 0x79, 0x53, 0x54, 0x55, 0x56, 0x57,  //
             0x58, 0x59, 0x5A, 0x5B, 0x5C, 0x5D, 0x5E, 0x5F,  //
     };
-
-    Pins.captureWrites(SAV, sizeof(SAV), nullptr, &_t, sizeof(_t));
     for (auto i = 0; i < 16; i++) {
         uint8_t tmp;
         Pins.captureWrites(&STR[i], 1, &_r[i], &tmp, sizeof(tmp));
         if (i == 0)
             _d = tmp;
         if (i == 2) {  // MARK
-            _x = tmp >> 4;
-            _p = tmp & 0xF;
+            _x = hi4(tmp);
+            _p = lo4(tmp);
         }
         _dirty[i] = false;
     }
     _dirty[2] = true;                // becase of MARK
     _dirty[_p] = true;               // becase this is a program counter
     _r[_p] -= sizeof(SAV) + _p + 1;  // adjust program counter
-    _df = Pins.skip(InstCdp1802::LSDF);     // LSDF: skip if DF=1
-    _q = Pins.skip(InstCdp1802::LSQ);       // LSQ: skip if Q=1
-    _ie = Pins.skip(InstCdp1802::LSIE);     // LSIE: skip if IE=1
+
+    _df = Pins.skip(InstCdp1802::LSDF);  // LSDF: skip if DF=1
+    _q = Pins.skip(InstCdp1802::LSQ);    // LSQ: skip if Q=1
+    _ie = Pins.skip(InstCdp1802::LSIE);  // LSIE: skip if IE=1
     if (_cpuType == nullptr)
         setCpuType();
 }
 
 void RegsCdp1802::restore() {
+    const uint8_t p = lo4(_t);
+    const uint8_t x = hi4(_t);
+    _dirty[p] = true;
     uint8_t LDT[] = {
-            0xD0,  // SEP Rn
-            0xE0,  // SEX Rn
-            0x79,  // MARK
+            uint8(InstCdp1802::SEP | p),  // SEP Rn
+            uint8(InstCdp1802::SEX | x),  // SEX Rn
+            0x79,                         // MARK
     };
+    uint8_t tmp;
+    Pins.captureWrites(LDT, sizeof(LDT), nullptr, &tmp, sizeof(tmp));
+
+    const auto q = _q ? InstCdp1802::SEQ : InstCdp1802::REQ;
     uint8_t LDQ_DF[] = {
-            0x7A,     // REQ:0x7A, SEQ:0x7B
-            0xF8, 0,  // LDI df
-            0x76,     // SHRC
+            q,                         // REQ:0x7A, SEQ:0x7B
+            0xF8, uint8(_df ? 1 : 0),  // LDI df
+            0x76,                      // SHRC
     };
+    Pins.execInst(LDQ_DF, sizeof(LDQ_DF));
+
     static const uint8_t SEP15_SEX14[] = {
             0xDF,  // SEP R15
             0xEE   // SEX R14
     };
-    uint8_t LDR[] = {
-            // CDP1802
-            0xF8, 0,  // LDI hi(Rn)
-            0xB0,     // PHI Rn
-            0xF8, 0,  // LDI lo(Rn)
-            0xA0,     // PLO Rn
-    };
-    uint8_t LDD[] = {
-            0xF8, 0  // LDI d
-    };
-    uint8_t RET[] = {
-            0x70,  // RET: 0x70 or DIS:0x71
-            0,     // x,p
-    };
-
-    uint8_t tmp = _t & 0xF;
-    _dirty[tmp] = true;
-    LDT[0] = InstCdp1802::SEP | tmp;
-    LDT[1] = InstCdp1802::SEX | (_t >> 4);
-    Pins.captureWrites(LDT, sizeof(LDT), nullptr, &tmp, sizeof(tmp));
-    LDQ_DF[0] = _q ? InstCdp1802::SEQ : InstCdp1802::REQ;
-    LDQ_DF[2] = _df ? 1 : 0;
-    Pins.execInst(LDQ_DF, sizeof(LDQ_DF));
     Pins.execInst(SEP15_SEX14, sizeof(SEP15_SEX14));
     _dirty[14] = _dirty[15] = true;
+
+    uint8_t LDD[] = {
+            0xF8, _d  // LDI d
+    };
     for (auto i = 0; i < 16; i++) {
         if (_dirty[i]) {
             auto rn = _r[i];
+            uint8_t LDR[] = {
+                    0xF8, hi(rn),     // LDI hi(Rn)
+                    uint8(0xB0 | i),  // PHI Rn
+                    0xF8, lo(rn),     // LDI lo(Rn)
+                    uint8(0xA0 | i),  // PLO Rn
+            };
             if (i == 14)
                 rn -= 1;  // offset R14
             if (i == 15)
                 rn -= sizeof(LDD) + 1;  // offset R15
-            LDR[1] = hi(rn);
-            LDR[2] = 0xB0 | i;
-            LDR[4] = lo(rn);
-            LDR[5] = 0xA0 | i;
             Pins.execInst(LDR, sizeof(LDR));
         }
     }
-    LDD[1] = _d;
     Pins.execInst(LDD, sizeof(LDD));  // R15+=2
-    RET[0] = _ie ? InstCdp1802::RET : InstCdp1802::DIS;
-    RET[1] = (_x << 4) | _p;
+
+    const auto ie = _ie ? InstCdp1802::RET : InstCdp1802::DIS;
+    uint8_t RET[] = {
+            ie,             // RET: 0x70 or DIS:0x71
+            uint8(_x, _p),  // x,p
+    };
     Pins.execInst(RET, sizeof(RET));  // R15++, R14++
 }
 
