@@ -38,18 +38,18 @@ void Signals::getData() {
 }
 
 void Signals::print() const {
-    //                               01234567890123
-    static constexpr char line[] = " R A=xxxx D=xx";
+    //                              01234567890123
+    static constexpr char line[] = "R A=xxxx D=xx";
     static auto &buffer = *new CharBuffer(line);
     if (memory()) {
-        buffer[0] = 'M';
-        buffer[1] = fetch() ? 'F' : (read() ? 'R' : (write() ? 'W' : ' '));
+        buffer[0] = fetch() ? 'F' : (read() ? 'R' : (write() ? 'W' : ' '));
+        buffer[2] = 'A';
     } else {
-        buffer[0] = 'I';
-        buffer[1] = vector() ? 'A' : (read() ? 'R' : (write() ? 'W' : ' '));
+        buffer[0] = vector() ? 'A' : (read() ? 'R' : (write() ? 'W' : ' '));
+        buffer[2] = 'I';
     }
-    buffer.hex16(5, addr);
-    buffer.hex8(12, data);
+    buffer.hex16(4, addr);
+    buffer.hex8(11, data);
     cli.println(buffer);
 }
 

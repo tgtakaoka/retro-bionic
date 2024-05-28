@@ -94,7 +94,8 @@ private:
     Signals *cycleT2() const;
     Signals *cycleT2Pause() const;
     Signals *cycleT2Ready(uint16_t pc) const;
-    Signals *cycleT3(Signals *signals);
+    Signals *cycleT3(Signals *signals) const;
+    Signals *inject(uint8_t data) const;
     void loop();
     void suspend();
     bool rawStep();

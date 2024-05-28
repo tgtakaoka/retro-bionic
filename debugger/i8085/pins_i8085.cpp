@@ -224,8 +224,6 @@ void PinsI8085::reset() {
     Signals::resetCycles();
     // #RESET_IN is sampled here falling transition of next CLK.
     cycleT1();
-    cycleT2Pause();
-
     Regs.save();
 }
 
@@ -260,6 +258,7 @@ Signals *PinsI8085::cycleT2() const {
 
 Signals *PinsI8085::cycleT2Pause() const {
     negate_ready();
+    Signals::put()->getAddress();
     return cycleT2();
 }
 
@@ -270,7 +269,7 @@ Signals *PinsI8085::cycleT2Ready(uint16_t pc) const {
     return s;
 }
 
-Signals *PinsI8085::cycleT3(Signals *s) {
+Signals *PinsI8085::cycleT3(Signals *s) const {
     // T3A
     clk_lo_nowait();
     if (s->write()) {
@@ -316,6 +315,11 @@ Signals *PinsI8085::cycleT3(Signals *s) {
         clk_lo();
     }
     return s;
+}
+
+Signals *PinsI8085::inject(uint8_t data) const {
+    cycleT1();
+    return cycleT3(cycleT2()->inject(data));
 }
 
 void PinsI8085::execInst(const uint8_t *inst, uint8_t len) {
@@ -390,40 +394,30 @@ void PinsI8085::run() {
 
 void PinsI8085::suspend() {
     assert_trap();
-    auto s = cycleT1();
     while (true) {
+        auto s = cycleT1();
         if (s->fetch() && s->addr == InstI8085::ORG_TRAP) {
             negate_trap();
-            s->inject(InstI8085::RET);
-            cycleT3(cycleT2());
-            while (!cycleT1()->fetch()) {
-                cycleT3(cycleT2());
-            }
+            cycleT3(cycleT2()->inject(InstI8085::RET));
+            inject(s->prev()->data);
+            inject(s->prev(2)->data);
+            cycleT1();
             Signals::discard(s->prev(3));
-            Signals::put()->getAddress();
             cycleT2Pause();
             return;
         }
         cycleT3(cycleT2());
         delayNanoseconds(t1_lo_ns);
-        s = cycleT1();
     }
 }
 
 bool PinsI8085::rawStep() {
     const auto pc = Regs.nextIp();
-    if (Memory.raw_read(pc) == InstI8085::HLT) {
-        cycleT2Pause();
+    if (Memory.raw_read(pc) == InstI8085::HLT)
         return false;
-    }
+    assert_trap();
     cycleT3(cycleT2Ready(pc));
-    while (true) {
-        if (cycleT1()->fetch())
-            break;
-        cycleT3(cycleT2());
-        delayNanoseconds(t1_lo_ns);
-    }
-    cycleT2Pause();
+    suspend();
     return true;
 }
 
