@@ -335,17 +335,17 @@ void PinsI8085::execInst(const uint8_t *inst, uint8_t len) {
     execute(inst, len, nullptr, nullptr, 0);
 }
 
-uint8_t PinsI8085::captureWrites(const uint8_t *inst, uint8_t len,
-        uint16_t *addr, uint8_t *buf, uint8_t max) {
-    return execute(inst, len, addr, buf, max);
+void PinsI8085::captureWrites(const uint8_t *inst, uint8_t len, uint16_t *addr,
+        uint8_t *buf, uint8_t max) {
+    execute(inst, len, addr, buf, max);
 }
 
-uint8_t PinsI8085::execute(const uint8_t *inst, uint8_t len, uint16_t *addr,
+void PinsI8085::execute(const uint8_t *inst, uint8_t len, uint16_t *addr,
         uint8_t *buf, uint8_t max) {
     uint8_t inj = 0;
     uint8_t cap = 0;
-    while (inj < len || cap < max) {
-        auto s = (inj == 0) ? cycleT2Ready(Regs.nextIp()) : cycleT2();
+    auto s = cycleT2Ready(Regs.nextIp());
+    while (true) {
         if (inj < len)
             s->inject(inst[inj]);
         if (cap < max)
@@ -361,13 +361,15 @@ uint8_t PinsI8085::execute(const uint8_t *inst, uint8_t len, uint16_t *addr,
         }
         delayNanoseconds(t1_lo_ns);
         cycleT1();
+        if (inj >= len && cap >= max) {
+            cycleT2Pause();
+            return;
+        }
+        s = cycleT2();
     }
-    cycleT2Pause();
-    return cap;
 }
 
 void PinsI8085::idle() {
-    Signals::put()->inject(InstI8085::NOP);
     cycleT2Pause();
 }
 
