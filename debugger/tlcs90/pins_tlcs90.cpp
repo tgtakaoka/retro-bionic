@@ -62,12 +62,11 @@ constexpr auto c4_lo_write = 0;     // 50 ns
 constexpr auto c3_hi_nobus = 4;     // 50 ns
 constexpr auto c4_lo_nobus = 32;    // 50 ns
 
-inline void x1_hi() __attribute__((always_inline));
 inline void x1_hi() {
     digitalWriteFast(PIN_X1, HIGH);
 }
 
-inline uint8_t signal_clk() {
+inline auto signal_clk() {
     return digitalReadFast(PIN_CLK);
 }
 
@@ -95,39 +94,31 @@ void negate_int1() {
     digitalWriteFast(PIN_INT1, LOW);
 }
 
-void assert_wait() {
+inline void assert_wait() {
     digitalWriteFast(PIN_WAIT, LOW);
 }
 
-void negate_wait() {
+inline void negate_wait() {
     digitalWriteFast(PIN_WAIT, HIGH);
-}
-
-void assert_reset() {
-    negate_wait();
-    negate_nmi();
-    negate_int0();
-    negate_int1();
-    digitalWriteFast(PIN_RESET, LOW);
 }
 
 void negate_reset() {
     digitalWriteFast(PIN_RESET, HIGH);
 }
 
-const uint8_t PINS_LOW[] = {
+constexpr uint8_t PINS_LOW[] = {
         PIN_RESET,
         PIN_INT0,
         PIN_INT1,
 };
 
-const uint8_t PINS_HIGH[] = {
+constexpr uint8_t PINS_HIGH[] = {
         PIN_X1,
         PIN_NMI,
         PIN_WAIT,
 };
 
-const uint8_t PINS_INPUT[] = {
+constexpr uint8_t PINS_INPUT[] = {
         PIN_DB0,
         PIN_DB1,
         PIN_DB2,
@@ -172,17 +163,17 @@ inline void x1_cycle() {
 }  // namespace
 
 void PinsTlcs90::reset() {
+    // Assert reset condition
     pinsMode(PINS_LOW, sizeof(PINS_LOW), OUTPUT, LOW);
     pinsMode(PINS_HIGH, sizeof(PINS_HIGH), OUTPUT, HIGH);
     pinsMode(PINS_INPUT, sizeof(PINS_INPUT), INPUT);
 
-    Signals::resetCycles();
-    assert_reset();
     // #RESET input must be maintained at the "0" level for at least
     // #10 systemn clock cycles (10 stated; 2usec at 10MHz).
     for (auto i = 0; i < 20 * 2 || signal_clk() == LOW; ++i)
         x1_cycle();
     negate_reset();
+    Signals::resetCycles();
     while (true) {
         x1_lo();
         delayNanoseconds(x1_lo_clk);
