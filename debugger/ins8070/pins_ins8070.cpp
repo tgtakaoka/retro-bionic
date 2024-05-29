@@ -57,19 +57,19 @@ constexpr auto xin_read_end = 30;     // 120
 constexpr auto xin_lo_input = 14;     // 120
 constexpr auto xin_breq_end = 50;     // 120
 
-inline uint8_t signal_breq() {
+inline auto signal_breq() {
     return digitalReadFast(PIN_BREQ);
 }
 
-inline uint8_t signal_enout() {
+inline auto signal_enout() {
     return digitalReadFast(PIN_ENOUT);
 }
 
-inline uint8_t signal_wds() {
+inline auto signal_wds() {
     return digitalReadFast(PIN_WDS);
 }
 
-inline uint8_t signal_rds() {
+inline auto signal_rds() {
     return digitalReadFast(PIN_RDS);
 }
 
@@ -86,14 +86,6 @@ void assert_sb() {
     digitalWriteFast(PIN_SB, LOW);
 }
 
-void negate_sb() {
-    digitalWriteFast(PIN_SB, HIGH);
-}
-
-void negate_hold() {
-    digitalWriteFast(PIN_HOLD, HIGH);
-}
-
 void assert_enin() {
     digitalWriteFast(PIN_ENIN, LOW);
 }
@@ -102,37 +94,27 @@ void negate_enin() {
     digitalWriteFast(PIN_ENIN, HIGH);
 }
 
-void assert_reset() {
-    // Drive RESET condition
-    digitalWriteFast(PIN_RST, LOW);
-    negate_sa();
-    negate_sb();
-    negate_hold();
-    negate_enin();
-}
-
 void negate_reset() {
-    // Release RESET conditions
     digitalWriteFast(PIN_RST, HIGH);
 }
 
-const uint8_t PINS_LOW[] = {
+constexpr uint8_t PINS_LOW[] = {
         PIN_XIN,
         PIN_RST,
 };
 
-const uint8_t PINS_HIGH[] = {
+constexpr uint8_t PINS_HIGH[] = {
         PIN_SA,
         PIN_SB,
         PIN_ENIN,
         PIN_HOLD,
 };
 
-const uint8_t PINS_PULLUP[] = {
+constexpr uint8_t PINS_PULLUP[] = {
         PIN_BREQ,
 };
 
-const uint8_t PINS_INPUT[] = {
+constexpr uint8_t PINS_INPUT[] = {
         PIN_D0,
         PIN_D1,
         PIN_D2,
@@ -184,12 +166,12 @@ inline void xin_cycle() {
 }  // namespace
 
 void PinsIns8070::reset() {
+    // Assert reset condition
     pinsMode(PINS_LOW, sizeof(PINS_LOW), OUTPUT, LOW);
     pinsMode(PINS_HIGH, sizeof(PINS_HIGH), OUTPUT, HIGH);
     pinsMode(PINS_PULLUP, sizeof(PINS_PULLUP), INPUT_PULLUP);
     pinsMode(PINS_INPUT, sizeof(PINS_INPUT), INPUT);
 
-    assert_reset();
     // #RST must remain low is 8 Tc.
     for (auto i = 0; i < 4 * 8 * 2; i++)
         xin_cycle();
