@@ -63,21 +63,19 @@ constexpr auto clock_hi_exec = 20;      // 400
 constexpr auto clock_hi_idle = 268;     // 400
 constexpr auto clock_lo_idle = 378;     // 400
 
-inline void clock_hi() __attribute__((always_inline));
 inline void clock_hi() {
     digitalWriteFast(PIN_CLOCK, HIGH);
 }
 
-inline void clock_lo() __attribute__((always_inline));
 inline void clock_lo() {
     digitalWriteFast(PIN_CLOCK, LOW);
 }
 
-inline uint8_t signal_clock() {
+inline auto signal_clock() {
     return digitalReadFast(PIN_CLOCK);
 }
 
-inline uint8_t signal_opreq() {
+inline auto signal_opreq() {
     return digitalReadFast(PIN_OPREQ);
 }
 
@@ -89,10 +87,6 @@ void negate_intreq() {
     digitalWriteFast(PIN_INTREQ, HIGH);
 }
 
-void negate_pause() {
-    digitalWriteFast(PIN_PAUSE, HIGH);
-}
-
 void assert_opack() {
     digitalWriteFast(PIN_OPACK, LOW);
 }
@@ -101,31 +95,25 @@ void negate_opack() {
     digitalWriteFast(PIN_OPACK, HIGH);
 }
 
-void assert_reset() {
-    digitalWriteFast(PIN_RESET, HIGH);
-    negate_opack();
-    negate_intreq();
-}
-
 void negate_reset() {
     digitalWriteFast(PIN_RESET, LOW);
 }
 
-const uint8_t PINS_LOW[] = {
+constexpr uint8_t PINS_LOW[] = {
         PIN_ADREN,
         PIN_DBUSEN,
         PIN_SENSE,
+        PIN_OPACK,
 };
 
-const uint8_t PINS_HIGH[] = {
+constexpr uint8_t PINS_HIGH[] = {
         PIN_RESET,
         PIN_CLOCK,
         PIN_PAUSE,
-        PIN_OPACK,
         PIN_INTREQ,
 };
 
-const uint8_t PINS_INPUT[] = {
+constexpr uint8_t PINS_INPUT[] = {
         PIN_DBUS0,
         PIN_DBUS1,
         PIN_DBUS2,
@@ -172,12 +160,11 @@ void PinsScn2650::reset() {
     pinsMode(PINS_HIGH, sizeof(PINS_HIGH), OUTPUT, HIGH);
     pinsMode(PINS_INPUT, sizeof(PINS_INPUT), INPUT);
 
-    negate_pause();
-    assert_reset();
     // RESET must remain high for at least 3 cycles
     for (auto i = 0; i < 5; ++i)
         clock_cycle();
     negate_reset();
+    Signals::resetCycles();
 
     Regs.save();
 }
