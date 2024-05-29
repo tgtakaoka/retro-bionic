@@ -73,17 +73,14 @@ constexpr auto c5_lo_capture = 68;  // 100
 constexpr auto c5_hi_ns = 32;       // 100
 constexpr auto tpcs_ns = 200;
 
-inline void osc1_hi() __attribute__((always_inline));
 inline void osc1_hi() {
     digitalWriteFast(PIN_OSC1, HIGH);
 }
 
-inline void osc1_lo() __attribute__((always_inline));
 inline void osc1_lo() {
     digitalWriteFast(PIN_OSC1, LOW);
 }
 
-inline void clock_cycle() __attribute__((always_inline));
 inline void clock_cycle() {
     delayNanoseconds(osc1_lo_ns);
     osc1_hi();
@@ -91,7 +88,7 @@ inline void clock_cycle() {
     osc1_lo();
 }
 
-uint8_t signal_ds() {
+inline auto signal_ds() {
     return digitalReadFast(PIN_DS);
 }
 
@@ -103,27 +100,21 @@ void negate_irq() {
     digitalWriteFast(PIN_IRQ, HIGH);
 }
 
-void assert_reset() {
-    // Drive RESET condition
-    digitalWriteFast(PIN_RESET, LOW);
-    negate_irq();
-}
-
 void negate_reset() {
     digitalWriteFast(PIN_RESET, HIGH);
 }
 
-const uint8_t PINS_LOW[] = {
+constexpr uint8_t PINS_LOW[] = {
         PIN_OSC1,
         PIN_RESET,
         PIN_TIMER,
 };
 
-const uint8_t PINS_HIGH[] = {
+constexpr uint8_t PINS_HIGH[] = {
         PIN_IRQ,
 };
 
-const uint8_t PINS_INPUT[] = {
+constexpr uint8_t PINS_INPUT[] = {
         PIN_B0,
         PIN_B1,
         PIN_B2,
@@ -146,13 +137,12 @@ const uint8_t PINS_INPUT[] = {
 }  // namespace
 
 void PinsMc146805E2::reset() {
-    pinsMode(PINS_INPUT, sizeof(PINS_INPUT), INPUT_PULLDOWN);
+    // Assert reset condition
     pinsMode(PINS_LOW, sizeof(PINS_LOW), OUTPUT, LOW);
     pinsMode(PINS_HIGH, sizeof(PINS_HIGH), OUTPUT, HIGH);
     pinsMode(PINS_INPUT, sizeof(PINS_INPUT), INPUT_PULLDOWN);
 
     // #RESET must stay low for a minimum of one tRL (1.5usec at VDD=5V).
-    assert_reset();
     for (auto i = 0; i < 15 * 5; i++)
         clock_cycle();
 

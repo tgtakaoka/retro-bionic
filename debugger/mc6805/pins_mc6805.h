@@ -43,8 +43,6 @@ protected:
     Signals *cycle(uint8_t data) const;
     void loop();
     bool rawStep() const;
-    uint8_t execute(const uint8_t *inst, uint8_t len, uint16_t *addr,
-            uint8_t *buf, uint8_t max) const;
 
     void setBreakInst(uint32_t addr) const override;
     void disassembleCycles() const;
