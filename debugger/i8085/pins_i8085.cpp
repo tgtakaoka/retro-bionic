@@ -342,13 +342,16 @@ void PinsI8085::execute(const uint8_t *inst, uint8_t len, uint16_t *addr,
         if (cap < max)
             s->capture();
         cycleT3(s);
-        if (s->read()) {
-            ++inj;
-        } else if (s->write()) {
-            if (cap == 0 && addr)
-                *addr = s->addr;
-            if (cap < max && buf)
-                buf[cap++] = s->data;
+        if (s->memory()) {
+            if (s->read()) {
+                if (inj < len)
+                    ++inj;
+            } else if (s->write()) {
+                if (cap == 0 && addr)
+                    *addr = s->addr;
+                if (cap < max && buf)
+                    buf[cap++] = s->data;
+            }
         }
         delayNanoseconds(t1_lo_ns);
         cycleT1();

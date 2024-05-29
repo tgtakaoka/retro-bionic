@@ -112,10 +112,10 @@
           0 : C3 00 01                   jmp     init
           3 :
          2C :                            org     ORG_RST55
-         2C : C3 38 02                   jmp     isr_intr_rx
+         2C : C3 37 02                   jmp     isr_intr_rx
          2F :
          30 :                            org     ORG_RST6
-         30 : C3 4D 02                   jmp     isr_intr_tx
+         30 : C3 4C 02                   jmp     isr_intr_tx
          33 :
         100 :                            org     0100H
         100 :                    init:
@@ -236,7 +236,7 @@
         1AD : E5                         push    h
         1AE : 21 00 20                   lxi     h, rx_queue
         1B1 : F3                         di
-        1B2 : CD 14 02                   call    queue_remove
+        1B2 : CD 13 02                   call    queue_remove
         1B5 : FB                         ei
         1B6 : E1                         pop     h
         1B7 : C9                         ret
@@ -257,7 +257,7 @@
         1C4 : 21 80 20                   lxi     h, tx_queue
         1C7 :                    putchar_retry:
         1C7 : F3                         di
-        1C8 : CD EC 01                   call    queue_add
+        1C8 : CD EB 01                   call    queue_add
         1CB : FB                         ei
         1CC : D2 C7 01                   jnc     putchar_retry   ; branch if queue is full
         1CF : E1                         pop     h
@@ -283,141 +283,138 @@
 (1)     1D6 : F5                         push    psw
 (1)     1D7 : E5                         push    h
 (1)     1D8 : AF                         xra     a
-(1)     1D9 : 77                         mov     m, a            ; queue_len
-(1)     1DA : 78                         mov     a, b
+(1)     1D9 : 36 00                      mvi     m, 0            ; queue_len
 (1)     1DB : DE 04                      sbi     queue_buf
 (1)     1DD : 23                         inx     h
 (1)     1DE : 77                         mov     m, a            ; queue_size
 (1)     1DF : C6 02                      adi     2               ; for queue_put and queue_get
-(1)     1E1 : 47                         mov     b,a
-(1)     1E2 : AF                         xra     a
-(1)     1E3 :                    queue_init_loop:
-(1)     1E3 : 23                         inx     h
-(1)     1E4 : 77                         mov     m, a
-(1)     1E5 : 05                         dcr     b
-(1)     1E6 : C2 E3 01                   jnz     queue_init_loop
-(1)     1E9 : E1                         pop     h
-(1)     1EA : F1                         pop     psw
-(1)     1EB : C9                         ret
-(1)     1EC :
-(1)     1EC :                    ;;; [queue] Add an element to queue
-(1)     1EC :                    ;;; @param HL queue work space pointer
-(1)     1EC :                    ;;; @param A an element
-(1)     1EC :                    ;;; @return F.C 0 if queue is full
-(1)     1EC :                    queue_add:
-(1)     1EC : D5                         push    d
-(1)     1ED : 57                         mov     d, a            ; save an element
-(1)     1EE : 7E                         mov     a, m            ; queue_len
-(1)     1EF : 23                         inx     h
-(1)     1F0 : BE                         cmp     m               ; queue_size
-(1)     1F1 : 2B                         dcx     h
-(1)     1F2 : 7A                         mov     a, d            ; restore an element
-(1)     1F3 : DA F8 01                   jc      queue_add_store ; queue_len < queue_size
-(1)     1F6 : D1                         pop     d               ; cleared carry is ensured by |jc|
-(1)     1F7 : C9                         ret
-(1)     1F8 :                    queue_add_store:
-(1)     1F8 : E5                         push    h
-(1)     1F9 : 34                         inr     m               ; queue_len++
+(1)     1E1 :                    queue_init_loop:
+(1)     1E1 : 23                         inx     h
+(1)     1E2 : 36 00                      mvi     m, 0
+(1)     1E4 : 05                         dcr     b
+(1)     1E5 : C2 E1 01                   jnz     queue_init_loop
+(1)     1E8 : E1                         pop     h
+(1)     1E9 : F1                         pop     psw
+(1)     1EA : C9                         ret
+(1)     1EB :
+(1)     1EB :                    ;;; [queue] Add an element to queue
+(1)     1EB :                    ;;; @param HL queue work space pointer
+(1)     1EB :                    ;;; @param A an element
+(1)     1EB :                    ;;; @return F.C 0 if queue is full
+(1)     1EB :                    queue_add:
+(1)     1EB : D5                         push    d
+(1)     1EC : 57                         mov     d, a            ; save an element
+(1)     1ED : 7E                         mov     a, m            ; queue_len
+(1)     1EE : 23                         inx     h
+(1)     1EF : BE                         cmp     m               ; queue_size
+(1)     1F0 : 2B                         dcx     h
+(1)     1F1 : 7A                         mov     a, d            ; restore an element
+(1)     1F2 : DA F7 01                   jc      queue_add_store ; queue_len < queue_size
+(1)     1F5 : D1                         pop     d               ; cleared carry is ensured by |jc|
+(1)     1F6 : C9                         ret
+(1)     1F7 :                    queue_add_store:
+(1)     1F7 : E5                         push    h
+(1)     1F8 : 34                         inr     m               ; queue_len++
+(1)     1F9 : 23                         inx     h
 (1)     1FA : 23                         inx     h
-(1)     1FB : 23                         inx     h
-(1)     1FC : 5E                         mov     e, m            ; queue_put
-(1)     1FD : 16 00                      mvi     d, 0
-(1)     1FF : EB                         xchg                    ; DE points queue_put
-(1)     200 : 19                         dad     d
-(1)     201 : 23                         inx     h
-(1)     202 : 23                         inx     h               ; offset of queue_buf
-(1)     203 : 77                         mov     m, a            ; store an element
-(1)     204 : EB                         xchg                    ; DE points a stored element
-(1)     205 : 7E                         mov     a, m            ; queue_put
-(1)     206 : 3C                         inr     a               ; queue_put++
-(1)     207 : 2B                         dcx     h
-(1)     208 : BE                         cmp     m               ; queue_size
-(1)     209 : 23                         inx     h
-(1)     20A : DA 0E 02                   jc      queue_add_update ; queue_put < queue_size
-(1)     20D : AF                         xra     a                ; wrap around
-(1)     20E :                    queue_add_update:
-(1)     20E : 77                         mov     m, a            ; queue_put
-(1)     20F : 1A                         ldax    d               ; restore an element
-(1)     210 : E1                         pop     h
-(1)     211 : D1                         pop     d
-(1)     212 : 37                         stc                     ; set carry
-(1)     213 : C9                         ret
-(1)     214 :
-(1)     214 :                    ;;; [queue] Remove an element from queue
-(1)     214 :                    ;;; @param HL queue work space pointer
-(1)     214 :                    ;;; @return A an element
-(1)     214 :                    ;;; @return F.C 0 if queue is empty
-(1)     214 :                    queue_remove:
-(1)     214 : 7E                         mov     a, m            ; queue_len
-(1)     215 : B7                         ora     a               ; clear carry
-(1)     216 : C2 1A 02                   jnz     queue_remove_elem ; queue_len > 0
-(1)     219 : C9                         ret                     ; carry is cleared by |ora|
-(1)     21A :                    queue_remove_elem:
-(1)     21A : D5                         push    d
-(1)     21B : E5                         push    h
-(1)     21C : 35                         dcr     m               ; queue_len--
+(1)     1FB : 5E                         mov     e, m            ; queue_put
+(1)     1FC : 16 00                      mvi     d, 0
+(1)     1FE : EB                         xchg                    ; DE points queue_put
+(1)     1FF : 19                         dad     d
+(1)     200 : 23                         inx     h
+(1)     201 : 23                         inx     h               ; offset of queue_buf
+(1)     202 : 77                         mov     m, a            ; store an element
+(1)     203 : EB                         xchg                    ; DE points a stored element
+(1)     204 : 7E                         mov     a, m            ; queue_put
+(1)     205 : 3C                         inr     a               ; queue_put++
+(1)     206 : 2B                         dcx     h
+(1)     207 : BE                         cmp     m               ; queue_size
+(1)     208 : 23                         inx     h
+(1)     209 : DA 0D 02                   jc      queue_add_update ; queue_put < queue_size
+(1)     20C : AF                         xra     a                ; wrap around
+(1)     20D :                    queue_add_update:
+(1)     20D : 77                         mov     m, a            ; queue_put
+(1)     20E : 1A                         ldax    d               ; restore an element
+(1)     20F : E1                         pop     h
+(1)     210 : D1                         pop     d
+(1)     211 : 37                         stc                     ; set carry
+(1)     212 : C9                         ret
+(1)     213 :
+(1)     213 :                    ;;; [queue] Remove an element from queue
+(1)     213 :                    ;;; @param HL queue work space pointer
+(1)     213 :                    ;;; @return A an element
+(1)     213 :                    ;;; @return F.C 0 if queue is empty
+(1)     213 :                    queue_remove:
+(1)     213 : 7E                         mov     a, m            ; queue_len
+(1)     214 : B7                         ora     a               ; clear carry
+(1)     215 : C2 19 02                   jnz     queue_remove_elem ; queue_len > 0
+(1)     218 : C9                         ret                     ; carry is cleared by |ora|
+(1)     219 :                    queue_remove_elem:
+(1)     219 : D5                         push    d
+(1)     21A : E5                         push    h
+(1)     21B : 35                         dcr     m               ; queue_len--
+(1)     21C : 23                         inx     h
 (1)     21D : 23                         inx     h
 (1)     21E : 23                         inx     h
-(1)     21F : 23                         inx     h
-(1)     220 : 7E                         mov     a, m            ; queue_get
-(1)     221 : 5F                         mov     e, a
-(1)     222 : 16 00                      mvi     d, 0
-(1)     224 : EB                         xchg                    ; DE points queue_get
-(1)     225 : 19                         dad     d
-(1)     226 : 23                         inx     h               ; offset of queue_buf
-(1)     227 : EB                         xchg                    ; DE points an element to read
-(1)     228 : 3C                         inr     a               ; queue_get++
+(1)     21F : 7E                         mov     a, m            ; queue_get
+(1)     220 : 5F                         mov     e, a
+(1)     221 : 16 00                      mvi     d, 0
+(1)     223 : EB                         xchg                    ; DE points queue_get
+(1)     224 : 19                         dad     d
+(1)     225 : 23                         inx     h               ; offset of queue_buf
+(1)     226 : EB                         xchg                    ; DE points an element to read
+(1)     227 : 3C                         inr     a               ; queue_get++
+(1)     228 : 2B                         dcx     h
 (1)     229 : 2B                         dcx     h
-(1)     22A : 2B                         dcx     h
-(1)     22B : BE                         cmp     m               ; queue_size
+(1)     22A : BE                         cmp     m               ; queue_size
+(1)     22B : 23                         inx     h
 (1)     22C : 23                         inx     h
-(1)     22D : 23                         inx     h
-(1)     22E : DA 32 02                   jc      queue_remove_update ; queue_get < queue_size
-(1)     231 : AF                         xra     a                   ; wrap around
-(1)     232 :                    queue_remove_update:
-(1)     232 : 77                         mov     m, a            ; queue_get
-(1)     233 : 1A                         ldax    d               ; read an element
-(1)     234 : E1                         pop     h
-(1)     235 : D1                         pop     d
-(1)     236 : 37                         stc                     ; set carry
-(1)     237 : C9                         ret
-        238 :
-        238 :                    isr_intr_rx:
-        238 : F5                         push    psw
-        239 :                    isr_intr_receive:
-        239 : DB 01                      in      USARTS
-        23B : E6 02                      ani     ST_RxRDY_bm
-        23D : CA 4A 02                   jz      isr_intr_rx_exit
-        240 : DB 00                      in      USARTD          ; receive character
-        242 : E5                         push    h
-        243 : 21 00 20                   lxi     h, rx_queue
-        246 : CD EC 01                   call    queue_add
-        249 : E1                         pop     h
-        24A :                    isr_intr_rx_exit:
-        24A : F1                         pop     psw
-        24B : FB                         ei
-        24C : C9                         ret
-        24D :
-        24D :                    isr_intr_tx:
-        24D : F5                         push    psw
-        24E : DB 01                      in      USARTS
-        250 : E6 01                      ani     ST_TxRDY_bm
-        252 : CA 62 02                   jz      isr_intr_tx_exit
-        255 : E5                         push    h
-        256 : 21 80 20                   lxi     h, tx_queue
-        259 : CD 14 02                   call    queue_remove
-        25C : E1                         pop     h
-        25D : D2 65 02                   jnc     isr_intr_send_empty
-        260 : D3 00                      out     USARTD          ; send character
-        262 :                    isr_intr_tx_exit:
-        262 : F1                         pop     psw
-        263 : FB                         ei
-        264 : C9                         ret
-        265 :                    isr_intr_send_empty:
-        265 : 3E 36                      mvi     a, RX_EN_TX_DIS
-        267 : D3 01                      out     USARTC          ; disable Tx
-        269 : F1                         pop     psw
-        26A : FB                         ei
-        26B : C9                         ret
-        26C :
-        26C :                            end
+(1)     22D : DA 31 02                   jc      queue_remove_update ; queue_get < queue_size
+(1)     230 : AF                         xra     a                   ; wrap around
+(1)     231 :                    queue_remove_update:
+(1)     231 : 77                         mov     m, a            ; queue_get
+(1)     232 : 1A                         ldax    d               ; read an element
+(1)     233 : E1                         pop     h
+(1)     234 : D1                         pop     d
+(1)     235 : 37                         stc                     ; set carry
+(1)     236 : C9                         ret
+        237 :
+        237 :                    isr_intr_rx:
+        237 : F5                         push    psw
+        238 :                    isr_intr_receive:
+        238 : DB 01                      in      USARTS
+        23A : E6 02                      ani     ST_RxRDY_bm
+        23C : CA 49 02                   jz      isr_intr_rx_exit
+        23F : DB 00                      in      USARTD          ; receive character
+        241 : E5                         push    h
+        242 : 21 00 20                   lxi     h, rx_queue
+        245 : CD EB 01                   call    queue_add
+        248 : E1                         pop     h
+        249 :                    isr_intr_rx_exit:
+        249 : F1                         pop     psw
+        24A : FB                         ei
+        24B : C9                         ret
+        24C :
+        24C :                    isr_intr_tx:
+        24C : F5                         push    psw
+        24D : DB 01                      in      USARTS
+        24F : E6 01                      ani     ST_TxRDY_bm
+        251 : CA 61 02                   jz      isr_intr_tx_exit
+        254 : E5                         push    h
+        255 : 21 80 20                   lxi     h, tx_queue
+        258 : CD 13 02                   call    queue_remove
+        25B : E1                         pop     h
+        25C : D2 64 02                   jnc     isr_intr_send_empty
+        25F : D3 00                      out     USARTD          ; send character
+        261 :                    isr_intr_tx_exit:
+        261 : F1                         pop     psw
+        262 : FB                         ei
+        263 : C9                         ret
+        264 :                    isr_intr_send_empty:
+        264 : 3E 36                      mvi     a, RX_EN_TX_DIS
+        266 : D3 01                      out     USARTC          ; disable Tx
+        268 : F1                         pop     psw
+        269 : FB                         ei
+        26A : C9                         ret
+        26B :
+        26B :                            end

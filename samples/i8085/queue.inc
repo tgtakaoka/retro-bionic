@@ -14,17 +14,14 @@ queue_init:
         push    psw
         push    h
         xra     a
-        mov     m, a            ; queue_len
-        mov     a, b
+        mvi     m, 0            ; queue_len
         sbi     queue_buf
         inx     h
         mov     m, a            ; queue_size
         adi     2               ; for queue_put and queue_get
-        mov     b,a
-        xra     a
 queue_init_loop:
         inx     h
-        mov     m, a
+        mvi     m, 0
         dcr     b
         jnz     queue_init_loop
         pop     h

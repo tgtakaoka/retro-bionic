@@ -94,8 +94,11 @@ void RegsI8085::write_io(uint8_t addr, uint8_t data) const {
     uint8_t OUT[] = {
             0x3E, data,  // MVI data
             0xD3, addr,  // OUT addr
+            0x77,        // MOV M, A
     };
-    Pins.execInst(OUT, sizeof(OUT));
+    uint8_t tmp;
+    // MOV M, A ensures I/O write cycle.
+    Pins.captureWrites(OUT, sizeof(OUT), nullptr, &tmp, sizeof(tmp));
 }
 
 void RegsI8085::helpRegisters() const {
