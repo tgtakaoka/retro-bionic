@@ -115,13 +115,11 @@ put_bin4:
 put_bin2:
         bsr     put_bin1
 put_bin1:
-        clc
         lda     #'0'
         lsl     save_a
-        bcc     put_bin0
+        bcc     putchar
         inc     save_a          ; rotate save_a
         inca
-put_bin0:
         bra     putchar
 
 ;;; Get character

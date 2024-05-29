@@ -154,13 +154,13 @@
        1000 : =FFF               stack:  equ     *-1             ; MC6801's SP is post-decrement/pre-increment
        1000 :
        FFF2 :                            org     $FFF2           ; MC68HC11 IRQ
-       FFF2 : 01 E6                      fdb     isr_irq
+       FFF2 : 01 E3                      fdb     isr_irq
        FFF4 :
        FFF6 :                            org     $FFF6           ; MC68HC11 SWI
        FFF6 : FF F6                      fdb     $FFF6
        FFF8 :
        FFF8 :                            org     VEC_IRQ1
-       FFF8 : 01 E6                      fdb     isr_irq
+       FFF8 : 01 E3                      fdb     isr_irq
        FFFA :
        FFFA :                            org     VEC_SWI
        FFFA : FF FA                      fdb     VEC_SWI         ; for halt to system
@@ -173,10 +173,10 @@
         100 : 8E 0F FF                   lds     #stack
         103 : CE 20 00                   ldx     #rx_queue
         106 : C6 80                      ldab    #rx_queue_size
-        108 : BD 01 9F                   jsr     queue_init
+        108 : BD 01 9C                   jsr     queue_init
         10B : CE 20 80                   ldx     #tx_queue
         10E : C6 80                      ldab    #tx_queue_size
-        110 : BD 01 9F                   jsr     queue_init
+        110 : BD 01 9C                   jsr     queue_init
         113 :                            ;; initialize ACIA
         113 : 86 03                      ldaa    #CDS_RESET_gc   ; master reset
         115 : B7 DF 00                   staa    ACIA_control
@@ -188,17 +188,17 @@
         120 :                    wait:
         120 : 3E                         wai
         121 :                    loop:
-        121 : 8D 5D                      bsr     getchar
+        121 : 8D 5A                      bsr     getchar
         123 : 24 FB                      bcc     wait
         125 : 4D                         tsta
         126 : 27 13                      beq     halt_to_system
         128 : 16                         tab
-        129 : 8D 60                      bsr     putchar         ; echo
+        129 : 8D 5D                      bsr     putchar         ; echo
         12B : 86 20                      ldaa    #' '            ; space
-        12D : 8D 5C                      bsr     putchar
+        12D : 8D 59                      bsr     putchar
         12F : 8D 13                      bsr     put_hex8        ; print in hex
         131 : 86 20                      ldaa    #' '            ; space
-        133 : 8D 56                      bsr     putchar
+        133 : 8D 53                      bsr     putchar
         135 : 8D 2B                      bsr     put_bin8        ; print in binary
         137 : 8D 03                      bsr     newline
         139 : 20 E6                      bra     loop
@@ -209,18 +209,18 @@
         13C :                    ;;; @clobber A
         13C :                    newline:
         13C : 86 0D                      ldaa    #$0D
-        13E : 8D 4B                      bsr     putchar
+        13E : 8D 48                      bsr     putchar
         140 : 86 0A                      ldaa    #$0A
-        142 : 20 47                      bra     putchar
+        142 : 20 44                      bra     putchar
         144 :
         144 :                    ;;; Print uint8_t in hex
         144 :                    ;;; @param B uint8_t value to be printed in hex.
         144 :                    ;;; @clobber A
         144 :                    put_hex8:
         144 : 86 30                      ldaa    #'0'
-        146 : 8D 43                      bsr     putchar
+        146 : 8D 40                      bsr     putchar
         148 : 86 78                      ldaa    #'x'
-        14A : 8D 3F                      bsr     putchar
+        14A : 8D 3C                      bsr     putchar
         14C : 17                         tba
         14D : 44                         lsra
         14E : 44                         lsra
@@ -233,10 +233,10 @@
         156 : 81 0A                      cmpa    #10
         158 : 25 04                      blo     put_hex8_dec
         15A : 8B 37                      adda    #'A'-10
-        15C : 20 2D                      bra     putchar
+        15C : 20 2A                      bra     putchar
         15E :                    put_hex8_dec:
         15E : 8B 30                      adda    #'0'
-        160 : 20 29                      bra     putchar
+        160 : 20 26                      bra     putchar
         162 :
         162 :                    ;;; Print uint8_t in binary
         162 :                    ;;; @param B uint8_t value to be printed in binary.
@@ -244,159 +244,155 @@
         162 :                    put_bin8:
         162 : 37                         pshb
         163 : 86 30                      ldaa    #'0'
-        165 : 8D 24                      bsr     putchar
+        165 : 8D 21                      bsr     putchar
         167 : 86 62                      ldaa    #'b'
-        169 : 8D 20                      bsr     putchar
-        16B : 8D 05                      bsr     put_bin4
-        16D : 58                         lslb
-        16E : 8D 02                      bsr     put_bin4
-        170 : 33                         pulb
-        171 : 39                         rts
-        172 :                    put_bin4:
-        172 : 8D 01                      bsr     put_bin2
-        174 : 58                         lslb
-        175 :                    put_bin2:
-        175 : 8D 01                      bsr     put_bin1
-        177 : 58                         lslb
-        178 :                    put_bin1:
-        178 : 86 30                      ldaa    #'0'
-        17A : 5D                         tstb                    ; chech MSB
-        17B : 2A 01                      bpl     put_bin0        ; MSB=0
-        17D : 4C                         inca                    ; MSB=1
-        17E :                    put_bin0:
-        17E : 20 0B                      bra     putchar
-        180 :
-        180 :                    ;;; Get character
-        180 :                    ;;; @return A
-        180 :                    ;;; @return CC.C 0 if no character
-        180 :                    getchar:
-        180 : 3C                         pshx
-        181 : 0F                         sei                     ; disable IRQ
-        182 : CE 20 00                   ldx     #rx_queue
-        185 : BD 01 CA                   jsr     queue_remove
-        188 : 0E                         cli
-        189 : 38                         pulx
-        18A : 39                         rts
-        18B :
-        18B :                    ;;; Put character
-        18B :                    ;;; @param A
-        18B :                    putchar:
-        18B : 36                         psha
-        18C : 3C                         pshx
-        18D : CE 20 80                   ldx     #tx_queue
-        190 :                    putchar_retry:
-        190 : 0F                         sei                     ; disable IRQ
-        191 : BD 01 AE                   jsr     queue_add
-        194 : 0E                         cli                     ; enable IRQ
-        195 : 24 F9                      bcc     putchar_retry   ; branch if queue is full
-        197 : 86 B4                      ldaa    #RX_INT_TX_INT  ; enable Tx interrupt
-        199 : B7 DF 00                   staa    ACIA_control
-        19C : 38                         pulx
-        19D : 32                         pula
-        19E : 39                         rts
-        19F :
-        19F :                            include "queue.inc"
-(1)     19F :                    ;;; [queue] queue structure
-(1)     19F : =0                 queue_len:      equ     0       ; queue length
-(1)     19F : =1                 queue_size:     equ     1       ; buffer size
-(1)     19F : =2                 queue_put:      equ     2       ; queue put index
-(1)     19F : =3                 queue_get:      equ     3       ; queue get index
-(1)     19F : =4                 queue_buf:      equ     4       ; buffer start offset
-(1)     19F :
-(1)     19F :                    ;;; [queue] Initialize queue
-(1)     19F :                    ;;; @param X queue work space pointer
-(1)     19F :                    ;;; @param B queue work space size
-(1)     19F :                    ;;; @clobber B
-(1)     19F :                    queue_init:
-(1)     19F : 37                         pshb
-(1)     1A0 : 3C                         pshx
-(1)     1A1 :                    queue_init_loop:
-(1)     1A1 : 6F 00                      clr     0,x
-(1)     1A3 : 08                         inx
-(1)     1A4 : 5A                         decb
-(1)     1A5 : 26 FA                      bne     queue_init_loop
-(1)     1A7 : 38                         pulx
-(1)     1A8 : 33                         pulb
-(1)     1A9 : C0 04                      subb    #queue_buf
-(1)     1AB : E7 01                      stab    queue_size,x
-(1)     1AD : 39                         rts
-(1)     1AE :
-(1)     1AE :                    ;;; [queue] Add an element to queue
-(1)     1AE :                    ;;; @param X queue work space pointer
-(1)     1AE :                    ;;; @param A an element
-(1)     1AE :                    ;;; @return CC.C 0 if queue is full
-(1)     1AE :                    queue_add:
-(1)     1AE : 37                 	pshb
-(1)     1AF : E6 00                      ldab    queue_len,x
-(1)     1B1 : E1 01                      cmpb    queue_size,x
-(1)     1B3 : 24 13                      bhs     queue_add_return ; carry is cleared
-(1)     1B5 : E6 02                      ldab    queue_put,x     ; 8 bits offset
-(1)     1B7 : 3C                         pshx
-(1)     1B8 : 3A                         abx                     ; X+=B
-(1)     1B9 : A7 04                      staa    queue_buf,x     ; store an element
-(1)     1BB : 38                         pulx
-(1)     1BC : 6C 00                      inc     queue_len,x
-(1)     1BE : 5C                         incb
-(1)     1BF : E7 02                      stab    queue_put,x
-(1)     1C1 : E1 01                      cmpb    queue_size,x
-(1)     1C3 : 25 03                      blo     queue_add_return ; carry is set
-(1)     1C5 : 6F 02                      clr     queue_put,x
-(1)     1C7 : 0D                         sec                     ; set carry
-(1)     1C8 :                    queue_add_return:
-(1)     1C8 : 33                 	pulb
-(1)     1C9 : 39                         rts
-(1)     1CA :
-(1)     1CA :                    ;;; [queue] Remove an element from queue
-(1)     1CA :                    ;;; @param X queue work space pointer
-(1)     1CA :                    ;;; @return A an element
-(1)     1CA :                    ;;; @return CC.C 0 if queue is empty
-(1)     1CA :                    queue_remove:
-(1)     1CA : 6D 00                      tst     queue_len,x
-(1)     1CC : 26 02                      bne     queue_remove_elem
-(1)     1CE : 0C                         clc                     ; clear carry
-(1)     1CF : 39                         rts
-(1)     1D0 :                    queue_remove_elem
-(1)     1D0 : 37                 	pshb
-(1)     1D1 : E6 03                      ldab    queue_get,x     ; 8 bits offset
-(1)     1D3 : 3C                         pshx
-(1)     1D4 : 3A                         abx                     ; X+=B
-(1)     1D5 : A6 04                      ldaa    queue_buf,x     ; read an element
-(1)     1D7 : 38                         pulx
-(1)     1D8 : 6A 00                      dec     queue_len,x
-(1)     1DA : 5C                         incb
-(1)     1DB : E7 03                      stab    queue_get,x
-(1)     1DD : E1 01                      cmpb    queue_size,x
-(1)     1DF : 25 03                      blo     queue_remove_return ; carry is set
-(1)     1E1 : 6F 03                      clr     queue_get,x
-(1)     1E3 : 0D                         sec                     ; set carry
-(1)     1E4 :                    queue_remove_return:
-(1)     1E4 : 33                         pulb
-(1)     1E5 : 39                         rts
-(1)     1E6 :
-(1)     1E6 :                    ;;; Local Variables:
-(1)     1E6 :                    ;;; mode: asm
-(1)     1E6 :                    ;;; End:
-(1)     1E6 :                    ;;; vim: set ft=asm et ts=4 sw=4:
-        1E6 :
-        1E6 :                    isr_irq:
-        1E6 : F6 DF 00                   ldab    ACIA_status
-        1E9 : C5 80                      bitb    #IRQF_bm
-        1EB : 27 1C                      beq     isr_irq_exit
-        1ED : C5 01                      bitb    #RDRF_bm
-        1EF : 27 09                      beq     isr_irq_send
-        1F1 : B6 DF 01                   ldaa    ACIA_data       ; receive character
-        1F4 : CE 20 00                   ldx     #rx_queue
-        1F7 : BD 01 AE                   jsr     queue_add
-        1FA :                    isr_irq_send:
-        1FA : C5 02                      bitb    #TDRE_bm
-        1FC : 27 0B                      beq     isr_irq_exit
-        1FE : CE 20 80                   ldx     #tx_queue
-        201 : BD 01 CA                   jsr     queue_remove
-        204 : 24 04                      bcc     isr_irq_send_empty
-        206 : B7 DF 01                   staa    ACIA_data       ; send character
-        209 :                    isr_irq_exit:
-        209 : 3B                         rti
-        20A :                    isr_irq_send_empty:
-        20A : 86 94                      ldaa    #RX_INT_TX_NO
-        20C : B7 DF 00                   staa    ACIA_control    ; disable Tx interrupt
-        20F : 3B                         rti
+        169 : 8D 1D                      bsr     putchar
+        16B : 8D 04                      bsr     put_bin4
+        16D : 8D 02                      bsr     put_bin4
+        16F : 33                         pulb
+        170 : 39                         rts
+        171 :                    put_bin4:
+        171 : 8D 00                      bsr     put_bin2
+        173 :                    put_bin2:
+        173 : 8D 00                      bsr     put_bin1
+        175 :                    put_bin1:
+        175 : 86 30                      ldaa    #'0'
+        177 : 58                         lslb                    ; C=MSB
+        178 : 24 0E                      bcc     putchar         ; MSB=0
+        17A : 4C                         inca                    ; MSB=1
+        17B : 20 0B                      bra     putchar
+        17D :
+        17D :                    ;;; Get character
+        17D :                    ;;; @return A
+        17D :                    ;;; @return CC.C 0 if no character
+        17D :                    getchar:
+        17D : 3C                         pshx
+        17E : 0F                         sei                     ; disable IRQ
+        17F : CE 20 00                   ldx     #rx_queue
+        182 : BD 01 C7                   jsr     queue_remove
+        185 : 0E                         cli
+        186 : 38                         pulx
+        187 : 39                         rts
+        188 :
+        188 :                    ;;; Put character
+        188 :                    ;;; @param A
+        188 :                    putchar:
+        188 : 36                         psha
+        189 : 3C                         pshx
+        18A : CE 20 80                   ldx     #tx_queue
+        18D :                    putchar_retry:
+        18D : 0F                         sei                     ; disable IRQ
+        18E : BD 01 AB                   jsr     queue_add
+        191 : 0E                         cli                     ; enable IRQ
+        192 : 24 F9                      bcc     putchar_retry   ; branch if queue is full
+        194 : 86 B4                      ldaa    #RX_INT_TX_INT  ; enable Tx interrupt
+        196 : B7 DF 00                   staa    ACIA_control
+        199 : 38                         pulx
+        19A : 32                         pula
+        19B : 39                         rts
+        19C :
+        19C :                            include "queue.inc"
+(1)     19C :                    ;;; [queue] queue structure
+(1)     19C : =0                 queue_len:      equ     0       ; queue length
+(1)     19C : =1                 queue_size:     equ     1       ; buffer size
+(1)     19C : =2                 queue_put:      equ     2       ; queue put index
+(1)     19C : =3                 queue_get:      equ     3       ; queue get index
+(1)     19C : =4                 queue_buf:      equ     4       ; buffer start offset
+(1)     19C :
+(1)     19C :                    ;;; [queue] Initialize queue
+(1)     19C :                    ;;; @param X queue work space pointer
+(1)     19C :                    ;;; @param B queue work space size
+(1)     19C :                    ;;; @clobber B
+(1)     19C :                    queue_init:
+(1)     19C : 37                         pshb
+(1)     19D : 3C                         pshx
+(1)     19E :                    queue_init_loop:
+(1)     19E : 6F 00                      clr     0,x
+(1)     1A0 : 08                         inx
+(1)     1A1 : 5A                         decb
+(1)     1A2 : 26 FA                      bne     queue_init_loop
+(1)     1A4 : 38                         pulx
+(1)     1A5 : 33                         pulb
+(1)     1A6 : C0 04                      subb    #queue_buf
+(1)     1A8 : E7 01                      stab    queue_size,x
+(1)     1AA : 39                         rts
+(1)     1AB :
+(1)     1AB :                    ;;; [queue] Add an element to queue
+(1)     1AB :                    ;;; @param X queue work space pointer
+(1)     1AB :                    ;;; @param A an element
+(1)     1AB :                    ;;; @return CC.C 0 if queue is full
+(1)     1AB :                    queue_add:
+(1)     1AB : 37                 	pshb
+(1)     1AC : E6 00                      ldab    queue_len,x
+(1)     1AE : E1 01                      cmpb    queue_size,x
+(1)     1B0 : 24 13                      bhs     queue_add_return ; carry is cleared
+(1)     1B2 : E6 02                      ldab    queue_put,x     ; 8 bits offset
+(1)     1B4 : 3C                         pshx
+(1)     1B5 : 3A                         abx                     ; X+=B
+(1)     1B6 : A7 04                      staa    queue_buf,x     ; store an element
+(1)     1B8 : 38                         pulx
+(1)     1B9 : 6C 00                      inc     queue_len,x
+(1)     1BB : 5C                         incb
+(1)     1BC : E7 02                      stab    queue_put,x
+(1)     1BE : E1 01                      cmpb    queue_size,x
+(1)     1C0 : 25 03                      blo     queue_add_return ; carry is set
+(1)     1C2 : 6F 02                      clr     queue_put,x
+(1)     1C4 : 0D                         sec                     ; set carry
+(1)     1C5 :                    queue_add_return:
+(1)     1C5 : 33                 	pulb
+(1)     1C6 : 39                         rts
+(1)     1C7 :
+(1)     1C7 :                    ;;; [queue] Remove an element from queue
+(1)     1C7 :                    ;;; @param X queue work space pointer
+(1)     1C7 :                    ;;; @return A an element
+(1)     1C7 :                    ;;; @return CC.C 0 if queue is empty
+(1)     1C7 :                    queue_remove:
+(1)     1C7 : 6D 00                      tst     queue_len,x
+(1)     1C9 : 26 02                      bne     queue_remove_elem
+(1)     1CB : 0C                         clc                     ; clear carry
+(1)     1CC : 39                         rts
+(1)     1CD :                    queue_remove_elem
+(1)     1CD : 37                 	pshb
+(1)     1CE : E6 03                      ldab    queue_get,x     ; 8 bits offset
+(1)     1D0 : 3C                         pshx
+(1)     1D1 : 3A                         abx                     ; X+=B
+(1)     1D2 : A6 04                      ldaa    queue_buf,x     ; read an element
+(1)     1D4 : 38                         pulx
+(1)     1D5 : 6A 00                      dec     queue_len,x
+(1)     1D7 : 5C                         incb
+(1)     1D8 : E7 03                      stab    queue_get,x
+(1)     1DA : E1 01                      cmpb    queue_size,x
+(1)     1DC : 25 03                      blo     queue_remove_return ; carry is set
+(1)     1DE : 6F 03                      clr     queue_get,x
+(1)     1E0 : 0D                         sec                     ; set carry
+(1)     1E1 :                    queue_remove_return:
+(1)     1E1 : 33                         pulb
+(1)     1E2 : 39                         rts
+(1)     1E3 :
+(1)     1E3 :                    ;;; Local Variables:
+(1)     1E3 :                    ;;; mode: asm
+(1)     1E3 :                    ;;; End:
+(1)     1E3 :                    ;;; vim: set ft=asm et ts=4 sw=4:
+        1E3 :
+        1E3 :                    isr_irq:
+        1E3 : F6 DF 00                   ldab    ACIA_status
+        1E6 : C5 80                      bitb    #IRQF_bm
+        1E8 : 27 1C                      beq     isr_irq_exit
+        1EA : C5 01                      bitb    #RDRF_bm
+        1EC : 27 09                      beq     isr_irq_send
+        1EE : B6 DF 01                   ldaa    ACIA_data       ; receive character
+        1F1 : CE 20 00                   ldx     #rx_queue
+        1F4 : BD 01 AB                   jsr     queue_add
+        1F7 :                    isr_irq_send:
+        1F7 : C5 02                      bitb    #TDRE_bm
+        1F9 : 27 0B                      beq     isr_irq_exit
+        1FB : CE 20 80                   ldx     #tx_queue
+        1FE : BD 01 C7                   jsr     queue_remove
+        201 : 24 04                      bcc     isr_irq_send_empty
+        203 : B7 DF 01                   staa    ACIA_data       ; send character
+        206 :                    isr_irq_exit:
+        206 : 3B                         rti
+        207 :                    isr_irq_send_empty:
+        207 : 86 94                      ldaa    #RX_INT_TX_NO
+        209 : B7 DF 00                   staa    ACIA_control    ; disable Tx interrupt
+        20C : 3B                         rti

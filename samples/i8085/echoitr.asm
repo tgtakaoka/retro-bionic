@@ -124,20 +124,17 @@ put_bin8:
         call    putchar
         mov     a, b
         call    put_bin4
-        rlc
         call    put_bin4
         pop     b
         ret
 put_bin4:
         call    put_bin2
-        rlc
 put_bin2:
         call    put_bin1
-        rlc
 put_bin1:
+        ral                     ; PSW.C=MSB
         mvi     c, '0'
-        ora     a               ; chech MSB
-        jp      put_bin0        ; MSB=0
+        jnc     put_bin0        ; MSB=0
         inr     c               ; MSB=1
 put_bin0:
         mov     b, a

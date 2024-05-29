@@ -114,31 +114,19 @@ put_bin8:
         mov     A, #'b'
         call    putchar
         mov     A, R3
-        swap    A
         mov     R2, A
         call    put_bin4
-        mov     A, R3
-        mov     R2, A
-        call    put_bin4
-        ret
 put_bin4:
-        mov     A, R2
-        rr      A
-        rr      A
-        mov     R2, A
         call    put_bin2
-        mov     A, R2
-        rl      A
-        rl      A
-        mov     R2, A
 put_bin2:
-        mov     A, R2
-        rr      A
         call    put_bin1
-        mov     A, R2
 put_bin1:
-        anl     A, #1
-        add     A, #'0'
+        mov     A, R2
+        rlc     A               ; C=MSB
+        mov     R2, A
+        mov     A, #'0'
+        jnc     putchar         ; MSB=0
+        inc     A
         jmp     putchar
         
 ;;; Get character

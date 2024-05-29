@@ -102,22 +102,18 @@ put_bin8:
         ldaa    #'b'
         bsr     putchar
         bsr     put_bin4
-        lslb
         bsr     put_bin4
         pulb
         rts
 put_bin4:
         bsr     put_bin2
-        lslb
 put_bin2:
         bsr     put_bin1
-        lslb
 put_bin1:
         ldaa    #'0'
-        tstb                    ; chech MSB
-        bpl     put_bin0        ; MSB=0
+        lslb                    ; C=MSB
+        bcc     putchar         ; MSB=0
         inca                    ; MSB=1
-put_bin0:
         bra     putchar
 
 ;;; Get character

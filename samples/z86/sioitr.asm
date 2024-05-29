@@ -114,22 +114,18 @@ put_bin8:
         call    putchar
         ld      R4, R1
         call    put_bin4
-        rl      R4
         call    put_bin4
         pop     R4
         ret
 put_bin4:
         call    put_bin2
-        rl      R4
 put_bin2:
         call    put_bin1
-        rl      R4
 put_bin1:
+        rl      R4              ; C=MSB
         ld      R0, #'0'
-        or      R4, R4
-        jp      pl, put_bin0    ; MSB=0
-        ld      R0, #'1'        ; MSB=1
-put_bin0:
+        jr      nc, putchar     ; MSB=0
+        inc     R0              ; MSB=1
         jr      putchar
 
 ;;; Get character

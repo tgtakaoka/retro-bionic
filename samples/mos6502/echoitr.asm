@@ -114,19 +114,14 @@ put_bin8:
         jsr     putchar
         pla
         jsr     put_bin4
-        asl     a
-        jsr     put_bin4
-        rts
 put_bin4:
         jsr     put_bin2
-        asl     a
 put_bin2:
         jsr     put_bin1
-        asl     a
 put_bin1:
+        asl     a               ; C=MSB
         pha
-        ora     #0
-        bpl     put_bin0
+        bcc     put_bin0
         lda     #'1'
         bne     put_binchar
 put_bin0:

@@ -106,29 +106,20 @@ put_bin8:
         call    putchar
         ld      a, 'b'
         call    putchar
-        ld      a, b
         call    put_bin4
-        slla
         call    put_bin4
         pop     bc
         ret
 put_bin4:
         call    put_bin2
-        slla
 put_bin2:
         call    put_bin1
-        slla
 put_bin1:
-        ld      c, '0'
-        or      a, a            ; chech MSB
-        jr      pl, put_bin0    ; MSB=0
-        inc     c               ; MSB=1
-put_bin0:
-        ld      b, a
-        ld      a, c
-        call    putchar
-        ld      a, b
-        ret
+        sll     b               ; C=MSB
+        ld      a, '0'
+        jr      nc, putchar     ; MSB=0
+        inc     a               ; MSB=1
+        jr      putchar
 
 ;;; Get character
 ;;; @return A

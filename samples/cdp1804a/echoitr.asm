@@ -113,30 +113,35 @@ put_hex4_dec:
 ;;; @clobber D
 put_bin8:
         plo     R15             ; save D to scratch pad
-        rsxd    R7              ; save R7
+        glo     R7              ; save R7.0
+        stxd
         glo     R15             ; restore D
+        plo     R7              ; R7.0=data
         ;;
-        phi     R7              ; R7.1=data
-        ldi     8
-        plo     R7              ; R7.0=bit count
-put_bin8_loop:
-        ghi     R7
-        shl
-        phi     R7              ; R7.1<<=1
-        bnf     put_bin8_zero
-        ldi     '1'
-        lskp
-put_bin8_zero:
         ldi     '0'
         scal    R4, putchar
-        dec     R7              ; R7--
-        glo     R7
-        bnz     put_bin8_loop
+        ldi     'b'
+        scal    R4, putchar
+        ;; 
+        scal    R4, put_bin4
+        scal    R4, put_bin4
         ;;
         irx
-        rlxa    R7              ; restore R7
-        dec     R2
-        sret    R4
+        ldx
+        plo     R7              ; restore R7
+        sep     R6              ; return
+put_bin4:
+        scal    R4, put_bin2
+put_bin2:
+        scal    R4, put_bin1
+put_bin1:
+        glo     R7
+        shlc                    ; DF=MSB
+        plo     R7
+        ldi     '0'
+        bnf     putchar         ; MSB=0
+        ldi     '1'
+        br      putchar
 
 ;;; Get character
 ;;; @return R7.0 char
