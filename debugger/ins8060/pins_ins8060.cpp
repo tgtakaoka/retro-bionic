@@ -70,23 +70,23 @@ constexpr auto xin_lo_read = 90;      // 120
 constexpr auto xin_hi_read = 80;      // 120
 constexpr auto xin_read_end = 30;     // 120
 
-inline uint8_t signal_breq() {
+inline auto signal_breq() {
     return digitalReadFast(PIN_BREQ);
 }
 
-inline uint8_t signal_enout() {
+inline auto signal_enout() {
     return digitalReadFast(PIN_ENOUT);
 }
 
-inline uint8_t signal_ads() {
+inline auto signal_ads() {
     return digitalReadFast(PIN_ADS);
 }
 
-inline uint8_t signal_wds() {
+inline auto signal_wds() {
     return digitalReadFast(PIN_WDS);
 }
 
-inline uint8_t signal_rds() {
+inline auto signal_rds() {
     return digitalReadFast(PIN_RDS);
 }
 
@@ -98,14 +98,6 @@ void negate_sense_a() {
     digitalWriteFast(PIN_SENSEA, LOW);
 }
 
-void assert_cont() {
-    digitalWriteFast(PIN_CONT, HIGH);
-}
-
-void negate_hold() {
-    digitalWriteFast(PIN_HOLD, HIGH);
-}
-
 void assert_enin() {
     digitalWriteFast(PIN_ENIN, LOW);
 }
@@ -114,21 +106,11 @@ void negate_enin() {
     digitalWriteFast(PIN_ENIN, HIGH);
 }
 
-void assert_reset() {
-    // Drive RESET condition
-    digitalWriteFast(PIN_RST, LOW);
-    negate_sense_a();
-    assert_cont();
-    negate_hold();
-    negate_enin();
-}
-
 void negate_reset() {
-    // Release RESET conditions
     digitalWriteFast(PIN_RST, HIGH);
 }
 
-const uint8_t PINS_LOW[] = {
+constexpr uint8_t PINS_LOW[] = {
         PIN_XIN,
         PIN_RST,
         PIN_SENSEA,
@@ -136,12 +118,17 @@ const uint8_t PINS_LOW[] = {
         PIN_SIN,
 };
 
-const uint8_t PINS_HIGH[] = {
+constexpr uint8_t PINS_HIGH[] = {
         PIN_CONT,
         PIN_ENIN,
 };
 
-const uint8_t PINS_INPUT[] = {
+constexpr uint8_t PINS_PULLUP[] = {
+        PIN_BREQ,
+        PIN_HOLD,
+};
+
+constexpr uint8_t PINS_INPUT[] = {
         PIN_DB0,
         PIN_DB1,
         PIN_DB2,
@@ -172,11 +159,6 @@ const uint8_t PINS_INPUT[] = {
         PIN_SOUT,
 };
 
-const uint8_t PINS_PULLUP[] = {
-        PIN_BREQ,
-        PIN_HOLD,
-};
-
 inline void xin_hi() {
     digitalWriteFast(PIN_XIN, HIGH);
 }
@@ -196,17 +178,18 @@ inline void xin_cycle() {
 }  // namespace
 
 void PinsIns8060::reset() {
+    // Assert reset condition
     pinsMode(PINS_LOW, sizeof(PINS_LOW), OUTPUT, LOW);
     pinsMode(PINS_HIGH, sizeof(PINS_HIGH), OUTPUT, HIGH);
     pinsMode(PINS_PULLUP, sizeof(PINS_PULLUP), INPUT_PULLUP);
     pinsMode(PINS_INPUT, sizeof(PINS_INPUT), INPUT);
 
-    assert_reset();
     // #RST must remain low for a minimum of 4 Tc.
     for (auto i = 0; i < 2 * 4; i++)
         xin_cycle();
     negate_enin();
     negate_reset();
+    Signals::resetCycles();
     // The #BREQ output goes low, indicating the start of execution;
     // this occurs at a time whithin 13 Tc after #RST is set high.
     Regs.save();
