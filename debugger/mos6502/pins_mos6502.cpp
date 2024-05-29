@@ -52,12 +52,10 @@ constexpr auto phi0_hi_write = 334;     // 500
 constexpr auto phi0_hi_inject = 70;
 constexpr auto phi0_hi_capture = 60;
 
-inline void phi0_hi() __attribute__((always_inline));
 inline void phi0_hi() {
     digitalWriteFast(PIN_PHI0, HIGH);
 }
 
-inline void phi0_lo() __attribute__((always_inline));
 inline void phi0_lo() {
     digitalWriteFast(PIN_PHI0, LOW);
 }
@@ -74,14 +72,6 @@ auto signal_vp() {
     return digitalReadFast(PIN_VP);
 }
 
-void negate_abort() {
-    digitalWriteFast(W65C816_ABORT, HIGH);
-}
-
-void negate_nmi() {
-    digitalWriteFast(PIN_NMI, HIGH);
-}
-
 void assert_irq() {
     digitalWriteFast(PIN_IRQ, LOW);
 }
@@ -91,41 +81,29 @@ void negate_irq() {
 }
 
 void assert_rdy() {
-    digitalWriteFast(PIN_RDY, HIGH);
     pinMode(PIN_RDY, INPUT_PULLUP);
 }
 
 void negate_rdy() {
-    digitalWriteFast(PIN_RDY, LOW);
     pinMode(PIN_RDY, OUTPUT_OPENDRAIN);
-}
-
-void assert_reset() {
-    // Drive RESET condition
-    phi0_lo();
-    assert_rdy();
-    digitalWriteFast(PIN_RES, LOW);
-    negate_abort();
-    negate_nmi();
-    negate_irq();
+    digitalWriteFast(PIN_RDY, LOW);
 }
 
 void negate_reset() {
-    // Release RESET conditions
     digitalWriteFast(PIN_RES, HIGH);
 }
 
-const uint8_t PINS_LOW[] = {
+constexpr uint8_t PINS_LOW[] = {
         PIN_PHI0,
         PIN_RES,
 };
 
-const uint8_t PINS_HIGH[] = {
+constexpr uint8_t PINS_HIGH[] = {
         PIN_NMI,
         PIN_IRQ,
 };
 
-const uint8_t PINS_PULLUP[] = {
+constexpr uint8_t PINS_PULLUP[] = {
         // RDY(input) for 6502, pullup
         // RDY(bi-directional) for W65Cxx, pullup
         PIN_RDY,
@@ -149,7 +127,7 @@ const uint8_t PINS_PULLUP[] = {
         PIN_BE,
 };
 
-const uint8_t PINS_INPUT[] = {
+constexpr uint8_t PINS_INPUT[] = {
         PIN_D0,
         PIN_D1,
         PIN_D2,
@@ -257,12 +235,12 @@ void PinsMos6502::checkSoftwareType() {
 }
 
 void PinsMos6502::reset() {
+    // Assert reset condition
     pinsMode(PINS_LOW, sizeof(PINS_LOW), OUTPUT, LOW);
     pinsMode(PINS_HIGH, sizeof(PINS_HIGH), OUTPUT, HIGH);
     pinsMode(PINS_PULLUP, sizeof(PINS_PULLUP), INPUT_PULLUP);
     pinsMode(PINS_INPUT, sizeof(PINS_INPUT), INPUT);
 
-    assert_reset();
     checkHardwareType();
     // #RES must be held low for at lease two clock cycles.
     for (auto i = 0; i < 10; i++)
