@@ -640,6 +640,11 @@ void Debugger::exec(char c) {
             // step over break point
             if (!target().step(false))
                 break;
+            // Stop at consecutive break point
+            if (target().isOnBreakPoint()) {
+                target().printStatus();
+                break;
+            }
         }
         target().run();
         target().printStatus();
