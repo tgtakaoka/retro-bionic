@@ -77,7 +77,7 @@ struct PinsCdp1802 final : Pins {
     void printCycles() override;
 
     void execInst(const uint8_t *inst, uint8_t len);
-    uint8_t captureWrites(const uint8_t *inst, uint8_t len, uint16_t *addr,
+    void captureWrites(const uint8_t *inst, uint8_t len, uint16_t *addr,
             uint8_t *buf, uint8_t max);
 
 private:
@@ -92,8 +92,8 @@ private:
     Signals *cycle(uint8_t data);
     void loop();
     bool rawStep();
-    uint8_t execute(const uint8_t *inst, uint8_t len, uint16_t *addr,
-            uint8_t *buf, uint8_t max);
+    void execute(const uint8_t *inst, uint8_t len, uint16_t *addr, uint8_t *buf,
+            uint8_t max);
     bool skip(uint8_t inst);
 
     void disassembleCycles() const;

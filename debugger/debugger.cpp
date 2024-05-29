@@ -576,7 +576,8 @@ void Debugger::exec(char c) {
         target().reset();
         if (_verbose)
             target().printCycles();
-        goto regs;
+        target().printStatus();
+        break;
     case 'd':
         cli.print("Dump? ");
         cli.readHex(handleDump, DUMP_ADDR, maxAddr);
@@ -617,9 +618,7 @@ void Debugger::exec(char c) {
         break;
     case 'r':
         cli.println("Registers");
-    regs:
-        target().printRegisters();
-        target().disassembleNext();
+        target().printStatus();
         break;
     case '=':
         cli.print("Set register? ");
@@ -633,7 +632,8 @@ void Debugger::exec(char c) {
         } else {
             target().step(true);
         }
-        goto regs;
+        target().printStatus();
+        break;
     case 'G':
         cli.println("Go");
         if (target().isOnBreakPoint()) {
@@ -642,7 +642,8 @@ void Debugger::exec(char c) {
                 break;
         }
         target().run();
-        goto regs;
+        target().printStatus();
+        break;
     case 'F':
         cli.print("Files? ");
         cli.readLine(handleFileListing, 0, str_buffer, sizeof(str_buffer));
@@ -689,6 +690,7 @@ void Debugger::begin(Target &target_) {
     _target = &target_;
     target().begin();
     usage();
+    target().printRegisters();
     printPrompt();
 }
 

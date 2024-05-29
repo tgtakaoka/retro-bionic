@@ -26,8 +26,8 @@ struct Target {
     void idle() { _pins->idle(); }
 
     void printCycles() { _pins->printCycles(); }
-    void disassembleNext() const { _mems->disassemble(_regs->nextIp(), 1); }
     void printRegisters() const { _regs->print(); }
+    void printStatus() const;
     void printDevices() const { _devs->printDevices(); }
     bool printRomArea() const;
     bool printBreakPoints() const { return _pins->printBreakPoints(); }

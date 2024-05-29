@@ -86,34 +86,20 @@ void negate_intr() {
     digitalWriteFast(PIN_INTR, HIGH);
 }
 
-inline uint8_t signal_tpa() {
+inline auto signal_tpa() {
     return digitalReadFast(PIN_TPA);
-}
-
-void negate_wait() {
-    digitalWriteFast(PIN_WAIT, HIGH);
-}
-
-void assert_reset() {
-    // Drive RESET condition
-    digitalWriteFast(PIN_CLEAR, LOW);
-    negate_wait();
-    negate_intr();
-    digitalWriteFast(PIN_DMAIN, HIGH);
-    digitalWriteFast(PIN_DMAOUT, HIGH);
-    clock_lo();
 }
 
 void negate_reset() {
     digitalWriteFast(PIN_CLEAR, HIGH);
 }
 
-const uint8_t PINS_LOW[] = {
+constexpr uint8_t PINS_LOW[] = {
         PIN_CLEAR,
         PIN_CLOCK,
 };
 
-const uint8_t PINS_HIGH[] = {
+constexpr uint8_t PINS_HIGH[] = {
         PIN_INTR,
         PIN_WAIT,
         PIN_DMAIN,
@@ -124,7 +110,7 @@ const uint8_t PINS_HIGH[] = {
         PIN_EF4,
 };
 
-const uint8_t PINS_INPUT[] = {
+constexpr uint8_t PINS_INPUT[] = {
         PIN_DBUS0,
         PIN_DBUS1,
         PIN_DBUS2,
@@ -163,14 +149,15 @@ inline void clock_cycle() {
 }  // namespace
 
 void PinsCdp1802::reset() {
+    // Assert reset condition
     pinsMode(PINS_LOW, sizeof(PINS_LOW), OUTPUT, LOW);
     pinsMode(PINS_HIGH, sizeof(PINS_HIGH), OUTPUT, HIGH);
     pinsMode(PINS_INPUT, sizeof(PINS_INPUT), INPUT);
 
-    assert_reset();
     for (auto i = 0; i < 100; i++)
         clock_cycle();
     negate_reset();
+    Signals::resetCycles();
     // The first machine cycle after termination of reset is an
     // intialization cycle which requires 9 clock pulses.
     for (auto i = 0; i < 20; i++) {
@@ -306,12 +293,12 @@ void PinsCdp1802::execInst(const uint8_t *inst, uint8_t len) {
     execute(inst, len, nullptr, nullptr, 0);
 }
 
-uint8_t PinsCdp1802::captureWrites(const uint8_t *inst, uint8_t len,
+void PinsCdp1802::captureWrites(const uint8_t *inst, uint8_t len,
         uint16_t *addr, uint8_t *buf, uint8_t max) {
-    return execute(inst, len, addr, buf, max);
+    execute(inst, len, addr, buf, max);
 }
 
-uint8_t PinsCdp1802::execute(const uint8_t *inst, uint8_t len, uint16_t *addr,
+void PinsCdp1802::execute(const uint8_t *inst, uint8_t len, uint16_t *addr,
         uint8_t *buf, uint8_t max) {
     uint8_t inj = 0;
     uint8_t cap = 0;
@@ -337,7 +324,6 @@ uint8_t PinsCdp1802::execute(const uint8_t *inst, uint8_t len, uint16_t *addr,
             break;
         completeCycle(directCycle(s));
     }
-    return cap;
 }
 
 void PinsCdp1802::idle() {

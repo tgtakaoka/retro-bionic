@@ -56,8 +56,8 @@ void RegsCdp1802::print() const {
     // clang-format off
     //                               0123456789012345678901234567890;
     static constexpr char line1[] = "D=xx DF=x X=x P=x T=xx Q=x IE=1";
-    static constexpr char line2[] = " R0=xxxx  R1=xxxx  R2=xxxx  R3=xxxx  R4=xxxx  R5=xxxx  R6=xxxx  R7=xxxx";
-    static constexpr char line3[] = " R8=xxxx  R9=xxxx R10=xxxx R11=xxxx R12=xxxx R13=xxxx R14=xxxx R15=xxxx";
+    static constexpr char line2[] = "R0=xxxx  R1=xxxx  R2=xxxx  R3=xxxx  R4=xxxx  R5=xxxx  R6=xxxx  R7=xxxx";
+    static constexpr char line3[] = "R8=xxxx  R9=xxxx R10=xxxx R11=xxxx R12=xxxx R13=xxxx R14=xxxx R15=xxxx";
     // clang-format on
     static auto &buffer1 = *new CharBuffer(line1);
     buffer1.hex8(2, _d);
@@ -70,11 +70,11 @@ void RegsCdp1802::print() const {
     cli.println(buffer1);
     static auto &buffer2 = *new CharBuffer(line2);
     for (auto i = 0; i < 8; i++)
-        buffer2.hex16(4 + i * 9, _r[i]);
+        buffer2.hex16(3 + i * 9, _r[i]);
     cli.println(buffer2);
     static auto &buffer3 = *new CharBuffer(line3);
     for (auto i = 0; i < 8; i++)
-        buffer3.hex16(4 + i * 9, _r[i + 8]);
+        buffer3.hex16(3 + i * 9, _r[i + 8]);
     cli.println(buffer3);
 }
 

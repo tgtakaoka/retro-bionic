@@ -136,6 +136,11 @@ void Target::run() {
     _pins->setHalt();
 }
 
+void Target::printStatus() const {
+    _regs->print();
+    _mems->disassemble(_regs->nextIp(), 1);
+}
+
 bool Target::printRomArea() const {
     if (_mems->hasRomArea()) {
         _mems->printRomArea();

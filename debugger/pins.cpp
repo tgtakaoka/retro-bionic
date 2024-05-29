@@ -88,16 +88,17 @@ bool Pins::isBreakPoint(uint32_t addr) const {
 }
 
 void Pins::pinsMode(const uint8_t *pins, uint8_t size, uint8_t mode) {
-    for (uint8_t i = 0; i < size; ++i)
+    for (auto i = 0; i < size; ++i)
         pinMode(pins[i], mode);
 }
 
 void Pins::pinsMode(
         const uint8_t *pins, uint8_t size, uint8_t mode, uint8_t val) {
-    for (uint8_t i = 0; i < size; ++i) {
+    for (auto i = 0; i < size; ++i) {
         const auto pin = pins[i];
-        digitalWrite(pin, val);
+        // This order is critical to initialize OUTPUT/HIGH pins.
         pinMode(pin, mode);
+        digitalWrite(pin, val);
     }
 }
 
