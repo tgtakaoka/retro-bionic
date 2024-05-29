@@ -124,19 +124,6 @@ inline void negate_hold() {
     digitalWriteFast(PIN_HOLD, LOW);
 }
 
-void assert_reset() {
-    // Drive RESET condition
-    x1_lo();
-    digitalWriteFast(PIN_RESET, LOW);
-    digitalWriteFast(PIN_RST55, LOW);
-    digitalWriteFast(PIN_RST65, LOW);
-    digitalWriteFast(PIN_RST75, LOW);
-    negate_trap();
-    negate_intr();
-    negate_hold();
-    assert_ready();
-}
-
 void negate_reset() {
     digitalWriteFast(PIN_RESET, HIGH);
 }
@@ -216,12 +203,11 @@ inline void clk_lo() {
 }  // namespace
 
 void PinsI8085::reset() {
+    // Assert reset condition
     pinsMode(PINS_LOW, sizeof(PINS_LOW), OUTPUT, LOW);
     pinsMode(PINS_HIGH, sizeof(PINS_HIGH), OUTPUT, HIGH);
     pinsMode(PINS_INPUT, sizeof(PINS_INPUT), INPUT);
 
-    Signals::resetCycles();
-    assert_reset();
     // Syncronize X1 and CLK.
     while (signal_clk() == LOW)
         x1_cycle();
@@ -235,6 +221,7 @@ void PinsI8085::reset() {
         clk_lo();
     }
     negate_reset();
+    Signals::resetCycles();
     // #RESET_IN is sampled here falling transition of next CLK.
     cycleT1();
     cycleT2Pause();
