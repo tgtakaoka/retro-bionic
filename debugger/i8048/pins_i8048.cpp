@@ -110,14 +110,6 @@ inline void negate_ss() {
     digitalWriteFast(PIN_SS, HIGH);
 }
 
-void assert_reset() {
-    // Drive RESET condition
-    xtal1_hi();
-    digitalWriteFast(PIN_RESET, LOW);
-    negate_int();
-    negate_ss();
-}
-
 void negate_reset() {
     digitalWriteFast(PIN_RESET, HIGH);
 }
@@ -183,20 +175,20 @@ inline void xtal1_cycle() {
 }  // namespace
 
 void PinsI8048::reset() {
+    // Assert reset condition
     pinsMode(PINS_LOW, sizeof(PINS_LOW), OUTPUT, LOW);
     pinsMode(PINS_HIGH, sizeof(PINS_HIGH), OUTPUT, HIGH);
     pinsMode(PINS_PULLUP, sizeof(PINS_PULLUP), INPUT_PULLUP);
     pinsMode(PINS_INPUT, sizeof(PINS_INPUT), INPUT);
 
-    assert_reset();
     // Only 5 machine cycles are required if power is already on.
     for (auto i = 0; i < 15 * (5 + 2); ++i)
         xtal1_cycle();
     while (signal_psen() != LOW)
         xtal1_cycle();
     negate_reset();
-    // #SS=L
     Signals::resetCycles();
+    // #SS=L
     _regs.save();
 }
 
