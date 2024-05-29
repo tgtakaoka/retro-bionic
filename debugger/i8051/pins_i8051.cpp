@@ -108,24 +108,24 @@ void negate_reset() {
     digitalWriteFast(PIN_RST, LOW);
 }
 
-const uint8_t PINS_LOW[] = {
-        PIN_RST,
+constexpr uint8_t PINS_LOW[] = {
         PIN_EA,
         PIN_T0,
         PIN_T1,
 };
 
-const uint8_t PINS_HIGH[] = {
+constexpr uint8_t PINS_HIGH[] = {
+        PIN_RST,
         PIN_INT0,
         PIN_INT1,
 };
 
-const uint8_t PINS_PULLUP[] = {
+constexpr uint8_t PINS_PULLUP[] = {
         PIN_XTAL,
         PIN_XTYPE,
 };
 
-const uint8_t PINS_INPUT[] = {
+constexpr uint8_t PINS_INPUT[] = {
         PIN_AD0,
         PIN_AD1,
         PIN_AD2,
@@ -176,14 +176,6 @@ void xtal1_hi() {
     digitalWriteFast(PIN_XTAL, HIGH);
 }
 
-void PinsI8051::assert_reset() const {
-    // Drive RESET condition
-    xtal_lo();
-    digitalWriteFast(PIN_RST, HIGH);
-    negate_int0();
-    negate_int1();
-}
-
 inline void PinsI8051::xtal_cycle_lo() const {
     xtal_hi();
     delayNanoseconds(xtal_hi_ns);
@@ -198,6 +190,7 @@ inline void PinsI8051::xtal_cycle() const {
 }
 
 void PinsI8051::reset() {
+    // Assert reset condition
     pinsMode(PINS_LOW, sizeof(PINS_LOW), OUTPUT, LOW);
     pinsMode(PINS_HIGH, sizeof(PINS_HIGH), OUTPUT, HIGH);
     pinsMode(PINS_PULLUP, sizeof(PINS_PULLUP), INPUT_PULLUP);
@@ -219,7 +212,6 @@ void PinsI8051::reset() {
     pinMode(PIN_XTAL, OUTPUT);
     xtal_lo();
 
-    assert_reset();
     // A reset is accomplished by holding the RST pin high gfor at
     // least two machine cycles (24 ocillator periods).
     for (auto i = 0; i < 30; ++i)

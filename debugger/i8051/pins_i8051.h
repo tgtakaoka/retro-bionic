@@ -98,7 +98,6 @@ private:
     void xtal_hi() const { _xtal_hi(); }
     void xtal_cycle_lo() const;
     void xtal_cycle() const;
-    void assert_reset() const;
     Signals *prepareCycle();
     Signals *completeCycle(Signals *signals);
     void loop();
