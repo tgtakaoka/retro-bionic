@@ -16,19 +16,19 @@ using mc6809::MemsMc6809;
 extern struct PinsMc6809E Pins;
 
 struct RegsMc6809E Regs {
-    &Pins
+    Pins
 };
 
 struct MemsMc6809 Memory {
-    &Regs
+    Regs
 };
 
 struct InstHd6309 Inst {
-    &Memory
+    Memory
 };
 
 struct PinsMc6809E Pins {
-    &Regs, &Inst, &Memory
+    Regs, Inst, Memory
 };
 
 struct Target TargetMc6809 {

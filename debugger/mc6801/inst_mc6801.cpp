@@ -5,7 +5,7 @@ namespace debugger {
 namespace mc6801 {
 
 struct InstMc6801 Inst {
-    &Memory
+    Memory
 };
 
 namespace {

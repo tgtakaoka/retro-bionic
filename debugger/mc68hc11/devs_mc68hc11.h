@@ -12,7 +12,7 @@ struct Mc68hc11Init;
 struct Mc68hc11SciHandler;
 
 struct DevsMc68hc11 final : Devs {
-    DevsMc68hc11(Mc68hc11Init *init, Mc68hc11SciHandler *sci)
+    DevsMc68hc11(Mc68hc11Init &init, Mc68hc11SciHandler &sci)
         : Devs(), _init(init), _sci(sci) {}
 
     void begin() override;
@@ -27,11 +27,11 @@ struct DevsMc68hc11 final : Devs {
     void enableDevice(Device &dev) override;
     void printDevices() const override;
 
-    const Mc68hc11Init *init() const { return _init; }
+    Mc68hc11Init &init() const { return _init; }
 
 private:
-    Mc68hc11Init *const _init;
-    Mc68hc11SciHandler *const _sci;
+    Mc68hc11Init &_init;
+    Mc68hc11SciHandler &_sci;
 };
 
 }  // namespace mc68hc11

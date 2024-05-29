@@ -59,19 +59,16 @@ constexpr auto phi2_hi_capture = 336;  // 500 ns
 constexpr auto phi2_hi_inject = 60;    // 500 ns
 constexpr auto tpcs_ns = 200;
 
-inline void phi1_hi() __attribute__((always_inline));
 inline void phi1_hi() {
     digitalWriteFast(PIN_PHI1, HIGH);
     digitalWriteFast(PIN_DBE, LOW);
 }
 
-inline void phi2_hi() __attribute__((always_inline));
 inline void phi2_hi() {
     digitalWriteFast(PIN_PHI1, LOW);
     digitalWriteFast(PIN_PHI2, HIGH);
 }
 
-inline void phi2_lo() __attribute__((always_inline));
 inline void phi2_lo() {
     digitalWriteFast(PIN_PHI2, LOW);
 }
@@ -80,15 +77,20 @@ inline void assert_dbe() {
     digitalWriteFast(PIN_DBE, HIGH);
 }
 
-void negate_halt() {
-    digitalWriteFast(PIN_HALT, HIGH);
+inline void assert_irq() {
+    digitalWriteFast(PIN_IRQ, LOW);
 }
 
-void negate_tsc() {
-    digitalWriteFast(PIN_TSC, LOW);
+inline void negate_irq() {
+    digitalWriteFast(PIN_IRQ, HIGH);
+}
+
+inline void negate_reset() {
+    digitalWriteFast(PIN_RESET, HIGH);
 }
 
 constexpr uint8_t PINS_LOW[] = {
+        PIN_RESET,
         PIN_PHI1,
         PIN_PHI2,
         PIN_TSC,
@@ -97,11 +99,10 @@ constexpr uint8_t PINS_LOW[] = {
 constexpr uint8_t PINS_HIGH[] = {
         PIN_HALT,
         PIN_DBE,
+        PIN_IRQ,
 };
 
-constexpr uint8_t PINS_OPENDRAIN[] = {
-        PIN_RESET,
-        PIN_IRQ,
+constexpr uint8_t PINS_PULLUP[] = {
         PIN_NMI,
 };
 
@@ -137,50 +138,23 @@ constexpr uint8_t PINS_INPUT[] = {
 
 }  // namespace
 
-// #RESET may be connected to other signal or switch
-void PinsMc6800::assert_reset() {
-    digitalWriteFast(PIN_RESET, LOW);
-    pinMode(PIN_RESET, OUTPUT_OPENDRAIN);
-    negate_nmi();
-    negate_irq();
-}
-
-void PinsMc6800::negate_reset() {
-    digitalWriteFast(PIN_RESET, HIGH);
-    pinMode(PIN_RESET, INPUT_PULLUP);
-}
-
 // #NMI may be connected to other signal or switch
 void PinsMc6800::assert_nmi() {
-    digitalWriteFast(PIN_NMI, LOW);
     pinMode(PIN_NMI, OUTPUT_OPENDRAIN);
+    digitalWriteFast(PIN_NMI, LOW);
 }
 
 void PinsMc6800::negate_nmi() {
-    digitalWriteFast(PIN_NMI, HIGH);
     pinMode(PIN_NMI, INPUT_PULLUP);
 }
 
-// #IRQ may be connected to other signal or switch
-void PinsMc6800::assert_irq() {
-    digitalWriteFast(PIN_IRQ, LOW);
-    pinMode(PIN_IRQ, OUTPUT_OPENDRAIN);
-}
-
-void PinsMc6800::negate_irq() {
-    digitalWriteFast(PIN_IRQ, HIGH);
-    pinMode(PIN_IRQ, INPUT_PULLUP);
-}
-
 void PinsMc6800::reset() {
+    // Assert reset condition
     pinsMode(PINS_LOW, sizeof(PINS_LOW), OUTPUT, LOW);
-    pinsMode(PINS_OPENDRAIN, sizeof(PINS_OPENDRAIN), OUTPUT_OPENDRAIN, LOW);
     pinsMode(PINS_HIGH, sizeof(PINS_HIGH), OUTPUT, HIGH);
+    pinsMode(PINS_PULLUP, sizeof(PINS_PULLUP), INPUT_PULLUP);
     pinsMode(PINS_INPUT, sizeof(PINS_INPUT), INPUT);
 
-    assert_reset();
-    negate_halt();
-    negate_tsc();
     // Assuming a minimum of 8 clock cycles have occurred.
     for (auto i = 0; i < 8; ++i)
         cycle();
@@ -194,10 +168,10 @@ void PinsMc6800::reset() {
     cycle();
     // The first instruction will be saving registers, and certainly can be
     // injected.
-    _regs->reset();
-    _regs->save();
-    _regs->setIp(_mems->raw_read16(InstMc6800::VEC_RESET));
-    _regs->checkSoftwareType();
+    _regs.reset();
+    _regs.save();
+    _regs.setIp(_mems.raw_read16(InstMc6800::VEC_RESET));
+    _regs.checkSoftwareType();
 }
 
 Signals *PinsMc6800::cycle() {
@@ -224,7 +198,7 @@ Signals *PinsMc6800::rawCycle() {
         if (s->writeMemory()) {
             delayNanoseconds(phi2_hi_write);
             s->getData();
-            _mems->write(s->addr, s->data);
+            _mems.write(s->addr, s->data);
         } else {
             delayNanoseconds(phi2_hi_capture);
             s->getData();
@@ -232,7 +206,7 @@ Signals *PinsMc6800::rawCycle() {
     } else {
         _writes = 0;
         if (s->readMemory()) {
-            s->data = _mems->read(s->addr);
+            s->data = _mems.read(s->addr);
         } else {
             // inject data from s->data
             delayNanoseconds(phi2_hi_inject);
@@ -287,9 +261,9 @@ void PinsMc6800::idle() {
 
 void PinsMc6800::loop() {
     while (true) {
-        _devs->loop();
+        _devs.loop();
         rawCycle();
-        if (_writes == _regs->contextLength()) {
+        if (_writes == _regs.contextLength()) {
             const auto frame = Signals::put()->prev(_writes);
             if (nonVmaAfteContextSave())
                 cycle();                  // non VMA cycle
@@ -297,8 +271,8 @@ void PinsMc6800::loop() {
             const auto vec_swi = _inst->vec_swi();
             if (vec_hi->addr == vec_swi) {
                 cycle();  // read interrupt low(vector)
-                const auto pc = _regs->capture(frame, false);
-                const auto swi_vector = _mems->raw_read16(vec_swi);
+                const auto pc = _regs.capture(frame, false);
+                const auto swi_vector = _mems.raw_read16(vec_swi);
                 if (isBreakPoint(pc) || swi_vector == vec_swi) {
                     const auto discard = nonVmaAfteContextSave() ? 1 : 2;
                     Signals::discard(frame->prev(discard));
@@ -317,7 +291,7 @@ void PinsMc6800::suspend(bool show) {
 reentry:
     _writes = 0;
     // Wait for consequtive writes which means registers saved onto stack.
-    while (_writes < _regs->contextLength())
+    while (_writes < _regs.contextLength())
         cycle();
     negate_nmi();
     // Capture registers pushed onto stack.
@@ -331,7 +305,7 @@ reentry:
         goto reentry;
     }
     cycle();  // NMI lo(vector)
-    _regs->capture(frame);
+    _regs.capture(frame);
     if (show) {
         const auto discard = nonVmaAfteContextSave() ? 1 : 2;
         Signals::discard(frame->prev(discard));
@@ -339,7 +313,7 @@ reentry:
 }
 
 void PinsMc6800::run() {
-    _regs->restore();
+    _regs.restore();
     Signals::resetCycles();
     saveBreakInsts();
     loop();
@@ -349,7 +323,7 @@ void PinsMc6800::run() {
 
 bool PinsMc6800::step(bool show) {
     Signals::resetCycles();
-    _regs->restore();
+    _regs.restore();
     if (show)
         Signals::resetCycles();
     suspend(show);
@@ -369,7 +343,7 @@ void PinsMc6800::negateInt(uint8_t name) {
 }
 
 void PinsMc6800::setBreakInst(uint32_t addr) const {
-    _mems->put_inst(addr, InstMc6800::SWI);
+    _mems.put_inst(addr, InstMc6800::SWI);
 };
 
 void PinsMc6800::printCycles(const Signals *end) {
@@ -449,7 +423,7 @@ void PinsMc6800::disassembleCycles() {
         const auto s = begin->next(i);
         if (pref || s->fetch()) {
             const auto f = pref ? pref : s;
-            const auto nexti = _mems->disassemble(f->addr, 1);
+            const auto nexti = _mems.disassemble(f->addr, 1);
             const auto len = nexti - f->addr - (pref ? 1 : 0);
             const auto matched = f->matched();
             pref = nullptr;

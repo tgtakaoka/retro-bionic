@@ -1,13 +1,13 @@
 #include "mems_mc6801.h"
-#include "devs_mc6801.h"
-
 #include "debugger.h"
+#include "devs_mc6801.h"
+#include "regs_mc6801.h"
 
 namespace debugger {
 namespace mc6801 {
 
 struct MemsMc6801 Memory {
-    &Regs
+    Regs
 };
 
 uint16_t MemsMc6801::read(uint32_t addr) const {
@@ -24,12 +24,12 @@ void MemsMc6801::write(uint32_t addr, uint16_t data) const {
 
 uint16_t MemsMc6801::get(uint32_t addr, const char *space) const {
     (void)space;
-    return addr < 0x100 ? regs().internal_read(addr) : read(addr);
+    return addr < 0x100 ? Regs.internal_read(addr) : read(addr);
 }
 
 void MemsMc6801::put(uint32_t addr, uint16_t data, const char *space) const {
     if (addr < 0x100) {
-        regs().internal_write(addr, data);
+        Regs.internal_write(addr, data);
     } else {
         write(addr, data);
     }

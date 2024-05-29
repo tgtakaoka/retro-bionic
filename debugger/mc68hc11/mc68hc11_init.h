@@ -10,7 +10,7 @@ struct RegsMc68hc11;
 
 struct Mc68hc11Init final : Device {
     Mc68hc11Init(uint8_t init, uint16_t ram_start, uint16_t ram_size,
-            uint16_t dev_size, RegsMc68hc11 *regs)
+            uint16_t dev_size, RegsMc68hc11 &regs)
         : _init(init),
           _ram_start(ram_start),
           _ram_size(ram_size),
@@ -37,7 +37,7 @@ private:
     const uint16_t _ram_start;
     const uint16_t _ram_size;
     const uint16_t _dev_size;
-    RegsMc68hc11 *const _regs;
+    RegsMc68hc11 &_regs;
     uint16_t _ram_base;
     uint16_t _dev_base;
 

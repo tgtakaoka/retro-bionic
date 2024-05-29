@@ -48,22 +48,18 @@ constexpr auto c3_read = 90;      // 250 EQ=HH
 constexpr auto c3_inject = 188;   // 250 EQ=HH
 constexpr auto c4_read = 94;      // 250 EQ=HL
 
-inline void c1_clock() __attribute__((always_inline));
 inline void c1_clock() {
     digitalWriteFast(PIN_E, LOW);
 }
 
-inline void c2_clock() __attribute__((always_inline));
 inline void c2_clock() {
     digitalWriteFast(PIN_Q, HIGH);
 }
 
-inline void c3_clock() __attribute__((always_inline));
 inline void c3_clock() {
     digitalWriteFast(PIN_E, HIGH);
 }
 
-inline void c4_clock() __attribute__((always_inline));
 inline void c4_clock() {
     digitalWriteFast(PIN_Q, LOW);
 }
@@ -72,38 +68,7 @@ inline auto signal_avma() {
     return digitalReadFast(PIN_AVMA);
 }
 
-void negate_irq() {
-    digitalWriteFast(PIN_IRQ, HIGH);
-}
-
-void negate_firq() {
-    digitalWriteFast(PIN_FIRQ, HIGH);
-}
-
-void negate_nmi() {
-    digitalWriteFast(PIN_NMI, HIGH);
-}
-
-void negate_halt() {
-    digitalWriteFast(PIN_HALT, HIGH);
-}
-
-void negate_tsc() {
-    digitalWriteFast(PIN_TSC, LOW);
-}
-
-void assert_reset() {
-    // Drive RESET condition
-    digitalWriteFast(PIN_RESET, LOW);
-    negate_halt();
-    negate_nmi();
-    negate_irq();
-    negate_firq();
-    negate_tsc();
-}
-
 void negate_reset() {
-    // Release RESET conditions
     digitalWriteFast(PIN_RESET, HIGH);
 }
 
@@ -157,11 +122,11 @@ constexpr uint8_t PINS_INPUT[] = {
 }  // namespace
 
 void PinsMc6809E::resetPins() {
+    // Assert reset condition
     pinsMode(PINS_LOW, sizeof(PINS_LOW), OUTPUT, LOW);
     pinsMode(PINS_HIGH, sizeof(PINS_HIGH), OUTPUT, HIGH);
     pinsMode(PINS_INPUT, sizeof(PINS_INPUT), INPUT);
 
-    assert_reset();
     // At least one #RESET cycle.
     for (auto i = 0; i < 5; i++)
         cycle();
@@ -194,7 +159,7 @@ mc6809::Signals *PinsMc6809E::rawCycle() const {
         // c4
         c4_clock();
         if (s->writeMemory()) {
-            _mems->write(s->addr, s->data);
+            _mems.write(s->addr, s->data);
             delayNanoseconds(c4_write);
         } else {
             delayNanoseconds(c4_capture);
@@ -202,7 +167,7 @@ mc6809::Signals *PinsMc6809E::rawCycle() const {
         Signals::nextCycle();
     } else {
         if (s->readMemory()) {
-            s->data = _mems->read(s->addr);
+            s->data = _mems.read(s->addr);
             delayNanoseconds(c3_read);
         } else {
             delayNanoseconds(c3_inject);
@@ -230,7 +195,7 @@ mc6809::Signals *PinsMc6809E::cycle() const {
 const mc6809::Signals *PinsMc6809E::findFetch(
         mc6809::Signals *begin, const mc6809::Signals *end) {
     const auto cycles = begin->diff(end);
-    const auto native6309 = _regs->contextLength() == 14;
+    const auto native6309 = _regs.contextLength() == 14;
     for (auto i = 0; i < cycles; ++i) {
         auto s = begin->next(i);
         if (native6309) {

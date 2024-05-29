@@ -5,7 +5,7 @@
 namespace debugger {
 namespace mc68hc11 {
 
-Mc68hc11SciHandler::Mc68hc11SciHandler(const Mc68hc11Init *init)
+Mc68hc11SciHandler::Mc68hc11SciHandler(const Mc68hc11Init &init)
     : SerialHandler(PIN_SCIRXD, PIN_SCITXD), _init(init), _baud(0) {}
 
 const char *Mc68hc11SciHandler::name() const {
@@ -13,11 +13,11 @@ const char *Mc68hc11SciHandler::name() const {
 }
 
 const char *Mc68hc11SciHandler::description() const {
-    return _init->description();
+    return _init.description();
 }
 
 uint32_t Mc68hc11SciHandler::baseAddr() const {
-    return _init->dev_base() + BAUD;
+    return _init.dev_base() + BAUD;
 }
 
 void Mc68hc11SciHandler::write(uint32_t addr, uint16_t data) {

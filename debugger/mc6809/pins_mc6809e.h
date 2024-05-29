@@ -18,7 +18,7 @@ using mc6809::PinsMc6809;
 using mc6809::RegsMc6809;
 
 struct PinsMc6809E final : PinsMc6809 {
-    PinsMc6809E(RegsMc6809 *regs, InstMc6809 *inst, const Mems *mems)
+    PinsMc6809E(RegsMc6809 &regs, InstMc6809 &inst, const Mems &mems)
         : PinsMc6809(regs, inst, mems) {}
 
 protected:

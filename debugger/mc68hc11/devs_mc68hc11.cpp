@@ -10,8 +10,8 @@ namespace debugger {
 namespace mc68hc11 {
 
 void DevsMc68hc11::reset() {
-    _init->reset();
-    _sci->reset();
+    _init.reset();
+    _sci.reset();
     ACIA.reset();
     ACIA.setBaseAddr(ACIA_BASE);
 }
@@ -22,50 +22,50 @@ void DevsMc68hc11::begin() {
 
 void DevsMc68hc11::loop() {
     ACIA.loop();
-    _sci->loop();
+    _sci.loop();
 }
 
 void DevsMc68hc11::setIdle(bool idle) {
-    _sci->setIdle(idle);
+    _sci.setIdle(idle);
 }
 
 bool DevsMc68hc11::isSelected(uint32_t addr) const {
-    return ACIA.isSelected(addr) || _sci->isSelected(addr);
+    return ACIA.isSelected(addr) || _sci.isSelected(addr);
 }
 
 uint16_t DevsMc68hc11::read(uint32_t addr) const {
-    return ACIA.isSelected(addr) ? ACIA.read(addr) : _sci->read(addr);
+    return ACIA.isSelected(addr) ? ACIA.read(addr) : _sci.read(addr);
 }
 
 void DevsMc68hc11::write(uint32_t addr, uint16_t data) const {
     if (ACIA.isSelected(addr)) {
         ACIA.write(addr, data);
     } else {
-        _sci->write(addr, data);
+        _sci.write(addr, data);
     }
 }
 
 Device &DevsMc68hc11::parseDevice(const char *name) const {
     if (strcasecmp(name, ACIA.name()) == 0)
         return ACIA;
-    if (strcasecmp(name, _sci->name()) == 0)
-        return *_sci;
-    if (strcasecmp(name, _init->name()) == 0)
-        return *_init;
+    if (strcasecmp(name, _sci.name()) == 0)
+        return _sci;
+    if (strcasecmp(name, _init.name()) == 0)
+        return _init;
     return Devs::nullDevice();
 }
 
 void DevsMc68hc11::enableDevice(Device &dev) {
-    if (&dev == _init)
+    if (&dev == &_init)
         return;
     ACIA.enable(&dev == &ACIA);
-    _sci->enable(&dev == _sci);
+    _sci.enable(&dev == &_sci);
 }
 
 void DevsMc68hc11::printDevices() const {
     printDevice(ACIA);
-    printDevice(*_sci);
-    printDevice(*_init);
+    printDevice(_sci);
+    printDevice(_init);
 }
 
 }  // namespace mc68hc11

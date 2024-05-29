@@ -66,9 +66,9 @@ void RegsMc68hc11::print() const {
 
 void RegsMc68hc11::save() {
     static const uint8_t SWI = 0x3F;  // 1:N:w:W:W:W:W:W:W:W:W:n:V:v
-    _pins->injectReads(&SWI, sizeof(SWI));
+    _pins.injectReads(&SWI, sizeof(SWI));
     uint8_t context[9];
-    _pins->captureWrites(context, sizeof(context), &_sp);
+    _pins.captureWrites(context, sizeof(context), &_sp);
     // Capturing writes to stack in little endian order.
     _pc = le16(context) - 1;  //  offset SWI instruction.
     _y = le16(context + 2);
@@ -80,7 +80,7 @@ void RegsMc68hc11::save() {
     context[0] = 0;  // irrelevant data
     context[1] = hi(_pc);
     context[2] = lo(_pc);
-    _pins->injectReads(context, 3);
+    _pins.injectReads(context, 3);
 }
 
 void RegsMc68hc11::restore() {
@@ -96,7 +96,7 @@ void RegsMc68hc11::restore() {
         hi(_pc), lo(_pc),
     };
     // clang-format on
-    _pins->injectReads(LDS_RTI, sizeof(LDS_RTI));
+    _pins.injectReads(LDS_RTI, sizeof(LDS_RTI));
 }
 
 uint16_t RegsMc68hc11::capture(const mc6800::Signals *stack, bool step) {
@@ -170,12 +170,12 @@ uint8_t RegsMc68hc11::internal_read(uint16_t addr) const {
     uint8_t LDAA[] = {
             0xB6, hi(addr), lo(addr),  // LDAA addr ; 1:2:3:A
     };
-    _pins->injectReads(LDAA, sizeof(LDAA), 4);
+    _pins.injectReads(LDAA, sizeof(LDAA), 4);
     static constexpr uint8_t STAA_FF00[] = {0xB7, 0xFF, 0x00};
-    const auto staa = _mems->is_internal(0x8000) ? STAA_FF00 : STAA_8000;
-    _pins->injectReads(staa, sizeof(STAA_8000));
+    const auto staa = _mems.is_internal(0x8000) ? STAA_FF00 : STAA_8000;
+    _pins.injectReads(staa, sizeof(STAA_8000));
     uint8_t data;
-    _pins->captureWrites(&data, sizeof(data));
+    _pins.captureWrites(&data, sizeof(data));
     return data;
 }
 
@@ -184,7 +184,7 @@ void RegsMc68hc11::internal_write(uint16_t addr, uint8_t data) const {
             0x86, data,                // LDAA #val ; 1:2
             0xB7, hi(addr), lo(addr),  // STAA addr ; 1:2:3:B
     };
-    _pins->injectReads(LDAA_STAA, sizeof(LDAA_STAA), 6);
+    _pins.injectReads(LDAA_STAA, sizeof(LDAA_STAA), 6);
 }
 
 }  // namespace mc68hc11

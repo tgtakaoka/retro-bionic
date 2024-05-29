@@ -15,7 +15,7 @@ enum SoftwareType : uint8_t {
 };
 
 struct RegsMc6809 : Regs {
-    RegsMc6809(PinsMc6809 *pins) : _pins(pins) {}
+    RegsMc6809(PinsMc6809 &pins) : _pins(pins) {}
 
     const char *cpu() const override;
     const char *cpuName() const override;
@@ -36,7 +36,7 @@ struct RegsMc6809 : Regs {
     SoftwareType checkSoftwareType();
 
 protected:
-    PinsMc6809 *const _pins;
+    PinsMc6809 &_pins;
     SoftwareType _type;
     bool _native6309;
 

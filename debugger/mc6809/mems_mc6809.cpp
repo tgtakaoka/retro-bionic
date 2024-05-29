@@ -22,7 +22,7 @@ void MemsMc6809::write(uint32_t addr, uint16_t data) const {
 #ifdef WITH_ASSEMBLER
 libasm::Assembler *MemsMc6809::assembler() const {
     static auto as = new libasm::mc6809::AsmMc6809();
-    as->setCpu(_regs->cpu());
+    as->setCpu(_regs.cpu());
     return as;
 }
 #endif
@@ -30,7 +30,7 @@ libasm::Assembler *MemsMc6809::assembler() const {
 #ifdef WITH_DISASSEMBLER
 libasm::Disassembler *MemsMc6809::disassembler() const {
     static auto dis = new libasm::mc6809::DisMc6809();
-    dis->setCpu(_regs->cpu());
+    dis->setCpu(_regs.cpu());
     return dis;
 }
 #endif

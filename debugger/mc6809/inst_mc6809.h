@@ -11,7 +11,7 @@ using mc6800::InstMc6800;
 using mc6809::SoftwareType;
 
 struct InstMc6809 : InstMc6800 {
-    InstMc6809(const DmaMemory *mems) : InstMc6800(mems) {}
+    InstMc6809(const DmaMemory &mems) : InstMc6800(mems) {}
 
     virtual void setSoftwareType(SoftwareType type) = 0;
 

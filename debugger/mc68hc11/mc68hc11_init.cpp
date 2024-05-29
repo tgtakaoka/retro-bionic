@@ -6,7 +6,7 @@ namespace debugger {
 namespace mc68hc11 {
 
 const char *Mc68hc11Init::description() const {
-    return _regs->cpuName();
+    return _regs.cpuName();
 }
 
 void Mc68hc11Init::print() const {
@@ -38,14 +38,14 @@ void Mc68hc11Init::configSystem(uint8_t init) {
     // Disable watchdog timer.
     constexpr uint8_t NOCOP = 0x04;
     // constexpr uint8_t ROMON = 0x02;
-    _regs->internal_write(_dev_base + CONFIG, NOCOP);
+    _regs.internal_write(_dev_base + CONFIG, NOCOP);
 
     // constexpr uint8_t CME = 0x08;
-    _regs->internal_write(_dev_base + OPTION, 0);
+    _regs.internal_write(_dev_base + OPTION, 0);
 
     // It can be written to only once within the first 64 E-clock
     // cycles after a reset, and then ot becomes a read-only register.
-    _regs->internal_write(_dev_base + INIT, init);
+    _regs.internal_write(_dev_base + INIT, init);
     set(init);
 }
 

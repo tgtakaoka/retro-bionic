@@ -63,17 +63,14 @@ constexpr auto c4_lo_write = 0;     // 125
 constexpr auto c4_lo_capture = 54;  // 125
 constexpr auto tpcs_ns = 200;
 
-inline void extal_hi() __attribute__((always_inline));
 inline void extal_hi() {
     digitalWriteFast(PIN_EXTAL, HIGH);
 }
 
-inline void extal_lo() __attribute__((always_inline));
 inline void extal_lo() {
     digitalWriteFast(PIN_EXTAL, LOW);
 }
 
-inline void extal_cycle() __attribute__((always_inline));
 inline void extal_cycle() {
     extal_lo();
     delayNanoseconds(extal_lo_ns);
@@ -81,35 +78,39 @@ inline void extal_cycle() {
     delayNanoseconds(extal_hi_ns);
 }
 
-uint8_t clock_e() {
+inline auto clock_e() {
     return digitalReadFast(PIN_E);
 }
 
-void negate_halt() {
-    digitalWriteFast(PIN_HALT, HIGH);
+inline void assert_irq() {
+    digitalWriteFast(PIN_IRQ, LOW);
 }
 
-void negate_mr() {
-    digitalWriteFast(PIN_MR, HIGH);
+inline void negate_irq() {
+    digitalWriteFast(PIN_IRQ, HIGH);
 }
 
-const uint8_t PINS_OPENDRAIN[] = {
+inline void negate_reset() {
+    digitalWriteFast(PIN_RESET, HIGH);
+}
+
+constexpr uint8_t PINS_LOW[] = {
         PIN_RESET,
-        PIN_IRQ,
-        PIN_NMI,
 };
 
-const uint8_t PINS_HIGH[] = {
+constexpr uint8_t PINS_HIGH[] = {
         PIN_EXTAL,
         PIN_HALT,
         PIN_MR,
+        PIN_IRQ,
 };
 
-const uint8_t PINS_PULLUP[] = {
+constexpr uint8_t PINS_PULLUP[] = {
+        PIN_NMI,
         PIN_RE,
 };
 
-const uint8_t PINS_INPUT[] = {
+constexpr uint8_t PINS_INPUT[] = {
         PIN_D0,
         PIN_D1,
         PIN_D2,
@@ -143,18 +144,16 @@ const uint8_t PINS_INPUT[] = {
 }  // namespace
 
 void PinsMc6802::reset() {
-    pinsMode(PINS_OPENDRAIN, sizeof(PINS_OPENDRAIN), OUTPUT_OPENDRAIN, LOW);
+    // Assert reset condition
+    pinsMode(PINS_LOW, sizeof(PINS_LOW), OUTPUT, LOW);
     pinsMode(PINS_HIGH, sizeof(PINS_HIGH), OUTPUT, HIGH);
     pinsMode(PINS_PULLUP, sizeof(PINS_PULLUP), INPUT_PULLUP);
     pinsMode(PINS_INPUT, sizeof(PINS_INPUT), INPUT);
 
     Memory.set_internal_ram(digitalReadFast(PIN_RE) != LOW);
-    const auto reset_vec = _mems->raw_read16(InstMc6800::VEC_RESET);
-    _mems->raw_write16(InstMc6800::VEC_RESET, 0x8000);
+    const auto reset_vec = _mems.raw_read16(InstMc6800::VEC_RESET);
+    _mems.raw_write16(InstMc6800::VEC_RESET, 0x8000);
 
-    assert_reset();
-    negate_halt();
-    negate_mr();
     for (auto i = 0; i < 3; ++i)
         extal_cycle();
     // Synchronize clock output and E clock input.
@@ -180,11 +179,11 @@ void PinsMc6802::reset() {
     cycle();
     // The first instruction will be saving registers, and certainly can be
     // injected.
-    _regs->reset();
-    _regs->save();
-    _mems->raw_write16(InstMc6800::VEC_RESET, reset_vec);
-    _regs->setIp(reset_vec);
-    _regs->checkSoftwareType();
+    _regs.reset();
+    _regs.save();
+    _mems.raw_write16(InstMc6800::VEC_RESET, reset_vec);
+    _regs.setIp(reset_vec);
+    _regs.checkSoftwareType();
 }
 
 mc6800::Signals *PinsMc6802::cycle() {
@@ -221,7 +220,7 @@ mc6800::Signals *PinsMc6802::rawCycle() {
         delayNanoseconds(c4_lo_novma);
     } else if (s->read() && !Memory.is_internal(s->addr)) {
         if (s->readMemory()) {
-            s->data = _mems->read(s->addr);
+            s->data = _mems.read(s->addr);
             if (c3_hi_read)
                 delayNanoseconds(c3_hi_read);
         } else {
@@ -257,7 +256,7 @@ mc6800::Signals *PinsMc6802::rawCycle() {
             if (c4_lo_write)
                 delayNanoseconds(c4_lo_write);
             s->getData();
-            _mems->write(s->addr, s->data);
+            _mems.write(s->addr, s->data);
         } else {
             delayNanoseconds(c4_lo_capture);
             s->getData();

@@ -95,33 +95,39 @@ inline void extal_cycle() {
     extal_lo();
 }
 
-inline uint8_t clock_e() {
+inline auto clock_e() {
     return digitalReadFast(PIN_E);
 }
 
-inline uint8_t reset_signal() {
+inline auto reset_signal() {
     return digitalReadFast(PIN_RESET);
 }
 
-const uint8_t PINS_LOW[] = {
+inline void assert_reset() {
+    pinMode(PIN_RESET, OUTPUT_OPENDRAIN);
+    digitalWriteFast(PIN_RESET, LOW);
+}
+
+inline void negate_reset() {
+    pinMode(PIN_RESET, INPUT_PULLUP);
+}
+
+constexpr uint8_t PINS_LOW[] = {
+        PIN_RESET,
         PIN_EXTAL,
 };
 
-const uint8_t PINS_OPENDRAIN[] = {
-        PIN_RESET,
-};
-
-const uint8_t PINS_HIGH[] = {
+constexpr uint8_t PINS_HIGH[] = {
+        PIN_IRQ,
         PIN_MODB,
 };
 
-const uint8_t PINS_PULLUP[] = {
-        PIN_IRQ,
+constexpr uint8_t PINS_PULLUP[] = {
         PIN_NMI,
         PIN_MODA,
 };
 
-const uint8_t PINS_INPUT[] = {
+constexpr uint8_t PINS_INPUT[] = {
         PIN_AD0,
         PIN_AD1,
         PIN_AD2,
@@ -159,15 +165,15 @@ void release_mode() {
 }  // namespace
 
 void PinsMc68hc11::reset() {
+    // Assert reset condition
     pinsMode(PINS_LOW, sizeof(PINS_LOW), OUTPUT, LOW);
-    pinsMode(PINS_OPENDRAIN, sizeof(PINS_OPENDRAIN), OUTPUT_OPENDRAIN, LOW);
     pinsMode(PINS_HIGH, sizeof(PINS_HIGH), OUTPUT, HIGH);
     pinsMode(PINS_PULLUP, sizeof(PINS_PULLUP), INPUT_PULLUP);
     pinsMode(PINS_INPUT, sizeof(PINS_INPUT), INPUT);
 
     // Reset vector should not point internal registers.
-    const auto reset_vec = _mems->raw_read16(InstMc6800::VEC_RESET);
-    _mems->raw_write16(InstMc6800::VEC_RESET, 0x8000);
+    const auto reset_vec = _mems.raw_read16(InstMc6800::VEC_RESET);
+    _mems.raw_write16(InstMc6800::VEC_RESET, 0x8000);
 
     // To get out from Clock Monitor Reset, inject EXTAL pulses
     while (reset_signal() == LOW) {
@@ -205,11 +211,11 @@ void PinsMc68hc11::reset() {
     cycle();
     // The first instruction will be saving registers, and certainly can be
     // injected.
-    _regs->reset();
-    _regs->save();
-    _regs->checkSoftwareType();
-    _mems->raw_write16(InstMc6800::VEC_RESET, reset_vec);
-    _regs->setIp(reset_vec);
+    _regs.reset();
+    _regs.save();
+    _regs.checkSoftwareType();
+    _mems.raw_write16(InstMc6800::VEC_RESET, reset_vec);
+    _regs.setIp(reset_vec);
 }
 
 mc6800::Signals *PinsMc68hc11::cycle() {
@@ -237,7 +243,7 @@ mc6800::Signals *PinsMc68hc11::rawCycle() {
         // C3L
         extal_lo();
         if (s->readMemory()) {
-            s->data = _mems->read(s->addr);
+            s->data = _mems.read(s->addr);
             if (c3_lo_read)
                 delayNanoseconds(c3_lo_read);
         } else {
@@ -271,7 +277,7 @@ mc6800::Signals *PinsMc68hc11::rawCycle() {
         // C4L
         extal_lo();
         if (s->writeMemory()) {
-            _mems->write(s->addr, s->data);
+            _mems.write(s->addr, s->data);
             if (c4_lo_write)
                 delayNanoseconds(c4_lo_write);
         } else {
@@ -295,10 +301,10 @@ namespace {
  *   BRxxx n8,X,#n8,r8 ; 1:2:x:R:3:4:j
  *   BRxxx n8,Y,#n8,r8 ; 1:2:3:x:R:4:5:j
  */
-void printBrxxx(const Signals *s, const Mems *mems, uint8_t len) {
+void printBrxxx(const Signals *s, const Mems &mems, uint8_t len) {
     auto opc = s->data;
     if (opc == 0x18)
-        opc = mems->raw_read(s->addr + 1);
+        opc = mems.raw_read(s->addr + 1);
     const auto inst = opc & ~1;
     if (inst == 0x12) {
         s->next(2)->print();
@@ -314,7 +320,7 @@ void PinsMc68hc11::disassembleCycles() {
     for (auto i = 0; i < cycles;) {
         const auto s = g->next(i);
         if (s->fetch()) {
-            const auto len = _mems->disassemble(s->addr, 1) - s->addr;
+            const auto len = _mems.disassemble(s->addr, 1) - s->addr;
             printBrxxx(s, _mems, len);
             i += len;
         } else {

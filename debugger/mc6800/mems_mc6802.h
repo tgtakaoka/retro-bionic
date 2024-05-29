@@ -10,7 +10,7 @@ namespace mc6802 {
 using mc6800::MemsMc6800;
 
 struct MemsMc6802 final : MemsMc6800 {
-    MemsMc6802(RegsMc6802 *regs) : MemsMc6800(regs) {}
+    MemsMc6802(RegsMc6802 &regs) : MemsMc6800(regs) {}
 
     uint16_t get(uint32_t addr, const char *space = nullptr) const override;
     void put(uint32_t addr, uint16_t data,
@@ -23,8 +23,6 @@ struct MemsMc6802 final : MemsMc6800 {
 
 private:
     bool _internal_ram;
-
-    RegsMc6802 &regs() const { return *static_cast<RegsMc6802 *>(_regs); }
 };
 
 extern struct MemsMc6802 Memory;

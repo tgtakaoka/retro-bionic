@@ -60,7 +60,7 @@ using mc6800::PinsMc6800;
 using mc6800::RegsMc6800;
 
 struct PinsMc6801 final : PinsMc6800 {
-    PinsMc6801(RegsMc6800 *regs, InstMc6800 *inst, const Mems *mems, Devs *devs)
+    PinsMc6801(RegsMc6800 &regs, InstMc6800 &inst, const Mems &mems, Devs &devs)
         : PinsMc6800(regs, inst, mems, devs) {}
 
     void reset() override;

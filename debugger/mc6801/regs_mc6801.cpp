@@ -6,7 +6,7 @@ namespace debugger {
 namespace mc6801 {
 
 struct RegsMc6801 Regs {
-    &Pins
+    Pins
 };
 
 /**
@@ -48,9 +48,9 @@ SoftwareType RegsMc6801::checkSoftwareType() {
                                // XDGX       ; 1:x
             0xB7, 0x01, 0x00,  // STAA $0100 ; 1:2:3:B
     };
-    _pins->injectReads(DETECT_6301, sizeof(DETECT_6301));
+    _pins.injectReads(DETECT_6301, sizeof(DETECT_6301));
     uint8_t a;
-    _pins->captureWrites(&a, sizeof(a));
+    _pins.captureWrites(&a, sizeof(a));
     _type = (a == 0) ? SW_MC6801 : SW_HD6301;
     return _type;
 }

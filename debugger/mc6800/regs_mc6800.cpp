@@ -55,9 +55,9 @@ SoftwareType RegsMc6800::checkSoftwareType() {
             0x01, 0x01,        // NOP        ; 1:N
             0xFF, 0x01, 0x00,  // STX $0100  ; 1:2:3:n:B:b
     };
-    _pins->injectReads(DETECT_8861, sizeof(DETECT_8861));
+    _pins.injectReads(DETECT_8861, sizeof(DETECT_8861));
     uint8_t x[2];
-    _pins->captureWrites(x, sizeof(x));
+    _pins.captureWrites(x, sizeof(x));
     _type = x[0] ? SW_MC6800 : SW_MB8861;
     return _type;
 }
@@ -80,7 +80,7 @@ void RegsMc6800::print() const {
     buffer.hex8(25, _a);
     buffer.hex8(30, _b);
     buffer.bits(36, _cc, 0x20, line + 36);
-    _pins->idle();
+    _pins.idle();
     cli.println(buffer);
 }
 
@@ -93,15 +93,15 @@ const uint8_t RegsMc6800::STAA_8000[3] = {
 };
 
 void RegsMc6800::reset() const {
-    _pins->injectReads(LDS_7FFF, sizeof(LDS_7FFF));
+    _pins.injectReads(LDS_7FFF, sizeof(LDS_7FFF));
 }
 
 void RegsMc6800::save() {
     const uint8_t SWI = 0x3F;  // 1:N:w:W:W:W:W:W:W:n:V:v
                                // 1:N:x:w:W:W:W:W:W:W:V:v (HD6301)
-    _pins->injectReads(&SWI, sizeof(SWI));
+    _pins.injectReads(&SWI, sizeof(SWI));
     uint8_t context[7];
-    _pins->captureWrites(context, sizeof(context), &_sp);
+    _pins.captureWrites(context, sizeof(context), &_sp);
     // Capturing writes to stack in little endian order.
     _pc = le16(context) - 1;  //  offset SWI instruction.
     _x = le16(context + 2);
@@ -109,11 +109,11 @@ void RegsMc6800::save() {
     _b = context[5];
     _cc = context[6];
     // Read SWI vector
-    const auto readVector = _pins->nonVmaAfteContextSave() ? 3 : 2;
+    const auto readVector = _pins.nonVmaAfteContextSave() ? 3 : 2;
     context[0] = 0;  // irrelevant data
     context[readVector - 2] = hi(_pc);
     context[readVector - 1] = lo(_pc);
-    _pins->injectReads(context, readVector);
+    _pins.injectReads(context, readVector);
 }
 
 void RegsMc6800::restore() {
@@ -128,7 +128,7 @@ void RegsMc6800::restore() {
             hi(_pc), lo(_pc),
     };
     // clang-format on
-    _pins->injectReads(LDS_RTI, sizeof(LDS_RTI));
+    _pins.injectReads(LDS_RTI, sizeof(LDS_RTI));
 }
 
 uint16_t RegsMc6800::capture(const Signals *stack, bool step) {

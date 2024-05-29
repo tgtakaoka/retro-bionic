@@ -23,31 +23,31 @@ extern struct PinsMc68hc11 Pins;
 extern struct RegsMc68hc11 Regs;
 
 struct Mc68hc11Init Init {
-    0x01, 0x00, 256, 0x3F, &Regs
+    0x01, 0x00, 256, 0x3F, Regs
 };
 
 struct Mc68hc11SciHandler SciH {
-    &Init
+    Init
 };
 
 struct DevsMc68hc11 Devices {
-    &Init, &SciH
+    Init, SciH
 };
 
 struct MemsMc68hc11 Memory {
-    &Regs, &Devices
+    Regs, Devices
 };
 
 struct RegsMc68hc11 Regs {
-    &Pins, &Memory
+    Pins, Memory
 };
 
 struct InstMc68hc11 Inst {
-    &Memory
+    Memory
 };
 
 struct PinsMc68hc11 Pins {
-    &Regs, &Inst, &Memory, &Devices
+    Regs, Inst, Memory, Devices
 };
 
 struct Target TargetMc68hc11A {

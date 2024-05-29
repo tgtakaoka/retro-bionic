@@ -12,8 +12,8 @@ using mc6800::MemsMc6800;
 struct DevsMc68hc11;
 
 struct MemsMc68hc11 final : MemsMc6800 {
-    MemsMc68hc11(RegsMc68hc11 *regs, DevsMc68hc11 *devs)
-        : MemsMc6800(regs), _devs(devs) {}
+    MemsMc68hc11(RegsMc68hc11 &regs, DevsMc68hc11 &devs)
+        : MemsMc6800(regs), _regs11(regs), _devs(devs) {}
 
     uint16_t read(uint32_t addr) const override;
     void write(uint32_t addr, uint16_t data) const override;
@@ -25,8 +25,8 @@ struct MemsMc68hc11 final : MemsMc6800 {
     bool is_internal(uint16_t addr) const;
 
 private:
-    DevsMc68hc11 *const _devs;
-    RegsMc68hc11 &regs() const { return *static_cast<RegsMc68hc11 *>(_regs); }
+    RegsMc68hc11 &_regs11;
+    DevsMc68hc11 &_devs;
 };
 
 }  // namespace mc68hc11

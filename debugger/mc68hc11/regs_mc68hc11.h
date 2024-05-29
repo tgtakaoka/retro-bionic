@@ -13,7 +13,7 @@ struct DevsMc68hc11;
 struct MemsMc68hc11;
 
 struct RegsMc68hc11 final : RegsMc6800 {
-    RegsMc68hc11(PinsMc6800 *pins, const MemsMc68hc11 *mems)
+    RegsMc68hc11(PinsMc6800 &pins, const MemsMc68hc11 &mems)
         : RegsMc6800(pins), _mems(mems) {}
 
     const char *cpuName() const override;
@@ -34,7 +34,7 @@ struct RegsMc68hc11 final : RegsMc6800 {
     SoftwareType checkSoftwareType() override;
 
 protected:
-    const MemsMc68hc11 *const _mems;
+    const MemsMc68hc11 &_mems;
     uint16_t _y;
 
     void _d(uint16_t d) {

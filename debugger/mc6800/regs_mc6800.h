@@ -19,7 +19,7 @@ namespace mc6800 {
 struct PinsMc6800;
 
 struct RegsMc6800 : Regs {
-    RegsMc6800(PinsMc6800 *pins) : _pins(pins) {}
+    RegsMc6800(PinsMc6800 &pins) : _pins(pins) {}
 
     const char *cpu() const override;
     const char *cpuName() const override;
@@ -40,7 +40,7 @@ struct RegsMc6800 : Regs {
     virtual SoftwareType checkSoftwareType();
 
 protected:
-    PinsMc6800 *const _pins;
+    PinsMc6800 &_pins;
     SoftwareType _type;
 
     uint16_t _sp;

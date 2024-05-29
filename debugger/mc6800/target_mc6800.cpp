@@ -13,19 +13,19 @@ using mb8861::InstMb8861;
 extern struct PinsMc6800 Pins;
 
 struct RegsMc6800 Regs {
-    &Pins
+    Pins
 };
 
 struct MemsMc6800 Memory {
-    &Regs
+    Regs
 };
 
 struct InstMb8861 Inst {
-    &Memory,
+    Memory,
 };
 
 struct PinsMc6800 Pins {
-    &Regs, &Inst, &Memory, &Devices
+    Regs, Inst, Memory, Devices
 };
 
 struct Target TargetMc6800 {

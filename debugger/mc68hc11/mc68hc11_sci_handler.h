@@ -9,7 +9,7 @@ namespace mc68hc11 {
 struct Mc68hc11Init;
 
 struct Mc68hc11SciHandler final : SerialHandler {
-    Mc68hc11SciHandler(const Mc68hc11Init *init);
+    Mc68hc11SciHandler(const Mc68hc11Init &init);
 
     const char *name() const override;
     const char *description() const override;
@@ -17,7 +17,7 @@ struct Mc68hc11SciHandler final : SerialHandler {
     void write(uint32_t addr, uint16_t data) override;
 
 protected:
-    const Mc68hc11Init *const _init;
+    const Mc68hc11Init &_init;
     uint8_t _baud;  // BAUD(+$2B): SCI Baudrate control register
 
     void resetHandler() override;

@@ -63,7 +63,7 @@ using mc6800::PinsMc6800;
 using mc6800::Signals;
 
 struct PinsMc6802 final : PinsMc6800 {
-    PinsMc6802(RegsMc6802 *regs, InstMc6800 *inst, const Mems *mems, Devs *devs)
+    PinsMc6802(RegsMc6802 &regs, InstMc6800 &inst, const Mems &mems, Devs &devs)
         : PinsMc6800(regs, inst, mems, devs) {}
 
     void reset() override;
@@ -71,9 +71,6 @@ struct PinsMc6802 final : PinsMc6800 {
 protected:
     Signals *cycle() override;
     Signals *rawCycle() override;
-
-private:
-    RegsMc6802 &regs() const { return *static_cast<RegsMc6802 *>(_regs); }
 };
 
 }  // namespace mc6802

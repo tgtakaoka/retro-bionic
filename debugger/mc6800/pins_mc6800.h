@@ -24,8 +24,8 @@ struct RegsMc6800;
 struct InstMc6800;
 
 struct PinsMc6800 : Pins {
-    PinsMc6800(RegsMc6800 *regs, InstMc6800 *inst, const Mems *mems, Devs *devs)
-        : _regs(regs), _inst(inst), _mems(mems), _devs(devs) {}
+    PinsMc6800(RegsMc6800 &regs, InstMc6800 &inst, const Mems &mems, Devs &devs)
+        : _regs(regs), _inst(&inst), _mems(mems), _devs(devs) {}
 
     void reset() override;
     void idle() override;
@@ -40,10 +40,10 @@ struct PinsMc6800 : Pins {
     virtual bool nonVmaAfteContextSave() const { return true; }
 
 protected:
-    RegsMc6800 *_regs;
+    RegsMc6800 &_regs;
     InstMc6800 *_inst;
-    const Mems *const _mems;
-    Devs *_devs;
+    const Mems &_mems;
+    Devs &_devs;
     uint8_t _writes;
 
     void setBreakInst(uint32_t addr) const override;
@@ -53,12 +53,8 @@ protected:
     Signals *injectCycle(uint8_t data);
     void loop();
 
-    static void assert_reset();
-    static void negate_reset();
     static void negate_nmi();
     static void assert_nmi();
-    static void negate_irq();
-    static void assert_irq();
 
     void printCycles(const Signals *end);
     bool matchAll(Signals *begin, const Signals *end);

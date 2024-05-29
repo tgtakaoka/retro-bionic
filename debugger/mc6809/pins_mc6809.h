@@ -75,7 +75,7 @@ enum IntrName : uint8_t {
 };
 
 struct PinsMc6809 : Pins {
-    PinsMc6809(RegsMc6809 *regs, InstMc6809 *inst, const Mems *mems)
+    PinsMc6809(RegsMc6809 &regs, InstMc6809 &inst, const Mems &mems)
         : _regs(regs), _inst(inst), _mems(mems) {}
 
     void reset() override;
@@ -91,9 +91,9 @@ struct PinsMc6809 : Pins {
     uint8_t captureContext(uint8_t *context, uint16_t &sp);
 
 protected:
-    RegsMc6809 *const _regs;
-    InstMc6809 *const _inst;
-    const Mems *const _mems;
+    RegsMc6809 &_regs;
+    InstMc6809 &_inst;
+    const Mems &_mems;
 
     void setBreakInst(uint32_t addr) const override;
 

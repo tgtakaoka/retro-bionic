@@ -45,7 +45,7 @@ namespace debugger {
 namespace mc6800 {
 
 const char *InstMc6800::opcSequence(uint16_t addr) const {
-    return instSequence(_mems->raw_read(addr));
+    return instSequence(_mems.raw_read(addr));
 }
 
 bool InstMc6800::match(

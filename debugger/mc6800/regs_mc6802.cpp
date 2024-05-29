@@ -52,10 +52,10 @@ uint8_t RegsMc6802::internal_read(uint16_t addr) const {
     LDAA[0] = 0xB6;  // LDAA addr  ; 1:2:3:A
     LDAA[1] = hi(addr);
     LDAA[2] = lo(addr);
-    _pins->injectReads(LDAA, sizeof(LDAA), 4);
-    _pins->injectReads(STAA_8000, sizeof(STAA_8000));
+    _pins.injectReads(LDAA, sizeof(LDAA), 4);
+    _pins.injectReads(STAA_8000, sizeof(STAA_8000));
     uint8_t data;
-    _pins->captureWrites(&data, sizeof(data));
+    _pins.captureWrites(&data, sizeof(data));
     return data;
 }
 
@@ -66,7 +66,7 @@ void RegsMc6802::internal_write(uint16_t addr, uint8_t data) const {
     LDAA_STAA[2] = 0xB7;  // STAA addr ; 1:2:3:n:B
     LDAA_STAA[3] = hi(addr);
     LDAA_STAA[4] = lo(addr);
-    _pins->injectReads(LDAA_STAA, sizeof(LDAA_STAA), 7);
+    _pins.injectReads(LDAA_STAA, sizeof(LDAA_STAA), 7);
 }
 
 }  // namespace mc6802

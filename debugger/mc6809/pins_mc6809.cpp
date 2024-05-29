@@ -56,23 +56,19 @@ constexpr auto c3_hi_inject = 80;   // 125
 constexpr auto c4_lo_read = 50;     // 125
 constexpr auto c4_hi_read = 52;     // 125
 
-inline void extal_hi() __attribute__((always_inline));
 inline void extal_hi() {
     digitalWriteFast(PIN_EXTAL, HIGH);
 }
 
-inline void extal_lo() __attribute__((always_inline));
 inline void extal_lo() {
     digitalWriteFast(PIN_EXTAL, LOW);
 }
 
-inline uint8_t clock_q() __attribute__((always_inline));
-inline uint8_t clock_q() {
+inline auto clock_q() {
     return digitalReadFast(PIN_Q);
 }
 
-inline uint8_t clock_e() __attribute__((always_inline));
-inline uint8_t clock_e() {
+inline auto clock_e() {
     return digitalReadFast(PIN_E);
 }
 
@@ -100,38 +96,13 @@ void negate_firq() {
     digitalWriteFast(PIN_FIRQ, HIGH);
 }
 
-void negate_halt() {
-    digitalWriteFast(PIN_HALT, HIGH);
-}
-
-void negate_mrdy() {
-    digitalWriteFast(PIN_MRDY, HIGH);
-}
-
-void negate_breq() {
-    digitalWriteFast(PIN_BREQ, HIGH);
-}
-
-void assert_reset() {
-    // Drive RESET condition
-    digitalWriteFast(PIN_RESET, LOW);
-    negate_halt();
-    negate_nmi();
-    negate_irq();
-    negate_firq();
-    negate_mrdy();
-    negate_breq();
-}
-
 void negate_reset() {
-    // Release RESET conditions
     digitalWriteFast(PIN_RESET, HIGH);
 }
 
 constexpr uint8_t PINS_LOW[] = {
         PIN_EXTAL,
         PIN_RESET,
-        PIN_MRDY,
 };
 
 constexpr uint8_t PINS_HIGH[] = {
@@ -140,6 +111,7 @@ constexpr uint8_t PINS_HIGH[] = {
         PIN_NMI,
         PIN_FIRQ,
         PIN_BREQ,
+        PIN_MRDY,
 };
 
 constexpr uint8_t PINS_INPUT[] = {
@@ -185,11 +157,11 @@ inline void extal_cycle() {
 }  // namespace
 
 void PinsMc6809::resetPins() {
+    // Assert reset condition
     pinsMode(PINS_LOW, sizeof(PINS_LOW), OUTPUT, LOW);
     pinsMode(PINS_HIGH, sizeof(PINS_HIGH), OUTPUT, HIGH);
     pinsMode(PINS_INPUT, sizeof(PINS_INPUT), INPUT);
 
-    assert_reset();
     // Synchronize EXTAL input and Q and E output
     while (true) {
         extal_cycle();
@@ -217,11 +189,11 @@ void PinsMc6809::reset() {
     // LSB of reset vector;
     cycle();
     cycle();  // non-VMA
-    _regs->reset();
+    _regs.reset();
     // SoftwareType must be determined before context save.
-    _inst->setSoftwareType(_regs->checkSoftwareType());
-    _regs->save();
-    _regs->setIp(_mems->raw_read16(InstMc6809::VEC_RESET));
+    _inst.setSoftwareType(_regs.checkSoftwareType());
+    _regs.save();
+    _regs.setIp(_mems.raw_read16(InstMc6809::VEC_RESET));
 }
 
 Signals *PinsMc6809::rawCycle() const {
@@ -250,7 +222,7 @@ Signals *PinsMc6809::rawCycle() const {
         // C4L
         extal_lo();
         if (s->writeMemory()) {
-            _mems->write(s->addr, s->data);
+            _mems.write(s->addr, s->data);
             if (c4_lo_write)
                 delayNanoseconds(c4_lo_write);
         } else {
@@ -265,7 +237,7 @@ Signals *PinsMc6809::rawCycle() const {
         // C3H
         extal_hi();
         if (s->readMemory()) {
-            s->data = _mems->read(s->addr);
+            s->data = _mems.read(s->addr);
             delayNanoseconds(c3_hi_read);
         } else {
             delayNanoseconds(c3_hi_inject);
@@ -357,7 +329,7 @@ const Signals *PinsMc6809::stackFrame(const Signals *push) const {
 }
 
 void PinsMc6809::loop() {
-    const auto vec_swi = _inst->vec_swi();
+    const auto vec_swi = _inst.vec_swi();
     while (true) {
         Devs.loop();
         const auto s = rawCycle();
@@ -366,9 +338,9 @@ void PinsMc6809::loop() {
             cycle();  // non-VMA
             const auto frame = stackFrame(s->prev(2));
             const auto pc = uint16(frame->next()->data, frame->data);
-            const auto swi_vector = _mems->raw_read16(vec_swi);
+            const auto swi_vector = _mems.raw_read16(vec_swi);
             if (isBreakPoint(pc) || swi_vector == vec_swi) {
-                _regs->capture(frame);
+                _regs.capture(frame);
                 Signals::discard(frame->prev(2));
                 return;
             }
@@ -389,7 +361,7 @@ reentry:
             break;
     }
     negate_nmi();
-    if (s->addr == _inst->vec_swi()) {
+    if (s->addr == _inst.vec_swi()) {
         cycle();  // SWI lo(vector)
         cycle();  // non-VMA
         goto reentry;
@@ -397,15 +369,15 @@ reentry:
     const auto frame = stackFrame(s->prev(2));
     cycle();  // NMI lo(vector)
     cycle();  // non-VMA
-    _regs->capture(frame, true);
+    _regs.capture(frame, true);
     if (show) {
-        const auto last = frame->prev(_regs->contextLength() == 14 ? 3 : 2);
+        const auto last = frame->prev(_regs.contextLength() == 14 ? 3 : 2);
         Signals::discard(last);
     }
 }
 
 void PinsMc6809::run() {
-    _regs->restore();
+    _regs.restore();
     Signals::resetCycles();
     saveBreakInsts();
     loop();
@@ -415,7 +387,7 @@ void PinsMc6809::run() {
 
 bool PinsMc6809::step(bool show) {
     Signals::resetCycles();
-    _regs->restore();
+    _regs.restore();
     if (show)
         Signals::resetCycles();
     suspend(show);
@@ -439,7 +411,7 @@ void PinsMc6809::negateInt(uint8_t name) {
 }
 
 void PinsMc6809::setBreakInst(uint32_t addr) const {
-    _mems->put_inst(addr, InstMc6809::SWI);
+    _mems.put_inst(addr, InstMc6809::SWI);
 }
 
 void PinsMc6809::printCycles(const Signals *end) {
@@ -463,18 +435,18 @@ bool PinsMc6809::matchAll(Signals *begin, const Signals *end) {
     for (auto i = 0; i < cycles;) {
         idle();
         auto s = begin->next(i);
-        if (_inst->match(s, end, nullptr)) {
-            s->markFetch(_inst->matched());
-            for (auto m = 1; m < _inst->matched(); ++m)
+        if (_inst.match(s, end, nullptr)) {
+            s->markFetch(_inst.matched());
+            for (auto m = 1; m < _inst.matched(); ++m)
                 s->next(m)->clearFetch();
-            i += _inst->matched();
+            i += _inst.matched();
             continue;
         }
         idle();
-        if (_inst->matchInterrupt(s, end)) {
-            for (auto m = 1; m < _inst->matched(); ++m)
+        if (_inst.matchInterrupt(s, end)) {
+            for (auto m = 1; m < _inst.matched(); ++m)
                 s->next(m)->clearFetch();
-            i += _inst->matched();
+            i += _inst.matched();
             continue;
         }
         return false;
@@ -509,7 +481,7 @@ void PinsMc6809::disassembleCycles() {
     for (auto i = 0; i < cycles;) {
         const auto s = begin->next(i);
         if (s->fetch()) {
-            const auto len = _mems->disassemble(s->addr, 1) - s->addr;
+            const auto len = _mems.disassemble(s->addr, 1) - s->addr;
             i += len;
         } else {
             s->print();

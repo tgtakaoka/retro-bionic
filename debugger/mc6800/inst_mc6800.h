@@ -10,7 +10,7 @@ struct DmaMemory;
 namespace mc6800 {
 
 struct InstMc6800 {
-    InstMc6800(const DmaMemory *mems) : _mems(mems) {}
+    InstMc6800(const DmaMemory &mems) : _mems(mems) {}
 
     virtual bool match(
             const Signals *begin, const Signals *end, const Signals *prefetch);
@@ -27,7 +27,7 @@ struct InstMc6800 {
     static constexpr uint16_t VEC_RESET = 0xFFFE;
 
 protected:
-    const DmaMemory *_mems;
+    const DmaMemory &_mems;
     uint8_t _matched;
     int8_t _nexti;
 
