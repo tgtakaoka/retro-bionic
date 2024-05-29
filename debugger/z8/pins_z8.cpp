@@ -33,37 +33,30 @@ void inline negate_irq2() {
     digitalWriteFast(PIN_IRQ2, HIGH);
 }
 
-void inline assert_reset() {
-    digitalWriteFast(PIN_RESET, LOW);
-    negate_irq0();
-    negate_irq1();
-    negate_irq2();
-}
-
 void inline negate_reset() {
     digitalWriteFast(PIN_RESET, HIGH);
 }
 
-inline uint8_t signal_as() {
+inline auto signal_as() {
     return digitalReadFast(PIN_AS);
 }
 
-inline uint8_t signal_ds() {
+inline auto signal_ds() {
     return digitalReadFast(PIN_DS);
 }
 
-const uint8_t PINS_LOW[] = {
+constexpr uint8_t PINS_LOW[] = {
         PIN_XTAL1,
         PIN_RESET,
 };
 
-const uint8_t PINS_HIGH[] = {
+constexpr uint8_t PINS_HIGH[] = {
         PIN_IRQ0,
         PIN_IRQ1,
         PIN_IRQ2,
 };
 
-const uint8_t PINS_PULLDOWN[] = {
+constexpr uint8_t PINS_PULLDOWN[] = {
         PIN_ADDR8,
         PIN_ADDR9,
         PIN_ADDR10,
@@ -74,7 +67,7 @@ const uint8_t PINS_PULLDOWN[] = {
         PIN_ADDR15,
 };
 
-const uint8_t PINS_INPUT[] = {
+constexpr uint8_t PINS_INPUT[] = {
         PIN_DATA0,
         PIN_DATA1,
         PIN_DATA2,
@@ -92,18 +85,19 @@ const uint8_t PINS_INPUT[] = {
 }  // namespace
 
 void PinsZ8::reset() {
+    // Assert reset condition
     pinsMode(PINS_LOW, sizeof(PINS_LOW), OUTPUT, LOW);
     pinsMode(PINS_HIGH, sizeof(PINS_HIGH), OUTPUT, HIGH);
     pinsMode(PINS_PULLDOWN, sizeof(PINS_PULLDOWN), INPUT_PULLDOWN);
     pinsMode(PINS_INPUT, sizeof(PINS_INPUT), INPUT);
 
-    assert_reset();
     // #RESET must remain low for a minimum of 16 clocks.
     for (auto i = 0; i < 16 * 2; i++) {
         xtal1_cycle();
         delayNanoseconds(1);
     }
     negate_reset();
+    Signals::resetCycles();
     // Wait for #AS pulse with #DS=H
     while (signal_ds() == LOW) {
         while (signal_as() == LOW)
