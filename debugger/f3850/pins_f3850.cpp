@@ -64,11 +64,11 @@ inline void xtly_lo() {
     digitalWriteFast(PIN_XTLY, LOW);
 }
 
-inline uint8_t signal_phi() {
+inline auto signal_phi() {
     return digitalReadFast(PIN_PHI);
 }
 
-inline uint8_t signal_write() {
+inline auto signal_write() {
     return digitalReadFast(PIN_WRITE);
 }
 
@@ -80,21 +80,16 @@ void negate_intreq() {
     digitalWriteFast(PIN_INTREQ, HIGH);
 }
 
-void assert_extres() {
-    negate_intreq();
-    digitalWriteFast(PIN_EXTRES, LOW);
-}
-
 void negate_extres() {
     digitalWriteFast(PIN_EXTRES, HIGH);
 }
 
-const uint8_t PINS_LOW[] = {
+constexpr uint8_t PINS_LOW[] = {
         PIN_EXTRES,
         PIN_XTLY,
 };
 
-const uint8_t PINS_HIGH[] = {
+constexpr uint8_t PINS_HIGH[] = {
         PIN_INTREQ,
         PIN_IO1L0,
         PIN_IO1L1,
@@ -106,7 +101,7 @@ const uint8_t PINS_HIGH[] = {
         PIN_IO1H7,
 };
 
-const uint8_t PINS_INPUT[] = {
+constexpr uint8_t PINS_INPUT[] = {
         PIN_DB0,
         PIN_DB1,
         PIN_DB2,
@@ -149,12 +144,11 @@ inline void xtly_cycle_hi() {
 }  // namespace
 
 void PinsF3850::reset() {
+    // Assert reset condition
     pinsMode(PINS_LOW, sizeof(PINS_LOW), OUTPUT, LOW);
     pinsMode(PINS_HIGH, sizeof(PINS_HIGH), OUTPUT, HIGH);
     pinsMode(PINS_INPUT, sizeof(PINS_INPUT), INPUT);
 
-    Signals::resetCycles();
-    assert_extres();
     for (auto i = 0; i < 10 * 4; ++i)
         xtly_cycle();
     while (signal_write() == LOW)
@@ -162,6 +156,7 @@ void PinsF3850::reset() {
     // WRITE=H
     negate_extres();
     delayNanoseconds(xtly_hi_ns);
+    Signals::resetCycles();
 
     cycle();  // IDLE
     delayNanoseconds(xtly_idle_ns);
@@ -215,12 +210,12 @@ void PinsF3850::execInst(const uint8_t *inst, uint8_t len) {
     execute(inst, len, nullptr, 0);
 }
 
-uint8_t PinsF3850::captureWrites(
+void PinsF3850::captureWrites(
         const uint8_t *inst, uint8_t len, uint8_t *buf, uint8_t max) {
-    return execute(inst, len, buf, max);
+    execute(inst, len, buf, max);
 }
 
-uint8_t PinsF3850::execute(
+void PinsF3850::execute(
         const uint8_t *inst, uint8_t len, uint8_t *buf, uint8_t max) {
     uint8_t inj = 0;
     uint8_t cap = 0;
@@ -239,7 +234,6 @@ uint8_t PinsF3850::execute(
                 buf[cap++] = signals->data;
         }
     }
-    return cap;
 }
 
 void PinsF3850::idle() {

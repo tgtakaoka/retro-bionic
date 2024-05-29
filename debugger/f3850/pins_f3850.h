@@ -73,7 +73,7 @@ struct PinsF3850 final : Pins {
     void printCycles() override;
 
     void execInst(const uint8_t *inst, uint8_t len);
-    uint8_t captureWrites(
+    void captureWrites(
             const uint8_t *inst, uint8_t len, uint8_t *buf, uint8_t max);
 
 private:
@@ -83,10 +83,10 @@ private:
     Signals *cycle(uint8_t data);
     void loop();
     bool rawStep();
-    uint8_t execute(
-            const uint8_t *inst, uint8_t len, uint8_t *buf, uint8_t max);
-   
-    void disassembleCycles() const;};
+    void execute(const uint8_t *inst, uint8_t len, uint8_t *buf, uint8_t max);
+
+    void disassembleCycles() const;
+};
 
 extern struct PinsF3850 Pins;
 
