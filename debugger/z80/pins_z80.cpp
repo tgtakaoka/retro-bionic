@@ -76,19 +76,21 @@ namespace {
 
 constexpr auto clk_hi_ns = 100;      // 125 ns
 constexpr auto clk_lo_ns = 100;      // 125 ns
-constexpr auto clk_lo_addr = 20;     // +clk_lo_cntl; 125 ns
-constexpr auto clk_hi_addr = 47;     // 125 ns
-constexpr auto clk_lo_cntl = 20;     // +clk_lo_addr; 125 ns
-constexpr auto clk_hi_read = 69;     // TdCr(M1f)
+constexpr auto clk_lo_addr = 40;     // +clk_lo_cntl; 125 ns
+constexpr auto clk_hi_addr = 55;     // 125 ns
+constexpr auto clk_lo_cntl = 28;     // +clk_lo_addr; 125 ns
+constexpr auto clk_hi_read = 80;     // TdCr(M1f)
 constexpr auto clk_hi_inject = 80;   // TdCf(MREQf)/TdCf(IORQf)
-constexpr auto clk_lo_read = 90;     // 125 ns
-constexpr auto clk_hi_write = 90;    // 125 ns
-constexpr auto clk_lo_get = 90;      // 125 ns
-constexpr auto clk_hi_memory = 90;   // 125 ns
-constexpr auto clk_hi_capture = 90;  // 125 ns
-constexpr auto clk_hi_io = 90;       // 125 ns
-constexpr auto clk_lo_input = 90;    // 125 ns
-constexpr auto clk_lo_refresh = 90;  // 125 ns
+constexpr auto clk_lo_read = 43;     // 125 ns
+constexpr auto clk_hi_next = 46;     // 125 ns
+constexpr auto clk_hi_write = 34;    // 125 ns
+constexpr auto clk_lo_get = 78;      // 125 ns
+constexpr auto clk_hi_memory = 79;   // 125 ns
+constexpr auto clk_hi_capture = 94;  // 125 ns
+constexpr auto clk_hi_io = 85;       // 125 ns
+constexpr auto clk_lo_input = 1;     // 125 ns
+constexpr auto clk_lo_refresh = 52;  // 125 ns
+constexpr auto clk_lo_exec = 6;      // 125 ns
 
 inline void clk_hi() {
     digitalWriteFast(PIN_CLK, HIGH);
@@ -226,15 +228,11 @@ Signals *PinsZ80::prepareCycle() const {
         // TnH
         clk_hi();
         delayNanoseconds(clk_hi_addr);
-        assert_debug();
         s->getAddress();
-        negate_debug();
         // TnL
         clk_lo();
         delayNanoseconds(clk_lo_cntl);
-        assert_debug();
         s->getControl();
-        negate_debug();
     } while (s->nobus());
     // #MREQ:T1L, #IORQ:T2L/Twa1L
     return s;
@@ -253,21 +251,19 @@ Signals *PinsZ80::completeCycle(Signals *s) const {
             }
             // #MREQ:T2L
             clk_lo();
-            assert_debug();
             s->outData();
-            negate_debug();
             delayNanoseconds(clk_lo_read);
             // #MREQ:T3H
             clk_hi();
-            delayNanoseconds(clk_hi_ns);
+            Signals::nextCycle();
+            delayNanoseconds(clk_hi_next);
         } else {
             delayNanoseconds(clk_hi_write);
+            Signals::nextCycle();
             // #MREQ:T2L
             clk_lo();
             delayNanoseconds(clk_lo_get);
-            assert_debug();
             s->getData();
-            negate_debug();
             // #MREQ:T3H
             clk_hi();
             if (s->writeMemory()) {
@@ -278,15 +274,14 @@ Signals *PinsZ80::completeCycle(Signals *s) const {
             }
         }
     } else {  // Input or output cycles
-        const uint8_t ioaddr = s->addr;
         delayNanoseconds(clk_hi_io);
+        const uint8_t ioaddr = s->addr;
         // #IORQ:TwaL/Twa2L
         clk_lo();
         if (s->read()) {
-            if (Devs.isSelected(ioaddr)) {
+            if (Devs.isSelected(ioaddr))
                 s->data = Devs.read(ioaddr);
-                s->outData();
-            }
+            s->outData();
         } else if (s->intack()) {  // Interrupt acknowledge cycle
             s->markRead();
             s->data = Devs.vector();
@@ -298,15 +293,13 @@ Signals *PinsZ80::completeCycle(Signals *s) const {
         }
         // T3H
         clk_hi();
-        delayNanoseconds(clk_hi_ns);
+        Signals::nextCycle();
+        delayNanoseconds(clk_hi_next);
     }
     // T3L
     clk_lo();
-    assert_debug();
-    s->inputMode();
-    Signals::nextCycle();
     delayNanoseconds(clk_lo_input);
-    negate_debug();
+    s->inputMode();
     if (s->m1()) {
         delayNanoseconds(clk_lo_refresh);
         // T4H
@@ -314,7 +307,6 @@ Signals *PinsZ80::completeCycle(Signals *s) const {
         delayNanoseconds(clk_hi_ns);
         // T4L
         clk_lo();
-        delayNanoseconds(clk_lo_ns);
     }
     return s;
 }
@@ -329,11 +321,9 @@ Signals *PinsZ80::prepareWait() const {
 
 Signals *PinsZ80::resumeCycle(uint16_t pc) const {
     const auto s = Signals::put();
-    assert_debug();
     negate_wait();
     s->setAddress(pc);
     s->getControl();
-    negate_debug();
     return completeCycle(s);
 }
 
@@ -380,6 +370,7 @@ void PinsZ80::execute(const uint8_t *inst, uint8_t len, uint16_t *addr,
             prepareWait();
             return;
         }
+        delayNanoseconds(clk_lo_exec);
         s = prepareCycle();
     }
 }
