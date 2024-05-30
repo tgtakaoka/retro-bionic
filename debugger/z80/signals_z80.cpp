@@ -2,7 +2,7 @@
 #include "char_buffer.h"
 #include "debugger.h"
 #include "digital_bus.h"
-#include "pins_z80.h"
+#include "pins_z80_config.h"
 
 namespace debugger {
 namespace z80 {
@@ -13,6 +13,7 @@ void Signals::getAddress() {
 
 void Signals::getControl() {
     cntl() = busRead(CNTL);
+    fetch() = (cntl() & (CNTL_M1 | CNTL_MREQ)) == 0;
 }
 
 bool Signals::nobus() const {
@@ -33,10 +34,6 @@ bool Signals::iorq() const {
 
 bool Signals::read() const {
     return (cntl() & CNTL_RD) == 0;
-}
-
-bool Signals::fetch() const {
-    return (cntl() & (CNTL_M1 | CNTL_MREQ)) == 0;
 }
 
 bool Signals::intack() const {

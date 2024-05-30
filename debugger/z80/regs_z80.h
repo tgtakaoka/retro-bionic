@@ -6,7 +6,11 @@
 namespace debugger {
 namespace z80 {
 
-struct RegsZ80 final : Regs {
+struct PinsZ80;
+
+struct RegsZ80 : Regs {
+    RegsZ80(PinsZ80 &pins) : Regs(), _pins(pins) {}
+
     const char *cpu() const override;
     const char *cpuName() const override;
 
@@ -24,6 +28,8 @@ struct RegsZ80 final : Regs {
     void write_io(uint8_t addr, uint8_t data) const;
 
 private:
+    PinsZ80 &_pins;
+
     uint16_t _pc;
     uint16_t _sp;
     uint16_t _ix;
@@ -56,9 +62,9 @@ private:
     uint8_t _i;
     uint8_t _r;
 
-    static void exchangeRegs();
-    static void saveRegs(reg &regs);
-    static void restoreRegs(const reg &regs);
+    void exchangeRegs() const;
+    void saveRegs(reg &regs) const;
+    void restoreRegs(const reg &regs) const;
 };
 
 extern struct RegsZ80 Regs;

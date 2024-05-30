@@ -3,13 +3,16 @@
 #include "devs_z80.h"
 #include "inst_z80.h"
 #include "mems_z80.h"
+#include "pins_z80_config.h"
 #include "regs_z80.h"
 #include "signals_z80.h"
 
 namespace debugger {
 namespace z80 {
 
-struct PinsZ80 Pins;
+struct PinsZ80 Pins {
+    Regs,
+};
 
 // clang-format off
 /**
@@ -217,8 +220,8 @@ void PinsZ80::reset() {
     clk_cycle();
     Signals::resetCycles();
     prepareWait();
-    Regs.setIp(InstZ80::ORG_RESET);
-    Regs.save();
+    _regs.setIp(InstZ80::ORG_RESET);
+    _regs.save();
 }
 
 Signals *PinsZ80::prepareCycle() const {
@@ -351,7 +354,7 @@ void PinsZ80::execute(const uint8_t *inst, uint8_t len, uint16_t *addr,
         if (cap < max)
             s->capture();
         if (inj == 0) {
-            resumeCycle(Regs.nextIp());
+            resumeCycle(_regs.nextIp());
         } else {
             completeCycle(s);
         }
@@ -381,7 +384,7 @@ void PinsZ80::idle() {
 }
 
 void PinsZ80::loop() {
-    resumeCycle(Regs.nextIp());
+    resumeCycle(_regs.nextIp());
     while (true) {
         const auto s = prepareCycle();
         if (s->fetch() && Memory.raw_read(s->addr) == InstZ80::HALT) {
@@ -400,13 +403,13 @@ void PinsZ80::loop() {
 }
 
 void PinsZ80::run() {
-    Regs.restore();
+    _regs.restore();
     Signals::resetCycles();
     saveBreakInsts();
     loop();
     restoreBreakInsts();
     disassembleCycles();
-    Regs.save();
+    _regs.save();
 }
 
 void PinsZ80::suspend() {
@@ -428,7 +431,7 @@ void PinsZ80::suspend() {
 }
 
 bool PinsZ80::rawStep() {
-    const auto pc = Regs.nextIp();
+    const auto pc = _regs.nextIp();
     if (Memory.raw_read(pc) == InstZ80::HALT)
         return false;
     assert_nmi();
@@ -439,13 +442,13 @@ bool PinsZ80::rawStep() {
 
 bool PinsZ80::step(bool show) {
     Signals::resetCycles();
-    Regs.restore();
+    _regs.restore();
     if (show)
         Signals::resetCycles();
     if (rawStep()) {
         if (show)
             printCycles();
-        Regs.save();
+        _regs.save();
         return true;
     }
     return false;

@@ -6,7 +6,7 @@
 namespace debugger {
 namespace z80 {
 
-struct Signals final : SignalsBase<Signals> {
+struct Signals : SignalsBase<Signals> {
     void getAddress();
     void getControl();
     void getData();
@@ -20,18 +20,20 @@ struct Signals final : SignalsBase<Signals> {
     bool mreq() const;
     bool iorq() const;
     bool read() const;
-    bool fetch() const;
+    bool fetch() const { return _signals[1]; }
     bool intack() const;
     void markRead();
 
-private:
+    uint8_t &fetch() { return _signals[1]; }
+
+protected:
     uint8_t cntl() const { return _signals[0]; }
     uint8_t &cntl() { return _signals[0]; }
 };
 
 }  // namespace z80
 }  // namespace debugger
-#endif /* __SIGNALS_H__ */
+#endif /* __SIGNALS_Z80_H__ */
 
 // Local Variables:
 // mode: c++
