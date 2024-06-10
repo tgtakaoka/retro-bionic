@@ -30,14 +30,11 @@ print_uint16_buf:
 stack:          equ     $
 
 ;;; Internal data memory
-        org     BASE_MEMORY
+        org     BASE_BANK1+4    ; R0~R3 of BANK1 is reserved for ISR
 rx_queue:       ds      queue_work_size
 tx_queue:       ds      queue_work_size
 ;;; Work area for mandelbrot.inc
 tmp:    ds      2
-c229:   ds      2
-c416:   ds      2
-c100:   ds      2
 vF:     ds      2
 vC:     ds      2
 vD:     ds      2
@@ -47,9 +44,9 @@ vP:     ds      2
 vQ:     ds      2
 vS:     ds      2
 vT:     ds      2
-vY:     ds      2
-vX:     ds      2
-vI:     ds      2
+vY:     ds      1
+vX:     ds      1
+vI:     ds      1
 
         org     ORG_RESET
         jmp     init

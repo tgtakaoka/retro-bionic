@@ -1,64 +1,45 @@
 ;;; -*- mode: asm; mode: flyspell-prog; -*-
 
-;;; Increment variable
-;;; @param R2: &variable
-;;; @return A: hi(variable)
-;;; @return R0: &variable
-inc16:  
-        mov     A, R2
-        mov     R0, A           ; R0=&variable
-        mov     A, @R0          ; A=lo(variable)
-        add     A, #1
-        mov     @R0, A
-        inc     R0
-        mov     A, @R0          ; A=hi(variable)
-        addc    A, #0
-        mov     @R0, A
-        dec     R0
-        ret
-
 mandelbrot:
-        mov     R4, #LOW(229)
-        mov     R5, #HIGH(229)
-        mov     R3, #c229
-        call    set             ; c229=229
-        mov     R4, #LOW(416)
-        mov     R5, #HIGH(416)
-        mov     R3, #c416
-        call    set             ; c416=416
-        mov     R4, #LOW(100)
-        mov     R5, #HIGH(100)
-        mov     R3, #c100
-        call    set             ; c100=100
         mov     R4, #LOW(50)
         mov     R5, #HIGH(50)
         mov     R3, #vF         ; F=50
         call    set
-        mov     R4, #LOW(-12)
-        mov     R5, #HIGH(-12)
-        mov     R3, #vY
-        call    set             ; Y=-12
+        mov     R0, #vY
+        mov     A, #-12
+        mov     @R0, A          ; Y=-12
 loop_y:
-        mov     R4, #LOW(-49)
-        mov     R5, #HIGH(-49)
-        mov     R3, #vX
-        call    set             ; X=-49
+        mov     R0, #vX
+        mov     A, #-49
+        mov     @R0, A          ; X=-49
 loop_x:
         mov     R2, #vC
         mov     R3, #vX
-        call    assign          ; C=X
-        mov     R3, #c229
+        call    assign8         ; C=X
+        mov     R4, #LOW(229)
+        mov     R5, #HIGH(229)
+        mov     R3, #tmp
+        call    set             ; tmp=229
         call    mulsi2          ; C=X*229
         mov     R2, #vC
-        mov     R3, #c100
+        mov     R4, #LOW(100)
+        mov     R5, #HIGH(100)
+        mov     R3, #tmp
+        call    set             ; tmp=100
         call    divsi2          ; C=X*229/100
         mov     R2, #vD
         mov     R3, #vY
-        call    assign          ; D=Y
-        mov     R3, #c416
+        call    assign8         ; D=Y
+        mov     R4, #LOW(416)
+        mov     R5, #HIGH(416)
+        mov     R3, #tmp
+        call    set             ; tmp=416
         call    mulsi2          ; D=Y*416
         mov     R2, #vD
-        mov     R3, #c100
+        mov     R4, #LOW(100)
+        mov     R5, #HIGH(100)
+        mov     R3, #tmp
+        call    set             ; tmp=100
         call    divsi2          ; D=Y*416/100
         mov     R2, #vA
         mov     R3, #vC
@@ -66,15 +47,18 @@ loop_x:
         mov     R2, #vB
         mov     R3, #vD
         call    assign          ; B=D
-        mov     R4, #LOW(0)
-        mov     R5, #HIGH(0)
-        mov     R3, #vI
-        call    set             ; I=0
+        mov     R0, #vI
+        clr     A
+        mov     @R0, A          ; I=0
 
-        ;; mov     R2, #vY
+        ;; mov     R2, #tmp
+        ;; mov     R3, #vY
+        ;; call    assign8
         ;; mov     A, #'Y'
         ;; call    print           ; print Y
-        ;; mov     R2, #vX
+        ;; mov     R2, #tmp
+        ;; mov     R3, #vX
+        ;; call    assign8
         ;; mov     A, #'X'
         ;; call    print           ; print X
         ;; mov     R2, #vC
@@ -165,7 +149,9 @@ loop_i:
         call    addsi2          ; T=P*P+Q*Q (T>=0)
 
         ;; call    putspace
-        ;; mov     R2, #vI
+        ;; mov     R2, #tmp
+        ;; mov     R3, #vI
+        ;; call    assign8
         ;; mov     A, #'I'
         ;; call    print           ; print I
         ;; mov     R2, #vA
@@ -192,8 +178,8 @@ loop_i:
         mov     A, @R0          ; A=lo(T)
         add     A, #-(4+1)
         jc      print_i         ; if T>=5
-        mov     R2, #vI
-        call    inc16           ; I+=1
+        mov     R0, #vI
+        inc     @R0             ; I+=1
         mov     A, @R0          ; A=I (I>=0)
         add     A, #-16
         jc      print_space
@@ -228,20 +214,20 @@ print_char:
         jnz     next_x
         db      01H             ; halt to system
 next_x:
-        mov     R2, #vX
-        call    inc16           ; X+=1
-        jb      7, jmp_loop_x   ; if hi(X)<0
-        mov     A, @R0          ; A=lo(X)
+        mov     R0, #vX
+        inc     @R0             ; X+=1
+        mov     A, @R0
+        jb      7, jmp_loop_x   ; if X<0
         add     A, #-30
         jc      next_y
 jmp_loop_x:
         jmp     loop_x          ; if X<30
 next_y:
         call    newline
-        mov     R2, #vY
-        call    inc16           ; Y+=1
-        jb      7, jmp_loop_y   ; if hi(Y)<0
-        mov     A, @R0          ; A=lo(Y)
+        mov     R0, #vY
+        inc     @R0             ; Y+=1
+        mov     A, @R0
+        jb      7, jmp_loop_y   ; if Y<0
         add     A, #-13
         jc      mandelbrot_end
 jmp_loop_y:
@@ -263,7 +249,32 @@ set:
         mov     @R0, A
         ret
 
-;;; Assign variable; v1 = v2
+;;; Assign 8-bit variable; v1 = v2
+;;; @param R2 &v1
+;;; @param R3 &v2
+;;; @clobber A R0
+assign8:
+        mov     A, #-1
+        xch     A, R3           ; A=&v2, R3=-1
+        mov     R0, A           ; R0=&v2
+        mov     A, @R0          ; A=v2
+        jb      7, assign8_hi   ; jump if v2 < 0
+        mov     R3, #0          ; R3=0
+assign8_hi:
+        xch     A, R3           ; R3=v2, A=hi(v2)
+        xch     A, R2           ; R2=hi(v2), A=&v1
+        xch     A, R0           ; R0=&v1, A=&v2
+        xch     A, R3           ; R3=&v2, A=v2
+        mov     @R0, A          ; lo(v1)=v2
+        mov     A, R2           ; A=hi(v2)
+        inc     R0              ; R0=&v1+1
+        mov     @R0, A          ; hi(v1)=hi(v2)
+        dec     R0              ; R0=&v1
+        mov     A, R0
+        mov     R2, A           ; R2=&v1
+        ret
+
+;;; Assign 16-bit variable; v1 = v2
 ;;; @param R2 &v1
 ;;; @param R3 &v2
 ;;; @clobber A R0

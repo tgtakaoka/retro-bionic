@@ -184,9 +184,9 @@ void PinsI8048::reset() {
     // Only 5 machine cycles are required if power is already on.
     for (auto i = 0; i < 15 * (5 + 2); ++i)
         xtal1_cycle();
-    while (signal_psen() != LOW)
-        xtal1_cycle();
     negate_reset();
+    while (signal_ale() != LOW)
+        xtal1_cycle();
     Signals::resetCycles();
     // #SS=L
     _regs.save();

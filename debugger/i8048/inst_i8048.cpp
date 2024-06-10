@@ -297,6 +297,10 @@ uint8_t InstI8048::instLength(uint8_t inst) const {
 
 uint8_t InstI8048::busCycles(uint8_t inst) const {
     const auto entry = INST_TABLE[inst];
+    if ((inst & ~0x10) == 0x83) {  // RET/RETR
+        if (_flags & F_MSM39)
+            return 1;
+    }
     return bus_cyc(entry);
 }
 
