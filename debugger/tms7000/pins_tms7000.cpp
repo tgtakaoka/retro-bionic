@@ -6,9 +6,12 @@
 #include "mems_tms7000.h"
 #include "regs_tms7000.h"
 #include "signals_tms7000.h"
+#include "tms7002_serial_handler.h"
 
 namespace debugger {
 namespace tms7000 {
+
+using tms7002::SerialH;
 
 struct PinsTms7000 Pins;
 
@@ -48,6 +51,7 @@ constexpr auto clk2_hi_ns = 500;
 constexpr auto clk2_lo_ns = 500;
 constexpr auto clk4_hi_ns = 250;
 constexpr auto clk4_lo_ns = 250;
+constexpr auto clk4_hi_serial = 200;
 
 inline void clkin_hi() {
     digitalWriteFast(PIN_CLKIN, HIGH);
@@ -124,6 +128,7 @@ inline void clkin_cycle() {
 
 void clk2_hi() {
     clkin_hi();
+    SerialH.loop();
 }
 
 void clk2_lo() {
@@ -132,7 +137,8 @@ void clk2_lo() {
 
 void clk4_hi() {
     clkin_lo();
-    delayNanoseconds(clk4_hi_ns);
+    delayNanoseconds(clk4_hi_serial);
+    SerialH.loop();
     clkin_hi();
 }
 
@@ -239,6 +245,8 @@ void PinsTms7000::checkHardwareType() {
         _hardType = port19->external() ? HW_TMS7002 : HW_TMS70C02;
     }
     Regs.restoreA();
+    SerialH.setTms7001(_hardType == HW_TMS7001);
+    Devs.setSerialHandler(_hardType == HW_TMS7000 ? nullptr : &SerialH);
 }
 
 Signals *PinsTms7000::prepareCycle() const {

@@ -2,6 +2,7 @@
 #define __DEVS_TMS7000_H__
 
 #include "devs.h"
+#include "serial_handler.h"
 
 #define ACIA_BASE 0x01F0  // P240
 
@@ -9,9 +10,11 @@ namespace debugger {
 namespace tms7000 {
 
 struct DevsTms7000 : Devs {
+    DevsTms7000() : Devs(), _serial(nullptr) {}
     void begin() override;
     void reset() override;
     void loop() override;
+    void setIdle(bool idle) override;
     bool isSelected(uint32_t addr) const override;
     uint16_t read(uint32_t addr) const override;
     void write(uint32_t addr, uint16_t data) const override;
@@ -19,6 +22,11 @@ struct DevsTms7000 : Devs {
     Device &parseDevice(const char *name) const override;
     void enableDevice(Device &dev) override;
     void printDevices() const override;
+
+    void setSerialHandler(SerialHandler *serial) { _serial = serial; }
+
+private:
+    SerialHandler *_serial;
 };
 
 extern struct DevsTms7000 Devs;
