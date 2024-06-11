@@ -5,15 +5,17 @@
 
 namespace debugger {
 namespace z86 {
-struct Z86SioHandler final : SerialHandler {
-    Z86SioHandler();
 
+struct Z86SioHandler final : SerialHandler {
     const char *name() const override;
     const char *description() const override;
     uint32_t baseAddr() const override;
 
 protected:
     void resetHandler() override;
+    void assert_rxd() const override;
+    void negate_rxd() const override;
+    uint8_t signal_txd() const override;
 };
 
 extern struct Z86SioHandler SioH;

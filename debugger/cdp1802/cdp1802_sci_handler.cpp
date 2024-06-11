@@ -1,10 +1,9 @@
 #include "cdp1802_sci_handler.h"
 #include "pins_cdp1802.h"
+#include "debugger.h"
 
 namespace debugger {
 namespace cdp1802 {
-
-Cdp1802SciHandler::Cdp1802SciHandler() : SerialHandler(PIN_EF3, PIN_Q) {}
 
 const char *Cdp1802SciHandler::name() const {
     return "BitBang";
@@ -18,7 +17,21 @@ uint32_t Cdp1802SciHandler::baseAddr() const {
     return 0;
 }
 
+void Cdp1802SciHandler::assert_rxd() const {
+    digitalWriteFast(PIN_EF3, LOW);
+}
+
+void Cdp1802SciHandler::negate_rxd() const {
+    digitalWriteFast(PIN_EF3, HIGH);
+}
+
+uint8_t Cdp1802SciHandler::signal_txd() const {
+    return digitalReadFast(PIN_Q);
+}
+
 void Cdp1802SciHandler::resetHandler() {
+    pinMode(PIN_EF3, OUTPUT);
+    pinMode(PIN_Q, INPUT);
     // CDP1802 Xtal: 1.79MHz, CPU clock 223.75kHz
     // Bitbang speed: 9600bps
     _pre_divider = 1;

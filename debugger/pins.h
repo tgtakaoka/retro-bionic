@@ -24,6 +24,10 @@ struct Pins {
     void setRun() const;
     void setHalt() const;
 
+    static void assert_debug();
+    static void negate_debug();
+    static void toggle_debug();
+
 private:
     static constexpr auto BREAK_POINTS = 4;
     uint8_t _breakNum;
@@ -42,9 +46,6 @@ protected:
     static void pinsMode(const uint8_t *pins, uint8_t size, uint8_t mode);
     static void pinsMode(
             const uint8_t *pins, uint8_t size, uint8_t mode, uint8_t val);
-    static void assert_debug();
-    static void negate_debug();
-    static void toggle_debug();
 
     static constexpr uint8_t hi(uint16_t v) {
         return static_cast<uint8_t>(v >> 8);

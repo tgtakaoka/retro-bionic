@@ -6,8 +6,8 @@
 namespace debugger {
 
 struct SerialHandler : Device {
-    SerialHandler(
-            uint8_t rxd, uint8_t txd, bool invRxd = false, bool invTxd = false);
+    SerialHandler() : _serialEnabled(false) {}
+
     void reset() override;
     void loop() override;
     void enable(bool enabled) override { _serialEnabled = enabled; }
@@ -15,10 +15,6 @@ struct SerialHandler : Device {
     void setIdle(bool idle) { _enabled = _serialEnabled && !idle; }
 
 private:
-    const uint8_t _rxd;
-    const uint8_t _txd;
-    const uint8_t _polRxd;
-    const uint8_t _polTxd;
     bool _serialEnabled;
     uint16_t _prescaler;
     struct Transmitter {
@@ -36,8 +32,11 @@ protected:
     uint16_t _divider;
     uint16_t _pre_divider;
     virtual void resetHandler() = 0;
-    void txloop(Transmitter &tx);
-    void rxloop(Receiver &rx);
+    virtual void assert_rxd() const = 0;
+    virtual void negate_rxd() const = 0;
+    virtual uint8_t signal_txd() const = 0;
+    void txloop(Transmitter &tx) const;
+    void rxloop(Receiver &rx) const;
 };
 
 }  // namespace debugger

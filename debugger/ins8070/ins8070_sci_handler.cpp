@@ -1,13 +1,10 @@
 #include "ins8070_sci_handler.h"
+#include "debugger.h"
 #include "pins_ins8070.h"
 #include "regs_ins8070.h"
 
 namespace debugger {
 namespace ins8070 {
-
-// PIN_F1 is inverted
-Ins8070SciHandler::Ins8070SciHandler()
-    : SerialHandler(PIN_SA, PIN_F1, false, true) {}
 
 const char *Ins8070SciHandler::name() const {
     return "BitBang";
@@ -17,7 +14,22 @@ const char *Ins8070SciHandler::description() const {
     return Regs.cpuName();
 }
 
+void Ins8070SciHandler::assert_rxd() const {
+    digitalWriteFast(PIN_SA, LOW);
+}
+
+void Ins8070SciHandler::negate_rxd() const {
+    digitalWriteFast(PIN_SA, HIGH);
+}
+
+uint8_t Ins8070SciHandler::signal_txd() const {
+    // PIN_F1 is inverted
+    return HIGH - digitalReadFast(PIN_F1);
+}
+
 void Ins8070SciHandler::resetHandler() {
+    pinMode(PIN_SA, OUTPUT);
+    pinMode(PIN_F1, INPUT);
     // INS8070 bitbang speed: assuming XTAL is 2MHz
     // baudrate 4800 bps
     _pre_divider = 74;

@@ -5,15 +5,17 @@
 
 namespace debugger {
 namespace z88 {
-struct Z88UartHandler final : SerialHandler {
-    Z88UartHandler();
 
+struct Z88UartHandler final : SerialHandler {
     const char *name() const override;
     const char *description() const override;
     uint32_t baseAddr() const override;
 
 protected:
     void resetHandler() override;
+    void assert_rxd() const override;
+    void negate_rxd() const override;
+    uint8_t signal_txd() const override;
 };
 
 extern struct Z88UartHandler UartH;

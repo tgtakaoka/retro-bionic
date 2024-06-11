@@ -1,21 +1,11 @@
-#include <Arduino.h>
-
-#include "config_debugger.h"
 #include "serial_handler.h"
+#include "debugger.h"
+#include "pins.h"
 
 namespace debugger {
 
-SerialHandler::SerialHandler(uint8_t rxd, uint8_t txd, bool invRxd, bool invTxd)
-    : _rxd(rxd),
-      _txd(txd),
-      _polRxd(invRxd ? HIGH : LOW),
-      _polTxd(invTxd ? HIGH : LOW),
-      _serialEnabled(false) {}
-
 void SerialHandler::reset() {
-    digitalWrite(_rxd, HIGH ^ _polRxd);
-    pinMode(_rxd, OUTPUT);
-    pinMode(_txd, _polTxd == LOW ? INPUT_PULLUP : INPUT_PULLDOWN);
+    negate_rxd();
     resetHandler();
     _prescaler = _pre_divider;
     _rx.bit = 0;
@@ -30,46 +20,50 @@ void SerialHandler::loop() {
     }
 }
 
-void SerialHandler::txloop(Transmitter &tx) {
+void SerialHandler::txloop(Transmitter &tx) const {
     if (tx.bit == 0) {
         if (Console.available()) {
             tx.bit = 10;  // start bit + data bits + stop bit
             tx.data = Console.read();
             tx.delay = _divider;
-            digitalWrite(_rxd, LOW ^ _polRxd);  // start bit
+            assert_rxd();  // start bit
         }
     } else {
         if (--tx.delay == 0) {
-            digitalWrite(_rxd, (tx.data & 1) ^ _polRxd);
+            if (tx.data & 1) {
+                negate_rxd();  // 1
+            } else {
+                assert_rxd();  // 0
+            }
             tx.data >>= 1;
             tx.data |= 0x80;  // stop and mark bits
             tx.delay = _divider;
-            if (--tx.bit == 0)
-                digitalWrite(_rxd, HIGH ^ _polRxd);  // output mark/idle
+            --tx.bit;
         }
     }
 }
 
-void SerialHandler::rxloop(Receiver &rx) {
+void SerialHandler::rxloop(Receiver &rx) const {
     if (rx.bit == 0) {
-        if (digitalRead(_txd) == (LOW ^ _polTxd)) {
-            digitalWriteFast(PIN_DEBUG, HIGH);
-            rx.bit = 9;
+        if (signal_txd() == 0) {
+            // Pins::assert_debug();
+            rx.bit = 9;  // data bits + stop bit
             rx.data = 0;
             rx.delay = _divider + (_divider >> 1);
-            digitalWriteFast(PIN_DEBUG, LOW);
+            // Pins::negate_debug();
         }
     } else {
         if (--rx.delay == 0) {
             rx.data >>= 1;
-            digitalWriteFast(PIN_DEBUG, HIGH);
-            if (digitalRead(_txd) == (HIGH ^ _polTxd))
+            // Pins::assert_debug();
+            if (signal_txd() != 0)
                 rx.data |= 0x80;
-            digitalWriteFast(PIN_DEBUG, LOW);
             rx.delay = _divider;
             if (--rx.bit == 1) {
                 Console.write(rx.data);
-                // stop bit will be ignored.
+                rx.delay = _divider >> 1;
+            } else {
+                // Pins::negate_debug();
             }
         }
     }

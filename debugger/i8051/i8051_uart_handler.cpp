@@ -1,11 +1,10 @@
 #include "i8051_uart_handler.h"
+#include "debugger.h"
 #include "pins_i8051.h"
 #include "regs_i8051.h"
 
 namespace debugger {
 namespace i8051 {
-
-I8051UartHandler::I8051UartHandler() : SerialHandler(PIN_RXD, PIN_TXD) {}
 
 const char *I8051UartHandler::name() const {
     return "UART";
@@ -19,7 +18,21 @@ uint32_t I8051UartHandler::baseAddr() const {
     return 0x0099;  // SBUF
 }
 
+void I8051UartHandler::assert_rxd() const {
+    digitalWriteFast(PIN_RXD, LOW);
+}
+
+void I8051UartHandler::negate_rxd() const {
+    digitalWriteFast(PIN_RXD, HIGH);
+}
+
+uint8_t I8051UartHandler::signal_txd() const {
+    return digitalReadFast(PIN_TXD);
+}
+
 void I8051UartHandler::resetHandler() {
+    pinMode(PIN_RXD, OUTPUT);
+    pinMode(PIN_TXD, INPUT);
     // I8051 UART:
     // baudrate = K*fosc/(32*12*(256-TH1)
     // 256-TH1 = K*fosc/(32*12*baudrate)

@@ -7,7 +7,7 @@ namespace debugger {
 namespace mc6801 {
 
 struct Mc6801SciHandler final : SerialHandler {
-    Mc6801SciHandler();
+    Mc6801SciHandler() : _rmcr(0) {}
 
     const char *name() const override;
     const char *description() const override;
@@ -22,6 +22,9 @@ protected:
     static constexpr uint8_t RMCR_CC_gm = 0x0C;  // Clock source Control
 
     void resetHandler() override;
+    void assert_rxd() const override;
+    void negate_rxd() const override;
+    uint8_t signal_txd() const override;
 };
 
 extern struct Mc6801SciHandler SciH;

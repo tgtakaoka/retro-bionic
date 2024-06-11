@@ -7,14 +7,15 @@ namespace debugger {
 namespace ins8060 {
 
 struct Ins8060SciHandler final : SerialHandler {
-    Ins8060SciHandler();
-
     const char *name() const override;
     const char *description() const override;
     uint32_t baseAddr() const override { return 0; }
 
 protected:
     void resetHandler() override;
+    void assert_rxd() const override;
+    void negate_rxd() const override;
+    uint8_t signal_txd() const override;
 };
 
 extern struct Ins8060SciHandler SciH;
