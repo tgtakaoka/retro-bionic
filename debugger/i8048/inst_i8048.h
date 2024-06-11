@@ -2,24 +2,17 @@
 #define __INST_I8048_H__
 
 #include <stdint.h>
+#include "pins_i8048.h"
 
 namespace debugger {
 namespace i8048 {
 
 struct InstI8048 final {
-    enum CpuFlags : uint8_t {
-        F_80C39 = 0x2,
-        F_MSM39 = 0x4,
-        F_X8048 = 0x8,
-        F_I8039 = 0x1,
-        F_I80C39 = F_I8039 | F_80C39,
-        F_MSM80C39 = F_I8039 | F_80C39 | F_MSM39,
-        F_I8048 = F_X8048 | F_I8039,
-        F_I80C48 = F_X8048 | F_I8039 | F_80C39,
-        F_MSM80C48 = F_X8048 | F_I8039 | F_80C39 | F_MSM39,
-    };
+    InstI8048() : _flags(F_MSM80C39) {}
 
-    InstI8048(CpuFlags flags) : _flags(flags) {}
+    void setSoftwareType(SoftwareType type) {
+        _flags = (type == SW_I8048) ? F_I8039 : F_MSM80C39;
+    }
 
     uint8_t instLength(uint8_t inst) const;
     uint8_t busCycles(uint8_t inst) const;
@@ -41,11 +34,23 @@ struct InstI8048 final {
     static constexpr uint8_t mb(uint16_t addr) { return (addr >> 11) & 1; }
 
 private:
-    const CpuFlags _flags;
+    enum CpuFlags : uint8_t {
+        F_80C39 = 0x2,
+        F_MSM39 = 0x4,
+        F_X8048 = 0x8,
+        F_I8039 = 0x1,
+        F_I80C39 = F_I8039 | F_80C39,
+        F_MSM80C39 = F_I8039 | F_80C39 | F_MSM39,
+        F_I8048 = F_X8048 | F_I8039,
+        F_I80C48 = F_X8048 | F_I8039 | F_80C39,
+        F_MSM80C48 = F_X8048 | F_I8039 | F_80C39 | F_MSM39,
+    } _flags;
 
     static constexpr uint8_t SEL_MB0 = 0xE5;
     static constexpr uint8_t SEL_MB1 = 0xF5;
 };
+
+extern struct InstI8048 Inst;
 
 }  // namespace i8048
 }  // namespace debugger

@@ -8,6 +8,7 @@
 namespace debugger {
 namespace i8048 {
 
+struct ProgI8048 ProgMemory;
 struct DataI8048 DataMemory;
 
 uint16_t DataI8048::read(uint32_t addr) const {
@@ -28,7 +29,7 @@ uint16_t ProgI8048::get(uint32_t addr, const char *space) const {
     if (space == nullptr || toupper(*space) == 'P')
         return raw_read(addr);
     if (toupper(*space) == 'M')
-        return _regs.read_internal(addr);
+        return Regs.read_internal(addr);
     if (toupper(*space) == 'X')
         return DataMemory.read(addr);
     return 0;
@@ -38,7 +39,7 @@ void ProgI8048::put(uint32_t addr, uint16_t data, const char *space) const {
     if (space == nullptr || toupper(*space) == 'P') {
         raw_write(addr, data);
     } else if (toupper(*space) == 'M') {
-        _regs.write_internal(addr, data);
+        Regs.write_internal(addr, data);
     } else if (toupper(*space) == 'X') {
         DataMemory.write(addr, data);
     }
@@ -47,7 +48,7 @@ void ProgI8048::put(uint32_t addr, uint16_t data, const char *space) const {
 #ifdef WITH_ASSEMBLER
 libasm::Assembler *ProgI8048::assembler() const {
     static auto as = new libasm::i8048::AsmI8048();
-    as->setCpu(_regs.cpu());
+    as->setCpu(Regs.cpu());
     return as;
 }
 #endif
@@ -55,7 +56,7 @@ libasm::Assembler *ProgI8048::assembler() const {
 #ifdef WITH_DISASSEMBLER
 libasm::Disassembler *ProgI8048::disassembler() const {
     static auto dis = new libasm::i8048::DisI8048();
-    dis->setCpu(_regs.cpu());
+    dis->setCpu(Regs.cpu());
     return dis;
 }
 #endif

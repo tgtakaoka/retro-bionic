@@ -63,9 +63,12 @@ struct RegsI8048;
 struct ProgI8048;
 struct InstI8048;
 
+enum SoftwareType : uint8_t {
+    SW_I8048 = 0,
+    SW_MSM80C48 = 1,
+};
+
 struct PinsI8048 final : Pins {
-    PinsI8048(RegsI8048 &regs, ProgI8048 &mems, const InstI8048 &inst)
-        : Pins(), _regs(regs), _mems(mems), _inst(inst) {}
     void reset() override;
     void idle() override;
     bool step(bool show) override;
@@ -78,13 +81,14 @@ struct PinsI8048 final : Pins {
     uint8_t captureWrites(const uint8_t *inst, uint8_t len, uint16_t *addr,
             uint8_t *buf, uint8_t max);
     Signals *cycle(uint8_t data);
+    SoftwareType softwareType() const { return _type; }
 
 private:
-    RegsI8048 &_regs;
-    ProgI8048 &_mems;
-    const InstI8048 &_inst;
+    SoftwareType _type;
 
     void setBreakInst(uint32_t addr) const override;
+
+    void checkSoftwareType();
 
     Signals *prepareCycle();
     Signals *completeCycle(Signals *signals);
@@ -97,6 +101,8 @@ private:
 
     void disassembleCycles();
 };
+
+extern struct PinsI8048 Pins;
 
 }  // namespace i8048
 }  // namespace debugger

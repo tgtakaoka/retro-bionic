@@ -9,10 +9,8 @@ namespace i8048 {
 struct PinsI8048;
 
 struct RegsI8048 final : Regs {
-    RegsI8048(const char *cpu, const char *name, PinsI8048 &pins)
-        : _cpu(cpu), _name(name), _pins(pins) {}
-    const char *cpu() const override { return _cpu; }
-    const char *cpuName() const override { return _name; }
+    const char *cpu() const override;
+    const char *cpuName() const override;
 
     void print() const override;
     void save() override;
@@ -26,11 +24,9 @@ struct RegsI8048 final : Regs {
     uint8_t read_internal(uint8_t addr) const;
     void write_internal(uint8_t addr, uint8_t data) const;
 
-private:
-    const char *const _cpu;
-    const char *const _name;
-    PinsI8048 &_pins;
+    static constexpr const char P8039[] = "P8039";
 
+private:
     static constexpr uint8_t cy = 0x80;
     static constexpr uint8_t ac = 0x40;
     static constexpr uint8_t f0 = 0x20;

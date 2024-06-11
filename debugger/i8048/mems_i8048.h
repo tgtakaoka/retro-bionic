@@ -9,7 +9,7 @@ namespace i8048 {
 struct RegsI8048;
 
 struct ProgI8048 final : DmaMemory {
-    ProgI8048(RegsI8048 &regs) : DmaMemory(Endian::ENDIAN_BIG), _regs(regs) {}
+    ProgI8048() : DmaMemory(Endian::ENDIAN_BIG) {}
 
     uint32_t maxAddr() const override { return 0xFFF; }
     uint16_t get(uint32_t addr, const char *space = nullptr) const override;
@@ -17,8 +17,6 @@ struct ProgI8048 final : DmaMemory {
             const char *space = nullptr) const override;
 
 protected:
-    RegsI8048 &_regs;
-
 #ifdef WITH_ASSEMBLER
     libasm::Assembler *assembler() const override;
 #endif

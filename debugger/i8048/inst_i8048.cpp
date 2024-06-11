@@ -7,6 +7,8 @@
 namespace debugger {
 namespace i8048 {
 
+struct InstI8048 Inst;
+
 namespace {
 
 constexpr uint8_t E(uint8_t len, uint8_t cyc, uint8_t flags) {

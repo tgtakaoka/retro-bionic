@@ -10,6 +10,8 @@
 namespace debugger {
 namespace i8048 {
 
+struct PinsI8048 Pins;
+
 // clang-format off
 /**
  * P8048 bus cycle.
@@ -174,6 +176,24 @@ inline void xtal1_cycle() {
 
 }  // namespace
 
+void PinsI8048::checkSoftwareType() {
+    static constexpr uint8_t DETECT_MSM[] = {
+            0x23, 0x01,  // MOV A, #1
+            0xA8,        // MOV R0, A
+            0xA9,        // MOV R1, A
+            0xC0,        // DEC @R0
+            0x00,        // NOP
+            0xF9,        // MOV A, R1
+            0x90,        // MOVX @R0, A
+    };
+    uint8_t r1;
+    Inst.setSoftwareType(SW_MSM80C48);
+    captureWrites(DETECT_MSM, sizeof(DETECT_MSM), nullptr, &r1, sizeof(r1));
+    _type = r1 ? SW_I8048 : SW_MSM80C48;
+    Inst.setSoftwareType(_type);
+    Regs.restore();
+}
+
 void PinsI8048::reset() {
     // Assert reset condition
     pinsMode(PINS_LOW, sizeof(PINS_LOW), OUTPUT, LOW);
@@ -189,7 +209,8 @@ void PinsI8048::reset() {
         xtal1_cycle();
     Signals::resetCycles();
     // #SS=L
-    _regs.save();
+    Regs.save();
+    checkSoftwareType();
 }
 
 Signals *PinsI8048::prepareCycle() {
@@ -224,7 +245,7 @@ Signals *PinsI8048::prepareCycle() {
             xtal1_lo();
             delayNanoseconds(xtal1_lo_control);
             if (signal_ale() != LOW)
-                break;  // found next cycle
+                break;                           // found next cycle
             const auto valid = s->getControl();  // #PSEN
             if (valid) {
                 // t7
@@ -243,7 +264,7 @@ Signals *PinsI8048::completeCycle(Signals *s) {
         // t8
         xtal1_hi();
         if (s->readMemory()) {
-            s->data = _mems.raw_read(s->addr);
+            s->data = ProgMemory.raw_read(s->addr);
             delayNanoseconds(xtal1_hi_memory);
         } else {
             delayNanoseconds(xtal1_hi_inject);
@@ -286,7 +307,7 @@ Signals *PinsI8048::completeCycle(Signals *s) {
         xtal1_cycle();
         xtal1_cycle();
         xtal1_cycle_lo();
-        while (signal_rd() == LOW) // ensure tDR
+        while (signal_rd() == LOW)  // ensure tDR
             ;
         busMode(DB, INPUT);
     } else if (s->write()) {  // external data write
@@ -381,14 +402,14 @@ void PinsI8048::loop() {
 }
 
 void PinsI8048::run() {
-    _regs.restore();
+    Regs.restore();
     Signals::resetCycles();
     saveBreakInsts();
     loop();
     assert_ss();
     restoreBreakInsts();
     disassembleCycles();
-    _regs.save();
+    Regs.save();
 }
 
 void PinsI8048::injectJumpHere(Signals *s) {
@@ -413,8 +434,8 @@ void PinsI8048::injectJumpHere(Signals *s) {
 bool PinsI8048::rawStep(bool step) {
     negate_ss();
     auto s = prepareCycle();
-    const auto inst = _mems.raw_read(s->addr);
-    const auto len = _inst.instLength(inst);
+    const auto inst = ProgMemory.raw_read(s->addr);
+    const auto len = Inst.instLength(inst);
     if (inst == InstI8048::HALT || len == 0) {
         injectJumpHere(s);
         Signals::discard(s);
@@ -428,7 +449,7 @@ bool PinsI8048::rawStep(bool step) {
         }
         return true;
     }
-    const auto cycles = _inst.busCycles(inst);
+    const auto cycles = Inst.busCycles(inst);
     completeCycle(s);
     for (auto i = 1; i < cycles; ++i) {
         completeCycle(prepareCycle())->clearFetch();
@@ -438,13 +459,13 @@ bool PinsI8048::rawStep(bool step) {
 
 bool PinsI8048::step(bool show) {
     Signals::resetCycles();
-    _regs.restore();
+    Regs.restore();
     if (show)
         Signals::resetCycles();
     if (rawStep(true)) {
         if (show)
             printCycles();
-        _regs.save();
+        Regs.save();
         return true;
     }
     return false;
@@ -459,7 +480,7 @@ void PinsI8048::negateInt(uint8_t name) {
 }
 
 void PinsI8048::setBreakInst(uint32_t addr) const {
-    _mems.put_inst(addr, InstI8048::HALT);
+    ProgMemory.put_inst(addr, InstI8048::HALT);
 }
 
 void PinsI8048::printCycles() {
@@ -477,8 +498,8 @@ void PinsI8048::disassembleCycles() {
     for (auto i = 0; i < cycles;) {
         const auto s = g->next(i);
         if (s->fetch()) {
-            const auto len = _mems.disassemble(s->addr, 1) - s->addr;
-            const auto cycles = _inst.busCycles(s->data);
+            const auto len = ProgMemory.disassemble(s->addr, 1) - s->addr;
+            const auto cycles = Inst.busCycles(s->data);
             for (auto i = len; i < cycles; ++i)
                 s->next(i)->print();
             i += cycles;

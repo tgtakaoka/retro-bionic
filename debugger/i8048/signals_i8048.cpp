@@ -45,7 +45,7 @@ void Signals::markInvalid() {
 }
 
 void Signals::clearFetch() {
-    cntl() &= ~CNTL_PSEN;
+    cntl() |= CNTL_PSEN;
 }
 
 void Signals::print() const {

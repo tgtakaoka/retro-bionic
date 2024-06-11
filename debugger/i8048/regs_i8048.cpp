@@ -9,6 +9,19 @@
 namespace debugger {
 namespace i8048 {
 
+struct RegsI8048 Regs;
+
+constexpr const char I8039[] = "i8039";
+constexpr const char MSM80C39[] = "MSM80C39";
+
+const char *RegsI8048::cpu() const {
+    return Pins.softwareType() == SW_I8048 ? I8039 : MSM80C39;
+}
+
+const char *RegsI8048::cpuName() const {
+    return Pins.softwareType() == SW_I8048 ? P8039 : MSM80C39;
+}
+
 void RegsI8048::print() const {
     static constexpr char line1[] =
             "PC=xxx MB=x PSW=CAFB1111 F0=x F1=x SP=x BS=x A=xx";
@@ -30,7 +43,7 @@ void RegsI8048::print() const {
     for (auto i = 0; i < 8; ++i)
         regs.hex8(3 + i * 6, _r[i]);
     cli.println(regs);
-    _pins.idle();
+    Pins.idle();
 }
 
 void RegsI8048::save() {
@@ -40,15 +53,15 @@ void RegsI8048::save() {
             0x90,  // MOVX @R0, A
     };
     uint8_t buffer[2];
-    _pins.captureWrites(SAVE, sizeof(SAVE), &_pc, buffer, sizeof(buffer));
+    Pins.captureWrites(SAVE, sizeof(SAVE), &_pc, buffer, sizeof(buffer));
     _a = buffer[0];
     _psw = buffer[1];
-    _pins.cycle(InstI8048::JMP(_pc));
-    _pins.cycle(0);
-    const auto mb = _pins.cycle(InstI8048::JF1);
+    Pins.cycle(InstI8048::JMP(_pc));
+    Pins.cycle(0);
+    const auto mb = Pins.cycle(InstI8048::JF1);
     _mb = (mb->addr & 0x800) != 0;
-    _pins.cycle(mb->addr + 10);
-    const auto f1 = _pins.cycle(InstI8048::NOP);
+    Pins.cycle(mb->addr + 10);
+    const auto f1 = Pins.cycle(InstI8048::NOP);
     _f1 = (f1->addr == mb->addr + 10);
     save_r();
 }
@@ -62,7 +75,7 @@ void RegsI8048::restore() {
             0xA5,                      // CLR F1
             uint8(_f1 ? 0xB5 : 0x00),  // CPL F1/NOP
     };
-    _pins.execInst(RESTORE, sizeof(RESTORE));
+    Pins.execInst(RESTORE, sizeof(RESTORE));
     restore_pc(_pc, _mb);
 }
 
@@ -72,7 +85,7 @@ void RegsI8048::save_r() {
                 uint8(0xF8 | i),  // MOV A, Ri
                 0x90,             // MOVX @R0, A
         };
-        _pins.captureWrites(SAVE, sizeof(SAVE), nullptr, &_r[i], 1);
+        Pins.captureWrites(SAVE, sizeof(SAVE), nullptr, &_r[i], 1);
     }
 }
 
@@ -91,7 +104,7 @@ void RegsI8048::restore_pc(uint16_t pc, uint8_t mb) const {
             lo(offset),
             InstI8048::SEL_MB(mb),
     };
-    _pins.execInst(JUMP, sizeof(JUMP));
+    Pins.execInst(JUMP, sizeof(JUMP));
 }
 
 void RegsI8048::set_psw(uint8_t val) {
@@ -104,7 +117,7 @@ void RegsI8048::set_r(uint8_t no, uint8_t val) const {
             uint8_t(0xB8 + no),
             val,
     };
-    _pins.execInst(SET, sizeof(SET));
+    Pins.execInst(SET, sizeof(SET));
 }
 
 void RegsI8048::set_rb(uint8_t val) {
@@ -114,7 +127,7 @@ void RegsI8048::set_rb(uint8_t val) {
         _psw &= ~bs;
     }
     const uint8_t SEL_RB = val ? 0xD5 : 0xC5;
-    _pins.execInst(&SEL_RB, sizeof(SEL_RB));
+    Pins.execInst(&SEL_RB, sizeof(SEL_RB));
     save_r();
 }
 
@@ -128,7 +141,7 @@ uint8_t RegsI8048::read_internal(uint8_t addr) const {
             0xB8, _r[0],  // MOV R0, #r0
     };
     uint8_t data;
-    _pins.captureWrites(READ, sizeof(READ), nullptr, &data, sizeof(data));
+    Pins.captureWrites(READ, sizeof(READ), nullptr, &data, sizeof(data));
     return data;
 }
 
@@ -144,7 +157,7 @@ void RegsI8048::write_internal(uint8_t addr, uint8_t data) const {
             0xA8,        // MOV R0, A
 
     };
-    _pins.execInst(WRITE, sizeof(WRITE));
+    Pins.execInst(WRITE, sizeof(WRITE));
 }
 
 void RegsI8048::helpRegisters() const {
