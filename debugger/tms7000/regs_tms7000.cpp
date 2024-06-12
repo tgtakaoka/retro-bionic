@@ -13,10 +13,12 @@ struct RegsTms7000 Regs;
 
 namespace {
 constexpr const char *const CPU_NAMES[/*HardwareType*/] = {
-        "TMS7000",
-        "TMS7001",
-        "TMS7002",
-        "TMS70C02",
+        "TMS7000NL2",  // 0
+        "TMS7001NL2",  // 1
+        "TMS7002",     // 2
+        "TMS70C02",    // 3
+        "TMS7000NL4",  // 0+4
+        "TMS7001NL4",  // 1+4
 };
 }
 
@@ -25,7 +27,7 @@ const char *RegsTms7000::cpu() const {
 }
 
 const char *RegsTms7000::cpuName() const {
-    const auto type = Pins.hardwareType();
+    const auto type = Pins.hardwareType() + Pins.clockType();
     return CPU_NAMES[type];
 }
 
