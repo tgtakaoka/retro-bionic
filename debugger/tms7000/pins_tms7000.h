@@ -66,6 +66,11 @@ enum HardwareType : uint8_t {
     HW_TMS70C02 = 3,  // TMS70C02
 };
 
+enum ClockType : uint8_t {
+    CLK_DIV2 = 0,  // NL2
+    CLK_DIV4 = 4,  // NL4
+};
+
 enum IntrName : uint8_t {
     INTR_NONE = 0,
     INTR_INT1 = 1,
@@ -85,18 +90,30 @@ struct PinsTms7000 final : Pins {
     void captureWrites(const uint8_t *inst, uint8_t len, uint8_t *buf,
             uint8_t max, uint16_t *addr = nullptr);
     HardwareType hardwareType() const { return _hardType; }
+    ClockType clockType() const {
+        return _clk_cycle == clk4_cycle ? CLK_DIV4 : CLK_DIV2;
+    }
 
 private:
     HardwareType _hardType;
+    static void (*_clk_hi)();
+    static void (*_clk_lo)();
+    static void (*_clk_cycle)();
+    static void clk2_cycle();
+    static void clk4_cycle();
+    static void clk_hi() { _clk_hi(); }
+    static void clk_lo() { _clk_lo(); }
+    static void clk_cycle() { _clk_cycle(); }
 
     void setBreakInst(uint32_t addr) const override;
 
+    void synchronize_clk();
     void checkHardwareType();
-    void loop();
     Signals *prepareCycle() const;
-    Signals *completeCycle(Signals *signals) const;
+    Signals *completeCycle(Signals *s) const;
     Signals *cycle() const;
     Signals *inject(uint8_t data) const;
+    void loop();
     bool rawStep();
     void execute(const uint8_t *inst, uint8_t len, uint8_t *buf = nullptr,
             uint8_t max = 0, uint16_t *addr = nullptr);
