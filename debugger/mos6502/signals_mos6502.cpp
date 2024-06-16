@@ -57,14 +57,13 @@ void Signals::print() const {
         buffer.hex8(14, data);
         cli.println(buffer);
     } else {
-        //                              0123456789012345
-        static constexpr char line[] = "VW A=xxxx D=xx  ";
+        //                              01234567890123
+        static constexpr char line[] = "VW A=xxxx D=xx";
         static auto &buffer = *new CharBuffer(line);
         buffer.hex16(5, addr);
         buffer.hex8(12, data);
         buffer[0] = fetch() ? 'S' : (vector() ? 'V' : ' ');
         buffer[1] = write() ? 'W' : 'R';
-        buffer.hex4(15, cntl());
         cli.println(buffer);
     }
 }
