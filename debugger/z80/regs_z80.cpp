@@ -70,10 +70,10 @@ void RegsZ80::saveRegs(reg &regs) {
 
 void RegsZ80::restoreRegs(const reg &regs) {
     uint8_t POP_ALL[] = {
-            0xF1, regs.f, regs.a,  //  1: POP AF
-            0xC1, regs.c, regs.b,  //  4: POP BC
-            0xD1, regs.e, regs.d,  //  7: POP DE
-            0xE1, regs.l, regs.h,  // 10: POP HL
+            0xF1, regs.f, regs.a,  // POP AF
+            0xC1, regs.c, regs.b,  // POP BC
+            0xD1, regs.e, regs.d,  // POP DE
+            0xE1, regs.l, regs.h,  // POP HL
     };
     Pins.execInst(POP_ALL, sizeof(POP_ALL));
 }
@@ -108,10 +108,12 @@ void RegsZ80::save() {
 
 void RegsZ80::restore() {
     uint8_t LD_OTHERS[] = {
-            0x3E, _r,    // LD A, _r
-            0xED, 0x4F,  // LD R, A
-            0x3E, _i,    // LD A, _i
-            0xED, 0x47,  // LD A, I
+            0x3E, _r,                // LD A, _r
+            0xED, 0x4F,              // LD R, A
+            0x3E, _i,                // LD A, _i
+            0xED, 0x47,              // LD A, I
+            0xFD, lo(_iy), hi(_iy),  // POP IY, _iy
+            0xDD, lo(_ix), hi(_ix),  // POP IX, _ix
     };
     Pins.execInst(LD_OTHERS, sizeof(LD_OTHERS));
     restoreRegs(_main);
