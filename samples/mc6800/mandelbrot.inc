@@ -4,25 +4,39 @@
 ;;; Print variable: "A=variable "
 ;;; @param X variable
 ;;; @param A variable letter
-;;; @clobber R0
+;;; @clobber R0 R2
 print:
         stx     R0
         jsr     putchar         ; print variable letter
         ldaa    #'='
         jsr     putchar         ; '='
+        ldaa    R0H
+        ldab    R0L
         jsr     print_int16
         jmp     putspace
 
 ;;; Sign extend A into X
 ;;; @param A
 ;;; @return X sign extended A
+;;; @clobber R0
 sex_A:
-        clr     arith_work
-        staa    arith_work+1
+        clr     R0H
+        staa    R0L
         bpl     load_8bit_plus
-        com     arith_work
+        com     R0H
 load_8bit_plus:
-        ldx     arith_work
+        ldx     R0
+        rts
+
+;;; Sign extend B into D
+;;; @param B
+;;; @return D sign extended B
+sex_B:
+        clra
+        tstb
+        bpl     sex_B_exit
+        coma
+sex_B_exit:
         rts
 
 mandelbrot:
@@ -32,32 +46,20 @@ loop_y:
         ldaa    #-49
         staa    vX              ; X=-49
 loop_x:
-        ldaa    vX
-        bsr     sex_A
-        stx     R1              ; R1=X
+        ldab    vX
+        bsr     sex_B
         ldx     #229
-        stx     R2
-        jsr     mul16           ; R0=X*229
-        ldx     R0
-        stx     R1
+        jsr     mul16           ; X*229
         ldx     #100
-        stx     R2
-        jsr     div16           ; R0=X*229/100
-        ldx     R0
+        jsr     div16           ; X*229/100
         stx     vC              ; C=X*229/100
         stx     vA              ; A=C
-        ldaa    vY
-        bsr     sex_A
-        stx     R1              ; R1=Y
+        ldab    vY
+        bsr     sex_B
         ldx     #416
-        stx     R2
-        jsr     mul16           ; R0=Y*416
-        ldx     R0
-        stx     R1
+        jsr     mul16           ; Y*416
         ldx     #100
-        stx     R2
-        jsr     div16           ; R0=Y*416/100
-        ldx     R0
+        jsr     div16           ; Y*416/100
         stx     vD              ; D=Y*416/100
         stx     vB              ; B=D
         clr     vI              ; I=0
@@ -79,99 +81,80 @@ loop_x:
         ;; jsr     newline
 
 loop_i:
-        ldx     vB
-        stx     R1              ; R1=B
+        ldaa    vB
+        ldab    vB+1
         ldx     #F
-        stx     R2              ; R2=F
-        jsr     div16           ; R0=B/F
-        ldx     R0
+        jsr     div16           ; B/F
         stx     vQ              ; Q=B/F
-        stx     R1              ; R1=Q
-        ldx     #F
-        stx     R2              ; R2=F
-        jsr     mul16           ; R0=Q*F
-        ldx     R0
-        stx     R2              ; R2=Q*F
-        ldx     vB
-        stx     R1              ; R1=B
-        jsr     sub16           ; R0=B-Q*F
-        ldx     R0
-        stx     vS              ; S=B-Q*F
+        ldx     #-F
+        jsr     mul16           ; -Q*F
+        addb    vB+1
+        adca    vB              ; B-Q*F
+        staa    vS              ; S=B-Q*F
+        stab    vS+1
+        ldaa    vA
+        ldab    vA+1
         ldx     vA
-        stx     R1              ; R1=A
-        stx     R2              ; R2=A
-        jsr     mul16           ; R0=A*A
-        ldx     R0
-        jsr     push_X          ; push A*A
+        jsr     mul16           ; A*A
+        pshb
+        psha                    ; push A*A
+        ldaa    vB
+        ldab    vB+1
         ldx     vB
-        stx     R1              ; R1=B
-        stx     R2              ; R2=B
-        jsr     mul16           ; R0=B*B
+        jsr     mul16           ; B*B
         ldx     R0
-        stx     R2              ; R2=B*B
-        jsr     pop_X
-        stx     R1              ; R1=A*A
-        jsr     sub16           ; R0=A*A-B*B
-        ldx     R0
-        stx     R1              ; R1=A*A-B*B
+        pula
+        pulb                    ; pull A*A
+        subb    R0L
+        sbca    R0H             ; A*A-B*B
         ldx     #F
-        stx     R2
-        jsr     div16           ; R0=(A*A-B*B)/F
-        ldx     R0
-        stx     R1              ; R1=(A*A-B*B)/F
-        ldx     vC
-        stx     R2              ; R2=C
-        jsr     add16           ; R0=(A*A-B*B)/F+C
-        ldx     R0
-        jsr     push_X          ; push (A*A-B*B)/F+C
-        ldx     vA
-        stx     R1              ; R1=A
+        jsr     div16           ; (A*A-B*B)/F
+        addb    vC+1
+        adca    vC              ; (A*A-B*B)/F+C
+        pshb
+        psha                    ; push (A*A-B*B)/F+C
+        ldaa    vA
+        ldab    vA+1
         ldx     vQ
-        stx     R2              ; R2=Q
-        jsr     mul16           ; R0=A*Q
-        ldx     R0
-        jsr     push_X          ; push A*Q
-        ldx     vA
-        stx     R1              ; R1=A
+        jsr     mul16           ; A*Q
+        pshb
+        psha                    ; push A*Q
+        ldaa    vA
+        ldab    vA+1
         ldx     vS
-        stx     R2              ; R2=S
-        jsr     mul16           ; R0=A*S
-        ldx     R0
-        stx     R1              ; R1=A*S
+        jsr     mul16           ; A*S
         ldx     #F
-        stx     R2
-        jsr     div16           ; R0=A*S/F
-        ldx     R0
+        jsr     div16           ; A*S/F
         stx     R2              ; R2=A*S/F
-        jsr     pop_X
-        stx     R1              ; R1=A*Q
-        jsr     add16           ; R0=A*Q+A*S/F
-        ldx     R0
-        stx     R1              ; R1=A*Q+A*S/F
-        stx     R2              ; R2=A*Q+A*S/F
-        jsr     add16           ; R0=2*(A*Q+A*S/F)
-        ldx     R0
-        stx     R1              ; R1=2*(A*Q+A*S/F)
-        ldx     vD
-        stx     R2              ; R2=D
-        jsr     add16           ; R0=2*(A*Q+A*S/F)+D
-        ldx     R0
-        stx     vB              ; B=2*(A*Q+A*S/F)+D
-        jsr     pop_X           ; pop (A*A-B*B)/F+C
-        stx     vA              ; A=(A*A-B*B)/F+C
-        stx     R1              ; R1=A
+        pula
+        pulb                    ; pull A*Q
+        addb    R2L
+        adca    R2H             ; A*Q+A*S/F
+        lslb
+        rola                    ; 2*(A*Q+A*S/F)
+        addb    vD+1
+        adca    vD              ; 2*(A*Q+A*S/F)+D
+        staa    vB              ; B=2*(A*Q+A*S/F)+D
+        stab    vB+1
+        pula
+        pulb                    ; pull (A*A-B*B)/F+C
+        staa    vA              ; A=(A*A-B*B)/F+C
+        stab    vA+1
         ldx     #F
-        stx     R2              ; R2=F
-        jsr     div16           ; R0=A/F
-        ldx     R0
+        jsr     div16           ; A/F
         stx     vP              ; P=A/F
-        ldx     vB
-        stx     R1              ; R1=B
+        jsr     mul16           ; P*P
+        stx     vT              ; T=P*P
+        ldaa    vB
+        ldab    vB+1
         ldx     #F
-        stx     R2              ; R2=F
-        jsr     div16           ; R0=B/F
-        ldx     R0
+        jsr     div16           ; B/F
         stx     vQ              ; Q=B/F
+        jsr     mul16           ; Q*Q
+        addb    vT+1
+        adca    vT
+        staa    vT              ; T=P*P+Q*Q
+        stab    vT+1
 
         ;; jsr     putspace
         ;; ldaa    vI              ; I
@@ -190,29 +173,16 @@ loop_i:
         ;; ldx     vQ              ; Q
         ;; ldaa    #'Q'
         ;; jsr     print
+        ;; ldx     vT              ; T
+        ;; ldaa    #'T'
+        ;; jsr     print
         ;; jsr     newline
 
-        ldx     vP
-        stx     R1              ; R1=P
-        stx     R2              ; R2=P
-        jsr     mul16           ; R0=P*P
-        ldx     R0
-        jsr     push_X          ; push P*P
-        ldx     vQ
-        stx     R1              ; R1=Q
-        stx     R2              ; R2=Q
-        jsr     mul16           ; R0=Q*Q
-        ldx     R0
-        stx     R1              ; R1=Q*Q
-        jsr     pop_X           ; pop P*P
-        stx     R2              ; R2=P*P
-        jsr     add16           ; R0=Q*Q+P*P
-        ldx     R0
-        stx     R2              ; R2=Q*Q+P*P
-        ldx     #4
-        stx     R1              ; R1=4
-        jsr     cmp16           ; compare 4 and Q*Q+P*P
-        bmi     print_i         ; if 4<P*P+Q*Q
+        ldaa    vT
+        bne     print_i         ; if T>=256
+        ldaa    vT+1
+        cmpa    #4
+        bhi     print_i         ; if 4<T
         inc     vI              ; I+=1
         ldaa    vI
         cmpa    #16
