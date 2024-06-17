@@ -5,17 +5,6 @@
 ACIA:   equ     $DF00
         include "mc6850.inc"
 
-        org     $20
-R0:
-R0H:    rmb     1
-R0L:    rmb     1
-R1:
-R1H:    rmb     1
-R1L:    rmb     1
-R2:
-R2H:    rmb     1
-R2L:    rmb     1
-
         org     $1000
 stack:  equ     *-1             ; MC6800's SP is post-decrement/pre-increment
 
@@ -54,41 +43,44 @@ putchar:
         sta     ACIA_data
         rts
 
-;;; Print "X op U"
-;;; @params A op letter
-;;; @return R1 X
-;;; @return R2 U
-;;; @clobber A R0
+;;; Print "v1 op v2"
+;;; @param X v1
+;;; @param Y v2
+;;; @param A op
+;;; @return D=X
+;;; @return X=U
 expr:
         pshs    U,X,A
-        stx     R0
-        jsr     print_int16     ; print R1
+        tfr     X,D
+        jsr     print_int16     ; print v1
         bsr     putspace
         puls    A
         bsr     putchar         ; print op
         bsr     putspace
-        stu     R0
-        jsr     print_int16     ; print R2
-        puls    X,U
-        stx     R1
-        stu     R2
-        rts
+        tfr     U,D
+        jsr     print_int16     ; print v2
+        puls    D,X,PC
 
-;;; Print " = R0\n"
-;;; @clobber R0 R1 R2
+;;; Print " = v\n"
+;;; @param D v
 answer:
+        pshs    D
         bsr     putspace
         lda     #'='
         bsr     putchar
         bsr     putspace
-        jsr     print_int16     ; print R0
+        puls    D
+        jsr     print_int16     ; print v
         bra     newline
 
-;;; Print "R1 rel R2"
-;;; @clobber R0
+;;; Print "v1 rel v2"
+;;; @param X v1
+;;; @param U v2
+;;; @clobber D
 comp:
-        ldd     R1
-        subd    R2
+        pshs    X,U
+        ldd     ,S
+        subd    2,S
         beq     comp_eq
         blt     comp_lt
         bgt     comp_gt
@@ -104,24 +96,19 @@ comp_lt:
         lda     #'<'
 comp_out:
         bsr     expr
-        bra     newline
+        bsr     newline
+        puls    X,U,PC
 
-;;; Addition: X=X+U
-;;; @return X R0
+;;; Addition: D+=X
 add16:
-        pshs    U
-        tfr     X, D
+        stx     ,--S
         addd    ,S++
-        std     R0
         rts
 
-;;; Subtraction: D=X-U
-;;; @return D R0
+;;; Subtraction: D-=X
 sub16:
-        pshs    U
-        tfr     X, D
+        stx     ,--S
         subd    ,S++
-        std     R0
         rts
 
 arith:

@@ -17,6 +17,7 @@ vB:     rmb     2
 vS:     rmb     2
 vP:     rmb     2
 vQ:     rmb     2
+vT:     rmb     2
 vY:     rmb     1
 vX:     rmb     1
 vI:     rmb     1

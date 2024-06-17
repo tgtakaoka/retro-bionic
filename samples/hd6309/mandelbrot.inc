@@ -57,10 +57,9 @@ loop_i:
         divq    #F              ; W: B/F
         stw     vQ              ; Q=B/F
         tfr     W, D            ; D: Q
-        muld    #F              ; Q: Q*F
-        ldd     vB              ; D: B
-        subr    W, D            ; D: B-Q*F
-        std     vS              ; S=B-Q*F
+        muld    #-F             ; Q: -Q*F
+        addw    vB              ; W: B-Q*F
+        stw     vS              ; S=B-Q*F
         ldd     vA              ; D: A
         muld    vA              ; Q: A*A
         pshsw                   ; push A*A

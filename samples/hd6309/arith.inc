@@ -30,7 +30,7 @@ print_uint16_loop:
         beq     print_uint16_end ; branch if value == 0
         clrd
         divq    #10             ; D:W/10=W...D
-        pshs    B               ; push reminder
+        pshs    B               ; push remainder
         bsr     print_uint16_loop
         puls    A
         ora     #'0'
