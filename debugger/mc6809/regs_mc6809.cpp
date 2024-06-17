@@ -44,32 +44,35 @@ const char *RegsMc6809::cpuName() const {
 }
 
 void RegsMc6809::print() const {
-    // clang-format off
-    //                               012345678901234567890123456789012345678901234567890123456789012
-    static constexpr char line1[] = "DP=xx PC=xxxx S=xxxx U=xxxx Y=xxxx X=xxxx A=xx B=xx CC=EFHINZVC";
-    // clang-format on
+    static constexpr char line1[] =
+            // 2345678901234567890123456789012345678901234567890123456789012
+            "PC=xxxx S=xxxx X=xxxx Y=xxxx U=xxxx A=xx B=xx DP=xx CC=EFHINZVC";
     static auto &buffer1 = *new CharBuffer(line1);
-    buffer1.hex8(3, _dp);
-    buffer1.hex16(9, _pc);
-    buffer1.hex16(16, _s);
-    buffer1.hex16(23, _u);
-    buffer1.hex16(30, _y);
-    buffer1.hex16(37, _x);
-    buffer1.hex8(44, _a);
-    buffer1.hex8(49, _b);
+    buffer1.hex16(3, _pc);
+    buffer1.hex16(10, _s);
+    buffer1.hex16(17, _x);
+    buffer1.hex16(24, _y);
+    buffer1.hex16(31, _u);
+    buffer1.hex8(38, _a);
+    buffer1.hex8(43, _b);
+    buffer1.hex8(49, _dp);
     buffer1.bits(55, _cc, 0x80, line1 + 55);
-    cli.print(buffer1);
-    if (_type == SW_HD6309) {
-        //                               0123456789012345
-        static constexpr char line2[] = " W=xxxx V=xxxx N";
-        static auto &buffer2 = *new CharBuffer(line2);
-        buffer2.hex8(3, _e);
-        buffer2.hex8(5, _f);
-        buffer2.hex16(10, _v);
-        buffer2[14] = _native6309 ? ' ' : 0;
-        cli.print(buffer2);
-    }
-    cli.println();
+    cli.println(buffer1);
+    _pins.idle();
+    if (_type == SW_MC6809)
+        return;
+
+    static constexpr char line2[] =
+            // 234567890123456789012345678901234567890123456789
+            "               D=xxxx W=xxxx V=xxxx E=xx F=xx MD=x";
+    static auto &buffer2 = *new CharBuffer(line2);
+    buffer2.hex16(17, _d());
+    buffer2.hex16(24, _w());
+    buffer2.hex16(31, _v);
+    buffer2.hex8(38, _e);
+    buffer2.hex8(43, _f);
+    buffer2.hex1(49, _md);
+    cli.println(buffer2);
     _pins.idle();
 }
 
@@ -88,10 +91,10 @@ void RegsMc6809::save() {
 
 void RegsMc6809::restore() {
     if (_type == SW_HD6309) {
-        loadMode(_native6309);
+        loadMode(_md);
         loadVW();
     }
-    loadStack(_s - (_native6309 ? 14 : 12));
+    loadStack(_s - (_md ? 14 : 12));
     // 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6
     // 1:N:R:r:r:r:r:r:r:r:r:r:r:r:X     MC6809
     // 1:N:R:r:r:r:r:r:r:r:r:r:r:r:r:r:X HD6309 native
@@ -101,7 +104,7 @@ void RegsMc6809::restore() {
     RTI[cycle++] = _cc;
     RTI[cycle++] = _a;
     RTI[cycle++] = _b;
-    if (_native6309) {
+    if (_md) {
         RTI[cycle++] = _e;
         RTI[cycle++] = _f;
     }
@@ -114,7 +117,7 @@ void RegsMc6809::restore() {
 }
 
 uint8_t RegsMc6809::contextLength() const {
-    return _native6309 ? 14 : 12;
+    return _md ? 14 : 12;
 }
 
 uint16_t RegsMc6809::capture(const Signals *frame, bool step) {
@@ -131,7 +134,7 @@ uint16_t RegsMc6809::capture(const Signals *frame, bool step) {
 
 void RegsMc6809::saveContext(uint8_t *context, uint8_t n, uint16_t sp) {
     _s = sp;
-    _native6309 = (n == 14);
+    _md = (n == 14);
     // Capturing writes to stack in little endian order.
     _pc = le16(context + 0);
     _u = le16(context + 2);
@@ -139,7 +142,7 @@ void RegsMc6809::saveContext(uint8_t *context, uint8_t n, uint16_t sp) {
     _x = le16(context + 6);
     _dp = context[8];
     uint8_t i = 8;
-    if (_native6309) {
+    if (_md) {
         _f = context[++i];
         _e = context[++i];
     }
@@ -178,7 +181,7 @@ void RegsMc6809::saveVW() {
             0x1F, 0x76,  // TFR V,W ; 1:2:x:x:x:x (HD6309)
                          //         ; 1:2:x:x     (HD6309 native)
     };
-    _pins.injectReads(TFR, sizeof(TFR), _native6309 ? 4 : 6);
+    _pins.injectReads(TFR, sizeof(TFR), _md ? 4 : 6);
     _pins.injectReads(STW, sizeof(STW));
     _pins.captureWrites(buffer, sizeof(buffer));
     _v = be16(buffer);
@@ -193,7 +196,7 @@ void RegsMc6809::loadVW() const {
             0x1F, 0x67,  // TFR W,V ; 1:2:x:x:x:x (HD6309)
                          //         ; 1:2:x:x     (HD6309 native)
     };
-    _pins.injectReads(TFR, sizeof(TFR), _native6309 ? 4 : 6);
+    _pins.injectReads(TFR, sizeof(TFR), _md ? 4 : 6);
     LDW[2] = _e;
     LDW[3] = _f;
     _pins.injectReads(LDW, sizeof(LDW));
@@ -232,6 +235,9 @@ constexpr const char *REGS16_6309[] = {
 constexpr const char *REGS32_6309[] = {
         "Q",  // 16
 };
+constexpr const char *REGS1_6309[] = {
+        "MD",  // 17
+};
 
 const Regs::RegList *RegsMc6809::listRegisters(uint8_t n) const {
     static constexpr RegList REG_LIST[] = {
@@ -240,8 +246,9 @@ const Regs::RegList *RegsMc6809::listRegisters(uint8_t n) const {
             {REGS8_6309, 2, 12, UINT8_MAX},
             {REGS16_6309, 2, 14, UINT16_MAX},
             {REGS32_6309, 1, 16, UINT32_MAX},
+            {REGS1_6309, 1, 17, 1},
     };
-    const auto r = (_type == SW_MC6809) ? 2 : 5;
+    const auto r = (_type == SW_MC6809) ? 2 : 6;
     return n < r ? &REG_LIST[n] : nullptr;
 }
 
@@ -292,6 +299,9 @@ void RegsMc6809::setRegister(uint8_t reg, uint32_t value) {
         break;
     case 16:
         _q(value);
+        break;
+    case 17:
+        _md = value;
         break;
     }
 }

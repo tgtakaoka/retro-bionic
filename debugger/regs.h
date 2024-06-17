@@ -68,6 +68,9 @@ protected:
     static constexpr uint16_t lo16(uint32_t v) {
         return static_cast<uint16_t>(v >> 0);
     }
+    static constexpr uint32_t uint32(uint16_t hi, uint16_t lo) {
+        return static_cast<uint16_t>(hi) << 8 | lo;
+    }
     static void swap8(uint8_t &a, uint8_t &b) {
         auto tmp = a;
         a = b;

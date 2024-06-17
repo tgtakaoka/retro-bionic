@@ -38,7 +38,6 @@ struct RegsMc6809 : Regs {
 protected:
     PinsMc6809 &_pins;
     SoftwareType _type;
-    bool _native6309;
 
     uint16_t _s;
     uint16_t _pc;
@@ -49,17 +48,21 @@ protected:
     uint8_t _a;
     uint8_t _b;
     uint8_t _cc;
+    uint8_t _md;
+    uint16_t _d() const { return uint16(_a, _b); }
     void _d(uint16_t d) {
         _a = hi(d);
         _b = lo(d);
     }
     uint8_t _e;
     uint8_t _f;
+    uint16_t _w() const { return uint16(_e, _f); }
     void _w(uint16_t w) {
         _e = hi(w);
         _f = lo(w);
     }
     uint16_t _v;
+    uint32_t _q() const { return uint32(_d(), _w()); }
     void _q(uint32_t q) {
         _d(hi16(q));
         _w(lo16(q));
