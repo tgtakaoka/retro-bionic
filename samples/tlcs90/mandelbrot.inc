@@ -1,6 +1,8 @@
 ;;; -*- mode: asm; mode: flyspell-prog; -*-
-        org     1000H
 
+;;; Sign extend C into BC
+;;; @param C 8-bit value
+;;; @return BC 16-bit value
 sex_BC:
         ld      B, 0
         bit     7, C
@@ -8,6 +10,9 @@ sex_BC:
         ld      B, -1
         ret
 
+;;; Sign extend L into HL
+;;; @param L 8-bit value
+;;; @return HL 16-bit value
 sex_HL:
         ld      H, 0
         bit     7, L
@@ -24,19 +29,19 @@ loop_x:
         ld      C, (vX)
         call    sex_BC
         ld      DE, 229
-        call    mulsi2          ; C=X*229
+        call    mul16           ; X*229
         ld      BC, HL
         ld      DE, 100
-        call    divsi2          ; C=X*229/100
-        ld      (vC), HL
+        call    div16           ; X*229/100
+        ld      (vC), HL        ; C=X*229/100
         ld      (vA), HL        ; A=C
         ld      C, (vY)
         call    sex_BC
         ld      DE, 416
-        call    mulsi2          ; D=Y*416
+        call    mul16           ; D=Y*416
         ld      BC, HL
         ld      DE, 100
-        call    divsi2          ; D=Y*416/100
+        call    div16           ; D=Y*416/100
         ld      (vD), HL
         ld      (vB), HL        ; B=D
         ld      (vI), 0         ; I=0
@@ -60,63 +65,63 @@ loop_x:
 loop_i:
         ld      BC, (vB)
         ld      DE, Fv
-        call    divsi2          ; Q=B/F
-        ld      (vQ), HL
+        call    div16           ; B/F
+        ld      (vQ), HL        ; Q=B/F
         ld      BC, HL
         ld      DE, Fv
-        call    mulsi2          ; HL=Q*F
+        call    mul16           ; Q*F
         ld      DE, HL
         ld      HL, (vB)
-        sub     HL, DE
+        sub     HL, DE          ; B-Q*F
         ld      (vS), HL        ; S=B-Q*F
         ld      BC, (vB)
         ld      DE, BC
-        call    mulsi2          ; B*B
+        call    mul16           ; B*B
         push    HL              ; push B*B
         ld      BC, (vA)
         ld      DE, BC
-        call    mulsi2          ; HL=A*A
+        call    mul16           ; A*A
         pop     DE
-        sub     HL, DE          ; HL=A*A-B*B
+        sub     HL, DE          ; A*A-B*B
         ld      BC, HL
         ld      DE, Fv
-        call    divsi2          ; HL=(A*A-B*B)/F
-        add     HL, (vC)
-        ld      (vT), HL        ; T=(A*A-B*B)/F+C
+        call    div16           ; (A*A-B*B)/F
+        add     HL, (vC)        ; (A*A-B*B)/+C
+        push    HL              ; push (A*A-B*B)/F+C
         ld      BC, (vA)
         ld      DE, (vS)
-        call    mulsi2          ; A*S
+        call    mul16           ; A*S
         ld      BC, HL
         ld      DE, Fv
-        call    divsi2          ; A*S/F
+        call    div16           ; A*S/F
         push    HL              ; push A*S/F
         ld      BC, (vA)
         ld      DE, (vQ)
-        call    mulsi2          ; HL=A*Q
-        pop     DE
-        add     HL, DE          ; HL=A*Q+A*S/F
-        add     HL, HL          ; HL=2*(A*Q+A*S/F)
-        add     HL, (vD)
+        call    mul16           ; A*Q
+        pop     DE              ; pop A*S/F
+        add     HL, DE          ; A*Q+A*S/F
+        add     HL, HL          ; 2*(A*Q+A*S/F)
+        add     HL, (vD)        ; 2*(A*Q+A*S/F)+D
         ld      (vB), HL        ; B=2*(A*Q+A*S/F)+D
-        ld      HL, (vT)
-        ld      (vA), HL        ; A=T
-        ld      BC, HL
+        pop     BC              ; pop (A*A-B*B)/F+C
+        ld      (vA), BC        ; A=(A*A-B*B)/F+C
         ld      DE, Fv
-        call    divsi2          ; P=A/F
-        ld      (vP), HL
+        call    div16           ; A/F
+        ld      (vP), HL        ; P=A/F
         ld      BC, HL
         ld      DE, HL
-        call    mulsi2
+        call    mul16           ; P*P
         push    HL              ; push P*P
         ld      BC, (vB)
         ld      DE, Fv
-        call    divsi2          ; Q=B/F
-        ld      (vQ), HL
+        call    div16           ; B/F
+        ld      (vQ), HL        ; Q=B/F
         ld      BC, HL
         ld      DE, HL
-        call    mulsi2          ; HL=Q*Q
+        call    mul16           ; Q*Q
         pop     DE              ; pop P*P
-        add     HL, DE          ; HL=P*P+Q*Q
+        add     HL, DE          ; P*P+Q*Q
+        ld      (vT), HL        ; T=P*P+Q*Q
 
         ;; push    HL
         ;; call    putspace
@@ -196,7 +201,7 @@ print:
         call    print_int16
         jp      putspace
 
-vF:     ds      2
+;;; workspace
 vC:     ds      2
 vD:     ds      2
 vA:     ds      2
@@ -205,7 +210,6 @@ vP:     ds      2
 vQ:     ds      2
 vS:     ds      2
 vT:     ds      2
-tmp:    ds      2
 vY:     ds      1
 vX:     ds      1
 vI:     ds      1

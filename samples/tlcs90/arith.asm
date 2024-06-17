@@ -62,10 +62,10 @@ putspace:
         ret
 
 ;;; Print "v1 op v2 = "
-;;; @param v1: BC
-;;; @param v2: DE
-;;; @param op: A
-;;; @return v1: HL
+;;; @param v1 BC
+;;; @param v2 DE
+;;; @param op A
+;;; @return v1 HL
 ;;; @clobber A
 expr:
         push    AF
@@ -81,7 +81,7 @@ expr:
         ret
 
 ;;; Print " v1\n"
-;;; @param v1: HL
+;;; @param v1 HL
 ;;; @clobber A HL
 answer:
         call    putspace
@@ -92,9 +92,9 @@ answer:
         jr      newline
 
 ;;; Compare and print "v1 rel v2\n"
-;;; @param v1: BC
-;;; @param v2: DE
-;;; @clobber A H:
+;;; @param v1 BC
+;;; @param v2 DE
+;;; @clobber A HL
 comp:
         ld      HL, BC
         cp      HL, DE
@@ -163,56 +163,56 @@ arith:
         ld      DE, 300
         ld      A, '*'
         call    expr
-        call    mulsi2
+        call    mul16
         call    answer          ; 30000
 
         ld      BC, 300
         ld      DE, -200
         ld      A, '*'
         call    expr
-        call    mulsi2
+        call    mul16
         call    answer          ; 5536
 
         ld      BC, 100
         ld      DE, -300
         ld      A, '*'
         call    expr
-        call    mulsi2
+        call    mul16
         call    answer          ; -30000
 
         ld      BC, -200
         ld      DE, -100
         ld      A, '*'
         call    expr
-        call    mulsi2
+        call    mul16
         call    answer          ; 20000
 
         ld      BC, 30000
         ld      DE, 100
         ld      A, '/'
         call    expr
-        call    divsi2
+        call    div16
         call    answer          ; 300
 
         ld      BC, -200
         ld      DE, 100
         ld      A, '/'
         call    expr
-        call    divsi2
+        call    div16
         call    answer          ; -2
 
         ld      BC, -30000
         ld      DE, -200
         ld      A, '/'
         call    expr
-        call    divsi2
+        call    div16
         call    answer          ; 150
 
         ld      BC, -30000
         ld      DE, 78
         ld      A, '/'
         call    expr
-        call    divsi2
+        call    div16
         call    answer          ; -384
 
         ld      BC, -48
