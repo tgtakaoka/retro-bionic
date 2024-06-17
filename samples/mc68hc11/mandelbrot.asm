@@ -17,6 +17,7 @@ vB:     rmb     2
 vS:     rmb     2
 vP:     rmb     2
 vQ:     rmb     2
+vT:     rmb     2
 vY:     rmb     1
 vX:     rmb     1
 vI:     rmb     1
@@ -31,6 +32,7 @@ R1L:    rmb     1
 R2:
 R2H:    rmb     1
 R2L:    rmb     1
+sign:   rmb     1
 
         org     $2000
 rx_queue_size:  equ     128
@@ -84,7 +86,6 @@ getchar:
 
 ;;; Put character
 ;;; @param A
-;;; @clobber X
 putspace:
         ldaa    #' '
         bra     putchar
@@ -93,6 +94,7 @@ newline:
         bsr     putchar
         ldaa    #$0A
 putchar:
+        pshx
         psha
         ldx     #tx_queue
 putchar_retry:
@@ -103,6 +105,7 @@ putchar_retry:
         ldaa    #RX_INT_TX_INT  ; enable Tx interrupt
         staa    ACIA_control
         pula
+        pulx
         rts
 
         include "mandelbrot.inc"

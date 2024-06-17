@@ -15,6 +15,7 @@ R1L:    rmb     1
 R2:
 R2H:    rmb     1
 R2L:    rmb     1
+sign:   rmb     1
 
         org     $1000
 stack:  equ     *-1             ; MC6800's SP is post-decrement/pre-increment
@@ -48,41 +49,54 @@ newline:
         bsr     putchar
         ldaa    #$0A
 putchar:
+        pshb
         ldab    ACIA_status
         bitb    #TDRE_bm
+        pulb
         beq     putchar
         staa    ACIA_data
         rts
 
-;;; Print "R1 op R2"
-;;; @params A op letter
-;;; @clobber R0
+;;; Print "v1 op v2"
+;;; @param X v1
+;;; @param Y v2
+;;; @param A op
+;;; @return D v1
+;;; @return X v2
+;;; @clobber R1 R2
 expr:
         psha
-        ldx     R1
-        stx     R0
-        jsr     print_int16     ; print R1
+        stx     R1
+        sty     R2
+        ldd     R1
+        jsr     print_int16     ; print v1
         bsr     putspace
         pula
         bsr     putchar         ; print op
         bsr     putspace
+        ldd     R2
+        jsr     print_int16     ; print v2
+        ldd     R1
         ldx     R2
-        stx     R0
-        jmp     print_int16     ; print R2
+        rts
 
-;;; Print " = R0\n"
-;;; @clobber R0 R1 R2
+;;; Print " = v\n"
+;;; @param D v
 answer:
+        psha
         bsr     putspace
         ldaa    #'='
         bsr     putchar
         bsr     putspace
-        jsr     print_int16     ; print R0
+        pula
+        jsr     print_int16     ; print v
         bra     newline
 
-;;; Print "R1 rel R2"
-;;; @clobber R0
+;;; Print "v1 rel v2"
+;;; @clobber R1 R2
 comp:
+        stx     R1
+        sty     R2
         ldd     R1
         subd    R2
         beq     comp_eq
@@ -104,228 +118,168 @@ comp_out:
 
 arith:
         ldx     #18000
-        stx     R1
-        ldx     #28000
-        stx     R2
+        ldy     #28000
         ldaa    #'+'
         jsr     expr
-        jsr     add16           ; R0=R1+R2
+        addd    R2
         jsr     answer          ; -19536
 
         ldx     #18000
-        stx     R1
-        ldx     #-18000
-        stx     R2
+        ldy     #-18000
         ldaa    #'+'
         jsr     expr
-        jsr     add16           ; R0=R1+R2
+        addd    R2
         jsr     answer          ; 0
 
         ldx     #-18000
-        stx     R1
-        ldx     #-18000
-        stx     R2
+        ldy     #-18000
         ldaa    #'+'
         jsr     expr
-        jsr     add16           ; R0=R1+R2
+        addd    R2
         jsr     answer          ; 29536
 
         ldx     #-18000
-        stx     R1
-        ldx     #-28000
-        stx     R2
+        ldy     #-28000
         ldaa    #'-'
         jsr     expr
-        jsr     sub16           ; R0=R1-R2
+        subd    R2
         jsr     answer          ; -19536
 
         ldx     #18000
-        stx     R1
-        ldx     #-18000
-        stx     R2
+        ldy     #-18000
         ldaa    #'-'
         jsr     expr
-        jsr     sub16           ; R0=R1-R2
+        subd    R2
         jsr     answer          ; 29536
 
         ldx     #-28000
-        stx     R1
-        ldx     #-18000
-        stx     R2
+        ldy     #-18000
         ldaa    #'-'
         jsr     expr
-        jsr     sub16           ; R0=R1-R2
+        subd    R2
         jsr     answer          ; -10000
 
         ldx     #100
-        stx     R1
-        ldx     #300
-        stx     R2
+        ldy     #300
         ldaa    #'*'
         jsr     expr
-        jsr     mul16           ; R0=R1*R2
+        jsr     mul16
         jsr     answer          ; 30000
 
         ldx     #200
-        stx     R1
-        ldx     #100
-        stx     R2
+        ldy     #100
         ldaa    #'*'
         jsr     expr
-        jsr     mul16           ; R0=R1*R2
+        jsr     mul16
         jsr     answer          ; 20000
 
         ldx     #300
-        stx     R1
-        ldx     #-200
-        stx     R2
+        ldy     #-200
         ldaa    #'*'
         jsr     expr
-        jsr     mul16           ; R0=R1*R2
+        jsr     mul16
         jsr     answer          ; 5536
 
         ldx     #100
-        stx     R1
-        ldx     #-300
-        stx     R2
+        ldy     #-300
         ldaa    #'*'
         jsr     expr
-        jsr     mul16           ; R0=R1*R2
+        jsr     mul16
         jsr     answer          ; -30000
 
         ldx     #-200
-        stx     R1
-        ldx     #-100
-        stx     R2
+        ldy     #-100
         ldaa    #'*'
         jsr     expr
-        jsr     mul16           ; R0=R1*R2
+        jsr     mul16
         jsr     answer          ; 20000
 
         ldx     #30000
-        stx     R1
-        ldx     #100
-        stx     R2
+        ldy     #100
         ldaa    #'/'
         jsr     expr
         jsr     div16           ; R0=R1/R2
         jsr     answer          ; 30
 
         ldx     #-200
-        stx     R1
-        ldx     #100
-        stx     R2
+        ldy     #100
         ldaa    #'/'
         jsr     expr
         jsr     div16           ; R0=R1/R2
         jsr     answer          ; -2
 
         ldx     #-30000
-        stx     R1
-        ldx     #-200
-        stx     R2
+        ldy     #-200
         ldaa    #'/'
         jsr     expr
         jsr     div16           ; R0=R1/R2
         jsr     answer          ; 150
 
         ldx     #-30000
-        stx     R1
-        ldx     #78
-        stx     R2
+        ldy     #78
         ldaa    #'/'
         jsr     expr
         jsr     div16           ; R0=R1/R2
         jsr     answer          ; -384
 
         ldx     #5000
-        stx     R1
-        ldx     #4000
-        stx     R2
+        ldy     #4000
         jsr     comp
 
         ldx     #5000
-        stx     R1
-        ldx     #5000
-        stx     R2
+        ldy     #5000
         jsr     comp
 
         ldx     #4000
-        stx     R1
-        ldx     #5000
-        stx     R2
+        ldy     #5000
         jsr     comp
 
         ldx     #-5000
-        stx     R1
-        ldx     #-4000
-        stx     R2
+        ldy     #-4000
         jsr     comp
 
         ldx     #-5000
-        stx     R1
-        ldx     #-5000
-        stx     R2
+        ldy     #-5000
         jsr     comp
 
         ldx     #-4000
-        stx     R1
-        ldx     #-5000
-        stx     R2
+        ldy     #-5000
         jsr     comp
 
         ldx     #32700
-        stx     R1
-        ldx     #32600
-        stx     R2
+        ldy     #32600
         jsr     comp
 
         ldx     #32700
-        stx     R1
-        ldx     #32700
-        stx     R2
+        ldy     #32700
         jsr     comp
 
         ldx     #32600
-        stx     R1
-        ldx     #32700
-        stx     R2
+        ldy     #32700
         jsr     comp
 
         ldx     #-32700
-        stx     R1
-        ldx     #-32600
-        stx     R2
+        ldy     #-32600
         jsr     comp
 
         ldx     #-32700
-        stx     R1
-        ldx     #-32700
-        stx     R2
+        ldy     #-32700
         jsr     comp
 
         ldx     #-32600
-        stx     R1
-        ldx     #-32700
-        stx     R2
+        ldy     #-32700
         jsr     comp
 
         ldx     #18000
-        stx     R1
-        ldx     #-28000
-        stx     R2
+        ldy     #-28000
         jsr     comp
 
         ldx     #-28000
-        stx     R1
-        ldx     #-28000
-        stx     R2
+        ldy     #-28000
         jsr     comp
 
         ldx     #-28000
-        stx     R1
-        ldx     #18000
-        stx     R2
+        ldy     #18000
         jsr     comp
         rts
 
