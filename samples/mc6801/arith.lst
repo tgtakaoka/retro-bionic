@@ -151,7 +151,11 @@
          44 :                    R2:
          44 :                    R2H:    rmb     1
          45 :                    R2L:    rmb     1
-         46 :
+         46 :                    sign:   rmb     1
+         47 :                    exprop: rmb     1
+         48 :                    vA:     rmb     2
+         4A :                    vB:     rmb     2
+         4C :
        1000 :                            org     $1000
        1000 : =FFF               stack:  equ     *-1             ; MC6800's SP is post-decrement/pre-increment
        1000 :
@@ -173,12 +177,11 @@
         10A :                                                    ; Transmit, Receive interrupts disabled
         10A : B7 DF 00                   staa    ACIA_control
         10D :
-        10D : BD 01 65                   jsr     arith
+        10D : BD 01 74                   jsr     arith
         110 : 3F                         swi
         111 :
         111 :                    ;;; Print out char
         111 :                    ;;; @param A char
-        111 :                    ;;; @clobber A
         111 :                    putspace:
         111 : 86 20                      ldaa    #' '
         113 : 20 06                      bra     putchar
@@ -187,487 +190,406 @@
         117 : 8D 02                      bsr     putchar
         119 : 86 0A                      ldaa    #$0A
         11B :                    putchar:
-        11B : F6 DF 00                   ldab    ACIA_status
-        11E : C5 02                      bitb    #TDRE_bm
-        120 : 27 F9                      beq     putchar
-        122 : B7 DF 01                   staa    ACIA_data
-        125 : 39                         rts
-        126 :
-        126 :                    ;;; Print "R1 op R2"
-        126 :                    ;;; @params A op letter
-        126 :                    ;;; @clobber R0
-        126 :                    expr:
-        126 : 36                         psha
-        127 : DE 42                      ldx     R1
-        129 : DF 40                      stx     R0
-        12B : BD 03 84                   jsr     print_int16     ; print R1
-        12E : 8D E1                      bsr     putspace
-        130 : 32                         pula
-        131 : 8D E8                      bsr     putchar         ; print op
-        133 : 8D DC                      bsr     putspace
-        135 : DE 44                      ldx     R2
-        137 : DF 40                      stx     R0
-        139 : 7E 03 84                   jmp     print_int16     ; print R2
-        13C :
-        13C :                    ;;; Print " = R0\n"
-        13C :                    ;;; @clobber R0 R1 R2
-        13C :                    answer:
-        13C : 8D D3                      bsr     putspace
-        13E : 86 3D                      ldaa    #'='
-        140 : 8D D9                      bsr     putchar
+        11B : 37                         pshb
+        11C : F6 DF 00                   ldab    ACIA_status
+        11F : C5 02                      bitb    #TDRE_bm
+        121 : 33                         pulb
+        122 : 27 F7                      beq     putchar
+        124 : B7 DF 01                   staa    ACIA_data
+        127 : 39                         rts
+        128 :
+        128 :                    ;;; Print "v1 op v2"
+        128 :                    ;;; @param D v1
+        128 :                    ;;; @param X v2
+        128 :                    ;;; @param exprop op
+        128 :                    ;;; @return D v1
+        128 :                    ;;; @return X v2
+        128 :                    ;;; @clobber R0 R1 R2
+        128 :                    expr:
+        128 : DD 48                      std     vA
+        12A : DF 4A                      stx     vB
+        12C : BD 02 E7                   jsr     print_int16     ; print v1
+        12F : 8D E0                      bsr     putspace
+        131 : 96 47                      ldaa    exprop
+        133 : 8D E6                      bsr     putchar         ; print op
+        135 : 8D DA                      bsr     putspace
+        137 : DC 4A                      ldd     vB
+        139 : BD 02 E7                   jsr     print_int16     ; print v2
+        13C : DC 48                      ldd     vA
+        13E : DE 4A                      ldx     vB
+        140 : 39                         rts
+        141 :
+        141 :                    ;;; Print " = v\n"
+        141 :                    ;;; @param D v
+        141 :                    ;;; @clobber R0 R1 R2
+        141 :                    answer:
+        141 : 36                         psha
         142 : 8D CD                      bsr     putspace
-        144 : BD 03 84                   jsr     print_int16     ; print R0
-        147 : 20 CC                      bra     newline
-        149 :
-        149 :                    ;;; Print "R1 rel R2"
-        149 :                    ;;; @clobber R0
-        149 :                    comp:
-        149 : DC 42                      ldd     R1
-        14B : 93 44                      subd    R2
-        14D : 27 0C                      beq     comp_eq
-        14F : 2D 0E                      blt     comp_lt
-        151 : 2E 04                      bgt     comp_gt
-        153 : 86 3F                      ldaa    #'?'
-        155 : 20 0A                      bra     comp_out
-        157 :                    comp_gt:
-        157 : 86 3E                      ldaa    #'>'
-        159 : 20 06                      bra     comp_out
-        15B :                    comp_eq:
-        15B : 86 3D                      ldaa    #'='
-        15D : 20 02                      bra     comp_out
-        15F :                    comp_lt:
-        15F : 86 3C                      ldaa    #'<'
-        161 :                    comp_out:
-        161 : 8D C3                      bsr     expr
-        163 : 20 B0                      bra     newline
-        165 :
-        165 :                    arith:
-        165 : CE 46 50                   ldx     #18000
-        168 : DF 42                      stx     R1
-        16A : CE 6D 60                   ldx     #28000
-        16D : DF 44                      stx     R2
-        16F : 86 2B                      ldaa    #'+'
-        171 : BD 01 26                   jsr     expr
-        174 : BD 03 A9                   jsr     add16           ; R0=R1+R2
-        177 : BD 01 3C                   jsr     answer          ; -19536
-        17A :
-        17A : CE 46 50                   ldx     #18000
-        17D : DF 42                      stx     R1
-        17F : CE B9 B0                   ldx     #-18000
-        182 : DF 44                      stx     R2
-        184 : 86 2B                      ldaa    #'+'
-        186 : BD 01 26                   jsr     expr
-        189 : BD 03 A9                   jsr     add16           ; R0=R1+R2
-        18C : BD 01 3C                   jsr     answer          ; 0
-        18F :
-        18F : CE B9 B0                   ldx     #-18000
-        192 : DF 42                      stx     R1
-        194 : CE B9 B0                   ldx     #-18000
-        197 : DF 44                      stx     R2
-        199 : 86 2B                      ldaa    #'+'
-        19B : BD 01 26                   jsr     expr
-        19E : BD 03 A9                   jsr     add16           ; R0=R1+R2
-        1A1 : BD 01 3C                   jsr     answer          ; 29536
-        1A4 :
-        1A4 : CE B9 B0                   ldx     #-18000
-        1A7 : DF 42                      stx     R1
+        144 : 86 3D                      ldaa    #'='
+        146 : 8D D3                      bsr     putchar
+        148 : 8D C7                      bsr     putspace
+        14A : 32                         pula
+        14B : BD 02 E7                   jsr     print_int16     ; print v
+        14E : 20 C5                      bra     newline
+        150 :
+        150 :                    ;;; Print "v1 rel v2"
+        150 :                    ;;; @param D v1
+        150 :                    ;;; @param X v2
+        150 :                    ;;; @clobber R0 R1 R2
+        150 :                    comp:
+        150 : DD 48                      std     vA
+        152 : DF 4A                      stx     vB
+        154 : 93 4A                      subd    vB
+        156 : 27 0C                      beq     comp_eq
+        158 : 2D 0E                      blt     comp_lt
+        15A : 2E 04                      bgt     comp_gt
+        15C : 86 3F                      ldaa    #'?'
+        15E : 20 0A                      bra     comp_out
+        160 :                    comp_gt:
+        160 : 86 3E                      ldaa    #'>'
+        162 : 20 06                      bra     comp_out
+        164 :                    comp_eq:
+        164 : 86 3D                      ldaa    #'='
+        166 : 20 02                      bra     comp_out
+        168 :                    comp_lt:
+        168 : 86 3C                      ldaa    #'<'
+        16A :                    comp_out:
+        16A : 97 47                      staa    exprop
+        16C : DC 48                      ldd     vA
+        16E : DE 4A                      ldx     vB
+        170 : 8D B6                      bsr     expr
+        172 : 20 A1                      bra     newline
+        174 :
+        174 :                    arith:
+        174 : 86 2B                      ldaa    #'+'
+        176 : 97 47                      staa    exprop
+        178 : CC 46 50                   ldd     #18000
+        17B : CE 6D 60                   ldx     #28000
+        17E : BD 01 28                   jsr     expr
+        181 : D3 4A                      addd    vB
+        183 : BD 01 41                   jsr     answer          ; -19536
+        186 :
+        186 : CC 46 50                   ldd     #18000
+        189 : CE B9 B0                   ldx     #-18000
+        18C : BD 01 28                   jsr     expr
+        18F : D3 4A                      addd    vB
+        191 : BD 01 41                   jsr     answer          ; 0
+        194 :
+        194 : CC B9 B0                   ldd     #-18000
+        197 : CE B9 B0                   ldx     #-18000
+        19A : BD 01 28                   jsr     expr
+        19D : D3 4A                      addd    vB
+        19F : BD 01 41                   jsr     answer          ; 29536
+        1A2 :
+        1A2 : 86 2D                      ldaa    #'-'
+        1A4 : 97 47                      staa    exprop
+        1A6 : CC B9 B0                   ldd     #-18000
         1A9 : CE 92 A0                   ldx     #-28000
-        1AC : DF 44                      stx     R2
-        1AE : 86 2D                      ldaa    #'-'
-        1B0 : BD 01 26                   jsr     expr
-        1B3 : BD 03 B0                   jsr     sub16           ; R0=R1-R2
-        1B6 : BD 01 3C                   jsr     answer          ; -19536
-        1B9 :
-        1B9 : CE 46 50                   ldx     #18000
-        1BC : DF 42                      stx     R1
-        1BE : CE B9 B0                   ldx     #-18000
-        1C1 : DF 44                      stx     R2
-        1C3 : 86 2D                      ldaa    #'-'
-        1C5 : BD 01 26                   jsr     expr
-        1C8 : BD 03 B0                   jsr     sub16           ; R0=R1-R2
-        1CB : BD 01 3C                   jsr     answer          ; 29536
-        1CE :
-        1CE : CE 92 A0                   ldx     #-28000
-        1D1 : DF 42                      stx     R1
-        1D3 : CE B9 B0                   ldx     #-18000
-        1D6 : DF 44                      stx     R2
-        1D8 : 86 2D                      ldaa    #'-'
-        1DA : BD 01 26                   jsr     expr
-        1DD : BD 03 B0                   jsr     sub16           ; R0=R1-R2
-        1E0 : BD 01 3C                   jsr     answer          ; -10000
+        1AC : BD 01 28                   jsr     expr
+        1AF : 93 4A                      subd    vB
+        1B1 : BD 01 41                   jsr     answer          ; -19536
+        1B4 :
+        1B4 : CC 46 50                   ldd     #18000
+        1B7 : CE B9 B0                   ldx     #-18000
+        1BA : BD 01 28                   jsr     expr
+        1BD : 93 4A                      subd    vB
+        1BF : BD 01 41                   jsr     answer          ; 29536
+        1C2 :
+        1C2 : CC 92 A0                   ldd     #-28000
+        1C5 : CE B9 B0                   ldx     #-18000
+        1C8 : BD 01 28                   jsr     expr
+        1CB : 93 4A                      subd    vB
+        1CD : BD 01 41                   jsr     answer          ; -10000
+        1D0 :
+        1D0 : 86 2A                      ldaa    #'*'
+        1D2 : 97 47                      staa    exprop
+        1D4 : CC 00 64                   ldd     #100
+        1D7 : CE 01 2C                   ldx     #300
+        1DA : BD 01 28                   jsr     expr
+        1DD : BD 03 31                   jsr     mul16
+        1E0 : BD 01 41                   jsr     answer          ; 30000
         1E3 :
-        1E3 : CE 00 64                   ldx     #100
-        1E6 : DF 42                      stx     R1
-        1E8 : CE 01 2C                   ldx     #300
-        1EB : DF 44                      stx     R2
-        1ED : 86 2A                      ldaa    #'*'
-        1EF : BD 01 26                   jsr     expr
-        1F2 : BD 03 D1                   jsr     mul16           ; R0=R1*R2
-        1F5 : BD 01 3C                   jsr     answer          ; 30000
-        1F8 :
-        1F8 : CE 00 C8                   ldx     #200
-        1FB : DF 42                      stx     R1
-        1FD : CE 00 64                   ldx     #100
-        200 : DF 44                      stx     R2
-        202 : 86 2A                      ldaa    #'*'
-        204 : BD 01 26                   jsr     expr
-        207 : BD 03 D1                   jsr     mul16           ; R0=R1*R2
-        20A : BD 01 3C                   jsr     answer          ; 20000
-        20D :
-        20D : CE 01 2C                   ldx     #300
-        210 : DF 42                      stx     R1
-        212 : CE FF 38                   ldx     #-200
-        215 : DF 44                      stx     R2
-        217 : 86 2A                      ldaa    #'*'
-        219 : BD 01 26                   jsr     expr
-        21C : BD 03 D1                   jsr     mul16           ; R0=R1*R2
-        21F : BD 01 3C                   jsr     answer          ; 5536
-        222 :
-        222 : CE 00 64                   ldx     #100
-        225 : DF 42                      stx     R1
-        227 : CE FE D4                   ldx     #-300
-        22A : DF 44                      stx     R2
-        22C : 86 2A                      ldaa    #'*'
-        22E : BD 01 26                   jsr     expr
-        231 : BD 03 D1                   jsr     mul16           ; R0=R1*R2
-        234 : BD 01 3C                   jsr     answer          ; -30000
-        237 :
-        237 : CE FF 38                   ldx     #-200
-        23A : DF 42                      stx     R1
-        23C : CE FF 9C                   ldx     #-100
-        23F : DF 44                      stx     R2
-        241 : 86 2A                      ldaa    #'*'
-        243 : BD 01 26                   jsr     expr
-        246 : BD 03 D1                   jsr     mul16           ; R0=R1*R2
-        249 : BD 01 3C                   jsr     answer          ; 20000
-        24C :
-        24C : CE 75 30                   ldx     #30000
-        24F : DF 42                      stx     R1
-        251 : CE 00 64                   ldx     #100
-        254 : DF 44                      stx     R2
-        256 : 86 2F                      ldaa    #'/'
-        258 : BD 01 26                   jsr     expr
-        25B : BD 04 30                   jsr     div16           ; R0=R1/R2
-        25E : BD 01 3C                   jsr     answer          ; 30
-        261 :
-        261 : CE FF 38                   ldx     #-200
-        264 : DF 42                      stx     R1
-        266 : CE 00 64                   ldx     #100
-        269 : DF 44                      stx     R2
-        26B : 86 2F                      ldaa    #'/'
-        26D : BD 01 26                   jsr     expr
-        270 : BD 04 30                   jsr     div16           ; R0=R1/R2
-        273 : BD 01 3C                   jsr     answer          ; -2
-        276 :
-        276 : CE 8A D0                   ldx     #-30000
-        279 : DF 42                      stx     R1
-        27B : CE FF 38                   ldx     #-200
-        27E : DF 44                      stx     R2
-        280 : 86 2F                      ldaa    #'/'
-        282 : BD 01 26                   jsr     expr
-        285 : BD 04 30                   jsr     div16           ; R0=R1/R2
-        288 : BD 01 3C                   jsr     answer          ; 150
-        28B :
-        28B : CE 8A D0                   ldx     #-30000
-        28E : DF 42                      stx     R1
-        290 : CE 00 4E                   ldx     #78
-        293 : DF 44                      stx     R2
-        295 : 86 2F                      ldaa    #'/'
-        297 : BD 01 26                   jsr     expr
-        29A : BD 04 30                   jsr     div16           ; R0=R1/R2
-        29D : BD 01 3C                   jsr     answer          ; -384
-        2A0 :
-        2A0 : CE 13 88                   ldx     #5000
-        2A3 : DF 42                      stx     R1
-        2A5 : CE 0F A0                   ldx     #4000
-        2A8 : DF 44                      stx     R2
-        2AA : BD 01 49                   jsr     comp
-        2AD :
-        2AD : CE 13 88                   ldx     #5000
-        2B0 : DF 42                      stx     R1
-        2B2 : CE 13 88                   ldx     #5000
-        2B5 : DF 44                      stx     R2
-        2B7 : BD 01 49                   jsr     comp
-        2BA :
-        2BA : CE 0F A0                   ldx     #4000
-        2BD : DF 42                      stx     R1
-        2BF : CE 13 88                   ldx     #5000
-        2C2 : DF 44                      stx     R2
-        2C4 : BD 01 49                   jsr     comp
-        2C7 :
-        2C7 : CE EC 78                   ldx     #-5000
-        2CA : DF 42                      stx     R1
-        2CC : CE F0 60                   ldx     #-4000
-        2CF : DF 44                      stx     R2
-        2D1 : BD 01 49                   jsr     comp
+        1E3 : CC 00 C8                   ldd     #200
+        1E6 : CE 00 64                   ldx     #100
+        1E9 : BD 01 28                   jsr     expr
+        1EC : BD 03 31                   jsr     mul16
+        1EF : BD 01 41                   jsr     answer          ; 20000
+        1F2 :
+        1F2 : CC 01 2C                   ldd     #300
+        1F5 : CE FF 38                   ldx     #-200
+        1F8 : BD 01 28                   jsr     expr
+        1FB : BD 03 31                   jsr     mul16
+        1FE : BD 01 41                   jsr     answer          ; 5536
+        201 :
+        201 : CC 00 64                   ldd     #100
+        204 : CE FE D4                   ldx     #-300
+        207 : BD 01 28                   jsr     expr
+        20A : BD 03 31                   jsr     mul16
+        20D : BD 01 41                   jsr     answer          ; -30000
+        210 :
+        210 : CC FF 38                   ldd     #-200
+        213 : CE FF 9C                   ldx     #-100
+        216 : BD 01 28                   jsr     expr
+        219 : BD 03 31                   jsr     mul16
+        21C : BD 01 41                   jsr     answer          ; 20000
+        21F :
+        21F : 86 2F                      ldaa    #'/'
+        221 : 97 47                      staa    exprop
+        223 : CC 75 30                   ldd     #30000
+        226 : CE 00 64                   ldx     #100
+        229 : BD 01 28                   jsr     expr
+        22C : BD 03 95                   jsr     div16
+        22F : BD 01 41                   jsr     answer          ; 30
+        232 :
+        232 : CC FF 38                   ldd     #-200
+        235 : CE 00 64                   ldx     #100
+        238 : BD 01 28                   jsr     expr
+        23B : BD 03 95                   jsr     div16
+        23E : BD 01 41                   jsr     answer          ; -2
+        241 :
+        241 : CC 8A D0                   ldd     #-30000
+        244 : CE FF 38                   ldx     #-200
+        247 : BD 01 28                   jsr     expr
+        24A : BD 03 95                   jsr     div16
+        24D : BD 01 41                   jsr     answer          ; 150
+        250 :
+        250 : CC 8A D0                   ldd     #-30000
+        253 : CE 00 4E                   ldx     #78
+        256 : BD 01 28                   jsr     expr
+        259 : BD 03 95                   jsr     div16
+        25C : BD 01 41                   jsr     answer          ; -384
+        25F :
+        25F : CC 13 88                   ldd     #5000
+        262 : CE 0F A0                   ldx     #4000
+        265 : BD 01 50                   jsr     comp
+        268 :
+        268 : CC 13 88                   ldd     #5000
+        26B : CE 13 88                   ldx     #5000
+        26E : BD 01 50                   jsr     comp
+        271 :
+        271 : CC 0F A0                   ldd     #4000
+        274 : CE 13 88                   ldx     #5000
+        277 : BD 01 50                   jsr     comp
+        27A :
+        27A : CC EC 78                   ldd     #-5000
+        27D : CE F0 60                   ldx     #-4000
+        280 : BD 01 50                   jsr     comp
+        283 :
+        283 : CC EC 78                   ldd     #-5000
+        286 : CE EC 78                   ldx     #-5000
+        289 : BD 01 50                   jsr     comp
+        28C :
+        28C : CC F0 60                   ldd     #-4000
+        28F : CE EC 78                   ldx     #-5000
+        292 : BD 01 50                   jsr     comp
+        295 :
+        295 : CC 7F BC                   ldd     #32700
+        298 : CE 7F 58                   ldx     #32600
+        29B : BD 01 50                   jsr     comp
+        29E :
+        29E : CC 7F BC                   ldd     #32700
+        2A1 : CE 7F BC                   ldx     #32700
+        2A4 : BD 01 50                   jsr     comp
+        2A7 :
+        2A7 : CC 7F 58                   ldd     #32600
+        2AA : CE 7F BC                   ldx     #32700
+        2AD : BD 01 50                   jsr     comp
+        2B0 :
+        2B0 : CC 80 44                   ldd     #-32700
+        2B3 : CE 80 A8                   ldx     #-32600
+        2B6 : BD 01 50                   jsr     comp
+        2B9 :
+        2B9 : CC 80 44                   ldd     #-32700
+        2BC : CE 80 44                   ldx     #-32700
+        2BF : BD 01 50                   jsr     comp
+        2C2 :
+        2C2 : CC 80 A8                   ldd     #-32600
+        2C5 : CE 80 44                   ldx     #-32700
+        2C8 : BD 01 50                   jsr     comp
+        2CB :
+        2CB : CC 46 50                   ldd     #18000
+        2CE : CE 92 A0                   ldx     #-28000
+        2D1 : BD 01 50                   jsr     comp
         2D4 :
-        2D4 : CE EC 78                   ldx     #-5000
-        2D7 : DF 42                      stx     R1
-        2D9 : CE EC 78                   ldx     #-5000
-        2DC : DF 44                      stx     R2
-        2DE : BD 01 49                   jsr     comp
-        2E1 :
-        2E1 : CE F0 60                   ldx     #-4000
-        2E4 : DF 42                      stx     R1
-        2E6 : CE EC 78                   ldx     #-5000
-        2E9 : DF 44                      stx     R2
-        2EB : BD 01 49                   jsr     comp
-        2EE :
-        2EE : CE 7F BC                   ldx     #32700
-        2F1 : DF 42                      stx     R1
-        2F3 : CE 7F 58                   ldx     #32600
-        2F6 : DF 44                      stx     R2
-        2F8 : BD 01 49                   jsr     comp
-        2FB :
-        2FB : CE 7F BC                   ldx     #32700
-        2FE : DF 42                      stx     R1
-        300 : CE 7F BC                   ldx     #32700
-        303 : DF 44                      stx     R2
-        305 : BD 01 49                   jsr     comp
-        308 :
-        308 : CE 7F 58                   ldx     #32600
-        30B : DF 42                      stx     R1
-        30D : CE 7F BC                   ldx     #32700
-        310 : DF 44                      stx     R2
-        312 : BD 01 49                   jsr     comp
-        315 :
-        315 : CE 80 44                   ldx     #-32700
-        318 : DF 42                      stx     R1
-        31A : CE 80 A8                   ldx     #-32600
-        31D : DF 44                      stx     R2
-        31F : BD 01 49                   jsr     comp
-        322 :
-        322 : CE 80 44                   ldx     #-32700
-        325 : DF 42                      stx     R1
-        327 : CE 80 44                   ldx     #-32700
-        32A : DF 44                      stx     R2
-        32C : BD 01 49                   jsr     comp
-        32F :
-        32F : CE 80 A8                   ldx     #-32600
-        332 : DF 42                      stx     R1
-        334 : CE 80 44                   ldx     #-32700
-        337 : DF 44                      stx     R2
-        339 : BD 01 49                   jsr     comp
-        33C :
-        33C : CE 46 50                   ldx     #18000
-        33F : DF 42                      stx     R1
-        341 : CE 92 A0                   ldx     #-28000
-        344 : DF 44                      stx     R2
-        346 : BD 01 49                   jsr     comp
-        349 :
-        349 : CE 92 A0                   ldx     #-28000
-        34C : DF 42                      stx     R1
-        34E : CE 92 A0                   ldx     #-28000
-        351 : DF 44                      stx     R2
-        353 : BD 01 49                   jsr     comp
-        356 :
-        356 : CE 92 A0                   ldx     #-28000
-        359 : DF 42                      stx     R1
-        35B : CE 46 50                   ldx     #18000
-        35E : DF 44                      stx     R2
-        360 : BD 01 49                   jsr     comp
-        363 : 39                         rts
-        364 :
-        364 :                            include "arith.inc"
-(1)     364 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
-(1)     364 :                            cpu     6801
-(1)     364 :
-(1)     364 :                    ;;; Print unsigned 16-bit integer as decimal
-(1)     364 :                    ;;; @param R0 value
-(1)     364 :                    ;;; @clobber A X R0 R1 R2
-(1)     364 :                    print_uint16:
-(1)     364 : 96 40                      ldaa    R0H
-(1)     366 : 9A 41                      oraa    R0L
-(1)     368 : 27 14                      beq     print_uint16_zero
-(1)     36A :                    print_uint16_loop:
-(1)     36A : DE 40                      ldx     R0
-(1)     36C : DF 42                      stx     R1                ; R1=value
-(1)     36E : 27 13                      beq     print_uint16_end ; branch if value == 0
-(1)     370 : CE 00 0A                   ldx     #10
-(1)     373 : DF 44                      stx     R2              ; R2=10
-(1)     375 : BD 03 F6                   jsr     udiv16          ; R0=value/10
-(1)     378 : 96 43                      ldaa    R1L
-(1)     37A : 36                         psha                    ; push reminder
-(1)     37B : 8D ED                      bsr     print_uint16_loop
-(1)     37D : 32                         pula
-(1)     37E :                    print_uint16_zero:
-(1)     37E : 8A 30                      oraa    #'0'
-(1)     380 : 7E 01 1B                   jmp     putchar
-(1)     383 :                    print_uint16_end:
-(1)     383 : 39                         rts
-(1)     384 :
-(1)     384 :                    ;;; Print signed 16-bit integer as decimal
-(1)     384 :                    ;;; @param R0 value
-(1)     384 :                    ;;; @clobber A X R0
-(1)     384 :                    print_int16:
-(1)     384 : DE 42                      ldx     R1
-(1)     386 : 3C                         pshx                    ; push R1
-(1)     387 : DE 44                      ldx     R2
-(1)     389 : 3C                         pshx                    ; push R2
-(1)     38A : 96 40                      ldaa    R0H
-(1)     38C : 2A 0B                      bpl     print_int16_print
-(1)     38E : 86 2D                      ldaa    #'-'
-(1)     390 : BD 01 1B                   jsr     putchar
-(1)     393 : DC 40                      ldd     R0
-(1)     395 : 8D 0B                      bsr     neg_D
-(1)     397 : DD 40                      std     R0
-(1)     399 :                    print_int16_print:
-(1)     399 : 8D C9                      bsr     print_uint16
-(1)     39B : 38                         pulx                    ; pop R2
-(1)     39C : DF 44                      stx     R2
-(1)     39E : 38                         pulx                    ; pop R1
-(1)     39F : DF 42                      stx     R1
-(1)     3A1 : 39                         rts
-(1)     3A2 :
-(1)     3A2 :                    ;;; Negate D
-(1)     3A2 :                    ;;; @param D register
-(1)     3A2 :                    neg_D:
-(1)     3A2 : 43                         coma
-(1)     3A3 : 53                         comb
-(1)     3A4 : CB 01                      addb    #1
-(1)     3A6 : 89 00                      adca    #0
-(1)     3A8 : 39                         rts
-(1)     3A9 :
-(1)     3A9 :                    ;;; Addition: R0 = R1 + R2
-(1)     3A9 :                    ;;; @clobber D
-(1)     3A9 :                    add16:
-(1)     3A9 : DC 42                      ldd     R1
-(1)     3AB : D3 44                      addd    R2
-(1)     3AD : DD 40                      std     R0
-(1)     3AF : 39                         rts
-(1)     3B0 :
-(1)     3B0 :                    ;;; Subtraction: R0 = R1 + R2
-(1)     3B0 :                    ;;; @clobber D
-(1)     3B0 :                    sub16:
-(1)     3B0 : DC 42                      ldd     R1
-(1)     3B2 : 93 44                      subd    R2
-(1)     3B4 : DD 40                      std     R0
-(1)     3B6 : 39                         rts
-(1)     3B7 :
-(1)     3B7 :                    ;;; Unsigned multiplication: result = multiplicand * multiplier
-(1)     3B7 :                    ;;; @param R1 multiplicand
-(1)     3B7 :                    ;;; @param R2 multiplier
-(1)     3B7 :                    ;;; @return R0 result
-(1)     3B7 :                    ;;; @clobber R0 R1 R2
-(1)     3B7 :                    umul16:
-(1)     3B7 : 96 43                      ldaa    R1L
-(1)     3B9 : D6 45                      ldab    R2L
-(1)     3BB : 3D                         mul                     ; low(multiplicand)*low(multiplier)
-(1)     3BC : DD 40                      std     R0
-(1)     3BE : 96 43                      ldaa    R1L
-(1)     3C0 : D6 44                      ldab    R2H
-(1)     3C2 : 3D                         mul                     ; low(multiplicand)*high(multiplier)
-(1)     3C3 : DB 40                      addb    R0H
-(1)     3C5 : D7 40                      stab    R0H
-(1)     3C7 : 96 42                      ldaa    R1H
-(1)     3C9 : D6 45                      ldab    R2L
-(1)     3CB : 3D                         mul                     ; high(multiplicand)*low(multiplier)
-(1)     3CC : DB 40                      addb    R0H
-(1)     3CE : D7 40                      stab    R0H
-(1)     3D0 : 39                         rts
-(1)     3D1 :
-(1)     3D1 :                    ;;; Multiply; result = multiplicand * multiplier
-(1)     3D1 :                    ;;; @param R1 multiplicand
-(1)     3D1 :                    ;;; @param R2 multiplier
-(1)     3D1 :                    ;;; @return R0 result
-(1)     3D1 :                    ;;; @clobber R1 R2
-(1)     3D1 :                    mul16:
-(1)     3D1 : 96 42                      ldaa    R1H
-(1)     3D3 : 98 44                      eora    R2H
-(1)     3D5 : 36                         psha                    ; save hi(multiplicand^multiplier)
-(1)     3D6 : DC 44                      ldd     R2
-(1)     3D8 : 2A 03                      bpl     mul16_multiplicand
-(1)     3DA : BD 03 A2                   jsr     neg_D           ; negate multiplier
-(1)     3DD :                    mul16_multiplicand:
-(1)     3DD : DD 44                      std     R2
-(1)     3DF : DC 42                      ldd     R1
-(1)     3E1 : 2A 03                      bpl     mul16_multiply
-(1)     3E3 : BD 03 A2                   jsr     neg_D           ; negate multiplicand
-(1)     3E6 :                    mul16_multiply:
-(1)     3E6 : DD 42                      std     R1
-(1)     3E8 : 8D CD                      bsr     umul16          ; R0=result
-(1)     3EA : 32                         pula                    ; A=(multiplicand^multiplier)
-(1)     3EB : 4D                         tsta
-(1)     3EC : 2A 07                      bpl     mul16_end
-(1)     3EE : DC 40                      ldd     R0
-(1)     3F0 : BD 03 A2                   jsr     neg_D           ; negate result
-(1)     3F3 : DD 40                      std     R0
-(1)     3F5 :                    mul16_end:
-(1)     3F5 : 39                         rts
-(1)     3F6 :
-(1)     3F6 :                    ;;; Unsigned division: dividend / divisor = quotient ... reminder
-(1)     3F6 :                    ;;; @praram R1 dividend
-(1)     3F6 :                    ;;; @praram R2 divisor
-(1)     3F6 :                    ;;; @return R0 quotient
-(1)     3F6 :                    ;;; @return R1 reminder
-(1)     3F6 :                    ;;; @clobber R2
-(1)     3F6 :                    udiv16:
-(1)     3F6 : 96 44                      ldaa    R2H
-(1)     3F8 : 9A 45                      oraa    R2L
-(1)     3FA : 27 33                      beq     udiv16_end      ; branch if R2==0
-(1)     3FC : CE 00 01                   ldx     #1              ; X=bits
-(1)     3FF : 20 06                      bra     udiv16_prep
-(1)     401 :                    udiv16_prep_loop:
-(1)     401 : DC 44                      ldd     R2
-(1)     403 : 05                         lsld
-(1)     404 : DD 44                      std     R2              ; divisor <<= 1
-(1)     406 : 08                         inx                     ; ++bits
-(1)     407 :                    udiv16_prep:
-(1)     407 : 96 44                      ldaa    R2H
-(1)     409 : 2A F6                      bpl     udiv16_prep_loop ; while msb(divisor) == 0
-(1)     40B : 4F                         clra
-(1)     40C : 5F                         clrb
-(1)     40D : DD 40                      std     R0              ; quotient=0
-(1)     40F : 20 0A                      bra     udiv16_enter_loop
-(1)     411 :                    udiv16_loop:
-(1)     411 : DC 44                      ldd     R2
-(1)     413 : 04                         lsrd
-(1)     414 : DD 44                      std     R2              ; divisor >>= 1
-(1)     416 : DC 40                      ldd     R0
-(1)     418 : 05                         lsld
-(1)     419 : DD 40                      std     R0              ; quotient <<= 1
-(1)     41B :                    udiv16_enter_loop:
-(1)     41B : DC 42                      ldd     R1
-(1)     41D : 93 44                      subd    R2
-(1)     41F : DD 42                      std     R1              ; dividend -= divisor
-(1)     421 : 25 05                      bcs     udiv16_readd
-(1)     423 : 7C 00 41                   inc     R0L             ; quotient |= 1
-(1)     426 : 20 04                      bra     udiv16_next
-(1)     428 :                    udiv16_readd:
-(1)     428 : D3 44                      addd    R2
-(1)     42A : DD 42                      std     R1              ; dividend += divisor
-(1)     42C :                    udiv16_next:
-(1)     42C : 09                         dex                     ; --bits
-(1)     42D : 26 E2                      bne     udiv16_loop     ; while bits != 0
-(1)     42F :                    udiv16_end:
-(1)     42F : 39                         rts
-(1)     430 :
-(1)     430 :                    ;;; Division; dividend / divisor = quotient ... reminder
-(1)     430 :                    ;;; @param R1 dividend
-(1)     430 :                    ;;; @param R2 divisor
-(1)     430 :                    ;;; @return R0 quotient
-(1)     430 :                    ;;; @return R1 reminder
-(1)     430 :                    ;;; @clobber R2
-(1)     430 :                    div16:
-(1)     430 : 96 42                      ldaa    R1H
-(1)     432 : 98 44                      eora    R2H
-(1)     434 : 36                         psha                    ; save hi(dividend^divisor)
-(1)     435 : DC 44                      ldd     R2
-(1)     437 : 2A 03                      bpl     div16_dividend
-(1)     439 : BD 03 A2                   jsr     neg_D           ; negate divisor
-(1)     43C :                    div16_dividend:
-(1)     43C : DD 44                      std     R2
-(1)     43E : DC 42                      ldd     R1
-(1)     440 : 2A 03                      bpl     div16_divide
-(1)     442 : BD 03 A2                   jsr     neg_D           ; negate dividend
-(1)     445 :                    div16_divide:
-(1)     445 : DD 42                      std     R1
-(1)     447 : BD 03 F6                   jsr     udiv16          ; R0=quotient
-(1)     44A : 32                         pula                    ; A=(dividend^divisor)
-(1)     44B : 4D                         tsta
-(1)     44C : 2A 07                      bpl     div16_end
-(1)     44E : DC 40                      ldd     R0
-(1)     450 : BD 03 A2                   jsr     neg_D           ; negate result
-(1)     453 : DD 40                      std     R0
-(1)     455 :                    div16_end:
-(1)     455 : 39                         rts
+        2D4 : CC 92 A0                   ldd     #-28000
+        2D7 : CE 92 A0                   ldx     #-28000
+        2DA : BD 01 50                   jsr     comp
+        2DD :
+        2DD : CC 92 A0                   ldd     #-28000
+        2E0 : CE 46 50                   ldx     #18000
+        2E3 : BD 01 50                   jsr     comp
+        2E6 : 39                         rts
+        2E7 :
+        2E7 :                            include "arith.inc"
+(1)     2E7 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)     2E7 :                            cpu     6801
+(1)     2E7 :
+(1)     2E7 :                    ;;; Print signed 16-bit integer as decimal
+(1)     2E7 :                    ;;; @param D value
+(1)     2E7 :                    ;;; @clobber D X R0 R1 R2
+(1)     2E7 :                    print_int16:
+(1)     2E7 : DD 40                      std     R0
+(1)     2E9 : 2A 0E                      bpl     print_uint16
+(1)     2EB : 36                         psha
+(1)     2EC : 86 2D                      ldaa    #'-'
+(1)     2EE : BD 01 1B                   jsr     putchar
+(1)     2F1 : 32                         pula
+(1)     2F2 : 43                         coma
+(1)     2F3 : 53                         comb
+(1)     2F4 : C3 00 01                   addd    #1        ; negate value
+(1)     2F7 : DD 40                      std     R0
+(1)     2F9 :                    ;;; Print unsigned 16-bit integer as decimal
+(1)     2F9 :                    ;;; @param R0 value
+(1)     2F9 :                    ;;; @clobber D X
+(1)     2F9 :                    print_uint16:
+(1)     2F9 : DC 40                      ldd     R0
+(1)     2FB : 27 14                      beq     print_uint16_zero
+(1)     2FD :                    print_uint16_loop:
+(1)     2FD : DD 42                      std     R1
+(1)     2FF : 27 15                      beq     print_uint16_end ; branch if value == 0
+(1)     301 : CE 00 0A                   ldx     #10
+(1)     304 : DF 44                      stx     R2
+(1)     306 : BD 03 5E                   jsr     udiv16          ; R0=value/10
+(1)     309 : D6 43                      ldab    R1L
+(1)     30B : 37                         pshb                    ; push remainder
+(1)     30C : DC 40                      ldd     R0
+(1)     30E : 8D ED                      bsr     print_uint16_loop
+(1)     310 : 32                         pula
+(1)     311 :                    print_uint16_zero:
+(1)     311 : 8A 30                      oraa    #'0'
+(1)     313 : 7E 01 1B                   jmp     putchar
+(1)     316 :                    print_uint16_end:
+(1)     316 : 39                         rts
+(1)     317 :
+(1)     317 :                    ;;; Unsigned multiplication: result = multiplicand * multiplier
+(1)     317 :                    ;;; @param R1 multiplicand
+(1)     317 :                    ;;; @param R2 multiplier
+(1)     317 :                    ;;; @return R0 result
+(1)     317 :                    ;;; @clobber R0 R1 R2
+(1)     317 :                    umul16:
+(1)     317 : 96 43                      ldaa    R1L
+(1)     319 : D6 45                      ldab    R2L
+(1)     31B : 3D                         mul                     ; low(multiplicand)*low(multiplier)
+(1)     31C : DD 40                      std     R0
+(1)     31E : 96 43                      ldaa    R1L
+(1)     320 : D6 44                      ldab    R2H
+(1)     322 : 3D                         mul                     ; low(multiplicand)*high(multiplier)
+(1)     323 : DB 40                      addb    R0H
+(1)     325 : D7 40                      stab    R0H
+(1)     327 : 96 42                      ldaa    R1H
+(1)     329 : D6 45                      ldab    R2L
+(1)     32B : 3D                         mul                     ; high(multiplicand)*low(multiplier)
+(1)     32C : DB 40                      addb    R0H
+(1)     32E : D7 40                      stab    R0H
+(1)     330 : 39                         rts
+(1)     331 :
+(1)     331 :                    ;;; Multiply; result = multiplicand * multiplier
+(1)     331 :                    ;;; @param D multiplicand
+(1)     331 :                    ;;; @param X multiplier
+(1)     331 :                    ;;; @return D result
+(1)     331 :                    ;;; @clobber R0 R1 R2
+(1)     331 :                    mul16:
+(1)     331 : DD 42                      std     R1
+(1)     333 : DF 44                      stx     R2
+(1)     335 : 98 44                      eora    R2H
+(1)     337 : 97 46                      staa    sign            ; save hi(multiplicand^multiplier)
+(1)     339 : DC 44                      ldd     R2
+(1)     33B : 2A 07                      bpl     mul16_multiplicand
+(1)     33D : 43                         coma
+(1)     33E : 53                         comb
+(1)     33F : C3 00 01                   addd    #1              ; negate multiplier
+(1)     342 : DD 44                      std     R2
+(1)     344 :                    mul16_multiplicand:
+(1)     344 : DC 42                      ldd     R1
+(1)     346 : 2A 07                      bpl     mul16_multiply
+(1)     348 : 43                         coma
+(1)     349 : 53                         comb
+(1)     34A : C3 00 01                   addd    #1              ; negate multiplicand
+(1)     34D : DD 42                      std     R1
+(1)     34F :                    mul16_multiply:
+(1)     34F : 8D C6                      bsr     umul16          ; R0=result
+(1)     351 : DC 40                      ldd     R0
+(1)     353 : 7D 00 46                   tst     sign            ; A=(multiplicand^multiplier)
+(1)     356 : 2A 05                      bpl     mul16_end
+(1)     358 : 43                         coma
+(1)     359 : 53                         comb
+(1)     35A : C3 00 01                   addd    #1              ; negate result
+(1)     35D :                    mul16_end:
+(1)     35D : 39                         rts
+(1)     35E :
+(1)     35E :                    ;;; Unsigned division: dividend / divisor = quotient ... remainder
+(1)     35E :                    ;;; @praram R1 dividend
+(1)     35E :                    ;;; @praram R2 divisor
+(1)     35E :                    ;;; @return R0 quotient
+(1)     35E :                    ;;; @return R1 remainder
+(1)     35E :                    ;;; @clobber R2
+(1)     35E :                    udiv16:
+(1)     35E : DC 44                      ldd     R2              ; D=divisor
+(1)     360 : 27 30                      beq     udiv16_end      ; branch if divisor==0
+(1)     362 : CE 00 01                   ldx     #1              ; X=bits
+(1)     365 : 20 02                      bra     udiv16_prep
+(1)     367 :                    udiv16_prep_loop:
+(1)     367 : 05                         lsld                    ; divisor <<= 1
+(1)     368 : 08                         inx                     ; ++bits
+(1)     369 :                    udiv16_prep:
+(1)     369 : 4D                         tsta
+(1)     36A : 2A FB                      bpl     udiv16_prep_loop ; while msb(divisor) == 0
+(1)     36C : DD 44                      std     R2               ; update divisor
+(1)     36E : DC 42                      ldd     R1               ; D=dividend
+(1)     370 : 7F 00 40                   clr     R0H
+(1)     373 : 7F 00 41                   clr     R0L             ; quotient=0
+(1)     376 : 20 0C                      bra     udiv16_enter_loop
+(1)     378 :                    udiv16_loop:
+(1)     378 : 74 00 44                   lsr     R2H
+(1)     37B : 76 00 45                   ror     R2L             ; divisor >>= 1
+(1)     37E : 78 00 41                   lsl     R0L
+(1)     381 : 79 00 40                   rol     R0H             ; quotient <<= 1
+(1)     384 :                    udiv16_enter_loop:
+(1)     384 : 93 44                      subd    R2              ; dividend -= divisor
+(1)     386 : 25 05                      bcs     udiv16_readd
+(1)     388 : 7C 00 41                   inc     R0L             ; quotient |= 1
+(1)     38B : 20 02                      bra     udiv16_next
+(1)     38D :                    udiv16_readd:
+(1)     38D : D3 44                      addd    R2              ; dividend += divisor
+(1)     38F :                    udiv16_next:
+(1)     38F : 09                         dex                     ; --bits
+(1)     390 : 26 E6                      bne     udiv16_loop     ; while bits != 0
+(1)     392 :                    udiv16_end:
+(1)     392 : DD 42                      std     R1              ; R1=remainder
+(1)     394 : 39                         rts
+(1)     395 :
+(1)     395 :                    ;;; Division; dividend / divisor = quotient ... remainder
+(1)     395 :                    ;;; @param D dividend
+(1)     395 :                    ;;; @param X divisor
+(1)     395 :                    ;;; @return D quotient
+(1)     395 :                    ;;; @return X remainder
+(1)     395 :                    ;;; @clobber R0 R1 R2
+(1)     395 :                    div16:
+(1)     395 : DD 42                      std     R1
+(1)     397 : DF 44                      stx     R2
+(1)     399 : 98 44                      eora    R2H
+(1)     39B : 97 46                      staa    sign            ; save hi(dividend^divisor)
+(1)     39D : DC 44                      ldd     R2
+(1)     39F : 2A 07                      bpl     div16_dividend
+(1)     3A1 : 43                         coma
+(1)     3A2 : 53                         comb
+(1)     3A3 : C3 00 01                   addd    #1              ; negate divisor
+(1)     3A6 : DD 44                      std     R2
+(1)     3A8 :                    div16_dividend:
+(1)     3A8 : DC 42                      ldd     R1
+(1)     3AA : 2A 07                      bpl     div16_divide
+(1)     3AC : 43                         coma
+(1)     3AD : 53                         comb
+(1)     3AE : C3 00 01                   addd    #1              ; negate dividend
+(1)     3B1 : DD 42                      std     R1
+(1)     3B3 :                    div16_divide:
+(1)     3B3 : 8D A9                      bsr     udiv16          ; R0=quotient
+(1)     3B5 : DC 40                      ldd     R0
+(1)     3B7 : DE 42                      ldx     R1
+(1)     3B9 : 7D 00 46                   tst     sign            ; A=(dividend^divisor)
+(1)     3BC : 2A 05                      bpl     div16_end
+(1)     3BE : 43                         coma
+(1)     3BF : 53                         comb
+(1)     3C0 : C3 00 01                   addd    #1              ; negate result
+(1)     3C3 :                    div16_end:
+(1)     3C3 : 39                         rts
