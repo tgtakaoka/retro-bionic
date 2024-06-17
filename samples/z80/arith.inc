@@ -98,7 +98,7 @@ umul16:
         ld      HL, 0           ; result=0
         jr      umul16_check
 umul16_loop:
-        or      A               ; clear AF.C
+        or      A, A            ; clear AF.C
         ld      A, D            ; multiplier >>= 1
         rra
         ld      D, A
@@ -108,7 +108,7 @@ umul16_loop:
         jr      NC, umul16_next ; if lsb(multiplier) == 0
         add     HL, BC          ; result += multiplicand
 umul16_next:
-        or      A               ; clear AF.C
+        or      A, A            ; clear AF.C
         ld      A, C            ; multiplicand <<= 1
         rla
         ld      C, A
@@ -122,11 +122,11 @@ umul16_check:
 umul16_end:
         ret
 
-;;; Signed multiplication; multiplicand *= multiplier
+;;; Signed multiplication; result = multiplicand * multiplier
 ;;; @param BC multiplicand
 ;;; @param DE multiplier
 ;;; @return HL result
-;;; @clobber A HL BC DE
+;;; @clobber A BC DE
 mul16:
         ld      A, B
         xor     A, D
@@ -178,7 +178,7 @@ udiv16:
         ld      L, 1            ; L=bits
         jr      udiv16_prep
 udiv16_prep_loop:
-        or      A               ; clear AF.C
+        or      A, A            ; clear AF.C
         ld      A, E            ; divisor <<= 1
         rla
         ld      E, A
@@ -193,20 +193,20 @@ udiv16_prep:                    ; while msb(divisor) == 0
         push    AF              ; push bits
         ld      H, B
         ld      L, C            ; HL=dividend
-        xor     A
+        xor     A, A
         ld      B, A
         ld      C, A            ; BC=quotient
         jr      udiv16_enter_loop
 udiv16_loop:
         push    AF              ; push bits
-        or      A               ; clear AF.C
+        or      A, A            ; clear AF.C
         ld      A, D            ; divisor >>= 1
         rra
         ld      D, A
         ld      A, E
         rra
         ld      E, A
-        or      A               ; clear AF.C
+        or      A, A            ; clear AF.C
         ld      A, C            ; quotient <<= 1
         rla
         ld      C, A

@@ -1,156 +1,202 @@
 ;;; -*- mode: asm; mode: flyspell-prog; -*-
-        org     1000H
-mandelbrot:
-        lxi     H, 50
-        shld    vF              ; F=50
-        lxi     H, -12
-        shld    vY              ; Y=-12
-loop_y:
-        lxi     H, -49
-        shld    vX              ; X=-49
-loop_x:
-        lhld    vX
-        shld    vC              ; C=X
-        lxi     H, 229
-        shld    tmp
-        lxi     B, vC
-        lxi     D, tmp
-        call    mulsi2          ; C=X*229
-        lxi     H, 100
-        shld    tmp
-        call    divsi2          ; C=X*229/100
-        lhld    vY
-        shld    vD              ; D=Y
-        lxi     H, 416
-        shld    tmp
-        lxi     B, vD
-        call    mulsi2          ; D=Y*416
-        lxi     H, 100
-        shld    tmp
-        call    divsi2          ; D=Y*416/100
-        lhld    vC
-        shld    vA              ; A=C
-        lhld    vD
-        shld    vB              ; B=D
-        lxi     H, 0
-        shld    vI              ; I=0
 
+;;; Sign extend A into BC
+;;; @param A 8-bit value
+;;; @return BC 16-bit value
+sex_BC:
+        mvi     B, 0
+        mov     C, A
+        ora     A
+        rp
+        mvi     B, -1
+        ret
+
+;;; Sign extend A into HL
+;;; @param A 8-bit value
+;;; @return HL 16-bit value
+sex_HL:
+        mvi     H, 0
+        mov     L, A
+        ora     A
+        rp
+        mvi     H, -1
+        ret
+
+Fv:     equ     50
+mandelbrot:
+        mvi     A, -12
+        sta     vY              ; Y=-12
+loop_y:
+        mvi     A, -49
+        sta     vX              ; X=-49
+loop_x:
+        lda     vX
+        call    sex_BC          ; BC=X
+        lxi     D, 229
+        call    mul16           ; X*229
+        mov     B, H
+        mov     C, L
+        lxi     D, 100
+        call    div16           ; X*229/100
+        shld    vC              ; C=X*229/200
+        shld    vA              ; A=C
+        lda     vY
+        call    sex_BC          ; BC=Y
+        lxi     D, 416
+        call    mul16           ; Y*416
+        mov     B, H
+        mov     C, L
+        lxi     D, 100
+        call    div16           ; Y*416/100
+        shld    vD              ; D=y*416/100
+        shld    vB              ; B=D
+        xra     A
+        sta     vI              ; I=0
+
+        ;; lda     vY
+        ;; call    sex_HL
         ;; mvi     A, 'Y'
-        ;; lhld    vY
         ;; call    print
+        ;; lda     vX
+        ;; call    sex_HL
         ;; mvi     A, 'X'
-        ;; lhld    vX
         ;; call    print
-        ;; mvi     A, 'C'
         ;; lhld    vC
+        ;; mvi     A, 'C'
         ;; call    print
-        ;; mvi     A, 'D'
         ;; lhld    vD
+        ;; mvi     A, 'D'
         ;; call    print
         ;; call    newline
 
 loop_i:
         lhld    vB
-        shld    vQ              ; Q=B
-        lxi     B, vQ
-        lxi     D, vF
-        call    divsi2          ; Q=B/F
-        lxi     B, vS
-        lxi     D, vQ
-        call    negsi2          ; S=-Q
-        lxi     D, vF
-        call    mulsi2          ; S=-Q*F
-        lxi     D, vB
-        call    addsi2          ; S=B-Q*F
+        mov     B, H
+        mov     C, L
+        lxi     D, Fv
+        call    div16           ; B/F
+        shld    (vQ)            ; Q=B/F
+        mov     B, H
+        mov     C, L
+        lxi     D, -Fv
+        call    mul16           ; -Q*F
+        mov     D, H
+        mov     E, L
         lhld    vB
-        shld    tmp
-        lxi     B, tmp
-        call    mulsi2          ; tmp=B*B
-        lhld    vA
-        shld    vT
-        lxi     B, vT
-        lxi     D, vA
-        call    mulsi2          ; T=A*A
-        lxi     D, tmp
-        call    subsi2          ; T=A*A-B*B
-        lxi     D, vF
-        call    divsi2          ; T=(A*A-B*B)/F
-        lxi     D, vC
-        call    addsi2          ; T=(A*A-B*B)/F+C
-        lhld    vA
-        shld    tmp
-        lxi     B, tmp
-        lxi     D, vS
-        call    mulsi2          ; tmp=A*S
-        lxi     D, vF
-        call    divsi2          ; tmp=A*S/F
-        lhld    vA
-        shld    vB              ; B=A
-        lxi     B, vB
-        lxi     D, vQ
-        call    mulsi2          ; B=A*Q
-        lxi     D, tmp
-        call    addsi2          ; B=A*Q+A*S/F
-        lxi     D, vB
-        call    addsi2          ; B=2*(A*Q+A*S/F)
-        lxi     D, vD
-        call    addsi2          ; B=2*(A*Q+A*S/F)+D
-        lhld    vT
-        shld    vA              ; A=T
-        shld    vP              ; P=A
-        lxi     B, vP
-        lxi     D, vF
-        call    divsi2          ; P=A/F
+        dad     D               ; S=B-Q*F
+        shld    vS
         lhld    vB
-        shld    vQ
-        lxi     B, vQ
-        call    divsi2          ; Q=B/F
+        mov     B, H
+        mov     C, L
+        mov     D, H
+        mov     E, L
+        call    mul16           ; B*B
+        push    H               ; push B*B
+        lhld    vA
+        mov     B, H
+        mov     C, L
+        mov     D, H
+        mov     E, L
+        call    mul16           ; A*A
+        pop     D               ; pop B*B
+        call    neg_DE          ; -B*B
+        dad     D               ; A*A-B*B
+        mov     B, H
+        mov     C, L
+        lxi     D, Fv
+        call    div16           ; (A*A-B*B)/F
+        mov     D, H
+        mov     E, L
+        lhld    vC
+        dad     D               ; (A*A-B*B)/F+C
+        push    H               ; push (A*A-B*B)/F+C
+        lhld    vA
+        mov     B, H
+        mov     C, L
+        lhld    vS
+        mov     D, H
+        mov     E, L
+        call    mul16           ; A*S
+        mov     B, H
+        mov     C, L
+        lxi     D, Fv
+        call    div16           ; A*S/F
+        push    H               ; push A*S/F
+        lhld    vA
+        mov     B, H
+        mov     C, L
         lhld    vQ
-        shld    tmp
-        lxi     B, tmp
-        lxi     D, vQ
-        call    mulsi2          ; tmp=Q*Q
-        lhld    vP
-        shld    vT
-        lxi     B, vT
-        lxi     D, vP
-        call    mulsi2          ; T=P*P
-        lxi     D, tmp
-        call    addsi2          ; T=P*P+Q*Q
+        mov     D, H
+        mov     E, L
+        call    mul16           ; A*Q
+        pop     D               ; pop A*S/F
+        dad     D               ; A*Q+A*S/F
+        dad     H               ; 2*(A*Q+A*S/F)
+        mov     D, H
+        mov     E, L
+        lhld    vD
+        dad     D               ; 2*(A*Q+A*S/F)+D
+        shld    vB              ; B=2*(A*Q+A*S/F)+D
+        pop     H               ; pop (A*A-B*B)/F+C
+        shld    vA              ; A=(A*A-B*B)/F+C
+        mov     B, H
+        mov     C, L
+        lxi     D, Fv
+        call    div16           ; A/F
+        shld    vP              ; P=A/F
+        mov     B, H
+        mov     C, L
+        mov     D, H
+        mov     E, L
+        call    mul16           ; P*P
+        push    H               ; push P*P
+        lhld    vB
+        mov     B, H
+        mov     C, L
+        lxi     D, Fv
+        call    div16           ; B/F
+        shld    vQ              ; Q=B/F
+        mov     B, H
+        mov     C, L
+        mov     D, H
+        mov     E, L
+        call    mul16           ; Q*Q
+        pop     D               ; pop P*P
+        dad     D               ; P*P+Q*Q
+        shld    vT              ; T=P*P+Q*Q
 
         ;; call    putspace
+        ;; lda     vI
+        ;; call    sex_HL
         ;; mvi     A, 'I'
-        ;; lhld    vI
         ;; call    print
-        ;; mvi     A, 'A'
         ;; lhld    vA
+        ;; mvi     A, 'A'
         ;; call    print
-        ;; mvi     A, 'B'
         ;; lhld    vB
+        ;; mvi     A, 'B'
         ;; call    print
-        ;; mvi     A, 'P'
         ;; lhld    vP
+        ;; mvi     A, 'P'
         ;; call    print
-        ;; mvi     A, 'Q'
         ;; lhld    vQ
+        ;; mvi     A, 'Q'
+        ;; call    print
+        ;; lhld    vT
+        ;; mvi     A, 'T'
         ;; call    print
         ;; call    newline
 
-        lxi     H, 4
-        shld    tmp
-        lxi     B, tmp
-        lxi     D, vT
-        call    cmpsi2          ; 4-T
-        jm      print_i         ; if 4<T
-        lhld    vI
-        inx     H
-        shld    vI              ; I+=1
-        lxi     H, 16
-        shld    tmp
-        lxi     B, vI
-        lxi     D, tmp
-        call    cmpsi2
-        jm      loop_i          ; if I<16
+        lda     vT+1
+        jnz     print_i         ; if T>=256
+        lda     vT
+        cpi     4+1
+        jnc     print_i         ; if 4<T
+        lda     vI
+        inr     A
+        sta     vI              ; I+=1
+        cpi     16
+        jc      loop_i          ; if I<16
         mvi     A, ' '
         jmp     print_char
 print_i:
@@ -160,7 +206,7 @@ print_i:
         adi     'A'-'0'-10
 print_i2:
         adi     '0'
-print_char:     
+print_char:
         call    putchar
 
         ;; push    PSW
@@ -178,41 +224,34 @@ print_char:
         jnz     next_x
         hlt                     ; halt to system
 next_x:
-        lhld    vX
-        inx     H
-        shld    vX              ; X+=1
-        lxi     H, 30
-        shld    tmp
-        lxi     B, vX
-        lxi     D, tmp
-        call    cmpsi2
-        jm      loop_x          ; if X<30
-        mvi     A, 0DH
-        call    putchar
-        mvi     A, 0AH
-        call    putchar
-        lhld    vY
-        inx     H
-        shld    vY              ; Y+=1
-        lxi     H, 13
-        shld    tmp
-        lxi     B, vY
-        lxi     D, tmp
-        call    cmpsi2
-        jm      loop_y          ; if X<13
+        lxi     H, vX           ; X+=1
+        inr     M
+        mov     A, M
+        ora     A
+        jm      loop_x          ; if X<0
+        cpi     30
+        jc      loop_x          ; if X<30
+        call    newline
+        lxi     H, vY
+        inr     M               ; Y+=1
+        mov     A, M
+        ora     A
+        jm      loop_y          ; if Y<0
+        cpi     13
+        jc      loop_y          ; if X<13
         ret
 
 ;;; Print variable
 ;;; @param A variable name
 ;;; @param HL variable value
-print:  
+print:
         call    putchar
         mvi     A, '='
         call    putchar
         call    print_int16
         jmp     putspace
 
-vF:     ds      2
+;;; workspace
 vC:     ds      2
 vD:     ds      2
 vA:     ds      2
@@ -221,7 +260,6 @@ vP:     ds      2
 vQ:     ds      2
 vS:     ds      2
 vT:     ds      2
-tmp:    ds      2
 vY:     ds      2
 vX:     ds      2
 vI:     ds      2

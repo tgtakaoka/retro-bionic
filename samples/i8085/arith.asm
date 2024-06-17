@@ -66,40 +66,47 @@ putspace:
         pop     PSW
         ret
 
+;;; Print "v1 op v2 = "
+;;; @param v1 BC
+;;; @param v2 DE
+;;; @param op A
+;;; @return v1 HL
+;;; @clobber A
 expr:
         push    PSW
-        ldax    B
-        mov     L, A
-        inx     B
-        ldax    B
-        mov     H, A
-        dcx     B               ; HL=@BC
+        mov     H, B
+        mov     L, C
         call    print_int16
         call    putspace
         pop     PSW
         call    putchar
         call    putspace
-        ldax    D
-        mov     L, A
-        inx     D
-        ldax    D
-        mov     H, A
-        dcx     D
-        jmp     print_int16     ; HL=@DE
+        mov     H, D
+        mov     L, E
+        call    print_int16
+        mov     H, B
+        mov     L, C
+        ret
 
+;;; Print " v1\n"
+;;; @param v1 HL
+;;; @clobber A HL
 answer:
         call    putspace
         mvi     A, '='
         call    putchar
         call    putspace
-        lhld    vA
         call    print_int16
         jmp     newline
 
+;;; Compare and print "v1 rel v2\n"
+;;; @param v1 BC
+;;; @param v2 DE
+;;; @clobber A HL
 comp:
-        lxi     B, vA
-        lxi     D, vB
-        call    cmpsi2
+        push    B
+        push    D
+        call    cmp16
         jz      comp_eq
         jp      comp_gt
         jm      comp_lt
@@ -114,226 +121,185 @@ comp_eq:
 comp_lt:
         mvi     A, '<'
 comp_out:
+        pop     D
+        pop     B
         call    expr
         jmp     newline
 
         org     0200H
 
-vA:     ds      2
-vB:     ds      2
-
         org     1000H
 
 arith:
-        lxi     B, vA
-        lxi     D, vB
-
-        lxi     H, 0
-        shld    vA
-        lxi     H, -28000
-        shld    vB
+        lxi     B, 0
+        lxi     D, -28000
         mvi     A, '-'
         call    expr
-        call    negsi2
+        call    neg_DE
+        mov     H, D
+        mov     L, E
         call    answer          ; 28000
 
-        lxi     H, 0
-        shld    vA
-        lxi     H, 28000
-        shld    vB
+        lxi     B, 0
+        lxi     D, 28000
         mvi     A, '-'
         call    expr
-        call    negsi2
+        call    neg_DE
+        mov     H, D
+        mov     L, E
         call    answer          ; -28000
 
-        lxi     H, 18000
-        shld    vA
-        lxi     H, 28000
-        shld    vB
+        lxi     B, 18000
+        lxi     D, 28000
         mvi     A, '+'
         call    expr
-        call    addsi2
+        dad     D
         call    answer          ; -19536
 
-        lxi     H, 18000
-        shld    vA
-        lxi     H, -18000
-        shld    vB
+        lxi     B, 18000
+        lxi     D, -18000
         mvi     A, '+'
         call    expr
-        call    addsi2
+        dad     D
         call    answer          ; 0
 
-        lxi     H, -18000
-        shld    vA
-        lxi     H, -18000
-        shld    vB
+        lxi     B, -18000
+        lxi     D, -18000
         mvi     A, '+'
         call    expr
-        call    addsi2
+        dad     D
         call    answer          ; 29536
 
-        lxi     H, -18000
-        shld    vA
-        lxi     H, -28000
-        shld    vB
+        lxi     B, -18000
+        lxi     D, -28000
         mvi     A, '-'
         call    expr
-        call    subsi2
+        call    neg_DE
+        dad     D
         call    answer          ; -10000
 
-        lxi     H, 100
-        shld    vA
-        lxi     H, 300
-        shld    vB
+        lxi     B, 100
+        lxi     D, 300
         mvi     A, '*'
         call    expr
-        call    mulsi2
+        call    mul16
         call    answer          ; 30000
 
-        lxi     H, 300
-        shld    vA
-        lxi     H, -200
-        shld    vB
+        lxi     B, 300
+        lxi     D, -200
         mvi     A, '*'
         call    expr
-        call    mulsi2
+        call    mul16
         call    answer          ; 5536
 
-        lxi     H, 100
-        shld    vA
-        lxi     H, -300
-        shld    vB
+        lxi     B, 100
+        lxi     D, -300
         mvi     A, '*'
         call    expr
-        call    mulsi2
+        call    mul16
         call    answer          ; -30000
 
-        lxi     H, -200
-        shld    vA
-        lxi     H, -100
-        shld    vB
+        lxi     B, -200
+        lxi     D, -100
         mvi     A, '*'
         call    expr
-        call    mulsi2
+        call    mul16
         call    answer          ; 20000
 
-        lxi     H, 30000
-        shld    vA
-        lxi     H, 100
-        shld    vB
+        lxi     B, 30000
+        lxi     D, 100
         mvi     A, '/'
         call    expr
-        call    divsi2
+        call    div16
         call    answer          ; 30
 
-        lxi     H, -200
-        shld    vA
-        lxi     H, 100
-        shld    vB
+        lxi     B, -200
+        lxi     D, 100
         mvi     A, '/'
         call    expr
-        call    divsi2
+        call    div16
         call    answer          ; -2
 
-        lxi     H, -30000
-        shld    vA
-        lxi     H, -200
-        shld    vB
+        lxi     B, -30000
+        lxi     D, -200
         mvi     A, '/'
         call    expr
-        call    divsi2
+        call    div16
         call    answer          ; 150
 
-        lxi     H, -30000
-        shld    vA
-        lxi     H, 78
-        shld    vB
+        lxi     B, -30000
+        lxi     D, 78
         mvi     A, '/'
         call    expr
-        call    divsi2
+        call    div16
         call    answer          ; -384
 
-        lxi     H, -48
-        shld    vA
-        lxi     H, 30
-        shld    vB
+        lxi     B, -48
+        lxi     D, 30
         call    comp
 
-        lxi     H, 30
-        shld    vA
-        lxi     H, -48
-        shld    vB
+        lxi     B, 30
+        lxi     D, -48
         call    comp
 
-        lxi     H, 5000
-        shld    vA
-        lxi     H, 4000
-        shld    vB
+        lxi     B, 5000
+        lxi     D, 4000
         call    comp
 
-        lxi     H, 5000
-        shld    vB
+        lxi     B, 5000
+        lxi     D, 5000
         call    comp
 
-        lxi     H, 4000
-        shld    vA
+        lxi     B, 4000
+        lxi     D, 5000
         call    comp
 
-        lxi     H, -5000
-        shld    vA
-        lxi     H, -4000
-        shld    vB
+        lxi     B, -5000
+        lxi     D, -4000
         call    comp
 
-        lxi     H, -5000
-        shld    vB
+        lxi     B, -5000
+        lxi     D, -5000
         call    comp
 
-        lxi     H, -4000
-        shld    vA
+        lxi     B, -4000
+        lxi     D, -5000
         call    comp
 
-        lxi     H, 32700
-        shld    vA
-        lxi     H, 32600
-        shld    vB
+        lxi     B, 32700
+        lxi     D, 32600
         call    comp
 
-        lxi     H, 32700
-        shld    vB
+        lxi     B, 32700
+        lxi     D, 32700
         call    comp
 
-        lxi     H, 32600
-        shld    vA
+        lxi     B, 32600
+        lxi     D, 32700
         call    comp
 
-        lxi     H, -32700
-        shld    vA
-        lxi     H, -32600
-        shld    vB
+        lxi     B, -32700
+        lxi     D, -32600
         call    comp
 
-        lxi     H, -32700
-        shld    vB
+        lxi     B, -32700
+        lxi     D, -32700
         call    comp
 
-        lxi     H, -32600
-        shld    vA
+        lxi     B, -32600
+        lxi     D, -32700
         call    comp
 
-        lxi     H, 18000
-        shld    vA
-        lxi     H, -28000
-        shld    vB
+        lxi     B, 18000
+        lxi     D, -28000
         call    comp
 
-        lxi     H, 18000
-        shld    vB
+        lxi     B, 18000
+        lxi     D, 18000
         call    comp
 
-        lxi     H, -28000
-        shld    vA
+        lxi     B, -28000
+        lxi     D, 18000
         call    comp
 
         ret
