@@ -22,24 +22,6 @@ rx_queue:       ds      rx_queue_size
 tx_queue_size:  equ     128
 tx_queue:       ds      tx_queue_size
 
-;;; workspace of mandelbrot.inc
-tmp:    ds      2
-c229:   ds      2
-c416:   ds      2
-c100:   ds      2
-vF:     ds      2
-vC:     ds      2
-vD:     ds      2
-vA:     ds      2
-vB:     ds      2
-vP:     ds      2
-vQ:     ds      2
-vS:     ds      2
-vT:     ds      2
-vY:     ds      2
-vX:     ds      2
-vI:     ds      2
-
         org     1000H
 stack:          equ     $
 

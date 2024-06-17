@@ -66,40 +66,47 @@ putspace:
         pop     AF
         ret
 
+;;; Print "v1 op v2 = "
+;;; @param v1 BC
+;;; @param v2 DE
+;;; @param op A
+;;; @return v1 HL
+;;; @clobber A
 expr:
         push    AF
-        ld      A, (BC)
-        ld      L, A
-        inc     BC
-        ld      A, (BC)
-        ld      H, A
-        dec     BC              ; HL=@BC
+        ld      H, B
+        ld      L, C
         call    print_int16
         call    putspace
         pop     AF
         call    putchar
         call    putspace
-        ld      A, (DE)
-        ld      L, A
-        inc     DE
-        ld      A, (DE)
-        ld      H, A
-        dec     DE
-        jp      print_int16     ; HL=@DE
+        ld      H, D
+        ld      L, E
+        call    print_int16
+        ld      H, B
+        ld      L, C
+        ret
 
+;;; Print " v1\n"
+;;; @param v1 HL
+;;; @clobber A HL
 answer:
         call    putspace
         ld      A, '='
         call    putchar
         call    putspace
-        ld      HL, (vA)
         call    print_int16
         jr      newline
 
+;;; Compare and print "v1 rel v2\n"
+;;; @param v1 BC
+;;; @param v2 DE
+;;; @clobber A HL
 comp:
-        ld      BC, vA
-        ld      DE, vB
-        call    cmpsi2
+        push    BC
+        push    DE
+        call    cmp16
         jr      Z, comp_eq
         jp      P, comp_gt
         jp      M, comp_lt
@@ -114,226 +121,183 @@ comp_eq:
 comp_lt:
         ld      A, '<'
 comp_out:
+        pop     DE
+        pop     BC
         call    expr
         jr      newline
-
-        org     0200H
-
-vA:     ds      2
-vB:     ds      2
 
         org     1000H
 
 arith:
-        ld      BC, vA
-        ld      DE, vB
-
-        ld      HL, 0
-        ld      (vA), HL
-        ld      HL, -28000
-        ld      (vB), HL
+        ld      BC, 0
+        ld      DE, -28000
         ld      A, '-'
         call    expr
-        call    negsi2
+        call    neg_DE
+        ld      H, D
+        ld      L, E
         call    answer          ; 28000
 
         ld      HL, 0
-        ld      (vA), HL
-        ld      HL, 28000
-        ld      (vB), HL
+        ld      DE, 28000
         ld      A, '-'
         call    expr
-        call    negsi2
+        call    neg_DE
+        ld      H, D
+        ld      L, E
         call    answer          ; -28000
 
-        ld      HL, 18000
-        ld      (vA), HL
-        ld      HL, 28000
-        ld      (vB), HL
+        ld      BC, 18000
+        ld      DE, 28000
         ld      A, '+'
         call    expr
-        call    addsi2
+        add     HL, DE
         call    answer          ; -19536
 
-        ld      HL, 18000
-        ld      (vA), HL
-        ld      HL, -18000
-        ld      (vB), HL
+        ld      BC, 18000
+        ld      DE, -18000
         ld      A, '+'
         call    expr
-        call    addsi2
+        add     HL, DE
         call    answer          ; 0
 
-        ld      HL, -18000
-        ld      (vA), HL
-        ld      HL, -18000
-        ld      (vB), HL
+        ld      BC, -18000
+        ld      DE, -18000
         ld      A, '+'
         call    expr
-        call    addsi2
+        add     HL, DE
         call    answer          ; 29536
 
-        ld      HL, -18000
-        ld      (vA), HL
-        ld      HL, -28000
-        ld      (vB), HL
+        ld      BC, -18000
+        ld      DE, -28000
         ld      A, '-'
         call    expr
-        call    subsi2
+        call    neg_DE
+        add     HL, DE
         call    answer          ; -10000
 
-        ld      HL, 100
-        ld      (vA), HL
-        ld      HL, 300
-        ld      (vB), HL
+        ld      BC, 100
+        ld      DE, 300
         ld      A, '*'
         call    expr
-        call    mulsi2
+        call    mul16
         call    answer          ; 30000
 
-        ld      HL, 300
-        ld      (vA), HL
-        ld      HL, -200
-        ld      (vB), HL
+        ld      BC, 300
+        ld      DE, -200
         ld      A, '*'
         call    expr
-        call    mulsi2
+        call    mul16
         call    answer          ; 5536
 
-        ld      HL, 100
-        ld      (vA), HL
-        ld      HL, -300
-        ld      (vB), HL
+        ld      BC, 100
+        ld      DE, -300
         ld      A, '*'
         call    expr
-        call    mulsi2
+        call    mul16
         call    answer          ; -30000
 
-        ld      HL, -200
-        ld      (vA), HL
-        ld      HL, -100
-        ld      (vB), HL
+        ld      BC, -200
+        ld      DE, -100
         ld      A, '*'
         call    expr
-        call    mulsi2
+        call    mul16
         call    answer          ; 20000
 
-        ld      HL, 30000
-        ld      (vA), HL
-        ld      HL, 100
-        ld      (vB), HL
+        ld      BC, 30000
+        ld      DE, 100
         ld      A, '/'
         call    expr
-        call    divsi2
+        call    div16
         call    answer          ; 30
 
-        ld      HL, -200
-        ld      (vA), HL
-        ld      HL, 100
-        ld      (vB), HL
+        ld      BC, -200
+        ld      DE, 100
         ld      A, '/'
         call    expr
-        call    divsi2
+        call    div16
         call    answer          ; -2
 
-        ld      HL, -30000
-        ld      (vA), HL
-        ld      HL, -200
-        ld      (vB), HL
+        ld      BC, -30000
+        ld      DE, -200
         ld      A, '/'
         call    expr
-        call    divsi2
+        call    div16
         call    answer          ; 150
 
-        ld      HL, -30000
-        ld      (vA), HL
-        ld      HL, 78
-        ld      (vB), HL
+        ld      BC, -30000
+        ld      DE, 78
         ld      A, '/'
         call    expr
-        call    divsi2
+        call    div16
         call    answer          ; -384
 
-        ld      HL, -48
-        ld      (vA), HL
-        ld      HL, 30
-        ld      (vB), HL
+        ld      BC, -48
+        ld      DE, 30
         call    comp
 
-        ld      HL, 30
-        ld      (vA), HL
-        ld      HL, -48
-        ld      (vB), HL
+        ld      BC, 30
+        ld      DE, -48
         call    comp
 
-        ld      HL, 5000
-        ld      (vA), HL
-        ld      HL, 4000
-        ld      (vB), HL
+        ld      BC, 5000
+        ld      DE, 4000
         call    comp
 
-        ld      HL, 5000
-        ld      (vB), HL
+        ld      BC, 5000
+        ld      DE, 5000
         call    comp
 
-        ld      HL, 4000
-        ld      (vA), HL
+        ld      BC, 4000
+        ld      DE, 5000
         call    comp
 
-        ld      HL, -5000
-        ld      (vA), HL
-        ld      HL, -4000
-        ld      (vB), HL
+        ld      BC, -5000
+        ld      DE, -4000
         call    comp
 
-        ld      HL, -5000
-        ld      (vB), HL
+        ld      BC, -5000
+        ld      DE, -5000
         call    comp
 
-        ld      HL, -4000
-        ld      (vA), HL
+        ld      BC, -4000
+        ld      DE, -5000
         call    comp
 
-        ld      HL, 32700
-        ld      (vA), HL
-        ld      HL, 32600
-        ld      (vB), HL
+        ld      BC, 32700
+        ld      DE, 32600
         call    comp
 
-        ld      HL, 32700
-        ld      (vB), HL
+        ld      BC, 32700
+        ld      DE, 32700
         call    comp
 
-        ld      HL, 32600
-        ld      (vA), HL
+        ld      BC, 32600
+        ld      DE, 32700
         call    comp
 
-        ld      HL, -32700
-        ld      (vA), HL
-        ld      HL, -32600
-        ld      (vB), HL
+        ld      BC, -32700
+        ld      DE, -32600
         call    comp
 
-        ld      HL, -32700
-        ld      (vB), HL
+        ld      BC, -32700
+        ld      DE, -32700
         call    comp
 
-        ld      HL, -32600
-        ld      (vA), HL
+        ld      BC, -32600
+        ld      DE, -32700
         call    comp
 
-        ld      HL, 18000
-        ld      (vA), HL
-        ld      HL, -28000
-        ld      (vB), HL
+        ld      BC, 18000
+        ld      DE, -28000
         call    comp
 
-        ld      HL, 18000
-        ld      (vB), HL
+        ld      BC, 18000
+        ld      DE, 18000
         call    comp
 
-        ld      HL, -28000
-        ld      (vA), HL
+        ld      BC, -28000
+        ld      DE, 18000
         call    comp
 
         ret

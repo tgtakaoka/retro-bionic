@@ -1,141 +1,163 @@
 ;;; -*- mode: asm; mode: flyspell-prog; -*-
-mandelbrot:
-        ld      HL, 229
-        ld      (c229), HL
-        ld      HL, 416
-        ld      (c416), HL
-        ld      HL, 100
-        ld      (c100), HL
-        ld      HL, 50
-        ld      (vF), HL        ; F=50
-        ld      HL, -12
-        ld      (vY), HL        ; Y=-12
-loop_y:
-        ld      HL, -49
-        ld      (vX), HL        ; X=-49
-loop_x:
-        ld      HL, (vX)
-        ld      (vC), HL        ; C=X
-        ld      BC, vC
-        ld      DE, c229
-        call    mulsi2          ; C=X*229
-        ld      DE, c100
-        call    divsi2          ; C=X*229/100
-        ld      HL, (vY)
-        ld      (vD), HL        ; D=Y
-        ld      BC, vD
-        ld      DE, c416
-        call    mulsi2          ; D=Y*416
-        ld      DE, c100
-        call    divsi2          ; D=Y*416/100
-        ld      HL, (vC)
-        ld      (vA), HL        ; A=C
-        ld      HL, (vD)
-        ld      (vB), HL        ; B=D
-        ld      HL, 0
-        ld      (vI), HL        ; I=0
 
+;;; Sign extend A into BC
+;;; @param A 8-bit value
+;;; @return BC 16-bit value
+sex_BC:
+        ld      B, 0
+        ld      C, A
+        bit     7, C
+        ret     Z
+        ld      B, -1
+        ret
+
+;;; Sign extend A into HL
+;;; @param A 8-bit value
+;;; @return HL 16-bit value
+sex_HL:
+        ld      H, 0
+        ld      L, A
+        bit     7, L
+        ret     Z
+        ld      H, -1
+        ret
+
+Fv:     equ     50
+mandelbrot:
+        ld      A, -12
+        ld      (vY), A         ; Y=-12
+loop_y:
+        ld      A, -49
+        ld      (vX), A         ; X=-49
+loop_x:
+        ld      A, (vX)
+        call    sex_BC          ; BC=X
+        ld      DE, 229
+        call    mul16           ; X*229
+        ld      B, H
+        ld      C, L
+        ld      DE, 100
+        call    div16           ; X*229/100
+        ld      (vC), HL        ; C=X*229/100
+        ld      (vA), HL        ; A=C
+        ld      A, (vY)
+        call    sex_BC          ; BC=Y
+        ld      DE, 416
+        call    mul16           ; Y*416
+        ld      B, H
+        ld      C, L
+        ld      DE, 100
+        call    div16           ; Y*416/100
+        ld      (vD), HL        ; D=Y*416/100
+        ld      (vB), HL        ; B=D
+        ld      A, 0
+        ld      (vI), A         ; I=0
+
+        ;; ld      A, (vY)
+        ;; call    sex_HL
         ;; ld      A, 'Y'
-        ;; ld      HL, (vY)
         ;; call    print
+        ;; ld      A, (vX)
+        ;; call    sex_HL
         ;; ld      A, 'X'
-        ;; ld      HL, (vX)
         ;; call    print
-        ;; ld      A, 'C'
         ;; ld      HL, (vC)
+        ;; ld      A, 'C'
         ;; call    print
-        ;; ld      A, 'D'
         ;; ld      HL, (vD)
+        ;; ld      A, 'D'
         ;; call    print
         ;; call    newline
 
 loop_i:
-        ld      HL, (vB)
-        ld      (vQ), HL        ; Q=B
-        ld      BC, vQ
-        ld      DE, vF
-        call    divsi2          ; Q=B/F
-        ld      BC, vS
-        ld      DE, vQ
-        call    negsi2          ; S=-Q
-        ld      DE, vF
-        call    mulsi2          ; S=-Q*F
-        ld      DE, vB
-        call    addsi2          ; S=B-Q*F
-        ld      HL, (vB)
-        ld      (tmp), HL
-        ld      BC, tmp
-        call    mulsi2          ; tmp=B*B
-        ld      HL, (vA)
-        ld      (vT), HL
-        ld      BC, vT
-        ld      DE, vA
-        call    mulsi2          ; T=A*A
-        ld      DE, tmp
-        call    subsi2          ; T=A*A-B*B
-        ld      DE, vF
-        call    divsi2          ; T=(A*A-B*B)/F
-        ld      DE, vC
-        call    addsi2          ; T=(A*A-B*B)/F+C
-        ld      HL, (vA)
-        ld      (tmp), HL
-        ld      BC, tmp
-        ld      DE, vS
-        call    mulsi2          ; tmp=A*S
-        ld      DE, vF
-        call    divsi2          ; tmp=A*S/F
-        ld      HL, (vA)
-        ld      (vB), HL        ; B=A
-        ld      BC, vB
-        ld      DE, vQ
-        call    mulsi2          ; B=A*Q
-        ld      DE, tmp
-        call    addsi2          ; B=A*Q+A*S/F
-        ld      DE, vB
-        call    addsi2          ; B=2*(A*Q+A*S/F)
-        ld      DE, vD
-        call    addsi2          ; B=2*(A*Q+A*S/F)+D
-        ld      HL, (vT)
-        ld      (vA), HL        ; A=T
-        ld      (vP), HL        ; P=A
-        ld      BC, vP
-        ld      DE, vF
-        call    divsi2          ; P=A/F
-        ld      HL, (vB)
-        ld      (vQ), HL
-        ld      BC, vQ
-        call    divsi2          ; Q=B/F
-        ld      HL, (vQ)
-        ld      (tmp), HL
-        ld      BC, tmp
-        ld      DE, vQ
-        call    mulsi2          ; tmp=Q*Q
-        ld      HL, (vP)
-        ld      (vT), HL
-        ld      BC, vT
-        ld      DE, vP
-        call    mulsi2          ; T=P*P
-        ld      DE, tmp
-        call    addsi2          ; T=P*P+Q*Q
+        ld      BC, (vB)
+        ld      DE, Fv
+        call    div16           ; B/F
+        ld      (vQ), HL        ; Q=B/F
+        ld      B, H
+        ld      C, L
+        ld      DE, -Fv
+        call    mul16           ; -Q*F
+        ld      DE, (vB)
+        add     HL, DE          ; B-Q*F
+        ld      (vS), HL        ; S=B-Q*F
+        ld      BC, (vB)
+        ld      DE, (vB)
+        call    mul16           ; B*B
+        push    HL              ; push B*B
+        ld      BC, (vA)
+        ld      DE, (vA)
+        call    mul16           ; A*A
+        pop     DE              ; pop B*B
+        call    neg_DE          ; -B*B
+        add     HL, DE          ; A*A-B*B
+        ld      B, H
+        ld      C, L
+        ld      DE, Fv
+        call    div16           ; (A*A-B*B)/F
+        ld      DE, (vC)
+        add     HL, DE          ; (A*A-B*B)/F+C
+        push    HL              ; push (A*A-B*B)/F+C
+        ld      BC, (vA)
+        ld      DE, (vS)
+        call    mul16           ; A*S
+        ld      B, H
+        ld      C, L
+        ld      DE, Fv
+        call    div16           ; A*S/F
+        push    HL              ; push A*S/F
+        ld      BC, (vA)
+        ld      DE, (vQ)
+        call    mul16           ; A*Q
+        pop     DE              ; pop A*S/F
+        add     HL, DE          ; A*Q+A*S/F
+        add     HL, HL          ; 2*(A*Q+A*S/F)
+        ld      DE, (vD)
+        add     HL, DE          ; 2*(A*Q+A*S/F)+D
+        ld      (vB), HL        ; B=2*(A*Q+A*S/F)+D
+        pop     BC              ; pop (A*A-B*B)/F+C
+        ld      (vA), BC        ; A=(A*A-B*B)/F+C
+        ld      DE, Fv
+        call    div16           ; A/F
+        ld      (vP), HL        ; P=A/F
+        ld      B, H
+        ld      C, L
+        ld      D, H
+        ld      E, L
+        call    mul16           ; P*P
+        push    HL              ; push P*P
+        ld      BC, (vB)
+        ld      DE, Fv
+        call    div16           ; B/F
+        ld      (vQ), HL        ; Q=B/F
+        ld      B, H
+        ld      C, L
+        ld      D, H
+        ld      E, L
+        call    mul16           ; Q*Q
+        pop     DE              ; pop P*P
+        add     HL, DE          ; P*P+Q*Q
+        ld      (vT), HL        ; T=P*P+Q*Q
 
         ;; call    putspace
+        ;; ld      A, (vI)
+        ;; call    sex_HL
         ;; ld      A, 'I'
-        ;; ld      HL, (vI)
         ;; call    print
-        ;; ld      A, 'A'
         ;; ld      HL, (vA)
+        ;; ld      A, 'A'
         ;; call    print
-        ;; ld      A, 'B'
         ;; ld      HL, (vB)
+        ;; ld      A, 'B'
         ;; call    print
-        ;; ld      A, 'P'
         ;; ld      HL, (vP)
+        ;; ld      A, 'P'
         ;; call    print
-        ;; ld      A, 'Q'
         ;; ld      HL, (vQ)
+        ;; ld      A, 'Q'
         ;; call    print
-        ;; ld      A, 'T'
         ;; ld      HL, (vT)
+        ;; ld      A, 'T'
         ;; call    print
         ;; call    newline
 
@@ -176,23 +198,21 @@ print_char:
         jr      NZ, next_x
         halt                    ; halt to system
 next_x:
-        ld      HL, (vX)
-        inc     HL
-        ld      (vX), HL        ; X+=1
-        bit     7, H
+        ld      HL, vX
+        inc     (HL)            ; X+=1
+        ld      A, (HL)
+        bit     7, A
         jp      NZ, loop_x      ; if X<0
-        ld      A, L
         cp      A, 30
         jp      C, loop_x       ; if X<30
         call    newline
-        ld      HL, (vY)
-        inc     HL
-        ld      (vY), HL        ; Y+=1
-        bit     7, H
+        ld      HL, vY
+        inc     (HL)            ; Y+=1
+        ld      A, (HL)
+        bit     7, A
         jp      NZ, loop_y      ; if Y<0
-        ld      A, L
         cp      A, 13
-        jp      C, loop_y       ; if X<13
+        jp      C, loop_y       ; if Y<13
         ret
 
 ;;; Print variable
@@ -204,3 +224,17 @@ print:
         call    putchar
         call    print_int16
         jp      putspace
+
+;;; workspace
+vC:     ds      2
+vD:     ds      2
+vA:     ds      2
+vB:     ds      2
+vP:     ds      2
+vQ:     ds      2
+vS:     ds      2
+vT:     ds      2
+vY:     ds      1
+vX:     ds      1
+vI:     ds      1
+
