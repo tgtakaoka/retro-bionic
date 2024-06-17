@@ -194,25 +194,23 @@ mc6809::Signals *PinsMc6809E::cycle() const {
 
 const mc6809::Signals *PinsMc6809E::findFetch(
         mc6809::Signals *begin, const mc6809::Signals *end) {
-    const auto cycles = begin->diff(end);
     const auto native6309 = _regs.contextLength() == 14;
-    for (auto i = 0; i < cycles; ++i) {
-        auto s = begin->next(i);
-        if (native6309) {
+    const auto cycles = begin->diff(end);
+    if (!native6309) {
+        for (uint8_t i = 1; i <= cycles; ++i) {
+            auto s = begin->next(cycles - i);
             if (s->fetch()) {
-                s->markFetch(1);
-            } else {
                 s->clearFetch();
-            }
-        } else {
-            if (i && s->prev()->fetch()) {
-                s->markFetch(1);
-            } else {
-                s->clearFetch();
+                s->next()->markFetch(1);
             }
         }
     }
-    return begin;
+    for (uint8_t i = 0; i < cycles; ++i) {
+        const auto s = begin->next(i);
+        if (s->fetch())
+            return s;
+    }
+    return end;
 }
 
 }  // namespace mc6809e

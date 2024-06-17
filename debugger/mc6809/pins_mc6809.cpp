@@ -371,6 +371,7 @@ reentry:
     cycle();  // non-VMA
     _regs.capture(frame, true);
     if (show) {
+        // Keep prefetch cycle for bus cycle pattern matching.
         const auto last = frame->prev(_regs.contextLength() == 14 ? 3 : 2);
         Signals::discard(last);
     }
@@ -391,8 +392,11 @@ bool PinsMc6809::step(bool show) {
     if (show)
         Signals::resetCycles();
     suspend(show);
-    if (show)
-        printCycles(Signals::put());
+    if (show) {
+        // Discard prefetch cycle.
+        const auto end = Signals::put()->prev(1);
+        printCycles(end);
+    }
     return true;
 }
 
