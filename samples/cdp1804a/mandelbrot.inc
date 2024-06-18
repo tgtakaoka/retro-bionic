@@ -83,15 +83,11 @@ loop_i:
         scal    R4, div16
         scal    R4, store_R7
         dc      A(vQ)           ; Q=B/F
-        rldi    R8, Fv
-        scal    R4, mul16
-        ghi     R7
-        phi     R8
-        glo     R7
-        plo     R8
-        scal    R4, load_R7
+        rldi    R8, -Fv
+        scal    R4, mul16       ; -Q*F
+        scal    R4, load_R8
         dc      A(vB)
-        scal    R4, sub16
+        scal    R4, add16       ; B-Q*F
         scal    R4, store_R7
         dc      A(vS)           ; S=B-Q*F
         scal    R4, load_R7

@@ -135,21 +135,17 @@ loop_i:
         sep     R5
         dc      A(store_R7)
         dc      A(vQ)           ; Q=B/F
-        ldi     A.1(Fv)
+        ldi     A.1(-Fv)
         phi     R8
-        ldi     A.0(Fv)
+        ldi     A.0(-Fv)
         plo     R8
         sep     R5
-        dc      A(mul16)
-        ghi     R7
-        phi     R8
-        glo     R7
-        plo     R8
+        dc      A(mul16)        ; -Q*F
         sep     R5
-        dc      A(load_R7)
+        dc      A(load_R8)
         dc      A(vB)
         sep     R5
-        dc      A(sub16)
+        dc      A(add16)        ; B-Q*F
         sep     R5
         dc      A(store_R7)
         dc      A(vS)           ; S=B-Q*F
@@ -233,7 +229,7 @@ loop_i:
         phi     R8
         glo     R7
         plo     R8
-        sep     R5        
+        sep     R5
         dc      A(add16)        ; 2*(A*Q+A*S/F)
         sep     R5
         dc      A(load_R8)

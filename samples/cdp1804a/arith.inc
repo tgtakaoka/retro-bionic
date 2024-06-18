@@ -22,10 +22,10 @@ print_uint16_digit:
         plo     R8              ; divisor=10
         scal    R4, udiv16
         glo     R8
-        stxd                    ; push reminder
+        stxd                    ; push remainder
         scal    R4, print_uint16_loop
         inc     R2
-        ldn     R2              ; pop reminder
+        ldn     R2              ; pop remainder
 print_uint16_zero:
         adi     T'0'
         br      putchar
@@ -300,11 +300,11 @@ mul16_multiply:
 mul16_return:
         sret    R4
 
-;;; Unsigned division: dividend / divisor = quotient ... reminder
+;;; Unsigned division: dividend / divisor = quotient ... remainder
 ;;; @praram R7 dividend
 ;;; @praram R8 divisor
 ;;; @return R7 quotient
-;;; @return R8 reminder
+;;; @return R8 remainder
 ;;; @clobber R7 R8 R15
 udiv16:
         ghi     R8
@@ -382,17 +382,17 @@ udiv16_next:
         ghi     R9
         phi     R8
         glo     R9
-        plo     R8              ; R8=reminder
+        plo     R8              ; R8=remainder
         irx
         rlxa    R9              ; restore R9
         dec     R2
         sret    R4
 
-;;; Signed division: dividend / divisor = quotient ... reminder
+;;; Signed division: dividend / divisor = quotient ... remainder
 ;;; @param R7 dividend
 ;;; @param R8 divisor
 ;;; @return R7 quotient
-;;; @return R8 reminder
+;;; @return R8 remainder
 ;;;   SCAL R4, duvsi2
 ;;;   SEP R5
 ;;;   DC  A(div16)
