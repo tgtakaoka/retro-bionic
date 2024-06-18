@@ -33,7 +33,7 @@ print_uint16_digit:
         da      udiv16          ; 4:5/6:7=4:5...6:7
         lr      A, 7
         lr      0, A
-        pi      push0           ; push reminder
+        pi      push0           ; push remainder
         pi      call
         da      print_uint16_loop
         pi      pop0
@@ -385,11 +385,11 @@ ucmp16_eq:
         pi      pop1
         jmp     return
 
-;;; Unsigned division: dividend / divisor = quotient ... reminder
+;;; Unsigned division: dividend / divisor = quotient ... remainder
 ;;; @praram 4:5 dividend
 ;;; @praram 6:7 divisor
 ;;; @return 4:5 quotient
-;;; @return 6:7 reminder
+;;; @return 6:7 remainder
 ;;; @clobber 4 5 6 7 A
 udiv16:
         pi      pushQ           ; save Q
@@ -484,7 +484,7 @@ udiv16_return:
         lr      A, 4
         lr      6, A
         lr      A, 5
-        lr      7, A            ; 6:7=reminder
+        lr      7, A            ; 6:7=remainder
         lr      A, QU
         lr      4, A
         lr      A, QL

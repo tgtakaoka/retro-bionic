@@ -174,10 +174,10 @@ mulsi2_end:
         ld      1(R4), R15
         ret
 
-;;; Unsigned division: dividend / divisor = quotient ... reminder
+;;; Unsigned division: dividend / divisor = quotient ... remainder
 ;;; @praram RR14: dividend
 ;;; @praram RR12: divisor
-;;; @return RR14: reminder
+;;; @return RR14: remainder
 ;;; @return RR12: quotient
 ;;; @clobber R10-R15
 udiv16:
@@ -190,7 +190,7 @@ udiv16:
         ldw     RR10, RR14
         div     RR10, R13       ; calculate RR14/R13
         jr      ov, udiv16_8    ; branch if quotient is overflowed
-        ld      R12, #0         ; R10=reminder, R11=quotient
+        ld      R12, #0         ; R10=remainder, R11=quotient
         ld      R13, R11
         ld      R14, R12
         ld      R15, R10
@@ -203,16 +203,16 @@ udiv16_8:
         ld      R10, #0
         div     RR10, R9
         ld      R12, R11        ; high(quotient)=high(dividend)/divisor
-        ld      R14, R10        ; high(reminder)=high(dividend)%divisor
+        ld      R14, R10        ; high(remainder)=high(dividend)%divisor
         pop     R11             ; low(dividend)
         ld      R10, #0
         div     RR10, R9
         ld      R13, R11        ; low(quotient)=low(dividend)/divisor
-        ld      R15, R10        ; low(reminder)=low(dividend)%divisor
-        div     RR14, R9        ; R14=reminder, R15=quotient
+        ld      R15, R10        ; low(remainder)=low(dividend)%divisor
+        div     RR14, R9        ; R14=remainder, R15=quotient
         add     R13, R15        ; adjust quotient
         adc     R12, #0
-        ld      R15, R14        ; reminder
+        ld      R15, R14        ; remainder
         ld      R14, R12
         pop     R9
         ret
@@ -246,7 +246,7 @@ udiv16_readd:
         add     R15, R13        ; dividend += divisor
         adc     R14, R12        ; FLAG.D is always cleared
 udiv16_next:
-        djnz    R9, udiv16_loop ; RR14=reminder
+        djnz    R9, udiv16_loop ; RR14=remainder
         ldw     RR12, RR10      ; RR12=quotient
         pop     R9
 udiv16_end:

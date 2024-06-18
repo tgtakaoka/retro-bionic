@@ -29,7 +29,7 @@ print_uint16_loop:
         or      A, E
         bz      print_uint16_end
         jsr     divmod10        ; P3=value/10, EA=value%10
-        push    A               ; push reminder
+        push    A               ; push remainder
         jsr     print_uint16_loop
         pop     A
 print_uint16_zero:

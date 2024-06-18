@@ -213,10 +213,10 @@ mulsi2_sign:
 mulsi2_r2:
         res     1
 
-;;; Unsigned division: dividend / divisor = quotient ... reminder
+;;; Unsigned division: dividend / divisor = quotient ... remainder
 ;;; @praram udiv16_dividend
 ;;; @praram udiv16_divisor
-;;; @return udiv16_reminder reminder
+;;; @return udiv16_reminder remainder
 ;;; @return R0:R1 quotient
 ;;; @clobber R0 R1 PSL
 udiv16:
@@ -297,7 +297,7 @@ udiv16_next:
 ;;; Signed division: dividend /= divisor
 ;;; @param @R2: dividend
 ;;; @param @R3: divisor
-;;; @return udiv16_reminder: reminder
+;;; @return udiv16_reminder: remainder
 ;;; @clobber R0 R1 PSL
 divsi2:
         loda,r0 arith_work,r2

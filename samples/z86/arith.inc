@@ -195,10 +195,10 @@ mulsi2_end:
         ld      1(R4), R15
         ret
 
-;;; Unsigned division: dividend / divisor = quotient ... reminder
+;;; Unsigned division: dividend / divisor = quotient ... remainder
 ;;; @praram RR14: dividend
 ;;; @praram RR12: divisor
-;;; @return RR14: reminder
+;;; @return RR14: remainder
 ;;; @return RR12: quotient
 ;;; @clobber R10-R15
 udiv16:
@@ -236,7 +236,7 @@ udiv16_readd:
         add     R15, R13        ; dividend += divisor
         adc     R14, R12        ; FLAG.D is always cleared
 udiv16_next:
-        djnz    R9, udiv16_loop ; RR14=reminder
+        djnz    R9, udiv16_loop ; RR14=remainder
         ld      R12, R10        ; RR12=quotient
         ld      R13, R11
 udiv16_end:

@@ -31,7 +31,7 @@ print_uint16_loop:
         mov     R4, #LOW(10)
         mov     R5, #HIGH(10)
         acall   udiv16
-        mov     A, R4           ; lo(reminder)
+        mov     A, R4           ; lo(remainder)
         add     A, #'0'
         inc     DPTR
         movx    @DPTR, A        ; write to buffer
@@ -271,11 +271,11 @@ mulsi2_store:
         mov     @R0, A
         ret
 
-;;; Unsigned division: dividend / divisor = quotient ... reminder
+;;; Unsigned division: dividend / divisor = quotient ... remainder
 ;;; @praram R3:R2 dividend
 ;;; @praram R5:R4 divisor
 ;;; @return R3:R2 quotient
-;;; @return R5:R4 reminder
+;;; @return R5:R4 remainder
 ;;; @clobber A R0 R1 R2 R3 R4 R5 R6 R7
 udiv16:
         mov     A, R5
@@ -286,7 +286,7 @@ udiv16:
         mov     A, R3
         jnz     udiv16_calc     ; branch if dividend >= 256
         mov     A, R2           ; A=dividend (<256)
-        div     AB              ; A=quotient B=reminder
+        div     AB              ; A=quotient B=remainder
         mov     R2, A
         mov     R4, B
 udiv16_div0:
@@ -348,7 +348,7 @@ udiv16_next:
         mov     A, R2
         mov     R4, A
         mov     A, R3
-        mov     R5, A           ; store reminder
+        mov     R5, A           ; store remainder
         mov     A, R6
         mov     R2, A
         mov     A, R7

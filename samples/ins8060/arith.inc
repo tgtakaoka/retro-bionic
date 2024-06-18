@@ -373,7 +373,7 @@ umul16_end:
         st      1(P1)           ; negate product
         jmp     mulsi2_exit_1
 
-;;; Signed divide; dividend /= divisor ... reminder
+;;; Signed divide; dividend /= divisor ... remainder
 ;;;   xppc   P1
 ;;;   .dbyte &divisor
 ;;;   .dbyte &dividend
@@ -385,7 +385,7 @@ umul16_end:
 ;;; @local P2[7:6] return address
 vREMINDER:      .dbyte  0
 divsi2_exit:
-        ld      2(P2)           ; P2[3:2]dividend/reminder
+        ld      2(P2)           ; P2[3:2]dividend/remainder
         st      vREMINDER
         ld      3(P2)
         st      vREMINDER+1
@@ -447,7 +447,7 @@ divsi2_dividend:
         jmp     udiv16
 divsi2_exit_1:
         jmp     divsi2_exit
-;;; Unsigned divide; quotient = dividend / divisor ... reminder
+;;; Unsigned divide; quotient = dividend / divisor ... remainder
 ;;; @param P2[1:0] divisor
 ;;; @param P2[3:2] dividend
 ;;; @return P1[1:0] quotient

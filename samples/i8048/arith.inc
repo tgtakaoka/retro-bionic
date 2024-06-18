@@ -40,7 +40,7 @@ print_uint16_loop:
         call    udiv16
         movx    A, @R1
         mov     R0, A           ; restore buffer pointer
-        mov     A, R4           ; lo(reminder)
+        mov     A, R4           ; lo(remainder)
         add     A, #'0'
         inc     R0
         movx    @R0, A          ; write to buffer
@@ -322,11 +322,11 @@ mulsi2_store:
         mov     @R0, A
         ret
 
-;;; Unsigned division: dividend / divisor = quotient ... reminder
+;;; Unsigned division: dividend / divisor = quotient ... remainder
 ;;; @praram R3:R2 dividend
 ;;; @praram R5:R4 divisor
 ;;; @return R3:R2 quotient
-;;; @return R5:R4 reminder
+;;; @return R5:R4 remainder
 ;;; @clobber A R0 R2 R3 R4 R5 R6 R7
 udiv16:
         mov     A, R4
@@ -413,7 +413,7 @@ udiv16_store:
         mov     A, R2
         mov     R4, A
         mov     A, R3
-        mov     R5, A           ; store reminder
+        mov     R5, A           ; store remainder
         movx    A, @R0
         mov     R2, A
         inc     R0

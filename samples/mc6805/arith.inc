@@ -278,11 +278,11 @@ mul16_multiply:
 mul16_end:
         rts
 
-;;; Unsigned division: dividend / divisor = quotient ... reminder
+;;; Unsigned division: dividend / divisor = quotient ... remainder
 ;;; @praram R1 dividend
 ;;; @praram R2 divisor
 ;;; @return R0 quotient
-;;; @return R1 reminder
+;;; @return R1 remainder
 ;;; @clobber R2
 udiv16:
         lda     R2H
@@ -329,11 +329,11 @@ udiv16_next:
 udiv16_end:
         rts
 
-;;; Division; dividend / divisor = quotient ... reminder
+;;; Division; dividend / divisor = quotient ... remainder
 ;;; @param R1 dividend
 ;;; @param R2 divisor
 ;;; @return R0 quotient
-;;; @return R1 reminder
+;;; @return R1 remainder
 ;;; @clobber R2
 div16:
         lda     R1H
