@@ -14,6 +14,7 @@ stack   =       *-1
 initialize:
         clc
         xce                     ; native mode
+        longa   off
         rep     #P_X            ; 16-bit index
         longi   on
         ldx     #stack
@@ -33,24 +34,41 @@ initialize:
 ;;; @param A char
 ;;; @clobber A
 putchar:
-        pha                     ; save A
-putchar_loop:
+        php
+        sep     #P_M            ; 8-bit memory
+        longa   off
+        jsr     _putchar
+        plp
+        rts
+_putchar:
+        pha
+_putchar_loop:
         lda     ACIA_status
         and     #TDRE_bm
-        beq     putchar_loop
+        beq     _putchar_loop
         pla                     ; restore A
         sta     ACIA_data
         rts
 
 newline:
+        php
+        sep     #P_M            ; 8-bit memory
+        longa   off
         lda     #$0D
-        jsr     putchar
+        jsr     _putchar
         lda     #$0A
-        bra     putchar
+        jsr     _putchar
+        plp
+        rts
 
 putspace:
+        php
+        sep     #P_M            ; 8-bit memory
+        longa   off
         lda     #' '
-        bra     putchar
+        jsr     _putchar
+        plp
+        rts
 
 ;;; Print "X op Y"
 ;;; @params A op letter
@@ -97,7 +115,6 @@ comp_lt:
 comp_out:
         jsr     expr
         jmp     newline
-
 
 arith:
         ldx     #18000
@@ -276,8 +293,15 @@ arith:
 addsi2:
         php
         rep     #P_M            ; 16-bit memory
-        jsr     add16
+        longa   on
+        txa
+        phy
+        clc
+        adc     1,S
+        tax
+        ply
         plp
+        longa   off
         rts
 
 ;;; Subtraction
@@ -289,8 +313,14 @@ addsi2:
 subsi2:
         php
         rep     #P_M            ; 16-bit memory
-        jsr     sub16
+        txa
+        phy
+        sec
+        sbc     1,S
+        tax
+        ply
         plp
+        longa   off
         rts
 
 ;;; Signed compare
@@ -302,9 +332,10 @@ subsi2:
 ;;;         C=-1; BMI (minuend < subtrahend)
         longa   off
 cmpsi2:
+        php
         rep     #P_M            ; 16-bit memory
         jsr     cmp16
-        sep     #P_M            ; 8-bit memory
+        plp
         rts
 
 ;;; Multiply: result = multiplicand * multiplier
@@ -320,11 +351,11 @@ mulsi2:
         plp
         rts
 
-;;; Division: dividend / divisor = quotient ... reminder
+;;; Division: dividend / divisor = quotient ... remainder
 ;;; @param X dividend
 ;;; @param Y divisor
 ;;; @return X quotient
-;;; @return Y reminder
+;;; @return Y remainder
 ;;; @clobber C
         longa   off
 divsi2:

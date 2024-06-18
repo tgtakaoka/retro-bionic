@@ -33,10 +33,10 @@ void RegsMos6502::print() const {
     if (Pins.native65816()) {
         // clang-format off
         //                              012345678901234567890123456789012345678901234567890123456789012
-        static constexpr char line[] = "K=xx PC=xxxx S=xxxx D=xxxx B=xx X=xxxx Y=xxxx C=xxxx P=NVMXDIZC";
+        static constexpr char line[] = "K:PC=xx:xxxx S=xxxx D=xxxx B=xx X=xxxx Y=xxxx C=xxxx P=NVMXDIZC";
         // clang-format on
         static auto &buffer = *new CharBuffer(line);
-        buffer.hex8(2, _pbr);
+        buffer.hex8(5, _pbr);
         buffer.hex16(8, _pc);
         buffer.hex16(15, _s);
         buffer.hex16(22, _d);

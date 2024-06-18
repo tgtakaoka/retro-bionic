@@ -185,6 +185,7 @@ void PinsMos6502::checkHardwareType() {
             pinMode(PIN_BE, OUTPUT);
         }
         // Keep PIN_SO HIGH using pullup
+        // Set 16-bit memory
         Target6502.setMems(mos6502::Memory);
     } else {
         // PIN_PHI1O/W65C816_ABORT keeps HIGH, means W65C816S.
@@ -195,6 +196,8 @@ void PinsMos6502::checkHardwareType() {
         // Enable BE
         digitalWriteFast(PIN_BE, HIGH);
         pinMode(PIN_BE, OUTPUT);
+        // Set 24-bit memory
+        Target6502.setMems(w65c816::Memory);
     }
 }
 

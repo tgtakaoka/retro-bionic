@@ -55,13 +55,11 @@ loop_i:
         ldy     #F
         jsr     div16           ; B/F
         stx     vQ              ; Q=B/F
-        ldy     #F
-        jsr     mul16           ; Q*F
-        phx                     ; push Q*F
-        lda     vB
-        sec
-        sbc     1,S             ; B-Q*F
-        ply                     ; discard Q*F
+        ldy     #-F
+        jsr     mul16           ; -Q*F
+        txa
+        clc
+        adc     vB              ; B-Q*F
         sta     vS              ; S=B-Q*F
         ldx     vB
         txy
@@ -93,7 +91,7 @@ loop_i:
         txa
         clc
         adc     1,S             ; A*Q+A*S/F
-        ply                     ; discard A*Q+A*S/F
+        ply                     ; discard A*Q
         asl     A               ; 2*(A*Q+A*S/F)
         clc
         adc     vD              ; 2*(A*Q+A*S/F)+D
@@ -141,7 +139,7 @@ loop_i:
         ;; jsr     newline
         ;; pla
 
-        cmp     #5              ; P*P+Q*Q-4
+        cmp     #4+1            ; P*P+Q*Q-4
         bpl     print_i         ; if P*P+Q*Q>=5
         lda     vI
         inc     A

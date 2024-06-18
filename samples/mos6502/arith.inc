@@ -21,9 +21,9 @@ print_uint16_inner:
         stx     R2L             ; divisor=10
         jsr     udiv16          ; R0=value/10
         lda     R1L
-        pha                     ; push reminder
+        pha                     ; push remainder
         jsr     print_uint16_inner
-        pla                     ; pop reminder
+        pla                     ; pop remainder
 print_uint16_digit:
         ora     #'0'
         jmp     putchar
@@ -304,11 +304,11 @@ mulsi2_multiply:
 mulsi2_return:
         rts
 
-;;; Unsigned division: dividend / divisor = quotient ... reminder
+;;; Unsigned division: dividend / divisor = quotient ... remainder
 ;;; @praram R1 dividend
 ;;; @praram R2 divisor
 ;;; @return R0 quotient
-;;; @return R1 reminder
+;;; @return R1 remainder
 ;;; @clobber R2
 udiv16:
         lda     R2H
@@ -367,7 +367,7 @@ udiv16_return:
 ;;; @param R1 dividend
 ;;; @param R2 divisor
 ;;; @return R0 quotient
-;;; @return R1 reminder
+;;; @return R1 remainder
 ;;; @clobber R2
 divsi2:
         lda     R1H

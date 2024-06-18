@@ -4,25 +4,22 @@
 ;;; Print signed 16-bit integer as decimal
 ;;; @param X value
 ;;; @clobber C
+        longa   off
 print_int16:
         php
-        sep     #P_M            ; 8-bit memory
-        longa   off
+        rep     #P_M            ; 16-bit memory
+        longa   on
         phy                     ; save Y
         phx                     ; save X
-        lda     2,S             ; hi(value)
+        txa
         bpl     print_int16_print
         lda     #'-'
         jsr     putchar
-        rep     #P_M            ; 16-bit memory
-        longa   on
         txa
         eor     #$FFFF
         inc     A
         tax
 print_int16_print:
-        rep     #P_M            ; 16-bit memory
-        longa   off
         jsr     print_uint16
         plx                     ; restore X
         ply                     ; restore Y
@@ -34,52 +31,20 @@ print_int16_print:
 ;;; @clobber C X Y
         longa   on
 print_uint16:
-        inx
-        dex
+        txa
         beq     print_uint16_digit ; branch if value==0
 print_uint16_inner:
-        inx
-        dex
+        txa
         beq     print_uint16_exit
         ldy     #10
         jsr     udiv16
-        phy                     ; push reminder
+        phy                     ; push remainder
         jsr     print_uint16_inner
-        pla                     ; pop reminder
+        pla                     ; pop remainder
 print_uint16_digit:
         ora     #'0'
         jmp     putchar
 print_uint16_exit:
-        rts
-
-;;; Addition: result = summand + addend
-;;; @param X summand
-;;; @param Y addend
-;;; @return X result
-;;; @clobber C
-        longa   on
-add16:
-        txa
-        phy
-        clc
-        adc     1,S
-        tax
-        ply
-        rts
-
-;;; Subtraction: result = minuend - subtrahend
-;;; @param X minuend
-;;; @param Y subtrahend
-;;; @return X result
-;;; @clobber C
-        longa   on
-sub16:
-        txa
-        phy
-        sec
-        sbc     1,S
-        tax
-        ply
         rts
 
 ;;; Signed compare: minuend - subtrahend
@@ -119,7 +84,7 @@ cmp16_eq:
 ;;; @clobber C Y
         longa   on
 umul16:
-        lda     #0 
+        lda     #0
         pha                     ; result (1,S)
         bra     umul16_check
 umul16_loop:
@@ -135,9 +100,8 @@ umul16_sr:
         txa
         asl     A               ; multiplicand <<= 1
         tax
-umul16_check:   
-        iny
-        dey
+umul16_check:
+        tya
         bne     umul16_loop     ; while multiplier != 0
 umul16_end:
         plx                     ; X=result
@@ -154,18 +118,14 @@ mul16:
         txa
         eor     1,S
         sta     1,S             ; save (multiplicand^multiplier)
-        iny
-        dey
-        bpl     mul16_multiplicand
         tya
+        bpl     mul16_multiplicand
         eor     #$FFFF
         inc     A
         tay                     ; negate multiplier
 mul16_multiplicand:
-        inx
-        dex
-        bpl     mul16_multiply
         txa
+        bpl     mul16_multiply
         eor     #$FFFF
         inc     A
         tax                     ; negate multiplicand
@@ -180,18 +140,16 @@ mul16_multiply:
 mul16_return:
         rts
 
-;;; Unsigned division: dividend / divisor = quotient ... reminder
+;;; Unsigned division: dividend / divisor = quotient ... remainder
 ;;; @praram X dividend
 ;;; @praram Y divisor
 ;;; @return X quotient
-;;; @return Y reminder
+;;; @return Y remainder
 ;;; @clobber C
         longa   on
 udiv16:
-        iny
-        dey
-        beq     udiv16_return   ; branch if Y==0
         tya                     ; C=divisor
+        beq     udiv16_return   ; branch if Y==0
         ldy     #0              ; y=bits
 udiv16_prep_loop:
         iny
@@ -221,15 +179,15 @@ udiv16_next:
         dey
         bne     udiv16_loop     ; while bits != 0
 udiv16_return:
-        ply                     ; reminder
+        ply                     ; remainder
         pla                     ; discard divisor
         rts
 
-;;; Division: dividend / divisor = quotient ... reminder
+;;; Division: dividend / divisor = quotient ... remainder
 ;;; @param X dividend
 ;;; @param Y divisor
 ;;; @return X quotient
-;;; @return Y reminder
+;;; @return Y remainder
 ;;; @clobber C
         longa   on
 div16:
@@ -237,18 +195,14 @@ div16:
         txa
         eor     1,S
         sta     1,S             ; save (dividend^divisor)
-        iny
-        dey
-        bpl     div16_dividend
         tya
+        bpl     div16_dividend
         eor     #$FFFF
         inc     A
         tay                     ; negate divisor
 div16_dividend:
-        inx
-        dex
-        bpl     div16_multiply
         txa
+        bpl     div16_multiply
         eor     #$FFFF
         inc     A
         tax                     ; negate dividend
