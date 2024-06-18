@@ -48,11 +48,9 @@ loop_i:
         ld      T, vF, P2
         jsr     divsi2          ; Q=B/F
         st      EA, vQ, P2
-        ld      T, vF, P2
-        jsr     mulsi2
-        st      EA, vS, P2      ; S=Q*F
-        ld      EA, vB, P2
-        sub     EA, vS, P2
+        ld      T, -vF, P2
+        jsr     mulsi2          ; -Q*F
+        add     EA, vB, P2      ; B-Q*F
         st      EA, vS, P2      ; S=B-Q*F
         ld      EA, vB, P2
         ld      T, EA
@@ -60,8 +58,8 @@ loop_i:
         st      EA, tmp, P2
         ld      EA, vA, P2
         ld      T, EA
-        jsr     mulsi2          ; T=A*A
-        sub     EA, tmp, P2
+        jsr     mulsi2          ; A*A
+        sub     EA, tmp, P2     ; A*A-B*B
         ld      T, vF, P2
         jsr     divsi2          ; T=(A*A-B*B)/F
         add     EA, vC, P2
