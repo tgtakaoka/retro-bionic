@@ -46,8 +46,8 @@ constexpr auto phi0_lo_ns = 218;        // 500
 constexpr auto phi0_lo_fetch = 90;      // 500
 constexpr auto phi0_lo_loop = 30;       // 500
 constexpr auto phi0_lo_execute = 30;    // 500
-constexpr auto phi0_hi_read_pre = 280;  // 500
-constexpr auto phi0_hi_read_post = 30;  // 500
+constexpr auto phi0_hi_read_pre = 240;  // 500
+constexpr auto phi0_hi_read_post = 50;  // 500
 constexpr auto phi0_hi_write = 334;     // 500
 constexpr auto phi0_hi_inject = 70;
 constexpr auto phi0_hi_capture = 60;
@@ -307,15 +307,15 @@ Signals *PinsMos6502::completeCycle(Signals *s) {
         // [W65C816] Delay to avoid bus conflict with bank address of
         // this bus cycle.
         delayNanoseconds(phi0_hi_read_pre);
-        // [W65C816] This order, mode change then write data, somehow
-        // mitigate a jitter from |phi0_lo| to |busMode(D, INPUT)|.
-        busMode(D, OUTPUT);
         busWrite(D, s->data);
+        busMode(D, OUTPUT);
         delayNanoseconds(phi0_hi_read_post);
-        phi0_lo();
-        // [W65C816] Immediately switch bus direction to avoid bus
-        // conflict with bank address of next bus cycle.
+        // [W65C816] Switch bus direction before falling PHI0 to avoid
+        // bus conflict with bank address of next bus cycle. The
+        // output data are retained by the bus-hold curcuit until bank
+        // address is on the bus.
         busMode(D, INPUT);
+        phi0_lo();
     }
     Signals::nextCycle();
 

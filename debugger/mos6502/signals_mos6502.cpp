@@ -23,7 +23,7 @@ bool Signals::write() const {
 
 bool Signals::fetch() const {
     if (Pins.hardwareType() == HW_W65C816)
-        return (~cntl() & (CNTL_VPA | CNTL_VPD)) == 0;
+        return (cntl() & (CNTL_VPA | CNTL_VPD)) == (CNTL_VPA | CNTL_VPD);
     return cntl() & CNTL_SYNC;
 }
 
