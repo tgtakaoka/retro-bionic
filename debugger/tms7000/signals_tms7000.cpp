@@ -55,7 +55,7 @@ void Signals::print() const {
     } else if (external()) {
         buffer[0] = write() ? 'W' : 'R';
     } else {
-        buffer[0] = intack() ? 'I' : (cntl() & CNTL_RW) ? 'r' : 'w';
+        buffer[0] = intack() ? 'I' : ((cntl() & CNTL_RW) ? 'r' : 'w');
     }
     buffer.hex16(4, addr);
     buffer.hex8(11, data);
