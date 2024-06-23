@@ -15,24 +15,28 @@ struct PinsTms7000 Pins;
 // clang-format off
 /**
  * TMS7000 bus cycle.
- *             __    __    __    __    __    __    __    __    __    __    __
- *  /4 CLK |__|  |__|  |__|  |__|  |__|  |__|  |__|  |__|  |__|  |__|  |__|  |__
- *            |_____|     |_____|     |_____|     |_____|     |_____|     |_____
- *  /2 CLK ___|     |_____|     |_____|     |_____|     |_____|     |_____|
- *            \ ____\_____\     \     \ ____\_____\           \ ____\_____\
- * CLKOUT _____|     |     |_____|_____|     |     |___________|     |     |____
- *             v     v___________v     v     v     v           v     v__________
- *  ALATCH __________|///////////|___________________________________|//////////
- *         ____v_______________________v                       v________________
- * #ENABLE ____|                       |_______________________|
- *         __________v_______________________________________________v__________
- *    R/#W __________|                                               |__________
- *                   v______________             __v___________v     v__________
- *      AD ----------<______AL______>-----------<______________>-----<____AL____
- *         __________v                                               v__________
- *    R/#W __________|_______________________________________________|__________
- *                   v______________         v_________________v     v__________
- *      AD ----------<______AL______>--------<_________________>-----<____AL____
+ *              __    __    __    __    __    __    __    __    __    __    __
+ *   /4 CLK |__|  |__|  |__|  |__|  |__|  |__|  |__|  |__|  |__|  |__|  |__|  |__
+ *             |_____|     |_____|     |_____|     |_____|     |_____|     |_____
+ * N /2 CLK ___|     |_____|     |_____|     |_____|     |_____|     |_____|
+ *             \ ____\_____\     \     \ ____\_____\     \     \ ____\_____\
+ *  CLKOUT _____|     |     |_____|_____|     |     |___________|     |     |____
+ *              v     v___________v     v     v     v   CMOS    v     v__________
+ * N ALATCH __________|///////////|___________________________________|//////////
+ *              v     V_____v                                         v_____v
+ * C ALATCH __________|/////|_________________________________________|/////|____
+ *          ____v_______________________v                 v_____v________________
+ *  #ENABLE ____|                       |_________________|_____|
+ *          __________v_______________________________________________v__________
+ *     R/#W __________|                                               |__________
+ *                    v______________             __v___________v     v__________
+ *       AD ----------<______AL______>-----------<______________>-----<____AL____
+ *          __________v                                               v__________
+ *     R/#W __________|_______________________________________________|__________
+ *                    v______________          _____v___________v     v__________
+ *       AD ----------<______AL______>--------<_________________>-----<____AL____
+ *
+ * CMOS device CLK is an inverse of NMOS device CLK.
  */
 // clang-format on
 
@@ -145,9 +149,9 @@ void (*PinsTms7000::_clk_lo)();
 void (*PinsTms7000::_clk_cycle)();
 
 void PinsTms7000::clk2_cycle() {
-    clk2_hi();
+    clk_hi();
     delayNanoseconds(clk2_hi_ns);
-    clk2_lo();
+    clk_lo();
     delayNanoseconds(clk2_lo_ns);
 }
 
@@ -169,8 +173,17 @@ void PinsTms7000::synchronize_clk() {
     clkin_cycle();  // /2:CLKOUT=H, /4:CLKOUT=L
     if (signal_clkout() != LOW) {
         // /2 clock option
-        _clk_hi = clk2_hi;
-        _clk_lo = clk2_lo;
+        clkin_hi();
+        delayNanoseconds(clkin_hi_ns);
+        if (signal_clkout() == LOW) {
+            // NMOS device
+            _clk_hi = clk2_hi;
+            _clk_lo = clk2_lo;
+        } else {
+            // CMOS device
+            _clk_hi = clk2_lo;
+            _clk_lo = clk2_hi;
+        }
         _clk_cycle = clk2_cycle;
     } else {
         // /4 clock option
@@ -232,12 +245,11 @@ Signals *PinsTms7000::prepareCycle() const {
     auto s = Signals::put();
     while (signal_alatch() == LOW)
         clk_cycle();
-    // CLKOUT=H, ALATCH=H
-    clk_hi();
-    delayNanoseconds(clk2_hi_ns);
     // CLKOUT=L
-    clk_lo();
+    clk_hi();
     s->getAddress();
+    delayNanoseconds(clk2_hi_ns);
+    clk_lo();
     delayNanoseconds(clk2_lo_ns);
     // CLKOUT=H
     clk_hi();
@@ -260,26 +272,21 @@ Signals *PinsTms7000::completeCycle(Signals *s) const {
         s->outData();
         delayNanoseconds(clk2_hi_ns);
         clk_lo();
-        delayNanoseconds(clk2_lo_ns);
-        // CLKOUT=H
-        clk_hi();
         s->inputMode();
-        delayNanoseconds(clk2_hi_ns);
-        clk_lo();
         delayNanoseconds(clk2_lo_ns);
     } else if (s->write()) {  // External write
         clk_lo();
         delayNanoseconds(clk2_lo_ns);
+        s->getData();
         // CLKOUT=L
         clk_hi();
-        s->getData();
-        delayNanoseconds(clk2_hi_ns);
-        clk_lo();
         if (s->writeMemory()) {
             Memory.write(s->addr, s->data);
         } else {
             ;  // capture
         }
+        delayNanoseconds(clk2_hi_ns);
+        clk_lo();
         delayNanoseconds(clk2_lo_ns);
     } else {  // Internal cycle
         clk_lo();
