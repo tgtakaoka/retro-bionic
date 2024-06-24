@@ -146,8 +146,6 @@ uint8_t RegsZ88::raw_read_reg(uint8_t addr) const {
 }
 
 uint8_t RegsZ88::read_reg(uint8_t addr, RegSpace space) {
-    if (space == z8::SET_NONE)
-        return 0;
     const auto rp0 = save_rp0();
     restore_rp0(R(0));
     const auto r0 = save_r(0);
