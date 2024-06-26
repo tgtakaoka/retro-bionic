@@ -44,14 +44,25 @@ struct PinsTms7000 Pins;
 // clang-format on
 
 namespace {
-
-constexpr auto clkin_hi_ns = 500;
-constexpr auto clkin_lo_ns = 500;
-constexpr auto clk2_hi_ns = 500;
-constexpr auto clk2_lo_ns = 500;
-constexpr auto clk4_hi_ns = 250;
-constexpr auto clk4_lo_ns = 250;
-constexpr auto clk4_hi_serial = 200;
+// CLKOUT ~ 2.5MHz (400ns)
+constexpr auto clkin_hi_ns = 500;    // 500 ns
+constexpr auto clkin_lo_ns = 500;    // 500 ns
+constexpr auto clk2_hi_ns = 160;     // 200 ns
+constexpr auto clk2_lo_ns = 112;     // 200 ns
+constexpr auto clk4_hi_ns = 100;     // 100 ns
+constexpr auto clk4_lo_ns = 80;      // 100 ns
+constexpr auto clk4_hi_serial = 60;  // 100 ns
+constexpr auto clk_lo_ns = 160;      // 200 ns
+constexpr auto clk_hi_ns = 112;      // 200 ns
+constexpr auto clk_hi_addr = 124;    // 200 ns
+constexpr auto clk_hi_dir = 120;     // 200 ns
+constexpr auto clk_lo_mread = 96;    // 200 ns
+constexpr auto clk_hi_out = 128;     // 200 ns
+constexpr auto clk_lo_in = 44;       // 200 ns
+constexpr auto clk_lo_get = 128;     // 200 ns
+constexpr auto clk_hi_mwrite = 0;    // 200 ns
+constexpr auto clk_lo_write = 52;    // 200 ns
+constexpr auto clk_lo_nobus = 44;    // 200 ns
 
 inline void clkin_hi() {
     digitalWriteFast(PIN_CLKIN, HIGH);
@@ -255,14 +266,16 @@ Signals *PinsTms7000::prepareCycle() const {
         clk_cycle();
     // CLKOUT=L
     clk_hi();
+    assert_debug();
     s->getAddress();
-    delayNanoseconds(clk2_hi_ns);
+    delayNanoseconds(clk_hi_addr);
     clk_lo();
-    delayNanoseconds(clk2_lo_ns);
+    delayNanoseconds(clk_lo_ns);
     // CLKOUT=H
     clk_hi();
-    delayNanoseconds(clk2_hi_ns);
+    delayNanoseconds(clk_hi_dir);
     s->getDirection();
+    negate_debug();
     return s;
 }
 
@@ -271,39 +284,45 @@ Signals *PinsTms7000::completeCycle(Signals *s) const {
         clk_lo();
         if (s->readMemory()) {
             s->data = Memory.read(s->addr);
+            delayNanoseconds(clk_lo_mread);
         } else {
-            ;  // inject
+            delayNanoseconds(clk_lo_ns);
         }
-        delayNanoseconds(clk2_lo_ns);
         // CLKOUT=L
         clk_hi();
+        assert_debug();
         s->outData();
-        delayNanoseconds(clk2_hi_ns);
+        delayNanoseconds(clk_hi_out);
         clk_lo();
         s->inputMode();
-        delayNanoseconds(clk2_lo_ns);
+        negate_debug();
+        delayNanoseconds(clk_lo_in);
     } else if (s->write()) {  // External write
         clk_lo();
-        delayNanoseconds(clk2_lo_ns);
+        delayNanoseconds(clk_lo_get);
+        assert_debug();
         s->getData();
+        negate_debug();
         // CLKOUT=L
         clk_hi();
         if (s->writeMemory()) {
             Memory.write(s->addr, s->data);
+            delayNanoseconds(clk_hi_mwrite);
         } else {
-            ;  // capture
+            delayNanoseconds(clk_hi_ns);
         }
-        delayNanoseconds(clk2_hi_ns);
         clk_lo();
-        delayNanoseconds(clk2_lo_ns);
+        delayNanoseconds(clk_lo_write);
     } else {  // Internal cycle
         clk_lo();
-        delayNanoseconds(clk2_lo_ns);
+        delayNanoseconds(clk_lo_nobus);
         s->getData();
     }
     Signals::nextCycle();
+    assert_debug();
     while (signal_alatch() == LOW)
         clk_cycle();
+    negate_debug();
     return s;
 }
 
