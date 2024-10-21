@@ -34,6 +34,9 @@ namespace debugger {
 
 struct Debugger Debugger;
 libcli::Cli cli;
+#if defined(ENABLE_LOGGER)
+libcli::Cli logger;
+#endif
 
 using State = libcli::State;
 

@@ -5,6 +5,9 @@
 
 #define Console Serial
 
+#define ENABLE_LOGGER
+#define Logger SerialUSB1
+
 #define PIN_USRSW 24  /* P6.12: Run LED */
 #define PIN_USRLED 25 /* P6.13: Halt Switch */
 #define PIN_ID 34     /* P7.29: Identifity EEPROM UNI/O SCIO pin */

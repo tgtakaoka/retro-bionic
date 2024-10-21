@@ -29,6 +29,10 @@ extern struct Debugger Debugger;
 extern struct libcli::Cli cli;
 extern struct unio::UnioBus unioBus;
 
+#if defined(ENABLE_LOGGER)
+extern struct libcli::Cli logger;
+#endif
+
 }  // namespace debugger
 
 #endif

@@ -1,4 +1,3 @@
-
 /**
  *  Bionic controller
  */
@@ -12,6 +11,10 @@ void setup() {
     while (!Console)
         yield();
     cli.begin(Console);
+#if defined(ENABLE_LOGGER)
+    Logger.begin(115200);
+    logger.begin(Logger);
+#endif
     auto &target = Target::readIdentity();
     Debugger.begin(target);
 }
