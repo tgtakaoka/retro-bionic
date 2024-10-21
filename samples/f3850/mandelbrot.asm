@@ -2,7 +2,7 @@
         cpu     f3850
 
 ;;; i8251 Universal Synchronous/Asynchronous Receiver/Transmitter
-USART:          equ     0FFF0H
+USART:          equ     0F0H
 USARTD:         equ     USART+0 ; Receive/Transmit data
 USARTS:         equ     USART+1 ; Srtatus register
 USARTC:         equ     USART+1 ; Control register
