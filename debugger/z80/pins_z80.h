@@ -65,13 +65,14 @@
 #define PIN_BUSREQ 31  /* P8.22 */
 #define PIN_BUSACK 30  /* P8.23 */
 
-#include "pins.h"
+#include "pins_z80_base.h"
 #include "signals_z80.h"
 
 namespace debugger {
 namespace z80 {
 
-struct PinsZ80 final : Pins {
+struct PinsZ80 final : PinsZ80Base {
+    PinsZ80(RegsZ80 &regs, MemsZ80 &mems) : PinsZ80Base(regs, mems) {}
     void resetPins() override;
     void idle() override;
     bool step(bool show) override;
@@ -80,13 +81,7 @@ struct PinsZ80 final : Pins {
     void negateInt(uint8_t name) override;
     void printCycles() override;
 
-    void execInst(const uint8_t *inst, uint8_t len);
-    void captureWrites(const uint8_t *inst, uint8_t len, uint16_t *addr,
-            uint8_t *buf, uint8_t max);
-
 private:
-    void setBreakInst(uint32_t addr) const override;
-
     Signals *prepareCycle() const;
     Signals *completeCycle(Signals *signals) const;
     Signals *prepareWait() const;
@@ -97,12 +92,10 @@ private:
     void suspend();
     bool rawStep();
     void execute(const uint8_t *inst, uint8_t len, uint16_t *addr, uint8_t *buf,
-            uint8_t max);
+            uint8_t max) override;
 
     void disassembleCycles();
 };
-
-extern struct PinsZ80 Pins;
 
 }  // namespace z80
 }  // namespace debugger

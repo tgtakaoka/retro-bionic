@@ -8,8 +8,24 @@
 namespace debugger {
 namespace z80 {
 
+extern struct PinsZ80 Pins;
+
+const char CPU[] = "Z80";
+
+struct RegsZ80 Regs {
+    CPU, Pins
+};
+
+struct MemsZ80 Memory {
+    Regs
+};
+
+struct PinsZ80 Pins {
+    Regs, Memory
+};
+
 const struct Target TargetZ80 {
-    "Z80", Pins, Regs, Memory, Devs
+    CPU, Pins, Regs, Memory, Devs
 };
 
 }  // namespace z80

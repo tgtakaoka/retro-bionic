@@ -1,12 +1,14 @@
 #ifndef __REGS_Z80_H__
 #define __REGS_Z80_H__
 
+#include "pins_z80_base.h"
 #include "regs.h"
 
 namespace debugger {
 namespace z80 {
 
 struct RegsZ80 final : Regs {
+    RegsZ80(const char *name, PinsZ80Base &pins) : _name(name), _pins(pins) {}
     const char *cpu() const override;
     const char *cpuName() const override;
 
@@ -24,6 +26,8 @@ struct RegsZ80 final : Regs {
     void write_io(uint8_t addr, uint8_t data) const;
 
 private:
+    const char *_name;
+    PinsZ80Base &_pins;
     uint16_t _pc;
     uint16_t _sp;
     uint16_t _ix;
@@ -56,12 +60,10 @@ private:
     uint8_t _i;
     uint8_t _r;
 
-    static void exchangeRegs();
-    static void saveRegs(reg &regs);
-    static void restoreRegs(const reg &regs);
+    void exchangeRegs() const;
+    void saveRegs(reg &regs) const;
+    void restoreRegs(const reg &regs) const;
 };
-
-extern struct RegsZ80 Regs;
 
 }  // namespace z80
 }  // namespace debugger

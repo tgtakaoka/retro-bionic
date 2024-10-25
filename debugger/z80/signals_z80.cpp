@@ -52,8 +52,8 @@ void Signals::getData() {
 }
 
 void Signals::outData() const {
-    busMode(D, OUTPUT);
     busWrite(D, data);
+    busMode(D, OUTPUT);
 }
 
 void Signals::inputMode() const {

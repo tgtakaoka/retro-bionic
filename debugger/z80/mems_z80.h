@@ -6,8 +6,10 @@
 namespace debugger {
 namespace z80 {
 
+struct RegsZ80;
+
 struct MemsZ80 final : DmaMemory {
-    MemsZ80() : DmaMemory(Endian::ENDIAN_LITTLE) {}
+    MemsZ80(RegsZ80 &regs) : DmaMemory(Endian::ENDIAN_LITTLE), _regs(regs) {}
 
     uint32_t maxAddr() const override { return UINT16_MAX; }
     uint16_t get(uint32_t addr, const char *space = nullptr) const override;
@@ -15,6 +17,8 @@ struct MemsZ80 final : DmaMemory {
             const char *space = nullptr) const override;
 
 protected:
+    RegsZ80 &_regs;
+
 #ifdef WITH_ASSEMBLER
     libasm::Assembler *assembler() const override;
 #endif

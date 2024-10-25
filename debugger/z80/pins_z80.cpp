@@ -9,8 +9,6 @@
 namespace debugger {
 namespace z80 {
 
-struct PinsZ80 Pins;
-
 // clang-format off
 /**
  * Z80 bus cycle.
@@ -217,8 +215,8 @@ void PinsZ80::resetPins() {
     clk_cycle();
     Signals::resetCycles();
     prepareWait();
-    Regs.setIp(InstZ80::ORG_RESET);
-    Regs.save();
+    _regs.setIp(InstZ80::ORG_RESET);
+    _regs.save();
 }
 
 Signals *PinsZ80::prepareCycle() const {
@@ -244,7 +242,7 @@ Signals *PinsZ80::completeCycle(Signals *s) const {
     if (s->mreq()) {  // Memory read or write cycles
         if (s->read()) {
             if (s->readMemory()) {
-                s->data = Memory.raw_read(s->addr);
+                s->data = _mems.raw_read(s->addr);
                 delayNanoseconds(clk_hi_read);
             } else {
                 delayNanoseconds(clk_hi_inject);
@@ -267,7 +265,7 @@ Signals *PinsZ80::completeCycle(Signals *s) const {
             // #MREQ:T3H
             clk_hi();
             if (s->writeMemory()) {
-                Memory.raw_write(s->addr, s->data);
+                _mems.raw_write(s->addr, s->data);
                 delayNanoseconds(clk_hi_memory);
             } else {
                 delayNanoseconds(clk_hi_capture);
@@ -331,15 +329,6 @@ Signals *PinsZ80::inject(uint8_t data) const {
     return completeCycle(prepareCycle()->inject(data));
 }
 
-void PinsZ80::execInst(const uint8_t *inst, uint8_t len) {
-    execute(inst, len, nullptr, nullptr, 0);
-}
-
-void PinsZ80::captureWrites(const uint8_t *inst, uint8_t len, uint16_t *addr,
-        uint8_t *buf, uint8_t max) {
-    execute(inst, len, addr, buf, max);
-}
-
 void PinsZ80::execute(const uint8_t *inst, uint8_t len, uint16_t *addr,
         uint8_t *buf, uint8_t max) {
     uint8_t inj = 0;
@@ -351,7 +340,7 @@ void PinsZ80::execute(const uint8_t *inst, uint8_t len, uint16_t *addr,
         if (cap < max)
             s->capture();
         if (inj == 0) {
-            resumeCycle(Regs.nextIp());
+            resumeCycle(_regs.nextIp());
         } else {
             completeCycle(s);
         }
@@ -381,10 +370,10 @@ void PinsZ80::idle() {
 }
 
 void PinsZ80::loop() {
-    resumeCycle(Regs.nextIp());
+    resumeCycle(_regs.nextIp());
     while (true) {
         const auto s = prepareCycle();
-        if (s->fetch() && Memory.raw_read(s->addr) == InstZ80::HALT) {
+        if (s->fetch() && _mems.raw_read(s->addr) == InstZ80::HALT) {
             completeCycle(s->inject(InstZ80::JR));
             inject(InstZ80::JR_HERE);
             prepareWait();
@@ -400,13 +389,13 @@ void PinsZ80::loop() {
 }
 
 void PinsZ80::run() {
-    Regs.restore();
+    _regs.restore();
     Signals::resetCycles();
     saveBreakInsts();
     loop();
     restoreBreakInsts();
     disassembleCycles();
-    Regs.save();
+    _regs.save();
 }
 
 void PinsZ80::suspend() {
@@ -428,8 +417,8 @@ void PinsZ80::suspend() {
 }
 
 bool PinsZ80::rawStep() {
-    const auto pc = Regs.nextIp();
-    if (Memory.raw_read(pc) == InstZ80::HALT)
+    const auto pc = _regs.nextIp();
+    if (_mems.raw_read(pc) == InstZ80::HALT)
         return false;
     assert_nmi();
     resumeCycle(pc);
@@ -439,13 +428,13 @@ bool PinsZ80::rawStep() {
 
 bool PinsZ80::step(bool show) {
     Signals::resetCycles();
-    Regs.restore();
+    _regs.restore();
     if (show)
         Signals::resetCycles();
     if (rawStep()) {
         if (show)
             printCycles();
-        Regs.save();
+        _regs.save();
         return true;
     }
     return false;
@@ -457,10 +446,6 @@ void PinsZ80::assertInt(uint8_t name) {
 
 void PinsZ80::negateInt(uint8_t name) {
     negate_int();
-}
-
-void PinsZ80::setBreakInst(uint32_t addr) const {
-    Memory.put_inst(addr, InstZ80::HALT);
 }
 
 void PinsZ80::printCycles() {
@@ -478,7 +463,7 @@ void PinsZ80::disassembleCycles() {
     for (auto i = 0; i < cycles;) {
         const auto s = g->next(i);
         if (s->fetch()) {
-            const auto next = Memory.disassemble(s->addr, 1);
+            const auto next = _mems.disassemble(s->addr, 1);
             i += next - s->addr;
         } else {
             s->print();
