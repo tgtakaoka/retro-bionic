@@ -49,6 +49,7 @@
 #define PIN_SOD 0      /* P6.03 */
 #define PIN_SID 1      /* P6.02 */
 #define PIN_X1 6       /* P7.10 */
+#define PIN_RESOUT 9   /* P7.11 */
 #define PIN_READY 32   /* P7.12 */
 #define PIN_RESET 28   /* P8.18 */
 #define PIN_ALE 31     /* P8.22 */

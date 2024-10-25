@@ -168,6 +168,7 @@ const uint8_t PINS_INPUT[] = {
         PIN_INTA,
         PIN_RD,
         PIN_WR,
+        PIN_RESOUT,
 };
 
 inline void x1_cycle() {
