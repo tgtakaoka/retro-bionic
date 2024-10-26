@@ -8,18 +8,18 @@
 #define PIN_LIC 32 /* P7.12 */
 #define PIN_TSC 31 /* P8.22 */
 
-#include "pins_mc6809.h"
+#include "pins_mc6809_base.h"
 
 namespace debugger {
 namespace mc6809e {
 
 using mc6809::InstMc6809;
-using mc6809::PinsMc6809;
+using mc6809::PinsMc6809Base;
 using mc6809::RegsMc6809;
 
-struct PinsMc6809E final : PinsMc6809 {
+struct PinsMc6809E final : PinsMc6809Base {
     PinsMc6809E(RegsMc6809 &regs, InstMc6809 &inst, const Mems &mems)
-        : PinsMc6809(regs, inst, mems) {}
+        : PinsMc6809Base(regs, inst, mems) {}
 
 protected:
     void resetPins() override;

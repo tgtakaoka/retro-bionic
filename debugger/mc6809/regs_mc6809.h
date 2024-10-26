@@ -6,7 +6,7 @@
 namespace debugger {
 namespace mc6809 {
 
-struct PinsMc6809;
+struct PinsMc6809Base;
 struct Signals;
 
 enum SoftwareType : uint8_t {
@@ -15,7 +15,7 @@ enum SoftwareType : uint8_t {
 };
 
 struct RegsMc6809 : Regs {
-    RegsMc6809(PinsMc6809 &pins) : _pins(pins) {}
+    RegsMc6809(PinsMc6809Base &pins) : _pins(pins) {}
 
     const char *cpu() const override;
     const char *cpuName() const override;
@@ -36,7 +36,7 @@ struct RegsMc6809 : Regs {
     SoftwareType checkSoftwareType();
 
 protected:
-    PinsMc6809 &_pins;
+    PinsMc6809Base &_pins;
     SoftwareType _type;
 
     uint16_t _s;
@@ -74,8 +74,6 @@ protected:
     void saveVW();
     void loadVW() const;
 };
-
-extern struct RegsMc6809 Regs;
 
 }  // namespace mc6809
 }  // namespace debugger
