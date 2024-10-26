@@ -15,6 +15,7 @@ struct Target {
     Target(const char *id, Pins &pins, Regs &regs, Mems &mems, Devs &devs);
 
     const char *identity() const { return _identity; }
+    const char *cpuName() const { return _regs.cpuName(); }
 
     void begin() const;
     void reset() const;

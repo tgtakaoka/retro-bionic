@@ -1,7 +1,6 @@
 #include "i8051_uart_handler.h"
 #include "debugger.h"
 #include "pins_i8051.h"
-#include "regs_i8051.h"
 
 namespace debugger {
 namespace i8051 {
@@ -11,7 +10,7 @@ const char *I8051UartHandler::name() const {
 }
 
 const char *I8051UartHandler::description() const {
-    return Regs.cpuName();
+    return Debugger.target().cpuName();
 }
 
 uint32_t I8051UartHandler::baseAddr() const {

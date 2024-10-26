@@ -1,7 +1,6 @@
 #include "mc6801_sci_handler.h"
 #include "debugger.h"
 #include "pins_mc6801.h"
-#include "regs_mc6801.h"
 
 namespace debugger {
 namespace mc6801 {
@@ -13,7 +12,7 @@ const char *Mc6801SciHandler::name() const {
 }
 
 const char *Mc6801SciHandler::description() const {
-    return Regs.cpuName();
+    return Debugger.target().cpuName();
 }
 
 bool Mc6801SciHandler::isSelected(uint32_t addr) const {

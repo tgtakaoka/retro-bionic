@@ -1,21 +1,18 @@
 #include "tms7002_serial_handler.h"
 #include "debugger.h"
 #include "pins_tms7000.h"
-#include "regs_tms7000.h"
 
 namespace debugger {
 namespace tms7002 {
 
 struct Tms7002SerialHandler SerialH;
 
-using tms7000::Regs;
-
 const char *Tms7002SerialHandler::name() const {
     return "Serial";
 }
 
 const char *Tms7002SerialHandler::description() const {
-    return Regs.cpuName();
+    return Debugger.target().cpuName();
 }
 
 uint32_t Tms7002SerialHandler::baseAddr() const {

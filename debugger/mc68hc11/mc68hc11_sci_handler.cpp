@@ -11,7 +11,7 @@ const char *Mc68hc11SciHandler::name() const {
 }
 
 const char *Mc68hc11SciHandler::description() const {
-    return _init.description();
+    return Debugger.target().cpuName();
 }
 
 uint32_t Mc68hc11SciHandler::baseAddr() const {

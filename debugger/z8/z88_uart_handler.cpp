@@ -1,7 +1,6 @@
 #include "z88_uart_handler.h"
 #include "pins_z88.h"
 #include "debugger.h"
-#include "regs_z88.h"
 
 namespace debugger {
 namespace z88 {
@@ -11,7 +10,7 @@ const char *Z88UartHandler::name() const {
 }
 
 const char *Z88UartHandler::description() const {
-    return Regs.cpuName();
+    return Debugger.target().cpuName();
 }
 
 uint32_t Z88UartHandler::baseAddr() const {

@@ -6,7 +6,7 @@ namespace debugger {
 namespace mc68hc11 {
 
 const char *Mc68hc11Init::description() const {
-    return _regs.cpuName();
+    return Debugger.target().cpuName();
 }
 
 void Mc68hc11Init::print() const {

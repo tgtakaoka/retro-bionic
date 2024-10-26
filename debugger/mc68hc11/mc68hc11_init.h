@@ -21,7 +21,7 @@ struct Mc68hc11Init final : Device {
     }
 
     const char *name() const override { return "INIT"; }
-    const char *description() const override;
+    const char *description() const;
     void print() const override;
 
     void reset() override;

@@ -1,7 +1,6 @@
 #include "ins8070_sci_handler.h"
 #include "debugger.h"
 #include "pins_ins8070.h"
-#include "regs_ins8070.h"
 
 namespace debugger {
 namespace ins8070 {
@@ -11,7 +10,7 @@ const char *Ins8070SciHandler::name() const {
 }
 
 const char *Ins8070SciHandler::description() const {
-    return Regs.cpuName();
+    return Debugger.target().cpuName();
 }
 
 void Ins8070SciHandler::assert_rxd() const {

@@ -1,7 +1,6 @@
 #include "tlcs90_uart_handler.h"
 #include "debugger.h"
 #include "pins_tlcs90.h"
-#include "regs_tlcs90.h"
 
 namespace debugger {
 namespace tlcs90 {
@@ -11,7 +10,7 @@ const char *Tlcs90UartHandler::name() const {
 }
 
 const char *Tlcs90UartHandler::description() const {
-    return Regs.cpuName();
+    return Debugger.target().cpuName();
 }
 
 uint32_t Tlcs90UartHandler::baseAddr() const {

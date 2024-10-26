@@ -1,7 +1,6 @@
 #include "z86_sio_handler.h"
 #include "debugger.h"
 #include "pins_z86.h"
-#include "regs_z86.h"
 
 namespace debugger {
 namespace z86 {
@@ -11,7 +10,7 @@ const char *Z86SioHandler::name() const {
 }
 
 const char *Z86SioHandler::description() const {
-    return Regs.cpuName();
+    return Debugger.target().cpuName();
 }
 
 uint32_t Z86SioHandler::baseAddr() const {

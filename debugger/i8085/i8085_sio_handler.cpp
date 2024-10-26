@@ -1,7 +1,6 @@
 #include "i8085_sio_handler.h"
 #include "debugger.h"
 #include "pins_i8085.h"
-#include "regs_i8085.h"
 
 namespace debugger {
 namespace i8085 {
@@ -11,7 +10,7 @@ const char *I8085SioHandler::name() const {
 }
 
 const char *I8085SioHandler::description() const {
-    return Regs.cpuName();
+    return Debugger.target().cpuName();
 }
 
 uint32_t I8085SioHandler::baseAddr() const {
