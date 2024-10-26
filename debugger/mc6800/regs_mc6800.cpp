@@ -3,7 +3,7 @@
 #include "debugger.h"
 #include "digital_bus.h"
 #include "mems_mc6800.h"
-#include "pins_mc6800.h"
+#include "pins_mc6800_base.h"
 
 namespace debugger {
 namespace mc6800 {

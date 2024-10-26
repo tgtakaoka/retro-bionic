@@ -16,10 +16,10 @@ enum SoftwareType : uint8_t {
 
 namespace mc6800 {
 
-struct PinsMc6800;
+struct PinsMc6800Base;
 
 struct RegsMc6800 : Regs {
-    RegsMc6800(PinsMc6800 &pins) : _pins(pins) {}
+    RegsMc6800(PinsMc6800Base &pins) : _pins(pins) {}
 
     const char *cpu() const override;
     const char *cpuName() const override;
@@ -40,7 +40,7 @@ struct RegsMc6800 : Regs {
     virtual SoftwareType checkSoftwareType();
 
 protected:
-    PinsMc6800 &_pins;
+    PinsMc6800Base &_pins;
     SoftwareType _type;
 
     uint16_t _sp;

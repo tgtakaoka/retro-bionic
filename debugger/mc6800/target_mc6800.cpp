@@ -33,7 +33,6 @@ struct Target TargetMc6800 {
 };
 
 }  // namespace mc6800
-
 }  // namespace debugger
 
 // Local Variables:

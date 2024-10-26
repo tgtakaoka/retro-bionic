@@ -36,20 +36,20 @@
 #define PIN_E 29         /* P9.31 */
 #define PIN_RESET 28     /* P8.18 */
 
-#include "mc6800/pins_mc6800.h"
+#include "mc6800/pins_mc6800_base.h"
 #include "signals_mc68hc11.h"
 
 namespace debugger {
 namespace mc68hc11 {
 
 using mc6800::InstMc6800;
-using mc6800::PinsMc6800;
+using mc6800::PinsMc6800Base;
 using mc6800::RegsMc6800;
 
-struct PinsMc68hc11 final : PinsMc6800 {
+struct PinsMc68hc11 final : PinsMc6800Base {
     PinsMc68hc11(
             RegsMc6800 &regs, InstMc6800 &inst, const Mems &mems, Devs &devs)
-        : PinsMc6800(regs, inst, mems, devs) {}
+        : PinsMc6800Base(regs, inst, mems, devs) {}
 
     void reset() override;
     // MC68HC11D is fully static, so we can stop clock safely.

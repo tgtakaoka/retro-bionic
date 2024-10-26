@@ -51,7 +51,7 @@
 #define PIN_RE 31    /* P8.22 */
 #define PIN_HALT 30  /* P8.23 */
 
-#include "pins_mc6800.h"
+#include "pins_mc6800_base.h"
 #include "regs_mc6802.h"
 #include "signals_mc6800.h"
 
@@ -59,12 +59,12 @@ namespace debugger {
 namespace mc6802 {
 
 using mc6800::InstMc6800;
-using mc6800::PinsMc6800;
+using mc6800::PinsMc6800Base;
 using mc6800::Signals;
 
-struct PinsMc6802 final : PinsMc6800 {
+struct PinsMc6802 final : PinsMc6800Base {
     PinsMc6802(RegsMc6802 &regs, InstMc6800 &inst, const Mems &mems, Devs &devs)
-        : PinsMc6800(regs, inst, mems, devs) {}
+        : PinsMc6800Base(regs, inst, mems, devs) {}
 
     void reset() override;
 

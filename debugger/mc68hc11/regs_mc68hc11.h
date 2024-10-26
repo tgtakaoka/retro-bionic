@@ -6,14 +6,14 @@
 namespace debugger {
 namespace mc68hc11 {
 
-using mc6800::PinsMc6800;
+using mc6800::PinsMc6800Base;
 using mc6800::RegsMc6800;
 
 struct DevsMc68hc11;
 struct MemsMc68hc11;
 
 struct RegsMc68hc11 final : RegsMc6800 {
-    RegsMc68hc11(PinsMc6800 &pins, const MemsMc68hc11 &mems)
+    RegsMc68hc11(PinsMc6800Base &pins, const MemsMc68hc11 &mems)
         : RegsMc6800(pins), _mems(mems) {}
 
     const char *cpuName() const override;

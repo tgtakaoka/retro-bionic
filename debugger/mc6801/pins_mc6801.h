@@ -49,19 +49,19 @@
 #define PIN_RESET 28   /* P8.18 */
 #define PIN_XTAL 30    /* P8.23 */
 
-#include "mc6800/pins_mc6800.h"
+#include "mc6800/pins_mc6800_base.h"
 #include "signals_mc6801.h"
 
 namespace debugger {
 namespace mc6801 {
 
 using mc6800::InstMc6800;
-using mc6800::PinsMc6800;
+using mc6800::PinsMc6800Base;
 using mc6800::RegsMc6800;
 
-struct PinsMc6801 final : PinsMc6800 {
+struct PinsMc6801 final : PinsMc6800Base {
     PinsMc6801(RegsMc6800 &regs, InstMc6800 &inst, const Mems &mems, Devs &devs)
-        : PinsMc6800(regs, inst, mems, devs) {}
+        : PinsMc6800Base(regs, inst, mems, devs) {}
 
     void reset() override;
 
