@@ -15,7 +15,7 @@ using i8048::ProgMemory;
 using i8048::Regs;
 using i8048::RegsI8048;
 
-struct Target TargetI8039 {
+const struct Target TargetI8039 {
     RegsI8048::P8039, Pins, Regs, ProgMemory, Devs
 };
 

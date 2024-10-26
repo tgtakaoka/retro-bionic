@@ -8,7 +8,7 @@
 namespace debugger {
 namespace z86 {
 
-struct Target Targetz86 {
+const struct Target Targetz86 {
     "Z86C91", Pins, Regs, Memory, Devs
 };
 

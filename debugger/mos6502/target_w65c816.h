@@ -1,14 +1,14 @@
-#ifndef __TARGET_MOS6502_H__
-#define __TARGET_MOS6502_H__
+#ifndef __TARGET_W65C816_H__
+#define __TARGET_W65C816_H__
 
 #include "target.h"
 
 namespace debugger {
-namespace mos6502 {
+namespace w65c816 {
 
-extern const struct Target TargetMos6502;
+extern const struct Target TargetW65c816;
 
-}  // namespace mos6502
+}  // namespace w65816
 }  // namespace debugger
 
 #endif

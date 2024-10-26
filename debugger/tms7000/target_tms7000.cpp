@@ -8,7 +8,7 @@
 namespace debugger {
 namespace tms7000 {
 
-struct Target TargetTms7000 {
+const struct Target TargetTms7000 {
     "TMS7000", Pins, Regs, Memory, Devs
 };
 

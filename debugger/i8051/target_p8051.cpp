@@ -9,7 +9,7 @@
 namespace debugger {
 namespace i8051 {
 
-struct Target TargetI8051 {
+const struct Target TargetI8051 {
     "P8051", Pins, Regs, ProgMemory, Devs
 };
 

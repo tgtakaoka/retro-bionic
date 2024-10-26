@@ -8,7 +8,7 @@
 namespace debugger {
 namespace cdp1802 {
 
-struct Target TargetCdp1802 {
+const struct Target TargetCdp1802 {
     "CDP1802", Pins, Regs, Memory, Devs
 };
 

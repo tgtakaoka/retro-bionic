@@ -8,7 +8,7 @@
 namespace debugger {
 namespace i8085 {
 
-struct Target TargetI8085 {
+const struct Target TargetI8085 {
     "P8085", Pins, Regs, Memory, Devs
 };
 

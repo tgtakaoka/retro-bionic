@@ -8,7 +8,7 @@
 namespace debugger {
 namespace f3850 {
 
-struct Target TargetF3850 {
+const struct Target TargetF3850 {
     "F3850", Pins, Regs, Memory, Devs
 };
 

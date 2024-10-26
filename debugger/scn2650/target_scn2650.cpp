@@ -8,7 +8,7 @@
 namespace debugger {
 namespace scn2650 {
 
-struct Target TargetScn2650 {
+const struct Target TargetScn2650 {
     "SCN2650", Pins, Regs, Memory, Devs
 };
 

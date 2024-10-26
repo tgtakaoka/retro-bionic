@@ -12,7 +12,7 @@ struct RegsMc146805E2 Regs {
     Pins, Memory
 };
 
-struct Target TargetMc146805E2 {
+const struct Target TargetMc146805E2 {
     "MC146805E2", Pins, Regs, Memory, Devices
 };
 

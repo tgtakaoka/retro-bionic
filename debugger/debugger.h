@@ -14,14 +14,11 @@ struct Debugger {
     void exec(char c);
     void loop();
 
-    Target &target() const { return *_target; }
-    Pins &pins() const { return *target()._pins; }
-    Regs &regs() const { return *target()._regs; }
-    Mems &mems() const { return *target()._mems; }
-    Devs &devs() const { return *target()._devs; }
+    const Target &target() const { return *_target; }
+    void setTarget(const Target &target) { _target = &target; }
 
 private:
-    Target *_target;
+    const Target *_target;
     bool _verbose;
 };
 

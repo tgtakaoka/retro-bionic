@@ -29,7 +29,7 @@ struct PinsMc6809 Pins {
     Regs, Inst, Memory
 };
 
-struct Target TargetMc6809 {
+const struct Target TargetMc6809 {
     "MC6809", Pins, Regs, Memory, Devs
 };
 

@@ -21,15 +21,8 @@ struct Mems {
     virtual uint32_t maxAddr() const = 0;
     virtual uint16_t raw_read(uint32_t addr) const = 0;
     virtual void raw_write(uint32_t addr, uint16_t data) const = 0;
-    uint16_t raw_read16(uint32_t addr) const {
-        return _endian == ENDIAN_BIG ? raw_read16be(addr) : raw_read16le(addr);
-    }
-    void raw_write16(uint32_t addr, uint16_t data) const {
-        if (_endian == ENDIAN_BIG)
-            raw_write16be(addr, data);
-        else
-            raw_write16le(addr, data);
-    }
+    uint16_t raw_read16(uint32_t addr) const;
+    void raw_write16(uint32_t addr, uint16_t data) const;
 
     // Read and write from CPU
     virtual uint16_t read(uint32_t addr) const { return raw_read(addr); }
@@ -57,9 +50,7 @@ struct Mems {
 
     virtual bool hasRomArea() const { return false; }
     void setRomArea(uint32_t begin, uint32_t end);
-    bool romArea(uint32_t addr) const {
-        return addr >= _rom_begin && addr < _rom_end;
-    }
+    bool romArea(uint32_t addr) const;
     void printRomArea();
 
     uint32_t assemble(uint32_t addr, const char *line) const;

@@ -50,7 +50,7 @@ struct PinsMc68hc11 Pins {
     Regs, Inst, Memory, Devices
 };
 
-struct Target TargetMc68hc11D {
+const struct Target TargetMc68hc11D {
     "MC68HC11D", Pins, Regs, Memory, Devices
 };
 

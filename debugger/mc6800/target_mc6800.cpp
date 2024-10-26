@@ -28,7 +28,7 @@ struct PinsMc6800 Pins {
     Regs, Inst, Memory, Devices
 };
 
-struct Target TargetMc6800 {
+const struct Target TargetMc6800 {
     "MC6800", Pins, Regs, Memory, Devices
 };
 

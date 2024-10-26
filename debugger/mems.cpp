@@ -40,6 +40,10 @@ void ExtMemory::raw_write(uint32_t addr, uint16_t data) const {
         EXT_MEMORY[addr] = data;
 }
 
+uint16_t Mems::raw_read16(uint32_t addr) const {
+    return _endian == ENDIAN_BIG ? raw_read16be(addr) : raw_read16le(addr);
+}
+
 uint16_t Mems::raw_read16be(uint32_t addr) const {
     auto data = raw_read(addr + 0) << 8;
     data |= raw_read(addr + 1) & 0xFF;
@@ -50,6 +54,13 @@ uint16_t Mems::raw_read16le(uint32_t addr) const {
     auto data = raw_read(addr + 1) << 8;
     data |= raw_read(addr + 0) & 0xFF;
     return data;
+}
+
+void Mems::raw_write16(uint32_t addr, uint16_t data) const {
+    if (_endian == ENDIAN_BIG)
+        raw_write16be(addr, data);
+    else
+        raw_write16le(addr, data);
 }
 
 void Mems::raw_write16be(uint32_t addr, uint16_t data) const {
@@ -71,6 +82,10 @@ void Mems::put(uint32_t addr, const uint8_t *buffer, uint8_t len) const {
 void Mems::setRomArea(uint32_t begin, uint32_t end) {
     _rom_begin = begin;
     _rom_end = end;
+}
+
+bool Mems::romArea(uint32_t addr) const {
+    return addr >= _rom_begin && addr < _rom_end;
 }
 
 void Mems::printRomArea() {

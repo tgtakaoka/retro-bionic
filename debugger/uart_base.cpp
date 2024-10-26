@@ -49,11 +49,11 @@ void UartBase::negateTxIntr() {
 }
 
 void UartBase::assertIntreq(uint8_t name) {
-    Debugger.pins().assertInt(name);
+    Debugger.target().assertInt(name);
 }
 
 void UartBase::negateIntreq(uint8_t name) {
-    Debugger.pins().negateInt(name);
+    Debugger.target().negateInt(name);
 }
 
 void UartBase::write(uint32_t addr, uint16_t data) {

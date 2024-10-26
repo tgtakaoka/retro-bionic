@@ -8,6 +8,7 @@
 #include "regs_mos6502.h"
 #include "signals_mos6502.h"
 #include "target_mos6502.h"
+#include "target_w65c816.h"
 
 namespace debugger {
 namespace mos6502 {
@@ -186,7 +187,8 @@ void PinsMos6502::checkHardwareType() {
         }
         // Keep PIN_SO HIGH using pullup
         // Set 16-bit memory
-        Target6502.setMems(mos6502::Memory);
+        Debugger.setTarget(mos6502::TargetMos6502);
+        _mems = &mos6502::Memory;
     } else {
         // PIN_PHI1O/W65C816_ABORT keeps HIGH, means W65C816S.
         _hardType = HW_W65C816;
@@ -197,7 +199,8 @@ void PinsMos6502::checkHardwareType() {
         digitalWriteFast(PIN_BE, HIGH);
         pinMode(PIN_BE, OUTPUT);
         // Set 24-bit memory
-        Target6502.setMems(w65c816::Memory);
+        Debugger.setTarget(w65c816::TargetW65c816);
+        _mems = &w65c816::Memory;
     }
 }
 
@@ -293,14 +296,14 @@ Signals *PinsMos6502::completeCycle(Signals *s) {
         delayNanoseconds(phi0_hi_write);
         s->getData();
         if (s->writeMemory()) {
-            Target6502.memory().write(s->addr, s->data);
+            _mems->write(s->addr, s->data);
         } else {
             delayNanoseconds(phi0_hi_capture);
         }
         phi0_lo();
     } else {
         if (s->readMemory()) {
-            s->data = Target6502.memory().read(s->addr);
+            s->data = _mems->read(s->addr);
         } else {
             delayNanoseconds(phi0_hi_inject);
         }
@@ -379,9 +382,9 @@ void PinsMos6502::loop() {
         delayNanoseconds(phi0_lo_fetch);
         auto s = rawPrepareCycle();
         if (s->fetch()) {
-            const auto inst = Target6502.memory().raw_read(s->addr);
+            const auto inst = _mems->raw_read(s->addr);
             if (inst == InstMos6502::BRK) {
-                const auto opr = Target6502.memory().raw_read(s->addr + 1);
+                const auto opr = _mems->raw_read(s->addr + 1);
                 if (opr == 0 || isBreakPoint(s->addr)) {
                     suspend();
                     return;
@@ -421,11 +424,11 @@ void PinsMos6502::suspend() {
 
 bool PinsMos6502::rawStep() {
     auto s = rawPrepareCycle();
-    const auto inst = Target6502.memory().raw_read(s->addr);
+    const auto inst = _mems->raw_read(s->addr);
     if (InstMos6502::isStop(inst))
         return false;
     if (inst == InstMos6502::BRK) {
-        const auto opr = Target6502.memory().raw_read(s->addr + 1);
+        const auto opr = _mems->raw_read(s->addr + 1);
         if (opr == 0 || isBreakPoint(s->addr))
             return false;
     }
@@ -464,7 +467,7 @@ void PinsMos6502::negateInt(uint8_t name) {
 }
 
 void PinsMos6502::setBreakInst(uint32_t addr) const {
-    Target6502.memory().put_inst(addr, InstMos6502::BRK);
+    _mems->put_inst(addr, InstMos6502::BRK);
 }
 
 void PinsMos6502::printCycles() {
@@ -482,8 +485,7 @@ void PinsMos6502::disassembleCycles() {
     for (auto i = 0; i < cycles;) {
         const auto s = g->next(i);
         if (s->fetch()) {
-            const auto len =
-                    Target6502.memory().disassemble(s->addr, 1) - s->addr;
+            const auto len = _mems->disassemble(s->addr, 1) - s->addr;
             i += len;
         } else {
             s->print();

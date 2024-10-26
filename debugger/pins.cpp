@@ -14,7 +14,6 @@ void Pins::resetPins() {
     reset();
     pinMode(PIN_USRSW, INPUT_PULLUP);
     pinMode(PIN_USRLED, OUTPUT);
-    Debugger.devs().reset();
     setHalt();
 }
 
@@ -60,7 +59,7 @@ bool Pins::printBreakPoints() const {
     cli.println();
     for (uint8_t i = 0; i < _breakNum; ++i) {
         cli.printDec(i + 1, -2);
-        Debugger.mems().disassemble(_breakPoints[i], 1);
+        Debugger.target().disassemble(_breakPoints[i], 1);
     }
     return _breakNum != 0;
 }
@@ -68,14 +67,14 @@ bool Pins::printBreakPoints() const {
 void Pins::saveBreakInsts() {
     for (auto i = 0; i < _breakNum; ++i) {
         const auto addr = _breakPoints[i];
-        _breakInsts[i] = Debugger.mems().get_inst(addr);
+        _breakInsts[i] = Debugger.target().get_inst(addr);
         setBreakInst(addr);
     }
 }
 
 void Pins::restoreBreakInsts() {
     for (auto i = 0; i < _breakNum; ++i) {
-        Debugger.mems().put_inst(_breakPoints[i], _breakInsts[i]);
+        Debugger.target().put_inst(_breakPoints[i], _breakInsts[i]);
     }
 }
 

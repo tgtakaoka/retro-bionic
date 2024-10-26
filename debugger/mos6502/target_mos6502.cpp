@@ -7,7 +7,7 @@
 namespace debugger {
 namespace mos6502 {
 
-struct TargetMos6502 Target6502 {
+const struct Target TargetMos6502 {
     "MOS6502", Pins, Registers, Memory, Devices
 };
 

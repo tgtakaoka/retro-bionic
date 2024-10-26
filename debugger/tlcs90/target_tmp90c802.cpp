@@ -8,7 +8,7 @@
 namespace debugger {
 namespace tlcs90 {
 
-struct Target TargetTmp90c802 {
+const struct Target TargetTmp90c802 {
     "TMP90C802", Pins, Regs, Memory, Devs
 };
 

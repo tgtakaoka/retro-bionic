@@ -76,6 +76,7 @@
 #define W65C816_MX PIN_SO
 #define CNTL_VPA CNTL_SYNC
 
+#include "mems.h"
 #include "pins.h"
 #include "signals_mos6502.h"
 
@@ -117,6 +118,7 @@ struct PinsMos6502 final : Pins {
 private:
     HardwareType _hardType;
     SoftwareType _softType;
+    Mems *_mems;
 
     void setBreakInst(uint32_t addr) const override;
 

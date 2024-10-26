@@ -8,7 +8,7 @@
 namespace debugger {
 namespace mc6801 {
 
-struct Target TargetMc6801 {
+const struct Target TargetMc6801 {
     "MC6801", Pins, Regs, Memory, Devices
 };
 
