@@ -13,12 +13,15 @@ struct RegsTms7000 Regs;
 
 namespace {
 constexpr const char *const CPU_NAMES[/*HardwareType*/] = {
-        "TMS7000NL2",  // 0
-        "TMS7001NL2",  // 1
-        "TMS7002",     // 2
-        "TMS70C02",    // 3
-        "TMS7000NL4",  // 0+4
-        "TMS7001NL4",  // 1+4
+        "TMS7000",     // 0+0
+        "TMS7000NL4",  // 0+1
+        "TMS70C00",    // 0+2
+        "TMS7001",     // 3+0
+        "TMS7001NL4",  // 3+1
+        "",            // no TMS70C01
+        "TMS7002",     // 6+0
+        "",            // no TMS7002NL4
+        "TMS70C02",    // 6+2
 };
 }
 

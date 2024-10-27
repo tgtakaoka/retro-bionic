@@ -17,19 +17,20 @@ struct PinsTms7000 Pins;
 
 // clang-format off
 /**
- * TMS7000 bus cycle.
+ * TMS7000NL2/TMS7000NL4/TMS70C00NL
+ * TMS7001NL2/TMS7001NL4 bus cycle
  *              __    __    __    __    __    __    __    __    __    __    __
  *   /4 CLK |__|  |__|  |__|  |__|  |__|  |__|  |__|  |__|  |__|  |__|  |__|  |__
- *             |_____|     |_____|     |_____|     |_____|     |_____|     |_____
- * N /2 CLK ___|     |_____|     |_____|     |_____|     |_____|     |_____|
- *             \ ____\_____\     \     \ ____\_____\     \     \ ____\_____\
+ *              _____       _____       _____       _____       _____       _____
+ *   /2 CLK ___|     |_____|     |_____|     |_____|     |_____|     |_____|
+ *          ___       _____       _____       _____       _____       _____
+ * CMOS CLK    |_____|     |_____|     |_____|     |_____|     |_____|     |_____
+ *             \ ____\_____\     \     \ ____\_____\           \ ____\_____\
  *  CLKOUT _____|     |     |_____|_____|     |     |___________|     |     |____
- *              v     v___________v     v     v     v   CMOS    v     v__________
- * N ALATCH __________|///////////|___________________________________|//////////
- *              v     V_____v                                         v_____v
- * C ALATCH __________|/////|_________________________________________|/////|____
- *          ____v_______________________v                 v_____v________________
- *  #ENABLE ____|                       |_________________|_____|
+ *              v     v___________v     v     v     v           v     v__________
+ *  ALATCH ___________|///////////|___________________________________|//////////
+ *          ____v_______________________v                       v________________
+ *  #ENABLE ____|                       |_______________________|
  *          __________v_______________________________________________v__________
  *     R/#W __________|                                               |__________
  *                    v______________             __v___________v     v__________
@@ -39,19 +40,59 @@ struct PinsTms7000 Pins;
  *                    v______________          _____v___________v     v__________
  *       AD ----------<______AL______>--------<_________________>-----<____AL____
  *
- * CMOS device CLK is an inverse of NMOS device CLK.
+ * TMS7002NL/TMS70C02NL bus cycle
+ *              _____       _____       _____       _____       _____       _____
+ *   /2 CLK ___|     |_____|     |_____|     |_____|     |_____|     |_____|
+ *          ___       _____       _____       _____       _____       _____
+ * CMOS CLK    |_____|     |_____|     |_____|     |_____|     |_____|     |_____
+ *             \ ____\_____\           \ __________\     \     \ ____\_____\
+ *  CLKOUT _____|     |     |___________|           |_____v_____|     |     |____
+ *              v     V_____v                             v           v_____v
+ * TMS7002  __________|/////|_________________________________________|/////|____
+ *          ____v_______________________v                 v______________________
+ *  #ENABLE ____|                       |_________________|
+ *
  */
 // clang-format on
 
 namespace {
 
+// fOSC: min 1.0 MHz, max 5.0 MHz
+//   tW: min  90 ns ; CLKIN high/low width
+//   tC: min 400 ns ; CLKOUT cycle time
+// tSUA: min  50 ns ; address valid setup for ALATCH-
+//  tHA: min  30 ns ; address hold after ALATCH-
+// tSUW: min  50 ns ; R/#W setup for ALATCH-
+// tdEL: min -10 ns ; CLKOUT+ to #ENABLE-
+//  tAD: min 155 ns ; data input valid for #ENABLE+
+
 constexpr auto clkin_hi_ns = 500;
 constexpr auto clkin_lo_ns = 500;
-constexpr auto clk2_hi_ns = 500;
-constexpr auto clk2_lo_ns = 500;
-constexpr auto clk4_hi_ns = 250;
-constexpr auto clk4_lo_ns = 250;
-constexpr auto clk4_hi_serial = 200;
+constexpr auto cycle_delay = 0;
+// for CLK_DIV2
+// CLKIN+ to CLKOUT+: typ 132 ns
+// CLKIN+ to CLKOUT-: typ  96 ns
+constexpr auto div2_hi_ns = 48;        // 100
+constexpr auto div2_lo_ns = 58;        // 100
+constexpr auto div2_hi_alatch = 40;    // 100
+constexpr auto div2_lo_alatch = 74;    // 100
+constexpr auto div2_lo_addr = 30;      // 100
+constexpr auto div2_lo_dir = 20;       // 100
+constexpr auto div2_hi_write = 0;      // 100
+constexpr auto div2_hi_internal = 20;  // 100
+// for CLK_DIV4
+constexpr auto div4_lo_ns = 38;       // 50
+constexpr auto div4_hi_serial = 1;    // 50
+constexpr auto div4_hi_wait = 20;     // 50
+constexpr auto div4_lo_alatch = 10;   // 50
+constexpr auto div4_lo_addr = 4;      // 50
+constexpr auto div4_lo_inject = 10;   // 50
+constexpr auto div4_lo_write = 10;    // 50
+constexpr auto div4_hi_capture = 10;  // 50
+// for TMS7002
+constexpr auto tms7002_hi_alatch = 68;  // 100
+constexpr auto tms7002_lo_alatch = 70;  // 100
+constexpr auto tms7002_hi_addr = 30;    // 100
 
 inline void clkin_hi() {
     digitalWriteFast(PIN_CLKIN, HIGH);
@@ -119,6 +160,18 @@ const uint8_t PINS_INPUT[] = {
         PIN_PB3,
 };
 
+inline void assert_debug() {
+    Pins::assert_debug();
+}
+
+inline void negate_debug() {
+    Pins::negate_debug();
+}
+
+inline void toggle_debug() {
+    Pins::toggle_debug();
+}
+
 inline void clkin_cycle() {
     clkin_hi();
     delayNanoseconds(clkin_hi_ns);
@@ -126,49 +179,206 @@ inline void clkin_cycle() {
     delayNanoseconds(clkin_lo_ns);
 }
 
-void clk2_hi() {
+void div2_hi() {
     clkin_hi();
     SerialH.loop();
 }
 
-void clk2_lo() {
+void div2_lo() {
     clkin_lo();
 }
 
-void clk4_hi() {
+void cmos_lo() {
     clkin_lo();
-    delayNanoseconds(clk4_hi_serial);
     SerialH.loop();
+}
+
+void cmos_hi() {
     clkin_hi();
 }
 
-void clk4_lo() {
-    clkin_lo();
-    delayNanoseconds(clk4_lo_ns);
+void (*_clk_hi)();
+void (*_clk_lo)();
+void (*_clk_cycle)();
+
+inline void clk_hi() {
+    _clk_hi();
+}
+
+inline void clk_lo() {
+    _clk_lo();
+}
+
+void div2_clk() {
+    clk_hi();
+    delayNanoseconds(div2_hi_ns);
+    clk_lo();
+    delayNanoseconds(div2_lo_ns);
+}
+
+inline void clk_cycle() {
+    _clk_cycle();
+}
+
+void div2_alatch() {
+    while (true) {
+        clk_hi();
+        delayNanoseconds(div2_hi_alatch);
+        if (signal_alatch() != LOW)
+            break;
+        clk_lo();
+        delayNanoseconds(div2_lo_alatch);
+    }
+}
+
+Signals *div2Prepare() {
+    auto s = Signals::put();
+    // ALATCH=H
+    clk_lo();
+    s->getAddress();
+    delayNanoseconds(div2_lo_addr);
+    clk_hi();
+    delayNanoseconds(div2_hi_ns);
+    clk_lo();
+    delayNanoseconds(div2_lo_dir);
+    s->getDirection();
+    return s;
+}
+
+void tms7002_alatch() {
+    while (signal_alatch() == LOW) {
+        clk_hi();
+        delayNanoseconds(tms7002_hi_alatch);
+        clk_lo();
+        delayNanoseconds(tms7002_lo_alatch);
+    }
+}
+
+Signals *tms7002Prepare() {
+    auto s = Signals::put();
+    // ALATCH=H
+    clk_hi();
+    s->getAddress();
+    delayNanoseconds(tms7002_hi_addr);
+    clk_lo();
+    delayNanoseconds(div2_lo_ns);
+    clk_hi();
+    delayNanoseconds(div2_hi_ns);
+    clk_lo();
+    delayNanoseconds(div2_lo_dir);
+    s->getDirection();
+    return s;
+}
+
+void div2Complete(Signals *s) {
+    if (s->read()) {  // External read
+        if (s->readMemory()) {
+            s->data = Memory.read(s->addr);
+        } else {
+            ;  // inject
+        }
+        s->outData();
+        clk_hi();
+        delayNanoseconds(div2_hi_ns);
+        clk_lo();
+        s->inputMode();
+    } else if (s->write()) {  // External write
+        clk_hi();
+        delayNanoseconds(div2_hi_write);
+        s->getData();
+        clk_lo();
+        if (s->writeMemory()) {
+            Memory.write(s->addr, s->data);
+        } else {
+            ;  // capture
+        }
+    } else {  // Internal cycle
+        clk_hi();
+        s->getData();
+        delayNanoseconds(div2_hi_internal);
+        clk_lo();
+    }
+}
+
+void div4_hi() {
+    static bool serial = false;
     clkin_hi();
+    serial = !serial;
+    if (serial) {
+        SerialH.loop();
+        delayNanoseconds(div4_hi_serial);
+    } else {
+        delayNanoseconds(div4_hi_wait);
+    }
+}
+
+void div4_lo() {
+    clkin_lo();
+}
+
+void div4_cycle_lo() {
+    div4_hi();
+    div4_lo();
+}
+
+void div4_clk() {
+    div4_cycle_lo();
+    delayNanoseconds(div4_lo_ns);
+    div4_cycle_lo();
+    delayNanoseconds(div4_lo_ns);
+}
+
+void div4_alatch() {
+    while (signal_alatch() == LOW) {
+        delayNanoseconds(div4_lo_alatch);
+        div4_cycle_lo();
+    }
+}
+
+Signals *div4Prepare() {
+    auto s = Signals::put();
+    do {
+        s->getAddress();
+        div4_cycle_lo();
+    } while (signal_alatch() != LOW);
+    delayNanoseconds(div4_lo_addr);
+    div4_cycle_lo();
+    delayNanoseconds(div4_lo_ns);
+    div4_hi();
+    s->getDirection();
+    return s;
+}
+
+void div4Complete(Signals *s) {
+    if (s->read()) {  // External read
+        if (s->readMemory()) {
+            s->data = Memory.read(s->addr);
+        } else {
+            delayNanoseconds(div4_lo_inject);
+        }
+        s->outData();
+        div4_lo();
+        s->inputMode();
+    } else if (s->write()) {  // External write
+        div4_lo();
+        delayNanoseconds(div4_lo_ns);
+        div4_hi();
+        s->getData();
+        div4_lo();
+        if (s->writeMemory()) {
+            Memory.write(s->addr, s->data);
+        } else {
+            delayNanoseconds(div4_hi_capture);
+        }
+    } else {  // Internal cycle
+        s->getData();
+        div4_lo();
+    }
 }
 
 }  // namespace
 
-void (*PinsTms7000::_clk_hi)();
-void (*PinsTms7000::_clk_lo)();
-void (*PinsTms7000::_clk_cycle)();
-
-void PinsTms7000::clk2_cycle() {
-    clk_hi();
-    delayNanoseconds(clk2_hi_ns);
-    clk_lo();
-    delayNanoseconds(clk2_lo_ns);
-}
-
-void PinsTms7000::clk4_cycle() {
-    clk4_hi();
-    delayNanoseconds(clk4_hi_ns);
-    clk4_lo();
-    delayNanoseconds(clk4_lo_ns);
-}
-
-void PinsTms7000::synchronize_clk() {
+void PinsTms7000::synchronizeClock() {
     // CLKOUT works only when #RESET=H
     while (signal_clkout() != LOW)
         clkin_cycle();
@@ -183,38 +393,67 @@ void PinsTms7000::synchronize_clk() {
         delayNanoseconds(clkin_hi_ns);
         if (signal_clkout() == LOW) {
             // NMOS device
-            _clk_hi = clk2_hi;
-            _clk_lo = clk2_lo;
+            _clockType = CLK_DIV2;
+            _clk_hi = div2_hi;
+            _clk_lo = div2_lo;
         } else {
             // CMOS device
-            _clk_hi = clk2_lo;
-            _clk_lo = clk2_hi;
+            _clockType = CLK_CMOS;
+            _clk_hi = cmos_lo;
+            _clk_lo = cmos_hi;
         }
-        _clk_cycle = clk2_cycle;
+        _clk_cycle = div2_clk;
+        _wait_alatch = div2_alatch;
+        _prepareCycle = div2Prepare;
+        _completeCycle = div2Complete;
     } else {
         // /4 clock option
-        _clk_hi = clk4_hi;
-        _clk_lo = clk4_lo;
-        _clk_cycle = clk4_cycle;
         clkin_hi();
-        delayNanoseconds(clk4_hi_ns);
+        delayNanoseconds(clkin_hi_ns);
+        _clockType = CLK_DIV4;
+        _clk_hi = div4_lo;
+        _clk_lo = div4_hi;
+        _clk_cycle = div4_clk;
+        _wait_alatch = div4_alatch;
+        _prepareCycle = div4Prepare;
+        _completeCycle = div4Complete;
+    }
+
+    // The RESET function is initiated when the #RESET line of the
+    // TMS7000 device is held at a logic zero level for at least five
+    // clock cycles.
+    assert_reset();
+    for (auto i = 0; i < 20; i++)
+        clk_cycle();
+    Signals::resetCycles();
+    negate_reset();
+    clk_cycle();
+
+    if (_clockType == CLK_DIV4) {
+        wait_alatch();
+    } else {
+        while (true) {
+            clk_hi();
+            delayNanoseconds(div2_hi_ns);
+            if (signal_alatch() != LOW)
+                break;
+            clk_lo();
+            delayNanoseconds(div2_lo_ns);
+            if (signal_alatch() != LOW) {
+                _wait_alatch = tms7002_alatch;
+                _prepareCycle = tms7002Prepare;
+                break;
+            }
+        }
     }
 }
 
 void PinsTms7000::reset() {
     pinsMode(PINS_HIGH, sizeof(PINS_HIGH), OUTPUT, HIGH);
     pinsMode(PINS_INPUT, sizeof(PINS_INPUT), INPUT);
-    synchronize_clk();
 
-    // The RESET function is initiated when the #RESET line of the
-    // TMS7000 device is held at a logic zero level for at least five
-    // clock cycles.
-    assert_reset();
-    for (auto i = 0; i < 10; i++)
-        clk_cycle();
-    negate_reset();
-    clk_cycle();
-    Signals::resetCycles();
+    synchronizeClock();
+
     // Clear IOCNT0 (>0100) to disable interrupts
     cycle();
     // Inject dummy reset vector >8000
@@ -238,72 +477,18 @@ void PinsTms7000::checkHardwareType() {
         const auto port10 = cycle();
         _hardType = port10->external() ? HW_TMS7000 : HW_TMS7001;
     } else {
-        inject(0x8A);        // LDA @>0119
-        inject(hi(0x0119));  // TMS7002 has no internal peripheral at >0119
-        inject(lo(0x0119));  // TMS70C02 haas RXBUF at >0119
-        const auto port19 = cycle();
-        _hardType = port19->external() ? HW_TMS7002 : HW_TMS70C02;
+        _hardType = HW_TMS7002;
     }
     Regs.restoreA();
     SerialH.setTms7001(_hardType == HW_TMS7001);
     Devs.setSerialHandler(_hardType == HW_TMS7000 ? nullptr : &SerialH);
 }
 
-Signals *PinsTms7000::prepareCycle() const {
-    auto s = Signals::put();
-    while (signal_alatch() == LOW)
-        clk_cycle();
-    // CLKOUT=L
-    clk_hi();
-    s->getAddress();
-    delayNanoseconds(clk2_hi_ns);
-    clk_lo();
-    delayNanoseconds(clk2_lo_ns);
-    // CLKOUT=H
-    clk_hi();
-    delayNanoseconds(clk2_hi_ns);
-    s->getDirection();
-    return s;
-}
-
 Signals *PinsTms7000::completeCycle(Signals *s) const {
-    if (s->read()) {  // External read
-        clk_lo();
-        if (s->readMemory()) {
-            s->data = Memory.read(s->addr);
-        } else {
-            ;  // inject
-        }
-        delayNanoseconds(clk2_lo_ns);
-        // CLKOUT=L
-        clk_hi();
-        s->outData();
-        delayNanoseconds(clk2_hi_ns);
-        clk_lo();
-        s->inputMode();
-        delayNanoseconds(clk2_lo_ns);
-    } else if (s->write()) {  // External write
-        clk_lo();
-        delayNanoseconds(clk2_lo_ns);
-        s->getData();
-        // CLKOUT=L
-        clk_hi();
-        if (s->writeMemory()) {
-            Memory.write(s->addr, s->data);
-        } else {
-            ;  // capture
-        }
-        delayNanoseconds(clk2_hi_ns);
-        clk_lo();
-        delayNanoseconds(clk2_lo_ns);
-    } else {  // Internal cycle
-        clk_lo();
-        delayNanoseconds(clk2_lo_ns);
-        s->getData();
-    }
+    _completeCycle(s);
     Signals::nextCycle();
-    while (signal_alatch() == LOW)
-        clk_cycle();
+    delayNanoseconds(cycle_delay);
+    wait_alatch();
     return s;
 }
 
