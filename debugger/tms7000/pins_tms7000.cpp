@@ -462,8 +462,10 @@ void PinsTms7000::disassembleCycles() {
         if (s->fetch()) {
             const auto len = Memory.disassemble(s->addr, 1) - s->addr;
             i += len;
-            if (InstTms7000::isBTJxx(s->data))
+            if (InstTms7000::isBTJxP(s->data)) {
                 s->next(len - 1)->print();
+                i += 1;
+            }
         } else {
             s->print();
             ++i;

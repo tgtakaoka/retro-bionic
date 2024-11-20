@@ -14,8 +14,8 @@ struct InstTms7000 {
     static constexpr uint16_t VEC_RESET = 0xFFFE;
 
     static uint8_t busCycles(uint8_t opc);
-    static bool isBTJxx(uint8_t opc) {
-        return (opc & 0xE) == 6 && (opc >= 0x10 && opc < 0xB0);
+    static bool isBTJxP(uint8_t opc) {
+        return (opc & 0xE) == 6 && (opc >= 0x80 && opc < 0xB0);
     }
 };
 
