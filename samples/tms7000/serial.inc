@@ -1,7 +1,4 @@
 ;;; -*- mode: asm; mode: flyspell-prog; -*-
-        cpu     tms7000
-        include "tms7001.inc"
-
         org     VEC_RESET
         data    initialize
 
@@ -13,7 +10,7 @@ initialize:
         movp    %CMODE_bm|CHAR8_bm|ASYNC_bm, SMODE       8 bits asynchronous
         movp    %RXEN_bm|TXEN_bm, SCTL0         Rx/Tx enable
         movp    %12, T3DATA                     9600 bps (TR)
-        movp    %CLK_bm, SCTL1                  Enable internal clock, PR=0
+        movp    %CLK_bm|T3RUN_bm, SCTL1         Enable internal clock, PR=0
 
 loop:   call    @getchar
         tsta
@@ -35,9 +32,3 @@ putchar:
         btjzp   %TXRDY_bm, SSTAT, putchar
         movp    A, TXBUF
         rets
-
-        *** Local Variables:
-        *** mode: asm
-        *** mode: flyspell-prog
-        *** comment-start: "*"
-        *** End:

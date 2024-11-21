@@ -1,7 +1,4 @@
 ;;; -*- mode: asm; mode: flyspell-prog; -*-
-        cpu     tms7000
-        include "tms7001.inc"
-
         org     >2000
 rx_queue_size:  equ     128
 rx_queue:       bss     rx_queue_size
@@ -38,7 +35,7 @@ initialize:
         clr     tx_enable                       Tx disable
         movp    %RXEN_bm, SCTL0                 Rx enable
         movp    %12, T3DATA                     9600 bps (TR)
-        movp    %CLK_bm, SCTL1                  Enable internal clock, PR=0
+        movp    %CLK_bm|T3RUN_bm, SCTL1         Enable internal clock, PR=0
         movp    %INT4_F|INT4_E, IOCNT1          clear/enable INT4
 
 loop:

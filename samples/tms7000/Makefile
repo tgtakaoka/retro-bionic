@@ -3,7 +3,8 @@ ASM=asm
 .PHONY: clean
 
 all: echo.hex echoir.hex echoitr.hex arith.hex mandelbrot.hex \
-	serial.hex serialir.hex serialitr.hex
+	nmos.hex nmosir.hex nmositr.hex \
+	cmos.hex cmosir.hex cmositr.hex
 
 %.hex:	%.asm
 	$(ASM) -l $*.lst -o $@ $^
