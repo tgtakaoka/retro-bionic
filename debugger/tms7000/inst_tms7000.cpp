@@ -220,7 +220,7 @@ constexpr uint8_t INST_TABLE[] = {
         E(1, 0),  // C3: INC   B
         E(1, 0),  // C4: INV   B
         E(1, 0),  // C5: CLR   B
-        0,        // C6
+        E(1, 0),  // C6: XCHB  B
         E(1, 0),  // C7: SWAP  B
         E(1, 0),  // C8: PUSH  B
         E(1, 0),  // C9: POP   B
