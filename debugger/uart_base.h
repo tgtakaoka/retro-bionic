@@ -29,6 +29,7 @@ protected:
     uint8_t _rxIntr;
     uint8_t _txIntr;
     uint8_t _delay;
+    bool _txDone;
 
     virtual void resetUart() = 0;
     virtual void loopUart() = 0;

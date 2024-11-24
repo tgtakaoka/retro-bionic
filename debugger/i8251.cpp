@@ -43,10 +43,14 @@ void I8251::loopUart() {
     }
     // TODO: Implement flow command
     if (txEnabled()) {
+        if (_txDone) {
+            _status |= ST_TxEMPTY_bm;
+            assertTxIntr();
+        }
         if (Console.availableForWrite() > 0 && !txReady()) {
             Console.write(_txData);
-            _status |= ST_TxRDY_bm | ST_TxEMPTY_bm;
-            assertTxIntr();
+            _status |= ST_TxRDY_bm;
+            _txDone = true;     // defer Tx interrupt
         }
     }
 }

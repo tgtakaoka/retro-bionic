@@ -39,11 +39,15 @@ void Mc6850::loopUart() {
             assertRxIntr();
     }
     // TODO: Implement flow control
-    if (Console.availableForWrite() > 0 && !txReady()) {
-        Console.write(_txData);
+    if (_txDone) {
+        _txDone = false;
         _status |= TDRE_bm;
         if (txIntEnabled())
             assertTxIntr();
+    }
+    if (Console.availableForWrite() > 0 && !txReady()) {
+        Console.write(_txData);
+        _txDone = true;     // defer Tx interrupt
     }
 }
 

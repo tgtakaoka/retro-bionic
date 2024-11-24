@@ -10,6 +10,7 @@ void UartBase::reset() {
     _rxVec = _txVec = 0;
     _rxIntr = _txIntr = 0;
     _delay = 0;
+    _txDone = false;
     resetUart();
 }
 
