@@ -152,12 +152,6 @@ isr_int3:
         movp    ACIA_data, A
         movd    %rx_queue, R3
         call    @queue_add
-isr_int3_exit:
-        pop     R3
-        pop     R2
-        pop     A
-isr_int3_return:
-        reti
 isr_tx:
         btjzp   %TDRE_bm, ACIA_status, isr_int3_exit
         movd    %tx_queue, R3
@@ -167,4 +161,9 @@ isr_tx:
         jmp     isr_int3_exit
 isr_tx_empty:
         movp    %RX_INT_TX_NO, ACIA_control     disable Tx interrupt
-        jmp     isr_int3_exit
+isr_int3_exit:
+        pop     R3
+        pop     R2
+        pop     A
+isr_int3_return:
+        reti
