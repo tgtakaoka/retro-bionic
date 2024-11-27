@@ -18,20 +18,28 @@
 #define PORT_ADDR 6    /* GPIO6 */
 #define ADDR_gp 16     /* P6.16-P6.28 */
 #define ADDR_gm 0x1FFF /* P6.16-P6.28 */
-#define ADDR_vp 0      /* A8-A12 */
+#define ADDR_vp 0      /* B0-B7:A8-A12 */
 #define PIN_ADDR8 22   /* P6.24 */
 #define PIN_ADDR9 23   /* P6.25 */
 #define PIN_ADDR10 20  /* P6.26 */
 #define PIN_ADDR11 21  /* P6.27 */
 #define PIN_ADDR12 38  /* P6.28 */
+#define PIN_PB6 26     /* P6.30 */
+#define PIN_PB7 27     /* P6.31 */
 #define PIN_AS 2       /* P9.04 */
 #define PIN_RW 3       /* P9.05 */
-#define PIN_IRQ 4      /* P9.06 */
-#define PIN_TIMER 1    /* P6.02 */
+#define PIN_LI 4       /* P9.06 */
+#define PIN_DS 33      /* P9.07 */
+#define PIN_PB3 0      /* P6.03 */
+#define PIN_PB2 1      /* P6.02 */
 #define PIN_OSC1 5     /* P9.08 */
-#define PIN_DS 6       /* P7.10 */
-#define PIN_LI 9       /* P7.11 */
+#define PIN_PB5 29     /* P9.31 */
+#define PIN_IRQ 6      /* P7.10 */
+#define PIN_TIMER 9    /* P7.11 */
+#define PIN_PB4 32     /* P7.12 */
 #define PIN_RESET 28   /* P8.18 */
+#define PIN_PB0 31     /* P8.22 */
+#define PIN_PB1 30     /* P8.23 */
 
 #include "pins_mc6805.h"
 #include "signals_mc146805e2.h"

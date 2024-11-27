@@ -132,6 +132,14 @@ constexpr uint8_t PINS_INPUT[] = {
         PIN_DS,
         PIN_RW,
         PIN_LI,
+        PIN_PB0,
+        PIN_PB1,
+        PIN_PB2,
+        PIN_PB3,
+        PIN_PB4,
+        PIN_PB5,
+        PIN_PB6,
+        PIN_PB7,
 };
 
 }  // namespace
