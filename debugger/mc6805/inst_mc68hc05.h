@@ -1,23 +1,21 @@
 #ifndef __INST_MC68HC05_H__
 #define __INST_MC68HC05_H__
 
-#include "inst_mc146805.h"
+#include "inst_mc6805.h"
 
 namespace debugger {
 namespace mc68hc05 {
 
-using mc146805::InstMc146805;
+using mc6805::InstMc6805;
 
-struct InstMc68hc05 final : InstMc146805 {
+struct InstMc68HC05 final : InstMc6805 {
 protected:
     const uint8_t *table() const override;
-
-    static constexpr uint8_t MUL = 0x42;
 };
 
-extern struct InstMc146805 Inst;
+extern const struct InstMc68HC05 Inst;
 
-}  // namespace mc146805
+}  // namespace mc68hc05
 }  // namespace debugger
 #endif
 
