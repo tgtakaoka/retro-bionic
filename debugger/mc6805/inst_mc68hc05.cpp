@@ -3,6 +3,8 @@
 namespace debugger {
 namespace mc68hc05 {
 
+const struct InstMc68HC05 Inst;
+
 namespace {
 constexpr uint8_t INST_TABLE[] = {
         0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x9B, 0xED,  //  00~3F
@@ -12,7 +14,7 @@ constexpr uint8_t INST_TABLE[] = {
 };
 }
 
-const uint8_t *InstMc68hc05::table() const {
+const uint8_t *InstMc68HC05::table() const {
     return INST_TABLE;
 }
 

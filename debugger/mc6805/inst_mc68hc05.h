@@ -6,18 +6,14 @@
 namespace debugger {
 namespace mc68hc05 {
 
-using mc146805::InstMc146805;
-
-struct InstMc68hc05 final : InstMc146805 {
+struct InstMc68HC05 final : mc146805::InstMc146805 {
 protected:
     const uint8_t *table() const override;
-
-    static constexpr uint8_t MUL = 0x42;
 };
 
-extern struct InstMc146805 Inst;
+extern const struct InstMc68HC05 Inst;
 
-}  // namespace mc146805
+}  // namespace mc68hc05
 }  // namespace debugger
 #endif
 
