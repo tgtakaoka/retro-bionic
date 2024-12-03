@@ -20,7 +20,7 @@ struct SignalsImpl {
     static void discard(const SignalsImpl *s);
 
 protected:
-    uint8_t _signals[6];
+    uint8_t _signals[5];
     uint8_t _flags;
 
     void clear() { _flags = 0; }
