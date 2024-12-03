@@ -68,7 +68,7 @@ namespace debugger {
 namespace ins8070 {
 
 struct PinsIns8070 final : Pins {
-    void reset() override;
+    void resetPins() override;
     void idle() override;
     bool step(bool show) override;
     void run() override;

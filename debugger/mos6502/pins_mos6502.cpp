@@ -240,7 +240,7 @@ void PinsMos6502::checkSoftwareType() {
     }
 }
 
-void PinsMos6502::reset() {
+void PinsMos6502::resetPins() {
     // Assert reset condition
     pinsMode(PINS_LOW, sizeof(PINS_LOW), OUTPUT, LOW);
     pinsMode(PINS_HIGH, sizeof(PINS_HIGH), OUTPUT, HIGH);

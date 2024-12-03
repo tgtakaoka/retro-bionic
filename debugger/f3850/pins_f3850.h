@@ -64,7 +64,7 @@ namespace debugger {
 namespace f3850 {
 
 struct PinsF3850 final : Pins {
-    void reset() override;
+    void resetPins() override;
     void idle() override;
     bool step(bool show) override;
     void run() override;

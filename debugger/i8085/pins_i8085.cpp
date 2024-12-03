@@ -203,7 +203,7 @@ inline void clk_lo() {
 
 }  // namespace
 
-void PinsI8085::reset() {
+void PinsI8085::resetPins() {
     // Assert reset condition
     pinsMode(PINS_LOW, sizeof(PINS_LOW), OUTPUT, LOW);
     pinsMode(PINS_HIGH, sizeof(PINS_HIGH), OUTPUT, HIGH);

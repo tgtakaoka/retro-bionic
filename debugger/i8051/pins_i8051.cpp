@@ -189,7 +189,7 @@ inline void PinsI8051::xtal_cycle() const {
     delayNanoseconds(xtal_lo_ns);
 }
 
-void PinsI8051::reset() {
+void PinsI8051::resetPins() {
     // Assert reset condition
     pinsMode(PINS_LOW, sizeof(PINS_LOW), OUTPUT, LOW);
     pinsMode(PINS_HIGH, sizeof(PINS_HIGH), OUTPUT, HIGH);

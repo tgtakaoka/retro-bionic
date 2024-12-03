@@ -34,7 +34,7 @@ protected:
 } Mems;
 
 struct NullPins final : Pins {
-    void reset() override {}
+    void resetPins() override {}
     void idle() override {}
     bool step(bool show) override { return false; }
     void run() override {}
@@ -134,7 +134,7 @@ void Target::begin() const {
 }
 
 void Target::reset() const {
-    _pins.resetPins();
+    _pins.reset();
     _devs.reset();
 }
 

@@ -14,7 +14,7 @@ struct Pins {
     virtual void assertInt(uint8_t name = 0) = 0;
     virtual void negateInt(uint8_t name = 0) = 0;
 
-    void resetPins();
+    void reset();
     bool isBreakPoint(uint32_t addr) const;
     bool setBreakPoint(uint32_t addr);
     bool clearBreakPoint(uint8_t index);
@@ -35,7 +35,7 @@ private:
     uint16_t _breakInsts[BREAK_POINTS];
 
 protected:
-    virtual void reset() = 0;
+    virtual void resetPins() = 0;
     virtual void setBreakInst(uint32_t addr) const = 0;
 
     void saveBreakInsts();

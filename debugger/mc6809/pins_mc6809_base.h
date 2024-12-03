@@ -78,7 +78,6 @@ struct PinsMc6809Base : Pins {
     PinsMc6809Base(RegsMc6809 &regs, InstMc6809 &inst, const Mems &mems)
         : _regs(regs), _inst(inst), _mems(mems) {}
 
-    void reset() override;
     void idle() override;
     bool step(bool show) override;
     void run() override;
@@ -95,9 +94,9 @@ protected:
     InstMc6809 &_inst;
     const Mems &_mems;
 
+    void resetPins() override;
     void setBreakInst(uint32_t addr) const override;
 
-    virtual void resetPins() = 0;
     virtual Signals *rawCycle() const = 0;
     virtual Signals *cycle() const = 0;
     Signals *injectCycle(uint8_t data);

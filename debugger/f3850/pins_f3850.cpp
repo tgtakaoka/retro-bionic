@@ -143,7 +143,7 @@ inline void xtly_cycle_hi() {
 
 }  // namespace
 
-void PinsF3850::reset() {
+void PinsF3850::resetPins() {
     // Assert reset condition
     pinsMode(PINS_LOW, sizeof(PINS_LOW), OUTPUT, LOW);
     pinsMode(PINS_HIGH, sizeof(PINS_HIGH), OUTPUT, HIGH);

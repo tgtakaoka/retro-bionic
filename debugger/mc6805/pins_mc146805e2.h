@@ -57,7 +57,7 @@ struct PinsMc146805E2 final : PinsMc6805 {
             const MemsMc6805 &mems, Devs &devs)
         : PinsMc6805(regs, inst, mems, devs) {}
 
-    void reset() override;
+    void resetPins() override;
     void assertInt(uint8_t name) override;
     void negateInt(uint8_t name) override;
 

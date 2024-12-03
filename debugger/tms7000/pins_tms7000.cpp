@@ -448,7 +448,7 @@ void PinsTms7000::synchronizeClock() {
     }
 }
 
-void PinsTms7000::reset() {
+void PinsTms7000::resetPins() {
     pinsMode(PINS_HIGH, sizeof(PINS_HIGH), OUTPUT, HIGH);
     pinsMode(PINS_INPUT, sizeof(PINS_INPUT), INPUT);
 

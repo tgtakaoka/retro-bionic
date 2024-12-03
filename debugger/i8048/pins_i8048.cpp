@@ -194,7 +194,7 @@ void PinsI8048::checkSoftwareType() {
     Regs.restore();
 }
 
-void PinsI8048::reset() {
+void PinsI8048::resetPins() {
     // Assert reset condition
     pinsMode(PINS_LOW, sizeof(PINS_LOW), OUTPUT, LOW);
     pinsMode(PINS_HIGH, sizeof(PINS_HIGH), OUTPUT, HIGH);

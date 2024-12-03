@@ -72,7 +72,7 @@ namespace debugger {
 namespace z80 {
 
 struct PinsZ80 final : Pins {
-    void reset() override;
+    void resetPins() override;
     void idle() override;
     bool step(bool show) override;
     void run() override;

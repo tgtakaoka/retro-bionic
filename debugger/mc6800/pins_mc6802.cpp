@@ -143,7 +143,7 @@ constexpr uint8_t PINS_INPUT[] = {
 
 }  // namespace
 
-void PinsMc6802::reset() {
+void PinsMc6802::resetPins() {
     // Assert reset condition
     pinsMode(PINS_LOW, sizeof(PINS_LOW), OUTPUT, LOW);
     pinsMode(PINS_HIGH, sizeof(PINS_HIGH), OUTPUT, HIGH);

@@ -75,7 +75,7 @@ struct PinsZ8 final : Pins {
           _mems(mems),
           _devs(devs) {}
 
-    void reset() override;
+    void resetPins() override;
     bool step(bool show) override;
     void run() override;
     void idle() override;

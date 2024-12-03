@@ -21,8 +21,9 @@ struct PinsMc6809E final : PinsMc6809Base {
     PinsMc6809E(RegsMc6809 &regs, InstMc6809 &inst, const Mems &mems)
         : PinsMc6809Base(regs, inst, mems) {}
 
-protected:
     void resetPins() override;
+
+protected:
     mc6809::Signals *rawCycle() const override;
     mc6809::Signals *cycle() const override;
 

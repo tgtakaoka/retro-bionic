@@ -70,7 +70,7 @@ namespace debugger {
 namespace scn2650 {
 
 struct PinsScn2650 final : Pins {
-    void reset() override;
+    void resetPins() override;
     void idle() override;
     bool step(bool show) override;
     void run() override;

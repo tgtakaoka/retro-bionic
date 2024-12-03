@@ -6,12 +6,12 @@ namespace debugger {
 
 Pins::Pins() : _breakNum(0) {}
 
-void Pins::resetPins() {
+void Pins::reset() {
 #ifdef PIN_DEBUG
     negate_debug();
     pinMode(PIN_DEBUG, OUTPUT);
 #endif
-    reset();
+    resetPins();
     pinMode(PIN_USRSW, INPUT_PULLUP);
     pinMode(PIN_USRLED, OUTPUT);
     setHalt();

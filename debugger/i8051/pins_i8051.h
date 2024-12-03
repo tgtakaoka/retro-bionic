@@ -76,7 +76,7 @@ enum IntrName : uint8_t {
 };
 
 struct PinsI8051 final : Pins {
-    void reset() override;
+    void resetPins() override;
     void idle() override;
     bool step(bool show) override;
     void run() override;

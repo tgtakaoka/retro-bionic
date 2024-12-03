@@ -153,6 +153,8 @@ void PinsMc6809::resetPins() {
     for (auto i = 0; i < 3; ++i)
         cycle();
     negate_reset();
+
+    PinsMc6809Base::resetPins();
 }
 
 Signals *PinsMc6809::rawCycle() const {

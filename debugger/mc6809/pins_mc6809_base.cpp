@@ -37,8 +37,7 @@ void negate_firq() {
 
 }  // namespace
 
-void PinsMc6809Base::reset() {
-    resetPins();
+void PinsMc6809Base::resetPins() {
     Signals::resetCycles();
 
     while (!cycle()->vector())

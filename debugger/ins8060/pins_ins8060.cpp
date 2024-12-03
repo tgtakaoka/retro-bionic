@@ -177,7 +177,7 @@ inline void xin_cycle() {
 
 }  // namespace
 
-void PinsIns8060::reset() {
+void PinsIns8060::resetPins() {
     // Assert reset condition
     pinsMode(PINS_LOW, sizeof(PINS_LOW), OUTPUT, LOW);
     pinsMode(PINS_HIGH, sizeof(PINS_HIGH), OUTPUT, HIGH);

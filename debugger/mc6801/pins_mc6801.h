@@ -63,7 +63,7 @@ struct PinsMc6801 final : PinsMc6800Base {
     PinsMc6801(RegsMc6800 &regs, InstMc6800 &inst, const Mems &mems, Devs &devs)
         : PinsMc6800Base(regs, inst, mems, devs) {}
 
-    void reset() override;
+    void resetPins() override;
 
     void idle() override;
 

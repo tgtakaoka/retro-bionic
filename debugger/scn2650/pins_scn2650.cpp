@@ -155,7 +155,7 @@ inline void clock_cycle() {
 
 }  // namespace
 
-void PinsScn2650::reset() {
+void PinsScn2650::resetPins() {
     pinsMode(PINS_LOW, sizeof(PINS_LOW), OUTPUT, LOW);
     pinsMode(PINS_HIGH, sizeof(PINS_HIGH), OUTPUT, HIGH);
     pinsMode(PINS_INPUT, sizeof(PINS_INPUT), INPUT);

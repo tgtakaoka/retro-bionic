@@ -164,7 +164,7 @@ void release_mode() {
 
 }  // namespace
 
-void PinsMc68hc11::reset() {
+void PinsMc68hc11::resetPins() {
     // Assert reset condition
     pinsMode(PINS_LOW, sizeof(PINS_LOW), OUTPUT, LOW);
     pinsMode(PINS_HIGH, sizeof(PINS_HIGH), OUTPUT, HIGH);
