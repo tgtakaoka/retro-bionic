@@ -50,8 +50,7 @@ constexpr char USAGE[] =
 #ifdef WITH_ASSEMBLER
         " A:sm"
 #endif
-        " S:tep G:o b/B:reak F:iles L:oad U:pload I:o";
-constexpr char USAGE_ROM[] = " roM";
+        " S:tep G:o b/B:reak F:iles L:oad U:pload I:o ro:M";
 
 void usage() {
     cli.println();
@@ -59,10 +58,7 @@ void usage() {
     Target::printIdentity();
     cli.print(" * ");
     cli.println(F(VERSION_TEXT));
-    cli.print(USAGE);
-    if (Debugger.target().hasRomArea())
-        cli.print(USAGE_ROM);
-    cli.println();
+    cli.println(USAGE);
 }
 
 void commandHandler(char c, uintptr_t extra) {

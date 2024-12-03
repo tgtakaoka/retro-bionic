@@ -227,10 +227,6 @@ void Target::put_inst(uint32_t addr, uint16_t data) const {
     _mems.put_inst(addr, data);
 }
 
-bool Target::hasRomArea() const {
-    return _mems.hasRomArea();
-}
-
 void Target::write_memory(
         uint32_t addr, const uint8_t *buffer, uint8_t len) const {
     _mems.put(addr, buffer, len);
@@ -241,8 +237,18 @@ void Target::write_code(
     _mems.put(addr, buffer, len);
 }
 
+bool Target::printRomArea() const {
+    auto *rom = _mems.romArea();
+    if (rom == nullptr)
+        return false;
+    rom->print();
+    return true;
+}
+
 void Target::setRomArea(uint32_t begin, uint32_t end) const {
-    _mems.setRomArea(begin, end);
+    auto *rom = _mems.romArea();
+    if (rom)
+        rom->set(begin, end);
 }
 
 void Target::printDevices() const {
@@ -255,14 +261,6 @@ Device &Target::parseDevice(const char *word) const {
 
 void Target::enableDevice(Device &dev) const {
     _devs.enableDevice(dev);
-}
-
-bool Target::printRomArea() const {
-    if (_mems.hasRomArea()) {
-        _mems.printRomArea();
-        return true;
-    }
-    return false;
 }
 
 }  // namespace debugger

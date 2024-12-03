@@ -48,20 +48,23 @@ struct Mems {
     }
     void put(uint32_t addr, const uint8_t *buffer, uint8_t len) const;
 
-    virtual bool hasRomArea() const { return false; }
-    void setRomArea(uint32_t begin, uint32_t end);
-    bool romArea(uint32_t addr) const;
-    void printRomArea();
+    struct RomArea {
+        void set(uint32_t begin, uint32_t end);
+        bool readOnly(uint32_t addr) const;
+        void print() const;
+    private:
+        uint32_t _begin;
+        uint32_t _end;
+    };
+    virtual RomArea *romArea() { return nullptr; }
 
     uint32_t assemble(uint32_t addr, const char *line) const;
     uint32_t disassemble(uint32_t addr, uint8_t numInsn) const;
 
 protected:
-    Mems(Endian endian) : _endian(endian), _rom_begin(0), _rom_end(0) {}
+    Mems(Endian endian) : _endian(endian) {}
 
     const Endian _endian;
-    uint32_t _rom_begin;
-    uint32_t _rom_end;
 
     uint16_t raw_read16be(uint32_t addr) const;
     uint16_t raw_read16le(uint32_t addr) const;

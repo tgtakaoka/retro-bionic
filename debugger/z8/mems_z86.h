@@ -11,8 +11,10 @@ using z8::MemsZ8;
 struct MemsZ86 final : MemsZ8 {
     MemsZ86();
 
-protected:
-    bool hasRomArea() const override { return true; }
+    RomArea *romArea() override { return &_rom; }
+
+private:
+    RomArea _rom;
 };
 
 extern struct MemsZ86 Memory;

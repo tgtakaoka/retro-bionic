@@ -46,7 +46,6 @@ struct Target {
     void put_inst(uint32_t addr, uint16_t data) const;
     void write_memory(uint32_t addr, const uint8_t *buffer, uint8_t len) const;
     void write_code(uint32_t addr, const uint8_t *buffer, uint8_t len) const;
-    bool hasRomArea() const;
     bool printRomArea() const;
     void setRomArea(uint32_t begin, uint32_t end) const;
 

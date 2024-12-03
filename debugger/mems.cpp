@@ -79,21 +79,21 @@ void Mems::put(uint32_t addr, const uint8_t *buffer, uint8_t len) const {
     }
 }
 
-void Mems::setRomArea(uint32_t begin, uint32_t end) {
-    _rom_begin = begin;
-    _rom_end = end;
+void Mems::RomArea::set(uint32_t begin, uint32_t end) {
+    _begin = begin;
+    _end = end;
 }
 
-bool Mems::romArea(uint32_t addr) const {
-    return addr >= _rom_begin && addr < _rom_end;
+bool Mems::RomArea::readOnly(uint32_t addr) const {
+    return addr >= _begin && addr < _end;
 }
 
-void Mems::printRomArea() {
+void Mems::RomArea::print() const {
     cli.print("ROM area: ");
-    if (hasRomArea() && _rom_begin <= _rom_end) {
-        cli.printHex(_rom_begin, 4);
+    if (_begin <= _end) {
+        cli.printHex(_begin, 4);
         cli.print('-');
-        cli.printlnHex(_rom_end, 4);
+        cli.printlnHex(_end, 4);
     } else {
         cli.println("none");
     }
