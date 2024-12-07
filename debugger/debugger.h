@@ -4,6 +4,7 @@
 #include "config_debugger.h"
 
 #include <libcli.h>
+#include "break_points.h"
 #include "target.h"
 #include "unio_bus.h"
 
@@ -17,9 +18,17 @@ struct Debugger {
     const Target &target() const { return *_target; }
     void setTarget(const Target &target) { _target = &target; }
 
+    bool isBreakPoint(uint32_t addr) { return _breakPoints.on(addr); }
+    bool setBreakPoint(uint32_t addr) { return _breakPoints.set(addr); }
+    bool clearBreakPoint(uint8_t index) { return _breakPoints.clear(index); }
+    bool printBreakPoints() const { return _breakPoints.print(); }
+    void saveBreakInsts() { _breakPoints.saveInsts(); }
+    void restoreBreakInsts() { _breakPoints.restoreInsts(); }
+
 private:
     const Target *_target;
     bool _verbose;
+    BreakPoints _breakPoints;
 };
 
 extern struct Debugger Debugger;

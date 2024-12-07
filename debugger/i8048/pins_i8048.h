@@ -75,6 +75,7 @@ struct PinsI8048 final : Pins {
     void run() override;
     void assertInt(uint8_t name) override;
     void negateInt(uint8_t name) override;
+    void setBreakInst(uint32_t addr) const override;
     void printCycles() override;
 
     void execInst(const uint8_t *inst, uint8_t len);
@@ -85,8 +86,6 @@ struct PinsI8048 final : Pins {
 
 private:
     SoftwareType _type;
-
-    void setBreakInst(uint32_t addr) const override;
 
     void checkSoftwareType();
 

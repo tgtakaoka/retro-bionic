@@ -5,7 +5,7 @@
 
 namespace debugger {
 struct Pins {
-    Pins();
+    Pins() {}
 
     virtual void idle() = 0;
     virtual bool step(bool show) = 0;
@@ -13,12 +13,9 @@ struct Pins {
     virtual void printCycles() = 0;
     virtual void assertInt(uint8_t name = 0) = 0;
     virtual void negateInt(uint8_t name = 0) = 0;
+    virtual void setBreakInst(uint32_t addr) const = 0;
 
     void reset();
-    bool isBreakPoint(uint32_t addr) const;
-    bool setBreakPoint(uint32_t addr);
-    bool clearBreakPoint(uint8_t index);
-    bool printBreakPoints() const;
 
     // Control USER LED
     void setRun() const;
@@ -28,18 +25,12 @@ struct Pins {
     static void negate_debug();
     static void toggle_debug();
 
-private:
-    static constexpr auto BREAK_POINTS = 4;
-    uint8_t _breakNum;
-    uint32_t _breakPoints[BREAK_POINTS];
-    uint16_t _breakInsts[BREAK_POINTS];
-
 protected:
     virtual void resetPins() = 0;
-    virtual void setBreakInst(uint32_t addr) const = 0;
 
-    void saveBreakInsts();
-    void restoreBreakInsts();
+    bool isBreakPoint(uint32_t addr) const;
+    void saveBreakInsts() const;
+    void restoreBreakInsts() const;
 
     static bool haltSwitch();
 

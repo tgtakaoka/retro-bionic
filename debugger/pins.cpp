@@ -4,8 +4,6 @@
 
 namespace debugger {
 
-Pins::Pins() : _breakNum(0) {}
-
 void Pins::reset() {
 #ifdef PIN_DEBUG
     negate_debug();
@@ -27,62 +25,6 @@ void Pins::setHalt() const {
 
 bool Pins::haltSwitch() {
     return digitalReadFast(PIN_USRSW) == LOW;
-}
-
-bool Pins::setBreakPoint(uint32_t addr) {
-    auto i = 0;
-    while (i < _breakNum) {
-        if (_breakPoints[i] == addr)
-            return true;
-        ++i;
-    }
-    if (i < BREAK_POINTS) {
-        _breakPoints[i] = addr;
-        ++_breakNum;
-        return true;
-    }
-    return false;
-}
-
-bool Pins::clearBreakPoint(uint8_t index) {
-    if (--index >= _breakNum)
-        return false;
-    for (auto i = index + 1; i < _breakNum; ++i) {
-        _breakPoints[index] = _breakPoints[i];
-        ++index;
-    }
-    --_breakNum;
-    return true;
-}
-
-bool Pins::printBreakPoints() const {
-    for (uint8_t i = 0; i < _breakNum; ++i) {
-        cli.printDec(i + 1, -2);
-        Debugger.target().disassemble(_breakPoints[i], 1);
-    }
-    return _breakNum != 0;
-}
-
-void Pins::saveBreakInsts() {
-    for (auto i = 0; i < _breakNum; ++i) {
-        const auto addr = _breakPoints[i];
-        _breakInsts[i] = Debugger.target().get_inst(addr);
-        setBreakInst(addr);
-    }
-}
-
-void Pins::restoreBreakInsts() {
-    for (auto i = 0; i < _breakNum; ++i) {
-        Debugger.target().put_inst(_breakPoints[i], _breakInsts[i]);
-    }
-}
-
-bool Pins::isBreakPoint(uint32_t addr) const {
-    for (auto i = 0; i < _breakNum; ++i) {
-        if (_breakPoints[i] == addr)
-            return true;
-    }
-    return false;
 }
 
 void Pins::pinsMode(const uint8_t *pins, uint8_t size, uint8_t mode) {
@@ -116,6 +58,18 @@ void Pins::toggle_debug() {
 #ifdef PIN_DEBUG
     digitalToggleFast(PIN_DEBUG);
 #endif
+}
+
+bool Pins::isBreakPoint(uint32_t addr) const {
+    return Debugger.isBreakPoint(addr);
+}
+
+void Pins::saveBreakInsts() const {
+    Debugger.saveBreakInsts();
+}
+
+void Pins::restoreBreakInsts() const {
+    Debugger.restoreBreakInsts();
 }
 
 }  // namespace debugger

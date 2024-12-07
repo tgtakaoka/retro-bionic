@@ -104,6 +104,7 @@ struct PinsMos6502 final : Pins {
     void run() override;
     void assertInt(uint8_t name) override;
     void negateInt(uint8_t name) override;
+    void setBreakInst(uint32_t addr) const override;
     void printCycles() override;
 
     void execInst(const uint8_t *inst, uint8_t len);
@@ -119,8 +120,6 @@ private:
     HardwareType _hardType;
     SoftwareType _softType;
     Mems *_mems;
-
-    void setBreakInst(uint32_t addr) const override;
 
     void checkHardwareType();
     void checkSoftwareType();

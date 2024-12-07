@@ -84,6 +84,7 @@ struct PinsTms7000 final : Pins {
     void run() override;
     void assertInt(uint8_t name) override;
     void negateInt(uint8_t name) override;
+    void setBreakInst(uint32_t addr) const override;
     void printCycles() override;
 
     void execInst(const uint8_t *inst, uint8_t len, uint8_t extra = 0);
@@ -98,8 +99,6 @@ private:
     void (*_wait_alatch)();
     Signals *(*_prepareCycle)();
     void (*_completeCycle)(Signals *);
-
-    void setBreakInst(uint32_t addr) const override;
 
     void synchronizeClock();
     void checkHardwareType();

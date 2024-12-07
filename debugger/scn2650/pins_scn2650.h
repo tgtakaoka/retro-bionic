@@ -76,6 +76,7 @@ struct PinsScn2650 final : Pins {
     void run() override;
     void assertInt(uint8_t name) override;
     void negateInt(uint8_t name) override;
+    void setBreakInst(uint32_t addr) const override;
     void printCycles() override;
 
     void execInst(const uint8_t *inst, uint8_t len);
@@ -83,8 +84,6 @@ struct PinsScn2650 final : Pins {
             uint8_t *buf, uint8_t max);
 
 private:
-    void setBreakInst(uint32_t addr) const override;
-
     Signals *prepareCycle();
     Signals *completeCycle(Signals *signals);
     void loop();

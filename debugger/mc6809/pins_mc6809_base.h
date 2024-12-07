@@ -83,6 +83,7 @@ struct PinsMc6809Base : Pins {
     void run() override;
     void assertInt(uint8_t name) override;
     void negateInt(uint8_t name) override;
+    void setBreakInst(uint32_t addr) const override;
     void printCycles() override { printCycles(nullptr); }
 
     void injectReads(const uint8_t *inst, uint8_t len, uint8_t cycles = 0);
@@ -95,7 +96,6 @@ protected:
     const Mems &_mems;
 
     void resetPins() override;
-    void setBreakInst(uint32_t addr) const override;
 
     virtual Signals *rawCycle() const = 0;
     virtual Signals *cycle() const = 0;

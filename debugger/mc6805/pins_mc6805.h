@@ -21,6 +21,7 @@ struct PinsMc6805 : Pins {
     void idle() override;
     bool step(bool show) override;
     void run() override;
+    void setBreakInst(uint32_t addr) const override;
     void printCycles() override;
 
     void injectReads(
@@ -44,7 +45,6 @@ protected:
     void loop();
     bool rawStep() const;
 
-    void setBreakInst(uint32_t addr) const override;
     void disassembleCycles() const;
 };
 

@@ -40,8 +40,8 @@ struct NullPins final : Pins {
     void run() override {}
     void assertInt(uint8_t name) override { (void)name; }
     void negateInt(uint8_t name) override { (void)name; }
-    void printCycles() override {}
     void setBreakInst(uint32_t addr) const override { (void)addr; }
+    void printCycles() override {}
 } Pins;
 
 struct NullRegs final : Regs {
@@ -164,22 +164,6 @@ void Target::negateInt(uint8_t name) const {
 
 void Target::printCycles() const {
     _pins.printCycles();
-}
-
-bool Target::printBreakPoints() const {
-    return _pins.printBreakPoints();
-}
-
-bool Target::setBreakPoint(uint32_t addr) const {
-    return _pins.setBreakPoint(addr);
-}
-
-bool Target::clearBreakPoint(uint8_t index) const {
-    return _pins.clearBreakPoint(index);
-}
-
-bool Target::isOnBreakPoint() const {
-    return _pins.isBreakPoint(_regs.nextIp());
 }
 
 void Target::printRegisters() const {

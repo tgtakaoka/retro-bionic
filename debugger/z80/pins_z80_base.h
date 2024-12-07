@@ -14,6 +14,7 @@ struct PinsZ80Base : Pins {
     void execInst(const uint8_t *inst, uint8_t len);
     void captureWrites(const uint8_t *inst, uint8_t len, uint16_t *addr,
             uint8_t *buf, uint8_t max);
+    void setBreakInst(uint32_t addr) const override;
 
 protected:
     PinsZ80Base(RegsZ80 &regs, MemsZ80 &mems) : _regs(regs), _mems(mems) {}
@@ -24,7 +25,6 @@ protected:
     virtual void execute(const uint8_t *inst, uint8_t len, uint16_t *addr,
             uint8_t *buf, uint8_t max) = 0;
 
-    void setBreakInst(uint32_t addr) const override;
 };
 
 }  // namespace z80

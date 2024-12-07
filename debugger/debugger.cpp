@@ -534,12 +534,12 @@ void handleRomArea(uint32_t value, uintptr_t extra, State state) {
 
 void handleSetBreak(uint32_t value, uintptr_t extra, State state) {
     if (state != State::CLI_CANCEL) {
-        if (Debugger.target().setBreakPoint(value)) {
+        if (Debugger.setBreakPoint(value)) {
             cli.println("set");
         } else {
             cli.println("full");
         }
-        Debugger.target().printBreakPoints();
+        Debugger.printBreakPoints();
     }
     printPrompt();
 }
@@ -547,9 +547,9 @@ void handleSetBreak(uint32_t value, uintptr_t extra, State state) {
 void handleClearBreak(char *line, uintptr_t extra, State state) {
     if (state != State::CLI_CANCEL) {
         const auto index = atoi(str_buffer);
-        if (Debugger.target().clearBreakPoint(index)) {
+        if (Debugger.clearBreakPoint(index)) {
             cli.println(" cleared");
-            Debugger.target().printBreakPoints();
+            Debugger.printBreakPoints();
         } else {
             cli.println();
         }
@@ -613,7 +613,7 @@ void Debugger::exec(char c) {
         return;
     case 'b':
         cli.println("Break points");
-        if (target().printBreakPoints()) {
+        if (printBreakPoints()) {
             cli.print("clear? ");
             cli.readLine(handleClearBreak, 0, str_buffer, sizeof(str_buffer));
             return;
@@ -639,12 +639,12 @@ void Debugger::exec(char c) {
         break;
     case 'G':
         cli.println("Go");
-        if (target().isOnBreakPoint()) {
+        if (_breakPoints.on(target().nextIp())) {
             // step over break point
             if (!target().step(false))
                 break;
             // Stop at consecutive break point
-            if (target().isOnBreakPoint()) {
+            if (_breakPoints.on(target().nextIp())) {
                 target().printStatus();
                 break;
             }

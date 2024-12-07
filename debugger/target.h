@@ -27,10 +27,8 @@ struct Target {
     void assertInt(uint8_t name = 0) const;
     void negateInt(uint8_t name = 0) const;
 
-    bool printBreakPoints() const;
-    bool setBreakPoint(uint32_t addr) const;
-    bool clearBreakPoint(uint8_t index) const;
-    bool isOnBreakPoint() const;
+    uint32_t nextIp() const { return _regs.nextIp(); }
+    void setBreakPoint(uint32_t addr) const { _pins.setBreakInst(addr); }
 
     void printRegisters() const;
     void printStatus() const;

@@ -81,6 +81,7 @@ struct PinsZ8 final : Pins {
     void idle() override;
     void assertInt(uint8_t name) override;
     void negateInt(uint8_t name) override;
+    void setBreakInst(uint32_t addr) const override;
     void printCycles() override;
 
     Signals *cycle(uint8_t insn);
@@ -97,7 +98,6 @@ private:
     Devs &_devs;
     uint8_t _writes;
 
-    void setBreakInst(uint32_t addr) const override;
     void xtal1_cycle() const { _xtal1_cycle(); }
 
     Signals *prepareCycle();
