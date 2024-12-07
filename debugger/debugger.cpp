@@ -264,19 +264,23 @@ void handleAssembler(uint32_t value, uintptr_t extra, State state) {
 }
 
 #endif
-void listDirectory(File dir, const char *parent = nullptr) {
+void listDirectory(File dir) {
+    const auto path = dir.name();
+    const auto root = strcmp(path, "/") == 0;
     while (true) {
-        File entry = dir.openNextFile();
+        auto entry = dir.openNextFile();
         if (!entry)
             break;
+        if (!root) {
+            cli.print(path);
+            cli.print('/');
+        }
+        const auto name = entry.name();
         if (entry.isDirectory()) {
-            listDirectory(entry, entry.name());
+            cli.printStr(name);
+            cli.println('/');
         } else {
-            if (parent) {
-                cli.print(parent);
-                cli.print('/');
-            }
-            cli.printStr(entry.name(), -20);
+            cli.printStr(name, -20);
             cli.printlnDec(entry.size(), 6);
         }
         entry.close();
@@ -289,11 +293,11 @@ void handleFileListing(char *line, uintptr_t extra, State state) {
         return;
     }
     cli.println();
-    const char *dir = (*line == 0) ? "/" : line;
     SD.begin(BUILTIN_SDCARD);
-    File root = SD.open(dir);
-    listDirectory(root);
-    root.close();
+    const auto path = *line ? line : "/";
+    auto dir = SD.open(path);
+    listDirectory(dir);
+    dir.close();
     printPrompt();
 }
 
