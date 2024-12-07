@@ -85,12 +85,12 @@ void Mems::RomArea::set(uint32_t begin, uint32_t end) {
 }
 
 bool Mems::RomArea::readOnly(uint32_t addr) const {
-    return addr >= _begin && addr < _end;
+    return addr >= _begin && addr <= _end;
 }
 
 void Mems::RomArea::print() const {
     cli.print("ROM area: ");
-    if (_begin <= _end) {
+    if (_begin < _end) {
         cli.printHex(_begin, 4);
         cli.print('-');
         cli.printlnHex(_end, 4);

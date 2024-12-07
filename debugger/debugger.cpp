@@ -500,10 +500,11 @@ void handleIo(char *line, uintptr_t extra, State state) {
                 return;
             }
         }
-        if (&dev != nulldev)
-            Debugger.target().enableDevice(dev);
         cli.println();
-        Debugger.target().printDevices();
+        if (&dev != nulldev) {
+            Debugger.target().enableDevice(dev);
+            Debugger.target().printDevices();
+        }
     }
     printPrompt();
 }
@@ -534,9 +535,9 @@ void handleRomArea(uint32_t value, uintptr_t extra, State state) {
 void handleSetBreak(uint32_t value, uintptr_t extra, State state) {
     if (state != State::CLI_CANCEL) {
         if (Debugger.target().setBreakPoint(value)) {
-            cli.print("Set");
+            cli.println("set");
         } else {
-            cli.print("Full");
+            cli.println("full");
         }
         Debugger.target().printBreakPoints();
     }
@@ -545,12 +546,12 @@ void handleSetBreak(uint32_t value, uintptr_t extra, State state) {
 
 void handleClearBreak(char *line, uintptr_t extra, State state) {
     if (state != State::CLI_CANCEL) {
-        if (str_buffer[0]) {
-            const auto index = atoi(str_buffer);
-            if (Debugger.target().clearBreakPoint(index)) {
-                cli.print(" Clear");
-                Debugger.target().printBreakPoints();
-            }
+        const auto index = atoi(str_buffer);
+        if (Debugger.target().clearBreakPoint(index)) {
+            cli.println(" cleared");
+            Debugger.target().printBreakPoints();
+        } else {
+            cli.println();
         }
     }
     printPrompt();
@@ -602,15 +603,18 @@ void Debugger::exec(char c) {
             cli.print("  ROM area? ");
             cli.readHex(handleRomArea, MEMORY_ADDR, maxAddr);
             return;
+        } else {
+            cli.println("No ROM area");
         }
         break;
     case 'B':
-        cli.print("Set break? ");
+        cli.print("Break addr? ");
         cli.readHex(handleSetBreak, 0, maxAddr);
         return;
     case 'b':
+        cli.println("Break points");
         if (target().printBreakPoints()) {
-            cli.print("Clear break? ");
+            cli.print("clear? ");
             cli.readLine(handleClearBreak, 0, str_buffer, sizeof(str_buffer));
             return;
         }
@@ -663,9 +667,9 @@ void Debugger::exec(char c) {
                 upload_context.buffer, sizeof(upload_context.buffer));
         return;
     case 'I':
-        cli.println();
+        cli.println("I/O Devices");
         target().printDevices();
-        cli.print("Io? ");
+        cli.print("which? ");
         cli.readWord(handleIo, 0, str_buffer, sizeof(str_buffer));
         return;
     case 'W':

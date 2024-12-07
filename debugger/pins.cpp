@@ -56,7 +56,6 @@ bool Pins::clearBreakPoint(uint8_t index) {
 }
 
 bool Pins::printBreakPoints() const {
-    cli.println();
     for (uint8_t i = 0; i < _breakNum; ++i) {
         cli.printDec(i + 1, -2);
         Debugger.target().disassemble(_breakPoints[i], 1);
