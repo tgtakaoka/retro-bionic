@@ -18,9 +18,9 @@ const char *RegsZ80::cpuName() const {
 
 void RegsZ80::print() const {
     // clang-format off
-    //                              01234567890123456789012345678901234567890123456789012345678901
-    static constexpr char main[] = "PC=xxxx SP=xxxx  BC=xxxx DE=xxxx HL=xxxx A=xx F=SZ1H1VNC  I=xx";
-    static constexpr char alt[]  = "IX=xxxx IY=xxxx (BC=xxxx DE=xxxx HL=xxxx A=xx F=SZ1H1VNC) R=xx";
+    //                              0123456789012345678901234567890123456789012345678901234567890
+    static constexpr char main[] = "PC=xxxx SP=xxxx  BC=xxxx DE=xxxx HL=xxxx A=xx F=SZ1H1VNC I=xx";
+    static constexpr char alt[]  = "IX=xxxx IY=xxxx (BC=xxxx DE=xxxx HL=xxxx A=xx F=SZ1H1VNC)";
     // clang-format on
     static auto &bufmain = *new CharBuffer(main);
     static auto &bufalt = *new CharBuffer(alt);
@@ -31,7 +31,7 @@ void RegsZ80::print() const {
     bufmain.hex16(36, _main.hl());
     bufmain.hex8(43, _main.a);
     bufmain.bits(48, _main.f, 0x80, main + 48);
-    bufmain.hex8(60, _i);
+    bufmain.hex8(59, _i);
     cli.println(bufmain);
     _pins.idle();
     bufalt.hex16(3, _ix);
@@ -41,7 +41,6 @@ void RegsZ80::print() const {
     bufalt.hex16(36, _alt.hl());
     bufalt.hex8(43, _alt.a);
     bufalt.bits(48, _alt.f, 0x80, alt + 48);
-    bufalt.hex8(60, _r);
     cli.println(bufalt);
     _pins.idle();
 }
@@ -79,7 +78,7 @@ void RegsZ80::save() {
     static constexpr uint8_t PUSH_PC[] = {
             0xC7,  // RST 0
     };
-    uint8_t buffer[6];
+    uint8_t buffer[5];
     _pins.captureWrites(PUSH_PC, sizeof(PUSH_PC), &_sp, buffer, sizeof(_pc));
     _sp += 1;
     _pc = be16(buffer) - 1;  // offser RST instruction
@@ -92,21 +91,16 @@ void RegsZ80::save() {
             0xFD, 0xE5,  // PUSH IY
             0xED, 0x57,  // LD A, I
             0x77,        // LD (HL), A
-            0xED, 0x5F,  // LD A, R
-            0x77,        // LD (HL), A
     };
     _pins.captureWrites(
             SAVE_OTHERS, sizeof(SAVE_OTHERS), nullptr, buffer, sizeof(buffer));
     _ix = be16(buffer + 0);
     _iy = be16(buffer + 2);
     _i = buffer[4];
-    _r = buffer[5];
 }
 
 void RegsZ80::restore() {
     uint8_t LD_OTHERS[] = {
-            0x3E, _r,                // LD A, _r
-            0xED, 0x4F,              // LD R, A
             0x3E, _i,                // LD A, _i
             0xED, 0x47,              // LD A, I
             0xFD, lo(_iy), hi(_iy),  // POP IY, _iy
@@ -146,7 +140,7 @@ void RegsZ80::write_io(uint8_t addr, uint8_t data) const {
 }
 
 void RegsZ80::helpRegisters() const {
-    cli.println(F("?Reg: PC SP IX IY BC DE HL A F B C D E H L I R EX EXX"));
+    cli.println(F("?Reg: PC SP IX IY BC DE HL A F B C D E H L I EX EXX"));
 }
 
 constexpr const char *REGS8[] = {
@@ -159,52 +153,51 @@ constexpr const char *REGS8[] = {
         "H",  // 7
         "L",  // 8
         "I",  // 9
-        "R",  // 10
 };
 constexpr const char *REGS16[] = {
-        "PC",  // 11
-        "SP",  // 12
-        "BC",  // 13
-        "DE",  // 14
-        "HL",  // 15
-        "IX",  // 16
-        "IY",  // 17
+        "PC",  // 10
+        "SP",  // 11
+        "BC",  // 12
+        "DE",  // 13
+        "HL",  // 14
+        "IX",  // 15
+        "IY",  // 16
 };
 constexpr const char *EXCHANGE[] = {
-        "EX",   // 18
-        "EXX",  // 19
+        "EX",   // 17
+        "EXX",  // 18
 };
 
 const Regs::RegList *RegsZ80::listRegisters(uint8_t n) const {
     static constexpr RegList REG_LIST[] = {
-            {REGS8, 10, 1, UINT8_MAX},
-            {REGS16, 7, 11, UINT16_MAX},
-            {EXCHANGE, 2, 18, 1},
+            {REGS8, 9, 1, UINT8_MAX},
+            {REGS16, 7, 10, UINT16_MAX},
+            {EXCHANGE, 2, 17, 1},
     };
     return n < 3 ? &REG_LIST[n] : nullptr;
 }
 
 void RegsZ80::setRegister(uint8_t reg, uint32_t value) {
     switch (reg) {
-    case 11:
+    case 10:
         _pc = value;
         break;
-    case 12:
+    case 11:
         _sp = value;
         break;
-    case 13:
+    case 12:
         _main.setbc(value);
         break;
-    case 14:
+    case 13:
         _main.setde(value);
         break;
-    case 15:
+    case 14:
         _main.sethl(value);
         break;
-    case 16:
+    case 15:
         _ix = value;
         break;
-    case 17:
+    case 16:
         _iy = value;
         break;
     case 1:
@@ -234,14 +227,11 @@ void RegsZ80::setRegister(uint8_t reg, uint32_t value) {
     case 9:
         _i = value;
         break;
-    case 10:
-        _r = value;
-        break;
-    case 18:
+    case 17:
         swap8(_main.a, _alt.a);
         swap8(_main.f, _alt.f);
         break;
-    case 19:
+    case 18:
         swap8(_main.b, _alt.b);
         swap8(_main.c, _alt.c);
         swap8(_main.d, _alt.d);

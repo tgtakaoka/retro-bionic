@@ -58,7 +58,6 @@ private:
         }
     } _main, _alt;
     uint8_t _i;
-    uint8_t _r;
 
     void exchangeRegs() const;
     void saveRegs(reg &regs) const;
