@@ -9,18 +9,24 @@ void Pins::reset() {
     negate_debug();
     pinMode(PIN_DEBUG, OUTPUT);
 #endif
-    resetPins();
     pinMode(PIN_USRSW, INPUT_PULLUP);
+#ifdef PIN_USRLED
     pinMode(PIN_USRLED, OUTPUT);
+#endif
     setHalt();
+    resetPins();
 }
 
 void Pins::setRun() const {
+#ifdef PIN_USRLED
     digitalWriteFast(PIN_USRLED, LOW);
+#endif
 }
 
 void Pins::setHalt() const {
+#ifdef PIN_USRLED
     digitalWriteFast(PIN_USRLED, HIGH);
+#endif
 }
 
 bool Pins::haltSwitch() {
