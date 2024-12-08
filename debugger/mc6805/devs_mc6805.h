@@ -1,14 +1,14 @@
-#ifndef __DEVS_MC146805E2_H__
-#define __DEVS_MC146805E2_H__
+#ifndef __DEVS_MC6805_H__
+#define __DEVS_MC6805_H__
 
 #include "devs.h"
 
+#define ACIA_BASE 0x17F8
+
 namespace debugger {
-namespace mc146805e2 {
+namespace mc6805 {
 
-struct DevsMc146805E2 final : Devs {
-    DevsMc146805E2(uint16_t acia) : _acia(acia) {}
-
+struct DevsMc6805 : Devs {
     void begin() override;
     void reset() override;
     void loop() override;
@@ -19,14 +19,11 @@ struct DevsMc146805E2 final : Devs {
     Device &parseDevice(const char *name) const override;
     void enableDevice(Device &dev) override;
     void printDevices() const override;
-
-private:
-    const uint16_t _acia;
 };
 
-extern struct DevsMc146805E2 Devices;
+extern struct DevsMc6805 Devices;
 
-}  // namespace mc146805e2
+}  // namespace mc6805
 }  // namespace debugger
 #endif
 

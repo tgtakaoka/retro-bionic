@@ -7,6 +7,10 @@
 namespace debugger {
 namespace mc6805 {
 
+const char *RegsMc6805::cpuName() const {
+    return Debugger.target().identity();
+}
+
 void RegsMc6805::print() const {
     //                              0123456789012345678901234567890123
     static constexpr char line[] = "PC=xxxx SP=xxxx X=xx A=xx CC=HINZC";

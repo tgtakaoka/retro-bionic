@@ -1,8 +1,6 @@
 #ifndef __PINS_MC146805E2_H__
 #define __PINS_MC146805E2_H__
 
-#define ACIA_BASE 0x17F8
-
 #define PORT_B 6       /* GPIO6 */
 #define B_gp 16        /* P6.16-P6.23 */
 #define B_gm 0xFF      /* P6.00-P6.07 */
@@ -34,7 +32,6 @@
 #define PIN_PB2 1      /* P6.02 */
 #define PIN_OSC1 5     /* P9.08 */
 #define PIN_PB5 29     /* P9.31 */
-#define PIN_IRQ 6      /* P7.10 */
 #define PIN_TIMER 9    /* P7.11 */
 #define PIN_PB4 32     /* P7.12 */
 #define PIN_RESET 28   /* P8.18 */
@@ -58,8 +55,7 @@ struct PinsMc146805E2 final : PinsMc6805 {
         : PinsMc6805(regs, inst, mems, devs) {}
 
     void resetPins() override;
-    void assertInt(uint8_t name) override;
-    void negateInt(uint8_t name) override;
+    void idle() override;
 
 protected:
     mc6805::Signals *currCycle() const override;

@@ -1,6 +1,6 @@
 #include "pins_mc146805e2.h"
 #include "debugger.h"
-#include "devs_mc146805e2.h"
+#include "devs_mc6805.h"
 #include "digital_bus.h"
 #include "inst_mc146805.h"
 #include "mems_mc146805e2.h"
@@ -11,14 +11,13 @@ namespace mc146805e2 {
 
 using mc146805::Inst;
 
-struct PinsMc146805E2 Pins {
-    Regs, Inst, Memory, Devices
-};
+struct PinsMc146805E2 Pins{Regs, Inst, Memory, mc6805::Devices};
 
 /**
  * MC146805E bus cycle.
- *      _    __    __    __    __    __    __    __    __    __    __
- * OSC1  |_c|1 |_c|2 |_c|3 |_c|4 |_c|5 |_c|1 |_c|2 |_c|3 |_c|4 |_c|5 |__
+ *       |--c1-|--c2-|--c3-|--c4-|--c5-|--c1-|--c2-|--c3-|--c4-|--c5-|
+ *      _|   __|   __|   __|   __|   __|   __|   __|   __|   __|   __|
+ * OSC1  |__|  |__|  |__|  |__|  |__|  |__|  |__|  |__|  |__|  |__|  |__
  *       \     \ ____\  \  \           \     \ ____\  \  \           \
  *   AS __|_____|     |__|__|___________|_____|     |__|__|___________|_
  *      __            \  |  |___________|           \  |  |___________|
@@ -90,14 +89,6 @@ inline void clock_cycle() {
 
 inline auto signal_ds() {
     return digitalReadFast(PIN_DS);
-}
-
-void assert_irq() {
-    digitalWriteFast(PIN_IRQ, LOW);
-}
-
-void negate_irq() {
-    digitalWriteFast(PIN_IRQ, HIGH);
 }
 
 void negate_reset() {
@@ -185,6 +176,10 @@ void PinsMc146805E2::resetPins() {
     _regs.setIp(vector);
 }
 
+void PinsMc146805E2::idle() {
+    // MC146805E is fully static, so we can stop clock safely.
+}
+
 mc6805::Signals *PinsMc146805E2::currCycle() const {
     auto s = Signals::put();
     s->getDirection();
@@ -267,16 +262,6 @@ mc6805::Signals *PinsMc146805E2::completeCycle(mc6805::Signals *signals) const {
     osc1_lo();  // DS->LOW
 
     return s;
-}
-
-void PinsMc146805E2::assertInt(uint8_t name) {
-    (void)name;
-    assert_irq();
-}
-
-void PinsMc146805E2::negateInt(uint8_t name) {
-    (void)name;
-    negate_irq();
 }
 
 }  // namespace mc146805e2

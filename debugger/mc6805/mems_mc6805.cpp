@@ -1,15 +1,28 @@
 #include "mems_mc6805.h"
 #include <asm_mc6805.h>
 #include <dis_mc6805.h>
+#include "devs_mc6805.h"
 #include "regs_mc6805.h"
 
 namespace debugger {
 namespace mc6805 {
 
+uint16_t MemsMc6805::read(uint32_t addr) const {
+    return Devices.isSelected(addr) ? Devices.read(addr) : raw_read(addr);
+}
+
+void MemsMc6805::write(uint32_t addr, uint16_t data) const {
+    if (Devices.isSelected(addr)) {
+        Devices.write(addr, data);
+    } else {
+        raw_write(addr, data);
+    }
+}
+
 uint16_t MemsMc6805::get(uint32_t addr, const char *space) const {
     (void)space;
     if (is_internal(addr)) {
-        return _regs->internal_read(addr);
+        return _regs.internal_read(addr);
     } else {
         return read(addr);
     }
@@ -17,7 +30,7 @@ uint16_t MemsMc6805::get(uint32_t addr, const char *space) const {
 
 void MemsMc6805::put(uint32_t addr, uint16_t data, const char *space) const {
     if (is_internal(addr)) {
-        _regs->internal_write(addr, data);
+        _regs.internal_write(addr, data);
     } else {
         write(addr, data);
     }
@@ -26,7 +39,7 @@ void MemsMc6805::put(uint32_t addr, uint16_t data, const char *space) const {
 #ifdef WITH_ASSEMBLER
 libasm::Assembler *MemsMc6805::assembler() const {
     static auto as = new libasm::mc6805::AsmMc6805();
-    as->setCpu(_regs->cpu());
+    as->setCpu(_regs.cpu());
     as->setPcBits(_pc_bits);
     return as;
 }
@@ -35,7 +48,7 @@ libasm::Assembler *MemsMc6805::assembler() const {
 #ifdef WITH_DISASSEMBLER
 libasm::Disassembler *MemsMc6805::disassembler() const {
     static auto dis = new libasm::mc6805::DisMc6805();
-    dis->setCpu(_regs->cpu());
+    dis->setCpu(_regs.cpu());
     dis->setPcBits(_pc_bits);
     return dis;
 }
