@@ -13,7 +13,7 @@ struct InstMc6805 {
     virtual bool isStop(uint8_t inst) const { return false; }
 
 protected:
-    virtual const uint8_t *table() const;
+    virtual const uint8_t *table() const = 0;
 };
 
 }  // namespace mc6805

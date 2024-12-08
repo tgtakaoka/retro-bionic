@@ -15,7 +15,6 @@ struct RegsMc146805E2 final : RegsMc6805 {
         : RegsMc6805(pins, mems) {}
 
     const char *cpu() const override { return "MC146805"; }
-    const char *cpuName() const override { return "MC146805E2"; }
 };
 
 extern struct RegsMc146805E2 Regs;

@@ -13,6 +13,8 @@ struct Signals;
 struct RegsMc6805 : Regs {
     RegsMc6805(PinsMc6805 &pins, MemsMc6805 &mems) : _pins(pins), _mems(mems) {}
 
+    const char *cpuName() const override;
+
     void print() const override;
     void save() override;
     void restore() override;
@@ -30,7 +32,7 @@ struct RegsMc6805 : Regs {
 
 protected:
     PinsMc6805 &_pins;
-    MemsMc6805 &_mems;
+    const MemsMc6805 &_mems;
 
     uint16_t _sp;
     uint16_t _pc;

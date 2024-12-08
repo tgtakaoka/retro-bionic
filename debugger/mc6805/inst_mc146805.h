@@ -18,7 +18,7 @@ protected:
     static constexpr uint8_t WAIT = 0x8F;
 };
 
-extern struct InstMc146805 Inst;
+extern const struct InstMc146805 Inst;
 
 }  // namespace mc146805
 }  // namespace debugger
