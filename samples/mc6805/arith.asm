@@ -1,5 +1,4 @@
-        include "mc146805e.inc"
-        cpu     6805
+        include "mc146805e2.inc"
 
 ;;; MC6850 Asynchronous Communication Interface Adapter
 ACIA:   equ     $17F8

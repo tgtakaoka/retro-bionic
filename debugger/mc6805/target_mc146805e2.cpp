@@ -1,6 +1,7 @@
 #include "target.h"
 
 #include "devs_mc146805e2.h"
+#include "inst_mc146805.h"
 #include "mems_mc146805e2.h"
 #include "pins_mc146805e2.h"
 #include "regs_mc146805e2.h"
@@ -8,12 +9,17 @@
 namespace debugger {
 namespace mc146805e2 {
 
-struct RegsMc146805E2 Regs {
-    Pins, Memory
-};
+struct DevsMc146805E2 Devices;
+struct MemsMc146805E2 Memory{Regs, Devices};
+struct RegsMc146805E2 Regs{Pins, Memory};
+struct PinsMc146805E2 Pins{Regs, mc146805::Inst, Memory, Devices};
 
-const struct Target TargetMc146805E2 {
-    "MC146805E2", Pins, Regs, Memory, Devices
+const struct Target TargetMc146805E2{
+        "MC146805E2",
+        Pins,
+        Regs,
+        Memory,
+        Devices,
 };
 
 }  // namespace mc146805e2

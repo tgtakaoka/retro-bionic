@@ -2,6 +2,8 @@
 
 namespace debugger {
 namespace mc6805 {
+
+#if 0
 namespace {
 constexpr uint8_t INST_TABLE[] = {
         0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x9B, 0xED,  //  00~3F
@@ -10,10 +12,7 @@ constexpr uint8_t INST_TABLE[] = {
         0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,  //  C0~FF
 };
 }
-
-const uint8_t *InstMc6805::table() const {
-    return INST_TABLE;
-}
+#endif
 
 bool InstMc6805::valid(uint8_t inst) const {
     return table()[inst / 8] & (0x80 >> (inst % 8));
