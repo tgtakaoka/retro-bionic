@@ -1,6 +1,4 @@
 ;;; -*- mode: asm; mode: flyspell-prog; -*-
-        cpu     6805
-
 ;;; Print unsigned 16-bit integer as decimal
 ;;; @param R0 value
 ;;; @clobber A X R0 R1 R2

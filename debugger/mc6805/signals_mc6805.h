@@ -3,8 +3,11 @@
 
 #include "signals.h"
 
-//#define LOG(e) e
+// #define LOG(e) e
 #define LOG(e)
+
+#define CNTL_RW 0x2 /* CNTL1 */
+#define CNTL_LI 0x4 /* CNTL2 */
 
 namespace debugger {
 namespace mc6805 {
@@ -12,15 +15,12 @@ namespace mc6805 {
 struct Signals : SignalsBase<Signals> {
     void print() const;
 
-    bool read() const { return rw() != 0; }
-    bool write() const { return rw() == 0; }
-    bool fetch() const { return li() != 0; }
+    bool write() const { return (cntl() & CNTL_RW) == 0; }
+    bool fetch() const { return (cntl() & CNTL_LI) != 0; }
 
 protected:
-    uint8_t rw() const { return _signals[0]; }
-    uint8_t li() const { return _signals[1]; }
-    uint8_t &rw() { return _signals[0]; }
-    uint8_t &li() { return _signals[1]; }
+    uint8_t cntl() const { return _signals[0]; }
+    uint8_t &cntl() { return _signals[0]; }
 };
 
 }  // namespace mc6805

@@ -5,11 +5,23 @@
 namespace debugger {
 namespace mc6805 {
 
+namespace {
+
+void assert_irq() {
+    digitalWriteFast(PIN_IRQ, LOW);
+}
+
+void negate_irq() {
+    digitalWriteFast(PIN_IRQ, HIGH);
+}
+
+}  // namespace
+
 Signals *PinsMc6805::cycle() const {
     return completeCycle(prepareCycle());
 }
 
-Signals *PinsMc6805::cycle(uint8_t data) const {
+Signals *PinsMc6805::inject(uint8_t data) const {
     return completeCycle(prepareCycle()->inject(data));
 }
 
@@ -41,10 +53,6 @@ void PinsMc6805::captureWrites(
         }
         s = prepareCycle();
     }
-}
-
-void PinsMc6805::idle() {
-    // MC146805E is fully static, so we can stop clock safely.
 }
 
 void PinsMc6805::loop() {
@@ -144,6 +152,16 @@ void PinsMc6805::disassembleCycles() const {
             ++i;
         }
     }
+}
+
+void PinsMc6805::assertInt(uint8_t name) {
+    (void)name;
+    assert_irq();
+}
+
+void PinsMc6805::negateInt(uint8_t name) {
+    (void)name;
+    negate_irq();
 }
 
 }  // namespace mc6805
