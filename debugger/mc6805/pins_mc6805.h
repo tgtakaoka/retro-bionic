@@ -8,6 +8,8 @@
 #include "regs_mc6805.h"
 #include "signals_mc6805.h"
 
+#define PIN_IRQ 6   /* P7.10 */
+
 namespace debugger {
 namespace mc6805 {
 
@@ -18,11 +20,13 @@ struct PinsMc6805 : Pins {
             Devs &devs)
         : _regs(regs), _inst(inst), _mems(mems), _devs(devs) {}
 
-    void idle() override;
     bool step(bool show) override;
     void run() override;
     void setBreakInst(uint32_t addr) const override;
     void printCycles() override;
+
+    void assertInt(uint8_t name) override;
+    void negateInt(uint8_t name) override;
 
     void injectReads(
             const uint8_t *inst, uint8_t len, uint8_t cycles = 0) const;

@@ -1,6 +1,4 @@
 ;;; -*- mode: asm; mode: flyspell-prog; -*-
-        cpu     6805
-
 ;;; Print variable: "A=variable "
 ;;; @param R0 variable
 ;;; @param A variable letter
