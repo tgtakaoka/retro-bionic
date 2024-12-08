@@ -11,16 +11,22 @@ void Pins::reset() {
 #endif
     resetPins();
     pinMode(PIN_USRSW, INPUT_PULLUP);
+#ifdef PIN_USERLED
     pinMode(PIN_USRLED, OUTPUT);
+#endif
     setHalt();
 }
 
 void Pins::setRun() const {
+#ifdef PIN_USERLED
     digitalWriteFast(PIN_USRLED, LOW);
+#endif
 }
 
 void Pins::setHalt() const {
+#ifdef PIN_USERLED
     digitalWriteFast(PIN_USRLED, HIGH);
+#endif
 }
 
 bool Pins::haltSwitch() {
