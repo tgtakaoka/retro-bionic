@@ -1,0 +1,334 @@
+          0 :                            include "mc68hc05c0.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :                            include "mc68hc05.inc"
+(2)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(2)       0 :                    ;;; MC68HC05
+(2)       0 :                            cpu     68hc05
+(2)       0 :                    ;;; Condition Code Register (CC)
+(2)       0 : =1                 CC_CARRY      equ  %00000001   ; set to 1 if carry occurred
+(2)       0 : =2                 CC_ZERO       equ  %00000010   ; set to 1 if result is zero
+(2)       0 : =4                 CC_NEGATIVE   equ  %00000100   ; set to 1 if result is negative
+(2)       0 : =8                 CC_IRQ        equ  %00001000   ; if 1, IRQ is masked
+(2)       0 : =10                CC_HALF_CARRY equ  %00010000   ; if 1, decimal carry from least digit occurred
+(1)       0 :                    ;;; MC68HC05C0
+(1)       0 :                            option  "pc-bits", 16
+(1)       0 :                    ;;; Vector
+(1)       0 : =FFF2              VEC_KEY:        equ     $FFF2   ; Keyboard Scan
+(1)       0 : =FFF4              VEC_MFT:        equ     $FFF4   ; Multi-Function Timer
+(1)       0 : =FFF6              VEC_SCI:        equ     $FFF6   ; Serial Communications Interface
+(1)       0 : =FFF8              VEC_TIMER:      equ     $FFF8   ; 16-Bit Timer
+(1)       0 : =FFFA              VEC_IRQ:        equ     $FFFA   ; External Interrupt
+(1)       0 : =FFFC              VEC_SWI:        equ     $FFFC   ; Software
+(1)       0 : =FFFE              VEC_RESET:      equ     $FFFE   ; Reset
+(1)       0 :
+(1)       0 :                    ;;; Internal Register Area
+(1)       0 : =1                 PORTB:  equ     $01     ; Port B Data Register
+(1)       0 : =2                 PORTC:  equ     $02     ; Port C Data Register
+(1)       0 : =3                 PORTD:  equ     $03     ; Port D Data Register
+(1)       0 : =5                 DDRB:   equ     $05     ; Port B Data Direction Register
+(1)       0 : =6                 DDRC:   equ     $06     ; Port C Data Direction Register
+(1)       0 : =7                 DDRD:   equ     $07     ; Port D Data Direction Register
+(1)       0 : =8                 MFTCSR: equ     $08     ; Multi-Function Timer Control/Status Register
+(1)       0 : =9                 MFTCR:  equ     $09     ; Multi-Function Timer Counter Register
+(1)       0 : =A                 TCR:    equ     $0A     ; 16-Bit Timer Control Register
+(1)       0 : =B                 TSR:    equ     $0B     ; 16-Bit Timer Status Register
+(1)       0 : =C                 ICR:    equ     $0C     ; 16-Bit Timer Input Capture Register
+(1)       0 : =E                 OCR:    equ     $0E     ; 16-Bit Timer Output Compare Register
+(1)       0 : =10                CNTR:   equ     $10     ; 16-Bit Timer Counter Register
+(1)       0 : =12                ACNTR:  equ     $12     ; 16-Bit Timer Alternate Counter Register
+(1)       0 : =14                SCBR:   equ     $14     ; Serial Communications Baud Rate Register
+(1)       0 : =6                 SCBR_SCP_gp:    equ     6 ; SCI Prescaler; 0=/1 1=/3 2=/4 3=/13
+(1)       0 : =3                 SCBR_SCT_gp:    equ     3 ; SCI Transmit Baud Rate; n=1/(1<<n)
+(1)       0 : =0                 SCBR_SCR_gp:    equ     0 ; SCI Receive Baud Rate;  0<=n<=7
+(1)       0 : =15                SCCR1:  equ     $15     ; Serial Communications Control Register 1
+(1)       0 : =7                 SCCR1_R8_bp:    equ     7 ; Receive Data Bit 8
+(1)       0 : =6                 SCCR1_T8_bp:    equ     6 ; Transmit Data Bit 8
+(1)       0 : =5                 SCCR1_SCKM_bp:  equ     5 ; Serial Clock Mode 0=-PB4 is GPIO
+(1)       0 : =4                 SCCR1_M_bp:     equ     4 ; Mode 1=9-bit, 0=8-nit
+(1)       0 : =3                 SCCR1_WAKE_bp:  equ     3 ; Wake-Up Select 1=MSB cause wake-up
+(1)       0 : =2                 SCCR1_CPOL_bp:  equ     2 ; Clock Polarity
+(1)       0 : =1                 SCCR1_CPHL_bp:  equ     1 ; Clock Phase
+(1)       0 : =0                 SCCR1_LBCL_bp:  equ     0 ; Last Bit Clock
+(1)       0 : =16                SCCR2:  equ     $16     ; Serial Communications Control Register 2
+(1)       0 : =7                 SCCR2_TIE_bp:   equ     7 ; Transmit Interrupt Enable
+(1)       0 : =6                 SCCR2_TCIE_bp:  equ     6 ; Transmit Complete Interrupt Enable
+(1)       0 : =5                 SCCR2_RIE_bp:   equ     5 ; Receive Interrupt Enable
+(1)       0 : =4                 SCCR2_ILIE_bp:  equ     4 ; Idle Line Interrupt Enable
+(1)       0 : =3                 SCCR2_TE_bp:    equ     3 ; Transmit Enable
+(1)       0 : =2                 SCCR2_RE_bp:    equ     2 ; Receive Enable
+(1)       0 : =1                 SCCR2_RWU_bp:   equ     1 ; Receiver Wake-up
+(1)       0 : =0                 SCCR2_SBK_bp:   equ     0 ; Send Break
+(1)       0 : =17                SCSR:   equ     $17     ; Serial Communications Status Register
+(1)       0 : =7                 SCSR_TDRE_bp    equ     7 ; Transmit Data Register Empty Flag
+(1)       0 : =6                 SCSR_TC_bp:     equ     6 ; Transmit Complete Flag
+(1)       0 : =5                 SCSR_RDRF_bp:   equ     5 ; Receive Data Register Full Flag
+(1)       0 : =4                 SCSR_IDLE_bp:   equ     4 ; Idle Line Detected Flag
+(1)       0 : =3                 SCSR_OR_bp:     equ     3 ; Overrun Error Flag
+(1)       0 : =2                 SCSR_NF_bp:     equ     2 ; Noise Error Flag
+(1)       0 : =1                 SCSR_FE_bp      equ     1 ; Framing Error Flag
+(1)       0 : =18                SCDR:   equ     $18     ; Serial Communications Data Register
+(1)       0 : =19                CNFGR:  equ     $19     ; Configuration Register
+(1)       0 : =1A                EICSR:  equ     $1A     ; External Interrupt Control/Status Register
+(1)       0 : =7                 EICSR_KSF_bp:   equ     7 ; Keyboard Scan Request Flag
+(1)       0 : =6                 EICSR_KSEN_bp:  equ     6 ; Keyboard Scan Enable
+(1)       0 : =5                 EICSR_KSA_bp:   equ     5 ; Keyboard Scan Acknowledge
+(1)       0 : =4                 EICSR_KSEL_bp:  equ     4 ; Keyboard Scan Edge/Level
+(1)       0 : =3                 EICSR_IRQF_bp:  equ     3 ; Interrupt Request Flag
+(1)       0 : =2                 EICSR_IRQEN_bp: equ     2 ; Interrupt Request Enable
+(1)       0 : =1                 EICSR_IRQA_bp:  equ     1 ; Interrupt Request Acknowledge
+(1)       0 : =0                 EICSR_IRQEL_bp: equ     0 ; Interrupt Request Edge/Level
+(1)       0 :
+(1)       0 : =40                RAM_START:      equ     $0040   ; Internal RAM $0040-$023F
+(1)       0 : =FF                STACK_TOP:      equ     $00FF   ; Stack $00FF->$0040
+          0 :
+         40 :                            org     RAM_START
+         40 :                    save_a: rmb     1
+         41 :                    save_x: rmb     1
+         42 :
+         80 :                            org     $0080
+         80 : =10                rx_queue_size:  equ     16
+         80 :                    rx_queue:
+         80 :                            rmb     rx_queue_size
+         90 : =20                tx_queue_size:  equ     32
+         90 :                    tx_queue:
+         90 :                            rmb     tx_queue_size
+         B0 :
+       FFF6 :                            org     VEC_SCI
+       FFF6 : 10 FA                      fdb     isr_sci
+       FFF8 :
+       FFFC :                            org     VEC_SWI
+       FFFC : FF FC                      fdb     VEC_SWI         ; halt to system
+       FFFE :
+       FFFE :                            org     VEC_RESET
+       FFFE : 10 00                      fdb     initialize
+      10000 :
+       1000 :                            org     $1000
+       1000 :                    initialize:
+       1000 : AE 80                      ldx     #rx_queue
+       1002 : A6 10                      lda     #rx_queue_size
+       1004 : CD 10 A2                   jsr     queue_init
+       1007 : AE 90                      ldx     #tx_queue
+       1009 : A6 20                      lda     #tx_queue_size
+       100B : CD 10 A2                   jsr     queue_init
+       100E :                            ;; Initialize SCI
+       100E : 3F 15                      clr     SCCR1
+       1010 : A6 5B                      lda     #(1<<SCBR_SCP_gp)|(3<<SCBR_SCT_gp)|(3<<SCBR_SCR_gp)
+       1012 : B7 14                      sta     SCBR            ; prescaler=1/3 Tx/Rx=1/8
+       1014 : 16 16                      bset    SCCR2_TE_bp,SCCR2  ; Enable Tx
+       1016 : 14 16                      bset    SCCR2_RE_bp,SCCR2  ; Enable Rx
+       1018 : 1A 16                      bset    SCCR2_RIE_bp,SCCR2 ; Enable Rx interrupt
+       101A : 10 1A                      bset    EICSR_IRQEL_bp,EICSR ; Negative-edge and level sensitive #IRQ
+       101C : 14 1A                      bset    EICSR_IRQEN_bp,EICSR ; Enable IRQ
+       101E : 20 01                      bra     loop
+       1020 :
+       1020 :                    wait:
+       1020 : 8F                         wait
+       1021 :                    loop:
+       1021 : AD 67                      bsr     getchar
+       1023 : 24 FB                      bcc     wait
+       1025 : B7 40                      sta     save_a
+       1027 : 27 16                      beq     halt_to_system
+       1029 : AD 67                      bsr     putchar         ; echo
+       102B : A6 20                      lda     #' '            ; space
+       102D : AD 63                      bsr     putchar
+       102F : B6 40                      lda     save_a
+       1031 : AD 15                      bsr     put_hex8        ; print in hex
+       1033 : A6 20                      lda     #' '            ; space
+       1035 : AD 5B                      bsr     putchar
+       1037 : B6 40                      lda     save_a
+       1039 : AD 2F                      bsr     put_bin8        ; print in binary
+       103B : AD 03                      bsr     newline
+       103D : 20 E2                      bra     loop
+       103F :                    halt_to_system:
+       103F : 83                         swi
+       1040 :
+       1040 :                    ;;; Put newline
+       1040 :                    ;;; @clobber A
+       1040 :                    newline:
+       1040 : A6 0D                      lda     #$0D
+       1042 : AD 4E                      bsr     putchar
+       1044 : A6 0A                      lda     #$0A
+       1046 : 20 4A                      bra     putchar
+       1048 :
+       1048 :                    ;;; Print uint8_t in hex
+       1048 :                    ;;; @param A(save_a) uint8_t value to be printed in hex.
+       1048 :                    put_hex8:
+       1048 : B7 40                      sta     save_a
+       104A : A6 30                      lda     #'0'
+       104C : AD 44                      bsr     putchar
+       104E : A6 78                      lda     #'x'
+       1050 : AD 40                      bsr     putchar
+       1052 : B6 40                      lda     save_a
+       1054 : 44                         lsra
+       1055 : 44                         lsra
+       1056 : 44                         lsra
+       1057 : 44                         lsra
+       1058 : AD 02                      bsr     put_hex4
+       105A : B6 40                      lda     save_a
+       105C :                    put_hex4:
+       105C : A4 0F                      and     #$0f
+       105E : A1 0A                      cmp     #10
+       1060 : 25 04                      blo     put_hex8_dec
+       1062 : AB 37                      add     #'A'-10
+       1064 : 20 2C                      bra     putchar
+       1066 :                    put_hex8_dec:
+       1066 : AB 30                      add     #'0'
+       1068 : 20 28                      bra     putchar
+       106A :
+       106A :                    ;;; Print uint8_t in binary
+       106A :                    ;;; @param A(save_a) uint8_t value to be printed in binary.
+       106A :                    put_bin8:
+       106A : B7 40                      sta     save_a
+       106C : A6 30                      lda     #'0'
+       106E : AD 22                      bsr     putchar
+       1070 : A6 62                      lda     #'b'
+       1072 : AD 1E                      bsr     putchar
+       1074 : AD 05                      bsr     put_bin4
+       1076 : AD 03                      bsr     put_bin4
+       1078 : B6 40                      lda     save_a
+       107A : 81                         rts
+       107B :                    put_bin4:
+       107B : AD 00                      bsr     put_bin2
+       107D :                    put_bin2:
+       107D : AD 00                      bsr     put_bin1
+       107F :                    put_bin1:
+       107F : A6 30                      lda     #'0'
+       1081 : 38 40                      lsl     save_a
+       1083 : 24 0D                      bcc     putchar
+       1085 : 3C 40                      inc     save_a          ; rotate save_a
+       1087 : 4C                         inca
+       1088 : 20 08                      bra     putchar
+       108A :
+       108A :                    ;;; Get character
+       108A :                    ;;; @clobber X
+       108A :                    ;;; @return A
+       108A :                    ;;; @return CC.C 0 if no char received
+       108A :                    getchar:
+       108A : AE 80                      ldx     #rx_queue
+       108C : 9B                         sei                     ; disable IRQ
+       108D : CD 10 D9                   jsr     queue_remove
+       1090 : 9A                         cli                     ; enable IRQ
+       1091 : 81                         rts
+       1092 :
+       1092 :                    ;;; Put character
+       1092 :                    ;;; @param A
+       1092 :                    ;;; @clobber A
+       1092 :                    putchar:
+       1092 : BF 41                      stx     save_x          ; save X
+       1094 : AE 90                      ldx     #tx_queue
+       1096 :                    putchar_retry:
+       1096 : 9B                         sei                     ; disable IRQ
+       1097 : CD 10 AE                   jsr     queue_add
+       109A : 9A                         cli                     ; enable IRQ
+       109B : 24 F9                      bcc     putchar_retry   ; branch if queue is full
+       109D : 1E 16                      bset    SCCR2_TIE_bp,SCCR2 ; enable Tx interrupt
+       109F :                    putchar_exit:
+       109F : BE 41                      ldx     save_x          ; restore X
+       10A1 : 81                         rts
+       10A2 :
+       10A2 :                            include "queue.inc"
+(1)    10A2 :                    ;;; [queue] queue structure
+(1)    10A2 : =0                 queue_len:      equ     0       ; queue length
+(1)    10A2 : =1                 queue_size:     equ     1       ; buffer size
+(1)    10A2 : =2                 queue_put:      equ     2       ; queue put index
+(1)    10A2 : =3                 queue_get:      equ     3       ; queue get index
+(1)    10A2 : =4                 queue_buf:      equ     4       ; buffer start offset
+(1)    10A2 :
+(1)    10A2 :                    ;;; [queue] Initialize queue
+(1)    10A2 :                    ;;; @param X queue work space pointer
+(1)    10A2 :                    ;;; @param A queue work space size
+(1)    10A2 :                    ;;; @clobber A
+(1)    10A2 :                    queue_init:
+(1)    10A2 : 7F                         clr     queue_len,x
+(1)    10A3 : 6F 02                      clr     queue_put,x
+(1)    10A5 : 6F 03                      clr     queue_get,x
+(1)    10A7 : A0 04                      sub     #queue_buf
+(1)    10A9 : E7 01                      sta     queue_size,x
+(1)    10AB : 81                         rts
+(1)    10AC :
+(1)    10AC :                    ;;; [queue] Add an element to queue
+(1)    10AC :                    ;;; @param X queue work space pointer
+(1)    10AC :                    ;;; @param A an element
+(1)    10AC :                    ;;; @return CC.C 0 if queue is full
+(1)    10AC :                    queue_add_X:
+(1)    10AC :                            rmb     1               ; save X
+(1)    10AD :                    queue_add_A:
+(1)    10AD :                            rmb     1               ; save X
+(1)    10AE :                    queue_add:
+(1)    10AE : C7 10 AD                   sta     queue_add_A     ; save A
+(1)    10B1 : F6                         lda     queue_len,x
+(1)    10B2 : E1 01                      cmp     queue_size,x
+(1)    10B4 : 24 1E                      bhs     queue_add_return ; carry is cleared
+(1)    10B6 : 7C                         inc     queue_len,x      ; increment queue length
+(1)    10B7 : E6 02                      lda     queue_put,x      ; 8 bits offset
+(1)    10B9 : 4C                         inca
+(1)    10BA : E7 02                      sta     queue_put,x     ; update put pointer
+(1)    10BC : E1 01                      cmp     queue_size,x
+(1)    10BE : 25 02                      blo     queue_add_elem
+(1)    10C0 : 6F 02                      clr     queue_put,x
+(1)    10C2 :                    queue_add_elem:
+(1)    10C2 : 4A                         deca                    ; restore put pointer
+(1)    10C3 : AB 04                      add     #queue_buf
+(1)    10C5 : CF 10 AC                   stx     queue_add_X     ; save X
+(1)    10C8 : CB 10 AC                   add     queue_add_X
+(1)    10CB : 97                         tax
+(1)    10CC : C6 10 AD                   lda     queue_add_A
+(1)    10CF : F7                         sta     ,x              ; put element
+(1)    10D0 : CE 10 AC                   ldx     queue_add_X     ; restore X
+(1)    10D3 : 99                         sec                     ; set carry
+(1)    10D4 :                    queue_add_return:
+(1)    10D4 : C6 10 AD                   lda     queue_add_A     ; restore A
+(1)    10D7 : 81                         rts
+(1)    10D8 :
+(1)    10D8 :                    ;;; [queue] Remove an element from queue
+(1)    10D8 :                    ;;; @param X queue work space pointer
+(1)    10D8 :                    ;;; @return A an element
+(1)    10D8 :                    ;;; @return CC.C 0 if queue is empty
+(1)    10D8 :                    queue_remove_X:
+(1)    10D8 :                            rmb     1
+(1)    10D9 :                    queue_remove:
+(1)    10D9 : 7D                         tst     queue_len,x
+(1)    10DA : 26 02                      bne     queue_remove_has_elem
+(1)    10DC : 98                         clc                     ; clear carry
+(1)    10DD : 81                         rts
+(1)    10DE :                    queue_remove_has_elem:
+(1)    10DE : 7A                         dec     queue_len,x     ; decrement queue length
+(1)    10DF : E6 03                      lda     queue_get,x     ; 8 bits offset
+(1)    10E1 : 4C                         inca
+(1)    10E2 : E7 03                      sta     queue_get,x     ; update get pointer
+(1)    10E4 : E1 01                      cmp     queue_size,x
+(1)    10E6 : 25 02                      blo     queue_remove_elem
+(1)    10E8 : 6F 03                      clr     queue_get,x
+(1)    10EA :                    queue_remove_elem:
+(1)    10EA : 4A                         deca                    ; restore get pointer
+(1)    10EB : AB 04                      add     #queue_buf
+(1)    10ED : CF 10 D8                   stx     queue_remove_X  ; save X
+(1)    10F0 : CB 10 D8                   add     queue_remove_X
+(1)    10F3 : 97                         tax
+(1)    10F4 : F6                         lda     ,x              ; get element
+(1)    10F5 : CE 10 D8                   ldx     queue_remove_X  ; restore X
+(1)    10F8 : 99                         sec                     ; set carry
+(1)    10F9 :                    queue_remove_return:
+(1)    10F9 : 81                         rts
+(1)    10FA :
+(1)    10FA :                    ;;; Local Variables:
+(1)    10FA :                    ;;; mode: asm
+(1)    10FA :                    ;;; End:
+(1)    10FA :                    ;;; vim: set ft=asm et ts=4 sw=4:
+       10FA :
+       10FA :                    isr_sci:
+       10FA : 0B 17 07                   brclr   SCSR_RDRF_bp,SCSR,isr_sci_send
+       10FD : B6 18                      lda     SCDR
+       10FF : AE 80                      ldx     #rx_queue
+       1101 : CD 10 AE                   jsr     queue_add
+       1104 :                    isr_sci_send:
+       1104 : 0F 17 09                   brclr   SCSR_TDRE_bp,SCSR,isr_sci_exit
+       1107 : AE 90                      ldx     #tx_queue
+       1109 : CD 10 D9                   jsr     queue_remove
+       110C : 24 03                      bcc     isr_sci_send_empty
+       110E : B7 18                      sta     SCDR            ; send character
+       1110 :                    isr_sci_exit:
+       1110 : 80                         rti
+       1111 :                    isr_sci_send_empty:
+       1111 : 1F 16                      bclr    SCCR2_TIE_bp,SCCR2 ; disable Tx interrupt
+       1113 : 80                         rti

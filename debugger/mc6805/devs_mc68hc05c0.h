@@ -1,20 +1,20 @@
-#ifndef __DEVS_MC6805_H__
-#define __DEVS_MC6805_H__
+#ifndef __DEVS_MC68HC05C0_H__
+#define __DEVS_MC68HC05C0_H__
 
-#include "devs.h"
+#include "devs_mc6805.h"
+#include "serial_handler.h"
 
 namespace debugger {
-namespace mc6805 {
+namespace mc68hc05c0 {
 
-struct DevsMc6805 : Devs {
-    DevsMc6805(uint16_t acia_base);
-    ~DevsMc6805();
+struct DevsMc68HC05C0 final : mc6805::DevsMc6805 {
+    DevsMc68HC05C0(uint16_t acia_base);
+    ~DevsMc68HC05C0();
 
-    void begin() override;
     void reset() override;
     void loop() override;
+    void setIdle(bool idle) override;
     bool isSelected(uint32_t addr) const override;
-    uint16_t read(uint32_t addr) const override;
     void write(uint32_t addr, uint16_t data) const override;
 
     Device *parseDevice(const char *name) const override;
@@ -22,11 +22,10 @@ struct DevsMc6805 : Devs {
     void printDevices() const override;
 
 private:
-    const uint16_t _acia_base;
-    Device *_acia;
+    SerialHandler *_sci;
 };
 
-}  // namespace mc6805
+}  // namespace mc68hc05c0
 }  // namespace debugger
 #endif
 

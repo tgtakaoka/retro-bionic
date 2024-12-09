@@ -1,6 +1,6 @@
 #include "pins_mc68hc05c0.h"
 #include "debugger.h"
-#include "devs_mc6805.h"
+#include "devs_mc68hc05c0.h"
 #include "inst_mc68hc05.h"
 #include "mems_mc6805.h"
 #include "regs_mc6805.h"
@@ -128,7 +128,7 @@ constexpr uint8_t PINS_INPUT[] = {
 PinsMc68HC05C0::PinsMc68HC05C0() : PinsMc6805(mc68hc05::Inst) {
     auto regs = new mc6805::RegsMc6805("MC68HC05", this);
     _regs = regs;
-    _devs = new mc6805::DevsMc6805(ACIA_BASE);
+    _devs = new DevsMc68HC05C0(ACIA_BASE);
     _mems = new mc6805::MemsMc6805(this, regs, _devs, 16);
 }
 
