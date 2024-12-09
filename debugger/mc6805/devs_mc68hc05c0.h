@@ -12,6 +12,15 @@ using mc6805::DevsMc6805;
 
 struct DevsMc68HC05C0 final : DevsMc6805 {
     DevsMc68HC05C0() : DevsMc6805(ACIA_BASE) {}
+    void reset() override;
+    void loop() override;
+    bool isSelected(uint32_t addr) const override;
+    uint16_t read(uint32_t addr) const override;
+    void write(uint32_t addr, uint16_t data) const override;
+
+    Device &parseDevice(const char *name) const override;
+    void enableDevice(Device &dev) override;
+    void printDevices() const override;
 };
 
 extern struct DevsMc68HC05C0 Devices;
