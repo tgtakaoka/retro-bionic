@@ -25,7 +25,7 @@ void SerialHandler::txloop(Transmitter &tx) const {
         if (Console.available()) {
             tx.bit = 10;  // start bit + data bits + stop bit
             tx.data = Console.read();
-            tx.delay = _divider;
+            tx.delay = _tx_divider;
             assert_rxd();  // start bit
         }
     } else {
@@ -37,7 +37,7 @@ void SerialHandler::txloop(Transmitter &tx) const {
             }
             tx.data >>= 1;
             tx.data |= 0x80;  // stop and mark bits
-            tx.delay = _divider;
+            tx.delay = _tx_divider;
             --tx.bit;
         }
     }
@@ -49,7 +49,7 @@ void SerialHandler::rxloop(Receiver &rx) const {
             // Pins::assert_debug();
             rx.bit = 9;  // data bits + stop bit
             rx.data = 0;
-            rx.delay = _divider + (_divider >> 1);
+            rx.delay = _rx_divider + (_rx_divider >> 1);
             // Pins::negate_debug();
         }
     } else {
@@ -58,10 +58,10 @@ void SerialHandler::rxloop(Receiver &rx) const {
             // Pins::assert_debug();
             if (signal_txd() != 0)
                 rx.data |= 0x80;
-            rx.delay = _divider;
+            rx.delay = _rx_divider;
             if (--rx.bit == 1) {
                 Console.write(rx.data);
-                rx.delay = _divider >> 1;
+                rx.delay = _rx_divider >> 1;
             } else {
                 // Pins::negate_debug();
             }

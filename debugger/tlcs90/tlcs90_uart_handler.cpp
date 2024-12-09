@@ -37,7 +37,7 @@ void Tlcs90UartHandler::resetHandler() {
     // TRUN_BRATE=11, T4 clock, 9600bps
     // SCMOD_SC=11, 1/2 division
     _pre_divider = 4 * 4 * 2;
-    _divider = 16;
+    _tx_divider = _rx_divider = 16;
 }
 
 }  // namespace tlcs90

@@ -34,8 +34,8 @@ void Z86SioHandler::resetHandler() {
     pinMode(PIN_TXD, INPUT);
     // Z8 SIO: assuming XTAL is 14.7546MHz
     // bit rate = 1475600 / (2 x 4 x p x t x 16)
-    _pre_divider = 2 * 4 * 1 * 16;  // p=1
-    _divider = 12;                  // t=12
+    _pre_divider = 2 * 4 * 1 * 16;   // p=1
+    _tx_divider = _rx_divider = 12;  // t=12
 }
 
 }  // namespace z86

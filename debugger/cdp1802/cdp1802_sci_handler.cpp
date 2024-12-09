@@ -35,7 +35,7 @@ void Cdp1802SciHandler::resetHandler() {
     // CDP1802 Xtal: 1.79MHz, CPU clock 223.75kHz
     // Bitbang speed: 9600bps
     _pre_divider = 1;
-    _divider = 23;
+    _tx_divider = _rx_divider = 23;
 }
 
 }  // namespace cdp1802

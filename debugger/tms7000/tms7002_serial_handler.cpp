@@ -45,7 +45,7 @@ void Tms7002SerialHandler::resetHandler() {
     constexpr auto PR = 0;
     constexpr auto TR = 12;
     _pre_divider = (PR + 1) * (TR + 1) * 4 * 2;
-    _divider = _tms7001 ? 16 : 8;
+    _tx_divider = _rx_divider = _tms7001 ? 16 : 8;
 }
 
 }  // namespace tms7002

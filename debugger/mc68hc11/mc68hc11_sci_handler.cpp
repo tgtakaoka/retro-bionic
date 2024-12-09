@@ -43,7 +43,7 @@ void Mc68hc11SciHandler::resetHandler() {
     const auto scp = (_baud >> SCP_gp) & SCP_gm;
     const auto scr = (_baud >> SCR_gp) & SCR_gm;
     _pre_divider = scaler[scp] * selector[scr];
-    _divider = 16;
+    _tx_divider = _rx_divider = 16;
 }
 
 }  // namespace mc68hc11
