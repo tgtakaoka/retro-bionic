@@ -104,8 +104,8 @@ inline auto reset_signal() {
 }
 
 inline void assert_reset() {
-    pinMode(PIN_RESET, OUTPUT_OPENDRAIN);
     digitalWriteFast(PIN_RESET, LOW);
+    pinMode(PIN_RESET, OUTPUT_OPENDRAIN);
 }
 
 inline void negate_reset() {
@@ -113,7 +113,6 @@ inline void negate_reset() {
 }
 
 constexpr uint8_t PINS_LOW[] = {
-        PIN_RESET,
         PIN_EXTAL,
 };
 
@@ -123,6 +122,7 @@ constexpr uint8_t PINS_HIGH[] = {
 };
 
 constexpr uint8_t PINS_PULLUP[] = {
+        PIN_RESET,  // bi-directional
         PIN_NMI,
         PIN_MODA,
 };
