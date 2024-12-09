@@ -37,7 +37,7 @@ void I8051UartHandler::resetHandler() {
     // 256-TH1 = K*fosc/(32*12*baudrate)
     // fosc=12MHz, K=2(SMOD=1) baudrate=4,800bps, 256-TH1=13
     _pre_divider = 12 * 13 * 2;
-    _divider = 16;
+    _tx_divider = _rx_divider = 16;
 }
 
 }  // namespace i8051
