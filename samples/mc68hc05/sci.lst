@@ -81,103 +81,41 @@
 (1)       0 : =40                RAM_START:      equ     $0040   ; Internal RAM $0040-$023F
 (1)       0 : =FF                STACK_TOP:      equ     $00FF   ; Stack $00FF->$0040
           0 :
-          0 :                    ;;; MC6850 Asynchronous Communication Interface Adapter
-          0 : =FFE0              ACIA:   equ     $FFE0
-          0 :                            include "mc6850.inc"
-(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
-(1)       0 :
-(1)       0 :                    ;;; MC6850
-(1)       0 :                    ;;; Asynchronous Communication Interface Adapter
-(1)       0 :
-(1)       0 :                    ;;; Control register
-(1)       0 : =FFE0              ACIA_control:   equ     ACIA+0
-(1)       0 :                            ;; Counter Divider Select Bits
-(1)       0 : =3                 CDS_gm:         equ     %11    ; Group mask
-(1)       0 : =0                 CDS_DIV1_gc:    equ     %00000000 ; /1
-(1)       0 : =1                 CDS_DIV16_gc:   equ     %00000001 ; /16
-(1)       0 : =2                 CDS_DIV64_gc:   equ     %00000010 ; /64
-(1)       0 : =3                 CDS_RESET_gc:   equ     %00000011 ; Master Reset
-(1)       0 :                            ;; Word Select Bits
-(1)       0 : =1C                WSB_gm:         equ     %00011100 ; Group mask
-(1)       0 : =0                 WSB_7E2_gc:     equ     %00000000 ; 7 Bits + Even Parity + 2 Stop Bits
-(1)       0 : =4                 WSB_7O2_gc:     equ     %00000100 ; 7 bits + Odd Parity  + 2 Stop Bits
-(1)       0 : =8                 WSB_7E1_gc:     equ     %00001000 ; 7 bits + Even Parity + 1 Stop Bits
-(1)       0 : =C                 WSB_7O1_gc:     equ     %00001100 ; 7 bits + Odd Parity  + 1 Stop Bits
-(1)       0 : =10                WSB_8N2_gc:     equ     %00010000 ; 8 bits + No Parity   + 2 Stop Bits
-(1)       0 : =14                WSB_8N1_gc:     equ     %00010100 ; 8 bits + No Parity   + 1 Stop Bits
-(1)       0 : =18                WSB_8E1_gc:     equ     %00011000 ; 8 bits + Even Parity + 1 Stop Bits
-(1)       0 : =1C                WSB_8O1_gc:     equ     %00011100 ; 8 bits + Odd Parity  + 1 Stop Bits
-(1)       0 :                            ;; Transmit Control Bits
-(1)       0 : =60                TCB_gm:         equ     %01100000 ; Group mask
-(1)       0 : =0                 TCB_DI_gc:      equ     %00000000 ; RTS=Low,  Tx Interrupt Disabled
-(1)       0 : =20                TCB_EI_gc:      equ     %00100000 ; RTS=Low,  Tx Interrupt Enabled
-(1)       0 : =40                TCB_RTS_gc:     equ     %01000000 ; RTS=High, Tx Interrupt Disabled
-(1)       0 : =60                TCB_BREAK_gc:   equ     %01100000 ; RTS=Low,  Tx Interrupt Disabled
-(1)       0 :                                                      ; Transmit Break Level
-(1)       0 : =80                RIEB_bm:        equ     %10000000 ; Receive Interrupt Enable Bit mask
-(1)       0 :
-(1)       0 :                    ;;; Status register
-(1)       0 : =FFE0              ACIA_status:    equ     ACIA+0
-(1)       0 : =1                 RDRF_bm:        equ     %00000001 ; Receive Data Register Full
-(1)       0 : =2                 TDRE_bm:        equ     %00000010 ; Transmit Data Register Empty
-(1)       0 : =4                 DCDF_bm:        equ     %00000100 ; Data Carrier Detect Flag
-(1)       0 : =8                 CTSF_bm:        equ     %00001000 ; Clear To Send Flag
-(1)       0 : =10                FERR_bm:        equ     %00010000 ; Frame Error Flag
-(1)       0 : =20                OVRN_bm:        equ     %00100000 ; Receiver Overrun Flag
-(1)       0 : =40                PERR_bm:        equ     %01000000 ; Parity Error Flag
-(1)       0 : =80                IRQF_bm:        equ     %10000000 ; Interrupt Request Flag
-(1)       0 :
-(1)       0 :                    ;;; Data register
-(1)       0 : =FFE1              ACIA_data:      equ     ACIA+1          ; Data register
+          0 :                    ;;; SCI: Enable Tx and Rx
+          0 : =C                 RX_ON_TX_ON:   equ     (1<<SCCR2_TE_bp)|(1<<SCCR2_RE_bp)
           0 :
-         40 :                            org     RAM_START
-         40 :                    save_a: rmb     1
-         41 :
+       FFFC :                            org     VEC_SWI
+       FFFC : FF FC                      fdb     VEC_SWI         ; for halt to system
+       FFFE :
        FFFE :                            org     VEC_RESET
        FFFE : 10 00                      fdb     initialize
       10000 :
        1000 :                            org     $1000
        1000 :                    initialize:
-       1000 : A6 03                      lda     #CDS_RESET_gc   ; Master reset
-       1002 : C7 FF E0                   sta     ACIA_control
-       1005 : A6 14                      lda     #WSB_8N1_gc     ; 8 bits + No Parity + 1 Stop Bits
-       1007 :                                                    ; Transmit, Receive interrupts disabled
-       1007 : C7 FF E0                   sta     ACIA_control
+       1000 : 3F 15                      clr     SCCR1
+       1002 : A6 5B                      lda     #(1<<SCBR_SCP_gp)|(3<<SCBR_SCT_gp)|(3<<SCBR_SCR_gp)
+       1004 : B7 14                      sta     SCBR            ; prescaler=1/3 Tx/Rx=1/8
+       1006 : A6 0C                      lda     #RX_ON_TX_ON
+       1008 : B7 16                      sta     SCCR2
        100A :
-       100A : AD 23              loop:   bsr     getchar
+       100A :                    loop:
+       100A : AD 0E                      bsr     getchar
        100C : 4D                         tsta
        100D : 27 0A                      beq     halt_to_system
-       100F : AD 29              echo:   bsr     putchar
+       100F : AD 0F              echo:   bsr     putchar
        1011 : A1 0D                      cmp     #$0D            ; Carriage Return
        1013 : 26 F5                      bne     loop
        1015 : A6 0A                      lda     #$0A            ; Newline
        1017 : 20 F6                      bra     echo
        1019 :                    halt_to_system:
-       1019 : AE 10                      ldx     #(step_swi)>>8
-       101B : CF FF FC                   stx     VEC_SWI
-       101E : AE 24                      ldx     #(step_swi)&$FF
-       1020 : CF FF FD                   stx     VEC_SWI+1
-       1023 : 83                         swi
-       1024 :                    step_swi:
-       1024 : AE FF                      ldx     #(VEC_SWI)>>8
-       1026 : CF FF FC                   stx     VEC_SWI
-       1029 : AE FC                      ldx     #(VEC_SWI)&$FF
-       102B : CF FF FD                   stx     VEC_SWI+1
-       102E : 83                         swi                     ; halt to system
-       102F :
-       102F :                    getchar:
-       102F : C6 FF E0                   lda     ACIA_status
-       1032 : A5 01                      bit     #RDRF_bm
-       1034 : 27 F9                      beq     getchar
-       1036 : C6 FF E1                   lda     ACIA_data
-       1039 : 81                         rts
-       103A :
-       103A :                    putchar:
-       103A : B7 40                      sta     save_a
-       103C :                    transmit_loop:
-       103C : C6 FF E0                   lda     ACIA_status
-       103F : A5 02                      bit     #TDRE_bm
-       1041 : 27 F9                      beq     transmit_loop
-       1043 : B6 40                      lda     save_a
-       1045 : C7 FF E1                   sta     ACIA_data
-       1048 : 81                         rts
+       1019 : 83                         swi
+       101A :
+       101A :                    getchar:
+       101A : 0B 17 FD                   brclr   SCSR_RDRF_bp,SCSR,getchar
+       101D : B6 18                      lda     SCDR
+       101F : 81                         rts
+       1020 :
+       1020 :                    putchar:
+       1020 : 0F 17 FD                   brclr   SCSR_TDRE_bp,SCSR,putchar
+       1023 : B7 18                      sta     SCDR
+       1025 : 81                         rts
