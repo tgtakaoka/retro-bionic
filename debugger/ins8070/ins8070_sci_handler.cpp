@@ -32,7 +32,7 @@ void Ins8070SciHandler::resetHandler() {
     // INS8070 bitbang speed: assuming XTAL is 2MHz
     // baudrate 4800 bps
     _pre_divider = 74;
-    _divider = 14;
+    _tx_divider = _rx_divider = 14;
     // baudrate 110 bps
     // _pre_divider = 2561;
     // _divider = 18;

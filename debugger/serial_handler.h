@@ -29,8 +29,9 @@ private:
     } _rx;
 
 protected:
-    uint16_t _divider;
     uint16_t _pre_divider;
+    uint16_t _tx_divider;
+    uint16_t _rx_divider;
     virtual void resetHandler() = 0;
     virtual void assert_rxd() const = 0;
     virtual void negate_rxd() const = 0;
