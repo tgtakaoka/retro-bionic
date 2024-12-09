@@ -1,6 +1,6 @@
 #include "z88_uart_handler.h"
-#include "pins_z88.h"
 #include "debugger.h"
+#include "pins_z88.h"
 
 namespace debugger {
 namespace z88 {
@@ -34,8 +34,8 @@ void Z88UartHandler::resetHandler() {
     pinMode(PIN_TXD, INPUT);
     // Z88 UART: assuming XTAL is 14.7546MHz
     // bit rate = (14,754,600 / 4) / (2 x (UBG+1) x N)
-    _pre_divider = 4 * 2 * 32;  // N=32
-    _divider = 11 + 1;          // UBG=11
+    _pre_divider = 4 * 2 * 32;           // N=32
+    _tx_divider = _rx_divider = 11 + 1;  // UBG=11
 }
 
 }  // namespace z88

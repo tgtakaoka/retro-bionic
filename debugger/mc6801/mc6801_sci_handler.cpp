@@ -39,7 +39,7 @@ void Mc6801SciHandler::resetHandler() {
     pinMode(PIN_SCITXD, INPUT);
     static const uint16_t scaler[] = {16, 128, 1024, 4096};
     _pre_divider = scaler[_rmcr & RMCR_SS_gm] / 8;
-    _divider = 8;
+    _tx_divider = _rx_divider = 8;
 }
 
 }  // namespace mc6801
