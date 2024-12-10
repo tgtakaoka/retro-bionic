@@ -43,8 +43,8 @@
 #define PIN_FLAG2 36  /* P7.18 */
 #define PIN_CONT 2    /* P9.04 */
 #define PIN_WDS 3     /* P9.05 */
-#define PIN_SENSEA 4  /* P9.06 */
-#define PIN_SENSEB 33 /* P9.07 */
+#define PIN_SENSEA 33 /* P9.06 */
+#define PIN_SENSEB 4  /* P9.07 */
 #define PIN_SOUT 0    /* P6.03 */
 #define PIN_SIN 1     /* P6.04 */
 #define PIN_XIN 5     /* P9.08 */
