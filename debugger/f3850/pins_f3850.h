@@ -54,8 +54,8 @@
 #define PIN_PHI 6     /* P7.10 */
 #define PIN_WRITE 9   /* P7.11 */
 #define PIN_EXTRES 28 /* P8.18 */
-#define PIN_ICB 31    /* P8.22 */
-#define PIN_INTREQ 30 /* P8.23 */
+#define PIN_INTREQ 31 /* P8.23 */
+#define PIN_ICB 30    /* P8.22 */
 
 #include "pins.h"
 #include "signals_f3850.h"
