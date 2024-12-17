@@ -7,11 +7,11 @@
 namespace debugger {
 namespace mc6809 {
 
-using mc6800::InstMc6800;
 using mc6809::SoftwareType;
 
-struct InstMc6809 : InstMc6800 {
-    InstMc6809(const DmaMemory &mems) : InstMc6800(mems) {}
+struct InstMc6809 : mc6800::InstMc6800 {
+    InstMc6809(Mems *mems) : InstMc6800(mems) {}
+    virtual ~InstMc6809() {}
 
     virtual void setSoftwareType(SoftwareType type) = 0;
 

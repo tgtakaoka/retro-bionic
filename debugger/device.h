@@ -7,6 +7,7 @@ namespace debugger {
 
 struct Device {
     Device() : _enabled(false) {}
+    virtual ~Device() {}
 
     virtual const char *name() const = 0;
     virtual const char *description() const = 0;

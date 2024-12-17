@@ -1,8 +1,6 @@
 #include "pins_cdp1802.h"
-#include "cdp1802_sci_handler.h"
 #include "debugger.h"
 #include "devs_cdp1802.h"
-#include "digital_bus.h"
 #include "inst_cdp1802.h"
 #include "mems_cdp1802.h"
 #include "regs_cdp1802.h"
@@ -10,8 +8,6 @@
 
 namespace debugger {
 namespace cdp1802 {
-
-struct PinsCdp1802 Pins;
 
 /**
  * CDP1802 bus cycle.
@@ -148,6 +144,12 @@ inline void clock_cycle() {
 
 }  // namespace
 
+PinsCdp1802::PinsCdp1802() {
+    _regs = new RegsCdp1802(this);
+    _devs = new DevsCdp1802();
+    _mems = new MemsCdp1802(_devs);
+}
+
 void PinsCdp1802::resetPins() {
     // Assert reset condition
     pinsMode(PINS_LOW, sizeof(PINS_LOW), OUTPUT, LOW);
@@ -165,8 +167,8 @@ void PinsCdp1802::resetPins() {
         if (signal_tpa() != LOW)
             break;
     }
-    Regs.reset();
-    Regs.save();
+    regs<RegsCdp1802>()->reset();
+    _regs->save();
 }
 
 Signals *PinsCdp1802::rawPrepareCycle() {
@@ -230,7 +232,7 @@ Signals *PinsCdp1802::completeCycle(Signals *s) {
         // c70
         clock_lo();
         if (s->writeMemory()) {
-            Memory.write(s->addr, s->data);
+            _mems->write(s->addr, s->data);
             delayNanoseconds(c70_write);
         } else {
             delayNanoseconds(c70_capture);
@@ -238,15 +240,14 @@ Signals *PinsCdp1802::completeCycle(Signals *s) {
     } else if (s->read()) {
         // c60
         if (s->readMemory()) {
-            s->data = Memory.read(s->addr);
+            s->data = _mems->read(s->addr);
             delayNanoseconds(c60_read);
         } else {
             delayNanoseconds(c60_inject);
         }
         // c61
         clock_hi();
-        busWrite(DBUS, s->data);
-        busMode(DBUS, OUTPUT);
+        s->outData();
         delayNanoseconds(c61_read);
         // c70
         clock_lo();
@@ -272,11 +273,11 @@ Signals *PinsCdp1802::completeCycle(Signals *s) {
     // c01
     clock_hi();
     delayNanoseconds(c01_ns);
-    busMode(DBUS, INPUT);
+    Signals::inputMode();
     // c10
     clock_lo();
     // BitBang serial handler
-    SciH.loop();
+    devs<DevsCdp1802>()->sci().loop();
     return s;
 }
 
@@ -332,25 +333,25 @@ void PinsCdp1802::idle() {
 
 void PinsCdp1802::loop() {
     while (true) {
-        Devs.loop();
+        _devs->loop();
         if (!rawStep() || haltSwitch())
             return;
     }
 }
 
 void PinsCdp1802::run() {
-    Regs.restore();
+    _regs->restore();
     Signals::resetCycles();
     saveBreakInsts();
     loop();
     restoreBreakInsts();
     disassembleCycles();
-    Regs.save();
+    _regs->save();
 }
 
 bool PinsCdp1802::rawStep() {
     auto s = directCycle(rawPrepareCycle());
-    if (Memory.raw_read(s->addr) == InstCdp1802::IDL) {
+    if (_mems->raw_read(s->addr) == InstCdp1802::IDL) {
         // Detect IDL, inject LBR * instead and halt.
         completeCycle(s->inject(InstCdp1802::LBR));
         cycle(hi(s->addr));
@@ -375,13 +376,13 @@ bool PinsCdp1802::rawStep() {
 
 bool PinsCdp1802::step(bool show) {
     Signals::resetCycles();
-    Regs.restore();
+    _regs->restore();
     if (show)
         Signals::resetCycles();
     if (rawStep()) {
         if (show)
             printCycles();
-        Regs.save();
+        _regs->save();
         return true;
     }
     return false;
@@ -416,7 +417,7 @@ void PinsCdp1802::negateInt(uint8_t name) {
 }
 
 void PinsCdp1802::setBreakInst(uint32_t addr) const {
-    Memory.put_inst(addr, InstCdp1802::IDL);
+    _mems->put_inst(addr, InstCdp1802::IDL);
 }
 
 void PinsCdp1802::printCycles() {
@@ -433,7 +434,7 @@ void PinsCdp1802::disassembleCycles() const {
     for (auto i = 0; i < cycles;) {
         const auto s = g->next(i);
         if (s->fetch()) {
-            const auto len = Memory.disassemble(s->addr, 1) - s->addr;
+            const auto len = _mems->disassemble(s->addr, 1) - s->addr;
             i += len;
         } else {
             s->print();

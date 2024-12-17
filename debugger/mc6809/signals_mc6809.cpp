@@ -31,6 +31,15 @@ void Signals::getData() {
     data = busRead(D);
 }
 
+void Signals::outData() const {
+    busWrite(D, data);
+    busMode(D, OUTPUT);
+}
+
+void Signals::inputMode() {
+    busMode(D, INPUT);
+}
+
 void Signals::print() const {
     LOG_MATCH(cli.printDec(pos(), 3));
     LOG_MATCH(if (fetch()) cli.printDec(matched(), 3); else cli.print("   "));

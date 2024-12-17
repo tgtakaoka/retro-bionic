@@ -76,8 +76,8 @@ enum IntrName : uint8_t {
 };
 
 struct PinsNsc800 final : z80::PinsZ80Base {
-    PinsNsc800(z80::RegsZ80 &regs, z80::MemsZ80 &mems)
-        : PinsZ80Base(regs, mems) {}
+    PinsNsc800() : PinsZ80Base("NSC800") {}
+
     void resetPins() override;
     void idle() override;
     bool step(bool show) override;

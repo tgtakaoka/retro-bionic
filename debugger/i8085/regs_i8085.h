@@ -6,14 +6,18 @@
 namespace debugger {
 namespace i8085 {
 
+struct PinsI8085;
+
 struct RegsI8085 final : Regs {
+    RegsI8085(PinsI8085 *pins) : _pins(pins) {}
+
     const char *cpu() const override;
     const char *cpuName() const override;
 
     void print() const override;
     void save() override;
     void restore() override;
-    
+
     uint32_t nextIp() const override { return _pc; }
     void helpRegisters() const override;
     const RegList *listRegisters(uint8_t n) const override;
@@ -23,6 +27,8 @@ struct RegsI8085 final : Regs {
     void write_io(uint8_t addr, uint8_t data) const;
 
 private:
+    PinsI8085 *_pins;
+
     uint8_t _b;
     uint8_t _c;
     uint8_t _d;
@@ -50,8 +56,6 @@ private:
         _h = hi(hl);
     }
 };
-
-extern struct RegsI8085 Regs;
 
 }  // namespace i8085
 }  // namespace debugger

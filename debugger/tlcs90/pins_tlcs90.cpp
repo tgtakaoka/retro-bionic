@@ -1,12 +1,10 @@
 #include "pins_tlcs90.h"
 #include "debugger.h"
 #include "devs_tlcs90.h"
-#include "digital_bus.h"
 #include "inst_tlcs90.h"
 #include "mems_tlcs90.h"
 #include "regs_tlcs90.h"
 #include "signals_tlcs90.h"
-#include "tlcs90_uart_handler.h"
 
 namespace debugger {
 namespace tlcs90 {
@@ -148,19 +146,26 @@ constexpr uint8_t PINS_INPUT[] = {
         PIN_CLK,
 };
 
-inline void x1_lo() {
-    digitalWriteFast(PIN_X1, LOW);
-    UartH.loop();
+}  // namespace
+
+PinsTlcs90::PinsTlcs90() {
+    auto regs = new RegsTlcs90(this);
+    _regs = regs;
+    _devs = new DevsTlcs90();
+    _mems = new MemsTlcs90(regs, _devs);
 }
 
-inline void x1_cycle() {
+void PinsTlcs90::x1_lo() const {
+    digitalWriteFast(PIN_X1, LOW);
+    devs<DevsTlcs90>()->uart()->loop();
+}
+
+void PinsTlcs90::x1_cycle() const {
     x1_lo();
     delayNanoseconds(x1_lo_ns);
     x1_hi();
     delayNanoseconds(x1_hi_ns);
 }
-
-}  // namespace
 
 void PinsTlcs90::resetPins() {
     // Assert reset condition
@@ -191,8 +196,8 @@ void PinsTlcs90::resetPins() {
     x1_cycle();
     prepareCycle();
 
-    Regs.reset();
-    Regs.save();
+    _regs->reset();
+    _regs->save();
 }
 
 Signals *PinsTlcs90::prepareCycle() {
@@ -219,14 +224,14 @@ Signals *PinsTlcs90::completeCycle(Signals *s) {
     x1_hi();
     if (s->read()) {
         if (s->readMemory()) {
-            s->data = Memory.read(s->addr);
+            s->data = _mems->read(s->addr);
         }
         // C3L
-        busMode(DB, OUTPUT);
+        s->setData();
         if (c3_lo_read)
             delayNanoseconds(c3_hi_read);
         x1_lo();
-        busWrite(DB, s->data);
+        Signals::outputMode();
         if (c3_lo_read)
             delayNanoseconds(c3_lo_read);
         // C4H
@@ -247,7 +252,7 @@ Signals *PinsTlcs90::completeCycle(Signals *s) {
         // C4H
         x1_hi();
         if (s->writeMemory()) {
-            Memory.write(s->addr, s->data);
+            _mems->write(s->addr, s->data);
             if (c4_hi_write)
                 delayNanoseconds(c4_hi_write);
         } else {
@@ -268,7 +273,7 @@ Signals *PinsTlcs90::completeCycle(Signals *s) {
     }
     // C1H
     x1_hi();
-    busMode(DB, INPUT);
+    Signals::inputMode();
 
     return s;
 }
@@ -319,15 +324,16 @@ void PinsTlcs90::idle() {
 void PinsTlcs90::loop() {
     auto s = Signals::current();
     while (true) {
-        Devs.loop();
+        _devs->loop();
         if (s->addr == InstTlcs90::ORG_SWI) {
-            if (Regs.saveContext(s->prev(4))) {
+            auto r = regs<RegsTlcs90>();
+            if (r->saveContext(s->prev(4))) {
                 // SWI; break point or halt to system (HALT at ORG_SWI))
-                const auto opc = Memory.raw_read(s->addr);
-                const auto pc = Regs.nextIp() - 1;  // offset SWI
+                const auto opc = _mems->raw_read(s->addr);
+                const auto pc = r->nextIp() - 1;  // offset SWI
                 if (opc == InstTlcs90::HALT || isBreakPoint(pc)) {
-                    Regs.saveRegisters();
-                    Regs.setIp(pc);
+                    r->saveRegisters();
+                    r->setIp(pc);
                     assert_wait();
                     Signals::discard(s->prev(6));
                     break;
@@ -345,7 +351,7 @@ void PinsTlcs90::loop() {
 }
 
 void PinsTlcs90::run() {
-    Regs.restore();
+    _regs->restore();
     Signals::resetCycles();
     saveBreakInsts();
     negate_wait();
@@ -365,11 +371,12 @@ void PinsTlcs90::suspend(bool show) {
         // Interrupt; 0:n:d:d:V:d:W:W:W:W:V
         if (s->addr == InstTlcs90::ORG_NMI || s->addr == InstTlcs90::ORG_SWI) {
             negate_nmi();
-            if (Regs.saveContext(s->prev(4))) {
-                Regs.saveRegisters();
+            auto r = regs<RegsTlcs90>();
+            if (r->saveContext(s->prev(4))) {
+                r->saveRegisters();
                 if (s->addr == InstTlcs90::ORG_SWI) {
-                    Regs.setIp(s->addr);
-                    Regs.offsetStack(-4);
+                    r->setIp(s->addr);
+                    r->offsetStack(-4);
                 }
                 break;
             }
@@ -383,12 +390,12 @@ void PinsTlcs90::suspend(bool show) {
 
 bool PinsTlcs90::step(bool show) {
     Signals::resetCycles();
-    const auto opc = Memory.read(Regs.nextIp());
-    if (opc == InstTlcs90::HALT || !InstTlcs90::valid(Regs.nextIp())) {
+    const auto opc = _mems->read(_regs->nextIp());
+    if (opc == InstTlcs90::HALT || !InstTlcs90::valid(_regs->nextIp(), _mems)) {
         // HALT or unknown instruction. Just return.
         return false;
     }
-    Regs.restore();
+    _regs->restore();
     if (show)
         Signals::resetCycles();
     suspend(show);
@@ -412,7 +419,7 @@ void PinsTlcs90::negateInt(uint8_t name) {
 }
 
 void PinsTlcs90::setBreakInst(uint32_t addr) const {
-    Memory.put_inst(addr, InstTlcs90::SWI);
+    _mems->put_inst(addr, InstTlcs90::SWI);
 }
 
 void PinsTlcs90::printCycles(const Signals *end) {
@@ -479,7 +486,7 @@ void PinsTlcs90::disassembleCycles() {
         const auto s = begin->next(i);
         if (pref || s->fetch()) {
             const auto f = pref ? pref : s;
-            const auto nexti = Memory.disassemble(f->addr, 1);
+            const auto nexti = _mems->disassemble(f->addr, 1);
             const auto len = nexti - f->addr - (pref ? 1 : 0);
             const auto matched = f->matched();
             pref = nullptr;

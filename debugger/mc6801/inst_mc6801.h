@@ -9,15 +9,13 @@ namespace mc6801 {
 using mc6800::InstMc6800;
 
 struct InstMc6801 final : InstMc6800 {
-    InstMc6801(const DmaMemory &mems) : InstMc6800(mems) {}
+    InstMc6801(Mems *mems) : InstMc6800(mems) {}
 
 protected:
     const char *instSequence(uint8_t inst) const override;
     const char *intrSequence() const override;
     uint16_t vectorBase() const override { return 0xFFF0; }
 };
-
-extern struct InstMc6801 Inst;
 
 }  // namespace mc6801
 }  // namespace debugger

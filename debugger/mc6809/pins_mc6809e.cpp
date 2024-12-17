@@ -1,10 +1,9 @@
 #include "pins_mc6809e.h"
 #include "debugger.h"
 #include "devs_mc6809.h"
-#include "digital_bus.h"
-#include "inst_mc6809.h"
+#include "inst_hd6309.h"
 #include "mems_mc6809.h"
-#include "regs_mc6809.h"
+#include "regs_mc6809e.h"
 #include "signals_mc6809e.h"
 
 namespace debugger {
@@ -121,6 +120,13 @@ constexpr uint8_t PINS_INPUT[] = {
 
 }  // namespace
 
+PinsMc6809E::PinsMc6809E() {
+    _regs = new RegsMc6809E(this);
+    _devs = new mc6809::DevsMc6809();
+    _mems = new mc6809::MemsMc6809(_devs);
+    _inst = new hd6309::InstHd6309(_mems);
+}
+
 void PinsMc6809E::resetPins() {
     // Assert reset condition
     pinsMode(PINS_LOW, sizeof(PINS_LOW), OUTPUT, LOW);
@@ -138,7 +144,7 @@ void PinsMc6809E::resetPins() {
 mc6809::Signals *PinsMc6809E::rawCycle() const {
     static uint8_t vma_next = LOW;
     // c1
-    busMode(D, INPUT);
+    mc6809::Signals::inputMode();
     auto s = Signals::put();
     delayNanoseconds(c1_ns);
     // c2
@@ -161,7 +167,7 @@ mc6809::Signals *PinsMc6809E::rawCycle() const {
         // c4
         c4_clock();
         if (s->writeMemory()) {
-            _mems.write(s->addr, s->data);
+            _mems->write(s->addr, s->data);
             delayNanoseconds(c4_write);
         } else {
             delayNanoseconds(c4_capture);
@@ -169,15 +175,14 @@ mc6809::Signals *PinsMc6809E::rawCycle() const {
         Signals::nextCycle();
     } else {
         if (s->readMemory()) {
-            s->data = _mems.read(s->addr);
+            s->data = _mems->read(s->addr);
             delayNanoseconds(c3_read);
         } else {
             delayNanoseconds(c3_inject);
         }
         // c4
         c4_clock();
-        busMode(D, OUTPUT);
-        busWrite(D, s->data);
+        s->outData();
         Signals::nextCycle();
         delayNanoseconds(c4_read);
     }
@@ -196,7 +201,7 @@ mc6809::Signals *PinsMc6809E::cycle() const {
 
 const mc6809::Signals *PinsMc6809E::findFetch(
         mc6809::Signals *begin, const mc6809::Signals *end) {
-    const auto native6309 = _regs.contextLength() == 14;
+    const auto native6309 = regs<RegsMc6809>()->contextLength() == 14;
     const auto cycles = begin->diff(end);
     if (!native6309) {
         for (uint8_t i = 1; i <= cycles; ++i) {

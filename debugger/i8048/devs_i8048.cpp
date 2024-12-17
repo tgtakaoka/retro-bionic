@@ -6,45 +6,49 @@
 namespace debugger {
 namespace i8048 {
 
-DevsI8048 Devs;
+DevsI8048::DevsI8048() : _usart(new I8251()) {}
+
+DevsI8048::~DevsI8048() {
+    delete _usart;
+}
 
 void DevsI8048::reset() {
-    USART.reset();
-    USART.setBaseAddr(USART_BASE);
+    _usart->reset();
+    _usart->setBaseAddr(USART_BASE);
 }
 
 void DevsI8048::begin() {
-    enableDevice(USART);
+    enableDevice(_usart);
 }
 
 void DevsI8048::loop() {
-    USART.loop();
+    _usart->loop();
 }
 
 bool DevsI8048::isSelected(uint32_t addr) const {
-    return USART.isSelected(addr);
+    return _usart->isSelected(addr);
 }
 
 uint16_t DevsI8048::read(uint32_t addr) const {
-    return USART.read(addr);
+    return _usart->read(addr);
 }
 
 void DevsI8048::write(uint32_t addr, uint16_t data) const {
-    USART.write(addr, data);
+    _usart->write(addr, data);
 }
 
-Device &DevsI8048::parseDevice(const char *name) const {
-    if (strcasecmp(name, USART.name()) == 0)
-        return USART;
+Device *DevsI8048::parseDevice(const char *name) const {
+    if (strcasecmp(name, _usart->name()) == 0)
+        return _usart;
     return Devs::nullDevice();
 }
 
-void DevsI8048::enableDevice(Device &dev) {
-    USART.enable(&dev == &USART);
+void DevsI8048::enableDevice(Device *dev) {
+    _usart->enable(dev == _usart);
 }
 
 void DevsI8048::printDevices() const {
-    printDevice(USART);
+    printDevice(_usart);
 }
 
 }  // namespace i8048

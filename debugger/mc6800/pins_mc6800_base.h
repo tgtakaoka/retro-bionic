@@ -2,6 +2,7 @@
 #define __PINS_MC6800_BASE_H__
 
 #include "devs.h"
+#include "inst_mc6800.h"
 #include "mems.h"
 #include "pins.h"
 #include "signals_mc6800.h"
@@ -21,12 +22,10 @@ namespace debugger {
 namespace mc6800 {
 
 struct RegsMc6800;
-struct InstMc6800;
+struct MemsMc6800;
 
 struct PinsMc6800Base : Pins {
-    PinsMc6800Base(
-            RegsMc6800 &regs, InstMc6800 &inst, const Mems &mems, Devs &devs)
-        : _regs(regs), _inst(&inst), _mems(mems), _devs(devs) {}
+    ~PinsMc6800Base() { delete _inst; }
 
     void idle() override;
     bool step(bool show) override;
@@ -41,10 +40,7 @@ struct PinsMc6800Base : Pins {
     virtual bool nonVmaAfteContextSave() const { return true; }
 
 protected:
-    RegsMc6800 &_regs;
     InstMc6800 *_inst;
-    const Mems &_mems;
-    Devs &_devs;
     uint8_t _writes;
 
     virtual Signals *rawCycle() = 0;

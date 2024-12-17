@@ -63,11 +63,14 @@
 
 #include "pins.h"
 #include "signals_ins8070.h"
+#include "inst_ins8070.h"
 
 namespace debugger {
 namespace ins8070 {
 
 struct PinsIns8070 final : Pins {
+    PinsIns8070();
+
     void resetPins() override;
     void idle() override;
     bool step(bool show) override;
@@ -82,6 +85,7 @@ struct PinsIns8070 final : Pins {
             uint8_t *buf, uint8_t max);
 
 private:
+    void xin_lo() const;
     Signals *prepareCycle();
     Signals *completeCycle(Signals *signals);
     Signals *cycle();
@@ -92,13 +96,13 @@ private:
     void execute(const uint8_t *inst, uint8_t len, uint16_t *addr, uint8_t *buf,
             uint8_t max);
 
+    uint8_t busCycles(InstIns8070 &inst) const;
+
     void printCycles(const Signals *end);
     bool matchAll(Signals *begin, const Signals *end);
     const Signals *findFetch(Signals *begein, const Signals *end);
     void disassembleCycles();
 };
-
-extern struct PinsIns8070 Pins;
 
 }  // namespace ins8070
 }  // namespace debugger

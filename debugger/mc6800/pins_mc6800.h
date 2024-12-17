@@ -56,8 +56,8 @@ namespace debugger {
 namespace mc6800 {
 
 struct PinsMc6800 final : PinsMc6800Base {
-    PinsMc6800(RegsMc6800 &regs, InstMc6800 &inst, const Mems &mems, Devs &devs)
-        : PinsMc6800Base(regs, inst, mems, devs) {}
+    PinsMc6800();
+
     void resetPins() override;
 
 protected:

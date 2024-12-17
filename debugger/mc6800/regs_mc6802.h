@@ -8,17 +8,16 @@ namespace mc6802 {
 
 using mc6800::PinsMc6800Base;
 using mc6800::RegsMc6800;
+struct MemsMc6802;
 
 struct RegsMc6802 : RegsMc6800 {
-    RegsMc6802(PinsMc6800Base &pins) : RegsMc6800(pins) {}
+    RegsMc6802(PinsMc6800Base *pins) : RegsMc6800(pins) {}
 
     const char *cpuName() const override;
 
-    uint8_t internal_read(uint16_t addr) const;
-    void internal_write(uint16_t addr, uint8_t data) const;
+    uint8_t internal_read(uint16_t addr) const override;
+    void internal_write(uint16_t addr, uint8_t data) const override;
 };
-
-extern struct RegsMc6802 Regs;
 
 }  // namespace mc6802
 }  // namespace debugger

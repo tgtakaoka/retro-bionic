@@ -1,16 +1,15 @@
-#include "target.h"
+#include "identity.h"
 
-#include "devs_z86.h"
-#include "mems_z86.h"
 #include "pins_z86.h"
-#include "regs_z86.h"
 
 namespace debugger {
 namespace z86 {
 
-const struct Target Targetz86 {
-    "Z86C91", Pins, Regs, Memory, Devs
-};
+Pins *instance() {
+    return new PinsZ86();
+}
+
+const struct Identity Z86C91{"Z86C91", instance};
 
 }  // namespace z86
 }  // namespace debugger

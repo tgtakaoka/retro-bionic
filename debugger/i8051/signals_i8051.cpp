@@ -19,6 +19,18 @@ void Signals::getData() {
     data = busRead(DB);
 }
 
+void Signals ::setData() const {
+    busWrite(DB, data);
+}
+
+void Signals::outputMode() {
+    busMode(DB, OUTPUT);
+}
+
+void Signals::inputMode() {
+    busMode(DB, INPUT);
+}
+
 bool Signals::read() const {
     return (cntl() & CNTL_RD) == 0;
 }

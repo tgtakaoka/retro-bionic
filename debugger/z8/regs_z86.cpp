@@ -1,16 +1,13 @@
 #include "regs_z86.h"
 #include "char_buffer.h"
 #include "debugger.h"
-#include "digital_bus.h"
 #include "inst_z86.h"
 #include "pins_z86.h"
 
 namespace debugger {
 namespace z86 {
 
-struct RegsZ86 Regs;
-
-RegsZ86::RegsZ86() : RegsZ8(Pins) {}
+RegsZ86::RegsZ86(PinsZ86 *pins) : RegsZ8(pins) {}
 
 const char *RegsZ86::cpu() const {
     return "Z86C";
@@ -44,7 +41,7 @@ void RegsZ86::reset() {
             hi(InstZ86::ORG_RESET),
             lo(InstZ86::ORG_RESET),
     };
-    _pins.execInst(JP_RESET, sizeof(JP_RESET));
+    _pins->execInst(JP_RESET, sizeof(JP_RESET));
 }
 
 uint8_t RegsZ86::save_rp() const {
@@ -53,7 +50,7 @@ uint8_t RegsZ86::save_rp() const {
             0x70, RP,   // PUSH RP
     };
     uint8_t rp;
-    _pins.captureWrites(SAVE_RP, sizeof(SAVE_RP), nullptr, &rp, sizeof(rp));
+    _pins->captureWrites(SAVE_RP, sizeof(SAVE_RP), nullptr, &rp, sizeof(rp));
     return rp;
 }
 
@@ -61,7 +58,7 @@ void RegsZ86::restore_rp(uint8_t rp) const {
     uint8_t RESTORE_RP[] = {
             0x31, rp,  // SRP #rp
     };
-    _pins.execInst(RESTORE_RP, sizeof(RESTORE_RP));
+    _pins->execInst(RESTORE_RP, sizeof(RESTORE_RP));
 }
 
 void RegsZ86::save_sfrs() {
@@ -87,7 +84,7 @@ uint8_t RegsZ86::save_r(uint8_t num) const {
             0x92, uint8(num, 0),  // LDE @RR0,Rn
     };
     uint8_t val;
-    _pins.captureWrites(SAVE_R, sizeof(SAVE_R), nullptr, &val, sizeof(val));
+    _pins->captureWrites(SAVE_R, sizeof(SAVE_R), nullptr, &val, sizeof(val));
     return val;
 }
 
@@ -97,7 +94,7 @@ void RegsZ86::restore_r(uint8_t num, uint8_t val) const {
     uint8_t LOAD_R[] = {
             uint8(num, 0x0C), val,  // LD rn,#val
     };
-    _pins.execInst(LOAD_R, sizeof(LOAD_R));
+    _pins->execInst(LOAD_R, sizeof(LOAD_R));
 }
 
 uint8_t RegsZ86::raw_read_reg(uint8_t addr) const {
@@ -106,7 +103,7 @@ uint8_t RegsZ86::raw_read_reg(uint8_t addr) const {
             0x92, 0x00,  // LDE @RR0,R0
     };
     uint8_t val;
-    _pins.captureWrites(READ_REG, sizeof(READ_REG), nullptr, &val, sizeof(val));
+    _pins->captureWrites(READ_REG, sizeof(READ_REG), nullptr, &val, sizeof(val));
     return val;
 }
 
@@ -126,7 +123,7 @@ void RegsZ86::write_reg(uint8_t addr, uint8_t val, RegSpace space) {
     uint8_t WRITE_REG[] = {
             0xE6, addr, val,  // LD addr,#val
     };
-    _pins.execInst(WRITE_REG, sizeof(WRITE_REG));
+    _pins->execInst(WRITE_REG, sizeof(WRITE_REG));
     update_r(addr, val);
     if (addr == RP)
         save_all_r();

@@ -47,11 +47,9 @@
 #define PIN_RESET 28   /* P8.18 */
 #define PIN_DM 30      /* P8.23 */
 
-#include "devs.h"
 #include "inst_z8.h"
-#include "mems.h"
 #include "pins.h"
-#include "regs_z8.h"
+#include "serial_handler.h"
 #include "signals_z8.h"
 
 namespace debugger {
@@ -64,17 +62,7 @@ enum IntrName : uint8_t {
     INTR_IRQ2 = 3,
 };
 
-struct PinsZ8 final : Pins {
-    PinsZ8(bool fetchVectorAfterContextSave, void (*cycle)(),
-            RegsZ8 &regs, const InstZ8 &inst, Mems &mems, Devs &devs)
-        : Pins(),
-          _fetchVectorAfterContextSave(fetchVectorAfterContextSave),
-          _xtal1_cycle(cycle),
-          _regs(regs),
-          _inst(inst),
-          _mems(mems),
-          _devs(devs) {}
-
+struct PinsZ8 : Pins {
     void resetPins() override;
     bool step(bool show) override;
     void run() override;
@@ -89,16 +77,21 @@ struct PinsZ8 final : Pins {
     void captureWrites(const uint8_t *inst, uint8_t len, uint16_t *addr,
             uint8_t *buf, uint8_t max);
 
-private:
+protected:
+    PinsZ8(bool fetchVectorAfterContextSave, void (*xtal1)(SerialHandler *),
+            SerialHandler *serial, const InstZ8 &inst)
+        : _fetchVectorAfterContextSave(fetchVectorAfterContextSave),
+          _xtal1_cycle(xtal1),
+          _serial(serial),
+          _inst(inst) {}
+
     const bool _fetchVectorAfterContextSave;
-    void (*const _xtal1_cycle)();
-    RegsZ8 &_regs;
+    void (*const _xtal1_cycle)(SerialHandler *);
+    SerialHandler *const _serial;
     const InstZ8 &_inst;
-    const Mems &_mems;
-    Devs &_devs;
     uint8_t _writes;
 
-    void xtal1_cycle() const { _xtal1_cycle(); }
+    void xtal1_cycle() const { _xtal1_cycle(_serial); }
 
     Signals *prepareCycle();
     Signals *completeCycle(Signals *signals);

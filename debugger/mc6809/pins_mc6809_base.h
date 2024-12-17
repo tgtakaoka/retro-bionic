@@ -58,6 +58,8 @@
 #define PIN_RESET 28 /* P8.18 */
 #define PIN_HALT 30  /* P8.23 */
 
+#include "devs.h"
+#include "inst_mc6809.h"
 #include "mems.h"
 #include "pins.h"
 #include "signals_mc6809.h"
@@ -75,8 +77,7 @@ enum IntrName : uint8_t {
 };
 
 struct PinsMc6809Base : Pins {
-    PinsMc6809Base(RegsMc6809 &regs, InstMc6809 &inst, const Mems &mems)
-        : _regs(regs), _inst(inst), _mems(mems) {}
+    ~PinsMc6809Base() { delete _inst; }
 
     void idle() override;
     bool step(bool show) override;
@@ -91,9 +92,7 @@ struct PinsMc6809Base : Pins {
     uint8_t captureContext(uint8_t *context, uint16_t &sp);
 
 protected:
-    RegsMc6809 &_regs;
-    InstMc6809 &_inst;
-    const Mems &_mems;
+    InstMc6809 *_inst;
 
     void resetPins() override;
 

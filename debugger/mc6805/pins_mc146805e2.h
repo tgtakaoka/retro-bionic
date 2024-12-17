@@ -1,8 +1,6 @@
 #ifndef __PINS_MC146805E2_H__
 #define __PINS_MC146805E2_H__
 
-#define ACIA_BASE 0x17F8
-
 #define PORT_B 6       /* GPIO6 */
 #define B_gp 16        /* P6.16-P6.23 */
 #define B_gm 0xFF      /* P6.00-P6.07 */
@@ -47,15 +45,10 @@
 namespace debugger {
 namespace mc146805e2 {
 
-using mc6805::InstMc6805;
-using mc6805::MemsMc6805;
 using mc6805::PinsMc6805;
-using mc6805::RegsMc6805;
 
 struct PinsMc146805E2 final : PinsMc6805 {
-    PinsMc146805E2(RegsMc6805 &regs, const InstMc6805 &inst,
-            const MemsMc6805 &mems, Devs &devs)
-        : PinsMc6805(regs, inst, mems, devs) {}
+    PinsMc146805E2();
 
     void resetPins() override;
     void assertInt(uint8_t name) override;
@@ -67,8 +60,6 @@ protected:
     mc6805::Signals *prepareCycle() const override;
     mc6805::Signals *completeCycle(mc6805::Signals *signals) const override;
 };
-
-extern struct PinsMc146805E2 Pins;
 
 }  // namespace mc146805e2
 }  // namespace debugger

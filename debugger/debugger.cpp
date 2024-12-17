@@ -55,7 +55,7 @@ constexpr char USAGE[] =
 void usage() {
     cli.println();
     cli.print("* Bionic");
-    Target::printIdentity();
+    Identity::printIdentity();
     cli.print(" * ");
     cli.println(F(VERSION_TEXT));
     cli.println(USAGE);
@@ -495,17 +495,17 @@ void handleIoBase(uint32_t val, uintptr_t extra, State state) {
 
 void handleIo(char *line, uintptr_t extra, State state) {
     if (state != State::CLI_CANCEL) {
-        const auto *nulldev = &Devs::nullDevice();
-        auto &dev = Debugger.target().parseDevice(line);
+        const auto nulldev = Devs::nullDevice();
+        auto dev = Debugger.target().parseDevice(line);
         if (state == State::CLI_SPACE) {
-            if (&dev != nulldev) {
-                cli.readHex(handleIoBase, reinterpret_cast<uintptr_t>(&dev),
+            if (dev != nulldev) {
+                cli.readHex(handleIoBase, reinterpret_cast<uintptr_t>(dev),
                         Debugger.target().maxAddr());
                 return;
             }
         }
         cli.println();
-        if (&dev != nulldev) {
+        if (dev != nulldev) {
             Debugger.target().enableDevice(dev);
             Debugger.target().printDevices();
         }
@@ -565,7 +565,7 @@ void handleWriteIdentity(char *line, uintptr_t extra, State state) {
     if (state != State::CLI_CANCEL) {
         cli.println();
         if (line[0] == '+')
-            Target::writeIdentity(line + 1);
+            Identity::writeIdentity(line + 1);
     }
     printPrompt();
 }
@@ -698,11 +698,11 @@ void Debugger::exec(char c) {
     printPrompt();
 }
 
-void Debugger::begin(Target &target_) {
-    _target = &target_;
-    target().begin();
+void Debugger::begin(Target *target) {
+    _target = target;
+    target->begin();
     usage();
-    target().printRegisters();
+    target->printRegisters();
     printPrompt();
 }
 

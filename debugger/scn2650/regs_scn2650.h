@@ -6,15 +6,17 @@
 namespace debugger {
 namespace scn2650 {
 
+struct PinsScn2650;
+
 struct RegsScn2650 final : Regs {
+    RegsScn2650(PinsScn2650 *pins) : _pins(pins) {}
+
     const char *cpu() const override;
     const char *cpuName() const override;
 
     void print() const override;
     void save() override;
     void restore() override;
-
-    void reset();
 
     uint32_t nextIp() const override { return _pc; }
     void helpRegisters() const override;
@@ -25,6 +27,8 @@ struct RegsScn2650 final : Regs {
     void write_io(uint8_t addr, uint8_t data) const;
 
 private:
+    PinsScn2650 *_pins;
+
     uint16_t _pc;
     uint8_t _psu;
     uint8_t _psl;
@@ -32,15 +36,13 @@ private:
     uint8_t _r0;
     uint8_t _r[/*rs*/ 2][3];
 
-    static void setRs(uint8_t rs);
-    static void saveRegs(uint8_t *regs);
-    static void restoreRegs(const uint8_t *regs);
+    void setRs(uint8_t rs) const;
+    void saveRegs(uint8_t *regs) const;
+    void restoreRegs(const uint8_t *regs) const;
 
     static constexpr uint8_t PPSL = 0x77;
     static constexpr uint8_t CPSL = 0x75;
 };
-
-extern struct RegsScn2650 Regs;
 
 }  // namespace scn2650
 }  // namespace debugger

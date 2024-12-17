@@ -2,6 +2,7 @@
 #define __INST_INS8070_H__
 
 #include <stdint.h>
+#include "mems.h"
 #include "signals_ins8070.h"
 
 namespace debugger {
@@ -22,11 +23,9 @@ enum AddrMode : uint8_t {
 };
 
 struct InstIns8070 final {
-    InstIns8070() : addr(0), opc(0), seq(0), matched(0) {}
-    bool get(uint16_t addr);
-    bool get(const Signals *signals);
+    InstIns8070() : opc(0), seq(0), matched(0) {}
+    bool get(uint8_t data);
 
-    uint16_t addr;
     uint8_t opc;
 
     uint8_t len() const;

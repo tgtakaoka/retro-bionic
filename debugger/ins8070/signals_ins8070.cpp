@@ -45,6 +45,15 @@ void Signals::getData() {
     markFetch(false);
 }
 
+void Signals::outData() const {
+    busWrite(D, data);
+    busMode(D, OUTPUT);
+}
+
+void Signals::inputMode() {
+    busMode(D, INPUT);
+}
+
 void Signals::print() const {
     LOG_MATCH(cli.printDec(pos(), -4));
     //                              0123456789012

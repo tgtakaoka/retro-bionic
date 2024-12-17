@@ -18,6 +18,15 @@ void Signals::getData() {
     data = busRead(DB);
 }
 
+void Signals::outData() const {
+    busWrite(DB, data);
+    busMode(DB, OUTPUT);
+}
+
+void Signals::inputMode() {
+    busMode(DB, INPUT);
+}
+
 void Signals::print() const {
     LOG(cli.printDec(pos(), -4));
     //                              01234567890123

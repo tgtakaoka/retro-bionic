@@ -1,7 +1,6 @@
 #include "pins_nsc800.h"
 #include "debugger.h"
 #include "devs_z80.h"
-#include "digital_bus.h"
 #include "inst_z80.h"
 #include "mems_z80.h"
 #include "regs_z80.h"
@@ -10,7 +9,6 @@
 namespace debugger {
 namespace nsc800 {
 
-using z80::Devs;
 using z80::InstZ80;
 
 // clang-format off
@@ -210,8 +208,8 @@ void PinsNsc800::resetPins() {
     negate_reset();
     Signals::resetCycles();
     prepareWait();
-    _regs.setIp(InstZ80::ORG_RESET);
-    _regs.save();
+    _regs->setIp(InstZ80::ORG_RESET);
+    _regs->save();
 }
 
 Signals *PinsNsc800::prepareCycle() const {
@@ -241,31 +239,31 @@ Signals *PinsNsc800::completeCycle(Signals *s) const {
     if (s->read()) {
         if (s->mreq()) {  // Memory access
             if (s->readMemory()) {
-                s->data = _mems.raw_read(s->addr);
+                s->data = _mems->raw_read(s->addr);
             } else {
                 ;  // inject
             }
         } else {  // I/O access
             const uint8_t ioaddr = s->addr;
-            if (Devs.isSelected(ioaddr))
-                s->data = Devs.read(ioaddr);
+            if (_devs->isSelected(ioaddr))
+                s->data = _devs->read(ioaddr);
         }
         s->outData();
     } else if (s->intack()) {
-        s->data = Devs.vector();
+        s->data = _devs->vector();
         s->outData();
     } else {
         s->getData();
         if (s->mreq()) {
             if (s->writeMemory()) {
-                _mems.raw_write(s->addr, s->data);
+                _mems->raw_write(s->addr, s->data);
             } else {
                 ;  // capture
             }
         } else if (s->write()) {
             const uint8_t ioaddr = s->addr;
-            if (Devs.isSelected(ioaddr))
-                Devs.write(ioaddr, s->data);
+            if (_devs->isSelected(ioaddr))
+                _devs->write(ioaddr, s->data);
         }
     }
     // T3A
@@ -305,7 +303,7 @@ void PinsNsc800::execute(const uint8_t *inst, uint8_t len, uint16_t *addr,
         if (cap < max)
             s->capture();
         if (inj == 0) {
-            resumeCycle(_regs.nextIp());
+            resumeCycle(_regs->nextIp());
         } else {
             completeCycle(s);
         }
@@ -335,17 +333,17 @@ void PinsNsc800::idle() {
 }
 
 void PinsNsc800::loop() {
-    resumeCycle(_regs.nextIp());
+    resumeCycle(_regs->nextIp());
     while (true) {
         const auto s = prepareCycle();
-        if (s->fetch() && _mems.raw_read(s->addr) == InstZ80::HALT) {
+        if (s->fetch() && _mems->raw_read(s->addr) == InstZ80::HALT) {
             completeCycle(s->inject(InstZ80::JR));
             inject(InstZ80::JR_HERE);
             prepareWait();
             return;
         }
         completeCycle(s);
-        Devs.loop();
+        _devs->loop();
         if (haltSwitch()) {
             suspend();
             return;
@@ -354,13 +352,13 @@ void PinsNsc800::loop() {
 }
 
 void PinsNsc800::run() {
-    _regs.restore();
+    _regs->restore();
     Signals::resetCycles();
     saveBreakInsts();
     loop();
     restoreBreakInsts();
     disassembleCycles();
-    _regs.save();
+    _regs->save();
 }
 
 void PinsNsc800::suspend() {
@@ -382,8 +380,8 @@ void PinsNsc800::suspend() {
 }
 
 bool PinsNsc800::rawStep() {
-    const auto pc = _regs.nextIp();
-    if (_mems.raw_read(pc) == InstZ80::HALT)
+    const auto pc = _regs->nextIp();
+    if (_mems->raw_read(pc) == InstZ80::HALT)
         return false;
     assert_nmi();
     resumeCycle(pc);
@@ -393,13 +391,13 @@ bool PinsNsc800::rawStep() {
 
 bool PinsNsc800::step(bool show) {
     Signals::resetCycles();
-    _regs.restore();
+    _regs->restore();
     if (show)
         Signals::resetCycles();
     if (rawStep()) {
         if (show)
             printCycles();
-        _regs.save();
+        _regs->save();
         return true;
     }
     return false;
@@ -458,7 +456,7 @@ void PinsNsc800::disassembleCycles() {
     for (auto i = 0; i < cycles;) {
         const auto s = g->next(i);
         if (s->fetch()) {
-            const auto next = _mems.disassemble(s->addr, 1);
+            const auto next = _mems->disassemble(s->addr, 1);
             i += next - s->addr;
         } else {
             s->print();

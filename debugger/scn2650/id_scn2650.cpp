@@ -1,16 +1,15 @@
-#include "target.h"
+#include "identity.h"
 
-#include "devs_scn2650.h"
-#include "mems_scn2650.h"
 #include "pins_scn2650.h"
-#include "regs_scn2650.h"
 
 namespace debugger {
 namespace scn2650 {
 
-const struct Target TargetScn2650 {
-    "SCN2650", Pins, Regs, Memory, Devs
-};
+Pins *instance() {
+    return new PinsScn2650();
+}
+
+const struct Identity SCN2650{"SCN2650", instance};
 
 }  // namespace scn2650
 }  // namespace debugger

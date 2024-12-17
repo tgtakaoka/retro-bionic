@@ -36,7 +36,7 @@ void Signals::getData() {
     data = busRead(AD);
 }
 
-void Signals::outData() {
+void Signals::outData() const {
     busWrite(AD, data);
     busMode(AD, OUTPUT);
 }

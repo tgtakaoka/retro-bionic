@@ -6,18 +6,16 @@
 namespace debugger {
 namespace z86 {
 
-using z8::MemsZ8;
+struct RegsZ86;
 
-struct MemsZ86 final : MemsZ8 {
-    MemsZ86();
+struct MemsZ86 final : z8::MemsZ8 {
+    MemsZ86(RegsZ86 *regs, Devs *dev);
 
     RomArea *romArea() override { return &_rom; }
 
 private:
     RomArea _rom;
 };
-
-extern struct MemsZ86 Memory;
 
 }  // namespace z86
 }  // namespace debugger

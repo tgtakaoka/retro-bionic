@@ -11,6 +11,8 @@ struct Signals : SignalsBase<Signals, mc6800::Signals> {
     void getDirection();
     void getControl();
     void getData();
+    void outData() const;
+    static void inputMode();
     void print() const;
 
     bool vector() const;

@@ -6,7 +6,13 @@
 namespace debugger {
 namespace mos6502 {
 
+struct PinsMos6502;
+struct MemsMos6502;
+
 struct RegsMos6502 final : Regs {
+    RegsMos6502(PinsMos6502 *pins, MemsMos6502 *mems)
+        : _pins(pins), _mems(mems) {}
+
     const char *cpu() const override;
     const char *cpuName() const override;
 
@@ -20,6 +26,9 @@ struct RegsMos6502 final : Regs {
     void setRegister(uint8_t reg, uint32_t value) override;
 
 private:
+    PinsMos6502 *_pins;
+    MemsMos6502 *_mems;
+
     uint16_t _pc;
     uint16_t _d;
     uint16_t _s;
@@ -44,8 +53,6 @@ private:
     void save65816();
     void restore65816();
 };
-
-extern struct RegsMos6502 Registers;
 
 }  // namespace mos6502
 }  // namespace debugger

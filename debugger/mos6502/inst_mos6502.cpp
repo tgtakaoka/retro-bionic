@@ -5,7 +5,7 @@ namespace debugger {
 namespace mos6502 {
 
 bool InstMos6502::isStop(uint8_t inst) {
-    return Pins.hardwareType() != HardwareType::HW_MOS6502 &&
+    return PinsMos6502::hardwareType() != HardwareType::HW_MOS6502 &&
            (inst == WAI || inst == STP);
 }
 

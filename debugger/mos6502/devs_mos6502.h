@@ -9,6 +9,9 @@ namespace debugger {
 namespace mos6502 {
 
 struct DevsMos6502 final : Devs {
+    DevsMos6502();
+    ~DevsMos6502();
+
     void begin() override;
     void reset() override;
     void loop() override;
@@ -16,12 +19,13 @@ struct DevsMos6502 final : Devs {
     uint16_t read(uint32_t addr) const override;
     void write(uint32_t addr, uint16_t data) const override;
 
-    Device &parseDevice(const char *name) const override;
-    void enableDevice(Device &dev) override;
+    Device *parseDevice(const char *name) const override;
+    void enableDevice(Device *dev) override;
     void printDevices() const override;
-};
 
-extern struct DevsMos6502 Devices;
+private:
+    Device *_acia;
+};
 
 }  // namespace mos6502
 }  // namespace debugger

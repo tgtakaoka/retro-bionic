@@ -1,8 +1,7 @@
 #include "pins_mc6802.h"
 #include "debugger.h"
 #include "devs_mc6800.h"
-#include "digital_bus.h"
-#include "inst_mc6800.h"
+#include "inst_mb8861.h"
 #include "mems_mc6802.h"
 #include "regs_mc6802.h"
 
@@ -143,6 +142,16 @@ constexpr uint8_t PINS_INPUT[] = {
 
 }  // namespace
 
+PinsMc6802::PinsMc6802() {
+    auto regs = new RegsMc6802(this);
+    auto devs = new mc6800::DevsMc6800();
+    auto mems = new MemsMc6800(regs, devs);
+    _regs = regs;
+    _mems = mems;
+    _devs = devs;
+    _inst = new mb8861::InstMb8861(mems);
+}
+
 void PinsMc6802::resetPins() {
     // Assert reset condition
     pinsMode(PINS_LOW, sizeof(PINS_LOW), OUTPUT, LOW);
@@ -150,9 +159,9 @@ void PinsMc6802::resetPins() {
     pinsMode(PINS_PULLUP, sizeof(PINS_PULLUP), INPUT_PULLUP);
     pinsMode(PINS_INPUT, sizeof(PINS_INPUT), INPUT);
 
-    Memory.set_internal_ram(digitalReadFast(PIN_RE) != LOW);
-    const auto reset_vec = _mems.raw_read16(InstMc6800::VEC_RESET);
-    _mems.raw_write16(InstMc6800::VEC_RESET, 0x8000);
+    mems<MemsMc6802>()->set_internal_ram(digitalReadFast(PIN_RE) != LOW);
+    const auto reset_vec = _mems->raw_read16(InstMc6800::VEC_RESET);
+    _mems->raw_write16(InstMc6800::VEC_RESET, 0x8000);
 
     for (auto i = 0; i < 3; ++i)
         extal_cycle();
@@ -179,11 +188,12 @@ void PinsMc6802::resetPins() {
     cycle();
     // The first instruction will be saving registers, and certainly can be
     // injected.
-    _regs.reset();
-    _regs.save();
-    _mems.raw_write16(InstMc6800::VEC_RESET, reset_vec);
-    _regs.setIp(reset_vec);
-    _regs.checkSoftwareType();
+    auto r = regs<RegsMc6802>();
+    r->reset();
+    r->save();
+    _mems->raw_write16(InstMc6800::VEC_RESET, reset_vec);
+    r->setIp(reset_vec);
+    r->checkSoftwareType();
 }
 
 mc6800::Signals *PinsMc6802::cycle() {
@@ -195,7 +205,7 @@ mc6800::Signals *PinsMc6802::rawCycle() {
     // MC6802/MC6808 clock E is CLK/4, so we toggle CLK 4 times
     // c1
     extal_lo();
-    busMode(D, INPUT);
+    Signals::inputMode();
     auto s = Signals::put();
     delayNanoseconds(c1_lo_ns);
     // c2
@@ -218,9 +228,9 @@ mc6800::Signals *PinsMc6802::rawCycle() {
         delayNanoseconds(c4_hi_novma);
         extal_lo();
         delayNanoseconds(c4_lo_novma);
-    } else if (s->read() && !Memory.is_internal(s->addr)) {
+    } else if (s->read() && !mems<MemsMc6802>()->is_internal(s->addr)) {
         if (s->readMemory()) {
-            s->data = _mems.read(s->addr);
+            s->data = _mems->read(s->addr);
             if (c3_hi_read)
                 delayNanoseconds(c3_hi_read);
         } else {
@@ -228,8 +238,7 @@ mc6800::Signals *PinsMc6802::rawCycle() {
             delayNanoseconds(c3_hi_inject);
         }
         extal_lo();
-        busMode(D, OUTPUT);
-        busWrite(D, s->data);
+        s->outData();
         delayNanoseconds(c3_lo_read);
         // c4
         extal_hi();
@@ -256,7 +265,7 @@ mc6800::Signals *PinsMc6802::rawCycle() {
             if (c4_lo_write)
                 delayNanoseconds(c4_lo_write);
             s->getData();
-            _mems.write(s->addr, s->data);
+            _mems->write(s->addr, s->data);
         } else {
             delayNanoseconds(c4_lo_capture);
             s->getData();

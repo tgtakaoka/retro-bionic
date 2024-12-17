@@ -1,13 +1,16 @@
 #ifndef __MEMS_TLCS90_H__
 #define __MEMS_TLCS90_H__
 
+#include "devs.h"
 #include "mems.h"
 
 namespace debugger {
 namespace tlcs90 {
 
+struct RegsTlcs90;
+
 struct MemsTlcs90 final : DmaMemory {
-    MemsTlcs90() : DmaMemory(Endian::ENDIAN_LITTLE) {}
+    MemsTlcs90(RegsTlcs90 *regs, Devs *devs);
 
     uint32_t maxAddr() const override { return UINT16_MAX; }
     static bool is_internal(uint16_t addr) { return addr >= 0xFEC0; }
@@ -18,16 +21,10 @@ struct MemsTlcs90 final : DmaMemory {
     void put(uint32_t addr, uint16_t data,
             const char *space = nullptr) const override;
 
-protected:
-#ifdef WITH_ASSEMBLER
-    libasm::Assembler *assembler() const override;
-#endif
-#ifdef WITH_DISASSEMBLER
-    libasm::Disassembler *disassembler() const override;
-#endif
+private:
+    RegsTlcs90 *_regs;
+    Devs *_devs;
 };
-
-extern struct MemsTlcs90 Memory;
 
 }  // namespace tlcs90
 }  // namespace debugger

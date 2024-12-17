@@ -2,22 +2,30 @@
 #include <asm_i8051.h>
 #include <ctype.h>
 #include <dis_i8051.h>
-#include "devs_i8051.h"
 #include "regs_i8051.h"
 
 namespace debugger {
 namespace i8051 {
 
-struct ProgI8051 ProgMemory;
-struct DataI8051 DataMemory;
+ProgI8051::ProgI8051(RegsI8051 *regs, Mems *data)
+    : DmaMemory(Endian::ENDIAN_BIG), _regs(regs), _data(data) {
+#ifdef WITH_ASSEMBLER
+    _assembler = new libasm::i8051::AsmI8051();
+#endif
+#ifdef WITH_DISASSEMBLER
+    _disassembler = new libasm::i8051::DisI8051();
+#endif
+}
+
+DataI8051::DataI8051(Devs *devs) : DmaMemory(Endian::ENDIAN_BIG), _devs(devs) {}
 
 uint16_t DataI8051::read(uint32_t addr) const {
-    return Devs.isSelected(addr) ? Devs.read(addr) : raw_read(addr);
+    return _devs->isSelected(addr) ? _devs->read(addr) : raw_read(addr);
 }
 
 void DataI8051::write(uint32_t addr, uint16_t data) const {
-    if (Devs.isSelected(addr)) {
-        Devs.write(addr, data);
+    if (_devs->isSelected(addr)) {
+        _devs->write(addr, data);
     } else {
         raw_write(addr, data);
     }
@@ -27,9 +35,9 @@ uint16_t ProgI8051::get(uint32_t addr, const char *space) const {
     if (space == nullptr || toupper(*space) == 'P')
         return raw_read(addr);
     if (toupper(*space) == 'M')
-        return Regs.read_internal(addr);
+        return _regs->read_internal(addr);
     if (toupper(*space) == 'X')
-        return DataMemory.read(addr);
+        return _data->read(addr);
     return 0;
 }
 
@@ -37,28 +45,11 @@ void ProgI8051::put(uint32_t addr, uint16_t data, const char *space) const {
     if (space == nullptr || toupper(*space) == 'P') {
         raw_write(addr, data);
     } else if (toupper(*space) == 'M') {
-        Regs.write_internal(addr, data);
+        _regs->write_internal(addr, data);
     } else if (toupper(*space) == 'X') {
-        DataMemory.write(addr, data);
+        _data->write(addr, data);
     }
 }
-
-#ifdef WITH_ASSEMBLER
-libasm::Assembler *ProgI8051::assembler() const {
-    static auto as = new libasm::i8051::AsmI8051();
-    as->setCpu(Regs.cpu());
-    return as;
-}
-#endif
-
-#ifdef WITH_DISASSEMBLER
-libasm::Disassembler *ProgI8051::disassembler() const {
-    static auto dis = new libasm::i8051::DisI8051();
-
-    dis->setCpu(Regs.cpu());
-    return dis;
-}
-#endif
 
 }  // namespace i8051
 }  // namespace debugger

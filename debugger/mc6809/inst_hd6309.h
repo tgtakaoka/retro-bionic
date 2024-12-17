@@ -6,11 +6,10 @@
 namespace debugger {
 namespace hd6309 {
 
-using mc6809::InstMc6809;
 using mc6809::SoftwareType;
 
-struct InstHd6309 final : InstMc6809 {
-    InstHd6309(const DmaMemory &mems) : InstMc6809(mems) {}
+struct InstHd6309 final : mc6809::InstMc6809 {
+    InstHd6309(Mems *mems) : InstMc6809(mems) {}
 
     bool match(const mc6800::Signals *begin, const mc6800::Signals *end,
             const mc6800::Signals *prefetch) override;

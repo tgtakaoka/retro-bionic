@@ -1,9 +1,6 @@
 #include "pins_mc6809_base.h"
 #include "debugger.h"
-#include "devs_mc6809.h"
-#include "digital_bus.h"
 #include "inst_mc6809.h"
-#include "mems_mc6809.h"
 #include "regs_mc6809.h"
 #include "signals_mc6809.h"
 
@@ -45,11 +42,12 @@ void PinsMc6809Base::resetPins() {
     // LSB of reset vector;
     cycle();
     cycle();  // non-VMA
-    _regs.reset();
+    _regs->reset();
     // SoftwareType must be determined before context save.
-    _inst.setSoftwareType(_regs.checkSoftwareType());
-    _regs.save();
-    _regs.setIp(_mems.raw_read16(InstMc6809::VEC_RESET));
+    auto softType = regs<RegsMc6809>()->checkSoftwareType();
+    _inst->setSoftwareType(softType);
+    _regs->save();
+    _regs->setIp(_mems->raw_read16(InstMc6809::VEC_RESET));
 }
 
 Signals *PinsMc6809Base::injectCycle(uint8_t data) {
@@ -118,18 +116,18 @@ const Signals *PinsMc6809Base::stackFrame(const Signals *push) const {
 }
 
 void PinsMc6809Base::loop() {
-    const auto vec_swi = _inst.vec_swi();
+    const auto vec_swi = _inst->vec_swi();
     while (true) {
-        Devs.loop();
+        _devs->loop();
         const auto s = rawCycle();
         if (s->vector() && s->addr == vec_swi) {
             cycle();  // read SWI low(vector);
             cycle();  // non-VMA
             const auto frame = stackFrame(s->prev(2));
             const auto pc = uint16(frame->next()->data, frame->data);
-            const auto swi_vector = _mems.raw_read16(vec_swi);
+            const auto swi_vector = _mems->raw_read16(vec_swi);
             if (isBreakPoint(pc) || swi_vector == vec_swi) {
-                _regs.capture(frame);
+                regs<RegsMc6809>()->capture(frame);
                 Signals::discard(frame->prev(2));
                 return;
             }
@@ -150,7 +148,7 @@ reentry:
             break;
     }
     negate_nmi();
-    if (s->addr == _inst.vec_swi()) {
+    if (s->addr == _inst->vec_swi()) {
         cycle();  // SWI lo(vector)
         cycle();  // non-VMA
         goto reentry;
@@ -158,16 +156,17 @@ reentry:
     const auto frame = stackFrame(s->prev(2));
     cycle();  // NMI lo(vector)
     cycle();  // non-VMA
-    _regs.capture(frame, true);
+    regs<RegsMc6809>()->capture(frame, true);
     if (show) {
         // Keep prefetch cycle for bus cycle pattern matching.
-        const auto last = frame->prev(_regs.contextLength() == 14 ? 3 : 2);
+        const auto last =
+                frame->prev(regs<RegsMc6809>()->contextLength() == 14 ? 3 : 2);
         Signals::discard(last);
     }
 }
 
 void PinsMc6809Base::run() {
-    _regs.restore();
+    _regs->restore();
     Signals::resetCycles();
     saveBreakInsts();
     loop();
@@ -177,7 +176,7 @@ void PinsMc6809Base::run() {
 
 bool PinsMc6809Base::step(bool show) {
     Signals::resetCycles();
-    _regs.restore();
+    _regs->restore();
     if (show)
         Signals::resetCycles();
     suspend(show);
@@ -204,7 +203,7 @@ void PinsMc6809Base::negateInt(uint8_t name) {
 }
 
 void PinsMc6809Base::setBreakInst(uint32_t addr) const {
-    _mems.put_inst(addr, InstMc6809::SWI);
+    _mems->put_inst(addr, InstMc6809::SWI);
 }
 
 void PinsMc6809Base::printCycles(const Signals *end) {
@@ -228,18 +227,18 @@ bool PinsMc6809Base::matchAll(Signals *begin, const Signals *end) {
     for (auto i = 0; i < cycles;) {
         idle();
         auto s = begin->next(i);
-        if (_inst.match(s, end, nullptr)) {
-            s->markFetch(_inst.matched());
-            for (auto m = 1; m < _inst.matched(); ++m)
+        if (_inst->match(s, end, nullptr)) {
+            s->markFetch(_inst->matched());
+            for (auto m = 1; m < _inst->matched(); ++m)
                 s->next(m)->clearFetch();
-            i += _inst.matched();
+            i += _inst->matched();
             continue;
         }
         idle();
-        if (_inst.matchInterrupt(s, end)) {
-            for (auto m = 1; m < _inst.matched(); ++m)
+        if (_inst->matchInterrupt(s, end)) {
+            for (auto m = 1; m < _inst->matched(); ++m)
                 s->next(m)->clearFetch();
-            i += _inst.matched();
+            i += _inst->matched();
             continue;
         }
         return false;
@@ -274,7 +273,7 @@ void PinsMc6809Base::disassembleCycles() {
     for (auto i = 0; i < cycles;) {
         const auto s = begin->next(i);
         if (s->fetch()) {
-            const auto len = _mems.disassemble(s->addr, 1) - s->addr;
+            const auto len = _mems->disassemble(s->addr, 1) - s->addr;
             i += len;
         } else {
             s->print();

@@ -1,13 +1,16 @@
 #ifndef __MEMS_TMS7000_H__
 #define __MEMS_TMS7000_H__
 
+#include "devs.h"
 #include "mems.h"
 
 namespace debugger {
 namespace tms7000 {
 
+struct RegsTms7000;
+
 struct MemsTms7000 final : DmaMemory {
-    MemsTms7000() : DmaMemory(Endian::ENDIAN_BIG) {}
+    MemsTms7000(RegsTms7000 *regs, Devs *devs);
 
     uint32_t maxAddr() const override { return UINT16_MAX; }
     uint16_t read(uint32_t addr) const override;
@@ -16,16 +19,10 @@ struct MemsTms7000 final : DmaMemory {
     void put(uint32_t addr, uint16_t data,
             const char *space = nullptr) const override;
 
-protected:
-#ifdef WITH_ASSEMBLER
-    libasm::Assembler *assembler() const override;
-#endif
-#ifdef WITH_DISASSEMBLER
-    libasm::Disassembler *disassembler() const override;
-#endif
+private:
+    RegsTms7000 *_regs;
+    Devs *_devs;
 };
-
-extern struct MemsTms7000 Memory;
 
 }  // namespace tms7000
 }  // namespace debugger

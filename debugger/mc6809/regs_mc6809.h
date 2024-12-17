@@ -15,18 +15,18 @@ enum SoftwareType : uint8_t {
 };
 
 struct RegsMc6809 : Regs {
-    RegsMc6809(PinsMc6809Base &pins) : _pins(pins) {}
+    RegsMc6809(PinsMc6809Base *pins) : _pins(pins) {}
 
     const char *cpu() const override;
     const char *cpuName() const override;
 
     void print() const override;
-    void reset() const;
+    void reset() override;
     void save() override;
     void restore() override;
     uint8_t contextLength() const;
     uint16_t capture(const Signals *frame, bool step = false);
-    void setIp(uint16_t addr) { _pc = addr; }
+    void setIp(uint32_t addr) override { _pc = addr; }
 
     uint32_t nextIp() const override { return _pc; }
     void helpRegisters() const override;
@@ -36,7 +36,7 @@ struct RegsMc6809 : Regs {
     SoftwareType checkSoftwareType();
 
 protected:
-    PinsMc6809Base &_pins;
+    PinsMc6809Base *_pins;
     SoftwareType _type;
 
     uint16_t _s;

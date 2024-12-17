@@ -7,33 +7,27 @@
 namespace debugger {
 namespace mc6809 {
 
+MemsMc6809::MemsMc6809(Devs *devs)
+    : DmaMemory(Endian::ENDIAN_BIG), _devs(devs) {
+#ifdef WITH_ASSEMBLER
+    _assembler = new libasm::mc6809::AsmMc6809();
+#endif
+#ifdef WITH_DISASSEMBLER
+    _disassembler = new libasm::mc6809::DisMc6809();
+#endif
+}
+
 uint16_t MemsMc6809::read(uint32_t addr) const {
-    return Devs.isSelected(addr) ? Devs.read(addr) : raw_read(addr);
+    return _devs->isSelected(addr) ? _devs->read(addr) : raw_read(addr);
 }
 
 void MemsMc6809::write(uint32_t addr, uint16_t data) const {
-    if (Devs.isSelected(addr)) {
-        Devs.write(addr, data);
+    if (_devs->isSelected(addr)) {
+        _devs->write(addr, data);
     } else {
         raw_write(addr, data);
     }
 }
-
-#ifdef WITH_ASSEMBLER
-libasm::Assembler *MemsMc6809::assembler() const {
-    static auto as = new libasm::mc6809::AsmMc6809();
-    as->setCpu(_regs.cpu());
-    return as;
-}
-#endif
-
-#ifdef WITH_DISASSEMBLER
-libasm::Disassembler *MemsMc6809::disassembler() const {
-    static auto dis = new libasm::mc6809::DisMc6809();
-    dis->setCpu(_regs.cpu());
-    return dis;
-}
-#endif
 
 }  // namespace mc6809
 }  // namespace debugger

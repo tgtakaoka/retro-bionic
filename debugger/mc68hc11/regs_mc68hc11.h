@@ -6,15 +6,11 @@
 namespace debugger {
 namespace mc68hc11 {
 
-using mc6800::PinsMc6800Base;
-using mc6800::RegsMc6800;
+struct Mc68hc11Init;
 
-struct DevsMc68hc11;
-struct MemsMc68hc11;
-
-struct RegsMc68hc11 final : RegsMc6800 {
-    RegsMc68hc11(PinsMc6800Base &pins, const MemsMc68hc11 &mems)
-        : RegsMc6800(pins), _mems(mems) {}
+struct RegsMc68hc11 final : mc6800::RegsMc6800 {
+    RegsMc68hc11(mc6800::PinsMc6800Base *pins, Mc68hc11Init &init)
+        : RegsMc6800(pins), _init(init) {}
 
     const char *cpuName() const override;
 
@@ -28,13 +24,13 @@ struct RegsMc68hc11 final : RegsMc6800 {
     const RegList *listRegisters(uint8_t n) const override;
     void setRegister(uint8_t reg, uint32_t value) override;
 
-    uint8_t internal_read(uint16_t addr) const;
-    void internal_write(uint16_t addr, uint8_t data) const;
+    uint8_t internal_read(uint16_t addr) const override;
+    void internal_write(uint16_t addr, uint8_t data) const override;
 
     SoftwareType checkSoftwareType() override;
 
 protected:
-    const MemsMc68hc11 &_mems;
+    Mc68hc11Init &_init;
     uint16_t _y;
 
     void _d(uint16_t d) {

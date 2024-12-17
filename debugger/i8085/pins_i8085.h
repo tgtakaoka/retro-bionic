@@ -76,6 +76,8 @@ enum IntrName : uint8_t {
 };
 
 struct PinsI8085 final : Pins {
+    PinsI8085();
+
     void resetPins() override;
     void idle() override;
     bool step(bool show) override;
@@ -90,6 +92,8 @@ struct PinsI8085 final : Pins {
             uint8_t *buf, uint8_t max);
 
 private:
+    void clk_lo_nowait() const;
+    void clk_lo() const;
     Signals *cycleT1() const;
     Signals *cycleT2() const;
     Signals *cycleT2Pause() const;
@@ -104,8 +108,6 @@ private:
 
     void disassembleCycles();
 };
-
-extern struct PinsI8085 Pins;
 
 }  // namespace i8085
 }  // namespace debugger

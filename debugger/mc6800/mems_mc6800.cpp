@@ -7,33 +7,27 @@
 namespace debugger {
 namespace mc6800 {
 
+MemsMc6800::MemsMc6800(RegsMc6800 *regs, Devs *devs)
+    : DmaMemory(Endian::ENDIAN_BIG), _regs(regs), _devs(devs) {
+#ifdef WITH_ASSEMBLER
+    _assembler = new libasm::mc6800::AsmMc6800();
+#endif
+#ifdef WITH_DISASSEMBLER
+    _disassembler = new libasm::mc6800::DisMc6800();
+#endif
+}
+
 uint16_t MemsMc6800::read(uint32_t addr) const {
-    return Devices.isSelected(addr) ? Devices.read(addr) : raw_read(addr);
+    return _devs->isSelected(addr) ? _devs->read(addr) : raw_read(addr);
 }
 
 void MemsMc6800::write(uint32_t addr, uint16_t data) const {
-    if (Devices.isSelected(addr)) {
-        Devices.write(addr, data);
+    if (_devs->isSelected(addr)) {
+        _devs->write(addr, data);
     } else {
         raw_write(addr, data);
     }
 }
-
-#ifdef WITH_ASSEMBLER
-libasm::Assembler *MemsMc6800::assembler() const {
-    static auto as = new libasm::mc6800::AsmMc6800();
-    as->setCpu(_regs.cpu());
-    return as;
-}
-#endif
-
-#ifdef WITH_DISASSEMBLER
-libasm::Disassembler *MemsMc6800::disassembler() const {
-    static auto dis = new libasm::mc6800::DisMc6800();
-    dis->setCpu(_regs.cpu());
-    return dis;
-}
-#endif
 
 }  // namespace mc6800
 }  // namespace debugger

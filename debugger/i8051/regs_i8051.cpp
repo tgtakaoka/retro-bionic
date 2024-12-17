@@ -1,18 +1,14 @@
 #include "regs_i8051.h"
 #include "char_buffer.h"
 #include "debugger.h"
-#include "digital_bus.h"
 #include "inst_i8051.h"
-#include "mems_i8051.h"
 #include "pins_i8051.h"
 
 namespace debugger {
 namespace i8051 {
 
-struct RegsI8051 Regs;
-
 const char *RegsI8051::cpuName() const {
-    return Pins.isCmos() ? "P80C51" : "P8051";
+    return _pins->isCmos() ? "P80C51" : "P8051";
 }
 
 void RegsI8051::print() const {
@@ -35,11 +31,11 @@ void RegsI8051::print() const {
     for (auto i = 0; i < 8; ++i)
         regs.hex8(3 + i * 6, _r[i]);
     cli.println(regs);
-    Pins.idle();
+    _pins->idle();
 }
 
 void RegsI8051::save() {
-    Pins.captureWrites(SAVE_A, sizeof(SAVE_A), &_pc, &_a, sizeof(_a));
+    _pins->captureWrites(SAVE_A, sizeof(SAVE_A), &_pc, &_a, sizeof(_a));
     _b = raw_read_internal(B);
     _psw = raw_read_internal(PSW);
     _sp = raw_read_internal(SP);
@@ -76,20 +72,20 @@ void RegsI8051::restore() {
     uint8_t LJMP[] = {
             0x02, hi(_pc), lo(_pc), 0,  // LJMP _pc
     };
-    Pins.execInst(LJMP, sizeof(LJMP));
+    _pins->execInst(LJMP, sizeof(LJMP));
 }
 
 uint8_t RegsI8051::raw_read_internal(uint8_t addr) const {
     uint8_t data;
     if (addr == ACC) {
-        Pins.captureWrites(
+        _pins->captureWrites(
                 SAVE_A, sizeof(SAVE_A), nullptr, &data, sizeof(data));
     } else {
         uint8_t READ[] = {
                 0xE5, addr,  // MOV A, addr
                 0xF2,        // MOVX @R0, A
         };
-        Pins.captureWrites(READ, sizeof(READ), nullptr, &data, sizeof(data));
+        _pins->captureWrites(READ, sizeof(READ), nullptr, &data, sizeof(data));
     }
     return data;
 }
@@ -105,17 +101,17 @@ void RegsI8051::write_internal(uint8_t addr, uint8_t data) const {
         uint8_t WRITE_A[] = {
                 0x74, data,  // MOV A, #data
         };
-        Pins.execInst(WRITE_A, sizeof(WRITE_A));
+        _pins->execInst(WRITE_A, sizeof(WRITE_A));
     } else {
         uint8_t WRITE[] = {
                 0x75, addr, data, data,  // MOV addr, #data
         };
-        Pins.execInst(WRITE, sizeof(WRITE));
+        _pins->execInst(WRITE, sizeof(WRITE));
     }
 }
 
 void RegsI8051::helpRegisters() const {
-    cli.println(F("?Reg: PC DPTR A B SP R0~R7 PSW F0~1 RS"));
+    cli.println("?Reg: PC DPTR A B SP R0~R7 PSW F0~1 RS");
 }
 
 constexpr const char *REGS8[] = {

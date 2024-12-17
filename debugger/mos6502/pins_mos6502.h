@@ -76,7 +76,6 @@
 #define W65C816_MX PIN_SO
 #define CNTL_VPA CNTL_SYNC
 
-#include "mems.h"
 #include "pins.h"
 #include "signals_mos6502.h"
 
@@ -98,6 +97,8 @@ enum SoftwareType : uint8_t {
 };
 
 struct PinsMos6502 final : Pins {
+    PinsMos6502();
+
     void resetPins() override;
     void idle() override;
     bool step(bool show) override;
@@ -113,13 +114,12 @@ struct PinsMos6502 final : Pins {
 
     Signals *cycle(uint8_t data);
     bool native65816() const;
-    HardwareType hardwareType() const { return _hardType; }
-    SoftwareType softwareType() const { return _softType; }
+    static HardwareType hardwareType() { return _hardType; }
+    static SoftwareType softwareType() { return _softType; }
 
 private:
-    HardwareType _hardType;
-    SoftwareType _softType;
-    Mems *_mems;
+    static HardwareType _hardType;
+    static SoftwareType _softType;
 
     void checkHardwareType();
     void checkSoftwareType();
@@ -138,8 +138,6 @@ private:
 
     void disassembleCycles();
 };
-
-extern struct PinsMos6502 Pins;
 
 }  // namespace mos6502
 }  // namespace debugger

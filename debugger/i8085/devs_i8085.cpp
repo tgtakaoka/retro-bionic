@@ -7,60 +7,63 @@
 namespace debugger {
 namespace i8085 {
 
-I8085SioHandler SioH;
+DevsI8085::DevsI8085() : _usart(new I8251()), _sio(new I8085SioHandler()) {}
 
-DevsI8085 Devs;
+DevsI8085::~DevsI8085() {
+    delete _usart;
+    delete _sio;
+}
 
 void DevsI8085::reset() {
-    SioH.reset();
-    USART.reset();
-    USART.setBaseAddr(USART_BASE);
+    _sio->reset();
+    _usart->reset();
+    _usart->setBaseAddr(USART_BASE);
 }
 
 void DevsI8085::begin() {
-    enableDevice(USART);
+    enableDevice(_usart);
 }
 
 void DevsI8085::loop() {
-    USART.loop();
+    _usart->loop();
 }
 
 void DevsI8085::setIdle(bool idle) {
-    SioH.setIdle(idle);
+    _sio->setIdle(idle);
 }
 
 bool DevsI8085::isSelected(uint32_t addr) const {
-    return USART.isSelected(addr);
+    return _usart->isSelected(addr);
 }
 
 uint16_t DevsI8085::read(uint32_t addr) const {
-    return USART.read(addr);
+    return _usart->read(addr);
 }
 
 void DevsI8085::write(uint32_t addr, uint16_t data) const {
-    USART.write(addr, data);
+    _usart->write(addr, data);
 }
 
 uint16_t DevsI8085::vector() const {
-    return USART.vector();
+    return _usart->vector();
 }
 
-Device &DevsI8085::parseDevice(const char *name) const {
-    if (strcasecmp(name, USART.name()) == 0)
-        return USART;
-    if (strcasecmp(name, SioH.name()) == 0)
-        return SioH;
+Device *DevsI8085::parseDevice(const char *name) const {
+    if (strcasecmp(name, _usart->name()) == 0)
+        return _usart;
+    if (strcasecmp(name, _sio->name()) == 0)
+        return _sio;
     return Devs::nullDevice();
 }
 
-void DevsI8085::enableDevice(Device &dev) {
-    USART.enable(&dev == &USART);
-    SioH.enable(&dev == &SioH);
+void DevsI8085::enableDevice(Device *dev) {
+    _usart->enable(dev == _usart);
+    _sio->enable(dev == _sio);
 }
 
 void DevsI8085::printDevices() const {
-    printDevice(USART);
-    printDevice(SioH);
+    printDevice(_usart);
+    printDevice(_sio);
 }
 
 }  // namespace i8085

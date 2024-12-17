@@ -27,6 +27,15 @@ void Signals::getData() {
     data = busRead(DBUS);
 }
 
+void Signals::outData() const {
+    busWrite(DBUS, data);
+    busMode(DBUS, OUTPUT);
+}
+
+void Signals::inputMode() {
+    busMode(DBUS, INPUT);
+}
+
 bool Signals::read() const {
     return (cntl() & CNTL_MRD) == 0;
 }

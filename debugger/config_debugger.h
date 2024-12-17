@@ -8,15 +8,15 @@
 #define ENABLE_LOGGER
 #define Logger SerialUSB1
 
-#define PIN_USRSW 24  /* P6.12: Halt Switch */
-#define PIN_ID 34     /* P7.29: Identifity EEPROM UNI/O SCIO pin */
+#define PIN_USRSW 24 /* P6.12: Halt Switch */
+#define PIN_ID 34    /* P7.29: Identifity EEPROM UNI/O SCIO pin */
 
 #define ENABLE_USRLED
 #if defined(ENABLE_USRLED)
 #define PIN_USRLED 25 /* P6.13: User LED */
 #define PIN_DEBUG 35  /* P7.28: Debug */
 #else
-#define PIN_DEBUG 25  /* P6.13: Debug */
+#define PIN_DEBUG 25 /* P6.13: Debug */
 #endif
 
 // #define WITH_ASSEMBLER

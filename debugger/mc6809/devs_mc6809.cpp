@@ -6,45 +6,49 @@
 namespace debugger {
 namespace mc6809 {
 
-DevsMc6809 Devs;
+DevsMc6809::DevsMc6809() : _acia(new Mc6850()) {}
+
+DevsMc6809::~DevsMc6809() {
+    delete _acia;
+}
 
 void DevsMc6809::reset() {
-    ACIA.reset();
-    ACIA.setBaseAddr(ACIA_BASE);
+    _acia->reset();
+    _acia->setBaseAddr(ACIA_BASE);
 }
 
 void DevsMc6809::begin() {
-    enableDevice(ACIA);
+    enableDevice(_acia);
 }
 
 void DevsMc6809::loop() {
-    ACIA.loop();
+    _acia->loop();
 }
 
 bool DevsMc6809::isSelected(uint32_t addr) const {
-    return ACIA.isSelected(addr);
+    return _acia->isSelected(addr);
 }
 
 uint16_t DevsMc6809::read(uint32_t addr) const {
-    return ACIA.read(addr);
+    return _acia->read(addr);
 }
 
 void DevsMc6809::write(uint32_t addr, uint16_t data) const {
-    ACIA.write(addr, data);
+    _acia->write(addr, data);
 }
 
-Device &DevsMc6809::parseDevice(const char *name) const {
-    if (strcasecmp(name, ACIA.name()) == 0)
-        return ACIA;
+Device *DevsMc6809::parseDevice(const char *name) const {
+    if (strcasecmp(name, _acia->name()) == 0)
+        return _acia;
     return Devs::nullDevice();
 }
 
-void DevsMc6809::enableDevice(Device &dev) {
-    ACIA.enable(&dev == &ACIA);
+void DevsMc6809::enableDevice(Device *dev) {
+    _acia->enable(dev == _acia);
 }
 
 void DevsMc6809::printDevices() const {
-    printDevice(ACIA);
+    printDevice(_acia);
 }
 
 }  // namespace mc6809

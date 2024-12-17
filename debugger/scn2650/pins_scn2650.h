@@ -70,6 +70,8 @@ namespace debugger {
 namespace scn2650 {
 
 struct PinsScn2650 final : Pins {
+    PinsScn2650();
+
     void resetPins() override;
     void idle() override;
     bool step(bool show) override;
@@ -93,8 +95,6 @@ private:
 
     void disassembleCycles();
 };
-
-extern struct PinsScn2650 Pins;
 
 }  // namespace scn2650
 }  // namespace debugger

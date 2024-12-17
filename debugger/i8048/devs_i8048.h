@@ -9,6 +9,9 @@ namespace debugger {
 namespace i8048 {
 
 struct DevsI8048 final : Devs {
+    DevsI8048();
+    ~DevsI8048();
+
     void begin() override;
     void reset() override;
     void loop() override;
@@ -16,12 +19,13 @@ struct DevsI8048 final : Devs {
     uint16_t read(uint32_t addr) const override;
     void write(uint32_t addr, uint16_t data) const override;
 
-    Device &parseDevice(const char *name) const override;
-    void enableDevice(Device &dev) override;
+    Device *parseDevice(const char *name) const override;
+    void enableDevice(Device *dev) override;
     void printDevices() const override;
-};
 
-extern struct DevsI8048 Devs;
+private:
+    Device *_usart;
+};
 
 }  // namespace i8048
 }  // namespace debugger

@@ -1,7 +1,6 @@
 #include "pins_i8048.h"
 #include "debugger.h"
 #include "devs_i8048.h"
-#include "digital_bus.h"
 #include "inst_i8048.h"
 #include "mems_i8048.h"
 #include "regs_i8048.h"
@@ -9,8 +8,6 @@
 
 namespace debugger {
 namespace i8048 {
-
-struct PinsI8048 Pins;
 
 // clang-format off
 /**
@@ -176,6 +173,18 @@ inline void xtal1_cycle() {
 
 }  // namespace
 
+PinsI8048::PinsI8048() {
+    auto regs = new RegsI8048(this);
+    _regs = regs;
+    _devs = new DevsI8048();
+    _data = new DataI8048(_devs);
+    _mems = new ProgI8048(regs, _data);
+}
+
+PinsI8048::~PinsI8048() {
+    delete _data;
+}
+
 void PinsI8048::checkSoftwareType() {
     static constexpr uint8_t DETECT_MSM[] = {
             0x23, 0x01,  // MOV A, #1
@@ -191,7 +200,7 @@ void PinsI8048::checkSoftwareType() {
     captureWrites(DETECT_MSM, sizeof(DETECT_MSM), nullptr, &r1, sizeof(r1));
     _type = r1 ? SW_I8048 : SW_MSM80C48;
     Inst.setSoftwareType(_type);
-    Regs.restore();
+    _regs->restore();
 }
 
 void PinsI8048::resetPins() {
@@ -209,7 +218,7 @@ void PinsI8048::resetPins() {
         xtal1_cycle();
     Signals::resetCycles();
     // #SS=L
-    Regs.save();
+    _regs->save();
     checkSoftwareType();
 }
 
@@ -264,7 +273,7 @@ Signals *PinsI8048::completeCycle(Signals *s) {
         // t8
         xtal1_hi();
         if (s->readMemory()) {
-            s->data = ProgMemory.raw_read(s->addr);
+            s->data = _mems->raw_read(s->addr);
             delayNanoseconds(xtal1_hi_memory);
         } else {
             delayNanoseconds(xtal1_hi_inject);
@@ -273,15 +282,14 @@ Signals *PinsI8048::completeCycle(Signals *s) {
         delayNanoseconds(xtal1_lo_ns);
         // t9
         xtal1_cycle_lo();
-        busWrite(DB, s->data);
-        busMode(DB, OUTPUT);
+        s->outData();
         // tA~tC
         xtal1_cycle();
         xtal1_cycle();
         xtal1_cycle();
         // tD
         xtal1_cycle_lo();
-        busMode(DB, INPUT);
+        Signals::inputMode();
         delayNanoseconds(xtal1_lo_input);
         // tE~tF
         xtal1_cycle();
@@ -291,7 +299,7 @@ Signals *PinsI8048::completeCycle(Signals *s) {
         // t9
         xtal1_hi();
         if (s->readMemory()) {
-            s->data = DataMemory.read(s->addr);
+            s->data = _data->read(s->addr);
         } else {
             delayNanoseconds(xtal1_hi_inject);
         }
@@ -300,8 +308,7 @@ Signals *PinsI8048::completeCycle(Signals *s) {
         // tA~tB
         xtal1_cycle();
         xtal1_cycle_lo();
-        busWrite(DB, s->data);
-        busMode(DB, OUTPUT);
+        s->outData();
         // tC~tF
         xtal1_cycle();
         xtal1_cycle();
@@ -309,7 +316,7 @@ Signals *PinsI8048::completeCycle(Signals *s) {
         xtal1_cycle_lo();
         while (signal_rd() == LOW)  // ensure tDR
             ;
-        busMode(DB, INPUT);
+        Signals::inputMode();
     } else if (s->write()) {  // external data write
         delayNanoseconds(xtal1_lo_write);
         // t9
@@ -320,7 +327,7 @@ Signals *PinsI8048::completeCycle(Signals *s) {
         s->getData();
         xtal1_lo();
         if (s->writeMemory()) {
-            DataMemory.write(s->addr, s->data);
+            _data->write(s->addr, s->data);
         } else {
             delayNanoseconds(xtal1_hi_capture);
         }
@@ -394,7 +401,7 @@ void PinsI8048::idle() {
 
 void PinsI8048::loop() {
     while (true) {
-        Devs.loop();
+        _devs->loop();
         if (!rawStep() || haltSwitch()) {
             return;
         }
@@ -402,14 +409,14 @@ void PinsI8048::loop() {
 }
 
 void PinsI8048::run() {
-    Regs.restore();
+    _regs->restore();
     Signals::resetCycles();
     saveBreakInsts();
     loop();
     assert_ss();
     restoreBreakInsts();
     disassembleCycles();
-    Regs.save();
+    _regs->save();
 }
 
 void PinsI8048::injectJumpHere(Signals *s) {
@@ -434,7 +441,7 @@ void PinsI8048::injectJumpHere(Signals *s) {
 bool PinsI8048::rawStep(bool step) {
     negate_ss();
     auto s = prepareCycle();
-    const auto inst = ProgMemory.raw_read(s->addr);
+    const auto inst = _mems->raw_read(s->addr);
     const auto len = Inst.instLength(inst);
     if (inst == InstI8048::HALT || len == 0) {
         injectJumpHere(s);
@@ -459,13 +466,13 @@ bool PinsI8048::rawStep(bool step) {
 
 bool PinsI8048::step(bool show) {
     Signals::resetCycles();
-    Regs.restore();
+    _regs->restore();
     if (show)
         Signals::resetCycles();
     if (rawStep(true)) {
         if (show)
             printCycles();
-        Regs.save();
+        _regs->save();
         return true;
     }
     return false;
@@ -480,7 +487,7 @@ void PinsI8048::negateInt(uint8_t name) {
 }
 
 void PinsI8048::setBreakInst(uint32_t addr) const {
-    ProgMemory.put_inst(addr, InstI8048::HALT);
+    _mems->put_inst(addr, InstI8048::HALT);
 }
 
 void PinsI8048::printCycles() {
@@ -498,7 +505,7 @@ void PinsI8048::disassembleCycles() {
     for (auto i = 0; i < cycles;) {
         const auto s = g->next(i);
         if (s->fetch()) {
-            const auto len = ProgMemory.disassemble(s->addr, 1) - s->addr;
+            const auto len = _mems->disassemble(s->addr, 1) - s->addr;
             const auto cycles = Inst.busCycles(s->data);
             for (auto i = len; i < cycles; ++i)
                 s->next(i)->print();

@@ -5,7 +5,8 @@
 namespace debugger {
 namespace tms7002 {
 
-struct Tms7002SerialHandler SerialH;
+Tms7002SerialHandler::Tms7002SerialHandler(bool tms7001)
+    : SerialHandler(), _tms7001(tms7001) {}
 
 const char *Tms7002SerialHandler::name() const {
     return "Serial";

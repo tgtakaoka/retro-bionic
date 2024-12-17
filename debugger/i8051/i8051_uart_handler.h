@@ -18,8 +18,6 @@ protected:
     uint8_t signal_txd() const override;
 };
 
-extern struct I8051UartHandler UartH;
-
 }  // namespace i8051
 }  // namespace debugger
 #endif

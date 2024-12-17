@@ -9,6 +9,8 @@ namespace i8048 {
 struct PinsI8048;
 
 struct RegsI8048 final : Regs {
+    RegsI8048(PinsI8048 *pins) : _pins(pins) {}
+
     const char *cpu() const override;
     const char *cpuName() const override;
 
@@ -27,6 +29,8 @@ struct RegsI8048 final : Regs {
     static constexpr const char P8039[] = "P8039";
 
 private:
+    PinsI8048 *_pins;
+
     static constexpr uint8_t cy = 0x80;
     static constexpr uint8_t ac = 0x40;
     static constexpr uint8_t f0 = 0x20;

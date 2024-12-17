@@ -1,20 +1,27 @@
 #ifndef __MEMS_MOS6502_H__
 #define __MEMS_MOS6502_H__
 
+#include "devs.h"
 #include "mems.h"
 
 namespace debugger {
 namespace mos6502 {
 
-struct MemsMos6502 final : DmaMemory {
-    MemsMos6502() : DmaMemory(Endian::ENDIAN_LITTLE) {}
+struct MemsMos6502 final : ExtMemory {
+    MemsMos6502(Devs *devs);
 
     uint32_t maxAddr() const override { return UINT16_MAX; }
     uint16_t read(uint32_t addr) const override;
     void write(uint32_t addr, uint16_t data) const override;
 
-protected:
-#define WITH_ASSEMBLER
+    void longA(bool enable) { _longA = enable; }
+    void longI(bool enable) { _longI = enable; }
+
+private:
+    Devs *_devs;
+    bool _longA;
+    bool _longI;
+
 #ifdef WITH_ASSEMBLER
     libasm::Assembler *assembler() const override;
 #endif
@@ -22,8 +29,6 @@ protected:
     libasm::Disassembler *disassembler() const override;
 #endif
 };
-
-extern struct MemsMos6502 Memory;
 
 }  // namespace mos6502
 }  // namespace debugger

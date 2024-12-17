@@ -17,14 +17,10 @@ struct PinsZ80Base : Pins {
     void setBreakInst(uint32_t addr) const override;
 
 protected:
-    PinsZ80Base(RegsZ80 &regs, MemsZ80 &mems) : _regs(regs), _mems(mems) {}
-
-    RegsZ80 &_regs;
-    MemsZ80 &_mems;
+    PinsZ80Base(const char *name);
 
     virtual void execute(const uint8_t *inst, uint8_t len, uint16_t *addr,
             uint8_t *buf, uint8_t max) = 0;
-
 };
 
 }  // namespace z80

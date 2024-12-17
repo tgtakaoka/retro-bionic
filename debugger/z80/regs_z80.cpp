@@ -33,7 +33,7 @@ void RegsZ80::print() const {
     bufmain.bits(48, _main.f, 0x80, main + 48);
     bufmain.hex8(59, _i);
     cli.println(bufmain);
-    _pins.idle();
+    _pins->idle();
     bufalt.hex16(3, _ix);
     bufalt.hex16(11, _iy);
     bufalt.hex16(20, _alt.bc());
@@ -42,7 +42,7 @@ void RegsZ80::print() const {
     bufalt.hex8(43, _alt.a);
     bufalt.bits(48, _alt.f, 0x80, alt + 48);
     cli.println(bufalt);
-    _pins.idle();
+    _pins->idle();
 }
 
 void RegsZ80::exchangeRegs() const {
@@ -50,7 +50,7 @@ void RegsZ80::exchangeRegs() const {
             0x08,  // EX AF, AF'
             0xD9,  // EXX
     };
-    _pins.execInst(EXCHANGE, sizeof(EXCHANGE));
+    _pins->execInst(EXCHANGE, sizeof(EXCHANGE));
 }
 
 void RegsZ80::saveRegs(reg &regs) const {
@@ -60,7 +60,7 @@ void RegsZ80::saveRegs(reg &regs) const {
             0xD5,  // PUSH DE
             0xE5,  // PUSH HL
     };
-    _pins.captureWrites(PUSH_ALL, sizeof(PUSH_ALL), nullptr, (uint8_t *)&regs,
+    _pins->captureWrites(PUSH_ALL, sizeof(PUSH_ALL), nullptr, (uint8_t *)&regs,
             sizeof(regs));
 }
 
@@ -71,7 +71,7 @@ void RegsZ80::restoreRegs(const reg &regs) const {
             0xD1, regs.e, regs.d,  // POP DE
             0xE1, regs.l, regs.h,  // POP HL
     };
-    _pins.execInst(POP_ALL, sizeof(POP_ALL));
+    _pins->execInst(POP_ALL, sizeof(POP_ALL));
 }
 
 void RegsZ80::save() {
@@ -79,7 +79,7 @@ void RegsZ80::save() {
             0xC7,  // RST 0
     };
     uint8_t buffer[5];
-    _pins.captureWrites(PUSH_PC, sizeof(PUSH_PC), &_sp, buffer, sizeof(_pc));
+    _pins->captureWrites(PUSH_PC, sizeof(PUSH_PC), &_sp, buffer, sizeof(_pc));
     _sp += 1;
     _pc = be16(buffer) - 1;  // offser RST instruction
     saveRegs(_main);
@@ -92,7 +92,7 @@ void RegsZ80::save() {
             0xED, 0x57,  // LD A, I
             0x77,        // LD (HL), A
     };
-    _pins.captureWrites(
+    _pins->captureWrites(
             SAVE_OTHERS, sizeof(SAVE_OTHERS), nullptr, buffer, sizeof(buffer));
     _ix = be16(buffer + 0);
     _iy = be16(buffer + 2);
@@ -106,7 +106,7 @@ void RegsZ80::restore() {
             0xFD, lo(_iy), hi(_iy),  // POP IY, _iy
             0xDD, lo(_ix), hi(_ix),  // POP IX, _ix
     };
-    _pins.execInst(LD_OTHERS, sizeof(LD_OTHERS));
+    _pins->execInst(LD_OTHERS, sizeof(LD_OTHERS));
     restoreRegs(_main);
     exchangeRegs();
     restoreRegs(_alt);
@@ -115,7 +115,7 @@ void RegsZ80::restore() {
             0x31, lo(_sp), hi(_sp),  // LD SP, _sp
             0xC3, lo(_pc), hi(_pc),  // JP _pc
     };
-    _pins.execInst(LD_ALL, sizeof(LD_ALL));
+    _pins->execInst(LD_ALL, sizeof(LD_ALL));
 }
 
 uint8_t RegsZ80::read_io(uint8_t addr) const {
@@ -124,7 +124,7 @@ uint8_t RegsZ80::read_io(uint8_t addr) const {
             0x77,        // LD (HL), A
     };
     uint8_t data;
-    _pins.captureWrites(IN, sizeof(IN), nullptr, &data, sizeof(data));
+    _pins->captureWrites(IN, sizeof(IN), nullptr, &data, sizeof(data));
     return data;
 }
 
@@ -136,7 +136,7 @@ void RegsZ80::write_io(uint8_t addr, uint8_t data) const {
     };
     uint8_t tmp;
     // LD (HL), A ensures I/O write cycle.
-    _pins.captureWrites(OUT, sizeof(OUT), nullptr, &tmp, sizeof(tmp));
+    _pins->captureWrites(OUT, sizeof(OUT), nullptr, &tmp, sizeof(tmp));
 }
 
 void RegsZ80::helpRegisters() const {

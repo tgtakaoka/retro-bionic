@@ -17,18 +17,10 @@ struct MemsZ8 : DmaMemory {
             const char *space = nullptr) const override;
 
 protected:
-    MemsZ8(RegsZ8 &regs, Devs &devs)
-        : DmaMemory(Endian::ENDIAN_BIG), _regs(regs), _devs(devs) {}
+    MemsZ8(RegsZ8 *regs, Devs *devs);
 
-    RegsZ8 &_regs;
-    Devs &_devs;
-
-#ifdef WITH_ASSEMBLER
-    libasm::Assembler *assembler() const override;
-#endif
-#ifdef WITH_DISASSEMBLER
-    libasm::Disassembler *disassembler() const override;
-#endif
+    RegsZ8 *_regs;
+    Devs *_devs;
 };
 
 }  // namespace z8

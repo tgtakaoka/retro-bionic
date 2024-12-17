@@ -1,19 +1,13 @@
 #include "pins_tms7000.h"
 #include "debugger.h"
 #include "devs_tms7000.h"
-#include "digital_bus.h"
 #include "inst_tms7000.h"
 #include "mems_tms7000.h"
 #include "regs_tms7000.h"
 #include "signals_tms7000.h"
-#include "tms7002_serial_handler.h"
 
 namespace debugger {
 namespace tms7000 {
-
-using tms7002::SerialH;
-
-struct PinsTms7000 Pins;
 
 // clang-format off
 /**
@@ -179,50 +173,50 @@ inline void clkin_cycle() {
     delayNanoseconds(clkin_lo_ns);
 }
 
-void div2_hi() {
+}  // namespace
+
+void div2_hi(DevsTms7000 *devs) {
     clkin_hi();
-    SerialH.loop();
+    devs->serialLoop();
 }
 
 void div2_lo() {
     clkin_lo();
 }
 
-void cmos_lo() {
+void cmos_lo(DevsTms7000 *devs) {
     clkin_lo();
-    SerialH.loop();
+    devs->serialLoop();
 }
 
 void cmos_hi() {
     clkin_hi();
 }
 
-void (*_clk_hi)();
+void (*_clk_hi)(DevsTms7000 *devs);
 void (*_clk_lo)();
-void (*_clk_cycle)();
+void (*_clk_cycle)(DevsTms7000 *devs);
 
-inline void clk_hi() {
-    _clk_hi();
+void clk_hi(DevsTms7000 *devs) {
+    _clk_hi(devs);
 }
-
-inline void clk_lo() {
+void clk_lo() {
     _clk_lo();
 }
+void clk_cycle(DevsTms7000 *devs) {
+    _clk_cycle(devs);
+}
 
-void div2_clk() {
-    clk_hi();
+void div2_clk(DevsTms7000 *devs) {
+    clk_hi(devs);
     delayNanoseconds(div2_hi_ns);
     clk_lo();
     delayNanoseconds(div2_lo_ns);
 }
 
-inline void clk_cycle() {
-    _clk_cycle();
-}
-
-void div2_alatch() {
+void div2_alatch(DevsTms7000 *devs) {
     while (true) {
-        clk_hi();
+        clk_hi(devs);
         delayNanoseconds(div2_hi_alatch);
         if (signal_alatch() != LOW)
             break;
@@ -231,13 +225,13 @@ void div2_alatch() {
     }
 }
 
-Signals *div2Prepare() {
+Signals *div2Prepare(DevsTms7000 *devs) {
     auto s = Signals::put();
     // ALATCH=H
     clk_lo();
     s->getAddress();
     delayNanoseconds(div2_lo_addr);
-    clk_hi();
+    clk_hi(devs);
     delayNanoseconds(div2_hi_ns);
     clk_lo();
     delayNanoseconds(div2_lo_dir);
@@ -245,24 +239,24 @@ Signals *div2Prepare() {
     return s;
 }
 
-void tms7002_alatch() {
+void tms7002_alatch(DevsTms7000 *devs) {
     while (signal_alatch() == LOW) {
-        clk_hi();
+        clk_hi(devs);
         delayNanoseconds(tms7002_hi_alatch);
         clk_lo();
         delayNanoseconds(tms7002_lo_alatch);
     }
 }
 
-Signals *tms7002Prepare() {
+Signals *tms7002Prepare(DevsTms7000 *devs) {
     auto s = Signals::put();
     // ALATCH=H
-    clk_hi();
+    clk_hi(devs);
     s->getAddress();
     delayNanoseconds(tms7002_hi_addr);
     clk_lo();
     delayNanoseconds(div2_lo_ns);
-    clk_hi();
+    clk_hi(devs);
     delayNanoseconds(div2_hi_ns);
     clk_lo();
     delayNanoseconds(div2_lo_dir);
@@ -270,42 +264,43 @@ Signals *tms7002Prepare() {
     return s;
 }
 
-void div2Complete(Signals *s) {
+void PinsTms7000::div2Complete(Signals *s) const {
+    auto d = devs<DevsTms7000>();
     if (s->read()) {  // External read
         if (s->readMemory()) {
-            s->data = Memory.read(s->addr);
+            s->data = _mems->read(s->addr);
         } else {
             ;  // inject
         }
         s->outData();
-        clk_hi();
+        clk_hi(d);
         delayNanoseconds(div2_hi_ns);
         clk_lo();
         s->inputMode();
     } else if (s->write()) {  // External write
-        clk_hi();
+        clk_hi(d);
         delayNanoseconds(div2_hi_write);
         s->getData();
         clk_lo();
         if (s->writeMemory()) {
-            Memory.write(s->addr, s->data);
+            _mems->write(s->addr, s->data);
         } else {
             ;  // capture
         }
     } else {  // Internal cycle
-        clk_hi();
+        clk_hi(d);
         s->getData();
         delayNanoseconds(div2_hi_internal);
         clk_lo();
     }
 }
 
-void div4_hi() {
+void div4_hi(DevsTms7000 *devs) {
     static bool serial = false;
     clkin_hi();
     serial = !serial;
     if (serial) {
-        SerialH.loop();
+        devs->serialLoop();
         delayNanoseconds(div4_hi_serial);
     } else {
         delayNanoseconds(div4_hi_wait);
@@ -316,43 +311,43 @@ void div4_lo() {
     clkin_lo();
 }
 
-void div4_cycle_lo() {
-    div4_hi();
+void div4_cycle_lo(DevsTms7000 *devs) {
+    div4_hi(devs);
     div4_lo();
 }
 
-void div4_clk() {
-    div4_cycle_lo();
+void div4_clk(DevsTms7000 *devs) {
+    div4_cycle_lo(devs);
     delayNanoseconds(div4_lo_ns);
-    div4_cycle_lo();
+    div4_cycle_lo(devs);
     delayNanoseconds(div4_lo_ns);
 }
 
-void div4_alatch() {
+void div4_alatch(DevsTms7000 *devs) {
     while (signal_alatch() == LOW) {
         delayNanoseconds(div4_lo_alatch);
-        div4_cycle_lo();
+        div4_cycle_lo(devs);
     }
 }
 
-Signals *div4Prepare() {
+Signals *div4Prepare(DevsTms7000 *devs) {
     auto s = Signals::put();
     do {
         s->getAddress();
-        div4_cycle_lo();
+        div4_cycle_lo(devs);
     } while (signal_alatch() != LOW);
     delayNanoseconds(div4_lo_addr);
-    div4_cycle_lo();
+    div4_cycle_lo(devs);
     delayNanoseconds(div4_lo_ns);
-    div4_hi();
+    div4_hi(devs);
     s->getDirection();
     return s;
 }
 
-void div4Complete(Signals *s) {
+void PinsTms7000::div4Complete(Signals *s) const {
     if (s->read()) {  // External read
         if (s->readMemory()) {
-            s->data = Memory.read(s->addr);
+            s->data = _mems->read(s->addr);
         } else {
             delayNanoseconds(div4_lo_inject);
         }
@@ -362,11 +357,11 @@ void div4Complete(Signals *s) {
     } else if (s->write()) {  // External write
         div4_lo();
         delayNanoseconds(div4_lo_ns);
-        div4_hi();
+        div4_hi(devs<DevsTms7000>());
         s->getData();
         div4_lo();
         if (s->writeMemory()) {
-            Memory.write(s->addr, s->data);
+            _mems->write(s->addr, s->data);
         } else {
             delayNanoseconds(div4_hi_capture);
         }
@@ -376,7 +371,29 @@ void div4Complete(Signals *s) {
     }
 }
 
-}  // namespace
+PinsTms7000::PinsTms7000() {
+    auto regs = new RegsTms7000(this);
+    _regs = regs;
+    _devs = new DevsTms7000();
+    _mems = new MemsTms7000(regs, _devs);
+}
+
+void PinsTms7000::resetPins() {
+    pinsMode(PINS_HIGH, sizeof(PINS_HIGH), OUTPUT, HIGH);
+    pinsMode(PINS_INPUT, sizeof(PINS_INPUT), INPUT);
+
+    synchronizeClock();
+
+    // Clear IOCNT0 (>0100) to disable interrupts
+    cycle();
+    // Inject dummy reset vector >8000
+    inject(0x00);  // >FFFF
+    inject(0x80);  // >FFFE
+    // CLKOUT=H
+    _regs->save();
+    _regs->setIp(_mems->raw_read16(InstTms7000::VEC_RESET));
+    checkHardwareType();
+}
 
 void PinsTms7000::synchronizeClock() {
     // CLKOUT works only when #RESET=H
@@ -405,35 +422,36 @@ void PinsTms7000::synchronizeClock() {
         _clk_cycle = div2_clk;
         _wait_alatch = div2_alatch;
         _prepareCycle = div2Prepare;
-        _completeCycle = div2Complete;
+        _completeCycle = &PinsTms7000::div2Complete;
     } else {
         // /4 clock option
         clkin_hi();
         delayNanoseconds(clkin_hi_ns);
         _clockType = CLK_DIV4;
-        _clk_hi = div4_lo;
-        _clk_lo = div4_hi;
+        _clk_hi = div4_hi;
+        _clk_lo = div4_lo;
         _clk_cycle = div4_clk;
         _wait_alatch = div4_alatch;
         _prepareCycle = div4Prepare;
-        _completeCycle = div4Complete;
+        _completeCycle = &PinsTms7000::div4Complete;
     }
 
     // The RESET function is initiated when the #RESET line of the
     // TMS7000 device is held at a logic zero level for at least five
     // clock cycles.
+    auto d = devs<DevsTms7000>();
     assert_reset();
     for (auto i = 0; i < 20; i++)
-        clk_cycle();
+        clk_cycle(d);
     Signals::resetCycles();
     negate_reset();
-    clk_cycle();
+    clk_cycle(d);
 
     if (_clockType == CLK_DIV4) {
         wait_alatch();
     } else {
         while (true) {
-            clk_hi();
+            clk_hi(d);
             delayNanoseconds(div2_hi_ns);
             if (signal_alatch() != LOW)
                 break;
@@ -446,23 +464,6 @@ void PinsTms7000::synchronizeClock() {
             }
         }
     }
-}
-
-void PinsTms7000::resetPins() {
-    pinsMode(PINS_HIGH, sizeof(PINS_HIGH), OUTPUT, HIGH);
-    pinsMode(PINS_INPUT, sizeof(PINS_INPUT), INPUT);
-
-    synchronizeClock();
-
-    // Clear IOCNT0 (>0100) to disable interrupts
-    cycle();
-    // Inject dummy reset vector >8000
-    inject(0x00);  // >FFFF
-    inject(0x80);  // >FFFE
-    // CLKOUT=H
-    Regs.save();
-    Regs.setIp(Memory.raw_read16(InstTms7000::VEC_RESET));
-    checkHardwareType();
 }
 
 void PinsTms7000::checkHardwareType() {
@@ -479,13 +480,13 @@ void PinsTms7000::checkHardwareType() {
     } else {
         _hardType = HW_TMS7002;
     }
-    Regs.restoreA();
-    SerialH.setTms7001(_hardType == HW_TMS7001);
-    Devs.setSerialHandler(_hardType == HW_TMS7000 ? nullptr : &SerialH);
+    regs<RegsTms7000>()->restoreA();
+    if (_hardType != HW_TMS7000)
+        devs<DevsTms7000>()->addSerialHandler(_hardType);
 }
 
 Signals *PinsTms7000::completeCycle(Signals *s) const {
-    _completeCycle(s);
+    (this->*_completeCycle)(s);
     Signals::nextCycle();
     delayNanoseconds(cycle_delay);
     wait_alatch();
@@ -542,20 +543,20 @@ void PinsTms7000::idle() {
 
 void PinsTms7000::loop() {
     while (true) {
-        Devs.loop();
+        _devs->loop();
         if (!rawStep() || haltSwitch())
             return;
     }
 }
 
 void PinsTms7000::run() {
-    Regs.restore();
+    _regs->restore();
     Signals::resetCycles();
     saveBreakInsts();
     loop();
     restoreBreakInsts();
     disassembleCycles();
-    Regs.save();
+    _regs->save();
 }
 
 bool PinsTms7000::rawStep() {
@@ -567,7 +568,7 @@ bool PinsTms7000::rawStep() {
         cycle();  // hi(vector)
         s = prepareCycle();
     }
-    const auto opc = Memory.raw_read(s->addr);
+    const auto opc = _mems->raw_read(s->addr);
     const auto cycles = InstTms7000::busCycles(opc);
     if (opc == InstTms7000::IDLE || cycles == 0) {
         completeCycle(s->inject(InstTms7000::JMP));
@@ -588,13 +589,13 @@ bool PinsTms7000::rawStep() {
 
 bool PinsTms7000::step(bool show) {
     Signals::resetCycles();
-    Regs.restore();
+    _regs->restore();
     if (show)
         Signals::resetCycles();
     if (rawStep()) {
         if (show)
             printCycles();
-        Regs.save();
+        _regs->save();
         return true;
     }
     return false;
@@ -627,7 +628,7 @@ void PinsTms7000::negateInt(uint8_t name) {
 }
 
 void PinsTms7000::setBreakInst(uint32_t addr) const {
-    Memory.put_inst(addr, InstTms7000::IDLE);
+    _mems->put_inst(addr, InstTms7000::IDLE);
 }
 
 void PinsTms7000::printCycles() {
@@ -645,7 +646,7 @@ void PinsTms7000::disassembleCycles() {
     for (auto i = 0; i < cycles;) {
         const auto s = g->next(i);
         if (s->fetch()) {
-            const auto len = Memory.disassemble(s->addr, 1) - s->addr;
+            const auto len = _mems->disassemble(s->addr, 1) - s->addr;
             i += len;
             if (InstTms7000::isBTJxP(s->data)) {
                 s->next(len - 1)->print();

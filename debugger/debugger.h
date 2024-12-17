@@ -11,12 +11,11 @@
 namespace debugger {
 
 struct Debugger {
-    void begin(Target &target);
+    void begin(Target *target);
     void exec(char c);
     void loop();
 
-    const Target &target() const { return *_target; }
-    void setTarget(const Target &target) { _target = &target; }
+    Target &target() const { return *_target; }
 
     bool isBreakPoint(uint32_t addr) { return _breakPoints.on(addr); }
     bool setBreakPoint(uint32_t addr) { return _breakPoints.set(addr); }
@@ -26,7 +25,7 @@ struct Debugger {
     void restoreBreakInsts() { _breakPoints.restoreInsts(); }
 
 private:
-    const Target *_target;
+    Target *_target;
     bool _verbose;
     BreakPoints _breakPoints;
 };

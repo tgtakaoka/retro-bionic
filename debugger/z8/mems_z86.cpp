@@ -1,13 +1,10 @@
 #include "mems_z86.h"
-#include "devs_z86.h"
 #include "regs_z86.h"
 
 namespace debugger {
 namespace z86 {
 
-struct MemsZ86 Memory;
-
-MemsZ86::MemsZ86() : MemsZ8(Regs, Devs){};
+MemsZ86::MemsZ86(RegsZ86 *regs, Devs *devs) : MemsZ8(regs, devs) {};
 
 }  // namespace z86
 }  // namespace debugger

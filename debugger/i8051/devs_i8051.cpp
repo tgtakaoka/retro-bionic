@@ -7,56 +7,59 @@
 namespace debugger {
 namespace i8051 {
 
-I8051UartHandler UartH;
+DevsI8051::DevsI8051() : _usart(new I8251()), _uart(new I8051UartHandler()) {}
 
-DevsI8051 Devs;
+DevsI8051::~DevsI8051() {
+    delete _usart;
+    delete _uart;
+}
 
 void DevsI8051::reset() {
-    UartH.reset();
-    USART.reset();
-    USART.setBaseAddr(USART_BASE);
+    _uart->reset();
+    _usart->reset();
+    _usart->setBaseAddr(USART_BASE);
 }
 
 void DevsI8051::begin() {
-    enableDevice(USART);
+    enableDevice(_usart);
 }
 
 void DevsI8051::loop() {
-    USART.loop();
+    _usart->loop();
 }
 
 void DevsI8051::setIdle(bool idle) {
-    UartH.setIdle(idle);
+    _uart->setIdle(idle);
 }
 
 bool DevsI8051::isSelected(uint32_t addr) const {
-    return USART.isSelected(addr);
+    return _usart->isSelected(addr);
 }
 
 uint16_t DevsI8051::read(uint32_t addr) const {
-    return USART.read(addr);
+    return _usart->read(addr);
 }
 
 void DevsI8051::write(uint32_t addr, uint16_t data) const {
-    USART.write(addr, data);
+    _usart->write(addr, data);
 }
 
-Device &DevsI8051::parseDevice(const char *name) const {
-    if (strcasecmp(name, USART.name()) == 0)
-        return USART;
-    if (strcasecmp(name, UartH.name()) == 0)
-        return UartH;
+Device *DevsI8051::parseDevice(const char *name) const {
+    if (strcasecmp(name, _usart->name()) == 0)
+        return _usart;
+    if (strcasecmp(name, _uart->name()) == 0)
+        return _uart;
     return Devs::nullDevice();
 }
 
-void DevsI8051::enableDevice(Device &dev) {
-    USART.enable(&dev == &USART);
-    UartH.enable(&dev == &UartH);
+void DevsI8051::enableDevice(Device *dev) {
+    _usart->enable(dev == _usart);
+    _uart->enable(dev == _uart);
 }
 
 void DevsI8051::printDevices() const {
-    printDevice(USART);
-    printDevice(UartH);
+    printDevice(_usart);
+    printDevice(_uart);
 }
 
 }  // namespace i8051

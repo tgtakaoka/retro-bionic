@@ -6,24 +6,19 @@
 namespace debugger {
 namespace i8085 {
 
+struct RegsI8085;
+
 struct MemsI8085 final : DmaMemory {
-    MemsI8085() : DmaMemory(Endian::ENDIAN_LITTLE) {}
+    MemsI8085(RegsI8085 *regs);
 
     uint32_t maxAddr() const override { return UINT16_MAX; }
     uint16_t get(uint32_t addr, const char *space = nullptr) const override;
     void put(uint32_t addr, uint16_t data,
             const char *space = nullptr) const override;
 
-protected:
-#ifdef WITH_ASSEMBLER
-    libasm::Assembler *assembler() const override;
-#endif
-#ifdef WITH_DISASSEMBLER
-    libasm::Disassembler *disassembler() const override;
-#endif
+private:
+    RegsI8085 *_regs;
 };
-
-extern struct MemsI8085 Memory;
 
 }  // namespace i8085
 }  // namespace debugger

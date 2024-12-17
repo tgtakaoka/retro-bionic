@@ -7,56 +7,60 @@
 namespace debugger {
 namespace ins8060 {
 
-Ins8060SciHandler SciH;
+DevsIns8060::DevsIns8060()
+    : _acia(new Mc6850()), _sci(new Ins8060SciHandler()) {}
 
-DevsIns8060 Devs;
+DevsIns8060::~DevsIns8060() {
+    delete _acia;
+    delete _sci;
+}
 
 void DevsIns8060::reset() {
-    SciH.reset();
-    ACIA.reset();
-    ACIA.setBaseAddr(ACIA_BASE);
+    _sci->reset();
+    _acia->reset();
+    _acia->setBaseAddr(ACIA_BASE);
 }
 
 void DevsIns8060::begin() {
-    enableDevice(ACIA);
+    enableDevice(_acia);
 }
 
 void DevsIns8060::loop() {
-    ACIA.loop();
+    _acia->loop();
 }
 
 void DevsIns8060::setIdle(bool idle) {
-    SciH.setIdle(idle);
+    _sci->setIdle(idle);
 }
 
 bool DevsIns8060::isSelected(uint32_t addr) const {
-    return ACIA.isSelected(addr);
+    return _acia->isSelected(addr);
 }
 
 uint16_t DevsIns8060::read(uint32_t addr) const {
-    return ACIA.read(addr);
+    return _acia->read(addr);
 }
 
 void DevsIns8060::write(uint32_t addr, uint16_t data) const {
-    ACIA.write(addr, data);
+    _acia->write(addr, data);
 }
 
-Device &DevsIns8060::parseDevice(const char *name) const {
-    if (strcasecmp(name, ACIA.name()) == 0)
-        return ACIA;
-    if (strcasecmp(name, SciH.name()) == 0)
-        return SciH;
+Device *DevsIns8060::parseDevice(const char *name) const {
+    if (strcasecmp(name, _acia->name()) == 0)
+        return _acia;
+    if (strcasecmp(name, _sci->name()) == 0)
+        return _sci;
     return Devs::nullDevice();
 }
 
-void DevsIns8060::enableDevice(Device &dev) {
-    ACIA.enable(&dev == &ACIA);
-    SciH.enable(&dev == &SciH);
+void DevsIns8060::enableDevice(Device *dev) {
+    _acia->enable(dev == _acia);
+    _sci->enable(dev == _sci);
 }
 
 void DevsIns8060::printDevices() const {
-    printDevice(ACIA);
-    printDevice(SciH);
+    printDevice(_acia);
+    printDevice(_sci);
 }
 
 }  // namespace ins8060

@@ -1,16 +1,12 @@
 #include "regs_cdp1802.h"
 #include "char_buffer.h"
 #include "debugger.h"
-#include "digital_bus.h"
 #include "inst_cdp1802.h"
-#include "mems_cdp1802.h"
 #include "pins_cdp1802.h"
 #include "signals_cdp1802.h"
 
 namespace debugger {
 namespace cdp1802 {
-
-struct RegsCdp1802 Regs;
 
 /**
  * - CDP1802: 0x68 opcode causes illegal write on M(R(P)).
@@ -22,17 +18,17 @@ static const char CDP1802[] = "CDP1802";
 static const char CDP1804A[] = "CDP1804A";
 
 void RegsCdp1802::setCpuType() {
-    Pins.cycle(InstCdp1802::PREFIX);
-    auto signals = Pins.prepareCycle();
+    _pins->cycle(InstCdp1802::PREFIX);
+    auto signals = _pins->prepareCycle();
     if (signals->fetch()) {
         _cpuType = CDP1804A;
-        Pins.cycle(InstCdp1802::DADI);
-        Pins.cycle(0);
-        Pins.cycle();  // execution cycle
+        _pins->cycle(InstCdp1802::DADI);
+        _pins->cycle(0);
+        _pins->cycle();  // execution cycle
     } else {
         _cpuType = CDP1802;
         signals->capture();  // capture illegal write
-        Pins.cycle();
+        _pins->cycle();
     }
 }
 
@@ -80,7 +76,7 @@ void RegsCdp1802::print() const {
 
 void RegsCdp1802::save() {
     static constexpr uint8_t SAV[] = {0x78};
-    Pins.captureWrites(SAV, sizeof(SAV), nullptr, &_t, sizeof(_t));
+    _pins->captureWrites(SAV, sizeof(SAV), nullptr, &_t, sizeof(_t));
 
     // STR R0, STR R1, MARK, STR R3, ...
     static constexpr uint8_t STR[] = {
@@ -89,7 +85,7 @@ void RegsCdp1802::save() {
     };
     for (auto i = 0; i < 16; i++) {
         uint8_t tmp;
-        Pins.captureWrites(&STR[i], 1, &_r[i], &tmp, sizeof(tmp));
+        _pins->captureWrites(&STR[i], 1, &_r[i], &tmp, sizeof(tmp));
         if (i == 0)
             _d = tmp;
         if (i == 2) {  // MARK
@@ -102,9 +98,9 @@ void RegsCdp1802::save() {
     _dirty[_p] = true;               // becase this is a program counter
     _r[_p] -= sizeof(SAV) + _p + 1;  // adjust program counter
 
-    _df = Pins.skip(InstCdp1802::LSDF);  // LSDF: skip if DF=1
-    _q = Pins.skip(InstCdp1802::LSQ);    // LSQ: skip if Q=1
-    _ie = Pins.skip(InstCdp1802::LSIE);  // LSIE: skip if IE=1
+    _df = _pins->skip(InstCdp1802::LSDF);  // LSDF: skip if DF=1
+    _q = _pins->skip(InstCdp1802::LSQ);    // LSQ: skip if Q=1
+    _ie = _pins->skip(InstCdp1802::LSIE);  // LSIE: skip if IE=1
     if (_cpuType == nullptr)
         setCpuType();
 }
@@ -119,7 +115,7 @@ void RegsCdp1802::restore() {
             0x79,                         // MARK
     };
     uint8_t tmp;
-    Pins.captureWrites(LDT, sizeof(LDT), nullptr, &tmp, sizeof(tmp));
+    _pins->captureWrites(LDT, sizeof(LDT), nullptr, &tmp, sizeof(tmp));
 
     const auto q = _q ? InstCdp1802::SEQ : InstCdp1802::REQ;
     uint8_t LDQ_DF[] = {
@@ -127,13 +123,13 @@ void RegsCdp1802::restore() {
             0xF8, uint8(_df ? 1 : 0),  // LDI df
             0x76,                      // SHRC
     };
-    Pins.execInst(LDQ_DF, sizeof(LDQ_DF));
+    _pins->execInst(LDQ_DF, sizeof(LDQ_DF));
 
     static const uint8_t SEP15_SEX14[] = {
             0xDF,  // SEP R15
             0xEE   // SEX R14
     };
-    Pins.execInst(SEP15_SEX14, sizeof(SEP15_SEX14));
+    _pins->execInst(SEP15_SEX14, sizeof(SEP15_SEX14));
     _dirty[14] = _dirty[15] = true;
 
     uint8_t LDD[] = {
@@ -152,21 +148,21 @@ void RegsCdp1802::restore() {
                 rn -= 1;  // offset R14
             if (i == 15)
                 rn -= sizeof(LDD) + 1;  // offset R15
-            Pins.execInst(LDR, sizeof(LDR));
+            _pins->execInst(LDR, sizeof(LDR));
         }
     }
-    Pins.execInst(LDD, sizeof(LDD));  // R15+=2
+    _pins->execInst(LDD, sizeof(LDD));  // R15+=2
 
     const auto ie = _ie ? InstCdp1802::RET : InstCdp1802::DIS;
     uint8_t RET[] = {
             ie,             // RET: 0x70 or DIS:0x71
             uint8(_x, _p),  // x,p
     };
-    Pins.execInst(RET, sizeof(RET));  // R15++, R14++
+    _pins->execInst(RET, sizeof(RET));  // R15++, R14++
 }
 
 void RegsCdp1802::helpRegisters() const {
-    cli.println(F("?Reg: D DF X P T IE Q R0~R15 RP RX"));
+    cli.println("?Reg: D DF X P T IE Q R0~R15 RP RX");
 }
 
 constexpr const char *REGS1[] = {

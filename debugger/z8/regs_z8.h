@@ -20,7 +20,6 @@ struct RegsZ8 : Regs {
     void save() override;
     void restore() override;
 
-    virtual void reset() = 0;
     virtual RegSpace parseSpace(const char *space) const;
     virtual uint8_t read_reg(uint8_t addr, RegSpace space = SET_ONE) = 0;
     virtual void write_reg(
@@ -31,8 +30,8 @@ struct RegsZ8 : Regs {
     void setRegister(uint8_t reg, uint32_t value) override;
 
 protected:
-    RegsZ8(PinsZ8 &pins) : _pins(pins) {}
-    PinsZ8 &_pins;
+    RegsZ8(PinsZ8 *pins) : _pins(pins) {}
+    PinsZ8 *_pins;
 
     uint16_t _pc;
     uint16_t _sp;

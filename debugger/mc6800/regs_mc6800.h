@@ -19,18 +19,18 @@ namespace mc6800 {
 struct PinsMc6800Base;
 
 struct RegsMc6800 : Regs {
-    RegsMc6800(PinsMc6800Base &pins) : _pins(pins) {}
+    RegsMc6800(PinsMc6800Base *pins) : _pins(pins) {}
 
     const char *cpu() const override;
     const char *cpuName() const override;
 
     void print() const override;
-    void reset() const;
+    void reset() override;
     void save() override;
     void restore() override;
     virtual uint8_t contextLength() const { return 7; }
     virtual uint16_t capture(const Signals *stack, bool step = true);
-    void setIp(uint16_t addr) { _pc = addr; }
+    void setIp(uint32_t addr) override { _pc = addr; }
 
     uint32_t nextIp() const override { return _pc; }
     void helpRegisters() const override;
@@ -39,8 +39,11 @@ struct RegsMc6800 : Regs {
 
     virtual SoftwareType checkSoftwareType();
 
+    virtual uint8_t internal_read(uint16_t addr) const { return 0; }
+    virtual void internal_write(uint16_t addr, uint8_t data) const {}
+
 protected:
-    PinsMc6800Base &_pins;
+    PinsMc6800Base *_pins;
     SoftwareType _type;
 
     uint16_t _sp;
@@ -53,8 +56,6 @@ protected:
     static const uint8_t LDS_7FFF[3];
     static const uint8_t STAA_8000[3];
 };
-
-extern struct RegsMc6800 Regs;
 
 }  // namespace mc6800
 }  // namespace debugger

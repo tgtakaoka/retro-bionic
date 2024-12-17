@@ -10,6 +10,8 @@ struct Signals final : SignalsBase<Signals> {
     void getAddress();
     void getDirection();
     void getData();
+    void outData() const;
+    static void inputMode();
     void print() const;
     void setAddress(uint16_t _addr) { addr = _addr; }
 

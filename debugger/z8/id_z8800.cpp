@@ -1,16 +1,15 @@
-#include "target.h"
+#include "identity.h"
 
-#include "devs_z88.h"
-#include "mems_z88.h"
 #include "pins_z88.h"
-#include "regs_z88.h"
 
 namespace debugger {
 namespace z88 {
 
-const struct Target TargetZ88 {
-    "Z88C00", Pins, Regs, Memory, Devs
-};
+Pins *instance() {
+    return new PinsZ88();
+}
+
+const struct Identity Z88C00{"Z88C00", instance};
 
 }  // namespace z88
 }  // namespace debugger

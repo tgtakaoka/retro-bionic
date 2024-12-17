@@ -9,6 +9,9 @@ namespace debugger {
 namespace f3850 {
 
 struct DevsF3850 final : Devs {
+    DevsF3850();
+    ~DevsF3850();
+
     void begin() override;
     void reset() override;
     void loop() override;
@@ -17,12 +20,13 @@ struct DevsF3850 final : Devs {
     void write(uint32_t addr, uint16_t data) const override;
     uint16_t vector() const override;
 
-    Device &parseDevice(const char *name) const override;
-    void enableDevice(Device &dev) override;
+    Device *parseDevice(const char *name) const override;
+    void enableDevice(Device *dev) override;
     void printDevices() const override;
-};
 
-extern struct DevsF3850 Devs;
+private:
+    Device *_usart;
+};
 
 }  // namespace f3850
 }  // namespace debugger

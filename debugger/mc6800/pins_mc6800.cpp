@@ -1,10 +1,8 @@
+#include "pins_mc6800.h"
 #include "debugger.h"
 #include "devs_mc6800.h"
-#include "digital_bus.h"
 #include "inst_mb8861.h"
-#include "inst_mc6800.h"
 #include "mems_mc6800.h"
-#include "pins_mc6800.h"
 #include "regs_mc6800.h"
 #include "signals_mc6800.h"
 
@@ -129,6 +127,15 @@ constexpr uint8_t PINS_INPUT[] = {
 
 }  // namespace
 
+PinsMc6800::PinsMc6800() {
+    auto regs = new RegsMc6800(this);
+    auto devs = new DevsMc6800();
+    _mems = new MemsMc6800(regs, devs);
+    _regs = regs;
+    _devs = devs;
+    _inst = new mb8861::InstMb8861(_mems);
+}
+
 void PinsMc6800::resetPins() {
     // Assert reset condition
     pinsMode(PINS_LOW, sizeof(PINS_LOW), OUTPUT, LOW);
@@ -149,10 +156,10 @@ void PinsMc6800::resetPins() {
     cycle();
     // The first instruction will be saving registers, and certainly can be
     // injected.
-    _regs.reset();
-    _regs.save();
-    _regs.setIp(_mems.raw_read16(InstMc6800::VEC_RESET));
-    _regs.checkSoftwareType();
+    _regs->reset();
+    _regs->save();
+    _regs->setIp(_mems->raw_read16(InstMc6800::VEC_RESET));
+    regs<RegsMc6800>()->checkSoftwareType();
 }
 
 Signals *PinsMc6800::cycle() {
@@ -162,7 +169,7 @@ Signals *PinsMc6800::cycle() {
 Signals *PinsMc6800::rawCycle() {
     // PHI1=HIGH
     phi1_hi();
-    busMode(D, INPUT);
+    Signals::inputMode();
     delayNanoseconds(dbe_lo_ns);
     assert_dbe();
     delayNanoseconds(phi1_hi_ns);
@@ -179,7 +186,7 @@ Signals *PinsMc6800::rawCycle() {
         if (s->writeMemory()) {
             delayNanoseconds(phi2_hi_write);
             s->getData();
-            _mems.write(s->addr, s->data);
+            _mems->write(s->addr, s->data);
         } else {
             delayNanoseconds(phi2_hi_capture);
             s->getData();
@@ -187,13 +194,12 @@ Signals *PinsMc6800::rawCycle() {
     } else {
         _writes = 0;
         if (s->readMemory()) {
-            s->data = _mems.read(s->addr);
+            s->data = _mems->read(s->addr);
         } else {
             // inject data from s->data
             delayNanoseconds(phi2_hi_inject);
         }
-        busMode(D, OUTPUT);
-        busWrite(D, s->data);
+        s->outData();
         delayNanoseconds(phi2_hi_read);
     }
     Signals::nextCycle();

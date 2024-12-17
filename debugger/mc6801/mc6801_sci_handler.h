@@ -15,7 +15,7 @@ struct Mc6801SciHandler final : SerialHandler {
     bool isSelected(uint32_t addr) const override;
     void write(uint32_t addr, uint16_t data) override;
 
-protected:
+private:
     uint8_t _rmcr;  // RMCR($10): Rate and Mode Control Register
     static constexpr uint16_t ADDR_RMCR = 0x0010;
     static constexpr uint8_t RMCR_SS_gm = 0x03;  // Speed Select
@@ -26,8 +26,6 @@ protected:
     void negate_rxd() const override;
     uint8_t signal_txd() const override;
 };
-
-extern struct Mc6801SciHandler SciH;
 
 }  // namespace mc6801
 }  // namespace debugger

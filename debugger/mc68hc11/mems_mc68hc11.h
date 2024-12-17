@@ -7,13 +7,11 @@
 namespace debugger {
 namespace mc68hc11 {
 
-using mc6800::MemsMc6800;
+struct Mc68hc11Init;
 
-struct DevsMc68hc11;
-
-struct MemsMc68hc11 final : MemsMc6800 {
-    MemsMc68hc11(RegsMc68hc11 &regs, DevsMc68hc11 &devs)
-        : MemsMc6800(regs), _regs11(regs), _devs(devs) {}
+struct MemsMc68hc11 final : mc6800::MemsMc6800 {
+    MemsMc68hc11(RegsMc68hc11 *regs, Devs *devs, Mc68hc11Init &init)
+        : MemsMc6800(regs, devs), _init(init) {}
 
     uint16_t read(uint32_t addr) const override;
     void write(uint32_t addr, uint16_t data) const override;
@@ -22,11 +20,10 @@ struct MemsMc68hc11 final : MemsMc6800 {
     void put(uint32_t addr, uint16_t data,
             const char *space = nullptr) const override;
 
-    bool is_internal(uint16_t addr) const;
-
 private:
-    RegsMc68hc11 &_regs11;
-    DevsMc68hc11 &_devs;
+    Mc68hc11Init &_init;
+
+    RegsMc68hc11 *regs() const { return static_cast<RegsMc68hc11 *>(_regs); }
 };
 
 }  // namespace mc68hc11

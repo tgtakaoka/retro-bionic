@@ -9,8 +9,12 @@
 namespace debugger {
 namespace tms7000 {
 
+enum HardwareType : uint8_t;
+
 struct DevsTms7000 : Devs {
-    DevsTms7000() : Devs(), _serial(nullptr) {}
+    DevsTms7000();
+    ~DevsTms7000();
+
     void begin() override;
     void reset() override;
     void loop() override;
@@ -19,17 +23,17 @@ struct DevsTms7000 : Devs {
     uint16_t read(uint32_t addr) const override;
     void write(uint32_t addr, uint16_t data) const override;
 
-    Device &parseDevice(const char *name) const override;
-    void enableDevice(Device &dev) override;
+    Device *parseDevice(const char *name) const override;
+    void enableDevice(Device *dev) override;
     void printDevices() const override;
 
-    void setSerialHandler(SerialHandler *serial) { _serial = serial; }
+    void addSerialHandler(HardwareType type);
+    void serialLoop() const;
 
 private:
+    Device *_acia;
     SerialHandler *_serial;
 };
-
-extern struct DevsTms7000 Devs;
 
 }  // namespace tms7000
 }  // namespace debugger

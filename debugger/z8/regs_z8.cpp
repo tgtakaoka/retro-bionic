@@ -24,7 +24,7 @@ void RegsZ8::print() const {
 }
 
 void RegsZ8::save() {
-    _pc = _pins.cycle(InstZ8::NOP)->addr;
+    _pc = _pins->cycle(InstZ8::NOP)->addr;
     save_all_r();
     save_sfrs();
 }
@@ -42,7 +42,7 @@ void RegsZ8::restore() {
     uint8_t JP[] = {
             0x8D, hi(_pc), lo(_pc),  // JP _pc
     };
-    _pins.execInst(JP, sizeof(JP));
+    _pins->execInst(JP, sizeof(JP));
 }
 
 constexpr const char *const RegsZ8::REGS8[18] = {

@@ -1198,7 +1198,7 @@ bool InstHd6309::match(const mc6800::Signals *begin, const mc6800::Signals *end,
     if (!begin->read())
         return false;
     auto table = P00_TABLE;
-    auto opc = _mems.raw_read(begin->addr);
+    auto opc = _mems->raw_read(begin->addr);
     uint8_t prefix = 0;
     if (opc == 0x10 || opc == 0x11) {
         const auto fetch = begin->next();
@@ -1208,7 +1208,7 @@ bool InstHd6309::match(const mc6800::Signals *begin, const mc6800::Signals *end,
         LOG_MATCH(cli.printHex(opc));
         prefix = 1;
         table = (opc == 0x10) ? P10_TABLE : P11_TABLE;
-        opc = _mems.raw_read(fetch->addr);
+        opc = _mems->raw_read(fetch->addr);
         LOG_MATCH(cli.print(':'));
         LOG_MATCH(cli.printHex(opc, 2));
     } else {
@@ -1250,7 +1250,7 @@ const char *InstHd6309::assembleSequence(
         if (c == 0 || c == '@' || c == '/')
             return seq;
         if (c == 'Y') {
-            const auto post = _mems.raw_read(fetch + 1);
+            const auto post = _mems->raw_read(fetch + 1);
             auto ix = SEQUENCES[IX_TABLE[post]];
             if (_matchingNative6309) {
                 const auto native = strchr(ix, '/');
@@ -1260,7 +1260,7 @@ const char *InstHd6309::assembleSequence(
             while (*ix && *ix != '/')
                 sequence.letter(*ix++);
         } else if (c == 'P') {
-            const auto post = _mems.raw_read(fetch + 1);
+            const auto post = _mems->raw_read(fetch + 1);
             const auto bottom = sequence.out();
             appendStackSequence(post, 0x01, 'r', sequence);  // CC
             appendStackSequence(post, 0x02, 'r', sequence);  // A
@@ -1273,7 +1273,7 @@ const char *InstHd6309::assembleSequence(
             if (sequence.out() != bottom)
                 *bottom = 'R';
         } else if (c == 'Q') {
-            const auto post = _mems.raw_read(fetch + 1);
+            const auto post = _mems->raw_read(fetch + 1);
             const auto top = sequence.out();
             appendStackSequence(post, 0x80, 'W', sequence);  // PC
             appendStackSequence(post, 0x40, 'W', sequence);  // U

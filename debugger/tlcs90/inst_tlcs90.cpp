@@ -1195,11 +1195,11 @@ private:
 
 }  // namespace
 
-bool InstTlcs90::valid(uint16_t addr) {
-    auto opc = Memory.read(addr);
+bool InstTlcs90::valid(uint16_t addr, Mems *mems) {
+    auto opc = mems->read(addr);
     const auto page = page_no(opc);
     if (page != 0)
-        opc = Memory.read(addr + prefix_len(opc));
+        opc = mems->read(addr + prefix_len(opc));
     return PAGES[page][opc] != 0;
 }
 

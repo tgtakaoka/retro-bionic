@@ -9,63 +9,71 @@
 namespace debugger {
 namespace mc68hc11 {
 
+DevsMc68hc11::DevsMc68hc11(Mc68hc11Init &init)
+    : _init(init), _sci(new Mc68hc11SciHandler(init)), _acia(new Mc6850()) {}
+
+DevsMc68hc11::~DevsMc68hc11() {
+    delete _sci;
+    delete _acia;
+}
+
 void DevsMc68hc11::reset() {
     _init.reset();
-    _sci.reset();
-    ACIA.reset();
-    ACIA.setBaseAddr(ACIA_BASE);
+    _sci->reset();
+    _acia->reset();
+    _acia->setBaseAddr(ACIA_BASE);
 }
 
 void DevsMc68hc11::begin() {
-    enableDevice(ACIA);
+    enableDevice(_acia);
 }
 
 void DevsMc68hc11::loop() {
-    ACIA.loop();
-    _sci.loop();
+    _acia->loop();
+    _sci->loop();
 }
 
 void DevsMc68hc11::setIdle(bool idle) {
-    _sci.setIdle(idle);
+    _sci->setIdle(idle);
 }
 
 bool DevsMc68hc11::isSelected(uint32_t addr) const {
-    return ACIA.isSelected(addr) || _sci.isSelected(addr);
+    return _acia->isSelected(addr) || _sci->isSelected(addr);
 }
 
 uint16_t DevsMc68hc11::read(uint32_t addr) const {
-    return ACIA.isSelected(addr) ? ACIA.read(addr) : _sci.read(addr);
+    return _acia->isSelected(addr) ? _acia->read(addr) : _sci->read(addr);
 }
 
 void DevsMc68hc11::write(uint32_t addr, uint16_t data) const {
-    if (ACIA.isSelected(addr)) {
-        ACIA.write(addr, data);
+    if (_acia->isSelected(addr)) {
+        _acia->write(addr, data);
     } else {
-        _sci.write(addr, data);
+        _sci->write(addr, data);
     }
 }
 
-Device &DevsMc68hc11::parseDevice(const char *name) const {
-    if (strcasecmp(name, ACIA.name()) == 0)
-        return ACIA;
-    if (strcasecmp(name, _sci.name()) == 0)
+Device *DevsMc68hc11::parseDevice(const char *name) const {
+    if (strcasecmp(name, _acia->name()) == 0)
+        return _acia;
+    if (strcasecmp(name, _sci->name()) == 0)
         return _sci;
     if (strcasecmp(name, _init.name()) == 0)
-        return _init;
+        return &_init;
     return Devs::nullDevice();
 }
 
-void DevsMc68hc11::enableDevice(Device &dev) {
-    if (&dev == &_init)
+void DevsMc68hc11::enableDevice(Device *dev) {
+    if (dev == &_init)
         return;
-    ACIA.enable(&dev == &ACIA);
-    _sci.enable(&dev == &_sci);
+    _acia->enable(dev == _acia);
+    _sci->enable(dev == _sci);
 }
 
 void DevsMc68hc11::printDevices() const {
-    printDevice(ACIA);
+    printDevice(_acia);
     printDevice(_sci);
-    printDevice(_init);
+    printDevice(&_init);
 }
 
 }  // namespace mc68hc11

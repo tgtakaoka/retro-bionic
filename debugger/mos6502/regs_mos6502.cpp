@@ -1,17 +1,13 @@
 #include "regs_mos6502.h"
 #include "char_buffer.h"
 #include "debugger.h"
-#include "digital_bus.h"
 #include "inst_mos6502.h"
-#include "mems_w65c816.h"
+#include "mems_mos6502.h"
 #include "pins_mos6502.h"
 #include "signals_mos6502.h"
-#include "target_mos6502.h"
 
 namespace debugger {
 namespace mos6502 {
-
-struct RegsMos6502 Registers;
 
 const char *RegsMos6502::cpu() const {
     static constexpr const char *CPU_NAMES[/*SoftwareType*/] = {
@@ -21,7 +17,7 @@ const char *RegsMos6502::cpu() const {
             "W65C02S",
             "W65C816S",
     };
-    const auto type = Pins.softwareType();
+    const auto type = PinsMos6502::softwareType();
     return CPU_NAMES[type];
 }
 
@@ -30,7 +26,7 @@ const char *RegsMos6502::cpuName() const {
 }
 
 void RegsMos6502::print() const {
-    if (Pins.native65816()) {
+    if (_pins->native65816()) {
         // clang-format off
         //                              012345678901234567890123456789012345678901234567890123456789012
         static constexpr char line[] = "K:PC=xx:xxxx S=xxxx D=xxxx B=xx X=xxxx Y=xxxx C=xxxx P=NVMXDIZC";
@@ -58,7 +54,7 @@ void RegsMos6502::print() const {
         buffer.hex8(22, _y);
         buffer.hex8(27, _a);
         buffer.bits(32, _p, 0x80, line + 32);
-        buffer[40] = Pins.hardwareType() == HW_W65C816 ? ' ' : 0;
+        buffer[40] = PinsMos6502::hardwareType() == HW_W65C816 ? ' ' : 0;
         cli.println(buffer);
     }
 }
@@ -66,7 +62,7 @@ void RegsMos6502::print() const {
 static constexpr uint8_t noop = 0xFF;
 
 void RegsMos6502::save() {
-    if (Pins.native65816()) {
+    if (_pins->native65816()) {
         save65816();
         return;
     }
@@ -85,7 +81,8 @@ void RegsMos6502::save() {
     uint8_t buffer[6];
 
     uint16_t sp;
-    Pins.captureWrites(PUSH_ALL, sizeof(PUSH_ALL), &sp, buffer, sizeof(buffer));
+    _pins->captureWrites(
+            PUSH_ALL, sizeof(PUSH_ALL), &sp, buffer, sizeof(buffer));
 
     _pc = be16(buffer) - 2;  // pc on stack points the last byte of JSR.
     _s = lo(sp) | 0x0100;
@@ -109,7 +106,8 @@ void RegsMos6502::save65816() {
     };
     uint8_t buffer[13];
 
-    Pins.captureWrites(PUSH_ALL, sizeof(PUSH_ALL), &_s, buffer, sizeof(buffer));
+    _pins->captureWrites(
+            PUSH_ALL, sizeof(PUSH_ALL), &_s, buffer, sizeof(buffer));
 
     _pbr = buffer[0];
     _pc = be16(buffer + 1) - 3;  // pc on stack points the last byte of JSL.
@@ -129,7 +127,7 @@ void RegsMos6502::setE(uint8_t value) {
             sec, noop,   // SEC/CLC
             0xFB, noop,  // XCE
     };
-    Pins.execInst(SET_E, sizeof(SET_E));
+    _pins->execInst(SET_E, sizeof(SET_E));
 }
 
 void RegsMos6502::restore() {
@@ -138,7 +136,7 @@ void RegsMos6502::restore() {
         return;
     }
 
-    if (Pins.hardwareType() == HW_W65C816)
+    if (PinsMos6502::hardwareType() == HW_W65C816)
         setE(_e);
 
     const auto sp = _s - 3;  // offset RTI
@@ -155,7 +153,7 @@ void RegsMos6502::restore() {
             _p, lo(_pc), hi(_pc),
     };
     // clang-format on
-    Pins.execInst(PULL_ALL, sizeof(PULL_ALL));
+    _pins->execInst(PULL_ALL, sizeof(PULL_ALL));
 }
 
 void RegsMos6502::restore65816() {
@@ -178,12 +176,12 @@ void RegsMos6502::restore65816() {
     };
 
     setE(_e);
-    Pins.execInst(PULL_ALL, sizeof(PULL_ALL));
+    _pins->execInst(PULL_ALL, sizeof(PULL_ALL));
 }
 
 void RegsMos6502::helpRegisters() const {
     cli.print(F("?Reg: PC S X Y A P"));
-    if (Pins.hardwareType() == HW_W65C816) {
+    if (PinsMos6502::hardwareType() == HW_W65C816) {
         cli.print(F(" E"));
         if (_e == 0)
             cli.print(F(" C D K/PBR B/DBR PM PX"));
@@ -239,7 +237,7 @@ const Regs::RegList *RegsMos6502::listRegisters(uint8_t n) const {
     if (_e == 0) {
         return n < 5 ? &REG_LIST_65816[n] : nullptr;
     } else {
-        const auto num = Pins.hardwareType() == HW_W65C816 ? 4 : 3;
+        const auto num = PinsMos6502::hardwareType() == HW_W65C816 ? 4 : 3;
         return n < num ? &REG_LIST_6502[n] : nullptr;
     }
 }
@@ -247,11 +245,11 @@ const Regs::RegList *RegsMos6502::listRegisters(uint8_t n) const {
 void RegsMos6502::setP(uint8_t value) {
     if (_e == 0) {
         _p = value;
-        w65c816::Memory.longA((_p & P_M) == 0);
-        w65c816::Memory.longI((_p & P_X) == 0);
+        _mems->longA((_p & P_M) == 0);
+        _mems->longI((_p & P_X) == 0);
     } else {
-        w65c816::Memory.longA(false);
-        w65c816::Memory.longI(false);
+        _mems->longA(false);
+        _mems->longI(false);
         _p = value | 0x20;
     }
 }

@@ -14,12 +14,11 @@ namespace debugger {
 namespace mc6809 {
 
 struct PinsMc6809 final : PinsMc6809Base {
-    PinsMc6809(RegsMc6809 &regs, InstMc6809 &inst, const Mems &mems)
-        : PinsMc6809Base(regs, inst, mems) {}
+    PinsMc6809();
 
     void resetPins() override;
 
-protected:
+private:
     Signals *rawCycle() const override;
     Signals *cycle() const override;
 };

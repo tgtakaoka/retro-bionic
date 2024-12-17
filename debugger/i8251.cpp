@@ -5,8 +5,6 @@
 
 namespace debugger {
 
-struct I8251 USART;
-
 const char *I8251::name() const {
     return "USART";
 }

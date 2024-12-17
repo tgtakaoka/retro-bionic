@@ -1,7 +1,6 @@
 #include "pins_mc6801.h"
 #include "debugger.h"
 #include "devs_mc6801.h"
-#include "digital_bus.h"
 #include "inst_hd6301.h"
 #include "inst_mc6801.h"
 #include "mems_mc6801.h"
@@ -10,10 +9,6 @@
 
 namespace debugger {
 namespace mc6801 {
-
-struct PinsMc6801 Pins {
-    Regs, Inst, Memory, Devices
-};
 
 /**
  * MC6801 bus cycle.
@@ -155,6 +150,14 @@ constexpr uint8_t PINS_INPUT[] = {
 
 }  // namespace
 
+PinsMc6801::PinsMc6801() {
+    auto regs = new RegsMc6801(this);
+    _regs = regs;
+    _devs = new DevsMc6801();
+    _mems = new MemsMc6801(regs, _devs);
+    _inst = new InstMc6801(_mems);
+}
+
 void PinsMc6801::resetPins() {
     // Assert reset condition
     pinsMode(PINS_LOW, sizeof(PINS_LOW), OUTPUT, LOW);
@@ -163,8 +166,8 @@ void PinsMc6801::resetPins() {
     pinsMode(PINS_INPUT, sizeof(PINS_INPUT), INPUT);
 
     // Reset vector should not point internal registers.
-    const uint16_t reset_vec = _mems.raw_read16(InstMc6800::VEC_RESET);
-    _mems.raw_write16(InstMc6800::VEC_RESET, 0x8000);
+    const uint16_t reset_vec = _mems->raw_read16(InstMc6800::VEC_RESET);
+    _mems->raw_write16(InstMc6800::VEC_RESET, 0x8000);
 
     // Toggle reset to put MC6803/HD6303 in reset
     clock_cycle();
@@ -195,12 +198,15 @@ void PinsMc6801::resetPins() {
     cycle();
     // The first instruction will be saving registers, and certainly can be
     // injected.
-    _regs.reset();
-    _regs.save();
-    _mems.raw_write16(InstMc6800::VEC_RESET, reset_vec);
-    _regs.setIp(reset_vec);
-    if (_regs.checkSoftwareType() == SW_HD6301)
-        _inst = &hd6301::Inst;
+    auto r = regs<RegsMc6801>();
+    r->reset();
+    r->save();
+    _mems->raw_write16(InstMc6800::VEC_RESET, reset_vec);
+    r->setIp(reset_vec);
+    if (r->checkSoftwareType() == SW_HD6301) {
+        delete _inst;
+        _inst = new hd6301::InstHd6301(_mems);
+    }
 }
 
 mc6800::Signals *PinsMc6801::cycle() {
@@ -210,7 +216,7 @@ mc6800::Signals *PinsMc6801::cycle() {
 
 mc6800::Signals *PinsMc6801::rawCycle() {
     // MC6803/HD6303 clock E is CLK/4, so we toggle CLK 4 times
-    busMode(AD, INPUT);
+    Signals::inputMode();
     // c1
     extal_hi();
     auto s = Signals::put();
@@ -233,7 +239,7 @@ mc6800::Signals *PinsMc6801::rawCycle() {
         // c4
         extal_lo();
         if (s->writeMemory()) {
-            _mems.write(s->addr, s->data);
+            _mems->write(s->addr, s->data);
             if (c4_lo_write)
                 delayNanoseconds(c4_lo_write);
         } else {
@@ -244,7 +250,7 @@ mc6800::Signals *PinsMc6801::rawCycle() {
         delayNanoseconds(c4_hi_write);
     } else {
         if (s->readMemory()) {
-            s->data = _mems.read(s->addr);
+            s->data = _mems->read(s->addr);
             if (c3_lo_read)
                 delayNanoseconds(c3_lo_read);
         } else {
@@ -252,10 +258,10 @@ mc6800::Signals *PinsMc6801::rawCycle() {
         }
         extal_hi();
         delayNanoseconds(c3_hi_read);
-        busMode(AD, OUTPUT);
+        s->setData();
         // c4
         extal_lo();
-        busWrite(AD, s->data);
+        Signals::outputMode();
         delayNanoseconds(c4_lo_read);
         extal_hi();
         _writes = 0;

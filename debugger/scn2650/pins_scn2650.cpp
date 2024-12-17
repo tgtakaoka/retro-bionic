@@ -1,15 +1,12 @@
 #include "pins_scn2650.h"
 #include "debugger.h"
 #include "devs_scn2650.h"
-#include "digital_bus.h"
 #include "inst_scn2650.h"
 #include "mems_scn2650.h"
 #include "regs_scn2650.h"
 
 namespace debugger {
 namespace scn2650 {
-
-struct PinsScn2650 Pins;
 
 // clang-format off
 /**
@@ -155,6 +152,13 @@ inline void clock_cycle() {
 
 }  // namespace
 
+PinsScn2650::PinsScn2650() {
+    auto regs = new RegsScn2650(this);
+    _regs = regs;
+    _mems = new MemsScn2650(regs);
+    _devs = new DevsScn2650();
+}
+
 void PinsScn2650::resetPins() {
     pinsMode(PINS_LOW, sizeof(PINS_LOW), OUTPUT, LOW);
     pinsMode(PINS_HIGH, sizeof(PINS_HIGH), OUTPUT, HIGH);
@@ -166,7 +170,7 @@ void PinsScn2650::resetPins() {
     negate_reset();
     Signals::resetCycles();
 
-    Regs.save();
+    _regs->save();
 }
 
 Signals *PinsScn2650::prepareCycle() {
@@ -196,13 +200,13 @@ Signals *PinsScn2650::completeCycle(Signals *s) {
         if (s->io()) {
             if (s->addr & 0x2000) {
                 s->addr &= 0xFF;
-                if (Devs.isSelected(s->addr)) {
-                    Devs.write(s->addr, s->data);
+                if (_devs->isSelected(s->addr)) {
+                    _devs->write(s->addr, s->data);
                 }
             }
             delayNanoseconds(clock_hi_iow);
         } else if (s->writeMemory()) {
-            Memory.write(s->addr, s->data);
+            _mems->write(s->addr, s->data);
             delayNanoseconds(clock_hi_write);
         } else {
             delayNanoseconds(clock_hi_capture);
@@ -210,18 +214,18 @@ Signals *PinsScn2650::completeCycle(Signals *s) {
     } else {
         if (s->io()) {
             if (s->vector()) {
-                s->data = Devs.vector();
+                s->data = _devs->vector();
             } else if (s->addr & 0x2000) {
                 s->addr &= 0xFF;
-                if (Devs.isSelected(s->addr)) {
-                    s->data = Devs.read(s->addr);
+                if (_devs->isSelected(s->addr)) {
+                    s->data = _devs->read(s->addr);
                 }
             }
             s->outData();
             assert_opack();
             delayNanoseconds(clock_lo_ior);
         } else if (s->readMemory()) {
-            s->data = Memory.read(s->addr);
+            s->data = _mems->read(s->addr);
             s->outData();
             assert_opack();
             delayNanoseconds(clock_lo_read);
@@ -236,7 +240,7 @@ Signals *PinsScn2650::completeCycle(Signals *s) {
     negate_opack();
     clock_lo();  // T2L
     delayNanoseconds(clock_lo_input);
-    busMode(DBUS, INPUT);
+    Signals::inputMode();
     clock_hi();  // T0H
     Signals::nextCycle();
     return s;
@@ -285,25 +289,25 @@ void PinsScn2650::idle() {
 
 void PinsScn2650::loop() {
     while (true) {
-        Devs.loop();
+        _devs->loop();
         if (!rawStep() || haltSwitch())
             return;
     }
 }
 
 void PinsScn2650::run() {
-    Regs.restore();
+    _regs->restore();
     Signals::resetCycles();
     saveBreakInsts();
     loop();
     restoreBreakInsts();
     disassembleCycles();
-    Regs.save();
+    _regs->save();
 }
 
 bool PinsScn2650::rawStep() {
     auto s = prepareCycle();
-    const auto inst = Memory.read(s->addr);
+    const auto inst = _mems->read(s->addr);
     const auto len = InstScn2650::instLen(inst);
     if (inst == InstScn2650::HALT || len == 0) {
         // HALT or unknown instruction. Just return.
@@ -311,7 +315,7 @@ bool PinsScn2650::rawStep() {
     }
 
     completeCycle(s);
-    const auto opr = Memory.read(s->addr + 1);
+    const auto opr = _mems->read(s->addr + 1);
     const auto busCycles = len + InstScn2650::busCycles(inst, opr);
     s->markFetch();
     for (auto i = 1; i < busCycles; ++i) {
@@ -333,13 +337,13 @@ bool PinsScn2650::rawStep() {
 
 bool PinsScn2650::step(bool show) {
     Signals::resetCycles();
-    Regs.restore();
+    _regs->restore();
     if (show)
         Signals::resetCycles();
     if (rawStep()) {
         if (show)
             printCycles();
-        Regs.save();
+        _regs->save();
         return true;
     }
     return false;
@@ -356,7 +360,7 @@ void PinsScn2650::negateInt(uint8_t name) {
 }
 
 void PinsScn2650::setBreakInst(uint32_t addr) const {
-    Memory.put_inst(addr, InstScn2650::HALT);
+    _mems->put_inst(addr, InstScn2650::HALT);
 }
 
 void PinsScn2650::printCycles() {
@@ -373,7 +377,7 @@ void PinsScn2650::disassembleCycles() {
     for (auto i = 0; i < cycles;) {
         const auto s = g->next(i);
         if (s->fetch()) {
-            const auto len = Memory.disassemble(s->addr, 1) - s->addr;
+            const auto len = _mems->disassemble(s->addr, 1) - s->addr;
             i += len;
         } else {
             s->print();

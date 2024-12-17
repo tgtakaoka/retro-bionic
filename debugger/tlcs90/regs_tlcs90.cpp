@@ -1,14 +1,10 @@
 #include "regs_tlcs90.h"
 #include "char_buffer.h"
 #include "debugger.h"
-#include "digital_bus.h"
-#include "mems_tlcs90.h"
 #include "pins_tlcs90.h"
 
 namespace debugger {
 namespace tlcs90 {
-
-struct RegsTlcs90 Regs;
 
 const char *RegsTlcs90::cpu() const {
     return "TLC90";
@@ -55,7 +51,7 @@ void RegsTlcs90::reset() {
             0x3E, 0x00, 0x10,  // LD SP,1000H      ; 0:2:3:N
             0x1A, 0x00, 0x00,  // JP 0000H         ; 0:2:3:d:J
     };
-    Pins.execInst(CONFIG, sizeof(CONFIG));
+    _pins->execInst(CONFIG, sizeof(CONFIG));
 }
 
 bool RegsTlcs90::saveContext(const Signals *frame) {
@@ -82,7 +78,8 @@ void RegsTlcs90::save() {
             0x00,                    // NOP           ; 0:N
     };
     uint8_t buffer[2];
-    Pins.captureWrites(SAVE_SP, sizeof(SAVE_SP), buffer, sizeof(buffer), &_pc);
+    _pins->captureWrites(
+            SAVE_SP, sizeof(SAVE_SP), buffer, sizeof(buffer), &_pc);
     _sp = le16(buffer);
     saveRegisters();
 }
@@ -98,20 +95,21 @@ void RegsTlcs90::saveRegisters() {
             0x00,  // NOP       ; 0:N
     };
     uint8_t buffer[4];
-    Pins.captureWrites(SAVE_INDEX, sizeof(SAVE_INDEX), buffer, sizeof(buffer));
+    _pins->captureWrites(
+            SAVE_INDEX, sizeof(SAVE_INDEX), buffer, sizeof(buffer));
     _ix = be16(buffer + 0);
     _iy = be16(buffer + 2);
 }
 
-void RegsTlcs90::exchangeRegs() {
+void RegsTlcs90::exchangeRegs() const {
     static constexpr uint8_t EXCHANGE[] = {
             0x09,  // EX AF,AF' ; 0:N
             0x0A,  // EXX       ; 0:N
     };
-    Pins.execInst(EXCHANGE, sizeof(EXCHANGE));
+    _pins->execInst(EXCHANGE, sizeof(EXCHANGE));
 }
 
-void RegsTlcs90::saveRegs(reg &regs) {
+void RegsTlcs90::saveRegs(reg &regs) const {
     static constexpr uint8_t SAVE_ALL[] = {
             0x56,  // PUSH AF   ; 0:N:d:W:W
             0x50,  // PUSH BC   ; 0:N:d:W:W
@@ -119,7 +117,7 @@ void RegsTlcs90::saveRegs(reg &regs) {
             0x52,  // PUSH HL   ; 0:N:d:W:W
             0x00,  // NOP       ; 0:N
     };
-    Pins.captureWrites(
+    _pins->captureWrites(
             SAVE_ALL, sizeof(SAVE_ALL), (uint8_t *)&regs, sizeof(regs));
 }
 
@@ -134,17 +132,17 @@ void RegsTlcs90::restore() {
             0x3E, lo(_sp), hi(_sp),  // LD SP, _sp  ; 0:2:3:N
             0x1A, lo(_pc), hi(_pc),  // JP _pc     ; 0:2:3:d:J
     };
-    Pins.execInst(LOAD_ALL, sizeof(LOAD_ALL));
+    _pins->execInst(LOAD_ALL, sizeof(LOAD_ALL));
 }
 
-void RegsTlcs90::restoreRegs(const reg &regs) {
+void RegsTlcs90::restoreRegs(const reg &regs) const {
     uint8_t LOAD_ALL[] = {
             0x5E, 0x09, regs.f, regs.a,  // POP AF    ; 0:n:R:R:d:N
             0x38, regs.c, regs.b,        // LD BC, _bc  ; 0:2:3:N
             0x39, regs.e, regs.d,        // LD DE, _de  ; 0:2:3:N
             0x3A, regs.l, regs.h,        // LD HL, _hl  ; 0:2:3:N
     };
-    Pins.execInst(LOAD_ALL, sizeof(LOAD_ALL));
+    _pins->execInst(LOAD_ALL, sizeof(LOAD_ALL));
 }
 
 void RegsTlcs90::helpRegisters() const {
@@ -246,7 +244,7 @@ void RegsTlcs90::setRegister(uint8_t reg, uint32_t value) {
     }
 }
 
-uint8_t RegsTlcs90::internal_read(uint16_t addr) {
+uint8_t RegsTlcs90::internal_read(uint16_t addr) const {
     static uint8_t LD[] = {
             0xE3, 0, 0, 0x2E,  // LD A,(mn) ; 0:2:3:7:R:N
             0xEB, 0, 0, 0x26,  // LD (mn),A ; 0:2:3:7:N:W
@@ -254,11 +252,11 @@ uint8_t RegsTlcs90::internal_read(uint16_t addr) {
     };
     LD[1] = lo(addr);
     LD[2] = hi(addr);
-    Pins.captureWrites(LD, sizeof(LD), &LD[2], 1);
+    _pins->captureWrites(LD, sizeof(LD), &LD[2], 1);
     return LD[2];
 }
 
-void RegsTlcs90::internal_write(uint16_t addr, uint8_t data) {
+void RegsTlcs90::internal_write(uint16_t addr, uint8_t data) const {
     static uint8_t LD[] = {
             0x36, 0,           // LD A,n    ; 0:2:N
             0xEB, 0, 0, 0x26,  // LD (mn),A ; 0:2:3:7:N:W
@@ -267,7 +265,7 @@ void RegsTlcs90::internal_write(uint16_t addr, uint8_t data) {
     LD[1] = data;
     LD[3] = lo(addr);
     LD[4] = hi(addr);
-    Pins.execInst(LD, sizeof(LD));
+    _pins->execInst(LD, sizeof(LD));
 }
 
 }  // namespace tlcs90

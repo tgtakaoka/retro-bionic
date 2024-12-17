@@ -1,6 +1,7 @@
 #ifndef __INST_TLCS90_H__
 #define __INST_TLCS90_H__
 
+#include "mems.h"
 #include "signals_tlcs90.h"
 
 namespace debugger {
@@ -10,7 +11,7 @@ struct InstTlcs90 {
     uint8_t matched() const { return _matched; }
     uint8_t nextInstruction() const { return _nexti; }
 
-    static bool valid(uint16_t addr);
+    static bool valid(uint16_t addr, Mems *mems);
 
     bool match(const Signals *begin, const Signals *end,
             const Signals *prefetch = nullptr);
