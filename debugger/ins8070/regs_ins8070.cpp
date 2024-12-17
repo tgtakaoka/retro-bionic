@@ -1,16 +1,12 @@
 #include "regs_ins8070.h"
 #include "char_buffer.h"
 #include "debugger.h"
-#include "digital_bus.h"
 #include "inst_ins8070.h"
-#include "mems_ins8070.h"
 #include "pins_ins8070.h"
 #include "signals_ins8070.h"
 
 namespace debugger {
 namespace ins8070 {
-
-struct RegsIns8070 Regs;
 
 const char *RegsIns8070::cpu() const {
     return "INS8070";
@@ -34,7 +30,7 @@ void RegsIns8070::print() const {
     buffer.hex16(44, _t);
     buffer.bits(51, _s, 0x80, line + 51);
     cli.println(buffer);
-    Pins.idle();
+    _pins->idle();
 }
 
 void RegsIns8070::save() {
@@ -48,7 +44,7 @@ void RegsIns8070::save() {
             0x06, 0x0A,        // LD A,S; PUSH A
     };
     uint8_t buffer[11];
-    Pins.captureWrites(
+    _pins->captureWrites(
             PUSH_ALL, sizeof(PUSH_ALL), &_pc(), buffer, sizeof(buffer));
     _a = buffer[0];
     _e = buffer[1];
@@ -70,19 +66,11 @@ void RegsIns8070::restore() {
             0xC4, _a,                    // LD A,=_a
             0x24, lo(_pc()), hi(_pc()),  // JMP =_pc
     };
-    Pins.execInst(LD_ALL, sizeof(LD_ALL));
+    _pins->execInst(LD_ALL, sizeof(LD_ALL));
 }
 
-uint8_t RegsIns8070::busCycles(InstIns8070 &inst) const {
-    if (!inst.get(nextIp()))
-        return 0;
-    const auto ea = effectiveAddr(inst);
-    return MemsIns8070::is_internal(ea) ? inst.externalCycles()
-                                        : inst.busCycles();
-}
-
-uint16_t RegsIns8070::effectiveAddr(const InstIns8070 &inst) const {
-    const auto opr = Memory.raw_read(inst.addr + 1);
+uint16_t RegsIns8070::effectiveAddr(
+        const InstIns8070 &inst, uint8_t opr) const {
     const auto disp = static_cast<int8_t>(opr);
     const auto base = _ptr[inst.opc & 3];
     switch (inst.addrMode()) {
@@ -104,7 +92,7 @@ uint16_t RegsIns8070::effectiveAddr(const InstIns8070 &inst) const {
 }
 
 void RegsIns8070::helpRegisters() const {
-    cli.println(F("?Reg: PC SP P2 P3 A E EA T S"));
+    cli.println("?Reg: PC SP P2 P3 A E EA T S");
 }
 
 constexpr const char *REGS8[] = {
@@ -152,18 +140,18 @@ void RegsIns8070::setRegister(uint8_t reg, uint32_t value) {
     }
 }
 
-uint8_t RegsIns8070::internal_read(uint16_t addr) {
+uint8_t RegsIns8070::internal_read(uint16_t addr) const {
     // No bus signals while internal RAM bus cycle.
     uint8_t LD_ST[] = {
             0xC5, uint8(addr),  // LD A,dir[addr]
             0xF8, 0xFE          // ST A,-1,PC
     };
     uint8_t data;
-    Pins.captureWrites(LD_ST, sizeof(LD_ST), nullptr, &data, sizeof(data));
+    _pins->captureWrites(LD_ST, sizeof(LD_ST), nullptr, &data, sizeof(data));
     return data;
 }
 
-void RegsIns8070::internal_write(uint16_t addr, uint8_t data) {
+void RegsIns8070::internal_write(uint16_t addr, uint8_t data) const {
     // No bus signals while internal RAM bus cycle.
     uint8_t LD_ST[] = {
             0xC4, data,        // LD A,data
@@ -171,7 +159,7 @@ void RegsIns8070::internal_write(uint16_t addr, uint8_t data) {
     };
     LD_ST[1] = data;
     LD_ST[3] = addr;
-    Pins.execInst(LD_ST, sizeof(LD_ST));
+    _pins->execInst(LD_ST, sizeof(LD_ST));
 }
 
 }  // namespace ins8070

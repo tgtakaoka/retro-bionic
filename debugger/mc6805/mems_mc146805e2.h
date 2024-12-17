@@ -10,15 +10,13 @@ using mc6805::MemsMc6805;
 using mc6805::RegsMc6805;
 
 struct MemsMc146805E2 final : MemsMc6805 {
-    MemsMc146805E2(RegsMc6805 *regs) : MemsMc6805(regs, 13) {}
+    MemsMc146805E2(RegsMc6805 *regs, Devs *devs) : MemsMc6805(regs, devs, 13) {}
 
     uint16_t read(uint32_t addr) const override;
     void write(uint32_t addr, uint16_t data) const override;
 
     bool is_internal(uint16_t addr) const override { return addr < 0x80; }
 };
-
-extern struct MemsMc146805E2 Memory;
 
 }  // namespace mc146805e2
 }  // namespace debugger

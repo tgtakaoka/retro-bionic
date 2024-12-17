@@ -9,7 +9,8 @@ namespace f3850 {
 struct Signals final : SignalsBase<Signals> {
     Signals *getRomc();
     Signals *getData();
-    void outData();
+    void outData() const;
+    static void inputMode();
     void print() const;
 
     bool fetch() const { return flags() & FETCH; }

@@ -9,6 +9,9 @@ namespace debugger {
 namespace mc6800 {
 
 struct DevsMc6800 final : Devs {
+    DevsMc6800();
+    ~DevsMc6800();
+
     void begin() override;
     void reset() override;
     void loop() override;
@@ -16,12 +19,13 @@ struct DevsMc6800 final : Devs {
     uint16_t read(uint32_t addr) const override;
     void write(uint32_t addr, uint16_t data) const override;
 
-    Device &parseDevice(const char *name) const override;
-    void enableDevice(Device &dev) override;
+    Device *parseDevice(const char *name) const override;
+    void enableDevice(Device *dev) override;
     void printDevices() const override;
-};
 
-extern struct DevsMc6800 Devices;
+private:
+    Device *_acia;
+};
 
 }  // namespace mc6800
 }  // namespace debugger

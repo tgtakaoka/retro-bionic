@@ -9,7 +9,8 @@ namespace scn2650 {
 struct Signals final : SignalsBase<Signals> {
     void getAddr();
     void getData();
-    void outData();
+    void outData() const;
+    static void inputMode();
     void print() const;
 
     bool read() const;

@@ -6,7 +6,11 @@
 namespace debugger {
 namespace i8051 {
 
+struct PinsI8051;
+
 struct RegsI8051 final : Regs {
+    RegsI8051(PinsI8051 *pins) : _pins(pins) {}
+
     const char *cpu() const override { return "8051"; }
     const char *cpuName() const override;
 
@@ -23,6 +27,8 @@ struct RegsI8051 final : Regs {
     void write_internal(uint8_t addr, uint8_t data) const;
 
 private:
+    PinsI8051 *_pins;
+
     static constexpr uint8_t B = 0xF0;
     static constexpr uint8_t ACC = 0xE0;
     static constexpr uint8_t PSW = 0xD0;

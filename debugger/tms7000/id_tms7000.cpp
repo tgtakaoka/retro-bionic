@@ -1,16 +1,15 @@
-#include "target.h"
+#include "identity.h"
 
-#include "devs_tms7000.h"
-#include "mems_tms7000.h"
 #include "pins_tms7000.h"
-#include "regs_tms7000.h"
 
 namespace debugger {
 namespace tms7000 {
 
-const struct Target TargetTms7000 {
-    "TMS7000", Pins, Regs, Memory, Devs
-};
+Pins *instance() {
+    return new PinsTms7000();
+}
+
+const struct Identity TMS7000{"TMS7000", instance};
 
 }  // namespace tms7000
 }  // namespace debugger

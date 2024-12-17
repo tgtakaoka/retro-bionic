@@ -1,11 +1,8 @@
 #ifndef __PINS_MC6805_H__
 #define __PINS_MC6805_H__
 
-#include "devs.h"
 #include "inst_mc6805.h"
-#include "mems_mc6805.h"
 #include "pins.h"
-#include "regs_mc6805.h"
 #include "signals_mc6805.h"
 
 namespace debugger {
@@ -14,11 +11,9 @@ namespace mc6805 {
 using mc6805::InstMc6805;
 
 struct PinsMc6805 : Pins {
-    PinsMc6805(RegsMc6805 &regs, const InstMc6805 &inst, const MemsMc6805 &mems,
-            Devs &devs)
-        : _regs(regs), _inst(inst), _mems(mems), _devs(devs) {}
+    virtual ~PinsMc6805() { delete _inst; }
 
-    void idle() override;
+    void idle() override {};
     bool step(bool show) override;
     void run() override;
     void setBreakInst(uint32_t addr) const override;
@@ -31,10 +26,7 @@ struct PinsMc6805 : Pins {
     void suspend() const;
 
 protected:
-    RegsMc6805 &_regs;
-    const InstMc6805 &_inst;
-    const MemsMc6805 &_mems;
-    Devs &_devs;
+    InstMc6805 *_inst;
 
     virtual Signals *currCycle() const = 0;
     virtual Signals *rawPrepareCycle() const = 0;

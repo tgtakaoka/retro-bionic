@@ -73,6 +73,8 @@ enum IntrName : uint8_t {
 };
 
 struct PinsTlcs90 final : Pins {
+    PinsTlcs90();
+
     void resetPins() override;
     void idle() override;
     bool step(bool show) override;
@@ -87,6 +89,8 @@ struct PinsTlcs90 final : Pins {
             uint8_t max, uint16_t *addr = nullptr);
 
 private:
+    void x1_lo() const;
+    void x1_cycle() const;
     Signals *prepareCycle();
     Signals *completeCycle(Signals *signals);
     void suspend(bool show);
@@ -99,8 +103,6 @@ private:
     const Signals *findFetch(Signals *begin, const Signals *end);
     void disassembleCycles();
 };
-
-extern struct PinsTlcs90 Pins;
 
 }  // namespace tlcs90
 }  // namespace debugger

@@ -63,8 +63,7 @@ using mc6800::PinsMc6800Base;
 using mc6800::Signals;
 
 struct PinsMc6802 final : PinsMc6800Base {
-    PinsMc6802(RegsMc6802 &regs, InstMc6800 &inst, const Mems &mems, Devs &devs)
-        : PinsMc6800Base(regs, inst, mems, devs) {}
+    PinsMc6802();
 
     void resetPins() override;
 

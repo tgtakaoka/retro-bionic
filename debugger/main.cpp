@@ -15,8 +15,8 @@ void setup() {
     Logger.begin(115200);
     logger.begin(Logger);
 #endif
-    auto &target = Target::readIdentity();
-    Debugger.begin(target);
+    auto id = Identity::readIdentity();
+    Debugger.begin(id.instance());
 }
 
 void loop() {

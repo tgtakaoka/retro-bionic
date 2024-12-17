@@ -7,7 +7,11 @@
 namespace debugger {
 namespace tlcs90 {
 
+struct PinsTlcs90;
+
 struct RegsTlcs90 final : Regs {
+    RegsTlcs90(PinsTlcs90 *pins) : _pins(pins) {}
+
     const char *cpu() const override;
     const char *cpuName() const override;
 
@@ -15,10 +19,10 @@ struct RegsTlcs90 final : Regs {
     void save() override;
     void restore() override;
 
-    void reset();
+    void reset() override;
     bool saveContext(const Signals *frame);
     void saveRegisters();
-    void setIp(uint16_t pc) { _pc = pc; }
+    void setIp(uint32_t pc) override { _pc = pc; }
     void offsetStack(int16_t delta) { _sp += delta; }
 
     uint32_t nextIp() const override { return _pc; }
@@ -26,10 +30,12 @@ struct RegsTlcs90 final : Regs {
     const RegList *listRegisters(uint8_t n) const override;
     void setRegister(uint8_t reg, uint32_t value) override;
 
-    static uint8_t internal_read(uint16_t addr);
-    static void internal_write(uint16_t addr, uint8_t data);
+    uint8_t internal_read(uint16_t addr) const;
+    void internal_write(uint16_t addr, uint8_t data) const;
 
 private:
+    PinsTlcs90 *_pins;
+
     uint16_t _pc;
     uint16_t _sp;
     uint16_t _ix;
@@ -60,16 +66,14 @@ private:
         }
     } _main, _alt;
 
-    static void exchangeRegs();
-    static void saveRegs(reg &regs);
-    static void restoreRegs(const reg &regs);
+    void exchangeRegs() const;
+    void saveRegs(reg &regs) const;
+    void restoreRegs(const reg &regs) const;
 
     static constexpr uint16_t r16(const uint8_t hi, const uint8_t lo) {
         return static_cast<uint16_t>(hi) << 8 | lo;
     }
 };
-
-extern struct RegsTlcs90 Regs;
 
 }  // namespace tlcs90
 }  // namespace debugger

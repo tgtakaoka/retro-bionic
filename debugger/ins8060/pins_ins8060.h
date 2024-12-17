@@ -63,6 +63,8 @@ namespace debugger {
 namespace ins8060 {
 
 struct PinsIns8060 final : Pins {
+    PinsIns8060();
+
     void resetPins() override;
     void idle() override;
     bool step(bool show) override;
@@ -77,6 +79,7 @@ struct PinsIns8060 final : Pins {
             uint8_t *buf, uint8_t max) const;
 
 private:
+    void xin_lo() const;
     Signals *prepareCycle() const;
     Signals *completeCycle(Signals *signals) const;
     Signals *cycle(uint8_t data) const;
@@ -88,8 +91,6 @@ private:
 
     void disassembleCycles();
 };
-
-extern struct PinsIns8060 Pins;
 
 }  // namespace ins8060
 }  // namespace debugger

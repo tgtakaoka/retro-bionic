@@ -72,8 +72,6 @@ private:
     static constexpr uint8_t IRQF_bm = 0x80;  // Interrupt Request
 };
 
-extern struct Mc6850 ACIA;
-
 }  // namespace debugger
 #endif
 

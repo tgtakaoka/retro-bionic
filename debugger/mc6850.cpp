@@ -5,8 +5,6 @@
 
 namespace debugger {
 
-struct Mc6850 ACIA;
-
 const char *Mc6850::name() const {
     return "ACIA";
 }

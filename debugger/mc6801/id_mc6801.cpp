@@ -1,16 +1,15 @@
-#include "target.h"
+#include "identity.h"
 
-#include "devs_mc6801.h"
-#include "mems_mc6801.h"
 #include "pins_mc6801.h"
-#include "regs_mc6801.h"
 
 namespace debugger {
 namespace mc6801 {
 
-const struct Target TargetMc6801 {
-    "MC6801", Pins, Regs, Memory, Devices
-};
+Pins *instance() {
+    return new PinsMc6801();
+}
+
+const struct Identity MC6801{"MC6801", instance};
 
 }  // namespace mc6801
 }  // namespace debugger

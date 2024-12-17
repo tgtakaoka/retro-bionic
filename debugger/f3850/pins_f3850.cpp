@@ -1,8 +1,6 @@
 #include "pins_f3850.h"
 #include "debugger.h"
 #include "devs_f3850.h"
-#include "digital_bus.h"
-#include "i8251.h"
 #include "inst_f3850.h"
 #include "mems_f3850.h"
 #include "regs_f3850.h"
@@ -143,6 +141,14 @@ inline void xtly_cycle_hi() {
 
 }  // namespace
 
+PinsF3850::PinsF3850() {
+    _devs = new DevsF3850();
+    auto regs = new RegsF3850(this, _devs);
+    _regs = regs;
+    _mems = new MemsF3850(regs);
+    regs->_mems = _mems;
+}
+
 void PinsF3850::resetPins() {
     // Assert reset condition
     pinsMode(PINS_LOW, sizeof(PINS_LOW), OUTPUT, LOW);
@@ -162,7 +168,7 @@ void PinsF3850::resetPins() {
     delayNanoseconds(xtly_idle_ns);
     cycle();  // RESET PC0
 
-    Regs.save();
+    _regs->save();
 }
 
 Signals *PinsF3850::cycle() {
@@ -172,11 +178,11 @@ Signals *PinsF3850::cycle() {
     while (signal_write() != LOW)
         xtly_cycle();
     // WRITE=L
-    busMode(DB, INPUT);
+    Signals::inputMode();
     delayNanoseconds(xtly_hi_input);
     xtly_cycle_hi();
     delayNanoseconds(xtly_read_romc);
-    const auto read = Regs.romc_read(signals->getRomc());
+    const auto read = regs<RegsF3850>()->romc_read(signals->getRomc());
     xtly_cycle_hi();
     if (read) {
         delayNanoseconds(xtly_hi_read);
@@ -194,7 +200,7 @@ Signals *PinsF3850::cycle() {
     if (read) {
         delayNanoseconds(xtly_nowrite_romc);
     } else {
-        if (Regs.romc_write(signals->getData()))
+        if (regs<RegsF3850>()->romc_write(signals->getData()))
             delayNanoseconds(xtly_hi_write);
     }
     // XTLY=H
@@ -248,25 +254,25 @@ void PinsF3850::idle() {
 
 void PinsF3850::loop() {
     while (true) {
-        Devs.loop();
+        _devs->loop();
         if (!rawStep() || haltSwitch())
             return;
     }
 }
 
 void PinsF3850::run() {
-    Regs.restore();
+    _regs->restore();
     Signals::resetCycles();
     saveBreakInsts();
     loop();
     restoreBreakInsts();
     disassembleCycles();
-    Regs.save();
+    _regs->save();
 }
 
 bool PinsF3850::rawStep() {
-    // Program counter is not in CPU but in Regs.
-    const auto opc = Memory.read(Regs.nextIp());
+    // Program counter is not in CPU but in _regs->
+    const auto opc = _mems->read(_regs->nextIp());
     if (InstF3850::instLength(opc) == 0) {
         // Unknown instruction. Just return.
         return false;
@@ -285,13 +291,13 @@ bool PinsF3850::rawStep() {
 
 bool PinsF3850::step(bool show) {
     Signals::resetCycles();
-    Regs.restore();
+    _regs->restore();
     if (show)
         Signals::resetCycles();
     if (rawStep()) {
         if (show)
             printCycles();
-        Regs.save();
+        _regs->save();
         return true;
     }
     return false;
@@ -308,7 +314,7 @@ void PinsF3850::negateInt(uint8_t name) {
 }
 
 void PinsF3850::setBreakInst(uint32_t addr) const {
-    Memory.put_inst(addr, InstF3850::BREAK);
+    _mems->put_inst(addr, InstF3850::BREAK);
 }
 
 void PinsF3850::printCycles() {
@@ -326,7 +332,7 @@ void PinsF3850::disassembleCycles() const {
         const auto s = g->next(i);
         const auto len = InstF3850::instLength(s->data);
         if (s->fetch() && len) {
-            Memory.disassemble(s->addr, 1);
+            _mems->disassemble(s->addr, 1);
             const auto cycles = InstF3850::busCycles(s->data);
             for (auto j = 0; j < len; ++j)
                 s->next(j)->print();

@@ -4,8 +4,13 @@
 #include <stdint.h>
 
 namespace debugger {
+
+struct Regs;
+struct Mems;
+struct Devs;
+
 struct Pins {
-    Pins() {}
+    virtual ~Pins();
 
     virtual void idle() = 0;
     virtual bool step(bool show) = 0;
@@ -26,6 +31,18 @@ struct Pins {
     static void toggle_debug();
 
 protected:
+    friend struct Target;
+    Regs *_regs;
+    Mems *_mems;
+    Devs *_devs;
+
+    template <typename REGS>
+    REGS *regs() const { return static_cast<REGS *>(_regs); }
+    template <typename MEMS>
+    MEMS *mems() const { return static_cast<MEMS *>(_mems); }
+    template <typename DEVS>
+    DEVS *devs() const { return static_cast<DEVS *>(_devs); }
+
     virtual void resetPins() = 0;
 
     bool isBreakPoint(uint32_t addr) const;

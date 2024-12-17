@@ -64,6 +64,8 @@ namespace debugger {
 namespace f3850 {
 
 struct PinsF3850 final : Pins {
+    PinsF3850();
+
     void resetPins() override;
     void idle() override;
     bool step(bool show) override;
@@ -86,8 +88,6 @@ private:
 
     void disassembleCycles() const;
 };
-
-extern struct PinsF3850 Pins;
 
 }  // namespace f3850
 }  // namespace debugger

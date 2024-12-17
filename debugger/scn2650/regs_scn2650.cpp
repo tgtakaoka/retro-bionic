@@ -8,8 +8,6 @@
 namespace debugger {
 namespace scn2650 {
 
-struct RegsScn2650 Regs;
-
 const char *RegsScn2650::cpu() const {
     return "2650";
 }
@@ -43,32 +41,32 @@ void RegsScn2650::print() const {
         regbuf.hex8(n * 6 + 28, _r[1 - bank][n]);
     }
     cli.println(regbuf);
-    Pins.idle();
+    _pins->idle();
 }
 
-void RegsScn2650::setRs(uint8_t rs) {
+void RegsScn2650::setRs(uint8_t rs) const {
     uint8_t SET_RS[] = {
             rs, 0x10,  // PPSL|CPSL 0x10
     };
-    Pins.execInst(SET_RS, sizeof(SET_RS));
+    _pins->execInst(SET_RS, sizeof(SET_RS));
 }
 
-void RegsScn2650::saveRegs(uint8_t *regs) {
+void RegsScn2650::saveRegs(uint8_t *regs) const {
     static constexpr uint8_t SAVE[] = {
             0xC9, 0x00,  // STRR,R1 $
             0xCA, 0x00,  // STRR,R2,$
             0xCB, 0x00,  // STRR,R3 $
     };
-    Pins.captureWrites(SAVE, sizeof(SAVE), nullptr, regs, 3);
+    _pins->captureWrites(SAVE, sizeof(SAVE), nullptr, regs, 3);
 }
 
-void RegsScn2650::restoreRegs(const uint8_t *regs) {
+void RegsScn2650::restoreRegs(const uint8_t *regs) const {
     uint8_t RESTORE[] = {
             0x05, regs[0],  // LODI,R1 _r1
             0x06, regs[1],  // LODI,R2 _r2
             0x07, regs[2],  // LODI,R3 _r3
     };
-    Pins.execInst(RESTORE, sizeof(RESTORE));
+    _pins->execInst(RESTORE, sizeof(RESTORE));
 }
 
 void RegsScn2650::save() {
@@ -78,7 +76,7 @@ void RegsScn2650::save() {
             0x12, 0xC8, 0x00,  // SPSU; STRR,R0 $
     };
     uint8_t buffer[3];
-    Pins.captureWrites(
+    _pins->captureWrites(
             SAVE_R0PS, sizeof(SAVE_R0PS), &_pc, buffer, sizeof(buffer));
     _r0 = buffer[0];
     _psl = buffer[1];
@@ -101,7 +99,7 @@ void RegsScn2650::restore() {
             CPSL, uint8(~_psl),      // CPSL ~_psl; restore PSL zero bits
             0x1F, hi(_pc), lo(_pc),  // BCTA _pc
     };
-    Pins.execInst(RESTORE, sizeof(RESTORE));
+    _pins->execInst(RESTORE, sizeof(RESTORE));
 }
 
 uint8_t RegsScn2650::read_io(uint8_t addr) const {
@@ -110,7 +108,7 @@ uint8_t RegsScn2650::read_io(uint8_t addr) const {
             0xC8, 0x00,  // STRR,R0 $
     };
     uint8_t data;
-    Pins.captureWrites(REDE, sizeof(REDE), nullptr, &data, sizeof(data));
+    _pins->captureWrites(REDE, sizeof(REDE), nullptr, &data, sizeof(data));
     return data;
 }
 
@@ -119,7 +117,7 @@ void RegsScn2650::write_io(uint8_t addr, uint8_t data) const {
             0x04, data,  // LODI,R0 data
             0xD4, addr,  // WRTE,R0 addr
     };
-    Pins.execInst(WRTE, sizeof(WRTE));
+    _pins->execInst(WRTE, sizeof(WRTE));
 }
 
 void RegsScn2650::helpRegisters() const {

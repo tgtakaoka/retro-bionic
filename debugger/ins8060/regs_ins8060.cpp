@@ -1,16 +1,11 @@
 #include "regs_ins8060.h"
 #include "char_buffer.h"
 #include "debugger.h"
-#include "digital_bus.h"
-#include "inst_ins8060.h"
-#include "mems_ins8060.h"
 #include "pins_ins8060.h"
 #include "signals_ins8060.h"
 
 namespace debugger {
 namespace ins8060 {
-
-struct RegsIns8060 Regs;
 
 const char *RegsIns8060::cpu() const {
     return "INS8060";
@@ -33,7 +28,7 @@ void RegsIns8060::print() const {
     buffer.hex8(39, _a);
     buffer.bits(44, _s, 0x80, line + 44);
     cli.println(buffer);
-    Pins.idle();
+    _pins->idle();
 }
 
 void RegsIns8060::save() {
@@ -46,7 +41,7 @@ void RegsIns8060::save() {
             0x33, 0xC8, 0xFF, 0x37, 0xC8, 0xFF,  // XPAL P1, ST $, XPAH P1, ST $
     };
     static uint8_t buffer[9];
-    Pins.captureWrites(ST_ALL, sizeof(ST_ALL), &_pc(), buffer, sizeof(buffer));
+    _pins->captureWrites(ST_ALL, sizeof(ST_ALL), &_pc(), buffer, sizeof(buffer));
     _a = buffer[0];
     _e = buffer[1];
     _s = buffer[2];
@@ -55,14 +50,14 @@ void RegsIns8060::save() {
     _p3() = le16(buffer + 7);
 }
 
-void RegsIns8060::restorePtr(uint8_t n, uint16_t val) {
+void RegsIns8060::restorePtr(uint8_t n, uint16_t val) const {
     uint8_t LD_PTR[] = {
             0xC4, lo(val),    // LDI lo(Pn)
             uint8(0x30 | n),  // XPAL Pn
             0xC4, hi(val),    // LDI hi(Pn)
             uint8(0x34 | n),  // XPAH Pn
     };
-    Pins.execInst(LD_PTR, sizeof(LD_PTR));
+    _pins->execInst(LD_PTR, sizeof(LD_PTR));
 }
 
 void RegsIns8060::restore() {
@@ -71,22 +66,22 @@ void RegsIns8060::restore() {
         0xC4, _s, 0x07,                // LDI s, CAS; s=1
         0xC4, _e, 0x01,                // LDI e, XAE; e=4
     };
-    Pins.execInst(LD_SE, sizeof(LD_SE));
+    _pins->execInst(LD_SE, sizeof(LD_SE));
     restorePtr(3, _p3());
     restorePtr(2, _p2());
     const auto pc = _addr(_pc(), _pc() - 8);  // offset restore P1 and A
     restorePtr(1, pc);
     static constexpr uint8_t XPPC_P1[] = { 0x3D };
-    Pins.execInst(XPPC_P1, sizeof(XPPC_P1));
+    _pins->execInst(XPPC_P1, sizeof(XPPC_P1));
     restorePtr(1, _p1());
     uint8_t LD_A[] = {
         0xC4, _a,               // LDI _a
     };
-    Pins.execInst(LD_A, sizeof(LD_A));
+    _pins->execInst(LD_A, sizeof(LD_A));
 }
 
 void RegsIns8060::helpRegisters() const {
-    cli.println(F("?Reg: PC P1 P2 P3 A E S"));
+    cli.println("?Reg: PC P1 P2 P3 A E S");
 }
 
 constexpr const char *REGS8[] = {

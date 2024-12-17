@@ -53,6 +53,7 @@
 #define PIN_INT 31    /* P8.22 */
 #define PIN_ALE 30    /* P8.23 */
 
+#include "mems.h"
 #include "pins.h"
 #include "signals_i8048.h"
 
@@ -69,6 +70,9 @@ enum SoftwareType : uint8_t {
 };
 
 struct PinsI8048 final : Pins {
+    PinsI8048();
+    ~PinsI8048();
+
     void resetPins() override;
     void idle() override;
     bool step(bool show) override;
@@ -85,6 +89,7 @@ struct PinsI8048 final : Pins {
     SoftwareType softwareType() const { return _type; }
 
 private:
+    Mems *_data;
     SoftwareType _type;
 
     void checkSoftwareType();
@@ -100,8 +105,6 @@ private:
 
     void disassembleCycles();
 };
-
-extern struct PinsI8048 Pins;
 
 }  // namespace i8048
 }  // namespace debugger

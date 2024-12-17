@@ -6,24 +6,19 @@
 namespace debugger {
 namespace f3850 {
 
+struct RegsF3850;
+
 struct MemsF3850 final : DmaMemory {
-    MemsF3850() : DmaMemory(Endian::ENDIAN_BIG) {}
+    MemsF3850(RegsF3850 *regs);
 
     uint32_t maxAddr() const override { return UINT16_MAX; }
     uint16_t get(uint32_t addr, const char *space = nullptr) const override;
     void put(uint32_t addr, uint16_t data,
             const char *space = nullptr) const override;
 
-protected:
-#ifdef WITH_ASSEMBLER
-    libasm::Assembler *assembler() const override;
-#endif
-#ifdef WITH_DISASSEMBLER
-    libasm::Disassembler *disassembler() const override;
-#endif
+private:
+    RegsF3850 *_regs;
 };
-
-extern struct MemsF3850 Memory;
 
 }  // namespace f3850
 }  // namespace debugger

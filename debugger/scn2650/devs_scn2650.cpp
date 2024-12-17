@@ -6,49 +6,53 @@
 namespace debugger {
 namespace scn2650 {
 
-struct DevsScn2650 Devs;
+DevsScn2650::DevsScn2650() : _usart(new I8251()) {}
+
+DevsScn2650::~DevsScn2650() {
+    delete _usart;
+}
 
 void DevsScn2650::reset() {
-    USART.reset();
-    USART.setBaseAddr(USART_BASE);
+    _usart->reset();
+    _usart->setBaseAddr(USART_BASE);
 }
 
 void DevsScn2650::begin() {
-    enableDevice(USART);
+    enableDevice(_usart);
 }
 
 void DevsScn2650::loop() {
-    USART.loop();
+    _usart->loop();
 }
 
 bool DevsScn2650::isSelected(uint32_t addr) const {
-    return USART.isSelected(addr);
+    return _usart->isSelected(addr);
 }
 
 uint16_t DevsScn2650::read(uint32_t addr) const {
-    return USART.read(addr);
+    return _usart->read(addr);
 }
 
 void DevsScn2650::write(uint32_t addr, uint16_t data) const {
-    USART.write(addr, data);
+    _usart->write(addr, data);
 }
 
 uint16_t DevsScn2650::vector() const {
-    return USART.vector();
+    return _usart->vector();
 }
 
-Device &DevsScn2650::parseDevice(const char *name) const {
-    if (strcasecmp(name, USART.name()) == 0)
-        return USART;
+Device *DevsScn2650::parseDevice(const char *name) const {
+    if (strcasecmp(name, _usart->name()) == 0)
+        return _usart;
     return Devs::nullDevice();
 }
 
-void DevsScn2650::enableDevice(Device &dev) {
-    USART.enable(&dev == &USART);
+void DevsScn2650::enableDevice(Device *dev) {
+    _usart->enable(dev == _usart);
 }
 
 void DevsScn2650::printDevices() const {
-    printDevice(USART);
+    printDevice(_usart);
 }
 
 }  // namespace scn2650

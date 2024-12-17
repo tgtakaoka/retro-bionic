@@ -1,13 +1,10 @@
 #include "mems_z88.h"
-#include "devs_z88.h"
 #include "regs_z88.h"
 
 namespace debugger {
 namespace z88 {
 
-struct MemsZ88 Memory;
-
-MemsZ88::MemsZ88() : MemsZ8(Regs, Devs) {}
+MemsZ88::MemsZ88(RegsZ88 *regs, Devs *devs) : MemsZ8(regs, devs) {}
 
 }  // namespace z88
 }  // namespace debugger

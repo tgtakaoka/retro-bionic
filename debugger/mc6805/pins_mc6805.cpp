@@ -1,5 +1,7 @@
 #include "pins_mc6805.h"
 #include "debugger.h"
+#include "mems_mc6805.h"
+#include "regs_mc6805.h"
 #include "signals_mc6805.h"
 
 namespace debugger {
@@ -43,21 +45,18 @@ void PinsMc6805::captureWrites(
     }
 }
 
-void PinsMc6805::idle() {
-    // MC146805E is fully static, so we can stop clock safely.
-}
-
 void PinsMc6805::loop() {
-    const auto vec_swi = _mems.vecSwi();
+    const auto vec_swi = mems<MemsMc6805>()->vecSwi();
     while (true) {
-        _devs.loop();
+        _devs->loop();
         auto s = rawPrepareCycle();
         if (s->addr == vec_swi) {
-            if (_regs.saveContext(s->prev(5))) {
-                const auto swi_vec = _mems.raw_read16(vec_swi);
-                const auto pc = _regs.nextIp() - 1;  //  offset SWI
+            auto r = regs<RegsMc6805>();
+            if (r->saveContext(s->prev(5))) {
+                const auto swi_vec = _mems->raw_read16(vec_swi);
+                const auto pc = r->nextIp() - 1;  //  offset SWI
                 if (isBreakPoint(pc) || swi_vec == vec_swi) {
-                    _regs.setIp(pc);
+                    r->setIp(pc);
                     restoreBreakInsts();
                     Signals::discard(s->prev(7));
                     disassembleCycles();
@@ -70,7 +69,7 @@ void PinsMc6805::loop() {
             restoreBreakInsts();
             suspend();
             disassembleCycles();
-            _regs.save();
+            _regs->save();
             return;
         }
         completeCycle(s);
@@ -86,7 +85,7 @@ void PinsMc6805::suspend() const {
 }
 
 void PinsMc6805::run() {
-    _regs.restore();
+    _regs->restore();
     Signals::resetCycles();
     saveBreakInsts();
     // CPU is stopped at fetch
@@ -96,8 +95,8 @@ void PinsMc6805::run() {
 
 bool PinsMc6805::rawStep() const {
     auto s = currCycle();
-    const auto inst = _mems.raw_read(s->addr);
-    if (!_inst.valid(inst) || _inst.isStop(inst))
+    const auto inst = _mems->raw_read(s->addr);
+    if (!_inst->valid(inst) || _inst->isStop(inst))
         return false;
     completeCycle(s);
     prepareCycle();
@@ -107,20 +106,20 @@ bool PinsMc6805::rawStep() const {
 
 bool PinsMc6805::step(bool show) {
     Signals::resetCycles();
-    _regs.restore();
+    _regs->restore();
     if (show)
         Signals::resetCycles();
     if (rawStep()) {
         if (show)
             printCycles();
-        _regs.save();
+        _regs->save();
         return true;
     }
     return false;
 }
 
 void PinsMc6805::setBreakInst(uint32_t addr) const {
-    _mems.put_inst(addr, InstMc6805::SWI);
+    _mems->put_inst(addr, InstMc6805::SWI);
 }
 
 void PinsMc6805::printCycles() {
@@ -137,7 +136,7 @@ void PinsMc6805::disassembleCycles() const {
     for (auto i = 0; i < cycles;) {
         const auto s = g->next(i);
         if (s->fetch()) {
-            const auto len = _mems.disassemble(s->addr, 1) - s->addr;
+            const auto len = _mems->disassemble(s->addr, 1) - s->addr;
             i += len;
         } else {
             s->print();

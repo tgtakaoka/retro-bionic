@@ -9,6 +9,9 @@ namespace debugger {
 namespace z80 {
 
 struct DevsZ80 final : Devs {
+    DevsZ80();
+    ~DevsZ80();
+
     void begin() override;
     void reset() override;
     void loop() override;
@@ -17,12 +20,13 @@ struct DevsZ80 final : Devs {
     void write(uint32_t addr, uint16_t data) const override;
     uint16_t vector() const override;
 
-    Device &parseDevice(const char *name) const override;
-    void enableDevice(Device &dev) override;
+    Device *parseDevice(const char *name) const override;
+    void enableDevice(Device *dev) override;
     void printDevices() const override;
-};
 
-extern struct DevsZ80 Devs;
+private:
+    Device *_usart;
+};
 
 }  // namespace z80
 }  // namespace debugger

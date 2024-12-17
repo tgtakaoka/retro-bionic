@@ -6,10 +6,8 @@
 namespace debugger {
 namespace mc68hc11 {
 
-using mc6800::InstMc6800;
-
-struct InstMc68hc11 final : InstMc6800 {
-    InstMc68hc11(const DmaMemory &mems) : InstMc6800(mems) {}
+struct InstMc68hc11 final : mc6800::InstMc6800 {
+    InstMc68hc11(Mems *mems) : InstMc6800(mems) {}
 
     uint16_t vec_swi() const override { return 0xFFF6; }
 };

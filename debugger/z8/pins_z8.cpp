@@ -106,8 +106,8 @@ void PinsZ8::resetPins() {
             xtal1_cycle();
     }
 
-    _regs.reset();
-    _regs.save();
+    _regs->reset();
+    _regs->save();
 }
 
 Signals *PinsZ8::prepareCycle() {
@@ -131,14 +131,14 @@ Signals *PinsZ8::completeCycle(Signals *s) {
         ++_writes;
         s->getData();
         if (s->writeMemory()) {
-            _mems.write(s->addr, s->data);
+            _mems->write(s->addr, s->data);
         } else {
             ;  // capture data to s->data
         }
     } else {
         _writes = 0;
         if (s->readMemory()) {
-            s->data = _mems.read(s->addr);
+            s->data = _mems->read(s->addr);
         } else {
             ;  // inject data from s->data
         }
@@ -180,7 +180,7 @@ bool PinsZ8::rawStep() {
             intrAck(s->prev(7));
         }
     }
-    const auto inst = _mems.raw_read(s->addr);
+    const auto inst = _mems->raw_read(s->addr);
     const auto cycles = _inst.busCycles(inst);
     if (_inst.isBreak(inst) || cycles == 0) {
         completeCycle(s->inject(InstZ8::JR));
@@ -247,20 +247,20 @@ void PinsZ8::idle() {
 
 void PinsZ8::loop() {
     while (true) {
-        _devs.loop();
+        _devs->loop();
         if (!rawStep() || haltSwitch())
             return;
     }
 }
 
 void PinsZ8::run() {
-    _regs.restore();
+    _regs->restore();
     Signals::resetCycles();
     saveBreakInsts();
     loop();
     restoreBreakInsts();
     disassembleCycles();
-    _regs.save();
+    _regs->save();
 }
 
 void PinsZ8::intrAck(Signals *frame) const {
@@ -270,13 +270,13 @@ void PinsZ8::intrAck(Signals *frame) const {
 
 bool PinsZ8::step(bool show) {
     Signals::resetCycles();
-    _regs.restore();
+    _regs->restore();
     if (show)
         Signals::resetCycles();
     if (rawStep()) {
         if (show)
             printCycles();
-        _regs.save();
+        _regs->save();
         return true;
     }
     return false;
@@ -315,7 +315,7 @@ void PinsZ8::negateInt(uint8_t name) {
 }
 
 void PinsZ8::setBreakInst(uint32_t addr) const {
-    _mems.put_inst(addr, _inst.breakInst());
+    _mems->put_inst(addr, _inst.breakInst());
 }
 
 void PinsZ8::printCycles() {
@@ -332,7 +332,7 @@ void PinsZ8::disassembleCycles() {
     for (auto i = 0; i < cycles;) {
         const auto s = g->next(i);
         if (s->fetch()) {
-            const auto len = _mems.disassemble(s->addr, 1) - s->addr;
+            const auto len = _mems->disassemble(s->addr, 1) - s->addr;
             i += len;
         } else {
             s->print();

@@ -1,16 +1,15 @@
-#include "target.h"
+#include "identity.h"
 
-#include "devs_i8085.h"
-#include "mems_i8085.h"
 #include "pins_i8085.h"
-#include "regs_i8085.h"
 
 namespace debugger {
 namespace i8085 {
 
-const struct Target TargetI8085 {
-    "P8085", Pins, Regs, Memory, Devs
-};
+Pins *instance() {
+    return new PinsI8085();
+}
+
+const struct Identity P8085{"P8085", instance};
 
 }  // namespace i8085
 }  // namespace debugger

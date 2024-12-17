@@ -2,16 +2,13 @@
 #include <string.h>
 #include "char_buffer.h"
 #include "debugger.h"
-#include "digital_bus.h"
 #include "inst_z88.h"
 #include "pins_z88.h"
 
 namespace debugger {
 namespace z88 {
 
-struct RegsZ88 Regs;
-
-RegsZ88::RegsZ88() : RegsZ8(Pins) {}
+RegsZ88::RegsZ88(PinsZ88 *pins) : RegsZ8(pins) {}
 
 const char *RegsZ88::cpu() const {
     return "Z88";
@@ -50,7 +47,7 @@ void RegsZ88::reset() {
             hi(InstZ88::ORG_RESET),
             lo(InstZ88::ORG_RESET),
     };
-    _pins.execInst(JP_RESET, sizeof(JP_RESET));
+    _pins->execInst(JP_RESET, sizeof(JP_RESET));
 }
 
 RegSpace RegsZ88::parseSpace(const char *space) const {
@@ -68,12 +65,12 @@ void RegsZ88::switchBank(RegSpace space) {
         static constexpr uint8_t BANK1[] = {
                 0x46, FLAGS, 0x01,  // OR FLAGS, #F_BANK
         };
-        _pins.execInst(BANK1, sizeof(BANK1));
+        _pins->execInst(BANK1, sizeof(BANK1));
     } else {
         static constexpr uint8_t BANK0[] = {
                 0x56, FLAGS, 0xFE,  // AND FLAGS, #LNOT F_BANK
         };
-        _pins.execInst(BANK0, sizeof(BANK0));
+        _pins->execInst(BANK0, sizeof(BANK0));
     }
 }
 
@@ -83,7 +80,7 @@ uint8_t RegsZ88::save_rp0() const {
             0x70, RP0,  // PUSH RP0
     };
     uint8_t rp0;
-    _pins.captureWrites(SAVE_RP0, sizeof(SAVE_RP0), nullptr, &rp0, sizeof(rp0));
+    _pins->captureWrites(SAVE_RP0, sizeof(SAVE_RP0), nullptr, &rp0, sizeof(rp0));
     return rp0;
 }
 
@@ -91,7 +88,7 @@ void RegsZ88::restore_rp0(uint8_t rp0) const {
     uint8_t RESTORE_RP0[] = {
             0x31, InstZ88::SRP0(rp0),  // SRP0 #rp0
     };
-    _pins.execInst(RESTORE_RP0, sizeof(RESTORE_RP0));
+    _pins->execInst(RESTORE_RP0, sizeof(RESTORE_RP0));
 }
 
 void RegsZ88::save_sfrs() {
@@ -122,7 +119,7 @@ uint8_t RegsZ88::save_r(uint8_t num) const {
     SAVE_R[0] = 0xD3;  // LDE @RR0,Rn
     SAVE_R[1] = (num << 4) | 0 | 1;
     uint8_t val;
-    _pins.captureWrites(SAVE_R, sizeof(SAVE_R), nullptr, &val, sizeof(val));
+    _pins->captureWrites(SAVE_R, sizeof(SAVE_R), nullptr, &val, sizeof(val));
     return val;
 }
 
@@ -132,7 +129,7 @@ void RegsZ88::restore_r(uint8_t num, uint8_t val) const {
     uint8_t LOAD_R[] = {
             uint8(num, 0x0C), val,  // LD rn,#val
     };
-    _pins.execInst(LOAD_R, sizeof(LOAD_R));
+    _pins->execInst(LOAD_R, sizeof(LOAD_R));
 }
 
 uint8_t RegsZ88::raw_read_reg(uint8_t addr) const {
@@ -141,7 +138,7 @@ uint8_t RegsZ88::raw_read_reg(uint8_t addr) const {
             0xD3, 0x01,  // LDE @RR0,R0
     };
     uint8_t val;
-    _pins.captureWrites(READ_REG, sizeof(READ_REG), nullptr, &val, sizeof(val));
+    _pins->captureWrites(READ_REG, sizeof(READ_REG), nullptr, &val, sizeof(val));
     return val;
 }
 
@@ -157,7 +154,7 @@ uint8_t RegsZ88::read_reg(uint8_t addr, RegSpace space) {
                 0xC7, 0x00,  // LD R0,@R0
                 0xD3, 0x01,  // LDE @RR0,R0
         };
-        _pins.captureWrites(
+        _pins->captureWrites(
                 READ_TWO, sizeof(READ_TWO), nullptr, &val, sizeof(val));
     } else {
         if (addr >= 0xE0)
@@ -173,7 +170,7 @@ void RegsZ88::write_reg(uint8_t addr, uint8_t val, RegSpace space) {
     uint8_t WRITE_REG[] = {
             0xE6, addr, val,  // LD addr,#val
     };
-    _pins.execInst(WRITE_REG, sizeof(WRITE_REG));
+    _pins->execInst(WRITE_REG, sizeof(WRITE_REG));
     update_r(addr, val);
     if (addr == RP0 || addr == RP1)
         save_all_r();

@@ -1,8 +1,6 @@
 #include "pins_i8051.h"
 #include "debugger.h"
 #include "devs_i8051.h"
-#include "digital_bus.h"
-#include "i8051_uart_handler.h"
 #include "inst_i8051.h"
 #include "mems_i8051.h"
 #include "regs_i8051.h"
@@ -10,8 +8,6 @@
 
 namespace debugger {
 namespace i8051 {
-
-struct PinsI8051 Pins;
 
 // clang-format off
 /**
@@ -176,6 +172,18 @@ void xtal1_hi() {
     digitalWriteFast(PIN_XTAL, HIGH);
 }
 
+PinsI8051::PinsI8051() {
+    auto regs = new RegsI8051(this);
+    _regs = regs;
+    _devs = new DevsI8051();
+    _data = new DataI8051(_devs);
+    _mems = new ProgI8051(regs, _data);
+}
+
+PinsI8051::~PinsI8051() {
+    delete _data;
+}
+
 inline void PinsI8051::xtal_cycle_lo() const {
     xtal_hi();
     delayNanoseconds(xtal_hi_ns);
@@ -218,7 +226,7 @@ void PinsI8051::resetPins() {
         xtal_cycle();
     negate_reset();
     Signals::resetCycles();
-    Regs.save();
+    _regs->save();
 }
 
 Signals *PinsI8051::prepareCycle() {
@@ -258,30 +266,31 @@ Signals *PinsI8051::prepareCycle() {
 
 Signals *PinsI8051::completeCycle(Signals *s) {
     // #PSEN:S3H1
+    auto uart = devs<DevsI8051>()->uart();
     if (s->fetch()) {  // program read
         // S3L2
         xtal_lo();
         if (s->readMemory()) {
-            s->data = ProgMemory.raw_read(s->addr);
+            s->data = _mems->raw_read(s->addr);
         } else {
             delayNanoseconds(xtal_lo_inject);
         }
         // S3H2
         xtal_hi();
-        busWrite(DB, s->data);
+        s->setData();
         // S1L1
         xtal_lo();
-        busMode(DB, OUTPUT);
+        Signals::outputMode();
         delayNanoseconds(xtal_lo_output);
         // S1H1
         xtal_hi();
-        UartH.loop();
+        uart->loop();
         // S1L2
         xtal_lo();  // S1L2 triggers #PSEN+ and ALE+
         Signals::nextCycle();
         // S1H2
         xtal_hi();
-        busMode(DB, INPUT);
+        Signals::inputMode();
         // ALE=H
         return s;
     }
@@ -291,16 +300,16 @@ Signals *PinsI8051::completeCycle(Signals *s) {
         // S1L2
         xtal_lo();
         if (s->readMemory()) {
-            s->data = DataMemory.read(s->addr);
+            s->data = _data->read(s->addr);
         } else {
             delayNanoseconds(xtal_lo_inject);
         }
         // S2H1
         xtal_hi();
-        busWrite(DB, s->data);
+        s->setData();
         // S2L2
         xtal_lo();
-        busMode(DB, OUTPUT);
+        Signals::outputMode();
         delayNanoseconds(xtal_lo_output);
     } else {  // external data write
         // S1L2
@@ -309,7 +318,7 @@ Signals *PinsI8051::completeCycle(Signals *s) {
         //  S1H2
         xtal_hi();
         if (s->writeMemory()) {
-            DataMemory.write(s->addr, s->data);
+            _data->write(s->addr, s->data);
         } else {
             delayNanoseconds(xtal_hi_capture);
         }
@@ -321,16 +330,17 @@ Signals *PinsI8051::completeCycle(Signals *s) {
     xtal_cycle();
     // S2H2/S3L1
     xtal_cycle_lo();
-    UartH.loop();
+    devs<DevsI8051>()->loop();
+    uart->loop();
     // S3H1/S3L2
     xtal_cycle_lo();
-    UartH.loop();
+    uart->loop();
     // S3H2/S1L1
     xtal_cycle_lo();  // S1L1 triggers #RD/#WR+
     Signals::nextCycle();
     // S1H1
     xtal_hi();
-    busMode(DB, INPUT);
+    Signals::inputMode();
     delayNanoseconds(xtal_hi_input);
     // S1L2
     xtal_lo();  // S1L2 triggers ALE+
@@ -394,7 +404,7 @@ void PinsI8051::idle() {
 
 void PinsI8051::loop() {
     while (true) {
-        Devs.loop();
+        _devs->loop();
         if (!rawStep() || haltSwitch()) {
             return;
         }
@@ -402,18 +412,18 @@ void PinsI8051::loop() {
 }
 
 void PinsI8051::run() {
-    Regs.restore();
+    _regs->restore();
     Signals::resetCycles();
     saveBreakInsts();
     loop();
     restoreBreakInsts();
     disassembleCycles();
-    Regs.save();
+    _regs->save();
 }
 
 bool PinsI8051::rawStep() {
     auto s = prepareCycle();
-    const auto inst = ProgMemory.raw_read(s->addr);
+    const auto inst = _mems->raw_read(s->addr);
     const auto cycles = InstI8051::busCycles(inst);
     if (cycles == 0) {
         completeCycle(s->inject(InstI8051::SJMP));
@@ -434,13 +444,13 @@ bool PinsI8051::rawStep() {
 
 bool PinsI8051::step(bool show) {
     Signals::resetCycles();
-    Regs.restore();
+    _regs->restore();
     if (show)
         Signals::resetCycles();
     if (rawStep()) {
         if (show)
             printCycles();
-        Regs.save();
+        _regs->save();
         return true;
     }
     return false;
@@ -461,7 +471,7 @@ void PinsI8051::negateInt(uint8_t name) {
 }
 
 void PinsI8051::setBreakInst(uint32_t addr) const {
-    ProgMemory.put_inst(addr, InstI8051::UNKNOWN);
+    _mems->put_inst(addr, InstI8051::UNKNOWN);
 }
 
 void PinsI8051::printCycles() {
@@ -479,7 +489,7 @@ void PinsI8051::disassembleCycles() {
     for (auto i = 0; i < cycles;) {
         const auto s = g->next(i);
         if (s->fetch()) {
-            const auto len = ProgMemory.disassemble(s->addr, 1) - s->addr;
+            const auto len = _mems->disassemble(s->addr, 1) - s->addr;
             const auto cycles = InstI8051::busCycles(s->data);
             for (auto i = len; i < cycles; ++i)
                 s->next(i)->print();

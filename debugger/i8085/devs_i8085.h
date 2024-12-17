@@ -2,6 +2,7 @@
 #define __DEVS_I8085_H__
 
 #include "devs.h"
+#include "serial_handler.h"
 
 #define USART_BASE 0x00
 
@@ -9,6 +10,9 @@ namespace debugger {
 namespace i8085 {
 
 struct DevsI8085 final : Devs {
+    DevsI8085();
+    ~DevsI8085();
+
     void begin() override;
     void reset() override;
     void loop() override;
@@ -18,12 +22,16 @@ struct DevsI8085 final : Devs {
     void write(uint32_t addr, uint16_t data) const override;
     uint16_t vector() const override;
 
-    Device &parseDevice(const char *name) const override;
-    void enableDevice(Device &dev) override;
+    Device *parseDevice(const char *name) const override;
+    void enableDevice(Device *dev) override;
     void printDevices() const override;
-};
 
-extern struct DevsI8085 Devs;
+    SerialHandler *sio() const { return _sio; }
+
+private:
+    Device *_usart;
+    SerialHandler *_sio;
+};
 
 }  // namespace i8085
 }  // namespace debugger

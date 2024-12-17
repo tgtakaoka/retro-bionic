@@ -11,6 +11,8 @@ struct Signals final : SignalsBase<Signals, mc6800::Signals> {
     void getDirection();
     void getControl();
     void getData();
+    void outData() const;
+    static void inputMode();
 };
 
 }  // namespace mc68hc11

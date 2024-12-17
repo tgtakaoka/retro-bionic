@@ -1,17 +1,15 @@
-#include "target.h"
+#include "identity.h"
 
-#include "devs_i8051.h"
-#include "inst_i8051.h"
-#include "mems_i8051.h"
 #include "pins_i8051.h"
-#include "regs_i8051.h"
 
 namespace debugger {
 namespace i8051 {
 
-const struct Target TargetI8051 {
-    "P8051", Pins, Regs, ProgMemory, Devs
-};
+Pins *instance() {
+    return new PinsI8051();
+}
+
+const struct Identity P8051{"P8051", instance};
 
 }  // namespace i8051
 }  // namespace debugger

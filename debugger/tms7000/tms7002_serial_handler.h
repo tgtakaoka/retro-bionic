@@ -7,13 +7,11 @@ namespace debugger {
 namespace tms7002 {
 
 struct Tms7002SerialHandler final : SerialHandler {
-    Tms7002SerialHandler() : SerialHandler(), _tms7001(false) {}
+    Tms7002SerialHandler(bool tms7001);
 
     const char *name() const override;
     const char *description() const override;
     uint32_t baseAddr() const override;
-
-    void setTms7001(bool tms7001) { _tms7001 = tms7001; }
 
 protected:
     void resetHandler() override;
@@ -22,10 +20,8 @@ protected:
     uint8_t signal_txd() const override;
 
 private:
-    bool _tms7001;
+    const bool _tms7001;
 };
-
-extern struct Tms7002SerialHandler SerialH;
 
 }  // namespace tms7002
 }  // namespace debugger

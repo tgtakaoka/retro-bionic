@@ -1,15 +1,10 @@
 #include "regs_tms7000.h"
 #include "char_buffer.h"
 #include "debugger.h"
-#include "digital_bus.h"
-#include "inst_tms7000.h"
-#include "mems_tms7000.h"
 #include "pins_tms7000.h"
 
 namespace debugger {
 namespace tms7000 {
-
-struct RegsTms7000 Regs;
 
 namespace {
 constexpr const char *const CPU_NAMES[/*HardwareType*/] = {
@@ -30,7 +25,7 @@ const char *RegsTms7000::cpu() const {
 }
 
 const char *RegsTms7000::cpuName() const {
-    const auto type = Pins.hardwareType() + Pins.clockType();
+    const auto type = _pins->hardwareType() + _pins->clockType();
     return CPU_NAMES[type];
 }
 
@@ -44,7 +39,7 @@ void RegsTms7000::print() const {
     buffer.hex8(21, _b);
     buffer.bits(27, _st, 0x80, line + 27);
     cli.println(buffer);
-    Pins.idle();
+    _pins->idle();
 }
 
 void RegsTms7000::save() {
@@ -60,7 +55,7 @@ void RegsTms7000::save() {
             0x8B, 0x80, 0x00,  // STA @>8000
     };
     uint8_t buffer[4];
-    Pins.captureWrites(
+    _pins->captureWrites(
             SAVE_ALL, sizeof(SAVE_ALL), buffer, sizeof(buffer), &_pc);
     write_internal(A, buffer[0]);
     _st = buffer[1];
@@ -79,7 +74,7 @@ void RegsTms7000::restore() {
             0x08,                    // POP ST
             0x8C, hi(_pc), lo(_pc),  // BR @_pc
     };
-    Pins.execInst(LOAD_ALL, sizeof(LOAD_ALL));
+    _pins->execInst(LOAD_ALL, sizeof(LOAD_ALL));
 }
 
 void RegsTms7000::restoreA() {
@@ -90,12 +85,12 @@ uint8_t RegsTms7000::read_internal(uint16_t addr) {
     uint8_t READ[] = {
             0x8A, hi(addr), lo(addr),  // LDA @addr
     };
-    Pins.execInst(READ, sizeof(READ), 1);
+    _pins->execInst(READ, sizeof(READ), 1);
     uint8_t CAPTURE[] = {
             0x8B, 0x80, 0x00,  // STA @>8000
     };
     uint8_t data;
-    Pins.captureWrites(CAPTURE, sizeof(CAPTURE), &data, sizeof(data));
+    _pins->captureWrites(CAPTURE, sizeof(CAPTURE), &data, sizeof(data));
     restoreA();
     return data;
 }
@@ -105,21 +100,21 @@ void RegsTms7000::write_internal(uint16_t addr, uint8_t data) {
         uint8_t MOV_A[] = {
                 0x22, _a = data,  // MOV %data, A
         };
-        Pins.execInst(MOV_A, sizeof(MOV_A));
+        _pins->execInst(MOV_A, sizeof(MOV_A));
         return;
     }
     if (addr == B) {
         uint8_t MOV_B[] = {
                 0x52, _b = data,  // MOV %data, B
         };
-        Pins.execInst(MOV_B, sizeof(MOV_B));
+        _pins->execInst(MOV_B, sizeof(MOV_B));
         return;
     }
     uint8_t WRITE[] = {
             0x22, data,                // MOV %data, A
             0x8B, hi(addr), lo(addr),  // STA @addr
     };
-    Pins.execInst(WRITE, sizeof(WRITE), 1);
+    _pins->execInst(WRITE, sizeof(WRITE), 1);
     restoreA();
 }
 

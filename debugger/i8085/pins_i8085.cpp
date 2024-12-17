@@ -1,8 +1,6 @@
 #include "pins_i8085.h"
 #include "debugger.h"
 #include "devs_i8085.h"
-#include "digital_bus.h"
-#include "i8085_sio_handler.h"
 #include "inst_i8085.h"
 #include "mems_i8085.h"
 #include "regs_i8085.h"
@@ -10,8 +8,6 @@
 
 namespace debugger {
 namespace i8085 {
-
-struct PinsI8085 Pins;
 
 // clang-format off
 /**
@@ -189,19 +185,26 @@ inline void clk_hi() {
     delayNanoseconds(clk_lo_x1_hi);
 }
 
-inline void clk_lo_nowait() {
+}  // namespace
+
+PinsI8085::PinsI8085() {
+    auto regs = new RegsI8085(this);
+    _regs = regs;
+    _mems = new MemsI8085(regs);
+    _devs = new DevsI8085();
+}
+
+void PinsI8085::clk_lo_nowait() const {
     x1_lo();
     delayNanoseconds(clk_hi_x1_lo);
-    SioH.loop();
+    devs<DevsI8085>()->sio()->loop();
     x1_hi();
 }
 
-inline void clk_lo() {
+void PinsI8085::clk_lo() const {
     clk_lo_nowait();
     delayNanoseconds(clk_hi_x1_hi);
 }
-
-}  // namespace
 
 void PinsI8085::resetPins() {
     // Assert reset condition
@@ -225,7 +228,7 @@ void PinsI8085::resetPins() {
     Signals::resetCycles();
     // #RESET_IN is sampled here falling transition of next CLK.
     cycleT1();
-    Regs.save();
+    _regs->save();
 }
 
 Signals *PinsI8085::cycleT1() const {
@@ -277,38 +280,37 @@ Signals *PinsI8085::cycleT3(Signals *s) const {
         s->getData();
         if (s->memory()) {
             if (s->writeMemory()) {
-                Memory.raw_write(s->addr, s->data);
+                _mems->raw_write(s->addr, s->data);
             } else {
                 delayNanoseconds(t3a_hi_capture);
             }
         } else if (s->write()) {
             const uint8_t ioaddr = s->addr;
-            if (Devs.isSelected(ioaddr)) {
-                Devs.write(ioaddr, s->data);
+            if (_devs->isSelected(ioaddr)) {
+                _devs->write(ioaddr, s->data);
             }
         }
     } else {
         if (s->memory()) {  // Memory access
             if (s->readMemory()) {
-                s->data = Memory.raw_read(s->addr);
+                s->data = _mems->raw_read(s->addr);
             }
         } else {  // I/O access
             const uint8_t ioaddr = s->addr;
             if (s->vector()) {
-                s->data = InstI8085::vec2Inst(Devs.vector());
-            } else if (Devs.isSelected(ioaddr)) {
-                s->data = Devs.read(ioaddr);
+                s->data = InstI8085::vec2Inst(_devs->vector());
+            } else if (_devs->isSelected(ioaddr)) {
+                s->data = _devs->read(ioaddr);
             } else {
                 s->data = 0;
             }
         }
-        busWrite(AD, s->data);
-        busMode(AD, OUTPUT);
+        s->outData();
     }
     // T3B
     clk_hi_nowait();
+    Signals::inputMode();
     Signals::nextCycle();
-    busMode(AD, INPUT);
     // T1AL or T4/T5
     clk_lo();
     while (signal_ale() == LOW) {
@@ -336,7 +338,7 @@ void PinsI8085::execute(const uint8_t *inst, uint8_t len, uint16_t *addr,
         uint8_t *buf, uint8_t max) {
     uint8_t inj = 0;
     uint8_t cap = 0;
-    auto s = cycleT2Ready(Regs.nextIp());
+    auto s = cycleT2Ready(_regs->nextIp());
     while (true) {
         if (inj < len)
             s->inject(inst[inj]);
@@ -369,16 +371,16 @@ void PinsI8085::idle() {
 }
 
 void PinsI8085::loop() {
-    auto s = cycleT2Ready(Regs.nextIp());
+    auto s = cycleT2Ready(_regs->nextIp());
     while (true) {
         cycleT3(s);
-        Devs.loop();
+        _devs->loop();
         if (haltSwitch()) {
             suspend();
             return;
         }
         s = cycleT1();
-        if (s->fetch() && Memory.raw_read(s->addr) == InstI8085::HLT) {
+        if (s->fetch() && _mems->raw_read(s->addr) == InstI8085::HLT) {
             cycleT2Pause();
             return;
         }
@@ -387,13 +389,13 @@ void PinsI8085::loop() {
 }
 
 void PinsI8085::run() {
-    Regs.restore();
+    _regs->restore();
     Signals::resetCycles();
     saveBreakInsts();
     loop();
     restoreBreakInsts();
     disassembleCycles();
-    Regs.save();
+    _regs->save();
 }
 
 void PinsI8085::suspend() {
@@ -416,8 +418,8 @@ void PinsI8085::suspend() {
 }
 
 bool PinsI8085::rawStep() {
-    const auto pc = Regs.nextIp();
-    if (Memory.raw_read(pc) == InstI8085::HLT)
+    const auto pc = _regs->nextIp();
+    if (_mems->raw_read(pc) == InstI8085::HLT)
         return false;
     assert_trap();
     cycleT3(cycleT2Ready(pc));
@@ -427,13 +429,13 @@ bool PinsI8085::rawStep() {
 
 bool PinsI8085::step(bool show) {
     Signals::resetCycles();
-    Regs.restore();
+    _regs->restore();
     if (show)
         Signals::resetCycles();
     if (rawStep()) {
         if (show)
             printCycles();
-        Regs.save();
+        _regs->save();
         return true;
     }
     return false;
@@ -478,7 +480,7 @@ void PinsI8085::negateInt(uint8_t name) {
 }
 
 void PinsI8085::setBreakInst(uint32_t addr) const {
-    Memory.put_inst(addr, InstI8085::HLT);
+    _mems->put_inst(addr, InstI8085::HLT);
 }
 
 void PinsI8085::printCycles() {
@@ -496,7 +498,7 @@ void PinsI8085::disassembleCycles() {
     for (auto i = 0; i < cycles;) {
         const auto s = g->next(i);
         if (s->fetch()) {
-            const auto next = Memory.disassemble(s->addr, 1);
+            const auto next = _mems->disassemble(s->addr, 1);
             i += next - s->addr;
         } else {
             s->print();

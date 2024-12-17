@@ -6,21 +6,18 @@
 namespace debugger {
 namespace scn2650 {
 
+struct RegsScn2650;
+
 struct MemsScn2650 final : DmaMemory {
-    MemsScn2650() : DmaMemory(Endian::ENDIAN_BIG) {}
+    MemsScn2650(RegsScn2650 *regs);
 
     uint32_t maxAddr() const override { return 0x7FFF; }
     uint16_t get(uint32_t addr, const char *space = nullptr) const override;
     void put(uint32_t addr, uint16_t data,
             const char *space = nullptr) const override;
 
-protected:
-#ifdef WITH_ASSEMBLER
-    libasm::Assembler *assembler() const override;
-#endif
-#ifdef WITH_DISASSEMBLER
-    libasm::Disassembler *disassembler() const override;
-#endif
+private:
+    RegsScn2650 *_regs;
 };
 
 extern struct MemsScn2650 Memory;

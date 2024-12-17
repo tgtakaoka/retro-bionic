@@ -2,6 +2,7 @@
 #define __DEVS_I8051_H__
 
 #include "devs.h"
+#include "serial_handler.h"
 
 #define USART_BASE 0xFFF0
 
@@ -9,6 +10,9 @@ namespace debugger {
 namespace i8051 {
 
 struct DevsI8051 final : Devs {
+    DevsI8051();
+    ~DevsI8051();
+
     void begin() override;
     void reset() override;
     void loop() override;
@@ -17,12 +21,16 @@ struct DevsI8051 final : Devs {
     uint16_t read(uint32_t addr) const override;
     void write(uint32_t addr, uint16_t data) const override;
 
-    Device &parseDevice(const char *name) const override;
-    void enableDevice(Device &dev) override;
+    Device *parseDevice(const char *name) const override;
+    void enableDevice(Device *dev) override;
     void printDevices() const override;
-};
 
-extern struct DevsI8051 Devs;
+    SerialHandler *uart() const { return _uart; }
+
+private:
+    Device *_usart;
+    SerialHandler *_uart;
+};
 
 }  // namespace i8051
 }  // namespace debugger

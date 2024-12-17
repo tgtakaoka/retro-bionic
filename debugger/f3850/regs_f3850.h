@@ -2,13 +2,18 @@
 #define __REGS_F3850_H__
 
 #include "regs.h"
-
+#include "mems.h"
+#include "devs.h"
 #include "signals_f3850.h"
 
 namespace debugger {
 namespace f3850 {
 
+struct PinsF3850;
+
 struct RegsF3850 final : Regs {
+    RegsF3850(PinsF3850 *pins, Devs *devs) : _pins(pins), _devs(devs) {}
+
     const char *cpu() const override;
     const char *cpuName() const override { return cpu(); }
 
@@ -29,6 +34,11 @@ struct RegsF3850 final : Regs {
     void write_io(uint8_t addr, uint8_t val);
 
 private:
+    PinsF3850 *_pins;
+    Devs *_devs;
+    friend struct PinsF3850;
+    Mems *_mems;
+
     uint16_t _pc0;
     uint16_t _pc1;
     uint16_t _dc0;
@@ -53,8 +63,6 @@ private:
     void set_isu(uint8_t val);
     void update_r(uint8_t num, uint8_t val);
 };
-
-extern struct RegsF3850 Regs;
 
 }  // namespace f3850
 }  // namespace debugger

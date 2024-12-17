@@ -1,16 +1,15 @@
-#include "target.h"
+#include "identity.h"
 
-#include "devs_tlcs90.h"
-#include "mems_tlcs90.h"
 #include "pins_tlcs90.h"
-#include "regs_tlcs90.h"
 
 namespace debugger {
 namespace tlcs90 {
 
-const struct Target TargetTmp90c802 {
-    "TMP90C802", Pins, Regs, Memory, Devs
-};
+Pins *instance() {
+    return new PinsTlcs90();
+}
+
+const struct Identity TMP90C802P{"TMP90C802", instance};
 
 }  // namespace tlcs90
 }  // namespace debugger

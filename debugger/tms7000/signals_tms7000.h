@@ -10,7 +10,7 @@ struct Signals final : SignalsBase<Signals> {
     void getAddress();
     void getDirection();
     void getData();
-    void outData();
+    void outData() const;
     void inputMode() const;
     void print() const;
 

@@ -55,6 +55,7 @@
 
 #include "pins.h"
 #include "signals_tms7000.h"
+#include "devs_tms7000.h"
 
 namespace debugger {
 namespace tms7000 {
@@ -78,6 +79,8 @@ enum IntrName : uint8_t {
 };
 
 struct PinsTms7000 final : Pins {
+    PinsTms7000();
+
     void resetPins() override;
     void idle() override;
     bool step(bool show) override;
@@ -96,15 +99,18 @@ struct PinsTms7000 final : Pins {
 private:
     HardwareType _hardType;
     ClockType _clockType;
-    void (*_wait_alatch)();
-    Signals *(*_prepareCycle)();
-    void (*_completeCycle)(Signals *);
+
+    void (*_wait_alatch)(DevsTms7000 *devs);
+    Signals *(*_prepareCycle)(DevsTms7000 *devs);
+    void (PinsTms7000::*_completeCycle)(Signals *) const;
+    void wait_alatch() const { _wait_alatch(devs<DevsTms7000>()); }
+    Signals *prepareCycle() const { return _prepareCycle(devs<DevsTms7000>()); }
+    void div2Complete(Signals *) const;
+    void div4Complete(Signals *) const;
+    Signals *completeCycle(Signals *s) const;
 
     void synchronizeClock();
     void checkHardwareType();
-    void wait_alatch() const { _wait_alatch(); }
-    Signals *prepareCycle() const { return _prepareCycle(); }
-    Signals *completeCycle(Signals *s) const;
     Signals *cycle() const;
     Signals *inject(uint8_t data) const;
     void loop();
@@ -114,8 +120,6 @@ private:
 
     void disassembleCycles();
 };
-
-extern struct PinsTms7000 Pins;
 
 }  // namespace tms7000
 }  // namespace debugger

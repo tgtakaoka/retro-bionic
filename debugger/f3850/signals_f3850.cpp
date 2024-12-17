@@ -18,9 +18,13 @@ Signals *Signals::getData() {
     return this;
 }
 
-void Signals::outData() {
-    busMode(DB, OUTPUT);
+void Signals::outData() const {
     busWrite(DB, data);
+    busMode(DB, OUTPUT);
+}
+
+void Signals::inputMode() {
+    busMode(DB, INPUT);
 }
 
 void Signals::markRead(uint16_t a) {

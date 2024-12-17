@@ -6,13 +6,11 @@
 namespace debugger {
 namespace z88 {
 
-using z8::MemsZ8;
+struct RegsZ88;
 
-struct MemsZ88 final : MemsZ8 {
-    MemsZ88();
+struct MemsZ88 final : z8::MemsZ8 {
+    MemsZ88(RegsZ88 *regs, Devs *devs);
 };
-
-extern struct MemsZ88 Memory;
 
 }  // namespace z88
 }  // namespace debugger

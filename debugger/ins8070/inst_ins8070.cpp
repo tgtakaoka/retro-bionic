@@ -448,14 +448,8 @@ constexpr uint8_t INST_TABLE[] = {
 };
 }  // namespace
 
-bool InstIns8070::get(uint16_t addr) {
-    opc = Memory.raw_read(addr);
-    seq = inst_seq(INST_TABLE[opc]);
-    return len() != 0;
-}
-
-bool InstIns8070::get(const Signals *signals) {
-    opc = signals->data;
+bool InstIns8070::get(uint8_t data) {
+    opc = data;
     seq = inst_seq(INST_TABLE[opc]);
     return len() != 0;
 }
@@ -477,7 +471,7 @@ AddrMode InstIns8070::addrMode() const {
 }
 
 bool InstIns8070::match(const Signals *begin, const Signals *end) {
-    if (!begin->read() || !get(begin))
+    if (!begin->read() || !get(begin->data))
         return false;
     const auto size = begin->diff(end);
     const auto *sequence = BUS_SEQUENCES[seq];

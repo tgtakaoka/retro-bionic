@@ -5,14 +5,18 @@
 
 namespace debugger {
 struct Regs {
+    virtual ~Regs() {}
+
     virtual const char *cpu() const = 0;
     virtual const char *cpuName() const = 0;
 
     virtual void print() const = 0;
+    virtual void reset() {}
     virtual void save() = 0;
     virtual void restore() = 0;
 
     virtual uint32_t nextIp() const = 0;
+    virtual void setIp(uint32_t) {}
     uint8_t validRegister(const char *word, uint32_t &max) const;
     virtual void helpRegisters() const = 0;
     virtual void setRegister(uint8_t reg, uint32_t value) {}

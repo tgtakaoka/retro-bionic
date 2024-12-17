@@ -13,6 +13,11 @@ void Signals::getAddr() {
     addr = busRead(AL) | busRead(AM) | busRead(AH);
 }
 
+void Signals::getAddr24() {
+    getAddr();
+    addr |= busRead(BA);
+}
+
 bool Signals::read() const {
     return cntl() & CNTL_RW;
 }
@@ -22,13 +27,13 @@ bool Signals::write() const {
 }
 
 bool Signals::fetch() const {
-    if (Pins.hardwareType() == HW_W65C816)
+    if (PinsMos6502::hardwareType() == HW_W65C816)
         return (cntl() & (CNTL_VPA | CNTL_VPD)) == (CNTL_VPA | CNTL_VPD);
     return cntl() & CNTL_SYNC;
 }
 
 bool Signals::vector() const {
-    if (Pins.hardwareType() == HW_MOS6502)
+    if (PinsMos6502::hardwareType() == HW_MOS6502)
         return read() && addr >= InstMos6502::VECTOR_NMI;
     return (cntl() & CNTL_VP) == 0;
 }
@@ -41,8 +46,17 @@ void Signals::getData() {
     data = busRead(D);
 }
 
+void Signals::outData() const {
+    busWrite(D, data);
+    busMode(D, OUTPUT);
+}
+
+void Signals::inputMode() {
+    busMode(D, INPUT);
+}
+
 void Signals::print() const {
-    if (Pins.hardwareType() == HW_W65C816) {
+    if (PinsMos6502::hardwareType() == HW_W65C816) {
         //                              0123456789012345
         static constexpr char line[] = "VW A=xxxxxx D=xx";
         static auto &buffer = *new CharBuffer(line);

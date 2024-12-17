@@ -9,6 +9,9 @@ namespace debugger {
 namespace scn2650 {
 
 struct DevsScn2650 final : Devs {
+    DevsScn2650();
+    ~DevsScn2650();
+
     void begin() override;
     void reset() override;
     void loop() override;
@@ -17,12 +20,13 @@ struct DevsScn2650 final : Devs {
     void write(uint32_t addr, uint16_t data) const override;
     uint16_t vector() const override;
 
-    Device &parseDevice(const char *name) const override;
-    void enableDevice(Device &dev) override;
+    Device *parseDevice(const char *name) const override;
+    void enableDevice(Device *dev) override;
     void printDevices() const override;
-};
 
-extern struct DevsScn2650 Devs;
+private:
+    Device *_usart;
+};
 
 }  // namespace scn2650
 }  // namespace debugger

@@ -32,9 +32,13 @@ void Signals::getData() {
     data = busRead(DBUS);
 }
 
-void Signals::outData() {
-    busMode(DBUS, OUTPUT);
+void Signals::outData() const {
     busWrite(DBUS, data);
+    busMode(DBUS, OUTPUT);
+}
+
+void Signals::inputMode() {
+    busMode(DBUS, INPUT);
 }
 
 void Signals::print() const {

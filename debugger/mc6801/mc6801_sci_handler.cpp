@@ -5,8 +5,6 @@
 namespace debugger {
 namespace mc6801 {
 
-struct Mc6801SciHandler SciH;
-
 const char *Mc6801SciHandler::name() const {
     return "SCI";
 }

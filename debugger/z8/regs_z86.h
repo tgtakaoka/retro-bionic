@@ -7,10 +7,10 @@ namespace debugger {
 namespace z86 {
 
 using z8::RegSpace;
-using z8::RegsZ8;
+struct PinsZ86;
 
-struct RegsZ86 final : RegsZ8 {
-    RegsZ86();
+struct RegsZ86 final : z8::RegsZ8 {
+    RegsZ86(PinsZ86 *pins);
 
     const char *cpu() const override;
     const char *cpuName() const override;
@@ -49,8 +49,6 @@ private:
     virtual void set_r(uint8_t num, uint8_t val) override;
     void update_r(uint8_t addr, uint8_t val);
 };
-
-extern struct RegsZ86 Regs;
 
 }  // namespace z86
 }  // namespace debugger

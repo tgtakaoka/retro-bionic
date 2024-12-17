@@ -1,16 +1,15 @@
-#include "target.h"
+#include "identity.h"
 
-#include "devs_ins8060.h"
-#include "mems_ins8060.h"
 #include "pins_ins8060.h"
-#include "regs_ins8060.h"
 
 namespace debugger {
 namespace ins8060 {
 
-const struct Target TargetIns8060 {
-    "INS8060", Pins, Regs, Memory, Devs
-};
+Pins *instance() {
+    return new PinsIns8060();
+}
+
+const struct Identity INS8060{"INS8060", instance};
 
 }  // namespace ins8060
 }  // namespace debugger

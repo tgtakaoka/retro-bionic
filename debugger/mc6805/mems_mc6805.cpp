@@ -6,8 +6,21 @@
 namespace debugger {
 namespace mc6805 {
 
-uint16_t MemsMc6805::get(uint32_t addr, const char *space) const {
-    (void)space;
+MemsMc6805::MemsMc6805(RegsMc6805 *regs, Devs *devs, uint8_t pc_bits)
+    : DmaMemory(Endian::ENDIAN_BIG),
+      _regs(regs),
+      _devs(devs),
+      _pc_bits(pc_bits),
+      _max_addr((1U << pc_bits) - 1) {
+#ifdef WITH_ASSEMBLER
+    _assembler = new libasm::mc6805::AsmMc6805();
+#endif
+#ifdef WITH_DISASSEMBLER
+    _disassembler = new libasm::mc6805::DisMc6805();
+#endif
+}
+
+uint16_t MemsMc6805::get(uint32_t addr, const char *) const {
     if (is_internal(addr)) {
         return _regs->internal_read(addr);
     } else {
@@ -15,31 +28,13 @@ uint16_t MemsMc6805::get(uint32_t addr, const char *space) const {
     }
 }
 
-void MemsMc6805::put(uint32_t addr, uint16_t data, const char *space) const {
+void MemsMc6805::put(uint32_t addr, uint16_t data, const char *) const {
     if (is_internal(addr)) {
         _regs->internal_write(addr, data);
     } else {
         write(addr, data);
     }
 }
-
-#ifdef WITH_ASSEMBLER
-libasm::Assembler *MemsMc6805::assembler() const {
-    static auto as = new libasm::mc6805::AsmMc6805();
-    as->setCpu(_regs->cpu());
-    as->setPcBits(_pc_bits);
-    return as;
-}
-#endif
-
-#ifdef WITH_DISASSEMBLER
-libasm::Disassembler *MemsMc6805::disassembler() const {
-    static auto dis = new libasm::mc6805::DisMc6805();
-    dis->setCpu(_regs->cpu());
-    dis->setPcBits(_pc_bits);
-    return dis;
-}
-#endif
 
 }  // namespace mc6805
 }  // namespace debugger

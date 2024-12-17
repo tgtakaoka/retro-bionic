@@ -1,17 +1,18 @@
-#ifndef __TARGET_MOS6502_H__
-#define __TARGET_MOS6502_H__
+#include "identity.h"
 
-#include "target.h"
+#include "pins_mos6502.h"
 
 namespace debugger {
 namespace mos6502 {
 
-extern const struct Target TargetMos6502;
+Pins *instance() {
+    return new PinsMos6502();
+}
+
+const struct Identity MOS6502{"MOS6502", instance};
 
 }  // namespace mos6502
 }  // namespace debugger
-
-#endif
 
 // Local Variables:
 // mode: c++

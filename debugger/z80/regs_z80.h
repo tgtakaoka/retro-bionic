@@ -8,7 +8,7 @@ namespace debugger {
 namespace z80 {
 
 struct RegsZ80 final : Regs {
-    RegsZ80(const char *name, PinsZ80Base &pins) : _name(name), _pins(pins) {}
+    RegsZ80(const char *name, PinsZ80Base *pins) : _name(name), _pins(pins) {}
     const char *cpu() const override;
     const char *cpuName() const override;
 
@@ -17,7 +17,7 @@ struct RegsZ80 final : Regs {
     void restore() override;
 
     uint32_t nextIp() const override { return _pc; }
-    void setIp(uint16_t addr) { _pc = addr; }
+    void setIp(uint32_t addr) override { _pc = addr; }
     void helpRegisters() const override;
     const RegList *listRegisters(uint8_t n) const override;
     void setRegister(uint8_t reg, uint32_t value) override;
@@ -27,7 +27,8 @@ struct RegsZ80 final : Regs {
 
 private:
     const char *_name;
-    PinsZ80Base &_pins;
+    PinsZ80Base *_pins;
+
     uint16_t _pc;
     uint16_t _sp;
     uint16_t _ix;

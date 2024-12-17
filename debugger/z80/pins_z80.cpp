@@ -215,8 +215,9 @@ void PinsZ80::resetPins() {
     clk_cycle();
     Signals::resetCycles();
     prepareWait();
-    _regs.setIp(InstZ80::ORG_RESET);
-    _regs.save();
+    auto r = regs<RegsZ80>();
+    r->setIp(InstZ80::ORG_RESET);
+    r->save();
 }
 
 Signals *PinsZ80::prepareCycle() const {
@@ -242,7 +243,7 @@ Signals *PinsZ80::completeCycle(Signals *s) const {
     if (s->mreq()) {  // Memory read or write cycles
         if (s->read()) {
             if (s->readMemory()) {
-                s->data = _mems.raw_read(s->addr);
+                s->data = _mems->raw_read(s->addr);
                 delayNanoseconds(clk_hi_read);
             } else {
                 delayNanoseconds(clk_hi_inject);
@@ -265,7 +266,7 @@ Signals *PinsZ80::completeCycle(Signals *s) const {
             // #MREQ:T3H
             clk_hi();
             if (s->writeMemory()) {
-                _mems.raw_write(s->addr, s->data);
+                _mems->raw_write(s->addr, s->data);
                 delayNanoseconds(clk_hi_memory);
             } else {
                 delayNanoseconds(clk_hi_capture);
@@ -277,17 +278,17 @@ Signals *PinsZ80::completeCycle(Signals *s) const {
         // #IORQ:TwaL/Twa2L
         clk_lo();
         if (s->read()) {
-            if (Devs.isSelected(ioaddr))
-                s->data = Devs.read(ioaddr);
+            if (_devs->isSelected(ioaddr))
+                s->data = _devs->read(ioaddr);
             s->outData();
         } else if (s->intack()) {  // Interrupt acknowledge cycle
             s->markRead();
-            s->data = Devs.vector();
+            s->data = _devs->vector();
             s->outData();
         } else {
             s->getData();
-            if (Devs.isSelected(ioaddr))
-                Devs.write(ioaddr, s->data);
+            if (_devs->isSelected(ioaddr))
+                _devs->write(ioaddr, s->data);
         }
         // T3H
         clk_hi();
@@ -340,7 +341,7 @@ void PinsZ80::execute(const uint8_t *inst, uint8_t len, uint16_t *addr,
         if (cap < max)
             s->capture();
         if (inj == 0) {
-            resumeCycle(_regs.nextIp());
+            resumeCycle(_regs->nextIp());
         } else {
             completeCycle(s);
         }
@@ -370,17 +371,17 @@ void PinsZ80::idle() {
 }
 
 void PinsZ80::loop() {
-    resumeCycle(_regs.nextIp());
+    resumeCycle(_regs->nextIp());
     while (true) {
         const auto s = prepareCycle();
-        if (s->fetch() && _mems.raw_read(s->addr) == InstZ80::HALT) {
+        if (s->fetch() && _mems->raw_read(s->addr) == InstZ80::HALT) {
             completeCycle(s->inject(InstZ80::JR));
             inject(InstZ80::JR_HERE);
             prepareWait();
             return;
         }
         completeCycle(s);
-        Devs.loop();
+        _devs->loop();
         if (haltSwitch()) {
             suspend();
             return;
@@ -389,13 +390,13 @@ void PinsZ80::loop() {
 }
 
 void PinsZ80::run() {
-    _regs.restore();
+    _regs->restore();
     Signals::resetCycles();
     saveBreakInsts();
     loop();
     restoreBreakInsts();
     disassembleCycles();
-    _regs.save();
+    _regs->save();
 }
 
 void PinsZ80::suspend() {
@@ -417,8 +418,8 @@ void PinsZ80::suspend() {
 }
 
 bool PinsZ80::rawStep() {
-    const auto pc = _regs.nextIp();
-    if (_mems.raw_read(pc) == InstZ80::HALT)
+    const auto pc = _regs->nextIp();
+    if (_mems->raw_read(pc) == InstZ80::HALT)
         return false;
     assert_nmi();
     resumeCycle(pc);
@@ -428,13 +429,13 @@ bool PinsZ80::rawStep() {
 
 bool PinsZ80::step(bool show) {
     Signals::resetCycles();
-    _regs.restore();
+    _regs->restore();
     if (show)
         Signals::resetCycles();
     if (rawStep()) {
         if (show)
             printCycles();
-        _regs.save();
+        _regs->save();
         return true;
     }
     return false;
@@ -463,7 +464,7 @@ void PinsZ80::disassembleCycles() {
     for (auto i = 0; i < cycles;) {
         const auto s = g->next(i);
         if (s->fetch()) {
-            const auto next = _mems.disassemble(s->addr, 1);
+            const auto next = _mems->disassemble(s->addr, 1);
             i += next - s->addr;
         } else {
             s->print();

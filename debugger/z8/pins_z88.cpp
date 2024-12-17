@@ -1,6 +1,6 @@
 #include "pins_z88.h"
 #include "debugger.h"
-#include "devs_z88.h"
+#include "devs_z8.h"
 #include "inst_z88.h"
 #include "mems_z88.h"
 #include "regs_z88.h"
@@ -48,26 +48,29 @@ constexpr auto xtal1_lo_ns = 0;   // 50 ns
 
 inline void xtal1_hi() {
     digitalWriteFast(PIN_XTAL1, HIGH);
-    UartH.loop();
+    delayNanoseconds(xtal1_hi_ns);
 }
 
 inline void xtal1_lo() {
     digitalWriteFast(PIN_XTAL1, LOW);
-}
-
-void cycle() {
-    xtal1_hi();
-    delayNanoseconds(xtal1_hi_ns);
-    xtal1_lo();
     if (xtal1_lo_ns)
         delayNanoseconds(xtal1_lo_ns);
 }
 
+void z88_cycle(SerialHandler *serial) {
+    xtal1_hi();
+    serial->loop();
+    xtal1_lo();
+}
+
 }  // namespace
 
-struct PinsZ8 Pins {
-    false, cycle, Regs, Inst, Memory, Devs,
-};
+PinsZ88::PinsZ88() : PinsZ8(false, z88_cycle, new Z88UartHandler(), Inst) {
+    auto regs = new RegsZ88(this);
+    _regs = regs;
+    _devs = new z8::DevsZ8(_serial);
+    _mems = new MemsZ88(regs, _devs);
+}
 
 }  // namespace z88
 }  // namespace debugger

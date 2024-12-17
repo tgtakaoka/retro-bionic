@@ -12,6 +12,8 @@ struct Signals : SignalsBase<Signals> {
     void getAddr();
     void getDirection();
     void getData();
+    void outData() const;
+    static void inputMode();
     void print() const;
 
     bool valid() const;

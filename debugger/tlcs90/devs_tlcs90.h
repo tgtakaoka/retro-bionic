@@ -2,6 +2,7 @@
 #define __DEVS_TLCS90_H__
 
 #include "devs.h"
+#include "serial_handler.h"
 
 #define USART_BASE 0xFFF0
 
@@ -9,6 +10,9 @@ namespace debugger {
 namespace tlcs90 {
 
 struct DevsTlcs90 final : Devs {
+    DevsTlcs90();
+    ~DevsTlcs90();
+
     void begin() override;
     void reset() override;
     void loop() override;
@@ -17,12 +21,16 @@ struct DevsTlcs90 final : Devs {
     uint16_t read(uint32_t addr) const override;
     void write(uint32_t addr, uint16_t data) const override;
 
-    Device &parseDevice(const char *name) const override;
-    void enableDevice(Device &dev) override;
+    Device *parseDevice(const char *name) const override;
+    void enableDevice(Device *dev) override;
     void printDevices() const override;
-};
 
-extern struct DevsTlcs90 Devs;
+    SerialHandler *uart() const { return _uart; }
+
+private:
+    Device *_usart;
+    SerialHandler *_uart;
+};
 
 }  // namespace tlcs90
 }  // namespace debugger

@@ -7,10 +7,10 @@ namespace debugger {
 namespace z88 {
 
 using z8::RegSpace;
-using z8::RegsZ8;
+struct PinsZ88;
 
-struct RegsZ88 final : RegsZ8 {
-    RegsZ88();
+struct RegsZ88 final : z8::RegsZ8 {
+    RegsZ88(PinsZ88 *pins);
 
     const char *cpu() const override;
     const char *cpuName() const override;
@@ -59,8 +59,6 @@ private:
 
     void switchBank(RegSpace space);
 };
-
-extern struct RegsZ88 Regs;
 
 }  // namespace z88
 }  // namespace debugger

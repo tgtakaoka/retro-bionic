@@ -11,52 +11,60 @@ Tlcs90UartHandler UartH;
 
 DevsTlcs90 Devs;
 
+DevsTlcs90::DevsTlcs90()
+    : _usart(new I8251()), _uart(new Tlcs90UartHandler()) {}
+
+DevsTlcs90::~DevsTlcs90() {
+    delete _usart;
+    delete _uart;
+}
+
 void DevsTlcs90::reset() {
-    UartH.reset();
-    USART.reset();
-    USART.setBaseAddr(USART_BASE);
+    _uart->reset();
+    _usart->reset();
+    _usart->setBaseAddr(USART_BASE);
 }
 
 void DevsTlcs90::begin() {
-    enableDevice(USART);
+    enableDevice(_usart);
 }
 
 void DevsTlcs90::loop() {
-    USART.loop();
+    _usart->loop();
 }
 
 void DevsTlcs90::setIdle(bool idle) {
-    UartH.setIdle(idle);
+    _uart->setIdle(idle);
 }
 
 bool DevsTlcs90::isSelected(uint32_t addr) const {
-    return USART.isSelected(addr);
+    return _usart->isSelected(addr);
 }
 
 uint16_t DevsTlcs90::read(uint32_t addr) const {
-    return USART.read(addr);
+    return _usart->read(addr);
 }
 
 void DevsTlcs90::write(uint32_t addr, uint16_t data) const {
-    USART.write(addr, data);
+    _usart->write(addr, data);
 }
 
-Device &DevsTlcs90::parseDevice(const char *name) const {
-    if (strcasecmp(name, USART.name()) == 0)
-        return USART;
-    if (strcasecmp(name, UartH.name()) == 0)
-        return UartH;
+Device *DevsTlcs90::parseDevice(const char *name) const {
+    if (strcasecmp(name, _usart->name()) == 0)
+        return _usart;
+    if (strcasecmp(name, _uart->name()) == 0)
+        return _uart;
     return Devs::nullDevice();
 }
 
-void DevsTlcs90::enableDevice(Device &dev) {
-    USART.enable(&dev == &USART);
-    UartH.enable(&dev == &UartH);
+void DevsTlcs90::enableDevice(Device *dev) {
+    _usart->enable(dev == _usart);
+    _uart->enable(dev == _uart);
 }
 
 void DevsTlcs90::printDevices() const {
-    printDevice(USART);
-    printDevice(UartH);
+    printDevice(_usart);
+    printDevice(_uart);
 }
 
 }  // namespace tlcs90

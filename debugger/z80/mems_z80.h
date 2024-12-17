@@ -9,25 +9,16 @@ namespace z80 {
 struct RegsZ80;
 
 struct MemsZ80 final : DmaMemory {
-    MemsZ80(RegsZ80 &regs) : DmaMemory(Endian::ENDIAN_LITTLE), _regs(regs) {}
+    MemsZ80(RegsZ80 *regs);
 
     uint32_t maxAddr() const override { return UINT16_MAX; }
     uint16_t get(uint32_t addr, const char *space = nullptr) const override;
     void put(uint32_t addr, uint16_t data,
             const char *space = nullptr) const override;
 
-protected:
-    RegsZ80 &_regs;
-
-#ifdef WITH_ASSEMBLER
-    libasm::Assembler *assembler() const override;
-#endif
-#ifdef WITH_DISASSEMBLER
-    libasm::Disassembler *disassembler() const override;
-#endif
+private:
+    RegsZ80 *_regs;
 };
-
-extern struct MemsZ80 Memory;
 
 }  // namespace z80
 }  // namespace debugger

@@ -1,6 +1,6 @@
 #include "pins_z86.h"
 #include "debugger.h"
-#include "devs_z86.h"
+#include "devs_z8.h"
 #include "inst_z86.h"
 #include "mems_z86.h"
 #include "regs_z86.h"
@@ -48,26 +48,29 @@ constexpr auto xtal1_hi_ns = 0;   // 50 ns
 
 inline void xtal1_lo() {
     digitalWriteFast(PIN_XTAL1, LOW);
-    SioH.loop();
+    delayNanoseconds(xtal1_lo_ns);
 }
 
 inline void xtal1_hi() {
     digitalWriteFast(PIN_XTAL1, HIGH);
-}
-
-void cycle() {
-    xtal1_lo();
-    delayNanoseconds(xtal1_lo_ns);
-    xtal1_hi();
     if (xtal1_hi_ns)
         delayNanoseconds(xtal1_hi_ns);
 }
 
+void xtal1(SerialHandler *serial) {
+    xtal1_lo();
+    serial->loop();
+    xtal1_hi();
+}
+
 }  // namespace
 
-struct PinsZ8 Pins {
-    true, cycle, Regs, Inst, Memory, Devs,
-};
+PinsZ86::PinsZ86() : PinsZ8(true, xtal1, new Z86SioHandler(), Inst) {
+    auto regs = new RegsZ86(this);
+    _regs = regs;
+    _devs = new z8::DevsZ8(_serial);
+    _mems = new MemsZ86(regs, _devs);
+}
 
 }  // namespace z86
 }  // namespace debugger

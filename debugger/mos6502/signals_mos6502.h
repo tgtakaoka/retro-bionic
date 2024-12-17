@@ -6,9 +6,14 @@
 namespace debugger {
 namespace mos6502 {
 
+enum HardwareType : uint8_t;
+
 struct Signals final : SignalsBase<Signals> {
     void getAddr();
+    void getAddr24();
     void getData();
+    void outData() const;
+    static void inputMode();
     void print() const;
 
     bool read() const;

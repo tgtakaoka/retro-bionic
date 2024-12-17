@@ -33,9 +33,9 @@
 namespace debugger {
 namespace z86 {
 
-using z8::PinsZ8;
-
-extern struct PinsZ8 Pins;
+struct PinsZ86 final : z8::PinsZ8 {
+    PinsZ86();
+};
 
 }  // namespace z86
 }  // namespace debugger

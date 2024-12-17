@@ -10,7 +10,7 @@ namespace mc6801 {
 using mc6800::MemsMc6800;
 
 struct MemsMc6801 final : MemsMc6800 {
-    MemsMc6801(RegsMc6801 &regs) : MemsMc6800(regs) {}
+    MemsMc6801(RegsMc6801 *regs, Devs *devs) : MemsMc6800(regs, devs) {}
 
     uint16_t read(uint32_t addr) const override;
     void write(uint32_t addr, uint16_t data) const override;
@@ -23,8 +23,6 @@ private:
     static constexpr uint16_t RAMCR = 0x0014;
     static constexpr uint8_t RAME_bm = 0x40;
 };
-
-extern struct MemsMc6801 Memory;
 
 }  // namespace mc6801
 }  // namespace debugger

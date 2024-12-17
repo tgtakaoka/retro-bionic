@@ -1,9 +1,8 @@
 #include "pins_mc68hc11.h"
 #include "debugger.h"
 #include "devs_mc68hc11.h"
-#include "digital_bus.h"
-#include "mc6800/inst_mc6800.h"
-#include "mc68hc11_sci_handler.h"
+#include "inst_mc68hc11.h"
+#include "mc68hc11_init.h"
 #include "mems_mc68hc11.h"
 #include "regs_mc68hc11.h"
 #include "signals_mc68hc11.h"
@@ -164,6 +163,14 @@ void release_mode() {
 
 }  // namespace
 
+PinsMc68hc11::PinsMc68hc11(Mc68hc11Init &init) : _init(init) {
+    auto regs = new RegsMc68hc11(this, init);
+    _regs = regs;
+    _devs = new DevsMc68hc11(init);
+    _mems = new MemsMc68hc11(regs, _devs, init);
+    _inst = new InstMc68hc11(_mems);
+}
+
 void PinsMc68hc11::resetPins() {
     // Assert reset condition
     pinsMode(PINS_LOW, sizeof(PINS_LOW), OUTPUT, LOW);
@@ -172,8 +179,8 @@ void PinsMc68hc11::resetPins() {
     pinsMode(PINS_INPUT, sizeof(PINS_INPUT), INPUT);
 
     // Reset vector should not point internal registers.
-    const auto reset_vec = _mems.raw_read16(InstMc6800::VEC_RESET);
-    _mems.raw_write16(InstMc6800::VEC_RESET, 0x8000);
+    const auto reset_vec = _mems->raw_read16(InstMc68hc11::VEC_RESET);
+    _mems->raw_write16(InstMc68hc11::VEC_RESET, 0x8000);
 
     // To get out from Clock Monitor Reset, inject EXTAL pulses
     while (reset_signal() == LOW) {
@@ -211,11 +218,13 @@ void PinsMc68hc11::resetPins() {
     cycle();
     // The first instruction will be saving registers, and certainly can be
     // injected.
-    _regs.reset();
-    _regs.save();
-    _regs.checkSoftwareType();
-    _mems.raw_write16(InstMc6800::VEC_RESET, reset_vec);
-    _regs.setIp(reset_vec);
+    auto r = regs<RegsMc68hc11>();
+    r->reset();
+    r->save();
+    _init.configSystem(r);
+    r->checkSoftwareType();
+    _mems->raw_write16(InstMc68hc11::VEC_RESET, reset_vec);
+    r->setIp(reset_vec);
 }
 
 mc6800::Signals *PinsMc68hc11::cycle() {
@@ -226,7 +235,7 @@ mc6800::Signals *PinsMc68hc11::cycle() {
 mc6800::Signals *PinsMc68hc11::rawCycle() {
     // MC68HC11 clock E is CLK/4, so we toggle CLK 4 times
     // C1H
-    busMode(AD, INPUT);
+    Signals::inputMode();
     extal_hi();
     delayNanoseconds(c1_hi_ns);
     // C2L
@@ -243,7 +252,7 @@ mc6800::Signals *PinsMc68hc11::rawCycle() {
         // C3L
         extal_lo();
         if (s->readMemory()) {
-            s->data = _mems.read(s->addr);
+            s->data = _mems->read(s->addr);
             if (c3_lo_read)
                 delayNanoseconds(c3_lo_read);
         } else {
@@ -251,8 +260,7 @@ mc6800::Signals *PinsMc68hc11::rawCycle() {
         }
         // C3H
         extal_hi();
-        busMode(AD, OUTPUT);
-        busWrite(AD, s->data);
+        s->outData();
         delayNanoseconds(c3_hi_read);
         // C4L
         extal_lo();
@@ -277,7 +285,7 @@ mc6800::Signals *PinsMc68hc11::rawCycle() {
         // C4L
         extal_lo();
         if (s->writeMemory()) {
-            _mems.write(s->addr, s->data);
+            _mems->write(s->addr, s->data);
             if (c4_lo_write)
                 delayNanoseconds(c4_lo_write);
         } else {
@@ -301,10 +309,10 @@ namespace {
  *   BRxxx n8,X,#n8,r8 ; 1:2:x:R:3:4:j
  *   BRxxx n8,Y,#n8,r8 ; 1:2:3:x:R:4:5:j
  */
-void printBrxxx(const Signals *s, const Mems &mems, uint8_t len) {
+void printBrxxx(const Signals *s, const Mems *mems, uint8_t len) {
     auto opc = s->data;
     if (opc == 0x18)
-        opc = mems.raw_read(s->addr + 1);
+        opc = mems->raw_read(s->addr + 1);
     const auto inst = opc & ~1;
     if (inst == 0x12) {
         s->next(2)->print();
@@ -320,7 +328,7 @@ void PinsMc68hc11::disassembleCycles() {
     for (auto i = 0; i < cycles;) {
         const auto s = g->next(i);
         if (s->fetch()) {
-            const auto len = _mems.disassemble(s->addr, 1) - s->addr;
+            const auto len = _mems->disassemble(s->addr, 1) - s->addr;
             printBrxxx(s, _mems, len);
             i += len;
         } else {

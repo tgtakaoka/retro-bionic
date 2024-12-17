@@ -64,6 +64,7 @@
 #define PIN_T1 30     /* P8.23 */
 
 #include "pins.h"
+#include "mems.h"
 #include "signals_i8051.h"
 
 namespace debugger {
@@ -76,6 +77,9 @@ enum IntrName : uint8_t {
 };
 
 struct PinsI8051 final : Pins {
+    PinsI8051();
+    ~PinsI8051();
+
     void resetPins() override;
     void idle() override;
     bool step(bool show) override;
@@ -92,6 +96,8 @@ struct PinsI8051 final : Pins {
     bool isCmos() const;
 
 private:
+    Mems *_data;
+
     void (*_xtal_lo)();
     void (*_xtal_hi)();
     void xtal_lo() const { _xtal_lo(); }
@@ -109,8 +115,6 @@ private:
 
     void disassembleCycles();
 };
-
-extern struct PinsI8051 Pins;
 
 }  // namespace i8051
 }  // namespace debugger

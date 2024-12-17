@@ -12,7 +12,8 @@ namespace ins8060 {
 struct Signals final : SignalsBase<Signals> {
     void getAddr();
     void getData();
-
+    void outData() const;
+    static void inputMode();
     void print() const;
 
     bool read() const { return (flags() & F_READ) != 0; }

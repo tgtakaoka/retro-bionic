@@ -1,7 +1,6 @@
 #include "pins_mc6800_base.h"
 #include "debugger.h"
 #include "devs_mc6800.h"
-#include "digital_bus.h"
 #include "inst_mb8861.h"
 #include "inst_mc6800.h"
 #include "mems_mc6800.h"
@@ -73,9 +72,9 @@ void PinsMc6800Base::idle() {
 
 void PinsMc6800Base::loop() {
     while (true) {
-        _devs.loop();
+        _devs->loop();
         rawCycle();
-        if (_writes == _regs.contextLength()) {
+        if (_writes == regs<RegsMc6800>()->contextLength()) {
             const auto frame = Signals::put()->prev(_writes);
             if (nonVmaAfteContextSave())
                 cycle();                  // non VMA cycle
@@ -83,8 +82,8 @@ void PinsMc6800Base::loop() {
             const auto vec_swi = _inst->vec_swi();
             if (vec_hi->addr == vec_swi) {
                 cycle();  // read interrupt low(vector)
-                const auto pc = _regs.capture(frame, false);
-                const auto swi_vector = _mems.raw_read16(vec_swi);
+                const auto pc = regs<RegsMc6800>()->capture(frame, false);
+                const auto swi_vector = _mems->raw_read16(vec_swi);
                 if (isBreakPoint(pc) || swi_vector == vec_swi) {
                     const auto discard = nonVmaAfteContextSave() ? 1 : 2;
                     Signals::discard(frame->prev(discard));
@@ -103,7 +102,7 @@ void PinsMc6800Base::suspend(bool show) {
 reentry:
     _writes = 0;
     // Wait for consequtive writes which means registers saved onto stack.
-    while (_writes < _regs.contextLength())
+    while (_writes < regs<RegsMc6800>()->contextLength())
         cycle();
     negate_nmi();
     // Capture registers pushed onto stack.
@@ -117,7 +116,7 @@ reentry:
         goto reentry;
     }
     cycle();  // NMI lo(vector)
-    _regs.capture(frame);
+    regs<RegsMc6800>()->capture(frame);
     if (show) {
         const auto discard = nonVmaAfteContextSave() ? 1 : 2;
         Signals::discard(frame->prev(discard));
@@ -125,7 +124,7 @@ reentry:
 }
 
 void PinsMc6800Base::run() {
-    _regs.restore();
+    _regs->restore();
     Signals::resetCycles();
     saveBreakInsts();
     loop();
@@ -135,7 +134,7 @@ void PinsMc6800Base::run() {
 
 bool PinsMc6800Base::step(bool show) {
     Signals::resetCycles();
-    _regs.restore();
+    _regs->restore();
     if (show)
         Signals::resetCycles();
     suspend(show);
@@ -155,7 +154,7 @@ void PinsMc6800Base::negateInt(uint8_t name) {
 }
 
 void PinsMc6800Base::setBreakInst(uint32_t addr) const {
-    _mems.put_inst(addr, InstMc6800::SWI);
+    _mems->put_inst(addr, InstMc6800::SWI);
 };
 
 void PinsMc6800Base::printCycles(const Signals *end) {
@@ -235,7 +234,7 @@ void PinsMc6800Base::disassembleCycles() {
         const auto s = begin->next(i);
         if (pref || s->fetch()) {
             const auto f = pref ? pref : s;
-            const auto nexti = _mems.disassemble(f->addr, 1);
+            const auto nexti = _mems->disassemble(f->addr, 1);
             const auto len = nexti - f->addr - (pref ? 1 : 0);
             const auto matched = f->matched();
             pref = nullptr;
