@@ -1,16 +1,15 @@
 #include "target.h"
 
-#include "devs_f3850.h"
-#include "mems_f3850.h"
 #include "pins_f3850.h"
-#include "regs_f3850.h"
 
 namespace debugger {
 namespace f3850 {
 
-const struct Target TargetF3850 {
-    "F3850", Pins, Regs, Memory, Devs
-};
+Target *instanceF3850(const Identity *id) {
+    return new Target(id, new PinsF3850());
+}
+
+const struct Identity F3850{"F3850", instanceF3850};
 
 }  // namespace f3850
 }  // namespace debugger

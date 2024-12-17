@@ -9,13 +9,21 @@
 namespace debugger {
 namespace i8085 {
 
-struct MemsI8085 Memory;
+MemsI8085::MemsI8085(RegsI8085 *regs)
+    : DmaMemory(Endian::ENDIAN_LITTLE), _regs(regs) {
+#ifdef WITH_ASSEMBLER
+    _assembler = new libasm::i8080::AsmI8080();
+#endif
+#ifdef WITH_DISASSEMBLER
+    _disassembler = new libasm::i8080::DisI8080();
+#endif
+}
 
 uint16_t MemsI8085::get(uint32_t addr, const char *space) const {
     if (space == nullptr)
         return read(addr);
     if (toupper(*space) == 'I' && addr < 0x100)
-        return Regs.read_io(addr);
+        return _regs->read_io(addr);
     return 0;
 }
 
@@ -23,25 +31,9 @@ void MemsI8085::put(uint32_t addr, uint16_t data, const char *space) const {
     if (space == nullptr) {
         write(addr, data);
     } else if (toupper(*space) == 'I' && addr < 0x100) {
-        Regs.write_io(addr, data);
+        _regs->write_io(addr, data);
     }
 }
-
-#ifdef WITH_ASSEMBLER
-libasm::Assembler *MemsI8085::assembler() const {
-    static auto as = new libasm::i8080::AsmI8080();
-    as->setCpu(Regs.cpu());
-    return as;
-}
-#endif
-
-#ifdef WITH_DISASSEMBLER
-libasm::Disassembler *MemsI8085::disassembler() const {
-    static auto dis = new libasm::i8080::DisI8080();
-    dis->setCpu(Regs.cpu());
-    return dis;
-}
-#endif
 
 }  // namespace i8085
 }  // namespace debugger

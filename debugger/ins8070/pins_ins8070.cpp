@@ -1,17 +1,12 @@
 #include "pins_ins8070.h"
 #include "debugger.h"
 #include "devs_ins8070.h"
-#include "digital_bus.h"
-#include "ins8070_sci_handler.h"
-#include "inst_ins8070.h"
 #include "mems_ins8070.h"
 #include "regs_ins8070.h"
 #include "signals_ins8070.h"
 
 namespace debugger {
 namespace ins8070 {
-
-struct PinsIns8070 Pins;
 
 // clang-format off
 /**
@@ -151,11 +146,6 @@ inline void xin_hi() {
     digitalWriteFast(PIN_XIN, HIGH);
 }
 
-inline void xin_lo() {
-    digitalWriteFast(PIN_XIN, LOW);
-    SciH.loop();
-}
-
 inline void xin_cycle() {
     digitalWriteFast(PIN_XIN, HIGH);
     delayNanoseconds(xin_hi_ns);
@@ -164,6 +154,18 @@ inline void xin_cycle() {
 }
 
 }  // namespace
+
+PinsIns8070::PinsIns8070() {
+    auto regs = new RegsIns8070(this);
+    _regs = regs;
+    _devs = new DevsIns8070();
+    _mems = new MemsIns8070(regs, _devs);
+}
+
+void PinsIns8070::xin_lo() const {
+    digitalWriteFast(PIN_XIN, LOW);
+    devs<DevsIns8070>()->sci()->loop();
+}
 
 void PinsIns8070::resetPins() {
     // Assert reset condition
@@ -180,7 +182,7 @@ void PinsIns8070::resetPins() {
     Signals::resetCycles();
     // The first instruction will be fetched within 13 Tc after #RST
     // has gone high.
-    Regs.save();
+    _regs->save();
 }
 
 Signals *PinsIns8070::prepareCycle() {
@@ -222,7 +224,7 @@ Signals *PinsIns8070::completeCycle(Signals *s) {
         delayNanoseconds(xin_hi_write);
         xin_lo();
         if (s->writeMemory()) {
-            Memory.write(s->addr, s->data);
+            _mems->write(s->addr, s->data);
         } else {
             delayNanoseconds(xin_lo_capture);
         }
@@ -239,14 +241,13 @@ Signals *PinsIns8070::completeCycle(Signals *s) {
         delayNanoseconds(xin_read_begin);
         xin_hi();
         if (s->readMemory()) {
-            s->data = Memory.read(s->addr);
+            s->data = _mems->read(s->addr);
             delayNanoseconds(xin_hi_read);
         } else {
             delayNanoseconds(xin_hi_inject);
         }
         xin_lo();
-        busMode(D, OUTPUT);
-        busWrite(D, s->data);
+        s->outData();
         if (xin_read_out)
             delayNanoseconds(xin_read_out);
         while (signal_rds() == LOW) {
@@ -260,7 +261,7 @@ Signals *PinsIns8070::completeCycle(Signals *s) {
         delayNanoseconds(xin_read_end);
     }
     xin_lo();
-    busMode(D, INPUT);
+    Signals::inputMode();
     delayNanoseconds(xin_lo_input);
     // Read-Modify-Write bus cycle keeps #BREQ low.
     for (auto i = 0; i < 3; i++) {
@@ -328,7 +329,7 @@ const Signals *PinsIns8070::isCall15(const Signals *vector) const {
         if (call->read() && call->data == InstIns8070::CALL15) {
             const auto push = call->next();
             if (push->write() && push->next()->write()) {
-                const auto vec15 = Memory.raw_read16(InstIns8070::VEC_CALL15);
+                const auto vec15 = _mems->raw_read16(InstIns8070::VEC_CALL15);
                 if (isBreakPoint(call->addr) || vec15 == 0)
                     return call;
             }
@@ -339,7 +340,7 @@ const Signals *PinsIns8070::isCall15(const Signals *vector) const {
 
 void PinsIns8070::loop() {
     while (true) {
-        Devs.loop();
+        _devs->loop();
         auto s = prepareCycle();
         if (s->addr == InstIns8070::VEC_CALL15) {
             const auto call = isCall15(s);
@@ -376,7 +377,7 @@ void PinsIns8070::suspend() {
 }
 
 void PinsIns8070::run() {
-    Regs.restore();
+    _regs->restore();
     Signals::resetCycles();
     saveBreakInsts();
     assert_enin();
@@ -384,19 +385,30 @@ void PinsIns8070::run() {
     negate_enin();
     restoreBreakInsts();
     disassembleCycles();
-    Regs.save();
+    _regs->save();
+}
+
+uint8_t PinsIns8070::busCycles(InstIns8070 &inst) const {
+    auto pc = _regs->nextIp();
+    const auto opc = _mems->raw_read(pc);
+    if (!inst.get(opc))
+        return 0;
+    const auto opr = _mems->raw_read(pc + 1);
+    const auto ea = regs<RegsIns8070>()->effectiveAddr(inst, opr);
+    return MemsIns8070::is_internal(ea) ? inst.externalCycles()
+                                        : inst.busCycles();
 }
 
 bool PinsIns8070::step(bool show) {
     Signals::resetCycles();
     InstIns8070 inst;
-    const auto cycles = Regs.busCycles(inst);
+    const auto cycles = busCycles(inst);
     if (cycles == 0)
         return false;
     if (inst.opc == InstIns8070::CALL15 &&
-            Memory.raw_read16(InstIns8070::VEC_CALL15) == 0)
+            _mems->raw_read16(InstIns8070::VEC_CALL15) == 0)
         return false;
-    Regs.restore();
+    _regs->restore();
     if (show)
         Signals::resetCycles();
     assert_enin();
@@ -421,7 +433,7 @@ bool PinsIns8070::step(bool show) {
     }
     if (show)
         printCycles();
-    Regs.save();
+    _regs->save();
     return true;
 }
 
@@ -435,7 +447,7 @@ void PinsIns8070::negateInt(uint8_t name) {
 }
 
 void PinsIns8070::setBreakInst(uint32_t addr) const {
-    Memory.put_inst(addr, InstIns8070::CALL15);
+    _mems->put_inst(addr, InstIns8070::CALL15);
 }
 
 void PinsIns8070::printCycles(const Signals *end) {
@@ -491,7 +503,7 @@ void PinsIns8070::disassembleCycles() {
     for (auto i = 0; i < cycles;) {
         const auto s = begin->next(i);
         if (s->fetchMark()) {
-            const auto len = Memory.disassemble(s->addr, 1) - s->addr;
+            const auto len = _mems->disassemble(s->addr, 1) - s->addr;
             if (InstIns8070::isJsr(s->data)) {
                 s->next(2)->print();
                 s->next(3)->print();

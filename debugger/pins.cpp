@@ -4,6 +4,12 @@
 
 namespace debugger {
 
+Pins::~Pins() {
+    delete _regs;
+    delete _mems;
+    delete _devs;
+}
+
 void Pins::reset() {
 #ifdef PIN_DEBUG
     negate_debug();

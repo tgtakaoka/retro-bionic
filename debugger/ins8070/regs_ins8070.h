@@ -7,7 +7,11 @@
 namespace debugger {
 namespace ins8070 {
 
+struct PinsIns8070;
+
 struct RegsIns8070 final : Regs {
+    RegsIns8070(PinsIns8070 *pins) : _pins(pins) {}
+
     const char *cpu() const override;
     const char *cpuName() const override;
 
@@ -22,10 +26,14 @@ struct RegsIns8070 final : Regs {
 
     uint8_t busCycles(InstIns8070 &inst) const;
 
-    static uint8_t internal_read(uint16_t addr);
-    static void internal_write(uint16_t addr, uint8_t data);
+    uint8_t internal_read(uint16_t addr) const;
+    void internal_write(uint16_t addr, uint8_t data) const;
+
+    uint16_t effectiveAddr(const InstIns8070 &inst, uint8_t opr) const;
 
 private:
+    PinsIns8070 *_pins;
+
     uint8_t _a;
     uint8_t _e;
     uint8_t _s;
@@ -43,11 +51,7 @@ private:
         _a = lo(ea);
         _e = hi(ea);
     }
-
-    uint16_t effectiveAddr(const InstIns8070 &inst) const;
 };
-
-extern struct RegsIns8070 Regs;
 
 }  // namespace ins8070
 }  // namespace debugger

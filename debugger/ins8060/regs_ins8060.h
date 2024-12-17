@@ -7,7 +7,11 @@
 namespace debugger {
 namespace ins8060 {
 
+struct PinsIns8060;
+
 struct RegsIns8060 final : Regs {
+    RegsIns8060(PinsIns8060 *pins) : _pins(pins) {}
+
     const char *cpu() const override;
     const char *cpuName() const override;
 
@@ -21,6 +25,8 @@ struct RegsIns8060 final : Regs {
     void setRegister(uint8_t reg, uint32_t value) override;
 
 private:
+    PinsIns8060 *_pins;
+
     uint8_t _a;
     uint8_t _e;
     uint8_t _s;
@@ -33,14 +39,12 @@ private:
     uint16_t &_p1() { return _ptr[1]; }
     uint16_t &_p2() { return _ptr[2]; }
     uint16_t &_p3() { return _ptr[3]; }
-    static void restorePtr(uint8_t n, uint16_t val);
+    void restorePtr(uint8_t n, uint16_t val) const;
 
     static constexpr uint16_t _addr(uint16_t page, uint16_t offset) {
         return (page & 0xF000) | (offset & 0x0FFF);
     }
 };
-
-extern struct RegsIns8060 Regs;
 
 }  // namespace ins8060
 }  // namespace debugger

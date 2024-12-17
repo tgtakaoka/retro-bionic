@@ -1,6 +1,7 @@
 #ifndef __MEMS_I8051_H__
 #define __MEMS_I8051_H__
 
+#include "devs.h"
 #include "mems.h"
 
 namespace debugger {
@@ -9,24 +10,20 @@ namespace i8051 {
 struct RegsI8051;
 
 struct ProgI8051 final : DmaMemory {
-    ProgI8051() : DmaMemory(Endian::ENDIAN_BIG) {}
+    ProgI8051(RegsI8051 *regs, Mems *data);
 
     uint32_t maxAddr() const override { return UINT16_MAX; }
     uint16_t get(uint32_t addr, const char *space = nullptr) const override;
     void put(uint32_t addr, uint16_t data,
             const char *space = nullptr) const override;
 
-protected:
-#ifdef WITH_ASSEMBLER
-    libasm::Assembler *assembler() const override;
-#endif
-#ifdef WITH_DISASSEMBLER
-    libasm::Disassembler *disassembler() const override;
-#endif
+private:
+    RegsI8051 *_regs;
+    Mems *_data;
 };
 
 struct DataI8051 final : DmaMemory {
-    DataI8051() : DmaMemory(Endian::ENDIAN_BIG) {}
+    DataI8051(Devs *devs);
 
     uint32_t maxAddr() const override { return UINT16_MAX; }
     uint16_t raw_read(uint32_t addr) const override {
@@ -39,11 +36,10 @@ struct DataI8051 final : DmaMemory {
     void write(uint32_t addr, uint16_t data) const override;
 
 private:
+    Devs *_devs;
+
     static constexpr uint32_t OFFSET = 0x10000U;
 };
-
-extern struct ProgI8051 ProgMemory;
-extern struct DataI8051 DataMemory;
 
 }  // namespace i8051
 }  // namespace debugger

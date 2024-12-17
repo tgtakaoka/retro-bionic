@@ -2,6 +2,7 @@
 #define __DEVS_INS8070_H__
 
 #include "devs.h"
+#include "serial_handler.h"
 
 #define ACIA_BASE 0xDF00
 
@@ -9,6 +10,9 @@ namespace debugger {
 namespace ins8070 {
 
 struct DevsIns8070 final : Devs {
+    DevsIns8070();
+    ~DevsIns8070();
+
     void begin() override;
     void reset() override;
     void loop() override;
@@ -17,12 +21,15 @@ struct DevsIns8070 final : Devs {
     uint16_t read(uint32_t addr) const override;
     void write(uint32_t addr, uint16_t data) const override;
 
-    Device &parseDevice(const char *name) const override;
-    void enableDevice(Device &dev) override;
+    Device *parseDevice(const char *name) const override;
+    void enableDevice(Device *dev) override;
     void printDevices() const override;
-};
 
-extern struct DevsIns8070 Devs;
+    SerialHandler *sci() const { return _sci; }
+private:
+    Device *_acia;
+    SerialHandler *_sci;
+};
 
 }  // namespace ins8070
 }  // namespace debugger

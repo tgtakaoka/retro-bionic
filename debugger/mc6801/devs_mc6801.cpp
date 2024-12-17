@@ -7,22 +7,25 @@
 namespace debugger {
 namespace mc6801 {
 
-struct DevsMc6801 Devices {
-    &SciH
-};
+DevsMc6801::DevsMc6801() : _acia(new Mc6850()), _sci(new Mc6801SciHandler()) {}
+
+DevsMc6801::~DevsMc6801() {
+    delete _acia;
+    delete _sci;
+}
 
 void DevsMc6801::reset() {
-    ACIA.reset();
-    ACIA.setBaseAddr(ACIA_BASE);
+    _acia->reset();
+    _acia->setBaseAddr(ACIA_BASE);
     _sci->reset();
 }
 
 void DevsMc6801::begin() {
-    enableDevice(ACIA);
+    enableDevice(_acia);
 }
 
 void DevsMc6801::loop() {
-    ACIA.loop();
+    _acia->loop();
     _sci->loop();
 }
 
@@ -31,37 +34,37 @@ void DevsMc6801::setIdle(bool idle) {
 }
 
 bool DevsMc6801::isSelected(uint32_t addr) const {
-    return ACIA.isSelected(addr) || _sci->isSelected(addr);
+    return _acia->isSelected(addr) || _sci->isSelected(addr);
 }
 
 uint16_t DevsMc6801::read(uint32_t addr) const {
-    return ACIA.isSelected(addr) ? ACIA.read(addr) : _sci->read(addr);
+    return _acia->isSelected(addr) ? _acia->read(addr) : _sci->read(addr);
 }
 
 void DevsMc6801::write(uint32_t addr, uint16_t data) const {
-    if (ACIA.isSelected(addr)) {
-        ACIA.write(addr, data);
+    if (_acia->isSelected(addr)) {
+        _acia->write(addr, data);
     } else {
         _sci->write(addr, data);
     }
 }
 
-Device &DevsMc6801::parseDevice(const char *name) const {
-    if (strcasecmp(name, ACIA.name()) == 0)
-        return ACIA;
+Device *DevsMc6801::parseDevice(const char *name) const {
+    if (strcasecmp(name, _acia->name()) == 0)
+        return _acia;
     if (strcasecmp(name, _sci->name()) == 0)
-        return SciH;
+        return _sci;
     return Devs::nullDevice();
 }
 
-void DevsMc6801::enableDevice(Device &dev) {
-    ACIA.enable(&dev == &ACIA);
-    _sci->enable(&dev == _sci);
+void DevsMc6801::enableDevice(Device *dev) {
+    _acia->enable(dev == _acia);
+    _sci->enable(dev == _sci);
 }
 
 void DevsMc6801::printDevices() const {
-    printDevice(ACIA);
-    printDevice(*_sci);
+    printDevice(_acia);
+    printDevice(_sci);
 }
 
 }  // namespace mc6801

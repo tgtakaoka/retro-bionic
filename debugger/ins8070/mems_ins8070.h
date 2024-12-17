@@ -1,13 +1,16 @@
 #ifndef __MEMS_INS8070_H__
 #define __MEMS_INS8070_H__
 
+#include "devs.h"
 #include "mems.h"
 
 namespace debugger {
 namespace ins8070 {
 
+struct RegsIns8070;
+
 struct MemsIns8070 final : DmaMemory {
-    MemsIns8070() : DmaMemory(Endian::ENDIAN_LITTLE) {}
+    MemsIns8070(RegsIns8070 *regs, Devs *devs);
 
     uint32_t maxAddr() const override { return UINT16_MAX; }
     uint16_t read(uint32_t addr) const override;
@@ -18,16 +21,10 @@ struct MemsIns8070 final : DmaMemory {
 
     static bool is_internal(uint16_t addr) { return addr >= 0xFFC0; }
 
-protected:
-#ifdef WITH_ASSEMBLER
-    libasm::Assembler *assembler() const override;
-#endif
-#ifdef WITH_DISASSEMBLER
-    libasm::Disassembler *disassembler() const override;
-#endif
+private:
+    RegsIns8070 *_regs;
+    Devs *_devs;
 };
-
-extern struct MemsIns8070 Memory;
 
 }  // namespace ins8070
 }  // namespace debugger

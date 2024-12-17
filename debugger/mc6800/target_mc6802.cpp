@@ -1,37 +1,15 @@
 #include "target.h"
 
-#include "devs_mc6800.h"
-#include "inst_mb8861.h"
-#include "mems_mc6802.h"
 #include "pins_mc6802.h"
-#include "regs_mc6802.h"
 
 namespace debugger {
 namespace mc6802 {
 
-using mb8861::InstMb8861;
-using mc6800::Devices;
-extern struct PinsMc6802 Pins;
+Target *instanceMC6802(const Identity *id) {
+    return new Target(id, new PinsMc6802());
+}
 
-struct RegsMc6802 Regs {
-    Pins
-};
-
-struct MemsMc6802 Memory {
-    Regs
-};
-
-struct InstMb8861 Inst {
-    Memory,
-};
-
-struct PinsMc6802 Pins {
-    Regs, Inst, Memory, Devices
-};
-
-const struct Target TargetMc6802 {
-    "MC6802", Pins, Regs, Memory, Devices
-};
+const struct Identity MC6802{"MC6802", instanceMC6802};
 
 }  // namespace mc6802
 }  // namespace debugger

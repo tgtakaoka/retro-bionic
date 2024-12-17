@@ -1,9 +1,8 @@
+#include "pins_mc6809.h"
 #include "debugger.h"
 #include "devs_mc6809.h"
-#include "digital_bus.h"
-#include "inst_mc6809.h"
+#include "inst_hd6309.h"
 #include "mems_mc6809.h"
-#include "pins_mc6809.h"
 #include "regs_mc6809.h"
 #include "signals_mc6809.h"
 
@@ -131,6 +130,13 @@ inline void extal_cycle() {
 
 }  // namespace
 
+PinsMc6809::PinsMc6809() {
+    _regs = new RegsMc6809(this);
+    _devs = new DevsMc6809();
+    _mems = new MemsMc6809(_devs);
+    _inst = new hd6309::InstHd6309(_mems);
+}
+
 void PinsMc6809::resetPins() {
     // Assert reset condition
     pinsMode(PINS_LOW, sizeof(PINS_LOW), OUTPUT, LOW);
@@ -160,7 +166,7 @@ void PinsMc6809::resetPins() {
 Signals *PinsMc6809::rawCycle() const {
     // C1H
     extal_hi();
-    busMode(D, INPUT);
+    Signals::inputMode();
     auto s = Signals::put();
     delayNanoseconds(c1_hi_ns);
     // C2L
@@ -183,7 +189,7 @@ Signals *PinsMc6809::rawCycle() const {
         // C4L
         extal_lo();
         if (s->writeMemory()) {
-            _mems.write(s->addr, s->data);
+            _mems->write(s->addr, s->data);
             if (c4_lo_write)
                 delayNanoseconds(c4_lo_write);
         } else {
@@ -198,15 +204,14 @@ Signals *PinsMc6809::rawCycle() const {
         // C3H
         extal_hi();
         if (s->readMemory()) {
-            s->data = _mems.read(s->addr);
+            s->data = _mems->read(s->addr);
             delayNanoseconds(c3_hi_read);
         } else {
             delayNanoseconds(c3_hi_inject);
         }
         // C4L
         extal_lo();
-        busMode(D, OUTPUT);
-        busWrite(D, s->data);
+        s->outData();
         delayNanoseconds(c4_lo_read);
         // C4H
         extal_hi();

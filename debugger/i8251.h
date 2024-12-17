@@ -85,8 +85,6 @@ private:
     static constexpr uint8_t ST_TxRDY_bm = 0x01;    // Transmitter ready
 };
 
-extern struct I8251 USART;
-
 }  // namespace debugger
 #endif
 

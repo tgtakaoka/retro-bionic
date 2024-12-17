@@ -1,24 +1,30 @@
+#include "mems_mos6502.h"
 #include <asm_mos6502.h>
 #include <dis_mos6502.h>
-
-#include "devs_mos6502.h"
-#include "inst_mos6502.h"
-#include "mems_mos6502.h"
-#include "pins_mos6502.h"
-#include "regs_mos6502.h"
 
 namespace debugger {
 namespace mos6502 {
 
-struct MemsMos6502 Memory;
+MemsMos6502::MemsMos6502(Devs *devs)
+    : ExtMemory(Endian::ENDIAN_LITTLE),
+      _devs(devs),
+      _longA(false),
+      _longI(false) {
+#ifdef WITH_ASSEMBLER
+    _assembler = new libasm::mos6502::AsmMos6502();
+#endif
+#ifdef WITH_DISASSEMBLER
+    _disassembler = new libasm::mos6502::DisMos6502();
+#endif
+}
 
 uint16_t MemsMos6502::read(uint32_t addr) const {
-    return Devices.isSelected(addr) ? Devices.read(addr) : raw_read(addr);
+    return _devs->isSelected(addr) ? _devs->read(addr) : raw_read(addr);
 }
 
 void MemsMos6502::write(uint32_t addr, uint16_t data) const {
-    if (Devices.isSelected(addr)) {
-        Devices.write(addr, data);
+    if (_devs->isSelected(addr)) {
+        _devs->write(addr, data);
     } else {
         raw_write(addr, data);
     }
@@ -26,20 +32,22 @@ void MemsMos6502::write(uint32_t addr, uint16_t data) const {
 
 #ifdef WITH_ASSEMBLER
 libasm::Assembler *MemsMos6502::assembler() const {
-    static auto as = new libasm::mos6502::AsmMos6502();
-    as->setCpu(Registers.cpu());
-    as->setOption("longa", "off");
-    as->setOption("longi", "off");
+    auto as = Mems::assembler();
+    if (as) {
+        as->setOption("longa", _longA ? "on" : "off");
+        as->setOption("longi", _longI ? "on" : "off");
+    }
     return as;
 }
 #endif
 
 #ifdef WITH_DISASSEMBLER
 libasm::Disassembler *MemsMos6502::disassembler() const {
-    static auto dis = new libasm::mos6502::DisMos6502();
-    dis->setCpu(Registers.cpu());
-    dis->setOption("longa", "off");
-    dis->setOption("longi", "off");
+    auto dis = Mems::disassembler();
+    if (dis) {
+        dis->setOption("longa", _longA ? "on" : "off");
+        dis->setOption("longi", _longI ? "on" : "off");
+    }
     return dis;
 }
 #endif

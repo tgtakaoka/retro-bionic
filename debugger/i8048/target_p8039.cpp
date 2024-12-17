@@ -1,23 +1,15 @@
 #include "target.h"
 
-#include "devs_i8048.h"
-#include "inst_i8048.h"
-#include "mems_i8048.h"
 #include "pins_i8048.h"
-#include "regs_i8048.h"
 
 namespace debugger {
 namespace p8039 {
 
-using i8048::Devs;
-using i8048::Pins;
-using i8048::ProgMemory;
-using i8048::Regs;
-using i8048::RegsI8048;
+Target *instanceP8039(const Identity *id) {
+    return new Target(id, new i8048::PinsI8048());
+}
 
-const struct Target TargetI8039 {
-    RegsI8048::P8039, Pins, Regs, ProgMemory, Devs
-};
+const struct Identity P8039{"P8039", instanceP8039};
 
 }  // namespace p8039
 }  // namespace debugger

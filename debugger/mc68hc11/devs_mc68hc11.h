@@ -2,6 +2,7 @@
 #define __DEVS_MC68HC11_H__
 
 #include "devs.h"
+#include "serial_handler.h"
 
 #define ACIA_BASE 0xDF00
 
@@ -9,11 +10,10 @@ namespace debugger {
 namespace mc68hc11 {
 
 struct Mc68hc11Init;
-struct Mc68hc11SciHandler;
 
 struct DevsMc68hc11 final : Devs {
-    DevsMc68hc11(Mc68hc11Init &init, Mc68hc11SciHandler &sci)
-        : Devs(), _init(init), _sci(sci) {}
+    DevsMc68hc11(Mc68hc11Init &init);;
+    ~DevsMc68hc11();
 
     void begin() override;
     void reset() override;
@@ -23,15 +23,16 @@ struct DevsMc68hc11 final : Devs {
     uint16_t read(uint32_t addr) const override;
     void write(uint32_t addr, uint16_t data) const override;
 
-    Device &parseDevice(const char *name) const override;
-    void enableDevice(Device &dev) override;
+    Device *parseDevice(const char *name) const override;
+    void enableDevice(Device *dev) override;
     void printDevices() const override;
 
     Mc68hc11Init &init() const { return _init; }
 
 private:
     Mc68hc11Init &_init;
-    Mc68hc11SciHandler &_sci;
+    SerialHandler *_sci;
+    Device *_acia;
 };
 
 }  // namespace mc68hc11

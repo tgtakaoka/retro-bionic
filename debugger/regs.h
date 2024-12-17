@@ -5,6 +5,8 @@
 
 namespace debugger {
 struct Regs {
+    virtual ~Regs() {}
+
     virtual const char *cpu() const = 0;
     virtual const char *cpuName() const = 0;
 

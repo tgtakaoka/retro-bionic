@@ -1,39 +1,15 @@
 #include "target.h"
 
-#include "devs_mc6809.h"
-#include "inst_hd6309.h"
-#include "mems_mc6809.h"
 #include "pins_mc6809e.h"
-#include "regs_mc6809e.h"
 
 namespace debugger {
 namespace mc6809e {
 
-using hd6309::InstHd6309;
-using mc6809::Devs;
-using mc6809::MemsMc6809;
+Target *instanceMC6809E(const Identity *id) {
+    return new Target(id, new PinsMc6809E());
+}
 
-extern struct PinsMc6809E Pins;
-
-struct RegsMc6809E Regs {
-    Pins
-};
-
-struct MemsMc6809 Memory {
-    Regs
-};
-
-struct InstHd6309 Inst {
-    Memory
-};
-
-struct PinsMc6809E Pins {
-    Regs, Inst, Memory
-};
-
-const struct Target TargetMc6809 {
-    "MC6809E", Pins, Regs, Memory, Devs
-};
+const struct Identity MC6809E{"MC6809E", instanceMC6809E};
 
 }  // namespace mc6809e
 }  // namespace debugger

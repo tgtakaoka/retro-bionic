@@ -6,7 +6,11 @@
 namespace debugger {
 namespace cdp1802 {
 
+struct PinsCdp1802;
+
 struct RegsCdp1802 final : Regs {
+    RegsCdp1802(PinsCdp1802 *pins) : _pins(pins) {}
+
     const char *cpu() const override;
     const char *cpuName() const override;
     bool is1804() const;
@@ -23,6 +27,8 @@ struct RegsCdp1802 final : Regs {
     void setRegister(uint8_t reg, uint32_t value) override;
 
 private:
+    PinsCdp1802 *_pins;
+
     uint8_t _d;
     uint8_t _x;
     uint8_t _p;
@@ -36,8 +42,6 @@ private:
 
     void setCpuType();
 };
-
-extern struct RegsCdp1802 Regs;
 
 }  // namespace cdp1802
 }  // namespace debugger

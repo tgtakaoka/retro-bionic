@@ -1,8 +1,6 @@
 #include "pins_ins8060.h"
 #include "debugger.h"
 #include "devs_ins8060.h"
-#include "digital_bus.h"
-#include "ins8060_sci_handler.h"
 #include "inst_ins8060.h"
 #include "mems_ins8060.h"
 #include "regs_ins8060.h"
@@ -10,8 +8,6 @@
 
 namespace debugger {
 namespace ins8060 {
-
-struct PinsIns8060 Pins;
 
 // clang-format off
 /**
@@ -163,11 +159,6 @@ inline void xin_hi() {
     digitalWriteFast(PIN_XIN, HIGH);
 }
 
-inline void xin_lo() {
-    digitalWriteFast(PIN_XIN, LOW);
-    SciH.loop();
-}
-
 inline void xin_cycle() {
     digitalWriteFast(PIN_XIN, HIGH);
     delayNanoseconds(xin_hi_ns);
@@ -176,6 +167,17 @@ inline void xin_cycle() {
 }
 
 }  // namespace
+
+PinsIns8060::PinsIns8060() {
+    _regs = new RegsIns8060(this);
+    _devs = new DevsIns8060();
+    _mems = new MemsIns8060(_devs);
+}
+
+void PinsIns8060::xin_lo() const {
+    digitalWriteFast(PIN_XIN, LOW);
+    devs<DevsIns8060>()->sci()->loop();
+}
 
 void PinsIns8060::resetPins() {
     // Assert reset condition
@@ -192,7 +194,7 @@ void PinsIns8060::resetPins() {
     Signals::resetCycles();
     // The #BREQ output goes low, indicating the start of execution;
     // this occurs at a time whithin 13 Tc after #RST is set high.
-    Regs.save();
+    _regs->save();
 }
 
 Signals *PinsIns8060::prepareCycle() const {
@@ -236,7 +238,7 @@ Signals *PinsIns8060::completeCycle(Signals *s) const {
         delayNanoseconds(xin_lo_write);
         xin_hi();
         if (s->writeMemory()) {
-            Memory.write(s->addr, s->data);
+            _mems->write(s->addr, s->data);
         } else {
             delayNanoseconds(xin_hi_capture);
         }
@@ -247,7 +249,7 @@ Signals *PinsIns8060::completeCycle(Signals *s) const {
         delayNanoseconds(xin_read_begin);
         xin_lo();
         if (s->readMemory()) {
-            s->data = Memory.read(s->addr);
+            s->data = _mems->read(s->addr);
         } else {
             delayNanoseconds(xin_lo_inject);
         }
@@ -258,8 +260,7 @@ Signals *PinsIns8060::completeCycle(Signals *s) const {
             delayNanoseconds(xin_lo_rds);
         }
         xin_hi();
-        busMode(DB, OUTPUT);
-        busWrite(DB, s->data);
+        s->outData();
         delayNanoseconds(xin_read_out);
         while (signal_rds() == LOW) {
             xin_lo();
@@ -283,7 +284,7 @@ Signals *PinsIns8060::completeCycle(Signals *s) const {
         delayNanoseconds(xin_hi_enout);
     }
     xin_lo();
-    busMode(DB, INPUT);
+    Signals::inputMode();
     // XIN=L
     return s;
 }
@@ -333,10 +334,10 @@ void PinsIns8060::idle() {
 
 void PinsIns8060::loop() {
     while (true) {
-        Devs.loop();
+        _devs->loop();
         auto s = prepareCycle();
         if (s->fetch()) {
-            const auto inst = Memory.raw_read(s->addr);
+            const auto inst = _mems->raw_read(s->addr);
             const auto len = InstIns8060::instLen(inst);
             if (len == 0 || inst == InstIns8060::HALT) {
                 completeCycle(s->inject(InstIns8060::JMP));
@@ -369,20 +370,20 @@ void PinsIns8060::suspend() const {
 }
 
 void PinsIns8060::run() {
-    Regs.restore();
+    _regs->restore();
     Signals::resetCycles();
     saveBreakInsts();
     assert_enin();
     loop();
     restoreBreakInsts();
     disassembleCycles();
-    Regs.save();
+    _regs->save();
 }
 
 bool PinsIns8060::rawStep() const {
     assert_enin();
     auto s = prepareCycle();
-    const auto inst = Memory.raw_read(s->addr);
+    const auto inst = _mems->raw_read(s->addr);
     const auto len = InstIns8060::instLen(inst);
     if (len == 0 || inst == InstIns8060::HALT) {
         // HALT or unknown instruction
@@ -398,13 +399,13 @@ bool PinsIns8060::rawStep() const {
 
 bool PinsIns8060::step(bool show) {
     Signals::resetCycles();
-    Regs.restore();
+    _regs->restore();
     if (show)
         Signals::resetCycles();
     if (rawStep()) {
         if (show)
             printCycles();
-        Regs.save();
+        _regs->save();
         return true;
     }
     return false;
@@ -419,7 +420,7 @@ void PinsIns8060::negateInt(uint8_t name) {
 }
 
 void PinsIns8060::setBreakInst(uint32_t addr) const {
-    Memory.put_inst(addr, InstIns8060::HALT);
+    _mems->put_inst(addr, InstIns8060::HALT);
 }
 
 void PinsIns8060::printCycles() {
@@ -437,7 +438,7 @@ void PinsIns8060::disassembleCycles() {
     for (auto i = 0; i < cycles;) {
         const auto s = g->next(i);
         if (s->fetch()) {
-            const auto len = Memory.disassemble(s->addr, 1) - s->addr;
+            const auto len = _mems->disassemble(s->addr, 1) - s->addr;
             i += len;
         } else {
             s->print();

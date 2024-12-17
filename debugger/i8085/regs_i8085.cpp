@@ -1,15 +1,11 @@
 #include "regs_i8085.h"
 #include "char_buffer.h"
 #include "debugger.h"
-#include "digital_bus.h"
 #include "inst_i8085.h"
-#include "mems_i8085.h"
 #include "pins_i8085.h"
 
 namespace debugger {
 namespace i8085 {
-
-struct RegsI8085 Regs;
 
 const char *RegsI8085::cpu() const {
     return "i8085";
@@ -36,7 +32,7 @@ void RegsI8085::print() const {
     buffer.bits(49, _psw, 0x80, line + 49);
     buffer[57] = _ie ? ' ' : 0;
     cli.println(buffer);
-    Pins.idle();
+    _pins->idle();
 }
 
 void RegsI8085::save() {
@@ -51,7 +47,7 @@ void RegsI8085::save() {
             0x77,  // MOV M, A
     };
     uint8_t buffer[11];
-    Pins.captureWrites(
+    _pins->captureWrites(
             PUSH_ALL, sizeof(PUSH_ALL), &_sp, buffer, sizeof(buffer));
     _sp++;
     _pc = be16(buffer) - 1;  // offser RST instruction
@@ -77,7 +73,7 @@ void RegsI8085::restore() {
             ie,                      // EI/DI
             0xC3, lo(_pc), hi(_pc),  // JMP _pc
     };
-    Pins.execInst(POP_ALL, sizeof(POP_ALL));
+    _pins->execInst(POP_ALL, sizeof(POP_ALL));
 }
 
 uint8_t RegsI8085::read_io(uint8_t addr) const {
@@ -86,7 +82,7 @@ uint8_t RegsI8085::read_io(uint8_t addr) const {
             0x77,        // MOV M, A
     };
     uint8_t data;
-    Pins.captureWrites(IN, sizeof(IN), nullptr, &data, sizeof(data));
+    _pins->captureWrites(IN, sizeof(IN), nullptr, &data, sizeof(data));
     return data;
 }
 
@@ -98,11 +94,11 @@ void RegsI8085::write_io(uint8_t addr, uint8_t data) const {
     };
     uint8_t tmp;
     // MOV M, A ensures I/O write cycle.
-    Pins.captureWrites(OUT, sizeof(OUT), nullptr, &tmp, sizeof(tmp));
+    _pins->captureWrites(OUT, sizeof(OUT), nullptr, &tmp, sizeof(tmp));
 }
 
 void RegsI8085::helpRegisters() const {
-    cli.println(F("?Reg: PC SP BC DE HL A B C D E H L PSW"));
+    cli.println("?Reg: PC SP BC DE HL A B C D E H L PSW");
 }
 
 constexpr const char *REGS8[] = {

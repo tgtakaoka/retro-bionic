@@ -20,12 +20,6 @@ void Mc68hc11Init::print() const {
     cli.printlnHex(_dev_base + _dev_size, 4);
 }
 
-void Mc68hc11Init::reset() {
-    const auto current = init();
-    set(_init);
-    configSystem(current);
-}
-
 bool Mc68hc11Init::is_internal(uint16_t addr) const {
     if (addr >= _ram_base && addr < _ram_base + _ram_size)
         return true;
@@ -34,19 +28,21 @@ bool Mc68hc11Init::is_internal(uint16_t addr) const {
     return false;
 }
 
-void Mc68hc11Init::configSystem(uint8_t init) {
+void Mc68hc11Init::configSystem(RegsMc68hc11 *regs) {
+    const auto current = init();
+    set(_init);
     // Disable watchdog timer.
     constexpr uint8_t NOCOP = 0x04;
     // constexpr uint8_t ROMON = 0x02;
-    _regs.internal_write(_dev_base + CONFIG, NOCOP);
+    regs->internal_write(_dev_base + CONFIG, NOCOP);
 
     // constexpr uint8_t CME = 0x08;
-    _regs.internal_write(_dev_base + OPTION, 0);
+    regs->internal_write(_dev_base + OPTION, 0);
 
     // It can be written to only once within the first 64 E-clock
-    // cycles after a reset, and then ot becomes a read-only register.
-    _regs.internal_write(_dev_base + INIT, init);
-    set(init);
+    // cycles after a reset, and then it becomes a read-only register.
+    regs->internal_write(_dev_base + INIT, current);
+    set(current);
 }
 
 }  // namespace mc68hc11

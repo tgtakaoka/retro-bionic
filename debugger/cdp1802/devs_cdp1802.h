@@ -2,6 +2,7 @@
 #define __DEVS_CDP1802_H__
 
 #include "devs.h"
+#include "serial_handler.h"
 
 #define ACIA_BASE 0xDF00
 
@@ -9,6 +10,9 @@ namespace debugger {
 namespace cdp1802 {
 
 struct DevsCdp1802 final : Devs {
+    DevsCdp1802();
+    ~DevsCdp1802();
+
     void begin() override;
     void reset() override;
     void loop() override;
@@ -17,12 +21,16 @@ struct DevsCdp1802 final : Devs {
     uint16_t read(uint32_t addr) const override;
     void write(uint32_t addr, uint16_t data) const override;
 
-    Device &parseDevice(const char *name) const override;
-    void enableDevice(Device &dev) override;
+    Device *parseDevice(const char *name) const override;
+    void enableDevice(Device *dev) override;
     void printDevices() const override;
-};
 
-extern struct DevsCdp1802 Devs;
+    SerialHandler &sci() const { return *_sci; }
+
+private:
+    Device *_acia;
+    SerialHandler *_sci;
+};
 
 }  // namespace cdp1802
 }  // namespace debugger

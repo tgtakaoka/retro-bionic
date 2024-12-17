@@ -6,49 +6,53 @@
 namespace debugger {
 namespace f3850 {
 
-struct DevsF3850 Devs;
+DevsF3850::DevsF3850() : _usart(new I8251()) {}
+
+DevsF3850::~DevsF3850() {
+    delete _usart;
+}
 
 void DevsF3850::reset() {
-    USART.reset();
-    USART.setBaseAddr(USART_BASE);
+    _usart->reset();
+    _usart->setBaseAddr(USART_BASE);
 }
 
 void DevsF3850::begin() {
-    enableDevice(USART);
+    enableDevice(_usart);
 }
 
 void DevsF3850::loop() {
-    USART.loop();
+    _usart->loop();
 }
 
 bool DevsF3850::isSelected(uint32_t addr) const {
-    return USART.isSelected(addr);
+    return _usart->isSelected(addr);
 }
 
 uint16_t DevsF3850::read(uint32_t addr) const {
-    return USART.read(addr);
+    return _usart->read(addr);
 }
 
 void DevsF3850::write(uint32_t addr, uint16_t data) const {
-    USART.write(addr, data);
+    _usart->write(addr, data);
 }
 
 uint16_t DevsF3850::vector() const {
-    return USART.vector();
+    return _usart->vector();
 }
 
-Device &DevsF3850::parseDevice(const char *name) const {
-    if (strcasecmp(name, USART.name()) == 0)
-        return USART;
+Device *DevsF3850::parseDevice(const char *name) const {
+    if (strcasecmp(name, _usart->name()) == 0)
+        return _usart;
     return Devs::nullDevice();
 }
 
-void DevsF3850::enableDevice(Device &dev) {
-    USART.enable(&dev == &USART);
+void DevsF3850::enableDevice(Device *dev) {
+    _usart->enable(dev == _usart);
 }
 
 void DevsF3850::printDevices() const {
-    printDevice(USART);
+    printDevice(_usart);
 }
 
 }  // namespace f3850

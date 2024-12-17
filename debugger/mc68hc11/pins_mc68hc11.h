@@ -42,20 +42,18 @@
 namespace debugger {
 namespace mc68hc11 {
 
-using mc6800::InstMc6800;
-using mc6800::PinsMc6800Base;
-using mc6800::RegsMc6800;
+struct Mc68hc11Init;
 
-struct PinsMc68hc11 final : PinsMc6800Base {
-    PinsMc68hc11(
-            RegsMc6800 &regs, InstMc6800 &inst, const Mems &mems, Devs &devs)
-        : PinsMc6800Base(regs, inst, mems, devs) {}
+struct PinsMc68hc11 final : mc6800::PinsMc6800Base {
+    PinsMc68hc11(Mc68hc11Init &init);
 
     void resetPins() override;
     // MC68HC11D is fully static, so we can stop clock safely.
     void idle() override {}
 
-protected:
+private:
+    Mc68hc11Init &_init;
+
     mc6800::Signals *cycle() override;
     mc6800::Signals *rawCycle() override;
 

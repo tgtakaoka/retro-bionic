@@ -1,16 +1,15 @@
 #include "target.h"
 
-#include "devs_cdp1802.h"
-#include "mems_cdp1802.h"
 #include "pins_cdp1802.h"
-#include "regs_cdp1802.h"
 
 namespace debugger {
 namespace cdp1802 {
 
-const struct Target TargetCdp1802 {
-    "CDP1802", Pins, Regs, Memory, Devs
-};
+Target *instanceCDP1802(const Identity *id) {
+    return new Target(id, new PinsCdp1802());
+}
+
+const struct Identity CDP1802{"CDP1802", instanceCDP1802};
 
 }  // namespace cdp1802
 }  // namespace debugger

@@ -4,10 +4,6 @@
 namespace debugger {
 namespace mc6801 {
 
-struct InstMc6801 Inst {
-    Memory
-};
-
 namespace {
 /**
 # 1: instruction code (next=&1)

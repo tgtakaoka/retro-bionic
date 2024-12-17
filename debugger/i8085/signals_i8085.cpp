@@ -37,6 +37,14 @@ void Signals::getData() {
     data = busRead(AD);
 }
 
+void Signals::outData() const {
+    busWrite(AD, data);
+}
+
+void Signals::inputMode() {
+    busMode(AD, INPUT);
+}
+
 void Signals::print() const {
     //                              01234567890123
     static constexpr char line[] = "R A=xxxx D=xx";

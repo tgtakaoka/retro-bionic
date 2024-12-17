@@ -1,20 +1,15 @@
 #include "target.h"
 
-#include "devs_mc146805e2.h"
-#include "mems_mc146805e2.h"
 #include "pins_mc146805e2.h"
-#include "regs_mc146805e2.h"
 
 namespace debugger {
 namespace mc146805e2 {
 
-struct RegsMc146805E2 Regs {
-    Pins, Memory
-};
+Target *instanceMC146805E2(const Identity *id) {
+    return new Target(id, new PinsMc146805E2());
+}
 
-const struct Target TargetMc146805E2 {
-    "MC146805E2", Pins, Regs, Memory, Devices
-};
+const struct Identity MC146805E2{"MC146805E2", instanceMC146805E2};
 
 }  // namespace mc146805e2
 }  // namespace debugger

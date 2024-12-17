@@ -1,6 +1,6 @@
 #include "cdp1802_sci_handler.h"
-#include "pins_cdp1802.h"
 #include "debugger.h"
+#include "pins_cdp1802.h"
 
 namespace debugger {
 namespace cdp1802 {

@@ -1,15 +1,15 @@
-#include "target_mos6502.h"
-#include "devs_mos6502.h"
-#include "mems_mos6502.h"
+#include "target.h"
+
 #include "pins_mos6502.h"
-#include "regs_mos6502.h"
 
 namespace debugger {
 namespace mos6502 {
 
-const struct Target TargetMos6502 {
-    "MOS6502", Pins, Registers, Memory, Devices
-};
+Target *instanceMOS6502(const Identity *id) {
+    return new Target(id, new PinsMos6502());
+}
+
+const struct Identity MOS6502{"MOS6502", instanceMOS6502};
 
 }  // namespace mos6502
 }  // namespace debugger

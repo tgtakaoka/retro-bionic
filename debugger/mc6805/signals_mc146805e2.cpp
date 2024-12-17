@@ -22,6 +22,15 @@ void Signals::getData() {
     data = busRead(B);
 }
 
+void Signals::outData() const {
+    busWrite(B, data);
+    busMode(B, OUTPUT);
+}
+
+void Signals::inputMode() {
+    busMode(B, INPUT);
+}
+
 }  // namespace mc146805e2
 }  // namespace debugger
 

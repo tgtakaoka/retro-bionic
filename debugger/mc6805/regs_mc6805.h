@@ -7,11 +7,10 @@ namespace debugger {
 namespace mc6805 {
 
 struct PinsMc6805;
-struct MemsMc6805;
 struct Signals;
 
 struct RegsMc6805 : Regs {
-    RegsMc6805(PinsMc6805 &pins, MemsMc6805 &mems) : _pins(pins), _mems(mems) {}
+    RegsMc6805(PinsMc6805 *pins) : _pins(pins) {}
 
     void print() const override;
     void save() override;
@@ -29,8 +28,7 @@ struct RegsMc6805 : Regs {
     void internal_write(uint16_t addr, uint8_t data) const;
 
 protected:
-    PinsMc6805 &_pins;
-    MemsMc6805 &_mems;
+    PinsMc6805 *_pins;
 
     uint16_t _sp;
     uint16_t _pc;

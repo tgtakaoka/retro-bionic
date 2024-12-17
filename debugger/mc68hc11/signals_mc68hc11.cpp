@@ -22,6 +22,15 @@ void Signals::getData() {
     data = busRead(AD);
 }
 
+void Signals::outData() const {
+    busWrite(AD, data);
+    busMode(AD, OUTPUT);
+}
+
+void Signals::inputMode() {
+    busMode(AD, INPUT);
+}
+
 }  // namespace mc68hc11
 }  // namespace debugger
 

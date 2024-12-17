@@ -19,6 +19,18 @@ void Signals::getData() {
     data = busRead(AD);
 }
 
+void Signals::setData() const {
+    busWrite(AD, data);
+}
+
+void Signals::outputMode() {
+    busMode(AD, OUTPUT);
+}
+
+void Signals::inputMode() {
+    busMode(AD, INPUT);
+}
+
 }  // namespace mc6801
 }  // namespace debugger
 

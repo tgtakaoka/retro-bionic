@@ -2,20 +2,20 @@
 #define __DEBUGGER_TARGET_H__
 
 #include "devs.h"
+#include "identity.h"
 #include "mems.h"
 #include "pins.h"
 #include "regs.h"
 
 namespace debugger {
+
 struct Target {
-    static Target &readIdentity();
-    static void writeIdentity(const char *identity);
-    static void printIdentity();
+    Target(const Identity *id, Pins *pins);
+    ~Target() { delete _pins; }
 
-    Target(const char *id, Pins &pins, Regs &regs, Mems &mems, Devs &devs);
-
-    const char *identity() const { return _identity; }
-    const char *cpuName() const { return _regs.cpuName(); }
+    const char *identity() const { return _id->name(); }
+    const char *cpu() const { return _regs->cpu(); }
+    const char *cpuName() const { return _regs->cpuName(); }
 
     void begin() const;
     void reset() const;
@@ -27,8 +27,8 @@ struct Target {
     void assertInt(uint8_t name = 0) const;
     void negateInt(uint8_t name = 0) const;
 
-    uint32_t nextIp() const { return _regs.nextIp(); }
-    void setBreakPoint(uint32_t addr) const { _pins.setBreakInst(addr); }
+    uint32_t nextIp() const { return _regs->nextIp(); }
+    void setBreakPoint(uint32_t addr) const { _pins->setBreakInst(addr); }
 
     void printRegisters() const;
     void printStatus() const;
@@ -48,19 +48,15 @@ struct Target {
     void setRomArea(uint32_t begin, uint32_t end) const;
 
     void printDevices() const;
-    Device &parseDevice(const char *word) const;
-    void enableDevice(Device &dev) const;
+    Device *parseDevice(const char *word) const;
+    void enableDevice(Device *dev) const;
 
 private:
-    const char *const _identity;
-    Pins &_pins;
-    Regs &_regs;
-    Mems &_mems;
-    Devs &_devs;
-    Target *const _next;
-
-    static Target *_head;
-    static Target &searchIdentity(const char *identity);
+    const Identity *_id;
+    Pins *_pins;
+    Regs *_regs;
+    Mems *_mems;
+    Devs *_devs;
 };
 }  // namespace debugger
 

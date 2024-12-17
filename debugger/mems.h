@@ -18,6 +18,8 @@ enum Endian : uint16_t {
 };
 
 struct Mems {
+    virtual ~Mems();
+
     virtual uint32_t maxAddr() const = 0;
     virtual uint16_t raw_read(uint32_t addr) const = 0;
     virtual void raw_write(uint32_t addr, uint16_t data) const = 0;
@@ -52,6 +54,7 @@ struct Mems {
         void set(uint32_t begin, uint32_t end);
         bool readOnly(uint32_t addr) const;
         void print() const;
+
     private:
         uint32_t _begin;
         uint32_t _end;
@@ -62,17 +65,22 @@ struct Mems {
     uint32_t disassemble(uint32_t addr, uint8_t numInsn) const;
 
 protected:
-    Mems(Endian endian) : _endian(endian) {}
+    Mems(Endian endian);
 
     const Endian _endian;
+#ifdef WITH_ASSEMBLER
+    libasm::Assembler *_assembler;
+    virtual libasm::Assembler *assembler() const;
+#endif
+#ifdef WITH_DISASSEMBLER
+    libasm::Disassembler *_disassembler;
+    virtual libasm::Disassembler *disassembler() const;
+#endif
 
     uint16_t raw_read16be(uint32_t addr) const;
     uint16_t raw_read16le(uint32_t addr) const;
     void raw_write16be(uint32_t addr, uint16_t data) const;
     void raw_write16le(uint32_t addr, uint16_t data) const;
-
-    virtual libasm::Assembler *assembler() const { return nullptr; }
-    virtual libasm::Disassembler *disassembler() const { return nullptr; }
 
     static constexpr uint8_t hi(uint16_t v) {
         return static_cast<uint8_t>(v >> 8);

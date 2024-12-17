@@ -68,6 +68,8 @@ namespace debugger {
 namespace cdp1802 {
 
 struct PinsCdp1802 final : Pins {
+    PinsCdp1802();
+
     void resetPins() override;
     void idle() override;
     bool step(bool show) override;
@@ -97,8 +99,6 @@ private:
 
     void disassembleCycles() const;
 };
-
-extern struct PinsCdp1802 Pins;
 
 }  // namespace cdp1802
 }  // namespace debugger

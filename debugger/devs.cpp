@@ -16,19 +16,19 @@ struct NullDevice final : Device {
 } NullDevice;
 }  // namespace
 
-Device &Devs::nullDevice() {
-    return NullDevice;
+Device *Devs::nullDevice() {
+    return &NullDevice;
 }
 
-void Devs::printDevice(const Device &dev) const {
-    cli.printStr(dev.name(), -6);
+void Devs::printDevice(const Device *dev) const {
+    cli.printStr(dev->name(), -6);
     cli.print(' ');
-    cli.printStr(dev.description(), -10);
+    cli.printStr(dev->description(), -10);
     cli.print(" at ");
-    cli.printHex(dev.baseAddr(), 4);
-    if (dev.isEnabled()) {
+    cli.printHex(dev->baseAddr(), 4);
+    if (dev->isEnabled()) {
         cli.println();
-        dev.print();
+        dev->print();
     } else {
         cli.println(" DISABLED");
     }

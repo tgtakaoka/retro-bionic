@@ -9,7 +9,7 @@ namespace mb8861 {
 using mc6800::InstMc6800;
 
 struct InstMb8861 final : InstMc6800 {
-    InstMb8861(const DmaMemory &mems) : InstMc6800(mems) {}
+    InstMb8861(Mems *mems) : InstMc6800(mems) {}
 
 protected:
     const char *instSequence(uint8_t inst) const override;

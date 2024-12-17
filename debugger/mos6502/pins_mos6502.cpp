@@ -1,19 +1,13 @@
 #include "pins_mos6502.h"
 #include "debugger.h"
 #include "devs_mos6502.h"
-#include "digital_bus.h"
 #include "inst_mos6502.h"
 #include "mems_mos6502.h"
-#include "mems_w65c816.h"
 #include "regs_mos6502.h"
 #include "signals_mos6502.h"
-#include "target_mos6502.h"
-#include "target_w65c816.h"
 
 namespace debugger {
 namespace mos6502 {
-
-struct PinsMos6502 Pins;
 
 /**
  * W65C02S bus cycle.
@@ -164,9 +158,18 @@ constexpr uint8_t PINS_INPUT[] = {
 
 }  // namespace
 
+PinsMos6502::PinsMos6502() {
+    _devs = new DevsMos6502();
+    auto mems = new MemsMos6502(_devs);
+    _mems = mems;
+    _regs = new RegsMos6502(this, mems);
+}
+
 bool PinsMos6502::native65816() const {
     return _hardType == HW_W65C816 && signal_e() == LOW;
 }
+
+HardwareType PinsMos6502::_hardType;
 
 void PinsMos6502::checkHardwareType() {
     phi0_lo();
@@ -187,8 +190,6 @@ void PinsMos6502::checkHardwareType() {
         }
         // Keep PIN_SO HIGH using pullup
         // Set 16-bit memory
-        Debugger.setTarget(mos6502::TargetMos6502);
-        _mems = &mos6502::Memory;
     } else {
         // PIN_PHI1O/W65C816_ABORT keeps HIGH, means W65C816S.
         _hardType = HW_W65C816;
@@ -199,10 +200,10 @@ void PinsMos6502::checkHardwareType() {
         digitalWriteFast(PIN_BE, HIGH);
         pinMode(PIN_BE, OUTPUT);
         // Set 24-bit memory
-        Debugger.setTarget(w65c816::TargetW65c816);
-        _mems = &w65c816::Memory;
     }
 }
+
+SoftwareType PinsMos6502::_softType;
 
 void PinsMos6502::checkSoftwareType() {
     if (_hardType == HW_W65C816) {
@@ -267,7 +268,7 @@ void PinsMos6502::resetPins() {
         }
     }
 
-    Registers.save();
+    _regs->save();
     assert_rdy();
     checkSoftwareType();
     negate_rdy();
@@ -276,8 +277,7 @@ void PinsMos6502::resetPins() {
 Signals *PinsMos6502::rawPrepareCycle() {
     auto s = Signals::put();
     if (_hardType == HW_W65C816 && s->addr24()) {
-        s->getAddr();
-        s->addr |= busRead(BA);
+        s->getAddr24();
     } else {
         delayNanoseconds(phi0_lo_sync);
         s->getAddr();
@@ -310,14 +310,13 @@ Signals *PinsMos6502::completeCycle(Signals *s) {
         // [W65C816] Delay to avoid bus conflict with bank address of
         // this bus cycle.
         delayNanoseconds(phi0_hi_read_pre);
-        busWrite(D, s->data);
-        busMode(D, OUTPUT);
+        s->outData();
         delayNanoseconds(phi0_hi_read_post);
         // [W65C816] Switch bus direction before falling PHI0 to avoid
         // bus conflict with bank address of next bus cycle. The
         // output data are retained by the bus-hold curcuit until bank
         // address is on the bus.
-        busMode(D, INPUT);
+        Signals::inputMode();
         phi0_lo();
     }
     Signals::nextCycle();
@@ -378,7 +377,7 @@ void PinsMos6502::idle() {
 
 void PinsMos6502::loop() {
     while (true) {
-        Devices.loop();
+        _devs->loop();
         delayNanoseconds(phi0_lo_fetch);
         auto s = rawPrepareCycle();
         if (s->fetch()) {
@@ -402,7 +401,7 @@ void PinsMos6502::loop() {
 }
 
 void PinsMos6502::run() {
-    Registers.restore();
+    _regs->restore();
     Signals::resetCycles();
     saveBreakInsts();
     assert_rdy();
@@ -410,7 +409,7 @@ void PinsMos6502::run() {
     negate_rdy();
     restoreBreakInsts();
     disassembleCycles();
-    Registers.save();
+    _regs->save();
 }
 
 void PinsMos6502::suspend() {
@@ -446,13 +445,13 @@ bool PinsMos6502::rawStep() {
 
 bool PinsMos6502::step(bool show) {
     Signals::resetCycles();
-    Registers.restore();
+    _regs->restore();
     if (show)
         Signals::resetCycles();
     if (rawStep()) {
         if (show)
             printCycles();
-        Registers.save();
+        _regs->save();
         return true;
     }
     return false;

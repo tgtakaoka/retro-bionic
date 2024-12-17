@@ -3,8 +3,6 @@
 namespace debugger {
 namespace mc146805 {
 
-struct InstMc146805 Inst;
-
 namespace {
 constexpr uint8_t INST_TABLE[] = {
         0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x9B, 0xED,  //  00~3F

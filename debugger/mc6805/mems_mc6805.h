@@ -1,6 +1,7 @@
 #ifndef __MEMS_MC6805_H__
 #define __MEMS_MC6805_H__
 
+#include "devs.h"
 #include "mems.h"
 
 namespace debugger {
@@ -9,11 +10,7 @@ namespace mc6805 {
 struct RegsMc6805;
 
 struct MemsMc6805 : DmaMemory {
-    MemsMc6805(RegsMc6805 *regs, uint8_t pc_bits)
-        : DmaMemory(Endian::ENDIAN_BIG),
-          _regs(regs),
-          _pc_bits(pc_bits),
-          _max_addr((1U << pc_bits) - 1) {}
+    MemsMc6805(RegsMc6805 *regs, Devs *devs, uint8_t pc_bits);
 
     uint32_t maxAddr() const override { return _max_addr; }
     uint16_t vecReset() const { return _max_addr - 1; }
@@ -25,16 +22,10 @@ struct MemsMc6805 : DmaMemory {
             const char *space = nullptr) const override;
 
 protected:
-    RegsMc6805 *const _regs;
+    RegsMc6805 *_regs;
+    Devs *_devs;
     const uint8_t _pc_bits;
     const uint16_t _max_addr;
-
-#ifdef WITH_ASSEMBLER
-    libasm::Assembler *assembler() const override;
-#endif
-#ifdef WITH_DISASSEMBLER
-    libasm::Disassembler *disassembler() const override;
-#endif
 };
 
 }  // namespace mc6805
