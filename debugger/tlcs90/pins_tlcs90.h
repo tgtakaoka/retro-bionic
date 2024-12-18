@@ -53,12 +53,12 @@
 #define PIN_RXD 1    /* P6.04 */
 #define PIN_X1 5     /* P9.08 */
 #define PIN_CLK 29   /* P9.31 */
-#define PIN_INT0 6   /* P7.10 */
+#define PIN_INT1 6   /* P7.10 */
 #define PIN_NMI 9    /* P7.11 */
 #define PIN_WAIT 32  /* P7.12 */
 #define PIN_RESET 28 /* P8.18 */
 #define PIN_RTS 31   /* P8.22 */
-#define PIN_INT1 30  /* P8.23 */
+#define PIN_INT0 30  /* P8.23 */
 
 #include "pins.h"
 #include "signals_tlcs90.h"
