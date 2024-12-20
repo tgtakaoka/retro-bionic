@@ -7,6 +7,10 @@
 namespace debugger {
 namespace mc6805 {
 
+const char *RegsMc6805::cpuName() const {
+    return Debugger.target().identity();
+}
+
 void RegsMc6805::print() const {
     //                              0123456789012345678901234567890123
     static constexpr char line[] = "PC=xxxx SP=xxxx X=xx A=xx CC=HINZC";
@@ -29,8 +33,8 @@ void RegsMc6805::save() {
     _x = context[2];
     _a = context[3];
     _cc = context[4];
-    context[0] = hi(_pc);
-    context[1] = lo(_pc);
+    context[0] = hi(0x1000);
+    context[1] = lo(0x1000);
     _pins->injectReads(context, 2);
     _pins->suspend();
 }
@@ -106,13 +110,15 @@ void RegsMc6805::setRegister(uint8_t reg, uint32_t value) {
     }
 }
 
-uint8_t RegsMc6805::internal_read(uint16_t addr) const {
+uint8_t RegsMc6805::internal_read(uint8_t addr) const {
     uint8_t LDA[] = {
             0xB6, uint8(addr),  // LDA addr ; 1:2:D
     };
-    _pins->injectReads(LDA, sizeof(LDA), sizeof(LDA) + 1);
+    _pins->injectReads(LDA, sizeof(LDA), sizeof(LDA));
+    _pins->suspend();
     static constexpr uint8_t STA_0F00[] = {
-            0xC7, 0x0F, 0x00,  // STA $0F00 ; 1:2:3:n:E
+            0xC7, 0x0F, 0x00,  // STA $0F00 ; 1:2:3:n:W (MC146805)
+                               //           ; 1:2:3:R:W (MC68HC05)
     };
     _pins->injectReads(STA_0F00, sizeof(STA_0F00));
     uint8_t data;
@@ -121,11 +127,11 @@ uint8_t RegsMc6805::internal_read(uint16_t addr) const {
     return data;
 }
 
-void RegsMc6805::internal_write(uint16_t addr, uint8_t data) const {
+void RegsMc6805::internal_write(uint8_t addr, uint8_t data) const {
     uint8_t LDA_STA[] = {
-            0xA6, data,                // LDA #val ; 1:2
-            0xC7, hi(addr), lo(addr),  // STA addr ; 1:2:3:n:E
-    };
+            0xA6, data,  // LDA #val ; 1:2
+            0xB7, addr,  // STA addr ; 1:2:n:E (MC146805)
+    };                   //          ; 1:2:D:E (MC68HC05)
     _pins->injectReads(LDA_STA, sizeof(LDA_STA));
     _pins->suspend();
 }
