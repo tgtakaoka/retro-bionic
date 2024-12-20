@@ -7,9 +7,8 @@ namespace debugger {
 namespace mc146805e2 {
 
 struct Signals : SignalsBase<Signals, mc6805::Signals> {
-    void getDirection();
+    void getControl();
     void getAddr();
-    void getLoadInstruction();
     void getData();
     void outData() const;
     static void inputMode();

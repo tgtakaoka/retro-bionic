@@ -5,7 +5,7 @@
 ACIA:   equ     $17F8
         include "mc6850.inc"
 
-        org     $10
+        org     RAM_START
 save_a: rmb     1
 
         org     VEC_RESET

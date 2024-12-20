@@ -10,22 +10,31 @@ namespace mc6805 {
 struct RegsMc6805;
 
 struct MemsMc6805 : DmaMemory {
-    MemsMc6805(RegsMc6805 *regs, Devs *devs, uint8_t pc_bits);
-
     uint32_t maxAddr() const override { return _max_addr; }
     uint16_t vecReset() const { return _max_addr - 1; }
     uint16_t vecSwi() const { return _max_addr - 3; }
     virtual bool is_internal(uint16_t addr) const = 0;
 
+    uint16_t read(uint32_t addr) const override;
+    void write(uint32_t addr, uint16_t data) const override;
     uint16_t get(uint32_t addr, const char *space = nullptr) const override;
     void put(uint32_t addr, uint16_t data,
             const char *space = nullptr) const override;
 
 protected:
+    MemsMc6805(RegsMc6805 *regs, Devs *devs, uint8_t pc_bits);
+
     RegsMc6805 *_regs;
     Devs *_devs;
     const uint8_t _pc_bits;
     const uint16_t _max_addr;
+
+#ifdef WITH_ASSEMBLER
+    libasm::Assembler *assembler() const override;
+#endif
+#ifdef WITH_DISASSEMBLER
+    libasm::Disassembler *disassembler() const override;
+#endif
 };
 
 }  // namespace mc6805

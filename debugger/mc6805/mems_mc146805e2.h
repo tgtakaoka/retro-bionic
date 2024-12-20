@@ -6,14 +6,9 @@
 namespace debugger {
 namespace mc146805e2 {
 
-using mc6805::MemsMc6805;
-using mc6805::RegsMc6805;
-
-struct MemsMc146805E2 final : MemsMc6805 {
-    MemsMc146805E2(RegsMc6805 *regs, Devs *devs) : MemsMc6805(regs, devs, 13) {}
-
-    uint16_t read(uint32_t addr) const override;
-    void write(uint32_t addr, uint16_t data) const override;
+struct MemsMc146805E2 final : mc6805::MemsMc6805 {
+    MemsMc146805E2(mc6805::RegsMc6805 *regs, Devs *devs)
+        : MemsMc6805(regs, devs, 13) {}
 
     bool is_internal(uint16_t addr) const override { return addr < 0x80; }
 };
