@@ -1,17 +1,19 @@
 #include "pins_mc146805e2.h"
 #include "debugger.h"
-#include "devs_mc146805e2.h"
+#include "devs_mc6805.h"
 #include "inst_mc146805.h"
-#include "mems_mc146805e2.h"
-#include "regs_mc146805e2.h"
+#include "mems_mc6805.h"
+#include "regs_mc6805.h"
+#include "signals_mc146805e2.h"
 
 namespace debugger {
 namespace mc146805e2 {
 
 /**
  * MC146805E bus cycle.
- *      _    __    __    __    __    __    __    __    __    __    __
- * OSC1  |_c|1 |_c|2 |_c|3 |_c|4 |_c|5 |_c|1 |_c|2 |_c|3 |_c|4 |_c|5 |__
+ *       |--c1-|--c2-|--c3-|--c4-|--c5-|--c1-|--c2-|--c3-|--c4-|--c5-|
+ *      _|   __|   __|   __|   __|   __|   __|   __|   __|   __|   __|
+ * OSC1  |__|  |__|  |__|  |__|  |__|  |__|  |__|  |__|  |__|  |__|  |__
  *       \     \ ____\  \  \           \     \ ____\  \  \           \
  *   AS __|_____|     |__|__|___________|_____|     |__|__|___________|_
  *      __            \  |  |___________|           \  |  |___________|
@@ -28,7 +30,7 @@ namespace mc146805e2 {
 
 namespace {
 
-//  fOSC: min 5.0 MHz
+//  fOSC: max 5.0 MHz
 // tOLOL: min:  200 ns: osc_cycle
 //   tOH: min    75 ns: osc_hi
 //   tOL: min    75 ns: osc_lo
@@ -47,23 +49,21 @@ namespace {
 //  tDHW: min    55 ns: ds_lo to data hold
 //   tRL: min 1,500 ns; reset_lo
 constexpr auto osc1_ds_ns = 100;
-constexpr auto osc1_hi_ns = 84;     // 100
-constexpr auto osc1_lo_ns = 76;     // 100
-constexpr auto c1_lo_ns = 68;       // 100
-constexpr auto c1_hi_ns = 56;       // 100
-constexpr auto c2_lo_ns = 38;       // 100
-constexpr auto c2_hi_ns = 78;       // 100
-constexpr auto c3_lo_ns = 48;       // 100
-constexpr auto c3_hi_ns = 48;       // 100
-constexpr auto c4_lo_read = 0;      // 100
-constexpr auto c4_lo_inject = 0;    // 100
-constexpr auto c4_hi_read = 28;     // 100
-constexpr auto c5_lo_read = 80;     // 100
-constexpr auto c4_lo_write = 4;     // 100
-constexpr auto c4_hi_write = 48;    // 100
-constexpr auto c5_lo_write = 0;     // 100
-constexpr auto c5_lo_capture = 68;  // 100
-constexpr auto c5_hi_ns = 32;       // 100
+constexpr auto osc1_hi_ns = 84;    // 100
+constexpr auto osc1_lo_ns = 76;    // 100
+constexpr auto c1_lo_ns = 48;      // 100
+constexpr auto c1_hi_ns = 74;      // 100
+constexpr auto c2_lo_ns = 58;      // 100
+constexpr auto c2_hi_ns = 78;      // 100
+constexpr auto c3_lo_ns = 48;      // 100
+constexpr auto c3_hi_ns = 52;      // 100
+constexpr auto c4_lo_inject = 40;  // 100
+constexpr auto c4_hi_read = 28;    // 100
+constexpr auto c5_lo_read = 60;    // 100
+constexpr auto c4_lo_write = 34;   // 100
+constexpr auto c4_hi_write = 58;   // 100
+constexpr auto c5_lo_capture = 8;  // 100
+constexpr auto c5_hi_ns = 30;      // 100
 constexpr auto tpcs_ns = 200;
 
 inline void osc1_hi() {
@@ -83,14 +83,6 @@ inline void clock_cycle() {
 
 inline auto signal_ds() {
     return digitalReadFast(PIN_DS);
-}
-
-void assert_irq() {
-    digitalWriteFast(PIN_IRQ, LOW);
-}
-
-void negate_irq() {
-    digitalWriteFast(PIN_IRQ, HIGH);
 }
 
 void negate_reset() {
@@ -137,12 +129,11 @@ constexpr uint8_t PINS_INPUT[] = {
 
 }  // namespace
 
-PinsMc146805E2::PinsMc146805E2() {
-    auto regs = new RegsMc146805E2(this);
+PinsMc146805E2::PinsMc146805E2() : PinsMc6805(mc146805::Inst) {
+    auto regs = new mc6805::RegsMc6805("MC146805", this);
     _regs = regs;
-    _devs = new DevsMc146805E2();
-    _mems = new MemsMc146805E2(regs, _devs);
-    _inst = new mc146805::InstMc146805();
+    _devs = new mc6805::DevsMc6805(ACIA_BASE);
+    _mems = new mc6805::MemsMc6805(this, regs, _devs, 13);
 }
 
 void PinsMc146805E2::resetPins() {
@@ -166,16 +157,17 @@ void PinsMc146805E2::resetPins() {
     }
     // DS=L
 
-    const auto vec_reset = mems<MemsMc6805>()->vecReset();
+    const auto vec_reset = mems<mc6805::MemsMc6805>()->vecReset();
     const auto vector = _mems->raw_read16(vec_reset) & _mems->maxAddr();
     // If reset vector pointing internal memory, we can't inject instructions.
     _mems->raw_write16(vec_reset, 0x1000);
 
     cycle();
-    cycle();
     delayNanoseconds(tpcs_ns);
     negate_reset();
     Signals::resetCycles();
+
+    // Read dummy reset vector and wait for the first instruction fetch.
     prepareCycle();
     suspend();
 
@@ -186,11 +178,14 @@ void PinsMc146805E2::resetPins() {
     _regs->setIp(vector);
 }
 
+void PinsMc146805E2::idle() {
+    // MC146805E2 is fully static, so we can stop clock safely.
+}
+
 mc6805::Signals *PinsMc146805E2::currCycle() const {
     auto s = Signals::put();
-    s->getDirection();
+    s->getControl();
     s->getAddr();
-    s->getLoadInstruction();
     return s;
 }
 
@@ -198,14 +193,11 @@ mc6805::Signals *PinsMc146805E2::rawPrepareCycle() const {
     // MC146805E bus cycle is CLK/5, so we toggle CLK 5 times c1
     // c1
     osc1_hi();
-    // To ensure 160ns data hold time after DS-falling edge.
-    Signals::inputMode();
     delayNanoseconds(c1_hi_ns);
     osc1_lo();  // AS->LOW
     // c2
     delayNanoseconds(c2_lo_ns);
     auto s = Signals::put();
-    s->getDirection();
     osc1_hi();
     delayNanoseconds(c2_hi_ns);
     // c3
@@ -214,7 +206,7 @@ mc6805::Signals *PinsMc146805E2::rawPrepareCycle() const {
     s->getAddr();
     osc1_hi();
     delayNanoseconds(c3_hi_ns);
-    s->getLoadInstruction();
+    s->getControl();
     // c4
     osc1_lo();
     // DS=HIGH
@@ -239,16 +231,12 @@ mc6805::Signals *PinsMc146805E2::completeCycle(mc6805::Signals *signals) const {
         osc1_lo();  // DS=HIGH
         if (s->writeMemory()) {
             _mems->write(s->addr, s->data);
-            if (c5_lo_write)
-                delayNanoseconds(c5_lo_write);
         } else {
             delayNanoseconds(c5_lo_capture);
         }
     } else {
         if (s->readMemory()) {
             s->data = _mems->read(s->addr);
-            if (c4_lo_read)
-                delayNanoseconds(c4_lo_read);
         } else {
             delayNanoseconds(c4_lo_inject);
         }
@@ -259,6 +247,7 @@ mc6805::Signals *PinsMc146805E2::completeCycle(mc6805::Signals *signals) const {
         // c5
         osc1_lo();  // DS=HIGH
         delayNanoseconds(c5_lo_read);
+        Signals::inputMode();
     }
     osc1_hi();
     Signals::nextCycle();
@@ -267,14 +256,6 @@ mc6805::Signals *PinsMc146805E2::completeCycle(mc6805::Signals *signals) const {
     osc1_lo();  // DS->LOW
 
     return s;
-}
-
-void PinsMc146805E2::assertInt(uint8_t) {
-    assert_irq();
-}
-
-void PinsMc146805E2::negateInt(uint8_t) {
-    negate_irq();
 }
 
 }  // namespace mc146805e2

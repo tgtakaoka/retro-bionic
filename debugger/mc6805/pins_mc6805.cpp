@@ -7,11 +7,23 @@
 namespace debugger {
 namespace mc6805 {
 
+namespace {
+
+void assert_irq() {
+    digitalWriteFast(PIN_IRQ, LOW);
+}
+
+void negate_irq() {
+    digitalWriteFast(PIN_IRQ, HIGH);
+}
+
+}  // namespace
+
 Signals *PinsMc6805::cycle() const {
     return completeCycle(prepareCycle());
 }
 
-Signals *PinsMc6805::cycle(uint8_t data) const {
+Signals *PinsMc6805::inject(uint8_t data) const {
     return completeCycle(prepareCycle()->inject(data));
 }
 
@@ -34,7 +46,7 @@ void PinsMc6805::captureWrites(
     // capture |len| writes and suspend
     auto s = currCycle();
     for (auto cap = 0; cap < len;) {
-        completeCycle(s);
+        completeCycle(s->capture());
         if (s->write()) {
             if (cap == 0 && addr)
                 *addr = s->addr;
@@ -56,11 +68,15 @@ void PinsMc6805::loop() {
                 const auto swi_vec = _mems->raw_read16(vec_swi);
                 const auto pc = r->nextIp() - 1;  //  offset SWI
                 if (isBreakPoint(pc) || swi_vec == vec_swi) {
+                    // inject non-internal RAM address
+                    completeCycle(s->inject(hi(0x1000)));
+                    inject(lo(0x1000));
+                    prepareCycle();
+                    suspend();
                     r->setIp(pc);
                     restoreBreakInsts();
                     Signals::discard(s->prev(7));
                     disassembleCycles();
-                    suspend();
                     return;
                 }
             }
@@ -96,7 +112,7 @@ void PinsMc6805::run() {
 bool PinsMc6805::rawStep() const {
     auto s = currCycle();
     const auto inst = _mems->raw_read(s->addr);
-    if (!_inst->valid(inst) || _inst->isStop(inst))
+    if (!_inst.valid(inst) || _inst.isStop(inst))
         return false;
     completeCycle(s);
     prepareCycle();
@@ -116,6 +132,14 @@ bool PinsMc6805::step(bool show) {
         return true;
     }
     return false;
+}
+
+void PinsMc6805::assertInt(uint8_t) {
+    assert_irq();
+}
+
+void PinsMc6805::negateInt(uint8_t) {
+    negate_irq();
 }
 
 void PinsMc6805::setBreakInst(uint32_t addr) const {

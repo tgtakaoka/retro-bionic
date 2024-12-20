@@ -10,7 +10,7 @@ tx_queue_size:  equ     32
 RX_INT_TX_NO:   equ     WSB_8N1_gc|RIEB_bm
 RX_INT_TX_INT:  equ     WSB_8N1_gc|RIEB_bm|TCB_EI_gc
 
-        org     $10
+        org     RAM_START
 save_a: rmb     1
 save_x: rmb     1
 rx_queue:

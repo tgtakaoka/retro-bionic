@@ -6,7 +6,7 @@ ACIA:   equ     $17F8
         include "mc6850.inc"
 RX_INT_TX_NO:   equ     WSB_8N1_gc|RIEB_bm
 
-        org     $10
+        org     RAM_START
 save_a:
         rmb     1
 

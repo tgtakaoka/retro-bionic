@@ -1,6 +1,9 @@
 #ifndef __PINS_MC146805E2_H__
 #define __PINS_MC146805E2_H__
 
+// To support ASSIST05
+#define ACIA_BASE 0x17F8
+
 #define PORT_B 6       /* GPIO6 */
 #define B_gp 16        /* P6.16-P6.23 */
 #define B_gm 0xFF      /* P6.00-P6.07 */
@@ -24,15 +27,20 @@
 #define PIN_ADDR12 38  /* P6.28 */
 #define PIN_PB6 26     /* P6.30 */
 #define PIN_PB7 27     /* P6.31 */
+#define PORT_CNTL 9    /* GPIO9 */
+#define CNTL_gp 4      /* P9.04-P4.07 */
+#define CNTL_gm 0xF    /* P9.04-P9.07 */
+#define CNTL_vp 0      /* CNTL0-CNTL3 */
 #define PIN_AS 2       /* P9.04 */
 #define PIN_RW 3       /* P9.05 */
 #define PIN_LI 4       /* P9.06 */
 #define PIN_DS 33      /* P9.07 */
+#define CNTL_AS 0x1    /* CNTL0 */
+#define CNTL_DS 0x8    /* CNTL3 */
 #define PIN_PB3 0      /* P6.03 */
 #define PIN_PB2 1      /* P6.02 */
 #define PIN_OSC1 5     /* P9.08 */
 #define PIN_PB5 29     /* P9.31 */
-#define PIN_IRQ 6      /* P7.10 */
 #define PIN_TIMER 9    /* P7.11 */
 #define PIN_PB4 32     /* P7.12 */
 #define PIN_RESET 28   /* P8.18 */
@@ -40,19 +48,17 @@
 #define PIN_PB1 30     /* P8.23 */
 
 #include "pins_mc6805.h"
-#include "signals_mc146805e2.h"
 
 namespace debugger {
 namespace mc146805e2 {
 
-using mc6805::PinsMc6805;
-
-struct PinsMc146805E2 final : PinsMc6805 {
+struct PinsMc146805E2 final : mc6805::PinsMc6805 {
     PinsMc146805E2();
 
     void resetPins() override;
-    void assertInt(uint8_t name) override;
-    void negateInt(uint8_t name) override;
+    void idle() override;
+
+    bool is_internal(uint16_t addr) const override { return addr < 0x80; }
 
 protected:
     mc6805::Signals *currCycle() const override;

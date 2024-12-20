@@ -9,8 +9,12 @@ namespace mc6805 {
 struct PinsMc6805;
 struct Signals;
 
-struct RegsMc6805 : Regs {
-    RegsMc6805(PinsMc6805 *pins) : _pins(pins) {}
+struct RegsMc6805 final : Regs {
+    RegsMc6805(const char *cpu, PinsMc6805 *pins)
+        : _cpu(cpu), _pins(pins) {}
+
+    const char *cpu() const override { return _cpu; }
+    const char *cpuName() const override;
 
     void print() const override;
     void save() override;
@@ -24,11 +28,12 @@ struct RegsMc6805 : Regs {
     const RegList *listRegisters(uint8_t n) const override;
     void setRegister(uint8_t reg, uint32_t value) override;
 
-    uint8_t internal_read(uint16_t addr) const;
-    void internal_write(uint16_t addr, uint8_t data) const;
+    uint8_t internal_read(uint8_t addr) const;
+    void internal_write(uint8_t addr, uint8_t data) const;
 
 protected:
-    PinsMc6805 *_pins;
+    const char *const _cpu;
+    PinsMc6805 *const _pins;
 
     uint16_t _sp;
     uint16_t _pc;

@@ -6,9 +6,7 @@
 namespace debugger {
 namespace mc146805 {
 
-using mc6805::InstMc6805;
-
-struct InstMc146805 : InstMc6805 {
+struct InstMc146805 : mc6805::InstMc6805 {
     bool isStop(uint8_t inst) const override { return inst == STOP; }
 
 protected:
@@ -17,6 +15,8 @@ protected:
     static constexpr uint8_t STOP = 0x8E;
     static constexpr uint8_t WAIT = 0x8F;
 };
+
+extern const struct InstMc146805 Inst;
 
 }  // namespace mc146805
 }  // namespace debugger

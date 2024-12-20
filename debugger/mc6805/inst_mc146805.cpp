@@ -12,6 +12,8 @@ constexpr uint8_t INST_TABLE[] = {
 };
 }
 
+const struct InstMc146805 Inst;
+
 const uint8_t *InstMc146805::table() const {
     return INST_TABLE;
 }

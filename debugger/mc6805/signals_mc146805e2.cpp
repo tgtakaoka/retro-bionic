@@ -6,16 +6,12 @@
 namespace debugger {
 namespace mc146805e2 {
 
-void Signals::getDirection() {
-    rw() = digitalReadFast(PIN_RW);
+void Signals::getControl() {
+    cntl() = busRead(CNTL);
 }
 
 void Signals::getAddr() {
     addr = busRead(ADDR);
-}
-
-void Signals::getLoadInstruction() {
-    li() = digitalReadFast(PIN_LI);
 }
 
 void Signals::getData() {

@@ -15,10 +15,10 @@ BEGIN {
     BITS[7] = 0x01;
 }
 
-function pretty_print(opc, nem, opr, clk, len) {
+function pretty_print(opc, mne, opr, clk, len) {
     if (PRETTY_PRINT == 0)
         return;
-    printf("%-2s  %-5s  %-7s  %2s  %s\n", opc, nem, opr, clk, len);
+    printf("%-2s  %-5s  %-7s  %2s  %s\n", opc, mne, opr, clk, len);
 }
 
 function generate_ENTRY(opc, len,  num, pos, bit) {
@@ -33,7 +33,7 @@ function generate_ENTRY(opc, len,  num, pos, bit) {
 }
 
 BEGIN {
-    pretty_print("op", "nemon", "operand", " ~", "#");
+    pretty_print("op", "mnemo", "operand", " ~", "#");
     pretty_print("--", "-----", "-------", "--", "-");
 
     if (GENERATE_TABLE)
@@ -56,11 +56,11 @@ END {
 $1 !~ /[0-9A-F][0-9A-F]/ { next; }
 $1 ~ /[0-9A-F][0-9A-F]/ {
     opc = $1;
-    nem = $2;
+    mne = $2;
     opr = $3;
     clk = $4;
     len = $5;
 
-    pretty_print(opc, nem, opr, clk, len);
+    pretty_print(opc, mne, opr, clk, len);
     generate_ENTRY(opc, len);
 }
