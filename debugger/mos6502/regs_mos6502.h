@@ -21,6 +21,7 @@ struct RegsMos6502 final : Regs {
     void restore() override;
 
     uint32_t nextIp() const override { return _pc; }
+    void setIp(uint32_t pc) override { _pc = pc; }
     void helpRegisters() const override;
     const RegList *listRegisters(uint8_t n) const override;
     void setRegister(uint8_t reg, uint32_t value) override;

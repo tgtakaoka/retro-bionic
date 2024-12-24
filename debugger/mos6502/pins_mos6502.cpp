@@ -84,6 +84,10 @@ void negate_rdy() {
     digitalWriteFast(PIN_RDY, LOW);
 }
 
+void assert_reset() {
+    digitalWriteFast(PIN_RES, LOW);
+}
+
 void negate_reset() {
     digitalWriteFast(PIN_RES, HIGH);
 }
@@ -172,10 +176,11 @@ bool PinsMos6502::native65816() const {
 HardwareType PinsMos6502::_hardType;
 
 void PinsMos6502::checkHardwareType() {
-    phi0_lo();
-    delayNanoseconds(500);
+    // This negate #RES pulse negate #VP of W65Cxxx
+    negate_reset();
     phi0_hi();
     delayNanoseconds(500);
+    assert_reset();
     if (signal_phi1o() == LOW) {
         // PIN_PHI1O is iverted PIN_PHI0, means not W65C816_ABORT.
         if (signal_vp() == LOW) {
@@ -184,22 +189,16 @@ void PinsMos6502::checkHardwareType() {
         } else {
             // PIN_VP keeps HIGH, means #VP of W65C02S.
             _hardType = HW_W65C02S;
-            // Enable BE
-            digitalWriteFast(PIN_BE, HIGH);
-            pinMode(PIN_BE, OUTPUT);
+            // BE is enabled by pullup
         }
         // Keep PIN_SO HIGH using pullup
-        // Set 16-bit memory
     } else {
         // PIN_PHI1O/W65C816_ABORT keeps HIGH, means W65C816S.
         _hardType = HW_W65C816;
         // Negate #ABORT
         digitalWriteFast(W65C816_ABORT, HIGH);
         pinMode(W65C816_ABORT, OUTPUT);
-        // Enable BE
-        digitalWriteFast(PIN_BE, HIGH);
-        pinMode(PIN_BE, OUTPUT);
-        // Set 24-bit memory
+        // BE is enabled by pullup
     }
 }
 
@@ -256,22 +255,24 @@ void PinsMos6502::resetPins() {
     negate_reset();
     completeCycle(s);
     Signals::resetCycles();
+    const auto reset_vec = _mems->raw_read16(InstMos6502::VECTOR_RESET);
+    _mems->raw_write16(InstMos6502::VECTOR_RESET, 0x1000);  // dummy vector
     // When a positive edge is detected, there is an initalization
     // sequence lasting seven clock cycles.
     for (auto i = 0; i < 10; i++) {
         // there may be suprious write
         const auto s = completeCycle(prepareCycle()->capture());
-        // Read Reset vector
-        if (s->vector() && s->addr == InstMos6502::VECTOR_RESET) {
-            cycle();
+        // Read dummy reset vector
+        if (s->vector() && s->addr == InstMos6502::VECTOR_RESET + 1)
             break;
-        }
     }
 
     _regs->save();
     assert_rdy();
     checkSoftwareType();
     negate_rdy();
+    _regs->setIp(reset_vec);
+    _mems->raw_write(InstMos6502::VECTOR_RESET, reset_vec);
 }
 
 Signals *PinsMos6502::rawPrepareCycle() {
