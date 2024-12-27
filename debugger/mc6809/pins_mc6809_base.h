@@ -71,9 +71,8 @@ struct InstMc6809;
 struct RegsMc6809;
 
 enum IntrName : uint8_t {
-    INTR_NONE = 0,
-    INTR_IRQ = 1,
-    INTR_FIRQ = 2,
+    INTR_IRQ = 0xF8,   // lo(VEC_IRQ)
+    INTR_FIRQ = 0xF6,  // lo(VEC_FIRQ)
 };
 
 struct PinsMc6809Base : Pins {

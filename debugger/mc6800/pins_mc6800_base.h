@@ -49,9 +49,6 @@ protected:
     Signals *injectCycle(uint8_t data);
     void loop();
 
-    static void negate_nmi();
-    static void assert_nmi();
-
     void printCycles(const Signals *end);
     bool matchAll(Signals *begin, const Signals *end);
     const Signals *findFetch(Signals *begin, const Signals *end);

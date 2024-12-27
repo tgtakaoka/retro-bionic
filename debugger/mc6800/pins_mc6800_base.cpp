@@ -20,17 +20,17 @@ inline void negate_irq() {
     digitalWriteFast(PIN_IRQ, HIGH);
 }
 
-}  // namespace
-
 // #NMI may be connected to other signal or switch
-void PinsMc6800Base::assert_nmi() {
+void assert_nmi() {
     pinMode(PIN_NMI, OUTPUT_OPENDRAIN);
     digitalWriteFast(PIN_NMI, LOW);
 }
 
-void PinsMc6800Base::negate_nmi() {
+void negate_nmi() {
     pinMode(PIN_NMI, INPUT_PULLUP);
 }
+
+}  // namespace
 
 Signals *PinsMc6800Base::injectCycle(uint8_t data) {
     Signals::put()->inject(data);
@@ -143,13 +143,11 @@ bool PinsMc6800Base::step(bool show) {
     return true;
 }
 
-void PinsMc6800Base::assertInt(uint8_t name) {
-    (void)name;
+void PinsMc6800Base::assertInt(uint8_t) {
     assert_irq();
 }
 
-void PinsMc6800Base::negateInt(uint8_t name) {
-    (void)name;
+void PinsMc6800Base::negateInt(uint8_t) {
     negate_irq();
 }
 

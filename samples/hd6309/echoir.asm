@@ -35,7 +35,7 @@ initialize:
         sta     ACIA_control
         lda     #RX_INT_TX_NO
         sta     ACIA_control
-        lda     #1              ; IRQ
+        lda     #VEC_IRQ        ; IRQ
         sta     ACIA+2          ; set #IRQ name for MC6850 emulator
         ldx     #rx_queue
 

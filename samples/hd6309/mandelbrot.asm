@@ -54,7 +54,7 @@ main:
         sta     ACIA_control
         lda     #RX_INT_TX_NO
         sta     ACIA_control
-        lda     #2              ; FIRQ
+        lda     #VEC_FIRQ       ; FIRQ
         sta     ACIA+2          ; set #FIRQ name for MC6805 emulator
         andcc   #~CC_FIRQ       ; Clear FIRQ mask
 
