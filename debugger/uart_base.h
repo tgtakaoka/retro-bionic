@@ -9,23 +9,25 @@ namespace debugger {
  * UART device emulator
  */
 struct UartBase : Device {
-    UartBase() : Device() {}
-
     void reset() override;
     void loop() override;
+    // _base_addr+0*_step: UART implementation
+    // _base_addr+1*_step: UART implementation
+    // _base_addr+2*_step: Rx interrupt vector
+    // _base_addr+3*_step: Tx interrupt vector
     bool isSelected(uint32_t addr) const override {
-        // addr+0: UART implementation
-        // addr+1: UART implementation
-        // addr+2: Rx interrupt vector
-        // addr+3: Tx interrupt vector
-        return _enabled && (addr & ~3) == _base_addr;
+        return _enabled && (addr & ~_mask) == _base_addr;
     }
-    void setBaseAddr(uint32_t addr) override { _base_addr = addr & ~3; }
+    void setBaseAddr(uint32_t addr) override { _base_addr = addr & ~_mask; }
     uint32_t baseAddr() const override { return _base_addr; }
     uint16_t vector() const override { return _rxVec ? _rxVec : _txVec; }
 
 protected:
-    uint16_t _base_addr;
+    UartBase(uint8_t step = 1) : Device(), _step(step), _mask(step * 3) {}
+
+    const uint8_t _step;
+    const uint32_t _mask;
+    uint32_t _base_addr;
     uint8_t _rxIntr;
     uint8_t _txIntr;
     uint8_t _delay;

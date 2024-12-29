@@ -58,17 +58,17 @@ void UartBase::negateIntreq(uint8_t name) {
 }
 
 void UartBase::write(uint32_t addr, uint16_t data) {
-    if (addr == _base_addr + 2U) {
+    if (addr == _base_addr + 2 * _step) {
         _rxIntr = data;
-    } else if (addr == _base_addr + 3U) {
+    } else if (addr == _base_addr + 3 * _step) {
         _txIntr = data;
     }
 }
 
 uint16_t UartBase::read(uint32_t addr) {
-    if (addr == _base_addr + 2U) {
+    if (addr == _base_addr + 2 * _step) {
         return _rxIntr;
-    } else if (addr == _base_addr + 3U) {
+    } else if (addr == _base_addr + 3 * _step) {
         return _txIntr;
     }
     return 0;

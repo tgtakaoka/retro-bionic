@@ -12,7 +12,7 @@ namespace debugger {
  * emulated. Interrupt support (via TxEMPTY, RxRDY).
  */
 struct I8251 final : UartBase {
-    I8251() : UartBase() {}
+    I8251(uint8_t step = 1) : UartBase(step) {}
 
     const char *name() const override;
     const char *description() const override;

@@ -61,7 +61,7 @@ void I8251::write(uint32_t addr, uint16_t data) {
         return;
     }
 
-    if (addr == _base_addr + 1U) {
+    if (addr == _base_addr + _step) {
         if (_state == STATE_COMMAND) {
             if (data & CMD_IR_bm)
                 reset();
@@ -104,7 +104,7 @@ uint16_t I8251::read(uint32_t addr) {
         negateRxIntr();
         return _rxData;
     }
-    if (addr == _base_addr + 1U)
+    if (addr == _base_addr + _step)
         return _status;
     return UartBase::read(addr);
 }

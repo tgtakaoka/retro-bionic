@@ -78,7 +78,7 @@ void Mc6850::write(uint32_t addr, uint16_t data) {
         } else {
             negateRxIntr();
         }
-    } else if (addr == _base_addr + 1U) {
+    } else if (addr == _base_addr + _step) {
         _txData = data;
         _status &= ~TDRE_bm;
         negateTxIntr();
@@ -91,7 +91,7 @@ void Mc6850::write(uint32_t addr, uint16_t data) {
 uint16_t Mc6850::read(uint32_t addr) {
     if (addr == _base_addr)
         return _status;
-    if (addr == _base_addr + 1U) {
+    if (addr == _base_addr + _step) {
         _status &= ~(RDRF_bm | OVRN_bm);
         negateRxIntr();
         return _rxData;
