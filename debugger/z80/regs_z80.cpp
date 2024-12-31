@@ -65,7 +65,7 @@ void RegsZ80::saveRegs(reg &regs) const {
 }
 
 void RegsZ80::restoreRegs(const reg &regs) const {
-    uint8_t POP_ALL[] = {
+    const uint8_t POP_ALL[] = {
             0xF1, regs.f, regs.a,  // POP AF
             0xC1, regs.c, regs.b,  // POP BC
             0xD1, regs.e, regs.d,  // POP DE
@@ -100,7 +100,7 @@ void RegsZ80::save() {
 }
 
 void RegsZ80::restore() {
-    uint8_t LD_OTHERS[] = {
+    const uint8_t LD_OTHERS[] = {
             0x3E, _i,                // LD A, _i
             0xED, 0x47,              // LD A, I
             0xFD, lo(_iy), hi(_iy),  // POP IY, _iy
@@ -111,7 +111,7 @@ void RegsZ80::restore() {
     exchangeRegs();
     restoreRegs(_alt);
     exchangeRegs();
-    uint8_t LD_ALL[] = {
+    const uint8_t LD_ALL[] = {
             0x31, lo(_sp), hi(_sp),  // LD SP, _sp
             0xC3, lo(_pc), hi(_pc),  // JP _pc
     };
@@ -119,7 +119,7 @@ void RegsZ80::restore() {
 }
 
 uint8_t RegsZ80::read_io(uint8_t addr) const {
-    uint8_t IN[] = {
+    const uint8_t IN[] = {
             0xDB, addr,  // IN (addr)
             0x77,        // LD (HL), A
     };

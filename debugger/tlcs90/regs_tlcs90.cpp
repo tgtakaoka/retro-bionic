@@ -126,7 +126,7 @@ void RegsTlcs90::restore() {
     exchangeRegs();
     restoreRegs(_alt);
     exchangeRegs();
-    uint8_t LOAD_ALL[] = {
+    const uint8_t LOAD_ALL[] = {
             0x3C, lo(_ix), hi(_ix),  // LD IX, _ix  ; 0:2:3:N
             0x3D, lo(_iy), hi(_iy),  // LD IY, _iy  ; 0:2:3:N
             0x3E, lo(_sp), hi(_sp),  // LD SP, _sp  ; 0:2:3:N
@@ -136,7 +136,7 @@ void RegsTlcs90::restore() {
 }
 
 void RegsTlcs90::restoreRegs(const reg &regs) const {
-    uint8_t LOAD_ALL[] = {
+    const uint8_t LOAD_ALL[] = {
             0x5E, 0x09, regs.f, regs.a,  // POP AF    ; 0:n:R:R:d:N
             0x38, regs.c, regs.b,        // LD BC, _bc  ; 0:2:3:N
             0x39, regs.e, regs.d,        // LD DE, _de  ; 0:2:3:N

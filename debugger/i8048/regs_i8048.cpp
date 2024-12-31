@@ -64,7 +64,7 @@ void RegsI8048::save() {
 
 void RegsI8048::restore() {
     restore_r();
-    uint8_t RESTORE[] = {
+    const uint8_t RESTORE[] = {
             0x23, _psw,                // MOV A, #_psw
             0xD7,                      // MOV PSW, A
             0x23, _a,                  // MOV A, #_a
@@ -77,7 +77,7 @@ void RegsI8048::restore() {
 
 void RegsI8048::save_r() {
     for (auto i = 0; i < 8; ++i) {
-        uint8_t SAVE[] = {
+        const uint8_t SAVE[] = {
                 uint8(0xF8 | i),  // MOV A, Ri
                 0x90,             // MOVX @R0, A
         };
@@ -94,7 +94,7 @@ void RegsI8048::restore_pc(uint16_t pc, uint8_t mb) const {
     // Bit 11 is not altered by normal incrementing of the program
     // counter.
     const auto offset = InstI8048::offset(pc - 1);
-    uint8_t JUMP[] = {
+    const uint8_t JUMP[] = {
             InstI8048::SEL_MB(InstI8048::mb(pc)),
             InstI8048::JMP(offset),
             lo(offset),
@@ -109,7 +109,7 @@ void RegsI8048::set_psw(uint8_t val) {
 }
 
 void RegsI8048::set_r(uint8_t no, uint8_t val) const {
-    uint8_t SET[2] = {
+    const uint8_t SET[2] = {
             uint8_t(0xB8 + no),
             val,
     };
@@ -130,7 +130,7 @@ void RegsI8048::set_rb(uint8_t val) {
 uint8_t RegsI8048::read_internal(uint8_t addr) const {
     if (addr == r_base())
         return _r[0];
-    uint8_t READ[] = {
+    const uint8_t READ[] = {
             0xB8, addr,   // MOV R0, #addr
             0xF0,         // MOV A, @R0
             0x90,         // MOVX @R0, A
@@ -146,7 +146,7 @@ void RegsI8048::write_internal(uint8_t addr, uint8_t data) const {
         set_r(0, data);
         return;
     }
-    uint8_t WRITE[] = {
+    const uint8_t WRITE[] = {
             0xF8,        // MOV A, R0
             0xB8, addr,  // MOV R0, #addr
             0xB0, data,  // MOV @R0, #data

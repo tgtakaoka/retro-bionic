@@ -109,7 +109,7 @@ void RegsCdp1802::restore() {
     const uint8_t p = lo4(_t);
     const uint8_t x = hi4(_t);
     _dirty[p] = true;
-    uint8_t LDT[] = {
+    const uint8_t LDT[] = {
             uint8(InstCdp1802::SEP | p),  // SEP Rn
             uint8(InstCdp1802::SEX | x),  // SEX Rn
             0x79,                         // MARK
@@ -118,7 +118,7 @@ void RegsCdp1802::restore() {
     _pins->captureWrites(LDT, sizeof(LDT), nullptr, &tmp, sizeof(tmp));
 
     const auto q = _q ? InstCdp1802::SEQ : InstCdp1802::REQ;
-    uint8_t LDQ_DF[] = {
+    const uint8_t LDQ_DF[] = {
             q,                         // REQ:0x7A, SEQ:0x7B
             0xF8, uint8(_df ? 1 : 0),  // LDI df
             0x76,                      // SHRC
@@ -132,13 +132,13 @@ void RegsCdp1802::restore() {
     _pins->execInst(SEP15_SEX14, sizeof(SEP15_SEX14));
     _dirty[14] = _dirty[15] = true;
 
-    uint8_t LDD[] = {
+    const uint8_t LDD[] = {
             0xF8, _d  // LDI d
     };
     for (auto i = 0; i < 16; i++) {
         if (_dirty[i]) {
             auto rn = _r[i];
-            uint8_t LDR[] = {
+            const uint8_t LDR[] = {
                     0xF8, hi(rn),     // LDI hi(Rn)
                     uint8(0xB0 | i),  // PHI Rn
                     0xF8, lo(rn),     // LDI lo(Rn)
@@ -154,7 +154,7 @@ void RegsCdp1802::restore() {
     _pins->execInst(LDD, sizeof(LDD));  // R15+=2
 
     const auto ie = _ie ? InstCdp1802::RET : InstCdp1802::DIS;
-    uint8_t RET[] = {
+    const uint8_t RET[] = {
             ie,             // RET: 0x70 or DIS:0x71
             uint8(_x, _p),  // x,p
     };

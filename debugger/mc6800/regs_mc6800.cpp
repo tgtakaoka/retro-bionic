@@ -118,7 +118,7 @@ void RegsMc6800::save() {
 void RegsMc6800::restore() {
     const uint16_t sp = _sp - 7;  // offset RTI
     // clang-format off
-    uint8_t LDS_RTI[3 + 10] = {
+    const uint8_t LDS_RTI[3 + 10] = {
             0x8E, hi(sp), lo(sp),  // LDS #sp ; 1:2:3
             0x3B, 0,0,             // RTI     ; 1:N:n:R:r:r:r:r:r:r
             _cc,

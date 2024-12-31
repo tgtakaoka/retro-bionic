@@ -80,12 +80,13 @@ uint8_t RegsZ88::save_rp0() const {
             0x70, RP0,  // PUSH RP0
     };
     uint8_t rp0;
-    _pins->captureWrites(SAVE_RP0, sizeof(SAVE_RP0), nullptr, &rp0, sizeof(rp0));
+    _pins->captureWrites(
+            SAVE_RP0, sizeof(SAVE_RP0), nullptr, &rp0, sizeof(rp0));
     return rp0;
 }
 
 void RegsZ88::restore_rp0(uint8_t rp0) const {
-    uint8_t RESTORE_RP0[] = {
+    const uint8_t RESTORE_RP0[] = {
             0x31, InstZ88::SRP0(rp0),  // SRP0 #rp0
     };
     _pins->execInst(RESTORE_RP0, sizeof(RESTORE_RP0));
@@ -115,9 +116,9 @@ void RegsZ88::restore_sfrs() {
 }
 
 uint8_t RegsZ88::save_r(uint8_t num) const {
-    uint8_t SAVE_R[2];
-    SAVE_R[0] = 0xD3;  // LDE @RR0,Rn
-    SAVE_R[1] = (num << 4) | 0 | 1;
+    const uint8_t SAVE_R[] = {
+            0xD3, uint8((num << 4) | 0 | 1),  // LDE @RR0,Rn
+    };
     uint8_t val;
     _pins->captureWrites(SAVE_R, sizeof(SAVE_R), nullptr, &val, sizeof(val));
     return val;
@@ -126,19 +127,20 @@ uint8_t RegsZ88::save_r(uint8_t num) const {
 void RegsZ88::restore_r(uint8_t num, uint8_t val) const {
     if (InstZ88::writeOnly(_rp0, _rp1, num))
         return;
-    uint8_t LOAD_R[] = {
+    const uint8_t LOAD_R[] = {
             uint8(num, 0x0C), val,  // LD rn,#val
     };
     _pins->execInst(LOAD_R, sizeof(LOAD_R));
 }
 
 uint8_t RegsZ88::raw_read_reg(uint8_t addr) const {
-    uint8_t READ_REG[] = {
+    const uint8_t READ_REG[] = {
             0x08, addr,  // LD R0,addr
             0xD3, 0x01,  // LDE @RR0,R0
     };
     uint8_t val;
-    _pins->captureWrites(READ_REG, sizeof(READ_REG), nullptr, &val, sizeof(val));
+    _pins->captureWrites(
+            READ_REG, sizeof(READ_REG), nullptr, &val, sizeof(val));
     return val;
 }
 
@@ -149,7 +151,7 @@ uint8_t RegsZ88::read_reg(uint8_t addr, RegSpace space) {
     uint8_t val;
     if (space == z8::SET_TWO && addr >= 0xC0) {
         // Accessed by Indirect register, Indexed regiser, and stack operation
-        uint8_t READ_TWO[] = {
+        const uint8_t READ_TWO[] = {
                 0x0C, addr,  // LD R0,#addr
                 0xC7, 0x00,  // LD R0,@R0
                 0xD3, 0x01,  // LDE @RR0,R0
@@ -167,7 +169,7 @@ uint8_t RegsZ88::read_reg(uint8_t addr, RegSpace space) {
 }
 
 void RegsZ88::write_reg(uint8_t addr, uint8_t val, RegSpace space) {
-    uint8_t WRITE_REG[] = {
+    const uint8_t WRITE_REG[] = {
             0xE6, addr, val,  // LD addr,#val
     };
     _pins->execInst(WRITE_REG, sizeof(WRITE_REG));

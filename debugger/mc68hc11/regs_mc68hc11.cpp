@@ -84,7 +84,7 @@ void RegsMc68hc11::restore() {
     _cc &= ~0x40;  // clear X bit to enable #XIRQ for step/suspend
     const uint16_t sp = _sp - 9;
     // clang-format off
-    uint8_t LDS_RTI[3 + 12] = {
+    const uint8_t LDS_RTI[3 + 12] = {
         0x8E, hi(sp), lo(sp),   // LDS #sp ; 1:2:3
         0x3B, 0, 0,             // RTI     ; 1:N:n:R:r:r:r:r:r:r:r:r
         _cc, _b, _a,

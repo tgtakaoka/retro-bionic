@@ -51,7 +51,7 @@ void RegsIns8060::save() {
 }
 
 void RegsIns8060::restorePtr(uint8_t n, uint16_t val) const {
-    uint8_t LD_PTR[] = {
+    const uint8_t LD_PTR[] = {
             0xC4, lo(val),    // LDI lo(Pn)
             uint8(0x30 | n),  // XPAL Pn
             0xC4, hi(val),    // LDI hi(Pn)
@@ -62,7 +62,7 @@ void RegsIns8060::restorePtr(uint8_t n, uint16_t val) const {
 
 void RegsIns8060::restore() {
     // clang-format off
-    uint8_t LD_SE[] = {
+    const uint8_t LD_SE[] = {
         0xC4, _s, 0x07,                // LDI s, CAS; s=1
         0xC4, _e, 0x01,                // LDI e, XAE; e=4
     };
@@ -74,7 +74,7 @@ void RegsIns8060::restore() {
     static constexpr uint8_t XPPC_P1[] = { 0x3D };
     _pins->execInst(XPPC_P1, sizeof(XPPC_P1));
     restorePtr(1, _p1());
-    uint8_t LD_A[] = {
+    const uint8_t LD_A[] = {
         0xC4, _a,               // LDI _a
     };
     _pins->execInst(LD_A, sizeof(LD_A));

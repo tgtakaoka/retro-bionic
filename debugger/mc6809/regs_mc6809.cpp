@@ -119,7 +119,7 @@ uint8_t RegsMc6809::contextLength() const {
 }
 
 uint16_t RegsMc6809::capture(const Signals *frame, bool step) {
-    const uint16_t sp = frame->addr;
+    const auto sp = frame->addr;
     uint8_t context[14];
     uint8_t cap = 0;
     for (auto s = frame; s->write(); s = s->next())
@@ -152,7 +152,7 @@ void RegsMc6809::saveContext(uint8_t *context, uint8_t n, uint16_t sp) {
 }
 
 void RegsMc6809::loadStack(uint16_t sp) const {
-    uint8_t LDS[4] = {
+    const uint8_t LDS[4] = {
             0x10, 0xCE, hi(sp), lo(sp),  // LDS #sp
     };
     _pins->injectReads(LDS, sizeof(LDS));
@@ -165,7 +165,7 @@ void RegsMc6809::loadMode(bool native) const {
     _pins->injectReads(LDMD, sizeof(LDMD), 5);
 }
 
-void RegsMc6809::saveVW() {
+uint16_t RegsMc6809::saveW() const {
     static constexpr uint8_t STW[] = {
             0x10, 0xB7,  // STW $8000 ; 1:2:3:4:x:B:b (HD6309)
             0x80, 0x00,  //           ; 1:2:3:4:B:b   (HD6309 native)
@@ -173,31 +173,34 @@ void RegsMc6809::saveVW() {
     _pins->injectReads(STW, sizeof(STW));
     uint8_t buffer[2];
     _pins->captureWrites(buffer, sizeof(buffer));
-    _e = buffer[0];
-    _f = buffer[1];
+    return be16(buffer);
+}
+
+void RegsMc6809::saveVW() {
+    _w(saveW());
     static constexpr uint8_t TFR[] = {
             0x1F, 0x76,  // TFR V,W ; 1:2:x:x:x:x (HD6309)
                          //         ; 1:2:x:x     (HD6309 native)
     };
     _pins->injectReads(TFR, sizeof(TFR), _md ? 4 : 6);
-    _pins->injectReads(STW, sizeof(STW));
-    _pins->captureWrites(buffer, sizeof(buffer));
-    _v = be16(buffer);
+    _v = saveW();
+}
+
+void RegsMc6809::loadW(uint16_t val) const {
+    const uint8_t LDW[4] = {
+            0x10, 0x86, hi(val), lo(val),  // LDW #val ; 1:2:3:4
+    };
+    _pins->injectReads(LDW, sizeof(LDW));
 }
 
 void RegsMc6809::loadVW() const {
-    uint8_t LDW[4] = {
-            0x10, 0x86, hi(_v), lo(_v),  // LDW #_v ; 1:2:3:4
-    };
-    _pins->injectReads(LDW, sizeof(LDW));
+    loadW(_v);
     static constexpr uint8_t TFR[] = {
             0x1F, 0x67,  // TFR W,V ; 1:2:x:x:x:x (HD6309)
                          //         ; 1:2:x:x     (HD6309 native)
     };
     _pins->injectReads(TFR, sizeof(TFR), _md ? 4 : 6);
-    LDW[2] = _e;
-    LDW[3] = _f;
-    _pins->injectReads(LDW, sizeof(LDW));
+    loadW(_w());
 }
 
 void RegsMc6809::helpRegisters() const {

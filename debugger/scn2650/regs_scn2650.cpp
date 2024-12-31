@@ -45,7 +45,7 @@ void RegsScn2650::print() const {
 }
 
 void RegsScn2650::setRs(uint8_t rs) const {
-    uint8_t SET_RS[] = {
+    const uint8_t SET_RS[] = {
             rs, 0x10,  // PPSL|CPSL 0x10
     };
     _pins->execInst(SET_RS, sizeof(SET_RS));
@@ -61,7 +61,7 @@ void RegsScn2650::saveRegs(uint8_t *regs) const {
 }
 
 void RegsScn2650::restoreRegs(const uint8_t *regs) const {
-    uint8_t RESTORE[] = {
+    const uint8_t RESTORE[] = {
             0x05, regs[0],  // LODI,R1 _r1
             0x06, regs[1],  // LODI,R2 _r2
             0x07, regs[2],  // LODI,R3 _r3
@@ -92,7 +92,7 @@ void RegsScn2650::restore() {
     setRs(rs() ? CPSL : PPSL);
     restoreRegs(_r[1 - rs()]);
     setRs(rs() ? PPSL : CPSL);
-    uint8_t RESTORE[] = {
+    const uint8_t RESTORE[] = {
             0x04, _psu, 0x92,        // LODI,R0 _psu; LPSU
             0x04, _r0,               // LODI,R0 _r0
             PPSL, _psl,              // PPSL _psl; restore PSL one bits
@@ -103,7 +103,7 @@ void RegsScn2650::restore() {
 }
 
 uint8_t RegsScn2650::read_io(uint8_t addr) const {
-    uint8_t REDE[] = {
+    const uint8_t REDE[] = {
             0x54, addr,  // REDE,R0 addr
             0xC8, 0x00,  // STRR,R0 $
     };
@@ -113,7 +113,7 @@ uint8_t RegsScn2650::read_io(uint8_t addr) const {
 }
 
 void RegsScn2650::write_io(uint8_t addr, uint8_t data) const {
-    uint8_t WRTE[] = {
+    const uint8_t WRTE[] = {
             0x04, data,  // LODI,R0 data
             0xD4, addr,  // WRTE,R0 addr
     };

@@ -39,7 +39,7 @@ void RegsZ8::restore() {
     for (auto num = 0; num < 16; num++) {
         restore_r(num, _r[num]);
     }
-    uint8_t JP[] = {
+    const uint8_t JP[] = {
             0x8D, hi(_pc), lo(_pc),  // JP _pc
     };
     _pins->execInst(JP, sizeof(JP));

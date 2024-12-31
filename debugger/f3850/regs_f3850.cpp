@@ -246,7 +246,7 @@ void RegsF3850::save() {
 }
 
 void RegsF3850::restore() {
-    uint8_t LOAD_ALL[] = {
+    const uint8_t LOAD_ALL[] = {
             0x20, _w, 0x59, 0x1D,  // LI w;  LR J,A; LR W,J
             0x20, _r[9], 0x59,     // LI j;  LR J,A
             uint8(0x60 | isu()),   // LISU isu
@@ -277,7 +277,7 @@ void RegsF3850::update_r(uint8_t num, uint8_t val) {
 uint8_t RegsF3850::read_reg(uint8_t addr) {
     const auto isu = (addr >> 3) & 7;
     const auto isl = addr & 7;
-    uint8_t READ_REG[] = {
+    const uint8_t READ_REG[] = {
             uint8(0x60 | isu),  // LISU isu
             uint8(0x68 | isl),  // LISL isl
             0x4C,               // LD A,S
@@ -296,7 +296,7 @@ uint8_t RegsF3850::read_reg(uint8_t addr) {
 void RegsF3850::write_reg(uint8_t addr, uint8_t val) {
     const auto isu = (addr >> 3) & 7;
     const auto isl = addr & 7;
-    uint8_t WRITE_REG[] = {
+    const uint8_t WRITE_REG[] = {
             uint8(0x60 | isu),  // LISU isu
             uint8(0x68 | isl),  // LISL isl
             0x20, val,          // LI val
@@ -309,7 +309,7 @@ void RegsF3850::write_reg(uint8_t addr, uint8_t val) {
 
 uint8_t RegsF3850::read_io(uint8_t addr) {
     if (addr < 2) {
-        uint8_t READ_IO[] = {
+        const uint8_t READ_IO[] = {
                 uint8(0xA0 | addr), 0x17,  // INS p; ST
         };
         const auto pc = _pc0;  // save PC0
@@ -327,7 +327,7 @@ uint8_t RegsF3850::read_io(uint8_t addr) {
 
 void RegsF3850::write_io(uint8_t addr, uint8_t val) {
     if (addr < 2) {
-        uint8_t WRITE_IO[] = {
+        const uint8_t WRITE_IO[] = {
                 0x20, val,           // LI d
                 uint8(0xB0 | addr),  // OUTS addr
         };

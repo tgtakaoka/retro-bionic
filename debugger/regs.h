@@ -56,8 +56,12 @@ protected:
     static constexpr uint16_t uint16(uint8_t hi, uint8_t lo) {
         return static_cast<uint16_t>(hi) << 8 | lo;
     }
-    static constexpr uint16_t le16(uint8_t *p) { return uint16(p[1], p[0]); }
-    static constexpr uint16_t be16(uint8_t *p) { return uint16(p[0], p[1]); }
+    static constexpr uint16_t le16(const uint8_t *p) {
+        return uint16(p[1], p[0]);
+    }
+    static constexpr uint16_t be16(const uint8_t *p) {
+        return uint16(p[0], p[1]);
+    }
     static void le16(uint8_t *p, uint16_t v) {
         p[0] = lo(v);
         p[1] = hi(v);

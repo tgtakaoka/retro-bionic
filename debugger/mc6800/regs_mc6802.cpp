@@ -47,10 +47,9 @@ const char *RegsMc6802::cpuName() const {
 }
 
 uint8_t RegsMc6802::internal_read(uint16_t addr) const {
-    uint8_t LDAA[3];
-    LDAA[0] = 0xB6;  // LDAA addr  ; 1:2:3:A
-    LDAA[1] = hi(addr);
-    LDAA[2] = lo(addr);
+    const uint8_t LDAA[] = {
+            0xB6, hi(addr), lo(addr),  // LDAA addr  ; 1:2:3:A
+    };
     _pins->injectReads(LDAA, sizeof(LDAA), 4);
     _pins->injectReads(STAA_8000, sizeof(STAA_8000));
     uint8_t data;
@@ -59,12 +58,10 @@ uint8_t RegsMc6802::internal_read(uint16_t addr) const {
 }
 
 void RegsMc6802::internal_write(uint16_t addr, uint8_t data) const {
-    uint8_t LDAA_STAA[2 + 3];
-    LDAA_STAA[0] = 0x86;  // LDAA #val ; 1:2
-    LDAA_STAA[1] = data;
-    LDAA_STAA[2] = 0xB7;  // STAA addr ; 1:2:3:n:B
-    LDAA_STAA[3] = hi(addr);
-    LDAA_STAA[4] = lo(addr);
+    const uint8_t LDAA_STAA[] = {
+            0x86, data,                // LDAA #val ; 1:2
+            0xB7, hi(addr), lo(addr),  // STAA addr ; 1:2:3:n:B
+    };
     _pins->injectReads(LDAA_STAA, sizeof(LDAA_STAA), 7);
 }
 

@@ -69,7 +69,7 @@ void RegsI8051::restore() {
     write_internal(PSW, _psw);
     write_internal(B, _b);
     write_internal(ACC, _a);
-    uint8_t LJMP[] = {
+    const uint8_t LJMP[] = {
             0x02, hi(_pc), lo(_pc), 0,  // LJMP _pc
     };
     _pins->execInst(LJMP, sizeof(LJMP));
@@ -81,7 +81,7 @@ uint8_t RegsI8051::raw_read_internal(uint8_t addr) const {
         _pins->captureWrites(
                 SAVE_A, sizeof(SAVE_A), nullptr, &data, sizeof(data));
     } else {
-        uint8_t READ[] = {
+        const uint8_t READ[] = {
                 0xE5, addr,  // MOV A, addr
                 0xF2,        // MOVX @R0, A
         };
@@ -98,12 +98,12 @@ uint8_t RegsI8051::read_internal(uint8_t addr) const {
 
 void RegsI8051::write_internal(uint8_t addr, uint8_t data) const {
     if (addr == ACC) {
-        uint8_t WRITE_A[] = {
+        const uint8_t WRITE_A[] = {
                 0x74, data,  // MOV A, #data
         };
         _pins->execInst(WRITE_A, sizeof(WRITE_A));
     } else {
-        uint8_t WRITE[] = {
+        const uint8_t WRITE[] = {
                 0x75, addr, data, data,  // MOV addr, #data
         };
         _pins->execInst(WRITE, sizeof(WRITE));

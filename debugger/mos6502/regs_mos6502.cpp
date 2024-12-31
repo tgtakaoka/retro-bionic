@@ -122,12 +122,15 @@ void RegsMos6502::save65816() {
 }
 
 void RegsMos6502::setE(uint8_t value) {
-    const auto sec = value ? InstMos6502::SEC : InstMos6502::CLC;
-    uint8_t SET_E[] = {
-            sec, noop,   // SEC/CLC
-            0xFB, noop,  // XCE
+    static constexpr uint8_t SET[] = {
+            InstMos6502::SEC, noop,  // SEC
+            0xFB, noop,              // XCE
     };
-    _pins->execInst(SET_E, sizeof(SET_E));
+    static constexpr uint8_t CLR[] = {
+            InstMos6502::CLC, noop,  // CLC
+            0xFB, noop,              // XCE
+    };
+    _pins->execInst(value ? SET : CLR, sizeof(SET));
 }
 
 void RegsMos6502::restore() {
@@ -141,7 +144,7 @@ void RegsMos6502::restore() {
 
     const auto sp = _s - 3;  // offset RTI
     // clang-format off
-    uint8_t PULL_ALL[] = {
+    const uint8_t PULL_ALL[] = {
             0xA2, uint8(sp),  // LDX #sp
             0x9A, noop,       // TXS
             0xA0, uint8(_y),  // LDY #_y
@@ -158,7 +161,7 @@ void RegsMos6502::restore() {
 
 void RegsMos6502::restore65816() {
     const auto sp = _s - 5;  // offset PLB(dbr) and RTI(p,pc,pbr)
-    uint8_t PULL_ALL[] = {
+    const uint8_t PULL_ALL[] = {
             0xC2, 0x30, noop,        // REP #$30; M=0, X=0
             0xA9, lo(_d), hi(_d),    // LDA #_d
             0x5B, noop,              // TCD

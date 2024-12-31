@@ -56,7 +56,7 @@ void RegsIns8070::save() {
 }
 
 void RegsIns8070::restore() {
-    uint8_t LD_ALL[] = {
+    const uint8_t LD_ALL[] = {
             0x27, lo(_p3()), hi(_p3()),  // LD P3,=_p3
             0x26, lo(_p2()), hi(_p2()),  // LD P2,=_p2
             0x25, lo(_sp()), hi(_sp()),  // LD SP,=_sp

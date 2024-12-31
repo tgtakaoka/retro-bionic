@@ -64,7 +64,7 @@ void RegsI8085::save() {
 
 void RegsI8085::restore() {
     const auto ie = _ie ? InstI8085::EI : InstI8085::DI;
-    uint8_t POP_ALL[] = {
+    const uint8_t POP_ALL[] = {
             0x01, _c, _b,            // LXI B, _bc
             0x11, _e, _d,            // LXI D, _de
             0x21, _l, _h,            // LXI H, _hl
@@ -77,7 +77,7 @@ void RegsI8085::restore() {
 }
 
 uint8_t RegsI8085::read_io(uint8_t addr) const {
-    uint8_t IN[] = {
+    const uint8_t IN[] = {
             0xDB, addr,  // IN addr
             0x77,        // MOV M, A
     };
@@ -87,7 +87,7 @@ uint8_t RegsI8085::read_io(uint8_t addr) const {
 }
 
 void RegsI8085::write_io(uint8_t addr, uint8_t data) const {
-    uint8_t OUT[] = {
+    const uint8_t OUT[] = {
             0x3E, data,  // MVI data
             0xD3, addr,  // OUT addr
             0x77,        // MOV M, A

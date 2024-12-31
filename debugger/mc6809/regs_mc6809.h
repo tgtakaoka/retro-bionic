@@ -71,7 +71,9 @@ protected:
     void saveContext(uint8_t *context, uint8_t n, uint16_t sp);
     void loadStack(uint16_t sp) const;
     void loadMode(bool native) const;
+    uint16_t saveW() const;
     void saveVW();
+    void loadW(uint16_t val) const;
     void loadVW() const;
 };
 

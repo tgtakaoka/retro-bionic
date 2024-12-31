@@ -64,7 +64,7 @@ void RegsTms7000::save() {
 }
 
 void RegsTms7000::restore() {
-    uint8_t LOAD_ALL[] = {
+    const uint8_t LOAD_ALL[] = {
             0x52, _sp,               // MOV %_sp, B
             0x0D,                    // LDSP
             0x52, _b,                // MOV %_b, B
@@ -82,11 +82,11 @@ void RegsTms7000::restoreA() {
 }
 
 uint8_t RegsTms7000::read_internal(uint16_t addr) {
-    uint8_t READ[] = {
+    const uint8_t READ[] = {
             0x8A, hi(addr), lo(addr),  // LDA @addr
     };
     _pins->execInst(READ, sizeof(READ), 1);
-    uint8_t CAPTURE[] = {
+    const uint8_t CAPTURE[] = {
             0x8B, 0x80, 0x00,  // STA @>8000
     };
     uint8_t data;
@@ -97,20 +97,20 @@ uint8_t RegsTms7000::read_internal(uint16_t addr) {
 
 void RegsTms7000::write_internal(uint16_t addr, uint8_t data) {
     if (addr == A) {
-        uint8_t MOV_A[] = {
+        const uint8_t MOV_A[] = {
                 0x22, _a = data,  // MOV %data, A
         };
         _pins->execInst(MOV_A, sizeof(MOV_A));
         return;
     }
     if (addr == B) {
-        uint8_t MOV_B[] = {
+        const uint8_t MOV_B[] = {
                 0x52, _b = data,  // MOV %data, B
         };
         _pins->execInst(MOV_B, sizeof(MOV_B));
         return;
     }
-    uint8_t WRITE[] = {
+    const uint8_t WRITE[] = {
             0x22, data,                // MOV %data, A
             0x8B, hi(addr), lo(addr),  // STA @addr
     };

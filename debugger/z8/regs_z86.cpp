@@ -55,7 +55,7 @@ uint8_t RegsZ86::save_rp() const {
 }
 
 void RegsZ86::restore_rp(uint8_t rp) const {
-    uint8_t RESTORE_RP[] = {
+    const uint8_t RESTORE_RP[] = {
             0x31, rp,  // SRP #rp
     };
     _pins->execInst(RESTORE_RP, sizeof(RESTORE_RP));
@@ -80,7 +80,7 @@ void RegsZ86::restore_sfrs() {
 }
 
 uint8_t RegsZ86::save_r(uint8_t num) const {
-    uint8_t SAVE_R[] = {
+    const uint8_t SAVE_R[] = {
             0x92, uint8(num, 0),  // LDE @RR0,Rn
     };
     uint8_t val;
@@ -91,14 +91,14 @@ uint8_t RegsZ86::save_r(uint8_t num) const {
 void RegsZ86::restore_r(uint8_t num, uint8_t val) const {
     if (InstZ86::writeOnly(_rp, num))
         return;
-    uint8_t LOAD_R[] = {
+    const uint8_t LOAD_R[] = {
             uint8(num, 0x0C), val,  // LD rn,#val
     };
     _pins->execInst(LOAD_R, sizeof(LOAD_R));
 }
 
 uint8_t RegsZ86::raw_read_reg(uint8_t addr) const {
-    uint8_t READ_REG[] = {
+    const uint8_t READ_REG[] = {
             0x08, addr,  // LD R0,addr
             0x92, 0x00,  // LDE @RR0,R0
     };
@@ -120,7 +120,7 @@ uint8_t RegsZ86::read_reg(uint8_t addr, RegSpace space) {
 }
 
 void RegsZ86::write_reg(uint8_t addr, uint8_t val, RegSpace space) {
-    uint8_t WRITE_REG[] = {
+    const uint8_t WRITE_REG[] = {
             0xE6, addr, val,  // LD addr,#val
     };
     _pins->execInst(WRITE_REG, sizeof(WRITE_REG));
