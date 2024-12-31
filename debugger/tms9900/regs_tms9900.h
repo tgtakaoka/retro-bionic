@@ -26,8 +26,8 @@ struct RegsTms9900 : Regs {
     void setRegister(uint8_t reg, uint32_t value) override;
 
     virtual void breakPoint();
-    uint16_t read_reg(uint8_t i) const;
-    void write_reg(uint8_t i, uint16_t data) const;
+    virtual uint16_t read_reg(uint8_t i) const;
+    virtual void write_reg(uint8_t i, uint16_t data) const;
 
 protected:
     PinsTms9900 *const _pins;
