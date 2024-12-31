@@ -56,7 +56,7 @@ void CharBuffer::hex32(uint8_t pos, uint32_t val) {
 }
 
 void CharBuffer::bits(
-        uint8_t pos, uint8_t value, uint8_t mask, const char *letters) {
+        uint8_t pos, uint16_t value, uint16_t mask, const char *letters) {
     while (mask && *letters) {
         const auto c = *letters++;
         _str[pos++] = (value & mask) ? c : (c == '1' ? '0' : '_');

@@ -21,7 +21,7 @@ struct CharBuffer final {
     void hex20(uint8_t pos, uint32_t value);
     void hex24(uint8_t pos, uint32_t value);
     void hex32(uint8_t pos, uint32_t value);
-    void bits(uint8_t pos, uint8_t value, uint8_t mask, const char *letters);
+    void bits(uint8_t pos, uint16_t value, uint16_t mask, const char *letters);
 
 private:
     char *const _str;
