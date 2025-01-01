@@ -1,6 +1,7 @@
 #ifndef __REGS_TMS9900_H__
 #define __REGS_TMS9900_H__
 
+#include "char_buffer.h"
 #include "mems.h"
 #include "regs.h"
 
@@ -10,7 +11,7 @@ namespace tms9900 {
 struct PinsTms9900;
 
 struct RegsTms9900 : Regs {
-    RegsTms9900(PinsTms9900 *pins, Mems *mems) : _pins(pins), _mems(mems) {}
+    RegsTms9900(PinsTms9900 *pins, Mems *mems);
 
     const char *cpu() const override;
     const char *cpuName() const override;
@@ -43,6 +44,10 @@ protected:
     PINS *pins() const {
         return static_cast<PINS *>(_pins);
     }
+
+    mutable CharBuffer _buffer1;
+    mutable CharBuffer _buffer2;
+    mutable CharBuffer _buffer3;
 };
 
 }  // namespace tms9900
