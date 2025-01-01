@@ -17,6 +17,8 @@ struct Signals : SignalsBase<Signals> {
 protected:
     uint8_t cntl() const { return _signals[0]; }
     uint8_t &cntl() { return _signals[0]; }
+    uint8_t data16() const { return _signals[2]; }
+    uint8_t &data16() { return _signals[2]; }
 };
 }  // namespace tms9900
 }  // namespace debugger

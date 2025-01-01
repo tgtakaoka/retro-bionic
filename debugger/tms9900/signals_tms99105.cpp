@@ -1,29 +1,24 @@
-#include "signals_tms9981.h"
+#include "signals_tms99105.h"
 #include "debugger.h"
 #include "digital_bus.h"
-#include "pins_tms9981.h"
+#include "pins_tms99105.h"
 
 namespace debugger {
-namespace tms9981 {
+namespace tms99105 {
 
-void Signals::getLowAddr() {
-    addr = busRead(AL);
-}
-
-void Signals::getMidAddr() {
-    addr |= busRead(AM);
-    data16() = 0;
-}
-
-void Signals::getHighAddr() {
-    addr |= busRead(AH);
+void Signals::getAddress() {
+    addr = busRead(ADDR);
+    data16() = 1;
 }
 
 void Signals::getControl() {
-    // CNTL_MEMEN is active low
-    // CNTL_DBIN is active high
+    // CNTL_MEM is active low
+    // CNTL_RW is active high (R/#W)
     // CNTL_IAQ is active high
     cntl() = busRead(CNTL);
+    bst() = busRead(BST) | (cntl() & CNTL_MEMEN);
+    if (bst() == IAQ)
+        cntl() |= CNTL_IAQ;
 }
 
 void Signals::getData() {
@@ -39,7 +34,7 @@ void Signals::inputMode() const {
     busMode(DATA, INPUT);
 }
 
-}  // namespace tms9981
+}  // namespace tms99105
 }  // namespace debugger
 
 // Local Variables:
