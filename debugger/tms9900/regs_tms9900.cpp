@@ -26,7 +26,12 @@ const char *RegsTms9900::cpuName() const {
     return Debugger.target().identity();
 }
 
+const char *RegsTms9900::regs_line() const {
+    return line0;
+}
+
 void RegsTms9900::print() const {
+    const char *line0 = regs_line();
     static auto &reg = *new CharBuffer(line0);
     static auto &wr1 = *new CharBuffer(line1);
     static auto &wr2 = *new CharBuffer(line2);

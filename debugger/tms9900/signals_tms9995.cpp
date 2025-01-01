@@ -8,6 +8,7 @@ namespace tms9995 {
 
 void Signals::getAddress() {
     addr = busRead(AL) | busRead(AM) | busRead(AH);
+    data16() = 0;
 }
 
 void Signals::getControl() {

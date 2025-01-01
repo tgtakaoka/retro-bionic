@@ -39,6 +39,7 @@ protected:
 
     static const uint8_t ZERO[2];
 
+    virtual const char *regs_line() const;
     template <typename PINS>
     PINS *pins() const {
         return static_cast<PINS *>(_pins);
