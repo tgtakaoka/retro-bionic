@@ -41,8 +41,9 @@ bool Signals::data16() const {
 }
 
 void Signals::print() const {
-    //                              0123456789012
-    static constexpr char line[] = "R A=xxxx D=xx  ";
+    // cli.printDec(pos(), -4);
+    //                              0123456789012345
+    static constexpr char line[] = "R A=xxxx D=xxxx ";
     static auto &buffer = *new CharBuffer(line);
     if (fetch()) {
         buffer[0] = 'I';
@@ -53,10 +54,35 @@ void Signals::print() const {
     } else {
         buffer[0] = ' ';
     }
-    buffer.hex4(14, _signals[1]);
+    static const char *const bst[] = {
+            "SOPL",
+            "AUMSL",
+            "DOP",
+            "WP",
+            "IOP",
+            "RESET",
+            "WS",
+            "MID",
+            "SOP",
+            "AUMS",
+            "INTA",
+            "ST",
+            "IAQ",
+            "IO",
+            "GM",
+            "HOLDA",
+    };
     buffer.hex16(4, addr);
-    buffer.hex8(11, data);
-    cli.println(buffer);
+    if (data16()) {
+        buffer.hex16(11, data);
+    } else {
+        buffer.hex8(11, data);
+        buffer[13] = 0;
+    }
+    cli.print(buffer);
+    if (data16())
+        cli.print(bst[_signals[1] & 0xF]);
+    cli.println();
 }
 
 }  // namespace tms9900
