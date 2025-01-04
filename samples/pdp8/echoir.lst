@@ -1,0 +1,281 @@
+          0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+          0 :                            include "im6100.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :                            cpu     6100
+(1)       0 :                            include "pdp8.inc"
+(2)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(2)       0 :                    /// Origin
+(2)       0 : =0                 PC_INTR         =       0000    // PC saved on interrupt
+(2)       0 : =1                 ORG_INTR        =       0001    // Interrupt origin
+(2)       0 : =7777              ORG_RESET       =       7777    // Reset origin
+(2)       0 : =10                AUTO_INDEX      =       0010    // Auto pre-increment pointers
+(2)       0 : =20                PAGE0           =       0020
+(2)       0 :                    /// FLAGS; RTF, GTF
+(2)       0 : =4000              FLAGS_LINK      =       4000    // Link flag
+(2)       0 : =200               FLAGS_IEFF      =       0200    // Interrupt enable flip-flop
+(1)       0 :                    /// FLAGS; RTF, GTF
+(1)       0 : =1000              FLAGS_INTREQ    =       1000    // INTREQ line
+          0 :                    /// MC6850 Asynchronous Communication Interface Adapter
+          0 : =7                 ACIA    = 07
+          0 :                            include "mc6850.inc"
+(1)       0 :                    /// -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :                    /// MC6850
+(1)       0 :                    /// Asynchronous Communication Interface Adapter
+(1)       0 : =0                 ACIA_status     = 0
+(1)       0 : =4                 ACIA_control    = 4
+(1)       0 : =1                 ACIA_receive    = 1
+(1)       0 : =5                 ACIA_transmit   = 5
+(1)       0 :                    //  Counter Divider Select Bits
+(1)       0 : =3                 CDS_gm          =       011B    / Group mask
+(1)       0 : =0                 CDS_DIV1_gc     =       000B    / /1
+(1)       0 : =1                 CDS_DIV16_gc    =       001B    / /16
+(1)       0 : =2                 CDS_DIV64_gc    =       010B    / /64
+(1)       0 : =3                 CDS_RESET_gc    =       011B    / Master Reset
+(1)       0 :                    //  Word Select Bits
+(1)       0 : =34                WSB_gm          =       011100B / Group mask
+(1)       0 : =0                 WSB_7E2_gc      =       000000B / 7 Bits + Even Parity + 2 Stop Bits
+(1)       0 : =4                 WSB_7O2_gc      =       000100B / 7 bits + Odd Parity  + 2 Stop Bits
+(1)       0 : =10                WSB_7E1_gc      =       001000B / 7 bits + Even Parity + 1 Stop Bits
+(1)       0 : =14                WSB_7O1_gc      =       001100B / 7 bits + Odd Parity  + 1 Stop Bits
+(1)       0 : =20                WSB_8N2_gc      =       010000B / 8 bits + No Parity   + 2 Stop Bits
+(1)       0 : =24                WSB_8N1_gc      =       010100B / 8 bits + No Parity   + 1 Stop Bits
+(1)       0 : =30                WSB_8E1_gc      =       011000B / 8 bits + Even Parity + 1 Stop Bits
+(1)       0 : =34                WSB_8O1_gc      =       011100B / 8 bits + Odd Parity  + 1 Stop Bits
+(1)       0 :                    //  Transmit Control Bits
+(1)       0 : =140               TCB_gm          =     01100000B / Group mask
+(1)       0 : =0                 TCB_DI_gc       =     00000000B / RTS=Low,  Tx Interrupt Disabled
+(1)       0 : =40                TCB_EI_gc       =     00100000B / RTS=Low,  Tx Interrupt Enabled
+(1)       0 : =100               TCB_RTS_gc      =     01000000B / RTS=High, Tx Interrupt Disabled
+(1)       0 : =140               TCB_BREAK_gc    =     01100000B / RTS=Low,  Tx Interrupt Disabled
+(1)       0 :                                                    / Transmit Break Level
+(1)       0 : =200               RIEB_bm         =     10000000B / Receive Interrupt Enable Bit mask
+(1)       0 :                    /// Status register
+(1)       0 : =1                 RDRF_bm         =     00000001B / Receive Data Register Full
+(1)       0 : =2                 TDRE_bm         =     00000010B / Transmit Data Register Empty
+(1)       0 : =4                 DCDF_bm         =     00000100B / Data Carrier Detect Flag
+(1)       0 : =10                CTSF_bm         =     00001000B / Clear To Send Flag
+(1)       0 : =20                FERR_bm         =     00010000B / Frame Error Flag
+(1)       0 : =40                OVRN_bm         =     00100000B / Receiver Overrun Flag
+(1)       0 : =100               PERR_bm         =     01000000B / Parity Error Flag
+(1)       0 : =200               IRQF_bm         =     10000000B / Interrupt Request Flag
+          0 :
+       4000 :                            *4000
+       4000 : =40                rx_queue_size = 40              / 32 words
+       4000 :                    rx_queue,
+       4040 :                            *.+rx_queue_size
+       4040 :
+          1 :                            *ORG_INTR
+          1 : 5402                       jmp     I .+1
+          2 : 0533                       isr
+          3 :
+       7776 :                            *ORG_RESET-1
+       7776 : 0200                       initialize
+       7777 : 5776                       jmp     I .-1
+      10000 :
+         20 :                            *PAGE0
+         20 : 0400               I_queue_init,   queue_init
+         21 : 0424               I_queue_add,    queue_add
+         22 : 0471               I_queue_remove, queue_remove
+         23 :
+        200 :                            page    1
+        200 :                    initialize,
+        200 : 7200                       cla
+        201 : 1214                       tad     queue_size
+        202 : 4420                       jms     I I_queue_init
+        203 : 4000                       rx_queue
+        204 :                            // Initialize ACIA
+        204 : 7200                       cla
+        205 : 1212                       tad     ACIA_config
+        206 : 6074                       iot     ACIA ACIA_control
+        207 : 1213                       tad     RX_INT_TX_NO
+        210 : 6074                       iot     ACIA ACIA_control
+        211 : 5215                       jmp     loop
+        212 : 0003               ACIA_config,    CDS_RESET_gc
+        213 : 0224               RX_INT_TX_NO,   WSB_8N1_gc|RIEB_bm
+        214 : 0040               queue_size,     rx_queue_size
+        215 :
+        215 :                    loop,
+        215 : 4232                       jms     getchar
+        216 : 7450                       sna                     / Skip if AC != 0
+        217 : 5227                       jmp     halt_to_system
+        220 :                    echo,
+        220 : 4245                       jms     putchar
+        221 : 7041                       cia                     / negate AC
+        222 : 1230                       tad     char_CR         / '\r' - AC
+        223 : 7440                       sza                     / Skip if AC == 0
+        224 : 5215                       jmp     loop
+        225 : 1231                       tad     char_LF
+        226 : 5220                       jmp     echo
+        227 :                    halt_to_system,
+        227 : 7402                       hlt
+        230 : 0015               char_CR,        015             / Carriage return
+        231 : 0012               char_LF,        012             / Line feed
+        232 :
+        232 : 0000               getchar,        .-.
+        233 :                    getchar_loop,
+        233 : 6002                       iof                     / Disable interrupt
+        234 : 4422                       jms     I I_queue_remove
+        235 : 4000                       rx_queue
+        236 : 3244                       dca     getchar_char    / save character
+        237 : 6001                       ion                     / AC may be broken
+        240 : 7620                       snl cla                 / Skip if L=1
+        241 : 5233                       jmp     getchar_loop
+        242 : 1244                       tad     getchar_char    / restore character
+        243 : 5632                       jmp     I getchar       / Return
+        244 : 0000               getchar_char,   0
+        245 :
+        245 : 0000               putchar,        .-.
+        246 : 3257                       dca     putchar_char    / Save character
+        247 :                    putchar_loop,
+        247 : 6070                       iot     ACIA ACIA_status
+        250 : 0260                       and     bit_transmit
+        251 : 7650                       sna cla                 / Skip if AC != 0
+        252 : 5247                       jmp     putchar_loop
+        253 : 1257                       tad     putchar_char    / Restore character
+        254 : 6075                       iot     ACIA ACIA_transmit
+        255 : 1257                       tad     putchar_char
+        256 : 5645                       jmp     I putchar
+        257 : 0000               putchar_char,   0
+        260 : 0002               bit_transmit,   TDRE_bm
+        261 :
+        261 :                            include "queue.inc"
+(1)     261 :                    /// -*- mode: asm; mode: flyspell-prog; -*-
+(1)     261 :
+(1)     400 :                            page
+(1)     400 :
+(1)     400 :                    /// [queue] queue structure
+(1)     400 :                    //queue_size      =       0       / negative buffer size
+(1)     400 :                    //queue_len       =       1       / queue length
+(1)     400 :                    //queue_put       =       2       / queue put index
+(1)     400 :                    //queue_get       =       3       / queue get index
+(1)     400 :                    //queue_buf       =       4       / buffer start offset
+(1)     400 :
+(1)     400 :                    /// [queue] Initialize queue
+(1)     400 :                    /// @param (PC+1) queue work space pointer
+(1)     400 :                    /// @param AC queue work space size
+(1)     400 :                    /// @return AC=0
+(1)     400 :                    /// @clobber AC
+(1)     400 : 0000               queue_init, .-.                 / parameter address
+(1)     401 : 1223                       tad     queue_work_size / subtract queue work space
+(1)     402 : 7041                       cia                     / AC=-size
+(1)     403 : 3264                       dca     queue_tmp       / queue_tmp = -size
+(1)     404 : 1600                       tad     I queue_init    / load queue work space pointer
+(1)     405 : 2200                       isz     queue_init      / point return address
+(1)     406 : 3265                       dca     queue_ptr       / &queue_size
+(1)     407 : 1264                       tad     queue_tmp       / AC=-size
+(1)     410 : 3665                       dca     I queue_ptr     / queue_size = -size
+(1)     411 : 2265                       isz     queue_ptr       / &queue_len
+(1)     412 : 1264                       tad     queue_tmp       / -size
+(1)     413 : 1223                       tad     queue_work_size / -queue work space
+(1)     414 : 7001                       iac                     / offset queue_size
+(1)     415 : 3264                       dca     queue_tmp       / counter
+(1)     416 :                    queue_init_clear,
+(1)     416 : 3665                       dca     I queue_ptr     / *queue_ptr = 0
+(1)     417 : 2265                       isz     queue_ptr
+(1)     420 : 2264                       isz     queue_tmp
+(1)     421 : 5216                       jmp     queue_init_clear
+(1)     422 : 5600                       jmp     I queue_init    / return, AC=0
+(1)     423 : 7774               queue_work_size,        -4
+(1)     424 :
+(1)     424 :                    /// [queue] Add an element to queue
+(1)     424 :                    /// @param (PC+1) queue work space pointer
+(1)     424 :                    /// @param AC an element
+(1)     424 :                    /// @return L 0 if queue is full
+(1)     424 : 0000               queue_add, .-.                  / parameter/return address
+(1)     425 : 3266                       dca     queue_element   / save element
+(1)     426 : 1624                       tad     I queue_add     / load queue work space pointer
+(1)     427 : 2224                       isz     queue_add       / point to return address
+(1)     430 : 3265                       dca     queue_ptr       / &queue_size
+(1)     431 : 1665                       tad     I queue_ptr     / AC=-queue_size
+(1)     432 : 3264                       dca     queue_tmp       / queue_tmp = -queue_size
+(1)     433 : 1264                       tad     queue_tmp       / AC=-queue_size
+(1)     434 : 2265                       isz     queue_ptr       / &queue_len
+(1)     435 : 1665                       tad     I queue_ptr     / AC=queue_len-queue_size
+(1)     436 : 7500                       sma                     / skip if queue_len < queue_size
+(1)     437 : 5261                       jmp     queue_add_full
+(1)     440 : 2665                       isz     I queue_ptr     / queue_len++
+(1)     441 : 2265                       isz     queue_ptr       / &queue_put
+(1)     442 : 7200                       cla
+(1)     443 : 1665                       tad     I queue_ptr     / AC=queue_put
+(1)     444 : 7001                       iac                     / offset queue_put
+(1)     445 : 7001                       iac                     / offset queue_get
+(1)     446 : 1265                       tad     queue_ptr       / AC=&queue_buf[queue_put]
+(1)     447 : 3267                       dca     queue_buf
+(1)     450 : 1266                       tad     queue_element   / AC=restore element
+(1)     451 : 3667                       dca     I queue_buf     / queue_buf[queue_put]=queue_element
+(1)     452 : 2665                       isz     I queue_ptr     / queue_put++
+(1)     453 : 1665                       tad     I queue_ptr     / AC=queue_put
+(1)     454 : 1264                       tad     queue_tmp       / AC=queue_put-queue_size
+(1)     455 : 7700                       sma cla                 / skip if queue_put < queue_size, AC=0
+(1)     456 : 3665                       dca     I queue_ptr     / queue_put = 0
+(1)     457 : 7320                       stl cla                 / L=1, AC=0
+(1)     460 : 7410                       skp
+(1)     461 :                    queue_add_full,
+(1)     461 : 7300                       cll cla                 / L=0, AC=0
+(1)     462 : 1266                       tad     queue_element   / restore
+(1)     463 : 5624                       jmp     I queue_add     / return
+(1)     464 :
+(1)     464 : 0000               queue_tmp,      0
+(1)     465 : 0000               queue_ptr,      0               / pointer to queue work space
+(1)     466 : 0000               queue_element,  0
+(1)     467 : 0000               queue_buf,      0               / pointer to element
+(1)     470 : 7777               queue_minus1,   -1              / const -1
+(1)     471 :
+(1)     471 :                    /// [queue] Remove an element from queue
+(1)     471 :                    /// @param (PC+1) queue work space pointer
+(1)     471 :                    /// @return AC an element, 0 if empty
+(1)     471 :                    /// @return L 0 if queue is empty
+(1)     471 : 0000               queue_remove, .-.               / parameter/return address
+(1)     472 : 7200                       cla
+(1)     473 : 1671                       tad     I queue_remove  / load queue work space pointer
+(1)     474 : 2271                       isz     queue_remove    / point to return address
+(1)     475 : 3265                       dca     queue_ptr       / &queue_size
+(1)     476 : 1665                       tad     I queue_ptr     / -queue_size
+(1)     477 : 3264                       dca     queue_tmp       / queue_tmp = -queue_size
+(1)     500 : 2265                       isz     queue_ptr       / &queue_len
+(1)     501 : 1665                       tad     I queue_ptr     / AC=queue_len
+(1)     502 : 7450                       sna                     / skip if queue_len != 0
+(1)     503 : 5326                       jmp     queue_remove_empty
+(1)     504 : 1270                       tad     queue_minus1    / AC=queue_len-1
+(1)     505 : 3665                       dca     I queue_ptr     / queue_len--
+(1)     506 : 2265                       isz     queue_ptr       / &queue_put
+(1)     507 : 2265                       isz     queue_ptr       / &queue_get
+(1)     510 : 1665                       tad     I queue_ptr     / AC=queue_get
+(1)     511 : 7001                       iac                     / offset queue_get
+(1)     512 : 1265                       tad     queue_ptr       / AC=&queue_buf[queue_get]
+(1)     513 : 3267                       dca     queue_buf
+(1)     514 : 1667                       tad     I queue_buf     / AC=queue_buf[queue_get]
+(1)     515 : 3266                       dca     queue_element   / save element
+(1)     516 : 2665                       isz     I queue_ptr     / queue_get
+(1)     517 : 1665                       tad     I queue_ptr     / AC=queue_get
+(1)     520 : 1264                       tad     queue_tmp       / AC=queue_get-queue_size
+(1)     521 : 7700                       sma cla                 / skip if queue_get < queue_size, AC=0
+(1)     522 : 3665                       dca     I queue_ptr     / queue_get = 0
+(1)     523 : 7320                       stl cla                 / L=1 AC=0
+(1)     524 : 1266                       tad     queue_element   / restore element
+(1)     525 : 5671                       jmp     I queue_remove  / return
+(1)     526 :                    queue_remove_empty,
+(1)     526 : 7300                       cll cla                 / L=0 AC=0
+(1)     527 : 5671                       jmp     I queue_remove  / return
+        530 :
+        530 : 0001               bit_receive,    RDRF_bm
+        531 : 0000               isr_AC,         0
+        532 : 0000               isr_FLAGS,      0
+        533 :                    isr,
+        533 : 3331                       dca     isr_AC
+        534 : 6004                       gtf
+        535 : 3332                       dca     isr_FLAGS
+        536 : 6070                       iot     ACIA ACIA_status
+        537 : 0330                       and     bit_receive
+        540 : 7650                       sna cla                 / Skip if received data exists
+        541 : 5345                       jmp     isr_exit
+        542 : 6071                       iot     ACIA ACIA_receive
+        543 : 4421                       jms     I I_queue_add
+        544 : 4000                       rx_queue
+        545 :                    isr_exit,
+        545 : 7200                       cla
+        546 : 1332                       tad     isr_FLAGS
+        547 : 6005                       rtf                     / Restore FLAGS
+        550 : 7200                       cla
+        551 : 1331                       tad     isr_AC          / Restore AC
+        552 : 5400                       jmp     I PC_INTR       / Return
