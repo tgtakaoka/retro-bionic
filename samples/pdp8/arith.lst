@@ -1,0 +1,957 @@
+          0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+          0 :                            include "im6100.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :                            cpu     6100
+(1)       0 :                            include "pdp8.inc"
+(2)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(2)       0 :                    /// Origin
+(2)       0 : =0                 PC_INTR         =       0000    // PC saved on interrupt
+(2)       0 : =1                 ORG_INTR        =       0001    // Interrupt origin
+(2)       0 : =7777              ORG_RESET       =       7777    // Reset origin
+(2)       0 : =10                AUTO_INDEX      =       0010    // Auto pre-increment pointers
+(2)       0 : =20                PAGE0           =       0020
+(2)       0 :                    /// FLAGS; RTF, GTF
+(2)       0 : =4000              FLAGS_LINK      =       4000    // Link flag
+(2)       0 : =200               FLAGS_IEFF      =       0200    // Interrupt enable flip-flop
+(2)       0 :
+(2)       0 :                            
+(1)       0 :                    /// FLAGS; RTF, GTF
+(1)       0 : =1000              FLAGS_INTREQ    =       1000    // INTREQ line
+(1)       0 :
+(1)       0 :                            
+          0 :                    /// MC6850 Asynchronous Communication Interface Adapter
+          0 : =7                 ACIA    = 07
+          0 :                            include "mc6850.inc"
+(1)       0 :                    /// -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :                    /// MC6850
+(1)       0 :                    /// Asynchronous Communication Interface Adapter
+(1)       0 : =0                 ACIA_status     = 0
+(1)       0 : =4                 ACIA_control    = 4
+(1)       0 : =1                 ACIA_receive    = 1
+(1)       0 : =5                 ACIA_transmit   = 5
+(1)       0 :                    //  Counter Divider Select Bits
+(1)       0 : =3                 CDS_gm          =       011B    / Group mask
+(1)       0 : =0                 CDS_DIV1_gc     =       000B    / /1
+(1)       0 : =1                 CDS_DIV16_gc    =       001B    / /16
+(1)       0 : =2                 CDS_DIV64_gc    =       010B    / /64
+(1)       0 : =3                 CDS_RESET_gc    =       011B    / Master Reset
+(1)       0 :                    //  Word Select Bits
+(1)       0 : =34                WSB_gm          =       011100B / Group mask
+(1)       0 : =0                 WSB_7E2_gc      =       000000B / 7 Bits + Even Parity + 2 Stop Bits
+(1)       0 : =4                 WSB_7O2_gc      =       000100B / 7 bits + Odd Parity  + 2 Stop Bits
+(1)       0 : =10                WSB_7E1_gc      =       001000B / 7 bits + Even Parity + 1 Stop Bits
+(1)       0 : =14                WSB_7O1_gc      =       001100B / 7 bits + Odd Parity  + 1 Stop Bits
+(1)       0 : =20                WSB_8N2_gc      =       010000B / 8 bits + No Parity   + 2 Stop Bits
+(1)       0 : =24                WSB_8N1_gc      =       010100B / 8 bits + No Parity   + 1 Stop Bits
+(1)       0 : =30                WSB_8E1_gc      =       011000B / 8 bits + Even Parity + 1 Stop Bits
+(1)       0 : =34                WSB_8O1_gc      =       011100B / 8 bits + Odd Parity  + 1 Stop Bits
+(1)       0 :                    //  Transmit Control Bits
+(1)       0 : =140               TCB_gm          =     01100000B / Group mask
+(1)       0 : =0                 TCB_DI_gc       =     00000000B / RTS=Low,  Tx Interrupt Disabled
+(1)       0 : =40                TCB_EI_gc       =     00100000B / RTS=Low,  Tx Interrupt Enabled
+(1)       0 : =100               TCB_RTS_gc      =     01000000B / RTS=High, Tx Interrupt Disabled
+(1)       0 : =140               TCB_BREAK_gc    =     01100000B / RTS=Low,  Tx Interrupt Disabled
+(1)       0 :                                                    / Transmit Break Level
+(1)       0 : =200               RIEB_bm         =     10000000B / Receive Interrupt Enable Bit mask
+(1)       0 :                    /// Status register
+(1)       0 : =1                 RDRF_bm         =     00000001B / Receive Data Register Full
+(1)       0 : =2                 TDRE_bm         =     00000010B / Transmit Data Register Empty
+(1)       0 : =4                 DCDF_bm         =     00000100B / Data Carrier Detect Flag
+(1)       0 : =10                CTSF_bm         =     00001000B / Clear To Send Flag
+(1)       0 : =20                FERR_bm         =     00010000B / Frame Error Flag
+(1)       0 : =40                OVRN_bm         =     00100000B / Receiver Overrun Flag
+(1)       0 : =100               PERR_bm         =     01000000B / Parity Error Flag
+(1)       0 : =200               IRQF_bm         =     10000000B / Interrupt Request Flag
+          0 :
+       7776 :                            *ORG_RESET-1
+       7776 : 0200                       initialize
+       7777 : 5776                       jmp     I .-1
+      10000 :
+         20 :                            *PAGE0
+         20 : 0232               I_putchar,      putchar
+         21 : 0212               I_putspace,     putspace
+         22 : 0220               I_newline,      newline
+         23 : 1213               I_set24,        set24
+         24 : 1240               I_load24,       load24
+         25 : 1253               I_store24,      store24
+         26 : 1266               I_add24,        add24
+         27 : 1304               I_sub24,        sub24
+         30 : 1600               I_neg24,        neg24
+         31 : 1523               I_mul24,        mul24
+         32 : 1620               I_div12,        div12
+         33 : 1660               I_udiv24,       udiv24
+         34 : 1401               I_print_int24,  print_int24
+         35 : 0400               I_set_VAVB,     set_VAVB
+         36 : 1072               I_expr,         expr
+         37 : 1112               I_answer,       answer
+         40 : 1124               I_comp,         comp
+         41 :
+         41 : 0000               arith_ptr,      0       / arithmetic routine work
+         42 :                    R0,                     / 24-bit arithmetic accumulator
+         42 : 0000               R0L,            0
+         43 : 0000               R0H,            0
+         44 :                    R1,                     / 24-bit arithmetic operand 1
+         44 : 0000               R1L,            0
+         45 : 0000               R1H,            0
+         46 :                    R2,                     / 24-bit arithmetic operand 2
+         46 : 0000               R2L,            0
+         47 : 0000               R2H,            0
+         50 :
+         50 :                    VA,
+         50 : 0000               VAL,            0
+         51 : 0000               VAH,            0
+         52 :                    VB,
+         52 : 0000               VBL,            0
+         53 : 0000               VBH,            0
+         54 :
+        200 :                            page    1
+        200 :                    initialize,
+        200 :                            // Initialize ACIA
+        200 : 7200                       cla
+        201 : 1210                       tad     ACIA_config
+        202 : 6074                       iot     ACIA ACIA_control
+        203 : 1211                       tad     RX_NO_TX_NO
+        204 : 6074                       iot     ACIA ACIA_control
+        205 : 4607                       jms     I I_arith
+        206 : 7402                       hlt
+        207 : 0421               I_arith,        arith
+        210 :
+        210 : 0003               ACIA_config,    CDS_RESET_gc
+        211 : 0024               RX_NO_TX_NO,    WSB_8N1_gc
+        212 :
+        212 :                    /// Print space
+        212 :                    /// @clobber AC
+        212 : 0000               putspace,       .-.
+        213 : 7200                       cla
+        214 : 1217                       tad     char_space
+        215 : 4232                       jms     putchar
+        216 : 5612                       jmp     I putspace
+        217 : 0040               char_space,     040             / char ' '
+        220 :
+        220 :                    /// Print new line
+        220 :                    /// @clobber AC
+        220 : 0000               newline,        .-.
+        221 : 7200                       cla
+        222 : 1230                       tad     char_CR
+        223 : 4232                       jms     putchar
+        224 : 7200                       cla
+        225 : 1231                       tad     char_LF
+        226 : 4232                       jms     putchar
+        227 : 5620                       jmp I   newline
+        230 : 0015               char_CR,        015             / Carriage return
+        231 : 0012               char_LF,        012             / Line feed
+        232 :
+        232 :                    /// Print character
+        232 :                    /// @param AC character
+        232 : 0000               putchar,        .-.
+        233 : 3245                       dca     putchar_char    / Save character
+        234 :                    putchar_loop,
+        234 : 6070                       iot     ACIA ACIA_status
+        235 : 0246                       and     bit_transmit
+        236 : 7450                       sna                     / Skip if AC != 0
+        237 : 5234                       jmp     putchar_loop    / AC=0
+        240 : 7200                       cla
+        241 : 1245                       tad     putchar_char    / Restore character
+        242 : 6075                       iot     ACIA ACIA_transmit
+        243 : 1245                       tad     putchar_char    / Restore character
+        244 : 5632                       jmp     I putchar
+        245 : 0000               putchar_char,   0
+        246 : 0002               bit_transmit,   TDRE_bm
+        247 :
+        247 :                            decimal
+        247 :                    lo,     function val,val & 07777B
+        247 :                    hi,     function val,(val >> 12) & 07777B
+        247 :
+        400 :                            page
+        400 :
+        400 :                    /// Set 2 24-bit values to VA and VB
+        400 :                    /// @param (PC+1:PC+2) value for VA
+        400 :                    /// @param (PC+3:PC+4) value for VB
+        400 :                    /// @return AC=0
+        400 : 0000               set_VAVB,       .-.
+        401 : 7200                       cla
+        402 : 1600                       tad     I set_VAVB      / AC=low(value)
+        403 : 2200                       isz     set_VAVB
+        404 : 3050                       dca     VAL             / low(VA)
+        405 : 1600                       tad     I set_VAVB      / AC=high(value)
+        406 : 2200                       isz     set_VAVB
+        407 : 3051                       dca     VAH             / high(VA)
+        410 : 1600                       tad     I set_VAVB      / AC=low(value)
+        411 : 2200                       isz     set_VAVB
+        412 : 3052                       dca     VBL             / low(VB)
+        413 : 1600                       tad     I set_VAVB      / AC=high(value)
+        414 : 2200                       isz     set_VAVB
+        415 : 3053                       dca     VBH             / high(VB)
+        416 : 5600                       jmp     I set_VAVB      / return, AC=0
+        417 :
+        417 : 0053               char_add,      2BH              / char '+'
+        420 :
+        420 :                    arith_end,
+        420 : 5621                       jmp     I arith
+        421 : 0000               arith,          .-.
+        422 : 4435                       jms     I I_set_VAVB
+        423 : 3120                       lo(18000)
+        424 : 0004                       hi(18000)
+        425 : 6540                       lo(28000)
+        426 : 0006                       hi(28000)
+        427 : 1217                       tad     char_add
+        430 : 4436                       jms     I I_expr
+        431 : 4426                       jms     I I_add24
+        432 : 0052                       VB
+        433 : 4437                       jms     I I_answer      / 46000
+        434 :
+        434 : 4435                       jms     I I_set_VAVB
+        435 : 3120                       lo(18000)
+        436 : 0004                       hi(18000)
+        437 : 4660                       lo(-18000)
+        440 : 7773                       hi(-18000)
+        441 : 1217                       tad     char_add
+        442 : 4436                       jms     I I_expr
+        443 : 4426                       jms     I I_add24
+        444 : 0052                       VB
+        445 : 4437                       jms     I I_answer      / 0
+        446 :
+        446 : 4435                       jms     I I_set_VAVB
+        447 : 4660                       lo(-18000)
+        450 : 7773                       hi(-18000)
+        451 : 4660                       lo(-18000)
+        452 : 7773                       hi(-18000)
+        453 : 1217                       tad     char_add
+        454 : 4436                       jms     I I_expr
+        455 : 4426                       jms     I I_add24
+        456 : 0052                       VB
+        457 : 4437                       jms     I I_answer      / -36000
+        460 :
+        460 : 5262                       jmp     .+2
+        461 : 0055               char_sub,     2DH               / char '-'
+        462 :
+        462 : 4435                       jms     I I_set_VAVB
+        463 : 4660                       lo(-18000)
+        464 : 7773                       hi(-18000)
+        465 : 1240                       lo(-28000)
+        466 : 7771                       hi(-28000)
+        467 : 1261                       tad     char_sub
+        470 : 4436                       jms     I I_expr
+        471 : 4427                       jms     I I_sub24
+        472 : 0052                       VB
+        473 : 4437                       jms     I I_answer      / 10000
+        474 :
+        474 : 4435                       jms     I I_set_VAVB
+        475 : 3120                       lo(18000)
+        476 : 0004                       hi(18000)
+        477 : 4660                       lo(-18000)
+        500 : 7773                       hi(-18000)
+        501 : 1261                       tad     char_sub
+        502 : 4436                       jms     I I_expr
+        503 : 4427                       jms     I I_sub24
+        504 : 0052                       VB
+        505 : 4437                       jms     I I_answer      / 36000
+        506 :
+        506 : 4435                       jms     I I_set_VAVB
+        507 : 1240                       lo(-28000)
+        510 : 7771                       hi(-28000)
+        511 : 4660                       lo(-18000)
+        512 : 7773                       hi(-18000)
+        513 : 1261                       tad     char_sub
+        514 : 4436                       jms     I I_expr
+        515 : 4427                       jms     I I_sub24
+        516 : 0052                       VB
+        517 : 4437                       jms     I I_answer      / -10000
+        520 :
+        520 : 5721                       jmp     I I_arith_mul
+        521 : 0601               I_arith_mul,    arith_mul
+        522 :
+        600 :                            page
+        600 : 0052               char_mul,     2AH               / char '*'
+        601 :
+        601 :                    arith_mul,
+        601 : 4435                       jms     I I_set_VAVB
+        602 : 0144                       lo(100)
+        603 : 0000                       hi(100)
+        604 : 0454                       lo(300)
+        605 : 0000                       hi(300)
+        606 : 1200                       tad     char_mul
+        607 : 4436                       jms     I I_expr
+        610 : 4431                       jms     I I_mul24
+        611 : 0052                       VB
+        612 : 4437                       jms     I I_answer      / 30000
+        613 :
+        613 : 4435                       jms     I I_set_VAVB
+        614 : 0310                       lo(200)
+        615 : 0000                       hi(200)
+        616 : 0454                       lo(300)
+        617 : 0000                       hi(300)
+        620 : 1200                       tad     char_mul
+        621 : 4436                       jms     I I_expr
+        622 : 4431                       jms     I I_mul24
+        623 : 0052                       VB
+        624 : 4437                       jms     I I_answer      / 60000
+        625 :
+        625 : 4435                       jms     I I_set_VAVB
+        626 : 0454                       lo(300)
+        627 : 0000                       hi(300)
+        630 : 7470                       lo(-200)
+        631 : 7777                       hi(-200)
+        632 : 1200                       tad     char_mul
+        633 : 4436                       jms     I I_expr
+        634 : 4431                       jms     I I_mul24
+        635 : 0052                       VB
+        636 : 4437                       jms     I I_answer      / -60000
+        637 :
+        637 : 4435                       jms     I I_set_VAVB
+        640 : 0144                       lo(100)
+        641 : 0000                       hi(100)
+        642 : 7324                       lo(-300)
+        643 : 7777                       hi(-300)
+        644 : 1200                       tad     char_mul
+        645 : 4436                       jms     I I_expr
+        646 : 4431                       jms     I I_mul24
+        647 : 0052                       VB
+        650 : 4437                       jms     I I_answer      / -30000
+        651 :
+        651 : 4435                       jms     I I_set_VAVB
+        652 : 7470                       lo(-200)
+        653 : 7777                       hi(-200)
+        654 : 7634                       lo(-100)
+        655 : 7777                       hi(-100)
+        656 : 1200                       tad     char_mul
+        657 : 4436                       jms     I I_expr
+        660 : 4431                       jms     I I_mul24
+        661 : 0052                       VB
+        662 : 4437                       jms     I I_answer      / 20000
+        663 :
+        663 : 5265                       jmp     .+2
+        664 : 0057               char_div,     2FH               / char '/'
+        665 :
+        665 : 4435                       jms     I I_set_VAVB
+        666 : 2460                       lo(30000)
+        667 : 0007                       hi(30000)
+        670 : 0144                       lo(100)
+        671 : 0000                       hi(100)
+        672 : 1264                       tad     char_div
+        673 : 4436                       jms     I I_expr
+        674 : 4432                       jms     I I_div12
+        675 : 0052                       VB
+        676 : 4437                       jms     I I_answer      / 300
+        677 :
+        677 : 4435                       jms     I I_set_VAVB
+        700 : 7470                       lo(-200)
+        701 : 7777                       hi(-200)
+        702 : 0144                       lo(100)
+        703 : 0000                       hi(100)
+        704 : 1264                       tad     char_div
+        705 : 4436                       jms     I I_expr
+        706 : 4432                       jms     I I_div12
+        707 : 0052                       VB
+        710 : 4437                       jms     I I_answer      / -2
+        711 :
+        711 : 4435                       jms     I I_set_VAVB
+        712 : 5320                       lo(-30000)
+        713 : 7770                       hi(-30000)
+        714 : 7470                       lo(-200)
+        715 : 7777                       hi(-200)
+        716 : 1264                       tad     char_div
+        717 : 4436                       jms     I I_expr
+        720 : 4432                       jms     I I_div12
+        721 : 0052                       VB
+        722 : 4437                       jms     I I_answer      / 150
+        723 :
+        723 : 4435                       jms     I I_set_VAVB
+        724 : 5320                       lo(-30000)
+        725 : 7770                       hi(-30000)
+        726 : 0116                       lo(78)
+        727 : 0000                       hi(78)
+        730 : 1264                       tad     char_div
+        731 : 4436                       jms     I I_expr
+        732 : 4432                       jms     I I_div12
+        733 : 0052                       VB
+        734 : 4437                       jms     I I_answer      / -384
+        735 :
+        735 : 7402                       hlt                     /  @@@@@@@@
+        736 :
+        736 : 4435                       jms     I I_set_VAVB
+        737 : 1610                       lo(5000)
+        740 : 0001                       hi(5000)
+        741 : 7640                       lo(4000)
+        742 : 0000                       hi(4000)
+        743 : 4440                       jms     I I_comp
+        744 :
+        744 : 4435                       jms     I I_set_VAVB
+        745 : 1610                       lo(5000)
+        746 : 0001                       hi(5000)
+        747 : 1610                       lo(5000)
+        750 : 0001                       hi(5000)
+        751 : 4440                       jms     I I_comp
+        752 :
+        752 : 4435                       jms     I I_set_VAVB
+        753 : 7640                       lo(4000)
+        754 : 0000                       hi(4000)
+        755 : 1610                       lo(5000)
+        756 : 0001                       hi(5000)
+        757 : 4440                       jms     I I_comp
+        760 :
+        760 : 4435                       jms     I I_set_VAVB
+        761 : 6170                       lo(-5000)
+        762 : 7776                       hi(-5000)
+        763 : 0140                       lo(-4000)
+        764 : 7777                       hi(-4000)
+        765 : 4440                       jms     I I_comp
+        766 :
+        766 : 4435                       jms     I I_set_VAVB
+        767 : 6170                       lo(-5000)
+        770 : 7776                       hi(-5000)
+        771 : 6170                       lo(-5000)
+        772 : 7776                       hi(-5000)
+        773 : 4440                       jms     I I_comp
+        774 :
+        774 : 4435                       jms     I I_set_VAVB
+        775 : 0140                       lo(-4000)
+        776 : 7777                       hi(-4000)
+        777 : 6170                       lo(-5000)
+       1000 : 7776                       hi(-5000)
+       1001 : 4440                       jms     I I_comp
+       1002 :
+       1002 : 4435                       jms     I I_set_VAVB
+       1003 : 7674                       lo(32700)
+       1004 : 0007                       hi(32700)
+       1005 : 7530                       lo(32600)
+       1006 : 0007                       hi(32600)
+       1007 : 4440                       jms     I I_comp
+       1010 :
+       1010 : 4435                       jms     I I_set_VAVB
+       1011 : 7674                       lo(32700)
+       1012 : 0007                       hi(32700)
+       1013 : 7674                       lo(32700)
+       1014 : 0007                       hi(32700)
+       1015 : 4440                       jms     I I_comp
+       1016 :
+       1016 : 4435                       jms     I I_set_VAVB
+       1017 : 7530                       lo(32600)
+       1020 : 0007                       hi(32600)
+       1021 : 7674                       lo(32700)
+       1022 : 0007                       hi(32700)
+       1023 : 4440                       jms     I I_comp
+       1024 :
+       1024 : 4435                       jms     I I_set_VAVB
+       1025 : 0104                       lo(-32700)
+       1026 : 7770                       hi(-32700)
+       1027 : 0250                       lo(-32600)
+       1030 : 7770                       hi(-32600)
+       1031 : 4440                       jms     I I_comp
+       1032 :
+       1032 : 4435                       jms     I I_set_VAVB
+       1033 : 0104                       lo(-32700)
+       1034 : 7770                       hi(-32700)
+       1035 : 0104                       lo(-32700)
+       1036 : 7770                       hi(-32700)
+       1037 : 4440                       jms     I I_comp
+       1040 :
+       1040 : 4435                       jms     I I_set_VAVB
+       1041 : 0250                       lo(-32600)
+       1042 : 7770                       hi(-32600)
+       1043 : 0104                       lo(-32700)
+       1044 : 7770                       hi(-32700)
+       1045 : 4440                       jms     I I_comp
+       1046 :
+       1046 : 4435                       jms     I I_set_VAVB
+       1047 : 3120                       lo(18000)
+       1050 : 0004                       hi(18000)
+       1051 : 1240                       lo(-28000)
+       1052 : 7771                       hi(-28000)
+       1053 : 4440                       jms     I I_comp
+       1054 :
+       1054 : 4435                       jms     I I_set_VAVB
+       1055 : 1240                       lo(-28000)
+       1056 : 7771                       hi(-28000)
+       1057 : 1240                       lo(-28000)
+       1060 : 7771                       hi(-28000)
+       1061 : 4440                       jms     I I_comp
+       1062 :
+       1062 : 4435                       jms     I I_set_VAVB
+       1063 : 1240                       lo(-28000)
+       1064 : 7771                       hi(-28000)
+       1065 : 3120                       lo(18000)
+       1066 : 0004                       hi(18000)
+       1067 : 4440                       jms     I I_comp
+       1070 :
+       1070 : 5671                       jmp     I I_arith_end
+       1071 : 0420               I_arith_end,    arith_end
+       1072 :
+       1072 :                    /// Print expression; "A op B"
+       1072 :                    /// @param VA value of A
+       1072 :                    /// @param VB value of B
+       1072 :                    /// @param AC op character
+       1072 :                    /// @return R0 VA
+       1072 :                    /// @return AC=0
+       1072 :                    /// @clobber R0 R1 R2
+       1072 : 0000               expr,           .-.
+       1073 : 3312                       dca     expr_op         / save op
+       1074 : 4424                       jms     I I_load24      / R0=VA
+       1075 : 0050                       VA
+       1076 : 4434                       jms     I I_print_int24 / print VA
+       1077 : 4421                       jms     I I_putspace    / print ' '
+       1100 : 7200                       cla
+       1101 : 1312                       tad     expr_op         / restore op
+       1102 : 4420                       jms     I I_putchar     / print 'op'
+       1103 : 4421                       jms     I I_putspace    / print ' '
+       1104 : 4424                       jms     I I_load24      / R0=VB
+       1105 : 0052                       VB
+       1106 : 4434                       jms     I I_print_int24 / print VB
+       1107 : 4424                       jms     I I_load24      / R0=VA
+       1110 : 0050                       VA
+       1111 : 5672                       jmp     I expr          / return, AC=0
+       1112 :                    expr_op,
+       1112 :
+       1112 :                    /// Print answer; " = C\n"
+       1112 :                    /// @param R0 value of C
+       1112 :                    /// @clobber R0 R1 R2 AC
+       1112 : 0000               answer,         .-.
+       1113 : 4421                       jms     I I_putspace    / print ' '
+       1114 : 7200                       cla
+       1115 : 1323                       tad     char_equal
+       1116 : 4420                       jms     I I_putchar     / print '='
+       1117 : 4421                       jms     I I_putspace    / print ' '
+       1120 : 4434                       jms     I I_print_int24 / print R0
+       1121 : 4422                       jms     I I_newline     / print '\n'
+       1122 : 5712                       jmp     I answer        / return
+       1123 : 0075               char_equal,     3DH             / char '='
+       1124 :
+       1124 :                    /// Print comparison; "A rel B\n"
+       1124 :                    /// @param VA value of A
+       1124 :                    /// @param VB value of B
+       1124 : 0000               comp,           .-.
+       1125 : 4424                       jms     I I_load24      / R0=VA
+       1126 : 0050                       VA
+       1127 : 4427                       jms     I I_sub24       / R0=VA-VB, AC=0
+       1130 : 0052                       VB
+       1131 : 1043                       tad     R0H             / high(VA-VB)
+       1132 : 7510                       spa                     / skip if R0>=0
+       1133 : 5344                       jmp     comp_lt         / if VA<VB
+       1134 : 7440                       sza                     / skip if high(VA-VB) == 0
+       1135 : 5350                       jmp     comp_gt         / if VA>VB
+       1136 : 1042                       tad     R0L             / low(VA-VB)
+       1137 : 7440                       sza                     / skip if low(VA-VB) == 0
+       1140 : 5350                       jmp     comp_gt
+       1141 :                    comp_eq,
+       1141 : 1323                       tad     char_equal,
+       1142 : 5352                       jmp     comp_putchar
+       1143 : 0074               char_lt,        3CH             / char '<'
+       1144 :                    comp_lt,
+       1144 : 7200                       cla
+       1145 : 1343                       tad     char_lt
+       1146 : 5352                       jmp     comp_putchar
+       1147 : 0076               char_gt,        3EH             / char '>'
+       1150 :                    comp_gt,
+       1150 : 7200                       cla
+       1151 : 1347                       tad     char_gt
+       1152 :                    comp_putchar,
+       1152 : 4420                       jms     I I_putchar     / print 'rel'
+       1153 : 5724                       jmp     I comp          / return
+       1154 :
+       1200 :                    p        page
+       1200 :                            include "arith.inc"
+(1)    1200 :                    /// -*- mode: asm; mode: flyspell-prog; -*-
+(1)    1200 :
+(1)    1200 :                    /// Set 12-bit immediate value to destination
+(1)    1200 :                    /// @param (PC+1) 12-bit immediate value
+(1)    1200 :                    /// @param (PC+2) destination address
+(1)    1200 :                    /// @return AC=0
+(1)    1200 : 0000               set12,          .-.
+(1)    1201 : 7200                       cla
+(1)    1202 : 1600                       tad     I set12         / immediate value
+(1)    1203 : 2200                       isz     set12           / advance to destination address
+(1)    1204 : 3042                       dca     R0L             / save value
+(1)    1205 : 1600                       tad     I set12         / destination address
+(1)    1206 : 2200                       isz     set12           / advance to return address
+(1)    1207 : 3041                       dca     arith_ptr       / pointer to destination
+(1)    1210 : 1042                       tad     R0L             / restore value
+(1)    1211 : 3441                       dca     I arith_ptr     / store value to destination
+(1)    1212 : 5600                       jmp     I set12         / return, AC=0
+(1)    1213 :
+(1)    1213 :                    /// Set 24-bit immediate value to R0
+(1)    1213 :                    /// @param (PC+1) low 12 bit value
+(1)    1213 :                    /// @param (PC+2) high 12-bit value
+(1)    1213 :                    /// @return AC=0
+(1)    1213 : 0000               set24,          .-.
+(1)    1214 : 7200                       cla
+(1)    1215 : 1613                       tad     I set24         / AC=low(value)
+(1)    1216 : 3042                       dca     R0L             / store low(R0)
+(1)    1217 : 2213                       isz     set24           / advance to high(value)
+(1)    1220 : 1613                       tad     I set24         / AC=high(value)
+(1)    1221 : 3043                       dca     R0H             / store high(R0), AC=0
+(1)    1222 : 2213                       isz     set24           / advance to return address
+(1)    1223 : 5613                       jmp     I set24         / return, AC=0
+(1)    1224 :
+(1)    1224 :                    /// Load 12-bit data to R0 with sign extend
+(1)    1224 :                    /// @param (PC+1) source address
+(1)    1224 :                    /// @return R0 24-bit sign extended value
+(1)    1224 :                    /// @return AC=0
+(1)    1224 : 0000               load12,         .-.
+(1)    1225 : 7200                       cla
+(1)    1226 : 1624                       tad     I load12        / source address
+(1)    1227 : 2224                       isz     load12          / advance to return address
+(1)    1230 : 3041                       dca     arith_ptr       / pointer to source
+(1)    1231 : 1441                       tad     I arith_ptr     / 12-bit value
+(1)    1232 : 3042                       dca     R0L             / store low(R0)
+(1)    1233 : 1042                       tad     R0L
+(1)    1234 : 7710                       spa cla                 / Skip if R0L >= 0, AC=0
+(1)    1235 : 7240                       sta                     / AC=-1
+(1)    1236 : 3043                       dca     R0H             / store high(R0)
+(1)    1237 : 5624                       jmp     I load12        / return, AC=0
+(1)    1240 :
+(1)    1240 :                    /// Load 24-bit data to R0
+(1)    1240 :                    /// @param (PC+1) source address
+(1)    1240 :                    /// @return AC=0
+(1)    1240 : 0000               load24,         .-.
+(1)    1241 : 7200                       cla
+(1)    1242 : 1640                       tad     I load24        / source address
+(1)    1243 : 2240                       isz     load24          / advance to return address
+(1)    1244 : 3041                       dca     arith_ptr       / pointer to low(source)
+(1)    1245 : 1441                       tad     I arith_ptr     / AC=low(source)
+(1)    1246 : 3042                       dca     R0L             / store low(R0)
+(1)    1247 : 2041                       isz     arith_ptr       / advance to high(source)
+(1)    1250 : 1441                       tad     I arith_ptr     / AC=high(source)
+(1)    1251 : 3043                       dca     R0H             / store high(R0), AC=0
+(1)    1252 : 5640                       jmp     I load24        / return
+(1)    1253 :
+(1)    1253 :                    /// Store 24-bit data from R0
+(1)    1253 :                    /// @param (PC+1) destination address
+(1)    1253 :                    /// @return AC=0
+(1)    1253 : 0000               store24,         .-.
+(1)    1254 : 7200                       cla
+(1)    1255 : 1653                       tad     I store24       / destination address
+(1)    1256 : 2253                       isz     store24         / advance to return address
+(1)    1257 : 3041                       dca     arith_ptr       / pointer to low(destination)
+(1)    1260 : 1042                       tad     R0L             / load low(R0)
+(1)    1261 : 3441                       dca     I arith_ptr     / store low(destination)
+(1)    1262 : 1043                       tad     R0H             / load high(R0)
+(1)    1263 : 2041                       isz     arith_ptr       / advance to high(destination)
+(1)    1264 : 3441                       dca     I arith_ptr     / store high(destination), AC=0
+(1)    1265 : 5653                       jmp     I store24       / return
+(1)    1266 :
+(1)    1266 :                    /// 24-bit addition; R0 += source
+(1)    1266 :                    /// @param (PC+1) source address
+(1)    1266 :                    /// @return AC=0
+(1)    1266 : 0000               add24,          .-.
+(1)    1267 : 7300                       cla cll                 / AC=0 L=0
+(1)    1270 : 1666                       tad     I add24        / source address
+(1)    1271 : 2266                       isz     add24           / advance to return address
+(1)    1272 : 3041                       dca     arith_ptr       / pointer to low(source)
+(1)    1273 : 1042                       tad     R0L             / AC=low(R0) L=0
+(1)    1274 : 1441                       tad     I arith_ptr     / add low(source)
+(1)    1275 : 3042                       dca     R0L             / store low(R0)
+(1)    1276 : 7004                       ral                     / AC=carry L=0
+(1)    1277 : 1043                       tad     R0H             / AC=high(R0)+carry
+(1)    1300 : 2041                       isz     arith_ptr       / advance to high(source)
+(1)    1301 : 1441                       tad     I arith_ptr     / add high(source)
+(1)    1302 : 3043                       dca     R0H             / store high(R0), AC=0
+(1)    1303 : 5666                       jmp     I add24         / return
+(1)    1304 :
+(1)    1304 :                    /// 24-bit subtraction; R0 -= source
+(1)    1304 :                    /// @param (PC+1) source address
+(1)    1304 :                    /// @return AC=0
+(1)    1304 :                    /// @return L=0 if borrow
+(1)    1304 : 0000               sub24,          .-.
+(1)    1305 : 7200                       cla
+(1)    1306 : 1704                       tad     I sub24         / source address
+(1)    1307 : 2304                       isz     sub24           / advance to return address
+(1)    1310 : 3041                       dca     arith_ptr       / pointer to low(source)
+(1)    1311 : 1441                       tad     I arith_ptr     / AC=low(source)
+(1)    1312 : 7161                       stl cia                 / negate to form 13-bit negative
+(1)    1313 : 1042                       tad     R0L             / AC=low(R0)-low(source)
+(1)    1314 : 3042                       dca     R0L             / L=0 if borrowed
+(1)    1315 : 7004                       ral                     / propagate complemented borrow
+(1)    1316 : 2041                       isz     arith_ptr       / advance to high(source)
+(1)    1317 : 1441                       tad     I arith_ptr     / AC=high(source)
+(1)    1320 : 7061                       cia cml                 / form 13-bit negative
+(1)    1321 : 1043                       tad     R0H             / add high(R0)
+(1)    1322 : 3043                       dca     R0H             / store high(R0), AC=0
+(1)    1323 : 5704                       jmp     I sub24         / return
+(1)    1324 :
+(1)    1400 :                            page
+(1)    1400 :
+(1)    1400 :                    /// Print signed 24-bit integer as decimal
+(1)    1400 :                    /// @param R0 value
+(1)    1400 :                    /// @return AC=0
+(1)    1400 :                    /// @clobber R0 R1 R2
+(1)    1400 : 0055               char_minus,     055             / '-'
+(1)    1401 : 0000               print_int24,    .-.
+(1)    1402 : 7200                       cla
+(1)    1403 : 1043                       tad     R0H
+(1)    1404 : 7700                       sma cla                 / Skip if R0 < 0, AC=0
+(1)    1405 : 5212                       jmp     print_uint24
+(1)    1406 : 1200                       tad     char_minus
+(1)    1407 : 4420                       jms     I I_putchar     / print '-'
+(1)    1410 : 4430                       jms     I I_neg24
+(1)    1411 : 0042                       R0                      / negate R0
+(1)    1412 :                    print_uint24,
+(1)    1412 : 3650                       dca     I print_uint24_ptr      / *ptr++ = EOS
+(1)    1413 : 2250                       isz     print_uint24_ptr
+(1)    1414 :                    print_uint24_loop,              / AC=0
+(1)    1414 : 1042                       tad     R0L
+(1)    1415 : 3044                       dca     R1L
+(1)    1416 : 1043                       tad     R0H
+(1)    1417 : 3045                       dca     R1H             / R1 = R0 (dividend)
+(1)    1420 : 1247                       tad     const_10
+(1)    1421 : 3046                       dca     R2L
+(1)    1422 : 3047                       dca     R2H             / R2 = 10 (divisor)
+(1)    1423 : 4433                       jms     I I_udiv24      / R0=value/10, AC=0
+(1)    1424 : 1044                       tad     R1L             / remainder
+(1)    1425 : 1246                       tad     char_0          / '0'
+(1)    1426 : 3650                       dca     I print_uint24_ptr      / store 'digit'
+(1)    1427 : 2250                       isz     print_uint24_ptr        / advance ptr
+(1)    1430 : 1042                       tad     R0L             / low(quotient)
+(1)    1431 : 7640                       sza cla                 / Skip if low(quotient) == 0, AC=0
+(1)    1432 : 5214                       jmp     print_uint24_loop       / while quotient != 0
+(1)    1433 : 1043                       tad     R0H             / high(quotient)
+(1)    1434 : 7640                       sza cla                 / Skip if high(quotient) == 0, AC=0
+(1)    1435 : 5214                       jmp     print_uint24_loop       / while quotient != 0
+(1)    1436 :                    print_uint24_print,
+(1)    1436 : 7240                       sta                     / AC=-1
+(1)    1437 : 1250                       tad     print_uint24_ptr        / --ptr
+(1)    1440 : 3250                       dca     print_uint24_ptr
+(1)    1441 : 1650                       tad     I print_uint24_ptr      / AC=*ptr
+(1)    1442 : 7450                       sna                     / Skip if not EOS
+(1)    1443 : 5601                       jmp     I print_int24   / return, AC=0, ptr=buf
+(1)    1444 : 4420                       jms     I I_putchar     / print 'digit'
+(1)    1445 : 5236                       jmp     print_uint24_print
+(1)    1446 :
+(1)    1446 : 0060               char_0,         060             / char '0'
+(1)    1447 : 0012               const_10,       012             / const 10
+(1)    1450 :                    print_uint24_ptr,
+(1)    1450 : 1451                       print_uint24_buf        / string pointer
+(1)    1451 :                    print_uint24_buf,               / buffer, UINT24_MAX=16777215
+(1)    1464 :                            *(.+11)                 / 9 words (8 chars + EOS)
+(1)    1464 :
+(1)    1464 :                    /// Unsigned 24-bit multiply; product = multiplicand * multiplier
+(1)    1464 :                    /// @param R1 multiplicand
+(1)    1464 :                    /// @param R2 multiplier
+(1)    1464 :                    /// @return R0 product
+(1)    1464 :                    /// @return AC=0
+(1)    1464 :                    /// @clobber R1 R2
+(1)    1464 : 0000               umul24,         .-.
+(1)    1465 : 7200                       cla
+(1)    1466 : 3042                       dca     R0L
+(1)    1467 : 3043                       dca     R0H             / clear product
+(1)    1470 : 5313                       jmp     umul24_check    / AC=0
+(1)    1471 :                    umul24_loop,
+(1)    1471 : 7300                       cla cll                 / AC=0 L=0
+(1)    1472 : 1047                       tad     R2H
+(1)    1473 : 7010                       rar
+(1)    1474 : 3047                       dca     R2H
+(1)    1475 : 1046                       tad     R2L
+(1)    1476 : 7010                       rar
+(1)    1477 : 3046                       dca     R2L             / multiplier >>= 1
+(1)    1500 : 7420                       snl                     / Skip LSB=1
+(1)    1501 : 5304                       jmp     umul24_next
+(1)    1502 : 4426                       jms     I I_add24
+(1)    1503 : 0044                       R1                      / product += multiplicand
+(1)    1504 :                    umul24_next,
+(1)    1504 : 7300                       cla cll                 / AC=0 L=0
+(1)    1505 : 1044                       tad     R1L
+(1)    1506 : 7004                       ral
+(1)    1507 : 3044                       dca     R1L
+(1)    1510 : 1045                       tad     R1H
+(1)    1511 : 7004                       ral
+(1)    1512 : 3045                       dca     R1H             / multiplicand <<= 1
+(1)    1513 :                    umul24_check,
+(1)    1513 : 1046                       tad     R2L             / low(multiplier)
+(1)    1514 : 7640                       sza cla                 / Skip if low(multiplier) == 0, AC=0
+(1)    1515 : 5271                       jmp     umul24_loop     / while until multiplier != 0
+(1)    1516 : 1047                       tad     R2H             / high(multiplier)
+(1)    1517 : 7640                       sza cla                 / Skip if high(multiplier) == 0, AC=0
+(1)    1520 : 5271                       jmp     umul24_loop     / while until multiplier != 0
+(1)    1521 : 5664                       jmp     I umul24        / return, AC=0
+(1)    1522 :
+(1)    1522 :                    /// Signed 24-bit multiply; R0 *= source
+(1)    1522 :                    /// @param R0 multiplicand
+(1)    1522 :                    /// @param (PC+1) multiplier source address
+(1)    1522 :                    /// @return R0 product
+(1)    1522 :                    /// @return AC=0
+(1)    1522 :                    /// @clobber R1 R2
+(1)    1522 : 0000               mul24_sign,     0
+(1)    1523 : 0000               mul24,          .-.
+(1)    1524 : 7200                       cla
+(1)    1525 : 3322                       dca     mul24_sign      / clear sign
+(1)    1526 : 1723                       tad     I mul24         / source address
+(1)    1527 : 2323                       isz     mul24           / advance to return address
+(1)    1530 : 3041                       dca     arith_ptr       / pointer to low(source)
+(1)    1531 : 1441                       tad     I arith_ptr     / low(source)
+(1)    1532 : 3046                       dca     R2L             / low(multiplier)
+(1)    1533 : 2041                       isz     arith_ptr       / advance to high(source)
+(1)    1534 : 1441                       tad     I arith_ptr     / high(source)
+(1)    1535 : 3047                       dca     R2H             / high(multiplier)
+(1)    1536 : 1047                       tad     R2H
+(1)    1537 : 7700                       sma cla                 / skip if multiplier<0, AC=0
+(1)    1540 : 5344                       jmp     mul24_multiplicand
+(1)    1541 : 2322                       isz     mul24_sign      / sign++
+(1)    1542 : 4430                       jms     I I_neg24       / negate multiplier
+(1)    1543 : 0046                       R2
+(1)    1544 :                    mul24_multiplicand,
+(1)    1544 : 1042                       tad     R0L
+(1)    1545 : 3044                       dca     R1L             / low(multiplicand)
+(1)    1546 : 1043                       tad     R0H
+(1)    1547 : 3045                       dca     R1H             / high(multiplicand)
+(1)    1550 : 1045                       tad     R1H
+(1)    1551 : 7500                       sma                     / skip if multiplicand<0
+(1)    1552 : 5356                       jmp     mul24_multiply
+(1)    1553 : 2322                       isz     mul24_sign      / sign++
+(1)    1554 : 4430                       jms     I I_neg24       / negate multiplicand
+(1)    1555 : 0044                       R1
+(1)    1556 :                    mul24_multiply,
+(1)    1556 : 4264                       jms     umul24          / R0 = R1 * R2
+(1)    1557 : 1322                       tad     mul24_sign
+(1)    1560 : 7010                       rar                     / L=LSB(sign)
+(1)    1561 : 7620                       snl cla                 / Skip if L=1, AC=0
+(1)    1562 : 5365                       jmp     mul24_return
+(1)    1563 : 4430                       jms     I I_neg24
+(1)    1564 : 0042                       R0                      / negate product
+(1)    1565 :                    mul24_return,
+(1)    1565 : 5723                       jmp     I mul24         / return
+(1)    1566 :
+(1)    1600 :                            page
+(1)    1600 :
+(1)    1600 :                    /// Negate 24-bit; source = -source
+(1)    1600 :                    /// @param (PC+1) source address
+(1)    1600 :                    /// @return AC=0
+(1)    1600 : 0000               neg24,          .-.
+(1)    1601 : 7200                       cla
+(1)    1602 : 1600                       tad     I neg24         / source address
+(1)    1603 : 2200                       isz     neg24           / advance to return address
+(1)    1604 : 3041                       dca     arith_ptr       / pointer to low(source)
+(1)    1605 : 1441                       tad     I arith_ptr     / low(source)
+(1)    1606 : 7141                       cia cll                 / negate AC, L=1 if AC=0
+(1)    1607 : 3441                       dca     I arith_ptr     / store low(source)
+(1)    1610 : 2041                       isz     arith_ptr
+(1)    1611 : 1441                       tad     I arith_ptr     / AC=high(source)
+(1)    1612 : 7040                       cma                     / ~AC
+(1)    1613 : 7430                       szl                     / skip if L=0
+(1)    1614 : 7001                       iac                     / AC += L
+(1)    1615 : 3441                       dca     I arith_ptr     / store high(source), AC=0
+(1)    1616 : 5600                       jmp     I neg24         / return
+(1)    1617 :
+(1)    1617 :                    /// Signed 24bit/12-bit division; quotient = dividend / divisor ... remainder
+(1)    1617 :                    /// @param R0 dividend
+(1)    1617 :                    /// @param (PC+1) 12-bit divisor
+(1)    1617 :                    /// @return R0 quotient
+(1)    1617 :                    /// @return R1 remainder
+(1)    1617 :                    /// @return AC=0
+(1)    1617 :                    /// @clobber R2
+(1)    1617 : 0000               div12_sign,     0
+(1)    1620 : 0000               div12,          .-.
+(1)    1621 : 7200                       cla
+(1)    1622 : 3217                       dca     div12_sign      / clear sign
+(1)    1623 : 1620                       tad     I div12
+(1)    1624 : 2220                       isz     div12
+(1)    1625 : 3041                       dca     arith_ptr
+(1)    1626 : 1441                       tad     I arith_ptr     / AC=divisor
+(1)    1627 : 7500                       sma                     / Skip if divisor < 0
+(1)    1630 : 5233                       jmp     div12_divisor_plus
+(1)    1631 : 2217                       isz     div12_sign      / sign++
+(1)    1632 : 7041                       cia                     / negate divisor
+(1)    1633 :                    div12_divisor_plus,
+(1)    1633 : 3046                       dca     R2L             / R2L=|divisor|
+(1)    1634 : 3047                       dca     R2H             / R2H=0
+(1)    1635 : 1042                       tad     R0L
+(1)    1636 : 3044                       dca     R1L             / R1=dividend
+(1)    1637 : 1043                       tad     R0H
+(1)    1640 : 3045                       dca     R1H
+(1)    1641 : 1045                       tad     R1H
+(1)    1642 : 7500                       sma                     / skip if R0H<0
+(1)    1643 : 5247                       jmp     div12_divide
+(1)    1644 : 2217                       isz     div12_sign      / sign++
+(1)    1645 : 4430                       jms     I I_neg24       / negate dividend
+(1)    1646 : 0044                       R1
+(1)    1647 :                    div12_divide,
+(1)    1647 : 4260                       jms     udiv24          / R0 = R1 / R2 ... R1
+(1)    1650 : 1217                       tad     div12_sign
+(1)    1651 : 7010                       rar                     / L=LSB(sign)
+(1)    1652 : 7620                       snl cla                 / Skip if L=1, AC=0
+(1)    1653 : 5256                       jmp     div12_return
+(1)    1654 : 4430                       jms     I I_neg24
+(1)    1655 : 0042                       R0                      / negate R0, AC=0
+(1)    1656 :                    div12_return,
+(1)    1656 : 5620                       jmp     I div12         / return, AC=0
+(1)    1657 :
+(1)    1657 :                    // Unsigned 24-bit division; quotient = dividend / divisor ... remainder
+(1)    1657 :                    // @param R1 dividend
+(1)    1657 :                    // @param R2 divisor
+(1)    1657 :                    // @return R0 quotient
+(1)    1657 :                    // @return R1 remainder
+(1)    1657 :                    // @return AC=0
+(1)    1657 :                    // @clobber R2
+(1)    1657 : 0000               udiv24_bits,    0
+(1)    1660 : 0000               udiv24,         .-.
+(1)    1661 : 7200                       cla
+(1)    1662 : 3042                       dca     R0L
+(1)    1663 : 3043                       dca     R0H             / quitient = 0
+(1)    1664 : 1046                       tad     R2L
+(1)    1665 : 7440                       sza                     / skip low(divisor) == 0
+(1)    1666 : 5273                       jmp     udiv24_setup
+(1)    1667 : 1047                       tad     R2H
+(1)    1670 : 7440                       sza                     / skip high(divisor) == 0
+(1)    1671 : 5273                       jmp     udiv24_setup
+(1)    1672 : 5660                       jmp     I udiv24        / return as divide by zero, AC=0
+(1)    1673 :                    udiv24_setup,
+(1)    1673 : 7201                       cla iac                 / AC=1
+(1)    1674 : 3257                       dca     udiv24_bits     / bits=1
+(1)    1675 : 5306                       jmp     udiv24_prep     / AC=0
+(1)    1676 :                    udiv24_prep_loop,
+(1)    1676 : 7300                       cla cll                 / AC=0 L=0
+(1)    1677 : 1046                       tad     R2L
+(1)    1700 : 7004                       ral
+(1)    1701 : 3046                       dca     R2L
+(1)    1702 : 1047                       tad     R2H
+(1)    1703 : 7004                       ral
+(1)    1704 : 3047                       dca     R2H             / divisor <<= 1, AC=0
+(1)    1705 : 2257                       isz     udiv24_bits     / bits++
+(1)    1706 :                    udiv24_prep,
+(1)    1706 : 1047                       tad     R2H
+(1)    1707 : 7700                       sma cla                 / skip if MSB(divisor)=1, AC=0
+(1)    1710 : 5276                       jmp     udiv24_prep_loop        / while MSB(divisor)=0
+(1)    1711 : 5331                       jmp     udiv24_enter_loop       / AC=0
+(1)    1712 :                    udiv24_loop,
+(1)    1712 : 3257                       dca     udiv24_bits
+(1)    1713 : 7300                       cla cll                 / AC=0 L=0
+(1)    1714 : 1047                       tad     R2H
+(1)    1715 : 7010                       rar
+(1)    1716 : 3047                       dca     R2H
+(1)    1717 : 1046                       tad     R2L
+(1)    1720 : 7010                       rar
+(1)    1721 : 3046                       dca     R2L             / divisor >= 1
+(1)    1722 : 7300                       cla cll                 / AC=0 L=0
+(1)    1723 : 1042                       tad     R0L
+(1)    1724 : 7004                       ral
+(1)    1725 : 3042                       dca     R0L
+(1)    1726 : 1043                       tad     R0H
+(1)    1727 : 7004                       ral
+(1)    1730 : 3043                       dca     R0H             / quotient <<= 1, LSB(quotient)=0
+(1)    1731 :                    udiv24_enter_loop,
+(1)    1731 : 1046                       tad     R2L             / low(divisor)
+(1)    1732 : 7161                       stl cia                 / negate to form 13-bit negative
+(1)    1733 : 1044                       tad     R1L             / low(dividend)
+(1)    1734 : 3044                       dca     R1L             / dividend -= divisor
+(1)    1735 : 7004                       ral                     / propagate complemented borrow
+(1)    1736 : 1047                       tad     R2H             / high(divisor)
+(1)    1737 : 7061                       cia cml                 / form 13-bit negative
+(1)    1740 : 1045                       tad     R1H             / high(dividend)
+(1)    1741 : 3045                       dca     R1H             / dividend -= divisor
+(1)    1742 : 7430                       szl                     / skip if L=0 (no borrow)
+(1)    1743 : 5346                       jmp     udiv24_readd    / if dividend < divisor
+(1)    1744 : 2042                       isz     R0L             / LSB(quotient)=1
+(1)    1745 : 5356                       jmp     udiv24_next
+(1)    1746 :                    udiv24_readd,
+(1)    1746 : 7300                       cla cll                 / AC=0 L=0
+(1)    1747 : 1046                       tad     R2L             / low(divisor)
+(1)    1750 : 1044                       tad     R1L             / low(dividend)
+(1)    1751 : 3044                       dca     R1L             / dividend += divisor
+(1)    1752 : 7004                       ral                     / AC=carry L=0
+(1)    1753 : 1047                       tad     R2H             / high(divisor)
+(1)    1754 : 1045                       tad     R1H             / high(dividend)
+(1)    1755 : 3045                       dca     R1H             / dividend += divisor
+(1)    1756 :                    udiv24_next,
+(1)    1756 : 7240                       sta                     / AC=-1
+(1)    1757 : 1257                       tad     udiv24_bits     / AC=bits-1
+(1)    1760 : 7440                       sza                     / skip if bits == 0
+(1)    1761 : 5312                       jmp     udiv24_loop     / while bits != 0
+(1)    1762 : 5660                       jmp     I udiv24        / return, AC=0
