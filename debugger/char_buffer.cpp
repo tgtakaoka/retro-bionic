@@ -7,6 +7,9 @@ namespace {
 constexpr char toHex4(uint8_t val) {
     return val < 10 ? val + '0' : val - 10 + 'A';
 }
+constexpr char toOct3(uint8_t val) {
+    return val + '0';
+}
 }  // namespace
 
 CharBuffer::CharBuffer(uint8_t size) : _str(new char[size + 1]) {
@@ -53,6 +56,35 @@ void CharBuffer::hex24(uint8_t pos, uint32_t val) {
 void CharBuffer::hex32(uint8_t pos, uint32_t val) {
     hex16(pos, val >> 16);
     hex16(pos + 4, val);
+}
+
+void CharBuffer::oct3(uint8_t pos, uint8_t val) {
+    _str[pos] = toOct3(val & 7);
+}
+
+void CharBuffer::oct6(uint8_t pos, uint8_t val) {
+    oct3(pos, val >> 3);
+    oct3(pos + 1, val);
+}
+
+void CharBuffer::oct12(uint8_t pos, uint16_t val) {
+    oct6(pos, val >> 6);
+    oct6(pos + 2, val);
+}
+
+void CharBuffer::oct15(uint8_t pos, uint16_t val) {
+    oct3(pos, val >> 12);
+    oct12(pos + 1, val);
+}
+
+void CharBuffer::oct18(uint8_t pos, uint32_t val) {
+    oct6(pos, val >> 12);
+    oct12(pos + 4, val);
+}
+
+void CharBuffer::oct24(uint8_t pos, uint32_t val) {
+    oct12(pos, val >> 12);
+    oct12(pos + 4, val);
 }
 
 void CharBuffer::bits(

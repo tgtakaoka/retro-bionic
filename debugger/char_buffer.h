@@ -21,6 +21,12 @@ struct CharBuffer final {
     void hex20(uint8_t pos, uint32_t value);
     void hex24(uint8_t pos, uint32_t value);
     void hex32(uint8_t pos, uint32_t value);
+    void oct3(uint8_t pos, uint8_t value);
+    void oct6(uint8_t pos, uint8_t value);
+    void oct12(uint8_t pos, uint16_t value);
+    void oct15(uint8_t pos, uint16_t value);
+    void oct18(uint8_t pos, uint32_t value);
+    void oct24(uint8_t pos, uint32_t value);
     void bits(uint8_t pos, uint16_t value, uint16_t mask, const char *letters);
 
 private:
