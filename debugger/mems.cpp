@@ -126,6 +126,166 @@ void Mems::RomArea::print() const {
     }
 }
 
+namespace {
+
+constexpr uint_fast8_t numDigits(
+        const uint_fast8_t bits, const uint_fast8_t radix) {
+    const auto digit = (radix == 8) ? 3 : 4;
+    return bits / digit + ((bits % digit) == 0 ? 0 : 1);
+}
+
+void printSpaces(uint_fast8_t n) {
+    for (uint_fast8_t i = 0; i < n; ++i)
+        cli.print(' ');
+}
+
+}  // namespace
+
+uint8_t Mems::addressWidth() const {
+#ifdef WITH_DISASSEMBLER
+    if (_disassembler)
+        return _disassembler->config().addressWidth();
+#endif
+    return 16;
+}
+
+uint8_t Mems::addressUnit() const {
+#ifdef WITH_DISASSEMBLER
+    if (_disassembler)
+        return _disassembler->config().addressUnit();
+#endif
+    return 1;
+}
+
+uint8_t Mems::opCodeWidth() const {
+#ifdef WITH_DISASSEMBLER
+    if (_disassembler)
+        return _disassembler->config().opCodeWidth();
+#endif
+    return 8;
+}
+
+uint8_t Mems::listRadix() const {
+#ifdef WITH_DISASSEMBLER
+    if (_disassembler)
+        return _disassembler->listRadix();
+#endif
+    return 16;
+}
+
+void Mems::isPrint(const uint8_t *data, char buf[2]) const {
+    buf[0] = isprint(data[0]) ? data[0] : '.';
+    buf[1] = isprint(data[1]) ? data[1] : '.';
+}
+
+/** Returns the number of columns to print |len| bytes data */
+uint8_t Mems::dataColumns(uint8_t len) const {
+    const auto bits = opCodeWidth();
+    const auto unit = addressUnit();
+    // if |len| is odd, |count| may be round down.
+    const auto count = (bits == 16 || unit == 2) ? len / 2 : len;
+    return (1 + numDigits(bits, listRadix())) * count;
+}
+
+void Mems::printAddress(uint32_t addr) const {
+    const auto radix = listRadix();
+    cli.printNum(addr, radix, numDigits(addressWidth(), radix));
+    cli.print(':');
+}
+
+/** Print |len| bytes data from |buf[start] until |buf[start+len]| */
+void Mems::dump(
+        const uint8_t *buf, uint_fast8_t start, uint_fast8_t len) const {
+    const auto radix = listRadix();
+    const auto bits = opCodeWidth();
+    const auto digits = numDigits(bits, radix);
+    const auto unit = addressUnit();
+    const auto chunk = (bits == 16 || unit == 2) ? 2 : 1;
+    if (bits == 16 && start % 2 != 0) {
+        printSpaces(1 + digits / 2);
+        cli.printNum(buf[start++], radix, digits / 2);
+        len--;
+    }
+    for (uint_fast8_t i = 0; i + chunk <= len;) {
+        printSpaces(1);
+        if (chunk == 2) {
+            uint16_t data;
+            if (_endian == ENDIAN_BIG) {
+                data = uint16(buf[start + i + 0], buf[start + i + 1]);
+            } else {
+                data = uint16(buf[start + i + 1], buf[start + i + 0]);
+            }
+            if (bits == 12)
+                data &= 07777;
+            cli.printNum(data, radix, digits);
+            i += 2;
+        } else {
+            cli.printNum(buf[start + i++], radix, digits);
+        }
+    }
+    if (bits == 16 && (start + len) % 2 != 0) {
+        printSpaces(1);
+        cli.printNum(buf[start + len - 1], radix, digits / 2);
+        printSpaces(digits / 2);
+    }
+}
+
+void Mems::dumpMemory(uint32_t addr, uint16_t len, const char *space) const {
+    const auto start = addr;
+    const auto end = addr + len;
+    const auto bits = opCodeWidth();
+    const auto unit = addressUnit();
+    // Quantize address to a multiple of 8 or 16.
+    const auto chunk = (bits == 16 || unit == 2) ? 2 : 1;
+    const auto step = 16 / unit;
+    // Print 16 bytes of data
+    for (addr &= ~(step - 1); addr < end; addr += step) {
+        printAddress(addr);
+        const auto head = (addr < start) ? start - addr : 0;
+        const auto tail = (end < addr + step) ? addr + step - end : 0;
+        const auto count = step - head - tail;
+        // Read 16 bytes into |buf|.
+        uint8_t buf[16];
+        for (auto n = 0; n < 16; n += unit) {
+            const auto a = addr + n / unit;
+            if (a >= start && a < end) {
+                if (unit == 1) {
+                    buf[n] = get(a, space);
+                } else {
+                    const auto data = get(a, space);
+                    if (_endian == ENDIAN_BIG) {
+                        buf[n + 0] = hi(data);
+                        buf[n + 1] = lo(data);
+                    } else {
+                        buf[n + 0] = lo(data);
+                        buf[n + 1] = hi(data);
+                    }
+                }
+            }
+        }
+        printSpaces(dataColumns(head * unit));
+        dump(buf, head * unit, count * unit);
+        printSpaces(dataColumns(tail * unit));
+        printSpaces(1);
+        printSpaces(head * chunk);
+        for (auto n = 0; n < 16; n += unit) {
+            const auto a = addr + n / unit;
+            if (a >= start && a < end) {
+                if (unit == 1) {
+                    const char c = isprint(buf[n]) ? buf[n] : '.';
+                    cli.print(c);
+                } else {
+                    char chars[2];
+                    isPrint(buf + n, chars);
+                    cli.print(chars[0]);
+                    cli.print(chars[1]);
+                }
+            }
+        }
+        cli.println();
+    }
+}
+
 #ifdef WITH_DISASSEMBLER
 libasm::Disassembler *Mems::disassembler() const {
     auto dis = _disassembler;
@@ -139,29 +299,34 @@ uint32_t Mems::disassemble(uint32_t addr, uint8_t numInsn) const {
 #ifdef WITH_DISASSEMBLER
     auto dis = disassembler();
     if (dis) {
+        constexpr auto chunk = 6;
+        const auto unit = addressUnit();
         const auto nameWidth = dis->config().nameMax() + 1;
-        const auto addrDigit = ((dis->config().addressWidth() + 3) & -4) / 4;
         dis->setOption("uppercase", "true");
+        const auto codeMax = dis->config().codeMax();
         DisMemory mem(this);
         uint16_t num = 0;
         while (num < numInsn) {
             char operands[80];
             libasm::Insn insn(addr);
-            mem.setAddress(addr);
+            mem.setAddress(addr * unit);
             dis->decode(mem, insn, operands, sizeof(operands));
-            cli.printHex(insn.address(), addrDigit);
-            cli.print(':');
-            // TODO: support OPCODE_12BIT, OPCODE_16BIT, ADDRESS_WORD etc.
-            // See libasm's arduino_example.h
-            for (auto i = 0; i < insn.length(); i++) {
-                cli.printHex(insn.bytes()[i], 2);
-                cli.print(' ');
+            auto step = codeMax < chunk ? codeMax : chunk;
+            for (auto i = 0; i < insn.length(); i += step) {
+                printAddress(insn.address());
+                auto len = insn.length() - i;
+                if (len >= step)
+                    len = step;
+                dump(insn.bytes(), i, len);
+                if (len < step)
+                    printSpaces(dataColumns(step - len));
+                if (i == 0) {
+                    printSpaces(2);
+                    cli.printStr(insn.name(), -nameWidth);
+                    cli.printStr(operands);
+                }
+                cli.println();
             }
-            for (auto i = insn.length(); i < 5; i++) {
-                cli.print("   ");
-            }
-            cli.printStr(insn.name(), -nameWidth);
-            cli.printlnStr(operands);
             if (insn.getError()) {
                 cli.print("Error: ");
                 cli.printStr_P(insn.errorText_P());
@@ -174,7 +339,7 @@ uint32_t Mems::disassemble(uint32_t addr, uint8_t numInsn) const {
                 if (insn.getError() == libasm::NO_MEMORY)
                     break;
             }
-            addr += insn.length();
+            addr += insn.length() / unit;
             ++num;
         }
     }

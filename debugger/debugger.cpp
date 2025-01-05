@@ -86,41 +86,6 @@ uint8_t mem_buffer[16];
 
 char str_buffer[40];
 
-void memoryDump(uint32_t addr, uint16_t len, const char *space = nullptr) {
-    const auto start = addr;
-    const auto end = addr + len;
-    for (addr &= ~0xF; addr < end; addr += 16) {
-        cli.printHex(addr, 4);
-        cli.print(':');
-        for (auto i = 0; i < 16; i++) {
-            const auto a = addr + i;
-            if (a < start || a >= end) {
-                cli.print("   ");
-            } else {
-                const auto data = Debugger.target().read_memory(a, space);
-                mem_buffer[i] = data;
-                cli.print(' ');
-                cli.printHex(data, 2);
-            }
-        }
-        cli.print(' ');
-        for (auto i = 0; i < 16; i++) {
-            const auto a = addr + i;
-            if (a < start || a >= end) {
-                cli.print(' ');
-            } else {
-                const char data = mem_buffer[i];
-                if (isprint(data)) {
-                    cli.print(data);
-                } else {
-                    cli.print('.');
-                }
-            }
-        }
-        cli.println();
-    }
-}
-
 void handleDump(uint32_t value, uintptr_t extra, State state);
 
 void handleDumpSpace(char *word, uintptr_t extra, State state) {
@@ -131,7 +96,7 @@ void handleDumpSpace(char *word, uintptr_t extra, State state) {
             return;
         }
         cli.println();
-        memoryDump(last_addr, last_length, word);
+        Debugger.target().dumpMemory(last_addr, last_length, word);
     }
     printPrompt();
 }
@@ -163,7 +128,7 @@ void handleDump(uint32_t value, uintptr_t extra, State state) {
         last_length = 16;
     }
     cli.println();
-    memoryDump(last_addr, last_length);
+    Debugger.target().dumpMemory(last_addr, last_length);
     last_addr += last_length;
 cancel:
     printPrompt();
@@ -228,7 +193,7 @@ void handleMemory(uint32_t value, uintptr_t extra, State state) {
         }
         cli.println();
         Debugger.target().write_memory(last_addr, mem_buffer, index);
-        memoryDump(last_addr, index);
+        Debugger.target().dumpMemory(last_addr, index);
         last_addr += index;
     }
     printPrompt();
