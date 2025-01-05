@@ -198,12 +198,11 @@ void PinsMc6801::resetPins() {
     cycle();
     // The first instruction will be saving registers, and certainly can be
     // injected.
-    auto r = regs<RegsMc6801>();
-    r->reset();
-    r->save();
+    _regs->reset();
+    _regs->save();
     _mems->raw_write16(InstMc6800::VEC_RESET, reset_vec);
-    r->setIp(reset_vec);
-    if (r->checkSoftwareType() == SW_HD6301) {
+    _regs->setIp(reset_vec);
+    if (regs<RegsMc6801>()->checkSoftwareType() == SW_HD6301) {
         delete _inst;
         _inst = new hd6301::InstHd6301(_mems);
     }

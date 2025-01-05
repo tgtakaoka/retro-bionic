@@ -215,9 +215,8 @@ void PinsZ80::resetPins() {
     clk_cycle();
     Signals::resetCycles();
     prepareWait();
-    auto r = regs<RegsZ80>();
-    r->setIp(InstZ80::ORG_RESET);
-    r->save();
+    _regs->setIp(InstZ80::ORG_RESET);
+    _regs->save();
 }
 
 Signals *PinsZ80::prepareCycle() const {

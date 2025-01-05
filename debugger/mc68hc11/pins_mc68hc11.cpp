@@ -218,13 +218,12 @@ void PinsMc68hc11::resetPins() {
     cycle();
     // The first instruction will be saving registers, and certainly can be
     // injected.
-    auto r = regs<RegsMc68hc11>();
-    r->reset();
-    r->save();
-    _init.configSystem(r);
-    r->checkSoftwareType();
+    _regs->reset();
+    _regs->save();
+    _init.configSystem(regs<RegsMc68hc11>());
+    regs<RegsMc68hc11>()->checkSoftwareType();
     _mems->raw_write16(InstMc68hc11::VEC_RESET, reset_vec);
-    r->setIp(reset_vec);
+    _regs->setIp(reset_vec);
 }
 
 mc6800::Signals *PinsMc68hc11::cycle() {

@@ -188,12 +188,11 @@ void PinsMc6802::resetPins() {
     cycle();
     // The first instruction will be saving registers, and certainly can be
     // injected.
-    auto r = regs<RegsMc6802>();
-    r->reset();
-    r->save();
+    _regs->reset();
+    _regs->save();
     _mems->raw_write16(InstMc6800::VEC_RESET, reset_vec);
-    r->setIp(reset_vec);
-    r->checkSoftwareType();
+    _regs->setIp(reset_vec);
+    regs<RegsMc6802>()->checkSoftwareType();
 }
 
 mc6800::Signals *PinsMc6802::cycle() {

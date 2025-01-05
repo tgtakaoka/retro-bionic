@@ -167,7 +167,7 @@ void PinsCdp1802::resetPins() {
         if (signal_tpa() != LOW)
             break;
     }
-    regs<RegsCdp1802>()->reset();
+    _regs->reset();
     _regs->save();
 }
 
