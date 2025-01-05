@@ -39,13 +39,11 @@ struct Mems {
     }
 
     // Read and write from debugger
-    virtual uint16_t get(uint32_t addr, const char *space = nullptr) const {
-        (void)space;
+    virtual uint16_t get(uint32_t addr, const char * = nullptr) const {
         return read(addr);
     }
     virtual void put(
-            uint32_t addr, uint16_t data, const char *space = nullptr) const {
-        (void)space;
+            uint32_t addr, uint16_t data, const char * = nullptr) const {
         write(addr, data);
     }
     void put(uint32_t addr, const uint8_t *buffer, uint8_t len) const;
@@ -63,6 +61,8 @@ struct Mems {
 
     uint32_t assemble(uint32_t addr, const char *line) const;
     uint32_t disassemble(uint32_t addr, uint8_t numInsn) const;
+    void dumpMemory(
+            uint32_t addr, uint16_t len, const char *space = nullptr) const;
 
 protected:
     Mems(Endian endian);
@@ -77,6 +77,15 @@ protected:
     virtual libasm::Disassembler *disassembler() const;
 #endif
 
+    virtual void isPrint(const uint8_t *data, char buf[2]) const;
+    uint8_t dataColumns(uint8_t len) const;
+    void dump(const uint8_t *buf, uint_fast8_t start, uint_fast8_t len) const;
+    uint8_t addressWidth() const;
+    uint8_t addressUnit() const;
+    uint8_t opCodeWidth() const;
+    uint8_t listRadix() const;
+    void printAddress(uint32_t addr) const;
+
     uint16_t raw_read16be(uint32_t addr) const;
     uint16_t raw_read16le(uint32_t addr) const;
     void raw_write16be(uint32_t addr, uint16_t data) const;
@@ -90,6 +99,14 @@ protected:
     }
     static constexpr uint16_t uint16(uint8_t hi, uint8_t lo) {
         return static_cast<uint16_t>(hi) << 8 | lo;
+    }
+    static void le16(uint8_t *p, uint16_t v) {
+        p[0] = lo(v);
+        p[1] = hi(v);
+    }
+    static void be16(uint8_t *p, uint16_t v) {
+        p[0] = hi(v);
+        p[1] = lo(v);
     }
 };
 

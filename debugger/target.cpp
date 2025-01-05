@@ -80,6 +80,10 @@ uint32_t Target::disassemble(uint32_t addr, uint8_t numInsn) const {
     return _mems->disassemble(addr, numInsn);
 }
 
+void Target::dumpMemory(uint32_t addr, uint16_t len, const char *space) const {
+    _mems->dumpMemory(addr, len, space);
+}
+
 uint16_t Target::read_memory(uint32_t addr, const char *space) const {
     return _mems->get(addr, space);
 }
