@@ -119,7 +119,7 @@ void RegsTms7000::write_internal(uint16_t addr, uint8_t data) {
 }
 
 void RegsTms7000::helpRegisters() const {
-    cli.println(F("?Reg: PC SP A B ST"));
+    cli.println("?Reg: PC SP A B ST");
 }
 
 constexpr const char *REGS8[] = {

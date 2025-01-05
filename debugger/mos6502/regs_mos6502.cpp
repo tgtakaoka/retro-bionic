@@ -183,11 +183,11 @@ void RegsMos6502::restore65816() {
 }
 
 void RegsMos6502::helpRegisters() const {
-    cli.print(F("?Reg: PC S X Y A P"));
+    cli.print("?Reg: PC S X Y A P");
     if (PinsMos6502::hardwareType() == HW_W65C816) {
-        cli.print(F(" E"));
+        cli.print(" E");
         if (_e == 0)
-            cli.print(F(" C D K/PBR B/DBR PM PX"));
+            cli.print(" C D K/PBR B/DBR PM PX");
     }
     cli.println();
 }

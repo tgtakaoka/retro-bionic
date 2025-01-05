@@ -57,7 +57,7 @@ void usage() {
     cli.print("* Bionic");
     Identity::printIdentity();
     cli.print(" * ");
-    cli.println(F(VERSION_TEXT));
+    cli.println(VERSION_TEXT);
     cli.println(USAGE);
 }
 

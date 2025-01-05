@@ -121,7 +121,7 @@ void RegsScn2650::write_io(uint8_t addr, uint8_t data) const {
 }
 
 void RegsScn2650::helpRegisters() const {
-    cli.println(F("?Reg: PC PSU/PSL RS CC R0~R3"));
+    cli.println("?Reg: PC PSU/PSL RS CC R0~R3");
 }
 
 constexpr const char *REGS1[] = {

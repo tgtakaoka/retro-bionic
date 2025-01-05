@@ -154,7 +154,7 @@ void RegsZ86::set_rp(uint8_t val) {
 }
 
 void RegsZ86::helpRegisters() const {
-    cli.println(F("?Reg: PC SP RP FLAGS R0~R15 RR0~14"));
+    cli.println("?Reg: PC SP RP FLAGS R0~R15 RR0~14");
 }
 
 }  // namespace z86

@@ -146,7 +146,7 @@ void RegsTlcs90::restoreRegs(const reg &regs) const {
 }
 
 void RegsTlcs90::helpRegisters() const {
-    cli.println(F("?Reg: PC SP IX IY BC DE HL A F B C D E H L EX EXX"));
+    cli.println("?Reg: PC SP IX IY BC DE HL A F B C D E H L EX EXX");
 }
 
 constexpr const char *REGS8[] = {

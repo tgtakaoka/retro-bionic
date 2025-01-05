@@ -110,7 +110,7 @@ uint16_t RegsMc68hc11::capture(const mc6800::Signals *stack, bool step) {
 }
 
 void RegsMc68hc11::helpRegisters() const {
-    cli.println(F("?Reg: PC SP X Y A B D CC"));
+    cli.println("?Reg: PC SP X Y A B D CC");
 }
 
 constexpr const char *REGS8[] = {

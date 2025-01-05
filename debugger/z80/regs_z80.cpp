@@ -140,7 +140,7 @@ void RegsZ80::write_io(uint8_t addr, uint8_t data) const {
 }
 
 void RegsZ80::helpRegisters() const {
-    cli.println(F("?Reg: PC SP IX IY BC DE HL A F B C D E H L I EX EXX"));
+    cli.println("?Reg: PC SP IX IY BC DE HL A F B C D E H L I EX EXX");
 }
 
 constexpr const char *REGS8[] = {

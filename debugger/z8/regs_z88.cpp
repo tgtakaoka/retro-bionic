@@ -221,7 +221,7 @@ void RegsZ88::set_rp1(uint8_t val) {
 }
 
 void RegsZ88::helpRegisters() const {
-    cli.println(F("?Reg: PC SP IP RP/0/1 FLAGS R0~R15 RR0~14"));
+    cli.println("?Reg: PC SP IP RP/0/1 FLAGS R0~R15 RR0~14");
 }
 
 constexpr const char *Z88_REGS8[] = {
