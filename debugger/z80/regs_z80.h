@@ -1,6 +1,7 @@
 #ifndef __REGS_Z80_H__
 #define __REGS_Z80_H__
 
+#include "char_buffer.h"
 #include "pins_z80_base.h"
 #include "regs.h"
 
@@ -8,7 +9,7 @@ namespace debugger {
 namespace z80 {
 
 struct RegsZ80 final : Regs {
-    RegsZ80(const char *name, PinsZ80Base *pins) : _name(name), _pins(pins) {}
+    RegsZ80(const char *name, PinsZ80Base *pins);
     const char *cpu() const override;
     const char *cpuName() const override;
 
@@ -26,8 +27,8 @@ struct RegsZ80 final : Regs {
     void write_io(uint8_t addr, uint8_t data) const;
 
 private:
-    const char *_name;
-    PinsZ80Base *_pins;
+    const char *const _name;
+    PinsZ80Base *const _pins;
 
     uint16_t _pc;
     uint16_t _sp;
@@ -63,6 +64,9 @@ private:
     void exchangeRegs() const;
     void saveRegs(reg &regs) const;
     void restoreRegs(const reg &regs) const;
+
+    mutable CharBuffer _buffer1;
+    mutable CharBuffer _buffer2;
 };
 
 }  // namespace z80

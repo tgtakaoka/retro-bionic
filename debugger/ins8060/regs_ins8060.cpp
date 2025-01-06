@@ -1,11 +1,17 @@
 #include "regs_ins8060.h"
-#include "char_buffer.h"
 #include "debugger.h"
 #include "pins_ins8060.h"
 #include "signals_ins8060.h"
 
 namespace debugger {
 namespace ins8060 {
+namespace {
+static constexpr char line[] =
+        "PC=xxxx P1=xxxx P2=xxxx P3=xxxx E=xx A=xx S=CVBAI210";
+//       0123456789012345678901234567890123456789012345678901
+}  // namespace
+
+RegsIns8060::RegsIns8060(PinsIns8060 *pins) : _pins(pins), _buffer(line) {}
 
 const char *RegsIns8060::cpu() const {
     return "INS8060";
@@ -16,18 +22,14 @@ const char *RegsIns8060::cpuName() const {
 }
 
 void RegsIns8060::print() const {
-    static constexpr char line[] =
-            "PC=xxxx P1=xxxx P2=xxxx P3=xxxx E=xx A=xx S=CVBAI210";
-    //       0123456789012345678901234567890123456789012345678901
-    static auto &buffer = *new CharBuffer(line);
-    buffer.hex16(3, _pc());
-    buffer.hex16(11, _p1());
-    buffer.hex16(19, _p2());
-    buffer.hex16(27, _p3());
-    buffer.hex8(34, _e);
-    buffer.hex8(39, _a);
-    buffer.bits(44, _s, 0x80, line + 44);
-    cli.println(buffer);
+    _buffer.hex16(3, _pc());
+    _buffer.hex16(11, _p1());
+    _buffer.hex16(19, _p2());
+    _buffer.hex16(27, _p3());
+    _buffer.hex8(34, _e);
+    _buffer.hex8(39, _a);
+    _buffer.bits(44, _s, 0x80, line + 44);
+    cli.println(_buffer);
     _pins->idle();
 }
 
@@ -40,8 +42,9 @@ void RegsIns8060::save() {
             0x32, 0xC8, 0xFF, 0x36, 0xC8, 0xFF,  // XPAL P1, ST $, XPAH P1, ST $
             0x33, 0xC8, 0xFF, 0x37, 0xC8, 0xFF,  // XPAL P1, ST $, XPAH P1, ST $
     };
-    static uint8_t buffer[9];
-    _pins->captureWrites(ST_ALL, sizeof(ST_ALL), &_pc(), buffer, sizeof(buffer));
+    uint8_t buffer[9];
+    _pins->captureWrites(
+            ST_ALL, sizeof(ST_ALL), &_pc(), buffer, sizeof(buffer));
     _a = buffer[0];
     _e = buffer[1];
     _s = buffer[2];

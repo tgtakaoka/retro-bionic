@@ -18,8 +18,6 @@ protected:
     uint8_t signal_txd() const override;
 };
 
-extern struct Z86SioHandler SioH;
-
 }  // namespace z86
 }  // namespace debugger
 #endif

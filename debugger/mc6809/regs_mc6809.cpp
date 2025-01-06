@@ -1,11 +1,21 @@
 #include "regs_mc6809.h"
-#include "char_buffer.h"
 #include "debugger.h"
 #include "pins_mc6809.h"
 #include "signals_mc6809.h"
 
 namespace debugger {
 namespace mc6809 {
+namespace {
+const char line1[] =
+        // 2345678901234567890123456789012345678901234567890123456789012
+        "PC=xxxx S=xxxx X=xxxx Y=xxxx U=xxxx A=xx B=xx DP=xx CC=EFHINZVC";
+const char line2[] =
+        // 234567890123456789012345678901234567890123456789
+        "               D=xxxx W=xxxx V=xxxx E=xx F=xx MD=x";
+}  // namespace
+
+RegsMc6809::RegsMc6809(PinsMc6809Base *pins)
+    : _pins(pins), _buffer1(line1), _buffer2(line2) {}
 
 /**
  * How to determine MC6809 variants.
@@ -42,35 +52,27 @@ const char *RegsMc6809::cpuName() const {
 }
 
 void RegsMc6809::print() const {
-    static constexpr char line1[] =
-            // 2345678901234567890123456789012345678901234567890123456789012
-            "PC=xxxx S=xxxx X=xxxx Y=xxxx U=xxxx A=xx B=xx DP=xx CC=EFHINZVC";
-    static auto &buffer1 = *new CharBuffer(line1);
-    buffer1.hex16(3, _pc);
-    buffer1.hex16(10, _s);
-    buffer1.hex16(17, _x);
-    buffer1.hex16(24, _y);
-    buffer1.hex16(31, _u);
-    buffer1.hex8(38, _a);
-    buffer1.hex8(43, _b);
-    buffer1.hex8(49, _dp);
-    buffer1.bits(55, _cc, 0x80, line1 + 55);
-    cli.println(buffer1);
+    _buffer1.hex16(3, _pc);
+    _buffer1.hex16(10, _s);
+    _buffer1.hex16(17, _x);
+    _buffer1.hex16(24, _y);
+    _buffer1.hex16(31, _u);
+    _buffer1.hex8(38, _a);
+    _buffer1.hex8(43, _b);
+    _buffer1.hex8(49, _dp);
+    _buffer1.bits(55, _cc, 0x80, line1 + 55);
+    cli.println(_buffer1);
     _pins->idle();
     if (_type == SW_MC6809)
         return;
 
-    static constexpr char line2[] =
-            // 234567890123456789012345678901234567890123456789
-            "               D=xxxx W=xxxx V=xxxx E=xx F=xx MD=x";
-    static auto &buffer2 = *new CharBuffer(line2);
-    buffer2.hex16(17, _d());
-    buffer2.hex16(24, _w());
-    buffer2.hex16(31, _v);
-    buffer2.hex8(38, _e);
-    buffer2.hex8(43, _f);
-    buffer2.hex1(49, _md);
-    cli.println(buffer2);
+    _buffer2.hex16(17, _d());
+    _buffer2.hex16(24, _w());
+    _buffer2.hex16(31, _v);
+    _buffer2.hex8(38, _e);
+    _buffer2.hex8(43, _f);
+    _buffer2.hex1(49, _md);
+    cli.println(_buffer2);
     _pins->idle();
 }
 

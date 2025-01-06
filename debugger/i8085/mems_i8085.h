@@ -17,7 +17,7 @@ struct MemsI8085 final : DmaMemory {
             const char *space = nullptr) const override;
 
 private:
-    RegsI8085 *_regs;
+    RegsI8085 *const _regs;
 };
 
 }  // namespace i8085

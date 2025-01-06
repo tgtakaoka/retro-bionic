@@ -1,6 +1,7 @@
 #ifndef __REGS_CDP1802_H__
 #define __REGS_CDP1802_H__
 
+#include "char_buffer.h"
 #include "regs.h"
 
 namespace debugger {
@@ -9,7 +10,7 @@ namespace cdp1802 {
 struct PinsCdp1802;
 
 struct RegsCdp1802 final : Regs {
-    RegsCdp1802(PinsCdp1802 *pins) : _pins(pins) {}
+    RegsCdp1802(PinsCdp1802 *pins);
 
     const char *cpu() const override;
     const char *cpuName() const override;
@@ -26,7 +27,7 @@ struct RegsCdp1802 final : Regs {
     void setRegister(uint8_t reg, uint32_t value) override;
 
 private:
-    PinsCdp1802 *_pins;
+    PinsCdp1802 *const _pins;
 
     uint8_t _d;
     uint8_t _x;
@@ -40,6 +41,10 @@ private:
     const char *_cpuType;
 
     void setCpuType();
+
+    mutable CharBuffer _buffer1;
+    mutable CharBuffer _buffer2;
+    mutable CharBuffer _buffer3;
 };
 
 }  // namespace cdp1802

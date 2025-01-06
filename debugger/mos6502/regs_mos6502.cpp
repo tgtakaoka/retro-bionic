@@ -1,5 +1,4 @@
 #include "regs_mos6502.h"
-#include "char_buffer.h"
 #include "debugger.h"
 #include "inst_mos6502.h"
 #include "mems_mos6502.h"
@@ -8,15 +7,27 @@
 
 namespace debugger {
 namespace mos6502 {
+namespace {
+const char *const CPU_NAMES[/*SoftwareType*/] = {
+        "MOS6502",
+        "G65SC02",
+        "R65C02",
+        "W65C02S",
+        "W65C816S",
+};
+
+// clang-format off
+//                                  1         2         3         4         5         6
+//                        012345678901234567890123456789012345678901234567890123456789012
+const char line6502[]  = "PC=xxxx S=xxxx X=xx Y=xx A=xx P=NV_BDIZC E=1";
+const char line65816[] = "K:PC=xx:xxxx S=xxxx D=xxxx B=xx X=xxxx Y=xxxx C=xxxx P=NVMXDIZC";
+// clang-format on
+}  // namespace
+
+RegsMos6502::RegsMos6502(PinsMos6502 *pins, MemsMos6502 *mems)
+    : _pins(pins), _mems(mems), _buffer(line6502) {}
 
 const char *RegsMos6502::cpu() const {
-    static constexpr const char *CPU_NAMES[/*SoftwareType*/] = {
-            "MOS6502",
-            "G65SC02",
-            "R65C02",
-            "W65C02S",
-            "W65C816S",
-    };
     const auto type = PinsMos6502::softwareType();
     return CPU_NAMES[type];
 }
@@ -27,36 +38,27 @@ const char *RegsMos6502::cpuName() const {
 
 void RegsMos6502::print() const {
     if (_pins->native65816()) {
-        // clang-format off
-        //                              012345678901234567890123456789012345678901234567890123456789012
-        static constexpr char line[] = "K:PC=xx:xxxx S=xxxx D=xxxx B=xx X=xxxx Y=xxxx C=xxxx P=NVMXDIZC";
-        // clang-format on
-        static auto &buffer = *new CharBuffer(line);
-        buffer.hex8(5, _pbr);
-        buffer.hex16(8, _pc);
-        buffer.hex16(15, _s);
-        buffer.hex16(22, _d);
-        buffer.hex8(29, _dbr);
-        buffer.hex16(34, _x);
-        buffer.hex16(41, _y);
-        buffer.hex16(48, _c());
-        buffer.bits(55, _p, 0x80, line + 55);
-        cli.println(buffer);
+        _buffer.set(line65816);
+        _buffer.hex8(5, _pbr);
+        _buffer.hex16(8, _pc);
+        _buffer.hex16(15, _s);
+        _buffer.hex16(22, _d);
+        _buffer.hex8(29, _dbr);
+        _buffer.hex16(34, _x);
+        _buffer.hex16(41, _y);
+        _buffer.hex16(48, _c());
+        _buffer.bits(55, _p, 0x80, line65816 + 55);
     } else {
-        // clang-format off
-        //                              0123456789012345678901234567890123456789
-        static constexpr char line[] = "PC=xxxx S=xxxx X=xx Y=xx A=xx P=NV_BDIZC E=1";
-        // clang-format on
-        static auto &buffer = *new CharBuffer(line);
-        buffer.hex16(3, _pc);
-        buffer.hex16(10, _s);
-        buffer.hex8(17, _x);
-        buffer.hex8(22, _y);
-        buffer.hex8(27, _a);
-        buffer.bits(32, _p, 0x80, line + 32);
-        buffer[40] = PinsMos6502::hardwareType() == HW_W65C816 ? ' ' : 0;
-        cli.println(buffer);
+        _buffer.set(line6502);
+        _buffer.hex16(3, _pc);
+        _buffer.hex16(10, _s);
+        _buffer.hex8(17, _x);
+        _buffer.hex8(22, _y);
+        _buffer.hex8(27, _a);
+        _buffer.bits(32, _p, 0x80, line6502 + 32);
+        _buffer[40] = PinsMos6502::hardwareType() == HW_W65C816 ? ' ' : 0;
     }
+    cli.println(_buffer);
 }
 
 static constexpr uint8_t noop = 0xFF;

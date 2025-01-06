@@ -1,6 +1,7 @@
 #ifndef __REGS_MC6805_H__
 #define __REGS_MC6805_H__
 
+#include "char_buffer.h"
 #include "regs.h"
 
 namespace debugger {
@@ -10,8 +11,7 @@ struct PinsMc6805;
 struct Signals;
 
 struct RegsMc6805 final : Regs {
-    RegsMc6805(const char *cpu, PinsMc6805 *pins)
-        : _cpu(cpu), _pins(pins) {}
+    RegsMc6805(const char *cpu, PinsMc6805 *pins);
 
     const char *cpu() const override { return _cpu; }
     const char *cpuName() const override;
@@ -40,6 +40,8 @@ protected:
     uint8_t _x;
     uint8_t _a;
     uint8_t _cc;
+
+    mutable CharBuffer _buffer;
 };
 
 }  // namespace mc6805

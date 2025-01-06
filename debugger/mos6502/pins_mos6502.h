@@ -112,7 +112,7 @@ struct PinsMos6502 final : Pins {
     void captureWrites(const uint8_t *inst, uint8_t len, uint16_t *addr,
             uint8_t *buf, uint8_t max);
 
-    Signals *cycle(uint8_t data);
+    Signals *inject(uint8_t data);
     bool native65816() const;
     static HardwareType hardwareType() { return _hardType; }
     static SoftwareType softwareType() { return _softType; }

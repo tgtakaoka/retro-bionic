@@ -1,5 +1,4 @@
 #include "regs_tms7000.h"
-#include "char_buffer.h"
 #include "debugger.h"
 #include "pins_tms7000.h"
 
@@ -7,7 +6,7 @@ namespace debugger {
 namespace tms7000 {
 
 namespace {
-constexpr const char *const CPU_NAMES[/*HardwareType*/] = {
+const char *const CPU_NAMES[/*HardwareType*/] = {
         "TMS7000",     // 0+0
         "TMS7000NL4",  // 0+1
         "TMS70C00",    // 0+2
@@ -18,7 +17,12 @@ constexpr const char *const CPU_NAMES[/*HardwareType*/] = {
         "",            // no TMS7002NL4
         "TMS70C02",    // 6+2
 };
-}
+
+//                   01234567890123456789012345678901234
+const char line[] = "PC=xxxx SP=xx A=xx B=xx ST=CNZI1111";
+}  // namespace
+
+RegsTms7000::RegsTms7000(PinsTms7000 *pins) : _pins(pins), _buffer(line) {}
 
 const char *RegsTms7000::cpu() const {
     return CPU_NAMES[HW_TMS7000];
@@ -30,15 +34,12 @@ const char *RegsTms7000::cpuName() const {
 }
 
 void RegsTms7000::print() const {
-    //                              01234567890123456789012345678901234
-    static constexpr char line[] = "PC=xxxx SP=xx A=xx B=xx ST=CNZI1111";
-    static auto &buffer = *new CharBuffer(line);
-    buffer.hex16(3, _pc);
-    buffer.hex8(11, _sp);
-    buffer.hex8(16, _a);
-    buffer.hex8(21, _b);
-    buffer.bits(27, _st, 0x80, line + 27);
-    cli.println(buffer);
+    _buffer.hex16(3, _pc);
+    _buffer.hex8(11, _sp);
+    _buffer.hex8(16, _a);
+    _buffer.hex8(21, _b);
+    _buffer.bits(27, _st, 0x80, line + 27);
+    cli.println(_buffer);
     _pins->idle();
 }
 

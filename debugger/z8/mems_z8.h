@@ -19,8 +19,8 @@ struct MemsZ8 : DmaMemory {
 protected:
     MemsZ8(RegsZ8 *regs, Devs *devs);
 
-    RegsZ8 *_regs;
-    Devs *_devs;
+    RegsZ8 *const _regs;
+    Devs *const _devs;
 };
 
 }  // namespace z8

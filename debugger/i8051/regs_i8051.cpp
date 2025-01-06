@@ -1,5 +1,4 @@
 #include "regs_i8051.h"
-#include "char_buffer.h"
 #include "debugger.h"
 #include "inst_i8051.h"
 #include "pins_i8051.h"
@@ -7,32 +6,38 @@
 namespace debugger {
 namespace i8051 {
 
+namespace {
+//                              1         2         3         4         5
+//                    012345678901234567890123456789012345678901234567890
+const char line1[] = "PC=xxxx SP=xx PSW=CA111V1P DPTR=xxxx B=xx A=xx RS=x";
+const char line2[] = "R0=xx R1=xx R2=xx R3=xx R4=xx R5=xx R6=xx R7=xx";
+}  // namespace
+
+RegsI8051::RegsI8051(PinsI8051 *pins)
+    : _pins(pins), _buffer1(line1), _buffer2(line2) {}
+
 const char *RegsI8051::cpuName() const {
     return _pins->isCmos() ? "P80C51" : "P8051";
 }
 
 void RegsI8051::print() const {
-    static constexpr char line1[] =
-            "PC=xxxx SP=xx PSW=CA111V1P DPTR=xxxx B=xx A=xx RS=x";
-    //       012345678901234567890123456789012345678901234567890
-    static constexpr char line2[] =
-            "R0=xx R1=xx R2=xx R3=xx R4=xx R5=xx R6=xx R7=xx";
-    //       0123456789012345678901234567890123456789012345678901
-    static auto &buffer = *new CharBuffer(line1);
-    buffer.hex16(3, _pc);
-    buffer.hex8(11, _sp);
-    buffer.bits(18, _psw, 0x80, line1 + 18);
-    buffer.hex16(32, _dptr);
-    buffer.hex8(39, _b);
-    buffer.hex8(44, _a);
-    buffer.hex4(50, rs());
-    cli.println(buffer);
-    static auto &regs = *new CharBuffer(line2);
+    _buffer1.hex16(3, _pc);
+    _buffer1.hex8(11, _sp);
+    _buffer1.bits(18, _psw, 0x80, line1 + 18);
+    _buffer1.hex16(32, _dptr);
+    _buffer1.hex8(39, _b);
+    _buffer1.hex8(44, _a);
+    _buffer1.hex4(50, rs());
+    cli.println(_buffer1);
     for (auto i = 0; i < 8; ++i)
-        regs.hex8(3 + i * 6, _r[i]);
-    cli.println(regs);
+        _buffer2.hex8(3 + i * 6, _r[i]);
+    cli.println(_buffer2);
     _pins->idle();
 }
+
+const uint8_t RegsI8051::SAVE_A[] = {
+        0xF2,  // MOVX @R0, A
+};
 
 void RegsI8051::save() {
     _pins->captureWrites(SAVE_A, sizeof(SAVE_A), &_pc, &_a, sizeof(_a));

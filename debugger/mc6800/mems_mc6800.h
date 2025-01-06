@@ -17,8 +17,8 @@ struct MemsMc6800 : DmaMemory {
     void write(uint32_t addr, uint16_t data) const override;
 
 protected:
-    RegsMc6800 *_regs;
-    Devs *_devs;
+    RegsMc6800 *const _regs;
+    Devs *const _devs;
 };
 
 }  // namespace mc6800

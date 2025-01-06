@@ -22,8 +22,8 @@ struct MemsTlcs90 final : DmaMemory {
             const char *space = nullptr) const override;
 
 private:
-    RegsTlcs90 *_regs;
-    Devs *_devs;
+    RegsTlcs90 *const _regs;
+    Devs *const _devs;
 };
 
 }  // namespace tlcs90

@@ -4,6 +4,10 @@
 
 namespace debugger {
 namespace mc6802 {
+namespace {
+const char MC6802[] = "MC6802";
+const char MB8870[] = "MB8870";
+}  // namespace
 
 /**
  * How to determine MC6800 variants.
@@ -34,9 +38,6 @@ namespace mc6802 {
  * X=$FFFF: MC6800
  * X=$0000: MB8861
  */
-
-static const char MC6802[] = "MC6802";
-static const char MB8870[] = "MB8870";
 
 const char *RegsMc6802::cpuName() const {
     if (_type == SW_MC6800)

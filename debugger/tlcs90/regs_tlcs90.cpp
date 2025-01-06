@@ -1,10 +1,20 @@
 #include "regs_tlcs90.h"
-#include "char_buffer.h"
 #include "debugger.h"
 #include "pins_tlcs90.h"
 
 namespace debugger {
 namespace tlcs90 {
+namespace {
+// clang-format off
+//                              1         2         3         4         5
+//                    01234567890123456789012345678901234567890123456789012345
+const char line1[] = "PC=xxxx SP=xxxx  BC=xxxx DE=xxxx HL=xxxx A=xx F=SZIHXVNC";
+const char line2[] = "IX=xxxx IY=xxxx (BC=xxxx DE=xxxx HL=xxxx A=xx F=SZIHXVNC)";
+// clang-format on
+}  // namespace
+
+RegsTlcs90::RegsTlcs90(PinsTlcs90 *pins)
+    : _pins(pins), _buffer1(line1), _buffer2(line2) {}
 
 const char *RegsTlcs90::cpu() const {
     return "TLC90";
@@ -15,29 +25,24 @@ const char *RegsTlcs90::cpuName() const {
 }
 
 void RegsTlcs90::print() const {
-    // clang-format off
-    //                              01234567890123456789012345678901234567890123456789012345
-    static constexpr char main[] = "PC=xxxx SP=xxxx  BC=xxxx DE=xxxx HL=xxxx A=xx F=SZIHXVNC";
-    static constexpr char alt[]  = "IX=xxxx IY=xxxx (BC=xxxx DE=xxxx HL=xxxx A=xx F=SZIHXVNC)";
-    // clang-format on
-    static auto &bufmain = *new CharBuffer(main);
-    static auto &bufalt = *new CharBuffer(alt);
-    bufmain.hex16(3, _pc);
-    bufmain.hex16(11, _sp);
-    bufmain.hex16(20, _main.bc());
-    bufmain.hex16(28, _main.de());
-    bufmain.hex16(36, _main.hl());
-    bufmain.hex8(43, _main.a);
-    bufmain.bits(48, _main.f, 0x80, main + 48);
-    cli.println(bufmain);
-    bufalt.hex16(3, _ix);
-    bufalt.hex16(11, _iy);
-    bufalt.hex16(20, _alt.bc());
-    bufalt.hex16(28, _alt.de());
-    bufalt.hex16(36, _alt.hl());
-    bufalt.hex8(43, _alt.a);
-    bufalt.bits(48, _alt.f, 0x80, alt + 48);
-    cli.println(bufalt);
+    auto &main = _buffer1;
+    main.hex16(3, _pc);
+    main.hex16(11, _sp);
+    main.hex16(20, _main.bc());
+    main.hex16(28, _main.de());
+    main.hex16(36, _main.hl());
+    main.hex8(43, _main.a);
+    main.bits(48, _main.f, 0x80, main + 48);
+    cli.println(main);
+    auto &alt = _buffer2;
+    alt.hex16(3, _ix);
+    alt.hex16(11, _iy);
+    alt.hex16(20, _alt.bc());
+    alt.hex16(28, _alt.de());
+    alt.hex16(36, _alt.hl());
+    alt.hex8(43, _alt.a);
+    alt.bits(48, _alt.f, 0x80, alt + 48);
+    cli.println(alt);
 }
 
 void RegsTlcs90::reset() {

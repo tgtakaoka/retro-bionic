@@ -1,5 +1,4 @@
 #include "regs_cdp1802.h"
-#include "char_buffer.h"
 #include "debugger.h"
 #include "inst_cdp1802.h"
 #include "pins_cdp1802.h"
@@ -8,26 +7,39 @@
 namespace debugger {
 namespace cdp1802 {
 
+namespace {
+
+const char CDP1802[] = "CDP1802";
+const char CDP1804A[] = "CDP1804A";
+// clang-format off
+//                              1         2         3         4         5         6         7
+//                    01234567890123456789012345678901234567890123456789012345678901234567890
+const char line1[] = "D=xx DF=x X=x P=x T=xx Q=x IE=1";
+const char line2[] = "R0=xxxx  R1=xxxx  R2=xxxx  R3=xxxx  R4=xxxx  R5=xxxx  R6=xxxx  R7=xxxx";
+const char line3[] = "R8=xxxx  R9=xxxx R10=xxxx R11=xxxx R12=xxxx R13=xxxx R14=xxxx R15=xxxx";
+// clang-format on
+
+}  // namespace
+
+RegsCdp1802::RegsCdp1802(PinsCdp1802 *pins)
+    : _pins(pins), _buffer1(line1), _buffer2(line2), _buffer3(line3) {}
+
 /**
  * - CDP1802: 0x68 opcode causes illegal write on M(R(P)).
  * - CDP1804/CDP1804A:0x68 opcode causes double instruction fetch.
  * TODO: distinguish CDP1804 and CDP1804A
  */
-
-static const char CDP1802[] = "CDP1802";
-static const char CDP1804A[] = "CDP1804A";
-
 void RegsCdp1802::setCpuType() {
-    _pins->cycle(InstCdp1802::PREFIX);
-    auto signals = _pins->prepareCycle();
-    if (signals->fetch()) {
+    _pins->inject(InstCdp1802::PREFIX);
+    auto s = _pins->prepareCycle();
+    if (s->fetch()) {
         _cpuType = CDP1804A;
-        _pins->cycle(InstCdp1802::DADI);
-        _pins->cycle(0);
+        _pins->inject(InstCdp1802::DADI);
+        _pins->inject(0);
         _pins->cycle();  // execution cycle
     } else {
         _cpuType = CDP1802;
-        signals->capture();  // capture illegal write
+        s->capture();  // capture illegal write
         _pins->cycle();
     }
 }
@@ -49,29 +61,20 @@ bool RegsCdp1802::is1804() const {
 }
 
 void RegsCdp1802::print() const {
-    // clang-format off
-    //                               0123456789012345678901234567890;
-    static constexpr char line1[] = "D=xx DF=x X=x P=x T=xx Q=x IE=1";
-    static constexpr char line2[] = "R0=xxxx  R1=xxxx  R2=xxxx  R3=xxxx  R4=xxxx  R5=xxxx  R6=xxxx  R7=xxxx";
-    static constexpr char line3[] = "R8=xxxx  R9=xxxx R10=xxxx R11=xxxx R12=xxxx R13=xxxx R14=xxxx R15=xxxx";
-    // clang-format on
-    static auto &buffer1 = *new CharBuffer(line1);
-    buffer1.hex8(2, _d);
-    buffer1.hex4(8, _df);
-    buffer1.hex4(12, _x);
-    buffer1.hex4(16, _p);
-    buffer1.hex8(20, _t);
-    buffer1.hex4(25, _q);
-    buffer1.hex4(30, _ie);
-    cli.println(buffer1);
-    static auto &buffer2 = *new CharBuffer(line2);
+    _buffer1.hex8(2, _d);
+    _buffer1.hex4(8, _df);
+    _buffer1.hex4(12, _x);
+    _buffer1.hex4(16, _p);
+    _buffer1.hex8(20, _t);
+    _buffer1.hex4(25, _q);
+    _buffer1.hex4(30, _ie);
+    cli.println(_buffer1);
     for (auto i = 0; i < 8; i++)
-        buffer2.hex16(3 + i * 9, _r[i]);
-    cli.println(buffer2);
-    static auto &buffer3 = *new CharBuffer(line3);
+        _buffer2.hex16(3 + i * 9, _r[i]);
+    cli.println(_buffer2);
     for (auto i = 0; i < 8; i++)
-        buffer3.hex16(3 + i * 9, _r[i + 8]);
-    cli.println(buffer3);
+        _buffer3.hex16(3 + i * 9, _r[i + 8]);
+    cli.println(_buffer3);
 }
 
 void RegsCdp1802::save() {

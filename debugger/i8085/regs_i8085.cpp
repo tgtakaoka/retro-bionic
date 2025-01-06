@@ -1,11 +1,18 @@
 #include "regs_i8085.h"
-#include "char_buffer.h"
 #include "debugger.h"
 #include "inst_i8085.h"
 #include "pins_i8085.h"
 
 namespace debugger {
 namespace i8085 {
+
+namespace {
+const char line[] =
+        "PC=xxxx SP=xxxx BC=xxxx DE=xxxx HL=xxxx A=xx PSW=SZ1H1P1C IE";
+//       012345678901234567890123456789012345678901234567890123456789
+}  // namespace
+
+RegsI8085::RegsI8085(PinsI8085 *pins) : _pins(pins), _buffer(line) {}
 
 const char *RegsI8085::cpu() const {
     return "i8085";
@@ -16,22 +23,18 @@ const char *RegsI8085::cpuName() const {
 }
 
 void RegsI8085::print() const {
-    static constexpr char line[] =
-            "PC=xxxx SP=xxxx BC=xxxx DE=xxxx HL=xxxx A=xx PSW=SZ1H1P1C IE";
-    //       012345678901234567890123456789012345678901234567890123456789
-    static auto &buffer = *new CharBuffer(line);
-    buffer.hex16(3, _pc);
-    buffer.hex16(11, _sp);
-    buffer.hex8(19, _b);
-    buffer.hex8(21, _c);
-    buffer.hex8(27, _d);
-    buffer.hex8(29, _e);
-    buffer.hex8(35, _h);
-    buffer.hex8(37, _l);
-    buffer.hex8(42, _a);
-    buffer.bits(49, _psw, 0x80, line + 49);
-    buffer[57] = _ie ? ' ' : 0;
-    cli.println(buffer);
+    _buffer.hex16(3, _pc);
+    _buffer.hex16(11, _sp);
+    _buffer.hex8(19, _b);
+    _buffer.hex8(21, _c);
+    _buffer.hex8(27, _d);
+    _buffer.hex8(29, _e);
+    _buffer.hex8(35, _h);
+    _buffer.hex8(37, _l);
+    _buffer.hex8(42, _a);
+    _buffer.bits(49, _psw, 0x80, line + 49);
+    _buffer[57] = _ie ? ' ' : 0;
+    cli.println(_buffer);
     _pins->idle();
 }
 

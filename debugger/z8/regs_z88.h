@@ -58,6 +58,8 @@ private:
     void update_r(uint8_t addr, uint8_t val);
 
     void switchBank(RegSpace space);
+
+    mutable CharBuffer _buffer1;
 };
 
 }  // namespace z88

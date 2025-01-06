@@ -18,8 +18,8 @@ struct ProgI8051 final : DmaMemory {
             const char *space = nullptr) const override;
 
 private:
-    RegsI8051 *_regs;
-    Mems *_data;
+    RegsI8051 *const _regs;
+    Mems *const _data;
 };
 
 struct DataI8051 final : DmaMemory {
@@ -36,7 +36,7 @@ struct DataI8051 final : DmaMemory {
     void write(uint32_t addr, uint16_t data) const override;
 
 private:
-    Devs *_devs;
+    Devs *const _devs;
 
     static constexpr uint32_t OFFSET = 0x10000U;
 };

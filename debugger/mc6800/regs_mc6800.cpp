@@ -1,11 +1,24 @@
 #include "regs_mc6800.h"
-#include "char_buffer.h"
 #include "debugger.h"
 #include "mems_mc6800.h"
 #include "pins_mc6800_base.h"
 
 namespace debugger {
 namespace mc6800 {
+namespace {
+const char *const CPU[] = {
+        "MC6800",    // SW_MC6800
+        "MB8861",    // SW_MB8861
+        "MC6801",    // SW_MC6801
+        "HD6301",    // SW_HD6301
+        "MC68HC11",  // SW_MC68HC11
+};
+
+//                   012345678901234567890123456789012345678901
+const char line[] = "PC=xxxx SP=xxxx X=xxxx A=xx B=xx CC=HINZVC";
+}  // namespace
+
+RegsMc6800::RegsMc6800(PinsMc6800Base *pins) : _pins(pins), _buffer(line) {}
 
 /**
  * How to determine MC6800 variants.
@@ -37,14 +50,6 @@ namespace mc6800 {
  * X=$0000: MB8861
  */
 
-constexpr const char *CPU[] = {
-        "MC6800",    // SW_MC6800
-        "MB8861",    // SW_MB8861
-        "MC6801",    // SW_MC6801
-        "HD6301",    // SW_HD6301
-        "MC68HC11",  // SW_MC68HC11
-};
-
 SoftwareType RegsMc6800::checkSoftwareType() {
     static constexpr uint8_t DETECT_8861[] = {
             0xCE, 0xFF, 0xFF,  // LDX #$FFFF ; 1:2:3
@@ -70,17 +75,14 @@ const char *RegsMc6800::cpuName() const {
 }
 
 void RegsMc6800::print() const {
-    //                              012345678901234567890123456789012345678901
-    static constexpr char line[] = "PC=xxxx SP=xxxx X=xxxx A=xx B=xx CC=HINZVC";
-    static auto &buffer = *new CharBuffer(line);
-    buffer.hex16(3, _pc);
-    buffer.hex16(11, _sp);
-    buffer.hex16(18, _x);
-    buffer.hex8(25, _a);
-    buffer.hex8(30, _b);
-    buffer.bits(36, _cc, 0x20, line + 36);
+    _buffer.hex16(3, _pc);
+    _buffer.hex16(11, _sp);
+    _buffer.hex16(18, _x);
+    _buffer.hex8(25, _a);
+    _buffer.hex8(30, _b);
+    _buffer.bits(36, _cc, 0x20, line + 36);
     _pins->idle();
-    cli.println(buffer);
+    cli.println(_buffer);
 }
 
 const uint8_t RegsMc6800::LDS_7FFF[3] = {

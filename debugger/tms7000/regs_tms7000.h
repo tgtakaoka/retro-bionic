@@ -1,6 +1,7 @@
 #ifndef __REGS_TMS7000_H__
 #define __REGS_TMS7000_H__
 
+#include "char_buffer.h"
 #include "regs.h"
 
 namespace debugger {
@@ -9,7 +10,7 @@ namespace tms7000 {
 struct PinsTms7000;
 
 struct RegsTms7000 final : Regs {
-    RegsTms7000(PinsTms7000 *pins) : _pins(pins) {}
+    RegsTms7000(PinsTms7000 *pins);
 
     const char *cpu() const override;
     const char *cpuName() const override;
@@ -29,7 +30,7 @@ struct RegsTms7000 final : Regs {
     void write_internal(uint16_t add, uint8_t data);
 
 private:
-    PinsTms7000 *_pins;
+    PinsTms7000 *const _pins;
 
     uint8_t _a;
     uint8_t _b;
@@ -39,6 +40,8 @@ private:
 
     static constexpr uint16_t A = 0x0000;
     static constexpr uint16_t B = 0x0001;
+
+    mutable CharBuffer _buffer;
 };
 
 }  // namespace tms7000

@@ -17,7 +17,7 @@ struct MemsZ80 final : DmaMemory {
             const char *space = nullptr) const override;
 
 private:
-    RegsZ80 *_regs;
+    RegsZ80 *const _regs;
 };
 
 }  // namespace z80

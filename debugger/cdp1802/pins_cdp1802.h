@@ -90,7 +90,7 @@ private:
     Signals *directCycle(Signals *signals);
     Signals *completeCycle(Signals *signals);
     Signals *cycle();
-    Signals *cycle(uint8_t data);
+    Signals *inject(uint8_t data);
     void loop();
     bool rawStep();
     void execute(const uint8_t *inst, uint8_t len, uint16_t *addr, uint8_t *buf,

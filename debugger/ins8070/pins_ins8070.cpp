@@ -281,7 +281,7 @@ Signals *PinsIns8070::cycle() {
     return completeCycle(prepareCycle());
 }
 
-Signals *PinsIns8070::cycle(uint8_t data) {
+Signals *PinsIns8070::inject(uint8_t data) {
     return completeCycle(prepareCycle()->inject(data));
 }
 
@@ -346,11 +346,11 @@ void PinsIns8070::loop() {
             const auto call = isCall15(s);
             if (call) {
                 const uint16_t pc = call->addr - 1;
-                cycle(0);                 // inject low vector
-                cycle(0);                 // inject high vector
-                cycle(InstIns8070::RET);  // cancel CALL 15
-                cycle(lo(pc));            // inject low address
-                cycle(hi(pc));            // inject high address
+                inject(0);                 // inject low vector
+                inject(0);                 // inject high vector
+                inject(InstIns8070::RET);  // cancel CALL 15
+                inject(lo(pc));            // inject low address
+                inject(hi(pc));            // inject high address
                 Signals::discard(call);
                 return;
             }
@@ -368,7 +368,7 @@ void PinsIns8070::suspend() {
         auto s = prepareCycle();
         if (s->fetch()) {
             completeCycle(s->inject(InstIns8070::BRA));
-            cycle(InstIns8070::BRA_HERE);
+            inject(InstIns8070::BRA_HERE);
             Signals::discard(s);
             return;
         }
@@ -419,7 +419,7 @@ bool PinsIns8070::step(bool show) {
             auto s = prepareCycle();
             if (s->addr == addr + 3) {
                 completeCycle(s->inject(InstIns8070::BRA));
-                cycle(InstIns8070::BRA_HERE);
+                inject(InstIns8070::BRA_HERE);
                 if (show)
                     Signals::discard(s);
                 break;

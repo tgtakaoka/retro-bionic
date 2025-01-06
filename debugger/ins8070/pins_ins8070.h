@@ -89,7 +89,7 @@ private:
     Signals *prepareCycle();
     Signals *completeCycle(Signals *signals);
     Signals *cycle();
-    Signals *cycle(uint8_t data);
+    Signals *inject(uint8_t data);
     void loop();
     const Signals *isCall15(const Signals *vector) const;
     void suspend();

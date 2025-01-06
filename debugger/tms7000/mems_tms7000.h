@@ -20,8 +20,8 @@ struct MemsTms7000 final : DmaMemory {
             const char *space = nullptr) const override;
 
 private:
-    RegsTms7000 *_regs;
-    Devs *_devs;
+    RegsTms7000 *const _regs;
+    Devs *const _devs;
 };
 
 }  // namespace tms7000

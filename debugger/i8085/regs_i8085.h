@@ -1,6 +1,7 @@
 #ifndef __REGS_I8085_H__
 #define __REGS_I8085_H__
 
+#include "char_buffer.h"
 #include "regs.h"
 
 namespace debugger {
@@ -9,7 +10,7 @@ namespace i8085 {
 struct PinsI8085;
 
 struct RegsI8085 final : Regs {
-    RegsI8085(PinsI8085 *pins) : _pins(pins) {}
+    RegsI8085(PinsI8085 *pins);
 
     const char *cpu() const override;
     const char *cpuName() const override;
@@ -27,7 +28,7 @@ struct RegsI8085 final : Regs {
     void write_io(uint8_t addr, uint8_t data) const;
 
 private:
-    PinsI8085 *_pins;
+    PinsI8085 *const _pins;
 
     uint8_t _b;
     uint8_t _c;
@@ -55,6 +56,8 @@ private:
         _l = lo(hl);
         _h = hi(hl);
     }
+
+    mutable CharBuffer _buffer;
 };
 
 }  // namespace i8085

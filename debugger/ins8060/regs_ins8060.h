@@ -1,6 +1,7 @@
 #ifndef __REGS_INS8060_H__
 #define __REGS_INS8060_H__
 
+#include "char_buffer.h"
 #include "regs.h"
 #include "signals_ins8060.h"
 
@@ -10,7 +11,7 @@ namespace ins8060 {
 struct PinsIns8060;
 
 struct RegsIns8060 final : Regs {
-    RegsIns8060(PinsIns8060 *pins) : _pins(pins) {}
+    RegsIns8060(PinsIns8060 *pins);
 
     const char *cpu() const override;
     const char *cpuName() const override;
@@ -25,7 +26,7 @@ struct RegsIns8060 final : Regs {
     void setRegister(uint8_t reg, uint32_t value) override;
 
 private:
-    PinsIns8060 *_pins;
+    PinsIns8060 *const _pins;
 
     uint8_t _a;
     uint8_t _e;
@@ -44,6 +45,8 @@ private:
     static constexpr uint16_t _addr(uint16_t page, uint16_t offset) {
         return (page & 0xF000) | (offset & 0x0FFF);
     }
+
+    mutable CharBuffer _buffer;
 };
 
 }  // namespace ins8060

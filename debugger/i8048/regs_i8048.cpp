@@ -1,5 +1,4 @@
 #include "regs_i8048.h"
-#include "char_buffer.h"
 #include "debugger.h"
 #include "inst_i8048.h"
 #include "pins_i8048.h"
@@ -7,8 +6,17 @@
 namespace debugger {
 namespace i8048 {
 
-constexpr const char I8039[] = "i8039";
-constexpr const char MSM80C39[] = "MSM80C39";
+namespace {
+const char I8039[] = "i8039";
+const char MSM80C39[] = "MSM80C39";
+//                              1         2         3         4
+//                    0123456789012345678901234567890123456789012345678
+const char line1[] = "PC=xxx MB=x PSW=CAFB1111 F0=x F1=x SP=x BS=x A=xx";
+const char line2[] = "R0=xx R1=xx R2=xx R3=xx R4=xx R5=xx R6=xx R7=xx";
+}  // namespace
+
+RegsI8048::RegsI8048(PinsI8048 *pins)
+    : _pins(pins), _buffer1(line1), _buffer2(line2) {}
 
 const char *RegsI8048::cpu() const {
     return _pins->softwareType() == SW_I8048 ? I8039 : MSM80C39;
@@ -19,26 +27,18 @@ const char *RegsI8048::cpuName() const {
 }
 
 void RegsI8048::print() const {
-    static constexpr char line1[] =
-            "PC=xxx MB=x PSW=CAFB1111 F0=x F1=x SP=x BS=x A=xx";
-    //       0123456789012345678901234567890123456789012345678
-    static constexpr char line2[] =
-            "R0=xx R1=xx R2=xx R3=xx R4=xx R5=xx R6=xx R7=xx";
-    //       01234567890123456789012345678901234567890123456
-    static auto &buffer = *new CharBuffer(line1);
-    buffer.hex12(3, _pc);
-    buffer.hex1(10, _mb);
-    buffer.bits(16, _psw, 0x80, line1 + 16);
-    buffer.hex1(28, _psw & f0);
-    buffer.hex1(33, _f1);
-    buffer.hex4(38, _psw & sp);
-    buffer.hex1(43, _psw & bs);
-    buffer.hex8(47, _a);
-    cli.println(buffer);
-    static auto &regs = *new CharBuffer(line2);
+    _buffer1.hex12(3, _pc);
+    _buffer1.hex1(10, _mb);
+    _buffer1.bits(16, _psw, 0x80, line1 + 16);
+    _buffer1.hex1(28, _psw & f0);
+    _buffer1.hex1(33, _f1);
+    _buffer1.hex4(38, _psw & sp);
+    _buffer1.hex1(43, _psw & bs);
+    _buffer1.hex8(47, _a);
+    cli.println(_buffer1);
     for (auto i = 0; i < 8; ++i)
-        regs.hex8(3 + i * 6, _r[i]);
-    cli.println(regs);
+        _buffer2.hex8(3 + i * 6, _r[i]);
+    cli.println(_buffer2);
     _pins->idle();
 }
 

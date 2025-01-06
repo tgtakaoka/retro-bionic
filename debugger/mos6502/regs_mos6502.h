@@ -1,6 +1,7 @@
 #ifndef __REGS_MOS6502_H__
 #define __REGS_MOS6502_H__
 
+#include "char_buffer.h"
 #include "regs.h"
 
 namespace debugger {
@@ -10,8 +11,7 @@ struct PinsMos6502;
 struct MemsMos6502;
 
 struct RegsMos6502 final : Regs {
-    RegsMos6502(PinsMos6502 *pins, MemsMos6502 *mems)
-        : _pins(pins), _mems(mems) {}
+    RegsMos6502(PinsMos6502 *pins, MemsMos6502 *mems);
 
     const char *cpu() const override;
     const char *cpuName() const override;
@@ -27,8 +27,8 @@ struct RegsMos6502 final : Regs {
     void setRegister(uint8_t reg, uint32_t value) override;
 
 private:
-    PinsMos6502 *_pins;
-    MemsMos6502 *_mems;
+    PinsMos6502 *const _pins;
+    MemsMos6502 *const _mems;
 
     uint16_t _pc;
     uint16_t _d;
@@ -53,6 +53,8 @@ private:
     void setE(uint8_t value);
     void save65816();
     void restore65816();
+
+    mutable CharBuffer _buffer;
 };
 
 }  // namespace mos6502

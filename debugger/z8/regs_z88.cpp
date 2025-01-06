@@ -7,8 +7,14 @@
 
 namespace debugger {
 namespace z88 {
+namespace {
+// clang-format off
+//                    01234567890123456789012345678901234567890123456
+const char line1[] = "PC=xxxx SP=xxxx IP=xxxx RP=xx:xx FLAGS=CZSVDH11";
+// clang-format on
+}  // namespace
 
-RegsZ88::RegsZ88(PinsZ88 *pins) : RegsZ8(pins) {}
+RegsZ88::RegsZ88(PinsZ88 *pins) : RegsZ8(pins), _buffer1(line1) {}
 
 const char *RegsZ88::cpu() const {
     return "Z88";
@@ -19,19 +25,14 @@ const char *RegsZ88::cpuName() const {
 }
 
 void RegsZ88::print() const {
-    // clang-format off
-    //                               01234567890123456789012345678901234567890123456
-    static constexpr char line1[] = "PC=xxxx SP=xxxx IP=xxxx RP=xx:xx FLAGS=CZSVDH11";
-    // clang-format on
-    static auto &buffer1 = *new CharBuffer(line1);
-    buffer1.hex16(3, _pc);
-    buffer1.hex16(11, _sp);
-    buffer1.hex16(19, _ip);
-    buffer1.hex8(27, _rp0);
-    buffer1.hex8(30, _rp1);
-    buffer1.bits(39, _flags, 0x80, line1 + 39);
-    buffer1[46] = (_flags & 0x01) ? '1' : '0';  // bank address
-    cli.println(buffer1);
+    _buffer1.hex16(3, _pc);
+    _buffer1.hex16(11, _sp);
+    _buffer1.hex16(19, _ip);
+    _buffer1.hex8(27, _rp0);
+    _buffer1.hex8(30, _rp1);
+    _buffer1.bits(39, _flags, 0x80, line1 + 39);
+    _buffer1[46] = (_flags & 0x01) ? '1' : '0';  // bank address
+    cli.println(_buffer1);
     RegsZ8::print();
 }
 

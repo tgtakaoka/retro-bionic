@@ -1,11 +1,21 @@
 #include "regs_mc68hc11.h"
-#include "char_buffer.h"
 #include "debugger.h"
 #include "mc68hc11_init.h"
 #include "pins_mc68hc11.h"
 
 namespace debugger {
 namespace mc68hc11 {
+namespace {
+// clang-format off
+//                   012345678901234567890123456789012345678901234567890
+const char line[] = "PC=xxxx SP=xxxx X=xxxx Y=xxxx A=xx B=xx CC=SXHINZVC";
+// clang-format on
+}  // namespace
+
+RegsMc68hc11::RegsMc68hc11(mc6800::PinsMc6800Base *pins, Mc68hc11Init &init)
+    : RegsMc6800(pins), _init(init) {
+    _buffer.set(line);
+}
 
 /**
  * How to determine MC6800 variants.
@@ -46,19 +56,14 @@ const char *RegsMc68hc11::cpuName() const {
 }
 
 void RegsMc68hc11::print() const {
-    // clang-format off
-    //                              012345678901234567890123456789012345678901234567890
-    static constexpr char line[] = "PC=xxxx SP=xxxx X=xxxx Y=xxxx A=xx B=xx CC=SXHINZVC";
-    // clang-format on
-    static auto &buffer = *new CharBuffer(line);
-    buffer.hex16(3, _pc);
-    buffer.hex16(11, _sp);
-    buffer.hex16(18, _x);
-    buffer.hex16(25, _y);
-    buffer.hex8(32, _a);
-    buffer.hex8(37, _b);
-    buffer.bits(43, _cc, 0x80, line + 43);
-    cli.println(buffer);
+    _buffer.hex16(3, _pc);
+    _buffer.hex16(11, _sp);
+    _buffer.hex16(18, _x);
+    _buffer.hex16(25, _y);
+    _buffer.hex8(32, _a);
+    _buffer.hex8(37, _b);
+    _buffer.bits(43, _cc, 0x80, line + 43);
+    cli.println(_buffer);
 }
 
 void RegsMc68hc11::save() {

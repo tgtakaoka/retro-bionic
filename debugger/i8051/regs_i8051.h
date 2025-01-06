@@ -1,6 +1,7 @@
 #ifndef __REGS_I8051_H__
 #define __REGS_I8051_H__
 
+#include "char_buffer.h"
 #include "regs.h"
 
 namespace debugger {
@@ -9,7 +10,7 @@ namespace i8051 {
 struct PinsI8051;
 
 struct RegsI8051 final : Regs {
-    RegsI8051(PinsI8051 *pins) : _pins(pins) {}
+    RegsI8051(PinsI8051 *pins);
 
     const char *cpu() const override { return "8051"; }
     const char *cpuName() const override;
@@ -27,7 +28,7 @@ struct RegsI8051 final : Regs {
     void write_internal(uint8_t addr, uint8_t data) const;
 
 private:
-    PinsI8051 *_pins;
+    PinsI8051 *const _pins;
 
     static constexpr uint8_t B = 0xF0;
     static constexpr uint8_t ACC = 0xE0;
@@ -50,12 +51,11 @@ private:
     void set_r(uint8_t num, uint8_t val);
     uint8_t raw_read_internal(uint8_t addr) const;
 
-    static constexpr uint8_t SAVE_A[] = {
-            0xF2,  // MOVX @R0, A
-    };
-};
+    static const uint8_t SAVE_A[];
 
-extern struct RegsI8051 Regs;
+    mutable CharBuffer _buffer1;
+    mutable CharBuffer _buffer2;
+};
 
 }  // namespace i8051
 }  // namespace debugger

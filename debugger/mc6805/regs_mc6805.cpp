@@ -1,26 +1,29 @@
 #include "regs_mc6805.h"
-#include "char_buffer.h"
 #include "debugger.h"
 #include "mems_mc6805.h"
 #include "pins_mc6805.h"
 
 namespace debugger {
 namespace mc6805 {
+namespace {
+//                   0123456789012345678901234567890123
+const char line[] = "PC=xxxx SP=xxxx X=xx A=xx CC=HINZC";
+}  // namespace
+
+RegsMc6805::RegsMc6805(const char *cpu, PinsMc6805 *pins)
+    : _cpu(cpu), _pins(pins), _buffer(line) {}
 
 const char *RegsMc6805::cpuName() const {
     return Debugger.target().identity();
 }
 
 void RegsMc6805::print() const {
-    //                              0123456789012345678901234567890123
-    static constexpr char line[] = "PC=xxxx SP=xxxx X=xx A=xx CC=HINZC";
-    static auto &buffer = *new CharBuffer(line);
-    buffer.hex16(3, _pc);
-    buffer.hex16(11, _sp);
-    buffer.hex8(18, _x);
-    buffer.hex8(23, _a);
-    buffer.bits(29, _cc, 0x10, line + 29);
-    cli.println(buffer);
+    _buffer.hex16(3, _pc);
+    _buffer.hex16(11, _sp);
+    _buffer.hex8(18, _x);
+    _buffer.hex8(23, _a);
+    _buffer.bits(29, _cc, 0x10, line + 29);
+    cli.println(_buffer);
 }
 
 void RegsMc6805::save() {
@@ -131,7 +134,7 @@ void RegsMc6805::internal_write(uint8_t addr, uint8_t data) const {
     uint8_t LDA_STA[] = {
             0xA6, data,  // LDA #val ; 1:2
             0xB7, addr,  // STA addr ; 1:2:n:E (MC146805)
-    };                   //          ; 1:2:D:E (MC68HC05)
+    };  //          ; 1:2:D:E (MC68HC05)
     _pins->injectReads(LDA_STA, sizeof(LDA_STA));
     _pins->suspend();
 }
