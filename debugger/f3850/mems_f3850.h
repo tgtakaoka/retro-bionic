@@ -17,7 +17,7 @@ struct MemsF3850 final : DmaMemory {
             const char *space = nullptr) const override;
 
 private:
-    RegsF3850 *_regs;
+    RegsF3850 *const _regs;
 };
 
 }  // namespace f3850

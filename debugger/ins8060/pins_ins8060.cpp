@@ -289,7 +289,7 @@ Signals *PinsIns8060::completeCycle(Signals *s) const {
     return s;
 }
 
-Signals *PinsIns8060::cycle(uint8_t data) const {
+Signals *PinsIns8060::inject(uint8_t data) const {
     return completeCycle(prepareCycle()->inject(data));
 }
 
@@ -341,7 +341,7 @@ void PinsIns8060::loop() {
             const auto len = InstIns8060::instLen(inst);
             if (len == 0 || inst == InstIns8060::HALT) {
                 completeCycle(s->inject(InstIns8060::JMP));
-                cycle(InstIns8060::JMP_HERE);
+                inject(InstIns8060::JMP_HERE);
                 negate_enin();
                 Signals::discard(s);
                 return;
@@ -360,7 +360,7 @@ void PinsIns8060::suspend() const {
         auto s = prepareCycle();
         if (s->fetch()) {
             completeCycle(s->inject(InstIns8060::JMP));
-            cycle(InstIns8060::JMP_HERE);
+            inject(InstIns8060::JMP_HERE);
             negate_enin();
             Signals::discard(s);
             return;
@@ -388,7 +388,7 @@ bool PinsIns8060::rawStep() const {
     if (len == 0 || inst == InstIns8060::HALT) {
         // HALT or unknown instruction
         completeCycle(s->inject(InstIns8060::JMP));
-        cycle(InstIns8060::JMP_HERE);
+        inject(InstIns8060::JMP_HERE);
         Signals::discard(s);
         return false;
     }

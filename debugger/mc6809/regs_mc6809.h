@@ -1,6 +1,7 @@
 #ifndef __REGS_MC6809_H__
 #define __REGS_MC6809_H__
 
+#include "char_buffer.h"
 #include "regs.h"
 
 namespace debugger {
@@ -15,7 +16,7 @@ enum SoftwareType : uint8_t {
 };
 
 struct RegsMc6809 : Regs {
-    RegsMc6809(PinsMc6809Base *pins) : _pins(pins) {}
+    RegsMc6809(PinsMc6809Base *pins);
 
     const char *cpu() const override;
     const char *cpuName() const override;
@@ -36,7 +37,7 @@ struct RegsMc6809 : Regs {
     SoftwareType checkSoftwareType();
 
 protected:
-    PinsMc6809Base *_pins;
+    PinsMc6809Base *const _pins;
     SoftwareType _type;
 
     uint16_t _s;
@@ -75,6 +76,9 @@ protected:
     void saveVW();
     void loadW(uint16_t val) const;
     void loadVW() const;
+
+    mutable CharBuffer _buffer1;
+    mutable CharBuffer _buffer2;
 };
 
 }  // namespace mc6809

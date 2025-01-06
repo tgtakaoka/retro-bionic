@@ -1,6 +1,7 @@
 #ifndef __REGS_TLCS90_H__
 #define __REGS_TLCS90_H__
 
+#include "char_buffer.h"
 #include "regs.h"
 #include "signals_tlcs90.h"
 
@@ -10,7 +11,7 @@ namespace tlcs90 {
 struct PinsTlcs90;
 
 struct RegsTlcs90 final : Regs {
-    RegsTlcs90(PinsTlcs90 *pins) : _pins(pins) {}
+    RegsTlcs90(PinsTlcs90 *pins);
 
     const char *cpu() const override;
     const char *cpuName() const override;
@@ -34,7 +35,7 @@ struct RegsTlcs90 final : Regs {
     void internal_write(uint16_t addr, uint8_t data) const;
 
 private:
-    PinsTlcs90 *_pins;
+    PinsTlcs90 *const _pins;
 
     uint16_t _pc;
     uint16_t _sp;
@@ -73,6 +74,9 @@ private:
     static constexpr uint16_t r16(const uint8_t hi, const uint8_t lo) {
         return static_cast<uint16_t>(hi) << 8 | lo;
     }
+
+    mutable CharBuffer _buffer1;
+    mutable CharBuffer _buffer2;
 };
 
 }  // namespace tlcs90

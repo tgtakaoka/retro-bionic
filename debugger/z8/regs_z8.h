@@ -1,6 +1,7 @@
 #ifndef __REGS_Z8_H__
 #define __REGS_Z8_H__
 
+#include "char_buffer.h"
 #include "regs.h"
 
 namespace debugger {
@@ -20,7 +21,7 @@ struct RegsZ8 : Regs {
     void save() override;
     void restore() override;
 
-    virtual RegSpace parseSpace(const char *space) const;
+    virtual RegSpace parseSpace(const char *space) const = 0;
     virtual uint8_t read_reg(uint8_t addr, RegSpace space = SET_ONE) = 0;
     virtual void write_reg(
             uint8_t addr, uint8_t val, RegSpace space = SET_ONE) = 0;
@@ -30,7 +31,7 @@ struct RegsZ8 : Regs {
     void setRegister(uint8_t reg, uint32_t value) override;
 
 protected:
-    RegsZ8(PinsZ8 *pins) : _pins(pins) {}
+    RegsZ8(PinsZ8 *pins);
     PinsZ8 *_pins;
 
     uint16_t _pc;
@@ -55,6 +56,9 @@ protected:
 
     static const char *const REGS8[18];
     static const char *const REGS16[10];
+
+    mutable CharBuffer _buffer2;
+    mutable CharBuffer _buffer3;
 };
 
 }  // namespace z8

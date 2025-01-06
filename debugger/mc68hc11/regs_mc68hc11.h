@@ -9,8 +9,7 @@ namespace mc68hc11 {
 struct Mc68hc11Init;
 
 struct RegsMc68hc11 final : mc6800::RegsMc6800 {
-    RegsMc68hc11(mc6800::PinsMc6800Base *pins, Mc68hc11Init &init)
-        : RegsMc6800(pins), _init(init) {}
+    RegsMc68hc11(mc6800::PinsMc6800Base *pins, Mc68hc11Init &init);
 
     const char *cpuName() const override;
 

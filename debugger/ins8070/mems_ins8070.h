@@ -22,8 +22,8 @@ struct MemsIns8070 final : DmaMemory {
     static bool is_internal(uint16_t addr) { return addr >= 0xFFC0; }
 
 private:
-    RegsIns8070 *_regs;
-    Devs *_devs;
+    RegsIns8070 *const _regs;
+    Devs *const _devs;
 };
 
 }  // namespace ins8070

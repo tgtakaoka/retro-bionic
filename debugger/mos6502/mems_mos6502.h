@@ -18,7 +18,7 @@ struct MemsMos6502 final : ExtMemory {
     void longI(bool enable) { _longI = enable; }
 
 private:
-    Devs *_devs;
+    Devs *const _devs;
     bool _longA;
     bool _longI;
 

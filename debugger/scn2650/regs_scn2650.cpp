@@ -1,5 +1,4 @@
 #include "regs_scn2650.h"
-#include "char_buffer.h"
 #include "debugger.h"
 #include "digital_bus.h"
 #include "mems_scn2650.h"
@@ -7,6 +6,15 @@
 
 namespace debugger {
 namespace scn2650 {
+namespace {
+//                              1         2         3         4
+//                    012345678901234567890123456789012345678901234567
+const char line1[] = "PC=xxxx PSU=SFI11111 PSL=11D1WVLC SP=x CC=x RS=x";
+const char line2[] = "R0=xx R1=xx R2=xx R3=xx (R1=xx R2=xx R3=xx)";
+}  // namespace
+
+RegsScn2650::RegsScn2650(PinsScn2650 *pins)
+    : _pins(pins), _buffer1(line1), _buffer2(line2) {}
 
 const char *RegsScn2650::cpu() const {
     return "2650";
@@ -17,30 +25,22 @@ const char *RegsScn2650::cpuName() const {
 }
 
 void RegsScn2650::print() const {
-    static constexpr char line[] =
-            "PC=xxxx PSU=SFI11111 PSL=11D1WVLC SP=x CC=x RS=x";
-    //       012345678901234567890123456789012345678901234567
-    static auto &buffer = *new CharBuffer(line);
-    buffer.hex16(3, _pc);
-    buffer.bits(12, _psu, 0x80, line + 12);
-    buffer.bits(25, _psl, 0x80, line + 25);
-    buffer[31] = (_psl & 2) ? 'L' : 'A';  // Logic ot Arithmetic
-    buffer.hex4(37, _psu & 7);            // Stack pointer
+    _buffer1.hex16(3, _pc);
+    _buffer1.bits(12, _psu, 0x80, line1 + 12);
+    _buffer1.bits(25, _psl, 0x80, line1 + 25);
+    _buffer1[31] = (_psl & 2) ? 'L' : 'A';  // Logic ot Arithmetic
+    _buffer1.hex4(37, _psu & 7);            // Stack pointer
     static constexpr char cc[] = {'Z', 'P', 'N', '3'};
-    buffer[42] = cc[_psl >> 6];  // Condition code
-    buffer.hex1(47, rs());       // Register select
-    cli.println(buffer);
-    static constexpr char regs[] =
-            "R0=xx R1=xx R2=xx R3=xx (R1=xx R2=xx R3=xx)";
-    //       0123456789012345678901234567890123456789012
-    static auto &regbuf = *new CharBuffer(regs);
-    regbuf.hex8(3, _r0);
+    _buffer1[42] = cc[_psl >> 6];  // Condition code
+    _buffer1.hex1(47, rs());       // Register select
+    cli.println(_buffer1);
+    _buffer2.hex8(3, _r0);
     const auto bank = rs();
     for (auto n = 0; n < 3; ++n) {
-        regbuf.hex8(n * 6 + 9, _r[bank][n]);
-        regbuf.hex8(n * 6 + 28, _r[1 - bank][n]);
+        _buffer2.hex8(n * 6 + 9, _r[bank][n]);
+        _buffer2.hex8(n * 6 + 28, _r[1 - bank][n]);
     }
-    cli.println(regbuf);
+    cli.println(_buffer2);
     _pins->idle();
 }
 

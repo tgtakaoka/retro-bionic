@@ -1,5 +1,4 @@
 #include "regs_ins8070.h"
-#include "char_buffer.h"
 #include "debugger.h"
 #include "inst_ins8070.h"
 #include "pins_ins8070.h"
@@ -7,6 +6,13 @@
 
 namespace debugger {
 namespace ins8070 {
+namespace {
+const char line[] =
+        "PC=xxxx SP=xxxx P2=xxxx P3=xxxx E=xx A=xx T=xxxx S=CVBA321I";
+//       01234567890123456789012345678901234567890123456789012345678
+}  // namespace
+
+RegsIns8070::RegsIns8070(PinsIns8070 *pins) : _pins(pins), _buffer(line) {}
 
 const char *RegsIns8070::cpu() const {
     return "INS8070";
@@ -17,19 +23,15 @@ const char *RegsIns8070::cpuName() const {
 }
 
 void RegsIns8070::print() const {
-    static constexpr char line[] =
-            "PC=xxxx SP=xxxx P2=xxxx P3=xxxx E=xx A=xx T=xxxx S=CVBA321I";
-    //       01234567890123456789012345678901234567890123456789012345678
-    static auto &buffer = *new CharBuffer(line);
-    buffer.hex16(3, _pc());
-    buffer.hex16(11, _sp());
-    buffer.hex16(19, _p2());
-    buffer.hex16(27, _p3());
-    buffer.hex8(34, _e);
-    buffer.hex8(39, _a);
-    buffer.hex16(44, _t);
-    buffer.bits(51, _s, 0x80, line + 51);
-    cli.println(buffer);
+    _buffer.hex16(3, _pc());
+    _buffer.hex16(11, _sp());
+    _buffer.hex16(19, _p2());
+    _buffer.hex16(27, _p3());
+    _buffer.hex8(34, _e);
+    _buffer.hex8(39, _a);
+    _buffer.hex16(44, _t);
+    _buffer.bits(51, _s, 0x80, line + 51);
+    cli.println(_buffer);
     _pins->idle();
 }
 

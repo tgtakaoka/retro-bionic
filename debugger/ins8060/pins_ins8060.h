@@ -82,7 +82,7 @@ private:
     void xin_lo() const;
     Signals *prepareCycle() const;
     Signals *completeCycle(Signals *signals) const;
-    Signals *cycle(uint8_t data) const;
+    Signals *inject(uint8_t data) const;
     void loop();
     void suspend() const;
     bool rawStep() const;

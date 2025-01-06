@@ -7,7 +7,7 @@
 namespace debugger {
 namespace mc6809 {
 
-struct MemsMc6809 : DmaMemory {
+struct MemsMc6809 final : DmaMemory {
     MemsMc6809(Devs *devs);
 
     uint32_t maxAddr() const override { return UINT16_MAX; }
@@ -15,7 +15,7 @@ struct MemsMc6809 : DmaMemory {
     void write(uint32_t addr, uint16_t data) const override;
 
 protected:
-    Devs *_devs;
+    Devs *const _devs;
 };
 
 }  // namespace mc6809

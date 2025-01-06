@@ -210,29 +210,29 @@ void PinsMos6502::checkSoftwareType() {
         return;
     }
 
-    cycle(InstMos6502::JMP);
-    cycle(0x00);
-    cycle(0x10);
-    auto base = cycle(InstMos6502::BRA);  // 4 clock branch
-    cycle(InstMos6502::NOP);
-    cycle(InstMos6502::NOP);
-    cycle(InstMos6502::NOP);
-    auto det65 = cycle(InstMos6502::JMP);
-    cycle(0x00);
-    cycle(0x10);
+    inject(InstMos6502::JMP);
+    inject(0x00);
+    inject(0x10);
+    auto base = inject(InstMos6502::BRA);  // 4 clock branch
+    inject(InstMos6502::NOP);
+    inject(InstMos6502::NOP);
+    inject(InstMos6502::NOP);
+    auto det65 = inject(InstMos6502::JMP);
+    inject(0x00);
+    inject(0x10);
     if (det65->addr == base->addr + 3U) {
         _softType = SW_MOS6502;
         return;
     }
-    base = cycle(InstMos6502::BBR0);  // 6 clock branch
-    cycle(InstMos6502::NOP);
-    cycle(InstMos6502::NOP);
-    cycle(InstMos6502::NOP);
-    cycle(InstMos6502::NOP);
-    cycle(InstMos6502::NOP);
-    cycle(InstMos6502::NOP);
-    det65 = cycle(InstMos6502::NOP);
-    cycle(InstMos6502::NOP);
+    base = inject(InstMos6502::BBR0);  // 6 clock branch
+    inject(InstMos6502::NOP);
+    inject(InstMos6502::NOP);
+    inject(InstMos6502::NOP);
+    inject(InstMos6502::NOP);
+    inject(InstMos6502::NOP);
+    inject(InstMos6502::NOP);
+    det65 = inject(InstMos6502::NOP);
+    inject(InstMos6502::NOP);
     if (det65->addr == base->addr + 4) {
         _softType = SW_G65SC02;
     } else {
@@ -329,7 +329,7 @@ Signals *PinsMos6502::cycle() {
     return completeCycle(prepareCycle());
 }
 
-Signals *PinsMos6502::cycle(uint8_t data) {
+Signals *PinsMos6502::inject(uint8_t data) {
     return completeCycle(prepareCycle()->inject(data));
 }
 

@@ -1,6 +1,7 @@
 #ifndef __REGS_I8048_H__
 #define __REGS_I8048_H__
 
+#include "char_buffer.h"
 #include "regs.h"
 
 namespace debugger {
@@ -9,7 +10,7 @@ namespace i8048 {
 struct PinsI8048;
 
 struct RegsI8048 final : Regs {
-    RegsI8048(PinsI8048 *pins) : _pins(pins) {}
+    RegsI8048(PinsI8048 *pins);
 
     const char *cpu() const override;
     const char *cpuName() const override;
@@ -29,7 +30,7 @@ struct RegsI8048 final : Regs {
     static constexpr const char P8039[] = "P8039";
 
 private:
-    PinsI8048 *_pins;
+    PinsI8048 *const _pins;
 
     static constexpr uint8_t cy = 0x80;
     static constexpr uint8_t ac = 0x40;
@@ -49,9 +50,10 @@ private:
     void restore_pc(uint16_t pc, uint8_t mb) const;
     uint8_t _mb;
     uint16_t _pc;
-};
 
-extern struct RegsI8048 Regs;
+    mutable CharBuffer _buffer1;
+    mutable CharBuffer _buffer2;
+};
 
 }  // namespace i8048
 }  // namespace debugger

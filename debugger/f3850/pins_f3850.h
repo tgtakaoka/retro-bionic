@@ -81,7 +81,7 @@ struct PinsF3850 final : Pins {
 
 private:
     Signals *cycle();
-    Signals *cycle(uint8_t data);
+    Signals *inject(uint8_t data);
     void loop();
     bool rawStep();
     void execute(const uint8_t *inst, uint8_t len, uint8_t *buf, uint8_t max);

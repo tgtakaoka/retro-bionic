@@ -18,8 +18,6 @@ protected:
     uint8_t signal_txd() const override;
 };
 
-extern struct Cdp1802SciHandler SciH;
-
 }  // namespace cdp1802
 }  // namespace debugger
 #endif

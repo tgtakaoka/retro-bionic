@@ -1,6 +1,7 @@
 #ifndef __REGS_INS8070_H__
 #define __REGS_INS8070_H__
 
+#include "char_buffer.h"
 #include "inst_ins8070.h"
 #include "regs.h"
 
@@ -10,7 +11,7 @@ namespace ins8070 {
 struct PinsIns8070;
 
 struct RegsIns8070 final : Regs {
-    RegsIns8070(PinsIns8070 *pins) : _pins(pins) {}
+    RegsIns8070(PinsIns8070 *pins);
 
     const char *cpu() const override;
     const char *cpuName() const override;
@@ -32,7 +33,7 @@ struct RegsIns8070 final : Regs {
     uint16_t effectiveAddr(const InstIns8070 &inst, uint8_t opr) const;
 
 private:
-    PinsIns8070 *_pins;
+    PinsIns8070 *const _pins;
 
     uint8_t _a;
     uint8_t _e;
@@ -51,6 +52,8 @@ private:
         _a = lo(ea);
         _e = hi(ea);
     }
+
+    mutable CharBuffer _buffer;
 };
 
 }  // namespace ins8070

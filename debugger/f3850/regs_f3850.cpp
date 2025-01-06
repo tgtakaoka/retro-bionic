@@ -1,5 +1,4 @@
 #include "regs_f3850.h"
-#include "char_buffer.h"
 #include "debugger.h"
 #include "pins_f3850.h"
 
@@ -9,160 +8,177 @@
 namespace debugger {
 namespace f3850 {
 
+namespace {
+// clang-format off
+//                              1         2         3         4
+//                    01234567890123456789012345678901234567890123456789
+const char line1[] = "P0=xxxx P=xxxx DC=xxxx DC1=xxxx IS=xx W=IVZCS A=xx";
+const char line2[] = "R0=xx R1=xx R2=xx R3=xx R4=xx R5=xx R6=xx R7=xx";
+const char line3[] = "R8=xx  J=xx HU=xx HL=xx KL=xx KH=xx QU=xx QH=xx";
+// clang-format on
+}  // namespace
+
+RegsF3850::RegsF3850(PinsF3850 *pins, Devs *devs)
+    : _pins(pins),
+      _devs(devs),
+      _buffer1(line1),
+      _buffer2(line2),
+      _buffer3(line3) {}
+
 const char *RegsF3850::cpu() const {
     return "F3850";
 }
 
-bool RegsF3850::romc_read(Signals *signals) {
+bool RegsF3850::romc_read(Signals *s) {
     LOG_ROMC(cli.print("@@ R ROMC="));
-    LOG_ROMC(cli.printHex(signals->romc, 2));
+    LOG_ROMC(cli.printHex(s->romc, 2));
     LOG_ROMC(cli.print(" pc0="));
     LOG_ROMC(cli.printHex(_pc0, 4));
     LOG_ROMC(cli.print(" dc0="));
     LOG_ROMC(cli.printlnHex(_dc0, 4));
-    switch (signals->romc()) {
+    switch (s->romc()) {
     case 0x00:
-        signals->markFetch();
-        if (signals->readMemory())
-            signals->data = _mems->read(_pc0);
-        signals->markRead(_pc0++);
+        s->markFetch();
+        if (s->readMemory())
+            s->data = _mems->read(_pc0);
+        s->markRead(_pc0++);
         break;
     case 0x01:
-        if (signals->readMemory())
-            signals->data = _mems->read(_pc0);
-        signals->markRead(_pc0);
-        _pc0 += static_cast<int8_t>(signals->data);
+        if (s->readMemory())
+            s->data = _mems->read(_pc0);
+        s->markRead(_pc0);
+        _pc0 += static_cast<int8_t>(s->data);
         break;
     case 0x02:
-        if (signals->readMemory())
-            signals->data = _mems->read(_dc0);
-        signals->markRead(_dc0++);
+        if (s->readMemory())
+            s->data = _mems->read(_dc0);
+        s->markRead(_dc0++);
         break;
     case 0x03:
-        if (signals->readMemory())
-            signals->data = _mems->read(_pc0);
-        signals->markRead(_pc0++);
-        _ioaddr = signals->data;
+        if (s->readMemory())
+            s->data = _mems->read(_pc0);
+        s->markRead(_pc0++);
+        _ioaddr = s->data;
         break;
     case 0x06:
-        signals->data = hi(_dc0);
+        s->data = hi(_dc0);
         break;
     case 0x07:
-        signals->data = hi(_pc1);
+        s->data = hi(_pc1);
         break;
     case 0x09:
-        signals->data = lo(_dc0);
+        s->data = lo(_dc0);
         break;
     case 0x0B:
-        signals->data = lo(_pc1);
+        s->data = lo(_pc1);
         break;
     case 0x0C:
-        if (signals->readMemory())
-            signals->data = _mems->read(_pc0);
-        signals->markRead(_pc0);
-        _pc0 = uint16(hi(_pc0), signals->data);
+        if (s->readMemory())
+            s->data = _mems->read(_pc0);
+        s->markRead(_pc0);
+        _pc0 = uint16(hi(_pc0), s->data);
         break;
     case 0x0E:
-        if (signals->readMemory())
-            signals->data = _mems->read(_pc0);
-        signals->markRead(_pc0);
-        _dc0 = uint16(hi(_dc0), signals->data);
+        if (s->readMemory())
+            s->data = _mems->read(_pc0);
+        s->markRead(_pc0);
+        _dc0 = uint16(hi(_dc0), s->data);
         break;
     case 0x0F:  // Interruput acknowledge
-        signals->data = lo(_devs->vector());
+        s->data = lo(_devs->vector());
         _pc1 = _pc0;
-        _pc0 = uint16(hi(_pc0), signals->data);
+        _pc0 = uint16(hi(_pc0), s->data);
         break;
     case 0x11:
-        if (signals->readMemory())
-            signals->data = _mems->read(_pc0);
-        signals->markRead(_pc0);
-        _dc0 = uint16(signals->data, lo(_dc0));
+        if (s->readMemory())
+            s->data = _mems->read(_pc0);
+        s->markRead(_pc0);
+        _dc0 = uint16(s->data, lo(_dc0));
         break;
     case 0x13:  // Interruput acknowledge
-        signals->data = hi(_devs->vector());
-        _pc0 = uint16(signals->data, lo(_pc0));
+        s->data = hi(_devs->vector());
+        _pc0 = uint16(s->data, lo(_pc0));
         break;
     case 0x1B:  // I/O read
         if (_ioaddr < 4)
             return false;
         if (_devs->isSelected(_ioaddr)) {
-            signals->data = _devs->read(_ioaddr);
+            s->data = _devs->read(_ioaddr);
         } else {
-            signals->data = 0;
+            s->data = 0;
         }
-        signals->markIoRead(_ioaddr);
+        s->markIoRead(_ioaddr);
         break;
     case 0x1E:
-        signals->data = lo(_pc0);
+        s->data = lo(_pc0);
         break;
     case 0x1F:
-        signals->data = hi(_pc0);
+        s->data = hi(_pc0);
         break;
     default:
-        signals->data = 0;
+        s->data = 0;
         return false;
     }
     return true;
 }
 
-bool RegsF3850::romc_write(Signals *signals) {
+bool RegsF3850::romc_write(Signals *s) {
     LOG_ROMC(cli.print("@@ W ROMC="));
-    LOG_ROMC(cli.printHex(signals->romc, 2));
+    LOG_ROMC(cli.printHex(s->romc, 2));
     LOG_ROMC(cli.print(" pc0="));
     LOG_ROMC(cli.printHex(_pc0, 4));
     LOG_ROMC(cli.print(" dc0="));
     LOG_ROMC(cli.printlnHex(_dc0, 4));
-    switch (signals->romc()) {
+    switch (s->romc()) {
     case 0x04:
         _pc0 = _pc1;
         break;
     case 0x05:
-        if (signals->writeMemory())
-            _mems->write(_dc0, signals->data);
-        signals->markWrite(_dc0++);
+        if (s->writeMemory())
+            _mems->write(_dc0, s->data);
+        s->markWrite(_dc0++);
         break;
     case 0x08:
         _pc1 = _pc0;
-        _pc0 = uint16(signals->data, signals->data);
+        _pc0 = uint16(s->data, s->data);
         break;
     case 0x0A:
-        _dc0 += static_cast<int8_t>(signals->data);
+        _dc0 += static_cast<int8_t>(s->data);
         break;
     case 0x0D:
         _pc1 = _pc0 + 1;
         return true;
     case 0x12:
         _pc1 = _pc0;
-        _pc0 = uint16(hi(_pc0), signals->data);
+        _pc0 = uint16(hi(_pc0), s->data);
         break;
     case 0x14:
-        _pc0 = uint16(signals->data, lo(_pc0));
+        _pc0 = uint16(s->data, lo(_pc0));
         break;
     case 0x15:
-        _pc1 = uint16(signals->data, lo(_pc1));
+        _pc1 = uint16(s->data, lo(_pc1));
         break;
     case 0x16:
-        _dc0 = uint16(signals->data, lo(_dc0));
+        _dc0 = uint16(s->data, lo(_dc0));
         break;
     case 0x17:
-        _pc0 = uint16(hi(_pc0), signals->data);
+        _pc0 = uint16(hi(_pc0), s->data);
         break;
     case 0x18:
-        _pc1 = uint16(hi(_pc1), signals->data);
+        _pc1 = uint16(hi(_pc1), s->data);
         break;
     case 0x19:
-        _dc0 = uint16(hi(_dc0), signals->data);
+        _dc0 = uint16(hi(_dc0), s->data);
         break;
     case 0x1A:  // I/O write
         if (_ioaddr < 4)
             break;
         if (_devs->isSelected(_ioaddr))
-            _devs->write(_ioaddr, signals->data);
-        signals->markIoWrite(_ioaddr);
+            _devs->write(_ioaddr, s->data);
+        s->markIoWrite(_ioaddr);
         break;
     case 0x1C:
-        _ioaddr = signals->data;
+        _ioaddr = s->data;
         return true;
     case 0x1D: {
         const auto tmp = _dc0;
@@ -177,30 +193,21 @@ bool RegsF3850::romc_write(Signals *signals) {
 }
 
 void RegsF3850::print() const {
-    // clang-format off
-    //                               01234567890123456789012345678901234567890123456789
-    static constexpr char line1[] = "P0=xxxx P=xxxx DC=xxxx DC1=xxxx IS=xx W=IVZCS A=xx";
-    static constexpr char line2[] = "R0=xx R1=xx R2=xx R3=xx R4=xx R5=xx R6=xx R7=xx";
-    static constexpr char line3[] = "R8=xx  J=xx HU=xx HL=xx KL=xx KH=xx QU=xx QH=xx";
-    // clang-format on
-    static auto &buffer1 = *new CharBuffer(line1);
-    buffer1.hex16(3, _pc0);
-    buffer1.hex16(10, _pc1);
-    buffer1.hex16(18, _dc0);
-    buffer1.hex16(27, _dc1);
-    buffer1.hex4(35, (_isar >> 3) & 7);
-    buffer1.hex4(36, _isar & 7);
-    buffer1.bits(40, _w, 0x10, line1 + 40);
-    buffer1.hex8(48, _a);
-    cli.println(buffer1);
-    static auto &buffer2 = *new CharBuffer(line2);
+    _buffer1.hex16(3, _pc0);
+    _buffer1.hex16(10, _pc1);
+    _buffer1.hex16(18, _dc0);
+    _buffer1.hex16(27, _dc1);
+    _buffer1.hex4(35, (_isar >> 3) & 7);
+    _buffer1.hex4(36, _isar & 7);
+    _buffer1.bits(40, _w, 0x10, line1 + 40);
+    _buffer1.hex8(48, _a);
+    cli.println(_buffer1);
     for (auto n = 0; n < 8; ++n)
-        buffer2.hex8(n * 6 + 3, _r[n]);
-    cli.println(buffer2);
-    static auto &buffer3 = *new CharBuffer(line3);
+        _buffer2.hex8(n * 6 + 3, _r[n]);
+    cli.println(_buffer2);
     for (auto n = 0; n < 8; ++n)
-        buffer3.hex8(n * 6 + 3, _r[n + 8]);
-    cli.println(buffer3);
+        _buffer3.hex8(n * 6 + 3, _r[n + 8]);
+    cli.println(_buffer3);
 }
 
 void RegsF3850::save() {

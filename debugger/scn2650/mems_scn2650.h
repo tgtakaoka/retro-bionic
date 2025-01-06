@@ -17,10 +17,8 @@ struct MemsScn2650 final : DmaMemory {
             const char *space = nullptr) const override;
 
 private:
-    RegsScn2650 *_regs;
+    RegsScn2650 *const _regs;
 };
-
-extern struct MemsScn2650 Memory;
 
 }  // namespace scn2650
 }  // namespace debugger

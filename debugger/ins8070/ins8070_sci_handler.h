@@ -18,8 +18,6 @@ protected:
     uint8_t signal_txd() const override;
 };
 
-extern struct Ins8070SciHandler SciH;
-
 }  // namespace ins8070
 }  // namespace debugger
 #endif

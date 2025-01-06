@@ -207,7 +207,7 @@ Signals *PinsF3850::cycle() {
     return signals;
 }
 
-Signals *PinsF3850::cycle(uint8_t data) {
+Signals *PinsF3850::inject(uint8_t data) {
     Signals::put()->inject(data);
     return cycle();
 }
@@ -244,11 +244,11 @@ void PinsF3850::execute(
 
 void PinsF3850::idle() {
     // Inject "BR $"
-    const auto &s = cycle(InstF3850::BR);  // ROMC=0x00
+    const auto &s = inject(InstF3850::BR);  // ROMC=0x00
     delayNanoseconds(xtly_idle_ns);
-    cycle(InstF3850::BR_HERE);  // ROMC=0x1C
+    inject(InstF3850::BR_HERE);  // ROMC=0x1C
     delayNanoseconds(xtly_idle_ns);
-    cycle(0xFF);  // ROMC=0x01
+    inject(0xFF);  // ROMC=0x01
     Signals::discard(s);
 }
 

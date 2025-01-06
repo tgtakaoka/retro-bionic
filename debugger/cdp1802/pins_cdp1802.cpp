@@ -285,7 +285,7 @@ Signals *PinsCdp1802::cycle() {
     return completeCycle(directCycle(prepareCycle()));
 }
 
-Signals *PinsCdp1802::cycle(uint8_t data) {
+Signals *PinsCdp1802::inject(uint8_t data) {
     Signals::put()->inject(data);
     return cycle();
 }
@@ -354,8 +354,8 @@ bool PinsCdp1802::rawStep() {
     if (_mems->raw_read(s->addr) == InstCdp1802::IDL) {
         // Detect IDL, inject LBR * instead and halt.
         completeCycle(s->inject(InstCdp1802::LBR));
-        cycle(hi(s->addr));
-        cycle(lo(s->addr));
+        inject(hi(s->addr));
+        inject(lo(s->addr));
         Signals::discard(s);
         return false;
     }

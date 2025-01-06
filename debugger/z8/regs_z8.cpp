@@ -1,26 +1,27 @@
 #include "regs_z8.h"
-#include "char_buffer.h"
 #include "debugger.h"
 #include "mems_z8.h"
 #include "pins_z8.h"
 
 namespace debugger {
 namespace z8 {
+namespace {
+// clang-format off
+//                    0123456789012345678901234567890123456789012345678901234
+const char line2[] = " R0=xx  R1=xx  R2=xx  R3=xx  R4=xx  R5=xx  R6=xx  R7=xx";
+const char line3[] = " R8=xx  R9=xx R10=xx R11=xx R12=xx R13=xx R14=xx R15=xx";
+// clang-format on
+}  // namespace
+
+RegsZ8::RegsZ8(PinsZ8 *pins) : _pins(pins), _buffer2(line2), _buffer3(line3) {}
 
 void RegsZ8::print() const {
-    // clang-format off
-    //                               0123456789012345678901234567890123456789012345678901234
-    static constexpr char line2[] = " R0=xx  R1=xx  R2=xx  R3=xx  R4=xx  R5=xx  R6=xx  R7=xx";
-    static constexpr char line3[] = " R8=xx  R9=xx R10=xx R11=xx R12=xx R13=xx R14=xx R15=xx";
-    // clang-format on
-    static auto &buffer2 = *new CharBuffer(line2);
     for (auto i = 0; i < 8; ++i)
-        buffer2.hex8(4 + i * 7, _r[i]);
-    cli.println(buffer2);
-    static auto &buffer3 = *new CharBuffer(line3);
+        _buffer2.hex8(4 + i * 7, _r[i]);
+    cli.println(_buffer2);
     for (auto i = 0; i < 8; ++i)
-        buffer3.hex8(4 + i * 7, _r[i + 8]);
-    cli.println(buffer3);
+        _buffer3.hex8(4 + i * 7, _r[i + 8]);
+    cli.println(_buffer3);
 }
 
 void RegsZ8::save() {

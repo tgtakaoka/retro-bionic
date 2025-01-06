@@ -1,6 +1,7 @@
 #ifndef __REGS_SCN2650_H__
 #define __REGS_SCN2650_H__
 
+#include "char_buffer.h"
 #include "regs.h"
 
 namespace debugger {
@@ -9,7 +10,7 @@ namespace scn2650 {
 struct PinsScn2650;
 
 struct RegsScn2650 final : Regs {
-    RegsScn2650(PinsScn2650 *pins) : _pins(pins) {}
+    RegsScn2650(PinsScn2650 *pins);
 
     const char *cpu() const override;
     const char *cpuName() const override;
@@ -27,7 +28,7 @@ struct RegsScn2650 final : Regs {
     void write_io(uint8_t addr, uint8_t data) const;
 
 private:
-    PinsScn2650 *_pins;
+    PinsScn2650 *const _pins;
 
     uint16_t _pc;
     uint8_t _psu;
@@ -42,6 +43,9 @@ private:
 
     static constexpr uint8_t PPSL = 0x77;
     static constexpr uint8_t CPSL = 0x75;
+
+    mutable CharBuffer _buffer1;
+    mutable CharBuffer _buffer2;
 };
 
 }  // namespace scn2650

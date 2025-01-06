@@ -15,7 +15,7 @@ struct MemsIns8060 final : DmaMemory {
     void write(uint32_t addr, uint16_t data) const override;
 
 private:
-    Devs *_devs;
+    Devs *const _devs;
 };
 
 }  // namespace ins8060

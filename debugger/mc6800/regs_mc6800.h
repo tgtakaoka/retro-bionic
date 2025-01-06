@@ -1,6 +1,7 @@
 #ifndef __REGS_MC6800_H__
 #define __REGS_MC6800_H__
 
+#include "char_buffer.h"
 #include "regs.h"
 #include "signals_mc6800.h"
 
@@ -19,7 +20,7 @@ namespace mc6800 {
 struct PinsMc6800Base;
 
 struct RegsMc6800 : Regs {
-    RegsMc6800(PinsMc6800Base *pins) : _pins(pins) {}
+    RegsMc6800(PinsMc6800Base *pins);
 
     const char *cpu() const override;
     const char *cpuName() const override;
@@ -43,7 +44,7 @@ struct RegsMc6800 : Regs {
     virtual void internal_write(uint16_t addr, uint8_t data) const {}
 
 protected:
-    PinsMc6800Base *_pins;
+    PinsMc6800Base *const _pins;
     SoftwareType _type;
 
     uint16_t _sp;
@@ -55,6 +56,8 @@ protected:
 
     static const uint8_t LDS_7FFF[3];
     static const uint8_t STAA_8000[3];
+
+    mutable CharBuffer _buffer;
 };
 
 }  // namespace mc6800

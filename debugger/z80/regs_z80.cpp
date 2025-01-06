@@ -1,5 +1,4 @@
 #include "regs_z80.h"
-#include "char_buffer.h"
 #include "debugger.h"
 #include "digital_bus.h"
 #include "inst_z80.h"
@@ -7,6 +6,17 @@
 
 namespace debugger {
 namespace z80 {
+namespace {
+// clang-format off
+//                              1         2         3         4         5         6
+//                    0123456789012345678901234567890123456789012345678901234567890
+const char line1[] = "PC=xxxx SP=xxxx  BC=xxxx DE=xxxx HL=xxxx A=xx F=SZ1H1VNC I=xx";
+const char line2[] = "IX=xxxx IY=xxxx (BC=xxxx DE=xxxx HL=xxxx A=xx F=SZ1H1VNC)";
+// clang-format on
+}  // namespace
+
+RegsZ80::RegsZ80(const char *name, PinsZ80Base *pins)
+    : _name(name), _pins(pins), _buffer1(line1), _buffer2(line2) {}
 
 const char *RegsZ80::cpu() const {
     return _name;
@@ -17,31 +27,26 @@ const char *RegsZ80::cpuName() const {
 }
 
 void RegsZ80::print() const {
-    // clang-format off
-    //                              0123456789012345678901234567890123456789012345678901234567890
-    static constexpr char main[] = "PC=xxxx SP=xxxx  BC=xxxx DE=xxxx HL=xxxx A=xx F=SZ1H1VNC I=xx";
-    static constexpr char alt[]  = "IX=xxxx IY=xxxx (BC=xxxx DE=xxxx HL=xxxx A=xx F=SZ1H1VNC)";
-    // clang-format on
-    static auto &bufmain = *new CharBuffer(main);
-    static auto &bufalt = *new CharBuffer(alt);
-    bufmain.hex16(3, _pc);
-    bufmain.hex16(11, _sp);
-    bufmain.hex16(20, _main.bc());
-    bufmain.hex16(28, _main.de());
-    bufmain.hex16(36, _main.hl());
-    bufmain.hex8(43, _main.a);
-    bufmain.bits(48, _main.f, 0x80, main + 48);
-    bufmain.hex8(59, _i);
-    cli.println(bufmain);
+    auto main = _buffer1;
+    main.hex16(3, _pc);
+    main.hex16(11, _sp);
+    main.hex16(20, _main.bc());
+    main.hex16(28, _main.de());
+    main.hex16(36, _main.hl());
+    main.hex8(43, _main.a);
+    main.bits(48, _main.f, 0x80, main + 48);
+    main.hex8(59, _i);
+    cli.println(main);
     _pins->idle();
-    bufalt.hex16(3, _ix);
-    bufalt.hex16(11, _iy);
-    bufalt.hex16(20, _alt.bc());
-    bufalt.hex16(28, _alt.de());
-    bufalt.hex16(36, _alt.hl());
-    bufalt.hex8(43, _alt.a);
-    bufalt.bits(48, _alt.f, 0x80, alt + 48);
-    cli.println(bufalt);
+    auto alt = _buffer2;
+    alt.hex16(3, _ix);
+    alt.hex16(11, _iy);
+    alt.hex16(20, _alt.bc());
+    alt.hex16(28, _alt.de());
+    alt.hex16(36, _alt.hl());
+    alt.hex8(43, _alt.a);
+    alt.bits(48, _alt.f, 0x80, alt + 48);
+    cli.println(alt);
     _pins->idle();
 }
 

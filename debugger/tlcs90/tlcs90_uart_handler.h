@@ -18,8 +18,6 @@ protected:
     uint8_t signal_txd() const override;
 };
 
-extern struct Tlcs90UartHandler UartH;
-
 }  // namespace tlcs90
 }  // namespace debugger
 #endif

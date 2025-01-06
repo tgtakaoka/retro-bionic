@@ -24,9 +24,9 @@ struct MemsMc6805 final : DmaMemory {
             const char *space = nullptr) const override;
 
 private:
-    PinsMc6805 *_pins;
-    RegsMc6805 *_regs;
-    Devs *_devs;
+    PinsMc6805 *const _pins;
+    RegsMc6805 *const _regs;
+    Devs *const _devs;
     const uint8_t _pc_bits;
     const uint16_t _max_addr;
 

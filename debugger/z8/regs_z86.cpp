@@ -6,8 +6,14 @@
 
 namespace debugger {
 namespace z86 {
+namespace {
+// clang-format off
+//                    012345678901234567890123456789012345
+const char line1[] = "PC=xxxx SP=xxxx RP=xx FLAGS=CZSVDH11";
+// clang-format on
+}  // namespace
 
-RegsZ86::RegsZ86(PinsZ86 *pins) : RegsZ8(pins) {}
+RegsZ86::RegsZ86(PinsZ86 *pins) : RegsZ8(pins), _buffer1(line1) {}
 
 const char *RegsZ86::cpu() const {
     return "Z86C";
@@ -18,16 +24,11 @@ const char *RegsZ86::cpuName() const {
 }
 
 void RegsZ86::print() const {
-    // clang-format off
-    //                               012345678901234567890123456789012345
-    static constexpr char line1[] = "PC=xxxx SP=xxxx RP=xx FLAGS=CZSVDH11";
-    // clang-format on
-    static auto &buffer1 = *new CharBuffer(line1);
-    buffer1.hex16(3, _pc);
-    buffer1.hex16(11, _sp);
-    buffer1.hex8(19, _rp);
-    buffer1.bits(28, _flags, 0x80, line1 + 28);
-    cli.println(buffer1);
+    _buffer1.hex16(3, _pc);
+    _buffer1.hex16(11, _sp);
+    _buffer1.hex8(19, _rp);
+    _buffer1.bits(28, _flags, 0x80, line1 + 28);
+    cli.println(_buffer1);
     RegsZ8::print();
 }
 
@@ -103,7 +104,8 @@ uint8_t RegsZ86::raw_read_reg(uint8_t addr) const {
             0x92, 0x00,  // LDE @RR0,R0
     };
     uint8_t val;
-    _pins->captureWrites(READ_REG, sizeof(READ_REG), nullptr, &val, sizeof(val));
+    _pins->captureWrites(
+            READ_REG, sizeof(READ_REG), nullptr, &val, sizeof(val));
     return val;
 }
 
