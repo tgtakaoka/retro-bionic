@@ -26,6 +26,10 @@ bool Signals::fetch() const {
     return (dir() & DIR_IFETCH) == 0;
 }
 
+bool Signals::addr15() const {
+    return (cntl() & CNTL_15BIT) != 0;
+}
+
 void Signals::print() const {
     // cli.printDec(pos(), -4);
     //                              012345678901234567890
@@ -60,7 +64,11 @@ void Signals::print() const {
     } else {
         buffer[0] = read() ? 'R' : 'W';
     }
-    buffer.oct12(4, addr);
+    if (addr15()) {
+        buffer.oct15(4, addr);
+    } else {
+        buffer.oct12(4, addr);
+    }
     buffer.oct12(12, data);
     cli.println(buffer);
 }
