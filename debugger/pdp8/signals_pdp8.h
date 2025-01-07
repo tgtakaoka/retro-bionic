@@ -14,6 +14,7 @@ struct Signals : SignalsBase<Signals> {
     bool dev() const;
     bool read() const;
     bool fetch() const;
+    bool addr15() const;
 
 protected:
     uint8_t cntl() const { return _signals[0]; }
