@@ -12,15 +12,25 @@ Tlcs90UartHandler UartH;
 DevsTlcs90 Devs;
 
 DevsTlcs90::DevsTlcs90()
-    : _usart(new I8251()), _uart(new Tlcs90UartHandler()) {}
+    : _usart(new I8251())
+#if defined(ENABLE_SERIAL_HANDLER)
+      ,
+      _uart(new Tlcs90UartHandler())
+#endif
+{
+}
 
 DevsTlcs90::~DevsTlcs90() {
     delete _usart;
+#if defined(ENABLE_SERIAL_HANDLER)
     delete _uart;
+#endif
 }
 
 void DevsTlcs90::reset() {
+#if defined(ENABLE_SERIAL_HANDLER)
     _uart->reset();
+#endif
     _usart->reset();
     _usart->setBaseAddr(USART_BASE);
 }
@@ -34,7 +44,9 @@ void DevsTlcs90::loop() {
 }
 
 void DevsTlcs90::setIdle(bool idle) {
+#if defined(ENABLE_SERIAL_HANDLER)
     _uart->setIdle(idle);
+#endif
 }
 
 bool DevsTlcs90::isSelected(uint32_t addr) const {
@@ -52,19 +64,25 @@ void DevsTlcs90::write(uint32_t addr, uint16_t data) const {
 Device *DevsTlcs90::parseDevice(const char *name) const {
     if (strcasecmp(name, _usart->name()) == 0)
         return _usart;
+#if defined(ENABLE_SERIAL_HANDLER)
     if (strcasecmp(name, _uart->name()) == 0)
         return _uart;
+#endif
     return Devs::nullDevice();
 }
 
 void DevsTlcs90::enableDevice(Device *dev) {
     _usart->enable(dev == _usart);
+#if defined(ENABLE_SERIAL_HANDLER)
     _uart->enable(dev == _uart);
+#endif
 }
 
 void DevsTlcs90::printDevices() const {
     printDevice(_usart);
+#if defined(ENABLE_SERIAL_HANDLER)
     printDevice(_uart);
+#endif
 }
 
 }  // namespace tlcs90

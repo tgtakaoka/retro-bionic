@@ -26,11 +26,17 @@ struct DevsI8085 final : Devs {
     void enableDevice(Device *dev) override;
     void printDevices() const override;
 
-    SerialHandler *sio() const { return _sio; }
+    void sioLoop() const {
+#if defined(ENABLE_SERIAL_HANDLER)
+        _sio->loop();
+#endif
+    }
 
 private:
     Device *_usart;
+#if defined(ENABLE_SERIAL_HANDLER)
     SerialHandler *_sio;
+#endif
 };
 
 }  // namespace i8085

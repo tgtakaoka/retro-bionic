@@ -2,6 +2,7 @@
 #define __DEBUGGER_DEVS_H__
 
 #include <stdint.h>
+#include "config_debugger.h"
 
 namespace debugger {
 

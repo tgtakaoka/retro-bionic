@@ -6,6 +6,8 @@
 namespace debugger {
 namespace mc68hc05c0 {
 
+#if defined(ENABLE_SERIAL_HANDLER)
+
 DevsMc68HC05C0::DevsMc68HC05C0(uint16_t acia_base)
     : DevsMc6805(acia_base), _sci(new Mc68HC05C0SciHandler()) {}
 
@@ -54,6 +56,8 @@ void DevsMc68HC05C0::printDevices() const {
     DevsMc6805::printDevices();
     printDevice(_sci);
 }
+
+#endif
 
 }  // namespace mc68hc05c0
 }  // namespace debugger

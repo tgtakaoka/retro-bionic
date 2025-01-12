@@ -277,7 +277,7 @@ Signals *PinsCdp1802::completeCycle(Signals *s) {
     // c10
     clock_lo();
     // BitBang serial handler
-    devs<DevsCdp1802>()->sci().loop();
+    devs<DevsCdp1802>()->sciLoop();
     return s;
 }
 

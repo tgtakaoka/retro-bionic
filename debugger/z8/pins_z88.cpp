@@ -59,13 +59,22 @@ inline void xtal1_lo() {
 
 void z88_cycle(SerialHandler *serial) {
     xtal1_hi();
+#if defined(ENABLE_SERIAL_HANDLER)
     serial->loop();
+#endif
     xtal1_lo();
 }
 
 }  // namespace
 
-PinsZ88::PinsZ88() : PinsZ8(false, z88_cycle, new Z88UartHandler(), Inst) {
+PinsZ88::PinsZ88()
+    : PinsZ8(false, z88_cycle,
+#if defined(ENABLE_SERIAL_HANDLER)
+              new Z88UartHandler(),
+#else
+              nullptr,
+#endif
+              Inst) {
     auto regs = new RegsZ88(this);
     _regs = regs;
     _devs = new z8::DevsZ8(_serial);

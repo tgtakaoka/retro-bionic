@@ -7,6 +7,7 @@
 namespace debugger {
 namespace mc68hc05c0 {
 
+#if defined(ENABLE_SERIAL_HANDLER)
 struct DevsMc68HC05C0 final : mc6805::DevsMc6805 {
     DevsMc68HC05C0(uint16_t acia_base);
     ~DevsMc68HC05C0();
@@ -24,6 +25,11 @@ struct DevsMc68HC05C0 final : mc6805::DevsMc6805 {
 private:
     SerialHandler *_sci;
 };
+#else
+struct DevsMc68HC05C0 final : mc6805::DevsMc6805 {
+    DevsMc68HC05C0(uint16_t acia_base) : DevsMc6805(acia_base) {}
+};
+#endif
 
 }  // namespace mc68hc05c0
 }  // namespace debugger

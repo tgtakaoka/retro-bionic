@@ -157,7 +157,7 @@ PinsTlcs90::PinsTlcs90() {
 
 void PinsTlcs90::x1_lo() const {
     digitalWriteFast(PIN_X1, LOW);
-    devs<DevsTlcs90>()->uart()->loop();
+    devs<DevsTlcs90>()->uartLoop();
 }
 
 void PinsTlcs90::x1_cycle() const {
