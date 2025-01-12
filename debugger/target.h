@@ -16,9 +16,10 @@ struct Target {
     const char *identity() const { return _id->name(); }
     const char *cpu() const { return _regs->cpu(); }
     const char *cpuName() const { return _regs->cpuName(); }
-    uint8_t addressWidth() const;
-    uint8_t addressUint() const;
-    uint8_t opCodeWidth() const;
+    uint8_t addressWidth() const { return _mems->addressWidth(); }
+    uint8_t addressUnit() const { return _mems->addressUnit(); }
+    uint8_t opCodeWidth() const { return _mems->opCodeWidth(); }
+    uint8_t inputRadix() const { return _mems->listRadix(); }
 
     void begin() const;
     void reset() const;
@@ -42,11 +43,12 @@ struct Target {
     uint32_t maxAddr() const;
     uint32_t assemble(uint32_t addr, const char *line) const;
     uint32_t disassemble(uint32_t addr, uint8_t numInsn) const;
-    void dumpMemory(uint32_t addr, uint16_t len, const char *spcae = nullptr) const;
+    void dumpMemory(
+            uint32_t addr, uint16_t len, const char *spcae = nullptr) const;
     uint16_t read_memory(uint32_t addr, const char *space = nullptr) const;
     uint16_t get_inst(uint32_t addr) const;
     void put_inst(uint32_t addr, uint16_t data) const;
-    void write_memory(uint32_t addr, const uint8_t *buffer, uint8_t len) const;
+    void write_memory(uint32_t addr, const uint16_t *buffer, uint8_t len) const;
     void write_code(uint32_t addr, const uint8_t *buffer, uint8_t len) const;
     bool printRomArea() const;
     void setRomArea(uint32_t begin, uint32_t end) const;

@@ -128,12 +128,6 @@ void Mems::RomArea::print() const {
 
 namespace {
 
-constexpr uint_fast8_t numDigits(
-        const uint_fast8_t bits, const uint_fast8_t radix) {
-    const auto digit = (radix == 8) ? 3 : 4;
-    return bits / digit + ((bits % digit) == 0 ? 0 : 1);
-}
-
 void printSpaces(uint_fast8_t n) {
     for (uint_fast8_t i = 0; i < n; ++i)
         cli.print(' ');
@@ -184,12 +178,12 @@ uint8_t Mems::dataColumns(uint8_t len) const {
     const auto unit = addressUnit();
     // if |len| is odd, |count| may be round down.
     const auto count = (bits == 16 || unit == 2) ? len / 2 : len;
-    return (1 + numDigits(bits, listRadix())) * count;
+    return (1 + Debugger::numDigits(bits, listRadix())) * count;
 }
 
 void Mems::printAddress(uint32_t addr) const {
     const auto radix = listRadix();
-    cli.printNum(addr, radix, numDigits(addressWidth(), radix));
+    cli.printNum(addr, radix, Debugger::numDigits(addressWidth(), radix));
     cli.print(':');
 }
 
@@ -198,7 +192,7 @@ void Mems::dump(
         const uint8_t *buf, uint_fast8_t start, uint_fast8_t len) const {
     const auto radix = listRadix();
     const auto bits = opCodeWidth();
-    const auto digits = numDigits(bits, radix);
+    const auto digits = Debugger::numDigits(bits, radix);
     const auto unit = addressUnit();
     const auto chunk = (bits == 16 || unit == 2) ? 2 : 1;
     if (bits == 16 && start % 2 != 0) {

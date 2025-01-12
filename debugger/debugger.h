@@ -24,6 +24,12 @@ struct Debugger {
     void saveBreakInsts() { _breakPoints.saveInsts(); }
     void restoreBreakInsts() { _breakPoints.restoreInsts(); }
 
+    static constexpr uint_fast8_t numDigits(
+            const uint_fast8_t bits, const uint_fast8_t radix) {
+        const auto digit = (radix == 8) ? 3 : 4;
+        return bits / digit + ((bits % digit) == 0 ? 0 : 1);
+    }
+
 private:
     Target *_target;
     bool _verbose;

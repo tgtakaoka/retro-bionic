@@ -21,6 +21,11 @@ struct Mems {
     virtual ~Mems();
 
     virtual uint32_t maxAddr() const = 0;
+    uint8_t addressWidth() const;
+    uint8_t addressUnit() const;
+    uint8_t opCodeWidth() const;
+    uint8_t listRadix() const;
+
     virtual uint16_t raw_read(uint32_t addr) const = 0;
     virtual void raw_write(uint32_t addr, uint16_t data) const = 0;
     uint16_t raw_read16(uint32_t addr) const;
@@ -80,10 +85,6 @@ protected:
     virtual void isPrint(const uint8_t *data, char buf[2]) const;
     uint8_t dataColumns(uint8_t len) const;
     void dump(const uint8_t *buf, uint_fast8_t start, uint_fast8_t len) const;
-    uint8_t addressWidth() const;
-    uint8_t addressUnit() const;
-    uint8_t opCodeWidth() const;
-    uint8_t listRadix() const;
     void printAddress(uint32_t addr) const;
 
     uint16_t raw_read16be(uint32_t addr) const;
