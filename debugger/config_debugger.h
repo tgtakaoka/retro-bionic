@@ -22,6 +22,8 @@
 // #define WITH_ASSEMBLER
 #define WITH_DISASSEMBLER
 
+// #define ENABLE_SERIAL_HANDLER
+
 #endif
 
 // Local Variables:

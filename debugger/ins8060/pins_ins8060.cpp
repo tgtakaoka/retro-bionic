@@ -176,7 +176,7 @@ PinsIns8060::PinsIns8060() {
 
 void PinsIns8060::xin_lo() const {
     digitalWriteFast(PIN_XIN, LOW);
-    devs<DevsIns8060>()->sci()->loop();
+    devs<DevsIns8060>()->sciLoop();
 }
 
 void PinsIns8060::resetPins() {

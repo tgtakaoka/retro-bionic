@@ -266,7 +266,7 @@ Signals *PinsI8051::prepareCycle() {
 
 Signals *PinsI8051::completeCycle(Signals *s) {
     // #PSEN:S3H1
-    auto uart = devs<DevsI8051>()->uart();
+    auto d = devs<DevsI8051>();
     if (s->fetch()) {  // program read
         // S3L2
         xtal_lo();
@@ -284,7 +284,7 @@ Signals *PinsI8051::completeCycle(Signals *s) {
         delayNanoseconds(xtal_lo_output);
         // S1H1
         xtal_hi();
-        uart->loop();
+        d->uartLoop();
         // S1L2
         xtal_lo();  // S1L2 triggers #PSEN+ and ALE+
         Signals::nextCycle();
@@ -330,11 +330,11 @@ Signals *PinsI8051::completeCycle(Signals *s) {
     xtal_cycle();
     // S2H2/S3L1
     xtal_cycle_lo();
-    devs<DevsI8051>()->loop();
-    uart->loop();
+    _devs->loop();
+    d->uartLoop();
     // S3H1/S3L2
     xtal_cycle_lo();
-    uart->loop();
+    d->uartLoop();
     // S3H2/S1L1
     xtal_cycle_lo();  // S1L1 triggers #RD/#WR+
     Signals::nextCycle();

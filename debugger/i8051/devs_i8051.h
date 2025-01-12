@@ -25,11 +25,17 @@ struct DevsI8051 final : Devs {
     void enableDevice(Device *dev) override;
     void printDevices() const override;
 
-    SerialHandler *uart() const { return _uart; }
+    void uartLoop() const {
+#if defined(ENABLE_SERIAL_HANDLER)
+        _uart->loop();
+#endif
+    }
 
 private:
     Device *_usart;
+#if defined(ENABLE_SERIAL_HANDLER)
     SerialHandler *_uart;
+#endif
 };
 
 }  // namespace i8051

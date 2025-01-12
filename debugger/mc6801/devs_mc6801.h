@@ -25,11 +25,11 @@ struct DevsMc6801 final : Devs {
     void enableDevice(Device *dev) override;
     void printDevices() const override;
 
-    SerialHandler *sci() const { return _sci; }
-
 private:
     Device *_acia;
+#if defined(ENABLE_SERIAL_HANDLER)
     SerialHandler *_sci;
+#endif
 };
 
 }  // namespace mc6801

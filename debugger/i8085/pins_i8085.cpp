@@ -197,7 +197,7 @@ PinsI8085::PinsI8085() {
 void PinsI8085::clk_lo_nowait() const {
     x1_lo();
     delayNanoseconds(clk_hi_x1_lo);
-    devs<DevsI8085>()->sio()->loop();
+    devs<DevsI8085>()->sioLoop();
     x1_hi();
 }
 

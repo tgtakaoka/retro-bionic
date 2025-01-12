@@ -28,11 +28,18 @@ struct DevsTms7000 : Devs {
     void printDevices() const override;
 
     void addSerialHandler(HardwareType type);
-    void serialLoop() const;
+    void serialLoop() const {
+#if defined(ENABLE_SERIAL_HANDLER)
+        if (_serial)
+            _serial->loop();
+#endif
+    }
 
 private:
     Device *_acia;
+#if defined(ENABLE_SERIAL_HANDLER)
     SerialHandler *_serial;
+#endif
 };
 
 }  // namespace tms7000

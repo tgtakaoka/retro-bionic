@@ -31,8 +31,10 @@ struct DevsMc68hc11 final : Devs {
 
 private:
     Mc68hc11Init &_init;
-    SerialHandler *_sci;
     Device *_acia;
+#if defined(ENABLE_SERIAL_HANDLER)
+    SerialHandler *_sci;
+#endif
 };
 
 }  // namespace mc68hc11

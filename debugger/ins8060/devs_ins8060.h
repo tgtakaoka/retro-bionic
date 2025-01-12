@@ -25,11 +25,17 @@ struct DevsIns8060 final : Devs {
     void enableDevice(Device *dev) override;
     void printDevices() const override;
 
-    SerialHandler *sci() const { return _sci; }
+    void sciLoop() const {
+#if defined(ENABLE_SERIAL_HANDLER)
+        _sci->loop();
+#endif
+    }
 
 private:
     Device *_acia;
+#if defined(ENABLE_SERIAL_HANDLER)
     SerialHandler *_sci;
+#endif
 };
 
 }  // namespace ins8060

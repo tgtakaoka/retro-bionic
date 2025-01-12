@@ -27,7 +27,9 @@ struct DevsZ8 final : Devs {
 
 private:
     Device *_usart;
+#if defined(ENABLE_SERIAL_HANDLER)
     SerialHandler *_serial;
+#endif
 };
 
 }  // namespace z8
