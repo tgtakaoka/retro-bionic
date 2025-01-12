@@ -97,8 +97,9 @@ void Target::put_inst(uint32_t addr, uint16_t data) const {
 }
 
 void Target::write_memory(
-        uint32_t addr, const uint8_t *buffer, uint8_t len) const {
-    _mems->put(addr, buffer, len);
+        uint32_t addr, const uint16_t *buffer, uint8_t len) const {
+    for (auto i = 0; i < len; ++i)
+        _mems->put(addr++, buffer[i]);
 }
 
 void Target::write_code(

@@ -79,9 +79,10 @@ uint16_t last_length;
 #define DIS_ADDR 0
 #define DIS_LENGTH 1
 
-uint8_t mem_buffer[16];
+#define MEMORY_LEN 16
+uint16_t mem_buffer[MEMORY_LEN];
 #define MEMORY_DATA(i) ((uintptr_t)(i))
-#define MEMORY_ADDR static_cast<uintptr_t>(sizeof(mem_buffer) + 1)
+#define MEMORY_ADDR static_cast<uintptr_t>(MEMORY_LEN + 1)
 #define MEMORY_END (MEMORY_ADDR + 1)
 
 char str_buffer[40];
@@ -89,10 +90,12 @@ char str_buffer[40];
 void handleDump(uint32_t value, uintptr_t extra, State state);
 
 void handleDumpSpace(char *word, uintptr_t extra, State state) {
+    const auto radix = Debugger.target().inputRadix();
     if (state != State::CLI_CANCEL) {
         if (state == State::CLI_DELETE) {
             cli.backspace();
-            cli.readHex(handleDump, DUMP_LENGTH, UINT16_MAX, last_length);
+            cli.readNum(
+                    handleDump, DUMP_LENGTH, radix, UINT16_MAX, last_length);
             return;
         }
         cli.println();
@@ -102,13 +105,14 @@ void handleDumpSpace(char *word, uintptr_t extra, State state) {
 }
 
 void handleDump(uint32_t value, uintptr_t extra, State state) {
+    const auto maxAddr = Debugger.target().maxAddr();
+    const auto radix = Debugger.target().inputRadix();
     if (state == State::CLI_CANCEL)
         goto cancel;
     if (state == State::CLI_DELETE) {
         if (extra == DUMP_LENGTH) {
             cli.backspace();
-            cli.readHex(handleDump, DUMP_ADDR, Debugger.target().maxAddr(),
-                    last_addr);
+            cli.readNum(handleDump, DUMP_ADDR, radix, maxAddr, last_addr);
         }
         return;
     }
@@ -122,7 +126,7 @@ void handleDump(uint32_t value, uintptr_t extra, State state) {
     } else if (extra == DUMP_ADDR) {
         last_addr = value;
         if (state == State::CLI_SPACE) {
-            cli.readHex(handleDump, DUMP_LENGTH, UINT16_MAX);
+            cli.readNum(handleDump, DUMP_LENGTH, radix, UINT16_MAX);
             return;
         }
         last_length = 16;
@@ -136,13 +140,14 @@ cancel:
 
 #ifdef WITH_DISASSEMBLER
 void handleDisassemble(uint32_t value, uintptr_t extra, State state) {
+    const auto maxAddr = Debugger.target().maxAddr();
+    const auto radix = Debugger.target().inputRadix();
     if (state == State::CLI_CANCEL)
         goto cancel;
     if (state == State::CLI_DELETE) {
         if (extra == DIS_LENGTH) {
             cli.backspace();
-            cli.readHex(handleDisassemble, DIS_ADDR,
-                    Debugger.target().maxAddr(), last_addr);
+            cli.readNum(handleDisassemble, DIS_ADDR, radix, maxAddr, last_addr);
         }
         return;
     }
@@ -162,17 +167,22 @@ cancel:
 #endif
 
 void handleMemory(uint32_t value, uintptr_t extra, State state) {
+    const auto maxAddr = Debugger.target().maxAddr();
+    const auto radix = Debugger.target().inputRadix();
+    const auto unit = Debugger.target().addressUnit();
+    const auto bits = Debugger.target().opCodeWidth();
+    const auto maxData =
+            (unit == 1) ? UINT8_MAX : (bits == 12 ? 07777 : UINT16_MAX);
     if (state == State::CLI_DELETE) {
         if (extra == MEMORY_ADDR)
             return;
         cli.backspace();
         uint16_t index = extra;
         if (index == 0) {
-            cli.readHex(handleMemory, MEMORY_ADDR, Debugger.target().maxAddr(),
-                    last_addr);
+            cli.readNum(handleMemory, MEMORY_ADDR, radix, maxAddr, last_addr);
         } else {
             index--;
-            cli.readHex(handleMemory, MEMORY_DATA(index), UINT8_MAX,
+            cli.readNum(handleMemory, MEMORY_DATA(index), radix, maxData,
                     mem_buffer[index]);
         }
         return;
@@ -180,14 +190,14 @@ void handleMemory(uint32_t value, uintptr_t extra, State state) {
     if (state != State::CLI_CANCEL) {
         if (extra == MEMORY_ADDR) {
             last_addr = value;
-            cli.readHex(handleMemory, MEMORY_DATA(0), UINT8_MAX);
+            cli.readNum(handleMemory, MEMORY_DATA(0), radix, maxData);
             return;
         }
         uint16_t index = extra;
         mem_buffer[index++] = value;
         if (state == State::CLI_SPACE) {
-            if (index < sizeof(mem_buffer)) {
-                cli.readHex(handleMemory, MEMORY_DATA(index), UINT8_MAX);
+            if (index < MEMORY_LEN) {
+                cli.readNum(handleMemory, MEMORY_DATA(index), radix, maxData);
                 return;
             }
         }
@@ -416,9 +426,10 @@ void handleSetRegister(char *word, uintptr_t extra, State state) {
         return;
     uint8_t reg;
     uint32_t max;
+    const auto radix = Debugger.target().inputRadix();
     if ((reg = Debugger.target().validRegister(word, max)) != 0) {
         cli.print('?');
-        cli.readHex(handleRegisterValue, reg, max);
+        cli.readNum(handleRegisterValue, reg, radix, max);
         return;
     }
     Debugger.target().helpRegisters();
@@ -464,8 +475,10 @@ void handleIo(char *line, uintptr_t extra, State state) {
         auto dev = Debugger.target().parseDevice(line);
         if (state == State::CLI_SPACE) {
             if (dev != nulldev) {
-                cli.readHex(handleIoBase, reinterpret_cast<uintptr_t>(dev),
-                        Debugger.target().maxAddr());
+                const auto maxAddr = Debugger.target().maxAddr();
+                const auto radix = Debugger.target().inputRadix();
+                cli.readNum(handleIoBase, reinterpret_cast<uintptr_t>(dev),
+                        radix, maxAddr);
                 return;
             }
         }
@@ -480,17 +493,18 @@ void handleIo(char *line, uintptr_t extra, State state) {
 
 void handleRomArea(uint32_t value, uintptr_t extra, State state) {
     const auto maxAddr = Debugger.target().maxAddr();
+    const auto radix = Debugger.target().inputRadix();
     if (state == State::CLI_DELETE) {
         if (extra == MEMORY_END) {
             cli.backspace();
-            cli.readHex(handleRomArea, MEMORY_END, maxAddr, last_addr);
+            cli.readNum(handleRomArea, MEMORY_END, radix, maxAddr, last_addr);
         }
         return;
     }
     if (state != State::CLI_CANCEL) {
         if (state == State::CLI_SPACE && extra == MEMORY_ADDR) {
             last_addr = value;
-            cli.readHex(handleRomArea, MEMORY_END, maxAddr);
+            cli.readNum(handleRomArea, MEMORY_END, radix, maxAddr);
             return;
         }
         if (extra == MEMORY_END)
@@ -539,6 +553,7 @@ void handleWriteIdentity(char *line, uintptr_t extra, State state) {
 
 void Debugger::exec(char c) {
     const auto maxAddr = target().maxAddr();
+    const auto radix = target().inputRadix();
     switch (c) {
     case 'R':
         cli.println("Reset");
@@ -549,28 +564,28 @@ void Debugger::exec(char c) {
         break;
     case 'd':
         cli.print("Dump? ");
-        cli.readHex(handleDump, DUMP_ADDR, maxAddr);
+        cli.readNum(handleDump, DUMP_ADDR, radix, maxAddr);
         return;
 #ifdef WITH_DISASSEMBLER
     case 'D':
         cli.print("Disassemble? ");
-        cli.readHex(handleDisassemble, DIS_ADDR, maxAddr);
+        cli.readNum(handleDisassemble, DIS_ADDR, radix, maxAddr);
         return;
 #endif
 #ifdef WITH_ASSEMBLER
     case 'A':
         cli.print("Assemble? ");
-        cli.readHex(handleAssembler, 0, maxAddr);
+        cli.readNum(handleAssembler, 0, radix, maxAddr);
         return;
 #endif
     case 'm':
         cli.print("Memory? ");
-        cli.readHex(handleMemory, MEMORY_ADDR, maxAddr);
+        cli.readNum(handleMemory, MEMORY_ADDR, radix, maxAddr);
         return;
     case 'M':
         if (target().printRomArea()) {
             cli.print("  ROM area? ");
-            cli.readHex(handleRomArea, MEMORY_ADDR, maxAddr);
+            cli.readNum(handleRomArea, MEMORY_ADDR, radix, maxAddr);
             return;
         } else {
             cli.println("No ROM area");
@@ -578,7 +593,7 @@ void Debugger::exec(char c) {
         break;
     case 'B':
         cli.print("Break addr? ");
-        cli.readHex(handleSetBreak, 0, maxAddr);
+        cli.readNum(handleSetBreak, 0, radix, maxAddr);
         return;
     case 'b':
         cli.println("Break points");
