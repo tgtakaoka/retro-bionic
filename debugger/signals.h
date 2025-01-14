@@ -9,6 +9,7 @@ struct SignalsImpl {
     uint32_t addr;
     uint16_t data;
 
+    void clear() { _flags = 0; }
     bool readMemory() const { return (_flags & INJECT) == 0; }
     bool writeMemory() const { return (_flags & CAPTURE) == 0; }
 
@@ -23,7 +24,6 @@ protected:
     uint8_t _signals[5];
     uint8_t _flags;
 
-    void clear() { _flags = 0; }
     void _inject(uint16_t val) {
         data = val;
         _flags |= INJECT;
