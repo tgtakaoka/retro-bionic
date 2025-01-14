@@ -301,26 +301,6 @@ mc6800::Signals *PinsMc68hc11::rawCycle() {
     return s;
 }
 
-namespace {
-/**
- * MC68HC11 BRSET and BRCLR needs to special handling to print bus cycles.
- *   BRxxx a8,#n8,r8   ; 1:2:D:3:4:j
- *   BRxxx n8,X,#n8,r8 ; 1:2:x:R:3:4:j
- *   BRxxx n8,Y,#n8,r8 ; 1:2:3:x:R:4:5:j
- */
-void printBrxxx(const Signals *s, const Mems *mems, uint8_t len) {
-    auto opc = s->data;
-    if (opc == 0x18)
-        opc = mems->raw_read(s->addr + 1);
-    const auto inst = opc & ~1;
-    if (inst == 0x12) {
-        s->next(2)->print();
-    } else if (inst == 0x1E) {
-        s->next(len - 1)->print();
-    }
-}
-}  // namespace
-
 void PinsMc68hc11::disassembleCycles() {
     const auto g = Signals::get();
     const auto cycles = g->diff(Signals::put());
@@ -328,7 +308,12 @@ void PinsMc68hc11::disassembleCycles() {
         const auto s = g->next(i);
         if (s->fetch()) {
             const auto len = _mems->disassemble(s->addr, 1) - s->addr;
-            printBrxxx(s, _mems, len);
+            // print bus cycles other than instruction bytes
+            for (uint_fast8_t j = 1; j < len; j++) {
+                const auto t = s->next(j);
+                if (t->addr < s->addr || t->addr >= s->addr + len)
+                    t->print();
+            }
             i += len;
         } else {
             s->print();

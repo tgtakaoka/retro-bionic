@@ -504,13 +504,12 @@ void PinsIns8070::disassembleCycles() {
         const auto s = begin->next(i);
         if (s->fetchMark()) {
             const auto len = _mems->disassemble(s->addr, 1) - s->addr;
-            if (InstIns8070::isJsr(s->data)) {
-                s->next(2)->print();
-                s->next(3)->print();
-                i += 5;
-            } else {
-                i += len;
+            for (uint_fast8_t j = 1; j < len; j++) {
+                const auto t = s->next(j);
+                if (t->addr < s->addr || t->addr >= s->addr + len)
+                    t->print();
             }
+            i += len;
         } else {
             s->print();
             ++i;

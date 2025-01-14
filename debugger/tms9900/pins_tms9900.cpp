@@ -166,7 +166,7 @@ void PinsTms9900::disassembleCycles() {
         if (s->fetch()) {
             const auto len = _mems->disassemble(s->addr, 1) - s->addr;
             // print bus cycles other than instruction bytes
-            for (uint8_t j = 2; j < len; j++) {
+            for (uint_fast8_t j = 1; j < len; j++) {
                 const auto t = s->next(j);
                 if (t->addr < s->addr || t->addr >= s->addr + len)
                     t->print();
