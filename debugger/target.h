@@ -20,6 +20,7 @@ struct Target {
     uint8_t addressUnit() const { return _mems->addressUnit(); }
     uint8_t opCodeWidth() const { return _mems->opCodeWidth(); }
     uint8_t inputRadix() const { return _mems->listRadix(); }
+    Endian endian() const { return _mems->endian(); }
 
     void begin() const;
     void reset() const;
