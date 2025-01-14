@@ -57,6 +57,7 @@
 #define PIN_INTREQ 31 /* P8.23 */
 #define PIN_ICB 30    /* P8.22 */
 
+#include "cycles.h"
 #include "pins.h"
 #include "signals_f3850.h"
 
@@ -73,20 +74,22 @@ struct PinsF3850 final : Pins {
     void assertInt(uint8_t name) override;
     void negateInt(uint8_t name) override;
     void setBreakInst(uint32_t addr) const override;
-    void printCycles() override;
+    void printCycles() override { _cycles.print(); }
 
     void execInst(const uint8_t *inst, uint8_t len);
     void captureWrites(
             const uint8_t *inst, uint8_t len, uint8_t *buf, uint8_t max);
 
 private:
+    Cycles<Signals> _cycles;
+
     Signals *cycle();
     Signals *inject(uint8_t data);
     void loop();
     bool rawStep();
     void execute(const uint8_t *inst, uint8_t len, uint8_t *buf, uint8_t max);
 
-    void disassembleCycles() const;
+    void disassembleCycles() const { _cycles.disassemble(_mems); }
 };
 
 }  // namespace f3850

@@ -2,6 +2,7 @@
 #define __INST_INS8070_H__
 
 #include <stdint.h>
+#include "cycles.h"
 #include "mems.h"
 #include "signals_ins8070.h"
 
@@ -23,7 +24,8 @@ enum AddrMode : uint8_t {
 };
 
 struct InstIns8070 final {
-    InstIns8070() : opc(0), seq(0), matched(0) {}
+    InstIns8070(Cycles<Signals> &cycles)
+        : opc(0), _cycles(cycles), seq(0), matched(0) {}
     bool get(uint8_t data);
 
     uint8_t opc;
@@ -42,6 +44,7 @@ struct InstIns8070 final {
     static constexpr uint16_t VEC_CALL15 = 0x003E;
 
 private:
+    Cycles<Signals> &_cycles;
     uint8_t seq;
     uint8_t matched;
 

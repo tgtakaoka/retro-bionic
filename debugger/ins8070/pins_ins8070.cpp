@@ -179,14 +179,14 @@ void PinsIns8070::resetPins() {
         xin_cycle();
     negate_reset();
     negate_enin();
-    Signals::resetCycles();
+    _cycles.reset();
     // The first instruction will be fetched within 13 Tc after #RST
     // has gone high.
     _regs->save();
 }
 
 Signals *PinsIns8070::prepareCycle() {
-    auto s = Signals::put();
+    auto s = _cycles.put();
     // XIN=H
     goto check_breq;
     while (true) {
@@ -235,7 +235,7 @@ Signals *PinsIns8070::completeCycle(Signals *s) {
             delayNanoseconds(xin_lo_wds);
         }
         xin_hi();
-        Signals::nextCycle();
+        _cycles.next();
         delayNanoseconds(xin_write_end);
     } else {
         delayNanoseconds(xin_read_begin);
@@ -257,7 +257,7 @@ Signals *PinsIns8070::completeCycle(Signals *s) {
             delayNanoseconds(xin_lo_rds);
         }
         xin_hi();
-        Signals::nextCycle();
+        _cycles.next();
         delayNanoseconds(xin_read_end);
     }
     xin_lo();
@@ -325,10 +325,10 @@ void PinsIns8070::idle() {
 
 const Signals *PinsIns8070::isCall15(const Signals *vector) const {
     if (vector->read()) {
-        const auto call = vector->prev(3);
+        const auto call = _cycles.prev(vector, 3);
         if (call->read() && call->data == InstIns8070::CALL15) {
-            const auto push = call->next();
-            if (push->write() && push->next()->write()) {
+            const auto push = _cycles.next(call);
+            if (push->write() && _cycles.next(push)->write()) {
                 const auto vec15 = _mems->raw_read16(InstIns8070::VEC_CALL15);
                 if (isBreakPoint(call->addr) || vec15 == 0)
                     return call;
@@ -351,7 +351,7 @@ void PinsIns8070::loop() {
                 inject(InstIns8070::RET);  // cancel CALL 15
                 inject(lo(pc));            // inject low address
                 inject(hi(pc));            // inject high address
-                Signals::discard(call);
+                _cycles.discard(call);
                 return;
             }
         }
@@ -363,13 +363,28 @@ void PinsIns8070::loop() {
     }
 }
 
+bool PinsIns8070::fetchCycle(Signals *s) {
+    // check at least 5 bus cycles.
+    // this may not work for SSM instruction.
+    if (s->write() || _cycles.diff(_cycles.get(), s) < 6)
+        return false;
+    InstIns8070 inst(_cycles);
+    const auto end = _cycles.next(s);
+    // needs at least 2 valid bus cycles.
+    for (auto i = 2; i < 6; ++i) {
+        if (inst.match(_cycles.prev(s, i), end))
+            return inst.matchedCycles() == i;
+    }
+    return false;
+}
+
 void PinsIns8070::suspend() {
     while (true) {
         auto s = prepareCycle();
         if (s->fetch()) {
             completeCycle(s->inject(InstIns8070::BRA));
             inject(InstIns8070::BRA_HERE);
-            Signals::discard(s);
+            _cycles.discard(s);
             return;
         }
         completeCycle(s);
@@ -378,7 +393,7 @@ void PinsIns8070::suspend() {
 
 void PinsIns8070::run() {
     _regs->restore();
-    Signals::resetCycles();
+    _cycles.reset();
     saveBreakInsts();
     assert_enin();
     loop();
@@ -400,8 +415,8 @@ uint8_t PinsIns8070::busCycles(InstIns8070 &inst) const {
 }
 
 bool PinsIns8070::step(bool show) {
-    Signals::resetCycles();
-    InstIns8070 inst;
+    _cycles.reset();
+    InstIns8070 inst(_cycles);
     const auto cycles = busCycles(inst);
     if (cycles == 0)
         return false;
@@ -410,7 +425,7 @@ bool PinsIns8070::step(bool show) {
         return false;
     _regs->restore();
     if (show)
-        Signals::resetCycles();
+        _cycles.reset();
     assert_enin();
     if (inst.addrMode() == M_SSM) {
         // SSM instruction
@@ -421,7 +436,7 @@ bool PinsIns8070::step(bool show) {
                 completeCycle(s->inject(InstIns8070::BRA));
                 inject(InstIns8070::BRA_HERE);
                 if (show)
-                    Signals::discard(s);
+                    _cycles.discard(s);
                 break;
             }
             completeCycle(s);
@@ -450,26 +465,17 @@ void PinsIns8070::setBreakInst(uint32_t addr) const {
     _mems->put_inst(addr, InstIns8070::CALL15);
 }
 
-void PinsIns8070::printCycles(const Signals *end) {
-    const auto g = Signals::get();
-    const auto cycles = g->diff(end ? end : Signals::put());
-    for (auto i = 0; i < cycles; ++i) {
-        g->next(i)->print();
-        idle();
-    }
-}
-
 bool PinsIns8070::matchAll(Signals *begin, const Signals *end) {
-    const auto cycles = begin->diff(end);
+    const auto cycles = _cycles.diff(end, begin);
     LOG_MATCH(cli.print("@@  matchAll: begin="));
     LOG_MATCH(begin->print());
     LOG_MATCH(cli.print("@@           cycles="));
     LOG_MATCH(cli.printlnDec(cycles));
     for (auto i = 0; i < cycles;) {
         idle();
-        auto s = begin->next(i);
-        InstIns8070 inst;
-        if (inst.match(s, end->next())) {
+        auto s = _cycles.next(begin, i);
+        InstIns8070 inst(_cycles);
+        if (inst.match(s, _cycles.next(end))) {
             s->markFetch(true);
             i += inst.matchedCycles();
             continue;
@@ -478,44 +484,28 @@ bool PinsIns8070::matchAll(Signals *begin, const Signals *end) {
     }
     return true;
 }
+
 const Signals *PinsIns8070::findFetch(Signals *begin, const Signals *end) {
-    const auto cycles = begin->diff(end);
+    const auto cycles = _cycles.diff(end, end);
     LOG_MATCH(cli.print("@@ findFetch: begin="));
     LOG_MATCH(begin->print());
     LOG_MATCH(cli.print("@@              end="));
     LOG_MATCH(end->print());
     for (auto i = 0; i < cycles; ++i) {
         idle();
-        auto s = begin->next(i);
+        auto s = _cycles.next(begin, i);
         if (matchAll(s, end))
             return s;
         for (auto j = i; j < cycles; ++j)
-            begin->next(j)->markFetch(false);
+            _cycles.next(begin, j)->markFetch(false);
     }
     return end;
 }
 
 void PinsIns8070::disassembleCycles() {
-    const auto end = Signals::put();
-    const auto begin = findFetch(Signals::get(), end);
-    printCycles(begin);
-    const auto cycles = begin->diff(end);
-    for (auto i = 0; i < cycles;) {
-        const auto s = begin->next(i);
-        if (s->fetchMark()) {
-            const auto len = _mems->disassemble(s->addr, 1) - s->addr;
-            for (uint_fast8_t j = 1; j < len; j++) {
-                const auto t = s->next(j);
-                if (t->addr < s->addr || t->addr >= s->addr + len)
-                    t->print();
-            }
-            i += len;
-        } else {
-            s->print();
-            ++i;
-        }
-        idle();
-    }
+    const auto end = _cycles.put();
+    findFetch(_cycles.get(), end);
+    _cycles.disassemble(_mems);
 }
 
 }  // namespace ins8070

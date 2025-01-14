@@ -215,14 +215,14 @@ void PinsI8048::resetPins() {
     negate_reset();
     while (signal_ale() != LOW)
         xtal1_cycle();
-    Signals::resetCycles();
+    _cycles.reset();
     // #SS=L
     _regs->save();
     checkSoftwareType();
 }
 
 Signals *PinsI8048::prepareCycle() {
-    auto s = Signals::put();
+    auto s = _cycles.put();
     // tC~t1
     while (signal_ale() == LOW)
         xtal1_cycle();
@@ -344,7 +344,7 @@ Signals *PinsI8048::completeCycle(Signals *s) {
             xtal1_cycle();
         }
     }
-    Signals::nextCycle();
+    _cycles.next();
     return s;
 }
 
@@ -409,7 +409,7 @@ void PinsI8048::loop() {
 
 void PinsI8048::run() {
     _regs->restore();
-    Signals::resetCycles();
+    _cycles.reset();
     saveBreakInsts();
     loop();
     assert_ss();
@@ -444,7 +444,7 @@ bool PinsI8048::rawStep(bool step) {
     const auto len = _inst.instLength(inst);
     if (inst == InstI8048::HALT || len == 0) {
         injectJumpHere(s);
-        Signals::discard(s);
+        _cycles.discard(s);
         return false;
     }
     if (step) {
@@ -464,10 +464,10 @@ bool PinsI8048::rawStep(bool step) {
 }
 
 bool PinsI8048::step(bool show) {
-    Signals::resetCycles();
+    _cycles.reset();
     _regs->restore();
     if (show)
-        Signals::resetCycles();
+        _cycles.reset();
     if (rawStep(true)) {
         if (show)
             printCycles();
@@ -487,34 +487,6 @@ void PinsI8048::negateInt(uint8_t name) {
 
 void PinsI8048::setBreakInst(uint32_t addr) const {
     _mems->put_inst(addr, InstI8048::HALT);
-}
-
-void PinsI8048::printCycles() {
-    const auto g = Signals::get();
-    const auto cycles = g->diff(Signals::put());
-    for (auto i = 0; i < cycles; ++i) {
-        g->next(i)->print();
-        idle();
-    }
-}
-
-void PinsI8048::disassembleCycles() {
-    const auto g = Signals::get();
-    const auto cycles = g->diff(Signals::put());
-    for (auto i = 0; i < cycles;) {
-        const auto s = g->next(i);
-        if (s->fetch()) {
-            const auto len = _mems->disassemble(s->addr, 1) - s->addr;
-            const auto cycles = _inst.busCycles(s->data);
-            for (auto i = len; i < cycles; ++i)
-                s->next(i)->print();
-            i += cycles;
-        } else {
-            s->print();
-            ++i;
-        }
-        idle();
-    }
 }
 
 }  // namespace i8048

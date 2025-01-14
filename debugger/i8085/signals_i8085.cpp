@@ -9,28 +9,32 @@ namespace i8085 {
 
 void Signals::getAddress() {
     addr = busRead(ADDR);
-    iom() = digitalReadFast(PIN_IOM);
-    cntl() = busRead(CNTL);
+    _iom = digitalReadFast(PIN_IOM);
+    _cntl = busRead(CNTL);
 }
 
 void Signals::getDirection() {
-    cntl() = busRead(CNTL);
+    _cntl = busRead(CNTL);
+}
+
+bool Signals::memory() const {
+    return _iom == 0;
 }
 
 bool Signals::read() const {
-    return (cntl() & CNTL_RD) == 0;
+    return (_cntl & CNTL_RD) == 0;
 }
 
 bool Signals::write() const {
-    return (cntl() & CNTL_WR) == 0;
+    return (_cntl & CNTL_WR) == 0;
 }
 
 bool Signals::fetch() const {
-    return memory() && (cntl() & CNTL_S) == S_FETCH;
+    return memory() && (_cntl & CNTL_S) == S_FETCH;
 }
 
 bool Signals::vector() const {
-    return (cntl() & CNTL_INTA) == 0;
+    return (_cntl & CNTL_INTA) == 0;
 }
 
 void Signals::getData() {

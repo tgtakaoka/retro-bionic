@@ -7,9 +7,13 @@
 namespace debugger {
 namespace f3850 {
 
+void Signals::clear() {
+    Sigs::clear();
+    _flags = 0;
+}
+
 Signals *Signals::getRomc() {
-    romc() = busRead(ROMC);
-    flags() = 0;
+    _romc = busRead(ROMC);
     return this;
 }
 
@@ -29,33 +33,33 @@ void Signals::inputMode() {
 
 void Signals::markRead(uint16_t a) {
     addr = a;
-    flags() |= READ;
+    _flags |= READ;
 }
 
 void Signals::markWrite(uint16_t a) {
     addr = a;
-    flags() |= WRITE;
+    _flags |= WRITE;
 }
 
 void Signals::markIoRead(uint8_t a) {
     addr = a;
-    flags() |= IO | READ;
+    _flags |= IO | READ;
 }
 
 void Signals::markIoWrite(uint8_t a) {
     addr = a;
-    flags() |= IO | WRITE;
+    _flags |= IO | WRITE;
 }
 
 void Signals::print() const {
     //                              012345678901234567
     static constexpr char line[] = "R C=xx D=xx A=xxxx";
     static auto &buffer = *new CharBuffer(line);
-    buffer.hex8(4, romc());
+    buffer.hex8(4, _romc);
     buffer.hex8(9, data);
-    if (flags() & (READ | WRITE)) {
-        buffer[0] = (flags() & READ) ? 'R' : 'W';
-        if (flags() & IO) {
+    if (_flags & (READ | WRITE)) {
+        buffer[0] = (_flags & READ) ? 'R' : 'W';
+        if (_flags & IO) {
             buffer[12] = 'I';
             buffer.hex8(14, addr);
             buffer[16] = 0;

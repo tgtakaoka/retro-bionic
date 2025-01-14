@@ -473,7 +473,7 @@ AddrMode InstIns8070::addrMode() const {
 bool InstIns8070::match(const Signals *begin, const Signals *end) {
     if (!begin->read() || !get(begin->data))
         return false;
-    const auto size = begin->diff(end);
+    const auto size = _cycles.diff(end, begin);
     const auto *sequence = BUS_SEQUENCES[seq];
     matched = matchSequence(begin, size, sequence);
     if (matched)
@@ -501,7 +501,7 @@ uint8_t InstIns8070::matchSequence(
     uint16_t addr = 0;
     int8_t disp = 0;
     for (auto i = 0; i < size; ++i, ++cycles, ++seq) {
-        const auto s = begin->next(i);
+        const auto s = _cycles.next(begin, i);
         LOG_MATCH(cli.print("         "));
         LOG_MATCH(cli.print(*seq));
         LOG_MATCH(cli.print(" s="));

@@ -1,28 +1,28 @@
 #ifndef __SIGNALS_I8051_H__
 #define __SIGNALS_I8051_H__
 
-#include "signals.h"
+#include "sigs.h"
 
 namespace debugger {
 namespace i8051 {
 
-struct Signals final : SignalsBase<Signals> {
+struct Signals final : Sigs<Signals> {
     void getAddress();
     void getControl();
     void getData();
     void setData() const;
     static void outputMode();
     static void inputMode();
-    void print() const;
+
+    void print() const override;
 
     bool read() const;
     bool write() const;
-    bool fetch() const;
+    bool fetch() const override;
     void clearFetch();
 
 private:
-    uint8_t cntl() const { return _signals[0]; }
-    uint8_t &cntl() { return _signals[0]; }
+    uint8_t _cntl;
 };
 
 }  // namespace i8051

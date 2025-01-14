@@ -225,14 +225,14 @@ void PinsI8085::resetPins() {
         clk_lo();
     }
     negate_reset();
-    Signals::resetCycles();
+    _cycles.reset();
     // #RESET_IN is sampled here falling transition of next CLK.
     cycleT1();
     _regs->save();
 }
 
 Signals *PinsI8085::cycleT1() const {
-    auto s = Signals::put();
+    auto s = _cycles.put();
     // Do T4/T5 if any, and confirm T1AL by ALE=H
     // CLK=L
     while (signal_ale() == LOW) {
@@ -251,7 +251,7 @@ Signals *PinsI8085::cycleT1() const {
 Signals *PinsI8085::cycleT2() const {
     // T2A
     clk_lo_nowait();
-    auto s = Signals::put();
+    auto s = _cycles.put();
     delayNanoseconds(t2a_hi_ns);
     // T2B
     clk_hi_nowait();
@@ -262,7 +262,7 @@ Signals *PinsI8085::cycleT2() const {
 
 Signals *PinsI8085::cycleT2Pause() const {
     negate_ready();
-    Signals::put()->getAddress();
+    _cycles.put()->getAddress();
     return cycleT2();
 }
 
@@ -310,7 +310,7 @@ Signals *PinsI8085::cycleT3(Signals *s) const {
     // T3B
     clk_hi_nowait();
     Signals::inputMode();
-    Signals::nextCycle();
+    _cycles.next();
     // T1AL or T4/T5
     clk_lo();
     while (signal_ale() == LOW) {
@@ -390,7 +390,7 @@ void PinsI8085::loop() {
 
 void PinsI8085::run() {
     _regs->restore();
-    Signals::resetCycles();
+    _cycles.reset();
     saveBreakInsts();
     loop();
     restoreBreakInsts();
@@ -405,10 +405,10 @@ void PinsI8085::suspend() {
         if (s->fetch() && s->addr == InstI8085::ORG_TRAP) {
             negate_trap();
             cycleT3(cycleT2()->inject(InstI8085::RET));
-            inject(s->prev()->data);
-            inject(s->prev(2)->data);
+            inject(_cycles.prev(s)->data);
+            inject(_cycles.prev(s, 2)->data);
             cycleT1();
-            Signals::discard(s->prev(3));
+            _cycles.discard(_cycles.prev(s, 3));
             cycleT2Pause();
             return;
         }
@@ -428,10 +428,10 @@ bool PinsI8085::rawStep() {
 }
 
 bool PinsI8085::step(bool show) {
-    Signals::resetCycles();
+    _cycles.reset();
     _regs->restore();
     if (show)
-        Signals::resetCycles();
+        _cycles.reset();
     if (rawStep()) {
         if (show)
             printCycles();
@@ -481,31 +481,6 @@ void PinsI8085::negateInt(uint8_t name) {
 
 void PinsI8085::setBreakInst(uint32_t addr) const {
     _mems->put_inst(addr, InstI8085::HLT);
-}
-
-void PinsI8085::printCycles() {
-    const auto g = Signals::get();
-    const auto cycles = g->diff(Signals::put());
-    for (auto i = 0; i < cycles; ++i) {
-        g->next(i)->print();
-        idle();
-    }
-}
-
-void PinsI8085::disassembleCycles() {
-    const auto g = Signals::get();
-    const auto cycles = g->diff(Signals::put());
-    for (auto i = 0; i < cycles;) {
-        const auto s = g->next(i);
-        if (s->fetch()) {
-            const auto next = _mems->disassemble(s->addr, 1);
-            i += next - s->addr;
-        } else {
-            s->print();
-            ++i;
-        }
-        idle();
-    }
 }
 
 }  // namespace i8085

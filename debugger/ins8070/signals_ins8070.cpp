@@ -8,32 +8,17 @@
 namespace debugger {
 namespace ins8070 {
 
-bool Signals::fetch() const {
-    // check at least 5 bus cycles.
-    // this may not work for SSM instruction.
-    if (write() || get()->diff(this) < 6)
-        return false;
-    InstIns8070 inst;
-    const auto end = next();
-    // needs at least 2 valid bus cycles.
-    for (auto i = 2; i < 6; ++i) {
-        if (inst.match(prev(i), end))
-            return inst.matchedCycles() == i;
-    }
-    return false;
-}
-
 bool Signals::getDirection() {
-    cntl() = busRead(CNTL);
-    return cntl() != (CNTL_RDS | CNTL_WDS);
+    _cntl = busRead(CNTL);
+    return _cntl != (CNTL_RDS | CNTL_WDS);
 }
 
 bool Signals::read() const {
-    return (cntl() & CNTL_RDS) == 0;
+    return (_cntl & CNTL_RDS) == 0;
 }
 
 bool Signals::write() const {
-    return (cntl() & CNTL_WDS) == 0;
+    return (_cntl & CNTL_WDS) == 0;
 }
 
 void Signals::getAddr() {

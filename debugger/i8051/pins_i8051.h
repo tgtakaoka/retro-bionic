@@ -63,8 +63,9 @@
 #define PIN_T0 31     /* P8.22 */
 #define PIN_T1 30     /* P8.23 */
 
-#include "pins.h"
+#include "cycles.h"
 #include "mems.h"
+#include "pins.h"
 #include "signals_i8051.h"
 
 namespace debugger {
@@ -87,7 +88,7 @@ struct PinsI8051 final : Pins {
     void assertInt(uint8_t name) override;
     void negateInt(uint8_t name) override;
     void setBreakInst(uint32_t addr) const override;
-    void printCycles() override;
+    void printCycles() override { _cycles.print(); }
 
     void execInst(const uint8_t *inst, uint8_t len);
     uint8_t captureWrites(const uint8_t *inst, uint8_t len, uint16_t *addr,
@@ -96,6 +97,7 @@ struct PinsI8051 final : Pins {
     bool isCmos() const;
 
 private:
+    Cycles<Signals> _cycles;
     Mems *_data;
 
     void (*_xtal_lo)();
@@ -113,7 +115,7 @@ private:
     uint8_t execute(const uint8_t *inst, uint8_t len, uint16_t *addr,
             uint8_t *buf, uint8_t max);
 
-    void disassembleCycles();
+    void disassembleCycles() const { _cycles.disassemble(_mems); }
 };
 
 }  // namespace i8051

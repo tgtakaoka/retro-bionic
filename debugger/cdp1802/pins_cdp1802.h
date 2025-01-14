@@ -61,6 +61,7 @@
 #define PIN_DMAIN 31  /* P8.22 */
 #define PIN_DMAOUT 30 /* P8.23 */
 
+#include "cycles.h"
 #include "pins.h"
 #include "signals_cdp1802.h"
 
@@ -77,13 +78,14 @@ struct PinsCdp1802 final : Pins {
     void assertInt(uint8_t name) override;
     void negateInt(uint8_t name) override;
     void setBreakInst(uint32_t addr) const override;
-    void printCycles() override;
+    void printCycles() override { _cycles.print(); }
 
     void execInst(const uint8_t *inst, uint8_t len);
     void captureWrites(const uint8_t *inst, uint8_t len, uint16_t *addr,
             uint8_t *buf, uint8_t max);
 
 private:
+    Cycles<Signals> _cycles;
     friend struct RegsCdp1802;
     Signals *rawPrepareCycle();
     Signals *prepareCycle();
@@ -97,7 +99,7 @@ private:
             uint8_t max);
     bool skip(uint8_t inst);
 
-    void disassembleCycles() const;
+    void disassembleCycles() const { _cycles.disassemble(_mems); }
 };
 
 }  // namespace cdp1802

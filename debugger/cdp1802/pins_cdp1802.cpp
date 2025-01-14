@@ -159,7 +159,7 @@ void PinsCdp1802::resetPins() {
     for (auto i = 0; i < 100; i++)
         clock_cycle();
     negate_reset();
-    Signals::resetCycles();
+    _cycles.reset();
     // The first machine cycle after termination of reset is an
     // intialization cycle which requires 9 clock pulses.
     for (auto i = 0; i < 20; i++) {
@@ -173,7 +173,7 @@ void PinsCdp1802::resetPins() {
 
 Signals *PinsCdp1802::rawPrepareCycle() {
     // CDP1802 bus cycle is CLOCK/8, so we toggle CLOCK 8 times
-    auto s = Signals::put();
+    auto s = _cycles.put();
     s->getStatus();
     return s;
 }
@@ -265,7 +265,7 @@ Signals *PinsCdp1802::completeCycle(Signals *s) {
     }
     // c71
     clock_hi();
-    Signals::nextCycle();
+    _cycles.next();
     delayNanoseconds(c71_ns);
     // c00
     clock_lo();
@@ -286,7 +286,7 @@ Signals *PinsCdp1802::cycle() {
 }
 
 Signals *PinsCdp1802::inject(uint8_t data) {
-    Signals::put()->inject(data);
+    _cycles.put()->inject(data);
     return cycle();
 }
 
@@ -341,7 +341,7 @@ void PinsCdp1802::loop() {
 
 void PinsCdp1802::run() {
     _regs->restore();
-    Signals::resetCycles();
+    _cycles.reset();
     saveBreakInsts();
     loop();
     restoreBreakInsts();
@@ -356,7 +356,7 @@ bool PinsCdp1802::rawStep() {
         completeCycle(s->inject(InstCdp1802::LBR));
         inject(hi(s->addr));
         inject(lo(s->addr));
-        Signals::discard(s);
+        _cycles.discard(s);
         return false;
     }
     completeCycle(s);
@@ -375,10 +375,10 @@ bool PinsCdp1802::rawStep() {
 }
 
 bool PinsCdp1802::step(bool show) {
-    Signals::resetCycles();
+    _cycles.reset();
     _regs->restore();
     if (show)
-        Signals::resetCycles();
+        _cycles.reset();
     if (rawStep()) {
         if (show)
             printCycles();
@@ -408,39 +408,16 @@ bool PinsCdp1802::skip(uint8_t inst) {
     }
 }
 
-void PinsCdp1802::assertInt(uint8_t name) {
+void PinsCdp1802::assertInt(uint8_t) {
     assert_intr();
 }
 
-void PinsCdp1802::negateInt(uint8_t name) {
+void PinsCdp1802::negateInt(uint8_t) {
     negate_intr();
 }
 
 void PinsCdp1802::setBreakInst(uint32_t addr) const {
     _mems->put_inst(addr, InstCdp1802::IDL);
-}
-
-void PinsCdp1802::printCycles() {
-    const auto g = Signals::get();
-    const auto cycles = g->diff(Signals::put());
-    for (auto i = 0; i < cycles; ++i) {
-        g->next(i)->print();
-    }
-}
-
-void PinsCdp1802::disassembleCycles() const {
-    const auto g = Signals::get();
-    const auto cycles = g->diff(Signals::put());
-    for (auto i = 0; i < cycles;) {
-        const auto s = g->next(i);
-        if (s->fetch()) {
-            const auto len = _mems->disassemble(s->addr, 1) - s->addr;
-            i += len;
-        } else {
-            s->print();
-            ++i;
-        }
-    }
 }
 
 }  // namespace cdp1802

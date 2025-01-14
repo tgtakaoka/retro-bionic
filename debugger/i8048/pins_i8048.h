@@ -53,6 +53,7 @@
 #define PIN_INT 31    /* P8.22 */
 #define PIN_ALE 30    /* P8.23 */
 
+#include "cycles.h"
 #include "inst_i8048.h"
 #include "mems.h"
 #include "pins.h"
@@ -75,7 +76,7 @@ struct PinsI8048 final : Pins {
     void assertInt(uint8_t name) override;
     void negateInt(uint8_t name) override;
     void setBreakInst(uint32_t addr) const override;
-    void printCycles() override;
+    void printCycles() override { _cycles.print(); }
 
     void execInst(const uint8_t *inst, uint8_t len);
     uint8_t captureWrites(const uint8_t *inst, uint8_t len, uint16_t *addr,
@@ -84,6 +85,7 @@ struct PinsI8048 final : Pins {
     SoftwareType softwareType() const { return _type; }
 
 private:
+    Cycles<Signals> _cycles;
     Mems *_data;
     InstI8048 _inst;
     SoftwareType _type;
@@ -99,7 +101,7 @@ private:
     uint8_t execute(const uint8_t *inst, uint8_t len, uint16_t *addr,
             uint8_t *buf, uint8_t max);
 
-    void disassembleCycles();
+    void disassembleCycles() const { _cycles.disassemble(_mems); }
 };
 
 }  // namespace i8048

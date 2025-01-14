@@ -1,30 +1,30 @@
 #ifndef __SIGNALS_I8048_H__
 #define __SIGNALS_I8048_H__
 
-#include "signals.h"
+#include "sigs.h"
 
 namespace debugger {
 namespace i8048 {
 
-struct Signals final : SignalsBase<Signals> {
+struct Signals final : Sigs<Signals> {
     void getAddress();
     bool getControl();
     void getData();
     void outData() const;
     static void inputMode();
-    void print() const;
+
+    void print() const override;
 
     bool read() const;
     bool write() const;
-    bool fetch() const;
+    bool fetch() const override;
     bool port() const;
     bool valid() const;
     void markInvalid();
     void clearFetch();
 
 private:
-    uint8_t cntl() const { return _signals[0]; }
-    uint8_t &cntl() { return _signals[0]; }
+    uint8_t _cntl;
 };
 
 }  // namespace i8048

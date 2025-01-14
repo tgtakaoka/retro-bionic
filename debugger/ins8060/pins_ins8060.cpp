@@ -191,7 +191,7 @@ void PinsIns8060::resetPins() {
         xin_cycle();
     negate_enin();
     negate_reset();
-    Signals::resetCycles();
+    _cycles.reset();
     // The #BREQ output goes low, indicating the start of execution;
     // this occurs at a time whithin 13 Tc after #RST is set high.
     _regs->save();
@@ -199,7 +199,7 @@ void PinsIns8060::resetPins() {
 
 Signals *PinsIns8060::prepareCycle() const {
     // XIN=L
-    auto s = Signals::put();
+    auto s = _cycles.put();
     while (true) {
         xin_hi();
         delayNanoseconds(xin_hi_enout);
@@ -243,7 +243,7 @@ Signals *PinsIns8060::completeCycle(Signals *s) const {
             delayNanoseconds(xin_hi_capture);
         }
         xin_lo();
-        Signals::nextCycle();
+        _cycles.next();
         delayNanoseconds(xin_write_end);
     } else {
         delayNanoseconds(xin_read_begin);
@@ -269,7 +269,7 @@ Signals *PinsIns8060::completeCycle(Signals *s) const {
             delayNanoseconds(xin_hi_read);
         }
         xin_lo();
-        Signals::nextCycle();
+        _cycles.next();
         delayNanoseconds(xin_read_end);
     }
     xin_hi();
@@ -343,7 +343,7 @@ void PinsIns8060::loop() {
                 completeCycle(s->inject(InstIns8060::JMP));
                 inject(InstIns8060::JMP_HERE);
                 negate_enin();
-                Signals::discard(s);
+                _cycles.discard(s);
                 return;
             }
         }
@@ -362,7 +362,7 @@ void PinsIns8060::suspend() const {
             completeCycle(s->inject(InstIns8060::JMP));
             inject(InstIns8060::JMP_HERE);
             negate_enin();
-            Signals::discard(s);
+            _cycles.discard(s);
             return;
         }
         completeCycle(s);
@@ -371,7 +371,7 @@ void PinsIns8060::suspend() const {
 
 void PinsIns8060::run() {
     _regs->restore();
-    Signals::resetCycles();
+    _cycles.reset();
     saveBreakInsts();
     assert_enin();
     loop();
@@ -389,7 +389,7 @@ bool PinsIns8060::rawStep() const {
         // HALT or unknown instruction
         completeCycle(s->inject(InstIns8060::JMP));
         inject(InstIns8060::JMP_HERE);
-        Signals::discard(s);
+        _cycles.discard(s);
         return false;
     }
     completeCycle(s);
@@ -398,10 +398,10 @@ bool PinsIns8060::rawStep() const {
 }
 
 bool PinsIns8060::step(bool show) {
-    Signals::resetCycles();
+    _cycles.reset();
     _regs->restore();
     if (show)
-        Signals::resetCycles();
+        _cycles.reset();
     if (rawStep()) {
         if (show)
             printCycles();
@@ -421,31 +421,6 @@ void PinsIns8060::negateInt(uint8_t name) {
 
 void PinsIns8060::setBreakInst(uint32_t addr) const {
     _mems->put_inst(addr, InstIns8060::HALT);
-}
-
-void PinsIns8060::printCycles() {
-    const auto g = Signals::get();
-    const auto cycles = g->diff(Signals::put());
-    for (auto i = 0; i < cycles; ++i) {
-        g->next(i)->print();
-        idle();
-    }
-}
-
-void PinsIns8060::disassembleCycles() {
-    const auto g = Signals::get();
-    const auto cycles = g->diff(Signals::put());
-    for (auto i = 0; i < cycles;) {
-        const auto s = g->next(i);
-        if (s->fetch()) {
-            const auto len = _mems->disassemble(s->addr, 1) - s->addr;
-            i += len;
-        } else {
-            s->print();
-            ++i;
-        }
-        idle();
-    }
 }
 
 }  // namespace ins8060

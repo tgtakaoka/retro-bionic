@@ -12,7 +12,7 @@ void Signals::getAddress() {
 }
 
 bool Signals::getControl() {
-    cntl() = busRead(CNTL);
+    _cntl = busRead(CNTL);
     return valid();
 }
 
@@ -30,31 +30,31 @@ void Signals::inputMode() {
 }
 
 bool Signals::read() const {
-    return (cntl() & CNTL_RD) == 0;
+    return (_cntl & CNTL_RD) == 0;
 }
 
 bool Signals::write() const {
-    return (cntl() & CNTL_WR) == 0;
+    return (_cntl & CNTL_WR) == 0;
 }
 
 bool Signals::fetch() const {
-    return (cntl() & CNTL_PSEN) == 0;
+    return (_cntl & CNTL_PSEN) == 0;
 }
 
 bool Signals::port() const {
-    return (cntl() & CNTL_PROG) == 0;
+    return (_cntl & CNTL_PROG) == 0;
 }
 
 bool Signals::valid() const {
-    return cntl() != (CNTL_RD | CNTL_WR | CNTL_PSEN | CNTL_PROG);
+    return _cntl != (CNTL_RD | CNTL_WR | CNTL_PSEN | CNTL_PROG);
 }
 
 void Signals::markInvalid() {
-    cntl() = (CNTL_RD | CNTL_WR | CNTL_PSEN | CNTL_PROG);
+    _cntl = (CNTL_RD | CNTL_WR | CNTL_PSEN | CNTL_PROG);
 }
 
 void Signals::clearFetch() {
-    cntl() |= CNTL_PSEN;
+    _cntl |= CNTL_PSEN;
 }
 
 void Signals::print() const {

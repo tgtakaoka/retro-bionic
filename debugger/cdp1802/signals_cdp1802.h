@@ -1,12 +1,12 @@
 #ifndef __SIGNALS_CDP1802_H__
 #define __SIGNALS_CDP1802_H__
 
-#include "signals.h"
+#include "sigs.h"
 
 namespace debugger {
 namespace cdp1802 {
 
-struct Signals final : SignalsBase<Signals> {
+struct Signals final : Sigs<Signals> {
     void getStatus();
     void getAddr1();
     void getAddr2();
@@ -14,16 +14,15 @@ struct Signals final : SignalsBase<Signals> {
     void getData();
     void outData() const;
     static void inputMode();
-    void print() const;
+    void print() const override;
 
     bool read() const;
     bool write() const;
-    bool fetch() const;
+    bool fetch() const override;
     bool vector() const;
 
 private:
-    uint8_t cntl() const { return _signals[0]; }
-    uint8_t &cntl() { return _signals[0]; }
+    uint8_t _cntl;
     uint8_t sc() const;
 };
 

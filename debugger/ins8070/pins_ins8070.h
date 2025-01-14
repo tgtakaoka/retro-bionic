@@ -61,6 +61,7 @@
 #define PIN_ENIN 31  /* P8.22 */
 #define PIN_ENOUT 30 /* P8.23 */
 
+#include "cycles.h"
 #include "pins.h"
 #include "signals_ins8070.h"
 #include "inst_ins8070.h"
@@ -78,13 +79,15 @@ struct PinsIns8070 final : Pins {
     void assertInt(uint8_t name) override;
     void negateInt(uint8_t name) override;
     void setBreakInst(uint32_t addr) const override;
-    void printCycles() override { printCycles(nullptr); }
+    void printCycles() override { _cycles.print(); }
 
     void execInst(const uint8_t *inst, uint8_t len);
     void captureWrites(const uint8_t *inst, uint8_t len, uint16_t *addr,
             uint8_t *buf, uint8_t max);
 
 private:
+    Cycles<Signals> _cycles;
+
     void xin_lo() const;
     Signals *prepareCycle();
     Signals *completeCycle(Signals *signals);
@@ -97,8 +100,8 @@ private:
             uint8_t max);
 
     uint8_t busCycles(InstIns8070 &inst) const;
+    bool fetchCycle(Signals *s);
 
-    void printCycles(const Signals *end);
     bool matchAll(Signals *begin, const Signals *end);
     const Signals *findFetch(Signals *begein, const Signals *end);
     void disassembleCycles();

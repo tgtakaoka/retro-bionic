@@ -55,6 +55,7 @@
 #define PIN_ALE 31     /* P8.22 */
 #define PIN_IOM 30     /* P8.23 */
 
+#include "cycles.h"
 #include "pins.h"
 #include "signals_i8085.h"
 
@@ -85,13 +86,15 @@ struct PinsI8085 final : Pins {
     void assertInt(uint8_t name) override;
     void negateInt(uint8_t name) override;
     void setBreakInst(uint32_t addr) const override;
-    void printCycles() override;
+    void printCycles() override { _cycles.print(); }
 
     void execInst(const uint8_t *inst, uint8_t len);
     void captureWrites(const uint8_t *inst, uint8_t len, uint16_t *addr,
             uint8_t *buf, uint8_t max);
 
 private:
+    mutable Cycles<Signals> _cycles;
+
     void clk_lo_nowait() const;
     void clk_lo() const;
     Signals *cycleT1() const;
@@ -106,7 +109,7 @@ private:
     void execute(const uint8_t *inst, uint8_t len, uint16_t *addr, uint8_t *buf,
             uint8_t max);
 
-    void disassembleCycles();
+    void disassembleCycles() const { _cycles.disassemble(_mems); }
 };
 
 }  // namespace i8085

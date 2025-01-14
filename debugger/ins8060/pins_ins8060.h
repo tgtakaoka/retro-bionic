@@ -56,6 +56,7 @@
 #define PIN_ENIN 31   /* P8.22 */
 #define PIN_ENOUT 30  /* P8.23 */
 
+#include "cycles.h"
 #include "pins.h"
 #include "signals_ins8060.h"
 
@@ -72,13 +73,15 @@ struct PinsIns8060 final : Pins {
     void assertInt(uint8_t name) override;
     void negateInt(uint8_t name) override;
     void setBreakInst(uint32_t addr) const override;
-    void printCycles() override;
+    void printCycles() override { _cycles.print(); }
 
     void execInst(const uint8_t *inst, uint8_t len) const;
     void captureWrites(const uint8_t *inst, uint8_t len, uint16_t *addr,
             uint8_t *buf, uint8_t max) const;
 
 private:
+    mutable Cycles<Signals> _cycles;
+
     void xin_lo() const;
     Signals *prepareCycle() const;
     Signals *completeCycle(Signals *signals) const;
@@ -89,7 +92,7 @@ private:
     void execute(const uint8_t *inst, uint8_t len, uint16_t *addr, uint8_t *buf,
             uint8_t max) const;
 
-    void disassembleCycles();
+    void disassembleCycles() const { _cycles.disassemble(_mems); }
 };
 
 }  // namespace ins8060

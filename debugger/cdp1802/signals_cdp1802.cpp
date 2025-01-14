@@ -8,7 +8,7 @@ namespace debugger {
 namespace cdp1802 {
 
 void Signals::getStatus() {
-    cntl() = busRead(CNTL);
+    _cntl = busRead(CNTL);
 }
 
 void Signals::getAddr1() {
@@ -20,7 +20,7 @@ void Signals::getAddr2() {
 }
 
 void Signals::getDirection() {
-    cntl() = busRead(CNTL);
+    _cntl = busRead(CNTL);
 }
 
 void Signals::getData() {
@@ -37,11 +37,11 @@ void Signals::inputMode() {
 }
 
 bool Signals::read() const {
-    return (cntl() & CNTL_MRD) == 0;
+    return (_cntl & CNTL_MRD) == 0;
 }
 
 bool Signals::write() const {
-    return (cntl() & CNTL_MWR) == 0;
+    return (_cntl & CNTL_MWR) == 0;
 }
 
 bool Signals::fetch() const {
@@ -53,7 +53,7 @@ bool Signals::vector() const {
 }
 
 uint8_t Signals::sc() const {
-    return cntl() & CNTL_SC;
+    return _cntl & CNTL_SC;
 }
 
 void Signals::print() const {

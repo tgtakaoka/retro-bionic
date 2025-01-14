@@ -9,7 +9,7 @@ namespace ins8060 {
 
 void Signals::getAddr() {
     const auto db = busRead(DB);
-    flags() = db;
+    _flags = db;
     addr = (static_cast<uint16_t>(db & 0xF) << 12) | busRead(ADM) |
            busRead(ADL);
 }
@@ -28,7 +28,7 @@ void Signals::inputMode() {
 }
 
 void Signals::print() const {
-    LOG(cli.printDec(pos(), -4));
+    // LOG(cli.printDec(pos(), -4));
     //                              01234567890123
     static constexpr char line[] = " R A=xxxx D=xx";
     static auto &buffer = *new CharBuffer(line);

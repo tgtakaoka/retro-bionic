@@ -225,12 +225,12 @@ void PinsI8051::resetPins() {
     for (auto i = 0; i < 30; ++i)
         xtal_cycle();
     negate_reset();
-    Signals::resetCycles();
+    _cycles.reset();
     _regs->save();
 }
 
 Signals *PinsI8051::prepareCycle() {
-    auto s = Signals::put();
+    auto s = _cycles.put();
     // #PSEN:S1H2, #RD/#WR:S4H2
     do {
         // #PSEN:S2L1/S2L2, #RD/#WR:S5L1/S5L2
@@ -287,7 +287,7 @@ Signals *PinsI8051::completeCycle(Signals *s) {
         d->uartLoop();
         // S1L2
         xtal_lo();  // S1L2 triggers #PSEN+ and ALE+
-        Signals::nextCycle();
+        _cycles.next();
         // S1H2
         xtal_hi();
         Signals::inputMode();
@@ -337,7 +337,7 @@ Signals *PinsI8051::completeCycle(Signals *s) {
     d->uartLoop();
     // S3H2/S1L1
     xtal_cycle_lo();  // S1L1 triggers #RD/#WR+
-    Signals::nextCycle();
+    _cycles.next();
     // S1H1
     xtal_hi();
     Signals::inputMode();
@@ -357,7 +357,7 @@ Signals *PinsI8051::inject(uint8_t data) {
 
 void PinsI8051::inject(const uint8_t data[], uint8_t len) {
     for (auto i = 0; i < len; ++i)
-        Signals::discard(inject(data[i]));
+        _cycles.discard(inject(data[i]));
 }
 
 void PinsI8051::execInst(const uint8_t *inst, uint8_t len) {
@@ -413,7 +413,7 @@ void PinsI8051::loop() {
 
 void PinsI8051::run() {
     _regs->restore();
-    Signals::resetCycles();
+    _cycles.reset();
     saveBreakInsts();
     loop();
     restoreBreakInsts();
@@ -443,10 +443,10 @@ bool PinsI8051::rawStep() {
 }
 
 bool PinsI8051::step(bool show) {
-    Signals::resetCycles();
+    _cycles.reset();
     _regs->restore();
     if (show)
-        Signals::resetCycles();
+        _cycles.reset();
     if (rawStep()) {
         if (show)
             printCycles();
@@ -472,34 +472,6 @@ void PinsI8051::negateInt(uint8_t name) {
 
 void PinsI8051::setBreakInst(uint32_t addr) const {
     _mems->put_inst(addr, InstI8051::UNKNOWN);
-}
-
-void PinsI8051::printCycles() {
-    const auto g = Signals::get();
-    const auto cycles = g->diff(Signals::put());
-    for (auto i = 0; i < cycles; ++i) {
-        g->next(i)->print();
-        idle();
-    }
-}
-
-void PinsI8051::disassembleCycles() {
-    const auto g = Signals::get();
-    const auto cycles = g->diff(Signals::put());
-    for (auto i = 0; i < cycles;) {
-        const auto s = g->next(i);
-        if (s->fetch()) {
-            const auto len = _mems->disassemble(s->addr, 1) - s->addr;
-            const auto cycles = InstI8051::busCycles(s->data);
-            for (auto i = len; i < cycles; ++i)
-                s->next(i)->print();
-            i += cycles;
-        } else {
-            s->print();
-            ++i;
-        }
-        idle();
-    }
 }
 
 bool PinsI8051::isCmos() const {

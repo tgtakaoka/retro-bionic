@@ -160,7 +160,7 @@ void PinsF3850::resetPins() {
     // WRITE=H
     negate_extres();
     delayNanoseconds(xtly_hi_ns);
-    Signals::resetCycles();
+    _cycles.reset();
 
     cycle();  // IDLE
     delayNanoseconds(xtly_idle_ns);
@@ -171,7 +171,7 @@ void PinsF3850::resetPins() {
 
 Signals *PinsF3850::cycle() {
     // XTLY=H
-    auto signals = Signals::put();
+    auto s = _cycles.put();
     xtly_cycle_hi();
     while (signal_write() != LOW)
         xtly_cycle();
@@ -180,16 +180,16 @@ Signals *PinsF3850::cycle() {
     delayNanoseconds(xtly_hi_input);
     xtly_cycle_hi();
     delayNanoseconds(xtly_read_romc);
-    const auto read = regs<RegsF3850>()->romc_read(signals->getRomc());
+    const auto read = regs<RegsF3850>()->romc_read(s->getRomc());
     xtly_cycle_hi();
     if (read) {
         delayNanoseconds(xtly_hi_read);
-        signals->outData();
+        s->outData();
     } else {
         delayNanoseconds(xtly_hi_noread);
     }
     xtly_lo();
-    Signals::nextCycle();
+    _cycles.next();
     delayNanoseconds(xtly_lo_next);
     xtly_hi();
     while (signal_write() == LOW)
@@ -198,15 +198,15 @@ Signals *PinsF3850::cycle() {
     if (read) {
         delayNanoseconds(xtly_nowrite_romc);
     } else {
-        if (regs<RegsF3850>()->romc_write(signals->getData()))
+        if (regs<RegsF3850>()->romc_write(s->getData()))
             delayNanoseconds(xtly_hi_write);
     }
     // XTLY=H
-    return signals;
+    return s;
 }
 
 Signals *PinsF3850::inject(uint8_t data) {
-    Signals::put()->inject(data);
+    _cycles.put()->inject(data);
     return cycle();
 }
 
@@ -224,30 +224,30 @@ void PinsF3850::execute(
     uint8_t inj = 0;
     uint8_t cap = 0;
     while (inj < len || cap < max) {
-        auto signals = Signals::put();
+        auto s = _cycles.put();
         if (cap < max)
-            signals->capture();
+            s->capture();
         if (inj < len)
-            signals->inject(inst[inj]);
+            s->inject(inst[inj]);
         cycle();
-        if (signals->read()) {
+        if (s->read()) {
             if (inj < len)
                 inj++;
-        } else if (signals->write()) {
+        } else if (s->write()) {
             if (buf && cap < max)
-                buf[cap++] = signals->data;
+                buf[cap++] = s->data;
         }
     }
 }
 
 void PinsF3850::idle() {
     // Inject "BR $"
-    const auto &s = inject(InstF3850::BR);  // ROMC=0x00
+    const auto s = inject(InstF3850::BR);  // ROMC=0x00
     delayNanoseconds(xtly_idle_ns);
     inject(InstF3850::BR_HERE);  // ROMC=0x1C
     delayNanoseconds(xtly_idle_ns);
     inject(0xFF);  // ROMC=0x01
-    Signals::discard(s);
+    _cycles.discard(s);
 }
 
 void PinsF3850::loop() {
@@ -260,7 +260,7 @@ void PinsF3850::loop() {
 
 void PinsF3850::run() {
     _regs->restore();
-    Signals::resetCycles();
+    _cycles.reset();
     saveBreakInsts();
     loop();
     restoreBreakInsts();
@@ -288,10 +288,10 @@ bool PinsF3850::rawStep() {
 }
 
 bool PinsF3850::step(bool show) {
-    Signals::resetCycles();
+    _cycles.reset();
     _regs->restore();
     if (show)
-        Signals::resetCycles();
+        _cycles.reset();
     if (rawStep()) {
         if (show)
             printCycles();
@@ -301,47 +301,16 @@ bool PinsF3850::step(bool show) {
     return false;
 }
 
-void PinsF3850::assertInt(uint8_t name) {
-    (void)name;
+void PinsF3850::assertInt(uint8_t) {
     assert_intreq();
 }
 
-void PinsF3850::negateInt(uint8_t name) {
-    (void)name;
+void PinsF3850::negateInt(uint8_t) {
     negate_intreq();
 }
 
 void PinsF3850::setBreakInst(uint32_t addr) const {
     _mems->put_inst(addr, InstF3850::BREAK);
-}
-
-void PinsF3850::printCycles() {
-    const auto g = Signals::get();
-    const auto cycles = g->diff(Signals::put());
-    for (auto i = 0; i < cycles; ++i) {
-        g->next(i)->print();
-    }
-}
-
-void PinsF3850::disassembleCycles() const {
-    const auto g = Signals::get();
-    const auto cycles = g->diff(Signals::put());
-    for (auto i = 0; i < cycles;) {
-        const auto s = g->next(i);
-        const auto len = InstF3850::instLength(s->data);
-        if (s->fetch() && len) {
-            _mems->disassemble(s->addr, 1);
-            const auto cycles = InstF3850::busCycles(s->data);
-            for (auto j = 0; j < len; ++j)
-                s->next(j)->print();
-            for (auto j = 0; j < cycles; ++j)
-                s->next(len + j)->print();
-            i += len + cycles;
-        } else {
-            s->print();
-            ++i;
-        }
-    }
 }
 
 }  // namespace f3850

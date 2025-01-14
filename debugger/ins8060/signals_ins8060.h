@@ -1,26 +1,26 @@
 #ifndef __SIGNALS_INS8060_H__
 #define __SIGNALS_INS8060_H__
 
-#include "signals.h"
+#include "sigs.h"
 
-#define LOG(e) e
-//#define LOG(e)
+//#define LOG(e) e
+#define LOG(e)
 
 namespace debugger {
 namespace ins8060 {
 
-struct Signals final : SignalsBase<Signals> {
+struct Signals final : Sigs<Signals> {
     void getAddr();
     void getData();
     void outData() const;
     static void inputMode();
-    void print() const;
+    void print() const override;
 
-    bool read() const { return (flags() & F_READ) != 0; }
-    bool write() const { return (flags() & F_READ) == 0; }
-    bool fetch() const { return (flags() & F_INST) != 0; }
-    bool delay() const { return (flags() & F_DELAY) != 0; }
-    bool halt() const { return (flags() & F_HALT) != 0; }
+    bool read() const { return (_flags & F_READ) != 0; }
+    bool write() const { return (_flags & F_READ) == 0; }
+    bool fetch() const override { return (_flags & F_INST) != 0; }
+    bool delay() const { return (_flags & F_DELAY) != 0; }
+    bool halt() const { return (_flags & F_HALT) != 0; }
 
 private:
     enum Flags : uint8_t {
@@ -29,8 +29,7 @@ private:
         F_DELAY = 0x40,
         F_HALT = 0x80,
     };
-    uint8_t flags() const { return _signals[0]; }
-    uint8_t &flags() { return _signals[0]; }
+    uint8_t _flags;
 };
 }  // namespace ins8060
 }  // namespace debugger
