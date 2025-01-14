@@ -25,6 +25,7 @@ struct Mems {
     uint8_t addressUnit() const;
     uint8_t opCodeWidth() const;
     uint8_t listRadix() const;
+    Endian endian() const { return _endian; }
 
     virtual uint16_t raw_read(uint32_t addr) const = 0;
     virtual void raw_write(uint32_t addr, uint16_t data) const = 0;

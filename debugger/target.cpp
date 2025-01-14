@@ -104,7 +104,19 @@ void Target::write_memory(
 
 void Target::write_code(
         uint32_t addr, const uint8_t *buffer, uint8_t len) const {
-    _mems->put(addr, buffer, len);
+    const auto unit = addressUnit();
+    for (auto i = 0; i < len; i += unit) {
+        uint16_t code = buffer[i];
+        if (unit == 2) {
+            if (endian() == ENDIAN_BIG) {
+                code <<= 8;
+                code |= buffer[i + 1];
+            } else {
+                code |= buffer[i + 1] << 8;
+            }
+        }
+        _mems->put(addr++, code);
+    }
 }
 
 bool Target::printRomArea() const {

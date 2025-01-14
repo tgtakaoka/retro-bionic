@@ -21,11 +21,14 @@ Device *Devs::nullDevice() {
 }
 
 void Devs::printDevice(const Device *dev) const {
+    const auto radix = Debugger.target().inputRadix();
+    const auto digits =
+            Debugger::numDigits(Debugger.target().addressWidth(), radix);
     cli.printStr(dev->name(), -6);
     cli.print(' ');
     cli.printStr(dev->description(), -10);
     cli.print(" at ");
-    cli.printHex(dev->baseAddr(), 4);
+    cli.printNum(dev->baseAddr(), radix, digits);
     if (dev->isEnabled()) {
         cli.println();
         dev->print();

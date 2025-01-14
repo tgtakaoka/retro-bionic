@@ -297,8 +297,11 @@ uint32_t toInt32Hex(const char *text) {
 }
 
 int loadIHexRecord(const char *line) {
+    const auto bits = Debugger.target().addressWidth();
+    const auto unit = Debugger.target().addressUnit();
+    const auto radix = Debugger.target().inputRadix();
     const auto num = toInt8Hex(line + 1);
-    const uint16_t addr = toInt16Hex(line + 3);
+    uint16_t addr = toInt16Hex(line + 3);
     const auto type = toInt8Hex(line + 7);
     // TODO: Support 32bit Intel Hex
     if (type == 0) {
@@ -306,15 +309,19 @@ int loadIHexRecord(const char *line) {
         for (int i = 0; i < num; i++) {
             buffer[i] = toInt8Hex(line + i * 2 + 9);
         }
+        addr /= unit;
         Debugger.target().write_code(addr, buffer, num);
-        cli.printHex(addr, 4);
+        cli.printNum(addr, radix, Debugger::numDigits(bits, radix));
         cli.print(':');
-        cli.printHex(num, 2);
+        cli.printDec(num / unit, 2);
     }
     return num;
 }
 
 int loadS19Record(const char *line) {
+    const auto bits = Debugger.target().addressWidth();
+    const auto unit = Debugger.target().addressUnit();
+    const auto radix = Debugger.target().inputRadix();
     const int num = toInt8Hex(line + 2) - 3;
     uint32_t addr;
     switch (line[1]) {
@@ -333,14 +340,15 @@ int loadS19Record(const char *line) {
     default:
         return 0;
     }
+    addr /= unit;
     uint8_t buffer[num];
     for (int i = 0; i < num; i++) {
         buffer[i] = toInt8Hex(line + i * 2);
     }
     Debugger.target().write_code(addr, buffer, num);
-    cli.printHex(addr, 4);
+    cli.printNum(addr, radix, Debugger::numDigits(bits, radix));
     cli.print(':');
-    cli.printHex(num, 2);
+    cli.printDec(num / unit, 2);
     return num;
 }
 
