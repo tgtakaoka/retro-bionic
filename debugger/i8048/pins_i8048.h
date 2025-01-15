@@ -53,6 +53,7 @@
 #define PIN_INT 31    /* P8.22 */
 #define PIN_ALE 30    /* P8.23 */
 
+#include "inst_i8048.h"
 #include "mems.h"
 #include "pins.h"
 #include "signals_i8048.h"
@@ -62,12 +63,6 @@ namespace i8048 {
 
 struct RegsI8048;
 struct ProgI8048;
-struct InstI8048;
-
-enum SoftwareType : uint8_t {
-    SW_I8048 = 0,
-    SW_MSM80C48 = 1,
-};
 
 struct PinsI8048 final : Pins {
     PinsI8048();
@@ -90,6 +85,7 @@ struct PinsI8048 final : Pins {
 
 private:
     Mems *_data;
+    InstI8048 _inst;
     SoftwareType _type;
 
     void checkSoftwareType();

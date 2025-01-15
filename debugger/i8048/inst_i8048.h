@@ -2,10 +2,14 @@
 #define __INST_I8048_H__
 
 #include <stdint.h>
-#include "pins_i8048.h"
 
 namespace debugger {
 namespace i8048 {
+
+enum SoftwareType : uint8_t {
+    SW_I8048 = 0,
+    SW_MSM80C48 = 1,
+};
 
 struct InstI8048 final {
     InstI8048() : _flags(F_MSM80C39) {}
@@ -49,8 +53,6 @@ private:
     static constexpr uint8_t SEL_MB0 = 0xE5;
     static constexpr uint8_t SEL_MB1 = 0xF5;
 };
-
-extern struct InstI8048 Inst;
 
 }  // namespace i8048
 }  // namespace debugger
