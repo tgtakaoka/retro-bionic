@@ -9,8 +9,6 @@
 namespace debugger {
 namespace tlcs90 {
 
-struct PinsTlcs90 Pins;
-
 // clang-format off
 /*
  * TMP90C802 Bus cycle

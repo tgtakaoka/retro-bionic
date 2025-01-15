@@ -1,7 +1,6 @@
 #include "pins_i8048.h"
 #include "debugger.h"
 #include "devs_i8048.h"
-#include "inst_i8048.h"
 #include "mems_i8048.h"
 #include "regs_i8048.h"
 #include "signals_i8048.h"
@@ -196,10 +195,10 @@ void PinsI8048::checkSoftwareType() {
             0x90,        // MOVX @R0, A
     };
     uint8_t r1;
-    Inst.setSoftwareType(SW_MSM80C48);
+    _inst.setSoftwareType(SW_MSM80C48);
     captureWrites(DETECT_MSM, sizeof(DETECT_MSM), nullptr, &r1, sizeof(r1));
     _type = r1 ? SW_I8048 : SW_MSM80C48;
-    Inst.setSoftwareType(_type);
+    _inst.setSoftwareType(_type);
     _regs->restore();
 }
 
@@ -442,7 +441,7 @@ bool PinsI8048::rawStep(bool step) {
     negate_ss();
     auto s = prepareCycle();
     const auto inst = _mems->raw_read(s->addr);
-    const auto len = Inst.instLength(inst);
+    const auto len = _inst.instLength(inst);
     if (inst == InstI8048::HALT || len == 0) {
         injectJumpHere(s);
         Signals::discard(s);
@@ -456,7 +455,7 @@ bool PinsI8048::rawStep(bool step) {
         }
         return true;
     }
-    const auto cycles = Inst.busCycles(inst);
+    const auto cycles = _inst.busCycles(inst);
     completeCycle(s);
     for (auto i = 1; i < cycles; ++i) {
         completeCycle(prepareCycle())->clearFetch();
@@ -506,7 +505,7 @@ void PinsI8048::disassembleCycles() {
         const auto s = g->next(i);
         if (s->fetch()) {
             const auto len = _mems->disassemble(s->addr, 1) - s->addr;
-            const auto cycles = Inst.busCycles(s->data);
+            const auto cycles = _inst.busCycles(s->data);
             for (auto i = len; i < cycles; ++i)
                 s->next(i)->print();
             i += cycles;

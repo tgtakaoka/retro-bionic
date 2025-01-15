@@ -9,8 +9,6 @@
 namespace debugger {
 namespace f3850 {
 
-struct PinsF3850 Pins;
-
 // clang-format off
 /**
  * F3850 bus cycle
