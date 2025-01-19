@@ -4,7 +4,7 @@
 namespace debugger {
 
 bool BreakPoints::on(uint32_t addr) const {
-    for (auto i = 0; i < _num; ++i) {
+    for (auto i = from(); i <= _num; ++i) {
         if (_points[i] == addr)
             return true;
     }
@@ -12,13 +12,13 @@ bool BreakPoints::on(uint32_t addr) const {
 }
 
 bool BreakPoints::set(uint32_t addr) {
-    auto i = 0;
-    while (i < _num) {
+    uint_fast8_t i = 1;
+    while (i <= _num) {
         if (_points[i] == addr)
             return true;
         ++i;
     }
-    if (i < BREAK_POINTS) {
+    if (i <= BREAK_POINTS) {
         _points[i] = addr;
         ++_num;
         return true;
@@ -26,27 +26,31 @@ bool BreakPoints::set(uint32_t addr) {
     return false;
 }
 
-bool BreakPoints::clear(uint8_t index) {
-    if (--index >= _num)
+void BreakPoints::setTemp(uint32_t addr) {
+    _points[0] = addr;
+    _has_temp = true;
+}
+
+bool BreakPoints::clear(uint_fast8_t index) {
+    if (index > _num)
         return false;
-    for (auto i = index + 1; i < _num; ++i) {
-        _points[index] = _points[i];
-        ++index;
+    for (auto i = index; i <= _num; ++i) {
+        _points[i] = _points[i + 1];
     }
     --_num;
     return true;
 }
 
 bool BreakPoints::print() const {
-    for (uint8_t i = 0; i < _num; ++i) {
-        cli.printDec(i + 1, -2);
+    for (auto i = from(); i <= _num; ++i) {
+        cli.printDec(i, -2);
         Debugger.target().disassemble(_points[i], 1);
     }
     return _num != 0;
 }
 
 void BreakPoints::saveInsts() {
-    for (auto i = 0; i < _num; ++i) {
+    for (auto i = from(); i <= _num; ++i) {
         const auto addr = _points[i];
         _insts[i] = Debugger.target().get_inst(addr);
         Debugger.target().setBreakPoint(addr);
@@ -54,9 +58,10 @@ void BreakPoints::saveInsts() {
 }
 
 void BreakPoints::restoreInsts() {
-    for (auto i = 0; i < _num; ++i) {
+    for (auto i = from(); i <= _num; ++i) {
         Debugger.target().put_inst(_points[i], _insts[i]);
     }
+    _has_temp = false;
 }
 
 }  // namespace debugger

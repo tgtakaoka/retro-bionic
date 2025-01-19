@@ -13,6 +13,7 @@
  *  = - set CPU register
  *  S - step one instruction with printing bus cycles
  *  G - Go, continuously run CPU
+ *  g - Go until address
  *  F - list files in SD card
  *  L - load S-record file
  *  U - upload Intel Hex/Motorola S-record
@@ -50,7 +51,7 @@ constexpr char USAGE[] =
 #ifdef WITH_ASSEMBLER
         " A:sm"
 #endif
-        " S:tep G:o b/B:reak F:iles L:oad U:pload I:o ro:M";
+        " S:tep G/g:o b/B:reak F:iles L:oad U:pload I:o ro:M";
 
 void usage() {
     cli.println();
@@ -239,6 +240,15 @@ void handleAssembler(uint32_t value, uintptr_t extra, State state) {
 }
 
 #endif
+
+void handleGoUntil(uint32_t value, uintptr_t extra, State state) {
+    if (state != State::CLI_CANCEL) {
+        Debugger.setTempBreakPoint(value);
+        Debugger.go();
+    }
+    printPrompt();
+}
+
 void listDirectory(File dir) {
     const auto path = dir.name();
     const auto root = strcmp(path, "/") == 0;
@@ -559,6 +569,21 @@ void handleWriteIdentity(char *line, uintptr_t extra, State state) {
 
 }  // namespace
 
+void Debugger::go() {
+    if (_breakPoints.on(target().nextIp())) {
+        // step over break point
+        if (!target().step(false))
+            return;
+        // Stop at consecutive break point
+        if (_breakPoints.on(target().nextIp())) {
+            target().printStatus();
+            return;
+        }
+    }
+    target().run();
+    target().printStatus();
+}
+
 void Debugger::exec(char c) {
     const auto maxAddr = target().maxAddr();
     const auto radix = target().inputRadix();
@@ -631,19 +656,12 @@ void Debugger::exec(char c) {
         break;
     case 'G':
         cli.println("Go");
-        if (_breakPoints.on(target().nextIp())) {
-            // step over break point
-            if (!target().step(false))
-                break;
-            // Stop at consecutive break point
-            if (_breakPoints.on(target().nextIp())) {
-                target().printStatus();
-                break;
-            }
-        }
-        target().run();
-        target().printStatus();
+        go();
         break;
+    case 'g':
+        cli.print("Go until? ");
+        cli.readNum(handleGoUntil, 0, radix, maxAddr);
+        return;
     case 'F':
         cli.print("Files? ");
         cli.readLine(handleFileListing, 0, str_buffer, sizeof(str_buffer));

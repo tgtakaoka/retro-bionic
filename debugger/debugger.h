@@ -17,8 +17,10 @@ struct Debugger {
 
     Target &target() const { return *_target; }
 
+    void go();
     bool isBreakPoint(uint32_t addr) { return _breakPoints.on(addr); }
     bool setBreakPoint(uint32_t addr) { return _breakPoints.set(addr); }
+    void setTempBreakPoint(uint32_t addr) { _breakPoints.setTemp(addr); }
     bool clearBreakPoint(uint8_t index) { return _breakPoints.clear(index); }
     bool printBreakPoints() const { return _breakPoints.print(); }
     void saveBreakInsts() { _breakPoints.saveInsts(); }
