@@ -14,10 +14,12 @@ namespace debugger {
 namespace {
 
 struct DisMemory final : libasm::DisMemory {
-    DisMemory(const Mems *mems) : libasm::DisMemory(0), _mems(mems) {}
+    DisMemory(const Mems *mems, uint32_t max_bytes)
+        : libasm::DisMemory(0), _mems(mems), _max_bytes(max_bytes) {}
     const Mems *_mems;
+    const uint32_t _max_bytes;
 
-    bool hasNext() const override { return address() < _mems->maxAddr(); }
+    bool hasNext() const override { return address() <= _max_bytes; }
     void setAddress(uint32_t addr) { resetAddress(addr); }
     uint8_t nextByte() override { return _mems->raw_read(address()); }
 };
@@ -226,7 +228,9 @@ void Mems::dump(
 
 void Mems::dumpMemory(uint32_t addr, uint16_t len, const char *space) const {
     const auto start = addr;
-    const auto end = addr + len;
+    auto end = addr + len;
+    if (end > maxAddr())
+        end = maxAddr() + 1;
     const auto bits = opCodeWidth();
     const auto unit = addressUnit();
     // Quantize address to a multiple of 8 or 16.
@@ -298,7 +302,7 @@ uint32_t Mems::disassemble(uint32_t addr, uint8_t numInsn) const {
         const auto nameWidth = dis->config().nameMax() + 1;
         dis->setOption("uppercase", "true");
         const auto codeMax = dis->config().codeMax();
-        DisMemory mem(this);
+        DisMemory mem(this, (maxAddr() + 1) * unit - 1);
         uint16_t num = 0;
         while (num < numInsn) {
             char operands[80];
@@ -307,7 +311,7 @@ uint32_t Mems::disassemble(uint32_t addr, uint8_t numInsn) const {
             dis->decode(mem, insn, operands, sizeof(operands));
             auto step = codeMax < chunk ? codeMax : chunk;
             for (auto i = 0; i < insn.length(); i += step) {
-                printAddress(insn.address());
+                printAddress(insn.address() + i / unit);
                 auto len = insn.length() - i;
                 if (len >= step)
                     len = step;
@@ -333,7 +337,8 @@ uint32_t Mems::disassemble(uint32_t addr, uint8_t numInsn) const {
                 if (insn.getError() == libasm::NO_MEMORY)
                     break;
             }
-            addr += insn.length() / unit;
+            if ((addr += insn.length() / unit) >= maxAddr())
+                break;
             ++num;
         }
     }
