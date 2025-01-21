@@ -1,0 +1,473 @@
+          0 :                    *** -*- mode: asm; mode: flyspell-prog; -*-
+          0 :                            include "mn1613.inc"
+(1)       0 :                    *** -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :                    *** MN1613
+(1)       0 :                            cpu     mn1613
+(1)       0 :                    *** Status Register
+(1)       0 : =0                 STR_E:          equ     0       Extension
+(1)       0 : =2                 STR_OV:         equ     2       Overflow
+(1)       0 : =5                 STR_IRQ0:       equ     5       IRQ0 Mask
+(1)       0 : =6                 STR_IRQ1:       equ     6       IRQ1 Mask
+(1)       0 : =7                 STR_IRQ2:       equ     7       IRQ2 Mask
+(1)       0 :                    *** Interrupt vector and save area
+(1)       0 : =0                 OPSW0:          equ     X'0000' IRQ0 old STR:IC
+(1)       0 : =2                 OPSW1:          equ     X'0002' IRQ1 old STR:IC
+(1)       0 : =4                 OPSW2:          equ     X'0004' IRQ2 old STR:IC
+(1)       0 : =6                 OPSW3:          equ     X'0006'
+(1)       0 : =100               NPSW0:          equ     X'0100' IRQ0 vector STR:IC
+(1)       0 : =102               NPSW1:          equ     X'0102' IRQ1 vector STR:IC
+(1)       0 : =104               NPSW2:          equ     X'0104' IRQ2 vector STR:IC
+(1)       0 : =106               NPSW3:          equ     X'0106'
+(1)       0 :                    *** Reset PSW (see debugger RegsMn1613::reset)
+(1)       0 : =108               RESET_PSW:      equ     X'0108'
+(1)       0 :                    *** Zero page
+(1)       0 : =8                 ZERO_PAGE:      equ     X'0008'
+(1)       0 :
+(1)       0 :                    hi:     function        v, (v >> 8)
+(1)       0 :                    lo:     function        v, (v & X'FF')
+          0 :                    *** i8251 Universal Synchronous/Asynchronous Receiver/Transmitter
+          0 : =80                USART:  equ     X'80'
+          0 : =80                USARTD: equ     USART+0         Data register
+          0 : =81                USARTS: equ     USART+1         Status register
+          0 : =81                USARTC: equ     USART+1         Control register
+          0 :                            include "i8251.inc"
+(1)       0 :                    *** -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :                    *** i8251 USART device emulator.
+(1)       0 : =6                 MODE_STOP_gp:   equ     6
+(1)       0 : =C0                MODE_STOP_gm:   equ     11000000B
+(1)       0 : =40                MODE_STOP1_gc:  equ     (1 << MODE_STOP_gp)
+(1)       0 : =80                MODE_STOP15_gc: equ     (2 << MODE_STOP_gp)
+(1)       0 : =C0                MODE_STOP2_gc:  equ     (3 << MODE_STOP_gp)
+(1)       0 : =20                MODE_EVEN_bm:   equ     00100000B
+(1)       0 : =10                MODE_PARITY_bm: equ     00010000B
+(1)       0 : =2                 MODE_LEN_gp:    equ     2
+(1)       0 : =C                 MODE_LEN_gm:    equ     00001100B
+(1)       0 : =0                 MODE_LEN5_gc:   equ     (0 << MODE_LEN_gp)
+(1)       0 : =4                 MODE_LEN6_gc:   equ     (1 << MODE_LEN_gp)
+(1)       0 : =8                 MODE_LEN7_gc:   equ     (2 << MODE_LEN_gp)
+(1)       0 : =C                 MODE_LEN8_gc:   equ     (3 << MODE_LEN_gp)
+(1)       0 : =0                 MODE_BAUD_gp:   equ     0
+(1)       0 : =3                 MODE_BAUD_gm:   equ     00000011B
+(1)       0 : =1                 MODE_BAUD_X1:   equ     (1 << MODE_BAUD_gp)
+(1)       0 : =2                 MODE_BAUD_X16:  equ     (2 << MODE_BAUD_gp)
+(1)       0 : =3                 MODE_BAUD_X64:  equ     (3 << MODE_BAUD_gp)
+(1)       0 :                    *** Bit Definition of command register
+(1)       0 : =80                CMD_EH_bm:      equ     10000000B   Enter hunt mode
+(1)       0 : =40                CMD_IR_bm:      equ     01000000B   Internal Reset
+(1)       0 : =20                CMD_RTS_bm:     equ     00100000B   Request To Send
+(1)       0 : =10                CMD_ER_bm:      equ     00010000B   Error Reset
+(1)       0 : =8                 CMD_SBRK_bm:    equ     00001000B   Send Break
+(1)       0 : =4                 CMD_RxEN_bm:    equ     00000100B   Receive Enable
+(1)       0 : =2                 CMD_DTR_bm:     equ     00000010B   Data Terminal Ready
+(1)       0 : =1                 CMD_TxEN_bm:    equ     00000001B   Transmit enable
+(1)       0 :                    *** Bit definition of status register
+(1)       0 : =8                 ST_DSR_bp:      equ     8       Data Set Ready
+(1)       0 : =9                 ST_BRK_bp:      equ     9       BREAK detected
+(1)       0 : =A                 ST_FE_bp:       equ     10      Framing Error
+(1)       0 : =B                 ST_OE_bp:       equ     11      Overrun Error
+(1)       0 : =C                 ST_PE_bp:       equ     12      Parity Error
+(1)       0 : =D                 ST_TxEMPTY_bp:  equ     13      Transmitter empty
+(1)       0 : =E                 ST_RxRDY_bp:    equ     14      Receiver ready
+(1)       0 : =F                 ST_TxRDY_bp:    equ     15      Transmitter ready
+          0 :                    * Async 1stop 8data x16
+          0 : =4E                ASYNC_MODE:     equ     MODE_STOP1_gc|MODE_LEN8_gc|MODE_BAUD_X16
+          0 :                    * RTS/DTR, error reset, Rx enable, Tx enable
+          0 : =37                RX_EN_TX_EN:    equ     CMD_RTS_bm|CMD_DTR_bm|CMD_ER_bm|CMD_RxEN_bm|CMD_TxEN_bm
+          0 :
+        108 :                            loc     RESET_PSW
+        108 : 0000                       dc      X'0000'         STR: Disable interrupt
+        109 : 0200                       dc      initialize      IC
+        10A :
+          8 :                            loc     ZERO_PAGE
+          8 : =8                 FR0:    equ     *               Float Register
+          8 :                    FR0H:   ds      1
+          9 :                    FR0L:   ds      1
+          A :
+        200 :                            loc     X'0200'
+        200 : =1FF               stack:  equ     *-1
+        200 :                    initialize:
+        200 : 7D0F 01FF                  mvwi    SP, stack
+        202 : 8F04                       bal     init_usart
+        203 : 2617 02A7                  bald    arith
+        205 : 2000                       h                       halt to system
+        206 :
+        206 :                    init_usart:
+        206 :                            * Initialize USART
+        206 : 6000                       eor     R0, R0          R0=0
+        207 : 1081                       wt      R0, USARTC
+        208 : 1081                       wt      R0, USARTC
+        209 : 1081                       wt      R0, USARTC      Safest way to sync mode
+        20A : 0840                       mvi     R0, CMD_IR_bm
+        20B : 1081                       wt      R0, USARTC      Reset
+        20C : 7808                       mv      R0, R0          delay
+        20D : 7808                       mv      R0, R0          delay
+        20E : 084E                       mvi     R0, ASYNC_MODE
+        20F : 1081                       wt      R0, USARTC
+        210 : 7808                       mv      R0, R0          delay
+        211 : 7808                       mv      R0, R0          delay
+        212 : 0837                       mvi     R0, RX_EN_TX_EN
+        213 : 1081                       wt      R0, USARTC      Enable Rx/Tx
+        214 : 2003                       ret
+        215 :
+        215 :                    newline:
+        215 : 080D                       mvi     R0, X'0D'       CR
+        216 : 8F02                       bal     putchar
+        217 : 080A                       mvi     R0, X'0A'       NL
+        218 :                    putchar:
+        218 : 2001                       push    R0
+        219 :                    putchar_wait:
+        219 : 1881                       rd      R0, USARTS
+        21A : 285F                       tbit    R0, ST_TxRDY_bp, nz     Skip if TxRDY=1
+        21B : CFFE                       b       putchar_wait
+        21C : 2002                       pop     R0
+        21D : 1080                       wt      R0, USARTD
+        21E : 2003                       ret
+        21F :
+        21F :                            include "arith.inc"
+(1)     21F :                    *** -*- mode: asm; mode: flyspell-prog* -*-
+(1)     21F :                    *** Print signed 16-bit integer as decimal
+(1)     21F :                    *** @param R0 value
+(1)     21F :                    *** @clobber R1 R2
+(1)     21F :                    print_int16:
+(1)     21F : 2850                       tbit    R0, 0, nz       skip if msb(value)=1
+(1)     220 : CF06                       b       print_uint16
+(1)     221 : 2001                       push    R0
+(1)     222 : 082D                       mvi     R0, '-'
+(1)     223 : 8FF5                       bal     putchar
+(1)     224 : 2002                       pop     R0
+(1)     225 : 1F08                       neg     R0, c           negate value
+(1)     226 :                    print_uint16:
+(1)     226 : 7908                       mv      R1, R0          R1=value
+(1)     227 : 7A0F 000A                  mvwi    R2, 10          R2=10
+(1)     229 : 8F08                       bal     udiv16          R0=value/10, R1=value%10
+(1)     22A : 2101                       push    R1              push remainder
+(1)     22B : 6048                       or      R0, R0, z       skip if value=0
+(1)     22C : 8FFA                       bal     print_uint16    next digit
+(1)     22D : 2002                       pop     R0              pop remainder
+(1)     22E : 580F 0030                  awi     R0, '0'
+(1)     230 : CFE8                       b       putchar         print digit and return
+(1)     231 :
+(1)     231 :                    *** Unsigned Divide: dividend / divisor = quotient ... remainder
+(1)     231 :                    *** @param R1 dividend
+(1)     231 :                    *** @param R2 divisor
+(1)     231 :                    *** @return R0 quotient
+(1)     231 :                    *** @return R1 remainder
+(1)     231 :                    udiv16:
+(1)     231 : 6000                       eor     R0, R0          DR0=dividend
+(1)     232 : 2201                       push    R2              push divisor
+(1)     233 : 7A0D                       mv      R2, SP
+(1)     234 : 4A01                       ai      R2, 1           R2 points divisor
+(1)     235 : 770D                       d       DR0, (R2)       DR0/(R2)=R0...R1
+(1)     236 : 2202                       pop     R2
+(1)     237 : 2003                       ret
+(1)     238 :
+(1)     238 :                    *** Signed Divide: dividend / divisor = quotient
+(1)     238 :                    *** @param R1 dividend
+(1)     238 :                    *** @param R2 divisor
+(1)     238 :                    *** @return R1 quotient
+(1)     238 :                    *** @clobber R0 R2
+(1)     238 :                    div16:
+(1)     238 : 2301                       push    R3
+(1)     239 : 7B09                       mv      R3, R1
+(1)     23A : 2940                       tbit    R1, 0, z        skip if msb(dividend)=0
+(1)     23B : 1F09                       neg     R1, c           negate dividend
+(1)     23C : 6302                       eor     R3, R2          R3=sign(quotient)
+(1)     23D : 2A40                       tbit    R2, 0, z        skip if msb(divisor)=0
+(1)     23E : 1F0A                       neg     R2, c           negate divisor
+(1)     23F : 8FF2                       bal     udiv16
+(1)     240 : 2B40                       tbit    R3, 0, z        skip if quotient needs not be negated
+(1)     241 : 1F08                       neg     R0, c           negate quotient
+(1)     242 : 7908                       mv      R1, R0
+(1)     243 : 2302                       pop     R3
+(1)     244 : 2003                       ret
+(1)     245 :
+(1)     245 :                    *** Signed Divide: dividend / |divisor| = quotient
+(1)     245 :                    *** @param R1 dividend
+(1)     245 :                    *** @param R2 divisor
+(1)     245 :                    *** @return R1 quotient
+(1)     245 :                    *** @clobber R0 R2 STR.15
+(1)     245 :                    divu16:
+(1)     245 : 360F                       rbit    STR, 15         clear STR.15
+(1)     246 : 2940                       tbit    R1, 0, z        skip if msb(dividend)=0
+(1)     247 : 3E0F                       sbit    STR, 15         set STR.15
+(1)     248 : 2940                       tbit    R1, 0, z        skip if msb(dividend)=0
+(1)     249 : 1F09                       neg     R1, c           negate dividend
+(1)     24A : 8FE7                       bal     udiv16
+(1)     24B : 2E4F                       tbit    STR, 15, z      skip if quotient needs not be negated
+(1)     24C : 1F08                       neg     R0, c           negate quotient
+(1)     24D : 7908                       mv      R1, R0
+(1)     24E : 2003                       ret
+(1)     24F :
+(1)     24F :                    *** Signed Multiply: multiplicand * multiplier = product
+(1)     24F :                    *** @param R1 multiplicand
+(1)     24F :                    *** @param R2 multiplier
+(1)     24F :                    *** @return R1 product
+(1)     24F :                    *** @clobber R0 R2
+(1)     24F :                    mul16:
+(1)     24F : 2301                       push    R3
+(1)     250 : 7B09                       mv      R3, R1
+(1)     251 : 6302                       eor     R3, R2          R3=sign(product)
+(1)     252 : 2940                       tbit    R1, 0, z        skip if msb(multiplicand)=0
+(1)     253 : 1F09                       neg     R1, c           negate multiplicand
+(1)     254 : 2A40                       tbit    R2, 0, z        skip if msb(multiplier)=0
+(1)     255 : 1F0A                       neg     R2, c           negate multiplier
+(1)     256 : 780A                       mv      R0, R2          R0=|multiplier|
+(1)     257 : 7A0D                       mv      R2, SP          R2 points |multiplicand|
+(1)     258 : 2101                       push    R1              push |multiplicand|
+(1)     259 : 7F0D                       m       DR0, (R2)       DR0=|multiplicand|*|multiplier|
+(1)     25A : 2B40                       tbit    R3, 0, z        skip if product needs not to be negated
+(1)     25B : 1F09                       neg     R1, c           negate low(product)
+(1)     25C : 7D0A                       mv      SP, R2          discard pushed |multiplier|
+(1)     25D : 2302                       pop     R3
+(1)     25E : 2003                       ret
+        25F :
+        25F :                    *** Print "VA op VB" and convert to float
+        25F :                    *** @param R0 op letter
+        25F :                    *** @param R1 VA
+        25F :                    *** @param R2 VB
+        25F :                    *** @return DR0 float(VA)
+        25F :                    *** @return FR0 float(VB)
+        25F :                    *** @return R2 address of FR0
+        25F :                    expr:
+        25F : 2101                       push    R1              save VA
+        260 : 2201                       push    R2              save VB
+        261 : 2001                       push    R0              save op letter
+        262 : 7809                       mv      R0, R1
+        263 : 2617 021F                  bald    print_int16     print VA
+        265 : 0820                       mvi     R0, ' '
+        266 : 2617 0218                  bald    putchar         print ' '
+        268 : 2002                       pop     R0              restore op letter
+        269 : 2617 0218                  bald    putchar         print op
+        26B : 0820                       mvi     R0, ' '
+        26C : 2617 0218                  bald    putchar         print ' '
+        26E : 2202                       pop     R2              restore VB
+        26F : 780A                       mv      R0, R2
+        270 : 1F07                       flt     DR0, R0         DR0=float(VB)
+        271 : 8008                       st      R0, FR0H
+        272 : 8109                       st      R1, FR0L
+        273 : 780A                       mv      R0, R2
+        274 : 2617 021F                  bald    print_int16     print VB
+        276 : 2002                       pop     R0              restore VA
+        277 : 1F07                       flt     DR0, R0         DR0=float(VA)
+        278 : 7A0F 0008                  mvwi    R2, FR0
+        27A : 2003                       ret
+        27B :
+        27B :                    *** Print " = value\n"
+        27B :                    *** @param DR0 float value
+        27B :                    *** @clobber DR0 R2
+        27B :                    answer:
+        27B : 2001                       push    R0              save value
+        27C : 2101                       push    R1
+        27D : 0820                       mvi     R0, ' '
+        27E : 2617 0218                  bald    putchar         print ' '
+        280 : 083D                       mvi     R0, '='
+        281 : 2617 0218                  bald    putchar         print '='
+        283 : 0820                       mvi     R0, ' '
+        284 : 2617 0218                  bald    putchar         print ' '
+        286 : 2102                       pop     R1
+        287 : 2002                       pop     R0              restore value
+        288 : 1F0F                       fix     R0, DR0         R0=int(DR0)
+        289 : 2617 021F                  bald    print_int16     print value
+        28B : 2607 0215                  bd      newline
+        28D :
+        28D :                    *** Print "VA rel VB\n" with float comparison
+        28D :                    *** @param R1 VA
+        28D :                    *** @param R2 VB
+        28D :                    *** @clobber R0 R1 R2 FR0
+        28D :                    comp:
+        28D : 2201                       push    R2              save VB
+        28E : 2101                       push    R1              save VA
+        28F : 780A                       mv      R0, R2
+        290 : 1F07                       flt     DR0, R0         DR0=float(VB)
+        291 : 8008                       st      R0, FR0H
+        292 : 8109                       st      R1, FR0L        FR0=VB
+        293 : 2002                       pop     R0
+        294 : 2001                       push    R0              R0=VA
+        295 : 1F07                       flt     DR0, R0         DR0=float(VA)
+        296 : 7A0F 0008                  mvwi    R2, FR0
+        298 : 6F05                       fs      DR0, (R2)       VA-VB
+        299 : 7868                       mv      R0,R0, mz       skip if DR0<=0
+        29A : CF05                       b       comp_gt
+        29B : 7848                       mv      R0,R0, z        skip if DR0=0
+        29C : CF05                       b       comp_lt
+        29D :                    comp_eq:
+        29D : 083D                       mvi     R0, '='
+        29E : CF04                       b       comp_out
+        29F :                    comp_gt:
+        29F : 083E                       mvi     R0, '>'
+        2A0 : CF02                       b       comp_out
+        2A1 :                    comp_lt:
+        2A1 : 083C                       mvi     R0, '<'
+        2A2 :                    comp_out:
+        2A2 : 2102                       pop     R1              restore VA
+        2A3 : 2202                       pop     R2              restore VB
+        2A4 : 8FBB                       bal     expr            print "VA rel VB"
+        2A5 : 2607 0215                  bd      newline
+        2A7 :
+        2A7 :                    arith:
+        2A7 : 790F 4650                  mvwi    R1, 18000
+        2A9 : 7A0F 6D60                  mvwi    R2, 28000
+        2AB : 082B                       mvi     R0, '+'
+        2AC : 8FB3                       bal     expr
+        2AD : 6F0D                       fa      DR0, (R2)       DR0+=FR0
+        2AE : 8FCD                       bal     answer          ; -19536
+        2AF :
+        2AF : 790F 4650                  mvwi    R1, 18000
+        2B1 : 7A0F B9B0                  mvwi    R2, -18000
+        2B3 : 082B                       mvi     R0, '+'
+        2B4 : 8FAB                       bal     expr
+        2B5 : 6F0D                       fa      DR0, (R2)       DR0+=FR0
+        2B6 : 8FC5                       bal     answer          ; 0
+        2B7 :
+        2B7 : 790F B9B0                  mvwi    R1, -18000
+        2B9 : 7A0F B9B0                  mvwi    R2, -18000
+        2BB : 082B                       mvi     R0, '+'
+        2BC : 8FA3                       bal     expr
+        2BD : 6F0D                       fa      DR0, (R2)       DR0+=FR0
+        2BE : 8FBD                       bal     answer          ; 29536
+        2BF :
+        2BF : 790F B9B0                  mvwi    R1, -18000
+        2C1 : 7A0F 92A0                  mvwi    R2, -28000
+        2C3 : 082D                       mvi     R0, '-'
+        2C4 : 8F9B                       bal     expr
+        2C5 : 6F05                       fs      DR0, (R2)       DR0-=FR0
+        2C6 : 8FB5                       bal     answer          ; 10000
+        2C7 :
+        2C7 : 790F 4650                  mvwi    R1, 18000
+        2C9 : 7A0F B9B0                  mvwi    R2, -18000
+        2CB : 082D                       mvi     R0, '-'
+        2CC : 8F93                       bal     expr
+        2CD : 6F05                       fs      DR0, (R2)       DR0-=FR0
+        2CE : 8FAD                       bal     answer          ; -29536
+        2CF :
+        2CF : 790F 92A0                  mvwi    R1, -28000
+        2D1 : 790F B9B0                  mvwi    R1, -18000
+        2D3 : 082D                       mvi     R0, '-'
+        2D4 : 8F8B                       bal     expr
+        2D5 : 6F05                       fs      DR0, (R2)       DR0-=FR0
+        2D6 : 8FA5                       bal     answer          ; -10000
+        2D7 :
+        2D7 : 790F 0064                  mvwi    R1, 100
+        2D9 : 7A0F 012C                  mvwi    R2, 300
+        2DB : 082A                       mvi     R0, '*'
+        2DC : 8F83                       bal     expr
+        2DD : 670D                       fm      DR0, (R2)       DR0*=FR0
+        2DE : 8F9D                       bal     answer          ; 30000
+        2DF :
+        2DF : 790F 00C8                  mvwi    R1, 200
+        2E1 : 7A0F 0064                  mvwi    R2, 100
+        2E3 : 082A                       mvi     R0, '*'
+        2E4 : 2617 025F                  bald    expr
+        2E6 : 670D                       fm      DR0, (R2)       DR0*=FR0
+        2E7 : 8F94                       bal     answer          ; 20000
+        2E8 :
+        2E8 : 790F 012C                  mvwi    R1, 300
+        2EA : 7A0F FF38                  mvwi    R2, -200
+        2EC : 082A                       mvi     R0, '*'
+        2ED : 2617 025F                  bald    expr
+        2EF : 670D                       fm      DR0, (R2)       DR0*=FR0
+        2F0 : 8F8B                       bal     answer          ; 5536
+        2F1 :
+        2F1 : 790F 0064                  mvwi    R1, 100
+        2F3 : 7A0F FED4                  mvwi    R2, -300
+        2F5 : 082A                       mvi     R0, '*'
+        2F6 : 2617 025F                  bald    expr
+        2F8 : 670D                       fm      DR0, (R2)       DR0*=FR0
+        2F9 : 8F82                       bal     answer          ; -30000
+        2FA :
+        2FA : 790F FF38                  mvwi    R1, -200
+        2FC : 7A0F FF9C                  mvwi    R2, -100
+        2FE : 082A                       mvi     R0, '*'
+        2FF : 2617 025F                  bald    expr
+        301 : 670D                       fm      DR0, (R2)       DR0*=FR0
+        302 : 2617 027B                  bald    answer          ; 20000
+        304 :
+        304 : 790F 7530                  mvwi    R1, 30000
+        306 : 7A0F 0064                  mvwi    R2, 100
+        308 : 082F                       mvi     R0, '/'
+        309 : 2617 025F                  bald    expr
+        30B : 6705                       fd      DR0, (R2)       DR0/=FR0
+        30C : 2617 027B                  bald    answer          ; 300
+        30E :
+        30E : 790F FF38                  mvwi    R1, -200
+        310 : 7A0F 0064                  mvwi    R2, 100
+        312 : 082F                       mvi     R0, '/'
+        313 : 2617 025F                  bald    expr
+        315 : 6705                       fd      DR0, (R2)       DR0/=FR0
+        316 : 2617 027B                  bald    answer          ; -2
+        318 :
+        318 : 790F 8AD0                  mvwi    R1, -30000
+        31A : 7A0F FF38                  mvwi    R2, -200
+        31C : 082F                       mvi     R0, '/'
+        31D : 2617 025F                  bald    expr
+        31F : 6705                       fd      DR0, (R2)       DR0/=FR0
+        320 : 2617 027B                  bald    answer          ; 150
+        322 :
+        322 : 790F 8AD0                  mvwi    R1, -30000
+        324 : 7A0F 004E                  mvwi    R2, 78
+        326 : 082F                       mvi     R0, '/'
+        327 : 2617 025F                  bald    expr
+        329 : 6705                       fd      DR0, (R2)       DR0/=FR0
+        32A : 2617 027B                  bald    answer          ; -384
+        32C :
+        32C : 790F 1388                  mvwi    R1, 5000
+        32E : 7A0F 0FA0                  mvwi    R2, 4000
+        330 : 2617 028D                  bald    comp
+        332 :
+        332 : 790F 1388                  mvwi    R1, 5000
+        334 : 7A0F 1388                  mvwi    R2, 5000
+        336 : 2617 028D                  bald    comp
+        338 :
+        338 : 790F 0FA0                  mvwi    R1, 4000
+        33A : 7A0F 1388                  mvwi    R2, 5000
+        33C : 2617 028D                  bald    comp
+        33E :
+        33E : 790F EC78                  mvwi    R1, -5000
+        340 : 7A0F F060                  mvwi    R2, -4000
+        342 : 2617 028D                  bald    comp
+        344 :
+        344 : 790F EC78                  mvwi    R1, -5000
+        346 : 7A0F EC78                  mvwi    R2, -5000
+        348 : 2617 028D                  bald    comp
+        34A :
+        34A : 790F F060                  mvwi    R1, -4000
+        34C : 7A0F EC78                  mvwi    R2, -5000
+        34E : 2617 028D                  bald    comp
+        350 :
+        350 : 790F 7FBC                  mvwi    R1, 32700
+        352 : 7A0F 7F58                  mvwi    R2, 32600
+        354 : 2617 028D                  bald    comp
+        356 :
+        356 : 790F 7FBC                  mvwi    R1, 32700
+        358 : 7A0F 7FBC                  mvwi    R2, 32700
+        35A : 2617 028D                  bald    comp
+        35C :
+        35C : 790F 7F58                  mvwi    R1, 32600
+        35E : 7A0F 7FBC                  mvwi    R2, 32700
+        360 : 2617 028D                  bald    comp
+        362 :
+        362 : 790F 8044                  mvwi    R1, -32700
+        364 : 7A0F 80A8                  mvwi    R2, -32600
+        366 : 2617 028D                  bald    comp
+        368 :
+        368 : 790F 8044                  mvwi    R1, -32700
+        36A : 7A0F 8044                  mvwi    R2, -32700
+        36C : 2617 028D                  bald    comp
+        36E :
+        36E : 790F 80A8                  mvwi    R1, -32600
+        370 : 7A0F 8044                  mvwi    R2, -32700
+        372 : 2617 028D                  bald    comp
+        374 :
+        374 : 790F 4650                  mvwi    R1, 18000
+        376 : 7A0F 92A0                  mvwi    R2, -28000
+        378 : 2617 028D                  bald    comp
+        37A :
+        37A : 790F 92A0                  mvwi    R1, -28000
+        37C : 7A0F 92A0                  mvwi    R2, -28000
+        37E : 2617 028D                  bald    comp
+        380 :
+        380 : 790F 92A0                  mvwi    R1, -28000
+        382 : 7A0F 4650                  mvwi    R2, 18000
+        384 : 2617 028D                  bald    comp
+        386 :
+        386 : 2003                       ret
