@@ -1,0 +1,134 @@
+          0 :                    *** -*- mode: asm; mode: flyspell-prog; -*-
+          0 :                            include "mn1610.inc"
+(1)       0 :                    *** -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :                    *** MN1610
+(1)       0 :                            cpu     mn1610
+(1)       0 :                    *** Status Register
+(1)       0 : =0                 STR_E:          equ     0       Extension
+(1)       0 : =2                 STR_OV:         equ     2       Overflow
+(1)       0 : =5                 STR_IRQ0:       equ     5       IRQ0 Mask
+(1)       0 : =6                 STR_IRQ1:       equ     6       IRQ1 Mask
+(1)       0 : =7                 STR_IRQ2:       equ     7       IRQ2 Mask
+(1)       0 :                    *** Interrupt vector and save area
+(1)       0 : =0                 OPSW0:          equ     X'0000' IRQ0 old STR:IC
+(1)       0 : =2                 OPSW1:          equ     X'0002' IRQ1 old STR:IC
+(1)       0 : =4                 OPSW2:          equ     X'0004' IRQ2 old STR:IC
+(1)       0 : =6                 OPSW3:          equ     X'0006'
+(1)       0 : =100               NPSW0:          equ     X'0100' IRQ0 vector STR:IC
+(1)       0 : =102               NPSW1:          equ     X'0102' IRQ1 vector STR:IC
+(1)       0 : =104               NPSW2:          equ     X'0104' IRQ2 vector STR:IC
+(1)       0 : =106               NPSW3:          equ     X'0106'
+(1)       0 :                    *** Reset PSW (see debugger RegsMn1613::reset)
+(1)       0 : =108               RESET_PSW:      equ     X'0108'
+(1)       0 :                    *** Zero page
+(1)       0 : =8                 ZERO_PAGE:      equ     X'0008'
+(1)       0 :
+(1)       0 :                    hi:     function        v, (v >> 8)
+(1)       0 :                    lo:     function        v, (v & X'FF')
+          0 :                    *** i8251 Universal Synchronous/Asynchronous Receiver/Transmitter
+          0 : =80                USART:  equ     X'80'
+          0 : =80                USARTD: equ     USART+0         Data register
+          0 : =81                USARTS: equ     USART+1         Status register
+          0 : =81                USARTC: equ     USART+1         Control register
+          0 :                            include "i8251.inc"
+(1)       0 :                    *** -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :                    *** i8251 USART device emulator.
+(1)       0 : =6                 MODE_STOP_gp:   equ     6
+(1)       0 : =C0                MODE_STOP_gm:   equ     11000000B
+(1)       0 : =40                MODE_STOP1_gc:  equ     (1 << MODE_STOP_gp)
+(1)       0 : =80                MODE_STOP15_gc: equ     (2 << MODE_STOP_gp)
+(1)       0 : =C0                MODE_STOP2_gc:  equ     (3 << MODE_STOP_gp)
+(1)       0 : =20                MODE_EVEN_bm:   equ     00100000B
+(1)       0 : =10                MODE_PARITY_bm: equ     00010000B
+(1)       0 : =2                 MODE_LEN_gp:    equ     2
+(1)       0 : =C                 MODE_LEN_gm:    equ     00001100B
+(1)       0 : =0                 MODE_LEN5_gc:   equ     (0 << MODE_LEN_gp)
+(1)       0 : =4                 MODE_LEN6_gc:   equ     (1 << MODE_LEN_gp)
+(1)       0 : =8                 MODE_LEN7_gc:   equ     (2 << MODE_LEN_gp)
+(1)       0 : =C                 MODE_LEN8_gc:   equ     (3 << MODE_LEN_gp)
+(1)       0 : =0                 MODE_BAUD_gp:   equ     0
+(1)       0 : =3                 MODE_BAUD_gm:   equ     00000011B
+(1)       0 : =1                 MODE_BAUD_X1:   equ     (1 << MODE_BAUD_gp)
+(1)       0 : =2                 MODE_BAUD_X16:  equ     (2 << MODE_BAUD_gp)
+(1)       0 : =3                 MODE_BAUD_X64:  equ     (3 << MODE_BAUD_gp)
+(1)       0 :                    *** Bit Definition of command register
+(1)       0 : =80                CMD_EH_bm:      equ     10000000B   Enter hunt mode
+(1)       0 : =40                CMD_IR_bm:      equ     01000000B   Internal Reset
+(1)       0 : =20                CMD_RTS_bm:     equ     00100000B   Request To Send
+(1)       0 : =10                CMD_ER_bm:      equ     00010000B   Error Reset
+(1)       0 : =8                 CMD_SBRK_bm:    equ     00001000B   Send Break
+(1)       0 : =4                 CMD_RxEN_bm:    equ     00000100B   Receive Enable
+(1)       0 : =2                 CMD_DTR_bm:     equ     00000010B   Data Terminal Ready
+(1)       0 : =1                 CMD_TxEN_bm:    equ     00000001B   Transmit enable
+(1)       0 :                    *** Bit definition of status register
+(1)       0 : =8                 ST_DSR_bp:      equ     8       Data Set Ready
+(1)       0 : =9                 ST_BRK_bp:      equ     9       BREAK detected
+(1)       0 : =A                 ST_FE_bp:       equ     10      Framing Error
+(1)       0 : =B                 ST_OE_bp:       equ     11      Overrun Error
+(1)       0 : =C                 ST_PE_bp:       equ     12      Parity Error
+(1)       0 : =D                 ST_TxEMPTY_bp:  equ     13      Transmitter empty
+(1)       0 : =E                 ST_RxRDY_bp:    equ     14      Receiver ready
+(1)       0 : =F                 ST_TxRDY_bp:    equ     15      Transmitter ready
+          0 :                    * Async 1stop 8data x16
+          0 : =4E                ASYNC_MODE:     equ     MODE_STOP1_gc|MODE_LEN8_gc|MODE_BAUD_X16
+          0 :                    * RTS/DTR, error reset, Rx enable, Tx enable
+          0 : =37                RX_EN_TX_EN:    equ     CMD_RTS_bm|CMD_DTR_bm|CMD_ER_bm|CMD_RxEN_bm|CMD_TxEN_bm
+          0 :
+        108 :                            loc     RESET_PSW
+        108 : 0000                       dc      X'0000'         STR: Disable interrupt
+        109 : 0200                       dc      initialize      IC
+        10A :
+        10A :
+        200 :                            loc     X'0200'
+        200 : =1FF               stack:  equ     *-1
+        200 :                    initialize:
+        200 : 0D01                       mvi     SP, hi(stack)
+        201 : 750D                       bswp    SP, SP
+        202 : 0DFF                       mvi     SP, lo(stack)
+        203 : 8F02                       bal     init_usart
+        204 : CF10                       b       loop
+        205 :
+        205 :                    init_usart:
+        205 :                            * Initialize USART
+        205 : 6000                       eor     R0, R0          R0=0
+        206 : 1081                       wt      R0, USARTC
+        207 : 1081                       wt      R0, USARTC
+        208 : 1081                       wt      R0, USARTC      Safest way to sync mode
+        209 : 0840                       mvi     R0, CMD_IR_bm
+        20A : 1081                       wt      R0, USARTC      Reset
+        20B : 7808                       mv      R0, R0          delay
+        20C : 7808                       mv      R0, R0          delay
+        20D : 084E                       mvi     R0, ASYNC_MODE
+        20E : 1081                       wt      R0, USARTC
+        20F : 7808                       mv      R0, R0          delay
+        210 : 7808                       mv      R0, R0          delay
+        211 : 0837                       mvi     R0, RX_EN_TX_EN
+        212 : 1081                       wt      R0, USARTC      Enable Rx/Tx
+        213 : 2003                       ret
+        214 :
+        214 : 8F09               loop:   bal     getchar
+        215 : 6058                       or      R0, R0, nz      Skip if R0!=0
+        216 : 2000                       h                       Halt to system
+        217 : 8F0B               echo:   bal     putchar
+        218 : 090D                       mvi     R1, x'0D'       CR
+        219 : 5041                       cb      R0, R1, e       Skip if R0=CR
+        21A : CFFA                       b       loop
+        21B : 080A                       mvi     R0, x'0A'       NL
+        21C : CFFB                       b       echo
+        21D :
+        21D :                    getchar:
+        21D : 1881                       rd      R0, USARTS
+        21E : 285E                       tbit    R0, ST_RxRDY_bp, nz     Skip if RxRDY=1
+        21F : CFFE                       b       getchar
+        220 : 1880                       rd      R0, USARTD
+        221 : 2003                       ret
+        222 :
+        222 :                    putchar:
+        222 : 2001                       push    R0
+        223 :                    putchar_wait:
+        223 : 1881                       rd      R0, USARTS
+        224 : 285F                       tbit    R0, ST_TxRDY_bp, nz     Skip if TxRDY=1
+        225 : CFFE                       b       putchar_wait
+        226 : 2002                       pop     R0
+        227 : 1080                       wt      R0, USARTD
+        228 : 2003                       ret
