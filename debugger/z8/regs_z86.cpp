@@ -19,10 +19,6 @@ const char *RegsZ86::cpu() const {
     return "Z86C";
 }
 
-const char *RegsZ86::cpuName() const {
-    return "Z86C91";
-}
-
 void RegsZ86::print() const {
     _buffer1.hex16(3, _pc);
     _buffer1.hex16(11, _sp);

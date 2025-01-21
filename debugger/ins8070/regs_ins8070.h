@@ -13,8 +13,7 @@ struct PinsIns8070;
 struct RegsIns8070 final : Regs {
     RegsIns8070(PinsIns8070 *pins);
 
-    const char *cpu() const override;
-    const char *cpuName() const override;
+    const char *cpu() const override { return cpuName(); }
 
     void print() const override;
     void save() override;

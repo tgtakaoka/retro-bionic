@@ -1,8 +1,13 @@
 #include <string.h>
 
+#include "debugger.h"
 #include "regs.h"
 
 namespace debugger {
+
+const char *Regs::cpuName() const {
+    return Debugger.target().identity();
+}
 
 uint8_t Regs::validRegister(const char *word, uint32_t &max) const {
     const RegList *list;
@@ -11,7 +16,7 @@ uint8_t Regs::validRegister(const char *word, uint32_t &max) const {
             if (strcasecmp(word, list->head[i]) == 0) {
                 max = list->max;
                 return list->name + i;
-            }                
+            }
         }
     }
     return 0;

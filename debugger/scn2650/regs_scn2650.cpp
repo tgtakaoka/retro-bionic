@@ -20,10 +20,6 @@ const char *RegsScn2650::cpu() const {
     return "2650";
 }
 
-const char *RegsScn2650::cpuName() const {
-    return "SCN2650";
-}
-
 void RegsScn2650::print() const {
     _buffer1.hex16(3, _pc);
     _buffer1.bits(12, _psu, 0x80, line1 + 12);

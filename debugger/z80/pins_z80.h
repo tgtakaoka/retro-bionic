@@ -72,7 +72,7 @@ namespace debugger {
 namespace z80 {
 
 struct PinsZ80 final : PinsZ80Base {
-    PinsZ80() : PinsZ80Base("Z80") {}
+    PinsZ80() : PinsZ80Base() {}
 
     void resetPins() override;
     void idle() override;

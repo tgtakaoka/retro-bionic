@@ -13,7 +13,6 @@ struct RegsScn2650 final : Regs {
     RegsScn2650(PinsScn2650 *pins);
 
     const char *cpu() const override;
-    const char *cpuName() const override;
 
     void print() const override;
     void save() override;

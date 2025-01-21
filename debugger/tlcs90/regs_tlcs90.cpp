@@ -20,10 +20,6 @@ const char *RegsTlcs90::cpu() const {
     return "TLC90";
 }
 
-const char *RegsTlcs90::cpuName() const {
-    return "TMP90C802";
-}
-
 void RegsTlcs90::print() const {
     auto &main = _buffer1;
     main.hex16(3, _pc);

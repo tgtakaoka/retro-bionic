@@ -47,10 +47,6 @@ const char *RegsMc6809::cpu() const {
     return _type == SW_MC6809 ? "MC6809" : "HD6309";
 }
 
-const char *RegsMc6809::cpuName() const {
-    return cpu();
-}
-
 void RegsMc6809::print() const {
     _buffer1.hex16(3, _pc);
     _buffer1.hex16(10, _s);

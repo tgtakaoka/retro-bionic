@@ -14,7 +14,6 @@ struct RegsTms9900 : Regs {
     RegsTms9900(PinsTms9900 *pins, Mems *mems);
 
     const char *cpu() const override;
-    const char *cpuName() const override;
 
     void print() const override;
     void reset() override;

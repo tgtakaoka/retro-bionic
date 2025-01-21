@@ -32,10 +32,6 @@ const char *RegsMos6502::cpu() const {
     return CPU_NAMES[type];
 }
 
-const char *RegsMos6502::cpuName() const {
-    return cpu();
-}
-
 void RegsMos6502::print() const {
     if (_pins->native65816()) {
         _buffer.set(line65816);

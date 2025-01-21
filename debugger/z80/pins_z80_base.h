@@ -17,7 +17,7 @@ struct PinsZ80Base : Pins {
     void setBreakInst(uint32_t addr) const override;
 
 protected:
-    PinsZ80Base(const char *name);
+    PinsZ80Base();
 
     virtual void execute(const uint8_t *inst, uint8_t len, uint16_t *addr,
             uint8_t *buf, uint8_t max) = 0;

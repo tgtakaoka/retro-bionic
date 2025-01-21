@@ -11,7 +11,7 @@ struct Mc68hc11Init;
 struct RegsMc68hc11 final : mc6800::RegsMc6800 {
     RegsMc68hc11(mc6800::PinsMc6800Base *pins, Mc68hc11Init &init);
 
-    const char *cpuName() const override;
+    const char *cpu() const override;
 
     void print() const override;
     void save() override;

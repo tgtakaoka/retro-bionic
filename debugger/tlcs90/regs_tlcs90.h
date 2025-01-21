@@ -14,7 +14,6 @@ struct RegsTlcs90 final : Regs {
     RegsTlcs90(PinsTlcs90 *pins);
 
     const char *cpu() const override;
-    const char *cpuName() const override;
 
     void print() const override;
     void save() override;

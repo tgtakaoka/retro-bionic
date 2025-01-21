@@ -7,8 +7,8 @@
 namespace debugger {
 namespace z80 {
 
-PinsZ80Base::PinsZ80Base(const char *name) {
-    auto regs = new RegsZ80("Z80", this);
+PinsZ80Base::PinsZ80Base() {
+    auto regs = new RegsZ80(this);
     _regs = regs;
     _devs = new DevsZ80();
     _mems = new MemsZ80(regs);

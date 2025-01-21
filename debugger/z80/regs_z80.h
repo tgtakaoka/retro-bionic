@@ -9,9 +9,9 @@ namespace debugger {
 namespace z80 {
 
 struct RegsZ80 final : Regs {
-    RegsZ80(const char *name, PinsZ80Base *pins);
+    RegsZ80(PinsZ80Base *pins);
+
     const char *cpu() const override;
-    const char *cpuName() const override;
 
     void print() const override;
     void save() override;
@@ -27,7 +27,6 @@ struct RegsZ80 final : Regs {
     void write_io(uint8_t addr, uint8_t data) const;
 
 private:
-    const char *const _name;
     PinsZ80Base *const _pins;
 
     uint16_t _pc;

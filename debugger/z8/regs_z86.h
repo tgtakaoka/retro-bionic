@@ -13,7 +13,6 @@ struct RegsZ86 final : z8::RegsZ8 {
     RegsZ86(PinsZ86 *pins);
 
     const char *cpu() const override;
-    const char *cpuName() const override;
 
     void print() const override;
 

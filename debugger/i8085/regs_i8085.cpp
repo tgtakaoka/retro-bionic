@@ -18,10 +18,6 @@ const char *RegsI8085::cpu() const {
     return "i8085";
 }
 
-const char *RegsI8085::cpuName() const {
-    return "P8085";
-}
-
 void RegsI8085::print() const {
     _buffer.hex16(3, _pc);
     _buffer.hex16(11, _sp);

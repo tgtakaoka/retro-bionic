@@ -19,7 +19,7 @@ struct RegsMc6809 : Regs {
     RegsMc6809(PinsMc6809Base *pins);
 
     const char *cpu() const override;
-    const char *cpuName() const override;
+    const char *cpuName() const override { return cpu(); }
 
     void print() const override;
     void reset() override;

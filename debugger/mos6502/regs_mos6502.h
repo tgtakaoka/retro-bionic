@@ -14,7 +14,7 @@ struct RegsMos6502 final : Regs {
     RegsMos6502(PinsMos6502 *pins, MemsMos6502 *mems);
 
     const char *cpu() const override;
-    const char *cpuName() const override;
+    const char *cpuName() const override { return cpu(); }
 
     void print() const override;
     void save() override;

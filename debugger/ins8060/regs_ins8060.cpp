@@ -13,14 +13,6 @@ static constexpr char line[] =
 
 RegsIns8060::RegsIns8060(PinsIns8060 *pins) : _pins(pins), _buffer(line) {}
 
-const char *RegsIns8060::cpu() const {
-    return "INS8060";
-}
-
-const char *RegsIns8060::cpuName() const {
-    return cpu();
-}
-
 void RegsIns8060::print() const {
     _buffer.hex16(3, _pc());
     _buffer.hex16(11, _p1());

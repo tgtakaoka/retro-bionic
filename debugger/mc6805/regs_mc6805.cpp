@@ -13,10 +13,6 @@ const char line[] = "PC=xxxx SP=xxxx X=xx A=xx CC=HINZC";
 RegsMc6805::RegsMc6805(const char *cpu, PinsMc6805 *pins)
     : _cpu(cpu), _pins(pins), _buffer(line) {}
 
-const char *RegsMc6805::cpuName() const {
-    return Debugger.target().identity();
-}
-
 void RegsMc6805::print() const {
     _buffer.hex16(3, _pc);
     _buffer.hex16(11, _sp);

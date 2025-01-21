@@ -17,6 +17,10 @@ RegsMc68hc11::RegsMc68hc11(mc6800::PinsMc6800Base *pins, Mc68hc11Init &init)
     _buffer.set(line);
 }
 
+const char *RegsMc68hc11::cpu() const {
+    return "68HC11";
+}
+
 /**
  * How to determine MC6800 variants.
  *
@@ -49,10 +53,6 @@ RegsMc68hc11::RegsMc68hc11(mc6800::PinsMc6800Base *pins, Mc68hc11Init &init)
 
 SoftwareType RegsMc68hc11::checkSoftwareType() {
     return _type = SW_MC68HC11;
-}
-
-const char *RegsMc68hc11::cpuName() const {
-    return Debugger.target().identity();
 }
 
 void RegsMc68hc11::print() const {

@@ -28,10 +28,6 @@ const char *RegsTms9900::cpu() const {
     return "TMS9900";
 }
 
-const char *RegsTms9900::cpuName() const {
-    return Debugger.target().identity();
-}
-
 void RegsTms9900::print() const {
     auto reg = _buffer1;
     auto wr1 = _buffer2;

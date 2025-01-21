@@ -14,7 +14,6 @@ struct RegsMc6805 final : Regs {
     RegsMc6805(const char *cpu, PinsMc6805 *pins);
 
     const char *cpu() const override { return _cpu; }
-    const char *cpuName() const override;
 
     void print() const override;
     void save() override;

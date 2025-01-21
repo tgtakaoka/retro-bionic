@@ -20,10 +20,6 @@ const char *RegsZ88::cpu() const {
     return "Z88";
 }
 
-const char *RegsZ88::cpuName() const {
-    return "Z88C00";
-}
-
 void RegsZ88::print() const {
     _buffer1.hex16(3, _pc);
     _buffer1.hex16(11, _sp);

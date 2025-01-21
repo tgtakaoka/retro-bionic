@@ -14,14 +14,6 @@ const char line[] =
 
 RegsIns8070::RegsIns8070(PinsIns8070 *pins) : _pins(pins), _buffer(line) {}
 
-const char *RegsIns8070::cpu() const {
-    return "INS8070";
-}
-
-const char *RegsIns8070::cpuName() const {
-    return cpu();
-}
-
 void RegsIns8070::print() const {
     _buffer.hex16(3, _pc());
     _buffer.hex16(11, _sp());

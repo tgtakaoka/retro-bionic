@@ -15,15 +15,11 @@ const char line2[] = "IX=xxxx IY=xxxx (BC=xxxx DE=xxxx HL=xxxx A=xx F=SZ1H1VNC)"
 // clang-format on
 }  // namespace
 
-RegsZ80::RegsZ80(const char *name, PinsZ80Base *pins)
-    : _name(name), _pins(pins), _buffer1(line1), _buffer2(line2) {}
+RegsZ80::RegsZ80(PinsZ80Base *pins)
+    : _pins(pins), _buffer1(line1), _buffer2(line2) {}
 
 const char *RegsZ80::cpu() const {
-    return _name;
-}
-
-const char *RegsZ80::cpuName() const {
-    return cpu();
+    return "Z80";
 }
 
 void RegsZ80::print() const {
