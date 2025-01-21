@@ -9,7 +9,7 @@ namespace i8051 {
 namespace {
 //                              1         2         3         4         5
 //                    012345678901234567890123456789012345678901234567890
-const char line1[] = "PC=xxxx SP=xx PSW=CA111V1P DPTR=xxxx B=xx A=xx RS=x";
+const char line1[] = "PC=xxxx SP=xx PSW=CA###V#P DPTR=xxxx B=xx A=xx RS=x";
 const char line2[] = "R0=xx R1=xx R2=xx R3=xx R4=xx R5=xx R6=xx R7=xx";
 }  // namespace
 

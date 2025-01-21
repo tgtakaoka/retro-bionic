@@ -9,7 +9,7 @@ namespace tms9900 {
 namespace {
 // clang-format off
 //                    0123456789012345678901234567890123456789012345678901234567890123456789
-const char line1[] = "PC=xxxx  WP=xxxx  ST=LAECVPX_____1111";
+const char line1[] = "PC=xxxx  WP=xxxx  ST=LAECVPX_____####";
 const char line2[] = "R0=xxxx  R1=xxxx  R2=xxxx  R3=xxxx  R4=xxxx  R5=xxxx  R6=xxxx  R7=xxxx";
 const char line3[] = "R8=xxxx  R9=xxxx R10=xxxx R11=xxxx R12=xxxx R13=xxxx R14=xxxx R15=xxxx";
 // clang-format on

@@ -88,7 +88,11 @@ void CharBuffer::bits(uint_fast8_t pos, uint_fast16_t value, uint_fast16_t mask,
         const char *letters) {
     while (mask && *letters) {
         const auto c = *letters++;
-        _str[pos++] = (value & mask) ? c : (c == '1' ? '0' : '_');
+        if (c == '#') {
+            _str[pos++] = (value & mask) ? '1' : '0';
+        } else {
+            _str[pos++] = (value & mask) ? c : '_';
+        }
         mask >>= 1;
     }
 }

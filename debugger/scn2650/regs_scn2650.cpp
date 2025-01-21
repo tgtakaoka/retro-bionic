@@ -9,7 +9,7 @@ namespace scn2650 {
 namespace {
 //                              1         2         3         4
 //                    012345678901234567890123456789012345678901234567
-const char line1[] = "PC=xxxx PSU=SFI11111 PSL=11D1WVLC SP=x CC=x RS=x";
+const char line1[] = "PC=xxxx PSU=SFI12### PSL=##D#WVLC SP=x CC=x RS=x";
 const char line2[] = "R0=xx R1=xx R2=xx R3=xx (R1=xx R2=xx R3=xx)";
 }  // namespace
 

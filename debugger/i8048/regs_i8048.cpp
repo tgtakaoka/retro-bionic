@@ -11,7 +11,7 @@ const char I8039[] = "i8039";
 const char MSM80C39[] = "MSM80C39";
 //                              1         2         3         4
 //                    0123456789012345678901234567890123456789012345678
-const char line1[] = "PC=xxx MB=x PSW=CAFB1111 F0=x F1=x SP=x BS=x A=xx";
+const char line1[] = "PC=xxx MB=x PSW=CAFB#### F0=x F1=x SP=x BS=x A=xx";
 const char line2[] = "R0=xx R1=xx R2=xx R3=xx R4=xx R5=xx R6=xx R7=xx";
 }  // namespace
 

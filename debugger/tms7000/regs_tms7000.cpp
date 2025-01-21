@@ -19,7 +19,7 @@ const char *const CPU_NAMES[/*HardwareType*/] = {
 };
 
 //                   01234567890123456789012345678901234
-const char line[] = "PC=xxxx SP=xx A=xx B=xx ST=CNZI1111";
+const char line[] = "PC=xxxx SP=xx A=xx B=xx ST=CNZ#####";
 }  // namespace
 
 RegsTms7000::RegsTms7000(PinsTms7000 *pins) : _pins(pins), _buffer(line) {}

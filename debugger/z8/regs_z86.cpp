@@ -9,7 +9,7 @@ namespace z86 {
 namespace {
 // clang-format off
 //                    012345678901234567890123456789012345
-const char line1[] = "PC=xxxx SP=xxxx RP=xx FLAGS=CZSVDH11";
+const char line1[] = "PC=xxxx SP=xxxx RP=xx FLAGS=CZSVDH12";
 // clang-format on
 }  // namespace
 

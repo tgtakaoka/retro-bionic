@@ -8,7 +8,7 @@ namespace i8085 {
 
 namespace {
 const char line[] =
-        "PC=xxxx SP=xxxx BC=xxxx DE=xxxx HL=xxxx A=xx PSW=SZ1H1P1C IE";
+        "PC=xxxx SP=xxxx BC=xxxx DE=xxxx HL=xxxx A=xx PSW=SZ#H#P#C IE";
 //       012345678901234567890123456789012345678901234567890123456789
 }  // namespace
 
