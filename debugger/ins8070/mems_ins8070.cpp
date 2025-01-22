@@ -18,14 +18,14 @@ MemsIns8070::MemsIns8070(RegsIns8070 *regs, Devs *devs)
 }
 
 uint16_t MemsIns8070::read(uint32_t addr) const {
-    return _devs->isSelected(addr) ? _devs->read(addr) : raw_read(addr);
+    return _devs->isSelected(addr) ? _devs->read(addr) : read_byte(addr);
 }
 
 void MemsIns8070::write(uint32_t addr, uint16_t data) const {
     if (_devs->isSelected(addr)) {
         _devs->write(addr, data);
     } else {
-        raw_write(addr, data);
+        write_byte(addr, data);
     }
 }
 

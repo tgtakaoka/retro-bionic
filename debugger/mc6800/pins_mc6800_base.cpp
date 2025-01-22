@@ -83,7 +83,7 @@ void PinsMc6800Base::loop() {
             if (vec_hi->addr == vec_swi) {
                 cycle();  // read interrupt low(vector)
                 const auto pc = regs<RegsMc6800>()->capture(frame, false);
-                const auto swi_vector = _mems->raw_read16(vec_swi);
+                const auto swi_vector = _mems->read16(vec_swi);
                 if (isBreakPoint(pc) || swi_vector == vec_swi) {
                     const auto discard = nonVmaAfteContextSave() ? 1 : 2;
                     Signals::discard(frame->prev(discard));

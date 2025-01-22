@@ -65,7 +65,7 @@ void PinsMc6805::loop() {
         if (s->addr == vec_swi) {
             auto r = regs<RegsMc6805>();
             if (r->saveContext(s->prev(5))) {
-                const auto swi_vec = _mems->raw_read16(vec_swi);
+                const auto swi_vec = _mems->read16(vec_swi);
                 const auto pc = r->nextIp() - 1;  //  offset SWI
                 if (isBreakPoint(pc) || swi_vec == vec_swi) {
                     // inject non-internal RAM address
@@ -111,7 +111,7 @@ void PinsMc6805::run() {
 
 bool PinsMc6805::rawStep() const {
     auto s = currCycle();
-    const auto inst = _mems->raw_read(s->addr);
+    const auto inst = _mems->read_byte(s->addr);
     if (!_inst.valid(inst) || _inst.isStop(inst))
         return false;
     completeCycle(s);

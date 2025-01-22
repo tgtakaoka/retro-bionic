@@ -48,8 +48,8 @@ void RegsTms9900::print() const {
 }
 
 void RegsTms9900::reset() {
-    _wp = _mems->raw_read16(InstTms9900::VEC_RESET + 0);
-    _pc = _mems->raw_read16(InstTms9900::VEC_RESET + 2);
+    _wp = _mems->read16(InstTms9900::VEC_RESET + 0);
+    _pc = _mems->read16(InstTms9900::VEC_RESET + 2);
 }
 
 void RegsTms9900::save() {
@@ -89,11 +89,11 @@ void RegsTms9900::breakPoint() {
 }
 
 uint16_t RegsTms9900::read_reg(uint8_t i) const {
-    return _mems->raw_read16(_wp + i * 2);
+    return _mems->read16(_wp + i * 2);
 }
 
 void RegsTms9900::write_reg(uint8_t i, uint16_t data) const {
-    _mems->raw_write16(_wp + i * 2, data);
+    _mems->write16(_wp + i * 2, data);
 }
 
 void RegsTms9900::helpRegisters() const {

@@ -21,7 +21,7 @@ MemsF3850::MemsF3850(RegsF3850 *regs)
 
 uint16_t MemsF3850::get(uint32_t addr, const char *space) const {
     if (space == nullptr)
-        return raw_read(addr);
+        return read_byte(addr);
     if (toupper(*space) == 'I' && addr < 0x10)
         return _regs->read_io(addr);
     if (toupper(*space) == 'R' && addr < 0x40)
@@ -31,7 +31,7 @@ uint16_t MemsF3850::get(uint32_t addr, const char *space) const {
 
 void MemsF3850::put(uint32_t addr, uint16_t data, const char *space) const {
     if (space == nullptr) {
-        raw_write(addr, data);
+        write_byte(addr, data);
     } else if (toupper(*space) == 'I' && addr < 0x10) {
         _regs->write_io(addr, data);
     } else if (toupper(*space) == 'R' && addr < 0x40) {

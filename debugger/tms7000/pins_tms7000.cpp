@@ -391,7 +391,7 @@ void PinsTms7000::resetPins() {
     inject(0x80);  // >FFFE
     // CLKOUT=H
     _regs->save();
-    _regs->setIp(_mems->raw_read16(InstTms7000::VEC_RESET));
+    _regs->setIp(_mems->read16(InstTms7000::VEC_RESET));
     checkHardwareType();
 }
 
@@ -568,7 +568,7 @@ bool PinsTms7000::rawStep() {
         cycle();  // hi(vector)
         s = prepareCycle();
     }
-    const auto opc = _mems->raw_read(s->addr);
+    const auto opc = _mems->read_byte(s->addr);
     const auto cycles = InstTms7000::busCycles(opc);
     if (opc == InstTms7000::IDLE || cycles == 0) {
         completeCycle(s->inject(InstTms7000::JMP));

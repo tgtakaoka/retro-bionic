@@ -351,7 +351,7 @@ void PinsCdp1802::run() {
 
 bool PinsCdp1802::rawStep() {
     auto s = directCycle(rawPrepareCycle());
-    if (_mems->raw_read(s->addr) == InstCdp1802::IDL) {
+    if (_mems->read_byte(s->addr) == InstCdp1802::IDL) {
         // Detect IDL, inject LBR * instead and halt.
         completeCycle(s->inject(InstCdp1802::LBR));
         inject(hi(s->addr));

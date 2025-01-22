@@ -329,7 +329,7 @@ const Signals *PinsIns8070::isCall15(const Signals *vector) const {
         if (call->read() && call->data == InstIns8070::CALL15) {
             const auto push = call->next();
             if (push->write() && push->next()->write()) {
-                const auto vec15 = _mems->raw_read16(InstIns8070::VEC_CALL15);
+                const auto vec15 = _mems->read16(InstIns8070::VEC_CALL15);
                 if (isBreakPoint(call->addr) || vec15 == 0)
                     return call;
             }
@@ -390,10 +390,10 @@ void PinsIns8070::run() {
 
 uint8_t PinsIns8070::busCycles(InstIns8070 &inst) const {
     auto pc = _regs->nextIp();
-    const auto opc = _mems->raw_read(pc);
+    const auto opc = _mems->read_byte(pc);
     if (!inst.get(opc))
         return 0;
-    const auto opr = _mems->raw_read(pc + 1);
+    const auto opr = _mems->read_byte(pc + 1);
     const auto ea = regs<RegsIns8070>()->effectiveAddr(inst, opr);
     return MemsIns8070::is_internal(ea) ? inst.externalCycles()
                                         : inst.busCycles();
@@ -406,7 +406,7 @@ bool PinsIns8070::step(bool show) {
     if (cycles == 0)
         return false;
     if (inst.opc == InstIns8070::CALL15 &&
-            _mems->raw_read16(InstIns8070::VEC_CALL15) == 0)
+            _mems->read16(InstIns8070::VEC_CALL15) == 0)
         return false;
     _regs->restore();
     if (show)

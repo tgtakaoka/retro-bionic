@@ -242,7 +242,7 @@ Signals *PinsZ80::completeCycle(Signals *s) const {
     if (s->mreq()) {  // Memory read or write cycles
         if (s->read()) {
             if (s->readMemory()) {
-                s->data = _mems->raw_read(s->addr);
+                s->data = _mems->read_byte(s->addr);
                 delayNanoseconds(clk_hi_read);
             } else {
                 delayNanoseconds(clk_hi_inject);
@@ -265,7 +265,7 @@ Signals *PinsZ80::completeCycle(Signals *s) const {
             // #MREQ:T3H
             clk_hi();
             if (s->writeMemory()) {
-                _mems->raw_write(s->addr, s->data);
+                _mems->write_byte(s->addr, s->data);
                 delayNanoseconds(clk_hi_memory);
             } else {
                 delayNanoseconds(clk_hi_capture);
@@ -373,7 +373,7 @@ void PinsZ80::loop() {
     resumeCycle(_regs->nextIp());
     while (true) {
         const auto s = prepareCycle();
-        if (s->fetch() && _mems->raw_read(s->addr) == InstZ80::HALT) {
+        if (s->fetch() && _mems->read_byte(s->addr) == InstZ80::HALT) {
             completeCycle(s->inject(InstZ80::JR));
             inject(InstZ80::JR_HERE);
             prepareWait();
@@ -418,7 +418,7 @@ void PinsZ80::suspend() {
 
 bool PinsZ80::rawStep() {
     const auto pc = _regs->nextIp();
-    if (_mems->raw_read(pc) == InstZ80::HALT)
+    if (_mems->read_byte(pc) == InstZ80::HALT)
         return false;
     assert_nmi();
     resumeCycle(pc);

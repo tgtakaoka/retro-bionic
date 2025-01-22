@@ -26,11 +26,11 @@ struct DataI8051 final : DmaMemory {
     DataI8051(Devs *devs);
 
     uint32_t maxAddr() const override { return UINT16_MAX; }
-    uint16_t raw_read(uint32_t addr) const override {
-        return DmaMemory::raw_read(OFFSET + addr);
+    uint16_t read_byte(uint32_t addr) const override {
+        return DmaMemory::read_byte(OFFSET + addr);
     }
-    void raw_write(uint32_t addr, uint16_t data) const override {
-        DmaMemory::raw_write(OFFSET + addr, data);
+    void write_byte(uint32_t addr, uint16_t data) const override {
+        DmaMemory::write_byte(OFFSET + addr, data);
     }
     uint16_t read(uint32_t addr) const override;
     void write(uint32_t addr, uint16_t data) const override;

@@ -41,7 +41,7 @@ void PinsTms9900::loop() {
             return;
         }
         constexpr auto vec_xop15 = InstTms9900::VEC_XOP15;
-        if (s->addr == vec_xop15 && _mems->raw_read16(vec_xop15) == vec_xop15) {
+        if (s->addr == vec_xop15 && _mems->read16(vec_xop15) == vec_xop15) {
             for (auto i = 1; i < 6; ++i) {
                 const auto xop = s->prev(i);
                 if (xop->fetch() &&

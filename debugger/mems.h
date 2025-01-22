@@ -27,24 +27,29 @@ struct Mems {
     uint8_t listRadix() const;
     Endian endian() const { return _endian; }
 
-    virtual uint16_t raw_read(uint32_t addr) const = 0;
-    virtual void raw_write(uint32_t addr, uint16_t data) const = 0;
-    uint16_t raw_read16(uint32_t addr) const;
-    void raw_write16(uint32_t addr, uint16_t data) const;
+    // For ADDRESS_BYTE
+    virtual uint16_t read_byte(uint32_t byte_addr) const = 0;
+    virtual void write_byte(uint32_t byte_addr, uint16_t data) const = 0;
+    // For ADDRESS_WORD
+    virtual uint16_t read_word(uint32_t word_addr) const = 0;
+    virtual void write_word(uint32_t word_addr, uint16_t data) const = 0;
 
-    // Read and write from CPU
-    virtual uint16_t read(uint32_t addr) const { return raw_read(addr); }
+    // Read and write for CPU
+    virtual uint16_t read(uint32_t addr) const { return read_byte(addr); }
     virtual void write(uint32_t addr, uint16_t data) const {
-        raw_write(addr, data);
+        write_byte(addr, data);
     }
+    // Read 16 bit from ADDRESS_BYTE memory
+    uint16_t read16(uint32_t byte_addr) const;
+    void write16(uint32_t byte_addr, uint16_t data) const;
 
     // Setup and restore break point
-    virtual uint16_t get_inst(uint32_t addr) const { return raw_read(addr); }
+    virtual uint16_t get_inst(uint32_t addr) const { return read_byte(addr); }
     virtual void put_inst(uint32_t addr, uint16_t data) const {
-        raw_write(addr, data);
+        write_byte(addr, data);
     }
 
-    // Read and write from debugger
+    // Read and write for debugger
     virtual uint16_t get(uint32_t addr, const char * = nullptr) const {
         return read(addr);
     }
@@ -52,7 +57,6 @@ struct Mems {
             uint32_t addr, uint16_t data, const char * = nullptr) const {
         write(addr, data);
     }
-    void put(uint32_t addr, const uint8_t *buffer, uint8_t len) const;
 
     struct RomArea {
         void set(uint32_t begin, uint32_t end);
@@ -88,10 +92,10 @@ protected:
     void dump(const uint8_t *buf, uint_fast8_t start, uint_fast8_t len) const;
     void printAddress(uint32_t addr) const;
 
-    uint16_t raw_read16be(uint32_t addr) const;
-    uint16_t raw_read16le(uint32_t addr) const;
-    void raw_write16be(uint32_t addr, uint16_t data) const;
-    void raw_write16le(uint32_t addr, uint16_t data) const;
+    uint16_t raw_read16be(uint32_t byte_addr) const;
+    uint16_t raw_read16le(uint32_t byte_addr) const;
+    void raw_write16be(uint32_t byte_addr, uint16_t data) const;
+    void raw_write16le(uint32_t byte_addr, uint16_t data) const;
 
     static constexpr uint8_t hi(uint16_t v) {
         return static_cast<uint8_t>(v >> 8);
@@ -117,8 +121,10 @@ protected:
  */
 struct DmaMemory : Mems {
     uint32_t maxAddr() const override { return MEM_SIZE - 1; }
-    uint16_t raw_read(uint32_t addr) const override;
-    void raw_write(uint32_t addr, uint16_t data) const override;
+    uint16_t read_byte(uint32_t addr) const override;
+    void write_byte(uint32_t addr, uint16_t data) const override;
+    uint16_t read_word(uint32_t addr) const override;
+    void write_word(uint32_t addr, uint16_t data) const override;
 
     static constexpr uint32_t MEM_SIZE = 128U * 1024U;
 
@@ -131,8 +137,10 @@ protected:
  */
 struct ExtMemory : Mems {
     uint32_t maxAddr() const override { return MEM_SIZE - 1; }
-    uint16_t raw_read(uint32_t addr) const override;
-    void raw_write(uint32_t addr, uint16_t data) const override;
+    uint16_t read_byte(uint32_t addr) const override;
+    void write_byte(uint32_t addr, uint16_t data) const override;
+    uint16_t read_word(uint32_t addr) const override;
+    void write_word(uint32_t addr, uint16_t data) const override;
 
     static constexpr uint32_t MEM_SIZE = 16U * 1024U * 1024U;
 

@@ -272,7 +272,7 @@ Signals *PinsI8048::completeCycle(Signals *s) {
         // t8
         xtal1_hi();
         if (s->readMemory()) {
-            s->data = _mems->raw_read(s->addr);
+            s->data = _mems->read_byte(s->addr);
             delayNanoseconds(xtal1_hi_memory);
         } else {
             delayNanoseconds(xtal1_hi_inject);
@@ -440,7 +440,7 @@ void PinsI8048::injectJumpHere(Signals *s) {
 bool PinsI8048::rawStep(bool step) {
     negate_ss();
     auto s = prepareCycle();
-    const auto inst = _mems->raw_read(s->addr);
+    const auto inst = _mems->read_byte(s->addr);
     const auto len = _inst.instLength(inst);
     if (inst == InstI8048::HALT || len == 0) {
         injectJumpHere(s);

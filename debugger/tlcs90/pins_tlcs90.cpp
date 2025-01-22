@@ -327,7 +327,7 @@ void PinsTlcs90::loop() {
             auto r = regs<RegsTlcs90>();
             if (r->saveContext(s->prev(4))) {
                 // SWI; break point or halt to system (HALT at ORG_SWI))
-                const auto opc = _mems->raw_read(s->addr);
+                const auto opc = _mems->read_byte(s->addr);
                 const auto pc = r->nextIp() - 1;  // offset SWI
                 if (opc == InstTlcs90::HALT || isBreakPoint(pc)) {
                     r->saveRegisters();

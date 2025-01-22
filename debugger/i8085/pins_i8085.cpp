@@ -280,7 +280,7 @@ Signals *PinsI8085::cycleT3(Signals *s) const {
         s->getData();
         if (s->memory()) {
             if (s->writeMemory()) {
-                _mems->raw_write(s->addr, s->data);
+                _mems->write_byte(s->addr, s->data);
             } else {
                 delayNanoseconds(t3a_hi_capture);
             }
@@ -293,7 +293,7 @@ Signals *PinsI8085::cycleT3(Signals *s) const {
     } else {
         if (s->memory()) {  // Memory access
             if (s->readMemory()) {
-                s->data = _mems->raw_read(s->addr);
+                s->data = _mems->read_byte(s->addr);
             }
         } else {  // I/O access
             const uint8_t ioaddr = s->addr;
@@ -380,7 +380,7 @@ void PinsI8085::loop() {
             return;
         }
         s = cycleT1();
-        if (s->fetch() && _mems->raw_read(s->addr) == InstI8085::HLT) {
+        if (s->fetch() && _mems->read_byte(s->addr) == InstI8085::HLT) {
             cycleT2Pause();
             return;
         }
@@ -419,7 +419,7 @@ void PinsI8085::suspend() {
 
 bool PinsI8085::rawStep() {
     const auto pc = _regs->nextIp();
-    if (_mems->raw_read(pc) == InstI8085::HLT)
+    if (_mems->read_byte(pc) == InstI8085::HLT)
         return false;
     assert_trap();
     cycleT3(cycleT2Ready(pc));

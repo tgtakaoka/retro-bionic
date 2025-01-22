@@ -20,20 +20,20 @@ ProgI8051::ProgI8051(RegsI8051 *regs, Mems *data)
 DataI8051::DataI8051(Devs *devs) : DmaMemory(Endian::ENDIAN_BIG), _devs(devs) {}
 
 uint16_t DataI8051::read(uint32_t addr) const {
-    return _devs->isSelected(addr) ? _devs->read(addr) : raw_read(addr);
+    return _devs->isSelected(addr) ? _devs->read(addr) : read_byte(addr);
 }
 
 void DataI8051::write(uint32_t addr, uint16_t data) const {
     if (_devs->isSelected(addr)) {
         _devs->write(addr, data);
     } else {
-        raw_write(addr, data);
+        write_byte(addr, data);
     }
 }
 
 uint16_t ProgI8051::get(uint32_t addr, const char *space) const {
     if (space == nullptr || toupper(*space) == 'P')
-        return raw_read(addr);
+        return read_byte(addr);
     if (toupper(*space) == 'M')
         return _regs->read_internal(addr);
     if (toupper(*space) == 'X')
@@ -43,7 +43,7 @@ uint16_t ProgI8051::get(uint32_t addr, const char *space) const {
 
 void ProgI8051::put(uint32_t addr, uint16_t data, const char *space) const {
     if (space == nullptr || toupper(*space) == 'P') {
-        raw_write(addr, data);
+        write_byte(addr, data);
     } else if (toupper(*space) == 'M') {
         _regs->write_internal(addr, data);
     } else if (toupper(*space) == 'X') {

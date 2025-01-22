@@ -158,7 +158,7 @@ void PinsMc6800::resetPins() {
     // injected.
     _regs->reset();
     _regs->save();
-    _regs->setIp(_mems->raw_read16(InstMc6800::VEC_RESET));
+    _regs->setIp(_mems->read16(InstMc6800::VEC_RESET));
     regs<RegsMc6800>()->checkSoftwareType();
 }
 

@@ -20,14 +20,14 @@ MemsIns8060::MemsIns8060(Devs *devs)
 uint16_t MemsIns8060::read(uint32_t addr) const {
     if (_devs->isSelected(addr))
         return _devs->read(addr);
-    return raw_read(addr);
+    return read_byte(addr);
 }
 
 void MemsIns8060::write(uint32_t addr, uint16_t data) const {
     if (_devs->isSelected(addr)) {
         _devs->write(addr, data);
     } else {
-        raw_write(addr, data);
+        write_byte(addr, data);
     }
 }
 }  // namespace ins8060

@@ -160,8 +160,8 @@ void PinsMc6802::resetPins() {
     pinsMode(PINS_INPUT, sizeof(PINS_INPUT), INPUT);
 
     mems<MemsMc6802>()->set_internal_ram(digitalReadFast(PIN_RE) != LOW);
-    const auto reset_vec = _mems->raw_read16(InstMc6800::VEC_RESET);
-    _mems->raw_write16(InstMc6800::VEC_RESET, 0x8000);
+    const auto reset_vec = _mems->read16(InstMc6800::VEC_RESET);
+    _mems->write16(InstMc6800::VEC_RESET, 0x8000);
 
     for (auto i = 0; i < 3; ++i)
         extal_cycle();
@@ -190,7 +190,7 @@ void PinsMc6802::resetPins() {
     // injected.
     _regs->reset();
     _regs->save();
-    _mems->raw_write16(InstMc6800::VEC_RESET, reset_vec);
+    _mems->write16(InstMc6800::VEC_RESET, reset_vec);
     _regs->setIp(reset_vec);
     regs<RegsMc6802>()->checkSoftwareType();
 }

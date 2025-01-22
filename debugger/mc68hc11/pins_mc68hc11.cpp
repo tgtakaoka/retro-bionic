@@ -179,8 +179,8 @@ void PinsMc68hc11::resetPins() {
     pinsMode(PINS_INPUT, sizeof(PINS_INPUT), INPUT);
 
     // Reset vector should not point internal registers.
-    const auto reset_vec = _mems->raw_read16(InstMc68hc11::VEC_RESET);
-    _mems->raw_write16(InstMc68hc11::VEC_RESET, 0x8000);
+    const auto reset_vec = _mems->read16(InstMc68hc11::VEC_RESET);
+    _mems->write16(InstMc68hc11::VEC_RESET, 0x8000);
 
     // To get out from Clock Monitor Reset, inject EXTAL pulses
     while (reset_signal() == LOW) {
@@ -222,7 +222,7 @@ void PinsMc68hc11::resetPins() {
     _regs->save();
     _init.configSystem(regs<RegsMc68hc11>());
     regs<RegsMc68hc11>()->checkSoftwareType();
-    _mems->raw_write16(InstMc68hc11::VEC_RESET, reset_vec);
+    _mems->write16(InstMc68hc11::VEC_RESET, reset_vec);
     _regs->setIp(reset_vec);
 }
 

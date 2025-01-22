@@ -12,8 +12,10 @@ struct DevsNull final : Devs {
 struct MemsNull final : Mems {
     MemsNull() : Mems(Endian::ENDIAN_BIG) {}
     uint32_t maxAddr() const override { return 0; }
-    uint16_t raw_read(uint32_t) const override { return 0; }
-    void raw_write(uint32_t, uint16_t) const override {}
+    uint16_t read_byte(uint32_t) const override { return 0; }
+    void write_byte(uint32_t, uint16_t) const override {}
+    uint16_t read_word(uint32_t) const override { return 0; }
+    void write_word(uint32_t, uint16_t) const override {}
 };
 
 struct RegsNull final : Regs {

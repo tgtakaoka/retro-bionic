@@ -271,7 +271,7 @@ Signals *PinsI8051::completeCycle(Signals *s) {
         // S3L2
         xtal_lo();
         if (s->readMemory()) {
-            s->data = _mems->raw_read(s->addr);
+            s->data = _mems->read_byte(s->addr);
         } else {
             delayNanoseconds(xtal_lo_inject);
         }
@@ -423,7 +423,7 @@ void PinsI8051::run() {
 
 bool PinsI8051::rawStep() {
     auto s = prepareCycle();
-    const auto inst = _mems->raw_read(s->addr);
+    const auto inst = _mems->read_byte(s->addr);
     const auto cycles = InstI8051::busCycles(inst);
     if (cycles == 0) {
         completeCycle(s->inject(InstI8051::SJMP));

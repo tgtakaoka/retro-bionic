@@ -166,8 +166,8 @@ void PinsMc6801::resetPins() {
     pinsMode(PINS_INPUT, sizeof(PINS_INPUT), INPUT);
 
     // Reset vector should not point internal registers.
-    const uint16_t reset_vec = _mems->raw_read16(InstMc6800::VEC_RESET);
-    _mems->raw_write16(InstMc6800::VEC_RESET, 0x8000);
+    const uint16_t reset_vec = _mems->read16(InstMc6800::VEC_RESET);
+    _mems->write16(InstMc6800::VEC_RESET, 0x8000);
 
     // Toggle reset to put MC6803/HD6303 in reset
     clock_cycle();
@@ -200,7 +200,7 @@ void PinsMc6801::resetPins() {
     // injected.
     _regs->reset();
     _regs->save();
-    _mems->raw_write16(InstMc6800::VEC_RESET, reset_vec);
+    _mems->write16(InstMc6800::VEC_RESET, reset_vec);
     _regs->setIp(reset_vec);
     if (regs<RegsMc6801>()->checkSoftwareType() == SW_HD6301) {
         delete _inst;

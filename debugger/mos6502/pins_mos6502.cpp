@@ -255,8 +255,8 @@ void PinsMos6502::resetPins() {
     negate_reset();
     completeCycle(s);
     Signals::resetCycles();
-    const auto reset_vec = _mems->raw_read16(InstMos6502::VECTOR_RESET);
-    _mems->raw_write16(InstMos6502::VECTOR_RESET, 0x1000);  // dummy vector
+    const auto reset_vec = _mems->read16(InstMos6502::VECTOR_RESET);
+    _mems->write16(InstMos6502::VECTOR_RESET, 0x1000);  // dummy vector
     // When a positive edge is detected, there is an initalization
     // sequence lasting seven clock cycles.
     for (auto i = 0; i < 10; i++) {
@@ -272,7 +272,7 @@ void PinsMos6502::resetPins() {
     checkSoftwareType();
     negate_rdy();
     _regs->setIp(reset_vec);
-    _mems->raw_write(InstMos6502::VECTOR_RESET, reset_vec);
+    _mems->write_byte(InstMos6502::VECTOR_RESET, reset_vec);
 }
 
 Signals *PinsMos6502::rawPrepareCycle() {
@@ -382,9 +382,9 @@ void PinsMos6502::loop() {
         delayNanoseconds(phi0_lo_fetch);
         auto s = rawPrepareCycle();
         if (s->fetch()) {
-            const auto inst = _mems->raw_read(s->addr);
+            const auto inst = _mems->read_byte(s->addr);
             if (inst == InstMos6502::BRK) {
-                const auto opr = _mems->raw_read(s->addr + 1);
+                const auto opr = _mems->read_byte(s->addr + 1);
                 if (opr == 0 || isBreakPoint(s->addr)) {
                     suspend();
                     return;
@@ -424,11 +424,11 @@ void PinsMos6502::suspend() {
 
 bool PinsMos6502::rawStep() {
     auto s = rawPrepareCycle();
-    const auto inst = _mems->raw_read(s->addr);
+    const auto inst = _mems->read_byte(s->addr);
     if (InstMos6502::isStop(inst))
         return false;
     if (inst == InstMos6502::BRK) {
-        const auto opr = _mems->raw_read(s->addr + 1);
+        const auto opr = _mems->read_byte(s->addr + 1);
         if (opr == 0 || isBreakPoint(s->addr))
             return false;
     }

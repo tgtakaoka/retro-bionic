@@ -337,7 +337,7 @@ void PinsIns8060::loop() {
         _devs->loop();
         auto s = prepareCycle();
         if (s->fetch()) {
-            const auto inst = _mems->raw_read(s->addr);
+            const auto inst = _mems->read_byte(s->addr);
             const auto len = InstIns8060::instLen(inst);
             if (len == 0 || inst == InstIns8060::HALT) {
                 completeCycle(s->inject(InstIns8060::JMP));
@@ -383,7 +383,7 @@ void PinsIns8060::run() {
 bool PinsIns8060::rawStep() const {
     assert_enin();
     auto s = prepareCycle();
-    const auto inst = _mems->raw_read(s->addr);
+    const auto inst = _mems->read_byte(s->addr);
     const auto len = InstIns8060::instLen(inst);
     if (len == 0 || inst == InstIns8060::HALT) {
         // HALT or unknown instruction

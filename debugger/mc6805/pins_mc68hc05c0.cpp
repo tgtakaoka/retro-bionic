@@ -142,9 +142,9 @@ void PinsMc68HC05C0::resetPins() {
     pinsMode(PINS_PULLUP, sizeof(PINS_PULLUP), INPUT_PULLUP);
 
     const auto vec_reset = mems<mc6805::MemsMc6805>()->vecReset();
-    const auto vector = _mems->raw_read16(vec_reset);
+    const auto vector = _mems->read16(vec_reset);
     // If reset vector pointing internal memory, we can't inject instructions.
-    _mems->raw_write16(vec_reset, 0x1000);
+    _mems->write16(vec_reset, 0x1000);
 
     // #RESET input for a period of one and one-half machine cycles.
     for (uint8_t i = 0; i < 4 * 10; ++i)
@@ -169,7 +169,7 @@ void PinsMc68HC05C0::resetPins() {
     // We should certainly inject SWI by pointing external address here.
     _regs->save();
     // Restore reset vector
-    _mems->raw_write16(vec_reset, vector);
+    _mems->write16(vec_reset, vector);
     _regs->setIp(vector);
 }
 

@@ -180,7 +180,7 @@ bool PinsZ8::rawStep() {
             intrAck(s->prev(7));
         }
     }
-    const auto inst = _mems->raw_read(s->addr);
+    const auto inst = _mems->read_byte(s->addr);
     const auto cycles = _inst.busCycles(inst);
     if (_inst.isBreak(inst) || cycles == 0) {
         completeCycle(s->inject(InstZ8::JR));

@@ -14,14 +14,14 @@ namespace debugger {
 namespace {
 
 struct DisMemory final : libasm::DisMemory {
-    DisMemory(const Mems *mems, uint32_t max_bytes)
-        : libasm::DisMemory(0), _mems(mems), _max_bytes(max_bytes) {}
+    DisMemory(const Mems *mems, uint32_t max_byte_addr)
+        : libasm::DisMemory(0), _mems(mems), _max_byte_addr(max_byte_addr) {}
     const Mems *_mems;
-    const uint32_t _max_bytes;
+    const uint32_t _max_byte_addr;
 
-    bool hasNext() const override { return address() <= _max_bytes; }
-    void setAddress(uint32_t addr) { resetAddress(addr); }
-    uint8_t nextByte() override { return _mems->raw_read(address()); }
+    bool hasNext() const override { return address() <= _max_byte_addr; }
+    void setAddress(uint32_t byte_addr) { resetAddress(byte_addr); }
+    uint8_t nextByte() override { return _mems->read_byte(address()); }
 };
 
 uint8_t DMA_MEMORY[DmaMemory::MEM_SIZE] DMAMEM;
@@ -29,22 +29,44 @@ uint8_t EXT_MEMORY[ExtMemory::MEM_SIZE] EXTMEM;
 
 }  // namespace
 
-uint16_t DmaMemory::raw_read(uint32_t addr) const {
-    return addr < MEM_SIZE ? DMA_MEMORY[addr] : 0;
+uint16_t DmaMemory::read_byte(uint32_t byte_addr) const {
+    return byte_addr < MEM_SIZE ? DMA_MEMORY[byte_addr] : 0;
 }
 
-void DmaMemory::raw_write(uint32_t addr, uint16_t data) const {
-    if (addr < MEM_SIZE)
-        DMA_MEMORY[addr] = data;
+void DmaMemory::write_byte(uint32_t byte_addr, uint16_t data) const {
+    if (byte_addr < MEM_SIZE)
+        DMA_MEMORY[byte_addr] = data;
 }
 
-uint16_t ExtMemory::raw_read(uint32_t addr) const {
-    return addr < MEM_SIZE ? EXT_MEMORY[addr] : 0;
+uint16_t DmaMemory::read_word(uint32_t word_addr) const {
+    constexpr auto WORD_SIZE = MEM_SIZE / sizeof(uint16_t);
+    return word_addr < WORD_SIZE ? read16(word_addr * sizeof(uint16_t)) : 0;
 }
 
-void ExtMemory::raw_write(uint32_t addr, uint16_t data) const {
-    if (addr < MEM_SIZE)
-        EXT_MEMORY[addr] = data;
+void DmaMemory::write_word(uint32_t word_addr, uint16_t data) const {
+    constexpr auto WORD_SIZE = MEM_SIZE / sizeof(uint16_t);
+    if (word_addr < WORD_SIZE)
+        write16(word_addr * sizeof(uint16_t), data);
+}
+
+uint16_t ExtMemory::read_byte(uint32_t byte_addr) const {
+    return byte_addr < MEM_SIZE ? EXT_MEMORY[byte_addr] : 0;
+}
+
+void ExtMemory::write_byte(uint32_t byte_addr, uint16_t data) const {
+    if (byte_addr < MEM_SIZE)
+        EXT_MEMORY[byte_addr] = data;
+}
+
+uint16_t ExtMemory::read_word(uint32_t word_addr) const {
+    constexpr auto WORD_SIZE = MEM_SIZE / sizeof(uint16_t);
+    return word_addr < WORD_SIZE ? read16(word_addr * sizeof(uint16_t)) : 0;
+}
+
+void ExtMemory::write_word(uint32_t word_addr, uint16_t data) const {
+    constexpr auto WORD_SIZE = MEM_SIZE / sizeof(uint16_t);
+    if (word_addr < WORD_SIZE)
+        write16(word_addr * sizeof(uint16_t), data);
 }
 
 Mems::Mems(Endian endian)
@@ -69,43 +91,38 @@ Mems::~Mems() {
 #endif
 }
 
-uint16_t Mems::raw_read16(uint32_t addr) const {
-    return _endian == ENDIAN_BIG ? raw_read16be(addr) : raw_read16le(addr);
+uint16_t Mems::read16(uint32_t byte_addr) const {
+    return _endian == ENDIAN_BIG ? raw_read16be(byte_addr)
+                                 : raw_read16le(byte_addr);
 }
 
-uint16_t Mems::raw_read16be(uint32_t addr) const {
-    auto data = raw_read(addr + 0) << 8;
-    data |= raw_read(addr + 1) & 0xFF;
+uint16_t Mems::raw_read16be(uint32_t byte_addr) const {
+    auto data = read_byte(byte_addr + 0) << 8;
+    data |= read_byte(byte_addr + 1);
     return data;
 }
 
-uint16_t Mems::raw_read16le(uint32_t addr) const {
-    auto data = raw_read(addr + 1) << 8;
-    data |= raw_read(addr + 0) & 0xFF;
+uint16_t Mems::raw_read16le(uint32_t byte_addr) const {
+    auto data = read_byte(byte_addr + 1) << 8;
+    data |= read_byte(byte_addr + 0);
     return data;
 }
 
-void Mems::raw_write16(uint32_t addr, uint16_t data) const {
+void Mems::write16(uint32_t byte_addr, uint16_t data) const {
     if (_endian == ENDIAN_BIG)
-        raw_write16be(addr, data);
+        raw_write16be(byte_addr, data);
     else
-        raw_write16le(addr, data);
+        raw_write16le(byte_addr, data);
 }
 
-void Mems::raw_write16be(uint32_t addr, uint16_t data) const {
-    raw_write(addr + 0, hi(data));
-    raw_write(addr + 1, lo(data));
+void Mems::raw_write16be(uint32_t byte_addr, uint16_t data) const {
+    write_byte(byte_addr + 0, hi(data));
+    write_byte(byte_addr + 1, lo(data));
 }
 
-void Mems::raw_write16le(uint32_t addr, uint16_t data) const {
-    raw_write(addr + 0, lo(data));
-    raw_write(addr + 1, hi(data));
-}
-
-void Mems::put(uint32_t addr, const uint8_t *buffer, uint8_t len) const {
-    for (auto i = 0; i < len; ++i) {
-        put(addr + i, buffer[i]);
-    }
+void Mems::raw_write16le(uint32_t byte_addr, uint16_t data) const {
+    write_byte(byte_addr + 0, lo(data));
+    write_byte(byte_addr + 1, hi(data));
 }
 
 void Mems::RomArea::set(uint32_t begin, uint32_t end) {

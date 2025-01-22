@@ -47,7 +47,7 @@ void PinsMc6809Base::resetPins() {
     auto softType = regs<RegsMc6809>()->checkSoftwareType();
     _inst->setSoftwareType(softType);
     _regs->save();
-    _regs->setIp(_mems->raw_read16(InstMc6809::VEC_RESET));
+    _regs->setIp(_mems->read16(InstMc6809::VEC_RESET));
 }
 
 Signals *PinsMc6809Base::injectCycle(uint8_t data) {
@@ -125,7 +125,7 @@ void PinsMc6809Base::loop() {
             cycle();  // non-VMA
             const auto frame = stackFrame(s->prev(2));
             const auto pc = uint16(frame->next()->data, frame->data);
-            const auto swi_vector = _mems->raw_read16(vec_swi);
+            const auto swi_vector = _mems->read16(vec_swi);
             if (isBreakPoint(pc) || swi_vector == vec_swi) {
                 regs<RegsMc6809>()->capture(frame);
                 Signals::discard(frame->prev(2));

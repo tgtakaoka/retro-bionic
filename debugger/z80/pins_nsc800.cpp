@@ -239,7 +239,7 @@ Signals *PinsNsc800::completeCycle(Signals *s) const {
     if (s->read()) {
         if (s->mreq()) {  // Memory access
             if (s->readMemory()) {
-                s->data = _mems->raw_read(s->addr);
+                s->data = _mems->read_byte(s->addr);
             } else {
                 ;  // inject
             }
@@ -256,7 +256,7 @@ Signals *PinsNsc800::completeCycle(Signals *s) const {
         s->getData();
         if (s->mreq()) {
             if (s->writeMemory()) {
-                _mems->raw_write(s->addr, s->data);
+                _mems->write_byte(s->addr, s->data);
             } else {
                 ;  // capture
             }
@@ -336,7 +336,7 @@ void PinsNsc800::loop() {
     resumeCycle(_regs->nextIp());
     while (true) {
         const auto s = prepareCycle();
-        if (s->fetch() && _mems->raw_read(s->addr) == InstZ80::HALT) {
+        if (s->fetch() && _mems->read_byte(s->addr) == InstZ80::HALT) {
             completeCycle(s->inject(InstZ80::JR));
             inject(InstZ80::JR_HERE);
             prepareWait();
@@ -381,7 +381,7 @@ void PinsNsc800::suspend() {
 
 bool PinsNsc800::rawStep() {
     const auto pc = _regs->nextIp();
-    if (_mems->raw_read(pc) == InstZ80::HALT)
+    if (_mems->read_byte(pc) == InstZ80::HALT)
         return false;
     assert_nmi();
     resumeCycle(pc);
