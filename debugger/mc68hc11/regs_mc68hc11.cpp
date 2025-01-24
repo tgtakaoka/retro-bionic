@@ -131,7 +131,7 @@ constexpr const char *REGS16[] = {
         "D",   // 8
 };
 
-const Regs::RegList *RegsMc68hc11::listRegisters(uint8_t n) const {
+const Regs::RegList *RegsMc68hc11::listRegisters(uint_fast8_t n) const {
     static constexpr RegList REG_LIST[] = {
             {REGS8, 3, 1, UINT8_MAX},
             {REGS16, 3, 5, UINT16_MAX},
@@ -139,11 +139,11 @@ const Regs::RegList *RegsMc68hc11::listRegisters(uint8_t n) const {
     return n < 2 ? &REG_LIST[n] : nullptr;
 }
 
-void RegsMc68hc11::setRegister(uint8_t reg, uint32_t value) {
+bool RegsMc68hc11::setRegister(uint_fast8_t reg, uint32_t value) {
     switch (reg) {
     case 4:
         _pc = value;
-        break;
+        return true;
     case 5:
         _sp = value;
         break;
@@ -166,6 +166,7 @@ void RegsMc68hc11::setRegister(uint8_t reg, uint32_t value) {
         _d(value);
         break;
     }
+    return false;
 }
 
 uint8_t RegsMc68hc11::internal_read(uint16_t addr) const {

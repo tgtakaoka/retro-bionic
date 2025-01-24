@@ -20,8 +20,8 @@ struct RegsMc68hc11 final : mc6800::RegsMc6800 {
     uint16_t capture(const mc6800::Signals *stack, bool step) override;
 
     void helpRegisters() const override;
-    const RegList *listRegisters(uint8_t n) const override;
-    void setRegister(uint8_t reg, uint32_t value) override;
+    const RegList *listRegisters(uint_fast8_t n) const override;
+    bool setRegister(uint_fast8_t reg, uint32_t value) override;
 
     uint8_t internal_read(uint16_t addr) const override;
     void internal_write(uint16_t addr, uint8_t data) const override;

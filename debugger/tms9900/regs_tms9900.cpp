@@ -122,18 +122,18 @@ constexpr const char *REGS16[] = {
         "ST",   // 19
 };
 
-const Regs::RegList *RegsTms9900::listRegisters(uint8_t n) const {
+const Regs::RegList *RegsTms9900::listRegisters(uint_fast8_t n) const {
     static constexpr RegList REG_LIST[] = {
             {REGS16, 19, 1, UINT16_MAX},
     };
     return n < 1 ? &REG_LIST[n] : nullptr;
 }
 
-void RegsTms9900::setRegister(uint8_t reg, uint32_t value) {
+bool RegsTms9900::setRegister(uint_fast8_t reg, uint32_t value) {
     switch (reg) {
     case 17:
         _pc = value;
-        break;
+        return true;
     case 18:
         _wp = value;
         break;
@@ -144,6 +144,7 @@ void RegsTms9900::setRegister(uint8_t reg, uint32_t value) {
         write_reg(reg - 1, value);
         break;
     }
+    return false;
 }
 
 }  // namespace tms9900

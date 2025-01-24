@@ -27,8 +27,8 @@ struct RegsZ8 : Regs {
             uint8_t addr, uint8_t val, RegSpace space = SET_ONE) = 0;
 
     uint32_t nextIp() const override { return _pc; }
-    const RegList *listRegisters(uint8_t reg) const override;
-    void setRegister(uint8_t reg, uint32_t value) override;
+    const RegList *listRegisters(uint_fast8_t reg) const override;
+    bool setRegister(uint_fast8_t reg, uint32_t value) override;
 
 protected:
     RegsZ8(PinsZ8 *pins);

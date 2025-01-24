@@ -202,7 +202,7 @@ constexpr const char *REGS16[] = {
         "RX",   // 25
 };
 
-const Regs::RegList *RegsCdp1802::listRegisters(uint8_t n) const {
+const Regs::RegList *RegsCdp1802::listRegisters(uint_fast8_t n) const {
     static constexpr RegList REG_LIST[] = {
             {REGS1, 3, 1, 1},
             {REGS4, 2, 4, 0xF},
@@ -212,7 +212,7 @@ const Regs::RegList *RegsCdp1802::listRegisters(uint8_t n) const {
     return n < 4 ? &REG_LIST[n] : nullptr;
 }
 
-void RegsCdp1802::setRegister(uint8_t reg, uint32_t value) {
+bool RegsCdp1802::setRegister(uint_fast8_t reg, uint32_t value) {
     switch (reg) {
     case 1:
         _df = value;
@@ -222,7 +222,7 @@ void RegsCdp1802::setRegister(uint8_t reg, uint32_t value) {
         break;
     case 4:
         _p = value;
-        break;
+        return true;
     case 5:
         _x = value;
         break;
@@ -238,16 +238,17 @@ void RegsCdp1802::setRegister(uint8_t reg, uint32_t value) {
     case 24:
         _r[_p] = value;
         _dirty[_p] = true;
-        break;
+        return true;
     case 25:
         _r[_x] = value;
         _dirty[_x] = true;
         break;
     default:
-        _r[reg - 8U] = value;
-        _dirty[reg - 8U] = true;
-        break;
+        _r[reg - 8] = value;
+        _dirty[reg - 8] = true;
+        return reg - 8 == _p;
     }
+    return false;
 }
 
 }  // namespace cdp1802

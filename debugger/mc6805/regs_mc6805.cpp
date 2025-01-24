@@ -86,17 +86,17 @@ constexpr const char *REGS16[] = {
         "PC",  // 4
 };
 
-const Regs::RegList *RegsMc6805::listRegisters(uint8_t n) const {
+const Regs::RegList *RegsMc6805::listRegisters(uint_fast8_t n) const {
     static constexpr RegList REG_8{REGS8, 3, 1, UINT8_MAX};
     static RegList REG_16{REGS16, 1, 4, UINT16_MAX};
     return n == 0 ? &REG_8 : (n == 1 ? &REG_16 : nullptr);
 }
 
-void RegsMc6805::setRegister(uint8_t reg, uint32_t value) {
+bool RegsMc6805::setRegister(uint_fast8_t reg, uint32_t value) {
     switch (reg) {
     case 4:
         _pc = value;
-        break;
+        return true;
     case 2:
         _x = value;
         break;
@@ -107,6 +107,7 @@ void RegsMc6805::setRegister(uint8_t reg, uint32_t value) {
         _cc = value;
         break;
     }
+    return false;
 }
 
 uint8_t RegsMc6805::internal_read(uint8_t addr) const {

@@ -174,7 +174,7 @@ constexpr const char *EXCHANGE[] = {
         "EXX",  // 17
 };
 
-const Regs::RegList *RegsTlcs90::listRegisters(uint8_t n) const {
+const Regs::RegList *RegsTlcs90::listRegisters(uint_fast8_t n) const {
     static constexpr RegList REG_LIST[] = {
             {REGS8, 8, 1, UINT8_MAX},
             {REGS16, 7, 9, UINT16_MAX},
@@ -183,11 +183,11 @@ const Regs::RegList *RegsTlcs90::listRegisters(uint8_t n) const {
     return n < 3 ? &REG_LIST[n] : nullptr;
 }
 
-void RegsTlcs90::setRegister(uint8_t reg, uint32_t value) {
+bool RegsTlcs90::setRegister(uint_fast8_t reg, uint32_t value) {
     switch (reg) {
     case 9:
         _pc = value;
-        break;
+        return true;
     case 10:
         _sp = value;
         break;
@@ -243,6 +243,7 @@ void RegsTlcs90::setRegister(uint8_t reg, uint32_t value) {
         swap8(_main.l, _alt.l);
         break;
     }
+    return false;
 }
 
 uint8_t RegsTlcs90::internal_read(uint16_t addr) const {

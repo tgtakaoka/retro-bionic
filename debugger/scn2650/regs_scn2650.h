@@ -20,8 +20,8 @@ struct RegsScn2650 final : Regs {
 
     uint32_t nextIp() const override { return _pc; }
     void helpRegisters() const override;
-    const RegList *listRegisters(uint8_t n) const override;
-    void setRegister(uint8_t reg, uint32_t value) override;
+    const RegList *listRegisters(uint_fast8_t n) const override;
+    bool setRegister(uint_fast8_t reg, uint32_t value) override;
 
     uint8_t read_io(uint8_t addr) const;
     void write_io(uint8_t addr, uint8_t data) const;

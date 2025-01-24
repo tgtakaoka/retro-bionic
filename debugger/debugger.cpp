@@ -462,9 +462,9 @@ void handleRegisterValue(uint32_t value, uintptr_t reg, State state) {
         return;
     }
     if (state != State::CLI_CANCEL) {
-        Debugger.target().setRegister(reg, value);
+        const auto dis = Debugger.target().setRegister(reg, value);
         cli.println();
-        Debugger.target().printRegisters();
+        Debugger.target().printRegisters(dis);
     }
     printPrompt();
 }
@@ -576,12 +576,12 @@ void Debugger::go() {
             return;
         // Stop at consecutive break point
         if (_breakPoints.on(target().nextIp())) {
-            target().printStatus();
+            target().printRegisters();
             return;
         }
     }
     target().run();
-    target().printStatus();
+    target().printRegisters();
 }
 
 void Debugger::exec(char c) {
@@ -593,7 +593,7 @@ void Debugger::exec(char c) {
         target().reset();
         if (_verbose)
             target().printCycles();
-        target().printStatus();
+        target().printRegisters();
         break;
     case 'd':
         cli.print("Dump? ");
@@ -638,7 +638,7 @@ void Debugger::exec(char c) {
         break;
     case 'r':
         cli.println("Registers");
-        target().printStatus();
+        target().printRegisters();
         break;
     case '=':
         cli.print("Set register? ");
@@ -652,7 +652,7 @@ void Debugger::exec(char c) {
         } else {
             target().step(true);
         }
-        target().printStatus();
+        target().printRegisters();
         break;
     case 'G':
         cli.println("Go");

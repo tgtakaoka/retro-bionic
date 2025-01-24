@@ -47,21 +47,18 @@ void Target::printCycles() const {
     _pins->printCycles();
 }
 
-void Target::printRegisters() const {
+void Target::printRegisters(bool dis) const {
     _regs->print();
+    if (dis)
+        disassemble(_regs->nextIp(), 1);
 }
 
-void Target::printStatus() const {
-    printRegisters();
-    disassemble(_regs->nextIp(), 1);
-}
-
-uint8_t Target::validRegister(const char *word, uint32_t &max) const {
+uint_fast8_t Target::validRegister(const char *word, uint32_t &max) const {
     return _regs->validRegister(word, max);
 }
 
-void Target::setRegister(uint8_t reg, uint32_t value) const {
-    _regs->setRegister(reg, value);
+bool Target::setRegister(uint_fast8_t reg, uint32_t value) const {
+    return _regs->setRegister(reg, value);
 }
 
 void Target::helpRegisters() const {

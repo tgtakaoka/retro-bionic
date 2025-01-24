@@ -229,7 +229,7 @@ constexpr const char *Z88_REGS16[] = {
         "IP",  // 31
 };
 
-const Regs::RegList *RegsZ88::listRegisters(uint8_t n) const {
+const Regs::RegList *RegsZ88::listRegisters(uint_fast8_t n) const {
     static constexpr RegList REG_LIST[] = {
             {Z88_REGS8, 2, 29, UINT8_MAX},
             {Z88_REGS16, 1, 31, UINT16_MAX},
@@ -239,7 +239,7 @@ const Regs::RegList *RegsZ88::listRegisters(uint8_t n) const {
     return n < 4 ? &REG_LIST[n - 2] : nullptr;
 }
 
-void RegsZ88::setRegister(uint8_t reg, uint32_t value) {
+bool RegsZ88::setRegister(uint_fast8_t reg, uint32_t value) {
     switch (reg) {
     case 31:
         set_ip(value);
@@ -251,9 +251,9 @@ void RegsZ88::setRegister(uint8_t reg, uint32_t value) {
         set_rp1(value);
         break;
     default:
-        RegsZ8::setRegister(reg, value);
-        break;
+        return RegsZ8::setRegister(reg, value);
     }
+    return false;
 }
 
 }  // namespace z88

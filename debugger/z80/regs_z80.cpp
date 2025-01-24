@@ -169,7 +169,7 @@ constexpr const char *EXCHANGE[] = {
         "EXX",  // 18
 };
 
-const Regs::RegList *RegsZ80::listRegisters(uint8_t n) const {
+const Regs::RegList *RegsZ80::listRegisters(uint_fast8_t n) const {
     static constexpr RegList REG_LIST[] = {
             {REGS8, 9, 1, UINT8_MAX},
             {REGS16, 7, 10, UINT16_MAX},
@@ -178,11 +178,11 @@ const Regs::RegList *RegsZ80::listRegisters(uint8_t n) const {
     return n < 3 ? &REG_LIST[n] : nullptr;
 }
 
-void RegsZ80::setRegister(uint8_t reg, uint32_t value) {
+bool RegsZ80::setRegister(uint_fast8_t reg, uint32_t value) {
     switch (reg) {
     case 10:
         _pc = value;
-        break;
+        return true;
     case 11:
         _sp = value;
         break;
@@ -241,6 +241,7 @@ void RegsZ80::setRegister(uint8_t reg, uint32_t value) {
         swap8(_main.l, _alt.l);
         break;
     }
+    return false;
 }
 
 }  // namespace z80

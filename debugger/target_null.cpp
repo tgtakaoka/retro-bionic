@@ -26,7 +26,7 @@ struct RegsNull final : Regs {
     void restore() override {}
     uint32_t nextIp() const override { return 0; }
     void helpRegisters() const override {}
-    const RegList *listRegisters(uint8_t) const override { return nullptr; }
+    const RegList *listRegisters(uint_fast8_t) const override { return nullptr; }
 };
 
 struct PinsNull final : Pins {

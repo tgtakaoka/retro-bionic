@@ -238,7 +238,7 @@ constexpr const char *REGS1_6309[] = {
         "MD",  // 17
 };
 
-const Regs::RegList *RegsMc6809::listRegisters(uint8_t n) const {
+const Regs::RegList *RegsMc6809::listRegisters(uint_fast8_t n) const {
     static constexpr RegList REG_LIST[] = {
             {REGS8, 4, 1, UINT8_MAX},
             {REGS16, 7, 5, UINT16_MAX},
@@ -247,11 +247,11 @@ const Regs::RegList *RegsMc6809::listRegisters(uint8_t n) const {
             {REGS32_6309, 1, 16, UINT32_MAX},
             {REGS1_6309, 1, 17, 1},
     };
-    const auto r = (_type == SW_MC6809) ? 2 : 6;
+    const uint_fast8_t r = (_type == SW_MC6809) ? 2 : 6;
     return n < r ? &REG_LIST[n] : nullptr;
 }
 
-void RegsMc6809::setRegister(uint8_t reg, uint32_t value) {
+bool RegsMc6809::setRegister(uint_fast8_t reg, uint32_t value) {
     switch (reg) {
     case 1:
         _a = value;
@@ -267,7 +267,7 @@ void RegsMc6809::setRegister(uint8_t reg, uint32_t value) {
         break;
     case 5:
         _pc = value;
-        break;
+        return true;
     case 6:
     case 7:
         _s = value;
@@ -303,6 +303,7 @@ void RegsMc6809::setRegister(uint8_t reg, uint32_t value) {
         _md = value;
         break;
     }
+    return false;
 }
 
 }  // namespace mc6809

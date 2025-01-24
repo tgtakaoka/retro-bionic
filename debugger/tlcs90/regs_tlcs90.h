@@ -27,8 +27,8 @@ struct RegsTlcs90 final : Regs {
 
     uint32_t nextIp() const override { return _pc; }
     void helpRegisters() const override;
-    const RegList *listRegisters(uint8_t n) const override;
-    void setRegister(uint8_t reg, uint32_t value) override;
+    const RegList *listRegisters(uint_fast8_t n) const override;
+    bool setRegister(uint_fast8_t reg, uint32_t value) override;
 
     uint8_t internal_read(uint16_t addr) const;
     void internal_write(uint16_t addr, uint8_t data) const;

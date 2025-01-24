@@ -23,8 +23,8 @@ struct RegsTms7000 final : Regs {
     void restoreA();
     void setIp(uint32_t addr) override { _pc = addr; }
     void helpRegisters() const override;
-    const RegList *listRegisters(uint8_t n) const override;
-    void setRegister(uint8_t reg, uint32_t value) override;
+    const RegList *listRegisters(uint_fast8_t n) const override;
+    bool setRegister(uint_fast8_t reg, uint32_t value) override;
 
     uint8_t read_internal(uint16_t add);
     void write_internal(uint16_t add, uint8_t data);

@@ -35,10 +35,9 @@ struct Target {
     uint32_t nextIp() const { return _regs->nextIp(); }
     void setBreakPoint(uint32_t addr) const { _pins->setBreakInst(addr); }
 
-    void printRegisters() const;
-    void printStatus() const;
-    uint8_t validRegister(const char *word, uint32_t &max) const;
-    void setRegister(uint8_t reg, uint32_t value) const;
+    void printRegisters(bool dis = true) const;
+    uint_fast8_t validRegister(const char *word, uint32_t &max) const;
+    bool setRegister(uint_fast8_t reg, uint32_t value) const;
     void helpRegisters() const;
 
     uint32_t maxAddr() const;

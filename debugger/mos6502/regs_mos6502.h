@@ -20,11 +20,11 @@ struct RegsMos6502 final : Regs {
     void save() override;
     void restore() override;
 
-    uint32_t nextIp() const override { return _pc; }
-    void setIp(uint32_t pc) override { _pc = pc; }
+    uint32_t nextIp() const override;
+    void setIp(uint32_t pc) override;
     void helpRegisters() const override;
-    const RegList *listRegisters(uint8_t n) const override;
-    void setRegister(uint8_t reg, uint32_t value) override;
+    const RegList *listRegisters(uint_fast8_t n) const override;
+    bool setRegister(uint_fast8_t reg, uint32_t value) override;
 
 private:
     PinsMos6502 *const _pins;

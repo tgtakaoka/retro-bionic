@@ -390,7 +390,7 @@ constexpr const char *REGS16[] = {
         "Q",    // 30
 };
 
-const Regs::RegList *RegsF3850::listRegisters(uint8_t n) const {
+const Regs::RegList *RegsF3850::listRegisters(uint_fast8_t n) const {
     static constexpr RegList REG_LIST[] = {
             {REGS3, 2, 1, 0x7},
             {REGS6, 2, 3, 0x1F},
@@ -400,12 +400,12 @@ const Regs::RegList *RegsF3850::listRegisters(uint8_t n) const {
     return n < 4 ? &REG_LIST[n] : nullptr;
 }
 
-void RegsF3850::setRegister(uint8_t reg, uint32_t value) {
+bool RegsF3850::setRegister(uint_fast8_t reg, uint32_t value) {
     switch (reg) {
     case 22:
     case 23:
         _pc0 = value;
-        break;
+        return true;
     case 24:
     case 25:
         _pc1 = value;
@@ -447,6 +447,7 @@ void RegsF3850::setRegister(uint8_t reg, uint32_t value) {
         update_r(reg - 6U, value);
         break;
     }
+    return false;
 }
 
 }  // namespace f3850

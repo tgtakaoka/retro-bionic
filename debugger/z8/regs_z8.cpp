@@ -80,7 +80,7 @@ constexpr const char *const RegsZ8::REGS16[10] = {
         "SP",    // 28
 };
 
-const Regs::RegList *RegsZ8::listRegisters(uint8_t n) const {
+const Regs::RegList *RegsZ8::listRegisters(uint_fast8_t n) const {
     static constexpr RegList REG_LIST[] = {
             {REGS8, 18, 1, UINT8_MAX},
             {REGS16, 10, 19, UINT16_MAX},
@@ -88,11 +88,11 @@ const Regs::RegList *RegsZ8::listRegisters(uint8_t n) const {
     return n < 2 ? &REG_LIST[n] : nullptr;
 }
 
-void RegsZ8::setRegister(uint8_t reg, uint32_t value) {
+bool RegsZ8::setRegister(uint_fast8_t reg, uint32_t value) {
     switch (reg) {
     case 27:
         _pc = value;
-        break;
+        return true;
     case 28:
         set_sp(value);
         break;
@@ -110,6 +110,7 @@ void RegsZ8::setRegister(uint8_t reg, uint32_t value) {
         }
         break;
     }
+    return false;
 }
 
 }  // namespace z8

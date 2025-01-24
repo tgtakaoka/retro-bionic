@@ -148,7 +148,7 @@ constexpr const char *REGS1[] = {
         "F1",  // 17
 };
 
-const Regs::RegList *RegsI8051::listRegisters(uint8_t n) const {
+const Regs::RegList *RegsI8051::listRegisters(uint_fast8_t n) const {
     static constexpr RegList REG_LIST[] = {
             {REGS8, 12, 1, UINT8_MAX},
             {REGS16, 2, 13, UINT16_MAX},
@@ -158,7 +158,7 @@ const Regs::RegList *RegsI8051::listRegisters(uint8_t n) const {
     return n < 4 ? &REG_LIST[n] : nullptr;
 }
 
-void RegsI8051::setRegister(uint8_t reg, uint32_t value) {
+bool RegsI8051::setRegister(uint_fast8_t reg, uint32_t value) {
     switch (reg) {
     case 1:
         set_psw(value);
@@ -174,7 +174,7 @@ void RegsI8051::setRegister(uint8_t reg, uint32_t value) {
         break;
     case 13:
         _pc = value;
-        break;
+        return true;
     case 14:
         _dptr = value;
         write_internal(DPL, lo(_dptr));
@@ -195,6 +195,7 @@ void RegsI8051::setRegister(uint8_t reg, uint32_t value) {
         _r[reg - 4] = value;
         break;
     }
+    return false;
 }
 
 }  // namespace i8051

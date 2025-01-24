@@ -21,8 +21,8 @@ struct RegsIns8070 final : Regs {
 
     uint32_t nextIp() const override { return _pc() + 1; }
     void helpRegisters() const override;
-    const RegList *listRegisters(uint8_t n) const override;
-    void setRegister(uint8_t reg, uint32_t value) override;
+    const RegList *listRegisters(uint_fast8_t n) const override;
+    bool setRegister(uint_fast8_t reg, uint32_t value) override;
 
     uint8_t busCycles(InstIns8070 &inst) const;
 

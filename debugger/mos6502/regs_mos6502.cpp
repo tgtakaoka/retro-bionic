@@ -32,6 +32,20 @@ const char *RegsMos6502::cpu() const {
     return CPU_NAMES[type];
 }
 
+uint32_t RegsMos6502::nextIp() const {
+    if (_pins->native65816()) {
+        return (static_cast<uint32_t>(_pbr) << 16) | _pc;
+    } else {
+        return _pc;
+    }
+}
+
+void RegsMos6502::setIp(uint32_t pc) {
+    _pc = static_cast<uint16_t>(pc);
+    if (_pins->native65816())
+        _pbr = pc >> 16;
+}
+
 void RegsMos6502::print() const {
     if (_pins->native65816()) {
         _buffer.set(line65816);
@@ -221,7 +235,7 @@ constexpr const char *REGS1_65816[] = {
         "PX",  // 15
 };
 
-const Regs::RegList *RegsMos6502::listRegisters(uint8_t n) const {
+const Regs::RegList *RegsMos6502::listRegisters(uint_fast8_t n) const {
     static constexpr RegList REG_LIST_6502[] = {
             {REGS8, 2, 1, UINT8_MAX},
             {REGS16, 1, 3, UINT16_MAX},
@@ -238,7 +252,8 @@ const Regs::RegList *RegsMos6502::listRegisters(uint8_t n) const {
     if (_e == 0) {
         return n < 5 ? &REG_LIST_65816[n] : nullptr;
     } else {
-        const auto num = PinsMos6502::hardwareType() == HW_W65C816 ? 4 : 3;
+        const uint_fast8_t num =
+                PinsMos6502::hardwareType() == HW_W65C816 ? 4 : 3;
         return n < num ? &REG_LIST_6502[n] : nullptr;
     }
 }
@@ -255,11 +270,11 @@ void RegsMos6502::setP(uint8_t value) {
     }
 }
 
-void RegsMos6502::setRegister(uint8_t reg, uint32_t value) {
+bool RegsMos6502::setRegister(uint_fast8_t reg, uint32_t value) {
     switch (reg) {
     case 3:
         _pc = value;
-        break;
+        return true;
     case 6:
         if (_e == 0) {
             _s = value;
@@ -292,7 +307,7 @@ void RegsMos6502::setRegister(uint8_t reg, uint32_t value) {
     case 11:
     case 12:
         _pbr = value;
-        break;
+        return true;
     case 13:
         setE(_e = value);
         break;
@@ -303,6 +318,7 @@ void RegsMos6502::setRegister(uint8_t reg, uint32_t value) {
         setP(value ? (_p | P_X) : (_p & ~P_X));
         break;
     }
+    return false;
 }
 }  // namespace mos6502
 }  // namespace debugger

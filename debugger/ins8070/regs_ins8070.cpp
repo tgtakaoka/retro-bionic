@@ -103,7 +103,7 @@ constexpr const char *REGS16[] = {
         "P3",  // 9
 };
 
-const Regs::RegList *RegsIns8070::listRegisters(uint8_t n) const {
+const Regs::RegList *RegsIns8070::listRegisters(uint_fast8_t n) const {
     static constexpr RegList REG_LIST[] = {
             {REGS8, 3, 1, UINT8_MAX},
             {REGS16, 6, 4, UINT16_MAX},
@@ -111,11 +111,11 @@ const Regs::RegList *RegsIns8070::listRegisters(uint8_t n) const {
     return n < 2 ? &REG_LIST[n] : nullptr;
 }
 
-void RegsIns8070::setRegister(uint8_t reg, uint32_t value) {
+bool RegsIns8070::setRegister(uint_fast8_t reg, uint32_t value) {
     switch (reg) {
     default:
-        _ptr[reg - 6U] = value;
-        break;
+        _ptr[reg - 6] = value;
+        return reg == 6;
     case 1:
         _a = value;
         break;
@@ -132,6 +132,7 @@ void RegsIns8070::setRegister(uint8_t reg, uint32_t value) {
         _s = value;
         break;
     }
+    return false;
 }
 
 uint8_t RegsIns8070::internal_read(uint16_t addr) const {

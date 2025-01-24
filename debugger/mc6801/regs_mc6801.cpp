@@ -62,19 +62,19 @@ constexpr const char *REGS16[] = {
         "D",   // 7
 };
 
-const Regs::RegList *RegsMc6801::listRegisters(uint8_t n) const {
+const Regs::RegList *RegsMc6801::listRegisters(uint_fast8_t n) const {
     static constexpr RegList REG_6801 = {REGS16, 4, 4, UINT16_MAX};
     if (n == 0)
         return RegsMc6800::listRegisters(n);
     return n == 1 ? &REG_6801 : nullptr;
 }
 
-void RegsMc6801::setRegister(uint8_t reg, uint32_t value) {
+bool RegsMc6801::setRegister(uint_fast8_t reg, uint32_t value) {
     if (reg == 7) {
         _d(value);
-    } else {
-        RegsMc6800::setRegister(reg, value);
+        return false;
     }
+    return RegsMc6800::setRegister(reg, value);
 }
 
 }  // namespace mc6801

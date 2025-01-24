@@ -133,7 +133,7 @@ constexpr const char *REGS16[] = {
         "PC",  // 5
 };
 
-const Regs::RegList *RegsTms7000::listRegisters(uint8_t n) const {
+const Regs::RegList *RegsTms7000::listRegisters(uint_fast8_t n) const {
     static constexpr RegList REG_LIST[] = {
             {REGS8, 4, 1, UINT8_MAX},
             {REGS16, 1, 5, UINT16_MAX},
@@ -141,11 +141,11 @@ const Regs::RegList *RegsTms7000::listRegisters(uint8_t n) const {
     return n < 2 ? &REG_LIST[n] : nullptr;
 }
 
-void RegsTms7000::setRegister(uint8_t reg, uint32_t value) {
+bool RegsTms7000::setRegister(uint_fast8_t reg, uint32_t value) {
     switch (reg) {
     case 5:
         _pc = value;
-        break;
+        return true;
     case 4:
         _sp = value;
         break;
@@ -159,6 +159,7 @@ void RegsTms7000::setRegister(uint8_t reg, uint32_t value) {
         _st = value;
         break;
     }
+    return false;
 }
 
 }  // namespace tms7000

@@ -182,7 +182,7 @@ constexpr const char *REGS1[] = {
         "F1",  // 15
 };
 
-const Regs::RegList *RegsI8048::listRegisters(uint8_t n) const {
+const Regs::RegList *RegsI8048::listRegisters(uint_fast8_t n) const {
     static constexpr RegList REG_LIST[] = {
             {REGS8, 10, 1, UINT8_MAX},
             {REGS12, 1, 11, 0xFFF},
@@ -191,7 +191,7 @@ const Regs::RegList *RegsI8048::listRegisters(uint8_t n) const {
     return n < 3 ? &REG_LIST[n] : nullptr;
 }
 
-void RegsI8048::setRegister(uint8_t reg, uint32_t value) {
+bool RegsI8048::setRegister(uint_fast8_t reg, uint32_t value) {
     switch (reg) {
     case 1:
         set_psw(value);
@@ -201,7 +201,7 @@ void RegsI8048::setRegister(uint8_t reg, uint32_t value) {
         break;
     case 11:
         _pc = value;
-        break;
+        return true;
     case 12:
         set_rb(value);
         break;
@@ -223,6 +223,7 @@ void RegsI8048::setRegister(uint8_t reg, uint32_t value) {
         set_r(reg - 3, value);
         break;
     }
+    return false;
 }
 
 }  // namespace i8048

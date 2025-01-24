@@ -138,7 +138,7 @@ constexpr const char *REGS15[] = {
         "PC",  // 9
 };
 
-const Regs::RegList *RegsScn2650::listRegisters(uint8_t n) const {
+const Regs::RegList *RegsScn2650::listRegisters(uint_fast8_t n) const {
     static constexpr RegList REG_LIST[] = {
             {REGS1, 1, 1, 1},
             {REGS2, 1, 2, 0x3},
@@ -148,11 +148,11 @@ const Regs::RegList *RegsScn2650::listRegisters(uint8_t n) const {
     return n < 4 ? &REG_LIST[n] : nullptr;
 }
 
-void RegsScn2650::setRegister(uint8_t reg, uint32_t value) {
+bool RegsScn2650::setRegister(uint_fast8_t reg, uint32_t value) {
     switch (reg) {
     case 9:
         _pc = value;
-        break;
+        return true;
     case 7:
         _psu = value;
         break;
@@ -176,6 +176,7 @@ void RegsScn2650::setRegister(uint8_t reg, uint32_t value) {
         _r[rs()][reg - 4] = value;
         break;
     }
+    return false;
 }
 
 }  // namespace scn2650

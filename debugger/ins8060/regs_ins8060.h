@@ -21,8 +21,8 @@ struct RegsIns8060 final : Regs {
 
     uint32_t nextIp() const override { return _addr(_pc(), _pc() + 1); }
     void helpRegisters() const override;
-    const RegList *listRegisters(uint8_t n) const override;
-    void setRegister(uint8_t reg, uint32_t value) override;
+    const RegList *listRegisters(uint_fast8_t n) const override;
+    bool setRegister(uint_fast8_t reg, uint32_t value) override;
 
 private:
     PinsIns8060 *const _pins;
