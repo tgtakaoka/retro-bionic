@@ -243,6 +243,7 @@ void handleAssembler(uint32_t value, uintptr_t extra, State state) {
 
 void handleGoUntil(uint32_t value, uintptr_t extra, State state) {
     if (state != State::CLI_CANCEL) {
+        cli.println();
         Debugger.setTempBreakPoint(value);
         Debugger.go();
     }
