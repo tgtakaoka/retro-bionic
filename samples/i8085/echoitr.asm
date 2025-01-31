@@ -105,12 +105,10 @@ put_hex8:
         mov     a, b
 put_hex4:
         ani     0FH
-        cpi     10
-        jc      put_hex8_dec    ; A<10
-        adi     'A'-10
-        jmp     putchar
-put_hex8_dec:
-        adi     '0'
+        cpi     10              ; $00-$09(C=1),$0A-$0F(C=0)
+        cmc                     ; $00-$09(C=0),$0A-$0F(C=1)
+        aci     30H             ; $30-$39,$3B-$3F(H=0),$40(H=1)
+        daa                     ; $30-$39,$41-$45,$46
         jmp     putchar
 
 ;;; Print uint8_t in binary

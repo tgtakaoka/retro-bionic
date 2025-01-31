@@ -89,24 +89,24 @@
           0 : =B4                RX_INT_TX_INT   =       WSB_8N1_gc|RIEB_bm|TCB_EI_gc
           0 :
        FFE4 :                            *=      NVEC_COP
-       FFE4 : 18 13                      .word   isr_ncop
+       FFE4 : 10 13                      .word   isr_ncop
        FFE6 :                            *=      NVEC_BRK
-       FFE6 : 1A 13                      .word   isr_nbrk
+       FFE6 : 12 13                      .word   isr_nbrk
        FFE8 :                            *=      NVEC_ABORT
-       FFE8 : 1C 13                      .word   isr_nabort
+       FFE8 : 14 13                      .word   isr_nabort
        FFEA :                            *=      NVEC_NMI
-       FFEA : 1E 13                      .word   isr_nnmi
+       FFEA : 16 13                      .word   isr_nnmi
        FFEE :                            *=      NVEC_IRQ        ; native vector
-       FFEE : D9 12                      .word   isr_nirq
+       FFEE : D1 12                      .word   isr_nirq
        FFF0 :
        FFF8 :                            *=      VEC_ABORT
-       FFF8 : 12 13                      .word   isr_abort
+       FFF8 : 0A 13                      .word   isr_abort
        FFF4 :                            *=      VEC_COP
-       FFF4 : 10 13                      .word   isr_cop
+       FFF4 : 08 13                      .word   isr_cop
        FFFA :                            *=      VEC_NMI
-       FFFA : 14 13                      .word   isr_nmi
+       FFFA : 0C 13                      .word   isr_nmi
        FFFE :                            *=      VEC_IRQ
-       FFFE : 16 13                      .word   isr_irq
+       FFFE : 0E 13                      .word   isr_irq
        FFFC :                            *=      VEC_RESET
        FFFC : 00 10                      .word   initialize
        FFFE :
@@ -712,114 +712,109 @@
 (1)    1292 : 4C 08 12                   jmp     loop_i          ; if I<16 loop_i
 (1)    1295 :                    print_space:
 (1)    1295 : A9 20 00                   lda     #' '
-(1)    1298 : 80 12                      bra     print_char
+(1)    1298 : 80 0A                      bra     print_char
 (1)    129A :                    print_i:
 (1)    129A : A5 14                      lda     vI
-(1)    129C : 38                         sec
-(1)    129D : E9 0A 00                   sbc     #10
-(1)    12A0 : 10 06                      bpl     print_hex
-(1)    12A2 : 18                         clc
-(1)    12A3 : 69 3A 00                   adc     #10+'0'
-(1)    12A6 : 80 04                      bra     print_char
-(1)    12A8 :                    print_hex:
-(1)    12A8 : 18                         clc
-(1)    12A9 : 69 41 00                   adc     #'A'
-(1)    12AC :                    print_char:
-(1)    12AC : 20 39 10                   jsr     putchar
-(1)    12AF :
-(1)    12AF :                            ;; pha
-(1)    12AF :                            ;; lda     #'@'
-(1)    12AF :                            ;; jsr     putchar
-(1)    12AF :                            ;; lda     #'='
-(1)    12AF :                            ;; jsr     putchar
-(1)    12AF :                            ;; pla
-(1)    12AF :                            ;; jsr     putchar
-(1)    12AF :                            ;; jsr     newline
-(1)    12AF :
-(1)    12AF : 20 2D 10                   jsr     getchar
-(1)    12B2 : B0 07                      bcs     next_x
-(1)    12B4 : 29 FF 00                   and     #$FF
-(1)    12B7 : D0 02                      bne     next_x
-(1)    12B9 : 00                         brk
-(1)    12BA : 00                         .byte   0
-(1)    12BB :                    next_x:
-(1)    12BB : A5 12                      lda     vX
-(1)    12BD : 1A                         inc     A
-(1)    12BE : 85 12                      sta     vX              ; X+=1
-(1)    12C0 : C9 1E 00                   cmp     #30
-(1)    12C3 : 10 03                      bpl     next_y          ; if X>=30
-(1)    12C5 : 4C E2 11                   jmp     loop_x
-(1)    12C8 :                    next_y:
-(1)    12C8 : 20 55 10                   jsr     newline
-(1)    12CB : A5 10                      lda     vY
-(1)    12CD : 1A                         inc     A
-(1)    12CE : 85 10                      sta     vY              ; Y+=1
-(1)    12D0 : C9 0D 00                   cmp     #13
-(1)    12D3 : 10 03                      bpl     mandelbrot_end  ; if Y>=13
-(1)    12D5 : 4C DD 11                   jmp     loop_y
-(1)    12D8 :                    mandelbrot_end:
-(1)    12D8 : 60                         rts
-       12D9 :
-       12D9 :                    isr_nirq:
-       12D9 :                            ;; P_D is cleared on interrupt
-       12D9 : E2 20                      sep     #P_M            ; 8-bit memory
-       12DB :                            longa   off
-       12DB : 48                         pha                     ; save A
-       12DC : DA                         phx                     ; save X
-       12DD : AD 00 DF                   lda     ACIA_status
-       12E0 : 29 80                      and     #IRQF_bm
-       12E2 : F0 22                      beq     isr_nirq_exit
-       12E4 : AD 00 DF                   lda     ACIA_status
-       12E7 : 29 01                      and     #RDRF_bm
-       12E9 : F0 09                      beq     isr_nirq_send
-       12EB : AD 01 DF                   lda     ACIA_data       ; receive character
-       12EE : A2 00 20                   ldx     #rx_queue
-       12F1 : 20 85 10                   jsr     queue_add
-       12F4 :                    isr_nirq_send:
-       12F4 : AD 00 DF                   lda     ACIA_status
-       12F7 : 29 02                      and     #TDRE_bm
-       12F9 : F0 0B                      beq     isr_nirq_exit
-       12FB : A2 80 20                   ldx     #tx_queue
-       12FE : 20 BD 10                   jsr     queue_remove
-       1301 : B0 06                      bcs     isr_nirq_send_empty
-       1303 : 8D 01 DF                   sta     ACIA_data       ; send character
-       1306 :                    isr_nirq_exit:
-       1306 : FA                         plx                     ; restore X
-       1307 : 68                         pla                     ; restore Y
-       1308 : 40                         rti                     ; restore P and PC
-       1309 :                    isr_nirq_send_empty:
-       1309 : A9 94                      lda     #RX_INT_TX_NO
-       130B : 8D 00 DF                   sta     ACIA_control    ; disable Tx interrupt
-       130E : 80 F6                      bra     isr_nirq_exit
+(1)    129C : F8                         sed
+(1)    129D : C9 0A 00                   cmp     #10             ; $00-$09(C=0), $0A-$0F(C=1)
+(1)    12A0 : 69 30 00                   adc     #$30            ; $30-$39, $46-$4F
+(1)    12A3 : D8                         cld
+(1)    12A4 :                    print_char:
+(1)    12A4 : 20 39 10                   jsr     putchar
+(1)    12A7 :
+(1)    12A7 :                            ;; pha
+(1)    12A7 :                            ;; lda     #'@'
+(1)    12A7 :                            ;; jsr     putchar
+(1)    12A7 :                            ;; lda     #'='
+(1)    12A7 :                            ;; jsr     putchar
+(1)    12A7 :                            ;; pla
+(1)    12A7 :                            ;; jsr     putchar
+(1)    12A7 :                            ;; jsr     newline
+(1)    12A7 :
+(1)    12A7 : 20 2D 10                   jsr     getchar
+(1)    12AA : B0 07                      bcs     next_x
+(1)    12AC : 29 FF 00                   and     #$FF
+(1)    12AF : D0 02                      bne     next_x
+(1)    12B1 : 00                         brk
+(1)    12B2 : 00                         .byte   0
+(1)    12B3 :                    next_x:
+(1)    12B3 : A5 12                      lda     vX
+(1)    12B5 : 1A                         inc     A
+(1)    12B6 : 85 12                      sta     vX              ; X+=1
+(1)    12B8 : C9 1E 00                   cmp     #30
+(1)    12BB : 10 03                      bpl     next_y          ; if X>=30
+(1)    12BD : 4C E2 11                   jmp     loop_x
+(1)    12C0 :                    next_y:
+(1)    12C0 : 20 55 10                   jsr     newline
+(1)    12C3 : A5 10                      lda     vY
+(1)    12C5 : 1A                         inc     A
+(1)    12C6 : 85 10                      sta     vY              ; Y+=1
+(1)    12C8 : C9 0D 00                   cmp     #13
+(1)    12CB : 10 03                      bpl     mandelbrot_end  ; if Y>=13
+(1)    12CD : 4C DD 11                   jmp     loop_y
+(1)    12D0 :                    mandelbrot_end:
+(1)    12D0 : 60                         rts
+       12D1 :
+       12D1 :                    isr_nirq:
+       12D1 :                            ;; P_D is cleared on interrupt
+       12D1 : E2 20                      sep     #P_M            ; 8-bit memory
+       12D3 :                            longa   off
+       12D3 : 48                         pha                     ; save A
+       12D4 : DA                         phx                     ; save X
+       12D5 : AD 00 DF                   lda     ACIA_status
+       12D8 : 29 80                      and     #IRQF_bm
+       12DA : F0 22                      beq     isr_nirq_exit
+       12DC : AD 00 DF                   lda     ACIA_status
+       12DF : 29 01                      and     #RDRF_bm
+       12E1 : F0 09                      beq     isr_nirq_send
+       12E3 : AD 01 DF                   lda     ACIA_data       ; receive character
+       12E6 : A2 00 20                   ldx     #rx_queue
+       12E9 : 20 85 10                   jsr     queue_add
+       12EC :                    isr_nirq_send:
+       12EC : AD 00 DF                   lda     ACIA_status
+       12EF : 29 02                      and     #TDRE_bm
+       12F1 : F0 0B                      beq     isr_nirq_exit
+       12F3 : A2 80 20                   ldx     #tx_queue
+       12F6 : 20 BD 10                   jsr     queue_remove
+       12F9 : B0 06                      bcs     isr_nirq_send_empty
+       12FB : 8D 01 DF                   sta     ACIA_data       ; send character
+       12FE :                    isr_nirq_exit:
+       12FE : FA                         plx                     ; restore X
+       12FF : 68                         pla                     ; restore Y
+       1300 : 40                         rti                     ; restore P and PC
+       1301 :                    isr_nirq_send_empty:
+       1301 : A9 94                      lda     #RX_INT_TX_NO
+       1303 : 8D 00 DF                   sta     ACIA_control    ; disable Tx interrupt
+       1306 : 80 F6                      bra     isr_nirq_exit
+       1308 :
+       1308 :                    isr_cop:
+       1308 : 00                         brk
+       1309 : 00                         .byte   0
+       130A :
+       130A :                    isr_abort:
+       130A : 00                         brk
+       130B : 00                         .byte   0
+       130C :
+       130C :                    isr_nmi:
+       130C : 00                         brk
+       130D : 00                         .byte   0
+       130E :
+       130E :                    isr_irq:
+       130E : 00                         brk
+       130F : 00                         .byte   0
        1310 :
-       1310 :                    isr_cop:
+       1310 :                    isr_ncop:
        1310 : 00                         brk
        1311 : 00                         .byte   0
        1312 :
-       1312 :                    isr_abort:
+       1312 :                    isr_nbrk:
        1312 : 00                         brk
        1313 : 00                         .byte   0
        1314 :
-       1314 :                    isr_nmi:
+       1314 :                    isr_nabort:
        1314 : 00                         brk
        1315 : 00                         .byte   0
        1316 :
-       1316 :                    isr_irq:
+       1316 :                    isr_nnmi:
        1316 : 00                         brk
        1317 : 00                         .byte   0
-       1318 :
-       1318 :                    isr_ncop:
-       1318 : 00                         brk
-       1319 : 00                         .byte   0
-       131A :
-       131A :                    isr_nbrk:
-       131A : 00                         brk
-       131B : 00                         .byte   0
-       131C :
-       131C :                    isr_nabort:
-       131C : 00                         brk
-       131D : 00                         .byte   0
-       131E :
-       131E :                    isr_nnmi:
-       131E : 00                         brk
-       131F : 00                         .byte   0

@@ -152,15 +152,10 @@ print_space:
         bra     print_char
 print_i:
         lda     vI
-        sec
-        sbc     #10
-        bpl     print_hex
-        clc
-        adc     #10+'0'
-        bra     print_char
-print_hex:
-        clc
-        adc     #'A'
+        sed
+        cmp     #10             ; $00-$09(C=0), $0A-$0F(C=1)
+        adc     #$30            ; $30-$39, $46-$4F
+        cld
 print_char:
         jsr     putchar
 

@@ -11,9 +11,9 @@ print_int16:
         ldaa    #'-'
         jsr     putchar
         pula
-        coma
-        comb
-        addd    #1        ; negate value
+        nega
+        negb
+        sbca    #0        ; negate value
         std     R0
 ;;; Print unsigned 16-bit integer as decimal
 ;;; @param R0 value
@@ -72,9 +72,9 @@ mul16:
         staa    sign            ; save hi(multiplicand^multiplier)
         ldd     R2
         bpl     mul16_multiplicand
-        coma
-        comb
-        addd    #1              ; negate multiplier
+        nega
+        negb
+        sbca    #0              ; negate multiplier
         std     R2
 mul16_multiplicand:
         ldd     R1
@@ -88,9 +88,9 @@ mul16_multiply:
         ldd     R0
         tst     sign            ; A=(multiplicand^multiplier)
         bpl     mul16_end
-        coma
-        comb
-        addd    #1              ; negate result
+        nega
+        negb
+        sbca    #0              ; negate result
 mul16_end:
         rts
 
@@ -148,16 +148,16 @@ div16:
         staa    sign            ; save hi(dividend^divisor)
         ldd     R2
         bpl     div16_dividend
-        coma
-        comb
-        addd    #1              ; negate divisor
+        nega
+        negb
+        sbca    #0              ; negate divisor
         std     R2
 div16_dividend:
         ldd     R1
         bpl     div16_divide
-        coma
-        comb
-        addd    #1              ; negate dividend
+        nega
+        negb
+        sbca    #0              ; negate dividend
         std     R1
 div16_divide:
         bsr     udiv16          ; R0=quotient
@@ -165,8 +165,8 @@ div16_divide:
         ldx     R1
         tst     sign            ; A=(dividend^divisor)
         bpl     div16_end
-        coma
-        comb
-        addd    #1              ; negate result
+        nega
+        negb
+        sbca    #0              ; negate result
 div16_end:
         rts

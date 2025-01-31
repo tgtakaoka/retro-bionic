@@ -7,6 +7,44 @@ ACIA:   equ     $DF00
 RX_INT_TX_NO:   equ     WSB_8N1_gc|RIEB_bm
 RX_INT_TX_INT:  equ     WSB_8N1_gc|RIEB_bm|TCB_EI_gc
 
+        org     $40
+;;; 0.0458 * 50 = 2.29
+;;;   2.29 * 100 = 229
+;;; 0.0833 * 50 = 4.165
+;;;   4.1665 * 100 = 416.5
+;;; 0.0458 * 64 = 2.9312
+;;;   2.9312 * 128 = 375.1936
+;;; 0.08333 * 64 = 5.3312
+;;;   5.3312 * 128 = 682.3936
+;;; Working space for mandelbrot.inc
+KA:     equ     375
+KB:     equ     682
+S:      equ     128
+F:      equ     64
+vC:     rmb     2
+vD:     rmb     2
+vA:     rmb     2
+vB:     rmb     2
+vS:     rmb     2
+vP:     rmb     2
+vQ:     rmb     2
+vT:     rmb     2
+vY:     rmb     1
+vX:     rmb     1
+vI:     rmb     1
+
+;;; Working space for arith.inc
+R0:
+R0H:    rmb     1
+R0L:    rmb     1
+R1:
+R1H:    rmb     1
+R1L:    rmb     1
+R2:
+R2H:    rmb     1
+R2L:    rmb     1
+sign:   rmb     1
+
         org     $2000
 rx_queue_size:  equ     128
 rx_queue:       rmb     rx_queue_size
@@ -46,98 +84,35 @@ initialize:
         ldaa    #RX_INT_TX_NO
         staa    ACIA_control
         cli                     ; enable IRQ
-        bra     loop
 
-wait:
-        wai
 loop:
-        bsr     getchar
-        bcc     wait
-        tsta
-        beq     halt_to_system
-        tab
-        bsr     putchar         ; echo
-        ldaa    #' '            ; space
-        bsr     putchar
-        bsr     put_hex8        ; print in hex
-        ldaa    #' '            ; space
-        bsr     putchar
-        bsr     put_bin8        ; print in binary
-        bsr     newline
+        jsr     mandelbrot
+        jsr     newline
         bra     loop
-halt_to_system:
-        swi                     ; halt to system
-
-;;; Put newline
-;;; @clobber A
-newline:
-        ldaa    #$0D
-        bsr     putchar
-        ldaa    #$0A
-        bra     putchar
-
-;;; Print uint8_t in hex
-;;; @param B uint8_t value to be printed in hex.
-;;; @clobber A
-put_hex8:
-        ldaa    #'0'
-        bsr     putchar
-        ldaa    #'x'
-        bsr     putchar
-        tba
-        lsra
-        lsra
-        lsra
-        lsra
-        bsr     put_hex4
-        tba
-put_hex4:
-        anda    #$0F
-        adda    #$90            ; $90-$9F
-        daa                     ; $90-$09, $00-$05(C=1)
-        adca    #$40            ; $D0-$D9, $41-$46
-        daa                     ; $30-$39, $41-$46
-        bra     putchar
-
-;;; Print uint8_t in binary
-;;; @param B uint8_t value to be printed in binary.
-;;; @clobber A
-put_bin8:
-        pshb
-        ldaa    #'0'
-        bsr     putchar
-        ldaa    #'b'
-        bsr     putchar
-        bsr     put_bin4
-        bsr     put_bin4
-        pulb
-        rts
-put_bin4:
-        bsr     put_bin2
-put_bin2:
-        bsr     put_bin1
-put_bin1:
-        ldaa    #'0'        
-        lslb                    ; C=MSB
-        bcc     putchar         ; MSB=0
-        inca                    ; MSB=1
-        bra     putchar
 
 ;;; Get character
 ;;; @return A
 ;;; @return CC.C 0 if no character
 ;;; @clobber X
 getchar:
-        ldx     #rx_queue
         sei                     ; disable IRQ
+        ldx     #rx_queue
         jsr     queue_remove
         cli                     ; enable IRQ
         rts
 
 ;;; Put character
 ;;; @param A
-;;; @clobber X
+;;; @clobber R2
+putspace:
+        ldaa    #' '
+        bra     putchar
+newline:
+        ldaa    #$0D
+        bsr     putchar
+        ldaa    #$0A
 putchar:
+        stx     R2
         psha
         ldx     #tx_queue
 putchar_retry:
@@ -148,8 +123,11 @@ putchar_retry:
         ldaa    #RX_INT_TX_INT  ; enable Tx interrupt
         staa    ACIA_control
         pula
+        ldx     R2
         rts
 
+        include "nodiv.inc"
+        include "arith.inc"
         include "queue.inc"
 
 isr_irq:

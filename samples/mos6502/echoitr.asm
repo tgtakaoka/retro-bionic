@@ -95,12 +95,10 @@ put_hex8:
         pla
 put_hex4:
         and     #$0f
-        cmp     #10
-        bcc     put_hex8_dec    ; <10
-        adc     #'A'-10-1       ; C=1
-        jmp     putchar
-put_hex8_dec:
-        adc     #'0'
+        sed
+        cmp     #10             ; $00-$09(C=0), $0A-$0F(C=1)
+        adc     #$30            ; $30-$39, $46-$4F
+        cld
         jmp     putchar
 
 ;;; Print uint8_t in binary
