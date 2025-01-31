@@ -58,14 +58,7 @@ int main(int argc, char **argv) {
                     break;
                 ++i;
             } while (i < 16);
-            char out;
-            if (i >= 16) {
-                out = ' ';
-            } else if (i < 10) {
-                out = i + '0';
-            } else {
-                out = i - 10 + 'A';
-            }
+            char out = i < 10 ? i + '0' : (i < 16 ? i - 10 + 'A' : ' ');
             if (debug) {
                 printf("@=%c\n", out);
             } else {
