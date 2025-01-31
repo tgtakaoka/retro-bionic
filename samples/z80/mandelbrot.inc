@@ -174,10 +174,9 @@ loop_i:
         jr      print_char
 print_i:
         ld      A, (vI)
-        add     A, 90H
-        daa
-        adc     A, 40H
-        daa
+        cp      10              ; $00-$09(C=1), $0A-$0F(C=0)
+        sbc     A, 69H          ; $96-$9F, $A1-$A6
+        daa                     ; $30-$39, $41-$46
 print_char:
         call    putchar
 

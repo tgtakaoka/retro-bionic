@@ -69,7 +69,7 @@
           0 : =B4                RX_INT_TX_INT   =       WSB_8N1_gc|RIEB_bm|TCB_EI_gc
           0 :
        FFFE :                            *=      VEC_IRQ
-       FFFE : 0E 11                      .word   isr_irq
+       FFFE : 09 11                      .word   isr_irq
       10000 :
        FFFC :                            *=      VEC_RESET
        FFFC : 00 10                      .word   initialize
@@ -94,10 +94,10 @@
        1003 : D8                         cld                     ; clear decimal flag
        1004 : A2 02                      ldx     #rx_queue
        1006 : A9 80                      lda     #rx_queue_size
-       1008 : 20 B1 10                   jsr     queue_init
+       1008 : 20 AC 10                   jsr     queue_init
        100B : A2 08                      ldx     #tx_queue
        100D : A9 80                      lda     #tx_queue_size
-       100F : 20 B1 10                   jsr     queue_init
+       100F : 20 AC 10                   jsr     queue_init
        1012 :                            ;; initialize ACIA
        1012 : A9 03                      lda     #CDS_RESET_gc   ; master reset
        1014 : 8D 00 DF                   sta     ACIA_control
@@ -106,22 +106,22 @@
        101C : 58                         cli                     ; enable IRQ
        101D :
        101D :                    receive_loop:
-       101D : 20 98 10                   jsr     getchar
+       101D : 20 93 10                   jsr     getchar
        1020 : B0 FB                      bcs     receive_loop
        1022 : 09 00                      ora     #0
        1024 : F0 1D                      beq     halt_to_system
        1026 :                    echo_back:
        1026 : 48                         pha
-       1027 : 20 A0 10                   jsr     putchar         ; echo
+       1027 : 20 9B 10                   jsr     putchar         ; echo
        102A : A9 20                      lda     #' '            ; space
-       102C : 20 A0 10                   jsr     putchar
+       102C : 20 9B 10                   jsr     putchar
        102F : 68                         pla
        1030 : 48                         pha
        1031 : 20 4F 10                   jsr     put_hex8        ; print in hex
        1034 : A9 20                      lda     #' '            ; space
-       1036 : 20 A0 10                   jsr     putchar
+       1036 : 20 9B 10                   jsr     putchar
        1039 : 68                         pla
-       103A : 20 74 10                   jsr     put_bin8        ; print in binary
+       103A : 20 6F 10                   jsr     put_bin8        ; print in binary
        103D : 20 45 10                   jsr     newline
        1040 : 4C 1D 10                   jmp     receive_loop
        1043 :                    halt_to_system:
@@ -132,9 +132,9 @@
        1045 :                    ;;; @clobber A
        1045 :                    newline:
        1045 : A9 0D                      lda     #$0d
-       1047 : 20 A0 10                   jsr     putchar
+       1047 : 20 9B 10                   jsr     putchar
        104A : A9 0A                      lda     #$0a
-       104C : 4C A0 10                   jmp     putchar
+       104C : 4C 9B 10                   jmp     putchar
        104F :
        104F :                    ;;; Print uint8_t in hex
        104F :                    ;;; @param A uint8_t value to be printed in hex.
@@ -142,9 +142,9 @@
        104F :                    put_hex8:
        104F : 48                         pha
        1050 : A9 30                      lda     #'0'
-       1052 : 20 A0 10                   jsr     putchar
+       1052 : 20 9B 10                   jsr     putchar
        1055 : A9 78                      lda     #'x'
-       1057 : 20 A0 10                   jsr    putchar
+       1057 : 20 9B 10                   jsr    putchar
        105A : 68                         pla
        105B : 48                         pha
        105C : 4A                         lsr     a
@@ -155,195 +155,193 @@
        1063 : 68                         pla
        1064 :                    put_hex4:
        1064 : 29 0F                      and     #$0f
-       1066 : C9 0A                      cmp     #10
-       1068 : 90 05                      bcc     put_hex8_dec    ; <10
-       106A : 69 36                      adc     #'A'-10-1       ; C=1
-       106C : 4C A0 10                   jmp     putchar
-       106F :                    put_hex8_dec:
-       106F : 69 30                      adc     #'0'
-       1071 : 4C A0 10                   jmp     putchar
-       1074 :
-       1074 :                    ;;; Print uint8_t in binary
-       1074 :                    ;;; @param A uint8_t value to be printed in binary.
-       1074 :                    ;;; @clobber A
-       1074 :                    put_bin8:
-       1074 : 48                         pha
-       1075 : A9 30                      lda     #'0'
-       1077 : 20 A0 10                   jsr     putchar
-       107A : A9 62                      lda     #'b'
-       107C : 20 A0 10                   jsr     putchar
-       107F : 68                         pla
-       1080 : 20 83 10                   jsr     put_bin4
-       1083 :                    put_bin4:
-       1083 : 20 86 10                   jsr     put_bin2
-       1086 :                    put_bin2:
-       1086 : 20 89 10                   jsr     put_bin1
-       1089 :                    put_bin1:
-       1089 : 0A                         asl     a               ; C=MSB
-       108A : 48                         pha
-       108B : 90 04                      bcc     put_bin0
-       108D : A9 31                      lda     #'1'
-       108F : D0 02                      bne     put_binchar
-       1091 :                    put_bin0:
-       1091 : A9 30                      lda     #'0'
-       1093 :                    put_binchar:
-       1093 : 20 A0 10                   jsr     putchar
-       1096 : 68                         pla
-       1097 : 60                         rts
-       1098 :
-       1098 :                    ;;; Get character
-       1098 :                    ;;; @return A
-       1098 :                    ;;; @return P.C 1 if no character
-       1098 :                    ;;; @clobber X
-       1098 :                    getchar:
-       1098 : A2 02                      ldx     #rx_queue
-       109A : 78                         sei                     ; disable IRQ
-       109B : 20 EF 10                   jsr     queue_remove
-       109E : 58                         cli
-       109F : 60                         rts
-       10A0 :
-       10A0 :                    ;;; Put character
-       10A0 :                    ;;; @param A
-       10A0 :                    ;;; @clobber X
-       10A0 :                    putchar:
-       10A0 : 48                         pha
-       10A1 :                    putchar_retry:
-       10A1 : A2 08                      ldx     #tx_queue
-       10A3 : 78                         sei                     ; disable IRQ
-       10A4 : 20 CE 10                   jsr     queue_add
-       10A7 : 58                         cli                     ; enable IRQ
-       10A8 : B0 F7                      bcs     putchar_retry   ; queue is full
-       10AA : A9 B4                      lda     #RX_INT_TX_INT  ; enable Tx interrupt
-       10AC : 8D 00 DF                   sta     ACIA_control
-       10AF : 68                         pla
-       10B0 : 60                         rts
-       10B1 :
-       10B1 :                            .include "queue.inc"
-(1)    10B1 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
-(1)    10B1 :                    ;;; [queue_tmp] must be allocated 2 bytes on zero page
-(1)    10B1 :                    ;;; [queue] queue structure
-(1)    10B1 : =0                 queue_len       =       0       ; queue length
-(1)    10B1 : =1                 queue_size      =       1       ; buffer size
-(1)    10B1 : =2                 queue_put       =       2       ; queue put index
-(1)    10B1 : =3                 queue_get       =       3       ; queue get index
-(1)    10B1 : =4                 queue_buf       =       4       ; buffer start address
-(1)    10B1 :
-(1)    10B1 :                    ;;; [queue] Initialize queue
-(1)    10B1 :                    ;;; @param X queue work space pointer
-(1)    10B1 :                    ;;; @param A queue work space size
-(1)    10B1 :                    ;;; @clobber A, Y
-(1)    10B1 :                    queue_init:
-(1)    10B1 : 95 01                      sta     queue_size,x
-(1)    10B3 : 20 C5 10                   jsr     init_queue_tmp
-(1)    10B6 : A8                         tay                     ; Y is queue size
-(1)    10B7 : A9 00                      lda     #0
-(1)    10B9 : 95 00                      sta     queue_len,x
-(1)    10BB : 95 02                      sta     queue_put,x
-(1)    10BD : 95 03                      sta     queue_get,x
-(1)    10BF :                    queue_init_loop:
-(1)    10BF : 91 00                      sta     (queue_tmp),y
-(1)    10C1 : 88                         dey
-(1)    10C2 : D0 FB                      bne     queue_init_loop
-(1)    10C4 : 60                         rts
-(1)    10C5 :
-(1)    10C5 :                    ;;; init_tmp
-(1)    10C5 :                    ;;; @param X queue work space pointer
-(1)    10C5 :                    ;;; store [queue_buf,x] to queue_tmp
-(1)    10C5 :                    ;;; @clobber Y
-(1)    10C5 :                    init_queue_tmp:
-(1)    10C5 : B4 04                      ldy     queue_buf,x
-(1)    10C7 : 84 00                      sty     queue_tmp
-(1)    10C9 : B4 05                      ldy     queue_buf+1,x
-(1)    10CB : 84 01                      sty     queue_tmp+1
-(1)    10CD : 60                         rts
-(1)    10CE :
-(1)    10CE :                    ;;; [queue] Add an element to queue
-(1)    10CE :                    ;;; @param X queue work space pointer
-(1)    10CE :                    ;;; @param A an element
-(1)    10CE :                    ;;; @return P.C 1 if queue is full
-(1)    10CE :                    queue_add:
-(1)    10CE : 48                         pha                     ; save an element
-(1)    10CF : 20 C5 10                   jsr     init_queue_tmp
-(1)    10D2 : B5 00                      lda     queue_len,x
-(1)    10D4 : D5 01                      cmp     queue_size,x
-(1)    10D6 : B0 15                      bcs     queue_add_return  ; queue_len >= queue_size
-(1)    10D8 : B4 02                      ldy     queue_put,x
-(1)    10DA : 68                         pla
-(1)    10DB : 48                         pha
-(1)    10DC : 91 00                      sta     (queue_tmp),y   ; store an element
-(1)    10DE : F6 00                      inc     queue_len,x
-(1)    10E0 : C8                         iny
-(1)    10E1 : 94 02                      sty     queue_put,x
-(1)    10E3 : 98                         tya
-(1)    10E4 : D5 01                      cmp     queue_size,x
-(1)    10E6 : 90 05                      bcc     queue_add_return ; queue_put < queue_size
-(1)    10E8 : A9 00                      lda     #0
-(1)    10EA : 95 02                      sta     queue_put,x
-(1)    10EC : 18                         clc                     ;  C=0
-(1)    10ED :                    queue_add_return:
-(1)    10ED : 68                         pla
-(1)    10EE : 60                         rts
-(1)    10EF :
-(1)    10EF :                    ;;; [queue] Remove an element from queue
-(1)    10EF :                    ;;; @param X queue work space pointer
-(1)    10EF :                    ;;; @return A an element
-(1)    10EF :                    ;;; @return P.C 1 if queue is empty
-(1)    10EF :                    ;;; @clobber Y
-(1)    10EF :                    queue_remove:
-(1)    10EF : B5 00                      lda     queue_len,x
-(1)    10F1 : D0 02                      bne     queue_remove_elem
-(1)    10F3 : 38                         sec                     ; C=1
-(1)    10F4 : 60                         rts
-(1)    10F5 :                    queue_remove_elem
-(1)    10F5 : 20 C5 10                   jsr     init_queue_tmp
-(1)    10F8 : B4 03                      ldy     queue_get,x     ; 8 bits offset
-(1)    10FA : B1 00                      lda     (queue_tmp),y   ; read an element
-(1)    10FC : 48                         pha                     ; save an element
-(1)    10FD : D6 00                      dec     queue_len,x
-(1)    10FF : C8                         iny
-(1)    1100 : 94 03                      sty     queue_get,x
-(1)    1102 : 98                         tya
-(1)    1103 : D5 01                      cmp     queue_size,x
-(1)    1105 : 90 05                      bcc     queue_remove_return ; queue_get < queue_size
-(1)    1107 : A9 00                      lda     #0
-(1)    1109 : 95 03                      sta     queue_get,x
-(1)    110B : 18                         clc                     ; C=0
-(1)    110C :                    queue_remove_return:
-(1)    110C : 68                         pla                     ; restore an element
-(1)    110D : 60                         rts
-       110E :
-       110E :                    isr_irq:
-       110E : D8                         cld                     ; clear decimal flag
-       110F : 48                         pha                     ; save A
-       1110 : 8A                         txa
-       1111 : 48                         pha                     ; save X
-       1112 : 98                         tya
-       1113 : 48                         pha                     ; save Y
-       1114 : AD 00 DF                   lda     ACIA_status
-       1117 : 29 80                      and     #IRQF_bm
-       1119 : F0 20                      beq     isr_irq_exit
-       111B : AD 00 DF                   lda     ACIA_status
-       111E : 29 01                      and     #RDRF_bm
-       1120 : F0 08                      beq     isr_irq_send
-       1122 : AD 01 DF                   lda     ACIA_data       ; receive character
-       1125 : A2 02                      ldx     #rx_queue
-       1127 : 20 CE 10                   jsr     queue_add
-       112A :                    isr_irq_send:
-       112A : AD 00 DF                   lda     ACIA_status
-       112D : 29 02                      and     #TDRE_bm
-       112F : F0 0A                      beq     isr_irq_exit
-       1131 : A2 08                      ldx     #tx_queue
-       1133 : 20 EF 10                   jsr     queue_remove
-       1136 : B0 09                      bcs     isr_irq_send_empty
-       1138 : 8D 01 DF                   sta     ACIA_data       ; send character
-       113B :                    isr_irq_exit:
-       113B : 68                         pla                     ; restore Y
-       113C : A8                         tay
-       113D : 68                         pla                     ; restore X
-       113E : AA                         tax
-       113F : 68                         pla                     ; restore Y
-       1140 : 40                         rti                     ; restore P and PC
-       1141 :                    isr_irq_send_empty:
-       1141 : A9 94                      lda     #RX_INT_TX_NO
-       1143 : 8D 00 DF                   sta     ACIA_control    ; disable Tx interrupt
-       1146 : D0 F3                      bne     isr_irq_exit    ; always branch
+       1066 : F8                         sed
+       1067 : C9 0A                      cmp     #10             ; $00-$09(C=0), $0A-$0F(C=1)
+       1069 : 69 30                      adc     #$30            ; $30-$39, $46-$4F
+       106B : D8                         cld
+       106C : 4C 9B 10                   jmp     putchar
+       106F :
+       106F :                    ;;; Print uint8_t in binary
+       106F :                    ;;; @param A uint8_t value to be printed in binary.
+       106F :                    ;;; @clobber A
+       106F :                    put_bin8:
+       106F : 48                         pha
+       1070 : A9 30                      lda     #'0'
+       1072 : 20 9B 10                   jsr     putchar
+       1075 : A9 62                      lda     #'b'
+       1077 : 20 9B 10                   jsr     putchar
+       107A : 68                         pla
+       107B : 20 7E 10                   jsr     put_bin4
+       107E :                    put_bin4:
+       107E : 20 81 10                   jsr     put_bin2
+       1081 :                    put_bin2:
+       1081 : 20 84 10                   jsr     put_bin1
+       1084 :                    put_bin1:
+       1084 : 0A                         asl     a               ; C=MSB
+       1085 : 48                         pha
+       1086 : 90 04                      bcc     put_bin0
+       1088 : A9 31                      lda     #'1'
+       108A : D0 02                      bne     put_binchar
+       108C :                    put_bin0:
+       108C : A9 30                      lda     #'0'
+       108E :                    put_binchar:
+       108E : 20 9B 10                   jsr     putchar
+       1091 : 68                         pla
+       1092 : 60                         rts
+       1093 :
+       1093 :                    ;;; Get character
+       1093 :                    ;;; @return A
+       1093 :                    ;;; @return P.C 1 if no character
+       1093 :                    ;;; @clobber X
+       1093 :                    getchar:
+       1093 : A2 02                      ldx     #rx_queue
+       1095 : 78                         sei                     ; disable IRQ
+       1096 : 20 EA 10                   jsr     queue_remove
+       1099 : 58                         cli
+       109A : 60                         rts
+       109B :
+       109B :                    ;;; Put character
+       109B :                    ;;; @param A
+       109B :                    ;;; @clobber X
+       109B :                    putchar:
+       109B : 48                         pha
+       109C :                    putchar_retry:
+       109C : A2 08                      ldx     #tx_queue
+       109E : 78                         sei                     ; disable IRQ
+       109F : 20 C9 10                   jsr     queue_add
+       10A2 : 58                         cli                     ; enable IRQ
+       10A3 : B0 F7                      bcs     putchar_retry   ; queue is full
+       10A5 : A9 B4                      lda     #RX_INT_TX_INT  ; enable Tx interrupt
+       10A7 : 8D 00 DF                   sta     ACIA_control
+       10AA : 68                         pla
+       10AB : 60                         rts
+       10AC :
+       10AC :                            .include "queue.inc"
+(1)    10AC :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)    10AC :                    ;;; [queue_tmp] must be allocated 2 bytes on zero page
+(1)    10AC :                    ;;; [queue] queue structure
+(1)    10AC : =0                 queue_len       =       0       ; queue length
+(1)    10AC : =1                 queue_size      =       1       ; buffer size
+(1)    10AC : =2                 queue_put       =       2       ; queue put index
+(1)    10AC : =3                 queue_get       =       3       ; queue get index
+(1)    10AC : =4                 queue_buf       =       4       ; buffer start address
+(1)    10AC :
+(1)    10AC :                    ;;; [queue] Initialize queue
+(1)    10AC :                    ;;; @param X queue work space pointer
+(1)    10AC :                    ;;; @param A queue work space size
+(1)    10AC :                    ;;; @clobber A, Y
+(1)    10AC :                    queue_init:
+(1)    10AC : 95 01                      sta     queue_size,x
+(1)    10AE : 20 C0 10                   jsr     init_queue_tmp
+(1)    10B1 : A8                         tay                     ; Y is queue size
+(1)    10B2 : A9 00                      lda     #0
+(1)    10B4 : 95 00                      sta     queue_len,x
+(1)    10B6 : 95 02                      sta     queue_put,x
+(1)    10B8 : 95 03                      sta     queue_get,x
+(1)    10BA :                    queue_init_loop:
+(1)    10BA : 91 00                      sta     (queue_tmp),y
+(1)    10BC : 88                         dey
+(1)    10BD : D0 FB                      bne     queue_init_loop
+(1)    10BF : 60                         rts
+(1)    10C0 :
+(1)    10C0 :                    ;;; init_tmp
+(1)    10C0 :                    ;;; @param X queue work space pointer
+(1)    10C0 :                    ;;; store [queue_buf,x] to queue_tmp
+(1)    10C0 :                    ;;; @clobber Y
+(1)    10C0 :                    init_queue_tmp:
+(1)    10C0 : B4 04                      ldy     queue_buf,x
+(1)    10C2 : 84 00                      sty     queue_tmp
+(1)    10C4 : B4 05                      ldy     queue_buf+1,x
+(1)    10C6 : 84 01                      sty     queue_tmp+1
+(1)    10C8 : 60                         rts
+(1)    10C9 :
+(1)    10C9 :                    ;;; [queue] Add an element to queue
+(1)    10C9 :                    ;;; @param X queue work space pointer
+(1)    10C9 :                    ;;; @param A an element
+(1)    10C9 :                    ;;; @return P.C 1 if queue is full
+(1)    10C9 :                    queue_add:
+(1)    10C9 : 48                         pha                     ; save an element
+(1)    10CA : 20 C0 10                   jsr     init_queue_tmp
+(1)    10CD : B5 00                      lda     queue_len,x
+(1)    10CF : D5 01                      cmp     queue_size,x
+(1)    10D1 : B0 15                      bcs     queue_add_return  ; queue_len >= queue_size
+(1)    10D3 : B4 02                      ldy     queue_put,x
+(1)    10D5 : 68                         pla
+(1)    10D6 : 48                         pha
+(1)    10D7 : 91 00                      sta     (queue_tmp),y   ; store an element
+(1)    10D9 : F6 00                      inc     queue_len,x
+(1)    10DB : C8                         iny
+(1)    10DC : 94 02                      sty     queue_put,x
+(1)    10DE : 98                         tya
+(1)    10DF : D5 01                      cmp     queue_size,x
+(1)    10E1 : 90 05                      bcc     queue_add_return ; queue_put < queue_size
+(1)    10E3 : A9 00                      lda     #0
+(1)    10E5 : 95 02                      sta     queue_put,x
+(1)    10E7 : 18                         clc                     ;  C=0
+(1)    10E8 :                    queue_add_return:
+(1)    10E8 : 68                         pla
+(1)    10E9 : 60                         rts
+(1)    10EA :
+(1)    10EA :                    ;;; [queue] Remove an element from queue
+(1)    10EA :                    ;;; @param X queue work space pointer
+(1)    10EA :                    ;;; @return A an element
+(1)    10EA :                    ;;; @return P.C 1 if queue is empty
+(1)    10EA :                    ;;; @clobber Y
+(1)    10EA :                    queue_remove:
+(1)    10EA : B5 00                      lda     queue_len,x
+(1)    10EC : D0 02                      bne     queue_remove_elem
+(1)    10EE : 38                         sec                     ; C=1
+(1)    10EF : 60                         rts
+(1)    10F0 :                    queue_remove_elem
+(1)    10F0 : 20 C0 10                   jsr     init_queue_tmp
+(1)    10F3 : B4 03                      ldy     queue_get,x     ; 8 bits offset
+(1)    10F5 : B1 00                      lda     (queue_tmp),y   ; read an element
+(1)    10F7 : 48                         pha                     ; save an element
+(1)    10F8 : D6 00                      dec     queue_len,x
+(1)    10FA : C8                         iny
+(1)    10FB : 94 03                      sty     queue_get,x
+(1)    10FD : 98                         tya
+(1)    10FE : D5 01                      cmp     queue_size,x
+(1)    1100 : 90 05                      bcc     queue_remove_return ; queue_get < queue_size
+(1)    1102 : A9 00                      lda     #0
+(1)    1104 : 95 03                      sta     queue_get,x
+(1)    1106 : 18                         clc                     ; C=0
+(1)    1107 :                    queue_remove_return:
+(1)    1107 : 68                         pla                     ; restore an element
+(1)    1108 : 60                         rts
+       1109 :
+       1109 :                    isr_irq:
+       1109 : D8                         cld                     ; clear decimal flag
+       110A : 48                         pha                     ; save A
+       110B : 8A                         txa
+       110C : 48                         pha                     ; save X
+       110D : 98                         tya
+       110E : 48                         pha                     ; save Y
+       110F : AD 00 DF                   lda     ACIA_status
+       1112 : 29 80                      and     #IRQF_bm
+       1114 : F0 20                      beq     isr_irq_exit
+       1116 : AD 00 DF                   lda     ACIA_status
+       1119 : 29 01                      and     #RDRF_bm
+       111B : F0 08                      beq     isr_irq_send
+       111D : AD 01 DF                   lda     ACIA_data       ; receive character
+       1120 : A2 02                      ldx     #rx_queue
+       1122 : 20 C9 10                   jsr     queue_add
+       1125 :                    isr_irq_send:
+       1125 : AD 00 DF                   lda     ACIA_status
+       1128 : 29 02                      and     #TDRE_bm
+       112A : F0 0A                      beq     isr_irq_exit
+       112C : A2 08                      ldx     #tx_queue
+       112E : 20 EA 10                   jsr     queue_remove
+       1131 : B0 09                      bcs     isr_irq_send_empty
+       1133 : 8D 01 DF                   sta     ACIA_data       ; send character
+       1136 :                    isr_irq_exit:
+       1136 : 68                         pla                     ; restore Y
+       1137 : A8                         tay
+       1138 : 68                         pla                     ; restore X
+       1139 : AA                         tax
+       113A : 68                         pla                     ; restore Y
+       113B : 40                         rti                     ; restore P and PC
+       113C :                    isr_irq_send_empty:
+       113C : A9 94                      lda     #RX_INT_TX_NO
+       113E : 8D 00 DF                   sta     ACIA_control    ; disable Tx interrupt
+       1141 : D0 F3                      bne     isr_irq_exit    ; always branch

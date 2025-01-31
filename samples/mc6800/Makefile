@@ -3,7 +3,7 @@ ASM=asm
 .PHONY: clean
 
 all: echo.s19 echoir.s19 echoitr.s19 arith.s19 mandelbrot.s19 \
-     MSPATCH.s19 mc68xx.s19
+     MSPATCH.s19 mc68xx.s19 nodiv.s19
 
 %.s19:	%.asm
 	$(ASM) -l $*.lst -o $@ $^
