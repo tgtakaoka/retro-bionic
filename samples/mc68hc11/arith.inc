@@ -11,9 +11,9 @@ print_int16:
         ldaa    #'-'
         jsr     putchar
         pula
-        coma
-        comb
-        addd    #1        ; negate value
+        nega
+        negb
+        sbca    #0        ; negate value
 ;;; Print unsigned 16-bit integer as decimal
 ;;; @param D value
 ;;; @clobber D X
@@ -71,24 +71,24 @@ mul16:
         staa    sign            ; save hi(multiplicand^multiplier)
         ldaa    R1H
         bpl     mul16_multiplier
-        coma
-        comb
-        addd    #1              ; negate multiplicand
+        nega
+        negb
+        sbca    #0              ; negate multiplicand
 mul16_multiplier:
         xgdx
         tsta
         bpl     mul16_multiply
-        coma
-        comb
-        addd    #1              ; negate multiplier
+        nega
+        negb
+        sbca    #0              ; negate multiplier
 mul16_multiply:
         xgdx
         bsr     umul16          ; R0=result
         tst     sign            ; (multiplicand^multiplier)
         bpl     mul16_end
-        coma
-        comb
-        addd    #1              ; negate result
+        nega
+        negb
+        sbca    #0              ; negate result
 mul16_end:
         rts
 
@@ -105,24 +105,24 @@ div16:
         staa    sign            ; save hi(dividend^divisor)
         ldaa    R1H
         bpl     div16_divisor
-        coma
-        comb
-        addd    #1              ; negate dividend
+        nega
+        negb
+        sbca    #0              ; negate dividend
 div16_divisor:
         xgdx
         tsta
         bpl     div16_divide
-        coma
-        comb
-        addd    #1              ; negate divisor
+        nega
+        negb
+        sbca    #0              ; negate divisor
 div16_divide:
         xgdx
         idiv                    ; D/X, X=quotient, D=remainder
         xgdx
         tst     sign            ; A=(dividend^divisor)
         bpl     div16_end
-        coma
-        comb
-        addd    #1              ; negate result
+        nega
+        negb
+        sbca    #0              ; negate result
 div16_end:
         rts

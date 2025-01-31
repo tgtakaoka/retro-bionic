@@ -60,14 +60,12 @@ loop_i:
         muld    #-F             ; Q: -Q*F
         addw    vB              ; W: B-Q*F
         stw     vS              ; S=B-Q*F
-        ldd     vA              ; D: A
-        muld    vA              ; Q: A*A
-        pshsw                   ; push A*A
         ldd     vB              ; D: B
         muld    vB              ; Q: B*B
-        puls    D               ; D: A*A
-        subr    W, D            ; D: A*A-B*B
-        tfr     D, W            ; W: A*A-B*B
+        pshsw                   ; push B*B
+        ldd     vA              ; D: A
+        muld    vA              ; Q: A*A
+        subw    ,S++            ; W: A*A-B*B
         sexw                    ; Q: A*A-B*B
         divq    #F              ; W: (A*A-B*B)/F
         addw    vC              ; W: (A*A-B*B)/F+C
@@ -97,8 +95,7 @@ loop_i:
         stw     vQ              ; Q=B/F
         tfr     W, D            ; D: Q
         muld    vQ              ; Q: Q*Q
-        puls    D               ; pop P*P
-        addr    D, W            ; W: P*P+Q*Q
+        addw    ,S++            ; W: P*P+Q*Q
 
         ;; pshsw                   ; save P*P+Q*Q
         ;; jsr     putspace

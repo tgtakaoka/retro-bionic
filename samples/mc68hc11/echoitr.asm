@@ -88,12 +88,10 @@ put_hex8:
         tba
 put_hex4:
         anda    #$0F
-        cmpa    #10
-        blo     put_hex8_dec
-        adda    #'A'-10
-        bra     putchar
-put_hex8_dec:
-        adda    #'0'
+        adda    #$90            ; $90-$9F
+        daa                     ; $90-$09, $00-$05(C=1)
+        adca    #$40            ; $D0-$D9, $41-$46
+        daa                     ; $30-$39, $41-$46
         bra     putchar
 
 ;;; Print uint8_t in binary

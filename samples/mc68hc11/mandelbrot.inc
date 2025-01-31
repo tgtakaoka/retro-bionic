@@ -18,10 +18,9 @@ print:
 sex_A:
         tab
         clra
-        tstb
-        bpl     load_x_plus
-        coma
-load_x_plus:
+        asrb
+        rolb                    ; C=msb(B)
+        sbca    #0
         xgdx
         rts
 
@@ -30,10 +29,9 @@ load_x_plus:
 ;;; @return D sign extended B
 sex_B:
         clra
-        tstb
-        bpl     load_8bit_plus
-        coma
-load_8bit_plus:
+        asrb
+        rolb                    ; C=msb(B)
+        sbca    #0
         rts
 
 mandelbrot:
@@ -174,12 +172,10 @@ print_space:
         bra     print_char
 print_i:
         ldaa    vI
-        suba    #10
-        bpl     print_i2       ; if I>=10
-        adda    #10+'0'
-        bra     print_char
-print_i2:
-        adda    #'A'
+        adda    #$90            ; $90-$9F
+        daa                     ; $90-$09, $00-$05(C=1)
+        adca    #$40            ; $D0-$D9, $41-$46
+        daa                     ; $30-$39, $41-$46
 print_char:
         ;; psha
         ;; ldaa    #'@'

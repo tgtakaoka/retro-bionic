@@ -11,10 +11,9 @@ print_int16:
         ldaa    #'-'
         jsr     putchar
         ldaa    R0H
-        coma
-        comb
-        addb    #1
-        adca    #0
+        nega
+        negb
+        sbca    #0
         staa    R0H
         stab    R0L
 ;;; Print unsigned 16-bit integer as decimal
@@ -117,20 +116,18 @@ mul16:
         ldab    R2L
         ldaa    R2H             ; A=hi(multiplier)
         bpl     mul16_multiplicand
-        coma
-        comb
-        addb    #1
-        adca    #0              ; negate multiplier
+        nega
+        negb
+        sbca    #0              ; negate multiplier
 mul16_multiplicand:
         staa    R2H
         stab    R2L
         ldab    R1L
         ldaa    R1H             ; A=hi(multiplicand)
         bpl     mul16_multiply
-        coma
-        comb
-        addb    #1
-        adca    #0              ; negate multiplicand
+        nega
+        negb
+        sbca    #0              ; negate multiplicand
 mul16_multiply:
         staa    R1H
         stab    R1L
@@ -139,10 +136,9 @@ mul16_multiply:
         ldab    R0L
         tst     sign            ; A=(multiplicand^multiplier)
         bpl     mul16_end
-        coma
-        comb
-        addb    #1
-        adca    #0              ; negate result
+        nega
+        negb
+        sbca    #0               ; negate result
 mul16_end:
         staa    R0H
         stab    R0L
@@ -214,20 +210,18 @@ div16:
         ldab    R2L
         ldaa    R2H             ; A=hi(divisor)
         bpl     div16_dividend
-        coma
-        comb
-        addb    #1
-        adca    #0              ; negate divisor
+        nega
+        negb
+        sbca    #0              ; negate divisor
         staa    R2H
         stab    R2L
 div16_dividend:
         ldab    R1L
         ldaa    R1H             ; A=hi(dividend)
         bpl     div16_divide
-        coma
-        comb
-        addb    #1
-        adca    #0              ; negate dividend
+        nega
+        negb
+        sbca    #0              ; negate dividend
         staa    R1H
         stab    R1L
 div16_divide:
@@ -236,10 +230,9 @@ div16_divide:
         ldab    R0L
         tst     sign            ; A=(dividend^divisor)
         bpl     div16_end
-        coma
-        comb
-        addb    #1
-        adca    #0              ; negate result
+        nega
+        negb
+        sbca    #0              ; negate result
 div16_end:
         staa    R0H
         stab    R0L

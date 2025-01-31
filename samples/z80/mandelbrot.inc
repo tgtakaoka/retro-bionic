@@ -175,11 +175,9 @@ loop_i:
         jr      print_char
 print_i:
         ld      A, (vI)
-        cp      10
-        jr      C, print_i2     ; if I<10
-        add     A, 'A'-'0'-10
-print_i2:
-        add     A, '0'
+        cp      10              ; $00-$09(C=1), $0A-$0F(C=0)
+        sbc     a, 69H          ; $96-$9F, $A1-$A6
+        daa                     ; $30-$39, $41-$46
 print_char:
         call    putchar
 
