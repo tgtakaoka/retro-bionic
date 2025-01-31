@@ -18,11 +18,11 @@ print:
 ;;; @param A
 ;;; @return X sign extended A
 sex_A:
-        clr     R0H
+        clrb
+        asra
+        rola                    ; C=msb(A)
         staa    R0L
-        bpl     sex_A_exit
-        com     R0H
-sex_A_exit:
+        stab    R0H
         ldx     R0
         rts
 
@@ -31,10 +31,9 @@ sex_A_exit:
 ;;; @return D sign extended B
 sex_B:
         clra
-        tstb
-        bpl     sex_B_exit
-        coma
-sex_B_exit:
+        asrb
+        rolb                    ; C=msb(B)
+        sbca    #0
         rts
 
 mandelbrot:
@@ -175,12 +174,10 @@ print_space:
         bra     print_char
 print_i:
         ldaa    vI
-        suba    #10
-        bpl     print_i2       ; if I>=10
-        adda    #10+'0'
-        bra     print_char
-print_i2:
-        adda    #'A'
+        adda    #$90            ; $90-$9F
+        daa                     ; $90-$09, $00-$05(C=1)
+        adca    #$40            ; $D0-$D9, $41-$46
+        daa                     ; $30-$39, $41-$46
 print_char:
         jsr     putchar
 

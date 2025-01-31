@@ -23,10 +23,10 @@ sex_A:
         clrb
         asra
         rola                    ; C=msb(A)
+        sbcb    #0
         staa    R0L
         stab    R0H
         ldx     R0
-        rts
 
 ;;; Sign extend B into D
 ;;; @param B
@@ -38,6 +38,80 @@ sex_B:
         sbca    #0
         rts
 
+;;; Divide by S; quotient = dividend / S
+;;; @param D dividend
+;;; @return D quotient
+;;; @return X quotient
+divS:
+;        ldx     #S
+;        jmp     div16
+        asra
+        rorb                    ; /2
+        asra
+        rorb                    ; /4
+        asra
+        rorb                    ; /8
+        asra
+        rorb                    ; /16
+        asra
+        rorb                    ; /32
+        asra
+        rorb                    ; /64
+        asra
+        rorb                    ; /128
+        staa    R0H
+        stab    R0L
+        ldx     R0
+        rts
+
+;;; Divide by F; quotient = dividend / F
+;;; @param D dividend
+;;; @return D quotient
+;;; @return X quotient
+divF:
+;        ldx     #F
+;        jmp     div16
+        asra
+        rorb                    ; /2
+        asra
+        rorb                    ; /4
+        asra
+        rorb                    ; /8
+        asra
+        rorb                    ; /16
+        asra
+        rorb                    ; /32
+        asra
+        rorb                    ; /64
+        staa    R0H
+        stab    R0L
+        ldx     R0
+        rts
+
+;;; Multiply by F; product = multiplicand * F
+;;; @param D multiplicand
+;;; @return D product
+;;; @return X product
+mulF:
+;        ldx     #F
+;        jmp     mul16
+        lslb
+        rola                    ; *2
+        lslb
+        rola                    ; *4
+        lslb
+        rola                    ; *8
+        lslb
+        rola                    ; *16
+        lslb
+        rola                    ; *32
+        lslb
+        rola                    ; *64
+        staa    R0H
+        stab    R0L
+        ldx     R0
+        rts
+
 mandelbrot:
         ldaa    #-12
         staa    vY              ; Y=-12
@@ -47,19 +121,17 @@ loop_y:
 loop_x:
         ldab    vX
         bsr     sex_B
-        ldx     #229
-        jsr     mul16           ; X*229
-        ldx     #100
-        jsr     div16           ; X*229/100
-        stx     vC              ; C=X*229/100
+        ldx     #KA
+        jsr     mul16           ; X*KA
+        jsr     divS            ; X*KA/S
+        stx     vC              ; C=X*KA/S
         stx     vA              ; A=C
         ldab    vY
         bsr     sex_B
-        ldx     #416
-        jsr     mul16           ; Y*416
-        ldx     #100
-        jsr     div16           ; Y*416/100
-        stx     vD              ; D=Y*416/100
+        ldx     #KB
+        jsr     mul16           ; Y*KB
+        jsr     divS            ; Y*KB/S
+        stx     vD              ; D=Y*KB/S
         stx     vB              ; B=D
         clr     vI              ; I=0
 
@@ -82,11 +154,12 @@ loop_x:
 loop_i:
         ldaa    vB
         ldab    vB+1
-        ldx     #F
-        jsr     div16           ; B/F
+        jsr     divF            ; B/F
         stx     vQ              ; Q=B/F
-        ldx     #-F
-        jsr     mul16           ; -Q*F
+        nega
+        negb
+        sbca    #0              ; -Q
+        jsr     mulF            ; -Q*F
         addb    vB+1
         adca    vB              ; B-Q*F
         staa    vS              ; S=B-Q*F
@@ -105,8 +178,7 @@ loop_i:
         pulb                    ; pull A*A
         subb    R0L
         sbca    R0H             ; A*A-B*B
-        ldx     #F
-        jsr     div16           ; (A*A-B*B)/F
+        jsr     divF            ; (A*A-B*B)/F
         addb    vC+1
         adca    vC              ; (A*A-B*B)/F+C
         pshb
@@ -121,8 +193,7 @@ loop_i:
         ldab    vA+1
         ldx     vS
         jsr     mul16           ; A*S
-        ldx     #F
-        jsr     div16           ; A*S/F
+        jsr     divF            ; A*S/F
         stx     R2              ; R2=A*S/F
         pula
         pulb                    ; pull A*Q
@@ -138,15 +209,13 @@ loop_i:
         pulb                    ; pull (A*A-B*B)/F+C
         staa    vA              ; A=(A*A-B*B)/F+C
         stab    vA+1
-        ldx     #F
-        jsr     div16           ; A/F
+        jsr     divF
         stx     vP              ; P=A/F
         jsr     mul16           ; P*P
         stx     vT              ; T=P*P
         ldaa    vB
         ldab    vB+1
-        ldx     #F
-        jsr     div16           ; B/F
+        jsr     divF
         stx     vQ              ; Q=B/F
         jsr     mul16           ; Q*Q
         addb    vT+1
