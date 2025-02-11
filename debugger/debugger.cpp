@@ -242,7 +242,9 @@ void handleAssembler(uint32_t value, uintptr_t extra, State state) {
 #endif
 
 void handleGoUntil(uint32_t value, uintptr_t extra, State state) {
-    if (state != State::CLI_CANCEL) {
+    if (state == State::CLI_DELETE)
+        return;
+    if (state == State::CLI_SPACE || state == State::CLI_NEWLINE) {
         cli.println();
         Debugger.setTempBreakPoint(value);
         Debugger.go();
