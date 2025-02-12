@@ -69,8 +69,10 @@ namespace {
 //    tXT: min  35 ns, max 155 ns ; LXMAR/XTx delay from T2-
 //    tST:             max 190 ns ; DATAF/RUN/xxxGNT/IFETCH delay from T1+
 
-constexpr auto osc_hi_ns = 150;  // 87.5
-constexpr auto osc_lo_ns = 150;  // 87.5
+constexpr auto osc_hi_ns = 150;   // 90
+constexpr auto osc_lo_ns = 150;   // 90
+constexpr auto osc_hi_prep = 35;  // 90
+constexpr auto osc_lo_prep = 23;  // 90
 
 inline void osc_hi() {
     digitalWriteFast(PIN_OSCOUT, HIGH);
@@ -214,27 +216,25 @@ pdp8::Signals *PinsIm6100::prepareCycle() const {
             assert_debug();
             s->getAddress();
             negate_debug();
-            osc_cycle_lo();
-        } else {
-            if (s->getControl()) {
-                assert_debug();
-                s->getDirection();
-                negate_debug();
-                osc_lo();
-                return s;
-            }
-            osc_hi();
-            delayNanoseconds(osc_hi_ns);
-            if (s->getControl()) {
-                assert_debug();
-                s->getDirection();
-                negate_debug();
-                osc_lo();
-                return s;
-            }
-            osc_lo();
         }
-        delayNanoseconds(osc_lo_ns);
+        delayNanoseconds(osc_lo_prep);
+        if (s->getControl()) {
+            assert_debug();
+            s->getDirection();
+            negate_debug();
+            osc_lo();
+            return s;
+        }
+        osc_hi();
+        if (s->getControl()) {
+            assert_debug();
+            s->getDirection();
+            negate_debug();
+            osc_lo();
+            return s;
+        }
+        delayNanoseconds(osc_hi_prep);
+        osc_lo();
     }
 }
 
