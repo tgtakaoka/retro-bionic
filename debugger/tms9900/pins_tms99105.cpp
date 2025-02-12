@@ -156,6 +156,9 @@ void PinsTms99105::resetPins() {
     negate_debug();
     // phi1
 
+    const auto macro = regs<RegsTms99105>()->macroMode();
+    if (macro != MACRO_STANDARD)
+        digitalWriteFast(PIN_APP, LOW);
     for (auto i = 0; i < 10; ++i)
         system_cycle();
     negate_reset();
@@ -163,6 +166,8 @@ void PinsTms99105::resetPins() {
     Signals::resetCycles();
     pauseCycle();
     _regs->save();
+    if (macro != MACRO_BASELINE)
+        digitalWriteFast(PIN_APP, HIGH);
     _regs->reset();
 }
 

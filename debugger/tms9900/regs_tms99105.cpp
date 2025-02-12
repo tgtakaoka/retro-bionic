@@ -13,12 +13,12 @@ const char line1[] = "PC=xxxx  WP=xxxx  ST=LAECVPXPM_AX1111";
 }  // namespace
 
 RegsTms99105::RegsTms99105(PinsTms99105 *pins, Mems *mems)
-    : RegsTms9900(pins, mems) {
+    : RegsTms9900(pins, mems), _macro(MACRO_STANDARD), _tms99110(false) {
     _buffer1.set(line1);
 }
 
 const char *RegsTms99105::cpu() const {
-    return "TMS99105";
+    return _tms99110 ? "TMS99110" : "TMS99105";
 }
 
 void RegsTms99105::restore() {
@@ -53,6 +53,29 @@ void RegsTms99105::breakPoint() {
     _pc = buf[1];                                  // WR14: old PC
     _st = buf[2];                                  // WR15: old ST
     _pc -= 2;                                      // offset break point XOP
+}
+
+void RegsTms99105::helpRegisters() const {
+    cli.println(F("?Reg: PC WP ST R0-R15 MACRO"));
+}
+
+constexpr const char *REGS1[] = {
+        "MACRO",  // 20
+};
+
+const Regs::RegList *RegsTms99105::listRegisters(uint_fast8_t n) const {
+    static constexpr RegList REG_LIST[] = {
+            {REGS1, 1, 20, 2},
+    };
+    return n == 1 ? &REG_LIST[0] : RegsTms9900::listRegisters(n);
+}
+
+bool RegsTms99105::setRegister(uint_fast8_t reg, uint32_t value) {
+    if (reg == 20) {
+        _macro = MacroMode(value);
+        return false;
+    }
+    return RegsTms9900::setRegister(reg, value);
 }
 
 }  // namespace tms99105

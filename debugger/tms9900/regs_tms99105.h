@@ -8,18 +8,33 @@ namespace tms99105 {
 
 struct PinsTms99105;
 
+enum MacroMode : uint_fast8_t {
+    MACRO_BASELINE = 0,
+    MACRO_STANDARD = 1,
+    MACRO_PROTOTYPING = 2,
+};
+
 struct RegsTms99105 final : tms9900::RegsTms9900 {
     RegsTms99105(PinsTms99105 *pins, Mems *mems);
 
     const char *cpu() const override;
+    const char *cpuName() const override { return cpu(); }
 
     void save() override;
     void restore() override;
 
+    void helpRegisters() const override;
+    const RegList *listRegisters(uint_fast8_t n) const override;
+    bool setRegister(uint_fast8_t reg, uint32_t value) override;
+
     void breakPoint() override;
+    MacroMode macroMode() const { return _macro; }
 
 private:
-    template<typename T, uint_fast8_t SIZE>
+    MacroMode _macro;
+    bool _tms99110;
+
+    template <typename T, uint_fast8_t SIZE>
     inline auto length(const T (&array)[SIZE]) {
         return SIZE;
     }
