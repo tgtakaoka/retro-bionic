@@ -2,6 +2,7 @@
 #include "debugger.h"
 #include "devs_tms9900.h"
 #include "digital_bus.h"
+#include "inst_tms9900.h"
 #include "mems_tms99105.h"
 #include "regs_tms99105.h"
 #include "signals_tms99105.h"
@@ -156,6 +157,9 @@ void PinsTms99105::resetPins() {
     negate_debug();
     // phi1
 
+    const auto macro = regs<RegsTms99105>()->macroMode();
+    if (macro != MacroMode::MACRO_STANDARD)
+        digitalWriteFast(PIN_APP, LOW);
     for (auto i = 0; i < 10; ++i)
         system_cycle();
     negate_reset();
@@ -163,6 +167,8 @@ void PinsTms99105::resetPins() {
     Signals::resetCycles();
     pauseCycle();
     _regs->save();
+    if (macro != MacroMode::MACRO_BASELINE)
+        digitalWriteFast(PIN_APP, HIGH);
     _regs->reset();
 }
 
@@ -183,11 +189,16 @@ tms9900::Signals *PinsTms99105::completeCycle(tms9900::Signals *_s) const {
     auto s = static_cast<Signals *>(_s);
     if (ready_asserted()) {
         s->getControl();
-        if (s->read()) {
+        if (s->readEnable()) {
             // phi4
             clkin_hi();
             if (s->readMemory()) {
-                s->data = _mems->read(s->addr);
+                auto m = mems<MemsTms99105>();
+                if (s->macrostore()) {
+                    s->data = m->readMacro(s->addr);
+                } else {
+                    s->data = m->read(s->addr);
+                }
             } else {
                 delayNanoseconds(clkin_hi_ns);
             }
@@ -199,13 +210,18 @@ tms9900::Signals *PinsTms99105::completeCycle(tms9900::Signals *_s) const {
             Signals::nextCycle();
             clkin_lo();
             s->inputMode();
-        } else if (s->write()) {
+        } else if (s->writeEnable()) {
             // phi4
             clkin_hi();
             s->getData();
             clkin_lo();
             if (s->writeMemory()) {
-                _mems->write(s->addr, s->data);
+                auto m = mems<MemsTms99105>();
+                if (s->macrostore()) {
+                    m->writeMacro(s->addr, s->data);
+                } else {
+                    m->write(s->addr, s->data);
+                }
             } else {
                 delayNanoseconds(clkin_lo_ns);
             }

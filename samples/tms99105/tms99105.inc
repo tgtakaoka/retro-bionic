@@ -2,6 +2,12 @@
         *** TMS99105
         include "tms9900.inc"
         cpu     tms99105
+        *** Status Register
+ST_AF:          equ     ST_OV             ; Arithmetic fault
+ST_PRV:         equ     ?0000000100000000 ; Privileged mode
+ST_MAP:         equ     ?0000000010000000 ; Map select
+ST_AFIE:        equ     ?0000000000100000 ; Arithmetic fault interrupt enable
+ST_EM:          equ     ?0000000000010000 ; XOP emulate enable
         *** Vector
 VEC_INT2:       equ     >0008   ; INT2
 VEC_INT3:       equ     >000C   ; INT3

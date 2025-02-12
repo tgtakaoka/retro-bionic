@@ -1,12 +1,12 @@
 #ifndef __PINS_TMS9900_H__
 #define __PINS_TMS9900_H__
 
-#define CNTL_MEMEN 0x1 /* CNTL0; active low */
-#define CNTL_DBIN 0x2  /* CNTL1; active high */
-#define CNTL_WE 0x4    /* CNTL2; active low */
-#define CNTL_IAQ 0x8   /* CNTL3; active high */
-#define CNTL_16BIT 0x10
-#define PIN_READY 31   /* P8.22; active high */
+#define CNTL_MEMEN 0x1  /* CNTL0; active low */
+#define CNTL_DBIN 0x2   /* CNTL1; active high */
+#define CNTL_WE 0x4     /* CNTL2; active low */
+#define CNTL_IAQ 0x8    /* CNTL3; active high */
+#define CNTL_16BIT 0x10 /* CNTL4 */
+#define PIN_READY 31    /* P8.22; active high */
 
 #include "pins.h"
 #include "signals_tms9900.h"

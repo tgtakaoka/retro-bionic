@@ -37,9 +37,15 @@ struct Signals final : SignalsBase<Signals, tms9900::Signals> {
     void outData() const;
     void inputMode() const;
 
+    bool writeEnable() const;
+    bool readEnable() const;
+    bool macrostore() const;
+
 private:
     uint8_t bst() const { return _signals[1]; }
     uint8_t &bst() { return _signals[1]; }
+    uint8_t rd() const { return _signals[2]; }
+    uint8_t &rd() { return _signals[2]; }
 };
 }  // namespace tms99105
 }  // namespace debugger

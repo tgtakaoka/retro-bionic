@@ -28,6 +28,7 @@ struct CharBuffer final {
     void oct24(uint_fast8_t pos, uint_fast32_t value);
     void bits(uint_fast8_t pos, uint_fast16_t value, uint_fast16_t mask,
             const char *letters);
+    uint_fast8_t text(uint_fast8_t pos, const char *value);
 
 private:
     static constexpr auto _max = 79;

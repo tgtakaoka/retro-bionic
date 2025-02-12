@@ -7,18 +7,37 @@ namespace debugger {
 namespace tms99105 {
 namespace {
 // clang-format off
-//                    01234567890123456789012345678901234567
-const char line1[] = "PC=xxxx  WP=xxxx  ST=LAECVPXPM_AX1111";
+//                              1         2         3         4         5
+//                    01234567890123456789012345678901234567890123456789012345678
+const char line1[] = "PC=xxxx  WP=xxxx  ST=LAECVPXPM_AX1111  MACRO=(PROTOTYPING)";
 // clang-format on
+
+const char *const MACRO_MODE[] = {
+        "BASELINE",
+        "STANDARD",
+        "PROTOTYPING",
+};
 }  // namespace
 
 RegsTms99105::RegsTms99105(PinsTms99105 *pins, Mems *mems)
-    : RegsTms9900(pins, mems) {
+    : RegsTms9900(pins, mems), _macroMode(MACRO_STANDARD), _modeValid(false) {
     _buffer1.set(line1);
 }
 
-const char *RegsTms99105::cpu() const {
-    return "TMS99105";
+void RegsTms99105::print() const {
+    uint_fast8_t pos = 45;
+    if (!_modeValid)
+        _buffer1[pos++] = '(';
+    pos = _buffer1.text(pos, MACRO_MODE[_macroMode]);
+    if (!_modeValid)
+        _buffer1[pos++] = ')';
+    _buffer1[pos] = 0;
+    RegsTms9900::print();
+}
+
+void RegsTms99105::reset() {
+    _modeValid = true;
+    RegsTms9900::reset();
 }
 
 void RegsTms99105::restore() {
@@ -53,6 +72,34 @@ void RegsTms99105::breakPoint() {
     _pc = buf[1];                                  // WR14: old PC
     _st = buf[2];                                  // WR15: old ST
     _pc -= 2;                                      // offset break point XOP
+}
+
+void RegsTms99105::helpRegisters() const {
+    cli.println(F("?Reg: PC WP ST R0-R15 MACRO"));
+}
+
+constexpr const char *REGS3[] = {
+        "MACRO",  // 20
+};
+
+const Regs::RegList *RegsTms99105::listRegisters(uint_fast8_t n) const {
+    static constexpr RegList REG_LIST[] = {
+            {REGS3, 1, 20, 2},
+    };
+    if (n == 1)
+        return &REG_LIST[0];
+    return RegsTms9900 ::listRegisters(n);
+}
+
+bool RegsTms99105::setRegister(uint_fast8_t reg, uint32_t value) {
+    if (reg == 20 && _macroMode != MacroMode(value)) {
+        _macroMode = MacroMode(value);
+        _modeValid = false;
+        cli.println();
+        cli.print("!!! Need Reset to change Macrostore mode");
+        return false;
+    }
+    return RegsTms9900::setRegister(reg, value);
 }
 
 }  // namespace tms99105

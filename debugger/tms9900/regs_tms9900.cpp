@@ -97,7 +97,7 @@ void RegsTms9900::write_reg(uint8_t i, uint16_t data) const {
 }
 
 void RegsTms9900::helpRegisters() const {
-    cli.println(F("?Reg: PC WP ST, R0~R15"));
+    cli.println(F("?Reg: PC WP ST R0-R15"));
 }
 
 constexpr const char *REGS16[] = {

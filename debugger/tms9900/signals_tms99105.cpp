@@ -15,9 +15,24 @@ void Signals::getControl() {
     // CNTL_RW is active high (R/#W)
     // CNTL_IAQ is active high
     cntl() = busRead(CNTL) | CNTL_16BIT;
+    rd() = digitalReadFast(PIN_RD);
     bst() = busRead(BST) | (cntl() & CNTL_MEMEN);
     if (bst() == IAQ)
         cntl() |= CNTL_IAQ;
+}
+
+bool Signals::writeEnable() const {
+    // CNTL_WE is active low
+    return (cntl() & CNTL_WE) == 0;
+}
+
+bool Signals::readEnable() const {
+    // #RD is active low
+    return rd() == 0;
+}
+
+bool Signals::macrostore() const {
+    return (bst() & 7) == AUMSL;
 }
 
 void Signals::getData() {

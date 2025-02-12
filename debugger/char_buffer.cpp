@@ -97,6 +97,13 @@ void CharBuffer::bits(uint_fast8_t pos, uint_fast16_t value, uint_fast16_t mask,
     }
 }
 
+uint_fast8_t CharBuffer::text(uint_fast8_t pos, const char *value) {
+    while (*value) {
+        _str[pos++] = *value++;
+    }
+    return pos;
+}
+
 }  // namespace debugger
 
 // Local Variables:
