@@ -31,13 +31,14 @@ const Identity &Identity::searchIdentity(const char *name) {
 }
 
 const Identity &Identity::readIdentity() {
+    Pins::initDebug();
     unioBus.standby();
     unio::Eeprom rom{unioBus};
     uint8_t buffer[16];
     if (rom.read(0, sizeof(buffer), buffer)) {
         const auto *name = reinterpret_cast<const char *>(buffer);
         const auto len = strnlen(name, sizeof(buffer));
-        if (len < sizeof(buffer))
+        if (len < sizeof(buffer) && !Pins::haltSwitch())
             return searchIdentity(name);
     }
     return IdentityNull;

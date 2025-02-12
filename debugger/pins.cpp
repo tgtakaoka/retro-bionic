@@ -11,14 +11,7 @@ Pins::~Pins() {
 }
 
 void Pins::reset() {
-#ifdef PIN_DEBUG
-    negate_debug();
-    pinMode(PIN_DEBUG, OUTPUT);
-#endif
-    pinMode(PIN_USRSW, INPUT_PULLUP);
-#ifdef PIN_USRLED
-    pinMode(PIN_USRLED, OUTPUT);
-#endif
+    initDebug();
     setHalt();
     resetPins();
 }
@@ -35,10 +28,6 @@ void Pins::setHalt() const {
 #endif
 }
 
-bool Pins::haltSwitch() {
-    return digitalReadFast(PIN_USRSW) == LOW;
-}
-
 void Pins::pinsMode(const uint8_t *pins, uint8_t size, uint8_t mode) {
     for (auto i = 0; i < size; ++i)
         pinMode(pins[i], mode);
@@ -52,6 +41,21 @@ void Pins::pinsMode(
         pinMode(pin, mode);
         digitalWrite(pin, val);
     }
+}
+
+void Pins::initDebug() {
+    pinMode(PIN_USRSW, INPUT_PULLUP);
+#ifdef PIN_DEBUG
+    negate_debug();
+    pinMode(PIN_DEBUG, OUTPUT);
+#endif
+#ifdef PIN_USRLED
+    pinMode(PIN_USRLED, OUTPUT);
+#endif
+}
+
+bool Pins::haltSwitch() {
+    return digitalReadFast(PIN_USRSW) == LOW;
 }
 
 void Pins::assert_debug() {

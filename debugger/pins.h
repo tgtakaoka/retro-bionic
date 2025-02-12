@@ -26,6 +26,8 @@ struct Pins {
     void setRun() const;
     void setHalt() const;
 
+    static void initDebug();
+    static bool haltSwitch();
     static void assert_debug();
     static void negate_debug();
     static void toggle_debug();
@@ -48,8 +50,6 @@ protected:
     bool isBreakPoint(uint32_t addr) const;
     void saveBreakInsts() const;
     void restoreBreakInsts() const;
-
-    static bool haltSwitch();
 
     static void pinsMode(const uint8_t *pins, uint8_t size, uint8_t mode);
     static void pinsMode(
