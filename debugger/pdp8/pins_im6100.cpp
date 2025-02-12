@@ -69,10 +69,14 @@ namespace {
 //    tXT: min  35 ns, max 155 ns ; LXMAR/XTx delay from T2-
 //    tST:             max 190 ns ; DATAF/RUN/xxxGNT/IFETCH delay from T1+
 
-constexpr auto osc_hi_ns = 150;   // 90
-constexpr auto osc_lo_ns = 150;   // 90
-constexpr auto osc_hi_prep = 35;  // 90
-constexpr auto osc_lo_prep = 23;  // 90
+constexpr auto osc_hi_ns = 80;       // 90
+constexpr auto osc_lo_ns = 80;       // 90
+constexpr auto osc_hi_prep = 45;     // 90
+constexpr auto osc_lo_prep = 45;     // 90
+constexpr auto osc_lo_inject = 50;   // 90
+constexpr auto osc_hi_output = 20;   // 90
+constexpr auto osc_lo_get = 20;      // 90
+constexpr auto osc_hi_capture = 50;  // 90
 
 inline void osc_hi() {
     digitalWriteFast(PIN_OSCOUT, HIGH);
@@ -218,80 +222,85 @@ pdp8::Signals *PinsIm6100::prepareCycle() const {
             negate_debug();
         }
         delayNanoseconds(osc_lo_prep);
-        if (s->getControl()) {
-            assert_debug();
-            s->getDirection();
-            negate_debug();
-            osc_lo();
-            return s;
-        }
         osc_hi();
         if (s->getControl()) {
             assert_debug();
             s->getDirection();
             negate_debug();
-            osc_lo();
-            return s;
+            break;
         }
         delayNanoseconds(osc_hi_prep);
         osc_lo();
     }
+    return s;
 }
 
 pdp8::Signals *PinsIm6100::completeCycle(pdp8::Signals *_s) const {
     auto s = static_cast<Signals *>(_s);
-    if (s->read()) {
-        if (s->mem()) {
-            if (s->readMemory()) {
-                s->data = _mems->read(s->addr);
-                if (s->fetch() && s->data == pdp8::InstPdp8::HLT)
-                    return nullptr;
-            }
-        } else if (s->dev()) {
-            if (_devs->isSelected(s->addr)) {
-                s->data = _devs->read(s->addr);
-                assert_debug();
-                s->outIoc(devs<pdp8::DevsPdp8>()->control(s->addr));
-                negate_debug();
-            } else {
-                constexpr auto OR = IOC_SKIP | IOC_C0 | IOC_C2;
-                s->data = 0;
-                s->outIoc(OR);  // to preserve AC contents.
-            }
-        } else if (s->cp()) {
-            if (s->readMemory())
-                s->data = _cpmems->read(s->addr);
+    osc_lo();
+    if (s->mem()) {
+        if (s->readMemory()) {
+            s->data = _mems->read(s->addr);
+            if (s->fetch() && s->data == pdp8::InstPdp8::HLT)
+                return nullptr;
         } else {
-            s->data = regs<RegsIm6100>()->readSwitch();
+            delayNanoseconds(osc_lo_inject);
         }
-        assert_debug();
-        s->outData();
-        osc_cycle();
-        s->inputMode();
-        negate_debug();
+    } else if (s->dev()) {
+        if (_devs->isSelected(s->addr)) {
+            s->data = _devs->read(s->addr);
+            s->outIoc(devs<pdp8::DevsPdp8>()->control(s->addr));
+        } else {
+            constexpr auto OR = IOC_SKIP | IOC_C0 | IOC_C2;
+            s->data = 0;
+            s->outIoc(OR);  // to preserve AC contents.
+        }
+    } else if (s->cp()) {
+        if (s->readMemory())
+            s->data = _cpmems->read(s->addr);
     } else {
-        assert_debug();
-        s->getData();
-        negate_debug();
-        if (s->mem()) {
-            if (s->writeMemory())
-                _mems->write(s->addr, s->data);
-        } else if (s->dev()) {
-            if (_devs->isSelected(s->addr))
-                _devs->write(s->addr, s->data);
-        } else if (s->cp()) {
-            if (s->writeMemory())
-                _cpmems->write(s->addr, s->data);
-        }
+        s->data = regs<RegsIm6100>()->readSwitch();
     }
+    osc_hi();
+    assert_debug();
+    s->outData();
+    negate_debug();
+    delayNanoseconds(osc_hi_output);
+    osc_lo();
     Signals::nextCycle();
+    assert_debug();
+    s->inputMode();
+    negate_debug();
+    osc_cycle();
     auto n = Signals::put();
     *n = *s;  // copy address and control
-    while (true) {
-        osc_cycle();
-        if (!n->getControl())
-            return s;
+    while (signal_lxmar() == LOW) {
+        assert_debug();
+        n->getData();
+        negate_debug();
+        if (n->getControl()) {
+            n->getDirection();
+            osc_hi();
+            if (n->mem()) {
+                if (n->writeMemory()) {
+                    _mems->write(n->addr, n->data);
+                } else {
+                    delayNanoseconds(osc_hi_capture);
+                }
+            } else if (n->dev()) {
+                if (_devs->isSelected(n->addr))
+                    _devs->write(n->addr, n->data);
+            } else if (n->cp()) {
+                if (n->writeMemory())
+                    _cpmems->write(n->addr, n->data);
+            }
+            osc_lo();
+            return n;
+        }
+        osc_cycle_lo();
     }
+    
+    return s;
 }
 
 }  // namespace im6100
