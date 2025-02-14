@@ -1,6 +1,7 @@
 #include "regs_tms99105.h"
 #include "debugger.h"
 #include "inst_tms9900.h"
+#include "macro_tms99110.h"
 #include "pins_tms99105.h"
 
 namespace debugger {
@@ -11,17 +12,26 @@ namespace {
 //                    01234567890123456789012345678901234567890123456789012345678
 const char line1[] = "PC=xxxx  WP=xxxx  ST=LAECVPXPM_AX1111  MACRO=(PROTOTYPING)";
 // clang-format on
+const char TMS99110[] = "TMS99110";
 
 const char *const MACRO_MODE[] = {
         "BASELINE",
         "STANDARD",
         "PROTOTYPING",
+        TMS99110,
 };
 }  // namespace
 
 RegsTms99105::RegsTms99105(PinsTms99105 *pins, Mems *mems)
-    : RegsTms9900(pins, mems), _macroMode(MACRO_STANDARD), _modeValid(false) {
+    : RegsTms9900(pins, mems),
+      _macroMode(MACRO_STANDARD),
+      _modeValid(false),
+      _tms99110(false) {
     _buffer1.set(line1);
+}
+
+const char *RegsTms99105::cpu() const {
+    return _tms99110 ? TMS99110 : "TMS99105";
 }
 
 void RegsTms99105::print() const {
@@ -84,7 +94,7 @@ constexpr const char *REGS3[] = {
 
 const Regs::RegList *RegsTms99105::listRegisters(uint_fast8_t n) const {
     static constexpr RegList REG_LIST[] = {
-            {REGS3, 1, 20, 2},
+            {REGS3, 1, 20, 3},
     };
     if (n == 1)
         return &REG_LIST[0];
@@ -96,6 +106,10 @@ bool RegsTms99105::setRegister(uint_fast8_t reg, uint32_t value) {
         _macroMode = MacroMode(value);
         _modeValid = false;
         cli.println();
+        if (_macroMode == MACRO_TMS99110) {
+            tms99110::MacroTms99110::load(mems<MemsTms99105>());
+            cli.println("TMS99110 Macrostore ROM loaded");
+        }
         cli.print("!!! Need Reset to change Macrostore mode");
         return false;
     }

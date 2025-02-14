@@ -1,0 +1,624 @@
+          0 :                    *** -*- mode: asm; mode: flyspell-prog; -*-
+          0 :                            include "tms99110.inc"
+(1)       0 :                    *** -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :                            *** TMS99110
+(1)       0 :                            include "tms99105.inc"
+(2)       0 :                    *** -*- mode: asm; mode: flyspell-prog; -*-
+(2)       0 :                            *** TMS99105
+(2)       0 :                            include "tms9900.inc"
+(3)       0 :                    *** -*- mode: asm; mode: flyspell-prog; -*-
+(3)       0 :                            *** TMS9900
+(3)       0 :                            cpu     tms9900
+(3)       0 :                            *** Status Register
+(3)       0 : =8000              ST_LGT:         equ     ?1000000000000000 ; Logical Greater Than
+(3)       0 : =4000              ST_AGT:         equ     ?0100000000000000 ; Arithmetic Greater Than
+(3)       0 : =2000              ST_EQ:          equ     ?0010000000000000 ; Equal
+(3)       0 : =1000              ST_C:           equ     ?0001000000000000 ; Carry
+(3)       0 : =800               ST_OV:          equ     ?0000100000000000 ; Overflow
+(3)       0 : =400               ST_OP:          equ     ?0000010000000000 ; Parity
+(3)       0 : =200               ST_X:           equ     ?0000001000000000 ; XOP
+(3)       0 : =F                 ST_INT_gm:      equ     ?0000000000001111 ; Interrupt mask
+(3)       0 :                            *** Vector
+(3)       0 : =0                 VEC_RESET:      equ     >0000   ; Reset
+(3)       0 : =4                 VEC_INT1:       equ     >0004   ; INT1
+(3)       0 : =10                VEC_INT4:       equ     >0010   ; INT4
+(3)       0 : =40                VEC_XOP0:       equ     >0040   ; XOP 0
+(3)       0 : =44                VEC_XOP1:       equ     >0044   ; XOP 1
+(3)       0 : =48                VEC_XOP2:       equ     >0048   ; XOP 2
+(3)       0 : =4C                VEC_XOP3:       equ     >004C   ; XOP 3
+(3)       0 : =50                VEC_XOP4:       equ     >0050   ; XOP 4
+(3)       0 : =54                VEC_XOP5:       equ     >0054   ; XOP 5
+(3)       0 : =58                VEC_XOP6:       equ     >0058   ; XOP 6
+(3)       0 : =5C                VEC_XOP7:       equ     >005C   ; XOP 7
+(3)       0 : =60                VEC_XOP8:       equ     >0060   ; XOP 8
+(3)       0 : =64                VEC_XOP9:       equ     >0064   ; XOP 9
+(3)       0 : =68                VEC_XOP10       equ     >0068   ; XOP 10
+(3)       0 : =6C                VEC_XOP11:      equ     >006C   ; XOP 11
+(3)       0 : =70                VEC_XOP12:      equ     >0070   ; XOP 12
+(3)       0 : =74                VEC_XOP13:      equ     >0074   ; XOP 13
+(3)       0 : =78                VEC_XOP14:      equ     >0078   ; XOP 14
+(3)       0 : =7C                VEC_XOP15:      equ     >007C   ; XOP 15
+(2)       0 :                            cpu     tms99105
+(2)       0 :                            *** Status Register
+(2)       0 : =800               ST_AF:          equ     ST_OV             ; Arithmetic fault
+(2)       0 : =100               ST_PRV:         equ     ?0000000100000000 ; Privileged mode
+(2)       0 : =80                ST_MAP:         equ     ?0000000010000000 ; Map select
+(2)       0 : =20                ST_AFIE:        equ     ?0000000000100000 ; Arithmetic fault interrupt enable
+(2)       0 : =10                ST_EM:          equ     ?0000000000010000 ; XOP emulate enable
+(2)       0 :                            *** Vector
+(2)       0 : =8                 VEC_INT2:       equ     >0008   ; INT2
+(2)       0 : =C                 VEC_INT3:       equ     >000C   ; INT3
+(2)       0 : =14                VEC_INT5:       equ     >0014   ; INT5
+(2)       0 : =18                VEC_INT6:       equ     >0018   ; INT6
+(2)       0 : =1C                VEC_INT7:       equ     >001C   ; INT7
+(2)       0 : =20                VEC_INT8:       equ     >0020   ; INT8
+(2)       0 : =24                VEC_INT9:       equ     >0024   ; INT9
+(2)       0 : =28                VEC_INT10:      equ     >0028   ; INT10
+(2)       0 : =2C                VEC_INT11:      equ     >002C   ; INT11
+(2)       0 : =30                VEC_INT12:      equ     >0030   ; INT12
+(2)       0 : =34                VEC_INT13:      equ     >0034   ; INT13
+(2)       0 : =38                VEC_INT14:      equ     >0038   ; INT14
+(2)       0 : =3C                VEC_INT15:      equ     >003C   ; INT15
+(1)       0 :                            cpu     tms99110
+          0 :                    *** TMS99110 Macro Store ROM
+          0 :                    *** https://forums.atariage.com/topic/274613-99110-rom-disassembly/
+          0 :
+        800 :                            org     >0800
+        800 :
+        800 : =1000              EXTERNAL_ROM:   equ     >1000
+        800 : =AAAA              EXTERNAL_MAGIC: equ     >AAAA
+        800 : =1002              EXTERNAL_ENTRY: equ     >1002
+        800 :
+        800 :                    *** Entry table
+        800 : 0BE0                       data    CHECK_ROM       entry for 00xx opcodes
+        802 : 0BE0                       data    CHECK_ROM       entry for 01xx opcodes
+        804 : 0BE0                       data    CHECK_ROM       entry for 02xx opcodes
+        806 : 0B1C                       data    FLOAT_2op       entry for 03xx opcodes
+        808 : 0B6E                       data    FLOAT_arith     entry for 0Cxx opcodes
+        80A : 0B80                       data    FLOAT_1op       entry for 0Dxx opcodes
+        80C : 0BE0                       data    CHECK_ROM       entry for 0Exx opcodes
+        80E : 0AF6                       data    LDx_entry       entry for 0Fxx/07xx opcodes
+        810 : 0BE0                       data    CHECK_ROM       entry for two-word opcodes
+        812 : 0BE0                       data    CHECK_ROM       entry for macro XOP's
+        814 :
+        814 :                    SR_entry:
+        814 : C138                       mov     *R8+, R4        ; is subtrahend zero?
+        816 : 136D                       jeq     FPAC_store_trampoline2 ; yes: update flags & exit
+        818 : 0224 8000                  ai      R4, >8000       ; negate subtrahend
+        81C : 1002                       jmp     AR_check_FPAC
+        81E :                    AR_entry:
+        81E : C138                       mov     *R8+, R4        ; is addend zero?
+        820 : 1368                       jeq     FPAC_store_trampoline2 ; yes: update flags & exit
+        822 :                    AR_check_FPAC:
+        822 : C000                       mov     R0, R0          ; is FPAC zero?
+        824 : 1603                       jne     AR_load
+        826 : C004                       mov     R4, R0          ; move operand to FPAC
+        828 : C058                       mov     *R8, R1
+        82A : 1063                       jmp     FPAC_store_trampoline2 ; save FPAC & exit
+        82C :                    AR_load:
+        82C : 04C6                       clr     R6              ; CR/AR/SR flag
+        82E : C158                       mov     *R8, R5         ; operand is in R4,R5
+        830 :                    CR_entry:
+        830 : 04C2                       clr     R2              ; clear extended precision
+        832 : C0C0                       mov     R0, R3          ; separate exponent and mantissa
+        834 : C1C4                       mov     R4, R7          ; exponent in R3:FPAC, R7:operand
+        836 : 7000                       sb      R0, R0          ; mantissa in R0,R1,R3:FPAC, R4,R5:operand
+        838 : 7104                       sb      R4, R4
+        83A : 0A13                       sla     R3, 1           ; is FPAC negative?
+        83C : 1702                       jnc     AR_abs_oper
+        83E : 06A0 0AE6                  bl      @NegFPAC24      ; no: negate FPAC
+        842 :                    AR_abs_oper:
+        842 : 0993                       srl     R3, 9           ; R3=exponent of FPAC
+        844 : 0A17                       sla     R7, 1           ; is operand negative?
+        846 : 1704                       jnc     AR_align_FPAC
+        848 : 0544                       inv     R4              ; no: negate operand
+        84A : 0505                       neg     R5
+        84C : 1701                       jnc     AR_align_FPAC
+        84E : 0584                       inc     R4
+        850 :                    AR_align_FPAC:
+        850 : 0997                       srl     R7, 9           ; R7=exponent of operand
+        852 : C247                       mov     R7, R9
+        854 : 6243                       s       R3, R9          ; difference of exponents
+        856 : 1319                       jeq     AR_mantissa     ; if exponent is same
+        858 : 0289 0006                  ci      R9, 6           ; operand exponent is larger by 6 nibbles?
+        85C : 110F                       jlt     AR_align_oper
+        85E : C0C7                       mov     R7, R3          ; yes: FPAC is negligible
+        860 : 04C0                       clr     R0
+        862 : 04C1                       clr     R1
+        864 : 1012                       jmp     AR_mantissa
+        866 :                    AR_SramOper:
+        866 : C085                       mov     R5, R2          ; Shift operand right one nibble
+        868 : 0AC2                       sla     R2, 12
+        86A : 001C 4104                  sram    R4, 4
+        86E : 0587                       inc     R7              ; adjust exponent
+        870 :                    AR_digit_align:
+        870 : 81C3                       c       R3, R7          ; are exponents same?
+        872 : 130B                       jeq     AR_mantissa     ; yes: add mantissa
+        874 : 15F8                       jgt     AR_SramOper     ; FPAC is greater, align operand
+        876 : 06A0 0AD4                  bl      @SramFPAC24     ; Operand is greater, align FPAC
+        87A : 10FA                       jmp     AR_digit_align
+        87C :                    AR_align_oper:
+        87C : 0509                       neg     R9
+        87E : 0289 0006                  ci      R9, 6           ; FPAC exponent is larger by 6 nibbles?
+        882 : 11F6                       jlt     AR_digit_align
+        884 : C1C3                       mov     R3, R7          ; yes: operand is negligible
+        886 : 04C4                       clr     R4
+        888 : 04C5                       clr     R5
+        88A :                    AR_mantissa:
+        88A : C186                       mov     R6, R6          ; CR?
+        88C : 1307                       jeq     AR_store        ; no: AR/SR
+        88E : 002A 4004                  am      R4, R0          ; FPAC-operand
+        892 : 02CA                       stst    R10
+        894 : 024A E000                  andi    R10, >E000      ; extract status bits
+        898 : E3CA                       soc     R10, R15        ; update status bits
+        89A : 0380                       rtwp                    ; CR process complete
+        89C :                    AR_store:
+        89C : 002A 4004                  am      R4, R0
+        8A0 : 1325                       jeq     FPAC_clear_tranmpoline
+        8A2 : 1504                       jgt     AR_normalize    ; plus?
+        8A4 : 06A0 0AE6                  bl      @NegFPAC24      ; no: negate FPAC
+        8A8 : 0263 0080                  ori     R3, >0080       ; set sign bit
+        8AC :                    AR_normalize:
+        8AC : D000                       movb    R0, R0          ; is mantissa overflow?
+        8AE : 1302                       jeq     FPAC_normalize
+        8B0 : 06A0 0AD4                  bl      @SramFPAC24     ; yes: shift right one nibble
+        8B4 :                    FPAC_normalize:
+        8B4 : 0280 000F                  ci      R0, >000F       ; is the highest nibble 0?
+        8B8 : 1509                       jgt     FPAC_normalized ; no: mantissa is normalized
+        8BA : 24E0 0BD6                  czc     @EXP_BITS, R3   ; exponent already 0?
+        8BE : 1378                       jeq     FPAC_store_OV   ; yes: underflow
+        8C0 : 0603                       dec     R3              ; reduce exponent & shift mantissa one nibble
+        8C2 : 001D 4100                  slam    R0, 4
+        8C6 : 09C2                       srl     R2, 12          ; shift in one nibble extra precision
+        8C8 : A042                       a       R2, R1
+        8CA : 10F4                       jmp     FPAC_normalize
+        8CC :                    FPAC_normalized:
+        8CC : 06C3                       swpb    R3              ; merge exponent back in
+        8CE : D003                       movb    R3, R0
+        8D0 : 1071                       jmp     FPAC_store      ; store FPAC & set status bits
+        8D2 :
+        8D2 :                    LR_entry:
+        8D2 : C038                       mov     *R8+, R0        ; load S into FPAC
+        8D4 : C058                       mov     *R8, R1
+        8D6 : 1002                       jmp     LRSTR_flag
+        8D8 :
+        8D8 :                    STR_entry:
+        8D8 : CE00                       mov     R0, *R8+        ; store FPAC into S
+        8DA : C601                       mov     R1, *R8
+        8DC :                    LRSTR_flag:
+        8DC : 0242 1800                  andi    R2, ST_C++ST_AF ; C and AF status bits unaffected
+        8E0 : E3C2                       soc     R2, R15
+        8E2 : 1068                       jmp     FPAC_store
+        8E4 :
+        8E4 :                    NEGR_entry:
+        8E4 : 0242 1800                  andi    R2, ST_C++ST_AF ; C and AF status bits unaffected
+        8E8 : E3C2                       soc     R2, R15
+        8EA : C000                       mov     R0, R0          ; is FPAC zero?
+        8EC :                    FPAC_clear_tranmpoline:
+        8EC : 135C                       jeq     FPAC_clear      ; yes, set EQ flag & finish
+        8EE : 0220 8000                  ai      R0, >8000       ; no, invert sign bit
+        8F2 :                    FPAC_store_trampoline2:
+        8F2 : 1060                       jmp     FPAC_store      ; store FPAC & exit
+        8F4 :
+        8F4 :                    MR_entry:
+        8F4 : C138                       mov     *R8+, R4        ; is multiplier equal to zero?
+        8F6 : 1357                       jeq     FPAC_clear      ; yes: set FPAC to zero & finish
+        8F8 : 06A0 0A4C                  bl      @Calc_Exponent  ; separate & add exponents
+        8FC : A187                       a       R7, R6          ; add exponent
+        8FE : FFC0                       data    -64             ; = subtract double excess 64
+        900 :
+        900 :                    *** 32 x 32 => 64 bit multiply. S is R0,R1 and D is R4,R5
+        900 :                    *** result is in R0-R3
+        900 :                    *** used for both MM (R6!=0) and MR (R6==0)
+        900 :                    *** in case of MR it multiplies two 24 bit manrissas
+        900 :                    MM_entry:
+        900 : C085                       mov     R5, R2          ; long multiply in four 16x16 bit steps
+        902 : 3881                       mpy     R1, R2
+        904 : C205                       mov     R5, R8
+        906 : 3A00                       mpy     R0, R8
+        908 : C284                       mov     R4, R10
+        90A : 3A81                       mpy     R1, R10
+        90C : 3804                       mpy     R4, R0
+        90E : 002A 420A                  am      R10, R8         ; add the partial results
+        912 : 1701                       jnc     MM_nocarry1:
+        914 : 0580                       inc     R0
+        916 :                    MM_nocarry1:
+        916 : 002A 4048                  am      R8, R1
+        91A : 1701                       jnc     MM_nocarry2
+        91C : 0580                       inc     R0
+        91E :                    MM_nocarry2:
+        91E : D186                       movb    R6, R6          ; is this a MR or MM instruction?
+        920 : 1607                       jne     MM_store        ; jump if MM
+        922 : D001                       movb    R1, R0
+        924 : 06C0                       swpb    R0
+        926 : D042                       movb    R2, R1
+        928 : 06C1                       swpb    R1
+        92A : 06C2                       swpb    R2
+        92C : C0C6                       mov     R6, R3
+        92E : 10C2                       jmp     FPAC_normalize
+        930 :                    MM_store:
+        930 : CDC0                       mov     R0, *R7+        ; store 8 byte result in D
+        932 : CDC1                       mov     R1, *R7+
+        934 : CDC2                       mov     R2, *R7+
+        936 : C5C3                       mov     R3, *R7
+        938 : E001                       soc     R1, R0          ; if result is 0, set EQ flag
+        93A : E002                       soc     R2, R0
+        93C : E003                       soc     R3, R0
+        93E : 1602                       jne     MM_return
+        940 : 026F 2000                  ori     R15, >2000      ; set EQ flag
+        944 :                    MM_return:
+        944 : 0380                       rtwp
+        946 :
+        946 :                    DR_entry:
+        946 : C138                       mov     *R8+, R4        ; if div-by-zero, report overflow
+        948 : 1319                       jeq     FPAC_fault
+        94A : 06A0 0A4C                  bl      @Calc_Exponent  ; separate & sub exponent
+        94E : 6187                       s       R7, R6          ; subtract exponent
+        950 : 0040                       data    64              ; add back excess double 64
+        952 : 8100                       c       R0, R4          ; if dividend > divisor, result will be >1
+        954 : 1107                       jlt     DR_prepare
+        956 : 1502                       jgt     DR_may_overflow
+        958 : 8141                       c       R1, R5
+        95A : 1A04                       jl      DR_prepare
+        95C :                    DR_may_overflow:
+        95C : 0586                       inc     R6              ; increase result exponent and test for
+        95E : 25A0 0BD6                  czc     @EXP_BITS, R6   ; overflow (mantissa shift happens 992-99A)
+        962 : 130C                       jeq     FPAC_fault
+        964 :                    DR_prepare:
+        964 : 001D 4100                  slam    R0, 4           ; align dividend & divisor for accuracy
+        968 : 001D 4204                  slam    R4, 8           ; make sure divisor larger than dividend
+        96C : 3C04                       div     R4, R0          ; calculate estimate E'F' = AB / C
+        96E : 04C2                       clr     R2              ; (using two steps for long division)
+        970 : 3C44                       div     R4, R1
+        972 : C245                       mov     R5, R9          ; now calculate error term: T = D / C x E'
+        974 : 0949                       srl     R9, 4           ; align C with AB (i.e. make D/C < 1)
+        976 : 04CA                       clr     R10
+        978 : 3E44                       div     R4, R9          ; calculate D / C
+        97A : 1903                       jno     DR_correction   ; always jump
+        97C :                    FPAC_fault:                     ; overflow set C and AF status bits
+        97C : 026F 1800                  ori     R15, ST_C++ST_AF
+        980 : 1019                       jmp     FPAC_store
+        982 :                    DR_correction:
+        982 : 3A40                       mpy     R0, R9          ; calculate T = E' x (D / C)
+        984 : 04C8                       clr     R8              ; align T/10 with E'F' and place into R8,R9
+        986 : 001D 4108                  slam    R8, 4
+        98A : 09CA                       srl     R10, 12
+        98C : A24A                       a       R10, R9
+        98E : 0029 4008                  sm      R8, R0          ; now subtract error term from estimate
+        992 : C200                       mov     R0, R8          ; normalize mantissa
+        994 : 09C8                       srl     R8, 12          ; one or two nibble as needed
+        996 : 1302                       jeq     DR_shift_nibble
+        998 : 001C 4100                  sram    R0, 4
+        99C :                    DR_shift_nibble:
+        99C : 001C 4100                  sram    R0, 4
+        9A0 : 06C6                       swpb    R6              ; merge sign+exponent with mantissa
+        9A2 : D006                       movb    R6, R0
+        9A4 : 1007                       jmp     FPAC_store      ; compare FPAC against zero & store result
+        9A6 :
+        9A6 :                    FPAC_clear:
+        9A6 : 04C0                       clr     R0
+        9A8 : 04C1                       clr     R1
+        9AA :                    FPAC_store_EQ:
+        9AA : 026F 2000                  ori     R15, ST_EQ
+        9AE : 100B                       jmp     FPAC_store_return
+        9B0 :                    FPAC_store_OV:
+        9B0 : 026F 0800                  ori     R15, ST_OV
+        9B4 :                    FPAC_store:
+        9B4 : C000                       mov     R0, R0          ; test sign
+        9B6 : 1105                       jlt     FPAC_store_L    ; if negative only set L> bit
+        9B8 : 1602                       jne     FPAC_store_LA   ; if positive set L> and A> bits
+        9BA : C041                       mov     R1, R1
+        9BC : 13F6                       jeq     FPAC_store_EQ   ; if zero only set EQ bit
+        9BE :                    FPAC_store_LA:
+        9BE : 026F C000                  ori     R15, ST_LGT++ST_AGT ; set L> and A> status bits
+        9C2 :                    FPAC_store_L:
+        9C2 : 026F 8000                  ori     R15, ST_LGT     ; set L> status bit
+        9C6 :                    FPAC_store_return:
+        9C6 : C740                       mov     R0, *R13        ; store FPAC
+        9C8 : CB41 0002                  mov     R1, @2(R13)
+        9CC : 0380                       rtwp                    ; macro code complete
+        9CE :
+        9CE :                    CRI_entry:
+        9CE : 04C8                       clr     R8              ; CRI, R8=0
+        9D0 : 1001                       jmp     CRx_entry
+        9D2 :                    CRE_entry:
+        9D2 : 0708                       seto    R8              ; CRE, R8!=0
+        9D4 :                    CRx_entry:
+        9D4 : 04C2                       clr     R2              ; prepare for 48 bit shift in R0,R1,R2
+        9D6 : C1C0                       mov     R0, R7          ; if FPAC is zero, nothing to do
+        9D8 :                    FPAC_clear_trampoline:
+        9D8 : 13E6                       jeq     FPAC_clear      ; store zero result & exit
+        9DA : C180                       mov     R0, R6          ; separate mantissa
+        9DC : 7000                       sb      R0, R0          ; and put exponent in R6
+        9DE : 06C6                       swpb    R6
+        9E0 : 0246 007F                  andi    R6, >007F
+        9E4 : 0226 FFBF                  ai      R6, -65         ; if exponent at least 1?
+        9E8 : 112D                       jlt     CRx_clear       ; if less than 1, result is zero
+        9EA : 0506                       neg     R6              ; get 32 bit result in R1,R2
+        9EC : 0226 0009                  ai      R6, 9           ; by shifting mantissa between
+        9F0 :                                                    ; 2 and 10 hex digits right.
+        9F0 :                    CRx_shift:
+        9F0 : 0606                       dec     R6
+        9F2 : 1108                       jlt     CRx_exponent
+        9F4 : 001C 4101                  sram    r1, 4
+        9F8 : 0A41                       sla     R1, 4
+        9FA : 001C 4100                  sram    R0, 4
+        9FE : 0240 0FFF                  andi    R0, >0FFF
+        A02 : 10F6                       jmp     CRx_shift
+        A04 :                    CRx_exponent:
+        A04 : C100                       mov     R0, R4          ; if exponent was >8, R4 will be non-zero
+        A06 : C208                       mov     R8, R8          ; opcode was CRE or CRI
+        A08 : 160D                       jne     CRE_fixup
+        A0A :                    CRI_fixup:
+        A0A : C002                       mov     R2, R0          ; CRI: fit result in 16 bits
+        A0C : C1C7                       mov     R7, R7          ; if real was negative, negate int
+        A0E : 1501                       jgt     >0A12           ; (bug: should be >0A18)
+        A10 :                    ;;;        jgt     CRI_positive    ; (bug: was >0A12)
+        A10 : 0500                       neg     R0
+        A12 : 0282 8000                  ci      R2, >8000       ; value -32768 is okay
+        A16 : 1302                       jeq     CRI_check
+        A18 :                    CRI_positive:
+        A18 : C082                       mov     R2, R2          ; check range -32767..32767
+        A1A : 11B0                       jlt     FPAC_fault      ; report overflow (bug: should be >0A20)
+        A1C :                    ;;;        jlt     CRI_fault       ; report overflow (bug: was >097C)
+        A1C :                    CRI_check:
+        A1C : E101                       soc     R1, R4          ; number was >65535?
+        A1E : 1314                       jeq     >0A48           ; no: store result (bug: should be >0A46)
+        A20 :                    ;;;        jeq     FPAC_store      ; no: store result (bug: was >0A48)
+        A20 :                    CRI_fault:
+        A20 : 04C1                       clr     R1
+        A22 :                    FPAC_fault_trampoline:
+        A22 : 10AC                       jmp     FPAC_fault      ; report overflow
+        A24 :
+        A24 :                    CRE_fixup:
+        A24 : C001                       mov     R1, R0          ; CRE: fit result in 32 bits
+        A26 : C1C7                       mov     R7, R7          ; if real was negative, negate 32 bit
+        A28 : 1504                       jgt     >0A32           ; (bug: should be >0A38)
+        A2A :                    ;;;        jgt     >0A32           ; (bug: was >0A32)
+        A2A : 0540                       inv     R0
+        A2C : 0502                       neg     R2
+        A2E : 1701                       jnc     CRE_negate_hi
+        A30 : 0580                       inc     R0
+        A32 :                    CRE_negate_hi:
+        A32 : 0281 8000                  ci      R1, >8000       ; value -2147483648 is okay
+        A36 :                                                    ; (bug: test cannot be exact)
+        A36 : 1302                       jeq     CRE_check
+        A38 :                    CRE_positive:
+        A38 : C041                       mov     R1, R1          ; check range -2147483647..+2147483647
+        A3A : 1102                       jlt     CRE_fault       ; report overflow
+        A3C :                    CRE_check:
+        A3C : C104                       mov     R4, R4          ; number was >4294967296?
+        A3E : 1304                       jeq     CRx_store       ; no: store result
+        A40 :                    CRE_fault:
+        A40 : C042                       mov     R2, R1
+        A42 : 10EF                       jmp     FPAC_fault_trampoline
+        A44 :                    CRx_clear:
+        A44 : 04C0                       clr     R0              ; clear FPAC
+        A46 : 04C2                       clr     R2
+        A48 :                    CRx_store:
+        A48 : C042                       mov     R2, R1          ; set high word of FPAC
+        A4A :                    FPAC_store_trampoline:
+        A4A : 10B4                       jmp     FPAC_store      ; store result & exit
+        A4C :
+        A4C :                    Calc_Exponent:
+        A4C : C000                       mov     R0, R0          ; is FPAC zero?
+        A4E : 13C4                       jeq     FPAC_clear_trampoline ; yes: set flags & finish
+        A50 : C158                       mov     *R8, R5         ; fetch 2nd word of operand
+        A52 : C180                       mov     R0, R6          ; save exponents i R6 and R7
+        A54 : C1C4                       mov     R4, R7
+        A56 : 7000                       sb      R0, R0          ; remove exponents from mantissas
+        A58 : 7104                       sb      R4, R4
+        A5A : C207                       mov     R7, R8          ; figure out sign of result in R8
+        A5C : 2A06                       xor     R6, R8
+        A5E : 06C6                       swpb    R6              ; place FPAC exponent in R6
+        A60 : 0246 007F                  andi    R6, >007F
+        A64 : 06C7                       swpb    R7              ; place operand exponent in R7
+        A66 : 0247 007F                  andi    R7, >007F
+        A6A : 04BB                       x       *R11+           ; MR:"A R7,R6", DR:"S R7,R6"
+        A6C : A1BB                       a       *R11+, R6       ; MR:-64,       DR: +64
+        A6E : 0286 007F                  ci      R6, >007F       ; exponent in range?
+        A72 : 15D7                       jgt     FPAC_fault_trampoline ; jump on overflow
+        A74 : 1B9D                       jh      FPAC_store_OV   ; jump on underflow
+        A76 : 0A18                       sla     R8, 1           ; put sign bit back in exponent
+        A78 : 1702                       jnc     Calc_Exponent_return
+        A7A : 0226 0080                  ai      R6, >80
+        A7E :                    Calc_Exponent_return:
+        A7E : 045B                       rt
+        A80 :
+        A80 :                    CIR_entry:
+        A80 : C018                       mov     *R8, R0         ; fetch S and sign extend into R0,R1
+        A82 : C040                       mov     R0, R1
+        A84 : 08F0                       sra     R0, 15
+        A86 :                    CER_entry:
+        A86 : 026F 1000                  ori     R15, >1000      ; set C bit unconditionally
+        A8A : C080                       mov     R0, R2          ; if S is zero, clear FPAC & finish
+        A8C : E081                       soc     R1, R2
+        A8E : 13A4                       jeq     FPAC_clear_trampoline
+        A90 : C1C0                       mov     R0, R7          ; extract sign bit
+        A92 : 0247 8000                  andi    R7, >8000
+        A96 : 1304                       jeq     CxR_msb16       ; if negative, negate the number
+        A98 : 0540                       inv     R0
+        A9A : 0501                       neg     R1
+        A9C : 1701                       jnc     CxR_msb16
+        A9E : 0580                       inc     R0
+        AA0 :                    CxR_msb16:
+        AA0 : 0206 0048                  li      R6, >0048       ; start exponent at +8
+        AA4 : C000                       mov     R0, R0          ; if top word zero, shift 4 nibbles
+        AA6 : 1604                       jne     CxR_msb8
+        AA8 : C001                       mov     R1, R0
+        AAA : 04C1                       clr     R1
+        AAC : 0226 FFFC                  ai      R6, -4          ; and adjust exponent accordingly
+        AB0 :                    CxR_msb8:
+        AB0 : D000                       movb    R0, R0          ; if top byte zero, shift 2 nibbles
+        AB2 : 1603                       jne     CxR_msb4
+        AB4 : 001D 4200                  slam    R0, 8
+        AB8 : 0646                       dect    R6              ; and adjust exponent accordingly
+        ABA :                    CxR_msb4:
+        ABA : C080                       mov     R0, R2          ; if top nibble is zero, shift one nibble
+        ABC : 0242 F000                  andi    R2, >F000
+        AC0 : 1603                       jne     CxR_exponent
+        AC2 : 001D 4100                  slam    R0, 4
+        AC6 : 0606                       dec     R6              ; and adjust exponent accordingly
+        AC8 :                    CxR_exponent:
+        AC8 : 06C6                       swpb    R6              ; mere exponent (R6), mantissa (R0,R1) and
+        ACA : 001C 4200                  sram    R0, 8           ; sign (R7) together
+        ACE : D006                       movb    R6, R0
+        AD0 : E007                       soc     R7, R0
+        AD2 : 10BB                       jmp     FPAC_store_trampoline
+        AD4 :
+        AD4 :                    SramFPAC24:
+        AD4 : C081                       mov     R1, R2          ; Shift FPAC right one nibble
+        AD6 : 0AC2                       sla     R2, 12
+        AD8 : 001C 4100                  sram    R0, 4
+        ADC : 0583                       inc     R3              ; adjust exponent
+        ADE : 24E0 0BD6                  czc     @EXP_BITS, R3   ; overflow?
+        AE2 : 139F                       jeq     FPAC_fault_trampoline
+        AE4 : 045B                       rt
+        AE6 :
+        AE6 :                    NegFPAC24:
+        AE6 : 0540                       inv     R0
+        AE8 : 0541                       inv     R1
+        AEA : 0502                       neg     R2
+        AEC : 1703                       jnc     NegFPAC24_return
+        AEE : 0581                       inc     R1
+        AF0 : 1701                       jnc     NegFPAC24_return
+        AF2 : 0580                       inc     R0
+        AF4 :                    NegFPAC24_return:
+        AF4 : 045B                       rt
+        AF6 :
+        AF6 :                    LDx_entry:
+        AF6 : 2560 0B18                  czc     @LDx_BITS, R5	; is the opcode >0780 or >07C0
+        AFA : 1672                       jne     CHECK_ROM       ; no: test for extension & exit
+        AFC : 27E0 0B1A                  czc     @PRIV_BIT, R15  ; are we in user mode?
+        B00 : 1303                       jeq     LDx_super
+        B02 : 0300 0000                  limi    >0000           ; yes: set up PRIVOP error
+        B06 : 0380                       rtwp                    ; will cause INT2 after thr RTWP
+        B08 :                    LDx_super:
+        B08 : 0283 C000                  ci      R3, >C000       ; is this a first LDS?
+        B0C : 1303                       jeq     LDx_second
+        B0E : 0283 6000                  ci      R3, >6000       ; is this a first LDD?
+        B12 : 1601                       jne     LDx_return
+        B14 :                    LDx_second:
+        B14 : C08E                       mov     R14, R2         ; save address+2 of first LDS/LDD in a sequence
+        B16 :                    LDx_return:
+        B16 : 0384                       rtwp    4               ; return & defer interrput
+        B18 :                    LDx_BITS:
+        B18 : F83F                       data    >F83F           ; reverse bit pattern of LDD/LDS
+        B1A :                    PRIV_BIT:
+        B1A : 0100                       data    ST_PRV          ; PRV but in ST register
+        B1C :
+        B1C :                    FLOAT_2op:
+        B1C : 0285 0302                  ci      R5, >0302       ; CR or MM opcode
+        B20 : 155F                       jgt     CHECK_ROM       ; no: test extension & exit
+        B22 : 1301                       jeq     FLOAT_2op_src
+        B24 : 04C5                       clr     R5              ; for CR clear R5 as a flag
+        B26 :                    FLOAT_2op_src:
+        B26 : 024F 07FF                  andi    R15, >07FF      ; clear status bits
+        B2A : C0BE                       mov     *R14+, R2       ; fetch second opcode word
+        B2C : 0206 0004                  li      R6, >0004       ; auto increment constant
+        B30 : C042                      mov     R2, R1          ; extract <src> bits
+        B32 : 0241 003F                  andi    R1, >003F
+        B36 : 0101                       evad    R1              ; calculate src address
+        B38 : 1601                       jne     FLOAT_2op_dst
+        B3A : A686                       a       R6, *R10        ; if Ts=3, auto increment src ptr
+        B3C :                    FLOAT_2op_dst:
+        B3C : C008                       mov     R8, R0          ; save source address during 2nd EVAD
+        B3E : 0242 0FC0                  andi    R2, >0FC0       ; extract <dst> bits
+        B42 : 0102                       evad    R2
+        B44 : 1B04                       jh      FLOAT_2op_fetch ; if Td=3, auto increment dst ptr
+        B46 : C145                       mov     R5, R5          ; check CR/MM flag
+        B48 : 1301                       jeq     FLOAT_2op_inc   ; if CR then increment 4
+        B4A : 0A16                       sla     R6, 1           ; for MM, increment is 8
+        B4C :                    FLOAT_2op_inc:
+        B4C : A646                       a       R6, *R9
+        B4E :                    FLOAT_2op_fetch:
+        B4E : C085                       mov     R5, R2          ; move opcode to R2
+        B50 : C200                       mov     R0, R8          ; restore source address
+        B52 : C038                       mov     *R8+, R0        ; fetch S to R0,R1 and D to R4,R5
+        B54 : C058                       mov     *R8, R1
+        B56 : C117                       mov     *R7, R4
+        B58 : C167 0002                  mov     @2(R7), R5
+        B5C : 0706                       seto    R6              ; set the MM/CR flag
+        B5E : C082                       mov     R2, R2          ; was opcode CR?
+        B60 : 1604                       jne     MM_tranpoline
+        B62 : 0224 8000                  ai      R4, >8000       ; change sign of D
+        B66 : 0460 0830                  b       @CR_entry       ; perform CR=S+(-D) without store
+        B6A :                    MM_tranpoline:
+        B6A : 0460 0900                  b       @MM_entry       ; perform MM
+        B6E :
+        B6E :                    FLOAT_arith:
+        B6E : 0285 0C3F                  ci      R5, >0C3F       ; zero or one operand code?
+        B72 : 1506                       jgt     FLOAT_1op       ; jump if one operand
+        B74 : 2560 0BD4                  czc     @FLOAT0_BIT, R5 ; valid zero operand instruction?
+        B78 : 161C                       jne     CHECK_XIT       ; no: test for XIT
+        B7A : 0245 0006                  andi    R5, >0006       ; if valid operand opcode
+        B7E : 1011                       jmp     FLOAT_0op       ; go fetch FPAC & go to opcode routine
+        B80 :
+        B80 :                    FLOAT_1op:
+        B80 : C2C5                       mov     R5, R11         ; handle one operand case
+        B82 : 0245 01FF                  andi    R5, >01FF       ; isolate <src> bits
+        B86 : 0105                       evad    R5              ; calculate EA
+        B88 : 1609                       jne     >0B9C           ; Ts = 3 ?
+        B8A : 024B FFC0                  andi    R11, >FFC0      ; mask out operand bits
+        B8E : 028B 0C80                  ci      R11, >0C80      ; opcode is CIR?
+        B92 : 1602                       jne     FLOAT_1op_inc4  ; yes; auto increment by 2, else by 4
+        B94 : 05DA                       inct    *R10
+        B96 : 1002                       jmp     FLOAT_1op_switch
+        B98 :                    FLOAT_1op_inc4:
+        B98 : A6A0 0B2E                  a       @>0B2E, *R10    ; >0B2E contains 4
+        B9C :                    FLOAT_1op_switch:
+        B9C : 0855                       sra     R5, 5           ; calculate switch index from opcode
+        B9E : 0225 0006                  ai      R5, 6           ; offset zero operand entries
+        BA2 :                    FLOAT_0op:
+        BA2 : C01D                       mov     *R13, R0        ; fetch FPAC into local R0,R1
+        BA4 : C06D 0002                  mov     @2(R13), R1
+        BA8 : C08F                       mov     R15, R2         ; save status ^ clear ST0-ST4
+        BAA : 024F 07FF                  andi    R15, >07FF      ; (status is saved to restore ST3-ST4 as needed)
+        BAE : 0165 0BBE                  bind    @FLOAT_TABLE(R5) ; jump to specific opcode routine
+        BB2 :
+        BB2 :                    CHECK_XIT:                      ; Exit float emulation for TI990/12
+        BB2 : C1C5                       mov     R5, R7          ; test for XIT (>0C0E ad >0C0F)
+        BB4 : 0917                       srl     R7, 1           ; XIT is a no-op
+        BB6 : 0287 0607                  ci      R7, >0607
+        BBA : 1612                       jne     CHECK_ROM       ; no test for extension & exit
+        BBC : 0380                       rtwp                    ; macro processing complete
+        BBE :
+        BBE :                    FLOAT_TABLE:
+        BBE : 09CE                       data    CRI_entry
+        BC0 : 08E4                       data    NEGR_entry
+        BC2 : 09D2                       data    CRE_entry
+        BC4 : 0A86                       data    CER_entry
+        BC6 : 081E                       data    AR_entry
+        BC8 : 0A80                       data    CIR_entry
+        BCA : 0814                       data    SR_entry
+        BCC : 08F4                       data    MR_entry
+        BCE : 0946                       data    DR_entry
+        BD0 : 08D2                       data    LR_entry
+        BD2 : 08D8                       data    STR_entry
+        BD4 :
+        BD4 :                    FLOAT0_BIT:
+        BD4 : 0039                       data    >0039           ; zero bits for FLOAT_0op
+        BD6 :                    EXP_BITS:
+        BD6 : 007F                       data    >007F           ; exponent bits
+        BD8 :
+        BD8 : FFFF                       data    >FFFF
+        BDA : FFFF                       data    >FFFF
+        BDC : FFFF                       data    >FFFF
+        BDE : FFFF                       data    >FFFF
+        BE0 :
+        BE0 :                    CHECK_ROM:
+        BE0 : C1E0 1000                  mov     @EXTERNAL_ROM, R7 ; test macro location >1000 for >AAAA magic
+        BE4 : 0287 AAAA                  ci      R7, EXTERNAL_MAGIC
+        BE8 : 1602                       jne     RETURN_ILLOP    ; if nor present exit
+        BEA : 0460 1002                  b       @EXTERNAL_ENTRY ; jump to external macro code
+        BEE :                    RETURN_ILLOP:
+        BEE : 0382                       rtwp    2               ; return & trigger ILLOP interrupt
+        BF0 :
+        BF0 : FFFF                       data    >FFFF
+        BF2 : FFFF                       data    >FFFF
+        BF4 : FFFF                       data    >FFFF
+        BF6 : FFFF                       data    >FFFF
+        BF8 : FFFF                       data    >FFFF
+        BFA : FFFF                       data    >FFFF
+        BFC : FFFF                       data    >FFFF
+        BFE : FFFF                       data    >FFFF

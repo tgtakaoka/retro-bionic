@@ -12,10 +12,14 @@ enum MacroMode : uint_fast8_t {
     MACRO_BASELINE = 0,
     MACRO_STANDARD = 1,
     MACRO_PROTOTYPING = 2,
+    MACRO_TMS99110 = 3,
 };
 
 struct RegsTms99105 final : tms9900::RegsTms9900 {
     RegsTms99105(PinsTms99105 *pins, Mems *mems);
+
+    const char *cpu() const override;
+    const char *cpuName() const override { return cpu(); }
 
     void print() const override;
     void reset() override;
@@ -28,10 +32,12 @@ struct RegsTms99105 final : tms9900::RegsTms9900 {
 
     void breakPoint() override;
     MacroMode macroMode() const { return _macroMode; }
+    void setCpuType(bool tms99110) { _tms99110 = tms99110; }
 
 private:
     MacroMode _macroMode;
     bool _modeValid;
+    bool _tms99110;
 
     template <typename MEMS>
     MEMS *mems() const {

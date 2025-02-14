@@ -7,6 +7,9 @@
 #include "regs_tms99105.h"
 #include "signals_tms99105.h"
 
+#define DEBUG(e)
+// #define DEBUG(e) e
+
 namespace debugger {
 namespace tms99105 {
 
@@ -169,10 +172,10 @@ void PinsTms99105::resetPins() {
     _regs->save();
     if (macro != MacroMode::MACRO_BASELINE)
         digitalWriteFast(PIN_APP, HIGH);
+    checkCpuType();
     _regs->reset();
 }
 
-// TODO: Support Macro store bys cycle
 tms9900::Signals *PinsTms99105::prepareCycle() const {
     auto s = Signals::put();
     // phi2
@@ -184,7 +187,6 @@ tms9900::Signals *PinsTms99105::prepareCycle() const {
     return s;
 }
 
-// TODO: Support Macro store bys cycle
 tms9900::Signals *PinsTms99105::completeCycle(tms9900::Signals *_s) const {
     auto s = static_cast<Signals *>(_s);
     if (ready_asserted()) {
@@ -283,6 +285,32 @@ void PinsTms99105::captureCycles(uint16_t *buf, uint8_t len, bool write) {
         }
         s = (i < len) ? prepareCycle() : pauseCycle();
     }
+}
+
+void PinsTms99105::checkCpuType() {
+    auto s = resumeCycle(_mems->read(tms9900::InstTms9900::VEC_RESET + 2));
+    // Inject CIR instruction and capture all writes.
+    s->inject(0x0C80);  // CIR R0
+    auto assert_nmi = true;
+    uint_fast8_t writes = 0;
+    while (true) {
+        if (s->addr == mems<MemsTms99105>()->vec_nmi())
+            break;
+        completeCycle(s->capture());
+        if (assert_nmi && s->fetch()) {
+            assertInt(tms9900::INTR_NMI);
+            assert_nmi = false;
+        }
+        if (static_cast<tms99105::Signals *>(s)->writeEnable())
+            writes++;
+        DEBUG(cli.print("@@ checkCpuType: "));
+        DEBUG(s->print());
+        s = prepareCycle()->capture();
+    }
+    negateInt(tms9900::INTR_NMI);
+    _regs->save();
+    const auto tms99110 = (writes == 2);
+    regs<RegsTms99105>()->setCpuType(tms99110);
 }
 
 void PinsTms99105::assertInt(uint8_t name_) {

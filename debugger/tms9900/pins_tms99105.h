@@ -86,6 +86,7 @@ private:
     tms9900::Signals *completeCycle(tms9900::Signals *s) const override;
 
     void captureCycles(uint16_t *buf, uint8_t len, bool write);
+    void checkCpuType();
 };
 
 }  // namespace tms99105
