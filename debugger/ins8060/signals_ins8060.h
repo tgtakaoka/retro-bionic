@@ -3,8 +3,8 @@
 
 #include "signals.h"
 
-#define LOG(e) e
-//#define LOG(e)
+// #define LOG(e) e
+#define LOG(e)
 
 namespace debugger {
 namespace ins8060 {
