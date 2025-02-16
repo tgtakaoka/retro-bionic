@@ -36,35 +36,40 @@ namespace ins8060 {
 // clang-format on
 
 namespace {
-//  fx: max 4.0 MHz           ; XIN frequencey
-//  Tc: min 500 ns            ; 2 cycles of XIN
-// TW0: min 120 ns            ; XIN low width
-// TW1: min 120 ns            ; XIN high width
-//  TH: min 100 ns, max 225 ns; XOUT trailing to #ADS trailing
-// ADS: min TC/2-50 ns        ; #ADS width
-// RDS  min TC+50 ns          ; #RDS width
-// WDS: min TC-50 ns          ; #WDS width
+//   fx: max 4.0 MHz    ; XIN frequencey
+//   Tc: min 500 ns     ; 2 cycles of XIN
+//  TW0: min 120 ns     ; XIN low width
+//  TW1: min 120 ns     ; XIN high width
+// TSAD: min Tc/2-165 ns; address setup to #ADS-
+// THAD: min       50 ns; address hold from #RDS/#WDS+
+// TSST: min Tc/2-150 ns; status setup to #ADS-
+// THST: min       50 ns; status hold from #ADS-
+// TSRD: min      175 ns; data setup to #RDS+
+// THRD: min        0 ns; data hold from #RDS+
+// TSWD: min Tc/2-200 ns; data setup to #WDS-
+// THWD:          100 ns; data hold from #WDS+
 
-constexpr auto xin_hi_ns = 105;       // 120
-constexpr auto xin_lo_ns = 80;        // 120
-constexpr auto xin_hi_enout = 84;     // 120
-constexpr auto xin_lo_enout = 82;     // 120
-constexpr auto xin_lo_ads = 80;       // 120
-constexpr auto xin_hi_ads = 85;       // 120
-constexpr auto xin_write_begin = 72;  // 120
-constexpr auto xin_hi_wds = 82;       // 120
-constexpr auto xin_lo_wds = 84;       // 120
-constexpr auto xin_lo_write = 52;     // 120
-constexpr auto xin_hi_capture = 94;   // 120
-constexpr auto xin_write_end = 30;    // 120
-constexpr auto xin_read_begin = 100;  // 120
-constexpr auto xin_lo_inject = 50;    // 120
-constexpr auto xin_read_out = 20;     // 120
-constexpr auto xin_hi_rds = 100;      // 120
-constexpr auto xin_lo_rds = 100;      // 120
-constexpr auto xin_lo_read = 90;      // 120
-constexpr auto xin_hi_read = 80;      // 120
-constexpr auto xin_read_end = 30;     // 120
+constexpr auto xin_hi_ns = 100;      // 120
+constexpr auto xin_lo_ns = 80;       // 120
+constexpr auto xin_hi_ads = 80;      // 120
+constexpr auto xin_lo_ads = 100;     // 120
+constexpr auto xin_hi_addr = 14;     // 120
+constexpr auto xin_lo_addr = 50;     // 120
+constexpr auto xin_hi_wds = 100;     // 120
+constexpr auto xin_hi_bus = 83;      // 120
+constexpr auto xin_lo_wds = 70;      // 120
+constexpr auto xin_lo_get = 55;      // 120
+constexpr auto xin_hi_capture = 80;  // 120
+constexpr auto xin_lo_write = 94;    // 120
+constexpr auto xin_lo_inject = 85;   // 120
+constexpr auto xin_hi_output = 40;   // 120
+constexpr auto xin_hi_rds = 100;     // 120
+constexpr auto xin_lo_rds = 70;      // 120
+constexpr auto xin_lo_input = 40;    // 120
+constexpr auto xin_hi_read = 80;     // 120
+constexpr auto xin_bus_end = 20;     // 120
+constexpr auto xin_hi_enout = 100;   // 120
+constexpr auto xin_lo_enout = 70;    // 120
 
 inline auto signal_breq() {
     return digitalReadFast(PIN_BREQ);
@@ -159,10 +164,14 @@ inline void xin_hi() {
     digitalWriteFast(PIN_XIN, HIGH);
 }
 
-inline void xin_cycle() {
+inline void xin_cycle_lo() {
     digitalWriteFast(PIN_XIN, HIGH);
     delayNanoseconds(xin_hi_ns);
     digitalWriteFast(PIN_XIN, LOW);
+}
+
+inline void xin_cycle() {
+    xin_cycle_lo();
     delayNanoseconds(xin_lo_ns);
 }
 
@@ -186,12 +195,12 @@ void PinsIns8060::resetPins() {
     pinsMode(PINS_PULLUP, sizeof(PINS_PULLUP), INPUT_PULLUP);
     pinsMode(PINS_INPUT, sizeof(PINS_INPUT), INPUT);
 
+    Signals::resetCycles();
     // #RST must remain low for a minimum of 4 Tc.
     for (auto i = 0; i < 2 * 4; i++)
         xin_cycle();
     negate_enin();
     negate_reset();
-    Signals::resetCycles();
     // The #BREQ output goes low, indicating the start of execution;
     // this occurs at a time whithin 13 Tc after #RST is set high.
     _regs->save();
@@ -200,42 +209,44 @@ void PinsIns8060::resetPins() {
 Signals *PinsIns8060::prepareCycle() const {
     // XIN=L
     auto s = Signals::put();
+    noInterrupts();
     while (true) {
         xin_hi();
-        delayNanoseconds(xin_hi_enout);
-        if (signal_enout() != LOW)
-            break;
-        xin_lo();
-        delayNanoseconds(xin_lo_enout);
-    }
-    // #ENOUT=H (#BREQ=LOW)
-    while (signal_ads() != LOW) {
+        if (signal_ads() == LOW) {
+            // assert_debug();
+            s->getAddr();
+            // negate_debug();
+            delayNanoseconds(xin_hi_addr);
+            xin_lo();
+            if (!s->fetch())
+                delayNanoseconds(xin_lo_addr);
+            // XIN=L
+            interrupts();
+            return s;
+        }
+        delayNanoseconds(xin_hi_ads);
         xin_lo();
         delayNanoseconds(xin_lo_ads);
-        if (signal_ads() == LOW)
-            break;
-        xin_hi();
-        delayNanoseconds(xin_hi_ads);
     }
-    s->getAddr();
-    // XIN=L
-    return s;
 }
 
 Signals *PinsIns8060::completeCycle(Signals *s) const {
-    // XIN=H
+    // XIN=L
     xin_hi();
+    delayNanoseconds(xin_hi_bus);
     if (s->write()) {
-        delayNanoseconds(xin_write_begin);
-        while (signal_wds() != LOW) {
+        while (true) {
             xin_lo();
+            if (signal_wds() == LOW)
+                break;
             delayNanoseconds(xin_lo_wds);
             xin_hi();
             delayNanoseconds(xin_hi_wds);
         }
-        xin_lo();
+        // assert_debug();
         s->getData();
-        delayNanoseconds(xin_lo_write);
+        // negate_debug();
+        delayNanoseconds(xin_lo_get);
         xin_hi();
         if (s->writeMemory()) {
             _mems->write(s->addr, s->data);
@@ -243,54 +254,59 @@ Signals *PinsIns8060::completeCycle(Signals *s) const {
             delayNanoseconds(xin_hi_capture);
         }
         xin_lo();
-        Signals::nextCycle();
-        delayNanoseconds(xin_write_end);
+        delayNanoseconds(xin_lo_write);
     } else {
-        delayNanoseconds(xin_read_begin);
         xin_lo();
         if (s->readMemory()) {
             s->data = _mems->read(s->addr);
         } else {
             delayNanoseconds(xin_lo_inject);
         }
-        while (signal_rds() != LOW) {
+        xin_hi();
+        // assert_debug();
+        s->outData();
+        delayNanoseconds(xin_hi_output);
+        // negate_debug();
+        while (true) {
+            xin_lo();
+            if (signal_rds() != LOW) {
+                delayNanoseconds(xin_lo_input);
+                // assert_debug();
+                Signals::inputMode();
+                // negate_debug();
+                break;
+            }
+            delayNanoseconds(xin_lo_rds);
             xin_hi();
             delayNanoseconds(xin_hi_rds);
-            xin_lo();
-            delayNanoseconds(xin_lo_rds);
         }
-        xin_hi();
-        s->outData();
-        delayNanoseconds(xin_read_out);
-        while (signal_rds() == LOW) {
-            xin_lo();
-            delayNanoseconds(xin_lo_read);
-            xin_hi();
-            delayNanoseconds(xin_hi_read);
-        }
-        xin_lo();
-        Signals::nextCycle();
-        delayNanoseconds(xin_read_end);
     }
+    // XIN=L
     xin_hi();
-    delayNanoseconds(xin_hi_enout);
-    // Read-Modify-Write bus cycle keeps #BREQ low.
-    for (auto i = 0; i < 3; ++i) {
-        if (signal_enout() == LOW)
-            break;
-        xin_lo();
-        delayNanoseconds(xin_lo_enout);
-        xin_hi();
-        delayNanoseconds(xin_hi_enout);
+    Signals::nextCycle();
+    delayNanoseconds(xin_bus_end);
+    if (s->read()) {
+        // Read-Modify-Write bus cycle keeps #BREQ low.
+        for (uint_fast8_t i = 0; i < 3; i++) {
+            xin_lo();
+            // assert_debug();
+            if (signal_enout() == LOW)
+                break;
+            // negate_debug();
+            delayNanoseconds(xin_lo_enout);
+            xin_hi();
+            delayNanoseconds(xin_hi_enout);
+        }
+        // negate_debug();
     }
     xin_lo();
-    Signals::inputMode();
     // XIN=L
     return s;
 }
 
 Signals *PinsIns8060::inject(uint8_t data) const {
-    return completeCycle(prepareCycle()->inject(data));
+    const auto s = prepareCycle()->inject(data);
+    return completeCycle(s);
 }
 
 void PinsIns8060::execInst(const uint8_t *inst, uint8_t len) const {
@@ -329,7 +345,8 @@ void PinsIns8060::execute(const uint8_t *inst, uint8_t len, uint16_t *addr,
 
 void PinsIns8060::idle() {
     // #ENIN is HIGH and bus cycle is suspened.
-    xin_cycle();
+    xin_cycle_lo();
+    delayNanoseconds(0);
 }
 
 void PinsIns8060::loop() {
@@ -346,6 +363,7 @@ void PinsIns8060::loop() {
                 Signals::discard(s);
                 return;
             }
+            s->inject(inst);
         }
         completeCycle(s);
         if (haltSwitch()) {
@@ -392,7 +410,7 @@ bool PinsIns8060::rawStep() const {
         Signals::discard(s);
         return false;
     }
-    completeCycle(s);
+    completeCycle(s->inject(inst));
     suspend();
     return true;
 }
