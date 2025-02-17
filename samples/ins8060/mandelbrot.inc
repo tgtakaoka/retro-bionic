@@ -448,17 +448,10 @@ loop_i:
         ldi     4
         cad     (vT-vBASE)(P1)  ; 4-L(T)
         jp      next_i          ; branch if 4<T
-print_i:
         ld      (vI-vBASE)(P1)
-        scl                     ; clear borrow
-        cai     10              ; A=I-10
-        jp      print_i_hex
-        ld      (vI-vBASE)(P1)
-        ori     '0'
-        jmp     print_char
-print_i_hex:
         ccl
-        adi     'A'
+        dai     X'90
+        dai     X'40
         jmp     print_char
 next_i:
         ild     (vI-vBASE)(P1)  ; I+=1

@@ -148,14 +148,8 @@ put_hex4_exit:
         xpal    P1
         ld      @1(P2)
         xpah    P1
-        ld      @1(P2)          ; pop E
-        xae
         xppc    P1
 put_hex4:
-        lde
-        st      @-1(P2)         ; push E
-        ani     0xf
-        xae                     ; E=4 bit data
         ldi     H(ADDR(putchar))
         xpah    P1
         st      @-1(P2)         ; push P1
@@ -163,18 +157,10 @@ put_hex4:
         xpal    P1
         st      @-1(P2)
         lde
-        scl
-        cai     10
-        csa
+        ani     X'0F
         ccl
-        jp      put_hex4_dec    ; branch if A<10
-        lde
-        adi     'A'-10
-        xppc    P1              ; call putchar
-        jmp     put_hex4_exit
-put_hex4_dec:
-        lde
-        adi     '0'
+        dai     X'90            ; 90-99,00-06+CL
+        dai     X'40            ; 30-39,40-46
         xppc    P1              ; call putchar
         jmp     put_hex4_exit
 
