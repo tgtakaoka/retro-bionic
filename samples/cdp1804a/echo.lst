@@ -26,7 +26,7 @@
 (1)       0 : =0                 ORG_RESET:      equ     0000H   ; Reset transfer location
           0 :
           0 :                    ;;; MC6850 Asynchronous Communication Interface Adapter
-          0 : =DF00              ACIA:   equ     X'DF00'
+          0 : =4                 ACIA:   equ     4
           0 :                            include "mc6850.inc"
 (1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
 (1)       0 :
@@ -34,7 +34,7 @@
 (1)       0 :                    ;;; Asynchronous Communication Interface Adapter
 (1)       0 :
 (1)       0 :                    ;;; Control register
-(1)       0 : =DF00              ACIA_control:   equ     ACIA+0
+(1)       0 : =4                 ACIA_control:   equ     ACIA+0
 (1)       0 :                            ;; Counter Divider Select Bits
 (1)       0 : =3                 CDS_gm:         equ     11b    ; Group mask
 (1)       0 : =0                 CDS_DIV1_gc:    equ     00000000B ; /1
@@ -61,7 +61,7 @@
 (1)       0 : =80                RIEB_bm:        equ     10000000B ; Receive Interrupt Enable Bit mask
 (1)       0 :
 (1)       0 :                    ;;; Status register
-(1)       0 : =DF00              ACIA_status:    equ     ACIA+0
+(1)       0 : =4                 ACIA_status:    equ     ACIA+0
 (1)       0 : =1                 RDRF_bm:        equ     00000001B ; Receive Data Register Full
 (1)       0 : =2                 TDRE_bm:        equ     00000010B ; Transmit Data Register Empty
 (1)       0 : =4                 DCDF_bm:        equ     00000100B ; Data Carrier Detect Flag
@@ -72,46 +72,50 @@
 (1)       0 : =80                IRQF_bm:        equ     10000000B ; Interrupt Request Flag
 (1)       0 :
 (1)       0 :                    ;;; Data register
-(1)       0 : =DF01              ACIA_data:      equ     ACIA+1          ; Data register
+(1)       0 : =5                 ACIA_data:      equ     ACIA+1          ; Data register
           0 :
         100 :                            org     X'0100'
         100 :                    main:
-        100 : F8 DF                      ldi     A.1(ACIA)
-        102 : B8                         phi     R8
-        103 : F8 00                      ldi     A.0(ACIA)
-        105 : A8                         plo     R8              ; R8=ACIA
-        106 : F8 03                      ldi     CDS_RESET_gc    ; Master reset
-        108 : 58                         str     R8              ; ACIA_control
-        109 : F8 14                      ldi     WSB_8N1_gc      ; 8 bits + No Parity + 1 Stop Bits
+        100 : 68 C8 01 09                rldi    R8, ACIA_config
+        104 : E8                         sex     R8             ; R8 for out
+        105 : 64                         out     ACIA_control   ; Master reset
+        106 : 64                         out     ACIA_control   ; Set mode
+        107 : 30 0C                      br      receive_loop
+        109 :
+        109 :                    ACIA_config:
+        109 : 03                         dc      CDS_RESET_gc    ; Master reset
+        10A : 14                         dc      WSB_8N1_gc      ; 8 bits + No Parity + 1 Stop Bits
         10B :                                                    ; Transmit, Receive interrupts disabled
-        10B : 58                         str     R8              ; ACIA_control
-        10C :
+        10B :
+        10B :                    receive_char:
+        10B : 00                         dc      0
         10C :                    receive_loop:
-        10C : 08                         ldn     R8              ; ACIA_status
-        10D : FA 01                      ani     RDRF_bm
-        10F : 32 0C                      bz      receive_loop
-        111 :                    receive_data:
-        111 : 18                         inc     R8              ; R8=ACIA_data
-        112 : 08                         ldn     R8              ; d=char
-        113 : C2 00 09                   bz      halt_to_system
-        116 :                    transmit:
-        116 : 28                         dec     R8              ; R8=ACIA_status
-        117 : A7                         plo     R7              ; R7.0=char
-        118 :                    transmit_loop:
-        118 : 08                         ldn     R8              ; ACIA_status
-        119 : FA 02                      ani     TDRE_bm
-        11B : 32 18                      bz      transmit_loop
-        11D :                    transmit_data:
-        11D : 87                         glo     R7
-        11E : 18                         inc     R8              ; R8=ACIA_data
-        11F : 58                         str     R8              ; ACIA_data
-        120 : 28                         dec     R8              ; R8=ACIA_status
-        121 : FB 0D                      xri     X'0D'
-        123 : 3A 0C                      bnz     receive_loop
-        125 : F8 0A                      ldi     X'0A'
-        127 : A7                         plo     R7              ; R7.0=char
-        128 : 30 18                      br      transmit_loop
-        12A :
+        10C : 68 C8 01 0B                rldi    R8, receive_char
+        110 : E8                         sex     R8              ; R8 for inp/out
+        111 : 6C                         inp     ACIA_status
+        112 : FA 01                      ani     RDRF_bm
+        114 : 32 0C                      bz      receive_loop
+        116 :                    receive_data:
+        116 : 6D                         inp     ACIA_data
+        117 : C2 00 09                   bz      halt_to_system
+        11A :                    transmit:
+        11A : 6D                         inp     ACIA_data
+        11B : A7                         plo     R7              ; R7.0=char
+        11C :                    transmit_loop:
+        11C : 6C                         inp     ACIA_status
+        11D : FA 02                      ani     TDRE_bm
+        11F : 32 1C                      bz      transmit_loop
+        121 :                    transmit_data:
+        121 : 87                         glo     R7
+        122 : 58                         str     R8              ; send char
+        123 : 65                         out     ACIA_data
+        124 : 28                         dec     R8
+        125 : FB 0D                      xri     X'0D'
+        127 : 3A 0C                      bnz     receive_loop
+        129 : F8 0A                      ldi     X'0A'
+        12B : A7                         plo     R7              ; R7.0=char
+        12C : 30 1C                      br      transmit_loop
+        12E :
           0 :                            org     ORG_RESET
           0 : 71                         dis                     ; IE=0
           1 : 00                         dc      X'00'           ; X:P=0:0

@@ -85,14 +85,13 @@ struct PinsCdp1802 final : Pins {
 
 private:
     friend struct RegsCdp1802;
-    Signals *rawPrepareCycle();
-    Signals *prepareCycle();
-    Signals *directCycle(Signals *signals);
-    Signals *completeCycle(Signals *signals);
     Signals *cycle();
     Signals *inject(uint8_t data);
+    Signals *startCycle();
+    Signals *prepareCycle(Signals *s);
+    Signals *completeCycle(Signals *s);
+    Signals *rawStep(Signals *s);
     void loop();
-    bool rawStep();
     void execute(const uint8_t *inst, uint8_t len, uint16_t *addr, uint8_t *buf,
             uint8_t max);
     bool skip(uint8_t inst);

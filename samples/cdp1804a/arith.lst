@@ -89,12 +89,12 @@
 (1)      23 : 73                         stxd                    ; push DF
 (1)      24 : 68 AF                      rsxd    R15             ; push scratch pad register R15
 (1)      26 : 68 A3                      rsxd    R3              ; push program counter R3
-(1)      28 : 68 C3 10 0E                rldi    R3, isr
+(1)      28 : 68 C3 10 0B                rldi    R3, isr
 (1)      2C : D3                         sep     R3              ; call interrupt service routine with P=3
 (1)      2D : 30 15                      br      scrt_isr_exit   ; return from isr by SEP R1
          2F :
          2F :                    ;;; MC6850 Asynchronous Communication Interface Adapter
-         2F : =DF00              ACIA:   equ     X'DF00'
+         2F : =4                 ACIA:   equ     4
          2F :                            include "mc6850.inc"
 (1)      2F :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
 (1)      2F :
@@ -102,7 +102,7 @@
 (1)      2F :                    ;;; Asynchronous Communication Interface Adapter
 (1)      2F :
 (1)      2F :                    ;;; Control register
-(1)      2F : =DF00              ACIA_control:   equ     ACIA+0
+(1)      2F : =4                 ACIA_control:   equ     ACIA+0
 (1)      2F :                            ;; Counter Divider Select Bits
 (1)      2F : =3                 CDS_gm:         equ     11b    ; Group mask
 (1)      2F : =0                 CDS_DIV1_gc:    equ     00000000B ; /1
@@ -129,7 +129,7 @@
 (1)      2F : =80                RIEB_bm:        equ     10000000B ; Receive Interrupt Enable Bit mask
 (1)      2F :
 (1)      2F :                    ;;; Status register
-(1)      2F : =DF00              ACIA_status:    equ     ACIA+0
+(1)      2F : =4                 ACIA_status:    equ     ACIA+0
 (1)      2F : =1                 RDRF_bm:        equ     00000001B ; Receive Data Register Full
 (1)      2F : =2                 TDRE_bm:        equ     00000010B ; Transmit Data Register Empty
 (1)      2F : =4                 DCDF_bm:        equ     00000100B ; Data Carrier Detect Flag
@@ -140,742 +140,743 @@
 (1)      2F : =80                IRQF_bm:        equ     10000000B ; Interrupt Request Flag
 (1)      2F :
 (1)      2F :                    ;;; Data register
-(1)      2F : =DF01              ACIA_data:      equ     ACIA+1          ; Data register
+(1)      2F : =5                 ACIA_data:      equ     ACIA+1          ; Data register
          2F :
        1000 :                            org     X'1000'
        1000 : =FFF               stack:  equ     *-1
        1000 :                    main:
-       1000 : 68 C8 DF 00                rldi    R8, ACIA
-       1004 : F8 03                      ldi     CDS_RESET_gc    ; Master reset
-       1006 : 58                         str     R8              ; ACIA_control
-       1007 : F8 14                      ldi     WSB_8N1_gc      ; 8 bits + No Parity + 1 Stop Bits
-       1009 :                                                    ; Transmit, Receive interrupts disabled
-       1009 : 58                         str     R8              ; ACIA_control
-       100A :
-       100A : 68 84 10 91                scal    R4, arith       ; call arith
-       100E :                    isr:
-       100E : 00                         idl
-       100F :
-       100F :                    ;;; Print out char
-       100F :                    ;;; @param D char
-       100F :                    ;;; @clobber R15.0
-       100F :                    putchar:
-       100F : AF                         plo     R15             ; save D to R15.0
-       1010 : 68 A8                      rsxd    R8              ; save R8
-       1012 : 68 C8 DF 00                rldi    R8, ACIA
-       1016 :                    putchar_loop:
-       1016 : 08                         ldn     R8              ; ACIA_status
-       1017 : FA 02                      ani     TDRE_bm
-       1019 : 32 16                      bz      putchar_loop
-       101B : 8F                         glo     R15             ; restore D
-       101C : 18                         inc     R8
-       101D : 58                         str     R8              ; ACIA_data
-       101E : 60                         irx
-       101F : 68 68                      rlxa    R8
-       1021 : 22                         dec     R2
-       1022 : 68 94                      sret    R4
-       1024 :
-       1024 :                    ;;; Print out newline
-       1024 :                    ;;; @clobber D R15.0
-       1024 :                    newline:
-       1024 : F8 0D                      ldi     X'0D'
-       1026 : 68 84 10 0F                scal    R4, putchar
-       102A : F8 0A                      ldi     X'0A'
-       102C : 30 0F                      br      putchar
-       102E :
-       102E :                    ;;; Print out space
-       102E :                    ;;; @clobber D R15.0
-       102E :                    putspace:
-       102E : F8 20                      ldi     T' '
-       1030 : 30 0F                      br      putchar
-       1032 :
-       1032 :                    ;;; Print out expression "operand1 operator operand2"
-       1032 :                    ;;; @param R7 operand1
-       1032 :                    ;;; @param R8 operand2
-       1032 :                    ;;; @param D operator
-       1032 :                    ;;; @clobber D R15
-       1032 :                    expr:
-       1032 : 68 A7                      rsxd    R7              ; save R7
-       1034 : 73                         stxd                    ; save operator
-       1035 : 68 84 12 E2                scal    R4, print_int16 ; print R7
-       1039 : 68 84 10 2E                scal    R4, putspace
-       103D : 12                         inc     R2
-       103E : 02                         ldn     R2              ; restore operator
-       103F : 68 84 10 0F                scal    R4, putchar     ; print operator
-       1043 : 68 84 10 2E                scal    R4, putspace
-       1047 : 98                         ghi     R8
-       1048 : B7                         phi     R7
-       1049 : 88                         glo     R8
-       104A : A7                         plo     R7
-       104B : 68 84 12 E2                scal    R4, print_int16 ; print R8
-       104F : 60                         irx
-       1050 : 68 67                      rlxa    R7              ; restore R7
-       1052 : 22                         dec     R2
-       1053 : 68 94                      sret    R4
-       1055 :
-       1055 :                    ;;; Print out answer " = result\n"
-       1055 :                    ;;; @params R7 result
-       1055 :                    ;;; @clobber D R7 R15
-       1055 :                    answer:
-       1055 : 68 84 10 2E                scal    R4, putspace
-       1059 : F8 3D                      ldi     T'='
-       105B : 68 84 10 0F                scal    R4, putchar
-       105F : 68 84 10 2E                scal    R4, putspace
-       1063 : 68 84 12 E2                scal    R4, print_int16
-       1067 : 30 24                      br      newline
-       1069 :
-       1069 :                    ;;; Compare 2 integers and print out "operand1 <=> operand2\n"
-       1069 :                    ;;; @param R7 operand1
-       1069 :                    ;;; @param R8 operand2
-       1069 :                    ;;; @clobber R15
-       1069 :                    comp:
-       1069 : 68 A7                      rsxd    R7              ; save R7
-       106B : 68 A8                      rsxd    R8              ; save R8
-       106D : 68 84 13 53                scal    R4, cmp16
-       1071 : 3B 83                      bl      comp_lt
-       1073 : 32 7F                      bz      comp_eq
-       1075 : 33 7B                      bge     comp_gt
-       1077 : F8 3F                      ldi     T'?'
-       1079 : 30 85                      br      comp_out
-       107B :                    comp_gt:
-       107B : F8 3E                      ldi     T'>'
-       107D : 30 85                      br      comp_out
-       107F :                    comp_eq:
-       107F : F8 3D                      ldi     T'='
-       1081 : 30 85                      br      comp_out
-       1083 :                    comp_lt:
-       1083 : F8 3C                      ldi     T'<'
-       1085 :                    comp_out:
-       1085 : 60                         irx
-       1086 : 68 68                      rlxa    R8              ; restore R8
-       1088 : 68 67                      rlxa    R7              ; restore R7
-       108A : 22                         dec     R2
-       108B : 68 84 10 32                scal    R4, expr
-       108F : 30 24                      br      newline
-       1091 :
-       1091 :                    arith:
-       1091 : 68 C7 00 00                rldi    R7, 0
-       1095 : 68 C8 92 A0                rldi    R8, -28000
-       1099 : F8 2D                      ldi     T'-'
-       109B : 68 84 10 32                scal    R4, expr
-       109F : 68 84 13 47                scal    R4, sub16
-       10A3 : 68 84 10 55                scal    R4, answer      ; 28000
-       10A7 :
-       10A7 : 68 C7 00 00                rldi    R7, 0
-       10AB : 68 C8 6D 60                rldi    R8, 28000
-       10AF : F8 2D                      ldi     T'-'
-       10B1 : 68 84 10 32                scal    R4, expr
-       10B5 : 68 84 13 47                scal    R4, sub16
-       10B9 : 68 84 10 55                scal    R4, answer      ; -28000
-       10BD :
-       10BD : 68 C7 46 50                rldi    R7, 18000
-       10C1 : 68 C8 6D 60                rldi    R8, 28000
-       10C5 : F8 2B                      ldi     T'+'
-       10C7 : 68 84 10 32                scal    R4, expr
-       10CB : 68 84 13 3B                scal    R4, add16
-       10CF : 68 84 10 55                scal    R4, answer      ; -19536
-       10D3 :
-       10D3 : 68 C7 46 50                rldi    R7, 18000
-       10D7 : 68 C8 B9 B0                rldi    R8, -18000
-       10DB : F8 2B                      ldi     T'+'
-       10DD : 68 84 10 32                scal    R4, expr
-       10E1 : 68 84 13 3B                scal    R4, add16
-       10E5 : 68 84 10 55                scal    R4, answer      ; 0
-       10E9 :
-       10E9 : 68 C7 B9 B0                rldi    R7, -18000
-       10ED : 68 C8 B9 B0                rldi    R8, -18000
-       10F1 : F8 2B                      ldi     T'+'
-       10F3 : 68 84 10 32                scal    R4, expr
-       10F7 : 68 84 13 3B                scal    R4, add16
-       10FB : 68 84 10 55                scal    R4, answer      ; 29536
-       10FF :
-       10FF : 68 C7 46 50                rldi    R7, 18000
-       1103 : 68 C8 92 A0                rldi    R8, -28000
-       1107 : F8 2D                      ldi     T'-'
-       1109 : 68 84 10 32                scal    R4, expr
-       110D : 68 84 13 47                scal    R4, sub16
-       1111 : 68 84 10 55                scal    R4, answer      ; -19536
-       1115 :
-       1115 : 68 C7 46 50                rldi    R7, 18000
-       1119 : 68 C8 B9 B0                rldi    R8, -18000
-       111D : F8 2D                      ldi     T'-'
-       111F : 68 84 10 32                scal    R4, expr
-       1123 : 68 84 13 47                scal    R4, sub16
-       1127 : 68 84 10 55                scal    R4, answer      ; 29536
-       112B :
-       112B : 68 C7 92 A0                rldi    R7, -28000
-       112F : 68 C8 B9 B0                rldi    R8, -18000
-       1133 : F8 2D                      ldi     T'-'
-       1135 : 68 84 10 32                scal    R4, expr
-       1139 : 68 84 13 47                scal    R4, sub16
-       113D : 68 84 10 55                scal    R4, answer      ; -10000
-       1141 :
-       1141 : 68 C7 00 64                rldi    R7, 100
-       1145 : 68 C8 01 2C                rldi    R8, 300
-       1149 : F8 2A                      ldi     T'*'
-       114B : 68 84 10 32                scal    R4, expr
-       114F : 68 84 13 A8                scal    R4, mul16
-       1153 : 68 84 10 55                scal    R4, answer      ; 30000
-       1157 :
-       1157 : 68 C7 00 C8                rldi    R7, 200
-       115B : 68 C8 FF 9C                rldi    R8, -100
-       115F : F8 2A                      ldi     T'*'
-       1161 : 68 84 10 32                scal    R4, expr
-       1165 : 68 84 13 A8                scal    R4, mul16
-       1169 : 68 84 10 55                scal    R4, answer      ; -20000
-       116D :
-       116D : 68 C7 01 2C                rldi    R7, 300
-       1171 : 68 C8 FF 38                rldi    R8, -200
-       1175 : F8 2A                      ldi     T'*'
-       1177 : 68 84 10 32                scal    R4, expr
-       117B : 68 84 13 A8                scal    R4, mul16
-       117F : 68 84 10 55                scal    R4, answer      ; 5536
-       1183 :
-       1183 : 68 C7 FF 9C                rldi    R7, -100
-       1187 : 68 C8 01 2C                rldi    R8, 300
-       118B : F8 2A                      ldi     T'*'
-       118D : 68 84 10 32                scal    R4, expr
-       1191 : 68 84 13 A8                scal    R4, mul16
-       1195 : 68 84 10 55                scal    R4, answer      ; -30000
-       1199 :
-       1199 : 68 C7 FF 38                rldi    R7, -200
-       119D : 68 C8 FF 9C                rldi    R8, -100
-       11A1 : F8 2A                      ldi     T'*'
-       11A3 : 68 84 10 32                scal    R4, expr
-       11A7 : 68 84 13 A8                scal    R4, mul16
-       11AB : 68 84 10 55                scal    R4, answer      ; 20000
-       11AF :
-       11AF : 68 C7 75 30                rldi    R7, 30000
-       11B3 : 68 C8 00 64                rldi    R8, 100
-       11B7 : F8 2F                      ldi     T'/'
-       11B9 : 68 84 10 32                scal    R4, expr
-       11BD : 68 84 14 36                scal    R4, div16
-       11C1 : 68 84 10 55                scal    R4, answer      ; 30
-       11C5 :
-       11C5 : 68 C7 FF 38                rldi    R7, -200
-       11C9 : 68 C8 00 64                rldi    R8, 100
-       11CD : F8 2F                      ldi     T'/'
-       11CF : 68 84 10 32                scal    R4, expr
-       11D3 : 68 84 14 36                scal    R4, div16
-       11D7 : 68 84 10 55                scal    R4, answer      ; -2
-       11DB :
-       11DB : 68 C7 8A D0                rldi    R7, -30000
-       11DF : 68 C8 FF 38                rldi    R8, -200
-       11E3 : F8 2F                      ldi     T'/'
-       11E5 : 68 84 10 32                scal    R4, expr
-       11E9 : 68 84 14 36                scal    R4, div16
-       11ED : 68 84 10 55                scal    R4, answer      ; 150
-       11F1 :
-       11F1 : 68 C7 8A D0                rldi    R7, -30000
-       11F5 : 68 C8 00 4E                rldi    R8, 78
-       11F9 : F8 2F                      ldi     T'/'
-       11FB : 68 84 10 32                scal    R4, expr
-       11FF : 68 84 14 36                scal    R4, div16
-       1203 : 68 84 10 55                scal    R4, answer      ; -384
-       1207 :
-       1207 : 68 C7 13 88                rldi    R7, 5000
-       120B : 68 C8 0F A0                rldi    R8, 4000
-       120F : 68 84 10 69                scal    R4, comp
-       1213 :
-       1213 : 68 C7 13 88                rldi    R7, 5000
-       1217 : 68 C8 13 88                rldi    R8, 5000
-       121B : 68 84 10 69                scal    R4, comp
-       121F :
-       121F : 68 C7 0F A0                rldi    R7, 4000
-       1223 : 68 C8 13 88                rldi    R8, 5000
-       1227 : 68 84 10 69                scal    R4, comp
-       122B :
-       122B : 68 C7 EC 78                rldi    R7, -5000
-       122F : 68 C8 F0 60                rldi    R8, -4000
-       1233 : 68 84 10 69                scal    R4, comp
-       1237 :
-       1237 : 68 C7 EC 78                rldi    R7, -5000
-       123B : 68 C8 EC 78                rldi    R8, -5000
-       123F : 68 84 10 69                scal    R4, comp
-       1243 :
-       1243 : 68 C7 F0 60                rldi    R7, -4000
-       1247 : 68 C8 EC 78                rldi    R8, -5000
-       124B : 68 84 10 69                scal    R4, comp
-       124F :
-       124F : 68 C7 7F BC                rldi    R7, 32700
-       1253 : 68 C8 7F 58                rldi    R8, 32600
-       1257 : 68 84 10 69                scal    R4, comp
-       125B :
-       125B : 68 C7 7F BC                rldi    R7, 32700
-       125F : 68 C8 7F BC                rldi    R8, 32700
-       1263 : 68 84 10 69                scal    R4, comp
-       1267 :
-       1267 : 68 C7 7F 58                rldi    R7, 32600
-       126B : 68 C8 7F BC                rldi    R8, 32700
-       126F : 68 84 10 69                scal    R4, comp
-       1273 :
-       1273 : 68 C7 80 44                rldi    R7, -32700
-       1277 : 68 C8 80 A8                rldi    R8, -32600
-       127B : 68 84 10 69                scal    R4, comp
-       127F :
-       127F : 68 C7 80 44                rldi    R7, -32700
-       1283 : 68 C8 80 44                rldi    R8, -32700
-       1287 : 68 84 10 69                scal    R4, comp
-       128B :
-       128B : 68 C7 80 A8                rldi    R7, -32600
-       128F : 68 C8 80 44                rldi    R8, -32700
-       1293 : 68 84 10 69                scal    R4, comp
-       1297 :
-       1297 : 68 C7 46 50                rldi    R7, 18000
-       129B : 68 C8 92 A0                rldi    R8, -28000
-       129F : 68 84 10 69                scal    R4, comp
-       12A3 :
-       12A3 : 68 C7 92 A0                rldi    R7, -28000
-       12A7 : 68 C8 92 A0                rldi    R8, -28000
-       12AB : 68 84 10 69                scal    R4, comp
-       12AF :
-       12AF : 68 C7 92 A0                rldi    R7, -28000
-       12B3 : 68 C8 46 50                rldi    R8, 18000
-       12B7 : 68 84 10 69                scal    R4, comp
-       12BB :
-       12BB : 68 94                      sret    R4
-       12BD :
-       12BD :                            include "arith.inc"
-(1)    12BD :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
-(1)    12BD :                            cpu     1804A
-(1)    12BD :
-(1)    12BD :                    ;;; Print unsigned 16-bit integer as decimal
-(1)    12BD :                    ;;; @param R7 value
-(1)    12BD :                    ;;; @clobber D R7 R8 R15
-(1)    12BD :                    print_uint16:
-(1)    12BD : 97                         ghi     R7
-(1)    12BE : 3A C3                      bnz     print_uint16_loop
-(1)    12C0 : 87                         glo     R7
-(1)    12C1 : 32 DD                      bz      print_uint16_zero
-(1)    12C3 :                    print_uint16_loop:
-(1)    12C3 : 97                         ghi     R7
-(1)    12C4 : 3A CB                      bnz     print_uint16_digit
-(1)    12C6 : 87                         glo     R7
-(1)    12C7 : 3A CB                      bnz     print_uint16_digit
-(1)    12C9 : 68 94                      sret    R4
-(1)    12CB :                    print_uint16_digit:
-(1)    12CB : F8 00                      ldi     0
-(1)    12CD : B8                         phi     R8
-(1)    12CE : F8 0A                      ldi     10
-(1)    12D0 : A8                         plo     R8              ; divisor=10
-(1)    12D1 : 68 84 13 DE                scal    R4, udiv16
-(1)    12D5 : 88                         glo     R8
-(1)    12D6 : 73                         stxd                    ; push remainder
-(1)    12D7 : 68 84 12 C3                scal    R4, print_uint16_loop
-(1)    12DB : 12                         inc     R2
-(1)    12DC : 02                         ldn     R2              ; pop remainder
-(1)    12DD :                    print_uint16_zero:
-(1)    12DD : FC 30                      adi     T'0'
-(1)    12DF : C0 10 0F                   br      putchar
-(1)    12E2 :
-(1)    12E2 :                    ;;; Print signed 16-bit integer as decimal
-(1)    12E2 :                    ;;; @param R7 value
-(1)    12E2 :                    ;;; @clobber D R15
-(1)    12E2 :                    print_int16:
-(1)    12E2 : 68 A8                      rsxd    R8              ; save R8
-(1)    12E4 : 68 A7                      rsxd    R7              ; save R7
-(1)    12E6 : 97                         ghi     R7
-(1)    12E7 : FA 80                      ani     X'80'
-(1)    12E9 : 32 FA                      bz      print_int16_print
-(1)    12EB : F8 2D                      ldi     T'-'
-(1)    12ED : 68 84 10 0F                scal    R4, putchar      ; print '-'
-(1)    12F1 : 97                         ghi     R7
-(1)    12F2 : FB FF                      xri     X'FF'
-(1)    12F4 : B7                         phi     R7
-(1)    12F5 : 87                         glo     R7
-(1)    12F6 : FB FF                      xri     X'FF'
-(1)    12F8 : A7                         plo     R7
-(1)    12F9 : 17                         inc     R7              ; negate value
-(1)    12FA :                    print_int16_print:
-(1)    12FA : 68 84 12 BD                scal    R4, print_uint16
-(1)    12FE : 60                         irx
-(1)    12FF : 68 67                      rlxa    R7              ; restore R7
-(1)    1301 : 68 68                      rlxa    R8              ; restore R8
-(1)    1303 : 22                         dec     R2
-(1)    1304 : 68 94                      sret    R4
-(1)    1306 :
-(1)    1306 :                    ;;; Store R7 to variable
-(1)    1306 :                    ;;;   SCAL R4, store_R7
-(1)    1306 :                    ;;;   DC   A(variable)
-(1)    1306 :                    ;;; @clobber D
-(1)    1306 :                    store_R7:
-(1)    1306 : 68 A8                      rsxd    R8              ; save R8
-(1)    1308 : E4                         sex     R4
-(1)    1309 : 68 68                      rlxa    R8              ; R8=&valiable
-(1)    130B : E8                         sex     R8
-(1)    130C : 60                         irx
-(1)    130D : 68 A7                      rsxd    R7
-(1)    130F : E2                         sex     R2
-(1)    1310 : 60                         irx
-(1)    1311 : 68 68                      rlxa    R8              ; restore R8
-(1)    1313 : 22                         dec     R2
-(1)    1314 : 68 94                      sret    R4
-(1)    1316 :
-(1)    1316 :                    ;;; Load variable to R7
-(1)    1316 :                    ;;;   SCAL R4, load_R7
-(1)    1316 :                    ;;;   DC   A(variable)
-(1)    1316 :                    ;;; @return R7 variable
-(1)    1316 :                    ;;; @clobber R15
-(1)    1316 :                    load_R7:
-(1)    1316 : E4                         sex     R4
-(1)    1317 : 68 67                      rlxa    R7              ; R7=&variable
-(1)    1319 : E7                         sex     R7
-(1)    131A : 68 67                      rlxa    R7
-(1)    131C : E2                         sex     R2
-(1)    131D : 68 94                      sret    R4
-(1)    131F :
-(1)    131F :                    ;;; Load variable to R8
-(1)    131F :                    ;;;   SCAL R4, load_R8
-(1)    131F :                    ;;;   DC   A(variable)
-(1)    131F :                    ;;; @clobber R15
-(1)    131F :                    load_R8:
-(1)    131F : E4                         sex     R4
-(1)    1320 : 68 68                      rlxa    R8              ; R8=&variable
-(1)    1322 : E8                         sex     R8
-(1)    1323 : 68 68                      rlxa    R8
-(1)    1325 : E2                         sex     R2
-(1)    1326 : 68 94                      sret    R4
-(1)    1328 :
-(1)    1328 :                    ;;; Increment variable
-(1)    1328 :                    ;;;   SCAL R4, inc16
-(1)    1328 :                    ;;;   DC   A(variable)
-(1)    1328 :                    ;;; @return R7 variable
-(1)    1328 :                    inc16:
-(1)    1328 : 68 A8                      rsxd    R8              ; save R8
-(1)    132A : E4                         sex     R4
-(1)    132B : 68 68                      rlxa    R8              ; R8=$variable
-(1)    132D : E8                         sex     R8
-(1)    132E : 68 67                      rlxa    R7              ; load R7
-(1)    1330 : 17                         inc     R7
-(1)    1331 : 28                         dec     R8
-(1)    1332 : 68 A7                      rsxd    R7              ; save R7
-(1)    1334 : E2                         sex     R2
-(1)    1335 : 60                         irx
-(1)    1336 : 68 68                      rlxa    R8              ; restore R8
-(1)    1338 : 22                         dec     R2
-(1)    1339 : 68 94                      sret    R4
-(1)    133B :
-(1)    133B :                    ;;; Signed addition: summand += addend
-(1)    133B :                    ;;; @param R7 summand
-(1)    133B :                    ;;; @param R8 addend
-(1)    133B :                    ;;; @return R7 summand + addend
-(1)    133B :                    ;;;   SCAL R4, add16
-(1)    133B :                    ;;; @clobber D
-(1)    133B :                    add16:
-(1)    133B : 88                         glo     R8
-(1)    133C : 52                         str     R2
-(1)    133D : 87                         glo     R7
-(1)    133E : F4                         add
-(1)    133F : A7                         plo     R7
-(1)    1340 : 98                         ghi     R8
-(1)    1341 : 52                         str     R2
-(1)    1342 : 97                         ghi     R7
-(1)    1343 : 74                         adc
-(1)    1344 : B7                         phi     R7
-(1)    1345 : 68 94                      sret    R4
-(1)    1347 :
-(1)    1347 :                    ;;; Singed subtraction: minuend -= subtrahend
-(1)    1347 :                    ;;;   SCAL R4, sub16
-(1)    1347 :                    ;;; @param R7 minuend
-(1)    1347 :                    ;;; @param R8 subtrahend
-(1)    1347 :                    ;;; @return R7 minuend - subtrahend
-(1)    1347 :                    ;;; @clobber D
-(1)    1347 :                    sub16:
-(1)    1347 : 88                         glo     R8
-(1)    1348 : 52                         str     R2
-(1)    1349 : 87                         glo     R7
-(1)    134A : F7                         sm
-(1)    134B : A7                         plo     R7
-(1)    134C : 98                         ghi     R8
-(1)    134D : 52                         str     R2
-(1)    134E : 97                         ghi     R7
-(1)    134F : 77                         smb
-(1)    1350 : B7                         phi     R7
-(1)    1351 : 68 94                      sret    R4
-(1)    1353 :
-(1)    1353 :                    ;;; Signed comparison: minuend - subtrahend
-(1)    1353 :                    ;;; @param R7 minuend
-(1)    1353 :                    ;;; @param R8 subtrahend
-(1)    1353 :                    ;;; @return D=0 DF=1 (minuend==subtrahend); BZ
-(1)    1353 :                    ;;;         D=1 DF=1 (minuend>subtrahend);  BGE
-(1)    1353 :                    ;;;         D=1 DF=0 (minuend<subtrahend);  BL
-(1)    1353 :                    ;;; @clobber R7 R8
-(1)    1353 :                    ;;; result = minuend - subtrahend
-(1)    1353 :                    ;;; Z=(result.1 | result.0) == 0
-(1)    1353 :                    ;;; N=(result.1 & 0x80) != 0
-(1)    1353 :                    ;;; V=((minuend.1 ^ subtrahend.1) & (result.1 ^ minuend.1) & 0x80) != 0
-(1)    1353 :                    ;;; LT=N ^ V
-(1)    1353 :                    cmp16:
-(1)    1353 : 88                         glo     R8              ; D=subtrahend.0
-(1)    1354 : 52                         str     R2              ; stack top=subtrahend.0
-(1)    1355 : 87                         glo     R7              ; D=minuend.0
-(1)    1356 : F7                         sm                      ; D=minuend.0=subtrahend.0
-(1)    1357 : A7                         plo     R7              ; R7.0=result.0
-(1)    1358 : 98                         ghi     R8              ; D=subtrahend.1
-(1)    1359 : 52                         str     R2              ; stack top=subtrahend.1
-(1)    135A : 97                         ghi     R7              ; D=minuend.1
-(1)    135B : F3                         xor                     ; D=minuend.1^subtrahend.1
-(1)    135C : A8                         plo     R8              ; R8.0=minuend.1^subtrahend.1
-(1)    135D : 97                         ghi     R7              ; D=minuend.1
-(1)    135E : 77                         smb                     ; D=minuend.1=subtrahend.1
-(1)    135F : B8                         phi     R8              ; R8.1=result.1
-(1)    1360 : 3A 6A                      bnz     cmp16_neq       ; branch if result.1!=0
-(1)    1362 : 87                         glo     R7              ; D=result.0
-(1)    1363 : 3A 6A                      bnz     cmp16_neq       ; branch if result.0!=-
-(1)    1365 : F8 01                      ldi     1
-(1)    1367 : F6                         shr
-(1)    1368 : 68 94                      sret    R4
-(1)    136A :                    cmp16_neq:
-(1)    136A : 98                         ghi     R8              ; D=result.1
-(1)    136B : 52                         str     R2
-(1)    136C : 97                         ghi     R7              ; D=minuend.1
-(1)    136D : F3                         xor                     ; D=result.1^minuend.1
-(1)    136E : 52                         str     R2              ; stack top=result.1^minuend.1
-(1)    136F : 88                         glo     R8              ; D=minuend.1^subtrahend.1
-(1)    1370 : F2                         and                     ; D=(minuend.1^subtrahend.1)&(result.1^minuend.1)
-(1)    1371 : 52                         str     R2              ; stack top=V
-(1)    1372 : 98                         ghi     R8              ; D=result.1
-(1)    1373 : F3                         xor                     ; D=N^V
-(1)    1374 : FB 80                      xri     X'80'           ; D=~(N^V)
-(1)    1376 : FE                         shl                     ; DF=~(N^V)
-(1)    1377 : F8 01                      ldi     1
-(1)    1379 : 68 94                      sret    R4
-(1)    137B :
-(1)    137B :                    ;;; Unsigned multiplication: result = multiplicand * multiplier
-(1)    137B :                    ;;; @param R7 multiplicand
-(1)    137B :                    ;;; @param R8 multiplier
-(1)    137B :                    ;;; @return R7 result
-(1)    137B :                    ;;; @clobber D R7 R8 R15
-(1)    137B :                    umul16:
-(1)    137B : F8 00                      ldi     0
-(1)    137D : BF                         phi     R15
-(1)    137E : AF                         plo     R15             ; R15=result
-(1)    137F : 30 9C                      br      umul16_check
-(1)    1381 :                    umul16_loop:
-(1)    1381 : 88                         glo     R8
-(1)    1382 : FA 01                      ani     1
-(1)    1384 : 32 90                      bz      umul16_sr       ; lsb(multiplier)==0
-(1)    1386 : 87                         glo     R7
-(1)    1387 : 52                         str     R2              ; stack top=multiplicand.0
-(1)    1388 : 8F                         glo     R15
-(1)    1389 : F4                         add
-(1)    138A : AF                         plo     R15
-(1)    138B : 97                         ghi     R7
-(1)    138C : 52                         str     R2              ; stack top=multiplicand.1
-(1)    138D : 9F                         ghi     R15
-(1)    138E : 74                         adc
-(1)    138F : BF                         phi     R15             ; result += multiplicand
-(1)    1390 :                    umul16_sr:
-(1)    1390 : 98                         ghi     R8
-(1)    1391 : F6                         shr
-(1)    1392 : B8                         phi     R8
-(1)    1393 : 88                         glo     R8
-(1)    1394 : 76                         shrc
-(1)    1395 : A8                         plo     R8              ; multiplier >>= 1
-(1)    1396 : 87                         glo     R7
-(1)    1397 : FE                         shl
-(1)    1398 : A7                         plo     R7
-(1)    1399 : 97                         ghi     R7
-(1)    139A : 7E                         shlc
-(1)    139B : B7                         phi     R7              ; multiplicand <<= 1
-(1)    139C :                    umul16_check:
-(1)    139C : 98                         ghi     R8
-(1)    139D : 3A 81                      bnz     umul16_loop     ; while multiplier != 0
-(1)    139F : 88                         glo     R8
-(1)    13A0 : 3A 81                      bnz     umul16_loop     ; while multiplier != 0
-(1)    13A2 : 9F                         ghi     R15
-(1)    13A3 : B7                         phi     R7
-(1)    13A4 : 8F                         glo     R15
-(1)    13A5 : A7                         plo     R7              ; R7=result
-(1)    13A6 : 68 94                      sret    R4
-(1)    13A8 :
-(1)    13A8 :                    ;;; Signed multiplication: multiplicand *= multiplier
-(1)    13A8 :                    ;;; @param R7 multiplicand
-(1)    13A8 :                    ;;; @param R8 multiplier
-(1)    13A8 :                    ;;; @return R7 multiplicand * multiplier
-(1)    13A8 :                    ;;;   SCAL R4, mul16
-(1)    13A8 :                    ;;; @clobber R8 R15
-(1)    13A8 :                    mul16:
-(1)    13A8 : 98                         ghi     R8
-(1)    13A9 : 52                         str     R2
-(1)    13AA : 97                         ghi     R7
-(1)    13AB : F3                         xor
-(1)    13AC : 73                         stxd                    ; push sign
-(1)    13AD : 98                         ghi     R8
-(1)    13AE : FA 80                      ani     X'80'
-(1)    13B0 : 32 BB                      bz      mul16_multiplicand
-(1)    13B2 : 98                         ghi     R8
-(1)    13B3 : FB FF                      xri     X'FF'
-(1)    13B5 : B8                         phi     R8
-(1)    13B6 : 88                         glo     R8
-(1)    13B7 : FB FF                      xri     X'FF'
-(1)    13B9 : A8                         plo     R8
-(1)    13BA : 18                         inc     R8              ; negate multiplier
-(1)    13BB :                    mul16_multiplicand:
-(1)    13BB : 97                         ghi     R7
-(1)    13BC : FA 80                      ani     X'80'
-(1)    13BE : 32 C9                      bz      mul16_multiply
-(1)    13C0 : 97                         ghi     R7
-(1)    13C1 : FB FF                      xri     X'FF'
-(1)    13C3 : B7                         phi     R7
-(1)    13C4 : 87                         glo     R7
-(1)    13C5 : FB FF                      xri     X'FF'
-(1)    13C7 : A7                         plo     R7
-(1)    13C8 : 17                         inc     R7              ; negate multiplicand
-(1)    13C9 :                    mul16_multiply:
-(1)    13C9 : 68 84 13 7B                scal    R4, umul16
-(1)    13CD : 60                         irx
-(1)    13CE : F0                         ldx                     ; sign
-(1)    13CF : FA 80                      ani     X'80'
-(1)    13D1 : 32 DC                      bz      mul16_return
-(1)    13D3 : 97                         ghi     R7
-(1)    13D4 : FB FF                      xri     X'FF'
-(1)    13D6 : B7                         phi     R7
-(1)    13D7 : 87                         glo     R7
-(1)    13D8 : FB FF                      xri     X'FF'
-(1)    13DA : A7                         plo     R7
-(1)    13DB : 17                         inc     R7              ; negate result
-(1)    13DC :                    mul16_return:
-(1)    13DC : 68 94                      sret    R4
-(1)    13DE :
-(1)    13DE :                    ;;; Unsigned division: dividend / divisor = quotient ... remainder
-(1)    13DE :                    ;;; @praram R7 dividend
-(1)    13DE :                    ;;; @praram R8 divisor
-(1)    13DE :                    ;;; @return R7 quotient
-(1)    13DE :                    ;;; @return R8 remainder
-(1)    13DE :                    ;;; @clobber R7 R8 R15
-(1)    13DE :                    udiv16:
-(1)    13DE : 98                         ghi     R8
-(1)    13DF : 3A E6                      bnz     udiv16_calc
-(1)    13E1 : 88                         glo     R8
-(1)    13E2 : 3A E6                      bnz     udiv16_calc
-(1)    13E4 : 68 94                      sret    R4
-(1)    13E6 :                    udiv16_calc:
-(1)    13E6 : 68 A9                      rsxd    R9              ; save R9
-(1)    13E8 : F8 01                      ldi     1
-(1)    13EA : AF                         plo     R15             ; R15.0=bits
-(1)    13EB : 30 F4                      br      udiv16_prep
-(1)    13ED :                    udiv16_prep_loop:
-(1)    13ED : 88                         glo     R8
-(1)    13EE : FE                         shl
-(1)    13EF : A8                         plo     R8
-(1)    13F0 : 98                         ghi     R8
-(1)    13F1 : 7E                         shlc
-(1)    13F2 : B8                         phi     R8              ; divisor <<= 1
-(1)    13F3 : 1F                         inc     R15             ; ++bits
-(1)    13F4 :                    udiv16_prep:
-(1)    13F4 : 98                         ghi     R8
-(1)    13F5 : FA 80                      ani     X'80'
-(1)    13F7 : 32 ED                      bz      udiv16_prep_loop ; while msb(divisor) == 0
-(1)    13F9 : 97                         ghi     R7
-(1)    13FA : B9                         phi     R9
-(1)    13FB : 87                         glo     R7
-(1)    13FC : A9                         plo     R9              ; R9=dividend
-(1)    13FD : F8 00                      ldi     0
-(1)    13FF : B7                         phi     R7
-(1)    1400 : A7                         plo     R7              ; R7=quotient
-(1)    1401 : 30 0F                      br      udiv16_enter_loop
-(1)    1403 :                    udiv16_loop:
-(1)    1403 : 98                         ghi     R8
-(1)    1404 : F6                         shr
-(1)    1405 : B8                         phi     R8
-(1)    1406 : 88                         glo     R8
-(1)    1407 : 76                         shrc
-(1)    1408 : A8                         plo     R8              ; divisor >>= 1
-(1)    1409 : 87                         glo     R7
-(1)    140A : FE                         shl
-(1)    140B : A7                         plo     R7
-(1)    140C : 97                         ghi     R7
-(1)    140D : 7E                         shlc
-(1)    140E : B7                         phi     R7              ; quotient <<= 1
-(1)    140F :                    udiv16_enter_loop:
-(1)    140F : 88                         glo     R8
-(1)    1410 : 52                         str     R2
-(1)    1411 : 89                         glo     R9
-(1)    1412 : F7                         sm
-(1)    1413 : A9                         plo     R9
-(1)    1414 : 98                         ghi     R8
-(1)    1415 : 52                         str     R2
-(1)    1416 : 99                         ghi     R9
-(1)    1417 : 77                         smb
-(1)    1418 : B9                         phi     R9              ; dividend-=divisor
-(1)    1419 : 3B 1E                      bm      udiv16_readd    ; branch if dividend < 0
-(1)    141B : 17                         inc     R7              ; quotient += 1
-(1)    141C : 30 28                      br      udiv16_next
-(1)    141E :                    udiv16_readd:
-(1)    141E : 88                         glo     R8
-(1)    141F : 52                         str     R2
-(1)    1420 : 89                         glo     R9
-(1)    1421 : F4                         add
-(1)    1422 : A9                         plo     R9
-(1)    1423 : 98                         ghi     R8
-(1)    1424 : 52                         str     R2
-(1)    1425 : 99                         ghi     R9
-(1)    1426 : 74                         adc
-(1)    1427 : B9                         phi     R9              ; dividend+=divisor
-(1)    1428 :                    udiv16_next:
-(1)    1428 : 2F                         dec     R15
-(1)    1429 : 8F                         glo     R15
-(1)    142A : 3A 03                      bnz     udiv16_loop     ; while bits != 0
-(1)    142C : 99                         ghi     R9
-(1)    142D : B8                         phi     R8
-(1)    142E : 89                         glo     R9
-(1)    142F : A8                         plo     R8              ; R8=remainder
-(1)    1430 : 60                         irx
-(1)    1431 : 68 69                      rlxa    R9              ; restore R9
-(1)    1433 : 22                         dec     R2
-(1)    1434 : 68 94                      sret    R4
-(1)    1436 :
-(1)    1436 :                    ;;; Signed division: dividend / divisor = quotient ... remainder
-(1)    1436 :                    ;;; @param R7 dividend
-(1)    1436 :                    ;;; @param R8 divisor
-(1)    1436 :                    ;;; @return R7 quotient
-(1)    1436 :                    ;;; @return R8 remainder
-(1)    1436 :                    ;;;   SCAL R4, duvsi2
-(1)    1436 :                    ;;;   SEP R5
-(1)    1436 :                    ;;;   DC  A(div16)
-(1)    1436 :                    ;;; @clobber R15
-(1)    1436 :                    div16:
-(1)    1436 : 98                         ghi     R8
-(1)    1437 : 52                         str     R2
-(1)    1438 : 97                         ghi     R7
-(1)    1439 : F3                         xor
-(1)    143A : 73                         stxd                    ; push sign
-(1)    143B : 98                         ghi     R8
-(1)    143C : FA 80                      ani     X'80'
-(1)    143E : 32 49                      bz      div16_dividend
-(1)    1440 : 98                         ghi     R8
-(1)    1441 : FB FF                      xri     X'FF'
-(1)    1443 : B8                         phi     R8
-(1)    1444 : 88                         glo     R8
-(1)    1445 : FB FF                      xri     X'FF'
-(1)    1447 : A8                         plo     R8
-(1)    1448 : 18                         inc     R8              ; negate divisor
-(1)    1449 :                    div16_dividend:
-(1)    1449 : 97                         ghi     R7              ; R7=dividend
-(1)    144A : FA 80                      ani     X'80'
-(1)    144C : 32 57                      bz      div16_divide
-(1)    144E : 97                         ghi     R7
-(1)    144F : FB FF                      xri     X'FF'
-(1)    1451 : B7                         phi     R7
-(1)    1452 : 87                         glo     R7
-(1)    1453 : FB FF                      xri     X'FF'
-(1)    1455 : A7                         plo     R7
-(1)    1456 : 17                         inc     R7              ; negate dividend
-(1)    1457 :                    div16_divide:
-(1)    1457 : 68 84 13 DE                scal    R4, udiv16
-(1)    145B : 60                         irx
-(1)    145C : F0                         ldx                     ; pop sign
-(1)    145D : FA 80                      ani     X'80'
-(1)    145F : 32 6A                      bz      div16_return
-(1)    1461 : 97                         ghi     R7
-(1)    1462 : FB FF                      xri     X'FF'
-(1)    1464 : B7                         phi     R7
-(1)    1465 : 87                         glo     R7
-(1)    1466 : FB FF                      xri     X'FF'
-(1)    1468 : A7                         plo     R7
-(1)    1469 : 17                         inc     R7              ; negate quotient
-(1)    146A :                    div16_return:
-(1)    146A : 68 94                      sret    R4
-       146C :
-       146C :                            end
+       1000 : 68 C8 10 0C                rldi    R8, ACIA_config
+       1004 : E8                         sex     R8
+       1005 : 64                         out     ACIA_control   ; Master reset
+       1006 : 64                         out     ACIA_control   ; Set mode
+       1007 : 68 84 10 90                scal    R4, arith       ; call arith
+       100B :                    isr:
+       100B : 00                         idl
+       100C :
+       100C :                    ACIA_config:
+       100C : 03                         dc      CDS_RESET_gc    ; Master reset
+       100D : 14                         dc      WSB_8N1_gc      ; 8 bits + No Parity + 1 Stop Bits
+       100E :                                                    ; Transmit, Receive interrupts disabled
+       100E :                    ;;; Print out char
+       100E :                    ;;; @param D char
+       100E :                    ;;; @clobber R15.0
+       100E :                    putchar:
+       100E : AF                         plo     R15             ; save D to R15.0
+       100F : 68 A8                      rsxd    R8              ; save R8
+       1011 : 68 C8 00 04                rldi    R8, ACIA
+       1015 :                    putchar_loop:
+       1015 : 08                         ldn     R8              ; ACIA_status
+       1016 : FA 02                      ani     TDRE_bm
+       1018 : 32 15                      bz      putchar_loop
+       101A : 8F                         glo     R15             ; restore D
+       101B : 18                         inc     R8
+       101C : 58                         str     R8              ; ACIA_data
+       101D : 60                         irx
+       101E : 68 68                      rlxa    R8
+       1020 : 22                         dec     R2
+       1021 : 68 94                      sret    R4
+       1023 :
+       1023 :                    ;;; Print out newline
+       1023 :                    ;;; @clobber D R15.0
+       1023 :                    newline:
+       1023 : F8 0D                      ldi     X'0D'
+       1025 : 68 84 10 0E                scal    R4, putchar
+       1029 : F8 0A                      ldi     X'0A'
+       102B : 30 0E                      br      putchar
+       102D :
+       102D :                    ;;; Print out space
+       102D :                    ;;; @clobber D R15.0
+       102D :                    putspace:
+       102D : F8 20                      ldi     T' '
+       102F : 30 0E                      br      putchar
+       1031 :
+       1031 :                    ;;; Print out expression "operand1 operator operand2"
+       1031 :                    ;;; @param R7 operand1
+       1031 :                    ;;; @param R8 operand2
+       1031 :                    ;;; @param D operator
+       1031 :                    ;;; @clobber D R15
+       1031 :                    expr:
+       1031 : 68 A7                      rsxd    R7              ; save R7
+       1033 : 73                         stxd                    ; save operator
+       1034 : 68 84 12 E1                scal    R4, print_int16 ; print R7
+       1038 : 68 84 10 2D                scal    R4, putspace
+       103C : 12                         inc     R2
+       103D : 02                         ldn     R2              ; restore operator
+       103E : 68 84 10 0E                scal    R4, putchar     ; print operator
+       1042 : 68 84 10 2D                scal    R4, putspace
+       1046 : 98                         ghi     R8
+       1047 : B7                         phi     R7
+       1048 : 88                         glo     R8
+       1049 : A7                         plo     R7
+       104A : 68 84 12 E1                scal    R4, print_int16 ; print R8
+       104E : 60                         irx
+       104F : 68 67                      rlxa    R7              ; restore R7
+       1051 : 22                         dec     R2
+       1052 : 68 94                      sret    R4
+       1054 :
+       1054 :                    ;;; Print out answer " = result\n"
+       1054 :                    ;;; @params R7 result
+       1054 :                    ;;; @clobber D R7 R15
+       1054 :                    answer:
+       1054 : 68 84 10 2D                scal    R4, putspace
+       1058 : F8 3D                      ldi     T'='
+       105A : 68 84 10 0E                scal    R4, putchar
+       105E : 68 84 10 2D                scal    R4, putspace
+       1062 : 68 84 12 E1                scal    R4, print_int16
+       1066 : 30 23                      br      newline
+       1068 :
+       1068 :                    ;;; Compare 2 integers and print out "operand1 <=> operand2\n"
+       1068 :                    ;;; @param R7 operand1
+       1068 :                    ;;; @param R8 operand2
+       1068 :                    ;;; @clobber R15
+       1068 :                    comp:
+       1068 : 68 A7                      rsxd    R7              ; save R7
+       106A : 68 A8                      rsxd    R8              ; save R8
+       106C : 68 84 13 52                scal    R4, cmp16
+       1070 : 3B 82                      bl      comp_lt
+       1072 : 32 7E                      bz      comp_eq
+       1074 : 33 7A                      bge     comp_gt
+       1076 : F8 3F                      ldi     T'?'
+       1078 : 30 84                      br      comp_out
+       107A :                    comp_gt:
+       107A : F8 3E                      ldi     T'>'
+       107C : 30 84                      br      comp_out
+       107E :                    comp_eq:
+       107E : F8 3D                      ldi     T'='
+       1080 : 30 84                      br      comp_out
+       1082 :                    comp_lt:
+       1082 : F8 3C                      ldi     T'<'
+       1084 :                    comp_out:
+       1084 : 60                         irx
+       1085 : 68 68                      rlxa    R8              ; restore R8
+       1087 : 68 67                      rlxa    R7              ; restore R7
+       1089 : 22                         dec     R2
+       108A : 68 84 10 31                scal    R4, expr
+       108E : 30 23                      br      newline
+       1090 :
+       1090 :                    arith:
+       1090 : 68 C7 00 00                rldi    R7, 0
+       1094 : 68 C8 92 A0                rldi    R8, -28000
+       1098 : F8 2D                      ldi     T'-'
+       109A : 68 84 10 31                scal    R4, expr
+       109E : 68 84 13 46                scal    R4, sub16
+       10A2 : 68 84 10 54                scal    R4, answer      ; 28000
+       10A6 :
+       10A6 : 68 C7 00 00                rldi    R7, 0
+       10AA : 68 C8 6D 60                rldi    R8, 28000
+       10AE : F8 2D                      ldi     T'-'
+       10B0 : 68 84 10 31                scal    R4, expr
+       10B4 : 68 84 13 46                scal    R4, sub16
+       10B8 : 68 84 10 54                scal    R4, answer      ; -28000
+       10BC :
+       10BC : 68 C7 46 50                rldi    R7, 18000
+       10C0 : 68 C8 6D 60                rldi    R8, 28000
+       10C4 : F8 2B                      ldi     T'+'
+       10C6 : 68 84 10 31                scal    R4, expr
+       10CA : 68 84 13 3A                scal    R4, add16
+       10CE : 68 84 10 54                scal    R4, answer      ; -19536
+       10D2 :
+       10D2 : 68 C7 46 50                rldi    R7, 18000
+       10D6 : 68 C8 B9 B0                rldi    R8, -18000
+       10DA : F8 2B                      ldi     T'+'
+       10DC : 68 84 10 31                scal    R4, expr
+       10E0 : 68 84 13 3A                scal    R4, add16
+       10E4 : 68 84 10 54                scal    R4, answer      ; 0
+       10E8 :
+       10E8 : 68 C7 B9 B0                rldi    R7, -18000
+       10EC : 68 C8 B9 B0                rldi    R8, -18000
+       10F0 : F8 2B                      ldi     T'+'
+       10F2 : 68 84 10 31                scal    R4, expr
+       10F6 : 68 84 13 3A                scal    R4, add16
+       10FA : 68 84 10 54                scal    R4, answer      ; 29536
+       10FE :
+       10FE : 68 C7 46 50                rldi    R7, 18000
+       1102 : 68 C8 92 A0                rldi    R8, -28000
+       1106 : F8 2D                      ldi     T'-'
+       1108 : 68 84 10 31                scal    R4, expr
+       110C : 68 84 13 46                scal    R4, sub16
+       1110 : 68 84 10 54                scal    R4, answer      ; -19536
+       1114 :
+       1114 : 68 C7 46 50                rldi    R7, 18000
+       1118 : 68 C8 B9 B0                rldi    R8, -18000
+       111C : F8 2D                      ldi     T'-'
+       111E : 68 84 10 31                scal    R4, expr
+       1122 : 68 84 13 46                scal    R4, sub16
+       1126 : 68 84 10 54                scal    R4, answer      ; 29536
+       112A :
+       112A : 68 C7 92 A0                rldi    R7, -28000
+       112E : 68 C8 B9 B0                rldi    R8, -18000
+       1132 : F8 2D                      ldi     T'-'
+       1134 : 68 84 10 31                scal    R4, expr
+       1138 : 68 84 13 46                scal    R4, sub16
+       113C : 68 84 10 54                scal    R4, answer      ; -10000
+       1140 :
+       1140 : 68 C7 00 64                rldi    R7, 100
+       1144 : 68 C8 01 2C                rldi    R8, 300
+       1148 : F8 2A                      ldi     T'*'
+       114A : 68 84 10 31                scal    R4, expr
+       114E : 68 84 13 A7                scal    R4, mul16
+       1152 : 68 84 10 54                scal    R4, answer      ; 30000
+       1156 :
+       1156 : 68 C7 00 C8                rldi    R7, 200
+       115A : 68 C8 FF 9C                rldi    R8, -100
+       115E : F8 2A                      ldi     T'*'
+       1160 : 68 84 10 31                scal    R4, expr
+       1164 : 68 84 13 A7                scal    R4, mul16
+       1168 : 68 84 10 54                scal    R4, answer      ; -20000
+       116C :
+       116C : 68 C7 01 2C                rldi    R7, 300
+       1170 : 68 C8 FF 38                rldi    R8, -200
+       1174 : F8 2A                      ldi     T'*'
+       1176 : 68 84 10 31                scal    R4, expr
+       117A : 68 84 13 A7                scal    R4, mul16
+       117E : 68 84 10 54                scal    R4, answer      ; 5536
+       1182 :
+       1182 : 68 C7 FF 9C                rldi    R7, -100
+       1186 : 68 C8 01 2C                rldi    R8, 300
+       118A : F8 2A                      ldi     T'*'
+       118C : 68 84 10 31                scal    R4, expr
+       1190 : 68 84 13 A7                scal    R4, mul16
+       1194 : 68 84 10 54                scal    R4, answer      ; -30000
+       1198 :
+       1198 : 68 C7 FF 38                rldi    R7, -200
+       119C : 68 C8 FF 9C                rldi    R8, -100
+       11A0 : F8 2A                      ldi     T'*'
+       11A2 : 68 84 10 31                scal    R4, expr
+       11A6 : 68 84 13 A7                scal    R4, mul16
+       11AA : 68 84 10 54                scal    R4, answer      ; 20000
+       11AE :
+       11AE : 68 C7 75 30                rldi    R7, 30000
+       11B2 : 68 C8 00 64                rldi    R8, 100
+       11B6 : F8 2F                      ldi     T'/'
+       11B8 : 68 84 10 31                scal    R4, expr
+       11BC : 68 84 14 35                scal    R4, div16
+       11C0 : 68 84 10 54                scal    R4, answer      ; 30
+       11C4 :
+       11C4 : 68 C7 FF 38                rldi    R7, -200
+       11C8 : 68 C8 00 64                rldi    R8, 100
+       11CC : F8 2F                      ldi     T'/'
+       11CE : 68 84 10 31                scal    R4, expr
+       11D2 : 68 84 14 35                scal    R4, div16
+       11D6 : 68 84 10 54                scal    R4, answer      ; -2
+       11DA :
+       11DA : 68 C7 8A D0                rldi    R7, -30000
+       11DE : 68 C8 FF 38                rldi    R8, -200
+       11E2 : F8 2F                      ldi     T'/'
+       11E4 : 68 84 10 31                scal    R4, expr
+       11E8 : 68 84 14 35                scal    R4, div16
+       11EC : 68 84 10 54                scal    R4, answer      ; 150
+       11F0 :
+       11F0 : 68 C7 8A D0                rldi    R7, -30000
+       11F4 : 68 C8 00 4E                rldi    R8, 78
+       11F8 : F8 2F                      ldi     T'/'
+       11FA : 68 84 10 31                scal    R4, expr
+       11FE : 68 84 14 35                scal    R4, div16
+       1202 : 68 84 10 54                scal    R4, answer      ; -384
+       1206 :
+       1206 : 68 C7 13 88                rldi    R7, 5000
+       120A : 68 C8 0F A0                rldi    R8, 4000
+       120E : 68 84 10 68                scal    R4, comp
+       1212 :
+       1212 : 68 C7 13 88                rldi    R7, 5000
+       1216 : 68 C8 13 88                rldi    R8, 5000
+       121A : 68 84 10 68                scal    R4, comp
+       121E :
+       121E : 68 C7 0F A0                rldi    R7, 4000
+       1222 : 68 C8 13 88                rldi    R8, 5000
+       1226 : 68 84 10 68                scal    R4, comp
+       122A :
+       122A : 68 C7 EC 78                rldi    R7, -5000
+       122E : 68 C8 F0 60                rldi    R8, -4000
+       1232 : 68 84 10 68                scal    R4, comp
+       1236 :
+       1236 : 68 C7 EC 78                rldi    R7, -5000
+       123A : 68 C8 EC 78                rldi    R8, -5000
+       123E : 68 84 10 68                scal    R4, comp
+       1242 :
+       1242 : 68 C7 F0 60                rldi    R7, -4000
+       1246 : 68 C8 EC 78                rldi    R8, -5000
+       124A : 68 84 10 68                scal    R4, comp
+       124E :
+       124E : 68 C7 7F BC                rldi    R7, 32700
+       1252 : 68 C8 7F 58                rldi    R8, 32600
+       1256 : 68 84 10 68                scal    R4, comp
+       125A :
+       125A : 68 C7 7F BC                rldi    R7, 32700
+       125E : 68 C8 7F BC                rldi    R8, 32700
+       1262 : 68 84 10 68                scal    R4, comp
+       1266 :
+       1266 : 68 C7 7F 58                rldi    R7, 32600
+       126A : 68 C8 7F BC                rldi    R8, 32700
+       126E : 68 84 10 68                scal    R4, comp
+       1272 :
+       1272 : 68 C7 80 44                rldi    R7, -32700
+       1276 : 68 C8 80 A8                rldi    R8, -32600
+       127A : 68 84 10 68                scal    R4, comp
+       127E :
+       127E : 68 C7 80 44                rldi    R7, -32700
+       1282 : 68 C8 80 44                rldi    R8, -32700
+       1286 : 68 84 10 68                scal    R4, comp
+       128A :
+       128A : 68 C7 80 A8                rldi    R7, -32600
+       128E : 68 C8 80 44                rldi    R8, -32700
+       1292 : 68 84 10 68                scal    R4, comp
+       1296 :
+       1296 : 68 C7 46 50                rldi    R7, 18000
+       129A : 68 C8 92 A0                rldi    R8, -28000
+       129E : 68 84 10 68                scal    R4, comp
+       12A2 :
+       12A2 : 68 C7 92 A0                rldi    R7, -28000
+       12A6 : 68 C8 92 A0                rldi    R8, -28000
+       12AA : 68 84 10 68                scal    R4, comp
+       12AE :
+       12AE : 68 C7 92 A0                rldi    R7, -28000
+       12B2 : 68 C8 46 50                rldi    R8, 18000
+       12B6 : 68 84 10 68                scal    R4, comp
+       12BA :
+       12BA : 68 94                      sret    R4
+       12BC :
+       12BC :                            include "arith.inc"
+(1)    12BC :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)    12BC :                            cpu     1804A
+(1)    12BC :
+(1)    12BC :                    ;;; Print unsigned 16-bit integer as decimal
+(1)    12BC :                    ;;; @param R7 value
+(1)    12BC :                    ;;; @clobber D R7 R8 R15
+(1)    12BC :                    print_uint16:
+(1)    12BC : 97                         ghi     R7
+(1)    12BD : 3A C2                      bnz     print_uint16_loop
+(1)    12BF : 87                         glo     R7
+(1)    12C0 : 32 DC                      bz      print_uint16_zero
+(1)    12C2 :                    print_uint16_loop:
+(1)    12C2 : 97                         ghi     R7
+(1)    12C3 : 3A CA                      bnz     print_uint16_digit
+(1)    12C5 : 87                         glo     R7
+(1)    12C6 : 3A CA                      bnz     print_uint16_digit
+(1)    12C8 : 68 94                      sret    R4
+(1)    12CA :                    print_uint16_digit:
+(1)    12CA : F8 00                      ldi     0
+(1)    12CC : B8                         phi     R8
+(1)    12CD : F8 0A                      ldi     10
+(1)    12CF : A8                         plo     R8              ; divisor=10
+(1)    12D0 : 68 84 13 DD                scal    R4, udiv16
+(1)    12D4 : 88                         glo     R8
+(1)    12D5 : 73                         stxd                    ; push remainder
+(1)    12D6 : 68 84 12 C2                scal    R4, print_uint16_loop
+(1)    12DA : 12                         inc     R2
+(1)    12DB : 02                         ldn     R2              ; pop remainder
+(1)    12DC :                    print_uint16_zero:
+(1)    12DC : FC 30                      adi     T'0'
+(1)    12DE : C0 10 0E                   br      putchar
+(1)    12E1 :
+(1)    12E1 :                    ;;; Print signed 16-bit integer as decimal
+(1)    12E1 :                    ;;; @param R7 value
+(1)    12E1 :                    ;;; @clobber D R15
+(1)    12E1 :                    print_int16:
+(1)    12E1 : 68 A8                      rsxd    R8              ; save R8
+(1)    12E3 : 68 A7                      rsxd    R7              ; save R7
+(1)    12E5 : 97                         ghi     R7
+(1)    12E6 : FA 80                      ani     X'80'
+(1)    12E8 : 32 F9                      bz      print_int16_print
+(1)    12EA : F8 2D                      ldi     T'-'
+(1)    12EC : 68 84 10 0E                scal    R4, putchar      ; print '-'
+(1)    12F0 : 97                         ghi     R7
+(1)    12F1 : FB FF                      xri     X'FF'
+(1)    12F3 : B7                         phi     R7
+(1)    12F4 : 87                         glo     R7
+(1)    12F5 : FB FF                      xri     X'FF'
+(1)    12F7 : A7                         plo     R7
+(1)    12F8 : 17                         inc     R7              ; negate value
+(1)    12F9 :                    print_int16_print:
+(1)    12F9 : 68 84 12 BC                scal    R4, print_uint16
+(1)    12FD : 60                         irx
+(1)    12FE : 68 67                      rlxa    R7              ; restore R7
+(1)    1300 : 68 68                      rlxa    R8              ; restore R8
+(1)    1302 : 22                         dec     R2
+(1)    1303 : 68 94                      sret    R4
+(1)    1305 :
+(1)    1305 :                    ;;; Store R7 to variable
+(1)    1305 :                    ;;;   SCAL R4, store_R7
+(1)    1305 :                    ;;;   DC   A(variable)
+(1)    1305 :                    ;;; @clobber D
+(1)    1305 :                    store_R7:
+(1)    1305 : 68 A8                      rsxd    R8              ; save R8
+(1)    1307 : E4                         sex     R4
+(1)    1308 : 68 68                      rlxa    R8              ; R8=&valiable
+(1)    130A : E8                         sex     R8
+(1)    130B : 60                         irx
+(1)    130C : 68 A7                      rsxd    R7
+(1)    130E : E2                         sex     R2
+(1)    130F : 60                         irx
+(1)    1310 : 68 68                      rlxa    R8              ; restore R8
+(1)    1312 : 22                         dec     R2
+(1)    1313 : 68 94                      sret    R4
+(1)    1315 :
+(1)    1315 :                    ;;; Load variable to R7
+(1)    1315 :                    ;;;   SCAL R4, load_R7
+(1)    1315 :                    ;;;   DC   A(variable)
+(1)    1315 :                    ;;; @return R7 variable
+(1)    1315 :                    ;;; @clobber R15
+(1)    1315 :                    load_R7:
+(1)    1315 : E4                         sex     R4
+(1)    1316 : 68 67                      rlxa    R7              ; R7=&variable
+(1)    1318 : E7                         sex     R7
+(1)    1319 : 68 67                      rlxa    R7
+(1)    131B : E2                         sex     R2
+(1)    131C : 68 94                      sret    R4
+(1)    131E :
+(1)    131E :                    ;;; Load variable to R8
+(1)    131E :                    ;;;   SCAL R4, load_R8
+(1)    131E :                    ;;;   DC   A(variable)
+(1)    131E :                    ;;; @clobber R15
+(1)    131E :                    load_R8:
+(1)    131E : E4                         sex     R4
+(1)    131F : 68 68                      rlxa    R8              ; R8=&variable
+(1)    1321 : E8                         sex     R8
+(1)    1322 : 68 68                      rlxa    R8
+(1)    1324 : E2                         sex     R2
+(1)    1325 : 68 94                      sret    R4
+(1)    1327 :
+(1)    1327 :                    ;;; Increment variable
+(1)    1327 :                    ;;;   SCAL R4, inc16
+(1)    1327 :                    ;;;   DC   A(variable)
+(1)    1327 :                    ;;; @return R7 variable
+(1)    1327 :                    inc16:
+(1)    1327 : 68 A8                      rsxd    R8              ; save R8
+(1)    1329 : E4                         sex     R4
+(1)    132A : 68 68                      rlxa    R8              ; R8=$variable
+(1)    132C : E8                         sex     R8
+(1)    132D : 68 67                      rlxa    R7              ; load R7
+(1)    132F : 17                         inc     R7
+(1)    1330 : 28                         dec     R8
+(1)    1331 : 68 A7                      rsxd    R7              ; save R7
+(1)    1333 : E2                         sex     R2
+(1)    1334 : 60                         irx
+(1)    1335 : 68 68                      rlxa    R8              ; restore R8
+(1)    1337 : 22                         dec     R2
+(1)    1338 : 68 94                      sret    R4
+(1)    133A :
+(1)    133A :                    ;;; Signed addition: summand += addend
+(1)    133A :                    ;;; @param R7 summand
+(1)    133A :                    ;;; @param R8 addend
+(1)    133A :                    ;;; @return R7 summand + addend
+(1)    133A :                    ;;;   SCAL R4, add16
+(1)    133A :                    ;;; @clobber D
+(1)    133A :                    add16:
+(1)    133A : 88                         glo     R8
+(1)    133B : 52                         str     R2
+(1)    133C : 87                         glo     R7
+(1)    133D : F4                         add
+(1)    133E : A7                         plo     R7
+(1)    133F : 98                         ghi     R8
+(1)    1340 : 52                         str     R2
+(1)    1341 : 97                         ghi     R7
+(1)    1342 : 74                         adc
+(1)    1343 : B7                         phi     R7
+(1)    1344 : 68 94                      sret    R4
+(1)    1346 :
+(1)    1346 :                    ;;; Singed subtraction: minuend -= subtrahend
+(1)    1346 :                    ;;;   SCAL R4, sub16
+(1)    1346 :                    ;;; @param R7 minuend
+(1)    1346 :                    ;;; @param R8 subtrahend
+(1)    1346 :                    ;;; @return R7 minuend - subtrahend
+(1)    1346 :                    ;;; @clobber D
+(1)    1346 :                    sub16:
+(1)    1346 : 88                         glo     R8
+(1)    1347 : 52                         str     R2
+(1)    1348 : 87                         glo     R7
+(1)    1349 : F7                         sm
+(1)    134A : A7                         plo     R7
+(1)    134B : 98                         ghi     R8
+(1)    134C : 52                         str     R2
+(1)    134D : 97                         ghi     R7
+(1)    134E : 77                         smb
+(1)    134F : B7                         phi     R7
+(1)    1350 : 68 94                      sret    R4
+(1)    1352 :
+(1)    1352 :                    ;;; Signed comparison: minuend - subtrahend
+(1)    1352 :                    ;;; @param R7 minuend
+(1)    1352 :                    ;;; @param R8 subtrahend
+(1)    1352 :                    ;;; @return D=0 DF=1 (minuend==subtrahend); BZ
+(1)    1352 :                    ;;;         D=1 DF=1 (minuend>subtrahend);  BGE
+(1)    1352 :                    ;;;         D=1 DF=0 (minuend<subtrahend);  BL
+(1)    1352 :                    ;;; @clobber R7 R8
+(1)    1352 :                    ;;; result = minuend - subtrahend
+(1)    1352 :                    ;;; Z=(result.1 | result.0) == 0
+(1)    1352 :                    ;;; N=(result.1 & 0x80) != 0
+(1)    1352 :                    ;;; V=((minuend.1 ^ subtrahend.1) & (result.1 ^ minuend.1) & 0x80) != 0
+(1)    1352 :                    ;;; LT=N ^ V
+(1)    1352 :                    cmp16:
+(1)    1352 : 88                         glo     R8              ; D=subtrahend.0
+(1)    1353 : 52                         str     R2              ; stack top=subtrahend.0
+(1)    1354 : 87                         glo     R7              ; D=minuend.0
+(1)    1355 : F7                         sm                      ; D=minuend.0=subtrahend.0
+(1)    1356 : A7                         plo     R7              ; R7.0=result.0
+(1)    1357 : 98                         ghi     R8              ; D=subtrahend.1
+(1)    1358 : 52                         str     R2              ; stack top=subtrahend.1
+(1)    1359 : 97                         ghi     R7              ; D=minuend.1
+(1)    135A : F3                         xor                     ; D=minuend.1^subtrahend.1
+(1)    135B : A8                         plo     R8              ; R8.0=minuend.1^subtrahend.1
+(1)    135C : 97                         ghi     R7              ; D=minuend.1
+(1)    135D : 77                         smb                     ; D=minuend.1=subtrahend.1
+(1)    135E : B8                         phi     R8              ; R8.1=result.1
+(1)    135F : 3A 69                      bnz     cmp16_neq       ; branch if result.1!=0
+(1)    1361 : 87                         glo     R7              ; D=result.0
+(1)    1362 : 3A 69                      bnz     cmp16_neq       ; branch if result.0!=-
+(1)    1364 : F8 01                      ldi     1
+(1)    1366 : F6                         shr
+(1)    1367 : 68 94                      sret    R4
+(1)    1369 :                    cmp16_neq:
+(1)    1369 : 98                         ghi     R8              ; D=result.1
+(1)    136A : 52                         str     R2
+(1)    136B : 97                         ghi     R7              ; D=minuend.1
+(1)    136C : F3                         xor                     ; D=result.1^minuend.1
+(1)    136D : 52                         str     R2              ; stack top=result.1^minuend.1
+(1)    136E : 88                         glo     R8              ; D=minuend.1^subtrahend.1
+(1)    136F : F2                         and                     ; D=(minuend.1^subtrahend.1)&(result.1^minuend.1)
+(1)    1370 : 52                         str     R2              ; stack top=V
+(1)    1371 : 98                         ghi     R8              ; D=result.1
+(1)    1372 : F3                         xor                     ; D=N^V
+(1)    1373 : FB 80                      xri     X'80'           ; D=~(N^V)
+(1)    1375 : FE                         shl                     ; DF=~(N^V)
+(1)    1376 : F8 01                      ldi     1
+(1)    1378 : 68 94                      sret    R4
+(1)    137A :
+(1)    137A :                    ;;; Unsigned multiplication: result = multiplicand * multiplier
+(1)    137A :                    ;;; @param R7 multiplicand
+(1)    137A :                    ;;; @param R8 multiplier
+(1)    137A :                    ;;; @return R7 result
+(1)    137A :                    ;;; @clobber D R7 R8 R15
+(1)    137A :                    umul16:
+(1)    137A : F8 00                      ldi     0
+(1)    137C : BF                         phi     R15
+(1)    137D : AF                         plo     R15             ; R15=result
+(1)    137E : 30 9B                      br      umul16_check
+(1)    1380 :                    umul16_loop:
+(1)    1380 : 88                         glo     R8
+(1)    1381 : FA 01                      ani     1
+(1)    1383 : 32 8F                      bz      umul16_sr       ; lsb(multiplier)==0
+(1)    1385 : 87                         glo     R7
+(1)    1386 : 52                         str     R2              ; stack top=multiplicand.0
+(1)    1387 : 8F                         glo     R15
+(1)    1388 : F4                         add
+(1)    1389 : AF                         plo     R15
+(1)    138A : 97                         ghi     R7
+(1)    138B : 52                         str     R2              ; stack top=multiplicand.1
+(1)    138C : 9F                         ghi     R15
+(1)    138D : 74                         adc
+(1)    138E : BF                         phi     R15             ; result += multiplicand
+(1)    138F :                    umul16_sr:
+(1)    138F : 98                         ghi     R8
+(1)    1390 : F6                         shr
+(1)    1391 : B8                         phi     R8
+(1)    1392 : 88                         glo     R8
+(1)    1393 : 76                         shrc
+(1)    1394 : A8                         plo     R8              ; multiplier >>= 1
+(1)    1395 : 87                         glo     R7
+(1)    1396 : FE                         shl
+(1)    1397 : A7                         plo     R7
+(1)    1398 : 97                         ghi     R7
+(1)    1399 : 7E                         shlc
+(1)    139A : B7                         phi     R7              ; multiplicand <<= 1
+(1)    139B :                    umul16_check:
+(1)    139B : 98                         ghi     R8
+(1)    139C : 3A 80                      bnz     umul16_loop     ; while multiplier != 0
+(1)    139E : 88                         glo     R8
+(1)    139F : 3A 80                      bnz     umul16_loop     ; while multiplier != 0
+(1)    13A1 : 9F                         ghi     R15
+(1)    13A2 : B7                         phi     R7
+(1)    13A3 : 8F                         glo     R15
+(1)    13A4 : A7                         plo     R7              ; R7=result
+(1)    13A5 : 68 94                      sret    R4
+(1)    13A7 :
+(1)    13A7 :                    ;;; Signed multiplication: multiplicand *= multiplier
+(1)    13A7 :                    ;;; @param R7 multiplicand
+(1)    13A7 :                    ;;; @param R8 multiplier
+(1)    13A7 :                    ;;; @return R7 multiplicand * multiplier
+(1)    13A7 :                    ;;;   SCAL R4, mul16
+(1)    13A7 :                    ;;; @clobber R8 R15
+(1)    13A7 :                    mul16:
+(1)    13A7 : 98                         ghi     R8
+(1)    13A8 : 52                         str     R2
+(1)    13A9 : 97                         ghi     R7
+(1)    13AA : F3                         xor
+(1)    13AB : 73                         stxd                    ; push sign
+(1)    13AC : 98                         ghi     R8
+(1)    13AD : FA 80                      ani     X'80'
+(1)    13AF : 32 BA                      bz      mul16_multiplicand
+(1)    13B1 : 98                         ghi     R8
+(1)    13B2 : FB FF                      xri     X'FF'
+(1)    13B4 : B8                         phi     R8
+(1)    13B5 : 88                         glo     R8
+(1)    13B6 : FB FF                      xri     X'FF'
+(1)    13B8 : A8                         plo     R8
+(1)    13B9 : 18                         inc     R8              ; negate multiplier
+(1)    13BA :                    mul16_multiplicand:
+(1)    13BA : 97                         ghi     R7
+(1)    13BB : FA 80                      ani     X'80'
+(1)    13BD : 32 C8                      bz      mul16_multiply
+(1)    13BF : 97                         ghi     R7
+(1)    13C0 : FB FF                      xri     X'FF'
+(1)    13C2 : B7                         phi     R7
+(1)    13C3 : 87                         glo     R7
+(1)    13C4 : FB FF                      xri     X'FF'
+(1)    13C6 : A7                         plo     R7
+(1)    13C7 : 17                         inc     R7              ; negate multiplicand
+(1)    13C8 :                    mul16_multiply:
+(1)    13C8 : 68 84 13 7A                scal    R4, umul16
+(1)    13CC : 60                         irx
+(1)    13CD : F0                         ldx                     ; sign
+(1)    13CE : FA 80                      ani     X'80'
+(1)    13D0 : 32 DB                      bz      mul16_return
+(1)    13D2 : 97                         ghi     R7
+(1)    13D3 : FB FF                      xri     X'FF'
+(1)    13D5 : B7                         phi     R7
+(1)    13D6 : 87                         glo     R7
+(1)    13D7 : FB FF                      xri     X'FF'
+(1)    13D9 : A7                         plo     R7
+(1)    13DA : 17                         inc     R7              ; negate result
+(1)    13DB :                    mul16_return:
+(1)    13DB : 68 94                      sret    R4
+(1)    13DD :
+(1)    13DD :                    ;;; Unsigned division: dividend / divisor = quotient ... remainder
+(1)    13DD :                    ;;; @praram R7 dividend
+(1)    13DD :                    ;;; @praram R8 divisor
+(1)    13DD :                    ;;; @return R7 quotient
+(1)    13DD :                    ;;; @return R8 remainder
+(1)    13DD :                    ;;; @clobber R7 R8 R15
+(1)    13DD :                    udiv16:
+(1)    13DD : 98                         ghi     R8
+(1)    13DE : 3A E5                      bnz     udiv16_calc
+(1)    13E0 : 88                         glo     R8
+(1)    13E1 : 3A E5                      bnz     udiv16_calc
+(1)    13E3 : 68 94                      sret    R4
+(1)    13E5 :                    udiv16_calc:
+(1)    13E5 : 68 A9                      rsxd    R9              ; save R9
+(1)    13E7 : F8 01                      ldi     1
+(1)    13E9 : AF                         plo     R15             ; R15.0=bits
+(1)    13EA : 30 F3                      br      udiv16_prep
+(1)    13EC :                    udiv16_prep_loop:
+(1)    13EC : 88                         glo     R8
+(1)    13ED : FE                         shl
+(1)    13EE : A8                         plo     R8
+(1)    13EF : 98                         ghi     R8
+(1)    13F0 : 7E                         shlc
+(1)    13F1 : B8                         phi     R8              ; divisor <<= 1
+(1)    13F2 : 1F                         inc     R15             ; ++bits
+(1)    13F3 :                    udiv16_prep:
+(1)    13F3 : 98                         ghi     R8
+(1)    13F4 : FA 80                      ani     X'80'
+(1)    13F6 : 32 EC                      bz      udiv16_prep_loop ; while msb(divisor) == 0
+(1)    13F8 : 97                         ghi     R7
+(1)    13F9 : B9                         phi     R9
+(1)    13FA : 87                         glo     R7
+(1)    13FB : A9                         plo     R9              ; R9=dividend
+(1)    13FC : F8 00                      ldi     0
+(1)    13FE : B7                         phi     R7
+(1)    13FF : A7                         plo     R7              ; R7=quotient
+(1)    1400 : 30 0E                      br      udiv16_enter_loop
+(1)    1402 :                    udiv16_loop:
+(1)    1402 : 98                         ghi     R8
+(1)    1403 : F6                         shr
+(1)    1404 : B8                         phi     R8
+(1)    1405 : 88                         glo     R8
+(1)    1406 : 76                         shrc
+(1)    1407 : A8                         plo     R8              ; divisor >>= 1
+(1)    1408 : 87                         glo     R7
+(1)    1409 : FE                         shl
+(1)    140A : A7                         plo     R7
+(1)    140B : 97                         ghi     R7
+(1)    140C : 7E                         shlc
+(1)    140D : B7                         phi     R7              ; quotient <<= 1
+(1)    140E :                    udiv16_enter_loop:
+(1)    140E : 88                         glo     R8
+(1)    140F : 52                         str     R2
+(1)    1410 : 89                         glo     R9
+(1)    1411 : F7                         sm
+(1)    1412 : A9                         plo     R9
+(1)    1413 : 98                         ghi     R8
+(1)    1414 : 52                         str     R2
+(1)    1415 : 99                         ghi     R9
+(1)    1416 : 77                         smb
+(1)    1417 : B9                         phi     R9              ; dividend-=divisor
+(1)    1418 : 3B 1D                      bm      udiv16_readd    ; branch if dividend < 0
+(1)    141A : 17                         inc     R7              ; quotient += 1
+(1)    141B : 30 27                      br      udiv16_next
+(1)    141D :                    udiv16_readd:
+(1)    141D : 88                         glo     R8
+(1)    141E : 52                         str     R2
+(1)    141F : 89                         glo     R9
+(1)    1420 : F4                         add
+(1)    1421 : A9                         plo     R9
+(1)    1422 : 98                         ghi     R8
+(1)    1423 : 52                         str     R2
+(1)    1424 : 99                         ghi     R9
+(1)    1425 : 74                         adc
+(1)    1426 : B9                         phi     R9              ; dividend+=divisor
+(1)    1427 :                    udiv16_next:
+(1)    1427 : 2F                         dec     R15
+(1)    1428 : 8F                         glo     R15
+(1)    1429 : 3A 02                      bnz     udiv16_loop     ; while bits != 0
+(1)    142B : 99                         ghi     R9
+(1)    142C : B8                         phi     R8
+(1)    142D : 89                         glo     R9
+(1)    142E : A8                         plo     R8              ; R8=remainder
+(1)    142F : 60                         irx
+(1)    1430 : 68 69                      rlxa    R9              ; restore R9
+(1)    1432 : 22                         dec     R2
+(1)    1433 : 68 94                      sret    R4
+(1)    1435 :
+(1)    1435 :                    ;;; Signed division: dividend / divisor = quotient ... remainder
+(1)    1435 :                    ;;; @param R7 dividend
+(1)    1435 :                    ;;; @param R8 divisor
+(1)    1435 :                    ;;; @return R7 quotient
+(1)    1435 :                    ;;; @return R8 remainder
+(1)    1435 :                    ;;;   SCAL R4, duvsi2
+(1)    1435 :                    ;;;   SEP R5
+(1)    1435 :                    ;;;   DC  A(div16)
+(1)    1435 :                    ;;; @clobber R15
+(1)    1435 :                    div16:
+(1)    1435 : 98                         ghi     R8
+(1)    1436 : 52                         str     R2
+(1)    1437 : 97                         ghi     R7
+(1)    1438 : F3                         xor
+(1)    1439 : 73                         stxd                    ; push sign
+(1)    143A : 98                         ghi     R8
+(1)    143B : FA 80                      ani     X'80'
+(1)    143D : 32 48                      bz      div16_dividend
+(1)    143F : 98                         ghi     R8
+(1)    1440 : FB FF                      xri     X'FF'
+(1)    1442 : B8                         phi     R8
+(1)    1443 : 88                         glo     R8
+(1)    1444 : FB FF                      xri     X'FF'
+(1)    1446 : A8                         plo     R8
+(1)    1447 : 18                         inc     R8              ; negate divisor
+(1)    1448 :                    div16_dividend:
+(1)    1448 : 97                         ghi     R7              ; R7=dividend
+(1)    1449 : FA 80                      ani     X'80'
+(1)    144B : 32 56                      bz      div16_divide
+(1)    144D : 97                         ghi     R7
+(1)    144E : FB FF                      xri     X'FF'
+(1)    1450 : B7                         phi     R7
+(1)    1451 : 87                         glo     R7
+(1)    1452 : FB FF                      xri     X'FF'
+(1)    1454 : A7                         plo     R7
+(1)    1455 : 17                         inc     R7              ; negate dividend
+(1)    1456 :                    div16_divide:
+(1)    1456 : 68 84 13 DD                scal    R4, udiv16
+(1)    145A : 60                         irx
+(1)    145B : F0                         ldx                     ; pop sign
+(1)    145C : FA 80                      ani     X'80'
+(1)    145E : 32 69                      bz      div16_return
+(1)    1460 : 97                         ghi     R7
+(1)    1461 : FB FF                      xri     X'FF'
+(1)    1463 : B7                         phi     R7
+(1)    1464 : 87                         glo     R7
+(1)    1465 : FB FF                      xri     X'FF'
+(1)    1467 : A7                         plo     R7
+(1)    1468 : 17                         inc     R7              ; negate quotient
+(1)    1469 :                    div16_return:
+(1)    1469 : 68 94                      sret    R4
+       146B :
+       146B :                            end

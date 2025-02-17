@@ -10,23 +10,24 @@
         include "scrt.inc"
 
 ;;; MC6850 Asynchronous Communication Interface Adapter
-ACIA:   equ     X'DF00'
+ACIA:   equ     4
         include "mc6850.inc"
 
         org     X'1000'
 stack:  equ     *-1
 main:
-        rldi    R8, ACIA
-        ldi     CDS_RESET_gc    ; Master reset
-        str     R8              ; ACIA_control
-        ldi     WSB_8N1_gc      ; 8 bits + No Parity + 1 Stop Bits
-                                ; Transmit, Receive interrupts disabled
-        str     R8              ; ACIA_control
-
+        rldi    R8, ACIA_config
+        sex     R8
+        out     ACIA_control   ; Master reset
+        out     ACIA_control   ; Set mode
         scal    R4, arith       ; call arith
 isr:
         idl
 
+ACIA_config:
+        dc      CDS_RESET_gc    ; Master reset
+        dc      WSB_8N1_gc      ; 8 bits + No Parity + 1 Stop Bits
+                                ; Transmit, Receive interrupts disabled
 ;;; Print out char
 ;;; @param D char
 ;;; @clobber R15.0

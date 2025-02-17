@@ -16,6 +16,17 @@ struct Signals final : SignalsBase<Signals> {
     static void inputMode();
     void print() const;
 
+    uint_fast8_t getIoAddr();
+    uint_fast8_t ioAddr() const { return nBus(); }
+
+    enum State : uint8_t {
+        S_FETCH = 0,
+        S_EXEC = 1,
+        S_DMA = 2,
+        S_INT = 3,
+    };
+    State sc() const;
+
     bool read() const;
     bool write() const;
     bool fetch() const;
@@ -24,7 +35,8 @@ struct Signals final : SignalsBase<Signals> {
 private:
     uint8_t cntl() const { return _signals[0]; }
     uint8_t &cntl() { return _signals[0]; }
-    uint8_t sc() const;
+    uint8_t nBus() const { return _signals[1]; }
+    uint8_t &nBus() { return _signals[1]; }
 };
 
 }  // namespace cdp1802

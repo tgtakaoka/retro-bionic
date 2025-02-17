@@ -26,7 +26,7 @@
 (1)       0 : =0                 ORG_RESET:      equ     0000H   ; Reset transfer location
           0 :
           0 :                    ;;; MC6850 Asynchronous Communication Interface Adapter
-          0 : =DF00              ACIA:   equ     X'0DF00'
+          0 : =4                 ACIA:   equ     4
           0 :                            include "mc6850.inc"
 (1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
 (1)       0 :
@@ -34,7 +34,7 @@
 (1)       0 :                    ;;; Asynchronous Communication Interface Adapter
 (1)       0 :
 (1)       0 :                    ;;; Control register
-(1)       0 : =DF00              ACIA_control:   equ     ACIA+0
+(1)       0 : =4                 ACIA_control:   equ     ACIA+0
 (1)       0 :                            ;; Counter Divider Select Bits
 (1)       0 : =3                 CDS_gm:         equ     11b    ; Group mask
 (1)       0 : =0                 CDS_DIV1_gc:    equ     00000000B ; /1
@@ -61,7 +61,7 @@
 (1)       0 : =80                RIEB_bm:        equ     10000000B ; Receive Interrupt Enable Bit mask
 (1)       0 :
 (1)       0 :                    ;;; Status register
-(1)       0 : =DF00              ACIA_status:    equ     ACIA+0
+(1)       0 : =4                 ACIA_status:    equ     ACIA+0
 (1)       0 : =1                 RDRF_bm:        equ     00000001B ; Receive Data Register Full
 (1)       0 : =2                 TDRE_bm:        equ     00000010B ; Transmit Data Register Empty
 (1)       0 : =4                 DCDF_bm:        equ     00000100B ; Data Carrier Detect Flag
@@ -72,7 +72,7 @@
 (1)       0 : =80                IRQF_bm:        equ     10000000B ; Interrupt Request Flag
 (1)       0 :
 (1)       0 :                    ;;; Data register
-(1)       0 : =DF01              ACIA_data:      equ     ACIA+1          ; Data register
+(1)       0 : =5                 ACIA_data:      equ     ACIA+1          ; Data register
           0 :
        2000 :                            org     X'2000'
        2000 :
@@ -99,191 +99,198 @@
         109 : 20 80                      dc      A(tx_queue)
         10B : 80                         dc      tx_queue_size
         10C :                            ;; initialize ACIA
-        10C : F8 DF                      ldi     A.1(ACIA)
+        10C : F8 01                      ldi     A.1(ACIA_config)
         10E : B8                         phi     R8
-        10F : F8 00                      ldi     A.0(ACIA)
+        10F : F8 1B                      ldi     A.0(ACIA_config)
         111 : A8                         plo     R8
-        112 : F8 03                      ldi     CDS_RESET_gc    ; Master reset
-        114 : 58                         str     R8              ; ACIA_control
-        115 : F8 94                      ldi     RX_INT_TX_NO
-        117 : 58                         str     R8              ; ACIA_control
-        118 : E3                         sex     R3
-        119 : 70                         ret
-        11A : 33                         dc      X'33'           ; enable interrupt
-        11B : E2                         sex     R2
-        11C :
-        11C :                    loop:
-        11C : D5                         sep     R5              ; call getchar
-        11D : 01 9E                      dc      A(getchar)
-        11F : 32 1C                      bz      loop
-        121 : 87                         glo     R7
-        122 : 3A 25                      bnz     echo_back
-        124 : 00                         idl
-        125 :                    echo_back:
-        125 : D5                         sep     R5              ; call putchar
-        126 : 01 AC                      dc      A(putchar)
-        128 : F8 20                      ldi     ' '
-        12A : D5                         sep     R5              ; call putchar
-        12B : 01 AC                      dc      A(putchar)
-        12D : 87                         glo     R7
-        12E : D5                         sep     R5              ; call put_hex8
-        12F : 01 46                      dc      A(put_hex8)
-        131 : F8 20                      ldi     ' '
-        133 : D5                         sep     R5              ; call putchar
-        134 : 01 AC                      dc      A(putchar)
-        136 : 87                         glo     R7
-        137 : D5                         sep     R5              ; call put_bin8
-        138 : 01 74                      dc      A(put_bin8)
-        13A : F8 0D                      ldi     x'0d'
-        13C : D5                         sep     R5              ; call putchar
-        13D : 01 AC                      dc      A(putchar)
-        13F : F8 0A                      ldi     x'0a'
-        141 : D5                         sep     R5              ; call putchar
-        142 : 01 AC                      dc      A(putchar)
-        144 : 30 1C                      br      loop
-        146 :
-        146 :                    ;;; Print uint8_t in hex
-        146 :                    ;;; @param D uint8_t value to be printed in binary.
-        146 :                    put_hex8:
-        146 : AF                         plo     R15             ; save D to scratch pad
-        147 : 87                         glo     R7              ; save R7.0
-        148 : 73                         stxd
-        149 : 8F                         glo     R15             ; restore D
-        14A :                            ;;
-        14A : A7                         plo     R7              ; R7.0=data
-        14B : F8 30                      ldi     '0'
-        14D : D5                         sep     R5              ; call putchar
-        14E : 01 AC                      dc      A(putchar)
-        150 : F8 78                      ldi     'x'
-        152 : D5                         sep     R5              ; call putchar
-        153 : 01 AC                      dc      A(putchar)
-        155 : 87                         glo     R7
-        156 : F6                         shr
+        112 : E8                         sex     R8              ; R8 for inp/out
+        113 : 64                         out     ACIA_control    ; Master reset
+        114 : 64                         out     ACIA_control    ; Set mode
+        115 : E3                         sex     R3
+        116 : 70                         ret
+        117 : 33                         dc      X'33'           ; enable interrupt
+        118 : E2                         sex     R2
+        119 : 30 1D                      br      loop
+        11B :
+        11B :                    ACIA_config:
+        11B : 03                         dc      CDS_RESET_gc    ; Master reset
+        11C : 94                         dc      RX_INT_TX_NO
+        11D :
+        11D :                    loop:
+        11D : D5                         sep     R5              ; call getchar
+        11E : 01 9F                      dc      A(getchar)
+        120 : 32 1D                      bz      loop
+        122 : 87                         glo     R7
+        123 : 3A 26                      bnz     echo_back
+        125 : 00                         idl
+        126 :                    echo_back:
+        126 : D5                         sep     R5              ; call putchar
+        127 : 01 AD                      dc      A(putchar)
+        129 : F8 20                      ldi     ' '
+        12B : D5                         sep     R5              ; call putchar
+        12C : 01 AD                      dc      A(putchar)
+        12E : 87                         glo     R7
+        12F : D5                         sep     R5              ; call put_hex8
+        130 : 01 47                      dc      A(put_hex8)
+        132 : F8 20                      ldi     ' '
+        134 : D5                         sep     R5              ; call putchar
+        135 : 01 AD                      dc      A(putchar)
+        137 : 87                         glo     R7
+        138 : D5                         sep     R5              ; call put_bin8
+        139 : 01 75                      dc      A(put_bin8)
+        13B : F8 0D                      ldi     x'0d'
+        13D : D5                         sep     R5              ; call putchar
+        13E : 01 AD                      dc      A(putchar)
+        140 : F8 0A                      ldi     x'0a'
+        142 : D5                         sep     R5              ; call putchar
+        143 : 01 AD                      dc      A(putchar)
+        145 : 30 1D                      br      loop
+        147 :
+        147 :                    ;;; Print uint8_t in hex
+        147 :                    ;;; @param D uint8_t value to be printed in binary.
+        147 :                    put_hex8:
+        147 : AF                         plo     R15             ; save D to scratch pad
+        148 : 87                         glo     R7              ; save R7.0
+        149 : 73                         stxd
+        14A : 8F                         glo     R15             ; restore D
+        14B :                            ;;
+        14B : A7                         plo     R7              ; R7.0=data
+        14C : F8 30                      ldi     '0'
+        14E : D5                         sep     R5              ; call putchar
+        14F : 01 AD                      dc      A(putchar)
+        151 : F8 78                      ldi     'x'
+        153 : D5                         sep     R5              ; call putchar
+        154 : 01 AD                      dc      A(putchar)
+        156 : 87                         glo     R7
         157 : F6                         shr
         158 : F6                         shr
         159 : F6                         shr
-        15A : D5                         sep     R5              ; call put_hex4
-        15B : 01 65                      dc      A(put_hex4)
-        15D : 87                         glo     R7
-        15E : D5                         sep     R5              ; call put_hex4
-        15F : 01 65                      dc      A(put_hex4)
-        161 :                            ;;
-        161 : 60                         irx
-        162 : F0                         ldx                     ; restore R7.0
-        163 : A7                         plo     R7
-        164 : D6                         sep     R6              ; return
-        165 :
-        165 :                    ;;; Print hexadecimal digit
-        165 :                    ;;; @param D nibble
-        165 :                    ;;; @clobber D
-        165 :                    put_hex4:
-        165 : FA 0F                      ani     0Fh
-        167 : FF 0A                      smi     10
-        169 : 3B 6E                      bnf     put_hex4_dec    ; branch if D < 10
-        16B : FC 41                      adi     'A'
-        16D : C8                         lskp
-        16E :                    put_hex4_dec:
-        16E : FC 3A                      adi     '0'+10
-        170 : D5                         sep     R5              ; call putchar
-        171 : 01 AC                      dc      A(putchar)
-        173 : D6                         sep     R6              ; return
-        174 :
-        174 :                    ;;; Print uint8_t in binary
-        174 :                    ;;; @param D uint8_t value to be printed in binary.
-        174 :                    ;;; @clobber D
-        174 :                    put_bin8:
-        174 : AF                         plo     R15             ; save D to scratch pad
-        175 : 87                         glo     R7              ; save R7.0
-        176 : 73                         stxd
-        177 : 8F                         glo     R15             ; restore D
-        178 : A7                         plo     R7              ; R7.0=data
-        179 :                            ;;
-        179 : F8 30                      ldi     '0'
-        17B : D5                         sep     R5
-        17C : 01 AC                      dc      A(putchar)
-        17E : F8 62                      ldi     'b'
-        180 : D5                         sep     R5
-        181 : 01 AC                      dc      A(putchar)
-        183 :                            ;; 
-        183 : D5                         sep     R5
-        184 : 01 8D                      dc      A(put_bin4)
-        186 : D5                         sep     R5
-        187 : 01 8D                      dc      A(put_bin4)
-        189 :                            ;;
-        189 : 60                         irx
-        18A : F0                         ldx
-        18B : A7                         plo     R7              ; restore R7
-        18C : D6                         sep     R6              ; return
-        18D :                    put_bin4:
-        18D : D5                         sep     R5
-        18E : 01 90                      dc      A(put_bin2)
-        190 :                    put_bin2:
-        190 : D5                         sep     R5
-        191 : 01 93                      dc      A(put_bin1)
-        193 :                    put_bin1:
-        193 : 87                         glo     R7
-        194 : 7E                         shlc                    ; DF=MSB
-        195 : A7                         plo     R7
-        196 : F8 30                      ldi     '0'
-        198 : 3B AC                      bnf     putchar         ; MSB=0
-        19A : F8 31                      ldi     '1'
-        19C : 30 AC                      br      putchar
-        19E :
-        19E :                    ;;; Get character
-        19E :                    ;;; @return R7.0 char
-        19E :                    ;;; @return A 0 if no char received
-        19E :                    getchar:
-        19E : E3                         sex     R3
-        19F : 71                         dis                     ; disable interrupt
-        1A0 : 33                         dc      X'33'
-        1A1 : E2                         sex     R2
-        1A2 : D5                         sep     R5              ; call queue_remove
-        1A3 : 03 5A                      dc      A(queue_remove)
-        1A5 : 20 00                      dc      A(rx_queue)
-        1A7 : E3                         sex     R3
-        1A8 : 70                         ret                     ; enable interrupt
-        1A9 : 33                         dc      X'33'
-        1AA : E2                         sex     R2
-        1AB : D6                         sep     R6              ; return
-        1AC :
-        1AC :                    ;;; Put character
-        1AC :                    ;;; @param D char
-        1AC :                    ;;; @unchanged D
-        1AC :                    ;;; @clobber R15
-        1AC :                    putchar:
-        1AC : 73                         stxd                    ; save D
-        1AD : AF                         plo     R15             ; save D to scratch pad
-        1AE : 87                         glo     R7              ; save R7.0
-        1AF : 73                         stxd
-        1B0 : 8F                         glo     R15             ; restore D
-        1B1 :                            ;;
-        1B1 : A7                         plo     R7              ; R7.0=char
-        1B2 :                    putchar_loop:
-        1B2 : E3                         sex     R3
-        1B3 : 71                         dis                     ; disable interrupt
-        1B4 : 33                         dc      X'33'
-        1B5 : E2                         sex     R2
-        1B6 : D5                         sep     R5              ; call queue_add
-        1B7 : 03 1F                      dc      A(queue_add)
-        1B9 : 20 80                      dc      A(tx_queue)
-        1BB : E3                         sex     R3
-        1BC : 70                         ret                     ; enable interrupt
-        1BD : 33                         dc      X'33'
-        1BE : E2                         sex     R2
-        1BF : 32 B2                      bz      putchar_loop    ; retry if queue is full
-        1C1 : F8 DF                      ldi     A.1(ACIA)
-        1C3 : BF                         phi     R15
-        1C4 : F8 00                      ldi     A.0(ACIA)
-        1C6 : AF                         plo     R15
-        1C7 : F8 B4                      ldi     RX_INT_TX_INT   ; enable Tx interrupt
-        1C9 : 5F                         str     R15             ; ACIA_C
+        15A : F6                         shr
+        15B : D5                         sep     R5              ; call put_hex4
+        15C : 01 66                      dc      A(put_hex4)
+        15E : 87                         glo     R7
+        15F : D5                         sep     R5              ; call put_hex4
+        160 : 01 66                      dc      A(put_hex4)
+        162 :                            ;;
+        162 : 60                         irx
+        163 : F0                         ldx                     ; restore R7.0
+        164 : A7                         plo     R7
+        165 : D6                         sep     R6              ; return
+        166 :
+        166 :                    ;;; Print hexadecimal digit
+        166 :                    ;;; @param D nibble
+        166 :                    ;;; @clobber D
+        166 :                    put_hex4:
+        166 : FA 0F                      ani     0Fh
+        168 : FF 0A                      smi     10
+        16A : 3B 6F                      bnf     put_hex4_dec    ; branch if D < 10
+        16C : FC 41                      adi     'A'
+        16E : C8                         lskp
+        16F :                    put_hex4_dec:
+        16F : FC 3A                      adi     '0'+10
+        171 : D5                         sep     R5              ; call putchar
+        172 : 01 AD                      dc      A(putchar)
+        174 : D6                         sep     R6              ; return
+        175 :
+        175 :                    ;;; Print uint8_t in binary
+        175 :                    ;;; @param D uint8_t value to be printed in binary.
+        175 :                    ;;; @clobber D
+        175 :                    put_bin8:
+        175 : AF                         plo     R15             ; save D to scratch pad
+        176 : 87                         glo     R7              ; save R7.0
+        177 : 73                         stxd
+        178 : 8F                         glo     R15             ; restore D
+        179 : A7                         plo     R7              ; R7.0=data
+        17A :                            ;;
+        17A : F8 30                      ldi     '0'
+        17C : D5                         sep     R5
+        17D : 01 AD                      dc      A(putchar)
+        17F : F8 62                      ldi     'b'
+        181 : D5                         sep     R5
+        182 : 01 AD                      dc      A(putchar)
+        184 :                            ;;
+        184 : D5                         sep     R5
+        185 : 01 8E                      dc      A(put_bin4)
+        187 : D5                         sep     R5
+        188 : 01 8E                      dc      A(put_bin4)
+        18A :                            ;;
+        18A : 60                         irx
+        18B : F0                         ldx
+        18C : A7                         plo     R7              ; restore R7
+        18D : D6                         sep     R6              ; return
+        18E :                    put_bin4:
+        18E : D5                         sep     R5
+        18F : 01 91                      dc      A(put_bin2)
+        191 :                    put_bin2:
+        191 : D5                         sep     R5
+        192 : 01 94                      dc      A(put_bin1)
+        194 :                    put_bin1:
+        194 : 87                         glo     R7
+        195 : 7E                         shlc                    ; DF=MSB
+        196 : A7                         plo     R7
+        197 : F8 30                      ldi     '0'
+        199 : 3B AD                      bnf     putchar         ; MSB=0
+        19B : F8 31                      ldi     '1'
+        19D : 30 AD                      br      putchar
+        19F :
+        19F :                    ;;; Get character
+        19F :                    ;;; @return R7.0 char
+        19F :                    ;;; @return A 0 if no char received
+        19F :                    getchar:
+        19F : E3                         sex     R3
+        1A0 : 71                         dis                     ; disable interrupt
+        1A1 : 33                         dc      X'33'
+        1A2 : E2                         sex     R2
+        1A3 : D5                         sep     R5              ; call queue_remove
+        1A4 : 03 5A                      dc      A(queue_remove)
+        1A6 : 20 00                      dc      A(rx_queue)
+        1A8 : E3                         sex     R3
+        1A9 : 70                         ret                     ; enable interrupt
+        1AA : 33                         dc      X'33'
+        1AB : E2                         sex     R2
+        1AC : D6                         sep     R6              ; return
+        1AD :
+        1AD :                    ;;; Put character
+        1AD :                    ;;; @param D char
+        1AD :                    ;;; @unchanged D
+        1AD :                    ;;; @clobber R15
+        1AD :                    putchar:
+        1AD : 73                         stxd                    ; save D
+        1AE : AF                         plo     R15             ; save D to scratch pad
+        1AF : 87                         glo     R7              ; save R7.0
+        1B0 : 73                         stxd
+        1B1 : 8F                         glo     R15             ; restore D
+        1B2 :                            ;;
+        1B2 : A7                         plo     R7              ; R7.0=char
+        1B3 :                    putchar_loop:
+        1B3 : E3                         sex     R3
+        1B4 : 71                         dis                     ; disable interrupt
+        1B5 : 33                         dc      X'33'
+        1B6 : E2                         sex     R2
+        1B7 : D5                         sep     R5              ; call queue_add
+        1B8 : 03 1F                      dc      A(queue_add)
+        1BA : 20 80                      dc      A(tx_queue)
+        1BC : E3                         sex     R3
+        1BD : 70                         ret                     ; enable interrupt
+        1BE : 33                         dc      X'33'
+        1BF : E2                         sex     R2
+        1C0 : 32 B3                      bz      putchar_loop    ; retry if queue is full
+        1C2 : F8 01                      ldi     A.1(putchar_txint)
+        1C4 : BF                         phi     R15
+        1C5 : F8 D0                      ldi     A.0(putchar_txint)
+        1C7 : AF                         plo     R15
+        1C8 : EF                         sex     R15             ; R15 out output
+        1C9 : 64                         out     ACIA_control
         1CA :                    putchar_exit:
-        1CA : 60                         irx
-        1CB : 72                         ldxa                    ; restore R7.0
-        1CC : A7                         plo     R7
-        1CD : F0                         ldx                     ; restore D
-        1CE : D6                         sep     R6              ; return
-        1CF :
+        1CA : E2                         sex     R2
+        1CB : 60                         irx
+        1CC : 72                         ldxa                    ; restore R7.0
+        1CD : A7                         plo     R7
+        1CE : F0                         ldx                     ; restore D
+        1CF : D6                         sep     R6              ; return
+        1D0 :                    putchar_txint:
+        1D0 : B4                         dc      RX_INT_TX_INT
+        1D1 :
         300 :                            org     X'0300'
         300 :                            include "queue.inc"
 (1)     300 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
@@ -447,61 +454,66 @@
 (1)     393 : D6                         sep     R6              ; return
         394 :
         394 :                    ;;; From scrt_isr, X=2, P=3
-        394 :                    isr:
-        394 : 88                         glo     R8              ; save R8
-        395 : 73                         stxd
-        396 : 98                         ghi     R8
-        397 : 73                         stxd
-        398 : 87                         glo     R7              ; save R7
-        399 : 73                         stxd
-        39A : 97                         ghi     R7
-        39B : 73                         stxd
-        39C :                            ;;
-        39C : F8 DF                      ldi     A.1(ACIA)
-        39E : B8                         phi     R8
-        39F : F8 00                      ldi     A.0(ACIA)
-        3A1 : A8                         plo     R8              ; R8=ACIA
-        3A2 : 08                         ldn     R8              ; ACIA_status
-        3A3 : FA 80                      ani     IRQF_bm
-        3A5 : 32 CA                      bz      isr_exit
-        3A7 : 08                         ldn     R8              ; ACIA_status
-        3A8 : FA 01                      ani     RDRF_bm
-        3AA : 32 B5                      bz      isr_send        ; no data is received
-        3AC : 18                         inc     R8
-        3AD : 08                         ldn     R8              ; ACIA_data
-        3AE : 28                         dec     R8
+        394 :                    isr_char:
+        394 : 00                         dc      0
+        395 :                    isr:
+        395 : 88                         glo     R8              ; save R8
+        396 : 73                         stxd
+        397 : 98                         ghi     R8
+        398 : 73                         stxd
+        399 : 87                         glo     R7              ; save R7
+        39A : 73                         stxd
+        39B : 97                         ghi     R7
+        39C : 73                         stxd
+        39D :                            ;;
+        39D : F8 03                      ldi     A.1(isr_char)
+        39F : B8                         phi     R8
+        3A0 : F8 94                      ldi     A.0(isr_char)
+        3A2 : A8                         plo     R8
+        3A3 : E8                         sex     R8              ; R8 for inp/out
+        3A4 : 6C                         inp     ACIA_status
+        3A5 : FA 80                      ani     IRQF_bm
+        3A7 : 32 CD                      bz      isr_exit
+        3A9 : 6C                         inp     ACIA_status
+        3AA : FA 01                      ani     RDRF_bm
+        3AC : 32 B5                      bz      isr_send        ; no data is received
+        3AE : 6D                         inp     ACIA_data
         3AF : A7                         plo     R7
         3B0 : D5                         sep     R5              ; call queue_add
         3B1 : 03 1F                      dc      A(queue_add)
         3B3 : 20 00                      dc      A(rx_queue)
         3B5 :                    isr_send:
-        3B5 : 08                         ldn     R8              ; ACIA_status
-        3B6 : FA 02                      ani     TDRE_bm
-        3B8 : 32 CA                      bz      isr_exit
-        3BA : D5                         sep     R5              ; call queue_remove
-        3BB : 03 5A                      dc      A(queue_remove)
-        3BD : 20 80                      dc      A(tx_queue)
-        3BF : 32 C7                      bz      isr_send_empty
-        3C1 : 87                         glo     R7
-        3C2 : 18                         inc     R8
-        3C3 : 58                         str     R8              ; ACIA_D
-        3C4 : 28                         dec     R8
-        3C5 : 30 CA                      br      isr_exit
-        3C7 :                    isr_send_empty:
-        3C7 : F8 94                      ldi     RX_INT_TX_NO    ; disable Tx interrupt
-        3C9 : 58                         str     R8              ; ACIA_C
-        3CA :                    isr_exit:
-        3CA : 60                         irx
-        3CB : 72                         ldxa                    ; restore R7
-        3CC : B7                         phi     R7
-        3CD : 72                         ldxa
-        3CE : A7                         plo     R7
-        3CF : 72                         ldxa                    ; restore R8
-        3D0 : B8                         phi     R8
-        3D1 : F0                         ldx
-        3D2 : A8                         plo     R8
-        3D3 : D1                         sep     R1              ; return to scrt_isr
-        3D4 :
+        3B5 : E8                         sex     R8              ; R8 for inp/out
+        3B6 : 6C                         inp     ACIA_status
+        3B7 : FA 02                      ani     TDRE_bm
+        3B9 : 32 CD                      bz      isr_exit
+        3BB : D5                         sep     R5              ; call queue_remove
+        3BC : 03 5A                      dc      A(queue_remove)
+        3BE : 20 80                      dc      A(tx_queue)
+        3C0 : 32 C8                      bz      isr_send_empty
+        3C2 : 87                         glo     R7
+        3C3 : 58                         str     R8              ; output char
+        3C4 : E8                         sex     R8              ; R8 for inp/out
+        3C5 : 65                         out     ACIA_data
+        3C6 : 30 CD                      br      isr_exit
+        3C8 :                    isr_send_empty:
+        3C8 : F8 94                      ldi     RX_INT_TX_NO    ; disable Tx interrupt
+        3CA : 58                         str     R8              ; output byte
+        3CB : E8                         sex     R8              ; R8 for inp/out
+        3CC : 64                         out     ACIA_control
+        3CD :                    isr_exit:
+        3CD : E2                         sex     R2
+        3CE : 60                         irx
+        3CF : 72                         ldxa                    ; restore R7
+        3D0 : B7                         phi     R7
+        3D1 : 72                         ldxa
+        3D2 : A7                         plo     R7
+        3D3 : 72                         ldxa                    ; restore R8
+        3D4 : B8                         phi     R8
+        3D5 : F0                         ldx
+        3D6 : A8                         plo     R8
+        3D7 : D1                         sep     R1              ; return to scrt_isr
+        3D8 :
           0 :                            org     ORG_RESET
           0 : 71                         dis                     ; disable interrupt
           1 : 00                         dc      X'00'           ; X:P=0:0
@@ -688,7 +700,7 @@
 (1)      84 :                            ;;
 (1)      84 : F8 03                      ldi     A.1(isr)
 (1)      86 : B3                         phi     R3
-(1)      87 : F8 94                      ldi     A.0(isr)
+(1)      87 : F8 95                      ldi     A.0(isr)
 (1)      89 : A3                         plo     R3
 (1)      8A : D3                         sep     R3              ; call interrupt service routine with P=3
 (1)      8B : 30 4D                      br      scrt_isr_exit   ; return from isr by SEP R1

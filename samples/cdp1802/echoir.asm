@@ -10,7 +10,7 @@
         include "scrt.inc"
 
 ;;; MC6850 Asynchronous Communication Interface Adapter
-ACIA:   equ     X'DF00'
+ACIA:   equ     4
         include "mc6850.inc"
 RX_INT_TX_NO:   equ     WSB_8N1_gc|RIEB_bm
 
@@ -30,18 +30,22 @@ main:
         dc      A(rx_queue)
         dc      rx_queue_size
         ;; initialize ACIA
-        ldi     A.1(ACIA)
+        ldi     A.1(ACIA_config)
         phi     R8
-        ldi     A.0(ACIA)
+        ldi     A.0(ACIA_config)
         plo     R8
-        ldi     CDS_RESET_gc    ; Master reset
-        str     R8              ; ACIA_control
-        ldi     RX_INT_TX_NO
-        str     R8              ; ACIA_control
+        sex     R8              ; R8 for inp/out
+        out     ACIA_control    ; Master reset
+        out     ACIA_control    ; Set mode
         sex     R3
         ret
         dc      X'33'           ; enable interrupt
         sex     R2
+        br      loop
+
+ACIA_config:
+        dc      CDS_RESET_gc    ; Master reset
+        dc      RX_INT_TX_NO
 
 loop:
         sex     R3
@@ -73,6 +77,8 @@ halt_to_system:
 ;;; @param D char
 ;;; @unchanged D
 ;;; @clobber R15
+putchar_char:
+        dc      0
 putchar:
         plo     R15             ; save D to R15.0
         glo     R8              ; save R8
@@ -80,18 +86,20 @@ putchar:
         ghi     R8
         stxd
         ;;
-        ldi     A.1(ACIA)
+        ldi     A.1(putchar_char)
         phi     R8
-        ldi     A.0(ACIA)
+        ldi     A.0(putchar_char)
         plo     R8
+        sex     R8              ; R8 for inp/out
 putchar_loop:
-        ldn     R8              ; ACIA_status
+        inp     ACIA_status
         ani     TDRE_bm
         bz      putchar_loop
-        inc     R8
         glo     R15             ; restore D
-        str     R8              ; ACIA_data
+        str     R8              ; putchar_char
+        out     ACIA_data
         ;;
+        sex     R2
         irx
         ldxa                    ; restore R8
         phi     R8
@@ -103,6 +111,8 @@ putchar_loop:
         include "queue.inc"
 
 ;;; From scrt_isr, P=3
+isr_char:
+        dc      0
 isr:
         glo     R8              ; save R8
         stxd
@@ -111,25 +121,25 @@ isr:
         glo     R7
         stxd                    ; save R7.0
         ;;
-        ldi     A.1(ACIA)
+        ldi     A.1(isr_char)
         phi     R8
-        ldi     A.0(ACIA)
-        plo     R8              ; R8=ACIA
-        ldn     R8              ; ACIA_status
+        ldi     A.0(isr_char)
+        plo     R8
+        sex     R8              ; R8 for inp/out
+        inp     ACIA_status
         ani     IRQF_bm
         bz      isr_exit        ; no interrupt
 isr_receive:
-        ldn     R8              ; ACIA_status
+        inp     ACIA_status
         ani     RDRF_bm
         bz      isr_exit        ; no data is received
-        inc     R8
-        ldn     R8              ; ACIA_data
-        dec     R8
+        inp     ACIA_data
         plo     R7
         sep     R5              ; call queue_add
         dc      A(queue_add)
         dc      A(rx_queue)
 isr_exit:
+        sex     R2
         irx
         ldxa                    ; restore R7.0
         plo     R7
