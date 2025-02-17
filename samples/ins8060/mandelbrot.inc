@@ -19,9 +19,9 @@ vQ:     .dbyte  0
 vT:     .dbyte  0
 vT1:    .dbyte  0
 vT2:    .dbyte  0
-vY:     .dbyte  0
-vX:     .dbyte  0
-vI:     .dbyte  0
+vY:     .byte  0
+vX:     .byte  0
+vI:     .byte  0
 
 ;;; Print variable "vname=value "
 ;;;   xppc   P1
@@ -77,6 +77,64 @@ print:
         jmp     print_exit
 vDEBUG: .dbyte  2
 
+;;; Print variable "vname=value "
+;;;   xppc   P1
+;;;   .byte  vname
+;;;   .dbyte &value
+;;; @local P[1:0] &value
+;;; @local P[3:2] return address
+print_int8_exit:
+        ld      @2(P2)          ; discard local
+        ld      @1(P2)
+        xpal    P1
+        ld      @1(P2)
+        xpah    P1
+        xppc    P1              ; return
+print_int8:
+        ld      @1(P1)          ; point vname
+        ld      @1(P1)
+        xae                     ; E=vname
+        ld      @1(P1)
+        st      @-4(P2)         ; P2[1:0]=&value
+        ld      0(P1)           ; P1=return address
+        st      1(P2)
+        ld      0(P2)           ; P2[1:0]=&value
+        xpal    P1
+        st      2(P2)           ; P2[3:2]=return address
+        ld      1(P2)
+        xpah    P1              ; P1=&value
+        st      3(P2)
+        ld      0(P1)           ; vDEBUG=value
+        st      vDEBUG
+        jz      print_int8_plus
+        ldi     -1
+        jmp     print_int8_extend
+print_int8_plus:
+        ldi     0
+print_int8_extend:
+        st      vDEBUG+1
+        ldi     L(ADDR(putchar))
+        xpal    P1
+        ldi     H(ADDR(putchar))
+        xpah    P1              ; P1=ADDR(putchar)
+        lde                     ; A=vname
+        xppc    P1              ; print vname
+        ldi     '='
+        xppc    P1              ; print '='
+        ldi     L(ADDR(print_int16))
+        xpal    P1
+        ldi     H(ADDR(print_int16))
+        xpah    P1
+        xppc    P1
+        .dbyte  vDEBUG
+        ldi     L(ADDR(putchar))
+        xpal    P1
+        ldi     H(ADDR(putchar))
+        xpah    P1              ; P1=ADDR(putchar)
+        ldi     ' '
+        xppc    P1              ; print space
+        jmp     print_int8_exit
+
 mandelbrot:
         ldi     H(vY)
         xpah    P1
@@ -85,18 +143,14 @@ mandelbrot:
         xpal    P1
         st      @-1(P2)         ; save return address
         ldi     -12
-        st      0(P1)
-        ldi     -1
-        st      1(P1)           ; Y=-12
+        st      0(P1)           ; Y=-12
 loop_y:
         ldi     L(vX)
         xpal    P1
         ldi     H(vX)
         xpah    P1
         ldi     -49
-        st      0(P1)
-        ldi     -1
-        st      1(P1)           ; X=-49
+        st      0(P1)           ; X=-49
 loop_x:
         ldi     L(vBASE)
         xpal    P1
@@ -104,11 +158,19 @@ loop_x:
         xpah    P1              ; P1=vBASE
         ld      (vX-vBASE)(P1)
         st      (vC-vBASE)(P1)  ; C=X
-        ld      (vX-vBASE+1)(P1)
+        jp      X_plus
+        ldi     -1
+        jmp     X_extend
+X_plus: ldi     0
+X_extend:
         st      (vC-vBASE+1)(P1)
         ld      (vY-vBASE)(P1)
         st      (vD-vBASE)(P1)  ; D=Y
-        ld      (vY-vBASE+1)(P1)
+        jp      Y_plus
+        ldi     -1
+        jmp     Y_extend
+Y_plus: ldi     0
+Y_extend:
         st      (vD-vBASE+1)(P1)
         ldi     L(ADDR(mulsi2))
         xpal    P1
@@ -144,11 +206,10 @@ loop_x:
         st      (vB-vBASE+1)(P1)
         ldi     0
         st      (vI-vBASE)(P1)  ; I=0
-        st      (vI-vBASE+1)(P1)
 
-        ;; ldi     L(ADDR(print))
+        ;; ldi     L(ADDR(print_int8))
         ;; xpal    P1
-        ;; ldi     H(ADDR(print))
+        ;; ldi     H(ADDR(print_int8))
         ;; xpah    P1              ; P1=ADDR(print)
         ;; xppc    P1              ; print Y
         ;; .byte   'Y'
@@ -156,6 +217,10 @@ loop_x:
         ;; xppc    P1              ; print X
         ;; .byte   'X'
         ;; .dbyte  vX
+        ;; ldi     L(ADDR(print))
+        ;; xpal    P1
+        ;; ldi     H(ADDR(print))
+        ;; xpah    P1              ; P1=ADDR(print)
         ;; xppc    P1              ; print C
         ;; .byte   'C'
         ;; .dbyte  vC
@@ -341,13 +406,17 @@ loop_i:
         ;; xpah    P1              ; P1=ADDR(putchar)
         ;; ldi     ' '
         ;; xppc    P1              ; print space
-        ;; ldi     L(ADDR(print))
+        ;; ldi     L(ADDR(print_int8))
         ;; xpal    P1
-        ;; ldi     H(ADDR(print))
+        ;; ldi     H(ADDR(print_int8))
         ;; xpah    P1              ; P1=ADDR(print)
         ;; xppc    P1              ; print I
         ;; .byte   'I'
         ;; .dbyte  vI
+        ;; ldi     L(ADDR(print))
+        ;; xpal    P1
+        ;; ldi     H(ADDR(print))
+        ;; xpah    P1              ; P1=ADDR(print)
         ;; xppc    P1              ; print A
         ;; .byte   'A'
         ;; .dbyte  vA
@@ -369,26 +438,22 @@ loop_i:
         ;; xpah    P1              ; P1=ADDR(newline)
         ;; xppc    P1              ; newline
 
-        ldi     L(vT)
+        ldi     L(vBASE)
         xpal    P1
-        ldi     H(vT)
-        xpah    P1              ; P1=&vT
-        ld      1(P1)           ; H(T)
+        ldi     H(vBASE)
+        xpah    P1              ; P1=vBASE
+        ld      (vT-vBASE+1)(P1) ; H(T)
         jnz     next_i
         scl                     ; clear borrow
         ldi     4
-        cad     0(P1)           ; 4-L(T)
+        cad     (vT-vBASE)(P1)  ; 4-L(T)
         jp      next_i          ; branch if 4<T
 print_i:
-        ldi     L(vI)
-        xpal    P1
-        ldi     H(vI)
-        xpah    P1              ; P1=&vI
-        ld      0(P1)
+        ld      (vI-vBASE)(P1)
         scl                     ; clear borrow
         cai     10              ; A=I-10
         jp      print_i_hex
-        ld      0(P1)
+        ld      (vI-vBASE)(P1)
         ori     '0'
         jmp     print_char
 print_i_hex:
@@ -396,11 +461,7 @@ print_i_hex:
         adi     'A'
         jmp     print_char
 next_i:
-        ldi     L(vI)
-        xpal    P1
-        ldi     H(vI)
-        xpah    P1              ; P1=&vI
-        ild     0(P1)           ; I+=1
+        ild     (vI-vBASE)(P1)  ; I+=1
         scl                     ; clear borrow
         cai     16              ; I-16
         jp      print_space     ; branch if I >= 16
@@ -446,15 +507,9 @@ next_x:
         ldi     L(vX)
         xpal    P1
         ldi     H(vX)
-        xpah    P1              ; P1=&X
-        ild     0(P1)           ; L(X)++
-        jnz     check_x
-        ild     1(P1)           ; H(X)++
-check_x:
-        ld      1(P1)           ; H(X)
-        jnz     jump_loop_x     ; branch if X<0
+        xpah    P1              ; P1=&vX
+        ild     0(P1)           ; X++
         scl                     ; clear borrow
-        ld      0(P1)           ; L(X)
         cai     30              ; X-30
         jp      next_y          ; branch if X>=30
 jump_loop_x:
@@ -473,14 +528,8 @@ next_y:
         xpal    P1
         ldi     H(vY)
         xpah    P1              ; P1=&Y
-        ild     0(P1)           ; L(Y)++
-        jnz     check_y
-        ild     1(P1)           ; H(Y)++
-check_y:
-        ld      1(P1)           ; H(Y)
-        jnz     jump_loop_y     ; branch if Y<0
+        ild     0(P1)           ; Y++
         scl                     ; clear borrow
-        ld      0(P1)           ; L(Y)
         cai     13              ; Y-13
         jp      mandelbrot_end  ; branch if Y>=13
 jump_loop_y:
