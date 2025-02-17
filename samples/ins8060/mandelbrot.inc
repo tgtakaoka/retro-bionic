@@ -18,7 +18,7 @@ vB:     .dbyte  0
 vS:     .dbyte  0
 vP:     .dbyte  0
 vQ:     .dbyte  0
-vT0:    .dbyte  0
+vT:     .dbyte  0
 vT1:    .dbyte  0
 vT2:    .dbyte  0
 
@@ -188,36 +188,36 @@ loop_x:
         st      0(P1)           ; I=0
         st      1(P1)
 
-        ;; ldi     L(ADDR(print))
-        ;; xpal    P1
-        ;; ldi     H(ADDR(print))
-        ;; xpah    P1              ; P1=ADDR(print)
-        ;; xppc    P1              ; print Y
-        ;; .byte   'Y'
-        ;; .dbyte  vY
-        ;; xppc    P1              ; print X
-        ;; .byte   'X'
-        ;; .dbyte  vX
-        ;; xppc    P1              ; print C
-        ;; .byte   'C'
-        ;; .dbyte  vC
-        ;; xppc    P1              ; print D
-        ;; .byte   'D'
-        ;; .dbyte  vD
-        ;; ldi     L(ADDR(newline))
-        ;; xpal    P1
-        ;; ldi     H(ADDR(newline))
-        ;; xpah    P1              ; P1=ADDR(newline)
-        ;; xppc    P1
+        ldi     L(ADDR(print))
+        xpal    P1
+        ldi     H(ADDR(print))
+        xpah    P1              ; P1=ADDR(print)
+        xppc    P1              ; print Y
+        .byte   'Y'
+        .dbyte  vY
+        xppc    P1              ; print X
+        .byte   'X'
+        .dbyte  vX
+        xppc    P1              ; print C
+        .byte   'C'
+        .dbyte  vC
+        xppc    P1              ; print D
+        .byte   'D'
+        .dbyte  vD
+        ldi     L(ADDR(newline))
+        xpal    P1
+        ldi     H(ADDR(newline))
+        xpah    P1              ; P1=ADDR(newline)
+        xppc    P1
 
 loop_i:
         ldi     L(ADDR(assign))
         xpal    P1
         ldi     H(ADDR(assign))
         xpah    P1              ; P1=ADDR(assign)
-        xppc    P1              ; T0=B
+        xppc    P1              ; T=B
         .dbyte  vB
-        .dbyte  vT0
+        .dbyte  vT
         xppc    P1              ; S=B
         .dbyte  vB
         .dbyte  vS
@@ -231,23 +231,23 @@ loop_i:
         xpal    P1
         ldi     H(ADDR(divsi2))
         xpah    P1              ; P1=ADDR(divsi2)
-        xppc    P1              ; T0=B/F
+        xppc    P1              ; T=B/F
         .dbyte  cF
-        .dbyte  vT0
+        .dbyte  vT
         ldi     L(ADDR(assign))
         xpal    P1
         ldi     H(ADDR(assign))
         xpah    P1              ; P1=ADDR(assign)
-        xppc    P1              ; Q=T0=B/F
-        .dbyte  vT0
+        xppc    P1              ; Q=T=B/F
+        .dbyte  vT
         .dbyte  vQ
         ldi     L(ADDR(mulsi2))
         xpal    P1
         ldi     H(ADDR(mulsi2))
         xpah    P1              ; P1=ADDR(mulsi2)
-        xppc    P1              ; T0=(B/F)*F=Q*F
+        xppc    P1              ; T=(B/F)*F=Q*F
         .dbyte  cF
-        .dbyte  vT0
+        .dbyte  vT
         xppc    P1              ; T1=B*B
         .dbyte  vT1
         .dbyte  vT1
@@ -259,7 +259,7 @@ loop_i:
         ldi     H(ADDR(subsi2))
         xpah    P1              ; P1=ADDR(subsi2)
         xppc    P1              ; S=B-Q*F
-        .dbyte  vT0
+        .dbyte  vT
         .dbyte  vS
         xppc    P1              ; T2=A*A-B*B
         .dbyte  vT1
@@ -268,9 +268,9 @@ loop_i:
         xpal    P1
         ldi     H(ADDR(assign))
         xpah    P1              ; P1=ADDR(assign)
-        xppc    P1              ; T0=A
+        xppc    P1              ; T=A
         .dbyte  vA
-        .dbyte  vT0
+        .dbyte  vT
         xppc    P1              ; B=A
         .dbyte  vA
         .dbyte  vB
@@ -278,9 +278,9 @@ loop_i:
         xpal    P1
         ldi     H(ADDR(mulsi2))
         xpah    P1              ; P1=ADDR(mulsi2)
-        xppc    P1              ; T0=A*S
+        xppc    P1              ; T=A*S
         .dbyte  vS
-        .dbyte  vT0
+        .dbyte  vT
         xppc    P1              ; B=A*Q
         .dbyte  vQ
         .dbyte  vB
@@ -291,9 +291,9 @@ loop_i:
         xppc    P1              ; T2=(A*A-B*B)/F
         .dbyte  cF
         .dbyte  vT2
-        xppc    P1              ; T0=A*S/F
+        xppc    P1              ; T=A*S/F
         .dbyte  cF
-        .dbyte  vT0
+        .dbyte  vT
         ldi     L(ADDR(addsi2))
         xpal    P1
         ldi     H(ADDR(addsi2))
@@ -302,7 +302,7 @@ loop_i:
         .dbyte  vC
         .dbyte  vT2
         xppc    P1              ; B=A*Q+A*S/F
-        .dbyte  vT0
+        .dbyte  vT
         .dbyte  vB
         xppc    P1              ; B=2*(A*Q+A*S/F)
         .dbyte  vB
@@ -333,65 +333,78 @@ loop_i:
         xppc    P1              ; Q=B/F
         .dbyte  cF
         .dbyte  vQ
-
-        ;; ldi     L(ADDR(putchar))
-        ;; xpal    P1
-        ;; ldi     H(ADDR(putchar))
-        ;; xpah    P1              ; P1=ADDR(putchar)
-        ;; ldi     ' '
-        ;; xppc    P1              ; print space
-        ;; ldi     L(ADDR(print))
-        ;; xpal    P1
-        ;; ldi     H(ADDR(print))
-        ;; xpah    P1              ; P1=ADDR(print)
-        ;; xppc    P1              ; print I
-        ;; .byte   'I'
-        ;; .dbyte  vI
-        ;; xppc    P1              ; print A
-        ;; .byte   'A'
-        ;; .dbyte  vA
-        ;; xppc    P1              ; print B
-        ;; .byte   'B'
-        ;; .dbyte  vB
-        ;; xppc    P1              ; print P
-        ;; .byte   'P'
-        ;; .dbyte  vP
-        ;; xppc    P1              ; print Q
-        ;; .byte   'Q'
-        ;; .dbyte  vQ
-        ;; ldi     L(ADDR(newline))
-        ;; xpal    P1
-        ;; ldi     H(ADDR(newline))
-        ;; xpah    P1              ; P1=ADDR(newline)
-        ;; xppc    P1              ; newline
-
+        ldi     L(ADDR(assign))
+        xpal    P1
+        ldi     H(ADDR(assign))
+        xpah    P1              ; P1=ADDR(assign)
+        xppc    P1              ; T=P
+        .dbyte  vP
+        .dbyte  vT
+        xppc    P1              ; T1=Q
+        .dbyte  vQ
+        .dbyte  vT1  
         ldi     L(ADDR(mulsi2))
         xpal    P1
         ldi     H(ADDR(mulsi2))
         xpah    P1              ; P1=ADDR(mulsi2)
-        xppc    P1              ; Q=Q*Q
-        .dbyte  vQ
-        .dbyte  vQ
-        xppc    P1              ; P=P*P
+        xppc    P1              ; T=P*P
         .dbyte  vP
-        .dbyte  vP
+        .dbyte  vT
+        xppc    P1              ; T1=Q*Q
+        .dbyte  vQ
+        .dbyte  vT1
         ldi     L(ADDR(addsi2))
         xpal    P1
         ldi     H(ADDR(addsi2))
         xpah    P1              ; P1=ADDR(addsi2)
-        xppc    P1              ; P=P*P+Q*Q
-        .dbyte  vQ
-        .dbyte  vP
-        ldi     L(vP)
+        xppc    P1              ; T=P*P+Q*Q
+        .dbyte  vT1
+        .dbyte  vT
+
+        ldi     L(ADDR(putchar))
         xpal    P1
-        ldi     H(vP)
-        xpah    P1              ; P1=&vP
-        ld      1(P1)           ; H(vP)
+        ldi     H(ADDR(putchar))
+        xpah    P1              ; P1=ADDR(putchar)
+        ldi     ' '
+        xppc    P1              ; print space
+        ldi     L(ADDR(print))
+        xpal    P1
+        ldi     H(ADDR(print))
+        xpah    P1              ; P1=ADDR(print)
+        xppc    P1              ; print I
+        .byte   'I'
+        .dbyte  vI
+        xppc    P1              ; print A
+        .byte   'A'
+        .dbyte  vA
+        xppc    P1              ; print B
+        .byte   'B'
+        .dbyte  vB
+        xppc    P1              ; print P
+        .byte   'P'
+        .dbyte  vP
+        xppc    P1              ; print Q
+        .byte   'Q'
+        .dbyte  vQ
+        xppc    P1              ; print T
+        .byte   'T'
+        .dbyte  vT
+        ldi     L(ADDR(newline))
+        xpal    P1
+        ldi     H(ADDR(newline))
+        xpah    P1              ; P1=ADDR(newline)
+        xppc    P1              ; newline
+
+        ldi     L(vT)
+        xpal    P1
+        ldi     H(vT)
+        xpah    P1              ; P1=&vT
+        ld      1(P1)           ; H(T)
         jnz     next_i
         scl                     ; clear borrow
         ldi     4
-        cad     0(P1)           ; 4-L(vP)
-        jp      next_i          ; branch if 4<P*P+Q*Q
+        cad     0(P1)           ; 4-L(T)
+        jp      next_i          ; branch if 4<T
 print_i:
         ldi     L(vI)
         xpal    P1
@@ -431,19 +444,19 @@ print_char:
         ldi     H(ADDR(putchar))
         xpah    P1
         lde
-        xppc    P1              ; print char
+        ;; xppc    P1              ; print char
 
-        ;; ldi     '@'
-        ;; xppc    P1              ; print '@='
-        ;; ldi     '='
-        ;; xppc    P1
-        ;; lde
-        ;; xppc    P1
-        ;; ldi     L(ADDR(newline))
-        ;; xpal    P1
-        ;; ldi     H(ADDR(newline))
-        ;; xpah    P1              ; P1=ADDR(newline)
-        ;; xppc    P1
+        ldi     '@'
+        xppc    P1              ; print '@='
+        ldi     '='
+        xppc    P1
+        lde
+        xppc    P1
+        ldi     L(ADDR(newline))
+        xpal    P1
+        ldi     H(ADDR(newline))
+        xpah    P1              ; P1=ADDR(newline)
+        xppc    P1
 
         ldi     L(ADDR(getchar))
         xpal    P1
@@ -481,7 +494,7 @@ next_y:
         xpal    P1
         ldi     H(ADDR(newline))
         xpah    P1              ; P1=ADDR(newline)
-        xppc    P1
+        ;; xppc    P1
         ldi     L(vY)
         xpal    P1
         ldi     H(vY)
