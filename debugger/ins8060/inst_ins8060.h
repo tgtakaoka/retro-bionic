@@ -12,6 +12,7 @@ struct InstIns8060 {
     static constexpr uint8_t HALT = 0x00;
     static constexpr uint8_t JMP = 0x90;
     static constexpr uint8_t JMP_HERE = 0xFE;
+    static constexpr uint8_t JMP_HALT = 0xFD;
 };
 
 }  // namespace ins8060

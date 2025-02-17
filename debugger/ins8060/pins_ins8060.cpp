@@ -218,8 +218,7 @@ Signals *PinsIns8060::prepareCycle() const {
             // negate_debug();
             delayNanoseconds(xin_hi_addr);
             xin_lo();
-            if (!s->fetch())
-                delayNanoseconds(xin_lo_addr);
+            delayNanoseconds(xin_lo_addr);
             // XIN=L
             interrupts();
             return s;
@@ -353,19 +352,14 @@ void PinsIns8060::loop() {
     while (true) {
         _devs->loop();
         auto s = prepareCycle();
-        if (s->fetch()) {
-            const auto inst = _mems->read_byte(s->addr);
-            const auto len = InstIns8060::instLen(inst);
-            if (len == 0 || inst == InstIns8060::HALT) {
-                completeCycle(s->inject(InstIns8060::JMP));
-                inject(InstIns8060::JMP_HERE);
-                negate_enin();
-                Signals::discard(s);
-                return;
-            }
-            s->inject(inst);
-        }
         completeCycle(s);
+        if (s->halt()) {
+            inject(InstIns8060::JMP);
+            inject(InstIns8060::JMP_HALT);
+            negate_enin();
+            Signals::discard(s);
+            return;
+        }
         if (haltSwitch()) {
             suspend();
             return;
@@ -401,16 +395,14 @@ void PinsIns8060::run() {
 bool PinsIns8060::rawStep() const {
     assert_enin();
     auto s = prepareCycle();
-    const auto inst = _mems->read_byte(s->addr);
-    const auto len = InstIns8060::instLen(inst);
-    if (len == 0 || inst == InstIns8060::HALT) {
-        // HALT or unknown instruction
-        completeCycle(s->inject(InstIns8060::JMP));
-        inject(InstIns8060::JMP_HERE);
+    completeCycle(s);
+    if (s->halt()) {
+        inject(InstIns8060::JMP);
+        inject(InstIns8060::JMP_HALT);
+        negate_enin();
         Signals::discard(s);
         return false;
     }
-    completeCycle(s->inject(inst));
     suspend();
     return true;
 }
