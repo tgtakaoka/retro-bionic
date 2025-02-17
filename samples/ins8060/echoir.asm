@@ -116,15 +116,19 @@ isr_sensea_exit:
         xpal    P1
         ld      @1(P2)
         xpah    P1
+        ld      @1(P2)          ; pop Status
+        cas
         ld      @1(P2)          ; pop E
         xae
-        ld      @1(P2)          ; pop D
+        ld      @1(P2)          ; pop A
         ien                     ; enable interrupt
         xppc    P3              ; return from interrupt
 isr_sensea:
         st      @-1(P2)         ; save A
         lde
         st      @-1(P2)         ; save E
+        csa
+        st      @-1(P2)         ; save Stastus
         ldi     H(ACIA)
         xpah    P1
         st      @-1(P2)

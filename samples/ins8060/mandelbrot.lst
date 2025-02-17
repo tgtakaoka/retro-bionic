@@ -88,7 +88,7 @@
           3 : 32                         xpal    P2
           4 : C4 0F                      ldi     H(stack)
           6 : 36                         xpah    P2
-          7 : C4 FB                      ldi     L(ADDR(isr_sensea))
+          7 : C4 FC                      ldi     L(ADDR(isr_sensea))
           9 : 33                         xpal    P3              ; setup interrupt entry P3
           A : C4 16                      ldi     H(ADDR(isr_sensea))
           C : 37                         xpah    P3
@@ -101,7 +101,7 @@
        1000 :                            .=      X'1000
        1000 : =FFF               stack   =       .-1
        1000 :                    initialize:
-       1000 : C4 28                      ldi     L(ADDR(queue_init))
+       1000 : C4 26                      ldi     L(ADDR(queue_init))
        1002 : 31                         xpal    P1
        1003 : C4 16                      ldi     H(ADDR(queue_init))
        1005 : 35                         xpah    P1              ; P1=queue_init
@@ -130,7 +130,7 @@
        1022 : C4 10                      ldi     H(ADDR(mandelbrot))
        1024 : 35                         xpah    P1
        1025 : 3D                         xppc    P1              ; call mandelbrot
-       1026 : C4 08                      ldi     L(ADDR(newline))
+       1026 : C4 06                      ldi     L(ADDR(newline))
        1028 : 31                         xpal    P1
        1029 : C4 16                      ldi     H(ADDR(newline))
        102B : 35                         xpah    P1
@@ -617,7 +617,7 @@
 (1)    1295 : 35                         xpah    P1
 (1)    1296 : 3D                         xppc    P1              ; jump to loop_x
 (1)    1297 :                    next_y:
-(1)    1297 : C4 08                      ldi     L(ADDR(newline))
+(1)    1297 : C4 06                      ldi     L(ADDR(newline))
 (1)    1299 : 31                         xpal    P1
 (1)    129A : C4 16                      ldi     H(ADDR(newline))
 (1)    129C : 35                         xpah    P1              ; P1=ADDR(newline)
@@ -1192,7 +1192,7 @@
        15C0 : 3D                         xppc    P1
        15C1 :                    getchar:
        15C1 : CE FF                      st      @-1(P2)         ; for return value
-       15C3 : C4 B4                      ldi     L(ADDR(queue_remove))
+       15C3 : C4 B2                      ldi     L(ADDR(queue_remove))
        15C5 : 31                         xpal    P1
        15C6 : CE FE                      st      @-2(P2)
        15C8 : C4 16                      ldi     H(ADDR(queue_remove))
@@ -1220,7 +1220,7 @@
        15E2 : CE FF                      st      @-1(P2)         ; push A
        15E4 : 40                         lde
        15E5 : CE FF                      st      @-1(P2)         ; push E
-       15E7 : C4 67                      ldi     L(ADDR(queue_add))
+       15E7 : C4 65                      ldi     L(ADDR(queue_add))
        15E9 : 31                         xpal    P1
        15EA : CE FE                      st      @-2(P2)
        15EC : C4 16                      ldi     H(ADDR(queue_add))
@@ -1234,252 +1234,254 @@
        15F6 : 10 20                      .dbyte  tx_queue
        15F8 : 05                         ien                     ; enable interrupt
        15F9 : 98 F9                      jz      putchar_retry   ; queue is full
-       15FB : 04                         dint                    ; disable interrupt
-       15FC : C4 00                      ldi     L(ACIA)
-       15FE : 31                         xpal    P1
-       15FF : C4 DF                      ldi     H(ACIA)
-       1601 : 35                         xpah    P1
-       1602 : C4 B4                      ldi     RX_INT_TX_INT   ; enable Tx interrupt
-       1604 : C9 00                      st      ACIA_C(P1)
-       1606 :                    putchar_return:
-       1606 : 05                         ien                     ; enable interrupt
-       1607 : 90 CD                      jmp     putchar_exit
-       1609 :
-       1609 :                    newline:
-       1609 : C4 E1                      ldi     L(ADDR(putchar))
-       160B : 31                         xpal    P1
-       160C : CE FE                      st      @-2(P2)
-       160E : C4 15                      ldi     H(ADDR(putchar))
-       1610 : 35                         xpah    P1
-       1611 : CA 01                      st      1(P2)
-       1613 : C4 0D                      ldi     X'0D
-       1615 : 3D                         xppc    P1              ; print CR
-       1616 : C4 0A                      ldi     X'0A
-       1618 : 3D                         xppc    P1              ; print LF
-       1619 : C6 01                      ld      @1(P2)
-       161B : 31                         xpal    P1
-       161C : C6 01                      ld      @1(P2)
-       161E : 35                         xpah    P1
-       161F : 3D                         xppc    P1              ; return
-       1620 :
-       1620 :                            include "queue.inc"
-(1)    1620 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
-(1)    1620 :                    ;;; [queue] queue structure
-(1)    1620 : =0                 queue_len       =       0       ; queue length
-(1)    1620 : =1                 queue_size      =       1       ; buffer size
-(1)    1620 : =2                 queue_put       =       2       ; queue put index
-(1)    1620 : =3                 queue_get       =       3       ; queue get index
-(1)    1620 : =4                 queue_buf       =       4       ; buffer start offset
-(1)    1620 :
-(1)    1620 :                    ;;; [queue] Initialize queue
-(1)    1620 :                    ;;; @param A queue space size
-(1)    1620 :                    ;;; @param P1 return address pointer
-(1)    1620 :                    ;;; @param P1[1:2] queue space pointer
-(1)    1620 :                    ;;; @clobber A
-(1)    1620 :                    queue_init_exit:
-(1)    1620 : C6 01                      ld      @1(P2)          ; pop P1
-(1)    1622 : 31                         xpal    P1
-(1)    1623 : C6 01                      ld      @1(P2)
-(1)    1625 : 35                         xpah    P1
-(1)    1626 : C6 01                      ld      @1(P2)          ; discard work area
-(1)    1628 : 3D                         xppc    P1
-(1)    1629 :                    queue_init:
-(1)    1629 : CE FF                      st      @-1(P2)         ; save queue space size
-(1)    162B : C5 01                      ld      @1(P1)          ; advance to queue space pointer
-(1)    162D : C5 01                      ld      @1(P1)          ; load queue work space pointer (le16)
-(1)    162F : CE FE                      st      @-2(P2)         ; save lo(queue space)
-(1)    1631 : C1 00                      ld      0(P1)
-(1)    1633 : 35                         xpah    P1
-(1)    1634 : CA 01                      st      1(P2)           ; P[1:0] push P1
-(1)    1636 : C2 00                      ld      0(P2)
-(1)    1638 : 31                         xpal    P1              ; P1=queue space pointer
-(1)    1639 : CA 00                      st      0(P2)
-(1)    163B : C4 00                      ldi     0
-(1)    163D : C9 00                      st      queue_len(P1)   ; clear queue_len
-(1)    163F : C9 02                      st      queue_put(P1)
-(1)    1641 : C9 03                      st      queue_get(P1)
-(1)    1643 : C2 02                      ld      2(P2)           ; queue space size
-(1)    1645 : 03                         scl
-(1)    1646 : FC 04                      cai     queue_buf
-(1)    1648 : C9 01                      st      queue_size(P1)
-(1)    164A : CA 02                      st      2(P2)           ; counter
-(1)    164C : C5 04                      ld      @queue_buf(P1)  ; advanced pointer
-(1)    164E :                    queue_init_loop:
-(1)    164E : C4 00                      ldi     0
-(1)    1650 : CD 01                      st      @1(P1)
-(1)    1652 : BA 02                      dld     2(P2)
-(1)    1654 : 9C F8                      jnz     queue_init_loop
-(1)    1656 : 90 C8                      jmp     queue_init_exit
-(1)    1658 :
-(1)    1658 :                    ;;; [queue] Add an element to queue
-(1)    1658 :                    ;;; @param E an element
-(1)    1658 :                    ;;; @param P1 return address pointer
-(1)    1658 :                    ;;; @param P1[1:2] queue space pointer
-(1)    1658 :                    ;;; @return E an element
-(1)    1658 :                    ;;; @return A 0 if queue is full
-(1)    1658 :                    ;;; @clobber P1
-(1)    1658 :                    queue_add_exit:
-(1)    1658 : CA 05                      st      5(P2)           ; P2[5] return flag
-(1)    165A : C6 02                      ld      @2(P2)          ; discard queue space pointer
-(1)    165C : C6 01                      ld      @1(P2)          ; pop P1
-(1)    165E : 31                         xpal    P1
-(1)    165F : C6 01                      ld      @1(P2)
-(1)    1661 : 35                         xpah    P1
-(1)    1662 : C6 01                      ld      @1(P2)          ; restore E
-(1)    1664 : 01                         xae
-(1)    1665 : C6 01                      ld      @1(P2)          ; return flag
-(1)    1667 : 3D                         xppc    P1
-(1)    1668 :                    queue_add:
-(1)    1668 : C5 01                      ld      @1(P1)          ; advanced to queue space pointer
-(1)    166A : C5 01                      ld      @1(P1)          ; load queue space pointer (le16)
-(1)    166C : CE FA                      st      @-6(P2)         ; param, P1, elem, return flag
-(1)    166E : C1 00                      ld      0(P1)
-(1)    1670 : CA 01                      st      1(P2)           ; P2[1:0] queue space pointer
-(1)    1672 : 35                         xpah    P1
-(1)    1673 : CA 03                      st      3(P2)           ; P2[3:2] saved P1
-(1)    1675 : C2 00                      ld      0(P2)
-(1)    1677 : 31                         xpal    P1
-(1)    1678 : CA 02                      st      2(P2)
-(1)    167A : 40                         lde
-(1)    167B : CA 04                      st      4(P2)           ; P2[4] save an element
-(1)    167D : C1 00                      ld      queue_len(P1)
-(1)    167F : E1 01                      xor     queue_size(P1)
-(1)    1681 : 98 D5                      jz      queue_add_exit  ; queue is full, A=0
-(1)    1683 :                    queue_not_full:
-(1)    1683 : A9 00                      ild     queue_len(P1)    ; update queue_len
-(1)    1685 : C2 00                      ld      0(P2)
-(1)    1687 : 02                         ccl
-(1)    1688 : F1 02                      add     queue_put(P1)
-(1)    168A : 01                         xae
-(1)    168B : C2 01                      ld      1(P2)
-(1)    168D : F4 00                      adi     0
-(1)    168F : 35                         xpah    P1
-(1)    1690 : 01                         xae
-(1)    1691 : 31                         xpal    P1
-(1)    1692 : C2 04                      ld      4(P2)           ; an element
-(1)    1694 : C9 04                      st      queue_buf(P1)   ; store element
-(1)    1696 : C2 00                      ld      0(P2)
-(1)    1698 : 31                         xpal    P1
-(1)    1699 : C2 01                      ld      1(P2)
-(1)    169B : 35                         xpah    P1
-(1)    169C : A9 02                      ild     queue_put(P1)   ; advanced queue_put
-(1)    169E : E1 01                      xor     queue_size(P1)
-(1)    16A0 : 9C 02                      jnz     queue_add_end   ; branch if queue_put != queue_size
-(1)    16A2 : C9 02                      st      queue_put(P1)   ; reset queue_put
-(1)    16A4 :                    queue_add_end:
-(1)    16A4 : C4 01                      ldi     1
-(1)    16A6 : 90 B0                      jmp     queue_add_exit  ; an element added, A=1
-(1)    16A8 :
-(1)    16A8 :                    ;;; [queue] Remove an element from queue
-(1)    16A8 :                    ;;; @param P1 return address pointer
-(1)    16A8 :                    ;;; @param P1[1:2] queue space pointer
-(1)    16A8 :                    ;;; @return E an element
-(1)    16A8 :                    ;;; @return A 0 if queue is empty
-(1)    16A8 :                    ;;; @clobber P1
-(1)    16A8 :                    queue_remove_exit:
-(1)    16A8 : CA 04                      st      4(P2)           ; return flag
-(1)    16AA : C6 02                      ld      @2(P2)          ; discard work area
-(1)    16AC : C6 01                      ld      @1(P2)          ; pop P1
-(1)    16AE : 31                         xpal    P1
-(1)    16AF : C6 01                      ld      @1(P2)
-(1)    16B1 : 35                         xpah    P1
-(1)    16B2 : C6 01                      ld      @1(P2)          ; return flag
-(1)    16B4 : 3D                         xppc    P1              ; return
-(1)    16B5 :                    queue_remove:
-(1)    16B5 : C5 01                      ld      @1(P1)          ; advanced to queue space pointer
-(1)    16B7 : C5 01                      ld      @1(P1)          ; load queue space pointer (le16)
-(1)    16B9 : CE FB                      st      @-5(P2)         ; param, P1, return flag
-(1)    16BB : C1 00                      ld      0(P1)
-(1)    16BD : CA 01                      st      1(P2)           ; P2[1:0] queue space pointer
-(1)    16BF : 35                         xpah    P1
-(1)    16C0 : CA 03                      st      3(P2)           ; P2[3:2] saved P1
-(1)    16C2 : C2 00                      ld      0(P2)
-(1)    16C4 : 31                         xpal    P1
-(1)    16C5 : CA 02                      st      2(P2)
-(1)    16C7 : C1 00                      ld      queue_len(P1)
-(1)    16C9 : 98 DD                      jz      queue_remove_exit ; queue is empty, A=0
-(1)    16CB :                    queue_not_empty:
-(1)    16CB : B9 00                      dld     queue_len(P1)    ; update queue_len
-(1)    16CD : C2 00                      ld      0(P2)
-(1)    16CF : 02                         ccl
-(1)    16D0 : F1 03                      add     queue_get(P1)
-(1)    16D2 : 01                         xae
-(1)    16D3 : C2 01                      ld      1(P2)
-(1)    16D5 : F4 00                      adi     0
-(1)    16D7 : 35                         xpah    P1
-(1)    16D8 : 40                         lde
-(1)    16D9 : 31                         xpal    P1
-(1)    16DA : C1 04                      ld      queue_buf(P1)   ; load element
-(1)    16DC : 01                         xae                     ; E=element
-(1)    16DD : C2 00                      ld      0(P2)
-(1)    16DF : 31                         xpal    P1
-(1)    16E0 : C2 01                      ld      1(P2)
-(1)    16E2 : 35                         xpah    P1
-(1)    16E3 : A9 03                      ild     queue_get(P1)   ; advanced queue_get
-(1)    16E5 : E1 01                      xor     queue_size(P1)
-(1)    16E7 : 9C 02                      jnz     queue_remove_end ; branch if queue_put != queue_size
-(1)    16E9 : C9 03                      st      queue_get(P1)   ; reset queue_get
-(1)    16EB :                    queue_remove_end:
-(1)    16EB : C4 01                      ldi     1
-(1)    16ED : 90 B9                      jmp     queue_remove_exit
-       16EF :
-       16EF :                    isr_sensea_exit:
-       16EF : C6 01                      ld      @1(P2)          ; pop P1
-       16F1 : 31                         xpal    P1
-       16F2 : C6 01                      ld      @1(P2)
-       16F4 : 35                         xpah    P1
-       16F5 : C6 01                      ld      @1(P2)          ; pop E
-       16F7 : 01                         xae
-       16F8 : C6 01                      ld      @1(P2)          ; pop D
-       16FA : 05                         ien                     ; enable interrupt
-       16FB : 3F                         xppc    P3              ; return from interrupt
-       16FC :                    isr_sensea:
-       16FC : CE FF                      st      @-1(P2)         ; save A
-       16FE : 40                         lde
-       16FF : CE FF                      st      @-1(P2)         ; save E
-       1701 : C4 00                      ldi     L(ACIA)         ; save P1 and load P1
-       1703 : 31                         xpal    P1
-       1704 : CE FE                      st      @-2(P2)
-       1706 : C4 DF                      ldi     H(ACIA)
-       1708 : 35                         xpah    P1
-       1709 : CA 01                      st      1(P2)
-       170B : C1 00                      ld      ACIA_S(P1)
-       170D : CE FF                      st      @-1(P2)         ; save ACIA_status
-       170F : D4 01                      ani     RDRF_bm
-       1711 : 98 0C                      jz      isr_send
-       1713 : C1 01                      ld      ACIA_D(P1)      ; receive character
-       1715 : 01                         xae                     ; E=char
-       1716 : C4 67                      ldi     L(ADDR(queue_add))
-       1718 : 31                         xpal    P1
-       1719 : C4 16                      ldi     H(ADDR(queue_add))
-       171B : 35                         xpah    P1
-       171C : 3D                         xppc    P1              ; call queue_add
-       171D : 00 20                      .dbyte  rx_queue
-       171F :                    isr_send:
-       171F : C6 01                      ld      @1(P2)          ; pop ACIA status
-       1721 : D4 02                      ani     TDRE_bm
-       1723 : 98 CA                      jz      isr_sensea_exit
-       1725 : C4 B4                      ldi     L(ADDR(queue_remove))
-       1727 : 31                         xpal    P1
-       1728 : C4 16                      ldi     H(ADDR(queue_remove))
-       172A : 35                         xpah    P1
-       172B : 3D                         xppc    P1              ; call queue_remove
-       172C : 10 20                      .dbyte  tx_queue
-       172E : 98 0B                      jz      isr_send_empty
-       1730 : C4 00                      ldi     L(ACIA)
-       1732 : 31                         xpal    P1
-       1733 : C4 DF                      ldi     H(ACIA)
-       1735 : 35                         xpah    P1
-       1736 : 40                         lde
-       1737 : C9 01                      st      ACIA_D(P1)      ; send character
-       1739 : 90 B4                      jmp     isr_sensea_exit
-       173B :                    isr_send_empty:
-       173B : C4 00                      ldi     L(ACIA)
-       173D : 31                         xpal    P1
-       173E : C4 DF                      ldi     H(ACIA)
-       1740 : 35                         xpah    P1
-       1741 : C4 94                      ldi     RX_INT_TX_NO
-       1743 : C9 00                      st      ACIA_C(P1)      ; disable Tx interrupt
-       1745 : 90 A8                      jmp     isr_sensea_exit
-       1747 :
-       1747 :                            end
+       15FB : C4 00                      ldi     L(ACIA)
+       15FD : 31                         xpal    P1
+       15FE : C4 DF                      ldi     H(ACIA)
+       1600 : 35                         xpah    P1
+       1601 : C4 B4                      ldi     RX_INT_TX_INT   ; enable Tx interrupt
+       1603 : C9 00                      st      ACIA_C(P1)
+       1605 :                    putchar_return:
+       1605 : 90 CF                      jmp     putchar_exit
+       1607 :
+       1607 :                    newline:
+       1607 : C4 E1                      ldi     L(ADDR(putchar))
+       1609 : 31                         xpal    P1
+       160A : CE FE                      st      @-2(P2)
+       160C : C4 15                      ldi     H(ADDR(putchar))
+       160E : 35                         xpah    P1
+       160F : CA 01                      st      1(P2)
+       1611 : C4 0D                      ldi     X'0D
+       1613 : 3D                         xppc    P1              ; print CR
+       1614 : C4 0A                      ldi     X'0A
+       1616 : 3D                         xppc    P1              ; print LF
+       1617 : C6 01                      ld      @1(P2)
+       1619 : 31                         xpal    P1
+       161A : C6 01                      ld      @1(P2)
+       161C : 35                         xpah    P1
+       161D : 3D                         xppc    P1              ; return
+       161E :
+       161E :                            include "queue.inc"
+(1)    161E :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)    161E :                    ;;; [queue] queue structure
+(1)    161E : =0                 queue_len       =       0       ; queue length
+(1)    161E : =1                 queue_size      =       1       ; buffer size
+(1)    161E : =2                 queue_put       =       2       ; queue put index
+(1)    161E : =3                 queue_get       =       3       ; queue get index
+(1)    161E : =4                 queue_buf       =       4       ; buffer start offset
+(1)    161E :
+(1)    161E :                    ;;; [queue] Initialize queue
+(1)    161E :                    ;;; @param A queue space size
+(1)    161E :                    ;;; @param P1 return address pointer
+(1)    161E :                    ;;; @param P1[1:2] queue space pointer
+(1)    161E :                    ;;; @clobber A
+(1)    161E :                    queue_init_exit:
+(1)    161E : C6 01                      ld      @1(P2)          ; pop P1
+(1)    1620 : 31                         xpal    P1
+(1)    1621 : C6 01                      ld      @1(P2)
+(1)    1623 : 35                         xpah    P1
+(1)    1624 : C6 01                      ld      @1(P2)          ; discard work area
+(1)    1626 : 3D                         xppc    P1
+(1)    1627 :                    queue_init:
+(1)    1627 : CE FF                      st      @-1(P2)         ; save queue space size
+(1)    1629 : C5 01                      ld      @1(P1)          ; advance to queue space pointer
+(1)    162B : C5 01                      ld      @1(P1)          ; load queue work space pointer (le16)
+(1)    162D : CE FE                      st      @-2(P2)         ; save lo(queue space)
+(1)    162F : C1 00                      ld      0(P1)
+(1)    1631 : 35                         xpah    P1
+(1)    1632 : CA 01                      st      1(P2)           ; P[1:0] push P1
+(1)    1634 : C2 00                      ld      0(P2)
+(1)    1636 : 31                         xpal    P1              ; P1=queue space pointer
+(1)    1637 : CA 00                      st      0(P2)
+(1)    1639 : C4 00                      ldi     0
+(1)    163B : C9 00                      st      queue_len(P1)   ; clear queue_len
+(1)    163D : C9 02                      st      queue_put(P1)
+(1)    163F : C9 03                      st      queue_get(P1)
+(1)    1641 : C2 02                      ld      2(P2)           ; queue space size
+(1)    1643 : 03                         scl
+(1)    1644 : FC 04                      cai     queue_buf
+(1)    1646 : C9 01                      st      queue_size(P1)
+(1)    1648 : CA 02                      st      2(P2)           ; counter
+(1)    164A : C5 04                      ld      @queue_buf(P1)  ; advanced pointer
+(1)    164C :                    queue_init_loop:
+(1)    164C : C4 00                      ldi     0
+(1)    164E : CD 01                      st      @1(P1)
+(1)    1650 : BA 02                      dld     2(P2)
+(1)    1652 : 9C F8                      jnz     queue_init_loop
+(1)    1654 : 90 C8                      jmp     queue_init_exit
+(1)    1656 :
+(1)    1656 :                    ;;; [queue] Add an element to queue
+(1)    1656 :                    ;;; @param E an element
+(1)    1656 :                    ;;; @param P1 return address pointer
+(1)    1656 :                    ;;; @param P1[1:2] queue space pointer
+(1)    1656 :                    ;;; @return E an element
+(1)    1656 :                    ;;; @return A 0 if queue is full
+(1)    1656 :                    ;;; @clobber P1
+(1)    1656 :                    queue_add_exit:
+(1)    1656 : CA 05                      st      5(P2)           ; P2[5] return flag
+(1)    1658 : C6 02                      ld      @2(P2)          ; discard queue space pointer
+(1)    165A : C6 01                      ld      @1(P2)          ; pop P1
+(1)    165C : 31                         xpal    P1
+(1)    165D : C6 01                      ld      @1(P2)
+(1)    165F : 35                         xpah    P1
+(1)    1660 : C6 01                      ld      @1(P2)          ; restore E
+(1)    1662 : 01                         xae
+(1)    1663 : C6 01                      ld      @1(P2)          ; return flag
+(1)    1665 : 3D                         xppc    P1
+(1)    1666 :                    queue_add:
+(1)    1666 : C5 01                      ld      @1(P1)          ; advanced to queue space pointer
+(1)    1668 : C5 01                      ld      @1(P1)          ; load queue space pointer (le16)
+(1)    166A : CE FA                      st      @-6(P2)         ; param, P1, elem, return flag
+(1)    166C : C1 00                      ld      0(P1)
+(1)    166E : CA 01                      st      1(P2)           ; P2[1:0] queue space pointer
+(1)    1670 : 35                         xpah    P1
+(1)    1671 : CA 03                      st      3(P2)           ; P2[3:2] saved P1
+(1)    1673 : C2 00                      ld      0(P2)
+(1)    1675 : 31                         xpal    P1
+(1)    1676 : CA 02                      st      2(P2)
+(1)    1678 : 40                         lde
+(1)    1679 : CA 04                      st      4(P2)           ; P2[4] save an element
+(1)    167B : C1 00                      ld      queue_len(P1)
+(1)    167D : E1 01                      xor     queue_size(P1)
+(1)    167F : 98 D5                      jz      queue_add_exit  ; queue is full, A=0
+(1)    1681 :                    queue_not_full:
+(1)    1681 : A9 00                      ild     queue_len(P1)    ; update queue_len
+(1)    1683 : C2 00                      ld      0(P2)
+(1)    1685 : 02                         ccl
+(1)    1686 : F1 02                      add     queue_put(P1)
+(1)    1688 : 01                         xae
+(1)    1689 : C2 01                      ld      1(P2)
+(1)    168B : F4 00                      adi     0
+(1)    168D : 35                         xpah    P1
+(1)    168E : 01                         xae
+(1)    168F : 31                         xpal    P1
+(1)    1690 : C2 04                      ld      4(P2)           ; an element
+(1)    1692 : C9 04                      st      queue_buf(P1)   ; store element
+(1)    1694 : C2 00                      ld      0(P2)
+(1)    1696 : 31                         xpal    P1
+(1)    1697 : C2 01                      ld      1(P2)
+(1)    1699 : 35                         xpah    P1
+(1)    169A : A9 02                      ild     queue_put(P1)   ; advanced queue_put
+(1)    169C : E1 01                      xor     queue_size(P1)
+(1)    169E : 9C 02                      jnz     queue_add_end   ; branch if queue_put != queue_size
+(1)    16A0 : C9 02                      st      queue_put(P1)   ; reset queue_put
+(1)    16A2 :                    queue_add_end:
+(1)    16A2 : C4 01                      ldi     1
+(1)    16A4 : 90 B0                      jmp     queue_add_exit  ; an element added, A=1
+(1)    16A6 :
+(1)    16A6 :                    ;;; [queue] Remove an element from queue
+(1)    16A6 :                    ;;; @param P1 return address pointer
+(1)    16A6 :                    ;;; @param P1[1:2] queue space pointer
+(1)    16A6 :                    ;;; @return E an element
+(1)    16A6 :                    ;;; @return A 0 if queue is empty
+(1)    16A6 :                    ;;; @clobber P1
+(1)    16A6 :                    queue_remove_exit:
+(1)    16A6 : CA 04                      st      4(P2)           ; return flag
+(1)    16A8 : C6 02                      ld      @2(P2)          ; discard work area
+(1)    16AA : C6 01                      ld      @1(P2)          ; pop P1
+(1)    16AC : 31                         xpal    P1
+(1)    16AD : C6 01                      ld      @1(P2)
+(1)    16AF : 35                         xpah    P1
+(1)    16B0 : C6 01                      ld      @1(P2)          ; return flag
+(1)    16B2 : 3D                         xppc    P1              ; return
+(1)    16B3 :                    queue_remove:
+(1)    16B3 : C5 01                      ld      @1(P1)          ; advanced to queue space pointer
+(1)    16B5 : C5 01                      ld      @1(P1)          ; load queue space pointer (le16)
+(1)    16B7 : CE FB                      st      @-5(P2)         ; param, P1, return flag
+(1)    16B9 : C1 00                      ld      0(P1)
+(1)    16BB : CA 01                      st      1(P2)           ; P2[1:0] queue space pointer
+(1)    16BD : 35                         xpah    P1
+(1)    16BE : CA 03                      st      3(P2)           ; P2[3:2] saved P1
+(1)    16C0 : C2 00                      ld      0(P2)
+(1)    16C2 : 31                         xpal    P1
+(1)    16C3 : CA 02                      st      2(P2)
+(1)    16C5 : C1 00                      ld      queue_len(P1)
+(1)    16C7 : 98 DD                      jz      queue_remove_exit ; queue is empty, A=0
+(1)    16C9 :                    queue_not_empty:
+(1)    16C9 : B9 00                      dld     queue_len(P1)    ; update queue_len
+(1)    16CB : C2 00                      ld      0(P2)
+(1)    16CD : 02                         ccl
+(1)    16CE : F1 03                      add     queue_get(P1)
+(1)    16D0 : 01                         xae
+(1)    16D1 : C2 01                      ld      1(P2)
+(1)    16D3 : F4 00                      adi     0
+(1)    16D5 : 35                         xpah    P1
+(1)    16D6 : 40                         lde
+(1)    16D7 : 31                         xpal    P1
+(1)    16D8 : C1 04                      ld      queue_buf(P1)   ; load element
+(1)    16DA : 01                         xae                     ; E=element
+(1)    16DB : C2 00                      ld      0(P2)
+(1)    16DD : 31                         xpal    P1
+(1)    16DE : C2 01                      ld      1(P2)
+(1)    16E0 : 35                         xpah    P1
+(1)    16E1 : A9 03                      ild     queue_get(P1)   ; advanced queue_get
+(1)    16E3 : E1 01                      xor     queue_size(P1)
+(1)    16E5 : 9C 02                      jnz     queue_remove_end ; branch if queue_put != queue_size
+(1)    16E7 : C9 03                      st      queue_get(P1)   ; reset queue_get
+(1)    16E9 :                    queue_remove_end:
+(1)    16E9 : C4 01                      ldi     1
+(1)    16EB : 90 B9                      jmp     queue_remove_exit
+       16ED :
+       16ED :                    isr_sensea_exit:
+       16ED : C6 01                      ld      @1(P2)          ; pop P1
+       16EF : 31                         xpal    P1
+       16F0 : C6 01                      ld      @1(P2)
+       16F2 : 35                         xpah    P1
+       16F3 : C6 01                      ld      @1(P2)          ; pop Status
+       16F5 : 07                         cas
+       16F6 : C6 01                      ld      @1(P2)          ; pop E
+       16F8 : 01                         xae
+       16F9 : C6 01                      ld      @1(P2)          ; pop A
+       16FB : 05                         ien                     ; enable interrupt
+       16FC : 3F                         xppc    P3              ; return from interrupt
+       16FD :                    isr_sensea:
+       16FD : CE FF                      st      @-1(P2)         ; save A
+       16FF : 40                         lde
+       1700 : CE FF                      st      @-1(P2)         ; save E
+       1702 : 06                         csa
+       1703 : CE FF                      st      @-1(P2)         ; save Status
+       1705 : C4 00                      ldi     L(ACIA)         ; save P1 and load P1
+       1707 : 31                         xpal    P1
+       1708 : CE FE                      st      @-2(P2)
+       170A : C4 DF                      ldi     H(ACIA)
+       170C : 35                         xpah    P1
+       170D : CA 01                      st      1(P2)
+       170F : C1 00                      ld      ACIA_S(P1)
+       1711 : CE FF                      st      @-1(P2)         ; save ACIA_status
+       1713 : D4 01                      ani     RDRF_bm
+       1715 : 98 0C                      jz      isr_send
+       1717 : C1 01                      ld      ACIA_D(P1)      ; receive character
+       1719 : 01                         xae                     ; E=char
+       171A : C4 65                      ldi     L(ADDR(queue_add))
+       171C : 31                         xpal    P1
+       171D : C4 16                      ldi     H(ADDR(queue_add))
+       171F : 35                         xpah    P1
+       1720 : 3D                         xppc    P1              ; call queue_add
+       1721 : 00 20                      .dbyte  rx_queue
+       1723 :                    isr_send:
+       1723 : C6 01                      ld      @1(P2)          ; pop ACIA status
+       1725 : D4 02                      ani     TDRE_bm
+       1727 : 98 C4                      jz      isr_sensea_exit
+       1729 : C4 B2                      ldi     L(ADDR(queue_remove))
+       172B : 31                         xpal    P1
+       172C : C4 16                      ldi     H(ADDR(queue_remove))
+       172E : 35                         xpah    P1
+       172F : 3D                         xppc    P1              ; call queue_remove
+       1730 : 10 20                      .dbyte  tx_queue
+       1732 : 98 0B                      jz      isr_send_empty
+       1734 : C4 00                      ldi     L(ACIA)
+       1736 : 31                         xpal    P1
+       1737 : C4 DF                      ldi     H(ACIA)
+       1739 : 35                         xpah    P1
+       173A : 40                         lde
+       173B : C9 01                      st      ACIA_D(P1)      ; send character
+       173D : 90 AE                      jmp     isr_sensea_exit
+       173F :                    isr_send_empty:
+       173F : C4 00                      ldi     L(ACIA)
+       1741 : 31                         xpal    P1
+       1742 : C4 DF                      ldi     H(ACIA)
+       1744 : 35                         xpah    P1
+       1745 : C4 94                      ldi     RX_INT_TX_NO
+       1747 : C9 00                      st      ACIA_C(P1)      ; disable Tx interrupt
+       1749 : 90 A2                      jmp     isr_sensea_exit
+       174B :
+       174B :                            end

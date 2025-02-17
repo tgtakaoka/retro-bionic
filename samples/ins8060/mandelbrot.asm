@@ -131,7 +131,6 @@ putchar_retry:
         .dbyte  tx_queue
         ien                     ; enable interrupt
         jz      putchar_retry   ; queue is full
-        dint                    ; disable interrupt
         ldi     L(ACIA)
         xpal    P1
         ldi     H(ACIA)
@@ -139,7 +138,6 @@ putchar_retry:
         ldi     RX_INT_TX_INT   ; enable Tx interrupt
         st      ACIA_C(P1)
 putchar_return:
-        ien                     ; enable interrupt
         jmp     putchar_exit
 
 newline:
@@ -166,15 +164,19 @@ isr_sensea_exit:
         xpal    P1
         ld      @1(P2)
         xpah    P1
+        ld      @1(P2)          ; pop Status
+        cas
         ld      @1(P2)          ; pop E
         xae
-        ld      @1(P2)          ; pop D
+        ld      @1(P2)          ; pop A
         ien                     ; enable interrupt
         xppc    P3              ; return from interrupt
 isr_sensea:
         st      @-1(P2)         ; save A
         lde
         st      @-1(P2)         ; save E
+        csa
+        st      @-1(P2)         ; save Status
         ldi     L(ACIA)         ; save P1 and load P1
         xpal    P1
         st      @-2(P2)
