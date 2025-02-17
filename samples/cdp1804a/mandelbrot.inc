@@ -216,11 +216,8 @@ loop_i:
 print_i:
         rldi    R7, vI+1
         ldn     R7
-        smi     10
-        bl      print_i2        ; if I<10
-        adi     T'A'-T'0'-10
-print_i2:
-        adi     T'0'+10
+        dadi    x'90'
+        daci    x'40'
 print_char:
         scal    R4, putchar
 

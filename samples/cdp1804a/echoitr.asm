@@ -98,13 +98,9 @@ put_hex8:
 ;;; @param D nibble
 ;;; @clobber D
 put_hex4:
-        ani     0Fh
-        smi     10
-        bnf     put_hex4_dec    ; branch if D < 10
-        adi     'A'
-        lskp
-put_hex4_dec:
-        adi     '0'+10
+        ani     x'0F'
+        dadi    x'90'
+        daci    x'40'
         scal    R4, putchar
         sret    R4
 
