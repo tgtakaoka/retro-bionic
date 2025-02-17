@@ -210,13 +210,13 @@
 (1)      84 :                            ;;
 (1)      84 : F8 01                      ldi     A.1(isr)
 (1)      86 : B3                         phi     R3
-(1)      87 : F8 E4                      ldi     A.0(isr)
+(1)      87 : F8 E9                      ldi     A.0(isr)
 (1)      89 : A3                         plo     R3
 (1)      8A : D3                         sep     R3              ; call interrupt service routine with P=3
 (1)      8B : 30 4D                      br      scrt_isr_exit   ; return from isr by SEP R1
          8D :
          8D :                    ;;; MC6850 Asynchronous Communication Interface Adapter
-         8D : =DF00              ACIA:   equ     X'DF00'
+         8D : =4                 ACIA:   equ     4
          8D :                            include "mc6850.inc"
 (1)      8D :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
 (1)      8D :
@@ -224,7 +224,7 @@
 (1)      8D :                    ;;; Asynchronous Communication Interface Adapter
 (1)      8D :
 (1)      8D :                    ;;; Control register
-(1)      8D : =DF00              ACIA_control:   equ     ACIA+0
+(1)      8D : =4                 ACIA_control:   equ     ACIA+0
 (1)      8D :                            ;; Counter Divider Select Bits
 (1)      8D : =3                 CDS_gm:         equ     11b    ; Group mask
 (1)      8D : =0                 CDS_DIV1_gc:    equ     00000000B ; /1
@@ -251,7 +251,7 @@
 (1)      8D : =80                RIEB_bm:        equ     10000000B ; Receive Interrupt Enable Bit mask
 (1)      8D :
 (1)      8D :                    ;;; Status register
-(1)      8D : =DF00              ACIA_status:    equ     ACIA+0
+(1)      8D : =4                 ACIA_status:    equ     ACIA+0
 (1)      8D : =1                 RDRF_bm:        equ     00000001B ; Receive Data Register Full
 (1)      8D : =2                 TDRE_bm:        equ     00000010B ; Transmit Data Register Empty
 (1)      8D : =4                 DCDF_bm:        equ     00000100B ; Data Carrier Detect Flag
@@ -262,7 +262,7 @@
 (1)      8D : =80                IRQF_bm:        equ     10000000B ; Interrupt Request Flag
 (1)      8D :
 (1)      8D :                    ;;; Data register
-(1)      8D : =DF01              ACIA_data:      equ     ACIA+1          ; Data register
+(1)      8D : =5                 ACIA_data:      equ     ACIA+1          ; Data register
          8D : =94                RX_INT_TX_NO:   equ     WSB_8N1_gc|RIEB_bm
          8D :
        2000 :                            org     X'2000'
@@ -277,274 +277,284 @@
         100 :                            org     X'0100'
         100 :                    main:
         100 : D5                         sep     R5
-        101 : 01 50                      dc      A(queue_init)   ; call queue_init
+        101 : 01 54                      dc      A(queue_init)   ; call queue_init
         103 : 20 00                      dc      A(rx_queue)
         105 : 80                         dc      rx_queue_size
         106 :                            ;; initialize ACIA
-        106 : F8 DF                      ldi     A.1(ACIA)
+        106 : F8 01                      ldi     A.1(ACIA_config)
         108 : B8                         phi     R8
-        109 : F8 00                      ldi     A.0(ACIA)
+        109 : F8 15                      ldi     A.0(ACIA_config)
         10B : A8                         plo     R8
-        10C : F8 03                      ldi     CDS_RESET_gc    ; Master reset
-        10E : 58                         str     R8              ; ACIA_control
-        10F : F8 94                      ldi     RX_INT_TX_NO
-        111 : 58                         str     R8              ; ACIA_control
-        112 : E3                         sex     R3
-        113 : 70                         ret
-        114 : 33                         dc      X'33'           ; enable interrupt
-        115 : E2                         sex     R2
-        116 :
-        116 :                    loop:
-        116 : E3                         sex     R3
-        117 : 71                         dis                     ; disable interrupt
-        118 : 33                         dc      X'33'           ; X=3, P=3
-        119 : E2                         sex     R2
-        11A : D5                         sep     R5              ; call queue_remove
-        11B : 01 AA                      dc      A(queue_remove)
-        11D : 20 00                      dc      A(rx_queue)
-        11F : E3                         sex     R3
-        120 : 70                         ret                     ; enable interrupt
-        121 : 33                         dc      X'33'
-        122 : E2                         sex     R2
-        123 : 32 16                      bz      loop            ; branch if queue is empty
-        125 : 87                         glo     R7
-        126 : 32 35                      bz      halt_to_system
-        128 :                    echo:
-        128 : D5                         sep     R5              ; call putchar
-        129 : 01 36                      dc      A(putchar)
-        12B : 87                         glo     R7
-        12C : FB 0D                      xri     X'0D'           ; carriage return
-        12E : 3A 16                      bnz     loop
-        130 : F8 0A                      ldi     X'0A'           ; newline
-        132 : A7                         plo     R7
-        133 : 30 28                      br      echo
-        135 :                    halt_to_system:
-        135 : 00                         idl
-        136 :
-        136 :                    ;;; @param D char
-        136 :                    ;;; @unchanged D
-        136 :                    ;;; @clobber R15
-        136 :                    putchar:
-        136 : AF                         plo     R15             ; save D to R15.0
-        137 : 88                         glo     R8              ; save R8
-        138 : 73                         stxd
-        139 : 98                         ghi     R8
+        10C : E8                         sex     R8              ; R8 for inp/out
+        10D : 64                         out     ACIA_control    ; Master reset
+        10E : 64                         out     ACIA_control    ; Set mode
+        10F : E3                         sex     R3
+        110 : 70                         ret
+        111 : 33                         dc      X'33'           ; enable interrupt
+        112 : E2                         sex     R2
+        113 : 30 17                      br      loop
+        115 :
+        115 :                    ACIA_config:
+        115 : 03                         dc      CDS_RESET_gc    ; Master reset
+        116 : 94                         dc      RX_INT_TX_NO
+        117 :
+        117 :                    loop:
+        117 : E3                         sex     R3
+        118 : 71                         dis                     ; disable interrupt
+        119 : 33                         dc      X'33'           ; X=3, P=3
+        11A : E2                         sex     R2
+        11B : D5                         sep     R5              ; call queue_remove
+        11C : 01 AE                      dc      A(queue_remove)
+        11E : 20 00                      dc      A(rx_queue)
+        120 : E3                         sex     R3
+        121 : 70                         ret                     ; enable interrupt
+        122 : 33                         dc      X'33'
+        123 : E2                         sex     R2
+        124 : 32 17                      bz      loop            ; branch if queue is empty
+        126 : 87                         glo     R7
+        127 : 32 36                      bz      halt_to_system
+        129 :                    echo:
+        129 : D5                         sep     R5              ; call putchar
+        12A : 01 38                      dc      A(putchar)
+        12C : 87                         glo     R7
+        12D : FB 0D                      xri     X'0D'           ; carriage return
+        12F : 3A 17                      bnz     loop
+        131 : F8 0A                      ldi     X'0A'           ; newline
+        133 : A7                         plo     R7
+        134 : 30 29                      br      echo
+        136 :                    halt_to_system:
+        136 : 00                         idl
+        137 :
+        137 :                    ;;; @param D char
+        137 :                    ;;; @unchanged D
+        137 :                    ;;; @clobber R15
+        137 :                    putchar_char:
+        137 : 00                         dc      0
+        138 :                    putchar:
+        138 : AF                         plo     R15             ; save D to R15.0
+        139 : 88                         glo     R8              ; save R8
         13A : 73                         stxd
-        13B :                            ;;
-        13B : F8 DF                      ldi     A.1(ACIA)
-        13D : B8                         phi     R8
-        13E : F8 00                      ldi     A.0(ACIA)
-        140 : A8                         plo     R8
-        141 :                    putchar_loop:
-        141 : 08                         ldn     R8              ; ACIA_status
-        142 : FA 02                      ani     TDRE_bm
-        144 : 32 41                      bz      putchar_loop
-        146 : 18                         inc     R8
-        147 : 8F                         glo     R15             ; restore D
-        148 : 58                         str     R8              ; ACIA_data
-        149 :                            ;;
-        149 : 60                         irx
-        14A : 72                         ldxa                    ; restore R8
-        14B : B8                         phi     R8
-        14C : F0                         ldx
-        14D : A8                         plo     R8
-        14E : 8F                         glo     R15             ; restore D
-        14F : D6                         sep     R6              ; return
-        150 :
-        150 :                            include "queue.inc"
-(1)     150 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
-(1)     150 :                    ;;; [queue] queue structure
-(1)     150 : =0                 queue_len:      equ     0       ; queue length
-(1)     150 : =1                 queue_size:     equ     1       ; buffer size
-(1)     150 : =2                 queue_put:      equ     2       ; queue put index
-(1)     150 : =3                 queue_get:      equ     3       ; queue get index
-(1)     150 : =4                 queue_buf:      equ     4       ; buffer start offset
-(1)     150 :
-(1)     150 :                    ;;; [queue] Initialize queue
-(1)     150 :                    ;;; @param R4+0 queue work space pointer
-(1)     150 :                    ;;; @param R4+2 queue work space size
-(1)     150 :                    ;;; @clobber D, R15
-(1)     150 :                    queue_init:
-(1)     150 : 8E                         glo     R14             ; save R14.0
-(1)     151 : 73                         stxd
-(1)     152 :                            ;;
-(1)     152 : 44                         lda     R4
-(1)     153 : BF                         phi     R15
-(1)     154 : 44                         lda     R4
-(1)     155 : AF                         plo     R15             ; R15=queue space pointer
-(1)     156 : F8 00                      ldi     0
-(1)     158 : 5F                         str     R15             ; clear queue_len
-(1)     159 : 1F                         inc     R15
-(1)     15A : 44                         lda     R4              ; queue space size
-(1)     15B : FF 04                      smi     queue_buf       ; calculate queue size
-(1)     15D : 5F                         str     R15             ; store queue_size
-(1)     15E : FC 02                      adi     2               ; for queue_put and queue_get
-(1)     160 : AE                         plo     R14             ; R14.0: byte counter
-(1)     161 :                    queue_init_clear:
-(1)     161 : F8 00                      ldi     0
-(1)     163 : 1F                         inc     R15
-(1)     164 : 5F                         str     R15             ; clear memory
-(1)     165 : 8E                         glo     R14
-(1)     166 : FF 01                      smi     1
-(1)     168 : AE                         plo     R14             ; decrement byte counter
-(1)     169 : 3A 61                      bnz     queue_init_clear
-(1)     16B :                            ;;
-(1)     16B : 60                         irx
-(1)     16C : F0                         ldx                     ; restore R14.0
-(1)     16D : AE                         plo     R14
-(1)     16E : D6                         sep     R6              ; return
-(1)     16F :
-(1)     16F :                    ;;; [queue] Add an element to queue
-(1)     16F :                    ;;; @param R4+0 queue work space pointer
-(1)     16F :                    ;;; @param R7.0 an element
-(1)     16F :                    ;;; @return D 0 if queue is full
-(1)     16F :                    queue_add:
-(1)     16F : 8E                         glo     R14             ; save R14
-(1)     170 : 73                         stxd
-(1)     171 : 9E                         ghi     R14
-(1)     172 : 73                         stxd
-(1)     173 :                            ;;
-(1)     173 : 44                         lda     R4
-(1)     174 : BF                         phi     R15
-(1)     175 : 44                         lda     R4
-(1)     176 : AF                         plo     R15             ; R15=queue space pointer
-(1)     177 : EF                         sex     R15
-(1)     178 : 72                         ldxa                    ; load queue_len
-(1)     179 : F3                         xor                     ; queue_len ^ queue_size
-(1)     17A : 32 A1                      bz      queue_add_return ; branch if D=0
-(1)     17C : 2F                         dec     R15
-(1)     17D : 8F                         glo     R15
-(1)     17E : FC 04                      adi     queue_buf
-(1)     180 : AE                         plo     R14
-(1)     181 : 9F                         ghi     R15
-(1)     182 : 7C 00                      adci    0
-(1)     184 : BE                         phi     R14             ; R14=&queue_buf[0]
-(1)     185 : 0F                         ldn     R15
-(1)     186 : FC 01                      adi     1
-(1)     188 : 5F                         str     R15             ; queue_len++
-(1)     189 : 8E                         glo     R14
-(1)     18A : 1F                         inc     R15
-(1)     18B : 1F                         inc     R15
-(1)     18C : EF                         sex     R15
-(1)     18D : F4                         add                     ; add queue_put
-(1)     18E : AE                         plo     R14
-(1)     18F : 9E                         ghi     R14
-(1)     190 : 7C 00                      adci    0
-(1)     192 : BE                         phi     R14             ; R14=&queue_buf[queue_put]
-(1)     193 : 87                         glo     R7              ; R7.0=an element
-(1)     194 : 5E                         str     R14             ; store an element
-(1)     195 : 0F                         ldn     R15             ; load queue_put
-(1)     196 : FC 01                      adi     1
-(1)     198 : 5F                         str     R15             ; update queue_put
-(1)     199 : 2F                         dec     R15
-(1)     19A : F3                         xor                      ; queue_put ^ queue_size
-(1)     19B : 3A A1                      bnz     queue_add_return ; branch if D!=0
-(1)     19D : 1F                         inc     R15
-(1)     19E : 5F                         str     R15             ; queue_put=0
-(1)     19F : F8 01                      ldi     1
-(1)     1A1 :                    queue_add_return:
-(1)     1A1 : AF                         plo     R15             ; return flag
-(1)     1A2 : E2                         sex     R2
-(1)     1A3 : 60                         irx
-(1)     1A4 : 72                         ldxa                    ; restore R14
-(1)     1A5 : BE                         phi     R14
-(1)     1A6 : F0                         ldx
-(1)     1A7 : AE                         plo     R14
-(1)     1A8 : 8F                         glo     R15
-(1)     1A9 : D6                         sep     R6              ; return
-(1)     1AA :
-(1)     1AA :                    ;;; [queue] Remove an element from queue
-(1)     1AA :                    ;;; @param R4+0 queue work space pointer
-(1)     1AA :                    ;;; @return R7.0 an element
-(1)     1AA :                    ;;; @return D 0 if queue is empty
-(1)     1AA :                    ;;; @clobber R15
-(1)     1AA :                    queue_remove:
-(1)     1AA : 8E                         glo     R14             ; save R14
-(1)     1AB : 73                         stxd
-(1)     1AC : 9E                         ghi     R14
-(1)     1AD : 73                         stxd
-(1)     1AE :                            ;;
-(1)     1AE : 44                         lda     R4
-(1)     1AF : BF                         phi     R15
-(1)     1B0 : 44                         lda     R4
-(1)     1B1 : AF                         plo     R15             ; R15=queue space pointer
-(1)     1B2 : 0F                         ldn     R15             ; load queue_len
-(1)     1B3 : 32 DB                      bz      queue_remove_return ; branch if D=0
-(1)     1B5 : FF 01                      smi     1
-(1)     1B7 : 5F                         str     R15             ; queue_len--
-(1)     1B8 : 8F                         glo     R15
-(1)     1B9 : FC 04                      adi     queue_buf
-(1)     1BB : AE                         plo     R14
-(1)     1BC : 9F                         ghi     R15
-(1)     1BD : 7C 00                      adci    0
-(1)     1BF : BE                         phi     R14             ; R14=&queue_buf[0]
-(1)     1C0 : 8E                         glo     R14
-(1)     1C1 : 1F                         inc     R15
-(1)     1C2 : 1F                         inc     R15
-(1)     1C3 : 1F                         inc     R15
-(1)     1C4 : EF                         sex     R15
-(1)     1C5 : F4                         add                     ; add queue_get
-(1)     1C6 : AE                         plo     R14
-(1)     1C7 : 9E                         ghi     R14
-(1)     1C8 : 7C 00                      adci    0
-(1)     1CA : BE                         phi     R14             ; R14=&queue_buf[queue_get]
-(1)     1CB : 0E                         ldn     R14             ; load an alement
-(1)     1CC : A7                         plo     R7              ; R7.0=an element
-(1)     1CD : 0F                         ldn     R15             ; load queue_get
-(1)     1CE : FC 01                      adi     1
-(1)     1D0 : 5F                         str     R15             ; update queue_get
-(1)     1D1 : 2F                         dec     R15
-(1)     1D2 : 2F                         dec     R15
-(1)     1D3 : F3                         xor                     ; queue_get ^ queue_size
-(1)     1D4 : 3A DB                      bnz     queue_remove_return ; brnach if D!=0
-(1)     1D6 : 1F                         inc     R15
-(1)     1D7 : 1F                         inc     R15
-(1)     1D8 : 5F                         str     R15             ; queue_get=0
-(1)     1D9 : F8 01                      ldi     1
-(1)     1DB :                    queue_remove_return:
-(1)     1DB : AF                         plo     R15             ; return flag
-(1)     1DC : E2                         sex     R2
-(1)     1DD : 60                         irx
-(1)     1DE : 72                         ldxa                    ; restore R14
-(1)     1DF : BE                         phi     R14
-(1)     1E0 : F0                         ldx
-(1)     1E1 : AE                         plo     R14
-(1)     1E2 : 8F                         glo     R15             ; return flag
-(1)     1E3 : D6                         sep     R6              ; return
-        1E4 :
-        1E4 :                    ;;; From scrt_isr, P=3
-        1E4 :                    isr:
-        1E4 : 88                         glo     R8              ; save R8
-        1E5 : 73                         stxd
-        1E6 : 98                         ghi     R8
-        1E7 : 73                         stxd
-        1E8 : 87                         glo     R7
-        1E9 : 73                         stxd                    ; save R7.0
-        1EA :                            ;;
-        1EA : F8 DF                      ldi     A.1(ACIA)
-        1EC : B8                         phi     R8
-        1ED : F8 00                      ldi     A.0(ACIA)
-        1EF : A8                         plo     R8              ; R8=ACIA
-        1F0 : 08                         ldn     R8              ; ACIA_status
-        1F1 : FA 80                      ani     IRQF_bm
-        1F3 : C2 02 05                   bz      isr_exit        ; no interrupt
-        1F6 :                    isr_receive:
-        1F6 : 08                         ldn     R8              ; ACIA_status
-        1F7 : FA 01                      ani     RDRF_bm
-        1F9 : C2 02 05                   bz      isr_exit        ; no data is received
-        1FC : 18                         inc     R8
-        1FD : 08                         ldn     R8              ; ACIA_data
-        1FE : 28                         dec     R8
-        1FF : A7                         plo     R7
-        200 : D5                         sep     R5              ; call queue_add
-        201 : 01 6F                      dc      A(queue_add)
-        203 : 20 00                      dc      A(rx_queue)
-        205 :                    isr_exit:
-        205 : 60                         irx
-        206 : 72                         ldxa                    ; restore R7.0
-        207 : A7                         plo     R7
-        208 : 72                         ldxa                    ; restore R8
-        209 : B8                         phi     R8
-        20A : F0                         ldx
-        20B : A8                         plo     R8
-        20C : D1                         sep     R1              ; return to scrt_isr
+        13B : 98                         ghi     R8
+        13C : 73                         stxd
+        13D :                            ;;
+        13D : F8 01                      ldi     A.1(putchar_char)
+        13F : B8                         phi     R8
+        140 : F8 37                      ldi     A.0(putchar_char)
+        142 : A8                         plo     R8
+        143 : E8                         sex     R8              ; R8 for inp/out
+        144 :                    putchar_loop:
+        144 : 6C                         inp     ACIA_status
+        145 : FA 02                      ani     TDRE_bm
+        147 : 32 44                      bz      putchar_loop
+        149 : 8F                         glo     R15             ; restore D
+        14A : 58                         str     R8              ; putchar_char
+        14B : 65                         out     ACIA_data
+        14C :                            ;;
+        14C : E2                         sex     R2
+        14D : 60                         irx
+        14E : 72                         ldxa                    ; restore R8
+        14F : B8                         phi     R8
+        150 : F0                         ldx
+        151 : A8                         plo     R8
+        152 : 8F                         glo     R15             ; restore D
+        153 : D6                         sep     R6              ; return
+        154 :
+        154 :                            include "queue.inc"
+(1)     154 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)     154 :                    ;;; [queue] queue structure
+(1)     154 : =0                 queue_len:      equ     0       ; queue length
+(1)     154 : =1                 queue_size:     equ     1       ; buffer size
+(1)     154 : =2                 queue_put:      equ     2       ; queue put index
+(1)     154 : =3                 queue_get:      equ     3       ; queue get index
+(1)     154 : =4                 queue_buf:      equ     4       ; buffer start offset
+(1)     154 :
+(1)     154 :                    ;;; [queue] Initialize queue
+(1)     154 :                    ;;; @param R4+0 queue work space pointer
+(1)     154 :                    ;;; @param R4+2 queue work space size
+(1)     154 :                    ;;; @clobber D, R15
+(1)     154 :                    queue_init:
+(1)     154 : 8E                         glo     R14             ; save R14.0
+(1)     155 : 73                         stxd
+(1)     156 :                            ;;
+(1)     156 : 44                         lda     R4
+(1)     157 : BF                         phi     R15
+(1)     158 : 44                         lda     R4
+(1)     159 : AF                         plo     R15             ; R15=queue space pointer
+(1)     15A : F8 00                      ldi     0
+(1)     15C : 5F                         str     R15             ; clear queue_len
+(1)     15D : 1F                         inc     R15
+(1)     15E : 44                         lda     R4              ; queue space size
+(1)     15F : FF 04                      smi     queue_buf       ; calculate queue size
+(1)     161 : 5F                         str     R15             ; store queue_size
+(1)     162 : FC 02                      adi     2               ; for queue_put and queue_get
+(1)     164 : AE                         plo     R14             ; R14.0: byte counter
+(1)     165 :                    queue_init_clear:
+(1)     165 : F8 00                      ldi     0
+(1)     167 : 1F                         inc     R15
+(1)     168 : 5F                         str     R15             ; clear memory
+(1)     169 : 8E                         glo     R14
+(1)     16A : FF 01                      smi     1
+(1)     16C : AE                         plo     R14             ; decrement byte counter
+(1)     16D : 3A 65                      bnz     queue_init_clear
+(1)     16F :                            ;;
+(1)     16F : 60                         irx
+(1)     170 : F0                         ldx                     ; restore R14.0
+(1)     171 : AE                         plo     R14
+(1)     172 : D6                         sep     R6              ; return
+(1)     173 :
+(1)     173 :                    ;;; [queue] Add an element to queue
+(1)     173 :                    ;;; @param R4+0 queue work space pointer
+(1)     173 :                    ;;; @param R7.0 an element
+(1)     173 :                    ;;; @return D 0 if queue is full
+(1)     173 :                    queue_add:
+(1)     173 : 8E                         glo     R14             ; save R14
+(1)     174 : 73                         stxd
+(1)     175 : 9E                         ghi     R14
+(1)     176 : 73                         stxd
+(1)     177 :                            ;;
+(1)     177 : 44                         lda     R4
+(1)     178 : BF                         phi     R15
+(1)     179 : 44                         lda     R4
+(1)     17A : AF                         plo     R15             ; R15=queue space pointer
+(1)     17B : EF                         sex     R15
+(1)     17C : 72                         ldxa                    ; load queue_len
+(1)     17D : F3                         xor                     ; queue_len ^ queue_size
+(1)     17E : 32 A5                      bz      queue_add_return ; branch if D=0
+(1)     180 : 2F                         dec     R15
+(1)     181 : 8F                         glo     R15
+(1)     182 : FC 04                      adi     queue_buf
+(1)     184 : AE                         plo     R14
+(1)     185 : 9F                         ghi     R15
+(1)     186 : 7C 00                      adci    0
+(1)     188 : BE                         phi     R14             ; R14=&queue_buf[0]
+(1)     189 : 0F                         ldn     R15
+(1)     18A : FC 01                      adi     1
+(1)     18C : 5F                         str     R15             ; queue_len++
+(1)     18D : 8E                         glo     R14
+(1)     18E : 1F                         inc     R15
+(1)     18F : 1F                         inc     R15
+(1)     190 : EF                         sex     R15
+(1)     191 : F4                         add                     ; add queue_put
+(1)     192 : AE                         plo     R14
+(1)     193 : 9E                         ghi     R14
+(1)     194 : 7C 00                      adci    0
+(1)     196 : BE                         phi     R14             ; R14=&queue_buf[queue_put]
+(1)     197 : 87                         glo     R7              ; R7.0=an element
+(1)     198 : 5E                         str     R14             ; store an element
+(1)     199 : 0F                         ldn     R15             ; load queue_put
+(1)     19A : FC 01                      adi     1
+(1)     19C : 5F                         str     R15             ; update queue_put
+(1)     19D : 2F                         dec     R15
+(1)     19E : F3                         xor                      ; queue_put ^ queue_size
+(1)     19F : 3A A5                      bnz     queue_add_return ; branch if D!=0
+(1)     1A1 : 1F                         inc     R15
+(1)     1A2 : 5F                         str     R15             ; queue_put=0
+(1)     1A3 : F8 01                      ldi     1
+(1)     1A5 :                    queue_add_return:
+(1)     1A5 : AF                         plo     R15             ; return flag
+(1)     1A6 : E2                         sex     R2
+(1)     1A7 : 60                         irx
+(1)     1A8 : 72                         ldxa                    ; restore R14
+(1)     1A9 : BE                         phi     R14
+(1)     1AA : F0                         ldx
+(1)     1AB : AE                         plo     R14
+(1)     1AC : 8F                         glo     R15
+(1)     1AD : D6                         sep     R6              ; return
+(1)     1AE :
+(1)     1AE :                    ;;; [queue] Remove an element from queue
+(1)     1AE :                    ;;; @param R4+0 queue work space pointer
+(1)     1AE :                    ;;; @return R7.0 an element
+(1)     1AE :                    ;;; @return D 0 if queue is empty
+(1)     1AE :                    ;;; @clobber R15
+(1)     1AE :                    queue_remove:
+(1)     1AE : 8E                         glo     R14             ; save R14
+(1)     1AF : 73                         stxd
+(1)     1B0 : 9E                         ghi     R14
+(1)     1B1 : 73                         stxd
+(1)     1B2 :                            ;;
+(1)     1B2 : 44                         lda     R4
+(1)     1B3 : BF                         phi     R15
+(1)     1B4 : 44                         lda     R4
+(1)     1B5 : AF                         plo     R15             ; R15=queue space pointer
+(1)     1B6 : 0F                         ldn     R15             ; load queue_len
+(1)     1B7 : 32 DF                      bz      queue_remove_return ; branch if D=0
+(1)     1B9 : FF 01                      smi     1
+(1)     1BB : 5F                         str     R15             ; queue_len--
+(1)     1BC : 8F                         glo     R15
+(1)     1BD : FC 04                      adi     queue_buf
+(1)     1BF : AE                         plo     R14
+(1)     1C0 : 9F                         ghi     R15
+(1)     1C1 : 7C 00                      adci    0
+(1)     1C3 : BE                         phi     R14             ; R14=&queue_buf[0]
+(1)     1C4 : 8E                         glo     R14
+(1)     1C5 : 1F                         inc     R15
+(1)     1C6 : 1F                         inc     R15
+(1)     1C7 : 1F                         inc     R15
+(1)     1C8 : EF                         sex     R15
+(1)     1C9 : F4                         add                     ; add queue_get
+(1)     1CA : AE                         plo     R14
+(1)     1CB : 9E                         ghi     R14
+(1)     1CC : 7C 00                      adci    0
+(1)     1CE : BE                         phi     R14             ; R14=&queue_buf[queue_get]
+(1)     1CF : 0E                         ldn     R14             ; load an alement
+(1)     1D0 : A7                         plo     R7              ; R7.0=an element
+(1)     1D1 : 0F                         ldn     R15             ; load queue_get
+(1)     1D2 : FC 01                      adi     1
+(1)     1D4 : 5F                         str     R15             ; update queue_get
+(1)     1D5 : 2F                         dec     R15
+(1)     1D6 : 2F                         dec     R15
+(1)     1D7 : F3                         xor                     ; queue_get ^ queue_size
+(1)     1D8 : 3A DF                      bnz     queue_remove_return ; brnach if D!=0
+(1)     1DA : 1F                         inc     R15
+(1)     1DB : 1F                         inc     R15
+(1)     1DC : 5F                         str     R15             ; queue_get=0
+(1)     1DD : F8 01                      ldi     1
+(1)     1DF :                    queue_remove_return:
+(1)     1DF : AF                         plo     R15             ; return flag
+(1)     1E0 : E2                         sex     R2
+(1)     1E1 : 60                         irx
+(1)     1E2 : 72                         ldxa                    ; restore R14
+(1)     1E3 : BE                         phi     R14
+(1)     1E4 : F0                         ldx
+(1)     1E5 : AE                         plo     R14
+(1)     1E6 : 8F                         glo     R15             ; return flag
+(1)     1E7 : D6                         sep     R6              ; return
+        1E8 :
+        1E8 :                    ;;; From scrt_isr, P=3
+        1E8 :                    received_char:
+        1E8 : 00                         dc      0
+        1E9 :                    isr:
+        1E9 : 88                         glo     R8              ; save R8
+        1EA : 73                         stxd
+        1EB : 98                         ghi     R8
+        1EC : 73                         stxd
+        1ED : 87                         glo     R7
+        1EE : 73                         stxd                    ; save R7.0
+        1EF :                            ;;
+        1EF : F8 01                      ldi     A.1(received_char)
+        1F1 : B8                         phi     R8
+        1F2 : F8 E8                      ldi     A.0(received_char)
+        1F4 : A8                         plo     R8
+        1F5 : E8                         sex     R8              ; R8 for inp/out
+        1F6 : 6C                         inp     ACIA_status
+        1F7 : FA 80                      ani     IRQF_bm
+        1F9 : C2 02 08                   bz      isr_exit        ; no interrupt
+        1FC :                    isr_receive:
+        1FC : 6C                         inp     ACIA_status
+        1FD : FA 01                      ani     RDRF_bm
+        1FF : 32 08                      bz      isr_exit        ; no data is received
+        201 : 6D                         inp     ACIA_data
+        202 : A7                         plo     R7
+        203 : D5                         sep     R5              ; call queue_add
+        204 : 01 73                      dc      A(queue_add)
+        206 : 20 00                      dc      A(rx_queue)
+        208 :                    isr_exit:
+        208 : E2                         sex     R2
+        209 : 60                         irx
+        20A : 72                         ldxa                    ; restore R7.0
+        20B : A7                         plo     R7
+        20C : 72                         ldxa                    ; restore R8
+        20D : B8                         phi     R8
+        20E : F0                         ldx
+        20F : A8                         plo     R8
+        210 : D1                         sep     R1              ; return to scrt_isr

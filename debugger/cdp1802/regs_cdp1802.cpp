@@ -31,7 +31,7 @@ RegsCdp1802::RegsCdp1802(PinsCdp1802 *pins)
  */
 void RegsCdp1802::setCpuType() {
     _pins->inject(InstCdp1802::PREFIX);
-    auto s = _pins->prepareCycle();
+    auto s = _pins->startCycle();
     if (s->fetch()) {
         _cpuType = CDP1804A;
         _pins->inject(InstCdp1802::DADI);
@@ -53,7 +53,7 @@ const char *RegsCdp1802::cpuName() const {
 }
 
 void RegsCdp1802::reset() {
-    _cpuType = nullptr;
+    setCpuType();
 }
 
 bool RegsCdp1802::is1804() const {
@@ -104,8 +104,6 @@ void RegsCdp1802::save() {
     _df = _pins->skip(InstCdp1802::LSDF);  // LSDF: skip if DF=1
     _q = _pins->skip(InstCdp1802::LSQ);    // LSQ: skip if Q=1
     _ie = _pins->skip(InstCdp1802::LSIE);  // LSIE: skip if IE=1
-    if (_cpuType == nullptr)
-        setCpuType();
 }
 
 void RegsCdp1802::restore() {

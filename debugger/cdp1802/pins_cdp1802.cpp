@@ -38,33 +38,36 @@ namespace cdp1802 {
  */
 
 namespace {
-// OSC1 3.5 MHz
+// OSC1 5.0 MHz
 constexpr auto clock_hi_ns = 200;
 constexpr auto clock_lo_ns = 200;
-constexpr auto c00_ns = 120;       // 150 ns
-constexpr auto c01_ns = 120;       // 150 ns
-constexpr auto c10_ns = 100;       // 150 ns
-constexpr auto c11_ns = 124;       // 150 ns
-constexpr auto c20_ns = 96;        // 150 ns
-constexpr auto c21_ns = 124;       // 150 ns
-constexpr auto c30_ns = 122;       // 150 ns
-constexpr auto c31_ns = 122;       // 150 ns
-constexpr auto c40_ns = 96;        // 150 ns
-constexpr auto c41_ns = 124;       // 150 ns
-constexpr auto c50_ns = 124;       // 150 ns
-constexpr auto c51_ns = 96;        // 150 ns
-constexpr auto c60_read = 1;       // 150 ns
-constexpr auto c60_inject = 90;    // 150 ns
-constexpr auto c61_read = 72;      // 150 ns
-constexpr auto c70_read = 112;     // 150 ns
-constexpr auto c60_write = 96;     // 150 ns
-constexpr auto c61_write = 100;    // 150 ns
-constexpr auto c70_write = 16;     // 150 ns
-constexpr auto c70_capture = 120;  // 150 ns
-constexpr auto c60_nobus = 88;     // 150 ns
-constexpr auto c61_nobus = 118;    // 150 ns
-constexpr auto c70_nobus = 120;    // 150 ns
-constexpr auto c71_ns = 72;        // 150 ns
+constexpr auto c00_ns = 26;       // 100 ns
+constexpr auto c01_ns = 72;       // 100 ns
+constexpr auto c11_ns = 80;       // 100 ns
+constexpr auto c20_ns = 58;       // 100 ns
+constexpr auto c21_ns = 38;       // 100 ns
+constexpr auto c30_ns = 84;       // 100 ns
+constexpr auto c31_ns = 80;       // 100 ns
+constexpr auto c40_ns = 52;       // 100 ns
+constexpr auto c41_io = 12;       // 100 ns
+constexpr auto c41_mem = 36;      // 100 ns
+constexpr auto c41_inject = 40;   // 100 ns
+constexpr auto c41_ns = 80;       // 100 ns
+constexpr auto c50_ns = 76;       // 100 ns
+constexpr auto c51_ns = 66;       // 100 ns
+constexpr auto c60_write = 40;    // 100 ns
+constexpr auto c61_write = 68;    // 100 ns
+constexpr auto c70_write = 44;    // 100 ns
+constexpr auto c70_capture = 64;  // 100 ns
+// constexpr auto c60_read = 44;     // 100 ns
+// constexpr auto c60_inject = 68;   // 100 ns
+constexpr auto c60_read = 30;   // 100 ns
+constexpr auto c61_read = 14;   // 100 ns
+constexpr auto c70_read = 68;   // 100 ns
+constexpr auto c60_nobus = 40;  // 100 ns
+constexpr auto c61_nobus = 76;  // 100 ns
+constexpr auto c70_nobus = 68;  // 100 ns
+constexpr auto c71_ns = 58;     // 100 ns
 
 inline void clock_hi() {
     digitalWriteFast(PIN_CLOCK, HIGH);
@@ -147,7 +150,7 @@ inline void clock_cycle() {
 PinsCdp1802::PinsCdp1802() {
     _regs = new RegsCdp1802(this);
     _devs = new DevsCdp1802();
-    _mems = new MemsCdp1802(_devs);
+    _mems = new MemsCdp1802();
 }
 
 void PinsCdp1802::resetPins() {
@@ -167,57 +170,90 @@ void PinsCdp1802::resetPins() {
         if (signal_tpa() != LOW)
             break;
     }
-    _regs->reset();
     _regs->save();
+    _regs->reset();
 }
 
-Signals *PinsCdp1802::rawPrepareCycle() {
+Signals *PinsCdp1802::startCycle() {
     // CDP1802 bus cycle is CLOCK/8, so we toggle CLOCK 8 times
     auto s = Signals::put();
+    // assert_debug();
     s->getStatus();
+    //negate_debug();
     return s;
 }
 
-Signals *PinsCdp1802::prepareCycle() {
-    // c10
-    delayNanoseconds(c10_ns);
-    return rawPrepareCycle();
-}
-
-Signals *PinsCdp1802::directCycle(Signals *s) {
+Signals *PinsCdp1802::prepareCycle(Signals *s) {
     // c11
     clock_hi();
     delayNanoseconds(c11_ns);
     // c20
     clock_lo();
     delayNanoseconds(c20_ns);
+    // assert_debug();
     s->getAddr1();
     // c21
     clock_hi();
+    const auto ioaddr = s->getIoAddr();
+    s->getDirection();  // check #MRD
+    // negate_debug();
     delayNanoseconds(c21_ns);
     // c30
     clock_lo();
-    delayNanoseconds(c30_ns);
+    if (ioaddr && !s->read()) {
+        // Input from Device to Memory & CPU
+        if (_devs->isSelected(ioaddr)) {
+            // assert_debug();
+            s->data = _devs->read(ioaddr);
+            s->outData();
+            // negate_debug();
+        }
+    } else {
+        delayNanoseconds(c30_ns);
+    }
     // c31
     clock_hi();
     delayNanoseconds(c31_ns);
     // c40
     clock_lo();
     delayNanoseconds(c40_ns);
+    // assert_debug();
     s->getAddr2();
-    // c41
+    // negate_debug();
+    //  c41
     clock_hi();
-    delayNanoseconds(c41_ns);
+    if (s->read()) {
+        if (ioaddr) {
+            // Output from Memory to Device
+            s->inject(_mems->read(s->addr));  // avoid duplicate read
+            delayNanoseconds(c41_io);
+        } else if (s->readMemory()) {
+            s->inject(_mems->read(s->addr));
+            delayNanoseconds(c41_mem);
+        } else {
+            delayNanoseconds(c41_inject);
+        }
+    } else {
+        delayNanoseconds(c41_ns);
+    }
     // c50
     clock_lo();
-    delayNanoseconds(c50_ns);
+    if (ioaddr && s->read()) {
+        // Output from Memory to Device
+        if (_devs->isSelected(ioaddr)) {
+            _devs->write(ioaddr, s->data);
+        }
+    } else {
+        delayNanoseconds(c50_ns);
+    }
     // c51
     clock_hi();
     delayNanoseconds(c51_ns);
-    s->getDirection();
-    // c60
+    // assert_debug();
+    s->getDirection();  // check #MWR
+    // negate_debug();
+    //  c60
     clock_lo();
-
     return s;
 }
 
@@ -228,7 +264,9 @@ Signals *PinsCdp1802::completeCycle(Signals *s) {
         // c61
         clock_hi();
         delayNanoseconds(c61_write);
+        // assert_debug();
         s->getData();
+        // negate_debug();
         // c70
         clock_lo();
         if (s->writeMemory()) {
@@ -239,15 +277,12 @@ Signals *PinsCdp1802::completeCycle(Signals *s) {
         }
     } else if (s->read()) {
         // c60
-        if (s->readMemory()) {
-            s->data = _mems->read(s->addr);
-            delayNanoseconds(c60_read);
-        } else {
-            delayNanoseconds(c60_inject);
-        }
+        delayNanoseconds(c60_read);
         // c61
         clock_hi();
+        // assert_debug();
         s->outData();
+        // negate_debug();
         delayNanoseconds(c61_read);
         // c70
         clock_lo();
@@ -265,24 +300,26 @@ Signals *PinsCdp1802::completeCycle(Signals *s) {
     }
     // c71
     clock_hi();
-    Signals::nextCycle();
+    // assert_debug();
+    Signals::inputMode();
+    // negate_debug();
     delayNanoseconds(c71_ns);
     // c00
     clock_lo();
+    Signals::nextCycle();
     delayNanoseconds(c00_ns);
     // c01
     clock_hi();
-    delayNanoseconds(c01_ns);
-    Signals::inputMode();
-    // c10
-    clock_lo();
     // BitBang serial handler
     devs<DevsCdp1802>()->sciLoop();
+    delayNanoseconds(c01_ns);
+    // c10
+    clock_lo();
     return s;
 }
 
 Signals *PinsCdp1802::cycle() {
-    return completeCycle(directCycle(prepareCycle()));
+    return completeCycle(prepareCycle(startCycle()));
 }
 
 Signals *PinsCdp1802::inject(uint8_t data) {
@@ -303,13 +340,13 @@ void PinsCdp1802::execute(const uint8_t *inst, uint8_t len, uint16_t *addr,
         uint8_t *buf, uint8_t max) {
     uint8_t inj = 0;
     uint8_t cap = 0;
+    auto s = startCycle();
     while (inj < len || cap < max) {
-        auto s = rawPrepareCycle();
         if (inj < len)
             s->inject(inst[inj]);
         if (cap < max)
             s->capture();
-        completeCycle(directCycle(s));
+        completeCycle(prepareCycle(s));
         if (s->read())
             ++inj;
         if (s->write()) {
@@ -318,12 +355,13 @@ void PinsCdp1802::execute(const uint8_t *inst, uint8_t len, uint16_t *addr,
             if (cap < max && buf)
                 buf[cap++] = s->data;
         }
+        s = startCycle();
     }
     while (true) {
-        auto s = prepareCycle();
         if (s->fetch())
             break;
-        completeCycle(directCycle(s));
+        completeCycle(prepareCycle(s));
+        s = startCycle();
     }
 }
 
@@ -332,9 +370,11 @@ void PinsCdp1802::idle() {
 }
 
 void PinsCdp1802::loop() {
+    auto s = startCycle();
     while (true) {
         _devs->loop();
-        if (!rawStep() || haltSwitch())
+        s = rawStep(s);
+        if (s == nullptr || haltSwitch())
             return;
     }
 }
@@ -349,29 +389,30 @@ void PinsCdp1802::run() {
     _regs->save();
 }
 
-bool PinsCdp1802::rawStep() {
-    auto s = directCycle(rawPrepareCycle());
-    if (_mems->read_byte(s->addr) == InstCdp1802::IDL) {
+Signals *PinsCdp1802::rawStep(Signals *s) {
+    s = prepareCycle(s);
+    if (s->data == InstCdp1802::IDL) {
         // Detect IDL, inject LBR * instead and halt.
         completeCycle(s->inject(InstCdp1802::LBR));
         inject(hi(s->addr));
         inject(lo(s->addr));
         Signals::discard(s);
-        return false;
+        return nullptr;
     }
     completeCycle(s);
     // See if it was CDP1804/CDP1804A's double fetch instruction.
-    auto n = prepareCycle();
+    auto n = startCycle();
     if (n->fetch() && s->data == InstCdp1802::PREFIX) {
-        completeCycle(directCycle(n));
+        completeCycle(prepareCycle(n));
+        s = startCycle();
+    } else {
+        s = n;
     }
-    while (true) {
-        auto s = prepareCycle();
-        if (s->fetch())
-            break;
-        completeCycle(directCycle(s));
-    }
-    return true;
+    do {
+        completeCycle(prepareCycle(s));
+        s = startCycle();
+    } while (!s->fetch());
+    return s;
 }
 
 bool PinsCdp1802::step(bool show) {
@@ -379,7 +420,7 @@ bool PinsCdp1802::step(bool show) {
     _regs->restore();
     if (show)
         Signals::resetCycles();
-    if (rawStep()) {
+    if (rawStep(startCycle())) {
         if (show)
             printCycles();
         _regs->save();
@@ -389,22 +430,22 @@ bool PinsCdp1802::step(bool show) {
 }
 
 bool PinsCdp1802::skip(uint8_t inst) {
-    auto org = prepareCycle();
-    completeCycle(directCycle(org->inject(inst)));
+    auto org = startCycle();
+    completeCycle(prepareCycle(org->inject(inst)));
     const auto skipi = org->addr;
     while (true) {
-        auto s = prepareCycle();
+        auto s = startCycle();
         if (s->fetch()) {
-            completeCycle(directCycle(s->inject(InstCdp1802::NOP)));
+            completeCycle(prepareCycle(s->inject(InstCdp1802::NOP)));
             const auto nexti = s->addr;
             while (true) {
-                auto s = prepareCycle();
+                auto s = startCycle();
                 if (s->fetch())
                     return nexti == skipi + 3;
-                completeCycle(directCycle(s));
+                completeCycle(prepareCycle(s));
             }
         }
-        completeCycle(directCycle(s));
+        completeCycle(prepareCycle(s));
     }
 }
 

@@ -10,7 +10,7 @@
         include "scrt.inc"
 
 ;;; MC6850 Asynchronous Communication Interface Adapter
-ACIA:   equ     X'DF00'
+ACIA:   equ     4
         include "mc6850.inc"
 RX_INT_TX_NO:   equ     WSB_8N1_gc|RIEB_bm
 
@@ -29,15 +29,19 @@ main:
         dc      A(rx_queue)
         dc      rx_queue_size
         ;; initialize ACIA
-        rldi    R8, ACIA
-        ldi     CDS_RESET_gc    ; Master reset
-        str     R8              ; ACIA_control
-        ldi     RX_INT_TX_NO
-        str     R8              ; ACIA_control
+        rldi    R8, ACIA_config
+        sex     R8              ; R8 for out
+        out     ACIA_control    ; Master reset
+        out     ACIA_control    ; Set mode
         sex     R3
         ret
         dc      X'33'           ; enable interrupt
         sex     R2
+        br      loop
+
+ACIA_config:
+        dc      CDS_RESET_gc    ; Master reset
+        dc      RX_INT_TX_NO
 
 loop:
         sex     R3
@@ -67,18 +71,22 @@ halt_to_system:
 ;;; @param D char
 ;;; @unchanged D
 ;;; @clobber R15
+putchar_char:
+        dc      0
 putchar:
         plo     R15             ; save D to R15.0
         rsxd    R8              ; save R8
-        rldi    R8, ACIA
+        rldi    R8, putchar_char
+        sex     R8              ; R8 for inp/out
 putchar_loop:
-        ldn     R8              ; ACIA_status
+        inp     ACIA_status
         ani     TDRE_bm
         bz      putchar_loop
-        inc     R8
         glo     R15             ; restore D
-        str     R8              ; ACIA_data
+        str     R8              ; send char
+        out     ACIA_data
         ;;
+        sex     R2
         irx
         rlxa    R8              ; restore R8
         dec     R2
@@ -88,25 +96,28 @@ putchar_loop:
         include "queue.inc"
 
 ;;; From scrt_isr, P=3, X=2
+isr_char:
+        dc      0
 isr:
         glo     R7
         stxd                    ; save R7.0
         rsxd    R8              ; save R8
-        rldi    R8, ACIA
-        ldn     R8              ; ACIA_status
+        rldi    R8, isr_char
+        sex     R8              ; R8 for inp
+        inp     ACIA_status
         ani     IRQF_bm
         bz      isr_exit        ; no interrupt
 isr_receive:
-        ldn     R8              ; ACIA_status
+        inp     ACIA_status
         ani     RDRF_bm
         bz      isr_exit        ; no data is received
-        inc     R8
-        ldn     R8              ; ACIA_data
-        dec     R8
+        inp     ACIA_data
         plo     R7
+        sex     R2
         scal    R4, queue_add
         dc      A(rx_queue)
 isr_exit:
+        sex     R2
         irx
         rlxa    R8              ; restore R8
         ldx                     ; restore R7.0

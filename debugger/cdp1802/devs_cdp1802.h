@@ -4,7 +4,7 @@
 #include "devs.h"
 #include "serial_handler.h"
 
-#define ACIA_BASE 0xDF00
+#define ACIA_BASE 4
 
 namespace debugger {
 namespace cdp1802 {

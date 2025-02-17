@@ -19,6 +19,10 @@ void Signals::getAddr2() {
     addr |= busRead(MA);
 }
 
+uint_fast8_t Signals::getIoAddr() {
+    return nBus() = busRead(N);
+}
+
 void Signals::getDirection() {
     cntl() = busRead(CNTL);
 }
@@ -52,19 +56,25 @@ bool Signals::vector() const {
     return sc() == 3;
 }
 
-uint8_t Signals::sc() const {
-    return cntl() & CNTL_SC;
+Signals::State Signals::sc() const {
+    return State(cntl() & CNTL_SC);
 }
 
 void Signals::print() const {
-    //                              01234567890123
-    static constexpr char line[] = "LW A=xxxx D=xx";
+    //                              012345678901234567
+    static constexpr char line[] = "LW A=xxxx D=xx N=x";
     static auto &buffer = *new CharBuffer(line);
     static constexpr char SC[] = {'F', ' ', 'D', 'I'};
     buffer[0] = SC[sc()];
     buffer[1] = read() ? 'R' : (write() ? 'W' : '-');
     buffer.hex16(5, addr);
     buffer.hex8(12, data);
+    if (ioAddr()) {
+        buffer[14] = ' ';
+        buffer.hex4(17, ioAddr());
+    } else {
+        buffer[14] = 0;
+    }
     cli.println(buffer);
 }
 

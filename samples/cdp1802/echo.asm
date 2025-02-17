@@ -4,43 +4,52 @@
         include "cdp1802.inc"
 
 ;;; MC6850 Asynchronous Communication Interface Adapter
-ACIA:   equ     X'DF00'
+ACIA:   equ     4
         include "mc6850.inc"
 
         org     X'0100'
 main:
-        ldi     A.1(ACIA)
+        ldi     A.1(ACIA_config)
         phi     R8
-        ldi     A.0(ACIA)
+        ldi     A.0(ACIA_config)
         plo     R8              ; R8=ACIA
-        ldi     CDS_RESET_gc    ; Master reset
-        str     R8              ; ACIA_control
-        ldi     WSB_8N1_gc      ; 8 bits + No Parity + 1 Stop Bits
-                                ; Transmit, Receive interrupts disabled
-        str     R8              ; ACIA_control
+        sex     R8              ; R8 for inp/out
+        out     ACIA_control    ; Master reset
+        out     ACIA_control    ; Mode set
+        br      receive
 
+ACIA_config:
+        dc      CDS_RESET_gc    ; Master reset
+        dc      WSB_8N1_gc      ; 8 bits + No Parity + 1 Stop Bits
+                                ; Transmit, Receive interrupts disabled
+received_char:
+        dc      0
+receive:
+        ldi     A.1(received_char)
+        phi     R8
+        ldi     A.0(received_char)
+        plo     R8
+        sex     R8              ; R8 for inp/out
 receive_loop:
-        ldn     R8              ; ACIA_status
+        inp     ACIA_status
         ani     RDRF_bm
         bz      receive_loop
 receive_data:
-        inc     R8              ; R8=ACIA_data
-        ldn     R8              ; d=char
+        inp      ACIA_data
         bz      halt_to_system
 transmit:
-        dec     R8              ; R8=ACIA_status
         plo     R7              ; R7.0=char
 transmit_loop:
-        ldn     R8              ; ACIA_status
+        inp     ACIA_status     ; ACIA_status
         ani     TDRE_bm
         bz      transmit_loop
 transmit_data:
         glo     R7
-        inc     R8              ; R8=ACIA_data
-        str     R8              ; ACIA_data
-        dec     R8              ; R8=ACIA_status
+        str     R8              ; set received_char
+        out     ACIA_data
+        dec     R8              ; R8=received_char
         xri     X'0D'
-        bnz     receive_loop
+        bnz     receive
         ldi     X'0A'
         plo     R7              ; R7.0=char
         br      transmit_loop
