@@ -1,6 +1,6 @@
 ;;; -*- mode: asm; mode: flyspell-prog; -*-
 ;;; Mandelbrot variables
-Fv:     equ     50
+cF:     equ     50
 vC:     dc      A(0)
 vD:     dc      A(0)
 vA:     dc      A(0)
@@ -8,10 +8,11 @@ vB:     dc      A(0)
 vP:     dc      A(0)
 vQ:     dc      A(0)
 vS:     dc      A(0)
-vT:     dc      A(0)
-vY:     dc      A(0)
-vX:     dc      A(0)
-vI:     dc      A(0)
+rT      =       R10
+rTMP    =       R14
+rY      =       R11
+rX      =       R12
+rI      =       R13
 
 ;;; Print variable: "D=variable "
 ;;; @param D variable letter
@@ -26,16 +27,14 @@ print:
         br      putspace
 
 mandelbrot:
-        rldi    R7, -12
-        scal    R4, store_R7
-        dc      A(vY)           ; Y=-12
+        rldi    rY, -12         ; Y=-12
 loop_y:
-        rldi    R7, -49
-        scal    R4, store_R7
-        dc      A(vX)           ; X=-49
+        rldi    rX, -49         ; X=-49
 loop_x:
-        scal    R4, load_R7
-        dc      A(vX)
+        ghi     rX
+        phi     R7
+        glo     rX
+        plo     R7              ; R7=X
         rldi    R8, 229
         scal    R4, mul16
         rldi    R8, 100
@@ -44,8 +43,10 @@ loop_x:
         dc      A(vC)           ; C=X*229/100
         scal    R4, store_R7
         dc      A(vA)           ; A=C
-        scal    R4, load_R7
-        dc      A(vY)
+        ghi     rY
+        phi     R7
+        glo     rY
+        plo     R7              ; R7=Y
         rldi    R8, 416
         scal    R4, mul16
         rldi    R8, 100
@@ -54,16 +55,18 @@ loop_x:
         dc      A(vD)           ; D=Y*416/100
         scal    R4, store_R7
         dc      A(vB)           ; B=D
-        rldi    R7, 0
-        scal    R4, store_R7
-        dc      A(vI)           ; I=0
+        rldi    rI, 0           ; I=0
 
-        ;; scal    R4, load_R7
-        ;; dc      A(vY)
+        ;; ghi     rY
+        ;; phi     R7
+        ;; glo     rY
+        ;; plo     R7              ; R7=Y
         ;; ldi     T'Y'
         ;; scal    R4, print
-        ;; scal    R4, load_R7
-        ;; dc      A(vX)
+        ;; ghi     rX
+        ;; phi     R7
+        ;; glo     rX
+        ;; plo     R7              ; R7=X
         ;; ldi     T'X'
         ;; scal    R4, print
         ;; scal    R4, load_R7
@@ -79,11 +82,11 @@ loop_x:
 loop_i:
         scal    R4, load_R7
         dc      A(vB)
-        rldi    R8, Fv
+        rldi    R8, cF
         scal    R4, div16
         scal    R4, store_R7
         dc      A(vQ)           ; Q=B/F
-        rldi    R8, -Fv
+        rldi    R8, -cF
         scal    R4, mul16       ; -Q*F
         scal    R4, load_R8
         dc      A(vB)
@@ -109,19 +112,21 @@ loop_i:
         rlxa    R8              ; pop B*B
         dec     R2
         scal    R4, sub16       ; A*A-B*B
-        rldi    R8, Fv
+        rldi    R8, cF
         scal    R4, div16       ; (A*A-B*B)/F
         scal    R4, load_R8
         dc      A(vC)
         scal    R4, add16       ; (A*A-B*B)/F+C
-        scal    R4, store_R7    ; T=(A*A-B*B)/F+C
-        dc      A(vT)
+        ghi     R7
+        phi     rTMP
+        glo     R7
+        plo     rTMP            ; tmp=(A*A-B*B)/F+C
         scal    R4, load_R7
         dc      A(vA)
         scal    R4, load_R8
         dc      A(vS)
         scal    R4, mul16       ; A*S
-        rldi    R8, Fv
+        rldi    R8, cF
         scal    R4, div16       ; A*S/F
         rsxd    R7              ; push A*S/F
         scal    R4, load_R7
@@ -133,34 +138,37 @@ loop_i:
         rlxa    R8              ; pop A*S/F
         dec     R2
         scal    R4, add16       ; A*Q+A*S/F
-        ghi     R7
-        phi     R8
         glo     R7
-        plo     R8
-        scal    R4, add16       ; 2*(A*Q+A*S/F)
+        shl
+        plo     R7
+        ghi     R7
+        shlc
+        phi     R7              ; 2*(A*Q+A*S/F)
         scal    R4, load_R8
         dc      A(vD)
         scal    R4, add16       ; 2*(A*Q+A*S/F)+D
         scal    R4, store_R7
         dc      A(vB)           ; B=2*(A*Q+A*S/F)+D
-        scal    R4, load_R7
-        dc      A(vT)
+        ghi     rTMP
+        phi     R7
+        glo     rTMP
+        plo     R7
         scal    R4, store_R7
-        dc      A(vA)           ; A=T
-        rldi    R8, Fv
-        scal    R4, div16
+        dc      A(vA)           ; A=tmp
+        rldi    R8, cF
+        scal    R4, div16       ; A/F
         scal    R4, store_R7
         dc      A(vP)           ; P=A/F
         ghi     R7
         phi     R8
         glo     R7
         plo     R8
-        scal    R4, mul16
+        scal    R4, mul16       ; P*P
         rsxd    R7              ; push P*P
         scal    R4, load_R7
         dc      A(vB)
-        rldi    R8, Fv
-        scal    R4, div16
+        rldi    R8, cF
+        scal    R4, div16       ; B/F
         scal    R4, store_R7
         dc      A(vQ)           ; Q=B/F
         ghi     R7
@@ -172,8 +180,11 @@ loop_i:
         rlxa    R8              ; pop P*P
         dec     R2
         scal    R4, add16       ; P*P+Q*Q
+        ghi     R7
+        phi     rT
+        glo     R7
+        plo     rT              ; T=P*P+Q*Q
 
-        ;; rsxd    R7              ; push T
         ;; scal    R4, putspace
         ;; scal    R4, load_R7
         ;; dc      A(vI)
@@ -195,27 +206,26 @@ loop_i:
         ;; dc      A(vQ)
         ;; ldi     T'Q'
         ;; scal    R4, print
+        ;; ghi     rT
+        ;; phi     R7
+        ;; glo     rT
+        ;; plo     R7              ; R7=T
+        ;; ldi     T'T'
         ;; scal    R4, newline
-        ;; irx
-        ;; rlxa    R7              ; pop T
-        ;; dec     R2
 
-        ghi     R7
+        ghi     rT
         bnz     print_i
-        glo     R7
+        glo     rT
         sdi     4
         bm      print_i         ; if 4<T
-        rldi    R7, vI+1
-        ldn     R7
-        adi     1
-        str     R7              ; I+=1
+        inc     rI              ; I+=1
+        glo     rI              ; A.0(I)
         smi     16
         bm      loop_i          ; if I<16
         ldi     T' '
         br      print_char
 print_i:
-        rldi    R7, vI+1
-        ldn     R7
+        glo     rI
         dadi    x'90'
         daci    x'40'
 print_char:
@@ -237,19 +247,17 @@ print_char:
         bnz     next_x
         idl                     ; break
 next_x:
-        scal    R4, inc16
-        dc      A(vX)           ; X+=1
-        ghi     R7
+        inc     rX              ; X+=1
+        ghi     rX              ; A.1(X)
         bnz     loop_x          ; if X<0
-        glo     R7
+        glo     rX              ; A.0(X)
         smi     30
         bl      loop_x          ; if X<30
         scal    R4, newline
-        scal    R4, inc16
-        dc      A(vY)           ; Y+=1
-        ghi     R7
+        inc     rY              ; Y+=1
+        ghi     rY              ; A.1(Y)
         bnz     loop_y          ; if Y<0
-        glo     R7
+        glo     rY              ; A.0(Y)
         smi     13
         bl      loop_y          ; if Y<13
         sret    R4

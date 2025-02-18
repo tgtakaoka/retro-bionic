@@ -1,6 +1,6 @@
 ;;; -*- mode: asm; mode: flyspell-prog; -*-
 ;;; Mandelbrot variables
-Fv:     equ     50
+cF:     equ     50
 vC:     dc      A(0)
 vD:     dc      A(0)
 vA:     dc      A(0)
@@ -8,10 +8,11 @@ vB:     dc      A(0)
 vP:     dc      A(0)
 vQ:     dc      A(0)
 vS:     dc      A(0)
-vT:     dc      A(0)
-vY:     dc      A(0)
-vX:     dc      A(0)
-vI:     dc      A(0)
+rT      =       R10
+rTMP    =       R14
+rY      =       R11
+rX      =       R12
+rI      =       R13
 
 ;;; Print variable: "D=variable "
 ;;; @param D variable letter
@@ -31,24 +32,19 @@ print:
 
 mandelbrot:
         ldi     A.1(-12)
-        phi     R7
+        phi     rY
         ldi     A.0(-12)
-        plo     R7
-        sep     R5
-        dc      A(store_R7)
-        dc      A(vY)           ; Y=-12
+        plo     rY              ; Y=-12
 loop_y:
         ldi     A.1(-49)
-        phi     R7
+        phi     rX
         ldi     A.0(-49)
-        plo     R7
-        sep     R5
-        dc      A(store_R7)
-        dc      A(vX)           ; X=-49
+        plo     rX              ; X=-49
 loop_x:
-        sep     R5
-        dc      A(load_R7)
-        dc      A(vX)
+        ghi     rX
+        phi     R7
+        glo     rX
+        plo     R7              ; R7=X
         ldi     A.1(229)
         phi     R8
         ldi     A.0(229)
@@ -67,9 +63,10 @@ loop_x:
         sep     R5
         dc      A(store_R7)     ; A=C
         dc      A(vA)
-        sep     R5
-        dc      A(load_R7)
-        dc      A(vY)
+        ghi     rY
+        phi     R7
+        glo     rY
+        plo     R7              ; R7=Y
         ldi     A.1(416)
         phi     R8
         ldi     A.0(416)
@@ -89,21 +86,20 @@ loop_x:
         dc      A(store_R7)
         dc      A(vB)           ; B=D
         ldi     0
-        phi     R7
-        plo     R7
-        sep     R5
-        dc      A(store_R7)
-        dc      A(vI)           ; I=0
+        phi     rI
+        plo     rI              ; I=0
 
-        ;; sep     R5
-        ;; dc      A(load_R7)
-        ;; dc      A(vY)
+        ;; ghi     rY
+        ;; phi     R7
+        ;; glo     rY
+        ;; plo     R7              ; R7=Y
         ;; ldi     T'Y'
         ;; sep     R5
         ;; dc      A(print)
-        ;; sep     R5
-        ;; dc      A(load_R7)
-        ;; dc      A(vX)
+        ;; ghi     rX
+        ;; phi     R7
+        ;; glo     rX
+        ;; plo     R7              ; R7=X
         ;; ldi     T'X'
         ;; sep     R5
         ;; dc      A(print)
@@ -126,131 +122,159 @@ loop_i:
         sep     R5
         dc      A(load_R7)
         dc      A(vB)
-        ldi     A.1(Fv)
+        ldi     A.1(cF)
         phi     R8
-        ldi     A.0(Fv)
+        ldi     A.0(cF)
         plo     R8
         sep     R5
         dc      A(div16)
         sep     R5
         dc      A(store_R7)
         dc      A(vQ)           ; Q=B/F
-        ldi     A.1(-Fv)
+        ldi     A.1(cF)
         phi     R8
-        ldi     A.0(-Fv)
+        ldi     A.0(cF)
         plo     R8
         sep     R5
-        dc      A(mul16)        ; -Q*F
+        dc      A(mul16)        ; R7=Q*F
         sep     R5
         dc      A(load_R8)
-        dc      A(vB)
-        sep     R5
-        dc      A(add16)        ; B-Q*F
+        dc      A(vB)           ; R8=B
+        glo     R7
+        str     R2
+        glo     R8
+        sm
+        plo     R7
+        ghi     R7
+        str     R2
+        ghi     R8
+        smb
+        phi     R7              ; R7=B-Q*F
         sep     R5
         dc      A(store_R7)
         dc      A(vS)           ; S=B-Q*F
         sep     R5
         dc      A(load_R7)
-        dc      A(vB)
+        dc      A(vB)           ; R7=B
         ghi     R7
         phi     R8
         glo     R7
-        plo     R8
+        plo     R8              ; R8=B
         sep     R5
-        dc      A(mul16)        ; B*B
-        glo     R7
-        stxd
+        dc      A(mul16)        ; R7=B*B
         ghi     R7
-        stxd                    ; push B*B
+        phi     rT
+        glo     R7
+        plo     rT              ; T=B*B
         sep     R5
         dc      A(load_R7)
-        dc      A(vA)
+        dc      A(vA)           ; R7=A
         ghi     R7
         phi     R8
         glo     R7
         plo     R8
         sep     R5
-        dc      A(mul16)        ; A*A
-        irx
-        ldxa
+        dc      A(mul16)        ; R7=A*A
+        glo     rT
+        str     R2
+        glo     R7
+        sm
+        plo     R7
+        ghi     rT
+        str     R2
+        ghi     R7
+        smb
+        phi     R7              ; R7=A*A-B*B
+        ldi     A.1(cF)
         phi     R8
-        ldx
-        plo     R8              ; pop B*B
-        sep     R5
-        dc      A(sub16)        ; A*A-B*B
-        ldi     A.1(Fv)
-        phi     R8
-        ldi     A.0(Fv)
+        ldi     A.0(cF)
         plo     R8
         sep     R5
-        dc      A(div16)        ; (A*A-B*B)/F
+        dc      A(div16)        ; R7=(A*A-B*B)/F
         sep     R5
         dc      A(load_R8)
-        dc      A(vC)
-        sep     R5
-        dc      A(add16)        ; (A*A-B*B)/F+C
-        sep     R5
-        dc      A(store_R7)     ; T=(A*A-B*B)/F+C
-        dc      A(vT)
+        dc      A(vC)           ; R8=C
+        glo     R7
+        str     R2
+        glo     R8
+        add
+        plo     rTMP
+        ghi     R7
+        str     R2
+        ghi     R8
+        adc
+        phi     rTMP            ; tmp=(A*A-B*B)/F+C
         sep     R5
         dc      A(load_R7)
-        dc      A(vA)
+        dc      A(vA)           ; R7=A
         sep     R5
-        dc      A(load_R8)
+        dc      A(load_R8)      ; R8=S
         dc      A(vS)
         sep     R5
-        dc      A(mul16)        ; A*S
-        ldi     A.1(Fv)
+        dc      A(mul16)        ; R7=A*S
+        ldi     A.1(cF)
         phi     R8
-        ldi     A.0(Fv)
+        ldi     A.0(cF)
         plo     R8
         sep     R5
-        dc      A(div16)        ; A*S/F
-        glo     R7
-        stxd
+        dc      A(div16)        ; R7=A*S/F
         ghi     R7
-        stxd                    ; push A*S/F
+        phi     rT
+        glo     R7
+        plo     rT              ; T=A*S/F
         sep     R5
         dc      A(load_R7)
-        dc      A(vA)
+        dc      A(vA)           ; R7=A
         sep     R5
         dc      A(load_R8)
-        dc      A(vQ)
+        dc      A(vQ)           ; R8=Q
         sep     R5
-        dc      A(mul16)        ; A*Q
-        irx
-        ldxa
-        phi     R8
-        ldx
-        plo     R8              ; pop A*S/F
-        sep     R5
-        dc      A(add16)        ; A*Q+A*S/F
-        ghi     R7
-        phi     R8
+        dc      A(mul16)        ; R7=A*Q
+        glo     rT
+        str     R2
         glo     R7
-        plo     R8
-        sep     R5
-        dc      A(add16)        ; 2*(A*Q+A*S/F)
+        add
+        plo     R7
+        ghi     rT
+        str     R2
+        ghi     R7
+        adc
+        phi     R7              ; R7=A*Q+A*S/F
+        glo     R7
+        shl
+        plo     R7
+        ghi     R7
+        shlc
+        phi     R7              ; R7=2*(A*A+A*S/F)
         sep     R5
         dc      A(load_R8)
-        dc      A(vD)
-        sep     R5
-        dc      A(add16)        ; 2*(A*Q+A*S/F)+D
+        dc      A(vD)           ; R8=D
+        glo     R7
+        str     R2
+        glo     R8
+        add
+        plo     R7
+        ghi     R7
+        str     R2
+        ghi     R8
+        adc
+        phi     R7              ; R7=2*(A*A+A*S/F)+D
         sep     R5
         dc      A(store_R7)
         dc      A(vB)           ; B=2*(A*Q+A*S/F)+D
-        sep     R5
-        dc      A(load_R7)
-        dc      A(vT)
+        ghi     rTMP
+        phi     R7
+        glo     rTMP
+        plo     R7
         sep     R5
         dc      A(store_R7)
-        dc      A(vA)           ; A=T
-        ldi     A.1(Fv)
+        dc      A(vA)           ; A=tmp
+        ldi     A.1(cF)
         phi     R8
-        ldi     A.0(Fv)
+        ldi     A.0(cF)
         plo     R8
         sep     R5
-        dc      A(div16)
+        dc      A(div16)        ; R7=A/F
         sep     R5
         dc      A(store_R7)
         dc      A(vP)           ; P=A/F
@@ -259,20 +283,20 @@ loop_i:
         glo     R7
         plo     R8
         sep     R5
-        dc      A(mul16)        ; P*P
-        glo     R7
-        stxd
+        dc      A(mul16)        ; R7=P*P
         ghi     R7
-        stxd                    ; push P*P
+        phi     rT
+        glo     R7
+        plo     rT              ; T=P*P
         sep     R5
         dc      A(load_R7)
-        dc      A(vB)
-        ldi     A.1(Fv)
+        dc      A(vB)           ; R7=B
+        ldi     A.1(cF)
         phi     R8
-        ldi     A.0(Fv)
+        ldi     A.0(cF)
         plo     R8
         sep     R5
-        dc      A(div16)        ; B/Q
+        dc      A(div16)        ; R7=B/Q
         sep     R5
         dc      A(store_R7)
         dc      A(vQ)           ; Q=B/F
@@ -281,81 +305,74 @@ loop_i:
         glo     R7
         plo     R8
         sep     R5
-        dc      A(mul16)        ; Q*Q
-        irx
-        ldxa
-        phi     R8
-        ldx
-        plo     R8              ; pop P*P
-        sep     R5
-        dc      A(add16)
+        dc      A(mul16)        ; R7=Q*Q
+        glo     R7
+        str     R2
+        glo     rT
+        add
+        plo     rT
+        ghi     R7
+        str     R2
+        ghi     rT
+        adc
+        phi     rT              ; T=P*P+Q*Q
 
-        ;; glo     R7
-        ;; stxd
-        ;; ghi     R7
-        ;; stxd                    ; push T
         ;; sep     R5
         ;; dc      A(putspace)
-        ;; sep     R5
-        ;; dc      A(load_R7)
-        ;; dc      A(vI)
+        ;; ghi     rI
+        ;; phi     R7
+        ;; glo     rI
+        ;; plo     R7              ; R7=I
         ;; ldi     T'I'
         ;; sep     R5
         ;; dc      A(print)
         ;; sep     R5
         ;; dc      A(load_R7)
-        ;; dc      A(vA)
+        ;; dc      A(vA)           ; R7=A
         ;; ldi     T'A'
         ;; sep     R5
         ;; dc      A(print)
         ;; sep     R5
         ;; dc      A(load_R7)
-        ;; dc      A(vB)
+        ;; dc      A(vB)           ; R7=B
         ;; ldi     T'B'
         ;; sep     R5
         ;; dc      A(print)
         ;; sep     R5
         ;; dc      A(load_R7)
-        ;; dc      A(vP)
+        ;; dc      A(vP)           ; R7=P
         ;; ldi     T'P'
         ;; sep     R5
         ;; dc      A(print)
         ;; sep     R5
         ;; dc      A(load_R7)
-        ;; dc      A(vQ)
+        ;; dc      A(vQ)           ; R7=Q
         ;; ldi     T'Q'
+        ;; sep     R5
+        ;; dc      A(print)
+        ;; ghi     rT
+        ;; phi     R7
+        ;; glo     rT
+        ;; plo     R7              ; R7=T
+        ;; ldi     T'T'
         ;; sep     R5
         ;; dc      A(print)
         ;; sep     R5
         ;; dc      A(newline)
-        ;; irx
-        ;; ldxa
-        ;; phi     R7
-        ;; ldx
-        ;; plo     R7              ; pop T
 
-        ghi     R7
+        ghi     rT
         bnz     print_i
-        glo     R7
+        glo     rT
         sdi     4
         bm      print_i         ; if 4<T
-        ldi     A.1(vI+1)
-        phi     R7
-        ldi     A.0(vI+1)
-        plo     R7
-        ldn     R7
-        adi     1
-        str     R7              ; I+=1
+        inc     rI              ; I+=1
+        glo     rI              ; A.0(I)
         smi     16
         bm      loop_i          ; if I<16
         ldi     T' '
         br      print_char
 print_i:
-        ldi     A.1(vI+1)
-        phi     R7
-        ldi     A.0(vI+1)
-        plo     R7
-        ldn     R7
+        glo     rI
         smi     10
         bl      print_i2        ; if I<10
         adi     T'A'-T'0'-10
@@ -386,22 +403,18 @@ print_char:
         bnz     next_x
         idl                     ; break
 next_x:
-        sep     R5
-        dc      A(inc16)
-        dc      A(vX)           ; X+=1
-        ghi     R7
+        inc     rX              ; X+=1
+        ghi     rX              ; A.1(X)
         bnz     loop_x          ; if X<0
-        glo     R7
+        glo     rX              ; A.0(X)
         smi     30
         bl      loop_x          ; if X<30
         sep     R5
         dc      A(newline)
-        sep     R5
-        dc      A(inc16)
-        dc      A(vY)           ; Y+=1
-        ghi     R7
+        inc     rY              ; Y+=1
+        ghi     rY              ; A.1(Y)
         bnz     loop_y          ; if Y<0
-        glo     R7
+        glo     rY              ; A.0(Y)
         smi     13
         bl      loop_y          ; if Y<13
         sep     R6

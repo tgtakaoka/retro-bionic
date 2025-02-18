@@ -81,6 +81,122 @@ putspace:
         ldi     T' '
         br      putchar
 
+;;; Set constant to R7
+;;;   SEP  R5
+;;;   DC   A(set_R7)
+;;;   DC   A(constant)
+;;; @return R7 constant
+;;; @clobber D
+set_R7:
+        sex     R4
+        ldxa
+        phi     R7
+        ldxa
+        plo     R7
+        sex     R2
+        sep     R6
+
+;;; Set constant to R8
+;;;   SEP  R5
+;;;   DC   A(set_R8)
+;;;   DC   A(variable)
+;;; @clobber R15
+set_R8:
+        sex     R4
+        ldxa
+        phi     R8
+        ldxa
+        plo     R8
+        sex     R2
+        sep     R6
+
+;;; Signed addition: summand += addend
+;;; @param R7 summand
+;;; @param R8 addend
+;;; @return R7 summand + addend
+;;;   SEP R5
+;;;   DC  A(add16)
+;;; @clobber D
+add16:
+        glo     R8
+        str     R2
+        glo     R7
+        add
+        plo     R7
+        ghi     R8
+        str     R2
+        ghi     R7
+        adc
+        phi     R7
+        sep     R6
+
+;;; Singed subtraction: minuend -= subtrahend
+;;; @param R7 minuend
+;;; @param R8 subtrahend
+;;; @return R7 minuend - subtrahend
+;;;   SEP R5
+;;;   DC  A(sub16)
+sub16:
+        glo     R8
+        str     R2
+        glo     R7
+        sm
+        plo     R7
+        ghi     R8
+        str     R2
+        ghi     R7
+        smb
+        phi     R7
+        sep     R6
+
+;;; Signed comparison: minuend - subtrahend
+;;; @param R7 minuend
+;;; @param R8 subtrahend
+;;; @return D=0 DF=1 (minuend==subtrahend); BZ
+;;;         D=1 DF=1 (minuend>subtrahend);  BGE
+;;;         D=1 DF=0 (minuend<subtrahend);  BL
+;;; @clobber R7 R8
+;;; result = minuend - subtrahend
+;;; Z=(result.1 | result.0) == 0
+;;; N=(result.1 & 0x80) != 0
+;;; V=((minuend.1 ^ subtrahend.1) & (result.1 ^ minuend.1) & 0x80) != 0
+;;; LT=N ^ V
+cmp16:
+        glo     R8              ; D=subtrahend.0
+        str     R2              ; stack top=subtrahend.0
+        glo     R7              ; D=minuend.0
+        sm                      ; D=minuend.0=subtrahend.0
+        plo     R7              ; R7.0=result.0
+        ghi     R8              ; D=subtrahend.1
+        str     R2              ; stack top=subtrahend.1
+        ghi     R7              ; D=minuend.1
+        xor                     ; D=minuend.1^subtrahend.1
+        plo     R8              ; R8.0=minuend.1^subtrahend.1
+        ghi     R7              ; D=minuend.1
+        smb                     ; D=minuend.1=subtrahend.1
+        phi     R8              ; R8.1=result.1
+        bnz     cmp16_neq       ; branch if result.1!=0
+        glo     R7              ; D=result.0
+        bnz     cmp16_neq       ; branch if result.0!=-
+        ldi     1
+        shr
+        sep     R6              ; return with D=0, DF=1
+cmp16_neq:
+        ghi     R8              ; D=result.1
+        str     R2
+        ghi     R7              ; D=minuend.1
+        xor                     ; D=result.1^minuend.1
+        str     R2              ; stack top=result.1^minuend.1
+        glo     R8              ; D=minuend.1^subtrahend.1
+        and                     ; D=(minuend.1^subtrahend.1)&(result.1^minuend.1)
+        str     R2              ; stack top=V
+        ghi     R8              ; D=result.1
+        xor                     ; D=N^V
+        xri     X'80'           ; D=~(N^V)
+        shl                     ; DF=~(N^V)
+        ldi     1
+        sep     R6              ; return with D=1
+
 ;;; Print out expression "operand1 operator operand2"
 ;;; @param R7 operand1
 ;;; @param R8 operand2
