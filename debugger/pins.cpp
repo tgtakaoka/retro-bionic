@@ -17,12 +17,14 @@ void Pins::reset() {
 }
 
 void Pins::setRun() const {
+    _halted = false;
 #ifdef PIN_USRLED
     digitalWriteFast(PIN_USRLED, LOW);
 #endif
 }
 
 void Pins::setHalt() const {
+    _halted = false;
 #ifdef PIN_USRLED
     digitalWriteFast(PIN_USRLED, HIGH);
 #endif
@@ -43,8 +45,15 @@ void Pins::pinsMode(
     }
 }
 
+volatile bool Pins::_halted;
+
+void Pins::isrHaltSwitch() {
+    _halted = true;
+}
+
 void Pins::initDebug() {
     pinMode(PIN_USRSW, INPUT_PULLUP);
+    attachInterrupt(digitalPinToInterrupt(PIN_USRSW), isrHaltSwitch, FALLING);
 #ifdef PIN_DEBUG
     negate_debug();
     pinMode(PIN_DEBUG, OUTPUT);
@@ -55,7 +64,7 @@ void Pins::initDebug() {
 }
 
 bool Pins::haltSwitch() {
-    return digitalReadFast(PIN_USRSW) == LOW;
+    return _halted;
 }
 
 void Pins::assert_debug() {

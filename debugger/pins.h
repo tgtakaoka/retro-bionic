@@ -31,6 +31,7 @@ struct Pins {
     static void assert_debug();
     static void negate_debug();
     static void toggle_debug();
+    static void isrHaltSwitch();
 
 protected:
     friend struct Target;
@@ -64,6 +65,9 @@ protected:
     static constexpr uint16_t uint16(uint8_t hi, uint8_t lo) {
         return static_cast<uint16_t>(hi) << 8 | lo;
     }
+
+private:
+    static volatile bool _halted;
 };
 }  // namespace debugger
 

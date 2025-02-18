@@ -38,7 +38,7 @@ const Identity &Identity::readIdentity() {
     if (rom.read(0, sizeof(buffer), buffer)) {
         const auto *name = reinterpret_cast<const char *>(buffer);
         const auto len = strnlen(name, sizeof(buffer));
-        if (len < sizeof(buffer) && !Pins::haltSwitch())
+        if (len < sizeof(buffer) && digitalReadFast(PIN_USRSW) != LOW)
             return searchIdentity(name);
     }
     return IdentityNull;

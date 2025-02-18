@@ -585,6 +585,16 @@ void Debugger::go() {
     }
     target().run();
     target().printRegisters();
+#if defined(ENABLE_LOGGER)
+    while (Logger.available()) {
+        const char c = Logger.read();
+        if (c == '\n' || c == '\r') {
+            cli.println();
+        } else {
+            cli.print(c);
+        }
+    }
+#endif
 }
 
 void Debugger::exec(char c) {

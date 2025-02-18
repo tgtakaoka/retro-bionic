@@ -6,6 +6,10 @@
 
 using namespace debugger;
 
+void serialEventUSB1() {
+    Pins::isrHaltSwitch();
+}
+
 void setup() {
     Console.begin(115200);
     while (!Console)
@@ -15,6 +19,7 @@ void setup() {
     Logger.begin(115200);
     logger.begin(Logger);
 #endif
+    Pins::initDebug();
     auto id = Identity::readIdentity();
     Debugger.begin(id.instance());
 }
