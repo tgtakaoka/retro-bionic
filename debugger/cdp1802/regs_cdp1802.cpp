@@ -127,28 +127,28 @@ void RegsCdp1802::restore() {
     _pins->execInst(LDQ_DF, sizeof(LDQ_DF));
 
     static const uint8_t SEP15_SEX14[] = {
-            0xDF,  // SEP R15
-            0xEE   // SEX R14
+            uint8(InstCdp1802::SEP | 15),  // SEP R15
+            uint8(InstCdp1802::SEX | 14),  // SEX R14
     };
     _pins->execInst(SEP15_SEX14, sizeof(SEP15_SEX14));
     _dirty[14] = _dirty[15] = true;
 
-    const uint8_t LDD[] = {
-            0xF8, _d  // LDI d
-    };
-    for (auto i = 0; i < 16; i++) {
-        if (_dirty[i]) {
-            auto rn = _r[i];
-            const uint8_t LDR[] = {
-                    0xF8, hi(rn),     // LDI hi(Rn)
-                    uint8(0xB0 | i),  // PHI Rn
-                    0xF8, lo(rn),     // LDI lo(Rn)
-                    uint8(0xA0 | i),  // PLO Rn
-            };
-            if (i == 14)
+    const uint8_t LDD[] = {InstCdp1802::LDI, _d};
+    for (auto n = 0; n < 16; n++) {
+        if (_dirty[n]) {
+            auto rn = _r[n];
+            if (n == 14)
                 rn -= 1;  // offset R14
-            if (i == 15)
+            if (n == 15)
                 rn -= sizeof(LDD) + 1;  // offset R15
+            const uint8_t LDR[] = {
+                    InstCdp1802::LDI,
+                    hi(rn),
+                    uint8(InstCdp1802::PHI | n),
+                    InstCdp1802::LDI,
+                    lo(rn),
+                    uint8(InstCdp1802::PLO | n),
+            };
             _pins->execInst(LDR, sizeof(LDR));
         }
     }

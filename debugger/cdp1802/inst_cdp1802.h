@@ -12,6 +12,8 @@ struct InstCdp1802 {
     static constexpr uint8_t DIS = 0x71;
     static constexpr uint8_t REQ = 0x7A;
     static constexpr uint8_t SEQ = 0x7B;
+    static constexpr uint8_t PHI = 0xB0;
+    static constexpr uint8_t PLO = 0xA0;
     static constexpr uint8_t LBR = 0xC0;
     static constexpr uint8_t NOP = 0xC4;
     static constexpr uint8_t LSIE = 0xCC;
@@ -19,6 +21,7 @@ struct InstCdp1802 {
     static constexpr uint8_t LSDF = 0xCF;
     static constexpr uint8_t SEP = 0xD0;
     static constexpr uint8_t SEX = 0xE0;
+    static constexpr uint8_t LDI = 0xF8;
     static constexpr uint8_t DADI = 0xFC;
 };
 }  // namespace cdp1802
