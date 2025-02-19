@@ -265,6 +265,8 @@ udiv16_prep:
         ldi     0
         phi     R7
         plo     R7              ; R7=quotient
+        ldi     1               ; 1=no borrow
+        phi     R15             ; R15.1=borrow
         br      udiv16_enter_loop
 udiv16_loop:
         ghi     R8
@@ -280,6 +282,8 @@ udiv16_loop:
         shlc
         phi     R7              ; quotient <<= 1
 udiv16_enter_loop:
+        ghi     R15             ; borrow
+        bz      udiv16_add      ; branch if borrow (0)
         glo     R8
         str     R2
         glo     R9
@@ -290,10 +294,8 @@ udiv16_enter_loop:
         ghi     R9
         smb
         phi     R9              ; dividend-=divisor
-        bm      udiv16_readd    ; branch if dividend < 0
-        inc     R7              ; quotient += 1
-        br      udiv16_next
-udiv16_readd:
+        br      udiv16_quotient
+udiv16_add:
         glo     R8
         str     R2
         glo     R9
@@ -304,10 +306,29 @@ udiv16_readd:
         ghi     R9
         adc
         phi     R9              ; dividend+=divisor
+udiv16_quotient:
+        ldi     0
+        shlc                    ; LSB(D)=DF; 0 if borrow
+        phi     R15             ; borrow
+        bz      udiv16_next     ; branch if borrow
+        inc     R7              ; quotient += 1
 udiv16_next:
         dec     R15
         glo     R15
         bnz     udiv16_loop     ; while bits != 0
+        ghi     R15             ; borrow
+        bnz     udiv16_return   ; branch if no borrow (1)
+        glo     R8              ; adjust dividend
+        str     R2
+        glo     R9
+        add
+        plo     R9
+        ghi     R8
+        str     R2
+        ghi     R9
+        adc
+        phi     R9              ; dividend+=divisor
+udiv16_return:
         ghi     R9
         phi     R8
         glo     R9
