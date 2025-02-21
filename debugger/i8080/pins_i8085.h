@@ -55,7 +55,7 @@
 #define PIN_ALE 31     /* P8.22 */
 #define PIN_IOM 30     /* P8.23 */
 
-#include "pins.h"
+#include "pins_i8080_base.h"
 #include "signals_i8085.h"
 
 namespace debugger {
@@ -75,7 +75,7 @@ enum IntrName : uint8_t {
     INTR_RST75 = 0x3C,  // RST 7.5: 003CH
 };
 
-struct PinsI8085 final : Pins {
+struct PinsI8085 final : i8080::PinsI8080Base {
     PinsI8085();
 
     void resetPins() override;
@@ -84,12 +84,7 @@ struct PinsI8085 final : Pins {
     void run() override;
     void assertInt(uint8_t name) override;
     void negateInt(uint8_t name) override;
-    void setBreakInst(uint32_t addr) const override;
     void printCycles() override;
-
-    void execInst(const uint8_t *inst, uint8_t len);
-    void captureWrites(const uint8_t *inst, uint8_t len, uint16_t *addr,
-            uint8_t *buf, uint8_t max);
 
 private:
     void clk_lo_nowait() const;
@@ -104,7 +99,7 @@ private:
     void suspend();
     bool rawStep();
     void execute(const uint8_t *inst, uint8_t len, uint16_t *addr, uint8_t *buf,
-            uint8_t max);
+            uint8_t max) override;
 
     void disassembleCycles();
 };

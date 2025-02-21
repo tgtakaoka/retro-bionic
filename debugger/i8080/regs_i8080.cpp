@@ -1,10 +1,10 @@
-#include "regs_i8085.h"
+#include "regs_i8080.h"
 #include "debugger.h"
-#include "inst_i8085.h"
-#include "pins_i8085.h"
+#include "inst_i8080.h"
+#include "pins_i8080_base.h"
 
 namespace debugger {
-namespace i8085 {
+namespace i8080 {
 
 namespace {
 const char line[] =
@@ -12,13 +12,9 @@ const char line[] =
 //       012345678901234567890123456789012345678901234567890123456789
 }  // namespace
 
-RegsI8085::RegsI8085(PinsI8085 *pins) : _pins(pins), _buffer(line) {}
+RegsI8080::RegsI8080(PinsI8080Base *pins) : _pins(pins), _buffer(line) {}
 
-const char *RegsI8085::cpu() const {
-    return "i8085";
-}
-
-void RegsI8085::print() const {
+void RegsI8080::print() const {
     _buffer.hex16(3, _pc);
     _buffer.hex16(11, _sp);
     _buffer.hex8(19, _b);
@@ -34,7 +30,7 @@ void RegsI8085::print() const {
     _pins->idle();
 }
 
-void RegsI8085::save() {
+void RegsI8080::save() {
     static const uint8_t PUSH_ALL[] = {
             0xC7,  // RST 0
             0xF5,  // PUSH PSW
@@ -61,8 +57,8 @@ void RegsI8085::save() {
     _ie = (buffer[10] & 0x08) != 0;
 }
 
-void RegsI8085::restore() {
-    const auto ie = _ie ? InstI8085::EI : InstI8085::DI;
+void RegsI8080::restore() {
+    const auto ie = _ie ? InstI8080::EI : InstI8080::DI;
     const uint8_t POP_ALL[] = {
             0x01, _c, _b,            // LXI B, _bc
             0x11, _e, _d,            // LXI D, _de
@@ -75,7 +71,7 @@ void RegsI8085::restore() {
     _pins->execInst(POP_ALL, sizeof(POP_ALL));
 }
 
-uint8_t RegsI8085::read_io(uint8_t addr) const {
+uint8_t RegsI8080::read_io(uint8_t addr) const {
     const uint8_t IN[] = {
             0xDB, addr,  // IN addr
             0x77,        // MOV M, A
@@ -85,7 +81,7 @@ uint8_t RegsI8085::read_io(uint8_t addr) const {
     return data;
 }
 
-void RegsI8085::write_io(uint8_t addr, uint8_t data) const {
+void RegsI8080::write_io(uint8_t addr, uint8_t data) const {
     const uint8_t OUT[] = {
             0x3E, data,  // MVI data
             0xD3, addr,  // OUT addr
@@ -96,7 +92,7 @@ void RegsI8085::write_io(uint8_t addr, uint8_t data) const {
     _pins->captureWrites(OUT, sizeof(OUT), nullptr, &tmp, sizeof(tmp));
 }
 
-void RegsI8085::helpRegisters() const {
+void RegsI8080::helpRegisters() const {
     cli.println("?Reg: PC SP BC DE HL A B C D E H L PSW");
 }
 
@@ -118,7 +114,7 @@ constexpr const char *REGS16[] = {
         "HL",  // 13
 };
 
-const Regs::RegList *RegsI8085::listRegisters(uint_fast8_t n) const {
+const Regs::RegList *RegsI8080::listRegisters(uint_fast8_t n) const {
     static constexpr RegList REG_LIST[] = {
             {REGS8, 8, 1, UINT8_MAX},
             {REGS16, 5, 9, UINT16_MAX},
@@ -126,7 +122,7 @@ const Regs::RegList *RegsI8085::listRegisters(uint_fast8_t n) const {
     return n < 2 ? &REG_LIST[n] : nullptr;
 }
 
-bool RegsI8085::setRegister(uint_fast8_t reg, uint32_t value) {
+bool RegsI8080::setRegister(uint_fast8_t reg, uint32_t value) {
     switch (reg) {
     case 9:
         _pc = value;
@@ -171,7 +167,7 @@ bool RegsI8085::setRegister(uint_fast8_t reg, uint32_t value) {
     return false;
 }
 
-}  // namespace i8085
+}  // namespace i8080
 }  // namespace debugger
 
 // Local Variables:

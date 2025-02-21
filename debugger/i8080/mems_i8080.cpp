@@ -1,15 +1,13 @@
-#include <ctype.h>
-
+#include "mems_i8080.h"
 #include <asm_i8080.h>
+#include <ctype.h>
 #include <dis_i8080.h>
-
-#include "mems_i8085.h"
-#include "regs_i8085.h"
+#include "regs_i8080.h"
 
 namespace debugger {
-namespace i8085 {
+namespace i8080 {
 
-MemsI8085::MemsI8085(RegsI8085 *regs)
+MemsI8080::MemsI8080(RegsI8080 *regs)
     : DmaMemory(Endian::ENDIAN_LITTLE), _regs(regs) {
 #ifdef WITH_ASSEMBLER
     _assembler = new libasm::i8080::AsmI8080();
@@ -19,7 +17,7 @@ MemsI8085::MemsI8085(RegsI8085 *regs)
 #endif
 }
 
-uint16_t MemsI8085::get(uint32_t addr, const char *space) const {
+uint16_t MemsI8080::get(uint32_t addr, const char *space) const {
     if (space == nullptr)
         return read(addr);
     if (toupper(*space) == 'I' && addr < 0x100)
@@ -27,7 +25,7 @@ uint16_t MemsI8085::get(uint32_t addr, const char *space) const {
     return 0;
 }
 
-void MemsI8085::put(uint32_t addr, uint16_t data, const char *space) const {
+void MemsI8080::put(uint32_t addr, uint16_t data, const char *space) const {
     if (space == nullptr) {
         write(addr, data);
     } else if (toupper(*space) == 'I' && addr < 0x100) {
@@ -35,7 +33,7 @@ void MemsI8085::put(uint32_t addr, uint16_t data, const char *space) const {
     }
 }
 
-}  // namespace i8085
+}  // namespace i8080
 }  // namespace debugger
 
 // Local Variables:

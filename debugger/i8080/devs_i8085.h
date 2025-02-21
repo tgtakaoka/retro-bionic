@@ -1,7 +1,7 @@
 #ifndef __DEVS_I8085_H__
 #define __DEVS_I8085_H__
 
-#include "devs.h"
+#include "devs_i8080.h"
 #include "serial_handler.h"
 
 #define USART_BASE 0x00
@@ -9,18 +9,12 @@
 namespace debugger {
 namespace i8085 {
 
-struct DevsI8085 final : Devs {
+struct DevsI8085 final : i8080::DevsI8080 {
     DevsI8085();
     ~DevsI8085();
 
-    void begin() override;
     void reset() override;
-    void loop() override;
     void setIdle(bool idle) override;
-    bool isSelected(uint32_t addr) const override;
-    uint16_t read(uint32_t addr) const override;
-    void write(uint32_t addr, uint16_t data) const override;
-    uint16_t vector() const override;
 
     Device *parseDevice(const char *name) const override;
     void enableDevice(Device *dev) override;
@@ -33,7 +27,6 @@ struct DevsI8085 final : Devs {
     }
 
 private:
-    Device *_usart;
 #if defined(ENABLE_SERIAL_HANDLER)
     SerialHandler *_sio;
 #endif

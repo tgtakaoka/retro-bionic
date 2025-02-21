@@ -1,15 +1,15 @@
-#ifndef __MEMS_I8085_H__
-#define __MEMS_I8085_H__
+#ifndef __MEMS_I8080_H__
+#define __MEMS_I8080_H__
 
 #include "mems.h"
 
 namespace debugger {
-namespace i8085 {
+namespace i8080 {
 
-struct RegsI8085;
+struct RegsI8080;
 
-struct MemsI8085 final : DmaMemory {
-    MemsI8085(RegsI8085 *regs);
+struct MemsI8080 final : DmaMemory {
+    MemsI8080(RegsI8080 *regs);
 
     uint32_t maxAddr() const override { return UINT16_MAX; }
     uint16_t get(uint32_t addr, const char *space = nullptr) const override;
@@ -17,10 +17,10 @@ struct MemsI8085 final : DmaMemory {
             const char *space = nullptr) const override;
 
 private:
-    RegsI8085 *const _regs;
+    RegsI8080 *const _regs;
 };
 
-}  // namespace i8085
+}  // namespace i8080
 }  // namespace debugger
 #endif
 
