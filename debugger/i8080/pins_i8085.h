@@ -90,8 +90,6 @@ struct PinsI8085 final : i8080::PinsI8080Base {
             uint_fast8_t max) override;
 
 private:
-    uint16_t _addr;
-
     void x1_hi() const;
     void x1_lo() const;
     void x1_cycle_lo() const;

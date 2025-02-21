@@ -1,7 +1,7 @@
 #include "regs_i8080.h"
 #include "debugger.h"
 #include "inst_i8080.h"
-#include "pins_i8080_base.h"
+#include "pins_i8080.h"
 
 namespace debugger {
 namespace i8080 {
@@ -32,6 +32,10 @@ void RegsI8080::print() const {
     _buffer.hex1(61, _ie);
     cli.println(_buffer);
     _pins->idle();
+}
+
+bool RegsI8080::ie() const {
+    return digitalReadFast(PIN_INTE) != LOW;
 }
 
 void RegsI8080::save() {
