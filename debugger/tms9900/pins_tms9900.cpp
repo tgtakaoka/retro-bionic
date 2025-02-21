@@ -5,6 +5,9 @@
 #include "regs_tms9900.h"
 #include "signals_tms9900.h"
 
+#define DEBUG(e) e
+// #define DEBUG(e)
+
 namespace debugger {
 namespace tms9900 {
 

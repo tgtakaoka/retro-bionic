@@ -1,17 +1,17 @@
-#include "pins_tms9981.h"
+#include "pins_tms9980.h"
 #include "debugger.h"
 #include "devs_tms9900.h"
 #include "digital_bus.h"
-#include "mems_tms9900.h"
+#include "mems_tms9980.h"
 #include "regs_tms9900.h"
-#include "signals_tms9981.h"
+#include "signals_tms9980.h"
 
 namespace debugger {
-namespace tms9981 {
+namespace tms9980 {
 
 // clang-format off
 /**
- * TMS9981 bus cycle
+ * TMS9980 bus cycle
  *    PHI  |  1  |  2  |  3  |  4  |  1  |  2  |  3  |  4  |  1  |  2  |  3  |  4 |
  *            __    __    __    __    __    __    __    __    __    __    __    __
  *   CKIN |__|  |__|  |__|  |__|  |__|  |__|  |__|  |__|  |__|  |__|  |__|  |__|
@@ -31,7 +31,7 @@ namespace tms9981 {
  *  READY _____________________/       \__________________________________________
  */
 // clang-format on
-
+//       min  90 ns ; CKIN- to #PHI3-
 // fext: min 6 MHz, max 10 MHz
 //   tw: 1/fext
 //  tWH: min  40 ns ; CKIN high pulse width
@@ -46,16 +46,16 @@ namespace tms9981 {
 namespace {
 
 constexpr auto ckin_lo_ns = 40;       // 50
-constexpr auto ckin_hi_ns = 15;       // 50
-constexpr auto ckin_lo_laddr = 0;     // 50
-constexpr auto ckin_hi_maddr = 5;     // 50
-constexpr auto ckin_lo_haddr = 2;     // 50
-constexpr auto ckin_lo_phi1 = 1;      // 50
-constexpr auto ckin_lo_inject = 30;   // 50
-constexpr auto ckin_lo_get = 5;       // 50
-constexpr auto ckin_hi_capture = 30;  // 50
-constexpr auto ckin_lo_next = 0;      // 50
-constexpr auto ckin_hi_input = 1;     // 50
+constexpr auto ckin_hi_ns = 20;       // 50
+constexpr auto ckin_hi_laddr = 10;    // 50
+constexpr auto ckin_lo_haddr = 0;     // 50
+constexpr auto ckin_hi_phi4 = 2;      // 50
+constexpr auto ckin_lo_phi1 = 2;      // 50
+constexpr auto ckin_hi_inject = 30;   // 50
+constexpr auto ckin_lo_output = 0;    // 50
+constexpr auto ckin_hi_get = 5;       // 50
+constexpr auto ckin_lo_capture = 30;  // 50
+constexpr auto ckin_lo_input = 6;     // 50
 
 const uint8_t PINS_LOW[] = {
         PIN_CKIN,
@@ -140,23 +140,20 @@ void assert_ready() {
     digitalWriteFast(PIN_READY, HIGH);
 }
 
-auto ready_asserted() {
-    return digitalReadFast(PIN_READY) != LOW;
-}
-
 }  // namespace
 
-PinsTms9981::PinsTms9981() {
+PinsTms9980::PinsTms9980() {
     _devs = new tms9900::DevsTms9900();
-    _mems = new tms9900::MemsTms9900(14, _devs);
+    _mems = new MemsTms9980(_devs);
     _regs = new tms9900::RegsTms9900(this, _mems);
 }
 
-void PinsTms9981::resetPins() {
+void PinsTms9980::resetPins() {
     pinsMode(PINS_LOW, sizeof(PINS_LOW), OUTPUT, LOW);
     pinsMode(PINS_HIGH, sizeof(PINS_HIGH), OUTPUT, HIGH);
     pinsMode(PINS_INPUT, sizeof(PINS_INPUT), INPUT);
 
+    system_cycle();
     // Synchronize CKIN to #PHI3
     while (signal_phi3() != LOW)
         ckin_cycle();
@@ -173,86 +170,95 @@ void PinsTms9981::resetPins() {
     _regs->reset();
 }
 
-tms9900::Signals *PinsTms9981::prepareCycle() const {
+tms9900::Signals *PinsTms9980::prepareCycle() const {
     auto s = Signals::put();
     // phi1
     ckin_cycle();
     // phi2
+    noInterrupts();
     ckin_cycle();
     // phi3
     ckin_lo();
-    s->getLowAddr();
-    delayNanoseconds(ckin_lo_laddr);
+    delayNanoseconds(ckin_lo_ns);
     ckin_hi();
-    s->getMidAddr();
-    delayNanoseconds(ckin_hi_maddr);
+    delayNanoseconds(ckin_hi_laddr);
+    // assert_debug();
+    s->getLowAddr();
     // phi4
     ckin_lo();
     s->getHighAddr();
+    // negate_debug();
     delayNanoseconds(ckin_lo_haddr);
     ckin_hi();
+    interrupts();
+    delayNanoseconds(ckin_hi_phi4);
     return s;
 }
 
-tms9900::Signals *PinsTms9981::completeCycle(tms9900::Signals *_s) const {
+tms9900::Signals *PinsTms9980::completeCycle(tms9900::Signals *_s) const {
     auto s = static_cast<Signals *>(_s);
     // phi1
     ckin_lo();
     delayNanoseconds(ckin_lo_phi1);
+    // assert_debug();
     s->getControl();
+    // negate_debug();
     ckin_hi();
-    if (ready_asserted() && s->memory()) {
+    if (s->memory()) {
         if (s->read()) {
-            // phi2
-            ckin_lo();
             if (s->readMemory()) {
                 s->data = _mems->read(s->addr);
             } else {
-                delayNanoseconds(ckin_lo_inject);
+                delayNanoseconds(ckin_hi_inject);
             }
-            ckin_hi();
-            s->outData();
-        } else {
             // phi2
             ckin_lo();
-            delayNanoseconds(ckin_lo_get);
+            // assert_debug();
+            s->outData();
+            // negate_debug();
+        } else {
+            delayNanoseconds(ckin_hi_get);
+            // assert_debug();
             s->getData();
-            ckin_hi();
+            // negate_debug();
+            // phi2
+            ckin_lo();
             if (s->writeMemory()) {
                 _mems->write(s->addr, s->data);
             } else {
-                delayNanoseconds(ckin_hi_capture);
+                delayNanoseconds(ckin_lo_capture);
             }
         }
+        ckin_hi();
+        Signals::nextCycle();
         // phi3
         ckin_lo();
-        Signals::nextCycle();
-        delayNanoseconds(ckin_lo_next);
-        ckin_hi();
-        delayNanoseconds(ckin_hi_input);
+        delayNanoseconds(ckin_lo_input);
         s->inputMode();
+        ckin_hi();
     } else {
+        delayNanoseconds(ckin_hi_ns);
         // phi2
         ckin_cycle();
         // phi3
-        ckin_cycle();
+        ckin_cycle_hi();
     }
+    delayNanoseconds(ckin_hi_ns);
     // phi4
     ckin_cycle_hi();
+    delayNanoseconds(ckin_hi_phi4);
     return s;
 }
 
-tms9900::Signals *PinsTms9981::resumeCycle(uint16_t) const {
+tms9900::Signals *PinsTms9980::resumeCycle(uint16_t) const {
     auto s = Signals::put();
     s->getLowAddr();
-    s->getMidAddr();
     s->getHighAddr();
-    s->getControl();
     assert_ready();
     return s;
 }
 
-void PinsTms9981::injectReads(const uint16_t *data, uint_fast8_t len) {
+void PinsTms9980::injectReads(const uint16_t *data, uint_fast8_t len) {
     auto s = resumeCycle();
     auto high = true;
     for (uint_fast8_t i = 0; i < len;) {
@@ -267,7 +273,7 @@ void PinsTms9981::injectReads(const uint16_t *data, uint_fast8_t len) {
     }
 }
 
-void PinsTms9981::captureWrites(uint16_t *buf, uint_fast8_t len) {
+void PinsTms9980::captureWrites(uint16_t *buf, uint_fast8_t len) {
     auto s = resumeCycle();
     auto high = true;
     for (uint_fast8_t i = 0; i < len;) {
@@ -286,7 +292,7 @@ void PinsTms9981::captureWrites(uint16_t *buf, uint_fast8_t len) {
     }
 }
 
-void PinsTms9981::assertInt(uint8_t name_) {
+void PinsTms9980::assertInt(uint8_t name_) {
     const auto name = static_cast<tms9900::IntrName>(name_);
     if (name == tms9900::INTR_NMI) {
         busWrite(INT, 2);
@@ -295,11 +301,11 @@ void PinsTms9981::assertInt(uint8_t name_) {
     }
 }
 
-void PinsTms9981::negateInt(uint8_t) {
+void PinsTms9980::negateInt(uint8_t) {
     busWrite(INT, 7);
 }
 
-}  // namespace tms9981
+}  // namespace tms9980
 }  // namespace debugger
 
 // Local Variables:

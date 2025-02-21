@@ -1,5 +1,5 @@
-#ifndef __PINS_TMS9981_H__
-#define __PINS_TMS9981_H__
+#ifndef __PINS_TMS9980_H__
+#define __PINS_TMS9980_H__
 
 #define PORT_DATA 6  /* GPIO6 */
 #define DATA_gp 16   /* P6.16-P6.23 */
@@ -64,10 +64,10 @@
 #include "pins_tms9900.h"
 
 namespace debugger {
-namespace tms9981 {
+namespace tms9980 {
 
-struct PinsTms9981 final : tms9900::PinsTms9900 {
-    PinsTms9981();
+struct PinsTms9980 final : tms9900::PinsTms9900 {
+    PinsTms9980();
 
     void resetPins() override;
     void assertInt(uint8_t name) override;
@@ -82,7 +82,7 @@ private:
     tms9900::Signals *resumeCycle(uint16_t pc = 0) const override;
 };
 
-}  // namespace tms9981
+}  // namespace tms9980
 }  // namespace debugger
 #endif /* __PINS_H__ */
 

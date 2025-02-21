@@ -1,20 +1,19 @@
-#ifndef __SIGNALS_TMS9981_H__
-#define __SIGNALS_TMS9981_H__
+#ifndef __SIGNALS_TMS9980_H__
+#define __SIGNALS_TMS9980_H__
 
 #include "signals_tms9900.h"
 
 namespace debugger {
-namespace tms9981 {
+namespace tms9980 {
 struct Signals final : SignalsBase<Signals, tms9900::Signals> {
     void getLowAddr();
-    void getMidAddr();
     void getHighAddr();
     void getControl();
     void getData();
     void outData() const;
     void inputMode() const;
 };
-}  // namespace tms9981
+}  // namespace tms9980
 }  // namespace debugger
 #endif /* __SIGNALS_H__ */
 
