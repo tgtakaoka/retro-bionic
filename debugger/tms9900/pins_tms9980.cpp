@@ -1,17 +1,17 @@
-#include "pins_tms9981.h"
+#include "pins_tms9980.h"
 #include "debugger.h"
 #include "devs_tms9900.h"
 #include "digital_bus.h"
-#include "mems_tms9900.h"
+#include "mems_tms9980.h"
 #include "regs_tms9900.h"
-#include "signals_tms9981.h"
+#include "signals_tms9980.h"
 
 namespace debugger {
-namespace tms9981 {
+namespace tms9980 {
 
 // clang-format off
 /**
- * TMS9981 bus cycle
+ * TMS9980 bus cycle
  *    PHI  |  1  |  2  |  3  |  4  |  1  |  2  |  3  |  4  |  1  |  2  |  3  |  4 |
  *            __    __    __    __    __    __    __    __    __    __    __    __
  *   CKIN |__|  |__|  |__|  |__|  |__|  |__|  |__|  |__|  |__|  |__|  |__|  |__|
@@ -146,13 +146,13 @@ auto ready_asserted() {
 
 }  // namespace
 
-PinsTms9981::PinsTms9981() {
+PinsTms9980::PinsTms9980() {
     _devs = new tms9900::DevsTms9900();
-    _mems = new tms9900::MemsTms9900(14, _devs);
+    _mems = new MemsTms9980(_devs);
     _regs = new tms9900::RegsTms9900(this, _mems);
 }
 
-void PinsTms9981::resetPins() {
+void PinsTms9980::resetPins() {
     pinsMode(PINS_LOW, sizeof(PINS_LOW), OUTPUT, LOW);
     pinsMode(PINS_HIGH, sizeof(PINS_HIGH), OUTPUT, HIGH);
     pinsMode(PINS_INPUT, sizeof(PINS_INPUT), INPUT);
@@ -173,7 +173,7 @@ void PinsTms9981::resetPins() {
     _regs->reset();
 }
 
-tms9900::Signals *PinsTms9981::prepareCycle() const {
+tms9900::Signals *PinsTms9980::prepareCycle() const {
     auto s = Signals::put();
     // phi1
     ckin_cycle();
@@ -194,7 +194,7 @@ tms9900::Signals *PinsTms9981::prepareCycle() const {
     return s;
 }
 
-tms9900::Signals *PinsTms9981::completeCycle(tms9900::Signals *_s) const {
+tms9900::Signals *PinsTms9980::completeCycle(tms9900::Signals *_s) const {
     auto s = static_cast<Signals *>(_s);
     // phi1
     ckin_lo();
@@ -242,7 +242,7 @@ tms9900::Signals *PinsTms9981::completeCycle(tms9900::Signals *_s) const {
     return s;
 }
 
-tms9900::Signals *PinsTms9981::resumeCycle(uint16_t) const {
+tms9900::Signals *PinsTms9980::resumeCycle(uint16_t) const {
     auto s = Signals::put();
     s->getLowAddr();
     s->getMidAddr();
@@ -252,7 +252,7 @@ tms9900::Signals *PinsTms9981::resumeCycle(uint16_t) const {
     return s;
 }
 
-void PinsTms9981::assertInt(uint8_t name) {
+void PinsTms9980::assertInt(uint8_t name) {
     switch (static_cast<tms9900::IntrName>(name)) {
     case tms9900::INTR_NMI:
         busWrite(INT, 2);  // Load
@@ -268,11 +268,11 @@ void PinsTms9981::assertInt(uint8_t name) {
     }
 }
 
-void PinsTms9981::negateInt(uint8_t) {
+void PinsTms9980::negateInt(uint8_t) {
     busWrite(INT, 7);
 }
 
-}  // namespace tms9981
+}  // namespace tms9980
 }  // namespace debugger
 
 // Local Variables:

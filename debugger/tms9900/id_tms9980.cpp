@@ -3,15 +3,15 @@
 #include "pins_tms9980.h"
 
 namespace debugger {
-namespace tms9981 {
+namespace tms9980 {
 
 Pins *instance() {
-    return new tms9980::PinsTms9980();
+    return new PinsTms9980();
 }
 
-const struct Identity TMS9981{"TMS9981", instance};
+const struct Identity TMS9980{"TMS9980", instance};
 
-}  // namespace tms9981
+}  // namespace tms9980
 }  // namespace debugger
 
 // Local Variables:

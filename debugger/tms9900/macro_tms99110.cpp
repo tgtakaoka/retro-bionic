@@ -78,7 +78,7 @@ inline auto nelem(const T (&array)[SIZE]) {
 }
 
 void MacroTms99110::load(tms99105::MemsTms99105 *mems) {
-    for (auto i = 0; i < nelem(TMS99110_MACRO); i++) {
+    for (uint_fast16_t i = 0; i < nelem(TMS99110_MACRO); i++) {
         const auto addr = 0x0800 + i * 2;
         mems->writeMacro(addr, TMS99110_MACRO[i]);
     }
