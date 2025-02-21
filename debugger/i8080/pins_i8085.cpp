@@ -2,7 +2,7 @@
 #include "debugger.h"
 #include "devs_i8085.h"
 #include "inst_i8085.h"
-#include "mems_i8085.h"
+#include "mems_i8080.h"
 #include "regs_i8085.h"
 #include "signals_i8085.h"
 
@@ -190,7 +190,7 @@ inline void clk_hi() {
 PinsI8085::PinsI8085() {
     auto regs = new RegsI8085(this);
     _regs = regs;
-    _mems = new MemsI8085(regs);
+    _mems = new i8080::MemsI8080(regs);
     _devs = new DevsI8085();
 }
 
@@ -325,19 +325,11 @@ Signals *PinsI8085::inject(uint8_t data) const {
     return cycleT3(cycleT2()->inject(data));
 }
 
-void PinsI8085::execInst(const uint8_t *inst, uint8_t len) {
-    execute(inst, len, nullptr, nullptr, 0);
-}
-
-void PinsI8085::captureWrites(const uint8_t *inst, uint8_t len, uint16_t *addr,
-        uint8_t *buf, uint8_t max) {
-    execute(inst, len, addr, buf, max);
-}
-
-void PinsI8085::execute(const uint8_t *inst, uint8_t len, uint16_t *addr,
-        uint8_t *buf, uint8_t max) {
-    uint8_t inj = 0;
-    uint8_t cap = 0;
+uint16_t PinsI8085::captureWrites(
+        const uint8_t *inst, uint_fast8_t len, uint8_t *buf, uint_fast8_t max) {
+    uint16_t addr = 0;
+    uint_fast8_t inj = 0;
+    uint_fast8_t cap = 0;
     auto s = cycleT2Ready(_regs->nextIp());
     while (true) {
         if (inj < len)
@@ -350,8 +342,8 @@ void PinsI8085::execute(const uint8_t *inst, uint8_t len, uint16_t *addr,
                 if (inj < len)
                     ++inj;
             } else if (s->write()) {
-                if (cap == 0 && addr)
-                    *addr = s->addr;
+                if (cap == 0)
+                    addr = s->addr;
                 if (cap < max && buf)
                     buf[cap++] = s->data;
             }
@@ -360,7 +352,7 @@ void PinsI8085::execute(const uint8_t *inst, uint8_t len, uint16_t *addr,
         cycleT1();
         if (inj >= len && cap >= max) {
             cycleT2Pause();
-            return;
+            return addr;
         }
         s = cycleT2();
     }
@@ -477,10 +469,6 @@ void PinsI8085::negateInt(uint8_t name) {
     case INTR_NONE:
         break;
     }
-}
-
-void PinsI8085::setBreakInst(uint32_t addr) const {
-    _mems->put_inst(addr, InstI8085::HLT);
 }
 
 void PinsI8085::printCycles() {
