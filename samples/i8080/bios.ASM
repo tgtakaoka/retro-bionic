@@ -1,4 +1,4 @@
-        include "i8085.inc"
+        include "i8080.inc"
 
 ;;; i8251 Universal Synchronous/Asynchronous Receiver/Transmitter
 USART:  equ     00H

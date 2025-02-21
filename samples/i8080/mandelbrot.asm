@@ -1,5 +1,5 @@
 ;;; -*- mode: asm; mode: flyspell-prog; -*-
-        include "i8085.inc"
+        include "i8080.inc"
 
 ;;; i8251 Universal Synchronous/Asynchronous Receiver/Transmitter
 USART:          equ     00H
@@ -27,7 +27,7 @@ stack:  equ     $
         org     ORG_RESET
         jmp     init
 
-        org     ORG_RST55
+        org     ORG_RST5
         jmp     isr_intr_rx
 
         org     ORG_RST6
@@ -57,90 +57,16 @@ init_usart:
         nop
         mvi     a, RX_EN_TX_DIS
         out     USARTC
-        mvi     a, ORG_RST55
-        out     USARTRV         ; set RxRDY interrupt vector RST 5.5
+        mvi     a, ORG_RST5
+        out     USARTRV         ; set RxRDY interrupt vector RST 5
         mvi     a, ORG_RST6
         out     USARTTV         ; set TxRDY interrupt vector RST 6
-
-        rim
-        ani     ~(SIM_M55|SIM_M65) ; enable RST 5.5/RST 5.6
-        ori     SIM_MSE|SIM_R75
-        sim
         ei
 
-receive_loop:
-        call    getchar
-        jnc     receive_loop
-        ora     a
-        jz      halt_to_system
-echo_back:
-        mov     b, a
-        call    putchar         ; echo
-        mvi     a, ' '          ; space
-        call    putchar
-        call    put_hex8        ; print in hex
-        mvi     a, ' '          ; space
-        call    putchar
-        call    put_bin8        ; print in binary
+loop:
+        call    mandelbrot
         call    newline
-        jmp     receive_loop
-halt_to_system:
-        hlt
-
-;;; Print uint8_t in hex
-;;; @param B uint8_t value to be printed in hex.
-;;; @clobber A
-put_hex8:
-        mvi     a, '0'
-        call    putchar
-        mvi     a, 'x'
-        call    putchar
-        mov     a, b
-        rrc
-        rrc
-        rrc
-        rrc
-        call    put_hex4
-        mov     a, b
-put_hex4:
-        ani     0FH
-        cpi     10
-        jc      put_hex8_dec    ; A<10
-        adi     'A'-10
-        jmp     putchar
-put_hex8_dec:
-        adi     '0'
-        jmp     putchar
-
-;;; Print uint8_t in binary
-;;; @param B uint8_t value to be printed in binary.
-;;; @clobber A
-put_bin8:
-        push    b
-        mvi     a, '0'
-        call    putchar
-        mvi     a, 'b'
-        call    putchar
-        mov     a, b
-        call    put_bin4
-        call    put_bin4
-        pop     b
-        ret
-put_bin4:
-        call    put_bin2
-put_bin2:
-        call    put_bin1
-put_bin1:
-        ral                     ; PSW.C=MSB
-        mvi     c, '0'
-        jnc     put_bin0        ; MSB=0
-        inr     c               ; MSB=1
-put_bin0:
-        mov     b, a
-        mov     a, c
-        call    putchar
-        mov     a, b
-        ret
+        jp      loop
 
 ;;; Get character
 ;;; @return A
@@ -153,14 +79,6 @@ getchar:
         ei
         pop     h
         ret
-
-;;; Put newline
-;;; @clobber A
-newline:
-        mvi     a, 0DH
-        call    putchar
-        mvi     a, 0AH
-        jmp     putchar
 
 ;;; Put character
 ;;; @param A
@@ -176,14 +94,30 @@ putchar_retry:
         pop     h
         mvi     a, RX_EN_TX_EN  ; enable Tx
         out     USARTC
+putchar_exit:
         pop     psw
         ret
 
+;;; Put newline
+;;; @clobber A
+newline:
+        mvi     A, 0DH
+        call    putchar
+        mvi     A, 0AH
+        jmp     putchar
+
+;;; Put newline
+;;; @clobber A
+putspace:
+        mvi     A, ' '
+        jmp     putchar
+
+        include "mandelbrot.inc"
+        include "arith.inc"
         include "queue.inc"
 
 isr_intr_rx:
         push    psw
-isr_intr_receive:
         in      USARTS
         ani     ST_RxRDY_bm
         jz      isr_intr_rx_exit

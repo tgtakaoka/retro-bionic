@@ -1,5 +1,6 @@
 ;;; -*- mode: asm; mode: flyspell-prog; -*-
         include "i8080.inc"
+        cpu     8085
 ;;; i8085
 ;;; Set Innterrupt Maske
 SIM_SOD:        equ     10000000B ; Serial Output Data

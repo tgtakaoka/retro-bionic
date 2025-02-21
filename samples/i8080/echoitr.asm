@@ -1,5 +1,5 @@
 ;;; -*- mode: asm; mode: flyspell-prog; -*-
-        include "i8085.inc"
+        include "i8080.inc"
 
 ;;; i8251 Universal Synchronous/Asynchronous Receiver/Transmitter
 USART:          equ     00H
@@ -27,7 +27,7 @@ stack:  equ     $
         org     ORG_RESET
         jmp     init
 
-        org     ORG_RST55
+        org     ORG_RST5
         jmp     isr_intr_rx
 
         org     ORG_RST6
@@ -57,15 +57,10 @@ init_usart:
         nop
         mvi     a, RX_EN_TX_DIS
         out     USARTC
-        mvi     a, ORG_RST55
+        mvi     a, ORG_RST5
         out     USARTRV         ; set RxRDY interrupt vector RST 5.5
         mvi     a, ORG_RST6
         out     USARTTV         ; set TxRDY interrupt vector RST 6
-
-        rim
-        ani     ~(SIM_M55|SIM_M65) ; enable RST 5.5/RST 5.6
-        ori     SIM_MSE|SIM_R75
-        sim
         ei
 
 receive_loop:
