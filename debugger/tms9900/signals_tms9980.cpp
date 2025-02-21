@@ -1,10 +1,10 @@
-#include "signals_tms9981.h"
+#include "signals_tms9980.h"
 #include "debugger.h"
 #include "digital_bus.h"
-#include "pins_tms9981.h"
+#include "pins_tms9980.h"
 
 namespace debugger {
-namespace tms9981 {
+namespace tms9980 {
 
 void Signals::getLowAddr() {
     addr = busRead(AL);
@@ -38,7 +38,7 @@ void Signals::inputMode() const {
     busMode(DATA, INPUT);
 }
 
-}  // namespace tms9981
+}  // namespace tms9980
 }  // namespace debugger
 
 // Local Variables:
