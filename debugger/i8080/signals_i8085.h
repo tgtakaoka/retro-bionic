@@ -8,18 +8,20 @@ namespace i8085 {
 
 struct Signals final : SignalsBase<Signals> {
     void getAddress();
+    void getStatus();
     void getDirection();
     void getData();
     void outData() const;
     static void inputMode();
     void print() const;
-    void setAddress(uint16_t _addr) { addr = _addr; }
 
     bool read() const;
     bool write() const;
-    bool memory() const { return iom() == 0; }
     bool fetch() const;
-    bool vector() const;
+    bool memory() const { return iom() == 0; }
+    bool readEnable() const;
+    bool writeEnable() const;
+    bool intAck() const;
 
 private:
     enum Status : uint8_t {

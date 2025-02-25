@@ -9,6 +9,9 @@ namespace i8085 {
 
 void Signals::getAddress() {
     addr = busRead(ADDR);
+}
+
+void Signals::getStatus() {
     iom() = digitalReadFast(PIN_IOM);
     cntl() = busRead(CNTL);
 }
@@ -18,18 +21,26 @@ void Signals::getDirection() {
 }
 
 bool Signals::read() const {
-    return (cntl() & CNTL_RD) == 0;
+    return (cntl() & CNTL_S) == S_READ;
 }
 
 bool Signals::write() const {
-    return (cntl() & CNTL_WR) == 0;
+    return (cntl() & CNTL_S) == S_WRITE;
 }
 
 bool Signals::fetch() const {
-    return memory() && (cntl() & CNTL_S) == S_FETCH;
+    return (cntl() & CNTL_S) == S_FETCH;
 }
 
-bool Signals::vector() const {
+bool Signals::readEnable() const {
+    return (cntl() & CNTL_RD) == 0;
+}
+
+bool Signals::writeEnable() const {
+    return (cntl() & CNTL_WR) == 0;
+}
+
+bool Signals::intAck() const {
     return (cntl() & CNTL_INTA) == 0;
 }
 
@@ -47,14 +58,24 @@ void Signals::inputMode() {
 }
 
 void Signals::print() const {
+    // cli.printDec(pos(), -4);
     //                              01234567890123
     static constexpr char line[] = "R A=xxxx D=xx";
     static auto &buffer = *new CharBuffer(line);
+    if (readEnable()) {
+        buffer[0] = 'R';
+    } else if (writeEnable()) {
+        buffer[0] = 'W';
+    } else {
+        buffer[0] = ' ';
+    }
     if (memory()) {
-        buffer[0] = fetch() ? 'F' : (read() ? 'R' : (write() ? 'W' : ' '));
+        if (fetch())
+            buffer[0] = 'F';
         buffer[2] = 'A';
     } else {
-        buffer[0] = vector() ? 'A' : (read() ? 'R' : (write() ? 'W' : ' '));
+        if (intAck())
+            buffer[0] = 'A';
         buffer[2] = 'I';
     }
     buffer.hex16(4, addr);

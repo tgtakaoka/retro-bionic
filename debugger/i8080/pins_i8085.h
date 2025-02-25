@@ -90,17 +90,18 @@ struct PinsI8085 final : i8080::PinsI8080Base {
             uint_fast8_t max) override;
 
 private:
-    void clk_lo_nowait() const;
-    void clk_lo() const;
-    Signals *cycleT1() const;
-    Signals *cycleT2() const;
-    Signals *cycleT2Pause() const;
-    Signals *cycleT2Ready(uint16_t pc) const;
-    Signals *cycleT3(Signals *signals) const;
+    uint16_t _addr;
+
+    void x1_hi() const;
+    void x1_lo() const;
+    void x1_cycle_lo() const;
+    void x1_cycle() const;
+    Signals *prepareCycle() const;
+    Signals *resumeCycle(uint16_t pc = 0) const;
+    Signals *completeCycle(Signals *s) const;
     Signals *inject(uint8_t data) const;
-    void loop();
-    void suspend();
-    bool rawStep();
+    void loop() const;
+    bool rawStep() const;
 
     void disassembleCycles();
 };

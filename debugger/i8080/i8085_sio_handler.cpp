@@ -33,7 +33,7 @@ void I8085SioHandler::resetHandler() {
     pinMode(PIN_SID, OUTPUT);
     pinMode(PIN_SOD, INPUT);
     // I8085 bitbang speed: assuming CLK is 3MHz
-    _pre_divider = 24;
+    _pre_divider = 24 * 2;
     _tx_divider = _rx_divider = 13;
 }
 

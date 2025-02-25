@@ -6,9 +6,11 @@
 #include "regs_i8085.h"
 #include "signals_i8085.h"
 
+// #define DEBUG(e) e
+#define DEBUG(e)
+
 namespace debugger {
 namespace i8085 {
-
 // clang-format off
 /**
  * P8085 bus cycle.
@@ -30,10 +32,8 @@ namespace i8085 {
 // clang-format on
 
 namespace {
-
+//   X1: min 1MHz, max 6MHz
 // tCYC: min 320 ns, max 2,000 ns; CLK cycle period
-// tXKR: min  20 ns, max   150 ns; X1 rising to CLK rising
-// tXKF: min  20 ns, max   150 ns; X1 rising to CLK faling
 //  tLL: min 140 ns              ; ALE width
 //  tLA: min 100 ns              ; Address hold time after ALE
 //  tAL: min 115 ns              ; Address valid before trailing ALE
@@ -48,76 +48,26 @@ namespace {
 //  tCA: min 120 ns              ; A8-15 valid after control
 //  tCL: min  50 ns              ; trailing control to leading ALE
 
-constexpr auto x1_hi_ns = 100;
-constexpr auto x1_lo_ns = 100;
-constexpr auto clk_hi_x1_lo = 44;    // 80 ns
-constexpr auto clk_hi_x1_hi = 60;    // 80 ns
-constexpr auto clk_lo_x1_lo = 60;    // 80 ns
-constexpr auto clk_lo_x1_hi = 60;    // 80 ns
-constexpr auto t1b_hi_ns = 50;       // 80 ns
-constexpr auto t2a_hi_ns = 58;       // 80 ns
-constexpr auto t2b_hi_ns = 40;       // 80 ns
-constexpr auto t3a_hi_capture = 25;  // 80 ns;
-constexpr auto t1_lo_ns = 100;
+constexpr auto x1_hi_ns = 57;       // 85
+constexpr auto x1_lo_ns = 60;       // 85
+constexpr auto x1_lo_ale = 27;      // 85
+constexpr auto x1_lo_status = 10;   // 85
+constexpr auto x1_hi_inject = 33;   // 85
+constexpr auto x1_lo_output = 0;    // 85
+constexpr auto x1_hi_get = 17;      // 85
+constexpr auto x1_lo_capture = 50;  // 85
+constexpr auto x1_hi_next = 10;     // 85
 
-inline void x1_hi() {
-    digitalWriteFast(PIN_X1, HIGH);
-}
-
-inline void x1_lo() {
-    digitalWriteFast(PIN_X1, LOW);
-}
-
-inline auto signal_clk() {
-    return digitalReadFast(PIN_CLK);
-}
-
-inline void assert_trap() {
-    digitalWriteFast(PIN_TRAP, HIGH);
-}
-
-inline void negate_trap() {
-    digitalWriteFast(PIN_TRAP, LOW);
-}
-
-inline void assert_intr() {
-    digitalWriteFast(PIN_INTR, HIGH);
-}
-
-inline void negate_intr() {
-    digitalWriteFast(PIN_INTR, LOW);
-}
-
-inline auto signal_ale() {
+auto signal_ale() {
     return digitalReadFast(PIN_ALE);
 }
 
-inline auto signal_rd() {
-    return digitalReadFast(PIN_RD);
-}
-
-inline auto signal_wr() {
-    return digitalReadFast(PIN_WR);
-}
-
-inline auto signal_inta() {
-    return digitalReadFast(PIN_INTA);
-}
-
-inline void assert_ready() {
+void assert_ready() {
     digitalWriteFast(PIN_READY, HIGH);
 }
 
-inline void negate_ready() {
+void negate_ready() {
     digitalWriteFast(PIN_READY, LOW);
-}
-
-inline auto signal_ready() {
-    return digitalReadFast(PIN_READY);
-}
-
-inline void negate_hold() {
-    digitalWriteFast(PIN_HOLD, LOW);
 }
 
 void negate_reset() {
@@ -133,9 +83,6 @@ const uint8_t PINS_LOW[] = {
         PIN_INTR,
         PIN_TRAP,
         PIN_HOLD,
-};
-
-const uint8_t PINS_HIGH[] = {
         PIN_READY,
 };
 
@@ -167,24 +114,6 @@ const uint8_t PINS_INPUT[] = {
         PIN_RESOUT,
 };
 
-inline void x1_cycle() {
-    x1_lo();
-    delayNanoseconds(x1_lo_ns);
-    x1_hi();
-    delayNanoseconds(x1_hi_ns);
-}
-
-inline void clk_hi_nowait() {
-    x1_lo();
-    delayNanoseconds(clk_lo_x1_lo);
-    x1_hi();
-}
-
-inline void clk_hi() {
-    clk_hi_nowait();
-    delayNanoseconds(clk_lo_x1_hi);
-}
-
 }  // namespace
 
 PinsI8085::PinsI8085() {
@@ -194,189 +123,192 @@ PinsI8085::PinsI8085() {
     _devs = new DevsI8085();
 }
 
-void PinsI8085::clk_lo_nowait() const {
-    x1_lo();
-    delayNanoseconds(clk_hi_x1_lo);
-    devs<DevsI8085>()->sioLoop();
-    x1_hi();
+void PinsI8085::x1_hi() const {
+    digitalWriteFast(PIN_X1, HIGH);
 }
 
-void PinsI8085::clk_lo() const {
-    clk_lo_nowait();
-    delayNanoseconds(clk_hi_x1_hi);
+void PinsI8085::x1_lo() const {
+    digitalWriteFast(PIN_X1, LOW);
+    devs<DevsI8085>()->sioLoop();
+}
+
+void PinsI8085::x1_cycle_lo() const {
+    x1_hi();
+    delayNanoseconds(x1_hi_ns);
+    x1_lo();
+}
+
+void PinsI8085::x1_cycle() const {
+    x1_cycle_lo();
+    delayNanoseconds(x1_lo_ns);
 }
 
 void PinsI8085::resetPins() {
     // Assert reset condition
     pinsMode(PINS_LOW, sizeof(PINS_LOW), OUTPUT, LOW);
-    pinsMode(PINS_HIGH, sizeof(PINS_HIGH), OUTPUT, HIGH);
     pinsMode(PINS_INPUT, sizeof(PINS_INPUT), INPUT);
 
-    // Syncronize X1 and CLK.
-    while (signal_clk() == LOW)
-        x1_cycle();
-    while (signal_clk() != LOW)
-        x1_cycle();
-    // CLK=L
     // #RESET_IN should be kept low for a minimum of three clock
     // #periods to ensure proper synchronization of the CPU.
-    for (auto i = 0; i < 5; i++) {
-        clk_hi();
-        clk_lo();
-    }
+    for (auto i = 0; i < 3 * 2; i++)
+        x1_cycle();
+    // #RESET_IN is sampled here falling transition of next CLK.
     negate_reset();
     Signals::resetCycles();
-    // #RESET_IN is sampled here falling transition of next CLK.
-    cycleT1();
+    do {
+        delayNanoseconds(x1_lo_ale);
+        x1_cycle_lo();
+    } while (signal_ale() == LOW);
+    prepareCycle();
     _regs->save();
 }
 
-Signals *PinsI8085::cycleT1() const {
+Signals *PinsI8085::prepareCycle() const {
     auto s = Signals::put();
-    // Do T4/T5 if any, and confirm T1AL by ALE=H
-    // CLK=L
-    while (signal_ale() == LOW) {
-        clk_hi();
-        clk_lo();
-    }
-    // T1AL
-    x1_lo();
+    // ALE=H
+    // assert_debug();
     s->getAddress();
-    // T1BH
-    x1_hi();
-    delayNanoseconds(t1b_hi_ns);
-    return s;
-}
-
-Signals *PinsI8085::cycleT2() const {
-    // T2A
-    clk_lo_nowait();
-    auto s = Signals::put();
-    delayNanoseconds(t2a_hi_ns);
-    // T2B
-    clk_hi_nowait();
+    // negate_debug();
+    x1_cycle_lo();
+    s->getStatus();
+    delayNanoseconds(x1_lo_status);
+    x1_cycle_lo();
+    // assert_debug();
     s->getDirection();
-    delayNanoseconds(t2b_hi_ns);
+    // negate_debug();
     return s;
 }
 
-Signals *PinsI8085::cycleT2Pause() const {
-    negate_ready();
-    Signals::put()->getAddress();
-    return cycleT2();
-}
-
-Signals *PinsI8085::cycleT2Ready(uint16_t pc) const {
+Signals *PinsI8085::resumeCycle(uint16_t pc) const {
+    auto s = Signals::put();
+    s->addr = pc;
+    s->getStatus();
     assert_ready();
-    auto s = cycleT2();
-    s->setAddress(pc);
     return s;
 }
 
-Signals *PinsI8085::cycleT3(Signals *s) const {
-    // T3A
-    clk_lo_nowait();
-    if (s->write()) {
-        s->getData();
-        if (s->memory()) {
-            if (s->writeMemory()) {
-                _mems->write_byte(s->addr, s->data);
-            } else {
-                delayNanoseconds(t3a_hi_capture);
-            }
-        } else if (s->write()) {
-            const uint8_t ioaddr = s->addr;
-            if (_devs->isSelected(ioaddr)) {
-                _devs->write(ioaddr, s->data);
-            }
-        }
-    } else {
+Signals *PinsI8085::completeCycle(Signals *s) const {
+    // X1=L
+    x1_hi();
+    if (s->readEnable()) {
         if (s->memory()) {  // Memory access
             if (s->readMemory()) {
-                s->data = _mems->read_byte(s->addr);
+                s->data = _mems->read(s->addr);
+            } else {
+                delayNanoseconds(x1_hi_inject);
             }
         } else {  // I/O access
             const uint8_t ioaddr = s->addr;
-            if (s->vector()) {
-                s->data = InstI8085::vec2Inst(_devs->vector());
-            } else if (_devs->isSelected(ioaddr)) {
+            if (_devs->isSelected(ioaddr)) {
                 s->data = _devs->read(ioaddr);
             } else {
                 s->data = 0;
             }
         }
+        x1_lo();
+        // assert_debug();
         s->outData();
+        // negate_debug();
+        delayNanoseconds(x1_lo_output);
+    } else if (s->writeEnable()) {
+        delayNanoseconds(x1_hi_get);
+        // assert_debug();
+        s->getData();
+        // negate_debug();
+        x1_lo();
+        if (s->memory()) {
+            if (s->writeMemory()) {
+                _mems->write(s->addr, s->data);
+            } else {
+                delayNanoseconds(x1_lo_capture);
+            }
+        } else {
+            const uint8_t ioaddr = s->addr;
+            if (_devs->isSelected(ioaddr)) {
+                _devs->write(ioaddr, s->data);
+            }
+        }
+    } else if (s->intAck()) {
+        s->data = InstI8085::vec2Inst(_devs->vector());
+        x1_lo();
+        // assert_debug();
+        s->outData();
+        // negate_debug();
+        delayNanoseconds(x1_lo_output);
     }
-    // T3B
-    clk_hi_nowait();
-    Signals::inputMode();
+    x1_hi();
     Signals::nextCycle();
-    // T1AL or T4/T5
-    clk_lo();
-    while (signal_ale() == LOW) {
-        clk_hi();
-        clk_lo();
-    }
+    delayNanoseconds(x1_hi_next);
+    x1_lo();
+    Signals::inputMode();
+    do {
+        delayNanoseconds(x1_lo_ale);
+        x1_cycle_lo();
+    } while (signal_ale() == LOW);
+    // ALE=H
     return s;
 }
 
 Signals *PinsI8085::inject(uint8_t data) const {
-    cycleT1();
-    return cycleT3(cycleT2()->inject(data));
+    return completeCycle(prepareCycle()->inject(data));
 }
 
 uint16_t PinsI8085::captureWrites(
         const uint8_t *inst, uint_fast8_t len, uint8_t *buf, uint_fast8_t max) {
+    DEBUG(cli.print("@@ captureWrites: len="));
+    DEBUG(cli.printDec(len));
+    DEBUG(cli.print(" max="));
+    DEBUG(cli.printlnDec(max));
     uint16_t addr = 0;
     uint_fast8_t inj = 0;
     uint_fast8_t cap = 0;
-    auto s = cycleT2Ready(_regs->nextIp());
-    while (true) {
+    auto s = resumeCycle();
+    while (inj < len || cap < max) {
         if (inj < len)
             s->inject(inst[inj]);
         if (cap < max)
             s->capture();
-        cycleT3(s);
-        if (s->memory()) {
-            if (s->read()) {
-                if (inj < len)
-                    ++inj;
-            } else if (s->write()) {
-                if (cap == 0)
-                    addr = s->addr;
-                if (cap < max && buf)
-                    buf[cap++] = s->data;
-            }
+        completeCycle(s);
+        if (s->readEnable()) {
+            if (inj < len)
+                ++inj;
+        } else if (s->writeEnable()) {
+            if (cap == 0)
+                addr = s->addr;
+            if (cap < max && buf)
+                buf[cap++] = s->data;
         }
-        delayNanoseconds(t1_lo_ns);
-        cycleT1();
-        if (inj >= len && cap >= max) {
-            cycleT2Pause();
-            return addr;
-        }
-        s = cycleT2();
+        DEBUG(cli.print("@@ captureWrites: inj="));
+        DEBUG(cli.printDec(inj));
+        DEBUG(cli.print(" cap="));
+        DEBUG(cli.printDec(cap));
+        DEBUG(cli.print(' '));
+        DEBUG(s->print());
+        s = prepareCycle();
     }
+    negate_ready();
+    return addr;
 }
 
 void PinsI8085::idle() {
-    cycleT2Pause();
+    // READY=L
+    x1_cycle_lo();
 }
 
-void PinsI8085::loop() {
-    auto s = cycleT2Ready(_regs->nextIp());
+void PinsI8085::loop() const {
+    auto s = resumeCycle(_regs->nextIp());
     while (true) {
-        cycleT3(s);
+        completeCycle(s);
         _devs->loop();
-        if (haltSwitch()) {
-            suspend();
-            return;
+        s = prepareCycle();
+        if (s->fetch()) {
+            const auto insn = _mems->read(s->addr);
+            if (insn == InstI8085::HLT || haltSwitch()) {
+                negate_ready();
+                return;
+            }
+            s->inject(insn);
         }
-        s = cycleT1();
-        if (s->fetch() && _mems->read_byte(s->addr) == InstI8085::HLT) {
-            cycleT2Pause();
-            return;
-        }
-        cycleT2();
     }
 }
 
@@ -390,32 +322,19 @@ void PinsI8085::run() {
     _regs->save();
 }
 
-void PinsI8085::suspend() {
-    assert_trap();
-    while (true) {
-        auto s = cycleT1();
-        if (s->fetch() && s->addr == InstI8085::ORG_TRAP) {
-            negate_trap();
-            cycleT3(cycleT2()->inject(InstI8085::RET));
-            inject(s->prev()->data);
-            inject(s->prev(2)->data);
-            cycleT1();
-            Signals::discard(s->prev(3));
-            cycleT2Pause();
-            return;
-        }
-        cycleT3(cycleT2());
-        delayNanoseconds(t1_lo_ns);
-    }
-}
-
-bool PinsI8085::rawStep() {
-    const auto pc = _regs->nextIp();
-    if (_mems->read_byte(pc) == InstI8085::HLT)
+bool PinsI8085::rawStep() const {
+    auto s = resumeCycle(_regs->nextIp());
+    const auto insn = _mems->read(s->addr);
+    if (insn == InstI8085::HLT) {
+        negate_ready();
         return false;
-    assert_trap();
-    cycleT3(cycleT2Ready(pc));
-    suspend();
+    }
+    s->inject(insn);
+    do {
+        completeCycle(s);
+        s = prepareCycle();
+    } while (!s->fetch());
+    negate_ready();
     return true;
 }
 
@@ -436,7 +355,7 @@ bool PinsI8085::step(bool show) {
 void PinsI8085::assertInt(uint8_t name) {
     switch (name) {
     default:
-        assert_intr();
+        digitalWriteFast(PIN_INTR, HIGH);
         break;
     case INTR_RST55:
         digitalWriteFast(PIN_RST55, HIGH);
@@ -455,7 +374,7 @@ void PinsI8085::assertInt(uint8_t name) {
 void PinsI8085::negateInt(uint8_t name) {
     switch (name) {
     default:
-        negate_intr();
+        digitalWriteFast(PIN_INTR, LOW);
         break;
     case INTR_RST55:
         digitalWriteFast(PIN_RST55, LOW);
@@ -485,7 +404,7 @@ void PinsI8085::disassembleCycles() {
     const auto cycles = g->diff(Signals::put());
     for (auto i = 0; i < cycles;) {
         const auto s = g->next(i);
-        if (s->fetch()) {
+        if (s->fetch() && !s->intAck()) {
             const auto next = _mems->disassemble(s->addr, 1);
             i += next - s->addr;
         } else {
