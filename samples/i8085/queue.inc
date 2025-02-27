@@ -15,6 +15,7 @@ queue_init:
         push    h
         xra     a
         mvi     m, 0            ; queue_len
+        mov     a, b
         sbi     queue_buf
         inx     h
         mov     m, a            ; queue_size

@@ -201,11 +201,10 @@ loop_i:
         jmp     print_char
 print_i:
         lda     vI
-        cpi     10
-        jc      print_i2        ; if I<10
-        adi     'A'-'0'-10
-print_i2:
-        adi     '0'
+        adi     90H
+        daa
+        aci     40H
+        daa
 print_char:
         call    putchar
 

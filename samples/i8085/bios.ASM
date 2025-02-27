@@ -1,4 +1,3 @@
-        cpu     8085
         include "i8085.inc"
 
 ;;; i8251 Universal Synchronous/Asynchronous Receiver/Transmitter

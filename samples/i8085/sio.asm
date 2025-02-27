@@ -1,5 +1,4 @@
 ;;; -*- mode: asm; mode: flyspell-prog; -*-
-        cpu     8085
         include "i8085.inc"
 
         org     1000H

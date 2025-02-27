@@ -1,5 +1,4 @@
 ;;; -*- mode: asm; mode: flyspell-prog; -*-
-        cpu     8085
         include "i8085.inc"
 
 ;;; i8251 Universal Synchronous/Asynchronous Receiver/Transmitter
@@ -105,12 +104,10 @@ put_hex8:
         mov     a, b
 put_hex4:
         ani     0FH
-        cpi     10
-        jc      put_hex8_dec    ; A<10
-        adi     'A'-10
-        jmp     putchar
-put_hex8_dec:
-        adi     '0'
+        adi     90H
+        daa
+        aci     40H
+        daa
         jmp     putchar
 
 ;;; Print uint8_t in binary
