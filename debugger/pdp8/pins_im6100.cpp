@@ -222,6 +222,7 @@ pdp8::Signals *PinsIm6100::resumeCycle(uint16_t pc) const {
 
 pdp8::Signals *PinsIm6100::prepareCycle() const {
     auto s = Signals::put();
+    noInterrupts();
     if (signal_lxmar() != LOW) {
         osc_cycle_lo();
     } else {
@@ -240,6 +241,7 @@ pdp8::Signals *PinsIm6100::prepareCycle() const {
     // assert_debug();
     s->getDirection();
     // negate_debug();
+    interrupts();
     return s;
 }
 
@@ -285,10 +287,12 @@ pdp8::Signals *PinsIm6100::completeCycle(pdp8::Signals *_s) const {
     *n = *s;  // copy address and control
     delayNanoseconds(osc_lo_next);
     osc_cycle();
+    noInterrupts();
     do {
         osc_cycle_lo();
         // assert_debug();
         if (n->getControl()) {
+            interrupts();
             n->getData();
             n->getDirection();
             // negate_debug();
@@ -314,6 +318,7 @@ pdp8::Signals *PinsIm6100::completeCycle(pdp8::Signals *_s) const {
         // negate_debug();
         delayNanoseconds(osc_lo_xtc);
     } while (signal_xtc() == LOW);
+    interrupts();
     return s;
 }
 
