@@ -1,16 +1,17 @@
-#ifndef __MEMS_MC6801_H__
-#define __MEMS_MC6801_H__
+#ifndef __MEMS_MC68HC11_H__
+#define __MEMS_MC68HC11_H__
 
-#include "mc6800/mems_mc6800.h"
-#include "regs_mc6801.h"
+#include "mems_mc6800.h"
+#include "regs_mc68hc11.h"
 
 namespace debugger {
-namespace mc6801 {
+namespace mc68hc11 {
 
-using mc6800::MemsMc6800;
+struct Mc68hc11Init;
 
-struct MemsMc6801 final : MemsMc6800 {
-    MemsMc6801(RegsMc6801 *regs, Devs *devs) : MemsMc6800(regs, devs) {}
+struct MemsMc68hc11 final : mc6800::MemsMc6800 {
+    MemsMc68hc11(RegsMc68hc11 *regs, Devs *devs, Mc68hc11Init &init)
+        : MemsMc6800(regs, devs), _init(init) {}
 
     uint16_t read(uint32_t addr) const override;
     void write(uint32_t addr, uint16_t data) const override;
@@ -20,11 +21,12 @@ struct MemsMc6801 final : MemsMc6800 {
             const char *space = nullptr) const override;
 
 private:
-    static constexpr uint16_t RAMCR = 0x0014;
-    static constexpr uint8_t RAME_bm = 0x40;
+    Mc68hc11Init &_init;
+
+    RegsMc68hc11 *regs() const { return static_cast<RegsMc68hc11 *>(_regs); }
 };
 
-}  // namespace mc6801
+}  // namespace mc68hc11
 }  // namespace debugger
 #endif
 

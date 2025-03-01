@@ -1,7 +1,7 @@
 #ifndef __REGS_MC6801_H__
 #define __REGS_MC6801_H__
 
-#include "mc6800/regs_mc6802.h"
+#include "regs_mc6802.h"
 
 namespace debugger {
 namespace mc6801 {

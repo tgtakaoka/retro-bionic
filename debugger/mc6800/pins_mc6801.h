@@ -49,7 +49,7 @@
 #define PIN_RESET 28   /* P8.18 */
 #define PIN_XTAL 30    /* P8.23 */
 
-#include "mc6800/pins_mc6800_base.h"
+#include "pins_mc6800_base.h"
 #include "signals_mc6801.h"
 
 namespace debugger {

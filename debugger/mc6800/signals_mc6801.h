@@ -1,21 +1,19 @@
-#ifndef __SIGNALS_MC68HC11_H__
-#define __SIGNALS_MC68HC11_H__
+#ifndef __SIGNALS_MC6801_H__
+#define __SIGNALS_MC6801_H__
 
-#include "mc6800/signals_mc6800.h"
+#include "signals_mc6800.h"
 
 namespace debugger {
-namespace mc68hc11 {
-
+namespace mc6801 {
 struct Signals final : SignalsBase<Signals, mc6800::Signals> {
     void getAddr();
     void getDirection();
-    void getControl();
     void getData();
-    void outData() const;
+    void setData() const;
+    static void outputMode();
     static void inputMode();
 };
-
-}  // namespace mc68hc11
+}  // namespace mc6801
 }  // namespace debugger
 #endif
 

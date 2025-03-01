@@ -36,7 +36,7 @@
 #define PIN_E 29         /* P9.31 */
 #define PIN_RESET 28     /* P8.18 */
 
-#include "mc6800/pins_mc6800_base.h"
+#include "pins_mc6800_base.h"
 #include "signals_mc68hc11.h"
 
 namespace debugger {

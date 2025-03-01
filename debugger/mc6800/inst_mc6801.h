@@ -1,7 +1,7 @@
 #ifndef __INST_MC6801_H__
 #define __INST_MC6801_H__
 
-#include "mc6800/inst_mc6800.h"
+#include "inst_mc6800.h"
 
 namespace debugger {
 namespace mc6801 {
