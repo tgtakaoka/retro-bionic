@@ -41,7 +41,7 @@ bool Signals::data16() const {
 }
 
 void Signals::print() const {
-    // cli.printDec(pos(), -4);
+    cli.printDec(pos(), -4);
     //                              0123456789012345
     static constexpr char line[] = "R A=xxxx D=xxxx ";
     static auto &buffer = *new CharBuffer(line);

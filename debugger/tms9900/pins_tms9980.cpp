@@ -45,17 +45,17 @@ namespace tms9980 {
 
 namespace {
 
-constexpr auto ckin_lo_ns = 40;       // 50
-constexpr auto ckin_hi_ns = 15;       // 50
-constexpr auto ckin_lo_laddr = 0;     // 50
-constexpr auto ckin_hi_maddr = 5;     // 50
-constexpr auto ckin_lo_haddr = 2;     // 50
-constexpr auto ckin_lo_phi1 = 1;      // 50
-constexpr auto ckin_lo_inject = 30;   // 50
-constexpr auto ckin_lo_get = 5;       // 50
-constexpr auto ckin_hi_capture = 30;  // 50
-constexpr auto ckin_lo_next = 0;      // 50
-constexpr auto ckin_hi_input = 1;     // 50
+constexpr auto ckin_lo_ns = 200;       // 50
+constexpr auto ckin_hi_ns = 200;       // 50
+constexpr auto ckin_lo_laddr = 200;    // 50
+constexpr auto ckin_hi_maddr = 200;    // 50
+constexpr auto ckin_lo_haddr = 200;    // 50
+constexpr auto ckin_lo_phi1 = 200;     // 50
+constexpr auto ckin_hi_inject = 200;   // 50
+constexpr auto ckin_hi_get = 200;      // 50
+constexpr auto ckin_lo_capture = 200;  // 50
+constexpr auto ckin_hi_next = 200;     // 50
+constexpr auto ckin_lo_input = 200;    // 50
 
 const uint8_t PINS_LOW[] = {
         PIN_CKIN,
@@ -157,9 +157,12 @@ void PinsTms9980::resetPins() {
     pinsMode(PINS_HIGH, sizeof(PINS_HIGH), OUTPUT, HIGH);
     pinsMode(PINS_INPUT, sizeof(PINS_INPUT), INPUT);
 
+    system_cycle();
     // Synchronize CKIN to #PHI3
+    assert_debug();
     while (signal_phi3() != LOW)
         ckin_cycle();
+    negate_debug();
     ckin_cycle();  // phi4
 
     for (auto i = 0; i < 10; ++i)
@@ -181,6 +184,7 @@ tms9900::Signals *PinsTms9980::prepareCycle() const {
     ckin_cycle();
     // phi3
     ckin_lo();
+    assert_debug();
     s->getLowAddr();
     delayNanoseconds(ckin_lo_laddr);
     ckin_hi();
@@ -189,8 +193,10 @@ tms9900::Signals *PinsTms9980::prepareCycle() const {
     // phi4
     ckin_lo();
     s->getHighAddr();
+    negate_debug();
     delayNanoseconds(ckin_lo_haddr);
     ckin_hi();
+    delayNanoseconds(ckin_hi_ns);
     return s;
 }
 
@@ -199,46 +205,53 @@ tms9900::Signals *PinsTms9980::completeCycle(tms9900::Signals *_s) const {
     // phi1
     ckin_lo();
     delayNanoseconds(ckin_lo_phi1);
+    assert_debug();
     s->getControl();
+    negate_debug();
     ckin_hi();
     if (ready_asserted() && s->memory()) {
         if (s->read()) {
-            // phi2
-            ckin_lo();
             if (s->readMemory()) {
                 s->data = _mems->read(s->addr);
             } else {
-                delayNanoseconds(ckin_lo_inject);
+                delayNanoseconds(ckin_hi_inject);
             }
-            ckin_hi();
-            s->outData();
-        } else {
             // phi2
             ckin_lo();
-            delayNanoseconds(ckin_lo_get);
+            assert_debug();
+            s->outData();
+            negate_debug();
+        } else {
+            delayNanoseconds(ckin_hi_get);
+            assert_debug();
             s->getData();
-            ckin_hi();
+            negate_debug();
+            // phi2
+            ckin_lo();
             if (s->writeMemory()) {
                 _mems->write(s->addr, s->data);
             } else {
-                delayNanoseconds(ckin_hi_capture);
+                delayNanoseconds(ckin_lo_capture);
             }
         }
+        ckin_hi();
+        Signals::nextCycle();
+        delayNanoseconds(ckin_hi_next);
         // phi3
         ckin_lo();
-        Signals::nextCycle();
-        delayNanoseconds(ckin_lo_next);
-        ckin_hi();
-        delayNanoseconds(ckin_hi_input);
+        delayNanoseconds(ckin_lo_input);
         s->inputMode();
+        ckin_hi();
     } else {
+        delayNanoseconds(ckin_hi_ns);
         // phi2
         ckin_cycle();
         // phi3
-        ckin_cycle();
+        ckin_cycle_hi();
     }
+    delayNanoseconds(ckin_hi_ns);
     // phi4
-    ckin_cycle_hi();
+    ckin_cycle();
     return s;
 }
 

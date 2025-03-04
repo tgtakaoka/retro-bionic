@@ -5,6 +5,9 @@
 #include "regs_tms9900.h"
 #include "signals_tms9900.h"
 
+#define DEBUG(e) e
+// #define DEBUG(e)
+
 namespace debugger {
 namespace tms9900 {
 
@@ -105,39 +108,51 @@ bool PinsTms9900::step(bool show) {
 }
 
 void PinsTms9900::injectReads(const uint8_t *data, uint8_t len) {
+    DEBUG(cli.print("@@ injectReads: len="));
+    DEBUG(cli.printlnDec(len));
     auto s = resumeCycle();
-    for (auto i = 0; i < len;) {
-        completeCycle(s->inject(data[i]));
+    for (auto cyc = 0; cyc < len;) {
+        completeCycle(s->inject(data[cyc]));
+        DEBUG(cli.print("  cyc="));
+        DEBUG(cli.printDec(cyc, -3));
+        DEBUG(s->print());
         if (s->read()) {
-            i++;
-            if (is_internal(s->addr) && i < len)
-                i++;
+            cyc++;
+            if (is_internal(s->addr) && cyc < len)
+                cyc++;
         }
-        s = (i < len) ? prepareCycle() : pauseCycle();
+        s = (cyc < len) ? prepareCycle() : pauseCycle();
     }
 }
 
 void PinsTms9900::captureCycles(uint8_t *buf, uint8_t len, bool write) {
+    DEBUG(cli.print("@@ captureCycles: len="));
+    DEBUG(cli.printDec(len));
+    DEBUG(cli.print(" write="));
+    DEBUG(cli.printlnDec(write));
     uint16_t addr[len];
     auto s = resumeCycle();
-    for (auto i = 0; i < len;) {
+    for (auto cyc = 0; cyc < len;) {
         completeCycle(s->capture());
-        buf[i] = s->data;
-        addr[i] = s->addr;
+        buf[cyc] = s->data;
+        addr[cyc] = s->addr;
+        DEBUG(cli.print("  cyc="));
+        DEBUG(cli.printDec(cyc, -3));
+        DEBUG(s->print());
         if (write) {
             if (s->write()) {
-                ++i;
-                if (is_internal(s->addr) && i < len)
-                    addr[i++] = s->addr + 1;
+                ++cyc;
+                if (is_internal(s->addr) && cyc < len)
+                    addr[cyc++] = s->addr + 1;
             }
         } else {
             if (s->read()) {
-                ++i;
-                if (is_internal(s->addr) && i < len)
-                    addr[i++] = s->addr + 1;
+                ++cyc;
+                if (is_internal(s->addr) && cyc < len)
+                    addr[cyc++] = s->addr + 1;
             }
         }
-        s = (i < len) ? prepareCycle() : pauseCycle();
+        s = (cyc < len) ? prepareCycle() : pauseCycle();
     }
     for (auto i = 0; i < len; ++i) {
         if (is_internal(addr[i]))
