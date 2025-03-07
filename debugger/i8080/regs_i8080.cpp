@@ -62,6 +62,12 @@ void RegsI8080::save() {
     _ie = ie();
 }
 
+void RegsI8080::saveContext(uint16_t pc, uint8_t inte) {
+    save();
+    _pc = pc;
+    _ie = (inte != 0);
+}
+
 void RegsI8080::restore() {
     const auto ie = _ie ? InstI8080::EI : InstI8080::DI;
     const uint8_t POP_ALL[] = {

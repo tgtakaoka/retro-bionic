@@ -155,6 +155,17 @@ void assert_ready() {
     digitalWriteFast(PIN_READY, HIGH);
 }
 
+void assert_reset() {
+    // An external RESET signal of three clock period duration
+    // (minimum) restores the processor's internal program counter to
+    // zero.
+    digitalWriteFast(PIN_RESET, HIGH);
+    for (auto i = 0; i < 10; i++) {
+        phi_pulses();
+        delayNanoseconds(phi2_lo_ns);
+    }
+}
+
 void negate_reset() {
     digitalWriteFast(PIN_RESET, LOW);
 }
@@ -173,16 +184,10 @@ void PinsI8080::resetPins() {
     pinsMode(PINS_LOW, sizeof(PINS_LOW), OUTPUT, LOW);
     pinsMode(PINS_HIGH, sizeof(PINS_HIGH), OUTPUT, HIGH);
     pinsMode(PINS_INPUT, sizeof(PINS_INPUT), INPUT);
-
-    // An external RESET signal of three clock period duration
-    // (minimum) restores the processor's internal program counter to
-    // zero.
-    for (auto i = 0; i < 10; i++) {
-        phi_pulses();
-        delayNanoseconds(phi2_lo_ns);
-    }
-    negate_reset();
     Signals::resetCycles();
+
+    assert_reset();
+    negate_reset();
     assert_ready();
     prepareCycle();
     enterWait();
@@ -363,19 +368,20 @@ void PinsI8080::idle() {
     phi_pulses();
 }
 
-void PinsI8080::loop() const {
+Signals *PinsI8080::loop() const {
     auto s = resumeCycle(_regs->nextIp());
     while (true) {
         completeCycle(s);
         _devs->loop();
         s = prepareCycle();
-        if (s->fetch()) {
-            const auto insn = _mems->read(s->addr);
-            if (insn == InstI8080::HLT || haltSwitch()) {
-                enterWait();
-                return;
-            }
-            s->inject(insn);
+        if (s->halt()) {
+            const auto halt = s->prev();
+            Signals::discard(halt);
+            return halt;
+        }
+        if (haltSwitch() && s->fetch()) {
+            enterWait();
+            return nullptr;
         }
     }
 }
@@ -384,10 +390,21 @@ void PinsI8080::run() {
     _regs->restore();
     Signals::resetCycles();
     saveBreakInsts();
-    loop();
+    const auto halt = loop();
     restoreBreakInsts();
     disassembleCycles();
-    _regs->save();
+    if (halt) {
+        const auto pc = halt->addr;
+        const auto inte = digitalReadFast(PIN_INTE);
+        assert_reset();  // reseume from HALT
+        negate_reset();
+        prepareCycle();
+        enterWait();
+        // Registers, except PC and IE, are preserved
+        regs<RegsI8080>()->saveContext(pc, inte);
+    } else {
+        _regs->save();
+    }
 }
 
 bool PinsI8080::rawStep() const {

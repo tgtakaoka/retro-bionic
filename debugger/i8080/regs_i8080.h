@@ -23,6 +23,7 @@ struct RegsI8080 : Regs {
     const RegList *listRegisters(uint_fast8_t n) const override;
     bool setRegister(uint_fast8_t reg, uint32_t value) override;
 
+    void saveContext(uint16_t pc, uint8_t inte);
     uint8_t read_io(uint8_t addr) const;
     void write_io(uint8_t addr, uint8_t data) const;
 

@@ -45,6 +45,10 @@ bool Signals::fetch() const {
     return (status() & S_M1) != 0;
 }
 
+bool Signals::halt() const {
+    return (status() & S_HLTA) != 0;
+}
+
 void Signals::getData() {
     data = busRead(DATA);
 }

@@ -21,6 +21,7 @@ struct Signals final : SignalsBase<Signals> {
     bool ioWrite() const;
     bool intAck() const;
     bool fetch() const;
+    bool halt() const;
 
 private:
     enum Status : uint8_t {
