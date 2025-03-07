@@ -98,7 +98,7 @@ private:
     Signals *resumeCycle(uint16_t pc = 0) const;
     Signals *completeCycle(Signals *s) const;
     Signals *inject(uint8_t data) const;
-    void loop() const;
+    Signals *loop() const;
     bool rawStep() const;
 
     void disassembleCycles();

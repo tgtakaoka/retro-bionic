@@ -74,6 +74,14 @@ void negate_reset() {
     digitalWriteFast(PIN_RESET, HIGH);
 }
 
+void assert_trap() {
+    digitalWriteFast(PIN_TRAP, HIGH);
+}
+
+void negate_trap() {
+    digitalWriteFast(PIN_TRAP, LOW);
+}
+
 const uint8_t PINS_LOW[] = {
         PIN_X1,
         PIN_RESET,
@@ -295,19 +303,20 @@ void PinsI8085::idle() {
     x1_cycle_lo();
 }
 
-void PinsI8085::loop() const {
+Signals *PinsI8085::loop() const {
     auto s = resumeCycle(_regs->nextIp());
     while (true) {
         completeCycle(s);
         _devs->loop();
         s = prepareCycle();
-        if (s->fetch()) {
-            const auto insn = _mems->read(s->addr);
-            if (insn == InstI8085::HLT || haltSwitch()) {
-                negate_ready();
-                return;
-            }
-            s->inject(insn);
+        if (s->halt()) {
+            const auto halt = s->prev();
+            Signals::discard(halt);
+            return halt;
+        }
+        if (haltSwitch() && s->fetch()) {
+            negate_ready();
+            return nullptr;
         }
     }
 }
@@ -316,10 +325,21 @@ void PinsI8085::run() {
     _regs->restore();
     Signals::resetCycles();
     saveBreakInsts();
-    loop();
+    const auto halt = loop();
     restoreBreakInsts();
     disassembleCycles();
-    _regs->save();
+    if (halt) {
+        const auto pc = halt->addr;
+        assert_trap();  // resume from HALT
+        do {
+            delayNanoseconds(x1_lo_ale);
+            x1_cycle_lo();
+        } while (signal_ale() == LOW);
+        negate_trap();
+        regs<RegsI8085>()->saveContext(pc);
+    } else {
+        _regs->save();
+    }
 }
 
 bool PinsI8085::rawStep() const {

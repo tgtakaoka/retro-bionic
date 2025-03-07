@@ -22,6 +22,7 @@ struct Signals final : SignalsBase<Signals> {
     bool readEnable() const;
     bool writeEnable() const;
     bool intAck() const;
+    bool halt() const;
 
 private:
     enum Status : uint8_t {

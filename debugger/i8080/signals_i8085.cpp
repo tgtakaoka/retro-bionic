@@ -44,6 +44,10 @@ bool Signals::intAck() const {
     return (cntl() & CNTL_INTA) == 0;
 }
 
+bool Signals::halt() const {
+    return (cntl() & CNTL_S) == S_HALT;
+}
+
 void Signals::getData() {
     data = busRead(AD);
 }

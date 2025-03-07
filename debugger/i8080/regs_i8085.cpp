@@ -22,6 +22,14 @@ bool RegsI8085::ie() const {
     return (rim & 0x08) != 0;
 }
 
+void RegsI8085::saveContext(uint16_t pc) {
+    uint8_t buffer[2];
+    const auto sp = _pins->captureWrites(nullptr, 0, buffer, sizeof(buffer));
+    save();
+    _sp = sp + 1;  // offset TRAP context save
+    _pc = pc;
+}
+
 }  // namespace i8085
 }  // namespace debugger
 
