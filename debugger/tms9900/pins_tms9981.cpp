@@ -252,19 +252,46 @@ tms9900::Signals *PinsTms9981::resumeCycle(uint16_t) const {
     return s;
 }
 
-void PinsTms9981::assertInt(uint8_t name) {
-    switch (static_cast<tms9900::IntrName>(name)) {
-    case tms9900::INTR_NMI:
-        busWrite(INT, 2);  // Load
-        break;
-    case tms9900::INTR_INT1:
-    case tms9900::INTR_INT2:
-    case tms9900::INTR_INT3:
-    case tms9900::INTR_INT4:
-        busWrite(INT, (name >> 2) + 2);
-        break;
-    default:
-        break;
+void PinsTms9981::injectReads(const uint16_t *data, uint_fast8_t len) {
+    auto s = resumeCycle();
+    auto high = true;
+    for (uint_fast8_t i = 0; i < len;) {
+        s->inject(high ? hi(data[i]) : lo(data[i]));
+        completeCycle(s);
+        if (s->read()) {
+            high = !high;
+            if (high)
+                i++;
+        }
+        s = (i < len) ? prepareCycle() : pauseCycle();
+    }
+}
+
+void PinsTms9981::captureWrites(uint16_t *buf, uint_fast8_t len) {
+    auto s = resumeCycle();
+    auto high = true;
+    for (uint_fast8_t i = 0; i < len;) {
+        completeCycle(s->capture());
+        if (s->write()) {
+            if (high) {
+                buf[i] = uint16(s->data, 0);
+            } else {
+                buf[i] |= s->data;
+            }
+            high = !high;
+            if (high)
+                i++;
+        }
+        s = (i < len) ? prepareCycle() : pauseCycle();
+    }
+}
+
+void PinsTms9981::assertInt(uint8_t name_) {
+    const auto name = static_cast<tms9900::IntrName>(name_);
+    if (name == tms9900::INTR_NMI) {
+        busWrite(INT, 2);
+    } else {
+        busWrite(INT, (name_ / 4) + 2);
     }
 }
 

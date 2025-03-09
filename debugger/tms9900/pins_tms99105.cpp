@@ -134,10 +134,6 @@ void assert_ready() {
     digitalWriteFast(PIN_READY, HIGH);
 }
 
-auto ready_asserted() {
-    return digitalReadFast(PIN_READY) != LOW;
-}
-
 }  // namespace
 
 PinsTms99105::PinsTms99105() {
@@ -152,12 +148,12 @@ void PinsTms99105::resetPins() {
     pinsMode(PINS_INPUT, sizeof(PINS_INPUT), INPUT);
 
     // Synchronize CLKIN to CLKOUT
-    assert_debug();
+    // assert_debug();
     while (signal_clkout() == LOW)
         clkin_cycle();
     while (signal_clkout() != LOW)
         clkin_cycle();
-    negate_debug();
+    // negate_debug();
     // phi1
 
     const auto macro = regs<RegsTms99105>()->macroMode();
@@ -179,9 +175,11 @@ void PinsTms99105::resetPins() {
 tms9900::Signals *PinsTms99105::prepareCycle() const {
     auto s = Signals::put();
     // phi2
+    noInterrupts();
     clkin_cycle_lo();
     delayNanoseconds(clkin_lo_ns);
     s->getAddress();
+    interrupts();
     // phi3
     clkin_cycle_lo();
     return s;
@@ -189,53 +187,48 @@ tms9900::Signals *PinsTms99105::prepareCycle() const {
 
 tms9900::Signals *PinsTms99105::completeCycle(tms9900::Signals *_s) const {
     auto s = static_cast<Signals *>(_s);
-    if (ready_asserted()) {
-        s->getControl();
-        if (s->readEnable()) {
-            // phi4
-            clkin_hi();
-            if (s->readMemory()) {
-                auto m = mems<MemsTms99105>();
-                if (s->macrostore()) {
-                    s->data = m->readMacro(s->addr);
-                } else {
-                    s->data = m->read(s->addr);
-                }
+    s->getControl();
+    if (s->readEnable()) {
+        // phi4
+        clkin_hi();
+        if (s->readMemory()) {
+            auto m = mems<MemsTms99105>();
+            if (s->macrostore()) {
+                s->data = m->readMacro(s->addr);
             } else {
-                delayNanoseconds(clkin_hi_ns);
+                s->data = m->read(s->addr);
             }
-            clkin_lo();
-            s->outData();
-            delayNanoseconds(clkin_lo_ns);
-            // phi1
-            clkin_hi();
-            Signals::nextCycle();
-            clkin_lo();
-            s->inputMode();
-        } else if (s->writeEnable()) {
-            // phi4
-            clkin_hi();
-            s->getData();
-            clkin_lo();
-            if (s->writeMemory()) {
-                auto m = mems<MemsTms99105>();
-                if (s->macrostore()) {
-                    m->writeMacro(s->addr, s->data);
-                } else {
-                    m->write(s->addr, s->data);
-                }
-            } else {
-                delayNanoseconds(clkin_lo_ns);
-            }
-            // phi1
-            clkin_hi();
-            Signals::nextCycle();
-            clkin_lo();
         } else {
-            goto nobus;
+            delayNanoseconds(clkin_hi_ns);
         }
+        clkin_lo();
+        s->outData();
+        delayNanoseconds(clkin_lo_ns);
+        // phi1
+        clkin_hi();
+        Signals::nextCycle();
+        clkin_lo();
+        s->inputMode();
+    } else if (s->writeEnable()) {
+        // phi4
+        clkin_hi();
+        s->getData();
+        clkin_lo();
+        if (s->writeMemory()) {
+            auto m = mems<MemsTms99105>();
+            if (s->macrostore()) {
+                m->writeMacro(s->addr, s->data);
+            } else {
+                m->write(s->addr, s->data);
+            }
+        } else {
+            delayNanoseconds(clkin_lo_ns);
+        }
+        // phi1
+        clkin_hi();
+        Signals::nextCycle();
+        clkin_lo();
     } else {
-    nobus:
         // phi4
         clkin_cycle();
         // phi1
@@ -258,9 +251,9 @@ tms9900::Signals *PinsTms99105::resumeCycle(uint16_t pc) const {
     return s;
 }
 
-void PinsTms99105::injectReads(const uint16_t *data, uint8_t len) {
+void PinsTms99105::injectReads(const uint16_t *data, uint_fast8_t len) {
     auto s = resumeCycle();
-    for (auto i = 0; i < len;) {
+    for (uint_fast8_t i = 0; i < len;) {
         completeCycle(s->inject(data[i]));
         if (s->read()) {
             i++;
@@ -269,19 +262,12 @@ void PinsTms99105::injectReads(const uint16_t *data, uint8_t len) {
     }
 }
 
-void PinsTms99105::captureCycles(uint16_t *buf, uint8_t len, bool write) {
+void PinsTms99105::captureWrites(uint16_t *buf, uint_fast8_t len) {
     auto s = resumeCycle();
-    for (auto i = 0; i < len;) {
+    for (uint_fast8_t i = 0; i < len;) {
         completeCycle(s->capture());
-        buf[i] = s->data;
-        if (write) {
-            if (s->write()) {
-                ++i;
-            }
-        } else {
-            if (s->read()) {
-                ++i;
-            }
+        if (s->write()) {
+            buf[i++] = s->data;
         }
         s = (i < len) ? prepareCycle() : pauseCycle();
     }

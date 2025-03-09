@@ -57,31 +57,29 @@ void RegsTms99105::restore() {
             _st,     // WR15: new ST
             _wp,     // WR13: new WP
     };
-    pins<PinsTms99105>()->injectReads(RTWP, length(RTWP));
+    _pins->injectReads(RTWP, length(RTWP));
 }
-
-const uint16_t WZERO = 0;
 
 void RegsTms99105::save() {
     uint16_t buf[3];
-    pins<PinsTms99105>()->injectReads(&WZERO, 1);  // inject new WP
-    pins<PinsTms99105>()->injectReads(&WZERO, 1);  // inject new PC
-    pins<PinsTms99105>()->captureWrites(buf, 3);   // capture old context
-    _wp = buf[0];                                  // WR13: old WP
-    _pc = buf[1];                                  // WR14: old PC
-    _st = buf[2];                                  // WR15: old ST
+    _pins->injectReads(&ZERO, 1);  // inject new WP
+    _pins->injectReads(&ZERO, 1);  // inject new PC
+    _pins->captureWrites(buf, 3);  // capture old context
+    _wp = buf[0];                  // WR13: old WP
+    _pc = buf[1];                  // WR14: old PC
+    _st = buf[2];                  // WR15: old ST
 }
 
 void RegsTms99105::breakPoint() {
     uint16_t buf[3];
-    pins<PinsTms99105>()->injectReads(&WZERO, 1);  // inject new WP
-    pins<PinsTms99105>()->captureWrites(buf, 1);   // WR11: capture new R11
-    pins<PinsTms99105>()->injectReads(&WZERO, 1);  // inject new PC
-    pins<PinsTms99105>()->captureWrites(buf, 3);   // capture old context
-    _wp = buf[0];                                  // WR13: old WP
-    _pc = buf[1];                                  // WR14: old PC
-    _st = buf[2];                                  // WR15: old ST
-    _pc -= 2;                                      // offset break point XOP
+    _pins->injectReads(&ZERO, 1);  // inject new WP
+    _pins->captureWrites(buf, 1);  // WR11: capture new R11
+    _pins->injectReads(&ZERO, 1);  // inject new PC
+    _pins->captureWrites(buf, 3);  // capture old context
+    _wp = buf[0];                  // WR13: old WP
+    _pc = buf[1];                  // WR14: old PC
+    _st = buf[2];                  // WR15: old ST
+    _pc -= 2;                      // offset break point XOP
 }
 
 void RegsTms99105::helpRegisters() const {

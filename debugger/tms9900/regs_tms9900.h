@@ -37,16 +37,20 @@ protected:
     uint16_t _pc;
     uint16_t _st;
 
-    static const uint8_t ZERO[2];
-
     template <typename PINS>
     PINS *pins() const {
         return static_cast<PINS *>(_pins);
     }
 
+    template <typename T, uint_fast8_t SIZE>
+    inline auto length(const T (&array)[SIZE]) const {
+        return SIZE;
+    }
     mutable CharBuffer _buffer1;
     mutable CharBuffer _buffer2;
     mutable CharBuffer _buffer3;
+
+    static const uint16_t ZERO;
 };
 
 }  // namespace tms9900

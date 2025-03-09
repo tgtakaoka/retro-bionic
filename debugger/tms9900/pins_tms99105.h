@@ -69,13 +69,8 @@ struct PinsTms99105 final : tms9900::PinsTms9900 {
     void assertInt(uint8_t name) override;
     void negateInt(uint8_t name) override;
 
-    void injectReads(const uint16_t *data, uint8_t len);
-    void captureReads(uint16_t *buf, uint8_t len) {
-        captureCycles(buf, len, false);
-    }
-    void captureWrites(uint16_t *buf, uint8_t len) {
-        captureCycles(buf, len, true);
-    }
+    void injectReads(const uint16_t *data, uint_fast8_t len) override;
+    void captureWrites(uint16_t *buf, uint_fast8_t len) override;
 
 private:
     uint16_t _addr;
@@ -85,7 +80,6 @@ private:
     tms9900::Signals *prepareCycle() const override;
     tms9900::Signals *completeCycle(tms9900::Signals *s) const override;
 
-    void captureCycles(uint16_t *buf, uint8_t len, bool write);
     void checkCpuType();
 };
 

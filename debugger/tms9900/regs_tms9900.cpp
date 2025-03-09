@@ -22,8 +22,6 @@ RegsTms9900::RegsTms9900(PinsTms9900 *pins, Mems *mems)
       _buffer2(line2),
       _buffer3(line3) {}
 
-const uint8_t RegsTms9900::ZERO[2] = {0, 0};
-
 const char *RegsTms9900::cpu() const {
     return "TMS9900";
 }
@@ -37,7 +35,7 @@ void RegsTms9900::print() const {
     reg.bits(21, _st, 0x8000, line1 + 21);
     cli.println(reg);
     _pins->idle();
-    for (uint8_t i = 0; i < 8; ++i) {
+    for (auto i = 0; i < 8; ++i) {
         wr1.hex16(i * 9 + 3, read_reg(i));
         wr2.hex16(i * 9 + 3, read_reg(i + 8));
     }
@@ -52,39 +50,37 @@ void RegsTms9900::reset() {
     _pc = _mems->read16(InstTms9900::VEC_RESET + 2);
 }
 
-void RegsTms9900::save() {
-    uint8_t buf[sizeof(uint16_t) * 3];
-    _pins->injectReads(ZERO, sizeof(ZERO));  // inject new WP
-    _pins->captureWrites(buf, sizeof(buf));  // capture old context
-    _pins->injectReads(ZERO, sizeof(ZERO));  // inject new PC
-    _st = be16(buf + 0);                     // WR15: old ST
-    _pc = be16(buf + 2);                     // WR14: old PC
-    _wp = be16(buf + 4);                     // WR13: old WP
+void RegsTms9900::restore() {
+    const uint16_t RTWP[] = {
+            0x0380,  // RTWP
+            _st,     // WR15: new ST
+            _pc,     // WR14: new PC
+            _wp,     // WR13: new WP
+    };
+    _pins->injectReads(RTWP, length(RTWP));
 }
 
-void RegsTms9900::restore() {
-    const uint8_t RTWP[] = {
-            0x03,  // RTWP
-            0x80,
-            hi(_st),  // WR15: new ST
-            lo(_st),
-            hi(_pc),  // WR14: new PC
-            lo(_pc),
-            hi(_wp),  // WR13: new WP
-            lo(_wp),
-    };
-    _pins->injectReads(RTWP, sizeof(RTWP));
+const uint16_t RegsTms9900::ZERO = 0;
+
+void RegsTms9900::save() {
+    uint16_t buf[3];
+    _pins->injectReads(&ZERO, 1);            // inject new WP
+    _pins->captureWrites(buf, length(buf));  // capture old context
+    _pins->injectReads(&ZERO, 1);            // inject new PC
+    _st = buf[0];                            // WR15: old ST
+    _pc = buf[1];                            // WR14: old PC
+    _wp = buf[2];                            // WR13: old WP
 }
 
 void RegsTms9900::breakPoint() {
-    _pins->injectReads(ZERO, sizeof(ZERO));  // inject new WP
-    uint8_t buf[sizeof(uint16_t) * 4];
-    _pins->captureWrites(buf, sizeof(buf));  // capture new R11 and old context
-    ;                                        // WR11: new R11
-    _st = be16(buf + 2);                     // WR15: old ST
-    _pc = be16(buf + 4);                     // WR14: old PC
-    _wp = be16(buf + 6);                     // WR13: old WP
-    _pins->injectReads(ZERO, sizeof(ZERO));  // inject new PC
+    _pins->injectReads(&ZERO, 1);  // inject new WP
+    uint16_t buf[4];
+    _pins->captureWrites(buf, length(buf));  // capture new R11 and old context
+    (void)buf[0];                            // WR11: new R11
+    _st = buf[1];                            // WR15: old ST
+    _pc = buf[2];                            // WR14: old PC
+    _wp = buf[3];                            // WR13: old WP
+    _pins->injectReads(&ZERO, 1);            // inject new PC
     _pc -= 2;                                // offset break point XOP
 }
 

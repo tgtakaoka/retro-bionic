@@ -5,6 +5,9 @@
 #include "regs_tms9995.h"
 #include "signals_tms9995.h"
 
+// #define DEBUG(e) e
+#define DEBUG(e)
+
 namespace debugger {
 namespace tms9995 {
 
@@ -142,10 +145,6 @@ void assert_ready() {
     digitalWriteFast(PIN_READY, HIGH);
 }
 
-auto ready_asserted() {
-    return digitalReadFast(PIN_READY) != LOW;
-}
-
 }  // namespace
 
 PinsTms9995::PinsTms9995() {
@@ -180,52 +179,49 @@ tms9900::Signals *PinsTms9995::prepareCycle() const {
     auto s = Signals::put();
     // phi2
     clkin_cycle();
+    noInterrupts();
     // phi3
     clkin_lo();
     s->getAddress();
     clkin_hi();
+    interrupts();
     return s;
 }
 
 tms9900::Signals *PinsTms9995::completeCycle(tms9900::Signals *_s) const {
     auto s = static_cast<Signals *>(_s);
-    if (ready_asserted()) {
-        s->getControl();
-        if (s->read()) {
-            // phi4
-            clkin_lo();
-            if (s->readMemory()) {
-                s->data = _mems->read(s->addr);
-            } else {
-                delayNanoseconds(clkin_lo_inject);
-            }
-            clkin_hi();
-            s->outData();
-            // phi1
-            clkin_lo();
-            Signals::nextCycle();
-            clkin_hi();
-            s->inputMode();
-        } else if (s->write()) {
-            // phi4
-            clkin_lo();
-            delayNanoseconds(clkin_lo_get);
-            s->getData();
-            clkin_hi();
-            if (s->writeMemory()) {
-                _mems->write(s->addr, s->data);
-            } else {
-                delayNanoseconds(clkin_hi_capture);
-            }
-            // phi1
-            clkin_lo();
-            Signals::nextCycle();
-            clkin_hi();
+    s->getControl();
+    if (s->read()) {
+        // phi4
+        clkin_lo();
+        if (s->readMemory()) {
+            s->data = _mems->read(s->addr);
         } else {
-            goto nobus;
+            delayNanoseconds(clkin_lo_inject);
         }
+        clkin_hi();
+        s->outData();
+        // phi1
+        clkin_lo();
+        Signals::nextCycle();
+        clkin_hi();
+        s->inputMode();
+    } else if (s->write()) {
+        // phi4
+        clkin_lo();
+        delayNanoseconds(clkin_lo_get);
+        s->getData();
+        clkin_hi();
+        if (s->writeMemory()) {
+            _mems->write(s->addr, s->data);
+        } else {
+            delayNanoseconds(clkin_hi_capture);
+        }
+        // phi1
+        clkin_lo();
+        Signals::nextCycle();
+        clkin_hi();
     } else {
-    nobus:
         // phi4
         clkin_cycle();
         // phi1
@@ -247,6 +243,17 @@ void PinsTms9995::cycle() {
     pauseCycle();
 }
 
+void PinsTms9995::inject(uint8_t data) {
+    completeCycle(resumeCycle()->inject(data));
+    pauseCycle();
+}
+
+uint8_t PinsTms9995::capture() {
+    auto s = completeCycle(resumeCycle()->capture());
+    pauseCycle();
+    return s->data;
+}
+
 bool PinsTms9995::is_internal(uint16_t addr) const {
     if (addr < 0xF000)
         return false;
@@ -255,52 +262,120 @@ bool PinsTms9995::is_internal(uint16_t addr) const {
     return addr >= 0xFFFC;
 }
 
-const uint8_t JMP_6[] = {0x10, 0xFC};  // JMP $-6
-const uint8_t ZERO[] = {0, 0};
+const uint16_t JMP_6 = 0x10FC;  // JMP $-6
+const uint16_t ZERO = 0x0000;   // @>0000
 
 uint8_t PinsTms9995::internal_read(uint16_t addr) {
+    DEBUG(Signals::resetCycles());
+    DEBUG(cli.print("@@ internal_read: addr="));
+    DEBUG(cli.printlnHex(addr, 4));
     // MOVB @s, @d; I:I:s:s:R:d:d:i:i:W
-    const uint8_t MOVB1[] = {0xD8, 0x20, hi(addr), lo(addr)};
-    injectReads(MOVB1, sizeof(MOVB1));  // MOVB @addr,
-    cycle();                            // one read
-    injectReads(ZERO, sizeof(ZERO));    // , @0
-    injectReads(JMP_6, sizeof(JMP_6));  // JMP $-6
-    uint8_t data;
-    captureWrites(&data, sizeof(data));
-    cycle();  // finish JMP
+    const uint16_t MOVB1[] = {0xD820, addr};
+    injectReads(MOVB1, 2);   // I:I:s:s; MOVB @addr,
+    cycle();                 // R      ; read from internal RAM
+    injectReads(&ZERO, 1);   // d:d    ; @>0000
+    injectReads(&JMP_6, 1);  // i:i    ; JMP $-6
+    auto data = capture();   // W      ; capture data
+    cycle();                 // finish JMP
+    DEBUG(printCycles());
     return data;
 }
 
 void PinsTms9995::internal_write(uint16_t addr, uint8_t data) {
+    DEBUG(Signals::resetCycles());
+    DEBUG(cli.print("@@ internal_write: addr="));
+    DEBUG(cli.printHex(addr, 4));
+    DEBUG(cli.print(" data="));
+    DEBUG(cli.printlnHex(data, 2));
     // MOVB @s, @d; I:I:s:s:R:d:d:i:i:W
-    const uint8_t MOVB[] = {0xD8, 0x20, 0, 0, data, hi(addr), lo(addr)};
-    injectReads(MOVB, sizeof(MOVB));    // MOVB @0, @addr
-    injectReads(JMP_6, sizeof(JMP_6));  // JMP $-6
-    cycle();                            // one write
-    cycle();                            // finish JMP
+    const uint16_t MOVB1[] = {0xD820, 0x0000};
+    injectReads(MOVB1, 2);   // I:I:s:s; MOVB @>0000
+    inject(data);            // R      ; read data
+    injectReads(&addr, 1);   // d:d    ; @addr
+    injectReads(&JMP_6, 1);  // i:i    ; JMP $-6
+    cycle();                 // W      ; write to internal RAM
+    cycle();                 // finish JMP
+    DEBUG(printCycles());
 }
 
 uint16_t PinsTms9995::internal_read16(uint16_t addr) {
-    // MOV @s, @d; I:I:s:s:R:d:i:i:W:w
-    const uint8_t MOV1[] = {0xC8, 0x20, hi(addr), lo(addr)};
-    uint8_t buf[sizeof(uint16_t)];
-    injectReads(MOV1, sizeof(MOV1));    // MOV @addr,
-    cycle();                            // one read
-    injectReads(ZERO, sizeof(ZERO));    // , @0
-    injectReads(JMP_6, sizeof(JMP_6));  // JMP $-6
-    captureWrites(buf, sizeof(buf));    // capture W:w
-    cycle();                            // finish JMP
-    return (buf[0] << 8) | buf[1];      // Regs::be16(buf);
+    DEBUG(Signals::resetCycles());
+    DEBUG(cli.print("@@ internal_read16: addr="));
+    DEBUG(cli.printlnHex(addr, 4));
+    uint16_t data;
+    // MOV @s, @d; I:I:s:s:R:d:d:i:i:W:w
+    const uint16_t MOV1[] = {0xC820, addr};
+    injectReads(MOV1, 2);     // I:I:s:s; MOV @addr,
+    cycle();                  // R      ; read from internal RAM
+    injectReads(&ZERO, 1);    // d:d    ; @>0000
+    injectReads(&JMP_6, 1);   // i:i    ; JMP $-6
+    captureWrites(&data, 1);  // W:w    ; capture data
+    cycle();                  // finish JMP
+    DEBUG(printCycles());
+    return data;
 }
 
 void PinsTms9995::internal_write16(uint16_t addr, uint16_t data) {
-    // MOV @s, @d; I:I:s:s:R::r:d:d:i:i:W
-    const uint8_t MOV[] = {
-            0xC8, 0x20, 0, 0, hi(data), lo(data), hi(addr), lo(addr)};
-    injectReads(MOV, sizeof(MOV));      // MOVB @0, @addr
-    injectReads(JMP_6, sizeof(JMP_6));  // JMP $-6
-    cycle();                            // one write
-    cycle();                            // finish JMP
+    DEBUG(Signals::resetCycles());
+    DEBUG(cli.print("@@ internal_write16: addr="));
+    DEBUG(cli.printHex(addr, 4));
+    DEBUG(cli.print(" data="));
+    DEBUG(cli.printlnHex(data, 4));
+    // MOV @s, @d; I:I:s:s:R:r:d:d:i:i:W
+    const uint16_t MOV[] = {0xC820, 0x0000, data, addr};
+    injectReads(MOV, 4);     // I:I:s:s:R:r:d:d; MOVB @>0000, @addr
+    injectReads(&JMP_6, 1);  // i:i            ; JMP $-6
+    cycle();                 // W              ; write to internal RAM
+    cycle();                 // finish JMP
+    DEBUG(printCycles());
+}
+
+void PinsTms9995::injectReads(const uint16_t *data, uint_fast8_t len) {
+    auto s = resumeCycle();
+    auto high = true;
+    for (uint_fast8_t i = 0; i < len;) {
+        s->inject(high ? hi(data[i]) : lo(data[i]));
+        completeCycle(s);
+        if (s->read()) {
+            if (is_internal(s->addr)) {
+                i++;
+            } else {
+                high = !high;
+                if (high)
+                    i++;
+            }
+        }
+        s = (i < len) ? prepareCycle() : pauseCycle();
+    }
+}
+
+void PinsTms9995::captureWrites(uint16_t *buf, uint_fast8_t len) {
+    uint16_t addr[len];
+    auto s = resumeCycle();
+    auto high = true;
+    for (uint_fast8_t i = 0; i < len;) {
+        completeCycle(s->capture());
+        if (s->write()) {
+            addr[i] = s->addr;
+            if (is_internal(s->addr)) {
+                i++;
+            } else {
+                if (high) {
+                    buf[i] = uint16(s->data, 0);
+                } else {
+                    buf[i] |= s->data;
+                }
+                high = !high;
+                if (high)
+                    i++;
+            }
+        }
+        s = (i < len) ? prepareCycle() : pauseCycle();
+    }
+    for (uint_fast8_t i = 0; i < len; ++i) {
+        if (is_internal(addr[i]))
+            buf[i] = internal_read16(addr[i]);
+    }
 }
 
 void PinsTms9995::assertInt(uint8_t name_) {
