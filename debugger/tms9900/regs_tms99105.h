@@ -43,11 +43,6 @@ private:
     MEMS *mems() const {
         return static_cast<MEMS *>(_mems);
     }
-
-    template <typename T, uint_fast8_t SIZE>
-    inline auto length(const T (&array)[SIZE]) const {
-        return SIZE;
-    }
 };
 
 }  // namespace tms99105

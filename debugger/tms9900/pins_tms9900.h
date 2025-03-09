@@ -41,16 +41,8 @@ struct PinsTms9900 : Pins {
     void run() override;
     void setBreakInst(uint32_t addr) const override;
 
-    void injectReads(const uint8_t *data, uint8_t len);
-    void captureReads(uint8_t *buf, uint8_t len) {
-        captureCycles(buf, len, false);
-    }
-    void captureWrites(uint8_t *buf, uint8_t len) {
-        captureCycles(buf, len, true);
-    }
-    virtual bool is_internal(uint16_t) const { return false; }
-    virtual uint8_t internal_read(uint16_t addr) { return 0; }
-    virtual void internal_write(uint16_t addr, uint8_t data) {}
+    virtual void injectReads(const uint16_t *data, uint_fast8_t len) = 0;
+    virtual void captureWrites(uint16_t *buf, uint_fast8_t len) = 0;
 
 protected:
     bool rawStep();
@@ -60,7 +52,6 @@ protected:
     virtual Signals *resumeCycle(uint16_t pc = 0) const = 0;
     virtual Signals *prepareCycle() const = 0;
     virtual Signals *completeCycle(Signals *s) const = 0;
-    void captureCycles(uint8_t *buf, uint8_t len, bool write);
     void suspend(uint16_t pc);
 
     void disassembleCycles();

@@ -104,47 +104,6 @@ bool PinsTms9900::step(bool show) {
     return false;
 }
 
-void PinsTms9900::injectReads(const uint8_t *data, uint8_t len) {
-    auto s = resumeCycle();
-    for (auto i = 0; i < len;) {
-        completeCycle(s->inject(data[i]));
-        if (s->read()) {
-            i++;
-            if (is_internal(s->addr) && i < len)
-                i++;
-        }
-        s = (i < len) ? prepareCycle() : pauseCycle();
-    }
-}
-
-void PinsTms9900::captureCycles(uint8_t *buf, uint8_t len, bool write) {
-    uint16_t addr[len];
-    auto s = resumeCycle();
-    for (auto i = 0; i < len;) {
-        completeCycle(s->capture());
-        buf[i] = s->data;
-        addr[i] = s->addr;
-        if (write) {
-            if (s->write()) {
-                ++i;
-                if (is_internal(s->addr) && i < len)
-                    addr[i++] = s->addr + 1;
-            }
-        } else {
-            if (s->read()) {
-                ++i;
-                if (is_internal(s->addr) && i < len)
-                    addr[i++] = s->addr + 1;
-            }
-        }
-        s = (i < len) ? prepareCycle() : pauseCycle();
-    }
-    for (auto i = 0; i < len; ++i) {
-        if (is_internal(addr[i]))
-            buf[i] = internal_read(addr[i]);
-    }
-}
-
 void PinsTms9900::setBreakInst(uint32_t addr) const {
     _mems->put_inst(addr, InstTms9900::XOP15);
 }

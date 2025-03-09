@@ -70,14 +70,19 @@ struct PinsTms9995 final : tms9900::PinsTms9900 {
     void assertInt(uint8_t name) override;
     void negateInt(uint8_t name) override;
 
-    void cycle();
-    bool is_internal(uint16_t addr) const override;
-    uint8_t internal_read(uint16_t addr) override;
-    void internal_write(uint16_t addr, uint8_t data) override;
+    void injectReads(const uint16_t *data, uint_fast8_t len) override;
+    void captureWrites(uint16_t *buf, uint_fast8_t len) override;
+
+    bool is_internal(uint16_t addr) const;
+    uint8_t internal_read(uint16_t addr);
+    void internal_write(uint16_t addr, uint8_t data);
     uint16_t internal_read16(uint16_t addr);
     void internal_write16(uint16_t addr, uint16_t data);
 
 private:
+    void cycle();
+    void inject(uint8_t data);
+    uint8_t capture();
     tms9900::Signals *prepareCycle() const override;
     tms9900::Signals *completeCycle(tms9900::Signals *s) const override;
     tms9900::Signals *resumeCycle(uint16_t pc = 0) const override;

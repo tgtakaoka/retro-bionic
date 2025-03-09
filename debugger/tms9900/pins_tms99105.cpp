@@ -258,9 +258,9 @@ tms9900::Signals *PinsTms99105::resumeCycle(uint16_t pc) const {
     return s;
 }
 
-void PinsTms99105::injectReads(const uint16_t *data, uint8_t len) {
+void PinsTms99105::injectReads(const uint16_t *data, uint_fast8_t len) {
     auto s = resumeCycle();
-    for (auto i = 0; i < len;) {
+    for (uint_fast8_t i = 0; i < len;) {
         completeCycle(s->inject(data[i]));
         if (s->read()) {
             i++;
@@ -269,19 +269,12 @@ void PinsTms99105::injectReads(const uint16_t *data, uint8_t len) {
     }
 }
 
-void PinsTms99105::captureCycles(uint16_t *buf, uint8_t len, bool write) {
+void PinsTms99105::captureWrites(uint16_t *buf, uint_fast8_t len) {
     auto s = resumeCycle();
-    for (auto i = 0; i < len;) {
+    for (uint_fast8_t i = 0; i < len;) {
         completeCycle(s->capture());
-        buf[i] = s->data;
-        if (write) {
-            if (s->write()) {
-                ++i;
-            }
-        } else {
-            if (s->read()) {
-                ++i;
-            }
+        if (s->write()) {
+            buf[i++] = s->data;
         }
         s = (i < len) ? prepareCycle() : pauseCycle();
     }
