@@ -37,14 +37,14 @@ loop_x:
         li      R0, 229
         mpys    R1              R1=X*229
         li      R2, 100
-        bl      @udiv16         R1=X*229/100
+        bl      @divu16         R1=X*229/100
         mov     R1, @vC         C=X*229/100
         mov     R1, @vA         A=C
         mov     @vY, R1
         li      R0, 416
         mpys    R1              R1=Y*416
         li      R2, 100
-        bl      @udiv16         R1=Y*416/100
+        bl      @divu16         R1=Y*416/100
         mov     R1, @vD         D=Y*416/100
         mov     R1, @vB         B=D
         clr     @vI             I=0
@@ -66,7 +66,7 @@ loop_x:
 loop_i:
         mov     @vB, R1
         li      R2, F
-        bl      @udiv16         R1=B/F
+        bl      @divu16         R1=B/F
         mov     R1, @vQ         Q=B/F
         li      R0, -F
         mpys    R1              R1=-Q*F
@@ -81,7 +81,7 @@ loop_i:
         mpys    R1              R1=A*A
         s       R3, R1          R1=A*A-B*B
         li      R2, F
-        bl      @udiv16         R1=(A*A-B*B)/F
+        bl      @divu16         R1=(A*A-B*B)/F
         a       @vC, R1         R1=(A*A-B*B)/F+C
         mov     R1, R3          R3=(A*A-B*B)/F+C
         mov     @vA, R1
@@ -92,7 +92,7 @@ loop_i:
         mov     @vS, R0
         mpys    R1              R1=A*S
         li      R2, F
-        bl      @udiv16         R1=A*S/F
+        bl      @divu16         R1=A*S/F
         a       R4, R1          R1=A*Q+A*S/F
         a       R1, R1          R1=2*(A*Q+A*S/F)
         a       @vD, R1         R1=2*(A*Q+A*S/F)+D
@@ -100,14 +100,14 @@ loop_i:
         mov     R3, R1          R1=(A*A-B*B)/F+C
         mov     R1, @vA         A=(A*A-B*B)/F+C
         li      R2, F
-        bl      @udiv16         R1=A/F
+        bl      @divu16         R1=A/F
         mov     R1, @vP         P=A/F
         mov     R1, R0
         mpys    R1              R1=P*P
         mov     R1, R3          R3=P*P
         mov     @vB, R1
         li      R2, F
-        bl      @udiv16         R1=B/F
+        bl      @divu16         R1=B/F
         mov     R1, @vQ         Q=B/F
         mov     R1, R0
         mpys                    R1=Q*Q
@@ -144,18 +144,21 @@ loop_i:
         jhe     print_space
         b       @loop_i         if I<16
 print_space:
-        li      R0, ' '
+        li      R0, >2000
         jmp     print_char
+print_table:
+        data    '01'
+        data    '23'
+        data    '45'
+        data    '67'
+        data    '89'
+        data    'AB'
+        data    'CD'
+        data    'EF'
 print_i:
-        mov     @vI, R0
-        ci      R0, 10
-        jhe     print_i2       if I>=10
-        ai      R0, '0'
-        jmp     print_char
-print_i2:
-        ai      R0, 'A'-10
+        mov     @vI, R1
+        movb    @print_table(R1), R0
 print_char:
-        swpb    R0
         blsk    R10, putchar
 
         * mov     R0, R2

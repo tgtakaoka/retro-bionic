@@ -51,16 +51,10 @@ print_uint16_return:
         *** Unsigned Divide
         *** R1 / |R2| = R1
         *** @clobber R2
-udiv16:
-        ci      R1, 0
-        jlt     udiv16_negative R1 < 0
-        clr     R0              Sign extend
-        div     R2, R0          R0:R1/R2=R0..R1
-        mov     R0, R1
-        rt
-udiv16_negative:
-        seto    R0              Sign extend
-        divs    R2              R0:R1/R2=R0...R1
+divu16:
+        mov     R1, R0
+        sra     R0, 15          Extend sign bit
+        divs    R2              R0:R1/R2=R0..R1
         mov     R0, R1
         rt
 
@@ -68,11 +62,8 @@ udiv16_negative:
         *** R1 / R2 = R1 ... R0
         *** @clobber R2
 div16:
-        seto    R0
-        ci      R1, 0
-        jlt     div16_calc
-        clr     R0
-div16_calc:
+        mov     R1, R0
+        sra     R0, 15          Extend sign bit
         divs    R2              R0:R1/R2=R0...R1
         mov     R1, R2
         mov     R0, R1

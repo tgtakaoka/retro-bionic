@@ -124,18 +124,21 @@ loop_i:
         jhe     print_space
         b       @loop_i         if I<16
 print_space:
-        li      R0, ' '
+        li      R0, >2000
         jmp     print_char
+print_table:
+        data    '01'
+        data    '23'
+        data    '45'
+        data    '67'
+        data    '89'
+        data    'AB'
+        data    'CD'
+        data    'EF'
 print_i:
-        mov     @vI, R0
-        ci      R0, 10
-        jhe     print_i2       if I>=10
-        ai      R0, '0'
-        jmp     print_char
-print_i2:
-        ai      R0, 'A'-10
+        mov     @vI, R1
+        movb    @print_table(R1), R0
 print_char:
-        swpb    R0
         blsk    R10, putchar
 
         * mov     R0, R2

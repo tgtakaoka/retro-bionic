@@ -73,7 +73,7 @@ halt_to_system:
 
         *** Print uint8_t in hex
         *** @param R1 uint8_t value to be printed in hex
-        *** @clobber R0
+        *** @clobber R0 R2
 put_hex8:
         dect    R10
         mov     R11, *R10       Push return address
@@ -81,21 +81,27 @@ put_hex8:
         bl      @putchar
         li      R0, hibyte('x')
         bl      @putchar
-        mov     R1, R0
-        srl     R0, 4
+        mov     R1, R2
+        srl     R2, 12
         bl      @put_hex4
-        mov     R1, R0
+        mov     R1, R2
+        swpb    R2
         bl      @put_hex4
         mov     *R10+, R11      Pop return address
         rt
 put_hex4:
-        andi    R0, hibyte(>0F)
-        ci      R0, hibyte(10)
-        jl      put_hex4_dec
-        ai      R0, hibyte(-10+'A'-'0')
-put_hex4_dec:
-        ai      R0, hibyte('0')
+        andi    R2, >0F
+        movb    @put4_table(R2), R0
         jmp     putchar
+put4_table:
+        data    '01'
+        data    '23'
+        data    '45'
+        data    '67'
+        data    '89'
+        data    'AB'
+        data    'CD'
+        data    'EF'
 
         *** Print uint8_t in hex
         *** @param R1 uint8_t value to be printed in binary.

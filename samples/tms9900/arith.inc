@@ -67,15 +67,14 @@ mul16_return:
         *** Unsigned Divide
         *** R1 / |R2| = R1
         *** @clobber R2, R0
-udiv16:
+divu16:
         clr     R0
-        ci      R1, 0
+        abs     R1
         jlt     udiv16_negative R1 < 0
         div     R2, R0          R0:R1/R2=R0..R1
         mov     R0, R1
         rt
 udiv16_negative:
-        abs     R1
         div     R2, R0          R0:R1/R2=R0..R1
         neg     R0
         mov     R0, R1
