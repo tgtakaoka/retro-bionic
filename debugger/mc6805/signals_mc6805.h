@@ -6,8 +6,9 @@
 // #define LOG(e) e
 #define LOG(e)
 
-#define CNTL_RW 0x2 /* CNTL1 */
-#define CNTL_LI 0x4 /* CNTL2 */
+#define CNTL_READ 1  /* CNTL0 */
+#define CNTL_WRITE 2 /* CNTL1 */
+#define CNTL_FETCH 4 /* CNTL2 */
 
 namespace debugger {
 namespace mc6805 {
@@ -15,8 +16,9 @@ namespace mc6805 {
 struct Signals : SignalsBase<Signals> {
     void print() const;
 
-    bool write() const { return (cntl() & CNTL_RW) == 0; }
-    bool fetch() const { return (cntl() & CNTL_LI) != 0; }
+    bool write() const { return (cntl() & CNTL_WRITE) == 0; }
+    bool read() const { return (cntl() & CNTL_READ) == 0; }
+    bool fetch() const { return (cntl() & CNTL_FETCH) != 0; }
 
 protected:
     uint8_t cntl() const { return _signals[0]; }

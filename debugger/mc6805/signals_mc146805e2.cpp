@@ -7,7 +7,11 @@ namespace debugger {
 namespace mc146805e2 {
 
 void Signals::getControl() {
-    cntl() = busRead(CNTL);
+#if CNTL_WRITE == CNTL_RW && CNTL_FETCH == CNTL_LI
+    cntl() = busRead(CNTL) & ~CNTL_READ;
+#else
+#error "Check CNTL_ definitions"
+#endif
 }
 
 void Signals::getAddr() {

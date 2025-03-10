@@ -22,7 +22,6 @@ struct DevsMc6805 : Devs {
     void printDevices() const override;
 
 private:
-    const uint16_t _acia_base;
     Device *_acia;
 };
 

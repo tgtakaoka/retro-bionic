@@ -11,7 +11,7 @@ struct Signals : SignalsBase<Signals, mc6805::Signals> {
     void getAddr();
     void getData();
     void outData() const;
-    bool nobus() const;
+    static void inputMode();
 };
 
 }  // namespace mc68hc05c0

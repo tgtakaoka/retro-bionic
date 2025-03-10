@@ -3,7 +3,7 @@
 #include "devs_mc6805.h"
 #include "inst_mc146805.h"
 #include "mems_mc6805.h"
-#include "regs_mc6805.h"
+#include "regs_mc146805.h"
 #include "signals_mc146805e2.h"
 
 namespace debugger {
@@ -130,13 +130,13 @@ constexpr uint8_t PINS_INPUT[] = {
 }  // namespace
 
 PinsMc146805E2::PinsMc146805E2() : PinsMc6805(mc146805::Inst) {
-    auto regs = new mc6805::RegsMc6805("MC146805", this);
+    auto regs = new mc146805::RegsMc146805(this);
     _regs = regs;
     _devs = new mc6805::DevsMc6805(ACIA_BASE);
     _mems = new mc6805::MemsMc6805(this, regs, _devs, 13);
 }
 
-void PinsMc146805E2::resetPins() {
+void PinsMc146805E2::resetCpu() {
     // Assert reset condition
     pinsMode(PINS_LOW, sizeof(PINS_LOW), OUTPUT, LOW);
     pinsMode(PINS_HIGH, sizeof(PINS_HIGH), OUTPUT, HIGH);
@@ -157,39 +157,39 @@ void PinsMc146805E2::resetPins() {
     }
     // DS=L
 
-    const auto vec_reset = mems<mc6805::MemsMc6805>()->vecReset();
-    const auto vector = _mems->read16(vec_reset) & _mems->maxAddr();
-    // If reset vector pointing internal memory, we can't inject instructions.
-    _mems->write16(vec_reset, 0x1000);
-
     cycle();
     delayNanoseconds(tpcs_ns);
     negate_reset();
     Signals::resetCycles();
-
-    // Read dummy reset vector and wait for the first instruction fetch.
+    cycle();  // dummy cycle
+    cycle();  // dummy cycle
     prepareCycle();
-    suspend();
+
+    // Inject dummy reset vector and wait for the first instruction fetch.
+    _regs->reset();
+    cycle();  // dummy cycle
+}
+
+void PinsMc146805E2::resetPins() {
+    resetCpu();
 
     // We should certainly inject SWI by pointing external address here.
     _regs->save();
-    // Restore reset vector
-    _mems->write16(vec_reset, vector);
-    _regs->setIp(vector);
+    _regs->setIp(mems<mc6805::MemsMc6805>()->resetVector());
 }
 
 void PinsMc146805E2::idle() {
     // MC146805E2 is fully static, so we can stop clock safely.
 }
 
-mc6805::Signals *PinsMc146805E2::currCycle() const {
+mc6805::Signals *PinsMc146805E2::currCycle(uint16_t) const {
     auto s = Signals::put();
     s->getControl();
     s->getAddr();
     return s;
 }
 
-mc6805::Signals *PinsMc146805E2::rawPrepareCycle() const {
+mc6805::Signals *PinsMc146805E2::rawPrepareCycle() {
     // MC146805E bus cycle is CLK/5, so we toggle CLK 5 times c1
     // c1
     osc1_hi();
@@ -214,7 +214,7 @@ mc6805::Signals *PinsMc146805E2::rawPrepareCycle() const {
     return s;
 }
 
-mc6805::Signals *PinsMc146805E2::prepareCycle() const {
+mc6805::Signals *PinsMc146805E2::prepareCycle() {
     delayNanoseconds(c1_lo_ns);
     return rawPrepareCycle();
 }

@@ -14,8 +14,8 @@ struct MemsMc6805 final : DmaMemory {
     MemsMc6805(PinsMc6805 *pins, RegsMc6805 *regs, Devs *devs, uint8_t pc_bits);
 
     uint32_t maxAddr() const override { return _max_addr; }
-    uint16_t vecReset() const { return _max_addr - 1; }
     uint16_t vecSwi() const { return _max_addr - 3; }
+    uint16_t resetVector() const { return read16(_max_addr - 1); }
 
     uint16_t read(uint32_t addr) const override;
     void write(uint32_t addr, uint16_t data) const override;

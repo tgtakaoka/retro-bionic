@@ -8,11 +8,11 @@ namespace debugger {
 namespace mc6805 {
 
 void Signals::print() const {
-    LOG(cli.printDec(pos(), -4));
+    // cli.printDec(pos(), -4);
     //                              0123456789012
     static constexpr char line[] = "W A=xxxx D=xx";
     static auto &buffer = *new CharBuffer(line);
-    buffer[0] = fetch() ? 'L' : (write() ? 'W' : 'R');
+    buffer[0] = fetch() ? 'L' : (write() ? 'W' : (read() ? 'R': ' '));
     buffer.hex16(4, addr);
     buffer.hex8(11, data);
     cli.println(buffer);

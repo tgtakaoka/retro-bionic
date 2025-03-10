@@ -7,54 +7,50 @@
 namespace debugger {
 namespace mc6805 {
 
-namespace {
-
-void assert_irq() {
-    digitalWriteFast(PIN_IRQ, LOW);
-}
-
-void negate_irq() {
-    digitalWriteFast(PIN_IRQ, HIGH);
-}
-
-}  // namespace
-
-Signals *PinsMc6805::cycle() const {
+Signals *PinsMc6805::cycle() {
     return completeCycle(prepareCycle());
 }
 
-Signals *PinsMc6805::inject(uint8_t data) const {
+Signals *PinsMc6805::inject(uint8_t data) {
     return completeCycle(prepareCycle()->inject(data));
 }
 
-void PinsMc6805::injectReads(
-        const uint8_t *inst, uint8_t len, uint8_t cycles) const {
-    // inject |inst| then execute bus cycles until |cycles|
+void PinsMc6805::injectReads(const uint8_t *inst, uint_fast8_t len,
+        uint_fast8_t cycles, bool discard) {
+    // inject |inst| then execute extra |cycles|
     auto s = currCycle();
-    for (auto inj = 0; inj < len; ++inj) {
+    for (uint_fast8_t inj = 0; inj < len; ++inj) {
         completeCycle(s->inject(inst[inj]));
+        if (discard)
+            Signals::discard(s);
         s = prepareCycle();
     }
-    for (auto inj = len; inj < cycles; ++inj) {
+    for (uint_fast8_t inj = 0; inj < cycles; ++inj) {
         completeCycle(s);
+        if (discard)
+            Signals::discard(s);
         s = prepareCycle();
     }
 }
 
-void PinsMc6805::captureWrites(
-        uint8_t *buf, uint8_t len, uint16_t *addr) const {
-    // capture |len| writes and suspend
+uint16_t PinsMc6805::captureWrites(
+        uint8_t *buf, uint_fast8_t len, bool discard) {
+    // capture |len| writes
+    uint16_t addr = 0;
     auto s = currCycle();
-    for (auto cap = 0; cap < len;) {
+    for (uint_fast8_t cap = 0; cap < len;) {
         completeCycle(s->capture());
         if (s->write()) {
-            if (cap == 0 && addr)
-                *addr = s->addr;
+            if (cap == 0)
+                addr = s->addr;
             if (cap < len)
                 buf[cap++] = s->data;
         }
+        if (discard)
+            Signals::discard(s);
         s = prepareCycle();
     }
+    return addr;
 }
 
 void PinsMc6805::loop() {
@@ -63,17 +59,15 @@ void PinsMc6805::loop() {
         _devs->loop();
         auto s = rawPrepareCycle();
         if (s->addr == vec_swi) {
-            auto r = regs<RegsMc6805>();
-            if (r->saveContext(s->prev(5))) {
+            if (regs<RegsMc6805>()->saveContext(s->prev(5))) {
                 const auto swi_vec = _mems->read16(vec_swi);
-                const auto pc = r->nextIp() - 1;  //  offset SWI
+                const auto pc = _regs->nextIp() - 1;  //  offset SWI
                 if (isBreakPoint(pc) || swi_vec == vec_swi) {
                     // inject non-internal RAM address
                     completeCycle(s->inject(hi(0x1000)));
                     inject(lo(0x1000));
-                    prepareCycle();
-                    suspend();
-                    r->setIp(pc);
+                    suspend(prepareCycle());
+                    _regs->setIp(pc);
                     restoreBreakInsts();
                     Signals::discard(s->prev(7));
                     disassembleCycles();
@@ -83,21 +77,29 @@ void PinsMc6805::loop() {
         }
         if (haltSwitch()) {
             restoreBreakInsts();
-            suspend();
-            disassembleCycles();
-            _regs->save();
+            s = suspend(s);
+            if (is_internal(s->addr)) {
+                // Can't inject instruction for context save
+                resetCpu();
+                _regs->setIp(s->addr);
+            } else {
+                disassembleCycles();
+                _regs->save();
+            }
             return;
         }
         completeCycle(s);
     }
 }
 
-void PinsMc6805::suspend() const {
-    auto s = currCycle();
+Signals *PinsMc6805::suspend(Signals *s) {
+    if (s == nullptr)
+        s = currCycle();
     while (!s->fetch()) {
         completeCycle(s);
         s = prepareCycle();
     }
+    return s;
 }
 
 void PinsMc6805::run() {
@@ -109,14 +111,16 @@ void PinsMc6805::run() {
     loop();
 }
 
-bool PinsMc6805::rawStep() const {
-    auto s = currCycle();
-    const auto inst = _mems->read_byte(s->addr);
+bool PinsMc6805::rawStep() {
+    const auto pc = _regs->nextIp();
+    if (is_internal(pc))
+        return false;
+    auto s = currCycle(pc);
+    const auto inst = _mems->get(s->addr);
     if (!_inst.valid(inst) || _inst.isStop(inst))
         return false;
     completeCycle(s);
-    prepareCycle();
-    suspend();
+    suspend(prepareCycle());
     return true;
 }
 
@@ -135,11 +139,11 @@ bool PinsMc6805::step(bool show) {
 }
 
 void PinsMc6805::assertInt(uint8_t) {
-    assert_irq();
+    digitalWriteFast(PIN_IRQ, LOW);
 }
 
 void PinsMc6805::negateInt(uint8_t) {
-    negate_irq();
+    digitalWriteFast(PIN_IRQ, HIGH);
 }
 
 void PinsMc6805::setBreakInst(uint32_t addr) const {
