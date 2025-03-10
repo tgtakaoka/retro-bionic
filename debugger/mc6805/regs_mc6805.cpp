@@ -26,7 +26,7 @@ void RegsMc6805::save() {
     const uint8_t SWI = 0x83;  // 1:N:w:W:W:W:W:V:v:A
     _pins->injectReads(&SWI, sizeof(SWI));
     uint8_t context[5];
-    _pins->captureWrites(context, sizeof(context), &_sp);
+    _sp = _pins->captureWrites(context, sizeof(context));
     // Capturing writes to stack in little endian order.
     _pc = le16(context) - 1;  //  offset SWI instruction.
     _x = context[2];
@@ -88,7 +88,7 @@ constexpr const char *REGS16[] = {
 
 const Regs::RegList *RegsMc6805::listRegisters(uint_fast8_t n) const {
     static constexpr RegList REG_8{REGS8, 3, 1, UINT8_MAX};
-    static RegList REG_16{REGS16, 1, 4, UINT16_MAX};
+    static constexpr RegList REG_16{REGS16, 1, 4, UINT16_MAX};
     return n == 0 ? &REG_8 : (n == 1 ? &REG_16 : nullptr);
 }
 
@@ -110,9 +110,9 @@ bool RegsMc6805::setRegister(uint_fast8_t reg, uint32_t value) {
     return false;
 }
 
-uint8_t RegsMc6805::internal_read(uint8_t addr) const {
-    uint8_t LDA[] = {
-            0xB6, uint8(addr),  // LDA addr ; 1:2:D
+uint8_t RegsMc6805::internal_read(uint16_t addr) const {
+    const uint8_t LDA[] = {
+            0xC6, hi(addr), lo(addr),  // LDA addr ; 1:2:3:D
     };
     _pins->injectReads(LDA, sizeof(LDA), sizeof(LDA));
     _pins->suspend();
@@ -127,11 +127,12 @@ uint8_t RegsMc6805::internal_read(uint8_t addr) const {
     return data;
 }
 
-void RegsMc6805::internal_write(uint8_t addr, uint8_t data) const {
-    uint8_t LDA_STA[] = {
-            0xA6, data,  // LDA #val ; 1:2
-            0xB7, addr,  // STA addr ; 1:2:n:E (MC146805)
-    };  //          ; 1:2:D:E (MC68HC05)
+void RegsMc6805::internal_write(uint16_t addr, uint8_t data) const {
+    const uint8_t LDA_STA[] = {
+            0xA6, data,                // LDA #val ; 1:2
+            0xC7, hi(addr), lo(addr),  // STA addr ; 1:2:3:n:E (MC146805)
+                                       //          ; 1:2:3:D:E (MC68HC05)
+    };
     _pins->injectReads(LDA_STA, sizeof(LDA_STA));
     _pins->suspend();
 }
