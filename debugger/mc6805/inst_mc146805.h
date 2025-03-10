@@ -9,14 +9,14 @@ namespace mc146805 {
 struct InstMc146805 : mc6805::InstMc6805 {
     bool isStop(uint8_t inst) const override { return inst == STOP; }
 
+    static constexpr auto RESET_VEC = UINT16_C(0x1FFE);
+
 protected:
     const uint8_t *table() const override;
 
     static constexpr uint8_t STOP = 0x8E;
     static constexpr uint8_t WAIT = 0x8F;
 };
-
-extern const struct InstMc146805 Inst;
 
 }  // namespace mc146805
 }  // namespace debugger

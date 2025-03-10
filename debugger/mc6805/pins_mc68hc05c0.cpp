@@ -3,7 +3,7 @@
 #include "devs_mc68hc05c0.h"
 #include "inst_mc68hc05.h"
 #include "mems_mc6805.h"
-#include "regs_mc6805.h"
+#include "regs_mc68hc05.h"
 #include "signals_mc68hc05c0.h"
 
 namespace debugger {
@@ -53,6 +53,7 @@ constexpr auto c3_hi_write = 20;     // 62.5
 constexpr auto c4_lo_capture = 30;   // 62.5
 constexpr auto c3_hi_internal = 20;  // 62.5
 constexpr auto c3_hi_inject = 4;     // 62.5
+constexpr auto c1_lo_input = 20;     // 62.5
 
 inline void osc1_hi() {
     digitalWriteFast(PIN_OSC1, HIGH);
@@ -125,14 +126,15 @@ constexpr uint8_t PINS_INPUT[] = {
 
 }  // namespace
 
-PinsMc68HC05C0::PinsMc68HC05C0() : PinsMc6805(mc68hc05::Inst) {
-    auto regs = new mc6805::RegsMc6805("MC68HC05", this);
+PinsMc68HC05C0::PinsMc68HC05C0() {
+    auto regs = new mc68hc05::RegsMc68HC05(this);
     _regs = regs;
     _devs = new DevsMc68HC05C0(ACIA_BASE);
     _mems = new mc6805::MemsMc6805(this, regs, _devs, 16);
+    _inst = new mc68hc05::InstMc68HC05();
 }
 
-void PinsMc68HC05C0::resetPins() {
+void PinsMc68HC05C0::resetCpu() {
     // Assert reset condition
     pinsMode(PINS_OPENDRAIN, sizeof(PINS_OPENDRAIN), OUTPUT_OPENDRAIN, LOW);
     pinsMode(PINS_LOW, sizeof(PINS_LOW), OUTPUT, LOW);
@@ -141,54 +143,38 @@ void PinsMc68HC05C0::resetPins() {
     // #LIR/MODE=H; select multiplexed bus mode.
     pinsMode(PINS_PULLUP, sizeof(PINS_PULLUP), INPUT_PULLUP);
 
-    const auto vec_reset = mems<mc6805::MemsMc6805>()->vecReset();
-    const auto vector = _mems->read16(vec_reset);
-    // If reset vector pointing internal memory, we can't inject instructions.
-    _mems->write16(vec_reset, 0x1000);
-
     // #RESET input for a period of one and one-half machine cycles.
-    for (uint8_t i = 0; i < 4 * 10; ++i)
+    for (auto i = 0; i < 4 * 10; ++i)
         osc1_cycle();
     negate_reset();
-    Signals::resetCycles();
-
     // Wait for the first bus cycle
     while (signal_as() != LOW)
         osc1_cycle();
     osc1_cycle();
-    // Read reset vector
-    completeCycle(currCycle());  // hi(vector)
-    cycle();                     // lo(vector)
-    cycle();                     // dummy cycle
-    prepareCycle();
 
-    // Disable COP, enable IRV and ILRV of CNFGR; reset value 0x63
-    constexpr auto CNFGR = 0x19;
-    regs<mc6805::RegsMc6805>()->internal_write(CNFGR, 0x5B);
-
-    // We should certainly inject SWI by pointing external address here.
-    _regs->save();
-    // Restore reset vector
-    _mems->write16(vec_reset, vector);
-    _regs->setIp(vector);
+    Signals::resetCycles();
+    // Inject dummy reset vector and wait for the first instruction fetch.
+    _addr = mc68hc05::InstMc68HC05::RESET_VEC;
+    _regs->reset();
 }
 
 void PinsMc68HC05C0::idle() {
     // MC68HC05C0 is fully static, so we can stop clock safely.
 }
 
-mc6805::Signals *PinsMc68HC05C0::currCycle() const {
-    auto s = Signals::put();
+Signals *PinsMc68HC05C0::currCycle(uint16_t pc) const {
+    auto s = SignalsMc68HC05C0::put();
     s->getControl();
-    s->getAddr();
+    s->addr = pc ? pc : _addr;
     return s;
 }
 
-mc6805::Signals *PinsMc68HC05C0::rawPrepareCycle() const {
-    auto s = Signals::put();
+Signals *PinsMc68HC05C0::rawPrepareCycle() {
+    auto s = SignalsMc68HC05C0::put();
     // c2
     osc1_cycle_hi();
     s->getAddr();
+    _addr = s->addr;
     delayNanoseconds(c2_hi_addr);
     // c3
     osc1_lo();
@@ -197,10 +183,10 @@ mc6805::Signals *PinsMc68HC05C0::rawPrepareCycle() const {
     return s;
 }
 
-mc6805::Signals *PinsMc68HC05C0::completeCycle(mc6805::Signals *signals) const {
+Signals *PinsMc68HC05C0::completeCycle(Signals *signals) {
     // c3
     osc1_hi();
-    auto s = static_cast<Signals *>(signals);
+    auto s = static_cast<SignalsMc68HC05C0 *>(signals);
     if (s->write()) {
         s->getData();
         delayNanoseconds(c3_hi_write);
@@ -214,7 +200,10 @@ mc6805::Signals *PinsMc68HC05C0::completeCycle(mc6805::Signals *signals) const {
     } else if (is_internal(s->addr)) {
         // IRV is enabled and an internal read appears on the external bus
         delayNanoseconds(c3_hi_internal);
+        toggle_debug();
         s->getData();
+        toggle_debug();
+        // c4
         osc1_lo();
         delayNanoseconds(osc1_lo_ns);
     } else {
@@ -231,7 +220,10 @@ mc6805::Signals *PinsMc68HC05C0::completeCycle(mc6805::Signals *signals) const {
     osc1_hi();
     Signals::nextCycle();
     // c1
-    osc1_cycle_hi();
+    osc1_lo();
+    delayNanoseconds(c1_lo_input);
+    SignalsMc68HC05C0::inputMode();
+    osc1_hi();
     return s;
 }
 

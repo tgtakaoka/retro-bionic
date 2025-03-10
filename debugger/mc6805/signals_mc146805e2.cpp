@@ -6,24 +6,28 @@
 namespace debugger {
 namespace mc146805e2 {
 
-void Signals::getControl() {
-    cntl() = busRead(CNTL);
+void SignalsMc146805E2::getControl() {
+#if CNTL_WRITE == CNTL_RW && CNTL_FETCH == CNTL_LI
+    cntl() = busRead(CNTL) & ~CNTL_READ;
+#else
+#error "Check CNTL_ definitions"
+#endif
 }
 
-void Signals::getAddr() {
+void SignalsMc146805E2::getAddr() {
     addr = busRead(ADDR);
 }
 
-void Signals::getData() {
+void SignalsMc146805E2::getData() {
     data = busRead(B);
 }
 
-void Signals::outData() const {
+void SignalsMc146805E2::outData() const {
     busWrite(B, data);
     busMode(B, OUTPUT);
 }
 
-void Signals::inputMode() {
+void SignalsMc146805E2::inputMode() {
     busMode(B, INPUT);
 }
 

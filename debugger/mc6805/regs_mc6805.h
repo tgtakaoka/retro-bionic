@@ -10,16 +10,15 @@ namespace mc6805 {
 struct PinsMc6805;
 struct Signals;
 
-struct RegsMc6805 final : Regs {
-    RegsMc6805(const char *cpu, PinsMc6805 *pins);
-
+struct RegsMc6805 : Regs {
     const char *cpu() const override { return _cpu; }
 
     void print() const override;
+    void reset() override;
     void save() override;
     void restore() override;
 
-    bool saveContext(const Signals *frame);
+    bool captureContext(const Signals *frame);
     void setIp(uint32_t addr) override { _pc = addr; }
 
     uint32_t nextIp() const override { return _pc; }
@@ -27,10 +26,12 @@ struct RegsMc6805 final : Regs {
     const RegList *listRegisters(uint_fast8_t n) const override;
     bool setRegister(uint_fast8_t reg, uint32_t value) override;
 
-    uint8_t internal_read(uint8_t addr) const;
-    void internal_write(uint8_t addr, uint8_t data) const;
+    uint8_t internal_read(uint16_t addr, bool branch = true) const;
+    void internal_write(uint16_t addr, uint8_t data, bool branch = true) const;
 
 protected:
+    RegsMc6805(const char *cpu, PinsMc6805 *pins);
+
     const char *const _cpu;
     PinsMc6805 *const _pins;
 
@@ -41,6 +42,8 @@ protected:
     uint8_t _cc;
 
     mutable CharBuffer _buffer;
+
+    void bra(int8_t offset) const;
 };
 
 }  // namespace mc6805

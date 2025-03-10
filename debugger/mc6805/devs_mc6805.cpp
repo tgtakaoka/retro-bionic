@@ -7,7 +7,9 @@ namespace debugger {
 namespace mc6805 {
 
 DevsMc6805::DevsMc6805(uint16_t acia_base)
-    : _acia_base(acia_base), _acia(new Mc6850()) {}
+    : _acia(new Mc6850()) {
+    _acia->setBaseAddr(acia_base);
+}
 
 DevsMc6805::~DevsMc6805() {
     delete _acia;
@@ -15,7 +17,6 @@ DevsMc6805::~DevsMc6805() {
 
 void DevsMc6805::reset() {
     _acia->reset();
-    _acia->setBaseAddr(_acia_base);
 }
 
 void DevsMc6805::begin() {

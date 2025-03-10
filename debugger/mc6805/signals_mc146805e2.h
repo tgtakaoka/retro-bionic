@@ -6,7 +6,9 @@
 namespace debugger {
 namespace mc146805e2 {
 
-struct Signals : SignalsBase<Signals, mc6805::Signals> {
+    using mc6805::Signals;
+
+struct SignalsMc146805E2 : SignalsBase<SignalsMc146805E2, Signals> {
     void getControl();
     void getAddr();
     void getData();

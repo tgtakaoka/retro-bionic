@@ -6,12 +6,13 @@
 namespace debugger {
 namespace mc68hc05 {
 
-struct InstMc68HC05 final : mc146805::InstMc146805 {
+struct InstMc68HC05 : mc146805::InstMc146805 {
+
+    static constexpr auto RESET_VEC = UINT16_C(0xFFFE);
+
 protected:
     const uint8_t *table() const override;
 };
-
-extern const struct InstMc68HC05 Inst;
 
 }  // namespace mc68hc05
 }  // namespace debugger

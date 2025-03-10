@@ -6,12 +6,14 @@
 namespace debugger {
 namespace mc68hc05c0 {
 
-struct Signals : SignalsBase<Signals, mc6805::Signals> {
+using mc6805::Signals;
+
+struct SignalsMc68HC05C0 : SignalsBase<SignalsMc68HC05C0, Signals> {
     void getControl();
     void getAddr();
     void getData();
     void outData() const;
-    bool nobus() const;
+    static void inputMode();
 };
 
 }  // namespace mc68hc05c0

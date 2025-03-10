@@ -6,27 +6,30 @@
 namespace debugger {
 namespace mc68hc05c0 {
 
-void Signals::getControl() {
-    cntl() = busRead(CNTL) ^ CNTL_LI;
+void SignalsMc68HC05C0::getControl() {
+#if CNTL_WRITE == CNTL_WR && CNTL_FETCH == CNTL_LIR && (CNTL_RD >> 3) == CNTL_READ
+    cntl() = busRead(CNTL) ^ CNTL_LIR;
+    cntl() |= (cntl() & CNTL_RD) >> 3;
+#else
+#error "Check CNTL_ definitions"
+#endif
 }
 
-void Signals::getAddr() {
+void SignalsMc68HC05C0::getAddr() {
     addr = busRead(ADDR) ^ (1 << 15);
 }
 
-void Signals::getData() {
+void SignalsMc68HC05C0::getData() {
     data = busRead(AD);
 }
 
-void Signals::outData() const {
+void SignalsMc68HC05C0::outData() const {
     busWrite(AD, data);
     busMode(AD, OUTPUT);
-    busMode(AD, INPUT);
 }
 
-bool Signals::nobus() const {
-    constexpr auto BUS_ACTIVE = CNTL_RW | CNTL_RD;
-    return (cntl() & BUS_ACTIVE) == BUS_ACTIVE;
+void SignalsMc68HC05C0::inputMode() {
+    busMode(AD, INPUT);
 }
 
 }  // namespace mc68hc05c0

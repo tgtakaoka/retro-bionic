@@ -6,7 +6,7 @@
 
 #define PORT_B 6       /* GPIO6 */
 #define B_gp 16        /* P6.16-P6.23 */
-#define B_gm 0xFF      /* P6.00-P6.07 */
+#define B_gm 0xFF      /* P6.16-P6.23 */
 #define B_vp 0         /* B0-B7 */
 #define PIN_B0 19      /* P6.16 */
 #define PIN_B1 18      /* P6.17 */
@@ -28,15 +28,16 @@
 #define PIN_PB6 26     /* P6.30 */
 #define PIN_PB7 27     /* P6.31 */
 #define PORT_CNTL 9    /* GPIO9 */
-#define CNTL_gp 4      /* P9.04-P4.07 */
-#define CNTL_gm 0xF    /* P9.04-P9.07 */
+#define CNTL_gp 4      /* P9.04-P9.07 */
+#define CNTL_gm 0xE    /* P9.05-P9.07 */
 #define CNTL_vp 0      /* CNTL0-CNTL3 */
 #define PIN_AS 2       /* P9.04 */
 #define PIN_RW 3       /* P9.05 */
 #define PIN_LI 4       /* P9.06 */
 #define PIN_DS 33      /* P9.07 */
-#define CNTL_AS 0x1    /* CNTL0 */
-#define CNTL_DS 0x8    /* CNTL3 */
+#define CNTL_RW 2      /* CNTL1 */
+#define CNTL_LI 4      /* CNTL2 */
+#define CNTL_DS 8      /* CNTL3 */
 #define PIN_PB3 0      /* P6.03 */
 #define PIN_PB2 1      /* P6.02 */
 #define PIN_OSC1 5     /* P9.08 */
@@ -52,19 +53,21 @@
 namespace debugger {
 namespace mc146805e2 {
 
+using mc6805::Signals;
+
 struct PinsMc146805E2 final : mc6805::PinsMc6805 {
     PinsMc146805E2();
 
-    void resetPins() override;
     void idle() override;
 
     bool is_internal(uint16_t addr) const override { return addr < 0x80; }
 
 protected:
-    mc6805::Signals *currCycle() const override;
-    mc6805::Signals *rawPrepareCycle() const override;
-    mc6805::Signals *prepareCycle() const override;
-    mc6805::Signals *completeCycle(mc6805::Signals *signals) const override;
+    void resetCpu() override;
+    Signals *currCycle(uint16_t pc = 0) const override;
+    Signals *rawPrepareCycle() override;
+    Signals *prepareCycle() override;
+    Signals *completeCycle(Signals *signals) override;
 };
 
 }  // namespace mc146805e2
