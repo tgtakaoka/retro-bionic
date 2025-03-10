@@ -25,7 +25,7 @@ struct PinsMc6805 : Pins {
     void injectReads(const uint8_t *inst, uint_fast8_t len,
             uint_fast8_t cycles = 0) const;
     uint16_t captureWrites(uint8_t *buf, uint_fast8_t len) const;
-    void suspend() const;
+    virtual void suspend() const;
 
 protected:
     PinsMc6805(const InstMc6805 &inst) : _inst(inst) {}

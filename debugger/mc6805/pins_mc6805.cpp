@@ -4,6 +4,9 @@
 #include "regs_mc6805.h"
 #include "signals_mc6805.h"
 
+#define DEBUG(e) e
+// #define DEBUG(e)
+
 namespace debugger {
 namespace mc6805 {
 
@@ -33,10 +36,16 @@ void PinsMc6805::injectReads(
     auto s = currCycle();
     for (uint_fast8_t inj = 0; inj < len; ++inj) {
         completeCycle(s->inject(inst[inj]));
+        DEBUG(cli.print("@@ inj="));
+        DEBUG(cli.printDec(inj, -3));
+        DEBUG(s->print());
         s = prepareCycle();
     }
     for (uint_fast8_t inj = 0; inj < cycles; ++inj) {
         completeCycle(s);
+        DEBUG(cli.print("@@ cyc="));
+        DEBUG(cli.printDec(inj, -3));
+        DEBUG(s->print());
         s = prepareCycle();
     }
 }
@@ -47,6 +56,9 @@ uint16_t PinsMc6805::captureWrites(uint8_t *buf, uint_fast8_t len) const {
     auto s = currCycle();
     for (uint_fast8_t cap = 0; cap < len;) {
         completeCycle(s->capture());
+        //DEBUG(cli.print("@@ cap="));
+        //DEBUG(cli.printDec(cap, -3));
+        //DEBUG(s->print());
         if (s->write()) {
             if (cap == 0)
                 addr = s->addr;
