@@ -28,33 +28,34 @@ Signals *PinsMc6805::inject(uint8_t data) const {
 }
 
 void PinsMc6805::injectReads(
-        const uint8_t *inst, uint8_t len, uint8_t cycles) const {
-    // inject |inst| then execute bus cycles until |cycles|
+        const uint8_t *inst, uint_fast8_t len, uint_fast8_t cycles) const {
+    // inject |inst| then execute extra |cycles|
     auto s = currCycle();
-    for (auto inj = 0; inj < len; ++inj) {
+    for (uint_fast8_t inj = 0; inj < len; ++inj) {
         completeCycle(s->inject(inst[inj]));
         s = prepareCycle();
     }
-    for (auto inj = len; inj < cycles; ++inj) {
+    for (uint_fast8_t inj = 0; inj < cycles; ++inj) {
         completeCycle(s);
         s = prepareCycle();
     }
 }
 
-void PinsMc6805::captureWrites(
-        uint8_t *buf, uint8_t len, uint16_t *addr) const {
-    // capture |len| writes and suspend
+uint16_t PinsMc6805::captureWrites(uint8_t *buf, uint_fast8_t len) const {
+    // capture |len| writes
+    uint16_t addr = 0;
     auto s = currCycle();
-    for (auto cap = 0; cap < len;) {
+    for (uint_fast8_t cap = 0; cap < len;) {
         completeCycle(s->capture());
         if (s->write()) {
-            if (cap == 0 && addr)
-                *addr = s->addr;
+            if (cap == 0)
+                addr = s->addr;
             if (cap < len)
                 buf[cap++] = s->data;
         }
         s = prepareCycle();
     }
+    return addr;
 }
 
 void PinsMc6805::loop() {

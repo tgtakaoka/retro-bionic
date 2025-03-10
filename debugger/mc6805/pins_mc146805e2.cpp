@@ -3,7 +3,7 @@
 #include "devs_mc6805.h"
 #include "inst_mc146805.h"
 #include "mems_mc6805.h"
-#include "regs_mc6805.h"
+#include "regs_mc146805.h"
 #include "signals_mc146805e2.h"
 
 namespace debugger {
@@ -130,7 +130,7 @@ constexpr uint8_t PINS_INPUT[] = {
 }  // namespace
 
 PinsMc146805E2::PinsMc146805E2() : PinsMc6805(mc146805::Inst) {
-    auto regs = new mc6805::RegsMc6805("MC146805", this);
+    auto regs = new mc146805::RegsMc146805(this);
     _regs = regs;
     _devs = new mc6805::DevsMc6805(ACIA_BASE);
     _mems = new mc6805::MemsMc6805(this, regs, _devs, 13);
@@ -143,7 +143,8 @@ void PinsMc146805E2::resetPins() {
     pinsMode(PINS_INPUT, sizeof(PINS_INPUT), INPUT_PULLDOWN);
 
     // #RESET must stay low for a minimum of one tRL (1.5usec at VDD=5V).
-    for (auto i = 0; i < 15 * 5; i++)
+    // Power on reset requires 1920 cycles.
+    for (auto i = 0; i < 1920; i++)
         clock_cycle();
 
     // Synchronize clock output to DS.
@@ -157,25 +158,20 @@ void PinsMc146805E2::resetPins() {
     }
     // DS=L
 
-    const auto vec_reset = mems<mc6805::MemsMc6805>()->vecReset();
-    const auto vector = _mems->read16(vec_reset) & _mems->maxAddr();
-    // If reset vector pointing internal memory, we can't inject instructions.
-    _mems->write16(vec_reset, 0x1000);
-
     cycle();
     delayNanoseconds(tpcs_ns);
     negate_reset();
     Signals::resetCycles();
-
-    // Read dummy reset vector and wait for the first instruction fetch.
+    cycle();
+    cycle();
     prepareCycle();
-    suspend();
 
+    // Inject dummy reset vector and wait for the first instruction fetch.
+    _regs->reset();
+    suspend();
     // We should certainly inject SWI by pointing external address here.
     _regs->save();
-    // Restore reset vector
-    _mems->write16(vec_reset, vector);
-    _regs->setIp(vector);
+    _regs->setIp(mems<mc6805::MemsMc6805>()->resetVector());
 }
 
 void PinsMc146805E2::idle() {

@@ -6,7 +6,7 @@
 
 #define PORT_B 6       /* GPIO6 */
 #define B_gp 16        /* P6.16-P6.23 */
-#define B_gm 0xFF      /* P6.00-P6.07 */
+#define B_gm 0xFF      /* P6.16-P6.23 */
 #define B_vp 0         /* B0-B7 */
 #define PIN_B0 19      /* P6.16 */
 #define PIN_B1 18      /* P6.17 */
@@ -28,7 +28,7 @@
 #define PIN_PB6 26     /* P6.30 */
 #define PIN_PB7 27     /* P6.31 */
 #define PORT_CNTL 9    /* GPIO9 */
-#define CNTL_gp 4      /* P9.04-P4.07 */
+#define CNTL_gp 4      /* P9.04-P9.07 */
 #define CNTL_gm 0xF    /* P9.04-P9.07 */
 #define CNTL_vp 0      /* CNTL0-CNTL3 */
 #define PIN_AS 2       /* P9.04 */

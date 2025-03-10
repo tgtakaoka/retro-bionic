@@ -3,7 +3,7 @@
 #include "devs_mc68hc05c0.h"
 #include "inst_mc68hc05.h"
 #include "mems_mc6805.h"
-#include "regs_mc6805.h"
+#include "regs_mc68hc05.h"
 #include "signals_mc68hc05c0.h"
 
 namespace debugger {
@@ -126,7 +126,7 @@ constexpr uint8_t PINS_INPUT[] = {
 }  // namespace
 
 PinsMc68HC05C0::PinsMc68HC05C0() : PinsMc6805(mc68hc05::Inst) {
-    auto regs = new mc6805::RegsMc6805("MC68HC05", this);
+    auto regs = new mc68hc05::RegsMc68HC05(this);
     _regs = regs;
     _devs = new DevsMc68HC05C0(ACIA_BASE);
     _mems = new mc6805::MemsMc6805(this, regs, _devs, 16);
@@ -141,36 +141,21 @@ void PinsMc68HC05C0::resetPins() {
     // #LIR/MODE=H; select multiplexed bus mode.
     pinsMode(PINS_PULLUP, sizeof(PINS_PULLUP), INPUT_PULLUP);
 
-    const auto vec_reset = mems<mc6805::MemsMc6805>()->vecReset();
-    const auto vector = _mems->read16(vec_reset);
-    // If reset vector pointing internal memory, we can't inject instructions.
-    _mems->write16(vec_reset, 0x1000);
-
     // #RESET input for a period of one and one-half machine cycles.
-    for (uint8_t i = 0; i < 4 * 10; ++i)
+    // Power on reset requires 4064 cycles.
+    for (auto i = 0; i < 4064; ++i)
         osc1_cycle();
     negate_reset();
-    Signals::resetCycles();
-
     // Wait for the first bus cycle
     while (signal_as() != LOW)
         osc1_cycle();
     osc1_cycle();
-    // Read reset vector
-    completeCycle(currCycle());  // hi(vector)
-    cycle();                     // lo(vector)
-    cycle();                     // dummy cycle
-    prepareCycle();
 
-    // Disable COP, enable IRV and ILRV of CNFGR; reset value 0x63
-    constexpr auto CNFGR = 0x19;
-    regs<mc6805::RegsMc6805>()->internal_write(CNFGR, 0x5B);
-
-    // We should certainly inject SWI by pointing external address here.
+    Signals::resetCycles();
+    // Inject dummy reset vector and wait for the first instruction fetch.
+    _regs->reset();
     _regs->save();
-    // Restore reset vector
-    _mems->write16(vec_reset, vector);
-    _regs->setIp(vector);
+    _regs->setIp(mems<mc6805::MemsMc6805>()->resetVector());
 }
 
 void PinsMc68HC05C0::idle() {

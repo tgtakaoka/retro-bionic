@@ -22,10 +22,9 @@ struct PinsMc6805 : Pins {
     void negateInt(uint8_t name) override;
 
     virtual bool is_internal(uint16_t addr) const = 0;
-    void injectReads(
-            const uint8_t *inst, uint8_t len, uint8_t cycles = 0) const;
-    void captureWrites(
-            uint8_t *buf, uint8_t len, uint16_t *addr = nullptr) const;
+    void injectReads(const uint8_t *inst, uint_fast8_t len,
+            uint_fast8_t cycles = 0) const;
+    uint16_t captureWrites(uint8_t *buf, uint_fast8_t len) const;
     void suspend() const;
 
 protected:

@@ -8,7 +8,7 @@ namespace debugger {
 namespace mc6805 {
 
 void Signals::print() const {
-    LOG(cli.printDec(pos(), -4));
+    // cli.printDec(pos(), -4);
     //                              0123456789012
     static constexpr char line[] = "W A=xxxx D=xx";
     static auto &buffer = *new CharBuffer(line);
