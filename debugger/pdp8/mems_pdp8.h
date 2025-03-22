@@ -15,17 +15,12 @@ struct MemsPdp8 final : DmaMemory {
     uint32_t maxAddr() const override { return _max_addr; }
     uint16_t read(uint32_t addr) const override;
     void write(uint32_t addr, uint16_t data) const override;
-    uint16_t get(uint32_t addr, const char * = nullptr) const override {
-        return read_word(addr);
-    }
+
+    uint16_t get(uint32_t addr, const char * = nullptr) const override;
     void put(uint32_t addr, uint16_t data,
-            const char * = nullptr) const override {
-        write_word(addr, data);
-    }
-    uint16_t get_inst(uint32_t addr) const override { return read_word(addr); }
-    void put_inst(uint32_t addr, uint16_t data) const override {
-        write_word(addr, data);
-    }
+            const char * = nullptr) const override;
+    uint16_t get_inst(uint32_t addr) const override;
+    void put_inst(uint32_t addr, uint16_t data) const override;
 
 private:
     const uint16_t _max_addr;
@@ -50,7 +45,7 @@ struct ControlPanel final : DmaMemory {
 
 private:
     MemsPdp8 *const _mems;
-    static constexpr auto OFFSET = UINT32_C(0x10000);
+    static constexpr auto OFFSET = UINT32_C(0100000);
 
     void isPrint(const uint8_t *data, char buf[2]) const override {
         return _mems->isPrint(data, buf);

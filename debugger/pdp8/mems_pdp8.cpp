@@ -7,8 +7,7 @@ namespace debugger {
 namespace pdp8 {
 
 MemsPdp8::MemsPdp8(uint8_t addr_bit)
-    : DmaMemory(Endian::ENDIAN_BIG),
-      _max_addr((1 << addr_bit) - 1) {
+    : DmaMemory(Endian::ENDIAN_BIG), _max_addr((1 << addr_bit) - 1) {
 #ifdef WITH_ASSEMBLER
     _assembler = new libasm::pdp8::AsmPdp8();
 #endif
@@ -27,6 +26,22 @@ uint16_t MemsPdp8::read(uint32_t addr) const {
 }
 
 void MemsPdp8::write(uint32_t addr, uint16_t data) const {
+    write_word(addr, data);
+}
+
+uint16_t MemsPdp8::get(uint32_t addr, const char *) const {
+    return read_word(addr);
+}
+
+void MemsPdp8::put(uint32_t addr, uint16_t data, const char *) const {
+    write_word(addr, data);
+}
+
+uint16_t MemsPdp8::get_inst(uint32_t addr) const {
+    return read_word(addr);
+}
+
+void MemsPdp8::put_inst(uint32_t addr, uint16_t data) const {
     write_word(addr, data);
 }
 

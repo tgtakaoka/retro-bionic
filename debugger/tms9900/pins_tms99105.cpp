@@ -194,7 +194,7 @@ tms9900::Signals *PinsTms99105::completeCycle(tms9900::Signals *_s) const {
         if (s->readMemory()) {
             auto m = mems<MemsTms99105>();
             if (s->macrostore()) {
-                s->data = m->readMacro(s->addr);
+                s->data = m->read_macro(s->addr);
             } else {
                 s->data = m->read(s->addr);
             }
@@ -217,7 +217,7 @@ tms9900::Signals *PinsTms99105::completeCycle(tms9900::Signals *_s) const {
         if (s->writeMemory()) {
             auto m = mems<MemsTms99105>();
             if (s->macrostore()) {
-                m->writeMacro(s->addr, s->data);
+                m->write_macro(s->addr, s->data);
             } else {
                 m->write(s->addr, s->data);
             }

@@ -27,29 +27,24 @@ struct Mems {
     uint8_t listRadix() const;
     Endian endian() const { return _endian; }
 
-    // For ADDRESS_BYTE
+    // Raw memory access for ADDRESS_BYTE
     virtual uint16_t read_byte(uint32_t byte_addr) const = 0;
     virtual void write_byte(uint32_t byte_addr, uint16_t data) const = 0;
-    // For ADDRESS_WORD
+
+    // Raw memory access for ADDRESS_WORD
     virtual uint16_t read_word(uint32_t word_addr) const = 0;
     virtual void write_word(uint32_t word_addr, uint16_t data) const = 0;
 
-    // Read and write for CPU
+    // Access from CPU
     virtual uint16_t read(uint32_t addr) const { return read_byte(addr); }
     virtual void write(uint32_t addr, uint16_t data) const {
         write_byte(addr, data);
     }
-    // Read 16 bit from ADDRESS_BYTE memory
+    // 16 bit access from CPU for ADDRESS_BYTE memory
     uint16_t read16(uint32_t byte_addr) const;
     void write16(uint32_t byte_addr, uint16_t data) const;
 
-    // Setup and restore break point
-    virtual uint16_t get_inst(uint32_t addr) const { return read_byte(addr); }
-    virtual void put_inst(uint32_t addr, uint16_t data) const {
-        write_byte(addr, data);
-    }
-
-    // Read and write for debugger
+    // Access from debugger
     uint_fast8_t get_byte(uint32_t byte_addr) const;
     virtual uint16_t get(uint32_t addr, const char * = nullptr) const {
         return read(addr);
@@ -57,6 +52,11 @@ struct Mems {
     virtual void put(
             uint32_t addr, uint16_t data, const char * = nullptr) const {
         write(addr, data);
+    }
+    // Setup and restore break point
+    virtual uint16_t get_inst(uint32_t addr) const { return read_byte(addr); }
+    virtual void put_inst(uint32_t addr, uint16_t data) const {
+        write_byte(addr, data);
     }
 
     struct RomArea {

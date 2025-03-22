@@ -13,50 +13,56 @@ namespace debugger {
 
 namespace {
 
+union {
+    uint8_t BYTE[DmaMemory::MEM_SIZE];
+    uint16_t WORD[DmaMemory::MEM_SIZE / sizeof(uint16_t)];
+} DMA_MEMORY DMAMEM;
 
-uint8_t DMA_MEMORY[DmaMemory::MEM_SIZE] DMAMEM;
-uint8_t EXT_MEMORY[ExtMemory::MEM_SIZE] EXTMEM;
+union {
+    uint8_t BYTE[ExtMemory::MEM_SIZE];
+    uint16_t WORD[ExtMemory::MEM_SIZE / sizeof(uint16_t)];
+} EXT_MEMORY EXTMEM;
 
 }  // namespace
 
 uint16_t DmaMemory::read_byte(uint32_t byte_addr) const {
-    return byte_addr < MEM_SIZE ? DMA_MEMORY[byte_addr] : 0;
+    return byte_addr < MEM_SIZE ? DMA_MEMORY.BYTE[byte_addr] : 0;
 }
 
 void DmaMemory::write_byte(uint32_t byte_addr, uint16_t data) const {
     if (byte_addr < MEM_SIZE)
-        DMA_MEMORY[byte_addr] = data;
+        DMA_MEMORY.BYTE[byte_addr] = data;
 }
 
 uint16_t DmaMemory::read_word(uint32_t word_addr) const {
     constexpr auto WORD_SIZE = MEM_SIZE / sizeof(uint16_t);
-    return word_addr < WORD_SIZE ? read16(word_addr * sizeof(uint16_t)) : 0;
+    return word_addr < WORD_SIZE ? DMA_MEMORY.WORD[word_addr] : 0;
 }
 
 void DmaMemory::write_word(uint32_t word_addr, uint16_t data) const {
     constexpr auto WORD_SIZE = MEM_SIZE / sizeof(uint16_t);
     if (word_addr < WORD_SIZE)
-        write16(word_addr * sizeof(uint16_t), data);
+        DMA_MEMORY.WORD[word_addr] = data;
 }
 
 uint16_t ExtMemory::read_byte(uint32_t byte_addr) const {
-    return byte_addr < MEM_SIZE ? EXT_MEMORY[byte_addr] : 0;
+    return byte_addr < MEM_SIZE ? EXT_MEMORY.BYTE[byte_addr] : 0;
 }
 
 void ExtMemory::write_byte(uint32_t byte_addr, uint16_t data) const {
     if (byte_addr < MEM_SIZE)
-        EXT_MEMORY[byte_addr] = data;
+        EXT_MEMORY.BYTE[byte_addr] = data;
 }
 
 uint16_t ExtMemory::read_word(uint32_t word_addr) const {
     constexpr auto WORD_SIZE = MEM_SIZE / sizeof(uint16_t);
-    return word_addr < WORD_SIZE ? read16(word_addr * sizeof(uint16_t)) : 0;
+    return word_addr < WORD_SIZE ? EXT_MEMORY.WORD[word_addr] : 0;
 }
 
 void ExtMemory::write_word(uint32_t word_addr, uint16_t data) const {
     constexpr auto WORD_SIZE = MEM_SIZE / sizeof(uint16_t);
     if (word_addr < WORD_SIZE)
-        write16(word_addr * sizeof(uint16_t), data);
+        EXT_MEMORY.WORD[word_addr] = data;
 }
 
 Mems::Mems(Endian endian)

@@ -41,6 +41,14 @@ void MemsTms9900::put(uint32_t addr, uint16_t data, const char *space) const {
     }
 }
 
+uint16_t MemsTms9900::get_inst(uint32_t addr) const {
+    return read16(addr);
+}
+
+void MemsTms9900::put_inst(uint32_t addr, uint16_t data) const {
+    write16(addr, data);
+}
+
 }  // namespace tms9900
 }  // namespace debugger
 
