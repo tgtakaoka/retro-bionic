@@ -81,7 +81,7 @@ uint32_t Target::assemble(uint32_t addr, const char *line) const {
     return _mems->assemble(addr, line);
 }
 
-uint32_t Target::disassemble(uint32_t addr, uint8_t numInsn) const {
+uint32_t Target::disassemble(uint32_t addr, uint_fast8_t numInsn) const {
     return _mems->disassemble(addr, numInsn);
 }
 

@@ -46,7 +46,7 @@ struct Target {
 
     uint32_t maxAddr() const;
     uint32_t assemble(uint32_t addr, const char *line) const;
-    uint32_t disassemble(uint32_t addr, uint8_t numInsn) const;
+    uint32_t disassemble(uint32_t addr, uint_fast8_t numInsn) const;
     void dumpMemory(
             uint32_t addr, uint16_t len, const char *spcae = nullptr) const;
     void writeMemory(uint32_t addr, const uint16_t *buffer, uint8_t len) const;

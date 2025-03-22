@@ -50,6 +50,7 @@ struct Mems {
     }
 
     // Read and write for debugger
+    uint_fast8_t get_byte(uint32_t byte_addr) const;
     virtual uint16_t get(uint32_t addr, const char * = nullptr) const {
         return read(addr);
     }
@@ -96,6 +97,7 @@ protected:
     uint16_t raw_read16le(uint32_t byte_addr) const;
     void raw_write16be(uint32_t byte_addr, uint16_t data) const;
     void raw_write16le(uint32_t byte_addr, uint16_t data) const;
+    void put_bytes(uint32_t addr, const uint8_t *bytes, uint_fast8_t len) const;
 
     static constexpr uint8_t hi(uint16_t v) {
         return static_cast<uint8_t>(v >> 8);

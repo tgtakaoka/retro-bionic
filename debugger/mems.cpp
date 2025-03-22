@@ -13,16 +13,6 @@ namespace debugger {
 
 namespace {
 
-struct DisMemory final : libasm::DisMemory {
-    DisMemory(const Mems *mems, uint32_t max_byte_addr)
-        : libasm::DisMemory(0), _mems(mems), _max_byte_addr(max_byte_addr) {}
-    const Mems *_mems;
-    const uint32_t _max_byte_addr;
-
-    bool hasNext() const override { return address() <= _max_byte_addr; }
-    void setAddress(uint32_t byte_addr) { resetAddress(byte_addr); }
-    uint8_t nextByte() override { return _mems->read_byte(address()); }
-};
 
 uint8_t DMA_MEMORY[DmaMemory::MEM_SIZE] DMAMEM;
 uint8_t EXT_MEMORY[ExtMemory::MEM_SIZE] EXTMEM;
@@ -89,6 +79,19 @@ Mems::~Mems() {
 #ifdef WITH_DISASSEMBLER
     delete _disassembler;
 #endif
+}
+
+uint_fast8_t Mems::get_byte(uint32_t byte_addr) const {
+    const auto unit = addressUnit();
+    const auto addr = byte_addr / unit;
+    const auto data = get(addr);
+    if (unit == 1)
+        return data;
+    if (_endian == ENDIAN_BIG) {
+        return (byte_addr & 1) == 0 ? hi(data) : lo(data);
+    } else {
+        return (byte_addr & 1) == 0 ? lo(data) : hi(data);
+    }
 }
 
 uint16_t Mems::read16(uint32_t byte_addr) const {
@@ -308,6 +311,17 @@ libasm::Disassembler *Mems::disassembler() const {
         dis->setCpu(Debugger.target().cpu());
     return dis;
 }
+
+struct DisMemory final : libasm::DisMemory {
+    DisMemory(const Mems *mems, uint32_t max_byte_addr)
+        : libasm::DisMemory(0), _mems(mems), _max_byte_addr(max_byte_addr) {}
+    const Mems *_mems;
+    const uint32_t _max_byte_addr;
+
+    bool hasNext() const override { return address() <= _max_byte_addr; }
+    void setAddress(uint32_t byte_addr) { resetAddress(byte_addr); }
+    uint8_t nextByte() override { return _mems->get_byte(address()); }
+};
 #endif
 
 uint32_t Mems::disassemble(uint32_t addr, uint8_t numInsn) const {
@@ -388,13 +402,32 @@ uint32_t Mems::assemble(uint32_t addr, const char *line) const {
             }
             cli.println();
         } else {
-            put(insn.address(), insn.bytes(), insn.length());
+            put_bytes(insn.address(), insn.bytes(), insn.length());
             disassemble(insn.address(), 1);
             addr += insn.length();
         }
     }
 #endif
     return addr;
+}
+
+void Mems::put_bytes(
+        uint32_t addr, const uint8_t *bytes, uint_fast8_t len) const {
+    const auto unit = addressUnit();
+    for (uint_fast8_t i = 0; i < len; i += unit) {
+        if (unit == 1) {
+            put(addr++, bytes[i]);
+        } else {
+            uint16_t word = bytes[i];
+            if (_endian == ENDIAN_BIG) {
+                word <<= 8;
+                word |= bytes[i + 1];
+            } else {
+                word |= static_cast<uint16_t>(bytes[i + 1]) << 8;
+            }
+            put(addr++, word);
+        }
+    }
 }
 
 }  // namespace debugger

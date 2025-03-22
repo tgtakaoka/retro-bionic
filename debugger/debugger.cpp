@@ -210,6 +210,12 @@ void handleMemory(uint32_t value, uintptr_t extra, State state) {
     printPrompt();
 }
 
+void printAddr(uint32_t addr) {
+    const auto bits = Debugger.target().addressWidth();
+    const auto radix = Debugger.target().inputRadix();
+    cli.printNum(addr, radix, Debugger::numDigits(bits, radix));
+}
+
 #ifdef WITH_ASSEMBLER
 void handleAssembleLine(char *line, uintptr_t extra, State state) {
     (void)extra;
@@ -220,8 +226,8 @@ void handleAssembleLine(char *line, uintptr_t extra, State state) {
     }
     cli.println();
     last_addr = Debugger.target().assemble(last_addr, line);
-    cli.printHex(last_addr, 4);
-    cli.print('?');
+    printAddr(last_addr);
+    cli.print("? ");
     cli.readLine(handleAssembleLine, 0, str_buffer, sizeof(str_buffer));
 }
 
@@ -232,10 +238,9 @@ void handleAssembler(uint32_t value, uintptr_t extra, State state) {
         printPrompt();
         return;
     }
-    last_addr = value;
     cli.println();
-    cli.printHex(last_addr, 4);
-    cli.print('?');
+    printAddr(last_addr = value);
+    cli.print("? ");
     cli.readLine(handleAssembleLine, 0, str_buffer, sizeof(str_buffer));
 }
 
@@ -323,11 +328,8 @@ int loadIHexRecord(const char *line, uint32_t &addr) {
             buffer[i] = toInt8Hex(line + i * 2 + 9);
         }
         Debugger.target().writeCode(addr, buffer, num);
-        const auto bits = Debugger.target().addressWidth();
         const auto unit = Debugger.target().addressUnit();
-        const auto radix = Debugger.target().inputRadix();
-        const auto a = addr / unit;
-        cli.printNum(a, radix, Debugger::numDigits(bits, radix));
+        printAddr(addr / unit);
         cli.print(':');
         cli.printDec(num / unit, 2);
     }
@@ -357,11 +359,8 @@ int loadS19Record(const char *line, uint32_t &addr) {
         buffer[i] = toInt8Hex(line + i * 2);
     }
     Debugger.target().writeCode(addr, buffer, num);
-    const auto bits = Debugger.target().addressWidth();
     const auto unit = Debugger.target().addressUnit();
-    const auto radix = Debugger.target().inputRadix();
-    const auto a = addr / unit;
-    cli.printNum(a, radix, Debugger::numDigits(bits, radix));
+    printAddr(addr / unit);
     cli.print(':');
     cli.printDec(num / unit, 2);
     return num;
