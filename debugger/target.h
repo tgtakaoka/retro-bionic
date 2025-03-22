@@ -49,9 +49,8 @@ struct Target {
     uint32_t disassemble(uint32_t addr, uint8_t numInsn) const;
     void dumpMemory(
             uint32_t addr, uint16_t len, const char *spcae = nullptr) const;
-    uint16_t read_memory(uint32_t addr, const char *space = nullptr) const;
-    void write_memory(uint32_t addr, const uint16_t *buffer, uint8_t len) const;
-    void write_code(uint32_t addr, const uint8_t *buffer, uint8_t len) const;
+    void writeMemory(uint32_t addr, const uint16_t *buffer, uint8_t len) const;
+    void writeCode(uint32_t byte_addr, const uint8_t *code, uint8_t len) const;
 
     /* Set and prrint read only area */
     bool printRomArea() const;

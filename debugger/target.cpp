@@ -89,26 +89,27 @@ void Target::dumpMemory(uint32_t addr, uint16_t len, const char *space) const {
     _mems->dumpMemory(addr, len, space);
 }
 
-void Target::write_memory(
+void Target::writeMemory(
         uint32_t addr, const uint16_t *buffer, uint8_t len) const {
     for (auto i = 0; i < len; ++i)
         _mems->put(addr++, buffer[i]);
 }
 
-void Target::write_code(
-        uint32_t addr, const uint8_t *buffer, uint8_t len) const {
+void Target::writeCode(
+        uint32_t byte_addr, const uint8_t *code, uint8_t len) const {
     const auto unit = addressUnit();
+    auto addr = byte_addr / unit;
     for (auto i = 0; i < len; i += unit) {
-        uint16_t code = buffer[i];
+        uint16_t data = code[i];
         if (unit == 2) {
             if (endian() == ENDIAN_BIG) {
-                code <<= 8;
-                code |= buffer[i + 1];
+                data <<= 8;
+                data |= code[i + 1];
             } else {
-                code |= buffer[i + 1] << 8;
+                data |= code[i + 1] << 8;
             }
         }
-        _mems->put(addr++, code);
+        _mems->put(addr++, data);
     }
 }
 
