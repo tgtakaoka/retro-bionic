@@ -18,6 +18,8 @@ struct Debugger {
     Target &target() const { return *_target; }
 
     void go();
+    BreakPoints &breakPoints() { return _breakPoints; }
+#if 0
     bool isBreakPoint(uint32_t addr) { return _breakPoints.on(addr); }
     bool setBreakPoint(uint32_t addr) { return _breakPoints.set(addr); }
     void setTempBreakPoint(uint32_t addr) { _breakPoints.setTemp(addr); }
@@ -25,6 +27,7 @@ struct Debugger {
     bool printBreakPoints() const { return _breakPoints.print(); }
     void saveBreakInsts() { _breakPoints.saveInsts(); }
     void restoreBreakInsts() { _breakPoints.restoreInsts(); }
+#endif
 
     static constexpr uint_fast8_t numDigits(
             const uint_fast8_t bits, const uint_fast8_t radix) {

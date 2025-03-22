@@ -86,15 +86,15 @@ void Pins::toggle_debug() {
 }
 
 bool Pins::isBreakPoint(uint32_t addr) const {
-    return Debugger.isBreakPoint(addr);
+    return Debugger.breakPoints().on(addr);
 }
 
 void Pins::saveBreakInsts() const {
-    Debugger.saveBreakInsts();
+    Debugger.breakPoints().saveInsts();
 }
 
 void Pins::restoreBreakInsts() const {
-    Debugger.restoreBreakInsts();
+    Debugger.breakPoints().restoreInsts();
 }
 
 }  // namespace debugger

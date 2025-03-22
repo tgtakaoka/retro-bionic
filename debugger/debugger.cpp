@@ -246,7 +246,7 @@ void handleGoUntil(uint32_t value, uintptr_t extra, State state) {
         return;
     if (state == State::CLI_SPACE || state == State::CLI_NEWLINE) {
         cli.println();
-        Debugger.setTempBreakPoint(value);
+        Debugger.breakPoints().setTemp(value);
         Debugger.go();
     }
     printPrompt();
@@ -538,12 +538,12 @@ void handleRomArea(uint32_t value, uintptr_t extra, State state) {
 
 void handleSetBreak(uint32_t value, uintptr_t extra, State state) {
     if (state != State::CLI_CANCEL) {
-        if (Debugger.setBreakPoint(value)) {
+        if (Debugger.breakPoints().set(value)) {
             cli.println("set");
         } else {
             cli.println("full");
         }
-        Debugger.printBreakPoints();
+        Debugger.breakPoints().print();
     }
     printPrompt();
 }
@@ -551,9 +551,9 @@ void handleSetBreak(uint32_t value, uintptr_t extra, State state) {
 void handleClearBreak(char *line, uintptr_t extra, State state) {
     if (state != State::CLI_CANCEL) {
         const auto index = atoi(str_buffer);
-        if (Debugger.clearBreakPoint(index)) {
+        if (Debugger.breakPoints().clear(index)) {
             cli.println(" cleared");
-            Debugger.printBreakPoints();
+            Debugger.breakPoints().print();
         } else {
             cli.println();
         }
@@ -643,7 +643,7 @@ void Debugger::exec(char c) {
         return;
     case 'b':
         cli.println("Break points");
-        if (printBreakPoints()) {
+        if (breakPoints().print()) {
             cli.print("clear? ");
             cli.readLine(handleClearBreak, 0, str_buffer, sizeof(str_buffer));
             return;

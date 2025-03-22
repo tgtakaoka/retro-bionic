@@ -47,6 +47,14 @@ void Target::printCycles() const {
     _pins->printCycles();
 }
 
+uint16_t Target::getInst(uint32_t addr) const {
+    return _mems->get_inst(addr);
+}
+
+void Target::putInst(uint32_t addr, uint16_t data) const {
+    _mems->put_inst(addr, data);
+}
+
 void Target::printRegisters(bool dis) const {
     _regs->print();
     if (dis)
@@ -79,18 +87,6 @@ uint32_t Target::disassemble(uint32_t addr, uint8_t numInsn) const {
 
 void Target::dumpMemory(uint32_t addr, uint16_t len, const char *space) const {
     _mems->dumpMemory(addr, len, space);
-}
-
-uint16_t Target::read_memory(uint32_t addr, const char *space) const {
-    return _mems->get(addr, space);
-}
-
-uint16_t Target::get_inst(uint32_t addr) const {
-    return _mems->get_inst(addr);
-}
-
-void Target::put_inst(uint32_t addr, uint16_t data) const {
-    _mems->put_inst(addr, data);
 }
 
 void Target::write_memory(

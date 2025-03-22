@@ -52,14 +52,14 @@ bool BreakPoints::print() const {
 void BreakPoints::saveInsts() {
     for (auto i = from(); i <= _num; ++i) {
         const auto addr = _points[i];
-        _insts[i] = Debugger.target().get_inst(addr);
+        _insts[i] = Debugger.target().getInst(addr);
         Debugger.target().setBreakPoint(addr);
     }
 }
 
 void BreakPoints::restoreInsts() {
     for (auto i = from(); i <= _num; ++i) {
-        Debugger.target().put_inst(_points[i], _insts[i]);
+        Debugger.target().putInst(_points[i], _insts[i]);
     }
     _has_temp = false;
 }
