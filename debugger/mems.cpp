@@ -13,60 +13,56 @@ namespace debugger {
 
 namespace {
 
-struct DisMemory final : libasm::DisMemory {
-    DisMemory(const Mems *mems, uint32_t max_byte_addr)
-        : libasm::DisMemory(0), _mems(mems), _max_byte_addr(max_byte_addr) {}
-    const Mems *_mems;
-    const uint32_t _max_byte_addr;
+union {
+    uint8_t BYTE[DmaMemory::MEM_SIZE];
+    uint16_t WORD[DmaMemory::MEM_SIZE / sizeof(uint16_t)];
+} DMA_MEMORY DMAMEM;
 
-    bool hasNext() const override { return address() <= _max_byte_addr; }
-    void setAddress(uint32_t byte_addr) { resetAddress(byte_addr); }
-    uint8_t nextByte() override { return _mems->read_byte(address()); }
-};
-
-uint8_t DMA_MEMORY[DmaMemory::MEM_SIZE] DMAMEM;
-uint8_t EXT_MEMORY[ExtMemory::MEM_SIZE] EXTMEM;
+union {
+    uint8_t BYTE[ExtMemory::MEM_SIZE];
+    uint16_t WORD[ExtMemory::MEM_SIZE / sizeof(uint16_t)];
+} EXT_MEMORY EXTMEM;
 
 }  // namespace
 
 uint16_t DmaMemory::read_byte(uint32_t byte_addr) const {
-    return byte_addr < MEM_SIZE ? DMA_MEMORY[byte_addr] : 0;
+    return byte_addr < MEM_SIZE ? DMA_MEMORY.BYTE[byte_addr] : 0;
 }
 
 void DmaMemory::write_byte(uint32_t byte_addr, uint16_t data) const {
     if (byte_addr < MEM_SIZE)
-        DMA_MEMORY[byte_addr] = data;
+        DMA_MEMORY.BYTE[byte_addr] = data;
 }
 
 uint16_t DmaMemory::read_word(uint32_t word_addr) const {
     constexpr auto WORD_SIZE = MEM_SIZE / sizeof(uint16_t);
-    return word_addr < WORD_SIZE ? read16(word_addr * sizeof(uint16_t)) : 0;
+    return word_addr < WORD_SIZE ? DMA_MEMORY.WORD[word_addr] : 0;
 }
 
 void DmaMemory::write_word(uint32_t word_addr, uint16_t data) const {
     constexpr auto WORD_SIZE = MEM_SIZE / sizeof(uint16_t);
     if (word_addr < WORD_SIZE)
-        write16(word_addr * sizeof(uint16_t), data);
+        DMA_MEMORY.WORD[word_addr] = data;
 }
 
 uint16_t ExtMemory::read_byte(uint32_t byte_addr) const {
-    return byte_addr < MEM_SIZE ? EXT_MEMORY[byte_addr] : 0;
+    return byte_addr < MEM_SIZE ? EXT_MEMORY.BYTE[byte_addr] : 0;
 }
 
 void ExtMemory::write_byte(uint32_t byte_addr, uint16_t data) const {
     if (byte_addr < MEM_SIZE)
-        EXT_MEMORY[byte_addr] = data;
+        EXT_MEMORY.BYTE[byte_addr] = data;
 }
 
 uint16_t ExtMemory::read_word(uint32_t word_addr) const {
     constexpr auto WORD_SIZE = MEM_SIZE / sizeof(uint16_t);
-    return word_addr < WORD_SIZE ? read16(word_addr * sizeof(uint16_t)) : 0;
+    return word_addr < WORD_SIZE ? EXT_MEMORY.WORD[word_addr] : 0;
 }
 
 void ExtMemory::write_word(uint32_t word_addr, uint16_t data) const {
     constexpr auto WORD_SIZE = MEM_SIZE / sizeof(uint16_t);
     if (word_addr < WORD_SIZE)
-        write16(word_addr * sizeof(uint16_t), data);
+        EXT_MEMORY.WORD[word_addr] = data;
 }
 
 Mems::Mems(Endian endian)
@@ -91,6 +87,19 @@ Mems::~Mems() {
 #endif
 }
 
+uint_fast8_t Mems::get_byte(uint32_t byte_addr) const {
+    const auto unit = addressUnit();
+    const auto addr = byte_addr / unit;
+    const auto data = get(addr);
+    if (unit == 1 && !wordAccess())
+        return data;
+    if (_endian == ENDIAN_BIG) {
+        return (byte_addr & 1) == 0 ? hi(data) : lo(data);
+    } else {
+        return (byte_addr & 1) == 0 ? lo(data) : hi(data);
+    }
+}
+
 uint16_t Mems::read16(uint32_t byte_addr) const {
     return _endian == ENDIAN_BIG ? raw_read16be(byte_addr)
                                  : raw_read16le(byte_addr);
@@ -109,10 +118,11 @@ uint16_t Mems::raw_read16le(uint32_t byte_addr) const {
 }
 
 void Mems::write16(uint32_t byte_addr, uint16_t data) const {
-    if (_endian == ENDIAN_BIG)
+    if (_endian == ENDIAN_BIG) {
         raw_write16be(byte_addr, data);
-    else
+    } else {
         raw_write16le(byte_addr, data);
+    }
 }
 
 void Mems::raw_write16be(uint32_t byte_addr, uint16_t data) const {
@@ -308,6 +318,17 @@ libasm::Disassembler *Mems::disassembler() const {
         dis->setCpu(Debugger.target().cpu());
     return dis;
 }
+
+struct DisMemory final : libasm::DisMemory {
+    DisMemory(const Mems *mems, uint32_t max_byte_addr)
+        : libasm::DisMemory(0), _mems(mems), _max_byte_addr(max_byte_addr) {}
+    const Mems *_mems;
+    const uint32_t _max_byte_addr;
+
+    bool hasNext() const override { return address() <= _max_byte_addr; }
+    void setAddress(uint32_t byte_addr) { resetAddress(byte_addr); }
+    uint8_t nextByte() override { return _mems->get_byte(address()); }
+};
 #endif
 
 uint32_t Mems::disassemble(uint32_t addr, uint8_t numInsn) const {
@@ -388,13 +409,32 @@ uint32_t Mems::assemble(uint32_t addr, const char *line) const {
             }
             cli.println();
         } else {
-            put(insn.address(), insn.bytes(), insn.length());
+            put_bytes(insn.address(), insn.bytes(), insn.length());
             disassemble(insn.address(), 1);
             addr += insn.length();
         }
     }
 #endif
     return addr;
+}
+
+void Mems::put_bytes(
+        uint32_t addr, const uint8_t *bytes, uint_fast8_t len) const {
+    const auto unit = addressUnit();
+    for (uint_fast8_t i = 0; i < len; i += unit) {
+        if (unit == 1) {
+            put(addr++, bytes[i]);
+        } else {
+            uint16_t word = bytes[i];
+            if (_endian == ENDIAN_BIG) {
+                word <<= 8;
+                word |= bytes[i + 1];
+            } else {
+                word |= static_cast<uint16_t>(bytes[i + 1]) << 8;
+            }
+            put(addr++, word);
+        }
+    }
 }
 
 }  // namespace debugger

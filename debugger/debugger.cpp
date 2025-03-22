@@ -203,11 +203,17 @@ void handleMemory(uint32_t value, uintptr_t extra, State state) {
             }
         }
         cli.println();
-        Debugger.target().write_memory(last_addr, mem_buffer, index);
+        Debugger.target().writeMemory(last_addr, mem_buffer, index);
         Debugger.target().dumpMemory(last_addr, index);
         last_addr += index;
     }
     printPrompt();
+}
+
+void printAddr(uint32_t addr) {
+    const auto bits = Debugger.target().addressWidth();
+    const auto radix = Debugger.target().inputRadix();
+    cli.printNum(addr, radix, Debugger::numDigits(bits, radix));
 }
 
 #ifdef WITH_ASSEMBLER
@@ -220,8 +226,8 @@ void handleAssembleLine(char *line, uintptr_t extra, State state) {
     }
     cli.println();
     last_addr = Debugger.target().assemble(last_addr, line);
-    cli.printHex(last_addr, 4);
-    cli.print('?');
+    printAddr(last_addr);
+    cli.print("? ");
     cli.readLine(handleAssembleLine, 0, str_buffer, sizeof(str_buffer));
 }
 
@@ -232,10 +238,9 @@ void handleAssembler(uint32_t value, uintptr_t extra, State state) {
         printPrompt();
         return;
     }
-    last_addr = value;
     cli.println();
-    cli.printHex(last_addr, 4);
-    cli.print('?');
+    printAddr(last_addr = value);
+    cli.print("? ");
     cli.readLine(handleAssembleLine, 0, str_buffer, sizeof(str_buffer));
 }
 
@@ -246,7 +251,7 @@ void handleGoUntil(uint32_t value, uintptr_t extra, State state) {
         return;
     if (state == State::CLI_SPACE || state == State::CLI_NEWLINE) {
         cli.println();
-        Debugger.setTempBreakPoint(value);
+        Debugger.breakPoints().setTemp(value);
         Debugger.go();
     }
     printPrompt();
@@ -309,34 +314,30 @@ uint32_t toInt32Hex(const char *text) {
     return ((uint32_t)toInt24Hex(text) << 8) | toInt8Hex(text + 6);
 }
 
-int loadIHexRecord(const char *line) {
-    const auto bits = Debugger.target().addressWidth();
-    const auto unit = Debugger.target().addressUnit();
-    const auto radix = Debugger.target().inputRadix();
+int loadIHexRecord(const char *line, uint32_t &addr) {
     const auto num = toInt8Hex(line + 1);
-    uint16_t addr = toInt16Hex(line + 3);
+    const auto offset = toInt16Hex(line + 3);
     const auto type = toInt8Hex(line + 7);
-    // TODO: Support 32bit Intel Hex
-    if (type == 0) {
+    if (type == 4) {
+        addr = static_cast<uint32_t>(offset) << 16;
+    } else if (type == 0) {
+        addr &= ~UINT16_C(0xFFFF);
+        addr |= offset;
         uint8_t buffer[num];
         for (int i = 0; i < num; i++) {
             buffer[i] = toInt8Hex(line + i * 2 + 9);
         }
-        addr /= unit;
-        Debugger.target().write_code(addr, buffer, num);
-        cli.printNum(addr, radix, Debugger::numDigits(bits, radix));
+        Debugger.target().writeCode(addr, buffer, num);
+        const auto unit = Debugger.target().addressUnit();
+        printAddr(addr / unit);
         cli.print(':');
         cli.printDec(num / unit, 2);
     }
     return num;
 }
 
-int loadS19Record(const char *line) {
-    const auto bits = Debugger.target().addressWidth();
-    const auto unit = Debugger.target().addressUnit();
-    const auto radix = Debugger.target().inputRadix();
+int loadS19Record(const char *line, uint32_t &addr) {
     const int num = toInt8Hex(line + 2) - 3;
-    uint32_t addr;
     switch (line[1]) {
     case '1':
         addr = toInt16Hex(line + 4);
@@ -353,13 +354,13 @@ int loadS19Record(const char *line) {
     default:
         return 0;
     }
-    addr /= unit;
     uint8_t buffer[num];
     for (int i = 0; i < num; i++) {
         buffer[i] = toInt8Hex(line + i * 2);
     }
-    Debugger.target().write_code(addr, buffer, num);
-    cli.printNum(addr, radix, Debugger::numDigits(bits, radix));
+    Debugger.target().writeCode(addr, buffer, num);
+    const auto unit = Debugger.target().addressUnit();
+    printAddr(addr / unit);
     cli.print(':');
     cli.printDec(num / unit, 2);
     return num;
@@ -382,6 +383,7 @@ void handleLoadFile(char *line, uintptr_t extra, State state) {
             uint16_t size = 0;
             char buffer[80];
             char *p = buffer;
+            uint32_t addr;
             while (file.available() > 0) {
                 const char c = file.read();
                 if (c == '\n') {
@@ -389,12 +391,12 @@ void handleLoadFile(char *line, uintptr_t extra, State state) {
                     if (*buffer == 'S') {
                         cli.print(buffer);
                         cli.print(' ');
-                        size += loadS19Record(buffer);
+                        size += loadS19Record(buffer, addr);
                         cli.println();
                     } else if (*buffer == ':') {
                         cli.print(buffer);
                         cli.print(' ');
-                        size += loadIHexRecord(buffer);
+                        size += loadIHexRecord(buffer, addr);
                         cli.println();
                     }
                     p = buffer;
@@ -413,6 +415,7 @@ void handleLoadFile(char *line, uintptr_t extra, State state) {
 
 struct UploadContext {
     uint32_t size;
+    uint32_t addr;
     char buffer[80];
     uintptr_t extra() { return reinterpret_cast<uintptr_t>(this); }
     static UploadContext *context(uintptr_t extra) {
@@ -430,10 +433,10 @@ void handleUploadFile(char *line, uintptr_t extra, State state) {
     }
     const auto c = context->buffer[0];
     if (c == 'S') {
-        context->size += loadS19Record(context->buffer);
+        context->size += loadS19Record(context->buffer, context->addr);
         cli.println();
     } else if (c == ':') {
-        context->size += loadIHexRecord(context->buffer);
+        context->size += loadIHexRecord(context->buffer, context->addr);
         cli.println();
     }
     cli.readLine(handleUploadFile, context->extra(), context->buffer,
@@ -538,12 +541,12 @@ void handleRomArea(uint32_t value, uintptr_t extra, State state) {
 
 void handleSetBreak(uint32_t value, uintptr_t extra, State state) {
     if (state != State::CLI_CANCEL) {
-        if (Debugger.setBreakPoint(value)) {
+        if (Debugger.breakPoints().set(value)) {
             cli.println("set");
         } else {
             cli.println("full");
         }
-        Debugger.printBreakPoints();
+        Debugger.breakPoints().print();
     }
     printPrompt();
 }
@@ -551,9 +554,9 @@ void handleSetBreak(uint32_t value, uintptr_t extra, State state) {
 void handleClearBreak(char *line, uintptr_t extra, State state) {
     if (state != State::CLI_CANCEL) {
         const auto index = atoi(str_buffer);
-        if (Debugger.clearBreakPoint(index)) {
+        if (Debugger.breakPoints().clear(index)) {
             cli.println(" cleared");
-            Debugger.printBreakPoints();
+            Debugger.breakPoints().print();
         } else {
             cli.println();
         }
@@ -643,7 +646,7 @@ void Debugger::exec(char c) {
         return;
     case 'b':
         cli.println("Break points");
-        if (printBreakPoints()) {
+        if (breakPoints().print()) {
             cli.print("clear? ");
             cli.readLine(handleClearBreak, 0, str_buffer, sizeof(str_buffer));
             return;

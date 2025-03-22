@@ -11,13 +11,12 @@ struct MemsTms9900 : DmaMemory {
     uint32_t maxAddr() const override { return _max_addr; }
     uint16_t read(uint32_t addr) const override;
     void write(uint32_t addr, uint16_t data) const override;
-    uint16_t get(uint32_t addr, const char *space = nullptr) const override;
+
+    uint16_t get(uint32_t addr, const char * = nullptr) const override;
     void put(uint32_t addr, uint16_t data,
-            const char *space = nullptr) const override;
-    uint16_t get_inst(uint32_t addr) const override { return read16(addr); }
-    void put_inst(uint32_t addr, uint16_t data) const override {
-        write16(addr, data);
-    }
+            const char * = nullptr) const override;
+    uint16_t get_inst(uint32_t addr) const override;
+    void put_inst(uint32_t addr, uint16_t data) const override;
 
     uint16_t vec_nmi() const { return maxAddr() - 3; }
 

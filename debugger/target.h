@@ -33,7 +33,11 @@ struct Target {
     void negateInt(uint8_t name = 0) const;
 
     uint32_t nextIp() const { return _regs->nextIp(); }
+
+    /* Read and write instruction code for break point */
     void setBreakPoint(uint32_t addr) const { _pins->setBreakInst(addr); }
+    uint16_t getInst(uint32_t addr) const;
+    void putInst(uint32_t addr, uint16_t data) const;
 
     void printRegisters(bool dis = true) const;
     uint_fast8_t validRegister(const char *word, uint32_t &max) const;
@@ -42,14 +46,13 @@ struct Target {
 
     uint32_t maxAddr() const;
     uint32_t assemble(uint32_t addr, const char *line) const;
-    uint32_t disassemble(uint32_t addr, uint8_t numInsn) const;
+    uint32_t disassemble(uint32_t addr, uint_fast8_t numInsn) const;
     void dumpMemory(
             uint32_t addr, uint16_t len, const char *spcae = nullptr) const;
-    uint16_t read_memory(uint32_t addr, const char *space = nullptr) const;
-    uint16_t get_inst(uint32_t addr) const;
-    void put_inst(uint32_t addr, uint16_t data) const;
-    void write_memory(uint32_t addr, const uint16_t *buffer, uint8_t len) const;
-    void write_code(uint32_t addr, const uint8_t *buffer, uint8_t len) const;
+    void writeMemory(uint32_t addr, const uint16_t *buffer, uint8_t len) const;
+    void writeCode(uint32_t byte_addr, const uint8_t *code, uint8_t len) const;
+
+    /* Set and prrint read only area */
     bool printRomArea() const;
     void setRomArea(uint32_t begin, uint32_t end) const;
 

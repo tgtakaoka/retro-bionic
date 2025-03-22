@@ -47,7 +47,8 @@ void RegsTms99105::print() const {
 
 void RegsTms99105::reset() {
     _modeValid = true;
-    RegsTms9900::reset();
+    _wp = _mems->read(tms9900::InstTms9900::VEC_RESET + 0);
+    _pc = _mems->read(tms9900::InstTms9900::VEC_RESET + 2);
 }
 
 void RegsTms99105::restore() {

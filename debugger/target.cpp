@@ -47,6 +47,14 @@ void Target::printCycles() const {
     _pins->printCycles();
 }
 
+uint16_t Target::getInst(uint32_t addr) const {
+    return _mems->get_inst(addr);
+}
+
+void Target::putInst(uint32_t addr, uint16_t data) const {
+    _mems->put_inst(addr, data);
+}
+
 void Target::printRegisters(bool dis) const {
     _regs->print();
     if (dis)
@@ -73,7 +81,7 @@ uint32_t Target::assemble(uint32_t addr, const char *line) const {
     return _mems->assemble(addr, line);
 }
 
-uint32_t Target::disassemble(uint32_t addr, uint8_t numInsn) const {
+uint32_t Target::disassemble(uint32_t addr, uint_fast8_t numInsn) const {
     return _mems->disassemble(addr, numInsn);
 }
 
@@ -81,38 +89,43 @@ void Target::dumpMemory(uint32_t addr, uint16_t len, const char *space) const {
     _mems->dumpMemory(addr, len, space);
 }
 
-uint16_t Target::read_memory(uint32_t addr, const char *space) const {
-    return _mems->get(addr, space);
-}
-
-uint16_t Target::get_inst(uint32_t addr) const {
-    return _mems->get_inst(addr);
-}
-
-void Target::put_inst(uint32_t addr, uint16_t data) const {
-    _mems->put_inst(addr, data);
-}
-
-void Target::write_memory(
+void Target::writeMemory(
         uint32_t addr, const uint16_t *buffer, uint8_t len) const {
-    for (auto i = 0; i < len; ++i)
-        _mems->put(addr++, buffer[i]);
-}
-
-void Target::write_code(
-        uint32_t addr, const uint8_t *buffer, uint8_t len) const {
-    const auto unit = addressUnit();
-    for (auto i = 0; i < len; i += unit) {
-        uint16_t code = buffer[i];
-        if (unit == 2) {
+    const auto wordAccess = _mems->wordAccess() && addressUnit() == 1;
+    for (auto i = 0; i < len;) {
+        auto data = buffer[i++];
+        if (wordAccess) {
+            const auto next = (i < len) ? buffer[i++] : 0;
             if (endian() == ENDIAN_BIG) {
-                code <<= 8;
-                code |= buffer[i + 1];
+                data <<= 8;
+                data |= next;
             } else {
-                code |= buffer[i + 1] << 8;
+                data |= next;
             }
         }
-        _mems->put(addr++, code);
+        _mems->put(addr++, data);
+    }
+}
+
+void Target::writeCode(
+        uint32_t byte_addr, const uint8_t *code, uint8_t len) const {
+    const auto unit = addressUnit();
+    auto addr = byte_addr / unit;
+    const auto wordAccess = _mems->wordAccess() && unit == 1;
+    for (auto i = 0; i < len;) {
+        uint16_t data = code[i++];
+        if (unit == 2 || wordAccess) {
+            const uint16_t next = (i < len) ? code[i++] : 0;
+            if (endian() == ENDIAN_BIG) {
+                data <<= 8;
+                data |= next;
+            } else {
+                data |= next << 8;
+            }
+        }
+        _mems->put(addr++, data);
+        if (wordAccess)
+            addr++;
     }
 }
 
