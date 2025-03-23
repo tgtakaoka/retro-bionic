@@ -1,6 +1,5 @@
 #include "regs_tms99105.h"
 #include "debugger.h"
-#include "inst_tms9900.h"
 #include "macro_tms99110.h"
 #include "pins_tms99105.h"
 
@@ -46,9 +45,8 @@ void RegsTms99105::print() const {
 }
 
 void RegsTms99105::reset() {
+    RegsTms9900::reset();
     _modeValid = true;
-    _wp = _mems->read(tms9900::InstTms9900::VEC_RESET + 0);
-    _pc = _mems->read(tms9900::InstTms9900::VEC_RESET + 2);
 }
 
 void RegsTms99105::restore() {

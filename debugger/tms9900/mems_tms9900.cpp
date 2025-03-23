@@ -5,10 +5,8 @@
 namespace debugger {
 namespace tms9900 {
 
-MemsTms9900::MemsTms9900(uint8_t addr_bits, Devs *devs)
-    : DmaMemory(Endian::ENDIAN_BIG),
-      _max_addr((UINT32_C(1) << addr_bits) - 1),
-      _devs(devs) {
+MemsTms9900::MemsTms9900(Devs *devs)
+    : DmaMemory(Endian::ENDIAN_BIG), _devs(devs) {
 #ifdef WITH_ASSEMBLER
     _assembler = new libasm::tms9900::AsmTms9900();
 #endif
@@ -18,31 +16,16 @@ MemsTms9900::MemsTms9900(uint8_t addr_bits, Devs *devs)
 }
 
 uint16_t MemsTms9900::read(uint32_t addr) const {
-    return _devs->isSelected(addr) ? _devs->read(addr) : read_byte(addr);
+    return _devs->isSelected(addr) ? uint16(_devs->read(addr), 0)
+                                   : read_word(addr / 2);
 }
 
 void MemsTms9900::write(uint32_t addr, uint16_t data) const {
     if (_devs->isSelected(addr)) {
-        _devs->write(addr, data);
+        _devs->write(addr, hi(data));
     } else {
-        write_byte(addr, data);
+        write_word(addr / 2, data);
     }
-}
-
-uint16_t MemsTms9900::get(uint32_t addr, const char *space) const {
-    return read(addr);
-}
-
-void MemsTms9900::put(uint32_t addr, uint16_t data, const char *space) const {
-    write(addr, data);
-}
-
-uint16_t MemsTms9900::get_inst(uint32_t addr) const {
-    return read16(addr);
-}
-
-void MemsTms9900::put_inst(uint32_t addr, uint16_t data) const {
-    write16(addr, data);
 }
 
 }  // namespace tms9900

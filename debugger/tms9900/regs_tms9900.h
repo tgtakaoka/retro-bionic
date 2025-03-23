@@ -8,10 +8,10 @@
 namespace debugger {
 namespace tms9900 {
 
-struct PinsTms9900;
+struct PinsTms9900Base;
 
 struct RegsTms9900 : Regs {
-    RegsTms9900(PinsTms9900 *pins, Mems *mems);
+    RegsTms9900(PinsTms9900Base *pins, Mems *mems);
 
     const char *cpu() const override;
 
@@ -30,7 +30,7 @@ struct RegsTms9900 : Regs {
     virtual void write_reg(uint8_t i, uint16_t data) const;
 
 protected:
-    PinsTms9900 *const _pins;
+    PinsTms9900Base *const _pins;
     Mems *const _mems;
 
     uint16_t _wp;

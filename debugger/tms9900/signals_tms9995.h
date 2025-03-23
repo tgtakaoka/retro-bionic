@@ -1,11 +1,11 @@
 #ifndef __SIGNALS_TMS9995_H__
 #define __SIGNALS_TMS9995_H__
 
-#include "signals_tms9900.h"
+#include "signals_tms9900_base.h"
 
 namespace debugger {
 namespace tms9995 {
-struct Signals final : SignalsBase<Signals, tms9900::Signals> {
+struct SignalsTms9995 final : SignalsBase<SignalsTms9995, tms9900::Signals> {
     void getAddress();
     void getControl();
     void getData();

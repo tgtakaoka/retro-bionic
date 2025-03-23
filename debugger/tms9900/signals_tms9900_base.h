@@ -1,5 +1,5 @@
-#ifndef __SIGNALS_TMS9900_H__
-#define __SIGNALS_TMS9900_H__
+#ifndef __SIGNALS_TMS9900_BASE_H__
+#define __SIGNALS_TMS9900_BASE_H__
 
 #include "signals.h"
 
@@ -12,12 +12,15 @@ struct Signals : SignalsBase<Signals> {
     bool fetch() const;
     void clearFetch();
     bool data16() const;
+    bool hasBst() const;
 
     void print() const;
 
 protected:
     uint8_t cntl() const { return _signals[0]; }
     uint8_t &cntl() { return _signals[0]; }
+    uint8_t bst() const { return _signals[1]; }
+    uint8_t &bst() { return _signals[1]; }
 };
 }  // namespace tms9900
 }  // namespace debugger

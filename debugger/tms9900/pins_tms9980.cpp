@@ -3,7 +3,7 @@
 #include "devs_tms9900.h"
 #include "digital_bus.h"
 #include "mems_tms9980.h"
-#include "regs_tms9900.h"
+#include "regs_tms9980.h"
 #include "signals_tms9980.h"
 
 namespace debugger {
@@ -145,7 +145,7 @@ void assert_ready() {
 PinsTms9980::PinsTms9980() {
     _devs = new tms9900::DevsTms9900();
     _mems = new MemsTms9980(_devs);
-    _regs = new tms9900::RegsTms9900(this, _mems);
+    _regs = new RegsTms9980(this, _mems);
 }
 
 void PinsTms9980::resetPins() {
@@ -170,8 +170,8 @@ void PinsTms9980::resetPins() {
     _regs->reset();
 }
 
-tms9900::Signals *PinsTms9980::prepareCycle() const {
-    auto s = Signals::put();
+Signals *PinsTms9980::prepareCycle() {
+    auto s = SignalsTms9980::put();
     // phi1
     ckin_cycle();
     // phi2
@@ -195,8 +195,8 @@ tms9900::Signals *PinsTms9980::prepareCycle() const {
     return s;
 }
 
-tms9900::Signals *PinsTms9980::completeCycle(tms9900::Signals *_s) const {
-    auto s = static_cast<Signals *>(_s);
+Signals *PinsTms9980::completeCycle(Signals *_s) {
+    auto s = static_cast<SignalsTms9980 *>(_s);
     // phi1
     ckin_lo();
     delayNanoseconds(ckin_lo_phi1);
@@ -250,8 +250,8 @@ tms9900::Signals *PinsTms9980::completeCycle(tms9900::Signals *_s) const {
     return s;
 }
 
-tms9900::Signals *PinsTms9980::resumeCycle(uint16_t) const {
-    auto s = Signals::put();
+Signals *PinsTms9980::resumeCycle(uint16_t) {
+    auto s = SignalsTms9980::put();
     s->getLowAddr();
     s->getHighAddr();
     assert_ready();

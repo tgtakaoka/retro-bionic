@@ -1,28 +1,24 @@
-#ifndef __REGS_TMS9995_H__
-#define __REGS_TMS9995_H__
+#ifndef __REGS_TMS9980_H__
+#define __REGS_TMS9980_H__
 
-#include "regs_tms9980.h"
+#include "regs_tms9900.h"
 
 namespace debugger {
-namespace tms9995 {
+namespace tms9980 {
 
-struct PinsTms9995;
+using tms9900::PinsTms9900Base;
 
-struct RegsTms9995 final : tms9980::RegsTms9980 {
-    RegsTms9995(PinsTms9995 *pins, Mems *mems);
+struct RegsTms9980 : tms9900::RegsTms9900 {
+    RegsTms9980(tms9900::PinsTms9900Base *pins, Mems *mems);
 
     const char *cpu() const override;
-
     void reset() override;
-    void save() override;
-    void restore() override;
 
-    void breakPoint() override;
     uint16_t read_reg(uint8_t i) const override;
     void write_reg(uint8_t i, uint16_t data) const override;
 };
 
-}  // namespace tms9995
+}  // namespace tms9980
 }  // namespace debugger
 #endif
 

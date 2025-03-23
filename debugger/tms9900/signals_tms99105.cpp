@@ -6,45 +6,45 @@
 namespace debugger {
 namespace tms99105 {
 
-void Signals::getAddress() {
+void SignalsTms99105::getAddress() {
     addr = busRead(ADDR);
 }
 
-void Signals::getControl() {
+void SignalsTms99105::getControl() {
     // CNTL_MEM is active low
     // CNTL_RW is active high (R/#W)
     // CNTL_IAQ is active high
-    cntl() = busRead(CNTL) | CNTL_16BIT;
+    cntl() = busRead(CNTL) | CNTL_16BIT | CNTL_BST;
     rd() = digitalReadFast(PIN_RD);
     bst() = busRead(BST) | (cntl() & CNTL_MEMEN);
     if (bst() == IAQ)
         cntl() |= CNTL_IAQ;
 }
 
-bool Signals::writeEnable() const {
+bool SignalsTms99105::writeEnable() const {
     // CNTL_WE is active low
     return (cntl() & CNTL_WE) == 0;
 }
 
-bool Signals::readEnable() const {
+bool SignalsTms99105::readEnable() const {
     // #RD is active low
     return rd() == 0;
 }
 
-bool Signals::macrostore() const {
+bool SignalsTms99105::macrostore() const {
     return (bst() & 7) == AUMSL;
 }
 
-void Signals::getData() {
+void SignalsTms99105::getData() {
     data = busRead(DATA);
 }
 
-void Signals::outData() const {
+void SignalsTms99105::outData() const {
     busWrite(DATA, data);
     busMode(DATA, OUTPUT);
 }
 
-void Signals::inputMode() const {
+void SignalsTms99105::inputMode() const {
     busMode(DATA, INPUT);
 }
 
