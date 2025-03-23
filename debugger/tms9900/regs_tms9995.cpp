@@ -7,14 +7,14 @@ namespace debugger {
 namespace tms9995 {
 
 RegsTms9995::RegsTms9995(PinsTms9995 *pins, Mems *mems)
-    : RegsTms9900(pins, mems) {}
+    : RegsTms9980(pins, mems) {}
 
 const char *RegsTms9995::cpu() const {
     return "TMS9995";
 }
 
 void RegsTms9995::reset() {
-    RegsTms9900::reset();
+    RegsTms9980::reset();
     auto p = pins<PinsTms9995>();
     p->internal_write16(0xFFFC, 0x1234);  // NMI WP
     p->internal_write16(0xFFFE, 0x5678);  // NMI PC
@@ -56,7 +56,7 @@ uint16_t RegsTms9995::read_reg(uint8_t i) const {
     auto p = pins<PinsTms9995>();
     if (p->is_internal(addr))
         return p->internal_read16(addr);
-    return RegsTms9900::read_reg(i);
+    return RegsTms9980::read_reg(i);
 }
 
 void RegsTms9995::write_reg(uint8_t i, uint16_t data) const {
@@ -65,7 +65,7 @@ void RegsTms9995::write_reg(uint8_t i, uint16_t data) const {
     if (p->is_internal(addr)) {
         p->internal_write16(addr, data);
     } else {
-        RegsTms9900::write_reg(i, data);
+        RegsTms9980::write_reg(i, data);
     }
 }
 

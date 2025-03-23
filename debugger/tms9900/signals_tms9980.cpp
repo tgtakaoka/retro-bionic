@@ -6,31 +6,31 @@
 namespace debugger {
 namespace tms9980 {
 
-void Signals::getLowAddr() {
+void SignalsTms9980::getLowAddr() {
     addr = busRead(AL);
 }
 
-void Signals::getHighAddr() {
+void SignalsTms9980::getHighAddr() {
     addr |= busRead(AM) | busRead(AH);
 }
 
-void Signals::getControl() {
+void SignalsTms9980::getControl() {
     // CNTL_MEMEN is active low
     // CNTL_DBIN is active high
     // CNTL_IAQ is active high
     cntl() = busRead(CNTL);
 }
 
-void Signals::getData() {
+void SignalsTms9980::getData() {
     data = busRead(DATA);
 }
 
-void Signals::outData() const {
+void SignalsTms9980::outData() const {
     busWrite(DATA, data);
     busMode(DATA, OUTPUT);
 }
 
-void Signals::inputMode() const {
+void SignalsTms9980::inputMode() const {
     busMode(DATA, INPUT);
 }
 

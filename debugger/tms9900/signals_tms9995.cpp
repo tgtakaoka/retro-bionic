@@ -6,27 +6,27 @@
 namespace debugger {
 namespace tms9995 {
 
-void Signals::getAddress() {
+void SignalsTms9995::getAddress() {
     addr = busRead(AL) | busRead(AM) | busRead(AH);
 }
 
-void Signals::getControl() {
+void SignalsTms9995::getControl() {
     // CNTL_MEMEN is active low
     // CNTL_DBIN is active low
     // CNTL_IAQ is active high
     cntl() = busRead(CNTL) ^ CNTL_DBIN;
 }
 
-void Signals::getData() {
+void SignalsTms9995::getData() {
     data = busRead(DATA);
 }
 
-void Signals::outData() const {
+void SignalsTms9995::outData() const {
     busWrite(DATA, data);
     busMode(DATA, OUTPUT);
 }
 
-void Signals::inputMode() const {
+void SignalsTms9995::inputMode() const {
     busMode(DATA, INPUT);
 }
 
