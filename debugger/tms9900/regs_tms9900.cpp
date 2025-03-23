@@ -1,7 +1,7 @@
 #include "regs_tms9900.h"
 #include "debugger.h"
 #include "inst_tms9900.h"
-#include "pins_tms9900.h"
+#include "pins_tms9900_base.h"
 
 namespace debugger {
 namespace tms9900 {
@@ -15,7 +15,7 @@ const char line3[] = "R8=xxxx  R9=xxxx R10=xxxx R11=xxxx R12=xxxx R13=xxxx R14=x
 // clang-format on
 }  // namespace
 
-RegsTms9900::RegsTms9900(PinsTms9900 *pins, Mems *mems)
+RegsTms9900::RegsTms9900(PinsTms9900Base *pins, Mems *mems)
     : _pins(pins),
       _mems(mems),
       _buffer1(line1),
@@ -46,8 +46,8 @@ void RegsTms9900::print() const {
 }
 
 void RegsTms9900::reset() {
-    _wp = _mems->read16(InstTms9900::VEC_RESET + 0);
-    _pc = _mems->read16(InstTms9900::VEC_RESET + 2);
+    _wp = _mems->read(InstTms9900::VEC_RESET + 0);
+    _pc = _mems->read(InstTms9900::VEC_RESET + 2);
 }
 
 void RegsTms9900::restore() {
@@ -85,11 +85,11 @@ void RegsTms9900::breakPoint() {
 }
 
 uint16_t RegsTms9900::read_reg(uint8_t i) const {
-    return _mems->read16(_wp + i * 2);
+    return _mems->read(_wp + i * 2);
 }
 
 void RegsTms9900::write_reg(uint8_t i, uint16_t data) const {
-    _mems->write16(_wp + i * 2, data);
+    _mems->write(_wp + i * 2, data);
 }
 
 void RegsTms9900::helpRegisters() const {

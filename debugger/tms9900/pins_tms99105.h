@@ -57,12 +57,14 @@
 #define PIN_RESET 28   /* P8.18 */
 #define PIN_HOLD 30    /* P8.23 */
 
-#include "pins_tms9900.h"
+#include "pins_tms9900_base.h"
 
 namespace debugger {
 namespace tms99105 {
 
-struct PinsTms99105 final : tms9900::PinsTms9900 {
+using tms9900::Signals;
+
+struct PinsTms99105 final : tms9900::PinsTms9900Base {
     PinsTms99105();
 
     void resetPins() override;
@@ -75,17 +77,17 @@ struct PinsTms99105 final : tms9900::PinsTms9900 {
 private:
     uint16_t _addr;
 
-    tms9900::Signals *pauseCycle() override;
-    tms9900::Signals *resumeCycle(uint16_t pc = 0) const override;
-    tms9900::Signals *prepareCycle() const override;
-    tms9900::Signals *completeCycle(tms9900::Signals *s) const override;
+    Signals *pauseCycle() override;
+    Signals *resumeCycle(uint16_t pc = 0) override;
+    Signals *prepareCycle() override;
+    Signals *completeCycle(tms9900::Signals *s) override;
 
     void checkCpuType();
 };
 
 }  // namespace tms99105
 }  // namespace debugger
-#endif /* __PINS_H__ */
+#endif /* __PINS_TMS99105_H__ */
 
 // Local Variables:
 // mode: c++

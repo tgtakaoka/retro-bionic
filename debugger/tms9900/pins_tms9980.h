@@ -61,12 +61,14 @@
 #define PIN_HOLDA 28 /* P8.18 */
 #define PIN_HOLD 30  /* P8.23 */
 
-#include "pins_tms9900.h"
+#include "pins_tms9900_base.h"
 
 namespace debugger {
 namespace tms9980 {
 
-struct PinsTms9980 final : tms9900::PinsTms9900 {
+using tms9900::Signals;
+
+struct PinsTms9980 final : tms9900::PinsTms9900Base {
     PinsTms9980();
 
     void resetPins() override;
@@ -77,14 +79,14 @@ struct PinsTms9980 final : tms9900::PinsTms9900 {
     void captureWrites(uint16_t *buf, uint_fast8_t len) override;
 
 private:
-    tms9900::Signals *prepareCycle() const override;
-    tms9900::Signals *completeCycle(tms9900::Signals *s) const override;
-    tms9900::Signals *resumeCycle(uint16_t pc = 0) const override;
+    Signals *resumeCycle(uint16_t pc = 0) override;
+    Signals *prepareCycle() override;
+    Signals *completeCycle(Signals *s) override;
 };
 
 }  // namespace tms9980
 }  // namespace debugger
-#endif /* __PINS_H__ */
+#endif /* __PINS_TMS9980_H__ */
 
 // Local Variables:
 // mode: c++

@@ -1,15 +1,16 @@
-#ifndef __PINS_TMS9900_H__
-#define __PINS_TMS9900_H__
+#ifndef __PINS_TMS9900_BASE_H__
+#define __PINS_TMS9900_BASE_H__
 
 #define CNTL_MEMEN 0x1  /* CNTL0; active low */
 #define CNTL_DBIN 0x2   /* CNTL1; active high */
 #define CNTL_WE 0x4     /* CNTL2; active low */
 #define CNTL_IAQ 0x8    /* CNTL3; active high */
 #define CNTL_16BIT 0x10 /* CNTL4 */
+#define CNTL_BST 0x20   /* CNTL5 */
 #define PIN_READY 31    /* P8.22; active high */
 
 #include "pins.h"
-#include "signals_tms9900.h"
+#include "signals_tms9900_base.h"
 
 namespace debugger {
 namespace tms9900 {
@@ -33,7 +34,7 @@ enum IntrName : uint8_t {
     INTR_INT15 = 0x3C,
 };
 
-struct PinsTms9900 : Pins {
+struct PinsTms9900Base : Pins {
     void printCycles() override;
 
     void idle() override;
@@ -49,9 +50,9 @@ protected:
     void loop();
 
     virtual Signals *pauseCycle();
-    virtual Signals *resumeCycle(uint16_t pc = 0) const = 0;
-    virtual Signals *prepareCycle() const = 0;
-    virtual Signals *completeCycle(Signals *s) const = 0;
+    virtual Signals *resumeCycle(uint16_t pc = 0) = 0;
+    virtual Signals *prepareCycle() = 0;
+    virtual Signals *completeCycle(Signals *s) = 0;
     void suspend(uint16_t pc);
 
     void disassembleCycles();
@@ -59,7 +60,7 @@ protected:
 
 }  // namespace tms9900
 }  // namespace debugger
-#endif /* __PINS_H__ */
+#endif /* __PINS_TMS9900_BASE_H__ */
 
 // Local Variables:
 // mode: c++

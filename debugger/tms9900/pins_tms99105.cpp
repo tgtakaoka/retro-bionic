@@ -172,8 +172,8 @@ void PinsTms99105::resetPins() {
     _regs->reset();
 }
 
-tms9900::Signals *PinsTms99105::prepareCycle() const {
-    auto s = Signals::put();
+Signals *PinsTms99105::prepareCycle() {
+    auto s = SignalsTms99105::put();
     // phi2
     noInterrupts();
     clkin_cycle_lo();
@@ -185,8 +185,8 @@ tms9900::Signals *PinsTms99105::prepareCycle() const {
     return s;
 }
 
-tms9900::Signals *PinsTms99105::completeCycle(tms9900::Signals *_s) const {
-    auto s = static_cast<Signals *>(_s);
+Signals *PinsTms99105::completeCycle(Signals *_s) {
+    auto s = static_cast<SignalsTms99105 *>(_s);
     s->getControl();
     if (s->readEnable()) {
         // phi4
@@ -237,14 +237,14 @@ tms9900::Signals *PinsTms99105::completeCycle(tms9900::Signals *_s) const {
     return s;
 }
 
-tms9900::Signals *PinsTms99105::pauseCycle() {
-    auto s = PinsTms9900::pauseCycle();
+Signals *PinsTms99105::pauseCycle() {
+    auto s = PinsTms9900Base::pauseCycle();
     _addr = s->addr;
     return s;
 }
 
-tms9900::Signals *PinsTms99105::resumeCycle(uint16_t pc) const {
-    auto s = Signals::put();
+Signals *PinsTms99105::resumeCycle(uint16_t pc) {
+    auto s = SignalsTms99105::put();
     s->addr = pc ? pc : _addr;
     s->getControl();
     assert_ready();
@@ -287,7 +287,7 @@ void PinsTms99105::checkCpuType() {
             assertInt(tms9900::INTR_NMI);
             assert_nmi = false;
         }
-        if (static_cast<tms99105::Signals *>(s)->writeEnable())
+        if (static_cast<SignalsTms99105 *>(s)->writeEnable())
             writes++;
         DEBUG(cli.print("@@ checkCpuType: "));
         DEBUG(s->print());

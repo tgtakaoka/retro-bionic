@@ -1,9 +1,8 @@
-#include "pins_tms9900.h"
+#include "pins_tms9900_base.h"
 #include "debugger.h"
 #include "inst_tms9900.h"
 #include "mems_tms9900.h"
 #include "regs_tms9900.h"
-#include "signals_tms9900.h"
 
 #define DEBUG(e) e
 // #define DEBUG(e)
@@ -23,17 +22,17 @@ inline void negate_ready() {
 
 }  // namespace
 
-Signals *PinsTms9900::pauseCycle() {
+Signals *PinsTms9900Base::pauseCycle() {
     negate_ready();
     return prepareCycle();
 }
 
-void PinsTms9900::idle() {
+void PinsTms9900Base::idle() {
     completeCycle(Signals::put());
     prepareCycle();
 }
 
-void PinsTms9900::loop() {
+void PinsTms9900Base::loop() {
     auto s = resumeCycle();
     while (true) {
         completeCycle(s);
@@ -44,7 +43,7 @@ void PinsTms9900::loop() {
             return;
         }
         constexpr auto vec_xop15 = InstTms9900::VEC_XOP15;
-        if (s->addr == vec_xop15 && _mems->read16(vec_xop15) == vec_xop15) {
+        if (s->addr == vec_xop15 && _mems->get_inst(vec_xop15) == vec_xop15) {
             for (auto i = 1; i < 6; ++i) {
                 const auto xop = s->prev(i);
                 if (xop->fetch() &&
@@ -60,7 +59,7 @@ void PinsTms9900::loop() {
     }
 }
 
-void PinsTms9900::run() {
+void PinsTms9900Base::run() {
     _regs->restore();
     Signals::resetCycles();
     saveBreakInsts();
@@ -70,7 +69,7 @@ void PinsTms9900::run() {
     disassembleCycles();
 }
 
-void PinsTms9900::suspend(uint16_t pc) {
+void PinsTms9900Base::suspend(uint16_t pc) {
     bool assert_nmi = true;
     auto s = resumeCycle(pc);
     while (true) {
@@ -88,12 +87,12 @@ void PinsTms9900::suspend(uint16_t pc) {
     Signals::discard(s);
 }
 
-bool PinsTms9900::rawStep() {
+bool PinsTms9900Base::rawStep() {
     suspend(_regs->nextIp());
     return true;
 }
 
-bool PinsTms9900::step(bool show) {
+bool PinsTms9900Base::step(bool show) {
     Signals::resetCycles();
     _regs->restore();
     if (show)
@@ -107,11 +106,11 @@ bool PinsTms9900::step(bool show) {
     return false;
 }
 
-void PinsTms9900::setBreakInst(uint32_t addr) const {
+void PinsTms9900Base::setBreakInst(uint32_t addr) const {
     _mems->put_inst(addr, InstTms9900::XOP15);
 }
 
-void PinsTms9900::printCycles() {
+void PinsTms9900Base::printCycles() {
     const auto g = Signals::get();
     const auto cycles = g->diff(Signals::put());
     for (auto i = 0; i < cycles; ++i) {
@@ -120,20 +119,21 @@ void PinsTms9900::printCycles() {
     }
 }
 
-void PinsTms9900::disassembleCycles() {
+void PinsTms9900Base::disassembleCycles() {
     const auto g = Signals::get();
     const auto cycles = g->diff(Signals::put());
+    const auto unit = _mems->wordAccess() ? 2 : 1;
     for (auto i = 0; i < cycles;) {
         const auto s = g->next(i);
         if (s->fetch()) {
             const auto len = _mems->disassemble(s->addr, 1) - s->addr;
             // print bus cycles other than instruction bytes
-            for (uint_fast8_t j = 1; j < len; j++) {
+            for (uint_fast8_t j = 1; j < len / unit; j++) {
                 const auto t = s->next(j);
                 if (t->addr < s->addr || t->addr >= s->addr + len)
                     t->print();
             }
-            i += len;
+            i += len / unit;
         } else {
             s->print();
             ++i;

@@ -1,8 +1,8 @@
-#include "signals_tms9900.h"
+#include "signals_tms9900_base.h"
 #include "char_buffer.h"
 #include "debugger.h"
 #include "digital_bus.h"
-#include "pins_tms9900.h"
+#include "pins_tms9900_base.h"
 
 namespace debugger {
 namespace tms9900 {
@@ -40,8 +40,20 @@ bool Signals::data16() const {
     return (cntl() & CNTL_16BIT) != 0;
 }
 
+bool Signals::hasBst() const {
+    return (cntl() & CNTL_BST) != 0;
+}
+
 void Signals::print() const {
     // cli.printDec(pos(), -4);
+    // if (read()) {
+    //     cli.print(readMemory() ? 'r' : 'i');
+    // } else if (write()) {
+    //     cli.print(writeMemory() ? 'w' : 'c');
+    // } else {
+    //     cli.print(' ');
+    // }
+    // cli.print(' ');
     //                              0123456789012345
     static constexpr char line[] = "R A=xxxx D=xxxx ";
     static auto &buffer = *new CharBuffer(line);
@@ -54,24 +66,6 @@ void Signals::print() const {
     } else {
         buffer[0] = ' ';
     }
-    static const char *const bst[] = {
-            "SOPL",
-            "AUMSL",
-            "DOP",
-            "WP",
-            "IOP",
-            "RESET",
-            "WS",
-            "MID",
-            "SOP",
-            "AUMS",
-            "INTA",
-            "ST",
-            "IAQ",
-            "IO",
-            "GM",
-            "HOLDA",
-    };
     buffer.hex16(4, addr);
     if (data16()) {
         buffer.hex16(11, data);
@@ -80,8 +74,27 @@ void Signals::print() const {
         buffer[13] = 0;
     }
     cli.print(buffer);
-    if (data16())
-        cli.print(bst[_signals[1] & 0xF]);
+    if (hasBst()) {
+        static const char *const BST_NAME[] = {
+                "SOPL",
+                "AUMSL",
+                "DOP",
+                "WP",
+                "IOP",
+                "RESET",
+                "WS",
+                "MID",
+                "SOP",
+                "AUMS",
+                "INTA",
+                "ST",
+                "IAQ",
+                "IO",
+                "GM",
+                "HOLDA",
+        };
+        cli.print(BST_NAME[bst() & 0xF]);
+    }
     cli.println();
 }
 

@@ -175,8 +175,8 @@ void PinsTms9995::resetPins() {
     _regs->reset();
 }
 
-tms9900::Signals *PinsTms9995::prepareCycle() const {
-    auto s = Signals::put();
+Signals *PinsTms9995::prepareCycle() {
+    auto s = SignalsTms9995::put();
     // phi2
     clkin_cycle();
     noInterrupts();
@@ -188,8 +188,8 @@ tms9900::Signals *PinsTms9995::prepareCycle() const {
     return s;
 }
 
-tms9900::Signals *PinsTms9995::completeCycle(tms9900::Signals *_s) const {
-    auto s = static_cast<Signals *>(_s);
+Signals *PinsTms9995::completeCycle(Signals *_s) {
+    auto s = static_cast<SignalsTms9995 *>(_s);
     s->getControl();
     if (s->read()) {
         // phi4
@@ -230,8 +230,8 @@ tms9900::Signals *PinsTms9995::completeCycle(tms9900::Signals *_s) const {
     return s;
 }
 
-tms9900::Signals *PinsTms9995::resumeCycle(uint16_t) const {
-    auto s = Signals::put();
+Signals *PinsTms9995::resumeCycle(uint16_t) {
+    auto s = SignalsTms9995::put();
     s->getAddress();
     s->getControl();
     assert_ready();

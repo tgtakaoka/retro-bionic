@@ -2,7 +2,6 @@
 #include <string.h>
 #include "debugger.h"
 #include "mc6850.h"
-#include "pins_tms9900.h"
 
 namespace debugger {
 namespace tms9900 {
