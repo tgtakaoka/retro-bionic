@@ -8,7 +8,11 @@ namespace debugger {
 namespace tms9900 {
 
 struct MemsTms9900 : DmaMemory {
-    uint32_t maxAddr() const override { return _max_addr; }
+    MemsTms9900(Devs *devs);
+
+    uint32_t maxAddr() const override { return UINT16_MAX; }
+    bool wordAccess() const override { return true; }
+
     uint16_t read(uint32_t addr) const override;
     void write(uint32_t addr, uint16_t data) const override;
 
@@ -21,9 +25,6 @@ struct MemsTms9900 : DmaMemory {
     uint16_t vec_nmi() const { return maxAddr() - 3; }
 
 protected:
-    MemsTms9900(uint8_t addr_bits, Devs *devs);
-
-    const uint16_t _max_addr;
     Devs *_devs;
 };
 

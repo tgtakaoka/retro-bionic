@@ -7,14 +7,14 @@ namespace debugger {
 namespace tms9995 {
 
 RegsTms9995::RegsTms9995(PinsTms9995 *pins, Mems *mems)
-    : RegsTms9900(pins, mems) {}
+    : RegsTms9980(pins, mems) {}
 
 const char *RegsTms9995::cpu() const {
     return "TMS9995";
 }
 
 void RegsTms9995::reset() {
-    RegsTms9900::reset();
+    RegsTms9980::reset();
     auto p = pins<PinsTms9995>();
     p->internal_write16(0xFFFC, 0x1234);  // NMI WP
     p->internal_write16(0xFFFE, 0x5678);  // NMI PC
