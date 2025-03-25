@@ -1,6 +1,6 @@
 ;;; -*- mode: asm; mode: flyspell-prog; -*-
-
 ;;; MC6805
+        cpu     6805
 ;;; Condition Code Register (CC)
 CC_CARRY      equ  %00000001   ; set to 1 if carry occurred
 CC_ZERO       equ  %00000010   ; set to 1 if result is zero

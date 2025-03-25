@@ -10,6 +10,10 @@
 (2)       0 : =4                 CC_NEGATIVE   equ  %00000100   ; set to 1 if result is negative
 (2)       0 : =8                 CC_IRQ        equ  %00001000   ; if 1, IRQ is masked
 (2)       0 : =10                CC_HALF_CARRY equ  %00010000   ; if 1, decimal carry from least digit occurred
+(2)       0 :                    ;;; Vector
+(2)       0 : =FFFA              VEC_IRQ:        equ     $FFFA   ; External Interrupt
+(2)       0 : =FFFC              VEC_SWI:        equ     $FFFC   ; Software
+(2)       0 : =FFFE              VEC_RESET:      equ     $FFFE   ; Reset
 (1)       0 :                    ;;; MC68HC05C0
 (1)       0 :                            option  "pc-bits", 16
 (1)       0 :                    ;;; Vector
@@ -17,9 +21,6 @@
 (1)       0 : =FFF4              VEC_MFT:        equ     $FFF4   ; Multi-Function Timer
 (1)       0 : =FFF6              VEC_SCI:        equ     $FFF6   ; Serial Communications Interface
 (1)       0 : =FFF8              VEC_TIMER:      equ     $FFF8   ; 16-Bit Timer
-(1)       0 : =FFFA              VEC_IRQ:        equ     $FFFA   ; External Interrupt
-(1)       0 : =FFFC              VEC_SWI:        equ     $FFFC   ; Software
-(1)       0 : =FFFE              VEC_RESET:      equ     $FFFE   ; Reset
 (1)       0 :
 (1)       0 :                    ;;; Internal Register Area
 (1)       0 : =1                 PORTB:  equ     $01     ; Port B Data Register
@@ -87,7 +88,7 @@
          80 :                            rmb     rx_queue_size
          90 :
        FFF6 :                            org     VEC_SCI
-       FFF6 : 10 91                      fdb     isr_sci
+       FFF6 : 10 8E                      fdb     isr_sci
        FFF8 :
        FFFC :                            org     VEC_SWI
        FFFC : FF FC                      fdb     VEC_SWI         ; halt to system
@@ -99,7 +100,7 @@
        1000 :                    initialize:
        1000 : AE 80                      ldx     #rx_queue
        1002 : A6 10                      lda     #rx_queue_size
-       1004 : CD 10 39                   jsr     queue_init
+       1004 : CD 10 36                   jsr     queue_init
        1007 :                            ;; Initialize SCI
        1007 : 3F 15                      clr     SCCR1
        1009 : A6 5B                      lda     #(1<<SCBR_SCP_gp)|(3<<SCBR_SCT_gp)|(3<<SCBR_SCR_gp)
@@ -109,125 +110,122 @@
        1011 : 1A 16                      bset    SCCR2_RIE_bp,SCCR2 ; Enable Rx interrupt
        1013 : 10 1A                      bset    EICSR_IRQEL_bp,EICSR ; Negative-edge and level sensitive #IRQ
        1015 : 14 1A                      bset    EICSR_IRQEN_bp,EICSR ; Enable IRQ
-       1017 : 20 01                      bra     loop
-       1019 :
-       1019 : 8F                 wait:   wait
-       101A :                    loop:
-       101A : AE 80                      ldx     #rx_queue
-       101C : 9B                         sei                     ; Disable IRQ
-       101D : CD 10 70                   jsr     queue_remove
-       1020 : 9A                         cli                     ; Enable IRQ
-       1021 : 24 F6                      bcc     wait
-       1023 : 4D                         tsta
-       1024 : 27 0C                      beq     halt_to_system
-       1026 : AD 0B                      bsr     putchar
-       1028 : A1 0D                      cmp     #$0D            ; carriage return
-       102A : 26 EE                      bne     loop
-       102C : A6 0A                      lda     #$0A            ; newline
-       102E : AD 03                      bsr     putchar
-       1030 : 20 E8                      bra     loop
-       1032 :                    halt_to_system:
-       1032 : 83                         swi
-       1033 :
-       1033 :                    putchar:
-       1033 : 0F 17 FD                   brclr   SCSR_TDRE_bp,SCSR,putchar
-       1036 : B7 18                      sta     SCDR
-       1038 : 81                         rts
-       1039 :
-       1039 :                            include "queue.inc"
-(1)    1039 :                    ;;; [queue] queue structure
-(1)    1039 : =0                 queue_len:      equ     0       ; queue length
-(1)    1039 : =1                 queue_size:     equ     1       ; buffer size
-(1)    1039 : =2                 queue_put:      equ     2       ; queue put index
-(1)    1039 : =3                 queue_get:      equ     3       ; queue get index
-(1)    1039 : =4                 queue_buf:      equ     4       ; buffer start offset
-(1)    1039 :
-(1)    1039 :                    ;;; [queue] Initialize queue
-(1)    1039 :                    ;;; @param X queue work space pointer
-(1)    1039 :                    ;;; @param A queue work space size
-(1)    1039 :                    ;;; @clobber A
-(1)    1039 :                    queue_init:
-(1)    1039 : 7F                         clr     queue_len,x
-(1)    103A : 6F 02                      clr     queue_put,x
-(1)    103C : 6F 03                      clr     queue_get,x
-(1)    103E : A0 04                      sub     #queue_buf
-(1)    1040 : E7 01                      sta     queue_size,x
-(1)    1042 : 81                         rts
-(1)    1043 :
-(1)    1043 :                    ;;; [queue] Add an element to queue
-(1)    1043 :                    ;;; @param X queue work space pointer
-(1)    1043 :                    ;;; @param A an element
-(1)    1043 :                    ;;; @return CC.C 0 if queue is full
-(1)    1043 :                    queue_add_X:
-(1)    1043 :                            rmb     1               ; save X
-(1)    1044 :                    queue_add_A:
-(1)    1044 :                            rmb     1               ; save X
-(1)    1045 :                    queue_add:
-(1)    1045 : C7 10 44                   sta     queue_add_A     ; save A
-(1)    1048 : F6                         lda     queue_len,x
-(1)    1049 : E1 01                      cmp     queue_size,x
-(1)    104B : 24 1E                      bhs     queue_add_return ; carry is cleared
-(1)    104D : 7C                         inc     queue_len,x      ; increment queue length
-(1)    104E : E6 02                      lda     queue_put,x      ; 8 bits offset
-(1)    1050 : 4C                         inca
-(1)    1051 : E7 02                      sta     queue_put,x     ; update put pointer
-(1)    1053 : E1 01                      cmp     queue_size,x
-(1)    1055 : 25 02                      blo     queue_add_elem
-(1)    1057 : 6F 02                      clr     queue_put,x
-(1)    1059 :                    queue_add_elem:
-(1)    1059 : 4A                         deca                    ; restore put pointer
-(1)    105A : AB 04                      add     #queue_buf
-(1)    105C : CF 10 43                   stx     queue_add_X     ; save X
-(1)    105F : CB 10 43                   add     queue_add_X
-(1)    1062 : 97                         tax
-(1)    1063 : C6 10 44                   lda     queue_add_A
-(1)    1066 : F7                         sta     ,x              ; put element
-(1)    1067 : CE 10 43                   ldx     queue_add_X     ; restore X
-(1)    106A : 99                         sec                     ; set carry
-(1)    106B :                    queue_add_return:
-(1)    106B : C6 10 44                   lda     queue_add_A     ; restore A
-(1)    106E : 81                         rts
-(1)    106F :
-(1)    106F :                    ;;; [queue] Remove an element from queue
-(1)    106F :                    ;;; @param X queue work space pointer
-(1)    106F :                    ;;; @return A an element
-(1)    106F :                    ;;; @return CC.C 0 if queue is empty
-(1)    106F :                    queue_remove_X:
-(1)    106F :                            rmb     1
-(1)    1070 :                    queue_remove:
-(1)    1070 : 7D                         tst     queue_len,x
-(1)    1071 : 26 02                      bne     queue_remove_has_elem
-(1)    1073 : 98                         clc                     ; clear carry
-(1)    1074 : 81                         rts
-(1)    1075 :                    queue_remove_has_elem:
-(1)    1075 : 7A                         dec     queue_len,x     ; decrement queue length
-(1)    1076 : E6 03                      lda     queue_get,x     ; 8 bits offset
-(1)    1078 : 4C                         inca
-(1)    1079 : E7 03                      sta     queue_get,x     ; update get pointer
-(1)    107B : E1 01                      cmp     queue_size,x
-(1)    107D : 25 02                      blo     queue_remove_elem
-(1)    107F : 6F 03                      clr     queue_get,x
-(1)    1081 :                    queue_remove_elem:
-(1)    1081 : 4A                         deca                    ; restore get pointer
-(1)    1082 : AB 04                      add     #queue_buf
-(1)    1084 : CF 10 6F                   stx     queue_remove_X  ; save X
-(1)    1087 : CB 10 6F                   add     queue_remove_X
-(1)    108A : 97                         tax
-(1)    108B : F6                         lda     ,x              ; get element
-(1)    108C : CE 10 6F                   ldx     queue_remove_X  ; restore X
-(1)    108F : 99                         sec                     ; set carry
-(1)    1090 :                    queue_remove_return:
-(1)    1090 : 81                         rts
-(1)    1091 :
-(1)    1091 :                    ;;; Local Variables:
-(1)    1091 :                    ;;; mode: asm
-(1)    1091 :                    ;;; End:
-(1)    1091 :                    ;;; vim: set ft=asm et ts=4 sw=4:
-       1091 :
-       1091 :                    isr_sci:
-       1091 : 0B 17 07                   brclr   SCSR_RDRF_bp,SCSR,isr_sci_exit
-       1094 : B6 18                      lda     SCDR
-       1096 : AE 80                      ldx     #rx_queue
-       1098 : CD 10 45                   jsr     queue_add
-       109B :                    isr_sci_exit:
-       109B : 80                         rti
+       1017 :                    loop:
+       1017 : AE 80                      ldx     #rx_queue
+       1019 : 9B                         sei                     ; Disable IRQ
+       101A : CD 10 6D                   jsr     queue_remove
+       101D : 9A                         cli                     ; Enable IRQ
+       101E : 24 F7                      bcc     loop
+       1020 : 4D                         tsta
+       1021 : 27 0C                      beq     halt_to_system
+       1023 : AD 0B                      bsr     putchar
+       1025 : A1 0D                      cmp     #$0D            ; carriage return
+       1027 : 26 EE                      bne     loop
+       1029 : A6 0A                      lda     #$0A            ; newline
+       102B : AD 03                      bsr     putchar
+       102D : 20 E8                      bra     loop
+       102F :                    halt_to_system:
+       102F : 83                         swi
+       1030 :
+       1030 :                    putchar:
+       1030 : 0F 17 FD                   brclr   SCSR_TDRE_bp,SCSR,putchar
+       1033 : B7 18                      sta     SCDR
+       1035 : 81                         rts
+       1036 :
+       1036 :                            include "queue.inc"
+(1)    1036 :                    ;;; [queue] queue structure
+(1)    1036 : =0                 queue_len:      equ     0       ; queue length
+(1)    1036 : =1                 queue_size:     equ     1       ; buffer size
+(1)    1036 : =2                 queue_put:      equ     2       ; queue put index
+(1)    1036 : =3                 queue_get:      equ     3       ; queue get index
+(1)    1036 : =4                 queue_buf:      equ     4       ; buffer start offset
+(1)    1036 :
+(1)    1036 :                    ;;; [queue] Initialize queue
+(1)    1036 :                    ;;; @param X queue work space pointer
+(1)    1036 :                    ;;; @param A queue work space size
+(1)    1036 :                    ;;; @clobber A
+(1)    1036 :                    queue_init:
+(1)    1036 : 7F                         clr     queue_len,x
+(1)    1037 : 6F 02                      clr     queue_put,x
+(1)    1039 : 6F 03                      clr     queue_get,x
+(1)    103B : A0 04                      sub     #queue_buf
+(1)    103D : E7 01                      sta     queue_size,x
+(1)    103F : 81                         rts
+(1)    1040 :
+(1)    1040 :                    ;;; [queue] Add an element to queue
+(1)    1040 :                    ;;; @param X queue work space pointer
+(1)    1040 :                    ;;; @param A an element
+(1)    1040 :                    ;;; @return CC.C 0 if queue is full
+(1)    1040 :                    queue_add_X:
+(1)    1040 :                            rmb     1               ; save X
+(1)    1041 :                    queue_add_A:
+(1)    1041 :                            rmb     1               ; save X
+(1)    1042 :                    queue_add:
+(1)    1042 : C7 10 41                   sta     queue_add_A     ; save A
+(1)    1045 : F6                         lda     queue_len,x
+(1)    1046 : E1 01                      cmp     queue_size,x
+(1)    1048 : 24 1E                      bhs     queue_add_return ; carry is cleared
+(1)    104A : 7C                         inc     queue_len,x      ; increment queue length
+(1)    104B : E6 02                      lda     queue_put,x      ; 8 bits offset
+(1)    104D : 4C                         inca
+(1)    104E : E7 02                      sta     queue_put,x     ; update put pointer
+(1)    1050 : E1 01                      cmp     queue_size,x
+(1)    1052 : 25 02                      blo     queue_add_elem
+(1)    1054 : 6F 02                      clr     queue_put,x
+(1)    1056 :                    queue_add_elem:
+(1)    1056 : 4A                         deca                    ; restore put pointer
+(1)    1057 : AB 04                      add     #queue_buf
+(1)    1059 : CF 10 40                   stx     queue_add_X     ; save X
+(1)    105C : CB 10 40                   add     queue_add_X
+(1)    105F : 97                         tax
+(1)    1060 : C6 10 41                   lda     queue_add_A
+(1)    1063 : F7                         sta     ,x              ; put element
+(1)    1064 : CE 10 40                   ldx     queue_add_X     ; restore X
+(1)    1067 : 99                         sec                     ; set carry
+(1)    1068 :                    queue_add_return:
+(1)    1068 : C6 10 41                   lda     queue_add_A     ; restore A
+(1)    106B : 81                         rts
+(1)    106C :
+(1)    106C :                    ;;; [queue] Remove an element from queue
+(1)    106C :                    ;;; @param X queue work space pointer
+(1)    106C :                    ;;; @return A an element
+(1)    106C :                    ;;; @return CC.C 0 if queue is empty
+(1)    106C :                    queue_remove_X:
+(1)    106C :                            rmb     1
+(1)    106D :                    queue_remove:
+(1)    106D : 7D                         tst     queue_len,x
+(1)    106E : 26 02                      bne     queue_remove_has_elem
+(1)    1070 : 98                         clc                     ; clear carry
+(1)    1071 : 81                         rts
+(1)    1072 :                    queue_remove_has_elem:
+(1)    1072 : 7A                         dec     queue_len,x     ; decrement queue length
+(1)    1073 : E6 03                      lda     queue_get,x     ; 8 bits offset
+(1)    1075 : 4C                         inca
+(1)    1076 : E7 03                      sta     queue_get,x     ; update get pointer
+(1)    1078 : E1 01                      cmp     queue_size,x
+(1)    107A : 25 02                      blo     queue_remove_elem
+(1)    107C : 6F 03                      clr     queue_get,x
+(1)    107E :                    queue_remove_elem:
+(1)    107E : 4A                         deca                    ; restore get pointer
+(1)    107F : AB 04                      add     #queue_buf
+(1)    1081 : CF 10 6C                   stx     queue_remove_X  ; save X
+(1)    1084 : CB 10 6C                   add     queue_remove_X
+(1)    1087 : 97                         tax
+(1)    1088 : F6                         lda     ,x              ; get element
+(1)    1089 : CE 10 6C                   ldx     queue_remove_X  ; restore X
+(1)    108C : 99                         sec                     ; set carry
+(1)    108D :                    queue_remove_return:
+(1)    108D : 81                         rts
+(1)    108E :
+(1)    108E :                    ;;; Local Variables:
+(1)    108E :                    ;;; mode: asm
+(1)    108E :                    ;;; End:
+(1)    108E :                    ;;; vim: set ft=asm et ts=4 sw=4:
+       108E :
+       108E :                    isr_sci:
+       108E : 0B 17 07                   brclr   SCSR_RDRF_bp,SCSR,isr_sci_exit
+       1091 : B6 18                      lda     SCDR
+       1093 : AE 80                      ldx     #rx_queue
+       1095 : CD 10 42                   jsr     queue_add
+       1098 :                    isr_sci_exit:
+       1098 : 80                         rti

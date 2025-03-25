@@ -4,7 +4,9 @@
 ACIA:   equ     $FFE0
         include "mc6850.inc"
 
-        org     RAM_START
+        org     $40
+cputype:
+        rmb     1
 R0:
 R0H:    rmb     1
 R0L:    rmb     1
@@ -17,8 +19,9 @@ R2L:    rmb     1
 arith_work:
         rmb     1
 SP:     rmb     1
+
         org     $0100
-stack:  rmb     200
+stack:  rmb     20
 
         org     VEC_SWI
         fdb     VEC_SWI         ; for halt to system
@@ -36,7 +39,7 @@ initialize:
 
         clr     SP
         jsr     arith
-        swi
+        swi                     ; halt to stop
 
 ;;; Print out char
 ;;; @param A char
@@ -50,11 +53,11 @@ newline:
         lda     #$0A
 putchar:
         sta     putchar_a
-transmit_loop:
+putchar_loop:
         lda     ACIA_status
         bit     #TDRE_bm
-        beq     transmit_loop
-transmit_data:
+        beq     putchar_loop
+putchar_data:
         lda     putchar_a
         sta     ACIA_data
         rts
@@ -66,15 +69,19 @@ putchar_a:
 ;;; @clobber R2 R3 R4
 expr:
         sta     expr_op
-        ldx     #R1
-        jsr     load_R0         ; R0=R1
+        ldx     R1H
+        lda     R1L
+        stx     R0H
+        sta     R0L             ; R0=R1
         jsr     print_int16     ; print R1
         bsr     putspace
         lda     expr_op
         bsr     putchar         ; print op
         bsr     putspace
-        ldx     #R2
-        jsr     load_R0         ; R0=R2
+        ldx     R2H
+        lda     R2L
+        stx     R0H
+        sta     R0L             ; R0=R2
         jmp     print_int16     ; print R2
 expr_op:
         rmb     1
@@ -399,3 +406,8 @@ arith:
         rts
 
         include "arith.inc"
+
+;;; MC68HC05 compatibility
+        org     $FFFC
+        fdb     $FFFC           ; SWI: halt to system
+        fdb     initialize      ; RESET

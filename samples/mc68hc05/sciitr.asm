@@ -38,13 +38,9 @@ initialize:
         bset    SCCR2_RIE_bp,SCCR2 ; Enable Rx interrupt
         bset    EICSR_IRQEL_bp,EICSR ; Negative-edge and level sensitive #IRQ
         bset    EICSR_IRQEN_bp,EICSR ; Enable IRQ
-        bra     loop
-
-wait:
-        wait
 loop:
         bsr     getchar
-        bcc     wait
+        bcc     loop
         sta     save_a
         beq     halt_to_system
         bsr     putchar         ; echo

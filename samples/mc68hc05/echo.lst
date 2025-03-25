@@ -10,6 +10,10 @@
 (2)       0 : =4                 CC_NEGATIVE   equ  %00000100   ; set to 1 if result is negative
 (2)       0 : =8                 CC_IRQ        equ  %00001000   ; if 1, IRQ is masked
 (2)       0 : =10                CC_HALF_CARRY equ  %00010000   ; if 1, decimal carry from least digit occurred
+(2)       0 :                    ;;; Vector
+(2)       0 : =FFFA              VEC_IRQ:        equ     $FFFA   ; External Interrupt
+(2)       0 : =FFFC              VEC_SWI:        equ     $FFFC   ; Software
+(2)       0 : =FFFE              VEC_RESET:      equ     $FFFE   ; Reset
 (1)       0 :                    ;;; MC68HC05C0
 (1)       0 :                            option  "pc-bits", 16
 (1)       0 :                    ;;; Vector
@@ -17,9 +21,6 @@
 (1)       0 : =FFF4              VEC_MFT:        equ     $FFF4   ; Multi-Function Timer
 (1)       0 : =FFF6              VEC_SCI:        equ     $FFF6   ; Serial Communications Interface
 (1)       0 : =FFF8              VEC_TIMER:      equ     $FFF8   ; 16-Bit Timer
-(1)       0 : =FFFA              VEC_IRQ:        equ     $FFFA   ; External Interrupt
-(1)       0 : =FFFC              VEC_SWI:        equ     $FFFC   ; Software
-(1)       0 : =FFFE              VEC_RESET:      equ     $FFFE   ; Reset
 (1)       0 :
 (1)       0 :                    ;;; Internal Register Area
 (1)       0 : =1                 PORTB:  equ     $01     ; Port B Data Register
@@ -133,6 +134,9 @@
          40 :                            org     RAM_START
          40 :                    save_a: rmb     1
          41 :
+       FFFC :                            org     VEC_SWI
+       FFFC : FF FC                      fdb     VEC_SWI         ; for halt to system
+       FFFE :
        FFFE :                            org     VEC_RESET
        FFFE : 10 00                      fdb     initialize
       10000 :
@@ -144,40 +148,30 @@
        1007 :                                                    ; Transmit, Receive interrupts disabled
        1007 : C7 FF E0                   sta     ACIA_control
        100A :
-       100A : AD 23              loop:   bsr     getchar
+       100A : AD 0E              loop:   bsr     getchar
        100C : 4D                         tsta
        100D : 27 0A                      beq     halt_to_system
-       100F : AD 29              echo:   bsr     putchar
+       100F : AD 14              echo:   bsr     putchar
        1011 : A1 0D                      cmp     #$0D            ; Carriage Return
        1013 : 26 F5                      bne     loop
        1015 : A6 0A                      lda     #$0A            ; Newline
        1017 : 20 F6                      bra     echo
        1019 :                    halt_to_system:
-       1019 : AE 10                      ldx     #(step_swi)>>8
-       101B : CF FF FC                   stx     VEC_SWI
-       101E : AE 24                      ldx     #(step_swi)&$FF
-       1020 : CF FF FD                   stx     VEC_SWI+1
-       1023 : 83                         swi
-       1024 :                    step_swi:
-       1024 : AE FF                      ldx     #(VEC_SWI)>>8
-       1026 : CF FF FC                   stx     VEC_SWI
-       1029 : AE FC                      ldx     #(VEC_SWI)&$FF
-       102B : CF FF FD                   stx     VEC_SWI+1
-       102E : 83                         swi                     ; halt to system
-       102F :
-       102F :                    getchar:
-       102F : C6 FF E0                   lda     ACIA_status
-       1032 : A5 01                      bit     #RDRF_bm
-       1034 : 27 F9                      beq     getchar
-       1036 : C6 FF E1                   lda     ACIA_data
-       1039 : 81                         rts
-       103A :
-       103A :                    putchar:
-       103A : B7 40                      sta     save_a
-       103C :                    transmit_loop:
-       103C : C6 FF E0                   lda     ACIA_status
-       103F : A5 02                      bit     #TDRE_bm
-       1041 : 27 F9                      beq     transmit_loop
-       1043 : B6 40                      lda     save_a
-       1045 : C7 FF E1                   sta     ACIA_data
-       1048 : 81                         rts
+       1019 : 83                         swi                     ; halt to system
+       101A :
+       101A :                    getchar:
+       101A : C6 FF E0                   lda     ACIA_status
+       101D : A5 01                      bit     #RDRF_bm
+       101F : 27 F9                      beq     getchar
+       1021 : C6 FF E1                   lda     ACIA_data
+       1024 : 81                         rts
+       1025 :
+       1025 :                    putchar:
+       1025 : B7 40                      sta     save_a
+       1027 :                    putchar_loop:
+       1027 : C6 FF E0                   lda     ACIA_status
+       102A : A5 02                      bit     #TDRE_bm
+       102C : 27 F9                      beq     putchar_loop
+       102E : B6 40                      lda     save_a
+       1030 : C7 FF E1                   sta     ACIA_data
+       1033 : 81                         rts

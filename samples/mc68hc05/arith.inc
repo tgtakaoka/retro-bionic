@@ -28,7 +28,6 @@ print_uint16_zero:
 print_uint16_print:
         decx
         lda     print_uint16_buf,x
-        ora     #'0'
         jsr     putchar
         tstx
         bne     print_uint16_print
@@ -40,77 +39,29 @@ print_uint16_buf:
 ;;; @param R0 value
 ;;; @clobber A X R0
 print_int16:
-        ldx     #R1
-        bsr     push_RX         ; push R1
-        ldx     #R2
-        bsr     push_RX         ; push R2
+        ldx     R1H
+        lda     R1L
+        bsr     push_XA         ; push R1
+        ldx     R2H
+        lda     R2L
+        bsr     push_XA         ; push R2
         lda     R0H
         bpl     print_int16_print
         lda     #'-'
         jsr     putchar
-        ldx     #R0
-        bsr     negate_RX
+        lda     R0H
+        nega
+        neg     R0L
+        sbc     #0
+        sta     R0H
 print_int16_print:
         bsr     print_uint16
-        ldx     #R2
-        bsr     pop_RX          ; pop R2
-        ldx     #R1
-        bra     pop_RX          ; pop R1
-
-;;; Push register
-;;; @param X register
-;;; @clobber A
-push_RX:
-        stx     arith_work      ; save X
-        lda     0,X             ; high(register)
-        ldx     SP
-        sta     stack,X         ; push high(register)
-        ldx     arith_work
-        lda     1,X             ; low(register)
-        ldx     SP
-        sta     stack+1,X       ; push low(register)
-        incx
-        incx
-        stx     SP              ; update stack pointer
-        ldx     arith_work      ; restore X
-        rts
-
-;;; Pop register
-;;; @param X register
-;;; @clobber A
-pop_RX:
-        stx     arith_work      ; save X
-        ldx     SP
-        decx
-        decx
-        stx     SP              ; update stack pointer
-        lda     stack,X         ; pop high(register)
-        ldx     arith_work
-        sta     0,X             ; high(register)
-        ldx     SP
-        lda     stack+1,X       ; pop low(register)
-        ldx     SP
-        ldx     arith_work      ; restore X
-        sta     1,X             ; low(register)
-        rts
-
-;;; Negate RX
-;;; @param X register
-negate_RX:
-        clra
-        sub     1,x
-        sta     1,x
-        clra
-        sbc     0,x
-        sta     0,x
-        rts
-
-;;; Set value to R0
-;;; @param X high(value)
-;;; @param A low(value)
-set_R0:
-        stx     R0H
-        sta     R0L
+        bsr     pull_XA         ; pull R2
+        stx     R2H
+        sta     R2L
+        bsr     pull_XA         ; pull R1
+        stx     R1H
+        sta     R1L
         rts
 
 ;;; Set value to R1
@@ -129,47 +80,34 @@ set_R2:
         sta     R2L
         rts
 
-;;; Load register to R0
-;;; @param X register
-;;; @clobber A
-load_R0:
-        lda     0,x
-        sta     R0H
-        lda     1,x
-        sta     R0L
+;;; Push X:A
+;;; @param X:A value
+;;; @clobber X:A
+push_XA:
+        sta     arith_work      ; save A
+        txa
+        ldx     SP
+        sta     stack,X         ; push high(value))
+        lda     arith_work
+        sta     stack+1,X       ; push low(register)
+        incx
+        incx
+        stx     SP              ; update stack pointer
         rts
 
-;;; Load register to R1
-;;; @param X register
-;;; @clobber A
-load_R1:
-        lda     0,x
-        sta     R1H
-        lda     1,x
-        sta     R1L
-        rts
-
-;;; Load register to R2
-;;; @param X register
-;;; @clobber A
-load_R2:
-        lda     0,x
-        sta     R2H
-        lda     1,x
-        sta     R2L
-        rts
-
-;;; store R0 to register
-;;; @param X register
-;;; @clobber A
-store_R0:
-        lda     R0H
-        sta     0,x
-        lda     R0L
-        sta     1,x
+;;; Pull X:A
+;;; @return X:A value
+pull_XA:
+        ldx     SP
+        decx
+        decx
+        stx     SP              ; update stack pointer
+        lda     stack+1,X       ; pull low(value)
+        ldx     stack,X         ; pull high(value)
         rts
 
 ;;; Addition: R0 = R1 + R2
+;;; @return X:A addition
 ;;; @clobber A
 add16:
         lda     R1L
@@ -178,9 +116,12 @@ add16:
         lda     R1H
         adc     R2H
         sta     R0H
+        tax
+        lda     R0L
         rts
 
 ;;; Subtraction: R0 = R1 + R2
+;;; @return X:A subtraction
 ;;; @clobber A
 sub16:
         lda     R1L
@@ -189,6 +130,8 @@ sub16:
         lda     R1H
         sbc     R2H
         sta     R0H
+        tax
+        lda     R0L
         rts
 
 ;;; Signed compare R0=sign(R1-R2)
@@ -247,6 +190,7 @@ umul16:
 ;;; @param R1 multiplicand
 ;;; @param R2 multiplier
 ;;; @return R0 result
+;;; @return X:A result
 ;;; @clobber R1 R2
 mul16:
         lda     R1H
@@ -254,20 +198,29 @@ mul16:
         sta     arith_work      ; save hi(multiplicand^multiplier)
         lda     R2H             ; A=hi(multiplier)
         bpl     mul16_multiplicand
-        ldx     #R2
-        jsr     negate_RX       ; negate multiplier
+        nega
+        neg     R2L
+        sbc     #0
+        sta     R2H             ; negate multiplier
 mul16_multiplicand:
         lda     R1H             ; A=hi(multiplicand)
         bpl     mul16_multiply
-        ldx     #R1
-        jsr     negate_RX       ; negate multiplicand
+        nega
+        neg     R1L
+        sbc     #0
+        sta     R1H             ; negate multiplicand
 mul16_multiply:
         bsr     umul16          ; R0=result
         lda     arith_work      ; A=(multiplicand^multiplier)
         bpl     mul16_end
-        ldx     #R0
-        jsr     negate_RX       ; negate result
+        lda     R0H
+        nega
+        neg     R0L
+        sbc     #0
+        sta     R0H             ; negate result
 mul16_end:
+        ldx     R0H
+        lda     R0L
         rts
 
 ;;; Unsigned division: dividend / divisor = quotient ... remainder
@@ -277,16 +230,16 @@ mul16_end:
 ;;; @return R1 remainder
 ;;; @clobber R2
 udiv16:
+        stx     arith_work
         lda     R2H
         ora     R2L
         beq     udiv16_end      ; branch if R2==0
-        lda     #1              ; A=bits
-        sta     arith_work      ; bits=1
+        ldx     #1              ; X=bits
         bra     udiv16_prep
 udiv16_prep_loop:
         lsl     R2L
         rol     R2H             ; divisor <<= 1
-        inc     arith_work      ; ++bits
+        incx                    ; ++bits
 udiv16_prep:
         lda     R2H
         bpl     udiv16_prep_loop ; while msb(divisor) == 0
@@ -316,15 +269,17 @@ udiv16_readd:
         adc     R2H
         sta     R1H             ; dividend += divisor
 udiv16_next:
-        dec     arith_work      ; --bits
+        decx                    ; --bits
         bne     udiv16_loop     ; while bits != 0
 udiv16_end:
+        ldx     arith_work
         rts
 
 ;;; Division; dividend / divisor = quotient ... remainder
 ;;; @param R1 dividend
 ;;; @param R2 divisor
 ;;; @return R0 quotient
+;;; @return X:A quotient
 ;;; @return R1 remainder
 ;;; @clobber R2
 div16:
@@ -333,20 +288,29 @@ div16:
         sta     div16_sign      ; save hi(dividend^divisor)
         lda     R2H             ; A=hi(divisor)
         bpl     div16_dividend
-        ldx     #R2
-        jsr     negate_RX       ; negate divisor
+        nega
+        neg     R2L
+        sbc     #0
+        sta     R2H             ; negate divisor
 div16_dividend:
         lda     R1H             ; A=hi(dividend)
         bpl     div16_divide
-        ldx     #R1
-        jsr     negate_RX       ; negate dividend
+        nega
+        neg     R1L
+        sbc     #0
+        sta     R1H             ; negate dividend
 div16_divide:
         jsr     udiv16          ; R0=quotient
         lda     div16_sign      ; A=(dividend^divisor)
         bpl     div16_end
-        ldx     #R0
-        jsr     negate_RX       ; negate result
+        lda     R0H
+        nega
+        neg     R0L
+        sbc     #0
+        sta     R0H             ; negate result
 div16_end:
+        ldx     R0H
+        lda     R0L
         rts
 div16_sign:
         rmb     1

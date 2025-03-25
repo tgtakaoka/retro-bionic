@@ -1,14 +1,16 @@
         include "mc146805e.inc"
-        cpu     mc146805
+        cpu     6805
+        option  pc-bits,16
 
 ;;; MC6850 Asynchronous Communication Interface Adapter
 ACIA:   equ     $17F8
         include "mc6850.inc"
 RX_INT_TX_NO:   equ     WSB_8N1_gc|RIEB_bm
 
-        org     RAM_START
-save_a:
+        org     $40
+cputype:
         rmb     1
+save_a: rmb     1
 
         org     $0080
 rx_queue_size:  equ     16
@@ -24,27 +26,24 @@ rx_queue:
         org     VEC_RESET
         fdb     initialize
 
-        org     $0100
+        org     $1000
 initialize:
+        include "cputype.inc"
         ldx     #rx_queue
         lda     #rx_queue_size
         jsr     queue_init
         ;; initialize ACIA
         lda     #CDS_RESET_gc   ; Master reset
-        sta     ACIA_control
+        bsr     store_ACIA_control
         lda     #RX_INT_TX_NO
-        sta     ACIA_control
+        bsr     store_ACIA_control
         cli                     ; Enable IRQ
-        bra     loop
-
-wait:
-        wait
 loop:
         ldx     #rx_queue
         sei                     ; Disable IRQ
         jsr     queue_remove
         cli                     ; Enable IRQ
-        bcc     wait
+        bcc     loop
         tsta
         beq     halt_to_system
         bsr     putchar
@@ -58,27 +57,33 @@ halt_to_system:
 
 putchar:
         sta     save_a
-transmit_loop:
-        lda     ACIA_status
+putchar_loop:
+        bsr     load_ACIA_status
         bit     #TDRE_bm
-        beq     transmit_loop
-transmit_data:
+        beq     putchar_loop
+putchar_data:
         lda     save_a
-        sta     ACIA_data
+        bsr     store_ACIA_data
         rts
 
         include "queue.inc"
 
 isr_irq:
-        lda     ACIA_status
+        jsr     load_ACIA_status
         bit     #IRQF_bm
         beq     isr_irq_return
 isr_irq_receive:
         bit     #RDRF_bm
         beq     isr_irq_recv_end
-        lda     ACIA_data
+        jsr     load_ACIA_data
         ldx     #rx_queue
         jsr     queue_add
 isr_irq_recv_end:
 isr_irq_return:
         rti
+
+;;; MC68HC05 compatibility
+        org     $FFFA
+        fdb     isr_irq         ; IRQ
+        fdb     $FFFC           ; SWI: halt to system
+        fdb     initialize      ; RESET

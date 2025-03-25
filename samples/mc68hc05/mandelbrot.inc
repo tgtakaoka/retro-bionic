@@ -1,25 +1,29 @@
 ;;; -*- mode: asm; mode: flyspell-prog; -*-
 ;;; Print variable: "A=variable "
-;;; @param R0 variable
+;;; @param R1 variable
 ;;; @param A variable letter
 ;;; @clobber R0
 print:
         jsr     putchar         ; print variable letter
         lda     #'='
         jsr     putchar         ; '='
+        ldx     R1H
+        lda     R1L
+        stx     R0H
+        sta     R0L
         jsr     print_int16
         jmp     putspace
 
-;;; Load 8 bit variable
-;;; @param X variable
+;;; Sign extend 80bit value
+;;; @param A variable
+;;; @param CC condition of A
 ;;; @return X:A value
-load_8bit:
-        lda     0,X
-        bpl     load_8bit_plus
-        ldx     #-1
-        rts
-load_8bit_plus:
+sex_A:
+        bmi     sex_A_negative
         clrx
+        rts
+sex_A_negative:
+        ldx     #-1
         rts
 
 mandelbrot:
@@ -29,209 +33,213 @@ loop_y:
         lda     #-49
         sta     vX              ; X=-49
 loop_x:
-        ldx     #vX
-        jsr     load_8bit
+        lda     vX
+        jsr     sex_A
         jsr     set_R1          ; R1=X
         clrx
         lda     #229
-        jsr     set_R2
+        jsr     set_R2          ; R2=229
         jsr     mul16           ; R0=X*229
-        ldx     #R1
-        jsr     store_R0
+        jsr     set_R1
         clrx
         lda     #100
-        jsr     set_R2
+        jsr     set_R2          ; R2=100
         jsr     div16           ; R0=X*229/100
-        ldx     #vC
-        jsr     store_R0        ; C=X*229/100
-        ldx     #vA
-        jsr     store_R0        ; A=C
-        ldx     #vY
-        jsr     load_8bit
+        stx     vC
+        sta     vC+1            ; C=X*229/100
+        stx     vA
+        sta     vA+1            ; A=C
+        lda     vY
+        jsr     sex_A
         jsr     set_R1          ; R1=Y
         ldx     #416>>8
         lda     #416&255
-        jsr     set_R2
+        jsr     set_R2          ; R2=416
         jsr     mul16           ; R0=Y*416
-        ldx     #R1
-        jsr     store_R0
+        jsr     set_R1
         clrx
         lda     #100
-        jsr     set_R2
+        jsr     set_R2          ; R2=100
         jsr     div16           ; R0=Y*416/100
-        ldx     #vD
-        jsr     store_R0        ; D=Y*416/100
-        ldx     #vB
-        jsr     store_R0        ; B=D
+        stx     vD
+        sta     vD+1            ; D=Y*416/100
+        stx     vB
+        sta     vB+1            ; B=D
         clr     vI              ; I=0
 
-        ;; ldx     #vY
-        ;; jsr     load_8bit
-        ;; jsr     set_R0          ; Y
+        ;; lda     vY              ; Y
+        ;; jsr     sex_A
+        ;; jsr     set_R1
         ;; lda     #'Y'
         ;; jsr     print
-        ;; ldx     #vX
-        ;; jsr     load_8bit
-        ;; jsr     set_R0          ; X
+        ;; lda     vX              ; X
+        ;; jsr     sex_A
+        ;; jsr     set_R1
         ;; lda     #'X'
         ;; jsr     print
-        ;; ldx     #vC
-        ;; jsr     load_R0         ; C
+        ;; ldx     vC              ; C
+        ;; lda     vC+1
+        ;; jsr     set_R1
         ;; lda     #'C'
         ;; jsr     print
-        ;; ldx     #vD
-        ;; jsr     load_R0         ; D
+        ;; ldx     vD              ; D
+        ;; lda     vD+1
+        ;; jsr     set_R1
         ;; lda     #'D'
         ;; jsr     print
         ;; jsr     newline
 
 loop_i:
-        ldx     #vB
-        jsr     load_R1         ; R1=B
+        ldx     vB
+        lda     vB+1
+        jsr     set_R1          ; R1=B
         clrx
         lda     #F
         jsr     set_R2          ; R2=F
         jsr     div16           ; R0=B/F
-        ldx     #vQ
-        jsr     store_R0        ; Q=B/F
-        ldx     #R1
-        jsr     store_R0        ; R1=Q
+        stx     vQ
+        sta     vQ+1            ; Q=B/F
+        jsr     set_R1          ; R1=Q
         clrx
         lda     #F
         jsr     set_R2          ; R2=F
         jsr     mul16           ; R0=Q*F
-        ldx     #R2
-        jsr     store_R0        ; R2=Q*F
-        ldx     #vB
-        jsr     load_R1         ; R1=B
+        jsr     set_R2          ; R2=Q*F
+        ldx     vB
+        lda     vB+1
+        jsr     set_R1          ; R1=B
         jsr     sub16           ; R0=B-Q*F
-        ldx     #vS
-        jsr     store_R0        ; S=B-Q*F
-        ldx     #vA
-        jsr     load_R1         ; R1=A
-        jsr     load_R2         ; R2=A
+        stx     vS
+        sta     vS+1            ; S=B-Q*F
+        ldx     vA
+        lda     vA+1
+        jsr     set_R1          ; R1=A
+        jsr     set_R2          ; R2=A
         jsr     mul16           ; R0=A*A
-        ldx     #R0
-        jsr     push_RX         ; push A*A
-        ldx     #vB
-        jsr     load_R1         ; R1=B
-        jsr     load_R2         ; R2=B
+        jsr     push_XA         ; push A*A
+        ldx     vB
+        lda     vB+1
+        jsr     set_R1          ; R1=B
+        jsr     set_R2          ; R2=B
         jsr     mul16           ; R0=B*B
-        ldx     #R2
-        jsr     store_R0        ; R2=B*B
-        ldx     #R1
-        jsr     pop_RX          ; R1=A*A
+        jsr     set_R2          ; R2=B*B
+        jsr     pull_XA
+        jsr     set_R1          ; R1=A*A
         jsr     sub16           ; R0=A*A-B*B
-        ldx     #R1
-        jsr     store_R0        ; R1=A*A-B*B
+        jsr     set_R1          ; R1=A*A-B*B
         clrx
         lda     #F
-        jsr     set_R2
+        jsr     set_R2          ; R2=F
         jsr     div16           ; R0=(A*A-B*B)/F
-        ldx     #R1
-        jsr     store_R0        ; R1=(A*A-B*B)/F
-        ldx     #vC
-        jsr     load_R2         ; R2=C
+        jsr     set_R1          ; R1=(A*A-B*B)/F
+        ldx     vC
+        lda     vC+1
+        jsr     set_R2          ; R2=C
         jsr     add16           ; R0=(A*A-B*B)/F+C
-        ldx     #R0
-        jsr     push_RX         ; push (A*A-B*B)/F+C
-        ldx     #vA
-        jsr     load_R1         ; R1=A
-        ldx     #vQ
-        jsr     load_R2         ; R2=Q
+        jsr     push_XA         ; push (A*A-B*B)/F+C
+        ldx     vA
+        lda     vA+1
+        jsr     set_R1          ; R1=A
+        ldx     vQ
+        lda     vQ+1
+        jsr     set_R2          ; R2=Q
         jsr     mul16           ; R0=A*Q
-        ldx     #R0
-        jsr     push_RX         ; push A*Q
-        ldx     #vA
-        jsr     load_R1         ; R1=A
-        ldx     #vS
-        jsr     load_R2         ; R2=S
+        jsr     push_XA         ; push A*Q
+        ldx     vA
+        lda     vA+1
+        jsr     set_R1          ; R1=A
+        ldx     vS
+        lda     vS+1
+        jsr     set_R2          ; R2=S
         jsr     mul16           ; R0=A*S
-        ldx     #R1
-        jsr     store_R0        ; R1=A*S
+        jsr     set_R1          ; R1=A*S
         clrx
         lda     #F
-        jsr     set_R2
+        jsr     set_R2          ; R2=F
         jsr     div16           ; R0=A*S/F
-        ldx     #R2
-        jsr     store_R0        ; R2=A*S/F
-        ldx     #R1
-        jsr     pop_RX          ; R1=A*Q
+        jsr     set_R2          ; R2=A*S/F
+        jsr     pull_XA         ; pull A*Q
+        jsr     set_R1          ; R1=A*Q
         jsr     add16           ; R0=A*Q+A*S/F
-        ldx     #R1
-        jsr     store_R0        ; R1=A*Q+A*S/F
-        ldx     #R2
-        jsr     store_R0        ; R2=A*Q+A*S/F
+        jsr     set_R1          ; R1=A*Q+A*S/F
+        jsr     set_R2          ; R2=A*Q+A*S/F
         jsr     add16           ; R0=2*(A*Q+A*S/F)
-        ldx     #R1
-        jsr     store_R0        ; R1=2*(A*Q+A*S/F)
-        ldx     #vD
-        jsr     load_R2         ; R2=D
+        jsr     set_R1          ; R1=2*(A*Q+A*S/F)
+        ldx     vD
+        lda     vD+1
+        jsr     set_R2          ; R2=D
         jsr     add16           ; R0=2*(A*Q+A*S/F)+D
-        ldx     #vB
-        jsr     store_R0        ; B=2*(A*Q+A*S/F)+D
-        ldx     #R0
-        jsr     pop_RX          ; R0=(A*A-B*B)/F+C
-        ldx     #vA
-        jsr     store_R0        ; A=(A*A-B*B)/F+C
-        ldx     #R1
-        jsr     store_R0        ; R1=A
+        stx     vB
+        sta     vB+1            ; B=2*(A*Q+A*S/F)+D
+        jsr     pull_XA         ; pull (A*A-B*B)/F+C
+        stx     vA
+        sta     vA+1            ; A=(A*A-B*B)/F+C
+        jsr     set_R1          ; R1=A
         clrx
         lda     #F
         jsr     set_R2          ; R2=F
         jsr     div16           ; R0=A/F
-        ldx     #vP
-        jsr     store_R0        ; P=A/F
-        ldx     #vB
-        jsr     load_R1         ; R1=B
+        stx     vP
+        sta     vP+1            ; P=A/F
+        jsr     set_R1
+        jsr     set_R2
+        jsr     mul16           ; R0=P*P
+        jsr     push_XA         ; push P*P
+        ldx     vB
+        lda     vB+1
+        jsr     set_R1          ; R1=B
         clrx
         lda     #F
         jsr     set_R2          ; R2=F
         jsr     div16           ; R0=B/F
-        ldx     #vQ
-        jsr     store_R0        ; Q=B/F
+        stx     vQ
+        sta     vQ+1            ; Q=B/F
+        jsr     set_R1
+        jsr     set_R2
+        jsr     mul16           ; R0=Q*Q
+        jsr     set_R2          ; R2=Q*Q
+        jsr     pull_XA         ; pull P*P
+        jsr     set_R1          ; R1=P*P
+        jsr     add16           ; R0=P*P+Q*Q
+        stx     vT
+        sta     vT+1            ; T=P*P+Q*Q
 
         ;; jsr     putspace
-        ;; ldx     #vI
-        ;; jsr     load_8bit
-        ;; jsr     set_R0          ; I
+        ;; lda     vI              ; I
+        ;; jsr     sex_A
+        ;; jsr     set_R1
         ;; lda     #'I'
         ;; jsr     print
-        ;; ldx     #vA
-        ;; jsr     load_R0         ; A
+        ;; ldx     vA              ; A
+        ;; lda     vA+1
+        ;; jsr     set_R1
         ;; lda     #'A'
         ;; jsr     print
-        ;; ldx     #vB
-        ;; jsr     load_R0         ; B
+        ;; ldx     vB              ; B
+        ;; lda     vB+1
+        ;; jsr     set_R1
         ;; lda     #'B'
         ;; jsr     print
-        ;; ldx     #vP
-        ;; jsr     load_R0         ; P
+        ;; ldx     vP              ; P
+        ;; lda     vP+1
+        ;; jsr     set_R1
         ;; lda     #'P'
         ;; jsr     print
-        ;; ldx     #vQ
-        ;; jsr     load_R0         ; Q
+        ;; ldx     vQ              ; Q
+        ;; lda     vQ+1
+        ;; jsr     set_R1
         ;; lda     #'Q'
+        ;; jsr     print
+        ;; ldx     vT              ; T
+        ;; lda     vT+1
+        ;; jsr     set_R1
+        ;; lda     #'T'
         ;; jsr     print
         ;; jsr     newline
 
-        ldx     #vP
-        jsr     load_R1         ; R1=P
-        jsr     load_R2         ; R2=P
-        jsr     mul16           ; R0=P*P
-        ldx     #R0
-        jsr     push_RX         ; push P*P
-        ldx     #vQ
-        jsr     load_R1         ; R1=Q
-        jsr     load_R2         ; R2=Q
-        jsr     mul16           ; R0=Q*Q
-        ldx     #R1
-        jsr     store_R0        ; R1=Q*Q
-        ldx     #R2
-        jsr     pop_RX          ; R2=P*P
-        jsr     add16           ; R0=Q*Q+P*P
-        ldx     #R2
-        jsr     store_R0        ; R2=Q*Q+P*P
+        ldx     vT
+        lda     vT+1
+        jsr     set_R2          ; R2=T
         clrx
         lda     #4
         jsr     set_R1          ; R1=4
@@ -254,6 +262,8 @@ print_i:
 print_i2:
         add     #'A'
 print_char:
+        jsr     putchar
+
         ;; sta     arith_work
         ;; lda     #'@'
         ;; jsr     putchar
@@ -263,13 +273,12 @@ print_char:
         ;; jsr     putchar
         ;; jsr     newline
 
-        jsr     putchar
         jsr     getchar
         bcc     next_x
         tsta
         bne     next_x
         swi                     ; halt to system
-next_x: 
+next_x:
         inc     vX              ; X+=1
         lda     vX
         cmp     #30
