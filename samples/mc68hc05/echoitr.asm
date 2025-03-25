@@ -41,13 +41,9 @@ initialize:
         lda     #RX_INT_TX_NO
         sta     ACIA_control
         cli                     ; enable IRQ
-        bra     loop
-
-wait:
-        wait
 loop:
         bsr     getchar
-        bcc     wait
+        bcc     loop
         sta     save_a
         beq     halt_to_system
         bsr     putchar         ; echo

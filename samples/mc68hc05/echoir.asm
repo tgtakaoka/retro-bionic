@@ -36,14 +36,12 @@ initialize:
         cli                     ; Enable IRQ
         bra     loop
 
-wait:
-        wait
 loop:
         ldx     #rx_queue
         sei                     ; Disable IRQ
         jsr     queue_remove
         cli                     ; Enable IRQ
-        bcc     wait
+        bcc     loop
         tsta
         beq     halt_to_system
         bsr     putchar
@@ -57,11 +55,11 @@ halt_to_system:
 
 putchar:
         sta     save_a
-transmit_loop:
+putchar_loop:
         lda     ACIA_status
         bit     #TDRE_bm
-        beq     transmit_loop
-transmit_data:
+        beq     putchar_loop
+putchar_data:
         lda     save_a
         sta     ACIA_data
         rts

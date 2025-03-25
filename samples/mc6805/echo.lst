@@ -2,8 +2,8 @@
 (1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
 (1)       0 :                            include "mc6805.inc"
 (2)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
-(2)       0 :
 (2)       0 :                    ;;; MC6805
+(2)       0 :                            cpu     6805
 (2)       0 :                    ;;; Condition Code Register (CC)
 (2)       0 : =1                 CC_CARRY      equ  %00000001   ; set to 1 if carry occurred
 (2)       0 : =2                 CC_ZERO       equ  %00000010   ; set to 1 if result is zero
@@ -40,6 +40,7 @@
 (2)       0 : =40                TCR_IM_bm:      equ     %01000000 ; Timer interrupt mask
 (2)       0 : =80                TCR_IF_bm:      equ     %10000000 ; Timer interrupt request flag
 (1)       0 :                    ;;; MC146805E
+(1)       0 :                            cpu     146805
 (1)       0 :                    ;;; Vector
 (1)       0 : =1FFA              VEC_IRQ:        equ     $1FFA   ; $1FFA: Maskable Interrupt Request
 (1)       0 : =1FFC              VEC_SWI:        equ     $1FFC   ; $1FFC: Software Interrupt
@@ -48,6 +49,7 @@
 (1)       0 : =10                RAM_START:      equ     $0010   ; Internal RAM $0010-$007F
 (1)       0 : =7F                STACK_TOP:      equ     $007F   ; Stack $007F->$0010
           0 :                            cpu     6805
+          0 :                            option  pc-bits,16
           0 :
           0 :                    ;;; MC6850 Asynchronous Communication Interface Adapter
           0 : =17F8              ACIA:   equ     $17F8
@@ -98,54 +100,96 @@
 (1)       0 :                    ;;; Data register
 (1)       0 : =17F9              ACIA_data:      equ     ACIA+1          ; Data register
           0 :
-         10 :                            org     RAM_START
-         10 :                    save_a: rmb     1
-         11 :
+         40 :                            org     $40
+         40 :                    cputype:
+         40 :                            rmb     1
+         41 :                    save_a: rmb     1
+         42 :
+       1FFC :                            org     VEC_SWI
+       1FFC : 1F FC                      fdb     VEC_SWI         ; for halt to system
        1FFE :                            org     VEC_RESET
-       1FFE : 01 00                      fdb     initialize
+       1FFE : 10 00                      fdb     initialize
        2000 :
-        100 :                            org     $0100
-        100 :                    initialize:
-        100 : A6 03                      lda     #CDS_RESET_gc   ; Master reset
-        102 : C7 17 F8                   sta     ACIA_control
-        105 : A6 14                      lda     #WSB_8N1_gc     ; 8 bits + No Parity + 1 Stop Bits
-        107 :                                                    ; Transmit, Receive interrupts disabled
-        107 : C7 17 F8                   sta     ACIA_control
-        10A :
-        10A : AD 23              loop:   bsr     getchar
-        10C : 4D                         tsta
-        10D : 27 0A                      beq     halt_to_system
-        10F : AD 29              echo:   bsr     putchar
-        111 : A1 0D                      cmp     #$0D            ; Carriage Return
-        113 : 26 F5                      bne     loop
-        115 : A6 0A                      lda     #$0A            ; Newline
-        117 : 20 F6                      bra     echo
-        119 :                    halt_to_system:
-        119 : AE 01                      ldx     #(step_swi)>>8
-        11B : CF 1F FC                   stx     VEC_SWI
-        11E : AE 24                      ldx     #(step_swi)&$FF
-        120 : CF 1F FD                   stx     VEC_SWI+1
-        123 : 83                         swi
-        124 :                    step_swi:
-        124 : AE 1F                      ldx     #(VEC_SWI)>>8
-        126 : CF 1F FC                   stx     VEC_SWI
-        129 : AE FC                      ldx     #(VEC_SWI)&$FF
-        12B : CF 1F FD                   stx     VEC_SWI+1
-        12E : 83                         swi                     ; halt to system
-        12F :
-        12F :                    getchar:
-        12F : C6 17 F8                   lda     ACIA_status
-        132 : A5 01                      bit     #RDRF_bm
-        134 : 27 F9                      beq     getchar
-        136 : C6 17 F9                   lda     ACIA_data
-        139 : 81                         rts
-        13A :
-        13A :                    putchar:
-        13A : B7 10                      sta     save_a
-        13C :                    transmit_loop:
-        13C : C6 17 F8                   lda     ACIA_status
-        13F : A5 02                      bit     #TDRE_bm
-        141 : 27 F9                      beq     transmit_loop
-        143 : B6 10                      lda     save_a
-        145 : C7 17 F9                   sta     ACIA_data
-        148 : 81                         rts
+       1000 :                            org     $1000
+       1000 :                    initialize:
+       1000 :                            include "cputype.inc"
+(1)    1000 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)    1000 : 9C                         rsp                     ; 6805:SP=$7F. 68HC05:SP=$FF
+(1)    1001 : 3F 40                      clr     cputype
+(1)    1003 : 3F 7E                      clr     $7E             ; clear return address of 6805
+(1)    1005 : 3F FE                      clr     $FE             ; clear return address of 68HC05
+(1)    1007 : AD 32                      bsr     check_cpu
+(1)    1009 : 20 37                      bra     continue
+(1)    100B :                    store_ACIA_control:
+(1)    100B : 3D 40                      tst     cputype
+(1)    100D : 26 04                      bne     *+6
+(1)    100F : C7 17 F8                   sta     ACIA_control
+(1)    1012 : 81                         rts
+(1)    1013 : C7 FF E0                   sta     $FFE0
+(1)    1016 : 81                         rts
+(1)    1017 :                    load_ACIA_status:
+(1)    1017 : 3D 40                      tst     cputype
+(1)    1019 : 26 04                      bne     *+6
+(1)    101B : C6 17 F8                   lda     ACIA_status
+(1)    101E : 81                         rts
+(1)    101F : C6 FF E0                   lda     $FFE0
+(1)    1022 : 81                         rts
+(1)    1023 :                    load_ACIA_data:
+(1)    1023 : 3D 40                      tst     cputype
+(1)    1025 : 26 04                      bne     *+6
+(1)    1027 : C6 17 F9                   lda     ACIA_data
+(1)    102A : 81                         rts
+(1)    102B : C6 FF E1                   lda     $FFE1
+(1)    102E : 81                         rts
+(1)    102F :                    store_ACIA_data:
+(1)    102F : 3D 40                      tst     cputype
+(1)    1031 : 26 04                      bne     *+6
+(1)    1033 : C7 17 F9                   sta     ACIA_data
+(1)    1036 : 81                         rts
+(1)    1037 : C7 FF E1                   sta     $FFE1
+(1)    103A : 81                         rts
+(1)    103B :                    check_cpu:
+(1)    103B : 3D 7E                      tst     $7E
+(1)    103D : 26 02                      bne     cpu6805         ; found return address at 6805 stack
+(1)    103F : 3C 40                      inc     cputype         ; 0:6805, 1:68HC05
+(1)    1041 :                    cpu6805:
+(1)    1041 : 81                         rts
+(1)    1042 :                    continue:
+       1042 : A6 03                      lda     #CDS_RESET_gc   ; Master reset
+       1044 : AD C5                      bsr     store_ACIA_control
+       1046 : A6 14                      lda     #WSB_8N1_gc     ; 8 bits + No Parity + 1 Stop Bits
+       1048 :                                                    ; Transmit, Receive interrupts disabled
+       1048 : AD C1                      bsr     store_ACIA_control
+       104A :
+       104A : AD 0E              loop:   bsr     getchar
+       104C : 4D                         tsta
+       104D : 27 0A                      beq     halt_to_system
+       104F : AD 14              echo:   bsr     putchar
+       1051 : A1 0D                      cmp     #$0D            ; Carriage Return
+       1053 : 26 F5                      bne     loop
+       1055 : A6 0A                      lda     #$0A            ; Newline
+       1057 : 20 F6                      bra     echo
+       1059 :                    halt_to_system:
+       1059 : 83                         swi                     ; halt to system
+       105A :
+       105A :                    getchar:
+       105A : CD 10 17                   jsr     load_ACIA_status
+       105D : A5 01                      bit     #RDRF_bm
+       105F : 27 F9                      beq     getchar
+       1061 : CD 10 23                   jsr     load_ACIA_data
+       1064 : 81                         rts
+       1065 :
+       1065 :                    putchar:
+       1065 : B7 41                      sta     save_a
+       1067 :                    putchar_loop:
+       1067 : CD 10 17                   jsr     load_ACIA_status
+       106A : A5 02                      bit     #TDRE_bm
+       106C : 27 F9                      beq     putchar_loop
+       106E : B6 41                      lda     save_a
+       1070 : CD 10 2F                   jsr     store_ACIA_data
+       1073 : 81                         rts
+       1074 :
+       1074 :                    ;;; MC68HC05 compatibility
+       FFFC :                            org     $FFFC
+       FFFC : FF FC                      fdb     $FFFC           ; SWI: halt to system
+       FFFE : 10 00                      fdb     initialize      ; RESET

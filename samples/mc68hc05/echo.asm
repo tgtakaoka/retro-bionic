@@ -7,6 +7,9 @@ ACIA:   equ     $FFE0
         org     RAM_START
 save_a: rmb     1
 
+        org     VEC_SWI
+        fdb     VEC_SWI         ; for halt to system
+
         org     VEC_RESET
         fdb     initialize
 
@@ -27,16 +30,6 @@ echo:   bsr     putchar
         lda     #$0A            ; Newline
         bra     echo
 halt_to_system:
-        ldx     #(step_swi)>>8
-        stx     VEC_SWI
-        ldx     #(step_swi)&$FF
-        stx     VEC_SWI+1
-        swi
-step_swi:
-        ldx     #(VEC_SWI)>>8
-        stx     VEC_SWI
-        ldx     #(VEC_SWI)&$FF
-        stx     VEC_SWI+1
         swi                     ; halt to system
 
 getchar:
@@ -48,10 +41,10 @@ getchar:
 
 putchar:
         sta     save_a
-transmit_loop:
+putchar_loop:
         lda     ACIA_status
         bit     #TDRE_bm
-        beq     transmit_loop
+        beq     putchar_loop
         lda     save_a
         sta     ACIA_data
         rts

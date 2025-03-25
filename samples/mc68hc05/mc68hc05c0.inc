@@ -7,9 +7,6 @@ VEC_KEY:        equ     $FFF2   ; Keyboard Scan
 VEC_MFT:        equ     $FFF4   ; Multi-Function Timer
 VEC_SCI:        equ     $FFF6   ; Serial Communications Interface
 VEC_TIMER:      equ     $FFF8   ; 16-Bit Timer
-VEC_IRQ:        equ     $FFFA   ; External Interrupt
-VEC_SWI:        equ     $FFFC   ; Software
-VEC_RESET:      equ     $FFFE   ; Reset
 
 ;;; Internal Register Area
 PORTB:  equ     $01     ; Port B Data Register

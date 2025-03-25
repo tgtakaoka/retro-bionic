@@ -9,14 +9,7 @@ tx_queue_size:  equ     32
 RX_INT_TX_NO:   equ     WSB_8N1_gc|RIEB_bm
 RX_INT_TX_INT:  equ     WSB_8N1_gc|RIEB_bm|TCB_EI_gc
 
-        org     RAM_START
-save_a: rmb     1
-save_x: rmb     1
-rx_queue:
-        rmb     rx_queue_size
-tx_queue:
-        rmb     tx_queue_size
-
+        org     $80
 ;;; Working space for mandelbrot.inc
 F:      equ     50
 vC:     rmb     2
@@ -26,6 +19,7 @@ vB:     rmb     2
 vS:     rmb     2
 vP:     rmb     2
 vQ:     rmb     2
+vT:     rmb     2
 vY:     rmb     1
 vX:     rmb     1
 vI:     rmb     1
@@ -43,8 +37,18 @@ R2L:    rmb     1
 arith_work:
         rmb     1
 SP:     rmb     1
+
+cputype:
+        rmb     1
+save_a: rmb     1
+save_x: rmb     1
+rx_queue:
+        rmb     rx_queue_size
+tx_queue:
+        rmb     tx_queue_size
+
         org     $0100
-stack:  rmb     200
+stack:  rmb     20
 
         org     VEC_IRQ
         fdb     isr_irq
@@ -119,7 +123,6 @@ isr_irq:
         lda     ACIA_status
         bit     #IRQF_bm
         beq     isr_irq_exit
-        lda     ACIA_status
         bit     #RDRF_bm
         beq     isr_irq_send
         lda     ACIA_data       ; receive character
@@ -139,3 +142,9 @@ isr_irq_send_empty:
         lda     #RX_INT_TX_NO
         sta     ACIA_control    ; disable Tx interrupt
         rti
+
+;;; MC68HC05 compatibility
+        org     $FFFA
+        fdb     isr_irq         ; IRQ
+        fdb     $FFFC           ; SWI: halt to system
+        fdb     initialize      ; RESET
