@@ -15,7 +15,7 @@ void PinsMc6805::resetPins() {
 }
 
 Signals *PinsMc6805::cycle() {
-   return completeCycle(prepareCycle());
+    return completeCycle(prepareCycle());
 }
 
 Signals *PinsMc6805::inject(uint8_t data) {
@@ -60,28 +60,29 @@ uint16_t PinsMc6805::captureWrites(
     return addr;
 }
 
+bool PinsMc6805::checkBreakPoint(Signals *s) {
+    auto r = regs<RegsMc6805>();
+    if (r->captureContext(s->prev(5))) {
+        const auto pc = r->nextIp() - 1;  //  offset SWI
+        const auto vec_swi = mems<MemsMc6805>()->vecSwi();
+        if (isBreakPoint(pc) || _mems->read16(vec_swi) == vec_swi) {
+            r->captureExtra(pc);
+            restoreBreakInsts();
+            Signals::discard(s->prev(7));
+            disassembleCycles();
+            return true;
+        }
+    }
+    return false;
+}
+
 void PinsMc6805::loop() {
     const auto vec_swi = mems<MemsMc6805>()->vecSwi();
     while (true) {
         _devs->loop();
         auto s = rawPrepareCycle();
-        if (s->addr == vec_swi) {
-            auto r = regs<RegsMc6805>();
-            if (r->captureContext(s->prev(5))) {
-                const auto pc = r->nextIp() - 1;  //  offset SWI
-                if (isBreakPoint(pc) || _mems->read16(vec_swi) == vec_swi) {
-                    r->setIp(pc);
-                    // inject non-internal RAM address
-                    completeCycle(s->inject(hi(0x1000)));
-                    inject(lo(0x1000));
-                    prepareCycle();
-                    restoreBreakInsts();
-                    Signals::discard(s->prev(7));
-                    disassembleCycles();
-                    return;
-                }
-            }
-        }
+        if (s->addr == vec_swi && checkBreakPoint(s))
+            return;
         if (haltSwitch()) {
             restoreBreakInsts();
             s = suspend(s);
@@ -168,15 +169,22 @@ void PinsMc6805::printCycles() {
 void PinsMc6805::disassembleCycles() {
     const auto g = Signals::get();
     const auto cycles = g->diff(currCycle());
+    const Signals *prefetch = nullptr;
     for (auto i = 0; i < cycles;) {
         const auto s = g->next(i);
-        if (s->fetch()) {
-            const auto nexti = _mems->disassemble(s->addr, 1);
-            const auto len = nexti - s->addr;
-            for (uint_fast8_t j = 0; j < len; j++) {
+        if (s->fetch() || prefetch) {
+            const auto fetch = prefetch ? prefetch : s;
+            const auto nexti = _mems->disassemble(fetch->addr, 1);
+            const auto len = nexti - fetch->addr - (prefetch ? 1 : 0);
+            uint_fast8_t j = prefetch ? 0 : 1;
+            prefetch = nullptr;
+            while (j < len) {
                 const auto p = s->next(j);
-                if (p->addr < s->addr || p->addr >= nexti)
+                if (p->addr < fetch->addr || p->addr > nexti)
                     p->print();
+                if (p->fetch())
+                    prefetch = p;
+                j++;
             }
             i += len;
         } else {

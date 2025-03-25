@@ -19,9 +19,10 @@ struct RegsMc6805 : Regs {
     void restore() override;
 
     bool captureContext(const Signals *frame);
-    void setIp(uint32_t addr) override { _pc = addr; }
+    virtual void captureExtra(uint16_t pc);
 
     uint32_t nextIp() const override { return _pc; }
+    void setIp(uint32_t addr) override { _pc = addr; }
     void helpRegisters() const override;
     const RegList *listRegisters(uint_fast8_t n) const override;
     bool setRegister(uint_fast8_t reg, uint32_t value) override;
@@ -44,6 +45,7 @@ protected:
     mutable CharBuffer _buffer;
 
     void bra(int8_t offset) const;
+    virtual bool isHC08() const { return false; }
 };
 
 }  // namespace mc6805

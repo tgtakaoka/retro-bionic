@@ -42,7 +42,8 @@ protected:
     virtual bool rawStep();
     Signals *cycle();
     Signals *suspend(Signals *s);
-    void loop();
+    bool checkBreakPoint(Signals *s);
+    virtual void loop();
 
     void disassembleCycles();
 };

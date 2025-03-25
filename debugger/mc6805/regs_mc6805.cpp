@@ -29,7 +29,8 @@ void RegsMc6805::reset() {
 }
 
 void RegsMc6805::save() {
-    const uint8_t SWI = 0x83;  // 1:N:w:W:W:W:W:V:v:A
+    const uint8_t SWI = 0x83;  // 1:N:w:W:W:W:W:V:v:n:J (MC6805/MC68HC05)
+                               // 0:n:w:W:W:W:W:V:v:J   (MC68HC08)
     _pins->injectReads(&SWI, sizeof(SWI), 0);
     uint8_t context[5];
     _sp = _pins->captureWrites(context, sizeof(context));
@@ -40,7 +41,7 @@ void RegsMc6805::save() {
     _cc = context[4];
     context[0] = hi(0x1000);
     context[1] = lo(0x1000);
-    _pins->injectReads(context, 2, 1);
+    _pins->injectReads(context, 2, isHC08() ? 0 : 1);
 }
 
 void RegsMc6805::restore() {
@@ -52,11 +53,16 @@ void RegsMc6805::restore() {
     internal_write(_sp++, hi(_pc), false);
     internal_write(_sp, lo(_pc), false);
     // Restore registers
-    const uint8_t RTI = 0x80;  // 1:N:n:R:r:r:r:r:A
-    _pins->injectReads(&RTI, sizeof(RTI), 8);
+    const uint8_t RTI = 0x80;  // 1:N:n:R:r:r:r:r:J (MC6805/MC68HC05)
+                               // 0:N:R:r:r:r:r:J   (MC68HC08)
+    _pins->injectReads(&RTI, sizeof(RTI), isHC08() ? 6 : 8);
 }
 
 bool RegsMc6805::captureContext(const Signals *frame) {
+    //     v-- frame
+    // 1:N:w:W:W:W:W:V:v:n:J (MC6805/MC68HC05)
+    // 0:n:w:W:W:W:W:V:v:J   (MC68HC08)
+    //     PC  X A CC
     // Machine context were pushed in the following order; PCL, PCH, X, A, CC
     const auto pcl = frame;
     const auto pch = frame->next();
@@ -74,6 +80,13 @@ bool RegsMc6805::captureContext(const Signals *frame) {
         }
     }
     return false;
+}
+
+void RegsMc6805::captureExtra(uint16_t pc) {
+    _pc = pc;
+    // If SWI vector pointing internal memory, we can't inject instructions.
+    static constexpr uint8_t DUMMY_SWI[] = {0x10, 0x00};
+    _pins->injectReads(DUMMY_SWI, sizeof(DUMMY_SWI), 0);
 }
 
 void RegsMc6805::helpRegisters() const {
@@ -116,19 +129,22 @@ bool RegsMc6805::setRegister(uint_fast8_t reg, uint32_t value) {
 
 void RegsMc6805::bra(int8_t offset) const {
     const uint8_t BRA[] = {
-            0x20, uint8(offset - 2),  // BRA *+offset; 1:2:n
+            0x20, uint8(offset - 2),  // BRA *+offset; 1:2:n   (MC6805)
+                                      //             ; 0:2:n:j (MC68HC08)
     };
     _pins->injectReads(BRA, sizeof(BRA), 1, true);
 }
 
 uint8_t RegsMc6805::internal_read(uint16_t addr, bool branch) const {
     const uint8_t LDA[] = {
-            0xC6, hi(addr), lo(addr),  // LDA addr ; 1:2:3:R
+            0xC6, hi(addr), lo(addr),  // LDA addr; 1:2:3:A   (MC6805)
+                                       //         ; 0:2:3:A:N (MC68HC08)
     };
     _pins->injectReads(LDA, sizeof(LDA), 1, true);
     static constexpr uint8_t STA[] = {
             0xC7, 0x10, 0x00,  // STA $1000 ; 1:2:3:n:W (MC146805)
                                //           ; 1:2:3:R:W (MC68HC05)
+                               //           ; 0:2:3:W:N (MC68HC08)
     };
     _pins->injectReads(STA, sizeof(STA), 0, true);
     uint8_t data;
@@ -141,11 +157,13 @@ uint8_t RegsMc6805::internal_read(uint16_t addr, bool branch) const {
 void RegsMc6805::internal_write(
         uint16_t addr, uint8_t data, bool branch) const {
     const uint8_t LDA_STA[] = {
-            0xA6, data,               // LDA #val ; 1:2
+            0xA6, data,               // LDA #val ; 1:2       (MC6805)
+                                      //          ; 0:2:N     (MC68HC08)
             0xC7, hi(addr), lo(addr)  // STA addr ; 1:2:3:n:W (MC146805)
                                       //          ; 1:2:3:R:W (MC68HC05)
+                                      //          ; 0:2:3:W:N (MC68HC08)
     };
-    _pins->injectReads(LDA_STA, sizeof(LDA_STA), 2, true);
+    _pins->injectReads(LDA_STA, sizeof(LDA_STA), isHC08() ? 1 : 2, true);
     if (branch)
         bra(-5);  // offset LDA/STA
 }
