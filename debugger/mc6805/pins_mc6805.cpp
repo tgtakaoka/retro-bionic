@@ -4,6 +4,9 @@
 #include "regs_mc6805.h"
 #include "signals_mc6805.h"
 
+#define DEBUG(e) e
+// #define DEBUG(e)
+
 namespace debugger {
 namespace mc6805 {
 
@@ -21,12 +24,18 @@ void PinsMc6805::injectReads(const uint8_t *inst, uint_fast8_t len,
     auto s = currCycle();
     for (uint_fast8_t inj = 0; inj < len; ++inj) {
         completeCycle(s->inject(inst[inj]));
+        DEBUG(cli.print("@@ inject: inj="));
+        DEBUG(cli.printDec(inj, -3));
+        DEBUG(s->print());
         if (discard)
             Signals::discard(s);
         s = prepareCycle();
     }
     for (uint_fast8_t inj = 0; inj < cycles; ++inj) {
         completeCycle(s);
+        DEBUG(cli.print("@@ inject: cyc="));
+        DEBUG(cli.printDec(inj, -3));
+        DEBUG(s->print());
         if (discard)
             Signals::discard(s);
         s = prepareCycle();
@@ -38,8 +47,19 @@ uint16_t PinsMc6805::captureWrites(
     // capture |len| writes
     uint16_t addr = 0;
     auto s = currCycle();
+    uint8_t cyc = 0;
     for (uint_fast8_t cap = 0; cap < len;) {
         completeCycle(s->capture());
+        if (cyc < 10) {
+            cyc++;
+            DEBUG(cli.print("@@ capture: cap="));
+            DEBUG(cli.printDec(cap, -3));
+            DEBUG(s->print());
+        } else {
+            DEBUG(cli.print("@@ capture: abort"));
+            DEBUG(s->print());
+            break;
+        }
         if (s->write()) {
             if (cap == 0)
                 addr = s->addr;

@@ -27,7 +27,7 @@ struct PinsMc6805 : Pins {
     uint16_t captureWrites(
             uint8_t *buf, uint_fast8_t len, bool discard = false);
     Signals *inject(uint8_t data);
-    Signals *suspend(Signals *signals = nullptr);
+    virtual Signals *suspend(Signals *signals = nullptr);
 
 protected:
     PinsMc6805(const InstMc6805 &inst) : _inst(inst) {}

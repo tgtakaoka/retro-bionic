@@ -29,7 +29,8 @@ void RegsMc6805::reset() {
 }
 
 void RegsMc6805::save() {
-    const uint8_t SWI = 0x83;  // 1:N:w:W:W:W:W:V:v:A
+    const uint8_t SWI = 0x83;  // 1:N:w:W:W:W:W:V:v:A (MC6805/MC68HC05)
+                               // 1:n:W:w:w:w:w:V:v  (MC68HC08)
     _pins->injectReads(&SWI, sizeof(SWI), 0);
     uint8_t context[5];
     _sp = _pins->captureWrites(context, sizeof(context));
@@ -40,7 +41,7 @@ void RegsMc6805::save() {
     _cc = context[4];
     context[0] = hi(0x1000);
     context[1] = lo(0x1000);
-    _pins->injectReads(context, 2, 1);
+    _pins->injectReads(context, 2, is6805() ? 1 : 0);
 }
 
 void RegsMc6805::restore() {
@@ -52,8 +53,9 @@ void RegsMc6805::restore() {
     internal_write(_sp++, hi(_pc));
     internal_write(_sp, lo(_pc));
     // Restore registers
-    const uint8_t RTI = 0x80;  // 1:N:n:R:r:r:r:r:A
-    _pins->injectReads(&RTI, sizeof(RTI), 8);
+    const uint8_t RTI = 0x80;  // 1:N:n:R:r:r:r:r:A (MC6805/MC68HC05)
+                               // 1:N:R:r:r:r:r     (MC68HC08)
+    _pins->injectReads(&RTI, sizeof(RTI), is6805() ? 8 : 6);
 }
 
 bool RegsMc6805::saveContext(const Signals *frame) {
@@ -129,6 +131,7 @@ uint8_t RegsMc6805::internal_read(uint16_t addr, bool branch) const {
     static constexpr uint8_t STA[] = {
             0xC7, 0x10, 0x00,  // STA $1000 ; 1:2:3:n:W (MC146805)
                                //           ; 1:2:3:R:W (MC68HC05)
+                               //           ; 1:2:3:W   (MC68HC08)
     };
     _pins->injectReads(STA, sizeof(STA), 0, true);
     uint8_t data;
@@ -144,8 +147,9 @@ void RegsMc6805::internal_write(
             0xA6, data,               // LDA #val ; 1:2
             0xC7, hi(addr), lo(addr)  // STA addr ; 1:2:3:n:W (MC146805)
                                       //          ; 1:2:3:R:W (MC68HC05)
+                                      //          ; 1:2:3:W   (MC68HC08)
     };
-    _pins->injectReads(LDA_STA, sizeof(LDA_STA), 2, true);
+    _pins->injectReads(LDA_STA, sizeof(LDA_STA), is6805() ? 2 : 1, true);
     if (branch)
         bra(-5);  // offset LDA/STA
 }

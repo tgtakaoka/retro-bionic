@@ -44,6 +44,7 @@ protected:
     mutable CharBuffer _buffer;
 
     void bra(int8_t offset) const;
+    virtual bool is6805() const { return true; }
 };
 
 }  // namespace mc6805
