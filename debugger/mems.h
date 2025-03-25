@@ -56,9 +56,9 @@ struct Mems {
         write(addr, data);
     }
     // Setup and restore break point
-    virtual uint16_t get_inst(uint32_t addr) const { return read_byte(addr); }
+    virtual uint16_t get_inst(uint32_t addr) const { return get(addr); }
     virtual void put_inst(uint32_t addr, uint16_t data) const {
-        write_byte(addr, data);
+        put(addr, data);
     }
 
     struct RomArea {
