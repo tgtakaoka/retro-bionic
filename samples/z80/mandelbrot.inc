@@ -4,22 +4,20 @@
 ;;; @param A 8-bit value
 ;;; @return BC 16-bit value
 sex_BC:
-        ld      B, 0
         ld      C, A
-        bit     7, C
-        ret     Z
-        ld      B, -1
+        add     A, A            ; AF.C=sign(A)
+        sbc     A, A            ; A=A-A-C
+        ld      B, A
         ret
 
 ;;; Sign extend A into HL
 ;;; @param A 8-bit value
 ;;; @return HL 16-bit value
 sex_HL:
-        ld      H, 0
         ld      L, A
-        bit     7, L
-        ret     Z
-        ld      H, -1
+        add     A, A            ; AF.C=sign(A)
+        sbc     A, A            ; A=A-A-C
+        ld      H, A
         ret
 
 Fv:     equ     50
@@ -89,8 +87,9 @@ loop_i:
         ld      DE, (vA)
         call    mul16           ; A*A
         pop     DE              ; pop B*B
-        call    neg_DE          ; -B*B
-        add     HL, DE          ; A*A-B*B
+        scf
+        ccf
+        sbc     HL, DE          ; A*A-B*B
         ld      B, H
         ld      C, L
         ld      DE, Fv
@@ -175,11 +174,10 @@ loop_i:
         jr      print_char
 print_i:
         ld      A, (vI)
-        cp      10
-        jr      C, print_i2     ; if I<10
-        add     A, 'A'-'0'-10
-print_i2:
-        add     A, '0'
+        add     A, 90H
+        daa
+        adc     A, 40H
+        daa
 print_char:
         call    putchar
 

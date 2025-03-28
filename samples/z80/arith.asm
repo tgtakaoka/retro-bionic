@@ -129,24 +129,6 @@ comp_out:
         org     1000H
 
 arith:
-        ld      BC, 0
-        ld      DE, -28000
-        ld      A, '-'
-        call    expr
-        call    neg_DE
-        ld      H, D
-        ld      L, E
-        call    answer          ; 28000
-
-        ld      HL, 0
-        ld      DE, 28000
-        ld      A, '-'
-        call    expr
-        call    neg_DE
-        ld      H, D
-        ld      L, E
-        call    answer          ; -28000
-
         ld      BC, 18000
         ld      DE, 28000
         ld      A, '+'
@@ -172,8 +154,9 @@ arith:
         ld      DE, -28000
         ld      A, '-'
         call    expr
-        call    neg_DE
-        add     HL, DE
+        scf
+        ccf
+        sbc     HL, DE
         call    answer          ; -10000
 
         ld      BC, 100

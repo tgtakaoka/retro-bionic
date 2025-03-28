@@ -104,12 +104,10 @@ put_hex8:
         ld      A, B
 put_hex4:
         and     0FH
-        cp      10
-        jr      C, put_hex8_dec ; A<10
-        add     A, 'A'-10
-        jr      putchar
-put_hex8_dec:
-        add     A, '0'
+        add     A, 90H
+        daa
+        adc     A, 40H
+        daa
         jr      putchar
 
 ;;; Print uint8_t in binary

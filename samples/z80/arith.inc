@@ -50,19 +50,15 @@ print_uint16_zero:
 ;;; @return AF.Z, AF.S
 ;;; @clobber A
 cmp16:
-        push    BC
-        push    DE
         push    HL
-        ld      A, C
-        sub     A, E
-        ld      L, A
-        ld      A, B
-        sbc     A, D
-        ld      H, A            ; HL=minuend-subtrahend
-        or      L
-        jr      Z, cmp16_return   ; AF.Z=1
+        ld      H, B
+        ld      L, C
+        scf
+        ccf
+        sbc     HL, DE
+        jr      Z, cmp16_return ; AF.Z=1
         ld      A, H            ; high(minuend-subtrahend)
-        xor     B               ; high(minuend-subtrahend)^minuend)
+        xor     B               ; high(minuend-subtrahend)^minuend
         ld      L, A
         ld      A, B
         xor     D               ; high(minuend^subtrahend)
@@ -71,22 +67,6 @@ cmp16:
         or      1               ; clear AF.Z
 cmp16_return:
         pop     HL
-        pop     DE
-        pop     BC
-        ret
-
-;;; Negate; v
-;;; @param DE v
-;;; @return DE -v
-;;; @clobber A
-neg_DE:
-        ld      A, D
-        cpl
-        ld      D, A
-        ld      A, E
-        cpl
-        ld      E, A
-        inc     DE
         ret
 
 ;;; Unsigned multiplication; result = multiplicand * multiplier
@@ -133,23 +113,21 @@ mul16:
         push    AF              ; save high(multiplicand^multiplier)
         bit     7, B
         jr      Z, mul16_abs_muliplicand
-        ld      A, B
-        cpl
-        ld      B, A
-        ld      A, C
-        cpl
-        ld      C, A
-        inc     BC              ; multiplicand = -multiplicand
+        xor     A               ; AF.C=0
+        ld      H, A
+        ld      L, A
+        sbc     HL, BC
+        ld      B, H
+        ld      C, L            ; multiplicand = -multiplicand
 mul16_abs_muliplicand:
         bit     7, D
         jr      Z,  mul16_multiply
-        ld      A, D
-        cpl
-        ld      D, A
-        ld      A, E
-        cpl
-        ld      E, A
-        inc     DE              ; multiplier = -multiplier
+        xor     A               ; AF.C=0
+        ld      H, A
+        ld      L, A
+        sbc     HL, DE
+        ld      D, H
+        ld      E, L            ; multiplier = -multiplier
 mul16_multiply:
         call    umul16          ; HL = multiplicand * multiplier
         pop     AF              ; A=high(multiplicand^multiplier)
@@ -214,12 +192,9 @@ udiv16_loop:
         rla
         ld      B, A
 udiv16_enter_loop:
-        ld      A, L
-        sub     A, E
-        ld      L, A
-        ld      A, H
-        sbc     A, D
-        ld      H, A            ; dividend -= divisor
+        scf
+        ccf
+        sbc     HL, DE          ; dividend -= divisor
         jr      C, udiv16_readd ; if dividend < 0
         inc     BC              ; quotient |= 1
         jr      udiv16_next
@@ -247,23 +222,21 @@ div16:
         push    AF              ; save high(dividend^divisor)
         bit     7, B
         jr      Z, div16_abs_dividend
-        ld      A, B
-        cpl
-        ld      B, A
-        ld      A, C
-        cpl
-        ld      C, A
-        inc     BC              ; dividend = -dividend
+        xor     A               ; AF.C=0
+        ld      H, A
+        ld      L, A
+        sbc     HL, BC
+        ld      B, H
+        ld      C, L            ; dividend = -dividend
 div16_abs_dividend:
         bit     7, D
         jr      Z, div16_divide
-        ld      A, D
-        cpl
-        ld      D, A
-        ld      A, E
-        cpl
-        ld      E, A
-        inc     DE              ; divisor = -divisor
+        xor     A               ; AF.C=0
+        ld      H, A
+        ld      L, A
+        sbc     HL, DE
+        ld      D, H
+        ld      E, L            ; divisor = -divisor
 div16_divide:
         call    udiv16          ; HL=quotient, BC=remainder
         pop     AF              ; A=high(dividend^divisor)
