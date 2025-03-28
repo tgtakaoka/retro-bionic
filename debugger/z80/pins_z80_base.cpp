@@ -14,13 +14,13 @@ PinsZ80Base::PinsZ80Base() {
     _mems = new MemsZ80(regs);
 }
 
-void PinsZ80Base::execInst(const uint8_t *inst, uint8_t len) {
-    execute(inst, len, nullptr, nullptr, 0);
+void PinsZ80Base::execInst(const uint8_t *inst, uint_fast8_t len) {
+    execute(inst, len, nullptr, 0);
 }
 
-void PinsZ80Base::captureWrites(const uint8_t *inst, uint8_t len,
-        uint16_t *addr, uint8_t *buf, uint8_t max) {
-    execute(inst, len, addr, buf, max);
+uint16_t PinsZ80Base::captureWrites(
+        const uint8_t *inst, uint_fast8_t len, uint8_t *buf, uint_fast8_t max) {
+    return execute(inst, len, buf, max);
 }
 
 void PinsZ80Base::setBreakInst(uint32_t addr) const {

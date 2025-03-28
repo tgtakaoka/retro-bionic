@@ -92,8 +92,8 @@ private:
     void loop();
     void suspend();
     bool rawStep();
-    void execute(const uint8_t *inst, uint8_t len, uint16_t *addr, uint8_t *buf,
-            uint8_t max) override;
+    uint16_t execute(const uint8_t *inst, uint_fast8_t len, uint8_t *buf,
+            uint_fast8_t max) override;
 
     void disassembleCycles();
 };

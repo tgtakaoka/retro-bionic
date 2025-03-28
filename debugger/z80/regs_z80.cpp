@@ -61,8 +61,8 @@ void RegsZ80::saveRegs(reg &regs) const {
             0xD5,  // PUSH DE
             0xE5,  // PUSH HL
     };
-    _pins->captureWrites(PUSH_ALL, sizeof(PUSH_ALL), nullptr, (uint8_t *)&regs,
-            sizeof(regs));
+    _pins->captureWrites(
+            PUSH_ALL, sizeof(PUSH_ALL), (uint8_t *)&regs, sizeof(regs));
 }
 
 void RegsZ80::restoreRegs(const reg &regs) const {
@@ -80,7 +80,7 @@ void RegsZ80::save() {
             0xC7,  // RST 0
     };
     uint8_t buffer[5];
-    _pins->captureWrites(PUSH_PC, sizeof(PUSH_PC), &_sp, buffer, sizeof(_pc));
+    _sp = _pins->captureWrites(PUSH_PC, sizeof(PUSH_PC), buffer, sizeof(_pc));
     _sp += 1;
     _pc = be16(buffer) - 1;  // offser RST instruction
     saveRegs(_main);
@@ -94,7 +94,7 @@ void RegsZ80::save() {
             0x77,        // LD (HL), A
     };
     _pins->captureWrites(
-            SAVE_OTHERS, sizeof(SAVE_OTHERS), nullptr, buffer, sizeof(buffer));
+            SAVE_OTHERS, sizeof(SAVE_OTHERS), buffer, sizeof(buffer));
     _ix = be16(buffer + 0);
     _iy = be16(buffer + 2);
     _i = buffer[4];
@@ -102,10 +102,10 @@ void RegsZ80::save() {
 
 void RegsZ80::restore() {
     const uint8_t LD_OTHERS[] = {
-            0x3E, _i,                // LD A, _i
-            0xED, 0x47,              // LD A, I
-            0xFD, lo(_iy), hi(_iy),  // POP IY, _iy
-            0xDD, lo(_ix), hi(_ix),  // POP IX, _ix
+            0x3E, _i,                      // LD A, _i
+            0xED, 0x47,                    // LD A, I
+            0xFD, 0xE1, lo(_iy), hi(_iy),  // POP IY, _iy
+            0xDD, 0xE1, lo(_ix), hi(_ix),  // POP IX, _ix
     };
     _pins->execInst(LD_OTHERS, sizeof(LD_OTHERS));
     restoreRegs(_main);
@@ -125,7 +125,7 @@ uint8_t RegsZ80::read_io(uint8_t addr) const {
             0x77,        // LD (HL), A
     };
     uint8_t data;
-    _pins->captureWrites(IN, sizeof(IN), nullptr, &data, sizeof(data));
+    _pins->captureWrites(IN, sizeof(IN), &data, sizeof(data));
     return data;
 }
 
@@ -137,7 +137,7 @@ void RegsZ80::write_io(uint8_t addr, uint8_t data) const {
     };
     uint8_t tmp;
     // LD (HL), A ensures I/O write cycle.
-    _pins->captureWrites(OUT, sizeof(OUT), nullptr, &tmp, sizeof(tmp));
+    _pins->captureWrites(OUT, sizeof(OUT), &tmp, sizeof(tmp));
 }
 
 void RegsZ80::helpRegisters() const {

@@ -74,9 +74,9 @@ namespace {
 
 constexpr auto clk_hi_ns = 100;      // 125 ns
 constexpr auto clk_lo_ns = 100;      // 125 ns
-constexpr auto clk_lo_addr = 40;     // +clk_lo_cntl; 125 ns
+constexpr auto clk_lo_addr = 10;     // +clk_lo_cntl; 125 ns
 constexpr auto clk_hi_addr = 55;     // 125 ns
-constexpr auto clk_lo_cntl = 28;     // +clk_lo_addr; 125 ns
+constexpr auto clk_lo_cntl = 58;     // +clk_lo_addr; 125 ns
 constexpr auto clk_hi_read = 80;     // TdCr(M1f)
 constexpr auto clk_hi_inject = 80;   // TdCf(MREQf)/TdCf(IORQf)
 constexpr auto clk_lo_read = 43;     // 125 ns
@@ -242,7 +242,7 @@ Signals *PinsZ80::completeCycle(Signals *s) const {
     if (s->mreq()) {  // Memory read or write cycles
         if (s->read()) {
             if (s->readMemory()) {
-                s->data = _mems->read_byte(s->addr);
+                s->data = _mems->read(s->addr);
                 delayNanoseconds(clk_hi_read);
             } else {
                 delayNanoseconds(clk_hi_inject);
@@ -265,7 +265,7 @@ Signals *PinsZ80::completeCycle(Signals *s) const {
             // #MREQ:T3H
             clk_hi();
             if (s->writeMemory()) {
-                _mems->write_byte(s->addr, s->data);
+                _mems->write(s->addr, s->data);
                 delayNanoseconds(clk_hi_memory);
             } else {
                 delayNanoseconds(clk_hi_capture);
@@ -329,8 +329,9 @@ Signals *PinsZ80::inject(uint8_t data) const {
     return completeCycle(prepareCycle()->inject(data));
 }
 
-void PinsZ80::execute(const uint8_t *inst, uint8_t len, uint16_t *addr,
-        uint8_t *buf, uint8_t max) {
+uint16_t PinsZ80::execute(
+        const uint8_t *inst, uint_fast8_t len, uint8_t *buf, uint_fast8_t max) {
+    uint16_t addr = 0;
     uint8_t inj = 0;
     uint8_t cap = 0;
     auto s = Signals::put();
@@ -349,15 +350,15 @@ void PinsZ80::execute(const uint8_t *inst, uint8_t len, uint16_t *addr,
                 if (inj < len)
                     ++inj;
             } else {
-                if (cap == 0 && addr)
-                    *addr = s->addr;
+                if (cap == 0)
+                    addr = s->addr;
                 if (cap < max && buf)
                     buf[cap++] = s->data;
             }
         }
         if (inj >= len && cap >= max) {
             prepareWait();
-            return;
+            return addr;
         }
         delayNanoseconds(clk_lo_exec);
         s = prepareCycle();

@@ -292,8 +292,9 @@ Signals *PinsNsc800::inject(uint8_t data) const {
     return completeCycle(prepareCycle()->inject(data));
 }
 
-void PinsNsc800::execute(const uint8_t *inst, uint8_t len, uint16_t *addr,
-        uint8_t *buf, uint8_t max) {
+uint16_t PinsNsc800::execute(
+        const uint8_t *inst, uint_fast8_t len, uint8_t *buf, uint_fast8_t max) {
+    uint16_t addr = 0;
     uint8_t inj = 0;
     uint8_t cap = 0;
     auto s = Signals::put();
@@ -312,15 +313,15 @@ void PinsNsc800::execute(const uint8_t *inst, uint8_t len, uint16_t *addr,
                 if (inj < len)
                     ++inj;
             } else {
-                if (cap == 0 && addr)
-                    *addr = s->addr;
+                if (cap == 0)
+                    addr = s->addr;
                 if (cap < max && buf)
                     buf[cap++] = s->data;
             }
         }
         if (inj >= len && cap >= max) {
             prepareWait();
-            return;
+            return addr;
         }
         s = prepareCycle();
     }
