@@ -45,7 +45,13 @@ bool Signals::hasBst() const {
 }
 
 void Signals::print() const {
-    // cli.printDec(pos(), -4);
+    cli.printDec(pos(), -4);
+    if (read()) {
+        cli.print(readMemory() ? 'r' : 'i');
+    } else {
+        cli.print(writeMemory() ? 'w' : 'c');
+    }
+    cli.print(' ');
     //                              0123456789012345
     static constexpr char line[] = "R A=xxxx D=xxxx ";
     static auto &buffer = *new CharBuffer(line);
