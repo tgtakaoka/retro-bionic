@@ -261,7 +261,7 @@ void Mems::dumpMemory(uint32_t addr, uint16_t len, const char *space) const {
     const auto bits = opCodeWidth();
     const auto unit = addressUnit();
     // Quantize address to a multiple of 8 or 16.
-    const auto chunk = (bits == 16 || unit == 2) ? 2 : 1;
+    const auto chunk = (bits == 16 || unit == 2 || wordAccess()) ? 2 : 1;
     const auto step = 16 / unit;
     // Print 16 bytes of data
     for (addr &= ~(step - 1); addr < end; addr += step) {
@@ -271,10 +271,10 @@ void Mems::dumpMemory(uint32_t addr, uint16_t len, const char *space) const {
         const auto count = step - head - tail;
         // Read 16 bytes into |buf|.
         uint8_t buf[16];
-        for (auto n = 0; n < 16; n += unit) {
+        for (auto n = 0; n < 16; n += chunk) {
             const auto a = addr + n / unit;
             if (a >= start && a < end) {
-                if (unit == 1) {
+                if (chunk == 1) {
                     buf[n] = get(a, space);
                 } else {
                     const auto data = get(a, space);
