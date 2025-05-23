@@ -40,7 +40,7 @@ initialize:
         li      R0, hibyte(WSB_8N1_gc++RIEB_bm)
         movb    R0, @ACIA_control       8 bits + No Parity + 1 Stop Bits
         li      R0, hibyte(VEC_INT1)
-        movb    R0, @ACIA_intr          set INT1 name for MC6805 emulator
+        movb    R0, @ACIA_intr          set INT1 name for MC6850 emulator
         jmp     loop
 
 wait:
