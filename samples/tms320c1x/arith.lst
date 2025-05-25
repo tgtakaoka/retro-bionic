@@ -1,0 +1,519 @@
+          0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+          0 :                            .include "tms320c15.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :                    ;;; TMS320C15
+(1)       0 :                            .include "tms3201x.inc"
+(2)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(2)       0 :                    ;;; TMS3201X
+(2)       0 :                    ;;; Origin
+(2)       0 : =0                 ORG_RESET:      .equ    0000H   ; Reset
+(2)       0 : =2                 ORG_INT:        .equ    0002H   ; INT
+(2)       0 :                    ;;; Halt to system
+(2)       0 : =A000              HALT:           .equ    0A000H  ; illegal instruction
+(1)       0 :                            .cpu     32015
+(1)       0 :                    ;;; Data memory
+(1)       0 : =0                 PAGE0:  .equ    00H
+(1)       0 : =80                PAGE1:  .equ    80H
+          0 :
+          0 :                    ;;; MC6850 Asynchronous Communication Interface Adapter
+          0 : =4                 ACIA:   .equ    4
+          0 :                            .include "mc6850.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :                    ;;; MC6850
+(1)       0 :                    ;;; Asynchronous Communication Interface Adapter
+(1)       0 : =4                 ACIA_control:   .equ    ACIA+0
+(1)       0 : =4                 ACIA_status:    .equ    ACIA+0
+(1)       0 : =5                 ACIA_data:      .equ    ACIA+1
+(1)       0 : =6                 ACIA_intr:      .equ    ACIA+2
+(1)       0 :                    ;;;  Counter Divider Select Bits
+(1)       0 : =3                 CDS_gm:         .equ    11B       ; Group mask
+(1)       0 : =0                 CDS_DIV1_gc:    .equ    00000000B ; /1
+(1)       0 : =1                 CDS_DIV16_gc:   .equ    00000001B ; /16
+(1)       0 : =2                 CDS_DIV64_gc:   .equ    00000010B ; /64
+(1)       0 : =3                 CDS_RESET_gc:   .equ    00000011B ; Master Reset
+(1)       0 :                    ;;;  Word Select Bits
+(1)       0 : =1C                WSB_gm:         .equ    00011100B ; Group mask
+(1)       0 : =0                 WSB_7E2_gc:     .equ    00000000B ; 7 Bits + Even Parity + 2 Stop Bits
+(1)       0 : =4                 WSB_7O2_gc:     .equ    00000100B ; 7 bits + Odd Parity  + 2 Stop Bits
+(1)       0 : =8                 WSB_7E1_gc:     .equ    00001000B ; 7 bits + Even Parity + 1 Stop Bits
+(1)       0 : =C                 WSB_7O1_gc:     .equ    00001100B ; 7 bits + Odd Parity  + 1 Stop Bits
+(1)       0 : =10                WSB_8N2_gc:     .equ    00010000B ; 8 bits + No Parity   + 2 Stop Bits
+(1)       0 : =14                WSB_8N1_gc:     .equ    00010100B ; 8 bits + No Parity   + 1 Stop Bits
+(1)       0 : =18                WSB_8E1_gc:     .equ    00011000B ; 8 bits + Even Parity + 1 Stop Bits
+(1)       0 : =1C                WSB_8O1_gc:     .equ    00011100B ; 8 bits + Odd Parity  + 1 Stop Bits
+(1)       0 :                    ;;; Transmit Control Bits
+(1)       0 : =60                TCB_gm:         .equ    01100000B ; Group mask
+(1)       0 : =0                 TCB_DI_gc:      .equ    00000000B ; RTS=Low,  Tx Interrupt Disabled
+(1)       0 : =20                TCB_EI_gc:      .equ    00100000B ; RTS=Low,  Tx Interrupt Enabled
+(1)       0 : =40                TCB_RTS_gc:     .equ    01000000B ; RTS=High, Tx Interrupt Disabled
+(1)       0 : =60                TCB_BREAK_gc:   .equ    01100000B ; RTS=Low,  Tx Interrupt Disabled
+(1)       0 :                                                      ; Transmit Break Level
+(1)       0 : =80                RIEB_bm:        .equ    10000000B ; Receive Interrupt Enable Bit mask
+(1)       0 :                    ;;; Status register
+(1)       0 : =1                 RDRF_bm:        .equ    00000001B ; Receive Data Register Full
+(1)       0 : =2                 TDRE_bm:        .equ    00000010B ; Transmit Data Register Empty
+(1)       0 : =4                 DCDF_bm:        .equ    00000100B ; Data Carrier Detect Flag
+(1)       0 : =8                 CTSF_bm:        .equ    00001000B ; Clear To Send Flag
+(1)       0 : =10                FERR_bm:        .equ    00010000B ; Frame Error Flag
+(1)       0 : =20                OVRN_bm:        .equ    00100000B ; Receiver Overrun Flag
+(1)       0 : =40                PERR_bm:        .equ    01000000B ; Parity Error Flag
+(1)       0 : =80                IRQF_bm:        .equ    10000000B ; Interrupt Request Flag
+          0 :
+          0 :                    ;;; Data memory
+          0 :                            .org    PAGE0
+          0 :                    zero:   .bss    1
+          1 :                    one:    .bss    1
+          2 :                    work:   .bss    1
+          3 :                    char:   .bss    1
+          4 :                    putchar_ret:    .bss    1
+          5 :                    newline_ret:
+          5 :                    putspace_ret:   .bss    1
+          6 :                    vA:     .bss    1
+          7 :                    vB:     .bss    1
+          8 :                    expr_op:
+          8 :                    comp_rel:       .bss    1
+          9 :                    expr_ret:
+          9 :                    answer_ret:
+          9 :                    comp_ret:       .bss    1
+          A :                    R0:     .bss    1
+          B :                    R1:     .bss    1
+          C :                    R2:     .bss    1
+          D :                    print_int16_ret:
+          D :                            .bss    1
+          E :                    udiv16_ret:     .bss    1
+          F :                    divu16_ret:     .bss    1
+         10 :                    div16_ret:      .bss    1
+         11 :                    print_buf:      .bss    8
+         19 :
+          0 :                            .org    ORG_RESET
+          0 : F900 0100                  b       initialize
+          2 :
+        100 :                            .org    100H
+        100 :                    initialize:
+        100 : 6E00                       ldpk    0
+        101 : 7E00                       lack    0
+        102 : 5000                       sacl    zero
+        103 : 7E01                       lack    1
+        104 : 5001                       sacl    one
+        105 :                    ;;; Initialize ACIA
+        105 : 7E03                       lack    CDS_RESET_gc
+        106 : 5002                       sacl    work
+        107 : 4C02                       out     work,ACIA_control ; Master reset
+        108 : 7E14                       lack    WSB_8N1_gc
+        109 : 5002                       sacl    work
+        10A : 4C02                       out     work,ACIA_control ; 8 bits + No Parity + 1 Stop Bits
+        10B : F900 0181                  b       arith
+        10D :
+        10D :                    newline:
+        10D : 7F9D                       pop                     ; return address
+        10E : 5005                       sacl    newline_ret
+        10F : 7E0D                       lack    0DH
+        110 : F800 0120                  call    putchar
+        112 : 7E0A                       lack    0AH
+        113 : F800 0120                  call    putchar
+        115 : 6605                       zals    newline_ret
+        116 : 7F9C                       push                    ; return address
+        117 : 7F8D                       ret
+        118 :
+        118 :                    putspace:
+        118 : 7F9D                       pop                     ; return address
+        119 : 5005                       sacl    putspace_ret
+        11A : 7E20                       lack    ' '
+        11B : F800 0120                  call    putchar
+        11D : 6605                       zals    putspace_ret
+        11E : 7F9C                       push                    ; return address
+        11F : 7F8D                       ret
+        120 :
+        120 :                    putchar:
+        120 : 5003                       sacl    char
+        121 : 7F9D                       pop                     ; return address
+        122 : 5004                       sacl    putchar_ret
+        123 :                    putchar_loop:
+        123 : 4402                       in      work,ACIA_status
+        124 : 7E02                       lack    TDRE_bm
+        125 : 7902                       and     work
+        126 : FF00 0123                  bz      putchar_loop
+        128 : 4D03                       out     char,ACIA_data
+        129 : 6604                       zals    putchar_ret
+        12A : 7F9C                       push                    ; return address
+        12B : 7F8D                       ret
+        12C :
+        12C :                    ;;; Print "A op B"
+        12C :                    ;;; @params .word A
+        12C :                    ;;; @params .word B
+        12C :                    ;;; @params .word op
+        12C :                    ;;; @return R1=A
+        12C :                    ;;; @return R2=B
+        12C :                    ;;; @return ACC=A
+        12C :                    ;;; @return T=A
+        12C :                    ;;; @clobber R0 R1 R2
+        12C :                    expr:
+        12C : 7F9D                       pop                     ; return address
+        12D : 6706                       tblr    vA              ; load A
+        12E : 0001                       add     one
+        12F : 6707                       tblr    vB              ; load B
+        130 : 0001                       add     one
+        131 : 6708                       tblr    expr_op         ; load op
+        132 : 0001                       add     one
+        133 : 5009                       sacl    expr_ret
+        134 : 2006                       lac     vA
+        135 : F800 023F                  call    print_int16     ; print A
+        137 : F800 0118                  call    putspace
+        139 : 6608                       zals    expr_op         ; print op
+        13A : F800 0120                  call    putchar
+        13C : F800 0118                  call    putspace
+        13E : 2007                       lac     vB
+        13F : F800 023F                  call    print_int16     ; print B
+        141 : 6609                       zals    expr_ret
+        142 : 7F9C                       push                    ; return address
+        143 : 2007                       lac     vB
+        144 : 500C                       sacl    R2              ; R2=B
+        145 : 2006                       lac     vA              ; ACC=A
+        146 : 500B                       sacl    R1              ; R1=A
+        147 : 6A06                       lt      vA              ; T=A
+        148 : 7F8D                       ret
+        149 :
+        149 :                    ;;; Print " = v\n"
+        149 :                    ;;; @param ACC v
+        149 :                    ;;; @clobber R0 R1 R2
+        149 :                    answer:
+        149 : 5006                       sacl    vA
+        14A : 7F9D                       pop                     ; return address
+        14B : 5009                       sacl    answer_ret
+        14C : F800 0118                  call    putspace
+        14E : 7E3D                       lack    '='
+        14F : F800 0120                  call    putchar
+        151 : F800 0118                  call    putspace
+        153 : 2006                       lac     vA
+        154 : F800 023F                  call    print_int16     ; print v
+        156 : F800 010D                  call    newline
+        158 : 6609                       zals    answer_ret
+        159 : 7F9C                       push                    ; return address
+        15A : 7F8D                       ret
+        15B :
+        15B :                    ;;; Print "A rel B"
+        15B :                    ;;; @param .word A
+        15B :                    ;;; @param .word B
+        15B :                    ;;; @clobber R0 R1 R2
+        15B :                    comp:
+        15B : 7F9D                       pop                     ; return address
+        15C : 6706                       tblr    vA              ; load A
+        15D : 0001                       add     one
+        15E : 6707                       tblr    vB              ; load B
+        15F : 0001                       add     one
+        160 : 5009                       sacl    comp_ret
+        161 : 2006                       lac     vA
+        162 : 1007                       sub     vB
+        163 : FF00 016A                  bz      comp_eq
+        165 : FA00 016D                  blz     comp_lt
+        167 :                    comp_gt:
+        167 : 7E3E                       lack    '>'
+        168 : F900 016E                  b       comp_put
+        16A :                    comp_eq:
+        16A : 7E3D                       lack    '='
+        16B : F900 016E                  b       comp_put
+        16D :                    comp_lt:
+        16D : 7E3C                       lack    '<'
+        16E :                    comp_put:
+        16E : 5008                       sacl    comp_rel
+        16F : 2006                       lac     vA
+        170 : F800 023F                  call    print_int16     ; print A
+        172 : F800 0118                  call    putspace
+        174 : 6608                       zals    comp_rel
+        175 : F800 0120                  call    putchar         ; print rel
+        177 : F800 0118                  call    putspace
+        179 : 2007                       lac     vB
+        17A : F800 023F                  call    print_int16     ; print B
+        17C : F800 010D                  call    newline
+        17E : 6609                       zals    comp_ret
+        17F : 7F9C                       push                    ; return address
+        180 : 7F8D                       ret
+        181 :
+        181 :                    arith:
+        181 : F800 012C                  call    expr
+        183 : 4650                       .word   18000
+        184 : 6D60                       .word   28000
+        185 : 002B                       .word   '+'
+        186 : 0007                       add     vB
+        187 : F800 0149                  call    answer         ; -19536
+        189 :
+        189 : F800 012C                  call    expr
+        18B : 4650                       .word   18000
+        18C : B9B0                       .word   -18000
+        18D : 002B                       .word   '+'
+        18E : 0007                       add     vB
+        18F : F800 0149                  call    answer         ; 0
+        191 :
+        191 : F800 012C                  call    expr
+        193 : B9B0                       .word   -18000
+        194 : B9B0                       .word   -18000
+        195 : 002B                       .word   '+'
+        196 : 0007                       add     vB
+        197 : F800 0149                  call    answer         ; 29536
+        199 :
+        199 : F800 012C                  call    expr
+        19B : B9B0                       .word   -18000
+        19C : 92A0                       .word   -28000
+        19D : 002D                       .word   '-'
+        19E : 1007                       sub     vB
+        19F : F800 0149                  call    answer         ; 10000
+        1A1 :
+        1A1 : F800 012C                  call    expr
+        1A3 : 4650                       .word   18000
+        1A4 : B9B0                       .word   -18000
+        1A5 : 002D                       .word   '-'
+        1A6 : 1007                       sub     vB
+        1A7 : F800 0149                  call    answer         ; -29536
+        1A9 :
+        1A9 : F800 012C                  call    expr
+        1AB : 92A0                       .word   -28000
+        1AC : B9B0                       .word   -18000
+        1AD : 002D                       .word   '-'
+        1AE : 1007                       sub     vB
+        1AF : F800 0149                  call    answer         ; -10000
+        1B1 :
+        1B1 : F800 012C                  call    expr
+        1B3 : 0064                       .word   100
+        1B4 : 012C                       .word   300
+        1B5 : 002A                       .word   '*'
+        1B6 : 6D07                       mpy     vB
+        1B7 : 7F8E                       pac
+        1B8 : F800 0149                  call    answer         ; 30000
+        1BA :
+        1BA : F800 012C                  call    expr
+        1BC : 00C8                       .word   200
+        1BD : 0064                       .word   100
+        1BE : 002A                       .word   '*'
+        1BF : 6D07                       mpy     vB
+        1C0 : 7F8E                       pac
+        1C1 : F800 0149                  call    answer         ; 20000
+        1C3 :
+        1C3 : F800 012C                  call    expr
+        1C5 : 012C                       .word   300
+        1C6 : FF38                       .word   -200
+        1C7 : 002A                       .word   '*'
+        1C8 : 6D07                       mpy     vB
+        1C9 : 7F8E                       pac
+        1CA : F800 0149                  call    answer         ; 5536
+        1CC :
+        1CC : F800 012C                  call    expr
+        1CE : 0064                       .word   100
+        1CF : FED4                       .word   -300
+        1D0 : 002A                       .word   '*'
+        1D1 : 6D07                       mpy     vB
+        1D2 : 7F8E                       pac
+        1D3 : F800 0149                  call    answer         ; -30000
+        1D5 :
+        1D5 : F800 012C                  call    expr
+        1D7 : FF38                       .word   -200
+        1D8 : FF9C                       .word   -100
+        1D9 : 002A                       .word   '*'
+        1DA : 6D07                       mpy     vB
+        1DB : 7F8E                       pac
+        1DC : F800 0149                  call    answer         ; 20000
+        1DE :
+        1DE : F800 012C                  call    expr
+        1E0 : 7530                       .word   30000
+        1E1 : 0064                       .word   100
+        1E2 : 002F                       .word   '/'
+        1E3 : F800 028F                  call    div16
+        1E5 : F800 0149                  call    answer         ; 300
+        1E7 :
+        1E7 : F800 012C                  call    expr
+        1E9 : FF38                       .word   -200
+        1EA : 0064                       .word   100
+        1EB : 002F                       .word   '/'
+        1EC : F800 028F                  call    div16
+        1EE : F800 0149                  call    answer         ; -2
+        1F0 :
+        1F0 : F800 012C                  call    expr
+        1F2 : 8AD0                       .word   -30000
+        1F3 : FF38                       .word   -200
+        1F4 : 002F                       .word   '/'
+        1F5 : F800 028F                  call    div16
+        1F7 : F800 0149                  call    answer         ; 150
+        1F9 :
+        1F9 : F800 012C                  call    expr
+        1FB : 8AD0                       .word   -30000
+        1FC : 004E                       .word   78
+        1FD : 002F                       .word   '/'
+        1FE : F800 028F                  call    div16
+        200 : F800 0149                  call    answer         ; -384
+        202 :
+        202 : F800 015B                  call    comp
+        204 : 1388                       .word   5000
+        205 : 0FA0                       .word   4000
+        206 :
+        206 : F800 015B                  call    comp
+        208 : 1388                       .word   5000
+        209 : 1388                       .word   5000
+        20A :
+        20A : F800 015B                  call    comp
+        20C : 0FA0                       .word   4000
+        20D : 1388                       .word   5000
+        20E :
+        20E : F800 015B                  call    comp
+        210 : EC78                       .word   -5000
+        211 : F060                       .word   -4000
+        212 :
+        212 : F800 015B                  call    comp
+        214 : EC78                       .word   -5000
+        215 : EC78                       .word   -5000
+        216 :
+        216 : F800 015B                  call    comp
+        218 : F060                       .word   -4000
+        219 : EC78                       .word   -5000
+        21A :
+        21A : F800 015B                  call    comp
+        21C : 7FBC                       .word   32700
+        21D : 7F58                       .word   32600
+        21E :
+        21E : F800 015B                  call    comp
+        220 : 7FBC                       .word   32700
+        221 : 7FBC                       .word   32700
+        222 :
+        222 : F800 015B                  call    comp
+        224 : 7F58                       .word   32600
+        225 : 7FBC                       .word   32700
+        226 :
+        226 : F800 015B                  call    comp
+        228 : 8044                       .word   -32700
+        229 : 80A8                       .word   -32600
+        22A :
+        22A : F800 015B                  call    comp
+        22C : 8044                       .word   -32700
+        22D : 8044                       .word   -32700
+        22E :
+        22E : F800 015B                  call    comp
+        230 : 80A8                       .word   -32600
+        231 : 8044                       .word   -32700
+        232 :
+        232 : F800 015B                  call    comp
+        234 : 4650                       .word   18000
+        235 : 92A0                       .word   -28000
+        236 :
+        236 : F800 015B                  call    comp
+        238 : 92A0                       .word   -28000
+        239 : 92A0                       .word   -28000
+        23A :
+        23A : F800 015B                  call    comp
+        23C : 92A0                       .word   -28000
+        23D : 4650                       .word   18000
+        23E :
+        23E : A000                       .word   HALT
+        23F :
+        23F :                            include "arith.inc"
+(1)     23F :                    ;;; -*- mode: asm; mode: flyspell-prog* -*-
+(1)     23F :
+(1)     23F :                    ;;; Print signed 16-bit integer as decimal
+(1)     23F :                    ;;; @param ACC value
+(1)     23F :                    ;;; @clobber R0 R1 R2 AR0 AR1 ARP=0
+(1)     23F :                    print_int16:
+(1)     23F : 500B                       sacl    R1
+(1)     240 : 7F9D                       pop                     ; return address
+(1)     241 : 500D                       sacl    print_int16_ret
+(1)     242 : 7011                       lark    AR0, print_buf  ; buffer
+(1)     243 : 6880                       larp    AR0             ; use AR0
+(1)     244 : 7F89                       zac
+(1)     245 : 50A8                       sacl    *+              ; mark EOS
+(1)     246 : 200B                       lac     R1
+(1)     247 : FF00 0268                  bz      print_int16_zero
+(1)     249 : FC00 0250                  bgz     print_uint16    ; branch if R1>0
+(1)     24B : 7F88                       abs                     ; negate R1
+(1)     24C : 500B                       sacl    R1
+(1)     24D : 7E2D                       lack    '-'
+(1)     24E : F800 0120                  call    putchar
+(1)     250 :                    print_uint16:
+(1)     250 : 660B                       zals    R1
+(1)     251 : FF00 025D                  bz      print_uint16_print
+(1)     253 : 7E0A                       lack    10
+(1)     254 : 500C                       sacl    R2
+(1)     255 : F800 026D                  call    udiv16          ; R1 = R1 / 10
+(1)     257 : 7E30                       lack    '0'
+(1)     258 : 000A                       add     R0              ; R0 = R1 % 10
+(1)     259 : 6880                       larp    AR0             ; use AR0
+(1)     25A : 50A8                       sacl    *+
+(1)     25B : F900 0250                  b       print_uint16
+(1)     25D :                    print_uint16_print:
+(1)     25D : 6898                       mar     *-
+(1)     25E : 6688                       zals    *
+(1)     25F : FF00 0265                  bz      print_int16_return
+(1)     261 : F800 0120                  call    putchar
+(1)     263 : F900 025D                  b       print_uint16_print
+(1)     265 :                    print_int16_return
+(1)     265 : 660D                       zals    print_int16_ret
+(1)     266 : 7F9C                       push                    ; return address
+(1)     267 : 7F8D                       ret
+(1)     268 :                    print_int16_zero:
+(1)     268 : 7E30                       lack    '0'
+(1)     269 : F800 0120                  call    putchar
+(1)     26B : F900 0265                  b       print_int16_return
+(1)     26D :
+(1)     26D :                    ;;; Unsigned Divide
+(1)     26D :                    ;;; |R1| / |R2| = R1 ... R0
+(1)     26D :                    ;;; @return ACC=R1
+(1)     26D :                    ;;; @clobber AR1 ARP=1
+(1)     26D :                    udiv16:
+(1)     26D : 7F9D                       pop                     ; return address
+(1)     26E : 500E                       sacl    udiv16_ret
+(1)     26F : 6881                       larp    AR1
+(1)     270 : 710F                       lark    AR1,15
+(1)     271 : 660B                       zals    R1              ; ACC=dividend
+(1)     272 :                    udiv16_loop:
+(1)     272 : 640C                       subc    R2
+(1)     273 : F400 0272                  banz    udiv16_loop
+(1)     275 : 580A                       sach    R0              ; remainder
+(1)     276 : 500B                       sacl    R1              ; quotient
+(1)     277 :                    udiv16_return:
+(1)     277 : 660E                       zals    udiv16_ret
+(1)     278 : 7F9C                       push                    ; return address
+(1)     279 : 660B                       zals    R1              ; quotient
+(1)     27A : 7F8D                       ret
+(1)     27B :
+(1)     27B :                    ;;; Unsigned Divide
+(1)     27B :                    ;;; R1 / |R2| = R1 ... R0
+(1)     27B :                    ;;; @return ACC=R1
+(1)     27B :                    ;;; @clobber R2
+(1)     27B :                    divu16:
+(1)     27B : 7F9D                       pop                     ; return address
+(1)     27C : 500F                       sacl    divu16_ret
+(1)     27D : 200B                       lac     R1
+(1)     27E : FD00 0289                  bgez    divu16_positive ; branch if R1>=0
+(1)     280 : 7F88                       abs
+(1)     281 : 500B                       sacl    R1              ; |R1|
+(1)     282 : F800 026D                  call    udiv16          ; |R1| / |R2| = R1 ... R0
+(1)     284 : 7F89                       zac
+(1)     285 : 100B                       sub     R1              ; negate R1
+(1)     286 : 500B                       sacl    R1
+(1)     287 : F900 028B                  b       divu16_return
+(1)     289 :                    divu16_positive:
+(1)     289 : F800 026D                  call    udiv16
+(1)     28B :                    divu16_return:
+(1)     28B : 660F                       zals    divu16_ret
+(1)     28C : 7F9C                       push                    ; return address
+(1)     28D : 200B                       lac     R1
+(1)     28E : 7F8D                       ret
+(1)     28F :
+(1)     28F :                    ;;; Divide
+(1)     28F :                    ;;; R1 / R2 = R1 ... R0
+(1)     28F :                    ;;; @return ACC=R1
+(1)     28F :                    ;;; @clobber R2
+(1)     28F :                    div16:
+(1)     28F : 7F9D                       pop                     ; return address
+(1)     290 : 5010                       sacl    div16_ret
+(1)     291 : 200C                       lac     R2
+(1)     292 : FD00 029D                  bgez    div16_positive  ; branch if R2 >= 0
+(1)     294 : 7F88                       abs
+(1)     295 : 500C                       sacl    R2              ; |R2|
+(1)     296 : F800 027B                  call    divu16          ; R1 / |R2| = R1 .. R0
+(1)     298 : 7F89                       zac
+(1)     299 : 100B                       sub     R1              ; negate R1
+(1)     29A : 500B                       sacl    R1
+(1)     29B : F900 029F                  b       div16_return
+(1)     29D :                    div16_positive:
+(1)     29D : F800 027B                  call    divu16
+(1)     29F :                    div16_return:
+(1)     29F : 6610                       zals    div16_ret
+(1)     2A0 : 7F9C                       push                    ; return address
+(1)     2A1 : 200B                       lac     R1
+(1)     2A2 : 7F8D                       ret

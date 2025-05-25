@@ -1,0 +1,706 @@
+          0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+          0 :                            .include "tms320c15.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :                    ;;; TMS320C15
+(1)       0 :                            .include "tms3201x.inc"
+(2)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(2)       0 :                    ;;; TMS3201X
+(2)       0 :                    ;;; Origin
+(2)       0 : =0                 ORG_RESET:      .equ    0000H   ; Reset
+(2)       0 : =2                 ORG_INT:        .equ    0002H   ; INT
+(2)       0 :                    ;;; Halt to system
+(2)       0 : =A000              HALT:           .equ    0A000H  ; illegal instruction
+(1)       0 :                            .cpu     32015
+(1)       0 :                    ;;; Data memory
+(1)       0 : =0                 PAGE0:  .equ    00H
+(1)       0 : =80                PAGE1:  .equ    80H
+          0 :
+          0 :                            ;;; MC6850 Asynchronous Communication Interface Adapter
+          0 : =4                 ACIA:   .equ    4
+          0 :                            .include "mc6850.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :                    ;;; MC6850
+(1)       0 :                    ;;; Asynchronous Communication Interface Adapter
+(1)       0 : =4                 ACIA_control:   .equ    ACIA+0
+(1)       0 : =4                 ACIA_status:    .equ    ACIA+0
+(1)       0 : =5                 ACIA_data:      .equ    ACIA+1
+(1)       0 : =6                 ACIA_intr:      .equ    ACIA+2
+(1)       0 :                    ;;;  Counter Divider Select Bits
+(1)       0 : =3                 CDS_gm:         .equ    11B       ; Group mask
+(1)       0 : =0                 CDS_DIV1_gc:    .equ    00000000B ; /1
+(1)       0 : =1                 CDS_DIV16_gc:   .equ    00000001B ; /16
+(1)       0 : =2                 CDS_DIV64_gc:   .equ    00000010B ; /64
+(1)       0 : =3                 CDS_RESET_gc:   .equ    00000011B ; Master Reset
+(1)       0 :                    ;;;  Word Select Bits
+(1)       0 : =1C                WSB_gm:         .equ    00011100B ; Group mask
+(1)       0 : =0                 WSB_7E2_gc:     .equ    00000000B ; 7 Bits + Even Parity + 2 Stop Bits
+(1)       0 : =4                 WSB_7O2_gc:     .equ    00000100B ; 7 bits + Odd Parity  + 2 Stop Bits
+(1)       0 : =8                 WSB_7E1_gc:     .equ    00001000B ; 7 bits + Even Parity + 1 Stop Bits
+(1)       0 : =C                 WSB_7O1_gc:     .equ    00001100B ; 7 bits + Odd Parity  + 1 Stop Bits
+(1)       0 : =10                WSB_8N2_gc:     .equ    00010000B ; 8 bits + No Parity   + 2 Stop Bits
+(1)       0 : =14                WSB_8N1_gc:     .equ    00010100B ; 8 bits + No Parity   + 1 Stop Bits
+(1)       0 : =18                WSB_8E1_gc:     .equ    00011000B ; 8 bits + Even Parity + 1 Stop Bits
+(1)       0 : =1C                WSB_8O1_gc:     .equ    00011100B ; 8 bits + Odd Parity  + 1 Stop Bits
+(1)       0 :                    ;;; Transmit Control Bits
+(1)       0 : =60                TCB_gm:         .equ    01100000B ; Group mask
+(1)       0 : =0                 TCB_DI_gc:      .equ    00000000B ; RTS=Low,  Tx Interrupt Disabled
+(1)       0 : =20                TCB_EI_gc:      .equ    00100000B ; RTS=Low,  Tx Interrupt Enabled
+(1)       0 : =40                TCB_RTS_gc:     .equ    01000000B ; RTS=High, Tx Interrupt Disabled
+(1)       0 : =60                TCB_BREAK_gc:   .equ    01100000B ; RTS=Low,  Tx Interrupt Disabled
+(1)       0 :                                                      ; Transmit Break Level
+(1)       0 : =80                RIEB_bm:        .equ    10000000B ; Receive Interrupt Enable Bit mask
+(1)       0 :                    ;;; Status register
+(1)       0 : =1                 RDRF_bm:        .equ    00000001B ; Receive Data Register Full
+(1)       0 : =2                 TDRE_bm:        .equ    00000010B ; Transmit Data Register Empty
+(1)       0 : =4                 DCDF_bm:        .equ    00000100B ; Data Carrier Detect Flag
+(1)       0 : =8                 CTSF_bm:        .equ    00001000B ; Clear To Send Flag
+(1)       0 : =10                FERR_bm:        .equ    00010000B ; Frame Error Flag
+(1)       0 : =20                OVRN_bm:        .equ    00100000B ; Receiver Overrun Flag
+(1)       0 : =40                PERR_bm:        .equ    01000000B ; Parity Error Flag
+(1)       0 : =80                IRQF_bm:        .equ    10000000B ; Interrupt Request Flag
+          0 : =94                RX_INT_TX_NO:   .equ    WSB_8N1_gc|RIEB_bm
+          0 : =B4                RX_INT_TX_INT:  .equ    WSB_8N1_gc|RIEB_bm|TCB_EI_gc
+          0 :
+          0 :                            .org    ORG_RESET
+          0 : F900 0200                  b       initialize
+          2 :                            .org    ORG_INT
+          2 : F900 03BE                  b       int_isr
+          4 :
+          4 :                    ;;; Data memory
+          0 :                            .org    PAGE0
+          0 :                    zero:           .bss    1       ; 0
+          1 :                    one:            .bss    1       ; 1
+          2 :                    minus:          .bss    1       ; -1
+          3 :                    work:           .bss    1
+          4 :                    char:           .bss    1
+          5 :                    acia_tx_dis:    .bss    1
+          6 :                    acia_tx_int:    .bss    1
+          7 :                    queue_ptr:      .bss    1       ; queue pointer
+          8 :                    queue_work1:    .bss    1       ; queue work1
+          9 :                    queue_work2:    .bss    1       ; queue work2
+          A :                    queue_char:     .bss    1       ; queue element
+          B :                    getchar_ret:
+          B :                    putchar_ret:    .bss    1
+          C :                    putchar_work:   .bss    1
+          D :                    putspace_ret:
+          D :                    newline_ret:    .bss    1
+          E :
+          E :                    ;;; arith.inc
+          E :                    R0:     .bss    1
+          F :                    R1:     .bss    1
+         10 :                    R2:     .bss    1
+         11 :                    print_int16_ret:
+         11 :                            .bss    1
+         12 :                    udiv16_ret:     .bss    1
+         13 :                    divu16_ret:     .bss    1
+         14 :                    div16_ret:      .bss    1
+         15 :                    print_buf:      .bss    8
+         1D :
+         1D :                    ;;; mandelbrot.inc
+         1D :                    vC:     .bss    1
+         1E :                    vD:     .bss    1
+         1F :                    vA:     .bss    1
+         20 :                    vB:     .bss    1
+         21 :                    vS:     .bss    1
+         22 :                    vP:     .bss    1
+         23 :                    vQ:     .bss    1
+         24 :                    vT:     .bss    1
+         25 :                    vY:     .bss    1
+         26 :                    vX:     .bss    1
+         27 :                    vI:     .bss    1
+         28 :                    mandel_work:
+         28 :                    debug_ret:
+         28 :                            .bss    1
+         29 :
+         80 :                            .org    PAGE1
+         80 :                    isr_st:         .bss    1       ; saving ST on interrupt
+         81 :                    isr_accl:       .bss    1       ; saving ACC
+         82 :                    isr_acch:       .bss    1
+         83 :                    isr_ret:        .bss    1
+         84 :                    isr_work:       .bss    1       ; work
+         85 :
+         85 :                    ;;; Program memory
+        100 :                            .org    100H
+        100 : =80                rx_queue_size:  .equ    80H
+        100 :                    rx_queue:       .bss    rx_queue_size
+        180 : =80                tx_queue_size:  .equ    80H
+        180 :                    tx_queue:       .bss    tx_queue_size
+        200 :
+        200 :                            .org    200H
+        200 :                    initialize:
+        200 : 6E00                       ldpk    0
+        201 : 7E01                       lack    1
+        202 : 5001                       sacl    one
+        203 : 7E00                       lack    0
+        204 : 5000                       sacl    zero
+        205 : 1001                       sub     one
+        206 : 5002                       sacl    minus
+        207 : 7E80                       lack    rx_queue_size
+        208 : F800 0353                  call    queue_init
+        20A : 0100                       .word   rx_queue
+        20B : 7E80                       lack    tx_queue_size
+        20C : F800 0353                  call    queue_init
+        20E : 0180                       .word   tx_queue
+        20F :                    ;;; Initialize ACIA
+        20F : 7E03                       lack    CDS_RESET_gc
+        210 : 5003                       sacl    work
+        211 : 4C03                       out     work,ACIA_control ; Master reset
+        212 : 7E94                       lack    RX_INT_TX_NO
+        213 : 5005                       sacl    acia_tx_dis
+        214 : 4C05                       out     acia_tx_dis,ACIA_control ; 8 bits + No Parity + 1 Stop Bits
+        215 : 7EB4                       lack    RX_INT_TX_INT
+        216 : 5006                       sacl    acia_tx_int
+        217 :
+        217 : F900 0254                  b       mandelbrot
+        219 :
+        219 :                    ;;; put letter
+        219 :                    ;;; @param ACC letter
+        219 :                    putchar:
+        219 : 500C                       sacl    putchar_work
+        21A : 7F9D                       pop                     ; return address
+        21B : 500B                       sacl    putchar_ret
+        21C : 7F81                       dint
+        21D : 660C                       zals    putchar_work
+        21E : F800 036F                  call    queue_add
+        220 : 0180                       .word   tx_queue
+        221 : 4C06                       out     acia_tx_int,ACIA_control
+        222 : 7F82                       eint
+        223 : 660B                       zals    putchar_ret
+        224 : 7F9C                       push                    ; return address
+        225 : 660C                       zals    putchar_work
+        226 : 7F8D                       ret
+        227 :
+        227 :                    putspace:
+        227 : 7F9D                       pop                     ; return address
+        228 : 500D                       sacl    putspace_ret
+        229 : 7E20                       lack    ' '
+        22A : F800 0219                  call    putchar
+        22C : 660D                       zals    putspace_ret
+        22D : 7F9C                       push                    ; return address
+        22E : 7F8D                       ret
+        22F :
+        22F :                    newline:
+        22F : 7F9D                       pop                     ; return address
+        230 : 500D                       sacl    newline_ret
+        231 : 7E0D                       lack    0DH
+        232 : F800 0219                  call    putchar
+        234 : 7E0A                       lack    0AH
+        235 : F800 0219                  call    putchar
+        237 : 660D                       zals    newline_ret
+        238 : 7F9C                       push                    ; return address
+        239 : 7F8D                       ret
+        23A :
+        23A :                            .include "mandelbrot.inc"
+(1)     23A :                    ;;; -*- mode: asm; mode: flyspell-prog* -*-
+(1)     23A :
+(1)     23A :                    ;;; Print variable: "name=variable "
+(1)     23A :                    ;;; @param .word variable name
+(1)     23A :                    ;;; @param .word variable
+(1)     23A :                    ;;; @clobber R0 R1 R2
+(1)     23A :                    debug:
+(1)     23A : 7F9D                       pop                     ; return address
+(1)     23B : 670E                       tblr    R0              ; load variable name
+(1)     23C : 0001                       add     one
+(1)     23D : 670F                       tblr    R1              ; load variable
+(1)     23E : 0001                       add     one
+(1)     23F : 5028                       sacl    debug_ret
+(1)     240 : 660E                       zals    R0              ; variable name
+(1)     241 : F800 0219                  call    putchar
+(1)     243 : 7E3D                       lack    '='
+(1)     244 : F800 0219                  call    putchar
+(1)     246 : 200F                       lac     R1              ; variable
+(1)     247 : F800 02EF                  call    print_int16
+(1)     249 : F800 0227                  call    putspace
+(1)     24B : 6628                       zals    debug_ret
+(1)     24C : 7F9C                       push                    ; return address
+(1)     24D : 7F8D                       ret
+(1)     24E :
+(1)     24E :                    ;;; Load 16-bit into ACC
+(1)     24E :                    ;;; @param .word 16-bit constant
+(1)     24E :                    load:
+(1)     24E : 7F9D                       pop                     ; return address
+(1)     24F : 670E                       tblr    R0              ; load constant
+(1)     250 : 0001                       add     one
+(1)     251 : 7F9C                       push                    ; return address
+(1)     252 : 200E                       lac     R0
+(1)     253 : 7F8D                       ret
+(1)     254 :
+(1)     254 : =32                F:      .equ    50
+(1)     254 :
+(1)     254 :                    mandelbrot:
+(1)     254 : F800 024E                  call    load
+(1)     256 : FFF4                       .word   -12
+(1)     257 : 5025                       sacl    vY
+(1)     258 :                    loop_y:
+(1)     258 : F800 024E                  call    load
+(1)     25A : FFCF                       .word   -49
+(1)     25B : 5026                       sacl    vX
+(1)     25C :                    loop_x:
+(1)     25C : 6A26                       lt      vX
+(1)     25D : 80E5                       mpyk    229
+(1)     25E : 7F8E                       pac                     ; ACC=X*229
+(1)     25F : 500F                       sacl    R1              ; R1=X*229
+(1)     260 : 7E64                       lack    100
+(1)     261 : 5010                       sacl    R2
+(1)     262 : F800 032B                  call    divu16          ; R1=X*229/100
+(1)     264 : 501D                       sacl    vC              ; C=X*229/100
+(1)     265 : 501F                       sacl    vA              ; A=C
+(1)     266 : 6A25                       lt      vY
+(1)     267 : 81A0                       mpyk    416
+(1)     268 : 7F8E                       pac                     ; ACC=Y*416
+(1)     269 : 500F                       sacl    R1              ; R1=Y*416
+(1)     26A : 7E64                       lack    100
+(1)     26B : 5010                       sacl    R2
+(1)     26C : F800 032B                  call    divu16          ; R1=Y*416/100
+(1)     26E : 501E                       sacl    vD              ; D=Y*416/100
+(1)     26F : 5020                       sacl    vB              ; B=D
+(1)     270 : 7F89                       zac
+(1)     271 : 5027                       sacl    vI              ; I=0
+(1)     272 :
+(1)     272 :                            ;; call    debug
+(1)     272 :                            ;; .word   'Y'
+(1)     272 :                            ;; .word   vY
+(1)     272 :                            ;; call    debug
+(1)     272 :                            ;; .word   'X'
+(1)     272 :                            ;; .word   vX
+(1)     272 :                            ;; call    debug
+(1)     272 :                            ;; .word   'C'
+(1)     272 :                            ;; .word   vC
+(1)     272 :                            ;; call    debug
+(1)     272 :                            ;; .word   'D'
+(1)     272 :                            ;; .word   vD
+(1)     272 :                            ;; call    newline
+(1)     272 :
+(1)     272 :                    loop_i:
+(1)     272 : 2020                       lac     vB
+(1)     273 : 500F                       sacl    R1
+(1)     274 : 7E32                       lack    F
+(1)     275 : 5010                       sacl    R2
+(1)     276 : F800 032B                  call    divu16          ; R1=B/F
+(1)     278 : 5023                       sacl    vQ              ; Q=B/F
+(1)     279 : 6A23                       lt      vQ
+(1)     27A : 9FCE                       mpyk    -F
+(1)     27B : 7F8E                       pac                     ; ACC=Q*(-F)
+(1)     27C : 0020                       add     vB              ; ACC=B-Q*F
+(1)     27D : 5021                       sacl    vS              ; S=B-Q*F
+(1)     27E : 6A20                       lt      vB
+(1)     27F : 6D20                       mpy     vB
+(1)     280 : 7F8E                       pac                     ; ACC=B*B
+(1)     281 : 500E                       sacl    R0              ; R0=B*B
+(1)     282 : 6A1F                       lt      vA
+(1)     283 : 6D1F                       mpy     vA
+(1)     284 : 7F8E                       pac                     ; ACC=A*A
+(1)     285 : 100E                       sub     R0              ; ACC=A*A-B*B
+(1)     286 : 500F                       sacl    R1              ; R1=A*A-B*B
+(1)     287 : 7E32                       lack    F
+(1)     288 : 5010                       sacl    R2
+(1)     289 : F800 032B                  call    divu16          ; R1=(A*A-B*B)/F
+(1)     28B : 001D                       add     vC              ; ACC=(A*A-B*B)/F+C
+(1)     28C : 5028                       sacl    mandel_work     ; work=(A*A-B*B)/F+C
+(1)     28D : 6A1F                       lt      vA
+(1)     28E : 6D23                       mpy     vQ
+(1)     28F : 7F8E                       pac                     ; ACC=A*Q
+(1)     290 : 5024                       sacl    vT              ; T=A*Q
+(1)     291 : 6A1F                       lt      vA
+(1)     292 : 6D21                       mpy     vS
+(1)     293 : 7F8E                       pac                     ; ACC=A*S
+(1)     294 : 500F                       sacl    R1              ; R1=A*S
+(1)     295 : 7E32                       lack    F
+(1)     296 : 5010                       sacl    R2
+(1)     297 : F800 032B                  call    divu16          ; R1=A*S/F
+(1)     299 : 0024                       add     vT              ; ACC=A*Q+S/F
+(1)     29A : 5024                       sacl    vT
+(1)     29B : 0024                       add     vT              ; ACC=2*(A*Q+A*S/F)
+(1)     29C : 001E                       add     vD              ; ACC=2*(A*Q+A*S/F)+D
+(1)     29D : 5020                       sacl    vB              ; B=2*(A*Q+A*S/F)+D
+(1)     29E : 2028                       lac     mandel_work     ; ACC=(A*A-B*B)/F+C
+(1)     29F : 501F                       sacl    vA              ; A=(A*A-B*B)/F+C
+(1)     2A0 : 500F                       sacl    R1
+(1)     2A1 : 7E32                       lack    F
+(1)     2A2 : 5010                       sacl    R2
+(1)     2A3 : F800 032B                  call    divu16          ; R1=A/F
+(1)     2A5 : 5022                       sacl    vP              ; P=A/F
+(1)     2A6 : 6A22                       lt      vP
+(1)     2A7 : 6D22                       mpy     vP
+(1)     2A8 : 7F8E                       pac                     ; ACC=P*P
+(1)     2A9 : 5024                       sacl    vT              ; T=P*P
+(1)     2AA : 2020                       lac     vB
+(1)     2AB : 500F                       sacl    R1
+(1)     2AC : 7E32                       lack    F
+(1)     2AD : 5010                       sacl    R2
+(1)     2AE : F800 032B                  call    divu16          ; R1=B/F
+(1)     2B0 : 5023                       sacl    vQ              ; Q=B/F
+(1)     2B1 : 6A23                       lt      vQ
+(1)     2B2 : 6D23                       mpy     vQ
+(1)     2B3 : 7F8E                       pac                     ; ACC=Q*Q
+(1)     2B4 : 0024                       add     vT              ; ACC=P*P+Q*Q
+(1)     2B5 : 5024                       sacl    vT              ; T=P*P+Q*Q
+(1)     2B6 :
+(1)     2B6 :                            ;; call    putspace
+(1)     2B6 :                            ;; call    debug
+(1)     2B6 :                            ;; .word   'I'
+(1)     2B6 :                            ;; .word   vI
+(1)     2B6 :                            ;; call    debug
+(1)     2B6 :                            ;; .word   'A'
+(1)     2B6 :                            ;; .word   vA
+(1)     2B6 :                            ;; call    debug
+(1)     2B6 :                            ;; .word   'B'
+(1)     2B6 :                            ;; .word   vB
+(1)     2B6 :                            ;; call    debug
+(1)     2B6 :                            ;; .word   'P'
+(1)     2B6 :                            ;; .word   vP
+(1)     2B6 :                            ;; call    debug
+(1)     2B6 :                            ;; .word   'Q'
+(1)     2B6 :                            ;; .word   vQ
+(1)     2B6 :                            ;; call    debug
+(1)     2B6 :                            ;; .word   'T'
+(1)     2B6 :                            ;; .word   vT
+(1)     2B6 :                            ;; call    newline
+(1)     2B6 :
+(1)     2B6 : 7E04                       lack    4
+(1)     2B7 : 1024                       sub     vT              ; 4-T
+(1)     2B8 : FA00 02C4                  blz     print_i         ; branch if 4<T
+(1)     2BA : 6627                       zals    vI
+(1)     2BB : 0001                       add     one
+(1)     2BC : 5027                       sacl    vI              ; I+=1
+(1)     2BD : 7E10                       lack    16
+(1)     2BE : 1027                       sub     vI              ; 16-I
+(1)     2BF : FC00 0272                  bgz     loop_i          ; branch if 16>I
+(1)     2C1 : 7E20                       lack    ' '
+(1)     2C2 : F900 02CE                  b       print_char
+(1)     2C4 :                    print_i:
+(1)     2C4 : 7E0A                       lack    10
+(1)     2C5 : 1027                       sub     vI              ; 10-I
+(1)     2C6 : FB00 02CC                  blez    print_hex       ; branch if 10<=I
+(1)     2C8 : 7E30                       lack    '0'
+(1)     2C9 : 0027                       add     vI
+(1)     2CA : F900 02CE                  b       print_char
+(1)     2CC :                    print_hex:
+(1)     2CC : 7E37                       lack    'A'-10
+(1)     2CD : 0027                       add     vI
+(1)     2CE :                    print_char:
+(1)     2CE : F800 0219                  call    putchar
+(1)     2D0 :
+(1)     2D0 :                            ;; sacl    R0
+(1)     2D0 :                            ;; lack    '@'
+(1)     2D0 :                            ;; call    putchar
+(1)     2D0 :                            ;; lack    '='
+(1)     2D0 :                            ;; call    putchar
+(1)     2D0 :                            ;; zals    R0
+(1)     2D0 :                            ;; call    putchar
+(1)     2D0 :                            ;; call    newline
+(1)     2D0 :
+(1)     2D0 : 7F81                       dint
+(1)     2D1 : F800 0399                  call    queue_remove
+(1)     2D3 : 0100                       .word   rx_queue
+(1)     2D4 : 7F82                       eint
+(1)     2D5 : FA00 02DB                  blz     next_x
+(1)     2D7 : 7A00                       or      zero
+(1)     2D8 : FE00 02DB                  bnz     next_x
+(1)     2DA : A000                       .word   HALT
+(1)     2DB :                    next_x:
+(1)     2DB : 2026                       lac     vX
+(1)     2DC : 0001                       add     one
+(1)     2DD : 5026                       sacl    vX              ; X+=1
+(1)     2DE : 7E1E                       lack    30
+(1)     2DF : 1026                       sub     vX              ; 30-X
+(1)     2E0 : FC00 025C                  bgz     loop_x          ; branch if 30>X
+(1)     2E2 : F800 022F                  call    newline
+(1)     2E4 : 2025                       lac     vY
+(1)     2E5 : 0001                       add     one
+(1)     2E6 : 5025                       sacl    vY              ; Y+=1
+(1)     2E7 : 7E0D                       lack    13
+(1)     2E8 : 1025                       sub     vY              ; 13-Y
+(1)     2E9 : FC00 0258                  bgz     loop_y          ; branch if 13>Y
+(1)     2EB :                    mandelbrot_end:
+(1)     2EB : F800 022F                  call    newline
+(1)     2ED : F900 0254                  b       mandelbrot
+        2EF :                            .include "arith.inc"
+(1)     2EF :                    ;;; -*- mode: asm; mode: flyspell-prog* -*-
+(1)     2EF :
+(1)     2EF :                    ;;; Print signed 16-bit integer as decimal
+(1)     2EF :                    ;;; @param ACC value
+(1)     2EF :                    ;;; @clobber R0 R1 R2 AR0 AR1 ARP=0
+(1)     2EF :                    print_int16:
+(1)     2EF : 500F                       sacl    R1
+(1)     2F0 : 7F9D                       pop                     ; return address
+(1)     2F1 : 5011                       sacl    print_int16_ret
+(1)     2F2 : 7015                       lark    AR0, print_buf  ; buffer
+(1)     2F3 : 6880                       larp    AR0             ; use AR0
+(1)     2F4 : 7F89                       zac
+(1)     2F5 : 50A8                       sacl    *+              ; mark EOS
+(1)     2F6 : 200F                       lac     R1
+(1)     2F7 : FF00 0318                  bz      print_int16_zero
+(1)     2F9 : FC00 0300                  bgz     print_uint16    ; branch if R1>0
+(1)     2FB : 7F88                       abs                     ; negate R1
+(1)     2FC : 500F                       sacl    R1
+(1)     2FD : 7E2D                       lack    '-'
+(1)     2FE : F800 0219                  call    putchar
+(1)     300 :                    print_uint16:
+(1)     300 : 660F                       zals    R1
+(1)     301 : FF00 030D                  bz      print_uint16_print
+(1)     303 : 7E0A                       lack    10
+(1)     304 : 5010                       sacl    R2
+(1)     305 : F800 031D                  call    udiv16          ; R1 = R1 / 10
+(1)     307 : 7E30                       lack    '0'
+(1)     308 : 000E                       add     R0              ; R0 = R1 % 10
+(1)     309 : 6880                       larp    AR0             ; use AR0
+(1)     30A : 50A8                       sacl    *+
+(1)     30B : F900 0300                  b       print_uint16
+(1)     30D :                    print_uint16_print:
+(1)     30D : 6898                       mar     *-
+(1)     30E : 6688                       zals    *
+(1)     30F : FF00 0315                  bz      print_int16_return
+(1)     311 : F800 0219                  call    putchar
+(1)     313 : F900 030D                  b       print_uint16_print
+(1)     315 :                    print_int16_return
+(1)     315 : 6611                       zals    print_int16_ret
+(1)     316 : 7F9C                       push                    ; return address
+(1)     317 : 7F8D                       ret
+(1)     318 :                    print_int16_zero:
+(1)     318 : 7E30                       lack    '0'
+(1)     319 : F800 0219                  call    putchar
+(1)     31B : F900 0315                  b       print_int16_return
+(1)     31D :
+(1)     31D :                    ;;; Unsigned Divide
+(1)     31D :                    ;;; |R1| / |R2| = R1 ... R0
+(1)     31D :                    ;;; @return ACC=R1
+(1)     31D :                    ;;; @clobber AR1 ARP=1
+(1)     31D :                    udiv16:
+(1)     31D : 7F9D                       pop                     ; return address
+(1)     31E : 5012                       sacl    udiv16_ret
+(1)     31F : 6881                       larp    AR1
+(1)     320 : 710F                       lark    AR1,15
+(1)     321 : 660F                       zals    R1              ; ACC=dividend
+(1)     322 :                    udiv16_loop:
+(1)     322 : 6410                       subc    R2
+(1)     323 : F400 0322                  banz    udiv16_loop
+(1)     325 : 580E                       sach    R0              ; remainder
+(1)     326 : 500F                       sacl    R1              ; quotient
+(1)     327 :                    udiv16_return:
+(1)     327 : 6612                       zals    udiv16_ret
+(1)     328 : 7F9C                       push                    ; return address
+(1)     329 : 660F                       zals    R1              ; quotient
+(1)     32A : 7F8D                       ret
+(1)     32B :
+(1)     32B :                    ;;; Unsigned Divide
+(1)     32B :                    ;;; R1 / |R2| = R1 ... R0
+(1)     32B :                    ;;; @return ACC=R1
+(1)     32B :                    ;;; @clobber R2
+(1)     32B :                    divu16:
+(1)     32B : 7F9D                       pop                     ; return address
+(1)     32C : 5013                       sacl    divu16_ret
+(1)     32D : 200F                       lac     R1
+(1)     32E : FD00 0339                  bgez    divu16_positive ; branch if R1>=0
+(1)     330 : 7F88                       abs
+(1)     331 : 500F                       sacl    R1              ; |R1|
+(1)     332 : F800 031D                  call    udiv16          ; |R1| / |R2| = R1 ... R0
+(1)     334 : 7F89                       zac
+(1)     335 : 100F                       sub     R1              ; negate R1
+(1)     336 : 500F                       sacl    R1
+(1)     337 : F900 033B                  b       divu16_return
+(1)     339 :                    divu16_positive:
+(1)     339 : F800 031D                  call    udiv16
+(1)     33B :                    divu16_return:
+(1)     33B : 6613                       zals    divu16_ret
+(1)     33C : 7F9C                       push                    ; return address
+(1)     33D : 200F                       lac     R1
+(1)     33E : 7F8D                       ret
+(1)     33F :
+(1)     33F :                    ;;; Divide
+(1)     33F :                    ;;; R1 / R2 = R1 ... R0
+(1)     33F :                    ;;; @return ACC=R1
+(1)     33F :                    ;;; @clobber R2
+(1)     33F :                    div16:
+(1)     33F : 7F9D                       pop                     ; return address
+(1)     340 : 5014                       sacl    div16_ret
+(1)     341 : 2010                       lac     R2
+(1)     342 : FD00 034D                  bgez    div16_positive  ; branch if R2 >= 0
+(1)     344 : 7F88                       abs
+(1)     345 : 5010                       sacl    R2              ; |R2|
+(1)     346 : F800 032B                  call    divu16          ; R1 / |R2| = R1 .. R0
+(1)     348 : 7F89                       zac
+(1)     349 : 100F                       sub     R1              ; negate R1
+(1)     34A : 500F                       sacl    R1
+(1)     34B : F900 034F                  b       div16_return
+(1)     34D :                    div16_positive:
+(1)     34D : F800 032B                  call    divu16
+(1)     34F :                    div16_return:
+(1)     34F : 6614                       zals    div16_ret
+(1)     350 : 7F9C                       push                    ; return address
+(1)     351 : 200F                       lac     R1
+(1)     352 : 7F8D                       ret
+        353 :                            .include "queue.inc"
+(1)     353 :                    ;;; -*- mode: asm; mode: flying-spell; -*-
+(1)     353 :                    ;;; [queue] queue structure
+(1)     353 : =0                 queue_len:      equ     0       ; queue length
+(1)     353 : =1                 queue_size:     equ     1       ; buffer size
+(1)     353 : =2                 queue_put:      equ     2       ; queue put index
+(1)     353 : =3                 queue_get:      equ     3       ; queue get index
+(1)     353 : =4                 queue_buf:      equ     4       ; buffer start offset
+(1)     353 :
+(1)     353 :                    ;;; [queue] Initialize queue
+(1)     353 :                    ;;; @param @SP queue work space pointer
+(1)     353 :                    ;;; @param ACC queue work space size
+(1)     353 :                    ;;; @clobber ACC AR0 ARP=0 DP=0
+(1)     353 :                    queue_init:
+(1)     353 : 6E00                       ldpk    0               ; page 0
+(1)     354 : 5008                       sacl    queue_work1
+(1)     355 : 7F9D                       pop                     ; pop return address
+(1)     356 : 6707                       tblr    queue_ptr       ; read queue pointer
+(1)     357 : 0001                       add     one
+(1)     358 : 7F9C                       push                    ; restore return address
+(1)     359 : 6607                       zals    queue_ptr
+(1)     35A : 7D00                       tblw    zero            ; queue_len=0
+(1)     35B : 0001                       add     one
+(1)     35C : 5007                       sacl    queue_ptr       ; &queue_size
+(1)     35D : 2008                       lac     queue_work1
+(1)     35E : 1201                       sub     one,2           ; queue_size-4
+(1)     35F : 5008                       sacl    queue_work1
+(1)     360 : 3808                       lar     AR0,queue_work1 ; AR0=queue_size
+(1)     361 : 6607                       zals    queue_ptr
+(1)     362 : 7D08                       tblw    queue_work1     ; queue_size
+(1)     363 : 0001                       add     one
+(1)     364 : 7D00                       tblw    zero            ; queue_put=0
+(1)     365 : 0001                       add     one
+(1)     366 : 7D00                       tblw    zero            ; queue_get=0
+(1)     367 : 6880                       larp    AR0             ; use AR0
+(1)     368 : F900 036C                  b       queue_init_enter
+(1)     36A :                    queue_init_loop:
+(1)     36A : 0001                       add     one
+(1)     36B : 7D00                       tblw    zero
+(1)     36C :                    queue_init_enter:
+(1)     36C : F400 036A                  banz    queue_init_loop
+(1)     36E : 7F8D                       ret
+(1)     36F :
+(1)     36F :                    ;;; [queue] Add an element to queue
+(1)     36F :                    ;;; @param @SP queue work space pointer
+(1)     36F :                    ;;; @param ACC an element
+(1)     36F :                    ;;; @return ACC<0 if queue is full
+(1)     36F :                    ;;; @clobber DP=0
+(1)     36F :                    queue_add:
+(1)     36F : 6E00                       ldpk    0               ; page 0
+(1)     370 : 500A                       sacl    queue_char      ; save element
+(1)     371 : 7F9D                       pop                     ; pop return address
+(1)     372 : 6707                       tblr    queue_ptr       ; read queue pointer
+(1)     373 : 0001                       add     one
+(1)     374 : 7F9C                       push                    ; restore return address
+(1)     375 : 6607                       zals    queue_ptr
+(1)     376 : 6708                       tblr    queue_work1     ; work1=queue_len
+(1)     377 : 0001                       add     one
+(1)     378 : 6709                       tblr    queue_work2     ; work2=queue_size
+(1)     379 : 6608                       zals    queue_work1
+(1)     37A : 1009                       sub     queue_work2     ; queue_len-queue_size
+(1)     37B : FA00 0380                  blz     queue_add_elem  ; branch if queue_len<queue_size
+(1)     37D : 6502                       zalh    minus           ; ACC<0
+(1)     37E : 610A                       adds    queue_char      ; restore element
+(1)     37F : 7F8D                       ret
+(1)     380 :                    queue_add_elem:
+(1)     380 : 6608                       zals    queue_work1
+(1)     381 : 0001                       add     one
+(1)     382 : 5008                       sacl    queue_work1
+(1)     383 : 6607                       zals    queue_ptr
+(1)     384 : 7D08                       tblw    queue_work1     ; queue_len++
+(1)     385 : 7E02                       lack    queue_put
+(1)     386 : 0007                       add     queue_ptr
+(1)     387 : 6708                       tblr    queue_work1     ; work1=queue_put
+(1)     388 : 7E04                       lack    queue_buf
+(1)     389 : 0007                       add     queue_ptr
+(1)     38A : 0008                       add     queue_work1
+(1)     38B : 7D0A                       tblw    queue_char      ; queue_buf[queue_put]=element
+(1)     38C : 6608                       zals    queue_work1
+(1)     38D : 0001                       add     one
+(1)     38E : 5008                       sacl    queue_work1     ; queue_put++
+(1)     38F : 1009                       sub     queue_work2     ; queue_put-queue_size
+(1)     390 : FA00 0394                  blz     queue_add_exit  ; branch if queue_put<queue_size
+(1)     392 : 7F89                       zac
+(1)     393 : 5008                       sacl    queue_work1     ; queue_put=0
+(1)     394 :                    queue_add_exit:
+(1)     394 : 7E02                       lack    queue_put
+(1)     395 : 0007                       add     queue_ptr       ; ACC points queue_put
+(1)     396 : 7D08                       tblw    queue_work1     ; update queue_put
+(1)     397 : 660A                       zals    queue_char      ; restore element
+(1)     398 : 7F8D                       ret
+(1)     399 :
+(1)     399 :                    ;;; [queue] Remove an element from queue
+(1)     399 :                    ;;; @param @SP queue work space pointer
+(1)     399 :                    ;;; @return ACC an element
+(1)     399 :                    ;;; @return ACC<0 if queue is empty
+(1)     399 :                    ;;; @clobber DP=0
+(1)     399 :                    queue_remove:
+(1)     399 : 6E00                       ldpk    0               ; page 0
+(1)     39A : 7F9D                       pop                     ; pop return address
+(1)     39B : 6707                       tblr    queue_ptr       ; read queue pointer
+(1)     39C : 0001                       add     one
+(1)     39D : 7F9C                       push                    ; restore return address
+(1)     39E : 6607                       zals    queue_ptr
+(1)     39F : 6708                       tblr    queue_work1     ; work1=queue_len
+(1)     3A0 : 6608                       zals    queue_work1
+(1)     3A1 : FC00 03A5                  bgz     queue_remove_elem ; branch if queue_len>0
+(1)     3A3 : 6502                       zalh    minus           ; ACC<0
+(1)     3A4 : 7F8D                       ret
+(1)     3A5 :                    queue_remove_elem:
+(1)     3A5 : 1001                       sub     one
+(1)     3A6 : 5008                       sacl    queue_work1
+(1)     3A7 : 6607                       zals    queue_ptr
+(1)     3A8 : 7D08                       tblw    queue_work1     ; queue_len--
+(1)     3A9 : 0001                       add     one
+(1)     3AA : 6709                       tblr    queue_work2     ; work2=queue_size
+(1)     3AB : 7E03                       lack    queue_get
+(1)     3AC : 0007                       add     queue_ptr
+(1)     3AD : 6708                       tblr    queue_work1     ; work1=queue_get
+(1)     3AE : 0001                       add     one             ; ACC=queue_buf
+(1)     3AF : 0008                       add     queue_work1
+(1)     3B0 : 670A                       tblr    queue_char      ; load emement
+(1)     3B1 : 6608                       zals    queue_work1
+(1)     3B2 : 0001                       add     one
+(1)     3B3 : 5008                       sacl    queue_work1       ; queue_get++
+(1)     3B4 : 1009                       sub     queue_work2       ; queue_get-queue_size
+(1)     3B5 : FA00 03B9                  blz     queue_remove_exit ; branch if queue_get<queue_size
+(1)     3B7 : 7F89                       zac
+(1)     3B8 : 5008                       sacl    queue_work1     ; queue_get=0
+(1)     3B9 :                    queue_remove_exit:
+(1)     3B9 : 7E03                       lack    queue_get
+(1)     3BA : 0007                       add     queue_ptr
+(1)     3BB : 7D08                       tblw    queue_work1     ; update queue_get
+(1)     3BC : 660A                       zals    queue_char      ; restore emlemnt
+(1)     3BD : 7F8D                       ret
+        3BE :
+        3BE :                    int_isr:
+        3BE : 7C00                       sst     isr_st          ; save ST
+        3BF : 6E01                       ldpk    1               ; page 1
+        3C0 : 5001                       sacl    isr_accl        ; save ACC
+        3C1 : 5802                       sach    isr_acch
+        3C2 : 7F9D                       pop                     ; return address
+        3C3 : 5003                       sacl    isr_ret
+        3C4 : 7E01                       lack    RDRF_bm
+        3C5 : 4404                       in      isr_work,ACIA_status
+        3C6 : 7904                       and     isr_work
+        3C7 : FF00 03CF                  bz      int_isr_send
+        3C9 : 4504                       in      isr_work,ACIA_data
+        3CA : 6604                       zals    isr_work
+        3CB : F800 036F                  call    queue_add
+        3CD : 0100                       .word   rx_queue
+        3CE : 6E01                       ldpk    1               ; page 1
+        3CF :                    int_isr_send:
+        3CF : 7E02                       lack    TDRE_bm
+        3D0 : 4404                       in      isr_work,ACIA_status
+        3D1 : 7904                       and     isr_work
+        3D2 : FF00 03DC                  bz      int_isr_exit
+        3D4 : F800 0399                  call    queue_remove
+        3D6 : 0180                       .word   tx_queue
+        3D7 : 6E01                       ldpk    1               ; page 1
+        3D8 : FA00 03E3                  blz     int_isr_send_empty
+        3DA : 5004                       sacl    isr_work
+        3DB : 4D04                       out     isr_work,ACIA_data
+        3DC :                    int_isr_exit:
+        3DC : 6603                       zals    isr_ret
+        3DD : 7F9C                       push                    ; return address
+        3DE : 6502                       zalh    isr_acch        ; restore ACC
+        3DF : 6101                       adds    isr_accl
+        3E0 : 7B00                       lst     isr_st          ; restore ST
+        3E1 : 7F82                       eint
+        3E2 : 7F8D                       ret
+        3E3 :                    int_isr_send_empty:
+        3E3 : 4C05                       out     acia_tx_dis,ACIA_control
+        3E4 : F900 03DC                  b       int_isr_exit
