@@ -1,0 +1,458 @@
+          0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+          0 :                            .include "tms320c15.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :                    ;;; TMS320C15
+(1)       0 :                            .include "tms3201x.inc"
+(2)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(2)       0 :                    ;;; TMS3201X
+(2)       0 :                    ;;; Origin
+(2)       0 : =0                 ORG_RESET:      .equ    0000H   ; Reset
+(2)       0 : =2                 ORG_INT:        .equ    0002H   ; INT
+(2)       0 :                    ;;; Halt to system
+(2)       0 : =A000              HALT:           .equ    0A000H  ; illegal instruction
+(1)       0 :                            .cpu     32015
+(1)       0 :                    ;;; Data memory
+(1)       0 : =0                 PAGE0:  .equ    00H
+(1)       0 : =80                PAGE1:  .equ    80H
+          0 :
+          0 :                            ;;; MC6850 Asynchronous Communication Interface Adapter
+          0 : =4                 ACIA:   .equ    4
+          0 :                            .include "mc6850.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :                    ;;; MC6850
+(1)       0 :                    ;;; Asynchronous Communication Interface Adapter
+(1)       0 : =4                 ACIA_control:   .equ    ACIA+0
+(1)       0 : =4                 ACIA_status:    .equ    ACIA+0
+(1)       0 : =5                 ACIA_data:      .equ    ACIA+1
+(1)       0 : =6                 ACIA_intr:      .equ    ACIA+2
+(1)       0 :                    ;;;  Counter Divider Select Bits
+(1)       0 : =3                 CDS_gm:         .equ    11B       ; Group mask
+(1)       0 : =0                 CDS_DIV1_gc:    .equ    00000000B ; /1
+(1)       0 : =1                 CDS_DIV16_gc:   .equ    00000001B ; /16
+(1)       0 : =2                 CDS_DIV64_gc:   .equ    00000010B ; /64
+(1)       0 : =3                 CDS_RESET_gc:   .equ    00000011B ; Master Reset
+(1)       0 :                    ;;;  Word Select Bits
+(1)       0 : =1C                WSB_gm:         .equ    00011100B ; Group mask
+(1)       0 : =0                 WSB_7E2_gc:     .equ    00000000B ; 7 Bits + Even Parity + 2 Stop Bits
+(1)       0 : =4                 WSB_7O2_gc:     .equ    00000100B ; 7 bits + Odd Parity  + 2 Stop Bits
+(1)       0 : =8                 WSB_7E1_gc:     .equ    00001000B ; 7 bits + Even Parity + 1 Stop Bits
+(1)       0 : =C                 WSB_7O1_gc:     .equ    00001100B ; 7 bits + Odd Parity  + 1 Stop Bits
+(1)       0 : =10                WSB_8N2_gc:     .equ    00010000B ; 8 bits + No Parity   + 2 Stop Bits
+(1)       0 : =14                WSB_8N1_gc:     .equ    00010100B ; 8 bits + No Parity   + 1 Stop Bits
+(1)       0 : =18                WSB_8E1_gc:     .equ    00011000B ; 8 bits + Even Parity + 1 Stop Bits
+(1)       0 : =1C                WSB_8O1_gc:     .equ    00011100B ; 8 bits + Odd Parity  + 1 Stop Bits
+(1)       0 :                    ;;; Transmit Control Bits
+(1)       0 : =60                TCB_gm:         .equ    01100000B ; Group mask
+(1)       0 : =0                 TCB_DI_gc:      .equ    00000000B ; RTS=Low,  Tx Interrupt Disabled
+(1)       0 : =20                TCB_EI_gc:      .equ    00100000B ; RTS=Low,  Tx Interrupt Enabled
+(1)       0 : =40                TCB_RTS_gc:     .equ    01000000B ; RTS=High, Tx Interrupt Disabled
+(1)       0 : =60                TCB_BREAK_gc:   .equ    01100000B ; RTS=Low,  Tx Interrupt Disabled
+(1)       0 :                                                      ; Transmit Break Level
+(1)       0 : =80                RIEB_bm:        .equ    10000000B ; Receive Interrupt Enable Bit mask
+(1)       0 :                    ;;; Status register
+(1)       0 : =1                 RDRF_bm:        .equ    00000001B ; Receive Data Register Full
+(1)       0 : =2                 TDRE_bm:        .equ    00000010B ; Transmit Data Register Empty
+(1)       0 : =4                 DCDF_bm:        .equ    00000100B ; Data Carrier Detect Flag
+(1)       0 : =8                 CTSF_bm:        .equ    00001000B ; Clear To Send Flag
+(1)       0 : =10                FERR_bm:        .equ    00010000B ; Frame Error Flag
+(1)       0 : =20                OVRN_bm:        .equ    00100000B ; Receiver Overrun Flag
+(1)       0 : =40                PERR_bm:        .equ    01000000B ; Parity Error Flag
+(1)       0 : =80                IRQF_bm:        .equ    10000000B ; Interrupt Request Flag
+          0 : =94                RX_INT_TX_NO:   .equ    WSB_8N1_gc|RIEB_bm
+          0 : =B4                RX_INT_TX_INT:  .equ    WSB_8N1_gc|RIEB_bm|TCB_EI_gc
+          0 :
+          0 :                            .org    ORG_RESET
+          0 : F900 0200                  b       initialize
+          2 :                            .org    ORG_INT
+          2 : F900 0326                  b       int_isr
+          4 :
+          4 :                    ;;; Data memory
+          0 :                            .org    PAGE0
+          0 :                    zero:           .bss    1       ; 0
+          1 :                    one:            .bss    1       ; 1
+          2 :                    minus:          .bss    1       ; -1
+          3 :                            .bss    16              ; stack
+         13 : =13                stack_top:      .equ    $
+         13 :                    stack_ptr:      .bss    1       ; stack pointer
+         14 :                    stack_addr:     .bss    1
+         15 :                    stack_accl:     .bss    1
+         16 :                    stack_acch:     .bss    1
+         17 :                    stack_ar0:      .bss    1
+         18 :                    work:           .bss    1
+         19 :                    char:           .bss    1
+         1A :                    put_work:       .bss    1
+         1B :                    queue_ptr:      .bss    1       ; queue pointer
+         1C :                    queue_tmp:      .bss    1       ; queue work
+         1D :                    queue_tmp2:     .bss    1       ; queue work2
+         1E :                    queue_char:     .bss    1       ; queue element
+         1F :
+         80 :                            .org    PAGE1
+         80 :                    isr_st:         .bss    1       ; saving ST on interrupt
+         81 :                    isr_accl:       .bss    1       ; saving ACC
+         82 :                    isr_acch:       .bss    1
+         83 :                    isr_work:       .bss    1       ; work
+         84 :
+         84 :                    ;;; Program memory
+        100 :                            .org    100H
+        100 : =80                rx_queue_size:  .equ    80H
+        100 :                    rx_queue:       .bss    rx_queue_size
+        180 : =80                tx_queue_size:  .equ    80H
+        180 :                    tx_queue:       .bss    tx_queue_size
+        200 :
+        200 :                            .org    200H
+        200 :                    initialize:
+        200 : 6E00                       ldpk    0
+        201 : 7E01                       lack    1
+        202 : 5001                       sacl    one
+        203 : 7E00                       lack    0
+        204 : 5000                       sacl    zero
+        205 : 1001                       sub     one
+        206 : 5002                       sacl    minus
+        207 : 7E80                       lack    rx_queue_size
+        208 : F800 02BB                  call    queue_init
+        20A : 0100                       .word   rx_queue
+        20B : 7E80                       lack    tx_queue_size
+        20C : F800 02BB                  call    queue_init
+        20E : 0180                       .word   tx_queue
+        20F : F800 0292                  call    init_stack
+        211 : 0013                       .word   stack_top
+        212 :                    ;;; Initialize ACIA
+        212 : 7E03                       lack    CDS_RESET_gc
+        213 : 5018                       sacl    work
+        214 : 4C18                       out     work,ACIA_control ; Master reset
+        215 : 7E94                       lack    RX_INT_TX_NO
+        216 : 5018                       sacl    work
+        217 : 4C18                       out     work,ACIA_control ; 8 bits + No Parity + 1 Stop Bits
+        218 :
+        218 : F800 022C          loop:   call    getchar
+        21A : 7A00                       or      zero
+        21B : FF00 022B                  bz      halt_to_system
+        21D : F800 0249                  call    putchar
+        21F : F800 0238                  call    putspace
+        221 : F800 0255                  call    put_hex8
+        223 : F800 0238                  call    putspace
+        225 : F800 0278                  call    put_bin8
+        227 : F800 023F                  call    newline
+        229 : F900 0218                  b       loop
+        22B :                    halt_to_system:
+        22B : A000                       .word   HALT
+        22C :
+        22C :                    getchar:
+        22C : F800 0298                  call    link
+        22E :                    getchar_loop:
+        22E : 7F81                       dint
+        22F : F800 0301                  call    queue_remove
+        231 : 0100                       .word   rx_queue
+        232 : 7F82                       eint
+        233 : FA00 022E                  blz     getchar_loop
+        235 : 5019                       sacl    char
+        236 : F900 02AA                  b       return
+        238 :
+        238 :                    putspace:
+        238 : F800 0298                  call    link
+        23A : 7E20                       lack    ' '
+        23B : F800 0249                  call    putchar
+        23D : F900 02AA                  b       return
+        23F :
+        23F :                    newline:
+        23F : F800 0298                  call    link
+        241 : 7E0D                       lack    0DH
+        242 : F800 0249                  call    putchar
+        244 : 7E0A                       lack    0AH
+        245 : F800 0249                  call    putchar
+        247 : F900 02AA                  b       return
+        249 :
+        249 :                    putchar:
+        249 : F800 0298                  call    link
+        24B : 7F81                       dint
+        24C : F800 02D7                  call    queue_add
+        24E : 0180                       .word   tx_queue
+        24F : 7EB4                       lack    RX_INT_TX_INT
+        250 : 501A                       sacl    put_work
+        251 : 4C1A                       out     put_work,ACIA_control
+        252 : 7F82                       eint
+        253 : F900 02AA                  b       return
+        255 :
+        255 :                    put_hex8:
+        255 : F800 0298                  call    link
+        257 : 7E30                       lack    '0'
+        258 : F800 0249                  call    putchar
+        25A : 7E78                       lack    'x'
+        25B : F800 0249                  call    putchar
+        25D : 2C19                       lac     char,12         ; char<<12
+        25E : 5818                       sach    work
+        25F : 6618                       zals    work            ; char>>4
+        260 : F800 0268                  call    put_hex4
+        262 : 7E0F                       lack    0FH
+        263 : 7919                       and     char
+        264 : F800 0268                  call    put_hex4
+        266 : F900 02AA                  b       return
+        268 :
+        268 :                    put_hex4:
+        268 : F800 0298                  call    link
+        26A : 5018                       sacl    work
+        26B : 7E0A                       lack    10
+        26C : 1018                       sub     work            ; 10-work
+        26D : FB00 0272                  blez    put_hex4_hex    ; branch if 10<=work
+        26F : 7E30                       lack    '0'
+        270 : F900 0273                  b       put_hex4_char
+        272 :                    put_hex4_hex:
+        272 : 7E37                       lack    'A'-10
+        273 :                    put_hex4_char
+        273 : 0018                       add     work
+        274 : F800 0249                  call    putchar
+        276 : F900 02AA                  b       return
+        278 :
+        278 :                    put_bin8:
+        278 : F800 0298                  call    link
+        27A : 7E30                       lack    '0'
+        27B : F800 0249                  call    putchar
+        27D : 7E62                       lack    'b'
+        27E : F800 0249                  call    putchar
+        280 : 7007                       lark    AR0,8-1
+        281 : 6880                       larp    AR0
+        282 : 2819                       lac     char,8
+        283 : 5019                       sacl    char            ; char<<=8
+        284 :                    put_bin1:
+        284 : 2119                       lac     char,1          ;
+        285 : 5019                       sacl    char            ; work<<=1
+        286 : 5818                       sach    work
+        287 : 6618                       zals    work
+        288 : 7901                       and     one
+        289 : 5018                       sacl    work
+        28A : 7E30                       lack    '0'
+        28B : 0018                       add     work
+        28C : F800 0249                  call    putchar
+        28E : F400 0284                  banz    put_bin1
+        290 : F900 02AA                  b       return
+        292 :
+        292 :                            .include "stack.inc"
+(1)     292 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)     292 :                    ;;; [stack] Initialize stack
+(1)     292 :                    ;;;    CALL  stack_init
+(1)     292 :                    ;;;    .word stack_top
+(1)     292 :                    ;;; @clobber ACC DP=0
+(1)     292 :                    init_stack:
+(1)     292 : 6E00                       ldpk    0               ; page 0
+(1)     293 : 7F9D                       pop
+(1)     294 : 6713                       tblr    stack_ptr       ; initialize stack pointer
+(1)     295 : 0001                       add     one
+(1)     296 : 7F9C                       push
+(1)     297 : 7F8D                       ret
+(1)     298 :
+(1)     298 :                    ;;; [stack] Save caller address
+(1)     298 :                    ;;;    subroutine: call link
+(1)     298 :                    ;;; @clobber ARP=0
+(1)     298 :                    link:
+(1)     298 : 6E00                       ldpk    0               ; page 0
+(1)     299 : 5015                       sacl    stack_accl
+(1)     29A : 5816                       sach    stack_acch
+(1)     29B : 3017                       sar     AR0,stack_ar0   ; save AR0
+(1)     29C : 3813                       lar     AR0,stack_ptr
+(1)     29D : 6880                       larp    AR0             ; user AR0
+(1)     29E : 7F9D                       pop                     ; subroutine continuation
+(1)     29F : 5014                       sacl    stack_addr
+(1)     2A0 : 7F9D                       pop                     ; caller address
+(1)     2A1 : 6898                       mar     *-              ; pre decrement
+(1)     2A2 : 5088                       sacl    *               ; save caller address
+(1)     2A3 : 3013                       sar     AR0,stack_ptr   ; update stack pointer
+(1)     2A4 : 6614                       zals    stack_addr
+(1)     2A5 : 7F9C                       push
+(1)     2A6 : 6516                       zalh    stack_acch      ; restore ACC
+(1)     2A7 : 6115                       adds    stack_accl
+(1)     2A8 : 3817                       lar     AR0,stack_ar0   ; restore AR0
+(1)     2A9 : 7F8D                       ret                     ; go to subroutine
+(1)     2AA :
+(1)     2AA :                    ;;; [stack] Return to caller
+(1)     2AA :                    ;;;    B unstack
+(1)     2AA :                    ;;; @clobber ARP=0
+(1)     2AA :                    return:
+(1)     2AA : 6E00                       ldpk    0
+(1)     2AB : 5015                       sacl    stack_accl      ; save ACC
+(1)     2AC : 5816                       sach    stack_acch
+(1)     2AD : 3017                       sar     AR0,stack_ar0   ; save AR0
+(1)     2AE :
+(1)     2AE : 7E13                       lack    13H
+(1)     2AF : 1013                       sub     stack_ptr
+(1)     2B0 : FF00 022B                  bz      halt_to_system
+(1)     2B2 :
+(1)     2B2 : 3813                       lar     AR0,stack_ptr
+(1)     2B3 : 6880                       larp    AR0             ; use AR0
+(1)     2B4 : 66A8                       zals    *+              ; post increment
+(1)     2B5 : 7F9C                       push                    ; return address
+(1)     2B6 : 3013                       sar     AR0,stack_ptr   ; update stack pointer
+(1)     2B7 : 6516                       zalh    stack_acch
+(1)     2B8 : 6115                       adds    stack_accl
+(1)     2B9 : 3817                       lar     AR0,stack_ar0
+(1)     2BA : 7F8D                       ret                     ; return to caller
+        2BB :                            .include "queue.inc"
+(1)     2BB :                    ;;; -*- mode: asm; mode: flying-spell; -*-
+(1)     2BB :                    ;;; [queue] queue structure
+(1)     2BB : =0                 queue_len:      equ     0       ; queue length
+(1)     2BB : =1                 queue_size:     equ     1       ; buffer size
+(1)     2BB : =2                 queue_put:      equ     2       ; queue put index
+(1)     2BB : =3                 queue_get:      equ     3       ; queue get index
+(1)     2BB : =4                 queue_buf:      equ     4       ; buffer start offset
+(1)     2BB :
+(1)     2BB :                    ;;; [queue] Initialize queue
+(1)     2BB :                    ;;; @param @SP queue work space pointer
+(1)     2BB :                    ;;; @param ACC queue work space size
+(1)     2BB :                    ;;; @clobber ACC AR0 ARP=0 DP=0
+(1)     2BB :                    queue_init:
+(1)     2BB : 6E00                       ldpk    0               ; page 0
+(1)     2BC : 501C                       sacl    queue_tmp
+(1)     2BD : 7F9D                       pop                     ; pop return address
+(1)     2BE : 671B                       tblr    queue_ptr       ; read queue pointer
+(1)     2BF : 0001                       add     one
+(1)     2C0 : 7F9C                       push                    ; restore return address
+(1)     2C1 : 661B                       zals    queue_ptr
+(1)     2C2 : 7D00                       tblw    zero            ; queue_len=0
+(1)     2C3 : 0001                       add     one
+(1)     2C4 : 501B                       sacl    queue_ptr       ; &queue_size
+(1)     2C5 : 201C                       lac     queue_tmp
+(1)     2C6 : 1201                       sub     one,2           ; queue_size-4
+(1)     2C7 : 501C                       sacl    queue_tmp
+(1)     2C8 : 381C                       lar     AR0,queue_tmp   ; AR0=queue_size
+(1)     2C9 : 661B                       zals    queue_ptr
+(1)     2CA : 7D1C                       tblw    queue_tmp       ; queue_size
+(1)     2CB : 0001                       add     one
+(1)     2CC : 7D00                       tblw    zero            ; queue_put=0
+(1)     2CD : 0001                       add     one
+(1)     2CE : 7D00                       tblw    zero            ; queue_get=0
+(1)     2CF : 6880                       larp    AR0             ; use AR0
+(1)     2D0 : F900 02D4                  b       queue_init_enter
+(1)     2D2 :                    queue_init_loop:
+(1)     2D2 : 0001                       add     one
+(1)     2D3 : 7D00                       tblw    zero
+(1)     2D4 :                    queue_init_enter:
+(1)     2D4 : F400 02D2                  banz    queue_init_loop
+(1)     2D6 : 7F8D                       ret
+(1)     2D7 :
+(1)     2D7 :                    ;;; [queue] Add an element to queue
+(1)     2D7 :                    ;;; @param @SP queue work space pointer
+(1)     2D7 :                    ;;; @param ACC an element
+(1)     2D7 :                    ;;; @return ACC<0 if queue is full
+(1)     2D7 :                    ;;; @clobber DP=0
+(1)     2D7 :                    queue_add:
+(1)     2D7 : 6E00                       ldpk    0               ; page 0
+(1)     2D8 : 501E                       sacl    queue_char      ; save element
+(1)     2D9 : 7F9D                       pop                     ; pop return address
+(1)     2DA : 671B                       tblr    queue_ptr       ; read queue pointer
+(1)     2DB : 0001                       add     one
+(1)     2DC : 7F9C                       push                    ; restore return address
+(1)     2DD : 661B                       zals    queue_ptr
+(1)     2DE : 671C                       tblr    queue_tmp       ; tmp=queue_len
+(1)     2DF : 0001                       add     one
+(1)     2E0 : 671D                       tblr    queue_tmp2      ; tmp2=queue_size
+(1)     2E1 : 661C                       zals    queue_tmp
+(1)     2E2 : 101D                       sub     queue_tmp2      ; queue_len-queue_size
+(1)     2E3 : FA00 02E8                  blz     queue_add_elem  ; branch if queue_len<queue_size
+(1)     2E5 : 6502                       zalh    minus           ; ACC<0
+(1)     2E6 : 611E                       adds    queue_char      ; restore element
+(1)     2E7 : 7F8D                       ret
+(1)     2E8 :                    queue_add_elem:
+(1)     2E8 : 661C                       zals    queue_tmp
+(1)     2E9 : 0001                       add     one
+(1)     2EA : 501C                       sacl    queue_tmp
+(1)     2EB : 661B                       zals    queue_ptr
+(1)     2EC : 7D1C                       tblw    queue_tmp       ; queue_len++
+(1)     2ED : 7E02                       lack    queue_put
+(1)     2EE : 001B                       add     queue_ptr
+(1)     2EF : 671C                       tblr    queue_tmp       ; tmp=queue_put
+(1)     2F0 : 7E04                       lack    queue_buf
+(1)     2F1 : 001B                       add     queue_ptr
+(1)     2F2 : 001C                       add     queue_tmp
+(1)     2F3 : 7D1E                       tblw    queue_char      ; queue_buf[queue_put]=element
+(1)     2F4 : 661C                       zals    queue_tmp
+(1)     2F5 : 0001                       add     one
+(1)     2F6 : 501C                       sacl    queue_tmp       ; queue_put++
+(1)     2F7 : 101D                       sub     queue_tmp2      ; queue_put-queue_size
+(1)     2F8 : FA00 02FC                  blz     queue_add_exit  ; branch if queue_put<queue_size
+(1)     2FA : 7F89                       zac
+(1)     2FB : 501C                       sacl    queue_tmp       ; queue_put=0
+(1)     2FC :                    queue_add_exit:
+(1)     2FC : 7E02                       lack    queue_put
+(1)     2FD : 001B                       add     queue_ptr       ; ACC points queue_put
+(1)     2FE : 7D1C                       tblw    queue_tmp       ; update queue_put
+(1)     2FF : 661E                       zals    queue_char      ; restore element
+(1)     300 : 7F8D                       ret
+(1)     301 :
+(1)     301 :                    ;;; [queue] Remove an element from queue
+(1)     301 :                    ;;; @param @SP queue work space pointer
+(1)     301 :                    ;;; @return ACC an element
+(1)     301 :                    ;;; @return ACC<0 if queue is empty
+(1)     301 :                    ;;; @clobber DP=0
+(1)     301 :                    queue_remove:
+(1)     301 : 6E00                       ldpk    0               ; page 0
+(1)     302 : 7F9D                       pop                     ; pop return address
+(1)     303 : 671B                       tblr    queue_ptr       ; read queue pointer
+(1)     304 : 0001                       add     one
+(1)     305 : 7F9C                       push                    ; restore return address
+(1)     306 : 661B                       zals    queue_ptr
+(1)     307 : 671C                       tblr    queue_tmp       ; tmp=queue_len
+(1)     308 : 661C                       zals    queue_tmp
+(1)     309 : FC00 030D                  bgz     queue_remove_elem ; branch if queue_len>0
+(1)     30B : 6502                       zalh    minus           ; ACC<0
+(1)     30C : 7F8D                       ret
+(1)     30D :                    queue_remove_elem:
+(1)     30D : 1001                       sub     one
+(1)     30E : 501C                       sacl    queue_tmp
+(1)     30F : 661B                       zals    queue_ptr
+(1)     310 : 7D1C                       tblw    queue_tmp       ; queue_len--
+(1)     311 : 0001                       add     one
+(1)     312 : 671D                       tblr    queue_tmp2      ; tmp2=queue_size
+(1)     313 : 7E03                       lack    queue_get
+(1)     314 : 001B                       add     queue_ptr
+(1)     315 : 671C                       tblr    queue_tmp       ; tmp=queue_get
+(1)     316 : 0001                       add     one             ; ACC=queue_buf
+(1)     317 : 001C                       add     queue_tmp
+(1)     318 : 671E                       tblr    queue_char      ; load emement
+(1)     319 : 661C                       zals    queue_tmp
+(1)     31A : 0001                       add     one
+(1)     31B : 501C                       sacl    queue_tmp       ; queue_get++
+(1)     31C : 101D                       sub     queue_tmp2      ; queue_get-queue_size
+(1)     31D : FA00 0321                  blz     queue_remove_exit ; branch if queue_get<queue_size
+(1)     31F : 7F89                       zac
+(1)     320 : 501C                       sacl    queue_tmp       ; queue_get=0
+(1)     321 :                    queue_remove_exit:
+(1)     321 : 7E03                       lack    queue_get
+(1)     322 : 001B                       add     queue_ptr
+(1)     323 : 7D1C                       tblw    queue_tmp       ; update queue_get
+(1)     324 : 661E                       zals    queue_char      ; restore emlemnt
+(1)     325 : 7F8D                       ret
+        326 :
+        326 :                    int_isr:
+        326 : 7C00                       sst     isr_st          ; save ST
+        327 : 6E01                       ldpk    1               ; page 1
+        328 : 5001                       sacl    isr_accl        ; save ACC
+        329 : 5802                       sach    isr_acch
+        32A : 7E01                       lack    RDRF_bm
+        32B : 4403                       in      isr_work,ACIA_status
+        32C : 7903                       and     isr_work
+        32D : FF00 0335                  bz      int_isr_send
+        32F : 4503                       in      isr_work,ACIA_data
+        330 : 6603                       zals    isr_work
+        331 : F800 02D7                  call    queue_add
+        333 : 0100                       .word   rx_queue
+        334 : 6E01                       ldpk    1               ; page 1
+        335 :                    int_isr_send:
+        335 : 7E02                       lack    TDRE_bm
+        336 : 4403                       in      isr_work,ACIA_status
+        337 : 7903                       and     isr_work
+        338 : FF00 0342                  bz      int_isr_exit
+        33A : F800 0301                  call    queue_remove
+        33C : 0180                       .word   tx_queue
+        33D : 6E01                       ldpk    1               ; page 1
+        33E : FA00 0346                  blz     int_isr_send_empty
+        340 : 5003                       sacl    isr_work
+        341 : 4D03                       out     isr_work,ACIA_data
+        342 :                    int_isr_exit:
+        342 : 6502                       zalh    isr_acch        ; restore ACC
+        343 : 6101                       adds    isr_accl
+        344 : 7B00                       lst     isr_st          ; restore ST
+        345 : 7F8D                       ret
+        346 :                    int_isr_send_empty:
+        346 : 7E94                       lack    RX_INT_TX_NO    ; disable Tx intterrupt
+        347 : 5003                       sacl    isr_work
+        348 : 4C03                       out     isr_work,ACIA_control
+        349 : F900 0342                  b       int_isr_exit
