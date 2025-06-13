@@ -1,6 +1,5 @@
 #include "regs_z8.h"
 #include "debugger.h"
-#include "mems_z8.h"
 #include "pins_z8.h"
 
 namespace debugger {

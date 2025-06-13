@@ -430,7 +430,7 @@ void PinsIns8060::negateInt(uint8_t name) {
 }
 
 void PinsIns8060::setBreakInst(uint32_t addr) const {
-    _mems->put_inst(addr, InstIns8060::HALT);
+    _mems->put_prog(addr, InstIns8060::HALT);
 }
 
 void PinsIns8060::printCycles() {

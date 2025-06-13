@@ -43,11 +43,11 @@ void PinsTms9900Base::loop() {
             return;
         }
         constexpr auto vec_xop15 = InstTms9900::VEC_XOP15;
-        if (s->addr == vec_xop15 && _mems->get_inst(vec_xop15) == vec_xop15) {
+        if (s->addr == vec_xop15 && _mems->get_prog(vec_xop15) == vec_xop15) {
             for (auto i = 1; i < 6; ++i) {
                 const auto xop = s->prev(i);
                 if (xop->fetch() &&
-                        _mems->get_inst(xop->addr) == InstTms9900::XOP15) {
+                        _mems->get_prog(xop->addr) == InstTms9900::XOP15) {
                     regs<RegsTms9900>()->breakPoint();
                     xop->clearFetch();
                     xop->next()->clearFetch();
@@ -107,7 +107,7 @@ bool PinsTms9900Base::step(bool show) {
 }
 
 void PinsTms9900Base::setBreakInst(uint32_t addr) const {
-    _mems->put_inst(addr, InstTms9900::XOP15);
+    _mems->put_prog(addr, InstTms9900::XOP15);
 }
 
 void PinsTms9900Base::printCycles() {

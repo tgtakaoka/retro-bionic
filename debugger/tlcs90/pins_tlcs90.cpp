@@ -417,7 +417,7 @@ void PinsTlcs90::negateInt(uint8_t name) {
 }
 
 void PinsTlcs90::setBreakInst(uint32_t addr) const {
-    _mems->put_inst(addr, InstTlcs90::SWI);
+    _mems->put_prog(addr, InstTlcs90::SWI);
 }
 
 void PinsTlcs90::printCycles(const Signals *end) {

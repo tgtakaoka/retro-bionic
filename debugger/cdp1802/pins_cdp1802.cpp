@@ -458,7 +458,7 @@ void PinsCdp1802::negateInt(uint8_t name) {
 }
 
 void PinsCdp1802::setBreakInst(uint32_t addr) const {
-    _mems->put_inst(addr, InstCdp1802::IDL);
+    _mems->put_prog(addr, InstCdp1802::IDL);
 }
 
 void PinsCdp1802::printCycles() {

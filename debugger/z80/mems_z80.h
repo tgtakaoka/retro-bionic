@@ -9,15 +9,9 @@ namespace z80 {
 struct RegsZ80;
 
 struct MemsZ80 final : DmaMemory {
-    MemsZ80(RegsZ80 *regs);
+    MemsZ80();
 
     uint32_t maxAddr() const override { return UINT16_MAX; }
-    uint16_t get(uint32_t addr, const char *space = nullptr) const override;
-    void put(uint32_t addr, uint16_t data,
-            const char *space = nullptr) const override;
-
-private:
-    RegsZ80 *const _regs;
 };
 
 }  // namespace z80

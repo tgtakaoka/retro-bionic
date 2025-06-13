@@ -82,27 +82,6 @@ void RegsI8080::restore() {
     _pins->execInst(POP_ALL, sizeof(POP_ALL));
 }
 
-uint8_t RegsI8080::read_io(uint8_t addr) const {
-    const uint8_t IN[] = {
-            0xDB, addr,  // IN addr
-            0x77,        // MOV M, A
-    };
-    uint8_t data;
-    _pins->captureWrites(IN, sizeof(IN), &data, sizeof(data));
-    return data;
-}
-
-void RegsI8080::write_io(uint8_t addr, uint8_t data) const {
-    const uint8_t OUT[] = {
-            0x3E, data,  // MVI data
-            0xD3, addr,  // OUT addr
-            0x77,        // MOV M, A
-    };
-    uint8_t tmp;
-    // MOV M, A ensures I/O write cycle.
-    _pins->captureWrites(OUT, sizeof(OUT), &tmp, sizeof(tmp));
-}
-
 void RegsI8080::helpRegisters() const {
     cli.println("?Reg: PC SP BC DE HL A B C D E H L PSW IE");
 }

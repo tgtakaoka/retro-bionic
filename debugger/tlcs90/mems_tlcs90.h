@@ -17,9 +17,8 @@ struct MemsTlcs90 final : DmaMemory {
 
     uint16_t read(uint32_t addr) const override;
     void write(uint32_t addr, uint16_t data) const override;
-    uint16_t get(uint32_t addr, const char *space = nullptr) const override;
-    void put(uint32_t addr, uint16_t data,
-            const char *space = nullptr) const override;
+    uint16_t get_data(uint32_t addr) const override;
+    void put_data(uint32_t addr, uint16_t data) const override;
 
 private:
     RegsTlcs90 *const _regs;

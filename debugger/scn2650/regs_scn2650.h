@@ -23,9 +23,6 @@ struct RegsScn2650 final : Regs {
     const RegList *listRegisters(uint_fast8_t n) const override;
     bool setRegister(uint_fast8_t reg, uint32_t value) override;
 
-    uint8_t read_io(uint8_t addr) const;
-    void write_io(uint8_t addr, uint8_t data) const;
-
 private:
     PinsScn2650 *const _pins;
 

@@ -24,8 +24,6 @@ struct RegsI8080 : Regs {
     bool setRegister(uint_fast8_t reg, uint32_t value) override;
 
     void saveContext(uint16_t pc, uint8_t inte);
-    uint8_t read_io(uint8_t addr) const;
-    void write_io(uint8_t addr, uint8_t data) const;
 
 protected:
     PinsI8080Base *const _pins;

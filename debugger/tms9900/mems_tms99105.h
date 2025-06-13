@@ -6,8 +6,15 @@
 namespace debugger {
 namespace tms99105 {
 
+/**
+   Unified Memory: 0000-FFFF
+   Macrostore:     0000-FFFF (can be read from 10000-1FFFF
+*/
+
 struct MemsTms99105 final : tms9900::MemsTms9900 {
     MemsTms99105(Devs *devs);
+
+    uint32_t maxData() const override { return UINT32_C(0x1FFFF); }
 
     void loadTms99110MacrostoreRom();
     uint16_t read_macro(uint32_t byte_addr) const;

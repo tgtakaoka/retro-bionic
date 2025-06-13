@@ -467,7 +467,7 @@ void PinsMos6502::negateInt(uint8_t name) {
 }
 
 void PinsMos6502::setBreakInst(uint32_t addr) const {
-    _mems->put_inst(addr, InstMos6502::BRK);
+    _mems->put_prog(addr, InstMos6502::BRK);
 }
 
 void PinsMos6502::printCycles() {

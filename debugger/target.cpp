@@ -48,11 +48,11 @@ void Target::printCycles() const {
 }
 
 uint16_t Target::getInst(uint32_t addr) const {
-    return _mems->get_inst(addr);
+    return _mems->get_prog(addr);
 }
 
 void Target::putInst(uint32_t addr, uint16_t data) const {
-    _mems->put_inst(addr, data);
+    _mems->put_prog(addr, data);
 }
 
 void Target::printRegisters(bool dis) const {
@@ -77,6 +77,10 @@ uint32_t Target::maxAddr() const {
     return _mems->maxAddr();
 }
 
+uint32_t Target::maxData() const {
+    return _mems->maxData();
+}
+
 uint32_t Target::assemble(uint32_t addr, const char *line) const {
     return _mems->assemble(addr, line);
 }
@@ -85,34 +89,21 @@ uint32_t Target::disassemble(uint32_t addr, uint_fast8_t numInsn) const {
     return _mems->disassemble(addr, numInsn);
 }
 
-void Target::dumpMemory(uint32_t addr, uint16_t len, const char *space) const {
-    _mems->dumpMemory(addr, len, space);
+void Target::dumpMemory(uint32_t addr, uint16_t len, bool prog) const {
+    _mems->dumpMemory(addr, len, prog);
 }
 
-void Target::writeMemory(
-        uint32_t addr, const uint16_t *buffer, uint8_t len) const {
-    const auto wordAccess = _mems->wordAccess() && addressUnit() == 1;
-    for (auto i = 0; i < len;) {
-        auto data = buffer[i++];
-        if (wordAccess) {
-            const auto next = (i < len) ? buffer[i++] : 0;
-            if (endian() == ENDIAN_BIG) {
-                data <<= 8;
-                data |= next;
-            } else {
-                data |= next;
-            }
-        }
-        _mems->put(addr++, data);
-    }
+void Target::writeMemory(uint32_t addr, const uint16_t *buffer,
+        uint_fast8_t len, bool prog) const {
+    _mems->writeMemory(addr, buffer, len, prog);
 }
 
-void Target::writeCode(
-        uint32_t byte_addr, const uint8_t *code, uint8_t len) const {
+void Target::loadCode(
+        uint32_t byte_addr, const uint8_t *code, uint_fast8_t len) const {
     const auto unit = addressUnit();
     auto addr = byte_addr / unit;
     const auto wordAccess = _mems->wordAccess() && unit == 1;
-    for (auto i = 0; i < len;) {
+    for (uint_fast8_t i = 0; i < len;) {
         uint16_t data = code[i++];
         if (unit == 2 || wordAccess) {
             const uint16_t next = (i < len) ? code[i++] : 0;
@@ -123,7 +114,7 @@ void Target::writeCode(
                 data |= next << 8;
             }
         }
-        _mems->put(addr++, data);
+        _mems->put_prog(addr++, data);
         if (wordAccess)
             addr++;
     }

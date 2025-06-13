@@ -7,17 +7,17 @@ namespace tms9995 {
 MemsTms9995::MemsTms9995(PinsTms9995 *pins, Devs *devs)
     : MemsTms9980(devs), _pins(pins) {}
 
-uint16_t MemsTms9995::get(uint32_t addr, const char *space) const {
+uint16_t MemsTms9995::get_data(uint32_t addr) const {
     if (_pins->is_internal(addr))
         return _pins->internal_read(addr);
-    return MemsTms9900::get(addr, space);
+    return MemsTms9900::get_data(addr);
 }
 
-void MemsTms9995::put(uint32_t addr, uint16_t data, const char *space) const {
+void MemsTms9995::put_data(uint32_t addr, uint16_t data) const {
     if (_pins->is_internal(addr)) {
         _pins->internal_write(addr, data);
     } else {
-        MemsTms9900::put(addr, data, space);
+        MemsTms9900::put_data(addr, data);
     }
 }
 

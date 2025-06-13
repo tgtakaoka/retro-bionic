@@ -20,6 +20,7 @@ enum Endian : uint16_t {
 struct Mems {
     virtual ~Mems();
 
+    /// Maximum address of program memory
     virtual uint32_t maxAddr() const = 0;
     uint8_t addressWidth() const;
     uint8_t addressUnit() const;
@@ -28,6 +29,9 @@ struct Mems {
     Endian endian() const { return _endian; }
     // True if ADDRESS_BYTE and access 16-bit at once
     virtual bool wordAccess() const { return false; }
+
+    // Maximum address of data memory
+    virtual uint32_t maxData() const { return maxAddr(); }
 
     // Raw memory access for ADDRESS_BYTE
     virtual uint16_t read_byte(uint32_t byte_addr) const = 0;
@@ -46,19 +50,15 @@ struct Mems {
     uint16_t read16(uint32_t byte_addr) const;
     void write16(uint32_t byte_addr, uint16_t data) const;
 
-    // Access from debugger
-    uint_fast8_t get_byte(uint32_t byte_addr) const;
-    virtual uint16_t get(uint32_t addr, const char * = nullptr) const {
-        return read(addr);
-    }
-    virtual void put(
-            uint32_t addr, uint16_t data, const char * = nullptr) const {
+    // Access from debugger for program memory
+    virtual uint16_t get_prog(uint32_t addr) const { return read(addr); }
+    virtual void put_prog(uint32_t addr, uint16_t data) const {
         write(addr, data);
     }
-    // Setup and restore break point
-    virtual uint16_t get_inst(uint32_t addr) const { return get(addr); }
-    virtual void put_inst(uint32_t addr, uint16_t data) const {
-        put(addr, data);
+    // Access from debugger for data memory
+    virtual uint16_t get_data(uint32_t addr) const { return get_prog(addr); }
+    virtual void put_data(uint32_t addr, uint16_t data) const {
+        put_prog(addr, data);
     }
 
     struct RomArea {
@@ -74,8 +74,12 @@ struct Mems {
 
     uint32_t assemble(uint32_t addr, const char *line) const;
     uint32_t disassemble(uint32_t addr, uint8_t numInsn) const;
-    void dumpMemory(
-            uint32_t addr, uint16_t len, const char *space = nullptr) const;
+    void dumpMemory(uint32_t addr, uint16_t len, bool prog = false) const;
+    void writeMemory(uint32_t addr, const uint16_t *buffer, uint_fast8_t len,
+            bool prog = false) const;
+
+    uint_fast8_t get_code(uint32_t byte_addr) const;
+    void put_code(uint32_t addr, const uint8_t *bytes, uint_fast8_t len) const;
 
 protected:
     Mems(Endian endian);
@@ -99,7 +103,6 @@ protected:
     uint16_t raw_read16le(uint32_t byte_addr) const;
     void raw_write16be(uint32_t byte_addr, uint16_t data) const;
     void raw_write16le(uint32_t byte_addr, uint16_t data) const;
-    void put_bytes(uint32_t addr, const uint8_t *bytes, uint_fast8_t len) const;
 
     static constexpr uint8_t hi(uint16_t v) {
         return static_cast<uint8_t>(v >> 8);

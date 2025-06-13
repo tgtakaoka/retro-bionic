@@ -153,9 +153,8 @@ inline void clock_cycle() {
 }  // namespace
 
 PinsScn2650::PinsScn2650() {
-    auto regs = new RegsScn2650(this);
-    _regs = regs;
-    _mems = new MemsScn2650(regs);
+    _regs = new RegsScn2650(this);
+    _mems = new MemsScn2650();
     _devs = new DevsScn2650();
 }
 
@@ -360,7 +359,7 @@ void PinsScn2650::negateInt(uint8_t name) {
 }
 
 void PinsScn2650::setBreakInst(uint32_t addr) const {
-    _mems->put_inst(addr, InstScn2650::HALT);
+    _mems->put_prog(addr, InstScn2650::HALT);
 }
 
 void PinsScn2650::printCycles() {

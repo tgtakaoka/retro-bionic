@@ -203,7 +203,7 @@ void PinsMc6809Base::negateInt(uint8_t name) {
 }
 
 void PinsMc6809Base::setBreakInst(uint32_t addr) const {
-    _mems->put_inst(addr, InstMc6809::SWI);
+    _mems->put_prog(addr, InstMc6809::SWI);
 }
 
 void PinsMc6809Base::printCycles(const Signals *end) {

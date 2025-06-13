@@ -12,9 +12,8 @@ using mc6800::MemsMc6800;
 struct MemsMc6802 final : MemsMc6800 {
     MemsMc6802(RegsMc6802 *regs, Devs *devs) : MemsMc6800(regs, devs) {}
 
-    uint16_t get(uint32_t addr, const char *space = nullptr) const override;
-    void put(uint32_t addr, uint16_t data,
-            const char *space = nullptr) const override;
+    uint16_t get_data(uint32_t addr) const override;
+    void put_data(uint32_t addr, uint16_t data) const override;
 
     void set_internal_ram(bool enabled) { _internal_ram = enabled; }
     bool is_internal(uint16_t addr) const {

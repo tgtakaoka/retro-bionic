@@ -10,7 +10,7 @@ void PinsI8080Base::execInst(const uint8_t *inst, uint_fast8_t len) {
 }
 
 void PinsI8080Base::setBreakInst(uint32_t addr) const {
-    _mems->put_inst(addr, InstI8080::HLT);
+    _mems->put_prog(addr, InstI8080::HLT);
 }
 
 }  // namespace i8080

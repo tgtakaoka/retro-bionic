@@ -14,14 +14,6 @@ MemsCdp1802::MemsCdp1802() : DmaMemory(Endian::ENDIAN_BIG) {
 #endif
 }
 
-uint16_t MemsCdp1802::read(uint32_t addr) const {
-    return read_byte(addr);
-}
-
-void MemsCdp1802::write(uint32_t addr, uint16_t data) const {
-    write_byte(addr, data);
-}
-
 }  // namespace cdp1802
 }  // namespace debugger
 

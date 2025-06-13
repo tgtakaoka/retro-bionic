@@ -166,7 +166,7 @@ void PinsPdp8::negateInt(uint8_t name) {
 }
 
 void PinsPdp8::setBreakInst(uint32_t addr) const {
-    _mems->put_inst(addr, InstPdp8::HLT);
+    _mems->put_prog(addr, InstPdp8::HLT);
 }
 
 void PinsPdp8::printCycles() {
