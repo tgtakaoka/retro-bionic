@@ -173,9 +173,8 @@ void negate_reset() {
 }  // namespace
 
 PinsI8080::PinsI8080() {
-    auto regs = new RegsI8080(this);
-    _regs = regs;
-    _mems = new MemsI8080(regs);
+    _regs = new RegsI8080(this);
+    _mems = new MemsI8080();
     _devs = new DevsI8080();
 }
 

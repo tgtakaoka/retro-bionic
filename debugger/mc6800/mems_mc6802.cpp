@@ -6,11 +6,11 @@
 namespace debugger {
 namespace mc6802 {
 
-uint16_t MemsMc6802::get(uint32_t addr, const char *) const {
+uint16_t MemsMc6802::get_data(uint32_t addr) const {
     return is_internal(addr) ? _regs->internal_read(addr) : read(addr);
 }
 
-void MemsMc6802::put(uint32_t addr, uint16_t data, const char *) const {
+void MemsMc6802::put_data(uint32_t addr, uint16_t data) const {
     if (is_internal(addr)) {
         _regs->internal_write(addr, data);
     } else {

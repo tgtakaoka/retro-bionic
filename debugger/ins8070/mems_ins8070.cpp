@@ -29,11 +29,11 @@ void MemsIns8070::write(uint32_t addr, uint16_t data) const {
     }
 }
 
-uint16_t MemsIns8070::get(uint32_t addr, const char *) const {
+uint16_t MemsIns8070::get_data(uint32_t addr) const {
     return is_internal(addr) ? _regs->internal_read(addr) : read(addr);
 }
 
-void MemsIns8070::put(uint32_t addr, uint16_t data, const char *) const {
+void MemsIns8070::put_data(uint32_t addr, uint16_t data) const {
     if (is_internal(addr)) {
         _regs->internal_write(addr, data);
     } else {

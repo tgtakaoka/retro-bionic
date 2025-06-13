@@ -87,19 +87,6 @@ Mems::~Mems() {
 #endif
 }
 
-uint_fast8_t Mems::get_byte(uint32_t byte_addr) const {
-    const auto unit = addressUnit();
-    const auto addr = byte_addr / unit;
-    const auto data = get(addr);
-    if (unit == 1 && !wordAccess())
-        return data;
-    if (_endian == ENDIAN_BIG) {
-        return (byte_addr & 1) == 0 ? hi(data) : lo(data);
-    } else {
-        return (byte_addr & 1) == 0 ? lo(data) : hi(data);
-    }
-}
-
 uint16_t Mems::read16(uint32_t byte_addr) const {
     return _endian == ENDIAN_BIG ? raw_read16be(byte_addr)
                                  : raw_read16le(byte_addr);
@@ -253,11 +240,12 @@ void Mems::dump(
     }
 }
 
-void Mems::dumpMemory(uint32_t addr, uint16_t len, const char *space) const {
+void Mems::dumpMemory(uint32_t addr, uint16_t len, bool prog) const {
     const auto start = addr;
+    const auto addrMax = prog ? maxAddr() : maxData();
     auto end = addr + len;
-    if (end > maxAddr())
-        end = maxAddr() + 1;
+    if (end > addrMax)
+        end = addrMax + 1;
     const auto bits = opCodeWidth();
     const auto unit = addressUnit();
     // Quantize address to a multiple of 8 or 16.
@@ -275,9 +263,9 @@ void Mems::dumpMemory(uint32_t addr, uint16_t len, const char *space) const {
             const auto a = addr + n / unit;
             if (a >= start && a < end) {
                 if (chunk == 1) {
-                    buf[n] = get(a, space);
+                    buf[n] = prog ? get_prog(a) : get_data(a);
                 } else {
-                    const auto data = get(a, space);
+                    const auto data = prog ? get_prog(a) : get_data(a);
                     if (_endian == ENDIAN_BIG) {
                         buf[n + 0] = hi(data);
                         buf[n + 1] = lo(data);
@@ -311,6 +299,41 @@ void Mems::dumpMemory(uint32_t addr, uint16_t len, const char *space) const {
     }
 }
 
+void Mems::writeMemory(uint32_t addr, const uint16_t *buffer, uint_fast8_t len,
+        bool prog) const {
+    const auto access16 = wordAccess() && addressUnit() == 1;
+    for (uint_fast8_t i = 0; i < len;) {
+        auto data = buffer[i++];
+        if (access16) {
+            const auto next = (i < len) ? buffer[i++] : 0;
+            if (endian() == ENDIAN_BIG) {
+                data <<= 8;
+                data |= next;
+            } else {
+                data |= next;
+            }
+        }
+        if (prog) {
+            put_prog(addr++, data);
+        } else {
+            put_data(addr++, data);
+        }
+    }
+}
+
+uint_fast8_t Mems::get_code(uint32_t byte_addr) const {
+    const auto unit = addressUnit();
+    const auto addr = byte_addr / unit;
+    const auto data = get_prog(addr);
+    if (unit == 1 && !wordAccess())
+        return data;
+    if (_endian == ENDIAN_BIG) {
+        return (byte_addr & 1) == 0 ? hi(data) : lo(data);
+    } else {
+        return (byte_addr & 1) == 0 ? lo(data) : hi(data);
+    }
+}
+
 #ifdef WITH_DISASSEMBLER
 libasm::Disassembler *Mems::disassembler() const {
     auto dis = _disassembler;
@@ -327,7 +350,7 @@ struct DisMemory final : libasm::DisMemory {
 
     bool hasNext() const override { return address() <= _max_byte_addr; }
     void setAddress(uint32_t byte_addr) { resetAddress(byte_addr); }
-    uint8_t nextByte() override { return _mems->get_byte(address()); }
+    uint8_t nextByte() override { return _mems->get_code(address()); }
 };
 #endif
 
@@ -409,7 +432,7 @@ uint32_t Mems::assemble(uint32_t addr, const char *line) const {
             }
             cli.println();
         } else {
-            put_bytes(insn.address(), insn.bytes(), insn.length());
+            put_code(insn.address(), insn.bytes(), insn.length());
             disassemble(insn.address(), 1);
             addr += insn.length();
         }
@@ -418,12 +441,12 @@ uint32_t Mems::assemble(uint32_t addr, const char *line) const {
     return addr;
 }
 
-void Mems::put_bytes(
+void Mems::put_code(
         uint32_t addr, const uint8_t *bytes, uint_fast8_t len) const {
     const auto unit = addressUnit();
     for (uint_fast8_t i = 0; i < len; i += unit) {
         if (unit == 1) {
-            put(addr++, bytes[i]);
+            put_prog(addr++, bytes[i]);
         } else {
             uint16_t word = bytes[i];
             if (_endian == ENDIAN_BIG) {
@@ -432,7 +455,7 @@ void Mems::put_bytes(
             } else {
                 word |= static_cast<uint16_t>(bytes[i + 1]) << 8;
             }
-            put(addr++, word);
+            put_prog(addr++, word);
         }
     }
 }

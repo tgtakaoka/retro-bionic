@@ -2,11 +2,13 @@
  *  The Controller can accept commands represented by one letter.
  *
  *  R - reset CPU.
- *  d - dump memory. addr [length]
+ *  d - dump data memory. addr [length]
  *  D - disassemble
  *  A - assemble
- *  m - write memory
- *  M - show/set ROM area
+ *  m - read/write data memory
+ *  M - read/write program memory
+ *  p - dump program memory. addr [length]
+ *  P - show/set write protect area
  *  B - set break point
  *  b - show/clear break point
  *  r - print CPU registers
@@ -44,7 +46,7 @@ using State = libcli::State;
 namespace {
 
 constexpr char USAGE[] =
-        "R:eset r:egs =:setReg d:ump m:emory"
+        "R:eset r:egs =:setReg p/d:ump M/m:emory"
 #ifdef WITH_DISASSEMBLER
         " D:is"
 #endif
@@ -62,8 +64,7 @@ void usage() {
     cli.println(USAGE);
 }
 
-void commandHandler(char c, uintptr_t extra) {
-    (void)extra;
+void commandHandler(char c, uintptr_t) {
     Debugger.exec(c);
 }
 
@@ -74,68 +75,55 @@ void printPrompt() {
 
 uint32_t last_addr;
 uint16_t last_length;
-#define DUMP_ADDR 0
-#define DUMP_LENGTH 1
-#define DUMP_SPACE 2
-#define DIS_ADDR 0
-#define DIS_LENGTH 1
-
-#define MEMORY_LEN 16
+constexpr auto MEMORY_LEN = 16;
 uint16_t mem_buffer[MEMORY_LEN];
-#define MEMORY_DATA(i) ((uintptr_t)(i))
-#define MEMORY_ADDR static_cast<uintptr_t>(MEMORY_LEN + 1)
-#define MEMORY_END (MEMORY_ADDR + 1)
+static constexpr uintptr_t DATA_MEMORY(int index) {
+    return static_cast<uintptr_t>(index);
+}
+static constexpr uintptr_t PROG_MEMORY(int index) {
+    return static_cast<uintptr_t>(index + MEMORY_LEN);
+}
+static constexpr int TO_INDEX(uintptr_t extra) {
+    return static_cast<int>(extra % MEMORY_LEN);
+}
+constexpr auto DATA_ADDR = PROG_MEMORY(MEMORY_LEN);
+constexpr auto DATA_LEN = DATA_ADDR + 1;
+constexpr auto PROG_ADDR = DATA_LEN + 1;
+constexpr auto PROG_LEN = PROG_ADDR + 1;
+constexpr auto PROG_END = PROG_LEN + 1;
 
 char str_buffer[40];
 
-void handleDump(uint32_t value, uintptr_t extra, State state);
-
-void handleDumpSpace(char *word, uintptr_t extra, State state) {
-    const auto radix = Debugger.target().inputRadix();
-    if (state != State::CLI_CANCEL) {
-        if (state == State::CLI_DELETE) {
-            cli.backspace();
-            cli.readNum(
-                    handleDump, DUMP_LENGTH, radix, UINT16_MAX, last_length);
-            return;
-        }
-        cli.println();
-        Debugger.target().dumpMemory(last_addr, last_length, word);
-    }
-    printPrompt();
-}
-
 void handleDump(uint32_t value, uintptr_t extra, State state) {
-    const auto maxAddr = Debugger.target().maxAddr();
     const auto radix = Debugger.target().inputRadix();
-    if (state == State::CLI_CANCEL)
-        goto cancel;
     if (state == State::CLI_DELETE) {
-        if (extra == DUMP_LENGTH) {
-            cli.backspace();
-            cli.readNum(handleDump, DUMP_ADDR, radix, maxAddr, last_addr);
+        cli.backspace();
+        if (extra == DATA_LEN) {
+            const auto maxData = Debugger.target().maxData();
+            cli.readNum(handleDump, DATA_ADDR, radix, maxData, last_addr);
+        } else {
+            const auto maxAddr = Debugger.target().maxAddr();
+            cli.readNum(handleDump, PROG_ADDR, radix, maxAddr, last_addr);
         }
         return;
     }
-    if (extra == DUMP_LENGTH) {
-        last_length = value;
-        if (state == State::CLI_SPACE) {
-            cli.readWord(handleDumpSpace, DUMP_SPACE, str_buffer,
-                    sizeof(str_buffer));
-            return;
+    if (state != State::CLI_CANCEL) {
+        if (extra == DATA_ADDR || extra == PROG_ADDR) {
+            last_addr = value;
+            if (state == State::CLI_SPACE) {
+                extra = (extra == DATA_ADDR) ? DATA_LEN : PROG_LEN;
+                cli.readNum(handleDump, extra, radix, UINT16_MAX);
+                return;
+            }
+            last_length = 16;
+        } else {
+            last_length = value;
         }
-    } else if (extra == DUMP_ADDR) {
-        last_addr = value;
-        if (state == State::CLI_SPACE) {
-            cli.readNum(handleDump, DUMP_LENGTH, radix, UINT16_MAX);
-            return;
-        }
-        last_length = 16;
+        cli.println();
+        const auto prog = extra >= PROG_ADDR;
+        Debugger.target().dumpMemory(last_addr, last_length, prog);
+        last_addr += last_length;
     }
-    cli.println();
-    Debugger.target().dumpMemory(last_addr, last_length);
-    last_addr += last_length;
-cancel:
     printPrompt();
 }
 
@@ -146,16 +134,17 @@ void handleDisassemble(uint32_t value, uintptr_t extra, State state) {
     if (state == State::CLI_CANCEL)
         goto cancel;
     if (state == State::CLI_DELETE) {
-        if (extra == DIS_LENGTH) {
+        if (extra == MEMORY_LEN) {
             cli.backspace();
-            cli.readNum(handleDisassemble, DIS_ADDR, radix, maxAddr, last_addr);
+            cli.readNum(
+                    handleDisassemble, PROG_ADDR, radix, maxAddr, last_addr);
         }
         return;
     }
-    if (extra == DIS_ADDR) {
+    if (extra == PROG_ADDR) {
         last_addr = value;
         if (state == State::CLI_SPACE) {
-            cli.readDec(handleDisassemble, DIS_LENGTH, UINT16_MAX);
+            cli.readDec(handleDisassemble, MEMORY_LEN, UINT16_MAX);
             return;
         }
         value = 20;
@@ -168,43 +157,56 @@ cancel:
 #endif
 
 void handleMemory(uint32_t value, uintptr_t extra, State state) {
-    const auto maxAddr = Debugger.target().maxAddr();
     const auto radix = Debugger.target().inputRadix();
     const auto unit = Debugger.target().addressUnit();
     const auto bits = Debugger.target().opCodeWidth();
-    const auto maxData =
+    const auto maxValue =
             (unit == 1) ? UINT8_MAX : (bits == 12 ? 07777 : UINT16_MAX);
     if (state == State::CLI_DELETE) {
-        if (extra == MEMORY_ADDR)
+        if (extra == DATA_ADDR || extra == PROG_ADDR)
             return;
         cli.backspace();
-        uint16_t index = extra;
+        auto index = TO_INDEX(extra);
         if (index == 0) {
-            cli.readNum(handleMemory, MEMORY_ADDR, radix, maxAddr, last_addr);
+            if (extra >= PROG_MEMORY(0)) {
+                const auto maxAddr = Debugger.target().maxAddr();
+                cli.readNum(handleMemory, PROG_ADDR, radix, maxAddr, last_addr);
+            } else {
+                const auto maxData = Debugger.target().maxData();
+                cli.readNum(handleMemory, DATA_ADDR, radix, maxData, last_addr);
+            }
         } else {
             index--;
-            cli.readNum(handleMemory, MEMORY_DATA(index), radix, maxData,
-                    mem_buffer[index]);
+            const auto prev = (extra >= PROG_MEMORY(index))
+                                      ? PROG_MEMORY(index)
+                                      : DATA_MEMORY(index);
+            cli.readNum(handleMemory, prev, radix, maxValue, mem_buffer[index]);
         }
         return;
     }
     if (state != State::CLI_CANCEL) {
-        if (extra == MEMORY_ADDR) {
+        if (extra == DATA_ADDR) {
             last_addr = value;
-            cli.readNum(handleMemory, MEMORY_DATA(0), radix, maxData);
+            cli.readNum(handleMemory, DATA_MEMORY(0), radix, maxValue);
             return;
         }
-        uint16_t index = extra;
+        if (extra == PROG_ADDR) {
+            last_addr = value;
+            cli.readNum(handleMemory, PROG_MEMORY(0), radix, maxValue);
+            return;
+        }
+        auto index = TO_INDEX(extra);
         mem_buffer[index++] = value;
         if (state == State::CLI_SPACE) {
             if (index < MEMORY_LEN) {
-                cli.readNum(handleMemory, MEMORY_DATA(index), radix, maxData);
+                cli.readNum(handleMemory, extra + 1, radix, maxValue);
                 return;
             }
         }
         cli.println();
-        Debugger.target().writeMemory(last_addr, mem_buffer, index);
-        Debugger.target().dumpMemory(last_addr, index);
+        const auto prog = extra >= PROG_MEMORY(0);
+        Debugger.target().writeMemory(last_addr, mem_buffer, index, prog);
+        Debugger.target().dumpMemory(last_addr, index, prog);
         last_addr += index;
     }
     printPrompt();
@@ -217,8 +219,7 @@ void printAddr(uint32_t addr) {
 }
 
 #ifdef WITH_ASSEMBLER
-void handleAssembleLine(char *line, uintptr_t extra, State state) {
-    (void)extra;
+void handleAssembleLine(char *line, uintptr_t, State state) {
     if (state == State::CLI_CANCEL || *line == 0) {
         cli.println("end");
         printPrompt();
@@ -323,11 +324,11 @@ int loadIHexRecord(const char *line, uint32_t &addr) {
     } else if (type == 0) {
         addr &= ~UINT16_C(0xFFFF);
         addr |= offset;
-        uint8_t buffer[num];
+        uint8_t buffer[64];
         for (int i = 0; i < num; i++) {
             buffer[i] = toInt8Hex(line + i * 2 + 9);
         }
-        Debugger.target().writeCode(addr, buffer, num);
+        Debugger.target().loadCode(addr, buffer, num);
         const auto unit = Debugger.target().addressUnit();
         printAddr(addr / unit);
         cli.print(':');
@@ -354,11 +355,11 @@ int loadS19Record(const char *line, uint32_t &addr) {
     default:
         return 0;
     }
-    uint8_t buffer[num];
+    uint8_t buffer[64];
     for (int i = 0; i < num; i++) {
         buffer[i] = toInt8Hex(line + i * 2);
     }
-    Debugger.target().writeCode(addr, buffer, num);
+    Debugger.target().loadCode(addr, buffer, num);
     const auto unit = Debugger.target().addressUnit();
     printAddr(addr / unit);
     cli.print(':');
@@ -366,8 +367,7 @@ int loadS19Record(const char *line, uint32_t &addr) {
     return num;
 }
 
-void handleLoadFile(char *line, uintptr_t extra, State state) {
-    (void)extra;
+void handleLoadFile(char *line, uintptr_t, State state) {
     if (state == State::CLI_CANCEL) {
         printPrompt();
         return;
@@ -499,10 +499,10 @@ void handleIo(char *line, uintptr_t extra, State state) {
         auto dev = Debugger.target().parseDevice(line);
         if (state == State::CLI_SPACE) {
             if (dev != nulldev) {
-                const auto maxAddr = Debugger.target().maxAddr();
+                const auto maxData = Debugger.target().maxData();
                 const auto radix = Debugger.target().inputRadix();
                 cli.readNum(handleIoBase, reinterpret_cast<uintptr_t>(dev),
-                        radix, maxAddr);
+                        radix, maxData);
                 return;
             }
         }
@@ -519,19 +519,19 @@ void handleRomArea(uint32_t value, uintptr_t extra, State state) {
     const auto maxAddr = Debugger.target().maxAddr();
     const auto radix = Debugger.target().inputRadix();
     if (state == State::CLI_DELETE) {
-        if (extra == MEMORY_END) {
+        if (extra == PROG_END) {
             cli.backspace();
-            cli.readNum(handleRomArea, MEMORY_END, radix, maxAddr, last_addr);
+            cli.readNum(handleRomArea, PROG_ADDR, radix, maxAddr, last_addr);
         }
         return;
     }
     if (state != State::CLI_CANCEL) {
-        if (state == State::CLI_SPACE && extra == MEMORY_ADDR) {
+        if (state == State::CLI_SPACE && extra == PROG_ADDR) {
             last_addr = value;
-            cli.readNum(handleRomArea, MEMORY_END, radix, maxAddr);
+            cli.readNum(handleRomArea, PROG_END, radix, maxAddr);
             return;
         }
-        if (extra == MEMORY_END)
+        if (extra == PROG_END)
             Debugger.target().setRomArea(last_addr, value);
         cli.println();
         Debugger.target().printRomArea();
@@ -601,6 +601,7 @@ void Debugger::go() {
 }
 
 void Debugger::exec(char c) {
+    const auto maxData = target().maxData();
     const auto maxAddr = target().maxAddr();
     const auto radix = target().inputRadix();
     switch (c) {
@@ -612,13 +613,17 @@ void Debugger::exec(char c) {
         target().printRegisters();
         break;
     case 'd':
-        cli.print("Dump? ");
-        cli.readNum(handleDump, DUMP_ADDR, radix, maxAddr);
+        cli.print("Data dump? ");
+        cli.readNum(handleDump, DATA_ADDR, radix, maxData);
+        return;
+    case 'p':
+        cli.print("Program dump? ");
+        cli.readNum(handleDump, PROG_ADDR, radix, maxAddr);
         return;
 #ifdef WITH_DISASSEMBLER
     case 'D':
         cli.print("Disassemble? ");
-        cli.readNum(handleDisassemble, DIS_ADDR, radix, maxAddr);
+        cli.readNum(handleDisassemble, PROG_ADDR, radix, maxAddr);
         return;
 #endif
 #ifdef WITH_ASSEMBLER
@@ -628,16 +633,20 @@ void Debugger::exec(char c) {
         return;
 #endif
     case 'm':
-        cli.print("Memory? ");
-        cli.readNum(handleMemory, MEMORY_ADDR, radix, maxAddr);
+        cli.print("Data Memory? ");
+        cli.readNum(handleMemory, DATA_ADDR, radix, maxData);
         return;
     case 'M':
+        cli.print("Program Memory? ");
+        cli.readNum(handleMemory, PROG_ADDR, radix, maxAddr);
+        return;
+    case 'P':
         if (target().printRomArea()) {
-            cli.print("  ROM area? ");
-            cli.readNum(handleRomArea, MEMORY_ADDR, radix, maxAddr);
+            cli.print("  write Protected area? ");
+            cli.readNum(handleRomArea, PROG_ADDR, radix, maxAddr);
             return;
         } else {
-            cli.println("No ROM area");
+            cli.println("No Protected area");
         }
         break;
     case 'B':

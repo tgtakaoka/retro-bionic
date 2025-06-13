@@ -45,12 +45,14 @@ struct Target {
     void helpRegisters() const;
 
     uint32_t maxAddr() const;
+    uint32_t maxData() const;
     uint32_t assemble(uint32_t addr, const char *line) const;
     uint32_t disassemble(uint32_t addr, uint_fast8_t numInsn) const;
-    void dumpMemory(
-            uint32_t addr, uint16_t len, const char *spcae = nullptr) const;
-    void writeMemory(uint32_t addr, const uint16_t *buffer, uint8_t len) const;
-    void writeCode(uint32_t byte_addr, const uint8_t *code, uint8_t len) const;
+    void dumpMemory(uint32_t addr, uint16_t len, bool prog = false) const;
+    void writeMemory(uint32_t addr, const uint16_t *buffer, uint_fast8_t len,
+            bool prog = false) const;
+    void loadCode(
+            uint32_t byte_addr, const uint8_t *code, uint_fast8_t len) const;
 
     /* Set and prrint read only area */
     bool printRomArea() const;

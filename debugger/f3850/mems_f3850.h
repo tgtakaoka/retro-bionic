@@ -12,9 +12,8 @@ struct MemsF3850 final : DmaMemory {
     MemsF3850(RegsF3850 *regs);
 
     uint32_t maxAddr() const override { return UINT16_MAX; }
-    uint16_t get(uint32_t addr, const char *space = nullptr) const override;
-    void put(uint32_t addr, uint16_t data,
-            const char *space = nullptr) const override;
+    uint16_t get_data(uint32_t addr) const override;
+    void put_data(uint32_t addr, uint16_t data) const override;
 
 private:
     RegsF3850 *const _regs;

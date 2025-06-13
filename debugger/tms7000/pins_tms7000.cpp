@@ -628,7 +628,7 @@ void PinsTms7000::negateInt(uint8_t name) {
 }
 
 void PinsTms7000::setBreakInst(uint32_t addr) const {
-    _mems->put_inst(addr, InstTms7000::IDLE);
+    _mems->put_prog(addr, InstTms7000::IDLE);
 }
 
 void PinsTms7000::printCycles() {

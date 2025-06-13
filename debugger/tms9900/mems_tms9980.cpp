@@ -17,14 +17,6 @@ void MemsTms9980::write(uint32_t addr, uint16_t data) const {
     }
 }
 
-uint16_t MemsTms9980::get_inst(uint32_t addr) const {
-    return read16(addr);
-}
-
-void MemsTms9980::put_inst(uint32_t addr, uint16_t data) const {
-    write16(addr, data);
-}
-
 }  // namespace tms9980
 }  // namespace debugger
 

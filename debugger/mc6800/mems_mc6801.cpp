@@ -17,11 +17,11 @@ void MemsMc6801::write(uint32_t addr, uint16_t data) const {
     }
 }
 
-uint16_t MemsMc6801::get(uint32_t addr, const char *) const {
+uint16_t MemsMc6801::get_data(uint32_t addr) const {
     return addr < 0x100 ? _regs->internal_read(addr) : read(addr);
 }
 
-void MemsMc6801::put(uint32_t addr, uint16_t data, const char *) const {
+void MemsMc6801::put_data(uint32_t addr, uint16_t data) const {
     if (addr < 0x100) {
         _regs->internal_write(addr, data);
     } else {

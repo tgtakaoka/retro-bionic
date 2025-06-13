@@ -124,7 +124,7 @@ bool PinsMc6805::rawStep() {
     if (is_internal(pc))
         return false;
     auto s = currCycle(pc);
-    const auto inst = _mems->get(s->addr);
+    const auto inst = _mems->get_prog(s->addr);
     if (!_inst->valid(inst) || _inst->isStop(inst))
         return false;
     completeCycle(s);
@@ -155,7 +155,7 @@ void PinsMc6805::negateInt(uint8_t) {
 }
 
 void PinsMc6805::setBreakInst(uint32_t addr) const {
-    _mems->put_inst(addr, InstMc6805::SWI);
+    _mems->put_prog(addr, InstMc6805::SWI);
 }
 
 void PinsMc6805::printCycles() {

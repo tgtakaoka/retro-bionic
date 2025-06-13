@@ -8,12 +8,21 @@ namespace z86 {
 
 struct RegsZ86;
 
+/**
+   Register File:  00-FF
+   Unified Memory: 0000-FFFF (00-FF can be read from 10000-100FF)
+ */
+
 struct MemsZ86 final : z8::MemsZ8 {
     MemsZ86(RegsZ86 *regs, Devs *dev);
+    uint32_t maxData() const override { return maxAddr() + 0x100; }
+    uint16_t get_data(uint32_t addr) const override;
+    void put_data(uint32_t addr, uint16_t data) const override;
 
     RomArea *romArea() override { return &_rom; }
 
 private:
+    RegsZ86 *const _regs;
     RomArea _rom;
 };
 

@@ -1,14 +1,12 @@
 #include "mems_i8048.h"
 #include <asm_i8048.h>
-#include <ctype.h>
 #include <dis_i8048.h>
 #include "regs_i8048.h"
 
 namespace debugger {
 namespace i8048 {
 
-ProgI8048::ProgI8048(RegsI8048 *regs, Mems *data)
-    : DmaMemory(Endian::ENDIAN_BIG), _regs(regs), _data(data) {
+ProgI8048::ProgI8048(Mems *data) : DmaMemory(Endian::ENDIAN_BIG), _data(data) {
 #ifdef WITH_ASSEMBLER
     _assembler = new libasm::i8048::AsmI8048();
 #endif
@@ -17,15 +15,16 @@ ProgI8048::ProgI8048(RegsI8048 *regs, Mems *data)
 #endif
 }
 
-DataI8048::DataI8048(Devs *devs) : DmaMemory(Endian::ENDIAN_BIG), _devs(devs) {}
+DataI8048::DataI8048(RegsI8048 *regs, Devs *devs)
+    : DmaMemory(Endian::ENDIAN_BIG), _regs(regs), _devs(devs) {}
 
 uint16_t DataI8048::read(uint32_t addr) const {
-    addr &= 0xFF;
+    addr &= UINT8_MAX;
     return _devs->isSelected(addr) ? _devs->read(addr) : read_byte(addr);
 }
 
 void DataI8048::write(uint32_t addr, uint16_t data) const {
-    addr &= 0xFF;
+    addr &= UINT8_MAX;
     if (_devs->isSelected(addr)) {
         _devs->write(addr, data);
     } else {
@@ -33,23 +32,19 @@ void DataI8048::write(uint32_t addr, uint16_t data) const {
     }
 }
 
-uint16_t ProgI8048::get(uint32_t addr, const char *space) const {
-    if (space == nullptr || toupper(*space) == 'P')
-        return read_byte(addr);
-    if (toupper(*space) == 'M')
+uint16_t DataI8048::get_data(uint32_t addr) const {
+    if (addr < 0x100) {
         return _regs->read_internal(addr);
-    if (toupper(*space) == 'X')
-        return _data->read(addr);
-    return 0;
+    } else {
+        return read(addr);
+    }
 }
 
-void ProgI8048::put(uint32_t addr, uint16_t data, const char *space) const {
-    if (space == nullptr || toupper(*space) == 'P') {
-        write_byte(addr, data);
-    } else if (toupper(*space) == 'M') {
+void DataI8048::put_data(uint32_t addr, uint16_t data) const {
+    if (addr < 0x100) {
         _regs->write_internal(addr, data);
-    } else if (toupper(*space) == 'X') {
-        _data->write(addr, data);
+    } else {
+        write(addr, data);
     }
 }
 

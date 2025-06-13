@@ -41,7 +41,7 @@ void RegsZ86::reset() {
     _pins->execInst(JP_RESET, sizeof(JP_RESET));
 }
 
-uint8_t RegsZ86::save_rp() const {
+uint_fast8_t RegsZ86::save_rp() const {
     static constexpr uint8_t SAVE_RP[] = {
             0xA0, SPH,  // INCW SP
             0x70, RP,   // PUSH RP
@@ -76,7 +76,7 @@ void RegsZ86::restore_sfrs() {
     restore_rp(_rp);
 }
 
-uint8_t RegsZ86::save_r(uint8_t num) const {
+uint_fast8_t RegsZ86::save_r(uint_fast8_t num) const {
     const uint8_t SAVE_R[] = {
             0x92, uint8(num, 0),  // LDE @RR0,Rn
     };
@@ -85,7 +85,7 @@ uint8_t RegsZ86::save_r(uint8_t num) const {
     return val;
 }
 
-void RegsZ86::restore_r(uint8_t num, uint8_t val) const {
+void RegsZ86::restore_r(uint_fast8_t num, uint8_t val) const {
     if (InstZ86::writeOnly(_rp, num))
         return;
     const uint8_t LOAD_R[] = {
@@ -94,7 +94,7 @@ void RegsZ86::restore_r(uint8_t num, uint8_t val) const {
     _pins->execInst(LOAD_R, sizeof(LOAD_R));
 }
 
-uint8_t RegsZ86::raw_read_reg(uint8_t addr) const {
+uint_fast8_t RegsZ86::raw_read_reg(uint8_t addr) const {
     const uint8_t READ_REG[] = {
             0x08, addr,  // LD R0,addr
             0x92, 0x00,  // LDE @RR0,R0
@@ -105,11 +105,11 @@ uint8_t RegsZ86::raw_read_reg(uint8_t addr) const {
     return val;
 }
 
-uint8_t RegsZ86::read_reg(uint8_t addr, RegSpace space) {
+uint_fast8_t RegsZ86::read_reg(uint_fast8_t addr) {
     const auto rp = save_rp();
     restore_rp(R(0));
     const auto r0 = save_r(0);
-    uint8_t val = raw_read_reg(addr);
+    uint_fast8_t val = raw_read_reg(addr);
     if (addr == RP)
         val = rp;
     restore_r(0, r0);
@@ -117,7 +117,7 @@ uint8_t RegsZ86::read_reg(uint8_t addr, RegSpace space) {
     return val;
 }
 
-void RegsZ86::write_reg(uint8_t addr, uint8_t val, RegSpace space) {
+void RegsZ86::write_reg(uint8_t addr, uint8_t val) {
     const uint8_t WRITE_REG[] = {
             0xE6, addr, val,  // LD addr,#val
     };
@@ -127,17 +127,17 @@ void RegsZ86::write_reg(uint8_t addr, uint8_t val, RegSpace space) {
         save_all_r();
 }
 
-void RegsZ86::update_r(uint8_t addr, uint8_t val) {
+void RegsZ86::update_r(uint_fast8_t addr, uint_fast8_t val) {
     const auto rp = hi4(_rp);
     if (hi4(addr) == rp)
         _r[lo4(addr)] = val;
 }
 
-void RegsZ86::set_r(uint8_t num, uint8_t val) {
+void RegsZ86::set_r(uint_fast8_t num, uint_fast8_t val) {
     write_reg(R(num), _r[num] = val);
 }
 
-void RegsZ86::set_flags(uint8_t val) {
+void RegsZ86::set_flags(uint_fast8_t val) {
     write_reg(FLAGS, _flags = val);
 }
 
@@ -147,7 +147,7 @@ void RegsZ86::set_sp(uint16_t val) {
     write_reg(SPL, lo(val));
 }
 
-void RegsZ86::set_rp(uint8_t val) {
+void RegsZ86::set_rp(uint_fast8_t val) {
     write_reg(RP, _rp = val);
 }
 

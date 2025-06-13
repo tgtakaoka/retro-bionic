@@ -15,9 +15,8 @@ struct MemsIns8070 final : DmaMemory {
     uint32_t maxAddr() const override { return UINT16_MAX; }
     uint16_t read(uint32_t addr) const override;
     void write(uint32_t addr, uint16_t data) const override;
-    uint16_t get(uint32_t addr, const char *space = nullptr) const override;
-    void put(uint32_t addr, uint16_t data,
-            const char *space = nullptr) const override;
+    uint16_t get_data(uint32_t addr) const override;
+    void put_data(uint32_t addr, uint16_t data) const override;
 
     static bool is_internal(uint16_t addr) { return addr >= 0xFFC0; }
 

@@ -315,7 +315,7 @@ void PinsZ8::negateInt(uint8_t name) {
 }
 
 void PinsZ8::setBreakInst(uint32_t addr) const {
-    _mems->put_inst(addr, _inst.breakInst());
+    _mems->put_prog(addr, _inst.breakInst());
 }
 
 void PinsZ8::printCycles() {
