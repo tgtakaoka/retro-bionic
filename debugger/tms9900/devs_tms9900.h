@@ -8,8 +8,6 @@
 namespace debugger {
 namespace tms9900 {
 
-enum HardwareType : uint8_t;
-
 struct DevsTms9900 : Devs {
     DevsTms9900();
     ~DevsTms9900();

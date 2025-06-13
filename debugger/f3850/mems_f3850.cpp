@@ -1,9 +1,6 @@
-#include <ctype.h>
-
+#include "mems_f3850.h"
 #include <asm_f3850.h>
 #include <dis_f3850.h>
-
-#include "mems_f3850.h"
 #include "regs_f3850.h"
 
 namespace debugger {
@@ -19,25 +16,18 @@ MemsF3850::MemsF3850(RegsF3850 *regs)
 #endif
 }
 
-uint16_t MemsF3850::get(uint32_t addr, const char *space) const {
-    if (space == nullptr)
-        return read_byte(addr);
-    if (toupper(*space) == 'I' && addr < 0x10)
-        return _regs->read_io(addr);
-    if (toupper(*space) == 'R' && addr < 0x40)
-        return _regs->read_reg(addr);
-    return 0;
+uint16_t MemsF3850::get_data(uint32_t addr) const {
+    return addr < 0x40 ? _regs->read_reg(addr) : read(addr);
 }
 
-void MemsF3850::put(uint32_t addr, uint16_t data, const char *space) const {
-    if (space == nullptr) {
-        write_byte(addr, data);
-    } else if (toupper(*space) == 'I' && addr < 0x10) {
-        _regs->write_io(addr, data);
-    } else if (toupper(*space) == 'R' && addr < 0x40) {
+void MemsF3850::put_data(uint32_t addr, uint16_t data) const {
+    if (addr < 0x40) {
         _regs->write_reg(addr, data);
+    } else {
+        write(addr, data);
     }
 }
+
 }  // namespace f3850
 }  // namespace debugger
 

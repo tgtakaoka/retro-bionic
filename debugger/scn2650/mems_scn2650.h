@@ -6,18 +6,10 @@
 namespace debugger {
 namespace scn2650 {
 
-struct RegsScn2650;
-
 struct MemsScn2650 final : DmaMemory {
-    MemsScn2650(RegsScn2650 *regs);
+    MemsScn2650();
 
     uint32_t maxAddr() const override { return 0x7FFF; }
-    uint16_t get(uint32_t addr, const char *space = nullptr) const override;
-    void put(uint32_t addr, uint16_t data,
-            const char *space = nullptr) const override;
-
-private:
-    RegsScn2650 *const _regs;
 };
 
 }  // namespace scn2650

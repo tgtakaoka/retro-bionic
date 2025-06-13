@@ -1,7 +1,6 @@
+#include "mems_pdp8.h"
 #include <asm_pdp8.h>
 #include <dis_pdp8.h>
-
-#include "mems_pdp8.h"
 
 namespace debugger {
 namespace pdp8 {
@@ -19,30 +18,6 @@ MemsPdp8::MemsPdp8(uint8_t addr_bit)
 void MemsPdp8::isPrint(const uint8_t *data, char buf[2]) const {
     buf[0] = data[0] ? '.' : ' ';
     buf[1] = isprint(data[1]) ? data[1] : '.';
-}
-
-uint16_t MemsPdp8::read(uint32_t addr) const {
-    return read_word(addr) & 07777;
-}
-
-void MemsPdp8::write(uint32_t addr, uint16_t data) const {
-    write_word(addr, data);
-}
-
-uint16_t MemsPdp8::get(uint32_t addr, const char *) const {
-    return read_word(addr);
-}
-
-void MemsPdp8::put(uint32_t addr, uint16_t data, const char *) const {
-    write_word(addr, data);
-}
-
-uint16_t MemsPdp8::get_inst(uint32_t addr) const {
-    return read_word(addr);
-}
-
-void MemsPdp8::put_inst(uint32_t addr, uint16_t data) const {
-    write_word(addr, data);
 }
 
 ControlPanel::ControlPanel(MemsPdp8 *mems)

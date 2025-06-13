@@ -447,7 +447,7 @@ void PinsIns8070::negateInt(uint8_t name) {
 }
 
 void PinsIns8070::setBreakInst(uint32_t addr) const {
-    _mems->put_inst(addr, InstIns8070::CALL15);
+    _mems->put_prog(addr, InstIns8070::CALL15);
 }
 
 void PinsIns8070::printCycles(const Signals *end) {

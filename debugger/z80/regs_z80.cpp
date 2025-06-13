@@ -119,27 +119,6 @@ void RegsZ80::restore() {
     _pins->execInst(LD_ALL, sizeof(LD_ALL));
 }
 
-uint8_t RegsZ80::read_io(uint8_t addr) const {
-    const uint8_t IN[] = {
-            0xDB, addr,  // IN (addr)
-            0x77,        // LD (HL), A
-    };
-    uint8_t data;
-    _pins->captureWrites(IN, sizeof(IN), &data, sizeof(data));
-    return data;
-}
-
-void RegsZ80::write_io(uint8_t addr, uint8_t data) const {
-    uint8_t OUT[] = {
-            0x3E, data,  // LD A, data
-            0xD3, addr,  // OUT (addr)
-            0x77,        // LD (HL), A
-    };
-    uint8_t tmp;
-    // LD (HL), A ensures I/O write cycle.
-    _pins->captureWrites(OUT, sizeof(OUT), &tmp, sizeof(tmp));
-}
-
 void RegsZ80::helpRegisters() const {
     cli.println("?Reg: PC SP IX IY BC DE HL A F B C D E H L I EX EXX");
 }

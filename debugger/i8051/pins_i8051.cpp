@@ -176,8 +176,8 @@ PinsI8051::PinsI8051() {
     auto regs = new RegsI8051(this);
     _regs = regs;
     _devs = new DevsI8051();
-    _data = new DataI8051(_devs);
-    _mems = new ProgI8051(regs, _data);
+    _data = new DataI8051(regs, _devs);
+    _mems = new ProgI8051(_data);
 }
 
 PinsI8051::~PinsI8051() {
@@ -471,7 +471,7 @@ void PinsI8051::negateInt(uint8_t name) {
 }
 
 void PinsI8051::setBreakInst(uint32_t addr) const {
-    _mems->put_inst(addr, InstI8051::UNKNOWN);
+    _mems->put_prog(addr, InstI8051::UNKNOWN);
 }
 
 void PinsI8051::printCycles() {

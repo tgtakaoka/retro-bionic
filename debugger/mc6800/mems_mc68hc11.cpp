@@ -18,13 +18,13 @@ void MemsMc68hc11::write(uint32_t addr, uint16_t data) const {
     }
 }
 
-uint16_t MemsMc68hc11::get(uint32_t addr, const char *) const {
+uint16_t MemsMc68hc11::get_data(uint32_t addr) const {
     if (_init.is_internal(addr))
         return regs()->internal_read(addr);
     return read(addr);
 }
 
-void MemsMc68hc11::put(uint32_t addr, uint16_t data, const char *) const {
+void MemsMc68hc11::put_data(uint32_t addr, uint16_t data) const {
     if (_init.is_internal(addr)) {
         regs()->internal_write(addr, data);
     } else {

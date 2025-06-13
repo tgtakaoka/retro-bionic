@@ -1,6 +1,5 @@
 #include "mems_tms7000.h"
 #include <asm_tms7000.h>
-#include <ctype.h>
 #include <dis_tms7000.h>
 #include "regs_tms7000.h"
 
@@ -30,16 +29,12 @@ void MemsTms7000::write(uint32_t addr, uint16_t data) const {
     }
 }
 
-uint16_t MemsTms7000::get(uint32_t addr, const char *space) const {
-    if (_devs->isSelected(addr))
-        return _devs->read(addr);
+uint16_t MemsTms7000::get_data(uint32_t addr) const {
     return addr < 0x0200 ? _regs->read_internal(addr) : read_byte(addr);
 }
 
-void MemsTms7000::put(uint32_t addr, uint16_t data, const char *space) const {
-    if (_devs->isSelected(addr)) {
-        _devs->write(addr, data);
-    } else if (addr < 0x0200) {
+void MemsTms7000::put_data(uint32_t addr, uint16_t data) const {
+    if (addr < 0x0200) {
         _regs->write_internal(addr, data);
     } else {
         write_byte(addr, data);

@@ -48,9 +48,9 @@ constexpr auto x2_lo_pre = 10;      // 37.5 ns
 constexpr auto x2_hi_adsd = 20;     // 37.5 ns
 constexpr auto x2_lo_adsd = 10;     // 37.5 ns
 constexpr auto x2_lo_control = 0;   // 37.5 ns
-constexpr auto x2_hi_read = 5;     // 37.5 ns
+constexpr auto x2_hi_read = 5;      // 37.5 ns
 constexpr auto x2_lo_inject = 25;   // 37.5 ns
-constexpr auto x2_hi_write = 5;    // 37.5 ns
+constexpr auto x2_hi_write = 5;     // 37.5 ns
 constexpr auto x2_hi_get = 0;       // 37.5 ns
 constexpr auto x2_lo_write = 10;    // 37.5 ns
 constexpr auto x2_hi_capture = 25;  // 37.5 ns
@@ -161,7 +161,7 @@ auto adsd_asserted() {
 
 PinsMn1613::PinsMn1613() {
     _devs = new DevsMn1613();
-    auto mems = new MemsMn1613(_devs);
+    auto mems = new MemsMn1613();
     _mems = mems;
     _regs = new RegsMn1613(this, mems);
 }
@@ -468,7 +468,7 @@ void PinsMn1613::negateInt(uint8_t name_) {
 }
 
 void PinsMn1613::setBreakInst(uint32_t addr) const {
-    _mems->put_inst(addr, InstMn1613::H);
+    _mems->put_prog(addr, InstMn1613::H);
 }
 
 void PinsMn1613::printCycles() {

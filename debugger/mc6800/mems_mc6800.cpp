@@ -1,8 +1,6 @@
 #include "mems_mc6800.h"
 #include <asm_mc6800.h>
 #include <dis_mc6800.h>
-#include "devs_mc6800.h"
-#include "regs_mc6800.h"
 
 namespace debugger {
 namespace mc6800 {

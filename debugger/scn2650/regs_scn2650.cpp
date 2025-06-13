@@ -1,7 +1,5 @@
 #include "regs_scn2650.h"
 #include "debugger.h"
-#include "digital_bus.h"
-#include "mems_scn2650.h"
 #include "pins_scn2650.h"
 
 namespace debugger {
@@ -96,24 +94,6 @@ void RegsScn2650::restore() {
             0x1F, hi(_pc), lo(_pc),  // BCTA _pc
     };
     _pins->execInst(RESTORE, sizeof(RESTORE));
-}
-
-uint8_t RegsScn2650::read_io(uint8_t addr) const {
-    const uint8_t REDE[] = {
-            0x54, addr,  // REDE,R0 addr
-            0xC8, 0x00,  // STRR,R0 $
-    };
-    uint8_t data;
-    _pins->captureWrites(REDE, sizeof(REDE), nullptr, &data, sizeof(data));
-    return data;
-}
-
-void RegsScn2650::write_io(uint8_t addr, uint8_t data) const {
-    const uint8_t WRTE[] = {
-            0x04, data,  // LODI,R0 data
-            0xD4, addr,  // WRTE,R0 addr
-    };
-    _pins->execInst(WRTE, sizeof(WRTE));
 }
 
 void RegsScn2650::helpRegisters() const {

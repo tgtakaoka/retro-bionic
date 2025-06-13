@@ -36,7 +36,7 @@ void MemsMc6805::write(uint32_t addr, uint16_t data) const {
     }
 }
 
-uint16_t MemsMc6805::get(uint32_t addr, const char *) const {
+uint16_t MemsMc6805::get_data(uint32_t addr) const {
     if (_pins->is_internal(addr)) {
         return _regs->internal_read(addr);
     } else {
@@ -44,7 +44,7 @@ uint16_t MemsMc6805::get(uint32_t addr, const char *) const {
     }
 }
 
-void MemsMc6805::put(uint32_t addr, uint16_t data, const char *) const {
+void MemsMc6805::put_data(uint32_t addr, uint16_t data) const {
     if (_pins->is_internal(addr)) {
         _regs->internal_write(addr, data);
     } else {

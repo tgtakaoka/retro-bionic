@@ -312,7 +312,7 @@ void PinsF3850::negateInt(uint8_t name) {
 }
 
 void PinsF3850::setBreakInst(uint32_t addr) const {
-    _mems->put_inst(addr, InstF3850::BREAK);
+    _mems->put_prog(addr, InstF3850::BREAK);
 }
 
 void PinsF3850::printCycles() {

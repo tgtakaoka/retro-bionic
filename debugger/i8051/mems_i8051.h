@@ -9,21 +9,30 @@ namespace i8051 {
 
 struct RegsI8051;
 
+/**
+   Program Memory:       0000-FFFF
+   Resident Data Memory: 00-FF
+   External Data Memory: 0000-FFFF (00-FF can be read from 10000-100FF)
+ */
+
 struct ProgI8051 final : DmaMemory {
-    ProgI8051(RegsI8051 *regs, Mems *data);
+    ProgI8051(Mems *data);
 
     uint32_t maxAddr() const override { return UINT16_MAX; }
-    uint16_t get(uint32_t addr, const char *space = nullptr) const override;
-    void put(uint32_t addr, uint16_t data,
-            const char *space = nullptr) const override;
+    uint32_t maxData() const override { return UINT16_MAX + 0xFF; }
+    uint16_t get_data(uint32_t addr) const override {
+        return _data->get_data(addr);
+    }
+    void put_data(uint32_t addr, uint16_t data) const override {
+        _data->put_data(addr, data);
+    }
 
 private:
-    RegsI8051 *const _regs;
     Mems *const _data;
 };
 
 struct DataI8051 final : DmaMemory {
-    DataI8051(Devs *devs);
+    DataI8051(RegsI8051 *regs, Devs *devs);
 
     uint32_t maxAddr() const override { return UINT16_MAX; }
     uint16_t read_byte(uint32_t addr) const override {
@@ -34,11 +43,14 @@ struct DataI8051 final : DmaMemory {
     }
     uint16_t read(uint32_t addr) const override;
     void write(uint32_t addr, uint16_t data) const override;
+    uint16_t get_data(uint32_t addr) const override;
+    void put_data(uint32_t addr, uint16_t data) const override;
 
 private:
+    RegsI8051 *const _regs;
     Devs *const _devs;
 
-    static constexpr uint32_t OFFSET = 0x10000U;
+    static constexpr auto OFFSET = UINT32_C(0x10000);
 };
 
 }  // namespace i8051

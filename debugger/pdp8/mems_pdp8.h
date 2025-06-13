@@ -13,14 +13,14 @@ struct MemsPdp8 final : DmaMemory {
     MemsPdp8(uint8_t addr_bit);
 
     uint32_t maxAddr() const override { return _max_addr; }
-    uint16_t read(uint32_t addr) const override;
-    void write(uint32_t addr, uint16_t data) const override;
+    bool wordAccess() const override { return true; }
 
-    uint16_t get(uint32_t addr, const char * = nullptr) const override;
-    void put(uint32_t addr, uint16_t data,
-            const char * = nullptr) const override;
-    uint16_t get_inst(uint32_t addr) const override;
-    void put_inst(uint32_t addr, uint16_t data) const override;
+    uint16_t read(uint32_t addr) const override {
+        return read_word(addr) & 07777;
+    }
+    void write(uint32_t addr, uint16_t data) const override {
+        write_word(addr, data);
+    }
 
 private:
     const uint16_t _max_addr;
@@ -40,6 +40,8 @@ struct ControlPanel final : DmaMemory {
     ControlPanel(MemsPdp8 *mems);
 
     uint32_t maxAddr() const override { return 07777; }
+    bool wordAccess() const override { return true; }
+
     uint16_t read(uint32_t addr) const override;
     void write(uint32_t addr, uint16_t data) const override;
 

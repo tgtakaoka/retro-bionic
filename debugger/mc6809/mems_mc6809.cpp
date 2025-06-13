@@ -1,8 +1,6 @@
 #include "mems_mc6809.h"
 #include <asm_mc6809.h>
 #include <dis_mc6809.h>
-#include "devs_mc6809.h"
-#include "regs_mc6809.h"
 
 namespace debugger {
 namespace mc6809 {

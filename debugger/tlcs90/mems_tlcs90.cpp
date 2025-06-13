@@ -28,11 +28,11 @@ void MemsTlcs90::write(uint32_t addr, uint16_t data) const {
     }
 }
 
-uint16_t MemsTlcs90::get(uint32_t addr, const char *) const {
+uint16_t MemsTlcs90::get_data(uint32_t addr) const {
     return is_internal(addr) ? _regs->internal_read(addr) : read(addr);
 }
 
-void MemsTlcs90::put(uint32_t addr, uint16_t data, const char *) const {
+void MemsTlcs90::put_data(uint32_t addr, uint16_t data) const {
     if (is_internal(addr)) {
         _regs->internal_write(addr, data);
     } else {

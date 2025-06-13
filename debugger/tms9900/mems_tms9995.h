@@ -13,9 +13,8 @@ struct MemsTms9995 final : tms9980::MemsTms9980 {
 
     uint32_t maxAddr() const override { return UINT16_MAX; }
 
-    uint16_t get(uint32_t addr, const char *space = nullptr) const override;
-    void put(uint32_t addr, uint16_t data,
-            const char *space = nullptr) const override;
+    uint16_t get_data(uint32_t addr) const override;
+    void put_data(uint32_t addr, uint16_t data) const override;
 
 private:
     PinsTms9995 *const _pins;

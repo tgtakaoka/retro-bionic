@@ -15,8 +15,8 @@ struct MemsTms9980 : tms9900::MemsTms9900 {
     uint16_t read(uint32_t addr) const override;
     void write(uint32_t addr, uint16_t data) const override;
 
-    uint16_t get_inst(uint32_t addr) const override;
-    void put_inst(uint32_t addr, uint16_t data) const override;
+    uint16_t get_prog(uint32_t addr) const override { return read16(addr); }
+    void put_prog(uint32_t addr, uint16_t data) const override { write16(addr, data); }
 };
 
 }  // namespace tms9980

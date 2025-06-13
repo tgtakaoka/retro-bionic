@@ -1,5 +1,4 @@
 #include "regs_z88.h"
-#include <string.h>
 #include "char_buffer.h"
 #include "debugger.h"
 #include "inst_z88.h"
@@ -47,18 +46,8 @@ void RegsZ88::reset() {
     _pins->execInst(JP_RESET, sizeof(JP_RESET));
 }
 
-RegSpace RegsZ88::parseSpace(const char *space) const {
-    if (strcasecmp(space, "set1") == 0)
-        return z8::SET_ONE;
-    if (strcasecmp(space, "set2") == 0)
-        return z8::SET_TWO;
-    if (strcasecmp(space, "bank1") == 0)
-        return z8::SET_BANK1;
-    return z8::SET_NONE;
-}
-
 void RegsZ88::switchBank(RegSpace space) {
-    if (space == z8::SET_BANK1) {
+    if (space == SET_BANK1) {
         static constexpr uint8_t BANK1[] = {
                 0x46, FLAGS, 0x01,  // OR FLAGS, #F_BANK
         };
@@ -71,7 +60,7 @@ void RegsZ88::switchBank(RegSpace space) {
     }
 }
 
-uint8_t RegsZ88::save_rp0() const {
+uint_fast8_t RegsZ88::save_rp0() const {
     static constexpr uint8_t SAVE_RP0[] = {
             0xA0, SPH,  // INCW SPH
             0x70, RP0,  // PUSH RP0
@@ -82,7 +71,7 @@ uint8_t RegsZ88::save_rp0() const {
     return rp0;
 }
 
-void RegsZ88::restore_rp0(uint8_t rp0) const {
+void RegsZ88::restore_rp0(uint_fast8_t rp0) const {
     const uint8_t RESTORE_RP0[] = {
             0x31, InstZ88::SRP0(rp0),  // SRP0 #rp0
     };
@@ -112,7 +101,7 @@ void RegsZ88::restore_sfrs() {
     restore_rp0(_rp0);
 }
 
-uint8_t RegsZ88::save_r(uint8_t num) const {
+uint_fast8_t RegsZ88::save_r(uint_fast8_t num) const {
     const uint8_t SAVE_R[] = {
             0xD3, uint8((num << 4) | 0 | 1),  // LDE @RR0,Rn
     };
@@ -121,7 +110,7 @@ uint8_t RegsZ88::save_r(uint8_t num) const {
     return val;
 }
 
-void RegsZ88::restore_r(uint8_t num, uint8_t val) const {
+void RegsZ88::restore_r(uint_fast8_t num, uint8_t val) const {
     if (InstZ88::writeOnly(_rp0, _rp1, num))
         return;
     const uint8_t LOAD_R[] = {
@@ -130,7 +119,7 @@ void RegsZ88::restore_r(uint8_t num, uint8_t val) const {
     _pins->execInst(LOAD_R, sizeof(LOAD_R));
 }
 
-uint8_t RegsZ88::raw_read_reg(uint8_t addr) const {
+uint_fast8_t RegsZ88::raw_read_reg(uint8_t addr) const {
     const uint8_t READ_REG[] = {
             0x08, addr,  // LD R0,addr
             0xD3, 0x01,  // LDE @RR0,R0
@@ -141,12 +130,12 @@ uint8_t RegsZ88::raw_read_reg(uint8_t addr) const {
     return val;
 }
 
-uint8_t RegsZ88::read_reg(uint8_t addr, RegSpace space) {
+uint_fast8_t RegsZ88::read_reg(uint8_t addr, RegSpace space) {
     const auto rp0 = save_rp0();
     restore_rp0(R(0));
     const auto r0 = save_r(0);
     uint8_t val;
-    if (space == z8::SET_TWO && addr >= 0xC0) {
+    if (space == SET_TWO && addr >= 0xC0) {
         // Accessed by Indirect register, Indexed regiser, and stack operation
         const uint8_t READ_TWO[] = {
                 0x0C, addr,  // LD R0,#addr
@@ -175,20 +164,20 @@ void RegsZ88::write_reg(uint8_t addr, uint8_t val, RegSpace space) {
         save_all_r();
 }
 
-void RegsZ88::update_r(uint8_t addr, uint8_t val) {
-    const auto rp0 = _rp0 & 0xF8;
+void RegsZ88::update_r(uint_fast8_t addr, uint_fast8_t val) {
+    const uint8_t rp0 = _rp0 & 0xF8;
     if ((addr & 0xF8) == rp0)
         _r[addr & 7] = val;
-    const auto rp1 = _rp1 & 0xF8;
+    const uint8_t rp1 = _rp1 & 0xF8;
     if ((addr & 0xF8) == rp1)
         _r[(addr & 7) + 8] = val;
 }
 
-void RegsZ88::set_r(uint8_t num, uint8_t val) {
+void RegsZ88::set_r(uint_fast8_t num, uint_fast8_t val) {
     write_reg(R(num), _r[num] = val);
 }
 
-void RegsZ88::set_flags(uint8_t val) {
+void RegsZ88::set_flags(uint_fast8_t val) {
     write_reg(FLAGS, _flags = val);
 }
 
@@ -204,16 +193,16 @@ void RegsZ88::set_ip(uint16_t val) {
     write_reg(IPL, lo(val));
 }
 
-void RegsZ88::set_rp(uint8_t val) {
+void RegsZ88::set_rp(uint_fast8_t val) {
     set_rp0(val);
     set_rp1(val + 8);
 }
 
-void RegsZ88::set_rp0(uint8_t val) {
+void RegsZ88::set_rp0(uint_fast8_t val) {
     write_reg(RP0, _rp0 = val);
 }
 
-void RegsZ88::set_rp1(uint8_t val) {
+void RegsZ88::set_rp1(uint_fast8_t val) {
     write_reg(RP1, _rp1 = val);
 }
 

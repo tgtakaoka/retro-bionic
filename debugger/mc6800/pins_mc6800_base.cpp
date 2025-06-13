@@ -152,7 +152,7 @@ void PinsMc6800Base::negateInt(uint8_t) {
 }
 
 void PinsMc6800Base::setBreakInst(uint32_t addr) const {
-    _mems->put_inst(addr, InstMc6800::SWI);
+    _mems->put_prog(addr, InstMc6800::SWI);
 };
 
 void PinsMc6800Base::printCycles(const Signals *end) {

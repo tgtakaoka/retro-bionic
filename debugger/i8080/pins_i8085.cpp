@@ -125,9 +125,8 @@ const uint8_t PINS_INPUT[] = {
 }  // namespace
 
 PinsI8085::PinsI8085() {
-    auto regs = new RegsI8085(this);
-    _regs = regs;
-    _mems = new i8080::MemsI8080(regs);
+    _regs = new RegsI8085(this);
+    _mems = new i8080::MemsI8080();
     _devs = new DevsI8085();
 }
 

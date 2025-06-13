@@ -8,10 +8,9 @@ namespace debugger {
 namespace z80 {
 
 PinsZ80Base::PinsZ80Base() {
-    auto regs = new RegsZ80(this);
-    _regs = regs;
+    _regs = new RegsZ80(this);
     _devs = new DevsZ80();
-    _mems = new MemsZ80(regs);
+    _mems = new MemsZ80();
 }
 
 void PinsZ80Base::execInst(const uint8_t *inst, uint_fast8_t len) {
@@ -24,7 +23,7 @@ uint16_t PinsZ80Base::captureWrites(
 }
 
 void PinsZ80Base::setBreakInst(uint32_t addr) const {
-    _mems->put_inst(addr, InstZ80::HALT);
+    _mems->put_prog(addr, InstZ80::HALT);
 }
 
 }  // namespace z80
