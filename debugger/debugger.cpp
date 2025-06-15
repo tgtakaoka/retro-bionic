@@ -29,7 +29,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include "device.h"
-#include "unio_eeprom.h"
 
 #include <SD.h>
 
@@ -573,6 +572,61 @@ void handleWriteIdentity(char *line, uintptr_t extra, State state) {
     printPrompt();
 }
 
+void mandelbrot_int16() {
+    cli.println();
+    constexpr int16_t f = 50;
+    for (int16_t y = -12; y <= 12; ++y) {
+        for (int16_t x = -49; x <= 29; ++x) {
+            int16_t c = x * 229 / 100;
+            int16_t d = y * 416 / 100;
+            int16_t a = c;
+            int16_t b = d;
+            int16_t i = 0;
+            do {
+                int16_t q = b / f;
+                int16_t s = b - q * f;
+                int16_t tmp = (a * a - b * b) / f + c;
+                b = 2 * (a * q + a * s / f) + d;
+                a = tmp;
+                int16_t p = a / f;
+                q = b / f;
+                int16_t t = p * p + q * q;
+                if (t > 4)
+                    break;
+                ++i;
+            } while (i < 16);
+            char out = i < 10 ? i + '0' : (i < 16 ? i - 10 + 'A' : ' ');
+            cli.print(out);
+        }
+        cli.println();
+    }
+}
+
+void mandelbrot_float() {
+    cli.println();
+    for (int y = -12; y <= 12; ++y) {
+        for (int x = -49; x <= 29; ++x) {
+            float ca = x * 0.0458;
+            float cb = y * 0.08333;
+            float a = ca;
+            float b = cb;
+            int i = 0;
+            do {
+                float t = a * a - b * b + ca;
+                b = 2 * a * b + cb;
+                a = t;
+                t = a * a + b * b;
+                if (t > 4)
+                    break;
+                ++i;
+            } while (i < 16);
+            char out = i < 10 ? i + '0' : (i < 16 ? i - 10 + 'A' : ' ');
+            cli.print(out);
+        }
+        cli.println();
+    }
+}
+
 }  // namespace
 
 void Debugger::go() {
@@ -722,6 +776,12 @@ void Debugger::exec(char c) {
     case '\r':
         cli.println();
     case '\n':
+        break;
+    case 'n':
+        mandelbrot_int16();
+        break;
+    case 'N':
+        mandelbrot_float();
         break;
     default:
         return;
