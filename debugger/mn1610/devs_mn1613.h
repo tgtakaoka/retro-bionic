@@ -8,8 +8,6 @@
 namespace debugger {
 namespace mn1613 {
 
-enum HardwareType : uint8_t;
-
 struct DevsMn1613 : Devs {
     DevsMn1613();
     ~DevsMn1613();
