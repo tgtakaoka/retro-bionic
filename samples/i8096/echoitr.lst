@@ -1,0 +1,342 @@
+          0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+          0 :                            include "i8096.inc"
+(1)       0 :                     ;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :                    ;;; i8096
+(1)       0 :                            cpu     8096
+(1)       0 :                    ;;; SFR
+(1)       0 : =0                 ZERO:   equ     00H             ; zero register
+(1)       0 : =18                SP:     equ     18H             ; stack pointer
+(1)       0 : =8                 INT_MASK:       equ     08H     ; interrupt mask
+(1)       0 : =9                 INT_PENDING:    equ     09H     ; interrupt pending
+(1)       0 : =40                INT_EXTINT:        equ     1000000B ; enable EXTINT
+(1)       0 :
+(1)       0 :                    ;;; Reset origin
+(1)       0 : =2080              ORG_RESET:      equ     2080H
+(1)       0 :                    ;;; Vector
+(1)       0 : =200E              VEC_EXTINT:     equ     200EH
+(1)       0 : =2010              VEC_TRAP:       equ     2010H
+          0 :                            include "usart.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :                    ;;; i8251 Universal Synchronous/Asynchronous Receiver/Transmitter
+(1)       0 : =200               USART:  equ     0200H
+(1)       0 : =200               USARTD: equ     USART+0         ; Data register
+(1)       0 : =201               USARTS: equ     USART+1         ; Status register
+(1)       0 : =201               USARTC: equ     USART+1         ; Control register
+(1)       0 : =202               USARTRV:        equ     USART+2 ; Receive interrupt vector (ORG_*)
+(1)       0 : =203               USARTTV:        equ     USART+3 ; Transmit interrupt vector (ORG_*)
+(1)       0 :                            include "i8251.inc"
+(2)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(2)       0 :
+(2)       0 :                    ;;; i8251 USART device emulator.
+(2)       0 : =6                 MODE_STOP_gp:   equ     6
+(2)       0 : =C0                MODE_STOP_gm:   equ     11000000B
+(2)       0 : =40                MODE_STOP1_gc:  equ     (1 << MODE_STOP_gp)
+(2)       0 : =80                MODE_STOP15_gc: equ     (2 << MODE_STOP_gp)
+(2)       0 : =C0                MODE_STOP2_gc:  equ     (3 << MODE_STOP_gp)
+(2)       0 : =20                MODE_EVEN_bm:   equ     00100000B
+(2)       0 : =10                MODE_PARITY_bm: equ     00010000B
+(2)       0 : =2                 MODE_LEN_gp:    equ     2
+(2)       0 : =C                 MODE_LEN_gm:    equ     00001100B
+(2)       0 : =0                 MODE_LEN5_gc:   equ     (0 << MODE_LEN_gp)
+(2)       0 : =4                 MODE_LEN6_gc:   equ     (1 << MODE_LEN_gp)
+(2)       0 : =8                 MODE_LEN7_gc:   equ     (2 << MODE_LEN_gp)
+(2)       0 : =C                 MODE_LEN8_gc:   equ     (3 << MODE_LEN_gp)
+(2)       0 : =0                 MODE_BAUD_gp:   equ     0
+(2)       0 : =3                 MODE_BAUD_gm:   equ     00000011B
+(2)       0 : =1                 MODE_BAUD_X1:   equ     (1 << MODE_BAUD_gp)
+(2)       0 : =2                 MODE_BAUD_X16:  equ (2 << MODE_BAUD_gp)
+(2)       0 : =3                 MODE_BAUD_X64:  equ (3 << MODE_BAUD_gp)
+(2)       0 :                    ;;; Bit Definition of command register
+(2)       0 : =80                CMD_EH_bm:      equ     10000000B   ; Enter hunt mode
+(2)       0 : =40                CMD_IR_bm:      equ     01000000B   ; Internal Reset
+(2)       0 : =20                CMD_RTS_bm:     equ     00100000B   ; Request To Send
+(2)       0 : =10                CMD_ER_bm:      equ     00010000B   ; Error Reset
+(2)       0 : =8                 CMD_SBRK_bm:    equ     00001000B   ; Send Break
+(2)       0 : =4                 CMD_RxEN_bm:    equ     00000100B   ; Receive Enable
+(2)       0 : =2                 CMD_DTR_bm:     equ     00000010B   ; Data Terminal Ready
+(2)       0 : =1                 CMD_TxEN_bm:    equ     00000001B   ; Transmit enable
+(2)       0 :
+(2)       0 :                    ;;; Bit definition of status register
+(2)       0 : =80                ST_DSR_bm:      equ     10000000B   ; Data Set Ready
+(2)       0 : =40                ST_BRK_bm:      equ     01000000B   ; BREAK detected
+(2)       0 : =20                ST_FE_bm:       equ     00100000B   ; Framing Error
+(2)       0 : =10                ST_OE_bm:       equ     00010000B   ; Iverrun Error
+(2)       0 : =8                 ST_PE_bm:       equ     00001000B   ; Parity Error
+(2)       0 : =2                 ST_TxEMPTY_bp:  equ     2           ; Transmitter empty
+(2)       0 : =1                 ST_RxRDY_bp:    equ     1           ; Receiver ready
+(2)       0 : =0                 ST_TxRDY_bp:    equ     0           ; transmitter ready
+(1)       0 :                    ;;; Async 1stop 8data x16
+(1)       0 : =4E                ASYNC_MODE:     equ     MODE_STOP1_gc|MODE_LEN8_gc|MODE_BAUD_X16
+(1)       0 :                    ;;; RTS/DTR, error reset, Rx enable, Tx enable
+(1)       0 : =37                RX_EN_TX_EN:    equ     CMD_RTS_bm|CMD_DTR_bm|CMD_ER_bm|CMD_RxEN_bm|CMD_TxEN_bm
+(1)       0 : =36                RX_EN_TX_DIS:   equ     CMD_RTS_bm|CMD_DTR_bm|CMD_ER_bm|CMD_RxEN_bm
+          0 :
+       3000 :                            org     3000H
+       3000 : =80                rx_queue_size:  equ     128
+       3000 :                    rx_queue:       dsb     rx_queue_size
+       3080 : =80                tx_queue_size:  equ     128
+       3080 :                    tx_queue:       dsb     tx_queue_size
+       3100 :
+       1000 :                            org     1000H
+       1000 : =1000              stack:  equ     $
+       1000 :
+       200E :                            org     VEC_EXTINT
+       200E : 19 22                      dcw     isr_intr
+       2010 :
+         1A :                            org     1AH
+         1A :                    A:      dsb     1
+         1B :                    B:      dsb     1
+         1C :                    HL:     dsw     1
+         1E :                    DE:     dsw     1
+         20 :
+       2080 :                            org     ORG_RESET
+       2080 :                    init:
+       2080 : A1 00 10 18                ld      SP, #stack
+       2084 : B0 40 08                   ldb     INT_MASK, INT_EXTINT ; enable EXTINT
+       2087 :
+       2087 : A1 00 30 1C                ld      HL, #rx_queue
+       208B : B1 80 1B                   ldb     B, #rx_queue_size
+       208E : 28 E7                      scall   queue_init
+       2090 : A1 80 30 1C                ld      HL, #tx_queue
+       2094 : B1 80 1B                   ldb     B, #tx_queue_size
+       2097 : 28 DE                      scall   queue_init
+       2099 :                    init_usart:
+       2099 : C7 01 01 02 00             stb     ZERO, USARTC
+       209E : C7 01 01 02 00             stb     ZERO, USARTC
+       20A3 : C7 01 01 02 00             stb     ZERO, USARTC    ; safest way to sync mode
+       20A8 : B1 40 1A                   ldb     A, #CMD_IR_bm
+       20AB : C7 01 01 02 1A             stb     A, USARTC       ; reset
+       20B0 : FD                         nop
+       20B1 : FD                         nop
+       20B2 : B1 4E 1A                   ldb     A, #ASYNC_MODE
+       20B5 : C7 01 01 02 1A             stb     A, USARTC
+       20BA : FD                         nop
+       20BB : FD                         nop
+       20BC : B1 37 1A                   ldb     A, #RX_EN_TX_EN
+       20BF : C7 01 01 02 1A             stb     A, USARTC
+       20C4 : B1 01 1A                   ldb     A, #1
+       20C7 : C7 01 02 02 1A             stb     A, USARTRV      ; enable receive interrupt
+       20CC : C7 01 03 02 1A             stb     A, USARTTV      ; enable transmit interrupt
+       20D1 : FB                         ei
+       20D2 :
+       20D2 :                    receive_loop:
+       20D2 : 28 73                      scall   getchar
+       20D4 : D3 FC                      jnc     receive_loop
+       20D6 : 80 1A 1A                   or      A, A
+       20D9 : DF 17                      je      halt_to_system
+       20DB :                    echo_back:
+       20DB : B0 1A 1B                   ldb     B, A
+       20DE : 28 7C                      scall   putchar         ; echo
+       20E0 : B1 20 1A                   ldb     A, #' '         ; space
+       20E3 : 28 77                      scall   putchar
+       20E5 : 28 15                      scall   put_hex8        ; print in hex
+       20E7 : B1 20 1A                   ldb     A, #' '         ; space
+       20EA : 28 70                      scall   putchar
+       20EC : 28 33                      scall   put_bin8        ; print in binary
+       20EE : 28 64                      scall   newline
+       20F0 : 27 E0                      sjmp    receive_loop
+       20F2 :
+       20F2 :                    halt_to_system:
+       20F2 : A1 10 20 1A                ld      A, #VEC_TRAP
+       20F6 : C3 01 10 20 1A             st      A, VEC_TRAP     ; halt to system
+       20FB : F7                         trap
+       20FC :
+       20FC :                    ;;; Print uint8_t in hex
+       20FC :                    ;;; @param B uint8_t value to be printed in hex.
+       20FC :                    ;;; @clobber A
+       20FC :                    put_hex8:
+       20FC : B1 30 1A                   ldb     A, #'0'
+       20FF : 28 5B                      scall   putchar
+       2101 : B1 78 1A                   ldb     A, #'x'
+       2104 : 28 56                      scall   putchar
+       2106 : B0 1B 1A                   ldb     A, B
+       2109 : 18 04 1A                   shrb    A, 4
+       210C : 28 03                      scall   put_hex4
+       210E : B0 1B 1A                   ldb     A, B
+       2111 :                    put_hex4:
+       2111 : 71 0F 1A                   andb    A, #0FH
+       2114 : 99 0A 1A                   cmpb    A, #10
+       2117 : DE 03                      jlt     put_hex4_ascii
+       2119 : 75 07 1A                   addb    A, #'A'-'0'-10
+       211C :                    put_hex4_ascii:
+       211C : 75 30 1A                   addb    A, #'0'
+       211F : 20 3B                      sjmp    putchar
+       2121 :
+       2121 :                    ;;; Print uint8_t in binary
+       2121 :                    ;;; @param B uint8_t value to be printed in binary.
+       2121 :                    put_bin8:
+       2121 : C8 1A                      push    A               ; push A,B
+       2123 : B1 30 1A                   ldb     A, #'0'
+       2126 : 28 34                      scall   putchar
+       2128 : B1 62 1A                   ldb     A, #'b'
+       212B : 28 2F                      scall   putchar
+       212D : B0 1B 1A                   ldb     A, B
+       2130 : 28 05                      scall   put_bin4
+       2132 : 28 03                      scall   put_bin4
+       2134 : CC 1A                      pop     A
+       2136 : F0                         ret
+       2137 :                    put_bin4:
+       2137 : 28 00                      scall   put_bin2
+       2139 :                    put_bin2:
+       2139 : 28 00                      scall   put_bin1
+       213B :                    put_bin1:
+       213B : 19 01 1B                   shlb    B, 1            ; F.C=MSB
+       213E : B1 30 1A                   ldb     A, #'0'
+       2141 : D3 19                      jnc     putchar         ; F.0=1
+       2143 : 17 1A                      incb    A               ; F.C=1
+       2145 : 20 15                      sjmp    putchar
+       2147 :
+       2147 :                    ;;; Get character
+       2147 :                    ;;; @return A
+       2147 :                    ;;; @return CC.C 0 if no character
+       2147 :                    getchar:
+       2147 : C8 1C                      push    HL
+       2149 : A1 00 30 1C                ld      HL, #rx_queue
+       214D : FA                         di
+       214E : 28 92                      scall   queue_remove
+       2150 : FB                         ei
+       2151 : CC 1C                      pop     HL
+       2153 : F0                         ret
+       2154 :
+       2154 :                    ;;; Put newline
+       2154 :                    ;;; @clobber A
+       2154 :                    newline:
+       2154 : B1 0D 1A                   ldb     A, #0DH
+       2157 : 28 03                      scall   putchar
+       2159 : B1 0A 1A                   ldb    A, #0AH
+       215C :
+       215C :                    ;;; Put character
+       215C :                    ;;; @param A
+       215C :                    putchar:
+       215C : C8 1A                      push    A
+       215E : C8 1C                      push    HL
+       2160 : A1 80 30 1C                ld      HL, #tx_queue
+       2164 :                    putchar_retry:
+       2164 : FA                         di
+       2165 : 28 38                      scall   queue_add
+       2167 : FB                         ei
+       2168 : D3 FA                      jnc     putchar_retry   ; branch if queue is full
+       216A : CC 1C                      pop     HL
+       216C : B1 37 1A                   ldb     A, #RX_EN_TX_EN ; enable Tx
+       216F : C7 01 01 02 1A             stb     A, USARTC
+       2174 : CC 1A                      pop     A
+       2176 : F0                         ret
+       2177 :
+       2177 :                            include "queue.inc"
+(1)    2177 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)    2177 :                    ;;; [queue] queue structure
+(1)    2177 : =0                 queue_len:      equ     0       ; queue length
+(1)    2177 : =1                 queue_size:     equ     1       ; buffer size
+(1)    2177 : =2                 queue_put:      equ     2       ; queue put index
+(1)    2177 : =3                 queue_get:      equ     3       ; queue get index
+(1)    2177 : =4                 queue_buf:      equ     4       ; buffer start offset
+(1)    2177 :
+(1)    2177 :                    ;;; [queue] Initialize queue
+(1)    2177 :                    ;;; @param HL queue work space pointer
+(1)    2177 :                    ;;; @param B queue work space size
+(1)    2177 :                    queue_init:
+(1)    2177 : C8 1A                      push    A               ; push A,B
+(1)    2179 : C8 1C                      push    HL
+(1)    217B : C6 1C 00                   stb     ZERO, queue_len[HL]
+(1)    217E : B0 1B 1A                   ldb     A, B
+(1)    2181 : 79 04 1A                   subb    A, #queue_buf
+(1)    2184 : C7 1C 01 1A                stb     A, queue_size[HL]
+(1)    2188 : C7 1C 02 00                stb     ZERO, queue_put[HL]
+(1)    218C : C7 1C 03 00                stb     ZERO, queue_get[HL]
+(1)    2190 : 65 04 00 1C                add     HL, #queue_buf
+(1)    2194 :                    queue_init_loop:
+(1)    2194 : C6 1D 00                   stb     ZERO, [HL]+
+(1)    2197 : E0 1A FA                   djnz    A, queue_init_loop
+(1)    219A : CC 1C                      pop     HL
+(1)    219C : CC 1A                      pop     A
+(1)    219E : F0                         ret
+(1)    219F :
+(1)    219F :                    ;;; [queue] Add an element to queue
+(1)    219F :                    ;;; @param HL queue work space pointer
+(1)    219F :                    ;;; @param A an element
+(1)    219F :                    ;;; @return F.C 0 if queue is full
+(1)    219F :                    queue_add:
+(1)    219F : C8 1E                      push    DE
+(1)    21A1 : B0 1A 1E                   ldb     DE, A           ; save an element
+(1)    21A4 : B2 1C 1A                   ldb     A, queue_len[HL]
+(1)    21A7 : 9B 1C 01 1A                cmpb    A, queue_size[HL]
+(1)    21AB : B0 1E 1A                   ldb     A, DE              ; restore an element
+(1)    21AE : DE 03                      jlt     queue_add_store    ; queue_len < queue_size
+(1)    21B0 : CC 1E                      pop     DE                 ; F.C=0
+(1)    21B2 : F0                         ret
+(1)    21B3 :                    queue_add_store:
+(1)    21B3 : B2 1C 1E                   ldb     DE, queue_len[HL]
+(1)    21B6 : 17 1E                      incb    DE
+(1)    21B8 : C6 1C 1E                   stb     DE, queue_len[HL]
+(1)    21BB : AF 1C 02 1E                ldbze   DE, queue_put[HL]
+(1)    21BF : 65 04 00 1E                add     DE, #queue_buf
+(1)    21C3 : 64 1C 1E                   add     DE, HL
+(1)    21C6 : C6 1E 1A                   stb     A, [DE]         ; store an element
+(1)    21C9 : B3 1C 02 1A                ldb     A, queue_put[HL]
+(1)    21CD : 17 1A                      incb    A
+(1)    21CF : 9B 1C 01 1A                cmpb    A, queue_size[HL]
+(1)    21D3 : DE 02                      jlt     queue_add_update ; queue_put < queue_size
+(1)    21D5 : 11 1A                      clrb    A                ; wrap around
+(1)    21D7 :                    queue_add_update:
+(1)    21D7 : C7 1C 02 1A                stb     A, queue_put[HL]
+(1)    21DB : B2 1E 1A                   ldb     A, [DE]         ; restore an element
+(1)    21DE : CC 1E                      pop     DE
+(1)    21E0 : F9                         setc                    ; set carry
+(1)    21E1 : F0                         ret
+(1)    21E2 :
+(1)    21E2 :                    ;;; [queue] Remove an element from queue
+(1)    21E2 :                    ;;; @param HL queue work space pointer
+(1)    21E2 :                    ;;; @return A an element
+(1)    21E2 :                    ;;; @return F.C 0 if queue is empty
+(1)    21E2 :                    queue_remove:
+(1)    21E2 : B2 1C 1A                   ldb     A, queue_len[HL]
+(1)    21E5 : 90 1A 1A                   orb     A, A              ; clear carry
+(1)    21E8 : D7 01                      jne     queue_remove_elem ; queue_len > 0
+(1)    21EA : F0                         ret                       ; F.C=0
+(1)    21EB :                    queue_remove_elem:
+(1)    21EB : C8 1E                      push    DE
+(1)    21ED : B2 1C 1E                   ldb     DE, queue_len[HL]
+(1)    21F0 : 15 1E                      decb    DE
+(1)    21F2 : C6 1C 1E                   stb     DE, queue_len[HL]
+(1)    21F5 : AF 1C 03 1E                ldbze   DE, queue_get[HL]
+(1)    21F9 : 65 04 00 1E                add     DE, #queue_buf
+(1)    21FD : 64 1C 1E                   add     DE, HL
+(1)    2200 : B3 1C 03 1A                ldb     A, queue_get[HL]
+(1)    2204 : 17 1A                      incb    A
+(1)    2206 : 9B 1C 01 1A                cmpb    A, queue_size[HL]
+(1)    220A : DE 02                      jlt     queue_remove_update ; queue_get < queue_size
+(1)    220C : 11 1A                      clrb    A                   ; wrap around
+(1)    220E :                    queue_remove_update:
+(1)    220E : C7 1C 03 1A                stb     A, queue_get[HL]
+(1)    2212 : B2 1E 1A                   ldb     A, [DE]         ; read an element
+(1)    2215 : CC 1E                      pop     DE
+(1)    2217 : F9                         setc                    ; set carry
+(1)    2218 : F0                         ret
+       2219 :
+       2219 :                    isr_intr:
+       2219 : F2                         pushf
+       221A : C8 1A                      push    A               ; push A,B
+       221C : C8 1C                      push    HL
+       221E : B3 01 01 02 1A             ldb     A, USARTS
+       2223 : 31 1A 0B                   jbc     A, ST_RxRDY_bp, isr_intr_tx
+       2226 : B3 01 00 02 1A             ldb     A, USARTD       ; receive character
+       222B : A1 00 30 1C                ld      HL, #rx_queue
+       222F : 2F 6E                      scall   queue_add
+       2231 :                    isr_intr_tx
+       2231 : B3 01 01 02 1A             ldb     A, USARTS
+       2236 : 30 1A 0D                   jbc     A, ST_TxRDY_bp, isr_intr_exit
+       2239 : A1 80 30 1C                ld      HL, #tx_queue
+       223D : 2F A3                      scall   queue_remove
+       223F : D3 0B                      jnc     isr_intr_send_empty
+       2241 : C7 01 00 02 1A             stb     A, USARTD       ; send character
+       2246 :                    isr_intr_exit:
+       2246 : CC 1C                      pop     HL
+       2248 : CC 1A                      pop     A
+       224A : F3                         popf
+       224B : F0                         ret
+       224C :                    isr_intr_send_empty:
+       224C : B1 36 1A                   ldb     A, #RX_EN_TX_DIS
+       224F : C7 01 01 02 1A             stb     A, USARTC       ; disable Tx
+       2254 : 27 F0                      sjmp    isr_intr_exit
+       2256 :
+       2256 :                            end
