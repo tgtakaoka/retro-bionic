@@ -1,0 +1,589 @@
+          0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+          0 :                            include "tms370.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :                    ;;; TMS370
+(1)       0 :                            cpu     tms370
+(1)       0 :                    ;;; Status Register
+(1)       0 : =80                ST_C:   equ  10000000B          ; set to 1 if carry occurred
+(1)       0 : =40                ST_N:   equ  01000000B          ; set to 1 if result is negative
+(1)       0 : =20                ST_Z:   equ  00100000B          ; set to 1 if result is zero
+(1)       0 : =10                ST_V:   equ  00010000B          ; set to 1 if result is overflow
+(1)       0 : =8                 ST_IE2: equ  00001000B          ; if 1, level 2 interrupt is enabled
+(1)       0 : =4                 ST_IE1: equ  00000100B          ; if 1, level 1 interrupt is enabled
+(1)       0 :                    ;;; Vector
+(1)       0 : =7FF8              VEC_INT3:       equ     7FF8H   ; #INT2 interrupt
+(1)       0 : =7FFA              VEC_INT2:       equ     7FFAH   ; #INT2 interrupt
+(1)       0 : =7FFC              VEC_INT1:       equ     7FFCH   ; #INT1 interrupt
+(1)       0 : =7FFE              VEC_RESET:      equ     7FFEH   ; #RESET vector
+(1)       0 :                    ;;; Trap Vector
+(1)       0 : =7FDE              VEC_TRAP0:      equ     7FDEH
+(1)       0 : =7FDC              VEC_TRAP1:      equ     7FDCH
+(1)       0 : =7FDA              VEC_TRAP2:      equ     7FDAH
+(1)       0 : =7FD8              VEC_TRAP3:      equ     7FD8H
+(1)       0 : =7FD6              VEC_TRAP4:      equ     7FD6H
+(1)       0 : =7FD4              VEC_TRAP5:      equ     7FD4H
+(1)       0 : =7FD2              VEC_TRAP6:      equ     7FD2H
+(1)       0 : =7FD0              VEC_TRAP7:      equ     7FD0H
+(1)       0 : =7FCE              VEC_TRAP8:      equ     7FCEH
+(1)       0 : =7FCC              VEC_TRAP9:      equ     7FCCH
+(1)       0 : =7FCA              VEC_TRAP10:     equ     7FCAH
+(1)       0 : =7FC8              VEC_TRAP11:     equ     7FC8H
+(1)       0 : =7FC6              VEC_TRAP12:     equ     7FC6H
+(1)       0 : =7FC4              VEC_TRAP13:     equ     7FC4H
+(1)       0 : =7FC2              VEC_TRAP14:     equ     7FC2H
+(1)       0 : =7FC0              VEC_TRAP15:     equ     7FC0H
+(1)       0 :                    ;;; System Control and Configuration Registers
+(1)       0 : =1010              SCCR0:          equ     1010H
+(1)       0 : =40                OSC_POWER:      equ     01000000B
+(1)       0 : =1011              SCCR1:          equ     1011H
+(1)       0 : =10                AUTO_WAIT_DISABLE:      equ     00010000B
+(1)       0 : =1012              SCCR2:          equ     1012H
+(1)       0 : =1017              INT1:           equ     1017H
+(1)       0 : =1018              INT2:           equ     1018H
+(1)       0 : =1019              INT3:           equ     1019H
+(1)       0 : =80                INT_FLAG:       equ     10000000B ; INTx Flag 1:transition detected
+(1)       0 : =10                INT_DIR:        equ     00010000B ; INTx Direction 1:output 0:input/interrupt
+(1)       0 : =8                 INT_DATA:       equ     00001000B ; INTx Data out
+(1)       0 : =4                 INT_POLALITY:   equ     00000100B ; INTx Polarity 1:rising 0:falling
+(1)       0 : =2                 INT_PRIORITY:   equ     00000010B ; INTx Priority 1:level2 0:level1
+(1)       0 : =1                 INT_ENABLE:     equ     00000001B ; INTx Enable 1:enable 0:disable
+          0 :
+          0 :                    ;;; MC6850 Asynchronous Communication Interface Adapter
+          0 : =10F0              ACIA:   equ     10F0H
+          0 :                            include "mc6850.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :                    ;;; MC6850
+(1)       0 :                    ;;; Asynchronous Communication Interface Adapter
+(1)       0 : =10F0              ACIA_control:   equ     ACIA+0
+(1)       0 : =10F0              ACIA_status:    equ     ACIA+0
+(1)       0 : =10F1              ACIA_data:      equ     ACIA+1
+(1)       0 :                            ;;  Counter Divider Select Bits
+(1)       0 : =3                 CDS_gm:         equ     11B             ; Group mask
+(1)       0 : =0                 CDS_DIV1_gc:    equ     00000000B       ; /1
+(1)       0 : =1                 CDS_DIV16_gc:   equ     00000001B       ; /16
+(1)       0 : =2                 CDS_DIV64_gc:   equ     00000010B       ; /64
+(1)       0 : =3                 CDS_RESET_gc:   equ     00000011B       ; Master Reset
+(1)       0 :                            ;;  Word Select Bits
+(1)       0 : =1C                WSB_gm:         equ     00011100B       ; Group mask
+(1)       0 : =0                 WSB_7E2_gc:     equ     00000000B       ; 7 Bits + Even Parity + 2 Stop Bits
+(1)       0 : =4                 WSB_7O2_gc:     equ     00000100B       ; 7 bits + Odd Parity  + 2 Stop Bits
+(1)       0 : =8                 WSB_7E1_gc:     equ     00001000B       ; 7 bits + Even Parity + 1 Stop Bits
+(1)       0 : =C                 WSB_7O1_gc:     equ     00001100B       ; 7 bits + Odd Parity  + 1 Stop Bits
+(1)       0 : =10                WSB_8N2_gc:     equ     00010000B       ; 8 bits + No Parity   + 2 Stop Bits
+(1)       0 : =14                WSB_8N1_gc:     equ     00010100B       ; 8 bits + No Parity   + 1 Stop Bits
+(1)       0 : =18                WSB_8E1_gc:     equ     00011000B       ; 8 bits + Even Parity + 1 Stop Bits
+(1)       0 : =1C                WSB_8O1_gc:     equ     00011100B       ; 8 bits + Odd Parity  + 1 Stop Bits
+(1)       0 :                            ;;  Transmit Control Bits
+(1)       0 : =60                TCB_gm:         equ     01100000B       ; Group mask
+(1)       0 : =0                 TCB_DI_gc:      equ     00000000B       ; RTS=Low,  Tx Interrupt Disabled
+(1)       0 : =20                TCB_EI_gc:      equ     00100000B       ; RTS=Low,  Tx Interrupt Enabled
+(1)       0 : =40                TCB_RTS_gc:     equ     01000000B       ; RTS=High, Tx Interrupt Disabled
+(1)       0 : =60                TCB_BREAK_gc:   equ     01100000B       ; RTS=Low,  Tx Interrupt Disabled
+(1)       0 :                                                    ; Transmit Break Level
+(1)       0 : =80                RIEB_bm:        equ     10000000B       ; Receive Interrupt Enable Bit mask
+(1)       0 :                    ;;; Status register
+(1)       0 : =1                 RDRF_bm:        equ     00000001B       ; Receive Data Register Full
+(1)       0 : =2                 TDRE_bm:        equ     00000010B       ; Transmit Data Register Empty
+(1)       0 : =4                 DCDF_bm:        equ     00000100B       ; Data Carrier Detect Flag
+(1)       0 : =8                 CTSF_bm:        equ     00001000B       ; Clear To Send Flag
+(1)       0 : =10                FERR_bm:        equ     00010000B       ; Frame Error Flag
+(1)       0 : =20                OVRN_bm:        equ     00100000B       ; Receiver Overrun Flag
+(1)       0 : =40                PERR_bm:        equ     01000000B       ; Parity Error Flag
+(1)       0 : =80                IRQF_bm:        equ     10000000B       ; Interrupt Request Flag
+          0 :
+          0 :                    ;;; Internal register file
+          0 : =5                 Rd:     equ     5       ; R4:R5
+          0 : =7                 Rs:     equ     7       ; R6:R7
+          0 : =9                 vA:     equ     9       ; R8:R9
+          0 : =B                 vB:     equ     11      ; R10:R11
+          0 :
+         C0 :                            org     0C0H
+         C0 : =BF                stack:  equ     $-1      ; TMS370's SP is pre-increment/post-decrement
+         C0 :
+       7FFE :                            org     VEC_RESET
+       7FFE : 20 00                      .word   initialize
+       8000 :
+       7FC0 :                            org     VEC_TRAP15
+       7FC0 : 7F C0                      .word   VEC_TRAP15
+       7FC2 :
+       2000 :                            org     2000H
+       2000 :                    initialize:
+       2000 : 52 BF                      mov     #stack, B
+       2002 : FD                         ldsp
+       2003 : F7 03 F0                   mov     #CDS_RESET_gc, ACIA_control     ; Master reset
+       2006 : F7 14 F0                   mov     #WSB_8N1_gc, ACIA_control       ; 8 bits + No Parity + 1 Stop Bits
+       2009 :                                                    ; Transmit, Receive interrupts disabled
+       2009 :
+       2009 : 8E 20 70                   call    arith
+       200C : E0                         trap    15
+       200D :
+       200D :                    ;;; Print out char
+       200D :                    ;;; @param A char
+       200D :                    ;;; @clobber A
+       200D :                    putspace:
+       200D : 22 20                      mov     #' ', A
+       200F : 00 07                      jmp     putchar
+       2011 :                    newline:
+       2011 : 22 0D                      mov     #00DH, A
+       2013 : 8E 20 18                   call    putchar
+       2016 : 22 0A                      mov     #00AH, A
+       2018 :                    putchar:
+       2018 : A7 02 F0 FC                btjz    #TDRE_bm, ACIA_status, putchar
+       201C : 21 F1                      mov     A, ACIA_data
+       201E : F9                         rts
+       201F :
+       201F :                    ;;; Print "v1 op v2"
+       201F :                    ;;; @param vA v1
+       201F :                    ;;; @param vB v2
+       201F :                    ;;; @param A op letter
+       201F :                    ;;; @clobber Rd Rs
+       201F :                    expr:
+       201F : B8                         push    A
+       2020 : 98 09 05                   movw    vA, Rd
+       2023 : 8E 22 33                   call    print_int16    print v1
+       2026 : 8E 20 0D                   call    putspace
+       2029 : B9                         pop     A
+       202A : 8E 20 18                   call    putchar        print op
+       202D : 8E 20 0D                   call    putspace
+       2030 : 98 0B 05                   movw    vB, Rd
+       2033 : 8E 22 33                   call    print_int16    print v2
+       2036 : 98 09 05                   movw    vA, Rd
+       2039 : 98 0B 07                   movw    vB, Rs
+       203C : F9                         rts
+       203D :
+       203D :                    ;;; Print " = v\n"
+       203D :                    ;;; @param Rd v
+       203D :                    ;;; @clobber Rd Rs
+       203D :                    answer:
+       203D : 8E 20 0D                   call    putspace
+       2040 : 22 3D                      mov     #'=', A
+       2042 : 8E 20 18                   call    putchar
+       2045 : 8E 20 0D                   call    putspace
+       2048 : 8E 22 33                   call    print_int16    print v
+       204B : 00 C4                      jmp     newline
+       204D :
+       204D :                    ;;; Print "v1 rel v2"
+       204D :                    ;;; @param R8:vA v1
+       204D :                    ;;; @param R10:vB v2
+       204D :                    ;;; @clobber Rd Rs
+       204D :                    comp:
+       204D : 98 09 05                   movw    vA, Rd
+       2050 : 98 0B 07                   movw    vB, Rs
+       2053 : 8E 22 85                   call    cmp16
+       2056 : B0                         tst     A
+       2057 : 02 0C                      jeq     comp_eq
+       2059 : 09 0E                      jl      comp_lt
+       205B : 0E 04                      jg      comp_gt
+       205D : 22 3F                      mov     #'?', A
+       205F : 00 0A                      jmp     comp_out
+       2061 :                    comp_gt:
+       2061 : 22 3E                      mov     #'>', A
+       2063 : 00 06                      jmp     comp_out
+       2065 :                    comp_eq:
+       2065 : 22 3D                      mov     #'=', A
+       2067 : 00 02                      jmp     comp_out
+       2069 :                    comp_lt:
+       2069 : 22 3C                      mov     #'<', A
+       206B :                    comp_out:
+       206B : 8E 20 1F                   call    expr
+       206E : 00 A1                      jmp     newline
+       2070 :
+       2070 :                    arith:
+       2070 : 88 46 50 09                movw    #18000, vA
+       2074 : 88 6D 60 0B                movw    #28000, vB
+       2078 : 22 2B                      mov     #'+', A
+       207A : 8E 20 1F                   call    expr
+       207D : 8E 22 77                   call    add16          ; Rd=Rd+Rs
+       2080 : 8E 20 3D                   call    answer         ; -19536
+       2083 :
+       2083 : 88 46 50 09                movw    #18000, vA
+       2087 : 88 B9 B0 0B                movw    #-18000, vB
+       208B : 22 2B                      mov     #'+', A
+       208D : 8E 20 1F                   call    expr
+       2090 : 8E 22 77                   call    add16          ; Rd=Rd+Rs
+       2093 : 8E 20 3D                   call    answer         ; 0
+       2096 :
+       2096 : 88 B9 B0 09                movw    #-18000, vA
+       209A : 88 B9 B0 0B                movw    #-18000, vB
+       209E : 22 2B                      mov     #'+', A
+       20A0 : 8E 20 1F                   call    expr
+       20A3 : 8E 22 77                   call    add16          ; Rd=Rd+Rs
+       20A6 : 8E 20 3D                   call    answer         ; 29536
+       20A9 :
+       20A9 : 88 B9 B0 09                movw    #-18000, vA
+       20AD : 88 92 A0 0B                movw    #-28000, vB
+       20B1 : 22 2D                      mov     #'-', A
+       20B3 : 8E 20 1F                   call    expr
+       20B6 : 8E 22 7E                   call    sub16          ; Rd=Rd-Rs
+       20B9 : 8E 20 3D                   call    answer         ; 10000
+       20BC :
+       20BC : 88 46 50 09                movw    #18000, vA
+       20C0 : 88 B9 B0 0B                movw    #-18000, vB
+       20C4 : 22 2D                      mov     #'-', A
+       20C6 : 8E 20 1F                   call    expr
+       20C9 : 8E 22 7E                   call    sub16          ; Rd=Rd-Rs
+       20CC : 8E 20 3D                   call    answer         ; 29536
+       20CF :
+       20CF : 88 92 A0 09                movw    #-28000, vA
+       20D3 : 88 B9 B0 0B                movw    #-18000, vB
+       20D7 : 22 2D                      mov     #'-', A
+       20D9 : 8E 20 1F                   call    expr
+       20DC : 8E 22 7E                   call    sub16          ; Rd=Rd-Rs
+       20DF : 8E 20 3D                   call    answer         ; -10000
+       20E2 :
+       20E2 : 88 00 64 09                movw    #100, vA
+       20E6 : 88 01 2C 0B                movw    #300, vB
+       20EA : 22 2A                      mov     #'*', A
+       20EC : 8E 20 1F                   call    expr
+       20EF : 8E 22 D6                   call    mul16          ; Rd=Rd*Rs
+       20F2 : 8E 20 3D                   call    answer         ; 30000
+       20F5 :
+       20F5 : 88 00 C8 09                movw    #200, vA
+       20F9 : 88 00 64 0B                movw    #100, vB
+       20FD : 22 2A                      mov     #'*', A
+       20FF : 8E 20 1F                   call    expr
+       2102 : 8E 22 D6                   call    mul16          ; Rd=Rd*Rs
+       2105 : 8E 20 3D                   call    answer         ; 20000
+       2108 :
+       2108 : 88 01 2C 09                movw    #300, vA
+       210C : 88 FF 38 0B                movw    #-200, vB
+       2110 : 22 2A                      mov     #'*', A
+       2112 : 8E 20 1F                   call    expr
+       2115 : 8E 22 D6                   call    mul16          ; Rd=Rd*Rs
+       2118 : 8E 20 3D                   call    answer         ; 5536
+       211B :
+       211B : 88 00 64 09                movw    #100, vA
+       211F : 88 FE D4 0B                movw    #-300, vB
+       2123 : 22 2A                      mov     #'*', A
+       2125 : 8E 20 1F                   call    expr
+       2128 : 8E 22 D6                   call    mul16          ; Rd=Rd*Rs
+       212B : 8E 20 3D                   call    answer         ; -30000
+       212E :
+       212E : 88 FF 38 09                movw    #-200, vA
+       2132 : 88 FF 9C 0B                movw    #-100, vB
+       2136 : 22 2A                      mov     #'*', A
+       2138 : 8E 20 1F                   call    expr
+       213B : 8E 22 D6                   call    mul16          ; Rd=Rd*Rs
+       213E : 8E 20 3D                   call    answer         ; 20000
+       2141 :
+       2141 : 88 75 30 09                movw    #30000, vA
+       2145 : 88 00 64 0B                movw    #100, vB
+       2149 : 22 2F                      mov     #'/', A
+       214B : 8E 20 1F                   call    expr
+       214E : 8E 23 44                   call    div16          ; Rd=Rd/Rs
+       2151 : 8E 20 3D                   call    answer         ; 300
+       2154 :
+       2154 : 88 FF 38 09                movw    #-200, vA
+       2158 : 88 00 64 0B                movw    #100, vB
+       215C : 22 2F                      mov     #'/', A
+       215E : 8E 20 1F                   call    expr
+       2161 : 8E 23 44                   call    div16          ; Rd=Rd/Rs
+       2164 : 8E 20 3D                   call    answer         ; -2
+       2167 :
+       2167 : 88 8A D0 09                movw    #-30000, vA
+       216B : 88 FF 38 0B                movw    #-200, vB
+       216F : 22 2F                      mov     #'/', A
+       2171 : 8E 20 1F                   call    expr
+       2174 : 8E 23 44                   call    div16          ; Rd=Rd/Rs
+       2177 : 8E 20 3D                   call    answer         ; 150
+       217A :
+       217A : 88 8A D0 09                movw    #-30000, vA
+       217E : 88 00 4E 0B                movw    #78, vB
+       2182 : 22 2F                      mov     #'/', A
+       2184 : 8E 20 1F                   call    expr
+       2187 : 8E 23 44                   call    div16          ; Rd=Rd/Rs
+       218A : 8E 20 3D                   call    answer         ; -384
+       218D :
+       218D : 88 13 88 09                movw    #5000, vA
+       2191 : 88 0F A0 0B                movw    #4000, vB
+       2195 : 8E 20 4D                   call    comp
+       2198 :
+       2198 : 88 13 88 09                movw    #5000, vA
+       219C : 88 13 88 0B                movw    #5000, vB
+       21A0 : 8E 20 4D                   call    comp
+       21A3 :
+       21A3 : 88 0F A0 09                movw    #4000, vA
+       21A7 : 88 13 88 0B                movw    #5000, vB
+       21AB : 8E 20 4D                   call    comp
+       21AE :
+       21AE : 88 EC 78 09                movw    #-5000, vA
+       21B2 : 88 F0 60 0B                movw    #-4000, vB
+       21B6 : 8E 20 4D                   call    comp
+       21B9 :
+       21B9 : 88 EC 78 09                movw    #-5000, vA
+       21BD : 88 EC 78 0B                movw    #-5000, vB
+       21C1 : 8E 20 4D                   call    comp
+       21C4 :
+       21C4 : 88 F0 60 09                movw    #-4000, vA
+       21C8 : 88 EC 78 0B                movw    #-5000, vB
+       21CC : 8E 20 4D                   call    comp
+       21CF :
+       21CF : 88 7F BC 09                movw    #32700, vA
+       21D3 : 88 7F 58 0B                movw    #32600, vB
+       21D7 : 8E 20 4D                   call    comp
+       21DA :
+       21DA : 88 7F BC 09                movw    #32700, vA
+       21DE : 88 7F BC 0B                movw    #32700, vB
+       21E2 : 8E 20 4D                   call    comp
+       21E5 :
+       21E5 : 88 7F 58 09                movw    #32600, vA
+       21E9 : 88 7F BC 0B                movw    #32700, vB
+       21ED : 8E 20 4D                   call    comp
+       21F0 :
+       21F0 : 88 80 44 09                movw    #-32700, vA
+       21F4 : 88 80 A8 0B                movw    #-32600, vB
+       21F8 : 8E 20 4D                   call    comp
+       21FB :
+       21FB : 88 80 44 09                movw    #-32700, vA
+       21FF : 88 80 44 0B                movw    #-32700, vB
+       2203 : 8E 20 4D                   call    comp
+       2206 :
+       2206 : 88 80 A8 09                movw    #-32600, vA
+       220A : 88 80 44 0B                movw    #-32700, vB
+       220E : 8E 20 4D                   call    comp
+       2211 :
+       2211 : 88 46 50 09                movw    #18000, vA
+       2215 : 88 92 A0 0B                movw    #-28000, vB
+       2219 : 8E 20 4D                   call    comp
+       221C :
+       221C : 88 92 A0 09                movw    #-28000, vA
+       2220 : 88 92 A0 0B                movw    #-28000, vB
+       2224 : 8E 20 4D                   call    comp
+       2227 :
+       2227 : 88 92 A0 09                movw    #-28000, vA
+       222B : 88 00 00 0B                movw    #!18000, vB
+       222F : 8E 20 4D                   call    comp
+       2232 : F9                         rts
+       2233 :
+       2233 :                            include "arith.inc"
+(1)    2233 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)    2233 :
+(1)    2233 :                    ;;; Print signed 16-bit integer as decimal
+(1)    2233 :                    ;;; @param R4:R5 value
+(1)    2233 :                    ;;; @clobber A R4:R5
+(1)    2233 :                    print_int16:
+(1)    2233 : 77 80 04 0E                btjz    #080H, R4, print_uint16
+(1)    2237 : 22 2D                      mov     #'-', A
+(1)    2239 : 8E 20 18                   call    putchar
+(1)    223C : D4 04                      inv     R4
+(1)    223E : D4 05                      inv     R5
+(1)    2240 : D3 05                      inc     R5
+(1)    2242 : 79 00 04                   adc     #0, R4    ; negate R4:R5
+(1)    2245 :                    ;;; Print unsigned 16-bit integer as decimal
+(1)    2245 :                    ;;; @param R4:R5 value
+(1)    2245 :                    ;;; @clobber A B R4:R5
+(1)    2245 :                    print_uint16:
+(1)    2245 : 12 04                      mov     R4, A
+(1)    2247 : 14 05                      or      R5, A
+(1)    2249 : 02 15                      jz      print_uint16_zero
+(1)    224B :                    print_uint16_loop:
+(1)    224B : 12 04                      mov     R4, A
+(1)    224D : 14 05                      or      R5, A
+(1)    224F : 02 14                      jz      print_uint16_end
+(1)    2251 : D8 06                      push    R6
+(1)    2253 : 72 0A 07                   mov     #10, R7
+(1)    2256 : 8E 22 66                   call    udiv16_8        ; R4:R5/R6 => R4/R5...B
+(1)    2259 : D9 06                      pop     R6
+(1)    225B : C8                         push    B               ; push reminder
+(1)    225C : 8E 22 4B                   call    print_uint16_loop
+(1)    225F : B9                         pop     A
+(1)    2260 :                    print_uint16_zero:
+(1)    2260 : 28 30                      add     #'0', A
+(1)    2262 : 8C 20 18                   br      putchar
+(1)    2265 :                    print_uint16_end:
+(1)    2265 : F9                         rts
+(1)    2266 :
+(1)    2266 :                    ;;; Divide unsigned 16bit by 8bit
+(1)    2266 :                    ;;; @param R4:R5 dividend
+(1)    2266 :                    ;;; @param R7 divisor
+(1)    2266 :                    ;;; @return R4:R5 quotient
+(1)    2266 :                    ;;; @return B reminder
+(1)    2266 :                    ;;; @clobber A
+(1)    2266 :                    udiv16_8:
+(1)    2266 : 32 04                      mov     R4, B
+(1)    2268 : B5                         clr     A               ; A:B=0:R4
+(1)    2269 : F4 F8 07                   div     R7, A           ; A=R4/R7, B=R4%R7
+(1)    226C : D0 04                      mov     A, R4           ; R4=high(quotient)
+(1)    226E : 62                         mov     B, A
+(1)    226F : 32 05                      mov     R5, B           ; A:B=R4%R6:R5
+(1)    2271 : F4 F8 07                   div     R7, A           ; A=low(quotient), B=reminder
+(1)    2274 : D0 05                      mov     A, R5           ; R5=low(quotient)
+(1)    2276 : F9                         rts
+(1)    2277 :
+(1)    2277 :                    ;;; Addition: R4:R5 += R6:R7
+(1)    2277 :                    add16:
+(1)    2277 : 48 07 05                   add     R7, R5
+(1)    227A : 49 06 04                   adc     R6, R4
+(1)    227D : F9                         rts
+(1)    227E :
+(1)    227E :                    ;;; Subtraction: R4:R5 -= R6:R7
+(1)    227E :                    sub16:
+(1)    227E : 4A 07 05                   sub     R7, R5
+(1)    2281 : 4B 06 04                   sbb     R6, R4
+(1)    2284 : F9                         rts
+(1)    2285 :
+(1)    2285 :                    ;;; Signed compare A=sign(minuend-subtrahend)
+(1)    2285 :                    ;;; @param R4:R5 minuend
+(1)    2285 :                    ;;; @param R6:R7 subtrahend
+(1)    2285 :                    ;;; @return A=0  JEQ (minuend == subtrahend)
+(1)    2285 :                    ;;;         A=1  JGT (minuend > subtrahend)
+(1)    2285 :                    ;;;         A=-1 JLT (minuend < subtrahend)
+(1)    2285 :                    ;;; @clobber A
+(1)    2285 :                    cmp16:
+(1)    2285 : D8 03                      push    R3
+(1)    2287 : D8 02                      push    R2
+(1)    2289 : 98 05 03                   movw    R5, R3          ; R2:R3=minuend
+(1)    228C : 4A 07 03                   sub     R7, R3
+(1)    228F : 4B 06 02                   sbb     R6, R2          ; R2:R3=minuend-subtrahend
+(1)    2292 : 12 02                      mov     R2, A
+(1)    2294 : 14 03                      or      R3, A
+(1)    2296 : 02 16                      jeq     cmp16_end       ; return with A=0
+(1)    2298 : 12 02                      mov     R2, A           ; A=hi(minuend-subtrahend)
+(1)    229A : 15 04                      xor     R4, A           ; A=hi((minuend-subtrahend)^minuend)
+(1)    229C : D0 03                      mov     A, R3           ; R3=hi((minuend-subtrahend)^minuend)
+(1)    229E : 12 04                      mov     R4, A           ; A=hi(minuend)
+(1)    22A0 : 15 06                      xor     R6, A           ; A=hi(minuend^subtrahend)
+(1)    22A2 : 13 03                      and     R3, A           ; A=overflow flag
+(1)    22A4 : 15 02                      xor     R2, A           ; A=V^N
+(1)    22A6 : 01 04                      jn      cmp16_lt        ; branch if minuend < subtrahend
+(1)    22A8 :                    cmp16_gt:
+(1)    22A8 : 22 01                      mov     #1, A
+(1)    22AA : 00 02                      jmp     cmp16_end
+(1)    22AC :                    cmp16_lt:
+(1)    22AC : 22 FF                      mov     #-1, A
+(1)    22AE :                    cmp16_end:
+(1)    22AE : D9 02                      pop     R2
+(1)    22B0 : D9 03                      pop     R3
+(1)    22B2 : B0                         tst     A
+(1)    22B3 : F9                         rts
+(1)    22B4 :
+(1)    22B4 :                    ;;; Unsigned multiplication: result = multiplicand * multiplier
+(1)    22B4 :                    ;;; @param R4:R5 multiplicand
+(1)    22B4 :                    ;;; @param R6:R7 multiplier
+(1)    22B4 :                    ;;; @return R4:R5 result
+(1)    22B4 :                    ;;; @clobber A B
+(1)    22B4 :                    umul16:
+(1)    22B4 : D8 03                      push    R3
+(1)    22B6 : D8 02                      push    R2
+(1)    22B8 : D5 02                      clr     R2
+(1)    22BA : D5 03                      clr     R3
+(1)    22BC : 4C 05 07                   mpy     R5, R7          ; A:B=R5*R7
+(1)    22BF : 98 01 03                   movw    B, R3           ; R2:R3=R5*R7
+(1)    22C2 : 4C 05 06                   mpy     R5, R6          ; A:B=R5*R6
+(1)    22C5 : 48 01 02                   add     B, R2           ; R2+=low(R5*R6)
+(1)    22C8 : 4C 04 07                   mpy     R4, R7          ; A:B=R4*R7
+(1)    22CB : 48 01 02                   add     B, R2           ; R2+=low(R4*R7)
+(1)    22CE : 98 03 05                   movw    R3, R5          ; R4:R5=result
+(1)    22D1 : D9 02                      pop     R2
+(1)    22D3 : D9 03                      pop     R3
+(1)    22D5 : F9                         rts
+(1)    22D6 :
+(1)    22D6 :                    ;;; Multiply: result = multiplicand * multiplier
+(1)    22D6 :                    ;;; @param R4:R5 multiplicand
+(1)    22D6 :                    ;;; @param R6:R7 multiplier
+(1)    22D6 :                    ;;; @return R4:R5 result
+(1)    22D6 :                    ;;; @clobber A R6:R7
+(1)    22D6 :                    mul16:
+(1)    22D6 : 12 04                      mov     R4, A
+(1)    22D8 : 15 06                      xor     R6, A
+(1)    22DA : B8                         push    A               ; save hi(multiplicand^multiplier)
+(1)    22DB : 77 80 06 09                btjz    #080H, R6, mul16_multiplicand
+(1)    22DF : D4 06                      inv     R6
+(1)    22E1 : D4 07                      inv     R7
+(1)    22E3 : D3 07                      inc     R7
+(1)    22E5 : 79 00 06                   adc     #0, R6          ; negate multiplier
+(1)    22E8 :                    mul16_multiplicand:
+(1)    22E8 : 77 80 04 09                btjz    #080H, R4, mul16_multiply
+(1)    22EC : D4 04                      inv     R4
+(1)    22EE : D4 05                      inv     R5
+(1)    22F0 : D3 05                      inc     R5
+(1)    22F2 : 79 00 04                   adc     #0, R4          ; negate multiplicand
+(1)    22F5 :                    mul16_multiply:
+(1)    22F5 : 8E 22 B4                   call    umul16          ; R4:R5=result
+(1)    22F8 : B9                         pop     A               ; A=(multiplicand^multiplier)
+(1)    22F9 : 05 09                      jpz     mul16_end
+(1)    22FB : D4 04                      inv     R4
+(1)    22FD : D4 05                      inv     R5
+(1)    22FF : D3 05                      inc     R5
+(1)    2301 : 79 00 04                   adc     #0, R4          ; negate result
+(1)    2304 :                    mul16_end:
+(1)    2304 : F9                         rts
+(1)    2305 :
+(1)    2305 :                    ;;; Unsigned division: dividend / divisor = quotient ... reminder
+(1)    2305 :                    ;;; @praram R4:R5 dividend
+(1)    2305 :                    ;;; @praram R6:R7 divisor
+(1)    2305 :                    ;;; @return R4:R5 quotient
+(1)    2305 :                    ;;; @return R6:R7 reminder
+(1)    2305 :                    ;;; @clobber A B
+(1)    2305 :                    udiv16:
+(1)    2305 : 12 06                      mov     R6, A
+(1)    2307 : 06 06                      jnz     udiv16_16
+(1)    2309 : 8E 22 66                   call    udiv16_8        ; R4:R5/R7=R4:R5...B
+(1)    230C : D1 07                      mov     B, R7
+(1)    230E : F9                         rts
+(1)    230F :                    udiv16_16:      
+(1)    230F : 14 07                      or      R7, A
+(1)    2311 : 02 30                      jz      udiv16_end      branch if divisor==0
+(1)    2313 : D8 08                      push    R8
+(1)    2315 : 72 10 08                   mov     #16, R8
+(1)    2318 : B5                         clr     A
+(1)    2319 : C5                         clr     B               ; initialize quotient
+(1)    231A :                    udiv16_loop:
+(1)    231A : DF 05                      rlc     R5
+(1)    231C : DF 04                      rlc     R4              ; dividend <<= 1
+(1)    231E : CF                         rlc     B
+(1)    231F : BF                         rlc     A               ;
+(1)    2320 : 07 07                      jnc     udiv16_skip
+(1)    2322 : 3A 07                      sub     R7, B
+(1)    2324 : 1B 06                      sbb     R6, A
+(1)    2326 : F8                         setc
+(1)    2327 : 00 0E                      jmp     udiv16_next
+(1)    2329 :                    udiv16_skip:
+(1)    2329 : 1D 06                      cmp     R6, A
+(1)    232B : 07 0A                      jnc     udiv16_next
+(1)    232D : 06 04                      jne     udiv16_sub
+(1)    232F : 3D 07                      cmp     R7, B
+(1)    2331 : 07 04                      jnc     udiv16_next
+(1)    2333 :                    udiv16_sub:
+(1)    2333 : 3A 07                      sub     R7, B
+(1)    2335 : 1B 06                      sbb     R6, A
+(1)    2337 :                    udiv16_next:
+(1)    2337 : DA 08 E0                   djnz    R8, udiv16_loop
+(1)    233A : DF 05                      rlc     R5
+(1)    233C : DF 04                      rlc     R4
+(1)    233E : 98 01 07                   movw    R1, R7          ; save reminder
+(1)    2341 : D9 08                      pop     R8
+(1)    2343 :                    udiv16_end:
+(1)    2343 : F9                         rts
+(1)    2344 :
+(1)    2344 :                    ;;; Division: dividend / divisor = quotient ... reminder
+(1)    2344 :                    ;;; @param R4:R5 dividend
+(1)    2344 :                    ;;; @param R6:R7 divisor
+(1)    2344 :                    ;;; @return R4:R5 quotient
+(1)    2344 :                    ;;; @return R6:R7 reminder
+(1)    2344 :                    ;;; @clobber A
+(1)    2344 :                    div16:
+(1)    2344 : 12 04                      mov     R4, A
+(1)    2346 : 15 06                      xor     R6, A
+(1)    2348 : B8                         push    A               ; save hi(dividend^divisor)
+(1)    2349 : 77 80 06 09                btjz    #080H, R6, div16_dividend
+(1)    234D : D4 06                      inv     R6
+(1)    234F : D4 07                      inv     R7
+(1)    2351 : D3 07                      inc     R7
+(1)    2353 : 79 00 06                   adc     #0, R6          ; negate divisor
+(1)    2356 :                    div16_dividend:
+(1)    2356 : 77 80 04 09                btjz    #080H, R4, div16_divide
+(1)    235A : D4 04                      inv     R4
+(1)    235C : D4 05                      inv     R5
+(1)    235E : D3 05                      inc     R5
+(1)    2360 : 79 00 04                   adc     #0, R4          ; negate divisor
+(1)    2363 :                    div16_divide:
+(1)    2363 : 8E 23 05                   call    udiv16          ; R4:R5=quotient
+(1)    2366 : B9                         pop     A               ; A=(dividend^divisor)
+(1)    2367 : 05 09                      jpz     div16_end
+(1)    2369 : D4 04                      inv     R4
+(1)    236B : D4 05                      inv     R5
+(1)    236D : D3 05                      inc     R5
+(1)    236F : 79 00 04                   adc     #0, R4          ; negate quotient
+(1)    2372 :                    div16_end:
+(1)    2372 : F9                         rts
