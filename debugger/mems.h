@@ -72,8 +72,8 @@ struct Mems {
     };
     virtual ProtectArea *protectArea() { return nullptr; }
 
-    uint32_t assemble(uint32_t addr, const char *line) const;
-    uint32_t disassemble(uint32_t addr, uint8_t numInsn) const;
+    virtual uint32_t assemble(uint32_t addr, const char *line) const;
+    virtual uint32_t disassemble(uint32_t addr, uint8_t numInsn) const;
     void dumpMemory(uint32_t addr, uint16_t len, bool prog = false) const;
     void writeMemory(uint32_t addr, const uint16_t *buffer, uint_fast8_t len,
             bool prog = false) const;
