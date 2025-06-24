@@ -29,6 +29,7 @@ protected:
         _flags |= INJECT;
     }
     void _capture() { _flags |= CAPTURE; }
+    void _clearInject() { _flags &= ~INJECT; }
     const SignalsImpl *_prev(uint8_t backward) const;
     const SignalsImpl *_next(uint8_t forward) const;
     SignalsImpl *_prev(uint8_t backward);
@@ -52,6 +53,11 @@ template <typename SIGNALS_T, typename IMPL_T = SignalsImpl>
 struct SignalsBase : IMPL_T {
     SIGNALS_T *inject(uint16_t data) {
         IMPL_T::_inject(data);
+        return static_cast<SIGNALS_T *>(this);
+    }
+
+    SIGNALS_T *clearInject() {
+        IMPL_T::_clearInject();
         return static_cast<SIGNALS_T *>(this);
     }
 
