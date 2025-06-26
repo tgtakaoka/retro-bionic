@@ -54,9 +54,10 @@ struct Target {
     void loadCode(
             uint32_t byte_addr, const uint8_t *code, uint_fast8_t len) const;
 
-    /* Set and prrint read only area */
-    bool printRomArea() const;
-    void setRomArea(uint32_t begin, uint32_t end) const;
+    /* Set and print write protected area */
+    bool hasProtectArea() const;
+    bool printProtectArea() const;
+    void setProtectArea(uint32_t begin, uint32_t end) const;
 
     void printDevices() const;
     Device *parseDevice(const char *word) const;

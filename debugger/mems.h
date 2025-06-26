@@ -61,7 +61,7 @@ struct Mems {
         put_prog(addr, data);
     }
 
-    struct RomArea {
+    struct ProtectArea {
         void set(uint32_t begin, uint32_t end);
         bool readOnly(uint32_t addr) const;
         void print() const;
@@ -70,7 +70,7 @@ struct Mems {
         uint32_t _begin;
         uint32_t _end;
     };
-    virtual RomArea *romArea() { return nullptr; }
+    virtual ProtectArea *protectArea() { return nullptr; }
 
     uint32_t assemble(uint32_t addr, const char *line) const;
     uint32_t disassemble(uint32_t addr, uint8_t numInsn) const;

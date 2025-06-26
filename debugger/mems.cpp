@@ -122,17 +122,17 @@ void Mems::raw_write16le(uint32_t byte_addr, uint16_t data) const {
     write_byte(byte_addr + 1, hi(data));
 }
 
-void Mems::RomArea::set(uint32_t begin, uint32_t end) {
+void Mems::ProtectArea::set(uint32_t begin, uint32_t end) {
     _begin = begin;
     _end = end;
 }
 
-bool Mems::RomArea::readOnly(uint32_t addr) const {
+bool Mems::ProtectArea::readOnly(uint32_t addr) const {
     return addr >= _begin && addr <= _end;
 }
 
-void Mems::RomArea::print() const {
-    cli.print("ROM area: ");
+void Mems::ProtectArea::print() const {
+    cli.print("Protect area: ");
     if (_begin < _end) {
         cli.printHex(_begin, 4);
         cli.print('-');

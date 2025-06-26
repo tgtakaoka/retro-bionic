@@ -53,7 +53,8 @@ constexpr char USAGE[] =
 #ifdef WITH_ASSEMBLER
         " A:sm"
 #endif
-        " S:tep G/g:o b/B:reak F:iles L:oad U:pload I:o ro:M";
+    " S:tep G/g:o b/B:reak F:iles L:oad U:pload I:o";
+constexpr char PROTECT[] = " P:rotect";
 
 void usage() {
     cli.println();
@@ -61,7 +62,10 @@ void usage() {
     Identity::printIdentity();
     cli.print(" * ");
     cli.println(VERSION_TEXT);
-    cli.println(USAGE);
+    cli.print(USAGE);
+    if (Debugger.target().hasProtectArea())
+        cli.print(PROTECT);
+    cli.println();
 }
 
 void commandHandler(char c, uintptr_t) {
@@ -515,26 +519,26 @@ void handleIo(char *line, uintptr_t extra, State state) {
     printPrompt();
 }
 
-void handleRomArea(uint32_t value, uintptr_t extra, State state) {
+void handleProtectArea(uint32_t value, uintptr_t extra, State state) {
     const auto maxAddr = Debugger.target().maxAddr();
     const auto radix = Debugger.target().inputRadix();
     if (state == State::CLI_DELETE) {
         if (extra == PROG_END) {
             cli.backspace();
-            cli.readNum(handleRomArea, PROG_ADDR, radix, maxAddr, last_addr);
+            cli.readNum(handleProtectArea, PROG_ADDR, radix, maxAddr, last_addr);
         }
         return;
     }
     if (state != State::CLI_CANCEL) {
         if (state == State::CLI_SPACE && extra == PROG_ADDR) {
             last_addr = value;
-            cli.readNum(handleRomArea, PROG_END, radix, maxAddr);
+            cli.readNum(handleProtectArea, PROG_END, radix, maxAddr);
             return;
         }
         if (extra == PROG_END)
-            Debugger.target().setRomArea(last_addr, value);
+            Debugger.target().setProtectArea(last_addr, value);
         cli.println();
-        Debugger.target().printRomArea();
+        Debugger.target().printProtectArea();
     }
     printPrompt();
 }
@@ -641,12 +645,12 @@ void Debugger::exec(char c) {
         cli.readNum(handleMemory, PROG_ADDR, radix, maxAddr);
         return;
     case 'P':
-        if (target().printRomArea()) {
-            cli.print("  write Protected area? ");
-            cli.readNum(handleRomArea, PROG_ADDR, radix, maxAddr);
+        if (target().printProtectArea()) {
+            cli.print("  Protect area? ");
+            cli.readNum(handleProtectArea, PROG_ADDR, radix, maxAddr);
             return;
         } else {
-            cli.println("No Protected area");
+            cli.println("No Protect area");
         }
         break;
     case 'B':

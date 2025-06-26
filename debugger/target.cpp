@@ -120,18 +120,22 @@ void Target::loadCode(
     }
 }
 
-bool Target::printRomArea() const {
-    auto *rom = _mems->romArea();
-    if (rom == nullptr)
+bool Target::hasProtectArea() const {
+    return _mems->protectArea() != nullptr;
+}
+
+bool Target::printProtectArea() const {
+    auto *area = _mems->protectArea();
+    if (area == nullptr)
         return false;
-    rom->print();
+    area->print();
     return true;
 }
 
-void Target::setRomArea(uint32_t begin, uint32_t end) const {
-    auto *rom = _mems->romArea();
-    if (rom)
-        rom->set(begin, end);
+void Target::setProtectArea(uint32_t begin, uint32_t end) const {
+    auto *area = _mems->protectArea();
+    if (area)
+        area->set(begin, end);
 }
 
 void Target::printDevices() const {

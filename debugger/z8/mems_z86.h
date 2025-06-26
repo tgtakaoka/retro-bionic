@@ -19,11 +19,11 @@ struct MemsZ86 final : z8::MemsZ8 {
     uint16_t get_data(uint32_t addr) const override;
     void put_data(uint32_t addr, uint16_t data) const override;
 
-    RomArea *romArea() override { return &_rom; }
+    ProtectArea *protectArea() override { return &_rom; }
 
 private:
     RegsZ86 *const _regs;
-    RomArea _rom;
+    ProtectArea _rom;
 };
 
 }  // namespace z86
