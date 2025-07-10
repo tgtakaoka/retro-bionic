@@ -735,8 +735,8 @@ void Debugger::exec(char c) {
 
 void Debugger::begin(Target *target) {
     _target = target;
-    target->begin();
     usage();
+    target->begin();
     target->printRegisters();
     printPrompt();
 }
