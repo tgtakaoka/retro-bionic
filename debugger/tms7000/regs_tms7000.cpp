@@ -56,8 +56,8 @@ void RegsTms7000::save() {
             0x8B, 0x80, 0x00,  // STA @>8000
     };
     uint8_t buffer[4];
-    _pins->captureWrites(
-            SAVE_ALL, sizeof(SAVE_ALL), buffer, sizeof(buffer), &_pc);
+    _pc = _pins->captureWrites(
+            SAVE_ALL, sizeof(SAVE_ALL), buffer, sizeof(buffer));
     write_internal(A, buffer[0]);
     _st = buffer[1];
     write_internal(B, buffer[2]);

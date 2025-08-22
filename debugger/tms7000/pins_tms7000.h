@@ -53,9 +53,9 @@
 #define PIN_PB1 31      /* P8.22 */
 #define PIN_PB2 30      /* P8.23 */
 
+#include "devs_tms7000.h"
 #include "pins.h"
 #include "signals_tms7000.h"
-#include "devs_tms7000.h"
 
 namespace debugger {
 namespace tms7000 {
@@ -91,8 +91,8 @@ struct PinsTms7000 final : Pins {
     void printCycles() override;
 
     void execInst(const uint8_t *inst, uint8_t len, uint8_t extra = 0);
-    void captureWrites(const uint8_t *inst, uint8_t len, uint8_t *buf,
-            uint8_t max, uint16_t *addr = nullptr);
+    uint16_t captureWrites(
+            const uint8_t *inst, uint8_t len, uint8_t *buf, uint8_t max);
     HardwareType hardwareType() const { return _hardType; }
     ClockType clockType() const { return _clockType; }
 
@@ -115,8 +115,8 @@ private:
     Signals *inject(uint8_t data) const;
     void loop();
     bool rawStep();
-    void execute(const uint8_t *inst, uint8_t len, uint8_t *buf = nullptr,
-            uint8_t max = 0, uint16_t *addr = nullptr);
+    uint16_t execute(const uint8_t *inst, uint8_t len, uint8_t *buf = nullptr,
+            uint8_t max = 0);
 
     void disassembleCycles();
 };

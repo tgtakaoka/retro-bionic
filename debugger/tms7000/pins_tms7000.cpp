@@ -507,13 +507,14 @@ void PinsTms7000::execInst(const uint8_t *inst, uint8_t len, uint8_t extra) {
         cycle();
 }
 
-void PinsTms7000::captureWrites(const uint8_t *inst, uint8_t len, uint8_t *buf,
-        uint8_t max, uint16_t *addr) {
-    execute(inst, len, buf, max, addr);
+uint16_t PinsTms7000::captureWrites(const uint8_t *inst, uint8_t len, uint8_t *buf,
+        uint8_t max) {
+    return execute(inst, len, buf, max);
 }
 
-void PinsTms7000::execute(const uint8_t *inst, uint8_t len, uint8_t *buf,
-        uint8_t max, uint16_t *addr) {
+uint16_t PinsTms7000::execute(const uint8_t *inst, uint8_t len, uint8_t *buf,
+        uint8_t max) {
+    uint16_t addr = 0;
     uint8_t inj = 0;
     uint8_t cap = 0;
     while (inj < len || cap < max) {
@@ -524,8 +525,8 @@ void PinsTms7000::execute(const uint8_t *inst, uint8_t len, uint8_t *buf,
             s->capture();
         completeCycle(s);
         if (s->read()) {
-            if (inj == 0 && addr)
-                *addr = s->addr;
+            if (inj == 0)
+                addr = s->addr;
             if (inj < len)
                 ++inj;
         } else if (s->write()) {
@@ -533,6 +534,7 @@ void PinsTms7000::execute(const uint8_t *inst, uint8_t len, uint8_t *buf,
                 buf[cap++] = s->data;
         }
     }
+    return addr;
 }
 
 void PinsTms7000::idle() {
