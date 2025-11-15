@@ -8,10 +8,14 @@ namespace z80 {
 
 struct RegsZ80;
 
-struct MemsZ80 final : DmaMemory {
+struct MemsZ80 final : ExtMemory {
     MemsZ80();
 
-    uint32_t maxAddr() const override { return UINT16_MAX; }
+    void setMaxAddr(uint32_t addr) { _maxAddr = addr; }
+    uint32_t maxAddr() const override { return _maxAddr; }
+
+private:
+    uint32_t _maxAddr;
 };
 
 }  // namespace z80

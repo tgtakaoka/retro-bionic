@@ -5,7 +5,7 @@
 namespace debugger {
 namespace z80 {
 
-MemsZ80::MemsZ80() : DmaMemory(Endian::ENDIAN_LITTLE) {
+MemsZ80::MemsZ80() : ExtMemory(Endian::ENDIAN_LITTLE), _maxAddr(UINT16_MAX) {
 #ifdef WITH_ASSEMBLER
     _assembler = new libasm::z80::AsmZ80();
 #endif
