@@ -1,5 +1,6 @@
 ;;; -*- mode: asm; mode: flyspell-prog; -*-
 ;;; z80
+        cpu     z80
 ;;; FLAGS Register
 F_SIGN:         equ     10000000B ; set to 1 if negative
 F_ZERO:         equ     01000000B ; set to 1 if zero

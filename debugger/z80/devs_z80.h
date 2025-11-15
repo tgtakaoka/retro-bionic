@@ -3,7 +3,7 @@
 
 #include "devs.h"
 
-#define USART_BASE 0x00
+#define USART_BASE 0x40
 
 namespace debugger {
 namespace z80 {

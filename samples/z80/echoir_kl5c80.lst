@@ -1,0 +1,290 @@
+          0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+          0 :                            include "kl5c80a12.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :                            include "z80.inc"
+(2)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(2)       0 :                    ;;; z80
+(2)       0 :                            cpu     z80
+(2)       0 :                    ;;; FLAGS Register
+(2)       0 : =80                F_SIGN:         equ     10000000B ; set to 1 if negative
+(2)       0 : =40                F_ZERO:         equ     01000000B ; set to 1 if zero
+(2)       0 : =10                F_HALF_CARRY:   equ     00010000B ; set to 1 if carry from bit-3
+(2)       0 : =4                 F_PARITY:       equ     00000100B ; set to 1 if even parity
+(2)       0 : =4                 F_OVERFLOW:     equ     00000100B ; set to 1 if overflow
+(2)       0 : =2                 F_NBCD:         equ     00000010B ; set to 1 if subtraction
+(2)       0 : =1                 F_CARRY:        equ     00000001B ; set to 1 if carry
+(2)       0 :                    ;;; Interrupt origin
+(2)       0 : =0                 ORG_RESET:      equ     0000H   ; RESET
+(2)       0 : =0                 ORG_RST00:      equ     0000H   ; RST 00H
+(2)       0 : =8                 ORG_RST08:      equ     0008H   ; RST 08H
+(2)       0 : =10                ORG_RST10:      equ     0010H   ; RST 10H
+(2)       0 : =18                ORG_RST18:      equ     0018H   ; RST 18H
+(2)       0 : =20                ORG_RST20:      equ     0020H   ; RST 20H
+(2)       0 : =28                ORG_RST28:      equ     0028H   ; RST 28H
+(2)       0 : =30                ORG_RST30:      equ     0030H   ; RST 30H
+(2)       0 : =38                ORG_RST38:      equ     0038H   ; RST 38H
+(2)       0 : =38                ORG_INT:        equ     0038H   ; Mode 1 INT
+(2)       0 : =66                ORG_NMI:        equ     0066H   ; NMI
+(1)       0 :                    ;;; MMU
+(1)       0 : =0                 BBR1:   equ     00H
+(1)       0 : =1                 BR1:    equ     01H
+(1)       0 : =2                 BBR2:   equ     02H
+(1)       0 : =3                 BR2:    equ     03H
+(1)       0 : =4                 BBR3:   equ     04H
+(1)       0 : =5                 BR3:    equ     05H
+(1)       0 : =6                 BBR4:   equ     06H
+(1)       0 : =7                 BR4:    equ     07H
+(1)       0 :                    ;;; Interrupt controller
+(1)       0 : =34                LERL:   equ     34H        ; W/_: Level/Edge Register (LER0~LER7)
+(1)       0 : =35                LERH:   equ     35H        ; W/_: Level/Edge Register (LER8~LER15)
+(1)       0 : =34                PGRL:   equ     LERL       ; W/_: Priority Group Register (PGR0~PGR7)
+(1)       0 : =35                PGRH:   equ     LERH       ; W/_: Priority Group Register (PGR8~PGR15)
+(1)       0 : =34                ISRL:   equ     LERL       ; R/_: In Service Register (ISR0~ISR7)
+(1)       0 : =35                ISRH:   equ     LERH       ; R/_: In Service Register (ISR8~ISR15)
+(1)       0 : =36                IMRL:   equ     36H        ; R/W: Interrupt Mask Register (IMR0~IMR7)
+(1)       0 : =37                IMRH:   equ     37H        ; R/W: Interrupt Mask Register (IMR8~IMR15)
+(1)       0 : =37                IVR:    equ     IMRH       ; _/W: Interrupt Vector Register (IVR5~IVR7)
+          0 :                            include "usart.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :                    ;;; i8251 Universal Synchronous/Asynchronous Receiver/Transmitter
+(1)       0 : =40                USART:  equ     40H
+(1)       0 : =40                USARTD: equ     USART+0         ; Data register
+(1)       0 : =41                USARTS: equ     USART+1         ; Status register
+(1)       0 : =41                USARTC: equ     USART+1         ; Control register
+(1)       0 : =42                USARTRV:        equ     USART+2 ; Receive interrupt vector (ORG_*)
+(1)       0 : =43                USARTTV:        equ     USART+3 ; Transmit interrupt vector (ORG_*)
+(1)       0 :                            include "i8251.inc"
+(2)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(2)       0 :
+(2)       0 :                    ;;; i8251 USART device emulator.
+(2)       0 : =6                 MODE_STOP_gp:   equ     6
+(2)       0 : =C0                MODE_STOP_gm:   equ     11000000B
+(2)       0 : =40                MODE_STOP1_gc:  equ     (1 << MODE_STOP_gp)
+(2)       0 : =80                MODE_STOP15_gc: equ     (2 << MODE_STOP_gp)
+(2)       0 : =C0                MODE_STOP2_gc:  equ     (3 << MODE_STOP_gp)
+(2)       0 : =20                MODE_EVEN_bm:   equ     00100000B
+(2)       0 : =10                MODE_PARITY_bm: equ     00010000B
+(2)       0 : =2                 MODE_LEN_gp:    equ     2
+(2)       0 : =C                 MODE_LEN_gm:    equ     00001100B
+(2)       0 : =0                 MODE_LEN5_gc:   equ     (0 << MODE_LEN_gp)
+(2)       0 : =4                 MODE_LEN6_gc:   equ     (1 << MODE_LEN_gp)
+(2)       0 : =8                 MODE_LEN7_gc:   equ     (2 << MODE_LEN_gp)
+(2)       0 : =C                 MODE_LEN8_gc:   equ     (3 << MODE_LEN_gp)
+(2)       0 : =0                 MODE_BAUD_gp:   equ     0
+(2)       0 : =3                 MODE_BAUD_gm:   equ     00000011B
+(2)       0 : =1                 MODE_BAUD_X1:   equ     (1 << MODE_BAUD_gp)
+(2)       0 : =2                 MODE_BAUD_X16:  equ (2 << MODE_BAUD_gp)
+(2)       0 : =3                 MODE_BAUD_X64:  equ (3 << MODE_BAUD_gp)
+(2)       0 :                    ;;; Bit Definition of command register
+(2)       0 : =80                CMD_EH_bm:      equ     10000000B   ; Enter hunt mode
+(2)       0 : =40                CMD_IR_bm:      equ     01000000B   ; Internal Reset
+(2)       0 : =20                CMD_RTS_bm:     equ     00100000B   ; Request To Send
+(2)       0 : =10                CMD_ER_bm:      equ     00010000B   ; Error Reset
+(2)       0 : =8                 CMD_SBRK_bm:    equ     00001000B   ; Send Break
+(2)       0 : =4                 CMD_RxEN_bm:    equ     00000100B   ; Receive Enable
+(2)       0 : =2                 CMD_DTR_bm:     equ     00000010B   ; Data Terminal Ready
+(2)       0 : =1                 CMD_TxEN_bm:    equ     00000001B   ; Transmit enable
+(2)       0 :
+(2)       0 :                    ;;; Bit definition of status register
+(2)       0 : =80                ST_DSR_bm:      equ     10000000B   ; Data Set Ready
+(2)       0 : =40                ST_BRK_bm:      equ     01000000B   ; BREAK detected
+(2)       0 : =20                ST_FE_bm:       equ     00100000B   ; Framing Error
+(2)       0 : =10                ST_OE_bm:       equ     00010000B   ; Iverrun Error
+(2)       0 : =8                 ST_PE_bm:       equ     00001000B   ; Parity Error
+(2)       0 : =2                 ST_TxEMPTY_bp:  equ     2           ; Transmitter empty
+(2)       0 : =1                 ST_RxRDY_bp:    equ     1           ; Receiver ready
+(2)       0 : =0                 ST_TxRDY_bp:    equ     0           ; Transmitter ready
+(1)       0 :                    ;;; Async 1stop 8data x16
+(1)       0 : =4E                ASYNC_MODE:     equ     MODE_STOP1_gc|MODE_LEN8_gc|MODE_BAUD_X16
+(1)       0 :                    ;;; RTS/DTR, error reset, Rx enable, Tx enable
+(1)       0 : =37                RX_EN_TX_EN:    equ     CMD_RTS_bm|CMD_DTR_bm|CMD_ER_bm|CMD_RxEN_bm|CMD_TxEN_bm
+(1)       0 : =36                RX_EN_TX_DIS:   equ     CMD_RTS_bm|CMD_DTR_bm|CMD_ER_bm|CMD_RxEN_bm
+          0 :
+       2000 :                            org     2000H
+       2000 : =80                rx_queue_size:  equ     128
+       2000 :                    rx_queue:       ds      rx_queue_size
+       2080 :
+       1000 :                            org     1000H
+       1000 : =1000              stack:  equ     $
+       1000 :
+          0 :                            org     ORG_RESET
+          0 : C3 00 01                   jp      init
+          3 :
+         80 :                            org     0080H
+         80 :                    vector:
+         80 : C4 01                      dw      isr_intr        ; IR0
+         82 :
+        100 :                            org     0100H
+        100 :                    init:
+        100 : 31 00 10                   ld      SP, stack
+        103 : 21 00 20                   ld      HL, rx_queue
+        106 : 06 80                      ld      B, rx_queue_size
+        108 : CD 59 01                   call     queue_init
+        10B :                    init_usart:
+        10B : AF                         xor     A               ; clear A
+        10C : D3 41                      out     (USARTC), A
+        10E : D3 41                      out     (USARTC), A
+        110 : D3 41                      out     (USARTC), A     ; safest way to sync mode
+        112 : 3E 40                      ld      A, CMD_IR_bm
+        114 : D3 41                      out     (USARTC), A     ; reset
+        116 : 00                         nop
+        117 : 00                         nop
+        118 : 3E 4E                      ld      A, ASYNC_MODE
+        11A : D3 41                      out     (USARTC), A
+        11C : 00                         nop
+        11D : 00                         nop
+        11E : 3E 37                      ld      A, RX_EN_TX_EN
+        120 : D3 41                      out     (USARTC), A
+        122 :
+        122 : 3E 01                      ld      a, 1            ; enable interrupt on USART
+        124 : D3 42                      out     (USARTRV), a
+        126 : FB                         ei
+        127 : 3E 01                      ld      a, 1            ; select edge trigger
+        129 : D3 34                      out     (LERL), a
+        12B : 3E 00                      ld      a, high vector
+        12D : ED 47                      ld      i, a
+        12F : 3E 80                      ld      a, low vector
+        131 : D3 37                      out     (IVR), a        ; vector register
+        133 : 3E FE                      ld      a, ~1           ; disable mask for IR0
+        135 : D3 36                      out     (IMRL), a       ;
+        137 : ED 5E                      im      2               ; mode 2 only
+        139 :
+        139 : 21 00 20                   ld      HL, rx_queue
+        13C :                    receive_loop:
+        13C : F3                         di                      ; Disable INTR
+        13D : CD 9E 01                   call    queue_remove
+        140 : FB                         ei                      ; Enable INTR
+        141 : 30 F9                      jr      NC, receive_loop
+        143 : 47                         ld      B, A            ; save character
+        144 : B7                         or      A
+        145 : 28 11                      jr      Z, halt_to_system
+        147 :                    transmit_loop:
+        147 : DB 41                      in      A, (USARTS)
+        149 : CB 47                      bit     ST_TxRDY_bp, A
+        14B : 28 FA                      jr      Z, transmit_loop
+        14D :                    transmit_data:
+        14D : 78                         ld      A, B
+        14E : D3 40                      out     (USARTD), A
+        150 : FE 0D                      cp      0DH
+        152 : 20 E8                      jr      NZ, receive_loop
+        154 : 06 0A                      ld      B, 0AH
+        156 : 18 EF                      jr      transmit_loop
+        158 :                    halt_to_system:
+        158 : 76                         halt
+        159 :
+        159 :                            include "queue.inc"
+(1)     159 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)     159 :                    ;;; [queue] queue structure
+(1)     159 : =0                 queue_len:      equ     0       ; queue length
+(1)     159 : =1                 queue_size:     equ     1       ; buffer size
+(1)     159 : =2                 queue_put:      equ     2       ; queue put index
+(1)     159 : =3                 queue_get:      equ     3       ; queue get index
+(1)     159 : =4                 queue_buf:      equ     4       ; buffer start offset
+(1)     159 :
+(1)     159 :                    ;;; [queue] Initialize queue
+(1)     159 :                    ;;; @param HL queue work space pointer
+(1)     159 :                    ;;; @param B queue work space size
+(1)     159 :                    ;;; @clobber B
+(1)     159 :                    queue_init:
+(1)     159 : F5                         push    AF
+(1)     15A : E5                         push    HL
+(1)     15B : 36 00                      ld      (HL), 0         ; queue_len
+(1)     15D : 78                         ld      A, B
+(1)     15E : D6 04                      sub     queue_buf
+(1)     160 : 23                         inc     HL
+(1)     161 : 77                         ld      (HL), A         ; queue_size
+(1)     162 : C6 02                      add     A, 2            ; for queue_put and queue_get
+(1)     164 :                    queue_init_loop:
+(1)     164 : 23                         inc     HL
+(1)     165 : 36 00                      ld      (HL), 0
+(1)     167 : 3D                         dec     A
+(1)     168 : 20 FA                      jr      NZ, queue_init_loop
+(1)     16A : E1                         pop     HL
+(1)     16B : F1                         pop     AF
+(1)     16C : C9                         ret
+(1)     16D :
+(1)     16D :                    ;;; [queue] Add an element to queue
+(1)     16D :                    ;;; @param HL queue work space pointer
+(1)     16D :                    ;;; @param A an element
+(1)     16D :                    ;;; @return F.C 0 if queue is full
+(1)     16D :                    queue_add:
+(1)     16D : D5                         push    DE
+(1)     16E : E5                         push    HL
+(1)     16F : DD E3                      ex      (SP), IX        ; IX points queue structure
+(1)     171 : 57                         ld      D, A            ; save an element
+(1)     172 : DD 7E 00                   ld      A, (IX+queue_len)
+(1)     175 : DD BE 01                   cp      (IX+queue_size)
+(1)     178 : 7A                         ld      A, D               ; restore an element
+(1)     179 : 38 05                      jr      C, queue_add_store ; queue_len < queue_size
+(1)     17B : DD E3                      ex      (SP), IX           ; F.C=1
+(1)     17D : E1                         pop     HL
+(1)     17E : D1                         pop     DE
+(1)     17F : C9                         ret
+(1)     180 :                    queue_add_store:
+(1)     180 : DD 34 00                   inc     (IX+queue_len)
+(1)     183 : 11 04 00                   ld      DE, queue_buf
+(1)     186 : 19                         add     HL, DE
+(1)     187 : DD 5E 02                   ld      E, (IX+queue_put)
+(1)     18A : 19                         add     HL, DE          ; HL=&queue_buf[queue_put]
+(1)     18B : 77                         ld      (HL), A         ; store an element
+(1)     18C : 7B                         ld      A, E
+(1)     18D : 3C                         inc     A               ; queue_put++
+(1)     18E : DD BE 01                   cp      (IX+queue_size)
+(1)     191 : 38 01                      jr      C, queue_add_update ; queue_put < queue_size
+(1)     193 : AF                         xor     A                   ; wrap around
+(1)     194 :                    queue_add_update:
+(1)     194 : DD 77 02                   ld      (IX+queue_put), A
+(1)     197 : 7E                         ld      A, (HL)         ; restore an element
+(1)     198 : DD E3                      ex      (SP), IX
+(1)     19A : E1                         pop     HL
+(1)     19B : D1                         pop     DE
+(1)     19C : 37                         scf                     ; set carry
+(1)     19D : C9                         ret
+(1)     19E :
+(1)     19E :                    ;;; [queue] Remove an element from queue
+(1)     19E :                    ;;; @param HL queue work space pointer
+(1)     19E :                    ;;; @return A an element
+(1)     19E :                    ;;; @return F.C 0 if queue is empty
+(1)     19E :                    queue_remove:
+(1)     19E : 7E                         ld      A, (HL)               ; queue_len
+(1)     19F : B7                         or      A                     ; clear carry
+(1)     1A0 : 20 01                      jr      NZ, queue_remove_elem ; queue_len > 0
+(1)     1A2 : C9                         ret
+(1)     1A3 :                    queue_remove_elem:
+(1)     1A3 : D5                         push    DE
+(1)     1A4 : E5                         push    HL
+(1)     1A5 : DD E3                      ex      (SP), IX        ; IX points queue structure
+(1)     1A7 : DD 35 00                   dec     (IX+queue_len)
+(1)     1AA : 11 04 00                   ld      DE, queue_buf
+(1)     1AD : 19                         add     HL, DE
+(1)     1AE : DD 5E 03                   ld      E, (IX+queue_get)
+(1)     1B1 : 19                         add     HL, DE          ; HL=&queue_buf[queue_get]
+(1)     1B2 : 7B                         ld      A, E
+(1)     1B3 : 3C                         inc     A               ; queue_get++
+(1)     1B4 : DD BE 01                   cp      (IX+queue_size)
+(1)     1B7 : 38 01                      jr      C, queue_remove_update ; queue_get < queue_size
+(1)     1B9 : AF                         xor     A                      ; wrap around
+(1)     1BA :                    queue_remove_update:
+(1)     1BA : DD 77 03                   ld      (IX+queue_get), A
+(1)     1BD : 7E                         ld      A, (HL)         ; read an element
+(1)     1BE : DD E3                      ex      (SP), IX
+(1)     1C0 : E1                         pop     HL
+(1)     1C1 : D1                         pop     DE
+(1)     1C2 : 37                         scf                     ; set carry
+(1)     1C3 : C9                         ret
+        1C4 :
+        1C4 :                    isr_intr:
+        1C4 : F5                         push    AF
+        1C5 : E5                         push    HL
+        1C6 : DB 41                      in      A, (USARTS)
+        1C8 :                    isr_intr_receive:
+        1C8 : CB 4F                      bit     ST_RxRDY_bp, A
+        1CA : 28 08                      jr      Z, isr_intr_recv_end
+        1CC : DB 40                      in      A, (USARTD)
+        1CE : 21 00 20                   ld      HL, rx_queue
+        1D1 : CD 6D 01                   call    queue_add
+        1D4 :                    isr_intr_recv_end:
+        1D4 : E1                         pop     HL
+        1D5 : F1                         pop     AF
+        1D6 : FB                         ei
+        1D7 : ED 4D                      reti
