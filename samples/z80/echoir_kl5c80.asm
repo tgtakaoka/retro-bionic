@@ -1,5 +1,5 @@
 ;;; -*- mode: asm; mode: flyspell-prog; -*-
-        include "z80.inc"
+        include "kl5c80a12.inc"
         include "usart.inc"
 
         org     2000H
@@ -12,8 +12,9 @@ stack:  equ     $
         org     ORG_RESET
         jp      init
 
-        org     ORG_INT         ; mode 1
-        jp      isr_intr
+        org     0080H
+vector:
+        dw      isr_intr        ; IR0
 
         org     0100H
 init:
@@ -36,13 +37,19 @@ init_usart:
         nop
         ld      A, RX_EN_TX_EN
         out     (USARTC), A
-        ld      A, ORG_INT
-        out     (USARTRV), A    ; enable RxRDY interrupt using RST 7
-        ld      A, ORG_RESET
-        out     (USARTTV), A    ; disable TxRDY interrupt
 
-        im      1
+        ld      a, 1            ; enable interrupt on USART
+        out     (USARTRV), a
         ei
+        ld      a, 1            ; select edge trigger
+        out     (LERL), a
+        ld      a, high vector
+        ld      i, a
+        ld      a, low vector
+        out     (IVR), a        ; vector register
+        ld      a, ~1           ; disable mask for IR0
+        out     (IMRL), a       ;
+        im      2               ; mode 2 only
 
         ld      HL, rx_queue
 receive_loop:

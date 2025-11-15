@@ -1,5 +1,5 @@
 ;;; -*- mode: asm; mode: flyspell-prog; -*-
-        include "z80.inc"
+        include "kl5c80a12.inc"
         include "usart.inc"
 
         org     2000H
@@ -11,20 +11,12 @@ tx_queue:       ds      tx_queue_size
         org     1000H
 stack:          equ     $
 
-vec_base:       equ     $
-        org     vec_base+12H
-vec_rx: dw      isr_intr_rx
-        org     vec_base+8AH
-vec_tx: dw      isr_intr_tx
+        org     0080H
+vector:
+        dw      isr_intr        ; IR0
 
         org     ORG_RESET
         jp      init
-
-        org     ORG_RST28
-        jp      isr_intr_rx
-
-        org     ORG_RST30
-        jp      isr_intr_tx
 
         org     0100H
 init:
@@ -51,22 +43,18 @@ init_usart:
         ld      A, RX_EN_TX_DIS
         out     (USARTC), A
 
-        db      3EH             ; LD A, n
-        rst     28H
-        out     (USARTRV), A    ; set RxRDY interrupt vector RST 28H
-        db      3EH             ; LD A, n
-        rst     30H
-        out     (USARTTV), A    ; set TxRDY interrupt vector RST 30H
-        im      0
-
-        ;; ld      A, HIGH vec_base
-        ;; ld      I, A
-        ;; ld      A, LOW vec_rx
-        ;; out     (USARTRV), A    ; set RxRDY interrupt vec_rx
-        ;; ld      A, LOW vec_tx
-        ;; out     (USARTTV), A    ; set TxRDY interrupt vec_tx
-        ;; im      2
-
+        ld      a, 1            ; enable interrupt on USART
+        out     (USARTRV), a
+        out     (USARTTV), a
+        ld      a, 0            ; select level trigger
+        out     (LERL), a
+        ld      a, high vector
+        ld      i, a
+        ld      a, low vector
+        out     (IVR), a        ; vector register
+        ld      a, ~1           ; disable mask for IR0
+        out     (IMRL), a       ;
+        im      2               ; mode 2 only
         ei
 
 loop:
@@ -107,7 +95,6 @@ putchar_retry:
         pop     HL
         ld      a, RX_EN_TX_EN  ; enable Tx
         out     (USARTC), A
-putchar_exit:
         pop     AF
         ret
 
@@ -121,41 +108,32 @@ putspace:
         include "arith.inc"
         include "queue.inc"
 
-isr_intr_rx:
+isr_intr:
         push    AF
+        push    HL
         in      A, (USARTS)
         bit     ST_RxRDY_bp, A
-        jr      Z, isr_intr_rx_exit
+        jr      Z, isr_intr_tx
+isr_intr_rx                     ;
         in      A, (USARTD)     ; receive character
-        push    HL
         ld      HL, rx_queue
         call    queue_add
-        pop     HL
-isr_intr_rx_exit:
-        pop     AF
-        ei
-        reti
-
 isr_intr_tx:
-        push    AF
         in      A, (USARTS)
         bit     ST_TxRDY_bp, A
-        jr      Z, isr_intr_tx_exit
-        push    HL
+        jr      Z, isr_intr_exit
         ld      HL, tx_queue
         call    queue_remove
-        pop     HL
         jr      NC,isr_intr_send_empty
         out     (USARTD), A     ; send character
-isr_intr_tx_exit:
+isr_intr_exit:
+        pop     HL
         pop     AF
         ei
         reti
 isr_intr_send_empty:
         ld      a, RX_EN_TX_DIS
         out     (USARTC), A     ; disable Tx
-        pop     AF
-        ei
-        reti
+        jr      isr_intr_exit
 
         end
