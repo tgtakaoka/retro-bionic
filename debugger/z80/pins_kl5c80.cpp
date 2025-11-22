@@ -139,7 +139,7 @@ inline void xin_cycle() {
 }  // namespace
 
 PinsKl5c80::PinsKl5c80() : PinsZ80Base() {
-    mems<MemsZ80>()->setMaxAddr(0xFFFFF);  // 1MB
+    mems<MemsZ80>()->setMaxAddr(0x7FFFF);  // 512kB
 }
 
 void PinsKl5c80::resetPins() {
@@ -206,7 +206,7 @@ Signals *PinsKl5c80::prepareCycle() const {
 
 Signals *PinsKl5c80::completeCycle(Signals *s) const {
     xin_hi();
-    if (s->mrd()) {  // Memory read, 1 wait
+    if (s->mrd()) {  // Memory read
         if (s->readMemory()) {
             s->data = _mems->read(s->addr);
         } else {
@@ -215,7 +215,7 @@ Signals *PinsKl5c80::completeCycle(Signals *s) const {
         // assert_debug();
         s->outData();
         // negate_debug();
-    } else if (s->mwr()) {  // Memory write, 1 wait, wide write
+    } else if (s->mwr()) {  // Memory write
         // assert_debug();
         s->getData();
         // negate_debug();
@@ -224,7 +224,7 @@ Signals *PinsKl5c80::completeCycle(Signals *s) const {
         } else {
             delayNanoseconds(xin_hi_capture);
         }
-    } else {  // I/O cycles, 2 wait
+    } else {  // I/O cycles
         const uint8_t ioaddr = s->addr;
         if (s->iord()) {  // I/O read
             if (_devs->isSelected(ioaddr))
@@ -245,7 +245,7 @@ Signals *PinsKl5c80::completeCycle(Signals *s) const {
     Signals::nextCycle();
     auto n = Signals::put();
     noInterrupts();
-    while (n->getControl())
+    while (n->getControl())  // wait for end of bus cycle
         xin_cycle();
     interrupts();
     return s;
