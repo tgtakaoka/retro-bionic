@@ -360,7 +360,8 @@ bool PinsKl5c80::rawStep() {
     if (_mems->read_byte(pc) == InstZ80::HALT)
         return false;
     resumeCycle(pc);
-    suspend();
+    auto s = suspend();
+    Signals::discard(s);
     prepareWait();
     return true;
 }
