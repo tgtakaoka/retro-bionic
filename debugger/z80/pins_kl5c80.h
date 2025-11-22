@@ -35,12 +35,11 @@
 #define PIN_AM11 13     /* P7.03 */
 #define PORT_AE 7       /* GPIO7 */
 #define AE_gp 0         /* P7.00-P7.03 */
-#define AE_gm 0xF       /* P7.12-P7.14 */
+#define AE_gm 0x7       /* P7.12-P7.14 */
 #define AE_vp 16        /* A16-A19 */
 #define PIN_AE16 10     /* P7.00 */
 #define PIN_AE17 12     /* P7.01 */
 #define PIN_AE18 11     /* P7.02 */
-#define PIN_AE19 13     /* P7.03 */
 #define PORT_AH 7       /* P7.16-P7.19 */
 #define AH_gp 16        /* P7.16-P7.19 */
 #define AH_gm 0xF       /* P7.16-P7.19 */
