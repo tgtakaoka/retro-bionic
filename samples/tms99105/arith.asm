@@ -3,7 +3,7 @@
 
         *** MC6850 Asynchronous Communication Interface Adapter
 ACIA:   equ     >0080
-        include "mc6850.inc"
+        include "../tms9900/mc6850.inc"
 
         org     VEC_RESET
         data    workspace

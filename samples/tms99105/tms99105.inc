@@ -1,6 +1,6 @@
 *** -*- mode: asm; mode: flyspell-prog; -*-
         *** TMS99105
-        include "tms9900.inc"
+        include "../tms9900/tms9900.inc"
         cpu     tms99105
         *** Status Register
 ST_AF:          equ     ST_OV             ; Arithmetic fault
