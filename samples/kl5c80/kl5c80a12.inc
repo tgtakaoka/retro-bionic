@@ -1,5 +1,5 @@
 ;;; -*- mode: asm; mode: flyspell-prog; -*-
-        include "z80.inc"
+        include "../z80/z80.inc"
 ;;; MMU
 BBR1:   equ     00H
 BR1:    equ     01H
