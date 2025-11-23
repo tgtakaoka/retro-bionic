@@ -1,6 +1,6 @@
 ;;; -*- mode: asm; mode: flyspell-prog; -*-
         include "kl5c80a12.inc"
-        include "usart.inc"
+        include "../z80/usart.inc"
 
         org     2000H
 rx_queue_size:  equ     128
@@ -104,9 +104,9 @@ putspace:
         ld      A, ' '
         jr      putchar
 
-        include "mandelbrot.inc"
-        include "arith.inc"
-        include "queue.inc"
+        include "../z80/mandelbrot.inc"
+        include "../z80/arith.inc"
+        include "../z80/queue.inc"
 
 isr_intr:
         push    AF

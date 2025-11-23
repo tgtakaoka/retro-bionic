@@ -1,6 +1,6 @@
 ;;; -*- mode: asm; mode: flyspell-prog; -*-
         include "kl5c80a12.inc"
-        include "usart.inc"
+        include "../z80/usart.inc"
 
         org     2000H
 rx_queue_size:  equ     128
@@ -74,7 +74,7 @@ transmit_data:
 halt_to_system:
         halt
 
-        include "queue.inc"
+        include "../z80/queue.inc"
 
 isr_intr:
         push    AF
