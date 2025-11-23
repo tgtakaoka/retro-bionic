@@ -3,7 +3,7 @@
 
         *** MC6850 Asynchronous Communication Interface Adapter
 ACIA:   equ     >0080
-        include "mc6850.inc"
+        include "../tms9900/mc6850.inc"
 
         org     VEC_RESET
         data    workspace
@@ -99,7 +99,7 @@ putchar:
 
         include "mandelbrot.inc"
         include "arith.inc"
-        include "queue.inc"
+        include "../tms9900/queue.inc"
 
 int1_isr:
         movb    @ACIA_status, R0
