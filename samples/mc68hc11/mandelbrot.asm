@@ -1,9 +1,8 @@
-        cpu     6811
         include "mc68hc11.inc"
 
 ;;; MC6850 Asynchronous Communication Interface Adapter
 ACIA:   equ     $DF00
-        include "mc6850.inc"
+        include "../mc6800/mc6850.inc"
 RX_INT_TX_NO:   equ     WSB_8N1_gc|RIEB_bm
 RX_INT_TX_INT:  equ     WSB_8N1_gc|RIEB_bm|TCB_EI_gc
 
@@ -110,7 +109,7 @@ putchar_retry:
 
         include "mandelbrot.inc"
         include "arith.inc"
-        include "queue.inc"
+        include "../mc6801/queue.inc"
 
 isr_irq:
         ldab    ACIA_status

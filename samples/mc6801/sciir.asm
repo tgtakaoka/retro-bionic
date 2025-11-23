@@ -1,4 +1,3 @@
-        cpu     6801
         include "mc6801.inc"
 
         org     $2000

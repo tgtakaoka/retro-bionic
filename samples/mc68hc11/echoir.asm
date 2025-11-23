@@ -1,9 +1,8 @@
-        cpu     6811
         include "mc68hc11.inc"
 
 ;;; MC6850 Asynchronous Communication Interface Adapter
 ACIA:   equ     $DF00
-        include "mc6850.inc"
+        include "../mc6800/mc6850.inc"
 
         org     $2000
 
@@ -63,7 +62,7 @@ putchar:
         staa    ACIA_data
         rts
 
-        include "queue.inc"
+        include "../mc6801/queue.inc"
 
 isr_irq:
         ldab    ACIA_status

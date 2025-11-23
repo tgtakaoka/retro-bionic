@@ -1,9 +1,8 @@
-        cpu     6811
         include "mc68hc11.inc"
 
 ;;; MC6850 Asynchronous Communication Interface Adapter
 ACIA:   equ     $DF00
-        include "mc6850.inc"
+        include "../mc6800/mc6850.inc"
 
         org     $40
 R0:

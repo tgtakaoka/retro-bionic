@@ -154,7 +154,7 @@ putchar_retry:
         pula
         rts
 
-        include "queue.inc"
+        include "../mc6801/queue.inc"
 
 isr_sci:
         ldy     device_base

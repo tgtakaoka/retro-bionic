@@ -1,6 +1,6 @@
 ;;; -*- mode: asm; mode: flyspell-prog; -*-
-
 ;;; MOS6502
+        cpu     6502
 ;;; Processor Status Register P
 P_CARRY         =       %00000001   ; set to 1 if carry occurred
 P_ZERO          =       %00000010   ; set to 1 if result is zero

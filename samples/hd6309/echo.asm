@@ -1,9 +1,8 @@
-        cpu     6309
-        include "mc6809.inc"
+        include "hd6309.inc"
 
 ;;; MC6850 Asynchronous Communication Interface Adapter
 ACIA:   equ     $DF00
-        include "mc6850.inc"
+        include "../mc6800/mc6850.inc"
 
         org     $1000
 stack:  equ     *

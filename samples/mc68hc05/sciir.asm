@@ -50,7 +50,7 @@ putchar:
         sta     SCDR
         rts
 
-        include "queue.inc"
+        include "../mc6805/queue.inc"
 
 isr_sci:
         brclr   SCSR_RDRF_bp,SCSR,isr_sci_exit

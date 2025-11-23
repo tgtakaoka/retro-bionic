@@ -68,7 +68,7 @@ putchar:
         rts
 
 
-        include "queue.inc"
+        include "../mc6801/queue.inc"
 
 isr_sci_error:
         ldab    SCDR,y          ; clear OR/NF/FE

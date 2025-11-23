@@ -1,8 +1,4 @@
 ;;; -*- mode: asm; mode: flyspell-prog; -*-
-        cpu     z88
-        option  "reg-alias", "disable"
-        option  "optimize-index", "enable"
-
         include "z88.inc"
 
         org     %2000

@@ -1,8 +1,5 @@
 ;;; -*- mode: asm; mode: flyspell-prog; -*-
-        cpu     z86c
-        option  "reg-alias", "disable"
-
-        include "z8.inc"
+        include "z86.inc"
 
         org     %2000
 rx_queue_size:  equ     128

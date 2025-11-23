@@ -5,7 +5,7 @@ USART:  equ     X'80'
 USARTD: equ     USART+0         Data register
 USARTS: equ     USART+1         Status register
 USARTC: equ     USART+1         Control register
-        include "i8251.inc"
+        include "../mn1610/i8251.inc"
 * Async 1stop 8data x16
 ASYNC_MODE:     equ     MODE_STOP1_gc|MODE_LEN8_gc|MODE_BAUD_X16
 * RTS/DTR, error reset, Rx enable, Tx enable

@@ -2,7 +2,7 @@
 
 ;;; MC6850 Asynchronous Communication Interface Adapter
 ACIA:   equ     $FFE0
-        include "mc6850.inc"
+        include "../mc6800/mc6850.inc"
 RX_INT_TX_NO:   equ     WSB_8N1_gc|RIEB_bm
 RX_INT_TX_INT:  equ     WSB_8N1_gc|RIEB_bm|TCB_EI_gc
 
@@ -145,7 +145,7 @@ putchar_exit:
         ldx     save_x          ; restore X
         rts
 
-        include "queue.inc"
+        include "../mc6805/queue.inc"
 
 isr_irq:
         lda     ACIA_status

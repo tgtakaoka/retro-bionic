@@ -1,4 +1,3 @@
-        cpu     6800
         include "mc6800.inc"
 
 ;;; MC6850 Asynchronous Communication Interface Adapter

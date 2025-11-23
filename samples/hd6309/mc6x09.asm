@@ -1,5 +1,4 @@
-        cpu     6809
-        include "mc6809.inc"
+        include "hd6309.inc"
 
         org     VEC_RESET
         fdb     main
@@ -13,4 +12,4 @@ main:
         bsr     mc6x09
         swi
 
-        include "mc6x09.inc"
+        include "../mc6809/mc6x09.inc"

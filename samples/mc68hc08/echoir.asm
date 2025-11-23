@@ -2,7 +2,7 @@
 
 ;;; MC6850 Asynchronous Communication Interface Adapter
 ACIA:   equ     $FFE0
-        include "mc6850.inc"
+        include "../mc6800/mc6850.inc"
 RX_INT_TX_NO:   equ     WSB_8N1_gc|RIEB_bm
 
         org     RAM_START

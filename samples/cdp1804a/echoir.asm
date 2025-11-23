@@ -11,7 +11,7 @@
 
 ;;; MC6850 Asynchronous Communication Interface Adapter
 ACIA:   equ     4
-        include "mc6850.inc"
+        include "../cdp1802/mc6850.inc"
 RX_INT_TX_NO:   equ     WSB_8N1_gc|RIEB_bm
 
         org     X'2000'

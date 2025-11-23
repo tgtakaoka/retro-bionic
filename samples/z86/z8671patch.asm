@@ -1,10 +1,7 @@
 ;;; -*- mode: asm; mode: flyspell-prog; -*-
 ;;; Z8671 SIO patch
 ;;; http://www.armory.com/~rstevew/Public/Micros/Z8/Z8671-BASIC/Z8671-BASIC_ROM_Main.htm
-        cpu     z86c
-        option  "reg-alias", "disable"
-
-        include "z8.inc"
+        include "z86.inc"
 
         org     %8C
 RESET:  setrp   SIO

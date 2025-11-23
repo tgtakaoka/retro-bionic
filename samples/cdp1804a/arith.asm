@@ -11,7 +11,7 @@
 
 ;;; MC6850 Asynchronous Communication Interface Adapter
 ACIA:   equ     4
-        include "mc6850.inc"
+        include "../cdp1802/mc6850.inc"
 
         org     X'1000'
 stack:  equ     *-1
