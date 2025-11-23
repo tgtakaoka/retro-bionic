@@ -1,8 +1,7 @@
 ;;; -*- mode: asm; mode: flyspell-prog; -*-
-
-        .include "mos6502.inc"
-
+        .include "../mos6502/mos6502.inc"
 ;;; W65C816S
+        cpu     65816
 ;;; Processor Status Register P
 P_X     =       %00010000       ; if 0, X and Y are 16 bit.
 P_M     =       %00100000       ; if 0, A is 16 bit.

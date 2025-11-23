@@ -1,5 +1,9 @@
 ;;; -*- mode: asm; mode: flyspell-prog; -*-
 ;;; Z88
+        cpu     z88
+        option  "reg-alias", "disable"
+        option  "optimize-index", "enable"
+;;;
 FLAGS:  equ     %D5                  ; R/W: Flags register
 F_CARRY:        equ     %(2)10000000 ; set to 1 if carry
 F_ZERO:         equ     %(2)01000000 ; set to 1 if zero

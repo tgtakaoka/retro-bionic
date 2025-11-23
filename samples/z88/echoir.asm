@@ -1,8 +1,4 @@
 ;;; -*- mode: asm; mode: flyspell-prog; -*-
-        cpu     z88
-        option  "reg-alias", "disable"
-        option  "optimize-index", "enable"
-
         include "z88.inc"
 
 ;;; i8251 Universal Synchronous/Asynchronous Receiver/Transmitter
@@ -12,7 +8,7 @@ USARTS:         equ     1       ; Status register
 USARTC:         equ     1       ; Control register
 USARTRI:        equ     2       ; Receive interrupt name (IRQ0~2)
 USARTTI:        equ     3       ; Transmit interrupt name (IRQ0~2)
-        include "i8251.inc"
+        include "../z86/i8251.inc"
 ;;; Async 1stop 8data x16
 ASYNC_MODE:     equ     MODE_STOP1_gc LOR MODE_LEN8_gc LOR MODE_BAUD_X16
 ;;; RTS/DTR, error reset, Rx enable, Tx enable

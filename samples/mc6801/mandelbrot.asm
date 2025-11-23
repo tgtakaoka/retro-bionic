@@ -1,9 +1,8 @@
-        cpu     6801
         include "mc6801.inc"
 
 ;;; MC6850 Asynchronous Communication Interface Adapter
 ACIA:   equ     $DF00
-        include "mc6850.inc"
+        include "../mc6800/mc6850.inc"
 RX_INT_TX_NO:   equ     WSB_8N1_gc|RIEB_bm
 RX_INT_TX_INT:  equ     WSB_8N1_gc|RIEB_bm|TCB_EI_gc
 

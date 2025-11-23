@@ -1,5 +1,4 @@
 ;;; -*- mode: asm; mode: flyspell-prog; -*-
-        cpu     6502
         .include "mos6502.inc"
 
 ;;; MC6850 Asynchronous Communication Interface Adapter

@@ -1,9 +1,8 @@
-        cpu     6809
         include "mc6809.inc"
 
 ;;; MC6850 Asynchronous Communication Interface Adapter
 ACIA:   equ     $DF00
-        include "mc6850.inc"
+        include "../mc6800/mc6850.inc"
 
         org     $1000
 stack:  equ     *-1             ; MC6800's SP is post-decrement/pre-increment

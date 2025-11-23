@@ -2,7 +2,7 @@
 
 ;;; MC6850 Asynchronous Communication Interface Adapter
 ACIA:   equ     $FFE0
-        include "mc6850.inc"
+        include "../mc6800/mc6850.inc"
 
 rx_queue_size:  equ     16
 tx_queue_size:  equ     32
@@ -115,9 +115,9 @@ putchar_exit:
         ldx     save_x          ; restore X
         rts
 
-        include "mandelbrot.inc"
+        include "../mc6805/mandelbrot.inc"
         include "arith.inc"
-        include "queue.inc"
+        include "../mc6805/queue.inc"
 
 isr_irq:
         lda     ACIA_status

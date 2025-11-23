@@ -1,4 +1,3 @@
-        cpu     68hc11
         include "mc68hc11.inc"
 
         org     VEC_SWI
@@ -13,4 +12,4 @@ main:
         bsr     mc68xx
         swi
 
-        include "mc68xx.inc"
+        include "../mc6800/mc68xx.inc"

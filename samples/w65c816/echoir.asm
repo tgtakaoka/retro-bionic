@@ -1,10 +1,9 @@
 ;;; -*- mode: asm; mode: flyspell-prog; -*-
-        cpu     65816
         .include "w65c816.inc"
 
 ;;; MC6850 Asynchronous Communication Interface Adapter
 ACIA    =       $DF00
-        .include "mc6850.inc"
+        .include "../mos6502/mc6850.inc"
 RX_INT_TX_NO    =       WSB_8N1_gc|RIEB_bm
 
         *=      NVEC_IRQ        ; native vector

@@ -1,6 +1,6 @@
 ;;; -*- mode: asm; mode: flyspell-prog; -*-
-
 ;;; MC6800/MC6802/MC6808
+        cpu     6800
 ;;; Condition Code Register (CC)
 CC_CARRY      equ  %00000001   ; set to 1 if carry occurred
 CC_OVERFLOW   equ  %00000010   ; set to 1 if overflow occurred

@@ -1,5 +1,6 @@
 ;;; -*- mode: asm; mode: flyspell-prog; -*-
 ;;; MC68HC11
+        cpu     6811
 ;;; Condition Code Register (CC)
 CC_CARRY      equ  %00000001   ; set to 1 if carry occurred
 CC_OVERFLOW   equ  %00000010   ; set to 1 if overflow occurred
