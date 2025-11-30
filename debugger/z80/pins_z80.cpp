@@ -206,6 +206,10 @@ inline void clk_cycle() {
 
 }  // namespace
 
+PinsZ80::PinsZ80() : PinsZ80Base() {
+    _regs = new RegsZ80(this);
+}
+
 void PinsZ80::resetPins() {
     // Assert reset condition
     pinsMode(PINS_LOW, sizeof(PINS_LOW), OUTPUT, LOW);

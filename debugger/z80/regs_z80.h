@@ -8,7 +8,7 @@
 namespace debugger {
 namespace z80 {
 
-struct RegsZ80 final : Regs {
+struct RegsZ80 : Regs {
     RegsZ80(PinsZ80Base *pins);
 
     const char *cpu() const override;

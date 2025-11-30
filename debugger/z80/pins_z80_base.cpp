@@ -8,9 +8,15 @@ namespace debugger {
 namespace z80 {
 
 PinsZ80Base::PinsZ80Base() {
-    _regs = new RegsZ80(this);
+    /* _regs must be initialzed in extended class */
     _devs = new DevsZ80();
     _mems = new MemsZ80();
+}
+
+PinsZ80Base::~PinsZ80Base() {
+    delete _regs;
+    delete _devs;
+    delete _mems;
 }
 
 void PinsZ80Base::execInst(const uint8_t *inst, uint_fast8_t len) {
