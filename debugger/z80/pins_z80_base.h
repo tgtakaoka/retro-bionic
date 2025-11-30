@@ -18,6 +18,7 @@ struct PinsZ80Base : Pins {
 
 protected:
     PinsZ80Base();
+    virtual ~PinsZ80Base();
 
     virtual uint16_t execute(const uint8_t *inst, uint_fast8_t len,
             uint8_t *buf, uint_fast8_t max) = 0;

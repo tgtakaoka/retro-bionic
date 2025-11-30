@@ -139,6 +139,7 @@ inline void xin_cycle() {
 }  // namespace
 
 PinsKl5c80::PinsKl5c80() : PinsZ80Base() {
+    _regs = new z80::RegsZ80(this);
     mems<MemsZ80>()->setMaxAddr(0x7FFFF);  // 512kB
 }
 

@@ -195,6 +195,10 @@ void xin_cycle() {
 
 }  // namespace
 
+PinsNsc800::PinsNsc800() : PinsZ80Base() {
+    _regs = new z80::RegsZ80(this);
+}
+
 void PinsNsc800::resetPins() {
     // Assert reset condition
     pinsMode(PINS_LOW, sizeof(PINS_LOW), OUTPUT, LOW);

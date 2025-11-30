@@ -3,7 +3,7 @@
 #include "devs_z80.h"
 #include "inst_z80.h"
 #include "mems_z80.h"
-#include "regs_z80.h"
+#include "regs_z180.h"
 #include "signals_z180.h"
 
 namespace debugger {
@@ -139,6 +139,7 @@ inline void extal_cycle() {
 }  // namespace
 
 PinsZ180::PinsZ180() : PinsZ80Base() {
+    _regs = new RegsZ180(this);
     mems<MemsZ80>()->setMaxAddr(0xFFFFF);  // 1MB
 }
 
