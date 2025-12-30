@@ -11,8 +11,7 @@ print_int16:
         inv     R4
         inv     R5
         inc     R5
-        jnc     print_uint16
-        inc     R4              ; negate R4:R5
+        adc     %0, R4          ; negate R4:R5
         *** Print unsigned 16-bit integer as decimal
         *** @param R4:R5 value
         *** @clobber A R4:R5 R6:R7
@@ -126,15 +125,13 @@ mul16:
         inv     R6
         inv     R7
         inc     R7
-        jnc     mul16_multiplicand
-        inc     R6              ; negate multiplier
+        adc     %0, R6          ; negate multiplier
 mul16_multiplicand:
         btjz    %>80, R4, mul16_multiply
         inv     R4
         inv     R5
         inc     R5
-        jnc     mul16_multiply
-        inc     R4              ; negate multiplicand
+        adc     %0, R4          ; negate multiplicand
 mul16_multiply:
         call    @umul16         ; R4:R5=result
         pop     A               ; A=(multiplicand^multiplier)
@@ -142,8 +139,7 @@ mul16_multiply:
         inv     R4
         inv     R5
         inc     R5
-        jnc     mul16_end
-        inc     R4              ; negate result
+        adc     %0, R4          ; negate result
 mul16_end:
         rets
 
@@ -211,15 +207,13 @@ div16:
         inv     R6
         inv     R7
         inc     R7
-        jnc     div16_dividend
-        inc     R6              ; negate divisor
+        adc     %0, R6          ; negate divisor
 div16_dividend:
         btjz    %>80, R4, div16_divide
         inv     R4
         inv     R5
         inc     R5
-        jnc     div16_divide
-        inc     R4
+        adc     %0, R4          ; negate dividend
 div16_divide:
         call    @udiv16         ; R4:R5=quotient
         pop     A               ; A=(dividend^divisor)
@@ -227,7 +221,6 @@ div16_divide:
         inv     R4
         inv     R5
         inc     R5
-        jnc     div16_end
-        inc     R4              ; negate quotient
+        adc     %0, R4          ; negate quotient
 div16_end:
         rets
