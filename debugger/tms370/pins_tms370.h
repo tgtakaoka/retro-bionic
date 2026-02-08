@@ -30,7 +30,7 @@ protected:
 
 }  // namespace tms370
 }  // namespace debugger
-#endif /* __PINS_H__ */
+#endif /* __PINS_TMS370_H__ */
 
 // Local Variables:
 // mode: c++

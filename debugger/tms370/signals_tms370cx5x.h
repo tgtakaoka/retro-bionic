@@ -17,7 +17,7 @@ struct SignalsTms370Cx5x final
 
 }  // namespace tms370cx5x
 }  // namespace debugger
-#endif /* __SIGNALS_H__ */
+#endif /* __SIGNALS_TMS370CX5X_H__ */
 
 // Local Variables:
 // mode: c++

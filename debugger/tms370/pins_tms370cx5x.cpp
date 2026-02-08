@@ -113,7 +113,7 @@ const uint8_t PINS_INPUT[] = {
         PIN_DATA5,
         PIN_DATA6,
         PIN_DATA7,
-        PIN_DATA0,
+        PIN_ADDR0,
         PIN_ADDR1,
         PIN_ADDR2,
         PIN_ADDR3,
