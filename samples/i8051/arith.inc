@@ -20,7 +20,7 @@ print_int16:
         acall   putchar         ; print '-'
         acall   neg_R3R2        ; negate value
 ;;; Print unsigned 16-bit integer as decimal
-;;; @param R2:R3: value
+;;; @param R3:R2 value
 ;;; @param print_uint16_buf external data memory
 ;;; @clobber A
 print_uint16:
@@ -28,9 +28,8 @@ print_uint16:
         clr     A
         movx    @DPTR, A        ; mark EOS
 print_uint16_loop:
-        mov     R4, #LOW(10)
-        mov     R5, #HIGH(10)
-        acall   udiv16
+        mov     R4, #10
+        acall   udiv16_8        ; R2:R3/10=R2:R3...R4
         mov     A, R4           ; lo(remainder)
         add     A, #'0'
         inc     DPTR
@@ -47,7 +46,7 @@ print_uint16_out:
 print_uint16_end:
         pop     ACC
         mov     R3, A           ; restore R3
-        pop     AC
+        pop     ACC
         mov     R2, A           ; restore R2
         pop     ACC
         mov     R0, A           ; restore R0
@@ -57,13 +56,12 @@ print_uint16_end:
 ;;; @param R3:R2 result
 ;;; @clobber A
 neg_R3R2:
-        mov     A, R2
-        cpl     A
-        add     A, #1
+        clr     A
+        clr     C
+        subb    A, R2
         mov     R2, A
-        mov     A, R3
-        cpl     A
-        addc    A, #0
+        clr     A
+        subb    A, R3
         mov     R3, A
         ret
 
@@ -71,13 +69,12 @@ neg_R3R2:
 ;;; @param R5:R4 result
 ;;; @clobber A
 neg_R5R4:
-        mov     A, R4
-        cpl     A
-        add     A, #1
+        clr     A
+        clr     C
+        subb    A, R4
         mov     R4, A
-        mov     A, R5
-        cpl     A
-        addc    A, #0
+        clr     A
+        subb    A, R5
         mov     R5, A
         ret
 
@@ -88,14 +85,13 @@ neg_R5R4:
 negsi2:
         mov     A, R3
         mov     R0, A           ; R0=&value
-        mov     A, @R0          ; A=lo(value)
-        cpl     A
-        add     A, #1
+        clr     A
+        clr     C
+        subb    A, @R0          ; A=lo(-value)
         mov     R3, A           ; R3=lo(-value)
         inc     R0
-        mov     A, @R0          ; A=hi(value)
-        cpl     A
-        addc    A, #0           ; A=hi(-value)
+        clr     A
+        subb    A, @R0          ; A=hi(-value)
         xch     A, R2           ; R2=hi(-value)
         mov     R0, A           ; R0=&result
         mov     A, R3
@@ -276,85 +272,115 @@ mulsi2_store:
 ;;; @praram R5:R4 divisor
 ;;; @return R3:R2 quotient
 ;;; @return R5:R4 remainder
-;;; @clobber A R0 R1 R2 R3 R4 R5 R6 R7
+;;; @clobber A R1 R2 R3 R4 R5 R6 R7
 udiv16:
         mov     A, R5
-        jnz     udiv16_calc     ; branch if divisor >= 256
+        jnz     udiv16_large    ; branch if divisor >= 256
         orl     A, R4
-        jz      udiv16_div0     ; B=divisor (<256)
-        mov     B, A
+        jz      udiv16_zero     ; divide by zero
         mov     A, R3
-        jnz     udiv16_calc     ; branch if dividend >= 256
-        mov     A, R2           ; A=dividend (<256)
-        div     AB              ; A=quotient B=remainder
+        jz      udiv8_8         ; branch if divisor < 256
+;;; Unsigned division: dividend / divisor = quotient ... remainder
+;;; @praram R3:R2 dividend
+;;; @praram R4 divisor
+;;; @return R3:R2 quotient
+;;; @return R4 remainder
+;;; @clobber A B
+udiv16_8:
+        mov     A, R3           ; high(dividend)
+        mov     B, R4           ; divisor
+        div     AB              ; A=high(quotient), B=reminder of high
+        mov     R3, A           ; R3=high(quotient)
+        ;; Divide B:R2 by R4 where B<R4
+        mov     R0, #8          ; loop counter
+udiv16_8_loop:
+        mov     A, R2
+        clr     C
+        rlc     A
+        mov     R2, A
+        mov     A, B
+        rlc     A
+        mov     B, A            ; B:R2 <<= 1
+        ;; Compare B with R4 (divisor)
+        mov     A, B
+        clr     C
+        subb    A, R4           ; A=B-R4
+        jc      udiv16_8_next   ; jump if B < R4
+        mov     B, A            ; update B
+        inc     R2              ; set lowest bit as part of low(quotient)
+udiv16_8_next:
+        djnz    R0, udiv16_8_loop
+        mov     R4, B           ; R4=reminder
+        ret
+;;; Unsigned division: dividend / divisor = quotient ... remainder
+;;; @praram R2 dividend
+;;; @praram R4 divisor
+;;; @return R2 quotient
+;;; @return R4 remainder
+;;; @clobber A B R2 R4
+udiv8_8:
+        mov     A, R2
+        mov     B, R4           ; A=dividend, B=divisor
+        div     AB              ; A=quotient, B=reminder
         mov     R2, A
         mov     R4, B
-udiv16_div0:
         ret
-udiv16_calc:
-        mov     R1, #1          ; R1=bits
-        sjmp    udiv16_prep
-udiv16_prep_loop:
-        clr     C
-        mov     A, R4
-        rlc     A
-        mov     R4, A
-        mov     A, R5
-        rlc     A
-        mov     R5, A           ; divisor <<= 1
-        inc     R1              ; bits++
-udiv16_prep:
-        mov     A, R5
-        jnb     ACC.7, udiv16_prep_loop ; while msb(divisor) == 0
-        clr     A
-        mov     R6, A
-        mov     R7, A           ; R7:R6=quotient
-        sjmp    udiv16_enter_loop
-udiv16_loop:
-        clr     C
-        mov     A, R5
-        rrc     A
+udiv16_zero:
+        mov     A, R3           ; remainder = dividend
         mov     R5, A
-        mov     A, R4
-        rrc     A
-        mov     R4, A           ; divisor >>= 1
-        clr     C
-        mov     A, R6
-        rlc     A
-        mov     R6, A
-        mov     A, R7
-        rlc     A
-        mov     R7, A           ; quotient <<= 1
-udiv16_enter_loop:
         mov     A, R2
+        mov     R4, A
+        clr     A               ; quotient = 0
+        mov     R3, A
+        mov     R2, A
+        ret
+;;; dividend > divisor
+udiv16_large:
+        mov     A, R3
+        clr     C
+        subb    A, R5
+        jc      udiv16_zero     ; branch if dividend < divisor
+        jnz     udiv16_estimate ; branch if dividend > divisor
+        mov     A, R2           ; compare lower byte
         clr     C
         subb    A, R4
-        mov     R2, A
+        jc      udiv16_zero     ; branch if dividend < divisor
+udiv16_estimate:
         mov     A, R3
-        subb    A, R5
-        mov     R3, A           ; divident -= divisor
-        jc      udiv16_readd    ; branch if dividend < 0
-        inc     R6              ; quotient |= 1
-        sjmp    udiv16_next
-udiv16_readd:
+        mov     B, R5
+        div     AB              ; A=estimated quotient
+        mov     R1, A           ; R1=estimated quotient
+udiv16_refine:
+        mov     A, R1
+        mov     B, R4
+        mul     AB              ; B:A=estimated*low(divisor)
+        mov     R6, A           ; R6=low-low(product)
+        mov     R7, B           ; R7=low-high(product)
+        mov     A, R1
+        mov     B, R5
+        mul     AB              ; B:A=estimate*high(divisor)
+        add     A, R7
+        mov     R7, A           ; R7+=mid(product)
+        mov     A, R2           ; dividend-product
+        clr     C
+        subb    A, R6
+        mov     A, R3
+        subb    A, R7
+        jnc     udiv16_end
+        dec     R1              ; decrease Q
+        sjmp    udiv16_refine
+udiv16_end:
         mov     A, R2
-        add     A, R4
-        mov     R2, A
+        clr     C
+        subb    A, R6
+        mov     R4, A           ; low(remainder)
         mov     A, R3
-        addc    A, R5
-        mov     R3, A           ; dividend += divisor
-udiv16_next:
-        djnz    R1, udiv16_loop
-        mov     A, R2
-        mov     R4, A
-        mov     A, R3
-        mov     R5, A           ; store remainder
-        mov     A, R6
-        mov     R2, A
-        mov     A, R7
-        mov     R3, A           ; store quotient
+        subb    A, R7
+        mov     R5, A           ; high(remainder)
+        mov     A, R1
+        mov     R2, A           ; low(quotient)
+        mov     R3, #0          ; high(quotient)
         ret
-
 
 ;;; Signed division: dividend /= divisor
 ;;; @param R2: &dividend
