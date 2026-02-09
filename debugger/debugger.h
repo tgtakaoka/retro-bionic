@@ -1,10 +1,10 @@
 #ifndef __DEBUGGER_H__
 #define __DEBUGGER_H__
 
-#include "config_debugger.h"
-
+#include <Arduino.h>
 #include <libcli.h>
 #include "break_points.h"
+#include "config_debugger.h"
 #include "target.h"
 #include "unio_bus.h"
 
