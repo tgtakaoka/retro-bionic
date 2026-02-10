@@ -268,8 +268,8 @@ mulsi2_store:
         ret
 
 ;;; Unsigned division: dividend / divisor = quotient ... remainder
-;;; @praram R3:R2 dividend
-;;; @praram R5:R4 divisor
+;;; @param R3:R2 dividend
+;;; @param R5:R4 divisor
 ;;; @return R3:R2 quotient
 ;;; @return R5:R4 remainder
 ;;; @clobber A R1 R2 R3 R4 R5 R6 R7
@@ -281,18 +281,18 @@ udiv16:
         mov     A, R3
         jz      udiv8_8         ; branch if divisor < 256
 ;;; Unsigned division: dividend / divisor = quotient ... remainder
-;;; @praram R3:R2 dividend
-;;; @praram R4 divisor
+;;; @param R3:R2 dividend
+;;; @param R4 divisor
 ;;; @return R3:R2 quotient
 ;;; @return R4 remainder
-;;; @clobber A B
+;;; @clobber A B R1
 udiv16_8:
         mov     A, R3           ; high(dividend)
         mov     B, R4           ; divisor
         div     AB              ; A=high(quotient), B=reminder of high
         mov     R3, A           ; R3=high(quotient)
         ;; Divide B:R2 by R4 where B<R4
-        mov     R0, #8          ; loop counter
+        mov     R1, #8          ; loop counter
 udiv16_8_loop:
         mov     A, R2
         clr     C
@@ -309,15 +309,15 @@ udiv16_8_loop:
         mov     B, A            ; update B
         inc     R2              ; set lowest bit as part of low(quotient)
 udiv16_8_next:
-        djnz    R0, udiv16_8_loop
+        djnz    R1, udiv16_8_loop
         mov     R4, B           ; R4=reminder
         ret
 ;;; Unsigned division: dividend / divisor = quotient ... remainder
-;;; @praram R2 dividend
-;;; @praram R4 divisor
+;;; @param R2 dividend
+;;; @param R4 divisor
 ;;; @return R2 quotient
 ;;; @return R4 remainder
-;;; @clobber A B R2 R4
+;;; @clobber A B
 udiv8_8:
         mov     A, R2
         mov     B, R4           ; A=dividend, B=divisor
