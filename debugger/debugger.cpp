@@ -29,9 +29,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include "device.h"
-#include "unio_eeprom.h"
 
+#if defined(ENABLE_SDCARD)
 #include <SD.h>
+#endif
 
 namespace debugger {
 
@@ -53,7 +54,11 @@ constexpr char USAGE[] =
 #ifdef WITH_ASSEMBLER
         " A:sm"
 #endif
-    " S:tep G/g:o b/B:reak F:iles L:oad U:pload I:o";
+#if defined(ENABLE_SDCARD)
+        " S:tep G/g:o b/B:reak"
+        " F:iles L:oad"
+#endif
+        " U:pload I:o";
 constexpr char PROTECT[] = " P:rotect";
 
 void usage() {
@@ -262,6 +267,7 @@ void handleGoUntil(uint32_t value, uintptr_t extra, State state) {
     printPrompt();
 }
 
+#if defined(ENABLE_SDCARD)
 void listDirectory(File dir) {
     const auto path = dir.name();
     const auto root = strcmp(path, "/") == 0;
@@ -298,6 +304,7 @@ void handleFileListing(char *line, uintptr_t extra, State state) {
     dir.close();
     printPrompt();
 }
+#endif
 
 uint8_t toInt(const char c) {
     return isDigit(c) ? c - '0' : c - 'A' + 10;
@@ -371,6 +378,7 @@ int loadS19Record(const char *line, uint32_t &addr) {
     return num;
 }
 
+#if defined(ENABLE_SDCARD)
 void handleLoadFile(char *line, uintptr_t, State state) {
     if (state == State::CLI_CANCEL) {
         printPrompt();
@@ -416,6 +424,7 @@ void handleLoadFile(char *line, uintptr_t, State state) {
     }
     printPrompt();
 }
+#endif
 
 struct UploadContext {
     uint32_t size;
@@ -525,7 +534,8 @@ void handleProtectArea(uint32_t value, uintptr_t extra, State state) {
     if (state == State::CLI_DELETE) {
         if (extra == PROG_END) {
             cli.backspace();
-            cli.readNum(handleProtectArea, PROG_ADDR, radix, maxAddr, last_addr);
+            cli.readNum(
+                    handleProtectArea, PROG_ADDR, radix, maxAddr, last_addr);
         }
         return;
     }
@@ -691,6 +701,7 @@ void Debugger::exec(char c) {
         cli.print("Go until? ");
         cli.readNum(handleGoUntil, 0, radix, maxAddr);
         return;
+#if defined(ENABLE_SDCARD)
     case 'F':
         cli.print("Files? ");
         cli.readLine(handleFileListing, 0, str_buffer, sizeof(str_buffer));
@@ -699,6 +710,7 @@ void Debugger::exec(char c) {
         cli.print("Load? ");
         cli.readLine(handleLoadFile, 0, str_buffer, sizeof(str_buffer));
         return;
+#endif
     case 'U':
         cli.println("Upload waiting...");
         upload_context.size = 0;

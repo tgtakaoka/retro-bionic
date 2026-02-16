@@ -19,6 +19,8 @@
 #define PIN_DEBUG 25 /* P6.13: Debug */
 #endif
 
+// #define ENABLE_SDCARD
+
 // #define WITH_ASSEMBLER
 #define WITH_DISASSEMBLER
 
