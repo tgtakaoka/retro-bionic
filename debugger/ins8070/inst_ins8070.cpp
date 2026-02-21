@@ -1,8 +1,5 @@
 #include "inst_ins8070.h"
 #include <string.h>
-#include "debugger.h"
-#include "mems_ins8070.h"
-#include "regs_ins8070.h"
 
 namespace debugger {
 namespace ins8070 {

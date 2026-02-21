@@ -2,7 +2,6 @@
 #define __DEVS_INS8060_H__
 
 #include "devs.h"
-#include "serial_handler.h"
 
 #define ACIA_BASE 0xDF00
 

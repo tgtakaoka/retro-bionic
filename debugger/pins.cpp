@@ -1,7 +1,5 @@
 #include "debugger.h"
 
-#include "pins.h"
-
 namespace debugger {
 
 Pins::~Pins() {

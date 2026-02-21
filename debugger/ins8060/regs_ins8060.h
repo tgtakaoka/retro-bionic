@@ -3,7 +3,6 @@
 
 #include "char_buffer.h"
 #include "regs.h"
-#include "signals_ins8060.h"
 
 namespace debugger {
 namespace ins8060 {

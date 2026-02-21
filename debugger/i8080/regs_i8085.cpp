@@ -1,6 +1,4 @@
 #include "regs_i8085.h"
-#include "debugger.h"
-#include "inst_i8085.h"
 #include "pins_i8080_base.h"
 
 namespace debugger {

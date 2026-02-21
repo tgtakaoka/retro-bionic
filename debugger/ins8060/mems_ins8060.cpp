@@ -2,7 +2,6 @@
 #include <dis_ins8060.h>
 
 #include "mems_ins8060.h"
-#include "regs_ins8060.h"
 
 namespace debugger {
 namespace ins8060 {

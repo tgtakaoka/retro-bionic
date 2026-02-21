@@ -2,7 +2,6 @@
 #define __REGS_MN1613_H__
 
 #include "char_buffer.h"
-#include "mems.h"
 #include "regs.h"
 
 namespace debugger {

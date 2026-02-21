@@ -1,7 +1,6 @@
 #include "regs_ins8060.h"
 #include "debugger.h"
 #include "pins_ins8060.h"
-#include "signals_ins8060.h"
 
 namespace debugger {
 namespace ins8060 {

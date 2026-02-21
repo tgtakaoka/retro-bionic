@@ -1,6 +1,5 @@
 #include "regs_i8051.h"
 #include "debugger.h"
-#include "inst_i8051.h"
 #include "pins_i8051.h"
 
 namespace debugger {

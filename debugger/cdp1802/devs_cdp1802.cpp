@@ -1,7 +1,5 @@
 #include "devs_cdp1802.h"
 #include <string.h>
-#include "cdp1802_sci_handler.h"
-#include "debugger.h"
 #include "mc6850.h"
 
 namespace debugger {
@@ -10,9 +8,11 @@ namespace cdp1802 {
 DevsCdp1802::DevsCdp1802()
     : _acia(new Mc6850())
 #if defined(ENABLE_SERIAL_HANDLER)
-    , _sci(new Cdp1802SciHandler())
+      ,
+      _sci(new Cdp1802SciHandler())
 #endif
-{}
+{
+}
 
 DevsCdp1802::~DevsCdp1802() {
     delete _acia;

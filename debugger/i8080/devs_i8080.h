@@ -2,7 +2,6 @@
 #define __DEVS_I8080_H__
 
 #include "devs.h"
-#include "serial_handler.h"
 
 #define USART_BASE 0x00
 

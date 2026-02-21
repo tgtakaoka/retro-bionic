@@ -1,6 +1,5 @@
 #include "devs_pdp8.h"
 #include <string.h>
-#include "debugger.h"
 #include "mc6850.h"
 #include "pins_pdp8.h"
 

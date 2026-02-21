@@ -1,9 +1,7 @@
 #ifndef __PINS_MC6800_BASE_H__
 #define __PINS_MC6800_BASE_H__
 
-#include "devs.h"
 #include "inst_mc6800.h"
-#include "mems.h"
 #include "pins.h"
 #include "signals_mc6800.h"
 

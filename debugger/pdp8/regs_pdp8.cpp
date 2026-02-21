@@ -2,7 +2,6 @@
 #include "debugger.h"
 #include "inst_pdp8.h"
 #include "pins_pdp8.h"
-#include "signals_pdp8.h"
 
 namespace debugger {
 namespace pdp8 {

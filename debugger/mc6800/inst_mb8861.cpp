@@ -1,6 +1,4 @@
 #include "inst_mb8861.h"
-#include "debugger.h"
-#include "mems_mc6800.h"
 
 namespace debugger {
 namespace mb8861 {

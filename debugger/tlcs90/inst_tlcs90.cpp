@@ -1,8 +1,4 @@
 #include "inst_tlcs90.h"
-#include <string.h>
-#include "debugger.h"
-#include "mems_tlcs90.h"
-#include "regs_tlcs90.h"
 
 namespace debugger {
 namespace tlcs90 {

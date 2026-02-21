@@ -1,7 +1,5 @@
 #include "regs_tms9980.h"
-#include "debugger.h"
 #include "inst_tms9900.h"
-#include "pins_tms9980.h"
 
 namespace debugger {
 namespace tms9980 {

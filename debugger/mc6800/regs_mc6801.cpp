@@ -1,6 +1,6 @@
 #include "regs_mc6801.h"
 #include "debugger.h"
-#include "pins_mc6801.h"
+#include "pins_mc6800_base.h"
 
 namespace debugger {
 namespace mc6801 {

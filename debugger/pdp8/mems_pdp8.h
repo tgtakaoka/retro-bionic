@@ -1,7 +1,6 @@
 #ifndef __MEMS_PDP8_H__
 #define __MEMS_PDP8_H__
 
-#include "devs.h"
 #include "mems.h"
 
 namespace debugger {

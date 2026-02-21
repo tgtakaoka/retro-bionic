@@ -51,6 +51,10 @@ private:
 
 template <typename SIGNALS_T, typename IMPL_T = SignalsImpl>
 struct SignalsBase : IMPL_T {
+    using IMPL_T::discard;
+    using IMPL_T::nextCycle;
+    using IMPL_T::resetCycles;
+
     SIGNALS_T *inject(uint16_t data) {
         IMPL_T::_inject(data);
         return static_cast<SIGNALS_T *>(this);

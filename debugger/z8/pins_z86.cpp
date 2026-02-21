@@ -4,7 +4,6 @@
 #include "inst_z86.h"
 #include "mems_z86.h"
 #include "regs_z86.h"
-#include "z86_sio_handler.h"
 
 namespace debugger {
 namespace z86 {

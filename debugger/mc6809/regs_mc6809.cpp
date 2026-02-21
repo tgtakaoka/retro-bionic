@@ -1,6 +1,6 @@
 #include "regs_mc6809.h"
 #include "debugger.h"
-#include "pins_mc6809.h"
+#include "pins_mc6809_base.h"
 #include "signals_mc6809.h"
 
 namespace debugger {

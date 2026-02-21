@@ -2,7 +2,6 @@
 #include "debugger.h"
 #include "inst_ins8070.h"
 #include "pins_ins8070.h"
-#include "signals_ins8070.h"
 
 namespace debugger {
 namespace ins8070 {

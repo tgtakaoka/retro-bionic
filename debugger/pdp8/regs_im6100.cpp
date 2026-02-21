@@ -1,8 +1,6 @@
 #include "regs_im6100.h"
 #include "debugger.h"
-#include "inst_pdp8.h"
 #include "pins_im6100.h"
-#include "signals_im6100.h"
 
 namespace debugger {
 namespace im6100 {

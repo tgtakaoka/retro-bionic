@@ -1,7 +1,6 @@
 #include "signals_tms9900_base.h"
 #include "char_buffer.h"
 #include "debugger.h"
-#include "digital_bus.h"
 #include "pins_tms9900_base.h"
 
 namespace debugger {

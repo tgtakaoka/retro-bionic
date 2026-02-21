@@ -1,8 +1,4 @@
 #include "inst_tms7000.h"
-#include <string.h>
-#include "debugger.h"
-#include "mems_tms7000.h"
-#include "regs_tms7000.h"
 
 namespace debugger {
 namespace tms7000 {

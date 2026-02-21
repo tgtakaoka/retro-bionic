@@ -1,8 +1,6 @@
 #include "regs_hd6120.h"
 #include "debugger.h"
-#include "inst_pdp8.h"
 #include "pins_hd6120.h"
-#include "signals_hd6120.h"
 
 namespace debugger {
 namespace hd6120 {

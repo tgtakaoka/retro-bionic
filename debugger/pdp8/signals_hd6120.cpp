@@ -1,5 +1,4 @@
 #include "signals_hd6120.h"
-#include "char_buffer.h"
 #include "debugger.h"
 #include "digital_bus.h"
 #include "pins_hd6120.h"

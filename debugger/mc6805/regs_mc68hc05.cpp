@@ -1,6 +1,5 @@
 #include "regs_mc68hc05.h"
-#include "debugger.h"
-#include "pins_mc68hc05c0.h"
+#include "pins_mc6805.h"
 
 namespace debugger {
 namespace mc68hc05 {

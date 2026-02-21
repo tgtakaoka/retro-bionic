@@ -1,5 +1,4 @@
 #include "inst_z88.h"
-#include "pins_z88.h"
 
 namespace debugger {
 namespace z88 {

@@ -1,7 +1,5 @@
 #include "devs_mc68hc05c0.h"
 #include <string.h>
-#include "debugger.h"
-#include "mc68hc05c0_sci_handler.h"
 
 namespace debugger {
 namespace mc68hc05c0 {

@@ -1,6 +1,4 @@
 #include "inst_mc6800.h"
-#include "debugger.h"
-#include "mems_mc6800.h"
 
 /**
  * from "mc6809/inst_hd6309.awk"

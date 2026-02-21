@@ -1,5 +1,4 @@
 #include "signals_im6100.h"
-#include "char_buffer.h"
 #include "debugger.h"
 #include "digital_bus.h"
 #include "pins_im6100.h"

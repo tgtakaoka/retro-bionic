@@ -2,7 +2,6 @@
 #define __PINS_Z80_BASE_H__
 
 #include "pins.h"
-#include "signals.h"
 
 namespace debugger {
 namespace z80 {

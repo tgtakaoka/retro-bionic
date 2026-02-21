@@ -1,5 +1,4 @@
 #include "inst_hd6301.h"
-#include "mems_mc6801.h"
 
 namespace debugger {
 namespace hd6301 {

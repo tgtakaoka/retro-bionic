@@ -1,7 +1,5 @@
 #include "pins_mc6800_base.h"
 #include "debugger.h"
-#include "devs_mc6800.h"
-#include "inst_mb8861.h"
 #include "inst_mc6800.h"
 #include "mems_mc6800.h"
 #include "regs_mc6800.h"

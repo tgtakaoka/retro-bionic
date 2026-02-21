@@ -1,6 +1,6 @@
 #include "pins_i8080_base.h"
-#include "debugger.h"
 #include "inst_i8080.h"
+#include "mems.h"
 
 namespace debugger {
 namespace i8080 {

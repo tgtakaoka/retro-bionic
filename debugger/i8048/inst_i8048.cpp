@@ -1,8 +1,4 @@
 #include "inst_i8048.h"
-#include <string.h>
-#include "debugger.h"
-#include "mems_i8048.h"
-#include "regs_i8048.h"
 
 namespace debugger {
 namespace i8048 {

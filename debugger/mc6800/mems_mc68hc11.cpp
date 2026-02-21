@@ -1,5 +1,4 @@
 #include "mems_mc68hc11.h"
-#include "debugger.h"
 #include "mc68hc11_init.h"
 #include "regs_mc68hc11.h"
 

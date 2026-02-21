@@ -1,5 +1,4 @@
 #include "devs.h"
-#include <string.h>
 #include "debugger.h"
 #include "device.h"
 

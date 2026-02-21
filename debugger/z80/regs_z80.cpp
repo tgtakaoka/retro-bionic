@@ -1,7 +1,5 @@
 #include "regs_z80.h"
 #include "debugger.h"
-#include "digital_bus.h"
-#include "inst_z80.h"
 #include "mems_z80.h"
 
 namespace debugger {

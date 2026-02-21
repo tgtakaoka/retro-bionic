@@ -58,9 +58,7 @@
 #define PIN_RESET 28 /* P8.18 */
 #define PIN_HALT 30  /* P8.23 */
 
-#include "devs.h"
 #include "inst_mc6809.h"
-#include "mems.h"
 #include "pins.h"
 #include "signals_mc6809.h"
 

@@ -50,7 +50,6 @@
 #define PIN_XTAL 30    /* P8.23 */
 
 #include "pins_mc6800_base.h"
-#include "signals_mc6801.h"
 
 namespace debugger {
 namespace mc6801 {

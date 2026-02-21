@@ -1,8 +1,6 @@
 #include "signals_mc6805.h"
 #include "char_buffer.h"
 #include "debugger.h"
-#include "digital_bus.h"
-#include "pins_mc6805.h"
 
 namespace debugger {
 namespace mc6805 {

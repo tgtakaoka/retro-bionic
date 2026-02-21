@@ -3,7 +3,6 @@
 #include "inst_mos6502.h"
 #include "mems_mos6502.h"
 #include "pins_mos6502.h"
-#include "signals_mos6502.h"
 
 namespace debugger {
 namespace mos6502 {

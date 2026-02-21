@@ -1,7 +1,5 @@
 #include "devs_ins8070.h"
 #include <string.h>
-#include "debugger.h"
-#include "ins8070_sci_handler.h"
 #include "mc6850.h"
 
 namespace debugger {

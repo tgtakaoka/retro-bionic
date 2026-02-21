@@ -1,7 +1,5 @@
 #include "inst_tms3201x.h"
 
-#include "debugger.h"
-
 namespace debugger {
 namespace tms3201x {
 

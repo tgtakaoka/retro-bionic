@@ -1,7 +1,6 @@
 #include "mems_ins8070.h"
 #include <asm_ins8070.h>
 #include <dis_ins8070.h>
-#include "devs_ins8070.h"
 #include "regs_ins8070.h"
 
 namespace debugger {

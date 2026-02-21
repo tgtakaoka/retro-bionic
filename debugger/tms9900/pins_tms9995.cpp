@@ -350,7 +350,7 @@ void PinsTms9995::injectReads(const uint16_t *data, uint_fast8_t len) {
 }
 
 void PinsTms9995::captureWrites(uint16_t *buf, uint_fast8_t len) {
-    uint16_t addr[len];
+    uint16_t addr[8];
     auto s = resumeCycle();
     auto high = true;
     for (uint_fast8_t i = 0; i < len;) {

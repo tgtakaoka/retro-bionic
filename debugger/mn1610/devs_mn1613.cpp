@@ -1,6 +1,5 @@
 #include "devs_mn1613.h"
 #include <string.h>
-#include "debugger.h"
 #include "i8251.h"
 
 namespace debugger {

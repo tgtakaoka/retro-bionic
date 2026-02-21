@@ -1,7 +1,5 @@
 #include "inst_hd6309.h"
 #include <string.h>
-#include "debugger.h"
-#include "mems_mc6809.h"
 
 namespace debugger {
 namespace hd6309 {

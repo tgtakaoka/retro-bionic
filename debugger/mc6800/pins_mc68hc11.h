@@ -37,7 +37,6 @@
 #define PIN_RESET 28     /* P8.18 */
 
 #include "pins_mc6800_base.h"
-#include "signals_mc68hc11.h"
 
 namespace debugger {
 namespace mc68hc11 {

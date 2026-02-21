@@ -2,7 +2,6 @@
 #define __DEVS_MC68HC05C0_H__
 
 #include "devs_mc6805.h"
-#include "serial_handler.h"
 
 namespace debugger {
 namespace mc68hc05c0 {

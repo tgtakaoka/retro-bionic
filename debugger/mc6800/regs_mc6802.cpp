@@ -1,6 +1,6 @@
 #include "regs_mc6802.h"
-#include "mems_mc6802.h"
-#include "pins_mc6802.h"
+#include "pins_mc6800_base.h"
+
 
 namespace debugger {
 namespace mc6802 {

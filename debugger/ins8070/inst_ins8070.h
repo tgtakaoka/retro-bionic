@@ -2,7 +2,6 @@
 #define __INST_INS8070_H__
 
 #include <stdint.h>
-#include "mems.h"
 #include "signals_ins8070.h"
 
 namespace debugger {

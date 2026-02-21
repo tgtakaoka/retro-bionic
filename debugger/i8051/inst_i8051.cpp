@@ -1,8 +1,4 @@
 #include "inst_i8051.h"
-#include <string.h>
-#include "debugger.h"
-#include "mems_i8051.h"
-#include "regs_i8051.h"
 
 namespace debugger {
 namespace i8051 {
@@ -11,10 +7,6 @@ namespace {
 
 constexpr uint8_t E(uint8_t len, uint8_t bus) {
     return (len << 4) | (bus << 0);
-}
-
-constexpr uint8_t inst_len(uint8_t entry) {
-    return (entry >> 4) & 0xF;
 }
 
 constexpr uint8_t bus_cyc(uint8_t entry) {

@@ -2,7 +2,6 @@
 #include "debugger.h"
 #include "digital_bus.h"
 #include "inst_z8.h"
-#include "mems_z8.h"
 #include "regs_z8.h"
 
 namespace debugger {

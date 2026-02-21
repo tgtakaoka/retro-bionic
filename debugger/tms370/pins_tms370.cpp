@@ -1,5 +1,5 @@
 #include "pins_tms370.h"
-#include "debugger.h"
+#include "mems.h"
 #include "inst_tms370.h"
 #include "signals_tms370.h"
 

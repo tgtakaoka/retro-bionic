@@ -1,6 +1,5 @@
 #include "devs_mos6502.h"
 #include <string.h>
-#include "debugger.h"
 #include "mc6850.h"
 
 namespace debugger {

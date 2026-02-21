@@ -1,7 +1,4 @@
 #include "inst_mc68hc08.h"
-#include <string.h>
-#include "debugger.h"
-#include "mems_mc6805.h"
 
 /**
  * from "mc6805/inst_mc68hc08.awk"
