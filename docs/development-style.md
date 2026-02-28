@@ -1683,3 +1683,20 @@ saved IEFF is clear: `RTF` enables interrupts one instruction late, so the
 `IOF` turns them off before any request is taken. To check, halt and resume
 an `IOF`, `SKON`, `JMP .-1` loop: it must never fall through to a `HLT`
 after it. **[hw]**
+
+### CP1600
+
+Draft board for the CP1610 (40-pin DIP); not built yet.
+
+- The CP1610 runs from +11 V VDD and −2.2 V VBB, both ±5 %, not the
+  CP1600's +12 V and −3 V. An NJW4132 boost makes VDD from VCC; an LM2776
+  inverter and a TPS72301 regulator make VBB, and a Schottky diode keeps
+  VBB from rising above GND while the rails come up. **[doc]**
+- A UCC27324 powered from VDD turns the Teensy's PHI1/PHI2 (P46/P47) into
+  the two-phase clock, which must reach 10 V, rise and fall within 15 ns
+  and never overlap. 33 Ω in series with each output damps ringing into
+  the 20-30 pF clock inputs. **[doc]**
+- `#INTR` is open drain with a 10 kΩ pull-up. The Teensy (P50) pulls it
+  low to halt, and a 74LVC1G02 and 74LVC1G06 pull it low while `#PCIT`
+  and `#ENSWI` (P34) are both low, so a `SIN` traps only when the Teensy
+  enables it.

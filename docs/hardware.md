@@ -140,7 +140,7 @@ documentation for how a given CPU is driven. A few examples of what made them ha
 - **P8080** (`schematics/p8080/`) — non-overlapping two-phase 12 V clocks, generated on the
   adapter alongside the +12 V and −5 V rails the part needs.
 - **F3850** (`schematics/f3850/`) — +12 V alongside the 5 V rail.
-- **CP1610** (planned) — +11 V and −3 V rails, and a non-overlapping two-phase +11 V clock.
+- **CP1610** (`schematics/cp1610/`, not yet brought up) — +11 V and −2.2 V rails, and a non-overlapping two-phase +11 V clock.
 - **W65C816S** — a multiplexed address/data bus: in native mode the bank address appears on
   the data bus, colliding with read data, and the turnaround is one of the windows too short
   to drive in software, so it depends on the data bus holders.
