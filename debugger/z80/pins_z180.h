@@ -79,7 +79,7 @@
 namespace debugger {
 namespace z180 {
 
-struct PinsZ180 final : z80::PinsZ80Base {
+struct PinsZ180 : z80::PinsZ80Base {
     PinsZ180();
 
     void resetPins() override;
@@ -90,7 +90,7 @@ struct PinsZ180 final : z80::PinsZ80Base {
     void negateInt(uint8_t name) override;
     void printCycles() override;
 
-private:
+protected:
     Signals *prepareCycle() const;
     Signals *completeCycle(Signals *signals) const;
     Signals *resumeCycle(uint16_t pc) const;
@@ -104,7 +104,7 @@ private:
             uint_fast8_t max) override;
 
     void disassembleCycles();
-    void configureCpu();
+    virtual void configureCpu();
 };
 
 }  // namespace z180
