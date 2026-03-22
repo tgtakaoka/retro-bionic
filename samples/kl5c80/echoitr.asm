@@ -74,7 +74,9 @@ echo_back:
         call    newline
         jr      receive_loop
 halt_to_system:
-        halt
+        ld      HL, ORG_RST38
+        ld      (HL), 0FFH
+        rst     38H
 
 ;;; Print uint8_t in hex
 ;;; @param B uint8_t value to be printed in hex.

@@ -37,8 +37,8 @@ using z80::MemsZ80;
 
 namespace {
 
-constexpr auto extal_hi_ns = 50;
-constexpr auto extal_lo_ns = 50;
+constexpr auto extal_hi_ns = 20;
+constexpr auto extal_lo_ns = 20;
 constexpr auto extal_lo_cntl = 20;
 
 inline void extal_hi() {
@@ -154,20 +154,20 @@ void PinsZ180::resetPins() {
         extal_cycle();
     negate_reset();
     Signals::resetCycles();
-    prepareWait();
+    assert_wait();
     _regs->setIp(InstZ80::ORG_RESET);
     configureCpu();
     _regs->save();
 }
 
 void PinsZ180::configureCpu() {
+    // Set 0-wait for memory and 1-wait for I/O (DCNTL)
     // Disable DRAM refresh (RCR)
-    // Set 0-wait for memory and 2-wait for I/O (DCNTL)
     static constexpr uint8_t CONFIG[] = {
-            0xAF,              // XOR A,A
-            0xED, 0x39, 0x36,  // OUT0 (RCR), A
+            0xAF,              // XOR A
             0xED, 0x39, 0x32,  // OUT0 (DCNTL), A
-            0x18, 0xF7,        // JR $-7
+            0xED, 0x39, 0x36,  // OUT0 (RCR), A
+            0x18, 0xF7         // JR $-7
     };
     execInst(CONFIG, sizeof(CONFIG));
 }
@@ -225,9 +225,8 @@ Signals *PinsZ180::completeCycle(Signals *s) const {
     } else {  // I/O request
         // using lower 8-bit for I/O device addressing.
         const uint16_t ioaddr = s->addr & 0xFF;
-        if (s->read()) {  // I/O read
-            if (_devs->isSelected(ioaddr))
-                s->data = _devs->read(ioaddr);
+        if (s->read() && _devs->isSelected(ioaddr)) {
+            s->data = _devs->read(ioaddr);
             // assert_debug();
             s->outData();
             // negate_debug();
@@ -257,11 +256,6 @@ Signals *PinsZ180::completeCycle(Signals *s) const {
     return s;
 }
 
-Signals *PinsZ180::prepareWait() const {
-    assert_wait();
-    return prepareCycle();
-}
-
 Signals *PinsZ180::resumeCycle(uint16_t pc) const {
     const auto s = Signals::put();
     negate_wait();
@@ -280,7 +274,7 @@ uint16_t PinsZ180::execute(
     uint_fast8_t inj = 0;
     uint_fast8_t cap = 0;
     auto s = Signals::put();
-    while (true) {
+    while (inj < len || cap < max) {
         if (inj < len)
             s->inject(inst[inj]);
         if (cap < max)
@@ -301,13 +295,14 @@ uint16_t PinsZ180::execute(
                     buf[cap++] = s->data;
             }
         }
-        if (inj >= len && cap >= max) {
-            prepareWait();
-            break;
-        }
         delayNanoseconds(extal_lo_ns);
         s = prepareCycle();
     }
+    while (!s->fetch()) {
+        completeCycle(s);
+        s = prepareCycle();
+    }
+    assert_wait();
     return addr;
 }
 
@@ -317,14 +312,33 @@ void PinsZ180::idle() {
     extal_cycle_lo();
 }
 
+bool PinsZ180::isRst38Break(const Signals *org_rst) const {
+    const auto rst38h = org_rst->prev(3);
+    if (rst38h->data == InstZ80::RST38H) {
+        if (org_rst->prev(1)->mwrite() && org_rst->prev(2)->mwrite()) {
+            if (isBreakPoint(rst38h->addr))
+                return true;  // break point
+            if (_mems->read(InstZ80::ORG_RST38H) == InstZ80::RST38H)
+                return true;  // halt to system
+        }
+    }
+    return false;
+}
+
 Signals *PinsZ180::loop() {
     resumeCycle(_regs->nextIp());
     while (true) {
         const auto s = prepareCycle();
-        if (s->fetch() && _mems->read_byte(s->addr) == InstZ80::HALT) {
-            completeCycle(s->inject(InstZ80::JR));
-            inject(InstZ80::JR_HERE);
-            return s;
+        if (s->addr == InstZ80::ORG_RST38H && s->fetch()) {
+            if (isRst38Break(s)) {
+                const auto rst38h = s->prev(3);
+                // restore PC to the break point
+                completeCycle(s->inject(InstZ80::RET));
+                inject(lo(rst38h->addr));
+                inject(hi(rst38h->addr));
+                assert_wait();
+                return rst38h;
+            }
         }
         completeCycle(s);
         _devs->loop();
@@ -338,7 +352,7 @@ void PinsZ180::run() {
     Signals::resetCycles();
     saveBreakInsts();
     auto s = loop();
-    prepareWait();
+    assert_wait();
     Signals::discard(s);
     restoreBreakInsts();
     disassembleCycles();
@@ -355,6 +369,7 @@ Signals *PinsZ180::suspend() {
             inject(InstZ80::RETN);
             inject(s->prev()->data);
             inject(s->prev(2)->data);
+            assert_wait();
             return s->prev(3);
         }
         completeCycle(s);
@@ -369,7 +384,6 @@ bool PinsZ180::rawStep() {
     resumeCycle(pc);
     auto s = suspend();
     Signals::discard(s);
-    prepareWait();
     return true;
 }
 

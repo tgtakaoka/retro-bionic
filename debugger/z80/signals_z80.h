@@ -20,6 +20,7 @@ struct Signals final : SignalsBase<Signals> {
     bool mreq() const;
     bool iorq() const;
     bool read() const;
+    bool mwrite() const;
     bool fetch() const;
     bool intack() const;
     void markRead();

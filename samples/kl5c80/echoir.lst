@@ -112,14 +112,14 @@
           3 :
          80 :                            org     0080H
          80 :                    vector:
-         80 : C4 01                      dw      isr_intr        ; IR0
+         80 : C9 01                      dw      isr_intr        ; IR0
          82 :
         100 :                            org     0100H
         100 :                    init:
         100 : 31 00 10                   ld      SP, stack
         103 : 21 00 20                   ld      HL, rx_queue
         106 : 06 80                      ld      B, rx_queue_size
-        108 : CD 59 01                   call     queue_init
+        108 : CD 5E 01                   call     queue_init
         10B :                    init_usart:
         10B : AF                         xor     A               ; clear A
         10C : D3 41                      out     (USARTC), A
@@ -152,7 +152,7 @@
         139 : 21 00 20                   ld      HL, rx_queue
         13C :                    receive_loop:
         13C : F3                         di                      ; Disable INTR
-        13D : CD 9E 01                   call    queue_remove
+        13D : CD A3 01                   call    queue_remove
         140 : FB                         ei                      ; Enable INTR
         141 : 30 F9                      jr      NC, receive_loop
         143 : 47                         ld      B, A            ; save character
@@ -170,121 +170,123 @@
         154 : 06 0A                      ld      B, 0AH
         156 : 18 EF                      jr      transmit_loop
         158 :                    halt_to_system:
-        158 : 76                         halt
-        159 :
-        159 :                            include "../z80/queue.inc"
-(1)     159 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
-(1)     159 :                    ;;; [queue] queue structure
-(1)     159 : =0                 queue_len:      equ     0       ; queue length
-(1)     159 : =1                 queue_size:     equ     1       ; buffer size
-(1)     159 : =2                 queue_put:      equ     2       ; queue put index
-(1)     159 : =3                 queue_get:      equ     3       ; queue get index
-(1)     159 : =4                 queue_buf:      equ     4       ; buffer start offset
-(1)     159 :
-(1)     159 :                    ;;; [queue] Initialize queue
-(1)     159 :                    ;;; @param HL queue work space pointer
-(1)     159 :                    ;;; @param B queue work space size
-(1)     159 :                    ;;; @clobber B
-(1)     159 :                    queue_init:
-(1)     159 : F5                         push    AF
-(1)     15A : E5                         push    HL
-(1)     15B : 36 00                      ld      (HL), 0         ; queue_len
-(1)     15D : 78                         ld      A, B
-(1)     15E : D6 04                      sub     queue_buf
-(1)     160 : 23                         inc     HL
-(1)     161 : 77                         ld      (HL), A         ; queue_size
-(1)     162 : C6 02                      add     A, 2            ; for queue_put and queue_get
-(1)     164 :                    queue_init_loop:
-(1)     164 : 23                         inc     HL
-(1)     165 : 36 00                      ld      (HL), 0
-(1)     167 : 3D                         dec     A
-(1)     168 : 20 FA                      jr      NZ, queue_init_loop
-(1)     16A : E1                         pop     HL
-(1)     16B : F1                         pop     AF
-(1)     16C : C9                         ret
-(1)     16D :
-(1)     16D :                    ;;; [queue] Add an element to queue
-(1)     16D :                    ;;; @param HL queue work space pointer
-(1)     16D :                    ;;; @param A an element
-(1)     16D :                    ;;; @return F.C 0 if queue is full
-(1)     16D :                    queue_add:
-(1)     16D : D5                         push    DE
-(1)     16E : E5                         push    HL
-(1)     16F : DD E3                      ex      (SP), IX        ; IX points queue structure
-(1)     171 : 57                         ld      D, A            ; save an element
-(1)     172 : DD 7E 00                   ld      A, (IX+queue_len)
-(1)     175 : DD BE 01                   cp      (IX+queue_size)
-(1)     178 : 7A                         ld      A, D               ; restore an element
-(1)     179 : 38 05                      jr      C, queue_add_store ; queue_len < queue_size
-(1)     17B : DD E3                      ex      (SP), IX           ; F.C=1
-(1)     17D : E1                         pop     HL
-(1)     17E : D1                         pop     DE
-(1)     17F : C9                         ret
-(1)     180 :                    queue_add_store:
-(1)     180 : DD 34 00                   inc     (IX+queue_len)
-(1)     183 : 11 04 00                   ld      DE, queue_buf
-(1)     186 : 19                         add     HL, DE
-(1)     187 : DD 5E 02                   ld      E, (IX+queue_put)
-(1)     18A : 19                         add     HL, DE          ; HL=&queue_buf[queue_put]
-(1)     18B : 77                         ld      (HL), A         ; store an element
-(1)     18C : 7B                         ld      A, E
-(1)     18D : 3C                         inc     A               ; queue_put++
-(1)     18E : DD BE 01                   cp      (IX+queue_size)
-(1)     191 : 38 01                      jr      C, queue_add_update ; queue_put < queue_size
-(1)     193 : AF                         xor     A                   ; wrap around
-(1)     194 :                    queue_add_update:
-(1)     194 : DD 77 02                   ld      (IX+queue_put), A
-(1)     197 : 7E                         ld      A, (HL)         ; restore an element
-(1)     198 : DD E3                      ex      (SP), IX
-(1)     19A : E1                         pop     HL
-(1)     19B : D1                         pop     DE
-(1)     19C : 37                         scf                     ; set carry
-(1)     19D : C9                         ret
-(1)     19E :
-(1)     19E :                    ;;; [queue] Remove an element from queue
-(1)     19E :                    ;;; @param HL queue work space pointer
-(1)     19E :                    ;;; @return A an element
-(1)     19E :                    ;;; @return F.C 0 if queue is empty
-(1)     19E :                    queue_remove:
-(1)     19E : 7E                         ld      A, (HL)               ; queue_len
-(1)     19F : B7                         or      A                     ; clear carry
-(1)     1A0 : 20 01                      jr      NZ, queue_remove_elem ; queue_len > 0
+        158 : 21 38 00                   ld      HL, ORG_RST38
+        15B : 36 FF                      ld      (HL), 0FFH
+        15D : FF                         rst     38H
+        15E :
+        15E :                            include "../z80/queue.inc"
+(1)     15E :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)     15E :                    ;;; [queue] queue structure
+(1)     15E : =0                 queue_len:      equ     0       ; queue length
+(1)     15E : =1                 queue_size:     equ     1       ; buffer size
+(1)     15E : =2                 queue_put:      equ     2       ; queue put index
+(1)     15E : =3                 queue_get:      equ     3       ; queue get index
+(1)     15E : =4                 queue_buf:      equ     4       ; buffer start offset
+(1)     15E :
+(1)     15E :                    ;;; [queue] Initialize queue
+(1)     15E :                    ;;; @param HL queue work space pointer
+(1)     15E :                    ;;; @param B queue work space size
+(1)     15E :                    ;;; @clobber B
+(1)     15E :                    queue_init:
+(1)     15E : F5                         push    AF
+(1)     15F : E5                         push    HL
+(1)     160 : 36 00                      ld      (HL), 0         ; queue_len
+(1)     162 : 78                         ld      A, B
+(1)     163 : D6 04                      sub     queue_buf
+(1)     165 : 23                         inc     HL
+(1)     166 : 77                         ld      (HL), A         ; queue_size
+(1)     167 : C6 02                      add     A, 2            ; for queue_put and queue_get
+(1)     169 :                    queue_init_loop:
+(1)     169 : 23                         inc     HL
+(1)     16A : 36 00                      ld      (HL), 0
+(1)     16C : 3D                         dec     A
+(1)     16D : 20 FA                      jr      NZ, queue_init_loop
+(1)     16F : E1                         pop     HL
+(1)     170 : F1                         pop     AF
+(1)     171 : C9                         ret
+(1)     172 :
+(1)     172 :                    ;;; [queue] Add an element to queue
+(1)     172 :                    ;;; @param HL queue work space pointer
+(1)     172 :                    ;;; @param A an element
+(1)     172 :                    ;;; @return F.C 0 if queue is full
+(1)     172 :                    queue_add:
+(1)     172 : D5                         push    DE
+(1)     173 : E5                         push    HL
+(1)     174 : DD E3                      ex      (SP), IX        ; IX points queue structure
+(1)     176 : 57                         ld      D, A            ; save an element
+(1)     177 : DD 7E 00                   ld      A, (IX+queue_len)
+(1)     17A : DD BE 01                   cp      (IX+queue_size)
+(1)     17D : 7A                         ld      A, D               ; restore an element
+(1)     17E : 38 05                      jr      C, queue_add_store ; queue_len < queue_size
+(1)     180 : DD E3                      ex      (SP), IX           ; F.C=1
+(1)     182 : E1                         pop     HL
+(1)     183 : D1                         pop     DE
+(1)     184 : C9                         ret
+(1)     185 :                    queue_add_store:
+(1)     185 : DD 34 00                   inc     (IX+queue_len)
+(1)     188 : 11 04 00                   ld      DE, queue_buf
+(1)     18B : 19                         add     HL, DE
+(1)     18C : DD 5E 02                   ld      E, (IX+queue_put)
+(1)     18F : 19                         add     HL, DE          ; HL=&queue_buf[queue_put]
+(1)     190 : 77                         ld      (HL), A         ; store an element
+(1)     191 : 7B                         ld      A, E
+(1)     192 : 3C                         inc     A               ; queue_put++
+(1)     193 : DD BE 01                   cp      (IX+queue_size)
+(1)     196 : 38 01                      jr      C, queue_add_update ; queue_put < queue_size
+(1)     198 : AF                         xor     A                   ; wrap around
+(1)     199 :                    queue_add_update:
+(1)     199 : DD 77 02                   ld      (IX+queue_put), A
+(1)     19C : 7E                         ld      A, (HL)         ; restore an element
+(1)     19D : DD E3                      ex      (SP), IX
+(1)     19F : E1                         pop     HL
+(1)     1A0 : D1                         pop     DE
+(1)     1A1 : 37                         scf                     ; set carry
 (1)     1A2 : C9                         ret
-(1)     1A3 :                    queue_remove_elem:
-(1)     1A3 : D5                         push    DE
-(1)     1A4 : E5                         push    HL
-(1)     1A5 : DD E3                      ex      (SP), IX        ; IX points queue structure
-(1)     1A7 : DD 35 00                   dec     (IX+queue_len)
-(1)     1AA : 11 04 00                   ld      DE, queue_buf
-(1)     1AD : 19                         add     HL, DE
-(1)     1AE : DD 5E 03                   ld      E, (IX+queue_get)
-(1)     1B1 : 19                         add     HL, DE          ; HL=&queue_buf[queue_get]
-(1)     1B2 : 7B                         ld      A, E
-(1)     1B3 : 3C                         inc     A               ; queue_get++
-(1)     1B4 : DD BE 01                   cp      (IX+queue_size)
-(1)     1B7 : 38 01                      jr      C, queue_remove_update ; queue_get < queue_size
-(1)     1B9 : AF                         xor     A                      ; wrap around
-(1)     1BA :                    queue_remove_update:
-(1)     1BA : DD 77 03                   ld      (IX+queue_get), A
-(1)     1BD : 7E                         ld      A, (HL)         ; read an element
-(1)     1BE : DD E3                      ex      (SP), IX
-(1)     1C0 : E1                         pop     HL
-(1)     1C1 : D1                         pop     DE
-(1)     1C2 : 37                         scf                     ; set carry
-(1)     1C3 : C9                         ret
-        1C4 :
-        1C4 :                    isr_intr:
-        1C4 : F5                         push    AF
-        1C5 : E5                         push    HL
-        1C6 : DB 41                      in      A, (USARTS)
-        1C8 :                    isr_intr_receive:
-        1C8 : CB 4F                      bit     ST_RxRDY_bp, A
-        1CA : 28 08                      jr      Z, isr_intr_recv_end
-        1CC : DB 40                      in      A, (USARTD)
-        1CE : 21 00 20                   ld      HL, rx_queue
-        1D1 : CD 6D 01                   call    queue_add
-        1D4 :                    isr_intr_recv_end:
-        1D4 : E1                         pop     HL
-        1D5 : F1                         pop     AF
-        1D6 : FB                         ei
-        1D7 : ED 4D                      reti
+(1)     1A3 :
+(1)     1A3 :                    ;;; [queue] Remove an element from queue
+(1)     1A3 :                    ;;; @param HL queue work space pointer
+(1)     1A3 :                    ;;; @return A an element
+(1)     1A3 :                    ;;; @return F.C 0 if queue is empty
+(1)     1A3 :                    queue_remove:
+(1)     1A3 : 7E                         ld      A, (HL)               ; queue_len
+(1)     1A4 : B7                         or      A                     ; clear carry
+(1)     1A5 : 20 01                      jr      NZ, queue_remove_elem ; queue_len > 0
+(1)     1A7 : C9                         ret
+(1)     1A8 :                    queue_remove_elem:
+(1)     1A8 : D5                         push    DE
+(1)     1A9 : E5                         push    HL
+(1)     1AA : DD E3                      ex      (SP), IX        ; IX points queue structure
+(1)     1AC : DD 35 00                   dec     (IX+queue_len)
+(1)     1AF : 11 04 00                   ld      DE, queue_buf
+(1)     1B2 : 19                         add     HL, DE
+(1)     1B3 : DD 5E 03                   ld      E, (IX+queue_get)
+(1)     1B6 : 19                         add     HL, DE          ; HL=&queue_buf[queue_get]
+(1)     1B7 : 7B                         ld      A, E
+(1)     1B8 : 3C                         inc     A               ; queue_get++
+(1)     1B9 : DD BE 01                   cp      (IX+queue_size)
+(1)     1BC : 38 01                      jr      C, queue_remove_update ; queue_get < queue_size
+(1)     1BE : AF                         xor     A                      ; wrap around
+(1)     1BF :                    queue_remove_update:
+(1)     1BF : DD 77 03                   ld      (IX+queue_get), A
+(1)     1C2 : 7E                         ld      A, (HL)         ; read an element
+(1)     1C3 : DD E3                      ex      (SP), IX
+(1)     1C5 : E1                         pop     HL
+(1)     1C6 : D1                         pop     DE
+(1)     1C7 : 37                         scf                     ; set carry
+(1)     1C8 : C9                         ret
+        1C9 :
+        1C9 :                    isr_intr:
+        1C9 : F5                         push    AF
+        1CA : E5                         push    HL
+        1CB : DB 41                      in      A, (USARTS)
+        1CD :                    isr_intr_receive:
+        1CD : CB 4F                      bit     ST_RxRDY_bp, A
+        1CF : 28 08                      jr      Z, isr_intr_recv_end
+        1D1 : DB 40                      in      A, (USARTD)
+        1D3 : 21 00 20                   ld      HL, rx_queue
+        1D6 : CD 72 01                   call    queue_add
+        1D9 :                    isr_intr_recv_end:
+        1D9 : E1                         pop     HL
+        1DA : F1                         pop     AF
+        1DB : FB                         ei
+        1DC : ED 4D                      reti

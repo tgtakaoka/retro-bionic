@@ -65,15 +65,16 @@ transmit_data:
         ld      B, 0AH
         jr      transmit_loop
 halt_to_system:
-        halt
+        ld      HL, ORG_RST38
+        ld      (HL), 0FFH
+        rst     38h
 
         include "queue.inc"
 
 isr_intr:
         push    AF
         push    HL
-        in      A, (USARTS)
-isr_intr_receive:
+        in      A, (USARTS)isr_intr_receive:
         bit     ST_RxRDY_bp, A
         jr      Z, isr_intr_recv_end
         in      A, (USARTD)

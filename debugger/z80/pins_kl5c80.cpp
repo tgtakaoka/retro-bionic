@@ -309,14 +309,33 @@ void PinsKl5c80::idle() {
     xin_cycle_lo();
 }
 
+bool PinsKl5c80::isRst38Break(const Signals *org_rst) const {
+    const auto rst38h = org_rst->prev(3);
+    if (rst38h->data == InstZ80::RST38H) {
+        if (org_rst->prev(1)->mwr() && org_rst->prev(2)->mwr()) {
+            if (isBreakPoint(rst38h->addr))
+                return true;  // break point
+            if (_mems->read(InstZ80::ORG_RST38H) == InstZ80::RST38H)
+                return true;  // halt to system
+        }
+    }
+    return false;
+}
+
 Signals *PinsKl5c80::loop() {
     resumeCycle(_regs->nextIp());
     while (true) {
         const auto s = prepareCycle();
-        if (s->fetch() && _mems->read_byte(s->addr) == InstZ80::HALT) {
-            completeCycle(s->inject(InstZ80::JR));
-            inject(InstZ80::JR_HERE);
-            return s;
+        if (s->addr == InstZ80::ORG_RST38H && s->fetch()) {
+            if (isRst38Break(s)) {
+                const auto rst38h = s->prev(3);
+                // restore PC to the break point
+                completeCycle(s->inject(InstZ80::RET));
+                inject(lo(rst38h->addr));
+                inject(hi(rst38h->addr));
+                prepareWait();
+                return rst38h;
+            }
         }
         completeCycle(s);
         _devs->loop();

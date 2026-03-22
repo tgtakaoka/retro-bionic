@@ -18,6 +18,7 @@ struct Signals final : SignalsBase<Signals> {
     bool read() const;
     bool write() const;
     bool mreq() const { return iom() == 0; }
+    bool mwrite() const { return mreq() && write(); }
     bool fetch() const;
     bool intack() const;
 

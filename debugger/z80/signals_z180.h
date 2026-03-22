@@ -22,6 +22,7 @@ struct Signals final : SignalsBase<Signals> {
     bool nobus() const;
     bool read() const;
     bool write() const;
+    bool mwrite() const { return mreq() && write(); }
     bool intack() const;
 
 private:

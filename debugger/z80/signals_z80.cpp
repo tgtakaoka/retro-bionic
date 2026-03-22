@@ -32,7 +32,13 @@ bool Signals::iorq() const {
 }
 
 bool Signals::read() const {
+    // #WR is assered later than #RD
     return (cntl() & CNTL_RD) == 0;
+}
+
+bool Signals::mwrite() const {
+    // #WR is assered later than #RD
+    return (cntl() & (CNTL_RD | CNTL_MREQ)) == CNTL_RD;
 }
 
 bool Signals::fetch() const {
@@ -61,6 +67,8 @@ void Signals::inputMode() const {
 }
 
 void Signals::print() const {
+    // cli.printDec(pos(), -4);
+    // cli.print(' ');
     //                              01234567890123
     static constexpr char line[] = "R A=xxxx D=xx";
     static auto &buffer = *new CharBuffer(line);

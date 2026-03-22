@@ -29,7 +29,7 @@ uint16_t PinsZ80Base::captureWrites(
 }
 
 void PinsZ80Base::setBreakInst(uint32_t addr) const {
-    _mems->put_prog(addr, InstZ80::HALT);
+    _mems->put_prog(addr, InstZ80::RST38H);
 }
 
 }  // namespace z80

@@ -49,4 +49,6 @@ transmit_data:
         ld      B, 0AH
         jr      transmit_loop
 halt_to_system:
-        halt
+        ld      HL, ORG_RST38
+        ld      (HL), 0FFH
+        rst     38h

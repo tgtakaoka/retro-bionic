@@ -194,7 +194,11 @@ print_char:
         jr      NC, next_x
         or      A
         jr      NZ, next_x
-        halt                    ; halt to system
+halt_to_system:
+        ld      HL, ORG_RST38
+        ld      (HL), 0FFH
+        rst     38H
+
 next_x:
         ld      HL, vX
         inc     (HL)            ; X+=1
@@ -235,4 +239,3 @@ vT:     ds      2
 vY:     ds      1
 vX:     ds      1
 vI:     ds      1
-

@@ -27,7 +27,10 @@ init_usart:
         out     (USARTC), A
 
         call    arith
-        halt
+halt_to_system:
+        ld      HL, ORG_RST38
+        ld      (HL), 0FFH
+        rst     38H
 
 putchar:
         push    AF

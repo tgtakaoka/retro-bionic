@@ -93,6 +93,7 @@ private:
     Signals *resumeCycle(uint16_t pc) const;
 
     Signals *inject(uint8_t data) const;
+    bool isRst38Break(const Signals *org_rst) const;
     void loop();
     void suspend();
     bool rawStep();

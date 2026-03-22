@@ -336,15 +336,34 @@ void PinsNsc800::idle() {
     xin_cycle_lo();
 }
 
+bool PinsNsc800::isRst38Break(const Signals *org_rst) const {
+    const auto rst38h = org_rst->prev(3);
+    if (rst38h->data == InstZ80::RST38H) {
+        if (org_rst->prev(1)->mwrite() && org_rst->prev(2)->mwrite()) {
+            if (isBreakPoint(rst38h->addr))
+                return true;  // break point
+            if (_mems->read(InstZ80::ORG_RST38H) == InstZ80::RST38H)
+                return true;  // halt to system
+        }
+    }
+    return false;
+}
+
 void PinsNsc800::loop() {
     resumeCycle(_regs->nextIp());
     while (true) {
         const auto s = prepareCycle();
-        if (s->fetch() && _mems->read_byte(s->addr) == InstZ80::HALT) {
-            completeCycle(s->inject(InstZ80::JR));
-            inject(InstZ80::JR_HERE);
-            prepareWait();
-            return;
+        if (s->addr == InstZ80::ORG_RST38H && s->fetch()) {
+            if (isRst38Break(s)) {
+                const auto rst38h = s->prev(3);
+                // restore PC to the break point
+                completeCycle(s->inject(InstZ80::RET));
+                inject(lo(rst38h->addr));
+                inject(hi(rst38h->addr));
+                Signals::discard(rst38h);
+                prepareWait();
+                return;
+            }
         }
         completeCycle(s);
         _devs->loop();

@@ -93,10 +93,10 @@ struct PinsZ180 final : z80::PinsZ80Base {
 private:
     Signals *prepareCycle() const;
     Signals *completeCycle(Signals *signals) const;
-    Signals *prepareWait() const;
     Signals *resumeCycle(uint16_t pc) const;
 
     Signals *inject(uint8_t data) const;
+    bool isRst38Break(const Signals *org_rst) const;
     Signals *loop();
     Signals *suspend();
     bool rawStep();
