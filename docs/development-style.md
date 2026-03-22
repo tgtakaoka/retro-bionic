@@ -62,16 +62,127 @@ The same applies to an injected interrupt handler: the vector is fetched, the
 pipeline flush discards it, and the CPU fetches it again. Serve the vector for
 as long as the CPU asks for it. **[hw]**
 
-### `Cycles::reset()` and the parked transaction **[code]**
+### Resume from an explicit origin, never from the ring **[code]**
 
-Targets park the CPU by leaving a transaction incomplete and recording it in the
-ring head; `resumeCycle()` reads that slot back to finish it. `Cycles::reset()`
-used to clear the head slot, destroying the parked transaction's address — every
-resumed transaction then reported address zero, which in turn set an injection
-origin of zero and corrupted everything downstream.
+A CPU parked mid-transaction under `#WAIT` has to be resumed at the address it
+was parked at. That address cannot be re-read from the pins — parked in T2, AD
+carries data, which is why `prepareCycle()` samples it inside the `#AS` window —
+and it cannot live in the ring either: `Cycles::reset()` and `Cycles::discard()`
+both clear the head slot, and a dump or an exit is exactly when they run. An
+early Z280 resumed from the ring, and every reset of it resumed at address zero,
+set an injection origin of zero and corrupted everything downstream; wrapping
+the two calls to copy the slot out and back was the next mistake.
 
-`Cycles::reset()` now carries the parked slot over instead of clearing it. Watch
-for this whenever a target resets the ring between `restore()` and stepping.
+The i8080/i8085 shape is the right one: `resumeCycle(addr)` takes the address,
+the caller keeps it, and `_regs->nextIp()` is where the CPU is parked between
+operations. On the Z280 every injected sequence threads an `org` through
+`execute()`: it resumes at `org`, keys its window on it, and hands back where it
+parked — the exit it was told, or wherever the guard ran out. Sequences chain by
+handing the same variable along.
+
+**The origin is a bus address, and the PC is not.** The Z280's saved PC is 16
+bits of logical address; the bus shows 24 bits of physical address, the MMU's
+page being 4K: the low 12 bits are the PC's own, the upper 12 are the page
+frame. So `RegsZ280` keeps the frame beside the PC (`park(pc, addr)`: the popped
+or pushed PC, and the address the bus showed for its fetch), `nextIp()` puts the
+two back together, and `physical(logical)` translates any other address on that
+page the same way — a one-page MMU emulation. Off the page the frame is unknown
+and identity is what a disabled MMU does. Exits given to `execute()` are
+physical for the same reason: `execInst(JP_PC, ..., org, physical(pc))`. **[hw]**
+
+**Capture the frame on a memory read.** `prepareCycle()` returns whatever the
+CPU is stopped in, and right after reset, or after the `RETN` that ends a step,
+that can be a refresh — whose address is the refresh counter's, not the PC's.
+Taking it as the origin parks the debugger at a nonsense address; `skipToRead()`
+clocks past anything that is not a memory read before the address is kept. **[hw]**
+
+**A captured sequence ends with a jump.** The prefetch reaches the address past
+the window before the last `PUSH` or `LD (HL),A` has written, so "the read at the
+exit, once every write is captured" never happens on the straight-line stream:
+the CPU runs on into whatever memory holds. A trailing `JR $+2` is taken,
+flushes the pipeline, and fetches the exit again — after the writes. The old
+firmware hid the miss by re-latching its origin from the first read of the next
+sequence, wherever the CPU had wandered to; the 128 cycles of garbage in between
+were what made IX, IY, I and USP drift from step to step. **[hw]**
+
+**Dump before you save.** A run's cycle dump must not include the debugger's
+own bus activity: the `RET`/`JP` that unwind a `RST 38H` break, the `#NMI`
+push, vector fetch and injected `RETN` of a halt-switch stop, and every
+injected read and captured write of `_regs->save()`. `step()` gets this right by
+printing before it saves. Z280's `run()` used to save inside each `loop()` exit
+and dump afterwards, so `G` printed a tail of `i`/`c` cycles that `S` never
+showed. Now each exit `Cycles::discard()`s what it injected, `loop()` returns
+whether the registers can be saved at all (a failed `suspend()` cannot, and a
+`HALT` has no boundary to inject at), and `run()` dumps first and saves last —
+the Z80's order. **[code]**
+
+**The ring holds one fewer cycle than it has slots.** The head slot is the
+transaction in progress. `Cycles::next()` used to let the count reach
+`MAX_CYCLES` before moving the tail, so a dump of exactly that many cycles had
+tail and head on the same slot and printed nothing — a verbose Z280 step landed
+on it. **[code]**
+
+### The halt port is polled only from `yield()` **[code]**
+
+The Teensy core services the halt port (`serialEventUSB1()`, which sets the
+halt flag) only from `yield()`, and a run reaches `yield()` only through
+console I/O -- `Console.available()` in the USART device loop, which itself
+runs only once the program has enabled the receiver. A program that never
+touched the console could not be halted at all: the run loop served it
+forever and the CLI never came back, which looked exactly like a wedged board.
+`Pins::haltSwitch()` now calls `yield()` itself. Found with `samples/z280/mmu`,
+the first sample with no USART setup. **[hw]**
+
+### MMU and user mode: what the debugger needs from the page map **[hw]**
+
+`samples/z280/mmu_echoir.asm` runs its echo loop in user mode with user page
+0 mapped to physical 0A5000H and every other user page invalid; the USART
+setup, the receive interrupt handler and putchar/getchar run in system mode,
+reached by `SC` traps through the vector table at 2000H (interrupt mode 3,
+`RETIL`). What it relies on, and what the debugger cannot do yet:
+
+- The system stack, the vectors (0038H, 0066H, the table) and the page the
+  debugger calls into (`CALL 8000H`, page 8) must be valid system pages, and
+  page 8 must map to itself: an exit off the parked page is translated by
+  identity (`RegsZ280::physical()`), because only the parked page's frame is
+  known.
+- Breakpoints and the `RST 38H` exit convention are recognised by reading
+  memory at the *logical* PC, so they work only in pages mapped to themselves;
+  a user-mode program exits through a system call that breaks in system mode.
+- Interrupt mode 3 is required for a user-mode program with interrupts: in
+  modes 0-2 an interrupt clears U/S and "the previous condition of the MSR is
+  not saved" (6.2.1), so `RETI` cannot return to user mode.
+- **Interrupt mode 3 and user mode.** A mode 3 NMI shows on the bus as an
+  acknowledge cycle, then `W(PC) W(MSR) W(identifier)` on the system stack,
+  two reads from the vector table, and the handler fetch. `suspend()` parks
+  *there*, in system mode, so the debugger's privileged sequences run from
+  the handler's address whatever mode the program was in; `save()` takes PC
+  and MSR from the frame, and `restore()` writes them back and returns with
+  `LD SP,msr_slot; RETIL`. The handler itself never executes; its table
+  entry must supply an MSR that disables interrupts, and the system map is
+  assumed to be identity. **[hw]**
+- **The MSR and the I/O Page register are registers like any other**: the
+  third dump line shows `USP=` under `SP=`, then `MSR=` and `IOP=`, and
+  `=MSR` / `=IOP` set them. At the program's own fetch they are read with
+  `LDCTL HL,(C)` (C=00H, 08H) and written back the same way; the MSR goes
+  last, just before the jump, since it takes effect at once. Inside the mode
+  3 NMI service the MSR is the frame's word and RETIL restores it.
+- **A sequence exits at the prefetch past its end**, before its last
+  instruction has run. Anything the host does next that the tail depends on
+  -- writing the scratch word a pending `POP AF` will read, writing the NMI
+  frame before `RETIL` -- must wait for it: end such a sequence with `JR $+2`,
+  whose taken jump re-fetches the exit after the tail executed. The
+  captured sequences need it for their last write, `restoreRegs` for its
+  pop. **[hw]**
+- Code at a 24-bit physical address is assembled with a 24-bit `org`; the
+  assembler emits extended-linear HEX records, which the loader honours and
+  forgets again when the upload ends.
+
+Two things that cost an afternoon: `ld HL, (IVT>>12)<<4` assembles as an
+*indirect* load -- a leading parenthesis is an address, whatever follows it --
+so the pointer was garbage; and writing 0 to the emulated USART's vector
+register disables its interrupt, even though in mode 3 the byte is only the
+identifier pushed. **[hw]**
 
 ### Keep bus-keepalive cycles out of the ring **[code]**
 
