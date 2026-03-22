@@ -1,6 +1,6 @@
 ;;; -*- mode: asm; mode: flyspell-prog; -*-
         include "z180.inc"
-        include "../z80/usart.inc"
+        include "usart.inc"
 
         org     1000H
 stack:  equ     $
@@ -11,20 +11,21 @@ stack:  equ     $
         org     0100H
 init_usart:
         ld      sp, stack
+        ld      BC, USARTC
         xor     A               ; clear A
-        out     (USARTC), A
-        out     (USARTC), A
-        out     (USARTC), A          ; safest way to sync mode
+        out     (C), A          ; (USARTC)
+        out     (C), A          ; (USARTC)
+        out     (C), A          ; safest way to sync mode
         ld      A, CMD_IR_bm
-        out     (USARTC), A          ; reset
+        out     (C), A          ; reset
         nop
         nop
         ld      A, ASYNC_MODE
-        out     (USARTC), A
+        out     (C), A
         nop
         nop
         ld      A, RX_EN_TX_EN
-        out     (USARTC), A
+        out     (C), A
 
         call    arith
 halt_to_system:
@@ -33,13 +34,17 @@ halt_to_system:
         rst     38H
 
 putchar:
+        push    BC
+        ld      BC, USARTS
         push    AF
 putchar_loop:
-        in      A, (USARTS)
+        in      A, (C)          ; (USARTS)
         bit     ST_TxRDY_bp, A
         jr      Z, putchar_loop
         pop     AF
-        out     (USARTD), A
+        ld      BC, USARTD
+        out     (C), A          ; (USARTD)
+        pop     BC
         ret
 
 newline:

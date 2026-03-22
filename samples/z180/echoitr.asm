@@ -9,13 +9,7 @@ tx_queue_size:  equ     128
 tx_queue:       ds      tx_queue_size
 
         org     1000H
-stack:          equ     $
-
-vec_base:       equ     $
-        org     vec_base+12H
-vec_rx: dw      isr_intr_rx
-        org     vec_base+8AH
-vec_tx: dw      isr_intr_tx
+stack:  equ     $
 
         org     ORG_RESET
         jp      init
@@ -36,8 +30,8 @@ init:
         ld      B, tx_queue_size
         call    queue_init
 init_usart:
+        xor     a               ; clear A
         ld      BC, USARTC
-        xor     A               ; clear A
         out     (C), A          ; (USARTC)
         out     (C), A          ; (USARTC)
         out     (C), A          ; safest way to sync mode
@@ -51,7 +45,6 @@ init_usart:
         nop
         ld      A, RX_EN_TX_DIS
         out     (C), A
-
         db      3EH             ; LD A, n
         rst     28H
         ld      BC, USARTRV
@@ -60,24 +53,80 @@ init_usart:
         rst     30H
         ld      BC, USARTTV
         out     (C), A          ; set TxRDY interrupt vector RST 30H
+
         im      0
-
-        ;; ld      A, HIGH vec_base
-        ;; ld      I, A
-        ;; ld      A, LOW vec_rx
-        ;; ld      BC, USARTRV
-        ;; out     (C), A       ; set RxRDY interrupt vec_rx
-        ;; ld      A, LOW vec_tx
-        ;; ld      BC, USARTTV
-        ;; out     (C), A       ; set TxRDY interrupt vec_tx
-        ;; im      2
-
         ei
 
-loop:
-        call    mandelbrot
+receive_loop:
+        call    getchar
+        jr      NC, receive_loop
+        or      A
+        jr      Z, halt_to_system
+echo_back:
+        ld      B, A
+        call    putchar         ; echo
+        ld      A, ' '          ; space
+        call    putchar
+        call    put_hex8        ; print in hex
+        ld      A, ' '          ; space
+        call    putchar
+        call    put_bin8        ; print in binary
         call    newline
-        jr      loop
+        jr      receive_loop
+halt_to_system:
+        ld      HL, ORG_RST38
+        ld      (HL), 0FFH
+        rst     38h
+
+;;; Print uint8_t in hex
+;;; @param B uint8_t value to be printed in hex.
+;;; @clobber A
+put_hex8:
+        ld      A, '0'
+        call    putchar
+        ld      A, 'x'
+        call    putchar
+        ld      A, b
+        srl     A
+        srl     A
+        srl     A
+        srl     A
+        call    put_hex4
+        ld      A, B
+put_hex4:
+        and     0FH
+        add     A, 90H
+        daa
+        adc     A, 40H
+        daa
+        jr      putchar
+
+;;; Print uint8_t in binary
+;;; @param B uint8_t value to be printed in binary.
+;;; @clobber A
+put_bin8:
+        push    BC
+        ld      A, '0'
+        call    putchar
+        ld      A, 'b'
+        call    putchar
+        ld      A, B
+        call    put_bin4
+        call    put_bin4
+        pop     BC
+        ret
+put_bin4:
+        call    put_bin2
+put_bin2:
+        call    put_bin1
+put_bin1:
+        ld      A, B
+        sla     A               ; F.C=MSB
+        ld      B, A
+        ld      A, '0'
+        jr      NC, putchar     ; F.0=1
+        inc     A               ; F.C=1
+        jr      putchar
 
 ;;; Get character
 ;;; @return A
@@ -110,28 +159,20 @@ putchar_retry:
         ei
         jr      NC, putchar_retry ; branch if queue is full
         pop     HL
+        ld      A, RX_EN_TX_EN  ; enable Tx
         push    BC
-        ld      a, RX_EN_TX_EN  ; enable Tx
         ld      BC, USARTC
-        out     (C), A          ; (USARTC)
+        out     (C), A
         pop     BC
-putchar_exit:
         pop     AF
         ret
 
-;;; Put newline
-;;; @clobber A
-putspace:
-        ld      A, ' '
-        jr      putchar
-
-        include "../z80/mandelbrot.inc"
-        include "arith.inc"
         include "../z80/queue.inc"
 
 isr_intr_rx:
         push    AF
         push    BC
+isr_intr_receive:
         ld      BC, USARTS
         in      A, (C)          ; (USARTS)
         bit     ST_RxRDY_bp, A
@@ -159,7 +200,7 @@ isr_intr_tx:
         ld      HL, tx_queue
         call    queue_remove
         pop     HL
-        jr      NC,isr_intr_send_empty
+        jr      NC, isr_intr_send_empty
         ld      BC, USARTD
         out     (C), A          ; send character
 isr_intr_tx_exit:
@@ -168,8 +209,8 @@ isr_intr_tx_exit:
         ei
         reti
 isr_intr_send_empty:
-        ld      a, RX_EN_TX_DIS
-        ld      BC, USARTC
+        ld      A, RX_EN_TX_DIS
+        ld      bc, USARTC
         out     (C), A          ; disable Tx
         pop     BC
         pop     AF

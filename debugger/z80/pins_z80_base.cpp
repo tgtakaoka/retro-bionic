@@ -1,5 +1,5 @@
 #include "pins_z80_base.h"
-#include "devs_z80.h"
+#include "devs.h"
 #include "inst_z80.h"
 #include "mems_z80.h"
 #include "regs_z80.h"
@@ -7,15 +7,9 @@
 namespace debugger {
 namespace z80 {
 
-PinsZ80Base::PinsZ80Base() {
-    /* _regs must be initialzed in extended class */
-    _devs = new DevsZ80();
-    _mems = new MemsZ80();
-}
-
 PinsZ80Base::~PinsZ80Base() {
-    delete _regs;
     delete _devs;
+    delete _regs;
     delete _mems;
 }
 

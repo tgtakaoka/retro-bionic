@@ -1,5 +1,6 @@
 #include "pins_z80.h"
 #include "debugger.h"
+#include "devs_z80.h"
 #include "inst_z80.h"
 #include "mems_z80.h"
 #include "regs_z80.h"
@@ -206,7 +207,9 @@ inline void clk_cycle() {
 }  // namespace
 
 PinsZ80::PinsZ80() : PinsZ80Base() {
+    _devs = new DevsZ80();
     _regs = new RegsZ80(this);
+    _mems = new MemsZ80();
 }
 
 void PinsZ80::resetPins() {

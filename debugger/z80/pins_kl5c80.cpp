@@ -1,5 +1,6 @@
 #include "pins_kl5c80.h"
 #include "debugger.h"
+#include "devs_z80.h"
 #include "inst_z80.h"
 #include "mems_z80.h"
 #include "regs_z80.h"
@@ -8,8 +9,10 @@
 namespace debugger {
 namespace kl5c80 {
 
+using z80::DevsZ80;
 using z80::InstZ80;
 using z80::MemsZ80;
+using z80::RegsZ80;
 
 // clang-format off
 /**
@@ -138,7 +141,9 @@ inline void xin_cycle() {
 }  // namespace
 
 PinsKl5c80::PinsKl5c80() : PinsZ80Base() {
-    _regs = new z80::RegsZ80(this);
+    _devs = new DevsZ80();
+    _regs = new RegsZ80(this);
+    _mems = new MemsZ80();
     mems<MemsZ80>()->setMaxAddr(0x7FFFF);  // 512kB
 }
 

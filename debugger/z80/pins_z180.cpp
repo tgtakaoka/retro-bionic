@@ -1,13 +1,17 @@
 #include "pins_z180.h"
 #include "debugger.h"
+#include "devs_z80.h"
 #include "inst_z80.h"
 #include "mems_z80.h"
 #include "regs_z180.h"
 #include "signals_z180.h"
 
+#define USART_Z180 0x0140
+
 namespace debugger {
 namespace z180 {
 
+using z80::DevsZ80;
 using z80::InstZ80;
 using z80::MemsZ80;
 
@@ -138,7 +142,9 @@ inline void extal_cycle() {
 }  // namespace
 
 PinsZ180::PinsZ180() : PinsZ80Base() {
+    _devs = new DevsZ80(USART_Z180);
     _regs = new RegsZ180(this);
+    _mems = new MemsZ80();
     mems<MemsZ80>()->setMaxAddr(0xFFFFF);  // 1MB
 }
 
@@ -223,10 +229,9 @@ Signals *PinsZ180::completeCycle(Signals *s) const {
             }
         }
     } else {  // I/O request
-        // using lower 8-bit for I/O device addressing.
-        const uint16_t ioaddr = s->addr & 0xFF;
-        if (s->read() && _devs->isSelected(ioaddr)) {
-            s->data = _devs->read(ioaddr);
+        // using 16-bit for I/O device addressing.
+        if (s->read() && _devs->isSelected(s->addr)) {
+            s->data = _devs->read(s->addr);
             // assert_debug();
             s->outData();
             // negate_debug();
@@ -234,8 +239,8 @@ Signals *PinsZ180::completeCycle(Signals *s) const {
             // assert_debug();
             s->getData();
             // negate_debug();
-            if (_devs->isSelected(ioaddr))
-                _devs->write(ioaddr, s->data);
+            if (_devs->isSelected(s->addr))
+                _devs->write(s->addr, s->data);
         } else if (s->intack()) {
             s->data = _devs->vector();
             // assert_debug();

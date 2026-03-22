@@ -90,7 +90,7 @@ struct PinsZ180 final : z80::PinsZ80Base {
     void negateInt(uint8_t name) override;
     void printCycles() override;
 
-private:
+protected:
     Signals *prepareCycle() const;
     Signals *completeCycle(Signals *signals) const;
     Signals *resumeCycle(uint16_t pc) const;

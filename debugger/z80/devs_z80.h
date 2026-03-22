@@ -9,7 +9,7 @@ namespace debugger {
 namespace z80 {
 
 struct DevsZ80 final : Devs {
-    DevsZ80();
+    DevsZ80(uint16_t addr = USART_BASE);
     ~DevsZ80();
 
     void begin() override;
@@ -25,6 +25,7 @@ struct DevsZ80 final : Devs {
     void printDevices() const override;
 
 private:
+    const uint16_t _addr;
     Device *_usart;
 };
 
