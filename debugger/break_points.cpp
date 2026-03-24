@@ -34,7 +34,7 @@ void BreakPoints::setTemp(uint32_t addr) {
 bool BreakPoints::clear(uint_fast8_t index) {
     if (index > _num)
         return false;
-    for (auto i = index; i <= _num; ++i) {
+    for (auto i = index; i < _num; ++i) {
         _points[i] = _points[i + 1];
     }
     --_num;
