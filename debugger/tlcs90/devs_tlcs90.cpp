@@ -1,5 +1,5 @@
 #include "devs_tlcs90.h"
-#include <string.h>
+#include <strings.h>
 #include "i8251.h"
 #include "tlcs90_uart_handler.h"
 

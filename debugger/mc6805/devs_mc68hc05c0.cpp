@@ -1,5 +1,5 @@
 #include "devs_mc68hc05c0.h"
-#include <string.h>
+#include <strings.h>
 
 namespace debugger {
 namespace mc68hc05c0 {

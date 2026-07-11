@@ -1,5 +1,5 @@
 #include "devs_f3850.h"
-#include <string.h>
+#include <strings.h>
 #include "i8251.h"
 
 namespace debugger {

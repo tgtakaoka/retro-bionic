@@ -1,6 +1,6 @@
 #include "inst_i8096.h"
 #include <ctype.h>
-#include <string.h>
+#include <strings.h>
 #include "debugger.h"
 #include "mems_i8096.h"
 

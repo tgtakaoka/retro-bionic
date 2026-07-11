@@ -1,5 +1,5 @@
 #include "devs_mc68hc11.h"
-#include <string.h>
+#include <strings.h>
 #include "mc6850.h"
 #include "mc68hc11_init.h"
 #include "mc68hc11_sci_handler.h"

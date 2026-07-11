@@ -1,6 +1,6 @@
 #include "identity.h"
 
-#include <string.h>
+#include <strings.h>
 #include "config_debugger.h"
 #include "debugger.h"
 #include "pins.h"

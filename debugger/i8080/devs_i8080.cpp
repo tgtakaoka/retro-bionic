@@ -1,5 +1,5 @@
 #include "devs_i8080.h"
-#include <string.h>
+#include <strings.h>
 #include "i8251.h"
 
 namespace debugger {

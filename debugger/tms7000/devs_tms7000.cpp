@@ -1,5 +1,5 @@
 #include "devs_tms7000.h"
-#include <string.h>
+#include <strings.h>
 #include "mc6850.h"
 #include "pins_tms7000.h"
 
