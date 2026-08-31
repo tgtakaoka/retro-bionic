@@ -9,7 +9,8 @@ void Signals::print() const {
     // cli.printDec(pos(), -4);
     //                              0123456789012
     static constexpr char line[] = "W A=xxxx D=xx";
-    static auto &buffer = *new CharBuffer(line);
+    auto &buffer = Cycles::buffer();
+    buffer.set(line);
     buffer[0] = fetch() ? 'L' : (write() ? 'W' : (read() ? 'R': ' '));
     buffer.hex16(4, addr);
     buffer.hex8(11, data);

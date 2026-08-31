@@ -50,7 +50,8 @@ void Signals::markIoWrite(uint8_t a) {
 void Signals::print() const {
     //                              012345678901234567
     static constexpr char line[] = "R C=xx D=xx A=xxxx";
-    static auto &buffer = *new CharBuffer(line);
+    auto &buffer = Cycles::buffer();
+    buffer.set(line);
     buffer.hex8(4, romc());
     buffer.hex8(9, data);
     if (flags() & (READ | WRITE)) {

@@ -63,7 +63,8 @@ Signals::State Signals::sc() const {
 void Signals::print() const {
     //                              012345678901234567
     static constexpr char line[] = "LW A=xxxx D=xx N=x";
-    static auto &buffer = *new CharBuffer(line);
+    auto &buffer = Cycles::buffer();
+    buffer.set(line);
     static constexpr char SC[] = {'F', ' ', 'D', 'I'};
     buffer[0] = SC[sc()];
     buffer[1] = read() ? 'R' : (write() ? 'W' : '-');

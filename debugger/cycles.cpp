@@ -2,10 +2,22 @@
 
 namespace debugger {
 
+Cycles *Cycles::_current = nullptr;
+
 uint_fast8_t Cycles::_put = 0;
 uint_fast8_t Cycles::_get = 0;
 uint_fast8_t Cycles::_cycles = 0;
 SignalsImpl Cycles::_ring[MAX_CYCLES];
+
+Cycles::Cycles() {
+    _current = this;
+    reset();
+}
+
+Cycles::~Cycles() {
+    if (_current == this)
+        _current = nullptr;
+}
 
 SignalsImpl *Cycles::head() {
     return &_ring[_put];

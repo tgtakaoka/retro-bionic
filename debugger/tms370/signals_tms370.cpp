@@ -36,7 +36,8 @@ void Signals::print() const {
     // cli.print(' ');
     //                              0123456789012
     static constexpr char line[] = "R A=xxxx D=xx";
-    static auto &buffer = *new CharBuffer(line);
+    auto &buffer = Cycles::buffer();
+    buffer.set(line);
     if (fetch()) {
         buffer[0] = 'F';
     } else if (read()) {

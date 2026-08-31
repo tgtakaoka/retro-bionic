@@ -3,6 +3,8 @@
 
 #include <stdint.h>
 
+#include "cycles.h"
+
 namespace debugger {
 
 struct Regs;
@@ -38,6 +40,8 @@ protected:
     Regs *_regs;
     Mems *_mems;
     Devs *_devs;
+    /* The bus cycle ring and its print buffer, owned by this target. */
+    Cycles _cycles;
 
     template <typename REGS>
     REGS *regs() const { return static_cast<REGS *>(_regs); }

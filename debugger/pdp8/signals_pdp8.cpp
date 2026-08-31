@@ -34,7 +34,8 @@ void Signals::print() const {
     // cli.printDec(pos(), -4);
     //                              012345678901234567890
     static constexpr char line[] = "W A=xxxx  D=xxxx C=CS";
-    static auto &buffer = *new CharBuffer(line);
+    auto &buffer = Cycles::buffer();
+    buffer.set(line);
     if (mem()) {
         buffer[2] = 'M';
         buffer[16] = 0;
@@ -56,8 +57,10 @@ void Signals::print() const {
         buffer[20] = (ioc() & IOC_SKIP) == 0 ? 'S' : 0;
     } else if (cp()) {
         buffer[2] = 'P';
+        buffer[16] = 0;
     } else {
         buffer[2] = 'S';
+        buffer[16] = 0;
     }
     if (fetch()) {
         buffer[0] = 'I';

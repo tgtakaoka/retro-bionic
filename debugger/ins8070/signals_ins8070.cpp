@@ -58,7 +58,8 @@ void Signals::print() const {
     LOG_MATCH(cli.printDec(pos(), -4));
     //                              0123456789012
     static constexpr char line[] = "R A=xxxx D=xx";
-    static auto &buffer = *new CharBuffer(line);
+    auto &buffer = Cycles::buffer();
+    buffer.set(line);
     buffer[0] = read() ? 'R' : 'W';
     buffer.hex16(4, addr);
     buffer.hex8(11, data);

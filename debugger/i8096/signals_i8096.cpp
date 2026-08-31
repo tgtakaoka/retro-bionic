@@ -60,7 +60,8 @@ void SignalsI8096::print() const {
     LOG_MATCH(cli.printDec(pos(), -4));
     //                              0123456789012
     static constexpr char line[] = "W A=xxxx D=xx";
-    static auto &buffer = *new CharBuffer(line);
+    auto &buffer = Cycles::buffer();
+    buffer.set(line);
     if (fetch()) {
         buffer[0] = 'I';
     } else if (read()) {
