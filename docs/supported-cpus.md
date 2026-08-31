@@ -45,10 +45,10 @@ report several parts.
 <tr><td><code>mc68hc16</code></td><td></td><td>🚧</td><td><code>MC68HC16</code></td><td></td><td><code>MC68HC16Z1PV16</code></td></tr>
 <tr><td><code>mos6502</code></td><td><code>mos6502</code></td><td>✅</td><td><code>MOS6502</code></td><td><code>G65SC02</code>, <code>R65C02</code>, <code>W65C02S</code>, <code>W65C816S</code></td><td>W65C816S needs a data bus holder for the multiplexed bank address</td></tr>
 <tr><td rowspan="5"><code>z80</code></td><td rowspan="5"><code>z80</code></td><td>✅</td><td><code>Z80</code></td><td></td><td></td></tr>
-<tr><td>✅</td><td><code>Z180</code></td><td></td><td>PLCC and QFP boards; QFP <code>Z8018008FSC</code> still pending</td></tr>
+<tr><td>✅</td><td><code>Z180</code></td><td></td><td>PLCC and QFP boards</td></tr>
 <tr><td>✅</td><td><code>HD64180S</code></td><td></td><td>Hitachi original of the Z180</td></tr>
 <tr><td>✅</td><td><code>NSC800</code></td><td></td><td>Multiplexed bus held across refresh cycles</td></tr>
-<tr><td>✅</td><td><code>KL5C80A12</code></td><td></td><td>Improved bus, runs zero-wait so <code>READY</code> is unusable; QFP <code>KL5C80A12CFP</code> still pending</td></tr>
+<tr><td>✅</td><td><code>KL5C80A12</code></td><td></td><td>Improved bus, runs zero-wait so <code>READY</code> is unusable</td></tr>
 <tr><td rowspan="2"><code>z8</code></td><td rowspan="2"><code>z8</code></td><td>✅</td><td><code>Z86C91</code></td><td></td><td></td></tr>
 <tr><td>✅</td><td><code>Z88C00</code></td><td></td><td>Super8; differs from Z86C91 only in clock phase</td></tr>
 <tr><td rowspan="2"><code>z8000</code></td><td rowspan="2"></td><td>🚧</td><td><code>Z8001</code></td><td></td><td><code>Z0800110PSC</code>, <code>Z16C0110PSC</code></td></tr>
