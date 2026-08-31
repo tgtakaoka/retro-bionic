@@ -122,7 +122,7 @@ void PinsTms320C15::resetPins() {
 
     for (auto i = 0; i < 10 * 2; i++)
         clkin_cycle();
-    Signals::resetCycles();
+    Cycles::reset();
     negate_reset();
     _regs->save();
 }
@@ -130,8 +130,8 @@ void PinsTms320C15::resetPins() {
 void PinsTms320C15::idle() {
     auto s = completeCycle(prepareCycle()->inject(InstTms3201X::B));
     const auto addr = s->addr;
-    Signals::discard(s);
-    Signals::discard(completeCycle(prepareCycle()->inject(addr)));
+    Cycles::discard(s);
+    Cycles::discard(completeCycle(prepareCycle()->inject(addr)));
 }
 
 Signals *PinsTms320C15::prepareCycle() {
@@ -161,7 +161,7 @@ Signals *PinsTms320C15::completeCycle(Signals *s) {
         s->outData();
         // negate_debug();
         clkin_lo();
-        Signals::nextCycle();
+        Cycles::next();
         clkin_hi();
         delayNanoseconds(clkin_hi_input);
         s->inputMode();
@@ -177,7 +177,7 @@ Signals *PinsTms320C15::completeCycle(Signals *s) {
         s->outData();
         // negate_debug();
         clkin_lo();
-        Signals::nextCycle();
+        Cycles::next();
         clkin_hi();
         delayNanoseconds(clkin_hi_input);
         s->inputMode();
@@ -187,7 +187,7 @@ Signals *PinsTms320C15::completeCycle(Signals *s) {
         s->getData();
         // negate_debug();
         clkin_hi();
-        Signals::nextCycle();
+        Cycles::next();
         clkin_lo();
         if (s->writeMemory()) {
             if (s->addr >= 8) {
@@ -220,7 +220,7 @@ interrupt:
     if (cycles == 0) {
         completeCycle(s->inject(InstTms3201X::B));
         completeCycle(prepareCycle()->inject(s->addr));
-        Signals::discard(s);
+        Cycles::discard(s);
         return false;
     }
     completeCycle(s->inject(inst));
@@ -235,10 +235,10 @@ interrupt:
 }
 
 bool PinsTms320C15::step(bool show) {
-    Signals::resetCycles();
+    Cycles::reset();
     _regs->restore();
     if (show)
-        Signals::resetCycles();
+        Cycles::reset();
     if (rawStep()) {
         if (show)
             printCycles();
@@ -253,7 +253,7 @@ void PinsTms320C15::loop() {
         if (!rawStep() || haltSwitch()) {
             auto s = Signals::put();
             _regs->save();
-            Signals::discard(s);
+            Cycles::discard(s);
             return;
         }
         _devs->loop();
@@ -262,7 +262,7 @@ void PinsTms320C15::loop() {
 
 void PinsTms320C15::run() {
     _regs->restore();
-    Signals::resetCycles();
+    Cycles::reset();
     saveBreakInsts();
     loop();
     restoreBreakInsts();

@@ -127,7 +127,7 @@ void PinsP8095BH::resetPins() {
 
     for (auto i = 0; i < 10 * 4; i++)
         xtal1_cycle();
-    Signals::resetCycles();
+    Cycles::reset();
     negate_reset();
     _regs->reset();
     _regs->save();
@@ -184,7 +184,7 @@ Signals *PinsP8095BH::completeCycle(Signals *s) {
     if (_idle) {
         delayNanoseconds(xtal1_hi_ns);
     } else {
-        Signals::nextCycle();
+        Cycles::next();
     }
     noInterrupts();
     // assert_debug();
@@ -242,7 +242,7 @@ Signals *PinsP8095BH::jumpHere(uint_fast8_t len, bool idle) {
 void PinsP8095BH::idle() {
     _idle = true;
     // The maximu duration of READY=L is 1us and useless for idle.
-    Signals::discard(jumpHere(4, true));
+    Cycles::discard(jumpHere(4, true));
 }
 
 uint16_t PinsP8095BH::jumpTarget(uint16_t next, uint_fast8_t opc) const {
@@ -283,7 +283,7 @@ bool PinsP8095BH::rawStep(bool show) {
     auto stepTrap = opc == InstI8096::TRAP;
     _regs->restore();
     if (show)
-        Signals::resetCycles();
+        Cycles::reset();
     for (uint_fast8_t i = 0; i < len; i++) {
         auto s = completeCycle(prepareCycle());
         if (i == 0)
@@ -302,7 +302,7 @@ bool PinsP8095BH::rawStep(bool show) {
                 } else {
                     handleTrap(s, 0x2345, true);
                     if (show)
-                        Signals::discard(s);
+                        Cycles::discard(s);
                     break;
                 }
             }
@@ -313,7 +313,7 @@ bool PinsP8095BH::rawStep(bool show) {
 }
 
 bool PinsP8095BH::step(bool show) {
-    Signals::resetCycles();
+    Cycles::reset();
     if (rawStep(show)) {
         if (show)
             printCycles();
@@ -368,10 +368,10 @@ Signals *PinsP8095BH::loop() {
 
 void PinsP8095BH::run() {
     _regs->restore();
-    Signals::resetCycles();
+    Cycles::reset();
     saveBreakInsts();
     const auto s = loop();
-    Signals::discard(s);
+    Cycles::discard(s);
     restoreBreakInsts();
     disassembleCycles();
 }

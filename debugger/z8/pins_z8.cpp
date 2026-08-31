@@ -96,7 +96,7 @@ void PinsZ8::resetPins() {
         delayNanoseconds(1);
     }
     negate_reset();
-    Signals::resetCycles();
+    Cycles::reset();
     // Wait for #AS pulse with #DS=H
     while (signal_ds() == LOW) {
         while (signal_as() == LOW)
@@ -148,7 +148,7 @@ Signals *PinsZ8::completeCycle(Signals *s) {
         xtal1_cycle();
     }
     // #DS is high
-    Signals::nextCycle();
+    Cycles::next();
     busMode(DATA, INPUT);
     return s;
 }
@@ -184,7 +184,7 @@ bool PinsZ8::rawStep() {
     if (_inst.isBreak(inst) || cycles == 0) {
         completeCycle(s->inject(InstZ8::JR));
         cycle(InstZ8::JR_HERE);
-        Signals::discard(s);
+        Cycles::discard(s);
         return false;
     }
     auto fetch = s;
@@ -241,7 +241,7 @@ void PinsZ8::execute(const uint8_t *inst, uint8_t len, uint16_t *addr,
 void PinsZ8::idle() {
     const auto s = cycle(InstZ8::JR);
     cycle(InstZ8::JR_HERE);
-    Signals::discard(s);
+    Cycles::discard(s);
 }
 
 void PinsZ8::loop() {
@@ -254,7 +254,7 @@ void PinsZ8::loop() {
 
 void PinsZ8::run() {
     _regs->restore();
-    Signals::resetCycles();
+    Cycles::reset();
     saveBreakInsts();
     loop();
     restoreBreakInsts();
@@ -268,10 +268,10 @@ void PinsZ8::intrAck(Signals *frame) const {
 }
 
 bool PinsZ8::step(bool show) {
-    Signals::resetCycles();
+    Cycles::reset();
     _regs->restore();
     if (show)
-        Signals::resetCycles();
+        Cycles::reset();
     if (rawStep()) {
         if (show)
             printCycles();

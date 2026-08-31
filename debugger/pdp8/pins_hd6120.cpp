@@ -162,7 +162,7 @@ void PinsHd6120::resetPins() {
     negate_reset();
     while (run_negated())
         osc_cycle();
-    Signals::resetCycles();
+    Cycles::reset();
     _regs->reset();
     prepareCycle();
     _regs->save();
@@ -274,7 +274,7 @@ bus_cycle:
         delayNanoseconds(osc_hi_ns);
     }
     osc_lo();
-    Signals::nextCycle();
+    Cycles::next();
     auto n = Signals::put();
     *n = *s;  // copy address and control
     assert_debug();

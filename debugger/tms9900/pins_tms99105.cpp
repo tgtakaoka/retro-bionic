@@ -163,7 +163,7 @@ void PinsTms99105::resetPins() {
         system_cycle();
     negate_reset();
 
-    Signals::resetCycles();
+    Cycles::reset();
     pauseCycle();
     _regs->save();
     if (macro != MacroMode::MACRO_BASELINE)
@@ -206,7 +206,7 @@ Signals *PinsTms99105::completeCycle(Signals *_s) {
         delayNanoseconds(clkin_lo_ns);
         // phi1
         clkin_hi();
-        Signals::nextCycle();
+        Cycles::next();
         clkin_lo();
         s->inputMode();
     } else if (s->writeEnable()) {
@@ -226,7 +226,7 @@ Signals *PinsTms99105::completeCycle(Signals *_s) {
         }
         // phi1
         clkin_hi();
-        Signals::nextCycle();
+        Cycles::next();
         clkin_lo();
     } else {
         // phi4

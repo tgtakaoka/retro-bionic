@@ -3,6 +3,8 @@
 
 #include <stdint.h>
 
+#include "cycles.h"
+
 namespace debugger {
 
 struct SignalsImpl {
@@ -13,12 +15,8 @@ struct SignalsImpl {
     bool readMemory() const { return (_flags & INJECT) == 0; }
     bool writeMemory() const { return (_flags & CAPTURE) == 0; }
 
-    uint8_t pos() const;
-    uint8_t diff(const SignalsImpl *s) const;
-
-    static void resetCycles();
-    static void nextCycle();
-    static void discard(const SignalsImpl *s);
+    uint_fast8_t pos() const { return Cycles::indexOf(this); }
+    uint_fast8_t diff(const SignalsImpl *s) const;
 
 protected:
     uint8_t _signals[5];
@@ -30,31 +28,19 @@ protected:
     }
     void _capture() { _flags |= CAPTURE; }
     void _clearInject() { _flags &= ~INJECT; }
-    const SignalsImpl *_prev(uint8_t backward) const;
-    const SignalsImpl *_next(uint8_t forward) const;
-    SignalsImpl *_prev(uint8_t backward);
-    SignalsImpl *_next(uint8_t forward);
-
-    static SignalsImpl *_head() { return &_ring[_put]; }
-    static SignalsImpl *_tail() { return &_ring[_get]; }
+    const SignalsImpl *_prev(uint_fast8_t backward) const;
+    const SignalsImpl *_next(uint_fast8_t forward) const;
+    SignalsImpl *_prev(uint_fast8_t backward);
+    SignalsImpl *_next(uint_fast8_t forward);
 
 private:
     // _flags
     static constexpr uint8_t INJECT = 1;
     static constexpr uint8_t CAPTURE = 2;
-    static constexpr uint8_t MAX_CYCLES = 128;
-    static uint8_t _put;
-    static uint8_t _get;
-    static uint8_t _cycles;
-    static SignalsImpl _ring[MAX_CYCLES];
 };
 
 template <typename SIGNALS_T, typename IMPL_T = SignalsImpl>
 struct SignalsBase : IMPL_T {
-    using IMPL_T::discard;
-    using IMPL_T::nextCycle;
-    using IMPL_T::resetCycles;
-
     SIGNALS_T *inject(uint16_t data) {
         IMPL_T::_inject(data);
         return static_cast<SIGNALS_T *>(this);
@@ -70,29 +56,25 @@ struct SignalsBase : IMPL_T {
         return static_cast<SIGNALS_T *>(this);
     }
 
-    const SIGNALS_T *prev(uint8_t backward = 1) const {
+    const SIGNALS_T *prev(uint_fast8_t backward = 1) const {
         return static_cast<const SIGNALS_T *>(IMPL_T::_prev(backward));
     }
 
-    const SIGNALS_T *next(uint8_t forward = 1) const {
+    const SIGNALS_T *next(uint_fast8_t forward = 1) const {
         return static_cast<const SIGNALS_T *>(IMPL_T::_next(forward));
     }
 
-    SIGNALS_T *prev(uint8_t backward = 1) {
+    SIGNALS_T *prev(uint_fast8_t backward = 1) {
         return static_cast<SIGNALS_T *>(IMPL_T::_prev(backward));
     }
 
-    SIGNALS_T *next(uint8_t forward = 1) {
+    SIGNALS_T *next(uint_fast8_t forward = 1) {
         return static_cast<SIGNALS_T *>(IMPL_T::_next(forward));
     }
 
-    static SIGNALS_T *put() {
-        return static_cast<SIGNALS_T *>(IMPL_T::_head());
-    }
+    static SIGNALS_T *put() { return static_cast<SIGNALS_T *>(Cycles::head()); }
 
-    static SIGNALS_T *get() {
-        return static_cast<SIGNALS_T *>(IMPL_T::_tail());
-    }
+    static SIGNALS_T *get() { return static_cast<SIGNALS_T *>(Cycles::tail()); }
 };
 
 }  // namespace debugger

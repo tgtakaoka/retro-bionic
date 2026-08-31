@@ -167,7 +167,7 @@ void PinsScn2650::resetPins() {
     for (auto i = 0; i < 5; ++i)
         clock_cycle();
     negate_reset();
-    Signals::resetCycles();
+    Cycles::reset();
 
     _regs->save();
 }
@@ -241,7 +241,7 @@ Signals *PinsScn2650::completeCycle(Signals *s) {
     delayNanoseconds(clock_lo_input);
     Signals::inputMode();
     clock_hi();  // T0H
-    Signals::nextCycle();
+    Cycles::next();
     return s;
 }
 
@@ -296,7 +296,7 @@ void PinsScn2650::loop() {
 
 void PinsScn2650::run() {
     _regs->restore();
-    Signals::resetCycles();
+    Cycles::reset();
     saveBreakInsts();
     loop();
     restoreBreakInsts();
@@ -335,10 +335,10 @@ bool PinsScn2650::rawStep() {
 }
 
 bool PinsScn2650::step(bool show) {
-    Signals::resetCycles();
+    Cycles::reset();
     _regs->restore();
     if (show)
-        Signals::resetCycles();
+        Cycles::reset();
     if (rawStep()) {
         if (show)
             printCycles();

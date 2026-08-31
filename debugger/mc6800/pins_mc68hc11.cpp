@@ -209,7 +209,7 @@ void PinsMc68hc11::resetPins() {
     cycle();
     delayNanoseconds(tpcsu);
     negate_reset();
-    Signals::resetCycles();
+    Cycles::reset();
     // Mode Programming Hold Time: min 10ns
     release_mode();
     cycle();
@@ -268,7 +268,7 @@ mc6800::Signals *PinsMc68hc11::rawCycle() {
         // C4H
         extal_hi();
         // change data bus to output
-        Signals::nextCycle();
+        Cycles::next();
         delayNanoseconds(c4_hi_read);
     } else {
         ++_writes;
@@ -292,7 +292,7 @@ mc6800::Signals *PinsMc68hc11::rawCycle() {
         }
         // C4H
         extal_hi();
-        Signals::nextCycle();
+        Cycles::next();
         delayNanoseconds(c4_hi_write);
     }
     // C1L

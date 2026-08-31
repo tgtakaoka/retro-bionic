@@ -176,7 +176,7 @@ void PinsTlcs90::resetPins() {
     for (auto i = 0; i < 20 * 2 || signal_clk() == LOW; ++i)
         x1_cycle();
     negate_reset();
-    Signals::resetCycles();
+    Cycles::reset();
     while (true) {
         x1_lo();
         delayNanoseconds(x1_lo_clk);
@@ -237,7 +237,7 @@ Signals *PinsTlcs90::completeCycle(Signals *s) {
         delayNanoseconds(c4_hi_read);
         // C4L
         x1_lo();
-        Signals::nextCycle();
+        Cycles::next();
         if (c4_lo_read)
             delayNanoseconds(c4_lo_read);
     } else if (s->write()) {
@@ -258,7 +258,7 @@ Signals *PinsTlcs90::completeCycle(Signals *s) {
         }
         // C4L
         x1_lo();
-        Signals::nextCycle();
+        Cycles::next();
         if (c4_lo_write)
             delayNanoseconds(c4_lo_write);
     } else {
@@ -333,7 +333,7 @@ void PinsTlcs90::loop() {
                     r->saveRegisters();
                     r->setIp(pc);
                     assert_wait();
-                    Signals::discard(s->prev(6));
+                    Cycles::discard(s->prev(6));
                     break;
                 }
             }
@@ -350,7 +350,7 @@ void PinsTlcs90::loop() {
 
 void PinsTlcs90::run() {
     _regs->restore();
-    Signals::resetCycles();
+    Cycles::reset();
     saveBreakInsts();
     negate_wait();
     loop();
@@ -383,11 +383,11 @@ void PinsTlcs90::suspend(bool show) {
         s = prepareCycle();
     }
     if (s->addr == InstTlcs90::ORG_NMI && show)
-        Signals::discard(s->prev(6));
+        Cycles::discard(s->prev(6));
 }
 
 bool PinsTlcs90::step(bool show) {
-    Signals::resetCycles();
+    Cycles::reset();
     const auto opc = _mems->read(_regs->nextIp());
     if (opc == InstTlcs90::HALT || !InstTlcs90::valid(_regs->nextIp(), _mems)) {
         // HALT or unknown instruction. Just return.
@@ -395,7 +395,7 @@ bool PinsTlcs90::step(bool show) {
     }
     _regs->restore();
     if (show)
-        Signals::resetCycles();
+        Cycles::reset();
     suspend(show);
     if (show)
         printCycles();

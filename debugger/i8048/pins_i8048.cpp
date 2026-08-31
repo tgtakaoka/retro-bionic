@@ -215,7 +215,7 @@ void PinsI8048::resetPins() {
     negate_reset();
     while (signal_ale() != LOW)
         xtal1_cycle();
-    Signals::resetCycles();
+    Cycles::reset();
     // #SS=L
     _regs->save();
     checkSoftwareType();
@@ -344,7 +344,7 @@ Signals *PinsI8048::completeCycle(Signals *s) {
             xtal1_cycle();
         }
     }
-    Signals::nextCycle();
+    Cycles::next();
     return s;
 }
 
@@ -409,7 +409,7 @@ void PinsI8048::loop() {
 
 void PinsI8048::run() {
     _regs->restore();
-    Signals::resetCycles();
+    Cycles::reset();
     saveBreakInsts();
     loop();
     assert_ss();
@@ -444,7 +444,7 @@ bool PinsI8048::rawStep(bool step) {
     const auto len = _inst.instLength(inst);
     if (inst == InstI8048::HALT || len == 0) {
         injectJumpHere(s);
-        Signals::discard(s);
+        Cycles::discard(s);
         return false;
     }
     if (step) {
@@ -464,10 +464,10 @@ bool PinsI8048::rawStep(bool step) {
 }
 
 bool PinsI8048::step(bool show) {
-    Signals::resetCycles();
+    Cycles::reset();
     _regs->restore();
     if (show)
-        Signals::resetCycles();
+        Cycles::reset();
     if (rawStep(true)) {
         if (show)
             printCycles();

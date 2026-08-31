@@ -161,7 +161,7 @@ void PinsMc146805E2::resetCpu() {
     cycle();
     delayNanoseconds(tpcs_ns);
     negate_reset();
-    Signals::resetCycles();
+    Cycles::reset();
     cycle();  // dummy cycle
     cycle();  // dummy cycle
     prepareCycle();
@@ -243,7 +243,7 @@ Signals *PinsMc146805E2::completeCycle(Signals *signals) {
         SignalsMc146805E2::inputMode();
     }
     osc1_hi();
-    Signals::nextCycle();
+    Cycles::next();
     delayNanoseconds(c5_hi_ns);
     // Data hold time will be done in next cycle().
     osc1_lo();  // DS->LOW

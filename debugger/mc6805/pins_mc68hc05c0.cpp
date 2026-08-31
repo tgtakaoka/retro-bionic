@@ -152,7 +152,7 @@ void PinsMc68HC05C0::resetCpu() {
         osc1_cycle();
     osc1_cycle();
 
-    Signals::resetCycles();
+    Cycles::reset();
     // Inject dummy reset vector and wait for the first instruction fetch.
     _addr = mc68hc05::InstMc68HC05::RESET_VEC;
     _regs->reset();
@@ -218,7 +218,7 @@ Signals *PinsMc68HC05C0::completeCycle(Signals *signals) {
     }
     // c4
     osc1_hi();
-    Signals::nextCycle();
+    Cycles::next();
     // c1
     osc1_lo();
     delayNanoseconds(c1_lo_input);

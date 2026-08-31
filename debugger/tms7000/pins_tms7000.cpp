@@ -443,7 +443,7 @@ void PinsTms7000::synchronizeClock() {
     assert_reset();
     for (auto i = 0; i < 20; i++)
         clk_cycle(d);
-    Signals::resetCycles();
+    Cycles::reset();
     negate_reset();
     clk_cycle(d);
 
@@ -487,7 +487,7 @@ void PinsTms7000::checkHardwareType() {
 
 Signals *PinsTms7000::completeCycle(Signals *s) const {
     (this->*_completeCycle)(s);
-    Signals::nextCycle();
+    Cycles::next();
     delayNanoseconds(cycle_delay);
     wait_alatch();
     return s;
@@ -540,7 +540,7 @@ uint16_t PinsTms7000::execute(const uint8_t *inst, uint8_t len, uint8_t *buf,
 void PinsTms7000::idle() {
     auto s = inject(InstTms7000::JMP);
     inject(InstTms7000::JMP_HERE);
-    Signals::discard(s);
+    Cycles::discard(s);
 }
 
 void PinsTms7000::loop() {
@@ -553,7 +553,7 @@ void PinsTms7000::loop() {
 
 void PinsTms7000::run() {
     _regs->restore();
-    Signals::resetCycles();
+    Cycles::reset();
     saveBreakInsts();
     loop();
     restoreBreakInsts();
@@ -575,7 +575,7 @@ bool PinsTms7000::rawStep() {
     if (opc == InstTms7000::IDLE || cycles == 0) {
         completeCycle(s->inject(InstTms7000::JMP));
         inject(InstTms7000::JMP_HERE);
-        Signals::discard(s);
+        Cycles::discard(s);
         return false;
     }
     auto fetch = completeCycle(s);
@@ -590,10 +590,10 @@ bool PinsTms7000::rawStep() {
 }
 
 bool PinsTms7000::step(bool show) {
-    Signals::resetCycles();
+    Cycles::reset();
     _regs->restore();
     if (show)
-        Signals::resetCycles();
+        Cycles::reset();
     if (rawStep()) {
         if (show)
             printCycles();

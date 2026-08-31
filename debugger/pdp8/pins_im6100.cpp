@@ -205,7 +205,7 @@ void PinsIm6100::resetPins() {
     negate_runhlt();
     while (signal_run() == LOW)
         osc_cycle();
-    Signals::resetCycles();
+    Cycles::reset();
     _regs->reset();
     prepareCycle();
     _regs->save();
@@ -277,7 +277,7 @@ pdp8::Signals *PinsIm6100::completeCycle(pdp8::Signals *_s) const {
     // negate_debug();
     delayNanoseconds(osc_lo_output);
     osc_hi();
-    Signals::nextCycle();
+    Cycles::next();
     delayNanoseconds(osc_hi_input);
     // assert_debug();
     s->inputMode();
@@ -312,7 +312,7 @@ pdp8::Signals *PinsIm6100::completeCycle(pdp8::Signals *_s) const {
                     _cpmems->write(n->addr, n->data);
             }
             osc_lo();
-            Signals::nextCycle();
+            Cycles::next();
             return n;
         }
         // negate_debug();

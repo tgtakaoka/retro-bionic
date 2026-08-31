@@ -159,7 +159,7 @@ mc6809::Signals *PinsMc6809E::rawCycle() const {
         delayNanoseconds(c3_novma);
         // c4
         c4_clock();
-        Signals::nextCycle();
+        Cycles::next();
         delayNanoseconds(c4_novma);
     } else if (s->write()) {
         delayNanoseconds(c3_write);
@@ -172,7 +172,7 @@ mc6809::Signals *PinsMc6809E::rawCycle() const {
         } else {
             delayNanoseconds(c4_capture);
         }
-        Signals::nextCycle();
+        Cycles::next();
     } else {
         if (s->readMemory()) {
             s->data = _mems->read(s->addr);
@@ -183,7 +183,7 @@ mc6809::Signals *PinsMc6809E::rawCycle() const {
         // c4
         c4_clock();
         s->outData();
-        Signals::nextCycle();
+        Cycles::next();
         delayNanoseconds(c4_read);
     }
     s->getControl();

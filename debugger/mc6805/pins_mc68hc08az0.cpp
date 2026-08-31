@@ -132,7 +132,7 @@ void PinsMc68HC08AZ0::resetCpu() {
     // Wait for finishing power on reset.
     while (reset_asserted())
         osc1_cycle();
-    Signals::resetCycles();
+    Cycles::reset();
     prepareCycle();
     // Inject dummy reset vector and wait for the first instruction fetch.
     _regs->reset();
@@ -180,7 +180,7 @@ Signals *PinsMc68HC08AZ0::completeCycle(Signals *signals) {
         s->outData();
         _writes = 0;
     }
-    Signals::nextCycle();
+    Cycles::next();
     s = SignalsMc68HC08AZ0::put();
     do {
         osc1_cycle_lo();

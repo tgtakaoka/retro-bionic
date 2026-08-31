@@ -195,7 +195,7 @@ void PinsIns8060::resetPins() {
     pinsMode(PINS_PULLUP, sizeof(PINS_PULLUP), INPUT_PULLUP);
     pinsMode(PINS_INPUT, sizeof(PINS_INPUT), INPUT);
 
-    Signals::resetCycles();
+    Cycles::reset();
     // #RST must remain low for a minimum of 4 Tc.
     for (auto i = 0; i < 2 * 4; i++)
         xin_cycle();
@@ -282,7 +282,7 @@ Signals *PinsIns8060::completeCycle(Signals *s) const {
     }
     // XIN=L
     xin_hi();
-    Signals::nextCycle();
+    Cycles::next();
     delayNanoseconds(xin_bus_end);
     if (s->read()) {
         // Read-Modify-Write bus cycle keeps #BREQ low.
@@ -357,7 +357,7 @@ void PinsIns8060::loop() {
             inject(InstIns8060::JMP);
             inject(InstIns8060::JMP_HALT);
             negate_enin();
-            Signals::discard(s);
+            Cycles::discard(s);
             return;
         }
         if (haltSwitch()) {
@@ -374,7 +374,7 @@ void PinsIns8060::suspend() const {
             completeCycle(s->inject(InstIns8060::JMP));
             inject(InstIns8060::JMP_HERE);
             negate_enin();
-            Signals::discard(s);
+            Cycles::discard(s);
             return;
         }
         completeCycle(s);
@@ -383,7 +383,7 @@ void PinsIns8060::suspend() const {
 
 void PinsIns8060::run() {
     _regs->restore();
-    Signals::resetCycles();
+    Cycles::reset();
     saveBreakInsts();
     assert_enin();
     loop();
@@ -400,7 +400,7 @@ bool PinsIns8060::rawStep() const {
         inject(InstIns8060::JMP);
         inject(InstIns8060::JMP_HALT);
         negate_enin();
-        Signals::discard(s);
+        Cycles::discard(s);
         return false;
     }
     suspend();
@@ -408,10 +408,10 @@ bool PinsIns8060::rawStep() const {
 }
 
 bool PinsIns8060::step(bool show) {
-    Signals::resetCycles();
+    Cycles::reset();
     _regs->restore();
     if (show)
-        Signals::resetCycles();
+        Cycles::reset();
     if (rawStep()) {
         if (show)
             printCycles();

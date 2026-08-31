@@ -102,7 +102,7 @@ void PinsPdp8::loop() {
     while (true) {
         if (completeCycle(s) == nullptr) {
             _regs->save();
-            Signals::discard(s);
+            Cycles::discard(s);
             return;
         }
         _devs->loop();
@@ -110,7 +110,7 @@ void PinsPdp8::loop() {
             suspend();
             s = Signals::put();
             _regs->save();
-            Signals::discard(s);
+            Cycles::discard(s);
             return;
         }
         s = prepareCycle();
@@ -119,7 +119,7 @@ void PinsPdp8::loop() {
 
 void PinsPdp8::run() {
     _regs->restore();
-    Signals::resetCycles();
+    Cycles::reset();
     saveBreakInsts();
     loop();
     restoreBreakInsts();
@@ -144,10 +144,10 @@ bool PinsPdp8::rawStep() {
 }
 
 bool PinsPdp8::step(bool show) {
-    Signals::resetCycles();
+    Cycles::reset();
     _regs->restore();
     if (show)
-        Signals::resetCycles();
+        Cycles::reset();
     if (rawStep()) {
         if (show)
             printCycles();

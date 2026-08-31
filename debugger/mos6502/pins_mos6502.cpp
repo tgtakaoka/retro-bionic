@@ -254,7 +254,7 @@ void PinsMos6502::resetPins() {
     auto s = prepareCycle();
     negate_reset();
     completeCycle(s);
-    Signals::resetCycles();
+    Cycles::reset();
     const auto reset_vec = _mems->read16(InstMos6502::VECTOR_RESET);
     _mems->write16(InstMos6502::VECTOR_RESET, 0x1000);  // dummy vector
     // When a positive edge is detected, there is an initalization
@@ -320,7 +320,7 @@ Signals *PinsMos6502::completeCycle(Signals *s) {
         Signals::inputMode();
         phi0_lo();
     }
-    Signals::nextCycle();
+    Cycles::next();
 
     return s;
 }
@@ -403,7 +403,7 @@ void PinsMos6502::loop() {
 
 void PinsMos6502::run() {
     _regs->restore();
-    Signals::resetCycles();
+    Cycles::reset();
     saveBreakInsts();
     assert_rdy();
     loop();
@@ -445,10 +445,10 @@ bool PinsMos6502::rawStep() {
 }
 
 bool PinsMos6502::step(bool show) {
-    Signals::resetCycles();
+    Cycles::reset();
     _regs->restore();
     if (show)
-        Signals::resetCycles();
+        Cycles::reset();
     if (rawStep()) {
         if (show)
             printCycles();

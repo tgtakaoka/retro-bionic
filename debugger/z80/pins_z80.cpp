@@ -227,7 +227,7 @@ void PinsZ80::resetPins() {
     // before the CPU resumes normal processing operation.
     clk_cycle();
     clk_cycle();
-    Signals::resetCycles();
+    Cycles::reset();
     prepareWait();
     _regs->setIp(InstZ80::ORG_RESET);
     _regs->save();
@@ -267,11 +267,11 @@ Signals *PinsZ80::completeCycle(Signals *s) const {
             delayNanoseconds(clk_lo_read);
             // #MREQ:T3H
             clk_hi();
-            Signals::nextCycle();
+            Cycles::next();
             delayNanoseconds(clk_hi_next);
         } else {
             delayNanoseconds(clk_hi_write);
-            Signals::nextCycle();
+            Cycles::next();
             // #MREQ:T2L
             clk_lo();
             delayNanoseconds(clk_lo_get);
@@ -305,7 +305,7 @@ Signals *PinsZ80::completeCycle(Signals *s) const {
         }
         // T3H
         clk_hi();
-        Signals::nextCycle();
+        Cycles::next();
         delayNanoseconds(clk_hi_next);
     }
     // T3L
@@ -408,7 +408,7 @@ void PinsZ80::loop() {
                 completeCycle(s->inject(InstZ80::RET));
                 inject(lo(rst38h->addr));
                 inject(hi(rst38h->addr));
-                Signals::discard(rst38h);
+                Cycles::discard(rst38h);
                 prepareWait();
                 return;
             }
@@ -424,7 +424,7 @@ void PinsZ80::loop() {
 
 void PinsZ80::run() {
     _regs->restore();
-    Signals::resetCycles();
+    Cycles::reset();
     saveBreakInsts();
     loop();
     restoreBreakInsts();
@@ -442,7 +442,7 @@ void PinsZ80::suspend() {
             inject(InstZ80::RETN);
             inject(s->prev()->data);
             inject(s->prev(2)->data);
-            Signals::discard(s->prev(3));
+            Cycles::discard(s->prev(3));
             prepareWait();
             return;
         }
@@ -461,10 +461,10 @@ bool PinsZ80::rawStep() {
 }
 
 bool PinsZ80::step(bool show) {
-    Signals::resetCycles();
+    Cycles::reset();
     _regs->restore();
     if (show)
-        Signals::resetCycles();
+        Cycles::reset();
     if (rawStep()) {
         if (show)
             printCycles();

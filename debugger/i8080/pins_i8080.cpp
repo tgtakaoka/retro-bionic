@@ -183,7 +183,7 @@ void PinsI8080::resetPins() {
     pinsMode(PINS_LOW, sizeof(PINS_LOW), OUTPUT, LOW);
     pinsMode(PINS_HIGH, sizeof(PINS_HIGH), OUTPUT, HIGH);
     pinsMode(PINS_INPUT, sizeof(PINS_INPUT), INPUT);
-    Signals::resetCycles();
+    Cycles::reset();
 
     assert_reset();
     negate_reset();
@@ -278,7 +278,7 @@ Signals *PinsI8080::completeCycle(Signals *s) const {
         phi2_hi();
         // assert_debug();
         delayNanoseconds(phi2_hi_input);
-        Signals::nextCycle();
+        Cycles::next();
         Signals::inputMode();
         // negate_debug();
         phi2_lo();
@@ -286,7 +286,7 @@ Signals *PinsI8080::completeCycle(Signals *s) const {
         phi2_hi();
         // assert_debug();
         delayNanoseconds(phi2_hi_next);
-        Signals::nextCycle();
+        Cycles::next();
         // negate_debug();
         phi2_lo();
         delayNanoseconds(phi2_lo_ns);
@@ -375,7 +375,7 @@ Signals *PinsI8080::loop() const {
         s = prepareCycle();
         if (s->halt()) {
             const auto halt = s->prev();
-            Signals::discard(halt);
+            Cycles::discard(halt);
             return halt;
         }
         if (haltSwitch() && s->fetch()) {
@@ -387,7 +387,7 @@ Signals *PinsI8080::loop() const {
 
 void PinsI8080::run() {
     _regs->restore();
-    Signals::resetCycles();
+    Cycles::reset();
     saveBreakInsts();
     const auto halt = loop();
     restoreBreakInsts();
@@ -423,10 +423,10 @@ bool PinsI8080::rawStep() const {
 }
 
 bool PinsI8080::step(bool show) {
-    Signals::resetCycles();
+    Cycles::reset();
     _regs->restore();
     if (show)
-        Signals::resetCycles();
+        Cycles::reset();
     if (rawStep()) {
         if (show)
             printCycles();

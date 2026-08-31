@@ -187,7 +187,7 @@ void PinsMc6801::resetPins() {
     cycle();
     delayNanoseconds(tpcs_ns);
     negate_reset();
-    Signals::resetCycles();
+    Cycles::reset();
     // Mode Programming Hold Time: min MC6803:100ns HD6303:150ns
     release_mode();
     if (isHd63())
@@ -245,7 +245,7 @@ mc6800::Signals *PinsMc6801::rawCycle() {
             delayNanoseconds(c4_lo_capture);
         }
         extal_hi();
-        Signals::nextCycle();
+        Cycles::next();
         delayNanoseconds(c4_hi_write);
     } else {
         if (s->readMemory()) {
@@ -264,7 +264,7 @@ mc6800::Signals *PinsMc6801::rawCycle() {
         delayNanoseconds(c4_lo_read);
         extal_hi();
         _writes = 0;
-        Signals::nextCycle();
+        Cycles::next();
         delayNanoseconds(c4_hi_read);
     }
     // c1
@@ -279,7 +279,7 @@ void PinsMc6801::idle() {
     rawCycle();
     injectCycle(InstMc6800::BRA_HERE);
     injectCycle(0);
-    Signals::discard(s);
+    Cycles::discard(s);
 }
 
 bool PinsMc6801::isHd63() const {

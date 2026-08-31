@@ -227,7 +227,7 @@ void PinsTms9900::resetPins() {
         system_cycle();
     }
 
-    Signals::resetCycles();
+    Cycles::reset();
     pauseCycle();
     _regs->save();
     _regs->reset();
@@ -282,7 +282,7 @@ Signals *PinsTms9900::completeCycle(Signals *_s) {
             phi3_hi();
             if (phi3_read)
                 delayNanoseconds(phi3_read);
-            Signals::nextCycle();
+            Cycles::next();
             s->inputMode();
         } else {
             delayNanoseconds(phi1_write);
@@ -290,7 +290,7 @@ Signals *PinsTms9900::completeCycle(Signals *_s) {
             phi2_hi();
             if (phi2_write)
                 delayNanoseconds(phi2_write);
-            Signals::nextCycle();
+            Cycles::next();
             // assert_debug();
             s->getData();
             // negate_debug();

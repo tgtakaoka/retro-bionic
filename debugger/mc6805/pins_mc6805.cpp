@@ -29,13 +29,13 @@ void PinsMc6805::injectReads(const uint8_t *inst, uint_fast8_t len,
     for (uint_fast8_t inj = 0; inj < len; ++inj) {
         completeCycle(s->inject(inst[inj]));
         if (discard)
-            Signals::discard(s);
+            Cycles::discard(s);
         s = prepareCycle();
     }
     for (uint_fast8_t inj = 0; inj < cycles; ++inj) {
         completeCycle(s);
         if (discard)
-            Signals::discard(s);
+            Cycles::discard(s);
         s = prepareCycle();
     }
 }
@@ -54,7 +54,7 @@ uint16_t PinsMc6805::captureWrites(
                 buf[cap++] = s->data;
         }
         if (discard)
-            Signals::discard(s);
+            Cycles::discard(s);
         s = prepareCycle();
     }
     return addr;
@@ -68,7 +68,7 @@ bool PinsMc6805::checkBreakPoint(Signals *s) {
         if (isBreakPoint(pc) || _mems->read16(vec_swi) == vec_swi) {
             r->captureExtra(pc);
             restoreBreakInsts();
-            Signals::discard(s->prev(7));
+            Cycles::discard(s->prev(7));
             disassembleCycles();
             return true;
         }
@@ -112,7 +112,7 @@ Signals *PinsMc6805::suspend(Signals *s) {
 
 void PinsMc6805::run() {
     _regs->restore();
-    Signals::resetCycles();
+    Cycles::reset();
     saveBreakInsts();
     // CPU is stopped at fetch
     completeCycle(currCycle());
@@ -133,10 +133,10 @@ bool PinsMc6805::rawStep() {
 }
 
 bool PinsMc6805::step(bool show) {
-    Signals::resetCycles();
+    Cycles::reset();
     _regs->restore();
     if (show)
-        Signals::resetCycles();
+        Cycles::reset();
     if (rawStep()) {
         if (show)
             printCycles();

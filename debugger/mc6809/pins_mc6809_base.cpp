@@ -35,7 +35,7 @@ void negate_firq() {
 }  // namespace
 
 void PinsMc6809Base::resetPins() {
-    Signals::resetCycles();
+    Cycles::reset();
 
     while (!cycle()->vector())
         ;
@@ -106,7 +106,7 @@ void PinsMc6809Base::idle() {
     rawCycle();
     injectCycle(InstMc6809::BRA_HERE);
     injectCycle(InstMc6809::NOP);
-    Signals::discard(s);
+    Cycles::discard(s);
 }
 
 const Signals *PinsMc6809Base::stackFrame(const Signals *push) const {
@@ -128,7 +128,7 @@ void PinsMc6809Base::loop() {
             const auto swi_vector = _mems->read16(vec_swi);
             if (isBreakPoint(pc) || swi_vector == vec_swi) {
                 regs<RegsMc6809>()->capture(frame);
-                Signals::discard(frame->prev(2));
+                Cycles::discard(frame->prev(2));
                 return;
             }
         } else if (haltSwitch()) {
@@ -161,13 +161,13 @@ reentry:
         // Keep prefetch cycle for bus cycle pattern matching.
         const auto last =
                 frame->prev(regs<RegsMc6809>()->contextLength() == 14 ? 3 : 2);
-        Signals::discard(last);
+        Cycles::discard(last);
     }
 }
 
 void PinsMc6809Base::run() {
     _regs->restore();
-    Signals::resetCycles();
+    Cycles::reset();
     saveBreakInsts();
     loop();
     restoreBreakInsts();
@@ -175,10 +175,10 @@ void PinsMc6809Base::run() {
 }
 
 bool PinsMc6809Base::step(bool show) {
-    Signals::resetCycles();
+    Cycles::reset();
     _regs->restore();
     if (show)
-        Signals::resetCycles();
+        Cycles::reset();
     suspend(show);
     if (show) {
         // Discard prefetch cycle.

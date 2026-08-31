@@ -165,7 +165,7 @@ void PinsTms370Cx5x::resetPins() {
 }
 
 Signals *PinsTms370Cx5x::resetCpu() {
-    SignalsTms370Cx5x::resetCycles();
+    Cycles::reset();
     assert_reset();
     for (uint_fast8_t i = 0; i < 10; i++)
         clkin_cycle();
@@ -208,12 +208,12 @@ Signals *PinsTms370Cx5x::completeCycle(Signals *_s) {
         s->outData();
         // toggle_debug();
         clkin_hi();
-        SignalsTms370Cx5x::nextCycle();
+        Cycles::next();
         clkin_lo();
         s->inputMode();
     } else {
         clkin_hi();
-        SignalsTms370Cx5x::nextCycle();
+        Cycles::next();
         clkin_lo();
         // toggle_debug();
         delayNanoseconds(0);
@@ -314,14 +314,14 @@ void PinsTms370Cx5x::loop() {
     resetCpu();
     _regs->restore();
     resumeCpu();
-    SignalsTms370Cx5x::resetCycles();
+    Cycles::reset();
     while (true) {
         auto s = prepareCycle();
         if (s->fetch()) {
             if (haltSwitch()) {
             stop:
                 _regs->save();
-                SignalsTms370Cx5x::discard(s);
+                Cycles::discard(s);
                 return;
             }
             const auto inst = _mems->read(s->addr);
@@ -375,7 +375,7 @@ bool PinsTms370Cx5x::step(bool show) {
     resetCpu();
     _regs->restore();
     if (show)
-        SignalsTms370Cx5x::resetCycles();
+        Cycles::reset();
     if (rawStep()) {
         if (show)
             printCycles();

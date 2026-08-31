@@ -181,7 +181,7 @@ void PinsMc6802::resetPins() {
     cycle();
     delayNanoseconds(tpcs_ns);
     negate_reset();
-    Signals::resetCycles();
+    Cycles::reset();
     cycle();
     // Read Reset vector
     cycle();
@@ -223,7 +223,7 @@ mc6800::Signals *PinsMc6802::rawCycle() {
         delayNanoseconds(c3_lo_novma);
         // c4
         extal_hi();
-        Signals::nextCycle();
+        Cycles::next();
         delayNanoseconds(c4_hi_novma);
         extal_lo();
         delayNanoseconds(c4_lo_novma);
@@ -242,7 +242,7 @@ mc6800::Signals *PinsMc6802::rawCycle() {
         // c4
         extal_hi();
         _writes = 0;
-        Signals::nextCycle();
+        Cycles::next();
         delayNanoseconds(c4_hi_read);
         extal_lo();
         delayNanoseconds(c4_lo_read);
@@ -257,7 +257,7 @@ mc6800::Signals *PinsMc6802::rawCycle() {
         delayNanoseconds(c3_lo_write);
         // c4
         extal_hi();
-        Signals::nextCycle();
+        Cycles::next();
         delayNanoseconds(c4_hi_write);
         extal_lo();
         if (s->writeMemory()) {

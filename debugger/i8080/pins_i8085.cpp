@@ -161,7 +161,7 @@ void PinsI8085::resetPins() {
         x1_cycle();
     // #RESET_IN is sampled here falling transition of next CLK.
     negate_reset();
-    Signals::resetCycles();
+    Cycles::reset();
     do {
         delayNanoseconds(x1_lo_ale);
         x1_cycle_lo();
@@ -244,7 +244,7 @@ Signals *PinsI8085::completeCycle(Signals *s) const {
         delayNanoseconds(x1_lo_output);
     }
     x1_hi();
-    Signals::nextCycle();
+    Cycles::next();
     delayNanoseconds(x1_hi_next);
     x1_lo();
     Signals::inputMode();
@@ -310,7 +310,7 @@ Signals *PinsI8085::loop() const {
         s = prepareCycle();
         if (s->halt()) {
             const auto halt = s->prev();
-            Signals::discard(halt);
+            Cycles::discard(halt);
             return halt;
         }
         if (haltSwitch() && s->fetch()) {
@@ -322,7 +322,7 @@ Signals *PinsI8085::loop() const {
 
 void PinsI8085::run() {
     _regs->restore();
-    Signals::resetCycles();
+    Cycles::reset();
     saveBreakInsts();
     const auto halt = loop();
     restoreBreakInsts();
@@ -358,10 +358,10 @@ bool PinsI8085::rawStep() const {
 }
 
 bool PinsI8085::step(bool show) {
-    Signals::resetCycles();
+    Cycles::reset();
     _regs->restore();
     if (show)
-        Signals::resetCycles();
+        Cycles::reset();
     if (rawStep()) {
         if (show)
             printCycles();

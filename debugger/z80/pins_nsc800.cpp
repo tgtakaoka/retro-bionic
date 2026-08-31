@@ -214,7 +214,7 @@ void PinsNsc800::resetPins() {
     for (auto i = 0; i < 10; i++)
         xin_cycle();
     negate_reset();
-    Signals::resetCycles();
+    Cycles::reset();
     prepareWait();
     _regs->setIp(InstZ80::ORG_RESET);
     _regs->save();
@@ -276,7 +276,7 @@ Signals *PinsNsc800::completeCycle(Signals *s) const {
     }
     // T3A
     xin_cycle_lo();
-    Signals::nextCycle();
+    Cycles::next();
     return s;
 }
 
@@ -365,7 +365,7 @@ void PinsNsc800::loop() {
                 completeCycle(s->inject(InstZ80::RET));
                 inject(lo(rst38h->addr));
                 inject(hi(rst38h->addr));
-                Signals::discard(rst38h);
+                Cycles::discard(rst38h);
                 prepareWait();
                 return;
             }
@@ -381,7 +381,7 @@ void PinsNsc800::loop() {
 
 void PinsNsc800::run() {
     _regs->restore();
-    Signals::resetCycles();
+    Cycles::reset();
     saveBreakInsts();
     loop();
     restoreBreakInsts();
@@ -399,7 +399,7 @@ void PinsNsc800::suspend() {
             inject(InstZ80::RETN);
             inject(s->prev()->data);
             inject(s->prev(2)->data);
-            Signals::discard(s->prev(2));
+            Cycles::discard(s->prev(2));
             prepareWait();
             return;
         }
@@ -418,10 +418,10 @@ bool PinsNsc800::rawStep() {
 }
 
 bool PinsNsc800::step(bool show) {
-    Signals::resetCycles();
+    Cycles::reset();
     _regs->restore();
     if (show)
-        Signals::resetCycles();
+        Cycles::reset();
     if (rawStep()) {
         if (show)
             printCycles();

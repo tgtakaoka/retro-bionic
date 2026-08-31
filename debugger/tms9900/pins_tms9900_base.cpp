@@ -51,7 +51,7 @@ void PinsTms9900Base::loop() {
                     regs<RegsTms9900>()->breakPoint();
                     xop->clearFetch();
                     xop->next()->clearFetch();
-                    Signals::discard(s);
+                    Cycles::discard(s);
                     return;
                 }
             }
@@ -61,7 +61,7 @@ void PinsTms9900Base::loop() {
 
 void PinsTms9900Base::run() {
     _regs->restore();
-    Signals::resetCycles();
+    Cycles::reset();
     saveBreakInsts();
     loop();
     // context has been saved in loop()
@@ -84,7 +84,7 @@ void PinsTms9900Base::suspend(uint16_t pc) {
     }
     negateInt(tms9900::INTR_NMI);
     _regs->save();
-    Signals::discard(s);
+    Cycles::discard(s);
 }
 
 bool PinsTms9900Base::rawStep() {
@@ -93,10 +93,10 @@ bool PinsTms9900Base::rawStep() {
 }
 
 bool PinsTms9900Base::step(bool show) {
-    Signals::resetCycles();
+    Cycles::reset();
     _regs->restore();
     if (show)
-        Signals::resetCycles();
+        Cycles::reset();
     if (rawStep()) {
         if (show)
             printCycles();

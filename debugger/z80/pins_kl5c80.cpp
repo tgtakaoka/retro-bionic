@@ -158,7 +158,7 @@ void PinsKl5c80::resetPins() {
     for (auto i = 0; i < 100; i++)
         xin_cycle();
     negate_reset();
-    Signals::resetCycles();
+    Cycles::reset();
     enableExternalReady(true);
     prepareWait();
     _regs->setIp(InstZ80::ORG_RESET);
@@ -247,7 +247,7 @@ Signals *PinsKl5c80::completeCycle(Signals *s) const {
     }
     xin_lo();
     s->inputMode();  // data bus hold is acting
-    Signals::nextCycle();
+    Cycles::next();
     auto n = Signals::put();
     noInterrupts();
     while (n->getControl())  // wait for end of bus cycle
@@ -351,13 +351,13 @@ Signals *PinsKl5c80::loop() {
 
 void PinsKl5c80::run() {
     _regs->restore();
-    Signals::resetCycles();
+    Cycles::reset();
     saveBreakInsts();
     enableExternalReady(false);
     auto s = loop();
     enableExternalReady(true);
     prepareWait();
-    Signals::discard(s);
+    Cycles::discard(s);
     restoreBreakInsts();
     disassembleCycles();
     _regs->save();
@@ -385,16 +385,16 @@ bool PinsKl5c80::rawStep() {
         return false;
     resumeCycle(pc);
     auto s = suspend();
-    Signals::discard(s);
+    Cycles::discard(s);
     prepareWait();
     return true;
 }
 
 bool PinsKl5c80::step(bool show) {
-    Signals::resetCycles();
+    Cycles::reset();
     _regs->restore();
     if (show)
-        Signals::resetCycles();
+        Cycles::reset();
     if (rawStep()) {
         if (show)
             printCycles();

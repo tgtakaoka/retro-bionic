@@ -162,7 +162,7 @@ void PinsCdp1802::resetPins() {
     for (auto i = 0; i < 100; i++)
         clock_cycle();
     negate_reset();
-    Signals::resetCycles();
+    Cycles::reset();
     // The first machine cycle after termination of reset is an
     // intialization cycle which requires 9 clock pulses.
     for (auto i = 0; i < 20; i++) {
@@ -306,7 +306,7 @@ Signals *PinsCdp1802::completeCycle(Signals *s) {
     delayNanoseconds(c71_ns);
     // c00
     clock_lo();
-    Signals::nextCycle();
+    Cycles::next();
     delayNanoseconds(c00_ns);
     // c01
     clock_hi();
@@ -381,7 +381,7 @@ void PinsCdp1802::loop() {
 
 void PinsCdp1802::run() {
     _regs->restore();
-    Signals::resetCycles();
+    Cycles::reset();
     saveBreakInsts();
     loop();
     restoreBreakInsts();
@@ -396,7 +396,7 @@ Signals *PinsCdp1802::rawStep(Signals *s) {
         completeCycle(s->inject(InstCdp1802::LBR));
         inject(hi(s->addr));
         inject(lo(s->addr));
-        Signals::discard(s);
+        Cycles::discard(s);
         return nullptr;
     }
     completeCycle(s);
@@ -416,10 +416,10 @@ Signals *PinsCdp1802::rawStep(Signals *s) {
 }
 
 bool PinsCdp1802::step(bool show) {
-    Signals::resetCycles();
+    Cycles::reset();
     _regs->restore();
     if (show)
-        Signals::resetCycles();
+        Cycles::reset();
     if (rawStep(startCycle())) {
         if (show)
             printCycles();

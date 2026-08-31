@@ -197,7 +197,7 @@ Signals *PinsMc6809::rawCycle() const {
         }
         // C4H
         extal_hi();
-        Signals::nextCycle();
+        Cycles::next();
         delayNanoseconds(c4_hi_write);
     } else {
         delayNanoseconds(c3_lo_read);
@@ -215,7 +215,7 @@ Signals *PinsMc6809::rawCycle() const {
         delayNanoseconds(c4_lo_read);
         // C4H
         extal_hi();
-        Signals::nextCycle();
+        Cycles::next();
         delayNanoseconds(c4_hi_read);
     }
     s->getControl();

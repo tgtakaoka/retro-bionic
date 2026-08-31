@@ -179,7 +179,7 @@ void PinsIns8070::resetPins() {
         xin_cycle();
     negate_reset();
     negate_enin();
-    Signals::resetCycles();
+    Cycles::reset();
     // The first instruction will be fetched within 13 Tc after #RST
     // has gone high.
     _regs->save();
@@ -235,7 +235,7 @@ Signals *PinsIns8070::completeCycle(Signals *s) {
             delayNanoseconds(xin_lo_wds);
         }
         xin_hi();
-        Signals::nextCycle();
+        Cycles::next();
         delayNanoseconds(xin_write_end);
     } else {
         delayNanoseconds(xin_read_begin);
@@ -257,7 +257,7 @@ Signals *PinsIns8070::completeCycle(Signals *s) {
             delayNanoseconds(xin_lo_rds);
         }
         xin_hi();
-        Signals::nextCycle();
+        Cycles::next();
         delayNanoseconds(xin_read_end);
     }
     xin_lo();
@@ -351,7 +351,7 @@ void PinsIns8070::loop() {
                 inject(InstIns8070::RET);  // cancel CALL 15
                 inject(lo(pc));            // inject low address
                 inject(hi(pc));            // inject high address
-                Signals::discard(call);
+                Cycles::discard(call);
                 return;
             }
         }
@@ -369,7 +369,7 @@ void PinsIns8070::suspend() {
         if (s->fetch()) {
             completeCycle(s->inject(InstIns8070::BRA));
             inject(InstIns8070::BRA_HERE);
-            Signals::discard(s);
+            Cycles::discard(s);
             return;
         }
         completeCycle(s);
@@ -378,7 +378,7 @@ void PinsIns8070::suspend() {
 
 void PinsIns8070::run() {
     _regs->restore();
-    Signals::resetCycles();
+    Cycles::reset();
     saveBreakInsts();
     assert_enin();
     loop();
@@ -400,7 +400,7 @@ uint8_t PinsIns8070::busCycles(InstIns8070 &inst) const {
 }
 
 bool PinsIns8070::step(bool show) {
-    Signals::resetCycles();
+    Cycles::reset();
     InstIns8070 inst;
     const auto cycles = busCycles(inst);
     if (cycles == 0)
@@ -410,7 +410,7 @@ bool PinsIns8070::step(bool show) {
         return false;
     _regs->restore();
     if (show)
-        Signals::resetCycles();
+        Cycles::reset();
     assert_enin();
     if (inst.addrMode() == M_SSM) {
         // SSM instruction
@@ -421,7 +421,7 @@ bool PinsIns8070::step(bool show) {
                 completeCycle(s->inject(InstIns8070::BRA));
                 inject(InstIns8070::BRA_HERE);
                 if (show)
-                    Signals::discard(s);
+                    Cycles::discard(s);
                 break;
             }
             completeCycle(s);

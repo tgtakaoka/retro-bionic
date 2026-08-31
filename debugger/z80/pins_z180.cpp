@@ -159,7 +159,7 @@ void PinsZ180::resetPins() {
     for (auto i = 0; i < 100; i++)
         extal_cycle();
     negate_reset();
-    Signals::resetCycles();
+    Cycles::reset();
     assert_wait();
     _regs->setIp(InstZ80::ORG_RESET);
     configureCpu();
@@ -252,7 +252,7 @@ Signals *PinsZ180::completeCycle(Signals *s) const {
     }
     extal_lo();
     s->inputMode();  // data bus hold is acting
-    Signals::nextCycle();
+    Cycles::next();
     auto n = Signals::put();
     noInterrupts();
     while (n->getControl())
@@ -354,11 +354,11 @@ Signals *PinsZ180::loop() {
 
 void PinsZ180::run() {
     _regs->restore();
-    Signals::resetCycles();
+    Cycles::reset();
     saveBreakInsts();
     auto s = loop();
     assert_wait();
-    Signals::discard(s);
+    Cycles::discard(s);
     restoreBreakInsts();
     disassembleCycles();
     _regs->save();
@@ -388,15 +388,15 @@ bool PinsZ180::rawStep() {
     assert_nmi();  // Assert #NMI as soon as possible
     resumeCycle(pc);
     auto s = suspend();
-    Signals::discard(s);
+    Cycles::discard(s);
     return true;
 }
 
 bool PinsZ180::step(bool show) {
-    Signals::resetCycles();
+    Cycles::reset();
     _regs->restore();
     if (show)
-        Signals::resetCycles();
+        Cycles::reset();
     if (rawStep()) {
         if (show)
             printCycles();

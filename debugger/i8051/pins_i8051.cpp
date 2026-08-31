@@ -225,7 +225,7 @@ void PinsI8051::resetPins() {
     for (auto i = 0; i < 30; ++i)
         xtal_cycle();
     negate_reset();
-    Signals::resetCycles();
+    Cycles::reset();
     _regs->save();
 }
 
@@ -287,7 +287,7 @@ Signals *PinsI8051::completeCycle(Signals *s) {
         d->uartLoop();
         // S1L2
         xtal_lo();  // S1L2 triggers #PSEN+ and ALE+
-        Signals::nextCycle();
+        Cycles::next();
         // S1H2
         xtal_hi();
         Signals::inputMode();
@@ -337,7 +337,7 @@ Signals *PinsI8051::completeCycle(Signals *s) {
     d->uartLoop();
     // S3H2/S1L1
     xtal_cycle_lo();  // S1L1 triggers #RD/#WR+
-    Signals::nextCycle();
+    Cycles::next();
     // S1H1
     xtal_hi();
     Signals::inputMode();
@@ -357,7 +357,7 @@ Signals *PinsI8051::inject(uint8_t data) {
 
 void PinsI8051::inject(const uint8_t data[], uint8_t len) {
     for (auto i = 0; i < len; ++i)
-        Signals::discard(inject(data[i]));
+        Cycles::discard(inject(data[i]));
 }
 
 void PinsI8051::execInst(const uint8_t *inst, uint8_t len) {
@@ -413,7 +413,7 @@ void PinsI8051::loop() {
 
 void PinsI8051::run() {
     _regs->restore();
-    Signals::resetCycles();
+    Cycles::reset();
     saveBreakInsts();
     loop();
     restoreBreakInsts();
@@ -443,10 +443,10 @@ bool PinsI8051::rawStep() {
 }
 
 bool PinsI8051::step(bool show) {
-    Signals::resetCycles();
+    Cycles::reset();
     _regs->restore();
     if (show)
-        Signals::resetCycles();
+        Cycles::reset();
     if (rawStep()) {
         if (show)
             printCycles();

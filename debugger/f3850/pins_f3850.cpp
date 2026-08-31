@@ -160,7 +160,7 @@ void PinsF3850::resetPins() {
     // WRITE=H
     negate_extres();
     delayNanoseconds(xtly_hi_ns);
-    Signals::resetCycles();
+    Cycles::reset();
 
     cycle();  // IDLE
     delayNanoseconds(xtly_idle_ns);
@@ -189,7 +189,7 @@ Signals *PinsF3850::cycle() {
         delayNanoseconds(xtly_hi_noread);
     }
     xtly_lo();
-    Signals::nextCycle();
+    Cycles::next();
     delayNanoseconds(xtly_lo_next);
     xtly_hi();
     while (signal_write() == LOW)
@@ -247,7 +247,7 @@ void PinsF3850::idle() {
     inject(InstF3850::BR_HERE);  // ROMC=0x1C
     delayNanoseconds(xtly_idle_ns);
     inject(0xFF);  // ROMC=0x01
-    Signals::discard(s);
+    Cycles::discard(s);
 }
 
 void PinsF3850::loop() {
@@ -260,7 +260,7 @@ void PinsF3850::loop() {
 
 void PinsF3850::run() {
     _regs->restore();
-    Signals::resetCycles();
+    Cycles::reset();
     saveBreakInsts();
     loop();
     restoreBreakInsts();
@@ -288,10 +288,10 @@ bool PinsF3850::rawStep() {
 }
 
 bool PinsF3850::step(bool show) {
-    Signals::resetCycles();
+    Cycles::reset();
     _regs->restore();
     if (show)
-        Signals::resetCycles();
+        Cycles::reset();
     if (rawStep()) {
         if (show)
             printCycles();

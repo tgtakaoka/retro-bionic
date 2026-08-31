@@ -164,7 +164,7 @@ void PinsTms9980::resetPins() {
     negate_reset();
     system_cycle();
 
-    Signals::resetCycles();
+    Cycles::reset();
     prepareCycle();
     _regs->save();
     _regs->reset();
@@ -230,7 +230,7 @@ Signals *PinsTms9980::completeCycle(Signals *_s) {
             }
         }
         ckin_hi();
-        Signals::nextCycle();
+        Cycles::next();
         // phi3
         ckin_lo();
         delayNanoseconds(ckin_lo_input);

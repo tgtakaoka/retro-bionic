@@ -169,7 +169,7 @@ void PinsTms9995::resetPins() {
         system_cycle();
     negate_reset();
 
-    Signals::resetCycles();
+    Cycles::reset();
     pauseCycle();
     _regs->save();
     _regs->reset();
@@ -203,7 +203,7 @@ Signals *PinsTms9995::completeCycle(Signals *_s) {
         s->outData();
         // phi1
         clkin_lo();
-        Signals::nextCycle();
+        Cycles::next();
         clkin_hi();
         s->inputMode();
     } else if (s->write()) {
@@ -219,7 +219,7 @@ Signals *PinsTms9995::completeCycle(Signals *_s) {
         }
         // phi1
         clkin_lo();
-        Signals::nextCycle();
+        Cycles::next();
         clkin_hi();
     } else {
         // phi4
@@ -266,7 +266,7 @@ const uint16_t JMP_6 = 0x10FC;  // JMP $-6
 const uint16_t ZERO = 0x0000;   // @>0000
 
 uint8_t PinsTms9995::internal_read(uint16_t addr) {
-    DEBUG(Signals::resetCycles());
+    DEBUG(Cycles::reset());
     DEBUG(cli.print("@@ internal_read: addr="));
     DEBUG(cli.printlnHex(addr, 4));
     // MOVB @s, @d; I:I:s:s:R:d:d:i:i:W
@@ -282,7 +282,7 @@ uint8_t PinsTms9995::internal_read(uint16_t addr) {
 }
 
 void PinsTms9995::internal_write(uint16_t addr, uint8_t data) {
-    DEBUG(Signals::resetCycles());
+    DEBUG(Cycles::reset());
     DEBUG(cli.print("@@ internal_write: addr="));
     DEBUG(cli.printHex(addr, 4));
     DEBUG(cli.print(" data="));
@@ -299,7 +299,7 @@ void PinsTms9995::internal_write(uint16_t addr, uint8_t data) {
 }
 
 uint16_t PinsTms9995::internal_read16(uint16_t addr) {
-    DEBUG(Signals::resetCycles());
+    DEBUG(Cycles::reset());
     DEBUG(cli.print("@@ internal_read16: addr="));
     DEBUG(cli.printlnHex(addr, 4));
     uint16_t data;
@@ -316,7 +316,7 @@ uint16_t PinsTms9995::internal_read16(uint16_t addr) {
 }
 
 void PinsTms9995::internal_write16(uint16_t addr, uint16_t data) {
-    DEBUG(Signals::resetCycles());
+    DEBUG(Cycles::reset());
     DEBUG(cli.print("@@ internal_write16: addr="));
     DEBUG(cli.printHex(addr, 4));
     DEBUG(cli.print(" data="));

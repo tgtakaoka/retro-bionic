@@ -149,7 +149,7 @@ void PinsMc6800::resetPins() {
     cycle();
     delayNanoseconds(tpcs_ns);
     negate_reset();
-    Signals::resetCycles();
+    Cycles::reset();
     cycle();
     // Read Reset vector
     cycle();
@@ -202,7 +202,7 @@ Signals *PinsMc6800::rawCycle() {
         s->outData();
         delayNanoseconds(phi2_hi_read);
     }
-    Signals::nextCycle();
+    Cycles::next();
     // PHI2=LOW
     phi2_lo();
 

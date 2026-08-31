@@ -178,7 +178,7 @@ void PinsMn1613::resetPins() {
     while (adsd_asserted())
         x2_cycle();
 
-    Signals::resetCycles();
+    Cycles::reset();
     _regs->reset();
     _regs->save();
     regs<RegsMn1613>()->checkCpuType();
@@ -250,14 +250,14 @@ Signals *PinsMn1613::completeCycle(Signals *s) const {
         x2_hi();
         s->outData();
         x2_lo();
-        Signals::nextCycle();
+        Cycles::next();
         x2_hi();
         s->getFetch();
         s->inputMode();
     } else {
         delayNanoseconds(x2_hi_write);
         x2_lo();
-        Signals::nextCycle();
+        Cycles::next();
         x2_hi();
         delayNanoseconds(x2_hi_get);
         s->getData();
@@ -304,7 +304,7 @@ void PinsMn1613::loop() {
 
 void PinsMn1613::run() {
     _regs->restore();
-    Signals::resetCycles();
+    Cycles::reset();
     saveBreakInsts();
     loop();
     // discard prefetches
@@ -312,7 +312,7 @@ void PinsMn1613::run() {
     do {
         s = s->prev();
         if (s->fetch() && _mems->read(s->addr) == InstMn1613::H) {
-            Signals::discard(s);
+            Cycles::discard(s);
             break;
         }
     } while (s != Signals::get());
@@ -337,10 +337,10 @@ bool PinsMn1613::rawStep() {
 }
 
 bool PinsMn1613::step(bool show) {
-    Signals::resetCycles();
+    Cycles::reset();
     _regs->restore();
     if (show)
-        Signals::resetCycles();
+        Cycles::reset();
     if (rawStep()) {
         if (show)
             printCycles();
@@ -373,7 +373,7 @@ void PinsMn1613::halt() const {
     while (true) {
         const auto s = waitBus()->inject(InstMn1613::NOP)->capture();
         if (halt_asserted()) {
-            Signals::discard(s);
+            Cycles::discard(s);
             return;
         }
         completeCycle(s);
