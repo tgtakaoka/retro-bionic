@@ -59,7 +59,8 @@ void Signals::inputMode() const {
 void Signals::print() const {
     //                              012345678901234
     static constexpr char line[] = "R A=xxxxx D=xx";
-    static auto &buffer = *new CharBuffer(line);
+    auto &buffer = Cycles::buffer();
+    buffer.set(line);
     if (mrd()) {
         buffer[0] = fetch() ? 'F' : 'R';
         buffer[2] = 'A';

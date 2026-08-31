@@ -59,7 +59,8 @@ void Signals::print() const {
     if (PinsMos6502::hardwareType() == HW_W65C816) {
         //                              0123456789012345
         static constexpr char line[] = "VW A=xxxxxx D=xx";
-        static auto &buffer = *new CharBuffer(line);
+        auto &buffer = Cycles::buffer();
+        buffer.set(line);
         buffer[0] = fetch() ? 'S' : (vector() ? 'V' : ' ');
         buffer[1] = write() ? 'W' : 'R';
         if (addr24()) {
@@ -73,7 +74,8 @@ void Signals::print() const {
     } else {
         //                              01234567890123
         static constexpr char line[] = "VW A=xxxx D=xx";
-        static auto &buffer = *new CharBuffer(line);
+        auto &buffer = Cycles::buffer();
+        buffer.set(line);
         buffer.hex16(5, addr);
         buffer.hex8(12, data);
         buffer[0] = fetch() ? 'S' : (vector() ? 'V' : ' ');

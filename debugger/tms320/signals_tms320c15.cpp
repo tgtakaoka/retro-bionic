@@ -49,7 +49,8 @@ void Signals::print() const {
     // cli.printDec(pos(), -4);
     //                              01234567890123
     static constexpr char line[] = "W A=xxx D=xxxx";
-    static auto &buffer = *new CharBuffer(line);
+    auto &buffer = Cycles::buffer();
+    buffer.set(line);
     if (fetch()) {
         buffer[0] = 'P';
         buffer[2] = 'A';

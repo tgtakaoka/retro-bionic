@@ -46,7 +46,8 @@ void Signals::print() const {
     LOG_MATCH(if (fetch()) cli.printDec(matched(), 3); else cli.print("   "));
     LOG_MATCH(cli.print(' '));
     static constexpr char line[] = "W A=xxxx D=xx";
-    static auto &buffer = *new CharBuffer(line);
+    auto &buffer = Cycles::buffer();
+    buffer.set(line);
     buffer[0] = fetch() ? 'F' : (write() ? 'W' : 'R');
     buffer.hex16(4, addr);
     if (valid()) {

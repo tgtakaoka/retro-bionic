@@ -47,7 +47,8 @@ void Signals::print() const {
     //                              0123456789012345
     static constexpr char line[] = " W A=xxxx D=xx L";
     static constexpr char STATUS[] = {' ', 'V', 'S', 'H'};
-    static auto &buffer = *new CharBuffer(line);
+    auto &buffer = Cycles::buffer();
+    buffer.set(line);
     auto status = (cntl() & (CNTL_BA | CNTL_BS)) >> 2;
     buffer[0] = STATUS[status];
     buffer[1] = write() ? 'W' : 'R';

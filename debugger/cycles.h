@@ -3,6 +3,8 @@
 
 #include <stdint.h>
 
+#include "char_buffer.h"
+
 namespace debugger {
 
 struct SignalsImpl;
@@ -16,6 +18,10 @@ struct SignalsImpl;
 struct Cycles {
     static constexpr uint_fast8_t MAX_CYCLES = 128;
 
+    /** One instance per target, owned by |Pins|. */
+    Cycles();
+    ~Cycles();
+
     static void reset();
     static void next();
     static void discard(const SignalsImpl *s);
@@ -27,7 +33,13 @@ struct Cycles {
     static SignalsImpl *at(uint_fast8_t index);
     static uint_fast8_t indexOf(const SignalsImpl *s);
 
+    /** Scratch line buffer for |Signals::print()|. */
+    static CharBuffer &buffer() { return _current->_buffer; }
+
 private:
+    static Cycles *_current;
+    CharBuffer _buffer{""};
+
     static uint_fast8_t _put;
     static uint_fast8_t _get;
     static uint_fast8_t _cycles;

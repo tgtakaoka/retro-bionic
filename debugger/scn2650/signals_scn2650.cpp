@@ -44,7 +44,8 @@ void Signals::inputMode() {
 void Signals::print() const {
     //                              01234567890123
     static constexpr char line[] = "MR A=xxxx D=xx";
-    static auto &buffer = *new CharBuffer(line);
+    auto &buffer = Cycles::buffer();
+    buffer.set(line);
     buffer[0] = io() ? (vector() ? 'V' : 'I') : 'M';
     buffer[1] = write() ? 'W' : 'R';
     if (io()) {

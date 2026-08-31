@@ -60,7 +60,8 @@ void Signals::clearFetch() {
 void Signals::print() const {
     //                              012345678901
     static constexpr char line[] = "R A=xxx D=xx";
-    static auto &buffer = *new CharBuffer(line);
+    auto &buffer = Cycles::buffer();
+    buffer.set(line);
     if (port()) {
         static constexpr char CONTROL[] = {'R', 'W', 'O', 'A'};
         buffer[0] = CONTROL[(addr >> 10) & 3];
