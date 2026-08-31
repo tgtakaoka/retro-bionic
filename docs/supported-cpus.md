@@ -43,7 +43,7 @@ report several parts.
 <tr><td>🚧</td><td><code>MC68040</code></td><td></td><td><code>MC68040FE25V</code>, <code>MC68040FE33A</code>; needs a bus sizer</td></tr>
 <tr><td><code>mc68hc12</code></td><td></td><td>🚧</td><td><code>MC68HC12</code></td><td></td><td><code>MC68HC912BD32CFU10</code></td></tr>
 <tr><td><code>mc68hc16</code></td><td></td><td>🚧</td><td><code>MC68HC16</code></td><td></td><td><code>MC68HC16Z1PV16</code></td></tr>
-<tr><td><code>mos6502</code></td><td><code>mos6502</code></td><td>✅</td><td><code>MOS6502</code></td><td><code>G65SC02</code>, <code>R65C02</code>, <code>W65C02S</code>, <code>W65C816S</code></td><td>W65C816S needs a bus terminator to hold the multiplexed bank address</td></tr>
+<tr><td><code>mos6502</code></td><td><code>mos6502</code></td><td>✅</td><td><code>MOS6502</code></td><td><code>G65SC02</code>, <code>R65C02</code>, <code>W65C02S</code>, <code>W65C816S</code></td><td>W65C816S needs a data bus holder for the multiplexed bank address</td></tr>
 <tr><td rowspan="5"><code>z80</code></td><td rowspan="5"><code>z80</code></td><td>✅</td><td><code>Z80</code></td><td></td><td></td></tr>
 <tr><td>✅</td><td><code>Z180</code></td><td></td><td>PLCC and QFP boards; QFP <code>Z8018008FSC</code> still pending</td></tr>
 <tr><td>✅</td><td><code>HD64180S</code></td><td></td><td>Hitachi original of the Z180</td></tr>
@@ -57,7 +57,7 @@ report several parts.
 <tr><td><code>z380</code></td><td></td><td>🚧</td><td><code>Z380</code></td><td></td><td><code>Z8038018FSC</code></td></tr>
 <tr><td><code>i8048</code></td><td><code>i8048</code></td><td>✅</td><td><code>P8039</code></td><td><code>MSM80C39</code></td><td>No absolute addressing, subtract or compare</td></tr>
 <tr><td><code>i8051</code></td><td><code>i8051</code></td><td>✅</td><td><code>P8051</code></td><td></td><td>Clock-to-control-signal delay is about half a cycle</td></tr>
-<tr><td rowspan="2"><code>i8080</code></td><td rowspan="2"><code>i8080</code></td><td>✅</td><td><code>P8080</code></td><td></td><td>Two-phase clock; <code>RESET</code> resumes from a HALT breakpoint</td></tr>
+<tr><td rowspan="2"><code>i8080</code></td><td rowspan="2"><code>i8080</code></td><td>✅</td><td><code>P8080</code></td><td></td><td>Non-overlapping two-phase 12 V clock; <code>RESET</code> resumes from a HALT breakpoint</td></tr>
 <tr><td>✅</td><td><code>P8085</code></td><td></td><td></td></tr>
 <tr><td rowspan="3"><code>i8096</code></td><td><code>i8096</code></td><td>✅</td><td><code>P8095BH</code></td><td></td><td>Prefetches up to 4 bytes, so stepping uses TRAP</td></tr>
 <tr><td rowspan="2"></td><td>🚧</td><td><code>8097</code></td><td></td><td><code>N8097BH</code></td></tr>
@@ -70,7 +70,7 @@ report several parts.
 <tr><td>🚧</td><td><code>80286</code></td><td></td><td><code>N80C286-12</code></td></tr>
 <tr><td>🚧</td><td><code>80386SX</code></td><td></td><td><code>NG80386SX-25</code></td></tr>
 <tr><td>🚧</td><td><code>80486DX4</code></td><td></td><td><code>FC80486DX4-75</code>; 3.3 V core with 5 V-tolerant I/O</td></tr>
-<tr><td rowspan="5"><code>tms9900</code></td><td rowspan="5"><code>tms9900</code></td><td>✅</td><td><code>TMS9900</code></td><td></td><td>Needs a 12 V four-phase clock</td></tr>
+<tr><td rowspan="5"><code>tms9900</code></td><td rowspan="5"><code>tms9900</code></td><td>✅</td><td><code>TMS9900</code></td><td></td><td>Needs a non-overlapping four-phase 12 V clock</td></tr>
 <tr><td>✅</td><td><code>TMS9980</code></td><td></td><td></td></tr>
 <tr><td>✅</td><td><code>TMS9981</code></td><td></td><td>8-bit bus; registers live in main memory, so cycle counts are high</td></tr>
 <tr><td>✅</td><td><code>TMS9995</code></td><td></td><td>Optimised bus, 16-bit internal RAM</td></tr>
@@ -105,7 +105,7 @@ report several parts.
 <tr><td rowspan="2"><code>superh</code></td><td rowspan="2"></td><td>🚧</td><td><code>SH-1</code></td><td></td><td><code>HD6417034F20V</code>, <code>HD6437034F20</code></td></tr>
 <tr><td>🚧</td><td><code>SH-2</code></td><td></td><td><code>HD6477042F28</code>, <code>HD64F7047F50V</code></td></tr>
 <tr><td><code>mn1610</code></td><td><code>mn1610</code></td><td>✅</td><td><code>MN1613</code></td><td><code>MN1613A</code></td><td>Has floating-point instructions</td></tr>
-<tr><td><code>cp1600</code></td><td></td><td>🚧</td><td><code>CP1610</code></td><td></td><td><code>CP1610</code>; needs +11 V and −2.2 V and a two-phase +11 V clock</td></tr>
+<tr><td><code>cp1600</code></td><td></td><td>🚧</td><td><code>CP1610</code></td><td></td><td><code>CP1610</code>; needs +11 V and −3 V and a non-overlapping two-phase +11 V clock</td></tr>
 <tr><td><code>am29000</code></td><td></td><td>🚧</td><td><code>Am29205</code></td><td></td><td><code>AM29205-16KC</code>; external 16-bit bus variant of Am29k</td></tr>
 </tbody>
 </table>

@@ -40,11 +40,11 @@ board tells the controller which one it is.
 
 The hardware is two boards:
 
-1. **Base** — the Teensy 4.1, six TXS0108E level shifters for 3.3 V ↔ 5 V translation, bus
-   terminators, the 48-pin ZIF socket and the HALT/RUN switch.
+1. **Base** — the Teensy 4.1, five TXS0108E level shifters for 3.3 V ↔ 5 V translation, data
+   bus holders, the 48-pin ZIF socket and the HALT/RUN switch.
 2. **CPU adapter** — one small board per processor, holding little more than the chip
    itself, its identity EEPROM and whatever power the part demands. The TMS9900 board, for
-   example, generates its own +12 V and −5 V rails and a four-phase clock, and CPUs with
+   example, generates its own +12 V and −5 V rails and a non-overlapping four-phase clock, and CPUs with
    large address spaces carry an address bus multiplexer.
 
 ![Bionic base board](docs/images/bionic-base.jpg)
