@@ -304,7 +304,7 @@ mc6800::Signals *PinsMc68hc11::rawCycle() {
 void PinsMc68hc11::disassembleCycles() {
     const auto g = Signals::get();
     const auto cycles = g->diff(Signals::put());
-    for (auto i = 0; i < cycles;) {
+    for (auto i = 0u; i < cycles;) {
         const auto s = g->next(i);
         if (s->fetch()) {
             const auto len = _mems->disassemble(s->addr, 1) - s->addr;

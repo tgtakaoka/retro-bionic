@@ -453,7 +453,7 @@ void PinsIns8070::setBreakInst(uint32_t addr) const {
 void PinsIns8070::printCycles(const Signals *end) {
     const auto g = Signals::get();
     const auto cycles = g->diff(end ? end : Signals::put());
-    for (auto i = 0; i < cycles; ++i) {
+    for (auto i = 0u; i < cycles; ++i) {
         g->next(i)->print();
         idle();
     }
@@ -465,7 +465,7 @@ bool PinsIns8070::matchAll(Signals *begin, const Signals *end) {
     LOG_MATCH(begin->print());
     LOG_MATCH(cli.print("@@           cycles="));
     LOG_MATCH(cli.printlnDec(cycles));
-    for (auto i = 0; i < cycles;) {
+    for (auto i = 0u; i < cycles;) {
         idle();
         auto s = begin->next(i);
         InstIns8070 inst;
@@ -484,7 +484,7 @@ const Signals *PinsIns8070::findFetch(Signals *begin, const Signals *end) {
     LOG_MATCH(begin->print());
     LOG_MATCH(cli.print("@@              end="));
     LOG_MATCH(end->print());
-    for (auto i = 0; i < cycles; ++i) {
+    for (auto i = 0u; i < cycles; ++i) {
         idle();
         auto s = begin->next(i);
         if (matchAll(s, end))
@@ -500,7 +500,7 @@ void PinsIns8070::disassembleCycles() {
     const auto begin = findFetch(Signals::get(), end);
     printCycles(begin);
     const auto cycles = begin->diff(end);
-    for (auto i = 0; i < cycles;) {
+    for (auto i = 0u; i < cycles;) {
         const auto s = begin->next(i);
         if (s->fetchMark()) {
             const auto len = _mems->disassemble(s->addr, 1) - s->addr;

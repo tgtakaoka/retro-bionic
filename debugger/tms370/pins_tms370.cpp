@@ -13,7 +13,7 @@ void PinsTms370::setBreakInst(uint32_t addr) const {
 void PinsTms370::printCycles() {
     const auto g = Signals::get();
     const auto cycles = g->diff(Signals::put());
-    for (auto i = 0; i < cycles; ++i) {
+    for (auto i = 0u; i < cycles; ++i) {
         g->next(i)->print();
         idle();
     }
@@ -22,7 +22,7 @@ void PinsTms370::printCycles() {
 void PinsTms370::disassembleCycles() {
     const auto g = Signals::get();
     const auto cycles = g->diff(Signals::put());
-    for (auto i = 0; i < cycles;) {
+    for (auto i = 0u; i < cycles;) {
         const auto s = g->next(i);
         if (s->fetch()) {
             const auto len = _mems->disassemble(s->addr, 1) - s->addr;

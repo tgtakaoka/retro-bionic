@@ -85,7 +85,7 @@ bool InstMc6800::matchSequence(const Signals *begin, const Signals *end,
     uint16_t next = 0;
     uint16_t addr = 0;
     int16_t disp;
-    for (auto i = 0; i < size; ++i) {
+    for (auto i = 0u; i < size; ++i) {
         const auto s = begin->next(i);
         LOG_MATCH(cli.print("         "));
         LOG_MATCH(cli.print(*seq));
@@ -237,7 +237,7 @@ bool InstMc6800::matchSequence(const Signals *begin, const Signals *end,
             }
         }
         if (*++seq == 0) {
-            _matched = (_nexti == i) ? i : i + 1;
+            _matched = (_nexti == static_cast<int>(i)) ? i : i + 1;
             LOG_MATCH(cli.print("@@   MATCHED="));
             LOG_MATCH(cli.printlnDec(i));
             if (_nexti >= 0) {

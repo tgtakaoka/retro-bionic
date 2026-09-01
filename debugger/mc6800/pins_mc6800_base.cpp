@@ -156,7 +156,7 @@ void PinsMc6800Base::setBreakInst(uint32_t addr) const {
 void PinsMc6800Base::printCycles(const Signals *end) {
     const auto g = Signals::get();
     const auto cycles = g->diff(end ? end : Signals::put());
-    for (auto i = 0; i < cycles; ++i) {
+    for (auto i = 0u; i < cycles; ++i) {
         const auto s = g->next(i);
         if (s == end)
             break;
@@ -172,7 +172,7 @@ bool PinsMc6800Base::matchAll(Signals *begin, const Signals *end) {
     LOG_MATCH(cli.print("@@           cycles="));
     LOG_MATCH(cli.printlnDec(cycles));
     Signals *prefetch = nullptr;
-    for (auto i = 0; i < cycles;) {
+    for (auto i = 0u; i < cycles;) {
         idle();
         const auto s = begin->next(i);
         if (prefetch == s)
@@ -206,7 +206,7 @@ const Signals *PinsMc6800Base::findFetch(Signals *begin, const Signals *end) {
     LOG_MATCH(begin->print());
     LOG_MATCH(cli.print("@@              end="));
     LOG_MATCH(end->print());
-    for (auto i = 0; i < limit; ++i) {
+    for (auto i = 0u; i < limit; ++i) {
         for (auto j = i; j < cycles; ++j)
             begin->next(j)->clearFetch();
         auto s = begin->next(i);
@@ -214,7 +214,7 @@ const Signals *PinsMc6800Base::findFetch(Signals *begin, const Signals *end) {
             return s;
         idle();
     }
-    for (auto j = 0; j < cycles; ++j)
+    for (auto j = 0u; j < cycles; ++j)
         begin->next(j)->clearFetch();
     return end;
 }
@@ -226,7 +226,7 @@ void PinsMc6800Base::disassembleCycles() {
     printCycles(begin);
     const auto cycles = begin->diff(end);
     const Signals *pref = nullptr;
-    for (auto i = 0; i < cycles;) {
+    for (auto i = 0u; i < cycles;) {
         const auto s = begin->next(i);
         if (pref || s->fetch()) {
             const auto f = pref ? pref : s;

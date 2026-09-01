@@ -209,7 +209,7 @@ void PinsMc6809Base::setBreakInst(uint32_t addr) const {
 void PinsMc6809Base::printCycles(const Signals *end) {
     const auto g = Signals::get();
     const auto cycles = g->diff(end ? end : Signals::put());
-    for (auto i = 0; i < cycles; ++i) {
+    for (auto i = 0u; i < cycles; ++i) {
         const auto s = g->next(i);
         if (s == end)
             break;
@@ -224,7 +224,7 @@ bool PinsMc6809Base::matchAll(Signals *begin, const Signals *end) {
     LOG_MATCH(begin->print());
     LOG_MATCH(cli.print("@@           cycles="));
     LOG_MATCH(cli.printlnDec(cycles));
-    for (auto i = 0; i < cycles;) {
+    for (auto i = 0u; i < cycles;) {
         idle();
         auto s = begin->next(i);
         if (_inst->match(s, end, nullptr)) {
@@ -253,7 +253,7 @@ const Signals *PinsMc6809Base::findFetch(Signals *begin, const Signals *end) {
     LOG_MATCH(begin->print());
     LOG_MATCH(cli.print("@@              end="));
     LOG_MATCH(end->print());
-    for (auto i = 0; i < limit; ++i) {
+    for (auto i = 0u; i < limit; ++i) {
         auto s = begin->next(i);
         if (matchAll(s, end))
             return s;
@@ -270,7 +270,7 @@ void PinsMc6809Base::disassembleCycles() {
     const auto begin = findFetch(Signals::get()->next(3), end);
     printCycles(begin);
     const auto cycles = begin->diff(end);
-    for (auto i = 0; i < cycles;) {
+    for (auto i = 0u; i < cycles;) {
         const auto s = begin->next(i);
         if (s->fetch()) {
             const auto len = _mems->disassemble(s->addr, 1) - s->addr;

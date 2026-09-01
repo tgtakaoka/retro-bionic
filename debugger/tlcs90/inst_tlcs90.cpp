@@ -1264,7 +1264,7 @@ bool InstTlcs90::matchSequence(const Signals *begin, const Signals *end,
     uint16_t next = 0;
     uint16_t addr = 0;
     int16_t disp = 0;
-    for (auto i = 0; i < size; ++i) {
+    for (auto i = 0u; i < size; ++i) {
         const auto s = begin->next(i);
         LOG_MATCH(cli.print("         "));
         LOG_MATCH(cli.print(*seq));
