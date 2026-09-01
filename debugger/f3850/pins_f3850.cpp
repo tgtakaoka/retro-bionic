@@ -318,7 +318,7 @@ void PinsF3850::setBreakInst(uint32_t addr) const {
 void PinsF3850::printCycles() {
     const auto g = Signals::get();
     const auto cycles = g->diff(Signals::put());
-    for (auto i = 0; i < cycles; ++i) {
+    for (auto i = 0u; i < cycles; ++i) {
         g->next(i)->print();
     }
 }
@@ -326,7 +326,7 @@ void PinsF3850::printCycles() {
 void PinsF3850::disassembleCycles() const {
     const auto g = Signals::get();
     const auto cycles = g->diff(Signals::put());
-    for (auto i = 0; i < cycles;) {
+    for (auto i = 0u; i < cycles;) {
         const auto s = g->next(i);
         const auto len = InstF3850::instLength(s->data);
         if (s->fetch() && len) {

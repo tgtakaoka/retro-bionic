@@ -161,7 +161,7 @@ void PinsMc6805::setBreakInst(uint32_t addr) const {
 void PinsMc6805::printCycles() {
     const auto g = Signals::get();
     const auto cycles = g->diff(currCycle());
-    for (auto i = 0; i < cycles; i++) {
+    for (auto i = 0u; i < cycles; i++) {
         g->next(i)->print();
     }
 }
@@ -170,7 +170,7 @@ void PinsMc6805::disassembleCycles() {
     const auto g = Signals::get();
     const auto cycles = g->diff(currCycle());
     const Signals *prefetch = nullptr;
-    for (auto i = 0; i < cycles;) {
+    for (auto i = 0u; i < cycles;) {
         const auto s = g->next(i);
         if (s->fetch() || prefetch) {
             const auto fetch = prefetch ? prefetch : s;

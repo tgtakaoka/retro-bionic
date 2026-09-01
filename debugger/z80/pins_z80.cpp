@@ -485,7 +485,7 @@ void PinsZ80::negateInt(uint8_t name) {
 void PinsZ80::printCycles() {
     const auto g = Signals::get();
     const auto cycles = g->diff(Signals::put());
-    for (auto i = 0; i < cycles; ++i) {
+    for (auto i = 0u; i < cycles; ++i) {
         g->next(i)->print();
         idle();
     }
@@ -494,7 +494,7 @@ void PinsZ80::printCycles() {
 void PinsZ80::disassembleCycles() {
     const auto g = Signals::get();
     const auto cycles = g->diff(Signals::put());
-    for (auto i = 0; i < cycles;) {
+    for (auto i = 0u; i < cycles;) {
         const auto s = g->next(i);
         if (s->fetch()) {
             const auto next = _mems->disassemble(s->addr, 1);

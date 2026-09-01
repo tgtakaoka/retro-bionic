@@ -391,7 +391,7 @@ void PinsP8095BH::negateInt(uint8_t) {
 void PinsP8095BH::printCycles(const Signals *end) {
     const auto g = Signals::get();
     const auto cycles = g->diff(end ? end : Signals::put());
-    for (auto i = 0; i < cycles; ++i) {
+    for (auto i = 0u; i < cycles; ++i) {
         g->next(i)->print();
         idle();
     }
@@ -403,7 +403,7 @@ bool PinsP8095BH::matchAll(Signals *begin, const Signals *end) {
     LOG_MATCH(begin->print());
     LOG_MATCH(cli.print("@@           cycles="));
     LOG_MATCH(cli.printlnDec(cycles));
-    for (auto i = 0; i < cycles;) {
+    for (auto i = 0u; i < cycles;) {
         idle();
         auto s = begin->next(i);
         while (s->write() || s->isOperand()) {
@@ -432,15 +432,15 @@ const Signals *PinsP8095BH::findFetch(Signals *begin, const Signals *end) {
     LOG_MATCH(begin->print());
     LOG_MATCH(cli.print("@@              end="));
     LOG_MATCH(end->print());
-    for (auto i = 0; i < limit; ++i) {
-        for (auto j = 0; j < cycles; ++j)
+    for (auto i = 0u; i < limit; ++i) {
+        for (auto j = 0u; j < cycles; ++j)
             begin->next(j)->clearMark();
         auto s = begin->next(i);
         if (matchAll(s, end))
             return s;
         idle();
     }
-    for (auto j = 0; j < cycles; ++j)
+    for (auto j = 0u; j < cycles; ++j)
         begin->next(j)->clearMark();
     return end;
 }
@@ -451,7 +451,7 @@ void PinsP8095BH::disassembleCycles() {
     cli.println();
     printCycles(begin);
     const auto cycles = begin->diff(end);
-    for (auto i = 0; i < cycles;) {
+    for (auto i = 0u; i < cycles;) {
         const auto s = begin->next(i);
         if (s->fetch()) {
             const auto nexti = _mems->disassemble(s->addr, 1);

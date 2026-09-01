@@ -474,7 +474,7 @@ void PinsMn1613::setBreakInst(uint32_t addr) const {
 void PinsMn1613::printCycles() {
     const auto g = Signals::get();
     const auto cycles = g->diff(Signals::put());
-    for (auto i = 0; i < cycles; ++i) {
+    for (auto i = 0u; i < cycles; ++i) {
         g->next(i)->print();
         idle();
     }
@@ -483,7 +483,7 @@ void PinsMn1613::printCycles() {
 void PinsMn1613::disassembleCycles() {
     const auto g = Signals::get();
     const auto cycles = g->diff(Signals::put());
-    for (auto i = 0; i < cycles;) {
+    for (auto i = 0u; i < cycles;) {
         const auto s = g->next(i);
         if (s->fetch()) {
             const auto len = _mems->disassemble(s->addr, 1) - s->addr;
