@@ -162,6 +162,12 @@ documentation for how a given CPU is driven. A few examples of what made them ha
 - **MC68HC08AZ0** — minimal control signals, no NMI, and instruction prefetch; every bus
   cycle is monitored to keep track.
 
+## A 3.3 V base board
+
+The 5 V rail is what keeps every low-voltage part in the inventory out of reach. A planned
+second base board would drop the level shifters and wire a 3.3 V CPU straight to the Teensy,
+keyed so neither family can reach the wrong base — see [3v3-base.md](3v3-base.md).
+
 ## Manufacturing
 
 Boards are designed in KiCad 8 and manufactured at JLCPCB as 2- and 4-layer PCBs. Gerbers

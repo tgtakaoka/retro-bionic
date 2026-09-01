@@ -17,6 +17,7 @@
 
 - [CPUs](docs/supported-cpus.md) — every target supported and planned, with the variants each detects
 - [Hardware](docs/hardware.md) — the board stack, signal naming and the awkward chips
+- [3.3 V base](docs/3v3-base.md) — planned second base board, its keying and what it unlocks
 - [Debugger](docs/debugger.md) — full command reference
 - [Build & run](docs/build.md) — toolchain, flashing, serial ports
 - [Samples](docs/samples.md) — the programs and how to run them
