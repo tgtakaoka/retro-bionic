@@ -40,7 +40,7 @@ report several parts.
 <tr><td>🚧</td><td><code>MC68010</code></td><td></td><td><code>MC68010P12</code>, <code>MC68010FN12</code></td></tr>
 <tr><td>🚧</td><td><code>MC68020</code></td><td></td><td><code>MC68020FC16E</code></td></tr>
 <tr><td>🚧</td><td><code>MC68030</code></td><td></td><td><code>MC68030FE25C</code>, <code>MC68030FE33</code></td></tr>
-<tr><td>🚧</td><td><code>MC68040</code></td><td></td><td><code>MC68040FE25V</code>, <code>MC68040FE33A</code>; needs a bus sizer</td></tr>
+<tr><td>🚧</td><td><code>MC68040</code></td><td></td><td><code>MC68040FE33A</code>; needs a bus sizer</td></tr>
 <tr><td><code>mc68hc12</code></td><td></td><td>🚧</td><td><code>MC68HC12</code></td><td></td><td><code>MC68HC912BD32CFU10</code></td></tr>
 <tr><td><code>mc68hc16</code></td><td></td><td>🚧</td><td><code>MC68HC16</code></td><td></td><td><code>MC68HC16Z1PV16</code></td></tr>
 <tr><td><code>mos6502</code></td><td><code>mos6502</code></td><td>✅</td><td><code>MOS6502</code></td><td><code>G65SC02</code>, <code>R65C02</code>, <code>W65C02S</code>, <code>W65C816S</code></td><td>W65C816S needs a data bus holder for the multiplexed bank address</td></tr>
@@ -131,6 +131,12 @@ The base board supplies 5 V and at most a 16-bit data bus, which sets the practi
 Parts up to the MC68030 and 80386 fit within it; the MC68040 and 80486 need help — an
 `MC68150` bus sizer in the 68k case, and in the Intel case an `i486DX4`, whose core runs at
 3.3 V with 5 V-tolerant I/O and which can size its own bus.
+
+The 5 V rail is a hard limit, not just a convention, and it is why the 3.3 V `MC68040FE25V`
+in the inventory is not listed above at all. Bringing the low-voltage parts into range —
+Toshiba's `TMP92CM22` and `TMP91C829`, most of the SuperH line, and that MC68040 — needs a
+second base board without the level shifters. See
+[A 3.3 V base board](3v3-base.md).
 
 ## Comparing CPUs
 
