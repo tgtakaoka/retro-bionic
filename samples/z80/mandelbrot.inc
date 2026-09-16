@@ -161,6 +161,7 @@ loop_i:
         ;; call    newline
 
         ld      A, (vT+1)
+        or      A
         jr      NZ, print_i     ; if T>=256
         ld      A, (vT)
         cp      A, 4+1
