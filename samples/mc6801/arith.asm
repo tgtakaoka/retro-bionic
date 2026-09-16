@@ -202,7 +202,7 @@ arith:
         ldx     #100
         jsr     expr
         jsr     div16
-        jsr     answer          ; 30
+        jsr     answer          ; 300
 
         ldd     #-200
         ldx     #100

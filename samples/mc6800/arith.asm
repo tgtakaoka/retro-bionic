@@ -229,7 +229,7 @@ arith:
         ldx     #100
         jsr     expr
         jsr     div16
-        jsr     answer          ; 30
+        jsr     answer          ; 300
 
         ldaa    #(-200) >> 8
         ldab    #(-200) & $FF

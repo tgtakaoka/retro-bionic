@@ -272,7 +272,7 @@ arith:
         ld      R0, #'/'
         call    expr
         call    divsi2
-        call    answer          ; 30
+        call    answer          ; 300
 
         ld      a, #HIGH -30000
         ld      a+1, #LOW -30000

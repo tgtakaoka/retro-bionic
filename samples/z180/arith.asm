@@ -154,7 +154,7 @@ arith:
         scf
         ccf
         sbc     HL, DE
-        call    answer          ; -10000
+        call    answer          ; 10000
 
         ld      BC, 100
         ld      DE, 300
@@ -189,7 +189,7 @@ arith:
         ld      A, '/'
         call    expr
         call    div16
-        call    answer          ; 30
+        call    answer          ; 300
 
         ld      BC, -200
         ld      DE, 100

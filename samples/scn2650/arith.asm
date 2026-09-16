@@ -235,7 +235,7 @@ arith:
         lodi,r0 A'/'
         bsta,un expr
         bsta,un divsi2
-        bsta,un answer          ; 30
+        bsta,un answer          ; 300
 
         lodi,r2 n200-arith_work
         lodi,r3 p100-arith_work

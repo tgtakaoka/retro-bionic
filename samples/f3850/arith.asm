@@ -368,7 +368,7 @@ arith:
         pi      call
         da      divsi2
         pi      call
-        da      answer          ; 30
+        da      answer          ; 300
 
         dci     -200
         pi      store_2         ; vA=-200

@@ -181,7 +181,7 @@ arith:
         pshs    D
         sexw
         divq    ,S++            ; D:W/EA=W...D
-        jsr     answer          ; 30
+        jsr     answer          ; 300
 
         ldx     #-200
         ldu     #100

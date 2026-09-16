@@ -175,7 +175,7 @@ arith:
         call    expr
         call    neg_DE
         dad     D
-        call    answer          ; -10000
+        call    answer          ; 10000
 
         lxi     B, 100
         lxi     D, 300
@@ -210,7 +210,7 @@ arith:
         mvi     A, '/'
         call    expr
         call    div16
-        call    answer          ; 30
+        call    answer          ; 300
 
         lxi     B, -200
         lxi     D, 100
