@@ -495,7 +495,7 @@ arith:
         sep     R5              ; vA/=vB
         dc      A(div16)
         sep     R5
-        dc      A(answer)       ; 30
+        dc      A(answer)       ; 300
 
         sep     R5
         dc      A(set_R7)

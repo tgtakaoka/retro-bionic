@@ -297,7 +297,7 @@ arith:
         mov     A, #'/'
         acall   expr
         acall   divsi2
-        acall   answer          ; 30
+        acall   answer          ; 300
 
         mov     R2, #LOW(-30000)
         mov     R3, #HIGH(-30000)

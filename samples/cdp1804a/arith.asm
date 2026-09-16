@@ -276,7 +276,7 @@ arith:
         ldi     T'/'
         scal    R4, expr
         scal    R4, div16
-        scal    R4, answer      ; 30
+        scal    R4, answer      ; 300
 
         rldi    R7, -200
         rldi    R8, 100

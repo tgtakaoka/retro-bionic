@@ -249,7 +249,7 @@ arith:
         lda     #'/'
         jsr     expr
         jsr     div16           ; R0=R1/R2
-        jsr     answer          ; 30
+        jsr     answer          ; 300
 
         ldx     #(-200)>>8
         lda     #(-200)&255

@@ -146,7 +146,7 @@ arith:
         ldb     A, #'-'
         scall    expr
         sub     HL, DE
-        scall   answer          ; -10000
+        scall   answer          ; 10000
 
         ld      HL, #100
         ld      DE, #300
@@ -182,7 +182,7 @@ arith:
         scall   expr
         ext     HL
         div     HL, DE
-        scall   answer          ; 30
+        scall   answer          ; 300
 
         ld      HL, #-200
         ld      DE, #100

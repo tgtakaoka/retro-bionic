@@ -306,7 +306,7 @@ arith:
         mov     A, #'/'
         call    expr
         call    divsi2
-        call    answer          ; 30
+        call    answer          ; 300
 
         mov     R2, #LOW(-30000)
         mov     R3, #HIGH(-30000)
