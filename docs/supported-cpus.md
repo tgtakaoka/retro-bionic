@@ -6,7 +6,7 @@ waiting for a board or a bus-cycle driver.
 | | Meaning |
 |---|---|
 | ✅ | Supported. The `CPU` name is the identity string stored in the adapter board's EEPROM and printed by the boot banner as `* Bionic<identity> *`. |
-| 🚧 | Planned. `Notes` gives the part number in hand. |
+| 🚧 | Planned. `Notes` gives the part number in hand, where there is one. |
 
 **Architecture** is the directory in
 [libasm](https://github.com/tgtakaoka/libasm); **Debugger** is the back-end directory under
@@ -56,26 +56,27 @@ report several parts.
 <tr><td><code>z280</code></td><td></td><td>🚧</td><td><code>Z280</code></td><td></td><td><code>Z8028012VSC</code>; 16-bit bus and cache make timing unlike the Z180</td></tr>
 <tr><td><code>z380</code></td><td></td><td>🚧</td><td><code>Z380</code></td><td></td><td><code>Z8038018FSC</code></td></tr>
 <tr><td><code>i8048</code></td><td><code>i8048</code></td><td>✅</td><td><code>P8039</code></td><td><code>MSM80C39</code></td><td>No absolute addressing, subtract or compare</td></tr>
-<tr><td><code>i8051</code></td><td><code>i8051</code></td><td>✅</td><td><code>P8051</code></td><td></td><td>Clock-to-control-signal delay is about half a cycle</td></tr>
+<tr><td><code>i8051</code></td><td><code>i8051</code></td><td>✅</td><td><code>P8051</code></td><td><code>P80C51</code></td><td>Clock-to-control-signal delay is about half a cycle</td></tr>
 <tr><td rowspan="2"><code>i8080</code></td><td rowspan="2"><code>i8080</code></td><td>✅</td><td><code>P8080</code></td><td></td><td>Non-overlapping two-phase 12 V clock; <code>RESET</code> resumes from a HALT breakpoint</td></tr>
 <tr><td>✅</td><td><code>P8085</code></td><td></td><td></td></tr>
 <tr><td rowspan="3"><code>i8096</code></td><td><code>i8096</code></td><td>✅</td><td><code>P8095BH</code></td><td></td><td>Prefetches up to 4 bytes, so stepping uses TRAP</td></tr>
 <tr><td rowspan="2"></td><td>🚧</td><td><code>8097</code></td><td></td><td><code>N8097BH</code></td></tr>
 <tr><td>🚧</td><td><code>80C196KC</code></td><td></td><td><code>S80C196KC20</code></td></tr>
-<tr><td rowspan="8"><code>i8086</code></td><td rowspan="8"></td><td>🚧</td><td><code>8086</code></td><td></td><td><code>P80C86A-2</code></td></tr>
-<tr><td>🚧</td><td><code>8088</code></td><td></td><td><code>P80C88A-2</code></td></tr>
-<tr><td>🚧</td><td><code>V30</code></td><td></td><td><code>D70116C-8</code></td></tr>
-<tr><td>🚧</td><td><code>V20</code></td><td></td><td><code>D70108HCZ-16</code></td></tr>
+<tr><td rowspan="8"><code>i8086</code></td><td rowspan="8"></td><td>🚧</td><td><code>8086</code></td><td><code>8088</code></td><td><code>P80C86A-2</code>, <code>P80C88A-2</code>; shared DIP board</td></tr>
+<tr><td>🚧</td><td><code>V30</code></td><td><code>V20</code></td><td><code>D70116C-8</code>, <code>D70108HCZ-16</code></td></tr>
+<tr><td>🚧</td><td><code>V35</code></td><td><code>V25</code></td><td><code>D70330L-8</code>, <code>D70320GJ-8</code>; PLCC and QFP boards</td></tr>
+<tr><td>🚧</td><td><code>V53</code></td><td></td><td><code>D70236AGC-16</code></td></tr>
 <tr><td>🚧</td><td><code>80186</code></td><td></td><td><code>N80C186XL20</code></td></tr>
 <tr><td>🚧</td><td><code>80286</code></td><td></td><td><code>N80C286-12</code></td></tr>
 <tr><td>🚧</td><td><code>80386SX</code></td><td></td><td><code>NG80386SX-25</code></td></tr>
 <tr><td>🚧</td><td><code>80486DX4</code></td><td></td><td><code>FC80486DX4-75</code>; 3.3 V core with 5 V-tolerant I/O</td></tr>
+<tr><td><code>i960</code></td><td></td><td>🚧</td><td><code>80960SA</code></td><td></td><td><code>N80960SA16</code></td></tr>
 <tr><td rowspan="5"><code>tms9900</code></td><td rowspan="5"><code>tms9900</code></td><td>✅</td><td><code>TMS9900</code></td><td></td><td>Needs a non-overlapping four-phase 12 V clock</td></tr>
 <tr><td>✅</td><td><code>TMS9980</code></td><td></td><td></td></tr>
 <tr><td>✅</td><td><code>TMS9981</code></td><td></td><td>8-bit bus; registers live in main memory, so cycle counts are high</td></tr>
 <tr><td>✅</td><td><code>TMS9995</code></td><td></td><td>Optimised bus, 16-bit internal RAM</td></tr>
 <tr><td>✅</td><td><code>TMS99105</code></td><td><code>TMS99110</code></td><td>A TMS99110 is recognised by its Macrostore ROM</td></tr>
-<tr><td><code>tms7000</code></td><td><code>tms7000</code></td><td>✅</td><td><code>TMS7000</code></td><td><code>TMS7002</code></td><td>Highly orthogonal instruction set</td></tr>
+<tr><td><code>tms7000</code></td><td><code>tms7000</code></td><td>✅</td><td><code>TMS7000</code></td><td><code>TMS7002</code>, <code>TMS70C00</code></td><td>Highly orthogonal instruction set</td></tr>
 <tr><td><code>tms370</code></td><td><code>tms370</code></td><td>✅</td><td><code>TMS370Cx5x</code></td><td></td><td>Oscillator monitor resets the CPU if the clock looks unstable</td></tr>
 <tr><td rowspan="4"><code>tms320</code></td><td><code>tms320</code></td><td>✅</td><td><code>TMS320C15</code></td><td></td><td>So few bus signals that instructions are tracked by counting cycles</td></tr>
 <tr><td rowspan="3"></td><td>🚧</td><td><code>TMS320C25</code></td><td></td><td><code>TMS320C25FNL</code></td></tr>
@@ -92,12 +93,13 @@ report several parts.
 <tr><td><code>ins8070</code></td><td><code>ins8070</code></td><td>✅</td><td><code>INS8070</code></td><td></td><td>SC/MP III</td></tr>
 <tr><td><code>scn2650</code></td><td><code>scn2650</code></td><td>✅</td><td><code>SCN2650</code></td><td></td><td></td></tr>
 <tr><td><code>ns32000</code></td><td></td><td>🚧</td><td><code>NS32016</code></td><td></td><td><code>NS32016D-10</code>, <code>NS32016N10</code></td></tr>
-<tr><td><code>tlcs90</code></td><td><code>tlcs90</code></td><td>✅</td><td><code>TMP90C802</code></td><td></td><td></td></tr>
+<tr><td><code>tlcs90</code></td><td><code>tlcs90</code></td><td>✅</td><td><code>TMP90C802</code></td><td><code>TMP90P802</code></td><td></td></tr>
 <tr><td rowspan="4"><code>tlcs900</code></td><td rowspan="4"></td><td>🚧</td><td><code>TLCS-900</code></td><td></td><td><code>TMP96C041AF</code></td></tr>
 <tr><td>🚧</td><td><code>TLCS-900/H</code></td><td></td><td><code>TMP95C061BF</code></td></tr>
 <tr><td>🚧</td><td><code>TLCS-900/H2</code></td><td></td><td><code>TMP94C251AFG</code></td></tr>
 <tr><td>🚧</td><td><code>TLCS-900/L</code></td><td></td><td><code>TMP93CS32FG</code></td></tr>
-<tr><td rowspan="3"><code>h8300</code></td><td rowspan="3"></td><td>🚧</td><td><code>H8/300H</code></td><td></td><td><code>HD6413002F16</code>, <code>HD6433048F16</code></td></tr>
+<tr><td rowspan="4"><code>h8300</code></td><td rowspan="4"></td><td>🚧</td><td><code>H8/300</code></td><td></td><td>No part in hand yet</td></tr>
+<tr><td>🚧</td><td><code>H8/300H</code></td><td></td><td><code>HD6413002F16</code>, <code>HD6433048F16</code></td></tr>
 <tr><td>🚧</td><td><code>H8S/2000</code></td><td></td><td><code>HD64F2148FA20V</code></td></tr>
 <tr><td>🚧</td><td><code>H8S/2600</code></td><td></td><td><code>HD64F2633F25V</code></td></tr>
 <tr><td><code>h8500</code></td><td></td><td>🚧</td><td><code>H8/500</code></td><td></td><td><code>HD6415108F10V</code>, <code>HD6435368TFW35</code></td></tr>
