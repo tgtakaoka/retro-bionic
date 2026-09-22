@@ -310,7 +310,7 @@ void Mems::writeMemory(uint32_t addr, const uint16_t *buffer, uint_fast8_t len,
                 data <<= 8;
                 data |= next;
             } else {
-                data |= next;
+                data |= next << 8;
             }
         }
         if (prog) {
@@ -318,6 +318,8 @@ void Mems::writeMemory(uint32_t addr, const uint16_t *buffer, uint_fast8_t len,
         } else {
             put_data(addr++, data);
         }
+        if (access16)
+            addr++;  // the pair just written spans two addresses
     }
 }
 
