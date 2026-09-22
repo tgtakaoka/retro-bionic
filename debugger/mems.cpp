@@ -444,19 +444,29 @@ uint32_t Mems::assemble(uint32_t addr, const char *line) const {
 void Mems::put_code(
         uint32_t addr, const uint8_t *bytes, uint_fast8_t len) const {
     const auto unit = addressUnit();
-    for (uint_fast8_t i = 0; i < len; i += unit) {
-        if (unit == 1) {
-            put_prog(addr++, bytes[i]);
-        } else {
-            uint16_t word = bytes[i];
+    // A byte-addressed memory accessed a word at a time cannot store a
+    // byte alone; merge it into the word holding it, picking the half
+    // as get_code() does.
+    const auto merge = unit == 1 && wordAccess();
+    for (uint_fast8_t i = 0; i < len; i += unit, addr++) {
+        uint16_t word;
+        if (unit != 1) {
+            word = _endian == ENDIAN_BIG ? uint16(bytes[i], bytes[i + 1])
+                                         : uint16(bytes[i + 1], bytes[i]);
+        } else if (merge) {
+            const auto data = get_prog(addr);
+            const auto even = (addr & 1) == 0;
             if (_endian == ENDIAN_BIG) {
-                word <<= 8;
-                word |= bytes[i + 1];
+                word = even ? uint16(bytes[i], lo(data))
+                            : uint16(hi(data), bytes[i]);
             } else {
-                word |= static_cast<uint16_t>(bytes[i + 1]) << 8;
+                word = even ? uint16(hi(data), bytes[i])
+                            : uint16(bytes[i], lo(data));
             }
-            put_prog(addr++, word);
+        } else {
+            word = bytes[i];
         }
+        put_prog(addr, word);
     }
 }
 
