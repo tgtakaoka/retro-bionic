@@ -28,7 +28,7 @@ struct Mems {
     uint8_t listRadix() const;
     Endian endian() const { return _endian; }
     // True if ADDRESS_BYTE and access 16-bit at once
-    virtual bool wordAccess() const { return false; }
+    bool wordAccess() const { return _wordAccess; }
 
     // Maximum address of data memory
     virtual uint32_t maxData() const { return maxAddr(); }
@@ -82,9 +82,10 @@ struct Mems {
     void put_code(uint32_t addr, const uint8_t *bytes, uint_fast8_t len) const;
 
 protected:
-    Mems(Endian endian);
+    Mems(Endian endian, bool wordAccess = false);
 
     const Endian _endian;
+    const bool _wordAccess;
 #ifdef WITH_ASSEMBLER
     libasm::Assembler *_assembler;
     virtual libasm::Assembler *assembler() const;
@@ -136,7 +137,8 @@ struct DmaMemory : Mems {
     static constexpr uint32_t MEM_SIZE = 128U * 1024U;
 
 protected:
-    DmaMemory(Endian endian) : Mems(endian) {}
+    DmaMemory(Endian endian, bool wordAccess = false)
+        : Mems(endian, wordAccess) {}
 };
 
 /**
@@ -152,7 +154,8 @@ struct ExtMemory : Mems {
     static constexpr uint32_t MEM_SIZE = 16U * 1024U * 1024U;
 
 protected:
-    ExtMemory(Endian endian) : Mems(endian) {}
+    ExtMemory(Endian endian, bool wordAccess = false)
+        : Mems(endian, wordAccess) {}
 };
 
 }  // namespace debugger

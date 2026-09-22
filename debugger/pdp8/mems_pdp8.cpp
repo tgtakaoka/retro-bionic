@@ -6,7 +6,7 @@ namespace debugger {
 namespace pdp8 {
 
 MemsPdp8::MemsPdp8(uint8_t addr_bit)
-    : DmaMemory(Endian::ENDIAN_BIG), _max_addr((1 << addr_bit) - 1) {
+    : DmaMemory(Endian::ENDIAN_BIG, true), _max_addr((1 << addr_bit) - 1) {
 #ifdef WITH_ASSEMBLER
     _assembler = new libasm::pdp8::AsmPdp8();
 #endif
@@ -21,7 +21,7 @@ void MemsPdp8::isPrint(const uint8_t *data, char buf[2]) const {
 }
 
 ControlPanel::ControlPanel(MemsPdp8 *mems)
-    : DmaMemory(Endian::ENDIAN_BIG), _mems(mems) {
+    : DmaMemory(Endian::ENDIAN_BIG, true), _mems(mems) {
 #ifdef WITH_ASSEMBLER
     _assembler = mems->getAsm();
 #endif

@@ -5,7 +5,7 @@
 namespace debugger {
 namespace tms320 {
 
-MemsTms320::MemsTms320() : DmaMemory(Endian::ENDIAN_LITTLE) {
+MemsTms320::MemsTms320() : DmaMemory(Endian::ENDIAN_LITTLE, true) {
 #ifdef WITH_ASSEMBLER
     _assembler = new libasm::tms320::AsmTms320();
 #endif
