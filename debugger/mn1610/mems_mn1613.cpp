@@ -5,7 +5,8 @@
 namespace debugger {
 namespace mn1613 {
 
-MemsMn1613::MemsMn1613() : ExtMemory(Endian::ENDIAN_BIG), _max_addr(0x3FFFF) {
+MemsMn1613::MemsMn1613()
+    : ExtMemory(Endian::ENDIAN_BIG, true), _max_addr(0x3FFFF) {
 #ifdef WITH_ASSEMBLER
     _assembler = new libasm::mn1610::AsmMn1610();
 #endif

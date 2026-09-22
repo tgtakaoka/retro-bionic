@@ -3,7 +3,7 @@
 namespace debugger {
 namespace tms9980 {
 
-MemsTms9980::MemsTms9980(Devs *devs) : MemsTms9900(devs) {}
+MemsTms9980::MemsTms9980(Devs *devs) : MemsTms9900(devs, false) {}
 
 uint16_t MemsTms9980::read(uint32_t addr) const {
     return _devs->isSelected(addr) ? _devs->read(addr) : read_byte(addr);

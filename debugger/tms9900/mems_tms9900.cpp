@@ -5,8 +5,8 @@
 namespace debugger {
 namespace tms9900 {
 
-MemsTms9900::MemsTms9900(Devs *devs)
-    : DmaMemory(Endian::ENDIAN_BIG), _devs(devs) {
+MemsTms9900::MemsTms9900(Devs *devs, bool wordAccess)
+    : DmaMemory(Endian::ENDIAN_BIG, wordAccess), _devs(devs) {
 #ifdef WITH_ASSEMBLER
     _assembler = new libasm::tms9900::AsmTms9900();
 #endif

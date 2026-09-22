@@ -10,7 +10,6 @@ struct MemsMn1613 final : ExtMemory {
     MemsMn1613();
 
     uint32_t maxAddr() const override { return _max_addr; }
-    bool wordAccess() const override { return true; }
 
     uint16_t read(uint32_t addr) const override { return read_word(addr); }
     void write(uint32_t addr, uint16_t data) const override {

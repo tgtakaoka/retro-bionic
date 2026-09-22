@@ -65,8 +65,9 @@ void ExtMemory::write_word(uint32_t word_addr, uint16_t data) const {
         EXT_MEMORY.WORD[word_addr] = data;
 }
 
-Mems::Mems(Endian endian)
-    : _endian(endian)
+Mems::Mems(Endian endian, bool wordAccess)
+    : _endian(endian),
+      _wordAccess(wordAccess)
 #ifdef WITH_ASSEMBLER
       ,
       _assembler(nullptr)
