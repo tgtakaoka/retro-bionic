@@ -12,7 +12,7 @@ struct InstZ80 {
     static constexpr uint8_t JR_HERE = 0xFE;
     static constexpr uint8_t RETN_PREFIX = 0xED;
     static constexpr uint8_t RETN = 0x45;
-    static constexpr uint8_t HALT = 0x77;
+    static constexpr uint8_t HALT = 0x76;
     static constexpr uint8_t RET = 0xC9;
     static constexpr uint8_t RST38H = 0xFF;
 
