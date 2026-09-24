@@ -52,7 +52,8 @@ transmit_data:
         out     (C), A          ; (USARTD)
         cp      0DH
         jr      NZ, loop
-        ld      B, 0AH
+        ld      D, 0AH
+        ld      BC, USARTS
         jr      transmit_loop
 halt_to_system:
         ld      HL, ORG_RST38
