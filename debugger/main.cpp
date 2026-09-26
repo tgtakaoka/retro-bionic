@@ -6,7 +6,13 @@
 
 using namespace debugger;
 
+// A byte on the halt port asks a running CPU to stop. The core re-calls this
+// from every yield() while the port still holds data, so the byte has to be
+// taken here; left unread it re-raises the flag right after setRun() clears
+// it, and the next run stops before it has begun.
 void serialEventUSB1() {
+    while (SerialUSB1.available())
+        SerialUSB1.read();
     Pins::isrHaltSwitch();
 }
 
