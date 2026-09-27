@@ -21,6 +21,8 @@ void setup() {
     while (!Console)
         yield();
     cli.begin(Console);
+    if (CrashReport)
+        Console.print(CrashReport);
 #if defined(ENABLE_LOGGER)
     Logger.begin(115200);
     logger.begin(Logger);
