@@ -395,7 +395,7 @@ void handleLoadFile(char *line, uintptr_t, State state) {
             uint16_t size = 0;
             char buffer[80];
             char *p = buffer;
-            uint32_t addr;
+            uint32_t addr = 0;
             while (file.available() > 0) {
                 const char c = file.read();
                 if (c == '\n') {
@@ -704,6 +704,8 @@ void Debugger::exec(char c) {
     case 'U':
         cli.println("Upload waiting...");
         upload_context.size = 0;
+        // An extended address record only lasts for its own file.
+        upload_context.addr = 0;
         cli.readLine(handleUploadFile, upload_context.extra(),
                 upload_context.buffer, sizeof(upload_context.buffer));
         return;
