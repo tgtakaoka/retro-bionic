@@ -451,9 +451,42 @@ def case_gountil(fd, target, n=2):
         addr, n, '; ' + ' '.join(notes) if notes else '')
 
 
+DISASM = re.compile(r'^[0-9A-F]{4,6}: ([0-9A-F]{2} )+ +\S+')
+
+
+def case_disasm(fd, target, n=10):
+    """A run's cycle dump is disassembled: one line per instruction.
+
+    Verbose off, a looping sample, a short run and a halt: the dump that
+    follows must hold at least n lines of the form `addr: bytes mnemonic`,
+    which is what every target's disassembleCycles() prints and what a
+    target that only prints raw cycles never does.
+    """
+    if _load_looping(fd, target) is None:
+        return None, 'no samples'
+    os.write(fd, b'V')
+    txt = bc._drain(fd, 2.0, 0.4).decode('ascii', 'replace')
+    if 'Verbose ON' in txt:
+        os.write(fd, b'V')
+        bc._drain(fd, 2.0, 0.4)
+    os.write(fd, b'G')
+    time.sleep(1.5)
+    bc._drain(fd, 0.5, 0.2)
+    bc.abort()
+    how, raw, _ = bc.wait_run(fd, cap=40.0, out=None)
+    txt = raw.decode('ascii', 'replace').replace('\r', '')
+    if how != 'prompt':
+        return False, 'no prompt after the halt'
+    lines = [l for l in txt.split('\n') if DISASM.match(l)]
+    # The last such line is the register dump's own.
+    got = len(lines) - 1
+    return got >= n, '%d instructions disassembled in the dump (need %d)' % (got, n)
+
+
 CASES = (('reset', case_reset), ('step', case_step),
          ('samples', case_samples), ('haltgo', case_haltgo),
-         ('break', case_break), ('gountil', case_gountil))
+         ('break', case_break), ('gountil', case_gountil),
+         ('disasm', case_disasm))
 
 
 def main():
