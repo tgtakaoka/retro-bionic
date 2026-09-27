@@ -184,6 +184,36 @@ so the pointer was garbage; and writing 0 to the emulated USART's vector
 register disables its interrupt, even though in mode 3 the byte is only the
 identifier pushed. **[hw]**
 
+### Programs with the cache enabled **[hw]**
+
+`samples/z280/cmandel.asm` (via `enable_cache.inc`) caches instructions
+and data; the debugger caches nothing after reset, so a program turns the
+cache on itself. What that costs the debugger:
+
+- A cached fetch never reaches the bus, so nothing may be injected where the
+  program's lines are. Every stop therefore parks at the *vector* fetch
+  (`RST 38H`, 0066H or the mode 3 handler), which the program does not
+  execute, and the sequences run from there in system mode.
+- A miss fetches one word (per-word valid bits, burst off), so an injected
+  sequence is fetched by even words; a jump target is matched by its word,
+  not its byte address, and the CPU resumes at the word the bus showed.
+- The entry sequence purges, keeps HL and BC, reads Cache Control and sets
+  60H, all in one window, before anything else; the return sequence runs
+  from 8000H, sets the program's Cache Control back, reloads BC and HL,
+  purges, sets SP and returns -- what is fetched after the purge stays
+  cached, so it must not be the vector's line. A step leaves the cache off
+  (one instruction) and the next save keeps the recorded value.
+- The transaction a halt is noticed on can be an acknowledge cycle with no
+  address; the program's page frame comes from its last memory read.
+- `LDCTL HL,(C)` leaves H undefined: Cache Control is 8 bits.
+- The third dump line ends in `CACHE=` -- `__`, `I_`, `_D` or `ID` for what
+  the program caches -- and `=IC 1` / `=DC 1` (0 to turn off) edit it, so a
+  plain `mandelbrot.hex` can be run cached without touching its source. The
+  restore sequence writes the program's MSR after Cache Control (not after a
+  mode 3 NMI, where RETIL restores it). After an NMI in modes 0-2 the
+  interrupt enables sit in the Interrupt Shadow register, which only RETN
+  reads back: the dump shows them as `??` and `=MSR` cannot set them.
+
 ### Keep bus-keepalive cycles out of the ring **[code]**
 
 Refresh transactions are the bus keeping DRAM alive, not the program doing
@@ -337,6 +367,18 @@ This applies equally to injection and to `MemsZ280::read_zbus`/`write_zbus`.
 
 Word transfers are *not* always even-aligned: with caching off the CPU reads a
 word at every PC value, so it asks on both parities. **[hw]**
+
+**A word read at an odd address is the aligned pair.** Whatever A0 says, the
+CPU treats the two lanes as bytes `addr & ~1` and `addr | 1`, and with the
+instruction cache on it files both in the line. Answering an odd fetch with
+`[addr]` and `[addr+1]` instead looked right for years, because uncached the
+CPU only takes the lane its parity picks -- but a jump to an odd target then
+cached `[addr+1]` as the byte *before* the target. The byte before a routine
+entry is usually the `RET` of the routine above it; executed from the cache
+later it ran as whatever the entry's second byte was, and `queue_remove`
+returned into the receive ISR's prologue. That is why interrupt-driven samples
+failed with the instruction cache on, and only at even link offsets: shifting
+the program by one byte moved the poisoned byte off the `RET`. **[hw]**
 
 **On-chip memory is a cache at reset.** Cache Control is control register `12`,
 reset value `20` (M/C=0, I=0, D=1) — instruction caching on. The debugger never

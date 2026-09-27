@@ -12,20 +12,19 @@ struct MemsZ280 : ExtMemory {
     // A16-A23 give a 24-bit physical address space.
     uint32_t maxAddr() const override { return UINT32_C(0xFFFFFF); }
 
-    // A plain little-endian byte memory, as the CPU sees it. Only the
-    // Z-BUS word transfer is odd: the even-address byte rides AD8-15
-    // and the odd-address byte AD0-7, whichever of the two the
-    // transfer is addressed by. With instruction caching off the CPU
-    // reads a word at every PC value, so it asks on both parities and
-    // the lanes swap with the address.
+    // A plain little-endian byte memory, as the CPU sees it. A Z-BUS word
+    // transfer moves the aligned pair: the even-address byte on AD8-15,
+    // the odd one on AD0-7, whatever A0 says. With instruction caching
+    // off the CPU reads a word at every PC value and takes the lane its
+    // parity picks; with it on, the whole pair lands in the cache line,
+    // so an odd address must not slide the pair up by a byte -- that
+    // poisons the byte before every odd jump target.
     uint16_t read_zbus(uint32_t addr) const {
-        const auto even = read_byte(addr & 1 ? addr + 1 : addr);
-        const auto odd = read_byte(addr & 1 ? addr : addr + 1);
-        return uint16(even, odd);
+        return uint16(read_byte(addr & ~1), read_byte(addr | 1));
     }
     void write_zbus(uint32_t addr, uint16_t data) const {
-        write_byte(addr & 1 ? addr + 1 : addr, hi(data));
-        write_byte(addr & 1 ? addr : addr + 1, lo(data));
+        write_byte(addr & ~1, hi(data));
+        write_byte(addr | 1, lo(data));
     }
 };
 

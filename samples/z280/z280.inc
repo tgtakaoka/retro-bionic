@@ -56,3 +56,9 @@ IVT_INTA_VEC:   equ     70H     ; 128 PC words for vectored line A (and NMI)
 IVT_INTB_VEC:   equ     170H    ; 128 PC words for vectored line B
 IVT_INTC_VEC:   equ     270H    ; 128 PC words for vectored line C
 IVT_SIZE:       equ     370H
+;;; Cache Control register (3.2.4)
+CACHE_MC_bm:    equ     80H     ; on-chip memory is fixed memory, not a cache
+CACHE_I_bm:     equ     40H     ; do not cache instruction fetches
+CACHE_D_bm:     equ     20H     ; do not cache data
+CACHE_LMB_bm:   equ     10H     ; burst transactions below 800000H
+CACHE_HMB_bm:   equ     08H     ; burst transactions from 800000H
