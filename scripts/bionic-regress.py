@@ -25,6 +25,7 @@ Cases, run in this order unless named on the command line:
   bionic-regress.py haltgo          # one case
   bionic-regress.py haltgo=20       # with a repeat count
 """
+import json
 import os
 import re
 import sys
@@ -133,10 +134,28 @@ DRIVE = {
 }
 
 
-def drive_sample(fd, path):
+def drive_table(target):
+    """DRIVE plus samples/<target>/regress.json, whose entries override it.
+
+    The file holds the same keys: {"name": {"feed": "irq\r", "expect": "irq"}},
+    {"frames": 1} or {"silent": true, "cap": 180}. A target keeps its own
+    samples' drives there instead of here.
+    """
+    table = dict(DRIVE)
+    path = os.path.join(PROJ, 'samples', target.lower(), 'regress.json')
+    if os.path.exists(path):
+        for name, how in json.load(open(path)).items():
+            how = dict(how)
+            if 'feed' in how:
+                how['feed'] = how['feed'].encode('latin-1')
+            table[name] = how
+    return table
+
+
+def drive_sample(fd, target, path):
     """Run one sample the way it expects; returns (ok, note)."""
     name = os.path.basename(path).rsplit('.', 1)[0]
-    how = DRIVE.get(name, {})
+    how = drive_table(target).get(name, {})
     os.write(fd, b'R')
     regs(fd)
     bc.upload_file(fd, path)
@@ -201,7 +220,7 @@ def case_samples(fd, target, n=0):
             bad.append('%s(stuck before)' % name)
             print('    %-16s SKIP  board stuck' % name)
             continue
-        ok, note = drive_sample(fd, path)
+        ok, note = drive_sample(fd, target, path)
         if not ok:
             bad.append(name)
         print('    %-16s %-4s %s' % (name, 'ok' if ok else 'BAD', note))
