@@ -31,20 +31,27 @@ void Signals::inputMode() const {
 }
 
 void Signals::print() const {
+#ifdef Z280_PROFILE
+    // slot, and inject/capture flags
     cli.print(readMemory() ? ' ' : 'i');
     cli.print(writeMemory() ? ' ' : 'c');
     cli.print(' ');
     cli.printDec(pos(), -4);
+#endif
     //                              0123456789012345678901234567890
+#ifdef Z280_PROFILE
+    // ST0-3, B//W, #R//W and the matcher's mark (F fetch, B byte or
+    // stale prefetch, O data, - none), for profile_z280.py.
+    static constexpr char line[] = "R A=xxxxxx D=xxxx S=x b=x r=x m=-";
+#else
     static constexpr char line[] = "R A=xxxxxx D=xxxx";
-    // static constexpr char line[] = "R A=xxxxxx D=xxxx S=x b=x r=x";
+#endif
     auto &buffer = Cycles::buffer();
     buffer.set(line);
     buffer[2] = (ioReq()) ? 'I' : 'A';
-    /* if (fetch()) {
+    if (fetch()) {
         buffer[0] = 'I';
-        } else */
-    if (read()) {
+    } else if (read()) {
         buffer[0] = 'R';
     } else if (write()) {
         buffer[0] = 'W';
@@ -65,11 +72,12 @@ void Signals::print() const {
         buffer.hex8(13, data >> 8);
         buffer[15] = buffer[16] = ' ';
     }
-    // Raw ST0-ST3, B//W and #R//W, with the wider line[] above, for
-    // when a decode is in doubt.
-    // buffer.hex4(20, st());
-    // buffer.hex4(24, bw());
-    // buffer.hex4(28, rw());
+#ifdef Z280_PROFILE
+    buffer.hex4(20, st());
+    buffer.hex4(24, bw());
+    buffer.hex4(28, rw());
+    buffer[32] = fetch() ? 'F' : isByte() ? 'B' : isOperand() ? 'O' : '-';
+#endif
     cli.println(buffer);
 }
 

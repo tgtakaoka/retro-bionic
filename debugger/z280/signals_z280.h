@@ -3,6 +3,13 @@
 
 #include "signals.h"
 
+// -D Z280_LOG_MATCH traces the matcher on the console.
+#ifdef Z280_LOG_MATCH
+#define LOG_MATCH(e) e
+#else
+#define LOG_MATCH(e)
+#endif
+
 namespace debugger {
 namespace z280 {
 
@@ -61,7 +68,19 @@ struct Signals final : SignalsBase<Signals> {
     bool wordAccess() const { return bw() == 0; }
     bool byteAccess() const { return bw() != 0; }
 
+    // What InstZ280::match() made of this cycle.
+    void markFetch() { mark() = FETCH; }
+    void markByte() { mark() = BYTE; }
+    void markOperand() { mark() = OPERAND; }
+    void clearMark() { mark() = 0; }
+    bool fetch() const { return mark() == FETCH; }
+    bool isByte() const { return mark() == BYTE; }
+    bool isOperand() const { return mark() == OPERAND; }
+
 private:
+    enum : uint8_t { FETCH = 1, BYTE = 2, OPERAND = 3 };
+    uint8_t mark() const { return _signals[3]; }
+    uint8_t &mark() { return _signals[3]; }
     uint8_t rw() const { return _signals[0]; }
     uint8_t &rw() { return _signals[0]; }
     uint8_t bw() const { return _signals[1]; }

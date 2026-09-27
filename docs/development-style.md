@@ -822,6 +822,47 @@ only works because the cache is off, and the cache is off only because
 injection needs the bus. The moment the cache is to be enabled, the trap route
 is not an optimisation — it is the only thing that works.
 
+#### Measuring the Z280's bus-cycle tables from the chip **[hw]**
+
+The Z-BUS cannot tell an opcode fetch from a data read and the prefetch
+unit runs ahead, so no per-opcode bus-cycle listing can be read off the
+manual the way TLCS90 and i8096's can. `profile_z280.py` runs every
+pattern of libasm's `gen_z280.lst` (kept as `profile/gen_z280.lst.zst`)
+plus every other opcode libasm decodes (`profile/z280-opcodes.txt.zst`)
+in isolation, with memory filled with `FF` = `RST 38H` so any transfer
+breaks at once, and `derive_z280.py` turns the recordings into
+`z280-PAGExx.txt`, which `inst_z280.awk` turns into tables. The raw
+recording is committed as `profile/z280-profile.jsonl.zst` (zstd, one
+JSON line per run, read and written by the scripts through Python
+3.14's `compression.zstd`), so the tables can be re-derived or the
+recording extended by anyone with the board. The tables are
+hand-maintained from then on. Both scripts need the firmware built
+with `-D Z280_PROFILE`: the wide cycle line with the slot number, the
+inject/capture flags, status, width and direction; the plain build
+prints `R A=xxxxxx D=xxxx` like the Z80's.
+
+What the 2169 runs established:
+
+- **Prefetch depth**: at most 3 words past an instruction before its
+  last data cycle (0 in 40% of runs, 1 in 49%); 1-3 words at the exit.
+  Sequences are stable across repeats.
+- **A byte load at an even address is a word read**; at an odd address
+  a byte read. A word at an odd address is two byte transactions.
+- **Stalls and flushes repeat fetches**: multiply and divide re-read the
+  next word up to five times; EI, DI, PCACHE, LDCTL and a few others
+  re-fetch after a flush.
+- **Traps** are three pushes, two table reads and the fetch of the PC
+  word read (`WWRRS`). The harness's operands made every divide trap,
+  so `derive` drops that tail from divide rows; `SC` keeps it.
+- **RETIL** is two reads and the fetch (`RRA`); no `out(1)` as Table
+  E-1 suggests.
+- Block instructions come out as `{...}` from one and two iterations,
+  with the second iteration at the other parity.
+- The relative and 16-bit indexed forms of the `FD ED` page and the
+  register variants the pattern list leaves out were run as extra
+  patterns; anything still without a row is filled by operand shape
+  from a recorded opcode on the same page (IX and IY pages mirror).
+
 #### Sample status
 
 Checked against `samples/z280/` on hardware:
