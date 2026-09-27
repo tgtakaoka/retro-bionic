@@ -863,6 +863,48 @@ What the 2169 runs established:
   patterns; anything still without a row is filled by operand shape
   from a recorded opcode on the same page (IX and IY pages mirror).
 
+#### Disassembling the ring: matching cycles against the measured tables **[hw]**
+
+`disassembleCycles()` reconstructs the fetch stream from the per-opcode
+bus-cycle tables measured earlier, as TLCS90 and i8096 do from their
+own. `InstZ280::match()` walks a table's sequence against the ring: the
+instruction's own bytes in order, then its data transfers, with
+prefetch (measured up to 3 words deep) and any stall/flush re-fetch
+absorbed wherever it lands and left unmarked, since it is the next
+instruction's fetch -- which is why the next match starts right after
+the previous instruction's own bytes, not after its data cycles (the
+i8096 model). A taken transfer ends at the target's fetch; an
+interrupt taken instead of the fetch owed is matched as one.
+
+A cut instruction at the ring's start decodes as whatever its tail
+bytes say, and its data cycles as one-byte instructions, since every
+start in a byte stream decodes plausibly. What tells them apart is
+the chain: every real instruction is followed by the one it expects
+-- the next address, the target it took, the return address it
+popped, an interrupt's vector, or the PC the CPU stopped at -- and a
+stack read decoded as `NOP` is followed by nothing of the kind.
+`matchAll()` rejects such a match (the follower when it chains
+nowhere either, else the one before) and matches again without it,
+until the chain holds; a cut tail unravels from its end this way.
+`findFetch()` then takes the start whose chain ends at the PC. A
+failed match undoes only its own marks: the instruction before it
+may own data cycles inside its window.
+
+`profile_z280.py check` cross-checks every dumped line of the samples
+against their listings and allows just that; `test/z280/test_inst_z280`
+(`pio test -e native`) replays captured dumps through the matcher on
+the host, checks every mark against the listing, and with
+`Z280_DUMP=<file>` replays any dump and prints the marks, under the
+sanitizers if wanted.
+
+With the instruction cache on the dump stays raw: the fetches never
+reach the bus. The status lines cannot tell whether it was on: ST
+`1000` (cacheable) is the MMU page's attribute and every memory cycle
+carried it with the cache off (12725 of 12725 recorded reads). So
+`run()` saves the registers *before* the dump, holding the ring so the
+debugger's own cycles reuse the head slot, and reads Cache Control as
+the program stopped with it.
+
 #### Sample status
 
 Checked against `samples/z280/` on hardware:

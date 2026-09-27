@@ -289,6 +289,7 @@ Signals *PinsZ280::skipToRead(Signals *s) {
 
 Signals *PinsZ280::prepareCycle() {
     auto s = Signals::put();
+    s->clearMark();  // Cycles::next() keeps the slot's old mark
     // #AS may already be asserted on entry, so sample before clocking. No
     // critical section: what the CPU drives holds until the next edge.
     while (signal_as() != LOW) {
@@ -429,7 +430,12 @@ Signals *PinsZ280::completeCycle(Signals *s) {
     }
 
     s->inputMode();
-    Cycles::next();
+    if (_holdRing) {
+        // the debugger's own cycles before the dump: reuse the head slot
+        s->clear();
+    } else {
+        Cycles::next();
+    }
     return s;
 }
 
@@ -777,11 +783,14 @@ void PinsZ280::run() {
     saveBreakInsts();
     const auto stopped = loop();
     restoreBreakInsts();
-    disassembleCycles();
-    // After the dump, so its injected reads and captured writes never
-    // appear in it -- step() prints before saving for the same reason.
-    if (stopped)
+    // save() first: the dump needs the Cache Control the program
+    // stopped with; the ring is held meanwhile.
+    if (stopped) {
+        _holdRing = true;
         _regs->save();
+        _holdRing = false;
+    }
+    disassembleCycles();
 }
 
 void PinsZ280::setBreakInst(uint32_t addr) const {
@@ -806,13 +815,45 @@ void PinsZ280::printCycles() {
     }
 }
 
+namespace {
+struct MemoryOfMems final : InstZ280::Memory {
+    explicit MemoryOfMems(const Mems *mems) : _mems(mems) {}
+    uint16_t read_byte(uint32_t addr) const override {
+        return _mems->read_byte(addr);
+    }
+    const Mems *const _mems;
+};
+}  // namespace
+
+// One line per instruction, its data transfers raw; fetches and
+// bytes only when verbose, unexplained cycles always.
 void PinsZ280::disassembleCycles() {
+    // The bus cannot tell (ST 1000 is the page's attribute): only
+    // Cache Control as the program stopped with it.
+    if (this->regs<RegsZ280>()->cachesInstructions()) {
+        printCycles();  // a cached fetch never shows: nothing to match
+        return;
+    }
+    const auto end = Signals::put();
     const auto g = Signals::get();
-    const auto cycles = g->diff(Signals::put());
-    for (auto i = 0u; i < cycles;) {
-        const auto s = g->next(i);
-        s->print();
-        ++i;
+    const MemoryOfMems memory(_mems);
+    const auto begin = InstZ280::findFetch(
+            g, end, memory, this->regs<RegsZ280>()->pc());
+    const auto lead = g->diff(begin);
+    for (auto i = 0u; i < lead; ++i) {
+        g->next(i)->print();
+        idle();
+    }
+    const auto cycles = begin->diff(end);
+    for (auto i = 0u; i < cycles; ++i) {
+        const auto s = begin->next(i);
+        if (s->fetch()) {
+            if (Debugger.verbose())
+                s->print();
+            _mems->disassemble(s->addr, 1);
+        } else if (!s->isByte() || Debugger.verbose()) {
+            s->print();
+        }
         idle();
     }
 }

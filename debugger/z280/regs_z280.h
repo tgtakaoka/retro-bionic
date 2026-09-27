@@ -65,6 +65,9 @@ struct RegsZ280 final : Regs {
     }
     // A step runs one instruction: leave the cache off for it.
     void cacheForStep(bool hold) { _holdCache = hold; }
+    // Whether the program, as it stopped, caches instructions: then its
+    // fetches never reach the bus and the ring cannot be disassembled.
+    bool cachesInstructions() const { return (_cache & 0x40) == 0; }
     // A new PC keeps the context: on the parked page it keeps the
     // frame, off it the frame is unknown and identity is assumed.
     void setPc(uint16_t pc) {
@@ -72,6 +75,7 @@ struct RegsZ280 final : Regs {
             _pageFrame = pageOf(pc);
         _pc = pc;
     }
+    uint16_t pc() const { return _pc; }
     // Where the program's PC is physically.
     uint32_t physicalPc() const { return physicalOf(_pageFrame, _pc); }
     // Where the CPU is parked, as the bus showed it, which is where
