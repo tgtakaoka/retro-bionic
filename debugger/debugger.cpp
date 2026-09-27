@@ -66,6 +66,15 @@ void usage() {
     Identity::printIdentity();
     cli.print(" * ");
     cli.println(VERSION_TEXT);
+    // Uptime: a reboot shows as a small number.
+    cli.print("Up ");
+    cli.printDec(millis() / 1000);
+    cli.println(" s");
+    // A fault reboots the board and the core keeps the report until the
+    // next reboot; show it here as well as at boot, when nothing may
+    // have been listening -- otherwise the reboot passes for a wedge.
+    if (CrashReport)
+        Console.print(CrashReport);
     cli.print(USAGE);
     if (Debugger.target().hasProtectArea())
         cli.print(PROTECT);
