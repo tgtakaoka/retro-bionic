@@ -127,6 +127,8 @@ DRIVE = {
     'echoir': dict(feed=b'irq\r', expect='irq'),
     'echoitr': dict(feed=b'z\r', expect='0b01111010'),
     'mandelbrot': dict(frames=1),
+    # prints nothing and takes about a minute to reach its break
+    'mmu': dict(silent=True, cap=180.0),
     # anything else: run to completion and expect some output
 }
 
@@ -164,6 +166,17 @@ def drive_sample(fd, path):
         ok = bool(marks)
         return ok, ('%d iteration(s), %.2fs each' % (len(marks), marks[-1] / len(marks))
                     if marks else 'no iteration completed (%s)' % state)
+
+    if how.get('silent'):
+        # No output until the break, so a stall means nothing; only
+        # reaching the prompt within the cap does.
+        os.write(fd, b'G')
+        state, raw, _ = bc.wait_run(fd, cap=how['cap'], stall=how['cap'], out=None)
+        if state != 'prompt':
+            bc.abort()
+            time.sleep(0.8)
+            bc._drain(fd, 8.0, 1.0)
+        return state == 'prompt', '%s, silent' % state
 
     os.write(fd, b'G')
     state, raw, _ = bc.wait_run(fd, cap=120.0, out=None)
