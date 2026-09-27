@@ -376,7 +376,9 @@ def converse(cmds, wait=40.0, verbose=True):
 # Flags, index, direction, address and data are common to every target;
 # the status nibble and the byte/word and read/write bits are printed only
 # by those that have them.
-CYC = re.compile(r'^([ic ]?[ic ]?)\s*(\d+)\s+([RW]) A=([0-9A-F]+) D=\s*([0-9A-F]+)'
+# Some targets print the slot number and the inject/capture flags in
+# front of each cycle, some only in a profiling build: both parse.
+CYC = re.compile(r'^(?:([ic ]?[ic ]?)\s*(\d+)\s+)?([RW]) A=([0-9A-F]+) D=\s*([0-9A-F]+)'
                  r'(?: S=([0-9A-F]))?(?: b=(\d))?(?: r=(\d))?')
 
 # Bus status decode, per target. Absent target: print the raw nibble.
@@ -398,7 +400,7 @@ def parse(txt):
         m = CYC.match(line)
         if m:
             f, n, rw, a, d, st, b, r = m.groups()
-            out.append(dict(flag=f.strip(), n=int(n), rw=rw, addr=int(a, 16),
+            out.append(dict(flag=(f or '').strip(), n=int(n) if n else len(out), rw=rw, addr=int(a, 16),
                             data=int(d, 16),
                             st=int(st, 16) if st else None,
                             bw=int(b) if b else None, line=line.rstrip()))
