@@ -439,15 +439,17 @@ uint16_t PinsZ280::injectRead(uint16_t data) {
     return s->addr;
 }
 
-// The even-address byte rides AD8-15, the odd one AD0-7 (13.5.1.1).
-// The lane follows |addr|, not |off|: at an odd origin they disagree
-// and the stream would be delivered shifted by a byte.
+// The aligned pair around |off|, on the lanes read_zbus() uses: the
+// even-address byte on AD8-15, the odd one on AD0-7. The lane follows
+// |addr|, not |off|: at an odd origin they disagree and the stream
+// would be delivered shifted by a byte.
 uint16_t PinsZ280::zbusWord(
         const uint8_t *inst, uint_fast8_t len, uint32_t off, uint32_t addr) {
-    const uint8_t b0 = inst[off];
-    const uint32_t next = off + 1;
-    const uint8_t b1 = (next < len) ? inst[next] : InstZ280::NOP;
-    return (addr & 1) ? uint16(b1, b0) : uint16(b0, b1);
+    const auto at = [&](uint32_t i) {
+        return i < len ? inst[i] : InstZ280::NOP;
+    };
+    return (addr & 1) ? uint16(off ? at(off - 1) : InstZ280::NOP, at(off))
+                      : uint16(at(off), at(off + 1));
 }
 
 uint16_t PinsZ280::execute(const uint8_t *inst, uint_fast8_t len, uint8_t *buf,
@@ -469,8 +471,13 @@ uint16_t PinsZ280::execute(const uint8_t *inst, uint_fast8_t len, uint8_t *buf,
     while (guard--) {
         const auto reading = s->memReq() && s->read();
         const uint32_t off = reading ? s->addr - org : 0;
-        // Done at that address once captured; other outside reads come from memory.
-        if (started && reading && cap >= max && s->addr == leaves)
+        // Done at that address once captured; other outside reads come
+        // from memory. A jump target is matched by its word: with the
+        // cache on the CPU fetches the even-aligned word containing it.
+        const auto explicitExit = exit != EXIT_END && exit != EXIT_ORG;
+        const auto atExit = explicitExit ? (s->addr | 1) == (leaves | 1)
+                                         : s->addr == leaves;
+        if (started && reading && cap >= max && atExit)
             break;
         if (reading)
             started = true;
@@ -559,6 +566,18 @@ uint16_t PinsZ280::captureWrites(const uint8_t *inst, uint_fast8_t len,
 }
 
 // Step one instruction; the #NMI vector fetch is aborted with a RETN.
+// The last memory read before |s|: the program's fetch, whose page the
+// PC is in. The transaction the halt was noticed on may be anything --
+// an acknowledge cycle carries no address.
+static uint32_t lastFetchBefore(const Signals *s, uint32_t fallback) {
+    for (auto i = 1; i <= 8; ++i) {
+        const auto t = s->prev(i);
+        if (t->memReq() && t->read())
+            return t->addr;
+    }
+    return fallback;
+}
+
 bool PinsZ280::suspend(uint32_t org) {
     // #NMI goes out during the opcode fetch: later steps two, earlier none.
     auto s = resumeCycle(org);
@@ -600,8 +619,8 @@ bool PinsZ280::suspend(uint32_t org) {
                 // debugger's; the program's cycles end before them.
                 Cycles::discard(w1);
                 assert_wait();
-                this->regs<RegsZ280>()->parkInNmi(
-                        pc, org, msr, w2->addr, s->addr);
+                this->regs<RegsZ280>()->parkInVector(RegsZ280::NMI3, pc,
+                        lastFetchBefore(w1, org), w2->addr, s->addr, msr);
                 return true;
             }
         }
@@ -630,46 +649,12 @@ bool PinsZ280::suspend(uint32_t org) {
         }
         if (push != nullptr) {
             negate_nmi();
-            const auto pushedPc = push->data;
-            const auto pushedTo = push->addr;
+            // The push and this fetch are the debugger's.
             Cycles::discard(push);
-            // Keep serving the vector, and answer the pop by the address pushed to.
-            static constexpr uint8_t RETN_INST[] = {
-                    InstZ280::RETN_PREFIX,
-                    InstZ280::RETN,
-            };
-            auto t = s;
-            auto pop = nmi_ack_cycles;
-            while (pop--) {
-                if (t->memReq() && t->read()) {
-                    if (t->addr == pushedTo) {
-                        completeCycle(t->inject(pushedPc));
-                        break;
-                    }
-                    const uint32_t off = t->addr - InstZ280::ORG_NMI;
-                    if (off < sizeof(RETN_INST)) {
-                        t->inject(zbusWord(RETN_INST, sizeof(RETN_INST),
-                                off, t->addr));
-                    }
-                }
-                completeCycle(t);
-                t = prepareCycle();
-            }
-            // Freeze on the fetch at the popped PC, recording the
-            // transaction, so it can be resumed: its address is where
-            // that PC is physically. A refresh or a stale prefetch from
-            // around the vector can come first; let those pass.
-            const auto regs = this->regs<RegsZ280>();
-            const uint16_t pc = swapBytes(pushedPc);
-            auto parked = skipToRead(prepareCycle());
-            auto skip = nmi_ack_cycles;
-            while (skip-- && parked->addr - InstZ280::ORG_NMI < 8 &&
-                    parked->addr != regs->physical(pc)) {
-                completeCycle(parked);
-                parked = skipToRead(prepareCycle());
-            }
             assert_wait();
-            regs->park(pc, parked->addr);
+            this->regs<RegsZ280>()->parkInVector(RegsZ280::NMI,
+                    swapBytes(push->data), lastFetchBefore(push, org),
+                    push->addr, s->addr);
             return true;
         }
         completeCycle(s);
@@ -684,11 +669,12 @@ bool PinsZ280::rawStep() {
     // Stop before a HALT: once halted there is no boundary for #NMI.
     if (_mems->read_byte(_regs->nextIp()) == InstZ280::HALT)
         return false;
-    return suspend(_regs->nextIp());
+    return suspend(this->regs<RegsZ280>()->parkedAt());
 }
 
 bool PinsZ280::step(bool show) {
     Cycles::reset();
+    this->regs<RegsZ280>()->cacheForStep(true);
     _regs->restore();
     if (show)
         Cycles::reset();
@@ -725,17 +711,11 @@ bool PinsZ280::isRst38Break(Signals *s) {
     if (!isBreakPoint(pc) &&
             _mems->read_byte(InstZ280::ORG_RST38) != InstZ280::RST38)
         return false;
-    // RET restores SP; the jump leaves the PC on the break itself. The
-    // vector was fetched from system space, so the addresses are
-    // identity: the frame of a program stopped in user mode does not
-    // apply.
-    static constexpr uint8_t RET_INST[] = {InstZ280::RET};
-    auto org = s->addr;
-    execInst(RET_INST, sizeof(RET_INST), org, resume);
-    const uint8_t JP_PC[] = {InstZ280::JP, lo(pc), hi(pc)};
-    execInst(JP_PC, sizeof(JP_PC), org, pc);
-    this->regs<RegsZ280>()->park(pc, org);
-
+    // Park in the vector fetch: the sequences run here, in system space,
+    // never in the program's lines, which may be cached.
+    assert_wait();
+    this->regs<RegsZ280>()->parkInVector(
+            RegsZ280::RST, pc, pc, push->addr, s->addr);
     return true;
 }
 
@@ -746,7 +726,7 @@ bool PinsZ280::isRst38Break(Signals *s) {
 // dump that follows -- and the save after it -- show what ran, not the
 // machinery that stopped it.
 bool PinsZ280::loop() {
-    auto s = resumeCycle(_regs->nextIp());
+    auto s = resumeCycle(this->regs<RegsZ280>()->parkedAt());
     while (true) {
         // Rarest first: the address, then the two bit tests, then the
         // scan.
@@ -791,6 +771,7 @@ bool PinsZ280::loop() {
 }
 
 void PinsZ280::run() {
+    this->regs<RegsZ280>()->cacheForStep(false);
     _regs->restore();
     Cycles::reset();
     saveBreakInsts();
