@@ -42,7 +42,11 @@ void Cycles::reset() {
 
 void Cycles::next() {
     _put = (_put + 1) % MAX_CYCLES;
-    if (_cycles < MAX_CYCLES) {
+    // The head slot is the transaction in progress, so the ring holds one
+    // fewer completed cycles than it has slots. Letting the count reach
+    // MAX_CYCLES left _get on the head for one cycle: with exactly that
+    // many recorded, tail and head coincided and the dump was empty.
+    if (_cycles < MAX_CYCLES - 1) {
         _cycles++;
     } else {
         _get = (_put + 1) % MAX_CYCLES;
