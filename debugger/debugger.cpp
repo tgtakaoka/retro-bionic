@@ -330,7 +330,8 @@ int loadIHexRecord(const char *line, uint32_t &addr) {
     const auto offset = toInt16Hex(line + 3);
     const auto type = toInt8Hex(line + 7);
     if (type == 4) {
-        addr = static_cast<uint32_t>(offset) << 16;
+        // Extended linear address: the data field carries A31-A16.
+        addr = static_cast<uint32_t>(toInt16Hex(line + 9)) << 16;
     } else if (type == 0) {
         addr &= ~UINT16_C(0xFFFF);
         addr |= offset;
