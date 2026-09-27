@@ -126,9 +126,9 @@ DRIVE = {
     'echo': dict(feed=b'ok\r', expect='ok'),
     'echoir': dict(feed=b'irq\r', expect='irq'),
     'echoitr': dict(feed=b'z\r', expect='0b01111010'),
+    'mmu_echoir': dict(feed=b'irq\r', expect='irq'),
     'mandelbrot': dict(frames=1),
-    # prints nothing and takes about a minute to reach its break
-    'mmu': dict(silent=True, cap=180.0),
+    # a sample that prints nothing until its break: dict(silent=True, cap=180.0)
     # anything else: run to completion and expect some output
 }
 
