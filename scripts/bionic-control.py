@@ -482,16 +482,64 @@ def logic(directory='/tmp/bionic-logic'):
     sys.exit('no Logic 2 capture found')
 
 
+LOGIC_CONFIG = os.environ.get(
+    'BIONIC_LOGIC_CONFIG', os.path.expanduser('~/.config/Logic/config.json'))
+
+
+def preset_channels(preset):
+    """Channel names from a Logic 2 preset, as {channel index: name}.
+
+    Logic exports a CSV headed "Channel N", never the names, and the MCP has
+    no way to load a preset -- but the preset file holds the mapping, so read
+    it and label the columns from it.
+
+    Treat the result as a starting point, not as truth: the file records how
+    the probes were named, not where they are now. A lead moved on the bench
+    leaves the preset stale, and a mislabelled trace is worse than an
+    unlabelled one. Confirm against which channels actually carry activity.
+    """
+    try:
+        cfg = json.load(open(LOGIC_CONFIG))
+    except (OSError, ValueError):
+        return {}
+    for p in cfg.get('presets', []):
+        if p.get('presetName') != preset:
+            continue
+        out = {}
+        for row in p.get('rowsSettings', []):
+            if row.get('type') == 'channel' and row.get('name'):
+                ch = row.get('channel', {}).get('deviceChannel')
+                if ch is not None:
+                    out.setdefault(int(ch), row['name'])
+        return out
+    return {}
+
+
 def logic_report(path, target=''):
     import csv
     name = status_names(target)
+    names = preset_channels(target.lower())
+    if names:
+        print('channel names from the %s preset (verify against the wiring): %s'
+              % (target.lower(),
+                 ' '.join('ch%d=%s' % (k, v) for k, v in sorted(names.items()))))
     r = csv.DictReader(open(path))
     f = r.fieldnames
-    ST = [c for c in f if c.startswith('ST')] or ['Channel %d' % i
-                                                  for i in range(4, 8)]
-    AS = '#AS' if '#AS' in f else 'Channel 10'
-    RS = '#RESET' if '#RESET' in f else 'Channel 13'
-    WT = '#WAIT' if '#WAIT' in f else 'Channel 12'
+
+    def col(want, default_ch):
+        """The CSV column for a named signal, via the preset if it knows it."""
+        if want in f:
+            return want
+        for ch, nm in names.items():
+            if nm == want and ('Channel %d' % ch) in f:
+                return 'Channel %d' % ch
+        return 'Channel %d' % default_ch
+
+    ST = [c for c in f if c.startswith('ST')] or \
+        [col('ST%d' % i, 4 + i) for i in range(4)]
+    AS = col('#AS', 10)
+    RS = col('#RESET', 13)
+    WT = col('#WAIT', 12)
     prev, ev, wait, last, rst = None, [], [], 0.0, None
     for row in r:
         t = float(row['Time [s]'])

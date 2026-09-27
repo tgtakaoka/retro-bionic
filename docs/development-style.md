@@ -443,6 +443,103 @@ the `0039` an `RST 38H` at `0038H` pushes, until the recursion smashed enough
 memory to escape into garbage. Scan back a few entries for the most recent
 write instead of taking `prev()`.
 
+#### `#NMI` generates no acknowledge transaction **[hw]**
+
+`ST_NMIA` exists in the Z-BUS status encoding, so anchoring `suspend()` on the
+acknowledge instead of inferring the push from its position looks like the
+obvious improvement. It is not available: **the CPU never puts an acknowledge
+cycle on the bus for `#NMI`.**
+
+Measured with ST1-ST3 probed, over the whole `#NMI` low window (6.9us) while
+`mandelbrot` ran:
+
+```
+   -0.280  MREQ R  #DS yes
+   +1.032  MREQ R  #DS yes
+   +2.184  MREQ R  #DS yes
+   +5.264  MREQ W  #DS yes      <- the PC push
+   +6.656  MREQ R  #DS yes      <- the 0066H vector fetch
+histogram over 3973 cycles: MREQ 3966, IORQ 5, INTAA 2
+```
+
+Nothing but ordinary memory cycles. The two acknowledge-range cycles are at
+-853us and -596us, far outside the window -- they are the USART's maskable
+interrupt acknowledges. The firmware's own view agrees: during a halt it latches
+`Mr Mr ... Mw Mr` and never an `N`.
+
+ST0 showed no transitions in that capture, which is not a probing fault: the
+only statuses present were `MREQ` (`0x8`), `IORQ` (`0x2`) and `INTAA` (`0x4`),
+and none of them sets ST0. All four lines are known good, confirmed by
+executing a `TSET`:
+
+```
+   +3.312us  ST=0xF LOCK R  #DS yes  AD0-3=0x0      (the locked access to 2000H)
+   ST edges in that capture: ST0 2, ST1 4, ST2 2, ST3 2
+```
+
+`ST_LOCK` is `0xF`, every status bit set at once, so one `TSET` proves the whole
+status bus in a single cycle -- a cheaper wiring check than reasoning about
+which bits a given workload happens to exercise. An `NMIA` (`0x5`) would
+therefore have decoded correctly in the capture above had one occurred.
+
+So the NMI sequence is: the instruction being executed finishes, the PC is
+pushed to `SP-2`, and `0066H` is fetched -- every one a normal `#DS` memory
+cycle. `Signals::nmiAck()` can therefore never be true, and inferring the push
+from its position relative to the vector fetch is not a workaround for a missing
+feature, it is the only method available. See the prefetch note above for why
+that inference must allow exactly one intervening read and no more.
+
+**A correction worth recording.** An earlier capture, on a different Z280 part
+and with two status bits unprobed, showed a single `#AS` pulse with `#DS` high
+next to the `#NMI` pulse, and this document previously concluded from it that the
+acknowledge existed but was being swallowed by the `#DS` wait loops. Re-measured
+with the status lines actually connected, no such cycle exists: every cycle in
+the window strobes `#DS`. The lesson is the one already in the General section --
+a reading taken with probes missing on the very signals that carry the answer is
+not evidence.
+
+#### Only an I/O transaction may reach a device **[hw]**
+
+Device selection used to test the address alone:
+
+```c
+} else if (_devs->isSelected(ioaddr) && s->readMemory()) {
+```
+
+Nothing there required the cycle to *be* an I/O request, so any transaction
+whose stale address lines happened to fall in a device's range got an answer —
+including an interrupt acknowledge, which carries no meaningful address. Every
+device branch is now gated on `s->ioReq()`.
+
+`intAck()` had the same shape of bug: it was written as
+`status >= ST_INTAA && status <= ST_INTAC`, and `ST_NMIA` (`0x5`) sits *inside*
+that range, so the debugger answered an NMI acknowledge with the USART's vector.
+`#NMI` vectors to `0066H` by itself and asks for no vector at all. Name the three
+maskable codes explicitly instead. **[hw]**
+
+#### Three ways `suspend()` lost the CPU **[hw]**
+
+All three showed up as "halt, then continue, sometimes does nothing", and all
+three are worth knowing because each looks like a different bug:
+
+- **The push is not always `s->prev()`.** A prefetch can land between the push
+  and the vector fetch (see above), and insisting on `prev()` made the
+  acknowledge go unrecognised whenever one did. Scanning *further* back is
+  worse, not better: with four entries a write-heavy program matches an ordinary
+  program write and reports a stored datum as the pushed PC. Accept the write
+  immediately before the fetch, or one read behind it, and nothing looser.
+- **A failed `suspend()` used to be destructive.** `loop()` called
+  `_regs->save()` unconditionally, so on failure the save ran with the CPU still
+  inside the NMI service and read garbage for *every* register — `SP` went
+  `0FFA` → `2408` alongside `PC=32BA`. `restore()` then wrote that back on the
+  next continue and destroyed the program, which is why a single failure
+  poisoned every iteration after it. Save only on success, as `step()` already
+  did.
+- **Continuing from a breakpoint goes through the stepper.** `Debugger::go()`
+  must single-step *over* a breakpoint at the current PC before running, so
+  every continue depends on `suspend()`. A breakpoint that is hit twice and then
+  never again is not a breakpoint bug at all.
+
 #### No critical sections are needed on this bus **[hw]**
 
 `prepareCycle()` used to sample and capture under `noInterrupts()`. It does not
