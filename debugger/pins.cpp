@@ -62,6 +62,11 @@ void Pins::initDebug() {
 }
 
 bool Pins::haltSwitch() {
+    // The core polls the halt port only from yield(), and a run reaches
+    // yield() only through console I/O (usb_serial_available() yields
+    // when the buffer is empty), so a program that never enables the
+    // console device could not be stopped. Poll here.
+    yield();
     return _halted;
 }
 
