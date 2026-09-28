@@ -45,40 +45,100 @@ using State = libcli::State;
 
 namespace {
 
-constexpr char USAGE[] =
-        "R:eset r:egs =:setReg p/d:ump M/m:emory"
-#ifdef WITH_DISASSEMBLER
-        " D:is"
-#endif
-#ifdef WITH_ASSEMBLER
-        " A:sm"
-#endif
+// One line per command, its arguments if any, aligned on ':'. Kept in
+// the order a session actually goes: reset, load, run, break/step,
+// registers, examine, id.
+constexpr char HELP1[] = "\r\n";
+// "  R              : reset the " + cpuName() fills the gap between the
+// two, since the name is only known at runtime.
+constexpr char HELP2[] =
+        "\r\n"
+        "  U              : upload Intel HEX / S-record (^C to end)\r\n"
 #if defined(ENABLE_SDCARD)
-        " S:tep G/g:o b/B:reak"
-        " F:iles L:oad"
+        "  F [path]       : list files on SD card\r\n"
+        "  L file         : load an Intel HEX / S-record file from card\r\n"
 #endif
-        " U:pload I:o";
-constexpr char PROTECT[] = " P:rotect";
+        "\r\n"
+        "  G              : run freely\r\n"
+        "  g addr         : run until addr (a one-shot breakpoint)\r\n"
+        "\r\n"
+        "  B addr         : set a breakpoint\r\n"
+        "  b [index]      : list breakpoints, clear one\r\n"
+        "  S              : step one instruction\r\n"
+        "\r\n"
+        "  r              : print registers\r\n"
+        "  = reg value    : set a register (unknown name lists valid names)\r\n"
+        "\r\n"
+        "  d addr [len]   : dump data memory (len defaults to 16)\r\n"
+        "  p addr [len]   : dump program memory (len defaults to 16)\r\n"
+#ifdef WITH_DISASSEMBLER
+        "  D addr [n]     : disassemble n instructions (default 20)\r\n"
+#endif
+        "\r\n"
+        "  m addr byte... : write & dump data memory, 16 bytes max\r\n"
+        "  M addr byte... : write & dump program memory, 16 bytes max\r\n"
+#ifdef WITH_ASSEMBLER
+        "  A addr         : assemble, one line at a time until empty\r\n"
+#endif
+        "\r\n"
+        "  I dev [addr]   : select an I/O device, optionally its base\r\n"
+        "  P [from to]    : show, or set, protect area\r\n"
+        "  W +identity    : write identity EEPROM\r\n"
+        "\r\n"
+        "  V              : toggle verbose bus-cycle printing\r\n"
+        "  ?              : this help\r\n"
+        "\r\n";
+// The dynamic "Free running <cpu> can be stopped by ..." sentence
+// fills the gap between the two, for the same reason as HELP1.
+constexpr char HELP3[] =
+        "\r\n"
+        "Holding HALT switch at power-up skips identity EEPROM check\r\n"
+        "-- recovers from a bad identity.";
 
-void usage() {
+// Identity, firmware version and uptime.
+void banner() {
     cli.println();
     cli.print("* Bionic");
     Identity::printIdentity();
     cli.print(" * ");
     cli.println(VERSION_TEXT);
-    // Uptime: a reboot shows as a small number.
-    cli.print("Up ");
-    cli.printDec(millis() / 1000);
-    cli.println(" s");
-    // A fault reboots the board and the core keeps the report until the
-    // next reboot; show it here as well as at boot, when nothing may
-    // have been listening -- otherwise the reboot passes for a wedge.
-    if (CrashReport)
+}
+
+// If the last boot ended in a fault, the crash report the core kept.
+// printPrompt() below calls this before every prompt, not just at
+// boot, since only a real power cycle -- not the debugger's 'R' -- ever
+// clears it; missing that would let a post-crash session run for a
+// while showing nothing wrong.
+void crashStatus() {
+    if (CrashReport) {
+        cli.println("Board status:");
         Console.print(CrashReport);
-    cli.print(USAGE);
-    if (Debugger.target().hasProtectArea())
-        cli.print(PROTECT);
-    cli.println();
+        cli.println("(power cycle to clear)");
+    }
+}
+
+// Boot, and '?' mid-session: identity/status, current registers, then
+// the full command list. A plain reset ('R') skips all of this -- by
+// then the operator knows the commands and only wants to see where
+// the CPU landed.
+void help() {
+    banner();
+    auto &target = Debugger.target();
+    target.printRegisters();
+    const auto name = target.cpuName();
+    const auto cpu = (name != nullptr && *name != 0) ? name : "CPU";
+    cli.print(HELP1);
+    cli.print("  R              : reset the target ");
+    cli.println(cpu);
+    cli.print(HELP2);
+    cli.print("Free running ");
+    cli.print(cpu);
+    cli.print(" can be stopped by pressing HALT switch");
+#ifdef USB_DUAL_SERIAL
+    cli.print(", or send any byte on 2nd USB serial port");
+#endif
+    cli.println('.');
+    cli.println(HELP3);
 }
 
 void commandHandler(char c, uintptr_t) {
@@ -86,6 +146,7 @@ void commandHandler(char c, uintptr_t) {
 }
 
 void printPrompt() {
+    crashStatus();
     cli.print("> ");
     cli.readLetter(commandHandler, 0);
 }
@@ -734,7 +795,7 @@ void Debugger::exec(char c) {
         cli.println(_verbose ? "ON" : "OFF");
         break;
     case '?':
-        usage();
+        help();
         break;
     case '\r':
         cli.println();
@@ -749,8 +810,9 @@ void Debugger::exec(char c) {
 void Debugger::begin(Target *target) {
     _target = target;
     target->begin();
-    usage();
+    banner();
     target->printRegisters();
+    cli.println("? for help");
     printPrompt();
 }
 
