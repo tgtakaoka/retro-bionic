@@ -1,0 +1,46 @@
+# Scenario for scripts/record-scenario.py: SCRT (Standard Call and
+# Return Technique), the COSMAC convention Mandelbrot's every function
+# call relies on -- there's no hardware CALL instruction or stack, so
+# a call is 'SEP R5' followed by the subroutine's address as two
+# inline bytes, not code: R5 is a dedicated register pointing at a
+# shared routine (scrt_call) that reads those two bytes for itself.
+#
+# ADDRESS IS PINNED TO THE CURRENT samples/cdp1802/mandelbrot.hex:
+# scrt_call is the shared call routine at 002C (scrt.inc). If
+# mandelbrot.asm/.inc/scrt.inc/.hex ever change, re-check it against
+# the fresh .lst before recording -- a stale address will look like it
+# works (it disassembles *something*) while showing the wrong thing.
+
+key ?
+pace 2.0
+
+key R
+upload samples/cdp1802/mandelbrot.hex
+
+# scrt_call itself, disassembled: ordinary code, safe to read linearly
+# (unlike a call site, where the two bytes right after SEP R5 are data,
+# not the next instruction -- disassembling across *that* boundary
+# would decode the embedded address as garbage instructions instead).
+# PHI 15/SEX 2/GLO 4/STXD/GHI 4/STXD push the old link register; the
+# LDA/PHI/LDA/PLO pair after that reads the caller's embedded address,
+# a byte at a time, into R3 -- that's the whole mechanism, right there.
+type D
+wait Disassemble?
+command 002C 15
+pace 2.0
+
+# Run until the chip reaches the interesting part, then step through it:
+# LDA/PHI/LDA/PLO reads the caller's embedded address, a byte at a
+# time, straight into R3 (watch it appear there mid-sequence); GHI 15
+# restores D; BR loops back to SEP R3, which jumps to what R3 now
+# holds -- the call finally lands on the subroutine it was headed for.
+type g
+wait Go until?
+command 0037 5
+pace 0.9
+step 7
+pace 1.5
+
+# Watch one frame render -- a half frame measured at ~133s on real
+# hardware, hence the long wait.
+run 1 400
