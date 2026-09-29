@@ -11,6 +11,7 @@ struct InstTms370 {
     static constexpr uint16_t VEC_TRAP15 = 0x7FC0;
 
     static constexpr uint8_t TRAP15 = 0xE0;
+    static constexpr uint8_t IDLE = 0xF6;
 };
 
 }  // namespace tms370

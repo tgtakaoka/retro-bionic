@@ -25,7 +25,8 @@ struct PinsTms370 : Pins {
             uint8_t *buf, uint_fast8_t max) = 0;
 
 protected:
-    void disassembleCycles();
+    const SignalsImpl *findBacktraceStart() override;
+    void printBacktrace() override;
 };
 
 }  // namespace tms370

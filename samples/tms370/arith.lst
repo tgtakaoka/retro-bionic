@@ -44,7 +44,7 @@
 (1)       0 : =80                INT_FLAG:       equ     10000000B ; INTx Flag 1:transition detected
 (1)       0 : =10                INT_DIR:        equ     00010000B ; INTx Direction 1:output 0:input/interrupt
 (1)       0 : =8                 INT_DATA:       equ     00001000B ; INTx Data out
-(1)       0 : =4                 INT_POLALITY:   equ     00000100B ; INTx Polarity 1:rising 0:falling
+(1)       0 : =4                 INT_POLARITY:   equ     00000100B ; INTx Polarity 1:rising 0:falling
 (1)       0 : =2                 INT_PRIORITY:   equ     00000010B ; INTx Priority 1:level2 0:level1
 (1)       0 : =1                 INT_ENABLE:     equ     00000001B ; INTx Enable 1:enable 0:disable
           0 :
@@ -222,7 +222,7 @@
        20C4 : 22 2D                      mov     #'-', A
        20C6 : 8E 20 1F                   call    expr
        20C9 : 8E 22 7E                   call    sub16          ; Rd=Rd-Rs
-       20CC : 8E 20 3D                   call    answer         ; 29536
+       20CC : 8E 20 3D                   call    answer         ; -29536
        20CF :
        20CF : 88 92 A0 09                movw    #-28000, vA
        20D3 : 88 B9 B0 0B                movw    #-18000, vB
@@ -351,7 +351,7 @@
        2224 : 8E 20 4D                   call    comp
        2227 :
        2227 : 88 92 A0 09                movw    #-28000, vA
-       222B : 88 00 00 0B                movw    #!18000, vB
+       222B : 88 46 50 0B                movw    #18000, vB
        222F : 8E 20 4D                   call    comp
        2232 : F9                         rts
        2233 :
@@ -380,11 +380,11 @@
 (1)    224B : 12 04                      mov     R4, A
 (1)    224D : 14 05                      or      R5, A
 (1)    224F : 02 14                      jz      print_uint16_end
-(1)    2251 : D8 06                      push    R6
+(1)    2251 : D8 07                      push    R7
 (1)    2253 : 72 0A 07                   mov     #10, R7
-(1)    2256 : 8E 22 66                   call    udiv16_8        ; R4:R5/R6 => R4/R5...B
-(1)    2259 : D9 06                      pop     R6
-(1)    225B : C8                         push    B               ; push reminder
+(1)    2256 : 8E 22 66                   call    udiv16_8        ; R4:R5/R7 => R4:R5...B
+(1)    2259 : D9 07                      pop     R7
+(1)    225B : C8                         push    B               ; push remainder
 (1)    225C : 8E 22 4B                   call    print_uint16_loop
 (1)    225F : B9                         pop     A
 (1)    2260 :                    print_uint16_zero:
@@ -397,7 +397,7 @@
 (1)    2266 :                    ;;; @param R4:R5 dividend
 (1)    2266 :                    ;;; @param R7 divisor
 (1)    2266 :                    ;;; @return R4:R5 quotient
-(1)    2266 :                    ;;; @return B reminder
+(1)    2266 :                    ;;; @return B remainder
 (1)    2266 :                    ;;; @clobber A
 (1)    2266 :                    udiv16_8:
 (1)    2266 : 32 04                      mov     R4, B
@@ -405,8 +405,8 @@
 (1)    2269 : F4 F8 07                   div     R7, A           ; A=R4/R7, B=R4%R7
 (1)    226C : D0 04                      mov     A, R4           ; R4=high(quotient)
 (1)    226E : 62                         mov     B, A
-(1)    226F : 32 05                      mov     R5, B           ; A:B=R4%R6:R5
-(1)    2271 : F4 F8 07                   div     R7, A           ; A=low(quotient), B=reminder
+(1)    226F : 32 05                      mov     R5, B           ; A:B=R4%R7:R5
+(1)    2271 : F4 F8 07                   div     R7, A           ; A=low(quotient), B=remainder
 (1)    2274 : D0 05                      mov     A, R5           ; R5=low(quotient)
 (1)    2276 : F9                         rts
 (1)    2277 :
@@ -509,11 +509,11 @@
 (1)    2304 :                    mul16_end:
 (1)    2304 : F9                         rts
 (1)    2305 :
-(1)    2305 :                    ;;; Unsigned division: dividend / divisor = quotient ... reminder
-(1)    2305 :                    ;;; @praram R4:R5 dividend
-(1)    2305 :                    ;;; @praram R6:R7 divisor
+(1)    2305 :                    ;;; Unsigned division: dividend / divisor = quotient ... remainder
+(1)    2305 :                    ;;; @param R4:R5 dividend
+(1)    2305 :                    ;;; @param R6:R7 divisor
 (1)    2305 :                    ;;; @return R4:R5 quotient
-(1)    2305 :                    ;;; @return R6:R7 reminder
+(1)    2305 :                    ;;; @return R6:R7 remainder
 (1)    2305 :                    ;;; @clobber A B
 (1)    2305 :                    udiv16:
 (1)    2305 : 12 06                      mov     R6, A
@@ -551,16 +551,16 @@
 (1)    2337 : DA 08 E0                   djnz    R8, udiv16_loop
 (1)    233A : DF 05                      rlc     R5
 (1)    233C : DF 04                      rlc     R4
-(1)    233E : 98 01 07                   movw    R1, R7          ; save reminder
+(1)    233E : 98 01 07                   movw    R1, R7          ; save remainder
 (1)    2341 : D9 08                      pop     R8
 (1)    2343 :                    udiv16_end:
 (1)    2343 : F9                         rts
 (1)    2344 :
-(1)    2344 :                    ;;; Division: dividend / divisor = quotient ... reminder
+(1)    2344 :                    ;;; Division: dividend / divisor = quotient ... remainder
 (1)    2344 :                    ;;; @param R4:R5 dividend
 (1)    2344 :                    ;;; @param R6:R7 divisor
 (1)    2344 :                    ;;; @return R4:R5 quotient
-(1)    2344 :                    ;;; @return R6:R7 reminder
+(1)    2344 :                    ;;; @return R6:R7 remainder
 (1)    2344 :                    ;;; @clobber A
 (1)    2344 :                    div16:
 (1)    2344 : 12 04                      mov     R4, A
@@ -576,7 +576,7 @@
 (1)    235A : D4 04                      inv     R4
 (1)    235C : D4 05                      inv     R5
 (1)    235E : D3 05                      inc     R5
-(1)    2360 : 79 00 04                   adc     #0, R4          ; negate divisor
+(1)    2360 : 79 00 04                   adc     #0, R4          ; negate dividend
 (1)    2363 :                    div16_divide:
 (1)    2363 : 8E 23 05                   call    udiv16          ; R4:R5=quotient
 (1)    2366 : B9                         pop     A               ; A=(dividend^divisor)

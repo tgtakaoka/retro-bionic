@@ -19,7 +19,11 @@ void PinsTms370::printCycles() {
     }
 }
 
-void PinsTms370::disassembleCycles() {
+const SignalsImpl *PinsTms370::findBacktraceStart() {
+    return backtraceStartByFetchCount<Signals>(_lineLimit);
+}
+
+void PinsTms370::printBacktrace() {
     const auto g = Signals::get();
     const auto cycles = g->diff(Signals::put());
     for (auto i = 0u; i < cycles;) {
