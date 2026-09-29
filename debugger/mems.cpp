@@ -398,10 +398,12 @@ uint32_t Mems::disassemble(uint32_t addr, uint8_t numInsn) const {
                     cli.print('\'');
                 }
                 cli.println();
-                if (insn.getError() == libasm::NO_MEMORY)
-                    break;
             }
-            if ((addr += insn.length() / unit) >= maxAddr())
+            // NO_MEMORY leaves the length 0; step past it so a caller
+            // walking by the returned address can't loop.
+            const auto len = insn.length() / unit;
+            addr += len ? len : 1;
+            if (insn.getError() == libasm::NO_MEMORY || addr > maxAddr())
                 break;
             ++num;
         }

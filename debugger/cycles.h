@@ -24,7 +24,12 @@ struct Cycles {
 
     static void reset();
     static void next();
+    // Rewinds the write end: drops every cycle from |s| on, so |s|
+    // becomes the new head().
     static void discard(const SignalsImpl *s);
+    // The read-end counterpart: drops every cycle before |s|, so |s|
+    // becomes the new tail().
+    static void dispose(const SignalsImpl *s);
 
     static uint_fast8_t cycles() { return _cycles; }
 

@@ -26,8 +26,8 @@ From the header of `debugger/debugger.cpp`:
 | `D` | Disassemble |
 | `A` | Assemble |
 | `S` | Step one instruction, printing bus cycles |
-| `G` | Go — run continuously |
-| `g` | Go until address |
+| `G` | Go — run continuously — `[n]` backtrace lines after stopping (default: all) |
+| `g` | Go until address — `addr [n]`, same backtrace |
 | `B` | Set breakpoint |
 | `b` | Show/clear breakpoints |
 | `U` | Upload Intel HEX or Motorola S-record |
@@ -124,3 +124,8 @@ the data, and whether the controller injected or captured it.
 `G` runs the CPU freely. To get back, press the **HALT/RUN** switch on the base board, or
 send any character on the second USB serial port — the software HALT. Both raise
 `Pins::isrHaltSwitch()`.
+
+After stopping, `G`/`g` disassemble the run — an optional `n` argument caps that backtrace
+to the last `n` lines (`0` prints none of it), which keeps a long run's dump from scrolling
+its real output off screen. Leave `n` empty for the long-standing default of printing all of
+it.

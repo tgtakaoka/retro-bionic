@@ -71,7 +71,10 @@ STALL = float(os.environ.get('BIONIC_STALL', '45'))
 # space that follows it, so only the preceding newline tells the prompt apart
 # from a line still being written.
 PROMPT = b'\n> '
-BANNER = re.compile(r'\* Bionic(\S*) \* (\S+)')
+# group(2) is the CPU actually detected at runtime, when it differs
+# from the identity EEPROM's own name (e.g. a CDP1802 board fitted
+# with a CDP1804A); group(1) is that stored identity otherwise.
+BANNER = re.compile(r'\* Bionic(\S*)(?: \(CPU: (\S+)\))? \* (\S+)')
 
 
 # ------------------------------------------------------------------ lock
@@ -286,10 +289,12 @@ class Board:
             if cap and now - t0 >= cap:
                 return 'running', buf, marks
 
-    def go(self, cmd=b'G', **kw):
-        """`cmd` (default G), then wait_run(**kw) -- the pairing every
-        run-and-wait case makes; `cmd` overrides for a one-shot command like
-        `g<addr>\r` that also starts a run."""
+    def go(self, cmd=b'G\r', **kw):
+        """`cmd` (default G, unlimited backtrace), then wait_run(**kw) --
+        the pairing every run-and-wait case makes; `cmd` overrides for a
+        one-shot command like `g<addr>\r` that also starts a run. G takes
+        an optional line-limit field, so it needs the trailing \r to
+        submit an empty one and actually start running."""
         os.write(self.fd, cmd)
         return self.wait_run(**kw)
 
@@ -317,7 +322,7 @@ class Board:
         if not at_prompt(reply):
             return None
         m = BANNER.search(reply.decode('ascii', 'replace'))
-        return m.group(1) or 'unknown' if m else None
+        return (m.group(2) or m.group(1) or 'unknown') if m else None
 
     def state(self):
         """Classify the board: 'prompt', 'running' or 'wedged'.
