@@ -26,7 +26,7 @@ namespace tlcs90 {
  *        ___               |    _|_          |_____|________|
  *   DATA ___>--------------|---<___>---------<_____|________>-
  *        __________________|_________________>_____|__________
- *  W#AIT _________________/ \_____________________/ \_________
+ *  #WAIT _________________/ \_____________________/ \_________
  */
 // clang-format on
 
@@ -172,7 +172,7 @@ void PinsTlcs90::resetPins() {
     pinsMode(PINS_INPUT, sizeof(PINS_INPUT), INPUT);
 
     // #RESET input must be maintained at the "0" level for at least
-    // #10 systemn clock cycles (10 stated; 2usec at 10MHz).
+    // #10 system clock cycles (10 stated; 2usec at 10MHz).
     for (auto i = 0; i < 20 * 2 || signal_clk() == LOW; ++i)
         x1_cycle();
     negate_reset();
@@ -226,7 +226,7 @@ Signals *PinsTlcs90::completeCycle(Signals *s) {
         }
         // C3L
         s->setData();
-        if (c3_lo_read)
+        if (c3_hi_read)
             delayNanoseconds(c3_hi_read);
         x1_lo();
         Signals::outputMode();
@@ -319,6 +319,40 @@ void PinsTlcs90::idle() {
     // TLCS90 is fully static and stop at #WAIT=LOW
 }
 
+#ifdef PROFILE_CYCLES
+// For scripts/record-cycles.py: stop at any SWI, keep every cycle of it,
+// and give up well before the ring wraps; the debug pin frames the run, to
+// trigger a capture on.
+void PinsTlcs90::loop() {
+    constexpr auto MAX_CYCLES = 96;
+    _profileEnd = nullptr;
+    assert_debug();
+    auto s = Signals::current();
+    for (auto n = 0;; ++n) {
+        _devs->loop();
+        if (s->addr == InstTlcs90::ORG_SWI) {
+            auto r = regs<RegsTlcs90>();
+            if (r->saveContext(s->prev(4))) {
+                negate_debug();
+                r->saveRegisters();
+                r->setIp(r->nextIp() - 1);  // offset SWI
+                assert_wait();
+                // Match up to the SWI's opcode fetch, as the normal build does.
+                _profileEnd = s->prev(6);
+                return;
+            }
+        }
+        completeCycle(s);
+        s = prepareCycle();
+        if (n >= MAX_CYCLES || haltSwitch()) {
+            negate_debug();
+            cli.println(n >= MAX_CYCLES ? "?cycles" : "?halt");
+            suspend(true);
+            return;
+        }
+    }
+}
+#else
 void PinsTlcs90::loop() {
     auto s = Signals::current();
     while (true) {
@@ -326,7 +360,7 @@ void PinsTlcs90::loop() {
         if (s->addr == InstTlcs90::ORG_SWI) {
             auto r = regs<RegsTlcs90>();
             if (r->saveContext(s->prev(4))) {
-                // SWI; break point or halt to system (HALT at ORG_SWI))
+                // SWI; break point or halt to system (HALT at ORG_SWI)
                 const auto opc = _mems->read_byte(s->addr);
                 const auto pc = r->nextIp() - 1;  // offset SWI
                 if (opc == InstTlcs90::HALT || isBreakPoint(pc)) {
@@ -345,27 +379,39 @@ void PinsTlcs90::loop() {
             break;
         }
     }
-    disassembleCycles();
 }
+#endif
 
 void PinsTlcs90::run() {
     _regs->restore();
     Cycles::reset();
     saveBreakInsts();
     negate_wait();
+    startRunTimer();
     loop();
+    stopRunTimer();
     restoreBreakInsts();
     disassembleCycles();
 }
 
-void PinsTlcs90::suspend(bool show) {
+// Bus cycles to wait for the NMI acknowledge; an instruction takes far
+// fewer.
+constexpr auto nmi_ack_cycles = 1024;
+
+bool PinsTlcs90::suspend(bool show) {
     negate_wait();
     // Execute at least one cycle before asserting #NMI
     auto s = Signals::current();
     completeCycle(s);
     s = prepareCycle();
     assert_nmi();
-    while (true) {
+    // Bound the wait; loop() polls the halt switch only between steps.
+    for (auto n = 0;; ++n) {
+        if (n >= nmi_ack_cycles) {
+            negate_nmi();
+            cli.println("?halt: no NMI acknowledge");
+            return false;
+        }
         // Interrupt; 0:n:d:d:V:d:W:W:W:W:V
         if (s->addr == InstTlcs90::ORG_NMI || s->addr == InstTlcs90::ORG_SWI) {
             negate_nmi();
@@ -384,6 +430,7 @@ void PinsTlcs90::suspend(bool show) {
     }
     if (s->addr == InstTlcs90::ORG_NMI && show)
         Cycles::discard(s->prev(6));
+    return true;
 }
 
 bool PinsTlcs90::step(bool show) {
@@ -396,7 +443,8 @@ bool PinsTlcs90::step(bool show) {
     _regs->restore();
     if (show)
         Cycles::reset();
-    suspend(show);
+    if (!suspend(show))
+        return false;
     if (show)
         printCycles();
     return true;
@@ -474,8 +522,25 @@ const Signals *PinsTlcs90::findFetch(Signals *begin, const Signals *end) {
     return end;
 }
 
-void PinsTlcs90::disassembleCycles() {
+// fetch() isn't live here: findFetch()/matchAll() mark it only as a
+// side effect of matching decoded instructions against captured bus
+// cycles, so that has to run -- once, right here -- before
+// backtraceStartFrom() counting fetch() cycles means anything.
+// printBacktrace() re-runs it over the now-disposed range, which
+// re-derives the same marks.
+const SignalsImpl *PinsTlcs90::findBacktraceStart() {
     const auto end = Signals::put();
+    const auto begin = findFetch(Signals::get(), end);
+    return backtraceStartFrom<Signals>(begin, _lineLimit);
+}
+
+void PinsTlcs90::printBacktrace() {
+    const auto end = Signals::put();
+#ifdef PROFILE_CYCLES
+    // Every cycle, with the marks the matcher gives them.
+    findFetch(Signals::get(), _profileEnd ? _profileEnd : end);
+    printCycles(end);
+#else
     const auto begin = findFetch(Signals::get(), end);
     printCycles(begin);
     const auto cycles = begin->diff(end);
@@ -501,6 +566,7 @@ void PinsTlcs90::disassembleCycles() {
         }
         idle();
     }
+#endif
 }
 
 }  // namespace tlcs90

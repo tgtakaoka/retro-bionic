@@ -5,7 +5,7 @@
 ;;; i8251 Universal Synchronous/Asynchronous Receiver/Transmitter
 USART:          equ     0FFF0H
 USARTD:         equ     USART+0 ; Receive/Transmit data
-USARTS:         equ     USART+1 ; Srtatus register
+USARTS:         equ     USART+1 ; Status register
 USARTC:         equ     USART+1 ; Control register
 USARTRV:        equ     USART+2 ; Receive interrupt vector (ORG_*)
 USARTTV:        equ     USART+3 ; Transmit interrupt vector (ORG_*)
@@ -167,13 +167,6 @@ putchar_retry:
         ret
 
         include "queue.inc"
-
-isr_intr:
-        bit     ST_RxRDY_bp, (USARTS)
-        jr      nz, isr_intr_rx
-        bit     ST_TxRDY_bp, (USARTS)
-        jr      nz, isr_intr_tx
-        reti
 
 isr_intr_rx:
         push    ix
