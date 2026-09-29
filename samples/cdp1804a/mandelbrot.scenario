@@ -1,0 +1,42 @@
+# Scenario for scripts/record-scenario.py: SCAL/SRET, CDP1804A's
+# hardware call/return instructions. Unlike CDP1802's software SCRT, a
+# call is one real instruction -- opcode plus the subroutine's address
+# as its own operand, not data bytes disguised as code -- so there is
+# no trampoline routine to disassemble; what is worth showing instead
+# is how little happens per step.
+#
+# ADDRESS IS PINNED TO THE CURRENT samples/cdp1804a/mandelbrot.hex:
+# 12F2 is the 'scal R4, mul16' inside the pixel loop (loop_x,
+# mandelbrot.inc). If mandelbrot.asm/.inc/scrt.inc/.hex ever change,
+# re-check it against the fresh .lst before recording -- a stale
+# address will look like it works (it disassembles *something*) while
+# showing the wrong thing.
+
+key ?
+pace 2.0
+
+key R
+upload samples/cdp1804a/mandelbrot.hex
+
+# Two real call sites back to back, disassembled: SCAL is a genuine
+# instruction (68 84, then the target address as its own operand) --
+# unlike CDP1802's SEP R5, there are no data bytes disguised as code
+# for a linear disassembly to trip over.
+type D
+wait Disassemble?
+command 12F2 3
+pace 2.0
+
+# Go until the first call, then step across it: one step is the whole
+# hardware call -- it lands straight on mul16's own body, no software
+# trampoline to unwind by hand the way CDP1802's SCRT needs.
+type g
+wait Go until?
+command 12F2 5
+pace 0.9
+step 2
+pace 1.5
+
+# Watch one frame render -- a full frame measured at ~198s on real
+# hardware, hence the long wait.
+run 1 400
