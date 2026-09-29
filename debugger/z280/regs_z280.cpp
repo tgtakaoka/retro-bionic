@@ -277,24 +277,26 @@ void RegsZ280::restore() {
         ret[0] = 0xC3, ret[1] = lo(_pc), ret[2] = hi(_pc);  // JP _pc
         retLen = 3;
         break;
+    // The frame sits just below _sp, which save() puts above it and an
+    // edit of SP moves.
     case RST:
-        sp = _frameAddr + 2;  // drop the return address
+        sp = _sp;  // the return address dropped
         ret[0] = 0xC3, ret[1] = lo(_pc), ret[2] = hi(_pc);  // JP _pc
         retLen = 3;
         break;
     case NMI:
-        _mems->write_byte(_frameAddr + 0, lo(_pc));
-        _mems->write_byte(_frameAddr + 1, hi(_pc));
-        sp = _frameAddr;
+        sp = _sp - 2;
+        _mems->write_byte(physical(sp + 0), lo(_pc));
+        _mems->write_byte(physical(sp + 1), hi(_pc));
         ret[0] = InstZ280::RETN_PREFIX, ret[1] = InstZ280::RETN;  // RETN
         retLen = 2;
         break;
     case NMI3:
-        _mems->write_byte(_frameAddr + 0, lo(_msr));
-        _mems->write_byte(_frameAddr + 1, hi(_msr));
-        _mems->write_byte(_frameAddr + 2, lo(_pc));
-        _mems->write_byte(_frameAddr + 3, hi(_pc));
-        sp = _frameAddr;
+        sp = _sp - 4;
+        _mems->write_byte(physical(sp + 0), lo(_msr));
+        _mems->write_byte(physical(sp + 1), hi(_msr));
+        _mems->write_byte(physical(sp + 2), lo(_pc));
+        _mems->write_byte(physical(sp + 3), hi(_pc));
         ret[0] = InstZ280::RETN_PREFIX, ret[1] = InstZ280::RETIL;  // RETIL
         retLen = 2;
         break;

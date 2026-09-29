@@ -31,7 +31,7 @@ void Signals::inputMode() const {
 }
 
 void Signals::print() const {
-#ifdef Z280_PROFILE
+#ifdef PROFILE_CYCLES
     // slot, and inject/capture flags
     cli.print(readMemory() ? ' ' : 'i');
     cli.print(writeMemory() ? ' ' : 'c');
@@ -39,9 +39,9 @@ void Signals::print() const {
     cli.printDec(pos(), -4);
 #endif
     //                              0123456789012345678901234567890
-#ifdef Z280_PROFILE
+#ifdef PROFILE_CYCLES
     // ST0-3, B//W, #R//W and the matcher's mark (F fetch, B byte or
-    // stale prefetch, O data, - none), for tools/record_cycles.py.
+    // stale prefetch, O data, - none), for tools/cycles_z280.py.
     static constexpr char line[] = "R A=xxxxxx D=xxxx S=x b=x r=x m=-";
 #else
     static constexpr char line[] = "R A=xxxxxx D=xxxx";
@@ -72,7 +72,7 @@ void Signals::print() const {
         buffer.hex8(13, data >> 8);
         buffer[15] = buffer[16] = ' ';
     }
-#ifdef Z280_PROFILE
+#ifdef PROFILE_CYCLES
     buffer.hex4(20, st());
     buffer.hex4(24, bw());
     buffer.hex4(28, rw());

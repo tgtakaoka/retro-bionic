@@ -2,30 +2,27 @@
 
 Everything here is offline-analysis or bench-measurement tooling for the
 Z280, kept out of the generic `scripts/` layer (which is meant to stay
-arch-agnostic). All three import `scripts/bionic-control.py` or run
-standalone; none of them are used by `bionic-regress.py`.
+arch-agnostic). None of them are used by `bionic-regress.py`.
 
-- **`record_cycles.py`** -- drives the real chip, one instruction pattern
-  at a time, and records its bus cycles. Needs firmware built with
-  `-D Z280_PROFILE` and Python 3.14 (`compression.zstd`).
+- **`cycles_z280.py`** -- the Z280 plugin for `scripts/record-cycles.py`,
+  which drives the real chip one instruction pattern at a time and
+  records its bus cycles. Needs the profile image (`-D PROFILE_CYCLES`) and
+  Python 3.14 (`compression.zstd`). Run from the repository root:
   ```
-  record_cycles.py fill      # fill memory, once per flash
-  record_cycles.py run       # record every pattern not yet recorded
-  record_cycles.py status    # what is recorded, what is not
-  record_cycles.py check     # cross-check a normal build's samples
+  P=debugger/z280/tools/cycles_z280.py
+  R=debugger/z280/tools/z280-profile.jsonl.zst
+  scripts/record-cycles.py $P fill                  # once per flash
+  scripts/record-cycles.py $P run --record $R       # every run not yet recorded
+  scripts/record-cycles.py $P status --record $R    # what is recorded, what is not
   ```
-  Its `Board` class subclasses `bc.Board` (`fd`/`send`/`abort`/`recover`/
-  `upload_file`/`close` inherited directly) and adds pattern-isolation
-  methods (`write`/`dump`/`set_reg`/`reset`/`run`/`unstick`). Note: its
-  `run()` and `unstick()` are deliberately *not* named `go()`/`recover()`
-  -- those names are already `bc.Board` methods with different signatures
-  and semantics (`bc.Board.recover()` in particular is what `bc.Board.
-  open()` itself calls internally; shadowing it would break that).
-  Writes/reads `z280-profile.jsonl.zst`, `z280-opcodes.txt.zst`,
-  `gen_z280.lst.zst` (libasm's pattern list, kept here) -- all in this
-  directory, alongside the script.
+  Reads `z280-opcodes.txt.zst` and `gen_z280.lst.zst` (libasm's pattern
+  list, kept here).
 
-- **`derive_tables.py`** -- turns `record_cycles.py`'s recording into the
+- **`check_samples.py`** -- runs the samples on a normal build and
+  cross-checks every disassembled line of the backtrace against
+  `samples/z280/*.lst`.
+
+- **`derive_tables.py`** -- turns the `cycles_z280.py` recording into the
   `z280-PAGExx.txt` sequence tables `inst_z280.awk` consumes. Those
   tables are written to the *parent* `debugger/z280/` directory (where
   `inst_z280.awk` and the generated `inst_z280.cpp` live), not here --
@@ -46,9 +43,8 @@ standalone; none of them are used by `bionic-regress.py`.
 ## Regenerating the PAGExx.txt tables
 
 ```
-cd debugger/z280/tools
-python3 record_cycles.py run       # only if extending the recording
-python3 derive_tables.py           # writes ../z280-PAGExx.txt
+scripts/record-cycles.py $P run --record $R    # only if extending the recording
+debugger/z280/tools/derive_tables.py           # writes debugger/z280/z280-PAGExx.txt
 ```
 The tables are hand-maintained after that; regenerating is for comparison,
 not a build step.
