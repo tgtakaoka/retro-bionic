@@ -24,7 +24,7 @@ protected:
 
 }  // namespace z80
 }  // namespace debugger
-#endif /* __PINS_H__ */
+#endif /* __PINS_Z80_BASE_H__ */
 
 // Local Variables:
 // mode: c++

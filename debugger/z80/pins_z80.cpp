@@ -22,7 +22,7 @@ namespace z80 {
  *       ________|           |___|           |___|               |_______|       |           |__
  * #MREQ         |___________|   |___________|   |_______________|       |_______|___________|
  *       ________|___________|               |___|_______________|_______________|___________|__
- * #REFS         |           |_______________|   |               |               |           |
+ * #RFSH         |           |_______________|   |               |               |           |
  *       ________|           |___________________|               |_______________|___________|__
  *  #RD          |___________|                   |_______________|               |           |
  *       ________________________________________________________________________|           |__
@@ -38,7 +38,7 @@ namespace z80 {
  *       ____|                   |           |___|___________|_______|___________________|______
  *  #M1      |___________________|___________|   |           |       |                   |
  *       ________________________|___________|___|           |_______|___________________|______
- * #REFS                         |           |   |___________|       |                   |
+ * #RFSH                         |           |   |___________|       |                   |
  *       ________________________|___________|___|           |_______|___________________|______
  * #MREQ                         |           |   |___________|       |                   |
  *       ________________________|           |_______________________|                   |______
@@ -426,7 +426,9 @@ void PinsZ80::run() {
     _regs->restore();
     Cycles::reset();
     saveBreakInsts();
+    startRunTimer();
     loop();
+    stopRunTimer();
     restoreBreakInsts();
     disassembleCycles();
     _regs->save();
@@ -474,11 +476,11 @@ bool PinsZ80::step(bool show) {
     return false;
 }
 
-void PinsZ80::assertInt(uint8_t name) {
+void PinsZ80::assertInt(uint8_t) {
     assert_int();
 }
 
-void PinsZ80::negateInt(uint8_t name) {
+void PinsZ80::negateInt(uint8_t) {
     negate_int();
 }
 
@@ -491,7 +493,11 @@ void PinsZ80::printCycles() {
     }
 }
 
-void PinsZ80::disassembleCycles() {
+const SignalsImpl *PinsZ80::findBacktraceStart() {
+    return backtraceStartByFetchCount<Signals>(_lineLimit);
+}
+
+void PinsZ80::printBacktrace() {
     const auto g = Signals::get();
     const auto cycles = g->diff(Signals::put());
     for (auto i = 0u; i < cycles;) {

@@ -32,7 +32,7 @@ private:
 
 }  // namespace z80
 }  // namespace debugger
-#endif /* __SIGNALS_H__ */
+#endif /* __SIGNALS_Z80_H__ */
 
 // Local Variables:
 // mode: c++
