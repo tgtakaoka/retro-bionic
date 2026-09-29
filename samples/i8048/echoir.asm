@@ -20,6 +20,8 @@ RX_EN_TX_EN:    equ     CMD_RTS_bm|CMD_DTR_bm|CMD_ER_bm|CMD_RxEN_bm|CMD_TxEN_bm
         org     00H
 rx_queue_size:  equ     32
 rx_queue_buf:   ds      rx_queue_size
+        ds      4
+isr_stack:                      ; the ISR's software stack, R1 of BANK1
         org     USART
 ;;;  Software stack; pre-decrement, post-increment pointed by R1 on
 ;;;  external data memory
@@ -35,6 +37,9 @@ rx_queue:       ds      queue_work_size
         jmp     isr_intr
 init:
         mov     R1, #stack
+        sel     RB1
+        mov     R1, #isr_stack
+        sel     RB0
         mov     R0, #rx_queue
         mov     R2, #rx_queue_buf
         mov     A, #rx_queue_size

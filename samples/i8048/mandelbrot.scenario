@@ -1,0 +1,40 @@
+# Scenario for scripts/record-scenario.py: the MCS-48 call stack. There
+# is no stack pointer register and no push or pop -- the 3-bit SP lives
+# in PSW's low bits, and each CALL stores the 12-bit return address,
+# with the top four PSW flags, as two bytes in internal RAM 08h-17h.
+#
+# ADDRESS IS PINNED TO THE CURRENT samples/i8048/mandelbrot.hex: the
+# "call mulsi2" in loop_x at 0B0. If mandelbrot.asm/.inc or the .hex
+# ever change, re-check it against the fresh .lst before recording -- a
+# stale address will look like it works (it disassembles *something*)
+# while showing the wrong thing.
+
+key ?
+pace 2.0
+
+key R
+upload samples/i8048/mandelbrot.hex
+
+# Stop on the call, and look at the stack area: SP in the dump's PSW
+# says how many entries below are live.
+type g
+wait Go until?
+command 0B0 5
+pace 0.9
+type d
+wait Data dump?
+command 08
+pace 2.0
+
+# One step is the whole CALL: PC lands on mulsi2 (3A2), SP ticks up by
+# one, and the return address 0AE appears in the next free entry --
+# low byte first, then the PSW flags over the top address bits.
+step 1
+pace 1.5
+type d
+wait Data dump?
+command 08
+pace 2.5
+
+# Watch one frame render; it takes about 5.5 minutes.
+run 1 1200

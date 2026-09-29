@@ -994,3 +994,44 @@ ROMC sequences. **[hw]** Its `x=` counts Φ periods: a short cycle is 4 and
 a long one 6. `INS` and `OUTS` of ports 2 and 3 (A2, A3, B2, B3), which
 Table 3 leaves out, take one short cycle as `f3850.txt` has them, not the
 long I/O form the Guide to Programming implies.
+
+### MCS-48
+
+**Pitfalls.** Some machine cycles pulse only ALE with no strobe, and the
+makers differ on which; an ISR switching register bank must not use the
+other bank's pointers uninitialised.
+
+One board runs the P8039/P8048 and OKI MSM80C35/MSM80C39. The OKI parts are
+told apart by `DEC @R0`, which the Intel parts lack. The board identity is
+`P8048`. **[hw]**
+
+The stack lives in internal RAM 08h-17h, with SP in PSW's low three bits; each
+call stores the return address with PSW's top four flags. **[doc]**
+
+The fetch data drive is released about 300 ns before `#PSEN` rises. It is
+harmless on the parts tried. **[hw]**
+
+The profile (`tools/cycles_i8048.py` on the P8039 and
+`tools/cycles_msm80c39.py` on the MSM80C39, recorded as
+`tools/i8048-cycles.jsonl.zst` and `tools/msm80c39-cycles.jsonl.zst`) found
+machine cycles that pulse only ALE, with no strobe, where the matcher had
+expected one. **[hw]** `i8048.txt`'s `s` column gives the cycles that do
+strobe, as Intel/OKI where the makers differ:
+
+- `IN A,P1`, `IN A,P2`, `OUTL P1,A`, `OUTL P2,A` (09, 0A, 39, 3A) and the
+  MSM80C39's `MOV P1,@R3` (F3) strobe once in their two cycles.
+- `RET` and `RETR` (83, 93) strobe twice on the Intel parts, once on the
+  OKI ones.
+
+Counting a strobe that never came made the matcher take the next fetch for
+the instruction's own cycle; on the MSM80C39 that handed the CPU a real
+`HALT` and wedged the board.
+
+The interrupt-driven samples' ISRs switch to register bank 1 and call the
+queue routines, which push through R1 onto the software stack in external
+data memory; `init` set only bank 0's R1, so the ISR pushed wherever bank
+1's R1 pointed, RAM a reset leaves as it was. **[hw]** Landing in the main
+program's stack, it overwrote values the arithmetic had saved there, and
+mandelbrot drew its leftmost column wrong in the rows next to the axis,
+whose first pixel is computed while the newline's characters go out.
+The ISR has its own stack now, at `isr_stack`.

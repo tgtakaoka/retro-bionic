@@ -24,13 +24,15 @@ tx_queue_size:  equ     56
 tx_queue_buf:   ds      tx_queue_size
 print_uint16_buf:
         ds      8
+        ds      4
+isr_stack:                      ; the ISR's software stack, R1 of BANK1
         org     USART
 ;;;  Software stack; pre-decrement, post-increment pointed by R1 on
 ;;;  external data memory
 stack:          equ     $
 
 ;;; Internal data memory
-        org     BASE_BANK1+4    ; R0~R3 of BANK1 is reserved for ISR
+        org     BASE_MEMORY     ; BANK1 is the ISR's
 rx_queue:       ds      queue_work_size
 tx_queue:       ds      queue_work_size
 ;;; Work area for mandelbrot.inc
@@ -54,6 +56,9 @@ vI:     ds      1
         jmp     isr_intr
 init:
         mov     R1, #stack
+        sel     RB1
+        mov     R1, #isr_stack
+        sel     RB0
         mov     R0, #rx_queue
         mov     R2, #rx_queue_buf
         mov     A, #rx_queue_size

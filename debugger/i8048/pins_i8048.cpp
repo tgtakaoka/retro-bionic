@@ -223,6 +223,10 @@ void PinsI8048::resetPins() {
 
 Signals *PinsI8048::prepareCycle() {
     auto s = Signals::put();
+#ifdef PROFILE_CYCLES
+    s->markFetch(0);
+    s->idles() = 0;
+#endif
     // tC~t1
     while (signal_ale() == LOW)
         xtal1_cycle();
@@ -262,6 +266,9 @@ Signals *PinsI8048::prepareCycle() {
                 return s;
             }
         }
+#ifdef PROFILE_CYCLES
+        ++s->idles();
+#endif
     }
 }
 
@@ -313,7 +320,8 @@ Signals *PinsI8048::completeCycle(Signals *s) {
         xtal1_cycle();
         xtal1_cycle();
         xtal1_cycle_lo();
-        while (signal_rd() == LOW)  // ensure tDR
+        // Ensure tDR, but bounded: FLTT floats #RD, which may then stay low.
+        for (auto n = 0; n < 1000 && signal_rd() == LOW; ++n)
             ;
         Signals::inputMode();
     } else if (s->write()) {  // external data write
@@ -339,8 +347,8 @@ Signals *PinsI8048::completeCycle(Signals *s) {
     } else if (s->port()) {
         xtal1_lo();
         delayNanoseconds(xtal1_lo_ns);
-        // t7~tF
-        while (signal_prog() == LOW) {
+        // t7~tF; PROG rises within the machine cycle, unless FLTT floats it.
+        for (auto n = 0; n < 2 * 15 && signal_prog() == LOW; ++n) {
             xtal1_cycle();
         }
     }
@@ -398,6 +406,26 @@ void PinsI8048::idle() {
     xtal1_cycle();
 }
 
+#ifdef PROFILE_CYCLES
+// For scripts/record-cycles.py: stop at the HALT ending the pattern and give
+// up well before the ring wraps; the debug pin frames the run, to trigger a
+// capture on.
+void PinsI8048::loop() {
+    constexpr auto MAX_CYCLES = 96;
+    assert_debug();
+    while (true) {
+        _devs->loop();
+        if (!rawStep())
+            return;
+        const auto full = Cycles::cycles() >= MAX_CYCLES;
+        if (full || haltSwitch()) {
+            negate_debug();
+            cli.println(full ? "?cycles" : "?halt");
+            return;
+        }
+    }
+}
+#else
 void PinsI8048::loop() {
     while (true) {
         _devs->loop();
@@ -406,12 +434,15 @@ void PinsI8048::loop() {
         }
     }
 }
+#endif
 
 void PinsI8048::run() {
     _regs->restore();
     Cycles::reset();
     saveBreakInsts();
+    startRunTimer();
     loop();
+    stopRunTimer();
     assert_ss();
     restoreBreakInsts();
     disassembleCycles();
@@ -443,8 +474,16 @@ bool PinsI8048::rawStep(bool step) {
     const auto inst = _mems->read_byte(s->addr);
     const auto len = _inst.instLength(inst);
     if (inst == InstI8048::HALT || len == 0) {
+#ifdef PROFILE_CYCLES
+        negate_debug();
+        s->markFetch(1);
+        injectJumpHere(s);
+        // Keep the HALT's fetch, the end of the pattern.
+        Cycles::discard(s->next());
+#else
         injectJumpHere(s);
         Cycles::discard(s);
+#endif
         return false;
     }
     if (step) {
@@ -456,10 +495,18 @@ bool PinsI8048::rawStep(bool step) {
         return true;
     }
     const auto cycles = _inst.busCycles(inst);
+#ifdef PROFILE_CYCLES
+    // Keep every strobe as the chip gave it; the mark is the matcher's.
+    s->markFetch(cycles);
+    completeCycle(s);
+    for (auto i = 1; i < cycles; ++i)
+        completeCycle(prepareCycle());
+#else
     completeCycle(s);
     for (auto i = 1; i < cycles; ++i) {
         completeCycle(prepareCycle())->clearFetch();
     }
+#endif
     return true;
 }
 
@@ -477,11 +524,11 @@ bool PinsI8048::step(bool show) {
     return false;
 }
 
-void PinsI8048::assertInt(uint8_t name) {
+void PinsI8048::assertInt(uint8_t) {
     assert_int();
 }
 
-void PinsI8048::negateInt(uint8_t name) {
+void PinsI8048::negateInt(uint8_t) {
     negate_int();
 }
 
@@ -498,23 +545,36 @@ void PinsI8048::printCycles() {
     }
 }
 
-void PinsI8048::disassembleCycles() {
+const SignalsImpl *PinsI8048::findBacktraceStart() {
+#ifdef PROFILE_CYCLES
+    return Cycles::tail();  // fetch() is #PSEN here, not the matcher's
+#else
+    return backtraceStartByFetchCount<Signals>(_lineLimit);
+#endif
+}
+
+void PinsI8048::printBacktrace() {
+#ifdef PROFILE_CYCLES
+    // Every cycle, with the matcher's marks.
+    printCycles();
+#else
     const auto g = Signals::get();
     const auto cycles = g->diff(Signals::put());
     for (auto i = 0u; i < cycles;) {
         const auto s = g->next(i);
         if (s->fetch()) {
             const auto len = _mems->disassemble(s->addr, 1) - s->addr;
-            const auto cycles = _inst.busCycles(s->data);
-            for (auto i = len; i < cycles; ++i)
-                s->next(i)->print();
-            i += cycles;
+            const auto busCycles = _inst.busCycles(s->data);
+            for (auto j = len; j < busCycles; ++j)
+                s->next(j)->print();
+            i += busCycles;
         } else {
             s->print();
             ++i;
         }
         idle();
     }
+#endif
 }
 
 }  // namespace i8048

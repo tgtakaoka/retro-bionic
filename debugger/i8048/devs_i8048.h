@@ -29,7 +29,7 @@ private:
 
 }  // namespace i8048
 }  // namespace debugger
-#endif /* __DEVS_I8048H__ */
+#endif /* __DEVS_I8048_H__ */
 
 // Local Variables:
 // mode: c++
