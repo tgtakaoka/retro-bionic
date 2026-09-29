@@ -59,7 +59,7 @@
 (1)       0 : =80                ST_DSR_bm:      equ     B'10000000'   ; Data Set Ready
 (1)       0 : =40                ST_BRK_bm:      equ     B'01000000'   ; BREAK detected
 (1)       0 : =20                ST_FE_bm:       equ     B'00100000'   ; Framing Error
-(1)       0 : =10                ST_OE_bm:       equ     B'00010000'   ; Iverrun Error
+(1)       0 : =10                ST_OE_bm:       equ     B'00010000'   ; Overrun Error
 (1)       0 : =8                 ST_PE_bm:       equ     B'00001000'   ; Parity Error
 (1)       0 : =4                 ST_TxEMPTY_bm:  equ     B'00000100'   ; Transmitter empty
 (1)       0 : =2                 ST_RxRDY_bm:    equ     B'00000010'   ; Receiver ready
@@ -87,21 +87,21 @@
           4 : 1F 01 00                   bcta,un init
           7 :
           7 : =7                 RXINTR_VEC:     equ     $
-          7 : 1F 02 81                   bcta,un isr_intr_rx
+          7 : 1F 02 83                   bcta,un isr_intr_rx
           A :
           A : =8A                TXINTR_VEC:     equ     $ + H'80' ; indirect vector
-          A : 02 94                      acon    isr_intr_tx
+          A : 02 96                      acon    isr_intr_tx
           C :
         100 :                            org     H'0100'
         100 :                    init:
         100 : 06 20                      lodi,r2 >rx_queue
         102 : 07 00                      lodi,r3 <rx_queue
         104 : 05 80                      lodi,r1 rx_queue_size
-        106 : 3F 01 D8                   bsta,un queue_init
+        106 : 3F 01 DA                   bsta,un queue_init
         109 : 06 20                      lodi,r2 >tx_queue
         10B : 07 80                      lodi,r3 <tx_queue
         10D : 05 80                      lodi,r1 tx_queue_size
-        10F : 3F 01 D8                   bsta,un queue_init
+        10F : 3F 01 DA                   bsta,un queue_init
         112 :
         112 :                    init_usart:
         112 : 20                         eorz    r0              ; clear R0
@@ -117,7 +117,7 @@
         123 : C0                         nop
         124 : C0                         nop
         125 : 04 26                      lodi,r0 RX_EN_TX_DIS
-        127 : D4 01                      wrte,r0 USARTC    ; RTS/DTR, error reset, Rx enable, Tx disable
+        127 : D4 01                      wrte,r0 USARTC    ; RTS/DTR, Rx enable, Tx disable
         129 : 04 07                      lodi,r0 RXINTR_VEC
         12B : D4 02                      wrte,r0 USARTRI         ; enable Rx interrupt
         12D : 04 8A                      lodi,r0 TXINTR_VEC
@@ -125,20 +125,20 @@
         131 :
         131 : 74 20                      cpsu    PSU_II          ; enable interrupt
         133 :                    receive_loop:
-        133 : 3F 01 A1                   bsta,un getchar
+        133 : 3F 01 A3                   bsta,un getchar
         136 : B5 01                      tpsl    PSL_C
         138 : 98 79                      bcfr,eq receive_loop    ; PSL.C=0
         13A : 60                         iorz    r0
         13B : 18 19                      bctr,eq echoitr_halt
         13D :                    echo_back:
         13D : C1                         strz    r1              ; save letter
-        13E : 3F 01 B8                   bsta,un putchar         ; echo
+        13E : 3F 01 BA                   bsta,un putchar         ; echo
         141 : 04 20                      lodi,r0 A' '            ; space
-        143 : 3F 01 B8                   bsta,un putchar
+        143 : 3F 01 BA                   bsta,un putchar
         146 : 3F 01 61                   bsta,un put_hex8        ; print in hex
         149 : 04 20                      lodi,r0 A' '            ; space
-        14B : 3F 01 B8                   bsta,un putchar
-        14E : 3F 01 85                   bsta,un put_bin8        ; print in binary
+        14B : 3F 01 BA                   bsta,un putchar
+        14E : 3F 01 87                   bsta,un put_bin8        ; print in binary
         151 : 3F 01 57                   bsta,un newline
         154 : 1B 5D                      bctr,un receive_loop
         156 :                    echoitr_halt:
@@ -148,18 +148,18 @@
         157 :                    ;;; @clobber r0
         157 :                    newline:
         157 : 04 0D                      lodi,r0 H'0D'
-        159 : 3F 01 B8                   bsta,un putchar
+        159 : 3F 01 BA                   bsta,un putchar
         15C : 04 0A                      lodi,r0 H'0A'
-        15E : 1F 01 B8                   bcta,un putchar
+        15E : 1F 01 BA                   bcta,un putchar
         161 :
         161 :                    ;;; Print uint8_t in hex
         161 :                    ;;; @param r1 uint8_t value to be printed in hex.
         161 :                    ;;; @clobber r0
         161 :                    put_hex8:
         161 : 04 30                      lodi,r0 A'0'
-        163 : 3F 01 B8                   bsta,un putchar
+        163 : 3F 01 BA                   bsta,un putchar
         166 : 04 78                      lodi,r0 A'x'
-        168 : 3F 01 B8                   bsta,un putchar
+        168 : 3F 01 BA                   bsta,un putchar
         16B : 01                         lodz    r1
         16C : 75 01                      cpsl    PSL_C           ; PSL.C=0
         16E : 50                         rrr     r0
@@ -169,263 +169,264 @@
         172 : 3B 01                      bstr,un put_hex4
         174 : 01                         lodz    r1
         175 :                    put_hex4:
-        175 : 44 0F                      andi,r0 H'F'
-        177 : E4 0A                      comi,r0 10
-        179 : 1A 05                      bctr,lt put_hex8_dec ; R0<10
-        17B : 84 37                      addi,r0 A'A'-10
-        17D : 1F 01 B8                   bcta,un putchar
-        180 :                    put_hex8_dec:
-        180 : 84 30                      addi,r0 A'0'
-        182 : 1F 01 B8                   bcta,un putchar
-        185 :
-        185 :                    ;;; Print uint8_t in binary
-        185 :                    ;;; @param r1 uint8_t value to be printed in binary.
-        185 :                    ;;; @clobber r0 r2 r3
-        185 :                    put_bin8:
-        185 : 04 30                      lodi,r0 A'0'
-        187 : 3F 01 B8                   bsta,un putchar
-        18A : 04 62                      lodi,r0 A'b'
-        18C : 3F 01 B8                   bsta,un putchar
-        18F : 01                         lodz    r1
-        190 : C2                         strz    r2
-        191 : 07 08                      lodi,r3 8
-        193 :                    put_bin_loop:
-        193 : D2                         rrl     r2
-        194 : 04 30                      lodi,r0 A'0'
-        196 : B5 01                      tpsl    PSL_C
-        198 : 98 02                      bcfr,eq put_bin0
-        19A : 04 31                      lodi,r0 A'1'
-        19C :                    put_bin0:
-        19C : 3B 1A                      bstr,un putchar
-        19E : FB 73                      bdrr,r3 put_bin_loop
-        1A0 : 17                         retc,un
-        1A1 :
-        1A1 :
-        1A1 :                    ;;; Get character
-        1A1 :                    ;;; @return r0
-        1A1 :                    ;;; @return FLAGS.C 0 if no character
-        1A1 :                    getchar:
-        1A1 : CA 12                      strr,r2 save_r2
-        1A3 : CB 11                      strr,r3 save_r3
-        1A5 : 06 20                      lodi,r2 >rx_queue
-        1A7 : 07 00                      lodi,r3 <rx_queue
-        1A9 : 76 20                      ppsu    PSU_II
-        1AB : 3F 02 40                   bsta,un queue_remove
-        1AE : 74 20                      cpsu    PSU_II
-        1B0 : 0B 04                      lodr,r3 save_r3
-        1B2 : 0A 01                      lodr,r2 save_r2
-        1B4 : 17                         retc,un
-        1B5 :
-        1B5 :                    save_r2:
-        1B5 :                            res     1
-        1B6 :                    save_r3:
-        1B6 :                            res     1
-        1B7 :                    save_r0:
+        175 : 75 01                      cpsl    PSL_C           ; ADDI adds the carry
+        177 : 44 0F                      andi,r0 H'F'
+        179 : E4 0A                      comi,r0 10
+        17B : 1A 05                      bctr,lt put_hex8_dec ; R0<10
+        17D : 84 37                      addi,r0 A'A'-10
+        17F : 1F 01 BA                   bcta,un putchar
+        182 :                    put_hex8_dec:
+        182 : 84 30                      addi,r0 A'0'
+        184 : 1F 01 BA                   bcta,un putchar
+        187 :
+        187 :                    ;;; Print uint8_t in binary
+        187 :                    ;;; @param r1 uint8_t value to be printed in binary.
+        187 :                    ;;; @clobber r0 r2 r3
+        187 :                    put_bin8:
+        187 : 04 30                      lodi,r0 A'0'
+        189 : 3F 01 BA                   bsta,un putchar
+        18C : 04 62                      lodi,r0 A'b'
+        18E : 3F 01 BA                   bsta,un putchar
+        191 : 01                         lodz    r1
+        192 : C2                         strz    r2
+        193 : 07 08                      lodi,r3 8
+        195 :                    put_bin_loop:
+        195 : D2                         rrl     r2
+        196 : 04 30                      lodi,r0 A'0'
+        198 : B5 01                      tpsl    PSL_C
+        19A : 98 02                      bcfr,eq put_bin0
+        19C : 04 31                      lodi,r0 A'1'
+        19E :                    put_bin0:
+        19E : 3B 1A                      bstr,un putchar
+        1A0 : FB 73                      bdrr,r3 put_bin_loop
+        1A2 : 17                         retc,un
+        1A3 :
+        1A3 :
+        1A3 :                    ;;; Get character
+        1A3 :                    ;;; @return r0
+        1A3 :                    ;;; @return FLAGS.C 0 if no character
+        1A3 :                    getchar:
+        1A3 : CA 12                      strr,r2 save_r2
+        1A5 : CB 11                      strr,r3 save_r3
+        1A7 : 06 20                      lodi,r2 >rx_queue
+        1A9 : 07 00                      lodi,r3 <rx_queue
+        1AB : 76 20                      ppsu    PSU_II
+        1AD : 3F 02 42                   bsta,un queue_remove
+        1B0 : 74 20                      cpsu    PSU_II
+        1B2 : 0B 04                      lodr,r3 save_r3
+        1B4 : 0A 01                      lodr,r2 save_r2
+        1B6 : 17                         retc,un
+        1B7 :
+        1B7 :                    save_r2:
         1B7 :                            res     1
-        1B8 :
-        1B8 :                    ;;; Put character
-        1B8 :                    ;;; @param r0
-        1B8 :                    putchar:
-        1B8 : C8 7D                      strr,r0 save_r0
-        1BA : CA 79                      strr,r2 save_r2
-        1BC : CB 78                      strr,r3 save_r3
-        1BE : 06 20                      lodi,r2 >tx_queue
-        1C0 : 07 80                      lodi,r3 <tx_queue
-        1C2 :                    putchar_retry:
-        1C2 : 76 20                      ppsu    PSU_II
-        1C4 : 3F 02 02                   bsta,un queue_add
-        1C7 : 74 20                      cpsu    PSU_II
-        1C9 : B5 01                      tpsl    PSL_C
-        1CB : 98 75                      bcfr,eq putchar_retry   ; branch if queue is full
-        1CD : 04 27                      lodi,r0 RX_EN_TX_EN
-        1CF : D4 01                      wrte,r0 USARTC          ; enable Tx
-        1D1 : 0B 63                      lodr,r3 save_r3
-        1D3 : 0A 60                      lodr,r2 save_r2
-        1D5 : 08 60                      lodr,r0 save_r0
-        1D7 : 17                         retc,un
-        1D8 :
-        1D8 :                            include "queue.inc"
-(1)     1D8 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
-(1)     1D8 :                    ;;; [queue] queue structure
-(1)     1D8 : =0                 queue_len:      equ     0       ; queue length
-(1)     1D8 : =1                 queue_size:     equ     1       ; buffer size
-(1)     1D8 : =2                 queue_put:      equ     2       ; queue put index
-(1)     1D8 : =3                 queue_get:      equ     3       ; queue get index
-(1)     1D8 : =4                 queue_buf:      equ     4       ; buffer start offset
-(1)     1D8 :
-(1)     1D8 :                    ;;; [queue] Initialize queue
-(1)     1D8 :                    ;;; @param r2:r3 queue work space pointer
-(1)     1D8 :                    ;;; @param r1 queue work space size
-(1)     1D8 :                    ;;; @clobber r1
-(1)     1D8 :                    queue_init:
-(1)     1D8 : CE 02 3D                   stra,r2 queue_top
-(1)     1DB : CF 02 3E                   stra,r3 queue_top+1
-(1)     1DE : CC 02 3F                   stra,r0 queue_r0
-(1)     1E1 : 20                         eorz    r0              ; clear R0
-(1)     1E2 : CC 82 3D                   stra,r0 *queue_top      ; queue_len
-(1)     1E5 : 01                         lodz,r1
-(1)     1E6 : 77 01                      ppsl    PSL_C           ; PSL.C=1
-(1)     1E8 : A4 04                      subi,r0 queue_buf       ; without borrow
-(1)     1EA : 06 01                      lodi,r2 queue_size
-(1)     1EC : CE E2 3D                   stra,r0 *queue_top,r2   ; queue_size=R1-queue_buf
-(1)     1EF : C3                         strz    r3              ; R3=queue_size
-(1)     1F0 : 87 02                      addi,r3 2               ; for queue_put and queue_get
-(1)     1F2 : 20                         eorz    r0              ; clear R0
-(1)     1F3 :                    queue_init_loop:
-(1)     1F3 : CE A2 3D                   stra,r0 *queue_top,r2,+
-(1)     1F6 : FB 7B                      bdrr,r3 queue_init_loop
-(1)     1F8 : 0C 02 3F                   loda,r0 queue_r0
-(1)     1FB : 0F 02 3E                   loda,r3 queue_top+1
-(1)     1FE : 0E 02 3D                   loda,r2 queue_top
-(1)     201 : 17                         retc,un
-(1)     202 :
-(1)     202 :                    ;;; [queue] Add an element to queue
-(1)     202 :                    ;;; @param r2:r3 queue work space pointer
-(1)     202 :                    ;;; @param r0 an element
-(1)     202 :                    ;;; @return FLAGS.C 0 if queue is full
-(1)     202 :                    queue_add:
-(1)     202 : CA 39                      strr,r2 queue_top
-(1)     204 : CB 38                      strr,r3 queue_top+1
-(1)     206 : C8 37                      strr,r0 queue_r0        ; store an element
-(1)     208 : 08 B3                      lodr,r0 *queue_top      ; R0=queue_len
-(1)     20A : 75 01                      cpsl    PSL_C           ; PSL.C=0
-(1)     20C : 84 01                      addi,r0 1               ; R0=++queue_len
-(1)     20E : 06 01                      lodi,r2 queue_size
-(1)     210 : EE E2 3D                   coma,r0 *queue_top,r2   ; compare with queue_size
-(1)     213 : 9A 21                      bcfr,lt queue_add_return ; queue_len >= queue_size, PSL.C=0
-(1)     215 :                    queue_add_store:
-(1)     215 : C8 A6                      strr,r0 *queue_top      ; update queue_len
-(1)     217 : 06 02                      lodi,r2 queue_put
-(1)     219 : 0E E2 3D                   loda,r0 *queue_top,r2   ; R0=queue_put
-(1)     21C : C3                         strz    r3
-(1)     21D : 75 01                      cpsl    PSL_C           ; PSL.C=0
-(1)     21F : 87 04                      addi,r3 queue_buf
-(1)     221 : 08 1C                      lodr,r0 queue_r0        ; restore an element
-(1)     223 : CF E2 3D                   stra,r0 *queue_top,r3   ; store an element
-(1)     226 : 03                         lodz    r3
-(1)     227 : 77 01                      ppsl    PSL_C            ; PSL.C=1
-(1)     229 : A4 03                      subi,r0 queue_buf-1      ; ++queue_put
-(1)     22B : EE C2 3D                   coma,r0 *queue_top,r2,-  ; compare with queue_size
-(1)     22E : 1A 01                      bctr,lt queue_add_update ; queue_put < queue_size
-(1)     230 : 20                         eorz    r0
-(1)     231 :                    queue_add_update:
-(1)     231 : CE A2 3D                   stra,r0 *queue_top,r2,+ ; update queue_put
-(1)     234 : 77 01                      ppsl    PSL_C           ; set PSL.C=1
-(1)     236 :                    queue_add_return:
-(1)     236 : 08 07                      lodr,r0 queue_r0
-(1)     238 : 0B 04                      lodr,r3 queue_top+1
-(1)     23A : 0A 01                      lodr,r2 queue_top
-(1)     23C : 17                         retc,un
-(1)     23D :
-(1)     23D :                    queue_top:
-(1)     23D :                            res     2
-(1)     23F :                    queue_r0:
-(1)     23F :                            res     1
-(1)     240 :
-(1)     240 :                    ;;; [queue] Remove an element from queue
-(1)     240 :                    ;;; @param r2:r3 queue work space pointer
-(1)     240 :                    ;;; @return r0 an element
-(1)     240 :                    ;;; @return FLAGS.C 0 if queue is empty
-(1)     240 :                    queue_remove:
-(1)     240 : CA 7B                      strr,r2 queue_top
-(1)     242 : CB 7A                      strr,r3 queue_top+1
-(1)     244 : C8 79                      strr,r0 queue_r0
-(1)     246 : 08 F5                      lodr,r0 *queue_top      ; R0=queue_len
-(1)     248 : 98 13                      bcfr,eq queue_remove_elem ; queue_len!=0
-(1)     24A : 08 73                      lodr,r0 queue_r0
-(1)     24C : 75 01                      cpsl    PSL_C           ; PSL.C=0
-(1)     24E : 17                         retc,un
-(1)     24F :                    queue_remove_update:
-(1)     24F : 06 03                      lodi,r2 queue_get
-(1)     251 : CE E2 3D                   stra,r0 *queue_top,r2   ; update queue_get
-(1)     254 : 77 01                      ppsl    PSL_C           ; PSL.C=1
-(1)     256 : 08 67                      lodr,r0 queue_r0        ; restore an element
-(1)     258 : 0B 64                      lodr,r3 queue_top+1
-(1)     25A : 0A 61                      lodr,r2 queue_top
-(1)     25C : 17                         retc,un
-(1)     25D :                    queue_remove_elem:
-(1)     25D : 77 01                      ppsl    PSL_C           ; PSL.C=1
-(1)     25F : A4 01                      subi,r0 1               ; --queue_len
-(1)     261 : C8 DA                      strr,r0 *queue_top      ; update queue_len
-(1)     263 : 06 03                      lodi,r2 queue_get
-(1)     265 : 0E E2 3D                   loda,r0 *queue_top,r2   ; R0=queue_get
-(1)     268 : C3                         strz    r3
-(1)     269 : 75 01                      cpsl    PSL_C           ; PSL.C=0
-(1)     26B : 87 04                      addi,r3 queue_buf
-(1)     26D : 0F E2 3D                   loda,r0 *queue_top,r3   ; read an element
-(1)     270 : C8 4D                      strr,r0 queue_r0        ; save an element
-(1)     272 : 03                         lodz    r3
-(1)     273 : 77 01                      ppsl    PSL_C           ; PSL.C=1
-(1)     275 : A4 03                      subi,r0 queue_buf-1     ; ++queue_get
-(1)     277 : 06 01                      lodi,r2 queue_size
-(1)     279 : EE E2 3D                   coma,r0 *queue_top,r2       ; comapre with queue_size
-(1)     27C : 1A 51                      bctr,lt queue_remove_update ; queue_get < queue_size
-(1)     27E : 20                         eorz    r0
-(1)     27F : 1B 4E                      bctr,un queue_remove_update
-        281 :
-        281 :                    isr_intr_rx:
-        281 : 3B 2E                      bstr,un isr_save
-        283 : 54 01                      rede,r0 USARTS
-        285 : F4 02                      tmi,r0  ST_RxRDY_bm
-        287 : 98 39                      bcfr,eq isr_return
-        289 : 54 00                      rede,r0 USARTD
-        28B : 06 20                      lodi,r2 >rx_queue
-        28D : 07 00                      lodi,r3 <rx_queue
-        28F : 3F 02 02                   bsta,un queue_add
-        292 : 1B 2E                      bctr,un isr_return
-        294 :
-        294 :                    isr_intr_tx:
-        294 : 3B 1B                      bstr,un isr_save
-        296 : 54 01                      rede,r0 USARTS
-        298 : F4 01                      tmi,r0  ST_TxRDY_bm
-        29A : 98 26                      bcfr,eq isr_return
-        29C : 06 20                      lodi,r2 >tx_queue
-        29E : 07 80                      lodi,r3 <tx_queue
-        2A0 : 3F 02 40                   bsta,un queue_remove
-        2A3 : B5 01                      tpsl    PSL_C
-        2A5 : 98 04                      bcfr,eq isr_intr_send_empty
-        2A7 : D4 00                      wrte,r0 USARTD
-        2A9 : 1B 17                      bctr,un isr_return
-        2AB :                    isr_intr_send_empty:
-        2AB : 04 26                      lodi,r0 RX_EN_TX_DIS
-        2AD : D4 01                      wrte,r0 USARTC          ; disable Tx
-        2AF : 1B 11                      bctr,un isr_return
-        2B1 :
-        2B1 :                    isr_save:
-        2B1 : C8 0A                      strr,r0 isr_context
-        2B3 : C9 09                      strr,r1 isr_context+1
-        2B5 : CA 08                      strr,r2 isr_context+2
-        2B7 : CB 07                      strr,r3 isr_context+3
-        2B9 : 13                         spsl
-        2BA : C8 05                      strr,r0 isr_context+4
-        2BC : 17                         retc,un
-        2BD :
-        2BD :                    isr_context:
-        2BD :                            res     5
-        2C2 :
-        2C2 :                    isr_return:
-        2C2 : 0B 7C                      lodr,r3 isr_context+3
-        2C4 : 0A 79                      lodr,r2 isr_context+2
-        2C6 : 09 76                      lodr,r1 isr_context+1
-        2C8 : 08 77                      lodr,r0 isr_context+4
-        2CA : 93                         lpsl
-        2CB : 18 09                      bctr,eq isr_reteq
-        2CD : 19 0C                      bctr,gt isr_retgt
-        2CF : 1A 11                      bctr,lt isr_retlt
-        2D1 : 08 6A                      lodr,r0 isr_context
-        2D3 : 77 C0                      ppsl    PSL_CC1+PSL_CC0
-        2D5 : 37                         rete,un
-        2D6 :                    isr_reteq:
-        2D6 : 08 65                      lodr,r0 isr_context
-        2D8 : 75 C0                      cpsl    PSL_CC1+PSL_CC0
-        2DA : 37                         rete,un
-        2DB :                    isr_retgt:
-        2DB : 08 60                      lodr,r0 isr_context
-        2DD : 75 80                      cpsl    PSL_CC1
-        2DF : 77 40                      ppsl    PSL_CC0
-        2E1 : 37                         rete,un
-        2E2 :                    isr_retlt:
-        2E2 : 08 59                      lodr,r0 isr_context
-        2E4 : 77 80                      ppsl    PSL_CC1
-        2E6 : 75 40                      cpsl    PSL_CC0
-        2E8 : 37                         rete,un
+        1B8 :                    save_r3:
+        1B8 :                            res     1
+        1B9 :                    save_r0:
+        1B9 :                            res     1
+        1BA :
+        1BA :                    ;;; Put character
+        1BA :                    ;;; @param r0
+        1BA :                    putchar:
+        1BA : C8 7D                      strr,r0 save_r0
+        1BC : CA 79                      strr,r2 save_r2
+        1BE : CB 78                      strr,r3 save_r3
+        1C0 : 06 20                      lodi,r2 >tx_queue
+        1C2 : 07 80                      lodi,r3 <tx_queue
+        1C4 :                    putchar_retry:
+        1C4 : 76 20                      ppsu    PSU_II
+        1C6 : 3F 02 04                   bsta,un queue_add
+        1C9 : 74 20                      cpsu    PSU_II
+        1CB : B5 01                      tpsl    PSL_C
+        1CD : 98 75                      bcfr,eq putchar_retry   ; branch if queue is full
+        1CF : 04 27                      lodi,r0 RX_EN_TX_EN
+        1D1 : D4 01                      wrte,r0 USARTC          ; enable Tx
+        1D3 : 0B 63                      lodr,r3 save_r3
+        1D5 : 0A 60                      lodr,r2 save_r2
+        1D7 : 08 60                      lodr,r0 save_r0
+        1D9 : 17                         retc,un
+        1DA :
+        1DA :                            include "queue.inc"
+(1)     1DA :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)     1DA :                    ;;; [queue] queue structure
+(1)     1DA : =0                 queue_len:      equ     0       ; queue length
+(1)     1DA : =1                 queue_size:     equ     1       ; buffer size
+(1)     1DA : =2                 queue_put:      equ     2       ; queue put index
+(1)     1DA : =3                 queue_get:      equ     3       ; queue get index
+(1)     1DA : =4                 queue_buf:      equ     4       ; buffer start offset
+(1)     1DA :
+(1)     1DA :                    ;;; [queue] Initialize queue
+(1)     1DA :                    ;;; @param r2:r3 queue work space pointer
+(1)     1DA :                    ;;; @param r1 queue work space size
+(1)     1DA :                    ;;; @clobber r1
+(1)     1DA :                    queue_init:
+(1)     1DA : CE 02 3F                   stra,r2 queue_top
+(1)     1DD : CF 02 40                   stra,r3 queue_top+1
+(1)     1E0 : CC 02 41                   stra,r0 queue_r0
+(1)     1E3 : 20                         eorz    r0              ; clear R0
+(1)     1E4 : CC 82 3F                   stra,r0 *queue_top      ; queue_len
+(1)     1E7 : 01                         lodz,r1
+(1)     1E8 : 77 01                      ppsl    PSL_C           ; PSL.C=1
+(1)     1EA : A4 04                      subi,r0 queue_buf       ; without borrow
+(1)     1EC : 06 01                      lodi,r2 queue_size
+(1)     1EE : CE E2 3F                   stra,r0 *queue_top,r2   ; queue_size=R1-queue_buf
+(1)     1F1 : C3                         strz    r3              ; R3=queue_size
+(1)     1F2 : 87 02                      addi,r3 2               ; for queue_put and queue_get
+(1)     1F4 : 20                         eorz    r0              ; clear R0
+(1)     1F5 :                    queue_init_loop:
+(1)     1F5 : CE A2 3F                   stra,r0 *queue_top,r2,+
+(1)     1F8 : FB 7B                      bdrr,r3 queue_init_loop
+(1)     1FA : 0C 02 41                   loda,r0 queue_r0
+(1)     1FD : 0F 02 40                   loda,r3 queue_top+1
+(1)     200 : 0E 02 3F                   loda,r2 queue_top
+(1)     203 : 17                         retc,un
+(1)     204 :
+(1)     204 :                    ;;; [queue] Add an element to queue
+(1)     204 :                    ;;; @param r2:r3 queue work space pointer
+(1)     204 :                    ;;; @param r0 an element
+(1)     204 :                    ;;; @return FLAGS.C 0 if queue is full
+(1)     204 :                    queue_add:
+(1)     204 : CA 39                      strr,r2 queue_top
+(1)     206 : CB 38                      strr,r3 queue_top+1
+(1)     208 : C8 37                      strr,r0 queue_r0        ; store an element
+(1)     20A : 08 B3                      lodr,r0 *queue_top      ; R0=queue_len
+(1)     20C : 75 01                      cpsl    PSL_C           ; PSL.C=0
+(1)     20E : 84 01                      addi,r0 1               ; R0=++queue_len
+(1)     210 : 06 01                      lodi,r2 queue_size
+(1)     212 : EE E2 3F                   coma,r0 *queue_top,r2   ; compare with queue_size
+(1)     215 : 19 21                      bctr,gt queue_add_return ; queue_len > queue_size, PSL.C=0
+(1)     217 :                    queue_add_store:
+(1)     217 : C8 A6                      strr,r0 *queue_top      ; update queue_len
+(1)     219 : 06 02                      lodi,r2 queue_put
+(1)     21B : 0E E2 3F                   loda,r0 *queue_top,r2   ; R0=queue_put
+(1)     21E : C3                         strz    r3
+(1)     21F : 75 01                      cpsl    PSL_C           ; PSL.C=0
+(1)     221 : 87 04                      addi,r3 queue_buf
+(1)     223 : 08 1C                      lodr,r0 queue_r0        ; restore an element
+(1)     225 : CF E2 3F                   stra,r0 *queue_top,r3   ; store an element
+(1)     228 : 03                         lodz    r3
+(1)     229 : 77 01                      ppsl    PSL_C            ; PSL.C=1
+(1)     22B : A4 03                      subi,r0 queue_buf-1      ; ++queue_put
+(1)     22D : EE C2 3F                   coma,r0 *queue_top,r2,-  ; compare with queue_size
+(1)     230 : 1A 01                      bctr,lt queue_add_update ; queue_put < queue_size
+(1)     232 : 20                         eorz    r0
+(1)     233 :                    queue_add_update:
+(1)     233 : CE A2 3F                   stra,r0 *queue_top,r2,+ ; update queue_put
+(1)     236 : 77 01                      ppsl    PSL_C           ; set PSL.C=1
+(1)     238 :                    queue_add_return:
+(1)     238 : 08 07                      lodr,r0 queue_r0
+(1)     23A : 0B 04                      lodr,r3 queue_top+1
+(1)     23C : 0A 01                      lodr,r2 queue_top
+(1)     23E : 17                         retc,un
+(1)     23F :
+(1)     23F :                    queue_top:
+(1)     23F :                            res     2
+(1)     241 :                    queue_r0:
+(1)     241 :                            res     1
+(1)     242 :
+(1)     242 :                    ;;; [queue] Remove an element from queue
+(1)     242 :                    ;;; @param r2:r3 queue work space pointer
+(1)     242 :                    ;;; @return r0 an element
+(1)     242 :                    ;;; @return FLAGS.C 0 if queue is empty
+(1)     242 :                    queue_remove:
+(1)     242 : CA 7B                      strr,r2 queue_top
+(1)     244 : CB 7A                      strr,r3 queue_top+1
+(1)     246 : C8 79                      strr,r0 queue_r0
+(1)     248 : 08 F5                      lodr,r0 *queue_top      ; R0=queue_len
+(1)     24A : 98 13                      bcfr,eq queue_remove_elem ; queue_len!=0
+(1)     24C : 08 73                      lodr,r0 queue_r0
+(1)     24E : 75 01                      cpsl    PSL_C           ; PSL.C=0
+(1)     250 : 17                         retc,un
+(1)     251 :                    queue_remove_update:
+(1)     251 : 06 03                      lodi,r2 queue_get
+(1)     253 : CE E2 3F                   stra,r0 *queue_top,r2   ; update queue_get
+(1)     256 : 77 01                      ppsl    PSL_C           ; PSL.C=1
+(1)     258 : 08 67                      lodr,r0 queue_r0        ; restore an element
+(1)     25A : 0B 64                      lodr,r3 queue_top+1
+(1)     25C : 0A 61                      lodr,r2 queue_top
+(1)     25E : 17                         retc,un
+(1)     25F :                    queue_remove_elem:
+(1)     25F : 77 01                      ppsl    PSL_C           ; PSL.C=1
+(1)     261 : A4 01                      subi,r0 1               ; --queue_len
+(1)     263 : C8 DA                      strr,r0 *queue_top      ; update queue_len
+(1)     265 : 06 03                      lodi,r2 queue_get
+(1)     267 : 0E E2 3F                   loda,r0 *queue_top,r2   ; R0=queue_get
+(1)     26A : C3                         strz    r3
+(1)     26B : 75 01                      cpsl    PSL_C           ; PSL.C=0
+(1)     26D : 87 04                      addi,r3 queue_buf
+(1)     26F : 0F E2 3F                   loda,r0 *queue_top,r3   ; read an element
+(1)     272 : C8 4D                      strr,r0 queue_r0        ; save an element
+(1)     274 : 03                         lodz    r3
+(1)     275 : 77 01                      ppsl    PSL_C           ; PSL.C=1
+(1)     277 : A4 03                      subi,r0 queue_buf-1     ; ++queue_get
+(1)     279 : 06 01                      lodi,r2 queue_size
+(1)     27B : EE E2 3F                   coma,r0 *queue_top,r2       ; compare with queue_size
+(1)     27E : 1A 51                      bctr,lt queue_remove_update ; queue_get < queue_size
+(1)     280 : 20                         eorz    r0
+(1)     281 : 1B 4E                      bctr,un queue_remove_update
+        283 :
+        283 :                    isr_intr_rx:
+        283 : 3B 2E                      bstr,un isr_save
+        285 : 54 01                      rede,r0 USARTS
+        287 : F4 02                      tmi,r0  ST_RxRDY_bm
+        289 : 98 39                      bcfr,eq isr_return
+        28B : 54 00                      rede,r0 USARTD
+        28D : 06 20                      lodi,r2 >rx_queue
+        28F : 07 00                      lodi,r3 <rx_queue
+        291 : 3F 02 04                   bsta,un queue_add
+        294 : 1B 2E                      bctr,un isr_return
+        296 :
+        296 :                    isr_intr_tx:
+        296 : 3B 1B                      bstr,un isr_save
+        298 : 54 01                      rede,r0 USARTS
+        29A : F4 01                      tmi,r0  ST_TxRDY_bm
+        29C : 98 26                      bcfr,eq isr_return
+        29E : 06 20                      lodi,r2 >tx_queue
+        2A0 : 07 80                      lodi,r3 <tx_queue
+        2A2 : 3F 02 42                   bsta,un queue_remove
+        2A5 : B5 01                      tpsl    PSL_C
+        2A7 : 98 04                      bcfr,eq isr_intr_send_empty
+        2A9 : D4 00                      wrte,r0 USARTD
+        2AB : 1B 17                      bctr,un isr_return
+        2AD :                    isr_intr_send_empty:
+        2AD : 04 26                      lodi,r0 RX_EN_TX_DIS
+        2AF : D4 01                      wrte,r0 USARTC          ; disable Tx
+        2B1 : 1B 11                      bctr,un isr_return
+        2B3 :
+        2B3 :                    isr_save:
+        2B3 : C8 0A                      strr,r0 isr_context
+        2B5 : C9 09                      strr,r1 isr_context+1
+        2B7 : CA 08                      strr,r2 isr_context+2
+        2B9 : CB 07                      strr,r3 isr_context+3
+        2BB : 13                         spsl
+        2BC : C8 05                      strr,r0 isr_context+4
+        2BE : 17                         retc,un
+        2BF :
+        2BF :                    isr_context:
+        2BF :                            res     5
+        2C4 :
+        2C4 :                    isr_return:
+        2C4 : 0B 7C                      lodr,r3 isr_context+3
+        2C6 : 0A 79                      lodr,r2 isr_context+2
+        2C8 : 09 76                      lodr,r1 isr_context+1
+        2CA : 08 77                      lodr,r0 isr_context+4
+        2CC : 93                         lpsl
+        2CD : 18 09                      bctr,eq isr_reteq
+        2CF : 19 0C                      bctr,gt isr_retgt
+        2D1 : 1A 11                      bctr,lt isr_retlt
+        2D3 : 08 6A                      lodr,r0 isr_context
+        2D5 : 77 C0                      ppsl    PSL_CC1+PSL_CC0
+        2D7 : 37                         rete,un
+        2D8 :                    isr_reteq:
+        2D8 : 08 65                      lodr,r0 isr_context
+        2DA : 75 C0                      cpsl    PSL_CC1+PSL_CC0
+        2DC : 37                         rete,un
+        2DD :                    isr_retgt:
+        2DD : 08 60                      lodr,r0 isr_context
+        2DF : 75 80                      cpsl    PSL_CC1
+        2E1 : 77 40                      ppsl    PSL_CC0
+        2E3 : 37                         rete,un
+        2E4 :                    isr_retlt:
+        2E4 : 08 59                      lodr,r0 isr_context
+        2E6 : 77 80                      ppsl    PSL_CC1
+        2E8 : 75 40                      cpsl    PSL_CC0
+        2EA : 37                         rete,un

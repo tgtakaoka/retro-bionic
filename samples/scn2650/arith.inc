@@ -93,7 +93,7 @@ addsi2:
         stra,r0 arith_work,r2
         retc,un
 
-;;; Singed subtraction: minuend -= subtrahend
+;;; Signed subtraction: minuend -= subtrahend
 ;;; @param @R2: minuend
 ;;; @param @R3: subtrahend
 ;;; @clobber R0 PSL
@@ -115,7 +115,7 @@ cmpsi2:
         loda,r0 arith_work+1,r2
         ppsl    PSL_C           ; PSL.C=1
         suba,r0 arith_work+1,r3
-        strz    r1              ; R1=low(@2-@r3)
+        strz    r1              ; R1=low(@r2-@r3)
         loda,r0 arith_work,r2
         suba,r0 arith_work,r3
         strr,r0 cmpsi2_hi       ; R0=high(@r2-@r3)
@@ -136,7 +136,7 @@ cmpsi2_hi:
 ;;; @param mul16_multiplier
 ;;; @return R0:R1 result
 ;;; @clobber R0 R1 PSL
-umul16_r2
+umul16_r2:
         res     1
 umul16:
         strr,r2 umul16_r2
@@ -174,7 +174,7 @@ umul16_end:
 
 umul16_multiplicand:
         res     2
-umul16_multiplier
+umul16_multiplier:
         res     2
 
 ;;; Signed multiplication: multiplicand *= multiplier
@@ -199,7 +199,7 @@ mulsi2:
         stra,r0 umul16_multiplier
         lodz    r1
         stra,r0 umul16_multiplier+1
-        bsta,un umul16          ; r0:r1=multiplicand  multiplier
+        bsta,un umul16          ; r0:r1=multiplicand*multiplier
         strr,r2 mulsi2_r2
         lodr,r2 mulsi2_sign
         bsta,lt negsi1          ; result=-result
@@ -214,8 +214,8 @@ mulsi2_r2:
         res     1
 
 ;;; Unsigned division: dividend / divisor = quotient ... remainder
-;;; @praram udiv16_dividend
-;;; @praram udiv16_divisor
+;;; @param udiv16_dividend
+;;; @param udiv16_divisor
 ;;; @return udiv16_reminder remainder
 ;;; @return R0:R1 quotient
 ;;; @clobber R0 R1 PSL
@@ -328,5 +328,5 @@ divsi2:
         retc,un
 divsi2_sign:
         res     1
-divsi2_r2
+divsi2_r2:
         res     1

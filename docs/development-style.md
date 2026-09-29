@@ -1374,6 +1374,20 @@ mode. Mandelbrot is mid-speed on the MC6809 and MC6809E (6 rows in 20
 seconds) and fast on the HD6309 in native mode (a frame in under 10
 seconds).
 
+### SCN2650
+
+**Pitfalls.** A conditional branch not taken skips its indirect address
+read, two cycles fewer than its row; `HALT` makes no bus cycle after its
+fetch.
+
+The profile (`tools/cycles_scn2650.py`, recorded as
+`tools/scn2650-cycles.jsonl.zst`) found that a conditional branch not taken
+reads no indirect address: an indirect `BCTR`, `BDRA` and the like makes
+two bus cycles fewer than its row when it falls through. **[hw]** The run
+loop and the matcher took those two cycles from the next instruction;
+`InstScn2650::notTaken()` now tells a fall-through by the address after the
+operand.
+
 ### PDP-8 (IM6100 / HD6120)
 
 **Pitfalls.** The debugger's `restore()` ends in `RTF` on both chips, and

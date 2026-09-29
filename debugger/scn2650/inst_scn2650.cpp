@@ -291,6 +291,18 @@ uint8_t InstScn2650::instLen(uint8_t inst) {
     return inst_len(INST_TABLE[inst]);
 }
 
+// A branch reads its indirect pointer only when it is taken.
+bool InstScn2650::isBranch(uint8_t inst) {
+    return (inst & 0x18) == 0x18;
+}
+
+// Whether a cycle at |addr| after an indirect branch at |fetch| is the next
+// opcode's fetch, not the pointer's read. A pointer right after the branch
+// reads the same, and counts as not taken.
+bool InstScn2650::notTaken(uint16_t fetch, uint8_t len, uint16_t addr) {
+    return addr == ((fetch & 0x6000) | ((fetch + len) & 0x1FFF));
+}
+
 uint8_t InstScn2650::busCycles(uint8_t inst, uint8_t opr) {
     const auto e = INST_TABLE[inst];
     auto cycles = bus_cycles(e);
