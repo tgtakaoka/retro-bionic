@@ -198,7 +198,7 @@ addsi2:
 ;;; Subtraction
 ;;; @param R1 minuend
 ;;; @param R2 subtrahend
-;;; @return R0 R1+R2
+;;; @return R0 R1-R2
 subsi2:
         sec
         lda     R1L
@@ -269,7 +269,7 @@ umul16_sr:
         lsr     R2H
         ror     R2L             ; multiplier >>= 1
         asl     R1L
-        rol     R1H             ; multilplicand <<= 1
+        rol     R1H             ; multiplicand <<= 1
 umul16_check:
         lda     R2H
         ora     R2L
@@ -305,8 +305,8 @@ mulsi2_return:
         rts
 
 ;;; Unsigned division: dividend / divisor = quotient ... remainder
-;;; @praram R1 dividend
-;;; @praram R2 divisor
+;;; @param R1 dividend
+;;; @param R2 divisor
 ;;; @return R0 quotient
 ;;; @return R1 remainder
 ;;; @clobber R2

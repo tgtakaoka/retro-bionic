@@ -335,6 +335,7 @@ cmpsi2:
         rep     #P_M            ; 16-bit memory
         jsr     cmp16
         plp
+        ora     #0              ; N and Z of the result, which PLP lost
         rts
 
 ;;; Multiply: result = multiplicand * multiplier

@@ -153,7 +153,7 @@ isr_irq_exit:
         tay
         pla                     ; restore X
         tax
-        pla                     ; restore Y
+        pla                     ; restore A
         rti                     ; restore P and PC
 isr_irq_send_empty:
         lda     #RX_INT_TX_NO

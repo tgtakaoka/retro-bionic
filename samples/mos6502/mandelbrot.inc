@@ -228,7 +228,7 @@ loop_i:
         bne     print_i         ; if T(>=0)>=256
         lda     vT
         cmp     #4+1
-        bpl     print_i         ; if 4<P*P+Q*Q
+        bcs     print_i         ; if 4<P*P+Q*Q
         inc     vI              ; I+=1
         lda     vI
         cmp     #16

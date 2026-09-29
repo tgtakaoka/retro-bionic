@@ -968,11 +968,17 @@ sequence parks on the read that follows it. **[code]**
 
 ### 6502
 
+**Pitfalls.** Power-cycle after swapping chips on the 6502 board: `R` does
+not redetect the part, so the debugger keeps the previous chip's identity
+and instruction set (a W65C02S showed as G65SC02 until power-up). **[hw]**
+`Regs` needing memory gets `Mems*` through its constructor, and some
+targets build `_regs` before `_mems`.
+
 `RegsMos6502` takes its `Mems*` as a constructor argument rather than reaching
 through `Pins`, because `Pins::_mems` is protected and only `Target` is a
-friend. Follow that pattern when a `Regs` implementation needs memory access —
-and note `Pins` builds `_regs` before `_mems` in some targets, so the order has
-to be swapped first. **[code]**
+friend. Follow that pattern when a `Regs` implementation needs memory access,
+swapping the construction order first where `_regs` comes first. **[code]**
+
 ### F3850
 
 **Pitfalls.** A Teensy interrupt mid-cycle desynchronises the ROMC sequence;
