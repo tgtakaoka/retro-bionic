@@ -354,7 +354,9 @@ void PinsKl5c80::run() {
     Cycles::reset();
     saveBreakInsts();
     enableExternalReady(false);
+    startRunTimer();
     auto s = loop();
+    stopRunTimer();
     enableExternalReady(true);
     prepareWait();
     Cycles::discard(s);
@@ -421,7 +423,11 @@ void PinsKl5c80::printCycles() {
     }
 }
 
-void PinsKl5c80::disassembleCycles() {
+const SignalsImpl *PinsKl5c80::findBacktraceStart() {
+    return backtraceStartByFetchCount<Signals>(_lineLimit);
+}
+
+void PinsKl5c80::printBacktrace() {
     const auto g = Signals::get();
     const auto cycles = g->diff(Signals::put());
     for (auto i = 0u; i < cycles;) {

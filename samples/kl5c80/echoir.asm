@@ -40,7 +40,6 @@ init_usart:
 
         ld      a, 1            ; enable interrupt on USART
         out     (USARTRV), a
-        ei
         ld      a, 1            ; select edge trigger
         out     (LERL), a
         ld      a, high vector
@@ -50,6 +49,7 @@ init_usart:
         ld      a, ~1           ; disable mask for IR0
         out     (IMRL), a       ;
         im      2               ; mode 2 only
+        ei
 
         ld      HL, rx_queue
 receive_loop:
