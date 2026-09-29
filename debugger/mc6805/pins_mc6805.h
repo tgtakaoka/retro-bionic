@@ -45,7 +45,8 @@ protected:
     bool checkBreakPoint(Signals *s);
     virtual void loop();
 
-    void disassembleCycles();
+    const SignalsImpl *findBacktraceStart() override;
+    void printBacktrace() override;
 };
 
 }  // namespace mc6805

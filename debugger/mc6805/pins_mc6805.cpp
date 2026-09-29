@@ -116,7 +116,9 @@ void PinsMc6805::run() {
     saveBreakInsts();
     // CPU is stopped at fetch
     completeCycle(currCycle());
+    startRunTimer();
     loop();
+    stopRunTimer();
 }
 
 bool PinsMc6805::rawStep() {
@@ -166,7 +168,11 @@ void PinsMc6805::printCycles() {
     }
 }
 
-void PinsMc6805::disassembleCycles() {
+const SignalsImpl *PinsMc6805::findBacktraceStart() {
+    return backtraceStartByFetchCount<Signals>(_lineLimit);
+}
+
+void PinsMc6805::printBacktrace() {
     const auto g = Signals::get();
     const auto cycles = g->diff(currCycle());
     const Signals *prefetch = nullptr;

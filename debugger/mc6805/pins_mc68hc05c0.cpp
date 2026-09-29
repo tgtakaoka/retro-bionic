@@ -200,6 +200,7 @@ Signals *PinsMc68HC05C0::completeCycle(Signals *signals) {
     } else if (is_internal(s->addr)) {
         // IRV is enabled and an internal read appears on the external bus
         delayNanoseconds(c3_hi_internal);
+        // ATTENTION: leftover toggle_debug() calls; remove unless still needed.
         toggle_debug();
         s->getData();
         toggle_debug();

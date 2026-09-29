@@ -164,7 +164,7 @@ arith:
         lda     #'-'
         jsr     expr
         jsr     sub16           ; R0=R1-R2
-        jsr     answer          ; -19536
+        jsr     answer          ; 10000
 
         ldx     #18000>>8
         lda     #18000&255
@@ -175,7 +175,7 @@ arith:
         lda     #'-'
         jsr     expr
         jsr     sub16           ; R0=R1-R2
-        jsr     answer          ; 29536
+        jsr     answer          ; -29536
 
         ldx     #(-28000)>>8
         lda     #(-28000)&255

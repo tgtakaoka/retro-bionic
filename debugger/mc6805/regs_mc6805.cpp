@@ -66,7 +66,7 @@ bool RegsMc6805::captureContext(const Signals *frame) {
     // Machine context were pushed in the following order; PCL, PCH, X, A, CC
     const auto pcl = frame;
     const auto pch = frame->next();
-    if (pcl->write() && pcl->write()) {
+    if (pcl->write() && pch->write()) {
         _pc = uint16(pch->data, pcl->data);
         _sp = frame->addr;
         const auto x = frame->next(2);

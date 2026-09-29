@@ -20,7 +20,7 @@
 # i: next instruction read from unknown
 # V: read 1 byte from address FFF8-FFFE (high(addr))
 # v: read 1 byte from address V+1 (low(addr))
-# d: read 1 byte from previousy address
+# d: read 1 byte from previous address
 #
 # Interrupt sequence
 # 0:d:w:W:W:W:W:V:v:J
