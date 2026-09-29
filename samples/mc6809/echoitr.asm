@@ -42,11 +42,15 @@ initialize:
         lda     #VEC_FIRQ
         sta     ACIA+2          ; set #FIRQ name for MC6850 emulator
 
-wait:   
-        cwai    #~CC_FIRQ       ; Clear FIRQ mask
 loop:
-        bsr     getchar
-        bcc     loop
+        orcc    #CC_FIRQ        ; disable FIRQ
+        ldx     #rx_queue
+        lbsr    queue_remove
+        bcs     receive
+        cwai    #~CC_FIRQ       ; enable FIRQ and wait, as one step
+        bra     loop
+receive:
+        andcc   #~CC_FIRQ       ; enable FIRQ
         tsta
         beq     halt_to_system
         tfr     a,b
@@ -117,17 +121,6 @@ put_bin1:
         bcc     putchar         ; MSB=0
         inca                    ; MSB=1
         bra     putchar
-
-;;; Get character
-;;; @return A
-;;; @return CC.C 0 if no character
-getchar:
-        pshs    x
-        ldx     #rx_queue
-        orcc    #CC_FIRQ         ; disable FIRQ
-        bsr     queue_remove
-        andcc   #~CC_FIRQ        ; enable FIRQ
-        puls    x,pc
 
 ;;; Put character
 ;;; @param A

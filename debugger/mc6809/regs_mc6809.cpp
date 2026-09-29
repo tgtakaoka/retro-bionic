@@ -97,7 +97,8 @@ void RegsMc6809::restore() {
     uint8_t RTI[16];
     RTI[0] = 0x3B;  // RTI
     auto cycle = 2;
-    RTI[cycle++] = _cc;
+    // RTI pulls the whole frame only when the CC it pulls has E set.
+    RTI[cycle++] = _cc | 0x80;
     RTI[cycle++] = _a;
     RTI[cycle++] = _b;
     if (_md) {
@@ -108,8 +109,17 @@ void RegsMc6809::restore() {
     be16(&RTI[cycle + 0], _x);
     be16(&RTI[cycle + 2], _y);
     be16(&RTI[cycle + 4], _u);
-    be16(&RTI[cycle + 6], _pc);
+    // With E clear, RTI returns two bytes early, to an injected ANDCC that
+    // takes E back out of the CC the program runs with.
+    const auto clearE = (_cc & 0x80) == 0;
+    be16(&RTI[cycle + 6], clearE ? _pc - 2 : _pc);
     _pins->injectReads(RTI, cycle + 8, cycle + 9);
+    if (clearE) {
+        static constexpr uint8_t ANDCC[] = {
+                0x1C, 0x7F,  // ANDCC #$7F; 1:2:N
+        };
+        _pins->injectReads(ANDCC, sizeof(ANDCC), 3);
+    }
 }
 
 uint8_t RegsMc6809::contextLength() const {

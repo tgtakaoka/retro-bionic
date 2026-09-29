@@ -19,13 +19,13 @@
 # W: write 1 byte, equals to R if exists or w-1
 # w: write 1 byte at address W+1
 # A: read 1 byte at address |addr|
-# a: read 1 byte ar A+1
+# a: read 1 byte at A+1, or a+1 (A:a:a:a)
 # D: read 1 byte from direct page (00|disp|)
-# d: read 1 byte at address (D+1)
+# d: read 1 byte at address (D+1), or d+1 (D:d:d:d)
 # B: write 1 byte at address addr
-# b: write 1 byte ar B+1
+# b: write 1 byte at B+1, or b+1 (B:b:b:b)
 # E: write 1 byte to direct page (00xx), equals to D if exists
-# e: write 1 byte at address E+1
+# e: write 1 byte at address E+1, or e+1 (E:e:e:e)
 # P: variable pull (0~12) based on post byte (PSHx)
 # Q: variable push (0~12) based on post byte (PULx)
 # T: repeated reads and writes (R/R+/R-:x:W/W+/W-, TFM)

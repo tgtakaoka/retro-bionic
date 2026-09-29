@@ -8,6 +8,9 @@ namespace debugger {
 namespace mc6809 {
 
 namespace {
+// Longest instruction (HD6309 DIVQ) plus a context push, with margin.
+constexpr auto SUSPEND_CYCLES = 100;
+
 void assert_nmi() {
     digitalWriteFast(PIN_NMI, LOW);
 }
@@ -115,6 +118,37 @@ const Signals *PinsMc6809Base::stackFrame(const Signals *push) const {
     return push->next();
 }
 
+#ifdef PROFILE_CYCLES
+// For scripts/record-cycles.py: stop at any SWI, keep every cycle of it,
+// and give up well before the ring wraps; the debug pin frames the run, to
+// trigger a capture on.
+void PinsMc6809Base::loop() {
+    constexpr auto MAX_CYCLES = 96;
+    const auto vec_swi = _inst->vec_swi();
+    _profileEnd = nullptr;
+    assert_debug();
+    for (auto n = 0;; ++n) {
+        _devs->loop();
+        const auto s = rawCycle();
+        if (s->vector() && s->addr == vec_swi) {
+            negate_debug();
+            cycle();  // read SWI low(vector);
+            cycle();  // non-VMA
+            const auto frame = stackFrame(s->prev(2));
+            regs<RegsMc6809>()->capture(frame);
+            // Match up to the SWI's opcode fetch, as the normal build does.
+            _profileEnd = frame->prev(2);
+            return;
+        }
+        if (n >= MAX_CYCLES || haltSwitch()) {
+            negate_debug();
+            cli.println(n >= MAX_CYCLES ? "?cycles" : "?halt");
+            suspend(true);
+            return;
+        }
+    }
+}
+#else
 void PinsMc6809Base::loop() {
     const auto vec_swi = _inst->vec_swi();
     while (true) {
@@ -137,15 +171,21 @@ void PinsMc6809Base::loop() {
         }
     }
 }
+#endif
 
 void PinsMc6809Base::suspend(bool show) {
     assert_nmi();
 reentry:
     auto s = Signals::put();
-    while (true) {
+    for (auto n = 0;; ++n) {
         s = cycle();
         if (s->vector())  // NMI hi(vector)
             break;
+        if (n >= SUSPEND_CYCLES) {
+            negate_nmi();
+            cli.println("?halt: no vector fetched");
+            return;
+        }
     }
     negate_nmi();
     if (s->addr == _inst->vec_swi()) {
@@ -154,6 +194,16 @@ reentry:
         goto reentry;
     }
     const auto frame = stackFrame(s->prev(2));
+    if (!frame->write()) {
+        // CWAI stacks the context up front, so NMI fetches its vector
+        // without pushing. RTI back out of CWAI, then take a fresh NMI
+        // edge.
+        cycle();  // NMI lo(vector)
+        cycle();  // non-VMA
+        injectCycle(InstMc6809::RTI);
+        assert_nmi();
+        goto reentry;
+    }
     cycle();  // NMI lo(vector)
     cycle();  // non-VMA
     regs<RegsMc6809>()->capture(frame, true);
@@ -169,7 +219,9 @@ void PinsMc6809Base::run() {
     _regs->restore();
     Cycles::reset();
     saveBreakInsts();
+    startRunTimer();
     loop();
+    stopRunTimer();
     restoreBreakInsts();
     disassembleCycles();
 }
@@ -264,8 +316,27 @@ const Signals *PinsMc6809Base::findFetch(Signals *begin, const Signals *end) {
     return end;
 }
 
-void PinsMc6809Base::disassembleCycles() {
+// fetch() isn't live on either board: findFetch()/matchAll() mark it
+// only as a side effect of matching decoded instructions against
+// captured bus cycles, so that has to run -- once, right here -- before
+// backtraceStartFrom() counting fetch() cycles means anything.
+// printBacktrace() re-runs findFetch() over the now-disposed range,
+// which re-derives the same marks.
+const SignalsImpl *PinsMc6809Base::findBacktraceStart() {
     const auto end = Signals::put();
+    // Make room for idle cycles -- see printBacktrace().
+    const auto begin = findFetch(Signals::get()->next(3), end);
+    return backtraceStartFrom<Signals>(begin, _lineLimit);
+}
+
+void PinsMc6809Base::printBacktrace() {
+    const auto end = Signals::put();
+#ifdef PROFILE_CYCLES
+    // Every cycle, with the marks the matcher gives them; a run's first
+    // cycle is its opcode fetch.
+    findFetch(Signals::get(), _profileEnd ? _profileEnd : end);
+    printCycles(end);
+#else
     // Make room for idle cycles.
     const auto begin = findFetch(Signals::get()->next(3), end);
     printCycles(begin);
@@ -281,6 +352,7 @@ void PinsMc6809Base::disassembleCycles() {
         }
         idle();
     }
+#endif
 }
 
 }  // namespace mc6809

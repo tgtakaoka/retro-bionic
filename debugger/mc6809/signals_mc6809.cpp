@@ -16,7 +16,10 @@ void Signals::getLowAddr() {
 }
 
 void Signals::getDirection() {
-    cntl() = busRead(CNTL);
+    // The MC6809 has no VMA; CNTL0 is its XTAL pin, or AVMA on the
+    // MC6809E, which tells of the next cycle. Dummy cycles read FFFF,
+    // which the cycle sequences match as N.
+    cntl() = busRead(CNTL) | CNTL_VMA;
 }
 
 void Signals::getControl() {
@@ -55,7 +58,17 @@ void Signals::print() const {
     buffer[15] = fetch() ? 'L' : ' ';
     buffer.hex16(5, addr);
     buffer.hex8(12, data);
+#ifdef PROFILE_CYCLES
+    // CNTL0-3, and how many cycles the matcher gave a marked fetch, for
+    // tools/cycles_mc6809.py.
+    cli.print(buffer);
+    cli.print(" c=");
+    cli.printHex(cntl(), 1);
+    cli.print(" m=");
+    cli.printlnDec(fetch() ? matched() : 0);
+#else
     cli.println(buffer);
+#endif
 }
 
 }  // namespace mc6809

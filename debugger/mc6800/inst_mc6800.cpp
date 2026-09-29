@@ -148,10 +148,12 @@ bool InstMc6800::matchSequence(const Signals *begin, const Signals *end,
                     break;
                 }
                 goto not_matched;
-            case 'a':  // A:a
-            case 'd':  // D:d
-                if (s->addr == addr + 1U)
+            case 'a':  // A:a or A:a:a:a
+            case 'd':  // D:d or D:d:d:d
+                if (s->addr == addr + 1U) {
+                    addr = s->addr;
                     break;
+                }
                 goto not_matched;
             case 'V':  // W:W:V
                 if (s->addr >= vectorBase()) {
@@ -227,10 +229,12 @@ bool InstMc6800::matchSequence(const Signals *begin, const Signals *end,
                 if (s->addr == addr)
                     break;
                 goto not_matched;
-            case 'b':  // B:b
-            case 'e':  // E:e
-                if (s->addr == addr + 1U)
+            case 'b':  // B:b or B:b:b:b
+            case 'e':  // E:e or E:e:e:e
+                if (s->addr == addr + 1U) {
+                    addr = s->addr;
                     break;
+                }
                 goto not_matched;
             default:
                 goto not_matched;
