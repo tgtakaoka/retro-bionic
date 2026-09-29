@@ -2,6 +2,7 @@
 #define __DEVS_INS8070_H__
 
 #include "devs.h"
+#include "serial_handler.h"
 
 #define ACIA_BASE 0xDF00
 
@@ -39,7 +40,7 @@ private:
 
 }  // namespace ins8070
 }  // namespace debugger
-#endif /* __DEVS_INS8070H__ */
+#endif /* __DEVS_INS8070_H__ */
 
 // Local Variables:
 // mode: c++

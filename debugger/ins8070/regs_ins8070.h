@@ -24,7 +24,6 @@ struct RegsIns8070 final : Regs {
     const RegList *listRegisters(uint_fast8_t n) const override;
     bool setRegister(uint_fast8_t reg, uint32_t value) override;
 
-    uint8_t busCycles(InstIns8070 &inst) const;
 
     uint8_t internal_read(uint16_t addr) const;
     void internal_write(uint16_t addr, uint8_t data) const;

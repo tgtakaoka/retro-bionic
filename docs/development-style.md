@@ -1133,3 +1133,22 @@ instruction. Routine addresses are loaded as `ADDR(label)`, and a call is
 `divsi2` in `arith.inc` fell from its negative-divisor path into the exit
 trampoline without dividing, and took the quotient's sign from the divisor's
 low byte. **[hw]**
+
+### INS8070
+
+**Pitfalls.** Same early PC as the SC/MP; reset leaves P2, P3, T, E and A
+as they were; `DIV EA,T` leaves no remainder.
+
+Same PC convention as the SC/MP. Reset clears only PC, SP and the status bits
+other than SA/SB; P2, P3, T, E and A keep leftover values. **[hw]**
+
+`DIV EA,T` leaves the quotient in EA but not the remainder in T;
+`print_uint16` multiplies back to get it. **[hw]**
+
+`-vF` as a displacement is not "minus F" when `vF` is offset 0: mandelbrot
+computed `B+Q*F` for `B-Q*F` and drew a symmetric but wrong frame. **[hw]**
+
+`XOR A,d,PC` (`E0`) had no cycle sequence, so no backtrace matched past
+it. The profile (`tools/cycles_ins8070.py`, recorded as
+`tools/ins8070-cycles.jsonl.zst`) shows it reading its operand PC-relative
+like the other PC-relative forms, `1:2:Q:N`. **[hw]**
