@@ -52,29 +52,24 @@ constexpr char HELP1[] = "\r\n";
 // "  R              : reset the " + cpuName() fills the gap between the
 // two, since the name is only known at runtime.
 constexpr char HELP2[] =
-        "\r\n"
         "  U              : upload Intel HEX / S-record (^C to end)\r\n"
 #if defined(ENABLE_SDCARD)
         "  F [path]       : list files on SD card\r\n"
         "  L file         : load an Intel HEX / S-record file from card\r\n"
 #endif
-        "\r\n"
-        "  G              : run freely\r\n"
-        "  g addr         : run until addr (a one-shot breakpoint)\r\n"
-        "\r\n"
+        "  G [n]          : run freely, backtrace last n lines (default: all)\r\n"
+        "  g addr [n]     : run until addr (a one-shot breakpoint), same backtrace\r\n"
         "  B addr         : set a breakpoint\r\n"
         "  b [index]      : list breakpoints, clear one\r\n"
         "  S              : step one instruction\r\n"
         "\r\n"
         "  r              : print registers\r\n"
         "  = reg value    : set a register (unknown name lists valid names)\r\n"
-        "\r\n"
         "  d addr [len]   : dump data memory (len defaults to 16)\r\n"
         "  p addr [len]   : dump program memory (len defaults to 16)\r\n"
 #ifdef WITH_DISASSEMBLER
         "  D addr [n]     : disassemble n instructions (default 20)\r\n"
 #endif
-        "\r\n"
         "  m addr byte... : write & dump data memory, 16 bytes max\r\n"
         "  M addr byte... : write & dump program memory, 16 bytes max\r\n"
 #ifdef WITH_ASSEMBLER
@@ -84,16 +79,13 @@ constexpr char HELP2[] =
         "  I dev [addr]   : select an I/O device, optionally its base\r\n"
         "  P [from to]    : show, or set, protect area\r\n"
         "  W +identity    : write identity EEPROM\r\n"
-        "\r\n"
         "  V              : toggle verbose bus-cycle printing\r\n"
         "  ?              : this help\r\n"
         "\r\n";
-// The dynamic "Free running <cpu> can be stopped by ..." sentence
-// fills the gap between the two, for the same reason as HELP1.
+// The two ways to stop a run; each names the CPU, known only at runtime.
 constexpr char HELP3[] =
-        "\r\n"
-        "Holding HALT switch at power-up skips identity EEPROM check\r\n"
-        "-- recovers from a bad identity.";
+        "                   held at power up skips the identity EEPROM check, to recover\r\n"
+        "                   from a bad identity EEPROM";
 
 // Identity, firmware version and uptime.
 void banner() {
@@ -131,14 +123,13 @@ void help() {
     cli.print("  R              : reset the target ");
     cli.println(cpu);
     cli.print(HELP2);
-    cli.print("Free running ");
-    cli.print(cpu);
-    cli.print(" can be stopped by pressing HALT switch");
-#ifdef USB_DUAL_SERIAL
-    cli.print(", or send any byte on 2nd USB serial port");
-#endif
-    cli.println('.');
+    cli.print("  HALT button    : stop a free running ");
+    cli.println(cpu);
     cli.println(HELP3);
+#ifdef USB_DUAL_SERIAL
+    cli.print("  2nd USB serial : send any byte to stop a free running ");
+    cli.println(cpu);
+#endif
 }
 
 void commandHandler(char c, uintptr_t) {
@@ -153,6 +144,7 @@ void printPrompt() {
 
 uint32_t last_addr;
 uint16_t last_length;
+uint32_t go_addr;
 constexpr auto MEMORY_LEN = 16;
 uint16_t mem_buffer[MEMORY_LEN];
 static constexpr uintptr_t DATA_MEMORY(int index) {
@@ -206,6 +198,10 @@ void handleDump(uint32_t value, uintptr_t extra, State state) {
 }
 
 #ifdef WITH_DISASSEMBLER
+// 'D addr [n]': n defaults to 20, whether it was left out entirely or
+// typed as 0 -- an unlimited disassemble dump has no use here, unlike
+// 'G'/'g''s backtrace, so there is no need to tell an empty Enter from
+// a literal 0 the way wasNumberEmpty() lets 'G'/'g' do.
 void handleDisassemble(uint32_t value, uintptr_t extra, State state) {
     const auto maxAddr = Debugger.target().maxAddr();
     const auto radix = Debugger.target().inputRadix();
@@ -228,7 +224,7 @@ void handleDisassemble(uint32_t value, uintptr_t extra, State state) {
         value = 20;
     }
     cli.println();
-    last_addr = Debugger.target().disassemble(last_addr, value);
+    last_addr = Debugger.target().disassemble(last_addr, value ? value : 20);
 cancel:
     printPrompt();
 }
@@ -325,13 +321,43 @@ void handleAssembler(uint32_t value, uintptr_t extra, State state) {
 
 #endif
 
+// An empty Enter means "unlimited" backtrace (today's long-standing
+// default); a literal 0 means print none of it. Both report value 0
+// from readDec, so wasNumberEmpty() is what tells them apart.
+void handleGoLines(uint32_t value, uintptr_t extra, State state) {
+    if (state != State::CLI_CANCEL) {
+        cli.println();
+        Debugger.breakPoints().setTemp(go_addr);
+        Debugger.go(cli.wasNumberEmpty() ? UINT32_MAX : value);
+    }
+    printPrompt();
+}
+
+// 'g addr [n]': a space after the address chains to the optional line
+// limit, the same way 'D addr [n]' chains to its count.
 void handleGoUntil(uint32_t value, uintptr_t extra, State state) {
     if (state == State::CLI_DELETE)
         return;
-    if (state == State::CLI_SPACE || state == State::CLI_NEWLINE) {
+    if (state == State::CLI_SPACE) {
+        go_addr = value;
+        cli.readDec(handleGoLines, 0, UINT32_MAX);
+        return;
+    }
+    if (state == State::CLI_NEWLINE) {
+        go_addr = value;
         cli.println();
-        Debugger.breakPoints().setTemp(value);
-        Debugger.go();
+        Debugger.breakPoints().setTemp(go_addr);
+        Debugger.go(UINT32_MAX);
+    }
+    printPrompt();
+}
+
+// 'G [n]': Enter alone means unlimited, the same "type nothing, get
+// today's behavior" default as 'g'.
+void handleGo(uint32_t value, uintptr_t extra, State state) {
+    if (state != State::CLI_CANCEL) {
+        cli.println();
+        Debugger.go(cli.wasNumberEmpty() ? UINT32_MAX : value);
     }
     printPrompt();
 }
@@ -684,7 +710,7 @@ void printElapsed(uint32_t us) {
 
 }  // namespace
 
-void Debugger::go() {
+void Debugger::go(uint32_t lines) {
     if (_breakPoints.on(target().nextIp())) {
         // step over break point
         if (!target().step(false))
@@ -695,6 +721,7 @@ void Debugger::go() {
             return;
         }
     }
+    target().setRunLineLimit(lines);
     target().run();
     target().printRegisters();
     const auto us = target().retrieveRunMicros();
@@ -782,9 +809,9 @@ void Debugger::exec(char c) {
         target().printRegisters();
         break;
     case 'G':
-        cli.println("Go");
-        go();
-        break;
+        cli.print("Go, backtrace? ");
+        cli.readDec(handleGo, 0, UINT32_MAX);
+        return;
     case 'g':
         cli.print("Go until? ");
         cli.readNum(handleGoUntil, 0, radix, maxAddr);

@@ -109,6 +109,14 @@ void Pins::stopRunTimer() {
     _runMicros = micros() - _startMicros;
 }
 
+void Pins::disassembleCycles() {
+    if (_lineLimit == 0)
+        return;  // nothing will print; finding where to start would too
+    if (_lineLimit != UINT32_MAX)
+        Cycles::dispose(findBacktraceStart());
+    printBacktrace();
+}
+
 }  // namespace debugger
 
 // Local Variables:

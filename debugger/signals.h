@@ -77,6 +77,32 @@ struct SignalsBase : IMPL_T {
     static SIGNALS_T *get() { return static_cast<SIGNALS_T *>(Cycles::tail()); }
 };
 
+// The last |limit| cycles whose fetch() is set, never going back past
+// |oldest| -- shared by every architecture's findBacktraceStart(),
+// whether fetch() is a live hardware marker or (like Z280's) only valid
+// from wherever a pattern-matching pass has already established it.
+// Falls back to |oldest| if fewer than |limit| such cycles exist in
+// [oldest, put()). limit == 0 keeps nothing.
+template <typename SIGNALS_T>
+const SignalsImpl *backtraceStartFrom(const SIGNALS_T *oldest, uint32_t limit) {
+    auto s = SIGNALS_T::put();
+    if (limit == 0)
+        return s;
+    while (s != oldest) {
+        s = s->prev();
+        if (s->fetch() && --limit == 0)
+            return s;
+    }
+    return oldest;
+}
+
+// The hardware-marker case: fetch() alone marks every instruction
+// boundary, with no setup pass needed first.
+template <typename SIGNALS_T>
+const SignalsImpl *backtraceStartByFetchCount(uint32_t limit) {
+    return backtraceStartFrom<SIGNALS_T>(SIGNALS_T::get(), limit);
+}
+
 }  // namespace debugger
 #endif /* __SIGNALS_H__ */
 

@@ -18,7 +18,7 @@ struct Debugger {
     Target &target() const { return *_target; }
     bool verbose() const { return _verbose; }
 
-    void go();
+    void go(uint32_t lines = UINT32_MAX);
     BreakPoints &breakPoints() { return _breakPoints; }
 
     static constexpr uint_fast8_t numDigits(

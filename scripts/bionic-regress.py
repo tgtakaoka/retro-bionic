@@ -142,7 +142,7 @@ def drive_sample(board, path, regress=None):
     board.upload_file(path)
 
     if 'feed' in how:
-        board.send(b'G', wait=2.0, idle=0.5, delay=1.0)
+        board.send(b'G\r', wait=2.0, idle=0.5, delay=1.0)
         got = ''
         for ch in how['feed']:
             got += board.send(bytes([ch]), wait=2.0, idle=0.5,
@@ -220,7 +220,7 @@ def case_haltgo(board, n=10):
     board.send(b'R')
     board.upload_file(path)
     lo, hi = 0x0000, 0x8000          # a sane PC stays in the loaded image
-    board.send(b'G', wait=3.0, idle=1.0, delay=2.0)
+    board.send(b'G\r', wait=3.0, idle=1.0, delay=2.0)
     bad, drift = 0, []
     for i in range(n):
         board.abort()
@@ -232,7 +232,7 @@ def case_haltgo(board, n=10):
                 drift.append('%d:unrecovered' % i)
                 break
         inside = pc is not None and lo <= int(pc, 16) < hi
-        got = len(board.send(b'G', wait=4.0, idle=1.2, delay=2.0))
+        got = len(board.send(b'G\r', wait=4.0, idle=1.2, delay=2.0))
         if not inside or got < 200:
             bad += 1
             drift.append('%d:PC=%s,%dB' % (i, pc, got))
@@ -249,7 +249,7 @@ def live_pc(board, secs=1.5):
     halt lands on a real instruction boundary inside whatever loop the
     program is in, which is exactly what a breakpoint needs.
     """
-    board.send(b'G', wait=2.0, idle=0.6, delay=secs)
+    board.send(b'G\r', wait=2.0, idle=0.6, delay=secs)
     board.abort()
     txt = board.send(wait=8.0, idle=1.0, delay=0.6)
     return bc.pc_from(txt)
@@ -386,7 +386,7 @@ def case_disasm(board, n=10):
     txt = board.send(b'V', wait=2.0, idle=0.4).decode('ascii', 'replace')
     if 'Verbose ON' in txt:
         board.send(b'V', wait=2.0, idle=0.4)
-    board.send(b'G', wait=0.5, idle=0.2, delay=1.5)
+    board.send(b'G\r', wait=0.5, idle=0.2, delay=1.5)
     board.abort()
     how, raw, _ = board.wait_run(cap=40.0, out=None)
     txt = raw.decode('ascii', 'replace').replace('\r', '')

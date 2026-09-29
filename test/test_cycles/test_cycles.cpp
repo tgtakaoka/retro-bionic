@@ -8,8 +8,13 @@ using namespace debugger;
 
 namespace {
 
-// The minimal concrete Signals type: what every target derives.
-struct Sig : SignalsBase<Sig> {};
+// The minimal concrete Signals type: what every target derives. fetch()
+// stands in for a target's own hardware marker; inject() flags an
+// "instruction" cycle here the same way clear() keeps every slot's real
+// marker bits test-clean until a test sets them.
+struct Sig : SignalsBase<Sig> {
+    bool fetch() const { return !readMemory(); }
+};
 
 constexpr auto MAX = Cycles::MAX_CYCLES;
 
@@ -134,6 +139,68 @@ void test_discard_across_the_wrap() {
     TEST_ASSERT_EQUAL(MAX - 1 - 4, recorded());
 }
 
+void test_dispose_advances_the_tail() {
+    advance(10);
+    Cycles::dispose(Cycles::at(4));
+    TEST_ASSERT_EQUAL(6, Cycles::cycles());
+    TEST_ASSERT_EQUAL(6, recorded());
+    TEST_ASSERT_EQUAL_PTR(Cycles::at(4), Cycles::tail());
+    TEST_ASSERT_EQUAL_PTR(Cycles::at(10), Cycles::head());
+}
+
+void test_dispose_tail_is_a_no_op() {
+    advance(10);
+    Cycles::dispose(Cycles::tail());
+    TEST_ASSERT_EQUAL(10, Cycles::cycles());
+    TEST_ASSERT_EQUAL_PTR(Cycles::at(0), Cycles::tail());
+}
+
+void test_dispose_head_empties() {
+    advance(10);
+    Cycles::dispose(Cycles::head());
+    TEST_ASSERT_EQUAL(0, Cycles::cycles());
+    TEST_ASSERT_EQUAL(0, recorded());
+    TEST_ASSERT_EQUAL_PTR(Cycles::tail(), Cycles::head());
+}
+
+void test_dispose_across_the_wrap() {
+    advance(MAX + 4);  // head at 4, tail at 5
+    Cycles::dispose(Cycles::at(10));
+    TEST_ASSERT_EQUAL_PTR(Cycles::at(10), Cycles::tail());
+    TEST_ASSERT_EQUAL(MAX - 1 - 5, recorded());
+    TEST_ASSERT_EQUAL_PTR(Cycles::at(4), Cycles::head());
+    // And recording continues from there.
+    advance(2);
+    TEST_ASSERT_EQUAL_PTR(Cycles::at(6), Cycles::head());
+    TEST_ASSERT_EQUAL(MAX - 1 - 3, recorded());
+}
+
+void markFetch(unsigned index) {
+    static_cast<Sig *>(Cycles::at(index))->inject(0);
+}
+
+void test_backtrace_start_counts_fetches_from_the_end() {
+    advance(10);
+    markFetch(3);
+    markFetch(6);
+    markFetch(9);
+    TEST_ASSERT_EQUAL_PTR(Cycles::at(6), backtraceStartByFetchCount<Sig>(2));
+    TEST_ASSERT_EQUAL_PTR(Cycles::at(9), backtraceStartByFetchCount<Sig>(1));
+}
+
+void test_backtrace_start_limit_zero_keeps_nothing() {
+    advance(10);
+    markFetch(3);
+    TEST_ASSERT_EQUAL_PTR(Cycles::head(), backtraceStartByFetchCount<Sig>(0));
+}
+
+// Fewer fetches than asked for: keep everything captured.
+void test_backtrace_start_falls_back_when_fetches_run_out() {
+    advance(10);
+    markFetch(7);
+    TEST_ASSERT_EQUAL_PTR(Cycles::tail(), backtraceStartByFetchCount<Sig>(5));
+}
+
 // prev()/next() walk the ring by slot, whatever is recorded: they are how
 // the exit paths look back from a fetch to the write before it.
 void test_next_and_prev_step_by_slot() {
@@ -236,6 +303,13 @@ int main() {
     RUN_TEST(test_discard_clears_the_slot_it_lands_on);
     RUN_TEST(test_discard_past_the_tail_empties);
     RUN_TEST(test_discard_across_the_wrap);
+    RUN_TEST(test_dispose_advances_the_tail);
+    RUN_TEST(test_dispose_tail_is_a_no_op);
+    RUN_TEST(test_dispose_head_empties);
+    RUN_TEST(test_dispose_across_the_wrap);
+    RUN_TEST(test_backtrace_start_counts_fetches_from_the_end);
+    RUN_TEST(test_backtrace_start_limit_zero_keeps_nothing);
+    RUN_TEST(test_backtrace_start_falls_back_when_fetches_run_out);
     RUN_TEST(test_next_and_prev_step_by_slot);
     RUN_TEST(test_next_and_prev_wrap);
     RUN_TEST(test_prev_from_the_head_is_the_last_completed);
