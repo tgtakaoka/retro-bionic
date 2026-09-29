@@ -182,7 +182,7 @@ arith:
         bal     answer          ; -29536
 
         mvwi    R1, -28000
-        mvwi    R1, -18000
+        mvwi    R2, -18000
         mvi     R0, '-'
         bal     expr
         fs      DR0, (R2)       DR0-=FR0

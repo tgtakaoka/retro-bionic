@@ -1,0 +1,55 @@
+# Scenario for scripts/record-scenario.py: plain MN1610 code on the MN1613.
+# Subroutines are called indirectly through a zero-page table, as in
+# `bal (I_mul16)`, and with no multiply instruction, umul16 shifts and
+# adds, using each instruction's skip condition in place of a branch.
+#
+# ADDRESSES ARE PINNED TO THE CURRENT samples/mn1610/mandelbrot.hex:
+# loop_x at 2EC, the I_ table at 0008 (I_mul16 at 000F holds 02C7),
+# mul16 at 2C7, umul16 at 2DC. If the sources or the image ever change,
+# re-check them against the fresh .lst before recording -- a stale
+# address will look like it works (it disassembles *something*) while
+# showing the wrong thing.
+
+key ?
+pace 2.0
+
+key R
+upload samples/mn1610/mandelbrot.hex
+
+# Reset again so the CPU starts the uploaded program.
+key R
+pace 1.5
+
+# Stop at the top of the X loop.
+type g
+wait Go until?
+command 2EC 8
+pace 2.0
+
+# The zero-page table of subroutine addresses.
+type d
+wait Data dump?
+command 8 B
+pace 2.0
+
+# L, EOR, MVI, then `bal (I_mul16)` jumps through 000F to mul16 at 02C7.
+step 4
+pace 1.5
+
+# The shift-and-add multiply: SR skips the add when the bit shifted out
+# is 0, OR skips the loop branch once the multiplier is 0.
+type D
+wait Disassemble?
+command 2DC 8
+pace 2.0
+
+# Run on into umul16 and step it; the second SR skips over the add.
+type g
+wait Go until?
+command 2DC 8
+pace 1.5
+step 11
+pace 1.5
+
+# Watch one frame render.
+run 1 300

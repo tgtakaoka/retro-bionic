@@ -28,7 +28,7 @@ private:
 
 }  // namespace mn1613
 }  // namespace debugger
-#endif /* __SIGNALS_H__ */
+#endif /* __SIGNALS_MN1613_H__ */
 
 // Local Variables:
 // mode: c++

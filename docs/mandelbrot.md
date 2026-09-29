@@ -27,8 +27,10 @@ The tables time them on real chips, from recorded casts, with
 | CPU         | frame | avg row | std dev | Note        | Cast                                                                     | Listing                                                       |
 | ----------- | ----: | ------: | ------: | ----------- | ------------------------------------------------------------------------ | ------------------------------------------------------------- |
 | P8095BH     |   3.6 |   0.145 |   0.038 |             | [mandelbrot.cast](../samples/i8096/mandelbrot.cast)                      | [i8096/mandelbrot.lst](../samples/i8096/mandelbrot.lst)       |
+| MN1613      |   9.5 |   0.388 |   0.128 |             | [mandelbrot.cast](../samples/mn1613/mandelbrot.cast)                     | [mn1613/mandelbrot.lst](../samples/mn1613/mandelbrot.lst)     |
 | HD6309      |   9.8 |   0.401 |   0.128 |             | [mandelbrot.cast](../samples/hd6309/mandelbrot.cast)                     | [hd6309/mandelbrot.lst](../samples/hd6309/mandelbrot.lst)     |
 | MC68HC08AZ0 |  24.4 |   0.997 |   0.333 |             | [mandelbrot.cast](../samples/mc68hc08/mandelbrot.cast)                   | [mc68hc08/mandelbrot.lst](../samples/mc68hc08/mandelbrot.lst) |
+| MN1613      |  25.4 |   1.039 |   0.337 | MN1610 code | [mandelbrot.cast](../samples/mn1610/mandelbrot.cast)                     | [mn1610/mandelbrot.lst](../samples/mn1610/mandelbrot.lst)     |
 | 68HC11      |  28.1 |   1.147 |   0.385 |             | [mandelbrot.cast](../samples/mc68hc11/mandelbrot.cast)                   | [mc68hc11/mandelbrot.lst](../samples/mc68hc11/mandelbrot.lst) |
 | P8051       |  35.0 |   1.428 |   0.442 |             | [mandelbrot.cast](../samples/i8051/mandelbrot.cast)                      | [i8051/mandelbrot.lst](../samples/i8051/mandelbrot.lst)       |
 | INS8070     |  56.6 |   2.312 |   0.744 |             | [mandelbrot.cast](../samples/ins8070/mandelbrot.cast)                    | [ins8070/mandelbrot.lst](../samples/ins8070/mandelbrot.lst)   |
@@ -48,6 +50,12 @@ The tables time them on real chips, from recorded casts, with
 | CDP1802     | 247.8 |  10.125 |   3.329 |             | [mandelbrot.cast](../samples/cdp1802/mandelbrot.cast)                    | [cdp1802/mandelbrot.lst](../samples/cdp1802/mandelbrot.lst)   |
 | INS8060     | 716.5 |  29.262 |   9.505 |             | [mandelbrot.cast](../samples/ins8060/mandelbrot.cast)                    | [ins8060/mandelbrot.lst](../samples/ins8060/mandelbrot.lst)   |
 | F3850       | 817.3 |  33.413 |  11.388 |             | [mandelbrot.cast](../samples/f3850/mandelbrot.cast)                      | [f3850/mandelbrot.lst](../samples/f3850/mandelbrot.lst)       |
+
+## Floating point, fmandel
+
+| CPU         | frame | avg row | std dev | Note        | Cast                                                                     | Listing                                                       |
+| ----------- | ----: | ------: | ------: | ----------- | ------------------------------------------------------------------------ | ------------------------------------------------------------- |
+| MN1613      |   8.1 |   0.334 |   0.129 |             | [fmandel.cast](../samples/mn1613/fmandel.cast)                           | [mn1613/fmandel.lst](../samples/mn1613/fmandel.lst)           |
 
 ## Binary compatibility: the same code on related chips
 
@@ -92,3 +100,14 @@ The HD6309 runs MC6809 code as is, and in native mode, set from the
 debugger for this run, most instructions take fewer cycles: 10% faster
 here. Its own code, with `MULD`, `DIVQ` and the 16-bit W register, runs
 nine times as fast.
+
+### MN1610 family
+
+| | MN1613 |
+|---|---:|
+| [mn1610](../samples/mn1610/mandelbrot.lst) | 25.4 |
+| [mn1613](../samples/mn1613/mandelbrot.lst) | 9.5 |
+
+The MN1613 runs MN1610 code as is. Its own code, with the hardware
+multiply `M` and divide `D` the MN1610 lacks, runs nearly three times as
+fast.
