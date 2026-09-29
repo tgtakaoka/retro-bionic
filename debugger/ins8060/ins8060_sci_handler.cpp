@@ -35,7 +35,7 @@ void Ins8060SciHandler::resetHandler() {
     _tx_divider = _rx_divider = 14;
     // baudrate 110 bps
     // _pre_divider = 1010;
-    // _divider = 18;
+    // _tx_divider = _rx_divider = 18;
 }
 
 }  // namespace ins8060
