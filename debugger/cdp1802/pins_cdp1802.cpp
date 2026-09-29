@@ -89,6 +89,10 @@ inline auto signal_tpa() {
     return digitalReadFast(PIN_TPA);
 }
 
+void assert_reset() {
+    digitalWriteFast(PIN_CLEAR, LOW);
+}
+
 void negate_reset() {
     digitalWriteFast(PIN_CLEAR, HIGH);
 }
@@ -153,25 +157,36 @@ PinsCdp1802::PinsCdp1802() {
     _mems = new MemsCdp1802();
 }
 
-void PinsCdp1802::resetPins() {
-    // Assert reset condition
-    pinsMode(PINS_LOW, sizeof(PINS_LOW), OUTPUT, LOW);
-    pinsMode(PINS_HIGH, sizeof(PINS_HIGH), OUTPUT, HIGH);
-    pinsMode(PINS_INPUT, sizeof(PINS_INPUT), INPUT);
-
+void PinsCdp1802::pulseReset() {
+    assert_reset();
     for (auto i = 0; i < 100; i++)
         clock_cycle();
     negate_reset();
-    Cycles::reset();
     // The first machine cycle after termination of reset is an
-    // intialization cycle which requires 9 clock pulses.
+    // initialization cycle which requires 9 clock pulses.
     for (auto i = 0; i < 20; i++) {
         clock_cycle();
         if (signal_tpa() != LOW)
             break;
     }
-    _regs->save();
+}
+
+void PinsCdp1802::resetPins() {
+    pinsMode(PINS_LOW, sizeof(PINS_LOW), OUTPUT, LOW);
+    pinsMode(PINS_HIGH, sizeof(PINS_HIGH), OUTPUT, HIGH);
+    pinsMode(PINS_INPUT, sizeof(PINS_INPUT), INPUT);
+
+    // Once, not per pulse: the type probe's cycles then survive into
+    // R's verbose trace, where the decision can be read straight off.
+    Cycles::reset();
+    pulseReset();
+    // reset() (CPU-type detection) feeds the chip its own extra fetch(es),
+    // leaving R(P) advanced by however many bytes it injected -- pulse
+    // reset again afterward to put R(P) back to 0 for real, rather than
+    // track and subtract the byte count later.
     _regs->reset();
+    pulseReset();
+    _regs->save();
 }
 
 Signals *PinsCdp1802::startCycle() {
@@ -383,7 +398,9 @@ void PinsCdp1802::run() {
     _regs->restore();
     Cycles::reset();
     saveBreakInsts();
+    startRunTimer();
     loop();
+    stopRunTimer();
     restoreBreakInsts();
     disassembleCycles();
     _regs->save();
@@ -469,7 +486,11 @@ void PinsCdp1802::printCycles() {
     }
 }
 
-void PinsCdp1802::disassembleCycles() const {
+const SignalsImpl *PinsCdp1802::findBacktraceStart() {
+    return backtraceStartByFetchCount<Signals>(_lineLimit);
+}
+
+void PinsCdp1802::printBacktrace() {
     const auto g = Signals::get();
     const auto cycles = g->diff(Signals::put());
     for (auto i = 0u; i < cycles;) {

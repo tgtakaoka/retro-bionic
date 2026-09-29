@@ -95,8 +95,10 @@ private:
     void execute(const uint8_t *inst, uint8_t len, uint16_t *addr, uint8_t *buf,
             uint8_t max);
     bool skip(uint8_t inst);
+    void pulseReset();
 
-    void disassembleCycles() const;
+    const SignalsImpl *findBacktraceStart() override;
+    void printBacktrace() override;
 };
 
 }  // namespace cdp1802
