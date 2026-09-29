@@ -28,7 +28,7 @@
 (1)       0 : =40                ORG_INTT2:      equ     0040H   ; Timer 2
 (1)       0 : =48                ORG_INTT3:      equ     0048H   ; Timer 3
 (1)       0 : =70                ORG_INTRX:      equ     0070H   ; Serial receive
-(1)       0 : =78                ORG_INTTX:      equ     0078H   ; Serial transmit\
+(1)       0 : =78                ORG_INTTX:      equ     0078H   ; Serial transmit
 (1)       0 :                    ;;; I/O Port
 (1)       0 :                    ;;; Port 0,1,2 are used for data and address bus when #EA=0
 (1)       0 :                    ;;; Port P37, P36, P35 are used for bus controls
@@ -82,7 +82,7 @@
           0 :                    ;;; i8251 Universal Synchronous/Asynchronous Receiver/Transmitter
           0 : =FFF0              USART:          equ     0FFF0H
           0 : =FFF0              USARTD:         equ     USART+0 ; Receive/Transmit data
-          0 : =FFF1              USARTS:         equ     USART+1 ; Srtatus register
+          0 : =FFF1              USARTS:         equ     USART+1 ; Status register
           0 : =FFF1              USARTC:         equ     USART+1 ; Control register
           0 : =FFF2              USARTRV:        equ     USART+2 ; Receive interrupt vector (ORG_*)
           0 : =FFF3              USARTTV:        equ     USART+3 ; Transmit interrupt vector (ORG_*)
@@ -122,7 +122,7 @@
 (1)       0 : =80                ST_DSR_bm:      equ     10000000B   ; Data Set Ready
 (1)       0 : =40                ST_BRK_bm:      equ     01000000B   ; BREAK detected
 (1)       0 : =20                ST_FE_bm:       equ     00100000B   ; Framing Error
-(1)       0 : =10                ST_OE_bm:       equ     00010000B   ; Iverrun Error
+(1)       0 : =10                ST_OE_bm:       equ     00010000B   ; Overrun Error
 (1)       0 : =8                 ST_PE_bm:       equ     00001000B   ; Parity Error
 (1)       0 : =2                 ST_TxEMPTY_bp:  equ     2           ; Transmitter empty
 (1)       0 : =1                 ST_RxRDY_bp:    equ     1           ; Receiver ready
@@ -149,10 +149,10 @@
          10 : 01                         halt                    ; halt to system
          11 :
          28 :                            org     ORG_INT0
-         28 : 1A 39 02                   jp      isr_intr_rx
+         28 : 1A 30 02                   jp      isr_intr_rx
          2B :
          58 :                            org     ORG_INT1
-         58 : 1A 44 02                   jp      isr_intr_tx
+         58 : 1A 3B 02                   jp      isr_intr_tx
          5B :
         100 :                            org     0100H
         100 :                    init:
@@ -368,29 +368,22 @@
 (1)     22E : 0D                         scf                     ; set carry
 (1)     22F : 1E                         ret
         230 :
-        230 :                    isr_intr:
-        230 : A9 F1                      bit     ST_RxRDY_bp, (USARTS)
-        232 : CE 05                      jr      nz, isr_intr_rx
-        234 : A8 F1                      bit     ST_TxRDY_bp, (USARTS)
-        236 : CE 0C                      jr      nz, isr_intr_tx
-        238 : 1F                         reti
-        239 :
-        239 :                    isr_intr_rx:
-        239 : 54                         push    ix
-        23A : 27 F0                      ld      a, (USARTD)     ; receive character
-        23C : 3C 00 20                   ld      ix, rx_queue
-        23F : 1C DA 01                   call    queue_add
+        230 :                    isr_intr_rx:
+        230 : 54                         push    ix
+        231 : 27 F0                      ld      a, (USARTD)     ; receive character
+        233 : 3C 00 20                   ld      ix, rx_queue
+        236 : 1C DA 01                   call    queue_add
+        239 : 5C                         pop     ix
+        23A : 1F                         reti
+        23B :
+        23B :                    isr_intr_tx:
+        23B : 54                         push     ix
+        23C : 3C 80 20                   ld      ix, tx_queue
+        23F : 1C 0A 02                   call    queue_remove
         242 : 5C                         pop     ix
-        243 : 1F                         reti
-        244 :
-        244 :                    isr_intr_tx:
-        244 : 54                         push     ix
-        245 : 3C 80 20                   ld      ix, tx_queue
-        248 : 1C 0A 02                   call    queue_remove
-        24B : 5C                         pop     ix
-        24C : CF 03                      jr      nc, isr_intr_send_empty
-        24E : 2F F0                      ld      (USARTD), a     ; send character
-        250 : 1F                         reti
-        251 :                    isr_intr_send_empty:
-        251 : 37 F1 36                   ld      (USARTC), RX_EN_TX_DIS ; disable Tx
-        254 : 1F                         reti
+        243 : CF 03                      jr      nc, isr_intr_send_empty
+        245 : 2F F0                      ld      (USARTD), a     ; send character
+        247 : 1F                         reti
+        248 :                    isr_intr_send_empty:
+        248 : 37 F1 36                   ld      (USARTC), RX_EN_TX_DIS ; disable Tx
+        24B : 1F                         reti

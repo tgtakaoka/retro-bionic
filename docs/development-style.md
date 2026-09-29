@@ -1388,6 +1388,24 @@ loop and the matcher took those two cycles from the next instruction;
 `InstScn2650::notTaken()` now tells a fall-through by the address after the
 operand.
 
+### TLCS90
+
+**Pitfalls.** On-chip RAM and I/O (FEC0-FFEF) never show on the bus, so
+instructions touching them make fewer cycles than their rows; a word access
+at FFFF wraps to 0000.
+
+The profile (`tools/cycles_tlcs90.py`, recorded as
+`tools/tlcs90-cycles.jsonl.zst`) checked every opcode on the chip against
+the manual's bus-cycle tables, and found two matcher errors. **[hw]**
+
+- `JRL` and `CALR` took their 16-bit displacement from the opcode + 3; it
+  counts from the opcode + 2, as an 8-bit `JR`'s does.
+- A word access at FFFF goes on at 0000, which `r` and `w` did not allow.
+
+On-chip RAM (FEC0-FFBF) and I/O (FFC0-FFEF) never show on the bus; FFF0-FFFF
+is external again. The profile keeps its operands and SP in external memory,
+and leaves out patterns that would point SP at on-chip I/O. **[hw]**
+
 ### PDP-8 (IM6100 / HD6120)
 
 **Pitfalls.** The debugger's `restore()` ends in `RTF` on both chips, and

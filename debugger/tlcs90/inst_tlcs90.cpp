@@ -20,7 +20,7 @@ namespace {
 # V: next instruction fetch from vector (0000_0000_0xxx_x000B)
 # d: dummy cycle, no read nor write
 # R: read 1 byte
-# W: write 1 byte, the same address if R or E is preceeded
+# W: write 1 byte, the same address if R or E is preceded
 # r: read 1 byte at address R+1 or r+1
 # w: write 1 byte at address W+1
 # E: read 1 byte from direct page (0FFxxH)
@@ -1319,8 +1319,8 @@ bool InstTlcs90::matchSequence(const Signals *begin, const Signals *end,
             case 'j':  // 2:j
                 disp = static_cast<int8_t>(addr >> 8);
                 goto branch;
-            case 'k':  // 2:3:k
-                disp = static_cast<int16_t>(addr);
+            case 'k':  // 2:3:k, relative to the opcode + 2 as 2:j is
+                disp = static_cast<int16_t>(addr) - 1;
             branch:
                 if (s->addr == static_cast<uint16_t>(next + disp)) {
                     _nexti = i;
@@ -1349,8 +1349,8 @@ bool InstTlcs90::matchSequence(const Signals *begin, const Signals *end,
                     break;
                 }
                 goto not_matched;
-            case 'r':  // R:r, E:r
-                if (s->addr == r->addr + 1U) {
+            case 'r':  // R:r, E:r; FFFF is followed by 0000
+                if (s->addr == static_cast<uint16_t>(r->addr + 1)) {
                     r = s;
                     addr >>= 8;
                     addr |= s->data << 8;
@@ -1376,7 +1376,7 @@ bool InstTlcs90::matchSequence(const Signals *begin, const Signals *end,
                 }
                 goto not_matched;
             case 'w':  // W:w, w:W, F:w
-                if (w == nullptr || s->addr == w->addr + 1U) {
+                if (w == nullptr || s->addr == static_cast<uint16_t>(w->addr + 1)) {
                     w = s;
                     break;
                 }

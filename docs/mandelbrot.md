@@ -29,6 +29,7 @@ The tables time them on real chips, from recorded casts, with
 | P8095BH     |   3.6 |   0.145 |   0.038 |             | [mandelbrot.cast](../samples/i8096/mandelbrot.cast)                      | [i8096/mandelbrot.lst](../samples/i8096/mandelbrot.lst)       |
 | MN1613      |   9.5 |   0.388 |   0.128 |             | [mandelbrot.cast](../samples/mn1613/mandelbrot.cast)                     | [mn1613/mandelbrot.lst](../samples/mn1613/mandelbrot.lst)     |
 | HD6309      |   9.8 |   0.401 |   0.128 |             | [mandelbrot.cast](../samples/hd6309/mandelbrot.cast)                     | [hd6309/mandelbrot.lst](../samples/hd6309/mandelbrot.lst)     |
+| TMP90C802   |  14.1 |   0.576 |   0.191 |             | [mandelbrot.cast](../samples/tlcs90/mandelbrot.cast)                     | [tlcs90/mandelbrot.lst](../samples/tlcs90/mandelbrot.lst)     |
 | MC68HC08AZ0 |  24.4 |   0.997 |   0.333 |             | [mandelbrot.cast](../samples/mc68hc08/mandelbrot.cast)                   | [mc68hc08/mandelbrot.lst](../samples/mc68hc08/mandelbrot.lst) |
 | MN1613      |  25.4 |   1.039 |   0.337 | MN1610 code | [mandelbrot.cast](../samples/mn1610/mandelbrot.cast)                     | [mn1610/mandelbrot.lst](../samples/mn1610/mandelbrot.lst)     |
 | 68HC11      |  28.1 |   1.147 |   0.385 |             | [mandelbrot.cast](../samples/mc68hc11/mandelbrot.cast)                   | [mc68hc11/mandelbrot.lst](../samples/mc68hc11/mandelbrot.lst) |

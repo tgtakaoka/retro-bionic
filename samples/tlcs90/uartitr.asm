@@ -81,10 +81,10 @@ put_hex8:
         ld      a, 'x'
         call    putchar
         ld      a, b
-        slla
-        slla
-        slla
-        slla
+        srla
+        srla
+        srla
+        srla
         call    put_hex4
         ld      a, b
 put_hex4:
