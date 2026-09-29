@@ -42,6 +42,7 @@ INT3:           equ     1019H
 INT_FLAG:       equ     10000000B ; INTx Flag 1:transition detected
 INT_DIR:        equ     00010000B ; INTx Direction 1:output 0:input/interrupt
 INT_DATA:       equ     00001000B ; INTx Data out
+;;; ATTENTION: misspelled; rename to INT_POLARITY.
 INT_POLALITY:   equ     00000100B ; INTx Polarity 1:rising 0:falling
 INT_PRIORITY:   equ     00000010B ; INTx Priority 1:level2 0:level1
 INT_ENABLE:     equ     00000001B ; INTx Enable 1:enable 0:disable

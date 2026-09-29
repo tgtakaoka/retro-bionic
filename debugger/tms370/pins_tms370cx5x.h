@@ -43,7 +43,7 @@
 #define PIN_ADDR15 37 /* P7.19 */
 #define PORT_CNTL 9   /* GPIO9 */
 #define CNTL_gp 4     /* P9.04-P9.07 */
-#define CNTL_gm 0x7   /* P9.04-P9.07 */
+#define CNTL_gm 0x7   /* P9.04-P9.06 */
 #define CNTL_vp 0     /* CNTL0-CNTL2 */
 #define PIN_EDS 2     /* P9.04 */
 #define PIN_RW 3      /* P9.05 */

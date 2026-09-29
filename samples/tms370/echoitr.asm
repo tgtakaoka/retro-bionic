@@ -59,7 +59,7 @@ loop:
 halt_to_system:
         trap    15
 
-;;; Put sapce
+;;; Put space
 ;;; @clobber A
 putspace:
         mov     #' ', A
