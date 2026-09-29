@@ -20,6 +20,11 @@ Cases, named on the command line and run in this order:
            while the PC had been corrupted, so a later continue ran
            garbage.  A continue counts as passing only if output flows
            again *and* the PC stayed inside the program.
+  breakpoint  a persistent B at a named label, hit n times running,
+           from [breakpoint] in the regress.toml file; needs
+           program/break_at there, so it is a no-op without them
+  gountil  `g` a named label repeatedly, from [gountil] in the
+           regress.toml file; needs program/break_at there too
 
 A regress.toml-style file (see drive_table()) is mandatory and always
 first: which arch/variant this run exercises is not inferred from the
@@ -32,7 +37,7 @@ is meant.
   bionic-regress.py REGRESS.toml
        # no case named: lists the cases and the file's own samples,
        # runs nothing
-  bionic-regress.py REGRESS.toml reset step samples haltgo break gountil disasm
+  bionic-regress.py REGRESS.toml reset step samples haltgo breakpoint gountil disasm
        # every case, named explicitly
   bionic-regress.py REGRESS.toml haltgo     # one case
   bionic-regress.py REGRESS.toml haltgo=20  # with a repeat count
@@ -83,6 +88,21 @@ def samples(target):
         return []
     return sorted(os.path.join(d, f) for f in os.listdir(d)
                   if f.endswith(('.hex', '.s19', '.s28', '.s37')))
+
+
+def label_address(lst_path, label):
+    """The hex address `label` is defined at, in an assembler listing.
+
+    Looked up there rather than hand-typed into regress.toml, so a
+    rebuild that moves the label cannot leave a stale address silently
+    wrong.
+    """
+    pattern = re.compile(r'^\(?\d*\)?\s*([0-9A-Fa-f]+)\s*:\s*%s:' % re.escape(label))
+    for line in open(lst_path):
+        m = pattern.match(line)
+        if m:
+            return m.group(1)
+    return None
 
 
 def _merge(spans):
@@ -184,9 +204,15 @@ def case_reset(board, n=4, regress=None):
     return ok, note
 
 
-def case_step(board, n=4):
-    """S must advance the PC, and never repeat or go nowhere."""
-    hexes = samples(board.who)
+def case_step(board, n=4, regress=None):
+    """S must advance the PC, and never repeat or go nowhere.
+
+    Steps the first sample not marked `skip = true` in `regress`: a
+    skipped one (e.g. a ROM patch) is not a program to step through.
+    """
+    table = drive_table(regress)
+    hexes = [p for p in samples(board.who)
+             if not table.get(os.path.basename(p).rsplit('.', 1)[0], {}).get('skip')]
     if not hexes:
         return None, 'no samples to step through'
     board.send(b'R')
@@ -407,22 +433,10 @@ def case_haltgo(board, n=None, regress=None):
                       + ('; %s' % ' '.join(drift) if drift else ''))
 
 
-def live_pc(board, secs=1.5):
-    """An address the program was actually executing.
-
-    Discovered rather than hardcoded, so the case stays target agnostic: a
-    halt lands on a real instruction boundary inside whatever loop the
-    program is in, which is exactly what a breakpoint needs.
-    """
-    board.send(b'G\r', wait=2.0, idle=0.6, delay=secs)
-    board.abort()
-    txt = board.send(wait=8.0, idle=1.0, delay=0.6)
-    return bc.pc_from(txt)
-
-
 def run_until_stop(board, cap=30.0):
-    """G, then wait for the CLI to come back; returns (pc, text)."""
-    how, raw, _ = board.go(cap=cap, out=None)
+    """G 0 (no backtrace to disassemble and print), then wait for the
+    CLI to come back; returns (pc, text)."""
+    how, raw, _ = board.go(cmd=b'G 0\r', cap=cap, out=None)
     txt = raw.decode('ascii', 'replace').replace('\r', '')
     if how != 'prompt':
         board.abort()
@@ -450,45 +464,48 @@ def _load_looping(board, prefer=('echo', 'mandel')):
     return hexes[0]
 
 
-def case_break(board, n=3):
-    """Stop at a breakpoint, continue, and stop there again.
+def _stopped_at(pc, addr, how):
+    """Whether the reported PC is the stop at `addr`. `pc_offset` in the
+    case's table covers a CPU whose PC register holds the address before
+    the next instruction (SC/MP: pc_offset = -1)."""
+    return pc is not None and int(pc, 16) == int(addr, 16) + how.get('pc_offset', 0)
+
+
+def case_breakpoint(board, n=3, regress=None):
+    """Stop repeatedly at a persistent, named breakpoint.
 
     Continuing has to hit the *same* breakpoint n times running: a
     breakpoint that is consumed on the first hit, or whose patched opcode is
     not put back, passes a single-hit test and fails this one.
+
+    `[breakpoint]` in `regress`: `program = "name"` the sample to load,
+    `break_at = "label"` looked up in its .lst so a rebuild that moves
+    the label can't leave a stale address silently wrong, and optionally
+    `pc_offset` (see _stopped_at()).
     """
-    if _load_looping(board) is None:
+    how = drive_table(regress).get('breakpoint', {})
+    if 'program' not in how or 'break_at' not in how:
+        return None, 'no [breakpoint] program/break_at configured'
+    hexes = [p for p in samples(board.who)
+             if os.path.basename(p).rsplit('.', 1)[0] == how['program']]
+    if not hexes:
         return None, 'no samples'
-    board.clear_breaks()
-    # The address cannot simply be taken from a halt: the PC a halt reports
-    # is itself unreliable, so a bad one makes this case fail for a reason
-    # that has nothing to do with breakpoints.  Take a candidate, prove a
-    # breakpoint there is reached at all, and only then test re-hitting it.
-    addr, tried = None, []
-    for _ in range(5):
-        cand = live_pc(board)
-        if cand is None or cand in tried:
-            continue
-        tried.append(cand)
-        board.clear_breaks()
-        if 'set' not in board.set_break(cand):
-            continue
-        pc, _txt = run_until_stop(board, cap=20.0)
-        if pc is not None and pc.lstrip('0') == cand.lstrip('0'):
-            addr = cand
-            break
+    path = hexes[0]
+    addr = label_address(path.rsplit('.', 1)[0] + '.lst', how['break_at'])
     if addr is None:
-        board.clear_breaks()
-        return False, ('no halt-derived address was ever reached: tried %s '
-                       '-- the halt PC, not the breakpoint, is suspect'
-                       % ' '.join(tried))
-    hits, notes = 1, []
-    for i in range(1, n):                # the proving hit above counts as one
-        pc, txt = run_until_stop(board)
+        return False, '%s not found in %s.lst' % (how['break_at'], how['program'])
+    board.send(b'R')
+    board.upload_file(path)
+    board.clear_breaks()
+    if 'set' not in board.set_break(addr):
+        return False, 'could not set a breakpoint at %s (%s)' % (how['break_at'], addr)
+    hits, notes = 0, []
+    for i in range(n):
+        pc, _txt = run_until_stop(board)
         if pc is None:
             notes.append('%d:no stop' % i)
             break
-        if pc.lstrip('0') != addr.lstrip('0'):
+        if not _stopped_at(pc, addr, how):
             notes.append('%d:stopped at %s' % (i, pc))
             break
         hits += 1
@@ -497,33 +514,45 @@ def case_break(board, n=3):
             break
     board.clear_breaks()
     ok = hits == n and not notes
-    return ok, 'break at %s hit %d/%d%s' % (addr, hits, n,
-                                            '; ' + ' '.join(notes) if notes else '')
+    return ok, 'break at %s (%s) hit %d/%d%s' % (how['break_at'], addr, hits, n,
+                                                  '; ' + ' '.join(notes) if notes else '')
 
 
-def case_gountil(board, n=2):
-    """`g` runs to a one-shot address, and leaves no breakpoint behind.
+def case_gountil(board, n=3, regress=None):
+    """`g` runs repeatedly to a named breakpoint, and checks it lands there.
 
-    It sets a *temp* breakpoint, so afterwards the list must be empty --
-    otherwise a go-until silently leaves a trap in the program.
+    `[gountil]` in `regress`: `program = "name"` the sample to load,
+    `break_at = "label"` looked up in its .lst so a rebuild that moves
+    the label can't leave a stale address silently wrong, and optionally
+    `pc_offset` (see _stopped_at()).
     """
-    if _load_looping(board) is None:
+    how = drive_table(regress).get('gountil', {})
+    if 'program' not in how or 'break_at' not in how:
+        return None, 'no [gountil] program/break_at configured'
+    hexes = [p for p in samples(board.who)
+             if os.path.basename(p).rsplit('.', 1)[0] == how['program']]
+    if not hexes:
         return None, 'no samples'
-    board.clear_breaks()
-    addr = live_pc(board)
+    path = hexes[0]
+    addr = label_address(path.rsplit('.', 1)[0] + '.lst', how['break_at'])
     if addr is None:
-        return False, 'could not find a live PC to run to'
+        return False, '%s not found in %s.lst' % (how['break_at'], how['program'])
+    board.send(b'R')
+    board.upload_file(path)
+    board.clear_breaks()
+    # A *temp* breakpoint, so afterwards the list must be empty --
+    # otherwise a go-until silently leaves a trap in the program.
     notes = []
     for i in range(n):
-        how, raw, _ = board.go(cmd=b'g' + addr.encode() + b'\r', cap=30.0, out=None)
+        state, raw, _ = board.go(cmd=b'g' + addr.encode() + b' 0\r', cap=30.0, out=None)
         txt = raw.decode('ascii', 'replace').replace('\r', '')
-        if how != 'prompt':
+        if state != 'prompt':
             board.abort()
             board.send(wait=8.0, idle=1.0, delay=0.8)
             notes.append('%d:no stop' % i)
             break
-        pc = bc.pc_from(txt)
-        if pc is None or pc.lstrip('0') != addr.lstrip('0'):
+        pc = pc_from(txt)
+        if not _stopped_at(pc, addr, how):
             notes.append('%d:stopped at %s' % (i, pc))
             break
         left = board.list_breaks()
@@ -531,8 +560,8 @@ def case_gountil(board, n=2):
             notes.append('%d:temp breakpoint left behind' % i)
             break
     board.clear_breaks()
-    return not notes, 'go until %s, %d times%s' % (
-        addr, n, '; ' + ' '.join(notes) if notes else '')
+    return not notes, 'go until %s (%s), %d times%s' % (
+        how['break_at'], addr, n, '; ' + ' '.join(notes) if notes else '')
 
 
 DISASM = re.compile(r'^[0-9A-F]{3,6}: ([0-9A-F]{2} )+ +\S+')
@@ -565,7 +594,7 @@ def case_disasm(board, n=10):
 
 CASES = (('reset', case_reset), ('step', case_step),
          ('samples', case_samples), ('haltgo', case_haltgo),
-         ('break', case_break), ('gountil', case_gountil),
+         ('breakpoint', case_breakpoint), ('gountil', case_gountil),
          ('disasm', case_disasm))
 
 
@@ -607,7 +636,7 @@ def main():
                 continue
             t0 = time.time()
             kw = {} if want.get(name) is None else {'n': want[name]}
-            if name in ('reset', 'samples', 'haltgo'):
+            if name in ('reset', 'step', 'samples', 'haltgo', 'breakpoint', 'gountil'):
                 kw['regress'] = regress
             ok, note = fn(board, **kw)
             took = time.time() - t0
