@@ -21,7 +21,9 @@ struct Signals final : SignalsBase<Signals> {
     bool write() const;
     bool fetch() const;
     void markFetch(bool fetch) { _signals[1] = fetch; }
-    bool fetchMark() const { return _signals[1]; };
+    bool fetchMark() const { return _signals[1]; }
+    // A bus cycle that didn't happen: neither a read nor a write.
+    void noCycle();
 
 private:
     uint8_t cntl() const { return _signals[0]; }
@@ -29,7 +31,7 @@ private:
 };
 }  // namespace ins8070
 }  // namespace debugger
-#endif /* __SIGNALS_H__ */
+#endif /* __SIGNALS_INS8070_H__ */
 
 // Local Variables:
 // mode: c++

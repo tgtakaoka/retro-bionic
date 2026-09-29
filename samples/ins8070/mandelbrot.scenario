@@ -1,0 +1,42 @@
+# Scenario for scripts/record-scenario.py: the INS8070's 16-bit
+# multiply and divide. Unlike the SC/MP it has a stack and a 16-bit EA
+# accumulator with a T register, and MPY EA,T and DIV EA,T do in one
+# instruction what other samples loop over bit by bit. PC still holds
+# one less than the next instruction, as on the SC/MP.
+#
+# ADDRESSES ARE PINNED TO THE CURRENT samples/ins8070/mandelbrot.hex:
+# the MPY in mulsi2 at 10E8 and the DIV in divsi2 at 111B. If
+# mandelbrot.asm/.inc/arith.inc or the .hex ever change, re-check them
+# against the fresh .lst before recording -- a stale address will look
+# like it works (it disassembles *something*) while showing the wrong
+# thing.
+
+key ?
+pace 2.0
+
+key R
+upload samples/ins8070/mandelbrot.hex
+
+# Stop on the MPY: EA=0031 (49) and T=00E5 (229).
+type g
+wait Go until?
+command 10E8 5
+pace 2.0
+
+# One step multiplies: T=2BD5 (11221) is the product's low word.
+step 1
+pace 2.0
+
+# Stop on a DIV: EA=2BD5 is the dividend, T=0064 (100) the divisor.
+type g
+wait Go until?
+command 111B 5
+pace 2.0
+
+# One step divides: EA=0070 (112) is the quotient. T is not the
+# remainder, which is why print_uint16 multiplies back to get it.
+step 1
+pace 2.0
+
+# Watch one frame render; it takes about 1 minute.
+run 1 300
