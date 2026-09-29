@@ -142,14 +142,14 @@ arith:
         ldaa    #'-'
         jsr     expr
         subd    R2
-        jsr     answer          ; -19536
+        jsr     answer          ; 10000
 
         ldx     #18000
         ldy     #-18000
         ldaa    #'-'
         jsr     expr
         subd    R2
-        jsr     answer          ; 29536
+        jsr     answer          ; -29536
 
         ldx     #-28000
         ldy     #-18000

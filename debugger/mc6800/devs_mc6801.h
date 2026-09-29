@@ -2,6 +2,7 @@
 #define __DEVS_MC6801_H__
 
 #include "devs.h"
+#include "serial_handler.h"
 
 #define ACIA_BASE 0xDF00
 
@@ -33,7 +34,7 @@ private:
 
 }  // namespace mc6801
 }  // namespace debugger
-#endif /* __DEVS_MC6801H__ */
+#endif /* __DEVS_MC6801_H__ */
 
 // Local Variables:
 // mode: c++

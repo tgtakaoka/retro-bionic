@@ -18,7 +18,7 @@ uint32_t Mc68hc11SciHandler::baseAddr() const {
     return _init.dev_base() + BAUD;
 }
 
-void Mc68hc11SciHandler::write(uint32_t addr, uint16_t data) {
+void Mc68hc11SciHandler::write(uint32_t, uint16_t data) {
     _baud = data;
     resetHandler();
 }

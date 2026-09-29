@@ -29,7 +29,7 @@ private:
 
 }  // namespace mc6800
 }  // namespace debugger
-#endif /* __DEVS_MC6800H__ */
+#endif /* __DEVS_MC6800_H__ */
 
 // Local Variables:
 // mode: c++

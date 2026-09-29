@@ -18,6 +18,10 @@ void Signals::getControl() {
     fetch() = digitalReadFast(PIN_LIR) == LOW;
 }
 
+void Signals::clearVma() {
+    cntl() &= ~CNTL_VMA;
+}
+
 void Signals::getData() {
     data = busRead(AD);
 }
