@@ -26,7 +26,7 @@ namespace tlcs90 {
  *        ___               |    _|_          |_____|________|
  *   DATA ___>--------------|---<___>---------<_____|________>-
  *        __________________|_________________>_____|__________
- *  W#AIT _________________/ \_____________________/ \_________
+ *  #WAIT _________________/ \_____________________/ \_________
  */
 // clang-format on
 
@@ -172,7 +172,7 @@ void PinsTlcs90::resetPins() {
     pinsMode(PINS_INPUT, sizeof(PINS_INPUT), INPUT);
 
     // #RESET input must be maintained at the "0" level for at least
-    // #10 systemn clock cycles (10 stated; 2usec at 10MHz).
+    // #10 system clock cycles (10 stated; 2usec at 10MHz).
     for (auto i = 0; i < 20 * 2 || signal_clk() == LOW; ++i)
         x1_cycle();
     negate_reset();
@@ -226,7 +226,7 @@ Signals *PinsTlcs90::completeCycle(Signals *s) {
         }
         // C3L
         s->setData();
-        if (c3_lo_read)
+        if (c3_hi_read)
             delayNanoseconds(c3_hi_read);
         x1_lo();
         Signals::outputMode();
@@ -326,7 +326,7 @@ void PinsTlcs90::loop() {
         if (s->addr == InstTlcs90::ORG_SWI) {
             auto r = regs<RegsTlcs90>();
             if (r->saveContext(s->prev(4))) {
-                // SWI; break point or halt to system (HALT at ORG_SWI))
+                // SWI; break point or halt to system (HALT at ORG_SWI)
                 const auto opc = _mems->read_byte(s->addr);
                 const auto pc = r->nextIp() - 1;  // offset SWI
                 if (opc == InstTlcs90::HALT || isBreakPoint(pc)) {
@@ -345,7 +345,6 @@ void PinsTlcs90::loop() {
             break;
         }
     }
-    disassembleCycles();
 }
 
 void PinsTlcs90::run() {
@@ -353,7 +352,9 @@ void PinsTlcs90::run() {
     Cycles::reset();
     saveBreakInsts();
     negate_wait();
+    startRunTimer();
     loop();
+    stopRunTimer();
     restoreBreakInsts();
     disassembleCycles();
 }
@@ -474,7 +475,19 @@ const Signals *PinsTlcs90::findFetch(Signals *begin, const Signals *end) {
     return end;
 }
 
-void PinsTlcs90::disassembleCycles() {
+// fetch() isn't live here: findFetch()/matchAll() mark it only as a
+// side effect of matching decoded instructions against captured bus
+// cycles, so that has to run -- once, right here -- before
+// backtraceStartFrom() counting fetch() cycles means anything.
+// printBacktrace() re-runs it over the now-disposed range, which
+// re-derives the same marks.
+const SignalsImpl *PinsTlcs90::findBacktraceStart() {
+    const auto end = Signals::put();
+    const auto begin = findFetch(Signals::get(), end);
+    return backtraceStartFrom<Signals>(begin, _lineLimit);
+}
+
+void PinsTlcs90::printBacktrace() {
     const auto end = Signals::put();
     const auto begin = findFetch(Signals::get(), end);
     printCycles(begin);

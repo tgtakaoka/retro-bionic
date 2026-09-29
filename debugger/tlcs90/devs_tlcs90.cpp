@@ -6,8 +6,6 @@
 namespace debugger {
 namespace tlcs90 {
 
-Tlcs90UartHandler UartH;
-
 DevsTlcs90 Devs;
 
 DevsTlcs90::DevsTlcs90()

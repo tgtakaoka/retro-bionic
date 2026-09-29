@@ -63,7 +63,7 @@ umul16:
 ;;; Signed multiplication; result = multiplicand * multiplier
 ;;; @param BC multiplicand
 ;;; @param DE multiplier
-;;; @treturn HL result
+;;; @return HL result
 ;;; @clobber A
 mul16:
         ld      A, B
@@ -75,6 +75,7 @@ mul16:
         xor     HL, 0FFFFH
         inc     HL
         ld      BC, HL          ; multiplicand = -multiplicand
+;;; ATTENTION: misspelled; rename to mul16_abs_multiplicand.
 mul16_abs_muliplicand:
         bit     7, D
         jr      Z, mul16_multiply
@@ -92,8 +93,8 @@ mul16_multiply:
         ret
 
 ;;; Unsigned division; dividend / divisor = quotient ... remainder
-;;; @praram BC dividend
-;;; @praram DE divisor
+;;; @param BC dividend
+;;; @param DE divisor
 ;;; @return BC remainder
 ;;; @return HL quotient
 ;;; @clobber A DE
@@ -114,7 +115,7 @@ udiv16:
 udiv16_8:
         ld      A, E
         push    BC              ; save dividend
-        ld      L, B            ; high(divided)
+        ld      L, B            ; high(dividend)
         ld      H, 0
         div     HL, A
         ld      B, L            ; high(quotient)=high(dividend)/divisor
@@ -130,6 +131,9 @@ udiv16_8:
         ld      H, 0
         add     HL, BC          ; adjust quotient
         pop     BC              ; restore remainder
+        ;; ATTENTION: `ld C, 0` looks like it should be `ld B, 0`; the
+        ;; remainder then prints wrong (19536 as 19530) if DIV sets V on a
+        ;; quotient over 255. Verify DIV against the manual before fixing.
         ld      C, B
         ld      C, 0
         ret
@@ -157,6 +161,8 @@ udiv16_enter_loop:
         inc     C                 ; quotient |= 1
         dec     A
         jr      NZ, udiv16_loop ; while bits != 0
+        ;; ATTENTION: this exit skips the swap below, returning
+        ;; HL=remainder and BC=quotient swapped (divisors >= 256 only).
         ret
 udiv16_readd:
         add     HL, DE          ; dividend += divisor

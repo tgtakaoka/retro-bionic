@@ -7,7 +7,7 @@ ORG_INTT1:      equ     0038H   ; Timer 1
 ORG_INTT2:      equ     0040H   ; Timer 2
 ORG_INTT3:      equ     0048H   ; Timer 3
 ORG_INTRX:      equ     0070H   ; Serial receive
-ORG_INTTX:      equ     0078H   ; Serial transmit\
+ORG_INTTX:      equ     0078H   ; Serial transmit
 ;;; I/O Port
 ;;; Port 0,1,2 are used for data and address bus when #EA=0
 ;;; Port P37, P36, P35 are used for bus controls

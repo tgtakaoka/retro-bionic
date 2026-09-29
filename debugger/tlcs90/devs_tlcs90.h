@@ -2,6 +2,7 @@
 #define __DEVS_TLCS90_H__
 
 #include "devs.h"
+#include "serial_handler.h"
 
 #define USART_BASE 0xFFF0
 
@@ -39,7 +40,7 @@ private:
 
 }  // namespace tlcs90
 }  // namespace debugger
-#endif /* __DEVS_TLCS90H__ */
+#endif /* __DEVS_TLCS90_H__ */
 
 // Local Variables:
 // mode: c++

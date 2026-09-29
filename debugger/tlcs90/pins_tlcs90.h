@@ -36,11 +36,11 @@
 #define PORT_ADH 7   /* GPIO7 */
 #define ADH_gp 16    /* P7.16-P7.19 */
 #define ADH_gm 0xF   /* P7.16-P7.19 */
-#define ADH_vp 12    /* A12-A14 */
+#define ADH_vp 12    /* A12-A15 */
 #define PIN_AD12 8   /* P7.16 */
 #define PIN_AD13 7   /* P7.17 */
 #define PIN_AD14 36  /* P7.18 */
-#define PIN_AD15 37  /* P6.19 */
+#define PIN_AD15 37  /* P7.19 */
 #define PORT_CNTL 9  /* GPIO9 */
 #define CNTL_gp 4    /* P9.04-P9.05 */
 #define CNTL_gm 0x3  /* P9.04-P9.05 */
@@ -50,7 +50,7 @@
 #define CNTL_RD 0x1  /* CNTL0 */
 #define CNTL_WR 0x2  /* CNTL1 */
 #define PIN_TXD 0    /* P6.03 */
-#define PIN_RXD 1    /* P6.04 */
+#define PIN_RXD 1    /* P6.02 */
 #define PIN_X1 5     /* P9.08 */
 #define PIN_CLK 29   /* P9.31 */
 #define PIN_INT1 6   /* P7.10 */
@@ -101,7 +101,8 @@ private:
     void printCycles(const Signals *end);
     bool matchAll(Signals *begin, const Signals *end);
     const Signals *findFetch(Signals *begin, const Signals *end);
-    void disassembleCycles();
+    const SignalsImpl *findBacktraceStart() override;
+    void printBacktrace() override;
 };
 
 }  // namespace tlcs90
