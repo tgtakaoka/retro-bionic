@@ -144,7 +144,7 @@ addsi2:
         mov     @R0, A
         ret
 
-;;; Singed subtraction: minuend -= subtrahend
+;;; Signed subtraction: minuend -= subtrahend
 ;;; @param R2: &minuend
 ;;; @param R3: &subtrahend
 ;;; @clobber A R0 R2 R3
@@ -323,8 +323,8 @@ mulsi2_store:
         ret
 
 ;;; Unsigned division: dividend / divisor = quotient ... remainder
-;;; @praram R3:R2 dividend
-;;; @praram R5:R4 divisor
+;;; @param R3:R2 dividend
+;;; @param R5:R4 divisor
 ;;; @return R3:R2 quotient
 ;;; @return R5:R4 remainder
 ;;; @clobber A R0 R2 R3 R4 R5 R6 R7

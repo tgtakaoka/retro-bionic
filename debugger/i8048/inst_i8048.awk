@@ -13,6 +13,9 @@
 # 2: i80C39
 # 4: MSM80C39
 # 8: x80x48
+#
+# s: the machine cycles that strobe the bus (the rest only pulse ALE), as
+# Intel/OKI when they differ; - when every cycle strobes.
 
 BEGIN {
     if (MODE == "")
@@ -43,24 +46,38 @@ function generated_by(script,  i, cmd, line, word) {
     return cmd line;
 }
 
-function pretty_print(opc, mne, opr, len, cyc, flg) {
+function pretty_print(opc, mne, opr, len, cyc, flg, stb) {
     if (PRETTY_PRINT == 0)
         return;
-    printf("%-2s  %-5s  %-7s  %s  %s  %s\n", opc, mne, opr, len, cyc, flg);
+    printf("%-2s  %-5s  %-7s  %s  %s  %s  %s\n", opc, mne, opr, len, cyc, flg, stb);
 }
 
-function generate_TABLE(opc, mne, opr, len, cyc, flg) {
+# The machine cycles of |cyc| that don't strobe: 0 or 1, per |stb|'s half.
+function idle(cyc, stb) {
+    if (cyc - stb != 0 && cyc - stb != 1) {
+        printf("%s: idle cycles %d not 0 or 1\n", opc, cyc - stb) > "/dev/stderr";
+        exit 1;
+    }
+    return cyc - stb;
+}
+
+function generate_TABLE(opc, mne, opr, len, cyc, flg, stb,  s) {
     if (GENERATE_TABLE == 0)
         return;
     if (mne == "-") {
-        printf("        0,          // %s:\n", opc);
-    } else {
-        printf("        E(%d, %d, %d),  // %s: %-5s %s\n", len, cyc, flg, opc, mne, opr);
+        printf("        0,                // %s:\n", opc);
+        return;
     }
+    if (stb == "-")
+        stb = cyc;
+    if (split(stb, s, "/") == 1)
+        s[2] = s[1];
+    printf("        E(%d, %d, %d, %d, %d),  // %s: %-5s %s\n",
+           len, cyc, flg, idle(cyc, s[1]), idle(cyc, s[2]), opc, mne, opr);
 }
 BEGIN {
-    pretty_print("op", "mnemo", "operand", "#", "~", "F");
-    pretty_print("--", "-----", "-------", "-", "-", "-");
+    pretty_print("op", "mnemo", "operand", "#", "~", "F", "s");
+    pretty_print("--", "-----", "-------", "-", "-", "-", "-");
     if (GENERATE_TABLE) {
         printf("%s\n", GENERATED_BY);
         printf("constexpr uint8_t INST_TABLE[] = {\n");
@@ -79,7 +96,8 @@ $1 ~ /[0-9A-F][0-9A-F]/ {
     len = $4;
     cyc = $5;
     flg = $6;
+    stb = $7;
 
-    pretty_print(opc, mne, opr, len, cyc, flg);
-    generate_TABLE(opc, mne, opr, len, cyc, flg);
+    pretty_print(opc, mne, opr, len, cyc, flg, stb);
+    generate_TABLE(opc, mne, opr, len, cyc, flg, stb);
 }
