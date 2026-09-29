@@ -14,7 +14,7 @@ const char CDP1804A[] = "CDP1804A";
 // clang-format off
 //                              1         2         3         4         5         6         7
 //                    01234567890123456789012345678901234567890123456789012345678901234567890
-const char line1[] = "D=xx DF=x X=x P=x T=xx Q=x IE=1";
+const char line1[] = "PC=xxxx   D=xx    DF=x      X=x      P=x      T=xx     Q=x     IE=1";
 const char line2[] = "R0=xxxx  R1=xxxx  R2=xxxx  R3=xxxx  R4=xxxx  R5=xxxx  R6=xxxx  R7=xxxx";
 const char line3[] = "R8=xxxx  R9=xxxx R10=xxxx R11=xxxx R12=xxxx R13=xxxx R14=xxxx R15=xxxx";
 // clang-format on
@@ -30,17 +30,32 @@ RegsCdp1802::RegsCdp1802(PinsCdp1802 *pins)
  * TODO: distinguish CDP1804 and CDP1804A
  */
 void RegsCdp1802::setCpuType() {
-    _pins->inject(InstCdp1802::PREFIX);
-    auto s = _pins->startCycle();
-    if (s->fetch()) {
+    // After reset the chip spends a 9-clock initialization cycle in S1,
+    // fetching nothing: a byte offered to that cycle is simply dropped.
+    // Keep offering PREFIX until a fetch actually takes it.
+    Signals *s;
+    for (auto i = 0;; i++) {
+        s = _pins->inject(InstCdp1802::PREFIX);
+        if (s->fetch() && s->read())
+            break;
+        if (i == 3) {
+            _cpuType = CDP1802;
+            return;
+        }
+    }
+    // What the chip does next is the test, so run that cycle and judge
+    // it by the status it ran with -- startCycle()'s early peek can
+    // predate SC settling (up to 450ns after c7) and still show the
+    // fetch just done. DADI is consumed only on the double-fetch path;
+    // the illegal write on the other is captured, not mirrored.
+    Signals::put()->inject(InstCdp1802::DADI)->capture();
+    s = _pins->cycle();
+    if (s->fetch() && s->read()) {
         _cpuType = CDP1804A;
-        _pins->inject(InstCdp1802::DADI);
-        _pins->inject(0);
-        _pins->cycle();  // execution cycle
+        _pins->inject(0);  // DADI's immediate
+        _pins->cycle();    // its execution cycle
     } else {
         _cpuType = CDP1802;
-        s->capture();  // capture illegal write
-        _pins->cycle();
     }
 }
 
@@ -61,13 +76,17 @@ bool RegsCdp1802::is1804() const {
 }
 
 void RegsCdp1802::print() const {
-    _buffer1.hex8(2, _d);
-    _buffer1.hex4(8, _df);
-    _buffer1.hex4(12, _x);
-    _buffer1.hex4(16, _p);
-    _buffer1.hex8(20, _t);
-    _buffer1.hex4(25, _q);
-    _buffer1.hex4(30, _ie);
+    // The 1802 has no dedicated PC register -- R(P) is it -- but the
+    // bench tooling (bc.pc_from(), used throughout bionic-regress.py)
+    // looks for a "PC=" line on every target, so print one.
+    _buffer1.hex16(3, _r[_p]);
+    _buffer1.hex8(12, _d);
+    _buffer1.hex4(21, _df);
+    _buffer1.hex4(30, _x);
+    _buffer1.hex4(39, _p);
+    _buffer1.hex8(48, _t);
+    _buffer1.hex4(57, _q);
+    _buffer1.hex4(66, _ie);
     cli.println(_buffer1);
     for (auto i = 0; i < 8; i++)
         _buffer2.hex16(3 + i * 9, _r[i]);
@@ -97,8 +116,8 @@ void RegsCdp1802::save() {
         }
         _dirty[i] = false;
     }
-    _dirty[2] = true;                // becase of MARK
-    _dirty[_p] = true;               // becase this is a program counter
+    _dirty[2] = true;                // because of MARK
+    _dirty[_p] = true;               // because this is a program counter
     _r[_p] -= sizeof(SAV) + _p + 1;  // adjust program counter
 
     _df = _pins->skip(InstCdp1802::LSDF);  // LSDF: skip if DF=1
