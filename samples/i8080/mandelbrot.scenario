@@ -1,0 +1,39 @@
+# Scenario for scripts/record-scenario.py: the 8080's interrupt
+# acknowledge. There is no vector table fetch -- when the CPU takes INT,
+# it runs an INTA cycle and executes whatever instruction the device puts
+# on the data bus. The emulated 8251 answers with RST 6 (F7), which pushes
+# the return address and jumps to 0030, where a JMP leads to the handler.
+#
+# ADDRESS IS PINNED TO THE CURRENT samples/i8080/mandelbrot.hex:
+# isr_intr_tx at 0466. If mandelbrot.asm/.inc or the .hex ever change,
+# re-check it against the fresh .lst before recording -- a stale address
+# will look like it works (it disassembles *something*) while showing the
+# wrong thing.
+
+key ?
+pace 2.0
+
+key R
+upload samples/i8080/mandelbrot.hex
+
+# Stop at the transmit handler. The backtrace shows the interrupted
+# instruction, the INTA cycle reading F7 (RST 6), the two stack writes of
+# the return address, and the JMP at 0030.
+type g
+wait Go until?
+command 466 8
+pace 1.5
+
+# The return address the RST pushed sits on top of the stack at SP.
+type d
+wait Data dump?
+command FF0 10
+pace 2.0
+
+# Step through the handler's first instructions: PUSH PSW, then the
+# 8251 status read.
+step 2
+pace 1.5
+
+# Watch one frame render; it takes about 2 minutes 10 seconds.
+run 1 300

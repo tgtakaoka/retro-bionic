@@ -41,7 +41,7 @@ private:
 
 }  // namespace i8080
 }  // namespace debugger
-#endif /* __SIGNALS_H__ */
+#endif /* __SIGNALS_I8080_H__ */
 
 // Local Variables:
 // mode: c++
