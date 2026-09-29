@@ -13,8 +13,8 @@ using tms370::InstTms370;
 
 // clang-format off
 /**
- * CAVIATE: The following timing chart is when AUTO_WAIT_DISABLE is set. Unfortunately any silicon
- * chip in my hand can't response interrupt in this configuration (see RegsTms370::reset()).  The
+ * CAVEAT: The following timing chart is when AUTO_WAIT_DISABLE is set. Unfortunately any silicon
+ * chip in my hand can't respond to interrupts in this configuration (see RegsTms370::reset()).  The
  * current implementation use AUTO WAIT enabled, so that external memory access use 2 SYSCLK
  * cycles. Though TMS370 Family User's Guide says that external memory access use 3 SYSCLK cycles
  * when AUTO WAIT enabled (Table 4-2. Wait-State Control Bits).
@@ -250,18 +250,16 @@ void PinsTms370Cx5x::pauseCpu() {
 
 void PinsTms370Cx5x::resumeCpu() {
     if (wait_asserted()) {
-        // CPU may halt because of oscillator fault
-        uint_fast8_t sysclk = 0;
+        // SYSCLK, CLKIN/4, goes low within 8 CLKIN cycles unless the
+        // oscillator fault logic has halted the CPU.
         for (uint_fast8_t i = 0; i < 8; i++) {
             clkin_cycle_lo();
             if (digitalReadFast(PIN_SYSCLK) == LOW) {
                 negate_wait();
                 return;
             }
-            sysclk++;
         }
-        if (sysclk < 2)
-            resetCpu();
+        resetCpu();
         negate_wait();
     }
 }
@@ -330,6 +328,9 @@ void PinsTms370Cx5x::loop() {
                             InstTms370::VEC_TRAP15) {
                 goto stop;
             }
+            // IDLE stops the bus, and the halt switch with it.
+            if (inst == InstTms370::IDLE)
+                goto stop;
             s->inject(inst);
         }
         completeCycle(s);
@@ -339,14 +340,16 @@ void PinsTms370Cx5x::loop() {
 
 void PinsTms370Cx5x::run() {
     saveBreakInsts();
+    startRunTimer();
     loop();
+    stopRunTimer();
     restoreBreakInsts();
     disassembleCycles();
 }
 
 bool PinsTms370Cx5x::rawStep() {
     const auto inst = _mems->read(_regs->nextIp());
-    if (inst == InstTms370::TRAP15)
+    if (inst == InstTms370::TRAP15 || inst == InstTms370::IDLE)
         return false;
     resumeCpu();
     auto s = prepareCycle();
@@ -357,7 +360,7 @@ bool PinsTms370Cx5x::rawStep() {
         delayNanoseconds(clkin_ns);
         clkin_cycle_lo();
     }
-    // execute bys cycles until #OCF asserted
+    // execute bus cycles until #OCF asserted
     while (true) {
         while (!eds_asserted() && !ocf_asserted())
             clkin_cycle_lo();

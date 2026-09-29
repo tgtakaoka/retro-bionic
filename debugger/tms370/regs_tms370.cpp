@@ -26,11 +26,11 @@ void RegsTms370::print() const {
     _pins->idle();
 }
 
-/* CAVIATE: Disabling AUTO_WAIT causes Interrupt response to stall Not
+/* CAVEAT: Disabling AUTO_WAIT causes Interrupt response to stall Not
    sure this is my misunderstanding or a bug. */
 void RegsTms370::reset() {
     // set SCCR0.6 (OSC POWER ON)
-    // set SCCR1.4 (AITO-WAIT DISABLE)
+    // set SCCR1.4 (AUTO-WAIT DISABLE)
     constexpr auto DUMMY = 0x2000;
     static constexpr uint8_t CONFIG[] = {
         lo(DUMMY), hi(DUMMY),  // inject dummy reset vector
@@ -61,6 +61,9 @@ void RegsTms370::save() {
     _st = buffer[1];
     _b = buffer[2];
     _sp = buffer[3];
+    // STSP left SP in A and B
+    write_internal(A, _a);
+    write_internal(B, _b);
 }
 
 void RegsTms370::restore() {

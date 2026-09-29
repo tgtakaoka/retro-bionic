@@ -22,11 +22,11 @@ print_uint16_loop:
         mov     R4, A
         or      R5, A
         jz      print_uint16_end
-        push    R6
+        push    R7
         mov     #10, R7
-        call    udiv16_8        ; R4:R5/R6 => R4/R5...B
-        pop     R6
-        push    B               ; push reminder
+        call    udiv16_8        ; R4:R5/R7 => R4:R5...B
+        pop     R7
+        push    B               ; push remainder
         call    print_uint16_loop
         pop     A
 print_uint16_zero:
@@ -39,7 +39,7 @@ print_uint16_end:
 ;;; @param R4:R5 dividend
 ;;; @param R7 divisor
 ;;; @return R4:R5 quotient
-;;; @return B reminder
+;;; @return B remainder
 ;;; @clobber A
 udiv16_8:
         mov     R4, B
@@ -48,7 +48,7 @@ udiv16_8:
         mov     A, R4           ; R4=high(quotient)
         mov     B, A
         mov     R5, B           ; A:B=R4%R6:R5
-        div     R7, A           ; A=low(quotient), B=reminder
+        div     R7, A           ; A=low(quotient), B=remainder
         mov     A, R5           ; R5=low(quotient)
         rts
 
@@ -151,11 +151,11 @@ mul16_multiply:
 mul16_end:
         rts
 
-;;; Unsigned division: dividend / divisor = quotient ... reminder
-;;; @praram R4:R5 dividend
-;;; @praram R6:R7 divisor
+;;; Unsigned division: dividend / divisor = quotient ... remainder
+;;; @param R4:R5 dividend
+;;; @param R6:R7 divisor
 ;;; @return R4:R5 quotient
-;;; @return R6:R7 reminder
+;;; @return R6:R7 remainder
 ;;; @clobber A B
 udiv16:
         mov     R6, A
@@ -193,16 +193,16 @@ udiv16_next:
         djnz    R8, udiv16_loop
         rlc     R5
         rlc     R4
-        movw    R1, R7          ; save reminder
+        movw    R1, R7          ; save remainder
         pop     R8
 udiv16_end:
         rts
 
-;;; Division: dividend / divisor = quotient ... reminder
+;;; Division: dividend / divisor = quotient ... remainder
 ;;; @param R4:R5 dividend
 ;;; @param R6:R7 divisor
 ;;; @return R4:R5 quotient
-;;; @return R6:R7 reminder
+;;; @return R6:R7 remainder
 ;;; @clobber A
 div16:
         mov     R4, A
@@ -218,7 +218,7 @@ div16_dividend:
         inv     R4
         inv     R5
         inc     R5
-        adc     #0, R4          ; negate divisor
+        adc     #0, R4          ; negate dividend
 div16_divide:
         call    udiv16          ; R4:R5=quotient
         pop     A               ; A=(dividend^divisor)
