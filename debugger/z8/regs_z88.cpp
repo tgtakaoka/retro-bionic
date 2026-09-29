@@ -136,7 +136,7 @@ uint_fast8_t RegsZ88::read_reg(uint8_t addr, RegSpace space) {
     const auto r0 = save_r(0);
     uint8_t val;
     if (space == SET_TWO && addr >= 0xC0) {
-        // Accessed by Indirect register, Indexed regiser, and stack operation
+        // Accessed by Indirect register, Indexed register, and stack operation
         const uint8_t READ_TWO[] = {
                 0x0C, addr,  // LD R0,#addr
                 0xC7, 0x00,  // LD R0,@R0
@@ -155,13 +155,27 @@ uint_fast8_t RegsZ88::read_reg(uint8_t addr, RegSpace space) {
 }
 
 void RegsZ88::write_reg(uint8_t addr, uint8_t val, RegSpace space) {
+    if (space == SET_TWO && addr >= 0xC0) {
+        // Accessed by Indirect register, Indexed register, and stack operation
+        const auto rp0 = save_rp0();
+        restore_rp0(R(0));
+        const auto r0 = save_r(0);
+        const uint8_t WRITE_TWO[] = {
+                0x0C, addr,       // LD R0,#addr
+                0xD6, R(0), val,  // LD @R0,#val
+        };
+        _pins->execInst(WRITE_TWO, sizeof(WRITE_TWO));
+        restore_r(0, r0);
+        restore_rp0(rp0);
+        return;
+    }
+    if (addr >= 0xE0)
+        switchBank(space);
     const uint8_t WRITE_REG[] = {
             0xE6, addr, val,  // LD addr,#val
     };
     _pins->execInst(WRITE_REG, sizeof(WRITE_REG));
     update_r(addr, val);
-    if (addr == RP0 || addr == RP1)
-        save_all_r();
 }
 
 void RegsZ88::update_r(uint_fast8_t addr, uint_fast8_t val) {
@@ -200,10 +214,12 @@ void RegsZ88::set_rp(uint_fast8_t val) {
 
 void RegsZ88::set_rp0(uint_fast8_t val) {
     write_reg(RP0, _rp0 = val);
+    save_all_r();
 }
 
 void RegsZ88::set_rp1(uint_fast8_t val) {
     write_reg(RP1, _rp1 = val);
+    save_all_r();
 }
 
 void RegsZ88::helpRegisters() const {

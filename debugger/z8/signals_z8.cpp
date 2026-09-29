@@ -30,7 +30,15 @@ void Signals::print() const {
     buffer[0] = read() ? 'R' : 'W';
     buffer.hex16(4, addr);
     buffer.hex8(11, data);
+#ifdef PROFILE_CYCLES
+    // How many cycles the matcher gave a marked fetch, for
+    // tools/cycles_z86.py and tools/cycles_z88.py.
+    cli.print(buffer);
+    cli.print(" m=");
+    cli.printlnDec(matched());
+#else
     cli.println(buffer);
+#endif
 }
 
 }  // namespace z8

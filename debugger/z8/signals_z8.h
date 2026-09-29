@@ -16,6 +16,10 @@ struct Signals final : SignalsBase<Signals> {
     bool write() const { return rw() == 0; }
     bool fetch() const { return _signals[1]; }
     uint8_t &fetch() { return _signals[1]; }
+#ifdef PROFILE_CYCLES
+    // The bus cycles the matcher gave a marked fetch.
+    uint8_t matched() const { return _signals[1]; }
+#endif
 
 private:
     uint8_t rw() const { return _signals[0]; }
@@ -24,7 +28,7 @@ private:
 
 }  // namespace z8
 }  // namespace debugger
-#endif /* __SIGNALS_Z86_H__ */
+#endif /* __SIGNALS_Z8_H__ */
 
 // Local Variables:
 // mode: c++

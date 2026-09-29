@@ -26,7 +26,7 @@ void MemsZ88::put_data(uint32_t addr, uint16_t data) const {
     } else if (addr < 0x300) {
         _regs->write_reg(addr, data, SET_TWO);
     } else {
-        read(addr);
+        write(addr, data);
     }
 }
 

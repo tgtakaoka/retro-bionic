@@ -1,0 +1,118 @@
+# How each sample must be driven. See scripts/bionic-regress.py's
+# drive_table() for the key shapes this file can use.
+
+# The chips, as their banners name them, this file is for.
+chips = ["Z86C91"]
+
+# "The first address available for a user program is location 12. This
+# address is loaded into the Program Counter after a hardware reset."
+# (Z8 Microcomputer Technical Manual, CPU Program Memory); ORG_RESET in
+# z86.inc is %000C.
+[reset]
+PC = "000C"
+
+# Derived from arith.asm's test table (every "; answer" comment agrees):
+# a step that loads only one operand keeps the other from the step
+# before, and each comparison line ends with the C, Z, S and V flags
+# cmpsi2 leaves for the 16-bit subtraction (C is a borrow), none when
+# all four are clear.
+[arith]
+expect = """
+0 - -28000 = 28000
+0 - 28000 = -28000
+18000 + 28000 = -19536
+18000 + -18000 = 0
+-28000 + -18000 = 19536
+18000 - -28000 = -19536
+18000 - -18000 = -29536
+-28000 - -18000 = -10000
+300 * -200 = 5536
+100 * -300 = -30000
+-200 * -100 = 20000
+-200 / 100 = -2
+30000 / 100 = 300
+-30000 / -200 = 150
+-30000 / 78 = -384
+5000 > 4000
+5000 = 5000 Z
+4000 < 5000 CS
+-5000 < -4000 CS
+-5000 = -5000 Z
+-4000 > -5000
+32700 > 32600
+32700 = 32700 Z
+32600 < 32700 CS
+-32700 < -32600 CS
+-32700 = -32700 Z
+-32600 > -32700
+18000 > -28000 CSV
+18000 = 18000 Z
+-28000 < 18000 V"""
+
+[echo]
+feed = "ok\r"
+expect = "ok"
+
+[echoir]
+feed = "irq\r"
+expect = "irq"
+
+# Prints "<char> 0xXX 0bXXXXXXXX" per received byte, one line each
+# including the trailing \r.
+[echoitr]
+feed = "itr\r"
+expect = """
+i 0x69 0b01101001
+t 0x74 0b01110100
+r 0x72 0b01110010
+ 0x0D 0b00001101"""
+
+# The same echoes through the on-chip serial port (SIO), with the
+# console switched to it for the run.
+# Skipped: the default build leaves ENABLE_SERIAL_HANDLER off
+# (config_debugger.h).
+[sio]
+io = "SIO"
+feed = "ok\r"
+expect = "ok"
+skip = true
+
+[sioir]
+io = "SIO"
+feed = "irq\r"
+expect = "irq"
+skip = true
+
+[sioitr]
+io = "SIO"
+feed = "itr\r"
+expect = """
+i 0x69 0b01101001
+t 0x74 0b01110100
+r 0x72 0b01110010
+ 0x0D 0b00001101"""
+skip = true
+
+# Console I/O patch for the Z8671 BASIC ROM, not a stand-alone program.
+[z8671patch]
+skip = true
+
+# Halts at the first completed frame, or once 6 rows are drawn and at
+# least 20 seconds have passed; checks everything drawn so far.
+[mandelbrot]
+golden = "samples/arith/mandelbrot.golden"
+lines = 6
+
+# A random halt point, not always the same one, catches a corrupted
+# resume that only shows up mid-instruction.
+[haltgo]
+program = "mandelbrot"
+halt_interval = [0.05, 0.3]
+
+[breakpoint]
+program = "mandelbrot"
+break_at = "loop_x"
+
+[gountil]
+program = "mandelbrot"
+break_at = "loop_x"

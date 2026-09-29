@@ -4,6 +4,7 @@
 #include "inst_z86.h"
 #include "mems_z86.h"
 #include "regs_z86.h"
+#include "z86_sio_handler.h"
 
 namespace debugger {
 namespace z86 {
@@ -20,11 +21,11 @@ namespace z86 {
  *       __|___________|  |              |_____|___________|_____|          |______|
  *   #DS   |           |__|______________|     |           |     |__________|      |
  *         |______________|         _____       ___________|_______________________
- *    P0 --<____A7-A0_____>--------<D7-D0>-----<___A7-A0___X________D0-D7__________X
+ *    P1 --<____A7-A0_____>--------<D7-D0>-----<___A7-A0___X________D0-D7__________X
  *         |___________________________________|                                   |
  *  R/#W --|                                   |___________________________________/
  *          ___________________________________ ___________________________________
- *    P1 --X_____________A15-A8________________X______________A15-A8_______________X
+ *    P0 --X_____________A15-A8________________X______________A15-A8_______________X
  */
 // clang-format on
 namespace {
@@ -33,7 +34,7 @@ namespace {
 //  TwAS: min  40 ns; #AS width
 //   TdA: min  25 ns; Address valid to #AS+
 //  TdAS: min  35 ns; #AS+ to Address hold
-//  TdAS: min  45 ns; #AS+ to #DS-
+// TdAS(DS): min  45 ns; #AS+ to #DS-
 // TwDSR: min 135 ns; #DS read width
 // TdDSR: max  75 ns; #DS- to read data
 //  TdDI: min  60 ns; #DS+ to data input setup
