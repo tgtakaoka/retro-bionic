@@ -45,6 +45,8 @@ void Signals::getData() {
 void Signals::outData() const {
     busWrite(AD, data);
     busMode(AD, OUTPUT);
+    // ATTENTION: releasing the bus right away leaves read data held only
+    // by bus capacitance; confirm this is intended.
     busMode(AD, INPUT);
 }
 
