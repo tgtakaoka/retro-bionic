@@ -107,6 +107,7 @@ mul16:
         sbc     HL, BC
         ld      B, H
         ld      C, L            ; multiplicand = -multiplicand
+;;; ATTENTION: misspelled; rename to mul16_abs_multiplicand.
 mul16_abs_muliplicand:
         bit     7, D
         jr      Z,  mul16_multiply
@@ -132,8 +133,8 @@ mul16_return:
         ret
 
 ;;; Unsigned division; dividend / divisor = quotient ... remainder
-;;; @praram BC dividend
-;;; @praram DE divisor
+;;; @param BC dividend
+;;; @param DE divisor
 ;;; @return BC remainder
 ;;; @return HL quotient
 ;;; @clobber A DE

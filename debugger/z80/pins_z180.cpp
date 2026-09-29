@@ -356,7 +356,9 @@ void PinsZ180::run() {
     _regs->restore();
     Cycles::reset();
     saveBreakInsts();
+    startRunTimer();
     auto s = loop();
+    stopRunTimer();
     assert_wait();
     Cycles::discard(s);
     restoreBreakInsts();
@@ -423,7 +425,11 @@ void PinsZ180::printCycles() {
     }
 }
 
-void PinsZ180::disassembleCycles() {
+const SignalsImpl *PinsZ180::findBacktraceStart() {
+    return backtraceStartByFetchCount<Signals>(_lineLimit);
+}
+
+void PinsZ180::printBacktrace() {
     const auto g = Signals::get();
     const auto cycles = g->diff(Signals::put());
     for (auto i = 0u; i < cycles;) {

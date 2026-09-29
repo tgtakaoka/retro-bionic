@@ -1,4 +1,6 @@
 ;;; -*- mode: asm; mode: flyspell-prog; -*-
+;;; ATTENTION: stray, unused copy that differs from samples/z180/z180.inc
+;;; (e.g. ITE1/ITE0 comments); remove or sync it.
         include "z80.inc"
         cpu     z180
 ;;; WAIT Control
