@@ -2,7 +2,7 @@
 #define __PINS_MC6801_H__
 
 /**
- * For LILBUG's trace, Timer ouput (P21/PC1) must be connected to #NMI on board.
+ * For LILBUG's trace, Timer output (P21/PC1) must be connected to #NMI on board.
  */
 
 /**

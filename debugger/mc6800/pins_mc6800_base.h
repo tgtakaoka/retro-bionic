@@ -6,7 +6,7 @@
 #include "signals_mc6800.h"
 
 #define PORT_CNTL 9  /* GPIO9 */
-#define CNTL_gp 4    /* P9.04-P4.07 */
+#define CNTL_gp 4    /* P9.04-P9.07 */
 #define CNTL_gm 0xF  /* P9.04-P9.07 */
 #define CNTL_vp 0    /* CNTL0-CNTL3 */
 #define PIN_RW 3     /* P9.05 */
@@ -35,6 +35,7 @@ struct PinsMc6800Base : Pins {
 
     void injectReads(const uint8_t *inst, uint8_t len, uint8_t cycles = 0);
     void captureWrites(uint8_t *buf, uint8_t len, uint16_t *addr = nullptr);
+    // ATTENTION: misspelled; rename to nonVmaAfterContextSave.
     virtual bool nonVmaAfteContextSave() const { return true; }
 
 protected:
@@ -50,7 +51,8 @@ protected:
     void printCycles(const Signals *end);
     bool matchAll(Signals *begin, const Signals *end);
     const Signals *findFetch(Signals *begin, const Signals *end);
-    virtual void disassembleCycles();
+    const SignalsImpl *findBacktraceStart() override;
+    virtual void printBacktrace() override;
 };
 
 }  // namespace mc6800

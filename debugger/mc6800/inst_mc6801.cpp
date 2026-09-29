@@ -13,11 +13,11 @@ namespace {
 # W: write 1 byte, equals to R if exists or w-1
 # w: write 1 byte at address W+1
 # A: read 1 byte at address |addr|
-# a: read 1 byte ar A+1
+# a: read 1 byte at A+1
 # D: read 1 byte from direct page (00|disp|)
 # d: read 1 byte at address (D+1)
 # B: write 1 byte at address addr
-# b: write 1 byte ar B+1
+# b: write 1 byte at B+1
 # E: write 1 byte to direct page (00xx), equals to D if exists
 # e: write 1 byte at address E+1
 # N: next instruction read from |next|

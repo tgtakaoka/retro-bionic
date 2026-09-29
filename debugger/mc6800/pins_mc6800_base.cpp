@@ -76,7 +76,7 @@ void PinsMc6800Base::loop() {
             const auto frame = Signals::put()->prev(_writes);
             if (nonVmaAfteContextSave())
                 cycle();                  // non VMA cycle
-            const auto vec_hi = cycle();  // read interruput high(vector)
+            const auto vec_hi = cycle();  // read interrupt high(vector)
             const auto vec_swi = _inst->vec_swi();
             if (vec_hi->addr == vec_swi) {
                 cycle();  // read interrupt low(vector)
@@ -99,7 +99,7 @@ void PinsMc6800Base::suspend(bool show) {
     assert_nmi();
 reentry:
     _writes = 0;
-    // Wait for consequtive writes which means registers saved onto stack.
+    // Wait for consecutive writes which means registers saved onto stack.
     while (_writes < regs<RegsMc6800>()->contextLength())
         cycle();
     negate_nmi();
@@ -125,7 +125,9 @@ void PinsMc6800Base::run() {
     _regs->restore();
     Cycles::reset();
     saveBreakInsts();
+    startRunTimer();
     loop();
+    stopRunTimer();
     restoreBreakInsts();
     disassembleCycles();
 }
@@ -219,7 +221,20 @@ const Signals *PinsMc6800Base::findFetch(Signals *begin, const Signals *end) {
     return end;
 }
 
-void PinsMc6800Base::disassembleCycles() {
+// fetch() isn't live here: findFetch()/matchAll() mark it only as a
+// side effect of matching decoded instructions against captured bus
+// cycles, so that has to run -- once, right here -- before
+// backtraceStartFrom() counting fetch() cycles means anything.
+// printBacktrace() re-runs it over the now-disposed range, which
+// re-derives the same marks.
+const SignalsImpl *PinsMc6800Base::findBacktraceStart() {
+    const auto end = Signals::put();
+    // Make room for idle cycles -- see printBacktrace().
+    const auto begin = findFetch(Signals::get()->next(4), end);
+    return backtraceStartFrom<Signals>(begin, _lineLimit);
+}
+
+void PinsMc6800Base::printBacktrace() {
     const auto end = Signals::put();
     // Make room for idle cycles.
     const auto begin = findFetch(Signals::get()->next(4), end);
