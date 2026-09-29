@@ -826,13 +826,13 @@ is not an optimisation — it is the only thing that works.
 
 The Z-BUS cannot tell an opcode fetch from a data read and the prefetch
 unit runs ahead, so no per-opcode bus-cycle listing can be read off the
-manual the way TLCS90 and i8096's can. `profile_z280.py` runs every
-pattern of libasm's `gen_z280.lst` (kept as `profile/gen_z280.lst.zst`)
-plus every other opcode libasm decodes (`profile/z280-opcodes.txt.zst`)
+manual the way TLCS90 and i8096's can. `tools/record_cycles.py` runs every
+pattern of libasm's `gen_z280.lst` (kept as `tools/gen_z280.lst.zst`)
+plus every other opcode libasm decodes (`tools/z280-opcodes.txt.zst`)
 in isolation, with memory filled with `FF` = `RST 38H` so any transfer
-breaks at once, and `derive_z280.py` turns the recordings into
+breaks at once, and `tools/derive_tables.py` turns the recordings into
 `z280-PAGExx.txt`, which `inst_z280.awk` turns into tables. The raw
-recording is committed as `profile/z280-profile.jsonl.zst` (zstd, one
+recording is committed as `tools/z280-profile.jsonl.zst` (zstd, one
 JSON line per run, read and written by the scripts through Python
 3.14's `compression.zstd`), so the tables can be re-derived or the
 recording extended by anyone with the board. The tables are
@@ -890,7 +890,7 @@ until the chain holds; a cut tail unravels from its end this way.
 failed match undoes only its own marks: the instruction before it
 may own data cycles inside its window.
 
-`profile_z280.py check` cross-checks every dumped line of the samples
+`tools/record_cycles.py check` cross-checks every dumped line of the samples
 against their listings and allows just that; `test/z280/test_inst_z280`
 (`pio test -e native`) replays captured dumps through the matcher on
 the host, checks every mark against the listing, and with

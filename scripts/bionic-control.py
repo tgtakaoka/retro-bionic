@@ -2,9 +2,10 @@
 """Bench tool for the Bionic debugger board -- any target.
 
 Purely a board controller: sends bytes, reads bytes, manages recovery and
-timing. Nothing here decodes what comes back -- that's bionic-report.py's
-job -- and nothing here knows about any other piece of bench equipment --
-that's logic-analyzer.py's job.
+timing. Nothing here decodes what comes back -- that's a target's own
+debugger/<target>/tools/ job (e.g. decode_capture.py for Z280) -- and
+nothing here knows about any other piece of bench equipment -- that's
+logic-analyzer.py's job.
 
 Subcommands
   flash            build and upload, retrying (boards differ: some take
