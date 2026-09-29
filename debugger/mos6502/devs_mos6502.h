@@ -29,7 +29,7 @@ private:
 
 }  // namespace mos6502
 }  // namespace debugger
-#endif /* __DEVS_MOS6502H__ */
+#endif /* __DEVS_MOS6502_H__ */
 
 // Local Variables:
 // mode: c++

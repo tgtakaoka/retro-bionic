@@ -182,7 +182,7 @@ void PinsMos6502::checkHardwareType() {
     delayNanoseconds(500);
     assert_reset();
     if (signal_phi1o() == LOW) {
-        // PIN_PHI1O is iverted PIN_PHI0, means not W65C816_ABORT.
+        // PIN_PHI1O is inverted PIN_PHI0, means not W65C816_ABORT.
         if (signal_vp() == LOW) {
             // PIN_VP keeps LOW, means Vss of MOS6502, G65SC02, R65C02.
             _hardType = HW_MOS6502;
@@ -248,7 +248,7 @@ void PinsMos6502::resetPins() {
     pinsMode(PINS_INPUT, sizeof(PINS_INPUT), INPUT);
 
     checkHardwareType();
-    // #RES must be held low for at lease two clock cycles.
+    // #RES must be held low for at least two clock cycles.
     for (auto i = 0; i < 10; i++)
         cycle();
     auto s = prepareCycle();
@@ -257,10 +257,10 @@ void PinsMos6502::resetPins() {
     Cycles::reset();
     const auto reset_vec = _mems->read16(InstMos6502::VECTOR_RESET);
     _mems->write16(InstMos6502::VECTOR_RESET, 0x1000);  // dummy vector
-    // When a positive edge is detected, there is an initalization
+    // When a positive edge is detected, there is an initialization
     // sequence lasting seven clock cycles.
     for (auto i = 0; i < 10; i++) {
-        // there may be suprious write
+        // there may be spurious write
         const auto s = completeCycle(prepareCycle()->capture());
         // Read dummy reset vector
         if (s->vector() && s->addr == InstMos6502::VECTOR_RESET + 1)
@@ -272,7 +272,7 @@ void PinsMos6502::resetPins() {
     checkSoftwareType();
     negate_rdy();
     _regs->setIp(reset_vec);
-    _mems->write_byte(InstMos6502::VECTOR_RESET, reset_vec);
+    _mems->write16(InstMos6502::VECTOR_RESET, reset_vec);
 }
 
 Signals *PinsMos6502::rawPrepareCycle() {
@@ -315,7 +315,7 @@ Signals *PinsMos6502::completeCycle(Signals *s) {
         delayNanoseconds(phi0_hi_read_post);
         // [W65C816] Switch bus direction before falling PHI0 to avoid
         // bus conflict with bank address of next bus cycle. The
-        // output data are retained by the bus-hold curcuit until bank
+        // output data are retained by the bus-hold circuit until bank
         // address is on the bus.
         Signals::inputMode();
         phi0_lo();
@@ -376,7 +376,7 @@ void PinsMos6502::idle() {
     phi0_lo();
 }
 
-void PinsMos6502::loop() {
+bool PinsMos6502::loop() {
     while (true) {
         _devs->loop();
         delayNanoseconds(phi0_lo_fetch);
@@ -385,19 +385,15 @@ void PinsMos6502::loop() {
             const auto inst = _mems->read_byte(s->addr);
             if (inst == InstMos6502::BRK) {
                 const auto opr = _mems->read_byte(s->addr + 1);
-                if (opr == 0 || isBreakPoint(s->addr)) {
-                    suspend();
-                    return;
-                }
+                if (opr == 0 || isBreakPoint(s->addr))
+                    return suspend();
             }
         } else {
             delayNanoseconds(phi0_lo_loop);
         }
         completeCycle(s);
-        if (haltSwitch()) {
-            suspend();
-            return;
-        }
+        if (haltSwitch())
+            return suspend();
     }
 }
 
@@ -406,20 +402,31 @@ void PinsMos6502::run() {
     Cycles::reset();
     saveBreakInsts();
     assert_rdy();
-    loop();
+    startRunTimer();
+    const auto stopped = loop();
+    stopRunTimer();
     negate_rdy();
     restoreBreakInsts();
     disassembleCycles();
-    _regs->save();
+    // A failed halt leaves the CPU stopped mid-instruction: keep the
+    // registers from the last good save.
+    if (stopped)
+        _regs->save();
 }
 
-void PinsMos6502::suspend() {
-    while (true) {
+// Cycles to wait for the next opcode fetch; an instruction or interrupt
+// takes under 10, but WAI, STP and the NMOS JAM opcodes never fetch again.
+constexpr auto fetch_cycles = 32;
+
+bool PinsMos6502::suspend() {
+    for (auto n = 0; n < fetch_cycles; ++n) {
         auto s = prepareCycle();
         if (s->fetch())
-            return;
+            return true;
         completeCycle(s);
     }
+    cli.println("?halt: no fetch");
+    return false;
 }
 
 bool PinsMos6502::rawStep() {
@@ -434,11 +441,9 @@ bool PinsMos6502::rawStep() {
     }
     assert_rdy();
     completeCycle(s);
-    while (true) {
-        auto s = prepareCycle();
-        if (s->fetch())
-            break;
-        completeCycle(s);
+    if (!suspend()) {
+        negate_rdy();
+        return false;
     }
     negate_rdy();
     return true;
@@ -458,11 +463,11 @@ bool PinsMos6502::step(bool show) {
     return false;
 }
 
-void PinsMos6502::assertInt(uint8_t name) {
+void PinsMos6502::assertInt(uint8_t) {
     assert_irq();
 }
 
-void PinsMos6502::negateInt(uint8_t name) {
+void PinsMos6502::negateInt(uint8_t) {
     negate_irq();
 }
 
@@ -479,7 +484,11 @@ void PinsMos6502::printCycles() {
     }
 }
 
-void PinsMos6502::disassembleCycles() {
+const SignalsImpl *PinsMos6502::findBacktraceStart() {
+    return backtraceStartByFetchCount<Signals>(_lineLimit);
+}
+
+void PinsMos6502::printBacktrace() {
     const auto g = Signals::get();
     const auto cycles = g->diff(Signals::put());
     for (auto i = 0u; i < cycles;) {
