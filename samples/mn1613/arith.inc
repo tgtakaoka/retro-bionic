@@ -91,6 +91,6 @@ mul16:
         m       DR0, (R2)       DR0=|multiplicand|*|multiplier|
         tbit    R3, 0, z        skip if product needs not to be negated
         neg     R1, c           negate low(product)
-        mv      SP, R2          discard pushed |multiplier|
+        mv      SP, R2          discard pushed |multiplicand|
         pop     R3
         ret

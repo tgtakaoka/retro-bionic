@@ -54,8 +54,8 @@
 #define CNTL_WRT 8      /* CNTL3 */
 #define CNTL_IOP 0x10   /* CNTL4 */
 #define CNTL_FETCH 0x20 /* CNTL5 */
-#define PIN_ST 0        /* P6.03 */
-#define PIN_SD 1        /* P6.02 */
+#define PIN_ST 1        /* P6.02 */
+#define PIN_SD 0        /* P6.03 */
 #define PIN_X2 29       /* P9.31 */
 #define PIN_IRQ0 6      /* P7.10 */
 #define PIN_IRQ1 9      /* P7.11 */
@@ -104,15 +104,16 @@ private:
     Signals *waitBus() const;
     Signals *prepareCycle(Signals *) const;
     Signals *completeCycle(Signals *s) const;
-    void loop();
+    bool loop(bool &switched);
     bool rawStep();
 
-    void disassembleCycles();
+    const SignalsImpl *findBacktraceStart() override;
+    void printBacktrace() override;
 };
 
 }  // namespace mn1613
 }  // namespace debugger
-#endif /* __PINS_H__ */
+#endif /* __PINS_MN1613_H__ */
 
 // Local Variables:
 // mode: c++
