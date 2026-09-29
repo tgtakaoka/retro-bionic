@@ -30,7 +30,7 @@ private:
 
 }  // namespace f3850
 }  // namespace debugger
-#endif /* __DEVS_F3850H__ */
+#endif /* __DEVS_F3850_H__ */
 
 // Local Variables:
 // mode: c++

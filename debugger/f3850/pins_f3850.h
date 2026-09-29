@@ -26,13 +26,13 @@
 #define PIN_IO06 26   /* P6.30 */
 #define PIN_IO07 27   /* P6.31 */
 #define PORT_IO1L 7   /* GPIO7 */
-#define IO1L_gp 0     /* P7.01-P7.03 */
-#define IO1L_gm 0xF   /* P7.01-P7.03 */
+#define IO1L_gp 0     /* P7.00-P7.03 */
+#define IO1L_gm 0xF   /* P7.00-P7.03 */
 #define IO1L_vp 0     /* IO10-IO13 */
 #define PIN_IO1L0 10  /* P7.0 */
 #define PIN_IO1L1 12  /* P7.1 */
 #define PIN_IO1L2 11  /* P7.2 */
-#define PIN_IO1L3 13  /* P6.3 */
+#define PIN_IO1L3 13  /* P7.3 */
 #define PORT_IO1H 7   /* GPIO7 */
 #define IO1H_gp 16    /* P7.16-P7.19 */
 #define IO1H_gm 0xF   /* P7.16-P7.19 */
@@ -40,22 +40,22 @@
 #define PIN_IO1H4 8   /* P7.16 */
 #define PIN_IO1H5 7   /* P7.17 */
 #define PIN_IO1H6 36  /* P7.18 */
-#define PIN_IO1H7 37  /* P6.19 */
+#define PIN_IO1H7 37  /* P7.19 */
 #define PORT_ROMC 9   /* GPIO9 */
 #define ROMC_gp 4     /* P9.04-P9.08 */
 #define ROMC_gm 0x1F  /* P9.04-P9.08 */
 #define ROMC_vp 0     /* ROMC0-ROMC4 */
 #define PIN_ROMC0 2   /* P9.04 */
 #define PIN_ROMC1 3   /* P9.05 */
-#define PIN_ROMC2 4   /* P9.66 */
+#define PIN_ROMC2 4   /* P9.06 */
 #define PIN_ROMC3 33  /* P9.07 */
 #define PIN_ROMC4 5   /* P9.08 */
 #define PIN_XTLY 29   /* P9.31 */
 #define PIN_PHI 6     /* P7.10 */
 #define PIN_WRITE 9   /* P7.11 */
 #define PIN_EXTRES 28 /* P8.18 */
-#define PIN_INTREQ 31 /* P8.23 */
-#define PIN_ICB 30    /* P8.22 */
+#define PIN_INTREQ 31 /* P8.22 */
+#define PIN_ICB 30    /* P8.23 */
 
 #include "pins.h"
 #include "signals_f3850.h"
@@ -86,7 +86,8 @@ private:
     bool rawStep();
     void execute(const uint8_t *inst, uint8_t len, uint8_t *buf, uint8_t max);
 
-    void disassembleCycles() const;
+    const SignalsImpl *findBacktraceStart() override;
+    void printBacktrace() override;
 };
 
 }  // namespace f3850

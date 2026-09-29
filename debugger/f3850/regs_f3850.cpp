@@ -14,7 +14,7 @@ namespace {
 //                    01234567890123456789012345678901234567890123456789
 const char line1[] = "P0=xxxx P=xxxx DC=xxxx DC1=xxxx IS=xx W=IVZCS A=xx";
 const char line2[] = "R0=xx R1=xx R2=xx R3=xx R4=xx R5=xx R6=xx R7=xx";
-const char line3[] = "R8=xx  J=xx HU=xx HL=xx KL=xx KH=xx QU=xx QH=xx";
+const char line3[] = "R8=xx  J=xx HU=xx HL=xx KU=xx KL=xx QU=xx QL=xx";
 // clang-format on
 }  // namespace
 
@@ -31,7 +31,7 @@ const char *RegsF3850::cpu() const {
 
 bool RegsF3850::romc_read(Signals *s) {
     LOG_ROMC(cli.print("@@ R ROMC="));
-    LOG_ROMC(cli.printHex(s->romc, 2));
+    LOG_ROMC(cli.printHex(s->romc(), 2));
     LOG_ROMC(cli.print(" pc0="));
     LOG_ROMC(cli.printHex(_pc0, 4));
     LOG_ROMC(cli.print(" dc0="));
@@ -84,7 +84,7 @@ bool RegsF3850::romc_read(Signals *s) {
         s->markRead(_pc0);
         _dc0 = uint16(hi(_dc0), s->data);
         break;
-    case 0x0F:  // Interruput acknowledge
+    case 0x0F:  // Interrupt acknowledge
         s->data = lo(_devs->vector());
         _pc1 = _pc0;
         _pc0 = uint16(hi(_pc0), s->data);
@@ -95,7 +95,7 @@ bool RegsF3850::romc_read(Signals *s) {
         s->markRead(_pc0);
         _dc0 = uint16(s->data, lo(_dc0));
         break;
-    case 0x13:  // Interruput acknowledge
+    case 0x13:  // Interrupt acknowledge
         s->data = hi(_devs->vector());
         _pc0 = uint16(s->data, lo(_pc0));
         break;
@@ -124,7 +124,7 @@ bool RegsF3850::romc_read(Signals *s) {
 
 bool RegsF3850::romc_write(Signals *s) {
     LOG_ROMC(cli.print("@@ W ROMC="));
-    LOG_ROMC(cli.printHex(s->romc, 2));
+    LOG_ROMC(cli.printHex(s->romc(), 2));
     LOG_ROMC(cli.print(" pc0="));
     LOG_ROMC(cli.printHex(_pc0, 4));
     LOG_ROMC(cli.print(" dc0="));
@@ -249,7 +249,7 @@ void RegsF3850::save() {
     _pins->captureWrites(SAVE_REGS, sizeof(SAVE_REGS), _r, sizeof(_r));
     _pins->captureWrites(SAVE_W, sizeof(SAVE_W), &_w, sizeof(_w));
     _pc0 = pc;  // restore PC0
-    _dc0 = dc;  // restore DC
+    _dc0 = dc;  // restore DC0
 }
 
 void RegsF3850::restore() {
@@ -263,7 +263,7 @@ void RegsF3850::restore() {
 
     const auto pc = _pc0;  // save PC0
     _pins->execInst(LOAD_ALL, sizeof(LOAD_ALL));
-    _pc0 = pc;  // restire PC0
+    _pc0 = pc;  // restore PC0
 }
 
 void RegsF3850::set_isl(uint8_t val) {
@@ -357,7 +357,9 @@ constexpr const char *REGS3[] = {
 };
 constexpr const char *REGS6[] = {
         "IS",  // 3
-        "W",   // 4
+};
+constexpr const char *REGS5[] = {
+        "W",  // 4
 };
 constexpr const char *REGS8[] = {
         "A",   // 5
@@ -375,7 +377,7 @@ constexpr const char *REGS8[] = {
         "HL",  // 17, R11
         "KU",  // 18, R12
         "KL",  // 19, R13
-        "QU",  // 10, R14
+        "QU",  // 20, R14
         "QL",  // 21, R15
 };
 constexpr const char *REGS16[] = {
@@ -393,11 +395,12 @@ constexpr const char *REGS16[] = {
 const Regs::RegList *RegsF3850::listRegisters(uint_fast8_t n) const {
     static constexpr RegList REG_LIST[] = {
             {REGS3, 2, 1, 0x7},
-            {REGS6, 2, 3, 0x1F},
+            {REGS6, 1, 3, 0x3F},
+            {REGS5, 1, 4, 0x1F},
             {REGS8, 17, 5, UINT8_MAX},
             {REGS16, 9, 22, UINT16_MAX},
     };
-    return n < 4 ? &REG_LIST[n] : nullptr;
+    return n < 5 ? &REG_LIST[n] : nullptr;
 }
 
 bool RegsF3850::setRegister(uint_fast8_t reg, uint32_t value) {

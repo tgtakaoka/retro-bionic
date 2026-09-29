@@ -189,7 +189,7 @@ put_bin1:
         li      C'0'            ; '0' for bit value 0
         bp      put_bin0        ; MSB=0
         inc                     ; make it '1'
-put_bin0
+put_bin0:
         lr      0, A
         jmp     putchar
 

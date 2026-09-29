@@ -2,6 +2,7 @@
 #include "char_buffer.h"
 #include "debugger.h"
 #include "digital_bus.h"
+#include "inst_f3850.h"
 #include "pins_f3850.h"
 
 namespace debugger {
@@ -68,7 +69,19 @@ void Signals::print() const {
         buffer[0] = ' ';
         buffer[12] = 0;
     }
+#ifdef PROFILE_CYCLES
+    // The cycle's length and, on a fetch, how many cycles the table gives
+    // the instruction, for tools/cycles_f3850.py.
+    cli.print(buffer);
+    cli.print(" x=");
+    cli.printDec(xtly());
+    cli.print(" m=");
+    cli.printlnDec(
+            fetch() ? InstF3850::instLength(data) + InstF3850::busCycles(data)
+                    : 0);
+#else
     cli.println(buffer);
+#endif
 }
 
 }  // namespace f3850
