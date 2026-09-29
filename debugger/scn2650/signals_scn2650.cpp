@@ -63,7 +63,17 @@ void Signals::print() const {
         buffer.hex16(5, addr);
     }
     buffer.hex8(12, data);
+#ifdef PROFILE_CYCLES
+    // How many cycles the matcher gave a marked fetch, and the clocks
+    // waited for OPREQ, for tools/cycles_scn2650.py.
+    cli.print(buffer);
+    cli.print(" m=");
+    cli.printDec(fetch() ? matched() : 0);
+    cli.print(" c=");
+    cli.printlnDec(clocks());
+#else
     cli.println(buffer);
+#endif
 }
 
 }  // namespace scn2650

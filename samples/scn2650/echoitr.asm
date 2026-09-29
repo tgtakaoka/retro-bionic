@@ -57,7 +57,7 @@ init_usart:
         nop
         nop
         lodi,r0 RX_EN_TX_DIS
-        wrte,r0 USARTC    ; RTS/DTR, error reset, Rx enable, Tx disable
+        wrte,r0 USARTC    ; RTS/DTR, Rx enable, Tx disable
         lodi,r0 RXINTR_VEC
         wrte,r0 USARTRI         ; enable Rx interrupt
         lodi,r0 TXINTR_VEC
@@ -109,6 +109,7 @@ put_hex8:
         bstr,un put_hex4
         lodz    r1
 put_hex4:
+        cpsl    PSL_C           ; ADDI adds the carry
         andi,r0 H'F'
         comi,r0 10
         bctr,lt put_hex8_dec ; R0<10

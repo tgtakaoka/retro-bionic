@@ -45,7 +45,7 @@ queue_add:
         addi,r0 1               ; R0=++queue_len
         lodi,r2 queue_size
         coma,r0 *queue_top,r2   ; compare with queue_size
-        bcfr,lt queue_add_return ; queue_len >= queue_size, PSL.C=0
+        bctr,gt queue_add_return ; queue_len > queue_size, PSL.C=0
 queue_add_store:
         strr,r0 *queue_top      ; update queue_len
         lodi,r2 queue_put
@@ -111,7 +111,7 @@ queue_remove_elem:
         ppsl    PSL_C           ; PSL.C=1
         subi,r0 queue_buf-1     ; ++queue_get
         lodi,r2 queue_size
-        coma,r0 *queue_top,r2       ; comapre with queue_size
+        coma,r0 *queue_top,r2       ; compare with queue_size
         bctr,lt queue_remove_update ; queue_get < queue_size
         eorz    r0
         bctr,un queue_remove_update

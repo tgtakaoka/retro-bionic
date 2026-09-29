@@ -9,6 +9,8 @@ namespace scn2650 {
 struct InstScn2650 {
     static uint8_t instLen(uint8_t inst);
     static uint8_t busCycles(uint8_t inst, uint8_t opr);
+    static bool isBranch(uint8_t inst);
+    static bool notTaken(uint16_t fetch, uint8_t len, uint16_t addr);
 
     static constexpr uint8_t HALT = 0x40;
     static constexpr uint8_t ZBSR = 0xBB;
