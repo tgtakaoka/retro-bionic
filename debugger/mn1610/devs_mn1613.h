@@ -29,7 +29,7 @@ private:
 
 }  // namespace mn1613
 }  // namespace debugger
-#endif /* __DEVS_MN1613H__ */
+#endif /* __DEVS_MN1613_H__ */
 
 // Local Variables:
 // mode: c++

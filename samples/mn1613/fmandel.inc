@@ -2,6 +2,7 @@
 
 kCA:    dc      0.0458
 kCB:    dc      0.08333
+k4:     dc      4.0
 
 fmandel:
         mvwi    R3, vA          R3=&A
@@ -65,8 +66,9 @@ loop_i:
         fm      DR0, (R4)       B*B
         mvwi    R2, vT
         fa      DR0, (R2)       A*A+B*B
-        fix     R0, DR0         R0=int(A*A+B*B)
-        cwi     R0, 4, mz       skip if T<=4
+        mvwi    R2, k4
+        fs      DR0, (R2)       A*A+B*B-4
+        mv      R0, R0, mz      skip if A*A+B*B<=4
         b       print_i         if 4<T
         l       R0, vI
         ai      R0, 1
