@@ -228,7 +228,7 @@ class Board:
             time.sleep(delay)
         return self._drain(wait, idle)
 
-    def wait_run(self, cap=0.0, stall=None, frames=0, progress=30.0, out=sys.stderr):
+    def wait_run(self, cap=0.0, stall=None, frames=0, lines=0, progress=30.0, out=sys.stderr):
         """Wait out a run that may take a second or half an hour.
 
         `mandelbrot` finishes in a moment on a fast target and takes minutes, or
@@ -241,6 +241,10 @@ class Board:
         completed iteration, and how is one of:
           'prompt'   the run ended and the CLI came back
           'frames'   the requested number of iterations completed
+          'lines'    `lines` output lines arrived -- a lighter halt trigger than a
+                     full frame, for a slow target where even one frame is minutes:
+                     enough output to trust the CPU is drawing correctly, without
+                     paying for the whole run
           'stalled'  silent for `stall` seconds and no prompt -- stuck
           'running'  still producing output when `cap` expired; for a sample that
                      loops until stopped this is the healthy outcome, not a failure
@@ -278,6 +282,8 @@ class Board:
                             said = now
                     if at_prompt(buf):
                         return 'prompt', buf, marks
+                    if lines and buf.count(b'\n') >= lines:
+                        return 'lines', buf, marks
                     if frames and seen >= frames:
                         return 'frames', buf, marks
             if now - said >= progress and out is not None:

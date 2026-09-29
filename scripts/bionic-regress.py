@@ -135,7 +135,15 @@ def drive_table(regress=None):
 
     Keyed by sample basename, one table per sample:
     [name]\nfeed = "irq\r"\nexpect = "irq", or frames = 1, or
-    silent = true\ncap = 180.
+    silent = true\ncap = 180, or skip = true for a sample this case
+    cannot drive (e.g. one needing a device the default setup lacks).
+
+    `frames`' own `lines` halts mid-run instead, once that many output
+    lines have arrived, for a target too slow to wait out a whole
+    frame. Either can pair with `golden`, a path to a reference output
+    file shared across targets (e.g. samples/arith/mandelbrot.golden)
+    checked for a match instead of a per-target `expect` string --
+    only its first `lines` lines, if `lines` cut the run short.
     """
     table = {}
     if regress:
@@ -167,13 +175,32 @@ def drive_sample(board, path, regress=None):
         return ok, '%s echoed %r' % ('' if ok else 'expected %r,' % how['expect'],
                                      got.replace('\r', '')[:32])
 
-    if how.get('frames'):
-        state, raw, marks = board.go(cap=300.0, frames=how['frames'], out=None)
+    if how.get('frames') or how.get('lines'):
+        state, raw, marks = board.go(cap=how.get('cap', 300.0), frames=how.get('frames', 0),
+                                      lines=how.get('lines', 0), out=None)
         board.abort()
         board.send(wait=8.0, idle=1.0, delay=0.8)
-        ok = bool(marks)
-        return ok, ('%d iteration(s), %.2fs each' % (len(marks), marks[-1] / len(marks))
-                    if marks else 'no iteration completed (%s)' % state)
+        # 'lines' or 'running' (cap hit, no stall) both mean a healthy
+        # halt mid-run: steady output without a completed frame yet.
+        ok = bool(marks) or state in ('lines', 'running')
+        if ok and 'golden' in how:
+            golden = open(os.path.join(PROJ, how['golden'])).read()
+            if not marks and how.get('lines'):
+                # 'G's own reply is the first line counted, ahead of any
+                # drawing, so one fewer golden row than `lines` is done.
+                golden = '\n'.join(golden.splitlines()[:how['lines'] - 1])
+            ok = golden.strip('\n') in raw.decode('ascii', 'replace').replace('\r', '')
+        if marks:
+            note = '%d iteration(s), %.2fs each' % (len(marks), marks[-1] / len(marks))
+        elif state == 'lines':
+            note = 'halted mid-run after %d lines' % raw.count(b'\n')
+        elif state == 'running':
+            note = 'halted mid-run after %.1fs, no stall' % how.get('cap', 300.0)
+        else:
+            note = 'no iteration completed (%s)' % state
+        if 'golden' in how:
+            note += ', ' + ('content matched' if ok else 'content mismatch')
+        return ok, note
 
     if how.get('silent'):
         # No output until the break, so a stall means nothing; only
@@ -203,9 +230,14 @@ def case_samples(board, n=0, regress=None):
     hexes = samples(board.who)
     if not hexes:
         return None, 'no samples'
-    bad = []
+    table = drive_table(regress)
+    bad, skipped = [], 0
     for path in hexes:
         name = os.path.basename(path)
+        if table.get(name.rsplit('.', 1)[0], {}).get('skip'):
+            print('    %-16s SKIP  skip = true' % name)
+            skipped += 1
+            continue
         if not ensure_prompt(board, name):
             bad.append('%s(stuck before)' % name)
             print('    %-16s SKIP  board stuck' % name)
@@ -215,8 +247,10 @@ def case_samples(board, n=0, regress=None):
             bad.append(name)
         print('    %-16s %-4s %s' % (name, 'ok' if ok else 'BAD', note))
         sys.stdout.flush()
-    return not bad, ('%d samples' % len(hexes) if not bad
-                     else 'failed: %s' % ', '.join(bad))
+    ran = '%d samples' % (len(hexes) - skipped)
+    if skipped:
+        ran += ', %d skipped' % skipped
+    return not bad, (ran if not bad else 'failed: %s' % ', '.join(bad))
 
 
 def case_haltgo(board, n=10):
