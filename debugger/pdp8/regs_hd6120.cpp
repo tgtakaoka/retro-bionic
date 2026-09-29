@@ -57,7 +57,7 @@ void RegsHd6120::save() {
 }
 
 void RegsHd6120::restore() {
-    const uint16_t RESTORE[] = {
+    const uint16_t FLAGS[] = {
             07200,          // CLA
             01004, _sp1,    // TAD 0004  ; Load _sp1
             06217,          // LSP1      ; AC->SP1, AC=0
@@ -67,10 +67,22 @@ void RegsHd6120::restore() {
             07421,          // MQL       ; AC->MQ
             01003, _flags,  // TAD 0003  ; Load _flags
             06005,          // RTF       ; AC->FLAGS
+    };
+    // RTF turns interrupts on, one instruction late: an IOF there turns
+    // them off again when the program had them off.
+    const uint16_t JUMP[] = {
             01001, _ac,     // TAD 0001  ; Load _ac
             05400, _pc,     // JMP I 0000; Jump to _pc
     };
-    _pins->injectReads(RESTORE, length(RESTORE));
+    uint16_t seq[length(FLAGS) + 1 + length(JUMP)];
+    uint_fast8_t n = 0;
+    for (auto w : FLAGS)
+        seq[n++] = w;
+    if (_ieff() == 0)
+        seq[n++] = 06002;  // IOF
+    for (auto w : JUMP)
+        seq[n++] = w;
+    _pins->injectReads(seq, n);
 }
 
 void RegsHd6120::breakPoint() {

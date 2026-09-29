@@ -29,9 +29,9 @@ void PinsPdp8::injectReads(const uint16_t *data, uint_fast8_t len) const {
     inject:
         if (s->read()) {
             i++;
-            DEBUG(cli.print("@@  injecteReads: inject "));
+            DEBUG(cli.print("@@  injectReads: inject "));
         } else {
-            DEBUG(cli.print("@@  injecteReads:        "));
+            DEBUG(cli.print("@@  injectReads:        "));
         }
         DEBUG(s->print());
         if (n != s) {
@@ -105,9 +105,12 @@ void PinsPdp8::loop() {
             Cycles::discard(s);
             return;
         }
+        fetched(s);
         _devs->loop();
         if (haltSwitch()) {
-            suspend();
+            // A failed halt: keep the registers from the last good save.
+            if (!suspend())
+                return;
             s = Signals::put();
             _regs->save();
             Cycles::discard(s);
@@ -121,26 +124,40 @@ void PinsPdp8::run() {
     _regs->restore();
     Cycles::reset();
     saveBreakInsts();
+    startRunTimer();
     loop();
+    stopRunTimer();
     restoreBreakInsts();
     disassembleCycles();
 }
 
-void PinsPdp8::suspend() {
+// Cycles to wait for the next fetch: fetch, defer, autoindex, execute and
+// an interrupt's store take far fewer.
+constexpr auto fetch_cycles = 16;
+
+bool PinsPdp8::suspend() {
     auto s = prepareCycle();
-    while (!s->fetch()) {
-        completeCycle(s);
+    for (auto n = 0; !s->fetch(); ++n) {
+        if (n >= fetch_cycles) {
+            cli.println("?halt: no fetch");
+            return false;
+        }
+        fetched(completeCycle(s));
         s = prepareCycle();
     }
+    return true;
 }
 
 bool PinsPdp8::rawStep() {
     auto s = resumeCycle(_regs->nextIp());
-    do {
-        completeCycle(s);
-        s = prepareCycle();
-    } while (!s->fetch());
-    return true;
+    if (completeCycle(s) == nullptr) {
+        // A HLT, left unexecuted as loop() leaves it.
+        _regs->save();
+        Cycles::discard(s);
+        return false;
+    }
+    fetched(s);
+    return suspend();
 }
 
 bool PinsPdp8::step(bool show) {
@@ -157,12 +174,32 @@ bool PinsPdp8::step(bool show) {
     return false;
 }
 
-void PinsPdp8::assertInt(uint8_t name) {
-    assert_intreq();
+void PinsPdp8::assertInt(uint8_t) {
+    _intWanted = true;
+    if (!_intGate)
+        assert_intreq();
 }
 
-void PinsPdp8::negateInt(uint8_t name) {
+void PinsPdp8::negateInt(uint8_t) {
+    _intWanted = false;
     negate_intreq();
+}
+
+void PinsPdp8::gateInterrupts(bool gate) {
+    _intGate = gate;
+    if (gate) {
+        negate_intreq();
+    } else if (_intWanted) {
+        assert_intreq();
+    }
+}
+
+// The program's own ION or RTF opens the gate; injected ones never get here.
+void PinsPdp8::fetched(const Signals *s) {
+    constexpr uint16_t ION = 06001;
+    constexpr uint16_t RTF = 06005;
+    if (_intGate && s != nullptr && s->fetch() && (s->data == ION || s->data == RTF))
+        gateInterrupts(false);
 }
 
 void PinsPdp8::setBreakInst(uint32_t addr) const {
@@ -177,7 +214,11 @@ void PinsPdp8::printCycles() {
     }
 }
 
-void PinsPdp8::disassembleCycles() const {
+const SignalsImpl *PinsPdp8::findBacktraceStart() {
+    return backtraceStartByFetchCount<Signals>(_lineLimit);
+}
+
+void PinsPdp8::printBacktrace() {
     const auto g = Signals::get();
     const auto cycles = g->diff(Signals::put());
     for (auto i = 0u; i < cycles;) {

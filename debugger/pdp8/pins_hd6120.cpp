@@ -194,9 +194,9 @@ pdp8::Signals *PinsHd6120::prepareCycle() const {
             return s;  // OSR/WSR
         }
         delayNanoseconds(osc_lo_cntl);
-        assert_debug();
+        // assert_debug();
         s->getAddress();
-        negate_debug();
+        // negate_debug();
     }
     while (true) {
         osc_lo();
@@ -236,18 +236,18 @@ bus_cycle:
             s->data = regs<RegsHd6120>()->readSwitch();
         }
         osc_lo();
-        assert_debug();
+        // assert_debug();
         s->outData();
-        negate_debug();
+        // negate_debug();
         delayNanoseconds(osc_lo_out);
         osc_hi();
         delayNanoseconds(osc_hi_out);
         s->inputMode();
     } else {
         delayNanoseconds(osc_hi_get);
-        assert_debug();
+        // assert_debug();
         s->getData();
-        negate_debug();
+        // negate_debug();
         osc_lo();
         if (s->mem()) {
             if (s->writeMemory()) {
@@ -277,11 +277,11 @@ bus_cycle:
     Cycles::next();
     auto n = Signals::put();
     *n = *s;  // copy address and control
-    assert_debug();
+    // assert_debug();
     while (n->getDirection()) {
         osc_cycle();
     }
-    negate_debug();
+    // negate_debug();
     s->resetIoc();
     // assert_debug();
     while (n->getControl()) {
