@@ -12,7 +12,7 @@ MemsScn2650::MemsScn2650() : DmaMemory(Endian::ENDIAN_BIG) {
 #ifdef WITH_DISASSEMBLER
     _disassembler = new libasm::scn2650::DisScn2650();
 #endif
-}  // namespace scn2650
+}
 
 }  // namespace scn2650
 }  // namespace debugger

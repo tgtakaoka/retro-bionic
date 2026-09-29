@@ -151,7 +151,7 @@ loop_i:
         loda,r0 vB
         loda,r1 vB+1
         stra,r0 vQ
-        stra,r1 vQ+1            ; B=Q
+        stra,r1 vQ+1            ; Q=B
         lodi,r2 vQ-arith_work
         bsta,un divsi2          ; Q=B/F
         loda,r0 vQ

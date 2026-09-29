@@ -22,7 +22,7 @@ void RegsScn2650::print() const {
     _buffer1.hex16(3, _pc);
     _buffer1.bits(12, _psu, 0x80, line1 + 12);
     _buffer1.bits(25, _psl, 0x80, line1 + 25);
-    _buffer1[31] = (_psl & 2) ? 'L' : 'A';  // Logic ot Arithmetic
+    _buffer1[31] = (_psl & 2) ? 'L' : 'A';  // Logic or Arithmetic
     _buffer1.hex4(37, _psu & 7);            // Stack pointer
     static constexpr char cc[] = {'Z', 'P', 'N', '3'};
     _buffer1[42] = cc[_psl >> 6];  // Condition code
