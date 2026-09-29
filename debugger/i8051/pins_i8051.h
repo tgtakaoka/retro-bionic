@@ -29,10 +29,10 @@
 #define PIN_AD9 23    /* P6.25 */
 #define PIN_AD10 20   /* P6.26 */
 #define PIN_AD11 21   /* P6.27 */
-#define PIN_AD12 38   /* P6.27 */
-#define PIN_AD13 39   /* P6.27 */
-#define PIN_AD14 26   /* P6.27 */
-#define PIN_AD15 27   /* P6.27 */
+#define PIN_AD12 38   /* P6.28 */
+#define PIN_AD13 39   /* P6.29 */
+#define PIN_AD14 26   /* P6.30 */
+#define PIN_AD15 27   /* P6.31 */
 #define PIN_P10 10    /* P7.00 */
 #define PIN_P11 12    /* P7.01 */
 #define PIN_P12 11    /* P7.02 */
@@ -60,8 +60,8 @@
 #define PIN_INT1 9    /* P7.11 */
 #define PIN_EA 32     /* P7.12 */
 #define PIN_RST 28    /* P8.18 */
-#define PIN_T0 31     /* P8.22 */
-#define PIN_T1 30     /* P8.23 */
+#define PIN_T0 30     /* P8.23 */
+#define PIN_T1 31     /* P8.22 */
 
 #include "pins.h"
 #include "mems.h"
@@ -113,12 +113,13 @@ private:
     uint8_t execute(const uint8_t *inst, uint8_t len, uint16_t *addr,
             uint8_t *buf, uint8_t max);
 
-    void disassembleCycles();
+    const SignalsImpl *findBacktraceStart() override;
+    void printBacktrace() override;
 };
 
 }  // namespace i8051
 }  // namespace debugger
-#endif /* __PINS_H__ */
+#endif /* __PINS_I8051_H__ */
 
 // Local Variables:
 // mode: c++
