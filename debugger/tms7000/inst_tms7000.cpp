@@ -140,8 +140,8 @@ constexpr uint8_t INST_TABLE[] = {
         E(4, 0),  // 77: BTJZ  %n,Rn,r8
         E(3, 0),  // 78: ADD   %n,Rd
         E(3, 0),  // 79: ADC   %n,Rd
-        E(3, 0),  // 7A: SUB   Rs,Rd
-        E(3, 0),  // 7B: SBB   Rs,Rd
+        E(3, 0),  // 7A: SUB   %n,Rd
+        E(3, 0),  // 7B: SBB   %n,Rd
         E(3, 0),  // 7C: MPY   %n,Rn
         E(3, 0),  // 7D: CMP   %n,Rd
         E(3, 0),  // 7E: DAC   %n,Rn

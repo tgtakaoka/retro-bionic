@@ -25,7 +25,7 @@ OE_bm:          equ     ?00010000       1=Overrun error
 PE_bm:          equ     ?00001000       1=Parity error
 TXE_bm:         equ     ?00000100       1=Transmitter empty
 RXRDY_bm:       equ     ?00000010       1=RXBUF ready with new character
-TXRDY_bm:       equ     ?00000001       1=TXBYF ready for character
+TXRDY_bm:       equ     ?00000001       1=TXBUF ready for character
         ** SCTL1
 T3RUN_bm:       equ     ?10000000       1=Start Timer 3 (TMS7002/TMS70C02 only)
 CLK_bm:         equ     ?01000000       1=Internal SCLK from Timer3, 0=SCLK

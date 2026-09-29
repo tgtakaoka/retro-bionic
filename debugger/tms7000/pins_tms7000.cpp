@@ -555,7 +555,9 @@ void PinsTms7000::run() {
     _regs->restore();
     Cycles::reset();
     saveBreakInsts();
+    startRunTimer();
     loop();
+    stopRunTimer();
     restoreBreakInsts();
     disassembleCycles();
     _regs->save();
@@ -642,7 +644,11 @@ void PinsTms7000::printCycles() {
     }
 }
 
-void PinsTms7000::disassembleCycles() {
+const SignalsImpl *PinsTms7000::findBacktraceStart() {
+    return backtraceStartByFetchCount<Signals>(_lineLimit);
+}
+
+void PinsTms7000::printBacktrace() {
     const auto g = Signals::get();
     const auto cycles = g->diff(Signals::put());
     for (auto i = 0u; i < cycles;) {

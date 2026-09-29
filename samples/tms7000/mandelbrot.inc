@@ -156,6 +156,8 @@ loop_i:
 
         mov     vT-1, A
         jnz     print_i         ; if hi(T)>0
+        ;; ATTENTION: signed compare of an unsigned low(T); T=128..255
+        ;; would not escape. Latent: no effect on the golden output.
         cmp     %4, vT
         jgt     print_i         ; if T>4
         inc     vI              ; I+=1

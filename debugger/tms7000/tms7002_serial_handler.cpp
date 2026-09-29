@@ -39,7 +39,7 @@ void Tms7002SerialHandler::resetHandler() {
     // fosc: XTAL frequency
     // CLK: system clock; fosc/2 (/2 clock option), fosc/4 (/4 clock option)
     // PR: Timer 3 prescaler reload value
-    // TR: TImer 3 reload value
+    // TR: Timer 3 reload value
     // Serial Clock (SCLK) = (CLK / 2) / (PR + 1) / (TR + 1) / 2
     // Asynchronous baud rate; SCLK/8 (TMS7002), SCLK/16 (TMS7001)
     constexpr auto PR = 0;

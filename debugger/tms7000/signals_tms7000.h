@@ -28,7 +28,7 @@ private:
 
 }  // namespace tms7000
 }  // namespace debugger
-#endif /* __SIGNALS_H__ */
+#endif /* __SIGNALS_TMS7000_H__ */
 
 // Local Variables:
 // mode: c++
