@@ -155,8 +155,8 @@ loop_i:
 
         mov     vT-1, A
         jnz     print_i         ; if hi(T)>0
-        cmp     #4, vT
-        jg      print_i         ; if T>4
+        cmp     #5, vT
+        jhs     print_i         ; if T>4
         inc     vI              ; I+=1
         cmp     #16, vI
         jpz     print_space     ; if I>=16

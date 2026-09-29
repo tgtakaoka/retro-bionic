@@ -37,7 +37,7 @@ vP:     .block  1
 vQ:     .block  1
         .block  1
 vS:     .block  1
-vTH     .block  1
+vTH:    .block  1
 vTL:    .block  1
 vT:     equ     vTL
 cF:     equ     50

@@ -136,7 +136,7 @@ arith:
         mov     #'-', A
         call    expr
         call    sub16          ; Rd=Rd-Rs
-        call    answer         ; 29536
+        call    answer         ; -29536
 
         movw    #-28000, vA
         movw    #-18000, vB
@@ -265,7 +265,7 @@ arith:
         call    comp
 
         movw    #-28000, vA
-        movw    #!18000, vB
+        movw    #18000, vB
         call    comp
         rts
 
