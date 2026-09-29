@@ -2,6 +2,7 @@
 #define __DEVS_MC68HC11_H__
 
 #include "devs.h"
+#include "serial_handler.h"
 
 #define ACIA_BASE 0xDF00
 
@@ -11,7 +12,7 @@ namespace mc68hc11 {
 struct Mc68hc11Init;
 
 struct DevsMc68hc11 final : Devs {
-    DevsMc68hc11(Mc68hc11Init &init);;
+    DevsMc68hc11(Mc68hc11Init &init);
     ~DevsMc68hc11();
 
     void begin() override;
@@ -38,7 +39,7 @@ private:
 
 }  // namespace mc68hc11
 }  // namespace debugger
-#endif /* __DEVS_MC68HC11DH__ */
+#endif /* __DEVS_MC68HC11_H__ */
 
 // Local Variables:
 // mode: c++

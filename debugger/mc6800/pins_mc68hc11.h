@@ -56,7 +56,7 @@ private:
     mc6800::Signals *cycle() override;
     mc6800::Signals *rawCycle() override;
 
-    void disassembleCycles() override;
+    void printBacktrace() override;
 };
 
 }  // namespace mc68hc11

@@ -33,8 +33,8 @@ namespace mc68hc11 {
  * - R/W and non-muxed address are valid before rising edge of c1.
  * - Muxed address is valid before 151ns of falling edge of AS.
  * - Muxed address is valid until 95.4ns of falling edge of AS.
- * - Read data setup to falling E egde is 30ns.
- * - Read data hold to falling E egde is 145.5ns.
+ * - Read data setup to falling E edge is 30ns.
+ * - Read data hold to falling E edge is 145.5ns.
  * - Write data gets valid after 190.5ns of rising E edge.
  */
 
@@ -301,7 +301,7 @@ mc6800::Signals *PinsMc68hc11::rawCycle() {
     return s;
 }
 
-void PinsMc68hc11::disassembleCycles() {
+void PinsMc68hc11::printBacktrace() {
     const auto g = Signals::get();
     const auto cycles = g->diff(Signals::put());
     for (auto i = 0u; i < cycles;) {
