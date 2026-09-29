@@ -145,7 +145,7 @@ irq2_isr:
         bald    queue_remove    Remove from Tx queue
         mv      R0, R0, enz     Skip if ST.E=1
         b       irq2_isr_empty
-        wt      R0, USARTD      Transmit charater
+        wt      R0, USARTD      Transmit character
 irq2_isr_exit:
         pop     X0
         pop     R0

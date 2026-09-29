@@ -107,12 +107,13 @@ private:
     void loop();
     bool rawStep();
 
-    void disassembleCycles();
+    const SignalsImpl *findBacktraceStart() override;
+    void printBacktrace() override;
 };
 
 }  // namespace mn1613
 }  // namespace debugger
-#endif /* __PINS_H__ */
+#endif /* __PINS_MN1613_H__ */
 
 // Local Variables:
 // mode: c++

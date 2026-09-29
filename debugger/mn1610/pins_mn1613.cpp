@@ -306,7 +306,9 @@ void PinsMn1613::run() {
     _regs->restore();
     Cycles::reset();
     saveBreakInsts();
+    startRunTimer();
     loop();
+    stopRunTimer();
     // discard prefetches
     auto s = Signals::put()->prev();
     do {
@@ -480,7 +482,11 @@ void PinsMn1613::printCycles() {
     }
 }
 
-void PinsMn1613::disassembleCycles() {
+const SignalsImpl *PinsMn1613::findBacktraceStart() {
+    return backtraceStartByFetchCount<Signals>(_lineLimit);
+}
+
+void PinsMn1613::printBacktrace() {
     const auto g = Signals::get();
     const auto cycles = g->diff(Signals::put());
     for (auto i = 0u; i < cycles;) {
