@@ -821,9 +821,13 @@ larger win was free-running `loop()`.
 
 ### Z80 / Z180
 
+**Pitfalls.** Sequential-cursor injection: its faked-POP idiom must not be
+copied to a word-bus target. I/O addresses are 8-bit here, so high-byte bugs
+stay hidden.
+
 Byte bus, one byte per read, sequential-cursor injection — so the faked-POP
 idiom (`POP rr` followed inline by its payload) works and is used throughout
-`regs_z80.cpp`. Do not copy it to a word-bus target. **[code]**
+`regs_z80.cpp`. **[code]**
 
 `z180`/`z80` `completeCycle()` treats an I/O address as 8-bit and ignores the
 high 8 bits, so bugs in the high byte of an I/O address are not observable

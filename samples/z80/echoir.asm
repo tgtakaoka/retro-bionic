@@ -74,7 +74,8 @@ halt_to_system:
 isr_intr:
         push    AF
         push    HL
-        in      A, (USARTS)isr_intr_receive:
+        in      A, (USARTS)
+isr_intr_receive:
         bit     ST_RxRDY_bp, A
         jr      Z, isr_intr_recv_end
         in      A, (USARTD)

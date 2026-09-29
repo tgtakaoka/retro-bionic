@@ -100,14 +100,14 @@ mul16:
         xor     A, D
         push    AF              ; save high(multiplicand^multiplier)
         bit     7, B
-        jr      Z, mul16_abs_muliplicand
+        jr      Z, mul16_abs_multiplicand
         xor     A               ; AF.C=0
         ld      H, A
         ld      L, A
         sbc     HL, BC
         ld      B, H
         ld      C, L            ; multiplicand = -multiplicand
-mul16_abs_muliplicand:
+mul16_abs_multiplicand:
         bit     7, D
         jr      Z,  mul16_multiply
         xor     A               ; AF.C=0
@@ -132,8 +132,8 @@ mul16_return:
         ret
 
 ;;; Unsigned division; dividend / divisor = quotient ... remainder
-;;; @praram BC dividend
-;;; @praram DE divisor
+;;; @param BC dividend
+;;; @param DE divisor
 ;;; @return BC remainder
 ;;; @return HL quotient
 ;;; @clobber A DE

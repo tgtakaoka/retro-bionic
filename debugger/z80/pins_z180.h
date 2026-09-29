@@ -41,7 +41,7 @@
 #define PIN_AE17 12    /* P7.01 */
 #define PIN_AE18 11    /* P7.02 */
 #define PIN_AE19 13    /* P7.03 */
-#define PORT_AH 7      /* P7.16-P7.19 */
+#define PORT_AH 7      /* GPIO7 */
 #define AH_gp 16       /* P7.16-P7.19 */
 #define AH_gm 0xF      /* P7.16-P7.19 */
 #define AH_vp 12       /* A12-A15 */
@@ -103,7 +103,8 @@ protected:
     uint16_t execute(const uint8_t *inst, uint_fast8_t len, uint8_t *buf,
             uint_fast8_t max) override;
 
-    void disassembleCycles();
+    const SignalsImpl *findBacktraceStart() override;
+    void printBacktrace() override;
     void configureCpu();
 };
 

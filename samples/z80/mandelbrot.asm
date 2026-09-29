@@ -36,27 +36,32 @@ init:
         ld      B, tx_queue_size
         call    queue_init
 init_usart:
+        ;; IN/OUT (C) put B, not A, on A8-A15: a Z280, which decodes
+        ;; 16-bit I/O addresses, finds the USART too.
+        ld      BC, USARTC
         xor     A               ; clear A
-        out     (USARTC), A
-        out     (USARTC), A
-        out     (USARTC), A     ; safest way to sync mode
+        out     (C), A
+        out     (C), A
+        out     (C), A          ; safest way to sync mode
         ld      A, CMD_IR_bm
-        out     (USARTC), A     ; reset
+        out     (C), A          ; reset
         nop
         nop
         ld      A, ASYNC_MODE
-        out     (USARTC), A
+        out     (C), A
         nop
         nop
         ld      A, RX_EN_TX_DIS
-        out     (USARTC), A
+        out     (C), A
 
         db      3EH             ; LD A, n
         rst     28H
-        out     (USARTRV), A    ; set RxRDY interrupt vector RST 28H
+        ld      C, USARTRV
+        out     (C), A          ; set RxRDY interrupt vector RST 28H
         db      3EH             ; LD A, n
         rst     30H
-        out     (USARTTV), A    ; set TxRDY interrupt vector RST 30H
+        ld      C, USARTTV
+        out     (C), A          ; set TxRDY interrupt vector RST 30H
         im      0
 
         ;; ld      A, HIGH vec_base
@@ -105,8 +110,11 @@ putchar_retry:
         ei
         jr      NC, putchar_retry ; branch if queue is full
         pop     HL
+        push    BC
+        ld      BC, USARTC
         ld      a, RX_EN_TX_EN  ; enable Tx
-        out     (USARTC), A
+        out     (C), A
+        pop     BC
 putchar_exit:
         pop     AF
         ret
@@ -123,22 +131,28 @@ putspace:
 
 isr_intr_rx:
         push    AF
-        in      A, (USARTS)
+        push    BC
+        ld      BC, USARTS
+        in      A, (C)
         bit     ST_RxRDY_bp, A
         jr      Z, isr_intr_rx_exit
-        in      A, (USARTD)     ; receive character
+        ld      C, USARTD
+        in      A, (C)          ; receive character
         push    HL
         ld      HL, rx_queue
         call    queue_add
         pop     HL
 isr_intr_rx_exit:
+        pop     BC
         pop     AF
         ei
         reti
 
 isr_intr_tx:
         push    AF
-        in      A, (USARTS)
+        push    BC
+        ld      BC, USARTS
+        in      A, (C)
         bit     ST_TxRDY_bp, A
         jr      Z, isr_intr_tx_exit
         push    HL
@@ -146,14 +160,18 @@ isr_intr_tx:
         call    queue_remove
         pop     HL
         jr      NC,isr_intr_send_empty
-        out     (USARTD), A     ; send character
+        ld      C, USARTD
+        out     (C), A          ; send character
 isr_intr_tx_exit:
+        pop     BC
         pop     AF
         ei
         reti
 isr_intr_send_empty:
         ld      a, RX_EN_TX_DIS
-        out     (USARTC), A     ; disable Tx
+        ld      C, USARTC
+        out     (C), A          ; disable Tx
+        pop     BC
         pop     AF
         ei
         reti

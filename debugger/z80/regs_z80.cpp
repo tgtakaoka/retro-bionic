@@ -80,7 +80,7 @@ void RegsZ80::save() {
     uint8_t buffer[5];
     _sp = _pins->captureWrites(PUSH_PC, sizeof(PUSH_PC), buffer, sizeof(_pc));
     _sp += 1;
-    _pc = be16(buffer) - 1;  // offser RST instruction
+    _pc = be16(buffer) - 1;  // offset RST instruction
     saveRegs(_main);
     exchangeRegs();
     saveRegs(_alt);
@@ -101,7 +101,7 @@ void RegsZ80::save() {
 void RegsZ80::restore() {
     const uint8_t LD_OTHERS[] = {
             0x3E, _i,                      // LD A, _i
-            0xED, 0x47,                    // LD A, I
+            0xED, 0x47,                    // LD I, A
             0xFD, 0xE1, lo(_iy), hi(_iy),  // POP IY, _iy
             0xDD, 0xE1, lo(_ix), hi(_ix),  // POP IX, _ix
     };
