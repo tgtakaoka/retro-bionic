@@ -4,15 +4,15 @@
 #define PORT_HSO 7   /* GPIO7 */
 #define HSO_gp 0     /* P7.00-P7.03 */
 #define HSO_gm 0xF   /* P7.00-P7.03 */
-#define HSO_vp 0     /* A0-A3 */
+#define HSO_vp 0     /* HSO0-HSO3 */
 #define PIN_HSO0 10  /* P7.00 */
 #define PIN_HSO1 12  /* P7.01 */
 #define PIN_HSO2 11  /* P7.02 */
 #define PIN_HSO3 13  /* P7.03 */
-#define PORT_HSI 7   /* P7.16-P7.19 */
+#define PORT_HSI 7   /* GPIO7 */
 #define HSI_gp 16    /* P7.16-P7.19 */
 #define HSI_gm 0xF   /* P7.16-P7.19 */
-#define HSI_vp 4     /* A4-A7 */
+#define HSI_vp 4     /* HSI0-HSI3 */
 #define PIN_HSI0 8   /* P7.16 */
 #define PIN_HSI1 7   /* P7.17 */
 #define PIN_HSI2 36  /* P7.18 */
@@ -59,6 +59,7 @@ private:
 
     Signals *prepareCycle();
     Signals *completeCycle(Signals *s);
+    Signals *noBusCycle(Signals *s);
 
     Signals *jumpHere(uint_fast8_t len = 4, bool idle = false);
     uint16_t jumpTarget(uint16_t next, uint_fast8_t opc) const;
@@ -67,7 +68,11 @@ private:
     void printCycles(const Signals *end);
     bool matchAll(Signals *begin, const Signals *end);
     const Signals *findFetch(Signals *begin, const Signals *end);
-    void disassembleCycles();
+#ifdef PROFILE_CYCLES
+    const Signals *_profileEnd = nullptr;  // the TRAP's last cycle, + 1
+#endif
+    const SignalsImpl *findBacktraceStart() override;
+    void printBacktrace() override;
 };
 
 }  // namespace p8095bh

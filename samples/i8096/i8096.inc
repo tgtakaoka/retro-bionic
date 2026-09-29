@@ -6,7 +6,7 @@ ZERO:   equ     00H             ; zero register
 SP:     equ     18H             ; stack pointer
 INT_MASK:       equ     08H     ; interrupt mask
 INT_PENDING:    equ     09H     ; interrupt pending
-INT_EXTINT:        equ     1000000B ; enable EXTINT
+INT_EXTINT:     equ     10000000B ; enable EXTINT, vector 200EH
 
 ;;; Reset origin
 ORG_RESET:      equ     2080H

@@ -59,7 +59,7 @@ void SignalsI8096::print() const {
     LOG_MATCH(cli.print(' '));
     LOG_MATCH(cli.printDec(pos(), -4));
     //                              0123456789012
-    static constexpr char line[] = "W A=xxxx D=xx";
+    static constexpr char line[] = "  A=xxxx D=xx";
     auto &buffer = Cycles::buffer();
     buffer.set(line);
     if (fetch()) {
