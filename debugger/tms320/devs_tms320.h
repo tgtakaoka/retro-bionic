@@ -29,7 +29,7 @@ private:
 
 }  // namespace tms320
 }  // namespace debugger
-#endif /* __DEVS_TMS320H__ */
+#endif /* __DEVS_TMS320_H__ */
 
 // Local Variables:
 // mode: c++

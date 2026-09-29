@@ -37,6 +37,8 @@ constexpr auto clkin_hi_ns = 20;      // 25 ns
 constexpr auto clkin_hi_cntl = 20;    // 25 ns
 constexpr auto clkin_hi_input = 5;    // 25 ns
 constexpr auto clkin_hi_inject = 10;  // 25 ns
+// One debug pin toggle's worth, before a sample and after a drive.
+constexpr auto debug_ns = 10;
 
 const uint8_t PINS_LOW[] = {
         PIN_RS,
@@ -134,14 +136,25 @@ void PinsTms320C15::idle() {
     Cycles::discard(completeCycle(prepareCycle()->inject(addr)));
 }
 
+// CLKIN periods to wait for a strobe: a running chip strobes #MEN, #DEN
+// or #WE every machine cycle of 4, one held in reset or missing never.
+constexpr auto strobe_clocks = 1000;
+
 Signals *PinsTms320C15::prepareCycle() {
     auto s = Signals::put();
-    while (!s->getControl()) {
+    for (auto n = 0; !s->getControl(); ++n) {
+        if (n >= strobe_clocks) {
+            // Give up rather than wedge the board, leaving the halt switch
+            // to stop the run.
+            cli.println("?halt: no bus cycle");
+            return s;
+        }
         clkin_cycle_hi();
         delayNanoseconds(clkin_hi_cntl);
     }
     clkin_lo();
     // assert_debug();
+    delayNanoseconds(debug_ns);
     s->getAddr();
     // negate_debug();
     clkin_hi();
@@ -160,6 +173,7 @@ Signals *PinsTms320C15::completeCycle(Signals *s) {
         // assert_debug();
         s->outData();
         // negate_debug();
+        delayNanoseconds(debug_ns);
         clkin_lo();
         Cycles::next();
         clkin_hi();
@@ -176,6 +190,7 @@ Signals *PinsTms320C15::completeCycle(Signals *s) {
         // assert_debug();
         s->outData();
         // negate_debug();
+        delayNanoseconds(debug_ns);
         clkin_lo();
         Cycles::next();
         clkin_hi();
@@ -184,6 +199,7 @@ Signals *PinsTms320C15::completeCycle(Signals *s) {
         clkin_cycle_hi();
     } else if (s->write()) {
         // assert_debug();
+        delayNanoseconds(debug_ns);
         s->getData();
         // negate_debug();
         clkin_hi();
@@ -199,6 +215,10 @@ Signals *PinsTms320C15::completeCycle(Signals *s) {
         clkin_hi();
     }
     return s;
+}
+
+void PinsTms320C15::setBio(bool high) {
+    digitalWriteFast(PIN_BIO, high ? HIGH : LOW);
 }
 
 uint16_t PinsTms320C15::injectRead(uint16_t data) {
@@ -248,6 +268,58 @@ bool PinsTms320C15::step(bool show) {
     return false;
 }
 
+#ifdef PROFILE_CYCLES
+// For scripts/record-cycles.py: run until the trap ends the pattern, keep
+// every cycle of it, and give up well before the ring wraps; the debug pin
+// frames the run, to trigger a capture on. The trap is an OUT: only OUT and
+// TBLW strobe #WE, and OUT always at a port address (0-7), as TBLW is only
+// with ACC below 8, which the patterns never give it; so the first such
+// write past the pattern's first instruction is the trap's, and the cycle
+// before it the trap's fetch. The stop doesn't consult the tables. IN and
+// OUT stay off the devices and TBLW off memory, so any operand is safe.
+void PinsTms320C15::loop() {
+    constexpr auto MAX_CYCLES = 96;
+    const auto first = Signals::put();
+    _profileEnd = nullptr;
+    assert_debug();
+    for (auto n = 0;; ++n) {
+        _devs->loop();
+        auto s = prepareCycle();
+        if (s->read()) {
+            s->inject(0);
+        } else if (s->write()) {
+            s->capture();
+        }
+        completeCycle(s);
+        if (s->write() && s->addr < 8 && s->prev() != first) {
+            negate_debug();
+            _profileEnd = s->prev();
+            s = Signals::put();
+            _regs->save();
+            Cycles::discard(s);
+            return;
+        }
+        if (n >= MAX_CYCLES || haltSwitch()) {
+            negate_debug();
+            cli.println(n >= MAX_CYCLES ? "?cycles" : "?halt");
+            // Mid-instruction: let an I/O cycle go by and branch to self,
+            // so idle() can't inject into a write; keep the last good save.
+            const auto end = Signals::put();
+            for (auto i = 0; i < 2; ++i) {
+                s = prepareCycle();
+                if (s->fetch()) {
+                    completeCycle(s->inject(InstTms3201X::B));
+                    completeCycle(prepareCycle()->inject(s->addr));
+                    break;
+                }
+                completeCycle(s->read() ? s->inject(0) : s->capture());
+            }
+            Cycles::discard(end);
+            return;
+        }
+    }
+}
+#else
 void PinsTms320C15::loop() {
     while (true) {
         if (!rawStep() || haltSwitch()) {
@@ -259,12 +331,15 @@ void PinsTms320C15::loop() {
         _devs->loop();
     }
 }
+#endif
 
 void PinsTms320C15::run() {
     _regs->restore();
     Cycles::reset();
     saveBreakInsts();
+    startRunTimer();
     loop();
+    stopRunTimer();
     restoreBreakInsts();
     disassembleCycles();
 }
@@ -290,13 +365,41 @@ void PinsTms320C15::printCycles() {
     }
 }
 
-void PinsTms320C15::disassembleCycles() {
+const SignalsImpl *PinsTms320C15::findBacktraceStart() {
+    return backtraceStartByFetchCount<Signals>(_lineLimit);
+}
+
+#ifdef PROFILE_CYCLES
+// The opcode fetches rawStep() would take, counting each instruction's
+// cycles from the run's first one up to the trap's fetch.
+void PinsTms320C15::markFetches(const Signals *end) {
+    const auto g = Signals::get();
+    const auto cycles = g->diff(end);
+    for (auto i = 0u; i < cycles;) {
+        const auto s = g->next(i);
+        const auto n = InstTms3201X::cycles(_mems->read(s->addr));
+        s->setMatched(n);
+        if (n == 0)
+            break;
+        i += n;
+    }
+}
+#endif
+
+void PinsTms320C15::printBacktrace() {
+#ifdef PROFILE_CYCLES
+    // Every cycle, with the matcher's marks.
+    markFetches(_profileEnd ? _profileEnd->next() : Signals::put());
+    printCycles();
+#else
     const auto g = Signals::get();
     const auto cycles = g->diff(Signals::put());
     for (auto i = 0u; i < cycles;) {
         const auto s = g->next(i);
-        if (s->fetch()) {
-            const auto cyc = InstTms3201X::cycles(s->data);
+        // A program read that decodes to no instruction, an operand or
+        // table word where the window starts, prints as a plain cycle.
+        const auto cyc = s->fetch() ? InstTms3201X::cycles(s->data) : 0;
+        if (cyc) {
             const auto len = _mems->disassemble(s->addr, 1) - s->addr;
             for (uint_fast8_t j = len; j < cyc; j++) {
                 const auto t = s->next(j);
@@ -309,6 +412,7 @@ void PinsTms320C15::disassembleCycles() {
         }
         idle();
     }
+#endif
 }
 
 }  // namespace tms320c15

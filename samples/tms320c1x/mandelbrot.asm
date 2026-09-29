@@ -176,5 +176,7 @@ int_isr_exit:
         eint
         ret
 int_isr_send_empty:
+        ldpk    0               ; page 0
         out     acia_tx_dis,ACIA_control
+        ldpk    1               ; page 1
         b       int_isr_exit

@@ -115,7 +115,7 @@ loop_i:
         lack    F
         sacl    R2
         call    divu16          ; R1=A*S/F
-        add     vT              ; ACC=A*Q+S/F
+        add     vT              ; ACC=A*Q+A*S/F
         sacl    vT
         add     vT              ; ACC=2*(A*Q+A*S/F)
         add     vD              ; ACC=2*(A*Q+A*S/F)+D
