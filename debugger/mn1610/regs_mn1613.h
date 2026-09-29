@@ -45,7 +45,7 @@ private:
     static constexpr auto SSBR = 1;
     static constexpr auto TSR0 = 2;
     static constexpr auto TSR1 = 3;
-    static uint32_t addr(uint_fast8_t seg, uint16_t off);
+    uint32_t addr(uint_fast8_t seg, uint16_t off) const;
     static constexpr auto NPP = 2;
     uint16_t _npp;
     static constexpr auto IISR = 6;

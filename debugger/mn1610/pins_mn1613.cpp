@@ -286,18 +286,30 @@ void PinsMn1613::idle() {
     x2_cycle_lo();
 }
 
-void PinsMn1613::loop() {
+// Bus cycles to wait for the CPU to stop after #HLT; an instruction takes
+// far fewer.
+constexpr auto halt_cycles = 256;
+
+bool PinsMn1613::loop(bool &switched) {
     negate_hlt();
     unhalt();
+    auto stopping = 0;
+    switched = false;
     while (true) {
         auto s = waitBus();
         if (halt_asserted()) {
             assert_hlt();
-            return;
+            switched = stopping != 0;
+            return true;
         }
         completeCycle(s);
-        if (haltSwitch())
+        if (stopping == 0 && haltSwitch()) {
             assert_hlt();
+            stopping = 1;
+        } else if (stopping && ++stopping > halt_cycles) {
+            cli.println("?halt: CPU ignored #HLT");
+            return false;
+        }
         _devs->loop();
     }
 }
@@ -306,19 +318,31 @@ void PinsMn1613::run() {
     _regs->restore();
     Cycles::reset();
     saveBreakInsts();
-    loop();
-    // discard prefetches
-    auto s = Signals::put()->prev();
-    do {
-        s = s->prev();
-        if (s->fetch() && _mems->read(s->addr) == InstMn1613::H) {
-            Cycles::discard(s);
-            break;
-        }
-    } while (s != Signals::get());
-    const auto halt = s != Signals::get();
+    startRunTimer();
+    bool switched;
+    const auto stopped = loop(switched);
+    stopRunTimer();
+    // An H stopped the CPU: discard the prefetches after it. The halt
+    // switch stops it with no H executed, though one may have been
+    // fetched and skipped.
+    auto halt = false;
+    if (stopped && !switched) {
+        auto s = Signals::put()->prev();
+        do {
+            s = s->prev();
+            if (s->fetch() && _mems->read(s->addr) == InstMn1613::H) {
+                Cycles::discard(s);
+                halt = true;
+                break;
+            }
+        } while (s != Signals::get());
+    }
     restoreBreakInsts();
     disassembleCycles();
+    // A failed halt leaves the CPU running: keep the registers from the
+    // last good save.
+    if (!stopped)
+        return;
     _regs->save();
     if (halt)
         _regs->setIp(regs<RegsMn1613>()->addIp(-1));  // offset H instruction
@@ -326,14 +350,17 @@ void PinsMn1613::run() {
 
 bool PinsMn1613::rawStep() {
     unhalt();
-    while (true) {
+    for (auto n = 0; n < halt_cycles; ++n) {
         const auto s = waitBus();
-        completeCycle(s);
+        // Halted before a bus request: |s| was never prepared.
         if (halt_asserted())
             return true;
+        completeCycle(s);
         DEBUG(cli.print("@@ step: "));
         DEBUG(s->print());
     }
+    cli.println("?halt: no stop after step");
+    return false;
 }
 
 bool PinsMn1613::step(bool show) {
@@ -480,7 +507,11 @@ void PinsMn1613::printCycles() {
     }
 }
 
-void PinsMn1613::disassembleCycles() {
+const SignalsImpl *PinsMn1613::findBacktraceStart() {
+    return backtraceStartByFetchCount<Signals>(_lineLimit);
+}
+
+void PinsMn1613::printBacktrace() {
     const auto g = Signals::get();
     const auto cycles = g->diff(Signals::put());
     for (auto i = 0u; i < cycles;) {

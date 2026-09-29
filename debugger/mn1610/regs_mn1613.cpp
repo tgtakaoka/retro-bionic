@@ -55,8 +55,9 @@ void RegsMn1613::reset() {
     _pins->injectReset(RESET_PSW, length(RESET_PSW));  // Inject reset PSW
 }
 
-uint32_t RegsMn1613::addr(uint_fast8_t seg, uint16_t off) {
-    return (static_cast<uint32_t>(seg) << 14) | off;
+// The segment base is added, and the carry out of the top bit is lost.
+uint32_t RegsMn1613::addr(uint_fast8_t seg, uint16_t off) const {
+    return ((static_cast<uint32_t>(seg) << 14) + off) & _mems->maxAddr();
 }
 
 uint32_t RegsMn1613::nextIp() const {
@@ -101,7 +102,7 @@ void RegsMn1613::restore() {
     injectReg(SETS, _npp);
     /* Restore SSBR, TSR0, TSR1 */
     for (uint_fast8_t b = SSBR; b < 4; ++b) {
-        const uint16_t SETB = 0x0F00 | (b << 4) | R0;  // SETB R0, RBb
+        const uint16_t SETB = 0x0F00 | (b << 4) | R0;  // SETB R0, BRb
         injectReg(SETB, _seg[b]);
     }
     /* Restore R0~R4 */
@@ -113,7 +114,7 @@ void RegsMn1613::restore() {
     /* Restore STR; POP STR */
     auto sp = addr(_seg[SSBR], KNOWN_SP);
     _pins->injectReads(0x2602, ++sp, &_reg[STR], 1);
-    /* Rsetore CSBR:IC */
+    /* Restore CSBR:IC */
     const uint16_t ADDR[] = {
             _seg[CSBR],
             uint16(_reg[IC] - 2),  // offset setReg(SP) instructions
@@ -215,6 +216,7 @@ bool RegsMn1613::setRegister(uint_fast8_t reg, uint32_t value) {
         break;
     case 16:
         _iisr = value;
+        break;
     default:
         if (reg < 9) {
             _reg[reg - 1] = value;
