@@ -306,8 +306,6 @@ char_div,     2FH               / char '/'
         VB
         jms     I I_answer      / -384
 
-        hlt                     /  @@@@@@@@
-
         jms     I I_set_VAVB
         lo(5000)
         hi(5000)
@@ -465,6 +463,7 @@ char_equal,     3DH             / char '='
 /// Print comparison; "A rel B\n"
 /// @param VA value of A
 /// @param VB value of B
+/// @clobber R0 R1 R2 AC
 comp,           .-.
         cla
         tad     VAL
@@ -482,7 +481,7 @@ comp,           .-.
         sza                     / skip if low(VA-VB) == 0
         jmp     comp_gt
 comp_eq,
-        tad     char_equal,
+        tad     char_equal
         jmp     comp_putchar
 char_lt,        3CH             / char '<'
 comp_lt,
@@ -494,7 +493,8 @@ comp_gt,
         cla
         tad     char_gt
 comp_putchar,
-        jms     I I_putchar     / print 'rel'
+        jms     I I_expr        / print "VA rel VB"
+        jms     I I_newline     / print '\n'
         jmp     I comp          / return
 
         page
@@ -560,17 +560,21 @@ div24_sign,     0
 div24,          .-.
         cla
         dca     div24_sign      / clear sign
-        tad     I div24
-        isz     div24
-        dca     arith_ptr
-        tad     I arith_ptr     / AC=divisor
-        sma                     / Skip if divisor < 0
-        jmp     div24_divisor_plus
+        tad     I div24         / divisor address
+        isz     div24           / advance to return address
+        dca     arith_ptr       / pointer to low(divisor)
+        tad     I arith_ptr     / low(divisor)
+        dca     R2L
+        isz     arith_ptr       / advance to high(divisor)
+        tad     I arith_ptr     / high(divisor)
+        dca     R2H
+        tad     R2H
+        sma cla                 / skip if divisor<0, AC=0
+        jmp     div24_dividend
         isz     div24_sign      / sign++
-        cia                     / negate divisor
-div24_divisor_plus,
-        dca     R2L             / R2L=|divisor|
-        dca     R2H             / R2H=0
+        jms     I I_neg24       / negate divisor
+        R2
+div24_dividend,
         tad     R0L
         dca     R1L             / R1=dividend
         tad     R0H

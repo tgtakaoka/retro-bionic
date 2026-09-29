@@ -42,20 +42,44 @@ void RegsIm6100::save() {
     _ac = buffer[1];
     _mq = buffer[2];
     _flags = buffer[4];
+    // restore()'s RTF set IEFF; the program hasn't enabled interrupts yet
+    if (_pins->interruptsGated())
+        set_ieff(0);
 }
 
+// RTF enables interrupts after the next instruction, whatever IEFF was:
+// with IEFF clear, as in a handler, the request stays gated off until the
+// program enables interrupts itself.
 void RegsIm6100::restore() {
-    const uint16_t RESTORE[] = {
+    _pins->gateInterrupts(_ieff() == 0);
+    const uint16_t FLAGS[] = {
             07200,          // CLA
             01002, _mq,     // TAD 0002  ; Load MQ
             07421,          // MQL       ; AC->MQ
             01003, _flags,  // TAD 0003  ; Load FLAGS
             06005, 07000,   // RTF       ; AC->FLAGS, dummy read, dummy write
+    };
+    // RTF turns interrupts on, one instruction late: an IOF there turns
+    // them off again when the program had them off.
+    static constexpr uint16_t IOF[] = {
+            06002, 07000,  // IOF       ; dummy read, dummy write
+    };
+    const uint16_t JUMP[] = {
             07200,          // CLA
             01001, _ac,     // TAD 0001  ; Load AC
             05400, _pc,     // JMP I 0000; Jump to PC
     };
-    _pins->injectReads(RESTORE, length(RESTORE));
+    uint16_t seq[length(FLAGS) + length(IOF) + length(JUMP)];
+    uint_fast8_t n = 0;
+    for (auto w : FLAGS)
+        seq[n++] = w;
+    if (_ieff() == 0) {
+        for (auto w : IOF)
+            seq[n++] = w;
+    }
+    for (auto w : JUMP)
+        seq[n++] = w;
+    _pins->injectReads(seq, n);
 }
 
 void RegsIm6100::breakPoint() {

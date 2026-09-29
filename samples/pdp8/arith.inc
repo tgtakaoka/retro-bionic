@@ -23,7 +23,7 @@ add24,          .-.
 /// @param R0 Signed 24-bit minuend
 /// @param (PC+1) Signed 24-bit subtrahend address
 /// @return AC=0
-/// @return L=0 if borrow
+/// @return L=1 if borrow
 sub24,          .-.
         cla
         tad     I sub24         / subtrahend address
@@ -32,7 +32,7 @@ sub24,          .-.
         tad     I arith_ptr     / AC=low(subtrahend)
         stl cia                 / negate to form 13-bit negative
         tad     R0L             / AC=low(R0)-low(subtrahend)
-        dca     R0L             / L=0 if borrowed
+        dca     R0L             / L=1 if borrowed
         ral                     / propagate complemented borrow
         isz     arith_ptr       / advance to high(subtrahend)
         tad     I arith_ptr     / AC=high(subtrahend)
@@ -172,7 +172,7 @@ udiv16_bits,    0
 udiv16,         .-.
         cla
         dca     R0L
-        dca     R0H             / quitient = 0
+        dca     R0H             / quotient = 0
         tad     R2L
         sza                     / skip low(divisor) == 0
         jmp     udiv16_setup
@@ -195,8 +195,6 @@ udiv16_prep_loop,
         isz     udiv16_bits     / bits++
 udiv16_prep,
         tad     R2H
-        rtl
-        rtl                     / divisor<<=4
         sma cla                 / skip if msb(divisor)=1, AC=0
         jmp     udiv16_prep_loop        / while MSB(divisor)=0
         jmp     udiv16_enter_loop       / AC=0

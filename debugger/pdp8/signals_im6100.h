@@ -14,13 +14,11 @@ struct Signals final : SignalsBase<Signals, pdp8::Signals> {
     void outData() const;
     static void inputMode();
     void outIoc(uint8_t ioc);
-
-    bool hasSelect() const;
 };
 
 }  // namespace im6100
 }  // namespace debugger
-#endif /* __SIGNALS_H__ */
+#endif /* __SIGNALS_IM6100_H__ */
 
 // Local Variables:
 // mode: c++

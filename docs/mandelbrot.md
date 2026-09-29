@@ -50,6 +50,8 @@ The tables time them on real chips, from recorded casts, with
 | P8039       | 172.0 |   7.028 |   2.333 |             | [mandelbrot.cast](../samples/i8048/mandelbrot.cast)                      | [i8048/mandelbrot.lst](../samples/i8048/mandelbrot.lst)       |
 | CDP1804A    | 198.3 |   8.099 |   2.639 |             | [mandelbrot.cast](../samples/cdp1804a/mandelbrot.cast)                   | [cdp1804a/mandelbrot.lst](../samples/cdp1804a/mandelbrot.lst) |
 | CDP1802     | 247.8 |  10.125 |   3.329 |             | [mandelbrot.cast](../samples/cdp1802/mandelbrot.cast)                    | [cdp1802/mandelbrot.lst](../samples/cdp1802/mandelbrot.lst)   |
+| HD6120      | 258.0 |  10.544 |   3.521 |             | [mandelbrot_hd6120.cast](../samples/pdp8/mandelbrot_hd6120.cast)         | [pdp8/mandelbrot.lst](../samples/pdp8/mandelbrot.lst)         |
+| IM6100      | 386.1 |  17.547 |   4.958 |             | [mandelbrot.cast](../samples/pdp8/mandelbrot.cast)                       | [pdp8/mandelbrot.lst](../samples/pdp8/mandelbrot.lst)         |
 | INS8060     | 716.5 |  29.262 |   9.505 |             | [mandelbrot.cast](../samples/ins8060/mandelbrot.cast)                    | [ins8060/mandelbrot.lst](../samples/ins8060/mandelbrot.lst)   |
 | F3850       | 817.3 |  33.413 |  11.388 |             | [mandelbrot.cast](../samples/f3850/mandelbrot.cast)                      | [f3850/mandelbrot.lst](../samples/f3850/mandelbrot.lst)       |
 
@@ -113,3 +115,14 @@ nine times as fast.
 The MN1613 runs MN1610 code as is. Its own code, with the hardware
 multiply `M` and divide `D` the MN1610 lacks, runs nearly three times as
 fast.
+
+### PDP-8 family
+
+| | IM6100 | HD6120 |
+|---|---:|---:|
+| [pdp8](../samples/pdp8/mandelbrot.lst) | 386.1 | 258.0 |
+| Data bus | 12-bit, multiplexed | 12-bit, multiplexed |
+
+The HD6120 runs the IM6100's code as is, in a third less time on its
+board. The code uses none of the HD6120's own instructions, such as its
+stacks (`PPC1`/`RTN1`).

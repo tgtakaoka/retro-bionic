@@ -19,7 +19,7 @@ struct Signals final : SignalsBase<Signals, pdp8::Signals> {
 
 }  // namespace hd6120
 }  // namespace debugger
-#endif /* __SIGNALS_H__ */
+#endif /* __SIGNALS_HD6120_H__ */
 
 // Local Variables:
 // mode: c++

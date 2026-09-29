@@ -46,7 +46,7 @@
 #define PIN_MEMSEL 2  /* P9.04 */
 #define PIN_DEVSEL 3  /* P9.05 */
 #define PIN_CPSEL 4   /* P9.06 */
-#define PIN_SWSEL 33  /* P6.07 */
+#define PIN_SWSEL 33  /* P9.07 */
 #define CNTL_MEMSEL 1 /* CNTL0 */
 #define CNTL_DEVSEL 2 /* CNTL1 */
 #define CNTL_CPSEL 4  /* CNTL2 */

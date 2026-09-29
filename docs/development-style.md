@@ -1373,3 +1373,24 @@ read of `$FFFF`. **[hw]**
 mode. Mandelbrot is mid-speed on the MC6809 and MC6809E (6 rows in 20
 seconds) and fast on the HD6309 in native mode (a frame in under 10
 seconds).
+
+### PDP-8 (IM6100 / HD6120)
+
+**Pitfalls.** The debugger's `restore()` ends in `RTF` on both chips, and
+on the IM6100 `RTF` enables interrupts after the next instruction whatever
+IEFF was. **[hw]** Resuming inside an interrupt handler whose request was
+still pending took the interrupt again: the CPU wrote its return address
+into location 0000, over the program's, and ran off. The debugger now holds
+INTREQ off while the saved IEFF is clear, records IEFF as clear in `save()`
+until then, and lets requests through once the program fetches its own
+`ION` or `RTF`. The HD6120 showed no such hiccup: stopped inside
+`echoir`'s handler with the request pending, stepping and `G` kept
+interrupts off until the handler's own return, and location 0000 kept the
+main-line return address.
+
+Holding INTREQ off still left the chip's own IEFF on, which `SKON` and
+`GTF` read. `restore()` now follows the `RTF` with `IOF` on both chips
+when the saved IEFF is clear: `RTF` enables interrupts one instruction
+late, so the `IOF` turns them off before any request is taken. Checked
+with an `IOF`, `SKON`, `JMP .-1` loop halted and resumed five times on
+each chip, which never fell through to the `HLT` after it. **[hw]**
