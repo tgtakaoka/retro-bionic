@@ -10,7 +10,7 @@ struct Signals final : SignalsBase<Signals, i8096::SignalsI8096> {
 };
 }  // namespace p8095bh
 }  // namespace debugger
-#endif /* __SIGNALS_H__ */
+#endif /* __SIGNALS_P8095BH_H__ */
 
 // Local Variables:
 // mode: c++
