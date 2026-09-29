@@ -50,7 +50,7 @@ void Signals::print() const {
                 'D',  // L H H Deposit; DEV=AC, AC=0
                 'V',  // H L L Vector
                 'O',  // H L H Or-ed;   AC|=DEV
-                'B',  // H H L Beanch
+                'B',  // H H L Branch
                 'W',  // H H H Write;   DEV=AC
         };
         buffer[19] = IOC[ioc() & 7];

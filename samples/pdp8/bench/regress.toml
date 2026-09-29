@@ -1,0 +1,86 @@
+# How each sample must be driven. See scripts/bionic-regress.py's
+# drive_table() for the key shapes this file can use.
+
+# The chips, as their banners name them, this file is for.
+chips = ["IM6100", "HD6120"]
+
+# Reset clears the AC and the LINK and sets the PC to 7777 (IM6100 and
+# HD-6120 data sheets, RESET). Only the HD-6120 clears MQ, and it prints
+# the PC with its field digit, so neither is checked.
+[reset]
+radix = 8
+AC = "0000"
+L = "0"
+
+# arith.asm computes in 24 bits, so sums and products don't wrap at 16.
+[arith]
+expect = """
+18000 + 28000 = 46000
+18000 + -18000 = 0
+-18000 + -18000 = -36000
+-18000 - -28000 = 10000
+18000 - -18000 = 36000
+-28000 - -18000 = -10000
+100 * 300 = 30000
+200 * 300 = 60000
+300 * -200 = -60000
+100 * -300 = -30000
+-200 * -100 = 20000
+30000 / 100 = 300
+-200 / 100 = -2
+-30000 / -200 = 150
+-30000 / 78 = -384
+5000 > 4000
+5000 = 5000
+4000 < 5000
+-5000 < -4000
+-5000 = -5000
+-4000 > -5000
+32700 > 32600
+32700 = 32700
+32600 < 32700
+-32700 < -32600
+-32700 = -32700
+-32600 > -32700
+18000 > -28000
+-28000 = -28000
+-28000 < 18000"""
+
+[echo]
+feed = "ok\r"
+expect = "ok"
+
+[echoir]
+feed = "irq\r"
+expect = "irq"
+
+# Prints "<char> 0xXX 0bXXXXXXXX" per received byte, one line each
+# including the trailing \r.
+[echoitr]
+feed = "itr\r"
+expect = """
+i 0x69 0b01101001
+t 0x74 0b01110100
+r 0x72 0b01110010
+ 0x0D 0b00001101"""
+
+# Halts at the first completed frame, or once 6 rows are drawn and at
+# least 20 seconds have passed; checks everything drawn so far.
+[mandelbrot]
+golden = "samples/arith/mandelbrot.golden"
+
+lines = 6
+
+# The image holds two bytes per 12-bit word.
+[haltgo]
+program = "mandelbrot"
+address_unit = 2
+halt_interval = [0.05, 0.3]
+
+[breakpoint]
+program = "mandelbrot"
+break_at = "loop_x"
+
+[gountil]
+program = "mandelbrot"
+break_at = "loop_x"
