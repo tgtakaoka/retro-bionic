@@ -1,0 +1,41 @@
+# Scenario for scripts/record-scenario.py: the 8085's vectored
+# interrupts. Unlike the 8080's INT, which needs the device to put an
+# instruction on the bus in an INTA cycle, RST 6.5 is its own pin with a
+# fixed vector: the CPU pushes the return address and jumps to 0034 by
+# itself, where a JMP leads to the handler. RIM and SIM read and set the
+# RST 5.5/6.5/7.5 masks.
+#
+# ADDRESS IS PINNED TO THE CURRENT samples/i8085/mandelbrot.hex:
+# isr_intr_tx at 046C. If mandelbrot.asm/.inc or the .hex ever change,
+# re-check it against the fresh .lst before recording -- a stale address
+# will look like it works (it disassembles *something*) while showing the
+# wrong thing.
+
+key ?
+pace 2.0
+
+key R
+upload samples/i8085/mandelbrot.hex
+
+# Stop at the transmit handler. The backtrace shows the next opcode
+# fetched and discarded (it becomes the return address), the two stack
+# writes with no INTA cycle before them, and the JMP fetched from the
+# RST 6.5 vector at 0034.
+type g
+wait Go until?
+command 46C 8
+pace 1.5
+
+# The return address sits on top of the stack at SP.
+type d
+wait Data dump?
+command FF0 10
+pace 2.0
+
+# Step through the handler's first instructions: PUSH PSW, then the
+# 8251 status read.
+step 2
+pace 1.5
+
+# Watch one frame render; it takes about 1 minute 20 seconds.
+run 1 300

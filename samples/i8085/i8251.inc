@@ -33,7 +33,7 @@ CMD_TxEN_bm:    equ     00000001B   ; Transmit enable
 ST_DSR_bm:      equ     10000000B   ; Data Set Ready
 ST_BRK_bm:      equ     01000000B   ; BREAK detected
 ST_FE_bm:       equ     00100000B   ; Framing Error
-ST_OE_bm:       equ     00010000B   ; Iverrun Error
+ST_OE_bm:       equ     00010000B   ; Overrun Error
 ST_PE_bm:       equ     00001000B   ; Parity Error
 ST_TxEMPTY_bm:  equ     00000100B   ; Transmitter empty
 ST_RxRDY_bm:    equ     00000010B   ; Receiver ready

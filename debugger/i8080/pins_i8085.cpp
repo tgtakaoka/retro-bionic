@@ -39,7 +39,7 @@ namespace {
 //  tAL: min 115 ns              ; Address valid before trailing ALE
 //  tLC: min 130 ns              ; Trailing ALE to leading control
 // tLCK: min 100 ns              ; ALE low during CLK high
-//  tAC: min 270 ns              ; A8-15 balid to leading control
+//  tAC: min 270 ns              ; A8-15 valid to leading control
 // tLDR: max 460 ns              ; ALE to valid data for read
 // tLDW: max 200 ns              ; ALE to valid data for write
 //  tRD: max 300 ns              ; #RD to valid data
@@ -324,7 +324,9 @@ void PinsI8085::run() {
     _regs->restore();
     Cycles::reset();
     saveBreakInsts();
+    startRunTimer();
     const auto halt = loop();
+    stopRunTimer();
     restoreBreakInsts();
     disassembleCycles();
     if (halt) {
@@ -418,7 +420,11 @@ void PinsI8085::printCycles() {
     }
 }
 
-void PinsI8085::disassembleCycles() {
+const SignalsImpl *PinsI8085::findBacktraceStart() {
+    return backtraceStartByFetchCount<Signals>(_lineLimit);
+}
+
+void PinsI8085::printBacktrace() {
     const auto g = Signals::get();
     const auto cycles = g->diff(Signals::put());
     for (auto i = 0u; i < cycles;) {
