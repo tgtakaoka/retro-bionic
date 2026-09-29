@@ -1,0 +1,40 @@
+# Scenario for scripts/record-scenario.py: SC/MP's call without a stack.
+# There is no CALL and no stack pointer: XPPC P1 swaps PC with pointer
+# register P1, so the routine runs and P1 holds the return point. The
+# routine reads its inline .dbyte operands through P1, then returns with
+# another XPPC P1 past them. PC is incremented before each fetch, so it
+# holds one less than the next instruction -- ADDR(mulsi2) is mulsi2-1.
+#
+# ADDRESSES ARE PINNED TO THE CURRENT samples/ins8060/mandelbrot.hex:
+# the "xppc P1 ; C=X*229" in loop_x at 112C, and the next call at 1131.
+# If mandelbrot.asm/.inc or the .hex ever change, re-check them against
+# the fresh .lst before recording -- a stale address will look like it
+# works (it disassembles *something*) while showing the wrong thing.
+
+key ?
+pace 2.0
+
+key R
+upload samples/ins8060/mandelbrot.hex
+
+# Stop on the call: P1 holds 1464, one less than mulsi2 at 1465.
+type g
+wait Go until?
+command 112C 5
+pace 2.0
+
+# One step is the whole call: PC takes P1's 1464, so mulsi2 at 1465 is
+# next, and P1 now holds 112C, the return point.
+step 1
+pace 2.0
+
+# Run until the return: mulsi2 consumed the two .dbyte operands after
+# the call and swapped back with the XPPC at 1464, just before its entry,
+# which leaves P1=1464 ready for the next call at 1131.
+type g
+wait Go until?
+command 1131 5
+pace 2.5
+
+# Watch one frame render; it takes about 12 minutes.
+run 1 900

@@ -61,7 +61,7 @@ print_uint16_loop:
         ldi     0
         st      (vDIVISOR-ADDR(udiv16)+1)(P1)
         xppc    P1              ; calculate vPRINT/=10
-        ld      (vREMINDER-ADDR(udiv16))(P1) ; L(vREMINDER)
+        ld      (vREMAINDER-ADDR(udiv16))(P1) ; L(vREMAINDER)
         ori     '0'
         st      E(P2)           ; buffer[E]=digit
         ccl
@@ -381,7 +381,7 @@ umul16_end:
 ;;;   xppc   P1
 ;;;   .dbyte &divisor
 ;;;   .dbyte &dividend
-;;; @return vREMINDER |dividend| % |divisor|
+;;; @return vREMAINDER |dividend| % |divisor|
 ;;; @local P2[1:0] &divisor
 ;;; @local P2[3:2] &dividend
 ;;; @local P2[5:4] return address
@@ -410,9 +410,10 @@ divsi2:
         st      5(P2)
         ld      0(P1)
         st      vDIVISOR
-        xae                     ; E=high(divisor)
         ld      1(P1)
         st      vDIVISOR+1
+        xae                     ; E=high(divisor)
+        lde
         jp      divsi2_dividend ; if divisor>=0
         scl                     ; clear borrow
         ldi     0
@@ -421,7 +422,8 @@ divsi2:
         ldi     0
         cad     vDIVISOR+1
         st      vDIVISOR+1      ; negate divisor
-divsi2_exit_trampoline
+        jmp     divsi2_dividend
+divsi2_exit_trampoline:
         jmp     divsi2_exit
 divsi2_dividend:
         ld      2(P2)           ; P2[3:2]=&dividend
@@ -479,7 +481,7 @@ divsi2_store:
 vQUOTIENT:      .dbyte  0
 vDIVIDEND:      .dbyte  0
 vDIVISOR:       .dbyte  0
-vREMINDER       = vDIVIDEND
+vREMAINDER       = vDIVIDEND
 udiv16_bits:    .byte   0
 udiv16_borrow:  .byte   0
 udiv16_adjust:

@@ -64,7 +64,7 @@ arith:
 
         xppc    P1
         .dbyte  18000
-        .dbyte  -18000          ; 29536
+        .dbyte  -18000          ; -29536
         .byte   '-'
 
         xppc    P1

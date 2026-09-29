@@ -34,7 +34,7 @@ private:
 };
 }  // namespace ins8060
 }  // namespace debugger
-#endif /* __SIGNALS_H__ */
+#endif /* __SIGNALS_INS8060_H__ */
 
 // Local Variables:
 // mode: c++

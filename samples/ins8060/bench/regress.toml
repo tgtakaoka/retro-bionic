@@ -1,0 +1,103 @@
+# How each sample must be driven. See scripts/bionic-regress.py's
+# drive_table() for the key shapes this file can use.
+
+# Documented RESET guarantees (INS8060 data sheet, NRST pin description,
+# p.4): all programmer-accessible registers are zeroed, then the first
+# instruction is fetched from 0001H. S is left unchecked because its
+# SA/SB bits follow the sense inputs.
+[reset]
+program_counter = "PC"
+PC = "0000"
+P1 = "0000"
+P2 = "0000"
+P3 = "0000"
+E = "00"
+A = "00"
+
+# This arith.asm runs its own 29 cases, not the list other targets use.
+# Derived from its test table.
+[arith]
+expect = """
+18000 + 28000 = -19536
+18000 + -18000 = 0
+-18000 + -18000 = 29536
+-18000 - -28000 = 10000
+18000 - -18000 = -29536
+-28000 - -18000 = -10000
+100 * 300 = 30000
+200 * -100 = -20000
+-200 * 300 = 5536
+-200 * -100 = 20000
+30000 / 100 = 300
+-200 / 100 = -2
+-30000 / -200 = 150
+-30000 / 78 = -384
+5000 > 4000
+5000 = 5000
+4000 < 5000
+-5000 < -4000
+-5000 = -5000
+-4000 > -5000
+32700 > 32600
+32700 = 32700
+32600 < 32700
+-32700 < -32600
+-32700 = -32700
+-32600 > -32700
+18000 > -28000
+-28000 = -28000
+-28000 < 18000"""
+
+[echo]
+feed = "ok\r"
+expect = "ok"
+
+[echoir]
+feed = "irq\r"
+expect = "irq"
+
+# Prints "<char> 0xXX 0bXXXXXXXX" per received byte, one line each
+# including the trailing \r.
+[echoitr]
+feed = "itr\r"
+expect = """
+i 0x69 0b01101001
+t 0x74 0b01110100
+r 0x72 0b01110010
+ 0x0D 0b00001101"""
+
+# Console I/O patches for the NIBL and floating point BASIC
+# interpreters, not stand-alone programs.
+[NIBLPATCH]
+skip = true
+
+[NIBL1200BPS]
+skip = true
+
+[FBASPATCH]
+skip = true
+
+# A full frame takes over 5 minutes on this target, so halt mid-run once
+# enough rows have printed to check against the golden reference.
+# 6 lines = 'G's own reply line + 5 complete drawn rows.
+[mandelbrot]
+golden = "samples/arith/mandelbrot.golden"
+lines = 6
+
+# A random halt point, not always the same one, catches a corrupted
+# resume that only shows up mid-instruction.
+[haltgo]
+program = "mandelbrot"
+halt_interval = [0.05, 0.3]
+
+# SC/MP's PC holds the address before the next instruction, so a stop
+# at loop_x reports PC = loop_x - 1.
+[breakpoint]
+program = "mandelbrot"
+break_at = "loop_x"
+pc_offset = -1
+
+[gountil]
+program = "mandelbrot"
+break_at = "loop_x"
+pc_offset = -1

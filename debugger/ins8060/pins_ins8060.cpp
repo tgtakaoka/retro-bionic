@@ -11,7 +11,7 @@ namespace ins8060 {
 
 // clang-format off
 /**
- * INS8070 External Bus cycle
+ * INS8060 External Bus cycle
  *        __    __    __    __    __    __    __    __    __    __
  *    XIN   |__| 1|__| 2|__| 3|__| 4|__| 5|__| 6|__| 7|__| 8|__|  |
  *          \ __  \ __  \ __  \ __  \ _\  \ __  \ __  \ __  \ __
@@ -36,7 +36,7 @@ namespace ins8060 {
 // clang-format on
 
 namespace {
-//   fx: max 4.0 MHz    ; XIN frequencey
+//   fx: max 4.0 MHz    ; XIN frequency
 //   Tc: min 500 ns     ; 2 cycles of XIN
 //  TW0: min 120 ns     ; XIN low width
 //  TW1: min 120 ns     ; XIN high width
@@ -202,7 +202,7 @@ void PinsIns8060::resetPins() {
     negate_enin();
     negate_reset();
     // The #BREQ output goes low, indicating the start of execution;
-    // this occurs at a time whithin 13 Tc after #RST is set high.
+    // this occurs at a time within 13 Tc after #RST is set high.
     _regs->save();
 }
 
@@ -343,7 +343,7 @@ void PinsIns8060::execute(const uint8_t *inst, uint8_t len, uint16_t *addr,
 }
 
 void PinsIns8060::idle() {
-    // #ENIN is HIGH and bus cycle is suspened.
+    // #ENIN is HIGH and bus cycle is suspended.
     xin_cycle_lo();
     delayNanoseconds(0);
 }
@@ -386,7 +386,9 @@ void PinsIns8060::run() {
     Cycles::reset();
     saveBreakInsts();
     assert_enin();
+    startRunTimer();
     loop();
+    stopRunTimer();
     restoreBreakInsts();
     disassembleCycles();
     _regs->save();
@@ -421,11 +423,11 @@ bool PinsIns8060::step(bool show) {
     return false;
 }
 
-void PinsIns8060::assertInt(uint8_t name) {
+void PinsIns8060::assertInt(uint8_t) {
     assert_sense_a();
 }
 
-void PinsIns8060::negateInt(uint8_t name) {
+void PinsIns8060::negateInt(uint8_t) {
     negate_sense_a();
 }
 
@@ -442,7 +444,11 @@ void PinsIns8060::printCycles() {
     }
 }
 
-void PinsIns8060::disassembleCycles() {
+const SignalsImpl *PinsIns8060::findBacktraceStart() {
+    return backtraceStartByFetchCount<Signals>(_lineLimit);
+}
+
+void PinsIns8060::printBacktrace() {
     const auto g = Signals::get();
     const auto cycles = g->diff(Signals::put());
     for (auto i = 0u; i < cycles;) {
