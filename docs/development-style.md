@@ -1035,3 +1035,28 @@ program's stack, it overwrote values the arithmetic had saved there, and
 mandelbrot drew its leftmost column wrong in the rows next to the axis,
 whose first pixel is computed while the newline's characters go out.
 The ISR has its own stack now, at `isr_stack`.
+
+### MCS-51
+
+**Pitfalls.** An 80C51 in idle mode makes no bus cycles, and a reset in the
+middle of a run must be followed by `restore()` and must end the run.
+
+A P80C51 in idle mode holds ALE high; `prepareCycle()` gives up after
+`idle_cycles` and resets the CPU rather than wait for ever. `resetPins()`
+saves the registers by running injected code at 0000, which leaves the PC
+where that code ended: without a `restore()` (`LJMP` to the saved 0000) the
+CPU went on into whatever memory held there, which looked like leftover
+code running at 003A. **[hw]**
+
+The reset comes in the middle of `rawStep()`'s instruction, so the run
+stops there: carrying on counted the old instruction's cycles against the
+new program, lost the instruction boundary, and the next halt's injected
+code failed ("?halt: no writes"). **[hw]**
+
+`udiv16_8` in `arith.inc` dropped the ninth bit when shifting the partial
+remainder, so any divisor of 128 or more with a dividend above 255 divided
+wrong (`-30000 / -200 = 128`). When the shift sets carry, subtract
+unconditionally. **[hw]**
+
+R0-R7 are internal RAM 00h-1Fh, four banks picked by PSW's RS1:RS0; dumping
+00-1F shows all of them. **[doc]**

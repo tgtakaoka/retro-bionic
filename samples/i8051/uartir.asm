@@ -37,7 +37,7 @@ init_uart:
 init_timer:
         orl     PCON, #SMOD     ; Double baudrate
         orl     TMOD, #T8MODE SHL T1MODE_gp
-;;; baudrate = K*fosc/(32*12*(256-TH1)
+;;; baudrate = K*fosc/(32*12*(256-TH1))
 ;;; TH1=256 - (K*fosc/(384*baudrate))
 ;;; fosc=12MHz, K=2(SMOD=1) baudrate=4,800bps, TH1=243(256-13)
         mov     TL1, #243

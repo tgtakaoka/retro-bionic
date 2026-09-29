@@ -13,6 +13,9 @@ void Signals::getAddress() {
 
 void Signals::getControl() {
     cntl() = busRead(CNTL);
+#ifdef PROFILE_CYCLES
+    setMatched(0);
+#endif
 }
 
 void Signals::getData() {
@@ -29,6 +32,10 @@ void Signals::outputMode() {
 
 void Signals::inputMode() {
     busMode(DB, INPUT);
+}
+
+void Signals::noCycle() {
+    cntl() = CNTL_PSEN | CNTL_WR;
 }
 
 bool Signals::read() const {
@@ -55,7 +62,17 @@ void Signals::print() const {
     buffer[0] = fetch() ? 'P' : (read() ? 'R' : (write() ? 'W' : ' '));
     buffer.hex16(4, addr);
     buffer.hex8(11, data);
+#ifdef PROFILE_CYCLES
+    // The matcher's opcode fetches print as I, with the bus cycles it gave
+    // them, for tools/cycles_i8051.py.
+    if (matched())
+        buffer[0] = 'I';
+    cli.print(buffer);
+    cli.print(" m=");
+    cli.printlnDec(matched());
+#else
     cli.println(buffer);
+#endif
 }
 
 }  // namespace i8051
