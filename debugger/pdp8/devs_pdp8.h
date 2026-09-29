@@ -45,7 +45,7 @@ private:
 
 }  // namespace pdp8
 }  // namespace debugger
-#endif /* _DEVS_PDP8H_ */
+#endif /* __DEVS_PDP8_H__ */
 
 // Local Variables:
 // mode: c++

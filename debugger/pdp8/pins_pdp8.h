@@ -27,6 +27,9 @@ struct PinsPdp8 : Pins {
     void idle() override;
     void assertInt(uint8_t name) override;
     void negateInt(uint8_t name) override;
+    /** Hold INTREQ off until the program fetches ION or RTF itself. */
+    void gateInterrupts(bool gate);
+    bool interruptsGated() const { return _intGate; }
     void setBreakInst(uint32_t addr) const override;
     void printCycles() override;
 
@@ -36,6 +39,8 @@ struct PinsPdp8 : Pins {
 
 protected:
     Mems *_cpmems;
+    bool _intGate = false;
+    bool _intWanted = false;
 
     PinsPdp8() {}
 
@@ -45,9 +50,11 @@ protected:
     virtual pdp8::Signals *completeCycle(Signals *signals) const = 0;
 
     void loop();
-    void suspend();
+    void fetched(const Signals *s);
+    bool suspend();
     bool rawStep();
-    void disassembleCycles() const;
+    const SignalsImpl *findBacktraceStart() override;
+    void printBacktrace() override;
 };
 
 }  // namespace pdp8

@@ -27,7 +27,7 @@ protected:
 
 }  // namespace pdp8
 }  // namespace debugger
-#endif /* __SIGNALS_H__ */
+#endif /* __SIGNALS_PDP8_H__ */
 
 // Local Variables:
 // mode: c++

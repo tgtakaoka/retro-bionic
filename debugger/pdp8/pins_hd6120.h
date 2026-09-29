@@ -28,7 +28,7 @@
 #define PORT_DIR 7     /* GPIO7 */
 #define DIR_gp 0       /* P7.00-P7.02 */
 #define DIR_gm 0x7     /* P7.00-P7.02 */
-#define DIR_vp 0       /* DIR0-DIR3 */
+#define DIR_vp 0       /* DIR0-DIR2 */
 #define PIN_WRITE 10   /* P7.00 */
 #define PIN_READ 12    /* P7.01 */
 #define PIN_IFETCH 11  /* P7.02 */

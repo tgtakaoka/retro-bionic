@@ -42,9 +42,16 @@ void RegsIm6100::save() {
     _ac = buffer[1];
     _mq = buffer[2];
     _flags = buffer[4];
+    // restore()'s RTF set IEFF; the program hasn't enabled interrupts yet
+    if (_pins->interruptsGated())
+        set_ieff(0);
 }
 
+// RTF enables interrupts after the next instruction, whatever IEFF was:
+// with IEFF clear, as in a handler, the request stays gated off until the
+// program enables interrupts itself.
 void RegsIm6100::restore() {
+    _pins->gateInterrupts(_ieff() == 0);
     const uint16_t RESTORE[] = {
             07200,          // CLA
             01002, _mq,     // TAD 0002  ; Load MQ

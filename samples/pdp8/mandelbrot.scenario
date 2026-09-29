@@ -1,0 +1,43 @@
+# Scenario for scripts/record-scenario.py: the PDP-8's interrupt, with no
+# stack. The CPU writes the return address to location 0000 and fetches
+# from 0001, where a JMP I leads through 0002 to the handler. Addresses are
+# octal, the target's radix.
+#
+# ADDRESS IS PINNED TO THE CURRENT samples/pdp8/mandelbrot.hex:
+# loop_x at 1346 (octal). If the sources or the image ever change,
+# re-check it against the fresh .lst before recording -- a stale address
+# will look like it works (it disassembles *something*) while showing the
+# wrong thing.
+#
+# It stops in the main loop, where interrupts are on: resuming there takes
+# a still-pending request at once, as the chip would. Within the handler,
+# RegsIm6100::restore() holds it back until the program turns them on.
+
+key ?
+pace 2.0
+
+key R
+upload samples/pdp8/mandelbrot.hex
+
+# Reset again so the CPU starts the uploaded program.
+key R
+pace 1.5
+
+# Stop in the main loop, after the first characters' interrupts.
+type g
+wait Go until?
+command 1346 10
+pace 2.0
+
+# The last interrupt's return address sits in location 0000, then the
+# JMP I at 0001 and the handler's address at 0002.
+type d
+wait Data dump?
+command 0 4
+pace 2.0
+
+step 2
+pace 1.5
+
+# Watch one frame render.
+run 1 300
