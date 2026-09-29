@@ -58,7 +58,7 @@ init_usart:
         mvi     a, RX_EN_TX_DIS
         out     USARTC
         mvi     a, ORG_RST5
-        out     USARTRV         ; set RxRDY interrupt vector RST 5.5
+        out     USARTRV         ; set RxRDY interrupt vector RST 5
         mvi     a, ORG_RST6
         out     USARTTV         ; set TxRDY interrupt vector RST 6
         ei

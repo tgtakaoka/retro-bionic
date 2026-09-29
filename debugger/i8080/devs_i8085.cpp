@@ -1,5 +1,6 @@
 #include "devs_i8085.h"
 #include <strings.h>
+#include "i8085_sio_handler.h"
 
 namespace debugger {
 namespace i8085 {
