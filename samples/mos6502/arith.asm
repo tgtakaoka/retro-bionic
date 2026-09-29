@@ -62,7 +62,7 @@ putspace:
         bne     putchar         ; always branch
 
 ;;; Print "R1 op R2"
-;;; @params A op letter
+;;; @param A op letter
 ;;; @clobber R0
 expr:
         pha                     ; save op letter
@@ -97,9 +97,6 @@ comp:
         lda     R0L
         beq     comp_eq
         bmi     comp_lt
-        bpl     comp_gt
-        lda     #'?'
-        bne     comp_out        ; always branch
 comp_gt:
         lda     #'>'
         bne     comp_out
@@ -147,7 +144,7 @@ arith:
         lda     #'-'
         jsr     expr
         jsr     subsi2
-        jsr     answer          ; -19536
+        jsr     answer          ; 10000
 
         jsr     set_R1
         .word   18000
@@ -156,7 +153,7 @@ arith:
         lda     #'-'
         jsr     expr
         jsr     subsi2
-        jsr     answer          ; 29536
+        jsr     answer          ; -29536
 
         jsr     set_R1
         .word   -28000

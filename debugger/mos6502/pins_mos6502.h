@@ -14,9 +14,9 @@
 #define PIN_D6 17     /* P6.22 */
 #define PIN_D7 16     /* P6.23 */
 #define PORT_BA 6     /* GPIO6 */
-#define BA_gp 16      /* P6.16.P6.23 */
+#define BA_gp 16      /* P6.16-P6.23 */
 #define BA_gm 0xFF    /* P6.16-P6.23 */
-#define BA_vp 16      /* A16-A24 */
+#define BA_vp 16      /* A16-A23 */
 #define PORT_AL 6     /* GPIO6 */
 #define AL_gp 24      /* P6.24-P6.31 */
 #define AL_gm 0xFF    /* P6.24-P6.31 */
@@ -31,13 +31,13 @@
 #define PIN_AL7 27    /* P6.31 */
 #define PORT_AM 7     /* GPIO7 */
 #define AM_gp 0       /* P7.00-P7.03 */
-#define AM_gm 0xF     /* P7.12-P7.15 */
+#define AM_gm 0xF     /* P7.00-P7.03 */
 #define AM_vp 8       /* A8-A11 */
 #define PIN_AM8 10    /* P7.00 */
 #define PIN_AM9 12    /* P7.01 */
 #define PIN_AM10 11   /* P7.02 */
 #define PIN_AM11 13   /* P7.03 */
-#define PORT_AH 7     /* P7.16-P7.19 */
+#define PORT_AH 7     /* GPIO7 */
 #define AH_gp 16      /* P7.16-P7.19 */
 #define AH_gm 0xF     /* P7.16-P7.19 */
 #define AH_vp 12      /* A12-A15 */
@@ -47,7 +47,7 @@
 #define PIN_AH15 37   /* P7.19 */
 #define PORT_CNTL 9   /* GPIO9 */
 #define CNTL_gp 4     /* P9.04-P9.08 */
-#define CNTL_gm 0x1F  /* CNTL0-CNTL4 */
+#define CNTL_gm 0x1F  /* P9.04-P9.08 */
 #define CNTL_vp 0     /* CNTL0-CNTL4 */
 #define PIN_VP 2      /* P9.04 */
 #define PIN_RW 3      /* P9.05 */
@@ -136,7 +136,8 @@ private:
     void execute(const uint8_t *inst, uint8_t len, uint16_t *addr, uint8_t *buf,
             uint8_t max);
 
-    void disassembleCycles();
+    const SignalsImpl *findBacktraceStart() override;
+    void printBacktrace() override;
 };
 
 }  // namespace mos6502

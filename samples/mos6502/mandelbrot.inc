@@ -227,6 +227,8 @@ loop_i:
         lda     vT+1
         bne     print_i         ; if T(>=0)>=256
         lda     vT
+        ;; ATTENTION: bpl below is a signed test of an unsigned T; T=133..255
+        ;; would not escape. Latent: no effect on the golden output.
         cmp     #4+1
         bpl     print_i         ; if 4<P*P+Q*Q
         inc     vI              ; I+=1
