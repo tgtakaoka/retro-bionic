@@ -41,7 +41,7 @@ void Signals::print() const {
     //                              0123456789012345678901234567890
 #ifdef Z280_PROFILE
     // ST0-3, B//W, #R//W and the matcher's mark (F fetch, B byte or
-    // stale prefetch, O data, - none), for profile_z280.py.
+    // stale prefetch, O data, - none), for tools/record_cycles.py.
     static constexpr char line[] = "R A=xxxxxx D=xxxx S=x b=x r=x m=-";
 #else
     static constexpr char line[] = "R A=xxxxxx D=xxxx";

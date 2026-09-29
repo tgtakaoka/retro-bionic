@@ -4,14 +4,14 @@
 Runs each pattern of libasm's gen_z280.lst (and every other opcode libasm
 decodes) in isolation, memory filled with FF (RST 38H) so any transfer
 breaks at once, and appends one JSON line per run to
-profile/z280-profile.jsonl.zst; derive_z280.py turns it into the
+z280-profile.jsonl.zst; derive_tables.py turns it into the
 z280-PAGExx.txt tables. Needs Python 3.14 (compression.zstd) and the
 firmware built with -D Z280_PROFILE.
 
-    profile_z280.py fill            fill memory, once per flash
-    profile_z280.py run [opts]      record every pattern not yet recorded
-    profile_z280.py status          what is recorded, what is not
-    profile_z280.py check           run the samples (a normal build) and
+    record_cycles.py fill            fill memory, once per flash
+    record_cycles.py run [opts]      record every pattern not yet recorded
+    record_cycles.py status          what is recorded, what is not
+    record_cycles.py check           run the samples (a normal build) and
                                     compare every disassembled line of
                                     the dump with samples/z280/*.lst
       --only MNEMO   only patterns with this mnemonic
@@ -30,9 +30,9 @@ import time
 from compression import zstd   # Python 3.14+
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-PROJ = os.path.dirname(os.path.dirname(HERE))
-GEN = os.path.join(HERE, 'profile', 'gen_z280.lst.zst')   # libasm's, kept here
-OUT_DIR = os.path.join(HERE, 'profile')
+PROJ = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
+GEN = os.path.join(HERE, 'gen_z280.lst.zst')   # libasm's, kept here
+OUT_DIR = HERE
 OUT = os.path.join(OUT_DIR, 'z280-profile.jsonl.zst')
 
 bc = importlib.machinery.SourceFileLoader(
@@ -69,7 +69,7 @@ def baseline(addr):
 
 
 # ------------------------------------------------------------ patterns
-OPCODES = os.path.join(HERE, 'profile', 'z280-opcodes.txt.zst')
+OPCODES = os.path.join(HERE, 'z280-opcodes.txt.zst')
 PREFIXES = {('00', 0xCB), ('00', 0xED), ('00', 0xDD), ('00', 0xFD),
             ('DD', 0xCB), ('DD', 0xED), ('FD', 0xCB), ('FD', 0xED)}
 
@@ -204,29 +204,28 @@ def t(raw):
     return raw.decode('ascii', 'replace').replace('\r', '')
 
 
-class Board:
-    def __init__(self):
-        self.fd, who = bc.open_board()
-        if who != 'Z280':
-            sys.exit('target is %s, not Z280' % who)
-        self.abort()
-        self.until_prompt(30.0)
-        r = self.cmd('V')
+class Board(bc.Board):
+    """Adds pattern-isolation harness methods on top of bc.Board's fd/send/
+    abort/recover/upload_file/close -- all inherited directly."""
+
+    @classmethod
+    def open(cls):
+        board = super().open()
+        if board.who != 'Z280':
+            sys.exit('target is %s, not Z280' % board.who)
+        board.abort()
+        board.until_prompt(30.0)
+        r = board.cmd('V')
         if 'Verbose OFF' in r:
-            self.cmd('V')
-        self.regs = {}
-
-    def close(self):
-        os.close(self.fd)
-
-    def abort(self):
-        bc.abort()
+            board.cmd('V')
+        board.regs = {}
+        return board
 
     def until_prompt(self, cap=20.0):
         buf = b''
         t0 = time.time()
         while time.time() - t0 < cap:
-            buf += bc._drain(self.fd, 1.0, 0.12)
+            buf += self.send(wait=1.0, idle=0.12)
             if bc.at_prompt(buf):
                 return t(buf), True
         return t(buf), False
@@ -284,7 +283,7 @@ class Board:
         self.set_base(force=True)
         # IVTP after a reset is unknown: set it, like any pattern.
         self.write(ORG, [0x0E, 0x06, 0x21, IVTP & 0xFF, IVTP >> 8, 0xED, 0x6E] + [0xFF] * 5)
-        self.go()
+        self.run()
         self.set_base()
 
     def set_base(self, force=False, over=None):
@@ -296,17 +295,21 @@ class Board:
             if force or self.regs.get(name) != value:
                 self.set_reg(name, value)
 
-    def go(self, cap=20.0):
+    def run(self, cap=20.0):
+        """G, then wait for the pattern to break; not bc.Board.go(), which
+        polls for a long-running sample's own frame/stall shape."""
         os.write(self.fd, b'G')
         r, ok = self.until_prompt(cap)
         if ok:
             self.parse_regs(r)
         return r, ok
 
-    def recover(self):
+    def unstick(self):
+        """Force the board back and make sure verbose stays on -- not
+        bc.Board.recover(), which bc.Board.open() itself relies on."""
         self.abort()
         time.sleep(0.5)
-        who = bc.recover(self.fd)
+        who = super().recover()
         if who is None:
             raise RuntimeError('board will not return to its prompt')
         r = self.cmd('V')
@@ -360,7 +363,7 @@ def cut(cyc):
 
 # ------------------------------------------------------------ commands
 def cmd_fill(args):
-    b = Board()
+    b = Board.open()
     prog = lambda seed, first, count: seed + [0x11, first & 0xFF, first >> 8,
                                               0x01, count & 0xFF, count >> 8,
                                               0xED, 0xB0, 0xFF]   # LD DE; LD BC; LDIR; RST 38H
@@ -369,7 +372,7 @@ def cmd_fill(args):
     # FF everywhere above the fill program, by the CPU itself.
     b.write(0, prog([0x21, 0x10, 0x00, 0x36, 0xFF], 0x11, 0xFFEF))  # LD HL,0010; LD (HL),FF
     b.set_reg('PC', 0)
-    r, ok = b.go(120.0)
+    r, ok = b.run(120.0)
     if not ok:
         sys.exit('fill run did not return')
     # Then the two seeded areas, replicated by LDIR from a written seed.
@@ -379,7 +382,7 @@ def cmd_fill(args):
         b.write(0, prog([0x21, lo & 0xFF, lo >> 8], lo + len(seed),
                         hi - lo - len(seed)))
         b.set_reg('PC', 0)
-        r, ok = b.go(60.0)
+        r, ok = b.run(60.0)
         if not ok:
             sys.exit('seed run did not return')
     b.write(0, [0xFF] * 16)
@@ -428,12 +431,12 @@ def run_one(b, p, variant, over, code, seed, log):
         timed('write', b.write, seed[0], seed[1])
     timed('base', b.set_base, over=over)
     regs = {n: b.regs.get(n) for n, _ in BASE}
-    r, ok = timed('go', b.go, 15.0)
+    r, ok = timed('run', b.run, 15.0)
     rec = dict(key=key(p, variant), index=p['index'], bytes=code, len=p['len'],
                page=p['page'], opc=p['opc'], mnemo=p['mnemo'],
                operands=p['operands'], variant=variant, regs=regs)
     if not ok:
-        b.recover()
+        b.unstick()
         rec.update(end='timeout', cycles=[], raw=r[-1500:])
         b.reset()
         return rec
@@ -500,7 +503,7 @@ def cmd_run(args):
     print('%d runs to do' % len(todo))
     if not todo:
         return
-    b = Board()
+    b = Board.open()
     b.reset()
     t0 = time.time()
 
@@ -570,22 +573,22 @@ def listing(name):
 
 
 def cmd_check(args):
-    b = Board()             # verbose: the raw cycles are kept for the host
+    b = Board.open()        # verbose: the raw cycles are kept for the host
     failed = 0
     for name, feed in CHECKS:
         b.cmd('R')
-        bc.upload_file(b.fd, os.path.join(SAMPLES, name + '.hex'))
+        b.upload_file(os.path.join(SAMPLES, name + '.hex'))
         os.write(b.fd, b'G')
         if name == 'arith':
             r, ok = b.until_prompt(60.0)     # runs to its own exit
         else:
             time.sleep(1.5)
-            bc._drain(b.fd, 0.5, 0.2)
+            b.send(wait=0.5, idle=0.2)
             if feed:
                 for ch in feed:
                     os.write(b.fd, bytes([ch]))
                     time.sleep(0.2)
-                bc._drain(b.fd, 0.5, 0.2)
+                b.send(wait=0.5, idle=0.2)
                 os.write(b.fd, b'\x00')  # the samples exit on NUL
                 r, ok = b.until_prompt(20.0)
             else:

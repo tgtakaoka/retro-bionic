@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Turn profile_z280.py's recording into the z280-PAGExx.txt tables.
+"""Turn record_cycles.py's recording into the z280-PAGExx.txt tables.
 
-Reads profile/z280-profile.jsonl.zst, writes one table per opcode page
-and profile/z280-profile-report.txt (prefetch depth, anomalies). The
-tables are hand-maintained afterwards; regenerate only to compare.
+Reads z280-profile.jsonl.zst, writes one table per opcode page (in the
+parent debugger/z280/ directory, alongside inst_z280.awk) and
+z280-profile-report.txt (prefetch depth, anomalies). The tables are
+hand-maintained afterwards; regenerate only to compare.
 
 Legend, shared with inst_z280.awk:
   1-6  instruction byte: a word read at that byte address (1 marks the fetch)
@@ -19,7 +20,7 @@ Legend, shared with inst_z280.awk:
   S    trap: target == the PC word read from the vector table
   @    taken@not-taken
 
-    derive_z280.py [--check]      write the tables, or only the report
+    derive_tables.py [--check]      write the tables, or only the report
 """
 import argparse
 import json
@@ -30,9 +31,10 @@ from compression import zstd   # Python 3.14+
 from collections import Counter, defaultdict
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-IN = os.path.join(HERE, 'profile', 'z280-profile.jsonl.zst')
-REPORT = os.path.join(HERE, 'profile', 'z280-profile-report.txt')
-GEN = os.path.join(HERE, 'profile', 'gen_z280.lst.zst')   # libasm's, kept here
+Z280 = os.path.dirname(HERE)   # z280-PAGExx.txt live here, with inst_z280.awk
+IN = os.path.join(HERE, 'z280-profile.jsonl.zst')
+REPORT = os.path.join(HERE, 'z280-profile-report.txt')
+GEN = os.path.join(HERE, 'gen_z280.lst.zst')   # libasm's, kept here
 PAGES = ['00', 'CB', 'ED', 'DD', 'FD', 'DDCB', 'FDCB', 'DDED', 'FDED']
 
 ORG = 0x100
@@ -234,7 +236,7 @@ def load():
     return recs
 
 
-OPCODES = os.path.join(HERE, 'profile', 'z280-opcodes.txt.zst')
+OPCODES = os.path.join(HERE, 'z280-opcodes.txt.zst')
 
 
 def shape(operands):
@@ -401,7 +403,7 @@ def prefetch_stats(recs, report):
 
 def write_tables(rows, pats):
     for page in PAGES:
-        path = os.path.join(HERE, 'z280-PAGE%s.txt' % page)
+        path = os.path.join(Z280, 'z280-PAGE%s.txt' % page)
         with open(path, 'w') as f:
             f.write('op  mnemo   operands           #  ~  sequence\n')
             f.write('--  -----   --------           -  -  --------\n')

@@ -11,7 +11,7 @@
 namespace debugger {
 namespace z280 {
 
-// From z280-PAGExx.txt (measured by profile_z280.py, see its legend):
+// From z280-PAGExx.txt (measured by tools/record_cycles.py, see its legend):
 //   awk -f inst_z280.awk z280-PAGE{00,CB,ED,DD,FD,DDCB,FDCB,DDED,FDED}.txt
 // clang-format off
 // BEGIN GENERATED
