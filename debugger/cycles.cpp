@@ -66,6 +66,12 @@ void Cycles::discard(const SignalsImpl *s) {
     _ring[_put].clear();
 }
 
+void Cycles::dispose(const SignalsImpl *s) {
+    const auto drop = tail()->diff(s);
+    _cycles -= drop;
+    _get = s->pos();
+}
+
 }  // namespace debugger
 
 // Local Variables:
