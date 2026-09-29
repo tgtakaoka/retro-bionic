@@ -411,7 +411,9 @@ void PinsI8048::run() {
     _regs->restore();
     Cycles::reset();
     saveBreakInsts();
+    startRunTimer();
     loop();
+    stopRunTimer();
     assert_ss();
     restoreBreakInsts();
     disassembleCycles();
@@ -477,11 +479,11 @@ bool PinsI8048::step(bool show) {
     return false;
 }
 
-void PinsI8048::assertInt(uint8_t name) {
+void PinsI8048::assertInt(uint8_t) {
     assert_int();
 }
 
-void PinsI8048::negateInt(uint8_t name) {
+void PinsI8048::negateInt(uint8_t) {
     negate_int();
 }
 
@@ -498,17 +500,21 @@ void PinsI8048::printCycles() {
     }
 }
 
-void PinsI8048::disassembleCycles() {
+const SignalsImpl *PinsI8048::findBacktraceStart() {
+    return backtraceStartByFetchCount<Signals>(_lineLimit);
+}
+
+void PinsI8048::printBacktrace() {
     const auto g = Signals::get();
     const auto cycles = g->diff(Signals::put());
     for (auto i = 0u; i < cycles;) {
         const auto s = g->next(i);
         if (s->fetch()) {
             const auto len = _mems->disassemble(s->addr, 1) - s->addr;
-            const auto cycles = _inst.busCycles(s->data);
-            for (auto i = len; i < cycles; ++i)
-                s->next(i)->print();
-            i += cycles;
+            const auto busCycles = _inst.busCycles(s->data);
+            for (auto j = len; j < busCycles; ++j)
+                s->next(j)->print();
+            i += busCycles;
         } else {
             s->print();
             ++i;
