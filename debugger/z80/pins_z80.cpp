@@ -22,7 +22,7 @@ namespace z80 {
  *       ________|           |___|           |___|               |_______|       |           |__
  * #MREQ         |___________|   |___________|   |_______________|       |_______|___________|
  *       ________|___________|               |___|_______________|_______________|___________|__
- * #REFS         |           |_______________|   |               |               |           |
+ * #RFSH         |           |_______________|   |               |               |           |
  *       ________|           |___________________|               |_______________|___________|__
  *  #RD          |___________|                   |_______________|               |           |
  *       ________________________________________________________________________|           |__
@@ -38,7 +38,7 @@ namespace z80 {
  *       ____|                   |           |___|___________|_______|___________________|______
  *  #M1      |___________________|___________|   |           |       |                   |
  *       ________________________|___________|___|           |_______|___________________|______
- * #REFS                         |           |   |___________|       |                   |
+ * #RFSH                         |           |   |___________|       |                   |
  *       ________________________|___________|___|           |_______|___________________|______
  * #MREQ                         |           |   |___________|       |                   |
  *       ________________________|           |_______________________|                   |______
@@ -397,7 +397,7 @@ bool PinsZ80::isRst38Break(const Signals *org_rst) const {
     return false;
 }
 
-void PinsZ80::loop() {
+bool PinsZ80::loop() {
     resumeCycle(_regs->nextIp());
     while (true) {
         const auto s = prepareCycle();
@@ -410,15 +410,13 @@ void PinsZ80::loop() {
                 inject(hi(rst38h->addr));
                 Cycles::discard(rst38h);
                 prepareWait();
-                return;
+                return true;
             }
         }
         completeCycle(s);
         _devs->loop();
-        if (haltSwitch()) {
-            suspend();
-            return;
-        }
+        if (haltSwitch())
+            return suspend();
     }
 }
 
@@ -426,15 +424,24 @@ void PinsZ80::run() {
     _regs->restore();
     Cycles::reset();
     saveBreakInsts();
-    loop();
+    startRunTimer();
+    const auto stopped = loop();
+    stopRunTimer();
     restoreBreakInsts();
     disassembleCycles();
-    _regs->save();
+    // A failed halt never got the NMI acknowledge, so there is no saved
+    // context: keep the registers from the last good save.
+    if (stopped)
+        _regs->save();
 }
 
-void PinsZ80::suspend() {
+// Bus cycles to wait for the NMI acknowledge; an instruction takes far fewer.
+constexpr auto nmi_ack_cycles = 1024;
+
+bool PinsZ80::suspend() {
     assert_nmi();
-    while (true) {
+    // Bound the wait; loop() polls the halt switch only between steps.
+    for (auto n = 0; n < nmi_ack_cycles; ++n) {
         const auto s = prepareCycle();
         if (s->fetch() && s->addr == InstZ80::ORG_NMI) {
             negate_nmi();
@@ -444,10 +451,14 @@ void PinsZ80::suspend() {
             inject(s->prev(2)->data);
             Cycles::discard(s->prev(3));
             prepareWait();
-            return;
+            return true;
         }
         completeCycle(s);
     }
+    negate_nmi();
+    prepareWait();
+    cli.println("?halt: no NMI acknowledge");
+    return false;
 }
 
 bool PinsZ80::rawStep() {
@@ -456,8 +467,7 @@ bool PinsZ80::rawStep() {
         return false;
     assert_nmi();
     resumeCycle(pc);
-    suspend();
-    return true;
+    return suspend();
 }
 
 bool PinsZ80::step(bool show) {
@@ -474,11 +484,11 @@ bool PinsZ80::step(bool show) {
     return false;
 }
 
-void PinsZ80::assertInt(uint8_t name) {
+void PinsZ80::assertInt(uint8_t) {
     assert_int();
 }
 
-void PinsZ80::negateInt(uint8_t name) {
+void PinsZ80::negateInt(uint8_t) {
     negate_int();
 }
 
@@ -491,7 +501,11 @@ void PinsZ80::printCycles() {
     }
 }
 
-void PinsZ80::disassembleCycles() {
+const SignalsImpl *PinsZ80::findBacktraceStart() {
+    return backtraceStartByFetchCount<Signals>(_lineLimit);
+}
+
+void PinsZ80::printBacktrace() {
     const auto g = Signals::get();
     const auto cycles = g->diff(Signals::put());
     for (auto i = 0u; i < cycles;) {

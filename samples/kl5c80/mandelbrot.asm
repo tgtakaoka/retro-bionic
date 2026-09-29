@@ -98,7 +98,7 @@ putchar_retry:
         pop     AF
         ret
 
-;;; Put newline
+;;; Put space
 ;;; @clobber A
 putspace:
         ld      A, ' '
@@ -114,7 +114,7 @@ isr_intr:
         in      A, (USARTS)
         bit     ST_RxRDY_bp, A
         jr      Z, isr_intr_tx
-isr_intr_rx                     ;
+isr_intr_rx:
         in      A, (USARTD)     ; receive character
         ld      HL, rx_queue
         call    queue_add

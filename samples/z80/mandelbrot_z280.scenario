@@ -1,0 +1,50 @@
+# Scenario for scripts/record-scenario.py: the Z80 mandelbrot on the Z280
+# board, with the instruction and data cache on. Its own samples put the
+# USART at 0140H; the Z80 binary talks to 40H, through IN/OUT (C) with B=0,
+# which the Z280's 16-bit I/O decoding sees as 0040H. A reset puts the
+# USART back at 0140H, so it moves after the last one.
+#
+# ADDRESS IS PINNED TO THE CURRENT samples/z80/mandelbrot.hex:
+# isr_intr_tx at 0456. If mandelbrot.asm/.inc or the .hex ever change,
+# re-check it against the fresh .lst before recording -- a stale address
+# will look like it works (it disassembles *something*) while showing the
+# wrong thing.
+
+key ?
+pace 2.0
+
+key R
+upload samples/z80/mandelbrot.hex
+
+# Reset again so the CPU starts the uploaded program.
+key R
+pace 1.5
+
+# Move the USART to where the Z80 binary looks for it.
+type I
+wait which?
+command USART 40
+pace 1.5
+
+# Enable the instruction and data cache.
+type =
+wait Set register?
+command IC 1
+type =
+wait Set register?
+command DC 1
+pace 1.5
+
+# Stop at the transmit handler. The backtrace shows the acknowledge cycle
+# reading the RST 30H, the two stack writes, and the JP fetched at 0030.
+type g
+wait Go until?
+command 456 10
+pace 2.0
+
+# Step into the handler.
+step 2
+pace 1.5
+
+# Watch one frame render.
+run 1 300

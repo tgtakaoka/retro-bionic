@@ -354,18 +354,28 @@ void PinsKl5c80::run() {
     Cycles::reset();
     saveBreakInsts();
     enableExternalReady(false);
-    auto s = loop();
+    startRunTimer();
+    const auto s = loop();
+    stopRunTimer();
     enableExternalReady(true);
     prepareWait();
-    Cycles::discard(s);
+    if (s)
+        Cycles::discard(s);
     restoreBreakInsts();
     disassembleCycles();
-    _regs->save();
+    // A failed halt never got the NMI acknowledge, so there is no saved
+    // context: keep the registers from the last good save.
+    if (s)
+        _regs->save();
 }
+
+// Bus cycles to wait for the NMI acknowledge; an instruction takes far fewer.
+constexpr auto nmi_ack_cycles = 1024;
 
 Signals *PinsKl5c80::suspend() {
     assert_nmi();
-    while (true) {
+    // Bound the wait; loop() polls the halt switch only between steps.
+    for (auto n = 0; n < nmi_ack_cycles; ++n) {
         const auto s = prepareCycle();
         if (s->fetch() && s->addr == InstZ80::ORG_NMI) {
             negate_nmi();
@@ -373,10 +383,17 @@ Signals *PinsKl5c80::suspend() {
             inject(InstZ80::RETN);
             inject(s->prev()->data);
             inject(s->prev(2)->data);
+            // Park at the fetch RETN returns to: what follows injects from
+            // there, and with no wait states nothing else holds the CPU.
+            prepareWait();
             return s->prev(3);
         }
         completeCycle(s);
     }
+    negate_nmi();
+    prepareWait();
+    cli.println("?halt: no NMI acknowledge");
+    return nullptr;
 }
 
 bool PinsKl5c80::rawStep() {
@@ -384,9 +401,10 @@ bool PinsKl5c80::rawStep() {
     if (_mems->read_byte(pc) == InstZ80::HALT)
         return false;
     resumeCycle(pc);
-    auto s = suspend();
+    const auto s = suspend();
+    if (s == nullptr)
+        return false;
     Cycles::discard(s);
-    prepareWait();
     return true;
 }
 
@@ -421,7 +439,11 @@ void PinsKl5c80::printCycles() {
     }
 }
 
-void PinsKl5c80::disassembleCycles() {
+const SignalsImpl *PinsKl5c80::findBacktraceStart() {
+    return backtraceStartByFetchCount<Signals>(_lineLimit);
+}
+
+void PinsKl5c80::printBacktrace() {
     const auto g = Signals::get();
     const auto cycles = g->diff(Signals::put());
     for (auto i = 0u; i < cycles;) {

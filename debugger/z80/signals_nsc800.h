@@ -39,7 +39,7 @@ private:
 
 }  // namespace nsc800
 }  // namespace debugger
-#endif /* __SIGNALS_H__ */
+#endif /* __SIGNALS_NSC800_H__ */
 
 // Local Variables:
 // mode: c++

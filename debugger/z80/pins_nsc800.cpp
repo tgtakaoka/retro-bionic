@@ -15,7 +15,7 @@ using z80::MemsZ80;
 
 // clang-format off
 /**
- * NSC800 Opecode fetch
+ * NSC800 Opcode fetch
  *           |----T1-----|----T2-----|----T3-----|----T4-----|----T1-----|
  *           |-T1A-|-T1B-|-T2A-|-T2B-|-T3A-|-T3B-|-T4A-|-T4B-|-T21-|-T1B-|
  *         __    __    __    __    __    __    __    __    __    __    __
@@ -62,14 +62,14 @@ using z80::MemsZ80;
 namespace {
 //   tx: min 125 ns, max 3,333 ns; XIN period (~8MHz, NSC800-4)
 // tCYC: min 320 ns, max 2,000 ns; CLK cycle period
-// tXCF: min   5 ns, max    80 ns; XIN falling to CLK faling
+// tXCF: min   5 ns, max    80 ns; XIN falling to CLK falling
 // tXCR: min   5 ns, max    80 ns; XIN falling to CLK rising
 //  tLL: min 140 ns              ; ALE width
 //  tLA: min 100 ns              ; Address hold time after ALE
 //  tAL: min 115 ns              ; Address valid before trailing ALE
 //  tLC: min 130 ns              ; Trailing ALE to leading control
 // tLCK: min 100 ns              ; ALE low during CLK high
-//  tAC: min 270 ns              ; A8-15 balid to leading control
+//  tAC: min 270 ns              ; A8-15 valid to leading control
 // tLDR: max 460 ns              ; ALE to valid data for read
 // tLDW: max 200 ns              ; ALE to valid data for write
 //  tRD: max 300 ns              ; #RD to valid data
@@ -354,7 +354,7 @@ bool PinsNsc800::isRst38Break(const Signals *org_rst) const {
     return false;
 }
 
-void PinsNsc800::loop() {
+bool PinsNsc800::loop() {
     resumeCycle(_regs->nextIp());
     while (true) {
         const auto s = prepareCycle();
@@ -367,15 +367,13 @@ void PinsNsc800::loop() {
                 inject(hi(rst38h->addr));
                 Cycles::discard(rst38h);
                 prepareWait();
-                return;
+                return true;
             }
         }
         completeCycle(s);
         _devs->loop();
-        if (haltSwitch()) {
-            suspend();
-            return;
-        }
+        if (haltSwitch())
+            return suspend();
     }
 }
 
@@ -383,15 +381,24 @@ void PinsNsc800::run() {
     _regs->restore();
     Cycles::reset();
     saveBreakInsts();
-    loop();
+    startRunTimer();
+    const auto stopped = loop();
+    stopRunTimer();
     restoreBreakInsts();
     disassembleCycles();
-    _regs->save();
+    // A failed halt never got the NMI acknowledge, so there is no saved
+    // context: keep the registers from the last good save.
+    if (stopped)
+        _regs->save();
 }
 
-void PinsNsc800::suspend() {
+// Bus cycles to wait for the NMI acknowledge; an instruction takes far fewer.
+constexpr auto nmi_ack_cycles = 1024;
+
+bool PinsNsc800::suspend() {
     assert_nmi();
-    while (true) {
+    // Bound the wait; loop() polls the halt switch only between steps.
+    for (auto n = 0; n < nmi_ack_cycles; ++n) {
         const auto s = prepareCycle();
         if (s->fetch() && s->addr == InstZ80::ORG_NMI) {
             negate_nmi();
@@ -399,12 +406,18 @@ void PinsNsc800::suspend() {
             inject(InstZ80::RETN);
             inject(s->prev()->data);
             inject(s->prev(2)->data);
+            // Unlike the Z80's, the NMI's dummy opcode fetch has no RD, so
+            // prepareCycle() never records it: only the two pushes go.
             Cycles::discard(s->prev(2));
             prepareWait();
-            return;
+            return true;
         }
         completeCycle(s);
     }
+    negate_nmi();
+    prepareWait();
+    cli.println("?halt: no NMI acknowledge");
+    return false;
 }
 
 bool PinsNsc800::rawStep() {
@@ -413,8 +426,7 @@ bool PinsNsc800::rawStep() {
         return false;
     assert_nmi();
     resumeCycle(pc);
-    suspend();
-    return true;
+    return suspend();
 }
 
 bool PinsNsc800::step(bool show) {
@@ -431,29 +443,11 @@ bool PinsNsc800::step(bool show) {
     return false;
 }
 
+// RSTA/B/C and INTR are all active low.
 void PinsNsc800::assertInt(uint8_t name) {
     switch (name) {
     default:
         assert_intr();
-        break;
-    case INTR_RSTC:
-        digitalWriteFast(PIN_RSTC, HIGH);
-        break;
-    case INTR_RSTB:
-        digitalWriteFast(PIN_RSTB, HIGH);
-        break;
-    case INTR_RSTA:
-        digitalWriteFast(PIN_RSTA, HIGH);
-        break;
-    case INTR_NONE:
-        break;
-    }
-}
-
-void PinsNsc800::negateInt(uint8_t name) {
-    switch (name) {
-    default:
-        negate_intr();
         break;
     case INTR_RSTC:
         digitalWriteFast(PIN_RSTC, LOW);
@@ -469,6 +463,25 @@ void PinsNsc800::negateInt(uint8_t name) {
     }
 }
 
+void PinsNsc800::negateInt(uint8_t name) {
+    switch (name) {
+    default:
+        negate_intr();
+        break;
+    case INTR_RSTC:
+        digitalWriteFast(PIN_RSTC, HIGH);
+        break;
+    case INTR_RSTB:
+        digitalWriteFast(PIN_RSTB, HIGH);
+        break;
+    case INTR_RSTA:
+        digitalWriteFast(PIN_RSTA, HIGH);
+        break;
+    case INTR_NONE:
+        break;
+    }
+}
+
 void PinsNsc800::printCycles() {
     const auto g = Signals::get();
     const auto cycles = g->diff(Signals::put());
@@ -478,7 +491,11 @@ void PinsNsc800::printCycles() {
     }
 }
 
-void PinsNsc800::disassembleCycles() {
+const SignalsImpl *PinsNsc800::findBacktraceStart() {
+    return backtraceStartByFetchCount<Signals>(_lineLimit);
+}
+
+void PinsNsc800::printBacktrace() {
     const auto g = Signals::get();
     const auto cycles = g->diff(Signals::put());
     for (auto i = 0u; i < cycles;) {
