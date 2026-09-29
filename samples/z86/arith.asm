@@ -204,7 +204,7 @@ arith:
         ld      R0, #'+'
         call    expr
         call    addsi2
-        call    answer          ; 29536
+        call    answer          ; 19536
 
         ld      a, #HIGH 18000
         ld      a+1, #LOW 18000
@@ -222,7 +222,7 @@ arith:
         ld      R0, #'-'
         call    expr
         call    subsi2
-        call    answer          ; 29536
+        call    answer          ; -29536
 
         ld      a, #HIGH -28000
         ld      a+1, #LOW -28000

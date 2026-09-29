@@ -1313,6 +1313,39 @@ One table serves the whole family, and the profile
 `TRAP n` makes two bus cycles, its vector reads, which `tms7000.txt` had
 as none.
 
+### Z8
+
+**Pitfalls.** The stack is external, and the tables must see
+`EXTERNAL_STACK`; on the Super8, register sets C0-FF are banked, and a
+working-register write can reload the register cache from the wrong bank.
+
+One board each runs the Z86C91 and the Z88C00 (Super8), sharing
+`PinsZ8`. The profile (`tools/cycles_z86.py` and `tools/cycles_z88.py`,
+recorded as `tools/z86-cycles.jsonl.zst` and `tools/z88-cycles.jsonl.zst`)
+found two matcher errors. **[hw]**
+
+- No stack cycle was ever counted. The stack is in external memory, but
+  `EXTERNAL_STACK` was defined in `pins_z8.h`, which the instruction tables
+  don't include, so their `#if` dropped the pushes and pops of `PUSH`,
+  `POP`, `CALL`, `RET` and `IRET`. It is in `inst_z8.h` now.
+- `inst_z88.cpp` was stale against `z88.txt` for `NEXT`, `EXIT` and
+  `CALL @RR`, which make 3, 3 and 1 external cycles; the chip agrees with
+  `z88.txt`.
+
+`HALT` on the Z86C91 and `WFI` on the Z88C00 read the byte after them,
+then the bus stops. **[hw]**
+
+On the Z88C00, a working register set with `=` was lost on the next `G` or
+step whenever RP0 wasn't C0. **[hw]** `write_reg()` reread r0-r15 into the
+register cache on any RP0 or RP1 write, `restore_sfrs()`'s too, made while
+RP0 points at C0; the cache then held the C0 bank, `restore()` wrote it
+over the user's values, and `r` still showed them. Only setting RP, RP0 or
+RP1 refreshes the cache now.
+
+Super8 indirect and stack accesses to C0-FF reach register set 2, not the
+registers a direct address names, so a working register at C0 can't point
+at itself. The profile keeps RP0 at 20. **[hw]**
+
 ### PDP-8 (IM6100 / HD6120)
 
 **Pitfalls.** The debugger's `restore()` ends in `RTF` on both chips, and

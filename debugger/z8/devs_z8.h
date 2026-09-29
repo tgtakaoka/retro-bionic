@@ -34,7 +34,7 @@ private:
 
 }  // namespace z8
 }  // namespace debugger
-#endif /* __DEVS_Z86H__ */
+#endif /* __DEVS_Z8_H__ */
 
 // Local Variables:
 // mode: c++

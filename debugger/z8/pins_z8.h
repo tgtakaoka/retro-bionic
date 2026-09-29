@@ -1,7 +1,7 @@
 #ifndef __PINS_Z8_H__
 #define __PINS_Z8_H__
 
-#define EXTERNAL_STACK 1
+#include "inst_z8.h"
 
 #define PORT_DATA 6    /* GPIO6 */
 #define DATA_gp 16     /* P6.16-P6.23 */
@@ -40,7 +40,7 @@
 #define PIN_IRQ1 4     /* P9.06 */
 #define PIN_IRQ0 33    /* P9.07 */
 #define PIN_TXD 0      /* P6.03 */
-#define PIN_RXD 1      /* P6.04 */
+#define PIN_RXD 1      /* P6.02 */
 #define PIN_XTAL1 5    /* P9.08 */
 #define PIN_DS 29      /* P9.31 */
 #define PIN_IRQ2 6     /* P7.10 */
@@ -97,6 +97,10 @@ protected:
     Signals *completeCycle(Signals *signals);
     Signals *cycle();
     void loop();
+#ifdef PROFILE_CYCLES
+    Signals *awaitCycle(uint16_t clocks);
+    void markFetches() const;
+#endif
     bool fetchVectorAfterContextSave() const {
         return _fetchVectorAfterContextSave;
     }
@@ -105,12 +109,13 @@ protected:
     void execute(const uint8_t *inst, uint8_t len, uint16_t *addr, uint8_t *buf,
             uint8_t max);
 
-    void disassembleCycles();
+    const SignalsImpl *findBacktraceStart() override;
+    void printBacktrace() override;
 };
 
 }  // namespace z8
 }  // namespace debugger
-#endif /* __PINS_H__ */
+#endif /* __PINS_Z8_H__ */
 
 // Local Variables:
 // mode: c++
