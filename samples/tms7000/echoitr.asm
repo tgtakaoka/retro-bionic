@@ -39,7 +39,7 @@ initialize:
         movp    %CDS_RESET_gc, ACIA_control     Master reset
         movp    %RX_INT_TX_NO, ACIA_control
         movp    %3, ACIA+2                      #INT3 for Rx/Tx
-        movp    %INT3_F|INT3_E|INT1_F, IOCNT0   enable #INT1 and #INT3
+        movp    %INT3_F|INT3_E|INT1_F, IOCNT0   enable #INT3
 
 loop:
         call    @getchar
@@ -57,7 +57,7 @@ loop:
 halt_to_system:
         idle
 
-        *** Put sapce
+        *** Put space
         *** @clobber A
 putspace:
         mov     %' ', A

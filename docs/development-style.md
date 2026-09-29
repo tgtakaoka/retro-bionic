@@ -1424,6 +1424,17 @@ and 110 ns before `#MEN` rises, holds it 120 ns after, and the frames come
 out right, with analyzer leads on the bus too, at 5.4 s a frame against
 4.6 s without.
 
+### TMS7000 family
+
+**Pitfalls.** Register-file accesses, pushes and pops included, never reach
+the bus; `TRAP n` makes two bus cycles.
+
+One table serves the whole family, and the profile
+(`tools/cycles_tms7000.py`, recorded on a TMS70C02 as
+`tools/tms7000-cycles.jsonl.zst`) takes any family member. **[hw]**
+`TRAP n` makes two bus cycles, its vector reads, which `tms7000.txt` had
+as none.
+
 ### PDP-8 (IM6100 / HD6120)
 
 **Pitfalls.** The debugger's `restore()` ends in `RTF` on both chips, and
