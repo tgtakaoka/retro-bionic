@@ -29,6 +29,7 @@ struct Target {
     void idle() const;
     void printCycles() const;
     uint32_t retrieveRunMicros() const;
+    void setRunLineLimit(uint32_t n) const;
 
     void assertInt(uint8_t name = 0) const;
     void negateInt(uint8_t name = 0) const;

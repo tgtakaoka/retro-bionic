@@ -51,6 +51,10 @@ uint32_t Target::retrieveRunMicros() const {
     return _pins->retrieveRunMicros();
 }
 
+void Target::setRunLineLimit(uint32_t n) const {
+    _pins->setRunLineLimit(n);
+}
+
 uint16_t Target::getInst(uint32_t addr) const {
     return _mems->get_prog(addr);
 }
