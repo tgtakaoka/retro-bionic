@@ -17,7 +17,7 @@ RegsTlcs90::RegsTlcs90(PinsTlcs90 *pins)
     : _pins(pins), _buffer1(line1), _buffer2(line2) {}
 
 const char *RegsTlcs90::cpu() const {
-    return "TLC90";
+    return "TLCS90";
 }
 
 void RegsTlcs90::print() const {

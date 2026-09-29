@@ -60,7 +60,15 @@ void Signals::print() const {
     buffer[0] = read() ? 'R' : (write() ? 'W' : ' ');
     buffer.hex16(4, addr);
     buffer.hex8(11, data);
+#ifdef PROFILE_CYCLES
+    // How many cycles the matcher gave a marked fetch, for
+    // tools/cycles_tlcs90.py.
+    cli.print(buffer);
+    cli.print(" m=");
+    cli.printlnDec(fetch() ? matched() : 0);
+#else
     cli.println(buffer);
+#endif
 }
 
 }  // namespace tlcs90
