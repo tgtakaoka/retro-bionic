@@ -20,8 +20,8 @@ queue_init:
         sta     queue_put,x
         sta     queue_get,x
 queue_init_loop:
-        sta     (queue_tmp),y
         dey
+        sta     (queue_tmp),y
         bne     queue_init_loop
         rts
 
@@ -73,7 +73,7 @@ queue_remove:
         bne     queue_remove_elem
         sec                     ; C=1
         rts
-queue_remove_elem
+queue_remove_elem:
         jsr     init_queue_tmp
         ldy     queue_get,x     ; 8 bits offset
         lda     (queue_tmp),y   ; read an element
