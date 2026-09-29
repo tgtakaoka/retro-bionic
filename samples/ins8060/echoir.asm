@@ -128,7 +128,7 @@ isr_sensea:
         lde
         st      @-1(P2)         ; save E
         csa
-        st      @-1(P2)         ; save Stastus
+        st      @-1(P2)         ; save Status
         ldi     H(ACIA)
         xpah    P1
         st      @-1(P2)

@@ -1120,3 +1120,16 @@ A word access needs an even address; the profile keeps `n + [w]` even.
 The pointer register's LSB selects auto-increment for `[w]` and the long
 index for `n[w]`, and the profile uses an even register, so the long-index
 forms are not checked on the chip yet.
+
+### SC/MP (INS8060)
+
+**Pitfalls.** The printed PC is one byte early (see General); routine
+addresses are `ADDR(label)`, one less than the label.
+
+PC is incremented before each fetch, so it holds the address before the next
+instruction. Routine addresses are loaded as `ADDR(label)`, and a call is
+`XPPC P1` with the operands inline after it. **[doc]**
+
+`divsi2` in `arith.inc` fell from its negative-divisor path into the exit
+trampoline without dividing, and took the quotient's sign from the divisor's
+low byte. **[hw]**
