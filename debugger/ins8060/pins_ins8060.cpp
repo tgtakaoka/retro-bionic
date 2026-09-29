@@ -11,7 +11,7 @@ namespace ins8060 {
 
 // clang-format off
 /**
- * INS8070 External Bus cycle
+ * INS8060 External Bus cycle
  *        __    __    __    __    __    __    __    __    __    __
  *    XIN   |__| 1|__| 2|__| 3|__| 4|__| 5|__| 6|__| 7|__| 8|__|  |
  *          \ __  \ __  \ __  \ __  \ _\  \ __  \ __  \ __  \ __
@@ -36,7 +36,7 @@ namespace ins8060 {
 // clang-format on
 
 namespace {
-//   fx: max 4.0 MHz    ; XIN frequencey
+//   fx: max 4.0 MHz    ; XIN frequency
 //   Tc: min 500 ns     ; 2 cycles of XIN
 //  TW0: min 120 ns     ; XIN low width
 //  TW1: min 120 ns     ; XIN high width
@@ -202,15 +202,28 @@ void PinsIns8060::resetPins() {
     negate_enin();
     negate_reset();
     // The #BREQ output goes low, indicating the start of execution;
-    // this occurs at a time whithin 13 Tc after #RST is set high.
+    // this occurs at a time within 13 Tc after #RST is set high.
     _regs->save();
 }
+
+// XIN periods to wait for #ADS: the longest DLY is 131593 microcycles,
+// 2 XIN each.
+constexpr auto ads_cycles = 1000000;
+// XIN periods to wait for #WDS or #RDS within a bus cycle.
+constexpr auto strobe_cycles = 1000;
 
 Signals *PinsIns8060::prepareCycle() const {
     // XIN=L
     auto s = Signals::put();
     noInterrupts();
-    while (true) {
+    for (auto n = 0;; ++n) {
+        if (n >= ads_cycles) {
+            // A CPU that starts no bus cycle; give up rather than wedge
+            // the board, leaving the halt switch to stop the run.
+            interrupts();
+            cli.println("?halt: no bus cycle");
+            return s;
+        }
         xin_hi();
         if (signal_ads() == LOW) {
             // assert_debug();
@@ -234,9 +247,9 @@ Signals *PinsIns8060::completeCycle(Signals *s) const {
     xin_hi();
     delayNanoseconds(xin_hi_bus);
     if (s->write()) {
-        while (true) {
+        for (auto n = 0;; ++n) {
             xin_lo();
-            if (signal_wds() == LOW)
+            if (signal_wds() == LOW || n >= strobe_cycles)
                 break;
             delayNanoseconds(xin_lo_wds);
             xin_hi();
@@ -266,9 +279,9 @@ Signals *PinsIns8060::completeCycle(Signals *s) const {
         s->outData();
         delayNanoseconds(xin_hi_output);
         // negate_debug();
-        while (true) {
+        for (auto n = 0;; ++n) {
             xin_lo();
-            if (signal_rds() != LOW) {
+            if (signal_rds() != LOW || n >= strobe_cycles) {
                 delayNanoseconds(xin_lo_input);
                 // assert_debug();
                 Signals::inputMode();
@@ -343,42 +356,71 @@ void PinsIns8060::execute(const uint8_t *inst, uint8_t len, uint16_t *addr,
 }
 
 void PinsIns8060::idle() {
-    // #ENIN is HIGH and bus cycle is suspened.
+    // #ENIN is HIGH and bus cycle is suspended.
     xin_cycle_lo();
     delayNanoseconds(0);
 }
 
-void PinsIns8060::loop() {
+bool PinsIns8060::loop() {
+#ifdef PROFILE_CYCLES
+    // For scripts/record-cycles.py: give up well before the ring wraps; the
+    // debug pin frames the run, to trigger a capture on.
+    constexpr auto MAX_CYCLES = 96;
+    assert_debug();
+    for (auto n = 0;; ++n) {
+#else
     while (true) {
+#endif
         _devs->loop();
         auto s = prepareCycle();
         completeCycle(s);
         if (s->halt()) {
+#ifdef PROFILE_CYCLES
+            negate_debug();
+#endif
             inject(InstIns8060::JMP);
             inject(InstIns8060::JMP_HALT);
             negate_enin();
+#ifdef PROFILE_CYCLES
+            // Keep the HALT's second read, the one with the H flag.
+            Cycles::discard(s->next());
+#else
             Cycles::discard(s);
-            return;
+#endif
+            return true;
         }
+#ifdef PROFILE_CYCLES
+        if (n >= MAX_CYCLES || haltSwitch()) {
+            negate_debug();
+            cli.println(n >= MAX_CYCLES ? "?cycles" : "?halt");
+#else
         if (haltSwitch()) {
-            suspend();
-            return;
+#endif
+            return suspend();
         }
     }
 }
 
-void PinsIns8060::suspend() const {
-    while (true) {
+// Bus cycles to wait for the next opcode fetch; an instruction takes far
+// fewer.
+constexpr auto fetch_cycles = 64;
+
+bool PinsIns8060::suspend() const {
+    // Bound the wait; loop() polls the halt switch only between steps.
+    for (auto n = 0; n < fetch_cycles; ++n) {
         auto s = prepareCycle();
         if (s->fetch()) {
             completeCycle(s->inject(InstIns8060::JMP));
             inject(InstIns8060::JMP_HERE);
             negate_enin();
             Cycles::discard(s);
-            return;
+            return true;
         }
         completeCycle(s);
     }
+    negate_enin();
+    cli.println("?halt: no fetch");
+    return false;
 }
 
 void PinsIns8060::run() {
@@ -386,10 +428,15 @@ void PinsIns8060::run() {
     Cycles::reset();
     saveBreakInsts();
     assert_enin();
-    loop();
+    startRunTimer();
+    const auto stopped = loop();
+    stopRunTimer();
     restoreBreakInsts();
     disassembleCycles();
-    _regs->save();
+    // A failed halt leaves the CPU running: keep the registers from the
+    // last good save.
+    if (stopped)
+        _regs->save();
 }
 
 bool PinsIns8060::rawStep() const {
@@ -403,8 +450,7 @@ bool PinsIns8060::rawStep() const {
         Cycles::discard(s);
         return false;
     }
-    suspend();
-    return true;
+    return suspend();
 }
 
 bool PinsIns8060::step(bool show) {
@@ -421,11 +467,11 @@ bool PinsIns8060::step(bool show) {
     return false;
 }
 
-void PinsIns8060::assertInt(uint8_t name) {
+void PinsIns8060::assertInt(uint8_t) {
     assert_sense_a();
 }
 
-void PinsIns8060::negateInt(uint8_t name) {
+void PinsIns8060::negateInt(uint8_t) {
     negate_sense_a();
 }
 
@@ -442,7 +488,15 @@ void PinsIns8060::printCycles() {
     }
 }
 
-void PinsIns8060::disassembleCycles() {
+const SignalsImpl *PinsIns8060::findBacktraceStart() {
+    return backtraceStartByFetchCount<Signals>(_lineLimit);
+}
+
+void PinsIns8060::printBacktrace() {
+#ifdef PROFILE_CYCLES
+    // Every cycle, with the chip's status flags.
+    printCycles();
+#else
     const auto g = Signals::get();
     const auto cycles = g->diff(Signals::put());
     for (auto i = 0u; i < cycles;) {
@@ -456,6 +510,7 @@ void PinsIns8060::disassembleCycles() {
         }
         idle();
     }
+#endif
 }
 
 }  // namespace ins8060

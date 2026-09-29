@@ -1,5 +1,6 @@
 #include "devs_ins8060.h"
 #include <strings.h>
+#include "ins8060_sci_handler.h"
 #include "mc6850.h"
 
 namespace debugger {

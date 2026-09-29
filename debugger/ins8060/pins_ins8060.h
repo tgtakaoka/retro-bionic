@@ -32,7 +32,7 @@
 #define PIN_ADL07 27  /* P6.31 */
 #define PORT_ADM 7    /* GPIO7 */
 #define ADM_gp 0      /* P7.00-P7.03 */
-#define ADM_gm 0xF    /* P7.12-P7.15 */
+#define ADM_gm 0xF    /* P7.00-P7.03 */
 #define ADM_vp 8      /* A8-A11 */
 #define PIN_ADM08 10  /* P7.00 */
 #define PIN_ADM09 12  /* P7.01 */
@@ -46,7 +46,7 @@
 #define PIN_SENSEA 33 /* P9.06 */
 #define PIN_SENSEB 4  /* P9.07 */
 #define PIN_SOUT 0    /* P6.03 */
-#define PIN_SIN 1     /* P6.04 */
+#define PIN_SIN 1     /* P6.02 */
 #define PIN_XIN 5     /* P9.08 */
 #define PIN_BREQ 29   /* P9.31 */
 #define PIN_RDS 6     /* P7.10 */
@@ -83,18 +83,19 @@ private:
     Signals *prepareCycle() const;
     Signals *completeCycle(Signals *signals) const;
     Signals *inject(uint8_t data) const;
-    void loop();
-    void suspend() const;
+    bool loop();
+    bool suspend() const;
     bool rawStep() const;
     void execute(const uint8_t *inst, uint8_t len, uint16_t *addr, uint8_t *buf,
             uint8_t max) const;
 
-    void disassembleCycles();
+    const SignalsImpl *findBacktraceStart() override;
+    void printBacktrace() override;
 };
 
 }  // namespace ins8060
 }  // namespace debugger
-#endif /* __PINS_H__ */
+#endif /* __PINS_INS8060_H__ */
 
 // Local Variables:
 // mode: c++
