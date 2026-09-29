@@ -28,6 +28,18 @@ struct Pins {
     void setRun() const;
     void setHalt() const;
 
+    // Wall-clock time the last run() actually spent free-running the
+    // target -- between startRunTimer() and stopRunTimer(), so it
+    // excludes register save/restore and any post-run disassembly. Reads
+    // and clears in one step, so a value is reported once: 0 if this
+    // target has not called them yet (most don't; see z280 for the first
+    // one), or if already retrieved.
+    uint32_t retrieveRunMicros() {
+        const auto us = _runMicros;
+        _runMicros = 0;
+        return us;
+    }
+
     static void initDebug();
     static bool haltSwitch();
     static void assert_debug();
@@ -42,6 +54,8 @@ protected:
     Devs *_devs;
     /* The bus cycle ring and its print buffer, owned by this target. */
     Cycles _cycles;
+    uint32_t _startMicros = 0;
+    uint32_t _runMicros = 0;
 
     template <typename REGS>
     REGS *regs() const { return static_cast<REGS *>(_regs); }
@@ -55,6 +69,13 @@ protected:
     bool isBreakPoint(uint32_t addr) const;
     void saveBreakInsts() const;
     void restoreBreakInsts() const;
+
+    // Bracket a run()/step()'s actual free-running loop() call, the one
+    // that watches the halt switch, a breakpoint or the RST-38H exit
+    // convention: micros() around just that call, not the bookkeeping
+    // before or the disassembly after.
+    void startRunTimer();
+    void stopRunTimer();
 
     static void pinsMode(const uint8_t *pins, uint8_t size, uint8_t mode);
     static void pinsMode(

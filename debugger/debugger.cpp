@@ -657,6 +657,31 @@ void handleWriteIdentity(char *line, uintptr_t extra, State state) {
     printPrompt();
 }
 
+// |us|, comma-grouped every 3 digits (5108726 -> "5,108,726").
+void printCommaDec(uint32_t us) {
+    if (us >= 1000) {
+        printCommaDec(us / 1000);
+        cli.print(',');
+        const auto rem = us % 1000;
+        if (rem < 100)
+            cli.print('0');
+        if (rem < 10)
+            cli.print('0');
+        cli.print(rem);
+    } else {
+        cli.print(us);
+    }
+}
+
+// How long a G/g actually ran the target, to microsecond precision --
+// Pins::retrieveRunMicros() already excludes the debugger's own
+// save/restore and any post-run disassembly.
+void printElapsed(uint32_t us) {
+    cli.print("Elapsed ");
+    printCommaDec(us);
+    cli.println(" usec");
+}
+
 }  // namespace
 
 void Debugger::go() {
@@ -672,6 +697,9 @@ void Debugger::go() {
     }
     target().run();
     target().printRegisters();
+    const auto us = target().retrieveRunMicros();
+    if (us)
+        printElapsed(us);
 }
 
 void Debugger::exec(char c) {

@@ -781,7 +781,9 @@ void PinsZ280::run() {
     _regs->restore();
     Cycles::reset();
     saveBreakInsts();
+    startRunTimer();
     const auto stopped = loop();
+    stopRunTimer();
     restoreBreakInsts();
     // save() first: the dump needs the Cache Control the program
     // stopped with; the ring is held meanwhile.

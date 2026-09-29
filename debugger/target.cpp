@@ -47,6 +47,10 @@ void Target::printCycles() const {
     _pins->printCycles();
 }
 
+uint32_t Target::retrieveRunMicros() const {
+    return _pins->retrieveRunMicros();
+}
+
 uint16_t Target::getInst(uint32_t addr) const {
     return _mems->get_prog(addr);
 }

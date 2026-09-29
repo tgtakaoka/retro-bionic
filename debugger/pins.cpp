@@ -100,6 +100,15 @@ void Pins::restoreBreakInsts() const {
     Debugger.breakPoints().restoreInsts();
 }
 
+void Pins::startRunTimer() {
+    _startMicros = micros();
+    _runMicros = 0;
+}
+
+void Pins::stopRunTimer() {
+    _runMicros = micros() - _startMicros;
+}
+
 }  // namespace debugger
 
 // Local Variables:

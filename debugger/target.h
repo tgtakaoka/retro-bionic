@@ -28,6 +28,7 @@ struct Target {
     bool step(bool show) const;
     void idle() const;
     void printCycles() const;
+    uint32_t retrieveRunMicros() const;
 
     void assertInt(uint8_t name = 0) const;
     void negateInt(uint8_t name = 0) const;
