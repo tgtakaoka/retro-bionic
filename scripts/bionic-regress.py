@@ -69,13 +69,27 @@ def ensure_prompt(board, what):
 
 
 # --------------------------------------------------------------------- cases
-def case_reset(board, n=4):
-    """R must report the same reset PC every time."""
-    seen = []
+def case_reset(board, n=4, regress=None):
+    """R must report the same reset PC every time.
+
+    `[reset]` in `regress` also names registers R must reset to a
+    documented value, e.g. `PC = "0000"` -- each checked as its own
+    substring of the last repeat's dump, so column spacing or width
+    doesn't matter.
+    """
+    want = drive_table(regress).get('reset', {})
+    seen, last = [], b''
     for _ in range(n):
-        seen.append(bc.pc_from(board.send(b'R')))
+        last = board.send(b'R')
+        seen.append(bc.pc_from(last))
     ok = len(set(seen)) == 1 and seen[0] is not None
-    return ok, 'reset PC %s' % (seen[0] if ok else seen)
+    txt = last.decode('ascii', 'replace').replace('\r', '')
+    missing = [k for k, v in want.items() if '%s=%s' % (k, v) not in txt]
+    ok = ok and not missing
+    note = 'reset PC %s' % (seen[0] if seen and len(set(seen)) == 1 else seen)
+    if missing:
+        note += ', missing %s' % ' '.join('%s=%s' % (k, want[k]) for k in missing)
+    return ok, note
 
 
 def case_step(board, n=4):
@@ -439,7 +453,7 @@ def main():
                 continue
             t0 = time.time()
             kw = {} if want.get(name) is None else {'n': want[name]}
-            if name == 'samples':
+            if name in ('reset', 'samples'):
                 kw['regress'] = regress
             ok, note = fn(board, **kw)
             took = time.time() - t0
