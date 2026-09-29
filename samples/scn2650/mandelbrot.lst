@@ -59,7 +59,7 @@
 (1)       0 : =80                ST_DSR_bm:      equ     B'10000000'   ; Data Set Ready
 (1)       0 : =40                ST_BRK_bm:      equ     B'01000000'   ; BREAK detected
 (1)       0 : =20                ST_FE_bm:       equ     B'00100000'   ; Framing Error
-(1)       0 : =10                ST_OE_bm:       equ     B'00010000'   ; Iverrun Error
+(1)       0 : =10                ST_OE_bm:       equ     B'00010000'   ; Overrun Error
 (1)       0 : =8                 ST_PE_bm:       equ     B'00001000'   ; Parity Error
 (1)       0 : =4                 ST_TxEMPTY_bm:  equ     B'00000100'   ; Transmitter empty
 (1)       0 : =2                 ST_RxRDY_bm:    equ     B'00000010'   ; Receiver ready
@@ -119,7 +119,7 @@
          30 : C0                         nop
          31 : C0                         nop
          32 : 04 26                      lodi,r0 RX_EN_TX_DIS
-         34 : D4 01                      wrte,r0 USARTC    ; RTS/DTR, error reset, Rx enable, Tx disable
+         34 : D4 01                      wrte,r0 USARTC    ; RTS/DTR, Rx enable, Tx disable
          36 : 04 07                      lodi,r0 RXINTR_VEC
          38 : D4 02                      wrte,r0 USARTRI         ; enable Rx interrupt
          3A : 04 0A                      lodi,r0 TXINTR_VEC
@@ -336,7 +336,7 @@
 (1)    110A : 0C 0F 0A                   loda,r0 vB
 (1)    110D : 0D 0F 0B                   loda,r1 vB+1
 (1)    1110 : CC 0F 0E                   stra,r0 vQ
-(1)    1113 : CD 0F 0F                   stra,r1 vQ+1            ; B=Q
+(1)    1113 : CD 0F 0F                   stra,r1 vQ+1            ; Q=B
 (1)    1116 : 06 0E                      lodi,r2 vQ-arith_work
 (1)    1118 : 3F 13 5F                   bsta,un divsi2          ; Q=B/F
 (1)    111B : 0C 0F 0E                   loda,r0 vQ
@@ -542,7 +542,7 @@
 (1)    123B : CE 6F 00                   stra,r0 arith_work,r2
 (1)    123E : 17                         retc,un
 (1)    123F :
-(1)    123F :                    ;;; Singed subtraction: minuend -= subtrahend
+(1)    123F :                    ;;; Signed subtraction: minuend -= subtrahend
 (1)    123F :                    ;;; @param @R2: minuend
 (1)    123F :                    ;;; @param @R3: subtrahend
 (1)    123F :                    ;;; @clobber R0 PSL
@@ -564,7 +564,7 @@
 (1)    1254 : 0E 6F 01                   loda,r0 arith_work+1,r2
 (1)    1257 : 77 01                      ppsl    PSL_C           ; PSL.C=1
 (1)    1259 : AF 6F 01                   suba,r0 arith_work+1,r3
-(1)    125C : C1                         strz    r1              ; R1=low(@2-@r3)
+(1)    125C : C1                         strz    r1              ; R1=low(@r2-@r3)
 (1)    125D : 0E 6F 00                   loda,r0 arith_work,r2
 (1)    1260 : AF 6F 00                   suba,r0 arith_work,r3
 (1)    1263 : C8 0D                      strr,r0 cmpsi2_hi       ; R0=high(@r2-@r3)
@@ -585,7 +585,7 @@
 (1)    1273 :                    ;;; @param mul16_multiplier
 (1)    1273 :                    ;;; @return R0:R1 result
 (1)    1273 :                    ;;; @clobber R0 R1 PSL
-(1)    1273 :                    umul16_r2
+(1)    1273 :                    umul16_r2:
 (1)    1273 :                            res     1
 (1)    1274 :                    umul16:
 (1)    1274 : CA 7D                      strr,r2 umul16_r2
@@ -623,7 +623,7 @@
 (1)    12A5 :
 (1)    12A5 :                    umul16_multiplicand:
 (1)    12A5 :                            res     2
-(1)    12A7 :                    umul16_multiplier
+(1)    12A7 :                    umul16_multiplier:
 (1)    12A7 :                            res     2
 (1)    12A9 :
 (1)    12A9 :                    ;;; Signed multiplication: multiplicand *= multiplier
@@ -648,7 +648,7 @@
 (1)    12CA : CC 12 A7                   stra,r0 umul16_multiplier
 (1)    12CD : 01                         lodz    r1
 (1)    12CE : CC 12 A8                   stra,r0 umul16_multiplier+1
-(1)    12D1 : 3F 12 74                   bsta,un umul16          ; r0:r1=multiplicand  multiplier
+(1)    12D1 : 3F 12 74                   bsta,un umul16          ; r0:r1=multiplicand*multiplier
 (1)    12D4 : CA 10                      strr,r2 mulsi2_r2
 (1)    12D6 : 0A 0D                      lodr,r2 mulsi2_sign
 (1)    12D8 : 3E 12 1F                   bsta,lt negsi1          ; result=-result
@@ -663,8 +663,8 @@
 (1)    12E6 :                            res     1
 (1)    12E7 :
 (1)    12E7 :                    ;;; Unsigned division: dividend / divisor = quotient ... remainder
-(1)    12E7 :                    ;;; @praram udiv16_dividend
-(1)    12E7 :                    ;;; @praram udiv16_divisor
+(1)    12E7 :                    ;;; @param udiv16_dividend
+(1)    12E7 :                    ;;; @param udiv16_divisor
 (1)    12E7 :                    ;;; @return udiv16_reminder remainder
 (1)    12E7 :                    ;;; @return R0:R1 quotient
 (1)    12E7 :                    ;;; @clobber R0 R1 PSL
@@ -777,7 +777,7 @@
 (1)    139C : 17                         retc,un
 (1)    139D :                    divsi2_sign:
 (1)    139D :                            res     1
-(1)    139E :                    divsi2_r2
+(1)    139E :                    divsi2_r2:
 (1)    139E :                            res     1
        139F :                            include "queue.inc"
 (1)    139F :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
@@ -818,6 +818,8 @@
 (1)    13C9 :                    ;;; @param r2:r3 queue work space pointer
 (1)    13C9 :                    ;;; @param r0 an element
 (1)    13C9 :                    ;;; @return FLAGS.C 0 if queue is full
+(1)    13C9 :                    ;;; ATTENTION: treats the queue as full at len+1 >= size, so it holds only
+(1)    13C9 :                    ;;; size-1 elements (other archs hold size).
 (1)    13C9 :                    queue_add:
 (1)    13C9 : CA 39                      strr,r2 queue_top
 (1)    13CB : CB 38                      strr,r3 queue_top+1
@@ -893,7 +895,7 @@
 (1)    143A : 77 01                      ppsl    PSL_C           ; PSL.C=1
 (1)    143C : A4 03                      subi,r0 queue_buf-1     ; ++queue_get
 (1)    143E : 06 01                      lodi,r2 queue_size
-(1)    1440 : EE F4 04                   coma,r0 *queue_top,r2       ; comapre with queue_size
+(1)    1440 : EE F4 04                   coma,r0 *queue_top,r2       ; compare with queue_size
 (1)    1443 : 1A 51                      bctr,lt queue_remove_update ; queue_get < queue_size
 (1)    1445 : 20                         eorz    r0
 (1)    1446 : 1B 4E                      bctr,un queue_remove_update

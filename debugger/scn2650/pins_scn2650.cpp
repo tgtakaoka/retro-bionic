@@ -10,7 +10,7 @@ namespace scn2650 {
 
 // clang-format off
 /**
- * SCN25650 Bus cycle
+ * SCN2650 Bus cycle
  *            _____       _____       _____       _____       _____       _____       __
  *  CLOCK ___|    T|0____|    T|1____|    T|2____|    T|0____|    T|1____|    T|2____|
  *                        \__________________\                 \_________________\
@@ -29,7 +29,7 @@ namespace scn2650 {
 // clang-format on
 
 namespace {
-//  tCP: min 800 ns; CLOCK priod
+//  tCP: min 800 ns; CLOCK period
 //  tCH: min 400 ns; CLOCK high width
 //  tCL: min 400 ns; CLOCK low width
 // tCOR: max 300 ns; CLOCK+ to OPREQ+
@@ -39,8 +39,8 @@ namespace {
 // tOAD: max tCP-350 ns; #OPACK delay from OPREQ+
 // tOAH: min tCP ns; #OPACK hold time from OPREQ+
 // tDIA: min tcp+tCL-300 ns; Data in from OPREQ+
-// tWPD: max tCH+100 ns; WPR dalay from OPREQ+
-// tWPW: min tCL-50 ns; WPR width
+// tWPD: max tCH+100 ns; WRP delay from OPREQ+
+// tWPW: min tCL-50 ns; WRP width
 
 constexpr auto clock_hi_ns = 380;       // 400
 constexpr auto clock_lo_ns = 380;       // 400
@@ -298,7 +298,9 @@ void PinsScn2650::run() {
     _regs->restore();
     Cycles::reset();
     saveBreakInsts();
+    startRunTimer();
     loop();
+    stopRunTimer();
     restoreBreakInsts();
     disassembleCycles();
     _regs->save();
@@ -348,13 +350,11 @@ bool PinsScn2650::step(bool show) {
     return false;
 }
 
-void PinsScn2650::assertInt(uint8_t name) {
-    (void)name;
+void PinsScn2650::assertInt(uint8_t) {
     assert_intreq();
 }
 
-void PinsScn2650::negateInt(uint8_t name) {
-    (void)name;
+void PinsScn2650::negateInt(uint8_t) {
     negate_intreq();
 }
 
@@ -370,7 +370,11 @@ void PinsScn2650::printCycles() {
     }
 }
 
-void PinsScn2650::disassembleCycles() {
+const SignalsImpl *PinsScn2650::findBacktraceStart() {
+    return backtraceStartByFetchCount<Signals>(_lineLimit);
+}
+
+void PinsScn2650::printBacktrace() {
     const auto g = Signals::get();
     const auto cycles = g->diff(Signals::put());
     for (auto i = 0u; i < cycles;) {

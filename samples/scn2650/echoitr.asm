@@ -57,7 +57,7 @@ init_usart:
         nop
         nop
         lodi,r0 RX_EN_TX_DIS
-        wrte,r0 USARTC    ; RTS/DTR, error reset, Rx enable, Tx disable
+        wrte,r0 USARTC    ; RTS/DTR, Rx enable, Tx disable
         lodi,r0 RXINTR_VEC
         wrte,r0 USARTRI         ; enable Rx interrupt
         lodi,r0 TXINTR_VEC

@@ -36,6 +36,8 @@ queue_init_loop:
 ;;; @param r2:r3 queue work space pointer
 ;;; @param r0 an element
 ;;; @return FLAGS.C 0 if queue is full
+;;; ATTENTION: treats the queue as full at len+1 >= size, so it holds only
+;;; size-1 elements (other archs hold size).
 queue_add:
         strr,r2 queue_top
         strr,r3 queue_top+1
@@ -111,7 +113,7 @@ queue_remove_elem:
         ppsl    PSL_C           ; PSL.C=1
         subi,r0 queue_buf-1     ; ++queue_get
         lodi,r2 queue_size
-        coma,r0 *queue_top,r2       ; comapre with queue_size
+        coma,r0 *queue_top,r2       ; compare with queue_size
         bctr,lt queue_remove_update ; queue_get < queue_size
         eorz    r0
         bctr,un queue_remove_update
