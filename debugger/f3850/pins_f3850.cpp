@@ -170,6 +170,14 @@ void PinsF3850::resetPins() {
 }
 
 Signals *PinsF3850::cycle() {
+    // Setup and hold are safe against preemption -- WRITE and the chip's
+    // latch follow the clock driven here, and the bus holder keeps data
+    // for a late sample -- but the WRITE polls' phase against the spike
+    // our data-bus drive couples onto the line is not. Masked for the
+    // cycle only, so each cycle's timing is the same every time and a
+    // glitch is caught always or never, not by chance; _devs->loop()
+    // between cycles still services USB.
+    noInterrupts();
     // XTLY=H
     auto signals = Signals::put();
     xtly_cycle_hi();
@@ -190,6 +198,11 @@ Signals *PinsF3850::cycle() {
     }
     xtly_lo();
     Cycles::next();
+    // The bus holder keeps a driven byte for the chip's latch at the next
+    // WRITE-, so release here: the edge and the ring bookkeeping above
+    // have given the holder a few dozen ns to take the level, and the
+    // chip cannot raise WRITE (and drive) until well after that edge.
+    Signals::inputMode();
     delayNanoseconds(xtly_lo_next);
     xtly_hi();
     while (signal_write() == LOW)
@@ -202,6 +215,7 @@ Signals *PinsF3850::cycle() {
             delayNanoseconds(xtly_hi_write);
     }
     // XTLY=H
+    interrupts();
     return signals;
 }
 
@@ -262,7 +276,9 @@ void PinsF3850::run() {
     _regs->restore();
     Cycles::reset();
     saveBreakInsts();
+    startRunTimer();
     loop();
+    stopRunTimer();
     restoreBreakInsts();
     disassembleCycles();
     _regs->save();
@@ -301,13 +317,11 @@ bool PinsF3850::step(bool show) {
     return false;
 }
 
-void PinsF3850::assertInt(uint8_t name) {
-    (void)name;
+void PinsF3850::assertInt(uint8_t) {
     assert_intreq();
 }
 
-void PinsF3850::negateInt(uint8_t name) {
-    (void)name;
+void PinsF3850::negateInt(uint8_t) {
     negate_intreq();
 }
 
@@ -323,7 +337,11 @@ void PinsF3850::printCycles() {
     }
 }
 
-void PinsF3850::disassembleCycles() const {
+const SignalsImpl *PinsF3850::findBacktraceStart() {
+    return backtraceStartByFetchCount<Signals>(_lineLimit);
+}
+
+void PinsF3850::printBacktrace() {
     const auto g = Signals::get();
     const auto cycles = g->diff(Signals::put());
     for (auto i = 0u; i < cycles;) {
@@ -331,12 +349,12 @@ void PinsF3850::disassembleCycles() const {
         const auto len = InstF3850::instLength(s->data);
         if (s->fetch() && len) {
             _mems->disassemble(s->addr, 1);
-            const auto cycles = InstF3850::busCycles(s->data);
+            const auto busCycles = InstF3850::busCycles(s->data);
             for (auto j = 0; j < len; ++j)
                 s->next(j)->print();
-            for (auto j = 0; j < cycles; ++j)
+            for (auto j = 0; j < busCycles; ++j)
                 s->next(len + j)->print();
-            i += len + cycles;
+            i += len + busCycles;
         } else {
             s->print();
             ++i;

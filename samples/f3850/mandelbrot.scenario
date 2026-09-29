@@ -1,0 +1,42 @@
+# Scenario for scripts/record-scenario.py: the F8 has no address bus.
+# PC0, PC1 (P) and DC live in the memory devices; the CPU only sends
+# them ROMC commands, so every address in a dump is one the debugger
+# rebuilt from those commands. Its hardware call stack is one level --
+# PI parks the return address in PC1 -- so these samples nest calls
+# through a software trampoline, "pi call" + "da target".
+#
+# ADDRESSES ARE PINNED TO THE CURRENT samples/f3850/mandelbrot.hex:
+# call (stack.inc) at 0323, the "pi call / da mulsi2" in loop_x at
+# 06D4. If mandelbrot.asm/.inc/stack.inc/.hex ever change, re-check
+# them against the fresh .lst before recording -- a stale address will
+# look like it works (it disassembles *something*) while showing the
+# wrong thing.
+
+key ?
+pace 2.0
+
+key R
+upload samples/f3850/mandelbrot.hex
+
+# The trampoline: LR K,P takes PC1 -- the address of the "da" operand
+# that PI left there -- and LR DC,H points DC at it, so the two LMs read
+# the call target out of the instruction stream and LR P,K makes it the
+# return point of the POP that ends the routine.
+type D
+wait Disassemble?
+command 0323 12
+pace 2.0
+
+# Stop on the call, then step: PI sets P0 to the trampoline and P to the
+# operand; the LMs walk DC across the embedded address; after LR P,K,
+# P holds mulsi2 (04DE), ready for POP to jump there.
+type g
+wait Go until?
+command 06D4 5
+pace 0.9
+step 12
+pace 1.5
+
+# Watch one frame render -- a full frame measured at ~817s on real
+# hardware, hence the long wait.
+run 1 1200
