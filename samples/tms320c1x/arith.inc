@@ -1,4 +1,4 @@
-;;; -*- mode: asm; mode: flyspell-prog* -*-
+;;; -*- mode: asm; mode: flyspell-prog; -*-
 
 ;;; Print signed 16-bit integer as decimal
 ;;; @param ACC value
@@ -35,7 +35,7 @@ print_uint16_print:
         bz      print_int16_return
         call    putchar
         b       print_uint16_print
-print_int16_return
+print_int16_return:
         zals    print_int16_ret
         push                    ; return address
         ret
@@ -65,7 +65,7 @@ udiv16_return:
         zals    R1              ; quotient
         ret
 
-;;; Unsigned Divide
+;;; Divide by positive divisor
 ;;; R1 / |R2| = R1 ... R0
 ;;; @return ACC=R1
 ;;; @clobber R2

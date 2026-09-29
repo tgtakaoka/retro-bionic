@@ -29,7 +29,7 @@
 #define PIN_AL1 12     /* P7.01 */
 #define PIN_AL2 11     /* P7.02 */
 #define PIN_AL3 13     /* P7.03 */
-#define PORT_AM 7      /* P7.16-P7.19 */
+#define PORT_AM 7      /* GPIO7 */
 #define AM_gp 16       /* P7.16-P7.19 */
 #define AM_gm 0xF      /* P7.16-P7.19 */
 #define AM_vp 4        /* A4-A7 */
@@ -90,7 +90,8 @@ private:
     Signals *prepareCycle();
     Signals *completeCycle(Signals *s);
 
-    void disassembleCycles();
+    const SignalsImpl *findBacktraceStart() override;
+    void printBacktrace() override;
 };
 
 }  // namespace tms320c15

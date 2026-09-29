@@ -264,7 +264,9 @@ void PinsTms320C15::run() {
     _regs->restore();
     Cycles::reset();
     saveBreakInsts();
+    startRunTimer();
     loop();
+    stopRunTimer();
     restoreBreakInsts();
     disassembleCycles();
 }
@@ -290,7 +292,11 @@ void PinsTms320C15::printCycles() {
     }
 }
 
-void PinsTms320C15::disassembleCycles() {
+const SignalsImpl *PinsTms320C15::findBacktraceStart() {
+    return backtraceStartByFetchCount<Signals>(_lineLimit);
+}
+
+void PinsTms320C15::printBacktrace() {
     const auto g = Signals::get();
     const auto cycles = g->diff(Signals::put());
     for (auto i = 0u; i < cycles;) {

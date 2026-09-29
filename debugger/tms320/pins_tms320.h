@@ -13,7 +13,7 @@ struct PinsTms320 : Pins {
 
 }  // namespace tms320
 }  // namespace debugger
-#endif /* __PINS_TMS3201X_H__ */
+#endif /* __PINS_TMS320_H__ */
 
 // Local Variables:
 // mode: c++

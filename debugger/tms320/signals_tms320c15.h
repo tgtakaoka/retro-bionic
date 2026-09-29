@@ -22,7 +22,7 @@ private:
 };
 }  // namespace tms320c15
 }  // namespace debugger
-#endif /* __SIGNALS_H__ */
+#endif /* __SIGNALS_TMS320C15_H__ */
 
 // Local Variables:
 // mode: c++

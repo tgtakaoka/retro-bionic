@@ -174,7 +174,7 @@ const Regs::RegList *RegsTms3201X::listRegisters(uint_fast8_t n) const {
     static constexpr RegList REG_LIST[] = {
             {REGS16, 5, 1, UINT16_MAX},
             {REGS32, 1, 6, UINT32_MAX},
-            {REGS1, 7, 2, 1},
+            {REGS1, 2, 7, 1},
     };
     return n < 3 ? &REG_LIST[n] : nullptr;
 }
