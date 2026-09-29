@@ -13,11 +13,11 @@ namespace {
 # W: write 1 byte, equals to R if exists or w-1
 # w: write 1 byte at address W+1
 # A: read 1 byte at address |addr|
-# a: read 1 byte ar A+1
+# a: read 1 byte at A+1
 # D: read 1 byte from direct page (00|disp|)
 # d: read 1 byte at address (D+1)
 # B: write 1 byte at address addr
-# b: write 1 byte ar B+1
+# b: write 1 byte at B+1
 # E: write 1 byte to direct page (00xx), equals to D if exists
 # e: write 1 byte at address E+1
 # N: next instruction read from |next|
@@ -60,8 +60,8 @@ constexpr const char *const SEQUENCES[/*seq*/] = {
         "123J",           // 19
         "12N",            // 20
         "123xN",          // 21
-        "123N",           // 22
-        "12xXwWj",        // 23
+        "12xXwWj",        // 22
+        "123N",           // 23
         "12DN",           // 24
         "12DdxN",         // 25
         "12EN",           // 26
@@ -223,9 +223,9 @@ constexpr uint8_t INST_TABLE[] = {
         20,  // 89: ADCA #n8   2 :2  1:2:N
         20,  // 8A: ORAA #n8   2 :2  1:2:N
         20,  // 8B: ADDA #n8   2 :2  1:2:N
-        22,  // 8C: CPX  #n16  3 :3  1:2:3:N
-        23,  // 8D: BSR  r8    6 :2  1:2:x:X:w:W:j
-        22,  // 8E: LDS  #n16  3 :3  1:2:3:N
+        21,  // 8C: CPX  #n16  4 :3  1:2:3:x:N
+        22,  // 8D: BSR  r8    6 :2  1:2:x:X:w:W:j
+        23,  // 8E: LDS  #n16  3 :3  1:2:3:N
         0,   // 8F: -    -     0 :0  -
         24,  // 90: SUBA d8    3 :2  1:2:D:N
         24,  // 91: CMPA d8    3 :2  1:2:D:N
@@ -287,9 +287,9 @@ constexpr uint8_t INST_TABLE[] = {
         20,  // C9: ADCB #n8   2 :2  1:2:N
         20,  // CA: ORAB #n8   2 :2  1:2:N
         20,  // CB: ADDB #n8   2 :2  1:2:N
-        22,  // CC: LDD  #n16  3 :3  1:2:3:N
+        23,  // CC: LDD  #n16  3 :3  1:2:3:N
         0,   // CD: -    -     0 :0  -
-        22,  // CE: LDX  #n16  3 :3  1:2:3:N
+        23,  // CE: LDX  #n16  3 :3  1:2:3:N
         0,   // CF: -    -     0 :0  -
         24,  // D0: SUBB d8    3 :2  1:2:D:N
         24,  // D1: CMPB d8    3 :2  1:2:D:N

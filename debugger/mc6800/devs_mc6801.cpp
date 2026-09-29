@@ -1,5 +1,6 @@
 #include "devs_mc6801.h"
 #include <strings.h>
+#include "mc6801_sci_handler.h"
 #include "mc6850.h"
 
 namespace debugger {

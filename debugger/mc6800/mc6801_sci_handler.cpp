@@ -17,7 +17,7 @@ bool Mc6801SciHandler::isSelected(uint32_t addr) const {
     return addr == ADDR_RMCR;
 }
 
-void Mc6801SciHandler::write(uint32_t addr, uint16_t data) {
+void Mc6801SciHandler::write(uint32_t, uint16_t data) {
     _rmcr = data;
     resetHandler();
 }

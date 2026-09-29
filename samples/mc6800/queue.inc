@@ -79,7 +79,7 @@ queue_remove:
         bne     queue_remove_elem
         clc                     ; clear carry
         rts
-queue_remove_elem
+queue_remove_elem:
 	pshb
         ldab    queue_get,x     ; 8 bits offset
         stx     queue_remove_tmp ;save X

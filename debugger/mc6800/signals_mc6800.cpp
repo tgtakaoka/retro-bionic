@@ -56,7 +56,15 @@ void Signals::print() const {
     } else {
         buffer[8] = 0;
     }
+#ifdef PROFILE_CYCLES
+    // How many cycles the matcher gave a marked fetch, for
+    // tools/cycles_mc6800.py.
+    cli.print(buffer);
+    cli.print(" m=");
+    cli.printlnDec(fetch() ? matched() : 0);
+#else
     cli.println(buffer);
+#endif
 }
 
 }  // namespace mc6800

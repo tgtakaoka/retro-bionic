@@ -17,7 +17,7 @@ void Mc68hc11Init::print() const {
     cli.print("  Device at ");
     cli.printHex(_dev_base, 4);
     cli.print('-');
-    cli.printlnHex(_dev_base + _dev_size, 4);
+    cli.printlnHex(_dev_base + _dev_size - 1, 4);
 }
 
 bool Mc68hc11Init::is_internal(uint16_t addr) const {
