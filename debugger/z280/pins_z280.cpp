@@ -827,13 +827,40 @@ struct MemoryOfMems final : InstZ280::Memory {
 };
 }  // namespace
 
-// One line per instruction, its data transfers raw; fetches and
-// bytes only when verbose, unexplained cycles always.
-void PinsZ280::disassembleCycles() {
-    // The bus cannot tell (ST 1000 is the page's attribute): only
-    // Cache Control as the program stopped with it.
+// fetch() isn't a live bus signal here: InstZ280::findFetch() marks it
+// on a cycle only as a side effect of matching decoded instructions
+// against real memory, so that has to run -- once, right here -- before
+// backtraceStartFrom() counting fetch() cycles means anything.
+// printBacktrace() re-runs it over the now-disposed range, which
+// re-derives the same marks.
+//
+// The bus cannot tell a cached fetch from any other cycle (ST 1000 is
+// the page's attribute) either, so a run that stayed entirely in cache
+// has no fetch to find; keep everything captured, same as
+// printBacktrace()'s own cache branch.
+const SignalsImpl *PinsZ280::findBacktraceStart() {
+    if (this->regs<RegsZ280>()->cachesInstructions())
+        return Cycles::tail();
+    const auto end = Signals::put();
+    const auto g = Signals::get();
+    const MemoryOfMems memory(_mems);
+    const auto begin = InstZ280::findFetch(
+            g, end, memory, this->regs<RegsZ280>()->pc());
+    return backtraceStartFrom<Signals>(begin, _lineLimit);
+}
+
+// One line per instruction, its data transfers raw; fetches and bytes
+// only when verbose, unexplained cycles always.
+void PinsZ280::printBacktrace() {
+    // See findBacktraceStart(): a cached run has no fetch cycles to
+    // align on, so just print every raw cycle in ring order.
     if (this->regs<RegsZ280>()->cachesInstructions()) {
-        printCycles();  // a cached fetch never shows: nothing to match
+        const auto g = Signals::get();
+        const auto cycles = g->diff(Signals::put());
+        for (auto i = 0u; i < cycles; ++i) {
+            g->next(i)->print();
+            idle();
+        }
         return;
     }
     const auto end = Signals::put();
@@ -842,11 +869,12 @@ void PinsZ280::disassembleCycles() {
     const auto begin = InstZ280::findFetch(
             g, end, memory, this->regs<RegsZ280>()->pc());
     const auto lead = g->diff(begin);
+    const auto cycles = begin->diff(end);
+
     for (auto i = 0u; i < lead; ++i) {
         g->next(i)->print();
         idle();
     }
-    const auto cycles = begin->diff(end);
     for (auto i = 0u; i < cycles; ++i) {
         const auto s = begin->next(i);
         if (s->fetch()) {

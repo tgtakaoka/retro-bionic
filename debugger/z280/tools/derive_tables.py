@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Turn record_cycles.py's recording into the z280-PAGExx.txt tables.
+"""Turn the cycles_z280.py recording into the z280-PAGExx.txt tables.
 
 Reads z280-profile.jsonl.zst, writes one table per opcode page (in the
 parent debugger/z280/ directory, alongside inst_z280.awk) and

@@ -1,0 +1,94 @@
+# How each sample must be driven, for the Z280 wired up in its Z-BUS
+# mode, as the Bionic board has it. See scripts/bionic-regress.py's
+# drive_table() for the key shapes this file can use.
+
+# The chips, as their banners name them, this file is for.
+chips = ["Z280"]
+
+# Reset loads PC 0000, I 00, Master Status 0000 and I/O Page 00 (Z280
+# Technical Manual, Table 11-1). The system stack pointer is reset to
+# 0000 too, but the debugger parks the CPU through an NMI that pushes onto
+# that stack, so SP is not checked.
+[reset]
+PC = "0000"
+I = "00"
+MSR = "0000"
+IOP = "00"
+
+[arith]
+expect = """
+18000 + 28000 = -19536
+18000 + -18000 = 0
+-18000 + -18000 = 29536
+-18000 - -28000 = 10000
+100 * 300 = 30000
+300 * -200 = 5536
+100 * -300 = -30000
+-200 * -100 = 20000
+30000 / 100 = 300
+-200 / 100 = -2
+-30000 / -200 = 150
+-30000 / 78 = -384
+-48 < 30
+30 > -48
+5000 > 4000
+5000 = 5000
+4000 < 5000
+-5000 < -4000
+-5000 = -5000
+-4000 > -5000
+32700 > 32600
+32700 = 32700
+32600 < 32700
+-32700 < -32600
+-32700 = -32700
+-32600 > -32700
+18000 > -28000
+18000 = 18000
+-28000 < 18000"""
+
+[echo]
+feed = "ok\r"
+expect = "ok"
+
+[echoir]
+feed = "irq\r"
+expect = "irq"
+
+# Prints "<char> 0xXX 0bXXXXXXXX" per received byte, one line each
+# including the trailing \r.
+[echoitr]
+feed = "itr\r"
+expect = """
+i 0x69 0b01101001
+t 0x74 0b01110100
+r 0x72 0b01110010
+ 0x0D 0b00001101"""
+
+# One frame, checked whole: a frame takes under 25 seconds here.
+[mandelbrot]
+golden = "samples/arith/mandelbrot.golden"
+frames = 1
+
+[mmu_echoir]
+feed = "irq\r"
+expect = "irq"
+
+# The cache-enabled build of the same program.
+[cmandel]
+golden = "samples/arith/mandelbrot.golden"
+frames = 1
+
+# A random halt point, not always the same one, catches a corrupted
+# resume that only shows up mid-instruction.
+[haltgo]
+program = "mandelbrot"
+halt_interval = [0.05, 0.3]
+
+[breakpoint]
+program = "mandelbrot"
+break_at = "loop_x"
+
+[gountil]
+program = "mandelbrot"
+break_at = "loop_x"

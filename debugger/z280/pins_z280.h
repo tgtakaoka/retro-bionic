@@ -29,7 +29,7 @@
 #define PIN_ADR17 12 /* P7.01 */
 #define PIN_ADR18 11 /* P7.02 */
 #define PIN_ADR19 13 /* P7.03 */
-#define PORT_AH 7    /* P7.16-P7.19 */
+#define PORT_AH 7    /* GPIO7 */
 #define AH_gp 16     /* P7.16-P7.19 */
 #define AH_gm 0xF    /* P7.16-P7.19 */
 #define AH_vp 20     /* A20-A23 */
@@ -98,6 +98,8 @@ struct PinsZ280 final : Pins {
 private:
     bool _holdRing = false;  // completeCycle(): do not advance the ring
     void resetPins() override;
+    const SignalsImpl *findBacktraceStart() override;
+    void printBacktrace() override;
     bool rawStep();
     bool isRst38Break(Signals *s);
     bool loop();
@@ -113,8 +115,6 @@ private:
     uint16_t execute(const uint8_t *inst, uint_fast8_t len, uint8_t *buf,
             uint_fast8_t max, uint32_t &org, uint32_t exit);
     bool suspend(uint32_t org);
-
-    void disassembleCycles();
 };
 
 }  // namespace z280

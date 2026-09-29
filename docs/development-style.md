@@ -361,75 +361,141 @@ handler's own header. Syntax-check a target with and without
 
 ### Z280
 
+**Pitfalls.**
+
+- **Byte lanes follow the absolute address**, and a word read at an odd
+  address is the aligned pair; getting either wrong shifts injection by a
+  byte or poisons the instruction cache.
+- **On-chip memory is a cache at reset**: a cached fetch never reaches the
+  bus, so injection is blind until `disableCache()` has run.
+- **Refresh cannot be turned off**, only kept out of the ring; its rate field
+  must still be `3F`, and whatever sets it must put the I/O Page back to 0.
+- **`#NMI` must go out during the opcode fetch** to step exactly one
+  instruction, and in modes 0-2 it makes no acknowledge cycle; the push is
+  inferred from its position, with at most one prefetch in between.
+- **Sample the address inside the `#AS`-low window**, the status after the
+  rise; `completeCycle()` cannot count T states.
+- **The PC is logical, the bus physical**: a resume origin is a bus address,
+  and only the parked page's frame is known.
+- **A captured sequence ends with a taken jump**, or the host acts before
+  its last write.
+- **Analyser leads on the multiplexed bus can stop it working at all**:
+  hours went into a `Cycles::reset()` change, a reset setup delay, a
+  `clk_delay_ns` margin and an `#AS` polling rewrite while the probes were the
+  fault. **[hw]**
+
+#### Bus, lanes and sampling
+
 **Z-BUS byte lanes.** The even-address byte rides AD8-15 and the odd-address
 byte AD0-7 (§13.5.1.1). The lane is chosen by the **absolute address**, not by
-an offset into a buffer. The two agree only while a sequence sits at an even
-origin; at an odd origin the whole stream is delivered shifted by one byte.
-This applies equally to injection and to `MemsZ280::read_zbus`/`write_zbus`.
-**[hw]**
+an offset into a buffer; the two agree only at an even origin, and at an odd
+one the whole stream is delivered shifted by one byte. This applies equally to
+injection and to `MemsZ280::read_zbus`/`write_zbus`. **[hw]**
 
-Word transfers are *not* always even-aligned: with caching off the CPU reads a
-word at every PC value, so it asks on both parities. **[hw]**
+Uncached, the CPU issues a word read at every PC value (instruction
+boundaries), not one per two bytes, so it asks on both parities. **[hw]**
 
 **A word read at an odd address is the aligned pair.** Whatever A0 says, the
 CPU treats the two lanes as bytes `addr & ~1` and `addr | 1`, and with the
 instruction cache on it files both in the line. Answering an odd fetch with
-`[addr]` and `[addr+1]` instead looked right for years, because uncached the
-CPU only takes the lane its parity picks -- but a jump to an odd target then
-cached `[addr+1]` as the byte *before* the target. The byte before a routine
-entry is usually the `RET` of the routine above it; executed from the cache
-later it ran as whatever the entry's second byte was, and `queue_remove`
-returned into the receive ISR's prologue. That is why interrupt-driven samples
-failed with the instruction cache on, and only at even link offsets: shifting
-the program by one byte moved the poisoned byte off the `RET`. **[hw]**
+`[addr]` and `[addr+1]` looked right for years, because uncached the CPU takes
+only the lane its parity picks -- but a jump to an odd target then cached
+`[addr+1]` as the byte *before* the target, usually the `RET` of the routine
+above, which later ran as the entry's second byte: `queue_remove` returned into
+the receive ISR's prologue. That is why interrupt-driven samples failed with
+the instruction cache on, and only at even link offsets. **[hw]**
+
+**Sample the address inside the `#AS`-low window, the status after the rise.**
+AD0-15 carries the address only while `#AS` is low; the rise latches it and the
+CPU then turns AD around for data. `prepareCycle()` sampled both 60 ns *past*
+the rise, so `getAddr()` could read whatever AD had become, and a stopped run
+gave a PC outside the program (`A409`, `EE53`) with a different byte count
+every time. Sampling the address at the end of the `#AS`-low window made runs
+identical: `PC=021F`, 2232 bytes, 8/8. `#AS` cannot rise until #XTALI is driven
+low, so waiting there costs nothing. `ST0-3`, `R/#W`, `B/#W` and `#AS` are
+3-state and valid only from the `#AS` rise, so the two samples straddle it:
+**[hw]**
+
+```
+while (signal_as() != LOW) { ...clock... }
+delayNanoseconds(addr_delay_ns);   // settle, still inside the #AS-low window
+s->getAddr();
+xtali_lo();                        // ...which makes the #AS rise
+delayNanoseconds(status_delay_ns);
+s->getControl();
+```
+
+**`completeCycle()` cannot count T states.** It is sometimes entered straight
+after `resumeCycle()`, resuming out of a `#WAIT` stretch, with no way to know
+which T state the CPU is in. So both edges have to be found by watching `#DS`.
+Latching writes "one cycle past the T2 `#DS` fall, at the T3 rise" — where the
+data really is valid — broke every run for this reason. Getting the write
+sample later without tracking state through `resumeCycle()` remains open.
+**[hw]**
+
+**No critical sections are needed.** `prepareCycle()` used to sample and
+capture under `noInterrupts()`. #XTALI is driven from that code, so everything
+the CPU puts on the bus holds until the next edge produced there; an interrupt
+can only push a sample later. Without the guards a CPU that stops issuing
+transactions no longer takes USB, and the halt port, down with it. The `#AS`
+wait has no guard of its own, so such a CPU is caught by the watchdog.
+**[hw][code]**
+
+#### Clocking
+
+`CLK = XTALI` with CS=01 in the Bus Timing and Initialization register (CS=00
+gives XTALI/2), ~16 ns XTALI→CLK propagation. On a memory transaction `#AS` is
+asserted for one XTALI phase; `#DS` falls one phase later on a read and two on
+a write, staying low three phases and two respectively. **[hw]**
+
+**The CS latch does not take effect until the first bus transaction.** While
+`#RESET` is asserted, and on past it, `CLK` stays on a fixed reset divider.
+Checked in the `#WAIT` hold window after `#RESET`, `CLK` changes 7 times in 28
+samples whether CS was latched `01` or `00`, so `resetPins()`'s "steady" check
+ran all its retries every time. Past `prepareCycle()` it is a clean
+discriminator: sampling `CLK` once per `#XTALI` cycle gives **0 changes in 16 at
+CS=01 and 12 at CS=00**. It is safe to spend cycles there because `#WAIT` parks
+the CPU in T2; before, extra cycles carry the CPU past T1 and leave
+`prepareCycle()` waiting on an `#AS` that has gone. **[hw]**
+
+**Sustained clock rate is set by host code, not by the delay constants.** Over
+a whole `mandelbrot` run, `CLK` and `#XTALI` both average **3.52 MHz** (323,007
+cycles in 91.75 ms), median period 280 ns, max 352 ns, **89% high**. The low
+phase is the 20 ns delay plus GPIO overhead; the high phase absorbs whatever
+`completeCycle()`, `_devs->loop()` and `prepareCycle()` cost. The ~9 MHz seen
+during tuning is the bare toggle rate of the `prepareCycle()` wait loop;
+trimming the delay constants further buys very little. **[hw]**
+
+#### Cache, refresh and the I/O page
 
 **On-chip memory is a cache at reset.** Cache Control is control register `12`,
-reset value `20` (M/C=0, I=0, D=1) — instruction caching on. The debugger never
-sees a fetch the cache answers, so the bus falls silent.
+reset value `20` (M/C=0, I=0, D=1) — instruction caching on.
 
 - `I=1` stops *new* lines being filled but does **not** invalidate what is
-  already cached. A short loop that was cached before `I=1` took effect keeps
-  running entirely from cache. **[hw]**
-- `PCACHE` (`ED 65`) drops the existing lines. **[hw]**
+  already cached; a short loop cached before `I=1` keeps running from cache.
+  `PCACHE` (`ED 65`) drops the lines. **[hw]**
 - Fixed-address mode (`M/C=1`) also frees the bus but needs all 16 line tags
   initialised by data reads first, which injection cannot carry — there is no
   `#M1` to tell a data read from a fetch. **[hw]**
 
-Uncached, the CPU issues a word read at every PC value (instruction
-boundaries), not one per two bytes. **[hw]**
+**Refresh cannot be turned off.** Clearing Refresh Enable does not stop the
+transactions; §9.3 makes them a *minimum bus transaction rate*: "if the refresh
+timer reaches 0 and no external bus transaction has occurred since the last
+time the refresh timer elapsed, then a refresh transaction will be generated."
+A parked or slowly-stepped CPU is exactly that condition, and at debugger
+speeds the timer has always elapsed whatever the rate. Measured: the
+refresh-to-MEM ratio was unchanged. **[hw][doc]**
 
-**Refresh cannot be turned off.** Clearing the Refresh Enable bit does not stop
-the transactions; §9.3 repurposes them as a *minimum bus transaction rate*: "if
-the refresh timer reaches 0 and no external bus transaction has occurred since
-the last time the refresh timer elapsed, then a refresh transaction will be
-generated." A parked or slowly-stepped CPU is exactly that condition. The rate
-field does not remove them either — at the speed the debugger clocks the part,
-hundreds of processor clocks pass per bus transaction, so the timer has always
-elapsed. Measured: the refresh-to-MEM ratio was unchanged before and after.
+Still set the register (`E=0`, rate `3F`), as a board with no DRAM should.
+**Rate 0 is not the slowest setting** — the field is documented over
+`0 < n < 63` (once every 4n clocks) with zero a separate special case — and
+keep refresh out of the ring (see General). **[doc]**
+
+**The I/O Page register is cleared to zero by reset.** On-chip peripherals live
+on pages `FE`/`FF`, and on-chip I/O makes no external bus transaction. Anything
+that changes the page must put it back to 0, or every later `OUT` is handled
+on-chip and the debugger waits for a bus cycle that never comes.
 **[hw][doc]**
-
-That does *not* mean leaving the register alone. The manual requires the rate
-field to hold a sensible value even with refresh disabled, since it is what
-governs the keep-alive interval. **Rate 0 is not the slowest setting** — the
-field is documented over `0 < n < 63` (once every 4n clocks) with zero as a
-separate special case, so the slowest is `3F`. Writing `00`, as a first attempt
-did, sets the enable bit correctly but leaves the rate field at its degenerate
-value. **[doc]**
-
-So both are needed, for different reasons: set the register (`E=0`, rate `3F`)
-because it is the correct configuration for a board with no DRAM, and keep
-refresh out of the ring (see General) because the transactions still happen.
-
-Whatever writes that register must put the **I/O Page register back to zero**
-afterwards — see below.
-
-**I/O Page register is cleared to zero by reset.** On-chip peripherals live on
-pages `FE`/`FF`, so an `OUT` after reset goes to page `00` — an *external* I/O
-transaction. Anything that changes the page must put it back, or every later I/O
-transaction is handled on-chip and emits no bus cycle at all, which hangs a
-debugger waiting for one. **[hw][doc]**
-
-On-chip I/O generates no external bus transaction. **[doc]**
 
 **Control register addresses** (`LDCTL`, address in C) **[doc]**:
 
@@ -442,475 +508,301 @@ On-chip I/O generates no external bus transaction. **[doc]**
 | I/O Page \* | `08` | | Bus Timing and Initialization \* | `FF` |
 
 \* 8-bit; only the low byte of the source register is written.
-
-**Clocking.** `CLK = XTALI` with CS=01 in the Bus Timing and Initialization
-register (CS=00 gives XTALI/2), ~16 ns XTALI→CLK propagation. Measured on a
-memory transaction: `#AS` is asserted for one XTALI phase; `#DS` falls one phase
-later on a read and two on a write, staying low three phases and two
-respectively. **[hw]**
-
-**The CS latch does not take effect until the first bus transaction.** While
-`#RESET` is asserted, and on past it, `CLK` stays on a fixed reset divider
-regardless of what was just latched into CS. So the latch cannot be verified in
-the `#WAIT` hold window after `#RESET` is released — measured there, `CLK`
-changes 7 times in 28 samples whether CS was latched `01` or `00`, and a check
-for "steady" can never pass. `resetPins()` had exactly that check and therefore
-ran all of its retries, every time, without ever testing anything.
-
-Measured *past* `prepareCycle()` — that is, once the first bus transaction has
-begun — it is a clean discriminator: sampling `CLK` once per `#XTALI` cycle
-gives **0 changes in 16 at CS=01 and 12 at CS=00**. The verification belongs
-there. It is safe to spend cycles at that point because `#WAIT` parks the CPU
-in T2; it is *not* safe before, where extra cycles carry the CPU past T1 and
-leave `prepareCycle()` waiting on an `#AS` that has already gone. **[hw]**
-
-**Sample the address inside the `#AS`-low window, the status after the rise.**
-AD0-15 carries the address only while `#AS` is low; the rise latches it and the
-CPU then turns AD around for data. `prepareCycle()` sampled both 60ns *past* the
-rise, so `getAddr()` could read whatever AD had become — the debugger then
-reported nonsense addresses, and stopping a run gave a PC outside the program
-(`A409`, `EE53`) with a different byte count every time. Sampling the address at
-the end of the `#AS`-low window and only the status after the rise made runs
-identical: `PC=021F`, 2232 bytes, 8/8. `#AS` cannot rise until #XTALI is driven
-low, so waiting inside that window costs nothing and only lets AD settle.
-**[hw]**
-
-The 3-state status lines still need the rise, so the two samples straddle it:
-
-```
-while (signal_as() != LOW) { ...clock... }
-delayNanoseconds(addr_delay_ns);   // settle, still inside the #AS-low window
-s->getAddr();
-xtali_lo();                        // ...which makes the #AS rise
-delayNanoseconds(status_delay_ns);
-s->getControl();
-```
-
-**`completeCycle()` cannot count T states.** It is sometimes entered straight
-after `resumeCycle()`, which is resuming a transaction out of a `#WAIT` stretch,
-and there is then no way to know which T state the CPU is in. So both edges have
-to be found by watching `#DS`, never by clocking a fixed number of cycles from a
-supposedly known one. Restructuring the write path to latch "one cycle past the
-T2 `#DS` fall, at the T3 rise" — which is where the data really is valid — broke
-every run for exactly this reason: after a resume that extra cycle lands
-somewhere arbitrary. Getting the write sample later without tracking state
-through `resumeCycle()` remains open. **[hw]**
-
-**Sustained clock rate is set by host code, not by the delay constants.** Over a
-whole `mandelbrot` run, `CLK` and `#XTALI` both average **3.52 MHz** (323,007
-cycles in 91.75 ms; identical on both channels, confirming CS=01). The rate is
-remarkably flat — median period 280 ns, max 352 ns, so there are no stalls to
-average over — and the duty is **89% high**. That shape is `xtali_cycle_hi()`:
-the low phase is just the 20 ns delay plus GPIO overhead, while the high phase
-absorbs whatever `completeCycle()`, `_devs->loop()` and `prepareCycle()`
-bookkeeping cost that cycle. The ~9 MHz reached during tuning is the bare toggle
-rate of the `prepareCycle()` wait loop, which does nothing but toggle and read a
-pin; it is not reachable while real work happens every cycle, and trimming the
-delay constants further buys very little. **[hw]**
-
-`ST0-3`, `R/#W`, `B/#W` and `#AS` are 3-state and valid only from the rising
-edge of `#AS` — sample them with real margin past that edge or you read floating
-pins. **[hw]**
-
-**NMI** (interrupt modes 0, 1, 2): pushes **PC only** — the MSR is not saved —
-and vectors to `0066H`. `RETN` (`ED 45`) returns. No vector table is needed.
-Interrupt processing flushes the pipeline, so `0066H` is fetched more than once
-and must stay served. The pushed value is the address of the next instruction,
-except for block instructions, where it is the address of the block instruction
-itself. **[hw][doc]**
-
-`#NMI` must be asserted **during** the opcode fetch of the instruction to be
-stepped over — after `resumeCycle()` hands that fetch back, but before
-`completeCycle()` finishes it. The window is narrow in both directions:
-
-- asserted after the fetch completes, the CPU does not see it in time for the
-  following instruction boundary and steps **two** instructions;
-- asserted before the parked transaction is really the opcode fetch, it vectors
-  without running anything and steps **none**.
-
-This is genuinely timing-sensitive, and the sensitivity is not theoretical:
-cutting the refresh rate removed idle cycles that had been giving `#NMI` time to
-be recognised, and a step that had been landing on exactly one instruction
-started landing on two. It only became reliable once `resumeCycle()` was
-guaranteed to return the opcode fetch itself, which needed the `exit` fix — the
-`JP` at the tail of `LD_ALL` had been parking on a prefetch instead. **[hw]**
-
-Compare `pins_tms9900_base.cpp`, which asserts on the first cycle where
-`s->fetch()` is true; targets without an `#M1`-equivalent have to substitute
-"the transaction `resumeCycle()` handed back". **[code]**
-
-That a single-step mechanism can be knocked out by changing an unrelated refresh
-divisor is the strongest practical argument for the trap route below.
-
-**Prefetch reaches past an injected window.** The CPU reads addresses beyond the
-end of a sequence before it takes a jump the sequence ends with. That prefetch is
-indistinguishable on the bus from falling through, which is why each injected
-sequence has to declare where it leaves off (`EXIT_END`, `EXIT_ORG`, or the
-target address of its trailing jump) rather than the loop inferring it. **[hw]**
-
-A corollary for breakpoints: stopping *before* a `HALT` is done by reading the
-opcode out of memory, not by watching the bus, so a prefetch queue filled before
-the `HALT` was written can still carry the CPU into it. **[hw]**
-
-#### `loop()` must free-run, not single-step **[hw]**
-
-`run()`'s loop originally called `rawStep()` per instruction, which put an
-`#NMI` at every instruction boundary. That has two fatal consequences, both
-measured: maskable interrupts are never serviced, and compute-bound programs
-crawl.
-
-It now free-runs like `PinsZ80::loop()` — `prepareCycle`/`completeCycle` with
-`_devs->loop()` each turn — and breakpoints work the z80 way, patching `RST 38H`
-into memory. `setBreakInst()` patches one byte: `MemsZ280` is constructed as a
-byte memory (`ExtMemory(Endian::ENDIAN_LITTLE)`, no `wordAccess`), so
-`put_prog` writes a single byte and the old "a word write would clobber the
-neighbour" objection does not apply — the Z-BUS word transfer lives only in
-`read_zbus`/`write_zbus`.
-
-Two things had to be got right:
-
-- **The break test must confirm an `RST 38H` actually ran.** A read of `0038H`
-  that merely follows a write is not enough: a mode-1 maskable interrupt also
-  pushes the PC and vectors there, and so does any stray read of that address.
-  Checking `_mems->read_byte(pc) == RST38` at the resume point (`pushed - 1`)
-  separates them, and is true for both a patched breakpoint and a program's own
-  `rst 38h`. Without it, `mandelbrot` broke out within seconds.
-- **The `#AS` wait in `prepareCycle()` must be bounded.** It spins with
-  interrupts disabled, so a CPU that stops issuing transactions takes USB with
-  it and the board stops answering even the halt port — a reflash is the only
-  way back. It now lets interrupts in periodically and gives up if the halt
-  switch has been hit.
-
-#### `Devs::vector()` must be overridden per target **[hw]**
-
-`DevsZ280` did not override it, so the base returned 0 and every interrupt
-acknowledge handed the CPU `00` -- a NOP instead of the restart the device chose
--- after which nothing serviced the request and it re-acknowledged forever. In
-interrupt mode 0 that is fatal; mode 1 does not read a vector and so survived
-it. Compare `DevsZ80::vector()`, which forwards to `_usart->vector()`.
-
-#### A prefetch can sit between a push and the vector fetch **[hw]**
-
-`s->prev()` is the pushing transaction only when nothing intervenes, and a
-prefetch may. Whether it does is timing-dependent, which makes the failure look
-nondeterministic: `echo` stopped on its `rst 38h` every time while `arith`,
-whose exit is the same three instructions, ran away -- its stack filling with
-the `0039` an `RST 38H` at `0038H` pushes, until the recursion smashed enough
-memory to escape into garbage. Scan back a few entries for the most recent
-write instead of taking `prev()`.
-
-#### `#NMI` generates no acknowledge transaction **[hw]**
-
-`ST_NMIA` exists in the Z-BUS status encoding, so anchoring `suspend()` on the
-acknowledge instead of inferring the push from its position looks like the
-obvious improvement. It is not available: **the CPU never puts an acknowledge
-cycle on the bus for `#NMI`.**
-
-Measured with ST1-ST3 probed, over the whole `#NMI` low window (6.9us) while
-`mandelbrot` ran:
-
-```
-   -0.280  MREQ R  #DS yes
-   +1.032  MREQ R  #DS yes
-   +2.184  MREQ R  #DS yes
-   +5.264  MREQ W  #DS yes      <- the PC push
-   +6.656  MREQ R  #DS yes      <- the 0066H vector fetch
-histogram over 3973 cycles: MREQ 3966, IORQ 5, INTAA 2
-```
-
-Nothing but ordinary memory cycles. The two acknowledge-range cycles are at
--853us and -596us, far outside the window -- they are the USART's maskable
-interrupt acknowledges. The firmware's own view agrees: during a halt it latches
-`Mr Mr ... Mw Mr` and never an `N`.
-
-ST0 showed no transitions in that capture, which is not a probing fault: the
-only statuses present were `MREQ` (`0x8`), `IORQ` (`0x2`) and `INTAA` (`0x4`),
-and none of them sets ST0. All four lines are known good, confirmed by
-executing a `TSET`:
-
-```
-   +3.312us  ST=0xF LOCK R  #DS yes  AD0-3=0x0      (the locked access to 2000H)
-   ST edges in that capture: ST0 2, ST1 4, ST2 2, ST3 2
-```
-
-`ST_LOCK` is `0xF`, every status bit set at once, so one `TSET` proves the whole
-status bus in a single cycle -- a cheaper wiring check than reasoning about
-which bits a given workload happens to exercise. An `NMIA` (`0x5`) would
-therefore have decoded correctly in the capture above had one occurred.
-
-So the NMI sequence is: the instruction being executed finishes, the PC is
-pushed to `SP-2`, and `0066H` is fetched -- every one a normal `#DS` memory
-cycle. `Signals::nmiAck()` can therefore never be true, and inferring the push
-from its position relative to the vector fetch is not a workaround for a missing
-feature, it is the only method available. See the prefetch note above for why
-that inference must allow exactly one intervening read and no more.
-
-**A correction worth recording.** An earlier capture, on a different Z280 part
-and with two status bits unprobed, showed a single `#AS` pulse with `#DS` high
-next to the `#NMI` pulse, and this document previously concluded from it that the
-acknowledge existed but was being swallowed by the `#DS` wait loops. Re-measured
-with the status lines actually connected, no such cycle exists: every cycle in
-the window strobes `#DS`. The lesson is the one already in the General section --
-a reading taken with probes missing on the very signals that carry the answer is
-not evidence.
-
-#### Only an I/O transaction may reach a device **[hw]**
-
-Device selection used to test the address alone:
-
-```c
-} else if (_devs->isSelected(ioaddr) && s->readMemory()) {
-```
-
-Nothing there required the cycle to *be* an I/O request, so any transaction
-whose stale address lines happened to fall in a device's range got an answer —
-including an interrupt acknowledge, which carries no meaningful address. Every
-device branch is now gated on `s->ioReq()`.
-
-`intAck()` had the same shape of bug: it was written as
-`status >= ST_INTAA && status <= ST_INTAC`, and `ST_NMIA` (`0x5`) sits *inside*
-that range, so the debugger answered an NMI acknowledge with the USART's vector.
-`#NMI` vectors to `0066H` by itself and asks for no vector at all. Name the three
-maskable codes explicitly instead. **[hw]**
-
-#### Three ways `suspend()` lost the CPU **[hw]**
-
-All three showed up as "halt, then continue, sometimes does nothing", and all
-three are worth knowing because each looks like a different bug:
-
-- **The push is not always `s->prev()`.** A prefetch can land between the push
-  and the vector fetch (see above), and insisting on `prev()` made the
-  acknowledge go unrecognised whenever one did. Scanning *further* back is
-  worse, not better: with four entries a write-heavy program matches an ordinary
-  program write and reports a stored datum as the pushed PC. Accept the write
-  immediately before the fetch, or one read behind it, and nothing looser.
-- **A failed `suspend()` used to be destructive.** `loop()` called
-  `_regs->save()` unconditionally, so on failure the save ran with the CPU still
-  inside the NMI service and read garbage for *every* register — `SP` went
-  `0FFA` → `2408` alongside `PC=32BA`. `restore()` then wrote that back on the
-  next continue and destroyed the program, which is why a single failure
-  poisoned every iteration after it. Save only on success, as `step()` already
-  did.
-- **Continuing from a breakpoint goes through the stepper.** `Debugger::go()`
-  must single-step *over* a breakpoint at the current PC before running, so
-  every continue depends on `suspend()`. A breakpoint that is hit twice and then
-  never again is not a breakpoint bug at all.
-
-#### No critical sections are needed on this bus **[hw]**
-
-`prepareCycle()` used to sample and capture under `noInterrupts()`. It does not
-need to: #XTALI is driven from that code, so everything the CPU puts on the bus
-holds until the next edge produced there. An interrupt can only push a sample
-*later* than the propagation delay, never earlier. Removing the guards also
-means a CPU that stops issuing transactions can no longer take USB -- and with
-it the halt port -- down with it, which previously required a reflash.
-
-The halt/refresh skip loop went with them: refresh is no longer recorded in the
-ring, so `s->prev()` stays the previous *program* transaction even when a
-refresh reaches the caller, and `completeCycle()` clocks it out on its own.
-
-#### The interrupt acknowledge vector rides AD0-7 **[hw]**
-
-`completeCycle()` drove `swapBytes(_devs->vector())` on an acknowledge, putting
-the vector on AD8-15. It belongs on AD0-7 like any byte transfer; the CPU was
-reading `00` — a NOP — instead of the restart the device chose. Mode 0 needs
-this, since the device supplies a `Call`/`Restart` *opcode* there. Note how the
-samples build that opcode:
-
-```asm
-db  3EH         ; "LD A," opcode
-rst 28H         ; assembles to EF -- becomes the immediate
-```
-
-so `A = 0EFH`, the `RST 28H` opcode, which is what gets written to the UART's
-vector register.
-
-#### Maskable interrupts were starved by NMI stepping **[hw]**
-
-`PinsZ280::loop()` single-steps the CPU with an `#NMI` at every instruction
-boundary, because z280 cannot patch a break opcode into memory (a word write
-would clobber the adjacent byte). `#NMI` outranks the maskable inputs, so the
-boundary where an interrupt would be taken is exactly the boundary where the
-stepper asserts `#NMI`.
-
-Measured with `echoir.hex`: the debugger asserts the interrupt correctly
-(`assertInt` fires, the emulated i8251 reports `INT: Rx=38`), the program
-reaches `ei`, and a breakpoint on the ISR is never hit — the handler simply
-never runs. Same for `echoitr.hex`.
-
-The window is especially tight in the usual Z80 idiom, `DI / CALL / EI / JR`,
-because `EI` on the Z280 also disables interrupts "during this instruction and
-the following instruction", leaving exactly one boundary per loop where an
-interrupt can land.
-
-Contrast `PinsZ80::loop()`, which lets the CPU free-run and watches the bus for
-the patched break opcode, so interrupts are serviced normally. Restoring
-interrupt support on z280 means giving up per-instruction stepping in `run()`,
-which is the same thing the trap route below buys.
-
-#### Per-instruction stepping is too slow for real workloads **[hw]**
-
-Every step costs a full `#NMI` round trip — assert, vector fetch, injected
-`RETN`, stack pop, re-park — so a compute-bound program crawls. `mandelbrot.hex`
-runs correctly (the PC and SP advance, and it reaches its output formatting
-code) but produced no completed output in five minutes. `echo` and `arith` are
-fine because they are I/O-bound or short.
-
-#### Injection versus the instruction cache — why traps are the right long-term answer
-
-The whole injection mechanism assumes the debugger sees every fetch on the bus.
-**It does not, once the instruction cache is enabled** — a cached fetch never
-reaches the bus, so there is nothing to answer. That is why `disableCache()`
-exists and why it has to run before anything else at reset.
-
-This is not only a stepping problem. `save()` and `restore()` are injection too,
-so with the cache on they are equally blind: whether a sequence gets delivered
-depends on whether the CPU happens to have those addresses cached from an
-earlier pass.
-
-If the target is ever to run with its cache enabled — which is the realistic
-configuration, and the whole point of the part — the debugger has to stop
-depending on seeing fetches and use the CPU's own trap machinery instead:
-
-- **Single-Step trap** for stepping (MSR bit 8), vector at IVT offset `3Ch`.
-- **Breakpoint-on-Halt trap** for breakpoints — substitute a `HALT` opcode for
-  the first byte of the instruction to break on; enabled in the Trap Control
-  register (`10`), vector at IVT offset `40h`. The saved PC is the address of
-  the trapping instruction, not the next one.
-
-Both need the Interrupt/Trap Vector Table resident and the pointer register set
-up (below), and both need the patched/handler memory kept coherent with the
-cache — `PCACHE` after any patch.
-
-#### Single-Step trap — investigated, not adopted (yet)
-
-The Z280 has real single-step hardware. Findings, for the record:
+`LDCTL HL,(C)` of an 8-bit register leaves H undefined. **[hw]**
+
+#### Injected sequences and the resume origin
+
+**Every sequence threads an `org`.** An early Z280 resumed from the ring, and
+every reset of it resumed at address zero, set an injection origin of zero and
+corrupted everything downstream; wrapping the two calls to copy the slot out
+and back was the next mistake. Now `execute()` resumes at `org`, keys its
+window on it, and hands back where it parked — the exit it was told, or
+wherever the guard ran out. Sequences chain by handing the same variable
+along. **[code]**
+
+**The origin is a bus address, and the PC is not.** The saved PC is 16 bits of
+logical address; the bus shows 24 bits of physical address, the MMU's page
+being 4K. So `RegsZ280` keeps the frame beside the PC (`park(pc, addr)`),
+`nextIp()` puts the two back together, and `physical(logical)` translates any
+other address on that page the same way — a one-page MMU emulation. Off the
+page identity is assumed, as a disabled MMU does. Exits given to `execute()`
+are physical: `execInst(JP_PC, ..., org, physical(pc))`. **[hw]**
+
+**Capture the frame on a memory read.** Right after reset, or after the `RETN`
+that ends a step, `prepareCycle()` can return a refresh, whose address is the
+refresh counter's. `skipToRead()` clocks past anything that is not a memory
+read before the address is kept. **[hw]**
+
+**A captured sequence ends with `JR $+2`.** The prefetch reaches the address
+past the window before the last `PUSH` or `LD (HL),A` has written, so on the
+straight-line stream the CPU runs on into whatever memory holds. The taken
+jump flushes the pipeline and fetches the exit again — after the writes. Any
+sequence whose tail the host depends on next (a pending `POP AF`, the NMI frame
+before `RETIL`, `restoreRegs`'s pop) needs it. The old firmware hid the miss by
+re-latching its origin from the next sequence's first read, and the 128 cycles
+of garbage in between made IX, IY, I and USP drift from step to step. **[hw]**
+
+Each sequence declares where it leaves off (`EXIT_END`, `EXIT_ORG`, or its
+trailing jump's target); the loop cannot infer it. **[hw]**
+
+#### Running: free-run, breaks and halts
+
+**`loop()` free-runs.** It once called `rawStep()` per instruction, an `#NMI`
+at every boundary. `#NMI` outranks the maskable inputs, so with `echoir.hex`
+the interrupt was asserted, the program reached `ei`, and the ISR never ran
+(`EI` also holds off interrupts for the following instruction, leaving one
+boundary per `DI / CALL / EI / JR` loop); and `mandelbrot` produced nothing in
+five minutes. It now runs like `PinsZ80::loop()`, `_devs->loop()` each turn,
+with breakpoints patched as `RST 38H`. `setBreakInst()` patches one byte:
+`MemsZ280` is a byte memory to `Mems`; the Z-BUS word transfer lives only in
+`read_zbus`/`write_zbus`. **[hw]**
+
+**A break must prove an `RST 38H` ran.** A mode 1 interrupt also pushes the PC
+and vectors to `0038H`. Checking `_mems->read_byte(pc) == RST38` at the resume
+point separates them; without it `mandelbrot` broke out within seconds. The
+exit convention (`FFH` written into the restart vector) is honoured only while
+the vector holds `FFH`: `ORG_INT` and `ORG_RST38` are both `0038H`, so in
+normal running it holds the `JP` to the ISR. **[hw]**
+
+**A prefetch can sit between a push and the vector fetch.** Whether it does is
+timing-dependent: `echo` stopped on its `rst 38h` every time while `arith`,
+same exit, ran away, its stack filling with the `0039` an `RST 38H` at `0038H`
+pushes. Scan back for the most recent write instead of taking `prev()`. In
+`suspend()` accept the write immediately before the `0066H` fetch or one read
+behind it, nothing looser: with four entries a write-heavy program matched an
+ordinary write and reported a stored datum as the pushed PC. **[hw]**
+
+**`#NMI` timing.** It must be asserted **during** the opcode fetch of the
+instruction to step — after `resumeCycle()` hands that fetch back, before
+`completeCycle()` finishes it. Later steps **two** instructions; earlier
+vectors without running anything. Cutting the refresh rate removed idle cycles
+that had given `#NMI` time, and a step started landing on two; it became
+reliable only once `resumeCycle()` was guaranteed to return the opcode fetch
+itself (the `JP` at the tail of `LD_ALL` had been parking on a prefetch).
+**[hw]** See the TMS9900 for the idiom.
+
+**NMI in modes 0-2** pushes **PC only** and vectors to `0066H`; `RETN` (`ED 45`)
+returns. The pushed value is the next instruction's address, except for block
+instructions, where it is the block instruction's own. **[hw][doc]**
+
+**There is no acknowledge cycle for `#NMI` in modes 0-2.** With ST0-ST3 probed
+over the whole 6.9 us `#NMI` window while `mandelbrot` ran, every cycle was an
+ordinary `#DS` memory cycle — reads, the PC push, the `0066H` fetch; the only
+acknowledges were the USART's, far outside it. A `TSET` proves the whole status
+bus in one cycle (`ST_LOCK` is `0xF`). So `Signals::nmiAck()` is never true
+there, and inferring the push from its position is the only method. An earlier
+capture with two status bits unprobed had suggested a swallowed acknowledge;
+it was wrong. **[hw]**
+
+**Three ways `suspend()` lost the CPU**, all showing as "halt, then continue,
+sometimes does nothing": insisting on `prev()` for the push (above); saving
+after a failed `suspend()`, which read every register from inside the NMI
+service (`SP` `0FFA` → `2408`) and wrote that back on the next continue — save
+only on success; and forgetting that every continue from a breakpoint steps
+over it first, so a breakpoint hit twice and then never again is a stepper
+bug. **[hw]**
+
+**Breakpoints before a `HALT`** are found by reading the opcode from memory, so
+a prefetch queue filled before the `HALT` was written can still carry the CPU
+into it. `rawStep()` refuses to step a `HALT`, and a run that halts cannot be
+saved: there is no boundary to inject at. **[hw][code]**
+
+**`run()` saves before the dump**, holding the ring so the debugger's own
+cycles reuse the head slot, because the dump needs the Cache Control the
+program stopped with. Each `loop()` exit `Cycles::discard()`s what it injected,
+and `loop()` returns whether the registers can be saved at all. **[code]**
+
+#### Interrupts and devices
+
+- **The acknowledge vector rides AD0-7**, like any byte transfer. Driven on
+  AD8-15, the CPU read `00`, a NOP, instead of the restart. Mode 0 needs it:
+  the device supplies an opcode. The samples build one as `db 3EH` then
+  `rst 28H`, so `A = 0EFH` is written to the UART's vector register. **[hw]**
+- **`Devs::vector()` must be overridden.** `DevsZ280` did not, so every
+  acknowledge got `00` and re-acknowledged for ever; fatal in mode 0, unseen in
+  mode 1. Compare `DevsZ80::vector()`. **[hw]**
+- **Only an I/O transaction may reach a device.** Selection once tested the
+  address alone, so an interrupt acknowledge with stale address lines got a
+  device's answer; every branch is gated on `s->ioReq()` now. `intAck()` names
+  the three maskable codes: `ST_NMIA` (`0x5`) sits inside
+  `ST_INTAA..ST_INTAC`, and answering it with the USART's vector corrupted
+  the NMI sequence. **[hw]**
+
+#### MMU and user mode **[hw]**
+
+`samples/z280/mmu_echoir.asm` runs its echo loop in user mode with user page
+0 mapped to physical 0A5000H and every other user page invalid; the USART
+setup, the receive interrupt handler and putchar/getchar run in system mode,
+reached by `SC` traps through the vector table at 2000H (interrupt mode 3,
+`RETIL`). What it relies on, and what the debugger cannot do yet:
+
+- The system stack, the vectors (0038H, 0066H, the table) and the page the
+  debugger calls into (`CALL 8000H`, page 8) must be valid system pages, and
+  page 8 must map to itself: an exit off the parked page is translated by
+  identity.
+- Breakpoints and the `RST 38H` exit are recognised by reading memory at the
+  *logical* PC, so they work only in pages mapped to themselves; a user-mode
+  program exits through a system call that breaks in system mode.
+- Interrupt mode 3 is required for a user-mode program with interrupts: in
+  modes 0-2 an interrupt clears U/S and "the previous condition of the MSR is
+  not saved" (6.2.1), so `RETI` cannot return to user mode.
+- **A mode 3 NMI** shows on the bus as an acknowledge cycle, then
+  `W(PC) W(MSR) W(identifier)` on the system stack, two reads from the vector
+  table, and the handler fetch. `suspend()` parks *there*, in system mode,
+  whatever mode the program was in; `save()` takes PC and MSR from the frame,
+  and `restore()` writes them back and returns with `LD SP,msr_slot; RETIL`.
+  The handler never executes; its table entry must supply an MSR that
+  disables interrupts, and the system map is assumed to be identity.
+- **The MSR and the I/O Page register are registers like any other**: the
+  third dump line shows `USP=` under `SP=`, then `MSR=` and `IOP=`, and
+  `=MSR` / `=IOP` set them. They are read and written with `LDCTL` (C=00H,
+  08H); the MSR goes last, just before the jump, since it takes effect at
+  once. Inside the mode 3 NMI service the MSR is the frame's word and `RETIL`
+  restores it.
+- Code at a 24-bit physical address is assembled with a 24-bit `org`; the
+  assembler emits extended-linear HEX records, which the loader honours and
+  forgets again when the upload ends.
+
+Two things that cost an afternoon: `ld HL, (IVT>>12)<<4` assembles as an
+*indirect* load -- a leading parenthesis is an address, whatever follows it;
+and writing 0 to the emulated USART's vector register disables its interrupt,
+even though in mode 3 the byte is only the identifier pushed. **[hw]**
+
+#### Programs with the cache enabled **[hw]**
+
+`samples/z280/cmandel.asm` (via `enable_cache.inc`) caches instructions and
+data; the debugger caches nothing after reset, so a program turns the cache on
+itself. What that costs the debugger:
+
+- A cached fetch never reaches the bus, so nothing may be injected where the
+  program's lines are. Every stop therefore parks at the *vector* fetch
+  (`RST 38H`, 0066H or the mode 3 handler), which the program does not
+  execute, and the sequences run from there in system mode.
+- A miss fetches one word (per-word valid bits, burst off), so an injected
+  sequence is fetched by even words; a jump target is matched by its word,
+  not its byte address, and the CPU resumes at the word the bus showed.
+- The entry sequence purges, keeps HL and BC, reads Cache Control and sets
+  60H, all in one window, before anything else; the return sequence runs
+  from 8000H, sets the program's Cache Control back, reloads BC and HL,
+  purges, sets SP and returns -- what is fetched after the purge stays
+  cached, so it must not be the vector's line. A step leaves the cache off
+  (one instruction) and the next save keeps the recorded value.
+- The transaction a halt is noticed on can be an acknowledge cycle with no
+  address; the program's page frame comes from its last memory read.
+- The third dump line ends in `CACHE=` -- `__`, `I_`, `_D` or `ID` for what
+  the program caches -- and `=IC 1` / `=DC 1` (0 to turn off) edit it, so a
+  plain `mandelbrot.hex` can be run cached without touching its source. The
+  restore sequence writes the program's MSR after Cache Control (not after a
+  mode 3 NMI, where `RETIL` restores it). After an NMI in modes 0-2 the
+  interrupt enables sit in the Interrupt Shadow register, which only `RETN`
+  reads back: the dump shows them as `??` and `=MSR` cannot set them.
+- The status lines cannot tell whether the cache was on: ST `1000`
+  (cacheable) is the MMU page's attribute, carried by every memory cycle with
+  the cache off too (12725 of 12725 recorded reads). With the instruction
+  cache on, the dump stays raw: the fetches never reach the bus.
+
+#### Single-Step and Breakpoint-on-Halt traps — investigated, not adopted
+
+The CPU's own trap machinery would step and break without seeing fetches.
+Findings, for the record: **[doc]**
 
 - **MSR bit 8 = SS** (enable), **bit 9 = SSP** (pending). The trap fires when
-  SSP is set. At the start of each instruction SSP is checked, then SS is copied
-  into SSP and the instruction runs — so setting SS gives a one-instruction
-  delay before the first trap. **[doc]**
-- Simplest way in is `LDCTL` on the MSR with the desired SS/SSP combination. The
-  manual lists three others (PUSH PC + PUSH MSR + `RETIL`; a System Call with a
-  reserved identifier; Breakpoint-on-Halt). **[doc]**
-- The trap pushes **PC and MSR** (in that order). For Single-Step the saved PC
-  is the address of the *next* instruction — the manual explicitly contrasts
-  this with Division Exception, Access Violation, Privileged Instruction and
-  Breakpoint-on-Halt, which save the trapping instruction's own address. **[doc]**
-- Return is `RETIL`, which pops a 4-byte program status (PC + MSR). **[doc]**
-- Traps that will be re-executed (privileged, divide, page fault) auto-clear SSP
-  in the pushed MSR, so only one single-step trap occurs for them. **[doc]**
+  SSP is set; at the start of each instruction SSP is checked, then SS is
+  copied into SSP, so setting SS gives a one-instruction delay. The simplest
+  way in is `LDCTL` on the MSR (the manual lists three others).
+- The trap pushes **PC and MSR**; the saved PC is the *next* instruction's,
+  unlike Division Exception, Access Violation, Privileged Instruction and
+  Breakpoint-on-Halt, which save the trapping instruction's own. `RETIL`
+  returns. Traps that re-execute auto-clear SSP in the pushed MSR.
+- **Breakpoint-on-Halt** substitutes a `HALT` for the first byte of the
+  instruction; enabled in Trap Control (`10`), vector at IVT offset `40h`.
+- **All** traps vector through the Interrupt/Trap Vector Table whatever the
+  interrupt mode, so the table must be resident on a **4K boundary** and its
+  pointer (control register `06`) set before anything can trap. Single-Step
+  is at offset **`3Ch`**. Any patch needs a `PCACHE`.
 
-The catch is vectoring. **All** trap processing uses mode-3-style vectoring from
-the Interrupt/Trap Vector Table regardless of the current interrupt mode, so the
-table must be resident in memory and the Interrupt/Trap Vector Table Pointer
-(control register `06`) initialised before any instruction that could trap. The
-table must start on a **4K byte boundary** in physical memory — the pointer
-holds only the top 12 bits of the 24-bit physical address. The Single-Step entry
-is at offset **`3Ch`** (an MSR word followed by a PC word). **[doc]**
-
-Trade-off against NMI:
-
-| | NMI | Single-Step trap |
+| | NMI (implemented) | Single-Step trap |
 |---|---|---|
 | Setup in target memory | none — fixed `0066H`, handler injected | 4K-aligned IVT + pointer register |
-| Saved status | PC only (1 word) | PC + MSR (2 words) |
+| Saved status | PC only (modes 0-2) | PC + MSR |
 | Return | `RETN` | `RETIL` |
-| Timing sensitivity | must assert after the opcode fetch | none — fires by design |
-| Block instructions | can interrupt mid-block; saved PC is the block instruction itself | steps over the whole block |
+| Timing sensitivity | must assert during the opcode fetch | none — fires by design |
+| Block instructions | can interrupt mid-block; saved PC is the block instruction | steps over the whole block |
 
-NMI is cheaper for a debugger that does not want to reserve 4K of the target's
-physical memory, and it is what is implemented today. But NMI-based stepping
-only works because the cache is off, and the cache is off only because
-injection needs the bus. The moment the cache is to be enabled, the trap route
-is not an optimisation — it is the only thing that works.
+NMI does not reserve 4K of the target's physical memory. Its timing
+sensitivity, knocked out once by an unrelated refresh divisor, is the main
+argument for the trap route.
 
-#### Measuring the Z280's bus-cycle tables from the chip **[hw]**
+#### Bus-cycle tables from the chip **[hw]**
 
-The Z-BUS cannot tell an opcode fetch from a data read and the prefetch
-unit runs ahead, so no per-opcode bus-cycle listing can be read off the
-manual the way TLCS90 and i8096's can. `tools/record_cycles.py` runs every
-pattern of libasm's `gen_z280.lst` (kept as `tools/gen_z280.lst.zst`)
-plus every other opcode libasm decodes (`tools/z280-opcodes.txt.zst`)
-in isolation, with memory filled with `FF` = `RST 38H` so any transfer
-breaks at once, and `tools/derive_tables.py` turns the recordings into
-`z280-PAGExx.txt`, which `inst_z280.awk` turns into tables. The raw
-recording is committed as `tools/z280-profile.jsonl.zst` (zstd, one
-JSON line per run, read and written by the scripts through Python
-3.14's `compression.zstd`), so the tables can be re-derived or the
-recording extended by anyone with the board. The tables are
-hand-maintained from then on. Both scripts need the firmware built
-with `-D Z280_PROFILE`: the wide cycle line with the slot number, the
-inject/capture flags, status, width and direction; the plain build
-prints `R A=xxxxxx D=xxxx` like the Z80's.
+The Z-BUS cannot tell an opcode fetch from a data read and the prefetch unit
+runs ahead, so no per-opcode bus-cycle listing can be read off the manual the
+way TLCS90 and i8096's can. `scripts/record-cycles.py`, with
+`tools/cycles_z280.py` as its plugin, runs every pattern of libasm's
+`gen_z280.lst` (kept as `tools/gen_z280.lst.zst`) plus every other opcode
+libasm decodes (`tools/z280-opcodes.txt.zst`) in isolation, with memory filled
+with `FF` = `RST 38H`, and `tools/derive_tables.py` turns the recordings into
+`z280-PAGExx.txt`, which `inst_z280.awk` turns into tables. The raw recording is
+committed as `tools/z280-profile.jsonl.zst` (zstd, one JSON line per run, read
+and written through Python 3.14's `compression.zstd`), so the tables can be
+re-derived or the recording extended; they are hand-maintained from then on.
+Recording needs the profile image: the plain build prints `R A=xxxxxx D=xxxx`
+like the Z80's.
 
 What the 2169 runs established:
 
-- **Prefetch depth**: at most 3 words past an instruction before its
-  last data cycle (0 in 40% of runs, 1 in 49%); 1-3 words at the exit.
-  Sequences are stable across repeats.
-- **A byte load at an even address is a word read**; at an odd address
-  a byte read. A word at an odd address is two byte transactions.
-- **Stalls and flushes repeat fetches**: multiply and divide re-read the
-  next word up to five times; EI, DI, PCACHE, LDCTL and a few others
-  re-fetch after a flush.
-- **Traps** are three pushes, two table reads and the fetch of the PC
-  word read (`WWRRS`). The harness's operands made every divide trap,
-  so `derive` drops that tail from divide rows; `SC` keeps it.
-- **RETIL** is two reads and the fetch (`RRA`); no `out(1)` as Table
-  E-1 suggests.
-- Block instructions come out as `{...}` from one and two iterations,
-  with the second iteration at the other parity.
-- The relative and 16-bit indexed forms of the `FD ED` page and the
-  register variants the pattern list leaves out were run as extra
-  patterns; anything still without a row is filled by operand shape
-  from a recorded opcode on the same page (IX and IY pages mirror).
+- **Prefetch depth**: at most 3 words past an instruction before its last data
+  cycle (0 in 40% of runs, 1 in 49%); 1-3 words at the exit. Sequences are
+  stable across repeats.
+- **A byte load at an even address is a word read**; at an odd address a byte
+  read. A word at an odd address is two byte transactions.
+- **Stalls and flushes repeat fetches**: multiply and divide re-read the next
+  word up to five times; EI, DI, PCACHE, LDCTL and a few others re-fetch after
+  a flush.
+- **Traps** are three pushes, two table reads and the fetch (`WWRRS`). The
+  harness's operands made every divide trap, so `derive` drops that tail from
+  divide rows; `SC` keeps it.
+- **RETIL** is two reads and the fetch (`RRA`); no `out(1)` as Table E-1
+  suggests.
+- Block instructions come out as `{...}` from one and two iterations, the
+  second at the other parity.
+- The relative and 16-bit indexed forms of the `FD ED` page and the register
+  variants the pattern list leaves out were run as extra patterns; anything
+  still without a row is filled by operand shape from a recorded opcode on the
+  same page (IX and IY pages mirror).
 
-#### Disassembling the ring: matching cycles against the measured tables **[hw]**
+The recording was redone after `RegsZ280::restore()` was fixed to put the
+frame below the SP it resumes with, so that an edited SP holds; 177 runs saw
+other addresses or operand data, none changed its cycle pattern. **[hw]**
 
-`disassembleCycles()` reconstructs the fetch stream from the per-opcode
-bus-cycle tables measured earlier, as TLCS90 and i8096 do from their
-own. `InstZ280::match()` walks a table's sequence against the ring: the
-instruction's own bytes in order, then its data transfers, with
-prefetch (measured up to 3 words deep) and any stall/flush re-fetch
-absorbed wherever it lands and left unmarked, since it is the next
-instruction's fetch -- which is why the next match starts right after
-the previous instruction's own bytes, not after its data cycles (the
-i8096 model). A taken transfer ends at the target's fetch; an
-interrupt taken instead of the fetch owed is matched as one.
+#### Disassembling the ring **[hw]**
 
-A cut instruction at the ring's start decodes as whatever its tail
-bytes say, and its data cycles as one-byte instructions, since every
-start in a byte stream decodes plausibly. What tells them apart is
-the chain: every real instruction is followed by the one it expects
--- the next address, the target it took, the return address it
-popped, an interrupt's vector, or the PC the CPU stopped at -- and a
-stack read decoded as `NOP` is followed by nothing of the kind.
-`matchAll()` rejects such a match (the follower when it chains
-nowhere either, else the one before) and matches again without it,
-until the chain holds; a cut tail unravels from its end this way.
-`findFetch()` then takes the start whose chain ends at the PC. A
-failed match undoes only its own marks: the instruction before it
-may own data cycles inside its window.
+`disassembleCycles()` reconstructs the fetch stream from those tables, as
+TLCS90 and i8096 do. `InstZ280::match()` walks a table's sequence against the
+ring: the instruction's own bytes in order, then its data transfers, with
+prefetch and any stall/flush re-fetch absorbed wherever it lands and left
+unmarked, since it is the next instruction's fetch -- so the next match starts
+right after the previous instruction's own bytes (the i8096 model). A taken
+transfer ends at the target's fetch; an interrupt taken instead of the fetch
+owed is matched as one.
 
-`tools/record_cycles.py check` cross-checks every dumped line of the samples
-against their listings and allows just that; `test/z280/test_inst_z280`
-(`pio test -e native`) replays captured dumps through the matcher on
-the host, checks every mark against the listing, and with
-`Z280_DUMP=<file>` replays any dump and prints the marks, under the
-sanitizers if wanted.
+A cut instruction at the ring's start decodes as whatever its tail bytes say,
+since every start in a byte stream decodes plausibly. What tells them apart is
+the chain: every real instruction is followed by the one it expects -- the next
+address, the target it took, the return address it popped, an interrupt's
+vector, or the PC the CPU stopped at. `matchAll()` rejects a match that chains
+nowhere (the follower when it chains nowhere either, else the one before) and
+matches again until the chain holds; `findFetch()` then takes the start whose
+chain ends at the PC. A failed match undoes only its own marks: the
+instruction before it may own data cycles inside its window.
 
-With the instruction cache on the dump stays raw: the fetches never
-reach the bus. The status lines cannot tell whether it was on: ST
-`1000` (cacheable) is the MMU page's attribute and every memory cycle
-carried it with the cache off (12725 of 12725 recorded reads). So
-`run()` saves the registers *before* the dump, holding the ring so the
-debugger's own cycles reuse the head slot, and reads Cache Control as
-the program stopped with it.
+`tools/check_samples.py` cross-checks every dumped line of the samples against
+their listings; `test/z280/test_inst_z280` (`pio test -e native`) replays
+captured dumps through the matcher on the host, checks every mark against the
+listing, and with `Z280_DUMP=<file>` replays any dump and prints the marks,
+under the sanitizers if wanted.
 
-#### Sample status
-
-Checked against `samples/z280/` on hardware:
+#### Samples **[hw]**
 
 | sample | result |
 |---|---|
@@ -918,34 +810,14 @@ Checked against `samples/z280/` on hardware:
 | `arith.asm` | works — all 30 results correct for signed 16-bit |
 | `echoir.asm` | works — interrupt mode 1 |
 | `echoitr.asm` | works — interrupt mode 0, vectored restarts |
-| `mandelbrot.asm` | works — 4.74s per frame, loops until stopped |
+| `mandelbrot.asm` | works — 4.74 s per frame, loops until stopped |
 
-All five behave correctly; the four that exit do so at their own
-`rst 38h`. `mandelbrot` loops until stopped -- Ctrl-Space on the console
-or any byte on the halt port.
-
-Mandelbrot only became usable once #XTALI was sped up: at the original
-100ns phases it never reached the end of a frame. The larger win was free-running
-`loop()` rather than stepping it (below).
-
-Do not take a short `mandelbrot` run as a frame time. It loops until stopped, so
-a run that ends on its own has exited early: runs measured at "131 lines in 64ms"
-were doing that. A frame is **4.74s**, measured between the blank lines the
-sample prints between iterations — three consecutive frames came out at 4.74s
-each. A run that stops by itself is a *failure* signal for this sample, not a
-timing result.
-
-Those blank lines are the right way to time any redrawing sample, and the only
-way to compare a slow target with a fast one: `bionic-control.py run <cap> <n>`
-counts them, stops after n iterations and prints each interval. A fixed duration
-cannot serve both ends of the range -- `arith` finishes in 0.2s where a frame of
-`mandelbrot` takes 4.74s, and a slower target takes minutes.
-
-The samples exit with the shared Z80 convention: write `RST 38H` (`FFH`) into
-the restart vector and restart to it. z280 now honours that in `loop()`, gated
-on the vector actually holding `FFH` — necessary because `ORG_INT` and
-`ORG_RST38` are both `0038H`, so during normal running the vector holds the
-`JP` to the ISR and must not be mistaken for an exit.
+The four that exit do so at their own `rst 38h`; `mandelbrot` loops until
+Ctrl-Space on the console or any byte on the halt port, and a run that ends by
+itself has failed. A frame is **4.74 s**, three consecutive frames measured
+between the blank lines; runs reported as "131 lines in 64ms" had exited early.
+Mandelbrot never finished a frame at the original 100 ns #XTALI phases; the
+larger win was free-running `loop()`.
 
 ### Z80 / Z180
 
