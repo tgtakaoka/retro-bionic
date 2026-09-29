@@ -72,7 +72,7 @@ BEGIN {
     CYCLES[31]="1~RrA";
     CYCLES[32]="1~Ww";
     CYCLES[33]="1~Rr";
-    CYCLES[34]="1~VvWv";
+    CYCLES[34]="1~VvWw";
     CYCLES[35]="1";
     CYCLES[36]="1~C";
     CYCLES[37]="123456";

@@ -37,7 +37,7 @@ vI:     dsb     1
         org     ORG_RESET
 init:
         ld      SP, #stack
-        ldb     INT_MASK, INT_EXTINT ; enable EXTINT
+        ldb     INT_MASK, #INT_EXTINT ; enable EXTINT
 
         ld      HL, #rx_queue
         ldb     B, #rx_queue_size
@@ -125,7 +125,7 @@ isr_intr:
         ldb     A, USARTD       ; receive character
         ld      HL, #rx_queue
         scall   queue_add
-isr_intr_tx
+isr_intr_tx:
         ldb     A, USARTS
         jbc     A, ST_TxRDY_bp, isr_intr_exit
         ld      HL, #tx_queue

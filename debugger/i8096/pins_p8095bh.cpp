@@ -241,7 +241,7 @@ Signals *PinsP8095BH::jumpHere(uint_fast8_t len, bool idle) {
 
 void PinsP8095BH::idle() {
     _idle = true;
-    // The maximu duration of READY=L is 1us and useless for idle.
+    // The maximum duration of READY=L is 1us and useless for idle.
     Cycles::discard(jumpHere(4, true));
 }
 
@@ -370,7 +370,9 @@ void PinsP8095BH::run() {
     _regs->restore();
     Cycles::reset();
     saveBreakInsts();
+    startRunTimer();
     const auto s = loop();
+    stopRunTimer();
     Cycles::discard(s);
     restoreBreakInsts();
     disassembleCycles();
@@ -445,7 +447,18 @@ const Signals *PinsP8095BH::findFetch(Signals *begin, const Signals *end) {
     return end;
 }
 
-void PinsP8095BH::disassembleCycles() {
+// fetch() isn't live here: findFetch()/matchAll() mark it only as a
+// side effect of matching decoded instructions against real memory, so
+// that has to run -- once, right here -- before backtraceStartFrom()
+// counting fetch() cycles means anything. printBacktrace() re-runs it
+// over the now-disposed range, which re-derives the same marks.
+const SignalsImpl *PinsP8095BH::findBacktraceStart() {
+    const auto end = Signals::put();
+    const auto begin = findFetch(Signals::get(), end);
+    return backtraceStartFrom<Signals>(begin, _lineLimit);
+}
+
+void PinsP8095BH::printBacktrace() {
     const auto end = Signals::put();
     const auto begin = findFetch(Signals::get(), end);
     cli.println();

@@ -78,7 +78,7 @@ constexpr const char *const SEQUENCES[/*seq*/] = {
         "1~RrA",                // 31
         "1~Ww",                 // 32
         "1~Rr",                 // 33
-        "1~VvWv",               // 34
+        "1~VvWw",               // 34
         "1",                    // 35
         "1~C",                  // 36
         "123456",               // 37
@@ -339,7 +339,7 @@ constexpr InstI8096::Table PAGE00_TABLE[] = {
         {0, 0},   // F4
         {0, 0},   // F5
         {0, 0},   // F6
-        {1, 34},  // F7: TRAP  -        1:~:V:v:W:v
+        {1, 34},  // F7: TRAP  -        1:~:V:v:W:w
         {1, 35},  // F8: CLRC  -        1
         {1, 35},  // F9: SETC  -        1
         {1, 35},  // FA: DI    -        1
@@ -534,7 +534,7 @@ bool InstI8096::matchInterrupt(
     } else {
     not_matched:
         for (uint_fast8_t j = 0; j < i; j++)
-            begin->next(i)->clearMark();
+            begin->next(j)->clearMark();
         LOG_MATCH(cli.println("@@   NOT MATCHED INTERRUPT"));
         return false;
     }
@@ -593,7 +593,7 @@ bool InstI8096::matchSequence(
     not_matched:
         _insufficient = i >= size;
         for (uint_fast8_t j = 0; j < i; j++)
-            begin->next(i)->clearMark();
+            begin->next(j)->clearMark();
         LOG_MATCH(cli.print("@@   NOT MATCHED "));
         LOG_MATCH(cli.println(*seq));
         return false;

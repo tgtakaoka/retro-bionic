@@ -1,0 +1,84 @@
+# How each sample must be driven. See scripts/bionic-regress.py's
+# drive_table() for the key shapes this file can use.
+
+# Documented RESET guarantees (MCS-96 8X9XBH data sheet, RESET pin
+# description, p.2-64): PSW is cleared and execution starts at 2080H.
+# Only PSW's flag byte is checked; its low byte shows INT_MASK.
+[reset]
+program_counter = "PC"
+PC = "2080"
+PSW = "________"
+
+[arith]
+expect = """
+18000 + 28000 = -19536
+18000 + -18000 = 0
+-18000 + -18000 = 29536
+-18000 - -28000 = 10000
+100 * 300 = 30000
+300 * -200 = 5536
+100 * -300 = -30000
+-200 * -100 = 20000
+30000 / 100 = 300
+-200 / 100 = -2
+-30000 / -200 = 150
+-30000 / 78 = -384
+-48 < 30
+30 > -48
+5000 > 4000
+5000 = 5000
+4000 < 5000
+-5000 < -4000
+-5000 = -5000
+-4000 > -5000
+32700 > 32600
+32700 = 32700
+32600 < 32700
+-32700 < -32600
+-32700 = -32700
+-32600 > -32700
+18000 > -28000
+18000 = 18000
+-28000 < 18000"""
+
+[echo]
+feed = "ok\r"
+expect = "ok"
+
+[echoir]
+feed = "irq\r"
+expect = "irq"
+
+# Prints "<char> 0xXX 0bXXXXXXXX" per received byte, one line each
+# including the trailing \r.
+[echoitr]
+feed = "itr\r"
+expect = """
+i 0x69 0b01101001
+t 0x74 0b01110100
+r 0x72 0b01110010
+ 0x0D 0b00001101"""
+
+# Runs every instruction form once for the bus-cycle matcher, prints
+# nothing, and ends in TRAP.
+[cycles]
+silent = true
+cap = 30
+
+[mandelbrot]
+golden = "samples/arith/mandelbrot.golden"
+frames = 1
+
+# A random halt point, not always the same one, catches a corrupted
+# resume that only shows up mid-instruction.
+[haltgo]
+program = "mandelbrot"
+halt_interval = [0.05, 0.3]
+
+[breakpoint]
+program = "mandelbrot"
+break_at = "loop_x"
+
+[gountil]
+program = "mandelbrot"
+break_at = "loop_x"

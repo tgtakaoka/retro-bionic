@@ -26,7 +26,7 @@ CH:     dsb     1
         nop
 init:
         ld      SP, #stack
-        ldb     INT_MASK, INT_EXTINT ; enable EXTINT
+        ldb     INT_MASK, #INT_EXTINT ; enable EXTINT
         ei                           ; for halt switch
         clr     AX
         not     AX
