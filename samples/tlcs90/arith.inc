@@ -63,19 +63,19 @@ umul16:
 ;;; Signed multiplication; result = multiplicand * multiplier
 ;;; @param BC multiplicand
 ;;; @param DE multiplier
-;;; @treturn HL result
+;;; @return HL result
 ;;; @clobber A
 mul16:
         ld      A, B
         xor     A, D
         push    AF              ; push high(multiplicand^multiplier)
         bit     7, B
-        jr      Z, mul16_abs_muliplicand
+        jr      Z, mul16_abs_multiplicand
         ld      HL, BC
         xor     HL, 0FFFFH
         inc     HL
         ld      BC, HL          ; multiplicand = -multiplicand
-mul16_abs_muliplicand:
+mul16_abs_multiplicand:
         bit     7, D
         jr      Z, mul16_multiply
         ld      HL, DE
@@ -92,8 +92,8 @@ mul16_multiply:
         ret
 
 ;;; Unsigned division; dividend / divisor = quotient ... remainder
-;;; @praram BC dividend
-;;; @praram DE divisor
+;;; @param BC dividend
+;;; @param DE divisor
 ;;; @return BC remainder
 ;;; @return HL quotient
 ;;; @clobber A DE
@@ -114,7 +114,7 @@ udiv16:
 udiv16_8:
         ld      A, E
         push    BC              ; save dividend
-        ld      L, B            ; high(divided)
+        ld      L, B            ; high(dividend)
         ld      H, 0
         div     HL, A
         ld      B, L            ; high(quotient)=high(dividend)/divisor
@@ -131,7 +131,7 @@ udiv16_8:
         add     HL, BC          ; adjust quotient
         pop     BC              ; restore remainder
         ld      C, B
-        ld      C, 0
+        ld      B, 0            ; BC=remainder
         ret
 udiv16_16:
         ld      A, 1            ; A=bits
@@ -157,11 +157,12 @@ udiv16_enter_loop:
         inc     C                 ; quotient |= 1
         dec     A
         jr      NZ, udiv16_loop ; while bits != 0
-        ret
+        jr      udiv16_return
 udiv16_readd:
         add     HL, DE          ; dividend += divisor
         dec     A               ; --bits
         jr      NZ, udiv16_loop ; while bits != 0
+udiv16_return:
         ld      DE, HL
         ld      HL, BC
         ld      BC, DE

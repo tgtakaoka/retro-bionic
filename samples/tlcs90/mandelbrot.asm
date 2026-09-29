@@ -5,7 +5,7 @@
 ;;; i8251 Universal Synchronous/Asynchronous Receiver/Transmitter
 USART:          equ     0FFF0H
 USARTD:         equ     USART+0 ; Receive/Transmit data
-USARTS:         equ     USART+1 ; Srtatus register
+USARTS:         equ     USART+1 ; Status register
 USARTC:         equ     USART+1 ; Control register
 USARTRV:        equ     USART+2 ; Receive interrupt vector (ORG_*)
 USARTTV:        equ     USART+3 ; Transmit interrupt vector (ORG_*)
@@ -21,7 +21,6 @@ rx_queue_size:  equ     128
 rx_queue:       ds      rx_queue_size
 tx_queue_size:  equ     128
 tx_queue:       ds      tx_queue_size
-tx_intr_enable: db      1
 
         org     1000H
 stack:  equ     $
@@ -89,7 +88,6 @@ putchar_retry:
         ei
         jr      nc, putchar_retry ; branch if queue is full
         ld      (USARTC), RX_EN_TX_EN ; enable Tx
-        ei
         pop     ix
         pop     af
         ret

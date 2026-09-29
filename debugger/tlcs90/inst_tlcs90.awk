@@ -21,7 +21,7 @@
 # V: next instruction fetch from vector (0000_0000_0xxx_x000B)
 # d: dummy cycle, no read nor write
 # R: read 1 byte
-# W: write 1 byte, the same address if R or E is preceeded
+# W: write 1 byte, the same address if R or E is preceded
 # r: read 1 byte at address R+1 or r+1
 # w: write 1 byte at address W+1
 # E: read 1 byte from direct page (0FFxxH)
