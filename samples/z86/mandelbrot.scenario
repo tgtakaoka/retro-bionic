@@ -1,0 +1,45 @@
+# Scenario for scripts/record-scenario.py: the Z8's register file.
+# mandelbrot.inc keeps all its variables in on-chip registers 40-5F, so
+# moving one to another is a single instruction that never reaches the
+# bus. SRP #10 at reset puts the working registers R0-R15 at 10-1F.
+#
+# ADDRESS IS PINNED TO THE CURRENT samples/z86/mandelbrot.hex:
+# loop_x at 00C6, its "ld vC, vX" moving register 5C to 48. If
+# mandelbrot.asm/.inc or the .hex ever change, re-check it against the
+# fresh .lst before recording -- a stale address will look like it works
+# (it disassembles *something*) while showing the wrong thing.
+
+key ?
+pace 2.0
+
+key R
+upload samples/z86/mandelbrot.hex
+
+# Reset again so the CPU starts the uploaded program.
+key R
+pace 1.5
+
+# Stop at the first pixel. The backtrace shows only instruction fetches:
+# the stores to vX at 5C make no bus cycles.
+type g
+wait Go until?
+command C6 10
+pace 2.0
+
+# Data addresses below 100 are the register file: the constants 229,
+# 416, 100 and 50 at 40-47, Y=-12 at 5A and X=-49 at 5C.
+type d
+wait Data dump?
+command 40 20
+pace 2.5
+
+# C=X, a byte at a time, then R4 (register 14) points at vC for mulsi2.
+step 3
+pace 1.5
+type d
+wait Data dump?
+command 48 2
+pace 2.0
+
+# Watch one frame render.
+run 1 300

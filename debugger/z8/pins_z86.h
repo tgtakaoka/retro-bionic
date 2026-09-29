@@ -39,7 +39,7 @@ struct PinsZ86 final : z8::PinsZ8 {
 
 }  // namespace z86
 }  // namespace debugger
-#endif /* __PINS_H__ */
+#endif /* __PINS_Z86_H__ */
 
 // Local Variables:
 // mode: c++

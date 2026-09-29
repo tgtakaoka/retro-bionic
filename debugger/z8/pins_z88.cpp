@@ -4,6 +4,7 @@
 #include "inst_z88.h"
 #include "mems_z88.h"
 #include "regs_z88.h"
+#include "z88_uart_handler.h"
 
 namespace debugger {
 namespace z88 {

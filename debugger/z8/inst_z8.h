@@ -3,6 +3,9 @@
 
 #include <stdint.h>
 
+// The stack is in external memory, so its pushes and pops are bus cycles.
+#define EXTERNAL_STACK 1
+
 namespace debugger {
 namespace z8 {
 
