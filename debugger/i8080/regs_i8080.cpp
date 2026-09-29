@@ -50,7 +50,7 @@ void RegsI8080::save() {
     _sp = _pins->captureWrites(
             PUSH_ALL, sizeof(PUSH_ALL), buffer, sizeof(buffer));
     _sp++;
-    _pc = be16(buffer) - 1;  // offser RST instruction
+    _pc = be16(buffer) - 1;  // offset RST instruction
     _a = buffer[2];
     _psw = buffer[3];
     _b = buffer[4];

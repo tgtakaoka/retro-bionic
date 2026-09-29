@@ -55,9 +55,9 @@ constexpr auto phi1_hi_ns = 70;         // 95
 constexpr auto phi1_lo_ns = 4;          // 40
 constexpr auto phi2_hi_ns = 240;        // 270
 constexpr auto phi2_lo_ns = 60;         // 95
-constexpr auto phi2_hi_sync = 60;       // 70 (tDD-tDC)
-constexpr auto phi2_hi_prep = 130;      // 200 (270-t2_hi_sync)
-constexpr auto phi2_hi_addr = 10;       // 200 (270-t2_hi_sync)
+constexpr auto phi2_hi_sync = 160;      // 150 (tDC)
+constexpr auto phi2_hi_prep = 80;       // 240 (tPHI2-phi2_hi_sync)
+constexpr auto phi2_hi_addr = 60;       // 220 (tDD-phi2_hi_sync)
 constexpr auto phi2_hi_memread = 115;   // 270
 constexpr auto phi2_hi_inject = 180;    // 270
 constexpr auto phi2_hi_ioread = 20;     // 270
@@ -389,13 +389,15 @@ void PinsI8080::run() {
     _regs->restore();
     Cycles::reset();
     saveBreakInsts();
+    startRunTimer();
     const auto halt = loop();
+    stopRunTimer();
     restoreBreakInsts();
     disassembleCycles();
     if (halt) {
         const auto pc = halt->addr;
         const auto inte = digitalReadFast(PIN_INTE);
-        assert_reset();  // reseume from HALT
+        assert_reset();  // resume from HALT
         negate_reset();
         prepareCycle();
         enterWait();
@@ -436,11 +438,11 @@ bool PinsI8080::step(bool show) {
     return false;
 }
 
-void PinsI8080::assertInt(uint8_t name) {
+void PinsI8080::assertInt(uint8_t) {
     digitalWriteFast(PIN_INT, HIGH);
 }
 
-void PinsI8080::negateInt(uint8_t name) {
+void PinsI8080::negateInt(uint8_t) {
     digitalWriteFast(PIN_INT, LOW);
 }
 
@@ -453,7 +455,11 @@ void PinsI8080::printCycles() {
     }
 }
 
-void PinsI8080::disassembleCycles() {
+const SignalsImpl *PinsI8080::findBacktraceStart() {
+    return backtraceStartByFetchCount<Signals>(_lineLimit);
+}
+
+void PinsI8080::printBacktrace() {
     const auto g = Signals::get();
     const auto cycles = g->diff(Signals::put());
     for (auto i = 0u; i < cycles;) {

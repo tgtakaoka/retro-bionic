@@ -54,7 +54,6 @@ cmp16:
         push    B
         push    D
         push    H
-        ldax    D
         mov     A, C
         sub     E
         mov     L, A
@@ -168,8 +167,8 @@ mul16_return:
         ret
 
 ;;; Unsigned division; dividend / divisor = quotient ... remainder
-;;; @praram BC dividend
-;;; @praram DE divisor
+;;; @param BC dividend
+;;; @param DE divisor
 ;;; @return BC remainder
 ;;; @return HL quotient
 ;;; @clobber A DE

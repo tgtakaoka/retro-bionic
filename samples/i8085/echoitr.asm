@@ -63,7 +63,7 @@ init_usart:
         out     USARTTV         ; set TxRDY interrupt vector RST 6
 
         rim
-        ani     ~(SIM_M55|SIM_M65) ; enable RST 5.5/RST 5.6
+        ani     ~(SIM_M55|SIM_M65) ; enable RST 5.5/RST 6.5
         ori     SIM_MSE|SIM_R75
         sim
         ei

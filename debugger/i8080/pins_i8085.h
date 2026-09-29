@@ -101,12 +101,13 @@ private:
     Signals *loop() const;
     bool rawStep() const;
 
-    void disassembleCycles();
+    const SignalsImpl *findBacktraceStart() override;
+    void printBacktrace() override;
 };
 
 }  // namespace i8085
 }  // namespace debugger
-#endif /* __PINS_H__ */
+#endif /* __PINS_I8085_H__ */
 
 // Local Variables:
 // mode: c++

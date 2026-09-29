@@ -1055,3 +1055,31 @@ unconditionally. **[hw]**
 
 R0-R7 are internal RAM 00h-1Fh, four banks picked by PSW's RS1:RS0; dumping
 00-1F shows all of them. **[doc]**
+
+### 8080
+
+**Pitfalls.** Sampling SYNC or status before the datasheet's delays after
+PHI2 rises reads a released bus and writes stale data over code.
+
+`prepareCycle()` must not sample SYNC before tDC (150 ns max) or status before
+tDD (220 ns max) after PHI2 rises. Checking SYNC at 60 ns occasionally missed
+T1; the status was then read in T2 from a bus the CPU had released, some reads
+looked like writes, and stale bus data was written over code. Frame 1 of
+mandelbrot came out with a few wrong characters and frame 2 fell apart. **[hw]**
+
+Compare memory with the loaded image after a run to tell bus errors from
+program bugs: the corrupted bytes were all operands the CPU had been reading.
+**[hw]**
+
+The NMOS 8080 is dynamic (tCY max 2 us), but clock stretching was not the
+cause here: a pulse-width trigger on PHI1 never fired during a failing run.
+**[hw]**
+
+### 8085
+
+**Pitfalls.** RST 5.5/6.5/7.5 make no INTA cycle.
+
+RST 5.5/6.5/7.5 are vectored inside the CPU: after a discarded opcode fetch it
+pushes the return address and jumps to the fixed vector, with no INTA cycle.
+The same memory comparison that found the 8080's corruption shows none here.
+**[hw]**
