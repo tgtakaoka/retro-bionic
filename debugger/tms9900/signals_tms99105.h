@@ -10,14 +10,14 @@ namespace tms99105 {
 // LSB - #MEM
 //     - BST1
 //     - BST2
-// MSB - MST3
+// MSB - BST3
 enum BST : uint8_t {
     SOPL = 0x0,   // Source operand with MPILCK
     SOP = 0x8,    // Source operand
     IOP = 0x4,    // Immediate data, second word, or symbolic address
-    IAQ = 0xC,    // Instrucion acuisition
-    DOP = 0x2,    // Destinaton operand
-    INTA = 0xA,   // Interrupt accknowledge
+    IAQ = 0xC,    // Instruction acquisition
+    DOP = 0x2,    // Destination operand
+    INTA = 0xA,   // Interrupt acknowledge
     WS = 0x6,     // Workspace
     GM = 0xE,     // General memory
     AUMSL = 0x1,  // Internal arithmetic unit op or macro store with MPILCK
@@ -47,7 +47,7 @@ private:
 };
 }  // namespace tms99105
 }  // namespace debugger
-#endif /* __SIGNALS_H__ */
+#endif /* __SIGNALS_TMS99105_H__ */
 
 // Local Variables:
 // mode: c++

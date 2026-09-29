@@ -14,7 +14,7 @@ namespace tms9900 {
 
 // clang-format off
 /**
- * TMS9990 bus cycle
+ * TMS9900 bus cycle
  *         __          __          __          __          __          __
  *  PHI1 _|  |________|  |________|  |________|  |________|  |________|  |____
  *            __      v   __          __          __      |   __      |   __
@@ -38,11 +38,13 @@ namespace tms9900 {
  */
 // clang-format on
 
-// fext: min 12MHz, max 24 MHz
-//  tc1: min  41.25 ns ; 1/fext
-//  tc2: min 165 ns ; 4tc1 cycle of CLKOUT
-//  tWH: min  82 ns ; CLKOUT high pulse width
-//  tWL: min  82 ns ; CLKOUT low pulse width
+// TMS9900 Data Manual 4.4: four non-overlapping clocks PHI1-PHI4.
+// tc(PHI): min 333 ns ; clock cycle time
+// tw(PHI): min  45 ns ; any clock high
+//   td(L): min   5 ns ; one clock low to the next high
+//   td(H): min  80 ns ; one clock high to the next high
+//    tsu: min  40 ns ; data or control setup before PHI1
+//     th: min  10 ns ; data hold after PHI1
 
 namespace {
 
@@ -64,7 +66,7 @@ constexpr auto phi3_capture = 23;
 const uint8_t PINS_LOW[] = {
         PIN_RESET,
         PIN_READY,
-        PIN_CRUCLK,
+        PIN_CRUIN,
         PIN_SEL0,
         PIN_SEL1,
         PIN_SEL2,
@@ -77,6 +79,7 @@ const uint8_t PINS_HIGH[] = {
 };
 
 const uint8_t PINS_INPUT[] = {
+        PIN_CRUCLK,
         PIN_MEMEN,
         PIN_DBIN,
         PIN_WE,
@@ -321,7 +324,7 @@ Signals *PinsTms9900::completeCycle(Signals *_s) {
     return s;
 }
 
-Signals *PinsTms9900::resumeCycle(uint16_t pc) {
+Signals *PinsTms9900::resumeCycle(uint16_t) {
     auto s = SignalsTms9900::put();
     s->getAddress();
     s->getControl();

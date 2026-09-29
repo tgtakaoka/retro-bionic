@@ -54,8 +54,11 @@ protected:
     virtual Signals *prepareCycle() = 0;
     virtual Signals *completeCycle(Signals *s) = 0;
     void suspend(uint16_t pc);
+    // Bytes a bus cycle carries: 1 on the 8-bit bus of TMS9980 and TMS9995.
+    virtual uint_fast8_t busBytes() const { return 2; }
 
-    void disassembleCycles();
+    const SignalsImpl *findBacktraceStart() override;
+    void printBacktrace() override;
 };
 
 }  // namespace tms9900

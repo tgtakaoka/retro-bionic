@@ -24,7 +24,7 @@ protected:
 };
 }  // namespace tms9900
 }  // namespace debugger
-#endif /* __SIGNALS_H__ */
+#endif /* __SIGNALS_TMS9900_BASE_H__ */
 
 // Local Variables:
 // mode: c++

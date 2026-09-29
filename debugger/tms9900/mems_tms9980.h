@@ -6,6 +6,8 @@
 namespace debugger {
 namespace tms9980 {
 
+// The bus is byte wide (read/write), but the debugger keeps 16-bit
+// words, as on the TMS9900.
 struct MemsTms9980 : tms9900::MemsTms9900 {
     MemsTms9980(Devs *devs);
 
@@ -14,9 +16,12 @@ struct MemsTms9980 : tms9900::MemsTms9900 {
     uint16_t read(uint32_t addr) const override;
     void write(uint32_t addr, uint16_t data) const override;
 
-    uint16_t get_prog(uint32_t addr) const override { return read16(addr); }
+    // The word holding |addr|, as on the TMS9900.
+    uint16_t get_prog(uint32_t addr) const override {
+        return read16(addr & ~1);
+    }
     void put_prog(uint32_t addr, uint16_t data) const override {
-        write16(addr, data);
+        write16(addr & ~1, data);
     }
 };
 
