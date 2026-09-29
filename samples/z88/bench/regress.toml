@@ -1,0 +1,111 @@
+# How each sample must be driven. See scripts/bionic-regress.py's
+# drive_table() for the key shapes this file can use.
+
+# The chips, as their banners name them, this file is for.
+chips = ["Z88C00"]
+
+# On reset "The Program Counter is loaded with 0020 H" (Super8
+# Microcomputer Technical Manual, Reset and Clock); ORG_RESET in
+# z88.inc is %0020.
+[reset]
+PC = "0020"
+
+# Derived from arith.asm's test table, which has no "; answer"
+# comments: a step that loads only one operand keeps the other from the
+# step before (so the first division divides the product left by the
+# multiply before it), dividing by 0 leaves a quotient of 0 (udiv16
+# returns the zero divisor as the quotient), and each comparison line
+# ends with the C, Z, S and V flags cmpsi2 leaves for the 16-bit
+# subtraction (C is a borrow), none when all four are clear.
+[arith]
+expect = """
+18000 + 28000 = -19536
+18000 + -18000 = 0
+-28000 + -18000 = 19536
+18000 - -28000 = -19536
+18000 - 18000 = 0
+-28000 - 18000 = 19536
+300 * -200 = 5536
+100 * -300 = -30000
+-200 * 100 = -20000
+-20000 / 100 = -200
+30000 / 0 = 0
+-30000 / 78 = -384
+5000 > 4000
+5000 = 5000 Z
+4000 < 5000 CS
+-5000 < -4000 CS
+-5000 = -5000 Z
+-4000 > -5000
+32700 > 32600
+32700 = 32700 Z
+32600 < 32700 CS
+-32700 < -32600 CS
+-32700 = -32700 Z
+-32600 > -32700
+18000 > -28000 CSV
+18000 = 18000 Z
+-28000 < 18000 V"""
+
+[echo]
+feed = "ok\r"
+expect = "ok"
+
+[echoir]
+feed = "irq\r"
+expect = "irq"
+
+# Prints "<char> 0xXX 0bXXXXXXXX" per received byte, one line each
+# including the trailing \r.
+[echoitr]
+feed = "itr\r"
+expect = """
+i 0x69 0b01101001
+t 0x74 0b01110100
+r 0x72 0b01110010
+ 0x0D 0b00001101"""
+
+# The same echoes through the on-chip UART, with the console switched
+# to it for the run.
+# Skipped: the default build leaves ENABLE_SERIAL_HANDLER off
+# (config_debugger.h).
+[uart]
+io = "UART"
+feed = "ok\r"
+expect = "ok"
+skip = true
+
+[uartir]
+io = "UART"
+feed = "irq\r"
+expect = "irq"
+skip = true
+
+[uartitr]
+io = "UART"
+feed = "itr\r"
+expect = """
+i 0x69 0b01101001
+t 0x74 0b01110100
+r 0x72 0b01110010
+ 0x0D 0b00001101"""
+skip = true
+
+# One frame, checked whole: a frame takes under 25 seconds here.
+[mandelbrot]
+golden = "samples/arith/mandelbrot.golden"
+frames = 1
+
+# A random halt point, not always the same one, catches a corrupted
+# resume that only shows up mid-instruction.
+[haltgo]
+program = "mandelbrot"
+halt_interval = [0.05, 0.3]
+
+[breakpoint]
+program = "mandelbrot"
+break_at = "loop_x"
+
+[gountil]
+program = "mandelbrot"
+break_at = "loop_x"

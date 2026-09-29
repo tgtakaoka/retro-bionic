@@ -32,8 +32,8 @@ uint8_t Z86SioHandler::signal_txd() const {
 void Z86SioHandler::resetHandler() {
     pinMode(PIN_RXD, OUTPUT);
     pinMode(PIN_TXD, INPUT);
-    // Z8 SIO: assuming XTAL is 14.7546MHz
-    // bit rate = 1475600 / (2 x 4 x p x t x 16)
+    // Z8 SIO: assuming XTAL is 14.7456MHz
+    // bit rate = 14745600 / (2 x 4 x p x t x 16)
     _pre_divider = 2 * 4 * 1 * 16;   // p=1
     _tx_divider = _rx_divider = 12;  // t=12
 }

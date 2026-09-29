@@ -165,7 +165,7 @@ bool PinsZ8::rawStep() {
     auto s = prepareCycle();
     if (s->write()) {
         // interrupt acknowledge is ongoing
-        // finsh saving PC and FLAGS
+        // finish saving PC and FLAGS
         while (s->write()) {
             completeCycle(s);
             s = prepareCycle();
@@ -244,6 +244,72 @@ void PinsZ8::idle() {
     Cycles::discard(s);
 }
 
+#ifdef PROFILE_CYCLES
+// prepareCycle(), giving up when #DS stays high for |clocks| XTAL1 cycles.
+Signals *PinsZ8::awaitCycle(uint16_t clocks) {
+    auto s = Signals::put();
+    s->fetch() = false;
+    for (uint16_t n = 0; signal_ds() != LOW; ++n) {
+        if (n == clocks)
+            return nullptr;
+        if (signal_as() == LOW)
+            s->getAddr();
+        xtal1_cycle();
+    }
+    return s;
+}
+
+// Marks the opcode fetches as rawStep() counts them, each with the bus
+// cycles its table gives it, up to the trap.
+void PinsZ8::markFetches() const {
+    const auto begin = Signals::get();
+    const auto cycles = begin->diff(Signals::put());
+    for (auto i = 0u; i < cycles;) {
+        const auto s = begin->next(i);
+        const auto n = _inst.busCycles(s->data);
+        if (s->write() || n == 0)
+            break;
+        s->fetch() = n;
+        if (_inst.isBreak(s->data))
+            break;
+        i += n;
+    }
+}
+
+// For scripts/record-cycles.py: every bus cycle as the chip makes it, up to
+// the trap stopping the CPU, giving up well before the ring wraps; the
+// debug pin frames the run, to trigger a capture on.
+// HALT and WFI read the byte after their opcode, then stop the bus.
+void PinsZ8::loop() {
+    constexpr auto MAX_CYCLES = 96;
+    // No instruction keeps #DS high nearly this long.
+    constexpr uint16_t QUIET_CLOCKS = 256;
+    // Nothing but a trap fetching in place reads one address this many
+    // times in a row.
+    constexpr auto SPIN_READS = 4;
+    assert_debug();
+    auto reads = 0;
+    for (auto n = 0;; ++n) {
+        _devs->loop();
+        const auto s = awaitCycle(QUIET_CLOCKS);
+        if (s == nullptr)
+            break;
+        completeCycle(s);
+        const auto p = s->prev();
+        const auto again =
+                n > 0 && s->read() && p->read() && s->addr == p->addr;
+        reads = again ? reads + 1 : 1;
+        if (reads >= SPIN_READS)
+            break;
+        if (n >= MAX_CYCLES || haltSwitch()) {
+            cli.println(n >= MAX_CYCLES ? "?cycles" : "?halt");
+            break;
+        }
+    }
+    negate_debug();
+    markFetches();
+}
+#else
 void PinsZ8::loop() {
     while (true) {
         _devs->loop();
@@ -251,15 +317,23 @@ void PinsZ8::loop() {
             return;
     }
 }
+#endif
 
 void PinsZ8::run() {
     _regs->restore();
     Cycles::reset();
     saveBreakInsts();
+    startRunTimer();
     loop();
+    stopRunTimer();
     restoreBreakInsts();
     disassembleCycles();
+#ifdef PROFILE_CYCLES
+    // The trap leaves the CPU halted, and only a reset brings it back.
+    resetPins();
+#else
     _regs->save();
+#endif
 }
 
 void PinsZ8::intrAck(Signals *frame) const {
@@ -325,7 +399,15 @@ void PinsZ8::printCycles() {
     }
 }
 
-void PinsZ8::disassembleCycles() {
+const SignalsImpl *PinsZ8::findBacktraceStart() {
+    return backtraceStartByFetchCount<Signals>(_lineLimit);
+}
+
+void PinsZ8::printBacktrace() {
+#ifdef PROFILE_CYCLES
+    // Every cycle, with the marks the matcher gave them.
+    printCycles();
+#else
     const auto g = Signals::get();
     const auto cycles = g->diff(Signals::put());
     for (auto i = 0u; i < cycles;) {
@@ -338,6 +420,7 @@ void PinsZ8::disassembleCycles() {
             ++i;
         }
     }
+#endif
 }
 
 }  // namespace z8

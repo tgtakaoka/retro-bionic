@@ -42,7 +42,7 @@ constexpr uint8_t INST_TABLE[] = {
         E(2, 0, 0),  // 02: ADD  r,r
         E(2, 0, 0),  // 03: ADD  r,@r
         E(3, 0, 0),  // 04: ADD  R,R
-        E(3, 0, 0),  // 05: ADD  R.@R
+        E(3, 0, 0),  // 05: ADD  R,@R
         E(3, 0, 0),  // 06: ADD  R,#IM
         E(3, 0, 0),  // 07: ADD  @R,#IM
         E(2, 0, 0),  // 08: LD   r0,R
@@ -58,7 +58,7 @@ constexpr uint8_t INST_TABLE[] = {
         E(2, 0, 0),  // 12: ADC  r,r
         E(2, 0, 0),  // 13: ADC  r,@r
         E(3, 0, 0),  // 14: ADC  R,R
-        E(3, 0, 0),  // 15: ADC  R.@R
+        E(3, 0, 0),  // 15: ADC  R,@R
         E(3, 0, 0),  // 16: ADC  R,#IM
         E(3, 0, 0),  // 17: ADC  @R,#IM
         E(2, 0, 0),  // 18: LD   r1,R
@@ -74,7 +74,7 @@ constexpr uint8_t INST_TABLE[] = {
         E(2, 0, 0),  // 22: SUB  r,r
         E(2, 0, 0),  // 23: SUB  r,@r
         E(3, 0, 0),  // 24: SUB  R,R
-        E(3, 0, 0),  // 25: SUB  R.@R
+        E(3, 0, 0),  // 25: SUB  R,@R
         E(3, 0, 0),  // 26: SUB  R,#IM
         E(3, 0, 0),  // 27: SUB  @R,#IM
         E(2, 0, 0),  // 28: LD   r2,R
@@ -90,7 +90,7 @@ constexpr uint8_t INST_TABLE[] = {
         E(2, 0, 0),  // 32: SBC  r,r
         E(2, 0, 0),  // 33: SBC  r,@r
         E(3, 0, 0),  // 34: SBC  R,R
-        E(3, 0, 0),  // 35: SBC  R.@R
+        E(3, 0, 0),  // 35: SBC  R,@R
         E(3, 0, 0),  // 36: SBC  R,#IM
         E(3, 0, 0),  // 37: SBC  @R,#IM
         E(2, 0, 0),  // 38: LD   r3,R
@@ -106,7 +106,7 @@ constexpr uint8_t INST_TABLE[] = {
         E(2, 0, 0),  // 42: OR   r,r
         E(2, 0, 0),  // 43: OR   r,@r
         E(3, 0, 0),  // 44: OR   R,R
-        E(3, 0, 0),  // 45: OR   R.@R
+        E(3, 0, 0),  // 45: OR   R,@R
         E(3, 0, 0),  // 46: OR   R,#IM
         E(3, 0, 0),  // 47: OR   @R,#IM
         E(2, 0, 0),  // 48: LD   r4,R
@@ -122,7 +122,7 @@ constexpr uint8_t INST_TABLE[] = {
         E(2, 0, 0),  // 52: AND  r,r
         E(2, 0, 0),  // 53: AND  r,@r
         E(3, 0, 0),  // 54: AND  R,R
-        E(3, 0, 0),  // 55: AND  R.@R
+        E(3, 0, 0),  // 55: AND  R,@R
         E(3, 0, 0),  // 56: AND  R,#IM
         E(3, 0, 0),  // 57: AND  @R,#IM
         E(2, 0, 0),  // 58: LD   r5,R
@@ -138,7 +138,7 @@ constexpr uint8_t INST_TABLE[] = {
         E(2, 0, 0),  // 62: TCM  r,r
         E(2, 0, 0),  // 63: TCM  r,@r
         E(3, 0, 0),  // 64: TCM  R,R
-        E(3, 0, 0),  // 65: TCM  R.@R
+        E(3, 0, 0),  // 65: TCM  R,@R
         E(3, 0, 0),  // 66: TCM  R,#IM
         E(3, 0, 0),  // 67: TCM  @R,#IM
         E(2, 0, 0),  // 68: LD   r6,R
@@ -154,7 +154,7 @@ constexpr uint8_t INST_TABLE[] = {
         E(2, 0, 0),  // 72: TM   r,r
         E(2, 0, 0),  // 73: TM   r,@r
         E(3, 0, 0),  // 74: TM   R,R
-        E(3, 0, 0),  // 75: TM   R.@R
+        E(3, 0, 0),  // 75: TM   R,@R
         E(3, 0, 0),  // 76: TM   R,#IM
         E(3, 0, 0),  // 77: TM   @R,#IM
         E(2, 0, 0),  // 78: LD   r7,R
@@ -202,7 +202,7 @@ constexpr uint8_t INST_TABLE[] = {
         E(2, 0, 0),  // A2: CP   r,r
         E(2, 0, 0),  // A3: CP   r,@r
         E(3, 0, 0),  // A4: CP   R,R
-        E(3, 0, 0),  // A5: CP   R.@R
+        E(3, 0, 0),  // A5: CP   R,@R
         E(3, 0, 0),  // A6: CP   R,#IM
         E(3, 0, 0),  // A7: CP   @R,#IM
         E(2, 0, 0),  // A8: LD   r10,R
@@ -218,7 +218,7 @@ constexpr uint8_t INST_TABLE[] = {
         E(2, 0, 0),  // B2: XOR  r,r
         E(2, 0, 0),  // B3: XOR  r,@r
         E(3, 0, 0),  // B4: XOR  R,R
-        E(3, 0, 0),  // B5: XOR  R.@R
+        E(3, 0, 0),  // B5: XOR  R,@R
         E(3, 0, 0),  // B6: XOR  R,#IM
         E(3, 0, 0),  // B7: XOR  @R,#IM
         E(2, 0, 0),  // B8: LD   r11,R
@@ -228,7 +228,7 @@ constexpr uint8_t INST_TABLE[] = {
         E(2, 0, 0),  // BC: LD   r11,#IM
         E(3, 0, 0),  // BD: JP   UGT,DA
         E(1, 0, 0),  // BE: INC  r11
-        E(1, 1, 3),  // BF: @RET -
+        E(1, 1, 3),  // BF: IRET -
         E(2, 0, 0),  // C0: RRC  R
         E(2, 0, 0),  // C1: RRC  @R
         E(2, 1, 0),  // C2: LDC  r,@rr
@@ -286,7 +286,7 @@ constexpr uint8_t INST_TABLE[] = {
         E(0, 0, 0),  // F6: -    -
         E(0, 0, 0),  // F7: -    -
         E(2, 0, 0),  // F8: LD   r15,R
-        E(2, 0, 0),  // F9: LD   R,rr5
+        E(2, 0, 0),  // F9: LD   R,r15
         E(2, 0, 0),  // FA: DJNZ r15,RA
         E(2, 0, 0),  // FB: JR   NC,RA
         E(2, 0, 0),  // FC: LD   r15,#IM
@@ -308,7 +308,7 @@ bool InstZ86::writeOnly(uint8_t rp, uint8_t num) {
     // 00, 01, 02, 03
     if (rp == 0x00 && num < 4)
         return true;
-    // F0, F3, F4, F5, F6, F7, F8, F9
+    // F0, F3, F5, F6, F7, F8, F9
     if (rp == 0xF0) {
         return (1 << num) & 0x03E9;
     }
