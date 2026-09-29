@@ -29,9 +29,9 @@ void PinsPdp8::injectReads(const uint16_t *data, uint_fast8_t len) const {
     inject:
         if (s->read()) {
             i++;
-            DEBUG(cli.print("@@  injecteReads: inject "));
+            DEBUG(cli.print("@@  injectReads: inject "));
         } else {
-            DEBUG(cli.print("@@  injecteReads:        "));
+            DEBUG(cli.print("@@  injectReads:        "));
         }
         DEBUG(s->print());
         if (n != s) {
@@ -121,7 +121,9 @@ void PinsPdp8::run() {
     _regs->restore();
     Cycles::reset();
     saveBreakInsts();
+    startRunTimer();
     loop();
+    stopRunTimer();
     restoreBreakInsts();
     disassembleCycles();
 }
@@ -157,11 +159,11 @@ bool PinsPdp8::step(bool show) {
     return false;
 }
 
-void PinsPdp8::assertInt(uint8_t name) {
+void PinsPdp8::assertInt(uint8_t) {
     assert_intreq();
 }
 
-void PinsPdp8::negateInt(uint8_t name) {
+void PinsPdp8::negateInt(uint8_t) {
     negate_intreq();
 }
 
@@ -177,7 +179,11 @@ void PinsPdp8::printCycles() {
     }
 }
 
-void PinsPdp8::disassembleCycles() const {
+const SignalsImpl *PinsPdp8::findBacktraceStart() {
+    return backtraceStartByFetchCount<Signals>(_lineLimit);
+}
+
+void PinsPdp8::printBacktrace() {
     const auto g = Signals::get();
     const auto cycles = g->diff(Signals::put());
     for (auto i = 0u; i < cycles;) {

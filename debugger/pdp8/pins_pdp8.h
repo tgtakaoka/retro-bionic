@@ -47,7 +47,8 @@ protected:
     void loop();
     void suspend();
     bool rawStep();
-    void disassembleCycles() const;
+    const SignalsImpl *findBacktraceStart() override;
+    void printBacktrace() override;
 };
 
 }  // namespace pdp8
