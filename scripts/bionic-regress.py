@@ -42,6 +42,7 @@ is meant.
        # use is always named explicitly.
 """
 import os
+import random
 import re
 import sys
 import time
@@ -52,13 +53,103 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 bc = SourceFileLoader('bc', os.path.join(HERE, 'bionic-control.py')).load_module()
 PROJ = bc.PROJ
 
+# The dump's label for the program counter, from [reset]'s
+# program_counter -- set once in main(); None keeps bc's PC default.
+PROGRAM_COUNTER = None
+
+
+def pc_from(buf):
+    return bc.pc_from(buf, PROGRAM_COUNTER)
+
+
+# The samples the regress file covers: samples/<dir>/ for a file at
+# samples/<dir>/bench/*.toml -- set once in main(). The board's own name
+# need not match <dir> (a P8051 runs samples/i8051), so it is only the
+# fallback for a file kept elsewhere.
+SAMPLES_DIR = None
+
+
+def samples_dir_of(regress):
+    bench = os.path.dirname(os.path.abspath(regress))
+    if os.path.basename(bench) != 'bench':
+        return None
+    d = os.path.dirname(bench)
+    return d if os.path.basename(os.path.dirname(d)) == 'samples' else None
+
 
 def samples(target):
-    d = os.path.join(PROJ, 'samples', target.lower())
+    d = SAMPLES_DIR or os.path.join(PROJ, 'samples', target.lower())
     if not os.path.isdir(d):
         return []
     return sorted(os.path.join(d, f) for f in os.listdir(d)
-                  if f.endswith('.hex'))
+                  if f.endswith(('.hex', '.s19', '.s28', '.s37')))
+
+
+def _merge(spans):
+    spans.sort()
+    merged = []
+    for lo, hi in spans:
+        if merged and lo <= merged[-1][1]:
+            merged[-1] = (merged[-1][0], max(merged[-1][1], hi))
+        else:
+            merged.append((lo, hi))
+    return merged
+
+
+def _intel_hex_ranges(path):
+    spans = []
+    base = 0
+    for line in open(path):
+        line = line.strip()
+        if not line.startswith(':'):
+            continue
+        length = int(line[1:3], 16)
+        addr = int(line[3:7], 16)
+        rectype = int(line[7:9], 16)
+        if rectype == 0 and length:
+            spans.append((base + addr, base + addr + length))
+        elif rectype == 2:               # Extended Segment Address
+            base = int(line[9:13], 16) * 16
+        elif rectype == 4:                # Extended Linear Address
+            base = int(line[9:13], 16) << 16
+    return spans
+
+
+_SREC_ADDR_DIGITS = {'1': 4, '2': 6, '3': 8}  # S1/S2/S3: 16/24/32-bit address
+
+
+def _srec_ranges(path):
+    spans = []
+    for line in open(path):
+        line = line.strip()
+        digits = _SREC_ADDR_DIGITS.get(line[1:2])
+        if not line.startswith('S') or digits is None:
+            continue
+        count = int(line[2:4], 16)        # address + data + checksum bytes
+        addr = int(line[4:4 + digits], 16)
+        data_len = count - digits // 2 - 1
+        if data_len > 0:
+            spans.append((addr, addr + data_len))
+    return spans
+
+
+def load_ranges(path):
+    """Merged (lo, hi) address spans an Intel HEX or Motorola S-record
+    file's data records actually load, disjoint gaps kept as gaps, in
+    the file's own byte-addressed terms.
+
+    A gap matters: a reserved-but-uninitialized region (e.g. `org
+    *+size`, never itself in a data record) has no code, so a single
+    min/max span would wrongly call a PC landed there "inside the
+    image" too. Byte-addressed only -- see case_haltgo()'s
+    `address_unit` for a word/longword target's own PC.
+    """
+    first = next((l.strip() for l in open(path) if l.strip()), '')
+    if first.startswith(':'):
+        return _merge(_intel_hex_ranges(path))
+    if first.startswith('S'):
+        return _merge(_srec_ranges(path))
+    return []
 
 
 def ensure_prompt(board, what):
@@ -77,11 +168,12 @@ def case_reset(board, n=4, regress=None):
     substring of the last repeat's dump, so column spacing or width
     doesn't matter.
     """
-    want = drive_table(regress).get('reset', {})
+    want = {k: v for k, v in drive_table(regress).get('reset', {}).items()
+            if k != 'program_counter'}   # a setting, not a register to check
     seen, last = [], b''
     for _ in range(n):
         last = board.send(b'R')
-        seen.append(bc.pc_from(last))
+        seen.append(pc_from(last))
     ok = len(set(seen)) == 1 and seen[0] is not None
     txt = last.decode('ascii', 'replace').replace('\r', '')
     missing = [k for k, v in want.items() if '%s=%s' % (k, v) not in txt]
@@ -99,10 +191,10 @@ def case_step(board, n=4):
         return None, 'no samples to step through'
     board.send(b'R')
     board.upload_file(hexes[0])
-    start = bc.pc_from(board.send(b'R'))
+    start = pc_from(board.send(b'R'))
     seen = []
     for _ in range(n):
-        seen.append(bc.pc_from(board.send(b'S')))
+        seen.append(pc_from(board.send(b'S')))
     ok = all(seen) and len(set(seen)) == len(seen)
     return ok, 'from %s: %s' % (start, ' '.join(str(s) for s in seen))
 
@@ -253,35 +345,60 @@ def case_samples(board, n=0, regress=None):
     return not bad, (ran if not bad else 'failed: %s' % ', '.join(bad))
 
 
-def case_haltgo(board, n=10):
+def case_haltgo(board, n=None, regress=None):
     """Halt a run with the halt port, continue with G, and check both.
 
     The PC has to be checked, not just that output resumed: a corrupted
     resume still emits bytes for a while, and only a later continue fails.
+
+    Defaults to the first samples/<target>/*.hex with 'mandel' in its
+    name (needs a free-running loop to halt and resume repeatedly), or
+    the first sample of any kind. `[haltgo]` in `regress` overrides:
+    `program = "name"` a specific one (basename, no extension),
+    `halt_count = N` how many times (an explicit `haltgo=N` on the
+    command line still wins), `address_unit = N` bytes per PC unit for
+    a word/longword-addressed target (default 1, byte-addressed), and
+    `halt_interval = [min, max]` randomizes each halt's run time in
+    seconds (default [0, 0], immediate) so a corrupted resume that only
+    shows up mid-instruction gets the chance to.
     """
-    hexes = [p for p in samples(board.who) if 'mandel' in os.path.basename(p)]
-    if not hexes:
-        hexes = samples(board.who)
+    how = drive_table(regress).get('haltgo', {})
+    unit = how.get('address_unit', 1)
+    interval_lo, interval_hi = how.get('halt_interval', (0.0, 0.0))
+    if n is None:
+        n = how.get('halt_count', 10)
+    hexes = samples(board.who)
+    if how.get('program'):
+        hexes = [p for p in hexes
+                 if os.path.basename(p).rsplit('.', 1)[0] == how['program']]
+    else:
+        hexes = [p for p in hexes if 'mandel' in os.path.basename(p)] or hexes
     if not hexes:
         return None, 'no samples'
     path = hexes[0]
     board.send(b'R')
     board.upload_file(path)
-    lo, hi = 0x0000, 0x8000          # a sane PC stays in the loaded image
-    board.send(b'G\r', wait=3.0, idle=1.0, delay=2.0)
+    # a sane PC stays inside one of these, in the target's own units
+    ranges = [(lo // unit, hi // unit) for lo, hi in load_ranges(path)]
+    # 'G 0': no backtrace to disassemble and print at the next halt --
+    # only the PC and a nonzero byte count are checked, so it would
+    # only cost time here.
+    board.send(b'G 0\r', wait=3.0, idle=1.0, delay=1.0)
     bad, drift = 0, []
     for i in range(n):
+        if interval_hi:
+            time.sleep(random.uniform(interval_lo, interval_hi))
         board.abort()
-        halted = board.send(wait=8.0, idle=1.0, delay=0.6)
-        pc = bc.pc_from(halted)
+        halted = board.send(wait=3.0, idle=0.5, delay=0.2)
+        pc = pc_from(halted)
         if not bc.at_prompt(halted):
             if not board.recover():
                 bad += 1
                 drift.append('%d:unrecovered' % i)
                 break
-        inside = pc is not None and lo <= int(pc, 16) < hi
-        got = len(board.send(b'G\r', wait=4.0, idle=1.2, delay=2.0))
-        if not inside or got < 200:
+        inside = pc is not None and any(lo <= int(pc, 16) < hi for lo, hi in ranges)
+        got = len(board.send(b'G 0\r', wait=1.5, idle=0.3, delay=0.1))
+        if not inside or not got:
             bad += 1
             drift.append('%d:PC=%s,%dB' % (i, pc, got))
     board.abort()
@@ -311,7 +428,7 @@ def run_until_stop(board, cap=30.0):
         board.abort()
         txt += board.send(wait=8.0, idle=1.0, delay=0.8).decode('ascii', 'replace')
         return None, txt
-    return bc.pc_from(txt), txt
+    return pc_from(txt), txt
 
 
 def _load_looping(board, prefer=('echo', 'mandel')):
@@ -418,7 +535,7 @@ def case_gountil(board, n=2):
         addr, n, '; ' + ' '.join(notes) if notes else '')
 
 
-DISASM = re.compile(r'^[0-9A-F]{4,6}: ([0-9A-F]{2} )+ +\S+')
+DISASM = re.compile(r'^[0-9A-F]{3,6}: ([0-9A-F]{2} )+ +\S+')
 
 
 def case_disasm(board, n=10):
@@ -475,6 +592,9 @@ def main():
     for a in args:
         name, _, cnt = a.partition('=')
         want[name] = int(cnt) if cnt else None
+    global PROGRAM_COUNTER, SAMPLES_DIR
+    PROGRAM_COUNTER = drive_table(regress).get('reset', {}).get('program_counter')
+    SAMPLES_DIR = samples_dir_of(regress)
     with bc.Board.open() as board:
         print('target %s' % board.who)
         failed, skipped = [], []
@@ -487,7 +607,7 @@ def main():
                 continue
             t0 = time.time()
             kw = {} if want.get(name) is None else {'n': want[name]}
-            if name in ('reset', 'samples'):
+            if name in ('reset', 'samples', 'haltgo'):
                 kw['regress'] = regress
             ok, note = fn(board, **kw)
             took = time.time() - t0
@@ -501,8 +621,9 @@ def main():
     # A skip is not a pass: say so, so an empty suite cannot read as green.
     summary = 'FAILED: %s' % ' '.join(failed) if failed else \
         'passed' if not skipped else 'passed, but SKIPPED: %s' % ' '.join(skipped)
-    if skipped and not failed:
-        summary += '  (set BIONIC_PROJ to the tree holding samples/%s/)' % target.lower()
+    if skipped and not failed and not samples(target):
+        summary += '  (no samples found in %s)' % (
+                SAMPLES_DIR or os.path.join(PROJ, 'samples', target.lower()))
     print('\n%s' % summary)
     sys.exit(1 if failed else 0)
 

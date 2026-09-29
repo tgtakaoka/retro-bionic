@@ -135,19 +135,21 @@ def _open(timeout=20):
     sys.exit('%s never appeared' % PORT)
 
 
-def pc_from(buf):
-    """The PC/IP value out of a register dump, decoded if `buf` is bytes.
+def pc_from(buf, name=None):
+    """The PC value out of a register dump, decoded if `buf` is bytes.
+    `name` is the dump's own label for it when that is not "PC", e.g.
+    F8's "P0" or Z8's "IP" (regress.toml's [reset] program_counter).
 
-    The *last* PC=/IP= line wins when there is more than one -- the most
-    recent register dump in the text, not the first. None if there is no
-    such line at all.
+    The *last* match wins when there is more than one -- the most recent
+    register dump in the text, not the first. None if there is none.
+    Matched anywhere, not just at a line's start: a halt landed
+    mid-output leaves the dump appended straight onto a partial line,
+    with no newline before "PC=" at all.
     """
     text = buf.decode('ascii', 'replace').replace('\r', '') if isinstance(buf, bytes) else buf
-    line = None
-    for ln in text.split('\n'):
-        if ln.startswith(('PC=', 'IP=')):
-            line = ln
-    return line.split()[0].split('=')[1] if line else None
+    label = re.escape(name) if name else 'PC'
+    matches = re.findall(r'(?:%s)=([0-9A-Fa-f]+)' % label, text)
+    return matches[-1] if matches else None
 
 
 def at_prompt(buf):
@@ -198,6 +200,9 @@ class Board:
         The total is a hard deadline on purpose: a failed run emits nothing at
         all while the CPU cycles refresh forever, so an idle-only wait would
         block for the whole budget on every later command.
+
+        Quiet counts from the call itself, not from the first byte, so an
+        already-settled board satisfies `idle` right away.
         """
         buf, last, end = b'', time.time(), time.time() + secs
         while time.time() < end:
@@ -210,7 +215,7 @@ class Board:
                         last = time.time()
                 except BlockingIOError:
                     pass
-            elif buf and time.time() - last > idle:
+            elif time.time() - last > idle:
                 break
         return buf
 
@@ -355,7 +360,7 @@ class Board:
         should decide to spend it.
         """
         for _ in range(tries):
-            os.write(self.fd, b'\x03')                  # cancel a CLI prompt
+            self._write(b'\x03')                        # cancel a CLI prompt
             self._drain(2.0, 0.5)
             os.write(self.fd, b'\x00')                  # the samples exit on NUL
             self._drain(2.0, 0.6)
@@ -405,6 +410,21 @@ class Board:
         return self.send(b'B' + addr.encode() + b'\r', wait=6.0, idle=0.8).decode(
                 'ascii', 'replace').replace('\r', '')
 
+    def _write(self, data):
+        """Write all of `data`, waiting out a full kernel output queue.
+
+        The port is O_NONBLOCK, so os.write() may take only part of a
+        line or refuse it outright (EAGAIN) once the queue fills -- an
+        upload long enough to outrun the board's echo hits both.
+        """
+        while data:
+            try:
+                n = os.write(self.fd, data)
+            except BlockingIOError:
+                select.select([], [self.fd], [], 1.0)
+                continue
+            data = data[n:]
+
     # ---------------------------------------------------------------- session
     def upload_file(self, path):
         """Inject one HEX/S-record file through the debugger's U command.
@@ -414,19 +434,27 @@ class Board:
         that sends the wrong one is left stuck in the loop and every later
         command is eaten as a malformed record.
         """
-        os.write(self.fd, b'\x03')                      # leave any half-finished prompt
+        self._write(b'\x03')                            # leave any half-finished prompt
         self._drain(1.5, 0.3)
-        os.write(self.fd, b'U')
+        self._write(b'U')
         self._drain(3.0, 0.3)
         sent = 0
         for line in open(path):
             line = line.strip()
             if not line:
                 continue
-            os.write(self.fd, line.encode() + b'\r')
-            self._drain(3.0, 0.15)
+            self._write(line.encode() + b'\r')
+            # No per-line wait: each line's echo is never read back for
+            # its own sake (only the final drain's text is), so there is
+            # nothing to synchronize on -- except the kernel's own input
+            # buffer, which this opportunistic, non-blocking read alone
+            # keeps from filling on a long upload.
+            try:
+                os.read(self.fd, 65536)
+            except BlockingIOError:
+                pass
             sent += 1
-        os.write(self.fd, b'\x03')
+        self._write(b'\x03')
         return sent, self._drain(5.0, 0.5).decode('ascii', 'replace').replace('\r', '')
 
     @classmethod
