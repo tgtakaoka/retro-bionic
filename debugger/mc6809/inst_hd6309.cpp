@@ -1294,7 +1294,7 @@ void InstHd6309::appendStackSequence(
         uint8_t post, uint8_t mask, char c, StrBuffer &sequence) {
     if (post & mask) {
         sequence.letter(c);
-        if (mask >= 0x08)
+        if (mask >= 0x10)
             sequence.letter(c);
     }
 }

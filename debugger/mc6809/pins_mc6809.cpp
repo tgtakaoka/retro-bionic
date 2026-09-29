@@ -146,7 +146,7 @@ void PinsMc6809::resetPins() {
     // Synchronize EXTAL input and Q and E output
     while (true) {
         extal_cycle();
-        // Synchoronize to C4L
+        // Synchronize to C4L
         if (clock_q() == LOW && clock_e() != LOW)
             break;
     }

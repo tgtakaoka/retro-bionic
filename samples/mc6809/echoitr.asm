@@ -46,7 +46,7 @@ wait:
         cwai    #~CC_FIRQ       ; Clear FIRQ mask
 loop:
         bsr     getchar
-        bcc     loop
+        bcc     wait
         tsta
         beq     halt_to_system
         tfr     a,b

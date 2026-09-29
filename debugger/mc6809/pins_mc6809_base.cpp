@@ -169,7 +169,9 @@ void PinsMc6809Base::run() {
     _regs->restore();
     Cycles::reset();
     saveBreakInsts();
+    startRunTimer();
     loop();
+    stopRunTimer();
     restoreBreakInsts();
     disassembleCycles();
 }
@@ -264,7 +266,22 @@ const Signals *PinsMc6809Base::findFetch(Signals *begin, const Signals *end) {
     return end;
 }
 
-void PinsMc6809Base::disassembleCycles() {
+// fetch() isn't live for plain mc6809: findFetch()/matchAll() mark it
+// only as a side effect of matching decoded instructions against
+// captured bus cycles, so that has to run -- once, right here -- before
+// backtraceStartFrom() counting fetch() cycles means anything.
+// mc6809e's own findFetch() override corrects an already-live marker
+// instead, and gets picked up here via virtual dispatch.
+// printBacktrace() re-runs findFetch() over the now-disposed range,
+// which re-derives the same marks (or re-applies the same correction).
+const SignalsImpl *PinsMc6809Base::findBacktraceStart() {
+    const auto end = Signals::put();
+    // Make room for idle cycles -- see printBacktrace().
+    const auto begin = findFetch(Signals::get()->next(3), end);
+    return backtraceStartFrom<Signals>(begin, _lineLimit);
+}
+
+void PinsMc6809Base::printBacktrace() {
     const auto end = Signals::put();
     // Make room for idle cycles.
     const auto begin = findFetch(Signals::get()->next(3), end);
