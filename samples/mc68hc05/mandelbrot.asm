@@ -2,6 +2,7 @@
 
 ;;; MC6850 Asynchronous Communication Interface Adapter
 ACIA:   equ     $FFE0
+ACIA_HC05:      equ     ACIA   ; for ../mc6805/cputype.inc
         include "../mc6800/mc6850.inc"
 
 rx_queue_size:  equ     16
@@ -61,6 +62,7 @@ stack:  rmb     20
 
         org     $1000
 initialize:
+        include "../mc6805/cputype.inc"
         ldx     #rx_queue
         lda     #rx_queue_size
         jsr     queue_init
@@ -69,9 +71,9 @@ initialize:
         jsr     queue_init
         ;; initialize ACIA
         lda     #CDS_RESET_gc   ; master reset
-        sta     ACIA_control
+        jsr     store_ACIA_control
         lda     #RX_INT_TX_NO
-        sta     ACIA_control
+        jsr     store_ACIA_control
         cli                     ; enable IRQ
 
         clr     SP
@@ -110,7 +112,7 @@ putchar_retry:
         cli                     ; enable IRQ
         bcc     putchar_retry   ; branch if queue is full
         lda     #RX_INT_TX_INT  ; enable Tx interrupt
-        sta     ACIA_control
+        jsr     store_ACIA_control
 putchar_exit:
         ldx     save_x          ; restore X
         rts
@@ -120,31 +122,25 @@ putchar_exit:
         include "../mc6805/queue.inc"
 
 isr_irq:
-        lda     ACIA_status
+        jsr     load_ACIA_status
         bit     #IRQF_bm
         beq     isr_irq_exit
         bit     #RDRF_bm
         beq     isr_irq_send
-        lda     ACIA_data       ; receive character
+        jsr     load_ACIA_data       ; receive character
         ldx     #rx_queue
         jsr     queue_add
 isr_irq_send:
-        lda     ACIA_status
+        jsr     load_ACIA_status
         bit     #TDRE_bm
         beq     isr_irq_exit
         ldx     #tx_queue
         jsr     queue_remove
         bcc     isr_irq_send_empty
-        sta     ACIA_data       ; send character
+        jsr     store_ACIA_data       ; send character
 isr_irq_exit:
         rti
 isr_irq_send_empty:
         lda     #RX_INT_TX_NO
-        sta     ACIA_control    ; disable Tx interrupt
+        jsr     store_ACIA_control    ; disable Tx interrupt
         rti
-
-;;; MC68HC05 compatibility
-        org     $FFFA
-        fdb     isr_irq         ; IRQ
-        fdb     $FFFC           ; SWI: halt to system
-        fdb     initialize      ; RESET

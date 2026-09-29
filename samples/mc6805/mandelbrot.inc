@@ -90,6 +90,11 @@ loop_x:
         ;; jsr     newline
 
 loop_i:
+        tst     cputype
+        beq     loop_i_6805           ; the 6805's $FFFF is its reset vector
+        lda     COP_RESET       ; service the MC68HC08's COP, a mask option
+        sta     COP_RESET
+loop_i_6805:
         ldx     vB
         lda     vB+1
         jsr     set_R1          ; R1=B

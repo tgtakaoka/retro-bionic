@@ -64,6 +64,8 @@ struct PinsMc68HC05C0 final : mc6805::PinsMc6805 {
 
 private:
     uint16_t _addr;
+    // Read cycles to a Dx instruction's dummy read, 0 when none is due.
+    uint8_t _dummyIn;
 
     void resetCpu() override;
     Signals *currCycle(uint16_t pc) const override;

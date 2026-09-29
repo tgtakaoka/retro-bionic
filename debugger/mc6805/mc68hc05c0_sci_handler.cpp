@@ -17,7 +17,7 @@ bool Mc68HC05C0SciHandler::isSelected(uint32_t addr) const {
     return addr == ADDR_SCBR;
 }
 
-void Mc68HC05C0SciHandler::write(uint32_t addr, uint16_t data) {
+void Mc68HC05C0SciHandler::write(uint32_t, uint16_t data) {
     setScbr(_scbr = data);
 }
 

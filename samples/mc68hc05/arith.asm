@@ -2,9 +2,10 @@
 
 ;;; MC6850 Asynchronous Communication Interface Adapter
 ACIA:   equ     $FFE0
+ACIA_HC05:      equ     ACIA   ; for ../mc6805/cputype.inc
         include "../mc6800/mc6850.inc"
 
-        org     $40
+        org     $50
 cputype:
         rmb     1
 R0:
@@ -31,11 +32,12 @@ stack:  rmb     20
 
         org     $1000
 initialize:
+        include "../mc6805/cputype.inc"
         lda     #CDS_RESET_gc   ; Master reset
-        sta     ACIA_control
+        jsr     store_ACIA_control
         lda     #WSB_8N1_gc     ; 8 bits + No Parity + 1 Stop Bits
                                 ; Transmit, Receive interrupts disabled
-        sta     ACIA_control
+        jsr     store_ACIA_control
 
         clr     SP
         jsr     arith
@@ -54,12 +56,12 @@ newline:
 putchar:
         sta     putchar_a
 putchar_loop:
-        lda     ACIA_status
+        jsr     load_ACIA_status
         bit     #TDRE_bm
         beq     putchar_loop
 putchar_data:
         lda     putchar_a
-        sta     ACIA_data
+        jsr     store_ACIA_data
         rts
 putchar_a:
         rmb     1

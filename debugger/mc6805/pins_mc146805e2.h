@@ -68,6 +68,7 @@ protected:
     Signals *rawPrepareCycle() override;
     Signals *prepareCycle() override;
     Signals *completeCycle(Signals *signals) override;
+    void resyncBus(uint16_t clocks) override;
 };
 
 }  // namespace mc146805e2
