@@ -1152,3 +1152,48 @@ computed `B+Q*F` for `B-Q*F` and drew a symmetric but wrong frame. **[hw]**
 it. The profile (`tools/cycles_ins8070.py`, recorded as
 `tools/ins8070-cycles.jsonl.zst`) shows it reading its operand PC-relative
 like the other PC-relative forms, `1:2:Q:N`. **[hw]**
+
+### MC6800 family
+
+**Pitfalls.** `WAI` stacks first and then idles, so a halt finds no push
+(and on VMA parts no write count change); `#XIRQ` is level-sensitive; the
+MC68HC11's `STOP` can bring E back at another phase.
+
+Three boards run six chips: MC6800 (and MB8861), MC6802 (and MB8870), MC6801
+(and HD6301). The first two share `samples/mc6800`; the MC6801 has its own
+samples. The HD6301 and MC6801 also pass the MC6800 regress, running MC6800
+code. **[code]**
+
+`PinsMc6802` built a `MemsMc6800` and cast it to `MemsMc6802`, writing past the
+object. **[code]**
+
+Halting a CPU in `WAI` wedged the board past the halt port. **[hw]** `WAI`
+stacks the context up front and then idles, which broke two assumptions:
+
+- On the MC6800 and MC6802 the idle cycles have VMA low, which leaves
+  `_writes` alone. It stayed at 7 after the push, so `loop()` took its
+  context-save branch on every cycle and never polled the halt switch. The
+  branch now clears `_writes`.
+- The halt's NMI then fetches its vector without pushing anything, while
+  `suspend()` waited for 7 writes that never came. A read of the NMI vector
+  before the push now means `WAI`: `suspend()` injects `RTI` to resume after
+  the `WAI`, then takes a fresh NMI edge. The wait is also bounded.
+- Stepping a `WAI` put the push first and the vector fetch an unknown number
+  of idle cycles later, but `suspend()` took the vector from a fixed cycle
+  after the push. On the MC68HC11 the real `#XIRQ` fetch then landed inside
+  the next step's injected `RTI`. `suspend()` now looks for the vector read,
+  and releases the line only after it -- `#XIRQ` is level-sensitive, unlike
+  NMI.
+
+The MC6801 has no VMA, so only the second one hit it.
+
+The profile (`tools/cycles_mc6800.py` and its siblings, with a recording
+for each of the six chips in `tools/`) found `CPX #n16` taking four cycles
+on the MC6801, `1:2:3:x:N` like `SUBD #n16`; its row had three. **[hw]**
+
+The MC68HC11's `STOP` freezes E, and after the wake-up E can come back at
+another phase against the EXTAL the debugger drives. The debugger never
+looked at E after reset, so every later cycle was sampled at the wrong time
+and the halt read garbage registers. `rawCycle()` now checks that E is high
+where it must be; if not, it marks the cycle non-VMA and walks EXTAL until E
+falls again. **[hw]**

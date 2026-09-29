@@ -20,9 +20,11 @@ struct InstMc6800 {
     static constexpr uint8_t NOP = 0x01;
     static constexpr uint8_t BRA = 0x20;
     static constexpr uint8_t BRA_HERE = 0xFE;
+    static constexpr uint8_t RTI = 0x3B;
     static constexpr uint8_t SWI = 0x3F;
 
     virtual uint16_t vec_swi() const { return 0xFFFA; }
+    virtual uint16_t vec_nmi() const { return 0xFFFC; }
     static constexpr uint16_t VEC_RESET = 0xFFFE;
 
 protected:

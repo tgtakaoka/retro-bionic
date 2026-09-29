@@ -10,6 +10,9 @@ namespace mc6800 {
 
 namespace {
 
+// Longest instruction plus a context save, with margin.
+constexpr auto SUSPEND_CYCLES = 64;
+
 inline void assert_irq() {
     digitalWriteFast(PIN_IRQ, LOW);
 }
@@ -68,46 +71,110 @@ void PinsMc6800Base::idle() {
     Cycles::discard(s);
 }
 
+#ifdef PROFILE_CYCLES
+// For scripts/record-cycles.py: stop at any SWI, keep every cycle of it,
+// and give up well before the ring wraps; the debug pin frames the run, to
+// trigger a capture on.
+void PinsMc6800Base::loop() {
+    constexpr auto MAX_CYCLES = 96;
+    _profileEnd = nullptr;
+    assert_debug();
+    for (auto n = 0;; ++n) {
+        _devs->loop();
+        rawCycle();
+        if (_writes == regs<RegsMc6800>()->contextLength()) {
+            const auto frame = Signals::put()->prev(_writes);
+            if (nonVmaAfterContextSave())
+                cycle();                  // non VMA cycle
+            const auto vec_hi = cycle();  // read interrupt high(vector)
+            if (vec_hi->addr == _inst->vec_swi()) {
+                negate_debug();
+                cycle();  // read interrupt low(vector)
+                regs<RegsMc6800>()->capture(frame, false);
+                // Match up to the SWI's opcode fetch, as the normal build does.
+                _profileEnd = frame->prev(nonVmaAfterContextSave() ? 1 : 2);
+                return;
+            }
+            _writes = 0;
+        } else if (n >= MAX_CYCLES || haltSwitch()) {
+            negate_debug();
+            cli.println(n >= MAX_CYCLES ? "?cycles" : "?halt");
+            suspend(true);
+            return;
+        }
+    }
+}
+#else
 void PinsMc6800Base::loop() {
     while (true) {
         _devs->loop();
         rawCycle();
         if (_writes == regs<RegsMc6800>()->contextLength()) {
             const auto frame = Signals::put()->prev(_writes);
-            if (nonVmaAfteContextSave())
+            if (nonVmaAfterContextSave())
                 cycle();                  // non VMA cycle
-            const auto vec_hi = cycle();  // read interruput high(vector)
+            const auto vec_hi = cycle();  // read interrupt high(vector)
             const auto vec_swi = _inst->vec_swi();
             if (vec_hi->addr == vec_swi) {
                 cycle();  // read interrupt low(vector)
                 const auto pc = regs<RegsMc6800>()->capture(frame, false);
                 const auto swi_vector = _mems->read16(vec_swi);
                 if (isBreakPoint(pc) || swi_vector == vec_swi) {
-                    const auto discard = nonVmaAfteContextSave() ? 1 : 2;
+                    const auto discard = nonVmaAfterContextSave() ? 1 : 2;
                     Cycles::discard(frame->prev(discard));
                     return;
                 }
             }
+            // WAI idles on non-VMA cycles, which leave _writes as is.
+            _writes = 0;
         } else if (haltSwitch()) {
             suspend(true);
             return;
         }
     }
 }
+#endif
 
 void PinsMc6800Base::suspend(bool show) {
     assert_nmi();
 reentry:
     _writes = 0;
-    // Wait for consequtive writes which means registers saved onto stack.
-    while (_writes < regs<RegsMc6800>()->contextLength())
-        cycle();
-    negate_nmi();
+    // Wait for consecutive writes which means registers saved onto stack.
+    for (auto n = 0; _writes < regs<RegsMc6800>()->contextLength(); ++n) {
+        const auto s = cycle();
+        if (s->valid() && s->read() && s->addr == _inst->vec_nmi()) {
+            // In WAI the context is already stacked, so NMI fetches its
+            // vector without pushing. RTI back out of WAI, then take a
+            // fresh NMI edge.
+            negate_nmi();
+            cycle();  // NMI lo(vector)
+            injectCycle(InstMc6800::RTI);
+            assert_nmi();
+            goto reentry;
+        }
+        if (n >= SUSPEND_CYCLES) {
+            negate_nmi();
+            cli.println("?halt: no context saved");
+            return;
+        }
+    }
     // Capture registers pushed onto stack.
     const auto frame = Signals::put()->prev(_writes);
-    if (nonVmaAfteContextSave())
-        cycle();
-    const auto v = cycle();  // hi(vector)
+    // A push by WAI is followed by idle cycles until the NMI is taken,
+    // so find the vector read rather than counting cycles to it.
+    const Signals *v;
+    for (auto n = 0;; ++n) {
+        v = cycle();
+        if (v->valid() && v->read() &&
+                (v->addr == _inst->vec_swi() || v->addr == _inst->vec_nmi()))
+            break;
+        if (n >= SUSPEND_CYCLES) {
+            negate_nmi();
+            cli.println("?halt: no vector fetched");
+            return;
+        }
+    }
+    negate_nmi();
     if (v->addr == _inst->vec_swi()) {
         assert_nmi();
         cycle();  // SWI lo(vector);
@@ -116,7 +183,7 @@ reentry:
     cycle();  // NMI lo(vector)
     regs<RegsMc6800>()->capture(frame);
     if (show) {
-        const auto discard = nonVmaAfteContextSave() ? 1 : 2;
+        const auto discard = nonVmaAfterContextSave() ? 1 : 2;
         Cycles::discard(frame->prev(discard));
     }
 }
@@ -125,7 +192,9 @@ void PinsMc6800Base::run() {
     _regs->restore();
     Cycles::reset();
     saveBreakInsts();
+    startRunTimer();
     loop();
+    stopRunTimer();
     restoreBreakInsts();
     disassembleCycles();
 }
@@ -219,8 +288,27 @@ const Signals *PinsMc6800Base::findFetch(Signals *begin, const Signals *end) {
     return end;
 }
 
-void PinsMc6800Base::disassembleCycles() {
+// fetch() isn't live here: findFetch()/matchAll() mark it only as a
+// side effect of matching decoded instructions against captured bus
+// cycles, so that has to run -- once, right here -- before
+// backtraceStartFrom() counting fetch() cycles means anything.
+// printBacktrace() re-runs it over the now-disposed range, which
+// re-derives the same marks.
+const SignalsImpl *PinsMc6800Base::findBacktraceStart() {
     const auto end = Signals::put();
+    // Make room for idle cycles -- see printBacktrace().
+    const auto begin = findFetch(Signals::get()->next(4), end);
+    return backtraceStartFrom<Signals>(begin, _lineLimit);
+}
+
+void PinsMc6800Base::printBacktrace() {
+    const auto end = Signals::put();
+#ifdef PROFILE_CYCLES
+    // Every cycle, with the marks the matcher gives them; a run's first
+    // cycle is its opcode fetch.
+    findFetch(Signals::get(), _profileEnd ? _profileEnd : end);
+    printCycles(end);
+#else
     // Make room for idle cycles.
     const auto begin = findFetch(Signals::get()->next(4), end);
     printCycles(begin);
@@ -248,6 +336,7 @@ void PinsMc6800Base::disassembleCycles() {
         }
         idle();
     }
+#endif
 }
 
 }  // namespace mc6800

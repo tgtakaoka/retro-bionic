@@ -29,7 +29,7 @@ namespace mc6801 {
  * MC6800/MB8861(MB8870)
  *   LDX  #$FFFF
  *   FCB  $EC, $01
- *        ; CPX 1,X ($AC $01, 6 clcoks) on MC6800
+ *        ; CPX 1,X ($AC $01, 6 clocks) on MC6800
  *        ; ADX #1  ($EC $01, 2 clocks) on MB8861
  * X=$FFFF: MC6800
  * X=$0000: MB8861
@@ -41,7 +41,7 @@ SoftwareType RegsMc6801::checkSoftwareType() {
             0xC6, 0xFF,        // LDAB #$FF  ; 1:2
             0x86, 0x01,        // LDAA #$01  ; 1:2
             0x18, 0x01,        // ABA        ; 1:N
-                               // XDGX       ; 1:x
+                               // XGDX       ; 1:x
             0xB7, 0x01, 0x00,  // STAA $0100 ; 1:2:3:B
     };
     _pins->injectReads(DETECT_6301, sizeof(DETECT_6301));

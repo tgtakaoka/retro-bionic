@@ -1,0 +1,36 @@
+# Scenario for scripts/record-scenario.py: an MC6800 interrupt. On IRQ
+# the CPU pushes its whole context -- PC, X, A, B and CC, seven bytes --
+# then fetches the handler's address from the vector at FFF8. The ACIA's
+# transmitter interrupt brings mandelbrot's output into isr_irq.
+#
+# ADDRESS IS PINNED TO THE CURRENT samples/mc6800/mandelbrot.s19:
+# isr_irq at 045A. If mandelbrot.asm/.inc or the .s19 ever change,
+# re-check it against the fresh .lst before recording -- a stale address
+# will look like it works (it disassembles *something*) while showing the
+# wrong thing.
+
+key ?
+pace 2.0
+
+key R
+upload samples/mc6800/mandelbrot.s19
+
+# Stop at the handler. The backtrace shows the seven stack writes and
+# the two vector reads from FFF8/FFF9.
+type g
+wait Go until?
+command 45A 10
+pace 2.0
+
+# The pushed context sits just above SP: CC, B, A, X, then PC.
+type d
+wait Data dump?
+command FF0 10
+pace 2.0
+
+# Step into the handler: it reads the ACIA status first.
+step 2
+pace 1.5
+
+# Watch one frame render; it takes about 1 minute 50 seconds.
+run 1 300

@@ -45,7 +45,7 @@ const char *RegsMc68hc11::cpu() const {
  * MC6800/MB8861(MB8870)
  *   LDX  #$FFFF
  *   FCB  $EC, $01
- *        ; CPX 1,X ($AC $01, 6 clcoks) on MC6800
+ *        ; CPX 1,X ($AC $01, 6 clocks) on MC6800
  *        ; ADX #1  ($EC $01, 2 clocks) on MB8861
  * X=$FFFF: MC6800
  * X=$0000: MB8861
@@ -134,7 +134,7 @@ constexpr const char *REGS16[] = {
 const Regs::RegList *RegsMc68hc11::listRegisters(uint_fast8_t n) const {
     static constexpr RegList REG_LIST[] = {
             {REGS8, 3, 1, UINT8_MAX},
-            {REGS16, 3, 5, UINT16_MAX},
+            {REGS16, 5, 4, UINT16_MAX},
     };
     return n < 2 ? &REG_LIST[n] : nullptr;
 }

@@ -42,6 +42,7 @@ namespace debugger {
 namespace mc68hc11 {
 
 struct Mc68hc11Init;
+struct Signals;
 
 struct PinsMc68hc11 final : mc6800::PinsMc6800Base {
     PinsMc68hc11(Mc68hc11Init &init);
@@ -55,8 +56,9 @@ private:
 
     mc6800::Signals *cycle() override;
     mc6800::Signals *rawCycle() override;
+    mc6800::Signals *stopped(Signals *s);
 
-    void disassembleCycles() override;
+    void printBacktrace() override;
 };
 
 }  // namespace mc68hc11

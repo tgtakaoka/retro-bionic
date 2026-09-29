@@ -11,6 +11,7 @@ struct Signals final : SignalsBase<Signals, mc6800::Signals> {
     void getDirection();
     void getControl();
     void getData();
+    void clearVma();
     void outData() const;
     static void inputMode();
 };

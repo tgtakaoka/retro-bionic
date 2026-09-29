@@ -26,7 +26,7 @@ namespace mc6802 {
  * - EXTAL rising-edge to E edges takes 100ns.
  * - EXTAL rising-edge of c4 to VMA and R/W edges take 100ns.
  * - VMA and R/W are valid before falling-edge of c1.
- * - Read data setup to falling E egde is 100ns.
+ * - Read data setup to falling E edge is 100ns.
  * - Write data gets valid after 225ns of rising E edge.
  */
 
@@ -145,7 +145,7 @@ constexpr uint8_t PINS_INPUT[] = {
 PinsMc6802::PinsMc6802() {
     auto regs = new RegsMc6802(this);
     auto devs = new mc6800::DevsMc6800();
-    auto mems = new MemsMc6800(regs, devs);
+    auto mems = new MemsMc6802(regs, devs);
     _regs = regs;
     _mems = mems;
     _devs = devs;
