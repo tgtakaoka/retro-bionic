@@ -94,18 +94,19 @@ private:
 
     Signals *inject(uint8_t data) const;
     bool isRst38Break(const Signals *org_rst) const;
-    void loop();
-    void suspend();
+    bool loop();
+    bool suspend();
     bool rawStep();
     uint16_t execute(const uint8_t *inst, uint_fast8_t len, uint8_t *buf,
             uint_fast8_t max) override;
 
-    void disassembleCycles();
+    const SignalsImpl *findBacktraceStart() override;
+    void printBacktrace() override;
 };
 
 }  // namespace nsc800
 }  // namespace debugger
-#endif /* __PINS_H__ */
+#endif /* __PINS_NSC800_H__ */
 
 // Local Variables:
 // mode: c++

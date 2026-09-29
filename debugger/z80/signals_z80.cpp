@@ -32,12 +32,12 @@ bool Signals::iorq() const {
 }
 
 bool Signals::read() const {
-    // #WR is assered later than #RD
+    // #WR is asserted later than #RD
     return (cntl() & CNTL_RD) == 0;
 }
 
 bool Signals::mwrite() const {
-    // #WR is assered later than #RD
+    // #WR is asserted later than #RD
     return (cntl() & (CNTL_RD | CNTL_MREQ)) == CNTL_RD;
 }
 
