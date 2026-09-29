@@ -80,10 +80,15 @@ struct PinsMc68HC08AZ0 final : mc6805::PinsMc6805 {
 private:
     uint16_t _addr;
     uint_fast8_t _writes;
+    bool _slept;  // nextCycle() found the CPU sleeping
 
     void resetCpu() override;
     Signals *currCycle(uint16_t pc) const override;
     Signals *rawPrepareCycle() override;
+    Signals *awaitCycle(uint_fast16_t limit);
+    Signals *sleep();
+    Signals *nextCycle();
+    void wakeUp();
     Signals *prepareCycle() override { return rawPrepareCycle(); }
     Signals *completeCycle(Signals *signals) override;
     bool rawStep() override;

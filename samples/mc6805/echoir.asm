@@ -3,11 +3,13 @@
         option  pc-bits,16
 
 ;;; MC6850 Asynchronous Communication Interface Adapter
-ACIA:   equ     $17F8
+ACIA_6805:      equ     $17F8
+ACIA_HC05:      equ     $FFE0
+ACIA:   equ     ACIA_6805
         include "../mc6800/mc6850.inc"
 RX_INT_TX_NO:   equ     WSB_8N1_gc|RIEB_bm
 
-        org     $40
+        org     $50
 cputype:
         rmb     1
 save_a: rmb     1
@@ -39,6 +41,11 @@ initialize:
         bsr     store_ACIA_control
         cli                     ; Enable IRQ
 loop:
+        tst     cputype
+        beq     loop_6805           ; the 6805's $FFFF is its reset vector
+        lda     COP_RESET       ; service the MC68HC08's COP, a mask option
+        sta     COP_RESET
+loop_6805:
         ldx     #rx_queue
         sei                     ; Disable IRQ
         jsr     queue_remove

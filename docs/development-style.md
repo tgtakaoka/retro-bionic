@@ -1192,3 +1192,118 @@ looked at E after reset, so every later cycle was sampled at the wrong time
 and the halt read garbage registers. `rawCycle()` now checks that E is high
 where it must be; if not, it marks the cycle non-VMA and walks EXTAL until E
 falls again. **[hw]**
+
+### MC6805 family
+
+**Pitfalls.**
+
+- `WAIT` and `STOP` fetch nothing until an interrupt, so a halt must give up
+  and take an IRQ; `STOP` restarts the bus clock at another phase.
+- On the MC68HC08AZ0 the run loop follows each instruction's cycle sequence,
+  so a wrong table row, or an interrupt taken over a prefetched opcode, loses
+  the instruction boundary and with it halts and breakpoints.
+- `MUL` and `DIV` re-read the next opcode's address: a step's `SWI` must go
+  into every read of it.
+- The HC08's COP watchdog is a mask option and cannot be disabled; its reset
+  also turns off the internal read visibility the debugger needs, so the run
+  loop sets it up again at the reset's vector read.
+- With IRV on, the MC68HC05C0 drives the bus in its internal cycles, and
+  not every one has an internal address: the extended-indexed (`a16,X`)
+  dummy read, the third cycle after a `Dx` fetch, reads `hi:FE`. Driving it
+  too fought the chip for about 80 ns, seen on a capture of `D0`; the
+  debugger now counts cycles from the fetch #LIR marks and reads that one.
+  **[hw]**
+
+Three boards run three chips: MC146805E2 (`samples/mc6805`), MC68HC05C0
+(`samples/mc68hc05`) and MC68HC08AZ0 (`samples/mc68hc08`). The HC05 and HC08
+also run MC146805E2 code. The HC08 has its own run loop; the other two share
+`PinsMc6805`. **[code]**
+
+The halt clocks the CPU up to its next opcode fetch, and `WAIT` and `STOP`
+fetch nothing until an interrupt, so halting in either wedged the board.
+**[hw]** `suspend()` now gives up waiting after 64 cycles and takes an IRQ
+-- both clear the I mask -- whose five-byte push stands in for the `SWI`
+that `save()` would inject; stepping over `STOP`, once refused, goes the
+same way. `WAIT` restarts the bus in phase, but `STOP` freezes the bus
+clock with DS either high or low and restarts it at another phase against
+the OSC1 the debugger drives, so after `STOP` the MC146805E2 walks OSC1
+through a whole DS pulse first, as reset does. Which one it was comes from
+the last opcode fetched, recorded as the loop runs: by the time of a halt
+the ring has long lost it.
+
+Stepping after a breakpoint inside an interrupt handler ran off into
+internal RAM. **[hw]** `captureExtra()` injected the SWI vector without the
+dummy cycle that follows it, which `save()` does include, so the CPU was a
+cycle behind: the next injected `LDA #` lost its opcode to that dummy cycle
+and its operand, the saved CC, ran as an instruction. In the handler that
+was `FD`, `JSR ,X`; in the main loop it happened to be harmless.
+
+`samples/mc6805` runs on the MC68HC05C0 too: `cputype.inc` picks the
+ACIA at 17F8 or FFE0, and the samples carry both chips' vectors. **[hw]**
+`echoitr` wrote the MC146805E2's ACIA control directly when enabling the
+transmit interrupt, so on the HC05 its output only moved when a received
+character's interrupt happened to drain the queue; it goes through
+`store_ACIA_control` now. Mandelbrot is slow on the MC146805E2 (6 rows
+take 23 seconds) and mid-speed on the MC68HC05C0 (7 rows in 20).
+
+The MC68HC08AZ0 is the fastest of the family (22 rows in 20 seconds).
+**[hw]** Its COP watchdog is a mask option: MORA (`$1F`) is read-only with
+COPD clear, so a program that doesn't service it is reset every 2^18 OSC1
+cycles. That reset also turns off the internal read visibility the debugger
+sets up, which left halts and breakpoints blind; the run loop now redoes
+`reset()`'s setup at the vector read and jumps to the program's vector. The
+MC6805 samples ran only a line before going astray there. They run now:
+their variables moved from `$40`, not RAM on it, to `$50`; the MC68HC05
+samples go through `cputype.inc` too, whose `load_ACIA_status` services the
+COP on anything but the 6805; and the loops that wait without reading the
+ACIA service it themselves. `restore()` writes COPCTL (`$FFFF`) before
+every run, as a captured write that leaves the emulated reset vector alone,
+so each run starts a full COP period.
+
+The HC08's run loop follows each instruction's bus-cycle sequence from
+`mc68hc08-P*.txt` to find the next opcode fetch, where a halt injects its
+`SWI`. `scripts/record-cycles.py` with `tools/cycles_mc68hc08.py` recorded
+every opcode on the chip, on the profile image, cross-checked by a
+logic-analyzer capture the debug pin frames, and the tables match it now.
+**[hw]** `DIV` claimed three next-opcode fetches where the chip makes one,
+so the loop lost the instruction boundary after every `DIV`. Where AN2627
+gives an HC08 instruction more program fetches than bytes (`TXS`'s `pp`,
+`MUL`'s `ppddd`), the extra ones re-read the next opcode's address or the
+byte after it -- `TXS`'s second reads past the next opcode, which only the
+chip showed -- and the tables' dummy reads are right for those. The loop
+also started a cycle late: `run()` completes the first opcode fetch, and
+the loop took the operand after it for the opcode. Both put halts and
+breakpoints at the wrong cycles: `haltgo` had wedged on one of ten halts,
+and now runs 50 of 50 on both sets of samples.
+
+An interrupt taken over a prefetched opcode lost the boundary too, and was
+what stalled mandelbrot. **[hw]** The CPU drops the prefetch and stacks five
+bytes, but the loop only saw an interrupt in writes at an instruction
+boundary, so a `DIV` prefetched in `udiv16` swallowed the stacking and the
+vector read. The loop then took the receive handler's ACIA status read for
+a fetch, decoded the status, `$82`, as an illegal opcode, and spun without
+clocking the CPU; a key press made the status `$83`, an `SWI`, and let
+mandelbrot go on. Five writes in a row inside any sequence but `SWI`'s now
+mean an interrupt, and an opcode without a sequence halts with the cycles
+that led to it.
+
+Stepping `DIV` ran off. **[hw]** `MUL` and `DIV` read the next opcode's
+address again after the prefetch and take the opcode from that read, so
+the step's `SWI`, injected into the prefetch alone, never ran; it goes into
+every read of that address now.
+
+`WAIT` and `STOP` make one bus cycle, the next opcode's prefetch, and then
+none until an interrupt or a reset. **[hw]** The loop tells that from
+eight bus cycles of silence rather than from the opcode, keeps the devices
+running while the CPU sleeps, and on a halt takes an IRQ whose push stands
+in for the `SWI`, as the other two chips do. A reset ends a sleep, or a
+run, with its vector read, and the loop realigns there: a program that
+sleeps without a periodic interrupt is reset by the COP every 2^18 OSC1
+cycles. Stepping `WAIT` or `STOP` on the HC08 is refused. **[code]**
+
+The profile (`tools/cycles_mc146805e2.py` and `tools/cycles_mc68hc05c0.py`,
+recorded as `tools/mc146805e2-cycles.jsonl.zst` and
+`tools/mc68hc05c0-cycles.jsonl.zst`) matches the tables on both chips.
+**[hw]** Each pattern is padded with `SWI` to four bytes, longer than any
+instruction: a shorter pattern written over a longer one left the earlier
+one's bytes after it, and on the MC68HC05C0 seventy runs went on into them.

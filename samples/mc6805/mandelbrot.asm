@@ -3,7 +3,9 @@
         option  pc-bits,16
 
 ;;; MC6850 Asynchronous Communication Interface Adapter
-ACIA:   equ     $17F8
+ACIA_6805:      equ     $17F8
+ACIA_HC05:      equ     $FFE0
+ACIA:   equ     ACIA_6805
         include "../mc6800/mc6850.inc"
 
 rx_queue_size:  equ     16
