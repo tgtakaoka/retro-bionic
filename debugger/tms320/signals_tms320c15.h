@@ -15,6 +15,11 @@ struct Signals final : SignalsBase<Signals> {
     bool fetch() const;  // Program read
     bool write() const;  // Program/IO write
     bool read() const;   // IO read
+#ifdef PROFILE_CYCLES
+    // Cycles the matcher gave the instruction fetched here, 0 if none.
+    uint8_t matched() const { return _signals[1]; }
+    void setMatched(uint8_t cycles) { _signals[1] = cycles; }
+#endif
 
 private:
     uint8_t cntl() const { return _signals[0]; }
@@ -22,7 +27,7 @@ private:
 };
 }  // namespace tms320c15
 }  // namespace debugger
-#endif /* __SIGNALS_H__ */
+#endif /* __SIGNALS_TMS320C15_H__ */
 
 // Local Variables:
 // mode: c++

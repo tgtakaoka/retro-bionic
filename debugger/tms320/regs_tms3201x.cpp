@@ -150,7 +150,7 @@ void RegsTms3201X::write_data(uint_fast8_t addr, uint16_t data) const {
 }
 
 void RegsTms3201X::helpRegisters() const {
-    cli.println("?Reg: PC ST ACC AR0 AR1 ARP DP T");
+    cli.println("?Reg: PC ST ACC AR0 AR1 ARP DP T BIO");
 }
 
 constexpr const char *REGS16[] = {
@@ -168,13 +168,14 @@ constexpr const char *REGS32[] = {
 constexpr const char *REGS1[] = {
         "ARP",  // 7
         "DP",   // 8
+        "BIO",  // 9: drives the #BIO pin
 };
 
 const Regs::RegList *RegsTms3201X::listRegisters(uint_fast8_t n) const {
     static constexpr RegList REG_LIST[] = {
             {REGS16, 5, 1, UINT16_MAX},
             {REGS32, 1, 6, UINT32_MAX},
-            {REGS1, 7, 2, 1},
+            {REGS1, sizeof(REGS1) / sizeof(REGS1[0]), 7, 1},
     };
     return n < 3 ? &REG_LIST[n] : nullptr;
 }
@@ -202,6 +203,9 @@ bool RegsTms3201X::setRegister(uint_fast8_t reg, uint32_t value) {
         break;
     case 8:
         _st = (_st & ~1) | value;
+        break;
+    case 9:
+        _pins->setBio(value != 0);
         break;
     default:
         break;

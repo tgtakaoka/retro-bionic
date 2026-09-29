@@ -1,4 +1,4 @@
-;;; -*- mode: asm; mode: flying-spell; -*-
+;;; -*- mode: asm; mode: flyspell-prog; -*-
 ;;; [queue] queue structure
 queue_len:      equ     0       ; queue length
 queue_size:     equ     1       ; buffer size
@@ -118,7 +118,7 @@ queue_remove_elem:
         tblr    queue_work1     ; work1=queue_get
         add     one             ; ACC=queue_buf
         add     queue_work1
-        tblr    queue_char      ; load emement
+        tblr    queue_char      ; load element
         zals    queue_work1
         add     one
         sacl    queue_work1       ; queue_get++
@@ -130,5 +130,5 @@ queue_remove_exit:
         lack    queue_get
         add     queue_ptr
         tblw    queue_work1     ; update queue_get
-        zals    queue_char      ; restore emlemnt
+        zals    queue_char      ; restore element
         ret

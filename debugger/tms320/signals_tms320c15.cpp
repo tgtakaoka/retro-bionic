@@ -9,6 +9,9 @@ namespace tms320c15 {
 
 void Signals::getAddr() {
     addr = busRead(AL) | busRead(AM) | busRead(AH);
+#ifdef PROFILE_CYCLES
+    setMatched(0);
+#endif
 }
 
 bool Signals::getControl() {
@@ -63,7 +66,17 @@ void Signals::print() const {
     }
     buffer.hex12(4, addr);
     buffer.hex16(10, data);
+#ifdef PROFILE_CYCLES
+    // The matcher's opcode fetches print as I, with the cycles it gave
+    // them, for tools/cycles_tms320c15.py.
+    if (matched())
+        buffer[0] = 'I';
+    cli.print(buffer);
+    cli.print(" m=");
+    cli.printlnDec(matched());
+#else
     cli.println(buffer);
+#endif
 }
 
 }  // namespace tms320c15
