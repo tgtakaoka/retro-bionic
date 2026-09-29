@@ -135,7 +135,7 @@ arith:
         mov     %'-', A
         call    @expr
         call    @sub16          ; Rd=Rd-Rs
-        call    @answer         ; 29536
+        call    @answer         ; -29536
 
         movd    %-28000, vA
         movd    %-18000, vB

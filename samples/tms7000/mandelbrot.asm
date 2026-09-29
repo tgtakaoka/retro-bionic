@@ -38,7 +38,7 @@ vP:     bss     1
 vQ:     bss     1
         bss     1
 vS:     bss     1
-vTH     bss     1
+vTH:    bss     1
 vTL:    bss     1
 vT:     equ     vTL
 cF:     equ     50
@@ -68,7 +68,7 @@ initialize:
         movp    %CDS_RESET_gc, ACIA_control     Master reset
         movp    %RX_INT_TX_NO, ACIA_control
         movp    %1, ACIA+2                      #INT1 for Rx/Tx
-        movp    %INT3_F|INT1_E|INT1_F, IOCNT0   enable #INT1 and #INT1
+        movp    %INT3_F|INT1_E|INT1_F, IOCNT0   enable #INT1
 
 loop:
         call    @mandelbrot

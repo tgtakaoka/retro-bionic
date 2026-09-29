@@ -59,7 +59,15 @@ void Signals::print() const {
     }
     buffer.hex16(4, addr);
     buffer.hex8(11, data);
+#ifdef PROFILE_CYCLES
+    // How many cycles the matcher gave a marked fetch, for
+    // tools/cycles_tms7000.py.
+    cli.print(buffer);
+    cli.print(" m=");
+    cli.printlnDec(fetch() ? matched() : 0);
+#else
     cli.println(buffer);
+#endif
 }
 
 }  // namespace tms7000

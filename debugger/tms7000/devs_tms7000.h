@@ -2,6 +2,7 @@
 #define __DEVS_TMS7000_H__
 
 #include "devs.h"
+#include "serial_handler.h"
 
 #define ACIA_BASE 0x01F0  // P240
 
@@ -43,7 +44,7 @@ private:
 
 }  // namespace tms7000
 }  // namespace debugger
-#endif /* __DEVS_TMS7000H__ */
+#endif /* __DEVS_TMS7000_H__ */
 
 // Local Variables:
 // mode: c++

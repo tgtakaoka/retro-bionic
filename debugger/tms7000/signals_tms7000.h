@@ -19,6 +19,10 @@ struct Signals final : SignalsBase<Signals> {
     bool write() const;
     bool fetch() const { return _signals[1]; }
     void markFetch(bool fetch) { _signals[1] = fetch; }
+#ifdef PROFILE_CYCLES
+    uint8_t matched() const { return _signals[2]; }
+    void setMatched(uint8_t cycles) { _signals[2] = cycles; }
+#endif
     bool intack() const;
 
 private:
@@ -28,7 +32,7 @@ private:
 
 }  // namespace tms7000
 }  // namespace debugger
-#endif /* __SIGNALS_H__ */
+#endif /* __SIGNALS_TMS7000_H__ */
 
 // Local Variables:
 // mode: c++

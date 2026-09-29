@@ -54,7 +54,7 @@ loop:
 halt_to_system:
         idle
 
-        *** Put sapce
+        *** Put space
         *** @clobber A
 putspace:
         mov     %' ', A
