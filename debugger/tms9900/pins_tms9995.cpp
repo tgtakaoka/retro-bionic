@@ -254,6 +254,8 @@ uint8_t PinsTms9995::capture() {
     return s->data;
 }
 
+// ATTENTION: FFFA/FFFB (the on-chip decrementer) is treated as external;
+// confirm whether that is intended.
 bool PinsTms9995::is_internal(uint16_t addr) const {
     if (addr < 0xF000)
         return false;
@@ -323,7 +325,7 @@ void PinsTms9995::internal_write16(uint16_t addr, uint16_t data) {
     DEBUG(cli.printlnHex(data, 4));
     // MOV @s, @d; I:I:s:s:R:r:d:d:i:i:W
     const uint16_t MOV[] = {0xC820, 0x0000, data, addr};
-    injectReads(MOV, 4);     // I:I:s:s:R:r:d:d; MOVB @>0000, @addr
+    injectReads(MOV, 4);     // I:I:s:s:R:r:d:d; MOV @>0000, @addr
     injectReads(&JMP_6, 1);  // i:i            ; JMP $-6
     cycle();                 // W              ; write to internal RAM
     cycle();                 // finish JMP

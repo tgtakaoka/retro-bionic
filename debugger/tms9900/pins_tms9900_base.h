@@ -55,7 +55,8 @@ protected:
     virtual Signals *completeCycle(Signals *s) = 0;
     void suspend(uint16_t pc);
 
-    void disassembleCycles();
+    const SignalsImpl *findBacktraceStart() override;
+    void printBacktrace() override;
 };
 
 }  // namespace tms9900

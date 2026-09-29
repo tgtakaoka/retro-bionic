@@ -99,7 +99,9 @@ const Regs::RegList *RegsTms99105::listRegisters(uint_fast8_t n) const {
 }
 
 bool RegsTms99105::setRegister(uint_fast8_t reg, uint32_t value) {
-    if (reg == 20 && _macroMode != MacroMode(value)) {
+    if (reg == 20) {
+        if (_macroMode == MacroMode(value))
+            return false;
         _macroMode = MacroMode(value);
         _modeValid = false;
         cli.println();

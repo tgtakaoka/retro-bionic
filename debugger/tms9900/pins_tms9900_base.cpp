@@ -63,7 +63,9 @@ void PinsTms9900Base::run() {
     _regs->restore();
     Cycles::reset();
     saveBreakInsts();
+    startRunTimer();
     loop();
+    stopRunTimer();
     // context has been saved in loop()
     restoreBreakInsts();
     disassembleCycles();
@@ -119,7 +121,11 @@ void PinsTms9900Base::printCycles() {
     }
 }
 
-void PinsTms9900Base::disassembleCycles() {
+const SignalsImpl *PinsTms9900Base::findBacktraceStart() {
+    return backtraceStartByFetchCount<Signals>(_lineLimit);
+}
+
+void PinsTms9900Base::printBacktrace() {
     const auto g = Signals::get();
     const auto cycles = g->diff(Signals::put());
     const auto unit = _mems->wordAccess() ? 2 : 1;

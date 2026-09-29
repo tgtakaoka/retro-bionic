@@ -93,13 +93,9 @@ struct PinsTms9900 final : tms9900::PinsTms9900Base {
     void captureWrites(uint16_t *buf, uint_fast8_t len) override;
 
 private:
-    uint16_t _addr;
-
     Signals *resumeCycle(uint16_t pc = 0) override;
     Signals *prepareCycle() override;
     Signals *completeCycle(tms9900::Signals *s) override;
-
-    void checkCpuType();
 };
 
 }  // namespace tms9900

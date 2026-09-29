@@ -73,7 +73,7 @@ constexpr uint16_t TMS99110_MACRO[] = {
 // clang-format on
 
 template <typename T, uint_fast16_t SIZE>
-inline auto nelem(const T (&array)[SIZE]) {
+inline auto nelem(const T (&)[SIZE]) {
     return SIZE;
 }
 

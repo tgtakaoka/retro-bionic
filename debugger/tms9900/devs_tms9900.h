@@ -29,7 +29,7 @@ private:
 
 }  // namespace tms9900
 }  // namespace debugger
-#endif /* __DEVS_TMS9900H__ */
+#endif /* __DEVS_TMS9900_H__ */
 
 // Local Variables:
 // mode: c++

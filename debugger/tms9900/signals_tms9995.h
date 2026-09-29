@@ -14,7 +14,7 @@ struct SignalsTms9995 final : SignalsBase<SignalsTms9995, tms9900::Signals> {
 };
 }  // namespace tms9995
 }  // namespace debugger
-#endif /* __SIGNALS_H__ */
+#endif /* __SIGNALS_TMS9995_H__ */
 
 // Local Variables:
 // mode: c++

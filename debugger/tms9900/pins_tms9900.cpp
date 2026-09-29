@@ -14,7 +14,7 @@ namespace tms9900 {
 
 // clang-format off
 /**
- * TMS9990 bus cycle
+ * TMS9900 bus cycle
  *         __          __          __          __          __          __
  *  PHI1 _|  |________|  |________|  |________|  |________|  |________|  |____
  *            __      v   __          __          __      |   __      |   __
@@ -38,6 +38,8 @@ namespace tms9900 {
  */
 // clang-format on
 
+// ATTENTION: these timing notes were copied from the TMS99105 and don't
+// describe the TMS9900.
 // fext: min 12MHz, max 24 MHz
 //  tc1: min  41.25 ns ; 1/fext
 //  tc2: min 165 ns ; 4tc1 cycle of CLKOUT
@@ -321,7 +323,7 @@ Signals *PinsTms9900::completeCycle(Signals *_s) {
     return s;
 }
 
-Signals *PinsTms9900::resumeCycle(uint16_t pc) {
+Signals *PinsTms9900::resumeCycle(uint16_t) {
     auto s = SignalsTms9900::put();
     s->getAddress();
     s->getControl();
