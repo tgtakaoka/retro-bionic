@@ -55,9 +55,14 @@ HALT_PORT = os.environ.get('BIONIC_HALT_PORT', '/dev/ttyACM1')
 PROJ = os.environ.get(
     'BIONIC_PROJ', os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 ENV = os.environ.get('BIONIC_ENV', 'teensy41')
-OUT = os.environ.get('BIONIC_OUT', '/tmp/bionic-last.txt')
+# Its own subdirectory, not loose files directly under /tmp: isolated from
+# unrelated cleanup there, and `rm -rf` on this one directory is the whole
+# cleanup.
+RUN_DIR = os.environ.get('BIONIC_RUN_DIR', '/tmp/bionic-bench')
+os.makedirs(RUN_DIR, exist_ok=True)
+OUT = os.environ.get('BIONIC_OUT', os.path.join(RUN_DIR, 'last.txt'))
 MCP = os.environ.get('BIONIC_MCP', 'http://127.0.0.1:10530')
-LOCK = os.environ.get('BIONIC_LOCK', '/tmp/bionic-board.lock')
+LOCK = os.environ.get('BIONIC_LOCK', os.path.join(RUN_DIR, 'board.lock'))
 # A run is judged by progress, not by elapsed time: STALL is how long the
 # console may stay silent before a run counts as stuck.  It has to exceed the
 # gap between two lines of output on the slowest target, not the fastest.
@@ -473,7 +478,7 @@ def mcp(name, args):
     return json.loads(body)
 
 
-def logic(directory='/tmp/bionic-logic'):
+def logic(directory=os.path.join(RUN_DIR, 'logic')):
     for cid in range(60, -1, -1):              # newest id wins
         res = mcp('export_raw_data_csv',
                   {'captureId': cid, 'directory': directory,
