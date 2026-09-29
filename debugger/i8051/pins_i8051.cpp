@@ -62,7 +62,7 @@ constexpr auto xtal_lo_output = 0;   // 42 ns
 constexpr auto xtal_hi_capture = 1;  // 42 ns
 constexpr auto xtal_lo_data = 20;    // 42 ns
 constexpr auto xtal_hi_input = 0;    // 42 ns
-// delayNanoseconds(0) takes a bit delay than no delayNanoseconds() call.
+// delayNanoseconds(0) takes a bit longer than no delayNanoseconds() call.
 
 inline void assert_int0() {
     digitalWriteFast(PIN_INT0, LOW);
@@ -220,8 +220,8 @@ void PinsI8051::resetPins() {
     pinMode(PIN_XTAL, OUTPUT);
     xtal_lo();
 
-    // A reset is accomplished by holding the RST pin high gfor at
-    // least two machine cycles (24 ocillator periods).
+    // A reset is accomplished by holding the RST pin high for at
+    // least two machine cycles (24 oscillator periods).
     for (auto i = 0; i < 30; ++i)
         xtal_cycle();
     negate_reset();
@@ -415,7 +415,9 @@ void PinsI8051::run() {
     _regs->restore();
     Cycles::reset();
     saveBreakInsts();
+    startRunTimer();
     loop();
+    stopRunTimer();
     restoreBreakInsts();
     disassembleCycles();
     _regs->save();
@@ -483,17 +485,21 @@ void PinsI8051::printCycles() {
     }
 }
 
-void PinsI8051::disassembleCycles() {
+const SignalsImpl *PinsI8051::findBacktraceStart() {
+    return backtraceStartByFetchCount<Signals>(_lineLimit);
+}
+
+void PinsI8051::printBacktrace() {
     const auto g = Signals::get();
     const auto cycles = g->diff(Signals::put());
     for (auto i = 0u; i < cycles;) {
         const auto s = g->next(i);
         if (s->fetch()) {
             const auto len = _mems->disassemble(s->addr, 1) - s->addr;
-            const auto cycles = InstI8051::busCycles(s->data);
-            for (auto i = len; i < cycles; ++i)
-                s->next(i)->print();
-            i += cycles;
+            const auto busCycles = InstI8051::busCycles(s->data);
+            for (auto j = len; j < busCycles; ++j)
+                s->next(j)->print();
+            i += busCycles;
         } else {
             s->print();
             ++i;

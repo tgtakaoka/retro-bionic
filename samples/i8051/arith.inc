@@ -123,7 +123,7 @@ addsi2:
         mov     @R0, A
         ret
 
-;;; Singed subtraction: minuend -= subtrahend
+;;; Signed subtraction: minuend -= subtrahend
 ;;; @param R2: &minuend
 ;;; @param R3: &subtrahend
 ;;; @clobber A R0 R2 R3
@@ -301,11 +301,14 @@ udiv16_8_loop:
         mov     A, B
         rlc     A
         mov     B, A            ; B:R2 <<= 1
-        ;; Compare B with R4 (divisor)
-        mov     A, B
-        clr     C
-        subb    A, R4           ; A=B-R4
+        jc      udiv16_8_sub    ; 9-bit remainder is always >= R4
+        subb    A, R4           ; A=B-R4 (C is clear)
         jc      udiv16_8_next   ; jump if B < R4
+        sjmp    udiv16_8_set
+udiv16_8_sub:
+        clr     C
+        subb    A, R4           ; the 9-bit difference fits in 8 bits
+udiv16_8_set:
         mov     B, A            ; update B
         inc     R2              ; set lowest bit as part of low(quotient)
 udiv16_8_next:
