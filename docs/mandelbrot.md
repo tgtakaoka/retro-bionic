@@ -27,9 +27,12 @@ The tables time them on real chips, from recorded casts, with
 | CPU      | frame | avg row | std dev | Note | Cast                                                   | Listing                                                       |
 | -------- | ----: | ------: | ------: | ---- | ------------------------------------------------------ | ------------------------------------------------------------- |
 | P8095BH  |   3.6 |   0.145 |   0.038 |      | [mandelbrot.cast](../samples/i8096/mandelbrot.cast)    | [i8096/mandelbrot.lst](../samples/i8096/mandelbrot.lst)       |
+| 68HC11   |  28.1 |   1.147 |   0.385 |      | [mandelbrot.cast](../samples/mc68hc11/mandelbrot.cast) | [mc68hc11/mandelbrot.lst](../samples/mc68hc11/mandelbrot.lst) |
 | P8051    |  35.0 |   1.428 |   0.442 |      | [mandelbrot.cast](../samples/i8051/mandelbrot.cast)    | [i8051/mandelbrot.lst](../samples/i8051/mandelbrot.lst)       |
 | INS8070  |  56.6 |   2.312 |   0.744 |      | [mandelbrot.cast](../samples/ins8070/mandelbrot.cast)  | [ins8070/mandelbrot.lst](../samples/ins8070/mandelbrot.lst)   |
+| MC6801   |  74.8 |   3.060 |   1.046 |      | [mandelbrot.cast](../samples/mc6801/mandelbrot.cast)   | [mc6801/mandelbrot.lst](../samples/mc6801/mandelbrot.lst)     |
 | P8085    |  77.7 |   3.172 |   1.040 |      | [mandelbrot.cast](../samples/i8085/mandelbrot.cast)    | [i8085/mandelbrot.lst](../samples/i8085/mandelbrot.lst)       |
+| MC6800   | 107.7 |   4.399 |   1.410 |      | [mandelbrot.cast](../samples/mc6800/mandelbrot.cast)   | [mc6800/mandelbrot.lst](../samples/mc6800/mandelbrot.lst)     |
 | P8080    | 132.0 |   5.390 |   1.763 |      | [mandelbrot.cast](../samples/i8080/mandelbrot.cast)    | [i8080/mandelbrot.lst](../samples/i8080/mandelbrot.lst)       |
 | P8039    | 172.0 |   7.028 |   2.333 |      | [mandelbrot.cast](../samples/i8048/mandelbrot.cast)    | [i8048/mandelbrot.lst](../samples/i8048/mandelbrot.lst)       |
 | CDP1804A | 198.3 |   8.099 |   2.639 |      | [mandelbrot.cast](../samples/cdp1804a/mandelbrot.cast) | [cdp1804a/mandelbrot.lst](../samples/cdp1804a/mandelbrot.lst) |

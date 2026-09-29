@@ -150,8 +150,8 @@ mul16_end:
         rts
 
 ;;; Unsigned division: dividend / divisor = quotient ... remainder
-;;; @praram R1 dividend
-;;; @praram R2 divisor
+;;; @param R1 dividend
+;;; @param R2 divisor
 ;;; @return R0 quotient
 ;;; @return R1 remainder
 ;;; @clobber R2
@@ -170,7 +170,7 @@ udiv16_prep_loop:
 udiv16_prep:
         tsta
         bpl     udiv16_prep_loop ; while msb(divisor) == 0
-        staa    R2H              ; update divisore
+        staa    R2H              ; update divisor
         stab    R2L
         ldaa    R1H
         ldab    R1L             ; A:B=dividend

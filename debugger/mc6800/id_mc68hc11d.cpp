@@ -6,7 +6,7 @@
 namespace debugger {
 namespace mc68hc11d {
 
-struct mc68hc11::Mc68hc11Init Init{0x00, 0x40, 192, 0x3F};
+struct mc68hc11::Mc68hc11Init Init{0x00, 0x40, 192, 0x40};
 
 Pins *instance() {
     return new mc68hc11::PinsMc68hc11(Init);

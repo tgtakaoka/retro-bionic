@@ -167,7 +167,7 @@ arith:
         jsr     expr
         subb    vB+1
         sbca    vB
-        jsr     answer          ; -19536
+        jsr     answer          ; 10000
 
         ldaa    #(18000) >> 8
         ldab    #(18000) & $FF
@@ -175,7 +175,7 @@ arith:
         jsr     expr
         subb    vB+1
         sbca    vB
-        jsr     answer          ; 29536
+        jsr     answer          ; -29536
 
         ldaa    #(-28000) >> 8
         ldab    #(-28000) & $FF

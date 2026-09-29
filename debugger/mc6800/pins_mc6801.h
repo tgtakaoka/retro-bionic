@@ -2,7 +2,7 @@
 #define __PINS_MC6801_H__
 
 /**
- * For LILBUG's trace, Timer ouput (P21/PC1) must be connected to #NMI on board.
+ * For LILBUG's trace, Timer output (P21/PC1) must be connected to #NMI on board.
  */
 
 /**
@@ -68,7 +68,7 @@ struct PinsMc6801 final : PinsMc6800Base {
 protected:
     mc6800::Signals *cycle() override;
     mc6800::Signals *rawCycle() override;
-    bool nonVmaAfteContextSave() const override { return !isHd63(); };
+    bool nonVmaAfterContextSave() const override { return !isHd63(); };
 
     bool isHd63() const;
 };

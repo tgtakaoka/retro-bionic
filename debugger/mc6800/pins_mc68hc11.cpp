@@ -33,8 +33,8 @@ namespace mc68hc11 {
  * - R/W and non-muxed address are valid before rising edge of c1.
  * - Muxed address is valid before 151ns of falling edge of AS.
  * - Muxed address is valid until 95.4ns of falling edge of AS.
- * - Read data setup to falling E egde is 30ns.
- * - Read data hold to falling E egde is 145.5ns.
+ * - Read data setup to falling E edge is 30ns.
+ * - Read data hold to falling E edge is 145.5ns.
  * - Write data gets valid after 190.5ns of rising E edge.
  */
 
@@ -96,6 +96,21 @@ inline void extal_cycle() {
 
 inline auto clock_e() {
     return digitalReadFast(PIN_E);
+}
+
+// STOP freezes E until an interrupt restarts the clock, which may come back
+// at another phase against EXTAL; walk EXTAL until E falls again.
+void resync_e() {
+    for (auto n = 0; clock_e() == LOW; ++n) {
+        if (n >= 16)
+            return;  // still stopped
+        extal_cycle();
+        delayNanoseconds(extal_e_ns);
+    }
+    while (clock_e() != LOW) {
+        extal_cycle();
+        delayNanoseconds(extal_e_ns);
+    }
 }
 
 inline auto reset_signal() {
@@ -265,6 +280,8 @@ mc6800::Signals *PinsMc68hc11::rawCycle() {
         extal_lo();
         delayNanoseconds(c4_lo_read);
         s->getControl();
+        if (clock_e() == LOW)
+            return stopped(s);
         // C4H
         extal_hi();
         // change data bus to output
@@ -280,6 +297,10 @@ mc6800::Signals *PinsMc68hc11::rawCycle() {
         // C3H
         extal_hi();
         delayNanoseconds(c3_hi_write);
+        if (clock_e() == LOW) {
+            --_writes;
+            return stopped(s);
+        }
         s->getData();
         // C4L
         extal_lo();
@@ -301,7 +322,16 @@ mc6800::Signals *PinsMc68hc11::rawCycle() {
     return s;
 }
 
-void PinsMc68hc11::disassembleCycles() {
+mc6800::Signals *PinsMc68hc11::stopped(Signals *s) {
+    s->clearVma();
+    extal_lo();
+    Signals::inputMode();
+    resync_e();
+    Cycles::next();
+    return s;
+}
+
+void PinsMc68hc11::printBacktrace() {
     const auto g = Signals::get();
     const auto cycles = g->diff(Signals::put());
     for (auto i = 0u; i < cycles;) {

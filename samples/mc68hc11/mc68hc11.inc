@@ -15,7 +15,7 @@ CC_STOP       equ  %10000000   ; if 1, STOP instruction is disabled
 VEC_IRQ:        equ     $FFF2  ; $FFF2: #IRQ 
 VEC_XIRQ:       equ     $FFF4  ; $FFF4: #XIRQ
 VEC_SWI:        equ     $FFF6  ; $FFF6: Software Interrupt
-VEC_ILOP:       equ     $FFF8  ; $FFF8: Illegal Opecode Trap
+VEC_ILOP:       equ     $FFF8  ; $FFF8: Illegal Opcode Trap
 VEC_COP:        equ     $FFFA  ; $FFFA: COP (Watchdog) Failure
 VEC_CMF:        equ     $FFFC  ; $FFFC: Clock Monitor Fail
 VEC_RESET:      equ     $FFFE  ; $FFFE: Reset

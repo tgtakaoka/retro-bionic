@@ -1,7 +1,7 @@
         cpu     6811
         include "mc68hc11d.inc"
 
-;;; SCI: Emable Rx and Tx
+;;; SCI: Enable Rx and Tx
 RX_ON_TX_ON:   equ     SCCR2_TE_bm|SCCR2_RE_bm
 
         org     $1000

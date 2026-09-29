@@ -44,7 +44,7 @@ RegsMc6800::RegsMc6800(PinsMc6800Base *pins) : _pins(pins), _buffer(line) {}
  * MC6800/MB8861(MB8870)
  *   LDX  #$FFFF
  *   FCB  $EC, $01
- *        ; CPX 1,X ($AC $01, 6 clcoks) on MC6800
+ *        ; CPX 1,X ($AC $01, 6 clocks) on MC6800
  *        ; ADX #1  ($EC $01, 2 clocks) on MB8861
  * X=$FFFF: MC6800
  * X=$0000: MB8861
@@ -110,7 +110,7 @@ void RegsMc6800::save() {
     _b = context[5];
     _cc = context[6];
     // Read SWI vector
-    const auto readVector = _pins->nonVmaAfteContextSave() ? 3 : 2;
+    const auto readVector = _pins->nonVmaAfterContextSave() ? 3 : 2;
     context[0] = 0;  // irrelevant data
     context[readVector - 2] = hi(_pc);
     context[readVector - 1] = lo(_pc);
