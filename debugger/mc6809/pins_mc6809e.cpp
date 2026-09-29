@@ -4,7 +4,7 @@
 #include "inst_hd6309.h"
 #include "mems_mc6809.h"
 #include "regs_mc6809e.h"
-#include "signals_mc6809e.h"
+#include "signals_mc6809.h"
 
 namespace debugger {
 namespace mc6809e {
@@ -145,7 +145,7 @@ mc6809::Signals *PinsMc6809E::rawCycle() const {
     static uint8_t vma_next = LOW;
     // c1
     mc6809::Signals::inputMode();
-    auto s = Signals::put();
+    auto s = mc6809::Signals::put();
     delayNanoseconds(c1_ns);
     // c2
     c2_clock();
@@ -197,27 +197,6 @@ mc6809::Signals *PinsMc6809E::rawCycle() const {
 mc6809::Signals *PinsMc6809E::cycle() const {
     delayNanoseconds(cycle_ns);
     return rawCycle();
-}
-
-const mc6809::Signals *PinsMc6809E::findFetch(
-        mc6809::Signals *begin, const mc6809::Signals *end) {
-    const auto native6309 = regs<RegsMc6809>()->contextLength() == 14;
-    const auto cycles = begin->diff(end);
-    if (!native6309) {
-        for (uint8_t i = 1; i <= cycles; ++i) {
-            auto s = begin->next(cycles - i);
-            if (s->fetch()) {
-                s->clearFetch();
-                s->next()->markFetch(1);
-            }
-        }
-    }
-    for (uint8_t i = 0; i < cycles; ++i) {
-        const auto s = begin->next(i);
-        if (s->fetch())
-            return s;
-    }
-    return end;
 }
 
 }  // namespace mc6809e

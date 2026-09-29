@@ -25,9 +25,6 @@ struct PinsMc6809E final : PinsMc6809Base {
 protected:
     mc6809::Signals *rawCycle() const override;
     mc6809::Signals *cycle() const override;
-
-    const mc6809::Signals *findFetch(
-            mc6809::Signals *begin, const mc6809::Signals *end) override;
 };
 
 }  // namespace mc6809e
