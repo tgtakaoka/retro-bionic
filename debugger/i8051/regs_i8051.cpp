@@ -40,8 +40,10 @@ const uint8_t RegsI8051::SAVE_A[] = {
 
 void RegsI8051::save() {
     _pins->captureWrites(SAVE_A, sizeof(SAVE_A), &_pc, &_a, sizeof(_a));
-    _b = raw_read_internal(B);
+    // PSW first: its parity flag follows A, which every later read
+    // overwrites.
     _psw = raw_read_internal(PSW);
+    _b = raw_read_internal(B);
     _sp = raw_read_internal(SP);
     _dptr = uint16(raw_read_internal(DPH), raw_read_internal(DPL));
     save_r();
@@ -191,7 +193,7 @@ bool RegsI8051::setRegister(uint_fast8_t reg, uint32_t value) {
         _psw |= (value << 1);
         break;
     default:
-        _r[reg - 4] = value;
+        set_r(reg - 4, value);
         break;
     }
     return false;

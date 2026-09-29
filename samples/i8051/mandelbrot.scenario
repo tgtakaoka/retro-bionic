@@ -1,0 +1,42 @@
+# Scenario for scripts/record-scenario.py: the 8051's register banks.
+# R0-R7 are not registers in the CPU but internal RAM 00h-1Fh, four
+# banks of eight picked by PSW's RS1:RS0. The USART interrupt handlers
+# switch to bank 1, so they save DPTR and A in their own R1-R3 without
+# touching the main program's.
+#
+# ADDRESS IS PINNED TO THE CURRENT samples/i8051/mandelbrot.hex: the
+# "setb PSW.RS0" in isr_intr_tx at 44B. If mandelbrot.asm/.inc or the
+# .hex ever change, re-check it against the fresh .lst before
+# recording -- a stale address will look like it works (it
+# disassembles *something*) while showing the wrong thing.
+
+key ?
+pace 2.0
+
+key R
+upload samples/i8051/mandelbrot.hex
+
+# Stop in the transmit interrupt handler, still on bank 0 (RS=0), and
+# dump internal RAM: bank 0 at 00-07, bank 1 at 08-0F.
+type g
+wait Go until?
+command 44B 5
+pace 0.9
+type d
+wait Data dump?
+command 00 20
+pace 2.0
+
+# One step selects bank 1: RS=1, and R0-R7 now show 08-0F. Three more
+# save DPL, DPH and A into bank 1's R1-R3, leaving bank 0 as it was.
+step 1
+pace 1.5
+step 3
+pace 1.5
+type d
+wait Data dump?
+command 00 20
+pace 2.5
+
+# Watch one frame render; it takes about half a minute.
+run 1 300
