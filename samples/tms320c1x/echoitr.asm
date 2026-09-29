@@ -170,7 +170,7 @@ put_hex4:
         b       put_hex4_char
 put_hex4_hex:
         lack    'A'-10
-put_hex4_char
+put_hex4_char:
         add     work
         call    putchar
         zals    put_hex4_ret
@@ -190,7 +190,7 @@ put_bin8:
         sacl    char            ; char<<=8
 put_bin1:
         lac     char,1          ;
-        sacl    char            ; work<<=1
+        sacl    char            ; char<<=1
         sach    work
         zals    work
         and     one
@@ -241,5 +241,7 @@ int_isr_exit:
         eint
         ret
 int_isr_send_empty:
+        ldpk    0               ; page 0
         out     acia_tx_dis,ACIA_control
+        ldpk    1               ; page 1
         b       int_isr_exit
