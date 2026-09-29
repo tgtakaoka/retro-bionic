@@ -411,7 +411,7 @@ constexpr uint8_t INST_TABLE[] = {
         E(M_DIR, 28),   // DD: OR   A,n      ; 1:2:E:N
         E(M_AUTO, 27),  // DE: OR   A,@d,P2  ; 1:2:R:N
         E(M_AUTO, 27),  // DF: OR   A,@d,P3  ; 1:2:R:N
-        0,              // E0: XOR  A,d,PC   ; 1:2:Q:N
+        E(M_DISP, 26),  // E0: XOR  A,d,PC   ; 1:2:Q:N
         E(M_DISP, 27),  // E1: XOR  A,d,SP   ; 1:2:R:N
         E(M_DISP, 27),  // E2: XOR  A,d,P2   ; 1:2:R:N
         E(M_DISP, 27),  // E3: XOR  A,d,P3   ; 1:2:R:N

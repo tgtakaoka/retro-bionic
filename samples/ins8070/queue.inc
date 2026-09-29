@@ -78,7 +78,7 @@ queue_remove:
         push    P3
         ld      A, queue_len, P2
         bz      queue_remove_return ; A is zero
-queue_remove_elem
+queue_remove_elem:
         ld      A, queue_get, P2 ; 8 bits offset
         jsr     add_p2_a
         ld      A, queue_buf, P3 ; read an element

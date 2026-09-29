@@ -28,6 +28,10 @@ bool Signals::getDirection() {
     return cntl() != (CNTL_RDS | CNTL_WDS);
 }
 
+void Signals::noCycle() {
+    cntl() = CNTL_RDS | CNTL_WDS;
+}
+
 bool Signals::read() const {
     return (cntl() & CNTL_RDS) == 0;
 }
@@ -63,7 +67,13 @@ void Signals::print() const {
     buffer[0] = read() ? 'R' : 'W';
     buffer.hex16(4, addr);
     buffer.hex8(11, data);
+#ifdef PROFILE_CYCLES
+    // The matcher's mark, for tools/cycles_ins8070.py.
+    cli.print(buffer);
+    cli.println(fetchMark() ? " L" : "");
+#else
     cli.println(buffer);
+#endif
 }
 
 }  // namespace ins8070
