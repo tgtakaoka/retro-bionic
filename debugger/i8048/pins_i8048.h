@@ -99,7 +99,8 @@ private:
     uint8_t execute(const uint8_t *inst, uint8_t len, uint16_t *addr,
             uint8_t *buf, uint8_t max);
 
-    void disassembleCycles();
+    const SignalsImpl *findBacktraceStart() override;
+    void printBacktrace() override;
 };
 
 }  // namespace i8048

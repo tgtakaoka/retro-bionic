@@ -80,7 +80,17 @@ void Signals::print() const {
         buffer.hex8(5, addr);
     }
     buffer.hex8(10, data);
+#ifdef PROFILE_CYCLES
+    // The matcher's verdict and the unstrobed machine cycles before, for
+    // tools/cycles_i8048.py.
+    cli.print(buffer);
+    cli.print(" m=");
+    cli.printDec(matched());
+    cli.print(" i=");
+    cli.printlnDec(idles());
+#else
     cli.println(buffer);
+#endif
 }
 
 }  // namespace i8048

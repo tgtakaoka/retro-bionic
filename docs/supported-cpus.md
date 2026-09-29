@@ -55,7 +55,7 @@ report several parts.
 <tr><td>🚧</td><td><code>Z8002</code></td><td></td><td><code>Z0800210PSC</code>, <code>Z16C0210PSC</code></td></tr>
 <tr><td><code>z280</code></td><td></td><td>🚧</td><td><code>Z280</code></td><td></td><td><code>Z8028012VSC</code>; 16-bit bus and cache make timing unlike the Z180</td></tr>
 <tr><td><code>z380</code></td><td></td><td>🚧</td><td><code>Z380</code></td><td></td><td><code>Z8038018FSC</code></td></tr>
-<tr><td><code>i8048</code></td><td><code>i8048</code></td><td>✅</td><td><code>P8039</code></td><td><code>MSM80C39</code></td><td>No absolute addressing, subtract or compare</td></tr>
+<tr><td><code>i8048</code></td><td><code>i8048</code></td><td>✅</td><td><code>P8048</code></td><td><code>P8039</code>, <code>MSM80C39</code></td><td>No absolute addressing, subtract or compare</td></tr>
 <tr><td><code>i8051</code></td><td><code>i8051</code></td><td>✅</td><td><code>P8051</code></td><td><code>P80C51</code></td><td>Clock-to-control-signal delay is about half a cycle</td></tr>
 <tr><td rowspan="2"><code>i8080</code></td><td rowspan="2"><code>i8080</code></td><td>✅</td><td><code>P8080</code></td><td></td><td>Non-overlapping two-phase 12 V clock; <code>RESET</code> resumes from a HALT breakpoint</td></tr>
 <tr><td>✅</td><td><code>P8085</code></td><td></td><td></td></tr>
