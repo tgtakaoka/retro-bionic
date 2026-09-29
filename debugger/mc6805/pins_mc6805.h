@@ -42,10 +42,17 @@ protected:
     virtual bool rawStep();
     Signals *cycle();
     Signals *suspend(Signals *s);
+    Signals *wakeUp(Signals *s);
+    // Realign to the bus after STOP, starting and ending between cycles,
+    // giving up after |clocks|.
+    virtual void resyncBus(uint16_t) {}
+    bool _woken = false;
+    uint8_t _lastOpcode = 0;
     bool checkBreakPoint(Signals *s);
     virtual void loop();
 
-    void disassembleCycles();
+    const SignalsImpl *findBacktraceStart() override;
+    void printBacktrace() override;
 };
 
 }  // namespace mc6805

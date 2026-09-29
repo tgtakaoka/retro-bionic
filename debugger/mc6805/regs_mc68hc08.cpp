@@ -63,6 +63,13 @@ void RegsMc68HC08::save() {
 }
 
 void RegsMc68HC08::restore() {
+    // Clear the COP counter, so that every run starts a full COP period.
+    static constexpr uint8_t STA_COPCTL[] = {
+            0xC7, 0xFF, 0xFF,  // STA $FFFF; 0:2:3:B:N
+    };
+    _pins->injectReads(STA_COPCTL, sizeof(STA_COPCTL), 0);
+    uint8_t copctl;
+    _pins->captureWrites(&copctl, sizeof(copctl), true);
     const uint8_t LDSP_HX[] = {
             0x45, hi(_sp - 4), lo(_sp - 4),  // LDHX #_sp-4; 0:2:3:N
             0x94, 0x45,                      // TXS        ; 0:N:N

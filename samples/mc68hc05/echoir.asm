@@ -2,10 +2,13 @@
 
 ;;; MC6850 Asynchronous Communication Interface Adapter
 ACIA:   equ     $FFE0
+ACIA_HC05:      equ     ACIA   ; for ../mc6805/cputype.inc
         include "../mc6800/mc6850.inc"
 RX_INT_TX_NO:   equ     WSB_8N1_gc|RIEB_bm
 
-        org     RAM_START
+        org     $50             ; RAM on the MC68HC08 too
+cputype:
+        rmb     1
 save_a:
         rmb     1
 
@@ -25,18 +28,21 @@ rx_queue:
 
         org     $1000
 initialize:
+        include "../mc6805/cputype.inc"
         ldx     #rx_queue
         lda     #rx_queue_size
         jsr     queue_init
         ;; initialize ACIA
         lda     #CDS_RESET_gc   ; Master reset
-        sta     ACIA_control
+        jsr     store_ACIA_control
         lda     #RX_INT_TX_NO
-        sta     ACIA_control
+        jsr     store_ACIA_control
         cli                     ; Enable IRQ
         bra     loop
 
 loop:
+        lda     COP_RESET       ; service the MC68HC08's COP, a mask option
+        sta     COP_RESET
         ldx     #rx_queue
         sei                     ; Disable IRQ
         jsr     queue_remove
@@ -56,24 +62,24 @@ halt_to_system:
 putchar:
         sta     save_a
 putchar_loop:
-        lda     ACIA_status
+        jsr     load_ACIA_status
         bit     #TDRE_bm
         beq     putchar_loop
 putchar_data:
         lda     save_a
-        sta     ACIA_data
+        jsr     store_ACIA_data
         rts
 
         include "../mc6805/queue.inc"
 
 isr_irq:
-        lda     ACIA_status
+        jsr     load_ACIA_status
         bit     #IRQF_bm
         beq     isr_irq_return
 isr_irq_receive:
         bit     #RDRF_bm
         beq     isr_irq_recv_end
-        lda     ACIA_data
+        jsr     load_ACIA_data
         ldx     #rx_queue
         jsr     queue_add
 isr_irq_recv_end:

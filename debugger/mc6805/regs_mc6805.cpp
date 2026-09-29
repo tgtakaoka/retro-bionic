@@ -66,7 +66,7 @@ bool RegsMc6805::captureContext(const Signals *frame) {
     // Machine context were pushed in the following order; PCL, PCH, X, A, CC
     const auto pcl = frame;
     const auto pch = frame->next();
-    if (pcl->write() && pcl->write()) {
+    if (pcl->write() && pch->write()) {
         _pc = uint16(pch->data, pcl->data);
         _sp = frame->addr;
         const auto x = frame->next(2);
@@ -86,7 +86,8 @@ void RegsMc6805::captureExtra(uint16_t pc) {
     _pc = pc;
     // If SWI vector pointing internal memory, we can't inject instructions.
     static constexpr uint8_t DUMMY_SWI[] = {0x10, 0x00};
-    _pins->injectReads(DUMMY_SWI, sizeof(DUMMY_SWI), 0);
+    // Finish at the opcode fetch, as save() does.
+    _pins->injectReads(DUMMY_SWI, sizeof(DUMMY_SWI), isHC08() ? 0 : 1);
 }
 
 void RegsMc6805::helpRegisters() const {

@@ -1,0 +1,36 @@
+# Scenario for scripts/record-scenario.py: an MC146805E2 interrupt. On IRQ
+# the CPU pushes its whole context -- PC, X, A and CC, five bytes, X being
+# only 8 bits -- then fetches the handler's address from the vector at
+# 1FFA, the top of its 13-bit space. The ACIA's transmitter interrupt
+# brings mandelbrot's output into isr_irq.
+#
+# ADDRESS IS PINNED TO THE CURRENT samples/mc6805/mandelbrot.s19:
+# isr_irq at 1475. If mandelbrot.asm/.inc or the .s19 ever change,
+# re-check it against the fresh .lst before recording -- a stale address
+# will look like it works (it disassembles *something*) while showing the
+# wrong thing.
+
+key ?
+pace 2.0
+
+key R
+upload samples/mc6805/mandelbrot.s19
+
+# Reset again so the PC comes from the uploaded reset vector.
+key R
+pace 1.5
+
+# Stop at the handler. The backtrace shows the five stack writes and the
+# two vector reads from 1FFA/1FFB.
+type g
+wait Go until?
+command 1475 10
+pace 2.0
+
+# The handler reads the ACIA status through a subroutine that picks the
+# ACIA's address by CPU type: 17F8 on this 13-bit bus.
+step 3
+pace 1.5
+
+# Watch one frame render.
+run 1 300

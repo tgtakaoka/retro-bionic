@@ -1,5 +1,6 @@
 #include "devs_mc68hc05c0.h"
 #include <strings.h>
+#include "mc68hc05c0_sci_handler.h"
 
 namespace debugger {
 namespace mc68hc05c0 {
@@ -29,6 +30,10 @@ void DevsMc68HC05C0::setIdle(bool idle) {
 
 bool DevsMc68HC05C0::isSelected(uint32_t addr) const {
     return _sci->isSelected(addr) || DevsMc6805::isSelected(addr);
+}
+
+uint16_t DevsMc68HC05C0::read(uint32_t addr) const {
+    return _sci->isSelected(addr) ? _sci->read(addr) : DevsMc6805::read(addr);
 }
 
 void DevsMc68HC05C0::write(uint32_t addr, uint16_t data) const {

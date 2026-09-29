@@ -20,7 +20,7 @@
 # i: next instruction read from unknown
 # V: read 1 byte from address FFF8-FFFE (high(addr))
 # v: read 1 byte from address V+1 (low(addr))
-# d: read 1 byte from previousy address
+# d: read 1 byte from previous address
 #
 # Interrupt sequence
 # 0:d:w:W:W:W:W:V:v:J
@@ -42,7 +42,7 @@ constexpr const char *const SEQUENCES[/*seq*/] = {
         "rN",          //  7
         "rrrrN",       //  8
         "rNrrrr",      //  9
-        "rNNNrrrr",    // 10
+        "rNrrrrrr",    // 10
         "rrNrw",       // 11
         "rNrr",        // 12
         "rrNr",        // 13
@@ -52,18 +52,17 @@ constexpr const char *const SEQUENCES[/*seq*/] = {
         "rNw",         // 17
         "rrrrrrrN",    // 18
         "rrwwwwwVrN",  // 19
-        "rNN",         // 20
-        "rrN",         // 21
-        "rrrwwN",      // 22
-        "rrrNr",       // 23
-        "rrrNw",       // 24
-        "rrrwwrN",     // 25
-        "rrwwrN",      // 26
-        "rrrNrw",      // 27
-        "rrrrrrN",     // 28
-        "rrrrrwN",     // 29
-        "rrrrNr",      // 30
-        "rrrrNw",      // 31
+        "rrN",         // 20
+        "rrrwwN",      // 21
+        "rrrNr",       // 22
+        "rrrNw",       // 23
+        "rrrwwrN",     // 24
+        "rrwwrN",      // 25
+        "rrrNrw",      // 26
+        "rrrrrrN",     // 27
+        "rrrrrwN",     // 28
+        "rrrrNr",      // 29
+        "rrrrNw",      // 30
 };
 
 constexpr uint8_t P00_TABLE[] = {
@@ -132,7 +131,7 @@ constexpr uint8_t P00_TABLE[] = {
         0,   // 3E: -     -        - - -
         6,   // 3F: CLR   a8       2 3 0:2:E:N
         7,   // 40: NEGA  -        1 1 0:N
-        8,   // 41: CBEQA #n8,r8   3 4 0:2:3:d:N
+        8,   // 41: CBEQA #n8,r8   3 4 0:2:3:d:j
         9,   // 42: MUL   -        1 5 0:N:d:d:d:d
         7,   // 43: COMA  -        1 1 0:N
         7,   // 44: LSRA  -        1 1 0:N
@@ -148,8 +147,8 @@ constexpr uint8_t P00_TABLE[] = {
         5,   // 4E: MOV   a8,a8    3 5 0:2:D:3:E:N
         7,   // 4F: CLRA  -        1 1 0:N
         7,   // 50: NEGX  -        1 1 0:N
-        8,   // 51: CBEQX #n8,r8   3 4 0:2:3:d:N
-        10,  // 52: DIV   -        1 7 0:N:N:N:d:d:d:d
+        8,   // 51: CBEQX #n8,r8   3 4 0:2:3:d:j
+        10,  // 52: DIV   -        1 7 0:N:d:d:d:d:d:d
         7,   // 53: COMX  -        1 1 0:N
         7,   // 54: LSRX  -        1 1 0:N
         8,   // 55: LDHX  a8       2 4 0:2:D:r:N
@@ -164,7 +163,7 @@ constexpr uint8_t P00_TABLE[] = {
         2,   // 5E: MOV   a8,X+    2 4 0:2:D:W:N
         7,   // 5F: CLRX  -        1 1 0:N
         11,  // 60: NEG   d8,X     2 4 0:2:N:R:W
-        1,   // 61: CBEQ  d8,X+,r8 3 5 0:2:3:R:d:N
+        1,   // 61: CBEQ  d8,X+,r8 3 5 0:2:3:R:d:j
         12,  // 62: NSA   -        1 3 0:N:d:d
         11,  // 63: COM   d8,X     2 4 0:2:N:R:W
         11,  // 64: LSR   d8,X     2 4 0:2:N:R:W
@@ -180,7 +179,7 @@ constexpr uint8_t P00_TABLE[] = {
         2,   // 6E: MOV   #n8,a8   3 4 0:2:3:E:N
         14,  // 6F: CLR   d8,X     2 3 0:2:N:W
         15,  // 70: NEG   ,X       1 3 0:N:R:W
-        8,   // 71: CBEQ  X+,r8    2 4 0:2:R:d:N
+        8,   // 71: CBEQ  X+,r8    2 4 0:2:R:d:j
         16,  // 72: DAA   -        1 2 0:N:d
         15,  // 73: COM   ,X       1 3 0:N:R:W
         15,  // 74: LSR   ,X       1 3 0:N:R:W
@@ -199,7 +198,7 @@ constexpr uint8_t P00_TABLE[] = {
         8,   // 81: RTS   -        1 4 0:d:R:r:J
         0,   // 82: -     -        - - -
         19,  // 83: SWI   -        1 9 0:d:w:W:W:W:W:V:v:J
-        20,  // 84: TAP   -        1 2 0:N:N
+        16,  // 84: TAP   -        1 2 0:N:d
         7,   // 85: TPA   -        1 1 0:N
         16,  // 86: PULA  -        1 2 0:N:R
         17,  // 87: PSHA  -        1 2 0:N:W
@@ -227,22 +226,22 @@ constexpr uint8_t P00_TABLE[] = {
         7,   // 9D: NOP   -        1 1 0:N
         0,   // 9E: P9E   -        - - -
         7,   // 9F: TXA   -        1 1 0:N
-        21,  // A0: SUB   #n8      2 2 0:2:N
-        21,  // A1: CMP   #n8      2 2 0:2:N
-        21,  // A2: SBC   #n8      2 2 0:2:N
-        21,  // A3: CPX   #n8      2 2 0:2:N
-        21,  // A4: AND   #n8      2 2 0:2:N
-        21,  // A5: BIT   #n8      2 2 0:2:N
-        21,  // A6: LDA   #n8      2 2 0:2:N
-        21,  // A7: AIS   #n8      2 2 0:2:N
-        21,  // A8: EOR   #n8      2 2 0:2:N
-        21,  // A9: ADC   #n8      2 2 0:2:N
-        21,  // AA: ORA   #n8      2 2 0:2:N
-        21,  // AB: ADD   #n8      2 2 0:2:N
+        20,  // A0: SUB   #n8      2 2 0:2:N
+        20,  // A1: CMP   #n8      2 2 0:2:N
+        20,  // A2: SBC   #n8      2 2 0:2:N
+        20,  // A3: CPX   #n8      2 2 0:2:N
+        20,  // A4: AND   #n8      2 2 0:2:N
+        20,  // A5: BIT   #n8      2 2 0:2:N
+        20,  // A6: LDA   #n8      2 2 0:2:N
+        20,  // A7: AIS   #n8      2 2 0:2:N
+        20,  // A8: EOR   #n8      2 2 0:2:N
+        20,  // A9: ADC   #n8      2 2 0:2:N
+        20,  // AA: ORA   #n8      2 2 0:2:N
+        20,  // AB: ADD   #n8      2 2 0:2:N
         0,   // AC: -     -        - - -
-        4,   // AD: BSR   r8       2 4 0:2:w:W:N
-        21,  // AE: LDX   #n8      2 2 0:2:N
-        21,  // AF: AIX   #n8      2 2 0:2:N
+        4,   // AD: BSR   r8       2 4 0:2:w:W:j
+        20,  // AE: LDX   #n8      2 2 0:2:N
+        20,  // AF: AIX   #n8      2 2 0:2:N
         3,   // B0: SUB   a8       2 3 0:2:D:N
         3,   // B1: CMP   a8       2 3 0:2:D:N
         3,   // B2: SBC   a8       2 3 0:2:D:N
@@ -255,10 +254,10 @@ constexpr uint8_t P00_TABLE[] = {
         3,   // B9: ADC   a8       2 3 0:2:D:N
         3,   // BA: ORA   a8       2 3 0:2:D:N
         3,   // BB: ADD   a8       2 3 0:2:D:N
-        21,  // BC: JMP   a8       2 2 0:2:J
+        20,  // BC: JMP   a8       2 2 0:2:J
         4,   // BD: JSR   a8       2 4 0:2:w:W:J
         3,   // BE: LDX   a8       2 3 0:2:D:N
-        3,   // BF: STX   a8       2 3 0:2:D:N
+        6,   // BF: STX   a8       2 3 0:2:E:N
         8,   // C0: SUB   a16      3 4 0:2:3:A:N
         8,   // C1: CMP   a16      3 4 0:2:3:A:N
         8,   // C2: SBC   a16      3 4 0:2:3:A:N
@@ -272,25 +271,25 @@ constexpr uint8_t P00_TABLE[] = {
         8,   // CA: ORA   a16      3 4 0:2:3:A:N
         8,   // CB: ADD   a16      3 4 0:2:3:A:N
         3,   // CC: JMP   a16      3 3 0:2:3:J
-        22,  // CD: JSR   a16      3 5 0:2:3:w:W:J
+        21,  // CD: JSR   a16      3 5 0:2:3:w:W:J
         8,   // CE: LDX   a16      3 4 0:2:3:A:N
         2,   // CF: STX   a16      3 4 0:2:3:B:N
-        23,  // D0: SUB   d16,X    3 4 0:2:3:N:R
-        23,  // D1: CMP   d16,X    3 4 0:2:3:N:R
-        23,  // D2: SBC   d16,X    3 4 0:2:3:N:R
-        23,  // D3: CPX   d16,X    3 4 0:2:3:N:R
-        23,  // D4: AND   d16,X    3 4 0:2:3:N:R
-        23,  // D5: BIT   d16,X    3 4 0:2:3:N:R
-        23,  // D6: LDA   d16,X    3 4 0:2:3:N:R
-        24,  // D7: STA   d16,X    3 4 0:2:3:N:W
-        23,  // D8: EOR   d16,X    3 4 0:2:3:N:R
-        23,  // D9: ADC   d16,X    3 4 0:2:3:N:R
-        23,  // DA: ORA   d16,X    3 4 0:2:3:N:R
-        23,  // DB: ADD   d16,X    3 4 0:2:3:N:R
+        22,  // D0: SUB   d16,X    3 4 0:2:3:N:R
+        22,  // D1: CMP   d16,X    3 4 0:2:3:N:R
+        22,  // D2: SBC   d16,X    3 4 0:2:3:N:R
+        22,  // D3: CPX   d16,X    3 4 0:2:3:N:R
+        22,  // D4: AND   d16,X    3 4 0:2:3:N:R
+        22,  // D5: BIT   d16,X    3 4 0:2:3:N:R
+        22,  // D6: LDA   d16,X    3 4 0:2:3:N:R
+        23,  // D7: STA   d16,X    3 4 0:2:3:N:W
+        22,  // D8: EOR   d16,X    3 4 0:2:3:N:R
+        22,  // D9: ADC   d16,X    3 4 0:2:3:N:R
+        22,  // DA: ORA   d16,X    3 4 0:2:3:N:R
+        22,  // DB: ADD   d16,X    3 4 0:2:3:N:R
         8,   // DC: JMP   d16,X    3 4 0:2:3:d:i
-        25,  // DD: JSR   d16,X    3 6 0:2:3:w:W:d:i
-        23,  // DE: LDX   d16,X    3 4 0:2:3:N:R
-        24,  // DF: STX   d16,X    3 4 0:2:3:N:W
+        24,  // DD: JSR   d16,X    3 6 0:2:3:w:W:d:i
+        22,  // DE: LDX   d16,X    3 4 0:2:3:N:R
+        23,  // DF: STX   d16,X    3 4 0:2:3:N:W
         13,  // E0: SUB   d8,X     2 3 0:2:N:R
         13,  // E1: CMP   d8,X     2 3 0:2:N:R
         13,  // E2: SBC   d8,X     2 3 0:2:N:R
@@ -304,7 +303,7 @@ constexpr uint8_t P00_TABLE[] = {
         13,  // EA: ORA   d8,X     2 3 0:2:N:R
         13,  // EB: ADD   d8,X     2 3 0:2:N:R
         3,   // EC: JMP   d8,X     2 3 0:2:d:i
-        26,  // ED: JSR   d8,X     2 5 0:2:w:W:d:i
+        25,  // ED: JSR   d8,X     2 5 0:2:w:W:d:i
         13,  // EE: LDX   d8,X     2 3 0:2:N:R
         14,  // EF: STX   d8,X     2 3 0:2:N:W
         16,  // F0: SUB   ,X       1 2 0:N:R
@@ -319,7 +318,7 @@ constexpr uint8_t P00_TABLE[] = {
         16,  // F9: ADC   ,X       1 2 0:N:R
         16,  // FA: ORA   ,X       1 2 0:N:R
         16,  // FB: ADD   ,X       1 2 0:N:R
-        21,  // FC: JMP   ,X       1 2 0:d:i
+        20,  // FC: JMP   ,X       1 2 0:d:i
         4,   // FD: JSR   ,X       1 4 0:d:w:W:i
         16,  // FE: LDX   ,X       1 2 0:N:R
         17,  // FF: STX   ,X       1 2 0:N:W
@@ -422,22 +421,22 @@ constexpr uint8_t P9E_TABLE[] = {
         0,   // 5D: -     -        - - -
         0,   // 5E: -     -        - - -
         0,   // 5F: -     -        - - -
-        27,  // 60: NEG   d8,SP    3 5 0:2:3:N:R:W
-        28,  // 61: CBEQ  d8,SP,r8 4 6 0:2:3:4:R:d:j
+        26,  // 60: NEG   d8,SP    3 5 0:2:3:N:R:W
+        27,  // 61: CBEQ  d8,SP,r8 4 6 0:2:3:4:R:d:j
         0,   // 62: -     -        - - -
-        27,  // 63: COM   d8,SP    3 5 0:2:3:N:R:W
-        27,  // 64: LSR   d8,SP    4 5 0:2:3:N:R:W
+        26,  // 63: COM   d8,SP    3 5 0:2:3:N:R:W
+        26,  // 64: LSR   d8,SP    3 5 0:2:3:N:R:W
         0,   // 65: -     -        - - -
-        27,  // 66: ROR   d8,SP    3 5 0:2:3:N:R:W
-        27,  // 67: ASR   d8,SP    3 5 0:2:3:N:R:W
-        27,  // 68: ASL   d8,SP    3 5 0:2:3:N:R:W
-        27,  // 69: ROL   d8,SP    3 5 0:2:3:N:R:W
-        27,  // 6A: DEC   d8,SP    3 5 0:2:3:N:R:W
-        29,  // 6B: DBNZ  d8,SP,r8 4 6 0:2:3:4:R:W:j
-        27,  // 6C: INC   d8,SP    3 5 0:2:3:N:R:W
-        23,  // 6D: TST   d8,SP    3 4 0:2:3:N:R
+        26,  // 66: ROR   d8,SP    3 5 0:2:3:N:R:W
+        26,  // 67: ASR   d8,SP    3 5 0:2:3:N:R:W
+        26,  // 68: ASL   d8,SP    3 5 0:2:3:N:R:W
+        26,  // 69: ROL   d8,SP    3 5 0:2:3:N:R:W
+        26,  // 6A: DEC   d8,SP    3 5 0:2:3:N:R:W
+        28,  // 6B: DBNZ  d8,SP,r8 4 6 0:2:3:4:R:W:j
+        26,  // 6C: INC   d8,SP    3 5 0:2:3:N:R:W
+        22,  // 6D: TST   d8,SP    3 4 0:2:3:N:R
         0,   // 6E: -     -        - - -
-        24,  // 6F: CLR   d8,SP    3 4 0:2:3:N:W
+        23,  // 6F: CLR   d8,SP    3 4 0:2:3:N:W
         0,   // 70: -     -        - - -
         0,   // 71: -     -        - - -
         0,   // 72: -     -        - - -
@@ -534,38 +533,38 @@ constexpr uint8_t P9E_TABLE[] = {
         0,   // CD: -     -        - - -
         0,   // CE: -     -        - - -
         0,   // CF: -     -        - - -
-        30,  // D0: SUB   d16,SP   4 5 0:2:3:4:N:R
-        30,  // D1: CMP   d16,SP   4 5 0:2:3:4:N:R
-        30,  // D2: SBC   d16,SP   4 5 0:2:3:4:N:R
-        30,  // D3: CPX   d16,SP   4 5 0:2:3:4:N:R
-        30,  // D4: AND   d16,SP   4 5 0:2:3:4:N:R
-        30,  // D5: BIT   d16,SP   4 5 0:2:3:4:N:R
-        30,  // D6: LDA   d16,SP   4 5 0:2:3:4:N:R
-        31,  // D7: STA   d16,SP   4 5 0:2:3:4:N:W
-        30,  // D8: EOR   d16,SP   4 5 0:2:3:4:N:R
-        30,  // D9: ADC   d16,SP   4 5 0:2:3:4:N:R
-        30,  // DA: ORA   d16,SP   4 5 0:2:3:4:N:R
-        30,  // DB: ADD   d16,SP   4 5 0:2:3:4:N:R
+        29,  // D0: SUB   d16,SP   4 5 0:2:3:4:N:R
+        29,  // D1: CMP   d16,SP   4 5 0:2:3:4:N:R
+        29,  // D2: SBC   d16,SP   4 5 0:2:3:4:N:R
+        29,  // D3: CPX   d16,SP   4 5 0:2:3:4:N:R
+        29,  // D4: AND   d16,SP   4 5 0:2:3:4:N:R
+        29,  // D5: BIT   d16,SP   4 5 0:2:3:4:N:R
+        29,  // D6: LDA   d16,SP   4 5 0:2:3:4:N:R
+        30,  // D7: STA   d16,SP   4 5 0:2:3:4:N:W
+        29,  // D8: EOR   d16,SP   4 5 0:2:3:4:N:R
+        29,  // D9: ADC   d16,SP   4 5 0:2:3:4:N:R
+        29,  // DA: ORA   d16,SP   4 5 0:2:3:4:N:R
+        29,  // DB: ADD   d16,SP   4 5 0:2:3:4:N:R
         0,   // DC: -     -        - - -
         0,   // DD: -     -        - - -
-        30,  // DE: LDX   d16,SP   4 5 0:2:3:4:N:R
-        31,  // DF: STX   d16,SP   4 5 0:2:3:4:N:W
-        23,  // E0: SUB   d8,SP    3 4 0:2:3:N:R
-        23,  // E1: CMP   d8,SP    3 4 0:2:3:N:R
-        23,  // E2: SBC   d8,SP    3 4 0:2:3:N:R
-        23,  // E3: CPX   d8,SP    3 4 0:2:3:N:R
-        23,  // E4: AND   d8,SP    3 4 0:2:3:N:R
-        23,  // E5: BIT   d8,SP    3 4 0:2:3:N:R
-        23,  // E6: LDA   d8,SP    3 4 0:2:3:N:R
-        24,  // E7: STA   d8,SP    3 4 0:2:3:N:W
-        23,  // E8: EOR   d8,SP    3 4 0:2:3:N:R
-        23,  // E9: ADC   d8,SP    3 4 0:2:3:N:R
-        23,  // EA: ORA   d8,SP    3 4 0:2:3:N:R
-        23,  // EB: ADD   d8,SP    3 4 0:2:3:N:R
+        29,  // DE: LDX   d16,SP   4 5 0:2:3:4:N:R
+        30,  // DF: STX   d16,SP   4 5 0:2:3:4:N:W
+        22,  // E0: SUB   d8,SP    3 4 0:2:3:N:R
+        22,  // E1: CMP   d8,SP    3 4 0:2:3:N:R
+        22,  // E2: SBC   d8,SP    3 4 0:2:3:N:R
+        22,  // E3: CPX   d8,SP    3 4 0:2:3:N:R
+        22,  // E4: AND   d8,SP    3 4 0:2:3:N:R
+        22,  // E5: BIT   d8,SP    3 4 0:2:3:N:R
+        22,  // E6: LDA   d8,SP    3 4 0:2:3:N:R
+        23,  // E7: STA   d8,SP    3 4 0:2:3:N:W
+        22,  // E8: EOR   d8,SP    3 4 0:2:3:N:R
+        22,  // E9: ADC   d8,SP    3 4 0:2:3:N:R
+        22,  // EA: ORA   d8,SP    3 4 0:2:3:N:R
+        22,  // EB: ADD   d8,SP    3 4 0:2:3:N:R
         0,   // EC: -     -        - - -
         0,   // ED: -     -        - - -
-        23,  // EE: LDX   d8,SP    3 4 0:2:3:N:R
-        24,  // EF: STX   d8,SP    3 4 0:2:3:N:W
+        22,  // EE: LDX   d8,SP    3 4 0:2:3:N:R
+        23,  // EF: STX   d8,SP    3 4 0:2:3:N:W
         0,   // F0: -     -        - - -
         0,   // F1: -     -        - - -
         0,   // F2: -     -        - - -

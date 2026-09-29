@@ -85,6 +85,7 @@ inline auto signal_ds() {
     return digitalReadFast(PIN_DS);
 }
 
+
 void negate_reset() {
     digitalWriteFast(PIN_RESET, HIGH);
 }
@@ -137,6 +138,25 @@ PinsMc146805E2::PinsMc146805E2() {
     _inst = new mc146805::InstMc146805();
 }
 
+// STOP freezes the bus clock, with DS high or low, and it restarts at
+// another phase against OSC1: walk OSC1 through a whole DS pulse after the
+// restart, ending as it falls, as resetCpu() does.
+void PinsMc146805E2::resyncBus(uint16_t clocks) {
+    auto n = 0;
+    while (signal_ds() != LOW && n++ < clocks) {
+        clock_cycle();
+        delayNanoseconds(osc1_ds_ns);
+    }
+    while (signal_ds() == LOW && n++ < clocks) {
+        clock_cycle();
+        delayNanoseconds(osc1_ds_ns);
+    }
+    while (signal_ds() != LOW && n++ < clocks) {
+        clock_cycle();
+        delayNanoseconds(osc1_ds_ns);
+    }
+}
+
 void PinsMc146805E2::resetCpu() {
     // Assert reset condition
     pinsMode(PINS_LOW, sizeof(PINS_LOW), OUTPUT, LOW);
@@ -147,15 +167,20 @@ void PinsMc146805E2::resetCpu() {
     for (auto i = 0; i < 15 * 5; i++)
         clock_cycle();
 
-    // Synchronize clock output to DS.
-    while (signal_ds() == LOW) {
+    // Synchronize clock output to DS, which toggles every 5 clocks; a CPU
+    // that isn't running never does.
+    auto n = 0;
+    constexpr auto SYNC_CLOCKS = 100;
+    while (signal_ds() == LOW && n++ < SYNC_CLOCKS) {
         clock_cycle();
         delayNanoseconds(osc1_ds_ns);
     }
-    while (signal_ds() != LOW) {
+    while (signal_ds() != LOW && n++ < SYNC_CLOCKS) {
         clock_cycle();
         delayNanoseconds(osc1_ds_ns);
     }
+    if (n >= SYNC_CLOCKS)
+        cli.println("?reset: no DS from the CPU");
     // DS=L
 
     cycle();
