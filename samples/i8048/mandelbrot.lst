@@ -61,7 +61,7 @@
 (1)       0 : =80                ST_DSR_bm:      equ     10000000B   ; Data Set Ready
 (1)       0 : =40                ST_BRK_bm:      equ     01000000B   ; BREAK detected
 (1)       0 : =20                ST_FE_bm:       equ     00100000B   ; Framing Error
-(1)       0 : =10                ST_OE_bm:       equ     00010000B   ; Iverrun Error
+(1)       0 : =10                ST_OE_bm:       equ     00010000B   ; Overrun Error
 (1)       0 : =8                 ST_PE_bm:       equ     00001000B   ; Parity Error
 (1)       0 : =4                 ST_TxEMPTY_bm:  equ     00000100B   ; Transmitter empty
 (1)       0 : =2                 ST_RxRDY_bm:    equ     00000010B   ; Receiver ready
@@ -82,539 +82,544 @@
           8 :                    tx_queue_buf:   ds      tx_queue_size
          40 :                    print_uint16_buf:
          40 :                            ds      8
+         48 :                            ds      4
+         4C :                    isr_stack:                      ; the ISR's software stack, R1 of BANK1
          FC :                            org     USART
          FC :                    ;;;  Software stack; pre-decrement, post-increment pointed by R1 on
          FC :                    ;;;  external data memory
          FC : =FC                stack:          equ     $
          FC :
          FC :                    ;;; Internal data memory
-         1C :                            org     BASE_BANK1+4    ; R0~R3 of BANK1 is reserved for ISR
-         1C :                    rx_queue:       ds      queue_work_size
-         21 :                    tx_queue:       ds      queue_work_size
-         26 :                    ;;; Work area for mandelbrot.inc
-         26 :                    tmp:    ds      2
-         28 :                    vF:     ds      2
-         2A :                    vC:     ds      2
-         2C :                    vD:     ds      2
-         2E :                    vA:     ds      2
-         30 :                    vB:     ds      2
-         32 :                    vP:     ds      2
-         34 :                    vQ:     ds      2
-         36 :                    vS:     ds      2
-         38 :                    vT:     ds      2
-         3A :                    vY:     ds      1
-         3B :                    vX:     ds      1
-         3C :                    vI:     ds      1
-         3D :
+         20 :                            org     BASE_MEMORY     ; BANK1 is the ISR's
+         20 :                    rx_queue:       ds      queue_work_size
+         25 :                    tx_queue:       ds      queue_work_size
+         2A :                    ;;; Work area for mandelbrot.inc
+         2A :                    tmp:    ds      2
+         2C :                    vF:     ds      2
+         2E :                    vC:     ds      2
+         30 :                    vD:     ds      2
+         32 :                    vA:     ds      2
+         34 :                    vB:     ds      2
+         36 :                    vP:     ds      2
+         38 :                    vQ:     ds      2
+         3A :                    vS:     ds      2
+         3C :                    vT:     ds      2
+         3E :                    vY:     ds      1
+         3F :                    vX:     ds      1
+         40 :                    vI:     ds      1
+         41 :
           0 :                            org     ORG_RESET
           0 : 04 05                      jmp     init
           3 :                            org     ORG_INT
-          3 : 04 65                      jmp     isr_intr
+          3 : 04 69                      jmp     isr_intr
           5 :                    init:
           5 : B9 FC                      mov     R1, #stack
-          7 : B8 1C                      mov     R0, #rx_queue
-          9 : BA 00                      mov     R2, #rx_queue_buf
-          B : 23 08                      mov     A, #rx_queue_size
-          D : 94 70                      call    queue_init
-          F : B8 21                      mov     R0, #tx_queue
-         11 : BA 08                      mov     R2, #tx_queue_buf
-         13 : 23 38                      mov     A, #tx_queue_size
-         15 : 94 70                      call    queue_init
-         17 :                    init_usart:
-         17 : B8 FD                      mov     R0, #USARTC
-         19 : 27                         clr     A
-         1A : 90                         movx    @R0, A
-         1B : 90                         movx    @R0, A
-         1C : 90                         movx    @R0, A          ; safest way to sync mode
-         1D : 23 40                      mov     a, #CMD_IR_bm
-         1F : 90                         movx    @R0, A          ; reset
-         20 : 00                         nop
-         21 : 00                         nop
-         22 : 23 4E                      mov     a, #ASYNC_MODE
-         24 : 90                         movx    @R0, A
+          7 : D5                         sel     RB1
+          8 : B9 4C                      mov     R1, #isr_stack
+          A : C5                         sel     RB0
+          B : B8 20                      mov     R0, #rx_queue
+          D : BA 00                      mov     R2, #rx_queue_buf
+          F : 23 08                      mov     A, #rx_queue_size
+         11 : 94 70                      call    queue_init
+         13 : B8 25                      mov     R0, #tx_queue
+         15 : BA 08                      mov     R2, #tx_queue_buf
+         17 : 23 38                      mov     A, #tx_queue_size
+         19 : 94 70                      call    queue_init
+         1B :                    init_usart:
+         1B : B8 FD                      mov     R0, #USARTC
+         1D : 27                         clr     A
+         1E : 90                         movx    @R0, A
+         1F : 90                         movx    @R0, A
+         20 : 90                         movx    @R0, A          ; safest way to sync mode
+         21 : 23 40                      mov     a, #CMD_IR_bm
+         23 : 90                         movx    @R0, A          ; reset
+         24 : 00                         nop
          25 : 00                         nop
-         26 : 00                         nop
-         27 : 23 37                      mov     a, #RX_EN_TX_EN
-         29 : 90                         movx    @R0, A
-         2A : 23 03                      mov     a, #ORG_INT
-         2C : B8 FE                      mov     R0, #USARTRV
-         2E : 90                         movx    @R0, A          ; enable RxRDY interrupt
-         2F : 18                         inc     R0
-         30 : 90                         movx    @R0, A          ; enable TxRDY interrupt
-         31 : 05                         en      I
-         32 :
-         32 :                    loop:
-         32 : 14 8C                      call    mandelbrot
-         34 : 14 46                      call    newline
-         36 : 04 32                      jmp     loop
-         38 :
-         38 :                    ;;; Get character
-         38 :                    ;;; @return A
-         38 :                    ;;; @return PSW.C 0 if no character
-         38 :                    getchar:
-         38 : F8                         mov     A, R0
-         39 : C9                         dec     R1
-         3A : 91                         movx    @R1, A          ; save R0
-         3B : B8 1C                      mov     R0, #rx_queue
-         3D : 15                         dis     I
-         3E : 94 B3                      call    queue_remove
-         40 : 05                         en      I
-         41 : 28                         xch     A, R0           ; save character
-         42 : 81                         movx    A, @R1          ; restore R0
-         43 : 19                         inc     R1
-         44 : 28                         xch     A, R0           ; restore character
-         45 : 83                         ret
-         46 :
-         46 :                    ;;; Put newline
-         46 :                    ;;; @clobber A
-         46 :                    newline:
-         46 : 23 0D                      mov     A, #0DH
-         48 : 14 50                      call    putchar
-         4A : 23 0A                      mov     A, #0AH
-         4C : 04 50                      jmp     putchar
-         4E :
-         4E :                    ;;; Put space
-         4E :                    ;;; @clobber A
-         4E :                    putspace:
-         4E : 23 20                      mov     A, #' '
-         50 :
-         50 :                    ;;; Put character
-         50 :                    ;;; @param A
-         50 :                    ;;; @clobber A
-         50 :                    putchar:
-         50 : 28                         xch     A, R0           ; save character
-         51 : C9                         dec     R1
-         52 : 91                         movx    @R1, A          ; save R0
-         53 : F8                         mov     A, R0           ; restore character
-         54 :                    putchar_loop:
-         54 : B8 21                      mov     R0, #tx_queue
-         56 : 15                         dis     I
-         57 : 94 86                      call    queue_add
-         59 : 05                         en      I
-         5A : E6 54                      jnc     putchar_loop    ; branch if queue is full
-         5C : B8 FD                      mov     R0, #USARTC
-         5E : 23 37                      mov     A, #RX_EN_TX_EN ; enable Tx
-         60 : 90                         movx    @R0, A
-         61 : 81                         movx    A, @R1
-         62 : 19                         inc     R1
-         63 : A8                         mov     R0, A           ; restore R0
-         64 : 83                         ret
-         65 :
-         65 :                    isr_intr:
-         65 : D5                         sel     RB1             ; switch context
-         66 : AA                         mov     R2, A           ; save A
-         67 : B8 FD                      mov     R0, #USARTS
-         69 : 80                         movx    A, @R0
-         6A : 37                         cpl     A
-         6B : 32 74                      jb      ST_RxRDY_bp, isr_intr_tx
-         6D : B8 FC                      mov     R0, #USARTD
-         6F : 80                         movx    A, @R0
-         70 : B8 1C                      mov     R0, #rx_queue
-         72 : 94 86                      call    queue_add
-         74 :                    isr_intr_tx:
-         74 : B8 FD                      mov     R0, #USARTS
-         76 : 80                         movx    A, @R0
-         77 : 37                         cpl     A
-         78 : 12 83                      jb      ST_TxRDY_bp, isr_intr_exit
-         7A : B8 21                      mov     R0, #tx_queue
-         7C : 94 B3                      call    queue_remove
-         7E : E6 85                      jnc     isr_intr_empty
-         80 : B8 FC                      mov     R0, #USARTD
-         82 : 90                         movx    @R0, A          ; send character
-         83 :                    isr_intr_exit:
-         83 : FA                         mov     A, R2           ; restore A
-         84 : 93                         retr
-         85 :                    isr_intr_empty:
-         85 : B8 FD                      mov     R0, #USARTC
-         87 : 23 36                      mov     A, #RX_EN_TX_DIS
-         89 : 90                         movx    @R0, A          ; disable Tx
-         8A : FA                         mov     A, R2           ; restore A
-         8B : 93                         retr
-         8C :
-         8C :                            include "mandelbrot.inc"
-(1)      8C :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
-(1)      8C :
-(1)      8C :                    mandelbrot:
-(1)      8C : BC 32                      mov     R4, #LOW(50)
-(1)      8E : BD 00                      mov     R5, #HIGH(50)
-(1)      90 : BB 28                      mov     R3, #vF         ; F=50
-(1)      92 : 34 C8                      call    set
-(1)      94 : B8 3A                      mov     R0, #vY
-(1)      96 : 23 F4                      mov     A, #-12
-(1)      98 : A0                         mov     @R0, A          ; Y=-12
-(1)      99 :                    loop_y:
-(1)      99 : B8 3B                      mov     R0, #vX
-(1)      9B : 23 CF                      mov     A, #-49
-(1)      9D : A0                         mov     @R0, A          ; X=-49
-(1)      9E :                    loop_x:
-(1)      9E : BA 2A                      mov     R2, #vC
-(1)      A0 : BB 3B                      mov     R3, #vX
-(1)      A2 : 34 D0                      call    assign8         ; C=X
-(1)      A4 : BC E5                      mov     R4, #LOW(229)
-(1)      A6 : BD 00                      mov     R5, #HIGH(229)
-(1)      A8 : BB 26                      mov     R3, #tmp
-(1)      AA : 34 C8                      call    set             ; tmp=229
-(1)      AC : 74 A2                      call    mulsi2          ; C=X*229
-(1)      AE : BA 2A                      mov     R2, #vC
-(1)      B0 : BC 64                      mov     R4, #LOW(100)
-(1)      B2 : BD 00                      mov     R5, #HIGH(100)
-(1)      B4 : BB 26                      mov     R3, #tmp
-(1)      B6 : 34 C8                      call    set             ; tmp=100
-(1)      B8 : 94 3A                      call    divsi2          ; C=X*229/100
-(1)      BA : BA 2C                      mov     R2, #vD
-(1)      BC : BB 3A                      mov     R3, #vY
-(1)      BE : 34 D0                      call    assign8         ; D=Y
-(1)      C0 : BC A0                      mov     R4, #LOW(416)
-(1)      C2 : BD 01                      mov     R5, #HIGH(416)
-(1)      C4 : BB 26                      mov     R3, #tmp
-(1)      C6 : 34 C8                      call    set             ; tmp=416
-(1)      C8 : 74 A2                      call    mulsi2          ; D=Y*416
-(1)      CA : BA 2C                      mov     R2, #vD
-(1)      CC : BC 64                      mov     R4, #LOW(100)
-(1)      CE : BD 00                      mov     R5, #HIGH(100)
-(1)      D0 : BB 26                      mov     R3, #tmp
-(1)      D2 : 34 C8                      call    set             ; tmp=100
-(1)      D4 : 94 3A                      call    divsi2          ; D=Y*416/100
-(1)      D6 : BA 2E                      mov     R2, #vA
-(1)      D8 : BB 2A                      mov     R3, #vC
-(1)      DA : 34 E5                      call    assign          ; A=C
-(1)      DC : BA 30                      mov     R2, #vB
-(1)      DE : BB 2C                      mov     R3, #vD
-(1)      E0 : 34 E5                      call    assign          ; B=D
-(1)      E2 : B8 3C                      mov     R0, #vI
-(1)      E4 : 27                         clr     A
-(1)      E5 : A0                         mov     @R0, A          ; I=0
-(1)      E6 :
-(1)      E6 :                            ;; mov     R2, #tmp
-(1)      E6 :                            ;; mov     R3, #vY
-(1)      E6 :                            ;; call    assign8
-(1)      E6 :                            ;; mov     A, #'Y'
-(1)      E6 :                            ;; call    print           ; print Y
-(1)      E6 :                            ;; mov     R2, #tmp
-(1)      E6 :                            ;; mov     R3, #vX
-(1)      E6 :                            ;; call    assign8
-(1)      E6 :                            ;; mov     A, #'X'
-(1)      E6 :                            ;; call    print           ; print X
-(1)      E6 :                            ;; mov     R2, #vC
-(1)      E6 :                            ;; mov     A, #'C'
-(1)      E6 :                            ;; call    print           ; print C
-(1)      E6 :                            ;; mov     R2, #vD
-(1)      E6 :                            ;; mov     A, #'D'
-(1)      E6 :                            ;; call    print           ; print D
-(1)      E6 :                            ;; call    newline
-(1)      E6 :
-(1)      E6 :                    loop_i:
-(1)      E6 : BA 34                      mov     R2, #vQ
-(1)      E8 : BB 30                      mov     R3, #vB
-(1)      EA : 34 E5                      call    assign          ; Q=B
-(1)      EC : BB 28                      mov     R3, #vF
-(1)      EE : 94 3A                      call    divsi2          ; Q=B/F
-(1)      F0 : BA 26                      mov     R2, #tmp
-(1)      F2 : BB 34                      mov     R3, #vQ
-(1)      F4 : 34 E5                      call    assign          ; tmp=Q
-(1)      F6 : BB 28                      mov     R3, #vF
-(1)      F8 : 74 A2                      call    mulsi2          ; tmp=Q*F
-(1)      FA : BA 36                      mov     R2, #vS
-(1)      FC : BB 30                      mov     R3, #vB
-(1)      FE : 34 E5                      call    assign          ; S=B
-(1)     100 : BB 26                      mov     R3, #tmp
-(1)     102 : 74 3A                      call    subsi2          ; S=B-Q*F
-(1)     104 : BA 26                      mov     R2, #tmp
-(1)     106 : BB 30                      mov     R3, #vB
-(1)     108 : 34 E5                      call    assign          ; tmp=B
-(1)     10A : 74 A2                      call    mulsi2          ; tmp=B*B
-(1)     10C : BA 38                      mov     R2, #vT
-(1)     10E : BB 2E                      mov     R3, #vA
-(1)     110 : 34 E5                      call    assign          ; T=A
-(1)     112 : 74 A2                      call    mulsi2          ; T=A*A
-(1)     114 : BA 38                      mov     R2, #vT
-(1)     116 : BB 26                      mov     R3, #tmp
-(1)     118 : 74 3A                      call    subsi2          ; T=A*A-B*B
-(1)     11A : BA 38                      mov     R2, #vT
-(1)     11C : BB 28                      mov     R3, #vF
-(1)     11E : 94 3A                      call    divsi2          ; T=(A*A-B*B)/F
-(1)     120 : BA 38                      mov     R2, #vT
-(1)     122 : BB 2A                      mov     R3, #vC
-(1)     124 : 74 2A                      call    addsi2          ; T=(A*A-B*B)/F+C
-(1)     126 : BA 26                      mov     R2, #tmp
-(1)     128 : BB 2E                      mov     R3, #vA         ; tmp=A
-(1)     12A : 34 E5                      call    assign
-(1)     12C : BB 36                      mov     R3, #vS
-(1)     12E : 74 A2                      call    mulsi2          ; tmp=A*S
-(1)     130 : BA 26                      mov     R2, #tmp
-(1)     132 : BB 28                      mov     R3, #vF
-(1)     134 : 94 3A                      call    divsi2          ; tmp=A*S/F
-(1)     136 : BA 30                      mov     R2, #vB
-(1)     138 : BB 2E                      mov     R3, #vA
-(1)     13A : 34 E5                      call    assign          ; B=A
-(1)     13C : BB 34                      mov     R3, #vQ
-(1)     13E : 74 A2                      call    mulsi2          ; B=A*Q
-(1)     140 : BA 30                      mov     R2, #vB
-(1)     142 : BB 26                      mov     R3, #tmp
-(1)     144 : 74 2A                      call    addsi2          ; B=A*Q+A*S/F
-(1)     146 : BA 30                      mov     R2, #vB
-(1)     148 : BB 30                      mov     R3, #vB
-(1)     14A : 74 2A                      call    addsi2          ; B=2*(A*Q+A*S/F)
-(1)     14C : BA 30                      mov     R2, #vB
-(1)     14E : BB 2C                      mov     R3, #vD
-(1)     150 : 74 2A                      call    addsi2          ; B=2*(A*Q+A*S/F)+D
-(1)     152 : BA 2E                      mov     R2, #vA
-(1)     154 : BB 38                      mov     R3, #vT
-(1)     156 : 34 E5                      call    assign          ; A=T
-(1)     158 : BA 32                      mov     R2, #vP
-(1)     15A : 34 E5                      call    assign          ; P=A
-(1)     15C : BB 28                      mov     R3, #vF
-(1)     15E : 94 3A                      call    divsi2          ; P=A/F
-(1)     160 : BA 34                      mov     R2, #vQ
-(1)     162 : BB 30                      mov     R3, #vB
-(1)     164 : 34 E5                      call    assign          ; Q=B
-(1)     166 : BB 28                      mov     R3, #vF
-(1)     168 : 94 3A                      call    divsi2          ; Q=B/F
-(1)     16A : BA 26                      mov     R2, #tmp
-(1)     16C : BB 34                      mov     R3, #vQ
-(1)     16E : 34 E5                      call    assign          ; tmp=Q
-(1)     170 : 74 A2                      call    mulsi2          ; tmp=Q*Q
-(1)     172 : BA 38                      mov     R2, #vT
-(1)     174 : BB 32                      mov     R3, #vP
-(1)     176 : 34 E5                      call    assign          ; T=P
-(1)     178 : 74 A2                      call    mulsi2          ; T=P*P
-(1)     17A : BA 38                      mov     R2, #vT
-(1)     17C : BB 26                      mov     R3, #tmp
-(1)     17E : 74 2A                      call    addsi2          ; T=P*P+Q*Q (T>=0)
-(1)     180 :
-(1)     180 :                            ;; call    putspace
-(1)     180 :                            ;; mov     R2, #tmp
-(1)     180 :                            ;; mov     R3, #vI
-(1)     180 :                            ;; call    assign8
-(1)     180 :                            ;; mov     A, #'I'
-(1)     180 :                            ;; call    print           ; print I
-(1)     180 :                            ;; mov     R2, #vA
-(1)     180 :                            ;; mov     A, #'A'
-(1)     180 :                            ;; call    print           ; print A
-(1)     180 :                            ;; mov     R2, #vB
-(1)     180 :                            ;; mov     A, #'B'
-(1)     180 :                            ;; call    print           ; print B
-(1)     180 :                            ;; mov     R2, #vP
-(1)     180 :                            ;; mov     A, #'P'
-(1)     180 :                            ;; call    print           ; print P
-(1)     180 :                            ;; mov     R2, #vQ
-(1)     180 :                            ;; mov     A, #'Q'
-(1)     180 :                            ;; call    print           ; print Q
-(1)     180 :                            ;; mov     R2, #vT
-(1)     180 :                            ;; mov     A, #'T'
-(1)     180 :                            ;; call    print           ; print T
-(1)     180 :                            ;; call    newline
-(1)     180 :
-(1)     180 : B8 39                      mov     R0, #vT+1
-(1)     182 : F0                         mov     A, @R0          ; A=hi(T)
-(1)     183 : 96 99                      jnz     print_i         ; if T>=256
-(1)     185 : C8                         dec     R0
-(1)     186 : F0                         mov     A, @R0          ; A=lo(T)
-(1)     187 : 03 FB                      add     A, #-(4+1)
-(1)     189 : F6 99                      jc      print_i         ; if T>=5
-(1)     18B : B8 3C                      mov     R0, #vI
-(1)     18D : 10                         inc     @R0             ; I+=1
-(1)     18E : F0                         mov     A, @R0          ; A=I (I>=0)
-(1)     18F : 03 F0                      add     A, #-16
-(1)     191 : F6 95                      jc      print_space
-(1)     193 : 04 E6                      jmp     loop_i          ; if I<16
-(1)     195 :                    print_space:
-(1)     195 : 23 20                      mov     A, #' '
-(1)     197 : 24 A4                      jmp     print_char
-(1)     199 :                    print_i:
-(1)     199 : B8 3C                      mov     R0, #vI
-(1)     19B : F0                         mov     A, @R0
-(1)     19C : 03 F6                      add     A, #-10
-(1)     19E : E6 A2                      jnc     print_dec       ; if I<10
-(1)     1A0 : 03 07                      add     A, #'A'-('0'+10)
-(1)     1A2 :                    print_dec:
-(1)     1A2 : 03 3A                      add     A, #10+'0'
-(1)     1A4 :                    print_char:
-(1)     1A4 :                            ;; dec     R1
-(1)     1A4 :                            ;; movx    @R1, A          ; push A
-(1)     1A4 :                            ;; mov     A, #'@'
-(1)     1A4 :                            ;; call    putchar
-(1)     1A4 :                            ;; mov     A, #'='
-(1)     1A4 :                            ;; call    putchar
-(1)     1A4 :                            ;; movx    A, @R1          ; restore A
-(1)     1A4 :                            ;; call    putchar
-(1)     1A4 :                            ;; call    newline
-(1)     1A4 :                            ;; movx    A, @R1
-(1)     1A4 :                            ;; inc     R1              ; pop A
-(1)     1A4 :
-(1)     1A4 : 14 50                      call    putchar
-(1)     1A6 : 14 38                      call    getchar
-(1)     1A8 : E6 AD                      jnc     next_x
-(1)     1AA : 96 AD                      jnz     next_x
-(1)     1AC : 01                         db      01H             ; halt to system
-(1)     1AD :                    next_x:
-(1)     1AD : B8 3B                      mov     R0, #vX
-(1)     1AF : 10                         inc     @R0             ; X+=1
-(1)     1B0 : F0                         mov     A, @R0
-(1)     1B1 : F2 B7                      jb      7, jmp_loop_x   ; if X<0
-(1)     1B3 : 03 E2                      add     A, #-30
-(1)     1B5 : F6 B9                      jc      next_y
-(1)     1B7 :                    jmp_loop_x:
-(1)     1B7 : 04 9E                      jmp     loop_x          ; if X<30
-(1)     1B9 :                    next_y:
-(1)     1B9 : 14 46                      call    newline
-(1)     1BB : B8 3A                      mov     R0, #vY
-(1)     1BD : 10                         inc     @R0             ; Y+=1
-(1)     1BE : F0                         mov     A, @R0
-(1)     1BF : F2 C5                      jb      7, jmp_loop_y   ; if Y<0
-(1)     1C1 : 03 F3                      add     A, #-13
-(1)     1C3 : F6 C7                      jc      mandelbrot_end
-(1)     1C5 :                    jmp_loop_y:
-(1)     1C5 : 04 99                      jmp     loop_y          ; if Y<13
-(1)     1C7 :                    mandelbrot_end:
-(1)     1C7 : 83                         ret
-(1)     1C8 :
-(1)     1C8 :                    ;;; Set value to variable
-(1)     1C8 :                    ;;; @param R5:R4 value
-(1)     1C8 :                    ;;; @param R3 &variable
-(1)     1C8 :                    ;;; @clobber A R0
-(1)     1C8 :                    set:
-(1)     1C8 : FB                         mov     A, R3
-(1)     1C9 : A8                         mov     R0, A
-(1)     1CA : FC                         mov     A, R4
-(1)     1CB : A0                         mov     @R0, A
-(1)     1CC : FD                         mov     A, R5
-(1)     1CD : 18                         inc     R0
-(1)     1CE : A0                         mov     @R0, A
-(1)     1CF : 83                         ret
-(1)     1D0 :
-(1)     1D0 :                    ;;; Assign 8-bit variable; v1 = v2
-(1)     1D0 :                    ;;; @param R2 &v1
-(1)     1D0 :                    ;;; @param R3 &v2
-(1)     1D0 :                    ;;; @clobber A R0
-(1)     1D0 :                    assign8:
-(1)     1D0 : 23 FF                      mov     A, #-1
-(1)     1D2 : 2B                         xch     A, R3           ; A=&v2, R3=-1
-(1)     1D3 : A8                         mov     R0, A           ; R0=&v2
-(1)     1D4 : F0                         mov     A, @R0          ; A=v2
-(1)     1D5 : F2 D9                      jb      7, assign8_hi   ; jump if v2 < 0
-(1)     1D7 : BB 00                      mov     R3, #0          ; R3=0
-(1)     1D9 :                    assign8_hi:
-(1)     1D9 : 2B                         xch     A, R3           ; R3=v2, A=hi(v2)
-(1)     1DA : 2A                         xch     A, R2           ; R2=hi(v2), A=&v1
-(1)     1DB : 28                         xch     A, R0           ; R0=&v1, A=&v2
-(1)     1DC : 2B                         xch     A, R3           ; R3=&v2, A=v2
-(1)     1DD : A0                         mov     @R0, A          ; lo(v1)=v2
-(1)     1DE : FA                         mov     A, R2           ; A=hi(v2)
-(1)     1DF : 18                         inc     R0              ; R0=&v1+1
-(1)     1E0 : A0                         mov     @R0, A          ; hi(v1)=hi(v2)
-(1)     1E1 : C8                         dec     R0              ; R0=&v1
-(1)     1E2 : F8                         mov     A, R0
-(1)     1E3 : AA                         mov     R2, A           ; R2=&v1
-(1)     1E4 : 83                         ret
-(1)     1E5 :
-(1)     1E5 :                    ;;; Assign 16-bit variable; v1 = v2
-(1)     1E5 :                    ;;; @param R2 &v1
-(1)     1E5 :                    ;;; @param R3 &v2
-(1)     1E5 :                    ;;; @clobber A R0
-(1)     1E5 :                    assign:
-(1)     1E5 : FB                         mov     A, R3
-(1)     1E6 : A8                         mov     R0, A           ; R0=&v2
-(1)     1E7 : F0                         mov     A, @R0
-(1)     1E8 : AB                         mov     R3, A           ; R3=lo(v2)
-(1)     1E9 : 18                         inc     R0              ; R0=&v2+1
-(1)     1EA : F0                         mov     A, @R0          ; A=hi(v2)
-(1)     1EB : 2A                         xch     A, R2           ; R2=hi(v2), A=&v1
-(1)     1EC : 28                         xch     A, R0           ; R0=&v1, A=&v2+1
-(1)     1ED : 2B                         xch     A, R3           ; R3=&v2+1, A=lo(v2)
-(1)     1EE : CB                         dec     R3              ; R3=&v2
-(1)     1EF : A0                         mov     @R0, A          ; lo(v1)=lo(v2)
-(1)     1F0 : FA                         mov     A, R2           ; A=hi(v2)
-(1)     1F1 : 18                         inc     R0              ; R0=&v1+1
-(1)     1F2 : A0                         mov     @R0, A          ; hi(v1)=hi(v2)
-(1)     1F3 : C8                         dec     R0              ; R0=&v1
-(1)     1F4 : F8                         mov     A, R0
-(1)     1F5 : AA                         mov     R2, A           ; R2=&v1
-(1)     1F6 : 83                         ret
-(1)     1F7 :
-(1)     1F7 :                    ;;; Print variable
-(1)     1F7 :                    ;;; @param A: variable name
-(1)     1F7 :                    ;;; @param R2: &variable
-(1)     1F7 :                    ;;; @clobber A R0
-(1)     1F7 :                    print:
-(1)     1F7 : 14 50                      call    putchar
-(1)     1F9 : 23 3D                      mov     A, #'='
-(1)     1FB : 14 50                      call    putchar
-(1)     1FD : FA                         mov     A, R2
-(1)     1FE : A8                         mov     R0, A
-(1)     1FF : 54 03                      call    print_int16
-(1)     201 : 04 4E                      jmp     putspace
-        203 :                            include "arith.inc"
-(1)     203 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
-(1)     203 :                            cpu     8048
-(1)     203 :
-(1)     203 :                    ;;; Print signed 16-bit integer as decimal
-(1)     203 :                    ;;; @param R0 &value
-(1)     203 :                    ;;; @clobber A
-(1)     203 :                    print_int16:
-(1)     203 : F8                         mov     A, R0
-(1)     204 : C9                         dec     R1
-(1)     205 : 91                         movx    @R1, A          ; save R0
-(1)     206 : F0                         mov     A, @R0
-(1)     207 : 2A                         xch     A, R2
+         26 : 23 4E                      mov     a, #ASYNC_MODE
+         28 : 90                         movx    @R0, A
+         29 : 00                         nop
+         2A : 00                         nop
+         2B : 23 37                      mov     a, #RX_EN_TX_EN
+         2D : 90                         movx    @R0, A
+         2E : 23 03                      mov     a, #ORG_INT
+         30 : B8 FE                      mov     R0, #USARTRV
+         32 : 90                         movx    @R0, A          ; enable RxRDY interrupt
+         33 : 18                         inc     R0
+         34 : 90                         movx    @R0, A          ; enable TxRDY interrupt
+         35 : 05                         en      I
+         36 :
+         36 :                    loop:
+         36 : 14 90                      call    mandelbrot
+         38 : 14 4A                      call    newline
+         3A : 04 36                      jmp     loop
+         3C :
+         3C :                    ;;; Get character
+         3C :                    ;;; @return A
+         3C :                    ;;; @return PSW.C 0 if no character
+         3C :                    getchar:
+         3C : F8                         mov     A, R0
+         3D : C9                         dec     R1
+         3E : 91                         movx    @R1, A          ; save R0
+         3F : B8 20                      mov     R0, #rx_queue
+         41 : 15                         dis     I
+         42 : 94 B3                      call    queue_remove
+         44 : 05                         en      I
+         45 : 28                         xch     A, R0           ; save character
+         46 : 81                         movx    A, @R1          ; restore R0
+         47 : 19                         inc     R1
+         48 : 28                         xch     A, R0           ; restore character
+         49 : 83                         ret
+         4A :
+         4A :                    ;;; Put newline
+         4A :                    ;;; @clobber A
+         4A :                    newline:
+         4A : 23 0D                      mov     A, #0DH
+         4C : 14 54                      call    putchar
+         4E : 23 0A                      mov     A, #0AH
+         50 : 04 54                      jmp     putchar
+         52 :
+         52 :                    ;;; Put space
+         52 :                    ;;; @clobber A
+         52 :                    putspace:
+         52 : 23 20                      mov     A, #' '
+         54 :
+         54 :                    ;;; Put character
+         54 :                    ;;; @param A
+         54 :                    ;;; @clobber A
+         54 :                    putchar:
+         54 : 28                         xch     A, R0           ; save character
+         55 : C9                         dec     R1
+         56 : 91                         movx    @R1, A          ; save R0
+         57 : F8                         mov     A, R0           ; restore character
+         58 :                    putchar_loop:
+         58 : B8 25                      mov     R0, #tx_queue
+         5A : 15                         dis     I
+         5B : 94 86                      call    queue_add
+         5D : 05                         en      I
+         5E : E6 58                      jnc     putchar_loop    ; branch if queue is full
+         60 : B8 FD                      mov     R0, #USARTC
+         62 : 23 37                      mov     A, #RX_EN_TX_EN ; enable Tx
+         64 : 90                         movx    @R0, A
+         65 : 81                         movx    A, @R1
+         66 : 19                         inc     R1
+         67 : A8                         mov     R0, A           ; restore R0
+         68 : 83                         ret
+         69 :
+         69 :                    isr_intr:
+         69 : D5                         sel     RB1             ; switch context
+         6A : AA                         mov     R2, A           ; save A
+         6B : B8 FD                      mov     R0, #USARTS
+         6D : 80                         movx    A, @R0
+         6E : 37                         cpl     A
+         6F : 32 78                      jb      ST_RxRDY_bp, isr_intr_tx
+         71 : B8 FC                      mov     R0, #USARTD
+         73 : 80                         movx    A, @R0
+         74 : B8 20                      mov     R0, #rx_queue
+         76 : 94 86                      call    queue_add
+         78 :                    isr_intr_tx:
+         78 : B8 FD                      mov     R0, #USARTS
+         7A : 80                         movx    A, @R0
+         7B : 37                         cpl     A
+         7C : 12 87                      jb      ST_TxRDY_bp, isr_intr_exit
+         7E : B8 25                      mov     R0, #tx_queue
+         80 : 94 B3                      call    queue_remove
+         82 : E6 89                      jnc     isr_intr_empty
+         84 : B8 FC                      mov     R0, #USARTD
+         86 : 90                         movx    @R0, A          ; send character
+         87 :                    isr_intr_exit:
+         87 : FA                         mov     A, R2           ; restore A
+         88 : 93                         retr
+         89 :                    isr_intr_empty:
+         89 : B8 FD                      mov     R0, #USARTC
+         8B : 23 36                      mov     A, #RX_EN_TX_DIS
+         8D : 90                         movx    @R0, A          ; disable Tx
+         8E : FA                         mov     A, R2           ; restore A
+         8F : 93                         retr
+         90 :
+         90 :                            include "mandelbrot.inc"
+(1)      90 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)      90 :
+(1)      90 :                    mandelbrot:
+(1)      90 : BC 32                      mov     R4, #LOW(50)
+(1)      92 : BD 00                      mov     R5, #HIGH(50)
+(1)      94 : BB 2C                      mov     R3, #vF         ; F=50
+(1)      96 : 34 CC                      call    set
+(1)      98 : B8 3E                      mov     R0, #vY
+(1)      9A : 23 F4                      mov     A, #-12
+(1)      9C : A0                         mov     @R0, A          ; Y=-12
+(1)      9D :                    loop_y:
+(1)      9D : B8 3F                      mov     R0, #vX
+(1)      9F : 23 CF                      mov     A, #-49
+(1)      A1 : A0                         mov     @R0, A          ; X=-49
+(1)      A2 :                    loop_x:
+(1)      A2 : BA 2E                      mov     R2, #vC
+(1)      A4 : BB 3F                      mov     R3, #vX
+(1)      A6 : 34 D4                      call    assign8         ; C=X
+(1)      A8 : BC E5                      mov     R4, #LOW(229)
+(1)      AA : BD 00                      mov     R5, #HIGH(229)
+(1)      AC : BB 2A                      mov     R3, #tmp
+(1)      AE : 34 CC                      call    set             ; tmp=229
+(1)      B0 : 74 A2                      call    mulsi2          ; C=X*229
+(1)      B2 : BA 2E                      mov     R2, #vC
+(1)      B4 : BC 64                      mov     R4, #LOW(100)
+(1)      B6 : BD 00                      mov     R5, #HIGH(100)
+(1)      B8 : BB 2A                      mov     R3, #tmp
+(1)      BA : 34 CC                      call    set             ; tmp=100
+(1)      BC : 94 3A                      call    divsi2          ; C=X*229/100
+(1)      BE : BA 30                      mov     R2, #vD
+(1)      C0 : BB 3E                      mov     R3, #vY
+(1)      C2 : 34 D4                      call    assign8         ; D=Y
+(1)      C4 : BC A0                      mov     R4, #LOW(416)
+(1)      C6 : BD 01                      mov     R5, #HIGH(416)
+(1)      C8 : BB 2A                      mov     R3, #tmp
+(1)      CA : 34 CC                      call    set             ; tmp=416
+(1)      CC : 74 A2                      call    mulsi2          ; D=Y*416
+(1)      CE : BA 30                      mov     R2, #vD
+(1)      D0 : BC 64                      mov     R4, #LOW(100)
+(1)      D2 : BD 00                      mov     R5, #HIGH(100)
+(1)      D4 : BB 2A                      mov     R3, #tmp
+(1)      D6 : 34 CC                      call    set             ; tmp=100
+(1)      D8 : 94 3A                      call    divsi2          ; D=Y*416/100
+(1)      DA : BA 32                      mov     R2, #vA
+(1)      DC : BB 2E                      mov     R3, #vC
+(1)      DE : 34 E9                      call    assign          ; A=C
+(1)      E0 : BA 34                      mov     R2, #vB
+(1)      E2 : BB 30                      mov     R3, #vD
+(1)      E4 : 34 E9                      call    assign          ; B=D
+(1)      E6 : B8 40                      mov     R0, #vI
+(1)      E8 : 27                         clr     A
+(1)      E9 : A0                         mov     @R0, A          ; I=0
+(1)      EA :
+(1)      EA :                            ;; mov     R2, #tmp
+(1)      EA :                            ;; mov     R3, #vY
+(1)      EA :                            ;; call    assign8
+(1)      EA :                            ;; mov     A, #'Y'
+(1)      EA :                            ;; call    print           ; print Y
+(1)      EA :                            ;; mov     R2, #tmp
+(1)      EA :                            ;; mov     R3, #vX
+(1)      EA :                            ;; call    assign8
+(1)      EA :                            ;; mov     A, #'X'
+(1)      EA :                            ;; call    print           ; print X
+(1)      EA :                            ;; mov     R2, #vC
+(1)      EA :                            ;; mov     A, #'C'
+(1)      EA :                            ;; call    print           ; print C
+(1)      EA :                            ;; mov     R2, #vD
+(1)      EA :                            ;; mov     A, #'D'
+(1)      EA :                            ;; call    print           ; print D
+(1)      EA :                            ;; call    newline
+(1)      EA :
+(1)      EA :                    loop_i:
+(1)      EA : BA 38                      mov     R2, #vQ
+(1)      EC : BB 34                      mov     R3, #vB
+(1)      EE : 34 E9                      call    assign          ; Q=B
+(1)      F0 : BB 2C                      mov     R3, #vF
+(1)      F2 : 94 3A                      call    divsi2          ; Q=B/F
+(1)      F4 : BA 2A                      mov     R2, #tmp
+(1)      F6 : BB 38                      mov     R3, #vQ
+(1)      F8 : 34 E9                      call    assign          ; tmp=Q
+(1)      FA : BB 2C                      mov     R3, #vF
+(1)      FC : 74 A2                      call    mulsi2          ; tmp=Q*F
+(1)      FE : BA 3A                      mov     R2, #vS
+(1)     100 : BB 34                      mov     R3, #vB
+(1)     102 : 34 E9                      call    assign          ; S=B
+(1)     104 : BB 2A                      mov     R3, #tmp
+(1)     106 : 74 3A                      call    subsi2          ; S=B-Q*F
+(1)     108 : BA 2A                      mov     R2, #tmp
+(1)     10A : BB 34                      mov     R3, #vB
+(1)     10C : 34 E9                      call    assign          ; tmp=B
+(1)     10E : 74 A2                      call    mulsi2          ; tmp=B*B
+(1)     110 : BA 3C                      mov     R2, #vT
+(1)     112 : BB 32                      mov     R3, #vA
+(1)     114 : 34 E9                      call    assign          ; T=A
+(1)     116 : 74 A2                      call    mulsi2          ; T=A*A
+(1)     118 : BA 3C                      mov     R2, #vT
+(1)     11A : BB 2A                      mov     R3, #tmp
+(1)     11C : 74 3A                      call    subsi2          ; T=A*A-B*B
+(1)     11E : BA 3C                      mov     R2, #vT
+(1)     120 : BB 2C                      mov     R3, #vF
+(1)     122 : 94 3A                      call    divsi2          ; T=(A*A-B*B)/F
+(1)     124 : BA 3C                      mov     R2, #vT
+(1)     126 : BB 2E                      mov     R3, #vC
+(1)     128 : 74 2A                      call    addsi2          ; T=(A*A-B*B)/F+C
+(1)     12A : BA 2A                      mov     R2, #tmp
+(1)     12C : BB 32                      mov     R3, #vA         ; tmp=A
+(1)     12E : 34 E9                      call    assign
+(1)     130 : BB 3A                      mov     R3, #vS
+(1)     132 : 74 A2                      call    mulsi2          ; tmp=A*S
+(1)     134 : BA 2A                      mov     R2, #tmp
+(1)     136 : BB 2C                      mov     R3, #vF
+(1)     138 : 94 3A                      call    divsi2          ; tmp=A*S/F
+(1)     13A : BA 34                      mov     R2, #vB
+(1)     13C : BB 32                      mov     R3, #vA
+(1)     13E : 34 E9                      call    assign          ; B=A
+(1)     140 : BB 38                      mov     R3, #vQ
+(1)     142 : 74 A2                      call    mulsi2          ; B=A*Q
+(1)     144 : BA 34                      mov     R2, #vB
+(1)     146 : BB 2A                      mov     R3, #tmp
+(1)     148 : 74 2A                      call    addsi2          ; B=A*Q+A*S/F
+(1)     14A : BA 34                      mov     R2, #vB
+(1)     14C : BB 34                      mov     R3, #vB
+(1)     14E : 74 2A                      call    addsi2          ; B=2*(A*Q+A*S/F)
+(1)     150 : BA 34                      mov     R2, #vB
+(1)     152 : BB 30                      mov     R3, #vD
+(1)     154 : 74 2A                      call    addsi2          ; B=2*(A*Q+A*S/F)+D
+(1)     156 : BA 32                      mov     R2, #vA
+(1)     158 : BB 3C                      mov     R3, #vT
+(1)     15A : 34 E9                      call    assign          ; A=T
+(1)     15C : BA 36                      mov     R2, #vP
+(1)     15E : 34 E9                      call    assign          ; P=A
+(1)     160 : BB 2C                      mov     R3, #vF
+(1)     162 : 94 3A                      call    divsi2          ; P=A/F
+(1)     164 : BA 38                      mov     R2, #vQ
+(1)     166 : BB 34                      mov     R3, #vB
+(1)     168 : 34 E9                      call    assign          ; Q=B
+(1)     16A : BB 2C                      mov     R3, #vF
+(1)     16C : 94 3A                      call    divsi2          ; Q=B/F
+(1)     16E : BA 2A                      mov     R2, #tmp
+(1)     170 : BB 38                      mov     R3, #vQ
+(1)     172 : 34 E9                      call    assign          ; tmp=Q
+(1)     174 : 74 A2                      call    mulsi2          ; tmp=Q*Q
+(1)     176 : BA 3C                      mov     R2, #vT
+(1)     178 : BB 36                      mov     R3, #vP
+(1)     17A : 34 E9                      call    assign          ; T=P
+(1)     17C : 74 A2                      call    mulsi2          ; T=P*P
+(1)     17E : BA 3C                      mov     R2, #vT
+(1)     180 : BB 2A                      mov     R3, #tmp
+(1)     182 : 74 2A                      call    addsi2          ; T=P*P+Q*Q (T>=0)
+(1)     184 :
+(1)     184 :                            ;; call    putspace
+(1)     184 :                            ;; mov     R2, #tmp
+(1)     184 :                            ;; mov     R3, #vI
+(1)     184 :                            ;; call    assign8
+(1)     184 :                            ;; mov     A, #'I'
+(1)     184 :                            ;; call    print           ; print I
+(1)     184 :                            ;; mov     R2, #vA
+(1)     184 :                            ;; mov     A, #'A'
+(1)     184 :                            ;; call    print           ; print A
+(1)     184 :                            ;; mov     R2, #vB
+(1)     184 :                            ;; mov     A, #'B'
+(1)     184 :                            ;; call    print           ; print B
+(1)     184 :                            ;; mov     R2, #vP
+(1)     184 :                            ;; mov     A, #'P'
+(1)     184 :                            ;; call    print           ; print P
+(1)     184 :                            ;; mov     R2, #vQ
+(1)     184 :                            ;; mov     A, #'Q'
+(1)     184 :                            ;; call    print           ; print Q
+(1)     184 :                            ;; mov     R2, #vT
+(1)     184 :                            ;; mov     A, #'T'
+(1)     184 :                            ;; call    print           ; print T
+(1)     184 :                            ;; call    newline
+(1)     184 :
+(1)     184 : B8 3D                      mov     R0, #vT+1
+(1)     186 : F0                         mov     A, @R0          ; A=hi(T)
+(1)     187 : 96 9D                      jnz     print_i         ; if T>=256
+(1)     189 : C8                         dec     R0
+(1)     18A : F0                         mov     A, @R0          ; A=lo(T)
+(1)     18B : 03 FB                      add     A, #-(4+1)
+(1)     18D : F6 9D                      jc      print_i         ; if T>=5
+(1)     18F : B8 40                      mov     R0, #vI
+(1)     191 : 10                         inc     @R0             ; I+=1
+(1)     192 : F0                         mov     A, @R0          ; A=I (I>=0)
+(1)     193 : 03 F0                      add     A, #-16
+(1)     195 : F6 99                      jc      print_space
+(1)     197 : 04 EA                      jmp     loop_i          ; if I<16
+(1)     199 :                    print_space:
+(1)     199 : 23 20                      mov     A, #' '
+(1)     19B : 24 A8                      jmp     print_char
+(1)     19D :                    print_i:
+(1)     19D : B8 40                      mov     R0, #vI
+(1)     19F : F0                         mov     A, @R0
+(1)     1A0 : 03 F6                      add     A, #-10
+(1)     1A2 : E6 A6                      jnc     print_dec       ; if I<10
+(1)     1A4 : 03 07                      add     A, #'A'-('0'+10)
+(1)     1A6 :                    print_dec:
+(1)     1A6 : 03 3A                      add     A, #10+'0'
+(1)     1A8 :                    print_char:
+(1)     1A8 :                            ;; dec     R1
+(1)     1A8 :                            ;; movx    @R1, A          ; push A
+(1)     1A8 :                            ;; mov     A, #'@'
+(1)     1A8 :                            ;; call    putchar
+(1)     1A8 :                            ;; mov     A, #'='
+(1)     1A8 :                            ;; call    putchar
+(1)     1A8 :                            ;; movx    A, @R1          ; restore A
+(1)     1A8 :                            ;; call    putchar
+(1)     1A8 :                            ;; call    newline
+(1)     1A8 :                            ;; movx    A, @R1
+(1)     1A8 :                            ;; inc     R1              ; pop A
+(1)     1A8 :
+(1)     1A8 : 14 54                      call    putchar
+(1)     1AA : 14 3C                      call    getchar
+(1)     1AC : E6 B1                      jnc     next_x
+(1)     1AE : 96 B1                      jnz     next_x
+(1)     1B0 : 01                         db      01H             ; halt to system
+(1)     1B1 :                    next_x:
+(1)     1B1 : B8 3F                      mov     R0, #vX
+(1)     1B3 : 10                         inc     @R0             ; X+=1
+(1)     1B4 : F0                         mov     A, @R0
+(1)     1B5 : F2 BB                      jb      7, jmp_loop_x   ; if X<0
+(1)     1B7 : 03 E2                      add     A, #-30
+(1)     1B9 : F6 BD                      jc      next_y
+(1)     1BB :                    jmp_loop_x:
+(1)     1BB : 04 A2                      jmp     loop_x          ; if X<30
+(1)     1BD :                    next_y:
+(1)     1BD : 14 4A                      call    newline
+(1)     1BF : B8 3E                      mov     R0, #vY
+(1)     1C1 : 10                         inc     @R0             ; Y+=1
+(1)     1C2 : F0                         mov     A, @R0
+(1)     1C3 : F2 C9                      jb      7, jmp_loop_y   ; if Y<0
+(1)     1C5 : 03 F3                      add     A, #-13
+(1)     1C7 : F6 CB                      jc      mandelbrot_end
+(1)     1C9 :                    jmp_loop_y:
+(1)     1C9 : 04 9D                      jmp     loop_y          ; if Y<13
+(1)     1CB :                    mandelbrot_end:
+(1)     1CB : 83                         ret
+(1)     1CC :
+(1)     1CC :                    ;;; Set value to variable
+(1)     1CC :                    ;;; @param R5:R4 value
+(1)     1CC :                    ;;; @param R3 &variable
+(1)     1CC :                    ;;; @clobber A R0
+(1)     1CC :                    set:
+(1)     1CC : FB                         mov     A, R3
+(1)     1CD : A8                         mov     R0, A
+(1)     1CE : FC                         mov     A, R4
+(1)     1CF : A0                         mov     @R0, A
+(1)     1D0 : FD                         mov     A, R5
+(1)     1D1 : 18                         inc     R0
+(1)     1D2 : A0                         mov     @R0, A
+(1)     1D3 : 83                         ret
+(1)     1D4 :
+(1)     1D4 :                    ;;; Assign 8-bit variable; v1 = v2
+(1)     1D4 :                    ;;; @param R2 &v1
+(1)     1D4 :                    ;;; @param R3 &v2
+(1)     1D4 :                    ;;; @clobber A R0
+(1)     1D4 :                    assign8:
+(1)     1D4 : 23 FF                      mov     A, #-1
+(1)     1D6 : 2B                         xch     A, R3           ; A=&v2, R3=-1
+(1)     1D7 : A8                         mov     R0, A           ; R0=&v2
+(1)     1D8 : F0                         mov     A, @R0          ; A=v2
+(1)     1D9 : F2 DD                      jb      7, assign8_hi   ; jump if v2 < 0
+(1)     1DB : BB 00                      mov     R3, #0          ; R3=0
+(1)     1DD :                    assign8_hi:
+(1)     1DD : 2B                         xch     A, R3           ; R3=v2, A=hi(v2)
+(1)     1DE : 2A                         xch     A, R2           ; R2=hi(v2), A=&v1
+(1)     1DF : 28                         xch     A, R0           ; R0=&v1, A=&v2
+(1)     1E0 : 2B                         xch     A, R3           ; R3=&v2, A=v2
+(1)     1E1 : A0                         mov     @R0, A          ; lo(v1)=v2
+(1)     1E2 : FA                         mov     A, R2           ; A=hi(v2)
+(1)     1E3 : 18                         inc     R0              ; R0=&v1+1
+(1)     1E4 : A0                         mov     @R0, A          ; hi(v1)=hi(v2)
+(1)     1E5 : C8                         dec     R0              ; R0=&v1
+(1)     1E6 : F8                         mov     A, R0
+(1)     1E7 : AA                         mov     R2, A           ; R2=&v1
+(1)     1E8 : 83                         ret
+(1)     1E9 :
+(1)     1E9 :                    ;;; Assign 16-bit variable; v1 = v2
+(1)     1E9 :                    ;;; @param R2 &v1
+(1)     1E9 :                    ;;; @param R3 &v2
+(1)     1E9 :                    ;;; @clobber A R0
+(1)     1E9 :                    assign:
+(1)     1E9 : FB                         mov     A, R3
+(1)     1EA : A8                         mov     R0, A           ; R0=&v2
+(1)     1EB : F0                         mov     A, @R0
+(1)     1EC : AB                         mov     R3, A           ; R3=lo(v2)
+(1)     1ED : 18                         inc     R0              ; R0=&v2+1
+(1)     1EE : F0                         mov     A, @R0          ; A=hi(v2)
+(1)     1EF : 2A                         xch     A, R2           ; R2=hi(v2), A=&v1
+(1)     1F0 : 28                         xch     A, R0           ; R0=&v1, A=&v2+1
+(1)     1F1 : 2B                         xch     A, R3           ; R3=&v2+1, A=lo(v2)
+(1)     1F2 : CB                         dec     R3              ; R3=&v2
+(1)     1F3 : A0                         mov     @R0, A          ; lo(v1)=lo(v2)
+(1)     1F4 : FA                         mov     A, R2           ; A=hi(v2)
+(1)     1F5 : 18                         inc     R0              ; R0=&v1+1
+(1)     1F6 : A0                         mov     @R0, A          ; hi(v1)=hi(v2)
+(1)     1F7 : C8                         dec     R0              ; R0=&v1
+(1)     1F8 : F8                         mov     A, R0
+(1)     1F9 : AA                         mov     R2, A           ; R2=&v1
+(1)     1FA : 83                         ret
+(1)     1FB :
+(1)     1FB :                    ;;; Print variable
+(1)     1FB :                    ;;; @param A: variable name
+(1)     1FB :                    ;;; @param R2: &variable
+(1)     1FB :                    ;;; @clobber A R0
+(1)     1FB :                    print:
+(1)     1FB : 14 54                      call    putchar
+(1)     1FD : 23 3D                      mov     A, #'='
+(1)     1FF : 14 54                      call    putchar
+(1)     201 : FA                         mov     A, R2
+(1)     202 : A8                         mov     R0, A
+(1)     203 : 54 07                      call    print_int16
+(1)     205 : 04 52                      jmp     putspace
+        207 :                            include "arith.inc"
+(1)     207 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)     207 :                            cpu     8048
+(1)     207 :
+(1)     207 :                    ;;; Print signed 16-bit integer as decimal
+(1)     207 :                    ;;; @param R0 &value
+(1)     207 :                    ;;; @clobber A
+(1)     207 :                    print_int16:
+(1)     207 : F8                         mov     A, R0
 (1)     208 : C9                         dec     R1
-(1)     209 : 91                         movx    @R1, A          ; save R2
-(1)     20A : 18                         inc     R0
-(1)     20B : F0                         mov     A, @R0
-(1)     20C : 2B                         xch     A, R3
-(1)     20D : C9                         dec     R1
-(1)     20E : 91                         movx    @R1, A          ; save R3
-(1)     20F : FB                         mov     A, R3
-(1)     210 : 37                         cpl     A
-(1)     211 : F2 19                      jb      7, print_uint16
-(1)     213 : 23 2D                      mov     A, #'-'
-(1)     215 : 14 50                      call    putchar         ; print '-'
-(1)     217 : 74 00                      call    neg_R3R2        ; negate value
-(1)     219 :                    ;;; Print unsigned 16-bit integer as decimal
-(1)     219 :                    ;;; @param R2:R3: value
-(1)     219 :                    ;;; @param print_uint16_buf external data memory
-(1)     219 :                    ;;; @clobber A
-(1)     219 :                    print_uint16:
-(1)     219 : 23 40                      mov     A, #print_uint16_buf
-(1)     21B : C9                         dec     R1
-(1)     21C : 91                         movx    @R1, A          ; save buffer pointer
-(1)     21D : A8                         mov     R0, A
-(1)     21E : 27                         clr     A
-(1)     21F : 90                         movx    @R0, A          ; mark EOS
-(1)     220 :                    print_uint16_loop:
-(1)     220 : BC 0A                      mov     R4, #LOW(10)
-(1)     222 : BD 00                      mov     R5, #HIGH(10)
-(1)     224 : 74 D8                      call    udiv16
-(1)     226 : 81                         movx    A, @R1
-(1)     227 : A8                         mov     R0, A           ; restore buffer pointer
-(1)     228 : FC                         mov     A, R4           ; lo(remainder)
-(1)     229 : 03 30                      add     A, #'0'
-(1)     22B : 18                         inc     R0
-(1)     22C : 90                         movx    @R0, A          ; write to buffer
-(1)     22D : F8                         mov     A, R0
-(1)     22E : 91                         movx    @R1, A          ; save buffer pointer
-(1)     22F : FA                         mov     A, R2
-(1)     230 : 4B                         orl     A, R3
-(1)     231 : 96 20                      jnz     print_uint16_loop ; until value == 0
-(1)     233 :                    print_uint16_out:
-(1)     233 : 80                         movx    A, @R0
-(1)     234 : C6 3B                      jz      print_uint16_end
-(1)     236 : 14 50                      call    putchar
-(1)     238 : C8                         dec     R0
-(1)     239 : 44 33                      jmp     print_uint16_out
-(1)     23B :                    print_uint16_end:
-(1)     23B : 19                         inc     R1              ; discard buffer pointer
-(1)     23C : 81                         movx    A, @R1
-(1)     23D : 19                         inc     R1
-(1)     23E : AB                         mov     R3, A           ; restore R3
-(1)     23F : 81                         movx    A, @R1
-(1)     240 : 19                         inc     R1
-(1)     241 : AA                         mov     R2, A           ; restore R2
-(1)     242 : 81                         movx    A, @R1
-(1)     243 : 19                         inc     R1
-(1)     244 : A8                         mov     R0, A           ; restore R0
-(1)     245 : 83                         ret
-(1)     246 :
+(1)     209 : 91                         movx    @R1, A          ; save R0
+(1)     20A : F0                         mov     A, @R0
+(1)     20B : 2A                         xch     A, R2
+(1)     20C : C9                         dec     R1
+(1)     20D : 91                         movx    @R1, A          ; save R2
+(1)     20E : 18                         inc     R0
+(1)     20F : F0                         mov     A, @R0
+(1)     210 : 2B                         xch     A, R3
+(1)     211 : C9                         dec     R1
+(1)     212 : 91                         movx    @R1, A          ; save R3
+(1)     213 : FB                         mov     A, R3
+(1)     214 : 37                         cpl     A
+(1)     215 : F2 1D                      jb      7, print_uint16
+(1)     217 : 23 2D                      mov     A, #'-'
+(1)     219 : 14 54                      call    putchar         ; print '-'
+(1)     21B : 74 00                      call    neg_R3R2        ; negate value
+(1)     21D :                    ;;; Print unsigned 16-bit integer as decimal
+(1)     21D :                    ;;; @param R2:R3: value
+(1)     21D :                    ;;; @param print_uint16_buf external data memory
+(1)     21D :                    ;;; @clobber A
+(1)     21D :                    print_uint16:
+(1)     21D : 23 40                      mov     A, #print_uint16_buf
+(1)     21F : C9                         dec     R1
+(1)     220 : 91                         movx    @R1, A          ; save buffer pointer
+(1)     221 : A8                         mov     R0, A
+(1)     222 : 27                         clr     A
+(1)     223 : 90                         movx    @R0, A          ; mark EOS
+(1)     224 :                    print_uint16_loop:
+(1)     224 : BC 0A                      mov     R4, #LOW(10)
+(1)     226 : BD 00                      mov     R5, #HIGH(10)
+(1)     228 : 74 D8                      call    udiv16
+(1)     22A : 81                         movx    A, @R1
+(1)     22B : A8                         mov     R0, A           ; restore buffer pointer
+(1)     22C : FC                         mov     A, R4           ; lo(remainder)
+(1)     22D : 03 30                      add     A, #'0'
+(1)     22F : 18                         inc     R0
+(1)     230 : 90                         movx    @R0, A          ; write to buffer
+(1)     231 : F8                         mov     A, R0
+(1)     232 : 91                         movx    @R1, A          ; save buffer pointer
+(1)     233 : FA                         mov     A, R2
+(1)     234 : 4B                         orl     A, R3
+(1)     235 : 96 24                      jnz     print_uint16_loop ; until value == 0
+(1)     237 :                    print_uint16_out:
+(1)     237 : 80                         movx    A, @R0
+(1)     238 : C6 3F                      jz      print_uint16_end
+(1)     23A : 14 54                      call    putchar
+(1)     23C : C8                         dec     R0
+(1)     23D : 44 37                      jmp     print_uint16_out
+(1)     23F :                    print_uint16_end:
+(1)     23F : 19                         inc     R1              ; discard buffer pointer
+(1)     240 : 81                         movx    A, @R1
+(1)     241 : 19                         inc     R1
+(1)     242 : AB                         mov     R3, A           ; restore R3
+(1)     243 : 81                         movx    A, @R1
+(1)     244 : 19                         inc     R1
+(1)     245 : AA                         mov     R2, A           ; restore R2
+(1)     246 : 81                         movx    A, @R1
+(1)     247 : 19                         inc     R1
+(1)     248 : A8                         mov     R0, A           ; restore R0
+(1)     249 : 83                         ret
+(1)     24A :
 (1)     300 :                            org     $+(256-LOW($))
 (1)     300 :
 (1)     300 :                    ;;; Negation; result = -result
@@ -691,7 +696,7 @@
 (1)     338 : A0                         mov     @R0, A
 (1)     339 : 83                         ret
 (1)     33A :
-(1)     33A :                    ;;; Singed subtraction: minuend -= subtrahend
+(1)     33A :                    ;;; Signed subtraction: minuend -= subtrahend
 (1)     33A :                    ;;; @param R2: &minuend
 (1)     33A :                    ;;; @param R3: &subtrahend
 (1)     33A :                    ;;; @clobber A R0 R2 R3
@@ -870,8 +875,8 @@
 (1)     3D7 : 83                         ret
 (1)     3D8 :
 (1)     3D8 :                    ;;; Unsigned division: dividend / divisor = quotient ... remainder
-(1)     3D8 :                    ;;; @praram R3:R2 dividend
-(1)     3D8 :                    ;;; @praram R5:R4 divisor
+(1)     3D8 :                    ;;; @param R3:R2 dividend
+(1)     3D8 :                    ;;; @param R5:R4 divisor
 (1)     3D8 :                    ;;; @return R3:R2 quotient
 (1)     3D8 :                    ;;; @return R5:R4 remainder
 (1)     3D8 :                    ;;; @clobber A R0 R2 R3 R4 R5 R6 R7

@@ -92,7 +92,7 @@ All 40 targets, grouped by vendor and architecture:
 <tr><td>MOS Technology</td><td>6502</td><td>MOS6502 <em>G65SC02, R65C02, W65C02S, W65C816S</em></td></tr>
 <tr><td rowspan="2">Zilog</td><td>Z80</td><td>Z80, Z180, NSC800, KL5C80A12, HD64180S</td></tr>
 <tr><td>Z8</td><td>Z86C91, Z88C00</td></tr>
-<tr><td rowspan="4">Intel</td><td>MCS-48</td><td>P8039 <em>MSM80C39</em></td></tr>
+<tr><td rowspan="4">Intel</td><td>MCS-48</td><td>P8048 <em>P8039, MSM80C39</em></td></tr>
 <tr><td>MCS-51</td><td>P8051</td></tr>
 <tr><td>MCS-80/85</td><td>P8080, P8085</td></tr>
 <tr><td>MCS-96</td><td>P8095BH</td></tr>

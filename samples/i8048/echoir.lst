@@ -62,7 +62,7 @@
 (1)       0 : =80                ST_DSR_bm:      equ     10000000B   ; Data Set Ready
 (1)       0 : =40                ST_BRK_bm:      equ     01000000B   ; BREAK detected
 (1)       0 : =20                ST_FE_bm:       equ     00100000B   ; Framing Error
-(1)       0 : =10                ST_OE_bm:       equ     00010000B   ; Iverrun Error
+(1)       0 : =10                ST_OE_bm:       equ     00010000B   ; Overrun Error
 (1)       0 : =8                 ST_PE_bm:       equ     00001000B   ; Parity Error
 (1)       0 : =4                 ST_TxEMPTY_bm:  equ     00000100B   ; Transmitter empty
 (1)       0 : =2                 ST_RxRDY_bm:    equ     00000010B   ; Receiver ready
@@ -78,6 +78,8 @@
           0 :                            org     00H
           0 : =20                rx_queue_size:  equ     32
           0 :                    rx_queue_buf:   ds      rx_queue_size
+         20 :                            ds      4
+         24 :                    isr_stack:                      ; the ISR's software stack, R1 of BANK1
          FC :                            org     USART
          FC :                    ;;;  Software stack; pre-decrement, post-increment pointed by R1 on
          FC :                    ;;;  external data memory
@@ -90,205 +92,208 @@
           0 :                            org     ORG_RESET
           0 : 04 05                      jmp     init
           3 :                            org     ORG_INT
-          3 : 04 B1                      jmp     isr_intr
+          3 : 04 B5                      jmp     isr_intr
           5 :                    init:
           5 : B9 FC                      mov     R1, #stack
-          7 : B8 20                      mov     R0, #rx_queue
-          9 : BA 00                      mov     R2, #rx_queue_buf
-          B : 23 20                      mov     A, #rx_queue_size
-          D : 14 46                      call    queue_init
-          F :                    init_usart:
-          F : B8 FD                      mov     R0, #USARTC
-         11 : 27                         clr     A
-         12 : 90                         movx    @R0, A
-         13 : 90                         movx    @R0, A
-         14 : 90                         movx    @R0, A          ; safest way to sync mode
-         15 : 23 40                      mov     A, #CMD_IR_bm
-         17 : 90                         movx    @R0, A          ; reset
-         18 : 00                         nop
-         19 : 00                         nop
-         1A : 23 4E                      mov     A, #ASYNC_MODE
-         1C : 90                         movx    @R0, A
+          7 : D5                         sel     RB1
+          8 : B9 24                      mov     R1, #isr_stack
+          A : C5                         sel     RB0
+          B : B8 20                      mov     R0, #rx_queue
+          D : BA 00                      mov     R2, #rx_queue_buf
+          F : 23 20                      mov     A, #rx_queue_size
+         11 : 14 4A                      call    queue_init
+         13 :                    init_usart:
+         13 : B8 FD                      mov     R0, #USARTC
+         15 : 27                         clr     A
+         16 : 90                         movx    @R0, A
+         17 : 90                         movx    @R0, A
+         18 : 90                         movx    @R0, A          ; safest way to sync mode
+         19 : 23 40                      mov     A, #CMD_IR_bm
+         1B : 90                         movx    @R0, A          ; reset
+         1C : 00                         nop
          1D : 00                         nop
-         1E : 00                         nop
-         1F : 23 37                      mov     A, #RX_EN_TX_EN
-         21 : 90                         movx    @R0, A
-         22 : 23 03                      mov     A, #ORG_INT
-         24 : B8 FE                      mov     R0, #USARTRV
-         26 : 90                         movx    @R0, A          ; enable RxRDY interrupt
-         27 : 05                         en      I
-         28 :
-         28 :                    receive_loop:
-         28 : B8 20                      mov     R0, #rx_queue
-         2A : 15                         dis     I               ; Disable INT
-         2B : 14 89                      call    queue_remove
-         2D : 05                         en      I               ; Enable INT
-         2E : E6 28                      jnc     receive_loop
-         30 : C6 45                      jz      halt_to_system
-         32 : AF                         mov     R7, A           ; save letter
-         33 :                    transmit_loop:
-         33 : B8 FD                      mov     R0, #USARTS
-         35 : 80                         movx    A, @R0
-         36 : 37                         cpl     A
-         37 : 12 33                      jb      ST_TxRDY_bp, transmit_loop
-         39 :                    transmit_data:
-         39 : B8 FC                      mov     R0, #USARTD
-         3B : FF                         mov     A, R7
-         3C : 90                         movx    @R0, A
-         3D : D3 0D                      xrl     A, #0DH
-         3F : 96 28                      jnz     receive_loop
-         41 : BF 0A                      mov     R7, #0AH
-         43 : 04 33                      jmp     transmit_loop
-         45 :                    halt_to_system:
-         45 : 01                         db      01H
-         46 :
-         46 :                            include "queue.inc"
-(1)      46 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
-(1)      46 :                    ;;; [queue] queue structure on internal data memory
-(1)      46 : =0                 queue_len:      equ     0       ; queue length
-(1)      46 : =1                 queue_size:     equ     1       ; buffer size
-(1)      46 : =2                 queue_buf:      equ     2       ; buffer pointer to external data memory
-(1)      46 : =3                 queue_put:      equ     3       ; queue put index
-(1)      46 : =4                 queue_get:      equ     4       ; queue get index
-(1)      46 : =5                 queue_work_size:        equ     5
-(1)      46 :
-(1)      46 :                    ;;; [queue] Initialize queue
-(1)      46 :                    ;;; @param R0 queue work space pointer
-(1)      46 :                    ;;; @param R2 queue buffer pointer
-(1)      46 :                    ;;; @param A queue buffer size
-(1)      46 :                    ;;; @clobber A R0
-(1)      46 :                    queue_init:
-(1)      46 : AF                         mov     R7, A
-(1)      47 : B0 00                      mov     @R0, #0         ; queue_len
-(1)      49 : 18                         inc     R0
-(1)      4A : A0                         mov     @R0, A          ; queue_size
-(1)      4B : 18                         inc     R0
-(1)      4C : FA                         mov     A, R2
-(1)      4D : A0                         mov     @R0, A          ; queue_buffer
-(1)      4E : 18                         inc     R0
-(1)      4F : B0 00                      mov     @R0, #0         ; queue_put
-(1)      51 : 18                         inc     R0
-(1)      52 : B0 00                      mov     @R0, #0         ; queue_get
-(1)      54 : FA                         mov     A, R2
-(1)      55 : A8                         mov     R0, A           ; R0=queue_buffer
-(1)      56 : 27                         clr     A
-(1)      57 :                    queue_init_loop:
-(1)      57 : 90                         movx    @R0, A
-(1)      58 : 18                         inc     R0
-(1)      59 : EF 57                      djnz    R7, queue_init_loop
-(1)      5B : 83                         ret
-(1)      5C :
-(1)      5C :                    ;;; [queue] Add an element to queue
-(1)      5C :                    ;;; @param R0 queue work space pointer
-(1)      5C :                    ;;; @param A an element
-(1)      5C :                    ;;; @return PSW.C 0 if queue is full
-(1)      5C :                    ;;; @clobber R0
-(1)      5C :                    queue_add:
-(1)      5C : C9                         dec     R1
-(1)      5D : 91                         movx    @R1, A          ; save A
-(1)      5E : F0                         mov     A, @R0          ; queue_len
-(1)      5F : 18                         inc     R0
-(1)      60 : D0                         xrl     A, @R0          ; queue_size
-(1)      61 : 96 67                      jnz     queue_add_store
-(1)      63 : 81                         movx    A, @R1          ; restore A
-(1)      64 : 19                         inc     R1
-(1)      65 : 97                         clr     C               ; PSW.C=0
-(1)      66 : 83                         ret
-(1)      67 :                    queue_add_store:
+         1E : 23 4E                      mov     A, #ASYNC_MODE
+         20 : 90                         movx    @R0, A
+         21 : 00                         nop
+         22 : 00                         nop
+         23 : 23 37                      mov     A, #RX_EN_TX_EN
+         25 : 90                         movx    @R0, A
+         26 : 23 03                      mov     A, #ORG_INT
+         28 : B8 FE                      mov     R0, #USARTRV
+         2A : 90                         movx    @R0, A          ; enable RxRDY interrupt
+         2B : 05                         en      I
+         2C :
+         2C :                    receive_loop:
+         2C : B8 20                      mov     R0, #rx_queue
+         2E : 15                         dis     I               ; Disable INT
+         2F : 14 8D                      call    queue_remove
+         31 : 05                         en      I               ; Enable INT
+         32 : E6 2C                      jnc     receive_loop
+         34 : C6 49                      jz      halt_to_system
+         36 : AF                         mov     R7, A           ; save letter
+         37 :                    transmit_loop:
+         37 : B8 FD                      mov     R0, #USARTS
+         39 : 80                         movx    A, @R0
+         3A : 37                         cpl     A
+         3B : 12 37                      jb      ST_TxRDY_bp, transmit_loop
+         3D :                    transmit_data:
+         3D : B8 FC                      mov     R0, #USARTD
+         3F : FF                         mov     A, R7
+         40 : 90                         movx    @R0, A
+         41 : D3 0D                      xrl     A, #0DH
+         43 : 96 2C                      jnz     receive_loop
+         45 : BF 0A                      mov     R7, #0AH
+         47 : 04 37                      jmp     transmit_loop
+         49 :                    halt_to_system:
+         49 : 01                         db      01H
+         4A :
+         4A :                            include "queue.inc"
+(1)      4A :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)      4A :                    ;;; [queue] queue structure on internal data memory
+(1)      4A : =0                 queue_len:      equ     0       ; queue length
+(1)      4A : =1                 queue_size:     equ     1       ; buffer size
+(1)      4A : =2                 queue_buf:      equ     2       ; buffer pointer to external data memory
+(1)      4A : =3                 queue_put:      equ     3       ; queue put index
+(1)      4A : =4                 queue_get:      equ     4       ; queue get index
+(1)      4A : =5                 queue_work_size:        equ     5
+(1)      4A :
+(1)      4A :                    ;;; [queue] Initialize queue
+(1)      4A :                    ;;; @param R0 queue work space pointer
+(1)      4A :                    ;;; @param R2 queue buffer pointer
+(1)      4A :                    ;;; @param A queue buffer size
+(1)      4A :                    ;;; @clobber A R0
+(1)      4A :                    queue_init:
+(1)      4A : AF                         mov     R7, A
+(1)      4B : B0 00                      mov     @R0, #0         ; queue_len
+(1)      4D : 18                         inc     R0
+(1)      4E : A0                         mov     @R0, A          ; queue_size
+(1)      4F : 18                         inc     R0
+(1)      50 : FA                         mov     A, R2
+(1)      51 : A0                         mov     @R0, A          ; queue_buffer
+(1)      52 : 18                         inc     R0
+(1)      53 : B0 00                      mov     @R0, #0         ; queue_put
+(1)      55 : 18                         inc     R0
+(1)      56 : B0 00                      mov     @R0, #0         ; queue_get
+(1)      58 : FA                         mov     A, R2
+(1)      59 : A8                         mov     R0, A           ; R0=queue_buffer
+(1)      5A : 27                         clr     A
+(1)      5B :                    queue_init_loop:
+(1)      5B : 90                         movx    @R0, A
+(1)      5C : 18                         inc     R0
+(1)      5D : EF 5B                      djnz    R7, queue_init_loop
+(1)      5F : 83                         ret
+(1)      60 :
+(1)      60 :                    ;;; [queue] Add an element to queue
+(1)      60 :                    ;;; @param R0 queue work space pointer
+(1)      60 :                    ;;; @param A an element
+(1)      60 :                    ;;; @return PSW.C 0 if queue is full
+(1)      60 :                    ;;; @clobber R0
+(1)      60 :                    queue_add:
+(1)      60 : C9                         dec     R1
+(1)      61 : 91                         movx    @R1, A          ; save A
+(1)      62 : F0                         mov     A, @R0          ; queue_len
+(1)      63 : 18                         inc     R0
+(1)      64 : D0                         xrl     A, @R0          ; queue_size
+(1)      65 : 96 6B                      jnz     queue_add_store
 (1)      67 : 81                         movx    A, @R1          ; restore A
-(1)      68 : 2F                         xch     A, R7           ; R7=an element
-(1)      69 : C9                         dec     R1
-(1)      6A : 91                         movx    @R1, A          ; save R7
-(1)      6B : C8                         dec     R0
-(1)      6C : 10                         inc     @R0             ; queue_len++
-(1)      6D : 18                         inc     R0
-(1)      6E : 18                         inc     R0
-(1)      6F : F0                         mov     A, @R0          ; A=queue_buf
-(1)      70 : 18                         inc     R0
-(1)      71 : 60                         add     A, @R0          ; A=queue_buf+queue_put
-(1)      72 : 29                         xch     A, R1           ; A=R1, R0=&queue_buf[queue_put]
-(1)      73 : 2F                         xch     A, R7           ; A=an element, R7=R1
-(1)      74 : 91                         movx    @R1, A          ; add an element
-(1)      75 : FF                         mov     A, R7           ; A=R1
-(1)      76 : A9                         mov     R1, A           ; restore R1
-(1)      77 : C8                         dec     R0
-(1)      78 : C8                         dec     R0
-(1)      79 : F0                         mov     A, @R0          ; A=queue_size
-(1)      7A : 18                         inc     R0
-(1)      7B : 18                         inc     R0
-(1)      7C : 10                         inc     @R0             ; queue_put++
-(1)      7D : D0                         xrl     A, @R0
-(1)      7E : 96 81                      jnz     queue_add_end
-(1)      80 : A0                         mov     @R0, A          ; queue_put=0
-(1)      81 :                    queue_add_end:
-(1)      81 : 81                         movx    A, @R1
-(1)      82 : 19                         inc     R1
-(1)      83 : AF                         mov     R7, A           ; restore R7
-(1)      84 : 81                         movx    A, @R1          ; restore A
-(1)      85 : 19                         inc     R1
-(1)      86 : 97                         clr     C
-(1)      87 : A7                         cpl     C
-(1)      88 : 83                         ret
-(1)      89 :
-(1)      89 :                    ;;; [queue] Remove an element from queue
-(1)      89 :                    ;;; @param R0 queue work space pointer
-(1)      89 :                    ;;; @return A an element
-(1)      89 :                    ;;; @return PSW.C 0 if queue is empty
-(1)      89 :                    ;;; @clobber R0
-(1)      89 :                    queue_remove:
-(1)      89 : F0                         mov     A, @R0            ; queue_len
-(1)      8A : 96 8E                      jnz     queue_remove_elem ; queue_len > 0
-(1)      8C : 97                         clr     C                 ; PSW.C=0
-(1)      8D : 83                         ret
-(1)      8E :                    queue_remove_elem:
-(1)      8E : FF                         mov     A, R7
-(1)      8F : C9                         dec     R1
-(1)      90 : 91                         movx    @R1, A          ; save R7
-(1)      91 : F0                         mov     A, @R0          ; queue_len--
-(1)      92 : 07                         dec     A
-(1)      93 : A0                         mov     @R0, A
-(1)      94 : 18                         inc     R0
-(1)      95 : 18                         inc     R0
-(1)      96 : F0                         mov     A, @R0          ; A=queue_buf
-(1)      97 : 18                         inc     R0
+(1)      68 : 19                         inc     R1
+(1)      69 : 97                         clr     C               ; PSW.C=0
+(1)      6A : 83                         ret
+(1)      6B :                    queue_add_store:
+(1)      6B : 81                         movx    A, @R1          ; restore A
+(1)      6C : 2F                         xch     A, R7           ; R7=an element
+(1)      6D : C9                         dec     R1
+(1)      6E : 91                         movx    @R1, A          ; save R7
+(1)      6F : C8                         dec     R0
+(1)      70 : 10                         inc     @R0             ; queue_len++
+(1)      71 : 18                         inc     R0
+(1)      72 : 18                         inc     R0
+(1)      73 : F0                         mov     A, @R0          ; A=queue_buf
+(1)      74 : 18                         inc     R0
+(1)      75 : 60                         add     A, @R0          ; A=queue_buf+queue_put
+(1)      76 : 29                         xch     A, R1           ; A=R1, R0=&queue_buf[queue_put]
+(1)      77 : 2F                         xch     A, R7           ; A=an element, R7=R1
+(1)      78 : 91                         movx    @R1, A          ; add an element
+(1)      79 : FF                         mov     A, R7           ; A=R1
+(1)      7A : A9                         mov     R1, A           ; restore R1
+(1)      7B : C8                         dec     R0
+(1)      7C : C8                         dec     R0
+(1)      7D : F0                         mov     A, @R0          ; A=queue_size
+(1)      7E : 18                         inc     R0
+(1)      7F : 18                         inc     R0
+(1)      80 : 10                         inc     @R0             ; queue_put++
+(1)      81 : D0                         xrl     A, @R0
+(1)      82 : 96 85                      jnz     queue_add_end
+(1)      84 : A0                         mov     @R0, A          ; queue_put=0
+(1)      85 :                    queue_add_end:
+(1)      85 : 81                         movx    A, @R1
+(1)      86 : 19                         inc     R1
+(1)      87 : AF                         mov     R7, A           ; restore R7
+(1)      88 : 81                         movx    A, @R1          ; restore A
+(1)      89 : 19                         inc     R1
+(1)      8A : 97                         clr     C
+(1)      8B : A7                         cpl     C
+(1)      8C : 83                         ret
+(1)      8D :
+(1)      8D :                    ;;; [queue] Remove an element from queue
+(1)      8D :                    ;;; @param R0 queue work space pointer
+(1)      8D :                    ;;; @return A an element
+(1)      8D :                    ;;; @return PSW.C 0 if queue is empty
+(1)      8D :                    ;;; @clobber R0
+(1)      8D :                    queue_remove:
+(1)      8D : F0                         mov     A, @R0            ; queue_len
+(1)      8E : 96 92                      jnz     queue_remove_elem ; queue_len > 0
+(1)      90 : 97                         clr     C                 ; PSW.C=0
+(1)      91 : 83                         ret
+(1)      92 :                    queue_remove_elem:
+(1)      92 : FF                         mov     A, R7
+(1)      93 : C9                         dec     R1
+(1)      94 : 91                         movx    @R1, A          ; save R7
+(1)      95 : F0                         mov     A, @R0          ; queue_len--
+(1)      96 : 07                         dec     A
+(1)      97 : A0                         mov     @R0, A
 (1)      98 : 18                         inc     R0
-(1)      99 : 60                         add     A, @R0          ; A=queue_buf+queue_get
-(1)      9A : 29                         xch     A, R1           ; A=R1
-(1)      9B : 2F                         xch     A, R7           ; R7=R1
-(1)      9C : 81                         movx    A, @R1
-(1)      9D : 2F                         xch     A, R7           ; A=R1, R7=an element
-(1)      9E : A9                         mov     R1, A           ; restore R1
-(1)      9F : C8                         dec     R0
-(1)      A0 : C8                         dec     R0
-(1)      A1 : C8                         dec     R0
-(1)      A2 : F0                         mov     A, @R0          ; A=queue_size
-(1)      A3 : 18                         inc     R0
-(1)      A4 : 18                         inc     R0
-(1)      A5 : 18                         inc     R0
-(1)      A6 : 10                         inc     @R0             ; queue_get++
-(1)      A7 : D0                         xrl     A, @R0          ; queue_get
-(1)      A8 : 96 AB                      jnz     queue_remove_end
-(1)      AA : A0                         mov     @R0, A          ; queue_get=0
-(1)      AB :                    queue_remove_end:
-(1)      AB : 81                         movx    A, @R1          ; restore R7
-(1)      AC : 19                         inc     R1
-(1)      AD : 2F                         xch     A, R7           ; A=an element
-(1)      AE : 97                         clr     C
-(1)      AF : A7                         cpl     C
-(1)      B0 : 83                         ret
-         B1 :
-         B1 :                    isr_intr:
-         B1 : D5                         sel     RB1             ; select register bank 1
-         B2 : AA                         mov     R2, A           ; save A
-         B3 :                    isr_intr_receive:
-         B3 : B8 FD                      mov     R0, #USARTS
-         B5 : 80                         movx    A, @R0
-         B6 : 37                         cpl     A
-         B7 : 32 C0                      jb      ST_RxRDY_bp, isr_intr_recv_end
-         B9 : B8 FC                      mov     R0, #USARTD
-         BB : 80                         movx    A, @R0
-         BC : B8 20                      mov     R0, #rx_queue
-         BE : 14 5C                      call    queue_add
-         C0 :                    isr_intr_recv_end:
-         C0 : FA                         mov     A, R2
-         C1 : 93                         retr
+(1)      99 : 18                         inc     R0
+(1)      9A : F0                         mov     A, @R0          ; A=queue_buf
+(1)      9B : 18                         inc     R0
+(1)      9C : 18                         inc     R0
+(1)      9D : 60                         add     A, @R0          ; A=queue_buf+queue_get
+(1)      9E : 29                         xch     A, R1           ; A=R1
+(1)      9F : 2F                         xch     A, R7           ; R7=R1
+(1)      A0 : 81                         movx    A, @R1
+(1)      A1 : 2F                         xch     A, R7           ; A=R1, R7=an element
+(1)      A2 : A9                         mov     R1, A           ; restore R1
+(1)      A3 : C8                         dec     R0
+(1)      A4 : C8                         dec     R0
+(1)      A5 : C8                         dec     R0
+(1)      A6 : F0                         mov     A, @R0          ; A=queue_size
+(1)      A7 : 18                         inc     R0
+(1)      A8 : 18                         inc     R0
+(1)      A9 : 18                         inc     R0
+(1)      AA : 10                         inc     @R0             ; queue_get++
+(1)      AB : D0                         xrl     A, @R0          ; queue_get
+(1)      AC : 96 AF                      jnz     queue_remove_end
+(1)      AE : A0                         mov     @R0, A          ; queue_get=0
+(1)      AF :                    queue_remove_end:
+(1)      AF : 81                         movx    A, @R1          ; restore R7
+(1)      B0 : 19                         inc     R1
+(1)      B1 : 2F                         xch     A, R7           ; A=an element
+(1)      B2 : 97                         clr     C
+(1)      B3 : A7                         cpl     C
+(1)      B4 : 83                         ret
+         B5 :
+         B5 :                    isr_intr:
+         B5 : D5                         sel     RB1             ; select register bank 1
+         B6 : AA                         mov     R2, A           ; save A
+         B7 :                    isr_intr_receive:
+         B7 : B8 FD                      mov     R0, #USARTS
+         B9 : 80                         movx    A, @R0
+         BA : 37                         cpl     A
+         BB : 32 C4                      jb      ST_RxRDY_bp, isr_intr_recv_end
+         BD : B8 FC                      mov     R0, #USARTD
+         BF : 80                         movx    A, @R0
+         C0 : B8 20                      mov     R0, #rx_queue
+         C2 : 14 60                      call    queue_add
+         C4 :                    isr_intr_recv_end:
+         C4 : FA                         mov     A, R2
+         C5 : 93                         retr

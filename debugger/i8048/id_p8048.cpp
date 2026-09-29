@@ -3,15 +3,15 @@
 #include "pins_i8048.h"
 
 namespace debugger {
-namespace p8039 {
+namespace p8048 {
 
 Pins *instance() {
     return new i8048::PinsI8048();
 }
 
-const struct Identity P8039{"P8039", instance};
+const struct Identity P8048{"P8048", instance};
 
-}  // namespace p8039
+}  // namespace p8048
 }  // namespace debugger
 
 // Local Variables:
