@@ -25,7 +25,7 @@ print_uint16_loop:
         jz      print_uint16_end ; branch if value == 0
         movd    %10, R7          ; R6:R7=10
         call    @udiv16          ; R4:R5=value/10
-        push    R7               ; push reminder
+        push    R7               ; push remainder
         call    @print_uint16_loop
         pop     A
 print_uint16_zero:
@@ -143,11 +143,11 @@ mul16_multiply:
 mul16_end:
         rets
 
-        *** Unsigned division: dividend / divisor = quotient ... reminder
-        *** @praram R4:R5 dividend
-        *** @praram R6:R7 divisor
+        *** Unsigned division: dividend / divisor = quotient ... remainder
+        *** @param R4:R5 dividend
+        *** @param R6:R7 divisor
         *** @return R4:R5 quotient
-        *** @return R6:R7 reminder
+        *** @return R6:R7 remainder
         *** @clobber A
 udiv16:
         mov     R6, A
@@ -185,7 +185,7 @@ udiv16_readd:
         adc     R6, R4          ; dividend += divisor
 udiv16_next:
         djnz    R8, udiv16_loop ; while bits-- != 0
-        movd    R5, R7          ; R6:R7=reminder
+        movd    R5, R7          ; R6:R7=remainder
         movd    R3, R5          ; R4:R5=quotient
         pop     R2
         pop     R3
@@ -193,11 +193,11 @@ udiv16_next:
 udiv16_end:
         rets
 
-        *** Division: dividend / divisor = quotient ... reminder
+        *** Division: dividend / divisor = quotient ... remainder
         *** @param R4:R5 dividend
         *** @param R6:R7 divisor
         *** @return R4:R5 quotient
-        *** @return R6:R7 reminder
+        *** @return R6:R7 remainder
         *** @clobber A
 div16:
         mov     R4, A

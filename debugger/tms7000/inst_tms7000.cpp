@@ -141,8 +141,8 @@ constexpr uint8_t INST_TABLE[] = {
         E(4, 0),  // 77: BTJZ  %n,Rn,r8
         E(3, 0),  // 78: ADD   %n,Rd
         E(3, 0),  // 79: ADC   %n,Rd
-        E(3, 0),  // 7A: SUB   Rs,Rd
-        E(3, 0),  // 7B: SBB   Rs,Rd
+        E(3, 0),  // 7A: SUB   %n,Rd
+        E(3, 0),  // 7B: SBB   %n,Rd
         E(3, 0),  // 7C: MPY   %n,Rn
         E(3, 0),  // 7D: CMP   %n,Rd
         E(3, 0),  // 7E: DAC   %n,Rn
@@ -251,30 +251,30 @@ constexpr uint8_t INST_TABLE[] = {
         E(2, 0),  // E5: JPZ   r8
         E(2, 0),  // E6: JNZ   r8
         E(2, 0),  // E7: JNC   r8
-        E(1, 0),  // E8: TRAP  23
-        E(1, 0),  // E9: TRAP  22
-        E(1, 0),  // EA: TRAP  21
-        E(1, 0),  // EB: TRAP  20
-        E(1, 0),  // EC: TRAP  19
-        E(1, 0),  // ED: TRAP  18
-        E(1, 0),  // EE: TRAP  17
-        E(1, 0),  // EF: TRAP  16
-        E(1, 0),  // F0: TRAP  15
-        E(1, 0),  // F1: TRAP  14
-        E(1, 0),  // F2: TRAP  13
-        E(1, 0),  // F3: TRAP  12
-        E(1, 0),  // F4: TRAP  11
-        E(1, 0),  // F5: TRAP  10
-        E(1, 0),  // F6: TRAP  9
-        E(1, 0),  // F7: TRAP  8
-        E(1, 0),  // F8: TRAP  7
-        E(1, 0),  // F9: TRAP  6
-        E(1, 0),  // FA: TRAP  5
-        E(1, 0),  // FB: TRAP  4
-        E(1, 0),  // FC: TRAP  3
-        E(1, 0),  // FD: TRAP  2
-        E(1, 0),  // FE: TRAP  1
-        E(1, 0),  // FF: TRAP  0
+        E(1, 2),  // E8: TRAP  23
+        E(1, 2),  // E9: TRAP  22
+        E(1, 2),  // EA: TRAP  21
+        E(1, 2),  // EB: TRAP  20
+        E(1, 2),  // EC: TRAP  19
+        E(1, 2),  // ED: TRAP  18
+        E(1, 2),  // EE: TRAP  17
+        E(1, 2),  // EF: TRAP  16
+        E(1, 2),  // F0: TRAP  15
+        E(1, 2),  // F1: TRAP  14
+        E(1, 2),  // F2: TRAP  13
+        E(1, 2),  // F3: TRAP  12
+        E(1, 2),  // F4: TRAP  11
+        E(1, 2),  // F5: TRAP  10
+        E(1, 2),  // F6: TRAP  9
+        E(1, 2),  // F7: TRAP  8
+        E(1, 2),  // F8: TRAP  7
+        E(1, 2),  // F9: TRAP  6
+        E(1, 2),  // FA: TRAP  5
+        E(1, 2),  // FB: TRAP  4
+        E(1, 2),  // FC: TRAP  3
+        E(1, 2),  // FD: TRAP  2
+        E(1, 2),  // FE: TRAP  1
+        E(1, 2),  // FF: TRAP  0
 };
 }  // namespace
 
