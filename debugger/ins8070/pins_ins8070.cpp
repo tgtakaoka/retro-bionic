@@ -174,7 +174,7 @@ void PinsIns8070::resetPins() {
     pinsMode(PINS_PULLUP, sizeof(PINS_PULLUP), INPUT_PULLUP);
     pinsMode(PINS_INPUT, sizeof(PINS_INPUT), INPUT);
 
-    // #RST must remain low is 8 Tc.
+    // #RST must remain low for 8 Tc.
     for (auto i = 0; i < 4 * 8 * 2; i++)
         xin_cycle();
     negate_reset();
@@ -319,7 +319,7 @@ void PinsIns8070::execute(const uint8_t *inst, uint8_t len, uint16_t *addr,
 }
 
 void PinsIns8070::idle() {
-    // #ENIN is HIGH and bus cycle is suspened.
+    // #ENIN is HIGH and bus cycle is suspended.
     xin_cycle();
 }
 
@@ -381,7 +381,9 @@ void PinsIns8070::run() {
     Cycles::reset();
     saveBreakInsts();
     assert_enin();
+    startRunTimer();
     loop();
+    stopRunTimer();
     negate_enin();
     restoreBreakInsts();
     disassembleCycles();
@@ -437,12 +439,12 @@ bool PinsIns8070::step(bool show) {
     return true;
 }
 
-void PinsIns8070::assertInt(uint8_t name) {
+void PinsIns8070::assertInt(uint8_t) {
     // #INTA is negative-edge sensed.
     assert_sa();
 }
 
-void PinsIns8070::negateInt(uint8_t name) {
+void PinsIns8070::negateInt(uint8_t) {
     negate_sa();
 }
 
@@ -495,7 +497,31 @@ const Signals *PinsIns8070::findFetch(Signals *begin, const Signals *end) {
     return end;
 }
 
-void PinsIns8070::disassembleCycles() {
+// The backtrace printer below reads fetchMark(), not fetch(): fetch()
+// is a different, self-contained on-the-fly check (see signals_ins8070.cpp)
+// used elsewhere, while fetchMark() is what findFetch()/matchAll() set,
+// retroactively, by matching decoded instructions against captured bus
+// cycles -- so that has to run -- once, right here -- before counting
+// fetchMark() cycles means anything. Can't reuse signals.h's
+// backtraceStartFrom(), which is hardwired to fetch(); this is its
+// fetchMark() counterpart. printBacktrace() re-runs findFetch() over
+// the now-disposed range, which re-derives the same marks.
+const SignalsImpl *PinsIns8070::findBacktraceStart() {
+    const auto end = Signals::put();
+    const auto begin = findFetch(Signals::get(), end);
+    if (_lineLimit == 0)
+        return end;
+    auto limit = _lineLimit;
+    auto s = end;
+    while (s != begin) {
+        s = s->prev();
+        if (s->fetchMark() && --limit == 0)
+            return s;
+    }
+    return begin;
+}
+
+void PinsIns8070::printBacktrace() {
     const auto end = Signals::put();
     const auto begin = findFetch(Signals::get(), end);
     printCycles(begin);

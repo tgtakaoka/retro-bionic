@@ -74,7 +74,7 @@ uint16_t RegsIns8070::effectiveAddr(
     case M_POP:
         return _sp();
     case M_AUTO:
-        return disp < 0 ? base - disp : base;
+        return disp < 0 ? base + disp : base;
     case M_DIR:
         return 0xff00 + opr;
     case M_SSM:
@@ -147,12 +147,10 @@ uint8_t RegsIns8070::internal_read(uint16_t addr) const {
 
 void RegsIns8070::internal_write(uint16_t addr, uint8_t data) const {
     // No bus signals while internal RAM bus cycle.
-    uint8_t LD_ST[] = {
+    const uint8_t LD_ST[] = {
             0xC4, data,        // LD A,data
             0xCD, uint8(addr)  // ST A,dir[addr]
     };
-    LD_ST[1] = data;
-    LD_ST[3] = addr;
     _pins->execInst(LD_ST, sizeof(LD_ST));
 }
 

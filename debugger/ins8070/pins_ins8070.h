@@ -27,13 +27,13 @@
 #define PIN_AL7 27   /* P6.31 */
 #define PORT_AM 7    /* GPIO7 */
 #define AM_gp 0      /* P7.00-P7.03 */
-#define AM_gm 0xF    /* P7.12-P7.15 */
+#define AM_gm 0xF    /* P7.00-P7.03 */
 #define AM_vp 8      /* A8-A11 */
 #define PIN_AM8 10   /* P7.00 */
 #define PIN_AM9 12   /* P7.01 */
 #define PIN_AM10 11  /* P7.02 */
 #define PIN_AM11 13  /* P7.03 */
-#define PORT_AH 7    /* P7.16-P7.19 */
+#define PORT_AH 7    /* GPIO7 */
 #define AH_gp 16     /* P7.16-P7.19 */
 #define AH_gm 0xF    /* P7.16-P7.19 */
 #define AH_vp 12     /* A12-A15 */
@@ -52,7 +52,7 @@
 #define PIN_SA 4     /* P9.06 */
 #define PIN_SB 33    /* P9.07 */
 #define PIN_F1 0     /* P6.03 */
-#define PIN_F2 1     /* P6.04 */
+#define PIN_F2 1     /* P6.02 */
 #define PIN_XIN 5    /* P9.08 */
 #define PIN_BREQ 29  /* P9.31 */
 #define PIN_F3 9     /* P7.11 */
@@ -100,13 +100,14 @@ private:
 
     void printCycles(const Signals *end);
     bool matchAll(Signals *begin, const Signals *end);
-    const Signals *findFetch(Signals *begein, const Signals *end);
-    void disassembleCycles();
+    const Signals *findFetch(Signals *begin, const Signals *end);
+    const SignalsImpl *findBacktraceStart() override;
+    void printBacktrace() override;
 };
 
 }  // namespace ins8070
 }  // namespace debugger
-#endif /* __PINS_IN8070_H__ */
+#endif /* __PINS_INS8070_H__ */
 
 // Local Variables:
 // mode: c++
