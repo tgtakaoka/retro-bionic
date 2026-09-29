@@ -1,0 +1,40 @@
+# Scenario for scripts/record-scenario.py: the TMS9900's context switch.
+# Registers live in memory: an interrupt reads a new workspace pointer and
+# PC from its vector at 0004, then stores the old WP, PC and ST into R13,
+# R14 and R15 of the new workspace.
+#
+# ADDRESS IS PINNED TO THE CURRENT samples/tms9900/mandelbrot.hex:
+# int1_isr at 055C, workspace_int1 at 0120.
+# If the sources or the image ever change, re-check it against the fresh
+# .lst before recording -- a stale address will look like it works (it
+# disassembles *something*) while showing the wrong thing.
+
+key ?
+pace 2.0
+
+key R
+upload samples/tms9900/mandelbrot.hex
+
+# Reset again so the CPU starts the uploaded program.
+key R
+pace 1.5
+
+# Stop at the INT1 handler. The backtrace shows the vector reads at 0004
+# and 0006 and the three stores into the new workspace.
+type g
+wait Go until?
+command 55C 10
+pace 2.0
+
+# The new workspace, with the old WP, PC and ST in R13-R15.
+type d
+wait Data dump?
+command 120 20
+pace 2.0
+
+# Step into the handler.
+step 2
+pace 1.5
+
+# Watch one frame render.
+run 1 300

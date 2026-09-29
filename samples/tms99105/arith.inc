@@ -31,11 +31,11 @@ print_uint16_loop:
         mov     R0, R1
         jeq     print_uint16_return
         clr     R0
-        div     R2, R0          R0:R1/R2 ; R0=quotient R1=reminder
+        div     R2, R0          R0:R1/R2 ; R0=quotient R1=remainder
         dect    R10
-        mov     R1, *R10        Push reminder
+        mov     R1, *R10        Push remainder
         blsk    R10, print_uint16_loop
-        mov     *R10+, R0       Pop reminder
+        mov     *R10+, R0       Pop remainder
         swpb    R0
         ai      R0, hibyte('0')
         blsk    R10, putchar

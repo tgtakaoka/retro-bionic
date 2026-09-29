@@ -53,8 +53,8 @@
 #define PIN_DBIN 3     /* P9.05 */
 #define PIN_WE 4       /* P9.06 */
 #define PIN_IAQ 33     /* P9.07 */
-#define PIN_CRUCLK 0   /* P6.03 */
-#define PIN_CRUIN 1    /* P6.02 */
+#define PIN_CRUCLK 1   /* P6.02 */
+#define PIN_CRUIN 0    /* P6.03 */
 #define PIN_OUTCLK 5   /* P9.08 */
 #define PIN_PHICLK 29  /* P9.31 */
 #define PORT_SEL 7     /* GPIO7 */
@@ -93,13 +93,9 @@ struct PinsTms9900 final : tms9900::PinsTms9900Base {
     void captureWrites(uint16_t *buf, uint_fast8_t len) override;
 
 private:
-    uint16_t _addr;
-
     Signals *resumeCycle(uint16_t pc = 0) override;
     Signals *prepareCycle() override;
     Signals *completeCycle(tms9900::Signals *s) override;
-
-    void checkCpuType();
 };
 
 }  // namespace tms9900

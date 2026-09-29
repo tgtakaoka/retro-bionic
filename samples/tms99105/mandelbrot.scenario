@@ -1,0 +1,54 @@
+# Scenario for scripts/record-scenario.py: the TMS99105's stack calls.
+# BLSK pushes the return address onto a stack in R10 and branches; BIND
+# *R10+ pops it back into PC -- no R11 juggling as on the TMS9900.
+#
+# ADDRESSES ARE PINNED TO THE CURRENT samples/tms99105/mandelbrot.hex:
+# print_char's `blsk R10, putchar` at 03D8, putchar's `bind *R10+` at
+# 028A, stack top at 2000. If the sources or the image ever change,
+# re-check them against the fresh .lst before recording -- a stale
+# address will look like it works (it disassembles *something*) while
+# showing the wrong thing.
+
+key ?
+pace 2.0
+
+# MACRO=0 runs it as a plain TMS99105, no macrostore ROM; it takes
+# effect at reset.
+key R
+type =
+wait Set register?
+command MACRO 0
+pace 1.5
+
+upload samples/tms99105/mandelbrot.hex
+
+# Reset to enter baseline mode and start the uploaded program.
+key R
+pace 1.5
+
+# Stop where the first pixel is printed.
+type g
+wait Go until?
+command 3D8 10
+pace 2.0
+
+# BLSK pushes the return address 03DC to 1FFC and enters putchar.
+step 1
+pace 1.5
+
+# The stack: 03DC, then 0238 from loop's call into mandelbrot.
+type d
+wait Data dump?
+command 1FF0 10
+pace 2.0
+
+# Run to putchar's return, then BIND pops 03DC back into PC.
+type g
+wait Go until?
+command 28A 10
+pace 1.5
+step 1
+pace 1.5
+
+# Watch one frame render.
+run 1 300

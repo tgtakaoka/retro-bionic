@@ -1,0 +1,40 @@
+# Scenario for scripts/record-scenario.py: the TMS9995's on-chip RAM.
+# The workspace sits in the 256-byte RAM at F000, so register traffic
+# never reaches the 8-bit external bus, where every instruction word
+# costs two byte cycles. MPYS is the TMS9995's signed multiply.
+#
+# ADDRESS IS PINNED TO THE CURRENT samples/tms9995/mandelbrot.hex:
+# loop_x at 02E6, workspace at F000. If the sources or the image ever
+# change, re-check it against the fresh .lst before recording -- a stale
+# address will look like it works (it disassembles *something*) while
+# showing the wrong thing.
+
+key ?
+pace 2.0
+
+key R
+upload samples/tms9995/mandelbrot.hex
+
+# Reset again so the CPU starts the uploaded program.
+key R
+pace 1.5
+
+# Stop at the top of the X loop, first pixel: X=-49.
+type g
+wait Go until?
+command 2E6 10
+pace 2.0
+
+# MOV, LI, MPYS: each word fetched a byte at a time.
+step 3
+pace 1.5
+
+# The workspace in on-chip RAM, read back by having the CPU copy it
+# out: R0:R1 holds the 32-bit product X*229 = -11221.
+type d
+wait Data dump?
+command F000 20
+pace 2.0
+
+# Watch one frame render.
+run 1 300

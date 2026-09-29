@@ -48,6 +48,7 @@ void RegsTms9900::print() const {
 void RegsTms9900::reset() {
     _wp = _mems->read(InstTms9900::VEC_RESET + 0);
     _pc = _mems->read(InstTms9900::VEC_RESET + 2);
+    _st = 0;  // reset "sets all status register bits to zero"
 }
 
 void RegsTms9900::restore() {
