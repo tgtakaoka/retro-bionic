@@ -33,14 +33,14 @@
 #define PIN_AM6 12    /* P7.01 */
 #define PIN_AM5 11    /* P7.02 */
 #define PIN_AM4 13    /* P7.03 */
-#define PORT_AH 7     /* P7.16-P7.17 */
-#define AH_gp 16      /* P7.16-P7.17 */
-#define AH_gm 0xF     /* P7.16-P7.17 */
+#define PORT_AH 7     /* GPIO7 */
+#define AH_gp 16      /* P7.16-P7.19 */
+#define AH_gm 0xF     /* P7.16-P7.19 */
 #define AH_vp 12      /* A3-A0 */
 #define PIN_AH3 8     /* P7.16 */
 #define PIN_AH2 7     /* P7.17 */
-#define PIN_AH1 36    /* P7.16 */
-#define PIN_AH0 37    /* P7.17 */
+#define PIN_AH1 36    /* P7.18 */
+#define PIN_AH0 37    /* P7.19 */
 #define PORT_CNTL 9   /* GPIO9 */
 #define CNTL_gp 4     /* P9.04-P9.07 */
 #define CNTL_gm 0xF   /* P9.04-P9.07 */
@@ -89,6 +89,7 @@ private:
     Signals *resumeCycle(uint16_t pc = 0) override;
     Signals *prepareCycle() override;
     Signals *completeCycle(Signals *s) override;
+    uint_fast8_t busBytes() const override { return 1; }
 };
 
 }  // namespace tms9995

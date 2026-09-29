@@ -103,7 +103,7 @@ put4_table:
         data    'CD'
         data    'EF'
 
-        *** Print uint8_t in hex
+        *** Print uint8_t in binary
         *** @param R1 uint8_t value to be printed in binary.
         *** @clobber R0
 put_bin8:

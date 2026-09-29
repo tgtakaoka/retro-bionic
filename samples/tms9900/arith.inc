@@ -23,7 +23,7 @@ print_uint16:
         mov     *R10+, R1       Pop R1
 print_int16_return:
         mov     *R10+, R0       Pop R0
-        mov     *R10+, R11      Pop return adddress
+        mov     *R10+, R11      Pop return address
         rt
 print_int16_zero:
         li      R0, hibyte('0')
@@ -36,11 +36,11 @@ print_uint16_loop:
         mov     R0, R1
         jeq     print_uint16_return
         clr     R0
-        div     R2, R0          R0:R1/R2 ; R0=quotient R1=reminder
+        div     R2, R0          R0:R1/R2 ; R0=quotient R1=remainder
         dect    R10
-        mov     R1, *R10        Push reminder
+        mov     R1, *R10        Push remainder
         bl      @print_uint16_loop
-        mov     *R10+, R0       Pop reminder
+        mov     *R10+, R0       Pop remainder
         swpb    R0
         ai      R0, hibyte('0')
         bl      @putchar
@@ -53,7 +53,7 @@ print_uint16_return:
         *** @clobber R0 R2
 mul16:
         mov     R2, R0
-        xor     R1, R2          R2=multiplicand^multiplyer
+        xor     R1, R2          R2=multiplicand^multiplier
         abs     R0
         abs     R1
         mpy     R1, R0          R0:R1=R0*R1
@@ -64,17 +64,17 @@ mul16:
 mul16_return:
         rt
 
-        *** Unsigned Divide
-        *** R1 / |R2| = R1
+        *** Divide by positive divisor
+        *** R1 / R2 = R1 (R2 > 0)
         *** @clobber R2, R0
 divu16:
         clr     R0
         abs     R1
-        jlt     udiv16_negative R1 < 0
+        jlt     divu16_negative R1 < 0
         div     R2, R0          R0:R1/R2=R0..R1
         mov     R0, R1
         rt
-udiv16_negative:
+divu16_negative:
         div     R2, R0          R0:R1/R2=R0..R1
         neg     R0
         mov     R0, R1

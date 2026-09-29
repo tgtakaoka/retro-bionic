@@ -43,7 +43,7 @@ protected:
     }
 
     template <typename T, uint_fast8_t SIZE>
-    inline auto length(const T (&array)[SIZE]) const {
+    inline auto length(const T (&)[SIZE]) const {
         return SIZE;
     }
     mutable CharBuffer _buffer1;

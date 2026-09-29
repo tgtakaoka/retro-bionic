@@ -16,6 +16,7 @@ const char *RegsTms9980::cpu() const {
 void RegsTms9980::reset() {
     _wp = _mems->read16(InstTms9900::VEC_RESET + 0);
     _pc = _mems->read16(InstTms9900::VEC_RESET + 2);
+    _st = 0;  // reset "sets all status register bits to zero"
 }
 
 uint16_t RegsTms9980::read_reg(uint8_t i) const {

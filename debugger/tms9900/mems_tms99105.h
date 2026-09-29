@@ -8,7 +8,7 @@ namespace tms99105 {
 
 /**
    Unified Memory: 0000-FFFF
-   Macrostore:     0000-FFFF (can be read from 10000-1FFFF
+   Macrostore:     0000-FFFF (can be read from 10000-1FFFF)
 */
 
 struct MemsTms99105 final : tms9900::MemsTms9900 {

@@ -28,14 +28,21 @@ The tables time them on real chips, from recorded casts, with
 | ----------- | ----: | ------: | ------: | ----------- | ------------------------------------------------------------------------ | --------------------------------------------------------------- |
 | P8095BH     |   3.6 |   0.145 |   0.038 |             | [mandelbrot.cast](../samples/i8096/mandelbrot.cast)                      | [i8096/mandelbrot.lst](../samples/i8096/mandelbrot.lst)         |
 | TMS320C15   |   5.4 |   0.220 |   0.070 |             | [mandelbrot.cast](../samples/tms320c1x/mandelbrot.cast)                  | [tms320c1x/mandelbrot.lst](../samples/tms320c1x/mandelbrot.lst) |
+| TMS99105    |   7.4 |   0.300 |   0.097 |             | [mandelbrot.cast](../samples/tms99105/mandelbrot.cast)                   | [tms99105/mandelbrot.lst](../samples/tms99105/mandelbrot.lst)   |
+| TMS99105    |   7.4 |   0.302 |   0.097 |             | [mandelbrot_tms99105.cast](../samples/tms9995/mandelbrot_tms99105.cast)  | [tms9995/mandelbrot.lst](../samples/tms9995/mandelbrot.lst)     |
+| TMS9995     |   9.2 |   0.375 |   0.119 |             | [mandelbrot.cast](../samples/tms9995/mandelbrot.cast)                    | [tms9995/mandelbrot.lst](../samples/tms9995/mandelbrot.lst)     |
+| TMS99105    |   9.3 |   0.381 |   0.124 |             | [mandelbrot_tms99105.cast](../samples/tms9900/mandelbrot_tms99105.cast)  | [tms9900/mandelbrot.lst](../samples/tms9900/mandelbrot.lst)     |
 | MN1613      |   9.5 |   0.388 |   0.128 |             | [mandelbrot.cast](../samples/mn1613/mandelbrot.cast)                     | [mn1613/mandelbrot.lst](../samples/mn1613/mandelbrot.lst)       |
 | HD6309      |   9.8 |   0.401 |   0.128 |             | [mandelbrot.cast](../samples/hd6309/mandelbrot.cast)                     | [hd6309/mandelbrot.lst](../samples/hd6309/mandelbrot.lst)       |
 | TMP90C802   |  14.1 |   0.576 |   0.191 |             | [mandelbrot.cast](../samples/tlcs90/mandelbrot.cast)                     | [tlcs90/mandelbrot.lst](../samples/tlcs90/mandelbrot.lst)       |
+| TMS9995     |  14.5 |   0.591 |   0.192 |             | [mandelbrot_tms9995.cast](../samples/tms9900/mandelbrot_tms9995.cast)    | [tms9900/mandelbrot.lst](../samples/tms9900/mandelbrot.lst)     |
 | MC68HC08AZ0 |  24.4 |   0.997 |   0.333 |             | [mandelbrot.cast](../samples/mc68hc08/mandelbrot.cast)                   | [mc68hc08/mandelbrot.lst](../samples/mc68hc08/mandelbrot.lst)   |
 | MN1613      |  25.4 |   1.039 |   0.337 | MN1610 code | [mandelbrot.cast](../samples/mn1610/mandelbrot.cast)                     | [mn1610/mandelbrot.lst](../samples/mn1610/mandelbrot.lst)       |
 | 68HC11      |  28.1 |   1.147 |   0.385 |             | [mandelbrot.cast](../samples/mc68hc11/mandelbrot.cast)                   | [mc68hc11/mandelbrot.lst](../samples/mc68hc11/mandelbrot.lst)   |
+| TMS9900     |  29.0 |   1.184 |   0.387 |             | [mandelbrot.cast](../samples/tms9900/mandelbrot.cast)                    | [tms9900/mandelbrot.lst](../samples/tms9900/mandelbrot.lst)     |
 | TMS370Cx5x  |  34.0 |   1.391 |   0.462 |             | [mandelbrot.cast](../samples/tms370/mandelbrot.cast)                     | [tms370/mandelbrot.lst](../samples/tms370/mandelbrot.lst)       |
 | P8051       |  35.0 |   1.428 |   0.442 |             | [mandelbrot.cast](../samples/i8051/mandelbrot.cast)                      | [i8051/mandelbrot.lst](../samples/i8051/mandelbrot.lst)         |
+| TMS9980     |  37.4 |   1.528 |   0.497 |             | [mandelbrot_tms9980.cast](../samples/tms9900/mandelbrot_tms9980.cast)    | [tms9900/mandelbrot.lst](../samples/tms9900/mandelbrot.lst)     |
 | INS8070     |  56.6 |   2.312 |   0.744 |             | [mandelbrot.cast](../samples/ins8070/mandelbrot.cast)                    | [ins8070/mandelbrot.lst](../samples/ins8070/mandelbrot.lst)     |
 | W65C816S    |  66.8 |   2.729 |   0.876 |             | [mandelbrot.cast](../samples/w65c816/mandelbrot.cast)                    | [w65c816/mandelbrot.lst](../samples/w65c816/mandelbrot.lst)     |
 | MC6801      |  74.8 |   3.060 |   1.046 |             | [mandelbrot.cast](../samples/mc6801/mandelbrot.cast)                     | [mc6801/mandelbrot.lst](../samples/mc6801/mandelbrot.lst)       |
@@ -65,6 +72,7 @@ The tables time them on real chips, from recorded casts, with
 | CPU         | frame | avg row | std dev | Note        | Cast                                                                     | Listing                                                         |
 | ----------- | ----: | ------: | ------: | ----------- | ------------------------------------------------------------------------ | --------------------------------------------------------------- |
 | MN1613      |   8.1 |   0.334 |   0.129 |             | [fmandel.cast](../samples/mn1613/fmandel.cast)                           | [mn1613/fmandel.lst](../samples/mn1613/fmandel.lst)             |
+| TMS99110    |  44.9 |   1.846 |   0.629 |             | [fmandel.cast](../samples/tms99110/fmandel.cast)                         | [tms99110/fmandel.lst](../samples/tms99110/fmandel.lst)         |
 
 ## Binary compatibility: the same code on related chips
 
@@ -120,3 +128,22 @@ nine times as fast.
 The MN1613 runs MN1610 code as is. Its own code, with the hardware
 multiply `M` and divide `D` the MN1610 lacks, runs nearly three times as
 fast.
+
+### TMS9900 family
+
+| | TMS9900 | TMS9980 | TMS9995 | TMS99105 |
+|---|---:|---:|---:|---:|
+| [tms9900](../samples/tms9900/mandelbrot.lst) | 29.0 | 37.4 | 14.5 | 9.3 |
+| [tms9995](../samples/tms9995/mandelbrot.lst) | | | 9.2 | 7.4 |
+| [tms99105](../samples/tms99105/mandelbrot.lst) | | | | 7.4 |
+| Data bus | 16-bit | 8-bit | 8-bit | 16-bit, multiplexed |
+| A word moves in | 1 bus cycle of 2 clocks | 2 byte cycles | 2 byte cycles | 1 machine cycle |
+| `A Rs,Rd` clocks | 14 | 22 | 4 on-chip, 8 off-chip | |
+
+The TMS9980 keeps the TMS9900's cycles but moves each word as two bytes,
+so the same code takes 30% longer. The TMS9995 has an 8-bit bus too, yet
+prefetches and keeps RAM on chip, and needs far fewer clocks: it runs the TMS9900 code in half the time, and its own build,
+which keeps the workspace registers in that RAM at `F000`, in a third.
+The TMS99105 moves a word in one machine cycle on its multiplexed bus and
+also prefetches; it runs all three, and its own build's `MPYS` and
+`BLSK`/`BIND` gain nothing over the TMS9995 build on it.

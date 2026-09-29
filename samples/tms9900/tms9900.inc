@@ -24,7 +24,7 @@ VEC_XOP6:       equ     >0058   ; XOP 6
 VEC_XOP7:       equ     >005C   ; XOP 7
 VEC_XOP8:       equ     >0060   ; XOP 8
 VEC_XOP9:       equ     >0064   ; XOP 9
-VEC_XOP10       equ     >0068   ; XOP 10
+VEC_XOP10:      equ     >0068   ; XOP 10
 VEC_XOP11:      equ     >006C   ; XOP 11
 VEC_XOP12:      equ     >0070   ; XOP 12
 VEC_XOP13:      equ     >0074   ; XOP 13

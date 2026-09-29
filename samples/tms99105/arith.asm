@@ -190,28 +190,28 @@ arith:
         li      R2, 100
         li      R0, hibyte('/')
         blsk    R10, expr
-        blsk    R10, div16
+        bl      @div16
         blsk    R10, answer         ; 300
 
         li      R1, -200
         li      R2, 100
         li      R0, hibyte('/')
         blsk    R10, expr
-        blsk    R10, div16
+        bl      @div16
         blsk    R10, answer         ; -2
 
         li      R1, -30000
         li      R2, -200
         li      R0, hibyte('/')
         blsk    R10, expr
-        blsk    R10, div16
+        bl      @div16
         blsk    R10, answer         ; 150
 
         li      R1, -30000
         li      R2, 78
         li      R0, hibyte('/')
         blsk    R10, expr
-        blsk    R10, div16
+        bl      @div16
         blsk    R10, answer         ; -384
 
         li      R1, 5000
