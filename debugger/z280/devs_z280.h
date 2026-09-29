@@ -30,7 +30,7 @@ private:
 
 }  // namespace z280
 }  // namespace debugger
-#endif /* __DEVS_Z280H__ */
+#endif /* __DEVS_Z280_H__ */
 
 // Local Variables:
 // mode: c++

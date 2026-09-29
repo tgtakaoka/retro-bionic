@@ -2,6 +2,19 @@
 # mode. See scripts/bionic-regress.py's drive_table() for the key
 # shapes this file can use.
 
+# The chips, as their banners name them, this file is for.
+chips = ["Z280"]
+
+# Reset loads PC 0000, I 00, Master Status 0000 and I/O Page 00 (Z280
+# Technical Manual, Table 11-1). The system stack pointer is reset to
+# 0000 too, but the debugger parks the CPU through an NMI that pushes onto
+# that stack, so SP is not checked.
+[reset]
+PC = "0000"
+I = "00"
+MSR = "0000"
+IOP = "00"
+
 [arith]
 expect = """
 18000 + 28000 = -19536
@@ -42,16 +55,40 @@ expect = "ok"
 feed = "irq\r"
 expect = "irq"
 
+# Prints "<char> 0xXX 0bXXXXXXXX" per received byte, one line each
+# including the trailing \r.
 [echoitr]
-feed = "z\r"
-expect = "0b01111010"
+feed = "itr\r"
+expect = """
+i 0x69 0b01101001
+t 0x74 0b01110100
+r 0x72 0b01110010
+ 0x0D 0b00001101"""
 
+# One frame, checked whole: a frame takes under 25 seconds here.
 [mandelbrot]
+golden = "samples/arith/mandelbrot.golden"
 frames = 1
 
 [mmu_echoir]
 feed = "irq\r"
 expect = "irq"
 
+# The cache-enabled build of the same program.
 [cmandel]
+golden = "samples/arith/mandelbrot.golden"
 frames = 1
+
+# A random halt point, not always the same one, catches a corrupted
+# resume that only shows up mid-instruction.
+[haltgo]
+program = "mandelbrot"
+halt_interval = [0.05, 0.3]
+
+[breakpoint]
+program = "mandelbrot"
+break_at = "loop_x"
+
+[gountil]
+program = "mandelbrot"
+break_at = "loop_x"
