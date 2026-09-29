@@ -18,6 +18,8 @@ struct Signals final : SignalsBase<Signals> {
 
     bool read() const { return (flags() & F_READ) != 0; }
     bool write() const { return (flags() & F_READ) == 0; }
+    // A bus cycle that didn't happen: neither a read nor a write.
+    void noCycle() { flags() = F_READ; }
     bool fetch() const { return (flags() & F_INST) != 0; }
     bool delay() const { return (flags() & F_DELAY) != 0; }
     bool halt() const { return (flags() & F_HALT) != 0; }
@@ -34,7 +36,7 @@ private:
 };
 }  // namespace ins8060
 }  // namespace debugger
-#endif /* __SIGNALS_H__ */
+#endif /* __SIGNALS_INS8060_H__ */
 
 // Local Variables:
 // mode: c++

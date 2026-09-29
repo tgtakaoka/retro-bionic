@@ -37,7 +37,17 @@ void Signals::print() const {
     buffer[1] = read() ? 'R' : 'W';
     buffer.hex16(5, addr);
     buffer.hex8(12, data);
+#ifdef PROFILE_CYCLES
+    // Every status flag, for tools/cycles_ins8060.py: the mark above shows
+    // only one.
+    cli.print(buffer);
+    cli.print(' ');
+    cli.print(fetch() ? 'I' : '-');
+    cli.print(delay() ? 'D' : '-');
+    cli.println(halt() ? 'H' : '-');
+#else
     cli.println(buffer);
+#endif
 }
 
 }  // namespace ins8060
