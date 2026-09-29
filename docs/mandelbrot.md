@@ -28,3 +28,4 @@ The tables time them on real chips, from recorded casts, with
 | -------- | ----: | ------: | ------: | ---- | ------------------------------------------------------ | ------------------------------------------------------------- |
 | CDP1804A | 198.3 |   8.099 |   2.639 |      | [mandelbrot.cast](../samples/cdp1804a/mandelbrot.cast) | [cdp1804a/mandelbrot.lst](../samples/cdp1804a/mandelbrot.lst) |
 | CDP1802  | 247.8 |  10.125 |   3.329 |      | [mandelbrot.cast](../samples/cdp1802/mandelbrot.cast)  | [cdp1802/mandelbrot.lst](../samples/cdp1802/mandelbrot.lst)   |
+| F3850    | 817.3 |  33.413 |  11.388 |      | [mandelbrot.cast](../samples/f3850/mandelbrot.cast)    | [f3850/mandelbrot.lst](../samples/f3850/mandelbrot.lst)       |

@@ -24,6 +24,11 @@ struct Signals final : SignalsBase<Signals> {
 
     uint8_t romc() const { return _signals[0]; }
     uint8_t &romc() { return _signals[0]; }
+#ifdef PROFILE_CYCLES
+    // XTLY periods the cycle took: 8 for a short cycle, 12 for a long one.
+    uint8_t xtly() const { return _signals[2]; }
+    uint8_t &xtly() { return _signals[2]; }
+#endif
 
 private:
     static constexpr uint8_t READ = 1;
