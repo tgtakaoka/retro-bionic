@@ -19,6 +19,8 @@ struct SignalsI8096 : SignalsBase<SignalsI8096> {
     bool fetch() const;  // Instruction fetch
     bool read() const;   // Read
     bool write() const;  // Write
+    // A bus cycle that didn't happen: neither a read nor a write.
+    void noCycle() { cntl() = 0xFF; }
 
     void markFetch();
     void clearMark();
@@ -33,7 +35,7 @@ protected:
 };
 }  // namespace i8096
 }  // namespace debugger
-#endif /* __SIGNALS_H__ */
+#endif /* __SIGNALS_I8096_H__ */
 
 // Local Variables:
 // mode: c++

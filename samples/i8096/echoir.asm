@@ -21,7 +21,7 @@ DE:     dsw     1
         org     ORG_RESET
 init:
         ld      SP, #stack
-        ldb     INT_MASK, INT_EXTINT ; enable EXTINT
+        ldb     INT_MASK, #INT_EXTINT ; enable EXTINT
 
 
         ld      HL, #rx_queue
@@ -52,7 +52,7 @@ receive_loop:
         ei                      ; Enable INTR
         jnc     receive_loop
         ldb     B, A            ; save character
-        or      A, A
+        orb     A, A
         je      halt_to_system
 transmit_loop:
         ldb     A, USARTS
