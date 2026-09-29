@@ -27,13 +27,13 @@
 #define PIN_AL7 27   /* P6.31 */
 #define PORT_AM 7    /* GPIO7 */
 #define AM_gp 0      /* P7.00-P7.03 */
-#define AM_gm 0xF    /* P7.12-P7.15 */
+#define AM_gm 0xF    /* P7.00-P7.03 */
 #define AM_vp 8      /* A8-A11 */
 #define PIN_AM8 10   /* P7.00 */
 #define PIN_AM9 12   /* P7.01 */
 #define PIN_AM10 11  /* P7.02 */
 #define PIN_AM11 13  /* P7.03 */
-#define PORT_AH 7    /* P7.16-P7.19 */
+#define PORT_AH 7    /* GPIO7 */
 #define AH_gp 16     /* P7.16-P7.19 */
 #define AH_gm 0xF    /* P7.16-P7.19 */
 #define AH_vp 12     /* A12-A15 */
@@ -42,7 +42,7 @@
 #define PIN_AH14 36  /* P7.18 */
 #define PIN_AH15 37  /* P7.19 */
 #define PORT_CNTL 9  /* GPIO9 */
-#define CNTL_gp 4    /* P9.04-P4.07 */
+#define CNTL_gp 4    /* P9.04-P9.07 */
 #define CNTL_gm 0xF  /* P9.04-P9.07 */
 #define CNTL_vp 0    /* CNTL0-CNTL3 */
 #define PIN_RW 3     /* P9.05 */
@@ -52,7 +52,7 @@
 #define CNTL_RW 0x2  /* CNTL1 */
 #define CNTL_BS 0x4  /* CNTL2 */
 #define CNTL_BA 0x8  /* CNTL3 */
-#define PIN_FIRQ 1   /* P6.04 */
+#define PIN_FIRQ 1   /* P6.02 */
 #define PIN_IRQ 6    /* P7.10 */
 #define PIN_NMI 9    /* P7.11 */
 #define PIN_RESET 28 /* P8.18 */
@@ -98,12 +98,16 @@ protected:
     Signals *injectCycle(uint8_t data);
     void suspend(bool show);
     void loop();
+#ifdef PROFILE_CYCLES
+    const Signals *_profileEnd;
+#endif
     const Signals *stackFrame(const Signals *push) const;
 
     void printCycles(const Signals *end);
     bool matchAll(Signals *begin, const Signals *end);
     virtual const Signals *findFetch(Signals *begin, const Signals *end);
-    void disassembleCycles();
+    const SignalsImpl *findBacktraceStart() override;
+    void printBacktrace() override;
 };
 
 }  // namespace mc6809

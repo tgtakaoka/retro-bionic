@@ -1307,3 +1307,58 @@ recorded as `tools/mc146805e2-cycles.jsonl.zst` and
 **[hw]** Each pattern is padded with `SWI` to four bytes, longer than any
 instruction: a shorter pattern written over a longer one left the earlier
 one's bytes after it, and on the MC68HC05C0 seventy runs went on into them.
+
+### MC6809 family
+
+**Pitfalls.** `CWAI` stacks before it waits, so a halt finds no push; the
+MC6809 has no VMA (its CNTL0 is XTAL); the 6309's vector base is FFF0; R/`#W`
+must be read as E rises on the HD6309.
+
+Two boards run four chips: MC6809 (and HD6309), clocked from EXTAL, and
+MC6809E (and HD6309E), whose E and Q the debugger drives. The HD6309 runs
+MC6809 code and has its own samples, which run in native mode. **[code]**
+
+Halting a CPU in `CWAI` returned garbage registers. **[hw]** `CWAI` stacks
+the whole context and then waits, so the halt's NMI fetches its vector
+without pushing; `suspend()` looked back from the vector read for the push,
+found none, and captured an empty frame. On an HD6309 in native mode that
+also cleared MD, dropping the CPU to emulation mode on the next resume.
+`suspend()` now injects `RTI` to resume after the `CWAI` and takes a fresh
+NMI edge, and its wait for the vector is bounded. `SYNC` never needed this:
+it stacks only after the interrupt ends the wait.
+
+No backtrace or `G` dump was ever disassembled on the MC6809, for two
+reasons. **[hw]**
+
+- `Signals::getDirection()` took its valid bit from CNTL0, which is AVMA on
+  the MC6809E but XTAL on the MC6809. XTAL reads low while the debugger
+  drives EXTAL, so every cycle looked invalid and no instruction matched.
+  The MC6809 has no VMA at all; its dummy cycles read FFFF, which the
+  cycle sequences already match as `N`, so the valid bit is now forced on.
+  AVMA is no use for it either: it tells of the next cycle, not this one.
+- `InstHd6309` kept the MC6800's vector base of FFF8, so the FFF6 fetch of
+  every `FIRQ` failed to match, and with it any backtrace across one --
+  the samples drive the ACIA on `FIRQ`. It is FFF0 now, as on the MC6801
+  and HD6301, which also covers `SWI2`, `SWI3` and the HD6309 trap.
+
+The MC6809E marked fetches from LIC, shifting each mark one cycle on as
+the next opcode fetch. That missed often enough -- around halts and
+interrupts, and on a second pass over the same ring -- to put a mark on a
+dummy FFFF cycle. It now finds fetches by matching cycles, like the
+MC6809. **[hw]**
+
+That stray mark wedged the board, which led to a bug in
+`Mems::disassemble()`: at FFFF the instruction runs past memory, and
+NO_MEMORY left its length 0, so it returned the address unchanged. Every
+backtrace that steps by the returned address then re-disassembled FFFF
+forever, flooding the console and ignoring the halt port. It now steps at
+least one unit. **[code]**
+
+When profiling, the HD6309 drives R/`#W` back high right at E's fall, so
+read R/`#W` as E rises; compare only the kind of a dummy cycle such as the
+read of `$FFFF`. **[hw]**
+
+`CWAI` and `SYNC` halt and step correctly in both emulation and native
+mode. Mandelbrot is mid-speed on the MC6809 and MC6809E (6 rows in 20
+seconds) and fast on the HD6309 in native mode (a frame in under 10
+seconds).

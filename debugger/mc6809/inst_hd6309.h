@@ -17,6 +17,10 @@ struct InstHd6309 final : mc6809::InstMc6809 {
             const mc6800::Signals *begin, const mc6800::Signals *end) override;
     void setSoftwareType(SoftwareType type) override { _type = type; }
 
+protected:
+    // FIRQ, SWI2, SWI3 and the HD6309 trap sit below FFF8.
+    uint16_t vectorBase() const override { return 0xFFF0; }
+
 private:
     SoftwareType _type;
     bool _native6309;

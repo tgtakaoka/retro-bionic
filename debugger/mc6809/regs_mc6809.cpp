@@ -97,7 +97,8 @@ void RegsMc6809::restore() {
     uint8_t RTI[16];
     RTI[0] = 0x3B;  // RTI
     auto cycle = 2;
-    RTI[cycle++] = _cc;
+    // RTI pulls the whole frame only when the CC it pulls has E set.
+    RTI[cycle++] = _cc | 0x80;
     RTI[cycle++] = _a;
     RTI[cycle++] = _b;
     if (_md) {
