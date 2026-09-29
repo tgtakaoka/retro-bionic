@@ -90,7 +90,7 @@ private:
 };
 }  // namespace z280
 }  // namespace debugger
-#endif /* __SIGNALS_H__ */
+#endif /* __SIGNALS_Z280_H__ */
 
 // Local Variables:
 // mode: c++
