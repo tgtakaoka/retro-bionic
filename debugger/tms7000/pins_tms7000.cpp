@@ -214,12 +214,24 @@ void div2_clk(DevsTms7000 *devs) {
     delayNanoseconds(div2_lo_ns);
 }
 
+// Clocks to wait for ALATCH, pulsed every machine cycle but for a CMOS
+// CPU in IDLE, which drives no bus cycle until an interrupt.
+constexpr auto alatch_clocks = 1000;
+
+// Gives up the wait rather than wedge the board, leaving the halt switch
+// to stop the run.
+void no_alatch() {
+    cli.println("?halt: no bus cycle");
+}
+
 void div2_alatch(DevsTms7000 *devs) {
-    while (true) {
+    for (auto n = 0;; ++n) {
         clk_hi(devs);
         delayNanoseconds(div2_hi_alatch);
         if (signal_alatch() != LOW)
             break;
+        if (n >= alatch_clocks)
+            return no_alatch();
         clk_lo();
         delayNanoseconds(div2_lo_alatch);
     }
@@ -240,7 +252,9 @@ Signals *div2Prepare(DevsTms7000 *devs) {
 }
 
 void tms7002_alatch(DevsTms7000 *devs) {
-    while (signal_alatch() == LOW) {
+    for (auto n = 0; signal_alatch() == LOW; ++n) {
+        if (n >= alatch_clocks)
+            return no_alatch();
         clk_hi(devs);
         delayNanoseconds(tms7002_hi_alatch);
         clk_lo();
@@ -324,7 +338,9 @@ void div4_clk(DevsTms7000 *devs) {
 }
 
 void div4_alatch(DevsTms7000 *devs) {
-    while (signal_alatch() == LOW) {
+    for (auto n = 0; signal_alatch() == LOW; ++n) {
+        if (n >= alatch_clocks)
+            return no_alatch();
         delayNanoseconds(div4_lo_alatch);
         div4_cycle_lo(devs);
     }
@@ -395,12 +411,28 @@ void PinsTms7000::resetPins() {
     checkHardwareType();
 }
 
+// CLKIN cycles to wait for a CLKOUT edge, which comes every 2 or 4.
+constexpr auto clkout_clocks = 64;
+
+static bool wait_clkout(bool high) {
+    for (auto n = 0; n < clkout_clocks; ++n) {
+        if ((signal_clkout() != LOW) == high)
+            return true;
+        clkin_cycle();
+    }
+    cli.println("?halt: no CLKOUT");
+    return false;
+}
+
 void PinsTms7000::synchronizeClock() {
+    // A CMOS part in IDLE stops CLKOUT until a reset wakes it.
+    assert_reset();
+    for (auto i = 0; i < 80; i++)
+        clkin_cycle();
+    negate_reset();
     // CLKOUT works only when #RESET=H
-    while (signal_clkout() != LOW)
-        clkin_cycle();
-    while (signal_clkout() == LOW)
-        clkin_cycle();
+    wait_clkout(false);
+    wait_clkout(true);
     // CLKOUT=H
     clkin_cycle();  // /2:CLKOUT=L, /4:CLKOUT=H
     clkin_cycle();  // /2:CLKOUT=H, /4:CLKOUT=L
@@ -450,7 +482,11 @@ void PinsTms7000::synchronizeClock() {
     if (_clockType == CLK_DIV4) {
         wait_alatch();
     } else {
-        while (true) {
+        for (auto n = 0;; ++n) {
+            if (n >= alatch_clocks) {
+                no_alatch();
+                break;
+            }
             clk_hi(d);
             delayNanoseconds(div2_hi_ns);
             if (signal_alatch() != LOW)
@@ -543,6 +579,49 @@ void PinsTms7000::idle() {
     Cycles::discard(s);
 }
 
+#ifdef PROFILE_CYCLES
+// For scripts/record-cycles.py: run until a TRAP 23 reads its vector, keep
+// every cycle of it, and give up well before the ring wraps; the debug pin
+// frames the run, to trigger a capture on. The stop doesn't consult the
+// tables, so it holds wherever the matcher goes wrong.
+bool PinsTms7000::loop() {
+    constexpr auto MAX_CYCLES = 96;
+    _profileEnd = nullptr;
+    assert_debug();
+    for (auto n = 0;; ++n) {
+        _devs->loop();
+        auto s = prepareCycle();
+        if (isTrap23Vector(s)) {
+            // Its pushes stay in the register file, off the bus: the TRAP's
+            // fetch is the cycle before.
+            if (n > 0)
+                _profileEnd = s->prev();
+            completeCycle(s);
+            s = prepareCycle();
+            if (isTrap23Vector(s)) {
+                completeCycle(s);
+                s = prepareCycle();
+            }
+            negate_debug();
+            // Halt at the handler's fetch, as rawStep() does at IDLE.
+            completeCycle(s->inject(InstTms7000::JMP));
+            inject(InstTms7000::JMP_HERE);
+            Cycles::discard(s);
+            return true;
+        }
+        completeCycle(s);
+        if (n >= MAX_CYCLES || haltSwitch()) {
+            negate_debug();
+            cli.println(n >= MAX_CYCLES ? "?cycles" : "?halt");
+            return false;
+        }
+    }
+}
+
+bool PinsTms7000::isTrap23Vector(const Signals *s) {
+    return s->read() && (s->addr | 1) == (InstTms7000::VEC_TRAP23 | 1);
+}
+#else
 void PinsTms7000::loop() {
     while (true) {
         _devs->loop();
@@ -550,14 +629,27 @@ void PinsTms7000::loop() {
             return;
     }
 }
+#endif
 
 void PinsTms7000::run() {
     _regs->restore();
     Cycles::reset();
     saveBreakInsts();
+    startRunTimer();
+#ifdef PROFILE_CYCLES
+    const auto stopped = loop();
+#else
     loop();
+#endif
+    stopRunTimer();
     restoreBreakInsts();
     disassembleCycles();
+#ifdef PROFILE_CYCLES
+    // A run that gave up leaves the CPU mid-instruction, where saving would
+    // wait for writes that may never come: keep the last good save.
+    if (!stopped)
+        return;
+#endif
     _regs->save();
 }
 
@@ -642,7 +734,35 @@ void PinsTms7000::printCycles() {
     }
 }
 
-void PinsTms7000::disassembleCycles() {
+const SignalsImpl *PinsTms7000::findBacktraceStart() {
+    return backtraceStartByFetchCount<Signals>(_lineLimit);
+}
+
+#ifdef PROFILE_CYCLES
+// The fetches rawStep() would mark, counting each instruction's bus cycles
+// from the run's first cycle.
+void PinsTms7000::markFetches(const Signals *end) {
+    const auto g = Signals::get();
+    const auto cycles = g->diff(end);
+    for (auto i = 0u; i < cycles;) {
+        const auto s = g->next(i);
+        const auto n = InstTms7000::busCycles(s->data);
+        s->markFetch(true);
+        s->setMatched(n);
+        if (n == 0)
+            break;
+        i += n;
+    }
+}
+#endif
+
+void PinsTms7000::printBacktrace() {
+#ifdef PROFILE_CYCLES
+    // Every cycle, with the matcher's marks up to the TRAP's fetch that ends
+    // the pattern.
+    markFetches(_profileEnd ? _profileEnd->next() : Signals::put());
+    printCycles();
+#else
     const auto g = Signals::get();
     const auto cycles = g->diff(Signals::put());
     for (auto i = 0u; i < cycles;) {
@@ -660,6 +780,7 @@ void PinsTms7000::disassembleCycles() {
         }
         idle();
     }
+#endif
 }
 
 }  // namespace tms7000

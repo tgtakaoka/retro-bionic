@@ -2,6 +2,7 @@
 #include <strings.h>
 #include "mc6850.h"
 #include "pins_tms7000.h"
+#include "tms7002_serial_handler.h"
 
 namespace debugger {
 namespace tms7000 {

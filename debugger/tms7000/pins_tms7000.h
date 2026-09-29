@@ -36,7 +36,7 @@
 #define PORT_CNTL 9     /* GPIO9 */
 #define CNTL_gp 4       /* P9.04-P9.07 */
 #define CNTL_gm 0xF     /* P9.04-P9.07 */
-#define CNTL_vp 0       /* CNTL0-CNTL4 */
+#define CNTL_vp 0       /* CNTL0-CNTL3 */
 #define PIN_ENABLE 2    /* P9.04 */
 #define PIN_RW 3        /* P9.05 */
 #define PIN_ALATCH 33   /* P9.07 */
@@ -113,17 +113,25 @@ private:
     void checkHardwareType();
     Signals *cycle() const;
     Signals *inject(uint8_t data) const;
+#ifdef PROFILE_CYCLES
+    const Signals *_profileEnd;
+    bool loop();
+    static bool isTrap23Vector(const Signals *s);
+    void markFetches(const Signals *end);
+#else
     void loop();
+#endif
     bool rawStep();
     uint16_t execute(const uint8_t *inst, uint8_t len, uint8_t *buf = nullptr,
             uint8_t max = 0);
 
-    void disassembleCycles();
+    const SignalsImpl *findBacktraceStart() override;
+    void printBacktrace() override;
 };
 
 }  // namespace tms7000
 }  // namespace debugger
-#endif /* __PINS_H__ */
+#endif /* __PINS_TMS7000_H__ */
 
 // Local Variables:
 // mode: c++

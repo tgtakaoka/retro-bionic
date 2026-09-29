@@ -12,6 +12,9 @@ struct InstTms7000 {
     static constexpr uint8_t JMP = 0xE0;
     static constexpr uint8_t JMP_HERE = 0xFE;
     static constexpr uint16_t VEC_RESET = 0xFFFE;
+#ifdef PROFILE_CYCLES
+    static constexpr uint16_t VEC_TRAP23 = 0xFFD0;
+#endif
 
     static uint8_t busCycles(uint8_t opc);
     static bool isBTJxP(uint8_t opc) {

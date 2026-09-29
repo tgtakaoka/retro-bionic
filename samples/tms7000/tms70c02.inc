@@ -7,9 +7,9 @@ ADDR:   equ     >0105   Port A data direction register
 IOCNT1: equ     >0102   I/O control register 1
 IOCNT2: equ     >0101   I/O control register 2
 INT3_EDGE:      equ     ?100000         #INT3 1=edge sense, 0=level sense
-INT3_POL:       equ     ?010000         #INT3 polarity 1=high/raising, 0=low/falling
+INT3_POL:       equ     ?010000         #INT3 polarity 1=high/rising, 0=low/falling
 INT1_EDGE:      equ     ?000010         #INT1 1=edge sense, 0=level sense
-INT1_POL:       equ     ?000001         #INT1 polarity 1=high/raising, 0=low/falling
+INT1_POL:       equ     ?000001         #INT1 polarity 1=high/rising, 0=low/falling
         *** Timer 1
 T1MSDATA:       equ     >010C
 T1LSDATA:       equ     >010D
@@ -19,7 +19,7 @@ T1CTL0:         equ     >010F
 T1_START:       equ     ?10000000       1=Reload, 0=Stop
 T1_SOURCE:      equ     ?01000000       1=External A7, 0=fosc/16
 T1_HALT:        equ     ?00100000       1=Halt during idle
-        *** TImer 2
+        *** Timer 2
 T2MSDATA:       equ     >0110
 T2LSDATA:       equ     >0111
 T2CTL1:         equ     >0112
