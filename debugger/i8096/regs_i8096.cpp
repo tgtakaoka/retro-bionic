@@ -72,7 +72,7 @@ void RegsI8096::restore() {
             hi(_psw),
     };
     const auto pc = _pins->injectReads(POPF, length(POPF));
-    const auto disp = _pc - (pc + 4 + 3);  // POP + NOPs + LJMP
+    const auto disp = _pc - (pc + 4 + 3);  // POPF + NOPs + LJMP
     const uint8_t LJMP[] = {
             0xE7, lo(disp), hi(disp),  // LJMP _pc
     };
@@ -84,7 +84,7 @@ uint16_t RegsI8096::read_data(uint8_t addr) const {
     constexpr auto disp = -7;
     constexpr auto abs = 0x5678;
     const uint8_t STB_ABS[] = {
-            0xC7, 0x01, lo(abs), hi(abs), addr,  // STB addr 5678H[0]
+            0xC7, 0x01, lo(abs), hi(abs), addr,  // STB addr, 5678H[0]
             SJMP(disp),                          // SJMP $+2-7
     };
     _pins->injectReads(STB_ABS, sizeof(STB_ABS));

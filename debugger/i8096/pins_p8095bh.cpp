@@ -133,12 +133,18 @@ void PinsP8095BH::resetPins() {
     _regs->save();
 }
 
+// A full prefetch queue idles the bus for at most an instruction, even a
+// DIVL's ~40 state times; a CPU missing or held in reset never answers.
+constexpr auto no_bus_cycles = 10000;
+
 Signals *PinsP8095BH::prepareCycle() {
     auto s = _idle ? &_idleSignals : Signals::put();
     noInterrupts();
     // assert_debug();
     xtal1_hi();
-    while (!s->getAddrValid()) {
+    for (auto n = 0; !s->getAddrValid(); ++n) {
+        if (n >= no_bus_cycles)
+            return noBusCycle(s);
         xtal1_lo();
         delayNanoseconds(xtal1_lo_ns);
         xtal1_hi();
@@ -147,11 +153,21 @@ Signals *PinsP8095BH::prepareCycle() {
     s->getAddr();
     xtal1_lo();
     // assert_debug();
-    while (!s->getControl()) {
+    for (auto n = 0; !s->getControl(); ++n) {
+        if (n >= no_bus_cycles)
+            return noBusCycle(s);
         xtal1_cycle_lo();
     }
     // negate_debug();
     interrupts();
+    return s;
+}
+
+// Gives up on a cycle rather than wedge the board, leaving the halt
+// switch to stop the run.
+Signals *PinsP8095BH::noBusCycle(Signals *s) {
+    interrupts();
+    cli.println("?halt: no bus cycle");
     return s;
 }
 
@@ -241,7 +257,7 @@ Signals *PinsP8095BH::jumpHere(uint_fast8_t len, bool idle) {
 
 void PinsP8095BH::idle() {
     _idle = true;
-    // The maximu duration of READY=L is 1us and useless for idle.
+    // The maximum duration of READY=L is 1us and useless for idle.
     Cycles::discard(jumpHere(4, true));
 }
 
@@ -328,6 +344,42 @@ void PinsP8095BH::handleTrap(Signals *s, uint16_t vector, bool breakTrap) {
     regs<RegsI8096>()->captureContext(breakTrap);
 }
 
+#ifdef PROFILE_CYCLES
+// For scripts/record-cycles.py: stop at any TRAP and give up well before
+// the ring wraps; the debug pin frames the run, to trigger a capture on.
+Signals *PinsP8095BH::loop() {
+    constexpr auto MAX_CYCLES = 96;
+    int16_t tryHalt = 0;
+    assert_debug();
+    for (auto n = 0;; ++n) {
+        auto s = prepareCycle();
+        if (s->addr == InstI8096::VEC_TRAP && s->read()) {
+            negate_debug();
+            handleTrap(s, 0x4567, true);
+            return s;
+        }
+        if (tryHalt) {
+            if (s->addr == InstI8096::VEC_EXTINT && s->read()) {
+                negateInt();
+                handleTrap(s, 0x5678, false);
+                return s;
+            }
+            if (++tryHalt >= 2000) {
+                resetPins();
+                return s;
+            }
+        }
+        completeCycle(s);
+        _devs->loop();
+        if ((n >= MAX_CYCLES || haltSwitch()) && tryHalt == 0) {
+            negate_debug();
+            cli.println(n >= MAX_CYCLES ? "?cycles" : "?halt");
+            assertInt();
+            tryHalt = 1;
+        }
+    }
+}
+#else
 Signals *PinsP8095BH::loop() {
     int16_t tryHalt = 0;
     while (true) {
@@ -365,13 +417,23 @@ Signals *PinsP8095BH::loop() {
         }
     }
 }
+#endif
 
 void PinsP8095BH::run() {
     _regs->restore();
     Cycles::reset();
     saveBreakInsts();
+    startRunTimer();
+#ifdef PROFILE_CYCLES
+    // Keep the TRAP's cycles, its vector and pushes (1:~:V:v:W:w): without
+    // them the matcher can't place its fetch, the end of the pattern.
+    _profileEnd = loop()->next(4);
+    stopRunTimer();
+#else
     const auto s = loop();
+    stopRunTimer();
     Cycles::discard(s);
+#endif
     restoreBreakInsts();
     disassembleCycles();
 }
@@ -445,8 +507,25 @@ const Signals *PinsP8095BH::findFetch(Signals *begin, const Signals *end) {
     return end;
 }
 
-void PinsP8095BH::disassembleCycles() {
+// fetch() isn't live here: findFetch()/matchAll() mark it only as a
+// side effect of matching decoded instructions against real memory, so
+// that has to run -- once, right here -- before backtraceStartFrom()
+// counting fetch() cycles means anything. printBacktrace() re-runs it
+// over the now-disposed range, which re-derives the same marks.
+const SignalsImpl *PinsP8095BH::findBacktraceStart() {
     const auto end = Signals::put();
+    const auto begin = findFetch(Signals::get(), end);
+    return backtraceStartFrom<Signals>(begin, _lineLimit);
+}
+
+void PinsP8095BH::printBacktrace() {
+    const auto end = Signals::put();
+#ifdef PROFILE_CYCLES
+    // Every cycle; the matcher's fetches print as I.
+    findFetch(Signals::get(), _profileEnd ? _profileEnd : end);
+    cli.println();
+    printCycles(end);
+#else
     const auto begin = findFetch(Signals::get(), end);
     cli.println();
     printCycles(begin);
@@ -472,6 +551,7 @@ void PinsP8095BH::disassembleCycles() {
             i++;
         }
     }
+#endif
 }
 
 }  // namespace p8095bh

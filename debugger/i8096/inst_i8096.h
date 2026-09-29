@@ -35,7 +35,7 @@ private:
     bool _insufficient;
     uint_fast8_t _nexti;
 
-    const Table *get(uint16_t pc, MemsI8096 *mens);
+    const Table *get(uint16_t pc, MemsI8096 *mems);
     static bool indexAddressing(uint_fast8_t opc);
 
     bool matchSequence(

@@ -26,6 +26,7 @@ The tables time them on real chips, from recorded casts, with
 
 | CPU      | frame | avg row | std dev | Note | Cast                                                   | Listing                                                       |
 | -------- | ----: | ------: | ------: | ---- | ------------------------------------------------------ | ------------------------------------------------------------- |
+| P8095BH  |   3.6 |   0.145 |   0.038 |      | [mandelbrot.cast](../samples/i8096/mandelbrot.cast)    | [i8096/mandelbrot.lst](../samples/i8096/mandelbrot.lst)       |
 | P8051    |  35.0 |   1.428 |   0.442 |      | [mandelbrot.cast](../samples/i8051/mandelbrot.cast)    | [i8051/mandelbrot.lst](../samples/i8051/mandelbrot.lst)       |
 | P8085    |  77.7 |   3.172 |   1.040 |      | [mandelbrot.cast](../samples/i8085/mandelbrot.cast)    | [i8085/mandelbrot.lst](../samples/i8085/mandelbrot.lst)       |
 | P8080    | 132.0 |   5.390 |   1.763 |      | [mandelbrot.cast](../samples/i8080/mandelbrot.cast)    | [i8080/mandelbrot.lst](../samples/i8080/mandelbrot.lst)       |

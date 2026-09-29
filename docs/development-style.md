@@ -1083,3 +1083,35 @@ RST 5.5/6.5/7.5 are vectored inside the CPU: after a discarded opcode fetch it
 pushes the return address and jumps to the fixed vector, with no INTA cycle.
 The same memory comparison that found the 8080's corruption shows none here.
 **[hw]**
+
+### 8096
+
+**Pitfalls.** A missing `#` silently assembles the direct form; INT_MASK bit
+n is the vector at 2000H + 2n; a word access needs an even address.
+
+`ldb INT_MASK, INT_EXTINT` without `#` assembles to the direct form and loads
+register 40H; EXTINT was enabled only when that byte happened to have bit 7
+set. The listing's opcode (`B0` direct vs `B1` immediate) shows the slip.
+**[code]** Adding the `#` stopped every interrupt-driven sample: `INT_EXTINT`
+was `1000000B`, bit 6, which enables the serial port's interrupt. INT_MASK
+follows the vector table, bit n for the vector at 2000H + 2n, so EXTINT at
+200EH is bit 7, `10000000B`. **[hw]**
+
+The profile (`tools/cycles_i8096.py`, recorded as
+`tools/i8096-cycles.jsonl.zst`) found a matcher hang and three wrong rows.
+**[hw]**
+
+- `PUSH [w]`, `PUSH n[w]` and `POP n[w]` prefetch once more between the
+  operand read and the writes: `PUSH [w]` is `1:2:~:R:r:~:W:w`. `POP [w]`
+  makes no such read.
+- `DIV l,[w]` (`FE 8E`) prefetches before its operand read, as the other
+  indirect forms do; its row had no `~`.
+- When the short-index form of a `/` row failed, `InstI8096::match()` went
+  on to an empty sequence, which matched without taking a cycle, and
+  `matchAll()` looped on it for ever: a backtrace past any such mismatch
+  wedged the board. It stops at the `/` now.
+
+A word access needs an even address; the profile keeps `n + [w]` even.
+The pointer register's LSB selects auto-increment for `[w]` and the long
+index for `n[w]`, and the profile uses an even register, so the long-index
+forms are not checked on the chip yet.

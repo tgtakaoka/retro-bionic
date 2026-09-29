@@ -21,7 +21,7 @@ DE:     dsw     1
         org     ORG_RESET
 init:
         ld      SP, #stack
-        ldb     INT_MASK, INT_EXTINT ; enable EXTINT
+        ldb     INT_MASK, #INT_EXTINT ; enable EXTINT
 
 
         ld      HL, #rx_queue
