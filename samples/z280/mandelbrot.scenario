@@ -1,0 +1,59 @@
+# Scenario for scripts/record-scenario.py: mandelbrot.inc's loop_i does 32-bit
+# sign-extend/multiply/divide/subtract through DEHL, an instruction class
+# the Z80 has none of. Watch one frame render, disassemble that block,
+# single-step it on real hardware, then enable the cache and run again.
+#
+# ADDRESSES ARE PINNED TO THE CURRENT samples/z280/mandelbrot.hex: 1B1 is
+# loop_i's first instruction (12 of them, ending in subw at 1D4), 145 is
+# the `call newline` right after mandelbrot() returns -- once per frame,
+# so a breakpoint there turns every 'G' into "run exactly one frame". If
+# mandelbrot.asm/.inc/.hex ever change, re-check both against the fresh
+# mandelbrot.lst before recording -- a stale address will look like it
+# works (it disassembles *something*) while showing the wrong thing.
+
+# Open on the help screen, so a viewer knows the command set before
+# anything starts moving.
+key ?
+pace 2.0
+
+key R
+upload samples/z280/mandelbrot.hex
+
+# A breakpoint right after each frame finishes drawing: every 'G' from
+# here on runs exactly one frame, no timing guess, no halt port.
+type B
+wait Break addr?
+command 145
+pace 0.6
+
+# Watch one frame render live, uncached.
+command G
+pace 1.2
+
+# The block that makes the case: exts/divw/multw/subw, all DEHL-wide.
+type D
+wait Disassemble?
+command 1B1 12
+pace 1.2
+
+# Same block, single-stepped on the chip -- a short hop from here, deep
+# in the frame that just finished, to the next frame's first pixel.
+type g
+wait Go until?
+command 1B1
+pace 0.9
+step 12
+pace 1.2
+
+# Enable the instruction and data cache, then one more frame -- the
+# breakpoint at 145 survives the reset, so 'G' alone is enough.
+key R
+type =
+wait Set register?
+command IC 1
+type =
+wait Set register?
+command DC 1
+pace 0.6
+command G
+pace 0.9
