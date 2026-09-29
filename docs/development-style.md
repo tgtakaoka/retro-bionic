@@ -7,6 +7,10 @@ Each claim is marked **[hw]** when it was verified on the bench, **[doc]** when 
 comes from a datasheet or manual, and **[code]** when it is a property of this
 codebase.
 
+The General part holds what applies to every target. Each section under
+Per architecture opens with that chip's pitfalls; read them before touching
+its code.
+
 ---
 
 ## General
@@ -25,15 +29,12 @@ A CPU that re-reads at every PC value, or fetches words while consuming bytes,
 desynchronises a cursor immediately: it takes two bytes per read but advances the
 PC by one, so the stream is handed out at twice the rate it is consumed. **[hw]**
 
-This matters because the idioms differ. The Z80 "faked POP" — a `POP rr` opcode
-followed inline by the payload bytes — only works under a cursor, where the
-stack read naturally takes the next two bytes. Under address-keyed injection a
-stack read lands at SP, nowhere near the window, and is answered from real
-memory instead. **[hw]**
-
-Under address-keyed injection, prefer real load instructions over faked POPs.
-Where a register genuinely has no load (a flags register, typically), stage the
-value in memory and point SP at it.
+The idioms differ too. A faked `POP` — the opcode followed inline by its
+payload — works only under a cursor (the Z80's); under address-keyed injection
+the stack read lands at SP, nowhere near the window, and is answered from real
+memory. **[hw]** Prefer real load instructions there; where a register has no
+load (a flags register, typically), stage the value in memory and point SP at
+it.
 
 ### Terminating an injected sequence
 
@@ -48,7 +49,10 @@ The remaining hazard is that the CPU prefetches past the end of a window before
 it takes a trailing jump, and that prefetch is indistinguishable from a genuine
 forward exit. If a sequence must end by jumping somewhere specific (back to its
 own origin, or to a restored PC), the caller has to say so; it cannot be
-recovered from the bus trace. **[hw]**
+recovered from the bus trace. The same prefetch means a sequence "exits" before
+its last instruction has run: whatever the host does next that depends on that
+instruction must wait for it (the Z280 ends such sequences with a taken jump).
+**[hw]**
 
 ### Pipeline flushes force re-fetches
 
@@ -56,186 +60,53 @@ Any instruction that flushes the prefetch queue makes the CPU re-fetch addresses
 it has already passed. So does interrupt and trap processing. An injected window
 must stay answered across those re-fetches, not just until its last byte has
 gone out — a re-fetch answered from memory is garbage the CPU then executes.
-**[hw]**
-
-The same applies to an injected interrupt handler: the vector is fetched, the
-pipeline flush discards it, and the CPU fetches it again. Serve the vector for
-as long as the CPU asks for it. **[hw]**
+The same applies to an injected interrupt handler's vector: serve it for as
+long as the CPU asks for it. **[hw]**
 
 ### Resume from an explicit origin, never from the ring **[code]**
 
-A CPU parked mid-transaction under `#WAIT` has to be resumed at the address it
-was parked at. That address cannot be re-read from the pins — parked in T2, AD
-carries data, which is why `prepareCycle()` samples it inside the `#AS` window —
-and it cannot live in the ring either: `Cycles::reset()` and `Cycles::discard()`
-both clear the head slot, and a dump or an exit is exactly when they run. An
-early Z280 resumed from the ring, and every reset of it resumed at address zero,
-set an injection origin of zero and corrupted everything downstream; wrapping
-the two calls to copy the slot out and back was the next mistake.
-
-The i8080/i8085 shape is the right one: `resumeCycle(addr)` takes the address,
-the caller keeps it, and `_regs->nextIp()` is where the CPU is parked between
-operations. On the Z280 every injected sequence threads an `org` through
-`execute()`: it resumes at `org`, keys its window on it, and hands back where it
-parked — the exit it was told, or wherever the guard ran out. Sequences chain by
-handing the same variable along.
-
-**The origin is a bus address, and the PC is not.** The Z280's saved PC is 16
-bits of logical address; the bus shows 24 bits of physical address, the MMU's
-page being 4K: the low 12 bits are the PC's own, the upper 12 are the page
-frame. So `RegsZ280` keeps the frame beside the PC (`park(pc, addr)`: the popped
-or pushed PC, and the address the bus showed for its fetch), `nextIp()` puts the
-two back together, and `physical(logical)` translates any other address on that
-page the same way — a one-page MMU emulation. Off the page the frame is unknown
-and identity is what a disabled MMU does. Exits given to `execute()` are
-physical for the same reason: `execInst(JP_PC, ..., org, physical(pc))`. **[hw]**
-
-**Capture the frame on a memory read.** `prepareCycle()` returns whatever the
-CPU is stopped in, and right after reset, or after the `RETN` that ends a step,
-that can be a refresh — whose address is the refresh counter's, not the PC's.
-Taking it as the origin parks the debugger at a nonsense address; `skipToRead()`
-clocks past anything that is not a memory read before the address is kept. **[hw]**
-
-**A captured sequence ends with a jump.** The prefetch reaches the address past
-the window before the last `PUSH` or `LD (HL),A` has written, so "the read at the
-exit, once every write is captured" never happens on the straight-line stream:
-the CPU runs on into whatever memory holds. A trailing `JR $+2` is taken,
-flushes the pipeline, and fetches the exit again — after the writes. The old
-firmware hid the miss by re-latching its origin from the first read of the next
-sequence, wherever the CPU had wandered to; the 128 cycles of garbage in between
-were what made IX, IY, I and USP drift from step to step. **[hw]**
-
-**Dump before you save.** A run's cycle dump must not include the debugger's
-own bus activity: the `RET`/`JP` that unwind a `RST 38H` break, the `#NMI`
-push, vector fetch and injected `RETN` of a halt-switch stop, and every
-injected read and captured write of `_regs->save()`. `step()` gets this right by
-printing before it saves. Z280's `run()` used to save inside each `loop()` exit
-and dump afterwards, so `G` printed a tail of `i`/`c` cycles that `S` never
-showed. Now each exit `Cycles::discard()`s what it injected, `loop()` returns
-whether the registers can be saved at all (a failed `suspend()` cannot, and a
-`HALT` has no boundary to inject at), and `run()` dumps first and saves last —
-the Z80's order. **[code]**
+A CPU parked mid-transaction has to be resumed at the address it was parked
+at. That address cannot always be re-read from the pins (a multiplexed bus
+carries data by then), and it cannot live in the ring: `Cycles::reset()` and
+`Cycles::discard()` both clear the head slot, and a dump or an exit is exactly
+when they run. The i8080/i8085 shape is the right one: `resumeCycle(addr)`
+takes the address, the caller keeps it, and `_regs->nextIp()` is where the CPU
+is parked between operations. (An early Z280 resumed from the ring; see its
+section.)
 
 **The ring holds one fewer cycle than it has slots.** The head slot is the
 transaction in progress. `Cycles::next()` used to let the count reach
 `MAX_CYCLES` before moving the tail, so a dump of exactly that many cycles had
-tail and head on the same slot and printed nothing — a verbose Z280 step landed
-on it. **[code]**
+tail and head on the same slot and printed nothing. **[code]**
 
-### The halt port is polled only from `yield()` **[code]**
-
-The Teensy core services the halt port (`serialEventUSB1()`, which sets the
-halt flag) only from `yield()`, and a run reaches `yield()` only through
-console I/O -- `Console.available()` in the USART device loop, which itself
-runs only once the program has enabled the receiver. A program that never
-touched the console could not be halted at all: the run loop served it
-forever and the CLI never came back, which looked exactly like a wedged board.
-`Pins::haltSwitch()` now calls `yield()` itself. Found with `samples/z280/mmu`,
-the first sample with no USART setup. **[hw]**
-
-### MMU and user mode: what the debugger needs from the page map **[hw]**
-
-`samples/z280/mmu_echoir.asm` runs its echo loop in user mode with user page
-0 mapped to physical 0A5000H and every other user page invalid; the USART
-setup, the receive interrupt handler and putchar/getchar run in system mode,
-reached by `SC` traps through the vector table at 2000H (interrupt mode 3,
-`RETIL`). What it relies on, and what the debugger cannot do yet:
-
-- The system stack, the vectors (0038H, 0066H, the table) and the page the
-  debugger calls into (`CALL 8000H`, page 8) must be valid system pages, and
-  page 8 must map to itself: an exit off the parked page is translated by
-  identity (`RegsZ280::physical()`), because only the parked page's frame is
-  known.
-- Breakpoints and the `RST 38H` exit convention are recognised by reading
-  memory at the *logical* PC, so they work only in pages mapped to themselves;
-  a user-mode program exits through a system call that breaks in system mode.
-- Interrupt mode 3 is required for a user-mode program with interrupts: in
-  modes 0-2 an interrupt clears U/S and "the previous condition of the MSR is
-  not saved" (6.2.1), so `RETI` cannot return to user mode.
-- **Interrupt mode 3 and user mode.** A mode 3 NMI shows on the bus as an
-  acknowledge cycle, then `W(PC) W(MSR) W(identifier)` on the system stack,
-  two reads from the vector table, and the handler fetch. `suspend()` parks
-  *there*, in system mode, so the debugger's privileged sequences run from
-  the handler's address whatever mode the program was in; `save()` takes PC
-  and MSR from the frame, and `restore()` writes them back and returns with
-  `LD SP,msr_slot; RETIL`. The handler itself never executes; its table
-  entry must supply an MSR that disables interrupts, and the system map is
-  assumed to be identity. **[hw]**
-- **The MSR and the I/O Page register are registers like any other**: the
-  third dump line shows `USP=` under `SP=`, then `MSR=` and `IOP=`, and
-  `=MSR` / `=IOP` set them. At the program's own fetch they are read with
-  `LDCTL HL,(C)` (C=00H, 08H) and written back the same way; the MSR goes
-  last, just before the jump, since it takes effect at once. Inside the mode
-  3 NMI service the MSR is the frame's word and RETIL restores it.
-- **A sequence exits at the prefetch past its end**, before its last
-  instruction has run. Anything the host does next that the tail depends on
-  -- writing the scratch word a pending `POP AF` will read, writing the NMI
-  frame before `RETIL` -- must wait for it: end such a sequence with `JR $+2`,
-  whose taken jump re-fetches the exit after the tail executed. The
-  captured sequences need it for their last write, `restoreRegs` for its
-  pop. **[hw]**
-- Code at a 24-bit physical address is assembled with a 24-bit `org`; the
-  assembler emits extended-linear HEX records, which the loader honours and
-  forgets again when the upload ends.
-
-Two things that cost an afternoon: `ld HL, (IVT>>12)<<4` assembles as an
-*indirect* load -- a leading parenthesis is an address, whatever follows it --
-so the pointer was garbage; and writing 0 to the emulated USART's vector
-register disables its interrupt, even though in mode 3 the byte is only the
-identifier pushed. **[hw]**
-
-### Programs with the cache enabled **[hw]**
-
-`samples/z280/cmandel.asm` (via `enable_cache.inc`) caches instructions
-and data; the debugger caches nothing after reset, so a program turns the
-cache on itself. What that costs the debugger:
-
-- A cached fetch never reaches the bus, so nothing may be injected where the
-  program's lines are. Every stop therefore parks at the *vector* fetch
-  (`RST 38H`, 0066H or the mode 3 handler), which the program does not
-  execute, and the sequences run from there in system mode.
-- A miss fetches one word (per-word valid bits, burst off), so an injected
-  sequence is fetched by even words; a jump target is matched by its word,
-  not its byte address, and the CPU resumes at the word the bus showed.
-- The entry sequence purges, keeps HL and BC, reads Cache Control and sets
-  60H, all in one window, before anything else; the return sequence runs
-  from 8000H, sets the program's Cache Control back, reloads BC and HL,
-  purges, sets SP and returns -- what is fetched after the purge stays
-  cached, so it must not be the vector's line. A step leaves the cache off
-  (one instruction) and the next save keeps the recorded value.
-- The transaction a halt is noticed on can be an acknowledge cycle with no
-  address; the program's page frame comes from its last memory read.
-- `LDCTL HL,(C)` leaves H undefined: Cache Control is 8 bits.
-- The third dump line ends in `CACHE=` -- `__`, `I_`, `_D` or `ID` for what
-  the program caches -- and `=IC 1` / `=DC 1` (0 to turn off) edit it, so a
-  plain `mandelbrot.hex` can be run cached without touching its source. The
-  restore sequence writes the program's MSR after Cache Control (not after a
-  mode 3 NMI, where RETIL restores it). After an NMI in modes 0-2 the
-  interrupt enables sit in the Interrupt Shadow register, which only RETN
-  reads back: the dump shows them as `??` and `=MSR` cannot set them.
+**A run's dump shows the program, not the debugger.** The break unwinding, the
+halt's interrupt push and vector fetch, and every injected read and captured
+write of `_regs->save()` must stay out of it: discard what an exit injected,
+and either dump before saving (as `step()` and the Z80 do) or hold the ring
+while saving (the Z280). **[code]**
 
 ### Keep bus-keepalive cycles out of the ring **[code]**
 
 Refresh transactions are the bus keeping DRAM alive, not the program doing
-anything, and at debugger clock speeds one lands between almost every pair of
-real transactions. Recording them:
+anything, and at debugger clock speeds one can land between almost every pair
+of real transactions. Recording them:
 
 - breaks `s->prev()`, which callers use to mean "the previous *program*
   transaction" — e.g. matching an interrupt vector fetch against the PC push
   that must immediately precede it;
 - floods the 128-entry ring so a dump shows nothing else.
 
-`completeCycle()` should not advance the ring for them. This is the fix for
-refresh noise — not disabling refresh at the source (see Z280 below).
+`completeCycle()` should not advance the ring for them. That, not disabling
+refresh at the source, is the fix (the Z280's refresh cannot be disabled).
 
 ### Bound every wait loop **[hw]**
 
 `loop()` only polls the halt switch *between* steps. A wait loop that never
 returns cannot be broken into from the halt port. Give every "wait for the CPU
-to do X" loop a guard and a failure path.
-
-This bit twice: an unbounded refresh-skip in `prepareCycle()`, and an unbounded
-NMI-acknowledge wait in `suspend()`.
+to do X" loop a guard and a failure path. This bit three times: an unbounded
+refresh-skip in the Z280's `prepareCycle()`, its NMI-acknowledge wait in
+`suspend()`, and the MC6800 family's wait for a context push from a CPU in
+`WAI`.
 
 The RTWDOG backs this up: the prompt, every completed bus cycle and every
 halt switch poll feed it, so a loop that does none of them reboots the Teensy
@@ -252,15 +123,17 @@ console; **any byte written to `/dev/ttyACM1` aborts a running CPU**
 It is the only way to stop a run that does not end on its own — provided the
 wait loops are bounded.
 
-Two things about it cost a lot of time before they were understood.
+**It is serviced only from `yield()`.** **[code]** A run reaches `yield()`
+only through console I/O, so a program that never enabled the console device
+could not be halted: the CLI never came back, which looked exactly like a
+wedged board (found with `samples/z280/mmu`, the first sample with no USART
+setup). `Pins::haltSwitch()` now calls `yield()` itself. **[hw]**
 
 **The flag used to re-arm itself.** `serialEventUSB1()` raised `_halted` but
-never *read* the byte, and the Teensy core re-calls the handler from every
-`yield()` while the port still holds data. `setRun()` cleared the flag and the
-next `yield()` set it again, so **one abort also killed the following run** —
-`Debugger::go()` was the only thing that drained the port, at the end of a run,
-one run too late. The symptom is a board that looks wedged: every `G` returns
-instantly with a register dump. Fixed by draining in the handler (PR #38). **[hw]**
+never *read* the byte, and the core re-calls the handler from every `yield()`
+while the port still holds data, so **one abort also killed the following
+run**: every `G` returned at once with a register dump. Fixed by draining in
+the handler (PR #38). **[hw]**
 
 **An abort leaves the emulated USART repeating.** After a run is stopped
 mid-cycle, the USART keeps re-delivering its last received character, which
@@ -270,8 +143,8 @@ sample itself expects (NUL for `samples/z280`) over aborting it. **[hw]**
 
 A working recovery order for an unresponsive board, in increasing violence:
 Ctrl-C (`0x03`), Ctrl-Space (`0x00`), then the halt port. If none of the three
-draws a reply, the firmware itself is stuck in an unbounded wait and only a
-reflash will bring it back.
+draws a reply, the firmware is stuck in a wait: the watchdog reboots it within
+4 s if the wait feeds nothing, and otherwise only a reflash brings it back.
 
 ### Compare a pin read against `LOW`, never `HIGH` **[code]**
 
@@ -282,42 +155,42 @@ appears only on the pins whose bit position is not 0. `LOW` is 0, so `== LOW`
 and `!= LOW` are exact whatever the accessor returns. Write the test that way
 even when the current expansion happens to be safe.
 
+### Commented-out debug pin calls still count as time **[hw]**
+
+`assert_debug()` and `negate_debug()` cost about 10 ns of pin writes each,
+and bus code written while they were live took that time as margin. The
+normal build comments them out, so put the time back where it mattered:
+a `delayNanoseconds()` of one call's worth after a bus drive, for setup
+before the clock edge that latches it, and before a sample, for the
+signal to settle. A delay on the other side only stretches the cycle.
+(The TMS320C15 drew wrong pixels until it got them.)
+
 ### A logic analyser on the bus can break the board **[hw]**
 
-Sixteen probe leads on the multiplexed bus (AD, status, `#AS`, `#DS`, `#WAIT`,
-`#RESET`, R/`#W`) add enough capacitance to stop a marginal target working at
-all. Measured: a commit that had just passed all five `samples/z280` programs
-went to *zero* passes, unrecoverable every time, with no change to the source —
-purely from the probes being attached. Unplugging them restored it.
-
-Two consequences:
+Probe leads add enough capacitance to stop a marginal target working at all:
+sixteen leads on the Z280's multiplexed bus took a commit that had just passed
+all five `samples/z280` programs to *zero* passes, every time, with no change
+to the source. Unplugging them restored it.
 
 - **Bisect against a known-good commit before believing any code theory.** With
   the probes on, every build failed, so each change tested in isolation looked
-  like the culprit. Hours went into a `Cycles::reset()` change, a reset setup
-  delay, a `clk_delay_ns` margin and an `#AS` polling rewrite, none of which
-  were the fault. Checking out the last commit known to pass would have ended it
-  immediately. `git reflog --date=iso` dates the builds, so the timestamps of a
-  session's passing run identify which commit to try.
+  like the culprit. Checking out the last commit known to pass ends it at once;
+  `git reflog --date=iso` dates the builds, so the timestamps of a session's
+  passing run identify which commit to try.
 - **Timing measured with the probes on is not the unloaded timing.** Absolute
   setup and hold figures taken that way describe a bus that no longer behaves
   like the one shipping.
+- **A reading taken with probes missing on the signals that carry the answer
+  is not evidence** (the Z280's phantom NMI acknowledge).
 
 ### Bus level holders make the data bus turnaround uncritical **[hw]**
 
-A hardware design decision worth knowing before optimising any timing around
-it. The port 6 pins **P6.16 to P6.31** — the data bus, among other uses — each
+The port 6 pins **P6.16 to P6.31** — the data bus, among other uses — each
 carry a **bus level holder**. When the controller switches one of those pins
 from output to input, the level it was driving is *held* on the net until the
-CPU actually drives the pin itself.
-
-So the data bus never floats across the turnaround. The window between
-releasing the bus (`inputMode()`) and the CPU taking it over, which would
-otherwise be the tightest timing in a read cycle, is covered by the holder: a
-CPU still sampling during it reads the level the controller last drove, not an
-indeterminate one.
-
-Two things follow:
+CPU drives the pin itself. So the data bus never floats across the turnaround:
+a CPU still sampling between `inputMode()` and taking the bus over reads the
+level the controller last drove.
 
 - Releasing the bus does not have to be timed precisely against the point where
   the CPU stops sampling. Effort spent shaving that margin is wasted.
@@ -326,12 +199,13 @@ Two things follow:
 
 ### Verify opcodes with the assembler, not by hand
 
-libasm ships a CLI assembler; use it rather than hand-encoding injected
-sequences, especially for relative jump displacements:
+libasm ships a CLI assembler (`asm`, built from libasm's `cli/`); use it rather
+than hand-encoding injected sequences, especially for relative jump
+displacements:
 
 ```
-printf '        CPU Z280\n        ORG 0\n        JR 0000H\n' > /tmp/x.asm
-/home/t2/libasm/cli/asm -C z280 -l /dev/stdout /tmp/x.asm -o /dev/null
+printf '        CPU Z280\n        ORG 0\n        JR 0000H\n' > x.asm
+asm -C z280 -l /dev/stdout x.asm -o /dev/null
 ```
 
 It also settles opcode questions directly from the tables
@@ -353,12 +227,135 @@ It also settles opcode questions directly from the tables
 ### Read the manual before blaming the code
 
 Several long detours would have been avoided by grepping the manual first.
-`pdftotext -layout` on the PDF makes it greppable. Specifically: a measured
-behaviour that contradicts an assumption is usually documented somewhere, and a
-"this should work" fix that does not work usually has a paragraph explaining
-why.
+`pdftotext -layout` on the PDF makes it greppable. A measured behaviour that
+contradicts an assumption is usually documented somewhere, and a "this should
+work" fix that does not work usually has a paragraph explaining why.
 
----
+### Check cycle tables against the chip, not only the manual **[hw]**
+
+The halt and breakpoint logic of a target that follows bus-cycle sequences
+is only as right as its tables, and the manuals they come from can be wrong
+or ambiguous (the MC68HC08's AN2627 is one example). `scripts/record-cycles.py`
+runs one instruction at a time on the profile image (`-D PROFILE_CYCLES`, the
+`teensy41-profile` environment, one build for every target), in memory filled
+with the target's trap so any transfer stops at once, and compares what the
+chip did with the tables. Everything specific to a target lives in a plugin
+beside it, `debugger/<arch>/tools/cycles_<chip>.py`, named on the command line
+with the recording and the channels file. The profile loop prints every cycle
+without consulting the tables; where a matcher segments cycles into
+instructions, it also prints the matcher's verdict, so one run checks the
+table, the matcher and the chip together.
+
+The profile loop holds the debug pin active for the run, so `--capture` can
+check the firmware's view of each cycle against a logic analyzer triggered
+on it. Decode strobes with a minimum width and merge a strobe split by a
+nanosecond blip: crosstalk produces both, and either one reads as an extra
+cycle. The pin drops as the trap's vector read ends, too close to tell
+which side of it that cycle falls, so leave it out of the comparison.
+
+Sample each signal where it is stable, which is not always where the data
+is (see the HD6309's R/`#W`). Compare only the kind of a dummy cycle:
+nothing drives the bus then, and the bus holders show whatever was there
+before. A flash clears the emulated memory, and the trap fill with it, so
+fill again before the next run.
+
+Fix a table in its `.txt`, never in the `.cpp`: `inst_<chip>.awk` turns
+the `.txt` into the matcher's arrays, and puts the command that did it on
+a `// Generated by:` line before them. Run that command in the arch's
+directory and replace what follows the line. The awk numbers the
+sequences in the order the `.txt` first uses them, so a fixed row can
+renumber the rest; there is no list in the awk to edit. `-v MODE=pretty`
+prints the `.txt` back aligned instead. **[code]**
+
+### A frame that completes is not a frame that is right **[hw]**
+
+`frames = 1` only proves a mandelbrot frame finished. Checking the output
+against `samples/arith/mandelbrot.golden` found three bugs that had passed that
+test for as long as it existed: the 8080's memory corruption, a wrong formula
+in the INS8070 sample, and division bugs in several `arith.inc` files. A
+mirror-symmetric but wrong frame points at a sample's arithmetic; scattered
+wrong characters and restarts point at the bus.
+
+The `[arith]` expect block is matched as one substring, so every line has to be
+what that sample actually prints, in order. Lists copied from another target
+were wrong for most targets; derive them from the sample's own `arith.asm`.
+
+### Bound a mandelbrot run by time, not by frames **[hw]**
+
+One frame takes 5 seconds on a Z280 and 14 minutes on an F3850, so a regress
+run waiting for `frames = 1` cost minutes per slow target. `lines = 6` halts at
+the first completed frame, or once 6 rows are drawn and 20 seconds have
+passed, and checks everything drawn against the golden frame. A fast CPU
+finishes a frame, a mid-speed one runs 20 seconds, and a slow one stops at 6
+rows.
+
+`[gountil]` targets `loop_y` rather than `loop_x` on mid-speed CPUs (6 rows
+within 20 seconds), so each go runs a whole row instead of one pixel.
+
+To time a redrawing sample by hand, count the blank lines it prints between
+frames: `bionic-control.py run <cap> <n>` stops after n of them and prints each
+interval. A run that ends on its own has exited early, and is a failure, not a
+timing. **[hw]**
+
+### Samples on another console device **[code]**
+
+`io = "SCI"` in a sample's table routes the console through that device with
+the `I` command for that sample only. Reset does not change the selection, so
+the script reads the enabled device from `I`'s listing first and switches back
+to it afterwards, pass or fail.
+
+### Reset after uploading, not only before **[hw]**
+
+`R` before an upload stops the CPU, but it resets from the vector already in
+memory -- the *previous* program's. Uploading does not touch the PC. When
+every sample starts at the same address this never shows; on the MC6800,
+`mc68xx` starts at 1000 while the others start at 0100, so `G` ran the stale
+program. `bionic-regress.py`'s `load()` resets again after the upload.
+
+For a CPU that fetches its PC from a reset vector, `[reset]` names the
+vector's bytes, most significant first -- `PC = "[FFFE FFFF]"`, or
+`"[FFFD FFFC]"` on the 6502 -- and the reset case checks the PC against the
+value the loaded sample puts there.
+
+### Some CPUs report the PC one byte early **[hw]**
+
+The SC/MP (INS8060) and INS8070 increment PC *before* each fetch, so the PC
+register holds the address before the next instruction: a stop at `A` prints
+`PC=A-1`. Breakpoints and go-until targets still take `A`; only the printed PC
+is offset. `pc_offset = -1` in a regress file's `[breakpoint]`/`[gountil]`
+tells the script so. To start execution at `A` by hand, set `PC=A-1`.
+
+### Checking the analyser leads and board files **[hw]**
+
+A preset's labels are only as good as the leads. Decode a reset capture before
+trusting a new channel set: the debugger's register-save sequence after reset
+injects known instruction bytes on reads and writes known register values, so
+swapped strobes show at once (INS8070: `#RDS`/`#WDS` crossed on the probe).
+
+The `schematics/<board>/*_bionic.toml` pin maps are hand-written; check them
+against the PCB's pad nets, not the other way round. Found wrong: the
+INS8060's data pins reversed, P0x instead of P1x on the MC6800 and MC6809E,
+and a duplicated pin on the HD6301.
+
+Keep captures triggered and short. `trimDataSeconds` only trims after the
+trigger fires, so a stopped, untriggered capture holds the whole run; exporting
+one wrote gigabytes and filled the disk, and closing the capture did not stop
+the export.
+
+### Order bench work by image, not by fix **[hw]**
+
+Seating a chip takes moments; flashing the Teensy takes minutes and wipes
+the emulated memory. Batch everything one image can test before flashing
+the next, and when a fix needs a new image, first finish what the image
+already on the board can still do: a TMS7000 fix found mid-run waited
+while the P8095BH and TMS320C15 checks ran on the same profile image.
+
+### `ENABLE_SERIAL_HANDLER` builds were broken in many targets **[code]**
+
+The option is off by default, so nothing noticed that most `devs_*` files
+declare a `SerialHandler` under it without including `serial_handler.h` or the
+handler's own header. Syntax-check a target with and without
+`-DENABLE_SERIAL_HANDLER` when touching its devices.
 
 ## Per architecture
 
