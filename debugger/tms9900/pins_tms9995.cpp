@@ -254,12 +254,14 @@ uint8_t PinsTms9995::capture() {
     return s->data;
 }
 
+// On-chip: RAM at F000-F0FB, the decrementer at FFFA-FFFB and the NMI
+// vector's RAM at FFFC-FFFF (TMS9995 Data Manual, Figure 2).
 bool PinsTms9995::is_internal(uint16_t addr) const {
     if (addr < 0xF000)
         return false;
     if (addr < 0xF0FC)
         return true;
-    return addr >= 0xFFFC;
+    return addr >= 0xFFFA;
 }
 
 const uint16_t JMP_6 = 0x10FC;  // JMP $-6
@@ -323,7 +325,7 @@ void PinsTms9995::internal_write16(uint16_t addr, uint16_t data) {
     DEBUG(cli.printlnHex(data, 4));
     // MOV @s, @d; I:I:s:s:R:r:d:d:i:i:W
     const uint16_t MOV[] = {0xC820, 0x0000, data, addr};
-    injectReads(MOV, 4);     // I:I:s:s:R:r:d:d; MOVB @>0000, @addr
+    injectReads(MOV, 4);     // I:I:s:s:R:r:d:d; MOV @>0000, @addr
     injectReads(&JMP_6, 1);  // i:i            ; JMP $-6
     cycle();                 // W              ; write to internal RAM
     cycle();                 // finish JMP

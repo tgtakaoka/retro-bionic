@@ -8,7 +8,7 @@ namespace debugger {
 namespace tms9900 {
 
 struct MemsTms9900 : DmaMemory {
-    MemsTms9900(Devs *devs) : MemsTms9900(devs, true) {}
+    MemsTms9900(Devs *devs);
 
     uint32_t maxAddr() const override { return UINT16_MAX; }
 
@@ -18,9 +18,6 @@ struct MemsTms9900 : DmaMemory {
     uint16_t vec_nmi() const { return maxAddr() - 3; }
 
 protected:
-    // TMS9980 shares this memory but is byte accessed.
-    MemsTms9900(Devs *devs, bool wordAccess);
-
     Devs *_devs;
 };
 

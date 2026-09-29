@@ -31,7 +31,7 @@ loop:   bl      @getchar
         soc     R0, R0
         jeq     halt_to_system
 echo:   bl      @putchar
-        ci      R0, hibyte(>0D) Cariage Return
+        ci      R0, hibyte(>0D) Carriage Return
         jne     loop
         li      R0, hibyte(>0A) Newline
         jmp     echo

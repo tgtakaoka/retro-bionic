@@ -959,12 +959,23 @@ there. **[code]**
 
 ### TMS9900 family
 
-`pins_tms9900_base.cpp::suspend()` is the reference for the "assert the
-interrupt only after the opcode fetch" idiom: it walks the loop with a
-`bool assert_nmi` latch and asserts on the first cycle where `s->fetch()` is
-true. Targets without an `#M1`-equivalent have to substitute "the transaction
-`resumeCycle()` handed back", which is the opcode fetch by construction — every
-sequence parks on the read that follows it. **[code]**
+**Pitfalls.** Assert the halt interrupt only after the opcode fetch, or the
+step lands on the wrong instruction.
+
+`pins_tms9900_base.cpp::suspend()` is the reference for that idiom: it walks
+the loop with a `bool assert_nmi` latch and asserts on the first cycle where
+`s->fetch()` is true. Targets without an `#M1`-equivalent substitute "the
+transaction `resumeCycle()` handed back", which is the opcode fetch by
+construction — every sequence parks on the read that follows it. **[code]**
+
+The TMS9980, TMS9995, TMS99105 and TMS99110 also run TMS9900 code. **[hw]**
+
+The TMS99105 board names its CPU by behaviour, not by marking: at reset an
+injected `CIR` makes two writes when a floating-point macrostore answers.
+The bench's chip, marked TMS99105, has the TMS99110's ROM on chip, so
+`MACRO=STANDARD` reports TMS99110 and only `MACRO=BASELINE` runs it as a
+plain TMS99105. The `?` banner reads `BionicTMS99105 (CPU: TMS99110)`;
+take the CPU from the `CPU:` field, not the board name. **[hw]**
 
 ### 6502
 

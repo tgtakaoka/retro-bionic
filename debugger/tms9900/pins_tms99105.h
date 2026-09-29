@@ -32,7 +32,7 @@
 #define PIN_BST1 10    /* P7.00 */
 #define PIN_BST2 12    /* P7.01 */
 #define PIN_BST3 11    /* P7.02 */
-#define PORT_IC 7      /* P7.16-P7.19 */
+#define PORT_IC 7      /* GPIO7 */
 #define IC_gp 16       /* P7.16-P7.19 */
 #define IC_gm 0xF      /* P7.16-P7.19 */
 #define IC_vp 0        /* IC3-IC0 */

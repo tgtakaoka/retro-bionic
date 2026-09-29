@@ -63,7 +63,9 @@ void PinsTms9900Base::run() {
     _regs->restore();
     Cycles::reset();
     saveBreakInsts();
+    startRunTimer();
     loop();
+    stopRunTimer();
     // context has been saved in loop()
     restoreBreakInsts();
     disassembleCycles();
@@ -119,10 +121,20 @@ void PinsTms9900Base::printCycles() {
     }
 }
 
-void PinsTms9900Base::disassembleCycles() {
+const SignalsImpl *PinsTms9900Base::findBacktraceStart() {
+    auto start = static_cast<const Signals *>(
+            backtraceStartByFetchCount<Signals>(_lineLimit));
+    // On an 8-bit bus both bytes of an instruction word are fetches:
+    // begin at the first.
+    if (busBytes() == 1 && (start->addr & 1) && start != Signals::get())
+        start = start->prev();
+    return start;
+}
+
+void PinsTms9900Base::printBacktrace() {
     const auto g = Signals::get();
     const auto cycles = g->diff(Signals::put());
-    const auto unit = _mems->wordAccess() ? 2 : 1;
+    const auto unit = busBytes();
     for (auto i = 0u; i < cycles;) {
         const auto s = g->next(i);
         if (s->fetch()) {

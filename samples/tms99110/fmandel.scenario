@@ -1,0 +1,45 @@
+# Scenario for scripts/record-scenario.py: the TMS99110's floating point.
+# Its FP opcodes are macroinstructions: each one traps into macrostore,
+# where a routine works on the FPAC in R0:R1. On the TMS99105 board,
+# MACRO=3 loads the TMS99110 macrostore ROM, taking effect at reset.
+#
+# ADDRESS IS PINNED TO THE CURRENT samples/tms99110/fmandel.hex: loop_i
+# at 0308 (LR @vB, MR @vB, STR R2). If the sources or the image ever
+# change, re-check it against the fresh .lst before recording -- a stale
+# address will look like it works (it disassembles *something*) while
+# showing the wrong thing.
+
+key ?
+pace 2.0
+
+key R
+type =
+wait Set register?
+command MACRO 3
+pace 1.5
+
+upload samples/tms99110/fmandel.hex
+
+# Reset to enter TMS99110 mode and start the uploaded program.
+key R
+pace 1.5
+
+# Stop at the top of the iteration loop, first pixel.
+type g
+wait Go until?
+command 308 10
+pace 2.0
+
+# The loop body, decoded as TMS99110 FP instructions.
+type D
+wait Disassemble?
+command 308 8
+pace 2.0
+
+# LR loads B into the FPAC; MR runs a whole macrostore routine for one
+# multiply; STR saves B*B to R2:R3.
+step 3
+pace 2.0
+
+# Watch one frame render.
+run 1 600

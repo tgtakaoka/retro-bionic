@@ -63,7 +63,6 @@ const uint8_t PINS_LOW[] = {
         PIN_INT1,  // reset
         PIN_INT0,  // reset
         PIN_READY,
-        PIN_CRUCLK,
         PIN_CRUIN,
 };
 
@@ -72,6 +71,7 @@ const uint8_t PINS_HIGH[] = {
 };
 
 const uint8_t PINS_INPUT[] = {
+        PIN_CRUCLK,
         PIN_PHI3,
         PIN_MEMEN,
         PIN_DBIN,

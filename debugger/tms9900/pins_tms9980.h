@@ -33,7 +33,7 @@
 #define PIN_AM4 12   /* P7.01 */
 #define PIN_AM3 11   /* P7.02 */
 #define PIN_AM2 13   /* P7.03 */
-#define PORT_AH 7    /* P7.16-P7.17 */
+#define PORT_AH 7    /* GPIO7 */
 #define AH_gp 16     /* P7.16-P7.17 */
 #define AH_gm 0x3    /* P7.16-P7.17 */
 #define AH_vp 12     /* A1-A0 */
@@ -82,6 +82,7 @@ private:
     Signals *resumeCycle(uint16_t pc = 0) override;
     Signals *prepareCycle() override;
     Signals *completeCycle(Signals *s) override;
+    uint_fast8_t busBytes() const override { return 1; }
 };
 
 }  // namespace tms9980
