@@ -135,19 +135,22 @@ def _open(timeout=20):
     sys.exit('%s never appeared' % PORT)
 
 
-def pc_from(buf):
-    """The PC/IP value out of a register dump, decoded if `buf` is bytes.
+def pc_from(buf, name=None):
+    """The PC value out of a register dump, decoded if `buf` is bytes.
+    `name` is the dump's own label for it when that is not "PC", e.g.
+    F8's "P0" or Z8's "IP" (regress.toml's [reset] program_counter).
 
-    The *last* PC=/IP= line wins when there is more than one -- the most
-    recent register dump in the text, not the first. None if there is no
-    such line at all.
+    The *last* match wins when there is more than one -- the most recent
+    register dump in the text, not the first. None if there is none.
+    Matched anywhere, not just at a line's start: a halt landed
+    mid-output leaves the dump appended straight onto a partial line,
+    with no newline before "PC=" at all. A bank before the address, as
+    in the W65C816's native "K:PC=00:11E2", is joined on: "0011E2".
     """
     text = buf.decode('ascii', 'replace').replace('\r', '') if isinstance(buf, bytes) else buf
-    line = None
-    for ln in text.split('\n'):
-        if ln.startswith(('PC=', 'IP=')):
-            line = ln
-    return line.split()[0].split('=')[1] if line else None
+    label = re.escape(name) if name else 'PC'
+    matches = re.findall(r'(?:%s)=((?:[0-9A-Fa-f]+:)?[0-9A-Fa-f]+)' % label, text)
+    return matches[-1].replace(':', '') if matches else None
 
 
 def at_prompt(buf):
@@ -159,6 +162,22 @@ def at_prompt(buf):
 # Counting those is how a run that never ends on its own is both timed and
 # brought to a stop after a known amount of work.
 FRAME = b'\n\r\n'
+
+
+def write_all(fd, data):
+    """Write all of `data`, waiting out a full kernel output queue.
+
+    The port is O_NONBLOCK, so os.write() may take only part of a
+    line or refuse it outright (EAGAIN) once the queue fills -- an
+    upload long enough to outrun the board's echo hits both.
+    """
+    while data:
+        try:
+            n = os.write(fd, data)
+        except BlockingIOError:
+            select.select([], [fd], [], 1.0)
+            continue
+        data = data[n:]
 
 
 def abort():
@@ -198,10 +217,15 @@ class Board:
         The total is a hard deadline on purpose: a failed run emits nothing at
         all while the CPU cycles refresh forever, so an idle-only wait would
         block for the whole budget on every later command.
+
+        Quiet counts from the call itself, not from the first byte, so an
+        already-settled board satisfies `idle` right away. A reply ending at
+        the prompt is complete once a moment passes with nothing after it.
         """
         buf, last, end = b'', time.time(), time.time() + secs
         while time.time() < end:
-            r, _, _ = select.select([self.fd], [], [], 0.1)
+            prompt = at_prompt(buf)
+            r, _, _ = select.select([self.fd], [], [], 0.02 if prompt else 0.1)
             if r:
                 try:
                     d = os.read(self.fd, 65536)
@@ -210,7 +234,7 @@ class Board:
                         last = time.time()
                 except BlockingIOError:
                     pass
-            elif buf and time.time() - last > idle:
+            elif prompt or time.time() - last > idle:
                 break
         return buf
 
@@ -223,12 +247,13 @@ class Board:
         keystroke before checking for a reply.
         """
         if data:
-            os.write(self.fd, data if isinstance(data, bytes) else data.encode())
+            self._write(data if isinstance(data, bytes) else data.encode())
         if delay:
             time.sleep(delay)
         return self._drain(wait, idle)
 
-    def wait_run(self, cap=0.0, stall=None, frames=0, progress=30.0, out=sys.stderr):
+    def wait_run(self, cap=0.0, stall=None, frames=0, lines=0, progress=30.0, out=sys.stderr,
+                 log=None):
         """Wait out a run that may take a second or half an hour.
 
         `mandelbrot` finishes in a moment on a fast target and takes minutes, or
@@ -241,11 +266,16 @@ class Board:
         completed iteration, and how is one of:
           'prompt'   the run ended and the CLI came back
           'frames'   the requested number of iterations completed
+          'lines'    `lines` output lines arrived -- a lighter halt trigger than a
+                     full frame, for a slow target where even one frame is minutes:
+                     enough output to trust the CPU is drawing correctly, without
+                     paying for the whole run
           'stalled'  silent for `stall` seconds and no prompt -- stuck
           'running'  still producing output when `cap` expired; for a sample that
                      loops until stopped this is the healthy outcome, not a failure
 
         `cap` of 0 means no overall limit: wait as long as it keeps working.
+        `log`, a list, collects each chunk read as (time, text).
         """
         if stall is None:
             stall = STALL
@@ -265,6 +295,8 @@ class Board:
                 if d:
                     buf += d
                     last = now
+                    if log is not None:
+                        log.append((now, d.decode('ascii', 'replace')))
                     # Count iteration boundaries as they arrive, so a slow target
                     # is timed per iteration rather than only in total.
                     n = buf.count(FRAME)
@@ -278,6 +310,8 @@ class Board:
                             said = now
                     if at_prompt(buf):
                         return 'prompt', buf, marks
+                    if lines and buf.count(b'\n') >= lines:
+                        return 'lines', buf, marks
                     if frames and seen >= frames:
                         return 'frames', buf, marks
             if now - said >= progress and out is not None:
@@ -295,7 +329,7 @@ class Board:
         one-shot command like `g<addr>\r` that also starts a run. G takes
         an optional line-limit field, so it needs the trailing \r to
         submit an empty one and actually start running."""
-        os.write(self.fd, cmd)
+        self._write(cmd)
         return self.wait_run(**kw)
 
     def abort(self):
@@ -314,9 +348,9 @@ class Board:
         an earlier run satisfies a substring match on its own while only a CLI
         actually waiting for input prints `> ` last.
         """
-        self._drain(2.0, 0.4)                       # discard what is still coming
-        if self._drain(1.2, 1.2) != b'':            # still emitting: not a prompt
-            return None
+        left = self._drain(2.0, 0.4)                # discard what is still coming
+        if left and not at_prompt(left) and self._drain(1.2, 1.2) != b'':
+            return None                             # still emitting: not a prompt
         os.write(self.fd, b'?')
         reply = self._drain(budget, 0.8)
         if not at_prompt(reply):
@@ -349,7 +383,7 @@ class Board:
         should decide to spend it.
         """
         for _ in range(tries):
-            os.write(self.fd, b'\x03')                  # cancel a CLI prompt
+            self._write(b'\x03')                        # cancel a CLI prompt
             self._drain(2.0, 0.5)
             os.write(self.fd, b'\x00')                  # the samples exit on NUL
             self._drain(2.0, 0.6)
@@ -392,12 +426,17 @@ class Board:
             txt = self.send(b'b', wait=6.0, idle=0.8).decode('ascii', 'replace')
             if 'clear?' not in txt:
                 return True
-            self.send(b'0\r', wait=4.0, idle=0.6)
+            # The listing numbers breakpoints from 1: clear the first.
+            m = re.search(r'^(\d+) ', txt.replace('\r', ''), re.M)
+            self.send((m.group(1) if m else '').encode() + b'\r', wait=4.0, idle=0.6)
         return False
 
     def set_break(self, addr):
         return self.send(b'B' + addr.encode() + b'\r', wait=6.0, idle=0.8).decode(
                 'ascii', 'replace').replace('\r', '')
+
+    def _write(self, data):
+        write_all(self.fd, data)
 
     # ---------------------------------------------------------------- session
     def upload_file(self, path):
@@ -408,19 +447,27 @@ class Board:
         that sends the wrong one is left stuck in the loop and every later
         command is eaten as a malformed record.
         """
-        os.write(self.fd, b'\x03')                      # leave any half-finished prompt
+        self._write(b'\x03')                            # leave any half-finished prompt
         self._drain(1.5, 0.3)
-        os.write(self.fd, b'U')
+        self._write(b'U')
         self._drain(3.0, 0.3)
         sent = 0
         for line in open(path):
             line = line.strip()
             if not line:
                 continue
-            os.write(self.fd, line.encode() + b'\r')
-            self._drain(3.0, 0.15)
+            self._write(line.encode() + b'\r')
+            # No per-line wait: each line's echo is never read back for
+            # its own sake (only the final drain's text is), so there is
+            # nothing to synchronize on -- except the kernel's own input
+            # buffer, which this opportunistic, non-blocking read alone
+            # keeps from filling on a long upload.
+            try:
+                os.read(self.fd, 65536)
+            except BlockingIOError:
+                pass
             sent += 1
-        os.write(self.fd, b'\x03')
+        self._write(b'\x03')
         return sent, self._drain(5.0, 0.5).decode('ascii', 'replace').replace('\r', '')
 
     @classmethod
@@ -552,7 +599,10 @@ def main():
                   % (len(marks), sum(gaps) / len(gaps),
                      ' '.join('%.2f' % g for g in gaps)))
         print(txt)
-        sys.exit(0 if 'prompt' in how or how.startswith('ended') else 1)
+        # A stall is a failure even when the halt port then brought the
+        # prompt back.
+        ok = how == 'prompt' or how.startswith('ended') and 'stalled' not in how
+        sys.exit(0 if ok else 1)
     else:
         sys.exit(__doc__)
 

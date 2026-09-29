@@ -9,6 +9,8 @@ on any particular analyzer's own preset format at report time.
 import csv
 import json
 import os
+import re
+import shutil
 import sys
 import tomllib
 import urllib.request
@@ -43,6 +45,19 @@ class LogicAnalyzer(ABC):
     @abstractmethod
     def preset_channels(self, preset):
         """Channel names from a capture preset, as {channel index: name}."""
+
+    @abstractmethod
+    def start_capture(self, channels, trigger, edge='rise', before=20e-6,
+                      after=200e-6, glitch=None):
+        """Arm a capture of |channels| that triggers on |trigger|'s |edge|
+        ('rise' or 'fall') and keeps |before|/|after| seconds around it,
+        ignoring trigger pulses shorter than |glitch| seconds. Returns a
+        handle for finish_capture()."""
+
+    @abstractmethod
+    def finish_capture(self, handle, directory):
+        """Wait for the capture, export it as a CSV with `Channel N`
+        columns, and close it; returns the CSV path."""
 
 
 class SaleaeLogicPro16(LogicAnalyzer):
@@ -79,6 +94,50 @@ class SaleaeLogicPro16(LogicAnalyzer):
                 print('capture id %d -> %s' % (cid, path))
                 return path
         sys.exit('no Logic 2 capture found')
+
+    def _call(self, name, args):
+        try:
+            res = self._mcp(name, args)
+        except (OSError, ValueError) as e:
+            # Logic 2 away, a timeout or a garbled reply: callers handle
+            # RuntimeError, so a recording goes on without its capture.
+            raise RuntimeError('%s: %s' % (name, e)) from e
+        text = json.dumps(res)
+        if '"isError": true' in text:
+            raise RuntimeError('%s: %s' % (name, text[:300]))
+        return text
+
+    def start_capture(self, channels, trigger, edge='rise', before=20e-6,
+                      after=200e-6, glitch=None):
+        # The 3.3V threshold: the default one reads ringing as extra pulses.
+        device = {'digitalSampleRate': 100000000, 'digitalThresholdVolts': 3.3,
+                  'logicChannels': {'digitalChannels': sorted(set(channels) | {trigger})}}
+        if glitch:
+            device['glitchFilters'] = [{'channelIndex': trigger, 'pulseWidthSeconds': glitch}]
+        text = self._call('start_capture', {
+            'captureConfiguration': {'digitalCaptureMode': {
+                'triggerChannelIndex': trigger,
+                'triggerType': {'rise': 1, 'fall': 2}[edge],
+                'afterTriggerSeconds': after,
+                'trimDataSeconds': before + after}},
+            'logicDeviceConfiguration': device})
+        m = re.search(r'captureId\\*"?\s*:\s*(\d+)', text)
+        if not m:
+            raise RuntimeError('start_capture: no capture id in %s' % text[:300])
+        return int(m.group(1))
+
+    def finish_capture(self, handle, directory):
+        try:
+            self._call('wait_capture', {'captureId': handle})
+            shutil.rmtree(directory, ignore_errors=True)
+            self._call('export_raw_data_csv', {'captureId': handle, 'directory': directory,
+                                               'analogDownsampleRatio': 1})
+            return os.path.join(directory, 'digital.csv')
+        finally:
+            try:
+                self._call('close_capture', {'captureId': handle})
+            except RuntimeError:
+                pass                    # already gone with the error above
 
     def preset_channels(self, preset):
         """Channel names from a Logic 2 preset, as {channel index: name}.
