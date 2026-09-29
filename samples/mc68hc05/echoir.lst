@@ -84,6 +84,7 @@
           0 :
           0 :                    ;;; MC6850 Asynchronous Communication Interface Adapter
           0 : =FFE0              ACIA:   equ     $FFE0
+          0 : =FFE0              ACIA_HC05:      equ     ACIA   ; for ../mc6805/cputype.inc
           0 :                            include "../mc6800/mc6850.inc"
 (1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
 (1)       0 :
@@ -132,17 +133,19 @@
 (1)       0 : =FFE1              ACIA_data:      equ     ACIA+1          ; Data register
           0 : =94                RX_INT_TX_NO:   equ     WSB_8N1_gc|RIEB_bm
           0 :
-         40 :                            org     RAM_START
-         40 :                    save_a:
-         40 :                            rmb     1
-         41 :
+         50 :                            org     $50             ; RAM on the MC68HC08 too
+         50 :                    cputype:
+         50 :                            rmb     1
+         51 :                    save_a:
+         51 :                            rmb     1
+         52 :
          80 :                            org     $0080
          80 : =10                rx_queue_size:  equ     16
          80 :                    rx_queue:
          80 :                            rmb     rx_queue_size
          90 :
        FFFA :                            org     VEC_IRQ
-       FFFA : 10 94                      fdb     isr_irq
+       FFFA : 10 E2                      fdb     isr_irq
        FFFC :
        FFFC :                            org     VEC_SWI
        FFFC : FF FC                      fdb     VEC_SWI         ; halt to system
@@ -152,145 +155,197 @@
       10000 :
        1000 :                            org     $1000
        1000 :                    initialize:
-       1000 : AE 80                      ldx     #rx_queue
-       1002 : A6 10                      lda     #rx_queue_size
-       1004 : CD 10 3C                   jsr     queue_init
-       1007 :                            ;; initialize ACIA
-       1007 : A6 03                      lda     #CDS_RESET_gc   ; Master reset
-       1009 : C7 FF E0                   sta     ACIA_control
-       100C : A6 94                      lda     #RX_INT_TX_NO
-       100E : C7 FF E0                   sta     ACIA_control
-       1011 : 9A                         cli                     ; Enable IRQ
-       1012 : 20 00                      bra     loop
-       1014 :
-       1014 :                    loop:
-       1014 : AE 80                      ldx     #rx_queue
-       1016 : 9B                         sei                     ; Disable IRQ
-       1017 : CD 10 73                   jsr     queue_remove
-       101A : 9A                         cli                     ; Enable IRQ
-       101B : 24 F7                      bcc     loop
-       101D : 4D                         tsta
-       101E : 27 0C                      beq     halt_to_system
-       1020 : AD 0B                      bsr     putchar
-       1022 : A1 0D                      cmp     #$0D            ; carriage return
-       1024 : 26 EE                      bne     loop
-       1026 : A6 0A                      lda     #$0A            ; newline
-       1028 : AD 03                      bsr     putchar
-       102A : 20 E8                      bra     loop
-       102C :                    halt_to_system:
-       102C : 83                         swi
-       102D :
-       102D :                    putchar:
-       102D : B7 40                      sta     save_a
-       102F :                    putchar_loop:
-       102F : C6 FF E0                   lda     ACIA_status
-       1032 : A5 02                      bit     #TDRE_bm
-       1034 : 27 F9                      beq     putchar_loop
-       1036 :                    putchar_data:
-       1036 : B6 40                      lda     save_a
-       1038 : C7 FF E1                   sta     ACIA_data
-       103B : 81                         rts
-       103C :
-       103C :                            include "../mc6805/queue.inc"
-(1)    103C :                    ;;; [queue] queue structure
-(1)    103C : =0                 queue_len:      equ     0       ; queue length
-(1)    103C : =1                 queue_size:     equ     1       ; buffer size
-(1)    103C : =2                 queue_put:      equ     2       ; queue put index
-(1)    103C : =3                 queue_get:      equ     3       ; queue get index
-(1)    103C : =4                 queue_buf:      equ     4       ; buffer start offset
-(1)    103C :
-(1)    103C :                    ;;; [queue] Initialize queue
-(1)    103C :                    ;;; @param X queue work space pointer
-(1)    103C :                    ;;; @param A queue work space size
-(1)    103C :                    ;;; @clobber A
-(1)    103C :                    queue_init:
-(1)    103C : 7F                         clr     queue_len,x
-(1)    103D : 6F 02                      clr     queue_put,x
-(1)    103F : 6F 03                      clr     queue_get,x
-(1)    1041 : A0 04                      sub     #queue_buf
-(1)    1043 : E7 01                      sta     queue_size,x
-(1)    1045 : 81                         rts
-(1)    1046 :
-(1)    1046 :                    ;;; [queue] Add an element to queue
-(1)    1046 :                    ;;; @param X queue work space pointer
-(1)    1046 :                    ;;; @param A an element
-(1)    1046 :                    ;;; @return CC.C 0 if queue is full
-(1)    1046 :                    queue_add_X:
-(1)    1046 :                            rmb     1               ; save X
-(1)    1047 :                    queue_add_A:
-(1)    1047 :                            rmb     1               ; save X
-(1)    1048 :                    queue_add:
-(1)    1048 : C7 10 47                   sta     queue_add_A     ; save A
-(1)    104B : F6                         lda     queue_len,x
-(1)    104C : E1 01                      cmp     queue_size,x
-(1)    104E : 24 1E                      bhs     queue_add_return ; carry is cleared
-(1)    1050 : 7C                         inc     queue_len,x      ; increment queue length
-(1)    1051 : E6 02                      lda     queue_put,x      ; 8 bits offset
-(1)    1053 : 4C                         inca
-(1)    1054 : E7 02                      sta     queue_put,x     ; update put pointer
-(1)    1056 : E1 01                      cmp     queue_size,x
-(1)    1058 : 25 02                      blo     queue_add_elem
-(1)    105A : 6F 02                      clr     queue_put,x
-(1)    105C :                    queue_add_elem:
-(1)    105C : 4A                         deca                    ; restore put pointer
-(1)    105D : AB 04                      add     #queue_buf
-(1)    105F : CF 10 46                   stx     queue_add_X     ; save X
-(1)    1062 : CB 10 46                   add     queue_add_X
-(1)    1065 : 97                         tax
-(1)    1066 : C6 10 47                   lda     queue_add_A
-(1)    1069 : F7                         sta     ,x              ; put element
-(1)    106A : CE 10 46                   ldx     queue_add_X     ; restore X
-(1)    106D : 99                         sec                     ; set carry
-(1)    106E :                    queue_add_return:
-(1)    106E : C6 10 47                   lda     queue_add_A     ; restore A
-(1)    1071 : 81                         rts
-(1)    1072 :
-(1)    1072 :                    ;;; [queue] Remove an element from queue
-(1)    1072 :                    ;;; @param X queue work space pointer
-(1)    1072 :                    ;;; @return A an element
-(1)    1072 :                    ;;; @return CC.C 0 if queue is empty
-(1)    1072 :                    queue_remove_X:
-(1)    1072 :                            rmb     1
-(1)    1073 :                    queue_remove:
-(1)    1073 : 7D                         tst     queue_len,x
-(1)    1074 : 26 02                      bne     queue_remove_has_elem
-(1)    1076 : 98                         clc                     ; clear carry
-(1)    1077 : 81                         rts
-(1)    1078 :                    queue_remove_has_elem:
-(1)    1078 : 7A                         dec     queue_len,x     ; decrement queue length
-(1)    1079 : E6 03                      lda     queue_get,x     ; 8 bits offset
-(1)    107B : 4C                         inca
-(1)    107C : E7 03                      sta     queue_get,x     ; update get pointer
-(1)    107E : E1 01                      cmp     queue_size,x
-(1)    1080 : 25 02                      blo     queue_remove_elem
-(1)    1082 : 6F 03                      clr     queue_get,x
-(1)    1084 :                    queue_remove_elem:
-(1)    1084 : 4A                         deca                    ; restore get pointer
-(1)    1085 : AB 04                      add     #queue_buf
-(1)    1087 : CF 10 72                   stx     queue_remove_X  ; save X
-(1)    108A : CB 10 72                   add     queue_remove_X
-(1)    108D : 97                         tax
-(1)    108E : F6                         lda     ,x              ; get element
-(1)    108F : CE 10 72                   ldx     queue_remove_X  ; restore X
-(1)    1092 : 99                         sec                     ; set carry
-(1)    1093 :                    queue_remove_return:
+       1000 :                            include "../mc6805/cputype.inc"
+(1)    1000 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)    1000 : =FFE0              HC05_control:   equ     ACIA_HC05+(ACIA_control-ACIA)
+(1)    1000 : =FFE0              HC05_status:    equ     ACIA_HC05+(ACIA_status-ACIA)
+(1)    1000 : =FFE1              HC05_data:      equ     ACIA_HC05+(ACIA_data-ACIA)
+(1)    1000 : =FFFF              COP_RESET:      equ     $FFFF   ; MC68HC08 COP; the COP is a mask option there
+(1)    1000 : 9C                         rsp                     ; 6805:SP=$7F. 68HC05:SP=$FF
+(1)    1001 : 3F 50                      clr     cputype
+(1)    1003 : 3F 7E                      clr     $7E             ; clear return address of 6805
+(1)    1005 : 3F FE                      clr     $FE             ; clear return address of 68HC05
+(1)    1007 : AD 38                      bsr     check_cpu
+(1)    1009 : 20 3D                      bra     continue
+(1)    100B :                    store_ACIA_control:
+(1)    100B : 3D 50                      tst     cputype
+(1)    100D : 26 04                      bne     *+6
+(1)    100F : C7 FF E0                   sta     ACIA_control
+(1)    1012 : 81                         rts
+(1)    1013 : C7 FF E0                   sta     HC05_control
+(1)    1016 : 81                         rts
+(1)    1017 :                    load_ACIA_status:
+(1)    1017 : 3D 50                      tst     cputype
+(1)    1019 : 26 04                      bne     load_ACIA_status_hc05
+(1)    101B : C6 FF E0                   lda     ACIA_status
+(1)    101E : 81                         rts
+(1)    101F :                    load_ACIA_status_hc05:
+(1)    101F : C6 FF FF                   lda     COP_RESET       ; service the MC68HC08's COP, a mask option
+(1)    1022 : C7 FF FF                   sta     COP_RESET
+(1)    1025 : C6 FF E0                   lda     HC05_status
+(1)    1028 : 81                         rts
+(1)    1029 :                    load_ACIA_data:
+(1)    1029 : 3D 50                      tst     cputype
+(1)    102B : 26 04                      bne     *+6
+(1)    102D : C6 FF E1                   lda     ACIA_data
+(1)    1030 : 81                         rts
+(1)    1031 : C6 FF E1                   lda     HC05_data
+(1)    1034 : 81                         rts
+(1)    1035 :                    store_ACIA_data:
+(1)    1035 : 3D 50                      tst     cputype
+(1)    1037 : 26 04                      bne     *+6
+(1)    1039 : C7 FF E1                   sta     ACIA_data
+(1)    103C : 81                         rts
+(1)    103D : C7 FF E1                   sta     HC05_data
+(1)    1040 : 81                         rts
+(1)    1041 :                    check_cpu:
+(1)    1041 : 3D 7E                      tst     $7E
+(1)    1043 : 26 02                      bne     cpu6805         ; found return address at 6805 stack
+(1)    1045 : 3C 50                      inc     cputype         ; 0:6805, 1:68HC05
+(1)    1047 :                    cpu6805:
+(1)    1047 : 81                         rts
+(1)    1048 :                    continue:
+       1048 : AE 80                      ldx     #rx_queue
+       104A : A6 10                      lda     #rx_queue_size
+       104C : CD 10 8A                   jsr     queue_init
+       104F :                            ;; initialize ACIA
+       104F : A6 03                      lda     #CDS_RESET_gc   ; Master reset
+       1051 : CD 10 0B                   jsr     store_ACIA_control
+       1054 : A6 94                      lda     #RX_INT_TX_NO
+       1056 : CD 10 0B                   jsr     store_ACIA_control
+       1059 : 9A                         cli                     ; Enable IRQ
+       105A : 20 00                      bra     loop
+       105C :
+       105C :                    loop:
+       105C : C6 FF FF                   lda     COP_RESET       ; service the MC68HC08's COP, a mask option
+       105F : C7 FF FF                   sta     COP_RESET
+       1062 : AE 80                      ldx     #rx_queue
+       1064 : 9B                         sei                     ; Disable IRQ
+       1065 : CD 10 C1                   jsr     queue_remove
+       1068 : 9A                         cli                     ; Enable IRQ
+       1069 : 24 F1                      bcc     loop
+       106B : 4D                         tsta
+       106C : 27 0C                      beq     halt_to_system
+       106E : AD 0B                      bsr     putchar
+       1070 : A1 0D                      cmp     #$0D            ; carriage return
+       1072 : 26 E8                      bne     loop
+       1074 : A6 0A                      lda     #$0A            ; newline
+       1076 : AD 03                      bsr     putchar
+       1078 : 20 E2                      bra     loop
+       107A :                    halt_to_system:
+       107A : 83                         swi
+       107B :
+       107B :                    putchar:
+       107B : B7 51                      sta     save_a
+       107D :                    putchar_loop:
+       107D : CD 10 17                   jsr     load_ACIA_status
+       1080 : A5 02                      bit     #TDRE_bm
+       1082 : 27 F9                      beq     putchar_loop
+       1084 :                    putchar_data:
+       1084 : B6 51                      lda     save_a
+       1086 : CD 10 35                   jsr     store_ACIA_data
+       1089 : 81                         rts
+       108A :
+       108A :                            include "../mc6805/queue.inc"
+(1)    108A :                    ;;; [queue] queue structure
+(1)    108A : =0                 queue_len:      equ     0       ; queue length
+(1)    108A : =1                 queue_size:     equ     1       ; buffer size
+(1)    108A : =2                 queue_put:      equ     2       ; queue put index
+(1)    108A : =3                 queue_get:      equ     3       ; queue get index
+(1)    108A : =4                 queue_buf:      equ     4       ; buffer start offset
+(1)    108A :
+(1)    108A :                    ;;; [queue] Initialize queue
+(1)    108A :                    ;;; @param X queue work space pointer
+(1)    108A :                    ;;; @param A queue work space size
+(1)    108A :                    ;;; @clobber A
+(1)    108A :                    queue_init:
+(1)    108A : 7F                         clr     queue_len,x
+(1)    108B : 6F 02                      clr     queue_put,x
+(1)    108D : 6F 03                      clr     queue_get,x
+(1)    108F : A0 04                      sub     #queue_buf
+(1)    1091 : E7 01                      sta     queue_size,x
 (1)    1093 : 81                         rts
 (1)    1094 :
-(1)    1094 :                    ;;; Local Variables:
-(1)    1094 :                    ;;; mode: asm
-(1)    1094 :                    ;;; End:
-(1)    1094 :                    ;;; vim: set ft=asm et ts=4 sw=4:
-       1094 :
-       1094 :                    isr_irq:
-       1094 : C6 FF E0                   lda     ACIA_status
-       1097 : A5 80                      bit     #IRQF_bm
-       1099 : 27 0C                      beq     isr_irq_return
-       109B :                    isr_irq_receive:
-       109B : A5 01                      bit     #RDRF_bm
-       109D : 27 08                      beq     isr_irq_recv_end
-       109F : C6 FF E1                   lda     ACIA_data
-       10A2 : AE 80                      ldx     #rx_queue
-       10A4 : CD 10 48                   jsr     queue_add
-       10A7 :                    isr_irq_recv_end:
-       10A7 :                    isr_irq_return:
-       10A7 : 80                         rti
+(1)    1094 :                    ;;; [queue] Add an element to queue
+(1)    1094 :                    ;;; @param X queue work space pointer
+(1)    1094 :                    ;;; @param A an element
+(1)    1094 :                    ;;; @return CC.C 0 if queue is full
+(1)    1094 :                    queue_add_X:
+(1)    1094 :                            rmb     1               ; save X
+(1)    1095 :                    queue_add_A:
+(1)    1095 :                            rmb     1               ; save X
+(1)    1096 :                    queue_add:
+(1)    1096 : C7 10 95                   sta     queue_add_A     ; save A
+(1)    1099 : F6                         lda     queue_len,x
+(1)    109A : E1 01                      cmp     queue_size,x
+(1)    109C : 24 1E                      bhs     queue_add_return ; carry is cleared
+(1)    109E : 7C                         inc     queue_len,x      ; increment queue length
+(1)    109F : E6 02                      lda     queue_put,x      ; 8 bits offset
+(1)    10A1 : 4C                         inca
+(1)    10A2 : E7 02                      sta     queue_put,x     ; update put pointer
+(1)    10A4 : E1 01                      cmp     queue_size,x
+(1)    10A6 : 25 02                      blo     queue_add_elem
+(1)    10A8 : 6F 02                      clr     queue_put,x
+(1)    10AA :                    queue_add_elem:
+(1)    10AA : 4A                         deca                    ; restore put pointer
+(1)    10AB : AB 04                      add     #queue_buf
+(1)    10AD : CF 10 94                   stx     queue_add_X     ; save X
+(1)    10B0 : CB 10 94                   add     queue_add_X
+(1)    10B3 : 97                         tax
+(1)    10B4 : C6 10 95                   lda     queue_add_A
+(1)    10B7 : F7                         sta     ,x              ; put element
+(1)    10B8 : CE 10 94                   ldx     queue_add_X     ; restore X
+(1)    10BB : 99                         sec                     ; set carry
+(1)    10BC :                    queue_add_return:
+(1)    10BC : C6 10 95                   lda     queue_add_A     ; restore A
+(1)    10BF : 81                         rts
+(1)    10C0 :
+(1)    10C0 :                    ;;; [queue] Remove an element from queue
+(1)    10C0 :                    ;;; @param X queue work space pointer
+(1)    10C0 :                    ;;; @return A an element
+(1)    10C0 :                    ;;; @return CC.C 0 if queue is empty
+(1)    10C0 :                    queue_remove_X:
+(1)    10C0 :                            rmb     1
+(1)    10C1 :                    queue_remove:
+(1)    10C1 : 7D                         tst     queue_len,x
+(1)    10C2 : 26 02                      bne     queue_remove_has_elem
+(1)    10C4 : 98                         clc                     ; clear carry
+(1)    10C5 : 81                         rts
+(1)    10C6 :                    queue_remove_has_elem:
+(1)    10C6 : 7A                         dec     queue_len,x     ; decrement queue length
+(1)    10C7 : E6 03                      lda     queue_get,x     ; 8 bits offset
+(1)    10C9 : 4C                         inca
+(1)    10CA : E7 03                      sta     queue_get,x     ; update get pointer
+(1)    10CC : E1 01                      cmp     queue_size,x
+(1)    10CE : 25 02                      blo     queue_remove_elem
+(1)    10D0 : 6F 03                      clr     queue_get,x
+(1)    10D2 :                    queue_remove_elem:
+(1)    10D2 : 4A                         deca                    ; restore get pointer
+(1)    10D3 : AB 04                      add     #queue_buf
+(1)    10D5 : CF 10 C0                   stx     queue_remove_X  ; save X
+(1)    10D8 : CB 10 C0                   add     queue_remove_X
+(1)    10DB : 97                         tax
+(1)    10DC : F6                         lda     ,x              ; get element
+(1)    10DD : CE 10 C0                   ldx     queue_remove_X  ; restore X
+(1)    10E0 : 99                         sec                     ; set carry
+(1)    10E1 :                    queue_remove_return:
+(1)    10E1 : 81                         rts
+(1)    10E2 :
+(1)    10E2 :                    ;;; Local Variables:
+(1)    10E2 :                    ;;; mode: asm
+(1)    10E2 :                    ;;; End:
+(1)    10E2 :                    ;;; vim: set ft=asm et ts=4 sw=4:
+       10E2 :
+       10E2 :                    isr_irq:
+       10E2 : CD 10 17                   jsr     load_ACIA_status
+       10E5 : A5 80                      bit     #IRQF_bm
+       10E7 : 27 0C                      beq     isr_irq_return
+       10E9 :                    isr_irq_receive:
+       10E9 : A5 01                      bit     #RDRF_bm
+       10EB : 27 08                      beq     isr_irq_recv_end
+       10ED : CD 10 29                   jsr     load_ACIA_data
+       10F0 : AE 80                      ldx     #rx_queue
+       10F2 : CD 10 96                   jsr     queue_add
+       10F5 :                    isr_irq_recv_end:
+       10F5 :                    isr_irq_return:
+       10F5 : 80                         rti

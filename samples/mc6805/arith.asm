@@ -3,10 +3,12 @@
         option  pc-bits,16
 
 ;;; MC6850 Asynchronous Communication Interface Adapter
-ACIA:   equ     $17F8
+ACIA_6805:      equ     $17F8
+ACIA_HC05:      equ     $FFE0
+ACIA:   equ     ACIA_6805
         include "../mc6800/mc6850.inc"
 
-        org     $40
+        org     $50
 cputype:
         rmb     1
 R0:
@@ -164,7 +166,7 @@ arith:
         lda     #'-'
         jsr     expr
         jsr     sub16           ; R0=R1-R2
-        jsr     answer          ; -19536
+        jsr     answer          ; 10000
 
         ldx     #18000>>8
         lda     #18000&255
@@ -175,7 +177,7 @@ arith:
         lda     #'-'
         jsr     expr
         jsr     sub16           ; R0=R1-R2
-        jsr     answer          ; 29536
+        jsr     answer          ; -29536
 
         ldx     #(-28000)>>8
         lda     #(-28000)&255

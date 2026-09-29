@@ -126,7 +126,7 @@ constexpr uint8_t PINS_INPUT[] = {
 
 }  // namespace
 
-PinsMc68HC05C0::PinsMc68HC05C0() {
+PinsMc68HC05C0::PinsMc68HC05C0() : _dummyIn(0) {
     auto regs = new mc68hc05::RegsMc68HC05(this);
     _regs = regs;
     _devs = new DevsMc68HC05C0(ACIA_BASE);
@@ -153,6 +153,7 @@ void PinsMc68HC05C0::resetCpu() {
     osc1_cycle();
 
     Cycles::reset();
+    _dummyIn = 0;
     // Inject dummy reset vector and wait for the first instruction fetch.
     _addr = mc68hc05::InstMc68HC05::RESET_VEC;
     _regs->reset();
@@ -197,12 +198,14 @@ Signals *PinsMc68HC05C0::completeCycle(Signals *signals) {
         } else {
             delayNanoseconds(c4_lo_capture);
         }
-    } else if (is_internal(s->addr)) {
-        // IRV is enabled and an internal read appears on the external bus
+    } else if ((_dummyIn && --_dummyIn == 0) || is_internal(s->addr)) {
+        // IRV is enabled and an internal read appears on the external bus;
+        // so does an indexed, 16-bit offset (Dx) instruction's dummy read,
+        // the third cycle after its fetch
         delayNanoseconds(c3_hi_internal);
-        toggle_debug();
+        // toggle_debug();
         s->getData();
-        toggle_debug();
+        // toggle_debug();
         // c4
         osc1_lo();
         delayNanoseconds(osc1_lo_ns);
@@ -216,6 +219,8 @@ Signals *PinsMc68HC05C0::completeCycle(Signals *signals) {
         osc1_lo();
         s->outData();
     }
+    if (s->fetch() && (s->data & 0xF0) == 0xD0)
+        _dummyIn = 3;
     // c4
     osc1_hi();
     Cycles::next();
