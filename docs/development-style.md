@@ -973,3 +973,24 @@ through `Pins`, because `Pins::_mems` is protected and only `Target` is a
 friend. Follow that pattern when a `Regs` implementation needs memory access —
 and note `Pins` builds `_regs` before `_mems` in some targets, so the order has
 to be swapped first. **[code]**
+### F3850
+
+**Pitfalls.** A Teensy interrupt mid-cycle desynchronises the ROMC sequence;
+mask them around each bus cycle.
+
+Mask Teensy interrupts around each bus cycle in `cycle()`. An interrupt landing
+mid-cycle desynchronised the debugger from the ROMC sequence, which showed as a
+stack pointer off by one and a nondeterministic mandelbrot. **[hw]**
+
+Release the data bus right after `Cycles::next()`; the bus level holder keeps
+the value for the CPU, so the turnaround does not need a wait. **[hw]**
+
+The 16-bit compares in `arith.inc` must compute `m + ~s + 1` and derive the
+flags from that; the earlier version got `32700 < 32600`. **[hw]**
+
+The profile (`tools/cycles_f3850.py`, recorded as
+`tools/f3850-cycles.jsonl.zst`) matched every opcode to the data sheet's
+ROMC sequences. **[hw]** Its `x=` counts Φ periods: a short cycle is 4 and
+a long one 6. `INS` and `OUTS` of ports 2 and 3 (A2, A3, B2, B3), which
+Table 3 leaves out, take one short cycle as `f3850.txt` has them, not the
+long I/O form the Guide to Programming implies.

@@ -131,23 +131,23 @@ addsi2:
         lr      S, A
         jmp     return
 
-;;; Singed subtraction: minuend -= subtrahend
+;;; Signed subtraction: minuend -= subtrahend
 ;;; @param @2: minuend
 ;;; @param @3: subtrahend
 ;;; @clobber 0 1 A
 subsi2:
         lr      A, 3
-        lr      IS, A           ; point MSB(subtrand)
+        lr      IS, A           ; point MSB(subtrahend)
         lr      A, I
         com
-        lr      0, A            ; MSB(~subtrand)
+        lr      0, A            ; MSB(~subtrahend)
         lr      A, S
         com
         inc
-        lr      1, A            ; LSB(-subtrand)
+        lr      1, A            ; LSB(-subtrahend)
         lr      A, 0
         lnk
-        lr      0, A            ; MSB(-subtrand)
+        lr      0, A            ; MSB(-subtrahend)
         lr      A, 2
         inc
         lr      IS, A           ; point LSB(minuend)
@@ -173,34 +173,40 @@ cmpsi2:
         lr      0, A            ; MSB(~subtrahend)
         lr      A, S
         com
-        inc
-        lr      1, A            ; LSB(-subtrahend)
-        lr      A, 0
-        lnk
-        lr      0, A            ; MSB(-subtrahend)
+        lr      1, A            ; LSB(~subtrahend)
         lr      A, 2
         inc
         lr      IS, A           ; point LSB(minuend)
         lr      A, D
         as      1
-        lr      1, A            ; LSB(minued-subtrahend)
+        lr      J, W            ; J.C=carry of LSB(minuend+~subtrahend)
+        inc
+        lr      1, A            ; LSB(minuend+~subtrahend+1)
+        lr      A, J
+        bnc     cmpsi2_lc
+        oi      H'02'           ; C=C(AS)|C(INC)
+cmpsi2_lc:
+        lr      J, A
+        lr      W, J            ; W.C=carry into MSB
         lr      A, S
         lnk
+        lr      J, W            ; J.OVF=overflow of the carry add
         as      0
-        lr      0, A            ; MSB(minued-subtrahend)
-        clr                     ; MSB(A)=overflow
-        bno     cmpsi2_nov      ; no overflow
-        xi      H'80'           ; MSB(A)=overflow
+        lr      0, A            ; MSB(minuend+~subtrahend+carry)
+        lr      A, J            ; A=W after LNK
+        bno     cmpsi2_nov
+        xi      H'08'           ; OVF=OVF(LNK)^OVF(AS)
 cmpsi2_nov:
+        sl      4               ; MSB(A)=overflow
         lr      J, A            ; MSB(J)=overflow
         lr      A, 0
         oi      0
         bnz     cmpsi2_cmp
         lr      A, 1
         oi      0
-        bz      cmpsi2_eq       ; minued==subtrahend
-cmpsi2_cmp
-        lr      A, 0            ; sign(minued-subtrahend)
+        bz      cmpsi2_eq       ; minuend==subtrahend
+cmpsi2_cmp:
+        lr      A, 0            ; sign(minuend-subtrahend)
         xs      J               ; sign^overflow
         oi      1               ; W.Z=0, W.S=result
 cmpsi2_eq:
@@ -302,25 +308,25 @@ mulsi2_multiplier:
         oi      0
         bp      mulsi2_multiply
         com
-        lr      6, A            ; MSB(~multiplyer)
+        lr      6, A            ; MSB(~multiplier)
         lr      A, 7
         com
         inc
-        lr      7, A            ; LSB(-multiplyer)
+        lr      7, A            ; LSB(-multiplier)
         lr      A, 6
         lnk
-        lr      6, A            ; MSB(-multiplyer)
+        lr      6, A            ; MSB(-multiplier)
 mulsi2_multiply:
         pi      call
         da      umul16
         lr      A, 3
         lr      IS, A
         lr      A, S
-        lr      6, A            ; MSB(multiplyer)
+        lr      6, A            ; MSB(multiplier)
         lr      A, 2
         lr      IS, A
         lr      A, S            ; MSB(multiplicand)
-        xs      6               ; MSB(multiplicand^multiplyer)
+        xs      6               ; MSB(multiplicand^multiplier)
         bp      mulsi2_store
         lr      A, 4
         com
@@ -349,23 +355,30 @@ ucmp16:
         pi      push0
         lr      A, 6
         com
-        lr      0, A
+        lr      0, A            ; MSB(~subtrahend)
         lr      A, 7
         com
-        inc
-        lr      1, A
-        lr      A, 0
-        lnk
-        lr      0, A            ; 0:1=-subtrahend
+        lr      1, A            ; LSB(~subtrahend)
         lr      A, 5
         as      1
-        lr      1, A
+        lr      J, W            ; J.C=carry of LSB(minuend+~subtrahend)
+        inc
+        lr      1, A            ; LSB(minuend+~subtrahend+1)
+        lr      A, J
+        bnc     ucmp16_lc
+        oi      H'02'           ; C=C(AS)|C(INC)
+ucmp16_lc:
+        lr      J, A
+        lr      W, J            ; W.C=carry into MSB
         lr      A, 4
         lnk
+        lr      J, W            ; J.C=carry of the carry add
         as      0
         lr      0, A            ; 0:1=minuend-subtrahend
-        lr      J, W
-        lr      A, J
+        lr      A, J            ; A=W after LNK
+        bnc     ucmp16_nc
+        oi      H'02'           ; C=C(LNK)|C(AS)
+ucmp16_nc:
         sl      4
         sl      1
         sl      1               ; sign=carry << 6
@@ -386,8 +399,8 @@ ucmp16_eq:
         jmp     return
 
 ;;; Unsigned division: dividend / divisor = quotient ... remainder
-;;; @praram 4:5 dividend
-;;; @praram 6:7 divisor
+;;; @param 4:5 dividend
+;;; @param 6:7 divisor
 ;;; @return 4:5 quotient
 ;;; @return 6:7 remainder
 ;;; @clobber 4 5 6 7 A
