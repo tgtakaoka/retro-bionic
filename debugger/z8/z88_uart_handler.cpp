@@ -32,8 +32,8 @@ uint8_t Z88UartHandler::signal_txd() const {
 void Z88UartHandler::resetHandler() {
     pinMode(PIN_RXD, OUTPUT);
     pinMode(PIN_TXD, INPUT);
-    // Z88 UART: assuming XTAL is 14.7546MHz
-    // bit rate = (14,754,600 / 4) / (2 x (UBG+1) x N)
+    // Z88 UART: assuming XTAL is 14.7456MHz
+    // bit rate = (14,745,600 / 4) / (2 x (UBG+1) x N)
     _pre_divider = 4 * 2 * 32;           // N=32
     _tx_divider = _rx_divider = 11 + 1;  // UBG=11
 }

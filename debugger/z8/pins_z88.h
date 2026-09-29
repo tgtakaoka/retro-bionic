@@ -19,7 +19,7 @@
  */
 
 /**
- * BANK0:R254:%F8 Write only; [EMT] External Memory Timing
+ * BANK0:R254:%FE Write only; [EMT] External Memory Timing
  * D7: Wait input selection
  *   1 = External #WAIT input
  *   0 = I/O
@@ -51,7 +51,7 @@ struct PinsZ88 final : z8::PinsZ8 {
 
 }  // namespace z88
 }  // namespace debugger
-#endif /* __PINS_H__ */
+#endif /* __PINS_Z88_H__ */
 
 // Local Variables:
 // mode: c++

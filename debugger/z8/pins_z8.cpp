@@ -165,7 +165,7 @@ bool PinsZ8::rawStep() {
     auto s = prepareCycle();
     if (s->write()) {
         // interrupt acknowledge is ongoing
-        // finsh saving PC and FLAGS
+        // finish saving PC and FLAGS
         while (s->write()) {
             completeCycle(s);
             s = prepareCycle();
@@ -256,7 +256,9 @@ void PinsZ8::run() {
     _regs->restore();
     Cycles::reset();
     saveBreakInsts();
+    startRunTimer();
     loop();
+    stopRunTimer();
     restoreBreakInsts();
     disassembleCycles();
     _regs->save();
@@ -325,7 +327,11 @@ void PinsZ8::printCycles() {
     }
 }
 
-void PinsZ8::disassembleCycles() {
+const SignalsImpl *PinsZ8::findBacktraceStart() {
+    return backtraceStartByFetchCount<Signals>(_lineLimit);
+}
+
+void PinsZ8::printBacktrace() {
     const auto g = Signals::get();
     const auto cycles = g->diff(Signals::put());
     for (auto i = 0u; i < cycles;) {

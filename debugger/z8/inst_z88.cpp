@@ -51,6 +51,8 @@ constexpr uint8_t INST_TABLE[] = {
         E(2, 0, 0),  // 0C: LD     r0,#IM
         E(3, 0, 0),  // 0D: JP     F,DA
         E(1, 0, 0),  // 0E: INC    r0
+        // ATTENTION: z88.txt gives one more bus cycle for 0F NEXT, 2F EXIT
+        // and F4 CALL @RR than this table; verify on hardware.
         E(1, 2, 0),  // 0F: NEXT   -
         E(2, 0, 0),  // 10: RLC    R
         E(2, 0, 0),  // 11: RLC    @R
@@ -304,7 +306,7 @@ uint8_t InstZ88::busCycles(uint8_t inst) const {
 }
 
 bool InstZ88::writeOnly(uint8_t rp0, uint8_t rp1, uint8_t num) {
-    const auto addr = (num < 8) ? rp0 + num : rp1 + num;
+    const auto addr = (num < 8) ? rp0 + num : rp1 + (num - 8);
     if (addr == 0xEF)
         return true;
     // F1, F4, F5, F8, F9, FA, FB

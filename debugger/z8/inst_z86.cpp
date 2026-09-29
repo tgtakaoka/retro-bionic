@@ -307,7 +307,7 @@ bool InstZ86::writeOnly(uint8_t rp, uint8_t num) {
     // 00, 01, 02, 03
     if (rp == 0x00 && num < 4)
         return true;
-    // F0, F3, F4, F5, F6, F7, F8, F9
+    // F0, F3, F5, F6, F7, F8, F9
     if (rp == 0xF0) {
         return (1 << num) & 0x03E9;
     }
