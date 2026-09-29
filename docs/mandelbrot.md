@@ -51,6 +51,7 @@ The tables time them on real chips, from recorded casts, with
 | CDP1804A    | 198.3 |   8.099 |   2.639 |             | [mandelbrot.cast](../samples/cdp1804a/mandelbrot.cast)                   | [cdp1804a/mandelbrot.lst](../samples/cdp1804a/mandelbrot.lst) |
 | CDP1802     | 247.8 |  10.125 |   3.329 |             | [mandelbrot.cast](../samples/cdp1802/mandelbrot.cast)                    | [cdp1802/mandelbrot.lst](../samples/cdp1802/mandelbrot.lst)   |
 | HD6120      | 258.2 |  10.552 |   3.524 |             | [mandelbrot_hd6120.cast](../samples/pdp8/mandelbrot_hd6120.cast)         | [pdp8/mandelbrot.lst](../samples/pdp8/mandelbrot.lst)         |
+| SCN2650     | 355.7 |  16.045 |   4.247 |             | [mandelbrot.cast](../samples/scn2650/mandelbrot.cast)                    | [scn2650/mandelbrot.lst](../samples/scn2650/mandelbrot.lst)   |
 | IM6100      | 386.1 |  17.547 |   4.958 |             | [mandelbrot.cast](../samples/pdp8/mandelbrot.cast)                       | [pdp8/mandelbrot.lst](../samples/pdp8/mandelbrot.lst)         |
 | INS8060     | 716.5 |  29.262 |   9.505 |             | [mandelbrot.cast](../samples/ins8060/mandelbrot.cast)                    | [ins8060/mandelbrot.lst](../samples/ins8060/mandelbrot.lst)   |
 | F3850       | 817.3 |  33.413 |  11.388 |             | [mandelbrot.cast](../samples/f3850/mandelbrot.cast)                      | [f3850/mandelbrot.lst](../samples/f3850/mandelbrot.lst)       |

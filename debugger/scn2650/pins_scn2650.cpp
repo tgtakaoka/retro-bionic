@@ -10,7 +10,7 @@ namespace scn2650 {
 
 // clang-format off
 /**
- * SCN25650 Bus cycle
+ * SCN2650 Bus cycle
  *            _____       _____       _____       _____       _____       _____       __
  *  CLOCK ___|    T|0____|    T|1____|    T|2____|    T|0____|    T|1____|    T|2____|
  *                        \__________________\                 \_________________\
@@ -29,7 +29,7 @@ namespace scn2650 {
 // clang-format on
 
 namespace {
-//  tCP: min 800 ns; CLOCK priod
+//  tCP: min 800 ns; CLOCK period
 //  tCH: min 400 ns; CLOCK high width
 //  tCL: min 400 ns; CLOCK low width
 // tCOR: max 300 ns; CLOCK+ to OPREQ+
@@ -39,8 +39,8 @@ namespace {
 // tOAD: max tCP-350 ns; #OPACK delay from OPREQ+
 // tOAH: min tCP ns; #OPACK hold time from OPREQ+
 // tDIA: min tcp+tCL-300 ns; Data in from OPREQ+
-// tWPD: max tCH+100 ns; WPR dalay from OPREQ+
-// tWPW: min tCL-50 ns; WPR width
+// tWPD: max tCH+100 ns; WRP delay from OPREQ+
+// tWPW: min tCL-50 ns; WRP width
 
 constexpr auto clock_hi_ns = 380;       // 400
 constexpr auto clock_lo_ns = 380;       // 400
@@ -59,6 +59,12 @@ constexpr auto clock_lo_input = 360;    // 400
 constexpr auto clock_hi_exec = 20;      // 400
 constexpr auto clock_hi_idle = 268;     // 400
 constexpr auto clock_lo_idle = 378;     // 400
+
+#ifdef PROFILE_CYCLES
+// An instruction leaves OPREQ low for at most two processor cycles; a CPU
+// in the WAIT state, after a HALT, never raises it.
+constexpr auto wait_clocks = 3 * 8;
+#endif
 
 inline void clock_hi() {
     digitalWriteFast(PIN_CLOCK, HIGH);
@@ -172,10 +178,23 @@ void PinsScn2650::resetPins() {
     _regs->save();
 }
 
+// Clocks to wait for OPREQ, far past an instruction's two processor
+// cycles without it; a CPU in the WAIT state never raises it.
+constexpr auto opreq_clocks = 1000;
+
+// rawStep() keeps HALT from the CPU only while the cycle table is exact:
+// an overcount would feed it the next instruction. record-cycles checks
+// the table against the chip.
 Signals *PinsScn2650::prepareCycle() {
     auto s = Signals::put();
     // T0H
-    while (signal_opreq() == LOW) {
+    for (auto n = 0; signal_opreq() == LOW; ++n) {
+        if (n >= opreq_clocks) {
+            // Give up rather than wedge the board, leaving the halt switch
+            // to stop the run.
+            cli.println("?halt: no bus cycle");
+            return s;
+        }
         delayNanoseconds(clock_hi_t0p);
         clock_lo();  // T0L
         delayNanoseconds(clock_lo_t0);
@@ -286,6 +305,47 @@ void PinsScn2650::idle() {
     delayNanoseconds(clock_hi_idle);
 }
 
+#ifdef PROFILE_CYCLES
+// prepareCycle(), or nullptr once OPREQ stays low: the CPU is in the WAIT
+// state.
+Signals *PinsScn2650::awaitCycle() {
+    uint8_t clocks = 0;
+    // T0H
+    while (signal_opreq() == LOW) {
+        if (++clocks > wait_clocks)
+            return nullptr;
+        delayNanoseconds(clock_hi_t0p);
+        clock_lo();  // T0L
+        delayNanoseconds(clock_lo_t0);
+        clock_hi();  // T1H
+        delayNanoseconds(clock_hi_tcor);
+    }
+    auto s = prepareCycle();
+    s->clocks() = clocks;
+    return s;
+}
+
+// For scripts/record-cycles.py: every bus cycle as the chip makes it, no
+// cycle table, until the CPU executes a HALT and enters the WAIT state, so
+// only a real opcode fetch ends a pattern; give up well before the ring
+// wraps. The debug pin frames the run, to trigger a capture on.
+void PinsScn2650::loop() {
+    constexpr auto MAX_CYCLES = 96;
+    assert_debug();
+    while (true) {
+        _devs->loop();
+        auto s = awaitCycle();
+        if (s == nullptr)
+            break;
+        completeCycle(s);
+        if (Cycles::cycles() >= MAX_CYCLES || haltSwitch()) {
+            cli.println(Cycles::cycles() >= MAX_CYCLES ? "?cycles" : "?halt");
+            break;
+        }
+    }
+    negate_debug();
+}
+#else
 void PinsScn2650::loop() {
     while (true) {
         _devs->loop();
@@ -293,15 +353,24 @@ void PinsScn2650::loop() {
             return;
     }
 }
+#endif
 
 void PinsScn2650::run() {
     _regs->restore();
     Cycles::reset();
     saveBreakInsts();
+    startRunTimer();
     loop();
+    stopRunTimer();
     restoreBreakInsts();
     disassembleCycles();
+#ifdef PROFILE_CYCLES
+    // Only a reset brings the CPU out of the WAIT state, or back from
+    // wherever the run gave up.
+    resetPins();
+#else
     _regs->save();
+#endif
 }
 
 bool PinsScn2650::rawStep() {
@@ -316,9 +385,14 @@ bool PinsScn2650::rawStep() {
     completeCycle(s);
     const auto opr = _mems->read(s->addr + 1);
     const auto busCycles = len + InstScn2650::busCycles(inst, opr);
+    const auto indirect = busCycles > len + InstScn2650::busCycles(inst, 0);
+    const auto branch = indirect && InstScn2650::isBranch(inst);
+    const auto fetch = s->addr;
     s->markFetch();
     for (auto i = 1; i < busCycles; ++i) {
         auto s = prepareCycle();
+        if (branch && i == len && InstScn2650::notTaken(fetch, len, s->addr))
+            return true;  // the next opcode's fetch, left for the next step
         if (s->vector()) {
             s->clearFetch();
             completeCycle(s);
@@ -348,13 +422,11 @@ bool PinsScn2650::step(bool show) {
     return false;
 }
 
-void PinsScn2650::assertInt(uint8_t name) {
-    (void)name;
+void PinsScn2650::assertInt(uint8_t) {
     assert_intreq();
 }
 
-void PinsScn2650::negateInt(uint8_t name) {
-    (void)name;
+void PinsScn2650::negateInt(uint8_t) {
     negate_intreq();
 }
 
@@ -370,9 +442,35 @@ void PinsScn2650::printCycles() {
     }
 }
 
-void PinsScn2650::disassembleCycles() {
+const SignalsImpl *PinsScn2650::findBacktraceStart() {
+    return backtraceStartByFetchCount<Signals>(_lineLimit);
+}
+
+void PinsScn2650::printBacktrace() {
     const auto g = Signals::get();
     const auto cycles = g->diff(Signals::put());
+#ifdef PROFILE_CYCLES
+    // Every cycle, with the marks rawStep() would give them, up to the
+    // HALT or unknown instruction it stops at; a HALT is marked too.
+    for (auto i = 0u; i < cycles;) {
+        const auto s = g->next(i);
+        const auto inst = _mems->read(s->addr);
+        const auto len = InstScn2650::instLen(inst);
+        if (len == 0)
+            break;
+        const auto opr = _mems->read(s->addr + 1);
+        auto busCycles = len + InstScn2650::busCycles(inst, opr);
+        if (busCycles > len + InstScn2650::busCycles(inst, 0) &&
+                InstScn2650::isBranch(inst) &&
+                InstScn2650::notTaken(s->addr, len, g->next(i + len)->addr))
+            busCycles -= 2;
+        s->markFetch(busCycles);
+        if (inst == InstScn2650::HALT)
+            break;
+        i += busCycles;
+    }
+    printCycles();
+#else
     for (auto i = 0u; i < cycles;) {
         const auto s = g->next(i);
         if (s->fetch()) {
@@ -383,6 +481,7 @@ void PinsScn2650::disassembleCycles() {
             ++i;
         }
     }
+#endif
 }
 
 }  // namespace scn2650

@@ -40,7 +40,7 @@
 #define PIN_ADR12 8      /* P7.16 */
 #define PIN_ADR13 7      /* P7.17 */
 #define PIN_ADR14 36     /* P7.18 */
-#define PIN_PAUSE 37     /* P6.19 */
+#define PIN_PAUSE 37     /* P7.19 */
 #define PORT_CNTL 9      /* GPIO9 */
 #define CNTL_gp 4        /* P9.04~P9.07 */
 #define CNTL_gm 0xF      /* P9.04~P9.07 */
@@ -53,7 +53,7 @@
 #define CNTL_RW 0x20     /* CNTL5 */
 #define CNTL_INTACK 0x80 /* CNTL7 */
 #define PIN_FLAG 0       /* P6.03 */
-#define PIN_SENSE 1      /* P6.04 */
+#define PIN_SENSE 1      /* P6.02 */
 #define PIN_CLOCK 5      /* P9.08 */
 #define PIN_RUNWAIT 29   /* P9.31 */
 #define PIN_OPREQ 6      /* P7.10 */
@@ -89,17 +89,21 @@ private:
     Signals *prepareCycle();
     Signals *completeCycle(Signals *signals);
     void loop();
+#ifdef PROFILE_CYCLES
+    Signals *awaitCycle();
+#endif
     bool rawStep();
     uint8_t execute(const uint8_t *inst, uint8_t len, uint16_t *addr,
             uint8_t *buf, uint8_t max);
 
-    void disassembleCycles();
+    const SignalsImpl *findBacktraceStart() override;
+    void printBacktrace() override;
 };
 
 }  // namespace scn2650
 }  // namespace debugger
 
-#endif /* __PINS_H__ */
+#endif /* __PINS_SCN2650_H__ */
 
 // Local Variables:
 // mode: c++

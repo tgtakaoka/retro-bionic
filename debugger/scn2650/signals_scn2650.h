@@ -20,6 +20,16 @@ struct Signals final : SignalsBase<Signals> {
     bool fetch() const { return (cntl() & CNTL_FETCH) != 0; }
     void markFetch() { cntl() |= CNTL_FETCH; }
     void clearFetch() { cntl() &= ~CNTL_FETCH; }
+#ifdef PROFILE_CYCLES
+    void markFetch(uint8_t matched) {
+        markFetch();
+        _signals[1] = matched;
+    }
+    uint8_t matched() const { return _signals[1]; }
+    // Clock periods waited for OPREQ before this cycle.
+    uint8_t clocks() const { return _signals[2]; }
+    uint8_t &clocks() { return _signals[2]; }
+#endif
 
 private:
     static constexpr uint8_t CNTL_FETCH = 0x01;
@@ -30,7 +40,7 @@ private:
 
 }  // namespace scn2650
 }  // namespace debugger
-#endif /* __SIGNALS_H__ */
+#endif /* __SIGNALS_SCN2650_H__ */
 
 // Local Variables:
 // mode: c++

@@ -125,7 +125,7 @@ n100:   acon    -100
 p100:   acon    100
 n300:   acon    -300
 zero:   acon    0
-p78     acon    78
+p78:    acon    78
 p30000: acon    30000
 n30000: acon    -30000
 p5000:  acon    5000
@@ -186,7 +186,7 @@ arith:
         lodi,r0 A'-'
         bsta,un expr
         bsta,un subsi2
-        bsta,un answer          ; 29536
+        bsta,un answer          ; -29536
 
         lodi,r2 n28000-arith_work
         lodi,r3 n18000-arith_work
