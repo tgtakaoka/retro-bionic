@@ -53,8 +53,8 @@
 #define CNTL_WR 2     /* CNTL1 */
 #define CNTL_SYNC 4   /* CNTL2 */
 #define CNTL_HLDA 8   /* CNTL3 */
-#define PIN_PHI1 5    /* P9.31 */
-#define PIN_PHI2 29   /* P9.08 */
+#define PIN_PHI1 5    /* P9.08 */
+#define PIN_PHI2 29   /* P9.31 */
 #define PIN_INT 6     /* P7.10 */
 #define PIN_INTE 9    /* P7.11 */
 #define PIN_HOLD 32   /* P7.12 */
@@ -102,12 +102,13 @@ private:
     Signals *loop() const;
     bool rawStep() const;
 
-    void disassembleCycles();
+    const SignalsImpl *findBacktraceStart() override;
+    void printBacktrace() override;
 };
 
 }  // namespace i8080
 }  // namespace debugger
-#endif /* __PINS_H__ */
+#endif /* __PINS_I8080_H__ */
 
 // Local Variables:
 // mode: c++

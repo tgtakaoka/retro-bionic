@@ -16,7 +16,7 @@ struct PinsI8080Base : Pins {
 
 }  // namespace i8080
 }  // namespace debugger
-#endif /* __PINS_H__ */
+#endif /* __PINS_I8080_BASE_H__ */
 
 // Local Variables:
 // mode: c++
