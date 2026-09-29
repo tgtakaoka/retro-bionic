@@ -62,7 +62,7 @@ constexpr auto xtal_lo_output = 0;   // 42 ns
 constexpr auto xtal_hi_capture = 1;  // 42 ns
 constexpr auto xtal_lo_data = 20;    // 42 ns
 constexpr auto xtal_hi_input = 0;    // 42 ns
-// delayNanoseconds(0) takes a bit delay than no delayNanoseconds() call.
+// delayNanoseconds(0) takes a bit longer than no delayNanoseconds() call.
 
 inline void assert_int0() {
     digitalWriteFast(PIN_INT0, LOW);
@@ -220,8 +220,8 @@ void PinsI8051::resetPins() {
     pinMode(PIN_XTAL, OUTPUT);
     xtal_lo();
 
-    // A reset is accomplished by holding the RST pin high gfor at
-    // least two machine cycles (24 ocillator periods).
+    // A reset is accomplished by holding the RST pin high for at
+    // least two machine cycles (24 oscillator periods).
     for (auto i = 0; i < 30; ++i)
         xtal_cycle();
     negate_reset();
@@ -229,10 +229,16 @@ void PinsI8051::resetPins() {
     _regs->save();
 }
 
+// ALE-high oscillator periods taken for idle mode.
+constexpr auto idle_cycles = 1000;
+
 Signals *PinsI8051::prepareCycle() {
     auto s = Signals::put();
     // #PSEN:S1H2, #RD/#WR:S4H2
-    do {
+    // ALE is high a few oscillator periods a cycle; it stays high only in
+    // an 80C51's idle mode, which an interrupt or a reset ends: reset it
+    // rather than wait for ever (in power-down ALE stays low instead).
+    for (auto n = 0;; ++n) {
         // #PSEN:S2L1/S2L2, #RD/#WR:S5L1/S5L2
         xtal_lo();  // S2L2/S5L2 triggers ALE-
         delayNanoseconds(xtal_lo_addr);
@@ -240,7 +246,31 @@ Signals *PinsI8051::prepareCycle() {
         // #PSEN:S2H1/S2H2, #RD/#WR:S5H1/S5H2
         xtal_hi();
         delayNanoseconds(xtal_hi_ale);
-    } while (signal_ale() != LOW);
+        if (signal_ale() == LOW)
+            break;
+        if (n >= idle_cycles) {
+            if (_idleReset) {
+                // The reset's own cycles found none: no CPU is running.
+                _idleFailed = true;
+                s->noCycle();
+                return s;
+            }
+            cli.println("?halt: idle, reset");
+            _idleReset = true;
+            _idleFailed = false;
+            resetPins();
+            // save() left the PC where its own code ended; go back to 0000.
+            _regs->restore();
+            _idleReset = false;
+            if (_idleFailed)
+                cli.println("?halt: no bus cycle");
+            // End the run here: the instruction this cycle belonged to is
+            // gone, and the CPU waits at 0000 for the next one.
+            _idleHalt = true;
+            s->noCycle();
+            return s;
+        }
+    }
     // #PSEN:S3L1, #RD/#WR:S6L1
     xtal_lo();  // S3L1/S6L1 triggers #PSEN-
     delayNanoseconds(xtal_lo_cntl);
@@ -371,9 +401,16 @@ uint8_t PinsI8051::captureWrites(const uint8_t *inst, uint8_t len,
 
 uint8_t PinsI8051::execute(const uint8_t *inst, uint8_t len, uint16_t *addr,
         uint8_t *buf, uint8_t max) {
+    // Injected code is a few instructions; give up well before that many
+    // cycles rather than wait for ever on a CPU that never writes.
+    constexpr auto max_cycles = 64;
     uint8_t inj = 0;
     uint8_t cap = 0;
-    while (inj < len || cap < max) {
+    for (auto n = 0; inj < len || cap < max; ++n) {
+        if (n >= max_cycles) {
+            cli.println("?halt: no writes");
+            break;
+        }
         auto s = prepareCycle();
         if (inj == 0 && addr)
             *addr = s->addr;
@@ -402,6 +439,44 @@ void PinsI8051::idle() {
     inject(JMP_HERE, sizeof(JMP_HERE));
 }
 
+#ifdef PROFILE_CYCLES
+// For scripts/record-cycles.py: every bus cycle as the chip makes it, no
+// cycle table. The 8051 has no trap instruction, so the profile fills
+// memory with MOVX @DPTR,A, and the run ends at the first external write
+// after its first instruction; the trap's cycles are kept. Gives up well
+// before the ring wraps; the debug pin frames the run, to trigger a
+// capture on.
+void PinsI8051::loop() {
+    constexpr auto MAX_CYCLES = 96;
+    const auto first = Signals::put();
+    assert_debug();
+    for (auto n = 0;; ++n) {
+        _devs->loop();
+        auto s = prepareCycle();
+        if (_idleHalt) {
+            negate_debug();
+            return;
+        }
+        completeCycle(s);
+        // Only MOVX writes, in its third cycle; the pattern may be one.
+        if (s->write() && s->prev(2) != first) {
+            negate_debug();
+            return;
+        }
+        if (n >= MAX_CYCLES || haltSwitch()) {
+            negate_debug();
+            disassembleCycles();
+            cli.println(n >= MAX_CYCLES ? "?cycles" : "?halt");
+            // No instruction boundary to resume from without the table;
+            // drop the reset's own cycles, which run() would print.
+            resetPins();
+            _regs->restore();
+            Cycles::reset();
+            return;
+        }
+    }
+}
+#else
 void PinsI8051::loop() {
     while (true) {
         _devs->loop();
@@ -410,12 +485,16 @@ void PinsI8051::loop() {
         }
     }
 }
+#endif
 
 void PinsI8051::run() {
     _regs->restore();
     Cycles::reset();
     saveBreakInsts();
+    _idleHalt = false;
+    startRunTimer();
     loop();
+    stopRunTimer();
     restoreBreakInsts();
     disassembleCycles();
     _regs->save();
@@ -423,6 +502,8 @@ void PinsI8051::run() {
 
 bool PinsI8051::rawStep() {
     auto s = prepareCycle();
+    if (_idleHalt)
+        return false;
     const auto inst = _mems->read_byte(s->addr);
     const auto cycles = InstI8051::busCycles(inst);
     if (cycles == 0) {
@@ -437,7 +518,10 @@ bool PinsI8051::rawStep() {
     }
     completeCycle(s);
     for (auto i = 1; i < cycles; ++i) {
-        completeCycle(prepareCycle())->clearFetch();
+        s = prepareCycle();
+        if (_idleHalt)
+            return false;
+        completeCycle(s)->clearFetch();
     }
     return true;
 }
@@ -445,6 +529,7 @@ bool PinsI8051::rawStep() {
 bool PinsI8051::step(bool show) {
     Cycles::reset();
     _regs->restore();
+    _idleHalt = false;
     if (show)
         Cycles::reset();
     if (rawStep()) {
@@ -483,23 +568,41 @@ void PinsI8051::printCycles() {
     }
 }
 
-void PinsI8051::disassembleCycles() {
+const SignalsImpl *PinsI8051::findBacktraceStart() {
+    return backtraceStartByFetchCount<Signals>(_lineLimit);
+}
+
+void PinsI8051::printBacktrace() {
     const auto g = Signals::get();
     const auto cycles = g->diff(Signals::put());
+#ifdef PROFILE_CYCLES
+    // Every cycle; the opcode fetches rawStep() would take from the run's
+    // first one print as I.
+    for (auto i = 0u; i < cycles;) {
+        const auto s = g->next(i);
+        const auto busCycles = InstI8051::busCycles(_mems->read_byte(s->addr));
+        if (busCycles == 0)
+            break;  // the break instruction, which rawStep() never runs
+        s->setMatched(busCycles);
+        i += busCycles;
+    }
+    printCycles();
+#else
     for (auto i = 0u; i < cycles;) {
         const auto s = g->next(i);
         if (s->fetch()) {
             const auto len = _mems->disassemble(s->addr, 1) - s->addr;
-            const auto cycles = InstI8051::busCycles(s->data);
-            for (auto i = len; i < cycles; ++i)
-                s->next(i)->print();
-            i += cycles;
+            const auto busCycles = InstI8051::busCycles(s->data);
+            for (auto j = len; j < busCycles; ++j)
+                s->next(j)->print();
+            i += busCycles;
         } else {
             s->print();
             ++i;
         }
         idle();
     }
+#endif
 }
 
 bool PinsI8051::isCmos() const {

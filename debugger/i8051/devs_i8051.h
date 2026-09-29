@@ -39,7 +39,7 @@ private:
 
 }  // namespace i8051
 }  // namespace debugger
-#endif /* __DEVS_I8051H__ */
+#endif /* __DEVS_I8051_H__ */
 
 // Local Variables:
 // mode: c++

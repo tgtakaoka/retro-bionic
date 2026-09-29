@@ -33,7 +33,7 @@ void I8051UartHandler::resetHandler() {
     pinMode(PIN_RXD, OUTPUT);
     pinMode(PIN_TXD, INPUT);
     // I8051 UART:
-    // baudrate = K*fosc/(32*12*(256-TH1)
+    // baudrate = K*fosc/(32*12*(256-TH1))
     // 256-TH1 = K*fosc/(32*12*baudrate)
     // fosc=12MHz, K=2(SMOD=1) baudrate=4,800bps, 256-TH1=13
     _pre_divider = 12 * 13 * 2;
