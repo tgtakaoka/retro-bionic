@@ -303,7 +303,8 @@ uint16_t PinsZ180::execute(
         delayNanoseconds(extal_lo_ns);
         s = prepareCycle();
     }
-    while (!s->fetch()) {
+    auto guard = Cycles::MAX_CYCLES;
+    while (guard-- && !s->fetch()) {
         completeCycle(s);
         s = prepareCycle();
     }
@@ -356,17 +357,27 @@ void PinsZ180::run() {
     _regs->restore();
     Cycles::reset();
     saveBreakInsts();
-    auto s = loop();
+    startRunTimer();
+    const auto s = loop();
+    stopRunTimer();
     assert_wait();
-    Cycles::discard(s);
+    if (s)
+        Cycles::discard(s);
     restoreBreakInsts();
     disassembleCycles();
-    _regs->save();
+    // A failed halt never got the NMI acknowledge, so there is no saved
+    // context: keep the registers from the last good save.
+    if (s)
+        _regs->save();
 }
+
+// Bus cycles to wait for the NMI acknowledge; an instruction takes far fewer.
+constexpr auto nmi_ack_cycles = 1024;
 
 Signals *PinsZ180::suspend() {
     assert_nmi();
-    while (true) {
+    // Bound the wait; loop() polls the halt switch only between steps.
+    for (auto n = 0; n < nmi_ack_cycles; ++n) {
         const auto s = prepareCycle();
         if (s->fetch() && s->addr == InstZ80::ORG_NMI) {
             negate_nmi();
@@ -379,6 +390,10 @@ Signals *PinsZ180::suspend() {
         }
         completeCycle(s);
     }
+    negate_nmi();
+    assert_wait();
+    cli.println("?halt: no NMI acknowledge");
+    return nullptr;
 }
 
 bool PinsZ180::rawStep() {
@@ -387,7 +402,9 @@ bool PinsZ180::rawStep() {
         return false;
     assert_nmi();  // Assert #NMI as soon as possible
     resumeCycle(pc);
-    auto s = suspend();
+    const auto s = suspend();
+    if (s == nullptr)
+        return false;
     Cycles::discard(s);
     return true;
 }
@@ -423,7 +440,11 @@ void PinsZ180::printCycles() {
     }
 }
 
-void PinsZ180::disassembleCycles() {
+const SignalsImpl *PinsZ180::findBacktraceStart() {
+    return backtraceStartByFetchCount<Signals>(_lineLimit);
+}
+
+void PinsZ180::printBacktrace() {
     const auto g = Signals::get();
     const auto cycles = g->diff(Signals::put());
     for (auto i = 0u; i < cycles;) {
