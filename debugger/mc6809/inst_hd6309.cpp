@@ -17,18 +17,18 @@ constexpr const char *const SEQUENCES[/*seq*/] = {
         "Nxxx/Nxx",                                     //  3
         "N",                                            //  4
         "3x",                                           //  5
-        "34xxx/34xx",                                   //  6
-        "NXxxx/NXx",                                    //  7
-        "34xxxx/34xx",                                  //  8
+        "34Xxx/34xx",                                   //  6
+        "NXXxx/NXx",                                    //  7
+        "34Xxxx/34xx",                                  //  8
         "NRrx",                                         //  9
         "NxxxRrx/NxxRrx",                               // 10
         "NxxxRrx/NxxRrX",                               // 11
         "NxRrx",                                        // 12
         "3xRrx",                                        // 13
-        "34xxxRrx/34xxRrx",                             // 14
-        "NXxxxRrx/NXxRrx",                              // 15
-        "34xxxxRrx/34xxRrx",                            // 16
-        "34xRrx/34Rrx",                                 // 17
+        "34XxxRrx/34xxRrx",                             // 14
+        "NXXxxRrx/NXxRrx",                              // 15
+        "34XxxxRrx/34xxRrx",                            // 16
+        "34XRrx/34Rrx",                                 // 17
         "34x",                                          // 18
         "34xRrx",                                       // 19
         "12xRxWN/12RxWN",                               // 20
@@ -243,7 +243,7 @@ constexpr uint8_t IX_TABLE[] = {
         1,   // 7D: -3,S      -      1     0    N:x
         1,   // 7E: -2,S      -      1     0    N:x
         1,   // 7F: -1,S      -      1     0    N:x
-        2,   // 80: ,X+       -      1     0    N:x:x/N:x
+        2,   // 80: ,X+       -      2/1   0    N:x:x/N:x
         3,   // 81: ,X++      -      3/2   0    N:x:x:x/N:x:x
         2,   // 82: ,-X       -      2/1   0    N:x:x/N:x
         3,   // 83: ,--X      -      3/2   0    N:x:x:x/N:x:x
@@ -252,11 +252,11 @@ constexpr uint8_t IX_TABLE[] = {
         1,   // 86: A,X       -      1     0    N:x
         1,   // 87: E,X       -      1     0    N:x
         5,   // 88: n8,X      -      1     1    3:x
-        6,   // 89: n16,X     -      4/3   2    3:4:x:x:x/3:4:x:x
+        6,   // 89: n16,X     -      4/3   2    3:4:X:x:x/3:4:x:x
         1,   // 8A: F,X       -      1     0    N:x
-        7,   // 8B: D,X       -      4/2   0    N:X:x:x:x/N:X:x
+        7,   // 8B: D,X       -      4/2   0    N:X:X:x:x/N:X:x
         5,   // 8C: n8,PCR    -      1     1    3:x
-        8,   // 8D: n16,PCR   -      5/3   2    3:4:x:x:x:x/3:4:x:x
+        8,   // 8D: n16,PCR   -      5/3   2    3:4:X:x:x:x/3:4:x:x
         1,   // 8E: W,X       -      1     0    N:x
         4,   // 8F: ,W        -      0     0    N
         9,   // 90: [,W]      -      3     0    N:R:r:x
@@ -268,14 +268,14 @@ constexpr uint8_t IX_TABLE[] = {
         12,  // 96: [A,X]     -      4     0    N:x:R:r:x
         12,  // 97: [E,X]     -      4     0    N:x:R:r:x
         13,  // 98: [n8,X]    -      4     1    3:x:R:r:x
-        14,  // 99: [n16,X]   -      7/6   2    3:4:x:x:x:R:r:x/3:4:x:x:R:r:x
+        14,  // 99: [n16,X]   -      7/6   2    3:4:X:x:x:R:r:x/3:4:x:x:R:r:x
         12,  // 9A: [F,X]     -      4     0    N:x:R:r:x
-        15,  // 9B: [D,X]     -      7/5   0    N:X:x:x:x:R:r:x/N:X:x:R:r:x
+        15,  // 9B: [D,X]     -      7/5   0    N:X:X:x:x:R:r:x/N:X:x:R:r:x
         13,  // 9C: [n8,PCR]  -      4     1    3:x:R:r:x
-        16,  // 9D: [n16,PCR] -      8/6   2    3:4:x:x:x:x:R:r:x/3:4:x:x:R:r:x
+        16,  // 9D: [n16,PCR] -      8/6   2    3:4:X:x:x:x:R:r:x/3:4:x:x:R:r:x
         12,  // 9E: [W,X]     4      -     0    N:x:R:r:x
-        17,  // 9F: [a16]     5/4    -     2    3:4:x:R:r:x/3:4:R:r:x
-        2,   // A0: ,Y+       -      1     0    N:x:x/N:x
+        17,  // 9F: [a16]     5/4    -     2    3:4:X:R:r:x/3:4:R:r:x
+        2,   // A0: ,Y+       -      2/1   0    N:x:x/N:x
         3,   // A1: ,Y++      -      3/2   0    N:x:x:x/N:x:x
         2,   // A2: ,-Y       -      2/1   0    N:x:x/N:x
         3,   // A3: ,--Y      -      3/2   0    N:x:x:x/N:x:x
@@ -284,11 +284,11 @@ constexpr uint8_t IX_TABLE[] = {
         1,   // A6: A,Y       -      1     0    N:x
         1,   // A7: E,Y       -      1     0    N:x
         5,   // A8: n8,Y      -      1     1    3:x
-        6,   // A9: n16,Y     -      4/3   2    3:4:x:x:x/3:4:x:x
+        6,   // A9: n16,Y     -      4/3   2    3:4:X:x:x/3:4:x:x
         1,   // AA: F,Y       -      1     0    N:x
-        7,   // AB: D,Y       -      4/2   0    N:X:x:x:x/N:X:x
+        7,   // AB: D,Y       -      4/2   0    N:X:X:x:x/N:X:x
         5,   // AC: n8,PCR    -      1     1    3:x
-        8,   // AD: n16,PCR   -      5/3   2    3:4:x:x:x:x/3:4:x:x
+        8,   // AD: n16,PCR   -      5/3   2    3:4:X:x:x:x/3:4:x:x
         1,   // AE: W,Y       -      1     0    N:x
         18,  // AF: n16,W     -      2     2    3:4:x
         19,  // B0: [n16,W]   -      5     2    3:4:x:R:r:x
@@ -300,14 +300,14 @@ constexpr uint8_t IX_TABLE[] = {
         12,  // B6: [A,Y]     -      4     0    N:x:R:r:x
         12,  // B7: [E,Y]     -      4     0    N:x:R:r:x
         13,  // B8: [n8,Y]    -      4     1    3:x:R:r:x
-        14,  // B9: [n16,Y]   -      7/6   2    3:4:x:x:x:R:r:x/3:4:x:x:R:r:x
+        14,  // B9: [n16,Y]   -      7/6   2    3:4:X:x:x:R:r:x/3:4:x:x:R:r:x
         12,  // BA: [F,Y]     -      4     0    N:x:R:r:x
-        15,  // BB: [D,Y]     -      7/5   0    N:X:x:x:x:R:r:x/N:X:x:R:r:x
+        15,  // BB: [D,Y]     -      7/5   0    N:X:X:x:x:R:r:x/N:X:x:R:r:x
         13,  // BC: [n8,PCR]  -      4     1    3:x:R:r:x
-        16,  // BD: [n16,PCR] -      8/6   2    3:4:x:x:x:x:R:r:x/3:4:x:x:R:r:x
+        16,  // BD: [n16,PCR] -      8/6   2    3:4:X:x:x:x:R:r:x/3:4:x:x:R:r:x
         12,  // BE: [W,Y]     4      -     0    N:x:R:r:x
         0,   // BF: -         -      -     -    -
-        2,   // C0: ,U+       -      1     0    N:x:x/N:x
+        2,   // C0: ,U+       -      2/1   0    N:x:x/N:x
         3,   // C1: ,U++      -      3/2   0    N:x:x:x/N:x:x
         2,   // C2: ,-U       -      2/1   0    N:x:x/N:x
         3,   // C3: ,--U      -      3/2   0    N:x:x:x/N:x:x
@@ -316,11 +316,11 @@ constexpr uint8_t IX_TABLE[] = {
         1,   // C6: A,U       -      1     0    N:x
         1,   // C7: E,U       -      1     0    N:x
         5,   // C8: n8,U      -      1     1    3:x
-        6,   // C9: n16,U     -      4/3   2    3:4:x:x:x/3:4:x:x
+        6,   // C9: n16,U     -      4/3   2    3:4:X:x:x/3:4:x:x
         1,   // CA: F,U       -      1     0    N:x
-        7,   // CB: D,U       -      4/2   0    N:X:x:x:x/N:X:x
+        7,   // CB: D,U       -      4/2   0    N:X:X:x:x/N:X:x
         5,   // CC: n8,PCR    -      1     1    3:x
-        8,   // CD: n16,PCR   -      5/3   2    3:4:x:x:x:x/3:4:x:x
+        8,   // CD: n16,PCR   -      5/3   2    3:4:X:x:x:x/3:4:x:x
         1,   // CE: W,U       -      1     0    N:x
         1,   // CF: ,W++      -      1     0    N:x
         12,  // D0: [,W++]    -      4     0    N:x:R:r:x
@@ -332,14 +332,14 @@ constexpr uint8_t IX_TABLE[] = {
         12,  // D6: [A,U]     -      4     0    N:x:R:r:x
         12,  // D7: [E,U]     -      4     0    N:x:R:r:x
         13,  // D8: [n8,U]    -      4     1    3:x:R:r:x
-        14,  // D9: [n16,U]   -      7/6   2    3:4:x:x:x:R:r:x/3:4:x:x:R:r:x
+        14,  // D9: [n16,U]   -      7/6   2    3:4:X:x:x:R:r:x/3:4:x:x:R:r:x
         12,  // DA: [F,U]     -      4     0    N:x:R:r:x
-        15,  // DB: [D,U]     -      7/5   0    N:X:x:x:x:R:r:x/N:X:x:R:r:x
+        15,  // DB: [D,U]     -      7/5   0    N:X:X:x:x:R:r:x/N:X:x:R:r:x
         13,  // DC: [n8,PCR]  -      4     1    3:x:R:r:x
-        16,  // DD: [n16,PCR] -      8/6   2    3:4:x:x:x:x:R:r:x/3:4:x:x:R:r:x
+        16,  // DD: [n16,PCR] -      8/6   2    3:4:X:x:x:x:R:r:x/3:4:x:x:R:r:x
         12,  // DE: [W,U]     4      -     0    N:x:R:r:x
         0,   // DF: -         -      -     -    -
-        2,   // E0: ,S+       -      1     0    N:x:x/N:x
+        2,   // E0: ,S+       -      2/1   0    N:x:x/N:x
         3,   // E1: ,S++      -      3/2   0    N:x:x:x/N:x:x
         2,   // E2: ,-S       -      2/1   0    N:x:x/N:x
         3,   // E3: ,--S      -      3/2   0    N:x:x:x/N:x:x
@@ -348,11 +348,11 @@ constexpr uint8_t IX_TABLE[] = {
         1,   // E6: A,S       -      1     0    N:x
         1,   // E7: E,S       -      1     0    N:x
         5,   // E8: n8,S      -      1     1    3:x
-        6,   // E9: n16,S     -      4/3   2    3:4:x:x:x/3:4:x:x
+        6,   // E9: n16,S     -      4/3   2    3:4:X:x:x/3:4:x:x
         1,   // EA: F,S       -      1     0    N:x
-        7,   // EB: D,S       -      4/2   0    N:X:x:x:x/N:X:x
+        7,   // EB: D,S       -      4/2   0    N:X:X:x:x/N:X:x
         5,   // EC: n8,PCR    -      1     1    3:x
-        8,   // ED: n16,PCR   -      5/3   2    3:4:x:x:x:x/3:4:x:x
+        8,   // ED: n16,PCR   -      5/3   2    3:4:X:x:x:x/3:4:x:x
         1,   // EE: W,S       -      1     0    N:x
         1,   // EF: ,--W      -      1     0    N:x
         12,  // F0: [,--W]    -      4     0    N:x:R:r:x
@@ -364,11 +364,11 @@ constexpr uint8_t IX_TABLE[] = {
         12,  // F6: [A,S]     -      4     0    N:x:R:r:x
         12,  // F7: [E,S]     -      4     0    N:x:R:r:x
         13,  // F8: [n8,S]    -      4     1    3:x:R:r:x
-        14,  // F9: [n16,S]   -      7/6   2    3:4:x:x:x:R:r:x/3:4:x:x:R:r:x
+        14,  // F9: [n16,S]   -      7/6   2    3:4:X:x:x:R:r:x/3:4:x:x:R:r:x
         12,  // FA: [F,S]     -      4     0    N:x:R:r:x
-        15,  // FB: [D,S]     -      7/5   0    N:X:x:x:x:R:r:x/N:X:x:R:r:x
+        15,  // FB: [D,S]     -      7/5   0    N:X:X:x:x:R:r:x/N:X:x:R:r:x
         13,  // FC: [n8,PCR]  -      4     1    3:x:R:r:x
-        16,  // FD: [n16,PCR] -      8/6   2    3:4:x:x:x:x:R:r:x/3:4:x:x:R:r:x
+        16,  // FD: [n16,PCR] -      8/6   2    3:4:X:x:x:x:R:r:x/3:4:x:x:R:r:x
         12,  // FE: [W,S]     4      -     0    N:x:R:r:x
         0,   // FF: -         -      -     -    -
 };
@@ -389,7 +389,7 @@ constexpr uint8_t P00_TABLE[] = {
         20,  // 0C: INC       d8     6/5   2    1:2:x:R:x:W:N/1:2:R:x:W:N
         23,  // 0D: TST       d8     6/4   2    1:2:x:R:x:x:N/1:2:R:x:N
         24,  // 0E: JMP       d8     3/2   2    1:2:x:i/1:2:i
-        20,  // 0F: CLR       d8     6     2    1:2:x:R:x:W:N/1:2:R:x:W:N
+        20,  // 0F: CLR       d8     6/5   2    1:2:x:R:x:W:N/1:2:R:x:W:N
         0,   // 10: P10       -      1+    1+   -
         0,   // 11: P11       -      1+    1+   -
         25,  // 12: NOP       -      2/1   1    1:N:N/1:N
@@ -1222,6 +1222,7 @@ bool InstHd6309::match(const mc6800::Signals *begin, const mc6800::Signals *end,
     LOG_MATCH(cli.print(':'));
     LOG_MATCH(cli.println(seq));
     while (*seq) {
+        const auto alternative = seq;
         StrBuffer sequence;
         const auto fetch = begin->next(prefix);
         seq = assembleSequence(fetch->addr, seq, sequence);
@@ -1238,6 +1239,12 @@ bool InstHd6309::match(const mc6800::Signals *begin, const mc6800::Signals *end,
             ++seq;
         } else if (*seq == '@') {
             ++seq;
+        } else if (!_matchingNative6309 &&
+                   _type != SoftwareType::SW_MC6809 &&
+                   strchr(alternative, 'Y')) {
+            // One sequence for both modes, but its postbyte's may differ.
+            _matchingNative6309 = true;
+            seq = alternative;
         }
     }
     return false;
@@ -1296,7 +1303,7 @@ void InstHd6309::appendStackSequence(
         uint8_t post, uint8_t mask, char c, StrBuffer &sequence) {
     if (post & mask) {
         sequence.letter(c);
-        if (mask >= 0x08)
+        if (mask >= 0x10)
             sequence.letter(c);
     }
 }

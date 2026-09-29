@@ -97,8 +97,8 @@ mul16_end:
         rts
 
 ;;; Unsigned division: dividend / divisor = quotient ... remainder
-;;; @praram D dividend
-;;; @praram X divisor
+;;; @param D dividend
+;;; @param X divisor
 ;;; @return D quotient
 ;;; @return X remainder
 udiv16:
