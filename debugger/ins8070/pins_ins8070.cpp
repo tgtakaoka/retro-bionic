@@ -174,7 +174,7 @@ void PinsIns8070::resetPins() {
     pinsMode(PINS_PULLUP, sizeof(PINS_PULLUP), INPUT_PULLUP);
     pinsMode(PINS_INPUT, sizeof(PINS_INPUT), INPUT);
 
-    // #RST must remain low is 8 Tc.
+    // #RST must remain low for 8 Tc.
     for (auto i = 0; i < 4 * 8 * 2; i++)
         xin_cycle();
     negate_reset();
@@ -319,7 +319,7 @@ void PinsIns8070::execute(const uint8_t *inst, uint8_t len, uint16_t *addr,
 }
 
 void PinsIns8070::idle() {
-    // #ENIN is HIGH and bus cycle is suspened.
+    // #ENIN is HIGH and bus cycle is suspended.
     xin_cycle();
 }
 
@@ -338,8 +338,16 @@ const Signals *PinsIns8070::isCall15(const Signals *vector) const {
     return nullptr;
 }
 
-void PinsIns8070::loop() {
+bool PinsIns8070::loop() {
+#ifdef PROFILE_CYCLES
+    // For scripts/record-cycles.py: give up well before the ring wraps; the
+    // debug pin frames the run, to trigger a capture on.
+    constexpr auto MAX_CYCLES = 96;
+    assert_debug();
+    for (auto n = 0;; ++n) {
+#else
     while (true) {
+#endif
         _devs->loop();
         auto s = prepareCycle();
         if (s->addr == InstIns8070::VEC_CALL15) {
@@ -352,28 +360,43 @@ void PinsIns8070::loop() {
                 inject(lo(pc));            // inject low address
                 inject(hi(pc));            // inject high address
                 Cycles::discard(call);
-                return;
+#ifdef PROFILE_CYCLES
+                negate_debug();
+#endif
+                return true;
             }
         }
         completeCycle(s);
+#ifdef PROFILE_CYCLES
+        if (n >= MAX_CYCLES || haltSwitch()) {
+            negate_debug();
+            cli.println(n >= MAX_CYCLES ? "?cycles" : "?halt");
+#else
         if (haltSwitch()) {
-            suspend();
-            return;
+#endif
+            return suspend();
         }
     }
 }
 
-void PinsIns8070::suspend() {
-    while (true) {
+// Bus cycles to wait for the next opcode fetch; an instruction takes far
+// fewer.
+constexpr auto fetch_cycles = 64;
+
+bool PinsIns8070::suspend() {
+    // Bound the wait; loop() polls the halt switch only between steps.
+    for (auto n = 0; n < fetch_cycles; ++n) {
         auto s = prepareCycle();
         if (s->fetch()) {
             completeCycle(s->inject(InstIns8070::BRA));
             inject(InstIns8070::BRA_HERE);
             Cycles::discard(s);
-            return;
+            return true;
         }
         completeCycle(s);
     }
+    cli.println("?halt: no fetch");
+    return false;
 }
 
 void PinsIns8070::run() {
@@ -381,11 +404,16 @@ void PinsIns8070::run() {
     Cycles::reset();
     saveBreakInsts();
     assert_enin();
-    loop();
+    startRunTimer();
+    const auto stopped = loop();
+    stopRunTimer();
     negate_enin();
     restoreBreakInsts();
     disassembleCycles();
-    _regs->save();
+    // A failed halt leaves the CPU running: keep the registers from the
+    // last good save.
+    if (stopped)
+        _regs->save();
 }
 
 uint8_t PinsIns8070::busCycles(InstIns8070 &inst) const {
@@ -437,12 +465,12 @@ bool PinsIns8070::step(bool show) {
     return true;
 }
 
-void PinsIns8070::assertInt(uint8_t name) {
+void PinsIns8070::assertInt(uint8_t) {
     // #INTA is negative-edge sensed.
     assert_sa();
 }
 
-void PinsIns8070::negateInt(uint8_t name) {
+void PinsIns8070::negateInt(uint8_t) {
     negate_sa();
 }
 
@@ -495,8 +523,37 @@ const Signals *PinsIns8070::findFetch(Signals *begin, const Signals *end) {
     return end;
 }
 
-void PinsIns8070::disassembleCycles() {
+// The backtrace printer below reads fetchMark(), not fetch(): fetch()
+// is a different, self-contained on-the-fly check (see signals_ins8070.cpp)
+// used elsewhere, while fetchMark() is what findFetch()/matchAll() set,
+// retroactively, by matching decoded instructions against captured bus
+// cycles -- so that has to run -- once, right here -- before counting
+// fetchMark() cycles means anything. Can't reuse signals.h's
+// backtraceStartFrom(), which is hardwired to fetch(); this is its
+// fetchMark() counterpart. printBacktrace() re-runs findFetch() over
+// the now-disposed range, which re-derives the same marks.
+const SignalsImpl *PinsIns8070::findBacktraceStart() {
     const auto end = Signals::put();
+    const auto begin = findFetch(Signals::get(), end);
+    if (_lineLimit == 0)
+        return end;
+    auto limit = _lineLimit;
+    auto s = end;
+    while (s != begin) {
+        s = s->prev();
+        if (s->fetchMark() && --limit == 0)
+            return s;
+    }
+    return begin;
+}
+
+void PinsIns8070::printBacktrace() {
+    const auto end = Signals::put();
+#ifdef PROFILE_CYCLES
+    // Every cycle, with the matcher's marks.
+    findFetch(Signals::get(), end);
+    printCycles(end);
+#else
     const auto begin = findFetch(Signals::get(), end);
     printCycles(begin);
     const auto cycles = begin->diff(end);
@@ -516,6 +573,7 @@ void PinsIns8070::disassembleCycles() {
         }
         idle();
     }
+#endif
 }
 
 }  // namespace ins8070
