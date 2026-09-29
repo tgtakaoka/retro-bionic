@@ -1401,6 +1401,24 @@ On-chip RAM (FEC0-FFBF) and I/O (FFC0-FFEF) never show on the bus; FFF0-FFFF
 is external again. The profile keeps its operands and SP in external memory,
 and leaves out patterns that would point SP at on-chip I/O. **[hw]**
 
+### TMS320C15
+
+**Pitfalls.** The bus timing has no slack: the 10 ns delays that replaced the
+commented-out debug pin calls are the setup margin; don't remove them.
+
+The profile (`tools/cycles_tms320c15.py`, recorded as
+`tools/tms320c15-cycles.jsonl.zst`) matches the tables on every opcode.
+**[hw]** The board holds `#BIO` high, so only the fall-through of `BIOZ` is
+recorded.
+
+Mandelbrot drew a few wrong pixels, at the same places but not every
+frame. **[hw]** The fetch data settled as late as the CLKIN edge after it:
+the commented-out debug pin toggles had been the only setup margin. 10 ns
+after each drive and before each sample settles it 40 ns before that edge
+and 110 ns before `#MEN` rises, holds it 120 ns after, and the frames come
+out right, with analyzer leads on the bus too, at 5.4 s a frame against
+4.6 s without.
+
 ### PDP-8 (IM6100 / HD6120)
 
 **Pitfalls.** The debugger's `restore()` ends in `RTF` on both chips, and

@@ -9,11 +9,13 @@ namespace tms320 {
 struct PinsTms320 : Pins {
     virtual uint16_t injectRead(uint16_t data) = 0;
     virtual uint16_t captureWrite() = 0;
+    /** Drive #BIO, which the board otherwise holds high. */
+    virtual void setBio(bool) {}
 };
 
 }  // namespace tms320
 }  // namespace debugger
-#endif /* __PINS_TMS3201X_H__ */
+#endif /* __PINS_TMS320_H__ */
 
 // Local Variables:
 // mode: c++

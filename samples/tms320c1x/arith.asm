@@ -348,4 +348,4 @@ arith:
 
         .word   HALT
 
-        include "arith.inc"
+        .include "arith.inc"
