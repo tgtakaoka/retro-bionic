@@ -3,6 +3,7 @@
  */
 
 #include "debugger.h"
+#include "watchdog.h"
 
 using namespace debugger;
 
@@ -21,6 +22,9 @@ void setup() {
     while (!Console)
         yield();
     cli.begin(Console);
+    // Before CrashReport, whose printing clears the reset flags.
+    if (Watchdog::fired())
+        Console.println("?watchdog reset: the firmware stopped making progress");
     if (CrashReport)
         Console.print(CrashReport);
 #if defined(ENABLE_LOGGER)
@@ -30,9 +34,11 @@ void setup() {
     Pins::initDebug();
     auto id = Identity::readIdentity();
     Debugger.begin(id.instance());
+    Watchdog::begin();
 }
 
 void loop() {
+    Watchdog::feed();
     Debugger.loop();
 }
 

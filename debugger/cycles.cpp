@@ -1,4 +1,7 @@
 #include "signals.h"
+#if defined(ARDUINO)
+#include "watchdog.h"
+#endif
 
 namespace debugger {
 
@@ -52,6 +55,9 @@ void Cycles::next() {
         _get = (_put + 1) % MAX_CYCLES;
     }
     _ring[_put].clear();
+#if defined(ARDUINO)
+    Watchdog::tick();
+#endif
 }
 
 void Cycles::discard(const SignalsImpl *s) {
