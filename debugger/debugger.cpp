@@ -933,6 +933,23 @@ void Debugger::exec(char c) {
     case '?':
         help();
         break;
+#ifdef PROFILE_CYCLES
+    case 'X':
+        // Tests the watchdog: hang without feeding it, telling how long
+        // from the cycle counter, which wraps after 7 s at 600 MHz.
+        cli.println("Hang until the watchdog reboots");
+        for (uint32_t start = ARM_DWT_CYCCNT, next = 0;;) {
+            const uint32_t ns = uint64_t(ARM_DWT_CYCCNT - start) * 1000 /
+                                (F_CPU_ACTUAL / 1000000);
+            if (ns >= next) {
+                cli.print("hung ");
+                cli.printDec(ns);
+                cli.println(" ns");
+                Console.flush();
+                next += 500000000;
+            }
+        }
+#endif
     case '\r':
         cli.println();
     case '\n':
