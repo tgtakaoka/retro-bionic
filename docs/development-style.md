@@ -231,12 +231,18 @@ refresh noise — not disabling refresh at the source (see Z280 below).
 ### Bound every wait loop **[hw]**
 
 `loop()` only polls the halt switch *between* steps. A wait loop that never
-returns cannot be broken into from the halt port, and wedges the board past
-recovery — reflashing is the only way back. Give every "wait for the CPU to do
-X" loop a guard and a failure path.
+returns cannot be broken into from the halt port. Give every "wait for the CPU
+to do X" loop a guard and a failure path.
 
 This bit twice: an unbounded refresh-skip in `prepareCycle()`, and an unbounded
 NMI-acknowledge wait in `suspend()`.
+
+The RTWDOG backs this up: the prompt, every completed bus cycle and every
+halt switch poll feed it, so a loop that does none of them reboots the Teensy
+after 4 s, and the banner reports the watchdog reset. A reboot still loses
+breakpoints and the target's state, and a loop that keeps completing bus
+cycles is not caught at all, so bound the loop anyway. The profile image's `X`
+command hangs on purpose, to test it. **[code]**
 
 ### The halt port **[hw]**
 

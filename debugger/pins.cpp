@@ -1,4 +1,5 @@
 #include "debugger.h"
+#include "watchdog.h"
 
 namespace debugger {
 
@@ -67,6 +68,7 @@ bool Pins::haltSwitch() {
     // when the buffer is empty), so a program that never enables the
     // console device could not be stopped. Poll here.
     yield();
+    Watchdog::tick();
     return _halted;
 }
 
