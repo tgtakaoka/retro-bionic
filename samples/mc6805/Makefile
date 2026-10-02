@@ -5,7 +5,9 @@ ASM=asm
 all: echo.s19 echoir.s19 echoitr.s19 arith.s19 mandelbrot.s19
 
 %.s19:	%.asm
-	$(ASM) -l $*.lst -o $@ $^
+	$(ASM) -l $*.lst -o $@ $<
 
 clean:
 	-rm -f *.lst *.s19
+
+include ../deps.mk
