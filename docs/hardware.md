@@ -35,7 +35,7 @@ keeps its value.
 The Teensy's own USB port carries the debugger console. The second USB serial port is the
 **software HALT** — see [build.md](build.md).
 
-## 2. CPU adapter — 46 boards
+## 2. CPU adapter — 47 boards
 
 One board per processor, and usually almost empty: the CPU, its identity EEPROM, a couple of
 LEDs, decoupling, and two 48-pin connectors down to the base. Everything else is the base
@@ -51,7 +51,8 @@ Two things push parts back onto the adapter:
   [Awkward chips](#awkward-chips) lists which parts, and what else they demand.
 - **Address width.** CPUs with a large address space carry an **address bus multiplexer**,
   so more address lines than the connector has can be presented in groups. The TMS9900
-  board below uses a pair of `74ACT157` for exactly this.
+  board below uses a pair of `74ACT157` for exactly this; the Z380 board steps four
+  `74HCS153` through all 32 address lines on eight connector pins.
 
 Some processors get two boards for two packages — `z180` exists as `bionic-z180f` (QFP) and
 `bionic-z180v` (PLCC), with separate gerber sets.
@@ -161,6 +162,9 @@ documentation for how a given CPU is driven. A few examples of what made them ha
   the bus trace is reconstructed by pattern matching.
 - **MC68HC08AZ0** — minimal control signals, no NMI, and instruction prefetch; every bus
   cycle is monitored to keep track.
+- **Z380** (`schematics/z380/`) — a 32-bit address on eight connector pins, read through
+  four `74HCS153` muxes; `#M1` marks no opcode fetch, and code comes through a prefetch
+  queue of aligned words, so backtraces walk the fetch stream.
 
 ## A 3.3 V base board
 

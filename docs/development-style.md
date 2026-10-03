@@ -819,6 +819,223 @@ between the blank lines; runs reported as "131 lines in 64ms" had exited early.
 Mandelbrot never finished a frame at the original 100 ns #XTALI phases; the
 larger win was free-running `loop()`.
 
+### Z380
+
+**Status: runs on the board.** The driver was written from the Z380
+Product Specification (PS010002-0708) and User's Manual, then brought up:
+reset, every sample, halt-switch stops, single steps and breakpoints work,
+and the register banks survive a resume. Backtraces come from a walk of
+the fetch queue (below). **[hw]**
+
+**Pitfalls.**
+
+- **`#M1` marks no opcode fetch.** It is asserted only in an `#INT0`
+  acknowledge and a RETI transaction; instructions are fetched with `#MRD`
+  alone. **[doc]**
+- **Code comes through a fetch queue, as on the 8086**: aligned words up to
+  5 bytes ahead, a byte at an odd branch target (and for a 7-byte
+  instruction's last two). One word can hold two instructions, and data
+  cycles land among the next instructions' fetches, so no per-opcode bus
+  sequence exists to match. **[hw]**
+- **After an I/O write an `RST` fetches its vector before it pushes.** The
+  break check looked back for the push and missed it; the `RST 38H` at
+  0038H then broke one push later, at the wrong PC. `isRst38Break()` now
+  takes the first push. **[hw]**
+- **BUSCLK is CLKI inverted**, and the strobes must be sampled with BUSCLK
+  high: negated in T1, asserted in T3. Sampled with BUSCLK low they read
+  asserted in both T2 and T4 and back-to-back transactions merge. **[doc]**
+- **`#M1` alone also opens each half of a RETI**, whose data the CPU
+  drives; `#IORD` joins 1.5 IOCLK later. Wait for it before answering an
+  acknowledge, or the vector is driven against the CPU. **[doc]**
+- **`LDCTL` moves 16 bits in Word mode and never loads the mode bits.**
+  Both directions need `DDIR LW`; XM, LW, IEF1 and IM do not come back
+  through it. **[doc]**
+- **In Native mode SP wraps within 64K**, SPz unchanged: rebuild it from a
+  bus address with 16-bit arithmetic, or reset's SP=0 comes out as
+  00010000H. **[doc]**
+- **A push is one word in Native mode, two in Extended**, and the program
+  may have run `SETC XM` since the SR was last read: decide after reading
+  it. **[code]**
+- **Fetches are taken to be aligned words**, so a sequence that runs off
+  its end starts at an even address and has an even length. **[code]**
+- **Reset does not clear SP, I or the bank 0 extensions**, though Table 7
+  says it does; `RegsZ380::reset()` applies Table 7 after the reset's
+  first save. **[hw]**
+- **`(HL)` uses all 32 bits of HL in Native mode.** `MULTW`, `DIVUW` and
+  `SWAP` leave HL(31-16) set and a 16-bit `LD HL,nn` keeps it, so a
+  pointer in HL misses by 64K multiples. The samples address memory
+  directly or through IX, and their ISRs switch to the alternate registers
+  with `EXALL`. **[hw]**
+- **An instruction not fully fetched when `#NMI` is asserted may not
+  start**: a step of `BIT 7,H` (`CB 7C`) at an odd address was taken with
+  its own PC pushed. When no register changed, `step()` asserts `#NMI` one
+  or two cycles later. **[hw]**
+- **A sequence must finish before it counts.** An NMI, a trap or a CPU
+  parked somewhere else leaves it part-run; `execute()` then sets
+  `_cutShort`, and reset reports `?reset: setup sequence cut short` rather
+  than saving registers shifted by a stray push. **[hw]**
+
+#### Board **[doc][hw]**
+
+A0-A31 share P30-P37 through four 74HCS153; ASEL1:ASEL0 (mux B:A) select
+A0-A3/A16-A19 at 00, A4-A7/A20-A23 at 01, A12-A15/A28-A31 at 10 and
+A8-A11/A24-A27 at 11. Stepping the selects in gray order 00, 01, 11, 10
+yields the nibbles in order with one select changing per step, and one more
+change returns to 00. The selects rest at 00, so the first nibble needs no
+settle delay; each step after waits 15 ns, enough with good contacts: the
+mux follows a select within one 8 ns analyzer sample. AL and AH are both on
+GPIO7, so one port read takes both nibbles of a step. **[hw]**
+
+The KiCad netlist is authoritative: ASEL0 on P44, ASEL1 on P45, `#M1`,
+`#MRD`, `#MWR` on P40-P42.
+
+JP1 is open, so `#MSIZE` is pulled high: memory is word-wide and a word
+moves the aligned pair, the even-address byte on D8-D15 and the odd one on
+D0-D7, as on the Z280. (The specification contradicts itself on which lane
+byte-wide memory uses; it does not matter with `#MSIZE` high.) CLKSEL is
+tied high, so CLKI is the direct clock. `#BREQ` and `#INT1`-`#INT3` are tied
+high.
+
+Not connected: BUSCLK, IOCLK, `#IORQ`, `#INTAK`, `#HALT`, the chip selects
+and `#TREFx`. With no `#HALT`, a halt is inferred from 1024 clocks without a
+strobe, and an acknowledge from `#M1` alone.
+
+The first board needed an ASEL1 reseat, a reflow of U1 pin 66 (D2) and a
+bodge wire for A11 (U1.95 to U4.13), each found from the bus. The profile
+image's reset runs a walking 1 and 0 through each data lane and prints
+`?data` for a bit that does not come back; an address line is found by
+storing a marker at single-bit addresses. **[hw]**
+
+#### Bus and clocking **[doc]**
+
+BUSCLK rises up to 30 ns after CLKI falls and falls up to 27 ns after it
+rises; outputs follow a BUSCLK edge by 6.5 ns. CLKI rests low and
+`clki_cycle()` is high-then-low, sampling 40 ns after the fall.
+
+A memory transaction is T1-T4, two BUSCLK cycles, T1 and T3 the high
+halves. `#MRD` and `#MWR` assert at the end of T1 and negate at the end of
+T4, where read data is latched; a write drives data from the start of T1.
+`#WAIT` is sampled at each of the three boundaries, after the internal
+waits, and inserts whole BUSCLK cycles with the strobes still asserted. So
+the CPU parks in a T3 wait mid-run and in a T1 wait at reset, and
+`completeCycle()` watches the strobes instead of counting T states, as on
+the Z280.
+
+`#IORD`/`#IOWR` run from the second IOCLK rise of an I/O transaction to the
+fourth fall, which is also where read data is latched, so holding data
+until the strobe negates is enough. An `#INT0` acknowledge holds `#M1` for
+its five cycles and latches the vector in the last. Refresh, on-chip I/O
+and a halt strobe nothing the board sees.
+
+Reset leaves 7+3+7 wait states on memory below 1 MB and in the top one, 7
+on I/O, and IOCLK at BUSCLK/8. `setupBus()` clears the wait registers
+(on-chip 08H-0EH) and writes 02H to IOCR0 (11H), IOCLK = BUSCLK/2.
+Divide-by-1 (07H) was tried: an acknowledge then latches its vector 5
+BUSCLK after `#M1`, before the wait below can tell it from a RETI, and
+every mode 0 interrupt took FFH, a `RST 38H`. **[hw]**
+
+`#M1` alone is waited on for up to 6 BUSCLK cycles for `#IORD` to join
+(RETI) before it is answered as an `#INT0` acknowledge: 3 cycles at
+BUSCLK/2, well before the vector is latched 10 cycles in.
+
+`resetPins()` insists on a read at 00000000H as the first cycle. Anything
+else prints `?reset:` with the cycle and saves nothing; a set address
+nibble there points at the mux or its settle delay.
+
+#### Memory and devices **[code]**
+
+Main memory is the 16 MB of EXTMEM: the bus decodes A0-A23 and the rest of
+the 4 GB space mirrors it. The ring and the register dump keep 32-bit
+addresses; memory commands take 24.
+
+The USART is the Z80's, at 140H (`USART_BASE` in `devs_z380.h`), decoded
+from all 32 address bits; byte I/O rides D0-D7. `IN A,(n)` puts A on
+A8-A15, so the samples use `INA`/`OUTA`, which zero the bits above the
+port.
+
+#### Registers and modes **[doc][code]**
+
+`save()` cannot know whether the program left Long Word mode on, so it
+pushes HL and the SR in 16-bit halves under `DDIR W`, then runs `RESC LW`
+so everything after is in Word mode. Upper halves come down with `SWAP`,
+which touches no flag. 32-bit values go back with `DDIR IW,LW` immediate
+loads; AF through a real `POP` of a word staged below the stack, as on the
+Z280.
+
+The SR is read with `DDIR LW; LDCTL HL,SR`. The selections go back
+through the byte forms of `LDCTL` (below); of the mode bits, LW comes back
+with `SETC LW` and XM, once set with `=XM 1`, with `SETC XM`. XM cannot be
+cleared short of reset, and IM, IEF1 and LCK are never touched; after an
+NMI, `RETN` restores IEF1 from IEF2. So the `SR` register command edits
+the selections and LW; its other mode bits stay the CPU's.
+
+`r` shows the SR one character per field, `_` where clear:
+`SR=Y3'X0_M1'XLI3L'` is IYBANK 3 with IY' selected, IXBANK 0, MAINBANK 1
+with the alternate BC/DE/HL selected, then XM, LW, IEF1, IM 3, LCK and
+AFP.
+
+All four register banks are saved and restored, each register by its
+physical side: `LDCTL DSR,n` (`ED DA n`) picks a bank and side for AF, BC,
+DE and HL, and `LDCTL XSR,n`/`LDCTL YSR,n` (`DD DA n`, `FD DA n`) do the
+same for IX and IY. AF' is reached with `EX AF,AF'` twice. `r` shows the
+set the SR selects, and `=` edits that set by the usual names. Another
+bank or side is reached by selecting it first: the SR fields `MB`, `XB`,
+`YB` (banks) and `IXP`, `IYP` (IX'/IY'), and `EX`/`EXX` to flip AFP and
+ALT as the instructions do. `XM` and `LW` set the modes. `restore()` writes the
+selections last through the byte forms of `LDCTL` (plus `EX AF,AF'` for
+AFP), never `LDCTL SR,HL`, which would leave the SR in some bank's HL.
+
+`execute()` runs until it has captured as many bytes as the caller asked
+for, so the count must be exact: one byte short and it runs to the guard.
+An explicit exit address counts only after the last byte of the sequence
+has been fetched, since a restored PC may lie inside the window.
+
+`step()` refuses a `HALT` before `restore()`, not after: restored, the CPU
+sits at the program's PC, and at an odd one no sequence can be injected.
+
+#### Instruction boundaries **[hw][code]**
+
+`InstZ380::walk()` follows the code stream from an instruction start:
+each instruction's bytes are fetched, then its data cycles and, if it
+transfers, the fetch at its target come in any order while sequential
+fetches go on. An interrupt, NMI or trap is the PC pushed and a vector
+fetched, in either order, between instructions or in place of a pending
+target's fetch. The walk must end at the stop PC, which may be an
+instruction the queue already holds; the earliest start that does is
+taken, conditionals tried taken first, and instructions ahead of the
+first one with data or a transfer are dropped, since a ring that begins
+mid-instruction can be walked from a byte of it. The backtrace prints each
+instruction, then its data cycles.
+
+The tables give no sequences, only per opcode the length, how it
+transfers, whether a `DDIR` immediate widens it, and the bytes it reads and
+writes on memory and I/O, taken or not, and in Long Word and Extended
+mode. `DDIR W` and `LW` pick the Word or Long Word counts. A word split by
+alignment is consecutive bytes, so an instruction's reads, and its writes,
+must be contiguous; that rejects a `RET` "popping" a stray fetch.
+
+`tools/derive_tables.py` writes the tables from the recording (3,648 runs:
+every libasm opcode and `DDIR` form, odd and even operands, both sides of
+each condition, and Extended and Long Word passes of what the modes
+change). `tools/walk_z380.py` is the walker on the host; it checks every
+run and the bench rings in `z380-rings.json.zst` against the sample
+listings, and writes the host test's fixture. `tools/README.md` has the
+recording's pitfalls.
+
+#### Samples **[code]**
+
+`samples/z380` are the `samples/z80` programs written for the Z380: the
+arithmetic in `MULTW`, `DIVUW` (under a signed `div16`), `SUBW`, `NEGW`
+and `CPW`; I/O through `INA`/`OUTA` at the USART's 140H; the queues
+addressed through IX; the ISRs on the alternate registers. Mandelbrot
+draws a frame in 4.9 s ([mandelbrot.md](mandelbrot.md)).
+
+#### To check on the bench
+
+- An interrupt taken inside an injected sequence after an RST 38H break with
+  interrupts enabled, and a PC pushed as two bytes at an odd SP; the Z280
+  driver shares both.
+
 ### Z80 / Z180
 
 **Pitfalls.** Sequential-cursor injection: its faked-POP idiom must not be
