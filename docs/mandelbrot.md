@@ -28,6 +28,7 @@ The tables time them on real chips, from recorded casts, with
 | ----------- | ----: | ------: | ------: | ------------------ | ------------------------------------------------------------------------ | --------------------------------------------------------------- |
 | Z280        |   2.1 |   0.080 |   0.018 | cache on           | [mandelbrot.cast](../samples/z280/mandelbrot.cast)                       | [z280/mandelbrot.lst](../samples/z280/mandelbrot.lst)           |
 | P8095BH     |   3.6 |   0.145 |   0.038 |                    | [mandelbrot.cast](../samples/i8096/mandelbrot.cast)                      | [i8096/mandelbrot.lst](../samples/i8096/mandelbrot.lst)         |
+| Z380        |   4.9 |   0.206 |   0.060 |                    | [mandelbrot.cast](../samples/z380/mandelbrot.cast)                       | [z380/mandelbrot.lst](../samples/z380/mandelbrot.lst)           |
 | TMS320C15   |   5.4 |   0.220 |   0.070 |                    | [mandelbrot.cast](../samples/tms320c1x/mandelbrot.cast)                  | [tms320c1x/mandelbrot.lst](../samples/tms320c1x/mandelbrot.lst) |
 | Z280        |   5.7 |   0.217 |   0.060 |                    | [mandelbrot.cast](../samples/z280/mandelbrot.cast)                       | [z280/mandelbrot.lst](../samples/z280/mandelbrot.lst)           |
 | TMS99105    |   7.4 |   0.300 |   0.097 |                    | [mandelbrot.cast](../samples/tms99105/mandelbrot.cast)                   | [tms99105/mandelbrot.lst](../samples/tms99105/mandelbrot.lst)   |

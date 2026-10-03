@@ -759,7 +759,7 @@ def case_gountil(board, n=3, regress=None):
         how['break_at'], addr, n, '; ' + ' '.join(notes) if notes else '')
 
 
-DISASM = re.compile(r'^[0-9A-F]{3,6}: ([0-9A-F]{2,4} )+ +\S+')
+DISASM = re.compile(r'^[0-9A-F]{3,8}: ([0-9A-F]{2,4} )+ +\S+')
 
 
 def case_disasm(board, n=10):
