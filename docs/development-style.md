@@ -1534,6 +1534,46 @@ mode. Mandelbrot is mid-speed on the MC6809 and MC6809E (6 rows in 20
 seconds) and fast on the HD6309 in native mode (a frame in under 10
 seconds).
 
+### MC68HC16
+
+**Pitfalls.** The pin functions come from the data bus at reset: hold
+DATA2 and DATA7 low, and leave DATA8, DATA9 and DATA11 high, or FC2:0 and
+ADDR23:19 come out as chip-selects and the bus control pins as port E.
+IPIPE1:0 carry two phases per bus cycle, so one sample is half the story.
+
+Draft board for the MC68HC16Z1 (144-pin LQFP, case 918); not built yet.
+
+- While `#RESET` is low the Teensy drives DATA1, DATA2 and DATA7 low.
+  DATA2 gives FC2:0, DATA7 alone gives ADDR23:19 whatever DATA6:3 are,
+  and DATA1 gives `#BR`/`#BG`/`#BGACK`, which only matters for
+  arbitration. DATA8 keeps the bus control pins, DATA9 the `#IRQ` pins and
+  MODCLK, and DATA11 must stay high for normal operation; the weak
+  internal pull-ups hold any line not driven. **[doc]**
+- `#RESET` is open drain both ways: the MCU stretches an external reset by
+  512 CLKOUT cycles and asserts it on internal resets. The pull-up is on
+  the Teensy side of the level shifter, so drive it low or release it,
+  never high. **[doc]**
+- MODCLK is tied low, so EXTAL (P47) is the system clock with the PLL off;
+  CLKOUT comes back on P52. **[doc]**
+- IPIPE1:0 encode phase 1 (START, FETCH) and phase 2 (ADVANCE,
+  EXCEPTION) of the pipeline state; latch them on the `#AS` and `#DS`
+  edges. Under FREEZE they become DSI (an input) and DSO. **[doc]**
+- P40-P43 and P46 read as one GPIO9 group: `#AS`, R/`#W`, IPIPE0, IPIPE1
+  and `#DS`, so both IPIPE phases come with the strobes. **[code]**
+- ADDR23:0, SIZ1:0 and FC2:0 share P30-P37 through four 74HCS153
+  selected by ASEL0 (P54) and ASEL1 (P55): 00 A0-A3/A16-A19,
+  01 A4-A7/A20-A23, 10 A12-A15/SIZ, 11 A8-A11/FC; SIZ holds for the
+  whole cycle, so one read is enough. The Teensy drives
+  EXTAL, so the bus holds still while it walks the selects. **[code]**
+- `#DSACK0`/`#DSACK1` (P44/P45) end external cycles. `#AVEC` is tied low,
+  so every interrupt acknowledge is autovectored. `#IRQ7` (P50) and
+  `#IRQ1` (P51) reach the Teensy; `#IRQ6`-`#IRQ2` are tied high. **[doc]**
+- TSC is tied low and `#BKPT` tied high, since a low `#BKPT` at reset
+  enables background mode. The bidirectional `#HALT`, `#BERR`, `#BR` and
+  `#BGACK` have 10k pull-ups instead of ties: the MCU drives `#HALT` low on
+  a double bus fault. VSTBY is grounded, so the standby RAM keeps
+  nothing across power-off. **[doc]**
+
 ### SCN2650
 
 **Pitfalls.** A conditional branch not taken skips its indirect address
