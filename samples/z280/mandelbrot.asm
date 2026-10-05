@@ -77,6 +77,7 @@ init_usart:
 loop:
         call    mandelbrot
         call    newline
+        call    wait_tx_finish
         jr      loop
 
 ;;; Get character
@@ -128,6 +129,13 @@ putspace:
         include "mandelbrot.inc"
         include "arith.inc"
         include "queue.inc"
+
+wait_tx_finish:
+        ld      HL, tx_queue
+        ld      A, (HL)
+        or      A
+        ret     z
+        jp      wait_tx_finish
 
 isr_intr_rx:
         push    AF
