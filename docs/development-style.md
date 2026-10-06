@@ -1513,6 +1513,40 @@ mode. Mandelbrot is mid-speed on the MC6809 and MC6809E (6 rows in 20
 seconds) and fast on the HD6309 in native mode (a frame in under 10
 seconds).
 
+### MC68HC12
+
+**Pitfalls.** Only the special expanded modes put every bus cycle on the
+bus from reset; the CPU12 prefetches into an instruction queue, so a
+program read does not mark an instruction start -- IPIPE1:0 do.
+
+Draft board for the MC68HC912BD32 (80-pin QFP); not built yet. Pin
+positions are the draft assignment, not facts from a manual.
+
+- The Teensy holds BKGD (P44) low and MODB and MODA high through reset,
+  which selects special expanded wide mode. That mode comes out of reset
+  with R/`#W`, `#LSTRB`, IPIPE1:0 and `#DBE` as bus signals and IVIS set,
+  so internal accesses show on the bus. A normal expanded mode enables
+  only E and leaves IVIS clear. **[doc]**
+- After reset BKGD is the single-wire BDM pin. Held low it stays
+  harmless: a BDM bit starts only on a host falling edge, ENBDM resets to
+  0 outside special single-chip mode, and TAGHI acts only after a BDM
+  `TAGGO`. **[doc]**
+- IPIPE1:0 share the MODB/MODA pins (P43/P42), which become Teensy inputs
+  after reset. On the M68HC12 the data movement code is valid at E rise,
+  the execution start code at E fall: 01 starts an interrupt sequence, 10
+  an even instruction, 11 an odd one. **[doc]**
+- The Teensy drives DIVBYP (P45): low gives E = EXTAL/4; high is a test
+  mode giving EXTAL/2. It has an always-on pull-down. **[doc]**
+- AD0-AD15 sit on P1x/P2x, GPIO6 bits 16-31, readable in one access. In
+  a narrow mode the 8-bit data is on port A (P2x), not P1x. **[doc]**
+- The on-chip Flash is off in the expanded modes (ROMON resets to 0), so it
+  does not shadow external memory. **[doc]**
+- Port S is on P3x: SCI0 RxD (PS0) on P30, TxD (PS1) on P31, PS2-PS7 on
+  P32-P37. The MC68HC11 firmware bit-bangs its SCI through GPIO, so no
+  Teensy UART pins are needed. **[code]**
+- PT7/PAI is on P52 and PT0/IOC0 on P55, so the Teensy can drive edges
+  into input capture or the pulse accumulator for timer samples.
+
 ### SCN2650
 
 **Pitfalls.** A conditional branch not taken skips its indirect address
