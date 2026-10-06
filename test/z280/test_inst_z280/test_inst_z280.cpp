@@ -1,9 +1,10 @@
 // Host-side test of the Z280 cycle matcher: `pio test -e native`.
 //
-// dumps/ holds verbose console dumps of sample runs on the board. Each
+// dumps/ holds verbose console dumps of sample runs on the board, with
+// the HEX and listing of each sample as it was when recorded. Each dump
 // is replayed through InstZ280::findFetch() and every mark checked
-// against the sample's listing, except the first lines, where a ring
-// cut inside an instruction may still decode as a chain.
+// against that listing, except the first lines, where a ring cut inside
+// an instruction may still decode as a chain.
 //
 // Z280_DUMP=<file> [Z280_TRACE=1] replays that dump and prints every
 // cycle's mark (I fetch, b byte or stale prefetch, o data). Sanitizers:
@@ -221,7 +222,7 @@ Cycles *ring = nullptr;
 // Replay one dump of |sample| and check its marks against the listing.
 void check(const char *sample, const char *dump) {
     Memory memory;
-    const auto base = here() + "../../../samples/z280/" + sample;
+    const auto base = here() + "dumps/" + sample;
     TEST_ASSERT_TRUE_MESSAGE(memory.load(base + ".hex"), "sample HEX");
     const auto starts = listing(base + ".lst");
     TEST_ASSERT_FALSE_MESSAGE(starts.empty(), "sample listing");
@@ -321,7 +322,7 @@ void test_replay_one_dump() {
         TEST_IGNORE_MESSAGE("set Z280_DUMP to replay a dump");
     Memory memory;
     const char *hex = getenv("Z280_HEX");
-    TEST_ASSERT_TRUE_MESSAGE(memory.load(hex ? hex : here() + "../../../samples/z280/mandelbrot.hex"), "Z280_HEX");
+    TEST_ASSERT_TRUE_MESSAGE(memory.load(hex ? hex : here() + "dumps/mandelbrot.hex"), "Z280_HEX");
     const auto pc = load_dump(dump);
     Replay replay;
     replay.verbose = true;
