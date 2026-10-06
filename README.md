@@ -1,6 +1,6 @@
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE.md)
 [![PlatformIO CI](https://github.com/tgtakaoka/retro-bionic/actions/workflows/platformio-ci.yml/badge.svg)](https://github.com/tgtakaoka/retro-bionic/actions/workflows/platformio-ci.yml)
-[![Targets](https://img.shields.io/badge/CPU%20targets-40-orange.svg)](docs/supported-cpus.md)
+[![Targets](https://img.shields.io/badge/CPU%20targets-41-orange.svg)](docs/supported-cpus.md)
 [![Boards](https://img.shields.io/badge/KiCad%20boards-48-green.svg)](schematics)
 
 <div align="center">
@@ -33,7 +33,7 @@ cycle at a time, from a terminal on your desk.
 [Teensy 4.1](https://www.pjrc.com/store/teensy41.html) is wired to every pin of the target
 CPU and drives the whole system around it: the clock, every bus cycle, and the memory and
 peripherals the chip thinks it is talking to. One firmware image — about 300 kB including
-every assembler, disassembler and debugger — covers all **40 supported targets**, and the
+every assembler, disassembler and debugger — covers all **41 supported targets**, and the
 board tells the controller which one it is.
 
 <div align="center">
@@ -79,7 +79,7 @@ disassembly, single-stepping with the bus trace, then drawing the Mandelbrot set
 
 ## Supported CPUs
 
-All 40 targets, grouped by vendor and architecture:
+All 41 targets, grouped by vendor and architecture:
 
 <table>
 <thead>
@@ -90,7 +90,8 @@ All 40 targets, grouped by vendor and architecture:
 <tr><td>6805</td><td>MC146805E2, MC68HC05C0, MC68HC08AZ0</td></tr>
 <tr><td>6809</td><td>MC6809 <em>HD6309</em>, MC6809E <em>HD6309E</em></td></tr>
 <tr><td>MOS Technology</td><td>6502</td><td>MOS6502 <em>G65SC02, R65C02, W65C02S, W65C816S</em></td></tr>
-<tr><td rowspan="2">Zilog</td><td>Z80</td><td>Z80, Z180, NSC800, KL5C80A12, HD64180S</td></tr>
+<tr><td rowspan="3">Zilog</td><td>Z80</td><td>Z80, Z180, NSC800, KL5C80A12, HD64180S</td></tr>
+<tr><td>Z280</td><td>Z280</td></tr>
 <tr><td>Z8</td><td>Z86C91, Z88C00</td></tr>
 <tr><td rowspan="4">Intel</td><td>MCS-48</td><td>P8048 <em>P8039, MSM80C39</em></td></tr>
 <tr><td>MCS-51</td><td>P8051</td></tr>
