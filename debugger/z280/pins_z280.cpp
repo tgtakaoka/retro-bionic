@@ -9,6 +9,8 @@
 namespace debugger {
 namespace z280 {
 
+using z80::DevsZ80;
+
 // clang-format off
 /**
  * Z280 Z-BUS memory cycle (Z280 Technical Manual, Chapter 13).
@@ -215,7 +217,7 @@ inline uint16_t swapBytes(uint16_t v) {
 }  // namespace
 
 PinsZ280::PinsZ280() {
-    _devs = new DevsZ280();
+    _devs = new DevsZ80(USART_BASE);
     // Memory first: RegsZ280 stages its AF restore word there.
     _mems = new MemsZ280();
     _regs = new RegsZ280(this, mems<MemsZ280>());

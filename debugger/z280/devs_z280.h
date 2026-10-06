@@ -1,35 +1,11 @@
 #ifndef __DEVS_Z280_H__
 #define __DEVS_Z280_H__
 
-#include "devs.h"
+#include "z80/devs_z80.h"
 
-#define USART 0x0140
+#undef USART_BASE
+#define USART_BASE 0x0140
 
-namespace debugger {
-namespace z280 {
-
-struct DevsZ280 final : Devs {
-    DevsZ280();
-    ~DevsZ280();
-
-    void begin() override;
-    void reset() override;
-    void loop() override;
-    bool isSelected(uint32_t addr) const override;
-    uint16_t vector() const override;
-    uint16_t read(uint32_t addr) const override;
-    void write(uint32_t addr, uint16_t data) const override;
-
-    Device *parseDevice(const char *name) const override;
-    void enableDevice(Device *dev) override;
-    void printDevices() const override;
-
-private:
-    Device *_usart;
-};
-
-}  // namespace z280
-}  // namespace debugger
 #endif /* __DEVS_Z280_H__ */
 
 // Local Variables:
