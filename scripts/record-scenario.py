@@ -8,11 +8,12 @@ not here.
 
 Everything this script writes to stdout is exactly what a person driving
 or watching sees: it opens the board quietly first (recovering it to its
-prompt the way every other bench script does, so that traffic never
-reaches the output), then works through the scenario -- typing each
-console command itself, one character at a time, with pauses long enough
-to read -- while a reader thread echoes the board's replies live,
-including a sample's own output as it prints.
+prompt the way every other bench script does, and clearing any
+breakpoints left set, so that traffic never reaches the output), then
+works through the scenario -- typing each console command itself, one
+character at a time, with pauses long enough to read -- while a reader
+thread echoes the board's replies live, including a sample's own output
+as it prints.
 
     scripts/record-scenario.py SCENARIO [--nopace] [--save PATH | --upload]
 
@@ -355,6 +356,8 @@ def run_direct(scenario, nopace):
     SCALE = 0.1 if nopace else 1.0
     board = bc.Board.open()   # silent: recovers the board, nothing printed
     _ensure_verbose_off(board)
+    if not board.clear_breaks():
+        sys.exit('could not clear the breakpoints')
     con = Console(board.fd)
     try:
         run_scenario(con, scenario)
