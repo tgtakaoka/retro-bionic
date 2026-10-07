@@ -1025,10 +1025,13 @@ recording's pitfalls.
 #### Samples **[code]**
 
 `samples/z380` are the `samples/z80` programs written for the Z380: the
-arithmetic in `MULTW`, `DIVUW` (under a signed `div16`), `SUBW`, `NEGW`
-and `CPW`; I/O through `INA`/`OUTA` at the USART's 140H; the queues
-addressed through IX; the ISRs on the alternate registers. Mandelbrot
-draws a frame in 4.9 s ([mandelbrot.md](mandelbrot.md)).
+arithmetic in `MULTW`, `DIVUW` (under `divu16`, by an unsigned divisor,
+and the signed `div16` on it), `SUBW`, `NEGW` and `CPW`; I/O through
+`INA`/`OUTA` at the USART's 140H; the queues addressed through IX; the
+ISRs on the alternate registers. Routine entries and the workspace are
+word aligned, since a fetch or a word access at an odd address takes an
+extra bus cycle. Mandelbrot draws a frame in 3.7 s
+([mandelbrot.md](mandelbrot.md)).
 
 #### To check on the bench
 

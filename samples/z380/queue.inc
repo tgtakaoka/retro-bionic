@@ -10,6 +10,7 @@ queue_buf:      equ     4       ; buffer start offset
 ;;; @param IX queue work space pointer
 ;;; @param B queue work space size
 ;;; @clobber B
+        align   2
 queue_init:
         push    AF
         push    IX
@@ -31,6 +32,7 @@ queue_init_loop:
 ;;; @param IX queue work space pointer
 ;;; @param A an element
 ;;; @return F.C 0 if queue is full
+        align   2
 queue_add:
         push    DE
         ld      D, A            ; save an element
@@ -65,6 +67,7 @@ queue_add_update:
 ;;; @param IX queue work space pointer
 ;;; @return A an element
 ;;; @return F.C 0 if queue is empty
+        align   2
 queue_remove:
         ld      A, (IX+queue_len)
         or      A               ; clear carry
