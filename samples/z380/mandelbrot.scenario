@@ -1,13 +1,13 @@
 # Scenario for scripts/record-scenario.py: the Z380 mandelbrot does its
 # arithmetic with MULTW and DIVUW, which leave the high word or the
 # remainder in HL(31-16). Load it, break at each frame's end, disassemble
-# the signed division, run up to its DIVUW and single-step it on the
-# chip, then let the frame finish.
+# the division by an unsigned divisor, run up to its DIVUW and
+# single-step it on the chip, then let the frame finish.
 #
 # ADDRESSES ARE PINNED TO THE CURRENT samples/z380/mandelbrot.hex: 14A is
 # the `call newline` right after mandelbrot() returns -- once per frame,
-# so a breakpoint there turns every 'G' into "run exactly one frame"; 2EC
-# is div16, 306 its DIVUW. If mandelbrot.asm/.inc or arith.inc change,
+# so a breakpoint there turns every 'G' into "run exactly one frame"; 2FE
+# is divu16, 304 its DIVUW. If mandelbrot.asm/.inc or arith.inc change,
 # re-check them against the fresh mandelbrot.lst before recording.
 
 key R
@@ -20,18 +20,18 @@ wait Break addr?
 command 14A
 pace 0.6
 
-# The signed division the arithmetic is built on: SWAP and a Word-mode
-# LD zero-extend |dividend|, DIVUW divides all 32 bits of HL.
+# The division the arithmetic is built on: EXTSW clears HL(31-16) for a
+# non-negative dividend, DIVUW divides all 32 bits of HL.
 type D
 wait Disassemble?
-command 2EC
+command 2FE
 pace 1.5
 
 # Up to the DIVUW, then a few steps on the chip: the quotient in HL, the
 # remainder in HL(31-16), which SWAP brings down.
 type g
 wait Go until?
-command 306 4
+command 304 4
 pace 0.9
 step 5
 pace 1.2

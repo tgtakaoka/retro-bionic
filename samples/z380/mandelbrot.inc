@@ -1,6 +1,7 @@
 ;;; -*- mode: asm; mode: flyspell-prog; -*-
 
 Fv:     equ     50
+        align   2
 mandelbrot:
         ld      A, -12
         ld      (vY), A         ; Y=-12
@@ -44,7 +45,7 @@ loop_x:
 loop_i:
         ld      HL, (vB)
         ld      DE, Fv
-        call    div16           ; HL=B/F, DE=B-(B/F)*F
+        call    divu16           ; HL=B/F, DE=B-(B/F)*F
         ld      (vQ), HL        ; Q=B/F
         ld      (vS), DE        ; S=B-Q*F
         ld      HL, (vB)
@@ -55,7 +56,7 @@ loop_i:
         pop     DE              ; pop B*B
         subw    HL, DE          ; A*A-B*B
         ld      DE, Fv
-        call    div16           ; HL=(A*A-B*B)/F
+        call    divu16           ; HL=(A*A-B*B)/F
         ld      DE, (vC)
         add     HL, DE          ; (A*A-B*B)/F+C
         push    HL              ; push (A*A-B*B)/F+C
@@ -63,7 +64,7 @@ loop_i:
         ld      DE, (vS)
         multw   HL, DE          ; HL(31-0)=A*S
         ld      DE, Fv
-        call    div16           ; HL=A*S/F
+        call    divu16           ; HL=A*S/F
         push    HL              ; push A*S/F
         ld      HL, (vA)
         ld      DE, (vQ)
@@ -77,13 +78,13 @@ loop_i:
         pop     HL              ; pop (A*A-B*B)/F+C
         ld      (vA), HL        ; A=(A*A-B*B)/F+C
         ld      DE, Fv
-        call    div16           ; HL=A/F
+        call    divu16           ; HL=A/F
         ld      (vP), HL        ; P=A/F
         multw   HL, HL          ; HL(31-0)=P*P
         push    HL              ; push P*P
         ld      HL, (vB)
         ld      DE, Fv
-        call    div16           ; HL=B/F
+        call    divu16           ; HL=B/F
         ld      (vQ), HL        ; Q=B/F
         multw   HL, HL          ; HL(31-0)=Q*Q
         pop     DE              ; pop P*P
@@ -169,6 +170,7 @@ next_x:
 ;;; Print variable
 ;;; @param A variable name
 ;;; @param HL variable value
+        align   2
 print:
         call    putchar
         ld      A, '='
@@ -177,6 +179,7 @@ print:
         jp      putspace
 
 ;;; workspace
+        align   2
 vC:     ds      2
 vD:     ds      2
 vA:     ds      2

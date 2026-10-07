@@ -4,6 +4,7 @@
 ;;; Print signed 16-bit integer as decimal
 ;;; @param HL value
 ;;; @clobber A HL
+        align   2
 print_int16:
         ld      A, H
         or      A, L
@@ -38,6 +39,7 @@ print_uint16_zero:
 ;;; @param DE subtrahend
 ;;; @return AF.Z, AF.S
 ;;; @clobber A
+        align   2
 cmp16:
         push    HL
         ld      H, B
@@ -58,38 +60,41 @@ cmp16_return:
 ;;; @param DE divisor
 ;;; @return HL quotient
 ;;; @return DE remainder, with the dividend's sign
-;;; @clobber A
+        align   2
 div16:
-        ld      A, H
-        or      A, A
-        push    AF              ; AF.S=sign(dividend)
-        xor     A, D
-        push    AF              ; AF.S=sign(quotient)
-        bit     7, H
-        jr      Z, div16_dividend
-        negw    HL              ; HL=|dividend|
-div16_dividend:
-        swap    HL
-        ld      HL, 0           ; HL(31-16)=0, HL(15-0) kept
-        swap    HL
         bit     7, D
-        jr      Z, div16_divide
+        jr      Z, divu16
         ex      DE, HL
         negw    HL
         ex      DE, HL          ; DE=|divisor|
-div16_divide:
+        call    divu16
+        negw    HL              ; HL=-quotient
+        ret
+
+;;; Signed by unsigned division; dividend / divisor, rounded toward zero
+;;; @param HL dividend
+;;; @param DE divisor, unsigned
+;;; @return HL quotient
+;;; @return DE remainder, with the dividend's sign
+        align   2
+divu16:
+        bit     7, H
+        jr      NZ, divu16_negative
+        extsw   HL              ; HL(31-16)=0
         divuw   HL, DE          ; HL=quotient, HL(31-16)=remainder
         swap    HL
-        ld      D, H
-        ld      E, L            ; DE=remainder
+        ld      DE, HL          ; DE=remainder
         swap    HL
-        pop     AF
-        jp      P, div16_remainder
+        ret
+divu16_negative:
+        negw    HL              ; HL=|dividend|
+        swap    HL
+        ld      HL, 0           ; HL(31-16)=0, HL(15-0) kept
+        swap    HL
+        divuw   HL, DE          ; HL=quotient, HL(31-16)=remainder
+        swap    HL
+        negw    HL
+        ld      DE, HL          ; DE=-remainder
+        swap    HL
         negw    HL              ; HL=-quotient
-div16_remainder:
-        pop     AF
-        ret     P
-        ex      DE, HL
-        negw    HL              ; DE=-remainder
-        ex      DE, HL
         ret

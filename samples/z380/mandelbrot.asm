@@ -77,6 +77,7 @@ loop:
 ;;; Get character
 ;;; @return A
 ;;; @return CC.C 0 if no character
+        align   2
 getchar:
         push    IX
         ld      IX, rx_queue
@@ -88,6 +89,7 @@ getchar:
 
 ;;; Put newline
 ;;; @clobber A
+        align   2
 newline:
         ld      A, 0DH
         call    putchar
@@ -113,6 +115,7 @@ putchar_exit:
 
 ;;; Put space
 ;;; @clobber A
+        align   2
 putspace:
         ld      A, ' '
         jr      putchar
@@ -121,6 +124,7 @@ putspace:
         include "arith.inc"
         include "queue.inc"
 
+        align   2
 isr_intr_rx:
         ex      AF, AF'
         exall                   ; the ISR's own BC, DE, HL, IX and IY
@@ -136,6 +140,7 @@ isr_intr_rx_exit:
         ei
         reti
 
+        align   2
 isr_intr_tx:
         ex      AF, AF'
         exall                   ; the ISR's own BC, DE, HL, IX and IY
