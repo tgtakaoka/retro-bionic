@@ -49,6 +49,7 @@ The tables time them on real chips, from recorded casts, with
 | KL5C80A12   |  34.6 |   1.413 |   0.461 |                    | [mandelbrot.cast](../samples/kl5c80/mandelbrot.cast)                     | [kl5c80/mandelbrot.lst](../samples/kl5c80/mandelbrot.lst)       |
 | P8051       |  35.0 |   1.428 |   0.442 |                    | [mandelbrot.cast](../samples/i8051/mandelbrot.cast)                      | [i8051/mandelbrot.lst](../samples/i8051/mandelbrot.lst)         |
 | TMS9980     |  37.4 |   1.528 |   0.497 |                    | [mandelbrot_tms9980.cast](../samples/tms9900/mandelbrot_tms9980.cast)    | [tms9900/mandelbrot.lst](../samples/tms9900/mandelbrot.lst)     |
+| Z380        |  38.3 |   1.563 |   0.510 | Z80 code           | [mandelbrot_z380.cast](../samples/z80/mandelbrot_z380.cast)              | [z80/mandelbrot.lst](../samples/z80/mandelbrot.lst)             |
 | Z86C91      |  55.9 |   2.284 |   0.741 |                    | [mandelbrot.cast](../samples/z86/mandelbrot.cast)                        | [z86/mandelbrot.lst](../samples/z86/mandelbrot.lst)             |
 | INS8070     |  56.6 |   2.312 |   0.744 |                    | [mandelbrot.cast](../samples/ins8070/mandelbrot.cast)                    | [ins8070/mandelbrot.lst](../samples/ins8070/mandelbrot.lst)     |
 | Z180        |  62.5 |   2.554 |   0.872 |                    | [mandelbrot.cast](../samples/z180/mandelbrot.cast)                       | [z180/mandelbrot.lst](../samples/z180/mandelbrot.lst)           |
@@ -172,21 +173,25 @@ also prefetches; it runs all three, and its own build's `MPYS` and
 
 ### Z80 family
 
-| | Z80 | NSC800 | Z180 | Z280 |
-|---|---:|---:|---:|---:|
-| [z80](../samples/z80/mandelbrot.lst) | 66.6 | 85.5 | 77.6 | 21.2 |
-| [z180](../samples/z180/mandelbrot.lst) | | | 62.5 | |
-| [z280](../samples/z280/mandelbrot.lst) | | | | 1.9 |
-| Data bus | 8-bit | 8-bit, multiplexed | 8-bit | 16-bit, multiplexed |
+| | Z80 | NSC800 | Z180 | Z280 | Z380 |
+|---|---:|---:|---:|---:|---:|
+| [z80](../samples/z80/mandelbrot.lst) | 66.6 | 85.5 | 77.6 | 21.2 | 38.3 |
+| [z180](../samples/z180/mandelbrot.lst) | | | 62.5 | | |
+| [z280](../samples/z280/mandelbrot.lst) | | | | 1.9 | |
+| [z380](../samples/z380/mandelbrot.lst) | | | | | 3.7 |
+| Data bus | 8-bit | 8-bit, multiplexed | 8-bit | 16-bit, multiplexed | 16-bit |
 
 The Z280 column has its cache on. The Z80 sample reaches its USART through
 `IN`/`OUT (C)` with B clear: `IN`/`OUT (n)` put A on A8-A15, and the Z180
-and Z280 boards decode all 16 bits of an I/O address. Their own samples
-keep the USART at 0140H, where a reset puts it back, so their casts move
-it to 40H first. The Z180's own code, with `MLT`, takes a fifth less time
-than the Z80 code; the Z280 runs the Z80 code three times as fast as a
-Z80, and its own, with its multiply and divide, eleven times as fast
-again. The KL5C80A12 is missing: its CPU takes every maskable interrupt
-from its on-chip controller, which starts with all levels masked and
-answers the acknowledge with a vector, not the USART's `RST`, so the Z80
-code's mode 0 interrupts never reach it.
+and Z280 boards decode all 16 bits of an I/O address, the Z380 board all
+32, with BC's upper half clear after a reset. Their own samples keep the
+USART at 0140H, where a reset puts it back, so their casts move it to 40H
+first. The Z180's own code, with `MLT`, takes a fifth less time than the
+Z80 code; the Z280 runs the Z80 code three times as fast as a Z80, and its
+own, with its multiply and divide, eleven times as fast again. The Z380,
+with no cache, runs the Z80 code 1.7 times as fast as a Z80, and its own,
+with `MULTW` and `DIVUW`, ten times as fast again. The KL5C80A12 is
+missing: its CPU takes every maskable interrupt from its on-chip
+controller, which starts with all levels masked and answers the
+acknowledge with a vector, not the USART's `RST`, so the Z80 code's mode 0
+interrupts never reach it.
