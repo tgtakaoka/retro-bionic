@@ -59,16 +59,21 @@ void Signals::print() const {
     buffer.hex16(5, addr);
     buffer.hex8(12, data);
 #ifdef PROFILE_CYCLES
-    // CNTL0-3, and how many cycles the matcher gave a marked fetch, for
-    // tools/cycles_mc6809.py.
-    cli.print(buffer);
-    cli.print(" c=");
-    cli.printHex(cntl(), 1);
-    cli.print(" m=");
-    cli.printlnDec(fetch() ? matched() : 0);
+    constexpr auto suffix = true;
 #else
-    cli.println(buffer);
+    const auto suffix = Debugger.verbose();  // a bench recording's
 #endif
+    if (suffix) {
+        // CNTL0-3, and how many cycles the matcher gave a marked fetch, for
+        // tools/cycles_mc6809.py.
+        cli.print(buffer);
+        cli.print(" c=");
+        cli.printHex(cntl(), 1);
+        cli.print(" m=");
+        cli.printlnDec(fetch() ? matched() : 0);
+    } else {
+        cli.println(buffer);
+    }
 }
 
 }  // namespace mc6809

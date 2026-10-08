@@ -8,35 +8,24 @@ namespace hd6309 {
 
 using mc6809::SoftwareType;
 
+// The MC6809 and the HD6309, as MatchWalker sees them.
 struct InstHd6309 final : mc6809::InstMc6809 {
-    InstHd6309(Mems *mems) : InstMc6809(mems) {}
+    explicit InstHd6309(const MatchMemory *mems) : InstMc6809(mems) {}
 
-    bool match(const mc6800::Signals *begin, const mc6800::Signals *end,
-            const mc6800::Signals *prefetch) override;
-    bool matchInterrupt(
-            const mc6800::Signals *begin, const mc6800::Signals *end) override;
     void setSoftwareType(SoftwareType type) override { _type = type; }
+    bool decode(uint32_t pc, MatchWalker::Decoded &inst) const override;
 
 protected:
-    // FIRQ, SWI2, SWI3 and the HD6309 trap sit below FFF8.
-    uint16_t vectorBase() const override { return 0xFFF0; }
+    const char *intrSequence() const override;
 
 private:
-    SoftwareType _type;
-    bool _native6309;
-    bool _matchingNative6309;
-
-    struct StrBuffer;
-    const char *assembleSequence(
-            uint16_t fetch, const char *seq, StrBuffer &sequence) const;
-    static void appendStackSequence(
-            uint8_t post, uint8_t mask, char c, StrBuffer &sequence);
-    static const char *copySequence(const char *seq, StrBuffer &buffer);
+    SoftwareType _type = mc6809::SW_MC6809;
 };
 
 }  // namespace hd6309
 }  // namespace debugger
 #endif
+
 // Local Variables:
 // mode: c++
 // c-basic-offset: 4

@@ -39,7 +39,7 @@ initialize:
         ldx     #rx_queue
 
 wait:
-        cwai    #~CC_IRQ        ; Clear IRQ mask
+        bra     loop            ; spin, IRQ enabled: it comes in running code
 loop:
         orcc    #CC_IRQ         ; Set IRQ mask
         lbsr    queue_remove
