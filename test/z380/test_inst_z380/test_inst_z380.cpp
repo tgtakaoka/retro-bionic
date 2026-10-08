@@ -1,10 +1,12 @@
 // Host-side test of the Z380 bus walker: `pio test -e native`.
 //
-// walks.inc holds bench rings and recorded runs, each with what
-// debugger/z380/tools/walk_z380.py made of it; the firmware's walker must
-// make the same.
+// z380.cycles.zst holds bench rings and recorded runs (see
+// debugger/z380/tools/rings_z380.py); z380.walks.zst what the walker made
+// of each, written by MATCH_GOLDEN=<dir> pio test -e native, a record per
+// ring: its name and walk. Every instruction walked in a bench ring starts
+// a line of its listing.
 
-#include <unity.h>
+#include "../../match_harness.h"
 
 #include <ctype.h>
 #include <stdio.h>
@@ -35,20 +37,45 @@ constexpr uint8_t M1 = 0x01, MRD = 0x02, MWR = 0x04, IORD = 0x08, IOWR = 0x10;
 // #BLEN and #BHEN as the pins read: set when negated.
 constexpr uint8_t BLEN = 0x01, BHEN = 0x02;
 
-struct Walk {
-    const char *name;
+struct Ring {
+    std::string name;
     bool xm;
     bool lw;
     uint32_t stop;
-    unsigned start;  // the cycle the walk starts from
-    const char *cycles;
-    const char *memory;
-    const char *expected;
+    std::string cycles;
+    std::string memory;
+    std::string starts;  // the listing's instruction starts, if a bench's
 };
 
-const Walk WALKS[] = {
-#include "walks.inc"
-};
+// The fixtures: next to this file.
+const auto DIR = match_harness::dirOf(__FILE__);
+
+// z380.cycles.zst's: name, xm, lw, stop, cycles, memory, starts.
+std::vector<Ring> loadRings() {
+    std::vector<Ring> rings;
+    for (const auto &f : match_harness::records(DIR + "z380.cycles.zst")) {
+        if (f.size() < 7)
+            match_harness::broken(DIR + "z380.cycles.zst", "a short ring");
+        rings.push_back(Ring{f[0], f[1] == "1", f[2] == "1",
+                uint32_t(strtoul(f[3].c_str(), nullptr, 16)), f[4], f[5],
+                f[6]});
+    }
+    return rings;
+}
+
+const auto RINGS = loadRings();
+
+// Each ring's walk: "@start addr !vector ...", or "no walk".
+std::map<std::string, std::string> loadWalks() {
+    std::map<std::string, std::string> walks;
+    for (const auto &f : match_harness::records(DIR + "z380.walks.zst")) {
+        if (f.size() == 2)
+            walks[f[0]] = f[1];
+    }
+    return walks;
+}
+
+const auto WALKS = loadWalks();
 
 struct Memory final : InstZ380::Memory {
     std::map<uint32_t, uint8_t> mem;
@@ -115,34 +142,68 @@ void load(Memory &m, const char *text) {
     }
 }
 
-InstZ380 inst;  // big: off the stack
+const MatchWalker &walker = MatchWalker::shared();
 
-void check(const Walk &w) {
-    Cycles::reset();
-    Memory memory;
-    load(memory, w.memory);
-    const auto begin = feed(w.cycles);
-    const auto end = Signals::put();
-    std::string expected = w.expected;
+// "@start addr addr": an interrupt as ! and where it goes.
+std::string walked(bool ok) {
+    if (!ok)
+        return "no walk";
     std::string got;
     char buf[16];
-    // Z380_TRACE=<name>: print that walk's failures
-    const auto only = getenv("Z380_TRACE");
-    InstZ380::trace = only && strcmp(only, w.name) == 0;
-    if (inst.walk(begin, end, memory, w.stop, w.xm, w.lw)) {
-        snprintf(buf, sizeof(buf), "@%u ", begin->diff(inst.start()));
-        got = buf;
-        for (auto n = 0u; n < inst.steps(); ++n) {
-            snprintf(buf, sizeof(buf), "%s%s%X", n ? " " : "",
-                    inst.interrupt(n) ? "!" : "", inst.addr(n));
-            got += buf;
+    snprintf(buf, sizeof(buf), "@%u", walker.start());
+    got = buf;
+    for (auto n = 0u; n < walker.steps(); ++n) {
+        if (walker.interrupt(n)) {
+            if (n + 1 < walker.steps())
+                snprintf(buf, sizeof(buf), " !%X", walker.addr(n + 1));
+            else
+                snprintf(buf, sizeof(buf), " !");
+        } else {
+            snprintf(buf, sizeof(buf), " %X", walker.addr(n));
         }
-    } else {
-        got = "no walk";
+        got += buf;
     }
-    snprintf(buf, sizeof(buf), "@%u ", w.start);
-    expected = buf + expected;
-    TEST_ASSERT_EQUAL_STRING_MESSAGE(expected.c_str(), got.c_str(), w.name);
+    return got;
+}
+
+std::string *out;   // MATCH_GOLDEN=<dir>: the walks made, to z380.walks.zst
+unsigned unlisted;  // bench rings walked off the listing
+
+void check(const Ring &w) {
+    Cycles::reset();
+    Memory memory;
+    load(memory, w.memory.c_str());
+    const auto begin = feed(w.cycles.c_str());
+    const auto end = Signals::put();
+    // WALK_TRACE=<name>: print that walk's failures
+    const auto only = getenv("WALK_TRACE");
+    MatchWalker::trace = only && w.name == only;
+    const auto got =
+            walked(InstZ380::walk(begin, end, memory, w.stop, w.xm, w.lw));
+    MatchWalker::trace = false;
+    if (out) {
+        *out += w.name + "\t" + got + "\n";
+        return;
+    }
+    const auto golden = WALKS.find(w.name);
+    TEST_ASSERT_TRUE_MESSAGE(golden != WALKS.end(), w.name.c_str());
+    TEST_ASSERT_EQUAL_STRING_MESSAGE(
+            golden->second.c_str(), got.c_str(), w.name.c_str());
+    // a bench ring's instructions start the listing's lines
+    if (w.starts.empty())
+        return;
+    std::string starts = std::string(" ") + w.starts + " ";
+    std::string off;
+    for (auto n = 0u; n < walker.steps(); ++n) {
+        char addr[16];
+        snprintf(addr, sizeof(addr), " %X ", walker.addr(n));
+        if (!walker.interrupt(n) && starts.find(addr) == std::string::npos)
+            off += addr + 1;
+    }
+    if (!off.empty()) {
+        printf("%s: not in the listing: %s\n", w.name.c_str(), off.c_str());
+        ++unlisted;
+    }
 }
 
 }  // namespace
@@ -154,27 +215,36 @@ void setUp() {
 void tearDown() {}
 
 void test_walks() {
-    for (const auto &w : WALKS)
+    TEST_ASSERT_FALSE_MESSAGE(RINGS.empty(), "no z380.cycles.zst");
+    const auto dir = getenv("MATCH_GOLDEN");
+    std::string walks =
+            "# Generated by: MATCH_GOLDEN=<dir> pio test -e native\n";
+    if (dir)
+        out = &walks;
+    for (const auto &w : RINGS)
         check(w);
+    if (out)
+        match_harness::writeZst(std::string(dir) + "/z380.walks.zst", walks);
+    out = nullptr;
+    TEST_ASSERT_EQUAL_UINT_MESSAGE(0, unlisted, "bench rings off the listing");
 }
 
 // Every cycle of a walk belongs to an instruction, and each one's first
 // fetch is marked.
 void test_marks() {
-    const auto &w = WALKS[0];
+    const auto &w = RINGS[0];
     Cycles::reset();
     Memory memory;
-    load(memory, w.memory);
-    const auto begin = feed(w.cycles);
+    load(memory, w.memory.c_str());
+    const auto begin = feed(w.cycles.c_str());
     const auto end = Signals::put();
-    TEST_ASSERT_TRUE(inst.walk(begin, end, memory, w.stop, w.xm, w.lw));
-    const auto from = begin->diff(inst.start());
+    TEST_ASSERT_TRUE(InstZ380::walk(begin, end, memory, w.stop, w.xm, w.lw));
     auto fetches = 0u;
-    for (auto i = from; i < begin->diff(end); ++i) {
-        TEST_ASSERT_NOT_EQUAL(InstZ380::NOBODY, inst.owner(i));
+    for (auto i = walker.start(); i < begin->diff(end); ++i) {
+        TEST_ASSERT_NOT_EQUAL(MatchWalker::NOBODY, walker.owner(i));
         fetches += begin->next(i)->fetch();
     }
-    TEST_ASSERT_GREATER_THAN(inst.steps() / 2, fetches);
+    TEST_ASSERT_GREATER_THAN(walker.steps() / 2, fetches);
 }
 
 // A ring with no walk to the stop: nothing walked, nothing marked.
@@ -184,14 +254,23 @@ void test_no_walk() {
     cycle(MWR, 0x2000, 0x1234, true);
     cycle(MWR, 0x2002, 0x1234, true);
     const auto end = Signals::put();
-    TEST_ASSERT_FALSE(inst.walk(begin, end, memory, 0x0100, false, false));
-    TEST_ASSERT_EQUAL_UINT(0, inst.steps());
+    TEST_ASSERT_FALSE(InstZ380::walk(begin, end, memory, 0x0100, false, false));
+    TEST_ASSERT_EQUAL_UINT(0, walker.steps());
     for (auto i = 0u; i < begin->diff(end); ++i)
         TEST_ASSERT_FALSE(begin->next(i)->fetch());
 }
 
+// Every sequence it walks with is the legend's, but the address bytes a
+// DDIR's immediate widens.
+void test_sequences() {
+    match_harness::checkSequences(InstZ380::sequences(), "a");
+    for (const auto seq : InstZ380::interrupts())
+        match_harness::checkInterrupt(seq);
+}
+
 int main() {
     UNITY_BEGIN();
+    RUN_TEST(test_sequences);
     RUN_TEST(test_walks);
     RUN_TEST(test_marks);
     RUN_TEST(test_no_walk);

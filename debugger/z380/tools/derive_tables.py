@@ -5,10 +5,9 @@ Reads z380-profile.jsonl.zst and writes one table per opcode page into the
 parent debugger/z380/ directory, alongside inst_z380.awk.
 
 The Z380 fetches code as a stream of aligned words, up to 5 bytes ahead,
-so a table row has no bus sequence: the walker (inst_z380.cpp, and
-walk_z380.py on the host) follows the fetch stream and needs per opcode
-only its length, how it transfers control and how many data bytes it
-moves. Columns, shared with inst_z380.awk and walk_z380.py:
+so what is measured per opcode is its length, how it transfers control
+and how many data bytes it moves, as these columns, which sequence()
+writes as the table's one column in debugger/match_legend.md's tokens:
 
   #       length; a DDIR directive in front adds its immediate bytes (IB 1,
           IW 2) when x is +
@@ -195,12 +194,67 @@ def columns(row):
             same(pick('lw', t)), same(pick('xm', t)))
 
 
+# sequence(): the measured columns in debugger/match_legend.md's tokens,
+# the table's one column: the base, then a "/" before the Long Word mode's
+# variant and the Extended mode's, empty where the same. Each kind's bytes
+# go in [ ] with the transfer, in any order; a DDIR IB or IW widens the
+# "a" bytes; a block's iteration is a stepped group.
+def _data(counts):
+    if counts in ('0', '-'):
+        return ''
+    out = ''
+    for kind, n in re.findall(r'([RWrw])(\d)', counts):
+        n = int(n)
+        out += {'R': 'R' + 'r' * (n - 1), 'W': 'W' + 'w' * (n - 1),
+                'r': 'I' * n, 'w': 'O' * n}[kind]
+    return out
+
+
+def _block(iteration):
+    out = ''
+    for kind, step in re.findall(r'([RWrw])([+-]\d|\.)', iteration):
+        if kind in 'RW' and step != '.' and abs(int(step)) == 2:
+            out += kind + step + ('r' if kind == 'R' else 'w')
+        else:
+            out += {'R': 'R', 'W': 'W', 'r': 'I', 'w': 'O'}[kind] + step
+    return '{' + out + '}'
+
+
+def _alternative(code, c, counts):
+    if c.upper() == 'B':
+        return code + '~' + _block(counts) + 'N'
+    d = _data(counts)
+    if c.upper() == 'H':
+        return code + ('~[' + d + ']{h}N' if d else '~{h}N')
+    transfer = {'A': 'J', 'L': 'J', 'T': 'J', 'X': 'J', 'I': '?'}.get(c.upper(), '')
+    if not d and not transfer:
+        return code + '~N'
+    return code + '~[' + d + transfer + ']' + ('' if transfer else 'N')
+
+
+def _variant(code, c, taken, not_taken):
+    alt = _alternative(code, c, taken)
+    if c.islower():   # conditional: taken@not
+        alt += '@' + _alternative(code, '-', not_taken)
+    return alt
+
+
+def sequence(length, c, x, taken, not_taken, lw, xm):
+    code = '1' + '2' * (length - 1)
+    if x == '+':   # the operand's last two: an address DDIR IB/IW widens
+        code = code[:-2] + 'aa'
+    base = _variant(code, c, taken, not_taken)
+    lwv = _variant(code, c, lw, not_taken) if lw != '-' else ''
+    xmv = _variant(code, c, xm, not_taken) if xm != '-' else ''
+    return base + ('/' + lwv + '/' + xmv if lwv or xmv else '')
+
+
 def write_tables(rows):
     for page in PAGES:
         path = os.path.join(Z380, 'z380-PAGE%s.txt' % page)
         with open(path, 'w') as f:
-            f.write('op  mnemo   operands           #  c  x  data      not   lw    xm\n')
-            f.write('--  -----   --------           -  -  -  ----      ---   --    --\n')
+            f.write('op  mnemo   operands           #  sequence\n')
+            f.write('--  -----   --------           -  --------\n')
             for opc in range(256):
                 row = rows.get((page, opc))
                 if row is None or row['mnemo'] in UNMEASURED or (page == '00' and opc in (0xCB, 0xED, 0xDD, 0xFD)) \
@@ -208,9 +262,9 @@ def write_tables(rows):
                     f.write('%02X  -\n' % opc)
                     continue
                 data, nott, lw, xm = columns(row)
-                f.write('%02X  %-7s %-18s %d  %s  %s  %-9s %-5s %-5s %s\n' % (
-                    opc, row['mnemo'], row['operands'] or '-', row['len'], row['c'],
-                    row['x'], data, nott, lw, xm))
+                f.write('%02X  %-7s %-18s %d  %s\n' % (
+                    opc, row['mnemo'], row['operands'] or '-', row['len'],
+                    sequence(row['len'], row['c'], row['x'], data, nott, lw, xm)))
         print('wrote', path)
 
 

@@ -995,10 +995,10 @@ sits at the program's PC, and at an odd one no sequence can be injected.
 
 #### Instruction boundaries **[hw][code]**
 
-`InstZ380::walk()` follows the code stream from an instruction start:
-each instruction's bytes are fetched, then its data cycles and, if it
-transfers, the fetch at its target come in any order while sequential
-fetches go on. An interrupt, NMI or trap is the PC pushed and a vector
+The walk (`MatchWalker`, with `InstZ380` as its Arch) follows the code
+stream from an instruction start: each instruction's bytes are fetched,
+then its data cycles and, if it transfers, the fetch at its target come
+in any order while sequential fetches go on. An interrupt, NMI or trap is the PC pushed and a vector
 fetched, in either order, between instructions or in place of a pending
 target's fetch. The walk must end at the stop PC, which may be an
 instruction the queue already holds; the earliest start that does is
@@ -1007,20 +1007,21 @@ first one with data or a transfer are dropped, since a ring that begins
 mid-instruction can be walked from a byte of it. The backtrace prints each
 instruction, then its data cycles.
 
-The tables give no sequences, only per opcode the length, how it
-transfers, whether a `DDIR` immediate widens it, and the bytes it reads and
-writes on memory and I/O, taken or not, and in Long Word and Extended
-mode. `DDIR W` and `LW` pick the Word or Long Word counts. A word split by
-alignment is consecutive bytes, so an instruction's reads, and its writes,
-must be contiguous; that rejects a `RET` "popping" a stray fetch.
+The tables' sequences put an instruction's data and its transfer in an
+unordered `[…]`: each kind's bytes in order, taken or not, with a Long
+Word and an Extended mode variant where those differ, and `a` bytes a
+`DDIR` immediate widens. `DDIR W` and `LW` pick the Word or Long Word
+variant. A word split by alignment is consecutive bytes, so an
+instruction's reads, and its writes, must be contiguous; that rejects a
+`RET` "popping" a stray fetch.
 
 `tools/derive_tables.py` writes the tables from the recording (3,648 runs:
 every libasm opcode and `DDIR` form, odd and even operands, both sides of
 each condition, and Extended and Long Word passes of what the modes
-change). `tools/walk_z380.py` is the walker on the host; it checks every
-run and the bench rings in `z380-rings.json.zst` against the sample
-listings, and writes the host test's fixture. `tools/README.md` has the
-recording's pitfalls.
+change), in `debugger/match_legend.md`'s tokens. `tools/rings_z380.py`
+writes the host test's rings from the recording and the bench rings in
+`z380-rings.json.zst`; the test checks those against the sample
+listings. `tools/README.md` has the recording's pitfalls.
 
 #### Samples **[code]**
 
