@@ -820,14 +820,26 @@ void PinsZ280::printCycles() {
 }
 
 namespace {
-struct MemoryOfMems final : InstZ280::Memory {
-    explicit MemoryOfMems(const Mems *mems) : _mems(mems) {}
+// The code as the CPU ran it: at |at|, the breakpoint's RST 38H, which
+// the break has put back.
+struct BreakMemory final : InstZ280::Memory {
+    BreakMemory(const InstZ280::Memory &mems, uint32_t at)
+        : _mems(mems), _at(at) {}
     uint16_t read_byte(uint32_t addr) const override {
-        return _mems->read_byte(addr);
+        return addr == _at ? InstZ280::RST38 : _mems.read_byte(addr);
     }
-    const Mems *const _mems;
+
+private:
+    const InstZ280::Memory &_mems;
+    const uint32_t _at;
 };
 }  // namespace
+
+Signals *PinsZ280::findFetch(Signals *begin, const Signals *end) const {
+    const auto pc = this->regs<RegsZ280>()->pc();
+    const BreakMemory mems(*_mems, isBreakPoint(pc) ? pc : UINT32_MAX);
+    return InstZ280::findFetch(begin, end, mems, pc);
+}
 
 // fetch() isn't a live bus signal here: InstZ280::findFetch() marks it
 // on a cycle only as a side effect of matching decoded instructions
@@ -845,9 +857,7 @@ const SignalsImpl *PinsZ280::findBacktraceStart() {
         return Cycles::tail();
     const auto end = Signals::put();
     const auto g = Signals::get();
-    const MemoryOfMems memory(_mems);
-    const auto begin = InstZ280::findFetch(
-            g, end, memory, this->regs<RegsZ280>()->pc());
+    const auto begin = findFetch(g, end);
     return backtraceStartFrom<Signals>(begin, _lineLimit);
 }
 
@@ -867,9 +877,7 @@ void PinsZ280::printBacktrace() {
     }
     const auto end = Signals::put();
     const auto g = Signals::get();
-    const MemoryOfMems memory(_mems);
-    const auto begin = InstZ280::findFetch(
-            g, end, memory, this->regs<RegsZ280>()->pc());
+    const auto begin = findFetch(g, end);
     const auto lead = g->diff(begin);
     const auto cycles = begin->diff(end);
 

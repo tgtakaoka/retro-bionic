@@ -39,12 +39,13 @@ void Signals::print() const {
     cli.printDec(pos(), -4);
 #endif
     //                              0123456789012345678901234567890
-#ifdef PROFILE_CYCLES
     // ST0-3, B//W, #R//W and the matcher's mark (F fetch, B byte or
     // stale prefetch, O data, - none), for tools/cycles_z280.py.
     static constexpr char line[] = "R A=xxxxxx D=xxxx S=x b=x r=x m=-";
+#ifdef PROFILE_CYCLES
+    constexpr auto suffix = true;
 #else
-    static constexpr char line[] = "R A=xxxxxx D=xxxx";
+    const auto suffix = Debugger.verbose();  // a bench recording's
 #endif
     auto &buffer = Cycles::buffer();
     buffer.set(line);
@@ -72,12 +73,14 @@ void Signals::print() const {
         buffer.hex8(13, data >> 8);
         buffer[15] = buffer[16] = ' ';
     }
-#ifdef PROFILE_CYCLES
-    buffer.hex4(20, st());
-    buffer.hex4(24, bw());
-    buffer.hex4(28, rw());
-    buffer[32] = fetch() ? 'F' : isByte() ? 'B' : isOperand() ? 'O' : '-';
-#endif
+    if (suffix) {
+        buffer.hex4(20, st());
+        buffer.hex4(24, bw());
+        buffer.hex4(28, rw());
+        buffer[32] = fetch() ? 'F' : isByte() ? 'B' : isOperand() ? 'O' : '-';
+    } else {
+        buffer[17] = 0;
+    }
     cli.println(buffer);
 }
 

@@ -68,7 +68,7 @@ struct Signals final : SignalsBase<Signals> {
     bool wordAccess() const { return bw() == 0; }
     bool byteAccess() const { return bw() != 0; }
 
-    // What InstZ280::match() made of this cycle.
+    // What the walk made of this cycle.
     void markFetch() { mark() = FETCH; }
     void markByte() { mark() = BYTE; }
     void markOperand() { mark() = OPERAND; }

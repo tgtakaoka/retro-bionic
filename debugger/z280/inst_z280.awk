@@ -10,20 +10,11 @@
 # pages' order sets the SEQUENCES numbering.
 #
 # Measured by profile_z280.py/derive_z280.py, hand-maintained since.
-# "#" is the instruction length, "~" the data transactions, "sequence":
-#
-# 1-6: instruction byte, a word read at that byte address (1 = the fetch)
-# ~:   prefetch, a word read at the next unfetched address; greedy, capped
-# B R: read byte / word (memory)        Y W: write byte / word (memory)
-# b r: read byte / word (I/O)           y w: write byte / word (I/O)
-# a:   interrupt acknowledge            h:   halt
-# { }: repeat group (block instructions)
-# --- control transfer: the read at the target ends the fetch stream
-# j:   next+disp8      J: absolute nn   k: next+disp16    i: unknown target
-# A:   target == last word read (byte-swapped)   C: target == opcode & 38H
-# F:   flush without transfer: the next address is fetched again
-# S:   trap: target == the PC word read from the vector table
-# @:   taken@not-taken
+# "#" is the instruction length, "~" the data transactions, "sequence" in
+# debugger/match_legend.md's tokens. A row is its sequence's index: its
+# length is the sequence's bytes. Data tokens count bytes, which a word
+# cycle meets two of. J goes to nn, a JR's or DJNZ's to the next + disp,
+# the FD page's to the next + disp16, RST's to its opcode & 38H.
 #
 # Unique sequences are collected in first-seen order and printed at END.
 
@@ -63,25 +54,20 @@ $1 !~ /^[0-9A-F][0-9A-F]$/ { next; }
     opc = $1;
     mne = $2;
     if (mne == "-") {
-        line = sprintf("        {0,   0},  // %s", opc);
+        line = sprintf("        0,  // %s", opc);
     } else {
         opr = $3;
         len = $4;
         seq = $6;
         if (seq == "" || seq == "-")
             seq = "-";
-        cyc = seq;
-        gsub(":", "", cyc);
-        n = split(cyc, alt, "@");
-        for (i = 1; i <= n; i++) {
-            if (length(alt[i]) > 31) {   # InstZ280::SEQUENCE_MAX
-                printf("%s: %s: alternative longer than 31: %s\n", FILENAME, opc, seq) > "/dev/stderr";
-                exit 1;
-            }
+        idx = (seq == "-") ? 0 : seq_index(seq);
+        if (idx > 255) {
+            printf("%s: %s: more than 255 sequences\n", FILENAME, opc) > "/dev/stderr";
+            exit 1;
         }
-        idx = (cyc == "-") ? 0 : seq_index(cyc);
-        line = sprintf("        {%d, %3d},  // %s: %-7s %-18s %s",
-                       len, idx, opc, mne, opr, seq);
+        line = sprintf("        %3d,  // %s: %-7s %-18s %s",
+                       idx, opc, mne, opr, seq);
     }
     if (FILENAME != current) {
         page = FILENAME;
@@ -104,7 +90,7 @@ END {
         printf("        %-16s  // %3d\n", "\"" SEQ[i] "\",", i);
     printf("};\n");
     for (p = 1; p <= npage; p++) {
-        printf("\nconstexpr InstZ280::Table %s_TABLE[] = {\n", PAGE[p]);
+        printf("\nconstexpr uint8_t %s_TABLE[] = {\n", PAGE[p]);
         for (i = 1; i <= count[p]; i++)
             printf("%s\n", ROW[p, i]);
         printf("};\n");

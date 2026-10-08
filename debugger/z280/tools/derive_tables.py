@@ -6,7 +6,8 @@ parent debugger/z280/ directory, alongside inst_z280.awk) and
 z280-profile-report.txt (prefetch depth, anomalies). The tables are
 hand-maintained afterwards; regenerate only to compare.
 
-Legend, shared with inst_z280.awk:
+Measured as these transactions, written in debugger/match_legend.md's
+tokens by legend():
   1-6  instruction byte: a word read at that byte address (1 marks the fetch)
   ~    prefetch: a word read at the next unfetched address; greedy, capped
   B R  read byte / word (memory)        Y W  write byte / word (memory)
@@ -401,6 +402,53 @@ def prefetch_stats(recs, report):
                   ' '.join('%d:%d' % kv for kv in sorted(at_exit.items())))
 
 
+# legend(): the measured transactions in match_legend.md's tokens. Data
+# tokens count bytes: a word is two, which one word cycle meets; a byte
+# operand's R was the word transaction its even address took, and a word
+# op's two byte transactions an odd address's word. A block move's group
+# steps its addresses as its opcode says. Where an alternative names no
+# transfer, the next instruction follows: N.
+TOKENS = {'1': '1', '~': '~', 'B': 'R', 'R': 'Rr', 'Y': 'W', 'W': 'Ww',
+          'b': 'I', 'r': 'II', 'y': 'O', 'w': 'OO', 'a': '!', 'h': 'h',
+          'j': 'J', 'J': 'J', 'k': 'J', 'C': 'J', 'i': '?', 'A': 'P', 'S': 'P'}
+# the ED page's block moves, going up; bit 3 set goes down
+BLOCK = {0x92: '{IIW+2w}', 0x93: '{R+2rOO}', 0xB0: '{R+1W+1}', 0xB1: '{R+1}',
+         0xB2: '{IW+1}', 0xB3: '{R+1O}'}
+BYTE_OPS = {'ADC', 'ADD', 'AND', 'CP', 'OR', 'SBC', 'SUB', 'XOR', 'DEC', 'INC',
+            'CPI', 'CPD', 'LDI', 'LDD', 'MULT', 'MULTU', 'DIV', 'DIVU', 'OUT',
+            'OUTI', 'OUTD', 'RLD', 'RRD'}
+
+
+def legend(seq, opc, mnemo, operands):
+    if seq == '-':
+        return '-'
+    if mnemo in ('LD', 'EX'):
+        byte = re.match(r'^A,|,A$', operands) is not None
+    else:
+        byte = mnemo in BYTE_OPS
+    alts = []
+    for alt in seq.split(':@:'):
+        alt = alt.replace('B:B', 'R').replace('Y:Y', 'W')
+        out = ''
+        toks = alt.split(':')
+        k = 0
+        while k < len(toks):
+            t = toks[k]
+            if t == '{':
+                k = toks.index('}', k)
+                group = BLOCK[opc & ~0x08]
+                out += '~' + (group.replace('+', '-') if opc & 0x08 else group)
+            elif t in '23456':
+                out += '2'
+            else:
+                out += 'R' if t == 'R' and byte else TOKENS[t]
+            k += 1
+        if not re.search(r'[JP?]', out):
+            out += 'N'
+        alts.append(out)
+    return '@'.join(alts)
+
+
 def write_tables(rows, pats):
     for page in PAGES:
         path = os.path.join(Z280, 'z280-PAGE%s.txt' % page)
@@ -413,9 +461,11 @@ def write_tables(rows, pats):
                 if mnemo == '-':
                     f.write('%02X  -\n' % opc)
                     continue
+                operands = operands.replace(' ', '') or '-'
                 f.write('%02X  %-7s %-18s %s  %s  %s\n' % (
-                    opc, mnemo, operands.replace(' ', '') or '-', length,
-                    data if data not in ('-', 0) else '-', seq))
+                    opc, mnemo, operands, length,
+                    data if data not in ('-', 0) else '-',
+                    legend(seq, opc, mnemo, operands)))
 
 
 def main():

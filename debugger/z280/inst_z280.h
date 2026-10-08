@@ -3,16 +3,29 @@
 
 #include <stdint.h>
 
+#ifndef ARDUINO
+#include <vector>
+#endif
+
+#include "match_memory.h"
+#include "match_walker.h"
+
 namespace debugger {
 namespace z280 {
 
 struct Signals;
 
-struct InstZ280 {
-    // Where opcode bytes come from: the board's memory, or a host array.
-    struct Memory {
-        virtual uint16_t read_byte(uint32_t addr) const = 0;
-    };
+// The Z280 as MatchWalker sees it, its code in |mems|: a queue of 4 bytes,
+// stalls that fetch again, and an MMU between the PC and the bus.
+struct InstZ280 final : MatchWalker::Arch {
+    using Memory = MatchMemory;
+
+    explicit InstZ280(const Memory *mems)
+        : Arch(MatchWalker::Traits{.addressMask = 0xFFFFFF,
+                  .queue = 4,
+                  .refetch = 1,
+                  .cutStart = 5}),
+          _mems(mems) {}
 
     static constexpr uint8_t NOP = 0x00;
     static constexpr uint8_t HALT = 0x76;
@@ -34,52 +47,32 @@ struct InstZ280 {
     // #NMI pushes PC and vectors here in interrupt modes 0, 1 and 2.
     static constexpr uint16_t ORG_NMI = 0x0066;
 
-    // Measured: prefetch runs up to 3 words past an instruction.
-    static constexpr uint_fast8_t PREFETCH_MAX = 4;
-    // Longest alternative in the tables; inst_z280.awk checks it.
-    static constexpr uint_fast8_t SEQUENCE_MAX = 31;
-
-    // Match the instruction at begin->addr against the ring [begin, end):
-    // marks its cycles; nexti() is where the next one starts, nextAddr()
-    // what it fetches.
-    bool match(Signals *begin, const Signals *end, const Memory &mems);
-    // An interrupt or trap taken instead of the fetch at |expected|.
-    bool matchInterrupt(Signals *begin, const Signals *end, uint32_t expected);
-    // Match the ring from |begin|. A match must be followed by what it
-    // expects (next address, branch target, popped address, interrupt
-    // vector, or the stop |pc|), else it is no instruction and is
-    // dropped. Returns the count; |atPc|: the chain ends at the PC.
-    static uint_fast8_t matchAll(Signals *begin, const Signals *end,
-            const Memory &mems, uint32_t pc, bool &atPc);
-    // The start whose chain ends at the PC, then the longest, then the
-    // earliest. Leaves the ring marked from it.
+    // The walk of the ring [begin, end) that leaves the CPU at |pc|:
+    // where it starts, |end| if there is none. Marks its cycles: fetch()
+    // on each instruction's first fetch, isOperand() on data, isByte() on
+    // the other fetches.
     static Signals *findFetch(Signals *begin, const Signals *end,
             const Memory &mems, uint32_t pc);
-#ifndef ARDUINO
-    static bool trace;  // host test: print matchAll()'s passes
-#endif
-    // The ring ended inside the sequence.
-    bool isEnd() const { return _insufficient; }
-    // Matched, but the taken branch ran out of ring: next unknown.
-    bool cutShort() const { return _cutShort; }
-    uint_fast8_t nexti() const { return _nexti; }
-    uint32_t nextAddr() const { return _next; }
 
-    struct Table {
-        uint8_t len;
-        uint8_t seq;
-    };
+    MatchWalker::Kind cycleKind(const SignalsImpl *s) const override;
+    bool decode(uint32_t pc, MatchWalker::Decoded &inst) const override;
+#ifndef ARDUINO
+    // The sequences it walks with, for a host test to check: its
+    // instructions', its interrupts'.
+    static std::vector<const char *> sequences();
+    static std::vector<const char *> interrupts();
+#endif
+    uint_fast8_t dataBytes(const SignalsImpl *s) const override;
+    uint8_t dataByte(const SignalsImpl *s, uint_fast8_t k) const override;
+    bool sameAddress(uint32_t bus, uint32_t addr) const override;
+    bool pushesPc(
+            const SignalsImpl *s, uint32_t next, uint32_t last) const override;
+    const char *interruptSequence() const override;
+    void markCycle(SignalsImpl *s, MatchWalker::Role role,
+            uint_fast8_t span) const override;
 
 private:
-    uint_fast8_t _len;
-    bool _insufficient;
-    bool _cutShort;
-    uint_fast8_t _nexti;
-    uint32_t _next;
-
-    const Table *get(uint32_t pc, const Memory &mems);
-    bool matchSequence(Signals *begin, const Signals *end, const char *seq,
-            const Memory &mems);
+    const Memory *_mems;
 };
 
 }  // namespace z280
