@@ -102,6 +102,7 @@ private:
     void printBacktrace() override;
     bool rawStep();
     bool isRst38Break(Signals *s);
+    Signals *findFetch(Signals *begin, const Signals *end) const;
     bool loop();
 
     Signals *prepareCycle();

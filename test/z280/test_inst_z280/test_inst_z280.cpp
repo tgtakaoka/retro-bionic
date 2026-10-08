@@ -1,5 +1,9 @@
 // Host-side test of the Z280 cycle matcher: `pio test -e native`.
 //
+// <set>.cycles.zst are the recorded rings (see test/match_rings.py),
+// <set>.marks.zst what findFetch() made of them (see
+// test/match_harness.h).
+//
 // dumps/ holds verbose console dumps of sample runs on the board, with
 // the HEX and listing of each sample as it was when recorded. Each dump
 // is replayed through InstZ280::findFetch() and every mark checked
@@ -10,7 +14,7 @@
 // cycle's mark (I fetch, b byte or stale prefetch, o data). Sanitizers:
 //   PLATFORMIO_BUILD_FLAGS='-fsanitize=address,undefined' pio test -e native
 
-#include <unity.h>
+#include "../../match_harness.h"
 
 #include <ctype.h>
 #include <stdio.h>
@@ -35,6 +39,9 @@ void Signals::print() const {}  // the real one needs the console
 }  // namespace debugger
 
 namespace {
+
+// The fixtures: next to this file.
+const auto DIR = match_harness::dirOf(__FILE__);
 
 std::string here() {
     std::string f = __FILE__;
@@ -90,7 +97,8 @@ std::map<uint32_t, std::string> listing(const std::string &path) {
             continue;
         p = end + 3;
         std::string bytes;
-        while (isxdigit(p[0]) && isxdigit(p[1]) && (p[2] == ' ' || p[2] == '\n')) {
+        while (isxdigit(p[0]) && isxdigit(p[1]) &&
+                (p[2] == ' ' || p[2] == '\n')) {
             bytes += p[0];
             bytes += p[1];
             p += 3;
@@ -178,21 +186,12 @@ struct Replay {
     const Signals *end = nullptr;
     uint32_t pc = 0;
     unsigned cycles = 0, matched = 0, unexplained = 0, offset = 0;
-    bool verbose = false;
 
     void run(const InstZ280::Memory &memory, uint32_t stopPc) {
         pc = stopPc;
         begin = Signals::get();
         end = Signals::put();
         cycles = begin->diff(end);
-        if (verbose) {
-            const auto limit = cycles >= 14 ? 14 : cycles;
-            for (unsigned i = 0; i < limit; ++i) {
-                bool atPc;
-                const auto n = InstZ280::matchAll(begin->next(i), end, memory, pc, atPc);
-                printf("start %2u: %2u matched%s\n", i, n, atPc ? ", ends at the PC" : "");
-            }
-        }
         const auto at = InstZ280::findFetch(begin, end, memory, pc);
         offset = begin->diff(at);
         matched = unexplained = 0;
@@ -200,24 +199,90 @@ struct Replay {
             const auto s = begin->next(i);
             if (s->fetch())
                 ++matched;
-            else if (i >= offset && !s->isByte() && !s->isOperand() && s->read())
+            else if (i >= offset && !s->isByte() && !s->isOperand() &&
+                     s->read())
                 ++unexplained;
         }
     }
 
     void print() const {
-        printf("start %u, PC=%04X, %u matched, %u unexplained\n", offset, pc, matched, unexplained);
+        printf("start %u, PC=%04X, %u matched, %u unexplained\n", offset, pc,
+                matched, unexplained);
         for (unsigned i = 0; i < cycles; ++i) {
             const auto s = begin->next(i);
             printf("%3u %c %c %s=%06X D=%04X%s\n", i,
-                   s->fetch() ? 'I' : s->isByte() ? 'b' : s->isOperand() ? 'o' : ' ',
-                   s->read() ? 'R' : 'W', s->ioReq() ? "I" : "A", s->addr, s->data,
-                   s->byteAccess() ? " byte" : "");
+                    s->fetch()       ? 'I'
+                    : s->isByte()    ? 'b'
+                    : s->isOperand() ? 'o'
+                                     : ' ',
+                    s->read() ? 'R' : 'W', s->ioReq() ? "I" : "A", s->addr,
+                    s->data, s->byteAccess() ? " byte" : "");
         }
     }
 };
 
 Cycles *ring = nullptr;
+
+const auto RINGS = match_harness::loadRings(DIR, "z280");
+
+// The bench rings: where running samples stopped (scripts/record-rings.py).
+const auto BENCH = match_harness::loadRings(DIR, "bench_z280");
+
+// Memory as a ring's reads left it, by Z-BUS lane: a word's even byte on
+// D15-D8, a byte on its own lane. A bench ring's program wins over them,
+// with the breakpoint's RST 38H at its stop, as the board walks it.
+struct RingMemory final : InstZ280::Memory {
+    std::vector<uint8_t> mem = std::vector<uint8_t>(1 << 16, 0xFF);
+    explicit RingMemory(const std::vector<match_harness::Cycle> &cycles) {
+        for (const auto &c : cycles) {
+            if (c.kind != 'R')
+                continue;
+            const auto a = c.addr & 0xFFFF;
+            if (c.cntl & 0x100) {
+                mem[a] = (a & 1) ? c.data : c.data >> 8;
+            } else {
+                mem[a & ~1] = c.data >> 8;
+                mem[a | 1] = c.data;
+            }
+        }
+        match_harness::loadMemory(match_harness::memory,
+                [&](uint32_t a, uint8_t b) { mem[a & 0xFFFF] = b; });
+    }
+    uint16_t read_byte(uint32_t a) const override { return mem[a & 0xFFFF]; }
+};
+
+// findFetch() over a recorded run, as the board would: each cycle's mark
+// (1 fetch, 2 byte or stale prefetch, 3 data), and the start's index or
+// -1. |cntl| is ST, with B/#W above it.
+int replay(const std::vector<match_harness::Cycle> &cycles,
+        std::vector<int> &marks, uint32_t stop) {
+    Cycles::reset();
+    for (const auto &c : cycles) {
+        auto s = Signals::put();
+        s->clearMark();
+        s->addr = c.addr;
+        s->data = c.data;
+        s->_signals[0] = c.kind == 'R' || c.kind == 'r';  // R/#W
+        s->_signals[1] = (c.cntl >> 8) & 1;               // B/#W
+        s->_signals[2] = c.cntl & 0xFF;                   // ST
+        Cycles::next();
+    }
+    RingMemory memory(cycles);
+    if (match_harness::memory)
+        memory.mem[stop & 0xFFFF] = InstZ280::RST38;
+    const auto begin = Signals::get();
+    const auto end = Signals::put();
+    MatchWalker::trace = match_harness::tracing();
+    const auto at = InstZ280::findFetch(begin, end, memory, stop);
+    for (auto i = 0u; i < cycles.size(); ++i) {
+        const auto s = begin->next(i);
+        marks.push_back(s->fetch()       ? 1
+                        : s->isByte()    ? 2
+                        : s->isOperand() ? 3
+                                         : 0);
+    }
+    return at == end ? -1 : begin->diff(at);
+}
 
 // Replay one dump of |sample| and check its marks against the listing.
 void check(const char *sample, const char *dump) {
@@ -244,8 +309,9 @@ void check(const char *sample, const char *dump) {
         if (first == replay.cycles)
             first = i;
         char msg[80];
-        snprintf(msg, sizeof msg, "%s: fetch marked inside an instruction at %04X",
-                 dump, (unsigned)s->addr);
+        snprintf(msg, sizeof msg,
+                "%s: fetch marked inside an instruction at %04X", dump,
+                (unsigned)s->addr);
         TEST_ASSERT_TRUE_MESSAGE(starts.count(s->addr & 0xFFFF), msg);
     }
     // Every write between the third and the last instruction belongs
@@ -256,7 +322,7 @@ void check(const char *sample, const char *dump) {
             continue;
         char msg[80];
         snprintf(msg, sizeof msg, "%s: write at cycle %u to %04X unexplained",
-                 dump, i, (unsigned)s->addr);
+                dump, i, (unsigned)s->addr);
         TEST_ASSERT_TRUE_MESSAGE(s->isOperand(), msg);
     }
 }
@@ -315,6 +381,15 @@ void test_echoitr_mode_0_interrupts() {
     check("echoitr", "echoitr.txt");
 }
 
+void test_recorded_runs() {
+    match_harness::check(DIR, "z280", RINGS, replay);
+}
+
+void test_bench_rings() {
+    match_harness::isFetch = [](int mark) { return mark == 1; };
+    match_harness::check(DIR, "bench_z280", BENCH, replay);
+}
+
 void test_replay_one_dump() {
     // Z280_DUMP=<dump> [Z280_HEX=<sample.hex>]: a diagnostic, not a check.
     const char *dump = getenv("Z280_DUMP");
@@ -322,18 +397,27 @@ void test_replay_one_dump() {
         TEST_IGNORE_MESSAGE("set Z280_DUMP to replay a dump");
     Memory memory;
     const char *hex = getenv("Z280_HEX");
-    TEST_ASSERT_TRUE_MESSAGE(memory.load(hex ? hex : here() + "dumps/mandelbrot.hex"), "Z280_HEX");
+    TEST_ASSERT_TRUE_MESSAGE(
+            memory.load(hex ? hex : here() + "dumps/mandelbrot.hex"),
+            "Z280_HEX");
     const auto pc = load_dump(dump);
     Replay replay;
-    replay.verbose = true;
-    InstZ280::trace = getenv("Z280_TRACE") != nullptr;
+    MatchWalker::trace = getenv("Z280_TRACE") != nullptr;
     replay.run(memory, pc);
-    InstZ280::trace = false;
+    MatchWalker::trace = false;
     replay.print();
+}
+
+// Every sequence it walks with is the legend's.
+void test_sequences() {
+    match_harness::checkSequences(InstZ280::sequences());
+    for (const auto seq : InstZ280::interrupts())
+        match_harness::checkInterrupt(seq);
 }
 
 int main() {
     UNITY_BEGIN();
+    RUN_TEST(test_sequences);
     RUN_TEST(test_arith_to_its_exit);
     RUN_TEST(test_mandelbrot_halted);
     RUN_TEST(test_mandelbrot_cut_inside_a_multiply);
@@ -343,6 +427,8 @@ int main() {
     RUN_TEST(test_mandelbrot_cut_in_a_divide);
     RUN_TEST(test_echoir_mode_1_interrupts);
     RUN_TEST(test_echoitr_mode_0_interrupts);
+    RUN_TEST(test_recorded_runs);
+    RUN_TEST(test_bench_rings);
     RUN_TEST(test_replay_one_dump);
     return UNITY_END();
 }
