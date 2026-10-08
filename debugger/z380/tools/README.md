@@ -23,18 +23,16 @@ Needs Python 3.14 (`compression.zstd`). Run from the repository root.
   Extended push needs the 4-byte stack fill and far branch targets filled.
 
 - **`derive_tables.py`** -- turns the recording into the `z380-PAGExx.txt`
-  tables in the parent directory, which `inst_z380.awk` makes into
-  `inst_z380.cpp`; its docstring has the legend of the columns.
+  tables in the parent directory, in `debugger/match_legend.md`'s tokens,
+  which `inst_z380.awk` makes into `inst_z380.cpp`; its docstring has
+  what is measured.
 
-- **`walk_z380.py`** -- the fetch-queue walker of `inst_z380.cpp` on the
-  host, reading the same tables.
-  ```
-  walk_z380.py records    # every recorded run walks as one instruction
-  walk_z380.py rings      # z380-rings.json.zst, halts of the samples: every
-                          # instruction walked starts a line of the listing
-  walk_z380.py fixture    # test/z380/test_inst_z380/walks.inc, for the
-                          # host test that holds inst_z380.cpp to this
-  ```
+- **`rings_z380.py`** -- prints the rings of
+  `test/z380/test_inst_z380/z380.cycles.zst` from `z380-rings.json.zst`,
+  halts of the samples with their listings' instruction starts, and a
+  share of the recorded runs. The host test walks each, holds the walks
+  to `z380.walks.zst`, and checks every instruction walked in a bench
+  ring starts a line of its listing.
 
 - **`check_samples.py`** -- runs the samples on a normal build and
   cross-checks every disassembled line of the backtrace against

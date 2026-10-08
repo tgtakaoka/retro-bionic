@@ -845,15 +845,11 @@ private:
     }
 };
 
-namespace {
-InstZ380 walker;  // big: kept off the stack
-}  // namespace
-
 // fetch() isn't a live bus signal here (#M1 marks only acknowledges): the
 // walk of the ring to the PC marks it, so that runs first.
 bool PinsZ380::walkRing(const CodeMemory &memory) {
     const auto regs = this->regs<RegsZ380>();
-    return walker.walk(Signals::get(), Signals::put(), memory, regs->pc(),
+    return InstZ380::walk(Signals::get(), Signals::put(), memory, regs->pc(),
             regs->extended(), regs->longWord());
 }
 
@@ -861,7 +857,8 @@ const SignalsImpl *PinsZ380::findBacktraceStart() {
     const auto g = Signals::get();
     const CodeMemory memory(this);
     return backtraceStartFrom<Signals>(
-            walkRing(memory) ? walker.start() : g, _lineLimit);
+            walkRing(memory) ? g->next(MatchWalker::shared().start()) : g,
+            _lineLimit);
 }
 
 // One line per instruction, then its data transfers; fetches only when
@@ -871,24 +868,20 @@ void PinsZ380::printBacktrace() {
     const auto cycles = g->diff(Signals::put());
     const CodeMemory memory(this);
     const auto walked = walkRing(memory);
-    const auto lead = walked ? g->diff(walker.start()) : cycles;
+    const auto &walker = MatchWalker::shared();
+    const auto lead = walked ? walker.start() : cycles;
     for (auto i = 0u; i < lead; ++i) {
         g->next(i)->print();
         idle();
     }
     if (!walked)
         return;
-    for (auto i = lead; i < cycles; ++i) {
-        if (walker.owner(i) == InstZ380::LEAD) {
-            g->next(i)->print();
-            idle();
-        }
-    }
     mems<MemsZ380>()->setCode(&memory);
     for (auto n = 0u; n < walker.steps(); ++n) {
         if (!walker.interrupt(n))
             _mems->disassemble(walker.addr(n) & MemsZ380::ADDR_MASK, 1);
-        for (auto i = lead; i < cycles; ++i) {
+        const auto first = walker.first(n);
+        for (auto i = first; i < first + walker.cycles(n); ++i) {
             const auto s = g->next(i);
             if (walker.owner(i) == n && (s->isOperand() || Debugger.verbose()))
                 s->print();
@@ -897,7 +890,7 @@ void PinsZ380::printBacktrace() {
     }
     mems<MemsZ380>()->setCode(nullptr);
     for (auto i = lead; i < cycles; ++i) {
-        if (walker.owner(i) == InstZ380::NOBODY) {
+        if (walker.owner(i) == MatchWalker::NOBODY) {
             g->next(i)->print();
             idle();
         }
