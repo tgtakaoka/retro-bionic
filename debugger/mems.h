@@ -4,6 +4,7 @@
 #include <stdint.h>
 
 #include "config_debugger.h"
+#include "match_memory.h"
 
 namespace libasm {
 struct Assembler;
@@ -17,7 +18,7 @@ enum Endian : uint16_t {
     ENDIAN_LITTLE,
 };
 
-struct Mems {
+struct Mems : MatchMemory {
     virtual ~Mems();
 
     /// Maximum address of program memory
