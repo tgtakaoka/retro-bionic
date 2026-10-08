@@ -66,7 +66,6 @@ private:
     void handleTrap(Signals *s, uint16_t vector, bool breakTrap);
 
     void printCycles(const Signals *end);
-    bool matchAll(Signals *begin, const Signals *end);
     const Signals *findFetch(Signals *begin, const Signals *end);
 #ifdef PROFILE_CYCLES
     const Signals *_profileEnd = nullptr;  // the TRAP's last cycle, + 1

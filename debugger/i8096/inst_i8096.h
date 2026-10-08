@@ -1,15 +1,18 @@
 #ifndef __INST_I8096_H__
 #define __INST_I8096_H__
 
-#include "mems_i8096.h"
+#include "match_memory.h"
+#include "match_walker.h"
 #include "signals_i8096.h"
 
 namespace debugger {
 namespace i8096 {
 
+// An instruction's sequence, from the tables.
 struct InstI8096 final {
-    bool set(uint16_t pc, MemsI8096 *mems);
+    bool set(uint16_t pc, const MatchMemory *mems);
     uint_fast8_t opc() const { return _opc; }
+    const char *sequence() const { return _seq; }
     uint_fast8_t instLength() const;
 
     static constexpr uint16_t ORG_RESET = 0x2080;
@@ -19,28 +22,40 @@ struct InstI8096 final {
     static constexpr uint8_t TRAP = 0xF7;
 #define SJMP(disp) (0x20 | ((disp >> 8) & 7)), (disp & 0xFF)
 
-    bool match(SignalsI8096 *begin, const SignalsI8096 *end, MemsI8096 *mems);
-    bool isEnd() const { return _insufficient; }
-    uint_fast8_t nexti() const { return _nexti; }
-
-    struct Table {
-        uint8_t len;
-        uint8_t seq;
-    };
-
 private:
     uint_fast8_t _opc;
-    uint_fast8_t _len;
-    bool _indexed;
-    bool _insufficient;
-    uint_fast8_t _nexti;
+    const char *_seq;
 
-    const Table *get(uint16_t pc, MemsI8096 *mems);
     static bool indexAddressing(uint_fast8_t opc);
+};
 
-    bool matchSequence(
-            SignalsI8096 *begin, const SignalsI8096 *end, const char *seq);
-    bool matchInterrupt(SignalsI8096 *begin, const SignalsI8096 *end) const;
+// The 8096 as MatchWalker sees it, its code in |mems|: a queue of 4 bytes.
+struct ArchI8096 final : MatchWalker::Arch {
+    explicit ArchI8096(const MatchMemory *mems)
+        : Arch(MatchWalker::Traits{.maxStart = 14, .queue = 4, .cutStart = 4}),
+          _mems(mems) {}
+
+    // Keeps the board's bus alive while a walk goes, if set.
+    void setIdle(void (*idle)(void *), void *context) {
+        _idle = idle;
+        _context = context;
+    }
+
+    MatchWalker::Kind cycleKind(const SignalsImpl *s) const override;
+    bool decode(uint32_t pc, MatchWalker::Decoded &inst) const override;
+    bool isVectorTable(uint32_t addr) const override;
+    const char *interruptSequence() const override;
+    void idle() const override {
+        if (_idle)
+            _idle(_context);
+    }
+    void markCycle(SignalsImpl *s, MatchWalker::Role role,
+            uint_fast8_t span) const override;
+
+private:
+    const MatchMemory *_mems;
+    void (*_idle)(void *) = nullptr;
+    void *_context = nullptr;
 };
 
 }  // namespace i8096

@@ -29,6 +29,17 @@ private:
     RegsI8096 *const _regs;
 };
 
+// The bytes as the CPU reads them, the CCB and the devices included.
+struct CpuMemory final : MatchMemory {
+    explicit CpuMemory(const MemsI8096 *mems) : _mems(mems) {}
+    uint16_t read_byte(uint32_t addr) const override {
+        return _mems->read(addr);
+    }
+
+private:
+    const MemsI8096 *const _mems;
+};
+
 }  // namespace i8096
 }  // namespace debugger
 #endif

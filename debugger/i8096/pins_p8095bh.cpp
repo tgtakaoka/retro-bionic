@@ -9,6 +9,8 @@
 namespace debugger {
 namespace p8095bh {
 
+using i8096::ArchI8096;
+using i8096::CpuMemory;
 using i8096::InstI8096;
 using i8096::MemsI8096;
 using i8096::RegsI8096;
@@ -291,7 +293,8 @@ uint16_t PinsP8095BH::jumpTarget(uint16_t next, uint_fast8_t opc) const {
 bool PinsP8095BH::rawStep(bool show) {
     show &= !Debugger.verbose();
     InstI8096 inst;
-    if (!inst.set(_regs->nextIp(), mems<MemsI8096>()))
+    const CpuMemory cpu(mems<MemsI8096>());
+    if (!inst.set(_regs->nextIp(), &cpu))
         return false;
     const auto len = inst.instLength();
     const auto next = _regs->nextIp() + len;
@@ -460,55 +463,18 @@ void PinsP8095BH::printCycles(const Signals *end) {
     }
 }
 
-bool PinsP8095BH::matchAll(Signals *begin, const Signals *end) {
-    const auto cycles = begin->diff(end->prev());
-    LOG_MATCH(cli.print("@@  matchAll: begin="));
-    LOG_MATCH(begin->print());
-    LOG_MATCH(cli.print("@@           cycles="));
-    LOG_MATCH(cli.printlnDec(cycles));
-    for (auto i = 0u; i < cycles;) {
-        idle();
-        auto s = begin->next(i);
-        while (s->write() || s->isOperand()) {
-            LOG_MATCH(cli.print("@@             skip="));
-            LOG_MATCH(s->print());
-            s = s->next();
-            i++;
-        }
-        InstI8096 inst;
-        if (inst.match(s, end, mems<MemsI8096>())) {
-            i += inst.nexti();
-            continue;
-        }
-        return inst.isEnd();
-    }
-    return true;
-}
-
 const Signals *PinsP8095BH::findFetch(Signals *begin, const Signals *end) {
-    const auto cycles = begin->diff(end);
-    const auto limit = cycles >= 14 ? 14 : cycles;
-    LOG_MATCH(cli.println());
-    LOG_MATCH(cli.print("@@ findFetch: cycle="));
-    LOG_MATCH(cli.printlnDec(cycles));
-    LOG_MATCH(cli.print("@@            begin="));
-    LOG_MATCH(begin->print());
-    LOG_MATCH(cli.print("@@              end="));
-    LOG_MATCH(end->print());
-    for (auto i = 0u; i < limit; ++i) {
-        for (auto j = 0u; j < cycles; ++j)
-            begin->next(j)->clearMark();
-        auto s = begin->next(i);
-        if (matchAll(s, end))
-            return s;
-        idle();
-    }
-    for (auto j = 0u; j < cycles; ++j)
-        begin->next(j)->clearMark();
-    return end;
+    const CpuMemory cpu(mems<MemsI8096>());
+    ArchI8096 arch(&cpu);
+    arch.setIdle(
+            [](void *pins) { static_cast<PinsP8095BH *>(pins)->idle(); }, this);
+    auto &walker = MatchWalker::shared();
+    if (!walker.walk(arch, begin, end))
+        return end;
+    return begin->next(walker.start());
 }
 
-// fetch() isn't live here: findFetch()/matchAll() mark it only as a
+// fetch() isn't live here: findFetch() marks it only as a
 // side effect of matching decoded instructions against real memory, so
 // that has to run -- once, right here -- before backtraceStartFrom()
 // counting fetch() cycles means anything. printBacktrace() re-runs it
