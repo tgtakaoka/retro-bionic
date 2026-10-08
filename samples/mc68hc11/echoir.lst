@@ -80,7 +80,7 @@
        1000 : =FFF               stack:  equ     *-1             ; MC6801's SP is post-decrement/pre-increment
        1000 :
        FFF2 :                            org     VEC_IRQ
-       FFF2 : 01 85                      fdb     isr_irq
+       FFF2 : 01 86                      fdb     isr_irq
        FFF4 :
        FFF6 :                            org     VEC_SWI
        FFF6 : FF F6                      fdb     VEC_SWI         ; for halt to system
@@ -93,7 +93,7 @@
         100 : 8E 0F FF                   lds     #stack
         103 : CE 20 00                   ldx     #rx_queue
         106 : C6 80                      ldab    #rx_queue_size
-        108 : BD 01 3E                   jsr     queue_init
+        108 : BD 01 3F                   jsr     queue_init
         10B :                            ;; initialize ACIA
         10B : 86 03                      ldaa    #CDS_RESET_gc   ; Master reset
         10D : B7 DF 00                   staa    ACIA_control
@@ -101,125 +101,125 @@
         112 : B7 DF 00                   staa    ACIA_control
         115 : 0E                         cli                     ; Enable IRQ
         116 : CE 20 00                   ldx     #rx_queue
-        119 : 20 01                      bra     loop
+        119 : 20 02                      bra     loop
         11B :
         11B :                    wait:
-        11B : 3E                         wai
-        11C :                    loop:
-        11C : 0F                         sei                     ; Disable IRQ
-        11D : BD 01 69                   jsr     queue_remove
-        120 : 0E                         cli                     ; Enable IRQ
-        121 : 24 F8                      bcc     wait
-        123 : 4D                         tsta
-        124 : 27 0C                      beq     halt_to_system
-        126 : 8D 0B                      bsr     putchar
-        128 : 81 0D                      cmpa    #$0D
-        12A : 26 F0                      bne     loop
-        12C : 86 0A                      ldaa    #$0A
-        12E : 8D 03                      bsr     putchar
-        130 : 20 EA                      bra     loop
-        132 :                    halt_to_system:
-        132 : 3F                         swi                     ; halt_to_system
-        133 :
-        133 :                    putchar:
-        133 : F6 DF 00                   ldab    ACIA_status
-        136 : C5 02                      bitb    #TDRE_bm
-        138 : 27 F9                      beq     putchar
-        13A : B7 DF 01                   staa    ACIA_data
-        13D : 39                         rts
-        13E :
-        13E :                            include "../mc6801/queue.inc"
-(1)     13E :                    ;;; [queue] queue structure
-(1)     13E : =0                 queue_len:      equ     0       ; queue length
-(1)     13E : =1                 queue_size:     equ     1       ; buffer size
-(1)     13E : =2                 queue_put:      equ     2       ; queue put index
-(1)     13E : =3                 queue_get:      equ     3       ; queue get index
-(1)     13E : =4                 queue_buf:      equ     4       ; buffer start offset
-(1)     13E :
-(1)     13E :                    ;;; [queue] Initialize queue
-(1)     13E :                    ;;; @param X queue work space pointer
-(1)     13E :                    ;;; @param B queue work space size
-(1)     13E :                    ;;; @clobber B
-(1)     13E :                    queue_init:
-(1)     13E : 37                         pshb
-(1)     13F : 3C                         pshx
-(1)     140 :                    queue_init_loop:
-(1)     140 : 6F 00                      clr     0,x
-(1)     142 : 08                         inx
-(1)     143 : 5A                         decb
-(1)     144 : 26 FA                      bne     queue_init_loop
-(1)     146 : 38                         pulx
-(1)     147 : 33                         pulb
-(1)     148 : C0 04                      subb    #queue_buf
-(1)     14A : E7 01                      stab    queue_size,x
-(1)     14C : 39                         rts
-(1)     14D :
-(1)     14D :                    ;;; [queue] Add an element to queue
-(1)     14D :                    ;;; @param X queue work space pointer
-(1)     14D :                    ;;; @param A an element
-(1)     14D :                    ;;; @return CC.C 0 if queue is full
-(1)     14D :                    queue_add:
-(1)     14D : 37                 	pshb
-(1)     14E : E6 00                      ldab    queue_len,x
-(1)     150 : E1 01                      cmpb    queue_size,x
-(1)     152 : 24 13                      bhs     queue_add_return ; carry is cleared
-(1)     154 : E6 02                      ldab    queue_put,x     ; 8 bits offset
-(1)     156 : 3C                         pshx
-(1)     157 : 3A                         abx                     ; X+=B
-(1)     158 : A7 04                      staa    queue_buf,x     ; store an element
-(1)     15A : 38                         pulx
-(1)     15B : 6C 00                      inc     queue_len,x
-(1)     15D : 5C                         incb
-(1)     15E : E7 02                      stab    queue_put,x
-(1)     160 : E1 01                      cmpb    queue_size,x
-(1)     162 : 25 03                      blo     queue_add_return ; carry is set
-(1)     164 : 6F 02                      clr     queue_put,x
-(1)     166 : 0D                         sec                     ; set carry
-(1)     167 :                    queue_add_return:
-(1)     167 : 33                 	pulb
-(1)     168 : 39                         rts
-(1)     169 :
-(1)     169 :                    ;;; [queue] Remove an element from queue
-(1)     169 :                    ;;; @param X queue work space pointer
-(1)     169 :                    ;;; @return A an element
-(1)     169 :                    ;;; @return CC.C 0 if queue is empty
-(1)     169 :                    queue_remove:
-(1)     169 : 6D 00                      tst     queue_len,x
-(1)     16B : 26 02                      bne     queue_remove_elem
-(1)     16D : 0C                         clc                     ; clear carry
-(1)     16E : 39                         rts
-(1)     16F :                    queue_remove_elem:
-(1)     16F : 37                 	pshb
-(1)     170 : E6 03                      ldab    queue_get,x     ; 8 bits offset
-(1)     172 : 3C                         pshx
-(1)     173 : 3A                         abx                     ; X+=B
-(1)     174 : A6 04                      ldaa    queue_buf,x     ; read an element
-(1)     176 : 38                         pulx
-(1)     177 : 6A 00                      dec     queue_len,x
-(1)     179 : 5C                         incb
-(1)     17A : E7 03                      stab    queue_get,x
-(1)     17C : E1 01                      cmpb    queue_size,x
-(1)     17E : 25 03                      blo     queue_remove_return ; carry is set
-(1)     180 : 6F 03                      clr     queue_get,x
-(1)     182 : 0D                         sec                     ; set carry
-(1)     183 :                    queue_remove_return:
-(1)     183 : 33                         pulb
-(1)     184 : 39                         rts
-(1)     185 :
-(1)     185 :                    ;;; Local Variables:
-(1)     185 :                    ;;; mode: asm
-(1)     185 :                    ;;; End:
-(1)     185 :                    ;;; vim: set ft=asm et ts=4 sw=4:
-        185 :
-        185 :                    isr_irq:
-        185 : F6 DF 00                   ldab    ACIA_status
-        188 : C5 80                      bitb    #IRQF_bm
-        18A : 27 0D                      beq     isr_irq_return
-        18C :                    isr_irq_receive:
-        18C : C5 01                      bitb    #RDRF_bm
-        18E : 27 09                      beq     isr_irq_return
-        190 : B6 DF 01                   ldaa    ACIA_data
-        193 : CE 20 00                   ldx     #rx_queue
-        196 : BD 01 4D                   jsr     queue_add
-        199 :                    isr_irq_return:
-        199 : 3B                         rti
+        11B : 20 00                      bra     loop            ; spin, IRQ enabled: it comes in running code
+        11D :                    loop:
+        11D : 0F                         sei                     ; Disable IRQ
+        11E : BD 01 6A                   jsr     queue_remove
+        121 : 0E                         cli                     ; Enable IRQ
+        122 : 24 F7                      bcc     wait
+        124 : 4D                         tsta
+        125 : 27 0C                      beq     halt_to_system
+        127 : 8D 0B                      bsr     putchar
+        129 : 81 0D                      cmpa    #$0D
+        12B : 26 F0                      bne     loop
+        12D : 86 0A                      ldaa    #$0A
+        12F : 8D 03                      bsr     putchar
+        131 : 20 EA                      bra     loop
+        133 :                    halt_to_system:
+        133 : 3F                         swi                     ; halt_to_system
+        134 :
+        134 :                    putchar:
+        134 : F6 DF 00                   ldab    ACIA_status
+        137 : C5 02                      bitb    #TDRE_bm
+        139 : 27 F9                      beq     putchar
+        13B : B7 DF 01                   staa    ACIA_data
+        13E : 39                         rts
+        13F :
+        13F :                            include "../mc6801/queue.inc"
+(1)     13F :                    ;;; [queue] queue structure
+(1)     13F : =0                 queue_len:      equ     0       ; queue length
+(1)     13F : =1                 queue_size:     equ     1       ; buffer size
+(1)     13F : =2                 queue_put:      equ     2       ; queue put index
+(1)     13F : =3                 queue_get:      equ     3       ; queue get index
+(1)     13F : =4                 queue_buf:      equ     4       ; buffer start offset
+(1)     13F :
+(1)     13F :                    ;;; [queue] Initialize queue
+(1)     13F :                    ;;; @param X queue work space pointer
+(1)     13F :                    ;;; @param B queue work space size
+(1)     13F :                    ;;; @clobber B
+(1)     13F :                    queue_init:
+(1)     13F : 37                         pshb
+(1)     140 : 3C                         pshx
+(1)     141 :                    queue_init_loop:
+(1)     141 : 6F 00                      clr     0,x
+(1)     143 : 08                         inx
+(1)     144 : 5A                         decb
+(1)     145 : 26 FA                      bne     queue_init_loop
+(1)     147 : 38                         pulx
+(1)     148 : 33                         pulb
+(1)     149 : C0 04                      subb    #queue_buf
+(1)     14B : E7 01                      stab    queue_size,x
+(1)     14D : 39                         rts
+(1)     14E :
+(1)     14E :                    ;;; [queue] Add an element to queue
+(1)     14E :                    ;;; @param X queue work space pointer
+(1)     14E :                    ;;; @param A an element
+(1)     14E :                    ;;; @return CC.C 0 if queue is full
+(1)     14E :                    queue_add:
+(1)     14E : 37                 	pshb
+(1)     14F : E6 00                      ldab    queue_len,x
+(1)     151 : E1 01                      cmpb    queue_size,x
+(1)     153 : 24 13                      bhs     queue_add_return ; carry is cleared
+(1)     155 : E6 02                      ldab    queue_put,x     ; 8 bits offset
+(1)     157 : 3C                         pshx
+(1)     158 : 3A                         abx                     ; X+=B
+(1)     159 : A7 04                      staa    queue_buf,x     ; store an element
+(1)     15B : 38                         pulx
+(1)     15C : 6C 00                      inc     queue_len,x
+(1)     15E : 5C                         incb
+(1)     15F : E7 02                      stab    queue_put,x
+(1)     161 : E1 01                      cmpb    queue_size,x
+(1)     163 : 25 03                      blo     queue_add_return ; carry is set
+(1)     165 : 6F 02                      clr     queue_put,x
+(1)     167 : 0D                         sec                     ; set carry
+(1)     168 :                    queue_add_return:
+(1)     168 : 33                 	pulb
+(1)     169 : 39                         rts
+(1)     16A :
+(1)     16A :                    ;;; [queue] Remove an element from queue
+(1)     16A :                    ;;; @param X queue work space pointer
+(1)     16A :                    ;;; @return A an element
+(1)     16A :                    ;;; @return CC.C 0 if queue is empty
+(1)     16A :                    queue_remove:
+(1)     16A : 6D 00                      tst     queue_len,x
+(1)     16C : 26 02                      bne     queue_remove_elem
+(1)     16E : 0C                         clc                     ; clear carry
+(1)     16F : 39                         rts
+(1)     170 :                    queue_remove_elem:
+(1)     170 : 37                 	pshb
+(1)     171 : E6 03                      ldab    queue_get,x     ; 8 bits offset
+(1)     173 : 3C                         pshx
+(1)     174 : 3A                         abx                     ; X+=B
+(1)     175 : A6 04                      ldaa    queue_buf,x     ; read an element
+(1)     177 : 38                         pulx
+(1)     178 : 6A 00                      dec     queue_len,x
+(1)     17A : 5C                         incb
+(1)     17B : E7 03                      stab    queue_get,x
+(1)     17D : E1 01                      cmpb    queue_size,x
+(1)     17F : 25 03                      blo     queue_remove_return ; carry is set
+(1)     181 : 6F 03                      clr     queue_get,x
+(1)     183 : 0D                         sec                     ; set carry
+(1)     184 :                    queue_remove_return:
+(1)     184 : 33                         pulb
+(1)     185 : 39                         rts
+(1)     186 :
+(1)     186 :                    ;;; Local Variables:
+(1)     186 :                    ;;; mode: asm
+(1)     186 :                    ;;; End:
+(1)     186 :                    ;;; vim: set ft=asm et ts=4 sw=4:
+        186 :
+        186 :                    isr_irq:
+        186 : F6 DF 00                   ldab    ACIA_status
+        189 : C5 80                      bitb    #IRQF_bm
+        18B : 27 0D                      beq     isr_irq_return
+        18D :                    isr_irq_receive:
+        18D : C5 01                      bitb    #RDRF_bm
+        18F : 27 09                      beq     isr_irq_return
+        191 : B6 DF 01                   ldaa    ACIA_data
+        194 : CE 20 00                   ldx     #rx_queue
+        197 : BD 01 4E                   jsr     queue_add
+        19A :                    isr_irq_return:
+        19A : 3B                         rti

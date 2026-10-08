@@ -58,7 +58,7 @@
 namespace debugger {
 namespace mc6802 {
 
-using mc6800::InstMc6800;
+using mc6800::ArchMc6800;
 using mc6800::PinsMc6800Base;
 using mc6800::Signals;
 

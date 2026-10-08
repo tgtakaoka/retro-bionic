@@ -34,7 +34,7 @@ initialize:
         cli                     ; Enable IRQ
         bra     loop
 
-wait:   wai
+wait:   bra     loop            ; spin, IRQ enabled: it comes in running code
 loop:   bsr     getchar
         bcc     wait
         bsr     putchar

@@ -38,7 +38,7 @@ initialize:
         bra     loop
 
 wait:
-        wai
+        bra     loop            ; spin, IRQ enabled: it comes in running code
 loop:
         sei                     ; Disable IRQ
         jsr     queue_remove
