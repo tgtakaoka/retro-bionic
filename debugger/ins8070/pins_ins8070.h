@@ -99,7 +99,6 @@ private:
     uint8_t busCycles(InstIns8070 &inst) const;
 
     void printCycles(const Signals *end);
-    bool matchAll(Signals *begin, const Signals *end);
     const Signals *findFetch(Signals *begin, const Signals *end);
     const SignalsImpl *findBacktraceStart() override;
     void printBacktrace() override;

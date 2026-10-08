@@ -2,6 +2,8 @@
 #define __INST_INS8070_H__
 
 #include <stdint.h>
+#include "match_memory.h"
+#include "match_walker.h"
 #include "signals_ins8070.h"
 
 namespace debugger {
@@ -22,7 +24,7 @@ enum AddrMode : uint8_t {
 };
 
 struct InstIns8070 final {
-    InstIns8070() : opc(0), seq(0), matched(0) {}
+    InstIns8070() : opc(0), seq(0) {}
     bool get(uint8_t data);
 
     uint8_t opc;
@@ -30,9 +32,9 @@ struct InstIns8070 final {
     uint8_t len() const;
     uint8_t busCycles() const;
     uint8_t externalCycles() const;
-    uint8_t matchedCycles() const { return matched; }
     AddrMode addrMode() const;
-    bool match(const Signals *begin, const Signals *end);
+    // Its bus cycles, in match_legend.md's tokens.
+    const char *sequence() const;
 
     static constexpr uint8_t RET = 0x5C;
     static constexpr uint8_t BRA = 0x74;
@@ -42,10 +44,22 @@ struct InstIns8070 final {
 
 private:
     uint8_t seq;
-    uint8_t matched;
+};
 
-    uint8_t matchSequence(
-            const Signals *begin, uint8_t size, const char *seq) const;
+// The INS8070 as MatchWalker sees it, its code in |mems|.
+struct ArchIns8070 : MatchWalker::Arch {
+    explicit ArchIns8070(const MatchMemory &mems)
+        : Arch(MatchWalker::Traits{.targetBias = 1}), _mems(mems) {}
+
+    MatchWalker::Kind cycleKind(const SignalsImpl *s) const override;
+    bool decode(uint32_t pc, MatchWalker::Decoded &inst) const override;
+    bool isVectorTable(uint32_t addr) const override;
+    const char *interruptSequence() const override;
+    void markCycle(SignalsImpl *s, MatchWalker::Role role,
+            uint_fast8_t span) const override;
+
+private:
+    const MatchMemory &_mems;
 };
 
 }  // namespace ins8070
