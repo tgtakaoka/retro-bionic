@@ -495,46 +495,32 @@ void PinsIns8070::printCycles(const Signals *end) {
     }
 }
 
-bool PinsIns8070::matchAll(Signals *begin, const Signals *end) {
-    const auto cycles = begin->diff(end);
-    LOG_MATCH(cli.print("@@  matchAll: begin="));
-    LOG_MATCH(begin->print());
-    LOG_MATCH(cli.print("@@           cycles="));
-    LOG_MATCH(cli.printlnDec(cycles));
-    for (auto i = 0u; i < cycles;) {
-        idle();
-        auto s = begin->next(i);
-        InstIns8070 inst;
-        if (inst.match(s, end->next())) {
-            s->markFetch(true);
-            i += inst.matchedCycles();
-            continue;
-        }
-        return false;
-    }
-    return true;
-}
+namespace {
+// The board's: its bus kept alive while the walk goes.
+struct BoardArch final : ArchIns8070 {
+    BoardArch(const MatchMemory &mems, PinsIns8070 &pins)
+        : ArchIns8070(mems), _pins(pins) {}
+    void idle() const override { _pins.idle(); }
+
+private:
+    PinsIns8070 &_pins;
+};
+}  // namespace
+
+// The walk takes in the cycle at |end| too: the next fetch, which the
+// board leaves there.
 const Signals *PinsIns8070::findFetch(Signals *begin, const Signals *end) {
-    const auto cycles = begin->diff(end);
-    LOG_MATCH(cli.print("@@ findFetch: begin="));
-    LOG_MATCH(begin->print());
-    LOG_MATCH(cli.print("@@              end="));
-    LOG_MATCH(end->print());
-    for (auto i = 0u; i < cycles; ++i) {
-        idle();
-        auto s = begin->next(i);
-        if (matchAll(s, end))
-            return s;
-        for (auto j = i; j < cycles; ++j)
-            begin->next(j)->markFetch(false);
-    }
-    return end;
+    const BoardArch arch(*_mems, *this);
+    auto &walker = MatchWalker::shared();
+    if (!walker.walk(arch, begin, end->next()))
+        return end;
+    return begin->next(walker.start());
 }
 
 // The backtrace printer below reads fetchMark(), not fetch(): fetch()
 // is a different, self-contained on-the-fly check (see signals_ins8070.cpp)
-// used elsewhere, while fetchMark() is what findFetch()/matchAll() set,
-// retroactively, by matching decoded instructions against captured bus
+// used elsewhere, while fetchMark() is what findFetch() sets,
+// retroactively, by walking decoded instructions against captured bus
 // cycles -- so that has to run -- once, right here -- before counting
 // fetchMark() cycles means anything. Can't reuse signals.h's
 // backtraceStartFrom(), which is hardwired to fetch(); this is its
@@ -565,6 +551,17 @@ void PinsIns8070::printBacktrace() {
     const auto begin = findFetch(Signals::get(), end);
     printCycles(begin);
     const auto cycles = begin->diff(end);
+    if (Debugger.verbose()) {
+        // Every cycle in order, an instruction's line before its fetch.
+        for (auto i = 0u; i < cycles; ++i) {
+            const auto s = begin->next(i);
+            if (s->fetchMark())
+                _mems->disassemble(s->addr, 1);
+            s->print();
+            idle();
+        }
+        return;
+    }
     for (auto i = 0u; i < cycles;) {
         const auto s = begin->next(i);
         if (s->fetchMark()) {
