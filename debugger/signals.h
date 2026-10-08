@@ -19,6 +19,7 @@ struct SignalsImpl {
     uint_fast8_t diff(const SignalsImpl *s) const;
 
 protected:
+    friend struct MatchWalker;  // it steps through the ring
     uint8_t _signals[5];
     uint8_t _flags;
 
