@@ -102,7 +102,6 @@ private:
             uint16_t *addr);
 
     void printCycles(const Signals *end);
-    bool matchAll(Signals *begin, const Signals *end);
     const Signals *findFetch(Signals *begin, const Signals *end);
     const SignalsImpl *findBacktraceStart() override;
     void printBacktrace() override;

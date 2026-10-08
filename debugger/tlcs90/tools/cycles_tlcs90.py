@@ -164,9 +164,9 @@ def restore(run, cycles):
 
 def _seq_cycles(seq):
     """Bus cycles after the prefetched opcode."""
-    # d is an idle cycle; E/F reach FFFF with the fill's FF, an external
+    # - is an idle cycle; A/B reach FFFF with the fill's FF, an external
     # address.
-    return len([c for c in seq.split(':') if c not in ('0', 'd')])
+    return len([c for c in seq if c not in '1-'])
 
 
 def check(rec):
