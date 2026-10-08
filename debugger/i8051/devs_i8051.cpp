@@ -1,5 +1,6 @@
 #include "devs_i8051.h"
 #include <strings.h>
+#include "i8051_uart_handler.h"
 #include "i8251.h"
 
 namespace debugger {
