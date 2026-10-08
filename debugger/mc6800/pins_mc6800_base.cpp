@@ -44,7 +44,7 @@ void PinsMc6800Base::injectReads(
         injectCycle(inst[inj]);
     }
     for (auto inj = len; inj < cycles; ++inj) {
-        injectCycle(InstMc6800::NOP);
+        injectCycle(ArchMc6800::NOP);
     }
 }
 
@@ -63,11 +63,11 @@ void PinsMc6800Base::captureWrites(uint8_t *buf, uint8_t len, uint16_t *addr) {
 
 void PinsMc6800Base::idle() {
     auto s = Signals::put();
-    s->inject(InstMc6800::BRA);
+    s->inject(ArchMc6800::BRA);
     rawCycle();
-    injectCycle(InstMc6800::BRA_HERE);
-    injectCycle(InstMc6800::NOP);
-    injectCycle(InstMc6800::NOP);
+    injectCycle(ArchMc6800::BRA_HERE);
+    injectCycle(ArchMc6800::NOP);
+    injectCycle(ArchMc6800::NOP);
     Cycles::discard(s);
 }
 
@@ -148,7 +148,7 @@ reentry:
             // fresh NMI edge.
             negate_nmi();
             cycle();  // NMI lo(vector)
-            injectCycle(InstMc6800::RTI);
+            injectCycle(ArchMc6800::RTI);
             assert_nmi();
             goto reentry;
         }
@@ -219,7 +219,7 @@ void PinsMc6800Base::negateInt(uint8_t) {
 }
 
 void PinsMc6800Base::setBreakInst(uint32_t addr) const {
-    _mems->put_prog(addr, InstMc6800::SWI);
+    _mems->put_prog(addr, ArchMc6800::SWI);
 };
 
 void PinsMc6800Base::printCycles(const Signals *end) {
@@ -234,62 +234,20 @@ void PinsMc6800Base::printCycles(const Signals *end) {
     }
 }
 
-bool PinsMc6800Base::matchAll(Signals *begin, const Signals *end) {
-    const auto cycles = begin->diff(end->prev());
-    LOG_MATCH(cli.print("@@  matchAll: begin="));
-    LOG_MATCH(begin->print());
-    LOG_MATCH(cli.print("@@           cycles="));
-    LOG_MATCH(cli.printlnDec(cycles));
-    Signals *prefetch = nullptr;
-    for (auto i = 0u; i < cycles;) {
-        idle();
-        const auto s = begin->next(i);
-        if (prefetch == s)
-            prefetch = nullptr;
-        if (_inst->match(s, end, prefetch)) {
-            const auto f = prefetch ? prefetch : s;
-            f->markFetch(_inst->matched());
-            const auto nexti = _inst->nextInstruction();
-            prefetch = (nexti < 0) ? nullptr : s->next(nexti);
-            i += _inst->matched();
-            continue;
-        }
-        idle();
-        if (_inst->matchInterrupt(s, end)) {
-            for (auto m = 1; m < _inst->matched(); ++m)
-                s->next(m)->clearFetch();
-            i += _inst->matched();
-            prefetch = nullptr;
-            continue;
-        }
-        return false;
-    }
-    return true;
-}
-
+// The ring's last cycle is the next fetch: ArchMc6800 walks no
+// instruction from it.
 const Signals *PinsMc6800Base::findFetch(Signals *begin, const Signals *end) {
-    const auto cycles = begin->diff(end);
-    // maximum instruction clock is 13.
-    const auto limit = cycles < 13 ? cycles : 13;
-    LOG_MATCH(cli.print("@@ findFetch: begin="));
-    LOG_MATCH(begin->print());
-    LOG_MATCH(cli.print("@@              end="));
-    LOG_MATCH(end->print());
-    for (auto i = 0u; i < limit; ++i) {
-        for (auto j = i; j < cycles; ++j)
-            begin->next(j)->clearFetch();
-        auto s = begin->next(i);
-        if (matchAll(s, end))
-            return s;
-        idle();
-    }
-    for (auto j = 0u; j < cycles; ++j)
-        begin->next(j)->clearFetch();
-    return end;
+    _inst->setIdle(
+            [](void *pins) { static_cast<PinsMc6800Base *>(pins)->idle(); },
+            this);
+    auto &walker = MatchWalker::shared();
+    if (!walker.walk(*_inst, begin, end))
+        return end;
+    return begin->next(walker.start());
 }
 
-// fetch() isn't live here: findFetch()/matchAll() mark it only as a
-// side effect of matching decoded instructions against captured bus
+// fetch() isn't live here: findFetch() marks it only as a side effect
+// of walking decoded instructions against captured bus
 // cycles, so that has to run -- once, right here -- before
 // backtraceStartFrom() counting fetch() cycles means anything.
 // printBacktrace() re-runs it over the now-disposed range, which
@@ -313,6 +271,17 @@ void PinsMc6800Base::printBacktrace() {
     const auto begin = findFetch(Signals::get()->next(4), end);
     printCycles(begin);
     const auto cycles = begin->diff(end);
+    if (Debugger.verbose()) {
+        // Every cycle in order, an instruction's line before its fetch.
+        for (auto i = 0u; i < cycles; ++i) {
+            const auto s = begin->next(i);
+            if (s->fetch())
+                _mems->disassemble(s->addr, 1);
+            s->print();
+            idle();
+        }
+        return;
+    }
     const Signals *pref = nullptr;
     for (auto i = 0u; i < cycles;) {
         const auto s = begin->next(i);

@@ -38,7 +38,7 @@ struct PinsMc6800Base : Pins {
     virtual bool nonVmaAfterContextSave() const { return true; }
 
 protected:
-    InstMc6800 *_inst;
+    ArchMc6800 *_inst;
     uint8_t _writes;
 
     virtual Signals *rawCycle() = 0;
@@ -51,7 +51,6 @@ protected:
 #endif
 
     void printCycles(const Signals *end);
-    bool matchAll(Signals *begin, const Signals *end);
     const Signals *findFetch(Signals *begin, const Signals *end);
     const SignalsImpl *findBacktraceStart() override;
     virtual void printBacktrace() override;

@@ -6,10 +6,10 @@
 namespace debugger {
 namespace mc6801 {
 
-using mc6800::InstMc6800;
+using mc6800::ArchMc6800;
 
-struct InstMc6801 final : InstMc6800 {
-    InstMc6801(Mems *mems) : InstMc6800(mems) {}
+struct InstMc6801 final : ArchMc6800 {
+    InstMc6801(const MatchMemory *mems) : ArchMc6800(mems) {}
 
 protected:
     const char *instSequence(uint8_t inst) const override;
