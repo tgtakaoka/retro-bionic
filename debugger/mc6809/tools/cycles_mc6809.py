@@ -202,8 +202,9 @@ def define(ns, prefix, native):
         seq = (table('P00')[0xA6] if rec['page'] == 'IX' else table(rec['page'])[rec['opc']])[4]
         if rec['mnemo'] in DIVIDE and ':fit' not in rec['key']:
             plus = True                 # overflowed: no count to hold it to
-        if '@' in seq:
-            # Alternatives, which the matcher tries in either mode: its call.
+        if len({len(a) for a in seq.split('/')[0].split('@')}) > 1:
+            # Alternatives that differ, which the matcher tries in either
+            # mode: its call.
             plus = True
         if not plus and want != n:
             problems.append('table says %d cycles, the chip %d' % (want, n))

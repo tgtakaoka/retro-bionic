@@ -270,53 +270,17 @@ void PinsMc6809Base::printCycles(const Signals *end) {
     }
 }
 
-bool PinsMc6809Base::matchAll(Signals *begin, const Signals *end) {
-    const auto cycles = begin->diff(end->prev());
-    LOG_MATCH(cli.print("@@  matchAll: begin="));
-    LOG_MATCH(begin->print());
-    LOG_MATCH(cli.print("@@           cycles="));
-    LOG_MATCH(cli.printlnDec(cycles));
-    for (auto i = 0u; i < cycles;) {
-        idle();
-        auto s = begin->next(i);
-        if (_inst->match(s, end, nullptr)) {
-            s->markFetch(_inst->matched());
-            for (auto m = 1; m < _inst->matched(); ++m)
-                s->next(m)->clearFetch();
-            i += _inst->matched();
-            continue;
-        }
-        idle();
-        if (_inst->matchInterrupt(s, end)) {
-            for (auto m = 1; m < _inst->matched(); ++m)
-                s->next(m)->clearFetch();
-            i += _inst->matched();
-            continue;
-        }
-        return false;
-    }
-    return true;
-}
-
 const Signals *PinsMc6809Base::findFetch(Signals *begin, const Signals *end) {
-    const auto cycles = begin->diff(end);
-    const auto limit = cycles < 40 ? cycles : 40;
-    LOG_MATCH(cli.print("@@ findFetch: begin="));
-    LOG_MATCH(begin->print());
-    LOG_MATCH(cli.print("@@              end="));
-    LOG_MATCH(end->print());
-    for (auto i = 0u; i < limit; ++i) {
-        auto s = begin->next(i);
-        if (matchAll(s, end))
-            return s;
-        idle();
-        for (auto j = i; j < cycles; ++j)
-            begin->next(j)->clearFetch();
-    }
-    return end;
+    _inst->setIdle(
+            [](void *pins) { static_cast<PinsMc6809Base *>(pins)->idle(); },
+            this);
+    auto &walker = MatchWalker::shared();
+    if (!walker.walk(*_inst, begin, end))
+        return end;
+    return begin->next(walker.start());
 }
 
-// fetch() isn't live on either board: findFetch()/matchAll() mark it
+// fetch() isn't live on either board: findFetch() marks it
 // only as a side effect of matching decoded instructions against
 // captured bus cycles, so that has to run -- once, right here -- before
 // backtraceStartFrom() counting fetch() cycles means anything.
@@ -341,6 +305,17 @@ void PinsMc6809Base::printBacktrace() {
     const auto begin = findFetch(Signals::get()->next(3), end);
     printCycles(begin);
     const auto cycles = begin->diff(end);
+    if (Debugger.verbose()) {
+        // Every cycle in order, an instruction's line before its fetch.
+        for (auto i = 0u; i < cycles; ++i) {
+            const auto s = begin->next(i);
+            if (s->fetch())
+                _mems->disassemble(s->addr, 1);
+            s->print();
+            idle();
+        }
+        return;
+    }
     for (auto i = 0u; i < cycles;) {
         const auto s = begin->next(i);
         if (s->fetch()) {

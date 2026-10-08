@@ -104,7 +104,6 @@ protected:
     const Signals *stackFrame(const Signals *push) const;
 
     void printCycles(const Signals *end);
-    bool matchAll(Signals *begin, const Signals *end);
     virtual const Signals *findFetch(Signals *begin, const Signals *end);
     const SignalsImpl *findBacktraceStart() override;
     void printBacktrace() override;
