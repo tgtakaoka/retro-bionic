@@ -1,5 +1,6 @@
 #include "devs_cdp1802.h"
 #include <strings.h>
+#include "cdp1802_sci_handler.h"
 #include "mc6850.h"
 
 namespace debugger {
