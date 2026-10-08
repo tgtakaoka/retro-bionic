@@ -477,52 +477,17 @@ void PinsTlcs90::printCycles(const Signals *end) {
     }
 }
 
-bool PinsTlcs90::matchAll(Signals *begin, const Signals *end) {
-    const auto cycles = begin->diff(end->prev());
-    LOG_MATCH(cli.print("@@  matchAll: begin="));
-    LOG_MATCH(begin->print());
-    LOG_MATCH(cli.print("@@           cycles="));
-    LOG_MATCH(cli.printlnDec(cycles));
-    Signals *prefetch = nullptr;
-    for (auto i = 0u; i < cycles;) {
-        idle();
-        const auto s = begin->next(i);
-        if (prefetch == s)
-            prefetch = nullptr;
-        InstTlcs90 inst;
-        if (inst.match(s, end, prefetch)) {
-            const auto f = prefetch ? prefetch : s;
-            f->markFetch(inst.matched());
-            prefetch = s->next(inst.nextInstruction());
-            i += inst.matched();
-            continue;
-        }
-        return false;
-    }
-    return true;
-}
-
 const Signals *PinsTlcs90::findFetch(Signals *begin, const Signals *end) {
-    const auto cycles = begin->diff(end);
-    const auto limit = cycles >= 14 ? 14 : cycles;
-    LOG_MATCH(cli.print("@@ findFetch: begin="));
-    LOG_MATCH(begin->print());
-    LOG_MATCH(cli.print("@@              end="));
-    LOG_MATCH(end->print());
-    for (auto i = 0u; i < limit; ++i) {
-        for (auto j = i; j < cycles; ++j)
-            begin->next(j)->clearFetch();
-        auto s = begin->next(i);
-        if (matchAll(s, end))
-            return s;
-        idle();
-    }
-    for (auto j = 0u; j < cycles; ++j)
-        begin->next(j)->clearFetch();
-    return end;
+    InstTlcs90 inst(_mems);
+    inst.setIdle(
+            [](void *pins) { static_cast<PinsTlcs90 *>(pins)->idle(); }, this);
+    auto &walker = MatchWalker::shared();
+    if (!walker.walk(inst, begin, end))
+        return end;
+    return begin->next(walker.start());
 }
 
-// fetch() isn't live here: findFetch()/matchAll() mark it only as a
+// fetch() isn't live here: findFetch() marks it only as a
 // side effect of matching decoded instructions against captured bus
 // cycles, so that has to run -- once, right here -- before
 // backtraceStartFrom() counting fetch() cycles means anything.
@@ -544,6 +509,17 @@ void PinsTlcs90::printBacktrace() {
     const auto begin = findFetch(Signals::get(), end);
     printCycles(begin);
     const auto cycles = begin->diff(end);
+    if (Debugger.verbose()) {
+        // Every cycle in order, an instruction's line before its fetch.
+        for (auto i = 0u; i < cycles; ++i) {
+            const auto s = begin->next(i);
+            if (s->fetch())
+                _mems->disassemble(s->addr, 1);
+            s->print();
+            idle();
+        }
+        return;
+    }
     const Signals *pref = nullptr;
     for (auto i = 0u; i < cycles;) {
         const auto s = begin->next(i);

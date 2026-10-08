@@ -61,14 +61,19 @@ void Signals::print() const {
     buffer.hex16(4, addr);
     buffer.hex8(11, data);
 #ifdef PROFILE_CYCLES
-    // How many cycles the matcher gave a marked fetch, for
-    // tools/cycles_tlcs90.py.
-    cli.print(buffer);
-    cli.print(" m=");
-    cli.printlnDec(fetch() ? matched() : 0);
+    constexpr auto suffix = true;
 #else
-    cli.println(buffer);
+    const auto suffix = Debugger.verbose();  // a bench recording's
 #endif
+    if (suffix) {
+        // How many cycles the matcher gave a marked fetch, for
+        // tools/cycles_tlcs90.py.
+        cli.print(buffer);
+        cli.print(" m=");
+        cli.printlnDec(fetch() ? matched() : 0);
+    } else {
+        cli.println(buffer);
+    }
 }
 
 }  // namespace tlcs90
