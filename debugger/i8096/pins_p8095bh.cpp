@@ -28,6 +28,9 @@ using i8096::RegsI8096;
  *   #WR                                              \________________/     
  *       ___ ____________________________ ______ ____________________________ ______ __
  *    AD ___X_addr_______________________X_addr_X_________data_______________X_addr_X__
+ *
+ * The CCB selects the 16-bit bus: a read is a word's, the even byte on
+ * AD0-AD7; a write moves the bytes A0 and #BHE pick.
  */
 
 // clang-format on
@@ -131,6 +134,17 @@ void PinsP8095BH::resetPins() {
         xtal1_cycle();
     Cycles::reset();
     negate_reset();
+    _idle = false;
+    _held = false;
+    // The CCB at 2018H, read before the CCR selects the 16-bit bus: AD0-AD7
+    // carry it in every bus mode.
+    completeCycle(prepareCycle()->inject(_mems->read(MemsI8096::CCB)), true);
+    const auto fetch = prepareCycle();
+    if (fetch->addr != InstI8096::ORG_RESET) {
+        cli.print("?reset fetch at ");
+        cli.printlnHex(fetch->addr, 4);
+    }
+    hold(fetch, fetch->addr);
     _regs->reset();
     _regs->save();
 }
@@ -141,6 +155,11 @@ constexpr auto no_bus_cycles = 10000;
 
 Signals *PinsP8095BH::prepareCycle() {
     auto s = _idle ? &_idleSignals : Signals::put();
+    if (_held) {
+        _held = false;
+        *s = _heldSignals;
+        return s;
+    }
     noInterrupts();
     // assert_debug();
     xtal1_hi();
@@ -174,17 +193,45 @@ Signals *PinsP8095BH::noBusCycle(Signals *s) {
     return s;
 }
 
-Signals *PinsP8095BH::completeCycle(Signals *s) {
+// Keeps the CPU waiting in the read |s|, its next fetch at |park|; the
+// next prepareCycle() takes it up.
+void PinsP8095BH::hold(const Signals *s, uint16_t park) {
+    _heldSignals = *s;
+    _heldSignals.clear();
+    _held = true;
+    _park = park;
+}
+
+// A 16-bit read is always a word's, at an even address: the CPU discards
+// the byte it doesn't need.
+uint16_t PinsP8095BH::readBus(const Signals *s) const {
+    const uint16_t even = s->addr & ~1;
+    return uint16(_mems->read(even + 1), _mems->read(even));
+}
+
+void PinsP8095BH::writeBus(const Signals *s) const {
+    for (uint_fast8_t i = 0; i < s->bytes(); ++i) {
+        const uint16_t addr = s->addr + i;
+        _mems->write(addr, s->byteAt(addr));
+    }
+}
+
+// |low|: drive a read's data on AD0-AD7 only.
+Signals *PinsP8095BH::completeCycle(Signals *s, bool low) {
     xtal1_hi();
     if (s->read()) {
         if (s->readMemory()) {
-            s->data = _mems->read(s->addr);
+            s->data = readBus(s);
         } else {
             delayNanoseconds(xtal1_hi_ns);
         }
         xtal1_lo();
         // assert_debug();
-        s->outData();
+        if (low) {
+            s->outLow();
+        } else {
+            s->outData();
+        }
         // negate_debug();
         xtal1_hi();
         s->inputMode();
@@ -194,7 +241,7 @@ Signals *PinsP8095BH::completeCycle(Signals *s) {
         // negate_debug();
         xtal1_lo();
         if (s->writeMemory()) {
-            _mems->write(s->addr, s->data);
+            writeBus(s);
         } else {
             delayNanoseconds(xtal1_lo_ns);
         }
@@ -218,50 +265,86 @@ Signals *PinsP8095BH::completeCycle(Signals *s) {
     return s;
 }
 
-uint16_t PinsP8095BH::injectReads(
-        const uint8_t *data, uint_fast8_t len, bool idle) {
+uint16_t PinsP8095BH::execute(uint16_t org, const uint8_t *inst,
+        uint_fast8_t len, uint8_t *buf, uint_fast8_t max, uint32_t exit,
+        bool idle, uint16_t at, const uint8_t *data) {
+    constexpr uint8_t NOP = 0xFD;
     _idle = idle;
-    uint16_t addr = 0;
-    for (uint_fast8_t i = 0; i < len; i++) {
+    const uint16_t leaves = exit == EXIT_PARK ? org : exit;
+    // The exit counts once the window's last byte was read: a sequence
+    // that jumps back to its origin reads it first.
+    bool whole = len == 0;
+    uint_fast8_t cap = 0;
+    uint16_t first = org;
+    // Bound the damage: a lost CPU never reads the exit.
+    for (auto guard = 0; guard < 100; ++guard) {
         auto s = prepareCycle();
-        completeCycle(s->inject(data[i]));
-        if (i == 0)
-            addr = s->addr;
+        if (s->read()) {
+            const uint16_t from = s->addr;
+            const uint16_t to = from + s->bytes();
+            if (whole && cap >= max && static_cast<uint16_t>(leaves - from) <
+                                               static_cast<uint16_t>(to - from)) {
+                hold(s, leaves);
+                return first;
+            }
+            uint16_t word = 0;
+            for (uint_fast8_t i = 0; i < s->bytes(); ++i) {
+                const uint16_t addr = from + i;
+                const uint16_t off = addr - org;
+                const uint16_t pop = addr - at;
+                uint8_t b = NOP;  // a fetch ahead
+                if (off < len) {
+                    b = inst[off];
+                    if (off == len - 1)
+                        whole = true;
+                } else if (data && pop < 2) {
+                    b = data[pop];
+                }
+                word |= b << ((addr & 1) ? 8 : 0);
+            }
+            s->inject(word);
+            completeCycle(s);
+        } else if (s->write()) {
+            const auto capturing = cap < max;
+            if (capturing)
+                s->capture();
+            completeCycle(s);
+            if (capturing) {
+                if (cap == 0)
+                    first = s->addr;
+                for (uint_fast8_t i = 0; i < s->bytes() && cap < max; ++i)
+                    buf[cap++] = s->byteAt(s->addr + i);
+            }
+        } else {
+            break;
+        }
     }
-    return addr;
+    if (!idle) {
+        cli.print("?lost the CPU running at ");
+        cli.printHex(org, 4);
+        cli.print(" to ");
+        cli.printlnHex(leaves, 4);
+    }
+    _held = false;
+    return first;
 }
 
-uint16_t PinsP8095BH::captureWrites(uint8_t *data, uint_fast8_t len) {
-    _idle = false;
-    uint16_t addr = 0;
-    for (uint_fast8_t i = 0; i < len; i++) {
-        auto s = prepareCycle();
-        completeCycle(s->capture());
-        data[i] = s->data;
-        if (i == 0)
-            addr = s->addr;
-    }
-    return addr;
+uint16_t PinsP8095BH::execInst(const uint8_t *inst, uint_fast8_t len,
+        uint8_t *buf, uint_fast8_t max, uint32_t exit) {
+    return execute(_park, inst, len, buf, max, exit, false);
 }
 
-Signals *PinsP8095BH::jumpHere(uint_fast8_t len, bool idle) {
-    constexpr auto disp = -2;
-    static constexpr uint8_t SJMP_HERE[] = {
-            SJMP(disp),  // SJMP $-2
-            0xFD,        // NOP
-            0xFD,        // NOP
-            0xFD,        // NOP
-            0xFD,        // NOP
-    };
-    auto s = Signals::put();
-    injectReads(SJMP_HERE, len, idle);
-    return s;
+void PinsP8095BH::popInst(const uint8_t *inst, uint_fast8_t len, uint16_t at,
+        const uint8_t *data, uint32_t exit) {
+    execute(_park, inst, len, nullptr, 0, exit, false, at, data);
 }
 
 void PinsP8095BH::idle() {
-    _idle = true;
     // The maximum duration of READY=L is 1us and useless for idle.
-    Cycles::discard(jumpHere(4, true));
+    static constexpr uint8_t SJMP_HERE[] = {
+            SJMP(-2),  // SJMP $
+    };
+    execute(_park, SJMP_HERE, sizeof(SJMP_HERE), nullptr, 0, EXIT_PARK, true);
 }
 
 uint16_t PinsP8095BH::jumpTarget(uint16_t next, uint_fast8_t opc) const {
@@ -296,36 +379,53 @@ bool PinsP8095BH::rawStep(bool show) {
     const CpuMemory cpu(mems<MemsI8096>());
     if (!inst.set(_regs->nextIp(), &cpu))
         return false;
+    const uint16_t pc = _regs->nextIp();
     const auto len = inst.instLength();
-    const auto next = _regs->nextIp() + len;
+    const uint16_t next = pc + len;
     const auto opc = inst.opc();
     const auto target = jumpTarget(next, opc);
     auto stepTrap = opc == InstI8096::TRAP;
     _regs->restore();
     if (show)
         Cycles::reset();
-    for (uint_fast8_t i = 0; i < len; i++) {
-        auto s = completeCycle(prepareCycle());
-        if (i == 0)
-            s->markFetch();
-    }
-    for (uint_fast8_t i = 0; i < 20; i++) {
+    _idle = false;
+    // The instruction's bytes come from memory until each was fetched;
+    // after them, a fetch of the next or the target gets a TRAP.
+    const uint8_t all = (1 << len) - 1;
+    uint8_t fetched = 0;
+    for (uint_fast8_t i = 0; i < 30; i++) {
         auto s = prepareCycle();
-        if (s->read()) {
-            if (s->addr == next) {
-                s->inject(InstI8096::TRAP);
-            } else if (s->addr == target) {
-                s->inject(InstI8096::TRAP);
-            } else if (s->addr == InstI8096::VEC_TRAP) {
-                if (stepTrap) {
-                    stepTrap = false;
-                } else {
-                    handleTrap(s, 0x2345, true);
-                    if (show)
-                        Cycles::discard(s);
-                    break;
+        if (s->read() && s->addr == InstI8096::VEC_TRAP) {
+            if (stepTrap) {
+                stepTrap = false;
+            } else {
+                handleTrap(s, 0x2344, true);
+                if (show)
+                    Cycles::discard(s);
+                break;
+            }
+        } else if (s->read()) {
+            const auto first = fetched == 0;
+            auto word = readBus(s);
+            auto trap = false;
+            for (uint_fast8_t j = 0; j < s->bytes(); ++j) {
+                const uint16_t addr = s->addr + j;
+                const uint16_t off = addr - pc;
+                if (off < len && fetched != all) {
+                    fetched |= 1 << off;
+                } else if (addr == next || addr == target) {
+                    const auto lane = (addr & 1) ? 8 : 0;
+                    word &= ~(0xFF << lane);
+                    word |= InstI8096::TRAP << lane;
+                    trap = true;
                 }
             }
+            if (trap)
+                s->inject(word);
+            completeCycle(s);
+            if (first && fetched)
+                s->markFetch();
+            continue;
         }
         completeCycle(s);
     }
@@ -342,10 +442,27 @@ bool PinsP8095BH::step(bool show) {
     return false;
 }
 
+// |s| reads the vector: answer |vector|, capture the PC the CPU pushes,
+// and park at |vector|, an even address.
 void PinsP8095BH::handleTrap(Signals *s, uint16_t vector, bool breakTrap) {
-    completeCycle(s->inject(lo(vector)));
-    injectRead(hi(vector));
-    regs<RegsI8096>()->captureContext(breakTrap);
+    const uint8_t vec[] = {lo(vector), hi(vector)};
+    uint8_t pc[2];
+    hold(s, s->addr);
+    const auto sp = execute(s->addr, vec, sizeof(vec), pc, sizeof(pc),
+            vector, false);
+    regs<RegsI8096>()->captureContext(sp, pc[0] | (pc[1] << 8), breakTrap);
+}
+
+// Whether the read |s| fetched a breakpoint's TRAP.
+bool PinsP8095BH::fetchedBreak(const Signals *s) const {
+    if (!s->read())
+        return false;
+    for (uint_fast8_t i = 0; i < s->bytes(); ++i) {
+        const uint16_t addr = s->addr + i;
+        if (isBreakPoint(addr) && s->byteAt(addr) == InstI8096::TRAP)
+            return true;
+    }
+    return false;
 }
 
 #ifdef PROFILE_CYCLES
@@ -359,7 +476,7 @@ Signals *PinsP8095BH::loop() {
         auto s = prepareCycle();
         if (s->addr == InstI8096::VEC_TRAP && s->read()) {
             negate_debug();
-            handleTrap(s, 0x4567, true);
+            handleTrap(s, 0x4566, true);
             return s;
         }
         if (tryHalt) {
@@ -389,16 +506,14 @@ Signals *PinsP8095BH::loop() {
     while (true) {
         auto s = prepareCycle();
         if (s->addr == InstI8096::VEC_TRAP && s->read()) {
-            for (uint_fast8_t i = 3; i < 10; ++i) {
-                const auto trap = s->prev(i);
-                if (isBreakPoint(trap->addr) && trap->read() &&
-                        trap->data == InstI8096::TRAP) {
+            for (uint_fast8_t i = 1; i < 10; ++i) {
+                if (fetchedBreak(s->prev(i))) {
                     handleTrap(s, 0x3456, true);
                     return s;
                 }
             }
             if (_mems->read16(InstI8096::VEC_TRAP) == InstI8096::VEC_TRAP) {
-                handleTrap(s, 0x4567, true);
+                handleTrap(s, 0x4566, true);
                 return s;
             }
         }
@@ -426,12 +541,14 @@ Signals *PinsP8095BH::loop() {
 void PinsP8095BH::run() {
     _regs->restore();
     Cycles::reset();
+    _idle = false;
     saveBreakInsts();
     startRunTimer();
 #ifdef PROFILE_CYCLES
-    // Keep the TRAP's cycles, its vector and pushes (1:~:V:v:W:w): without
-    // them the matcher can't place its fetch, the end of the pattern.
-    _profileEnd = loop()->next(4);
+    // Keep the TRAP's cycles, its vector and pushes (1:~:Vr:Ww, a word
+    // each): without them the matcher can't place its fetch, the end of the
+    // pattern.
+    _profileEnd = loop()->next(2);
     stopRunTimer();
 #else
     const auto s = loop();
@@ -503,15 +620,22 @@ void PinsP8095BH::printBacktrace() {
             const auto nexti = _mems->disassemble(s->addr, 1);
             const uint_fast8_t len = nexti - s->addr;
             idle();
-            for (uint_fast8_t j = 0; j < len; j++) {
+            // Its fetches, a word bringing two bytes; others print.
+            uint_fast8_t j = 0;
+            for (uint_fast8_t got = 0; got < len && i + j < cycles; j++) {
                 const auto t = s->next(j);
-                if (t->addr < s->addr || t->addr >= nexti ||
-                        Debugger.verbose()) {
+                const uint16_t from = t->addr;
+                const uint16_t to = from + t->bytes();
+                const auto inside = t->read() && to > s->addr && from < nexti;
+                if (inside)
+                    got += (to < nexti ? to : nexti) -
+                           (from > s->addr ? from : s->addr);
+                if (!inside || Debugger.verbose()) {
                     t->print();
                     idle();
                 }
             }
-            i += len;
+            i += j;
         } else {
             s->print();
             idle();

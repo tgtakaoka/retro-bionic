@@ -6,6 +6,7 @@ queue_put:      equ     2       ; queue put index
 queue_get:      equ     3       ; queue get index
 queue_buf:      equ     4       ; buffer start offset
 
+        align   2               ; an even entry: a whole word first
 ;;; [queue] Initialize queue
 ;;; @param HL queue work space pointer
 ;;; @param B queue work space size
@@ -26,6 +27,7 @@ queue_init_loop:
         pop     A
         ret
 
+        align   2
 ;;; [queue] Add an element to queue
 ;;; @param HL queue work space pointer
 ;;; @param A an element
@@ -39,6 +41,7 @@ queue_add:
         jlt     queue_add_store    ; queue_len < queue_size
         pop     DE                 ; F.C=0
         ret
+        align   2
 queue_add_store:
         ldb     DE, queue_len[HL]
         incb    DE
@@ -59,6 +62,7 @@ queue_add_update:
         setc                    ; set carry
         ret
 
+        align   2
 ;;; [queue] Remove an element from queue
 ;;; @param HL queue work space pointer
 ;;; @return A an element
@@ -68,6 +72,7 @@ queue_remove:
         orb     A, A              ; clear carry
         jne     queue_remove_elem ; queue_len > 0
         ret                       ; F.C=0
+        align   2
 queue_remove_elem:
         push    DE
         ldb     DE, queue_len[HL]

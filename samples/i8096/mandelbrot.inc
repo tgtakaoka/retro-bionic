@@ -6,6 +6,7 @@ mandelbrot:
         ldb     vY, #-12        ; Y=-12
 loop_y:
         ldb     vX, #-49        ; X=-49
+        nop                     ; puts loop_x and loop_i at even addresses
 loop_x:
         ldbse   HL, vX
         mul     HL, #229        ; X*229

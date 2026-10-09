@@ -20,10 +20,10 @@
 (1)       0 :                    ;;; i8251 Universal Synchronous/Asynchronous Receiver/Transmitter
 (1)       0 : =200               USART:  equ     0200H
 (1)       0 : =200               USARTD: equ     USART+0         ; Data register
-(1)       0 : =201               USARTS: equ     USART+1         ; Status register
-(1)       0 : =201               USARTC: equ     USART+1         ; Control register
-(1)       0 : =202               USARTRV:        equ     USART+2 ; Receive interrupt vector (ORG_*)
-(1)       0 : =203               USARTTV:        equ     USART+3 ; Transmit interrupt vector (ORG_*)
+(1)       0 : =202               USARTS: equ     USART+2         ; Status register
+(1)       0 : =202               USARTC: equ     USART+2         ; Control register
+(1)       0 : =204               USARTRV:        equ     USART+4 ; Receive interrupt vector (ORG_*)
+(1)       0 : =206               USARTTV:        equ     USART+6 ; Transmit interrupt vector (ORG_*)
 (1)       0 :                            include "i8251.inc"
 (2)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
 (2)       0 :
@@ -79,7 +79,7 @@
        1000 : =1000              stack:  equ     $
        1000 :
        200E :                            org     VEC_EXTINT
-       200E : 99 21                      dcw     isr_intr
+       200E : 9C 21                      dcw     isr_intr
        2010 :
          1A :                            org     1AH
          1A :                    A:      dsb     1
@@ -95,36 +95,36 @@
        2087 :
        2087 : A1 00 30 1C                ld      HL, #rx_queue
        208B : B1 80 1B                   ldb     B, #rx_queue_size
-       208E : 28 67                      scall   queue_init
+       208E : 28 68                      scall   queue_init
        2090 :                    init_usart:
-       2090 : C7 01 01 02 00             stb     ZERO, USARTC
-       2095 : C7 01 01 02 00             stb     ZERO, USARTC
-       209A : C7 01 01 02 00             stb     ZERO, USARTC    ; safest way to sync mode
+       2090 : C7 01 02 02 00             stb     ZERO, USARTC
+       2095 : C7 01 02 02 00             stb     ZERO, USARTC
+       209A : C7 01 02 02 00             stb     ZERO, USARTC    ; safest way to sync mode
        209F : B1 40 1A                   ldb     A, #CMD_IR_bm
-       20A2 : C7 01 01 02 1A             stb     A, USARTC       ; reset
+       20A2 : C7 01 02 02 1A             stb     A, USARTC       ; reset
        20A7 : FD                         nop
        20A8 : FD                         nop
        20A9 : B1 4E 1A                   ldb     A, #ASYNC_MODE
-       20AC : C7 01 01 02 1A             stb     A, USARTC
+       20AC : C7 01 02 02 1A             stb     A, USARTC
        20B1 : FD                         nop
        20B2 : FD                         nop
        20B3 : B1 37 1A                   ldb     A, #RX_EN_TX_EN
-       20B6 : C7 01 01 02 1A             stb     A, USARTC
+       20B6 : C7 01 02 02 1A             stb     A, USARTC
        20BB : B1 01 1A                   ldb     A, #1
-       20BE : C7 01 02 02 1A             stb     A, USARTRV      ; enable receive interrupt
+       20BE : C7 01 04 02 1A             stb     A, USARTRV      ; enable receive interrupt
        20C3 : FB                         ei
        20C4 :
        20C4 : A1 00 30 1C                ld      HL, #rx_queue
        20C8 :                    receive_loop:
        20C8 : FA                         di                      ; Disable INTR
-       20C9 : 28 97                      scall   queue_remove
+       20C9 : 28 99                      scall   queue_remove
        20CB : FB                         ei                      ; Enable INTR
        20CC : D3 FA                      jnc     receive_loop
        20CE : B0 1A 1B                   ldb     B, A            ; save character
        20D1 : 90 1A 1A                   orb     A, A
        20D4 : DF 17                      je      halt_to_system
        20D6 :                    transmit_loop:
-       20D6 : B3 01 01 02 1A             ldb     A, USARTS
+       20D6 : B3 01 02 02 1A             ldb     A, USARTS
        20DB : 30 1A F8                   jbc     A, ST_TxRDY_bp, transmit_loop
        20DE :                    transmit_data:
        20DE : C7 01 00 02 1B             stb     B, USARTD
@@ -147,99 +147,105 @@
 (1)    20F7 : =3                 queue_get:      equ     3       ; queue get index
 (1)    20F7 : =4                 queue_buf:      equ     4       ; buffer start offset
 (1)    20F7 :
-(1)    20F7 :                    ;;; [queue] Initialize queue
-(1)    20F7 :                    ;;; @param HL queue work space pointer
-(1)    20F7 :                    ;;; @param B queue work space size
-(1)    20F7 :                    queue_init:
-(1)    20F7 : C8 1A                      push    A               ; push A,B
-(1)    20F9 : C8 1C                      push    HL
-(1)    20FB : C6 1C 00                   stb     ZERO, queue_len[HL]
-(1)    20FE : B0 1B 1A                   ldb     A, B
-(1)    2101 : 79 04 1A                   subb    A, #queue_buf
-(1)    2104 : C7 1C 01 1A                stb     A, queue_size[HL]
-(1)    2108 : C7 1C 02 00                stb     ZERO, queue_put[HL]
-(1)    210C : C7 1C 03 00                stb     ZERO, queue_get[HL]
-(1)    2110 : 65 04 00 1C                add     HL, #queue_buf
-(1)    2114 :                    queue_init_loop:
-(1)    2114 : C6 1D 00                   stb     ZERO, [HL]+
-(1)    2117 : E0 1A FA                   djnz    A, queue_init_loop
-(1)    211A : CC 1C                      pop     HL
-(1)    211C : CC 1A                      pop     A
-(1)    211E : F0                         ret
-(1)    211F :
-(1)    211F :                    ;;; [queue] Add an element to queue
-(1)    211F :                    ;;; @param HL queue work space pointer
-(1)    211F :                    ;;; @param A an element
-(1)    211F :                    ;;; @return F.C 0 if queue is full
-(1)    211F :                    queue_add:
-(1)    211F : C8 1E                      push    DE
-(1)    2121 : B0 1A 1E                   ldb     DE, A           ; save an element
-(1)    2124 : B2 1C 1A                   ldb     A, queue_len[HL]
-(1)    2127 : 9B 1C 01 1A                cmpb    A, queue_size[HL]
-(1)    212B : B0 1E 1A                   ldb     A, DE              ; restore an element
-(1)    212E : DE 03                      jlt     queue_add_store    ; queue_len < queue_size
-(1)    2130 : CC 1E                      pop     DE                 ; F.C=0
-(1)    2132 : F0                         ret
-(1)    2133 :                    queue_add_store:
-(1)    2133 : B2 1C 1E                   ldb     DE, queue_len[HL]
-(1)    2136 : 17 1E                      incb    DE
-(1)    2138 : C6 1C 1E                   stb     DE, queue_len[HL]
-(1)    213B : AF 1C 02 1E                ldbze   DE, queue_put[HL]
-(1)    213F : 65 04 00 1E                add     DE, #queue_buf
-(1)    2143 : 64 1C 1E                   add     DE, HL
-(1)    2146 : C6 1E 1A                   stb     A, [DE]         ; store an element
-(1)    2149 : B3 1C 02 1A                ldb     A, queue_put[HL]
-(1)    214D : 17 1A                      incb    A
-(1)    214F : 9B 1C 01 1A                cmpb    A, queue_size[HL]
-(1)    2153 : DE 02                      jlt     queue_add_update ; queue_put < queue_size
-(1)    2155 : 11 1A                      clrb    A                ; wrap around
-(1)    2157 :                    queue_add_update:
-(1)    2157 : C7 1C 02 1A                stb     A, queue_put[HL]
-(1)    215B : B2 1E 1A                   ldb     A, [DE]         ; restore an element
-(1)    215E : CC 1E                      pop     DE
-(1)    2160 : F9                         setc                    ; set carry
-(1)    2161 : F0                         ret
-(1)    2162 :
-(1)    2162 :                    ;;; [queue] Remove an element from queue
-(1)    2162 :                    ;;; @param HL queue work space pointer
-(1)    2162 :                    ;;; @return A an element
-(1)    2162 :                    ;;; @return F.C 0 if queue is empty
-(1)    2162 :                    queue_remove:
-(1)    2162 : B2 1C 1A                   ldb     A, queue_len[HL]
-(1)    2165 : 90 1A 1A                   orb     A, A              ; clear carry
-(1)    2168 : D7 01                      jne     queue_remove_elem ; queue_len > 0
-(1)    216A : F0                         ret                       ; F.C=0
-(1)    216B :                    queue_remove_elem:
-(1)    216B : C8 1E                      push    DE
-(1)    216D : B2 1C 1E                   ldb     DE, queue_len[HL]
-(1)    2170 : 15 1E                      decb    DE
-(1)    2172 : C6 1C 1E                   stb     DE, queue_len[HL]
-(1)    2175 : AF 1C 03 1E                ldbze   DE, queue_get[HL]
-(1)    2179 : 65 04 00 1E                add     DE, #queue_buf
-(1)    217D : 64 1C 1E                   add     DE, HL
-(1)    2180 : B3 1C 03 1A                ldb     A, queue_get[HL]
-(1)    2184 : 17 1A                      incb    A
-(1)    2186 : 9B 1C 01 1A                cmpb    A, queue_size[HL]
-(1)    218A : DE 02                      jlt     queue_remove_update ; queue_get < queue_size
-(1)    218C : 11 1A                      clrb    A                   ; wrap around
-(1)    218E :                    queue_remove_update:
-(1)    218E : C7 1C 03 1A                stb     A, queue_get[HL]
-(1)    2192 : B2 1E 1A                   ldb     A, [DE]         ; read an element
-(1)    2195 : CC 1E                      pop     DE
-(1)    2197 : F9                         setc                    ; set carry
-(1)    2198 : F0                         ret
-       2199 :
-       2199 :                    isr_intr:
-       2199 : F2                         pushf
-       219A : C8 1A                      push    A               ; push A,B
-       219C : C8 1C                      push    HL
-       219E : B3 01 01 02 1A             ldb     A, USARTS
-       21A3 : 31 1A 0B                   jbc     A, ST_RxRDY_bp, isr_intr_recv_end
-       21A6 : B3 01 00 02 1A             ldb     A, USARTD
-       21AB : A1 00 30 1C                ld      HL, #rx_queue
-       21AF : 2F 6E                      scall   queue_add
-       21B1 :                    isr_intr_recv_end:
-       21B1 : CC 1C                      pop     HL
-       21B3 : CC 1A                      pop     A
-       21B5 : F3                         popf
-       21B6 : F0                         ret
+(1)    20F8 :                            align   2               ; an even entry: a whole word first
+(1)    20F8 :                    ;;; [queue] Initialize queue
+(1)    20F8 :                    ;;; @param HL queue work space pointer
+(1)    20F8 :                    ;;; @param B queue work space size
+(1)    20F8 :                    queue_init:
+(1)    20F8 : C8 1A                      push    A               ; push A,B
+(1)    20FA : C8 1C                      push    HL
+(1)    20FC : C6 1C 00                   stb     ZERO, queue_len[HL]
+(1)    20FF : B0 1B 1A                   ldb     A, B
+(1)    2102 : 79 04 1A                   subb    A, #queue_buf
+(1)    2105 : C7 1C 01 1A                stb     A, queue_size[HL]
+(1)    2109 : C7 1C 02 00                stb     ZERO, queue_put[HL]
+(1)    210D : C7 1C 03 00                stb     ZERO, queue_get[HL]
+(1)    2111 : 65 04 00 1C                add     HL, #queue_buf
+(1)    2115 :                    queue_init_loop:
+(1)    2115 : C6 1D 00                   stb     ZERO, [HL]+
+(1)    2118 : E0 1A FA                   djnz    A, queue_init_loop
+(1)    211B : CC 1C                      pop     HL
+(1)    211D : CC 1A                      pop     A
+(1)    211F : F0                         ret
+(1)    2120 :
+(1)    2120 :                            align   2
+(1)    2120 :                    ;;; [queue] Add an element to queue
+(1)    2120 :                    ;;; @param HL queue work space pointer
+(1)    2120 :                    ;;; @param A an element
+(1)    2120 :                    ;;; @return F.C 0 if queue is full
+(1)    2120 :                    queue_add:
+(1)    2120 : C8 1E                      push    DE
+(1)    2122 : B0 1A 1E                   ldb     DE, A           ; save an element
+(1)    2125 : B2 1C 1A                   ldb     A, queue_len[HL]
+(1)    2128 : 9B 1C 01 1A                cmpb    A, queue_size[HL]
+(1)    212C : B0 1E 1A                   ldb     A, DE              ; restore an element
+(1)    212F : DE 03                      jlt     queue_add_store    ; queue_len < queue_size
+(1)    2131 : CC 1E                      pop     DE                 ; F.C=0
+(1)    2133 : F0                         ret
+(1)    2134 :                            align   2
+(1)    2134 :                    queue_add_store:
+(1)    2134 : B2 1C 1E                   ldb     DE, queue_len[HL]
+(1)    2137 : 17 1E                      incb    DE
+(1)    2139 : C6 1C 1E                   stb     DE, queue_len[HL]
+(1)    213C : AF 1C 02 1E                ldbze   DE, queue_put[HL]
+(1)    2140 : 65 04 00 1E                add     DE, #queue_buf
+(1)    2144 : 64 1C 1E                   add     DE, HL
+(1)    2147 : C6 1E 1A                   stb     A, [DE]         ; store an element
+(1)    214A : B3 1C 02 1A                ldb     A, queue_put[HL]
+(1)    214E : 17 1A                      incb    A
+(1)    2150 : 9B 1C 01 1A                cmpb    A, queue_size[HL]
+(1)    2154 : DE 02                      jlt     queue_add_update ; queue_put < queue_size
+(1)    2156 : 11 1A                      clrb    A                ; wrap around
+(1)    2158 :                    queue_add_update:
+(1)    2158 : C7 1C 02 1A                stb     A, queue_put[HL]
+(1)    215C : B2 1E 1A                   ldb     A, [DE]         ; restore an element
+(1)    215F : CC 1E                      pop     DE
+(1)    2161 : F9                         setc                    ; set carry
+(1)    2162 : F0                         ret
+(1)    2163 :
+(1)    2164 :                            align   2
+(1)    2164 :                    ;;; [queue] Remove an element from queue
+(1)    2164 :                    ;;; @param HL queue work space pointer
+(1)    2164 :                    ;;; @return A an element
+(1)    2164 :                    ;;; @return F.C 0 if queue is empty
+(1)    2164 :                    queue_remove:
+(1)    2164 : B2 1C 1A                   ldb     A, queue_len[HL]
+(1)    2167 : 90 1A 1A                   orb     A, A              ; clear carry
+(1)    216A : D7 02                      jne     queue_remove_elem ; queue_len > 0
+(1)    216C : F0                         ret                       ; F.C=0
+(1)    216E :                            align   2
+(1)    216E :                    queue_remove_elem:
+(1)    216E : C8 1E                      push    DE
+(1)    2170 : B2 1C 1E                   ldb     DE, queue_len[HL]
+(1)    2173 : 15 1E                      decb    DE
+(1)    2175 : C6 1C 1E                   stb     DE, queue_len[HL]
+(1)    2178 : AF 1C 03 1E                ldbze   DE, queue_get[HL]
+(1)    217C : 65 04 00 1E                add     DE, #queue_buf
+(1)    2180 : 64 1C 1E                   add     DE, HL
+(1)    2183 : B3 1C 03 1A                ldb     A, queue_get[HL]
+(1)    2187 : 17 1A                      incb    A
+(1)    2189 : 9B 1C 01 1A                cmpb    A, queue_size[HL]
+(1)    218D : DE 02                      jlt     queue_remove_update ; queue_get < queue_size
+(1)    218F : 11 1A                      clrb    A                   ; wrap around
+(1)    2191 :                    queue_remove_update:
+(1)    2191 : C7 1C 03 1A                stb     A, queue_get[HL]
+(1)    2195 : B2 1E 1A                   ldb     A, [DE]         ; read an element
+(1)    2198 : CC 1E                      pop     DE
+(1)    219A : F9                         setc                    ; set carry
+(1)    219B : F0                         ret
+       219C :
+       219C :                            align   2
+       219C :                    isr_intr:
+       219C : F2                         pushf
+       219D : C8 1A                      push    A               ; push A,B
+       219F : C8 1C                      push    HL
+       21A1 : B3 01 02 02 1A             ldb     A, USARTS
+       21A6 : 31 1A 0B                   jbc     A, ST_RxRDY_bp, isr_intr_recv_end
+       21A9 : B3 01 00 02 1A             ldb     A, USARTD
+       21AE : A1 00 30 1C                ld      HL, #rx_queue
+       21B2 : 2F 6C                      scall   queue_add
+       21B4 :                    isr_intr_recv_end:
+       21B4 : CC 1C                      pop     HL
+       21B6 : CC 1A                      pop     A
+       21B8 : F3                         popf
+       21B9 : F0                         ret

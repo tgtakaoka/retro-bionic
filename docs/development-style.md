@@ -1235,6 +1235,37 @@ The pointer register's LSB selects auto-increment for `[w]` and the long
 index for `n[w]`, and the profile uses an even register, so the long-index
 forms are not checked on the chip yet.
 
+**The bus is 16 bits wide.** The debugger serves the CCB as F7H, whatever
+memory holds at 2018H. Every read is then a word's at an even address and
+the CPU discards the byte it doesn't need (8X9X User's Manual §7.6)
+**[doc]**, but a read that wants only the odd byte puts the odd address on
+the bus: a fetch at an odd jump target, `LDB` from an odd address. Answer
+both lanes from the even word whatever A0 says. **[hw]**
+
+- The CCB is read before the CCR selects the bus width, and the manual
+  says only that the chip "will correctly read this location in every bus
+  mode". Driving it on AD0-AD7 alone works. **[doc][hw]**
+- #BHE is bonded out on the DIP-48, despite the data sheet's note that it
+  isn't on 48-pin parts: `PUSHF` pushes in one word cycle. **[hw]**
+- A status read at 0201H would read the data register at 0200H with it
+  and swallow a character, so the USART's registers sit a word apart:
+  data 0200H, status and control 0202H. **[code]**
+- Injection is address-keyed: each sequence runs from where the CPU is
+  parked and jumps back there, and the read of the exit is held for the
+  next one. The vectors the debugger hands a trap are even, so a sequence
+  never starts in the middle of a word. **[code]**
+- The queue reads a word again: twice running, and after one it had too
+  little room for, sometimes past a write. A ring may also start up to
+  seven bytes into the instructions it cuts. `refetchWord` and `cutStart`
+  in `ArchI8096` say so; the bench rings `bench_i8096_16` hold the cases.
+  **[hw]**
+- The queue fetches a word ahead before a 3-operand `n[w]` form's read,
+  and before the long-index read of `MULU`, `MULUB`, `MUL` and `MULB`: on
+  the 8-bit bus their rows had no `~`. The profile on the 16-bit bus,
+  `tools/i8096-cycles16.jsonl.zst`, checks every row. An opcode and its
+  TRAP may come in one word, so `check()` takes one marked fetch for a
+  one-byte instruction. **[hw]**
+
 ### SC/MP (INS8060)
 
 **Pitfalls.** The printed PC is one byte early (see General); routine

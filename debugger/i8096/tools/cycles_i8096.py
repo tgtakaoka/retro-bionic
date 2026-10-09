@@ -105,10 +105,12 @@ def variants(page, prefix, opc, mnemo, opr, length, seq, suffix):
 
 
 def cycles(txt):
-    """[kind, addr, data, fetch] per printed cycle."""
+    """[kind, addr, data, fetch, bytes] per printed cycle: a word cycle's
+    data has four digits."""
     return [['R' if m.group(1) == 'I' else m.group(1), int(m.group(2), 16),
-             int(m.group(3), 16), m.group(1) == 'I']
-            for m in re.finditer(r'^([IRW]) A=([0-9A-F]{4}) D=([0-9A-F]{2})', txt, re.M)]
+             int(m.group(3), 16), m.group(1) == 'I', len(m.group(3)) // 2]
+            for m in re.finditer(r'^([IRW]) A=([0-9A-F]{4}) D=([0-9A-F]{4}|[0-9A-F]{2})\b',
+                                 txt, re.M)]
 
 
 def record(run, cycles, ok):
@@ -130,6 +132,18 @@ def restore(run, cycles):
     return out
 
 
+def lanes(c):
+    """The bytes a recorded cycle moved: a word's two, from its address."""
+    return [c[2] & 0xFF, c[2] >> 8] if len(c) > 4 and c[4] == 2 else [c[2]]
+
+
+def length(rec):
+    """The pattern's instruction length, by its key."""
+    page, opc = rec['key'].split(':')[:2]
+    lengths = table(page)[int(opc, 16)][2]
+    return lengths[1] if rec['key'].endswith(':long') else lengths[0]
+
+
 def check(rec):
     head = '%-6s %-9s' % (rec['mnemo'], rec['operands'])
     trace = rec['cycles']
@@ -137,7 +151,9 @@ def check(rec):
         return '%s ended %s after %d cycles' % (head, rec['end'], len(trace))
     # The pattern's opcode, then the TRAP's.
     marks = [c for c in trace if c[3]]
-    if [c[1] for c in marks[:1]] != [ORG] or len(marks) != 2 or marks[1][2] != TRAP:
+    if len(marks) == 1 and length(rec) == 1 and lanes(marks[0])[1:] == [TRAP]:
+        marks.append(marks[0])  # one word brought the opcode and the TRAP
+    if [c[1] for c in marks[:1]] != [ORG] or len(marks) != 2 or TRAP not in lanes(marks[1]):
         marks = [c[1] for c in marks]
         return '%s matcher marked fetches at %s' % (head, ' '.join('%04X' % a for a in marks))
     return None
