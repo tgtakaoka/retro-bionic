@@ -297,16 +297,29 @@ bool MatchWalker::matchAlternative(const Decoded &inst, const char *seq,
     // other fetches follow from there
     m.biased = queued.n != 0;
     m.bias = queued.bias;
+    // which of a fetch's bytes onStream() found |addr| at: its first, but
+    // where a word fetch may be read again for its later byte
+    uint_fast8_t onAt = 0;
+    const auto words = arch.traits.refetchWord;
     auto onStream = [&](const SignalsImpl *q, uint32_t addr) {
         if (_kind[m.i] != K_READ)
             return false;
-        if (m.biased)
-            return q->addr == ((addr + m.bias) & mask);
-        if (!arch.sameAddress(q->addr, addr & mask))
-            return false;
-        m.biased = true;
-        m.bias = q->addr - addr;
-        return true;
+        const auto bytes = words ? arch.fetchBytes(q) : 1;
+        if (m.biased) {
+            const uint32_t on = (addr + m.bias) & mask;
+            if (on < q->addr || on - q->addr >= bytes)
+                return false;
+            onAt = on - q->addr;
+            return true;
+        }
+        for (onAt = 0; onAt < bytes; ++onAt) {
+            if (arch.sameAddress(q->addr + onAt, addr & mask)) {
+                m.biased = true;
+                m.bias = q->addr + onAt - addr;
+                return true;
+            }
+        }
+        return false;
     };
     // a fetch's bytes after the |used| first: the queue's
     auto queueRest = [&](const SignalsImpl *q, uint_fast8_t used) {
@@ -347,16 +360,44 @@ bool MatchWalker::matchAlternative(const Decoded &inst, const char *seq,
                 (unsigned)m.i, why);
         return false;
     };
+    // the last word fetch read again, a few cycles on at most, once the
+    // stream has taken all of it
+    auto repeated = [&](const SignalsImpl *q, uint32_t stream) {
+        if (!words || arch.fetchBytes(q) < 2 ||
+                q->addr + arch.fetchBytes(q) > ((stream + m.bias) & mask))
+            return false;
+        for (auto j = m.i; j > 0 && j + 3 > m.i; --j) {
+            const auto role = _role[j - 1];
+            if (role == R_BYTE || role == R_FETCH)
+                return _kind[j - 1] == K_READ && at(j - 1)->addr == q->addr;
+        }
+        return false;
+    };
+    // where the token fails at it, a word fetch ahead the queue had too
+    // little room for: what it took is read again, or lost
+    auto dropFetch = [&]() {
+        if (!words || !queueing || m.i >= _size)
+            return false;
+        const auto q = at(m.i);
+        if (arch.fetchBytes(q) < 2 || !onStream(q, m.fetch + m.queue.n))
+            return false;
+        _role[m.i++] = R_BYTE;
+        if (m.i > _written)
+            _written = m.i;
+        return true;
+    };
     // past ~, the queue fetches ahead; a stall fetches again what the
     // stream has already fetched
     auto fetchAhead = [&]() {
         while (m.i < _size) {
             const auto q = at(m.i);
             const auto stream = m.fetch + m.queue.n;
-            if (queueing && m.queue.n + arch.fetchBytes(q) <= capacity &&
-                    onStream(q, stream)) {
-                queueRest(q, 0);
-            } else if (!refetched(q, stream)) {
+            if (queueing &&
+                    (words || m.queue.n + arch.fetchBytes(q) <= capacity) &&
+                    onStream(q, stream) &&
+                    m.queue.n + arch.fetchBytes(q) - onAt <= capacity) {
+                queueRest(q, onAt);
+            } else if (!refetched(q, stream) && !repeated(q, stream)) {
                 break;
             }
             _role[m.i++] = R_BYTE;
@@ -445,7 +486,7 @@ bool MatchWalker::matchAlternative(const Decoded &inst, const char *seq,
             ++m.fetch;
             role = R_BYTE;
             if (ok)
-                queueRest(s, 1);
+                queueRest(s, onAt + 1);
             break;
         case 'n':
             ok = onStream(s, m.fetch);
@@ -725,6 +766,9 @@ bool MatchWalker::matchAlternative(const Decoded &inst, const char *seq,
                 ++p;
                 continue;
             }
+            if (known && m.i < _size && _kind[m.i] == K_READ &&
+                    !arch.sameAddress(at(m.i)->addr, expect) && dropFetch())
+                continue;
             if (m.queue.n) {  // a transfer: what the queue fetched is lost
                 m.queue.n = 0;
                 queueing = false;
@@ -790,7 +834,12 @@ bool MatchWalker::matchAlternative(const Decoded &inst, const char *seq,
             continue;
         }
         const char *after;
+        // a read of the stream is its fetch, not the data
+        if ((c == 'R' || c == 'A' || c == 'X') && dropFetch())
+            continue;
         if (!matchToken(p, after)) {
+            if (dropFetch())
+                continue;
             if (group) {  // the iteration stops: on after the group
                 giveBack(saved);
                 p = groupClose + 1;
