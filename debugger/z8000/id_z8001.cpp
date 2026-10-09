@@ -3,15 +3,15 @@
 #include "pins_z8000.h"
 
 namespace debugger {
-namespace z8002 {
+namespace z8001 {
 
 Pins *instance() {
-    return new z8000::PinsZ8000(false);
+    return new z8000::PinsZ8000(true);
 }
 
-const struct Identity Z8002{"Z8002", instance};
+const struct Identity Z8001{"Z8001", instance};
 
-}  // namespace z8002
+}  // namespace z8001
 }  // namespace debugger
 
 // Local Variables:

@@ -1,0 +1,416 @@
+          0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+          0 :                            cpu     z8001
+          0 :                            include "z8001.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :                    ;;; Z8001. A sample says `cpu z8001` for segmented code, its addresses
+(1)       0 :                    ;;; seg<<16|off written <<seg>>off, or `cpu z8002` for code that runs
+(1)       0 :                    ;;; nonsegmented, its addresses offsets in the PC's segment.
+(1)       0 :
+(1)       0 :                    ;;; Reset reads the FCW at 0002H, then the PC's segment at 0004H and its
+(1)       0 :                    ;;; offset at 0006H, the reset entry of a Program Status Area at 0000H in
+(1)       0 :                    ;;; segment 0.
+(1)       0 : =0                 ORG_RESET:      equ     0000H
+(1)       0 :                    ;;; Program Status Area offsets: a reserved word, an FCW, then a PC's
+(1)       0 :                    ;;; segment and offset.
+(1)       0 : =8                 PSA_EPA:        equ     08H     ; extended instruction trap
+(1)       0 : =10                PSA_PRIV:       equ     10H     ; privileged instruction trap
+(1)       0 : =18                PSA_SC:         equ     18H     ; system call
+(1)       0 : =20                PSA_SEGT:       equ     20H     ; segment trap
+(1)       0 : =28                PSA_NMI:        equ     28H     ; non-maskable interrupt
+(1)       0 : =30                PSA_NVI:        equ     30H     ; non-vectored interrupt
+(1)       0 : =38                PSA_VI:         equ     38H     ; vectored interrupt: the FCW, then a PC
+(1)       0 :                                                    ; for each even identifier from 3CH, the
+(1)       0 :                                                    ; one for identifier n at PSA_VI+4+2*n
+(1)       0 :                    ;;; Flag and Control Word
+(1)       0 : =8000              FCW_SEG:        equ     8000H   ; segmented mode
+(1)       0 : =4000              FCW_SN:         equ     4000H   ; system mode
+(1)       0 : =2000              FCW_EPA:        equ     2000H   ; extended processor architecture
+(1)       0 : =1000              FCW_VIE:        equ     1000H   ; vectored interrupt enable
+(1)       0 : =800               FCW_NVIE:       equ     0800H   ; non-vectored interrupt enable
+(1)       0 :
+(1)       0 :                    ;;; Where the segmented samples live, each in a segment of its own.
+(1)       0 : =10000             CODE:           equ     010000H ; code, segment 1
+(1)       0 : =100               CODE_SEG:       equ     0100H   ; its segment word: the number in bits 14-8
+(1)       0 : =20000             DATA:           equ     020000H ; queues and variables, segment 2
+(1)       0 : =3001000           STACK:          equ     03001000H ; RR14: segment 3, offset 1000H
+(1)       0 :                    ;;; The normal mode stack, NSPSEG and NSPOFF: segment 4, offset 1000H.
+(1)       0 : =400               USTACK_SEG:     equ     0400H
+(1)       0 : =1000              USTACK_OFF:     equ     1000H
+(1)       0 :
+(1)       0 :                    ;;; SC #SC_EXIT hands control back to the debugger.
+(1)       0 : =FE                SC_EXIT:        equ     0FEH
+          0 :                            include "../z8002/usart.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :                    ;;; i8251 Universal Synchronous/Asynchronous Receiver/Transmitter
+(1)       0 : =140               USART:  equ     140H
+(1)       0 : =140               USARTD: equ     USART+0         ; Data register
+(1)       0 : =141               USARTS: equ     USART+1         ; Status register
+(1)       0 : =141               USARTC: equ     USART+1         ; Control register
+(1)       0 : =142               USARTRV:        equ     USART+2 ; Receive interrupt identifier
+(1)       0 : =143               USARTTV:        equ     USART+3 ; Transmit interrupt identifier
+(1)       0 :                    ;;; The identifiers the USART answers its vectored interrupts with: even,
+(1)       0 :                    ;;; as the Z8001 requires.
+(1)       0 : =2                 RX_ID:          equ     2
+(1)       0 : =4                 TX_ID:          equ     4
+(1)       0 :                            include "../z80/i8251.inc"
+(2)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(2)       0 :
+(2)       0 :                    ;;; i8251 USART device emulator.
+(2)       0 : =6                 MODE_STOP_gp:   equ     6
+(2)       0 : =C0                MODE_STOP_gm:   equ     11000000B
+(2)       0 : =40                MODE_STOP1_gc:  equ     (1 << MODE_STOP_gp)
+(2)       0 : =80                MODE_STOP15_gc: equ     (2 << MODE_STOP_gp)
+(2)       0 : =C0                MODE_STOP2_gc:  equ     (3 << MODE_STOP_gp)
+(2)       0 : =20                MODE_EVEN_bm:   equ     00100000B
+(2)       0 : =10                MODE_PARITY_bm: equ     00010000B
+(2)       0 : =2                 MODE_LEN_gp:    equ     2
+(2)       0 : =C                 MODE_LEN_gm:    equ     00001100B
+(2)       0 : =0                 MODE_LEN5_gc:   equ     (0 << MODE_LEN_gp)
+(2)       0 : =4                 MODE_LEN6_gc:   equ     (1 << MODE_LEN_gp)
+(2)       0 : =8                 MODE_LEN7_gc:   equ     (2 << MODE_LEN_gp)
+(2)       0 : =C                 MODE_LEN8_gc:   equ     (3 << MODE_LEN_gp)
+(2)       0 : =0                 MODE_BAUD_gp:   equ     0
+(2)       0 : =3                 MODE_BAUD_gm:   equ     00000011B
+(2)       0 : =1                 MODE_BAUD_X1:   equ     (1 << MODE_BAUD_gp)
+(2)       0 : =2                 MODE_BAUD_X16:  equ (2 << MODE_BAUD_gp)
+(2)       0 : =3                 MODE_BAUD_X64:  equ (3 << MODE_BAUD_gp)
+(2)       0 :                    ;;; Bit Definition of command register
+(2)       0 : =80                CMD_EH_bm:      equ     10000000B   ; Enter hunt mode
+(2)       0 : =40                CMD_IR_bm:      equ     01000000B   ; Internal Reset
+(2)       0 : =20                CMD_RTS_bm:     equ     00100000B   ; Request To Send
+(2)       0 : =10                CMD_ER_bm:      equ     00010000B   ; Error Reset
+(2)       0 : =8                 CMD_SBRK_bm:    equ     00001000B   ; Send Break
+(2)       0 : =4                 CMD_RxEN_bm:    equ     00000100B   ; Receive Enable
+(2)       0 : =2                 CMD_DTR_bm:     equ     00000010B   ; Data Terminal Ready
+(2)       0 : =1                 CMD_TxEN_bm:    equ     00000001B   ; Transmit enable
+(2)       0 :
+(2)       0 :                    ;;; Bit definition of status register
+(2)       0 : =80                ST_DSR_bm:      equ     10000000B   ; Data Set Ready
+(2)       0 : =40                ST_BRK_bm:      equ     01000000B   ; BREAK detected
+(2)       0 : =20                ST_FE_bm:       equ     00100000B   ; Framing Error
+(2)       0 : =10                ST_OE_bm:       equ     00010000B   ; Overrun Error
+(2)       0 : =8                 ST_PE_bm:       equ     00001000B   ; Parity Error
+(2)       0 : =2                 ST_TxEMPTY_bp:  equ     2           ; Transmitter empty
+(2)       0 : =1                 ST_RxRDY_bp:    equ     1           ; Receiver ready
+(2)       0 : =0                 ST_TxRDY_bp:    equ     0           ; Transmitter ready
+(1)       0 :                    ;;; Async 1stop 8data x16
+(1)       0 : =4E                ASYNC_MODE:     equ     MODE_STOP1_gc|MODE_LEN8_gc|MODE_BAUD_X16
+(1)       0 :                    ;;; RTS/DTR, error reset, Rx enable, Tx enable
+(1)       0 : =37                RX_EN_TX_EN:    equ     CMD_RTS_bm|CMD_DTR_bm|CMD_ER_bm|CMD_RxEN_bm|CMD_TxEN_bm
+(1)       0 : =36                RX_EN_TX_DIS:   equ     CMD_RTS_bm|CMD_DTR_bm|CMD_ER_bm|CMD_RxEN_bm
+          0 :
+          0 :                            org     ORG_RESET
+          0 : 0000                       word    0
+          2 : C000                       word    FCW_SEG|FCW_SN  ; segmented system mode, interrupts disabled
+          4 : 0100 0100                  word    CODE_SEG, init_usart-CODE
+          8 :
+      10100 :                            org     CODE+0100H
+      10100 :                    init_usart:
+      10100 : 140E 0300 1000             ldl     rr14, #STACK
+      10106 : 8C88                       clrb    rl0
+      10108 : 3A86 0141                  outb    USARTC, rl0
+      1010C : 3A86 0141                  outb    USARTC, rl0
+      10110 : 3A86 0141                  outb    USARTC, rl0     ; safest way to sync mode
+      10114 : C840                       ldb     rl0, #CMD_IR_bm
+      10116 : 3A86 0141                  outb    USARTC, rl0     ; reset
+      1011A : 8D07                       nop
+      1011C : 8D07                       nop
+      1011E : C84E                       ldb     rl0, #ASYNC_MODE
+      10120 : 3A86 0141                  outb    USARTC, rl0
+      10124 : 8D07                       nop
+      10126 : 8D07                       nop
+      10128 : C837                       ldb     rl0, #RX_EN_TX_EN
+      1012A : 3A86 0141                  outb    USARTC, rl0
+      1012E :
+      1012E : 5F00 8100 1000             call    arith
+      10134 :                    halt_to_system:
+      10134 : 7FFE                       sc      #SC_EXIT
+      10136 :
+      10136 :                    ;;; Put character
+      10136 :                    ;;; @param RL0
+      10136 :                    putchar:
+      10136 : 93E0                       push    @rr14, r0
+      10138 :                    putchar_loop:
+      10138 : 3A84 0141                  inb     rl0, USARTS
+      1013C : A680                       bitb    rl0, #ST_TxRDY_bp
+      1013E : E6FC                       jr      z, putchar_loop
+      10140 : 97E0                       pop     r0, @rr14
+      10142 : 3A86 0140                  outb    USARTD, rl0
+      10146 : 9E08                       ret
+      10148 :
+      10148 :                    newline:
+      10148 : 93E0                       push    @rr14, r0
+      1014A : C80D                       ldb     rl0, #0DH
+      1014C : 5F00 8100 0136             call    putchar
+      10152 : C80A                       ldb     rl0, #0AH
+      10154 : 5F00 8100 0136             call    putchar
+      1015A : 97E0                       pop     r0, @rr14
+      1015C : 9E08                       ret
+      1015E :
+      1015E :                    putspace:
+      1015E : 93E0                       push    @rr14, r0
+      10160 : C820                       ldb     rl0, #' '
+      10162 : 5F00 8100 0136             call    putchar
+      10168 : 97E0                       pop     r0, @rr14
+      1016A : 9E08                       ret
+      1016C :
+      1016C :                    ;;; Print "v1 op v2"
+      1016C :                    ;;; @param R4 v1
+      1016C :                    ;;; @param R5 v2
+      1016C :                    ;;; @param RL0 op
+      1016C :                    ;;; @return R1 v1
+      1016C :                    ;;; @clobber R0 R2 R3
+      1016C :                    expr:
+      1016C : 93E0                       push    @rr14, r0
+      1016E : A141                       ld      r1, r4
+      10170 : 5F00 8100 01D0             call    print_int16
+      10176 : 5F00 8100 015E             call    putspace
+      1017C : 97E0                       pop     r0, @rr14
+      1017E : 5F00 8100 0136             call    putchar
+      10184 : 5F00 8100 015E             call    putspace
+      1018A : A151                       ld      r1, r5
+      1018C : 5F00 8100 01D0             call    print_int16
+      10192 : A141                       ld      r1, r4
+      10194 : 9E08                       ret
+      10196 :
+      10196 :                    ;;; Print " = v1\n"
+      10196 :                    ;;; @param R1 v1
+      10196 :                    ;;; @clobber R0 R1 R2 R3
+      10196 :                    answer:
+      10196 : 5F00 8100 015E             call    putspace
+      1019C : C83D                       ldb     rl0, #'='
+      1019E : 5F00 8100 0136             call    putchar
+      101A4 : 5F00 8100 015E             call    putspace
+      101AA : 5F00 8100 01D0             call    print_int16
+      101B0 : E8CB                       jr      newline
+      101B2 :
+      101B2 :                    ;;; Compare and print "v1 rel v2\n"
+      101B2 :                    ;;; @param R4 v1
+      101B2 :                    ;;; @param R5 v2
+      101B2 :                    ;;; @clobber R0 R1 R2 R3
+      101B2 :                    comp:
+      101B2 : 8B54                       cp      r4, r5
+      101B4 : E606                       jr      eq, comp_eq
+      101B6 : EA03                       jr      gt, comp_gt
+      101B8 : E106                       jr      lt, comp_lt
+      101BA : C83F                       ldb     rl0, #'?'
+      101BC : E805                       jr      comp_out
+      101BE :                    comp_gt:
+      101BE : C83E                       ldb     rl0, #'>'
+      101C0 : E803                       jr      comp_out
+      101C2 :                    comp_eq:
+      101C2 : C83D                       ldb     rl0, #'='
+      101C4 : E801                       jr      comp_out
+      101C6 :                    comp_lt:
+      101C6 : C83C                       ldb     rl0, #'<'
+      101C8 :                    comp_out:
+      101C8 : 5F00 8100 016C             call    expr
+      101CE : E8BC                       jr      newline
+      101D0 :
+      101D0 :                            include "arith.inc"
+(1)   101D0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)   101D0 :
+(1)   101D0 :                    ;;; Print signed 16-bit integer as decimal
+(1)   101D0 :                    ;;; @param R1 value
+(1)   101D0 :                    ;;; @clobber R0 R1 R2 R3
+(1)   101D0 :                    print_int16:
+(1)   101D0 : 8D14                       test    r1
+(1)   101D2 : EE04                       jr      nz, print_int16_nonzero
+(1)   101D4 : C830                       ldb     rl0, #'0'
+(1)   101D6 : 5E08 8100 0136             jp      putchar
+(1)   101DC :                    print_int16_nonzero:
+(1)   101DC : ED05                       jr      pl, print_uint16
+(1)   101DE : C82D                       ldb     rl0, #'-'
+(1)   101E0 : 5F00 8100 0136             call    putchar
+(1)   101E6 : 8D12                       neg     r1              ; R1=-value
+(1)   101E8 :                    print_uint16:
+(1)   101E8 : 8D14                       test    r1
+(1)   101EA : 9E06                       ret     z
+(1)   101EC : A113                       ld      r3, r1
+(1)   101EE : 8D28                       clr     r2              ; RR2=value, zero-extended
+(1)   101F0 : 1B02 000A                  div     rr2, #10        ; R3=value/10, R2=value%10
+(1)   101F4 : 93E2                       push    @rr14, r2        ; push remainder
+(1)   101F6 : A131                       ld      r1, r3
+(1)   101F8 : 5F00 8100 01E8             call    print_uint16
+(1)   101FE : 97E0                       pop     r0, @rr14        ; pop remainder
+(1)   10200 : 0008 3030                  addb    rl0, #'0'
+(1)   10204 : 5E08 8100 0136             jp      putchar
+      1020A :
+      11000 :                            org     CODE+1000H
+      11000 :                    arith:
+      11000 : 2104 4650                  ld      r4, #18000
+      11004 : 2105 6D60                  ld      r5, #28000
+      11008 : C82B                       ldb     rl0, #'+'
+      1100A : 5F00 8100 016C             call    expr
+      11010 : 8151                       add     r1, r5
+      11012 : 5F00 8100 0196             call    answer          ; -19536
+      11018 :
+      11018 : 2104 4650                  ld      r4, #18000
+      1101C : 2105 B9B0                  ld      r5, #-18000
+      11020 : C82B                       ldb     rl0, #'+'
+      11022 : 5F00 8100 016C             call    expr
+      11028 : 8151                       add     r1, r5
+      1102A : 5F00 8100 0196             call    answer          ; 0
+      11030 :
+      11030 : 2104 B9B0                  ld      r4, #-18000
+      11034 : 2105 B9B0                  ld      r5, #-18000
+      11038 : C82B                       ldb     rl0, #'+'
+      1103A : 5F00 8100 016C             call    expr
+      11040 : 8151                       add     r1, r5
+      11042 : 5F00 8100 0196             call    answer          ; 29536
+      11048 :
+      11048 : 2104 B9B0                  ld      r4, #-18000
+      1104C : 2105 92A0                  ld      r5, #-28000
+      11050 : C82D                       ldb     rl0, #'-'
+      11052 : 5F00 8100 016C             call    expr
+      11058 : 8351                       sub     r1, r5
+      1105A : 5F00 8100 0196             call    answer          ; 10000
+      11060 :
+      11060 : 2104 0064                  ld      r4, #100
+      11064 : 2105 012C                  ld      r5, #300
+      11068 : C82A                       ldb     rl0, #'*'
+      1106A : 5F00 8100 016C             call    expr
+      11070 : 5F00 8100 1230             call    mul16
+      11076 : 5F00 8100 0196             call    answer          ; 30000
+      1107C :
+      1107C : 2104 012C                  ld      r4, #300
+      11080 : 2105 FF38                  ld      r5, #-200
+      11084 : C82A                       ldb     rl0, #'*'
+      11086 : 5F00 8100 016C             call    expr
+      1108C : 5F00 8100 1230             call    mul16
+      11092 : 5F00 8100 0196             call    answer          ; 5536
+      11098 :
+      11098 : 2104 0064                  ld      r4, #100
+      1109C : 2105 FED4                  ld      r5, #-300
+      110A0 : C82A                       ldb     rl0, #'*'
+      110A2 : 5F00 8100 016C             call    expr
+      110A8 : 5F00 8100 1230             call    mul16
+      110AE : 5F00 8100 0196             call    answer          ; -30000
+      110B4 :
+      110B4 : 2104 FF38                  ld      r4, #-200
+      110B8 : 2105 FF9C                  ld      r5, #-100
+      110BC : C82A                       ldb     rl0, #'*'
+      110BE : 5F00 8100 016C             call    expr
+      110C4 : 5F00 8100 1230             call    mul16
+      110CA : 5F00 8100 0196             call    answer          ; 20000
+      110D0 :
+      110D0 : 2104 7530                  ld      r4, #30000
+      110D4 : 2105 0064                  ld      r5, #100
+      110D8 : C82F                       ldb     rl0, #'/'
+      110DA : 5F00 8100 016C             call    expr
+      110E0 : 5F00 8100 1238             call    div16
+      110E6 : 5F00 8100 0196             call    answer          ; 300
+      110EC :
+      110EC : 2104 FF38                  ld      r4, #-200
+      110F0 : 2105 0064                  ld      r5, #100
+      110F4 : C82F                       ldb     rl0, #'/'
+      110F6 : 5F00 8100 016C             call    expr
+      110FC : 5F00 8100 1238             call    div16
+      11102 : 5F00 8100 0196             call    answer          ; -2
+      11108 :
+      11108 : 2104 8AD0                  ld      r4, #-30000
+      1110C : 2105 FF38                  ld      r5, #-200
+      11110 : C82F                       ldb     rl0, #'/'
+      11112 : 5F00 8100 016C             call    expr
+      11118 : 5F00 8100 1238             call    div16
+      1111E : 5F00 8100 0196             call    answer          ; 150
+      11124 :
+      11124 : 2104 8AD0                  ld      r4, #-30000
+      11128 : 2105 004E                  ld      r5, #78
+      1112C : C82F                       ldb     rl0, #'/'
+      1112E : 5F00 8100 016C             call    expr
+      11134 : 5F00 8100 1238             call    div16
+      1113A : 5F00 8100 0196             call    answer          ; -384
+      11140 :
+      11140 : 2104 FFD0                  ld      r4, #-48
+      11144 : 2105 001E                  ld      r5, #30
+      11148 : 5F00 8100 01B2             call    comp
+      1114E :
+      1114E : 2104 001E                  ld      r4, #30
+      11152 : 2105 FFD0                  ld      r5, #-48
+      11156 : 5F00 8100 01B2             call    comp
+      1115C :
+      1115C : 2104 1388                  ld      r4, #5000
+      11160 : 2105 0FA0                  ld      r5, #4000
+      11164 : 5F00 8100 01B2             call    comp
+      1116A :
+      1116A : 2104 1388                  ld      r4, #5000
+      1116E : 2105 1388                  ld      r5, #5000
+      11172 : 5F00 8100 01B2             call    comp
+      11178 :
+      11178 : 2104 0FA0                  ld      r4, #4000
+      1117C : 2105 1388                  ld      r5, #5000
+      11180 : 5F00 8100 01B2             call    comp
+      11186 :
+      11186 : 2104 EC78                  ld      r4, #-5000
+      1118A : 2105 F060                  ld      r5, #-4000
+      1118E : 5F00 8100 01B2             call    comp
+      11194 :
+      11194 : 2104 EC78                  ld      r4, #-5000
+      11198 : 2105 EC78                  ld      r5, #-5000
+      1119C : 5F00 8100 01B2             call    comp
+      111A2 :
+      111A2 : 2104 F060                  ld      r4, #-4000
+      111A6 : 2105 EC78                  ld      r5, #-5000
+      111AA : 5F00 8100 01B2             call    comp
+      111B0 :
+      111B0 : 2104 7FBC                  ld      r4, #32700
+      111B4 : 2105 7F58                  ld      r5, #32600
+      111B8 : 5F00 8100 01B2             call    comp
+      111BE :
+      111BE : 2104 7FBC                  ld      r4, #32700
+      111C2 : 2105 7FBC                  ld      r5, #32700
+      111C6 : 5F00 8100 01B2             call    comp
+      111CC :
+      111CC : 2104 7F58                  ld      r4, #32600
+      111D0 : 2105 7FBC                  ld      r5, #32700
+      111D4 : 5F00 8100 01B2             call    comp
+      111DA :
+      111DA : 2104 8044                  ld      r4, #-32700
+      111DE : 2105 80A8                  ld      r5, #-32600
+      111E2 : 5F00 8100 01B2             call    comp
+      111E8 :
+      111E8 : 2104 8044                  ld      r4, #-32700
+      111EC : 2105 8044                  ld      r5, #-32700
+      111F0 : 5F00 8100 01B2             call    comp
+      111F6 :
+      111F6 : 2104 80A8                  ld      r4, #-32600
+      111FA : 2105 8044                  ld      r5, #-32700
+      111FE : 5F00 8100 01B2             call    comp
+      11204 :
+      11204 : 2104 4650                  ld      r4, #18000
+      11208 : 2105 92A0                  ld      r5, #-28000
+      1120C : 5F00 8100 01B2             call    comp
+      11212 :
+      11212 : 2104 4650                  ld      r4, #18000
+      11216 : 2105 4650                  ld      r5, #18000
+      1121A : 5F00 8100 01B2             call    comp
+      11220 :
+      11220 : 2104 92A0                  ld      r4, #-28000
+      11224 : 2105 4650                  ld      r5, #18000
+      11228 : 5F00 8100 01B2             call    comp
+      1122E :
+      1122E : 9E08                       ret
+      11230 :
+      11230 :                    ;;; Signed multiplication, the low 16 bits
+      11230 :                    ;;; @param R1 multiplicand
+      11230 :                    ;;; @param R5 multiplier
+      11230 :                    ;;; @return R1 product
+      11230 :                    ;;; @clobber R2 R3
+      11230 :                    mul16:
+      11230 : A113                       ld      r3, r1
+      11232 : 9952                       mult    rr2, r5         ; RR2=R3*R5
+      11234 : A131                       ld      r1, r3
+      11236 : 9E08                       ret
+      11238 :
+      11238 :                    ;;; Signed division, rounded toward zero
+      11238 :                    ;;; @param R1 dividend
+      11238 :                    ;;; @param R5 divisor
+      11238 :                    ;;; @return R1 quotient
+      11238 :                    ;;; @clobber R2 R3
+      11238 :                    div16:
+      11238 : A113                       ld      r3, r1
+      1123A : B12A                       exts    rr2             ; RR2=dividend, sign-extended
+      1123C : 9B52                       div     rr2, r5         ; R3=quotient, R2=remainder
+      1123E : A131                       ld      r1, r3
+      11240 : 9E08                       ret

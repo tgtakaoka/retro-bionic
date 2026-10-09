@@ -1,0 +1,145 @@
+          0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+          0 :                            cpu     z8001
+          0 :                            include "z8001.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :                    ;;; Z8001. A sample says `cpu z8001` for segmented code, its addresses
+(1)       0 :                    ;;; seg<<16|off written <<seg>>off, or `cpu z8002` for code that runs
+(1)       0 :                    ;;; nonsegmented, its addresses offsets in the PC's segment.
+(1)       0 :
+(1)       0 :                    ;;; Reset reads the FCW at 0002H, then the PC's segment at 0004H and its
+(1)       0 :                    ;;; offset at 0006H, the reset entry of a Program Status Area at 0000H in
+(1)       0 :                    ;;; segment 0.
+(1)       0 : =0                 ORG_RESET:      equ     0000H
+(1)       0 :                    ;;; Program Status Area offsets: a reserved word, an FCW, then a PC's
+(1)       0 :                    ;;; segment and offset.
+(1)       0 : =8                 PSA_EPA:        equ     08H     ; extended instruction trap
+(1)       0 : =10                PSA_PRIV:       equ     10H     ; privileged instruction trap
+(1)       0 : =18                PSA_SC:         equ     18H     ; system call
+(1)       0 : =20                PSA_SEGT:       equ     20H     ; segment trap
+(1)       0 : =28                PSA_NMI:        equ     28H     ; non-maskable interrupt
+(1)       0 : =30                PSA_NVI:        equ     30H     ; non-vectored interrupt
+(1)       0 : =38                PSA_VI:         equ     38H     ; vectored interrupt: the FCW, then a PC
+(1)       0 :                                                    ; for each even identifier from 3CH, the
+(1)       0 :                                                    ; one for identifier n at PSA_VI+4+2*n
+(1)       0 :                    ;;; Flag and Control Word
+(1)       0 : =8000              FCW_SEG:        equ     8000H   ; segmented mode
+(1)       0 : =4000              FCW_SN:         equ     4000H   ; system mode
+(1)       0 : =2000              FCW_EPA:        equ     2000H   ; extended processor architecture
+(1)       0 : =1000              FCW_VIE:        equ     1000H   ; vectored interrupt enable
+(1)       0 : =800               FCW_NVIE:       equ     0800H   ; non-vectored interrupt enable
+(1)       0 :
+(1)       0 :                    ;;; Where the segmented samples live, each in a segment of its own.
+(1)       0 : =10000             CODE:           equ     010000H ; code, segment 1
+(1)       0 : =100               CODE_SEG:       equ     0100H   ; its segment word: the number in bits 14-8
+(1)       0 : =20000             DATA:           equ     020000H ; queues and variables, segment 2
+(1)       0 : =3001000           STACK:          equ     03001000H ; RR14: segment 3, offset 1000H
+(1)       0 :                    ;;; The normal mode stack, NSPSEG and NSPOFF: segment 4, offset 1000H.
+(1)       0 : =400               USTACK_SEG:     equ     0400H
+(1)       0 : =1000              USTACK_OFF:     equ     1000H
+(1)       0 :
+(1)       0 :                    ;;; SC #SC_EXIT hands control back to the debugger.
+(1)       0 : =FE                SC_EXIT:        equ     0FEH
+          0 :                            include "../z8002/usart.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :                    ;;; i8251 Universal Synchronous/Asynchronous Receiver/Transmitter
+(1)       0 : =140               USART:  equ     140H
+(1)       0 : =140               USARTD: equ     USART+0         ; Data register
+(1)       0 : =141               USARTS: equ     USART+1         ; Status register
+(1)       0 : =141               USARTC: equ     USART+1         ; Control register
+(1)       0 : =142               USARTRV:        equ     USART+2 ; Receive interrupt identifier
+(1)       0 : =143               USARTTV:        equ     USART+3 ; Transmit interrupt identifier
+(1)       0 :                    ;;; The identifiers the USART answers its vectored interrupts with: even,
+(1)       0 :                    ;;; as the Z8001 requires.
+(1)       0 : =2                 RX_ID:          equ     2
+(1)       0 : =4                 TX_ID:          equ     4
+(1)       0 :                            include "../z80/i8251.inc"
+(2)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(2)       0 :
+(2)       0 :                    ;;; i8251 USART device emulator.
+(2)       0 : =6                 MODE_STOP_gp:   equ     6
+(2)       0 : =C0                MODE_STOP_gm:   equ     11000000B
+(2)       0 : =40                MODE_STOP1_gc:  equ     (1 << MODE_STOP_gp)
+(2)       0 : =80                MODE_STOP15_gc: equ     (2 << MODE_STOP_gp)
+(2)       0 : =C0                MODE_STOP2_gc:  equ     (3 << MODE_STOP_gp)
+(2)       0 : =20                MODE_EVEN_bm:   equ     00100000B
+(2)       0 : =10                MODE_PARITY_bm: equ     00010000B
+(2)       0 : =2                 MODE_LEN_gp:    equ     2
+(2)       0 : =C                 MODE_LEN_gm:    equ     00001100B
+(2)       0 : =0                 MODE_LEN5_gc:   equ     (0 << MODE_LEN_gp)
+(2)       0 : =4                 MODE_LEN6_gc:   equ     (1 << MODE_LEN_gp)
+(2)       0 : =8                 MODE_LEN7_gc:   equ     (2 << MODE_LEN_gp)
+(2)       0 : =C                 MODE_LEN8_gc:   equ     (3 << MODE_LEN_gp)
+(2)       0 : =0                 MODE_BAUD_gp:   equ     0
+(2)       0 : =3                 MODE_BAUD_gm:   equ     00000011B
+(2)       0 : =1                 MODE_BAUD_X1:   equ     (1 << MODE_BAUD_gp)
+(2)       0 : =2                 MODE_BAUD_X16:  equ (2 << MODE_BAUD_gp)
+(2)       0 : =3                 MODE_BAUD_X64:  equ (3 << MODE_BAUD_gp)
+(2)       0 :                    ;;; Bit Definition of command register
+(2)       0 : =80                CMD_EH_bm:      equ     10000000B   ; Enter hunt mode
+(2)       0 : =40                CMD_IR_bm:      equ     01000000B   ; Internal Reset
+(2)       0 : =20                CMD_RTS_bm:     equ     00100000B   ; Request To Send
+(2)       0 : =10                CMD_ER_bm:      equ     00010000B   ; Error Reset
+(2)       0 : =8                 CMD_SBRK_bm:    equ     00001000B   ; Send Break
+(2)       0 : =4                 CMD_RxEN_bm:    equ     00000100B   ; Receive Enable
+(2)       0 : =2                 CMD_DTR_bm:     equ     00000010B   ; Data Terminal Ready
+(2)       0 : =1                 CMD_TxEN_bm:    equ     00000001B   ; Transmit enable
+(2)       0 :
+(2)       0 :                    ;;; Bit definition of status register
+(2)       0 : =80                ST_DSR_bm:      equ     10000000B   ; Data Set Ready
+(2)       0 : =40                ST_BRK_bm:      equ     01000000B   ; BREAK detected
+(2)       0 : =20                ST_FE_bm:       equ     00100000B   ; Framing Error
+(2)       0 : =10                ST_OE_bm:       equ     00010000B   ; Overrun Error
+(2)       0 : =8                 ST_PE_bm:       equ     00001000B   ; Parity Error
+(2)       0 : =2                 ST_TxEMPTY_bp:  equ     2           ; Transmitter empty
+(2)       0 : =1                 ST_RxRDY_bp:    equ     1           ; Receiver ready
+(2)       0 : =0                 ST_TxRDY_bp:    equ     0           ; Transmitter ready
+(1)       0 :                    ;;; Async 1stop 8data x16
+(1)       0 : =4E                ASYNC_MODE:     equ     MODE_STOP1_gc|MODE_LEN8_gc|MODE_BAUD_X16
+(1)       0 :                    ;;; RTS/DTR, error reset, Rx enable, Tx enable
+(1)       0 : =37                RX_EN_TX_EN:    equ     CMD_RTS_bm|CMD_DTR_bm|CMD_ER_bm|CMD_RxEN_bm|CMD_TxEN_bm
+(1)       0 : =36                RX_EN_TX_DIS:   equ     CMD_RTS_bm|CMD_DTR_bm|CMD_ER_bm|CMD_RxEN_bm
+          0 :
+          0 :                            org     ORG_RESET
+          0 : 0000                       word    0
+          2 : C000                       word    FCW_SEG|FCW_SN  ; segmented system mode, interrupts disabled
+          4 : 0100 0100                  word    CODE_SEG, init-CODE
+          8 :
+      10100 :                            org     CODE+0100H
+      10100 :                    init:
+      10100 : 140E 0300 1000             ldl     rr14, #STACK
+      10106 :                    init_usart:
+      10106 : 8C88                       clrb    rl0
+      10108 : 3A86 0141                  outb    USARTC, rl0
+      1010C : 3A86 0141                  outb    USARTC, rl0
+      10110 : 3A86 0141                  outb    USARTC, rl0     ; safest way to sync mode
+      10114 : C840                       ldb     rl0, #CMD_IR_bm
+      10116 : 3A86 0141                  outb    USARTC, rl0     ; reset
+      1011A : 8D07                       nop
+      1011C : 8D07                       nop
+      1011E : C84E                       ldb     rl0, #ASYNC_MODE
+      10120 : 3A86 0141                  outb    USARTC, rl0
+      10124 : 8D07                       nop
+      10126 : 8D07                       nop
+      10128 : C837                       ldb     rl0, #RX_EN_TX_EN
+      1012A : 3A86 0141                  outb    USARTC, rl0
+      1012E :
+      1012E :                    receive_loop:
+      1012E : 3A84 0141                  inb     rl0, USARTS
+      10132 : A681                       bitb    rl0, #ST_RxRDY_bp
+      10134 : E6FC                       jr      z, receive_loop
+      10136 :                    receive_data:
+      10136 : 3AB4 0140                  inb     rl3, USARTD
+      1013A : 8CB4                       testb   rl3
+      1013C : E60B                       jr      z, halt_to_system
+      1013E :                    transmit_loop:
+      1013E : 3A84 0141                  inb     rl0, USARTS
+      10142 : A680                       bitb    rl0, #ST_TxRDY_bp
+      10144 : E6FC                       jr      z, transmit_loop
+      10146 :                    transmit_data:
+      10146 : 3AB6 0140                  outb    USARTD, rl3
+      1014A : 0A0B 0D0D                  cpb     rl3, #0DH
+      1014E : EEEF                       jr      ne, receive_loop
+      10150 : CB0A                       ldb     rl3, #0AH
+      10152 : E8F5                       jr      transmit_loop
+      10154 :                    halt_to_system:
+      10154 : 7FFE                       sc      #SC_EXIT
