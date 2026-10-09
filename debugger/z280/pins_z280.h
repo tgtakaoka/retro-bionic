@@ -96,7 +96,6 @@ struct PinsZ280 final : Pins {
             uint_fast8_t max, uint32_t &org, uint32_t exit = EXIT_END);
 
 private:
-    bool _holdRing = false;  // completeCycle(): do not advance the ring
     void resetPins() override;
     const SignalsImpl *findBacktraceStart() override;
     void printBacktrace() override;

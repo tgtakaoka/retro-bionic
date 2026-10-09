@@ -85,6 +85,7 @@ void PinsTms9900Base::suspend(uint16_t pc) {
         s = prepareCycle();
     }
     negateInt(tms9900::INTR_NMI);
+    Cycles::Hold hold;
     _regs->save();
     Cycles::discard(s);
 }

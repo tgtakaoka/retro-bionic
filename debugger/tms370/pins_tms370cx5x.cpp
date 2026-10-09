@@ -326,6 +326,7 @@ void PinsTms370Cx5x::loop() {
         if (s->fetch()) {
             if (haltSwitch()) {
             stop:
+                Cycles::Hold hold;
                 _regs->save();
                 Cycles::discard(s);
                 return;

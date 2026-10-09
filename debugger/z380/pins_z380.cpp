@@ -422,12 +422,7 @@ Signals *PinsZ380::completeCycle(Signals *s) {
         clki_cycle();
 
     s->inputMode();
-    if (_holdRing) {
-        // the debugger's own cycles before the dump: reuse the head slot
-        s->clear();
-    } else {
-        Cycles::next();
-    }
+    Cycles::next();
     return s;
 }
 
@@ -663,9 +658,8 @@ bool PinsZ380::step(bool show) {
             Cycles::reset();
         if (!suspend(regs->parkedAt(), holdOff))
             return false;
-        _holdRing = true;  // keep the step's cycles for printCycles()
+        Cycles::Hold hold;  // keep the step's cycles for printCycles()
         _regs->save();
-        _holdRing = false;
         if (regs->fingerprint() != before)
             break;
     }
@@ -753,9 +747,8 @@ void PinsZ380::run() {
     stopRunTimer();
     restoreBreakInsts();
     if (stopped) {
-        _holdRing = true;
+        Cycles::Hold hold;
         _regs->save();
-        _holdRing = false;
     }
     disassembleCycles();
 }

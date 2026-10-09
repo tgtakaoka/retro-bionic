@@ -432,12 +432,7 @@ Signals *PinsZ280::completeCycle(Signals *s) {
     }
 
     s->inputMode();
-    if (_holdRing) {
-        // the debugger's own cycles before the dump: reuse the head slot
-        s->clear();
-    } else {
-        Cycles::next();
-    }
+    Cycles::next();
     return s;
 }
 
@@ -790,9 +785,8 @@ void PinsZ280::run() {
     // save() first: the dump needs the Cache Control the program
     // stopped with; the ring is held meanwhile.
     if (stopped) {
-        _holdRing = true;
+        Cycles::Hold hold;
         _regs->save();
-        _holdRing = false;
     }
     disassembleCycles();
 }

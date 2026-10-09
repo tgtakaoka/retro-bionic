@@ -101,6 +101,7 @@ void PinsPdp8::loop() {
     auto s = resumeCycle(_regs->nextIp());
     while (true) {
         if (completeCycle(s) == nullptr) {
+            Cycles::Hold hold;
             _regs->save();
             Cycles::discard(s);
             return;
@@ -112,6 +113,7 @@ void PinsPdp8::loop() {
             if (!suspend())
                 return;
             s = Signals::put();
+            Cycles::Hold hold;
             _regs->save();
             Cycles::discard(s);
             return;
@@ -152,6 +154,7 @@ bool PinsPdp8::rawStep() {
     auto s = resumeCycle(_regs->nextIp());
     if (completeCycle(s) == nullptr) {
         // A HLT, left unexecuted as loop() leaves it.
+        Cycles::Hold hold;
         _regs->save();
         Cycles::discard(s);
         return false;
