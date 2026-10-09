@@ -54,8 +54,11 @@ namespace {
 // 50ns high as measured, over the 10 MHz parts' 40ns.
 constexpr auto clock_hi_ns = 30;
 constexpr auto clock_lo_ns = 20;
-// After a clock edge, for the strobes it moves to settle: 10ns measured.
-constexpr auto strobe_delay_ns = 10;
+// After a clock edge, for the strobes it moves to settle: on CMOS parts
+// within 10ns; on NMOS ones #AS falls 22ns after a rising edge, #DS falls
+// 32ns after one and rises 30ns after a falling edge, as measured. 20ns
+// is the least the NMOS Z8001 runs with; 15ns misses #AS.
+constexpr auto strobe_delay_ns = 20;
 // Periods without #AS before the CPU counts as halted.
 constexpr auto no_as_periods = 2048;
 // Refresh and internal-operation cycles skipped in a row before the CPU
@@ -382,17 +385,17 @@ Signals *PinsZ8000::completeCycle(Signals *s) {
 
     // #DS may have fallen already, coming back out of a #WAIT stretch:
     // watch for it rather than count to it. The clock is low here; each
-    // half gets its floor, which also settles the strobes.
+    // half before a look at #DS gives it the strobes' settle.
     auto high = false;
-    for (auto guard = strobe_halves; signal_ds() != LOW && guard; --guard) {
+    for (auto guard = strobe_halves; guard && signal_ds() != LOW; --guard) {
         clock_hi();
-        delayNanoseconds(clock_hi_ns);
+        delayNanoseconds(strobe_delay_ns);
         if (signal_ds() == LOW) {
             high = true;
             break;
         }
         clock_lo();
-        delayNanoseconds(clock_lo_ns);
+        delayNanoseconds(strobe_delay_ns);
     }
 
     if (s->read()) {
@@ -409,12 +412,12 @@ Signals *PinsZ8000::completeCycle(Signals *s) {
         delayNanoseconds(clock_hi_ns);
     }
     clock_lo();
-    delayNanoseconds(clock_lo_ns);
-    for (auto guard = strobe_halves; signal_ds() == LOW && guard; --guard) {
+    delayNanoseconds(strobe_delay_ns);
+    for (auto guard = strobe_halves; guard && signal_ds() == LOW; --guard) {
         clock_hi();
         delayNanoseconds(clock_hi_ns);
         clock_lo();
-        delayNanoseconds(clock_lo_ns);
+        delayNanoseconds(strobe_delay_ns);
     }
     s->inputMode();
 
