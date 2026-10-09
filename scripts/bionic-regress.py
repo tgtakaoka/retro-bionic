@@ -14,6 +14,8 @@ Cases, named on the command line and run in this order:
   samples  every samples/<target>/*.hex, each driven as it expects:
            input fed to the echo samples, iterations counted for one
            that loops for ever, run to completion for the rest
+  sample:name[,name...]
+           just those samples, by their file names without .hex
   haltgo   halt a running program with the halt port, then continue with
            G -- repeatedly.  This one exists because it caught a real bug
            that none of the others see: the continue appeared to work
@@ -534,11 +536,20 @@ def _drive_sample(board, how):
     return ok, '%s, %d lines' % (state, txt.count('\n'))
 
 
-def case_samples(board, n=0, regress=None):
-    """Every sample in samples/<target>/ must run and behave."""
+def case_samples(board, n=0, regress=None, only=None):
+    """Every sample in samples/<target>/ must run and behave -- or just
+    those named in `only`, from `sample:name[,name...]`."""
     hexes = samples(board.who)
     if not hexes:
         return None, 'no samples'
+    if only:
+        names = {os.path.basename(p).rsplit('.', 1)[0]: p for p in hexes}
+        unknown = sorted(set(only) - set(names))
+        if unknown:
+            # A misspelt name would otherwise run nothing and read as passed.
+            return False, 'no sample %s; samples: %s' % (
+                    ' '.join(unknown), ' '.join(sorted(names)))
+        hexes = [names[name] for name in sorted(only)]
     table = drive_table(regress)
     bad, skipped = [], 0
     for path in hexes:
@@ -800,6 +811,7 @@ def main():
     # entirely from this file (see drive_table()).
     if not args or not args[0].endswith('.toml'):
         sys.exit('usage: bionic-regress.py REGRESS.toml [case[=n] ...]\n'
+                  '       sample:name[,name...] runs just those samples\n'
                   'cases: %s' % ' '.join(name for name, _ in CASES))
     regress = args.pop(0)
     if not args:
@@ -809,14 +821,22 @@ def main():
         with open(regress, 'rb') as f:
             samples_in_file = ' '.join(k for k in tomllib.load(f) if k != 'chips')
         sys.exit('usage: bionic-regress.py %s case[=n] ...\n'
+                  '       sample:name[,name...] runs just those samples\n'
                   'cases: %s\n'
                   'samples in %s: %s' % (regress, ' '.join(name for name, _ in CASES),
                                           regress, samples_in_file))
-    want = {}
+    want, only = {}, {}
     for a in args:
-        name, _, cnt = a.partition('=')
+        spec, _, cnt = a.partition('=')
+        name, _, sel = spec.partition(':')
+        if name == 'sample' and sel:
+            name = 'samples'  # sample:name reads as one
         want[name] = int(cnt) if cnt else None
+        if sel:
+            only[name] = [s for s in sel.split(',') if s]
     unknown = [name for name in want if name not in dict(CASES)]
+    if set(only) - {'samples'}:
+        sys.exit('only sample takes :name: %s' % ' '.join(sorted(set(only) - {'samples'})))
     if unknown:
         # A misspelt case would otherwise run nothing and read as passed.
         sys.exit('unknown case: %s\ncases: %s' % (
@@ -844,6 +864,8 @@ def main():
             kw = {} if want.get(name) is None else {'n': want[name]}
             if name in ('reset', 'step', 'samples', 'haltgo', 'breakpoint', 'gountil'):
                 kw['regress'] = regress
+            if name in only:
+                kw['only'] = only[name]
             try:
                 ok, note = fn(board, **kw)
             except Exception as e:
