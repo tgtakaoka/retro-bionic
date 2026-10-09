@@ -29,55 +29,41 @@ void RegsI8096::print() const {
 }
 
 void RegsI8096::reset() {
-    // Chip Configuration Register
-    // 8 Bit width, #WR/#BHE, #ADV, infinite READY, no ROM protection
-    _pins->injectRead(0xF5);
     // Load external address to SP
     write_data16(ADDR_SP, 0x1234);
 }
 
+// Each sequence runs where the CPU is parked and jumps back there.
 void RegsI8096::save() {
     constexpr auto disp = -3;
     static constexpr uint8_t PUSHF[] = {
             0xF2,        // PUSHF
             SJMP(disp),  // SJMP $+2-3
-            0xFD,        // NOP
     };
-    _pc = _pins->injectReads(PUSHF, length(PUSHF));
+    _pc = _pins->park();
     uint8_t buffer[2];
-    _sp = _pins->captureWrites(buffer, sizeof(buffer));
+    _sp = _pins->execInst(PUSHF, length(PUSHF), buffer, sizeof(buffer));
     _sp += 2;
     _psw = le16(buffer);
-    nops(2);
 }
 
-void RegsI8096::captureContext(bool breakTrap) {
-    uint8_t buffer[2];
-    const auto sp = _pins->captureWrites(buffer, sizeof(buffer));
+void RegsI8096::captureContext(uint16_t sp, uint16_t pc, bool breakTrap) {
     save();
     _sp = sp + 2;
-    _pc = le16(buffer);
+    _pc = pc;
     if (breakTrap)
         --_pc;
 }
 
 void RegsI8096::restore() {
     write_data16(ADDR_SP, _sp - 2);
+    const auto disp = _pc - (_pins->park() + 4);  // POPF + LJMP
     const uint8_t POPF[] = {
-            0xF3,  // POPF
-            0xFD,  // NOP
-            0xFD,  // NOP
-            0xFD,  // NOP
-            lo(_psw),
-            hi(_psw),
-    };
-    const auto pc = _pins->injectReads(POPF, length(POPF));
-    const auto disp = _pc - (pc + 4 + 3);  // POPF + NOPs + LJMP
-    const uint8_t LJMP[] = {
+            0xF3,                      // POPF
             0xE7, lo(disp), hi(disp),  // LJMP _pc
     };
-    _pins->injectReads(LJMP, length(LJMP));
-    nops(2);
+    const uint8_t psw[] = {lo(_psw), hi(_psw)};
+    _pins->popInst(POPF, length(POPF), _sp - 2, psw, _pc);
 }
 
 uint16_t RegsI8096::read_data(uint8_t addr) const {
@@ -87,10 +73,8 @@ uint16_t RegsI8096::read_data(uint8_t addr) const {
             0xC7, 0x01, lo(abs), hi(abs), addr,  // STB addr, 5678H[0]
             SJMP(disp),                          // SJMP $+2-7
     };
-    _pins->injectReads(STB_ABS, sizeof(STB_ABS));
     uint8_t data;
-    _pins->captureWrites(&data, sizeof(data));
-    nops(3);
+    _pins->execInst(STB_ABS, length(STB_ABS), &data, sizeof(data));
     return data;
 }
 
@@ -100,8 +84,7 @@ void RegsI8096::write_data(uint8_t addr, uint16_t data) const {
             0xB1, lo(data), addr,  // LDB addr, #data
             SJMP(disp),            // SJMP $+2-5
     };
-    _pins->injectReads(LDB_IM8, length(LDB_IM8));
-    nops(2);
+    _pins->execInst(LDB_IM8, length(LDB_IM8));
 }
 
 uint16_t RegsI8096::read_data16(uint8_t addr) const {
@@ -111,10 +94,8 @@ uint16_t RegsI8096::read_data16(uint8_t addr) const {
             0xC3, 0x01, lo(abs), hi(abs), addr,  // ST addr, 5678H[0]
             SJMP(disp),                          // SJMP $+2-7
     };
-    _pins->injectReads(ST_ABS, sizeof(ST_ABS));
     uint8_t buffer[2];
-    _pins->captureWrites(buffer, sizeof(buffer));
-    nops(3);
+    _pins->execInst(ST_ABS, length(ST_ABS), buffer, sizeof(buffer));
     return le16(buffer);
 }
 
@@ -124,18 +105,7 @@ void RegsI8096::write_data16(uint8_t addr, uint16_t data) const {
             0xA1, lo(data), hi(data), addr,  // LD addr, #data
             SJMP(disp),                      // SJMP $+2-6
     };
-    _pins->injectReads(LD_IM16, length(LD_IM16));
-    nops(2);
-}
-
-void RegsI8096::nops(uint_fast8_t len) const {
-    static constexpr uint8_t NOPS[] = {
-            0xFD,  // NOP
-            0xFD,  // NOP
-            0xFD,  // NOP
-            0xFD,  // NOP
-    };
-    _pins->injectReads(NOPS, len);
+    _pins->execInst(LD_IM16, length(LD_IM16));
 }
 
 void RegsI8096::helpRegisters() const {

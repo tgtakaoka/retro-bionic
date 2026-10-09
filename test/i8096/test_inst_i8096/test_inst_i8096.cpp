@@ -38,6 +38,14 @@ bool SignalsI8096::read() const {
 bool SignalsI8096::write() const {
     return (cntl() & (CNTL_ADV | CNTL_WR)) == 0;
 }
+// What the recording printed: a byte or a word a cycle, the bytes in
+// _signals[2]; none on an 8-bit bus, a byte a cycle.
+uint_fast8_t SignalsI8096::bytes() const {
+    return _signals[2] ? _signals[2] : 1;
+}
+uint8_t SignalsI8096::byteAt(uint16_t a) const {
+    return bytes() == 2 && (a & 1) ? data >> 8 : data & 0xFF;
+}
 void SignalsI8096::clearMark() {
     cntl() |= CNTL_FETCH;
     mark() = 0;
@@ -53,9 +61,13 @@ namespace {
 using Signals = SignalsI8096;
 
 const auto RINGS = loadRings(DIR, "i8096");
+// The profile's runs on the 16-bit bus.
+const auto RINGS16 = loadRings(DIR, "i8096_16");
 
-// The bench rings: where running samples stopped (scripts/record-rings.py).
+// The bench rings: where running samples stopped (scripts/record-rings.py),
+// on an 8-bit bus and on a 16-bit one.
 const auto BENCH = loadRings(DIR, "bench_i8096");
+const auto BENCH16 = loadRings(DIR, "bench_i8096_16");
 
 // A raw mark: 1 for fetch(), 2 for an operand.
 int markOf(const Signals *s) {
@@ -75,6 +87,7 @@ int replay(const std::vector<Cycle> &cycles, std::vector<int> &marks) {
         s->data = c.data;
         s->cntl() = CNTL_FETCH | (c.kind == 'W' ? CNTL_RD : CNTL_WR);
         s->mark() = 0;
+        s->_signals[2] = c.cntl;
         Cycles::next();
     }
     const RingMemory memory(cycles, InstI8096::TRAP);
@@ -100,14 +113,27 @@ void test_recorded_runs() {
     check(DIR, "i8096", RINGS, replay);
 }
 
+void test_recorded_runs16() {
+    check(DIR, "i8096_16", RINGS16, replay);
+}
+
 void test_bench_rings() {
     // the fetch bit; the operand one is the matcher's own
     match_harness::isFetch = [](int mark) { return (mark & 1) != 0; };
     check(DIR, "bench_i8096", BENCH, replay);
 }
 
+void test_bench16_rings() {
+    match_harness::isFetch = [](int mark) { return (mark & 1) != 0; };
+    match_harness::fetchWidth = [](const Cycle &c) {
+        return c.cntl ? unsigned(c.cntl) : 1u;
+    };
+    check(DIR, "bench_i8096_16", BENCH16, replay);
+}
+
 void test_report_recorded_marks() {
     report(RINGS, replay, recorded, true);
+    report(RINGS16, replay, recorded, true);
 }
 
 // Every sequence it walks with is the legend's.
@@ -120,7 +146,9 @@ int main() {
     UNITY_BEGIN();
     RUN_TEST(test_sequences);
     RUN_TEST(test_recorded_runs);
+    RUN_TEST(test_recorded_runs16);
     RUN_TEST(test_bench_rings);
+    RUN_TEST(test_bench16_rings);
     RUN_TEST(test_report_recorded_marks);
     return UNITY_END();
 }

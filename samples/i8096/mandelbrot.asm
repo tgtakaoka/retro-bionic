@@ -116,6 +116,7 @@ putchar_retry:
         include "queue.inc"
 
 
+        align   2
 isr_intr:
         pushf
         push    A               ; push A,B

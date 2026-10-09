@@ -29,10 +29,14 @@ private:
     static bool indexAddressing(uint_fast8_t opc);
 };
 
-// The 8096 as MatchWalker sees it, its code in |mems|: a queue of 4 bytes.
+// The 8096 as MatchWalker sees it, its code in |mems|: a queue of 4 bytes,
+// fetched a word at a time on a 16-bit bus.
 struct ArchI8096 final : MatchWalker::Arch {
     explicit ArchI8096(const MatchMemory *mems)
-        : Arch(MatchWalker::Traits{.maxStart = 14, .queue = 4, .cutStart = 4}),
+        : Arch(MatchWalker::Traits{.maxStart = 14,
+                  .queue = 4,
+                  .cutStart = 7,
+                  .refetchWord = true}),
           _mems(mems) {}
 
     // Keeps the board's bus alive while a walk goes, if set.
@@ -44,6 +48,16 @@ struct ArchI8096 final : MatchWalker::Arch {
     MatchWalker::Kind cycleKind(const SignalsImpl *s) const override;
     bool decode(uint32_t pc, MatchWalker::Decoded &inst) const override;
     bool isVectorTable(uint32_t addr) const override;
+    uint_fast8_t fetchBytes(const SignalsImpl *s) const override {
+        return static_cast<const SignalsI8096 *>(s)->bytes();
+    }
+    uint_fast8_t dataBytes(const SignalsImpl *s) const override {
+        return static_cast<const SignalsI8096 *>(s)->bytes();
+    }
+    uint8_t dataByte(const SignalsImpl *impl, uint_fast8_t i) const override {
+        const auto s = static_cast<const SignalsI8096 *>(impl);
+        return s->byteAt(s->addr + i);
+    }
     const char *interruptSequence() const override;
     void idle() const override {
         if (_idle)

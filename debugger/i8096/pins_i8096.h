@@ -48,10 +48,22 @@ namespace debugger {
 namespace i8096 {
 
 struct PinsI8096 : Pins {
-    uint16_t injectRead(uint8_t data) { return injectReads(&data, 1); }
-    virtual uint16_t injectReads(
-            const uint8_t *data, uint_fast8_t len, bool idle = false) = 0;
-    virtual uint16_t captureWrites(uint8_t *data, uint_fast8_t len) = 0;
+    // Where the CPU is parked: the address of its next fetch.
+    virtual uint16_t park() const = 0;
+    // Where an injected sequence leaves off when not told: at the park.
+    static constexpr uint32_t EXIT_PARK = UINT32_MAX;
+    // Run |inst| from the park: a read in the window [park, park+len) is
+    // answered from |inst|, one past it with NOPs, and a write captured
+    // into |buf|, up to |max| bytes, and kept from memory. It ends at the
+    // read of |exit| once the window's last byte was read and |max| bytes
+    // captured, and parks there. Returns the first write's address.
+    virtual uint16_t execInst(const uint8_t *inst, uint_fast8_t len,
+            uint8_t *buf = nullptr, uint_fast8_t max = 0,
+            uint32_t exit = EXIT_PARK) = 0;
+    // As execInst() to |exit|, and a read at [at, at+2) is answered from
+    // |data|: the word a POP pulls.
+    virtual void popInst(const uint8_t *inst, uint_fast8_t len, uint16_t at,
+            const uint8_t *data, uint32_t exit) = 0;
 };
 
 }  // namespace i8096
