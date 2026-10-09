@@ -14,12 +14,17 @@ struct InstZ8000 {
     static constexpr uint16_t SC_EXIT = SC | 0xFE;
     static constexpr uint16_t JR_NEXT = 0xE800;  // JR $+2
 
-    // Where reset reads the FCW and PC (Z8002, Figure 7-2).
+    // Where reset reads the FCW and PC (Section 7.4); the Z8001 reads the
+    // PC's segment at 0004 and its offset at 0006, in segment 0.
     static constexpr uint16_t ORG_FCW = 0x0002;
     static constexpr uint16_t ORG_PC = 0x0004;
-    // System mode, interrupts disabled: what the debugger runs with.
+    static constexpr uint16_t ORG_PC_OFF = 0x0006;
+    // System mode, interrupts disabled: what the debugger runs with; the
+    // Z8001's is segmented too.
+    static constexpr uint16_t FCW_SEG = 0x8000;
     static constexpr uint16_t FCW_SN = 0x4000;
     static constexpr uint16_t SYS_FCW = FCW_SN;
+    static constexpr uint16_t SYS_FCW_SEG = FCW_SEG | SYS_FCW;
 };
 
 }  // namespace z8000

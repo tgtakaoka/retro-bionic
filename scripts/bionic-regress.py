@@ -245,7 +245,9 @@ def case_reset(board, n=4, regress=None):
     bytes instead, most significant first, e.g. `PC = "[FFFE FFFF]"`
     (big-endian) or `PC = "[FFFD FFFC]"` (6502): a sample is loaded
     (`program = "name"`, else the first one not skipped) and the PC
-    must equal the value it puts there.
+    must equal the value it puts there. The PC compares as a value, so
+    a segment the dump shows before it, as the Z8001's "PC=00:0100",
+    is part of it.
     """
     table = drive_table(regress)
     how = table.get('reset', {})
@@ -277,7 +279,15 @@ def case_reset(board, n=4, regress=None):
         seen.append(pc_from(last))
     ok = len(set(seen)) == 1 and seen[0] is not None
     txt = last.decode('ascii', 'replace').replace('\r', '')
-    missing = [k for k, v in want.items() if '%s=%s' % (k, v) not in txt]
+    # The PC as a value: a bank or segment before it is joined on.
+    pc_key = PROGRAM_COUNTER or 'PC'
+
+    def present(k, v):
+        if k == pc_key:
+            return seen[-1] is not None and address(seen[-1]) == address(v)
+        return '%s=%s' % (k, v) in txt
+
+    missing = [k for k, v in want.items() if not present(k, v)]
     ok = ok and not missing
     note = 'reset PC %s' % (seen[0] if seen and len(set(seen)) == 1 else seen)
     if missing:

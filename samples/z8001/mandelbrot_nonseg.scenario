@@ -1,0 +1,48 @@
+# Scenario for scripts/record-scenario.py: the Z8001 runs the Z8002's
+# mandelbrot nonsegmented, in normal mode, doing its I/O by SC. Its
+# arithmetic is inline MULT and DIV, which take a 32-bit register pair:
+# DIV leaves the quotient in the low word and the remainder in the high
+# word. Load it, break at each frame's end, disassemble the inner loop,
+# run up to its first DIV and single-step it on the chip, then let the
+# frame finish. The debugger shows addresses as segment:offset, the
+# program running in segment 0.
+#
+# ADDRESSES ARE PINNED TO THE CURRENT samples/z8001/mandelbrot_nonseg.hex:
+# 11A is the `sc #SC_NEWLINE` right after mandelbrot() returns -- once per
+# frame, so a breakpoint there turns every 'G' into "run exactly one
+# frame"; 15E is loop_i, 164 its first DIV. If mandelbrot_nonseg.asm or
+# its .inc change, re-check them against the fresh mandelbrot_nonseg.lst
+# before recording.
+
+key R
+upload samples/z8001/mandelbrot_nonseg.hex
+# Reset again: the FCW and PC come from the program just loaded, whose
+# FCW says whether to decode it segmented.
+key R
+
+# A breakpoint right after each frame finishes drawing: every 'G' from
+# here on runs exactly one frame.
+type B
+wait Break addr?
+command 11A
+pace 0.6
+
+# The inner loop: EXTS sign-extends B into RR2, DIV divides all 32 bits
+# of it by F.
+type D
+wait Disassemble?
+command 15E
+pace 1.5
+
+# Up to the DIV, then a few steps on the chip: the quotient Q in R3, the
+# remainder S in R2, stored to their variables.
+type g
+wait Go until?
+command 164 4
+pace 0.9
+step 4
+pace 1.2
+
+# The rest of the frame, live.
+command G 10
+pace 1.2

@@ -27,7 +27,12 @@ enum BUS_ST : uint8_t {
 };
 
 struct Signals final : SignalsBase<Signals> {
+    // Z8001: addresses carry the segment above the offset, seg<<16|off.
+    static bool segmented;
+
     void getAddr();
+    // The Z8001's: SN0-SN6 and the offset.
+    void getSegAddr();
     void getControl();
     void getData();
     void outData() const;

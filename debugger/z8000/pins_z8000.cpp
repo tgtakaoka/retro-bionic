@@ -71,6 +71,13 @@ constexpr auto nmi_cycles = 256;
 // the handler. Nothing runs from there; injection answers its fetches.
 constexpr uint16_t PARK_PC = 0x0000;
 
+// A segment word -- the PC's, NSPSEG or PSAPSEG, segment number in bits
+// 14-8 -- as the high part of a seg<<16|off address.
+constexpr uint32_t segmentOf(uint16_t word) {
+    return uint32_t((word >> 8) & 0x7F) << 16;
+}
+
+// ASEL rests on SN; only the Z8001 board connects it, SN4-SN6 and #SEGT.
 const uint8_t PINS_LOW[] = {
         PIN_CLOCK,
         PIN_RESET,
@@ -82,6 +89,8 @@ const uint8_t PINS_HIGH[] = {
         PIN_VI,
         PIN_WAIT,
         PIN_STOP,
+        PIN_SEGT,
+        PIN_ASEL,
 };
 
 const uint8_t PINS_INPUT[] = {
@@ -95,6 +104,9 @@ const uint8_t PINS_INPUT[] = {
         PIN_ST1,
         PIN_ST2,
         PIN_ST3,
+        PIN_SN4,
+        PIN_SN5,
+        PIN_SN6,
         PIN_AD0,
         PIN_AD1,
         PIN_AD2,
@@ -171,16 +183,21 @@ inline auto signal_ds() {
 
 }  // namespace
 
-PinsZ8000::PinsZ8000() {
+PinsZ8000::PinsZ8000(bool segmented) : _segmented(segmented) {
+    Signals::segmented = segmented;
     _devs = new DevsZ80(USART_BASE);
-    _mems = new MemsZ8000();
-    _regs = new RegsZ8000(this);
+    const auto mems = new MemsZ8000(segmented);
+    const auto regs = new RegsZ8000(this);
+    mems->setRegs(regs);
+    _mems = mems;
+    _regs = regs;
 }
 
 // After reset the CPU reads the FCW at 0002 and the PC at 0004 in system
-// mode, then fetches there (Section 7.4). The FCW is served as the
-// debugger's, system mode with interrupts off, so the parked CPU may run
-// privileged sequences; the program's is the one in memory.
+// mode, then fetches there (Section 7.4); the Z8001 reads the PC's segment
+// at 0004 and its offset at 0006. The FCW is served as the debugger's,
+// system mode with interrupts off, segmented on the Z8001, so the parked
+// CPU may run privileged sequences; the program's is the one in memory.
 void PinsZ8000::resetPins() {
     pinsMode(PINS_LOW, sizeof(PINS_LOW), OUTPUT, LOW);
     pinsMode(PINS_HIGH, sizeof(PINS_HIGH), OUTPUT, HIGH);
@@ -193,31 +210,50 @@ void PinsZ8000::resetPins() {
     Cycles::reset();
     negate_reset();
 
+    // The next read, which must be of |addr|; null and reported if not.
+    // The reads are in segment 0, but the Z8001 leaves SN0-SN6 undriven
+    // for them: the lines keep whatever they last carried.
+    const auto readAt = [this](uint16_t addr, const char *what) -> Signals * {
+        auto s = prepareCycle();
+        if (s)
+            s->addr &= UINT16_MAX;
+        if (s == nullptr || !s->memReq() || !s->read() || s->addr != addr) {
+            cli.print("?reset: ");
+            cli.print(what);
+            cli.print(' ');
+            if (s)
+                s->print();
+            else
+                cli.println();
+            return nullptr;
+        }
+        return s;
+    };
     const auto fcw = _mems->read(InstZ8000::ORG_FCW);
-    auto s = prepareCycle();
-    if (s == nullptr || !s->memReq() || !s->read() ||
-            s->addr != InstZ8000::ORG_FCW) {
-        cli.print("?reset: FCW ");
-        if (s)
-            s->print();
+    auto s = readAt(InstZ8000::ORG_FCW, "FCW");
+    if (s == nullptr)
         return;
-    }
-    completeCycle(s->inject(InstZ8000::SYS_FCW));
-    s = prepareCycle();
-    if (s == nullptr || !s->memReq() || !s->read() ||
-            s->addr != InstZ8000::ORG_PC) {
-        cli.print("?reset: PC ");
-        if (s)
-            s->print();
+    completeCycle(s->inject(
+            _segmented ? InstZ8000::SYS_FCW_SEG : InstZ8000::SYS_FCW));
+    s = readAt(InstZ8000::ORG_PC, "PC");
+    if (s == nullptr)
         return;
-    }
     completeCycle(s);
-    const uint16_t pc = s->data;
+    uint32_t pc = s->data;
+    if (_segmented) {
+        s = readAt(InstZ8000::ORG_PC_OFF, "PC offset");
+        if (s == nullptr)
+            return;
+        completeCycle(s);
+        pc = segmentOf(pc) | s->data;
+    }
     s = prepareCycle();
     if (s == nullptr || s->st() != ST_FETCH || s->addr != pc) {
         cli.print("?reset: fetch ");
         if (s)
             s->print();
+        else
+            cli.println();
         return;
     }
     assert_wait();
@@ -225,6 +261,8 @@ void PinsZ8000::resetPins() {
     regs->setIp(pc);
     regs->setFcw(fcw);
     regs->save();
+    if (_segmented)
+        regs->clearSegments();
 }
 
 void PinsZ8000::idle() {
@@ -257,9 +295,18 @@ Signals *PinsZ8000::prepareCycle() {
         // The address is on AD while #AS is low. The falling edge raises
         // #AS, by when the status is valid; reading the port takes longer
         // than the CPU does.
-        s->getAddr();
-        clock_lo();  // T1 falling
-        s->getControl();
+        if (_segmented) {
+            s->getSegAddr();
+            clock_lo();  // T1 falling
+            s->getControl();
+            // I/O addresses have no segment.
+            if (!s->memReq())
+                s->addr &= UINT16_MAX;
+        } else {
+            s->getAddr();
+            clock_lo();  // T1 falling
+            s->getControl();
+        }
         if (!s->noData())
             return s;
     }
@@ -467,14 +514,24 @@ void PinsZ8000::captureWrites(const uint8_t *inst, uint_fast8_t len,
     execute(inst, len, buf, max, org, exit);
 }
 
-// A trap has just pushed its frame, |push| its PC: serve the handler's
-// FCW and PC from the Program Status Area as the debugger's, and park on
-// the fetch there. The ring drops everything from |from|.
+// A trap has just pushed its frame, |push| its first word: serve the
+// handler's FCW and PC from the Program Status Area as the debugger's,
+// and park on the fetch there. The ring drops everything from |from|.
+// The Z8001 pushes the PC's offset, its segment, the FCW and the
+// identifier, and reads the FCW, the segment and the offset (Figure 7-1).
 bool PinsZ8000::parkAfterFrame(Signals *push, Signals *from) {
-    const uint16_t pc = push->data;
-    const uint16_t fcw = push->next()->data;
+    uint32_t pc = push->data;
+    uint16_t fcw = push->next()->data;
+    if (_segmented) {
+        pc |= segmentOf(push->next()->data);
+        fcw = push->next(2)->data;
+    }
     const uint16_t psa[] = {InstZ8000::SYS_FCW, PARK_PC};
-    for (auto word : psa) {
+    const uint16_t psaSeg[] = {InstZ8000::SYS_FCW_SEG, 0, PARK_PC};
+    const auto words = _segmented ? psaSeg : psa;
+    const auto num = _segmented ? 3 : 2;
+    for (auto i = 0; i < num; ++i) {
+        const auto word = words[i];
         auto s = prepareCycle();
         if (s == nullptr || !s->memReq() || !s->read())
             return false;
@@ -496,14 +553,22 @@ bool PinsZ8000::scBreak(Signals *id) {
         return false;
     if (id->data != InstZ8000::SC_BREAK && id->data != InstZ8000::SC_EXIT)
         return false;
-    // The pushes go down: the PC, the FCW, then the SC word itself.
+    // The pushes go down: the PC (the Z8001's offset, then its segment),
+    // the FCW, then the SC word itself.
+    const auto words = frameWords();
+    for (uint_fast8_t i = 1; i < words; ++i) {
+        const auto w = id->prev(i);
+        if (!(w->memReq() && w->write() && w->addr == id->addr + 2 * i))
+            return false;
+    }
     const auto fcw = id->prev(1);
-    const auto push = id->prev(2);
-    if (!(fcw->memReq() && fcw->write() && fcw->addr == id->addr + 2 &&
-                push->memReq() && push->write() && push->addr == id->addr + 4))
-        return false;
-    // The SC's address: the PC pushed is the next instruction's.
-    const uint16_t sc = push->data - 2;
+    const auto push = id->prev(words - 1);
+    uint32_t pc = push->data;
+    if (_segmented)
+        pc |= segmentOf(id->prev(2)->data);
+    // The SC's address: the PC pushed is the next instruction's, within
+    // its segment.
+    const uint32_t sc = (pc & ~uint32_t(UINT16_MAX)) | uint16_t(pc - 2);
     // A program may use SC #0FFH itself.
     if (id->data == InstZ8000::SC_BREAK && !isBreakPoint(sc))
         return false;
@@ -511,7 +576,7 @@ bool PinsZ8000::scBreak(Signals *id) {
     const auto held = Signals::get()->diff(push);
     for (uint_fast8_t i = 1; i <= 4 && i <= held; ++i) {
         const auto t = push->prev(i);
-        if (t->st() == ST_FETCH && t->addr == uint16_t(sc + 2)) {
+        if (t->st() == ST_FETCH && t->addr == pc) {
             t->nullify();
             break;
         }
@@ -534,7 +599,7 @@ bool PinsZ8000::suspend(Signals *s) {
         completeCycle(s);
     const Signals *ack = nullptr;
     Signals *push = nullptr;
-    auto writes = 0;
+    uint_fast8_t writes = 0;
     for (auto guard = nmi_cycles; guard > 0; --guard) {
         s = prepareCycle();
         if (s == nullptr)
@@ -550,12 +615,12 @@ bool PinsZ8000::suspend(Signals *s) {
         if (s->memReq() && s->write()) {
             if (writes++ == 0)
                 push = s;
-            if (writes == 3)
+            if (writes == frameWords())
                 break;
         }
     }
     negate_nmi();
-    if (writes < 3)
+    if (writes < frameWords())
         return false;
     // From the nullified fetch on, the cycles are the debugger's.
     auto from = const_cast<Signals *>(ack);

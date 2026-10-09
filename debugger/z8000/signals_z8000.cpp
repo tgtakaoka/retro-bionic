@@ -7,12 +7,34 @@
 namespace debugger {
 namespace z8000 {
 
+namespace {
+// For the 74AHCT157 and the level shifters after ASEL changes.
+constexpr auto asel_delay_ns = 15;
+}  // namespace
+
+bool Signals::segmented = false;
+
 void Signals::getAddr() {
     addr = busRead(AD);
 }
 
+// SN0-SN6 are valid a clock before the offset and through the cycle;
+// ASEL rests high, on SN.
+void Signals::getSegAddr() {
+    const uint32_t sn = busRead(SN);
+    addr = (((sn >> 12) & 0x70) | (sn & 0xF)) << 16 | busRead(AD);
+}
+
+// The Z8001 board shows ST only while ASEL is low.
 void Signals::getControl() {
-    status() = busRead(ST);
+    if (segmented) {
+        digitalWriteFast(PIN_ASEL, LOW);
+        delayNanoseconds(asel_delay_ns);
+        status() = busRead(ST);
+        digitalWriteFast(PIN_ASEL, HIGH);
+    } else {
+        status() = busRead(ST);
+    }
     const auto rwbw = busRead(RWBW);
     rw() = rwbw & 1;
     bw() = (rwbw >> 1) & 1;
@@ -40,15 +62,18 @@ void Signals::print() const {
     cli.print(' ');
     cli.printDec(pos(), -4);
 #endif
-    //                              0123456789012345678901234
+    //                              0123456789012345678901234567
     static constexpr char line[] = "R A=xxxx D=xxxx S=x b=x n=x";
+    static constexpr char segLine[] = "R A=xx:xxxx D=xxxx S=x b=x n=x";
+    // The segment shifts every column after the address.
+    const auto x = segmented ? 3 : 0;
 #ifdef PROFILE_CYCLES
     constexpr auto suffix = true;
 #else
     const auto suffix = Debugger.verbose();
 #endif
     auto &buffer = Cycles::buffer();
-    buffer.set(line);
+    buffer.set(segmented ? segLine : line);
     if (fetch()) {
         buffer[0] = 'I';
     } else if (read()) {
@@ -57,24 +82,29 @@ void Signals::print() const {
         buffer[0] = 'W';
     }
     buffer[2] = (ioReq() || specialIo()) ? 'I' : ack() ? 'V' : 'A';
-    buffer.hex16(4, addr);
+    if (segmented) {
+        buffer.hex8(4, addr >> 16);
+        buffer.hex16(7, addr);
+    } else {
+        buffer.hex16(4, addr);
+    }
     if (wordAccess()) {
-        buffer.hex16(11, data);
+        buffer.hex16(11 + x, data);
     } else if (ioReq() || (addr & 1)) {
         // A byte at an odd address, and standard I/O, ride AD0-AD7.
-        buffer[11] = buffer[12] = ' ';
-        buffer.hex8(13, data);
+        buffer[11 + x] = buffer[12 + x] = ' ';
+        buffer.hex8(13 + x, data);
     } else {
         // A byte at an even address rides AD8-AD15.
-        buffer.hex8(11, data >> 8);
-        buffer[13] = buffer[14] = ' ';
+        buffer.hex8(11 + x, data >> 8);
+        buffer[13 + x] = buffer[14 + x] = ' ';
     }
     if (suffix) {
-        buffer.hex4(18, st());
-        buffer.hex4(22, bw());
-        buffer.hex4(26, ns());
+        buffer.hex4(18 + x, st());
+        buffer.hex4(22 + x, bw());
+        buffer.hex4(26 + x, ns());
     } else {
-        buffer[15] = 0;
+        buffer[15 + x] = 0;
     }
     cli.println(buffer);
 }
