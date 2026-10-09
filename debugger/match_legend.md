@@ -52,7 +52,10 @@ it holds. Where the ring ends inside an instruction that took nothing of
 its own but its bytes, it isn't walked.
 
 A fetch that brings a word gives an instruction byte token its byte, and
-the queue the rest.
+the queue the rest. Where the CPU says so, the queue may read a word again:
+twice running, or after one it had too little room for, which then
+fetched nothing the walk keeps. A read of the stream where a data token
+or a transfer's fetch comes is that word, not the data.
 
 Where a CPU stalls, it may fetch again the last byte the stream fetched,
 anywhere in an instruction. The ring may also begin inside an instruction
