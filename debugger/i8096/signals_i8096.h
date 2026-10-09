@@ -20,6 +20,7 @@ struct SignalsI8096 : SignalsBase<SignalsI8096> {
     bool fetch() const;  // Instruction fetch
     bool read() const;   // Read
     bool write() const;  // Write
+    bool inst() const;   // INST was high
     // The bytes the cycle moves, from its address, and the one at |addr|:
     // a read is a word's, at an even address; a write moves the bytes A0
     // and #BHE pick.

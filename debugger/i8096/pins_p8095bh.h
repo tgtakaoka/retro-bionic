@@ -1,88 +1,22 @@
 #ifndef __PINS_P8095BH_H__
 #define __PINS_P8095BH_H__
 
-#define PORT_HSO 7   /* GPIO7 */
-#define HSO_gp 0     /* P7.00-P7.03 */
-#define HSO_gm 0xF   /* P7.00-P7.03 */
-#define HSO_vp 0     /* HSO0-HSO3 */
-#define PIN_HSO0 10  /* P7.00 */
-#define PIN_HSO1 12  /* P7.01 */
-#define PIN_HSO2 11  /* P7.02 */
-#define PIN_HSO3 13  /* P7.03 */
-#define PORT_HSI 7   /* GPIO7 */
-#define HSI_gp 16    /* P7.16-P7.19 */
-#define HSI_gm 0xF   /* P7.16-P7.19 */
-#define HSI_vp 4     /* HSI0-HSI3 */
-#define PIN_HSI0 8   /* P7.16 */
-#define PIN_HSI1 7   /* P7.17 */
-#define PIN_HSI2 36  /* P7.18 */
-#define PIN_HSI3 37  /* P7.19 */
-#define PIN_TXD 0    /* P6.03 */
-#define PIN_RXD 1    /* P6.02 */
-#define PIN_PWM 5    /* P9.08 */
-#define PIN_XTAL1 29 /* P9.31 */
-#define PIN_ACH4 6   /* P7.10 */
-#define PIN_ACH5 9   /* P7.11 */
-#define PIN_ACH6 32  /* P7.12 */
-// #define PIN_ACH7 35   /* P7.28 */
+#define PORT_CNTL 9 /* GPIO9 */
+#define CNTL_gp 4   /* P9.04-P9.07 */
+#define CNTL_gm 0xF /* P9.04-P9.07 */
+#define CNTL_vp 0   /* CNTL0-CNTL3 */
+#define PIN_PWM 5   /* P9.08 */
+#define PIN_ACH4 6  /* P7.10 */
 
-#include "inst_i8096.h"
 #include "pins_i8096.h"
-#include "signals_p8095bh.h"
 
 namespace debugger {
 namespace p8095bh {
 
 struct PinsP8095BH final : i8096::PinsI8096 {
-    PinsP8095BH();
-
-    void idle() override;
-    bool step(bool show) override;
-    void run() override;
-
-    void printCycles() override { printCycles(nullptr); }
-    void assertInt(uint8_t name = 0) override;
-    void negateInt(uint8_t name = 0) override;
-    void setBreakInst(uint32_t addr) const override;
-
-    uint16_t park() const override { return _park; }
-    uint16_t execInst(const uint8_t *inst, uint_fast8_t len, uint8_t *buf,
-            uint_fast8_t max, uint32_t exit) override;
-    void popInst(const uint8_t *inst, uint_fast8_t len, uint16_t at,
-            const uint8_t *data, uint32_t exit) override;
-
 private:
-    bool _idle = false;
-    // The CPU waits in the read of |_park|, a copy of its cycle kept.
-    bool _held = false;
-    uint16_t _park;
-    Signals _idleSignals;
-    Signals _heldSignals;
-
     void resetPins() override;
-    bool rawStep(bool show);
-    Signals *loop();
-
-    Signals *prepareCycle();
-    Signals *completeCycle(Signals *s, bool low = false);
-    Signals *noBusCycle(Signals *s);
-    void hold(const Signals *s, uint16_t park);
-    uint16_t readBus(const Signals *s) const;
-    void writeBus(const Signals *s) const;
-    uint16_t execute(uint16_t org, const uint8_t *inst, uint_fast8_t len,
-            uint8_t *buf, uint_fast8_t max, uint32_t exit, bool idle,
-            uint16_t at = 0, const uint8_t *data = nullptr);
-    bool fetchedBreak(const Signals *s) const;
-    uint16_t jumpTarget(uint16_t next, uint_fast8_t opc) const;
-    void handleTrap(Signals *s, uint16_t vector, bool breakTrap);
-
-    void printCycles(const Signals *end);
-    const Signals *findFetch(Signals *begin, const Signals *end);
-#ifdef PROFILE_CYCLES
-    const Signals *_profileEnd = nullptr;  // the TRAP's last cycle, + 1
-#endif
-    const SignalsImpl *findBacktraceStart() override;
-    void printBacktrace() override;
+    bool getControl(Signals *s) const override;
 };
 
 }  // namespace p8095bh

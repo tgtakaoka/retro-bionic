@@ -25,10 +25,6 @@
 #define PIN_AD13 39     /* P6.29 */
 #define PIN_AD14 26     /* P6.30 */
 #define PIN_AD15 27     /* P6.31 */
-#define PORT_CNTL 9     /* GPIO9 */
-#define CNTL_gp 4       /* P9.04-P9.07 */
-#define CNTL_gm 0xF     /* P9.04-P9.07 */
-#define CNTL_vp 0       /* CNTL0-CNTL3 */
 #define PIN_ADV 2       /* P9.04 */
 #define PIN_RD 3        /* P9.05 */
 #define PIN_WR 4        /* P9.06 */
@@ -37,20 +33,54 @@
 #define CNTL_RD 0x2     /* CNTL1 */
 #define CNTL_WR 0x4     /* CNTL2 */
 #define CNTL_BHE 0x8    /* CNTL3 */
+#define CNTL_INST 0x10   /* CNTL4: an instruction fetch, where the CPU has it */
 #define CNTL_START0 0x40 /* an instruction starts at the cycle's address */
 #define CNTL_START1 0x80 /* one starts at the byte after it */
 #define PIN_RESET 28    /* P8.18 */
 #define PIN_READY 31    /* P8.22 */
 #define PIN_EXTINT 30   /* P8.23 */
+#define PORT_HSO 7      /* GPIO7 */
+#define HSO_gp 0        /* P7.00-P7.03 */
+#define HSO_gm 0xF      /* P7.00-P7.03 */
+#define HSO_vp 0        /* HSO0-HSO3 */
+#define PIN_HSO0 10     /* P7.00 */
+#define PIN_HSO1 12     /* P7.01 */
+#define PIN_HSO2 11     /* P7.02 */
+#define PIN_HSO3 13     /* P7.03 */
+#define PORT_HSI 7      /* GPIO7 */
+#define HSI_gp 16       /* P7.16-P7.19 */
+#define HSI_gm 0xF      /* P7.16-P7.19 */
+#define HSI_vp 4        /* HSI0-HSI3 */
+#define PIN_HSI0 8      /* P7.16 */
+#define PIN_HSI1 7      /* P7.17 */
+#define PIN_HSI2 36     /* P7.18 */
+#define PIN_HSI3 37     /* P7.19 */
+#define PIN_TXD 0       /* P6.03 */
+#define PIN_RXD 1       /* P6.02 */
+#define PIN_XTAL1 29    /* P9.31 */
+#define PIN_ACH5 9      /* P7.11 */
+#define PIN_ACH6 32     /* P7.12 */
 
 #include "pins.h"
+#include "signals_i8096.h"
 
 namespace debugger {
 namespace i8096 {
 
+// The board both the P8095BH and the N8097BH sit on; each adds its own
+// pins and control lines.
 struct PinsI8096 : Pins {
+    void idle() override;
+    bool step(bool show) override;
+    void run() override;
+
+    void printCycles() override { printCycles(nullptr); }
+    void assertInt(uint8_t name = 0) override;
+    void negateInt(uint8_t name = 0) override;
+    void setBreakInst(uint32_t addr) const override;
+
     // Where the CPU is parked: the address of its next fetch.
-    virtual uint16_t park() const = 0;
+    uint16_t park() const { return _park; }
     // Where an injected sequence leaves off when not told: at the park.
     static constexpr uint32_t EXIT_PARK = UINT32_MAX;
     // Run |inst| from the park: a read in the window [park, park+len) is
@@ -58,13 +88,53 @@ struct PinsI8096 : Pins {
     // into |buf|, up to |max| bytes, and kept from memory. It ends at the
     // read of |exit| once the window's last byte was read and |max| bytes
     // captured, and parks there. Returns the first write's address.
-    virtual uint16_t execInst(const uint8_t *inst, uint_fast8_t len,
+    uint16_t execInst(const uint8_t *inst, uint_fast8_t len,
             uint8_t *buf = nullptr, uint_fast8_t max = 0,
-            uint32_t exit = EXIT_PARK) = 0;
+            uint32_t exit = EXIT_PARK);
     // As execInst() to |exit|, and a read at [at, at+2) is answered from
     // |data|: the word a POP pulls.
-    virtual void popInst(const uint8_t *inst, uint_fast8_t len, uint16_t at,
-            const uint8_t *data, uint32_t exit) = 0;
+    void popInst(const uint8_t *inst, uint_fast8_t len, uint16_t at,
+            const uint8_t *data, uint32_t exit);
+
+protected:
+    using Signals = SignalsI8096;
+
+    PinsI8096();
+    void resetPins() override;
+    // Reads the control lines into |s|: whether a read or a write is on.
+    virtual bool getControl(Signals *s) const = 0;
+
+private:
+    bool _idle = false;
+    // The CPU waits in the read of |_park|, a copy of its cycle kept.
+    bool _held = false;
+    uint16_t _park;
+    Signals _idleSignals;
+    Signals _heldSignals;
+
+    bool rawStep(bool show);
+    Signals *loop();
+
+    Signals *prepareCycle();
+    Signals *completeCycle(Signals *s, bool low = false);
+    Signals *noBusCycle(Signals *s);
+    void hold(const Signals *s, uint16_t park);
+    uint16_t readBus(const Signals *s) const;
+    void writeBus(const Signals *s) const;
+    uint16_t execute(uint16_t org, const uint8_t *inst, uint_fast8_t len,
+            uint8_t *buf, uint_fast8_t max, uint32_t exit, bool idle,
+            uint16_t at = 0, const uint8_t *data = nullptr);
+    bool fetchedBreak(const Signals *s) const;
+    uint16_t jumpTarget(uint16_t next, uint_fast8_t opc) const;
+    void handleTrap(Signals *s, uint16_t vector, bool breakTrap);
+
+    void printCycles(const Signals *end);
+    const Signals *findFetch(Signals *begin, const Signals *end);
+#ifdef PROFILE_CYCLES
+    const Signals *_profileEnd = nullptr;  // the TRAP's last cycle, + 1
+#endif
+    const SignalsImpl *findBacktraceStart() override;
+    void printBacktrace() override;
 };
 
 }  // namespace i8096
