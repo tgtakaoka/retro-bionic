@@ -1,0 +1,465 @@
+          0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+          0 :                            include "z8002.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :                    ;;; Z8002
+(1)       0 :                            cpu     z8002
+(1)       0 :
+(1)       0 :                    ;;; Reset reads the FCW at 0002H and the PC at 0004H, the reset entry of
+(1)       0 :                    ;;; a Program Status Area at 0000H.
+(1)       0 : =0                 ORG_RESET:      equ     0000H
+(1)       0 :                    ;;; Program Status Area offsets: an FCW, then a PC.
+(1)       0 : =4                 PSA_EPA:        equ     04H     ; extended instruction trap
+(1)       0 : =8                 PSA_PRIV:       equ     08H     ; privileged instruction trap
+(1)       0 : =C                 PSA_SC:         equ     0CH     ; system call
+(1)       0 : =14                PSA_NMI:        equ     14H     ; non-maskable interrupt
+(1)       0 : =18                PSA_NVI:        equ     18H     ; non-vectored interrupt
+(1)       0 : =1C                PSA_VI:         equ     1CH     ; vectored interrupt: the FCW, then a PC
+(1)       0 :                                                    ; for each identifier from 1EH, the one
+(1)       0 :                                                    ; for identifier n at PSA_VI+2+2*n
+(1)       0 :                    ;;; Flag and Control Word
+(1)       0 : =4000              FCW_SN:         equ     4000H   ; system mode
+(1)       0 : =2000              FCW_EPA:        equ     2000H   ; extended processor architecture
+(1)       0 : =1000              FCW_VIE:        equ     1000H   ; vectored interrupt enable
+(1)       0 : =800               FCW_NVIE:       equ     0800H   ; non-vectored interrupt enable
+(1)       0 :
+(1)       0 :                    ;;; SC #SC_EXIT hands control back to the debugger.
+(1)       0 : =FE                SC_EXIT:        equ     0FEH
+          0 :                            include "usart.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :                    ;;; i8251 Universal Synchronous/Asynchronous Receiver/Transmitter
+(1)       0 : =140               USART:  equ     140H
+(1)       0 : =140               USARTD: equ     USART+0         ; Data register
+(1)       0 : =141               USARTS: equ     USART+1         ; Status register
+(1)       0 : =141               USARTC: equ     USART+1         ; Control register
+(1)       0 : =142               USARTRV:        equ     USART+2 ; Receive interrupt identifier
+(1)       0 : =143               USARTTV:        equ     USART+3 ; Transmit interrupt identifier
+(1)       0 :                    ;;; The identifiers the USART answers its vectored interrupts with: even,
+(1)       0 :                    ;;; as the Z8001 requires.
+(1)       0 : =2                 RX_ID:          equ     2
+(1)       0 : =4                 TX_ID:          equ     4
+(1)       0 :                            include "../z80/i8251.inc"
+(2)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(2)       0 :
+(2)       0 :                    ;;; i8251 USART device emulator.
+(2)       0 : =6                 MODE_STOP_gp:   equ     6
+(2)       0 : =C0                MODE_STOP_gm:   equ     11000000B
+(2)       0 : =40                MODE_STOP1_gc:  equ     (1 << MODE_STOP_gp)
+(2)       0 : =80                MODE_STOP15_gc: equ     (2 << MODE_STOP_gp)
+(2)       0 : =C0                MODE_STOP2_gc:  equ     (3 << MODE_STOP_gp)
+(2)       0 : =20                MODE_EVEN_bm:   equ     00100000B
+(2)       0 : =10                MODE_PARITY_bm: equ     00010000B
+(2)       0 : =2                 MODE_LEN_gp:    equ     2
+(2)       0 : =C                 MODE_LEN_gm:    equ     00001100B
+(2)       0 : =0                 MODE_LEN5_gc:   equ     (0 << MODE_LEN_gp)
+(2)       0 : =4                 MODE_LEN6_gc:   equ     (1 << MODE_LEN_gp)
+(2)       0 : =8                 MODE_LEN7_gc:   equ     (2 << MODE_LEN_gp)
+(2)       0 : =C                 MODE_LEN8_gc:   equ     (3 << MODE_LEN_gp)
+(2)       0 : =0                 MODE_BAUD_gp:   equ     0
+(2)       0 : =3                 MODE_BAUD_gm:   equ     00000011B
+(2)       0 : =1                 MODE_BAUD_X1:   equ     (1 << MODE_BAUD_gp)
+(2)       0 : =2                 MODE_BAUD_X16:  equ (2 << MODE_BAUD_gp)
+(2)       0 : =3                 MODE_BAUD_X64:  equ (3 << MODE_BAUD_gp)
+(2)       0 :                    ;;; Bit Definition of command register
+(2)       0 : =80                CMD_EH_bm:      equ     10000000B   ; Enter hunt mode
+(2)       0 : =40                CMD_IR_bm:      equ     01000000B   ; Internal Reset
+(2)       0 : =20                CMD_RTS_bm:     equ     00100000B   ; Request To Send
+(2)       0 : =10                CMD_ER_bm:      equ     00010000B   ; Error Reset
+(2)       0 : =8                 CMD_SBRK_bm:    equ     00001000B   ; Send Break
+(2)       0 : =4                 CMD_RxEN_bm:    equ     00000100B   ; Receive Enable
+(2)       0 : =2                 CMD_DTR_bm:     equ     00000010B   ; Data Terminal Ready
+(2)       0 : =1                 CMD_TxEN_bm:    equ     00000001B   ; Transmit enable
+(2)       0 :
+(2)       0 :                    ;;; Bit definition of status register
+(2)       0 : =80                ST_DSR_bm:      equ     10000000B   ; Data Set Ready
+(2)       0 : =40                ST_BRK_bm:      equ     01000000B   ; BREAK detected
+(2)       0 : =20                ST_FE_bm:       equ     00100000B   ; Framing Error
+(2)       0 : =10                ST_OE_bm:       equ     00010000B   ; Overrun Error
+(2)       0 : =8                 ST_PE_bm:       equ     00001000B   ; Parity Error
+(2)       0 : =2                 ST_TxEMPTY_bp:  equ     2           ; Transmitter empty
+(2)       0 : =1                 ST_RxRDY_bp:    equ     1           ; Receiver ready
+(2)       0 : =0                 ST_TxRDY_bp:    equ     0           ; Transmitter ready
+(1)       0 :                    ;;; Async 1stop 8data x16
+(1)       0 : =4E                ASYNC_MODE:     equ     MODE_STOP1_gc|MODE_LEN8_gc|MODE_BAUD_X16
+(1)       0 :                    ;;; RTS/DTR, error reset, Rx enable, Tx enable
+(1)       0 : =37                RX_EN_TX_EN:    equ     CMD_RTS_bm|CMD_DTR_bm|CMD_ER_bm|CMD_RxEN_bm|CMD_TxEN_bm
+(1)       0 : =36                RX_EN_TX_DIS:   equ     CMD_RTS_bm|CMD_DTR_bm|CMD_ER_bm|CMD_RxEN_bm
+          0 :
+          0 : =1000              stack:  equ     1000H           ; system mode
+          0 : =3000              ustack: equ     3000H           ; normal mode
+          0 :
+          0 :                            org     ORG_RESET
+          0 : 0000                       word    0
+          2 : 4000                       word    FCW_SN          ; system mode, interrupts disabled
+          4 : 0100                       word    init
+          6 :
+          C :                            org     PSA_SC
+          C : 4000                       word    FCW_SN          ; I/O for the program in normal mode
+          E : 031A                       word    isr_sc
+         10 :
+         1C :                            org     PSA_VI
+         1C : 4000                       word    FCW_SN          ; the handlers run with interrupts disabled
+         22 :                            org     PSA_VI+2+2*RX_ID
+         22 : 02D0                       word    isr_rx
+         26 :                            org     PSA_VI+2+2*TX_ID
+         26 : 02F0                       word    isr_tx
+         28 :
+        100 :                            org     0100H
+        100 :                    init:
+        100 : 210F 1000                  ld      r15, #stack
+        104 : 8D08                       clr     r0
+        106 : 7D0D                       ldctl   psap, r0        ; the Program Status Area at 0000H
+        108 : 2100 3000                  ld      r0, #ustack
+        10C : 7D0F                       ldctl   nsp, r0
+        10E : 5F00 024A                  call    init_io
+        112 : 7900 011E                  ldps    user_ps         ; on in normal mode, which does I/O by SC
+        116 :
+        116 :                    loop:
+        116 : 5F00 0122                  call    mandelbrot
+        11A : 7F03                       sc      #SC_NEWLINE
+        11C : E8FC                       jr      loop
+        11E :
+        11E :                    user_ps:
+        11E : 1000                       word    FCW_VIE         ; normal mode, vectored interrupts enabled
+        120 : 0116                       word    loop
+        122 :
+        122 :                            include "mandelbrot.inc"
+(1)     122 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)     122 :                    ;;; samples/arith/mandelbrot.c: MULT gives each product in 32 bits, and
+(1)     122 :                    ;;; DIV divides it rounded toward zero, the remainder with the dividend's
+(1)     122 :                    ;;; sign, as C does.
+(1)     122 :
+(1)     122 : =32                Fv:     equ     50
+(1)     122 :                    mandelbrot:
+(1)     122 : 2101 FFF4                  ld      r1, #-12
+(1)     126 : 6F01 0244                  ld      vY, r1          ; Y=-12
+(1)     12A :                    loop_y:
+(1)     12A : 2101 FFCF                  ld      r1, #-49
+(1)     12E : 6F01 0246                  ld      vX, r1          ; X=-49
+(1)     132 :                    loop_x:
+(1)     132 : 6103 0246                  ld      r3, vX
+(1)     136 : 1902 00E5                  mult    rr2, #229       ; RR2=X*229
+(1)     13A : 1B02 0064                  div     rr2, #100       ; R3=X*229/100
+(1)     13E : 6F03 0234                  ld      vC, r3          ; C=X*229/100
+(1)     142 : 6F03 0238                  ld      vA, r3          ; A=C
+(1)     146 : 6103 0244                  ld      r3, vY
+(1)     14A : 1902 01A0                  mult    rr2, #416       ; RR2=Y*416
+(1)     14E : 1B02 0064                  div     rr2, #100       ; R3=Y*416/100
+(1)     152 : 6F03 0236                  ld      vD, r3          ; D=Y*416/100
+(1)     156 : 6F03 023A                  ld      vB, r3          ; B=D
+(1)     15A : 4D08 0248                  clr     vIter           ; I=0
+(1)     15E :
+(1)     15E :                    loop_i:
+(1)     15E : 6103 023A                  ld      r3, vB
+(1)     162 : B12A                       exts    rr2
+(1)     164 : 1B02 0032                  div     rr2, #Fv        ; R3=B/F, R2=B-(B/F)*F
+(1)     168 : 6F03 023E                  ld      vQ, r3          ; Q=B/F
+(1)     16C : 6F02 0240                  ld      vS, r2          ; S=B-Q*F
+(1)     170 : 6105 023A                  ld      r5, vB
+(1)     174 : 5904 023A                  mult    rr4, vB         ; RR4=B*B
+(1)     178 : 6107 0238                  ld      r7, vA
+(1)     17C : 5906 0238                  mult    rr6, vA         ; RR6=A*A
+(1)     180 : 9246                       subl    rr6, rr4        ; A*A-B*B
+(1)     182 : 1B06 0032                  div     rr6, #Fv        ; R7=(A*A-B*B)/F
+(1)     186 : 4107 0234                  add     r7, vC          ; (A*A-B*B)/F+C
+(1)     18A : 93F7                       push    @r15, r7        ; push (A*A-B*B)/F+C
+(1)     18C : 6105 0238                  ld      r5, vA
+(1)     190 : 5904 0240                  mult    rr4, vS         ; RR4=A*S
+(1)     194 : 1B04 0032                  div     rr4, #Fv        ; R5=A*S/F
+(1)     198 : 6107 0238                  ld      r7, vA
+(1)     19C : 5906 023E                  mult    rr6, vQ         ; RR6=A*Q
+(1)     1A0 : 8157                       add     r7, r5          ; A*Q+A*S/F
+(1)     1A2 : 8177                       add     r7, r7          ; 2*(A*Q+A*S/F)
+(1)     1A4 : 4107 0236                  add     r7, vD          ; 2*(A*Q+A*S/F)+D
+(1)     1A8 : 6F07 023A                  ld      vB, r7          ; B=2*(A*Q+A*S/F)+D
+(1)     1AC : 97F7                       pop     r7, @r15        ; pop (A*A-B*B)/F+C
+(1)     1AE : 6F07 0238                  ld      vA, r7          ; A=(A*A-B*B)/F+C
+(1)     1B2 : B16A                       exts    rr6
+(1)     1B4 : 1B06 0032                  div     rr6, #Fv        ; R7=A/F
+(1)     1B8 : 6F07 023C                  ld      vP, r7          ; P=A/F
+(1)     1BC : A175                       ld      r5, r7
+(1)     1BE : 9974                       mult    rr4, r7         ; RR4=P*P
+(1)     1C0 : 6107 023A                  ld      r7, vB
+(1)     1C4 : B16A                       exts    rr6
+(1)     1C6 : 1B06 0032                  div     rr6, #Fv        ; R7=B/F
+(1)     1CA : 6F07 023E                  ld      vQ, r7          ; Q=B/F
+(1)     1CE : A173                       ld      r3, r7
+(1)     1D0 : 9972                       mult    rr2, r7         ; RR2=Q*Q
+(1)     1D2 : 8135                       add     r5, r3          ; P*P+Q*Q
+(1)     1D4 : 6F05 0242                  ld      vT, r5          ; T=P*P+Q*Q
+(1)     1D8 : 0B05 0004                  cp      r5, #4
+(1)     1DC : EA09                       jr      gt, print_i     ; if 4<T
+(1)     1DE : 6900 0248                  inc     vIter, #1       ; I+=1
+(1)     1E2 : 6101 0248                  ld      r1, vIter
+(1)     1E6 : 0B01 0010                  cp      r1, #16
+(1)     1EA : E1B9                       jr      lt, loop_i      ; if I<16
+(1)     1EC : C820                       ldb     rl0, #' '
+(1)     1EE : E80A                       jr      print_char
+(1)     1F0 :                    print_i:
+(1)     1F0 : 6101 0248                  ld      r1, vIter
+(1)     1F4 : A098                       ldb     rl0, rl1
+(1)     1F6 : 0A08 0A0A                  cpb     rl0, #10
+(1)     1FA : E102                       jr      lt, print_digit
+(1)     1FC : 0008 0707                  addb    rl0, #'A'-'0'-10
+(1)     200 :                    print_digit:
+(1)     200 : 0008 3030                  addb    rl0, #'0'
+(1)     204 :                    print_char:
+(1)     204 : 7F02                       sc      #SC_PUTCHAR
+(1)     206 :
+(1)     206 : 7F01                       sc      #SC_GETCHAR
+(1)     208 : EF03                       jr      nc, next_x
+(1)     20A : 8C84                       testb   rl0
+(1)     20C : EE01                       jr      nz, next_x
+(1)     20E :                    halt_to_system:
+(1)     20E : 7FFE                       sc      #SC_EXIT
+(1)     210 :
+(1)     210 :                    next_x:
+(1)     210 : 6900 0246                  inc     vX, #1          ; X+=1
+(1)     214 : 6101 0246                  ld      r1, vX
+(1)     218 : 0B01 001E                  cp      r1, #30
+(1)     21C : 5E01 0132                  jp      lt, loop_x      ; if X<30
+(1)     220 : 7F03                       sc      #SC_NEWLINE
+(1)     222 : 6900 0244                  inc     vY, #1          ; Y+=1
+(1)     226 : 6101 0244                  ld      r1, vY
+(1)     22A : 0B01 000D                  cp      r1, #13
+(1)     22E : 5E01 012A                  jp      lt, loop_y      ; if Y<13
+(1)     232 : 9E08                       ret
+(1)     234 :
+(1)     234 :                    ;;; workspace
+(1)     234 : 0000               vC:     word    0
+(1)     236 : 0000               vD:     word    0
+(1)     238 : 0000               vA:     word    0
+(1)     23A : 0000               vB:     word    0
+(1)     23C : 0000               vP:     word    0
+(1)     23E : 0000               vQ:     word    0
+(1)     240 : 0000               vS:     word    0
+(1)     242 : 0000               vT:     word    0
+(1)     244 : 0000               vY:     word    0
+(1)     246 : 0000               vX:     word    0
+(1)     248 : 0000               vIter:  word    0
+        24A :                            include "io.inc"
+(1)     24A :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)     24A :                    ;;; Console through the USART's interrupts: received characters queue
+(1)     24A :                    ;;; at rx_queue, characters to send at tx_queue. The USART interrupts on
+(1)     24A :                    ;;; VI with identifier RX_ID or TX_ID, which usart.inc defines.
+(1)     24A : =2000              rx_queue:       equ     2000H
+(1)     24A : =80                rx_queue_size:  equ     128
+(1)     24A : =2080              tx_queue:       equ     2080H
+(1)     24A : =80                tx_queue_size:  equ     128
+(1)     24A :
+(1)     24A :                    ;;; Initialize the queues and the USART
+(1)     24A :                    ;;; @clobber R0 R1
+(1)     24A :                    init_io:
+(1)     24A : 2101 2000                  ld      r1, #rx_queue
+(1)     24E : C880                       ldb     rl0, #rx_queue_size
+(1)     250 : 5F00 0356                  call    queue_init
+(1)     254 : 2101 2080                  ld      r1, #tx_queue
+(1)     258 : C880                       ldb     rl0, #tx_queue_size
+(1)     25A : 5F00 0356                  call    queue_init
+(1)     25E : 8C88                       clrb    rl0
+(1)     260 : 3A86 0141                  outb    USARTC, rl0
+(1)     264 : 3A86 0141                  outb    USARTC, rl0
+(1)     268 : 3A86 0141                  outb    USARTC, rl0     ; safest way to sync mode
+(1)     26C : C840                       ldb     rl0, #CMD_IR_bm
+(1)     26E : 3A86 0141                  outb    USARTC, rl0     ; reset
+(1)     272 : 8D07                       nop
+(1)     274 : 8D07                       nop
+(1)     276 : C84E                       ldb     rl0, #ASYNC_MODE
+(1)     278 : 3A86 0141                  outb    USARTC, rl0
+(1)     27C : 8D07                       nop
+(1)     27E : 8D07                       nop
+(1)     280 : C836                       ldb     rl0, #RX_EN_TX_DIS
+(1)     282 : 3A86 0141                  outb    USARTC, rl0
+(1)     286 : C802                       ldb     rl0, #RX_ID
+(1)     288 : 3A86 0142                  outb    USARTRV, rl0    ; RxRDY interrupt identifier
+(1)     28C : C804                       ldb     rl0, #TX_ID
+(1)     28E : 3A86 0143                  outb    USARTTV, rl0    ; TxRDY interrupt identifier
+(1)     292 : 9E08                       ret
+(1)     294 :
+(1)     294 :                    ;;; Get character
+(1)     294 :                    ;;; @return RL0
+(1)     294 :                    ;;; @return FLAGS.C 0 if no character
+(1)     294 :                    getchar:
+(1)     294 : 93F1                       push    @r15, r1
+(1)     296 : 2101 2000                  ld      r1, #rx_queue
+(1)     29A : 7C01                       di      vi
+(1)     29C : 5F00 03A4                  call    queue_remove
+(1)     2A0 : 7C05                       ei      vi
+(1)     2A2 : 97F1                       pop     r1, @r15
+(1)     2A4 : 9E08                       ret
+(1)     2A6 :
+(1)     2A6 :                    ;;; Put newline
+(1)     2A6 :                    ;;; @clobber RL0
+(1)     2A6 :                    newline:
+(1)     2A6 : C80D                       ldb     rl0, #0DH
+(1)     2A8 : 5F00 02AE                  call    putchar
+(1)     2AC : C80A                       ldb     rl0, #0AH
+(1)     2AE :                    ;;; Put character
+(1)     2AE :                    ;;; @param RL0
+(1)     2AE :                    putchar:
+(1)     2AE : 93F1                       push    @r15, r1
+(1)     2B0 : 2101 2080                  ld      r1, #tx_queue
+(1)     2B4 :                    putchar_retry:
+(1)     2B4 : 7C01                       di      vi
+(1)     2B6 : 5F00 036C                  call    queue_add
+(1)     2BA : 7C05                       ei      vi
+(1)     2BC : EFFB                       jr      nc, putchar_retry ; branch if queue is full
+(1)     2BE : 97F1                       pop     r1, @r15
+(1)     2C0 : 93F0                       push    @r15, r0
+(1)     2C2 : C837                       ldb     rl0, #RX_EN_TX_EN ; enable Tx
+(1)     2C4 : 3A86 0141                  outb    USARTC, rl0
+(1)     2C8 : 97F0                       pop     r0, @r15
+(1)     2CA : 9E08                       ret
+(1)     2CC :
+(1)     2CC :                    ;;; Put space
+(1)     2CC :                    ;;; @clobber RL0
+(1)     2CC :                    putspace:
+(1)     2CC : C820                       ldb     rl0, #' '
+(1)     2CE : E8EF                       jr      putchar
+(1)     2D0 :
+(1)     2D0 :                    isr_rx:
+(1)     2D0 : 93F0                       push    @r15, r0
+(1)     2D2 : 93F1                       push    @r15, r1
+(1)     2D4 : 3A84 0141                  inb     rl0, USARTS
+(1)     2D8 : A681                       bitb    rl0, #ST_RxRDY_bp
+(1)     2DA : E606                       jr      z, isr_rx_exit
+(1)     2DC : 3A84 0140                  inb     rl0, USARTD     ; receive character
+(1)     2E0 : 2101 2000                  ld      r1, #rx_queue
+(1)     2E4 : 5F00 036C                  call    queue_add
+(1)     2E8 :                    isr_rx_exit:
+(1)     2E8 : 97F1                       pop     r1, @r15
+(1)     2EA : 97F0                       pop     r0, @r15
+(1)     2EC : 5E08 03D6                  jp      isr_return
+(1)     2F0 :
+(1)     2F0 :                    isr_tx:
+(1)     2F0 : 93F0                       push    @r15, r0
+(1)     2F2 : 93F1                       push    @r15, r1
+(1)     2F4 : 3A84 0141                  inb     rl0, USARTS
+(1)     2F8 : A680                       bitb    rl0, #ST_TxRDY_bp
+(1)     2FA : E60B                       jr      z, isr_tx_exit
+(1)     2FC : 2101 2080                  ld      r1, #tx_queue
+(1)     300 : 5F00 03A4                  call    queue_remove
+(1)     304 : EF03                       jr      nc, isr_tx_empty
+(1)     306 : 3A86 0140                  outb    USARTD, rl0     ; send character
+(1)     30A : E803                       jr      isr_tx_exit
+(1)     30C :                    isr_tx_empty:
+(1)     30C : C836                       ldb     rl0, #RX_EN_TX_DIS
+(1)     30E : 3A86 0141                  outb    USARTC, rl0     ; disable Tx
+(1)     312 :                    isr_tx_exit:
+(1)     312 : 97F1                       pop     r1, @r15
+(1)     314 : 97F0                       pop     r0, @r15
+(1)     316 : 5E08 03D6                  jp      isr_return
+(1)     31A :
+(1)     31A :                    ;;; System calls for a program in normal mode, which may not do I/O:
+(1)     31A :                    ;;; SC #n with the arguments and results of the routine n names.
+(1)     31A : =1                 SC_GETCHAR:     equ     1       ; getchar
+(1)     31A : =2                 SC_PUTCHAR:     equ     2       ; putchar
+(1)     31A : =3                 SC_NEWLINE:     equ     3       ; newline
+(1)     31A :
+(1)     31A :                    ;;; The frame lies above R1 pushed here: the SC's identifier at 2, the
+(1)     31A :                    ;;; caller's FCW at 4, which getchar's carry goes back in.
+(1)     31A :                    isr_sc:
+(1)     31A : 93F1                       push    @r15, r1
+(1)     31C : 31F1 0002                  ld      r1, r15(#2)    ; SC #n: 7F00H|n
+(1)     320 : 0A09 0101                  cpb     rl1, #SC_GETCHAR
+(1)     324 : E60C                       jr      eq, isr_sc_getchar
+(1)     326 : 0A09 0202                  cpb     rl1, #SC_PUTCHAR
+(1)     32A : E606                       jr      eq, isr_sc_putchar
+(1)     32C : 0A09 0303                  cpb     rl1, #SC_NEWLINE
+(1)     330 : EE0F                       jr      ne, isr_sc_exit
+(1)     332 : 5F00 02A6                  call    newline
+(1)     336 : E80C                       jr      isr_sc_exit
+(1)     338 :                    isr_sc_putchar:
+(1)     338 : 5F00 02AE                  call    putchar
+(1)     33C : E809                       jr      isr_sc_exit
+(1)     33E :                    isr_sc_getchar:
+(1)     33E : 5F00 0294                  call    getchar
+(1)     342 : 31F1 0004                  ld      r1, r15(#4)
+(1)     346 : A317                       res     r1, #7          ; FCW C
+(1)     348 : EF01                       jr      nc, isr_sc_return
+(1)     34A : A517                       set     r1, #7
+(1)     34C :                    isr_sc_return:
+(1)     34C : 33F1 0004                  ld      r15(#4), r1
+(1)     350 :                    isr_sc_exit:
+(1)     350 : 97F1                       pop     r1, @r15
+(1)     352 : 5E08 03D6                  jp      isr_return
+(1)     356 :
+(1)     356 :                            include "queue.inc"
+(2)     356 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(2)     356 :                    ;;; [queue] queue structure
+(2)     356 : =0                 queue_len:      equ     0       ; queue length
+(2)     356 : =1                 queue_size:     equ     1       ; buffer size
+(2)     356 : =2                 queue_put:      equ     2       ; queue put index
+(2)     356 : =3                 queue_get:      equ     3       ; queue get index
+(2)     356 : =4                 queue_buf:      equ     4       ; buffer start offset
+(2)     356 :
+(2)     356 :                    ;;; [queue] Initialize queue
+(2)     356 :                    ;;; @param R1 queue work space pointer
+(2)     356 :                    ;;; @param RL0 queue work space size
+(2)     356 :                    ;;; @clobber RL0
+(2)     356 :                    queue_init:
+(2)     356 : 4C18 0000                  clrb    queue_len(r1)
+(2)     35A : 0208 0404                  subb    rl0, #queue_buf
+(2)     35E : 6E18 0001                  ldb     queue_size(r1), rl0
+(2)     362 : 4C18 0002                  clrb    queue_put(r1)
+(2)     366 : 4C18 0003                  clrb    queue_get(r1)
+(2)     36A : 9E08                       ret
+(2)     36C :
+(2)     36C :                    ;;; [queue] Add an element to queue
+(2)     36C :                    ;;; @param R1 queue work space pointer
+(2)     36C :                    ;;; @param RL0 an element
+(2)     36C :                    ;;; @return FLAGS.C 0 if queue is full
+(2)     36C :                    queue_add:
+(2)     36C : 93F2                       push    @r15, r2
+(2)     36E : 601A 0000                  ldb     rl2, queue_len(r1)
+(2)     372 : 4A1A 0001                  cpb     rl2, queue_size(r1)
+(2)     376 : E703                       jr      c, queue_add_store ; queue_len < queue_size
+(2)     378 : 97F2                       pop     r2, @r15
+(2)     37A : 8D83                       resflg  c
+(2)     37C : 9E08                       ret
+(2)     37E :                    queue_add_store:
+(2)     37E : 6810 0000                  incb    queue_len(r1), #1
+(2)     382 : 8D28                       clr     r2
+(2)     384 : 601A 0002                  ldb     rl2, queue_put(r1)
+(2)     388 : 8112                       add     r2, r1
+(2)     38A : 6E28 0004                  ldb     queue_buf(r2), rl0 ; store an element
+(2)     38E : 8312                       sub     r2, r1
+(2)     390 : A8A0                       incb    rl2, #1            ; queue_put++
+(2)     392 : 4A1A 0001                  cpb     rl2, queue_size(r1)
+(2)     396 : E701                       jr      c, queue_add_update ; queue_put < queue_size
+(2)     398 : 8CA8                       clrb    rl2                 ; wrap around
+(2)     39A :                    queue_add_update:
+(2)     39A : 6E1A 0002                  ldb     queue_put(r1), rl2
+(2)     39E : 97F2                       pop     r2, @r15
+(2)     3A0 : 8D81                       setflg  c
+(2)     3A2 : 9E08                       ret
+(2)     3A4 :
+(2)     3A4 :                    ;;; [queue] Remove an element from queue
+(2)     3A4 :                    ;;; @param R1 queue work space pointer
+(2)     3A4 :                    ;;; @return RL0 an element
+(2)     3A4 :                    ;;; @return FLAGS.C 0 if queue is empty
+(2)     3A4 :                    queue_remove:
+(2)     3A4 : 4C14 0000                  testb   queue_len(r1)
+(2)     3A8 : EE02                       jr      nz, queue_remove_elem
+(2)     3AA : 8D83                       resflg  c
+(2)     3AC : 9E08                       ret
+(2)     3AE :                    queue_remove_elem:
+(2)     3AE : 93F2                       push    @r15, r2
+(2)     3B0 : 6A10 0000                  decb    queue_len(r1), #1
+(2)     3B4 : 8D28                       clr     r2
+(2)     3B6 : 601A 0003                  ldb     rl2, queue_get(r1)
+(2)     3BA : 8112                       add     r2, r1
+(2)     3BC : 6028 0004                  ldb     rl0, queue_buf(r2) ; read an element
+(2)     3C0 : 8312                       sub     r2, r1
+(2)     3C2 : A8A0                       incb    rl2, #1            ; queue_get++
+(2)     3C4 : 4A1A 0001                  cpb     rl2, queue_size(r1)
+(2)     3C8 : E701                       jr      c, queue_remove_update ; queue_get < queue_size
+(2)     3CA : 8CA8                       clrb    rl2                    ; wrap around
+(2)     3CC :                    queue_remove_update:
+(2)     3CC : 6E1A 0003                  ldb     queue_get(r1), rl2
+(2)     3D0 : 97F2                       pop     r2, @r15
+(2)     3D2 : 8D81                       setflg  c
+(2)     3D4 : 9E08                       ret
+        3D6 :
+        3D6 :                    ;;; Return from an interrupt handler.
+        3D6 :                    isr_return:
+        3D6 : 7B00                       iret

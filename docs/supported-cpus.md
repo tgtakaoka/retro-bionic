@@ -51,8 +51,8 @@ report several parts.
 <tr><td>✅</td><td><code>KL5C80A12</code></td><td></td><td>Improved bus, runs zero-wait so <code>READY</code> is unusable</td></tr>
 <tr><td rowspan="2"><code>z8</code></td><td rowspan="2"><code>z8</code></td><td>✅</td><td><code>Z86C91</code></td><td></td><td></td></tr>
 <tr><td>✅</td><td><code>Z88C00</code></td><td></td><td>Super8; differs from Z86C91 only in clock phase</td></tr>
-<tr><td rowspan="2"><code>z8000</code></td><td rowspan="2"></td><td>🚧</td><td><code>Z8001</code></td><td></td><td><code>Z0800110PSC</code>, <code>Z16C0110PSC</code></td></tr>
-<tr><td>🚧</td><td><code>Z8002</code></td><td></td><td><code>Z0800210PSC</code>, <code>Z16C0210PSC</code></td></tr>
+<tr><td rowspan="2"><code>z8000</code></td><td></td><td>🚧</td><td><code>Z8001</code></td><td></td><td><code>Z0800110PSC</code>, <code>Z16C0110PSC</code></td></tr>
+<tr><td><code>z8002</code></td><td>✅</td><td><code>Z8002</code></td><td></td><td>Runs on <code>Z16C0210PSC</code></td></tr>
 <tr><td><code>z280</code></td><td><code>z280</code></td><td>✅</td><td><code>Z280</code></td><td></td><td><code>Z8028012VSC</code></td></tr>
 <tr><td><code>z380</code></td><td><code>z380</code></td><td>✅</td><td><code>Z380</code></td><td></td><td><code>Z8038018FSC</code></td></tr>
 <tr><td><code>i8048</code></td><td><code>i8048</code></td><td>✅</td><td><code>P8048</code></td><td><code>P8039</code>, <code>MSM80C39</code></td><td>No absolute addressing, subtract or compare</td></tr>

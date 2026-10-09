@@ -79,7 +79,7 @@ disassembly, single-stepping with the bus trace, then drawing the Mandelbrot set
 
 ## Supported CPUs
 
-All 42 targets, grouped by vendor and architecture:
+All 43 targets, grouped by vendor and architecture:
 
 <table>
 <thead>
@@ -90,9 +90,10 @@ All 42 targets, grouped by vendor and architecture:
 <tr><td>6805</td><td>MC146805E2, MC68HC05C0, MC68HC08AZ0</td></tr>
 <tr><td>6809</td><td>MC6809 <em>HD6309</em>, MC6809E <em>HD6309E</em></td></tr>
 <tr><td>MOS Technology</td><td>6502</td><td>MOS6502 <em>G65SC02, R65C02, W65C02S, W65C816S</em></td></tr>
-<tr><td rowspan="4">Zilog</td><td>Z80</td><td>Z80, Z180, NSC800, KL5C80A12, HD64180S</td></tr>
+<tr><td rowspan="5">Zilog</td><td>Z80</td><td>Z80, Z180, NSC800, KL5C80A12, HD64180S</td></tr>
 <tr><td>Z280</td><td>Z280</td></tr>
 <tr><td>Z380</td><td>Z380</td></tr>
+<tr><td>Z8000</td><td>Z8002</td></tr>
 <tr><td>Z8</td><td>Z86C91, Z88C00</td></tr>
 <tr><td rowspan="4">Intel</td><td>MCS-48</td><td>P8048 <em>P8039, MSM80C39</em></td></tr>
 <tr><td>MCS-51</td><td>P8051</td></tr>
