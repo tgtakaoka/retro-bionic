@@ -85,6 +85,9 @@ struct MatchWalker {
         // instructions count only from one that moves data, transfers or
         // takes an interrupt
         bool leadUnproven = false;
+        // a word fetch takes the bytes the queue has room for, and the
+        // word may be read again: for the rest, or at once
+        bool refetchWord = false;
     };
 
     // A CPU, as the walk sees it.

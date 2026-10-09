@@ -299,6 +299,12 @@ inline bool tracing() {
 // nonzero one is.
 inline bool (*isFetch)(int mark) = [](int mark) { return mark != 0; };
 
+// The bytes a fetch brings: the test sets it where a cycle may bring more
+// than one, its instruction starting at any of them.
+inline unsigned (*fetchWidth)(const Cycle &c) = [](const Cycle &) {
+    return 1u;
+};
+
 // The fetches |marks| has but at |starts|, the first two excepted.
 inline std::string unlisted(const Scenario &sc, const std::vector<int> &marks) {
     std::string off;
@@ -309,10 +315,17 @@ inline std::string unlisted(const Scenario &sc, const std::vector<int> &marks) {
     for (size_t i = 0; i < marks.size(); ++i) {
         if (!isFetch(marks[i]) || seen++ < 2)
             continue;
+        const auto &c = sc.cycles[i];
         char addr[16];
-        snprintf(addr, sizeof(addr), " %X ", (unsigned)sc.cycles[i].addr);
-        if (starts.find(addr) == std::string::npos)
+        auto listed = false;
+        for (auto k = 0u; k < fetchWidth(c) && !listed; ++k) {
+            snprintf(addr, sizeof(addr), " %X ", (unsigned)(c.addr + k));
+            listed = starts.find(addr) != std::string::npos;
+        }
+        if (!listed) {
+            snprintf(addr, sizeof(addr), " %X ", (unsigned)c.addr);
             off += addr + 1;
+        }
     }
     return off;
 }
