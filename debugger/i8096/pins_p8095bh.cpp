@@ -424,7 +424,7 @@ bool PinsP8095BH::rawStep(bool show) {
                 s->inject(word);
             completeCycle(s);
             if (first && fetched)
-                s->markFetch();
+                s->markStart(pc);
             continue;
         }
         completeCycle(s);
@@ -617,19 +617,25 @@ void PinsP8095BH::printBacktrace() {
     for (auto i = 0u; i < cycles;) {
         const auto s = begin->next(i);
         if (s->fetch()) {
-            const auto nexti = _mems->disassemble(s->addr, 1);
-            const uint_fast8_t len = nexti - s->addr;
+            // The instructions starting in it: a word may bring two.
+            const uint16_t pc = s->startsAt(s->addr) ? s->addr : s->addr + 1;
+            uint16_t nexti = _mems->disassemble(pc, 1);
+            if (nexti == s->addr + 1 && s->startsAt(nexti))
+                nexti = _mems->disassemble(nexti, 1);
+            const uint_fast8_t len = nexti - pc;
             idle();
-            // Its fetches, a word bringing two bytes; others print.
+            // Their fetches, a word bringing two bytes; others print. A
+            // word that starts the next instruction is its fetch.
             uint_fast8_t j = 0;
             for (uint_fast8_t got = 0; got < len && i + j < cycles; j++) {
                 const auto t = s->next(j);
+                if (j > 0 && t->fetch())
+                    break;
                 const uint16_t from = t->addr;
                 const uint16_t to = from + t->bytes();
-                const auto inside = t->read() && to > s->addr && from < nexti;
+                const auto inside = t->read() && to > pc && from < nexti;
                 if (inside)
-                    got += (to < nexti ? to : nexti) -
-                           (from > s->addr ? from : s->addr);
+                    got += (to < nexti ? to : nexti) - (from > pc ? from : pc);
                 if (!inside || Debugger.verbose()) {
                     t->print();
                     idle();

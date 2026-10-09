@@ -65,6 +65,7 @@ struct ArchI8096 final : MatchWalker::Arch {
     }
     void markCycle(SignalsImpl *s, MatchWalker::Role role,
             uint_fast8_t span) const override;
+    void markStart(SignalsImpl *s, uint32_t pc) const override;
 
 private:
     const MatchMemory *_mems;

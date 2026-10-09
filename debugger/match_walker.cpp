@@ -1000,6 +1000,11 @@ bool MatchWalker::walked(uint_fast8_t i) {
     }
     for (auto j = 0u; j < _size; ++j)
         _arch->markCycle(at(j), _role[j], span[j]);
+    for (auto n = 0u; n < _steps; ++n) {
+        const auto f = _step[n].fetchAt;
+        if (f != NO_FETCH)
+            _arch->markStart(at(f), _step[n].pc);
+    }
     return true;
 }
 
