@@ -45,23 +45,34 @@ struct PinsP8095BH final : i8096::PinsI8096 {
     void negateInt(uint8_t name = 0) override;
     void setBreakInst(uint32_t addr) const override;
 
-    uint16_t injectReads(
-            const uint8_t *data, uint_fast8_t len, bool idle = false) override;
-    uint16_t captureWrites(uint8_t *data, uint_fast8_t len) override;
+    uint16_t park() const override { return _park; }
+    uint16_t execInst(const uint8_t *inst, uint_fast8_t len, uint8_t *buf,
+            uint_fast8_t max, uint32_t exit) override;
+    void popInst(const uint8_t *inst, uint_fast8_t len, uint16_t at,
+            const uint8_t *data, uint32_t exit) override;
 
 private:
-    bool _idle;
+    bool _idle = false;
+    // The CPU waits in the read of |_park|, a copy of its cycle kept.
+    bool _held = false;
+    uint16_t _park;
     Signals _idleSignals;
+    Signals _heldSignals;
 
     void resetPins() override;
     bool rawStep(bool show);
     Signals *loop();
 
     Signals *prepareCycle();
-    Signals *completeCycle(Signals *s);
+    Signals *completeCycle(Signals *s, bool low = false);
     Signals *noBusCycle(Signals *s);
-
-    Signals *jumpHere(uint_fast8_t len = 4, bool idle = false);
+    void hold(const Signals *s, uint16_t park);
+    uint16_t readBus(const Signals *s) const;
+    void writeBus(const Signals *s) const;
+    uint16_t execute(uint16_t org, const uint8_t *inst, uint_fast8_t len,
+            uint8_t *buf, uint_fast8_t max, uint32_t exit, bool idle,
+            uint16_t at = 0, const uint8_t *data = nullptr);
+    bool fetchedBreak(const Signals *s) const;
     uint16_t jumpTarget(uint16_t next, uint_fast8_t opc) const;
     void handleTrap(Signals *s, uint16_t vector, bool breakTrap);
 

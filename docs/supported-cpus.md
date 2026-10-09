@@ -59,7 +59,7 @@ report several parts.
 <tr><td><code>i8051</code></td><td><code>i8051</code></td><td>✅</td><td><code>P8051</code></td><td><code>P80C51</code></td><td>Clock-to-control-signal delay is about half a cycle</td></tr>
 <tr><td rowspan="2"><code>i8080</code></td><td rowspan="2"><code>i8080</code></td><td>✅</td><td><code>P8080</code></td><td></td><td>Non-overlapping two-phase 12 V clock; <code>RESET</code> resumes from a HALT breakpoint</td></tr>
 <tr><td>✅</td><td><code>P8085</code></td><td></td><td></td></tr>
-<tr><td rowspan="3"><code>i8096</code></td><td><code>i8096</code></td><td>✅</td><td><code>P8095BH</code></td><td></td><td>Prefetches up to 4 bytes, so stepping uses TRAP</td></tr>
+<tr><td rowspan="3"><code>i8096</code></td><td><code>i8096</code></td><td>✅</td><td><code>P8095BH</code></td><td></td><td>16-bit bus; prefetches up to 4 bytes, so stepping uses TRAP</td></tr>
 <tr><td rowspan="2"></td><td>🚧</td><td><code>8097</code></td><td></td><td><code>N8097BH</code></td></tr>
 <tr><td>🚧</td><td><code>80C196KC</code></td><td></td><td><code>S80C196KC20</code></td></tr>
 <tr><td rowspan="8"><code>i8086</code></td><td rowspan="8"></td><td>🚧</td><td><code>8086</code></td><td><code>8088</code></td><td><code>P80C86A-2</code>, <code>P80C88A-2</code>; shared DIP board</td></tr>

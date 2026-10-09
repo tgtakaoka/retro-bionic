@@ -18,7 +18,8 @@ struct RegsI8096 final : Regs {
     void reset() override;
     void save() override;
     void restore() override;
-    void captureContext(bool breakTrap);
+    // A trap pushed |pc| below |sp|.
+    void captureContext(uint16_t sp, uint16_t pc, bool breakTrap);
 
     uint32_t nextIp() const override { return _pc; }
     uint16_t sp() const { return _sp; }
@@ -46,7 +47,6 @@ private:
     }
 
     static constexpr auto ADDR_SP = 0x18;
-    void nops(uint_fast8_t len = 4) const;
 };
 
 }  // namespace i8096
