@@ -23,14 +23,15 @@ const auto DIR = dirOf(__FILE__);
 constexpr uint8_t CNTL_ADV = 0x1;
 constexpr uint8_t CNTL_RD = 0x2;
 constexpr uint8_t CNTL_WR = 0x4;
-constexpr uint8_t CNTL_FETCH = 0x10;
+constexpr uint8_t CNTL_START0 = 0x40;
+constexpr uint8_t CNTL_START1 = 0x80;
 }  // namespace
 
 namespace debugger {
 namespace i8096 {
 // As signals_i8096.cpp has them, which needs the board.
 bool SignalsI8096::fetch() const {
-    return (cntl() & (CNTL_ADV | CNTL_FETCH)) == 0;
+    return (cntl() & CNTL_ADV) == 0 && (cntl() & (CNTL_START0 | CNTL_START1));
 }
 bool SignalsI8096::read() const {
     return (cntl() & (CNTL_ADV | CNTL_RD)) == 0;
@@ -47,11 +48,15 @@ uint8_t SignalsI8096::byteAt(uint16_t a) const {
     return bytes() == 2 && (a & 1) ? data >> 8 : data & 0xFF;
 }
 void SignalsI8096::clearMark() {
-    cntl() |= CNTL_FETCH;
+    cntl() &= ~(CNTL_START0 | CNTL_START1);
     mark() = 0;
 }
-void SignalsI8096::markFetch() {
-    cntl() &= ~CNTL_FETCH;
+void SignalsI8096::markStart(uint16_t pc) {
+    if (pc == addr) {
+        cntl() |= CNTL_START0;
+    } else if (pc == static_cast<uint16_t>(addr + 1)) {
+        cntl() |= CNTL_START1;
+    }
 }
 }  // namespace i8096
 }  // namespace debugger
@@ -85,7 +90,7 @@ int replay(const std::vector<Cycle> &cycles, std::vector<int> &marks) {
         const auto s = Signals::put();
         s->addr = c.addr;
         s->data = c.data;
-        s->cntl() = CNTL_FETCH | (c.kind == 'W' ? CNTL_RD : CNTL_WR);
+        s->cntl() = c.kind == 'W' ? CNTL_RD : CNTL_WR;
         s->mark() = 0;
         s->_signals[2] = c.cntl;
         Cycles::next();

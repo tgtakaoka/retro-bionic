@@ -28,7 +28,9 @@ struct SignalsI8096 : SignalsBase<SignalsI8096> {
     // A bus cycle that didn't happen: neither a read nor a write.
     void noCycle() { cntl() = 0xFF; }
 
-    void markFetch();
+    // An instruction starts at |pc|, a byte the cycle fetched.
+    void markStart(uint16_t pc);
+    bool startsAt(uint16_t pc) const;
     void clearMark();
     void markOperand() { mark() = 1; }
     bool isOperand() const { return mark(); }

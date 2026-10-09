@@ -435,11 +435,12 @@ const char *ArchI8096::interruptSequence() const {
 }
 
 void ArchI8096::markCycle(
-        SignalsImpl *impl, MatchWalker::Role role, uint_fast8_t) const {
-    const auto s = static_cast<SignalsI8096 *>(impl);
-    s->clearMark();
-    if (role == MatchWalker::R_FETCH)
-        s->markFetch();
+        SignalsImpl *impl, MatchWalker::Role, uint_fast8_t) const {
+    static_cast<SignalsI8096 *>(impl)->clearMark();
+}
+
+void ArchI8096::markStart(SignalsImpl *s, uint32_t pc) const {
+    static_cast<SignalsI8096 *>(s)->markStart(pc);
 }
 
 }  // namespace i8096

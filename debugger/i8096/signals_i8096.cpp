@@ -47,7 +47,7 @@ uint8_t SignalsI8096::byteAt(uint16_t a) const {
 }
 
 bool SignalsI8096::fetch() const {
-    return (cntl() & (CNTL_ADV | CNTL_FETCH)) == 0;
+    return (cntl() & CNTL_ADV) == 0 && (cntl() & (CNTL_START0 | CNTL_START1));
 }
 
 bool SignalsI8096::read() const {
@@ -59,14 +59,22 @@ bool SignalsI8096::write() const {
 }
 
 void SignalsI8096::clearMark() {
-    // CNTL_FETCH is active low
-    cntl() |= CNTL_FETCH;
+    cntl() &= ~(CNTL_START0 | CNTL_START1);
     mark() = 0;
 }
 
-void SignalsI8096::markFetch() {
-    // CNTL_FETCH is active low
-    cntl() &= ~CNTL_FETCH;
+void SignalsI8096::markStart(uint16_t pc) {
+    if (pc == addr) {
+        cntl() |= CNTL_START0;
+    } else if (pc == static_cast<uint16_t>(addr + 1)) {
+        cntl() |= CNTL_START1;
+    }
+}
+
+bool SignalsI8096::startsAt(uint16_t pc) const {
+    if (pc == addr)
+        return cntl() & CNTL_START0;
+    return pc == static_cast<uint16_t>(addr + 1) && (cntl() & CNTL_START1);
 }
 
 void SignalsI8096::print() const {

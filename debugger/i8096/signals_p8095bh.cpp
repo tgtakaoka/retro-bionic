@@ -9,8 +9,7 @@ namespace p8095bh {
 bool Signals::getControl() {
     // CNTL_RD and CNTL_WR is active low
     constexpr auto BUS_INACTIVE = CNTL_RD | CNTL_WR;
-    // CNTL_FETCH is active low
-    cntl() = busRead(CNTL) | CNTL_FETCH;
+    cntl() = busRead(CNTL);
     return (cntl() & BUS_INACTIVE) != BUS_INACTIVE;
 }
 

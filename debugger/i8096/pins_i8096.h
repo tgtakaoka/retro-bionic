@@ -37,7 +37,8 @@
 #define CNTL_RD 0x2     /* CNTL1 */
 #define CNTL_WR 0x4     /* CNTL2 */
 #define CNTL_BHE 0x8    /* CNTL3 */
-#define CNTL_FETCH 0x10 /* CNTL4 */
+#define CNTL_START0 0x40 /* an instruction starts at the cycle's address */
+#define CNTL_START1 0x80 /* one starts at the byte after it */
 #define PIN_RESET 28    /* P8.18 */
 #define PIN_READY 31    /* P8.22 */
 #define PIN_EXTINT 30   /* P8.23 */

@@ -138,6 +138,10 @@ struct MatchWalker {
         // |span|: on R_FETCH, the cycles the instruction took
         virtual void markCycle(
                 SignalsImpl *s, Role role, uint_fast8_t span) const = 0;
+        // After markCycle(): an instruction at |pc| was walked, |s| the
+        // fetch that brought its first byte, which brings more on a wide
+        // bus.
+        virtual void markStart(SignalsImpl *, uint32_t) const {}
 
     protected:
         ~Arch() = default;
