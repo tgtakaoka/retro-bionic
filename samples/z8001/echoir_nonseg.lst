@@ -260,11 +260,14 @@
         214 :                    ;;; Return from an interrupt handler. The Z8001 must be segmented to IRET
         214 :                    ;;; (its operation in nonsegmented mode is undefined), and then pops the
         214 :                    ;;; frame through RR14, the system stack's segment the debugger zeroes
-        214 :                    ;;; at reset.
+        214 :                    ;;; at reset. LDPS switches the mode and the PC together; LDCTL FCW alone
+        214 :                    ;;; does not reliably set SEG on an NMOS part.
         214 :                    isr_return:
         214 : 93F1                       push    @r15, r1
-        216 : 7D12                       ldctl   r1, fcw
-        218 : A51F                       set     r1, #15         ; FCW_SEG
-        21A : 7D1A                       ldctl   fcw, r1
-        21C : 97E1                       word    97E1H           ; pop r1, @rr14
-        21E : 7B00                       iret
+        216 : 7900 021E                  ldps    isr_return_ps
+        21A :                    isr_return_seg:
+        21A : 97E1                       word    97E1H           ; pop r1, @rr14
+        21C : 7B00                       iret
+        21E :                    isr_return_ps:
+        21E : C000                       word    FCW_SEG|FCW_SN  ; segmented system mode, interrupts disabled
+        220 : 021A                       word    isr_return_seg

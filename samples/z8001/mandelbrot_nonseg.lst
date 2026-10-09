@@ -481,11 +481,14 @@
         3D6 :                    ;;; Return from an interrupt handler. The Z8001 must be segmented to IRET
         3D6 :                    ;;; (its operation in nonsegmented mode is undefined), and then pops the
         3D6 :                    ;;; frame through RR14, the system stack's segment the debugger zeroes
-        3D6 :                    ;;; at reset.
+        3D6 :                    ;;; at reset. LDPS switches the mode and the PC together; LDCTL FCW alone
+        3D6 :                    ;;; does not reliably set SEG on an NMOS part.
         3D6 :                    isr_return:
         3D6 : 93F1                       push    @r15, r1
-        3D8 : 7D12                       ldctl   r1, fcw
-        3DA : A51F                       set     r1, #15         ; FCW_SEG
-        3DC : 7D1A                       ldctl   fcw, r1
-        3DE : 97E1                       word    97E1H           ; pop r1, @rr14
-        3E0 : 7B00                       iret
+        3D8 : 7900 03E0                  ldps    isr_return_ps
+        3DC :                    isr_return_seg:
+        3DC : 97E1                       word    97E1H           ; pop r1, @rr14
+        3DE : 7B00                       iret
+        3E0 :                    isr_return_ps:
+        3E0 : C000                       word    FCW_SEG|FCW_SN  ; segmented system mode, interrupts disabled
+        3E2 : 03DC                       word    isr_return_seg

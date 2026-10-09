@@ -408,11 +408,14 @@
         30E :                    ;;; Return from an interrupt handler. The Z8001 must be segmented to IRET
         30E :                    ;;; (its operation in nonsegmented mode is undefined), and then pops the
         30E :                    ;;; frame through RR14, the system stack's segment the debugger zeroes
-        30E :                    ;;; at reset.
+        30E :                    ;;; at reset. LDPS switches the mode and the PC together; LDCTL FCW alone
+        30E :                    ;;; does not reliably set SEG on an NMOS part.
         30E :                    isr_return:
         30E : 93F1                       push    @r15, r1
-        310 : 7D12                       ldctl   r1, fcw
-        312 : A51F                       set     r1, #15         ; FCW_SEG
-        314 : 7D1A                       ldctl   fcw, r1
-        316 : 97E1                       word    97E1H           ; pop r1, @rr14
-        318 : 7B00                       iret
+        310 : 7900 0318                  ldps    isr_return_ps
+        314 :                    isr_return_seg:
+        314 : 97E1                       word    97E1H           ; pop r1, @rr14
+        316 : 7B00                       iret
+        318 :                    isr_return_ps:
+        318 : C000                       word    FCW_SEG|FCW_SN  ; segmented system mode, interrupts disabled
+        31A : 0314                       word    isr_return_seg

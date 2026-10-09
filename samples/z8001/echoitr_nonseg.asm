@@ -90,11 +90,14 @@ put_bin8_bit:
 ;;; Return from an interrupt handler. The Z8001 must be segmented to IRET
 ;;; (its operation in nonsegmented mode is undefined), and then pops the
 ;;; frame through RR14, the system stack's segment the debugger zeroes
-;;; at reset.
+;;; at reset. LDPS switches the mode and the PC together; LDCTL FCW alone
+;;; does not reliably set SEG on an NMOS part.
 isr_return:
         push    @r15, r1
-        ldctl   r1, fcw
-        set     r1, #15         ; FCW_SEG
-        ldctl   fcw, r1
+        ldps    isr_return_ps
+isr_return_seg:
         word    97E1H           ; pop r1, @rr14
         iret
+isr_return_ps:
+        word    FCW_SEG|FCW_SN  ; segmented system mode, interrupts disabled
+        word    isr_return_seg
