@@ -23,7 +23,15 @@ struct Cycles {
     ~Cycles();
 
     static void reset();
+    // Advances the write end, unless held: then the head slot is reused.
     static void next();
+
+    /** Holds the ring while in scope, so the debugger's own cycles leave
+        the captured ones for the dump. */
+    struct Hold {
+        Hold() { _hold = true; }
+        ~Hold() { _hold = false; }
+    };
     // Rewinds the write end: drops every cycle from |s| on, so |s|
     // becomes the new head().
     static void discard(const SignalsImpl *s);
@@ -48,6 +56,7 @@ private:
     static uint_fast8_t _put;
     static uint_fast8_t _get;
     static uint_fast8_t _cycles;
+    static bool _hold;
     static SignalsImpl _ring[MAX_CYCLES];
 };
 

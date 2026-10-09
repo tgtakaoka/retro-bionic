@@ -295,6 +295,7 @@ void PinsTms320C15::loop() {
             negate_debug();
             _profileEnd = s->prev();
             s = Signals::put();
+            Cycles::Hold hold;
             _regs->save();
             Cycles::discard(s);
             return;
@@ -324,6 +325,7 @@ void PinsTms320C15::loop() {
     while (true) {
         if (!rawStep() || haltSwitch()) {
             auto s = Signals::put();
+            Cycles::Hold hold;
             _regs->save();
             Cycles::discard(s);
             return;

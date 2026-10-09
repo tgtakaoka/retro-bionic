@@ -104,7 +104,6 @@ private:
 #ifdef PROFILE_CYCLES
     void dataLoopback();
 #endif
-    bool _holdRing = false;  // completeCycle(): do not advance the ring
     void resetPins() override;
     const SignalsImpl *findBacktraceStart() override;
     void printBacktrace() override;
