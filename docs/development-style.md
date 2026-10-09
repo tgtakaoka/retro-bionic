@@ -1265,6 +1265,27 @@ both lanes from the even word whatever A0 says. **[hw]**
   `tools/i8096-cycles16.jsonl.zst`, checks every row. An opcode and its
   TRAP may come in one word, so `check()` takes one marked fetch for a
   one-byte instruction. **[hw]**
+- A word fetch may bring an instruction's first byte at its odd address,
+  or two instructions' first bytes: the walker's `markStart()` tells the
+  backtrace which, or it disassembles the byte before. **[hw][code]**
+
+**INT_PENDING is undefined after a reset**, as SP is (8X9X User's Manual
+§13.2). **[doc]** An EXTINT latched at power-up, or while the Teensy
+reboots after a flash, survived every reset and was taken as soon as a
+program enabled it: the first step after a power cycle stuck at 2088,
+then never again. The debugger's reset clears INT_PENDING. **[hw]**
+
+**N8097BH.** The PLCC-68 part runs the P8095BH's code; its board has INST
+on P46 and NMI on P50 where the P8095BH's has PWM and ACH4, and leaves
+BUSWIDTH open, which floats high. **[doc]** INST is high on every
+instruction fetch, prefetches included, and low on data: the CCB read and
+every write. **[hw]** The debugger holds NMI low, since a rise vectors to
+0000H, and reads INST as the fifth CNTL line. **[code]**
+
+- The first board had AD9 (CPU pin 51) open: a fetch at 2082 read as
+  2282 and the reset loaded SP with 1034 for 1234, bit 9 following the
+  last level the Teensy drove. Reseating didn't help; the joint did.
+  **[hw]**
 
 ### SC/MP (INS8060)
 

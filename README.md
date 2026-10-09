@@ -98,7 +98,7 @@ All 44 targets, grouped by vendor and architecture:
 <tr><td rowspan="4">Intel</td><td>MCS-48</td><td>P8048 <em>P8039, MSM80C39</em></td></tr>
 <tr><td>MCS-51</td><td>P8051</td></tr>
 <tr><td>MCS-80/85</td><td>P8080, P8085</td></tr>
-<tr><td>MCS-96</td><td>P8095BH</td></tr>
+<tr><td>MCS-96</td><td>P8095BH, N8097BH</td></tr>
 <tr><td rowspan="4">Texas Instruments</td><td>TMS9900</td><td>TMS9900, TMS9980, TMS9981, TMS9995, TMS99105 <em>TMS99110</em></td></tr>
 <tr><td>TMS7000</td><td>TMS7000 <em>TMS7002</em></td></tr>
 <tr><td>TMS370</td><td>TMS370Cx5x</td></tr>

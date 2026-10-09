@@ -54,6 +54,10 @@ bool SignalsI8096::read() const {
     return (cntl() & (CNTL_ADV | CNTL_RD)) == 0;
 }
 
+bool SignalsI8096::inst() const {
+    return cntl() & CNTL_INST;
+}
+
 bool SignalsI8096::write() const {
     return (cntl() & (CNTL_ADV | CNTL_WR)) == 0;
 }
@@ -102,7 +106,8 @@ void SignalsI8096::print() const {
     } else {
         buffer.hex8(11, byteAt(addr));
     }
-    cli.println(buffer);
+    cli.print(buffer);
+    cli.println(inst() ? " i" : "");
 }
 
 }  // namespace i8096

@@ -36,6 +36,9 @@ bool SignalsI8096::fetch() const {
 bool SignalsI8096::read() const {
     return (cntl() & (CNTL_ADV | CNTL_RD)) == 0;
 }
+bool SignalsI8096::inst() const {
+    return false;
+}
 bool SignalsI8096::write() const {
     return (cntl() & (CNTL_ADV | CNTL_WR)) == 0;
 }
