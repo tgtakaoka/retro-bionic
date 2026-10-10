@@ -31,6 +31,9 @@ void RegsI8096::print() const {
 void RegsI8096::reset() {
     // Load external address to SP
     write_data16(ADDR_SP, 0x1234);
+    // A reset leaves INT_PENDING undefined, as SP: a stale EXTINT would
+    // be taken once a program enables it.
+    write_data(ADDR_INT_PENDING, 0);
 }
 
 // Each sequence runs where the CPU is parked and jumps back there.
