@@ -1573,6 +1573,40 @@ Draft board for the MC68HC16Z1 (144-pin LQFP, case 918); not built yet.
   `#BGACK` have 10k pull-ups instead of ties: the MCU drives `#HALT` low on
   a double bus fault. VSTBY is grounded, so the standby RAM keeps
   nothing across power-off. **[doc]**
+- The Z2, Z3 and Z4 share the 144-pin assignment; the Z4 differs only in
+  its MCCI serial pins (28-37), which the board leaves open. The Z2 and
+  Z3 masked ROM wakes enabled because DATA14 is high at reset, and its
+  accesses never reach the bus; a mask-programmed BOOT bit may also take
+  the reset vectors from it. The CK and CM parts are 3.3 V. **[doc]**
+
+#### Debugger **[doc][code]**
+
+Written against the manuals, before the board exists; every timing and
+landing point below is marked `ATTENTION:` in `debugger/mc68hc16/`.
+
+- The CPU is parked by withholding `#DSACK1`, as the Z380 withholds
+  `#WAIT`; sequences are address-keyed and end in `BRA` to their origin
+  or a jump to a named exit.
+- CSBOOT covers 00000H-7FFFFH from reset and ends a cycle by itself after
+  13 waits, and the software watchdog is on. `setupBus()` runs right after
+  the reset vector, before any idle clock: it clears SYPCR (write-once,
+  so a program cannot turn the watchdog back on) and CSORBT.
+- Interrupt acknowledges (FC=7) end on `#AVEC`; the Teensy drives neither
+  data nor `#DSACK` for them.
+- Halt and step take `#IRQ7` (level-7 autovector, 002EH). The frame is PC
+  at SP and CCR below it, SP down by 4; the stacked PC is the next
+  instruction plus 6 for an interrupt, the `SWI` plus 8 for `SWI`. RTI
+  subtracts 6.
+- Registers are saved with `PSHM D,E,X,Y,Z,K,CCR` and `PSHMAC`, decoded
+  by write address, and restored from an image staged just below SP:
+  `PULMAC`, `PULM`, `RTI`. A stack in the on-chip standby RAM shows
+  nothing on the bus, so it cannot be saved.
+- Instruction boundaries come from IPIPE: phase 1 is read at `#AS`,
+  phase 2 late in the cycle, and `PipeMc68hc16` maps each START back to
+  its opcode's fetch.
+- The ACIA sits at FFE00H, outside the SIM's register block; samples
+  reach it as `,Z` with ZK:IZ set from the reset vector, and keep data
+  in bank 0.
 
 ### SCN2650
 

@@ -1,7 +1,7 @@
 # Samples
 
 [`samples/`](../samples) holds the same handful of programs ported to every supported
-architecture — 40 CPU directories plus one host-side reference. Each contains the assembly
+architecture — 43 CPU directories plus one host-side reference. Each contains the assembly
 source, a listing, and a pre-built `.s19` or `.hex` ready to paste into the debugger.
 
 ## The programs

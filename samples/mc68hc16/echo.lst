@@ -1,0 +1,133 @@
+          0 :                            include "mc68hc16.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :                    ;;; MC68HC16
+(1)       0 :                            cpu     68hc16
+(1)       0 :                    ;;; Condition Code Register (CCR)
+(1)       0 : =100               CC_CARRY      equ  %0000000100000000 ; set to 1 if carry occurred
+(1)       0 : =200               CC_OVERFLOW   equ  %0000001000000000 ; set to 1 if overflow occurred
+(1)       0 : =400               CC_ZERO       equ  %0000010000000000 ; set to 1 if result is zero
+(1)       0 : =800               CC_NEGATIVE   equ  %0000100000000000 ; set to 1 if result is negative
+(1)       0 : =1000              CC_EV         equ  %0001000000000000 ; set to 1 if AM overflowed into AM[35:32]
+(1)       0 : =2000              CC_HALF_CARRY equ  %0010000000000000 ; if 1, decimal carry from least digit occurred
+(1)       0 : =4000              CC_MV         equ  %0100000000000000 ; set to 1 if AM overflowed
+(1)       0 : =8000              CC_STOP       equ  %1000000000000000 ; if 1, LPSTOP is disabled
+(1)       0 : =E0                CC_IP_gm      equ  %0000000011100000 ; interrupt priority mask; CLI and SEI
+(1)       0 :                                                         ; are ANDP/ORP on it
+(1)       0 : =10                CC_SM         equ  %0000000000010000 ; saturate mode for MAC
+(1)       0 : =F                 CC_PK_gm      equ  %0000000000001111 ; program bank
+(1)       0 :
+(1)       0 :                    ;;; Vector (CPU16RM Table 9-1); exception handlers run in bank 0
+(1)       0 : =0                 VEC_RESET:      equ     $0000   ; $0000: ZK:SK:PK, PC, SP, IZ
+(1)       0 : =8                 VEC_BKPT:       equ     $0008   ; $0008: Breakpoint
+(1)       0 : =A                 VEC_BERR:       equ     $000A   ; $000A: Bus Error
+(1)       0 : =C                 VEC_SWI:        equ     $000C   ; $000C: Software Interrupt
+(1)       0 : =E                 VEC_ILLEGAL:    equ     $000E   ; $000E: Illegal Instruction
+(1)       0 : =10                VEC_DIV0:       equ     $0010   ; $0010: Division by Zero
+(1)       0 : =1E                VEC_UNINIT:     equ     $001E   ; $001E: Uninitialized Interrupt
+(1)       0 : =22                VEC_IRQ1:       equ     $0022   ; $0022: Level 1 Interrupt Autovector
+(1)       0 : =2E                VEC_IRQ7:       equ     $002E   ; $002E: Level 7 Interrupt Autovector
+(1)       0 : =30                VEC_SPURIOUS:   equ     $0030   ; $0030: Spurious Interrupt
+(1)       0 :
+(1)       0 :                    ;;; MC6850 Asynchronous Communication Interface Adapter at $FFE00:
+(1)       0 :                    ;;; reached as ACIA_xxx,Z with ZK:IZ pointing at it.
+(1)       0 : =FFE00             ACIA_BASE:      equ     $FFE00
+(1)       0 : =0                 ACIA:           equ     0
+          0 :
+          0 :                            include "../mc6800/mc6850.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :
+(1)       0 :                    ;;; MC6850
+(1)       0 :                    ;;; Asynchronous Communication Interface Adapter
+(1)       0 :
+(1)       0 :                    ;;; Control register
+(1)       0 : =0                 ACIA_control:   equ     ACIA+0
+(1)       0 :                            ;; Counter Divider Select Bits
+(1)       0 : =3                 CDS_gm:         equ     %11    ; Group mask
+(1)       0 : =0                 CDS_DIV1_gc:    equ     %00000000 ; /1
+(1)       0 : =1                 CDS_DIV16_gc:   equ     %00000001 ; /16
+(1)       0 : =2                 CDS_DIV64_gc:   equ     %00000010 ; /64
+(1)       0 : =3                 CDS_RESET_gc:   equ     %00000011 ; Master Reset
+(1)       0 :                            ;; Word Select Bits
+(1)       0 : =1C                WSB_gm:         equ     %00011100 ; Group mask
+(1)       0 : =0                 WSB_7E2_gc:     equ     %00000000 ; 7 Bits + Even Parity + 2 Stop Bits
+(1)       0 : =4                 WSB_7O2_gc:     equ     %00000100 ; 7 bits + Odd Parity  + 2 Stop Bits
+(1)       0 : =8                 WSB_7E1_gc:     equ     %00001000 ; 7 bits + Even Parity + 1 Stop Bits
+(1)       0 : =C                 WSB_7O1_gc:     equ     %00001100 ; 7 bits + Odd Parity  + 1 Stop Bits
+(1)       0 : =10                WSB_8N2_gc:     equ     %00010000 ; 8 bits + No Parity   + 2 Stop Bits
+(1)       0 : =14                WSB_8N1_gc:     equ     %00010100 ; 8 bits + No Parity   + 1 Stop Bits
+(1)       0 : =18                WSB_8E1_gc:     equ     %00011000 ; 8 bits + Even Parity + 1 Stop Bits
+(1)       0 : =1C                WSB_8O1_gc:     equ     %00011100 ; 8 bits + Odd Parity  + 1 Stop Bits
+(1)       0 :                            ;; Transmit Control Bits
+(1)       0 : =60                TCB_gm:         equ     %01100000 ; Group mask
+(1)       0 : =0                 TCB_DI_gc:      equ     %00000000 ; RTS=Low,  Tx Interrupt Disabled
+(1)       0 : =20                TCB_EI_gc:      equ     %00100000 ; RTS=Low,  Tx Interrupt Enabled
+(1)       0 : =40                TCB_RTS_gc:     equ     %01000000 ; RTS=High, Tx Interrupt Disabled
+(1)       0 : =60                TCB_BREAK_gc:   equ     %01100000 ; RTS=Low,  Tx Interrupt Disabled
+(1)       0 :                                                      ; Transmit Break Level
+(1)       0 : =80                RIEB_bm:        equ     %10000000 ; Receive Interrupt Enable Bit mask
+(1)       0 :
+(1)       0 :                    ;;; Status register
+(1)       0 : =0                 ACIA_status:    equ     ACIA+0
+(1)       0 : =1                 RDRF_bm:        equ     %00000001 ; Receive Data Register Full
+(1)       0 : =2                 TDRE_bm:        equ     %00000010 ; Transmit Data Register Empty
+(1)       0 : =4                 DCDF_bm:        equ     %00000100 ; Data Carrier Detect Flag
+(1)       0 : =8                 CTSF_bm:        equ     %00001000 ; Clear To Send Flag
+(1)       0 : =10                FERR_bm:        equ     %00010000 ; Frame Error Flag
+(1)       0 : =20                OVRN_bm:        equ     %00100000 ; Receiver Overrun Flag
+(1)       0 : =40                PERR_bm:        equ     %01000000 ; Parity Error Flag
+(1)       0 : =80                IRQF_bm:        equ     %10000000 ; Interrupt Request Flag
+(1)       0 :
+(1)       0 :                    ;;; Data register
+(1)       0 : =1                 ACIA_data:      equ     ACIA+1          ; Data register
+          0 :
+          0 : =FFE               stack:  equ     $1000-2         ; PSHM stores at SP, then decrements it
+          0 :
+          0 :                            org     VEC_RESET
+          0 : 0F 00                      fdb     (ACIA_BASE>>16)<<8 ; ZK:SK:PK: Z in the ACIA's bank
+          2 : 02 00                      fdb     initialize
+          4 : 0F FE                      fdb     stack
+          6 : FE 00                      fdb     ACIA_BASE&$FFFF ; IZ
+          8 :
+        200 :                            org     $0200
+        200 :                    initialize:
+        200 : 37 15                      clrb
+        202 : 27 FA                      tbek                    ; data, X and Y in bank 0
+        204 : 37 9C                      tbxk
+        206 : 37 9D                      tbyk
+        208 : 37 BF 0F FE                lds     #stack
+        20C : 75 03                      ldaa    #CDS_RESET_gc   ; Master reset
+        20E : 6A 00                      staa    ACIA_control,z
+        210 : 75 14                      ldaa    #WSB_8N1_gc     ; 8 bits + No Parity + 1 Stop Bits
+        212 :                                                    ; Transmit, Receive interrupts disabled
+        212 : 6A 00                      staa    ACIA_control,z
+        214 :
+        214 : 36 1E              loop:   bsr     getchar
+        216 : 37 06                      tsta
+        218 : B7 06                      beq     halt_to_system
+        21A : 36 22              echo:   bsr     putchar
+        21C : 78 0D                      cmpa    #$0D
+        21E : B6 F0                      bne     loop
+        220 : 75 0A                      ldaa    #$0A
+        222 : B0 F2                      bra     echo
+        224 :                    halt_to_system:
+        224 : 37 BC 02 2E                ldx     #step_swi
+        228 : 17 BC 00 0C                stx     VEC_SWI
+        22C : 37 20                      swi
+        22E :                    step_swi:
+        22E : 37 BC 00 0C                ldx     #VEC_SWI
+        232 : 17 BC 00 0C                stx     VEC_SWI
+        236 : 37 20                      swi                     ; halt to system
+        238 :
+        238 :                    getchar:
+        238 : 65 00                      ldaa    ACIA_status,z
+        23A : 79 01                      bita    #RDRF_bm
+        23C : B7 F6                      beq     getchar
+        23E : 65 01                      ldaa    ACIA_data,z
+        240 : 27 F7                      rts
+        242 :
+        242 :                    putchar:
+        242 : E5 00                      ldab    ACIA_status,z
+        244 : F9 02                      bitb    #TDRE_bm
+        246 : B7 F6                      beq     putchar
+        248 : 6A 01                      staa    ACIA_data,z
+        24A : 27 F7                      rts
