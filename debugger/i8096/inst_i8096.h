@@ -8,9 +8,16 @@
 namespace debugger {
 namespace i8096 {
 
-// An instruction's sequence, from the tables.
+// The instruction sets, each the one before's and more.
+enum CpuType : uint8_t {
+    CPU_8096,
+    CPU_80C196KB,
+    CPU_80C196KC,
+};
+
+// An instruction's sequence, from the tables, as |cpu| has it.
 struct InstI8096 final {
-    bool set(uint16_t pc, const MatchMemory *mems);
+    bool set(uint16_t pc, const MatchMemory *mems, CpuType cpu);
     uint_fast8_t opc() const { return _opc; }
     const char *sequence() const { return _seq; }
     uint_fast8_t instLength() const;
@@ -20,6 +27,8 @@ struct InstI8096 final {
     static constexpr uint16_t VEC_TRAP = 0x2010;
 
     static constexpr uint8_t TRAP = 0xF7;
+    static constexpr uint8_t BMOV = 0xC1;
+    static constexpr uint8_t BMOVI = 0xCD;
 #define SJMP(disp) (0x20 | ((disp >> 8) & 7)), (disp & 0xFF)
 
 private:
@@ -32,12 +41,13 @@ private:
 // The 8096 as MatchWalker sees it, its code in |mems|: a queue of 4 bytes,
 // fetched a word at a time on a 16-bit bus.
 struct ArchI8096 final : MatchWalker::Arch {
-    explicit ArchI8096(const MatchMemory *mems)
+    explicit ArchI8096(const MatchMemory *mems, CpuType cpu = CPU_8096)
         : Arch(MatchWalker::Traits{.maxStart = 14,
                   .queue = 4,
                   .cutStart = 7,
                   .refetchWord = true}),
-          _mems(mems) {}
+          _mems(mems),
+          _cpu(cpu) {}
 
     // Keeps the board's bus alive while a walk goes, if set.
     void setIdle(void (*idle)(void *), void *context) {
@@ -69,6 +79,7 @@ struct ArchI8096 final : MatchWalker::Arch {
 
 private:
     const MatchMemory *_mems;
+    const CpuType _cpu;
     void (*_idle)(void *) = nullptr;
     void *_context = nullptr;
 };

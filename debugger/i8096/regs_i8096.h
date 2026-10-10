@@ -27,8 +27,8 @@ struct RegsI8096 final : Regs {
     const RegList *listRegisters(uint_fast8_t n) const override;
     bool setRegister(uint_fast8_t reg, uint32_t value) override;
 
-    uint16_t read_data(uint8_t addr) const;
-    void write_data(uint8_t addr, uint16_t data) const;
+    uint16_t read_data(uint16_t addr) const;
+    void write_data(uint16_t addr, uint16_t data) const;
     uint16_t read_data16(uint8_t addr) const;
     void write_data16(uint8_t addr, uint16_t data) const;
 
@@ -38,8 +38,15 @@ private:
     uint16_t _pc;
     uint16_t _sp;
     uint16_t _psw;
+    // The 80C196's, PUSHA pushes them too.
+    uint8_t _int_mask1;
+    uint8_t _wsr;
 
     mutable CharBuffer _buffer1;
+    mutable CharBuffer _buffer2;
+
+    uint16_t read_upper16(uint16_t addr) const;
+    void write_upper16(uint16_t addr, uint16_t data) const;
 
     template <typename T, uint_fast8_t SIZE>
     inline auto length(const T (&array)[SIZE]) const {
@@ -47,6 +54,8 @@ private:
     }
 
     static constexpr auto ADDR_INT_PENDING = 0x09;
+    static constexpr auto ADDR_INT_PENDING1 = 0x12;
+    static constexpr auto ADDR_WSR = 0x14;
     static constexpr auto ADDR_SP = 0x18;
 };
 

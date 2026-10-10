@@ -8,6 +8,8 @@ namespace p8095bh {
 void PinsP8095BH::resetPins() {
     pinMode(PIN_PWM, INPUT);
     pinMode(PIN_ACH4, INPUT);
+    pinMode(PIN_ACH5, INPUT);
+    pinMode(PIN_ACH6, INPUT);
     PinsI8096::resetPins();
 }
 

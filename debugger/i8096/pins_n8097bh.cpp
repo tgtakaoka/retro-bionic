@@ -7,6 +7,8 @@ namespace n8097bh {
 
 void PinsN8097BH::resetPins() {
     pinMode(PIN_INST, INPUT);
+    pinMode(PIN_ACH5, INPUT);
+    pinMode(PIN_ACH6, INPUT);
     // A rising NMI vectors to 0000H.
     pinMode(PIN_NMI, OUTPUT);
     digitalWriteFast(PIN_NMI, LOW);
