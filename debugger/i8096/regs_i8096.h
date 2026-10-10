@@ -46,6 +46,7 @@ private:
         return SIZE;
     }
 
+    static constexpr auto ADDR_INT_PENDING = 0x09;
     static constexpr auto ADDR_SP = 0x18;
 };
 
