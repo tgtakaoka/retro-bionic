@@ -9,7 +9,7 @@ namespace debugger {
 namespace mc6800 {
 
 struct DevsMc6800 final : Devs {
-    DevsMc6800();
+    DevsMc6800(uint32_t aciaBase = ACIA_BASE);
     ~DevsMc6800();
 
     void begin() override;

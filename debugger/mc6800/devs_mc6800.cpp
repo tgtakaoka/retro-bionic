@@ -5,8 +5,8 @@
 namespace debugger {
 namespace mc6800 {
 
-DevsMc6800::DevsMc6800() : _acia(new Mc6850()) {
-    _acia->setBaseAddr(ACIA_BASE);
+DevsMc6800::DevsMc6800(uint32_t aciaBase) : _acia(new Mc6850()) {
+    _acia->setBaseAddr(aciaBase);
 }
 
 DevsMc6800::~DevsMc6800() {

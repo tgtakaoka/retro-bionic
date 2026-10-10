@@ -1536,7 +1536,7 @@ DATA2 and DATA7 low, and leave DATA8, DATA9 and DATA11 high, or FC2:0 and
 ADDR23:19 come out as chip-selects and the bus control pins as port E.
 IPIPE1:0 carry two phases per bus cycle, so one sample is half the story.
 
-Draft board for the MC68HC16Z1 (144-pin LQFP, case 918); not built yet.
+Board for the MC68HC16Z1 (144-pin LQFP, case 918); built, not yet brought up.
 
 - While `#RESET` is low the Teensy drives DATA1, DATA2 and DATA7 low.
   DATA2 gives FC2:0, DATA7 alone gives ADDR23:19 whatever DATA6:3 are,
@@ -1557,9 +1557,9 @@ Draft board for the MC68HC16Z1 (144-pin LQFP, case 918); not built yet.
   and `#DS`, so both IPIPE phases come with the strobes. **[code]**
 - ADDR23:0, SIZ1:0 and FC2:0 share P30-P37 through four 74HCS153
   selected by ASEL0 (P54) and ASEL1 (P55): 00 A0-A3/A16-A19,
-  01 A4-A7/A20-A23, 10 A12-A15/SIZ, 11 A8-A11/FC; SIZ holds for the
-  whole cycle, so one read is enough. The Teensy drives
-  EXTAL, so the bus holds still while it walks the selects. **[code]**
+  01 A4-A7/A20-A23, 10 A12-A15/SIZ, 11 A8-A11/FC. The selects are
+  walked once per cycle in Gray order; the Teensy drives EXTAL, so the
+  bus holds still meanwhile. **[code]**
 - `#DSACK0`/`#DSACK1` (P44/P45) end external cycles. `#AVEC` is tied low,
   so every interrupt acknowledge is autovectored. `#IRQ7` (P50) and
   `#IRQ1` (P51) reach the Teensy; `#IRQ6`-`#IRQ2` are tied high. **[doc]**
@@ -1568,6 +1568,77 @@ Draft board for the MC68HC16Z1 (144-pin LQFP, case 918); not built yet.
   `#BGACK` have 10k pull-ups instead of ties: the MCU drives `#HALT` low on
   a double bus fault. VSTBY is grounded, so the standby RAM keeps
   nothing across power-off. **[doc]**
+- The Z2, Z3 and Z4 share the 144-pin assignment; the Z4 differs only in
+  its MCCI serial pins (28-37), which the board leaves open. The Z2 and
+  Z3 masked ROM wakes enabled because DATA14 is high at reset, and its
+  accesses never reach the bus; a mask-programmed BOOT bit may also take
+  the reset vectors from it. The CK and CM parts are 3.3 V. **[doc]**
+
+#### Debugger **[doc][code]**
+
+Written against the manuals, before bring-up; every timing and
+landing point below is marked `ATTENTION:` in `debugger/mc68hc16/`.
+
+- The CPU is parked in S1 of a bus cycle with EXTAL stopped: external
+  clock operation goes down to dc, so the timers and watchdog hold too.
+  `#DSACK1` stays asserted from reset on, so every external cycle ends at
+  its first S2/S3 fall with no wait states.
+  Sequences are address-keyed and end in `BRA` to their origin or a jump
+  to a named exit.
+- CSBOOT covers 00000H-7FFFFH from reset and ends a cycle by itself after
+  13 waits, and the software watchdog is on. `setupBus()` runs right after
+  the reset vector, before the program runs: it clears SYPCR (write-once,
+  so a program cannot turn the watchdog back on) and CSORBT.
+- The SIM holds off an external reset until the bus cycle in progress
+  ends, and with the bus monitor off a parked one never does: `R` asserts
+  `#DSACK1` for the first clocks of `#RESET`, before the straps go on the
+  bus. **[doc]**
+- Interrupt acknowledges (FC=7) end on `#AVEC` and autovector, even with
+  `#DSACK1` asserted too, as the `#IRQ1` and `#IRQ7` samples showed on the
+  bench; the Teensy drives no data for them.
+- Every microsecond the Teensy spends between clocks stretches the bus
+  cycle, since it drives EXTAL. A run polls the halt switch, whose
+  `yield()` services the USB, only every 16 bus cycles; the devices
+  ration their own polling. A CPU in `WAI` is polled every 16 clocks, so
+  the devices that wake it and the watchdog are serviced often. **[code]**
+- The clock delays are minimums: EXTAL high at least 29.8ns, and #AS and
+  #DS were seen within 30ns of a falling edge. A read is looked up and
+  driven while S2's EXTAL is high; a write is
+  stored while S4's is. `delayNanoseconds()` adds its own overhead to
+  each delay, and counting the delays from the edges instead, without
+  it, corrupted the bus: keep them as they are. **[code]**
+- A memory read, byte or word, moves the aligned word, from which a byte
+  read takes its own lane. `MemsMc68hc16` is `final`, so its calls bind
+  statically, and the device check is one call per cycle. DMAMEM is no
+  faster than EXTMEM here: both are cached. **[code]**
+- Halt takes `#IRQ7` (level-7 autovector, 002EH). The frame is PC at SP
+  and CCR below it, SP down by 4; the stacked PC is the next instruction
+  plus 6 for an interrupt, the `SWI` plus 8 for `SWI`. RTI subtracts 6.
+- Step can't use `#IRQ7`: it is synchronised over two clocks and taken
+  at the boundary after, by when a 2-byte instruction has been followed
+  by another. Step serves the instruction's own words from memory and
+  every other program read as `SWI`, so whatever runs next, a branch
+  target or a handler included, breaks. The CPU16 has no trace mode, and
+  its length comes from `InstMc68hc16::length()`, a table checked
+  against libasm by `test/mc68hc16/test_inst_mc68hc16`. **[doc]**
+- `SWI` leaves the interrupt mask as it was, so a break chains `#IRQ7` onto
+  it: the `SWI` vector is answered with NOPs and `#IRQ7`, taken at their
+  first boundary, sets IP to 7. Save and restore then always run masked;
+  the `SWI` frame holds the program's state. **[doc]**
+- Registers are saved with `PSHM D,E,X,Y,Z,K,CCR` and `PSHMAC`, decoded
+  by write address, and restored from an image staged just below SP:
+  `PULMAC`, `PULM`, `RTI`. A stack in the on-chip standby RAM shows
+  nothing on the bus, so it cannot be saved. K is EK:XK:YK:ZK from bit 15
+  down (CPU16RM Figure 2-1). **[doc]**
+- Instruction boundaries come from IPIPE: phase 1 is read at `#AS`,
+  phase 2 late in the cycle, and `PipeMc68hc16` maps each START back to
+  its opcode's fetch.
+- The ACIA sits at FFE00H, outside the SIM's register block; samples
+  reach it as `,Z` with ZK:IZ set from the reset vector, and keep data
+  in bank 0.
+- An interrupt stacks only PC and CCR, unlike the HC11 the samples were
+  ported from: each sample's handler saves what it uses with `PSHM` and
+  restores it with `PULM` before `RTI`. **[doc]**
 
 ### SCN2650
 
