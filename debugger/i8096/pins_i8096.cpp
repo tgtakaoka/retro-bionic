@@ -12,7 +12,7 @@ using Signals = SignalsI8096;
 
 // clang-format off
 /**
- * P8095BH and N8097BH bus cycle
+ * P8095BH, N8097BH and S80C196KB/KC bus cycle
  *          __    __    __    __    __    __    __    __    __    __    __    __    __
  * XTAL1 __|  |__|  |__|  |__|  |__|  |__|  |__|  |__|  |__|  |__|  |__|  |__|  |__|  |
  *       __\     \                 \     \_____\     \                 \     \____\
@@ -79,8 +79,6 @@ const uint8_t PINS_INPUT[] = {
         PIN_HSI2,
         PIN_HSI3,
         PIN_TXD,
-        PIN_ACH5,
-        PIN_ACH6,
 };
 
 inline void xtal1_lo() {
@@ -108,11 +106,11 @@ void negate_reset() {
 
 }  // namespace
 
-PinsI8096::PinsI8096() {
+PinsI8096::PinsI8096(CpuType cpu) : _cpu(cpu) {
     _devs = new DevsI8096();
     auto regs = new RegsI8096(this);
     _regs = regs;
-    auto mems = new MemsI8096(_devs, regs);
+    auto mems = new MemsI8096(_devs, regs, cpu);
     _mems = mems;
 }
 
@@ -256,9 +254,9 @@ Signals *PinsI8096::completeCycle(Signals *s, bool low) {
     return s;
 }
 
-uint16_t PinsI8096::execute(uint16_t org, const uint8_t *inst,
-        uint_fast8_t len, uint8_t *buf, uint_fast8_t max, uint32_t exit,
-        bool idle, uint16_t at, const uint8_t *data) {
+uint16_t PinsI8096::execute(uint16_t org, const uint8_t *inst, uint_fast8_t len,
+        uint8_t *buf, uint_fast8_t max, uint32_t exit, bool idle, uint16_t at,
+        const uint8_t *data, uint_fast8_t size) {
     constexpr uint8_t NOP = 0xFD;
     _idle = idle;
     const uint16_t leaves = exit == EXIT_PARK ? org : exit;
@@ -288,7 +286,7 @@ uint16_t PinsI8096::execute(uint16_t org, const uint8_t *inst,
                     b = inst[off];
                     if (off == len - 1)
                         whole = true;
-                } else if (data && pop < 2) {
+                } else if (pop < size) {
                     b = data[pop];
                 }
                 word |= b << ((addr & 1) ? 8 : 0);
@@ -326,8 +324,8 @@ uint16_t PinsI8096::execInst(const uint8_t *inst, uint_fast8_t len,
 }
 
 void PinsI8096::popInst(const uint8_t *inst, uint_fast8_t len, uint16_t at,
-        const uint8_t *data, uint32_t exit) {
-    execute(_park, inst, len, nullptr, 0, exit, false, at, data);
+        const uint8_t *data, uint_fast8_t size, uint32_t exit) {
+    execute(_park, inst, len, nullptr, 0, exit, false, at, data, size);
 }
 
 void PinsI8096::idle() {
@@ -336,6 +334,11 @@ void PinsI8096::idle() {
             SJMP(-2),  // SJMP $
     };
     execute(_park, SJMP_HERE, sizeof(SJMP_HERE), nullptr, 0, EXIT_PARK, true);
+}
+
+// A word in the data space: the register file is the CPU's.
+uint16_t PinsI8096::readData16(uint16_t addr) const {
+    return uint16(_mems->get_data(addr + 1), _mems->get_data(addr));
 }
 
 uint16_t PinsI8096::jumpTarget(uint16_t next, uint_fast8_t opc) const {
@@ -350,14 +353,20 @@ uint16_t PinsI8096::jumpTarget(uint16_t next, uint_fast8_t opc) const {
         return next + static_cast<int8_t>(_mems->read(pc + 2));
     } else if (opc >= 0xD0 && opc < 0xE0) {  // Jcc
         return next + static_cast<int8_t>(_mems->read(pc + 1));
-    } else if (opc == 0xE0) {  // DJNZ
+    } else if (opc == 0xE0 || (c196() && opc == 0xE1)) {  // DJNZ/DJNZW
         return next + static_cast<int8_t>(_mems->read(pc + 2));
+    } else if (_cpu == CPU_80C196KC && opc == 0xE2) {
+        // TIJMP TBASE,[INDEX],#MASK
+        const auto index = _mems->get_data(readData16(_mems->read(pc + 1)));
+        const auto mask = _mems->read(pc + 2);
+        const auto tbase = readData16(_mems->read(pc + 3));
+        return readData16(tbase + (index & mask) * 2);
     } else if (opc == 0xE3) {  // BR
         return regs<RegsI8096>()->read_data16(_mems->read(pc + 1));
     } else if (opc == 0xE7 || opc == 0xEF) {  // LJMP/LCALL
         return next + static_cast<int16_t>(_mems->read16(pc + 1));
     } else if (opc == 0xF0) {  // RET
-        return _mems->read16(regs<RegsI8096>()->sp());
+        return readData16(regs<RegsI8096>()->sp());
     } else if (opc == InstI8096::TRAP) {  // TRAP
         return _mems->read16(InstI8096::VEC_TRAP);
     }
@@ -368,13 +377,18 @@ bool PinsI8096::rawStep(bool show) {
     show &= !Debugger.verbose();
     InstI8096 inst;
     const CpuMemory cpu(mems<MemsI8096>());
-    if (!inst.set(_regs->nextIp(), &cpu))
+    if (!inst.set(_regs->nextIp(), &cpu, _cpu))
         return false;
     const uint16_t pc = _regs->nextIp();
     const auto len = inst.instLength();
     const uint16_t next = pc + len;
     const auto opc = inst.opc();
     const auto target = jumpTarget(next, opc);
+    // A block move takes two cycles a word; its count is read while the
+    // register file is still the debugger's.
+    uint32_t cycles = 30;
+    if (c196() && (opc == InstI8096::BMOV || opc == InstI8096::BMOVI))
+        cycles += 2 * readData16(_mems->read(pc + 1));
     auto stepTrap = opc == InstI8096::TRAP;
     _regs->restore();
     if (show)
@@ -384,7 +398,7 @@ bool PinsI8096::rawStep(bool show) {
     // after them, a fetch of the next or the target gets a TRAP.
     const uint8_t all = (1 << len) - 1;
     uint8_t fetched = 0;
-    for (uint_fast8_t i = 0; i < 30; i++) {
+    for (uint32_t i = 0; i < cycles; i++) {
         auto s = prepareCycle();
         if (s->read() && s->addr == InstI8096::VEC_TRAP) {
             if (stepTrap) {
@@ -573,7 +587,7 @@ void PinsI8096::printCycles(const Signals *end) {
 
 const Signals *PinsI8096::findFetch(Signals *begin, const Signals *end) {
     const CpuMemory cpu(mems<MemsI8096>());
-    ArchI8096 arch(&cpu);
+    ArchI8096 arch(&cpu, _cpu);
     arch.setIdle(
             [](void *pins) { static_cast<PinsI8096 *>(pins)->idle(); }, this);
     auto &walker = MatchWalker::shared();

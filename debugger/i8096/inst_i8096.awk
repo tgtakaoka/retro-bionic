@@ -11,6 +11,8 @@
 # The "sequence" column is in debugger/match_legend.md's tokens, a "/"
 # before the long index variant. A row is its sequence's index: its
 # length is the sequence's bytes. J goes to the next + disp, RST's to 2080.
+# A row ending in "80196KB" is an instruction the 80C196KB added, "80196KC"
+# one only the 80C196KC has.
 
 BEGIN {
     if (MODE == "")
@@ -49,15 +51,18 @@ BEGIN {
 
 BEGIN {
     if (PRETTY_PRINT) {
-        pretty_print("op", "mnemo", "operands", "#",   "~", "sequence");
-        pretty_print("--", "-----", "--------", "---", "-", "--------");
+        pretty_print("op", "mnemo", "operands", "#",   "~", "sequence", "cpu");
+        pretty_print("--", "-----", "--------", "---", "-", "--------", "---");
     }
 }
 
-function pretty_print(opc, mnemo, operand, len, bus, seq) {
+function pretty_print(opc, mnemo, operand, len, bus, seq, cpu) {
     if (PRETTY_PRINT == 0)
         return;
-    printf("%-2s  %-5s  %-8s  %-3s  %s  %s\n", opc, mnemo, operand, len, bus, seq);
+    if (cpu == "")
+        printf("%-2s  %-5s  %-8s  %-3s  %s  %s\n", opc, mnemo, operand, len, bus, seq);
+    else
+        printf("%-2s  %-5s  %-8s  %-3s  %s  %-24s  %s\n", opc, mnemo, operand, len, bus, seq, cpu);
 }
 
 function CYCLES_index(cyc) {
@@ -81,6 +86,13 @@ function generate_ENTRY(opc, mnemo, opr, len, seq,  cyc) {
     }
 }
 
+function generate_OPCODES(kx,  i) {
+    printf("\nconstexpr uint8_t %s_OPCODES[] = {\n", kx);
+    for (i = 1; i <= N[kx]; i++)
+        printf("        0x%s,  // %s\n", OPCODES[kx, i], MNEMOS[kx, i]);
+    printf("};\n");
+}
+
 END {
     if (GENERATE_TABLE == 0)
         exit;
@@ -94,6 +106,8 @@ END {
         print LINES[l];
     if (HEADER != "")
         printf("};\n");
+    generate_OPCODES("KB");
+    generate_OPCODES("KC");
 }
 
 $1 !~ /[0-9A-F][0-9A-F]/ { next; }
@@ -105,6 +119,12 @@ $1 ~ /[0-9A-F][0-9A-F]/ {
     bus = $5;
     seq = $6
     if (seq == "") seq = "-"
+    cpu = $7
+    if (match(cpu, /^80196(K[BC])$/, kx) && FILENAME ~ /PAGE00/) {
+        N[kx[1]]++;
+        OPCODES[kx[1], N[kx[1]]] = opc;
+        MNEMOS[kx[1], N[kx[1]]] = mne;
+    }
 
     if (HEADER != FILENAME) {
         if (match(FILENAME, /i8096-(PAGE[0-9A-F]+).txt/, a) == 0) {
@@ -118,7 +138,7 @@ $1 ~ /[0-9A-F][0-9A-F]/ {
         output(sprintf("constexpr uint8_t %s_TABLE[] = {", a[1]));
     }
 
-    pretty_print(opc, mne, opr, len, bus, seq);
+    pretty_print(opc, mne, opr, len, bus, seq, cpu);
     if (GENERATE_TABLE)
         generate_ENTRY(opc, mne, opr, len, seq);
 }

@@ -7,6 +7,8 @@
 #define CNTL_vp 0    /* CNTL0-CNTL4 */
 #define PIN_INST 5   /* P9.08 */
 #define PIN_NMI 6    /* P7.10 */
+#define PIN_ACH5 9   /* P7.11 */
+#define PIN_ACH6 32  /* P7.12 */
 
 #include "pins_i8096.h"
 

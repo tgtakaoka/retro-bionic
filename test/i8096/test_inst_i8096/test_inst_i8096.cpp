@@ -150,9 +150,62 @@ void test_sequences() {
     checkInterrupt(INTERRUPT);
 }
 
+namespace {
+// Code at 0.
+struct CodeMemory final : MatchMemory {
+    CodeMemory(std::initializer_list<uint8_t> code) : _code(code) {}
+    uint16_t read_byte(uint32_t addr) const override {
+        return addr < _code.size() ? _code[addr] : 0xFD;
+    }
+
+private:
+    const std::vector<uint8_t> _code;
+};
+
+int lengthOf(std::initializer_list<uint8_t> code, CpuType cpu) {
+    const CodeMemory memory(code);
+    InstI8096 inst;
+    return inst.set(0, &memory, cpu) ? inst.instLength() : 0;
+}
+}  // namespace
+
+// Each 80C196's instructions only on it and later, XCH's index as the
+// others'.
+void test_c196_instructions() {
+    constexpr auto BH = CPU_8096;
+    constexpr auto KB = CPU_80C196KB;
+    constexpr auto KC = CPU_80C196KC;
+    TEST_ASSERT_EQUAL(0, lengthOf({0xF4}, BH));                    // PUSHA
+    TEST_ASSERT_EQUAL(1, lengthOf({0xF4}, KB));                    // PUSHA
+    TEST_ASSERT_EQUAL(1, lengthOf({0xF4}, KC));                    // PUSHA
+    TEST_ASSERT_EQUAL(3, lengthOf({0xC1, 0x20, 0x34}, KB));        // BMOV
+    TEST_ASSERT_EQUAL(0, lengthOf({0xCD, 0x20, 0x34}, KB));        // BMOVI
+    TEST_ASSERT_EQUAL(3, lengthOf({0xCD, 0x20, 0x34}, KC));        // BMOVI
+    TEST_ASSERT_EQUAL(0, lengthOf({0x0B, 0x20, 0x34, 0x56}, KB));  // XCH
+    TEST_ASSERT_EQUAL(4, lengthOf({0x0B, 0x20, 0x34, 0x56}, KC));
+    TEST_ASSERT_EQUAL(5, lengthOf({0x0B, 0x21, 0x34, 0x56, 0x78}, KC));
+    TEST_ASSERT_EQUAL(4, lengthOf({0xE2, 0x20, 0x0F, 0x56}, KC));  // TIJMP
+    TEST_ASSERT_EQUAL(2, lengthOf({0xF6, 0x01}, KB));              // IDLPD
+    TEST_ASSERT_EQUAL(1, lengthOf({0xF8}, BH));                    // CLRC
+
+    const CodeMemory djnzw({0xE1, 0x30, 0xFD});  // DJNZW 30H, $
+    MatchWalker::Decoded inst;
+    TEST_ASSERT_TRUE(ArchI8096(&djnzw, KB).decode(0, inst));
+    TEST_ASSERT_TRUE(inst.hasTarget);
+    TEST_ASSERT_EQUAL_HEX16(0, inst.target);
+
+    TEST_ASSERT_FALSE(ArchI8096(&djnzw).isVectorTable(0x2012));
+    TEST_ASSERT_TRUE(ArchI8096(&djnzw, KB).isVectorTable(0x2012));
+    TEST_ASSERT_TRUE(ArchI8096(&djnzw, KB).isVectorTable(0x203E));
+    TEST_ASSERT_FALSE(ArchI8096(&djnzw, KB).isVectorTable(0x2040));
+    TEST_ASSERT_TRUE(ArchI8096(&djnzw, KC).isVectorTable(0x205C));
+    TEST_ASSERT_FALSE(ArchI8096(&djnzw, KC).isVectorTable(0x2018));
+}
+
 int main() {
     UNITY_BEGIN();
     RUN_TEST(test_sequences);
+    RUN_TEST(test_c196_instructions);
     RUN_TEST(test_recorded_runs);
     RUN_TEST(test_recorded_runs16);
     RUN_TEST(test_bench_rings);
