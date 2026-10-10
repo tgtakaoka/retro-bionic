@@ -6,8 +6,12 @@
 namespace debugger {
 namespace i8096 {
 
-MemsI8096::MemsI8096(Devs *devs, RegsI8096 *regs)
-    : DmaMemory(Endian::ENDIAN_LITTLE), _devs(devs), _regs(regs) {
+// The 80C196KC has 488 bytes of register RAM up to 1FFH.
+MemsI8096::MemsI8096(Devs *devs, RegsI8096 *regs, CpuType cpu)
+    : DmaMemory(Endian::ENDIAN_LITTLE),
+      _devs(devs),
+      _regs(regs),
+      _regsEnd(cpu == CPU_80C196KC ? 0x200 : 0x100) {
 #ifdef WITH_ASSEMBLER
     _assembler = new libasm::i8096::AsmI8096();
 #endif
@@ -34,11 +38,11 @@ void MemsI8096::write(uint32_t addr, uint16_t data) const {
 }
 
 uint16_t MemsI8096::get_data(uint32_t addr) const {
-    return addr < 0x100 ? _regs->read_data(addr) : read_byte(addr);
+    return addr < _regsEnd ? _regs->read_data(addr) : read_byte(addr);
 }
 
 void MemsI8096::put_data(uint32_t addr, uint16_t data) const {
-    if (addr < 0x100) {
+    if (addr < _regsEnd) {
         _regs->write_data(addr, data);
     } else {
         write_byte(addr, data);

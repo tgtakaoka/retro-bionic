@@ -15,44 +15,50 @@ constexpr const char *const SEQUENCES[/*seq*/] = {
         "",                        //  0
         "12N",                     //  1
         "122N",                    //  2
-        "12~J",                    //  3
-        "12~WwJ",                  //  4
-        "122~J@122N",              //  5
-        "1222N",                   //  6
-        "12222N",                  //  7
-        "1222~RrN",                //  8
-        "12222~RrN/122222~RrN",    //  9
-        "1222~RrN/1222~RrN",       // 10
-        "1222~RN",                 // 11
-        "12222~RN/122222~RN",      // 12
-        "122~RrN",                 // 13
-        "1222~RrN/12222~RrN",      // 14
-        "122~RN",                  // 15
-        "1222~RN/12222~RN",        // 16
-        "122~WwN",                 // 17
-        "1222~WwN/12222~WwN",      // 18
-        "122~WN",                  // 19
-        "1222~WN/12222~WN",        // 20
-        "12~WwN",                  // 21
-        "12~Rr~WwN",               // 22
-        "122~Rr~WwN/1222~Rr~WwN",  // 23
-        "12~RrN",                  // 24
-        "12~RrWwN",                // 25
-        "12~J@12N",                // 26
-        "12~?",                    // 27
-        "122~J",                   // 28
-        "122~WwJ",                 // 29
-        "1~RrP",                   // 30
-        "1~WwN",                   // 31
-        "1~RrN",                   // 32
-        "1~VrWwP",                 // 33
-        "1N",                      // 34
-        "1~J",                     // 35
-        "122222N",                 // 36
-        "12222~RrN",               // 37
-        "122222~RrN/1222222~RrN",  // 38
-        "12222~RN",                // 39
-        "122222~RN/1222222~RN",    // 40
+        "1222~RrWwN/12222~RrWwN",  //  3
+        "1222~RWN/12222~RWN",      //  4
+        "12~J",                    //  5
+        "12~WwJ",                  //  6
+        "122~J@122N",              //  7
+        "1222N",                   //  8
+        "12222N",                  //  9
+        "1222~RrN",                // 10
+        "12222~RrN/122222~RrN",    // 11
+        "1222~RrN/1222~RrN",       // 12
+        "1222~RN",                 // 13
+        "12222~RN/122222~RN",      // 14
+        "122~RrN",                 // 15
+        "1222~RrN/12222~RrN",      // 16
+        "122~RN",                  // 17
+        "1222~RN/12222~RN",        // 18
+        "122~{R+2rW+2w}N",         // 19
+        "122~WwN",                 // 20
+        "1222~WwN/12222~WwN",      // 21
+        "122~WN",                  // 22
+        "1222~WN/12222~WN",        // 23
+        "12~WwN",                  // 24
+        "12~Rr~WwN",               // 25
+        "122~Rr~WwN/1222~Rr~WwN",  // 26
+        "12~RrN",                  // 27
+        "12~RrWwN",                // 28
+        "12~J@12N",                // 29
+        "1222~RRr?",               // 30
+        "12~?",                    // 31
+        "122~J",                   // 32
+        "1N",                      // 33
+        "122~WwJ",                 // 34
+        "1~RrP",                   // 35
+        "1~WwN",                   // 36
+        "1~RrN",                   // 37
+        "1~WwWwN",                 // 38
+        "1~RrRrN",                 // 39
+        "1~VrWwP",                 // 40
+        "1~J",                     // 41
+        "122222N",                 // 42
+        "12222~RrN",               // 43
+        "122222~RrN/1222222~RrN",  // 44
+        "12222~RN",                // 45
+        "122222~RN/1222222~RN",    // 46
 };
 
 constexpr uint8_t PAGE00_TABLE[] = {
@@ -60,14 +66,14 @@ constexpr uint8_t PAGE00_TABLE[] = {
         1,   // 01: CLR   w        12N
         1,   // 02: NOT   w        12N
         1,   // 03: NEG   w        12N
-        0,   // 04
+        2,   // 04: XCH   w,w      122N
         1,   // 05: DEC   w        12N
         1,   // 06: EXT   l        12N
         1,   // 07: INC   w        12N
         2,   // 08: SHR   w,c      122N
         2,   // 09: SHL   w,c      122N
         2,   // 0A: SHRA  w,c      122N
-        0,   // 0B
+        3,   // 0B: XCH   w,n[w]   1222~RrWwN/12222~RrWwN
         2,   // 0C: SHRL  l,c      122N
         2,   // 0D: SHLL  l,c      122N
         2,   // 0E: SHRAL l,c      122N
@@ -76,273 +82,318 @@ constexpr uint8_t PAGE00_TABLE[] = {
         1,   // 11: CLRB  b        12N
         1,   // 12: NOTB  b        12N
         1,   // 13: NEGB  b        12N
-        0,   // 14
+        2,   // 14: XCHB  b,b      122N
         1,   // 15: DECB  b        12N
         1,   // 16: EXTB  w        12N
         1,   // 17: INCB  b        12N
         2,   // 18: SHRB  b,c      122N
         2,   // 19: SHLB  b,c      122N
         2,   // 1A: SHRAB b,c      122N
-        0,   // 1B
+        4,   // 1B: XCHB  b,n[w]   1222~RWN/12222~RWN
         0,   // 1C
         0,   // 1D
         0,   // 1E
         0,   // 1F
-        3,   // 20: SJMP  r        12~J
-        3,   // 21: SJMP  r        12~J
-        3,   // 22: SJMP  r        12~J
-        3,   // 23: SJMP  r        12~J
-        3,   // 24: SJMP  r        12~J
-        3,   // 25: SJMP  r        12~J
-        3,   // 26: SJMP  r        12~J
-        3,   // 27: SJMP  r        12~J
-        4,   // 28: SCALL r        12~WwJ
-        4,   // 29: SCALL r        12~WwJ
-        4,   // 2A: SCALL r        12~WwJ
-        4,   // 2B: SCALL r        12~WwJ
-        4,   // 2C: SCALL r        12~WwJ
-        4,   // 2D: SCALL r        12~WwJ
-        4,   // 2E: SCALL r        12~WwJ
-        4,   // 2F: SCALL r        12~WwJ
-        5,   // 30: JBC   0,r      122~J@122N
-        5,   // 31: JBC   1,r      122~J@122N
-        5,   // 32: JBC   2,r      122~J@122N
-        5,   // 33: JBC   3,r      122~J@122N
-        5,   // 34: JBC   4,r      122~J@122N
-        5,   // 35: JBC   5,r      122~J@122N
-        5,   // 36: JBC   6,r      122~J@122N
-        5,   // 37: JBC   7,r      122~J@122N
-        5,   // 38: JBS   0,r      122~J@122N
-        5,   // 39: JBS   1,r      122~J@122N
-        5,   // 3A: JBS   2,r      122~J@122N
-        5,   // 3B: JBS   3,r      122~J@122N
-        5,   // 3C: JBS   4,r      122~J@122N
-        5,   // 3D: JBS   5,r      122~J@122N
-        5,   // 3E: JBS   6,r      122~J@122N
-        5,   // 3F: JBS   7,r      122~J@122N
-        6,   // 40: AND   w,w,w    1222N
-        7,   // 41: AND   w,w,#    12222N
-        8,   // 42: AND   w,w,[w]  1222~RrN
-        9,   // 43: AND   w,w,n[w] 12222~RrN/122222~RrN
-        6,   // 44: ADD   w,w,w    1222N
-        7,   // 45: ADD   w,w,#    12222N
-        8,   // 46: ADD   w,w,[w]  1222~RrN
-        9,   // 47: ADD   w,w,n[w] 12222~RrN/122222~RrN
-        6,   // 48: SUB   w,w,w    1222N
-        7,   // 49: SUB   w,w,#    12222N
-        8,   // 4A: SUB   w,w,[w]  1222~RrN
-        9,   // 4B: SUB   w,w,n[w] 12222~RrN/122222~RrN
-        6,   // 4C: MULU  w,w,w    1222N
-        7,   // 4D: MULU  w,w,#    12222N
-        10,  // 4E: MULU  w,w,[w]  1222~RrN/1222~RrN
-        9,   // 4F: MULU  w,w,n[w] 12222~RrN/122222~RrN
-        6,   // 50: ANDB  b,b,b    1222N
-        6,   // 51: ANDB  b,b,#    1222N
-        11,  // 52: ANDB  b,b,[w]  1222~RN
-        12,  // 53: ANDB  b,b,n[w] 12222~RN/122222~RN
-        6,   // 54: ADDB  b,b,b    1222N
-        6,   // 55: ADDB  b,b,#    1222N
-        11,  // 56: ADDB  b,b,[w]  1222~RN
-        12,  // 57: ADDB  b,b,n[w] 12222~RN/122222~RN
-        6,   // 58: SUBB  b,b,b    1222N
-        6,   // 59: SUBB  b,b,#    1222N
-        11,  // 5A: SUBB  b,b,[w]  1222~RN
-        12,  // 5B: SUBB  b,b,n[w] 12222~RN/122222~RN
-        6,   // 5C: MULUB w,b,b    1222N
-        6,   // 5D: MULUB w,b,#    1222N
-        11,  // 5E: MULUB w,b,[w]  1222~RN
-        12,  // 5F: MULUB w,b,n[w] 12222~RN/122222~RN
+        5,   // 20: SJMP  r        12~J
+        5,   // 21: SJMP  r        12~J
+        5,   // 22: SJMP  r        12~J
+        5,   // 23: SJMP  r        12~J
+        5,   // 24: SJMP  r        12~J
+        5,   // 25: SJMP  r        12~J
+        5,   // 26: SJMP  r        12~J
+        5,   // 27: SJMP  r        12~J
+        6,   // 28: SCALL r        12~WwJ
+        6,   // 29: SCALL r        12~WwJ
+        6,   // 2A: SCALL r        12~WwJ
+        6,   // 2B: SCALL r        12~WwJ
+        6,   // 2C: SCALL r        12~WwJ
+        6,   // 2D: SCALL r        12~WwJ
+        6,   // 2E: SCALL r        12~WwJ
+        6,   // 2F: SCALL r        12~WwJ
+        7,   // 30: JBC   0,r      122~J@122N
+        7,   // 31: JBC   1,r      122~J@122N
+        7,   // 32: JBC   2,r      122~J@122N
+        7,   // 33: JBC   3,r      122~J@122N
+        7,   // 34: JBC   4,r      122~J@122N
+        7,   // 35: JBC   5,r      122~J@122N
+        7,   // 36: JBC   6,r      122~J@122N
+        7,   // 37: JBC   7,r      122~J@122N
+        7,   // 38: JBS   0,r      122~J@122N
+        7,   // 39: JBS   1,r      122~J@122N
+        7,   // 3A: JBS   2,r      122~J@122N
+        7,   // 3B: JBS   3,r      122~J@122N
+        7,   // 3C: JBS   4,r      122~J@122N
+        7,   // 3D: JBS   5,r      122~J@122N
+        7,   // 3E: JBS   6,r      122~J@122N
+        7,   // 3F: JBS   7,r      122~J@122N
+        8,   // 40: AND   w,w,w    1222N
+        9,   // 41: AND   w,w,#    12222N
+        10,  // 42: AND   w,w,[w]  1222~RrN
+        11,  // 43: AND   w,w,n[w] 12222~RrN/122222~RrN
+        8,   // 44: ADD   w,w,w    1222N
+        9,   // 45: ADD   w,w,#    12222N
+        10,  // 46: ADD   w,w,[w]  1222~RrN
+        11,  // 47: ADD   w,w,n[w] 12222~RrN/122222~RrN
+        8,   // 48: SUB   w,w,w    1222N
+        9,   // 49: SUB   w,w,#    12222N
+        10,  // 4A: SUB   w,w,[w]  1222~RrN
+        11,  // 4B: SUB   w,w,n[w] 12222~RrN/122222~RrN
+        8,   // 4C: MULU  w,w,w    1222N
+        9,   // 4D: MULU  w,w,#    12222N
+        12,  // 4E: MULU  w,w,[w]  1222~RrN/1222~RrN
+        11,  // 4F: MULU  w,w,n[w] 12222~RrN/122222~RrN
+        8,   // 50: ANDB  b,b,b    1222N
+        8,   // 51: ANDB  b,b,#    1222N
+        13,  // 52: ANDB  b,b,[w]  1222~RN
+        14,  // 53: ANDB  b,b,n[w] 12222~RN/122222~RN
+        8,   // 54: ADDB  b,b,b    1222N
+        8,   // 55: ADDB  b,b,#    1222N
+        13,  // 56: ADDB  b,b,[w]  1222~RN
+        14,  // 57: ADDB  b,b,n[w] 12222~RN/122222~RN
+        8,   // 58: SUBB  b,b,b    1222N
+        8,   // 59: SUBB  b,b,#    1222N
+        13,  // 5A: SUBB  b,b,[w]  1222~RN
+        14,  // 5B: SUBB  b,b,n[w] 12222~RN/122222~RN
+        8,   // 5C: MULUB w,b,b    1222N
+        8,   // 5D: MULUB w,b,#    1222N
+        13,  // 5E: MULUB w,b,[w]  1222~RN
+        14,  // 5F: MULUB w,b,n[w] 12222~RN/122222~RN
         2,   // 60: AND   w,w      122N
-        6,   // 61: AND   w,#      1222N
-        13,  // 62: AND   w,[w]    122~RrN
-        14,  // 63: AND   w,n[w]   1222~RrN/12222~RrN
+        8,   // 61: AND   w,#      1222N
+        15,  // 62: AND   w,[w]    122~RrN
+        16,  // 63: AND   w,n[w]   1222~RrN/12222~RrN
         2,   // 64: ADD   w,w      122N
-        6,   // 65: ADD   w,#      1222N
-        13,  // 66: ADD   w,[w]    122~RrN
-        14,  // 67: ADD   w,n[w]   1222~RrN/12222~RrN
+        8,   // 65: ADD   w,#      1222N
+        15,  // 66: ADD   w,[w]    122~RrN
+        16,  // 67: ADD   w,n[w]   1222~RrN/12222~RrN
         2,   // 68: SUB   w,w      122N
-        6,   // 69: SUB   w,#      1222N
-        13,  // 6A: SUB   w,[w]    122~RrN
-        14,  // 6B: SUB   w,n[w]   1222~RrN/12222~RrN
+        8,   // 69: SUB   w,#      1222N
+        15,  // 6A: SUB   w,[w]    122~RrN
+        16,  // 6B: SUB   w,n[w]   1222~RrN/12222~RrN
         2,   // 6C: MULU  l,w      122N
-        6,   // 6D: MULU  l,#      1222N
-        13,  // 6E: MULU  l,[w]    122~RrN
-        14,  // 6F: MULU  l,n[w]   1222~RrN/12222~RrN
+        8,   // 6D: MULU  l,#      1222N
+        15,  // 6E: MULU  l,[w]    122~RrN
+        16,  // 6F: MULU  l,n[w]   1222~RrN/12222~RrN
         2,   // 70: ANDB  b,b      122N
         2,   // 71: ANDB  b,#      122N
-        15,  // 72: ANDB  b,[w]    122~RN
-        16,  // 73: ANDB  b,n[w]   1222~RN/12222~RN
+        17,  // 72: ANDB  b,[w]    122~RN
+        18,  // 73: ANDB  b,n[w]   1222~RN/12222~RN
         2,   // 74: ADDB  b,b      122N
         2,   // 75: ADDB  b,#      122N
-        15,  // 76: ADDB  b,[w]    122~RN
-        16,  // 77: ADDB  b,n[w]   1222~RN/12222~RN
+        17,  // 76: ADDB  b,[w]    122~RN
+        18,  // 77: ADDB  b,n[w]   1222~RN/12222~RN
         2,   // 78: SUBB  b,b      122N
         2,   // 79: SUBB  b,#      122N
-        15,  // 7A: SUBB  b,[w]    122~RN
-        16,  // 7B: SUBB  b,n[w]   1222~RN/12222~RN
+        17,  // 7A: SUBB  b,[w]    122~RN
+        18,  // 7B: SUBB  b,n[w]   1222~RN/12222~RN
         2,   // 7C: MULUB w,b      122N
         2,   // 7D: MULUB w,#      122N
-        15,  // 7E: MULUB w,[w]    122~RN
-        16,  // 7F: MULUB w,n[w]   1222~RN/12222~RN
+        17,  // 7E: MULUB w,[w]    122~RN
+        18,  // 7F: MULUB w,n[w]   1222~RN/12222~RN
         2,   // 80: OR    w,w      122N
-        6,   // 81: OR    w,#      1222N
-        13,  // 82: OR    w,[w]    122~RrN
-        14,  // 83: OR    w,n[w]   1222~RrN/12222~RrN
+        8,   // 81: OR    w,#      1222N
+        15,  // 82: OR    w,[w]    122~RrN
+        16,  // 83: OR    w,n[w]   1222~RrN/12222~RrN
         2,   // 84: XOR   w,w      122N
-        6,   // 85: XOR   w,#      1222N
-        13,  // 86: XOR   w,[w]    122~RrN
-        14,  // 87: XOR   w,n[w]   1222~RrN/12222~RrN
+        8,   // 85: XOR   w,#      1222N
+        15,  // 86: XOR   w,[w]    122~RrN
+        16,  // 87: XOR   w,n[w]   1222~RrN/12222~RrN
         2,   // 88: CMP   w,w      122N
-        6,   // 89: CMP   w,#      1222N
-        13,  // 8A: CMP   w,[w]    122~RrN
-        14,  // 8B: CMP   w,n[w]   1222~RrN/12222~RrN
+        8,   // 89: CMP   w,#      1222N
+        15,  // 8A: CMP   w,[w]    122~RrN
+        16,  // 8B: CMP   w,n[w]   1222~RrN/12222~RrN
         2,   // 8C: DIV   l,w      122N
-        6,   // 8D: DIV   l,#      1222N
-        13,  // 8E: DIV   l,[w]    122~RrN
-        14,  // 8F: DIV   l,n[w]   1222~RrN/12222~RrN
+        8,   // 8D: DIV   l,#      1222N
+        15,  // 8E: DIV   l,[w]    122~RrN
+        16,  // 8F: DIV   l,n[w]   1222~RrN/12222~RrN
         2,   // 90: ORB   b,b      122N
         2,   // 91: ORB   b,#      122N
-        15,  // 92: ORB   b,[w]    122~RN
-        16,  // 93: ORB   b,n[w]   1222~RN/12222~RN
+        17,  // 92: ORB   b,[w]    122~RN
+        18,  // 93: ORB   b,n[w]   1222~RN/12222~RN
         2,   // 94: XORB  b,b      122N
         2,   // 95: XORB  b,#      122N
-        15,  // 96: XORB  b,[w]    122~RN
-        16,  // 97: XORB  b,n[w]   1222~RN/12222~RN
+        17,  // 96: XORB  b,[w]    122~RN
+        18,  // 97: XORB  b,n[w]   1222~RN/12222~RN
         2,   // 98: CMPB  b,b      122N
         2,   // 99: CMPB  b,#      122N
-        15,  // 9A: CMPB  b,[w]    122~RN
-        16,  // 9B: CMPB  b,n[w]   1222~RN/12222~RN
+        17,  // 9A: CMPB  b,[w]    122~RN
+        18,  // 9B: CMPB  b,n[w]   1222~RN/12222~RN
         2,   // 9C: DIVB  w,b      122N
         2,   // 9D: DIVB  w,#      122N
-        15,  // 9E: DIVB  w,[w]    122~RN
-        16,  // 9F: DIVB  w,n[w]   1222~RN/12222~RN
+        17,  // 9E: DIVB  w,[w]    122~RN
+        18,  // 9F: DIVB  w,n[w]   1222~RN/12222~RN
         2,   // A0: LD    w,w      122N
-        6,   // A1: LD    w,#      1222N
-        13,  // A2: LD    w,[w]    122~RrN
-        14,  // A3: LD    w,n[w]   1222~RrN/12222~RrN
+        8,   // A1: LD    w,#      1222N
+        15,  // A2: LD    w,[w]    122~RrN
+        16,  // A3: LD    w,n[w]   1222~RrN/12222~RrN
         2,   // A4: ADDC  w,w      122N
-        6,   // A5: ADDC  w,#      1222N
-        13,  // A6: ADDC  w,[w]    122~RrN
-        14,  // A7: ADDC  w,n[w]   1222~RrN/12222~RrN
+        8,   // A5: ADDC  w,#      1222N
+        15,  // A6: ADDC  w,[w]    122~RrN
+        16,  // A7: ADDC  w,n[w]   1222~RrN/12222~RrN
         2,   // A8: SUBC  w,w      122N
-        6,   // A9: SUBC  w,#      1222N
-        13,  // AA: SUBC  w,[w]    122~RrN
-        14,  // AB: SUBC  w,n[w]   1222~RrN/12222~RrN
+        8,   // A9: SUBC  w,#      1222N
+        15,  // AA: SUBC  w,[w]    122~RrN
+        16,  // AB: SUBC  w,n[w]   1222~RrN/12222~RrN
         2,   // AC: LDBZE w,b      122N
         2,   // AD: LDBZE w,#      122N
-        15,  // AE: LDBZE w,[w]    122~RN
-        16,  // AF: LDBZE w,n[w]   1222~RN/12222~RN
+        17,  // AE: LDBZE w,[w]    122~RN
+        18,  // AF: LDBZE w,n[w]   1222~RN/12222~RN
         2,   // B0: LDB   b,b      122N
         2,   // B1: LDB   b,#      122N
-        15,  // B2: LDB   b,[w]    122~RN
-        16,  // B3: LDB   b,n[w]   1222~RN/12222~RN
+        17,  // B2: LDB   b,[w]    122~RN
+        18,  // B3: LDB   b,n[w]   1222~RN/12222~RN
         2,   // B4: ADDCB b,b      122N
         2,   // B5: ADDCB b,#      122N
-        15,  // B6: ADDCB b,[w]    122~RN
-        16,  // B7: ADDCB b,n[w]   1222~RN/12222~RN
+        17,  // B6: ADDCB b,[w]    122~RN
+        18,  // B7: ADDCB b,n[w]   1222~RN/12222~RN
         2,   // B8: SUBCB b,b      122N
         2,   // B9: SUBCB b,#      122N
-        15,  // BA: SUBCB b,[w]    122~RN
-        16,  // BB: SUBCB b,n[w]   1222~RN/12222~RN
+        17,  // BA: SUBCB b,[w]    122~RN
+        18,  // BB: SUBCB b,n[w]   1222~RN/12222~RN
         2,   // BC: LDBSE w,b      122N
         2,   // BD: LDBSE w,#      122N
-        15,  // BE: LDBSE w,[w]    122~RN
-        16,  // BF: LDBSE w,n[w]   1222~RN/12222~RN
+        17,  // BE: LDBSE w,[w]    122~RN
+        18,  // BF: LDBSE w,n[w]   1222~RN/12222~RN
         2,   // C0: ST    w,w      122N
-        0,   // C1
-        17,  // C2: ST    w,[w]    122~WwN
-        18,  // C3: ST    w,n[w]   1222~WwN/12222~WwN
+        19,  // C1: BMOV  l,w      122~{R+2rW+2w}N
+        20,  // C2: ST    w,[w]    122~WwN
+        21,  // C3: ST    w,n[w]   1222~WwN/12222~WwN
         2,   // C4: STB   b,b      122N
-        0,   // C5
-        19,  // C6: STB   b,[w]    122~WN
-        20,  // C7: STB   b,n[w]   1222~WN/12222~WN
-        21,  // C8: PUSH  w        12~WwN
-        17,  // C9: PUSH  #        122~WwN
-        22,  // CA: PUSH  [w]      12~Rr~WwN
-        23,  // CB: PUSH  n[w]     122~Rr~WwN/1222~Rr~WwN
-        24,  // CC: POP   w        12~RrN
-        0,   // CD
-        25,  // CE: POP   [w]      12~RrWwN
-        23,  // CF: POP   n[w]     122~Rr~WwN/1222~Rr~WwN
-        26,  // D0: JNST  r        12~J@12N
-        26,  // D1: JNH   r        12~J@12N
-        26,  // D2: JGT   r        12~J@12N
-        26,  // D3: JNC   r        12~J@12N
-        26,  // D4: JNVT  r        12~J@12N
-        26,  // D5: JNV   r        12~J@12N
-        26,  // D6: JGE   r        12~J@12N
-        26,  // D7: JNE   r        12~J@12N
-        26,  // D8: JST   r        12~J@12N
-        26,  // D9: JH    r        12~J@12N
-        26,  // DA: JLE   r        12~J@12N
-        26,  // DB: JC    r        12~J@12N
-        26,  // DC: JVT   r        12~J@12N
-        26,  // DD: JV    r        12~J@12N
-        26,  // DE: JLT   r        12~J@12N
-        26,  // DF: JE    r        12~J@12N
-        5,   // E0: DJNZ  w,r      122~J@122N
-        0,   // E1
-        0,   // E2
-        27,  // E3: BR    [w]      12~?
+        2,   // C5: CMPL  l,l      122N
+        22,  // C6: STB   b,[w]    122~WN
+        23,  // C7: STB   b,n[w]   1222~WN/12222~WN
+        24,  // C8: PUSH  w        12~WwN
+        20,  // C9: PUSH  #        122~WwN
+        25,  // CA: PUSH  [w]      12~Rr~WwN
+        26,  // CB: PUSH  n[w]     122~Rr~WwN/1222~Rr~WwN
+        27,  // CC: POP   w        12~RrN
+        19,  // CD: BMOVI l,w      122~{R+2rW+2w}N
+        28,  // CE: POP   [w]      12~RrWwN
+        26,  // CF: POP   n[w]     122~Rr~WwN/1222~Rr~WwN
+        29,  // D0: JNST  r        12~J@12N
+        29,  // D1: JNH   r        12~J@12N
+        29,  // D2: JGT   r        12~J@12N
+        29,  // D3: JNC   r        12~J@12N
+        29,  // D4: JNVT  r        12~J@12N
+        29,  // D5: JNV   r        12~J@12N
+        29,  // D6: JGE   r        12~J@12N
+        29,  // D7: JNE   r        12~J@12N
+        29,  // D8: JST   r        12~J@12N
+        29,  // D9: JH    r        12~J@12N
+        29,  // DA: JLE   r        12~J@12N
+        29,  // DB: JC    r        12~J@12N
+        29,  // DC: JVT   r        12~J@12N
+        29,  // DD: JV    r        12~J@12N
+        29,  // DE: JLT   r        12~J@12N
+        29,  // DF: JE    r        12~J@12N
+        7,   // E0: DJNZ  w,r      122~J@122N
+        7,   // E1: DJNZW w,r      122~J@122N
+        30,  // E2: TIJMP w,[w],#  1222~RRr?
+        31,  // E3: BR    [w]      12~?
         0,   // E4
         0,   // E5
         0,   // E6
-        28,  // E7: LJMP  rr       122~J
+        32,  // E7: LJMP  rr       122~J
         0,   // E8
         0,   // E9
         0,   // EA
         0,   // EB
-        0,   // EC
-        0,   // ED
+        33,  // EC: DPTS  -        1N
+        33,  // ED: EPTS  -        1N
         0,   // EE
-        29,  // EF: LCALL rr       122~WwJ
-        30,  // F0: RET   -        1~RrP
+        34,  // EF: LCALL rr       122~WwJ
+        35,  // F0: RET   -        1~RrP
         0,   // F1
-        31,  // F2: PUSHF -        1~WwN
-        32,  // F3: POPF  -        1~RrN
-        0,   // F4
-        0,   // F5
-        0,   // F6
-        33,  // F7: TRAP  -        1~VrWwP
-        34,  // F8: CLRC  -        1N
-        34,  // F9: SETC  -        1N
-        34,  // FA: DI    -        1N
-        34,  // FB: EI    -        1N
-        34,  // FC: CLRVT -        1N
-        34,  // FD: NOP   -        1N
+        36,  // F2: PUSHF -        1~WwN
+        37,  // F3: POPF  -        1~RrN
+        38,  // F4: PUSHA -        1~WwWwN
+        39,  // F5: POPA  -        1~RrRrN
+        1,   // F6: IDLPD #        12N
+        40,  // F7: TRAP  -        1~VrWwP
+        33,  // F8: CLRC  -        1N
+        33,  // F9: SETC  -        1N
+        33,  // FA: DI    -        1N
+        33,  // FB: EI    -        1N
+        33,  // FC: CLRVT -        1N
+        33,  // FD: NOP   -        1N
         0,   // FE
-        35,  // FF: RST   -        1~J
+        41,  // FF: RST   -        1~J
 };
 
 constexpr uint8_t PAGEFE_TABLE[] = {
-        7,   // 4C: MUL   l,w,w    12222N
-        36,  // 4D: MUL   l,w,#    122222N
-        37,  // 4E: MUL   l,w,[w]  12222~RrN
-        38,  // 4F: MUL   l,w,n[w] 122222~RrN/1222222~RrN
-        7,   // 5C: MULB  w,b,b    12222N
-        7,   // 5D: MULB  w,b,#    12222N
-        39,  // 5E: MULB  w,b,[w]  12222~RN
-        40,  // 5F: MULB  w,b,n[w] 122222~RN/1222222~RN
-        6,   // 6C: MUL   l,w      1222N
-        7,   // 6D: MUL   l,#      12222N
-        8,   // 6E: MUL   l,[w]    1222~RrN
-        9,   // 6F: MUL   l,n[w]   12222~RrN/122222~RrN
-        6,   // 7C: MULB  w,b      1222N
-        6,   // 7D: MULB  w,#      1222N
-        11,  // 7E: MULB  w,[w]    1222~RN
-        12,  // 7F: MULB  w,n[w]   12222~RN/122222~RN
-        6,   // 8C: DIV   l,w      1222N
-        7,   // 8D: DIV   l,#      12222N
-        8,   // 8E: DIV   l,[w]    1222~RrN
-        9,   // 8F: DIV   l,n[w]   12222~RrN/122222~RrN
-        6,   // 9C: DIVB  w,b      1222N
-        6,   // 9D: DIVB  w,#      1222N
-        11,  // 9E: DIVB  w,[w]    1222~RN
-        12,  // 9F: DIVB  w,n[w]   12222~RN/122222~RN
+        9,   // 4C: MUL   l,w,w    12222N
+        42,  // 4D: MUL   l,w,#    122222N
+        43,  // 4E: MUL   l,w,[w]  12222~RrN
+        44,  // 4F: MUL   l,w,n[w] 122222~RrN/1222222~RrN
+        9,   // 5C: MULB  w,b,b    12222N
+        9,   // 5D: MULB  w,b,#    12222N
+        45,  // 5E: MULB  w,b,[w]  12222~RN
+        46,  // 5F: MULB  w,b,n[w] 122222~RN/1222222~RN
+        8,   // 6C: MUL   l,w      1222N
+        9,   // 6D: MUL   l,#      12222N
+        10,  // 6E: MUL   l,[w]    1222~RrN
+        11,  // 6F: MUL   l,n[w]   12222~RrN/122222~RrN
+        8,   // 7C: MULB  w,b      1222N
+        8,   // 7D: MULB  w,#      1222N
+        13,  // 7E: MULB  w,[w]    1222~RN
+        14,  // 7F: MULB  w,n[w]   12222~RN/122222~RN
+        8,   // 8C: DIV   l,w      1222N
+        9,   // 8D: DIV   l,#      12222N
+        10,  // 8E: DIV   l,[w]    1222~RrN
+        11,  // 8F: DIV   l,n[w]   12222~RrN/122222~RrN
+        8,   // 9C: DIVB  w,b      1222N
+        8,   // 9D: DIVB  w,#      1222N
+        13,  // 9E: DIVB  w,[w]    1222~RN
+        14,  // 9F: DIVB  w,n[w]   12222~RN/122222~RN
 };
 
-bool isVector(uint16_t addr) {
-    return addr >= 0x2000 && addr < 0x2012;
+constexpr uint8_t KB_OPCODES[] = {
+        0xC1,  // BMOV
+        0xC5,  // CMPL
+        0xE1,  // DJNZW
+        0xF4,  // PUSHA
+        0xF5,  // POPA
+        0xF6,  // IDLPD
+};
+
+constexpr uint8_t KC_OPCODES[] = {
+        0x04,  // XCH
+        0x0B,  // XCH
+        0x14,  // XCHB
+        0x1B,  // XCHB
+        0xCD,  // BMOVI
+        0xE2,  // TIJMP
+        0xEC,  // DPTS
+        0xED,  // EPTS
+};
+
+// The 80C196KB adds the unimplemented opcode vector at 2012H and the upper
+// interrupt vectors at 2030H-203FH; the 80C196KC the PTS vectors up to
+// 205DH.
+bool isVector(uint16_t addr, CpuType cpu) {
+    if (cpu == CPU_8096)
+        return addr >= 0x2000 && addr < 0x2012;
+    const uint16_t upperEnd = cpu == CPU_80C196KC ? 0x205E : 0x2040;
+    return (addr >= 0x2000 && addr < 0x2014) ||
+           (addr >= 0x2030 && addr < upperEnd);
+}
+
+template <uint_fast8_t N>
+bool contains(const uint8_t (&opcodes)[N], uint_fast8_t opc) {
+    for (const auto o : opcodes) {
+        if (opc == o)
+            return true;
+    }
+    return false;
+}
+
+// The earliest CPU that has |opc|.
+CpuType cpuOf(uint_fast8_t opc) {
+    if (contains(KC_OPCODES, opc))
+        return CPU_80C196KC;
+    if (contains(KB_OPCODES, opc))
+        return CPU_80C196KB;
+    return CPU_8096;
 }
 
 int16_t signExtend(uint16_t u16, uint_fast8_t width) {
@@ -363,11 +414,15 @@ const uint8_t *page_FE(uint_fast8_t opc) {
 }  // namespace
 
 bool InstI8096::indexAddressing(uint_fast8_t opc) {
-    return opc >= 0x40 && opc < 0xD0 && (opc & 3) == 3;
+    // XCH and XCHB too
+    return (opc >= 0x40 && opc < 0xD0 && (opc & 3) == 3) || opc == 0x0B ||
+           opc == 0x1B;
 }
 
-bool InstI8096::set(uint16_t pc, const MatchMemory *mems) {
+bool InstI8096::set(uint16_t pc, const MatchMemory *mems, CpuType cpu) {
     _opc = mems->read_byte(pc++);
+    if (cpu < cpuOf(_opc))
+        return false;
     auto row = &PAGE00_TABLE[_opc];
     if (_opc == 0xFE) {
         _opc = mems->read_byte(pc++);
@@ -393,12 +448,13 @@ MatchWalker::Kind ArchI8096::cycleKind(const SignalsImpl *impl) const {
 }
 
 // J goes to the next + disp: an 11-bit one in SJMP's and SCALL's opcode
-// and first byte, a JBC's, JBS's or DJNZ's in its last byte, a Jcc's in
-// its first; LJMP's and LCALL's 16 bits; RST's to the reset origin.
+// and first byte, a JBC's, JBS's, DJNZ's or DJNZW's in its last byte, a
+// Jcc's in its first; LJMP's and LCALL's 16 bits; RST's to the reset
+// origin.
 bool ArchI8096::decode(uint32_t pc, MatchWalker::Decoded &inst) const {
     pc &= 0xFFFF;
     InstI8096 i;
-    if (!i.set(pc, _mems))
+    if (!i.set(pc, _mems, _cpu))
         return false;
     inst.pc = pc;
     inst.seq = i.sequence();
@@ -411,7 +467,7 @@ bool ArchI8096::decode(uint32_t pc, MatchWalker::Decoded &inst) const {
     inst.hasTarget = true;
     if (opc >= 0x20 && opc < 0x30) {
         inst.target = next + signExtend(((opc & 7) << 8) | disp1, 11);
-    } else if ((opc >= 0x30 && opc < 0x40) || opc == 0xE0) {
+    } else if ((opc >= 0x30 && opc < 0x40) || opc == 0xE0 || opc == 0xE1) {
         inst.target = next + static_cast<int8_t>(read(pc + 2));
     } else if (opc >= 0xD0 && opc < 0xE0) {
         inst.target = next + static_cast<int8_t>(disp1);
@@ -427,7 +483,7 @@ bool ArchI8096::decode(uint32_t pc, MatchWalker::Decoded &inst) const {
 }
 
 bool ArchI8096::isVectorTable(uint32_t addr) const {
-    return isVector(addr);
+    return isVector(addr, _cpu);
 }
 
 const char *ArchI8096::interruptSequence() const {

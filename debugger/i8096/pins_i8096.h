@@ -58,17 +58,16 @@
 #define PIN_TXD 0       /* P6.03 */
 #define PIN_RXD 1       /* P6.02 */
 #define PIN_XTAL1 29    /* P9.31 */
-#define PIN_ACH5 9      /* P7.11 */
-#define PIN_ACH6 32     /* P7.12 */
 
+#include "inst_i8096.h"
 #include "pins.h"
 #include "signals_i8096.h"
 
 namespace debugger {
 namespace i8096 {
 
-// The board both the P8095BH and the N8097BH sit on; each adds its own
-// pins and control lines.
+// The board the P8095BH, the N8097BH and the S80C196KB/KC sit on; each
+// adds its own pins and control lines.
 struct PinsI8096 : Pins {
     void idle() override;
     bool step(bool show) override;
@@ -79,6 +78,9 @@ struct PinsI8096 : Pins {
     void negateInt(uint8_t name = 0) override;
     void setBreakInst(uint32_t addr) const override;
 
+    CpuType cpuType() const { return _cpu; }
+    // Whether the CPU is an 80C196: PUSHA, POPA, INT_MASK1 and WSR.
+    bool c196() const { return _cpu >= CPU_80C196KB; }
     // Where the CPU is parked: the address of its next fetch.
     uint16_t park() const { return _park; }
     // Where an injected sequence leaves off when not told: at the park.
@@ -91,20 +93,21 @@ struct PinsI8096 : Pins {
     uint16_t execInst(const uint8_t *inst, uint_fast8_t len,
             uint8_t *buf = nullptr, uint_fast8_t max = 0,
             uint32_t exit = EXIT_PARK);
-    // As execInst() to |exit|, and a read at [at, at+2) is answered from
-    // |data|: the word a POP pulls.
+    // As execInst() to |exit|, and a read at [at, at+|size|) is answered
+    // from |data|: the words a POP pulls.
     void popInst(const uint8_t *inst, uint_fast8_t len, uint16_t at,
-            const uint8_t *data, uint32_t exit);
+            const uint8_t *data, uint_fast8_t size, uint32_t exit);
 
 protected:
     using Signals = SignalsI8096;
 
-    PinsI8096();
+    explicit PinsI8096(CpuType cpu = CPU_8096);
     void resetPins() override;
     // Reads the control lines into |s|: whether a read or a write is on.
     virtual bool getControl(Signals *s) const = 0;
 
 private:
+    const CpuType _cpu;
     bool _idle = false;
     // The CPU waits in the read of |_park|, a copy of its cycle kept.
     bool _held = false;
@@ -123,9 +126,11 @@ private:
     void writeBus(const Signals *s) const;
     uint16_t execute(uint16_t org, const uint8_t *inst, uint_fast8_t len,
             uint8_t *buf, uint_fast8_t max, uint32_t exit, bool idle,
-            uint16_t at = 0, const uint8_t *data = nullptr);
+            uint16_t at = 0, const uint8_t *data = nullptr,
+            uint_fast8_t size = 0);
     bool fetchedBreak(const Signals *s) const;
     uint16_t jumpTarget(uint16_t next, uint_fast8_t opc) const;
+    uint16_t readData16(uint16_t addr) const;
     void handleTrap(Signals *s, uint16_t vector, bool breakTrap);
 
     void printCycles(const Signals *end);
