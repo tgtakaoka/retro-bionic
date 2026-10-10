@@ -1519,8 +1519,9 @@ seconds).
 bus from reset; the CPU12 prefetches into an instruction queue, so a
 program read does not mark an instruction start -- IPIPE1:0 do.
 
-Draft board for the MC68HC912BD32 (80-pin QFP); not built yet. Pin
-positions are the draft assignment, not facts from a manual.
+Board for the MC68HC912BD32 (80-pin QFP), identity `MC68HC12B`; the
+firmware is written but not yet run on it, so nothing below is **[hw]**.
+Pin positions are the board's assignment, not facts from a manual.
 
 - The Teensy holds BKGD (P44) low and MODB and MODA high through reset,
   which selects special expanded wide mode. That mode comes out of reset
@@ -1537,6 +1538,13 @@ positions are the draft assignment, not facts from a manual.
   an even instruction, 11 an odd one. **[doc]**
 - The Teensy drives DIVBYP (P45): low gives E = EXTAL/4; high is a test
   mode giving EXTAL/2. It has an always-on pull-down. **[doc]**
+- The MC68HC912B32, MC68HC12BE32 and MC68HC(9)12BC32 are pin compatible
+  except pins 70-76 (BDLC or CAN in place of Byteflight), which the board
+  leaves open but pin 70. There pin 70 is PDLC6/PCAN6, an input after
+  reset, so DIVBYP has no effect and E is EXTAL/4. VFP (pin 69) is tied to
+  VCC, as the Flash parts need; the ROM parts have no connection there.
+  **[doc]** The firmware waits on E, so it should run at half the bus
+  rate; not tried.
 - AD0-AD15 sit on P1x/P2x, GPIO6 bits 16-31, readable in one access. In
   a narrow mode the 8-bit data is on port A (P2x), not P1x. **[doc]**
 - The on-chip Flash is off in the expanded modes (ROMON resets to 0), so it
@@ -1546,6 +1554,40 @@ positions are the draft assignment, not facts from a manual.
   Teensy UART pins are needed. **[code]**
 - PT7/PAI is on P52 and PT0/IOC0 on P55, so the Teensy can drive edges
   into input capture or the pulse accumulator for timer samples.
+
+Firmware (`debugger/mc68hc12`):
+
+- DIVBYP is driven high, so each EXTAL period is half an E cycle and one
+  edge of each pair moves E; `sync_e()` finds which one while #RESET is
+  low, before any bus cycle. The data sheet gives no EXTAL to E delay, so
+  E is polled after every edge. The CPU12 is static, so idle stops the
+  clock. **[code]**
+- AD is driven only while `#DBE` is low, an external read: internal reads
+  shown under IVIS and free cycles leave the bus to the CPU. **[code]**
+- Reset leaves EXSTR=11 in MISC, a three-cycle stretch with E held high;
+  `configSystem()` clears it and stops the COP, and until then
+  `prepareCycle()` walks a read until `#DBE` or E falls. **[code]**
+- Injection is address-keyed, as on the P8095BH: a sequence ends with a
+  `BRA` back to the park ($FF80), and the CPU waits in the refetch. A
+  vector read (reset, SWI, `#XIRQ`) is answered with the park, where
+  `BRA *` waits while the stacking is captured by address. **[code]**
+- `restore()` builds the RTI frame with pushes, so a stack in internal RAM
+  works; an external one is answered from the frame. A user PC within
+  about 30 bytes after the park would end it early. **[code]**
+- `#XIRQ` halts and steps: `restore()` clears CCR.X, and the step asserts
+  `#XIRQ` once the CPU fetches the PC, after RTI's pending-interrupt check,
+  so one instruction runs. WAI stacks before it waits, so a halt there
+  takes the frame from the writes before the vector. **[code]** Unproven:
+  if RTI checks for a pending interrupt after its program fetches, a step
+  runs nothing and returns the same PC; then assert `#XIRQ` at the
+  execution start (IPIPE) of the user instruction instead.
+- Every SWI vector read stops the run: the queue can fetch a breakpoint's
+  SWI long before it executes, so only the stacked PC tells a breakpoint
+  from the program's own SWI. The latter's frame is written back and the
+  run goes on in its handler. **[code]**
+- No cycle table: the backtrace replays the queue from IPIPE1:0 as
+  CPU12RM 8.8 describes (`queue_mc68hc12.cpp`, host test
+  `test/mc68hc12/test_queue_mc68hc12`). **[code]**
 
 ### SCN2650
 
