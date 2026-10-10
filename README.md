@@ -86,9 +86,10 @@ All 45 targets, grouped by vendor and architecture:
 <tr><th>Vendor</th><th>Architecture</th><th>Targets</th></tr>
 </thead>
 <tbody>
-<tr><td rowspan="3">Motorola</td><td>6800</td><td>MC6800 <em>MB8861</em>, MC6801 <em>HD6301</em>, MC6802 <em>MB8870</em>, MC68HC11A, MC68HC11D</td></tr>
+<tr><td rowspan="4">Motorola</td><td>6800</td><td>MC6800 <em>MB8861</em>, MC6801 <em>HD6301</em>, MC6802 <em>MB8870</em>, MC68HC11A, MC68HC11D</td></tr>
 <tr><td>6805</td><td>MC146805E2, MC68HC05C0, MC68HC08AZ0</td></tr>
 <tr><td>6809</td><td>MC6809 <em>HD6309</em>, MC6809E <em>HD6309E</em></td></tr>
+<tr><td>68HC12</td><td>MC68HC12B</td></tr>
 <tr><td>MOS Technology</td><td>6502</td><td>MOS6502 <em>G65SC02, R65C02, W65C02S, W65C816S</em></td></tr>
 <tr><td rowspan="5">Zilog</td><td>Z80</td><td>Z80, Z180, NSC800, KL5C80A12, HD64180S</td></tr>
 <tr><td>Z280</td><td>Z280</td></tr>
