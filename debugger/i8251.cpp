@@ -40,6 +40,7 @@ void I8251::loopUart() {
     // TODO: Implement flow command
     if (txEnabled()) {
         if (_txDone) {
+            _txDone = false;
             _status |= ST_TxEMPTY_bm;
             assertTxIntr();
         }
