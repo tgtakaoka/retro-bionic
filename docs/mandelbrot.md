@@ -43,25 +43,28 @@ The tables time them on real chips, from recorded casts, with
 | TMP90C802   |  14.1 |   0.576 |   0.191 |                    | [mandelbrot.cast](../samples/tlcs90/mandelbrot.cast)                     | [tlcs90/mandelbrot.lst](../samples/tlcs90/mandelbrot.lst)       |
 | TMS9995     |  14.5 |   0.591 |   0.192 |                    | [mandelbrot_tms9995.cast](../samples/tms9900/mandelbrot_tms9995.cast)    | [tms9900/mandelbrot.lst](../samples/tms9900/mandelbrot.lst)     |
 | Z88C00      |  20.5 |   0.837 |   0.278 |                    | [mandelbrot.cast](../samples/z88/mandelbrot.cast)                        | [z88/mandelbrot.lst](../samples/z88/mandelbrot.lst)             |
-| Z280        |  21.2 |   0.866 |   0.284 | Z80 code, cache on | [mandelbrot_z280.cast](../samples/z80/mandelbrot_z280.cast)              | [z80/mandelbrot.lst](../samples/z80/mandelbrot.lst)             |
 | MC68HC08AZ0 |  24.4 |   0.997 |   0.333 |                    | [mandelbrot.cast](../samples/mc68hc08/mandelbrot.cast)                   | [mc68hc08/mandelbrot.lst](../samples/mc68hc08/mandelbrot.lst)   |
 | MN1613      |  25.4 |   1.039 |   0.337 | MN1610 code        | [mandelbrot.cast](../samples/mn1610/mandelbrot.cast)                     | [mn1610/mandelbrot.lst](../samples/mn1610/mandelbrot.lst)       |
 | 68HC11      |  28.1 |   1.147 |   0.385 |                    | [mandelbrot.cast](../samples/mc68hc11/mandelbrot.cast)                   | [mc68hc11/mandelbrot.lst](../samples/mc68hc11/mandelbrot.lst)   |
 | TMS9900     |  29.0 |   1.184 |   0.387 |                    | [mandelbrot.cast](../samples/tms9900/mandelbrot.cast)                    | [tms9900/mandelbrot.lst](../samples/tms9900/mandelbrot.lst)     |
 | TMS370Cx5x  |  34.0 |   1.391 |   0.462 |                    | [mandelbrot.cast](../samples/tms370/mandelbrot.cast)                     | [tms370/mandelbrot.lst](../samples/tms370/mandelbrot.lst)       |
-| KL5C80A12   |  34.6 |   1.413 |   0.461 |                    | [mandelbrot.cast](../samples/kl5c80/mandelbrot.cast)                     | [kl5c80/mandelbrot.lst](../samples/kl5c80/mandelbrot.lst)       |
+| Z380        |  34.3 |   1.403 |   0.480 | Z180 code          | [mandelbrot_z380.cast](../samples/z180/mandelbrot_z380.cast)             | [z180/mandelbrot.lst](../samples/z180/mandelbrot.lst)           |
 | P8051       |  35.0 |   1.428 |   0.442 |                    | [mandelbrot.cast](../samples/i8051/mandelbrot.cast)                      | [i8051/mandelbrot.lst](../samples/i8051/mandelbrot.lst)         |
 | TMS9980     |  37.4 |   1.528 |   0.497 |                    | [mandelbrot_tms9980.cast](../samples/tms9900/mandelbrot_tms9980.cast)    | [tms9900/mandelbrot.lst](../samples/tms9900/mandelbrot.lst)     |
-| Z380        |  38.3 |   1.563 |   0.510 | Z80 code           | [mandelbrot_z380.cast](../samples/z80/mandelbrot_z380.cast)              | [z80/mandelbrot.lst](../samples/z80/mandelbrot.lst)             |
+| Z380        |  38.2 |   1.562 |   0.510 | Z80 code           | [mandelbrot_z380.cast](../samples/z80/mandelbrot_z380.cast)              | [z80/mandelbrot.lst](../samples/z80/mandelbrot.lst)             |
+| KL5C80A12   |  39.1 |   1.595 |   0.520 | Z80 code           | [mandelbrot_kl5c80.cast](../samples/z80/mandelbrot_kl5c80.cast)          | [z80/mandelbrot.lst](../samples/z80/mandelbrot.lst)             |
 | Z86C91      |  55.9 |   2.284 |   0.741 |                    | [mandelbrot.cast](../samples/z86/mandelbrot.cast)                        | [z86/mandelbrot.lst](../samples/z86/mandelbrot.lst)             |
 | INS8070     |  56.6 |   2.312 |   0.744 |                    | [mandelbrot.cast](../samples/ins8070/mandelbrot.cast)                    | [ins8070/mandelbrot.lst](../samples/ins8070/mandelbrot.lst)     |
 | Z180        |  62.5 |   2.554 |   0.872 |                    | [mandelbrot.cast](../samples/z180/mandelbrot.cast)                       | [z180/mandelbrot.lst](../samples/z180/mandelbrot.lst)           |
-| Z80         |  66.6 |   2.721 |   0.889 |                    | [mandelbrot.cast](../samples/z80/mandelbrot.cast)                        | [z80/mandelbrot.lst](../samples/z80/mandelbrot.lst)             |
 | W65C816S    |  66.8 |   2.729 |   0.876 |                    | [mandelbrot.cast](../samples/w65c816/mandelbrot.cast)                    | [w65c816/mandelbrot.lst](../samples/w65c816/mandelbrot.lst)     |
+| Z80         |  67.2 |   2.746 |   0.897 |                    | [mandelbrot.cast](../samples/z80/mandelbrot.cast)                        | [z80/mandelbrot.lst](../samples/z80/mandelbrot.lst)             |
+| HD64180S    |  68.8 |   2.812 |   0.959 | Z180 code          | [mandelbrot_hd64180s.cast](../samples/z180/mandelbrot_hd64180s.cast)     | [z180/mandelbrot.lst](../samples/z180/mandelbrot.lst)           |
+| Z280        |  73.2 |   2.990 |   0.974 | Z80 code           | [mandelbrot_z280.cast](../samples/z80/mandelbrot_z280.cast)              | [z80/mandelbrot.lst](../samples/z80/mandelbrot.lst)             |
 | MC6801      |  74.8 |   3.060 |   1.046 |                    | [mandelbrot.cast](../samples/mc6801/mandelbrot.cast)                     | [mc6801/mandelbrot.lst](../samples/mc6801/mandelbrot.lst)       |
-| Z180        |  77.6 |   3.169 |   1.033 | Z80 code           | [mandelbrot_z180.cast](../samples/z80/mandelbrot_z180.cast)              | [z80/mandelbrot.lst](../samples/z80/mandelbrot.lst)             |
+| HD64180S    |  76.4 |   3.122 |   1.017 | Z80 code           | [mandelbrot_hd64180s.cast](../samples/z80/mandelbrot_hd64180s.cast)      | [z80/mandelbrot.lst](../samples/z80/mandelbrot.lst)             |
+| Z180        |  76.9 |   3.140 |   1.023 | Z80 code           | [mandelbrot_z180.cast](../samples/z80/mandelbrot_z180.cast)              | [z80/mandelbrot.lst](../samples/z80/mandelbrot.lst)             |
 | P8085       |  77.7 |   3.172 |   1.040 |                    | [mandelbrot.cast](../samples/i8085/mandelbrot.cast)                      | [i8085/mandelbrot.lst](../samples/i8085/mandelbrot.lst)         |
-| NSC800      |  85.5 |   3.491 |   1.140 |                    | [mandelbrot_nsc800.cast](../samples/z80/mandelbrot_nsc800.cast)          | [z80/mandelbrot.lst](../samples/z80/mandelbrot.lst)             |
+| NSC800      |  85.8 |   3.503 |   1.144 |                    | [mandelbrot_nsc800.cast](../samples/z80/mandelbrot_nsc800.cast)          | [z80/mandelbrot.lst](../samples/z80/mandelbrot.lst)             |
 | MC68HC05C0  |  85.9 |   3.513 |   1.222 |                    | [mandelbrot.cast](../samples/mc68hc05/mandelbrot.cast)                   | [mc68hc05/mandelbrot.lst](../samples/mc68hc05/mandelbrot.lst)   |
 | MC68HC08AZ0 |  87.0 |   3.558 |   1.239 |                    | [mandelbrot_mc68hc08.cast](../samples/mc68hc05/mandelbrot_mc68hc08.cast) | [mc68hc05/mandelbrot.lst](../samples/mc68hc05/mandelbrot.lst)   |
 | HD6309      |  91.6 |   3.747 |   1.291 | native mode        | [mandelbrot_hd6309.cast](../samples/mc6809/mandelbrot_hd6309.cast)       | [mc6809/mandelbrot.lst](../samples/mc6809/mandelbrot.lst)       |
@@ -189,25 +192,28 @@ also prefetches; it runs all three, and its own build's `MPYS` and
 
 ### Z80 family
 
-| | Z80 | NSC800 | Z180 | Z280 | Z380 |
-|---|---:|---:|---:|---:|---:|
-| [z80](../samples/z80/mandelbrot.lst) | 66.6 | 85.5 | 77.6 | 21.2 | 38.3 |
-| [z180](../samples/z180/mandelbrot.lst) | | | 62.5 | | |
-| [z280](../samples/z280/mandelbrot.lst) | | | | 1.9 | |
-| [z380](../samples/z380/mandelbrot.lst) | | | | | 3.7 |
-| Data bus | 8-bit | 8-bit, multiplexed | 8-bit | 16-bit, multiplexed | 16-bit |
+| | Z80 | Z180 | Z280 | Z380 | NSC800 | HD64180S | KL5C80A12 |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| [z80](../samples/z80/mandelbrot.lst) | 67.2 | 76.9 | 73.2 | 38.2 | 85.8 | 76.4 | 39.1 |
+| [z180](../samples/z180/mandelbrot.lst) | | 62.5 | | 34.3 | | 68.8 | |
+| [z280](../samples/z280/mandelbrot.lst) | | | 5.7 | | | | |
+| [z380](../samples/z380/mandelbrot.lst) | | | | 3.7 | | | |
+| Data bus | 8-bit | 8-bit | 16-bit, multiplexed | 16-bit | 8-bit, multiplexed | 8-bit | 8-bit |
 
-The Z280 column has its cache on. The Z80 sample reaches its USART through
-`IN`/`OUT (C)` with B clear: `IN`/`OUT (n)` put A on A8-A15, and the Z180
-and Z280 boards decode all 16 bits of an I/O address, the Z380 board all
-32, with BC's upper half clear after a reset. Their own samples keep the
-USART at 0140H, where a reset puts it back, so their casts move it to 40H
-first. The Z180's own code, with `MLT`, takes a fifth less time than the
-Z80 code; the Z280 runs the Z80 code three times as fast as a Z80, and its
-own, with its multiply and divide, eleven times as fast again. The Z380,
-with no cache, runs the Z80 code 1.7 times as fast as a Z80, and its own,
-with `MULTW` and `DIVUW`, ten times as fast again. The KL5C80A12 is
-missing: its CPU takes every maskable interrupt from its on-chip
-controller, which starts with all levels masked and answers the
-acknowledge with a vector, not the USART's `RST`, so the Z80 code's mode 0
-interrupts never reach it.
+Every chip runs with its cache off, as reset leaves it. The Z80 sample
+reaches its USART through `IN`/`OUT (C)` with B=01H, where `IN`/`OUT (n)`
+would put A on A8-A15: the Z180 and Z280 boards decode all 16 bits of an
+I/O address, the Z380 board all 32, with BC's upper half clear after a
+reset, and find it at 0140H, clear of the on-chip I/O; the Z80, NSC800
+and KL5C80A12 boards decode A0-A7 alone and find it at 40H. The Z180's
+own code, with `MLT`, takes a fifth less time than the Z80 code; the
+Z280 runs the Z80 code a tenth slower than a Z80, and its own, with its
+multiply and divide, thirteen times as fast as that. The Z380 runs the
+Z80 code 1.8 times as fast as a Z80, the Z180 code, whose `MLT` it has
+too, a tenth faster still, and its own, with `MULTW` and `DIVUW`, ten
+times as fast as the Z80 code. The HD64180S runs both much as the Z180
+does, its own code a tenth slower. The KL5C80A12 runs the Z80 code 1.7
+times as fast as a Z80. The Z80 code takes its interrupts in mode 2, the
+only one the KL5C80A12's on-chip interrupt controller serves: the code
+unmasks that controller's IR0 and gives it the vector the USART gives
+the other chips, so all of them reach the same handler.

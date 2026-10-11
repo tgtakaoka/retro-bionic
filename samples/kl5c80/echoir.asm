@@ -1,5 +1,6 @@
 ;;; -*- mode: asm; mode: flyspell-prog; -*-
-        include "kl5c80a12.inc"
+        include "../z80/z80.inc"
+        include "../z80/kl5c80a12.inc"
         include "../z80/usart.inc"
 
         org     2000H
