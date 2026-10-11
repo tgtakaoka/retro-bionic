@@ -15,14 +15,17 @@ using Signals = SignalsI8096;
  * P8095BH, N8097BH and S80C196KB/KC bus cycle
  *          __    __    __    __    __    __    __    __    __    __    __    __    __
  * XTAL1 __|  |__|  |__|  |__|  |__|  |__|  |__|  |__|  |__|  |__|  |__|  |__|  |__|  |
- *       __\     \                 \     \_____\     \                 \     \____\
- *  #ADV    \____________________________/      \____________________________/     \___
+ *        __                                  __                                 __
+ *   ALE /  \________________________________/  \_______________________________/  \____
  *       _________                  ___________________________________________________
  *   #RD          \________________/                                         
  *       _____________________________________________                  _______________
  *   #WR                                              \________________/     
  *       ___ ____________________________ ______ ____________________________ ______ __
  *    AD ___X_addr_______________________X_addr_X_________data_______________X_addr_X__
+ *
+ * The CCB selects ALE, as the 80C196NP and 80296SA always have it: a
+ * cycle starts where ALE falls and ends where #RD or #WR rises.
  *
  * The CCB selects the 16-bit bus: a read is a word's, the even byte on
  * AD0-AD7; a write moves the bytes A0 and #BHE pick.
@@ -32,8 +35,18 @@ using Signals = SignalsI8096;
 
 namespace {
 
-constexpr auto xtal1_lo_ns = 20;  // 25 ns
-constexpr auto xtal1_hi_ns = 20;  // 25 ns
+// delayNanoseconds() takes about 25 ns however short; the comments give the
+// phases measured.
+constexpr auto xtal1_lo_ns = 20;  // 40 ns
+constexpr auto xtal1_hi_ns = 20;  // 45 ns
+// The bus signals move 40-60 ns after the rising XTAL1 edge making them.
+constexpr auto settle_ns = 100;
+// ALE sampled right after a rising edge, 60 ns or more after the one
+// before.
+constexpr auto ale_lo_ns = 25;  // 40 ns
+// With getAddr(), XTAL1's minimum low time of 30 ns after the edge that
+// ends ALE.
+constexpr auto addr_lo_ns = 5;  // 65 ns
 
 const uint8_t PINS_OPENDRAIN[] = {
         PIN_RESET,
@@ -50,7 +63,7 @@ const uint8_t PINS_LOW[] = {
 };
 
 const uint8_t PINS_INPUT[] = {
-        PIN_ADV,
+        PIN_ALE,
         PIN_RD,
         PIN_WR,
         PIN_BHE,
@@ -88,6 +101,12 @@ inline void xtal1_lo() {
 inline void xtal1_hi() {
     digitalWriteFast(PIN_XTAL1, HIGH);
 }
+
+inline auto ale_asserted() {
+    return digitalReadFast(PIN_ALE) != LOW;
+}
+
+constexpr uint32_t settle_cycles = F_CPU / 1000000 * settle_ns / 1000;
 
 void xtal1_cycle_lo() {
     xtal1_hi();
@@ -127,7 +146,9 @@ void PinsI8096::resetPins() {
     _held = false;
     // The CCB at 2018H, read before the CCR selects the 16-bit bus: AD0-AD7
     // carry it in every bus mode.
-    completeCycle(prepareCycle()->inject(_mems->read(MemsI8096::CCB)), true);
+    auto ccb = prepareCycle();
+    ccb->addr = MemsI8096::CCB;  // AD held nothing while ALE was high
+    completeCycle(ccb->inject(_mems->read(MemsI8096::CCB)), true);
     const auto fetch = prepareCycle();
     if (fetch->addr != InstI8096::ORG_RESET) {
         cli.print("?reset fetch at ");
@@ -142,6 +163,17 @@ void PinsI8096::resetPins() {
 // DIVL's ~40 state times; a CPU missing or held in reset never answers.
 constexpr auto no_bus_cycles = 10000;
 
+// #RD or #WR active within |settle_ns|.
+bool PinsI8096::awaitControl(Signals *s) const {
+    const uint32_t start = ARM_DWT_CYCCNT;
+    do {
+        if (getControl(s))
+            return true;
+    } while (ARM_DWT_CYCCNT - start < settle_cycles);
+    return false;
+}
+
+
 Signals *PinsI8096::prepareCycle() {
     auto s = _idle ? &_idleSignals : Signals::put();
     if (_held) {
@@ -151,19 +183,34 @@ Signals *PinsI8096::prepareCycle() {
     }
     noInterrupts();
     // assert_debug();
-    xtal1_hi();
-    for (auto n = 0; !s->getAddrValid(); ++n) {
+    // completeCycle() leaves ALE low and unrisen. Sampled right after a
+    // rising XTAL1 edge, ALE shows how the edge before left it; seen high,
+    // the edge just made ends the pulse. The address is settled on AD
+    // before the next edge, and a write's data and #RD or #WR follow only
+    // after it.
+    for (auto n = 0;; ++n) {
         if (n >= no_bus_cycles)
             return noBusCycle(s);
-        xtal1_lo();
-        delayNanoseconds(xtal1_lo_ns);
+        delayNanoseconds(ale_lo_ns);
         xtal1_hi();
+        if (ale_asserted())
+            break;
+        xtal1_lo();
     }
-    // negate_debug();
-    s->getAddr();
     xtal1_lo();
+    delayNanoseconds(addr_lo_ns);
+    s->getAddr();
+    // #RD or #WR falls one clock after ALE, 40-60 ns after this edge:
+    // seen in its low phase, the data phase starts at the next edge,
+    // never shifted by one, and the CPU no longer drives AD when
+    // completeCycle() does.
+    xtal1_hi();
+    delayNanoseconds(xtal1_hi_ns);
+    xtal1_lo();
+    const auto active = awaitControl(s);
+    // negate_debug();
     // assert_debug();
-    for (auto n = 0; !getControl(s); ++n) {
+    for (auto n = 0; !active && !getControl(s); ++n) {
         if (n >= no_bus_cycles)
             return noBusCycle(s);
         xtal1_cycle_lo();
@@ -225,16 +272,16 @@ Signals *PinsI8096::completeCycle(Signals *s, bool low) {
         xtal1_hi();
         s->inputMode();
     } else if (s->write()) {
+        // A write's data reaches AD 70 ns after the rising edge that
+        // follows ALE's fall; right after the next one #WR is still low.
+        xtal1_lo();
+        delayNanoseconds(xtal1_lo_ns);
+        xtal1_hi();
         // assert_debug();
         s->getData();
         // negate_debug();
-        xtal1_lo();
-        if (s->writeMemory()) {
+        if (s->writeMemory())
             writeBus(s);
-        } else {
-            delayNanoseconds(xtal1_lo_ns);
-        }
-        xtal1_hi();
     }
     if (_idle) {
         delayNanoseconds(xtal1_hi_ns);
@@ -243,11 +290,11 @@ Signals *PinsI8096::completeCycle(Signals *s, bool low) {
     }
     noInterrupts();
     // assert_debug();
-    while (s->getAddrValid()) {
-        xtal1_lo();
-        delayNanoseconds(xtal1_lo_ns);
-        xtal1_hi();
-    }
+    // #RD or #WR stays low three rising edges and rises after the next one;
+    // the next cycle's ALE only after the edge after that, in prepareCycle().
+    xtal1_lo();
+    delayNanoseconds(xtal1_lo_ns);
+    xtal1_hi();
     xtal1_lo();
     // negate_debug();
     interrupts();

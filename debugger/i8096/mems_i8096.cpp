@@ -23,8 +23,8 @@ MemsI8096::MemsI8096(Devs *devs, RegsI8096 *regs, CpuType cpu)
 uint16_t MemsI8096::read(uint32_t addr) const {
     if (addr == CCB) {
         // Chip Configuration Register
-        // 16 Bit width, #WR/#BHE, #ADV, infinite READY, no ROM protection
-        return 0xF7;
+        // 16 Bit width, #WR/#BHE, ALE, infinite READY, no ROM protection
+        return 0xFF;
     }
     return _devs->isSelected(addr) ? _devs->read(addr) : read_byte(addr);
 }
