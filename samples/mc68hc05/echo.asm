@@ -2,12 +2,12 @@
 
 ;;; MC6850 Asynchronous Communication Interface Adapter
 ACIA:   equ     $FFE0
-ACIA_HC05:      equ     ACIA   ; for ../mc6805/cputype.inc
         include "../mc6800/mc6850.inc"
+;;; The MC68HC08's COP, a mask option. On the MC68HC05C0 $FFFF is the
+;;; reset vector's low byte, which reading and writing back leaves as is.
+COP_RESET:      equ     $FFFF
 
         org     $50             ; RAM on the MC68HC08 too
-cputype:
-        rmb     1
 save_a: rmb     1
 
         org     VEC_SWI
@@ -18,12 +18,11 @@ save_a: rmb     1
 
         org     $1000
 initialize:
-        include "../mc6805/cputype.inc"
         lda     #CDS_RESET_gc   ; Master reset
-        jsr     store_ACIA_control
+        sta     ACIA_control
         lda     #WSB_8N1_gc     ; 8 bits + No Parity + 1 Stop Bits
                                 ; Transmit, Receive interrupts disabled
-        jsr     store_ACIA_control
+        sta     ACIA_control
 
 loop:   bsr     getchar
         tsta
@@ -37,18 +36,22 @@ halt_to_system:
         swi                     ; halt to system
 
 getchar:
-        jsr     load_ACIA_status
+        lda     COP_RESET       ; service the MC68HC08's COP
+        sta     COP_RESET
+        lda     ACIA_status
         bit     #RDRF_bm
         beq     getchar
-        jsr     load_ACIA_data
+        lda     ACIA_data
         rts
 
 putchar:
         sta     save_a
 putchar_loop:
-        jsr     load_ACIA_status
+        lda     COP_RESET       ; service the MC68HC08's COP
+        sta     COP_RESET
+        lda     ACIA_status
         bit     #TDRE_bm
         beq     putchar_loop
         lda     save_a
-        jsr     store_ACIA_data
+        sta     ACIA_data
         rts

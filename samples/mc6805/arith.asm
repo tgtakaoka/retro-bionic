@@ -3,14 +3,10 @@
         option  pc-bits,16
 
 ;;; MC6850 Asynchronous Communication Interface Adapter
-ACIA_6805:      equ     $17F8
-ACIA_HC05:      equ     $FFE0
-ACIA:   equ     ACIA_6805
+ACIA:   equ     $17F8
         include "../mc6800/mc6850.inc"
 
         org     $50
-cputype:
-        rmb     1
 R0:
 R0H:    rmb     1
 R0L:    rmb     1
@@ -35,12 +31,11 @@ stack:  rmb     20
 
         org     $1000
 initialize:
-        include "cputype.inc"
         lda     #CDS_RESET_gc   ; Master reset
-        bsr     store_ACIA_control
+        sta     ACIA_control
         lda     #WSB_8N1_gc     ; 8 bits + No Parity + 1 Stop Bits
                                 ; Transmit, Receive interrupts disabled
-        bsr     store_ACIA_control
+        sta     ACIA_control
 
         clr     SP
         jsr     arith
@@ -59,12 +54,12 @@ newline:
 putchar:
         sta     putchar_a
 putchar_loop:
-        bsr     load_ACIA_status
+        lda     ACIA_status
         bit     #TDRE_bm
         beq     putchar_loop
 putchar_data:
         lda     putchar_a
-        bsr     store_ACIA_data
+        sta     ACIA_data
         rts
 putchar_a:
         rmb     1
@@ -411,8 +406,3 @@ arith:
         rts
 
         include "arith.inc"
-
-;;; MC68HC05 compatibility
-        org     $FFFC
-        fdb     $FFFC           ; SWI: halt to system
-        fdb     initialize      ; RESET

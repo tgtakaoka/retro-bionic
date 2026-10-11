@@ -1457,6 +1457,15 @@ ACIA service it themselves. `restore()` writes COPCTL (`$FFFF`) before
 every run, as a captured write that leaves the emulated reset vector alone,
 so each run starts a full COP period.
 
+`cputype.inc` is gone since: each binary has one ACIA address and runs as
+is on every chip that can run its code. The MC6805 samples keep the
+MC146805E2's 17F8, and `[devices]` in their HC05/HC08 regress file moves
+the ACIA there; only mandelbrot runs on those two, the MC68HC05 and
+MC68HC08 having their own echo and arith. Every sample that can run on
+the MC68HC08 writes COPCTL itself, unconditionally: on the MC68HC05C0
+FFFF is external, and the MC146805E2's 13-bit bus sees it as 1FFF, the
+reset vector's low byte, written back unchanged.
+
 The HC08's run loop follows each instruction's bus-cycle sequence from
 `mc68hc08-P*.txt` to find the next opcode fetch, where a halt injects its
 `SWI`. `scripts/record-cycles.py` with `tools/cycles_mc68hc08.py` recorded
