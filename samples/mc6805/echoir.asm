@@ -3,15 +3,11 @@
         option  pc-bits,16
 
 ;;; MC6850 Asynchronous Communication Interface Adapter
-ACIA_6805:      equ     $17F8
-ACIA_HC05:      equ     $FFE0
-ACIA:   equ     ACIA_6805
+ACIA:   equ     $17F8
         include "../mc6800/mc6850.inc"
 RX_INT_TX_NO:   equ     WSB_8N1_gc|RIEB_bm
 
         org     $50
-cputype:
-        rmb     1
 save_a: rmb     1
 
         org     $0080
@@ -30,22 +26,16 @@ rx_queue:
 
         org     $1000
 initialize:
-        include "cputype.inc"
         ldx     #rx_queue
         lda     #rx_queue_size
         jsr     queue_init
         ;; initialize ACIA
         lda     #CDS_RESET_gc   ; Master reset
-        bsr     store_ACIA_control
+        sta     ACIA_control
         lda     #RX_INT_TX_NO
-        bsr     store_ACIA_control
+        sta     ACIA_control
         cli                     ; Enable IRQ
 loop:
-        tst     cputype
-        beq     loop_6805           ; the 6805's $FFFF is its reset vector
-        lda     COP_RESET       ; service the MC68HC08's COP, a mask option
-        sta     COP_RESET
-loop_6805:
         ldx     #rx_queue
         sei                     ; Disable IRQ
         jsr     queue_remove
@@ -65,32 +55,26 @@ halt_to_system:
 putchar:
         sta     save_a
 putchar_loop:
-        bsr     load_ACIA_status
+        lda     ACIA_status
         bit     #TDRE_bm
         beq     putchar_loop
 putchar_data:
         lda     save_a
-        bsr     store_ACIA_data
+        sta     ACIA_data
         rts
 
         include "queue.inc"
 
 isr_irq:
-        jsr     load_ACIA_status
+        lda     ACIA_status
         bit     #IRQF_bm
         beq     isr_irq_return
 isr_irq_receive:
         bit     #RDRF_bm
         beq     isr_irq_recv_end
-        jsr     load_ACIA_data
+        lda     ACIA_data
         ldx     #rx_queue
         jsr     queue_add
 isr_irq_recv_end:
 isr_irq_return:
         rti
-
-;;; MC68HC05 compatibility
-        org     $FFFA
-        fdb     isr_irq         ; IRQ
-        fdb     $FFFC           ; SWI: halt to system
-        fdb     initialize      ; RESET
