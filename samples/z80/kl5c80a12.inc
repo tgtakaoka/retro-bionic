@@ -1,5 +1,5 @@
 ;;; -*- mode: asm; mode: flyspell-prog; -*-
-        include "../z80/z80.inc"
+;;; KL5C80A12 internal I/O
 ;;; MMU
 BBR1:   equ     00H
 BR1:    equ     01H

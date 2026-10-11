@@ -1,6 +1,7 @@
 ;;; -*- mode: asm; mode: flyspell-prog; -*-
         include "z80.inc"
         include "usart.inc"
+        include "kl5c80a12.inc"
 
         org     2000H
 rx_queue_size:  equ     128
@@ -11,20 +12,14 @@ tx_queue:       ds      tx_queue_size
         org     1000H
 stack:          equ     $
 
-vec_base:       equ     $
-        org     vec_base+12H
-vec_rx: dw      isr_intr_rx
-        org     vec_base+8AH
-vec_tx: dw      isr_intr_tx
-
         org     ORG_RESET
         jp      init
 
-        org     ORG_RST28
-        jp      isr_intr_rx
-
-        org     ORG_RST30
-        jp      isr_intr_tx
+        ;; Mode 2 vector for both the USART's Rx and Tx, and for the
+        ;; KL5C80A12's IR0
+        org     0080H
+vector:
+        dw      isr_intr
 
         org     0100H
 init:
@@ -36,9 +31,10 @@ init:
         ld      B, tx_queue_size
         call    queue_init
 init_usart:
-        ;; IN/OUT (C) put B, not A, on A8-A15: a Z280, which decodes
-        ;; 16-bit I/O addresses, finds the USART too.
-        ld      BC, USARTC
+        ;; IN/OUT (C) put B on A8-A15. Boards decoding 16-bit I/O
+        ;; addresses find the USART at 0140H, clear of on-chip I/O; the
+        ;; others decode A0-A7 alone and find it at 40H.
+        ld      BC, 0100H|USARTC
         xor     A               ; clear A
         out     (C), A
         out     (C), A
@@ -54,23 +50,22 @@ init_usart:
         ld      A, RX_EN_TX_DIS
         out     (C), A
 
-        db      3EH             ; LD A, n
-        rst     28H
+        ld      A, LOW vector
         ld      C, USARTRV
-        out     (C), A          ; set RxRDY interrupt vector RST 28H
-        db      3EH             ; LD A, n
-        rst     30H
+        out     (C), A          ; set RxRDY interrupt vector
         ld      C, USARTTV
-        out     (C), A          ; set TxRDY interrupt vector RST 30H
-        im      0
+        out     (C), A          ; set TxRDY interrupt vector
+        ld      A, HIGH vector
+        ld      I, A
 
-        ;; ld      A, HIGH vec_base
-        ;; ld      I, A
-        ;; ld      A, LOW vec_rx
-        ;; out     (USARTRV), A    ; set RxRDY interrupt vec_rx
-        ;; ld      A, LOW vec_tx
-        ;; out     (USARTTV), A    ; set TxRDY interrupt vec_tx
-        ;; im      2
+        ;; KL5C80A12 interrupt controller; IR0 is left level triggered
+        ;; as reset leaves it. OUT (n),A puts A on A8-A15, so a Z180
+        ;; doesn't take these for its on-chip I/O.
+        ld      A, LOW vector
+        out     (IVR), A        ; vector register
+        ld      A, ~1           ; disable mask for IR0
+        out     (IMRL), A
+        im      2
 
         ei
 
@@ -111,7 +106,7 @@ putchar_retry:
         jr      NC, putchar_retry ; branch if queue is full
         pop     HL
         push    BC
-        ld      BC, USARTC
+        ld      BC, 0100H|USARTC
         ld      a, RX_EN_TX_EN  ; enable Tx
         out     (C), A
         pop     BC
@@ -129,51 +124,41 @@ putspace:
         include "arith.inc"
         include "queue.inc"
 
-isr_intr_rx:
+isr_intr:
         push    AF
         push    BC
-        ld      BC, USARTS
+        ld      BC, 0100H|USARTS
         in      A, (C)
         bit     ST_RxRDY_bp, A
-        jr      Z, isr_intr_rx_exit
+        jr      Z, isr_intr_tx
+isr_intr_rx:
         ld      C, USARTD
         in      A, (C)          ; receive character
         push    HL
         ld      HL, rx_queue
         call    queue_add
         pop     HL
-isr_intr_rx_exit:
-        pop     BC
-        pop     AF
-        ei
-        reti
-
-isr_intr_tx:
-        push    AF
-        push    BC
-        ld      BC, USARTS
+        ld      C, USARTS
         in      A, (C)
+isr_intr_tx:
         bit     ST_TxRDY_bp, A
-        jr      Z, isr_intr_tx_exit
+        jr      Z, isr_intr_exit
         push    HL
         ld      HL, tx_queue
         call    queue_remove
         pop     HL
-        jr      NC,isr_intr_send_empty
+        jr      NC, isr_intr_send_empty
         ld      C, USARTD
         out     (C), A          ; send character
-isr_intr_tx_exit:
+isr_intr_exit:
         pop     BC
         pop     AF
         ei
         reti
 isr_intr_send_empty:
-        ld      a, RX_EN_TX_DIS
+        ld      A, RX_EN_TX_DIS
         ld      C, USARTC
         out     (C), A          ; disable Tx
-        pop     BC
-        pop     AF
-        ei
-        reti
+        jr      isr_intr_exit
 
         end
