@@ -20,7 +20,7 @@ namespace {
 // The fixtures: next to this file.
 const auto DIR = dirOf(__FILE__);
 // pins_i8096.h's control lines.
-constexpr uint8_t CNTL_ADV = 0x1;
+constexpr uint8_t CNTL_ALE = 0x1;
 constexpr uint8_t CNTL_RD = 0x2;
 constexpr uint8_t CNTL_WR = 0x4;
 constexpr uint8_t CNTL_START0 = 0x40;
@@ -31,16 +31,16 @@ namespace debugger {
 namespace i8096 {
 // As signals_i8096.cpp has them, which needs the board.
 bool SignalsI8096::fetch() const {
-    return (cntl() & CNTL_ADV) == 0 && (cntl() & (CNTL_START0 | CNTL_START1));
+    return (cntl() & CNTL_ALE) == 0 && (cntl() & (CNTL_START0 | CNTL_START1));
 }
 bool SignalsI8096::read() const {
-    return (cntl() & (CNTL_ADV | CNTL_RD)) == 0;
+    return (cntl() & (CNTL_ALE | CNTL_RD)) == 0;
 }
 bool SignalsI8096::inst() const {
     return false;
 }
 bool SignalsI8096::write() const {
-    return (cntl() & (CNTL_ADV | CNTL_WR)) == 0;
+    return (cntl() & (CNTL_ALE | CNTL_WR)) == 0;
 }
 // What the recording printed: a byte or a word a cycle, the bytes in
 // _signals[2]; none on an 8-bit bus, a byte a cycle.

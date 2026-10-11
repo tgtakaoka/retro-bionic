@@ -165,6 +165,32 @@ before the clock edge that latches it, and before a sample, for the
 signal to settle. A delay on the other side only stretches the cycle.
 (The TMS320C15 drew wrong pixels until it got them.)
 
+### `delayNanoseconds()` is not the phase it makes **[hw]**
+
+`delayNanoseconds(n)` works out its cycle count at run time from
+`F_CPU_ACTUAL` and spins on `ARM_DWT_CYCCNT`, and the pin writes around it
+take time to reach the pin, so a clock phase built from it runs 10–25 ns
+longer than `n`, and below about `n` = 20 it doesn't get any shorter. How
+much depends on the code around it: inside a tight loop the compiler hoists
+part of the arithmetic out. On the i8096 at 100 MS/s:
+
+| Phase | Measured |
+|---|---|
+| `hi(); lo();` with nothing between | 20 ns |
+| `hi(); delayNanoseconds(20); lo();` | 45 ns |
+| `hi(); delayNanoseconds(5); lo();` | 45 ns |
+| `lo(); delayNanoseconds(10); hi();` | 35 ns |
+| `lo(); delayNanoseconds(15); hi();` inside the ALE wait loop | 25 ns |
+| `hi(); delayNanoseconds(10);` plus one pin read, then `lo();` | 38 ns |
+
+- To meet a datasheet minimum, size `n` from a capture, not from the
+  minimum itself: asking for the minimum overshoots it, and every phase
+  overshot is time lost on each bus cycle.
+- Write the measured phase next to the constant (`= 5;  // 30 ns`), and
+  re-measure when the code around it changes.
+- Work done inside the phase (a pin read, a port read, a bus drive) counts
+  toward it, often enough to need no delay at all.
+
 ### A logic analyser on the bus can break the board **[hw]**
 
 Probe leads add enough capacitance to stop a marginal target working at all:

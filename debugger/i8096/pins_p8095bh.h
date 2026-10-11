@@ -1,10 +1,7 @@
 #ifndef __PINS_P8095BH_H__
 #define __PINS_P8095BH_H__
 
-#define PORT_CNTL 9 /* GPIO9 */
-#define CNTL_gp 4   /* P9.04-P9.07 */
 #define CNTL_gm 0xF /* P9.04-P9.07 */
-#define CNTL_vp 0   /* CNTL0-CNTL3 */
 #define PIN_PWM 5   /* P9.08 */
 #define PIN_ACH4 6  /* P7.10 */
 #define PIN_ACH5 9  /* P7.11 */

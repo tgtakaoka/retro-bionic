@@ -133,6 +133,19 @@ debugger for this run, most instructions take fewer cycles: 10% faster
 here. Its own code, with `MULD`, `DIVQ` and the 16-bit W register, runs
 nine times as fast.
 
+### MCS-96 family
+
+| | P8095BH | N8097BH |
+|---|---:|---:|
+| [i8096](../samples/i8096/mandelbrot.lst) | 3.5 | 3.4 |
+| Data bus | 16-bit, multiplexed | 16-bit, multiplexed |
+
+Both chips run on a 16-bit data bus, with ALE marking the address. A word
+moves in one bus cycle, and the code runs about 3% faster than on an
+8-bit bus, where the P8095BH took 3.6 s. Every read takes a whole word,
+so the USART's registers sit a word apart; otherwise a status read would
+also read the received data and lose it.
+
 ### MN1610 family
 
 | | MN1613 |

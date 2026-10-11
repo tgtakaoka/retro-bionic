@@ -9,7 +9,6 @@
 namespace debugger {
 namespace i8096 {
 struct SignalsI8096 : SignalsBase<SignalsI8096> {
-    bool getAddrValid() const;
     void getAddr();
     void getData();
     void outData() const;

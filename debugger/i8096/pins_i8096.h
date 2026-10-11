@@ -25,11 +25,17 @@
 #define PIN_AD13 39     /* P6.29 */
 #define PIN_AD14 26     /* P6.30 */
 #define PIN_AD15 27     /* P6.31 */
-#define PIN_ADV 2       /* P9.04 */
+#define PORT_CNTL 9     /* GPIO9 */
+#define CNTL_gp 4       /* P9.04- */
+#define CNTL_vp 0       /* CNTL0- */
+#ifndef CNTL_gm
+#define CNTL_gm 0xF     /* P9.04-P9.07; a board with INST widens it */
+#endif
+#define PIN_ALE 2       /* P9.04 */
 #define PIN_RD 3        /* P9.05 */
 #define PIN_WR 4        /* P9.06 */
 #define PIN_BHE 33      /* P9.07 */
-#define CNTL_ADV 0x1    /* CNTL0 */
+#define CNTL_ALE 0x1    /* CNTL0 */
 #define CNTL_RD 0x2     /* CNTL1 */
 #define CNTL_WR 0x4     /* CNTL2 */
 #define CNTL_BHE 0x8    /* CNTL3 */
@@ -118,6 +124,7 @@ private:
     bool rawStep(bool show);
     Signals *loop();
 
+    bool awaitControl(Signals *s) const;
     Signals *prepareCycle();
     Signals *completeCycle(Signals *s, bool low = false);
     Signals *noBusCycle(Signals *s);

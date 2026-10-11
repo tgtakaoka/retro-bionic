@@ -7,11 +7,6 @@
 namespace debugger {
 namespace i8096 {
 
-bool SignalsI8096::getAddrValid() const {
-    // #ADV is active low
-    return digitalReadFast(PIN_ADV) == LOW;
-}
-
 void SignalsI8096::getAddr() {
     addr = busRead(AD);
 }
@@ -47,11 +42,11 @@ uint8_t SignalsI8096::byteAt(uint16_t a) const {
 }
 
 bool SignalsI8096::fetch() const {
-    return (cntl() & CNTL_ADV) == 0 && (cntl() & (CNTL_START0 | CNTL_START1));
+    return (cntl() & CNTL_ALE) == 0 && (cntl() & (CNTL_START0 | CNTL_START1));
 }
 
 bool SignalsI8096::read() const {
-    return (cntl() & (CNTL_ADV | CNTL_RD)) == 0;
+    return (cntl() & (CNTL_ALE | CNTL_RD)) == 0;
 }
 
 bool SignalsI8096::inst() const {
@@ -59,7 +54,7 @@ bool SignalsI8096::inst() const {
 }
 
 bool SignalsI8096::write() const {
-    return (cntl() & (CNTL_ADV | CNTL_WR)) == 0;
+    return (cntl() & (CNTL_ALE | CNTL_WR)) == 0;
 }
 
 void SignalsI8096::clearMark() {

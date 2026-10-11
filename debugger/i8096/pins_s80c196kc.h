@@ -1,10 +1,7 @@
 #ifndef __PINS_S80C196KC_H__
 #define __PINS_S80C196KC_H__
 
-#define PORT_CNTL 9  /* GPIO9 */
-#define CNTL_gp 4    /* P9.04-P9.08 */
 #define CNTL_gm 0x1F /* P9.04-P9.08 */
-#define CNTL_vp 0    /* CNTL0-CNTL4 */
 #define PIN_INST 5   /* P9.08 */
 #define PIN_NMI 6    /* P7.10 */
 #define PIN_HOLD 9   /* P7.11 */
