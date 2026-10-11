@@ -89,6 +89,9 @@ def address(text):
 # need not match <dir> (a P8051 runs samples/i8051), so it is only the
 # fallback for a file kept elsewhere.
 SAMPLES_DIR = None
+# Samples the regress file borrows from another directory through a
+# table's `path` -- set once in main().
+EXTRA_SAMPLES = []
 
 
 def samples_dir_of(regress):
@@ -101,10 +104,11 @@ def samples_dir_of(regress):
 
 def samples(target):
     d = SAMPLES_DIR or os.path.join(PROJ, 'samples', target.lower())
-    if not os.path.isdir(d):
-        return []
-    return sorted(os.path.join(d, f) for f in os.listdir(d)
-                  if f.endswith(('.hex', '.s19', '.s28', '.s37')))
+    own = []
+    if os.path.isdir(d):
+        own = [os.path.join(d, f) for f in os.listdir(d)
+               if f.endswith(('.hex', '.s19', '.s28', '.s37'))]
+    return sorted(own + EXTRA_SAMPLES)
 
 
 def label_address(lst_path, label):
@@ -372,6 +376,10 @@ def drive_table(regress=None):
 
     `chips = [...]` runs a sample only on those chips, e.g. one using an
     instruction the others of the file lack; on the rest it is skipped.
+
+    `path = "samples/z80/mandelbrot.hex"` runs a sample kept in another
+    samples directory, relative to the project; its basename must be the
+    table's name.
 
     The top-level `chips` list, which chips_of() reads, is not a sample.
     """
@@ -883,6 +891,14 @@ def main():
     PROGRAM_COUNTER = drive_table(regress).get('reset', {}).get('program_counter')
     RADIX = drive_table(regress).get('reset', {}).get('radix', 16)
     SAMPLES_DIR = samples_dir_of(regress)
+    for name, how in drive_table(regress).items():
+        if 'path' in how:
+            path = os.path.join(PROJ, how['path'])
+            if os.path.basename(path).rsplit('.', 1)[0] != name:
+                sys.exit('%s: [%s] path %s is not named %s' % (regress, name, how['path'], name))
+            if not os.path.isfile(path):
+                sys.exit('%s: [%s] path %s not found' % (regress, name, how['path']))
+            EXTRA_SAMPLES.append(path)
     chips = chips_of(regress)
     with bc.Board.open() as board:
         print('target %s' % board.who)
