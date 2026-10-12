@@ -129,8 +129,31 @@ protected:
     // low until the next run.
     virtual void restoreExtint() {}
 
+    // The bus cycle's clocking, the P8095BH's unless a CPU clocks its
+    // own. startCycle() runs from where completeCycle() left the CPU to
+    // #RD or #WR active, the address and the control lines in |s|.
+    virtual Signals *startCycle(Signals *s);
+    // Serves the cycle |s| and clocks up to the next startCycle(); |low|
+    // drives a read's data on AD0-AD7 only.
+    virtual Signals *completeCycle(Signals *s, bool low = false);
+
+    // Serves the reset's CCB read |ccb|; returns the first fetch.
+    Signals *startAfterReset(Signals *ccb);
+    // A full prefetch queue idles the bus for at most an instruction, even
+    // a DIVL's ~40 state times; a CPU missing or held in reset never
+    // answers.
+    static constexpr auto no_bus_cycles = 10000;
+    Signals *noBusCycle(Signals *s);
+    // Whether the cycle is an injected one that Cycles doesn't record.
+    bool idling() const { return _idle; }
+    uint16_t readBus(const Signals *s) const;
+    void writeBus(const Signals *s) const;
+
 private:
-    const CpuType _cpu;
+    // The board's CPU, and the one in its socket: an S80C196KB on the
+    // S80C196KC board.
+    const CpuType _board;
+    CpuType _cpu;
     bool _idle = false;
     // The CPU waits in the read of |_park|, a copy of its cycle kept.
     bool _held = false;
@@ -155,13 +178,10 @@ private:
     bool haltCycle(Signals *s);
     bool saveHalt();
 
+    CpuType probeCpu();
     bool awaitControl(Signals *s) const;
     Signals *prepareCycle();
-    Signals *completeCycle(Signals *s, bool low = false);
-    Signals *noBusCycle(Signals *s);
     void hold(const Signals *s, uint16_t park);
-    uint16_t readBus(const Signals *s) const;
-    void writeBus(const Signals *s) const;
     uint16_t execute(uint16_t org, const uint8_t *inst, uint_fast8_t len,
             uint8_t *buf, uint_fast8_t max, uint32_t exit, bool idle,
             uint16_t at = 0, const uint8_t *data = nullptr,

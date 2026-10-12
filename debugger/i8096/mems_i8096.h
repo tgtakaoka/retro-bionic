@@ -12,6 +12,7 @@ struct RegsI8096;
 
 struct MemsI8096 : DmaMemory {
     MemsI8096(Devs *devs, RegsI8096 *regs, CpuType cpu);
+    void setCpu(CpuType cpu);
 
     uint32_t maxAddr() const override { return UINT16_MAX; }
 
@@ -29,7 +30,7 @@ private:
     Devs *const _devs;
     RegsI8096 *const _regs;
     // The register file ends here: data below it is the CPU's.
-    const uint16_t _regsEnd;
+    uint16_t _regsEnd;
 };
 
 // The bytes as the CPU reads them, the CCB and the devices included.
