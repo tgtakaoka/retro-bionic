@@ -80,7 +80,9 @@ namespace debugger {
 namespace z180 {
 
 struct PinsZ180 final : z80::PinsZ80Base {
-    PinsZ180();
+    // |config|: what resetPins() runs to set the waits and refresh, a
+    // loop of |len| bytes; the Z180's DCNTL and RCR when null.
+    explicit PinsZ180(const uint8_t *config = nullptr, uint_fast8_t len = 0);
 
     void resetPins() override;
     void idle() override;
@@ -106,6 +108,10 @@ protected:
     const SignalsImpl *findBacktraceStart() override;
     void printBacktrace() override;
     void configureCpu();
+
+private:
+    const uint8_t *const _config;
+    const uint_fast8_t _configLen;
 };
 
 }  // namespace z180

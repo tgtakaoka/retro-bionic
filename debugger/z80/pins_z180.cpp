@@ -139,9 +139,20 @@ inline void extal_cycle() {
     delayNanoseconds(extal_lo_ns);
 }
 
+// Set 0-wait for memory and 1-wait for I/O (DCNTL)
+// Disable DRAM refresh (RCR)
+constexpr uint8_t Z180_CONFIG[] = {
+        0xAF,              // XOR A
+        0xED, 0x39, 0x32,  // OUT0 (DCNTL), A
+        0xED, 0x39, 0x36,  // OUT0 (RCR), A
+        0x18, 0xF7         // JR $-7
+};
 }  // namespace
 
-PinsZ180::PinsZ180() : PinsZ80Base() {
+PinsZ180::PinsZ180(const uint8_t *config, uint_fast8_t len)
+    : PinsZ80Base(),
+      _config(config ? config : Z180_CONFIG),
+      _configLen(config ? len : sizeof(Z180_CONFIG)) {
     _devs = new DevsZ80(USART_Z180);
     _regs = new RegsZ180(this);
     _mems = new MemsZ80();
@@ -167,15 +178,7 @@ void PinsZ180::resetPins() {
 }
 
 void PinsZ180::configureCpu() {
-    // Set 0-wait for memory and 1-wait for I/O (DCNTL)
-    // Disable DRAM refresh (RCR)
-    static constexpr uint8_t CONFIG[] = {
-            0xAF,              // XOR A
-            0xED, 0x39, 0x32,  // OUT0 (DCNTL), A
-            0xED, 0x39, 0x36,  // OUT0 (RCR), A
-            0x18, 0xF7         // JR $-7
-    };
-    execInst(CONFIG, sizeof(CONFIG));
+    execInst(_config, _configLen);
 }
 
 Signals *PinsZ180::prepareCycle() const {
