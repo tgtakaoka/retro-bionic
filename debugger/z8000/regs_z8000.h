@@ -20,15 +20,14 @@ struct RegsZ8000 final : Regs {
 
     uint32_t nextIp() const override { return _pc; }
     void setIp(uint32_t addr) override { park(addr, addr); }
-    // Parked at the program's own fetch of |pc|, at |addr| on the bus.
-    // Addresses are seg<<16|off on the Z8001.
+    // Parked in the program's fetch of |pc|, |addr| on the bus.
     void park(uint32_t pc, uint32_t addr) {
         _pc = pc;
         _parkedAt = addr;
         _frame = false;
     }
-    // Parked after a trap the debugger took: the program's PC and FCW are
-    // in the frame on the system stack, and the CPU fetches at |addr|.
+    // Parked after a debugger trap; the program's PC and FCW are in its
+    // frame.
     void parkInTrap(uint32_t pc, uint16_t fcw, uint32_t addr) {
         _pc = pc;
         _fcw = fcw;
@@ -37,9 +36,7 @@ struct RegsZ8000 final : Regs {
     }
     void setFcw(uint16_t fcw) { _fcw = fcw; }
     uint16_t fcw() const { return _fcw; }
-    // A nonsegmented program can't set NSPSEG or PSAPSEG, nor the system
-    // stack's segment, R14 in segmented mode (its own R14 is NSPSEG):
-    // segment 0, as the system would set them up for it.
+    // Segment 0 for what a nonsegmented program can't set.
     void clearSegments() {
         _nsp &= UINT16_MAX;
         _nspseg = 0;
@@ -57,25 +54,20 @@ private:
     void saveSegmented(uint8_t *buffer, uint32_t &org);
     void restoreSegmented();
 
-    // In system mode R15 is the system stack pointer, RR14 on the Z8001;
-    // the normal one is a control register.
-    uint16_t _r[16];
+    uint16_t _r[16];  // R15 (RR14 on the Z8001) is the system stack
     uint32_t _pc;
     uint16_t _fcw;
     uint32_t _nsp;
-    // NSPSEG whole: a nonsegmented Z8001 program's R14, which it may use
-    // for anything, while the system stack's segment is out of its reach.
-    uint16_t _nspseg = 0;
-    // The program's view: in normal mode R15 (RR14 on the Z8001) is NSP,
-    // and the first line shows the system stack in its place.
+    uint16_t _nspseg = 0;  // a nonsegmented Z8001 program's R14
+    // In normal mode the program's R15 (RR14 on the Z8001) is NSP.
     bool normalMode() const;
     bool programR14() const;
     uint32_t ssp() const;
     void setR14(uint16_t v);
     void setR15(uint16_t v);
     uint32_t _psap;
-    uint32_t _parkedAt;  // the fetch the CPU is parked in, as the bus showed it
-    bool _frame = false;  // a trap's frame lies below R15
+    uint32_t _parkedAt;
+    bool _frame = false;  // a trap frame lies below R15
 
     mutable CharBuffer _buffer1;
     mutable CharBuffer _buffer2;

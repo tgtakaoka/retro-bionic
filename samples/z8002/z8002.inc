@@ -20,5 +20,5 @@ FCW_EPA:        equ     2000H   ; extended processor architecture
 FCW_VIE:        equ     1000H   ; vectored interrupt enable
 FCW_NVIE:       equ     0800H   ; non-vectored interrupt enable
 
-;;; SC #SC_EXIT hands control back to the debugger.
-SC_EXIT:        equ     0FEH
+;;; SC #SC_EXIT hands control back to the debugger, as a breakpoint does.
+SC_EXIT:        equ     0FFH

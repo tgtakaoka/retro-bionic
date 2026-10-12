@@ -48,39 +48,33 @@ using z80::DevsZ80;
 
 namespace {
 
-// Measured at the CPU, #AS, #DS, #MREQ and the status move within 10ns of
-// the CLOCK edge. A half period lasts as long as its work; one with none
-// gets these: delayNanoseconds() stretches them, to about 40ns low and
-// 50ns high as measured, over the 10 MHz parts' 40ns.
+// A half period with no work gets these; measured about 40ns low and 50ns
+// high, over the 10 MHz parts' 40ns minimum.
 constexpr auto clock_hi_ns = 30;
 constexpr auto clock_lo_ns = 20;
-// After a clock edge, for the strobes it moves to settle: on CMOS parts
-// within 10ns; on NMOS ones #AS falls 22ns after a rising edge, #DS falls
-// 32ns after one and rises 30ns after a falling edge, as measured. 20ns
-// is the least the NMOS Z8001 runs with; 15ns misses #AS.
+// Strobe settle after a clock edge: CMOS parts move within 10ns, NMOS
+// ones up to 32ns (measured). The NMOS Z8001 needs 20ns; 15ns misses #AS.
 constexpr auto strobe_delay_ns = 20;
 // Periods without #AS before the CPU counts as halted.
 constexpr auto no_as_periods = 2048;
-// Refresh and internal-operation cycles skipped in a row before the CPU
-// counts as halted, which may be how it shows a HALT.
+// Refresh/internal cycles in a row before the CPU counts as halted.
 constexpr auto no_data_cycles = 256;
 // Half periods a strobe may take to come.
 constexpr auto strobe_halves = 256;
-// Bus cycles between polls of the halt switch while running.
+// Bus cycles between halt switch polls while running.
 constexpr auto halt_poll_cycles = 16;
-// Bus transactions allowed for an acknowledge and its frame.
+// Bus cycles allowed for an acknowledge and its frame.
 constexpr auto nmi_cycles = 256;
-// Where a trap the debugger takes parks the CPU: the PC it serves for
-// the handler. Nothing runs from there; injection answers its fetches.
+// The handler PC the debugger serves for its traps; injection answers
+// the fetches there.
 constexpr uint16_t PARK_PC = 0x0000;
 
-// A segment word -- the PC's, NSPSEG or PSAPSEG, segment number in bits
-// 14-8 -- as the high part of a seg<<16|off address.
+// A segment word (segment number in bits 14-8) as seg<<16.
 constexpr uint32_t segmentOf(uint16_t word) {
     return uint32_t((word >> 8) & 0x7F) << 16;
 }
 
-// ASEL rests on SN; only the Z8001 board connects it, SN4-SN6 and #SEGT.
+// ASEL rests on SN. Only the Z8001 board connects ASEL, SN4-SN6 and #SEGT.
 const uint8_t PINS_LOW[] = {
         PIN_CLOCK,
         PIN_RESET,
@@ -128,8 +122,7 @@ const uint8_t PINS_INPUT[] = {
         PIN_AD15,
 };
 
-// CLOCK is low between bus cycles: after T3, after T1 when a cycle is
-// parked, after a parked period, and after reset.
+// CLOCK is low between bus cycles and while a cycle is parked.
 inline void clock_hi() {
     digitalWriteFast(PIN_CLOCK, HIGH);
 }
@@ -176,18 +169,18 @@ void negate_nmi() {
     digitalWriteFast(PIN_NMI, HIGH);
 }
 
-inline auto signal_as() {
-    return digitalReadFast(PIN_AS);
+// digitalReadFast() may return the port bit, not 1: compare with LOW.
+inline bool as_asserted() {
+    return digitalReadFast(PIN_AS) == LOW;
 }
 
-inline auto signal_ds() {
-    return digitalReadFast(PIN_DS);
+inline bool ds_asserted() {
+    return digitalReadFast(PIN_DS) == LOW;
 }
 
 }  // namespace
 
 PinsZ8000::PinsZ8000(bool segmented) : _segmented(segmented) {
-    Signals::segmented = segmented;
     _devs = new DevsZ80(USART_BASE);
     const auto mems = new MemsZ8000(segmented);
     const auto regs = new RegsZ8000(this);
@@ -196,11 +189,10 @@ PinsZ8000::PinsZ8000(bool segmented) : _segmented(segmented) {
     _regs = regs;
 }
 
-// After reset the CPU reads the FCW at 0002 and the PC at 0004 in system
-// mode, then fetches there (Section 7.4); the Z8001 reads the PC's segment
-// at 0004 and its offset at 0006. The FCW is served as the debugger's,
-// system mode with interrupts off, segmented on the Z8001, so the parked
-// CPU may run privileged sequences; the program's is the one in memory.
+// Reset reads the FCW at 0002 and the PC at 0004 (Section 7.4); the
+// Z8001 reads the PC's segment at 0004 and offset at 0006. The debugger
+// serves its own FCW (system mode, interrupts off) so it can inject
+// privileged sequences; the program's FCW stays in memory.
 void PinsZ8000::resetPins() {
     pinsMode(PINS_LOW, sizeof(PINS_LOW), OUTPUT, LOW);
     pinsMode(PINS_HIGH, sizeof(PINS_HIGH), OUTPUT, HIGH);
@@ -214,8 +206,7 @@ void PinsZ8000::resetPins() {
     negate_reset();
 
     // The next read, which must be of |addr|; null and reported if not.
-    // The reads are in segment 0, but the Z8001 leaves SN0-SN6 undriven
-    // for them: the lines keep whatever they last carried.
+    // The Z8001 leaves SN0-SN6 undriven here, so the segment is dropped.
     const auto readAt = [this](uint16_t addr, const char *what) -> Signals * {
         auto s = prepareCycle();
         if (s)
@@ -269,39 +260,36 @@ void PinsZ8000::resetPins() {
 }
 
 void PinsZ8000::idle() {
-    // The CPU is parked in #WAIT; this only keeps the clock alive. The
-    // caller's own work makes the low half.
+    // Keeps the clock alive while parked in #WAIT; the caller's work makes
+    // the low half.
     clock_cycle_lo();
 }
 
-// Up to the #AS rise of the next cycle that moves data, sampling the
-// address just before it and the status just after. Refresh and internal
-// operation are clocked through unrecorded. Null where the CPU has
-// stopped strobing, as it does halted.
+// Clocks to the next cycle that moves data, reading the address before
+// #AS rises and the status after. Refresh and internal cycles are skipped.
+// Null when the CPU stops strobing, as when halted.
 Signals *PinsZ8000::prepareCycle() {
     _resumed = false;
     for (auto skipped = 0; skipped < no_data_cycles; ++skipped) {
         auto s = Signals::put();
         s->clearMark();  // Cycles::next() keeps the slot's old mark
-        // #AS falls just after a rising edge, the first one after a cycle
-        // while running; only a CPU that doesn't strobe gets counted.
+        // #AS falls just after a rising edge.
         for (auto guard = no_as_periods;;) {
             clock_hi();
             delayNanoseconds(strobe_delay_ns);
-            if (signal_as() == LOW)
+            if (as_asserted())
                 break;
             if (guard-- == 0)
                 return nullptr;
             clock_lo();
             delayNanoseconds(clock_lo_ns);
         }
-        // The address is on AD while #AS is low. The falling edge raises
-        // #AS, by when the status is valid; reading the port takes longer
-        // than the CPU does.
+        // The address is on AD while #AS is low; the falling edge raises #AS
+        // with the status valid.
         if (_segmented) {
             s->getSegAddr();
             clock_lo();  // T1 falling
-            s->getControl();
+            s->getSegControl();
             // I/O addresses have no segment.
             if (!s->memReq())
                 s->addr &= UINT16_MAX;
@@ -316,53 +304,33 @@ Signals *PinsZ8000::prepareCycle() {
     return nullptr;
 }
 
-// Let the parked CPU go; AD no longer carries the address, so the caller
-// gives the one captured when it parked.
+// Releases the parked CPU; AD no longer has the address, so the caller
+// passes the one captured when it parked.
 Signals *PinsZ8000::resumeCycle(uint32_t addr) {
     auto s = Signals::put();
     s->addr = addr;
-    s->getControl();
+    if (_segmented) {
+        s->getSegControl();
+    } else {
+        s->getControl();
+    }
     _resumed = true;
     negate_wait();
     return s;
 }
 
 Signals *PinsZ8000::completeCycle(Signals *s) {
-    // No data moves: prepareCycle() skips these, but a sequence cut short
-    // may leave one parked.
+    // prepareCycle() skips these, but a sequence cut short may park one.
     if (s->noData())
         return s;
-    // A read's data is looked up while the clock runs on to #DS, and
-    // driven once #DS falls, when the CPU has let go of AD.
-    if (s->read()) {
-        if (s->memReq()) {
-            if (s->readMemory()) {
-                if (s->wordAccess()) {
-                    s->data = _mems->read16(s->addr & ~1);
-                } else {
-                    // Both halves: the CPU takes the one A0 picks.
-                    const uint16_t v = _mems->read_byte(s->addr);
-                    s->data = v | (v << 8);
-                }
-            }
-        } else if (s->ack()) {
-            // An identifier: a device's vector, or nothing for #NMI.
-            s->data = s->intAck() ? _devs->vector() : 0;
-        } else if (s->ioReq() && _devs->isSelected(s->addr) &&
-                   s->readMemory()) {
-            const uint16_t v = _devs->read(s->addr);
-            s->data = s->wordAccess() ? v : (v | (v << 8));
-        }
-    }
-
     if (!_resumed && s->memReq()) {
-        // A memory cycle, counted from the edge #AS fell on, as measured on
-        // the board: a read's #DS falls on the T2 rising edge and a write's
-        // on the T2 falling edge; both rise on the T3 falling edge, where
-        // the CPU takes read data. The port accesses take longer than the
-        // CPU's 10ns.
+        // A memory cycle, counted from #AS (measured): #DS falls on T2's
+        // rising edge for a read, its falling edge for a write, and rises
+        // on T3's falling edge, where the CPU takes read data.
         clock_hi();  // T2 rising
         if (s->read()) {
+            // The lookup fills T2's high phase.
+            retrieveData(s);
             s->outData();
         } else {
             delayNanoseconds(clock_hi_ns);
@@ -383,14 +351,18 @@ Signals *PinsZ8000::completeCycle(Signals *s) {
         return s;
     }
 
-    // #DS may have fallen already, coming back out of a #WAIT stretch:
-    // watch for it rather than count to it. The clock is low here; each
-    // half before a look at #DS gives it the strobes' settle.
+    // Other reads look their data up before #DS and drive it once #DS
+    // falls.
+    if (s->read())
+        retrieveData(s);
+
+    // Coming out of #WAIT, #DS may have fallen already: watch for it rather
+    // than count to it.
     auto high = false;
-    for (auto guard = strobe_halves; guard && signal_ds() != LOW; --guard) {
+    for (auto guard = strobe_halves; guard && !ds_asserted(); --guard) {
         clock_hi();
         delayNanoseconds(strobe_delay_ns);
-        if (signal_ds() == LOW) {
+        if (ds_asserted()) {
             high = true;
             break;
         }
@@ -405,15 +377,14 @@ Signals *PinsZ8000::completeCycle(Signals *s) {
         storeData(s);
     }
 
-    // Hold until #DS rises, just after a falling edge: a read drives AD
-    // until then. Compared against LOW, never HIGH.
+    // A read drives AD until #DS rises, just after a falling edge.
     if (!high) {
         clock_hi();
         delayNanoseconds(clock_hi_ns);
     }
     clock_lo();
     delayNanoseconds(strobe_delay_ns);
-    for (auto guard = strobe_halves; guard && signal_ds() == LOW; --guard) {
+    for (auto guard = strobe_halves; guard && ds_asserted(); --guard) {
         clock_hi();
         delayNanoseconds(clock_hi_ns);
         clock_lo();
@@ -421,8 +392,7 @@ Signals *PinsZ8000::completeCycle(Signals *s) {
     }
     s->inputMode();
 
-    // The fetch an acknowledge follows was nullified: the instruction is
-    // fetched again after the interrupt.
+    // An acknowledge nullifies the fetch before it; it is fetched again.
     if (s->ack()) {
         const auto held = Signals::get()->diff(s);
         for (uint_fast8_t i = 1; i <= 4 && i <= held; ++i) {
@@ -435,6 +405,27 @@ Signals *PinsZ8000::completeCycle(Signals *s) {
     }
     Cycles::next();
     return s;
+}
+
+// A read's data from memory, a device, or an acknowledge's identifier.
+void PinsZ8000::retrieveData(Signals *s) {
+    if (s->memReq()) {
+        if (s->readMemory()) {
+            if (s->wordAccess()) {
+                s->data = _mems->read16(s->addr & ~1);
+            } else {
+                // Both halves: the CPU takes the one A0 picks.
+                const uint16_t v = _mems->read_byte(s->addr);
+                s->data = v | (v << 8);
+            }
+        }
+    } else if (s->ack()) {
+        // A device's vector, or nothing for #NMI.
+        s->data = s->intAck() ? _devs->vector() : 0;
+    } else if (s->ioReq() && _devs->isSelected(s->addr) && s->readMemory()) {
+        const uint16_t v = _devs->read(s->addr);
+        s->data = s->wordAccess() ? v : (v | (v << 8));
+    }
 }
 
 // A write's data to memory or a device.
@@ -459,10 +450,9 @@ void PinsZ8000::execute(const uint8_t *inst, uint_fast8_t len, uint8_t *buf,
         uint_fast8_t max, uint32_t &org, uint32_t exit) {
     const uint32_t leaves = exit == EXIT_END ? org + len : exit;
     uint_fast8_t cap = 0;
-    // The exit counts once the window's last word was read: the CPU
-    // fetches ahead, and an exit inside the window is read on the way --
-    // as restore() returning to the PC it is parked at, its window's
-    // first word.
+    // The exit counts only once the window's last word was read: the CPU
+    // fetches ahead, and an exit inside the window (restore() returning
+    // to its own start) is read on the way.
     bool whole = false;
     auto s = resumeCycle(org);
     // Bound the damage: a wrong dump beats a hung debugger.
@@ -517,11 +507,10 @@ void PinsZ8000::captureWrites(const uint8_t *inst, uint_fast8_t len,
     execute(inst, len, buf, max, org, exit);
 }
 
-// A trap has just pushed its frame, |push| its first word: serve the
-// handler's FCW and PC from the Program Status Area as the debugger's,
-// and park on the fetch there. The ring drops everything from |from|.
-// The Z8001 pushes the PC's offset, its segment, the FCW and the
-// identifier, and reads the FCW, the segment and the offset (Figure 7-1).
+// A trap pushed its frame, |push| its first word: serve the debugger's
+// FCW and PC for the handler and park on its fetch, dropping the ring
+// from |from|. The Z8001 pushes the PC offset, segment, FCW and
+// identifier, and reads the FCW, segment and offset (Figure 7-1).
 bool PinsZ8000::parkAfterFrame(Signals *push, Signals *from) {
     uint32_t pc = push->data;
     uint16_t fcw = push->next()->data;
@@ -549,12 +538,12 @@ bool PinsZ8000::parkAfterFrame(Signals *push, Signals *from) {
     return true;
 }
 
-// |id| was just written: whether it ends the frame of an SC the debugger
-// takes, a breakpoint or the samples' exit, then parked after it.
+// Whether |id| ends the frame of an SC #0FFH, a breakpoint or a program's
+// exit; parks after it if so.
 bool PinsZ8000::scBreak(Signals *id) {
     if (!(id->memReq() && id->write()))
         return false;
-    if (id->data != InstZ8000::SC_BREAK && id->data != InstZ8000::SC_EXIT)
+    if (id->data != InstZ8000::SC_BREAK)
         return false;
     // The pushes go down: the PC (the Z8001's offset, then its segment),
     // the FCW, then the SC word itself.
@@ -569,12 +558,8 @@ bool PinsZ8000::scBreak(Signals *id) {
     uint32_t pc = push->data;
     if (_segmented)
         pc |= segmentOf(id->prev(2)->data);
-    // The SC's address: the PC pushed is the next instruction's, within
-    // its segment.
+    // The pushed PC is the next instruction's, in the same segment.
     const uint32_t sc = (pc & ~uint32_t(UINT16_MAX)) | uint16_t(pc - 2);
-    // A program may use SC #0FFH itself.
-    if (id->data == InstZ8000::SC_BREAK && !isBreakPoint(sc))
-        return false;
     // The CPU fetched the next word ahead before trapping; nothing ran it.
     const auto held = Signals::get()->diff(push);
     for (uint_fast8_t i = 1; i <= 4 && i <= held; ++i) {
@@ -586,16 +571,15 @@ bool PinsZ8000::scBreak(Signals *id) {
     }
     if (!parkAfterFrame(push, push))
         return false;
-    // Report the SC; continuing runs it again, as the Z80's RST 38H.
+    // Continuing runs the SC again, as the Z80's RST 38H.
     auto regs = this->regs<RegsZ8000>();
     regs->parkInTrap(sc, fcw->data, regs->parkedAt());
     return true;
 }
 
-// Take #NMI on |s|, a cycle prepared but not completed: the instruction
-// in progress runs, then the acknowledge, the frame and the debugger's
-// handler. Null |s| is a CPU in HALT, which #NMI wakes; its frame holds
-// the PC after the HALT.
+// Takes #NMI on |s|, a prepared cycle: the current instruction finishes,
+// then the acknowledge and frame. Null |s| is a CPU in HALT; its frame
+// holds the PC after the HALT.
 bool PinsZ8000::suspend(Signals *s) {
     assert_nmi();
     if (s)
@@ -654,8 +638,8 @@ bool PinsZ8000::step(bool show) {
     return false;
 }
 
-// Free-run until an SC the debugger takes, a halt, or the halt switch.
-// Returns whether the CPU stopped where its registers can be saved.
+// Runs until an SC the debugger takes, a halt or the halt switch. Returns
+// whether the registers can be saved.
 bool PinsZ8000::loop() {
     auto s = resumeCycle(this->regs<RegsZ8000>()->parkedAt());
     for (uint_fast8_t n = 0;; ++n) {
@@ -665,11 +649,10 @@ bool PinsZ8000::loop() {
         _devs->loop();
         s = prepareCycle();
         if (s == nullptr) {
-            // Halted, as by a HALT: take #NMI to stop where the registers
-            // can be saved.
+            // Halted: take #NMI so the registers can be saved.
             return suspend(nullptr);
         }
-        // It polls USB and stretches the clock: not every cycle.
+        // Not every cycle: it polls USB and stretches the clock.
         if ((n % halt_poll_cycles) == 0 && haltSwitch())
             return suspend(s);
     }
@@ -694,8 +677,8 @@ void PinsZ8000::setBreakInst(uint32_t addr) const {
     _mems->put_prog(addr, InstZ8000::SC_BREAK);
 }
 
-// The program's FCW picks which of the two it takes; one that enables
-// both takes two acknowledges for each interrupt.
+// The program's FCW picks which it takes; enabling both takes two
+// acknowledges per interrupt.
 void PinsZ8000::assertInt(uint8_t) {
     digitalWriteFast(PIN_VI, LOW);
     digitalWriteFast(PIN_NVI, LOW);

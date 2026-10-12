@@ -6,9 +6,8 @@
 namespace debugger {
 namespace z8000 {
 
-// A byte memory, big-endian: a word's even byte is its high one, on
-// AD8-AD15. Program words are read and written whole. The Z8001's
-// addresses are seg<<16|off, 128 segments of 64KB.
+// Big-endian; the even byte rides AD8-AD15. Z8001 addresses are
+// seg<<16|off.
 struct RegsZ8000;
 
 struct MemsZ8000 : ExtMemory {

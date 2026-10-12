@@ -34,5 +34,5 @@ STACK:          equ     03001000H ; RR14: segment 3, offset 1000H
 USTACK_SEG:     equ     0400H
 USTACK_OFF:     equ     1000H
 
-;;; SC #SC_EXIT hands control back to the debugger.
-SC_EXIT:        equ     0FEH
+;;; SC #SC_EXIT hands control back to the debugger, as a breakpoint does.
+SC_EXIT:        equ     0FFH
