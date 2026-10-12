@@ -64,8 +64,9 @@ libasm::Assembler *MemsMc6805::assembler() const {
 #ifdef WITH_DISASSEMBLER
 libasm::Disassembler *MemsMc6805::disassembler() const {
     auto dis = Mems::disassembler();
-    char buf[8];
-    dis->setOption("pc-bits", itoa(_pc_bits, buf, 10));
+    // A 13-bit bus drops the upper bits of an operand, so code shared with
+    // the 16-bit chips, e.g. the MC68HC08's COPCTL at FFFF, still runs.
+    dis->setOption("pc-bits", "16");
     return dis;
 }
 #endif
