@@ -2190,9 +2190,11 @@ constexpr uint8_t PAGEFDCB_TABLE[] = {
 
 // Sequences: debugger/match_legend.md. An interrupt, NMI or trap, where
 // the queue may have fetched ahead: an acknowledge but for the NMI's and a
-// trap's, then the PC pushed and the vector fetched in either order.
-constexpr const char INTERRUPT[] = "~![Ww?]@~[Ww?]";
-constexpr const char INTERRUPT_XM[] = "~![Wwww?]@~[Wwww?]";
+// trap's, then the PC pushed and the vector fetched in either order. Modes
+// 2 and 3 also read the handler's address from the table, a word, or a
+// long word in Extended mode.
+constexpr const char INTERRUPT[] = "~![Ww?]@~[Ww?]@~![WwRrP]";
+constexpr const char INTERRUPT_XM[] = "~![Wwww?]@~[Wwww?]@~![WwwwRrrrP]";
 
 // The |n|th of |seq|'s variants: [from, to), empty where it has none.
 void variant(const char *seq, int n, const char *&from, const char *&to) {
