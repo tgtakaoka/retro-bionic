@@ -32,6 +32,8 @@ struct InstI8096 final {
 
     // Where an 8096's NMI calls, with no vector read.
     static constexpr uint16_t ORG_NMI = 0x0000;
+    // The 80C196's NMI vector.
+    static constexpr uint16_t VEC_NMI = 0x203E;
 
     static constexpr uint8_t TRAP = 0xF7;
     static constexpr uint8_t BMOV = 0xC1;

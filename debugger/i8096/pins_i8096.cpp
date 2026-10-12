@@ -12,7 +12,7 @@ using Signals = SignalsI8096;
 
 // clang-format off
 /**
- * P8095BH, N8097BH and S80C196KB/KC bus cycle
+ * P8095BH and N8097BH bus cycle, the default PinsI8096 clocks
  *          __    __    __    __    __    __    __    __    __    __    __    __    __
  * XTAL1 __|  |__|  |__|  |__|  |__|  |__|  |__|  |__|  |__|  |__|  |__|  |__|  |__|  |
  *        __                                  __                                 __
@@ -160,10 +160,6 @@ void PinsI8096::resetPins() {
     _regs->save();
 }
 
-// A full prefetch queue idles the bus for at most an instruction, even a
-// DIVL's ~40 state times; a CPU missing or held in reset never answers.
-constexpr auto no_bus_cycles = 10000;
-
 // #RD or #WR active within |settle_ns|.
 bool PinsI8096::awaitControl(Signals *s) const {
     const uint32_t start = ARM_DWT_CYCCNT;
@@ -182,6 +178,10 @@ Signals *PinsI8096::prepareCycle() {
         *s = _heldSignals;
         return s;
     }
+    return startCycle(s);
+}
+
+Signals *PinsI8096::startCycle(Signals *s) {
     noInterrupts();
     // assert_debug();
     // completeCycle() leaves ALE low and unrisen. Sampled right after a
@@ -284,7 +284,7 @@ Signals *PinsI8096::completeCycle(Signals *s, bool low) {
         if (s->writeMemory())
             writeBus(s);
     }
-    if (_idle) {
+    if (idling()) {
         delayNanoseconds(xtal1_hi_ns);
     } else {
         Cycles::next();
@@ -327,6 +327,8 @@ uint16_t PinsI8096::execute(uint16_t org, const uint8_t *inst, uint_fast8_t len,
                 hold(s, from);
                 return first;
             }
+            // ATTENTION: a PTS cycle's vector read, 2040H-205FH on the
+            // 80C196KB, KC and NP, is answered with NOPs as a fetch ahead.
             if (whole && cap >= max && static_cast<uint16_t>(leaves - from) <
                                                static_cast<uint16_t>(to - from)) {
                 hold(s, leaves);

@@ -17,10 +17,16 @@ namespace s80c196kc {
 struct PinsS80C196KC final : i8096::PinsI8096 {
     explicit PinsS80C196KC(i8096::CpuType cpu) : PinsI8096(cpu) {}
 
+    void assertInt(uint8_t name) override;
+    void negateInt(uint8_t name) override;
+
 private:
     void resetPins() override;
+    uint16_t haltEntry() const override { return i8096::InstI8096::VEC_NMI; }
     bool getControl(Signals *s) const override;
     bool hasInst() const override { return true; }
+    Signals *startCycle(Signals *s) override;
+    Signals *completeCycle(Signals *s, bool low) override;
 };
 
 }  // namespace s80c196kc
