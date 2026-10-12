@@ -13,6 +13,7 @@ struct RegsI8096 final : Regs {
     RegsI8096(PinsI8096 *pins);
 
     const char *cpu() const override;
+    const char *cpuName() const override;
 
     void print() const override;
     void reset() override;
@@ -58,6 +59,7 @@ private:
     static constexpr auto ADDR_INT_PENDING1 = 0x12;
     static constexpr auto ADDR_WSR = 0x14;
     static constexpr auto ADDR_SP = 0x18;
+    static constexpr uint16_t BUSCON5 = 0x1F6C;
 };
 
 }  // namespace i8096

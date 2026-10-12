@@ -125,8 +125,8 @@ void negate_reset() {
 
 }  // namespace
 
-PinsI8096::PinsI8096(CpuType cpu) : _cpu(cpu) {
-    _devs = new DevsI8096();
+PinsI8096::PinsI8096(CpuType cpu) : _board(cpu), _cpu(cpu) {
+    _devs = new DevsI8096(cpu >= CPU_80C196NP ? USART_N : USART);
     auto regs = new RegsI8096(this);
     _regs = regs;
     auto mems = new MemsI8096(_devs, regs, cpu);
@@ -150,14 +150,49 @@ void PinsI8096::resetPins() {
     auto ccb = prepareCycle();
     ccb->addr = MemsI8096::CCB;  // AD held nothing while ALE was high
     completeCycle(ccb->inject(_mems->read(MemsI8096::CCB)), true);
-    const auto fetch = prepareCycle();
+    auto fetch = prepareCycle();
+    // The 80C196NP and 80296SA read CCB1 next, on the bus CCB0 set up.
+    if (fetch->addr == MemsI8096::CCB1) {
+        completeCycle(fetch->inject(_mems->read(MemsI8096::CCB1)), true);
+        fetch = prepareCycle();
+    }
     if (fetch->addr != InstI8096::ORG_RESET) {
         cli.print("?reset fetch at ");
         cli.printlnHex(fetch->addr, 4);
     }
     hold(fetch, fetch->addr);
+    _cpu = probeCpu();
+    mems<MemsI8096>()->setCpu(_cpu);
     _regs->reset();
     _regs->save();
+}
+
+// DPTS, the PTS's, is an unimplemented opcode on the S80C196KB and the
+// S80296SA: their trap pushes the PC before the store to 5678H that ends
+// the capture. Its vector at 2012H points at the closing SJMP, so the
+// sequence's last byte is read and the CPU parks either way.
+// ATTENTION: the S80C196KB's trap on DPTS is from libasm's tables, not
+// its data sheet.
+CpuType PinsI8096::probeCpu() {
+    if (_board != CPU_80C196KC && _board != CPU_80296SA)
+        return _board;
+    constexpr uint16_t ext = 0x5678;
+    constexpr uint16_t VEC_UNIMPLEMENTED = 0x2012;
+    const uint8_t DPTS[] = {
+            0xA1, lo(ext), hi(ext), 0x18,    // LD SP, #5678H
+            0xEC,                            // DPTS
+            0xC7, 0x01, lo(ext), hi(ext), 0,  // STB ZERO, 5678H[0]
+            SJMP(-12),                       // SJMP $+2-12
+    };
+    const uint16_t sjmp = _park + sizeof(DPTS) - 2;
+    const uint8_t vec[] = {lo(sjmp), hi(sjmp)};
+    uint8_t byte;
+    const auto first = execute(_park, DPTS, sizeof(DPTS), &byte, 1, EXIT_PARK,
+            true, VEC_UNIMPLEMENTED, vec, sizeof(vec));
+    const auto trapped = first != ext;
+    if (_board == CPU_80C196KC)
+        return trapped ? CPU_80C196KB : CPU_80C196KC;
+    return trapped ? CPU_80296SA : CPU_80C196NP;
 }
 
 // #RD or #WR active within |settle_ns|.
@@ -413,7 +448,7 @@ uint16_t PinsI8096::jumpTarget(uint16_t next, uint_fast8_t opc) const {
         return next + static_cast<int8_t>(_mems->read(pc + 1));
     } else if (opc == 0xE0 || (c196() && opc == 0xE1)) {  // DJNZ/DJNZW
         return next + static_cast<int8_t>(_mems->read(pc + 2));
-    } else if (_cpu == CPU_80C196KC && opc == 0xE2) {
+    } else if (_cpu >= CPU_80C196KC && opc == 0xE2) {
         // TIJMP TBASE,[INDEX],#MASK
         const auto index = _mems->get_data(readData16(_mems->read(pc + 1)));
         const auto mask = _mems->read(pc + 2);

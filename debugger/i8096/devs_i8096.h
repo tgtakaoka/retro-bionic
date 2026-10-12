@@ -4,12 +4,14 @@
 #include "devs.h"
 
 #define USART 0x0200
+// The 80C196NP's register RAM and the 80296SA's reserved range reach 3FFH.
+#define USART_N 0x0400
 
 namespace debugger {
 namespace i8096 {
 
 struct DevsI8096 : Devs {
-    DevsI8096();
+    explicit DevsI8096(uint16_t usart = USART);
     ~DevsI8096();
 
     void begin() override;

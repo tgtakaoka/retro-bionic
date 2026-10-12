@@ -23,12 +23,28 @@ RegsI8096::RegsI8096(i8096::PinsI8096 *pins)
 // libasm's names for the instruction sets.
 const char *RegsI8096::cpu() const {
     switch (_pins->cpuType()) {
+    case CPU_80296SA:
+        return "80296";
+    case CPU_80C196NP:
+        return "80196N";
     case CPU_80C196KC:
         return "80196";
     case CPU_80C196KB:
         return "80196KB";
     default:
         return "8096";
+    }
+}
+
+// The chip in the socket, where the board takes two.
+const char *RegsI8096::cpuName() const {
+    switch (_pins->cpuType()) {
+    case CPU_80C196KB:
+        return "S80C196KB";
+    case CPU_80C196NP:
+        return "S80C196NP";
+    default:
+        return Regs::cpuName();
     }
 }
 
@@ -47,6 +63,19 @@ void RegsI8096::print() const {
 }
 
 void RegsI8096::reset() {
+    // The 80C196NP and 80296SA run everything outside CS0's reset window,
+    // F2000-F20FFH, on BUSCON5: a 16-bit bus with no wait states, like CS0
+    // from CCB0. BUSCON5 is an SFR, written off the bus.
+    if (_pins->cpuType() >= CPU_80C196NP) {
+        constexpr auto tmp = 0x1A;
+        constexpr auto disp = -10;
+        const uint8_t LDB_BUSCON5[] = {
+                0xB1, 0x40, tmp,                            // LDB tmp, #40H
+                0xC7, 0x01, lo(BUSCON5), hi(BUSCON5), tmp,  // STB tmp, BUSCON5[0]
+                SJMP(disp),                                 // SJMP $+2-10
+        };
+        _pins->execInst(LDB_BUSCON5, length(LDB_BUSCON5));
+    }
     // SP in external memory, so pushes show on the bus.
     write_data16(ADDR_SP, 0x1234);
     // A reset leaves INT_PENDING undefined, as SP: a stale EXTINT would
@@ -59,6 +88,7 @@ void RegsI8096::reset() {
 // Each sequence runs where the CPU is parked and jumps back there. The
 // 80C196's PUSHA also pushes INT_MASK1 and WSR; WSR is cleared so the
 // debugger sees the register file unwindowed.
+// ATTENTION: the 80296SA's WSR1 (15H) windows 40H-7FH and isn't cleared.
 void RegsI8096::save() {
     static constexpr uint8_t PUSHF[] = {
             0xF2,      // PUSHF

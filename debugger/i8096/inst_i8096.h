@@ -8,11 +8,14 @@
 namespace debugger {
 namespace i8096 {
 
-// The instruction sets, each the one before's and more.
+// The instruction sets, each the one before's and more; the 80296SA
+// drops the KC's PTS.
 enum CpuType : uint8_t {
     CPU_8096,
     CPU_80C196KB,
     CPU_80C196KC,
+    CPU_80C196NP,
+    CPU_80296SA,
 };
 
 // An instruction's sequence, from the tables, as |cpu| has it.
@@ -28,6 +31,11 @@ struct InstI8096 final {
     // Whether a read at |addr| is an interrupt vector's: one taken.
     static bool vector(uint16_t addr) {
         return addr >= 0x2000 && addr < 0x2040;
+    }
+    // The 80C196NP and 80296SA's EXTINT0, INT03.
+    static constexpr uint16_t VEC_EXTINT0 = 0x2006;
+    static uint16_t vecExtint(CpuType cpu) {
+        return cpu >= CPU_80C196NP ? VEC_EXTINT0 : VEC_EXTINT;
     }
 
     // Where an 8096's NMI calls, with no vector read.
@@ -48,11 +56,12 @@ private:
 };
 
 // The 8096 as MatchWalker sees it, its code in |mems|: a queue of 4 bytes,
-// fetched a word at a time on a 16-bit bus.
+// 10 on the 80296SA, fetched a word at a time on a 16-bit bus.
+// ATTENTION: the 80296SA's walk is unverified; its sequences are the KC's.
 struct ArchI8096 final : MatchWalker::Arch {
     explicit ArchI8096(const MatchMemory *mems, CpuType cpu = CPU_8096)
         : Arch(MatchWalker::Traits{.maxStart = 14,
-                  .queue = 4,
+                  .queue = static_cast<uint8_t>(cpu == CPU_80296SA ? 10 : 4),
                   .cutStart = 7,
                   .refetchWord = true}),
           _mems(mems),

@@ -12,6 +12,7 @@ struct RegsI8096;
 
 struct MemsI8096 : DmaMemory {
     MemsI8096(Devs *devs, RegsI8096 *regs, CpuType cpu);
+    void setCpu(CpuType cpu);
 
     uint32_t maxAddr() const override { return UINT16_MAX; }
 
@@ -24,12 +25,15 @@ struct MemsI8096 : DmaMemory {
     void put_prog(uint32_t addr, uint16_t data) const override;
 
     static constexpr uint16_t CCB = 0x2018; // Chip Configuration Byte Address
+    // The 80C196NP and 80296SA's second one
+    static constexpr uint16_t CCB1 = 0x201A;
 
 private:
     Devs *const _devs;
     RegsI8096 *const _regs;
+    CpuType _cpu;
     // The register file ends here: data below it is the CPU's.
-    const uint16_t _regsEnd;
+    uint16_t _regsEnd;
 };
 
 // The bytes as the CPU reads them, the CCB and the devices included.

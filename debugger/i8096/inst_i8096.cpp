@@ -369,11 +369,12 @@ constexpr uint8_t KC_OPCODES[] = {
 
 // The 80C196KB adds the unimplemented opcode vector at 2012H and the upper
 // interrupt vectors at 2030H-203FH; the 80C196KC the PTS vectors up to
-// 205DH.
+// 205DH, as the 80C196NP; the 80296SA has no PTS.
 bool isVector(uint16_t addr, CpuType cpu) {
     if (cpu == CPU_8096)
         return addr >= 0x2000 && addr < 0x2012;
-    const uint16_t upperEnd = cpu == CPU_80C196KC ? 0x205E : 0x2040;
+    const uint16_t upperEnd =
+            cpu == CPU_80C196KC || cpu == CPU_80C196NP ? 0x205E : 0x2040;
     return (addr >= 0x2000 && addr < 0x2014) ||
            (addr >= 0x2030 && addr < upperEnd);
 }

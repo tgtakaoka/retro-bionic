@@ -7,8 +7,8 @@ namespace i8096 {
 
 // A word apart: a 16-bit bus reads a word, and a status read mustn't take
 // the received data with it.
-DevsI8096::DevsI8096() : _usart(new I8251(2)) {
-    _usart->setBaseAddr(USART);
+DevsI8096::DevsI8096(uint16_t usart) : _usart(new I8251(2)) {
+    _usart->setBaseAddr(usart);
 }
 
 DevsI8096::~DevsI8096() {

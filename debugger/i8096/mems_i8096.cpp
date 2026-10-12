@@ -6,12 +6,11 @@
 namespace debugger {
 namespace i8096 {
 
-// The 80C196KC has 488 bytes of register RAM up to 1FFH.
+// The 80C196KC and 80296SA have register RAM up to 1FFH, the 80C196NP up
+// to 3FFH.
 MemsI8096::MemsI8096(Devs *devs, RegsI8096 *regs, CpuType cpu)
-    : DmaMemory(Endian::ENDIAN_LITTLE),
-      _devs(devs),
-      _regs(regs),
-      _regsEnd(cpu == CPU_80C196KC ? 0x200 : 0x100) {
+    : DmaMemory(Endian::ENDIAN_LITTLE), _devs(devs), _regs(regs) {
+    setCpu(cpu);
 #ifdef WITH_ASSEMBLER
     _assembler = new libasm::i8096::AsmI8096();
 #endif
@@ -20,8 +19,22 @@ MemsI8096::MemsI8096(Devs *devs, RegsI8096 *regs, CpuType cpu)
 #endif
 }
 
+void MemsI8096::setCpu(CpuType cpu) {
+    _cpu = cpu;
+    _regsEnd = cpu == CPU_80C196NP                              ? 0x400
+               : cpu == CPU_80C196KC || cpu == CPU_80296SA ? 0x200
+                                                           : 0x100;
+}
+
 uint16_t MemsI8096::read(uint32_t addr) const {
-    if (addr == CCB) {
+    if (_cpu >= CPU_80C196NP) {
+        // CCB0: no wait states, multiplexed, #WR/#BHE, 16-bit bus, no
+        // powerdown; CCB1: 64-Kbyte mode
+        if (addr == CCB)
+            return 0xC6;
+        if (addr == CCB1)
+            return 0xDA;
+    } else if (addr == CCB) {
         // Chip Configuration Register
         // 16 Bit width, #WR/#BHE, ALE, infinite READY, no ROM protection
         return 0xFF;

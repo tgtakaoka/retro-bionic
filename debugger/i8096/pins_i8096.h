@@ -79,8 +79,8 @@ enum IntrName : uint8_t {
     INTR_NMI = 2,
 };
 
-// The board the P8095BH, the N8097BH and the S80C196KB/KC sit on; each
-// adds its own pins and control lines.
+// The board the P8095BH, the N8097BH, the S80C196KB/KC and the
+// S80C196NP/S80296SA sit on; each adds its own pins and control lines.
 struct PinsI8096 : Pins {
     void idle() override;
     bool step(bool show) override;
@@ -123,7 +123,7 @@ protected:
 
     // Where the halt's INTR_NMI enters: the vector it reads, or the
     // address an 8096's NMI calls. EXTINT stands in on a board without NMI.
-    virtual uint16_t haltEntry() const { return InstI8096::VEC_EXTINT; }
+    virtual uint16_t haltEntry() const { return InstI8096::vecExtint(_cpu); }
     // Raises EXTINT again after the halt dropped it to give the CPU an
     // edge; called after each bus cycle, as the halt's entry may leave it
     // low until the next run.
@@ -148,7 +148,10 @@ protected:
     void writeBus(const Signals *s) const;
 
 private:
-    const CpuType _cpu;
+    // The board's CPU, and the one in its socket: an S80C196KB on the
+    // S80C196KC board, an S80C196NP on the S80296SA board.
+    const CpuType _board;
+    CpuType _cpu;
     bool _idle = false;
     // The CPU waits in the read of |_park|, a copy of its cycle kept.
     bool _held = false;
@@ -173,6 +176,7 @@ private:
     bool haltCycle(Signals *s);
     bool saveHalt();
 
+    CpuType probeCpu();
     bool awaitControl(Signals *s) const;
     Signals *prepareCycle();
     void hold(const Signals *s, uint16_t park);
