@@ -12,33 +12,34 @@ namespace {
 constexpr auto asel_delay_ns = 15;
 }  // namespace
 
-bool Signals::segmented = false;
-
 void Signals::getAddr() {
     addr = busRead(AD);
 }
 
-// SN0-SN6 are valid a clock before the offset and through the cycle;
-// ASEL rests high, on SN.
+// ASEL rests high, on SN. SN0-SN3 shift up to A16-A19; SN4-SN6 shift out.
 void Signals::getSegAddr() {
     const uint32_t sn = busRead(SN);
-    addr = (((sn >> 12) & 0x70) | (sn & 0xF)) << 16 | busRead(AD);
+    addr = ((sn << 12) | sn) & 0x7F0000 | busRead(AD);
 }
 
-// The Z8001 board shows ST only while ASEL is low.
+void Signals::getStatus(uint32_t gpio7, uint8_t mode) {
+    status() = busValue(ST, gpio7);
+    this->mode() = busValue(NS, gpio7) | mode;
+}
+
 void Signals::getControl() {
-    if (segmented) {
-        digitalWriteFast(PIN_ASEL, LOW);
-        delayNanoseconds(asel_delay_ns);
-        status() = busRead(ST);
-        digitalWriteFast(PIN_ASEL, HIGH);
-    } else {
-        status() = busRead(ST);
-    }
-    const auto rwbw = busRead(RWBW);
-    rw() = rwbw & 1;
-    bw() = (rwbw >> 1) & 1;
-    ns() = digitalReadFast(PIN_NS);
+    getStatus(PIN(ST), NONSEG);
+    rwbw() = busRead(RWBW);
+}
+
+// The Z8001 board shows ST while ASEL is low.
+void Signals::getSegControl() {
+    digitalWriteFast(PIN_ASEL, LOW);
+    delayNanoseconds(asel_delay_ns);
+    const uint32_t gpio7 = PIN(ST);
+    digitalWriteFast(PIN_ASEL, HIGH);
+    getStatus(gpio7, 0);
+    rwbw() = busRead(RWBW);
 }
 
 void Signals::getData() {
@@ -66,14 +67,14 @@ void Signals::print() const {
     static constexpr char line[] = "R A=xxxx D=xxxx S=x b=x n=x";
     static constexpr char segLine[] = "R A=xx:xxxx D=xxxx S=x b=x n=x";
     // The segment shifts every column after the address.
-    const auto x = segmented ? 3 : 0;
+    const auto x = segmented() ? 3 : 0;
 #ifdef PROFILE_CYCLES
     constexpr auto suffix = true;
 #else
     const auto suffix = Debugger.verbose();
 #endif
     auto &buffer = Cycles::buffer();
-    buffer.set(segmented ? segLine : line);
+    buffer.set(segmented() ? segLine : line);
     if (fetch()) {
         buffer[0] = 'I';
     } else if (read()) {
@@ -82,7 +83,7 @@ void Signals::print() const {
         buffer[0] = 'W';
     }
     buffer[2] = (ioReq() || specialIo()) ? 'I' : ack() ? 'V' : 'A';
-    if (segmented) {
+    if (segmented()) {
         buffer.hex8(4, addr >> 16);
         buffer.hex16(7, addr);
     } else {

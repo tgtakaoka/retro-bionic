@@ -1,8 +1,7 @@
 #ifndef __PINS_Z8000_H__
 #define __PINS_Z8000_H__
 
-// The Z8002 board, and the Z8001 board, which has the same pins plus SN0-SN6,
-// ASEL and #SEGT; those are not connected on the Z8002 board.
+// The Z8002 board; the Z8001 board adds SN0-SN6, ASEL and #SEGT.
 #define PORT_AD 6    /* GPIO6 */
 #define AD_gp 16     /* P6.16-P6.31 */
 #define AD_gm 0xFFFF /* P6.16-P6.31 */
@@ -31,13 +30,12 @@
 #define PIN_ST1 12   /* P7.01 */
 #define PIN_ST2 11   /* P7.02 */
 #define PIN_ST3 13   /* P7.03 */
-// Z8001: SN0-SN3 share P30-P33 with ST0-ST3 through a 74AHCT157, ASEL
-// low picking ST, high SN; SN4-SN6 have their own pins. One read of
-// GPIO7 takes all seven.
+// Z8001: a 74AHCT157 puts SN0-SN3 on ST0-ST3's pins while ASEL is high.
+// SN4-SN6 read straight into A20-A22, SN0-SN3 into bits 4-7.
 #define PORT_SN 7        /* GPIO7 */
 #define SN_gp 0          /* P7.00-P7.03, P7.16-P7.18 */
 #define SN_gm 0x0007000F /* SN0-SN3, SN4-SN6 */
-#define SN_vp 0
+#define SN_vp 4
 #define PIN_SN4 8  /* P7.16 P34 */
 #define PIN_SN5 7  /* P7.17 P35 */
 #define PIN_SN6 36 /* P7.18 P36 */
@@ -46,9 +44,14 @@
 // From the routed PCB, which its z8002_bionic.toml does not match.
 // #BUSREQ is tied high, #BUSACK is open and #MO loops back to #MI.
 #define PIN_NS 37 /* P7.19 P37 */
+/* N/#S shares GPIO7 with ST and SN */
+#define PORT_NS 7
+#define NS_gp 19
+#define NS_gm 0x1
+#define NS_vp 0
 #define PIN_RW 2  /* P9.04 P40 */
 #define PIN_BW 3  /* P9.05 P41 */
-/* R/#W and B/#W together, one read of GPIO9 */
+/* R/#W and B/#W in one read */
 #define PORT_RWBW 9
 #define RWBW_gp 4
 #define RWBW_gm 0x3
@@ -71,11 +74,9 @@ namespace debugger {
 namespace z8000 {
 
 struct PinsZ8000 final : Pins {
-    // The Z8001 runs the debugger segmented; its traps push four words.
     PinsZ8000(bool segmented);
     bool segmented() const { return _segmented; }
-    // Words a trap pushes: the PC (two on the Z8001), the FCW and the
-    // identifier.
+    // PC (two words on the Z8001), FCW, identifier.
     uint_fast8_t frameWords() const { return _segmented ? 4 : 3; }
 
     void idle() override;
@@ -87,14 +88,11 @@ struct PinsZ8000 final : Pins {
     void negateInt(uint8_t name) override;
     void setBreakInst(uint32_t addr) const override;
 
-    // Where an injected sequence leaves off when not told: past its end.
+    // Exit past the sequence's end.
     static constexpr uint32_t EXIT_END = UINT32_MAX;
 
-    // Run |inst| on the CPU parked at |org|: a read in the window
-    // [org, org+len) is answered from |inst|, a write captured into |buf|
-    // and kept from memory. It ends at the read of |exit| once the
-    // window's last word was read and |max| bytes captured, and parks
-    // there; |org| becomes where.
+    // Runs |inst| on the CPU parked at |org|, capturing writes into |buf|
+    // instead of memory, and parks at |exit|; |org| becomes the park.
     void execInst(const uint8_t *inst, uint_fast8_t len, uint32_t &org,
             uint32_t exit = EXIT_END);
     void captureWrites(const uint8_t *inst, uint_fast8_t len, uint8_t *buf,
@@ -102,7 +100,7 @@ struct PinsZ8000 final : Pins {
 
 private:
     const bool _segmented;
-    bool _resumed = false;  // the cycle comes back out of #WAIT
+    bool _resumed = false;  // out of #WAIT
     void resetPins() override;
     const SignalsImpl *findBacktraceStart() override;
     void printBacktrace() override;
@@ -110,6 +108,7 @@ private:
     Signals *prepareCycle();
     Signals *resumeCycle(uint32_t addr);
     Signals *completeCycle(Signals *s);
+    void retrieveData(Signals *s);
     void storeData(Signals *s);
     void execute(const uint8_t *inst, uint_fast8_t len, uint8_t *buf,
             uint_fast8_t max, uint32_t &org, uint32_t exit);

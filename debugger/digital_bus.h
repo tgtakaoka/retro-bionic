@@ -41,7 +41,9 @@
 #define writePort(name, val)                                                 \
     (BUS_gp(name) >= BUS_vp(name) ? ((val) << (BUS_gp(name) - BUS_vp(name))) \
                                   : ((val) >> (BUS_vp(name) - BUS_gp(name))))
-#define busRead(name) (readPort(name, PIN(name)) & VALUE_gm(name))
+// A bus's value out of |val|, its port as already read.
+#define busValue(name, val) (readPort(name, val) & VALUE_gm(name))
+#define busRead(name) busValue(name, PIN(name))
 #define busWrite(name, val)                                            \
     do {                                                               \
         const uint32_t v = static_cast<uint32_t>(val) << BUS_vp(name); \

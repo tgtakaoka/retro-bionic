@@ -17,12 +17,10 @@ const char line2[] = "R0=xxxx  R1=xxxx  R2=xxxx  R3=xxxx  R4=xxxx  R5=xxxx  R6=x
 const char line3[] = "R8=xxxx  R9=xxxx R10=xxxx R11=xxxx R12=xxxx R13=xxxx R14=xxxx R15=xxxx";
 // clang-format on
 
-// Where the stores of the save sequences go: they are captured and
-// never reach memory.
+// Where the save sequences store; captured, never in memory.
 constexpr uint16_t STORE = 0xF000;
 
-// A segment word -- the PC's, NSPSEG or PSAPSEG, segment number in bits
-// 14-8 -- as the high part of a seg<<16|off address, and back.
+// A segment word (segment number in bits 14-8) as seg<<16, and back.
 constexpr uint32_t segmentOf(uint16_t word) {
     return uint32_t((word >> 8) & 0x7F) << 16;
 }
@@ -50,8 +48,7 @@ bool RegsZ8000::normalMode() const {
     return (_fcw & InstZ8000::FCW_SN) == 0;
 }
 
-// On the Z8001 a program in normal mode, or nonsegmented, sees NSPSEG as
-// R14.
+// A Z8001 program in normal mode, or nonsegmented, sees NSPSEG as R14.
 bool RegsZ8000::programR14() const {
     return _pins->segmented() &&
            (normalMode() || (_fcw & InstZ8000::FCW_SEG) == 0);
@@ -120,8 +117,8 @@ void RegsZ8000::print() const {
 }
 
 void RegsZ8000::save() {
-    // Each sequence ends with a JR $+2: the CPU fetches ahead, so the
-    // exit is fetched again after the stores.
+    // A JR $+2 ends each sequence so the CPU refetches the exit after the
+    // stores.
     // clang-format off
     static constexpr uint8_t SAVE_ALL[] = {
         0x5C, 0x09, 0x00, 0x0F, hi(STORE), lo(STORE),  // LDM STORE, R0, #16
@@ -147,8 +144,7 @@ void RegsZ8000::save() {
                 SAVE_CONTROL, sizeof(SAVE_CONTROL), buffer, 4, org);
         _nsp = be16(buffer + 0);
         _psap = be16(buffer + 2) & 0xFF00;  // the offset's low byte is 0
-        // Back where the CPU was parked, with the two registers that
-        // SAVE_CONTROL used as they were.
+        // Back to the park, restoring R0 and R1.
         // clang-format off
         const uint8_t BACK[] = {
             0x21, 0x00, hi(_r[0]), lo(_r[0]),    // LD R0, #r0
@@ -166,8 +162,8 @@ void RegsZ8000::save() {
     }
 }
 
-// The same in segmented mode, which the debugger runs the Z8001 in:
-// direct addresses take the long form, and NSP and PSAP are two words.
+// The same in segmented mode (the Z8001's): long addresses, and NSP and
+// PSAP take two words.
 void RegsZ8000::saveSegmented(uint8_t *buffer, uint32_t &org) {
     // clang-format off
     static constexpr uint8_t SAVE_ALL[] = {
@@ -213,9 +209,9 @@ void RegsZ8000::restore() {
         restoreSegmented();
         return;
     }
-    // One window: the control registers, every general register from the
-    // block LDM reads, then LDPS loads the FCW and the PC together, so the
-    // program's mode takes effect with its first instruction.
+    // Control registers, then LDM for the general registers, then LDPS for
+    // the FCW and PC, so the program's mode starts with its first
+    // instruction.
     uint8_t seq[22 + 32 + 4];
     const uint16_t org16 = _parkedAt;
     const uint16_t block = org16 + 22;
@@ -246,9 +242,8 @@ void RegsZ8000::restore() {
     park(_pc, org);
 }
 
-// The same in segmented mode: the control registers are two words each,
-// and LDPS's block is four words -- a reserved one, the FCW, then the PC's
-// segment and offset -- which also sets the program's mode.
+// The same in segmented mode: control registers take two words, and
+// LDPS's block is four (reserved, FCW, PC segment, PC offset).
 void RegsZ8000::restoreSegmented() {
     uint8_t seq[38 + 32 + 8];
     const uint32_t org = _parkedAt;
