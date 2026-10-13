@@ -168,22 +168,25 @@ cmp16_end:
 ;;; @param R2 multiplier
 ;;; @return R0 result
 umul16:
+        lda     R2L             ; A=low(multiplier)
+        ldx     R1L             ; X=low(multiplicand)
+        mul                     ; X:A=low(multiplicand)*low(multiplier)
+        sta     R0L
+        stx     R0H             ; result=X:A
         lda     R2H             ; A=high(multiplier)
+        beq     umul16_high     ; branch if high(multiplier) == 0
         ldx     R1L             ; X=low(multiplicand)
         mul                     ; X:A=low(multiplicand)*high(multiplier)
-        sta     R0H             ; high(result)=A
-        lda     R2L             ; A=low(multiplier)
-        ldx     R1H             ; X=high(multiplicand)
+        add     R0H
+        sta     R0H             ; high(result)+=A
+umul16_high:
+        lda     R1H             ; A=high(multiplicand)
+        beq     umul16_end      ; branch if high(multiplicand) == 0
+        ldx     R2L             ; X=low(multiplier)
         mul                     ; X:A=high(multiplicand)*low(multiplier)
         add     R0H
         sta     R0H             ; high(result)+=A
-        lda     R2L             ; A=low(multiplier)
-        ldx     R1L             ; X=low(multiplicand)
-        mul                     ; X:A=result
-        sta     R0L             ; low(result)=A
-        txa
-        add     R0H
-        sta     R0H             ; high(result)+=X
+umul16_end:
         rts
 
 ;;; Multiply; result = multiplicand * multiplier
@@ -230,56 +233,86 @@ mul16_end:
 ;;; @return R1 remainder
 ;;; @clobber R2
 udiv16:
-        stx     arith_work
+        stx     udiv16_x        ; save X
+        lda     R2H
+        bne     udiv16_wide     ; branch if divisor >= 256
+        lda     R1H
+        beq     udiv16_wide     ; branch if dividend < 256
+        cmp     R2L
+        bcc     udiv16_wide     ; branch if quotient >= 256
+;;; 8-bit quotient: A=remainder, shift the quotient into R1L
+        ldx     #8              ; X=bits
+udiv16_byte:
+        rol     R1L             ; shift in ~quotient, shift out dividend
+        rola                    ; remainder <<= 1
+        bcs     udiv16_byte_over ; branch if remainder >= 256
+        cmp     R2L
+        bcs     udiv16_byte_next ; branch if remainder < divisor
+        sub     R2L             ; remainder -= divisor
+udiv16_byte_next:
+        decx                    ; --bits
+        bne     udiv16_byte     ; while bits != 0
+        rol     R1L
+        ldx     R1L
+        comx
+        stx     R0L
+        clr     R0H             ; quotient
+        sta     R1L
+        clr     R1H             ; remainder
+        bra     udiv16_end
+udiv16_byte_over:
+        sub     R2L             ; remainder -= divisor
+        clc
+        bra     udiv16_byte_next
+udiv16_wide:
         lda     R2H
         ora     R2L
         beq     udiv16_end      ; branch if R2==0
-        ldx     #1              ; X=bits
-        bra     udiv16_prep
-udiv16_prep_loop:
-        lsl     R2L
-        rol     R2H             ; divisor <<= 1
-        incx                    ; ++bits
+        lda     #$FF
+        sta     R0H
+        sta     R0L             ; ~quotient=$FFFF
+        clrx                    ; X=bits
 udiv16_prep:
         lda     R1L
         sub     R2L
         lda     R1H
         sbc     R2H
         bcs     udiv16_prep_end ; until divisor > dividend
-        lda     R2H
-        bpl     udiv16_prep_loop ; while msb(divisor) == 0
+        incx                    ; ++bits
+        lsl     R2L
+        rol     R2H             ; divisor <<= 1
+        bcc     udiv16_prep     ; while divisor < $10000
+        ror     R2H
+        bra     udiv16_shifted  ; divisor >>= 1, carry back in
 udiv16_prep_end:
-        clr     R0H
-        clr     R0L             ; quotient=0
-        bra     udiv16_enter_loop
+        tstx
+        beq     udiv16_done     ; branch if quotient == 0
 udiv16_loop:
         lsr     R2H
+udiv16_shifted:
         ror     R2L             ; divisor >>= 1
-        lsl     R0L
-        rol     R0H             ; quotient <<= 1
-udiv16_enter_loop:
         lda     R1L
         sub     R2L
-        sta     R1L
+        sta     arith_work
         lda     R1H
         sbc     R2H
-        sta     R1H             ; dividend -= divisor
-        bcs     udiv16_readd
-        inc     R0L             ; quotient |= 1
-        bra     udiv16_next
-udiv16_readd:
-        lda     R1L
-        add     R2L
-        sta     R1L
-        lda     R1H
-        adc     R2H
-        sta     R1H             ; dividend += divisor
+        bcs     udiv16_next     ; branch if dividend < divisor
+        sta     R1H
+        lda     arith_work
+        sta     R1L             ; dividend -= divisor
 udiv16_next:
+        rol     R0L
+        rol     R0H             ; ~quotient = ~quotient<<1 | borrow
         decx                    ; --bits
         bne     udiv16_loop     ; while bits != 0
+udiv16_done:
+        com     R0L
+        com     R0H             ; quotient
 udiv16_end:
-        ldx     arith_work
+        ldx     udiv16_x        ; restore X
         rts
+udiv16_x:
+        rmb     1
 
 ;;; Division; dividend / divisor = quotient ... remainder
 ;;; @param R1 dividend
