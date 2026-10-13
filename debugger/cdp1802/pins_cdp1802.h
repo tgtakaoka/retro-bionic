@@ -3,7 +3,7 @@
 
 #define PORT_DBUS 6   /* GPIO6 */
 #define DBUS_gp 16    /* P6.16-P6.23 */
-#define DBUS_gm 0xFF  /* P6.00-P6.07 */
+#define DBUS_gm 0xFF  /* P6.16-P6.23 */
 #define DBUS_vp 0     /* B0-B7 */
 #define PIN_DBUS0 19  /* P6.16 */
 #define PIN_DBUS1 18  /* P6.17 */
@@ -48,7 +48,7 @@
 #define PIN_SC0 2     /* P9.04 */
 #define PIN_SC1 3     /* P9.05 */
 #define PIN_MRD 4     /* P9.06 */
-#define PIN_MWR 33    /* P6.07 */
+#define PIN_MWR 33    /* P9.07 */
 #define CNTL_SC 0x3   /* CNTL0-CNTL1 */
 #define CNTL_MRD 0x4  /* CNTL2 */
 #define CNTL_MWR 0x8  /* CNTL3 */

@@ -9,7 +9,8 @@ namespace mos6502 {
 enum HardwareType : uint8_t;
 
 struct Signals final : SignalsBase<Signals> {
-    void getAddr();
+    void getControl();
+    void getAddr16();
     void getAddr24();
     void getData();
     void outData() const;

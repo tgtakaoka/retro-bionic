@@ -18,8 +18,8 @@ void Signals::getData() {
 }
 
 void Signals::outData() {
-    busMode(DATA, OUTPUT);
     busWrite(DATA, data);
+    busMode(DATA, OUTPUT);
 }
 
 void Signals::print() const {
