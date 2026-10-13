@@ -95,7 +95,7 @@ The tables time them on real chips, from recorded casts, with
 | CDP1802     | 165.7 |   6.749 |   1.903 |                    | [mandelbrot.cast](../samples/cdp1802/mandelbrot.cast)                    | [cdp1802/mandelbrot.lst](../samples/cdp1802/mandelbrot.lst)     |
 | SCN2650     | 170.7 |   6.929 |   1.644 |                    | [mandelbrot.cast](../samples/scn2650/mandelbrot.cast)                    | [scn2650/mandelbrot.lst](../samples/scn2650/mandelbrot.lst)     |
 | F3850       | 249.9 |  10.195 |   3.143 |                    | [mandelbrot.cast](../samples/f3850/mandelbrot.cast)                      | [f3850/mandelbrot.lst](../samples/f3850/mandelbrot.lst)         |
-| INS8060     | 379.5 |  15.405 |   3.671 |                    | [mandelbrot.cast](../samples/ins8060/mandelbrot.cast)                    | [ins8060/mandelbrot.lst](../samples/ins8060/mandelbrot.lst)     |
+| INS8060     | 265.6 |  10.767 |   2.347 |                    | [mandelbrot.cast](../samples/ins8060/mandelbrot.cast)                    | [ins8060/mandelbrot.lst](../samples/ins8060/mandelbrot.lst)     |
 
 ## Floating point, fmandel
 
