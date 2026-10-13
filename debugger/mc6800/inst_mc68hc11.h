@@ -11,6 +11,7 @@ struct InstMc68hc11 final : mc6800::ArchMc6800 {
 
     uint16_t vec_swi() const override { return 0xFFF6; }
     uint16_t vec_nmi() const override { return 0xFFF4; }  // #XIRQ
+    uint16_t vec_irq() const override { return 0xFFF2; }
 };
 
 extern struct InstMc68hc11 Inst;

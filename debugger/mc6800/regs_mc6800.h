@@ -34,6 +34,7 @@ struct RegsMc6800 : Regs {
     void setIp(uint32_t addr) override { _pc = addr; }
 
     uint32_t nextIp() const override { return _pc; }
+    bool irqMasked() const { return _cc & 0x10; }
     void helpRegisters() const override;
     const RegList *listRegisters(uint_fast8_t n) const override;
     bool setRegister(uint_fast8_t reg, uint32_t value) override;
