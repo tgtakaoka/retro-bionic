@@ -72,9 +72,8 @@ loop_i:
         ld      DE, Fv
         call    div16           ; B/F
         ld      (vQ), HL        ; Q=B/F
-        ld      B, H
-        ld      C, L
-        ld      DE, -Fv
+        ex      DE, HL          ; DE=Q, the shorter multiplier
+        ld      BC, -Fv
         call    mul16           ; -Q*F
         ld      DE, (vB)
         add     HL, DE          ; B-Q*F

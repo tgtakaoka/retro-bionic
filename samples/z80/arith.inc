@@ -76,30 +76,20 @@ cmp16_return:
 ;;; @clobber BC DE HL A
 umul16:
         ld      HL, 0           ; result=0
-        jr      umul16_check
+        ld      A, D
+        or      E
+        ret     Z               ; if multiplier == 0
 umul16_loop:
-        or      A, A            ; clear AF.C
-        ld      A, D            ; multiplier >>= 1
-        rra
-        ld      D, A
-        ld      A, E
-        rra
-        ld      E, A
+        srl     D
+        rr      E               ; multiplier >>= 1
         jr      NC, umul16_next ; if lsb(multiplier) == 0
         add     HL, BC          ; result += multiplicand
 umul16_next:
-        or      A, A            ; clear AF.C
-        ld      A, C            ; multiplicand <<= 1
-        rla
-        ld      C, A
-        ld      A, B
-        rla
-        ld      B, A
-umul16_check:
+        sla     C
+        rl      B               ; multiplicand <<= 1
         ld      A, D
         or      E
         jr      NZ, umul16_loop ; while multiplier != 0
-umul16_end:
         ret
 
 ;;; Signed multiplication; result = multiplicand * multiplier
@@ -156,52 +146,37 @@ udiv16:
         ld      L, 1            ; L=bits
         jr      udiv16_prep
 udiv16_prep_loop:
-        or      A, A            ; clear AF.C
-        ld      A, E            ; divisor <<= 1
-        rla
-        ld      E, A
-        ld      A, D
-        rla
-        ld      D, A
+        sla     E
+        rl      D               ; divisor <<= 1
         inc     L               ; ++bits
-udiv16_prep:                    ; while msb(divisor) == 0
+udiv16_prep:
+        ld      A, C
+        sub     E
+        ld      A, B
+        sbc     A, D
+        jr      C, udiv16_prep_end ; until divisor > dividend
         bit     7, D
-        jr      Z, udiv16_prep_loop
-        ld      A, L
-        push    AF              ; push bits
+        jr      Z, udiv16_prep_loop ; while msb(divisor) == 0
+udiv16_prep_end:
+        ld      A, L            ; A=bits
         ld      H, B
         ld      L, C            ; HL=dividend
-        xor     A, A
-        ld      B, A
-        ld      C, A            ; BC=quotient
+        ld      BC, 0           ; BC=quotient
         jr      udiv16_enter_loop
 udiv16_loop:
-        push    AF              ; push bits
-        or      A, A            ; clear AF.C
-        ld      A, D            ; divisor >>= 1
-        rra
-        ld      D, A
-        ld      A, E
-        rra
-        ld      E, A
-        or      A, A            ; clear AF.C
-        ld      A, C            ; quotient <<= 1
-        rla
-        ld      C, A
-        ld      A, B
-        rla
-        ld      B, A
+        srl     D
+        rr      E               ; divisor >>= 1
+        sla     C
+        rl      B               ; quotient <<= 1
 udiv16_enter_loop:
-        scf
-        ccf
+        or      A, A            ; clear AF.C
         sbc     HL, DE          ; dividend -= divisor
         jr      C, udiv16_readd ; if dividend < 0
-        inc     BC              ; quotient |= 1
+        inc     C               ; quotient |= 1
         jr      udiv16_next
 udiv16_readd:
         add     HL, DE          ; dividend += divisor
 udiv16_next:
-        pop     AF
         dec     A               ; --bits
         jr      NZ, udiv16_loop ; while bits != 0
         push    HL              ; remainder
