@@ -36,11 +36,11 @@ udiv16:
         ret                     Divide by zero
         push    R3
         eor     R3, R3
-        mvi     R3, 1           bits=1
+        mvi     R3, 1           bit=1
         b       udiv16_prep
 udiv16_prep_loop:
         sl      R2, re          divisor<<=1
-        ai      R3, 1           bits++
+        sl      R3, re          bit<<=1
 udiv16_prep:
         c       R1, R2, lpz     Skip if dividend>=divisor
         b       udiv16_prep_end
@@ -48,18 +48,14 @@ udiv16_prep:
         b       udiv16_prep_loop
 udiv16_prep_end:
         eor     R0, R0          quotient=0 (R0)
-        b       udiv16_enter_loop
 udiv16_loop:
-        sr      R2, re          divisor>>=1
-        sl      R0, re          quotient<<=1
-udiv16_enter_loop:
         s       R1, R2, lpz     dividend-=divisor, skip if dividend>=divisor
         b       udiv16_readd
-        ai      R0, 1           quotient+=1
-        b       udiv16_enter_loop
+        or      R0, R3, skp     quotient|=bit
 udiv16_readd:
         a       R1, R2          dividend+=divisor
-        si      R3, 1, z        bits--, skip if bits==0
+        sr      R2, re          divisor>>=1
+        sr      R3, re, z       bit>>=1, skip if bit==0
         b       udiv16_loop
         pop     R3
         ret
@@ -124,36 +120,19 @@ divu16_return:
 *** @return R1 product
 *** @clobber R0 R2
 mul16:
-        push    R3
-        mv      R3, R1
-        eor     R3, R2          R3=sign(product)
-        tbit    R1, 0, nz       skip if msb(multiplicand)=1
-        b       mul16_multiplier
-        eor     R0, R0
-        s       R0, R1
-        mv      R1, R0          negate multiplicand
-mul16_multiplier:
         tbit    R2, 0, nz       skip if msb(multiplier)=1
-        b       mul16_divide
+        b       umul16
         eor     R0, R0
         s       R0, R2
         mv      R2, R0          negate multiplier
-mul16_divide:
-        bal     umul16
-        tbit    R3, 0, nz       skip if product must be negated
-        b       mul16_return
-        eor     R1, R1
-        s       R1, R0, skp     negate product
-mul16_return:
-        mv      R1, R0
-        pop     R3
-        ret
-
+        eor     R0, R0
+        s       R0, R1
+        mv      R1, R0          negate multiplicand
 *** Unsigned Multiply: multiplicand * multiplier = product
 *** @param R1 multiplicand
 *** @param R2 multiplier
-*** @return R0 product
-*** @clobber R1 R2
+*** @return R1 product
+*** @clobber R0 R2
 umul16:
         eor     R0, R0          product=0
         b       umul16_enter_loop
@@ -164,4 +143,5 @@ umul16_loop:
 umul16_enter_loop:
         or      R2, R2, z       skip if multiplier=0
         b       umul16_loop
+        mv      R1, R0
         ret
