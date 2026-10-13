@@ -131,10 +131,14 @@ loop_i:
         sep     R5
         dc      A(store_R7)
         dc      A(vQ)           ; Q=B/F
-        ldi     A.1(cF)
+        ghi     R7
         phi     R8
+        glo     R7
+        plo     R8              ; R8=Q, the shorter multiplier
+        ldi     A.1(cF)
+        phi     R7
         ldi     A.0(cF)
-        plo     R8
+        plo     R7
         sep     R5
         dc      A(mul16)        ; R7=Q*F
         sep     R5
