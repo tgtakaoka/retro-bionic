@@ -92,10 +92,10 @@ loop_i:
         lodi,r3 vF-arith_work
         bsta,un divsi2          ; Q=B/F
         lodi,r2 vS-arith_work
-        lodi,r3 vQ-arith_work
-        bsta,un negsi2          ; S=-Q
         lodi,r3 vF-arith_work
-        bsta,un mulsi2          ; S=-Q*F
+        bsta,un negsi2          ; S=-F
+        lodi,r3 vQ-arith_work
+        bsta,un mulsi2          ; S=-F*Q, Q the shorter multiplier
         lodi,r3 vB-arith_work
         bsta,un addsi2          ; S=B-Q*F
         loda,r0 vB
