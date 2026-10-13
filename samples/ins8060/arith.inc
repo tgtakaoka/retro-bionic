@@ -261,12 +261,12 @@ cmpsi2_gt:                      ; V=1, N=1
 ;;;   xppc   P1
 ;;;   .dbyte &multiplier
 ;;;   .dbyte &multiplicand
-;;; @local P2[1:0] multiplier, &multiplier
-;;; @local P2[3:2] multiplicand, &multiplicand
-;;; @local P2[4]   H(multiplicand ^ multiplier)
-;;; @local P2[6:5] return address
+;;; @local P2[1:0] &multiplier, multiplier
+;;; @local P2[3:2] multiplicand, product
+;;; @local P2[5:4] &multiplicand
+;;; @local P2[7:6] return address
 mulsi2_exit:
-        ld      @5(P2)          ; discard locals
+        ld      @6(P2)          ; discard locals
         ld      @1(P2)
         xpal    P1
         ld      @1(P2)
@@ -275,118 +275,145 @@ mulsi2_exit:
 mulsi2:
         ld      @1(P1)          ; point to &multiplier
         ld      @1(P1)
-        st      @-7(P2)         ; P2[1:0]=&multiplier
+        st      @-8(P2)         ; P2[1:0]=&multiplier
         ld      @1(P1)
         st      1(P2)
         ld      @1(P1)
-        st      2(P2)           ; P2[3:2]=&multiplicand
-        ld      0(P1)
-        st      3(P2)
-        ld      0(P2)           ; P2[1:0]=&multiplier
+        st      4(P2)           ; P2[5:4]=&multiplicand
+        ld      0(P1)           ; P1=return address
+        st      5(P2)
+        ld      0(P2)
         xpal    P1
-        st      5(P2)           ; P2[6:5]=return address
+        st      6(P2)           ; P2[7:6]=return address
         ld      1(P2)
         xpah    P1              ; P1=&multiplier
-        st      6(P2)
+        st      7(P2)
         ld      0(P1)
-        st      0(P2)           ; P2[1:0]=multiplier
+        st      0(P2)
         ld      1(P1)
-        st      1(P2)
-        ld      2(P2)           ; P2[3:2]=&multiplicand
+        st      1(P2)           ; P2[1:0]=multiplier
+        ld      4(P2)
         xpal    P1
-        ld      3(P2)
+        ld      5(P2)
         xpah    P1              ; P1=&multiplicand
         ld      0(P1)
-        st      2(P2)           ; P2[3:2]=multiplicand
-        ld      1(P1)
-        st      3(P2)
-        xor     1(P2)           ; P2[1]=H(multiplier)
-        st      4(P2)           ; P2[4]=H(multiplicand^multiplier)
-        ld      1(P2)           ; H(multiplier)
-        jp      mulsi2_multiplicand
-        scl                     ; clear borrow
-        ldi     0
-        cad     0(P2)
-        st      0(P2)
-        ldi     0
-        cad     1(P2)
-        st      1(P2)           ; negate multiplier
-mulsi2_multiplicand:
-        ld      3(P2)           ; H(multiplicand)
-        jp      umul16
-        scl                     ; clear borrow
-        ldi     0
-        cad     2(P2)
         st      2(P2)
-        ldi     0
-        cad     3(P2)
-        st      3(P2)           ; negate multiplicand
-        jmp     umul16
-mulsi2_exit_1:
-        jmp     mulsi2_exit
-;;; Unsigned multiply; product = multiplicand * multiplier
-;;; @param P2[1:0] multiplier
-;;; @param P2[3:2] multiplicand
-;;; @return P1[1:0] product
-;;; @clobber multiplier multiplicand
-;;; @unchanged P1
-umul16:
-        ldi     0
+        ld      1(P1)
+        st      3(P2)           ; P2[3:2]=multiplicand
+        ldi     L(ADDR(mul16))
+        xpal    P1
+        ldi     H(ADDR(mul16))
+        xpah    P1
+        xppc    P1              ; P2[3:2]*=P2[1:0]
+        ld      4(P2)
+        xpal    P1
+        ld      5(P2)
+        xpah    P1              ; P1=&multiplicand
+        ld      2(P2)
         st      0(P1)
-        st      1(P1)           ; P1[1:0]=product
-        jmp     umul16_check
-umul16_loop:
-        ld      1(P2)           ; P2[1:0]=multiplier
+        ld      3(P2)
+        st      1(P1)           ; store product
+        jmp     mulsi2_exit
+
+;;; Signed multiply on the stack; P2[3:2] *= P2[1:0]
+;;;   P1=ADDR(mul16)
+;;;   xppc   P1                 ; leaves P1=ADDR(mul16)
+;;; @local P2[0]   H(multiplicand ^ multiplier)
+;;; @local P2[2:1] product
+MSIGN   =       0
+MPROD   =       1
+MPLIER  =       3               ; multiplier, offset past the locals
+MCAND   =       5               ; multiplicand, offset past the locals
+mul16_exit:
+        xppc    P1              ; return, leaving P1=ADDR(mul16)
+mul16:
+        ld      1(P2)           ; H(multiplier)
+        xor     3(P2)           ; H(multiplicand)
+        st      @-3(P2)         ; P2[0]=sign
+        ld      MPLIER+1(P2)
+        jp      mul16_multiplicand
+        scl                     ; clear borrow
+        ldi     0
+        cad     MPLIER(P2)
+        st      MPLIER(P2)
+        ldi     0
+        cad     MPLIER+1(P2)
+        st      MPLIER+1(P2)    ; negate multiplier
+mul16_multiplicand:
+        ld      MCAND+1(P2)
+        jp      mul16_zero
+        scl                     ; clear borrow
+        ldi     0
+        cad     MCAND(P2)
+        st      MCAND(P2)
+        ldi     0
+        cad     MCAND+1(P2)
+        st      MCAND+1(P2)     ; negate multiplicand
+mul16_zero:
+        ldi     0
+        st      MPROD(P2)
+        st      MPROD+1(P2)     ; product=0
+        jmp     mul16_check
+mul16_return:
+        jmp     mul16_exit
+mul16_loop:
         ccl
+        ld      MPLIER+1(P2)
         rrl
-        st      1(P2)
-        ld      0(P2)
+        st      MPLIER+1(P2)
+        ld      MPLIER(P2)
         rrl
-        st      0(P2)           ; multiplier >>= 1
+        st      MPLIER(P2)      ; multiplier >>= 1
         csa
         ani     S_CY
-        jz      umul16_next     ; if lsb(multiplier) == 0
+        jz      mul16_next      ; if lsb(multiplier) == 0
         ccl
-        ld      2(P2)           ; P2[3:2]=multiplicand
-        add     0(P1)           ; P1[1:0]=product
-        st      0(P1)
-        ld      3(P2)
-        add     1(P1)
-        st      1(P1)           ; product += multiplicand
-umul16_next:
+        ld      MCAND(P2)
+        add     MPROD(P2)
+        st      MPROD(P2)
+        ld      MCAND+1(P2)
+        add     MPROD+1(P2)
+        st      MPROD+1(P2)     ; product += multiplicand
+mul16_next:
         ccl
-        ld      2(P2)           ; P2[3:2]=multiplicand
-        add     2(P2)
-        st      2(P2)
-        ld      3(P2)
-        add     3(P2)
-        st      3(P2)           ; multiplicand <<= 1
-umul16_check:
-        ld      0(P2)           ; P2[1:0]=multiplier
-        or      1(P2)
-        jnz     umul16_loop     ; while multiplier != 0
-umul16_end:
-        ld      4(P2)           ; H(multiplier^multiplicand)
-        jp      mulsi2_exit_1
+        ld      MCAND(P2)
+        add     MCAND(P2)
+        st      MCAND(P2)
+        ld      MCAND+1(P2)
+        add     MCAND+1(P2)
+        st      MCAND+1(P2)     ; multiplicand <<= 1
+mul16_check:
+        ld      MPLIER(P2)
+        or      MPLIER+1(P2)
+        jnz     mul16_loop      ; while multiplier != 0
+        ld      MSIGN(P2)
+        jp      mul16_store
         scl                     ; clear borrow
         ldi     0
-        cad     0(P1)           ; P1[1:0]=product
-        st      0(P1)
+        cad     MPROD(P2)
+        st      MPROD(P2)
         ldi     0
-        cad     1(P1)
-        st      1(P1)           ; negate product
-        jmp     mulsi2_exit_1
+        cad     MPROD+1(P2)
+        st      MPROD+1(P2)     ; negate product
+mul16_store:
+        ld      MPROD(P2)
+        st      MCAND(P2)
+        ld      MPROD+1(P2)
+        st      MCAND+1(P2)     ; multiplicand=product
+        ld      @3(P2)          ; discard locals
+        jmp     mul16_return
 
 ;;; Signed divide; dividend /= divisor ... remainder
 ;;;   xppc   P1
 ;;;   .dbyte &divisor
 ;;;   .dbyte &dividend
 ;;; @return vREMAINDER |dividend| % |divisor|
-;;; @local P2[1:0] &divisor
-;;; @local P2[3:2] &dividend
-;;; @local P2[5:4] return address
+;;; @local P2[1:0] &divisor, divisor
+;;; @local P2[3:2] dividend, quotient
+;;; @local P2[5:4] &dividend
+;;; @local P2[7:6] return address
 divsi2_exit:
-        ld      @4(P2)          ; discard locals
+        ld      @6(P2)          ; discard locals
         ld      @1(P2)
         xpal    P1
         ld      @1(P2)
@@ -395,26 +422,62 @@ divsi2_exit:
 divsi2:
         ld      @1(P1)          ; point to &divisor
         ld      @1(P1)
-        st      @-6(P2)         ; P2[1:0]=&divisor
+        st      @-8(P2)         ; P2[1:0]=&divisor
         ld      @1(P1)
         st      1(P2)
         ld      @1(P1)
-        st      2(P2)           ; P2[3:2]=&dividend
+        st      4(P2)           ; P2[5:4]=&dividend
         ld      0(P1)           ; P1=return address
-        st      3(P2)
-        ld      0(P2)           ; P2[1:0]=&divisor
+        st      5(P2)
+        ld      0(P2)
         xpal    P1
-        st      4(P2)           ; P2[5:4]=return address
+        st      6(P2)           ; P2[7:6]=return address
         ld      1(P2)
         xpah    P1              ; P1=&divisor
-        st      5(P2)
+        st      7(P2)
         ld      0(P1)
-        st      vDIVISOR
+        st      0(P2)
         ld      1(P1)
+        st      1(P2)           ; P2[1:0]=divisor
+        ld      4(P2)
+        xpal    P1
+        ld      5(P2)
+        xpah    P1              ; P1=&dividend
+        ld      0(P1)
+        st      2(P2)
+        ld      1(P1)
+        st      3(P2)           ; P2[3:2]=dividend
+        ldi     L(ADDR(div16))
+        xpal    P1
+        ldi     H(ADDR(div16))
+        xpah    P1
+        xppc    P1              ; P2[3:2]/=P2[1:0]
+        ld      4(P2)
+        xpal    P1
+        ld      5(P2)
+        xpah    P1              ; P1=&dividend
+        ld      2(P2)
+        st      0(P1)
+        ld      3(P2)
+        st      1(P1)           ; store quotient
+        jmp     divsi2_exit
+
+;;; Signed divide on the stack; P2[3:2] /= P2[1:0] ... remainder
+;;;   P1=ADDR(div16)
+;;;   xppc   P1                 ; leaves P1=ADDR(div16)
+;;; @return vREMAINDER |dividend| % |divisor|
+;;; @clobber E
+div16_exit:
+        xppc    P1              ; return, leaving P1=ADDR(div16)
+div16:
+        ld      1(P2)           ; H(divisor)
+        xor     3(P2)           ; H(dividend)
+        xae                     ; E=sign
+        ld      0(P2)
+        st      vDIVISOR
+        ld      1(P2)
         st      vDIVISOR+1
-        xae                     ; E=high(divisor)
-        lde
-        jp      divsi2_dividend ; if divisor>=0
+        jp      div16_dividend
         scl                     ; clear borrow
         ldi     0
         cad     vDIVISOR
@@ -422,22 +485,12 @@ divsi2:
         ldi     0
         cad     vDIVISOR+1
         st      vDIVISOR+1      ; negate divisor
-        jmp     divsi2_dividend
-divsi2_exit_trampoline:
-        jmp     divsi2_exit
-divsi2_dividend:
-        ld      2(P2)           ; P2[3:2]=&dividend
-        xpal    P1
-        ld      3(P2)
-        xpah    P1              ; P1=&dividend
-        ld      0(P1)
+div16_dividend:
+        ld      2(P2)
         st      vDIVIDEND
-        ld      1(P1)
+        ld      3(P2)
         st      vDIVIDEND+1
-        xre
-        xae                     ; E=high(dividend^divisor)
-        ld      1(P1)
-        jp      divsi2_divide   ; if dividend>=0
+        jp      div16_divide
         scl                     ; clear borrow
         ldi     0
         cad     vDIVIDEND
@@ -445,14 +498,20 @@ divsi2_dividend:
         ldi     0
         cad     vDIVIDEND+1
         st      vDIVIDEND+1     ; negate dividend
-divsi2_divide:
-        ldi     L(ADDR(udiv16))
-        xpal    P1
+div16_divide:
         ldi     H(ADDR(udiv16))
         xpah    P1
+        st      @-1(P2)
+        ldi     L(ADDR(udiv16))
+        xpal    P1
+        st      @-1(P2)         ; push return address
         xppc    P1              ; call udiv16
+        ld      @1(P2)
+        xpal    P1
+        ld      @1(P2)
+        xpah    P1              ; pop return address
         lde
-        jp      divsi2_store
+        jp      div16_store
         scl                     ; clear borrow
         ldi     0
         cad     vQUOTIENT
@@ -460,16 +519,12 @@ divsi2_divide:
         ldi     0
         cad     vQUOTIENT+1
         st      vQUOTIENT+1     ; negate quotient
-divsi2_store:
-        ld      2(P2)
-        xpal    P1
-        ld      3(P2)
-        xpah    P1              ; Pq=&dividend
+div16_store:
         ld      vQUOTIENT
-        st      0(P1)
+        st      2(P2)
         ld      vQUOTIENT+1
-        st      1(P1)
-        jmp     divsi2_exit_trampoline
+        st      3(P2)
+        jmp     div16_exit
 
 ;;; Unsigned divide; quotient = dividend / divisor ... remainder
 ;;; @param vDIVISOR divisor
@@ -484,84 +539,111 @@ vDIVISOR:       .dbyte  0
 vREMAINDER       = vDIVIDEND
 udiv16_bits:    .byte   0
 udiv16_borrow:  .byte   0
-udiv16_adjust:
-        ccl
-        ld      vDIVIDEND
-        add     vDIVISOR
-        st      vDIVIDEND
-        ld      vDIVIDEND+1
-        add     vDIVISOR+1
-        st      vDIVIDEND+1     ; dividend+=divisor
+;;; offsets from vQUOTIENT, which P1 points to in udiv16
+UQUO    =       0
+UDVD    =       vDIVIDEND-vQUOTIENT
+UDVS    =       vDIVISOR-vQUOTIENT
+UBITS   =       udiv16_bits-vQUOTIENT
+UBORROW =       udiv16_borrow-vQUOTIENT
 udiv16_exit:
-        xppc    P1
+        xppc    P1              ; return, leaving P1=ADDR(udiv16)
 udiv16:
         ld      vDIVISOR
         or      vDIVISOR+1
         jz      udiv16_exit     ; divide by zero
+        ldi     H(vQUOTIENT)
+        xpah    P1
+        st      @-1(P2)
+        ldi     L(vQUOTIENT)
+        xpal    P1
+        st      @-1(P2)         ; push return address, P1=vQUOTIENT
         ldi     1
-        st      udiv16_bits
-        st      udiv16_borrow   ; borrow=false
+        st      UBITS(P1)
+        st      UBORROW(P1)     ; borrow=false
         jmp     udiv16_prep
 udiv16_prep_loop:
         ccl
-        ld      vDIVISOR
-        add     vDIVISOR
-        st      vDIVISOR
-        ld      vDIVISOR+1
-        add     vDIVISOR+1
-        st      vDIVISOR+1      ; divisor<<=1
-        ild     udiv16_bits     ; ++bits
+        ld      UDVS(P1)
+        add     UDVS(P1)
+        st      UDVS(P1)
+        ld      UDVS+1(P1)
+        add     UDVS+1(P1)
+        st      UDVS+1(P1)      ; divisor<<=1
+        ild     UBITS(P1)       ; ++bits
 udiv16_prep:
-        ld      vDIVISOR+1
+        scl                     ; clear borrow
+        ld      UDVD(P1)
+        cad     UDVS(P1)
+        ld      UDVD+1(P1)
+        cad     UDVS+1(P1)
+        csa
+        ani     S_CY
+        jz      udiv16_prep_end ; until divisor>dividend
+        ld      UDVS+1(P1)
         jp      udiv16_prep_loop ; while msb(divisor)==0
+udiv16_prep_end:
         ldi     0
-        st      vQUOTIENT
-        st      vQUOTIENT+1     ; quotient=0
+        st      UQUO(P1)
+        st      UQUO+1(P1)      ; quotient=0
         jmp     udiv16_enter_loop
+udiv16_return:
+        jmp     udiv16_exit
 udiv16_loop:
         ccl
-        ld      vDIVISOR+1
+        ld      UDVS+1(P1)
         rrl
-        st      vDIVISOR+1
-        ld      vDIVISOR
+        st      UDVS+1(P1)
+        ld      UDVS(P1)
         rrl
-        st      vDIVISOR        ; divisor>>=1
+        st      UDVS(P1)        ; divisor>>=1
         ccl
-        ld      vQUOTIENT
-        add     vQUOTIENT
-        st      vQUOTIENT
-        ld      vQUOTIENT+1
-        add     vQUOTIENT+1
-        st      vQUOTIENT+1     ; quotient<<=1
+        ld      UQUO(P1)
+        add     UQUO(P1)
+        st      UQUO(P1)
+        ld      UQUO+1(P1)
+        add     UQUO+1(P1)
+        st      UQUO+1(P1)      ; quotient<<=1
 udiv16_enter_loop:
-        ld      udiv16_borrow
+        ld      UBORROW(P1)
         jz      udiv16_add
 udiv16_sub:
         scl                     ; clear borrow
-        ld      vDIVIDEND
-        cad     vDIVISOR
-        st      vDIVIDEND
-        ld      vDIVIDEND+1
-        cad     vDIVISOR+1
-        st      vDIVIDEND+1     ; dividend-=divisor
+        ld      UDVD(P1)
+        cad     UDVS(P1)
+        st      UDVD(P1)
+        ld      UDVD+1(P1)
+        cad     UDVS+1(P1)
+        st      UDVD+1(P1)      ; dividend-=divisor
         jmp     udiv16_quotient
 udiv16_add:
         ccl
-        ld      vDIVIDEND
-        add     vDIVISOR
-        st      vDIVIDEND
-        ld      vDIVIDEND+1
-        add     vDIVISOR+1
-        st      vDIVIDEND+1     ; dividend+=divisor
+        ld      UDVD(P1)
+        add     UDVS(P1)
+        st      UDVD(P1)
+        ld      UDVD+1(P1)
+        add     UDVS+1(P1)
+        st      UDVD+1(P1)      ; dividend+=divisor
 udiv16_quotient:
         csa
         ani     S_CY
-        st      udiv16_borrow
-        jz      udiv16_next    ; if dividend<divisor
-        ild     vQUOTIENT      ; quotient++
+        st      UBORROW(P1)
+        jz      udiv16_next     ; if dividend<divisor
+        ild     UQUO(P1)        ; quotient++
 udiv16_next:
-        dld     udiv16_bits     ; --bits
+        dld     UBITS(P1)       ; --bits
         jnz     udiv16_loop     ; while bits!=0
-        ld      udiv16_borrow
-        jz      udiv16_adjust
-        jmp     udiv16_exit
+        ld      UBORROW(P1)
+        jnz     udiv16_pop
+        ccl
+        ld      UDVD(P1)
+        add     UDVS(P1)
+        st      UDVD(P1)
+        ld      UDVD+1(P1)
+        add     UDVS+1(P1)
+        st      UDVD+1(P1)      ; dividend+=divisor
+udiv16_pop:
+        ld      @1(P2)
+        xpal    P1
+        ld      @1(P2)
+        xpah    P1              ; pop return address
+        jmp     udiv16_return

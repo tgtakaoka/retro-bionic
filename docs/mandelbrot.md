@@ -82,8 +82,8 @@ The tables time them on real chips, from recorded casts, with
 | F3850       | 249.9 |  10.195 |   3.143 |                    | [mandelbrot.cast](../samples/f3850/mandelbrot.cast)                      | [f3850/mandelbrot.lst](../samples/f3850/mandelbrot.lst)         |
 | HD6120      | 258.0 |  10.544 |   3.521 |                    | [mandelbrot_hd6120.cast](../samples/pdp8/mandelbrot_hd6120.cast)         | [pdp8/mandelbrot.lst](../samples/pdp8/mandelbrot.lst)           |
 | SCN2650     | 355.7 |  16.045 |   4.247 |                    | [mandelbrot.cast](../samples/scn2650/mandelbrot.cast)                    | [scn2650/mandelbrot.lst](../samples/scn2650/mandelbrot.lst)     |
+| INS8060     | 379.5 |  15.405 |   3.671 |                    | [mandelbrot.cast](../samples/ins8060/mandelbrot.cast)                    | [ins8060/mandelbrot.lst](../samples/ins8060/mandelbrot.lst)     |
 | IM6100      | 386.1 |  17.547 |   4.958 |                    | [mandelbrot.cast](../samples/pdp8/mandelbrot.cast)                       | [pdp8/mandelbrot.lst](../samples/pdp8/mandelbrot.lst)           |
-| INS8060     | 716.5 |  29.262 |   9.505 |                    | [mandelbrot.cast](../samples/ins8060/mandelbrot.cast)                    | [ins8060/mandelbrot.lst](../samples/ins8060/mandelbrot.lst)     |
 
 ## Floating point, fmandel
 
