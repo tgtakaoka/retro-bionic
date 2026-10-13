@@ -40,60 +40,26 @@ print_uint16_zero:
 print_uint16_end:
         rts
 
-;;; Unsigned multiplication: result = multiplicand * multiplier
-;;; @param D multiplicand
-;;; @param X multiplier
-;;; @return D result
-umul16:
-        pshs    CC,D            ; S[0]=work, S[1:2]=multiplicand
-        tfr     X,D             ; A=high(multiplier)
-        ldb     2,S             ; B=low(multiplicand)
-        mul                     ; low(multiplicand)*high(multiplier)
-        stb     ,S              ; work
-        tfr     X,D             ; B=low(multiplier)
-        lda     1,S             ; A=high(multiplicand)
-        mul                     ; high(multiplicand)*low(multiplier)
-        addb    ,S
-        stb     ,S
-        tfr     X,D             ; B=low(multiplier)
-        lda     2,S             ; A=low(multiplicand)
-        mul                     ; D=low(multiplicand)*low(multiplier)
-        adda    ,S
-        leas    3,S
-        rts
-
 ;;; Multiply; result = multiplicand * multiplier
+;;; Signed and unsigned products share the low 16 bits.
 ;;; @param D multiplicand
 ;;; @param X multiplier
 ;;; @return D result
 mul16:
-        pshs    D
-        tfr     X,D
-        eora    ,S
-        pshs    A               ; save hi(multiplicand^multiplier)
-        ldd     1,S
-        exg     D,X
-        tsta
-        bpl     mul16_multiplicand
-        coma
-        comb
-        addd    #1              ; negate multiplier
-mul16_multiplicand:
-        exg     D,X
-        tsta
-        bpl     mul16_multiply
-        coma
-        comb
-        addd    #1              ; negate multiplicand
-mul16_multiply:
-        bsr     umul16          ; R0=result
-        tst     ,S+             ; A=(multiplicand^multiplier)
-        bpl     mul16_end
-        coma
-        comb
-        addd    #1              ; negate result
-mul16_end:
-        leas    2,S
+umul16:
+        pshs    D,X             ; S[0:1]=multiplicand, S[2:3]=multiplier
+        ldb     3,S             ; B=low(multiplier)
+        mul                     ; high(multiplicand)*low(multiplier)
+        stb     ,S              ; work
+        ldd     1,S             ; A=low(multiplicand), B=high(multiplier)
+        mul                     ; low(multiplicand)*high(multiplier)
+        addb    ,S
+        stb     ,S
+        lda     1,S             ; A=low(multiplicand)
+        ldb     3,S             ; B=low(multiplier)
+        mul                     ; D=low(multiplicand)*low(multiplier)
+        adda    ,S
+        leas    4,S
         rts
 
 ;;; Unsigned division: dividend / divisor = quotient ... remainder
@@ -102,47 +68,51 @@ mul16_end:
 ;;; @return D quotient
 ;;; @return X remainder
 udiv16:
-        pshs    CC,D,X          ; S[0]=bits, S[1:2]=dividend, S[3:4]=divisor
+        pshs    X               ; S[0:1]=divisor
+        cmpd    ,S
+        blo     udiv16_small    ; dividend < divisor
         leax    ,X              ; X=0?
-        beq     udiv16_end      ; divide by zero
-        ldb     #1
-        stb     ,S              ; bits=1
+        beq     udiv16_small    ; divide by zero
+        pshs    D               ; S[0:1]=dividend, S[2:3]=divisor
+        ldd     #-1
+        pshs    D               ; S[0:1]=quotient marker
         tfr     X,D
-        bra     udiv16_prep
+        tsta
+        bmi     udiv16_prep_end
 udiv16_prep_loop:
         lslb
         rola                    ; divisor <<= 1
-        inc     ,S              ; ++bits
-udiv16_prep:
-        cmpd    1,S
+        lsr     ,S
+        ror     1,S             ; marker >>= 1
+        cmpd    2,S
         bhi     udiv16_prep_end ; until divisor > dividend
         tsta
         bpl     udiv16_prep_loop ; while msb(divisor) == 0
 udiv16_prep_end:
-        std     3,S              ; update divisor
-        ldx     #0              ; X=quotient=0
-        ldd     1,S             ; D=dividend
+        std     4,S             ; update divisor
+        ldd     2,S             ; D=dividend
         bra     udiv16_enter_loop
 udiv16_loop:
-        lsr     3,S
-        ror     4,S             ; divisor >>=1
-        exg     D,X
-        lslb
-        rola
-        exg     D,X             ; quotient <<= 1
+        lsr     4,S
+        ror     5,S             ; divisor >>= 1
 udiv16_enter_loop:
-        subd    3,S             ; dividend -= divisor
-        blo     udiv16_readd
-        leax    1,X             ; quotient |= 1
-        bra     udiv16_next
-udiv16_readd:
-        addd    3,S             ; dividend += divisor
+        subd    4,S             ; dividend -= divisor
+        bhs     udiv16_next     ; C=0
+        addd    4,S             ; dividend += divisor, C=1
 udiv16_next:
-        dec     ,S              ; --bits
-        bne     udiv16_loop     ; while bits != 0
-udiv16_end:
-        exg     D,X             ; D=quotient, X=remainder
-        leas    5,S
+        rol     1,S
+        rol     ,S              ; quotient = quotient<<1 | C
+        bcc     udiv16_loop     ; until marker shifts out
+        tfr     D,X             ; X=remainder
+        ldd     ,S
+        coma
+        comb                    ; D=quotient
+        leas    6,S
+        rts
+udiv16_small:
+        tfr     D,X             ; X=remainder
+        ldd     #0              ; D=quotient
+        leas    2,S
         rts
 
 ;;; Division; dividend / divisor = quotient ... remainder
@@ -151,31 +121,28 @@ udiv16_end:
 ;;; @return D quotient
 ;;; @return X remainder
 div16:
-        pshs    D
-        tfr     X,D
-        eora    ,S
-        pshs    A               ; save hi(dividend^divisor)
-        ldd     1,S
-        exg     D,X
+        cmpx    #0
+        bmi     div16_divisor   ; divisor < 0
         tsta
-        bpl     div16_dividend
-        coma
-        comb
-        addd    #1              ; negate divisor
-div16_dividend:
-        exg     D,X
-        tsta
-        bpl     div16_divide
+        bpl     udiv16          ; dividend >= 0
         coma
         comb
         addd    #1              ; negate dividend
-div16_divide:
-        bsr     udiv16          ; R0=quotient
-        tst     ,S+             ; A=(dividend^divisor)
-        bpl     div16_end
+div16_negate:
+        bsr     udiv16
         coma
         comb
-        addd    #1              ; negate result
-div16_end:
-        leas    2,S
+        addd    #1              ; negate quotient
         rts
+div16_divisor:
+        exg     D,X
+        coma
+        comb
+        addd    #1              ; negate divisor
+        exg     D,X
+        tsta
+        bpl     div16_negate    ; dividend >= 0
+        coma
+        comb
+        addd    #1              ; negate dividend
+        bra     udiv16
