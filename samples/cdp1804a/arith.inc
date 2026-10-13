@@ -255,9 +255,19 @@ udiv16_prep_loop:
         phi     R8              ; divisor <<= 1
         inc     R15             ; ++bits
 udiv16_prep:
+        glo     R8
+        str     R2
+        glo     R7
+        sm
+        ghi     R8
+        str     R2
+        ghi     R7
+        smb                     ; dividend-divisor
+        bnf     udiv16_prep_end ; until divisor > dividend
         ghi     R8
         ani     X'80'
         bz      udiv16_prep_loop ; while msb(divisor) == 0
+udiv16_prep_end:
         ghi     R7
         phi     R9
         glo     R7
