@@ -150,37 +150,43 @@ mul16_return:
 udiv16:
         tya                     ; C=divisor
         beq     udiv16_return   ; branch if Y==0
-        ldy     #0              ; y=bits
-udiv16_prep_loop:
-        iny
-        asl     A               ; divisor <<= 1
-        bcc     udiv16_prep_loop
-        sec
-        ror     A               ; divisor >>= 1
-        pha                     ; push divisor
         phx                     ; push dividend
+        ldy     #1              ; Y=bits
+        bra     udiv16_prep
+udiv16_prep_loop:
+        asl     A               ; divisor <<= 1
+        iny                     ; ++bits
+udiv16_prep:
+        cmp     1,S
+        beq     udiv16_prep_msb
+        bcs     udiv16_prep_end ; until divisor > dividend
+udiv16_prep_msb:
+        tax
+        bpl     udiv16_prep_loop ; while msb(divisor) == 0
+udiv16_prep_end:
+        pha                     ; push divisor
         ldx     #0              ; X=quotient
         bra     udiv16_enter_loop
 udiv16_loop:
-        lda     3,S
+        lda     1,S
         lsr     A
-        sta     3,S             ; divisor >>= 1
+        sta     1,S             ; divisor >>= 1
         txa
         asl     A
         tax                     ; quotient <<= 1
 udiv16_enter_loop:
-        lda     1,S
+        lda     3,S
         sec
-        sbc     3,S             ; dividend -= divisor
+        sbc     1,S             ; dividend -= divisor
         bcc     udiv16_next     ; if dividend < divisor
-        sta     1,S
+        sta     3,S
         inx                     ; quotient |= 1
 udiv16_next:
         dey
         bne     udiv16_loop     ; while bits != 0
 udiv16_return:
-        ply                     ; remainder
         pla                     ; discard divisor
+        ply                     ; remainder
         rts
 
 ;;; Division: dividend / divisor = quotient ... remainder

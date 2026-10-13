@@ -55,7 +55,8 @@ loop_i:
         ldy     #F
         jsr     div16           ; B/F
         stx     vQ              ; Q=B/F
-        ldy     #-F
+        txy                     ; Y=Q, the shorter multiplier
+        ldx     #-F
         jsr     mul16           ; -Q*F
         txa
         clc
