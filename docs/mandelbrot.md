@@ -41,10 +41,10 @@ The tables time them on real chips, from recorded casts, with
 | MN1613      |   9.5 |   0.388 |   0.128 |                    | [mandelbrot.cast](../samples/mn1613/mandelbrot.cast)                     | [mn1613/mandelbrot.lst](../samples/mn1613/mandelbrot.lst)       |
 | HD6309      |   9.8 |   0.401 |   0.128 |                    | [mandelbrot.cast](../samples/hd6309/mandelbrot.cast)                     | [hd6309/mandelbrot.lst](../samples/hd6309/mandelbrot.lst)       |
 | HD6309E     |   9.9 |   0.402 |   0.128 |                    | [mandelbrot_hd6309e.cast](../samples/hd6309/mandelbrot_hd6309e.cast)     | [hd6309/mandelbrot.lst](../samples/hd6309/mandelbrot.lst)       |
+| MN1613      |  13.0 |   0.530 |   0.135 | MN1610 code        | [mandelbrot.cast](../samples/mn1610/mandelbrot.cast)                     | [mn1610/mandelbrot.lst](../samples/mn1610/mandelbrot.lst)       |
 | TMP90C802   |  14.1 |   0.576 |   0.191 |                    | [mandelbrot.cast](../samples/tlcs90/mandelbrot.cast)                     | [tlcs90/mandelbrot.lst](../samples/tlcs90/mandelbrot.lst)       |
 | TMS9995     |  14.5 |   0.591 |   0.192 |                    | [mandelbrot_tms9995.cast](../samples/tms9900/mandelbrot_tms9995.cast)    | [tms9900/mandelbrot.lst](../samples/tms9900/mandelbrot.lst)     |
 | KL5C80A12   |  16.5 |   0.669 |   0.172 | Z80 code           | [mandelbrot_kl5c80.cast](../samples/z80/mandelbrot_kl5c80.cast)          | [z80/mandelbrot.lst](../samples/z80/mandelbrot.lst)             |
-| MN1613      |  16.5 |   0.671 |   0.177 | MN1610 code        | [mandelbrot.cast](../samples/mn1610/mandelbrot.cast)                     | [mn1610/mandelbrot.lst](../samples/mn1610/mandelbrot.lst)       |
 | Z380        |  16.7 |   0.681 |   0.182 | Z180 code          | [mandelbrot_z380.cast](../samples/z180/mandelbrot_z380.cast)             | [z180/mandelbrot.lst](../samples/z180/mandelbrot.lst)           |
 | Z380        |  17.0 |   0.691 |   0.181 | Z80 code           | [mandelbrot_z380.cast](../samples/z80/mandelbrot_z380.cast)              | [z80/mandelbrot.lst](../samples/z80/mandelbrot.lst)             |
 | Z88C00      |  20.5 |   0.837 |   0.278 |                    | [mandelbrot.cast](../samples/z88/mandelbrot.cast)                        | [z88/mandelbrot.lst](../samples/z88/mandelbrot.lst)             |
@@ -166,7 +166,7 @@ lose it.
 
 | | MN1613 |
 |---|---:|
-| [mn1610](../samples/mn1610/mandelbrot.lst) | 16.5 |
+| [mn1610](../samples/mn1610/mandelbrot.lst) | 13.0 |
 | [mn1613](../samples/mn1613/mandelbrot.lst) | 9.5 |
 
 The MN1613 runs MN1610 code as is. Its own code is faster because it
