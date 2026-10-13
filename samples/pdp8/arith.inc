@@ -101,46 +101,55 @@ print_uint24_buf,               / buffer, UINT24_MAX=16777215
 /// @param R2 multiplier
 /// @return R0 product
 /// @return AC=0
-/// @clobber R1 R2
+/// @clobber R1 R2 arith_ptr
 umul24,         .-.
         cla
         dca     R0L
         dca     R0H             / clear product
-        jmp     umul24_check    / AC=0
-umul24_loop,
-        cla cll                 / AC=0 L=0
         tad     R2H
-        rar
-        dca     R2H
-        tad     R2L
-        rar
-        dca     R2L             / multiplier >>= 1
-        snl                     / Skip LSB=1
-        jmp     umul24_next
-        cla cll
+        sna cla                 / Skip if high(multiplier) != 0, AC=0
+        jmp     umul24_loop
         tad     R1L
+        dca     arith_ptr       / low(multiplicand)
+umul24_high,                    / high(multiplier) only adds into high(product)
+        tad     R2H
+        sna                     / Skip if high(multiplier) != 0
+        jmp     umul24_loop     / AC=0
+        cll rar
+        dca     R2H             / high(multiplier) >>= 1
+        snl                     / Skip if LSB=1
+        jmp     umul24_high_next
+        tad     arith_ptr
+        tad     R0H
+        dca     R0H             / high(product) += low(multiplicand)
+umul24_high_next,
+        tad     arith_ptr
+        cll ral
+        dca     arith_ptr       / low(multiplicand) <<= 1
+        jmp     umul24_high
+umul24_loop,
+        tad     R2L             / low(multiplier)
+        sna                     / Skip if low(multiplier) != 0
+        jmp     I umul24        / return, AC=0
+        cll rar
+        dca     R2L             / low(multiplier) >>= 1
+        snl                     / Skip if LSB=1
+        jmp     umul24_next
+        tad     R1L             / L=1
         tad     R0L
         dca     R0L
-        ral                     / AC=carry L=0
+        cml ral                 / AC=carry L=0
         tad     R1H
         tad     R0H
         dca     R0H             / product += multiplicand
 umul24_next,
-        cla cll                 / AC=0 L=0
         tad     R1L
-        ral
+        cll ral
         dca     R1L
         tad     R1H
         ral
         dca     R1H             / multiplicand <<= 1
-umul24_check,
-        tad     R2L             / low(multiplier)
-        sza cla                 / Skip if low(multiplier) == 0, AC=0
-        jmp     umul24_loop     / while until multiplier != 0
-        tad     R2H             / high(multiplier)
-        sza cla                 / Skip if high(multiplier) == 0, AC=0
-        jmp     umul24_loop     / while until multiplier != 0
-        jmp     I umul24        / return, AC=0
+        jmp     umul24_loop
 
 /// Negate 24-bit; source = -source
 /// @param (PC+1) source address
@@ -167,20 +176,17 @@ neg24,          .-.
 // @return R0 quotient
 // @return R1 remainder
 // @return AC=0
-// @clobber R2
+// @clobber R2 arith_ptr
 udiv16_bits,    0
 udiv16,         .-.
         cla
         dca     R0L
         dca     R0H             / quotient = 0
         tad     R2L
-        sza                     / skip low(divisor) == 0
-        jmp     udiv16_setup
+        sna                     / skip if low(divisor) != 0
         tad     R2H
-        sza                     / skip high(divisor) == 0
-        jmp     udiv16_setup
+        sna                     / skip if divisor != 0
         jmp     I udiv16        / return as divide by zero, AC=0
-udiv16_setup,
         cla iac                 / AC=1
         dca     udiv16_bits     / bits=1, AC=0
 udiv16_prep,
@@ -192,61 +198,54 @@ udiv16_prep,
         cia cml                 / form 13-bit negative
         tad     R1H             / high(dividend)
         szl cla                 / skip if L=0 (no borrow), AC=0
-        jmp     udiv16_enter_loop       / until divisor > dividend
+        jmp     udiv16_enter    / until divisor > dividend
         tad     R2H
         spa cla                 / skip if msb(divisor)=0, AC=0
-        jmp     udiv16_enter_loop       / until MSB(divisor)=1
-        cll                     / L=0
+        jmp     udiv16_enter    / until MSB(divisor)=1
         tad     R2L
-        ral
+        cll ral
         dca     R2L
         tad     R2H
         ral
         dca     R2H             / divisor <<= 1, AC=0
         isz     udiv16_bits     / bits++
         jmp     udiv16_prep
+udiv16_enter,
+        tad     udiv16_bits
+        cia
+        dca     udiv16_bits     / bits = -bits
+        jmp     udiv16_trial
 udiv16_loop,
-        dca     udiv16_bits
-        cla cll                 / AC=0 L=0
         tad     R2H
-        rar
+        cll rar
         dca     R2H
         tad     R2L
         rar
-        dca     R2L             / divisor >= 1
-        cla cll                 / AC=0 L=0
-        tad     R0L
-        ral
-        dca     R0L
-        tad     R0H
-        ral
-        dca     R0H             / quotient <<= 1, LSB(quotient)=0
-udiv16_enter_loop,
+        dca     R2L             / divisor >>= 1
+udiv16_trial,
         tad     R2L             / low(divisor)
         stl cia                 / negate to form 13-bit negative
         tad     R1L             / low(dividend)
-        dca     R1L             / dividend -= divisor
+        dca     arith_ptr       / low(dividend-divisor)
         ral                     / propagate complemented borrow
         tad     R2H             / high(divisor)
         cia cml                 / form 13-bit negative
-        tad     R1H             / high(dividend)
-        dca     R1H             / dividend -= divisor
+        tad     R1H             / AC=high(dividend-divisor)
         szl                     / skip if L=0 (no borrow)
-        jmp     udiv16_readd    / if dividend < divisor
-        isz     R0L             / LSB(quotient)=1
-        jmp     udiv16_next
-udiv16_readd,
-        cla cll                 / AC=0 L=0
-        tad     R2L             / low(divisor)
-        tad     R1L             / low(dividend)
-        dca     R1L             / dividend += divisor
-        ral                     / AC=carry L=0
-        tad     R2H             / high(divisor)
-        tad     R1H             / high(dividend)
-        dca     R1H             / dividend += divisor
-udiv16_next,
-        sta                     / AC=-1
-        tad     udiv16_bits     / AC=bits-1
-        sza                     / skip if bits == 0
+        jmp     udiv16_borrow   / if dividend < divisor
+        dca     R1H
+        tad     arith_ptr
+        dca     R1L             / dividend -= divisor
+udiv16_shift,
+        tad     R0L
+        cml ral                 / shift in complemented borrow
+        dca     R0L
+        tad     R0H
+        ral
+        dca     R0H             / quotient <<= 1
+        isz     udiv16_bits     / skip if ++bits == 0
         jmp     udiv16_loop     / while bits != 0
         jmp     I udiv16        / return, AC=0
+udiv16_borrow,
+        cla                     / L=1
+        jmp     udiv16_shift
