@@ -223,11 +223,14 @@ umul16:
         clr
         lr      QU, A
         lr      QL, A           ; result=0
-        br      umul16_check
-umul16_loop:
+        lr      A, 5
+        lr      0, A            ; 0=LSB(multiplicand)
         lr      A, 7
+        oi      0
+        bz      umul16_hi       ; LSB(multiplier)==0
+umul16_lo_loop:
         ni      1
-        bz      umul16_sr       ; lsb(multiplier)==0
+        bz      umul16_lo_next  ; lsb(multiplier)==0
         lr      A, QL
         as      5
         lr      QL, A
@@ -235,23 +238,7 @@ umul16_loop:
         lnk
         as      4
         lr      QU, A           ; result += multiplicand
-umul16_sr:
-        clr
-        lr      0, A            ; 0=carry
-        lr      A, 6
-        ni      1
-        bz      umul16_sr_nz
-        li      H'80'
-        lr      0, A            ; set carry
-umul16_sr_nz:
-        lr      A, 6
-        sr      1
-        lr      6, A
-        lr      A, 7
-        sr      1
-        xs      0               ; shift in carry
-        lr      7, A            ; multiplier >>= 1
-umul16_next:
+umul16_lo_next:
         lr      A, 5
         as      5
         lr      5, A
@@ -259,13 +246,30 @@ umul16_next:
         lnk
         as      4
         lr      4, A            ; multiplicand <<= 1
-umul16_check:
+        lr      A, 7
+        sr      1
+        lr      7, A            ; LSB(multiplier) >>= 1
+        bnz     umul16_lo_loop  ; while LSB(multiplier) != 0
+;;; MSB(multiplier) only adds LSB(multiplicand) into MSB(result)
+umul16_hi:
         lr      A, 6
         oi      0
-        bnz     umul16_loop
-        lr      A, 7
-        oi      0
-        bnz     umul16_loop     ; while multiplier != 0
+        bz      umul16_return   ; MSB(multiplier)==0
+umul16_hi_loop:
+        ni      1
+        bz      umul16_hi_next  ; lsb(multiplier)==0
+        lr      A, QU
+        as      0
+        lr      QU, A           ; MSB(result) += LSB(multiplicand)
+umul16_hi_next:
+        lr      A, 0
+        as      0
+        lr      0, A            ; LSB(multiplicand) <<= 1
+        lr      A, 6
+        sr      1
+        lr      6, A            ; MSB(multiplier) >>= 1
+        bnz     umul16_hi_loop  ; while MSB(multiplier) != 0
+umul16_return:
         lr      A, QU
         lr      4, A
         lr      A, QL
@@ -345,81 +349,26 @@ mulsi2_store:
         lr      S, A            ; @2=result
         jmp     return
 
-;;; Unsigned comparison: minuend - subtrahend
-;;; @param 4:5 minuend
-;;; @param 6:7 subtrahend
-;;; @clobber J
-;;; @return W.Z W.S
-ucmp16:
-        pi      push1
-        pi      push0
-        lr      A, 6
-        com
-        lr      0, A            ; MSB(~subtrahend)
-        lr      A, 7
-        com
-        lr      1, A            ; LSB(~subtrahend)
-        lr      A, 5
-        as      1
-        lr      J, W            ; J.C=carry of LSB(minuend+~subtrahend)
-        inc
-        lr      1, A            ; LSB(minuend+~subtrahend+1)
-        lr      A, J
-        bnc     ucmp16_lc
-        oi      H'02'           ; C=C(AS)|C(INC)
-ucmp16_lc:
-        lr      J, A
-        lr      W, J            ; W.C=carry into MSB
-        lr      A, 4
-        lnk
-        lr      J, W            ; J.C=carry of the carry add
-        as      0
-        lr      0, A            ; 0:1=minuend-subtrahend
-        lr      A, J            ; A=W after LNK
-        bnc     ucmp16_nc
-        oi      H'02'           ; C=C(LNK)|C(AS)
-ucmp16_nc:
-        sl      4
-        sl      1
-        sl      1               ; sign=carry << 6
-        lr      J, A
-        lr      A, 0
-        oi      0
-        bnz     ucmp16_cmp
-        lr      A, 1
-        oi      0
-        bz      ucmp16_eq
-ucmp16_cmp:
-        lr      A, J
-        xi      H'80'
-        oi      1               ; W.Z=0, W.S=~W.C
-ucmp16_eq:     
-        pi      pop0
-        pi      pop1
-        jmp     return
-
 ;;; Unsigned division: dividend / divisor = quotient ... remainder
-;;; @param 4:5 dividend
+;;; @param 4:5 dividend, below FF00H: its MSB takes a carry with LNK
 ;;; @param 6:7 divisor
 ;;; @return 4:5 quotient
 ;;; @return 6:7 remainder
-;;; @clobber 4 5 6 7 A
+;;; @clobber 4 5 6 7 A J
 udiv16:
         pi      pushQ           ; save Q
         pi      push1           ; save 1
         pi      push0           ; save 0
-        lis     1
-        lr      0, A            ; bits=1
         lr      A, 6
         oi      0
-        bnz     udiv16_prep
+        bnz     udiv16_start
         lr      A, 7
         oi      0
-        bnz     udiv16_prep
-        pi      pop0
-        pi      pop1
-        pi      popQ
-        jmp     return          ; divide by zero
+        bz      udiv16_end      ; divide by zero
+udiv16_start:
+        lis     1
+        lr      J, A            ; bits=1
+        br      udiv16_prep
 udiv16_prep_loop:
         lr      A, 7
         as      7
@@ -428,20 +377,36 @@ udiv16_prep_loop:
         lnk
         as      6
         lr      6, A            ; divisor <<= 1
-        lr      A, 0
+        lr      A, J
         inc
-        lr      0, A            ; ++bits
+        lr      J, A            ; ++bits
 udiv16_prep:
+        lr      A, 6
+        com
+        lr      0, A
+        lr      A, 7
+        com
+        inc
+        lr      1, A
+        lr      A, 0
+        lnk
+        lr      0, A            ; 0:1=-divisor
+        lr      A, 5
+        as      1
+        lr      A, 4
+        lnk
+        as      0               ; carry=1 if dividend >= divisor
+        bnc     udiv16_prep_end ; until divisor > dividend
         lr      A, 6
         oi      0
         bp      udiv16_prep_loop ; while msb(divisor) == 0
+udiv16_prep_end:
         clr
         lr      QU, A
         lr      QL, A           ; Q=quotient
         br      udiv16_enter_loop
 udiv16_loop:
-        pi      pop0            ; restore bits
-        ds      0               ; --bits
+        ds      J               ; --bits
         bz      udiv16_return   ; while bits != 0
         clr
         lr      1, A            ; clear carry
@@ -468,10 +433,6 @@ udiv16_sr_lsb:
         as      1
         lr      QU, A           ; quotient <<= 1
 udiv16_enter_loop:
-        pi      push0           ; save bits
-        pi      call
-        da      ucmp16          ; dividend <=> divisor
-        bm      udiv16_loop     ; branch if dividend < divisor
         lr      A, 6
         com
         lr      0, A
@@ -484,11 +445,14 @@ udiv16_enter_loop:
         lr      0, A            ; 0:1=-divisor
         lr      A, 5
         as      1
-        lr      5, A
+        lr      1, A
         lr      A, 4
         lnk
-        as      0
-        lr      4, A            ; dividend-=divisor
+        as      0               ; 0:1=dividend-divisor
+        bnc     udiv16_loop     ; branch if dividend < divisor
+        lr      4, A
+        lr      A, 1
+        lr      5, A            ; dividend-=divisor
         lr      A, QL
         inc
         lr      QL, A           ; quotient |= 1
@@ -502,6 +466,7 @@ udiv16_return:
         lr      4, A
         lr      A, QL
         lr      5, A            ; 4:5=quotient
+udiv16_end:
         pi      pop0            ; restore 0
         pi      pop1            ; restore 1
         pi      popQ            ; restore Q
