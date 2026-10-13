@@ -67,39 +67,32 @@ sub12_sub,
 /// @param AC multiplier
 /// @return R0 product
 /// @return AC=0
-/// @clobber R1 R2
-mul12_sign,     0
+/// @clobber R1 R2 arith_ptr
 mul12,          .-.
         dca     R2L             / low(multiplier)
         dca     R2H             / high(multiplier)
-        dca     mul12_sign      / clear sign
         tad     R2L
-        sma                     / skip if multiplier<0
-        jmp     mul12_multiplicand
-        cia                     / negate low(multiplier)
-        dca     R2L
-        isz     mul12_sign      / sign++
-mul12_multiplicand,
-        cla
+        spa cla                 / skip if multiplier>=0, AC=0
+        jmp     mul12_negative
         tad     R0L
-        dca     R1L             / low(multiplicand)
+        dca     R1L
         tad     R0H
-        dca     R1H             / high(multiplicand)
-        tad     R1H
-        sma                     / skip if multiplicand<0
+        dca     R1H             / R1=multiplicand
         jmp     mul12_multiply
-        isz     mul12_sign      / sign++
-        jms     I I_neg24       / negate multiplicand
-        R1
+mul12_negative,                 / multiplicand*-multiplier
+        tad     R2L
+        cia
+        dca     R2L             / negate multiplier
+        tad     R0L
+        cia cll                 / L=1 if low(multiplicand)==0
+        dca     R1L
+        tad     R0H
+        cma
+        szl                     / skip if L=0
+        iac
+        dca     R1H             / R1=-multiplicand
 mul12_multiply,
         jms     I I_umul24      / R0 = R1 * R2
-        tad     mul12_sign
-        rar                     / L=LSB(sign)
-        snl cla                 / Skip if L=1, AC=0
-        jmp     mul12_return
-        jms     I I_neg24
-        R0                      / negate product
-mul12_return,
         jmp     I mul12         / return
 
 /// Signed 24-bit/Unsigned 12-bit division; quotient = dividend / divisor ... remainder
@@ -108,31 +101,37 @@ mul12_return,
 /// @return R0 quotient
 /// @return R1 remainder
 /// @return AC=0
-/// @clobber R2
-divu12_sign,    0
+/// @clobber R2 arith_ptr
 divu12,         .-.
         dca     R2L             / low(divisor)
         dca     R2H             / high(divisor)
-        dca     divu12_sign     / clear sign
-        tad     R0L
-        dca     R1L             / R1=dividend
         tad     R0H
-        dca     R1H
-        tad     R1H
-        sma                     / skip if dividend<0
-        jmp     divu12_divide
-        isz     divu12_sign     / sign++
-        jms     I I_neg24       / negate dividend
-        R1
-divu12_divide,
+        spa cla                 / skip if dividend>=0, AC=0
+        jmp     divu12_negative
+        tad     R0L
+        dca     R1L
+        tad     R0H
+        dca     R1H             / R1=dividend
         jms     I I_udiv16      / R0 = R1 / R2 ... R1
-        tad     divu12_sign
-        rar                     / L=LSB(sign)
-        snl cla                 / Skip if L=1, AC=0
-        jmp     divu12_return
-        jms     I I_neg24
-        R0                      / negate R0, AC=0
-divu12_return,
+        jmp     I divu12        / return, AC=0
+divu12_negative,
+        tad     R0L
+        cia cll                 / L=1 if low(dividend)==0
+        dca     R1L
+        tad     R0H
+        cma
+        szl                     / skip if L=0
+        iac
+        dca     R1H             / R1=-dividend
+        jms     I I_udiv16      / R0 = R1 / R2 ... R1
+        tad     R0L
+        cia cll                 / L=1 if low(quotient)==0
+        dca     R0L
+        tad     R0H
+        cma
+        szl                     / skip if L=0
+        iac
+        dca     R0H             / negate quotient, AC=0
         jmp     I divu12        / return, AC=0
 
 /// Mandelbrot draw variables

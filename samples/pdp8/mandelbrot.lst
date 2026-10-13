@@ -83,16 +83,16 @@
          24 : 0243               I_putchar,      putchar
          25 : 0223               I_putspace,     putspace
          26 : 0231               I_newline,      newline
-         27 : 1044               I_neg24,        neg24
+         27 : 1054               I_neg24,        neg24
          30 : 0600               I_add24,        add24
          31 : 0616               I_sub24,        sub24
          32 : 1200               I_dep12,        dep12
          33 : 1207               I_add12,        add12
          34 : 1227               I_sub12,        sub12
-         35 : 1252               I_mul12,        mul12
-         36 : 1310               I_divu12,       divu12
+         35 : 1251               I_mul12,        mul12
+         36 : 1301               I_divu12,       divu12
          37 : 1000               I_umul24,       umul24
-         40 : 1064               I_udiv16,       udiv16
+         40 : 1074               I_udiv16,       udiv16
          41 : 0637               I_print_int24,  print_int24
          42 : 1664               I_debug,        debug
          43 :
@@ -159,7 +159,7 @@
         213 : 4616                       jms     I I_mandelbrot
         214 : 4426                       jms     I I_newline
         215 : 5213                       jmp     loop
-        216 : 1337               I_mandelbrot,   mandelbrot
+        216 : 1340               I_mandelbrot,   mandelbrot
         217 :
         217 : 0040               rx_size,        rx_queue_size
         220 : 0040               tx_size,        tx_queue_size
@@ -445,156 +445,155 @@
 (1)    1000 :                    /// @param R2 multiplier
 (1)    1000 :                    /// @return R0 product
 (1)    1000 :                    /// @return AC=0
-(1)    1000 :                    /// @clobber R1 R2
+(1)    1000 :                    /// @clobber R1 R2 arith_ptr
 (1)    1000 : 0000               umul24,         .-.
 (1)    1001 : 7200                       cla
 (1)    1002 : 3044                       dca     R0L
 (1)    1003 : 3045                       dca     R0H             / clear product
-(1)    1004 : 5235                       jmp     umul24_check    / AC=0
-(1)    1005 :                    umul24_loop,
-(1)    1005 : 7300                       cla cll                 / AC=0 L=0
-(1)    1006 : 1051                       tad     R2H
-(1)    1007 : 7010                       rar
-(1)    1010 : 3051                       dca     R2H
-(1)    1011 : 1050                       tad     R2L
-(1)    1012 : 7010                       rar
-(1)    1013 : 3050                       dca     R2L             / multiplier >>= 1
-(1)    1014 : 7420                       snl                     / Skip LSB=1
-(1)    1015 : 5226                       jmp     umul24_next
-(1)    1016 : 7300                       cla cll
-(1)    1017 : 1046                       tad     R1L
-(1)    1020 : 1044                       tad     R0L
-(1)    1021 : 3044                       dca     R0L
-(1)    1022 : 7004                       ral                     / AC=carry L=0
-(1)    1023 : 1047                       tad     R1H
-(1)    1024 : 1045                       tad     R0H
-(1)    1025 : 3045                       dca     R0H             / product += multiplicand
-(1)    1026 :                    umul24_next,
-(1)    1026 : 7300                       cla cll                 / AC=0 L=0
-(1)    1027 : 1046                       tad     R1L
-(1)    1030 : 7004                       ral
-(1)    1031 : 3046                       dca     R1L
-(1)    1032 : 1047                       tad     R1H
-(1)    1033 : 7004                       ral
-(1)    1034 : 3047                       dca     R1H             / multiplicand <<= 1
-(1)    1035 :                    umul24_check,
-(1)    1035 : 1050                       tad     R2L             / low(multiplier)
-(1)    1036 : 7640                       sza cla                 / Skip if low(multiplier) == 0, AC=0
-(1)    1037 : 5205                       jmp     umul24_loop     / while until multiplier != 0
-(1)    1040 : 1051                       tad     R2H             / high(multiplier)
-(1)    1041 : 7640                       sza cla                 / Skip if high(multiplier) == 0, AC=0
-(1)    1042 : 5205                       jmp     umul24_loop     / while until multiplier != 0
-(1)    1043 : 5600                       jmp     I umul24        / return, AC=0
-(1)    1044 :
-(1)    1044 :                    /// Negate 24-bit; source = -source
-(1)    1044 :                    /// @param (PC+1) source address
-(1)    1044 :                    /// @return AC=0
-(1)    1044 : 0000               neg24,          .-.
-(1)    1045 : 7200                       cla
-(1)    1046 : 1644                       tad     I neg24         / source address
-(1)    1047 : 2244                       isz     neg24           / advance to return address
-(1)    1050 : 3043                       dca     arith_ptr       / pointer to low(source)
-(1)    1051 : 1443                       tad     I arith_ptr     / low(source)
-(1)    1052 : 7141                       cia cll                 / negate AC, L=1 if AC=0
-(1)    1053 : 3443                       dca     I arith_ptr     / store low(source)
-(1)    1054 : 2043                       isz     arith_ptr
-(1)    1055 : 1443                       tad     I arith_ptr     / AC=high(source)
-(1)    1056 : 7040                       cma                     / ~AC
-(1)    1057 : 7430                       szl                     / skip if L=0
-(1)    1060 : 7001                       iac                     / AC += L
-(1)    1061 : 3443                       dca     I arith_ptr     / store high(source), AC=0
-(1)    1062 : 5644                       jmp     I neg24         / return
-(1)    1063 :
-(1)    1063 :                    // Unsigned 16-bit division; quotient = dividend / divisor ... remainder
-(1)    1063 :                    // @param R1 Unsigned 16-bit dividend
-(1)    1063 :                    // @param R2 Unsigned 16-bit divisor
-(1)    1063 :                    // @return R0 quotient
-(1)    1063 :                    // @return R1 remainder
-(1)    1063 :                    // @return AC=0
-(1)    1063 :                    // @clobber R2
-(1)    1063 : 0000               udiv16_bits,    0
-(1)    1064 : 0000               udiv16,         .-.
-(1)    1065 : 7200                       cla
-(1)    1066 : 3044                       dca     R0L
-(1)    1067 : 3045                       dca     R0H             / quotient = 0
-(1)    1070 : 1050                       tad     R2L
-(1)    1071 : 7440                       sza                     / skip low(divisor) == 0
-(1)    1072 : 5277                       jmp     udiv16_setup
-(1)    1073 : 1051                       tad     R2H
-(1)    1074 : 7440                       sza                     / skip high(divisor) == 0
-(1)    1075 : 5277                       jmp     udiv16_setup
-(1)    1076 : 5664                       jmp     I udiv16        / return as divide by zero, AC=0
-(1)    1077 :                    udiv16_setup,
-(1)    1077 : 7201                       cla iac                 / AC=1
-(1)    1100 : 3263                       dca     udiv16_bits     / bits=1, AC=0
-(1)    1101 :                    udiv16_prep,
-(1)    1101 : 1050                       tad     R2L             / low(divisor)
-(1)    1102 : 7161                       stl cia                 / negate to form 13-bit negative
-(1)    1103 : 1046                       tad     R1L             / low(dividend)
-(1)    1104 : 7204                       cla ral                 / propagate complemented borrow
-(1)    1105 : 1051                       tad     R2H             / high(divisor)
-(1)    1106 : 7061                       cia cml                 / form 13-bit negative
-(1)    1107 : 1047                       tad     R1H             / high(dividend)
-(1)    1110 : 7630                       szl cla                 / skip if L=0 (no borrow), AC=0
-(1)    1111 : 5345                       jmp     udiv16_enter_loop       / until divisor > dividend
-(1)    1112 : 1051                       tad     R2H
-(1)    1113 : 7710                       spa cla                 / skip if msb(divisor)=0, AC=0
-(1)    1114 : 5345                       jmp     udiv16_enter_loop       / until MSB(divisor)=1
-(1)    1115 : 7100                       cll                     / L=0
-(1)    1116 : 1050                       tad     R2L
-(1)    1117 : 7004                       ral
-(1)    1120 : 3050                       dca     R2L
-(1)    1121 : 1051                       tad     R2H
-(1)    1122 : 7004                       ral
-(1)    1123 : 3051                       dca     R2H             / divisor <<= 1, AC=0
-(1)    1124 : 2263                       isz     udiv16_bits     / bits++
-(1)    1125 : 5301                       jmp     udiv16_prep
-(1)    1126 :                    udiv16_loop,
-(1)    1126 : 3263                       dca     udiv16_bits
-(1)    1127 : 7300                       cla cll                 / AC=0 L=0
-(1)    1130 : 1051                       tad     R2H
-(1)    1131 : 7010                       rar
-(1)    1132 : 3051                       dca     R2H
-(1)    1133 : 1050                       tad     R2L
-(1)    1134 : 7010                       rar
-(1)    1135 : 3050                       dca     R2L             / divisor >= 1
-(1)    1136 : 7300                       cla cll                 / AC=0 L=0
-(1)    1137 : 1044                       tad     R0L
-(1)    1140 : 7004                       ral
-(1)    1141 : 3044                       dca     R0L
-(1)    1142 : 1045                       tad     R0H
-(1)    1143 : 7004                       ral
-(1)    1144 : 3045                       dca     R0H             / quotient <<= 1, LSB(quotient)=0
-(1)    1145 :                    udiv16_enter_loop,
+(1)    1004 : 1051                       tad     R2H
+(1)    1005 : 7650                       sna cla                 / Skip if high(multiplier) != 0, AC=0
+(1)    1006 : 5227                       jmp     umul24_loop
+(1)    1007 : 1046                       tad     R1L
+(1)    1010 : 3043                       dca     arith_ptr       / low(multiplicand)
+(1)    1011 :                    umul24_high,                    / high(multiplier) only adds into high(product)
+(1)    1011 : 1051                       tad     R2H
+(1)    1012 : 7450                       sna                     / Skip if high(multiplier) != 0
+(1)    1013 : 5227                       jmp     umul24_loop     / AC=0
+(1)    1014 : 7110                       cll rar
+(1)    1015 : 3051                       dca     R2H             / high(multiplier) >>= 1
+(1)    1016 : 7420                       snl                     / Skip if LSB=1
+(1)    1017 : 5223                       jmp     umul24_high_next
+(1)    1020 : 1043                       tad     arith_ptr
+(1)    1021 : 1045                       tad     R0H
+(1)    1022 : 3045                       dca     R0H             / high(product) += low(multiplicand)
+(1)    1023 :                    umul24_high_next,
+(1)    1023 : 1043                       tad     arith_ptr
+(1)    1024 : 7104                       cll ral
+(1)    1025 : 3043                       dca     arith_ptr       / low(multiplicand) <<= 1
+(1)    1026 : 5211                       jmp     umul24_high
+(1)    1027 :                    umul24_loop,
+(1)    1027 : 1050                       tad     R2L             / low(multiplier)
+(1)    1030 : 7450                       sna                     / Skip if low(multiplier) != 0
+(1)    1031 : 5600                       jmp     I umul24        / return, AC=0
+(1)    1032 : 7110                       cll rar
+(1)    1033 : 3050                       dca     R2L             / low(multiplier) >>= 1
+(1)    1034 : 7420                       snl                     / Skip if LSB=1
+(1)    1035 : 5245                       jmp     umul24_next
+(1)    1036 : 1046                       tad     R1L             / L=1
+(1)    1037 : 1044                       tad     R0L
+(1)    1040 : 3044                       dca     R0L
+(1)    1041 : 7024                       cml ral                 / AC=carry L=0
+(1)    1042 : 1047                       tad     R1H
+(1)    1043 : 1045                       tad     R0H
+(1)    1044 : 3045                       dca     R0H             / product += multiplicand
+(1)    1045 :                    umul24_next,
+(1)    1045 : 1046                       tad     R1L
+(1)    1046 : 7104                       cll ral
+(1)    1047 : 3046                       dca     R1L
+(1)    1050 : 1047                       tad     R1H
+(1)    1051 : 7004                       ral
+(1)    1052 : 3047                       dca     R1H             / multiplicand <<= 1
+(1)    1053 : 5227                       jmp     umul24_loop
+(1)    1054 :
+(1)    1054 :                    /// Negate 24-bit; source = -source
+(1)    1054 :                    /// @param (PC+1) source address
+(1)    1054 :                    /// @return AC=0
+(1)    1054 : 0000               neg24,          .-.
+(1)    1055 : 7200                       cla
+(1)    1056 : 1654                       tad     I neg24         / source address
+(1)    1057 : 2254                       isz     neg24           / advance to return address
+(1)    1060 : 3043                       dca     arith_ptr       / pointer to low(source)
+(1)    1061 : 1443                       tad     I arith_ptr     / low(source)
+(1)    1062 : 7141                       cia cll                 / negate AC, L=1 if AC=0
+(1)    1063 : 3443                       dca     I arith_ptr     / store low(source)
+(1)    1064 : 2043                       isz     arith_ptr
+(1)    1065 : 1443                       tad     I arith_ptr     / AC=high(source)
+(1)    1066 : 7040                       cma                     / ~AC
+(1)    1067 : 7430                       szl                     / skip if L=0
+(1)    1070 : 7001                       iac                     / AC += L
+(1)    1071 : 3443                       dca     I arith_ptr     / store high(source), AC=0
+(1)    1072 : 5654                       jmp     I neg24         / return
+(1)    1073 :
+(1)    1073 :                    // Unsigned 16-bit division; quotient = dividend / divisor ... remainder
+(1)    1073 :                    // @param R1 Unsigned 16-bit dividend
+(1)    1073 :                    // @param R2 Unsigned 16-bit divisor
+(1)    1073 :                    // @return R0 quotient
+(1)    1073 :                    // @return R1 remainder
+(1)    1073 :                    // @return AC=0
+(1)    1073 :                    // @clobber R2 arith_ptr
+(1)    1073 : 0000               udiv16_bits,    0
+(1)    1074 : 0000               udiv16,         .-.
+(1)    1075 : 7200                       cla
+(1)    1076 : 3044                       dca     R0L
+(1)    1077 : 3045                       dca     R0H             / quotient = 0
+(1)    1100 : 1050                       tad     R2L
+(1)    1101 : 7450                       sna                     / skip if low(divisor) != 0
+(1)    1102 : 1051                       tad     R2H
+(1)    1103 : 7450                       sna                     / skip if divisor != 0
+(1)    1104 : 5674                       jmp     I udiv16        / return as divide by zero, AC=0
+(1)    1105 : 7201                       cla iac                 / AC=1
+(1)    1106 : 3273                       dca     udiv16_bits     / bits=1, AC=0
+(1)    1107 :                    udiv16_prep,
+(1)    1107 : 1050                       tad     R2L             / low(divisor)
+(1)    1110 : 7161                       stl cia                 / negate to form 13-bit negative
+(1)    1111 : 1046                       tad     R1L             / low(dividend)
+(1)    1112 : 7204                       cla ral                 / propagate complemented borrow
+(1)    1113 : 1051                       tad     R2H             / high(divisor)
+(1)    1114 : 7061                       cia cml                 / form 13-bit negative
+(1)    1115 : 1047                       tad     R1H             / high(dividend)
+(1)    1116 : 7630                       szl cla                 / skip if L=0 (no borrow), AC=0
+(1)    1117 : 5333                       jmp     udiv16_enter    / until divisor > dividend
+(1)    1120 : 1051                       tad     R2H
+(1)    1121 : 7710                       spa cla                 / skip if msb(divisor)=0, AC=0
+(1)    1122 : 5333                       jmp     udiv16_enter    / until MSB(divisor)=1
+(1)    1123 : 1050                       tad     R2L
+(1)    1124 : 7104                       cll ral
+(1)    1125 : 3050                       dca     R2L
+(1)    1126 : 1051                       tad     R2H
+(1)    1127 : 7004                       ral
+(1)    1130 : 3051                       dca     R2H             / divisor <<= 1, AC=0
+(1)    1131 : 2273                       isz     udiv16_bits     / bits++
+(1)    1132 : 5307                       jmp     udiv16_prep
+(1)    1133 :                    udiv16_enter,
+(1)    1133 : 1273                       tad     udiv16_bits
+(1)    1134 : 7041                       cia
+(1)    1135 : 3273                       dca     udiv16_bits     / bits = -bits
+(1)    1136 : 5345                       jmp     udiv16_trial
+(1)    1137 :                    udiv16_loop,
+(1)    1137 : 1051                       tad     R2H
+(1)    1140 : 7110                       cll rar
+(1)    1141 : 3051                       dca     R2H
+(1)    1142 : 1050                       tad     R2L
+(1)    1143 : 7010                       rar
+(1)    1144 : 3050                       dca     R2L             / divisor >>= 1
+(1)    1145 :                    udiv16_trial,
 (1)    1145 : 1050                       tad     R2L             / low(divisor)
 (1)    1146 : 7161                       stl cia                 / negate to form 13-bit negative
 (1)    1147 : 1046                       tad     R1L             / low(dividend)
-(1)    1150 : 3046                       dca     R1L             / dividend -= divisor
+(1)    1150 : 3043                       dca     arith_ptr       / low(dividend-divisor)
 (1)    1151 : 7004                       ral                     / propagate complemented borrow
 (1)    1152 : 1051                       tad     R2H             / high(divisor)
 (1)    1153 : 7061                       cia cml                 / form 13-bit negative
-(1)    1154 : 1047                       tad     R1H             / high(dividend)
-(1)    1155 : 3047                       dca     R1H             / dividend -= divisor
-(1)    1156 : 7430                       szl                     / skip if L=0 (no borrow)
-(1)    1157 : 5362                       jmp     udiv16_readd    / if dividend < divisor
-(1)    1160 : 2044                       isz     R0L             / LSB(quotient)=1
-(1)    1161 : 5372                       jmp     udiv16_next
-(1)    1162 :                    udiv16_readd,
-(1)    1162 : 7300                       cla cll                 / AC=0 L=0
-(1)    1163 : 1050                       tad     R2L             / low(divisor)
-(1)    1164 : 1046                       tad     R1L             / low(dividend)
-(1)    1165 : 3046                       dca     R1L             / dividend += divisor
-(1)    1166 : 7004                       ral                     / AC=carry L=0
-(1)    1167 : 1051                       tad     R2H             / high(divisor)
-(1)    1170 : 1047                       tad     R1H             / high(dividend)
-(1)    1171 : 3047                       dca     R1H             / dividend += divisor
-(1)    1172 :                    udiv16_next,
-(1)    1172 : 7240                       sta                     / AC=-1
-(1)    1173 : 1263                       tad     udiv16_bits     / AC=bits-1
-(1)    1174 : 7440                       sza                     / skip if bits == 0
-(1)    1175 : 5326                       jmp     udiv16_loop     / while bits != 0
-(1)    1176 : 5664                       jmp     I udiv16        / return, AC=0
-       1177 :
+(1)    1154 : 1047                       tad     R1H             / AC=high(dividend-divisor)
+(1)    1155 : 7430                       szl                     / skip if L=0 (no borrow)
+(1)    1156 : 5373                       jmp     udiv16_borrow   / if dividend < divisor
+(1)    1157 : 3047                       dca     R1H
+(1)    1160 : 1043                       tad     arith_ptr
+(1)    1161 : 3046                       dca     R1L             / dividend -= divisor
+(1)    1162 :                    udiv16_shift,
+(1)    1162 : 1044                       tad     R0L
+(1)    1163 : 7024                       cml ral                 / shift in complemented borrow
+(1)    1164 : 3044                       dca     R0L
+(1)    1165 : 1045                       tad     R0H
+(1)    1166 : 7004                       ral
+(1)    1167 : 3045                       dca     R0H             / quotient <<= 1
+(1)    1170 : 2273                       isz     udiv16_bits     / skip if ++bits == 0
+(1)    1171 : 5337                       jmp     udiv16_loop     / while bits != 0
+(1)    1172 : 5674                       jmp     I udiv16        / return, AC=0
+(1)    1173 :                    udiv16_borrow,
+(1)    1173 : 7200                       cla                     / L=1
+(1)    1174 : 5362                       jmp     udiv16_shift
+       1175 :
        1200 :                            page
        1200 :                            include "mandelbrot.inc"
 (1)    1200 :                    /// -*- mode: asm; mode: flyspell-prog* -*-
@@ -666,229 +665,228 @@
 (1)    1251 :                    /// @param AC multiplier
 (1)    1251 :                    /// @return R0 product
 (1)    1251 :                    /// @return AC=0
-(1)    1251 :                    /// @clobber R1 R2
-(1)    1251 : 0000               mul12_sign,     0
-(1)    1252 : 0000               mul12,          .-.
-(1)    1253 : 3050                       dca     R2L             / low(multiplier)
-(1)    1254 : 3051                       dca     R2H             / high(multiplier)
-(1)    1255 : 3251                       dca     mul12_sign      / clear sign
-(1)    1256 : 1050                       tad     R2L
-(1)    1257 : 7500                       sma                     / skip if multiplier<0
-(1)    1260 : 5264                       jmp     mul12_multiplicand
-(1)    1261 : 7041                       cia                     / negate low(multiplier)
-(1)    1262 : 3050                       dca     R2L
-(1)    1263 : 2251                       isz     mul12_sign      / sign++
-(1)    1264 :                    mul12_multiplicand,
-(1)    1264 : 7200                       cla
-(1)    1265 : 1044                       tad     R0L
-(1)    1266 : 3046                       dca     R1L             / low(multiplicand)
-(1)    1267 : 1045                       tad     R0H
-(1)    1270 : 3047                       dca     R1H             / high(multiplicand)
-(1)    1271 : 1047                       tad     R1H
-(1)    1272 : 7500                       sma                     / skip if multiplicand<0
-(1)    1273 : 5277                       jmp     mul12_multiply
-(1)    1274 : 2251                       isz     mul12_sign      / sign++
-(1)    1275 : 4427                       jms     I I_neg24       / negate multiplicand
-(1)    1276 : 0046                       R1
+(1)    1251 :                    /// @clobber R1 R2 arith_ptr
+(1)    1251 : 0000               mul12,          .-.
+(1)    1252 : 3050                       dca     R2L             / low(multiplier)
+(1)    1253 : 3051                       dca     R2H             / high(multiplier)
+(1)    1254 : 1050                       tad     R2L
+(1)    1255 : 7710                       spa cla                 / skip if multiplier>=0, AC=0
+(1)    1256 : 5264                       jmp     mul12_negative
+(1)    1257 : 1044                       tad     R0L
+(1)    1260 : 3046                       dca     R1L
+(1)    1261 : 1045                       tad     R0H
+(1)    1262 : 3047                       dca     R1H             / R1=multiplicand
+(1)    1263 : 5277                       jmp     mul12_multiply
+(1)    1264 :                    mul12_negative,                 / multiplicand*-multiplier
+(1)    1264 : 1050                       tad     R2L
+(1)    1265 : 7041                       cia
+(1)    1266 : 3050                       dca     R2L             / negate multiplier
+(1)    1267 : 1044                       tad     R0L
+(1)    1270 : 7141                       cia cll                 / L=1 if low(multiplicand)==0
+(1)    1271 : 3046                       dca     R1L
+(1)    1272 : 1045                       tad     R0H
+(1)    1273 : 7040                       cma
+(1)    1274 : 7430                       szl                     / skip if L=0
+(1)    1275 : 7001                       iac
+(1)    1276 : 3047                       dca     R1H             / R1=-multiplicand
 (1)    1277 :                    mul12_multiply,
 (1)    1277 : 4437                       jms     I I_umul24      / R0 = R1 * R2
-(1)    1300 : 1251                       tad     mul12_sign
-(1)    1301 : 7010                       rar                     / L=LSB(sign)
-(1)    1302 : 7620                       snl cla                 / Skip if L=1, AC=0
-(1)    1303 : 5306                       jmp     mul12_return
-(1)    1304 : 4427                       jms     I I_neg24
-(1)    1305 : 0044                       R0                      / negate product
-(1)    1306 :                    mul12_return,
-(1)    1306 : 5652                       jmp     I mul12         / return
-(1)    1307 :
-(1)    1307 :                    /// Signed 24-bit/Unsigned 12-bit division; quotient = dividend / divisor ... remainder
-(1)    1307 :                    /// @param R0 dividend
-(1)    1307 :                    /// @param AC unsigned 12-bit divisor address
-(1)    1307 :                    /// @return R0 quotient
-(1)    1307 :                    /// @return R1 remainder
-(1)    1307 :                    /// @return AC=0
-(1)    1307 :                    /// @clobber R2
-(1)    1307 : 0000               divu12_sign,    0
-(1)    1310 : 0000               divu12,         .-.
-(1)    1311 : 3050                       dca     R2L             / low(divisor)
-(1)    1312 : 3051                       dca     R2H             / high(divisor)
-(1)    1313 : 3307                       dca     divu12_sign     / clear sign
-(1)    1314 : 1044                       tad     R0L
-(1)    1315 : 3046                       dca     R1L             / R1=dividend
-(1)    1316 : 1045                       tad     R0H
-(1)    1317 : 3047                       dca     R1H
-(1)    1320 : 1047                       tad     R1H
-(1)    1321 : 7500                       sma                     / skip if dividend<0
-(1)    1322 : 5326                       jmp     divu12_divide
-(1)    1323 : 2307                       isz     divu12_sign     / sign++
-(1)    1324 : 4427                       jms     I I_neg24       / negate dividend
-(1)    1325 : 0046                       R1
-(1)    1326 :                    divu12_divide,
-(1)    1326 : 4440                       jms     I I_udiv16      / R0 = R1 / R2 ... R1
-(1)    1327 : 1307                       tad     divu12_sign
-(1)    1330 : 7010                       rar                     / L=LSB(sign)
-(1)    1331 : 7620                       snl cla                 / Skip if L=1, AC=0
-(1)    1332 : 5335                       jmp     divu12_return
-(1)    1333 : 4427                       jms     I I_neg24
-(1)    1334 : 0044                       R0                      / negate R0, AC=0
-(1)    1335 :                    divu12_return,
-(1)    1335 : 5710                       jmp     I divu12        / return, AC=0
-(1)    1336 :
-(1)    1336 :                    /// Mandelbrot draw variables
-(1)    1336 :                    mandelbrot_end,
-(1)    1336 : 5737                       jmp     I mandelbrot
-(1)    1337 : 0000               mandelbrot,     .-.
-(1)    1340 : 7200                       cla
-(1)    1341 : 1067                       tad     const_m12
-(1)    1342 : 3064                       dca     vY              / Y=-12
-(1)    1343 :                    loop_y,
-(1)    1343 : 7200                       cla
-(1)    1344 : 1070                       tad     const_m49
-(1)    1345 : 3065                       dca     vX              / X=-49
-(1)    1346 :                    loop_x,
-(1)    1346 : 7200                       cla
-(1)    1347 : 1065                       tad     vX
-(1)    1350 : 4432                       jms     I I_dep12       / R0=X
-(1)    1351 : 1071                       tad     const_229
-(1)    1352 : 4435                       jms     I I_mul12       / R0=X*229
-(1)    1353 : 1072                       tad     const_100
-(1)    1354 : 4436                       jms     I I_divu12      / R0=X*229/100
-(1)    1355 : 1044                       tad     R0
-(1)    1356 : 3054                       dca     vC              / C=X*229/100
-(1)    1357 : 1044                       tad     R0
-(1)    1360 : 3056                       dca     vA              / A=C
-(1)    1361 : 1064                       tad     vY
-(1)    1362 : 4432                       jms     I I_dep12       / R0=Y
-(1)    1363 : 1073                       tad     const_416
-(1)    1364 : 4435                       jms     I I_mul12       / R0=Y*416
-(1)    1365 : 1072                       tad     const_100
-(1)    1366 : 4436                       jms     I I_divu12      / R0=Y*416/100
-(1)    1367 : 1044                       tad     R0
-(1)    1370 : 3055                       dca     vD              / D=Y*416/100
-(1)    1371 : 1044                       tad     R0
-(1)    1372 : 3057                       dca     vB              / B=D
-(1)    1373 : 3066                       dca     vI              / I=0
-(1)    1374 :
-(1)    1374 :                    //        tad     vY
-(1)    1374 :                    //        jms     I I_debug
-(1)    1374 :                    //        131                     / char 'Y'
-(1)    1374 :                    //        tad     vX
-(1)    1374 :                    //        jms     I I_debug
-(1)    1374 :                    //        130                     / char 'X'
-(1)    1374 :                    //        tad     vC
-(1)    1374 :                    //        jms     I I_debug
-(1)    1374 :                    //        103                     / char 'C'
-(1)    1374 :                    //        tad     vD
-(1)    1374 :                    //        jms     I I_debug
-(1)    1374 :                    //        104                     / char 'D'
-(1)    1374 :                    //        jms     I I_newline
-(1)    1374 :
-(1)    1374 :                    loop_i,
-(1)    1374 : 7200                       cla
-(1)    1375 : 1057                       tad     vB
-(1)    1376 : 4432                       jms     I I_dep12       / R0=B
-(1)    1377 : 1074                       tad     const_F
-(1)    1400 : 4436                       jms     I I_divu12      / R0=B/F
-(1)    1401 : 1044                       tad     R0
-(1)    1402 : 3062                       dca     vQ              / Q=B/F
-(1)    1403 : 1074                       tad     const_F
-(1)    1404 : 7041                       cia                     / AC=-F
-(1)    1405 : 4432                       jms     I I_dep12       / R0=-F
-(1)    1406 : 1062                       tad     vQ
-(1)    1407 : 4435                       jms     I I_mul12       / R0=-F*Q, Q the shorter multiplier
-(1)    1410 : 1057                       tad     vB
-(1)    1411 : 4433                       jms     I I_add12       / R0=B-Q*F
-(1)    1412 : 1044                       tad     R0
-(1)    1413 : 3060                       dca     vS              / S=B-Q*F
-(1)    1414 : 1057                       tad     vB
-(1)    1415 : 4432                       jms     I I_dep12       / R0=B
-(1)    1416 : 1057                       tad     vB
-(1)    1417 : 4435                       jms     I I_mul12       / R0=B*B
-(1)    1420 : 1044                       tad     R0L
-(1)    1421 : 3052                       dca     R3L
-(1)    1422 : 1045                       tad     R0H
-(1)    1423 : 3053                       dca     R3H             / R3=B*B
-(1)    1424 : 1056                       tad     vA
-(1)    1425 : 4432                       jms     I I_dep12       / R0=A
-(1)    1426 : 1056                       tad     vA
-(1)    1427 : 4435                       jms     I I_mul12       / R0=A*A
-(1)    1430 : 4431                       jms     I I_sub24       / R0=A*A-B*B, needs 24-bit
-(1)    1431 : 0052                       R3
-(1)    1432 : 1074                       tad     const_F
-(1)    1433 : 4436                       jms     I I_divu12      / R0=(A*A-B*B)/F, 12-bit is enough
-(1)    1434 : 1054                       tad     vC
-(1)    1435 : 4433                       jms     I I_add12       / R0=(A*A-B*B)/F+C
-(1)    1436 : 1044                       tad     R0
-(1)    1437 : 3052                       dca     R3L             / TMP=(A*A-B*B)/F+C, 12-bit is enough
-(1)    1440 : 1056                       tad     vA
-(1)    1441 : 4432                       jms     I I_dep12       / R0=A
-(1)    1442 : 1062                       tad     vQ
-(1)    1443 : 4435                       jms     I I_mul12       / R0=A*Q
-(1)    1444 : 1044                       tad     R0
-(1)    1445 : 3063                       dca     vT              / T=A*Q
-(1)    1446 : 1056                       tad     vA
-(1)    1447 : 4432                       jms     I I_dep12       / R0=A
-(1)    1450 : 1060                       tad     vS
-(1)    1451 : 4435                       jms     I I_mul12       / R0=A*S
-(1)    1452 : 1074                       tad     const_F
-(1)    1453 : 4436                       jms     I I_divu12      / R0=A*S/F
-(1)    1454 : 1063                       tad     vT
-(1)    1455 : 4433                       jms     I I_add12       / R0=A*Q+A*S/F
-(1)    1456 : 1044                       tad     R0
-(1)    1457 : 3063                       dca     vT              / T=A*Q+A*S/F
-(1)    1460 : 1063                       tad     vT
-(1)    1461 : 1063                       tad     vT              / AC=2*(A*Q+A*S/F)
-(1)    1462 : 1055                       tad     vD              / AC=2*(A*Q+A*S/F)+D
-(1)    1463 : 3057                       dca     vB              / B=2*(A*Q+A*S/F)+D
-(1)    1464 : 1052                       tad     R3L             / AC=(A*A-B*B)/F+C
-(1)    1465 : 3056                       dca     vA              / A=(A*A-B*B)/F+C
-(1)    1466 : 1056                       tad     vA
-(1)    1467 : 4432                       jms     I I_dep12       / R0=A
-(1)    1470 : 1074                       tad     const_F
-(1)    1471 : 4436                       jms     I I_divu12      / R0=A/F
-(1)    1472 : 1044                       tad     R0
-(1)    1473 : 3061                       dca     vP              / P=A/F
-(1)    1474 : 1061                       tad     vP
-(1)    1475 : 4435                       jms     I I_mul12       / R0=P*P
-(1)    1476 : 1044                       tad     R0
-(1)    1477 : 3063                       dca     vT              / T=P*P
-(1)    1500 : 1057                       tad     vB
-(1)    1501 : 4432                       jms     I I_dep12       / R0=B
-(1)    1502 : 1074                       tad     const_F
-(1)    1503 : 4436                       jms     I I_divu12      / R0=B/F
-(1)    1504 : 1044                       tad     R0
-(1)    1505 : 3062                       dca     vQ              / Q=B/F
-(1)    1506 : 1062                       tad     vQ
-(1)    1507 : 4435                       jms     I I_mul12       / R0=Q*Q
-(1)    1510 : 1044                       tad     R0
-(1)    1511 : 1063                       tad     vT              / R0=P*P+Q*Q
-(1)    1512 : 3063                       dca     vT              / T=P*P+Q*Q
-(1)    1513 :
-(1)    1513 :                    //        jms     I I_putspace
-(1)    1513 :                    //        cla
-(1)    1513 :                    //        tad     vI
-(1)    1513 :                    //        jms     I I_debug
-(1)    1513 :                    //        111                     / char 'I'
-(1)    1513 :                    //        tad     vA
-(1)    1513 :                    //        jms     I I_debug
-(1)    1513 :                    //        101                     / char 'A'
-(1)    1513 :                    //        tad     vB
-(1)    1513 :                    //        jms     I I_debug
-(1)    1513 :                    //        102                     / char 'B'
-(1)    1513 :                    //        tad     vP
-(1)    1513 :                    //        jms     I I_debug
-(1)    1513 :                    //        120                     / char 'P'
-(1)    1513 :                    //        tad     vQ
-(1)    1513 :                    //        jms     I I_debug
-(1)    1513 :                    //        121                     / char 'Q'
-(1)    1513 :                    //        tad     vT
-(1)    1513 :                    //        jms     I I_debug
-(1)    1513 :                    //        124                     / char 'T'
-(1)    1513 :                    //        jms     I I_newline
-(1)    1513 :                    //        cla
-(1)    1513 :
-(1)    1513 : 5714                       jmp     I I_debug_t
-(1)    1514 : 1600               I_debug_t,      debug_t
+(1)    1300 : 5651                       jmp     I mul12         / return
+(1)    1301 :
+(1)    1301 :                    /// Signed 24-bit/Unsigned 12-bit division; quotient = dividend / divisor ... remainder
+(1)    1301 :                    /// @param R0 dividend
+(1)    1301 :                    /// @param AC unsigned 12-bit divisor address
+(1)    1301 :                    /// @return R0 quotient
+(1)    1301 :                    /// @return R1 remainder
+(1)    1301 :                    /// @return AC=0
+(1)    1301 :                    /// @clobber R2 arith_ptr
+(1)    1301 : 0000               divu12,         .-.
+(1)    1302 : 3050                       dca     R2L             / low(divisor)
+(1)    1303 : 3051                       dca     R2H             / high(divisor)
+(1)    1304 : 1045                       tad     R0H
+(1)    1305 : 7710                       spa cla                 / skip if dividend>=0, AC=0
+(1)    1306 : 5315                       jmp     divu12_negative
+(1)    1307 : 1044                       tad     R0L
+(1)    1310 : 3046                       dca     R1L
+(1)    1311 : 1045                       tad     R0H
+(1)    1312 : 3047                       dca     R1H             / R1=dividend
+(1)    1313 : 4440                       jms     I I_udiv16      / R0 = R1 / R2 ... R1
+(1)    1314 : 5701                       jmp     I divu12        / return, AC=0
+(1)    1315 :                    divu12_negative,
+(1)    1315 : 1044                       tad     R0L
+(1)    1316 : 7141                       cia cll                 / L=1 if low(dividend)==0
+(1)    1317 : 3046                       dca     R1L
+(1)    1320 : 1045                       tad     R0H
+(1)    1321 : 7040                       cma
+(1)    1322 : 7430                       szl                     / skip if L=0
+(1)    1323 : 7001                       iac
+(1)    1324 : 3047                       dca     R1H             / R1=-dividend
+(1)    1325 : 4440                       jms     I I_udiv16      / R0 = R1 / R2 ... R1
+(1)    1326 : 1044                       tad     R0L
+(1)    1327 : 7141                       cia cll                 / L=1 if low(quotient)==0
+(1)    1330 : 3044                       dca     R0L
+(1)    1331 : 1045                       tad     R0H
+(1)    1332 : 7040                       cma
+(1)    1333 : 7430                       szl                     / skip if L=0
+(1)    1334 : 7001                       iac
+(1)    1335 : 3045                       dca     R0H             / negate quotient, AC=0
+(1)    1336 : 5701                       jmp     I divu12        / return, AC=0
+(1)    1337 :
+(1)    1337 :                    /// Mandelbrot draw variables
+(1)    1337 :                    mandelbrot_end,
+(1)    1337 : 5740                       jmp     I mandelbrot
+(1)    1340 : 0000               mandelbrot,     .-.
+(1)    1341 : 7200                       cla
+(1)    1342 : 1067                       tad     const_m12
+(1)    1343 : 3064                       dca     vY              / Y=-12
+(1)    1344 :                    loop_y,
+(1)    1344 : 7200                       cla
+(1)    1345 : 1070                       tad     const_m49
+(1)    1346 : 3065                       dca     vX              / X=-49
+(1)    1347 :                    loop_x,
+(1)    1347 : 7200                       cla
+(1)    1350 : 1065                       tad     vX
+(1)    1351 : 4432                       jms     I I_dep12       / R0=X
+(1)    1352 : 1071                       tad     const_229
+(1)    1353 : 4435                       jms     I I_mul12       / R0=X*229
+(1)    1354 : 1072                       tad     const_100
+(1)    1355 : 4436                       jms     I I_divu12      / R0=X*229/100
+(1)    1356 : 1044                       tad     R0
+(1)    1357 : 3054                       dca     vC              / C=X*229/100
+(1)    1360 : 1044                       tad     R0
+(1)    1361 : 3056                       dca     vA              / A=C
+(1)    1362 : 1064                       tad     vY
+(1)    1363 : 4432                       jms     I I_dep12       / R0=Y
+(1)    1364 : 1073                       tad     const_416
+(1)    1365 : 4435                       jms     I I_mul12       / R0=Y*416
+(1)    1366 : 1072                       tad     const_100
+(1)    1367 : 4436                       jms     I I_divu12      / R0=Y*416/100
+(1)    1370 : 1044                       tad     R0
+(1)    1371 : 3055                       dca     vD              / D=Y*416/100
+(1)    1372 : 1044                       tad     R0
+(1)    1373 : 3057                       dca     vB              / B=D
+(1)    1374 : 3066                       dca     vI              / I=0
+(1)    1375 :
+(1)    1375 :                    //        tad     vY
+(1)    1375 :                    //        jms     I I_debug
+(1)    1375 :                    //        131                     / char 'Y'
+(1)    1375 :                    //        tad     vX
+(1)    1375 :                    //        jms     I I_debug
+(1)    1375 :                    //        130                     / char 'X'
+(1)    1375 :                    //        tad     vC
+(1)    1375 :                    //        jms     I I_debug
+(1)    1375 :                    //        103                     / char 'C'
+(1)    1375 :                    //        tad     vD
+(1)    1375 :                    //        jms     I I_debug
+(1)    1375 :                    //        104                     / char 'D'
+(1)    1375 :                    //        jms     I I_newline
+(1)    1375 :
+(1)    1375 :                    loop_i,
+(1)    1375 : 7200                       cla
+(1)    1376 : 1057                       tad     vB
+(1)    1377 : 4432                       jms     I I_dep12       / R0=B
+(1)    1400 : 1074                       tad     const_F
+(1)    1401 : 4436                       jms     I I_divu12      / R0=B/F
+(1)    1402 : 1044                       tad     R0
+(1)    1403 : 3062                       dca     vQ              / Q=B/F
+(1)    1404 : 1074                       tad     const_F
+(1)    1405 : 7041                       cia                     / AC=-F
+(1)    1406 : 4432                       jms     I I_dep12       / R0=-F
+(1)    1407 : 1062                       tad     vQ
+(1)    1410 : 4435                       jms     I I_mul12       / R0=-F*Q, Q the shorter multiplier
+(1)    1411 : 1057                       tad     vB
+(1)    1412 : 4433                       jms     I I_add12       / R0=B-Q*F
+(1)    1413 : 1044                       tad     R0
+(1)    1414 : 3060                       dca     vS              / S=B-Q*F
+(1)    1415 : 1057                       tad     vB
+(1)    1416 : 4432                       jms     I I_dep12       / R0=B
+(1)    1417 : 1057                       tad     vB
+(1)    1420 : 4435                       jms     I I_mul12       / R0=B*B
+(1)    1421 : 1044                       tad     R0L
+(1)    1422 : 3052                       dca     R3L
+(1)    1423 : 1045                       tad     R0H
+(1)    1424 : 3053                       dca     R3H             / R3=B*B
+(1)    1425 : 1056                       tad     vA
+(1)    1426 : 4432                       jms     I I_dep12       / R0=A
+(1)    1427 : 1056                       tad     vA
+(1)    1430 : 4435                       jms     I I_mul12       / R0=A*A
+(1)    1431 : 4431                       jms     I I_sub24       / R0=A*A-B*B, needs 24-bit
+(1)    1432 : 0052                       R3
+(1)    1433 : 1074                       tad     const_F
+(1)    1434 : 4436                       jms     I I_divu12      / R0=(A*A-B*B)/F, 12-bit is enough
+(1)    1435 : 1054                       tad     vC
+(1)    1436 : 4433                       jms     I I_add12       / R0=(A*A-B*B)/F+C
+(1)    1437 : 1044                       tad     R0
+(1)    1440 : 3052                       dca     R3L             / TMP=(A*A-B*B)/F+C, 12-bit is enough
+(1)    1441 : 1056                       tad     vA
+(1)    1442 : 4432                       jms     I I_dep12       / R0=A
+(1)    1443 : 1062                       tad     vQ
+(1)    1444 : 4435                       jms     I I_mul12       / R0=A*Q
+(1)    1445 : 1044                       tad     R0
+(1)    1446 : 3063                       dca     vT              / T=A*Q
+(1)    1447 : 1056                       tad     vA
+(1)    1450 : 4432                       jms     I I_dep12       / R0=A
+(1)    1451 : 1060                       tad     vS
+(1)    1452 : 4435                       jms     I I_mul12       / R0=A*S
+(1)    1453 : 1074                       tad     const_F
+(1)    1454 : 4436                       jms     I I_divu12      / R0=A*S/F
+(1)    1455 : 1063                       tad     vT
+(1)    1456 : 4433                       jms     I I_add12       / R0=A*Q+A*S/F
+(1)    1457 : 1044                       tad     R0
+(1)    1460 : 3063                       dca     vT              / T=A*Q+A*S/F
+(1)    1461 : 1063                       tad     vT
+(1)    1462 : 1063                       tad     vT              / AC=2*(A*Q+A*S/F)
+(1)    1463 : 1055                       tad     vD              / AC=2*(A*Q+A*S/F)+D
+(1)    1464 : 3057                       dca     vB              / B=2*(A*Q+A*S/F)+D
+(1)    1465 : 1052                       tad     R3L             / AC=(A*A-B*B)/F+C
+(1)    1466 : 3056                       dca     vA              / A=(A*A-B*B)/F+C
+(1)    1467 : 1056                       tad     vA
+(1)    1470 : 4432                       jms     I I_dep12       / R0=A
+(1)    1471 : 1074                       tad     const_F
+(1)    1472 : 4436                       jms     I I_divu12      / R0=A/F
+(1)    1473 : 1044                       tad     R0
+(1)    1474 : 3061                       dca     vP              / P=A/F
+(1)    1475 : 1061                       tad     vP
+(1)    1476 : 4435                       jms     I I_mul12       / R0=P*P
+(1)    1477 : 1044                       tad     R0
+(1)    1500 : 3063                       dca     vT              / T=P*P
+(1)    1501 : 1057                       tad     vB
+(1)    1502 : 4432                       jms     I I_dep12       / R0=B
+(1)    1503 : 1074                       tad     const_F
+(1)    1504 : 4436                       jms     I I_divu12      / R0=B/F
+(1)    1505 : 1044                       tad     R0
+(1)    1506 : 3062                       dca     vQ              / Q=B/F
+(1)    1507 : 1062                       tad     vQ
+(1)    1510 : 4435                       jms     I I_mul12       / R0=Q*Q
+(1)    1511 : 1044                       tad     R0
+(1)    1512 : 1063                       tad     vT              / R0=P*P+Q*Q
+(1)    1513 : 3063                       dca     vT              / T=P*P+Q*Q
+(1)    1514 :
+(1)    1514 :                    //        jms     I I_putspace
+(1)    1514 :                    //        cla
+(1)    1514 :                    //        tad     vI
+(1)    1514 :                    //        jms     I I_debug
+(1)    1514 :                    //        111                     / char 'I'
+(1)    1514 :                    //        tad     vA
+(1)    1514 :                    //        jms     I I_debug
+(1)    1514 :                    //        101                     / char 'A'
+(1)    1514 :                    //        tad     vB
+(1)    1514 :                    //        jms     I I_debug
+(1)    1514 :                    //        102                     / char 'B'
+(1)    1514 :                    //        tad     vP
+(1)    1514 :                    //        jms     I I_debug
+(1)    1514 :                    //        120                     / char 'P'
+(1)    1514 :                    //        tad     vQ
+(1)    1514 :                    //        jms     I I_debug
+(1)    1514 :                    //        121                     / char 'Q'
+(1)    1514 :                    //        tad     vT
+(1)    1514 :                    //        jms     I I_debug
+(1)    1514 :                    //        124                     / char 'T'
+(1)    1514 :                    //        jms     I I_newline
+(1)    1514 :                    //        cla
+(1)    1514 :
+(1)    1514 : 5715                       jmp     I I_debug_t
+(1)    1515 : 1600               I_debug_t,      debug_t
 (1)    1600 :                            page
 (1)    1600 :                    debug_t,
 (1)    1600 : 1063                       tad     vT
@@ -905,7 +903,7 @@
 (1)    1613 : 4425                       jms     I I_putspace    / print ' '
 (1)    1614 : 5231                       jmp     check_break
 (1)    1615 :
-(1)    1615 : 1374               I_loop_i,       loop_i
+(1)    1615 : 1375               I_loop_i,       loop_i
 (1)    1616 :
 (1)    1616 :                    print_i,
 (1)    1616 : 7200                       cla
@@ -944,7 +942,7 @@
 (1)    1635 : 5240                       jmp     next_x
 (1)    1636 : 7402                       hlt                     / halt to system
 (1)    1637 :
-(1)    1637 : 1346               I_loop_x,               loop_x
+(1)    1637 : 1347               I_loop_x,               loop_x
 (1)    1640 :                    next_x,
 (1)    1640 : 7200                       cla
 (1)    1641 : 1065                       tad     vX
@@ -964,9 +962,9 @@
 (1)    1656 : 1100                       tad     const_m13       / Y-13
 (1)    1657 : 7510                       spa                     / Skip if Y-13>=0
 (1)    1660 : 5661                       jmp     I I_loop_y      / if Y<13
-(1)    1661 : 1343               I_loop_y,               loop_y
+(1)    1661 : 1344               I_loop_y,               loop_y
 (1)    1662 : 5663                       jmp     I I_mandelbrot_end
-(1)    1663 : 1336               I_mandelbrot_end,       mandelbrot_end
+(1)    1663 : 1337               I_mandelbrot_end,       mandelbrot_end
 (1)    1664 :
 (1)    1664 :                    /// Print variable: "name=R0 "
 (1)    1664 :                    /// @param AC variable
