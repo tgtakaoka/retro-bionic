@@ -47,12 +47,12 @@
 (1)       0 : =3C                ORG_RST75:      equ     003CH   ; RST 7.5
           0 :
           0 :                    ;;; i8251 Universal Synchronous/Asynchronous Receiver/Transmitter
-          0 : =0                 USART:          equ     00H
-          0 : =0                 USARTD:         equ     USART+0 ; Receive/Transmit data
-          0 : =1                 USARTS:         equ     USART+1 ; Srtatus register
-          0 : =1                 USARTC:         equ     USART+1 ; Control register
-          0 : =2                 USARTRV:        equ     USART+2 ; Receive interrupt vector (ORG_*)
-          0 : =3                 USARTTV:        equ     USART+3 ; Transmit interrupt vector (ORG_*)
+          0 : =40                USART:          equ     40H
+          0 : =40                USARTD:         equ     USART+0 ; Receive/Transmit data
+          0 : =41                USARTS:         equ     USART+1 ; Srtatus register
+          0 : =41                USARTC:         equ     USART+1 ; Control register
+          0 : =42                USARTRV:        equ     USART+2 ; Receive interrupt vector (ORG_*)
+          0 : =43                USARTTV:        equ     USART+3 ; Transmit interrupt vector (ORG_*)
           0 :                            include "i8251.inc"
 (1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
 (1)       0 :
@@ -129,23 +129,23 @@
         110 : CD CD 01                   call    queue_init
         113 :                    init_usart:
         113 : AF                         xra     a               ; clear A
-        114 : D3 01                      out     USARTC
-        116 : D3 01                      out     USARTC
-        118 : D3 01                      out     USARTC          ; safest way to sync mode
+        114 : D3 41                      out     USARTC
+        116 : D3 41                      out     USARTC
+        118 : D3 41                      out     USARTC          ; safest way to sync mode
         11A : 3E 40                      mvi     a, CMD_IR_bm
-        11C : D3 01                      out     USARTC          ; reset
+        11C : D3 41                      out     USARTC          ; reset
         11E : 00                         nop
         11F : 00                         nop
         120 : 3E 4E                      mvi     a, ASYNC_MODE
-        122 : D3 01                      out     USARTC
+        122 : D3 41                      out     USARTC
         124 : 00                         nop
         125 : 00                         nop
         126 : 3E 36                      mvi     a, RX_EN_TX_DIS
-        128 : D3 01                      out     USARTC
+        128 : D3 41                      out     USARTC
         12A : 3E 2C                      mvi     a, ORG_RST55
-        12C : D3 02                      out     USARTRV         ; set RxRDY interrupt vector RST 5.5
+        12C : D3 42                      out     USARTRV         ; set RxRDY interrupt vector RST 5.5
         12E : 3E 30                      mvi     a, ORG_RST6
-        130 : D3 03                      out     USARTTV         ; set TxRDY interrupt vector RST 6
+        130 : D3 43                      out     USARTTV         ; set TxRDY interrupt vector RST 6
         132 :
         132 : 20                         rim
         133 : E6 FC                      ani     ~(SIM_M55|SIM_M65) ; enable RST 5.5/RST 6.5
@@ -258,7 +258,7 @@
         1C3 : D2 BE 01                   jnc     putchar_retry   ; branch if queue is full
         1C6 : E1                         pop     h
         1C7 : 3E 37                      mvi     a, RX_EN_TX_EN  ; enable Tx
-        1C9 : D3 01                      out     USARTC
+        1C9 : D3 41                      out     USARTC
         1CB : F1                         pop     psw
         1CC : C9                         ret
         1CD :
@@ -379,10 +379,10 @@
         22F :                    isr_intr_rx:
         22F : F5                         push    psw
         230 :                    isr_intr_receive:
-        230 : DB 01                      in      USARTS
+        230 : DB 41                      in      USARTS
         232 : E6 02                      ani     ST_RxRDY_bm
         234 : CA 41 02                   jz      isr_intr_rx_exit
-        237 : DB 00                      in      USARTD          ; receive character
+        237 : DB 40                      in      USARTD          ; receive character
         239 : E5                         push    h
         23A : 21 00 20                   lxi     h, rx_queue
         23D : CD E3 01                   call    queue_add
@@ -394,7 +394,7 @@
         244 :
         244 :                    isr_intr_tx:
         244 : F5                         push    psw
-        245 : DB 01                      in      USARTS
+        245 : DB 41                      in      USARTS
         247 : E6 01                      ani     ST_TxRDY_bm
         249 : CA 59 02                   jz      isr_intr_tx_exit
         24C : E5                         push    h
@@ -402,14 +402,14 @@
         250 : CD 0B 02                   call    queue_remove
         253 : E1                         pop     h
         254 : D2 5C 02                   jnc     isr_intr_send_empty
-        257 : D3 00                      out     USARTD          ; send character
+        257 : D3 40                      out     USARTD          ; send character
         259 :                    isr_intr_tx_exit:
         259 : F1                         pop     psw
         25A : FB                         ei
         25B : C9                         ret
         25C :                    isr_intr_send_empty:
         25C : 3E 36                      mvi     a, RX_EN_TX_DIS
-        25E : D3 01                      out     USARTC          ; disable Tx
+        25E : D3 41                      out     USARTC          ; disable Tx
         260 : F1                         pop     psw
         261 : FB                         ei
         262 : C9                         ret
