@@ -34,8 +34,10 @@ void RegsTms370::reset() {
     constexpr auto DUMMY = 0x2000;
     static constexpr uint8_t CONFIG[] = {
         lo(DUMMY), hi(DUMMY),  // inject dummy reset vector
-#if DISABLE_AUTO_WAIT
+        // The oscillator fault logic resets the CPU whenever CLKIN pauses
+        // for long, which a halt or a slow run does.
         0xF7, 0x40, 0x10,      // MOV #OSC_POWER,SCCR0
+#if DISABLE_AUTO_WAIT
         0xF7, 0x10, 0x11,      // MOV #AUTO_WAIT_DISABLE, SCCR1
 #endif
     };
@@ -44,7 +46,8 @@ void RegsTms370::reset() {
 
 void RegsTms370::save() {
     static constexpr uint8_t SAVE_ALL[] = {
-            0xFB, 0x8B,        // PUSH ST
+            0xFB, 0xF0,        // PUSH ST
+            0xF0, 0x00,        // DINT (LDST #0); RTI restores ST
             0x8B, 0x80, 0x00,  // MOV A, 8000H
             0xB9, 0x8B,        // POP A
             0x8B, 0x80, 0x00,  // MOV A, 8000H
@@ -67,13 +70,19 @@ void RegsTms370::save() {
 }
 
 void RegsTms370::restore() {
+    // RTI loads PC and ST at once, so an interrupt it enables pushes _pc.
     const uint8_t LOAD_ALL[] = {
-            0x52, _sp,               // MOV #_sp, B
-            0xFD, 0x52,              // LDSP
-            0x52, _b,                // MOV #_b, B
-            0x22, _a,                // MOV #_a, A
-            0xF0, _st,               // LDST #_st
-            0x8C, hi(_pc), lo(_pc),  // BR _pc
+            0x52, _sp,       // MOV #_sp, B
+            0xFD, 0x22,      // LDSP
+            0x22, _st,       // MOV #_st, A
+            0xB8, 0x22,      // PUSH A
+            0x22, hi(_pc),   // MOV #hi(_pc), A
+            0xB8, 0x22,      // PUSH A
+            0x22, lo(_pc),   // MOV #lo(_pc), A
+            0xB8, 0x52,      // PUSH A
+            0x52, _b,        // MOV #_b, B
+            0x22, _a,        // MOV #_a, A
+            0xFA,            // RTI
     };
     _pins->injectReads(LOAD_ALL, sizeof(LOAD_ALL));
 }
