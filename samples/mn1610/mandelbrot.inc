@@ -55,9 +55,10 @@ loop_i:
         mvi     R2, F
         bal     (I_divu16)      R1=B/F
         st      R1, vQ          Q=B/F
-        mvi     R2, hi(-F)
-        bswp    R2, R2
-        mvi     R2, lo(-F)
+        mv      R2, R1          R2=Q, the shorter multiplier
+        mvi     R1, hi(-F)
+        bswp    R1, R1
+        mvi     R1, lo(-F)
         bal     (I_mul16)       R1=-Q*F
         l       R2, vB
         a       R1, R2          R1=B-Q*F

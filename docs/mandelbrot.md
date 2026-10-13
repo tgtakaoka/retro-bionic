@@ -43,9 +43,9 @@ The tables time them on real chips, from recorded casts, with
 | HD6309E     |   9.9 |   0.402 |   0.128 |                    | [mandelbrot_hd6309e.cast](../samples/hd6309/mandelbrot_hd6309e.cast)     | [hd6309/mandelbrot.lst](../samples/hd6309/mandelbrot.lst)       |
 | TMP90C802   |  14.1 |   0.576 |   0.191 |                    | [mandelbrot.cast](../samples/tlcs90/mandelbrot.cast)                     | [tlcs90/mandelbrot.lst](../samples/tlcs90/mandelbrot.lst)       |
 | TMS9995     |  14.5 |   0.591 |   0.192 |                    | [mandelbrot_tms9995.cast](../samples/tms9900/mandelbrot_tms9995.cast)    | [tms9900/mandelbrot.lst](../samples/tms9900/mandelbrot.lst)     |
+| MN1613      |  16.5 |   0.671 |   0.177 | MN1610 code        | [mandelbrot.cast](../samples/mn1610/mandelbrot.cast)                     | [mn1610/mandelbrot.lst](../samples/mn1610/mandelbrot.lst)       |
 | Z88C00      |  20.5 |   0.837 |   0.278 |                    | [mandelbrot.cast](../samples/z88/mandelbrot.cast)                        | [z88/mandelbrot.lst](../samples/z88/mandelbrot.lst)             |
 | MC68HC08AZ0 |  25.2 |   1.029 |   0.343 |                    | [mandelbrot.cast](../samples/mc68hc08/mandelbrot.cast)                   | [mc68hc08/mandelbrot.lst](../samples/mc68hc08/mandelbrot.lst)   |
-| MN1613      |  25.4 |   1.039 |   0.337 | MN1610 code        | [mandelbrot.cast](../samples/mn1610/mandelbrot.cast)                     | [mn1610/mandelbrot.lst](../samples/mn1610/mandelbrot.lst)       |
 | 68HC11      |  28.1 |   1.147 |   0.385 |                    | [mandelbrot.cast](../samples/mc68hc11/mandelbrot.cast)                   | [mc68hc11/mandelbrot.lst](../samples/mc68hc11/mandelbrot.lst)   |
 | TMS9900     |  29.0 |   1.184 |   0.387 |                    | [mandelbrot.cast](../samples/tms9900/mandelbrot.cast)                    | [tms9900/mandelbrot.lst](../samples/tms9900/mandelbrot.lst)     |
 | TMS370Cx5x  |  34.0 |   1.391 |   0.462 |                    | [mandelbrot.cast](../samples/tms370/mandelbrot.cast)                     | [tms370/mandelbrot.lst](../samples/tms370/mandelbrot.lst)       |
@@ -161,12 +161,11 @@ lose it.
 
 | | MN1613 |
 |---|---:|
-| [mn1610](../samples/mn1610/mandelbrot.lst) | 25.4 |
+| [mn1610](../samples/mn1610/mandelbrot.lst) | 16.5 |
 | [mn1613](../samples/mn1613/mandelbrot.lst) | 9.5 |
 
-The MN1613 runs MN1610 code as is. Its own code, with the hardware
-multiply `M` and divide `D` the MN1610 lacks, runs nearly three times as
-fast.
+The MN1613 runs MN1610 code as is. Its own code is faster because it
+uses the hardware multiply `M` and divide `D` the MN1610 lacks.
 
 ### PDP-8 family
 

@@ -42,8 +42,11 @@ udiv16_prep_loop:
         sl      R2, re          divisor<<=1
         ai      R3, 1           bits++
 udiv16_prep:
+        c       R1, R2, lpz     Skip if dividend>=divisor
+        b       udiv16_prep_end
         tbit    R2, 0, nz       Skip if msb(R2)==1
         b       udiv16_prep_loop
+udiv16_prep_end:
         eor     R0, R0          quotient=0 (R0)
         b       udiv16_enter_loop
 udiv16_loop:
