@@ -8,6 +8,12 @@ ACIA    =       $DF00
         *=      VEC_RESET
         .word   initialize
 
+;;; Work area for arith.inc
+        *=      $10
+arith_work:
+        .word   0
+        .word   0
+
         *=      $1000
 stack   =       *-1
 initialize:

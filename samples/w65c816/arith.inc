@@ -77,6 +77,26 @@ cmp16_eq:
         lda     #0
         rts
 
+;;; Multiply: result = multiplicand * multiplier
+;;; @param X multiplicand
+;;; @param Y multiplier
+;;; @return X result
+;;; @clobber C Y
+;;; A 16-bit product is the same signed or unsigned; a negative
+;;; multiplier is negated only to shorten the loop.
+        longa   on
+mul16:
+        tya
+        bpl     umul16          ; branch if multiplier >= 0
+        eor     #$FFFF
+        inc     A
+        tay                     ; negate multiplier
+        txa
+        eor     #$FFFF
+        inc     A
+        tax                     ; negate multiplicand
+                                ; fall through to umul16
+
 ;;; Unsigned multiplication: result = multiplicand * multiplier
 ;;; @param X multiplicand
 ;;; @param Y multiplier
@@ -107,86 +127,43 @@ umul16_end:
         plx                     ; X=result
         rts
 
-;;; Multiply: result = multiplicand * multiplier
-;;; @param X multiplicand
-;;; @param Y multiplier
-;;; @return X result
-;;; @clobber C Y
-        longa   on
-mul16:
-        phy                     ; save multiplier
-        txa
-        eor     1,S
-        sta     1,S             ; save (multiplicand^multiplier)
-        tya
-        bpl     mul16_multiplicand
-        eor     #$FFFF
-        inc     A
-        tay                     ; negate multiplier
-mul16_multiplicand:
-        txa
-        bpl     mul16_multiply
-        eor     #$FFFF
-        inc     A
-        tax                     ; negate multiplicand
-mul16_multiply:
-        jsr     umul16          ; R0=result
-        pla                     ; A=(multiplicand^multiplier)
-        bpl     mul16_return
-        txa
-        eor     #$FFFF
-        inc     A
-        tax                     ; negate result
-mul16_return:
-        rts
-
 ;;; Unsigned division: dividend / divisor = quotient ... remainder
 ;;; @praram X dividend
 ;;; @praram Y divisor
 ;;; @return X quotient
 ;;; @return Y remainder
-;;; @clobber C
+;;; @clobber C arith_work
         longa   on
 udiv16:
+        stx     arith_work+2    ; dividend
+        ldx     #1              ; X=bits
         tya                     ; C=divisor
-        beq     udiv16_return   ; branch if Y==0
-        phx                     ; push dividend
-        ldy     #1              ; Y=bits
-        bra     udiv16_prep
-udiv16_prep_loop:
-        asl     A               ; divisor <<= 1
-        iny                     ; ++bits
+        beq     udiv16_zero     ; branch if Y==0
+        bmi     udiv16_prep_end ; branch if msb(divisor) == 1
 udiv16_prep:
-        cmp     1,S
-        beq     udiv16_prep_msb
-        bcs     udiv16_prep_end ; until divisor > dividend
-udiv16_prep_msb:
-        tax
-        bpl     udiv16_prep_loop ; while msb(divisor) == 0
+        cmp     arith_work+2
+        bcs     udiv16_prep_end ; until divisor >= dividend
+        inx                     ; ++bits
+        asl     A               ; divisor <<= 1
+        bpl     udiv16_prep     ; while msb(divisor) == 0
 udiv16_prep_end:
-        pha                     ; push divisor
-        ldx     #0              ; X=quotient
+        sta     arith_work      ; divisor
+        lda     arith_work+2    ; C=dividend
+        stz     arith_work+2    ; quotient=0
         bra     udiv16_enter_loop
 udiv16_loop:
-        lda     1,S
-        lsr     A
-        sta     1,S             ; divisor >>= 1
-        txa
-        asl     A
-        tax                     ; quotient <<= 1
+        lsr     arith_work      ; divisor >>= 1
 udiv16_enter_loop:
-        lda     3,S
-        sec
-        sbc     1,S             ; dividend -= divisor
+        cmp     arith_work
         bcc     udiv16_next     ; if dividend < divisor
-        sta     3,S
-        inx                     ; quotient |= 1
+        sbc     arith_work      ; dividend -= divisor
 udiv16_next:
-        dey
+        rol     arith_work+2    ; quotient = quotient<<1 | C
+        dex
         bne     udiv16_loop     ; while bits != 0
-udiv16_return:
-        pla                     ; discard divisor
-        ply                     ; remainder
+        tay                     ; Y=remainder
+udiv16_zero:
+        ldx     arith_work+2    ; X=quotient
         rts
 
 ;;; Division: dividend / divisor = quotient ... remainder
