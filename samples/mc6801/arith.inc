@@ -109,8 +109,15 @@ udiv16_prep_loop:
         lsld                    ; divisor <<= 1
         inx                     ; ++bits
 udiv16_prep:
+        cmpa    R1H
+        bhi     udiv16_prep_end ; until divisor > dividend
+        bcs     udiv16_prep_msb
+        cmpb    R1L
+        bhi     udiv16_prep_end
+udiv16_prep_msb:
         tsta
         bpl     udiv16_prep_loop ; while msb(divisor) == 0
+udiv16_prep_end:
         std     R2               ; update divisor
         ldd     R1               ; D=dividend
         clr     R0H
