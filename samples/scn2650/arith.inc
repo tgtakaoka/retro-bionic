@@ -235,9 +235,17 @@ udiv16_prep_loop:
         stra,r0 udiv16_divisor
         cpsl    PSL_C           ; PSL.C=0
         addi,r1 1
-udiv16_prep:                    ; while msb(divisor) == 0
+udiv16_prep:
+        loda,r0 udiv16_dividend+1
+        ppsl    PSL_C           ; PSL.C=1
+        suba,r0 udiv16_divisor+1
+        loda,r0 udiv16_dividend
+        suba,r0 udiv16_divisor  ; dividend - divisor
+        tpsl    PSL_C
+        bcfr,eq udiv16_prep_end ; until divisor > dividend (PSL.C=0)
         lodr,r0 udiv16_divisor
-        bcfr,lt udiv16_prep_loop
+        bcfr,lt udiv16_prep_loop ; while msb(divisor) == 0
+udiv16_prep_end:
         eorz    r0
         strr,r0 udiv16_quotient
         strr,r0 udiv16_quotient+1
