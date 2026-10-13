@@ -141,25 +141,33 @@ addsub_flags_v:
 umul16:
         ld      R10, R14        ; RR10=multiplicand
         ld      R11, R15
-        ld      R14, #0         ; result=0
-        ld      R15, #0
+        clr     R14             ; hi(result)=0
+        or      R12, R12
+        jr      z, umul16_low   ; if hi(multiplier) == 0
+umul16_high:
+        rcf                     ; hi(multiplier) >>= 1
+        rrc     R12
+        jr      nc, umul16_high_next ; if lsb(multiplier) == 0
+        add     R14, R15        ; hi(result) += lo(multiplicand)
+umul16_high_next:
+        add     R15, R15        ; lo(multiplicand) <<= 1
+        or      R12, R12
+        jr      nz, umul16_high ; while hi(multiplier) != 0
+umul16_low:
+        clr     R15             ; lo(result)=0
         jr      umul16_check
 umul16_loop:
-        rcf                     ; multiplier >>= 1
-        rrc     R12
+        rcf                     ; lo(multiplier) >>= 1
         rrc     R13
         jr      nc, umul16_next ; if lsb(multiplier) == 0
         add     R15, R11
         adc     R14, R10        ; result += multiplicand
 umul16_next:
-        rcf                     ; multiplicand <<= 1
-        rlc     R11
-        rlc     R10
+        add     R11, R11        ; multiplicand <<= 1
+        adc     R10, R10
 umul16_check:
-        incw    RR12
-        decw    RR12
-        jr      nz, umul16_loop ; while multiplier != 0
-umul16_end:
+        or      R13, R13
+        jr      nz, umul16_loop ; while lo(multiplier) != 0
         ret
 
 ;;; Signed multiplication: multiplicand *= multiplier
@@ -207,43 +215,46 @@ udiv16:
         decw    RR12
         jp      z, udiv16_end
         ld      R9, #1          ; R9=bits
-        jp      udiv16_prep
+        ld      R10, R14
+        ld      R11, R15
+        rcf                     ; RR10=dividend>>1
+        rrc     R10
+        rrc     R11
+        sub     R11, R13        ; RR10=dividend>>1-divisor
+        sbc     R10, R12
+        jr      c, udiv16_prep_end ; if divisor > dividend>>1
 udiv16_prep_loop:
-        rcf                     ; divisor <<= 1
-        rlc     R13
-        rlc     R12
+        sub     R11, R13        ; RR10=dividend>>1-(divisor<<1)
+        sbc     R10, R12
+        jr      c, udiv16_prep_last ; until divisor<<1 > dividend>>1
+        add     R13, R13        ; divisor <<= 1
+        adc     R12, R12
         inc     R9
-udiv16_prep:
-        cp      R12, R14
-        jr      ugt, udiv16_prep_end ; until divisor > dividend
-        jr      ult, udiv16_prep_msb
-        cp      R13, R15
-        jr      ugt, udiv16_prep_end
-udiv16_prep_msb:
-        or      R12, R12
-        jr      pl, udiv16_prep_loop ; while msb(divisor) == 0
+        jr      udiv16_prep_loop
+udiv16_prep_last:
+        add     R13, R13        ; divisor <<= 1
+        adc     R12, R12
+        inc     R9
 udiv16_prep_end:
-        ld      R10, #0
-        ld      R11, #0         ; RR10=quotient
-        jp      udiv16_enter_loop
+        ld      R10, #%FF
+        ld      R11, #%FF       ; RR10=~quotient
+        jr      udiv16_enter_loop
 udiv16_loop:
         rcf                     ; divisor >>= 1
         rrc     R12
         rrc     R13
-        rcf                     ; quotient <<= 1
-        rlc     R11
-        rlc     R10
 udiv16_enter_loop:
         sub     R15, R13        ; dividend -= divisor
         sbc     R14, R12
-        jp      c, udiv16_readd ; if dividend < 0
-        inc     R11             ; quotient |= 1
-        jp      udiv16_next
-udiv16_readd:
+        jr      nc, udiv16_next ; if dividend >= 0
         add     R15, R13        ; dividend += divisor
-        adc     R14, R12        ; FLAG.D is always cleared
+        adc     R14, R12        ; C=1, FLAG.D is always cleared
 udiv16_next:
+        rlc     R11             ; ~quotient = ~quotient<<1 | C
+        rlc     R10
         djnz    R9, udiv16_loop ; RR14=remainder
+        com     R10
+        com     R11
         ld      R12, R10        ; RR12=quotient
         ld      R13, R11
 udiv16_end:
