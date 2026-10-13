@@ -86,7 +86,11 @@ loop_i:
         scal    R4, div16
         scal    R4, store_R7
         dc      A(vQ)           ; Q=B/F
-        rldi    R8, -cF
+        ghi     R7
+        phi     R8
+        glo     R7
+        plo     R8              ; R8=Q, the shorter multiplier
+        rldi    R7, -cF
         scal    R4, mul16       ; -Q*F
         scal    R4, load_R8
         dc      A(vB)
