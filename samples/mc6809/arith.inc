@@ -114,8 +114,11 @@ udiv16_prep_loop:
         rola                    ; divisor <<= 1
         inc     ,S              ; ++bits
 udiv16_prep:
+        cmpd    1,S
+        bhi     udiv16_prep_end ; until divisor > dividend
         tsta
         bpl     udiv16_prep_loop ; while msb(divisor) == 0
+udiv16_prep_end:
         std     3,S              ; update divisor
         ldx     #0              ; X=quotient=0
         ldd     1,S             ; D=dividend
