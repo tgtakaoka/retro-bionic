@@ -101,10 +101,10 @@ loop_i:
         jsr     div16           ; R0=B/F
         stx     vQ
         sta     vQ+1            ; Q=B/F
-        jsr     set_R1          ; R1=Q
+        jsr     set_R2          ; R2=Q, the shorter multiplier
         clrx
         lda     #F
-        jsr     set_R2          ; R2=F
+        jsr     set_R1          ; R1=F
         jsr     mul16           ; R0=Q*F
         jsr     set_R2          ; R2=Q*F
         ldx     vB
