@@ -226,39 +226,53 @@ cmpsi2_eq:
 ;;; @param R3:R2 multiplicand
 ;;; @param R5:R4 multiplier
 ;;; @return R3:R2 result
-;;; @clobber A R2 R3 R4 R5 R6 R7
+;;; @clobber A R0 R2 R3 R4 R5 R6 R7
 umul16:
         clr     A
         mov     R6, A
         mov     R7, A           ; R7:R6=result
-        jmp     umul16_check
-umul16_loop:
-        clr     C
-        mov     A, R5
-        rrc     A
-        mov     R5, A
+        mov     A, R2
+        mov     R0, A           ; R0=lo(multiplicand)
         mov     A, R4
+        jz      umul16_hi       ; branch if lo(multiplier)==0
+umul16_lo_loop:
+        clr     C
         rrc     A
-        mov     R4, A           ; multiplier >>= 1
-        jnc     umul16_next     ; branch if lsb(multiplier)==0
+        mov     R4, A           ; lo(multiplier) >>= 1
+        jnc     umul16_lo_next  ; branch if lsb(multiplier)==0
         mov     A, R6
         add     A, R2
         mov     R6, A
         mov     A, R7
         addc    A, R3
         mov     R7, A           ; result += multiplicand
-umul16_next:
-        clr     C
+umul16_lo_next:
         mov     A, R2
-        rlc     A
+        add     A, R2
         mov     R2, A
         mov     A, R3
-        rlc     A
+        addc    A, R3
         mov     R3, A           ; multiplicand <<= 1
-umul16_check:
         mov     A, R4
-        orl     A, R5
-        jnz     umul16_loop     ; branch if multiplier != 0
+        jnz     umul16_lo_loop  ; branch if lo(multiplier) != 0
+;;; hi(multiplier) only adds lo(multiplicand) into hi(result)
+umul16_hi:
+        mov     A, R5
+        jz      umul16_end      ; branch if hi(multiplier)==0
+umul16_hi_loop:
+        clr     C
+        rrc     A
+        mov     R5, A           ; hi(multiplier) >>= 1
+        jnc     umul16_hi_next  ; branch if lsb(multiplier)==0
+        mov     A, R7
+        add     A, R0
+        mov     R7, A           ; hi(result) += lo(multiplicand)
+umul16_hi_next:
+        mov     A, R0
+        add     A, R0
+        mov     R0, A           ; lo(multiplicand) <<= 1
+        mov     A, R5
+        jnz     umul16_hi_loop  ; branch if hi(multiplier) != 0
 umul16_end:
         mov     A, R6
         mov     R2, A
@@ -322,6 +336,9 @@ mulsi2_store:
         mov     @R0, A
         ret
 
+;;; Conditional jumps stay in their page, so udiv16 starts one.
+        org     ($ + 0FFH) & 0FF00H
+
 ;;; Unsigned division: dividend / divisor = quotient ... remainder
 ;;; @param R3:R2 dividend
 ;;; @param R5:R4 divisor
@@ -346,18 +363,20 @@ udiv16_prep_loop:
         mov     R5, A           ; divisor <<= 1
         inc     R0              ; bits++
 udiv16_prep:
+        mov     A, R4
+        cpl     A
+        add     A, R2
+        mov     A, R5
+        cpl     A
+        addc    A, R3           ; C=0 if dividend-divisor-1 < 0
+        jnc     udiv16_prep_end ; until divisor >= dividend
         mov     A, R5
         cpl     A
         jb      7, udiv16_prep_loop ; while msb(divisor) == 0
+udiv16_prep_end:
         clr     A
-        dec     R1
-        movx    @R1, A
-        dec     R1
-        movx    @R1, A          ; R1[2:1]=quotient
-        mov     A, R1           ; A=&quotient
-        xch     A, R0           ; R0=&quotient, A=bits
-        dec     R1
-        movx    @R1, A          ; R=&bits
+        mov     R6, A
+        mov     R7, A           ; R7:R6=quotient
         jmp     udiv16_enter_loop
 udiv16_loop:
         clr     C
@@ -367,34 +386,25 @@ udiv16_loop:
         mov     A, R4
         rrc     A
         mov     R4, A           ; divisor >>= 1
-        clr     C
-        movx    A, @R0
-        rlc     A
-        movx    @R0, A
-        inc     R0
-        movx    A, @R0
-        rlc     A
-        movx    @R0, A          ; quotient <<= 1
-        dec     R0
+        mov     A, R6
+        add     A, R6
+        mov     R6, A
+        mov     A, R7
+        addc    A, R7
+        mov     R7, A           ; quotient <<= 1
 udiv16_enter_loop:
+        clr     C
+        cpl     C
         mov     A, R4
         cpl     A
-        add     A, #1
-        mov     R6, A
+        addc    A, R2
+        mov     R2, A
         mov     A, R5
         cpl     A
-        addc    A, #0
-        mov     R7, A           ; R7:R6=-divisor
-        mov     A, R2
-        add     A, R6
-        mov     R2, A
-        mov     A, R3
-        addc    A, R7
-        mov     R3, A           ; divident -= divisor
+        addc    A, R3
+        mov     R3, A           ; dividend -= divisor
         jnc     udiv16_readd    ; branch if dividend < 0
-        movx    A, @R0
-        inc     A               ; quotient |= 1
-        movx    @R0, A
+        inc     R6              ; quotient |= 1
         jmp     udiv16_next
 udiv16_readd:
         mov     A, R4
@@ -404,27 +414,16 @@ udiv16_readd:
         addc    A, R3
         mov     R3, A           ; dividend += divisor
 udiv16_next:
-        movx    A, @R1
-        dec     A
-        movx    @R1, A          ; bits -= 1
-        jz      udiv16_store
-        jmp     udiv16_loop
-udiv16_store:
+        djnz    R0, udiv16_loop ; while --bits != 0
         mov     A, R2
         mov     R4, A
         mov     A, R3
         mov     R5, A           ; store remainder
-        movx    A, @R0
+        mov     A, R6
         mov     R2, A
-        inc     R0
-        movx    A, @R0
+        mov     A, R7
         mov     R3, A           ; store quotient
-        inc     R1
-        inc     R1
-        inc     R1              ; discard bits and quotient
-        mov     A, @R1
         ret
-
 
 ;;; Signed division: dividend /= divisor
 ;;; @param R2: &dividend
