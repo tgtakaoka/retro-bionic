@@ -322,8 +322,14 @@ udiv16_prep_loop:
         rol     R2H             ; divisor <<= 1
         inc     R0L             ; ++bits
 udiv16_prep:
+        lda     R1L
+        cmp     R2L
+        lda     R1H
+        sbc     R2H
+        bcc     udiv16_prep_end ; until divisor > dividend
         lda     R2H
         bpl     udiv16_prep_loop ; while msb(divisor) == 0
+udiv16_prep_end:
         lda     R0L
         pha                     ; push bits
         lda     #0
