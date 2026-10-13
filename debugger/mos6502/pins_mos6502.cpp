@@ -277,12 +277,16 @@ void PinsMos6502::resetPins() {
 
 Signals *PinsMos6502::rawPrepareCycle() {
     auto s = Signals::put();
-    if (_hardType == HW_W65C816 && s->addr24()) {
-        s->getAddr24();
-    } else {
-        delayNanoseconds(phi0_lo_sync);
-        s->getAddr();
+    if (_hardType == HW_W65C816) {
+        // E, this cycle's: whether BA carries a bank.
+        s->getControl();
+        if (s->addr24()) {
+            s->getAddr24();
+            return s;
+        }
     }
+    delayNanoseconds(phi0_lo_sync);
+    s->getAddr16();
     return s;
 }
 

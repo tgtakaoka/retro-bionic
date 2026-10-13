@@ -8,13 +8,17 @@
 namespace debugger {
 namespace mos6502 {
 
-void Signals::getAddr() {
+void Signals::getControl() {
     cntl() = busRead(CNTL);
+}
+
+void Signals::getAddr16() {
+    getControl();
     addr = busRead(AL) | busRead(AM) | busRead(AH);
 }
 
 void Signals::getAddr24() {
-    getAddr();
+    getAddr16();
     addr |= busRead(BA);
 }
 
