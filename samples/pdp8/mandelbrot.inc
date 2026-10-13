@@ -192,11 +192,11 @@ loop_i,
         jms     I I_divu12      / R0=B/F
         tad     R0
         dca     vQ              / Q=B/F
-        tad     vQ
-        cia                     / AC=-Q
-        jms     I I_dep12       / R0=-Q
         tad     const_F
-        jms     I I_mul12       / R0=-Q*F
+        cia                     / AC=-F
+        jms     I I_dep12       / R0=-F
+        tad     vQ
+        jms     I I_mul12       / R0=-F*Q, Q the shorter multiplier
         tad     vB
         jms     I I_add12       / R0=B-Q*F
         tad     R0

@@ -277,6 +277,8 @@ pdp8::Signals *PinsIm6100::completeCycle(pdp8::Signals *_s) const {
     // negate_debug();
     delayNanoseconds(osc_lo_output);
     osc_hi();
+    // A held ring reuses this slot, and next() clears its capture flag
+    const auto read = *s;
     Cycles::next();
     delayNanoseconds(osc_hi_input);
     // assert_debug();
@@ -284,7 +286,7 @@ pdp8::Signals *PinsIm6100::completeCycle(pdp8::Signals *_s) const {
     // negate_debug();
     osc_lo();
     auto n = Signals::put();
-    *n = *s;  // copy address and control
+    *n = read;  // copy address and control
     delayNanoseconds(osc_lo_next);
     osc_cycle();
     noInterrupts();

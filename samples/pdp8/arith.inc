@@ -182,10 +182,21 @@ udiv16,         .-.
         jmp     I udiv16        / return as divide by zero, AC=0
 udiv16_setup,
         cla iac                 / AC=1
-        dca     udiv16_bits     / bits=1
-        jmp     udiv16_prep     / AC=0
-udiv16_prep_loop,
-        cla cll                 / AC=0 L=0
+        dca     udiv16_bits     / bits=1, AC=0
+udiv16_prep,
+        tad     R2L             / low(divisor)
+        stl cia                 / negate to form 13-bit negative
+        tad     R1L             / low(dividend)
+        cla ral                 / propagate complemented borrow
+        tad     R2H             / high(divisor)
+        cia cml                 / form 13-bit negative
+        tad     R1H             / high(dividend)
+        szl cla                 / skip if L=0 (no borrow), AC=0
+        jmp     udiv16_enter_loop       / until divisor > dividend
+        tad     R2H
+        spa cla                 / skip if msb(divisor)=0, AC=0
+        jmp     udiv16_enter_loop       / until MSB(divisor)=1
+        cll                     / L=0
         tad     R2L
         ral
         dca     R2L
@@ -193,11 +204,7 @@ udiv16_prep_loop,
         ral
         dca     R2H             / divisor <<= 1, AC=0
         isz     udiv16_bits     / bits++
-udiv16_prep,
-        tad     R2H
-        sma cla                 / skip if msb(divisor)=1, AC=0
-        jmp     udiv16_prep_loop        / while MSB(divisor)=0
-        jmp     udiv16_enter_loop       / AC=0
+        jmp     udiv16_prep
 udiv16_loop,
         dca     udiv16_bits
         cla cll                 / AC=0 L=0

@@ -274,18 +274,20 @@ bus_cycle:
         delayNanoseconds(osc_hi_ns);
     }
     osc_lo();
+    // A held ring reuses this slot: poll a copy so its record stays intact
+    auto next = *s;
     Cycles::next();
     auto n = Signals::put();
-    *n = *s;  // copy address and control
     // assert_debug();
-    while (n->getDirection()) {
+    while (next.getDirection()) {
         osc_cycle();
     }
     // negate_debug();
     s->resetIoc();
     // assert_debug();
-    while (n->getControl()) {
-        if (n->getDirection()) {
+    while (next.getControl()) {
+        if (next.getDirection()) {
+            *n = next;
             s = n;
             // negate_debug();
             goto bus_cycle;
@@ -293,6 +295,8 @@ bus_cycle:
         osc_cycle();
     }
     // negate_debug();
+    if (n != s)
+        *n = next;  // copy address and control
     return s;
 }
 
