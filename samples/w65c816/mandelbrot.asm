@@ -37,8 +37,12 @@ tx_queue_size   =       128
 tx_queue:
         *=      *+tx_queue_size
 
-;;; Work area for mandelbrot.inc
+;;; Work area for arith.inc
         *=      $10
+arith_work:
+        .word   0
+        .word   0
+;;; Work area for mandelbrot.inc
 F       =       50
 vY:     .word   0
 vX:     .word   0
