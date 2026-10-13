@@ -110,9 +110,13 @@ newline:
 putchar:
         push    st
         movw    #tx_queue, R3
+putchar_retry:
         dint
         call    queue_add
-        jnc     putchar
+        jc      putchar_queued
+        eint                    ; let the Tx interrupt drain the queue
+        jmp     putchar_retry
+putchar_queued:
         mov     #RX_INT_TX_INT, ACIA_control ; enable Tx interrupt
         pop     st
         rts
