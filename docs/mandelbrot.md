@@ -48,7 +48,7 @@ The tables time them on real chips, from recorded casts, with
 | Z380        |  16.7 |   0.681 |   0.182 | Z180 code          | [mandelbrot_z380.cast](../samples/z180/mandelbrot_z380.cast)             | [z180/mandelbrot.lst](../samples/z180/mandelbrot.lst)           |
 | Z380        |  17.0 |   0.691 |   0.181 | Z80 code           | [mandelbrot_z380.cast](../samples/z80/mandelbrot_z380.cast)              | [z80/mandelbrot.lst](../samples/z80/mandelbrot.lst)             |
 | Z88C00      |  20.5 |   0.837 |   0.278 |                    | [mandelbrot.cast](../samples/z88/mandelbrot.cast)                        | [z88/mandelbrot.lst](../samples/z88/mandelbrot.lst)             |
-| MC68HC08AZ0 |  25.2 |   1.029 |   0.343 |                    | [mandelbrot.cast](../samples/mc68hc08/mandelbrot.cast)                   | [mc68hc08/mandelbrot.lst](../samples/mc68hc08/mandelbrot.lst)   |
+| MC68HC08AZ0 |  23.0 |   0.941 |   0.312 |                    | [mandelbrot.cast](../samples/mc68hc08/mandelbrot.cast)                   | [mc68hc08/mandelbrot.lst](../samples/mc68hc08/mandelbrot.lst)   |
 | Z80         |  27.5 |   1.117 |   0.283 |                    | [mandelbrot.cast](../samples/z80/mandelbrot.cast)                        | [z80/mandelbrot.lst](../samples/z80/mandelbrot.lst)             |
 | 68HC11      |  28.1 |   1.147 |   0.385 |                    | [mandelbrot.cast](../samples/mc68hc11/mandelbrot.cast)                   | [mc68hc11/mandelbrot.lst](../samples/mc68hc11/mandelbrot.lst)   |
 | Z180        |  28.7 |   1.167 |   0.323 |                    | [mandelbrot.cast](../samples/z180/mandelbrot.cast)                       | [z180/mandelbrot.lst](../samples/z180/mandelbrot.lst)           |
@@ -120,7 +120,7 @@ the chip's.
 |---|---:|---:|---:|
 | [mc6805](../samples/mc6805/mandelbrot.lst) | 67.0 | 49.6 | 44.6 |
 | [mc68hc05](../samples/mc68hc05/mandelbrot.lst) | | 44.5 | 39.9 |
-| [mc68hc08](../samples/mc68hc08/mandelbrot.lst) | | | 25.2 |
+| [mc68hc08](../samples/mc68hc08/mandelbrot.lst) | | | 23.0 |
 | Data bus | 8-bit, multiplexed | 8-bit, multiplexed | 8-bit |
 | Bus cycle | OSC1 ÷ 5 | OSC1 ÷ 4 | OSC1 ÷ 4 |
 | `STA ,X` / `BSR` cycles | 4 / 6 | 4 / 6 | 2 / 4 |
