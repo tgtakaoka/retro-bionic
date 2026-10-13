@@ -67,7 +67,8 @@ loop_i:
         movd    %cF, Rs
         call    @div16          ; Rd=B/F
         movd    Rd, vQ          ; Q=B/F
-        movd    %cF, Rs
+        movd    Rd, Rs          ; Rs=Q, the shorter multiplier
+        movd    %cF, Rd
         call    @mul16          ; Rd=Q*F
         movd    vB, vS          ; S=B
         sub     RdL, vS
