@@ -77,29 +77,42 @@ cmp16_end:
 ;;; @param R1 multiplicand
 ;;; @param R2 multiplier
 ;;; @return R0 result
-;;; @clobber R0 R1 R2
+;;; @return D result
+;;; @clobber R1 R2
 umul16:
-        clr     R0H
-        clr     R0L
-        bra     umul16_check
-umul16_loop:
-        lsr     R2H
-        ror     R2L             ; multiplier >>=1
+        clra
+        clrb                    ; result=0
+        tst     R2H
+        beq     umul16_low      ; if hi(multiplier) == 0
+        ldab    R1L             ; B=lo(multiplicand)
+umul16_high:
+        lsr     R2H             ; hi(multiplier) >>= 1
+        beq     umul16_high_last ; if hi(multiplier) == 0
+        bcc     umul16_high_next ; if lsb(multiplier) == 0
+        aba                     ; hi(result) += B
+umul16_high_next:
+        lslb                    ; B <<= 1
+        bra     umul16_high
+umul16_high_last:
+        aba                     ; hi(result) += B
+        clrb
+umul16_low:
+        lsr     R2L             ; lo(multiplier) >>= 1
+        beq     umul16_last     ; if lo(multiplier) == 0
         bcc     umul16_next     ; if lsb(multiplier) == 0
-        ldaa    R1L
-        adda    R0L
-        staa    R0L
-        ldaa    R1H
-        adca    R0H
-        staa    R0H             ; result += multiplicand
+        addb    R1L
+        adca    R1H             ; result += multiplicand
 umul16_next:
         lsl     R1L
         rol     R1H             ; multiplicand <<= 1
-umul16_check:
-        ldaa    R2H
-        oraa    R2L
-        bne     umul16_loop     ; while multiplier != 0
+        bra     umul16_low
+umul16_last:
+        bcc     umul16_end      ; if lsb(multiplier) == 0
+        addb    R1L
+        adca    R1H             ; result += multiplicand
 umul16_end:
+        staa    R0H
+        stab    R0L
         rts
 
 ;;; Multiply; result = multiplicand * multiplier
@@ -109,44 +122,50 @@ umul16_end:
 ;;; @return X result
 ;;; @clobber R0 R1 R2
 mul16:
+        stx     R2
+        beq     mul16_zero      ; branch if multiplier == 0
         staa    R1H
         stab    R1L
-        stx     R2
+        ldx     R1
+        beq     mul16_zero      ; branch if multiplicand == 0
         eora    R2H
         staa    sign            ; save hi(multiplicand^multiplier)
-        ldab    R2L
         ldaa    R2H             ; A=hi(multiplier)
         bpl     mul16_multiplicand
+        ldab    R2L
         coma
         comb
         addb    #1
         adca    #0              ; negate multiplier
-mul16_multiplicand:
         staa    R2H
         stab    R2L
-        ldab    R1L
+mul16_multiplicand:
         ldaa    R1H             ; A=hi(multiplicand)
         bpl     mul16_multiply
+        ldab    R1L
         coma
         comb
         addb    #1
         adca    #0              ; negate multiplicand
-mul16_multiply:
         staa    R1H
         stab    R1L
-        bsr     umul16          ; R0=result
-        ldaa    R0H
-        ldab    R0L
+mul16_multiply:
+        bsr     umul16          ; D=R0=result
         tst     sign            ; A=(multiplicand^multiplier)
         bpl     mul16_end
         coma
         comb
         addb    #1
         adca    #0              ; negate result
-mul16_end:
         staa    R0H
         stab    R0L
+mul16_end:
         ldx     R0
+        rts
+mul16_zero:
+        clra
+        clrb
+        stx     R0              ; X=R0=0
         rts
 
 ;;; Unsigned division: dividend / divisor = quotient ... remainder
@@ -161,8 +180,14 @@ udiv16:
         beq     udiv16_end      ; branch if R2==0
         ldaa    R2H             ; A:B=divisor
         ldab    R2L
+        cmpa    R1H
+        bhi     udiv16_zero     ; branch if divisor > dividend
+        bcs     udiv16_start
+        cmpb    R1L
+        bhi     udiv16_zero
+udiv16_start:
         ldx     #1              ; X=bits
-        bra     udiv16_prep
+        bra     udiv16_prep_msb
 udiv16_prep_loop:
         lslb
         rola                    ; divisor <<= 1
@@ -205,6 +230,10 @@ udiv16_end:
         staa    R1H
         stab    R1L             ; R1=remainder
         rts
+udiv16_zero:
+        ldx     #0
+        stx     R0              ; quotient=0, R1=remainder
+        rts
 
 ;;; Division; dividend / divisor = quotient ... remainder
 ;;; @param D dividend
@@ -218,9 +247,9 @@ div16:
         stx     R2
         eora    R2H
         staa    sign            ; save hi(dividend^divisor)
-        ldab    R2L
         ldaa    R2H             ; A=hi(divisor)
         bpl     div16_dividend
+        ldab    R2L
         coma
         comb
         addb    #1
@@ -228,9 +257,9 @@ div16:
         staa    R2H
         stab    R2L
 div16_dividend:
-        ldab    R1L
         ldaa    R1H             ; A=hi(dividend)
         bpl     div16_divide
+        ldab    R1L
         coma
         comb
         addb    #1
@@ -238,7 +267,7 @@ div16_dividend:
         staa    R1H
         stab    R1L
 div16_divide:
-        bsr     udiv16          ; R0=quotient
+        jsr     udiv16          ; R0=quotient
         ldaa    R0H
         ldab    R0L
         tst     sign            ; A=(dividend^divisor)
@@ -247,8 +276,8 @@ div16_divide:
         comb
         addb    #1
         adca    #0              ; negate result
-div16_end:
         staa    R0H
         stab    R0L
+div16_end:
         ldx     R0
         rts
