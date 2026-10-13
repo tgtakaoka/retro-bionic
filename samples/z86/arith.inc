@@ -213,9 +213,16 @@ udiv16_prep_loop:
         rlc     R13
         rlc     R12
         inc     R9
-udiv16_prep:                    ; while msb(divisor) == 0
+udiv16_prep:
+        cp      R12, R14
+        jr      ugt, udiv16_prep_end ; until divisor > dividend
+        jr      ult, udiv16_prep_msb
+        cp      R13, R15
+        jr      ugt, udiv16_prep_end
+udiv16_prep_msb:
         or      R12, R12
-        jr      pl, udiv16_prep_loop
+        jr      pl, udiv16_prep_loop ; while msb(divisor) == 0
+udiv16_prep_end:
         ld      R10, #0
         ld      R11, #0         ; RR10=quotient
         jp      udiv16_enter_loop
