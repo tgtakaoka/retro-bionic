@@ -245,6 +245,14 @@ void PinsTms370Cx5x::pauseCpu() {
         clkin_cycle_lo();
     }
     while (!ocf_asserted()) {
+        // An interrupt taken here reads its vector first. #OCF is read
+        // again, since it may settle after #EDS.
+        if (eds_asserted()) {
+            if (ocf_asserted())
+                break;
+            completeCycle(prepareCycle());
+            continue;
+        }
         delayNanoseconds(clkin_ns);
         clkin_cycle_lo();
     }
@@ -329,6 +337,7 @@ void PinsTms370Cx5x::loop() {
             if (haltSwitch()) {
             stop:
                 Cycles::Hold hold;
+                takePendingInterrupt(s);
                 _regs->save();
                 Cycles::discard(s);
                 return;
@@ -349,6 +358,42 @@ void PinsTms370Cx5x::loop() {
     }
 }
 
+// JMP $ runs without an interrupt this many times before a save: one
+// pending at the halt is taken at the first boundary, and one recognized a
+// boundary late at the second.
+constexpr auto park_jumps = 2;
+// Bus cycles for a JMP $, or an interrupt's vector reads, to reach the next
+// fetch; far fewer are needed.
+constexpr auto park_cycles = 32;
+
+void PinsTms370Cx5x::takePendingInterrupt(Signals *fetch) {
+    // An interrupt pending at a boundary aborts that fetch and reads its
+    // vector next, so it is taken here rather than in the middle of the
+    // save; the save then starts at its handler's fetch. Otherwise JMP to
+    // itself leaves PC as it was.
+    // ATTENTION: prepareCycle(), completeCycle() and pauseCpu() still wait
+    // without a bound; a CPU that stops issuing bus cycles ends in a
+    // watchdog reboot.
+    const auto pc = fetch->addr;
+    auto s = fetch;
+    for (auto jumps = 0; jumps < park_jumps; ++jumps) {
+        completeCycle(s->inject(InstTms370::JMP));
+        s = prepareCycle();
+        for (auto n = 0; !s->fetch(); ++n) {
+            if (n >= park_cycles) {
+                cli.println("?halt: no fetch");
+                return;
+            }
+            if (s->read() && s->addr == pc + 1U)
+                s->inject(InstTms370::JMP_HERE);
+            completeCycle(s);
+            s = prepareCycle();
+        }
+        if (s->addr != pc)
+            return;  // an interrupt's handler
+    }
+}
+
 void PinsTms370Cx5x::run() {
     saveBreakInsts();
     startRunTimer();
@@ -364,7 +409,8 @@ bool PinsTms370Cx5x::rawStep() {
         return false;
     resumeCpu();
     auto s = prepareCycle();
-    completeCycle(s->inject(inst));
+    // An interrupt enabled by the restore fetches its handler instead.
+    completeCycle(s->inject(_mems->read(s->addr)));
     s->clearInject();
     // finish instruction fetch
     while (ocf_asserted()) {

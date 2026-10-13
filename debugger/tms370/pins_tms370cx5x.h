@@ -83,6 +83,8 @@ struct PinsTms370Cx5x final : tms370::PinsTms370 {
 private:
     // A reset in progress, which resumeCpu() must not start again.
     bool _resetting = false;
+
+    void takePendingInterrupt(Signals *fetch);
     Signals *prepareCycle();
     Signals *completeCycle(Signals *s);
 

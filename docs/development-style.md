@@ -1689,6 +1689,24 @@ handler. The entry is an acknowledge cycle at address 0 and two vector
 reads, but a TMS70C02 can be at the vector reads already at the halt, so a
 read at FFD0 or above counts too. **[hw]**
 
+### TMS370
+
+**Pitfalls.** The oscillator fault logic watches CLKIN: when the Teensy stops
+clocking for long enough, it resets the CPU. **[hw]**
+
+The debugger lets this happen while the CPU sits at the prompt: every run
+starts with `resetCpu()`, and `resumeCpu()` resets a CPU whose SYSCLK no
+longer follows CLKIN. Within an injected save or restore the clock must keep
+running, and a `cli.print()` there is a USB transfer, long enough to trip the
+fault logic and spoil the very sequence under study. Debug code keeps what it
+finds in memory and prints it once the run is over, after the save.
+
+An interrupt pending at a fetch aborts it and reads its vector next.
+`takePendingInterrupt()` runs `JMP $` at the halt until it has run twice
+without one, so an interrupt recognized a boundary late is taken there too;
+with one run only, about one halt in 400 still saved the injected bytes.
+**[hw]**
+
 ### Z8
 
 **Pitfalls.** The stack is external, and the tables must see
