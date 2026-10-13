@@ -175,7 +175,6 @@ udiv16:
         rts
 udiv16_calc:
         lda     R2H
-        bne     udiv16_calc     ; branch if divisor >= 256
         ora     R2L
         beq     udiv16_end      ; branch if R2==0
         ldx     #1              ; X=bits
@@ -186,7 +185,17 @@ udiv16_prep_loop:
         incx                    ; ++bits
 udiv16_prep:
         lda     R2H
+        cmp     R1H
+        bhi     udiv16_prep_end ; until divisor > dividend
+        bcs     udiv16_prep_msb
+        lda     R2L
+        cmp     R1L
+        bhi     udiv16_prep_end
+        lda     R2H
+udiv16_prep_msb:
+        tsta
         bpl     udiv16_prep_loop ; while msb(divisor) == 0
+udiv16_prep_end:
         clr     R0H
         clr     R0L             ; quotient=0
         bra     udiv16_enter_loop
