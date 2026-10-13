@@ -85,8 +85,9 @@ loop_i:
         ldab    vB+1
         ldx     #F
         jsr     div16           ; B/F
-        stx     vQ              ; Q=B/F
-        ldx     #-F
+        stx     vQ              ; Q=B/F, the shorter multiplier
+        ldaa    #-1
+        ldab    #-F             ; D=-F
         jsr     mul16           ; -Q*F
         addb    vB+1
         adca    vB              ; B-Q*F
