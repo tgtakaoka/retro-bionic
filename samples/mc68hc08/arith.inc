@@ -97,22 +97,25 @@ sub16:
 ;;; @param R2 multiplier
 ;;; @return R0 result
 umul16:
+        lda     R2L             ; A=low(multiplier)
+        ldx     R1L             ; X=low(multiplicand)
+        mul                     ; X:A=low(multiplicand)*low(multiplier)
+        sta     R0L
+        stx     R0H             ; result=X:A
         lda     R2H             ; A=high(multiplier)
+        beq     umul16_high     ; branch if high(multiplier) == 0
         ldx     R1L             ; X=low(multiplicand)
         mul                     ; X:A=low(multiplicand)*high(multiplier)
-        sta     R0H             ; high(result)=A
-        lda     R2L             ; A=low(multiplier)
-        ldx     R1H             ; X=high(multiplicand)
+        add     R0H
+        sta     R0H             ; high(result)+=A
+umul16_high:
+        lda     R1H             ; A=high(multiplicand)
+        beq     umul16_end      ; branch if high(multiplicand) == 0
+        ldx     R2L             ; X=low(multiplier)
         mul                     ; X:A=high(multiplicand)*low(multiplier)
         add     R0H
         sta     R0H             ; high(result)+=A
-        lda     R2L             ; A=low(multiplier)
-        ldx     R1L             ; X=low(multiplicand)
-        mul                     ; X:A=result
-        sta     R0L             ; low(result)=A
-        txa
-        add     R0H
-        sta     R0H             ; high(result)+=X
+umul16_end:
         rts
 
 ;;; Multiply; result = multiplicand * multiplier
