@@ -136,52 +136,76 @@ cmpsi2_hi:
 ;;; @param mul16_multiplier
 ;;; @return R0:R1 result
 ;;; @clobber R0 R1 PSL
-umul16_r2:
-        res     1
 umul16:
-        strr,r2 umul16_r2
+        stra,r2 umul16_r2
+        stra,r3 umul16_r3
         eorz    r0
         strz    r1              ; r0:r1=result
-        bctr,un umul16_check
-umul16_loop:
+;;; hi(multiplier) only adds lo(multiplicand) into hi(result)
         lodr,r2 umul16_multiplier
+        bctr,eq umul16_lo       ; branch if hi(multiplier) == 0
+        lodr,r3 umul16_multiplicand+1
+        bctr,un umul16_hi_enter
+umul16_hi_loop:
         cpsl    PSL_C           ; PSL.C=0
-        rrr     r2              ; multiplier >>= 1
-        strr,r2 umul16_multiplier
+        rrl     r3              ; lo(multiplicand) <<= 1
+umul16_hi_enter:
+        cpsl    PSL_C           ; PSL.C=0
+        rrr     r2              ; hi(multiplier) >>= 1
+        tpsl    PSL_C
+        bcfr,eq umul16_hi_next  ; branch if PSL.C=0
+        cpsl    PSL_C           ; PSL.C=0
+        addz    r3              ; hi(result) += lo(multiplicand)
+umul16_hi_next:
+        brnr,r2 umul16_hi_loop  ; while hi(multiplier) != 0
+umul16_lo:
         lodr,r2 umul16_multiplier+1
-        rrr     r2
-        strr,r2 umul16_multiplier+1
-        tpsl    PSL_C           ; PSL.C=lsb(multiplier)
-        bcfr,eq umul16_next     ; branch if PSL.C=0
+        bctr,eq umul16_end      ; branch if lo(multiplier) == 0
+        bctr,un umul16_lo_enter
+umul16_lo_loop:
+        lodr,r3 umul16_multiplicand+1
+        cpsl    PSL_C           ; PSL.C=0
+        rrl     r3
+        strr,r3 umul16_multiplicand+1
+        lodr,r3 umul16_multiplicand
+        rrl     r3
+        strr,r3 umul16_multiplicand ; multiplicand <<= 1
+umul16_lo_enter:
+        cpsl    PSL_C           ; PSL.C=0
+        rrr     r2              ; lo(multiplier) >>= 1
+        tpsl    PSL_C
+        bcfr,eq umul16_lo_next  ; branch if PSL.C=0
         cpsl    PSL_C           ; PSL.C=0
         addr,r1 umul16_multiplicand+1
         addr,r0 umul16_multiplicand ; result += multiplicand
-umul16_next:
-        lodr,r2 umul16_multiplicand+1
-        cpsl    PSL_C           ; PSL.C=0
-        rrl     r2
-        strr,r2 umul16_multiplicand+1
-        lodr,r2 umul16_multiplicand
-        rrl     r2
-        strr,r2 umul16_multiplicand ; multiplicand <<= 1
-umul16_check:
-        lodr,r2 umul16_multiplier
-        iorr,r2 umul16_multiplier+1
-        bcfr,eq umul16_loop     ; while multiplier != 0
+umul16_lo_next:
+        brnr,r2 umul16_lo_loop  ; while lo(multiplier) != 0
 umul16_end:
         lodr,r2 umul16_r2
+        lodr,r3 umul16_r3
         retc,un
 
 umul16_multiplicand:
         res     2
 umul16_multiplier:
         res     2
+umul16_r2:
+        res     1
+umul16_r3:
+        res     1
 
 ;;; Signed multiplication: multiplicand *= multiplier
 ;;; @param @R2: multiplicand
 ;;; @param @R3: multiplier
 ;;; @clobber R0 R1 PSL
 mulsi2:
+        loda,r0 arith_work,r3
+        iora,r0 arith_work+1,r3
+        bcfr,eq mulsi2_signed   ; branch if multiplier != 0
+        stra,r0 arith_work,r2
+        stra,r0 arith_work+1,r2 ; multiplicand=0
+        retc,un
+mulsi2_signed:
         loda,r0 arith_work,r2
         eora,r0 arith_work,r3
         strr,r0 mulsi2_sign
@@ -223,84 +247,158 @@ udiv16:
         loda,r0 udiv16_divisor
         iora,r0 udiv16_divisor+1
         retc,eq                 ; divide by zero
-        lodi,r1 1               ; R1=bits
-        bctr,un udiv16_prep
-udiv16_prep_loop:
-        cpsl    PSL_C           ; PSL.C=0
-        loda,r0 udiv16_divisor+1
-        rrl     r0              ; divisor <<= 1
-        stra,r0 udiv16_divisor+1
-        loda,r0 udiv16_divisor
-        rrl     r0
-        stra,r0 udiv16_divisor
-        cpsl    PSL_C           ; PSL.C=0
-        addi,r1 1
-udiv16_prep:
-        loda,r0 udiv16_dividend+1
+        loda,r1 udiv16_dividend+1
         ppsl    PSL_C           ; PSL.C=1
-        suba,r0 udiv16_divisor+1
+        suba,r1 udiv16_divisor+1
         loda,r0 udiv16_dividend
         suba,r0 udiv16_divisor  ; dividend - divisor
         tpsl    PSL_C
-        bcfr,eq udiv16_prep_end ; until divisor > dividend (PSL.C=0)
-        lodr,r0 udiv16_divisor
-        bcfr,lt udiv16_prep_loop ; while msb(divisor) == 0
-udiv16_prep_end:
+        bctr,eq udiv16_divide   ; branch if dividend >= divisor (PSL.C=1)
         eorz    r0
-        strr,r0 udiv16_quotient
-        strr,r0 udiv16_quotient+1
-        bctr,un udiv16_enter_loop
-udiv16_loop:
-        lodr,r0 udiv16_divisor
+        strz    r1              ; R0:R1=0, remainder=dividend
+        retc,un
+udiv16_divide:
+        stra,r2 udiv16_r2
+        stra,r3 udiv16_r3
+        eorz    r0
+        stra,r0 udiv16_quotient ; hi(quotient)=0
+        loda,r0 udiv16_dividend
+        loda,r1 udiv16_dividend+1
         cpsl    PSL_C           ; PSL.C=0
         rrr     r0
-        strr,r0 udiv16_divisor
-        lodr,r0 udiv16_divisor+1
-        rrr     r0
-        strr,r0 udiv16_divisor+1 ; divisor >>= 1
-        lodr,r0 udiv16_quotient+1
-        cpsl    PSL_C           ; PSL.C=0
-        rrl     r0
-        strr,r0 udiv16_quotient+1
-        lodr,r0 udiv16_quotient
-        rrl     r0
-        strr,r0 udiv16_quotient ; quotient <<= 1
-udiv16_enter_loop:
-        lodr,r0 udiv16_dividend+1
+        rrr     r1
+        stra,r0 udiv16_half
+        stra,r1 udiv16_half+1   ; half = dividend >> 1
+        rrl     r1
+        rrl     r0              ; R0:R1=remainder=dividend
+        lodi,r3 1               ; R3=bits
+udiv16_prep:
+        lodr,r2 udiv16_half+1
         ppsl    PSL_C           ; PSL.C=1
-        subr,r0 udiv16_divisor+1
-        strr,r0 udiv16_dividend+1
-        lodr,r0 udiv16_dividend
-        subr,r0 udiv16_divisor
-        strr,r0 udiv16_dividend ; dividend -= divisor
+        subr,r2 udiv16_divisor+1
+        lodr,r2 udiv16_half
+        subr,r2 udiv16_divisor  ; half - divisor
         tpsl    PSL_C
-        bcfr,eq udiv16_readd    ; branch if dividend < 0 (PSL.C=0)
-        lodr,r0 udiv16_quotient+1
-        iori,r0 1
-        strr,r0 udiv16_quotient+1 ; quotient |= 1
-        bctr,un udiv16_next
+        bcfr,eq udiv16_prep_end ; until divisor > half (PSL.C=0)
+        lodr,r2 udiv16_divisor+1
+        cpsl    PSL_C           ; PSL.C=0
+        rrl     r2
+        strr,r2 udiv16_divisor+1
+        lodr,r2 udiv16_divisor
+        rrl     r2
+        strr,r2 udiv16_divisor  ; divisor <<= 1
+        birr,r3 udiv16_prep     ; bits += 1
+udiv16_prep_end:
+        strr,r3 udiv16_bits
+        ppsl    PSL_C           ; PSL.C=1
+        subr,r1 udiv16_divisor+1
+        subr,r0 udiv16_divisor  ; remainder -= divisor
+        lodi,r2 0
+        rrl     r2              ; R2=quotient
+        bcfr,eq udiv16_halve    ; branch if remainder >= divisor
+        cpsl    PSL_C           ; PSL.C=0
+        addr,r1 udiv16_divisor+1
+        addr,r0 udiv16_divisor  ; remainder += divisor
+udiv16_halve:
+        bdrr,r3 udiv16_halve_divisor ; branch if bits > 1
+        bcta,un udiv16_store
 
 udiv16_dividend:
 udiv16_reminder:
         res     2
 udiv16_divisor:
         res     2
-udiv16_quotient:
+udiv16_half:
         res     2
+udiv16_quotient:
+        res     1               ; hi(quotient)
+udiv16_bits:
+        res     1
+udiv16_r2:
+        res     1
+udiv16_r3:
+        res     1
 
-udiv16_readd:
-        lodr,r0 udiv16_dividend+1
+;;; Halve the divisor once, then shift the remainder instead
+udiv16_halve_divisor:
+        lodr,r3 udiv16_divisor
         cpsl    PSL_C           ; PSL.C=0
-        addr,r0 udiv16_divisor+1
-        strr,r0 udiv16_dividend+1
-        lodr,r0 udiv16_dividend
-        addr,r0 udiv16_divisor
-        strr,r0 udiv16_dividend ; dividend += divisor
-udiv16_next:
-        bdra,r1 udiv16_loop
-        lodr,r0 udiv16_quotient
-        lodr,r1 udiv16_quotient+1 ; R0:R1=quotient
+        rrr     r3
+        strr,r3 udiv16_divisor
+        lodr,r3 udiv16_divisor+1
+        rrr     r3
+        strr,r3 udiv16_divisor+1 ; divisor >>= 1
+        lodr,r3 udiv16_bits
+        comi,r3 9
+        bctr,lt udiv16_lo_bits  ; branch if bits < 9
+        ppsl    PSL_C           ; PSL.C=1
+        subi,r3 9               ; R3=bits-9 into hi(quotient)
+        bcfa,eq udiv16_hi_enter
+        strr,r2 udiv16_quotient
+        lodi,r3 8
+        bctr,un udiv16_lo_enter
+udiv16_lo_bits:
+        bdrr,r3 udiv16_lo_enter ; R3=bits-1 into lo(quotient)
+udiv16_lo_loop:
+        cpsl    PSL_C           ; PSL.C=0
+        rrl     r1
+        rrl     r0              ; remainder <<= 1
+udiv16_lo_enter:
+        ppsl    PSL_C           ; PSL.C=1
+        subr,r1 udiv16_divisor+1
+        subr,r0 udiv16_divisor  ; remainder -= divisor
+        tpsl    PSL_C
+        bctr,eq udiv16_lo_one   ; branch if remainder >= divisor (PSL.C=1)
+        rrl     r2              ; quotient <<= 1
+        cpsl    PSL_C           ; PSL.C=0
+        addr,r1 udiv16_divisor+1
+        addr,r0 udiv16_divisor  ; remainder += divisor
+        bdrr,r3 udiv16_lo_loop
+        bctr,un udiv16_lo_end
+udiv16_lo_one:
+        rrl     r2              ; quotient = quotient << 1 | 1
+        bdrr,r3 udiv16_lo_loop
+udiv16_lo_end:
+        loda,r3 udiv16_bits
+        bdrr,r3 udiv16_back     ; R3=bits-1
+udiv16_back_loop:
+        cpsl    PSL_C           ; PSL.C=0
+        rrr     r0
+        rrr     r1              ; remainder >>= 1
+udiv16_back:
+        bdrr,r3 udiv16_back_loop ; bits-2 times
+udiv16_store:
+        stra,r0 udiv16_reminder
+        stra,r1 udiv16_reminder+1
+        lodz    r2
+        strz    r1
+        loda,r0 udiv16_quotient ; R0:R1=quotient
+        loda,r2 udiv16_r2
+        loda,r3 udiv16_r3
         retc,un
+udiv16_hi_loop:
+        cpsl    PSL_C           ; PSL.C=0
+        rrl     r1
+        rrl     r0              ; remainder <<= 1
+udiv16_hi_enter:
+        ppsl    PSL_C           ; PSL.C=1
+        suba,r1 udiv16_divisor+1
+        suba,r0 udiv16_divisor  ; remainder -= divisor
+        tpsl    PSL_C
+        bctr,eq udiv16_hi_one   ; branch if remainder >= divisor (PSL.C=1)
+        rrl     r2              ; quotient <<= 1
+        cpsl    PSL_C           ; PSL.C=0
+        adda,r1 udiv16_divisor+1
+        adda,r0 udiv16_divisor  ; remainder += divisor
+        bdrr,r3 udiv16_hi_loop
+        bctr,un udiv16_hi_end
+udiv16_hi_one:
+        rrl     r2              ; quotient = quotient << 1 | 1
+        bdrr,r3 udiv16_hi_loop
+udiv16_hi_end:
+        stra,r2 udiv16_quotient
+        lodi,r3 8
+        bcta,un udiv16_lo_loop
 
 ;;; Signed division: dividend /= divisor
 ;;; @param @R2: dividend
