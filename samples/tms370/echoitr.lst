@@ -104,7 +104,7 @@
          D0 : =CF                stack:  equ     $-1     ; TMS370's SP is pre-increment/post-decrement
          D0 :
        7FFC :                            org     VEC_INT1
-       7FFC : 21 19                      .word   isr_int1
+       7FFC : 21 1D                      .word   isr_int1
        7FFE :
        7FFE :                            org     VEC_RESET
        7FFE : 20 00                      .word   initialize
@@ -118,10 +118,10 @@
        2002 : FD                         ldsp
        2003 : 88 30 00 03                movw    #rx_queue, R3
        2007 : 52 80                      mov     #rx_queue_size, B
-       2009 : 8E 20 A7                   call    queue_init
+       2009 : 8E 20 AB                   call    queue_init
        200C : 88 30 80 03                movw    #tx_queue, R3
        2010 : 52 80                      mov     #tx_queue_size, B
-       2012 : 8E 20 A7                   call    queue_init
+       2012 : 8E 20 AB                   call    queue_init
        2015 :                    ;;; initialize ACIA
        2015 : F7 03 F0                   mov     #CDS_RESET_gc, ACIA_control     ; Master reset
        2018 : F7 94 F0                   mov     #RX_INT_TX_NO, ACIA_control
@@ -208,7 +208,7 @@
        2085 : FB                         push    st
        2086 : 88 30 00 03                movw    #rx_queue, R3
        208A : F0 00                      dint
-       208C : 8E 20 EF                   call    queue_remove
+       208C : 8E 20 F3                   call    queue_remove
        208F : 07 03                      jnc     getchar_empty
        2091 : FC                         pop     st
        2092 : F8                         setc                    ; ST.C=1
@@ -222,126 +222,130 @@
        2096 :                    ;;; @clobber R2:R3
        2096 :                    putchar:
        2096 : 88 30 80 03                movw    #tx_queue, R3
+       209A :                    putchar_retry:
        209A : F0 00                      dint
-       209C : 8E 20 BD                   call    queue_add
-       209F : 07 F5                      jnc     putchar
-       20A1 : F7 B4 F0                   mov     #RX_INT_TX_INT, ACIA_control ; enable Tx interrupt
-       20A4 : F0 0C                      eint
-       20A6 : F9                         rts
-       20A7 :
-       20A7 :                            include "queue.inc"
-(1)    20A7 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
-(1)    20A7 :                    ;;; [queue] queue structure
-(1)    20A7 : =0                 queue_len:      equ     0       ; queue length
-(1)    20A7 : =1                 queue_size:     equ     1       ; buffer size
-(1)    20A7 : =2                 queue_put:      equ     2       ; queue put index
-(1)    20A7 : =3                 queue_get:      equ     3       ; queue get index
-(1)    20A7 : =4                 queue_buf:      equ     4       ; buffer start offset
-(1)    20A7 :
-(1)    20A7 :                    ;;; [queue] Initialize queue
-(1)    20A7 :                    ;;; @param R2:R3 queue work space pointer
-(1)    20A7 :                    ;;; @param B queue work space size
-(1)    20A7 :                    ;;; @clobber A B R2:R3
-(1)    20A7 :                    queue_init:
-(1)    20A7 : B5                         clr     A
-(1)    20A8 : 9B 03                      mov     A, @R3          ; queue_len
-(1)    20AA : 62                         mov     B, A
-(1)    20AB : 2A 04                      sub     #queue_buf, A
-(1)    20AD : D3 03                      inc     R3
-(1)    20AF : 9B 03                      mov     A, @R3          ; queue_size
-(1)    20B1 : 5A 02                      sub     #queue_put, B   ; offset queue_len and queue_size
-(1)    20B3 : D3 03                      inc     R3              ; R2:R3=&queue_put
-(1)    20B5 : B5                         clr     A
-(1)    20B6 :                    queue_init_loop:
-(1)    20B6 : 9B 03                      mov     A, @R3
-(1)    20B8 : D3 03                      inc     R3
-(1)    20BA : CA FA                      djnz    B, queue_init_loop
-(1)    20BC : F9                         rts
-(1)    20BD :
-(1)    20BD :                    ;;; [queue] Add an element to queue
-(1)    20BD :                    ;;; @param R2:R3 queue work space pointer
-(1)    20BD :                    ;;; @param A an element
-(1)    20BD :                    ;;; @return ST.C 0 if queue is full
-(1)    20BD :                    ;;; @clobber R2:R3
-(1)    20BD :                    queue_add:
-(1)    20BD : B8                         push    A
-(1)    20BE : 9A 03                      mov     @R3, A          ; A=queue_len
-(1)    20C0 : F4 ED 01 03                cmp     queue_size(R3), A
-(1)    20C4 : 09 02                      jl      queue_add_element
-(1)    20C6 : B9                         pop     A               ; ST.C=0
-(1)    20C7 : F9                         rts
-(1)    20C8 :                    queue_add_element:
-(1)    20C8 : B3                         inc     A
-(1)    20C9 : 9B 03                      mov     A, @R3          ; queue_len++
-(1)    20CB : F4 EA 02 03                mov     queue_put(R3), A
-(1)    20CF : 28 04                      add     #queue_buf, A
-(1)    20D1 : D8 03                      push    R3              ; save pointer
-(1)    20D3 : 48 00 03                   add     A, R3           ; R2:R3=&queue_buf[queue_put]
-(1)    20D6 : F1 FF                      mov     -1(SP), A       ; element
-(1)    20D8 : 9B 03                      mov     A, @R3          ; store element
-(1)    20DA : D9 03                      pop     R3              ; restore pointer
-(1)    20DC : F4 EA 02 03                mov     queue_put(R3), A
-(1)    20E0 : B3                         inc     A
-(1)    20E1 : F4 ED 01 03                cmp     queue_size(R3), A
-(1)    20E5 : 09 01                      jl      queue_add_return
-(1)    20E7 : B5                         clr     A               ; wraparound
-(1)    20E8 :                    queue_add_return:
-(1)    20E8 : F4 EB 02 03                mov     A, queue_put(R3) ; update queue_put
-(1)    20EC : B9                         pop     A
-(1)    20ED : F8                         setc                    ; ST.C=1
-(1)    20EE : F9                         rts
-(1)    20EF :
-(1)    20EF :                    ;;; [queue] Remove an element from queue
-(1)    20EF :                    ;;; @param R2:R3 queue work space pointer
-(1)    20EF :                    ;;; @return A an element
-(1)    20EF :                    ;;; @return ST.C 0 if queue is empty
-(1)    20EF :                    queue_remove:
-(1)    20EF : 9A 03                      mov     @R3, A          ; A=queue_len, ST.C=0
-(1)    20F1 : 02 25                      jz      queue_remove_end
-(1)    20F3 :                    queue_remove_elem:
-(1)    20F3 : B2                         dec     A
-(1)    20F4 : 9B 03                      mov     A, @R3          ; queue_len--
-(1)    20F6 : F4 EA 03 03                mov     queue_get(R3), A
-(1)    20FA : 28 04                      add     #queue_buf, A
-(1)    20FC : D8 03                      push    R3              ; save pointer
-(1)    20FE : 48 00 03                   add     A, R3           ; R2:R3=&queue_buf[queue_get]
-(1)    2101 : 9A 03                      mov     @R3, A          ; remove element
-(1)    2103 : D9 03                      pop     R3              ; restore pointer
-(1)    2105 : B8                         push    A               ; save element
-(1)    2106 : F4 EA 03 03                mov     queue_get(R3), A
-(1)    210A : B3                         inc     A
-(1)    210B : F4 ED 01 03                cmp     queue_size(R3), A
-(1)    210F : 09 01                      jl      queue_remove_return
-(1)    2111 : B5                         clr     A               ; wraparound
-(1)    2112 :                    queue_remove_return:
-(1)    2112 : F4 EB 03 03                mov     A, queue_get(R3)
-(1)    2116 : B9                         pop     A               ; restore element
-(1)    2117 : F8                         setc
-(1)    2118 :                    queue_remove_end:
-(1)    2118 : F9                         rts
-       2119 :
-       2119 :                    isr_int1:
-       2119 : A3 7F 17                   and     #~INT_FLAG & 0FFH, INT1 ; clear INT1_FLAG
-       211C : A7 80 F0 2B                btjz    #IRQF_bm, ACIA_status, isr_int1_return
-       2120 : B8                         push    A
-       2121 : D8 02                      push    R2
-       2123 : D8 03                      push    R3
-       2125 : A7 01 F0 09                btjz    #RDRF_bm, ACIA_status, isr_tx
-       2129 : 80 F1                      mov     ACIA_data, A
-       212B : 88 30 00 03                movw    #rx_queue, R3
-       212F : 8E 20 BD                   call    queue_add
-       2132 :                    isr_tx:
-       2132 : A7 02 F0 10                btjz    #TDRE_bm, ACIA_status, isr_int1_exit
-       2136 : 88 30 80 03                movw    #tx_queue, R3
-       213A : 8E 20 EF                   call    queue_remove
-       213D : 07 04                      jnc     isr_tx_empty
-       213F : 21 F1                      mov     A, ACIA_data    ; send character
-       2141 : 00 03                      jmp     isr_int1_exit
-       2143 :                    isr_tx_empty:
-       2143 : F7 94 F0                   mov     #RX_INT_TX_NO, ACIA_control ; disable Tx interrupt
-       2146 :                    isr_int1_exit:
-       2146 : D9 03                      pop     R3
-       2148 : D9 02                      pop     R2
-       214A : B9                         pop     A
-       214B :                    isr_int1_return:
-       214B : FA                         rti
+       209C : 8E 20 C1                   call    queue_add
+       209F : 03 04                      jc      putchar_queued
+       20A1 : F0 0C                      eint                    ; let the Tx interrupt drain the queue
+       20A3 : 00 F5                      jmp     putchar_retry
+       20A5 :                    putchar_queued:
+       20A5 : F7 B4 F0                   mov     #RX_INT_TX_INT, ACIA_control ; enable Tx interrupt
+       20A8 : F0 0C                      eint
+       20AA : F9                         rts
+       20AB :
+       20AB :                            include "queue.inc"
+(1)    20AB :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)    20AB :                    ;;; [queue] queue structure
+(1)    20AB : =0                 queue_len:      equ     0       ; queue length
+(1)    20AB : =1                 queue_size:     equ     1       ; buffer size
+(1)    20AB : =2                 queue_put:      equ     2       ; queue put index
+(1)    20AB : =3                 queue_get:      equ     3       ; queue get index
+(1)    20AB : =4                 queue_buf:      equ     4       ; buffer start offset
+(1)    20AB :
+(1)    20AB :                    ;;; [queue] Initialize queue
+(1)    20AB :                    ;;; @param R2:R3 queue work space pointer
+(1)    20AB :                    ;;; @param B queue work space size
+(1)    20AB :                    ;;; @clobber A B R2:R3
+(1)    20AB :                    queue_init:
+(1)    20AB : B5                         clr     A
+(1)    20AC : 9B 03                      mov     A, @R3          ; queue_len
+(1)    20AE : 62                         mov     B, A
+(1)    20AF : 2A 04                      sub     #queue_buf, A
+(1)    20B1 : D3 03                      inc     R3
+(1)    20B3 : 9B 03                      mov     A, @R3          ; queue_size
+(1)    20B5 : 5A 02                      sub     #queue_put, B   ; offset queue_len and queue_size
+(1)    20B7 : D3 03                      inc     R3              ; R2:R3=&queue_put
+(1)    20B9 : B5                         clr     A
+(1)    20BA :                    queue_init_loop:
+(1)    20BA : 9B 03                      mov     A, @R3
+(1)    20BC : D3 03                      inc     R3
+(1)    20BE : CA FA                      djnz    B, queue_init_loop
+(1)    20C0 : F9                         rts
+(1)    20C1 :
+(1)    20C1 :                    ;;; [queue] Add an element to queue
+(1)    20C1 :                    ;;; @param R2:R3 queue work space pointer
+(1)    20C1 :                    ;;; @param A an element
+(1)    20C1 :                    ;;; @return ST.C 0 if queue is full
+(1)    20C1 :                    ;;; @clobber R2:R3
+(1)    20C1 :                    queue_add:
+(1)    20C1 : B8                         push    A
+(1)    20C2 : 9A 03                      mov     @R3, A          ; A=queue_len
+(1)    20C4 : F4 ED 01 03                cmp     queue_size(R3), A
+(1)    20C8 : 09 02                      jl      queue_add_element
+(1)    20CA : B9                         pop     A               ; ST.C=0
+(1)    20CB : F9                         rts
+(1)    20CC :                    queue_add_element:
+(1)    20CC : B3                         inc     A
+(1)    20CD : 9B 03                      mov     A, @R3          ; queue_len++
+(1)    20CF : F4 EA 02 03                mov     queue_put(R3), A
+(1)    20D3 : 28 04                      add     #queue_buf, A
+(1)    20D5 : D8 03                      push    R3              ; save pointer
+(1)    20D7 : 48 00 03                   add     A, R3           ; R2:R3=&queue_buf[queue_put]
+(1)    20DA : F1 FF                      mov     -1(SP), A       ; element
+(1)    20DC : 9B 03                      mov     A, @R3          ; store element
+(1)    20DE : D9 03                      pop     R3              ; restore pointer
+(1)    20E0 : F4 EA 02 03                mov     queue_put(R3), A
+(1)    20E4 : B3                         inc     A
+(1)    20E5 : F4 ED 01 03                cmp     queue_size(R3), A
+(1)    20E9 : 09 01                      jl      queue_add_return
+(1)    20EB : B5                         clr     A               ; wraparound
+(1)    20EC :                    queue_add_return:
+(1)    20EC : F4 EB 02 03                mov     A, queue_put(R3) ; update queue_put
+(1)    20F0 : B9                         pop     A
+(1)    20F1 : F8                         setc                    ; ST.C=1
+(1)    20F2 : F9                         rts
+(1)    20F3 :
+(1)    20F3 :                    ;;; [queue] Remove an element from queue
+(1)    20F3 :                    ;;; @param R2:R3 queue work space pointer
+(1)    20F3 :                    ;;; @return A an element
+(1)    20F3 :                    ;;; @return ST.C 0 if queue is empty
+(1)    20F3 :                    queue_remove:
+(1)    20F3 : 9A 03                      mov     @R3, A          ; A=queue_len, ST.C=0
+(1)    20F5 : 02 25                      jz      queue_remove_end
+(1)    20F7 :                    queue_remove_elem:
+(1)    20F7 : B2                         dec     A
+(1)    20F8 : 9B 03                      mov     A, @R3          ; queue_len--
+(1)    20FA : F4 EA 03 03                mov     queue_get(R3), A
+(1)    20FE : 28 04                      add     #queue_buf, A
+(1)    2100 : D8 03                      push    R3              ; save pointer
+(1)    2102 : 48 00 03                   add     A, R3           ; R2:R3=&queue_buf[queue_get]
+(1)    2105 : 9A 03                      mov     @R3, A          ; remove element
+(1)    2107 : D9 03                      pop     R3              ; restore pointer
+(1)    2109 : B8                         push    A               ; save element
+(1)    210A : F4 EA 03 03                mov     queue_get(R3), A
+(1)    210E : B3                         inc     A
+(1)    210F : F4 ED 01 03                cmp     queue_size(R3), A
+(1)    2113 : 09 01                      jl      queue_remove_return
+(1)    2115 : B5                         clr     A               ; wraparound
+(1)    2116 :                    queue_remove_return:
+(1)    2116 : F4 EB 03 03                mov     A, queue_get(R3)
+(1)    211A : B9                         pop     A               ; restore element
+(1)    211B : F8                         setc
+(1)    211C :                    queue_remove_end:
+(1)    211C : F9                         rts
+       211D :
+       211D :                    isr_int1:
+       211D : A3 7F 17                   and     #~INT_FLAG & 0FFH, INT1 ; clear INT1_FLAG
+       2120 : A7 80 F0 2B                btjz    #IRQF_bm, ACIA_status, isr_int1_return
+       2124 : B8                         push    A
+       2125 : D8 02                      push    R2
+       2127 : D8 03                      push    R3
+       2129 : A7 01 F0 09                btjz    #RDRF_bm, ACIA_status, isr_tx
+       212D : 80 F1                      mov     ACIA_data, A
+       212F : 88 30 00 03                movw    #rx_queue, R3
+       2133 : 8E 20 C1                   call    queue_add
+       2136 :                    isr_tx:
+       2136 : A7 02 F0 10                btjz    #TDRE_bm, ACIA_status, isr_int1_exit
+       213A : 88 30 80 03                movw    #tx_queue, R3
+       213E : 8E 20 F3                   call    queue_remove
+       2141 : 07 04                      jnc     isr_tx_empty
+       2143 : 21 F1                      mov     A, ACIA_data    ; send character
+       2145 : 00 03                      jmp     isr_int1_exit
+       2147 :                    isr_tx_empty:
+       2147 : F7 94 F0                   mov     #RX_INT_TX_NO, ACIA_control ; disable Tx interrupt
+       214A :                    isr_int1_exit:
+       214A : D9 03                      pop     R3
+       214C : D9 02                      pop     R2
+       214E : B9                         pop     A
+       214F :                    isr_int1_return:
+       214F : FA                         rti

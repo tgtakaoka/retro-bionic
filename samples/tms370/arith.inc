@@ -42,15 +42,22 @@ print_uint16_end:
 ;;; @return B remainder
 ;;; @clobber A
 udiv16_8:
-        mov     R4, B
-        clr     A               ; A:B=0:R4
-        div     R7, A           ; A=R4/R7, B=R4%R7
-        mov     A, R4           ; R4=high(quotient)
-        mov     B, A
+        mov     R4, A
+        cmp     R7, A
+        jhs     udiv16_8_high   ; branch if R4>=R7
+        clr     R4              ; R4=high(quotient)=0, A=R4%R7=R4
+udiv16_8_low:
         mov     R5, B           ; A:B=R4%R7:R5
         div     R7, A           ; A=low(quotient), B=remainder
         mov     A, R5           ; R5=low(quotient)
         rts
+udiv16_8_high:
+        mov     A, B
+        clr     A               ; A:B=0:R4
+        div     R7, A           ; A=R4/R7, B=R4%R7
+        mov     A, R4           ; R4=high(quotient)
+        mov     B, A
+        jmp     udiv16_8_low
 
 ;;; Addition: R4:R5 += R6:R7
 add16:
