@@ -76,10 +76,10 @@ loop_i:
         mov     R3, #vF
         call    divsi2          ; Q=B/F
         mov     R2, #tmp
-        mov     R3, #vQ
-        call    assign          ; tmp=Q
         mov     R3, #vF
-        call    mulsi2          ; tmp=Q*F
+        call    assign          ; tmp=F
+        mov     R3, #vQ
+        call    mulsi2          ; tmp=F*Q, Q the shorter multiplier
         mov     R2, #vS
         mov     R3, #vB
         call    assign          ; S=B
