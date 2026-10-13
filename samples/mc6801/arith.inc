@@ -48,16 +48,20 @@ umul16:
         ldab    R2L
         mul                     ; low(multiplicand)*low(multiplier)
         std     R0
-        ldaa    R1L
         ldab    R2H
+        beq     umul16_high     ; branch if high(multiplier) == 0
+        ldaa    R1L
         mul                     ; low(multiplicand)*high(multiplier)
         addb    R0H
         stab    R0H
-        ldaa    R1H
-        ldab    R2L
+umul16_high:
+        ldab    R1H
+        beq     umul16_end      ; branch if high(multiplicand) == 0
+        ldaa    R2L
         mul                     ; high(multiplicand)*low(multiplier)
         addb    R0H
         stab    R0H
+umul16_end:
         rts
 
 ;;; Multiply; result = multiplicand * multiplier
@@ -67,7 +71,9 @@ umul16:
 ;;; @clobber R0 R1 R2
 mul16:
         std     R1
+        beq     mul16_end       ; branch if multiplicand == 0
         stx     R2
+        beq     mul16_zero      ; branch if multiplier == 0
         eora    R2H
         staa    sign            ; save hi(multiplicand^multiplier)
         ldd     R2
@@ -93,6 +99,10 @@ mul16_multiply:
         addd    #1              ; negate result
 mul16_end:
         rts
+mul16_zero:
+        clra
+        clrb
+        rts
 
 ;;; Unsigned division: dividend / divisor = quotient ... remainder
 ;;; @praram R1 dividend
@@ -103,8 +113,14 @@ mul16_end:
 udiv16:
         ldd     R2              ; D=divisor
         beq     udiv16_end      ; branch if divisor==0
+        cmpa    R1H
+        bhi     udiv16_zero     ; branch if divisor > dividend
+        bcs     udiv16_start
+        cmpb    R1L
+        bhi     udiv16_zero
+udiv16_start:
         ldx     #1              ; X=bits
-        bra     udiv16_prep
+        bra     udiv16_prep_msb
 udiv16_prep_loop:
         lsld                    ; divisor <<= 1
         inx                     ; ++bits
@@ -140,6 +156,10 @@ udiv16_next:
         bne     udiv16_loop     ; while bits != 0
 udiv16_end:
         std     R1              ; R1=remainder
+        rts
+udiv16_zero:
+        ldx     #0
+        stx     R0              ; quotient=0, R1=remainder
         rts
 
 ;;; Division; dividend / divisor = quotient ... remainder
