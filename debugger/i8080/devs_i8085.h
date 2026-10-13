@@ -4,7 +4,7 @@
 #include "devs_i8080.h"
 #include "serial_handler.h"
 
-#define USART_BASE 0x00
+#define USART_BASE 0x40
 
 namespace debugger {
 namespace i8085 {

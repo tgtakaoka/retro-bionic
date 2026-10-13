@@ -187,10 +187,16 @@ udiv16_prep_loop:
         ral
         mov     D, A
         inr     L               ; ++bits
-udiv16_prep:                    ; while msb(divisor) == 0
+udiv16_prep:
+        mov     A, C
+        sub     E
+        mov     A, B
+        sbb     D
+        jc      udiv16_prep_end ; until divisor > dividend
         mov     A, D
         ora     A
-        jp      udiv16_prep_loop
+        jp      udiv16_prep_loop ; while msb(divisor) == 0
+udiv16_prep_end:
         mov     A, L
         push    PSW             ; push bits
         mov     H, B

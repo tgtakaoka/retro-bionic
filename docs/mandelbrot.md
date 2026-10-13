@@ -56,6 +56,7 @@ The tables time them on real chips, from recorded casts, with
 | Z86C91      |  55.9 |   2.284 |   0.741 |                    | [mandelbrot.cast](../samples/z86/mandelbrot.cast)                        | [z86/mandelbrot.lst](../samples/z86/mandelbrot.lst)             |
 | INS8070     |  56.6 |   2.312 |   0.744 |                    | [mandelbrot.cast](../samples/ins8070/mandelbrot.cast)                    | [ins8070/mandelbrot.lst](../samples/ins8070/mandelbrot.lst)     |
 | Z180        |  62.5 |   2.554 |   0.872 |                    | [mandelbrot.cast](../samples/z180/mandelbrot.cast)                       | [z180/mandelbrot.lst](../samples/z180/mandelbrot.lst)           |
+| P8080       |  63.2 |   2.566 |   0.611 |                    | [mandelbrot.cast](../samples/i8080/mandelbrot.cast)                      | [i8080/mandelbrot.lst](../samples/i8080/mandelbrot.lst)         |
 | W65C816S    |  66.8 |   2.729 |   0.876 |                    | [mandelbrot.cast](../samples/w65c816/mandelbrot.cast)                    | [w65c816/mandelbrot.lst](../samples/w65c816/mandelbrot.lst)     |
 | Z80         |  67.2 |   2.746 |   0.897 |                    | [mandelbrot.cast](../samples/z80/mandelbrot.cast)                        | [z80/mandelbrot.lst](../samples/z80/mandelbrot.lst)             |
 | HD64180S    |  68.8 |   2.812 |   0.959 | Z180 code          | [mandelbrot_hd64180s.cast](../samples/z180/mandelbrot_hd64180s.cast)     | [z180/mandelbrot.lst](../samples/z180/mandelbrot.lst)           |
@@ -75,7 +76,6 @@ The tables time them on real chips, from recorded casts, with
 | MC68HC05C0  | 105.6 |   4.316 |   1.438 | MC6805 code        | [mandelbrot_mc68hc05.cast](../samples/mc6805/mandelbrot_mc68hc05.cast)   | [mc6805/mandelbrot.lst](../samples/mc6805/mandelbrot.lst)       |
 | MC6800      | 107.7 |   4.399 |   1.410 |                    | [mandelbrot.cast](../samples/mc6800/mandelbrot.cast)                     | [mc6800/mandelbrot.lst](../samples/mc6800/mandelbrot.lst)       |
 | CDP1804A    | 112.7 |   4.583 |   1.173 |                    | [mandelbrot.cast](../samples/cdp1804a/mandelbrot.cast)                   | [cdp1804a/mandelbrot.lst](../samples/cdp1804a/mandelbrot.lst)   |
-| P8080       | 132.0 |   5.390 |   1.763 |                    | [mandelbrot.cast](../samples/i8080/mandelbrot.cast)                      | [i8080/mandelbrot.lst](../samples/i8080/mandelbrot.lst)         |
 | MC146805E2  | 141.6 |   5.788 |   1.929 |                    | [mandelbrot.cast](../samples/mc6805/mandelbrot.cast)                     | [mc6805/mandelbrot.lst](../samples/mc6805/mandelbrot.lst)       |
 | MOS6502     | 144.8 |   5.917 |   1.951 |                    | [mandelbrot.cast](../samples/mos6502/mandelbrot.cast)                    | [mos6502/mandelbrot.lst](../samples/mos6502/mandelbrot.lst)     |
 | CDP1802     | 165.7 |   6.749 |   1.903 |                    | [mandelbrot.cast](../samples/cdp1802/mandelbrot.cast)                    | [cdp1802/mandelbrot.lst](../samples/cdp1802/mandelbrot.lst)     |
@@ -193,15 +193,16 @@ The TMS99105 moves a word in one machine cycle on its multiplexed bus and
 also prefetches; it runs all three, and its own build's `MPYS` and
 `BLSK`/`BIND` gain nothing over the TMS9995 build on it.
 
-### Z80 family
+### 8080 and Z80 family
 
-| | Z80 | Z180 | Z280 | Z380 | NSC800 | HD64180S | KL5C80A12 |
-|---|---:|---:|---:|---:|---:|---:|---:|
-| [z80](../samples/z80/mandelbrot.lst) | 67.2 | 76.9 | 73.2 | 38.2 | 85.8 | 76.4 | 39.1 |
-| [z180](../samples/z180/mandelbrot.lst) | | 62.5 | | 34.3 | | 68.8 | |
-| [z280](../samples/z280/mandelbrot.lst) | | | 5.7 | | | | |
-| [z380](../samples/z380/mandelbrot.lst) | | | | 3.7 | | | |
-| Data bus | 8-bit | 8-bit | 16-bit, multiplexed | 16-bit | 8-bit, multiplexed | 8-bit | 8-bit |
+| | P8080 | P8085 | Z80 | Z180 | Z280 | Z380 | NSC800 | HD64180S | KL5C80A12 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| [i8080](../samples/i8080/mandelbrot.lst) | 63.2 | 40.2 | 32.6 | | | | 43.2 | | |
+| [z80](../samples/z80/mandelbrot.lst) | | | 67.2 | 76.9 | 73.2 | 38.2 | 85.8 | 76.4 | 39.1 |
+| [z180](../samples/z180/mandelbrot.lst) | | | | 62.5 | | 34.3 | | 68.8 | |
+| [z280](../samples/z280/mandelbrot.lst) | | | | | 5.7 | | | | |
+| [z380](../samples/z380/mandelbrot.lst) | | | | | | 3.7 | | | |
+| Data bus | 8-bit | 8-bit, multiplexed | 8-bit | 8-bit | 16-bit, multiplexed | 16-bit | 8-bit, multiplexed | 8-bit | 8-bit |
 
 Every chip runs with its cache off, as reset leaves it. The Z80 sample
 reaches its USART through `IN`/`OUT (C)` with B=01H, where `IN`/`OUT (n)`

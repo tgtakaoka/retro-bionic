@@ -76,9 +76,8 @@ loop_i:
         lxi     D, Fv
         call    div16           ; B/F
         shld    (vQ)            ; Q=B/F
-        mov     B, H
-        mov     C, L
-        lxi     D, -Fv
+        xchg                    ; DE=Q, the shorter multiplier
+        lxi     B, -Fv
         call    mul16           ; -Q*F
         mov     D, H
         mov     E, L

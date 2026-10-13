@@ -2,12 +2,12 @@
         include "i8080.inc"
 
 ;;; i8251 Universal Synchronous/Asynchronous Receiver/Transmitter
-USART:          equ     00H
+USART:          equ     40H
 USARTD:         equ     USART+0 ; Receive/Transmit data
 USARTS:         equ     USART+1 ; Srtatus register
 USARTC:         equ     USART+1 ; Control register
-USARTRV:        equ     USART+2 ; Receive interrupt vector (ORG_*)
-USARTTV:        equ     USART+3 ; Transmit interrupt vector (ORG_*)
+USARTRV:        equ     USART+2 ; Receive interrupt instruction (INST_RST*)
+USARTTV:        equ     USART+3 ; Transmit interrupt instruction (INST_RST*)
         include "i8251.inc"
 ;;; Async 1stop 8data x16
 ASYNC_MODE:     equ     MODE_STOP1_gc|MODE_LEN8_gc|MODE_BAUD_X16
@@ -48,7 +48,7 @@ init_usart:
         nop
         mvi     a, RX_EN_TX_EN
         out     USARTC
-        mvi     a, ORG_RST7
+        mvi     a, INST_RST7
         out     USARTRV         ; enable RxRDY interrupt using RST 7
         mvi     a, ORG_RESET
         out     USARTTV         ; disable TxRDY interrupt

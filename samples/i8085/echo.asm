@@ -2,7 +2,7 @@
         include "i8085.inc"
 
 ;;; i8251 Universal Synchronous/Asynchronous Receiver/Transmitter
-USART:  equ     00H
+USART:  equ     40H
 USARTD: equ     USART+0         ; Data register
 USARTS: equ     USART+1         ; Status register
 USARTC: equ     USART+1         ; Control register
