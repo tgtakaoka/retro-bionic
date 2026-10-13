@@ -96,8 +96,8 @@ loop_i:
         jsr     divsi2          ; R0=B/F
         ldx     #vQ
         jsr     store_RX        ; Q=B/F
-        jsr     store_R1        ; R1=B/F
-        jsr     set_R2
+        jsr     store_R2        ; R2=B/F, the shorter multiplier
+        jsr     set_R1
         .word   F
         jsr     mulsi2          ; R0=Q*F
         jsr     store_R2
