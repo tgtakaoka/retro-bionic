@@ -168,8 +168,15 @@ udiv16_prep_loop:
         rola                    ; divisor <<= 1
         inx                     ; ++bits
 udiv16_prep:
+        cmpa    R1H
+        bhi     udiv16_prep_end ; until divisor > dividend
+        bcs     udiv16_prep_msb
+        cmpb    R1L
+        bhi     udiv16_prep_end
+udiv16_prep_msb:
         tsta
         bpl     udiv16_prep_loop ; while msb(divisor) == 0
+udiv16_prep_end:
         staa    R2H              ; update divisor
         stab    R2L
         ldaa    R1H
