@@ -26,6 +26,7 @@ struct ArchMc6800 : MatchWalker::Arch {
 
     virtual uint16_t vec_swi() const { return 0xFFFA; }
     virtual uint16_t vec_nmi() const { return 0xFFFC; }
+    virtual uint16_t vec_irq() const { return 0xFFF8; }
     static constexpr uint16_t VEC_RESET = 0xFFFE;
 
     // Keeps the board's bus alive while a walk goes, if set.

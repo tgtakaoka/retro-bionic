@@ -21,6 +21,10 @@ inline void negate_irq() {
     digitalWriteFast(PIN_IRQ, HIGH);
 }
 
+inline bool irq_asserted() {
+    return (*portOutputRegister(PIN_IRQ) & digitalPinToBitMask(PIN_IRQ)) == 0;
+}
+
 // #NMI may be connected to other signal or switch
 void assert_nmi() {
     pinMode(PIN_NMI, OUTPUT_OPENDRAIN);
@@ -204,6 +208,16 @@ bool PinsMc6800Base::step(bool show) {
     _regs->restore();
     if (show)
         Cycles::reset();
+    // A pending IRQ the restored CC lets in starts its entry before any
+    // instruction, and an NMI raised now would take the vector: let the
+    // IRQ fetch its vector first.
+    if (irq_asserted() && !regs<RegsMc6800>()->irqMasked()) {
+        for (auto n = 0; n < SUSPEND_CYCLES; ++n) {
+            const auto s = cycle();
+            if (s->valid() && s->read() && s->addr == _inst->vec_irq())
+                break;
+        }
+    }
     suspend(show);
     if (show)
         printCycles(Signals::put()->prev());
