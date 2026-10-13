@@ -269,28 +269,28 @@
        1086 : 11 64 00                   ld      DE, 100
        1089 : 3E 2F                      ld      A, '/'
        108B : CD 4E 01                   call    expr
-       108E : CD 23 12                   call    div16
+       108E : CD 1C 12                   call    div16
        1091 : CD 66 01                   call    answer          ; 300
        1094 :
        1094 : 01 38 FF                   ld      BC, -200
        1097 : 11 64 00                   ld      DE, 100
        109A : 3E 2F                      ld      A, '/'
        109C : CD 4E 01                   call    expr
-       109F : CD 23 12                   call    div16
+       109F : CD 1C 12                   call    div16
        10A2 : CD 66 01                   call    answer          ; -2
        10A5 :
        10A5 : 01 D0 8A                   ld      BC, -30000
        10A8 : 11 38 FF                   ld      DE, -200
        10AB : 3E 2F                      ld      A, '/'
        10AD : CD 4E 01                   call    expr
-       10B0 : CD 23 12                   call    div16
+       10B0 : CD 1C 12                   call    div16
        10B3 : CD 66 01                   call    answer          ; 150
        10B6 :
        10B6 : 01 D0 8A                   ld      BC, -30000
        10B9 : 11 4E 00                   ld      DE, 78
        10BC : 3E 2F                      ld      A, '/'
        10BE : CD 4E 01                   call    expr
-       10C1 : CD 23 12                   call    div16
+       10C1 : CD 1C 12                   call    div16
        10C4 : CD 66 01                   call    answer          ; -384
        10C7 :
        10C7 : 01 D0 FF                   ld      BC, -48
@@ -508,102 +508,87 @@
 (1)    11E6 : B3                         or      A, E
 (1)    11E7 : C8                         ret     Z               ; divide by zero
 (1)    11E8 : 2E 01                      ld      L, 1            ; L=bits
-(1)    11EA : 18 08                      jr      udiv16_prep
+(1)    11EA : 18 05                      jr      udiv16_prep
 (1)    11EC :                    udiv16_prep_loop:
-(1)    11EC : B7                         or      A, A            ; clear AF.C
-(1)    11ED : 7B                         ld      A, E            ; divisor <<= 1
-(1)    11EE : 17                         rla
-(1)    11EF : 5F                         ld      E, A
-(1)    11F0 : 7A                         ld      A, D
-(1)    11F1 : 17                         rla
-(1)    11F2 : 57                         ld      D, A
-(1)    11F3 : 2C                         inc     L               ; ++bits
-(1)    11F4 :                    udiv16_prep:                    ; while msb(divisor) == 0
-(1)    11F4 : CB 7A                      bit     7, D
-(1)    11F6 : 28 F4                      jr      Z, udiv16_prep_loop
-(1)    11F8 : 7D                         ld      A, L
-(1)    11F9 : F5                         push    AF              ; push bits
-(1)    11FA : 60                         ld      H, B
-(1)    11FB : 69                         ld      L, C            ; HL=dividend
-(1)    11FC : AF                         xor     A, A
-(1)    11FD : 47                         ld      B, A
-(1)    11FE : 4F                         ld      C, A            ; BC=quotient
-(1)    11FF : 18 0F                      jr      udiv16_enter_loop
-(1)    1201 :                    udiv16_loop:
-(1)    1201 : F5                         push    AF              ; push bits
-(1)    1202 : B7                         or      A, A            ; clear AF.C
-(1)    1203 : 7A                         ld      A, D            ; divisor >>= 1
-(1)    1204 : 1F                         rra
-(1)    1205 : 57                         ld      D, A
-(1)    1206 : 7B                         ld      A, E
-(1)    1207 : 1F                         rra
-(1)    1208 : 5F                         ld      E, A
-(1)    1209 : B7                         or      A, A            ; clear AF.C
-(1)    120A : 79                         ld      A, C            ; quotient <<= 1
-(1)    120B : 17                         rla
-(1)    120C : 4F                         ld      C, A
-(1)    120D : 78                         ld      A, B
-(1)    120E : 17                         rla
-(1)    120F : 47                         ld      B, A
-(1)    1210 :                    udiv16_enter_loop:
-(1)    1210 : 37                         scf
-(1)    1211 : 3F                         ccf
-(1)    1212 : ED 52                      sbc     HL, DE          ; dividend -= divisor
-(1)    1214 : 38 03                      jr      C, udiv16_readd ; if dividend < 0
-(1)    1216 : 03                         inc     BC              ; quotient |= 1
-(1)    1217 : 18 01                      jr      udiv16_next
-(1)    1219 :                    udiv16_readd:
-(1)    1219 : 19                         add     HL, DE          ; dividend += divisor
-(1)    121A :                    udiv16_next:
-(1)    121A : F1                         pop     AF
-(1)    121B : 3D                         dec     A               ; --bits
-(1)    121C : 20 E3                      jr      NZ, udiv16_loop ; while bits != 0
-(1)    121E : E5                         push    HL              ; remainder
-(1)    121F : C5                         push    BC              ; quotient
-(1)    1220 : E1                         pop     HL
-(1)    1221 : C1                         pop     BC
-(1)    1222 : C9                         ret
-(1)    1223 :
-(1)    1223 :                    ;;; Signed division; dividend / divisor = quotient ... remainder
-(1)    1223 :                    ;;; @param BC dividend
-(1)    1223 :                    ;;; @param DE divisor
-(1)    1223 :                    ;;; @return BC remainder
-(1)    1223 :                    ;;; @return HL quotient
-(1)    1223 :                    ;;; @clobber A DE
-(1)    1223 :                    div16:
-(1)    1223 : 78                         ld      A, B
-(1)    1224 : AA                         xor     A, D
-(1)    1225 : F5                         push    AF              ; save high(dividend^divisor)
-(1)    1226 : CB 78                      bit     7, B
-(1)    1228 : 28 07                      jr      Z, div16_abs_dividend
-(1)    122A : AF                         xor     A               ; AF.C=0
-(1)    122B : 67                         ld      H, A
-(1)    122C : 6F                         ld      L, A
-(1)    122D : ED 42                      sbc     HL, BC
-(1)    122F : 44                         ld      B, H
-(1)    1230 : 4D                         ld      C, L            ; dividend = -dividend
-(1)    1231 :                    div16_abs_dividend:
-(1)    1231 : CB 7A                      bit     7, D
-(1)    1233 : 28 07                      jr      Z, div16_divide
-(1)    1235 : AF                         xor     A               ; AF.C=0
-(1)    1236 : 67                         ld      H, A
-(1)    1237 : 6F                         ld      L, A
-(1)    1238 : ED 52                      sbc     HL, DE
-(1)    123A : 54                         ld      D, H
-(1)    123B : 5D                         ld      E, L            ; divisor = -divisor
-(1)    123C :                    div16_divide:
-(1)    123C : CD E5 11                   call    udiv16          ; HL=quotient, BC=remainder
-(1)    123F : F1                         pop     AF              ; A=high(dividend^divisor)
-(1)    1240 : CB 7F                      bit     7, A
-(1)    1242 : 28 07                      jr      Z, div16_return
-(1)    1244 : 7C                         ld      A, H
-(1)    1245 : 2F                         cpl
-(1)    1246 : 67                         ld      H, A
-(1)    1247 : 7D                         ld      A, L
-(1)    1248 : 2F                         cpl
-(1)    1249 : 6F                         ld      L, A
-(1)    124A : 23                         inc     HL              ; quotient=-quotient
-(1)    124B :                    div16_return:
-(1)    124B : C9                         ret
-       124C :
-       124C :                            end
+(1)    11EC : CB 23                      sla     E
+(1)    11EE : CB 12                      rl      D               ; divisor <<= 1
+(1)    11F0 : 2C                         inc     L               ; ++bits
+(1)    11F1 :                    udiv16_prep:
+(1)    11F1 : 79                         ld      A, C
+(1)    11F2 : 93                         sub     E
+(1)    11F3 : 78                         ld      A, B
+(1)    11F4 : 9A                         sbc     A, D
+(1)    11F5 : 38 04                      jr      C, udiv16_prep_end ; until divisor > dividend
+(1)    11F7 : CB 7A                      bit     7, D
+(1)    11F9 : 28 F1                      jr      Z, udiv16_prep_loop ; while msb(divisor) == 0
+(1)    11FB :                    udiv16_prep_end:
+(1)    11FB : 7D                         ld      A, L            ; A=bits
+(1)    11FC : 60                         ld      H, B
+(1)    11FD : 69                         ld      L, C            ; HL=dividend
+(1)    11FE : 01 00 00                   ld      BC, 0           ; BC=quotient
+(1)    1201 : 18 08                      jr      udiv16_enter_loop
+(1)    1203 :                    udiv16_loop:
+(1)    1203 : CB 3A                      srl     D
+(1)    1205 : CB 1B                      rr      E               ; divisor >>= 1
+(1)    1207 : CB 21                      sla     C
+(1)    1209 : CB 10                      rl      B               ; quotient <<= 1
+(1)    120B :                    udiv16_enter_loop:
+(1)    120B : B7                         or      A, A            ; clear AF.C
+(1)    120C : ED 52                      sbc     HL, DE          ; dividend -= divisor
+(1)    120E : 38 03                      jr      C, udiv16_readd ; if dividend < 0
+(1)    1210 : 0C                         inc     C               ; quotient |= 1
+(1)    1211 : 18 01                      jr      udiv16_next
+(1)    1213 :                    udiv16_readd:
+(1)    1213 : 19                         add     HL, DE          ; dividend += divisor
+(1)    1214 :                    udiv16_next:
+(1)    1214 : 3D                         dec     A               ; --bits
+(1)    1215 : 20 EC                      jr      NZ, udiv16_loop ; while bits != 0
+(1)    1217 : E5                         push    HL              ; remainder
+(1)    1218 : C5                         push    BC              ; quotient
+(1)    1219 : E1                         pop     HL
+(1)    121A : C1                         pop     BC
+(1)    121B : C9                         ret
+(1)    121C :
+(1)    121C :                    ;;; Signed division; dividend / divisor = quotient ... remainder
+(1)    121C :                    ;;; @param BC dividend
+(1)    121C :                    ;;; @param DE divisor
+(1)    121C :                    ;;; @return BC remainder
+(1)    121C :                    ;;; @return HL quotient
+(1)    121C :                    ;;; @clobber A DE
+(1)    121C :                    div16:
+(1)    121C : 78                         ld      A, B
+(1)    121D : AA                         xor     A, D
+(1)    121E : F5                         push    AF              ; save high(dividend^divisor)
+(1)    121F : CB 78                      bit     7, B
+(1)    1221 : 28 07                      jr      Z, div16_abs_dividend
+(1)    1223 : AF                         xor     A               ; AF.C=0
+(1)    1224 : 67                         ld      H, A
+(1)    1225 : 6F                         ld      L, A
+(1)    1226 : ED 42                      sbc     HL, BC
+(1)    1228 : 44                         ld      B, H
+(1)    1229 : 4D                         ld      C, L            ; dividend = -dividend
+(1)    122A :                    div16_abs_dividend:
+(1)    122A : CB 7A                      bit     7, D
+(1)    122C : 28 07                      jr      Z, div16_divide
+(1)    122E : AF                         xor     A               ; AF.C=0
+(1)    122F : 67                         ld      H, A
+(1)    1230 : 6F                         ld      L, A
+(1)    1231 : ED 52                      sbc     HL, DE
+(1)    1233 : 54                         ld      D, H
+(1)    1234 : 5D                         ld      E, L            ; divisor = -divisor
+(1)    1235 :                    div16_divide:
+(1)    1235 : CD E5 11                   call    udiv16          ; HL=quotient, BC=remainder
+(1)    1238 : F1                         pop     AF              ; A=high(dividend^divisor)
+(1)    1239 : CB 7F                      bit     7, A
+(1)    123B : 28 07                      jr      Z, div16_return
+(1)    123D : 7C                         ld      A, H
+(1)    123E : 2F                         cpl
+(1)    123F : 67                         ld      H, A
+(1)    1240 : 7D                         ld      A, L
+(1)    1241 : 2F                         cpl
+(1)    1242 : 6F                         ld      L, A
+(1)    1243 : 23                         inc     HL              ; quotient=-quotient
+(1)    1244 :                    div16_return:
+(1)    1244 : C9                         ret
+       1245 :
+       1245 :                            end
