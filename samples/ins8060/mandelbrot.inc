@@ -1,6 +1,7 @@
 ;;; -*- mode: asm; mode: flyspell-prog; -*-
 
-cF:     .dbyte  50              ; constant
+F       =       50
+cF:     .dbyte  F               ; constant
 c_12:   .dbyte  -12
 c_49:   .dbyte  -49
 c229:   .dbyte  229
@@ -238,48 +239,94 @@ loop_i:
         xpal    P1
         ldi     H(vBASE)
         xpah    P1              ; P1=vBASE
-        ld      (vB-vBASE)(P1)
-        st      (vQ-vBASE)(P1)  ; Q=B
-        st      (vT1-vBASE)(P1) ; T1=B
         ld      (vB-vBASE+1)(P1)
-        st      (vQ-vBASE+1)(P1)
-        st      (vT1-vBASE+1)(P1)
-        ldi     L(ADDR(divsi2))
+        st      @-1(P2)
+        ld      (vB-vBASE)(P1)
+        st      @-1(P2)
+        ldi     H(F)
+        st      @-1(P2)
+        ldi     L(F)
+        st      @-1(P2)
+        ldi     L(ADDR(div16))
         xpal    P1
-        ldi     H(ADDR(divsi2))
-        xpah    P1              ; P1=ADDR(divsi2)
+        ldi     H(ADDR(div16))
+        xpah    P1
         xppc    P1              ; Q=B/F
-        .dbyte  cF
-        .dbyte  vQ
         ldi     L(vBASE)
         xpal    P1
         ldi     H(vBASE)
         xpah    P1              ; P1=vBASE
-        ld      (vQ-vBASE)(P1)
-        st      (vT-vBASE)(P1)  ; T=Q=B/F
+        ld      @2(P2)          ; discard multiplier/divisor
+        ld      @1(P2)
+        st      (vQ-vBASE)(P1)
+        ld      @1(P2)
+        st      (vQ-vBASE+1)(P1)
+        ldi     H(F)
+        st      @-1(P2)
+        ldi     L(F)
+        st      @-1(P2)
         ld      (vQ-vBASE+1)(P1)
-        st      (vT-vBASE+1)(P1)
-        ld      (vA-vBASE)(P1)
-        st      (vT2-vBASE)(P1) ; T2=A
-        ld      (vA-vBASE+1)(P1)
-        st      (vT2-vBASE+1)(P1)
-        ldi     L(ADDR(mulsi2))
+        st      @-1(P2)
+        ld      (vQ-vBASE)(P1)
+        st      @-1(P2)
+        ldi     L(ADDR(mul16))
         xpal    P1
-        ldi     H(ADDR(mulsi2))
-        xpah    P1              ; P1=ADDR(mulsi2)
+        ldi     H(ADDR(mul16))
+        xpah    P1
         xppc    P1              ; T=Q*F
-        .dbyte  cF
-        .dbyte  vT
-        xppc    P1              ; T1=B*B
-        .dbyte  vB
-        .dbyte  vT1
-        xppc    P1              ; T2=A*A
-        .dbyte  vA
-        .dbyte  vT2
         ldi     L(vBASE)
         xpal    P1
         ldi     H(vBASE)
         xpah    P1              ; P1=vBASE
+        ld      @2(P2)          ; discard multiplier/divisor
+        ld      @1(P2)
+        st      (vT-vBASE)(P1)
+        ld      @1(P2)
+        st      (vT-vBASE+1)(P1)
+        ld      (vB-vBASE+1)(P1)
+        st      @-1(P2)
+        ld      (vB-vBASE)(P1)
+        st      @-1(P2)
+        ld      (vB-vBASE+1)(P1)
+        st      @-1(P2)
+        ld      (vB-vBASE)(P1)
+        st      @-1(P2)
+        ldi     L(ADDR(mul16))
+        xpal    P1
+        ldi     H(ADDR(mul16))
+        xpah    P1
+        xppc    P1              ; T1=B*B
+        ldi     L(vBASE)
+        xpal    P1
+        ldi     H(vBASE)
+        xpah    P1              ; P1=vBASE
+        ld      @2(P2)          ; discard multiplier/divisor
+        ld      @1(P2)
+        st      (vT1-vBASE)(P1)
+        ld      @1(P2)
+        st      (vT1-vBASE+1)(P1)
+        ld      (vA-vBASE+1)(P1)
+        st      @-1(P2)
+        ld      (vA-vBASE)(P1)
+        st      @-1(P2)
+        ld      (vA-vBASE+1)(P1)
+        st      @-1(P2)
+        ld      (vA-vBASE)(P1)
+        st      @-1(P2)
+        ldi     L(ADDR(mul16))
+        xpal    P1
+        ldi     H(ADDR(mul16))
+        xpah    P1
+        xppc    P1              ; T2=A*A
+        ldi     L(vBASE)
+        xpal    P1
+        ldi     H(vBASE)
+        xpah    P1              ; P1=vBASE
+        ld      @2(P2)          ; discard multiplier/divisor
+        ld      @1(P2)
+        st      (vT2-vBASE)(P1)
+        ld      @1(P2)
+        st      (vT2-vBASE+1)(P1)
         scl
         ld      (vB-vBASE)(P1)
         cad     (vT-vBASE)(P1)
@@ -294,36 +341,94 @@ loop_i:
         ld      (vT2-vBASE+1)(P1)
         cad     (vT1-vBASE+1)(P1)
         st      (vT2-vBASE+1)(P1)
-        ld      (vA-vBASE)(P1)
-        st      (vT-vBASE)(P1)  ; T=A
-        st      (vT1-vBASE)(P1) ; T1=A
         ld      (vA-vBASE+1)(P1)
-        st      (vT-vBASE+1)(P1)
-        st      (vT1-vBASE+1)(P1)
-        ldi     L(ADDR(mulsi2))
+        st      @-1(P2)
+        ld      (vA-vBASE)(P1)
+        st      @-1(P2)
+        ld      (vS-vBASE+1)(P1)
+        st      @-1(P2)
+        ld      (vS-vBASE)(P1)
+        st      @-1(P2)
+        ldi     L(ADDR(mul16))
         xpal    P1
-        ldi     H(ADDR(mulsi2))
-        xpah    P1              ; P1=ADDR(mulsi2)
+        ldi     H(ADDR(mul16))
+        xpah    P1
         xppc    P1              ; T=A*S
-        .dbyte  vS
-        .dbyte  vT
-        xppc    P1              ; T1=A*Q
-        .dbyte  vQ
-        .dbyte  vT1
-        ldi     L(ADDR(divsi2))
-        xpal    P1
-        ldi     H(ADDR(divsi2))
-        xpah    P1              ; P1=ADDR(divsi2)
-        xppc    P1              ; T2=(A*A-B*B)/F
-        .dbyte  cF
-        .dbyte  vT2
-        xppc    P1              ; T=A*S/F
-        .dbyte  cF
-        .dbyte  vT
         ldi     L(vBASE)
         xpal    P1
         ldi     H(vBASE)
         xpah    P1              ; P1=vBASE
+        ld      @2(P2)          ; discard multiplier/divisor
+        ld      @1(P2)
+        st      (vT-vBASE)(P1)
+        ld      @1(P2)
+        st      (vT-vBASE+1)(P1)
+        ld      (vA-vBASE+1)(P1)
+        st      @-1(P2)
+        ld      (vA-vBASE)(P1)
+        st      @-1(P2)
+        ld      (vQ-vBASE+1)(P1)
+        st      @-1(P2)
+        ld      (vQ-vBASE)(P1)
+        st      @-1(P2)
+        ldi     L(ADDR(mul16))
+        xpal    P1
+        ldi     H(ADDR(mul16))
+        xpah    P1
+        xppc    P1              ; T1=A*Q
+        ldi     L(vBASE)
+        xpal    P1
+        ldi     H(vBASE)
+        xpah    P1              ; P1=vBASE
+        ld      @2(P2)          ; discard multiplier/divisor
+        ld      @1(P2)
+        st      (vT1-vBASE)(P1)
+        ld      @1(P2)
+        st      (vT1-vBASE+1)(P1)
+        ld      (vT2-vBASE+1)(P1)
+        st      @-1(P2)
+        ld      (vT2-vBASE)(P1)
+        st      @-1(P2)
+        ldi     H(F)
+        st      @-1(P2)
+        ldi     L(F)
+        st      @-1(P2)
+        ldi     L(ADDR(div16))
+        xpal    P1
+        ldi     H(ADDR(div16))
+        xpah    P1
+        xppc    P1              ; T2=(A*A-B*B)/F
+        ldi     L(vBASE)
+        xpal    P1
+        ldi     H(vBASE)
+        xpah    P1              ; P1=vBASE
+        ld      @2(P2)          ; discard multiplier/divisor
+        ld      @1(P2)
+        st      (vT2-vBASE)(P1)
+        ld      @1(P2)
+        st      (vT2-vBASE+1)(P1)
+        ld      (vT-vBASE+1)(P1)
+        st      @-1(P2)
+        ld      (vT-vBASE)(P1)
+        st      @-1(P2)
+        ldi     H(F)
+        st      @-1(P2)
+        ldi     L(F)
+        st      @-1(P2)
+        ldi     L(ADDR(div16))
+        xpal    P1
+        ldi     H(ADDR(div16))
+        xpah    P1
+        xppc    P1              ; T=A*S/F
+        ldi     L(vBASE)
+        xpal    P1
+        ldi     H(vBASE)
+        xpah    P1              ; P1=vBASE
+        ld      @2(P2)          ; discard multiplier/divisor
+        ld      @1(P2)
+        st      (vT-vBASE)(P1)
+        ld      @1(P2)
+        st      (vT-vBASE+1)(P1)
         ccl
         ld      (vC-vBASE)(P1)
         add     (vT2-vBASE)(P1)
@@ -351,47 +456,97 @@ loop_i:
         ld      (vB-vBASE)(P1)
         add     (vD-vBASE)(P1)
         st      (vB-vBASE)(P1)  ; B=2*(A*Q+A*S/F)+D
-        st      (vQ-vBASE)(P1)  ; Q=B
         ld      (vB-vBASE+1)(P1)
         add     (vD-vBASE+1)(P1)
         st      (vB-vBASE+1)(P1)
-        st      (vQ-vBASE+1)(P1)
-        ldi     L(ADDR(divsi2))
-        xpal    P1
-        ldi     H(ADDR(divsi2))
-        xpah    P1              ; P1=ADDR(divsi2)
-        xppc    P1              ; P=A/F
-        .dbyte  cF
-        .dbyte  vP
-        xppc    P1              ; Q=B/F
-        .dbyte  cF
-        .dbyte  vQ
-        ldi     L(vBASE)
-        xpal    P1
-        ldi     H(vBASE)
-        xpah    P1              ; P1=vBASE
-        ld      (vP-vBASE)(P1)
-        st      (vT-vBASE)(P1)  ; T=P
         ld      (vP-vBASE+1)(P1)
-        st      (vT-vBASE+1)(P1)
-        ld      (vQ-vBASE)(P1)
-        st      (vT1-vBASE)(P1) ; T1=Q
-        ld      (vQ-vBASE+1)(P1)
-        st      (vT1-vBASE+1)(P1)
-        ldi     L(ADDR(mulsi2))
+        st      @-1(P2)
+        ld      (vP-vBASE)(P1)
+        st      @-1(P2)
+        ldi     H(F)
+        st      @-1(P2)
+        ldi     L(F)
+        st      @-1(P2)
+        ldi     L(ADDR(div16))
         xpal    P1
-        ldi     H(ADDR(mulsi2))
-        xpah    P1              ; P1=ADDR(mulsi2)
-        xppc    P1              ; T=P*P
-        .dbyte  vP
-        .dbyte  vT
-        xppc    P1              ; T1=Q*Q
-        .dbyte  vQ
-        .dbyte  vT1
+        ldi     H(ADDR(div16))
+        xpah    P1
+        xppc    P1              ; P=A/F
         ldi     L(vBASE)
         xpal    P1
         ldi     H(vBASE)
         xpah    P1              ; P1=vBASE
+        ld      @2(P2)          ; discard multiplier/divisor
+        ld      @1(P2)
+        st      (vP-vBASE)(P1)
+        ld      @1(P2)
+        st      (vP-vBASE+1)(P1)
+        ld      (vB-vBASE+1)(P1)
+        st      @-1(P2)
+        ld      (vB-vBASE)(P1)
+        st      @-1(P2)
+        ldi     H(F)
+        st      @-1(P2)
+        ldi     L(F)
+        st      @-1(P2)
+        ldi     L(ADDR(div16))
+        xpal    P1
+        ldi     H(ADDR(div16))
+        xpah    P1
+        xppc    P1              ; Q=B/F
+        ldi     L(vBASE)
+        xpal    P1
+        ldi     H(vBASE)
+        xpah    P1              ; P1=vBASE
+        ld      @2(P2)          ; discard multiplier/divisor
+        ld      @1(P2)
+        st      (vQ-vBASE)(P1)
+        ld      @1(P2)
+        st      (vQ-vBASE+1)(P1)
+        ld      (vP-vBASE+1)(P1)
+        st      @-1(P2)
+        ld      (vP-vBASE)(P1)
+        st      @-1(P2)
+        ld      (vP-vBASE+1)(P1)
+        st      @-1(P2)
+        ld      (vP-vBASE)(P1)
+        st      @-1(P2)
+        ldi     L(ADDR(mul16))
+        xpal    P1
+        ldi     H(ADDR(mul16))
+        xpah    P1
+        xppc    P1              ; T=P*P
+        ldi     L(vBASE)
+        xpal    P1
+        ldi     H(vBASE)
+        xpah    P1              ; P1=vBASE
+        ld      @2(P2)          ; discard multiplier/divisor
+        ld      @1(P2)
+        st      (vT-vBASE)(P1)
+        ld      @1(P2)
+        st      (vT-vBASE+1)(P1)
+        ld      (vQ-vBASE+1)(P1)
+        st      @-1(P2)
+        ld      (vQ-vBASE)(P1)
+        st      @-1(P2)
+        ld      (vQ-vBASE+1)(P1)
+        st      @-1(P2)
+        ld      (vQ-vBASE)(P1)
+        st      @-1(P2)
+        ldi     L(ADDR(mul16))
+        xpal    P1
+        ldi     H(ADDR(mul16))
+        xpah    P1
+        xppc    P1              ; T1=Q*Q
+        ldi     L(vBASE)
+        xpal    P1
+        ldi     H(vBASE)
+        xpah    P1              ; P1=vBASE
+        ld      @2(P2)          ; discard multiplier/divisor
+        ld      @1(P2)
+        st      (vT1-vBASE)(P1)
+        ld      @1(P2)
+        st      (vT1-vBASE+1)(P1)
         ccl
         ld      (vT1-vBASE)(P1)
         add     (vT-vBASE)(P1)
