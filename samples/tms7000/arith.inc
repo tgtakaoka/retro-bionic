@@ -162,7 +162,14 @@ udiv16_prep_loop:
         rlc     R6              ; divisor <<= 1
         inc     R8              ; ++bits
 udiv16_prep:
+        cmp     R6, R4
+        jl      udiv16_prep_end ; until divisor > dividend
+        jne     udiv16_prep_msb
+        cmp     R7, R5
+        jl      udiv16_prep_end
+udiv16_prep_msb:
         btjz    %>80, R6, udiv16_prep_loop ; while msb(divisor) == 0
+udiv16_prep_end:
         push    R3
         push    R2
         movd    %0, R3          ; R2:R3=quotient=0
