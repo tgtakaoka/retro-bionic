@@ -60,10 +60,10 @@ loop_i:
         ld      R4, #vQ
         ld      R5, #vF
         call    divsi2          ; Q=B/F
-        ld      tmp, vQ
-        ld      tmp+1, vQ+1     ; tmp=Q
+        ld      tmp, vF
+        ld      tmp+1, vF+1     ; tmp=F
         ld      R4, #tmp
-        ld      R5, #vF
+        ld      R5, #vQ         ; Q, the shorter multiplier
         call    mulsi2          ; tmp=Q*F
         ld      vS, vB
         ld      vS+1, vB+1      ; S=B
