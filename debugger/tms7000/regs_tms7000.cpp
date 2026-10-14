@@ -44,8 +44,11 @@ void RegsTms7000::print() const {
 }
 
 void RegsTms7000::save() {
+    // An interrupt taken before PUSH ST would feed it to its vector reads
+    _pins->park();
     static constexpr uint8_t SAVE_ALL[] = {
             0x0E,              // PUSH ST
+            0x06,              // DINT; RETI restores it
             0x8B, 0x80, 0x00,  // STA @>8000
             0xB9,              // POP A
             0x8B, 0x80, 0x00,  // STA @>8000
@@ -65,15 +68,20 @@ void RegsTms7000::save() {
 }
 
 void RegsTms7000::restore() {
+    // RETI loads PC and ST at once, so an interrupt it enables pushes _pc
     const uint8_t LOAD_ALL[] = {
-            0x52, _sp,               // MOV %_sp, B
-            0x0D,                    // LDSP
-            0x52, _b,                // MOV %_b, B
-            0x22, _st,               // MOV %_st, A
-            0xB8,                    // PUSH A
-            0x22, _a,                // MOV %_a, A
-            0x08,                    // POP ST
-            0x8C, hi(_pc), lo(_pc),  // BR @_pc
+            0x06,           // DINT
+            0x52, _sp,      // MOV %_sp, B
+            0x0D,           // LDSP
+            0x22, _st,      // MOV %_st, A
+            0xB8,           // PUSH A
+            0x22, hi(_pc),  // MOV %hi(_pc), A
+            0xB8,           // PUSH A
+            0x22, lo(_pc),  // MOV %lo(_pc), A
+            0xB8,           // PUSH A
+            0x52, _b,       // MOV %_b, B
+            0x22, _a,       // MOV %_a, A
+            0x0B,           // RETI
     };
     _pins->execInst(LOAD_ALL, sizeof(LOAD_ALL));
 }

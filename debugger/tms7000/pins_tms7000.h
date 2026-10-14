@@ -93,12 +93,16 @@ struct PinsTms7000 final : Pins {
     void execInst(const uint8_t *inst, uint8_t len, uint8_t extra = 0);
     uint16_t captureWrites(
             const uint8_t *inst, uint8_t len, uint8_t *buf, uint8_t max);
+    // Stops at an opcode fetch the register save can start from
+    void park();
     HardwareType hardwareType() const { return _hardType; }
     ClockType clockType() const { return _clockType; }
 
 private:
     HardwareType _hardType;
     ClockType _clockType;
+    // The fetch park() left prepared, for execute() to start from
+    Signals *_parked = nullptr;
 
     void (*_wait_alatch)(DevsTms7000 *devs);
     Signals *(*_prepareCycle)(DevsTms7000 *devs);
