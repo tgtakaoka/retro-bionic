@@ -1239,6 +1239,14 @@ remainder, so any divisor of 128 or more with a dividend above 255 divided
 wrong (`-30000 / -200 = 128`). When the shift sets carry, subtract
 unconditionally. **[hw]**
 
+An interrupt latched at a halt makes its LCALL at the first injected fetch,
+and the save's bytes run as its handler. `park()` feeds `SJMP $` to fetches
+at the halt address and the next until it has run twice without one, or a
+fetch at a vector shows the LCALL taken and the save starts at the handler.
+The LCALL pushes to internal RAM, so the vector fetch is all the bus shows,
+and `SJMP $` makes a dummy fetch two bytes on, which can be a vector address
+itself (002B). **[hw]**
+
 R0-R7 are internal RAM 00h-1Fh, four banks picked by PSW's RS1:RS0; dumping
 00-1F shows all of them. **[doc]**
 

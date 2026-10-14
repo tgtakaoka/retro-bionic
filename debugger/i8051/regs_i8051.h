@@ -36,12 +36,16 @@ private:
     static constexpr uint8_t SP = 0x81;
     static constexpr uint8_t DPL = 0x82;
     static constexpr uint8_t DPH = 0x83;
+    static constexpr uint8_t IE = 0xA8;
+    static constexpr uint8_t IE_EA = 0x80;
     uint16_t _pc;
     uint16_t _dptr;
     uint8_t _sp;
     uint8_t _a;
     uint8_t _b;
     uint8_t _psw;
+    // The program's IE; the CPU has EA clear while halted
+    mutable uint8_t _ie;
     void set_psw(uint8_t val);
     uint8_t rs() const { return (_psw >> 3) & 3; }
     void set_rs(uint8_t val);
@@ -50,6 +54,7 @@ private:
     void save_r();
     void set_r(uint8_t num, uint8_t val);
     uint8_t raw_read_internal(uint8_t addr) const;
+    void raw_write_internal(uint8_t addr, uint8_t data) const;
 
     static const uint8_t SAVE_A[];
 
