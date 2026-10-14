@@ -445,8 +445,8 @@ bool PinsZ80::suspend() {
         const auto s = prepareCycle();
         if (s->fetch() && s->addr == InstZ80::ORG_NMI) {
             negate_nmi();
-            completeCycle(s->inject(InstZ80::RETN_PREFIX));
-            inject(InstZ80::RETN);
+            // RET, not RETN, keeps IFF1 clear through the save
+            completeCycle(s->inject(InstZ80::RET));
             inject(s->prev()->data);
             inject(s->prev(2)->data);
             Cycles::discard(s->prev(3));
