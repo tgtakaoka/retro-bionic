@@ -13,10 +13,12 @@ vC:     rmb     2
 vD:     rmb     2
 vA:     rmb     2
 vB:     rmb     2
-vS:     rmb     2
+vS:     rmb     1
 vP:     rmb     2
 vQ:     rmb     2
 vT:     rmb     2
+vQ0:    rmb     2
+vS0:    rmb     1
 vY:     rmb     1
 vX:     rmb     1
 vI:     rmb     1
