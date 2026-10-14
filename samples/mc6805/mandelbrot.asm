@@ -21,10 +21,14 @@ vC:     rmb     2
 vD:     rmb     2
 vA:     rmb     2
 vB:     rmb     2
-vS:     rmb     2
-vP:     rmb     2
-vQ:     rmb     2
 vT:     rmb     2
+vAm:    rmb     1               ; |A|
+vBm:    rmb     1               ; |B|
+vQ:     rmb     1               ; |Q|, Q=B/F
+vS:     rmb     1               ; |S|, S=B-Q*F
+vDm:    rmb     1               ; |D|
+vDQ:    rmb     1               ; |D/F|
+vDS:    rmb     1               ; |D-D/F*F|
 vY:     rmb     1
 vX:     rmb     1
 vI:     rmb     1

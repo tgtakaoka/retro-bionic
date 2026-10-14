@@ -243,6 +243,62 @@ mul16_end:
         lda     R0L
         rts
 
+;;; Unsigned 8-bit square; result = value * value
+;;; @param X value
+;;; @return A:X result, A high
+;;; @clobber R1L
+sqr8:
+        stx     R1L             ; multiplicand=value
+
+;;; Unsigned 8-bit multiplication: result = multiplicand * multiplier
+;;; @param R1L multiplicand
+;;; @param X multiplier
+;;; @return A:X result, A high
+umul8:
+        clra                    ; hi(result)=0
+        lsrx                    ; C=lsb(multiplier)
+        bcc     umul8_1
+        add     R1L             ; hi(result) += multiplicand
+umul8_1:
+        rora
+        rorx                    ; result >>= 1, C=next multiplier bit
+        bcc     umul8_2
+        add     R1L             ; hi(result) += multiplicand
+umul8_2:
+        rora
+        rorx                    ; result >>= 1, C=next multiplier bit
+        bcc     umul8_3
+        add     R1L             ; hi(result) += multiplicand
+umul8_3:
+        rora
+        rorx                    ; result >>= 1, C=next multiplier bit
+        bcc     umul8_4
+        add     R1L             ; hi(result) += multiplicand
+umul8_4:
+        rora
+        rorx                    ; result >>= 1, C=next multiplier bit
+        bcc     umul8_5
+        add     R1L             ; hi(result) += multiplicand
+umul8_5:
+        rora
+        rorx                    ; result >>= 1, C=next multiplier bit
+        bcc     umul8_6
+        add     R1L             ; hi(result) += multiplicand
+umul8_6:
+        rora
+        rorx                    ; result >>= 1, C=next multiplier bit
+        bcc     umul8_7
+        add     R1L             ; hi(result) += multiplicand
+umul8_7:
+        rora
+        rorx                    ; result >>= 1, C=next multiplier bit
+        bcc     umul8_8
+        add     R1L             ; hi(result) += multiplicand
+umul8_8:
+        rora
+        rorx                    ; result >>= 1
+        rts
+
 ;;; Unsigned division: dividend / divisor = quotient ... remainder
 ;;; @param R1 dividend
 ;;; @param R2 divisor
