@@ -13,12 +13,10 @@ vC:     rmb     2
 vD:     rmb     2
 vA:     rmb     2
 vB:     rmb     2
-vS:     rmb     2
-vP:     rmb     2
-vQ:     rmb     2
+vT:     rmb     2
 vY:     rmb     1
 vX:     rmb     1
-vI:     rmb     1
+vN:     rmb     1
 
         org     $2000
 rx_queue_size:  equ     128

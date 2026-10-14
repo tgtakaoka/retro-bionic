@@ -16,6 +16,11 @@ mandelbrot:
         lda     #-12
         sta     vY              ; Y=-12
 loop_y:
+        ldb     vY              ; B: Y
+        sex                     ; D: Y
+        muld    #416            ; Q: Y*416
+        divq    #100            ; W: Y*416/100
+        stw     vD              ; D=Y*416/100
         lda     #-49
         sta     vX              ; X=-49
 loop_x:
@@ -25,13 +30,10 @@ loop_x:
         divq    #100            ; W: X*229/100
         stw     vC              ; C=X*229/100
         stw     vA              ; A=C
-        ldb     vY              ; B: Y
-        sex                     ; D: Y
-        muld    #416            ; Q: Y*416
-        divq    #100            ; W: Y*416/100
-        stw     vD              ; D=Y*416/100
+        ldw     vD
         stw     vB              ; B=D
-        clr     vI              ; I=0
+        lda     #16
+        sta     vN              ; N=16-I, I=0
 
         ;; ldb     vY              ; Y
         ;; sex
@@ -51,58 +53,29 @@ loop_x:
         ;; jsr     print
         ;; jsr     newline
 
+;;; |A| and |B| stay below 3*F at the top of the loop (|C|<=112,
+;;; |D|<=49, and |P|+|Q|<=2 below), so A*B and A*A-B*B fit in 16 bits.
 loop_i:
-        ldw     vB              ; W: B
-        sexw                    ; Q: B
-        divq    #F              ; W: B/F
-        stw     vQ              ; Q=B/F
-        tfr     W, D            ; D: Q
-        muld    #-F             ; Q: -Q*F
-        addw    vB              ; W: B-Q*F
-        stw     vS              ; S=B-Q*F
+        ;; Q=B/F and S=B-Q*F share the sign of B, so A*Q+A*S/F=A*B/F.
         ldd     vA              ; D: A
-        muld    vA              ; Q: A*A
-        pshsw                   ; push A*A
-        ldd     vB              ; D: B
-        muld    vB              ; Q: B*B
-        puls    D               ; D: A*A
-        subr    W, D            ; D: A*A-B*B
-        tfr     D, W            ; W: A*A-B*B
-        sexw                    ; Q: A*A-B*B
+        muld    vB              ; Q: A*B
+        divq    #F              ; W: A*B/F
+        addr    W, W            ; W: 2*(A*B/F)
+        addw    vD              ; W: 2*(A*B/F)+D
+        ldd     vA              ; D: A
+        addd    vB              ; D: A+B
+        std     vT              ; T=A+B
+        ldd     vA              ; D: A
+        subd    vB              ; D: A-B
+        stw     vB              ; B=2*(A*B/F)+D
+        muld    vT              ; Q: (A-B)*(A+B)=A*A-B*B
         divq    #F              ; W: (A*A-B*B)/F
         addw    vC              ; W: (A*A-B*B)/F+C
-        pshsw                   ; push (A*A-B*B)/F+C
-        ldd     vA              ; D: A
-        muld    vQ              ; Q: A*Q
-        pshsw                   ; push A*Q
-        ldd     vA              ; D: A
-        muld    vS              ; Q: A*S
-        divq    #F              ; W: A*S/F
-        puls    D               ; D: A*Q
-        addr    W, D            ; D: A*Q+A*S/F
-        addr    D, D            ; D: 2*(A*Q+A*S/F)
-        addd    vD              ; D: 2*(A*Q+A*S/F)+D
-        std     vB              ; B=2*(A*Q+A*S/F)+D
-        pulsw                   ; pop (A*A-B*B)/F+C
         stw     vA              ; A=(A*A-B*B)/F+C
-        sexw                    ; Q: A
-        divq    #F              ; W: A/F
-        stw     vP              ; P=A/F
-        tfr     W, D            ; D: P
-        muld    vP              ; Q: P*P
-        pshsw                   ; push P*P
-        ldw     vB              ; W: B
-        sexw                    ; Q: B
-        divq    #F              ; W: B/F
-        stw     vQ              ; Q=B/F
-        tfr     W, D            ; D: Q
-        muld    vQ              ; Q: Q*Q
-        puls    D               ; pop P*P
-        addr    D, W            ; W: P*P+Q*Q
 
-        ;; pshsw                   ; save P*P+Q*Q
         ;; jsr     putspace
-        ;; ldb     vI              ; I
+        ;; ldb     #16             ; I=16-N
+        ;; subb    vN
         ;; sex
         ;; tfr     D, W
         ;; lda     #'I'
@@ -113,27 +86,57 @@ loop_i:
         ;; ldw     vB              ; B
         ;; lda     #'B'
         ;; jsr     print
-        ;; ldw     vP              ; P
+        ;; ldd     vA              ; P=A/F
+        ;; divd    #F
+        ;; sex
+        ;; tfr     D, W
         ;; lda     #'P'
         ;; jsr     print
-        ;; ldw     vQ              ; Q
+        ;; ldd     vB              ; Q=B/F
+        ;; divd    #F
+        ;; sex
+        ;; tfr     D, W
         ;; lda     #'Q'
         ;; jsr     print
         ;; jsr     newline
-        ;; pulsw                   ; pop P*P+Q*Q
 
-        cmpw    #4
-        bgt     print_i         ; if 4<P*P+Q*Q
-        inc     vI              ; I+=1
-        lda     vI
-        cmpa    #16
-        lblo    loop_i          ; if I<16
+        ;; With P=A/F and Q=B/F, P*P+Q*Q>4 is |P|+|Q|>2 for integers:
+        ;; |B| must stay below 3*F, 2*F or F while |A| is below F, 2*F
+        ;; or 3*F.
+        ldd     vA              ; D: A
+        bpl     loop_i_abs_a
+        negd                    ; D: |A|
+loop_i_abs_a:
+        ldw     vB              ; W: B
+        bpl     loop_i_abs_b
+        comw
+        incw                    ; W: |B|
+loop_i_abs_b:
+        cmpd    #F
+        blo     loop_i_p0       ; if P=0
+        cmpd    #2*F
+        blo     loop_i_p1       ; if |P|=1
+        cmpd    #3*F
+        bhs     print_i         ; if |P|>2
+        cmpw    #F
+        bhs     print_i         ; if |P|=2 and Q<>0
+        bra     loop_i_next
+loop_i_p1:
+        cmpw    #2*F
+        bhs     print_i         ; if |P|=1 and |Q|>1
+        bra     loop_i_next
+loop_i_p0:
+        cmpw    #3*F
+        bhs     print_i         ; if P=0 and |Q|>2
+loop_i_next:
+        dec     vN              ; I+=1
+        bne     loop_i          ; if I<16
         lda     #' '
         bra     print_char
 print_i:
-        lda     vI
-        suba    #10
-        bpl     print_i2       ; if I>=10
+        lda     #16-10
+        suba    vN              ; A: I-10
+        bpl     print_i2        ; if I>=10
         adda    #10+'0'
         bra     print_char
 print_i2:
@@ -150,6 +153,8 @@ print_char:
         ;; jsr     putchar
         ;; jsr     newline
 
+        tst     rx_queue+queue_len
+        beq     next_x          ; skip getchar while nothing is received
         jsr     getchar
         bcc     next_x
         tsta
