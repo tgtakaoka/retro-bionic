@@ -29,23 +29,24 @@ void RegsIns8070::print() const {
 void RegsIns8070::save() {
     static constexpr uint8_t PUSH_ALL[] = {
             0x88, 0xFE,        // ST EA,-1,PC
+            0x06, 0xC8, 0xFE,  // LD A,S; ST A,-1,PC
+            0x39, 0xFE,        // AND S,=0xFE; clear IE
             0x31, 0x88, 0xFE,  // LD EA,SP; ST EA,-1,PC
             0x25, 0x00, 0x01,  // LD SP,=0x0100
             0x56,              // PUSH P2
             0x57,              // PUSH P3
             0x0B, 0x08,        // LD EA,T; PUSH EA
-            0x06, 0x0A,        // LD A,S; PUSH A
     };
     uint8_t buffer[11];
     _pins->captureWrites(
             PUSH_ALL, sizeof(PUSH_ALL), &_pc(), buffer, sizeof(buffer));
     _a = buffer[0];
     _e = buffer[1];
-    _sp() = le16(buffer + 2);
-    _p2() = be16(buffer + 4);
-    _p3() = be16(buffer + 6);
-    _t = be16(buffer + 8);
-    _s = buffer[10];
+    _s = buffer[2];
+    _sp() = le16(buffer + 3);
+    _p2() = be16(buffer + 5);
+    _p3() = be16(buffer + 7);
+    _t = be16(buffer + 9);
 }
 
 void RegsIns8070::restore() {
