@@ -214,6 +214,8 @@ Signals *PinsTms370Cx5x::completeCycle(Signals *_s) {
         clkin_lo();
         s->inputMode();
     } else {
+        // A held ring reuses this slot, and next() clears its capture flag
+        const auto store = s->writeMemory();
         clkin_hi();
         Cycles::next();
         clkin_lo();
@@ -222,7 +224,7 @@ Signals *PinsTms370Cx5x::completeCycle(Signals *_s) {
         s->getData();
         // toggle_debug();
         clkin_hi();
-        if (s->writeMemory()) {
+        if (store) {
             _mems->write(s->addr, s->data);
         } else {
             delayNanoseconds(clkin_ns);
