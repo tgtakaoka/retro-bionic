@@ -2,30 +2,54 @@
 
 F:      equ     50
 
+*** M and D are unsigned and read their operand through (Ri), so the
+*** loop works on |A| and |B| in vA and vB, keeps R2 pointing at vB
+*** and R3 at the constant F, and keeps the sign of A*B in R4. A and B
+*** stay small while a point is iterated, so every product fits in 16
+*** bits and M leaves R0=0, ready for D.
+
 mandelbrot:
         mvwi    R0, -12
         st      R0, vY          Y=-12
 loop_y:
+        l       R0, vY
+        mv      R4, R0          R4=sign(Y)
+        tbit    R0, 0, z        skip if Y>=0
+        neg     R0, c           R0=|Y|
+        mvwi    R2, C416
+        m       DR0, (R2)       DR0=|Y|*416
+        mvwi    R3, C100
+        d       DR0, (R3)       R0=|Y|*416/100
+        st      R0, vE          E=|D|
+        tbit    R4, 0, z        skip if Y>=0
+        neg     R0, c
+        st      R0, vD          D=Y*416/100
         mvwi    R0, -49
         st      R0, vX          X=-49
 loop_x:
-        l       R1, vX
-        mvwi    R2, 229
-        bald    mul16           R1=X*229
-        mvwi    R2, 100
-        bald    divu16          R1=X*229/100
-        st      R1, vC          C=X*229/100
-        st      R1, vA          A=C
-        l       R1, vY
-        mvwi    R2, 416
-        bald    mul16           R1=Y*416
-        mvwi    R2, 100
-        bald    divu16          R1=Y*416/100
-        st      R1, vD          D=Y*416/100
-        st      R1, vB          B=D
-        eor     R2, R2
-        st      R2, vI          I=0
+        l       R0, vX
+        mv      R4, R0          R4=sign(X)
+        tbit    R0, 0, z        skip if X>=0
+        neg     R0, c           R0=|X|
+        mvwi    R2, C229
+        m       DR0, (R2)       DR0=|X|*229
+        mvwi    R3, C100
+        d       DR0, (R3)       R0=|X|*229/100
+        st      R0, vA          A=|C|
+        tbit    R4, 0, z        skip if X>=0
+        neg     R0, c
+        st      R0, vC          C=X*229/100
+        l       R1, vD
+        mv      R4, R0
+        eor     R4, R1          R4=sign(C*D)
+        l       R0, vE
+        st      R0, vB          B=|D|
+        mvwi    R2, vB          R2 points B
+        mvwi    R3, CF          R3 points F
+        mvwi    R0, -16
+        st      R0, vI          I=0, kept as I-16
 
+        * push    R2              debug clobbers R2
         * l       R1, vY
         * mvi     R0, 'Y'
         * bald    debug
@@ -39,63 +63,64 @@ loop_x:
         * mvi     R0, 'D'
         * bald    debug
         * bald    newline
+        * pop     R2
 
 loop_i:
+        l       R0, vA
+        m       DR0, (R2)       DR0=|A|*|B|
+        d       DR0, (R3)       R0=|A*B|/F
+        tbit    R4, 0, z        skip if A*B>=0
+        neg     R0, c           R0=A*B/F
+        a       R0, R0
+        l       R1, vD
+        a       R0, R1          R0=2*A*B/F+D
+        st      R0, vN          N=2*A*B/F+D, the next B
+        l       R0, vA
         l       R1, vB
-        mvwi    R2, F
-        bald    divu16          R1=B/F
-        st      R1, vQ          Q=B/F
-        mvwi    R2, -F
-        bald    mul16           R1=-Q*F
-        l       R2, vB
-        a       R1, R2          R1=B-Q*F
-        st      R1, vS          S=B-Q*F
-        l       R1, vB
-        mv      R2, R1
-        bald    mul16           R1=B*B
-        mv      R3, R1          R3=B*B
-        l       R1, vA
-        mv      R2, R1
-        bald    mul16           R1=A*A
-        s       R1, R3          R1=A*A-B*B
-        mvwi    R2, F
-        bald    divu16          R1=(A*A-B*B)/F
-        l       R2, vC
-        a       R1, R2          R1=(A*A-B*B)/F+C
-        mv      R3, R1          R3=(A*A-B*B)/F+C
-        l       R1, vA
-        l       R2, vQ
-        bald    mul16           R1=A*Q
-        mv      R4, R1          R4=A*Q
-        l       R1, vA
-        l       R2, vS
-        bald    mul16           R1=A*S
-        mvwi    R2, F
-        bald    divu16          R1=A*S/F
-        a       R1, R4          R1=A*Q+A*S/F
-        a       R1, R1          R1=2*(A*Q+A*S/F)
-        l       R2, vD
-        a       R1, R2          R1=2*(A*Q+A*S/F)+D
-        st      R1, vB          B=2*(A*Q+A*S/F)+D
-        mv      R1, R3          R1=(A*A-B*B)/F+C
-        st      R1, vA          A=(A*A-B*B)/F+C
-        mvwi    R2, F
-        bald    divu16          R1=A/F
-        st      R1, vP          P=A/F
-        mv      R2, R1
-        bald    mul16           R1=P*P
-        mv      R3, R1          R3=P*P
-        l       R1, vB
-        mvwi    R2, F
-        bald    divu16          R1=B/F
-        st      R1, vQ          Q=B/F
-        mv      R2, R1
-        bald    mul16           R1=Q*Q
-        a       R1, R3          R1=P*P+Q*Q
-        st      R1, vT          T=P*P+Q*Q
+        a       R1, R0          R1=|A|+|B|
+        str     R1, (R2)        B=|A|+|B| for M
+        a       R0, R0
+        s       R0, R1          R0=|A|-|B|
+        mv      R4, R0          R4=sign(A*A-B*B)
+        tbit    R0, 0, z        skip if |A|>=|B|
+        neg     R0, c           R0=||A|-|B||
+        m       DR0, (R2)       DR0=|(|A|+|B|)*(|A|-|B|)|=|A*A-B*B|
+        d       DR0, (R3)       R0=|A*A-B*B|/F
+        tbit    R4, 0, z        skip if A*A>=B*B
+        neg     R0, c           R0=(A*A-B*B)/F
+        l       R1, vC
+        a       R0, R1          R0=(A*A-B*B)/F+C, the next A
+        l       R1, vN          R1=next B
+        mv      R4, R0
+        eor     R4, R1          R4=sign(A*B)
+        tbit    R1, 0, z        skip if B>=0
+        neg     R1, c
+        st      R1, vB          B=|B|
+        tbit    R0, 0, z        skip if A>=0
+        neg     R0, c
+        st      R0, vA          A=|A|
+        ai      R3, 1           R3 points 1/F
+        m       DR0, (R3)       R0=|A|*RF/65536=|A|/F=|P|
+        si      R2, 1           R2 points W
+        str     R0, (R2)        W=|P|
+        mv      R1, R0, z       skip if P=0, then P*P=R1=0
+        m       DR0, (R2)       R1=P*P
+        st      R1, vT          T=P*P
+        l       R0, vB
+        m       DR0, (R3)       R0=|B|/F=|Q|
+        str     R0, (R2)        W=|Q|
+        mv      R1, R0, z       skip if Q=0, then Q*Q=R1=0
+        m       DR0, (R2)       R1=Q*Q
+        ai      R2, 1           R2 points B
+        si      R3, 1           R3 points F
+        l       R0, vT
+        a       R1, R0          R1=T=P*P+Q*Q
 
+        * st      R1, vT
+        * push    R2              debug clobbers R2
         * bald    putspace
         * l       R1, vI
+        * awi     R1, 16
         * mvi     R0, 'I'
         * bald    debug
         * l       R1, vA
@@ -104,29 +129,22 @@ loop_i:
         * l       R1, vB
         * mvi     R0, 'B'
         * bald    debug
-        * l       R1, vP
-        * mvi     R0, 'P'
-        * bald    debug
-        * l       R1, vQ
-        * mvi     R0, 'Q'
-        * bald    debug
         * l       R1, vT
         * mvi     R0, 'T'
         * bald    debug
         * bald    newline
+        * pop     R2
+        * l       R1, vT
 
-        l       R0, vT
-        cwi     R0, 4, mz       skip if T<=4
+        si      R1, 5, m        skip if T<=4
         b       print_i         if 4<T
-        l       R0, vI
-        ai      R0, 1
-        st      R0, vI
-        cwi     R0, 16, lpz     skip if I>=16
+        ims     vI              I+=1, skip if I>=16
         b       loop_i          if I<16
         mvi     R0, ' '
         b       print_char
 print_i:
         l       R0, vI
+        awi     R0, 16          R0=I
         cwi     R0, 10, lpz     skip if I>=10
         b       print_dec
         si      R0, 10
@@ -145,6 +163,10 @@ print_char:
         * bald    putchar
         * bald    newline
 
+        mvwi    X0, rx_queue
+        l       R0, queue_len(X0)
+        or      R0, R0, nz      skip if a character is received
+        b       next_x
         bald    getchar
         or      R0, R0, enz     skip if E=1
         b       next_x
@@ -164,6 +186,15 @@ next_y:
         cwi     R0, 13, pz      skip if Y>=13
         bd      loop_y          if Y<13
         ret
+
+CF:     dc      F
+*** |A|/F and |B|/F take the high word of a product with RF: exact
+*** below 65536/(RF*F-65536)=4681, and |A| and |B| stay below 1000.
+RF:     equ     (65536+F-1)/F
+CRF:    dc      RF              must follow CF
+C100:   dc      100
+C229:   dc      229
+C416:   dc      416
 
 *** Print variable: "name=variable "
 *** @param R1 variable

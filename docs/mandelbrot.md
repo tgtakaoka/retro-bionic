@@ -28,6 +28,7 @@ The tables time them on real chips, from recorded casts, with
 | ----------- | ----: | ------: | ------: | ------------------ | ------------------------------------------------------------------------ | --------------------------------------------------------------- |
 | Z280        |   2.1 |   0.080 |   0.018 | cache on           | [mandelbrot.cast](../samples/z280/mandelbrot.cast)                       | [z280/mandelbrot.lst](../samples/z280/mandelbrot.lst)           |
 | Z8002       |   2.7 |   0.111 |   0.029 | normal mode        | [mandelbrot.cast](../samples/z8002/mandelbrot.cast)                      | [z8002/mandelbrot.lst](../samples/z8002/mandelbrot.lst)         |
+| MN1613      |   3.0 |   0.121 |   0.034 |                    | [mandelbrot.cast](../samples/mn1613/mandelbrot.cast)                     | [mn1613/mandelbrot.lst](../samples/mn1613/mandelbrot.lst)       |
 | Z8001       |   3.1 |   0.129 |   0.033 | segmented, normal  | [mandelbrot.cast](../samples/z8001/mandelbrot.cast)                      | [z8001/mandelbrot.lst](../samples/z8001/mandelbrot.lst)         |
 | N8097BH     |   3.4 |   0.137 |   0.036 | 16-bit bus         | [mandelbrot_n8097.cast](../samples/i8096/mandelbrot_n8097.cast)          | [i8096/mandelbrot.lst](../samples/i8096/mandelbrot.lst)         |
 | P8095BH     |   3.5 |   0.140 |   0.037 | 16-bit bus         | [mandelbrot.cast](../samples/i8096/mandelbrot.cast)                      | [i8096/mandelbrot.lst](../samples/i8096/mandelbrot.lst)         |
@@ -51,7 +52,6 @@ The tables time them on real chips, from recorded casts, with
 | MC6801      |   9.1 |   0.369 |   0.081 |                    | [mandelbrot.cast](../samples/mc6801/mandelbrot.cast)                     | [mc6801/mandelbrot.lst](../samples/mc6801/mandelbrot.lst)       |
 | TMS9995     |   9.2 |   0.375 |   0.119 |                    | [mandelbrot.cast](../samples/tms9995/mandelbrot.cast)                    | [tms9995/mandelbrot.lst](../samples/tms9995/mandelbrot.lst)     |
 | TMS99105    |   9.3 |   0.381 |   0.124 |                    | [mandelbrot_tms99105.cast](../samples/tms9900/mandelbrot_tms99105.cast)  | [tms9900/mandelbrot.lst](../samples/tms9900/mandelbrot.lst)     |
-| MN1613      |   9.5 |   0.388 |   0.128 |                    | [mandelbrot.cast](../samples/mn1613/mandelbrot.cast)                     | [mn1613/mandelbrot.lst](../samples/mn1613/mandelbrot.lst)       |
 | MC68HC05C0  |   9.9 |   0.400 |   0.090 | MC6805 code        | [mandelbrot_mc68hc05.cast](../samples/mc6805/mandelbrot_mc68hc05.cast)   | [mc6805/mandelbrot.lst](../samples/mc6805/mandelbrot.lst)       |
 | HD6309E     |  10.1 |   0.411 |   0.114 | native mode        | [mandelbrot_hd6309e.cast](../samples/mc6809/mandelbrot_hd6309e.cast)     | [mc6809/mandelbrot.lst](../samples/mc6809/mandelbrot.lst)       |
 | HD6309      |  10.6 |   0.432 |   0.119 | native mode        | [mandelbrot_hd6309.cast](../samples/mc6809/mandelbrot_hd6309.cast)       | [mc6809/mandelbrot.lst](../samples/mc6809/mandelbrot.lst)       |
@@ -167,7 +167,7 @@ lose it.
 | | MN1613 |
 |---|---:|
 | [mn1610](../samples/mn1610/mandelbrot.lst) | 6.6 |
-| [mn1613](../samples/mn1613/mandelbrot.lst) | 9.5 |
+| [mn1613](../samples/mn1613/mandelbrot.lst) | 3.0 |
 
 The MN1613 runs MN1610 code as is. Its own code uses the hardware
 multiply `M` and divide `D` the MN1610 lacks.

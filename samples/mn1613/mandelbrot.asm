@@ -37,11 +37,11 @@ tx_queue:
         loc     ZERO_PAGE
 vC:     ds	1
 vD:     ds	1
+vE:     ds	1
 vA:     ds	1
+vW:     ds	1               M operand, just below vB
 vB:     ds	1
-vS:     ds	1
-vP:     ds	1
-vQ:     ds	1
+vN:     ds	1
 vT:     ds	1
 vY:     ds	1
 vX:     ds	1
