@@ -87,24 +87,24 @@
           0 : =B4                RX_INT_TX_INT   =       WSB_8N1_gc|RIEB_bm|TCB_EI_gc
           0 :
        FFE4 :                            *=      NVEC_COP
-       FFE4 : 04 13                      .word   isr_ncop
+       FFE4 : 3B 14                      .word   isr_ncop
        FFE6 :                            *=      NVEC_BRK
-       FFE6 : 06 13                      .word   isr_nbrk
+       FFE6 : 3D 14                      .word   isr_nbrk
        FFE8 :                            *=      NVEC_ABORT
-       FFE8 : 08 13                      .word   isr_nabort
+       FFE8 : 3F 14                      .word   isr_nabort
        FFEA :                            *=      NVEC_NMI
-       FFEA : 0A 13                      .word   isr_nnmi
+       FFEA : 41 14                      .word   isr_nnmi
        FFEE :                            *=      NVEC_IRQ        ; native vector
-       FFEE : C5 12                      .word   isr_nirq
+       FFEE : FC 13                      .word   isr_nirq
        FFF0 :
        FFF8 :                            *=      VEC_ABORT
-       FFF8 : FE 12                      .word   isr_abort
+       FFF8 : 35 14                      .word   isr_abort
        FFF4 :                            *=      VEC_COP
-       FFF4 : FC 12                      .word   isr_cop
+       FFF4 : 33 14                      .word   isr_cop
        FFFA :                            *=      VEC_NMI
-       FFFA : 00 13                      .word   isr_nmi
+       FFFA : 37 14                      .word   isr_nmi
        FFFE :                            *=      VEC_IRQ
-       FFFE : 02 13                      .word   isr_irq
+       FFFE : 39 14                      .word   isr_irq
        FFFC :                            *=      VEC_RESET
        FFFC : 00 10                      .word   initialize
        FFFE :
@@ -160,7 +160,7 @@
        1023 : 58                         cli                     ; enable IRQ
        1024 :
        1024 :                    loop:
-       1024 : 20 C1 11                   jsr     mandelbrot
+       1024 : 20 01 13                   jsr     mandelbrot
        1027 : 20 55 10                   jsr     newline
        102A : 4C 24 10                   jmp     loop
        102D :
@@ -383,7 +383,7 @@
 (1)    110C : 8A                         txa
 (1)    110D : F0 11                      beq     print_uint16_exit
 (1)    110F : A0 0A 00                   ldy     #10
-(1)    1112 : 20 64 11                   jsr     udiv16
+(1)    1112 : 20 C0 11                   jsr     udiv16
 (1)    1115 : 5A                         phy                     ; push remainder
 (1)    1116 : 20 0C 11                   jsr     print_uint16_inner
 (1)    1119 : 68                         pla                     ; pop remainder
@@ -423,389 +423,632 @@
 (1)    1139 : A9 00 00                   lda     #0
 (1)    113C : 60                         rts
 (1)    113D :
-(1)    113D :                    ;;; Multiply: result = multiplicand * multiplier
-(1)    113D :                    ;;; @param X multiplicand
-(1)    113D :                    ;;; @param Y multiplier
+(1)    113D :                    ;;; Square: result = value * value
+(1)    113D :                    ;;; @param X value
 (1)    113D :                    ;;; @return X result
-(1)    113D :                    ;;; @clobber C Y
-(1)    113D :                    ;;; A 16-bit product is the same signed or unsigned; a negative
-(1)    113D :                    ;;; multiplier is negated only to shorten the loop.
+(1)    113D :                    ;;; @clobber C Y arith_work
 (1)    113D :                            longa   on
-(1)    113D :                    mul16:
-(1)    113D : 98                         tya
-(1)    113E : 10 0B                      bpl     umul16          ; branch if multiplier >= 0
+(1)    113D :                    sqr16:
+(1)    113D : 8A                         txa
+(1)    113E : 10 05                      bpl     sqr16_abs       ; branch if value >= 0
 (1)    1140 : 49 FF FF                   eor     #$FFFF
 (1)    1143 : 1A                         inc     A
-(1)    1144 : A8                         tay                     ; negate multiplier
-(1)    1145 : 8A                         txa
-(1)    1146 : 49 FF FF                   eor     #$FFFF
-(1)    1149 : 1A                         inc     A
-(1)    114A : AA                         tax                     ; negate multiplicand
-(1)    114B :                                                    ; fall through to umul16
-(1)    114B :
-(1)    114B :                    ;;; Unsigned multiplication: result = multiplicand * multiplier
-(1)    114B :                    ;;; @param X multiplicand
-(1)    114B :                    ;;; @param Y multiplier
-(1)    114B :                    ;;; @return X result
-(1)    114B :                    ;;; @clobber C Y
-(1)    114B :                            longa   on
-(1)    114B :                    umul16:
-(1)    114B : A9 00 00                   lda     #0
-(1)    114E : 48                         pha                     ; result (1,S)
-(1)    114F : 80 0E                      bra     umul16_check
-(1)    1151 :                    umul16_loop:
+(1)    1144 : AA                         tax                     ; |value|
+(1)    1145 :                    sqr16_abs:
+(1)    1145 : A8                         tay                     ; multiplier=multiplicand=|value|
+(1)    1146 :                                                    ; fall through to umul8
+(1)    1146 :
+(1)    1146 :                    ;;; Unsigned multiplication by a multiplier below 256
+(1)    1146 :                    ;;; @param C multiplicand, also in X
+(1)    1146 :                    ;;; @param Y multiplier, below 256
+(1)    1146 :                    ;;; @return C,X result
+(1)    1146 :                    ;;; @clobber Y arith_work
+(1)    1146 :                    ;;; A multiplicand below 256 takes an unrolled 8-bit by 8-bit
+(1)    1146 :                    ;;; multiply; others go to umul16 with X and Y, which clobbers Y.
+(1)    1146 :                            longa   on
+(1)    1146 :                    umul8:
+(1)    1146 : F0 33                      beq     umul8_zero      ; branch if multiplicand == 0
+(1)    1148 : C9 00 01                   cmp     #$100
+(1)    114B : B0 5A                      bcs     umul16          ; branch if multiplicand >= 256
+(1)    114D : EB                         xba
+(1)    114E : 3A                         dec     A
+(1)    114F : 85 10                      sta     arith_work      ; multiplicand<<8 - 1, as ADC adds C=1
 (1)    1151 : 98                         tya
-(1)    1152 : 4A                         lsr     A               ; multiplier >>= 1
-(1)    1153 : A8                         tay
-(1)    1154 : 90 06                      bcc     umul16_sr
-(1)    1156 : 8A                         txa
-(1)    1157 : 18                         clc
-(1)    1158 : 63 01                      adc     1,S
-(1)    115A : 83 01                      sta     1,S             ; result += multiplicand
-(1)    115C :                    umul16_sr:
-(1)    115C : 8A                         txa
-(1)    115D : 0A                         asl     A               ; multiplicand <<= 1
-(1)    115E : AA                         tax
-(1)    115F :                    umul16_check:
-(1)    115F : 98                         tya
-(1)    1160 : D0 EF                      bne     umul16_loop     ; while multiplier != 0
-(1)    1162 :                    umul16_end:
-(1)    1162 : FA                         plx                     ; X=result
-(1)    1163 : 60                         rts
-(1)    1164 :
-(1)    1164 :                    ;;; Unsigned division: dividend / divisor = quotient ... remainder
-(1)    1164 :                    ;;; @praram X dividend
-(1)    1164 :                    ;;; @praram Y divisor
-(1)    1164 :                    ;;; @return X quotient
-(1)    1164 :                    ;;; @return Y remainder
-(1)    1164 :                    ;;; @clobber C arith_work
-(1)    1164 :                            longa   on
-(1)    1164 :                    udiv16:
-(1)    1164 : 86 12                      stx     arith_work+2    ; dividend
-(1)    1166 : A2 01 00                   ldx     #1              ; X=bits
-(1)    1169 : 98                         tya                     ; C=divisor
-(1)    116A : F0 20                      beq     udiv16_zero     ; branch if Y==0
-(1)    116C : 30 08                      bmi     udiv16_prep_end ; branch if msb(divisor) == 1
-(1)    116E :                    udiv16_prep:
-(1)    116E : C5 12                      cmp     arith_work+2
-(1)    1170 : B0 04                      bcs     udiv16_prep_end ; until divisor >= dividend
-(1)    1172 : E8                         inx                     ; ++bits
-(1)    1173 : 0A                         asl     A               ; divisor <<= 1
-(1)    1174 : 10 F8                      bpl     udiv16_prep     ; while msb(divisor) == 0
-(1)    1176 :                    udiv16_prep_end:
-(1)    1176 : 85 10                      sta     arith_work      ; divisor
-(1)    1178 : A5 12                      lda     arith_work+2    ; C=dividend
-(1)    117A : 64 12                      stz     arith_work+2    ; quotient=0
-(1)    117C : 80 02                      bra     udiv16_enter_loop
-(1)    117E :                    udiv16_loop:
-(1)    117E : 46 10                      lsr     arith_work      ; divisor >>= 1
-(1)    1180 :                    udiv16_enter_loop:
-(1)    1180 : C5 10                      cmp     arith_work
-(1)    1182 : 90 02                      bcc     udiv16_next     ; if dividend < divisor
-(1)    1184 : E5 10                      sbc     arith_work      ; dividend -= divisor
-(1)    1186 :                    udiv16_next:
-(1)    1186 : 26 12                      rol     arith_work+2    ; quotient = quotient<<1 | C
-(1)    1188 : CA                         dex
-(1)    1189 : D0 F3                      bne     udiv16_loop     ; while bits != 0
-(1)    118B : A8                         tay                     ; Y=remainder
-(1)    118C :                    udiv16_zero:
-(1)    118C : A6 12                      ldx     arith_work+2    ; X=quotient
-(1)    118E : 60                         rts
-(1)    118F :
-(1)    118F :                    ;;; Division: dividend / divisor = quotient ... remainder
-(1)    118F :                    ;;; @param X dividend
-(1)    118F :                    ;;; @param Y divisor
-(1)    118F :                    ;;; @return X quotient
-(1)    118F :                    ;;; @return Y remainder
-(1)    118F :                    ;;; @clobber C
-(1)    118F :                            longa   on
-(1)    118F :                    div16:
-(1)    118F : 5A                         phy                     ; save divisor
-(1)    1190 : 8A                         txa
-(1)    1191 : 43 01                      eor     1,S
-(1)    1193 : 83 01                      sta     1,S             ; save (dividend^divisor)
-(1)    1195 : 98                         tya
-(1)    1196 : 10 05                      bpl     div16_dividend
-(1)    1198 : 49 FF FF                   eor     #$FFFF
-(1)    119B : 1A                         inc     A
-(1)    119C : A8                         tay                     ; negate divisor
-(1)    119D :                    div16_dividend:
-(1)    119D : 8A                         txa
-(1)    119E : 10 05                      bpl     div16_multiply
-(1)    11A0 : 49 FF FF                   eor     #$FFFF
-(1)    11A3 : 1A                         inc     A
-(1)    11A4 : AA                         tax                     ; negate dividend
-(1)    11A5 :                    div16_multiply:
-(1)    11A5 : 20 64 11                   jsr     udiv16          ; R0=result
-(1)    11A8 : 68                         pla                     ; A=(dividend^divisor)
-(1)    11A9 : 10 06                      bpl     div16_return
-(1)    11AB : 8A                         txa
-(1)    11AC : 49 FF FF                   eor     #$FFFF
-(1)    11AF : 1A                         inc     A
-(1)    11B0 : AA                         tax                     ; negate result
-(1)    11B1 :                    div16_return:
-(1)    11B1 : 60                         rts
-       11B2 :                            .include "mandelbrot.inc"
-(1)    11B2 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
-(1)    11B2 :                            cpu     65816
-(1)    11B2 :                            longa   on
-(1)    11B2 :
-(1)    11B2 :                    ;;; Print variable: "A=X "
-(1)    11B2 :                    ;;; @param X variable
-(1)    11B2 :                    ;;; @param A variable letter
-(1)    11B2 :                    print:
-(1)    11B2 : 20 39 10                   jsr     putchar         ; print variable letter
-(1)    11B5 : A9 3D 00                   lda     #'='
-(1)    11B8 : 20 39 10                   jsr     putchar         ; '='
-(1)    11BB : 20 EE 10                   jsr     print_int16
-(1)    11BE : 4C 64 10                   jmp     putspace
-(1)    11C1 :
-(1)    11C1 :                    mandelbrot:
-(1)    11C1 : C2 20                      rep     #P_M            ; 16-bit memory
-(1)    11C3 : A9 F4 FF                   lda     #-12
-(1)    11C6 : 85 14                      sta     vY
-(1)    11C8 :                    loop_y:
-(1)    11C8 : A9 CF FF                   lda     #-49
-(1)    11CB : 85 16                      sta     vX
-(1)    11CD :                    loop_x:
-(1)    11CD : A6 16                      ldx     vX
-(1)    11CF : A0 E5 00                   ldy     #229
-(1)    11D2 : 20 3D 11                   jsr     mul16           ; X*229
-(1)    11D5 : A0 64 00                   ldy     #100
-(1)    11D8 : 20 8F 11                   jsr     div16           ; X*229/100
-(1)    11DB : 86 1E                      stx     vC              ; C=X*229/100
-(1)    11DD : 86 1A                      stx     vA              ; A=C
-(1)    11DF : A6 14                      ldx     vY
-(1)    11E1 : A0 A0 01                   ldy     #416
-(1)    11E4 : 20 3D 11                   jsr     mul16           ; Y*416
-(1)    11E7 : A0 64 00                   ldy     #100
-(1)    11EA : 20 8F 11                   jsr     div16           ; Y*416/100
-(1)    11ED : 86 20                      stx     vD              ; D=Y*416/100
-(1)    11EF : 86 1C                      stx     vB
-(1)    11F1 : 64 18                      stz     vI              ; I=0
-(1)    11F3 :
-(1)    11F3 :                            ;; ldx     vY
-(1)    11F3 :                            ;; lda     #'Y'
-(1)    11F3 :                            ;; jsr     print
-(1)    11F3 :                            ;; ldx     vX
-(1)    11F3 :                            ;; lda     #'X'
-(1)    11F3 :                            ;; jsr     print
-(1)    11F3 :                            ;; ldx     vC
-(1)    11F3 :                            ;; lda     #'C'
-(1)    11F3 :                            ;; jsr     print
-(1)    11F3 :                            ;; ldx     vD
-(1)    11F3 :                            ;; lda     #'D'
-(1)    11F3 :                            ;; jsr     print
-(1)    11F3 :                            ;; jsr     newline
-(1)    11F3 :
-(1)    11F3 :                    loop_i:
-(1)    11F3 : A6 1C                      ldx     vB
-(1)    11F5 : A0 32 00                   ldy     #F
-(1)    11F8 : 20 8F 11                   jsr     div16           ; B/F
-(1)    11FB : 86 24                      stx     vQ              ; Q=B/F
-(1)    11FD : 9B                         txy                     ; Y=Q, the shorter multiplier
-(1)    11FE : A2 CE FF                   ldx     #-F
-(1)    1201 : 20 3D 11                   jsr     mul16           ; -Q*F
-(1)    1204 : 8A                         txa
-(1)    1205 : 18                         clc
-(1)    1206 : 65 1C                      adc     vB              ; B-Q*F
-(1)    1208 : 85 26                      sta     vS              ; S=B-Q*F
-(1)    120A : A6 1C                      ldx     vB
-(1)    120C : 9B                         txy
-(1)    120D : 20 3D 11                   jsr     mul16           ; B*B
-(1)    1210 : DA                         phx                     ; push B*B
-(1)    1211 : A6 1A                      ldx     vA
-(1)    1213 : 9B                         txy
-(1)    1214 : 20 3D 11                   jsr     mul16           ; A*A
-(1)    1217 : 8A                         txa
-(1)    1218 : 38                         sec
-(1)    1219 : E3 01                      sbc     1,S             ; A*A-B*B
-(1)    121B : 7A                         ply                     ; discard B*B
-(1)    121C : AA                         tax
-(1)    121D : A0 32 00                   ldy     #F
-(1)    1220 : 20 8F 11                   jsr     div16           ; (A*A-B*B)/F
-(1)    1223 : 8A                         txa
-(1)    1224 : 18                         clc
-(1)    1225 : 65 1E                      adc     vC
-(1)    1227 : 85 28                      sta     vT              ; T=(A*A-B*B)/F+C
-(1)    1229 : A6 1A                      ldx     vA
-(1)    122B : A4 24                      ldy     vQ
-(1)    122D : 20 3D 11                   jsr     mul16           ; A*Q
-(1)    1230 : DA                         phx                     ; push A*Q
-(1)    1231 : A6 1A                      ldx     vA
-(1)    1233 : A4 26                      ldy     vS
-(1)    1235 : 20 3D 11                   jsr     mul16           ; A*S
-(1)    1238 : A0 32 00                   ldy     #F
-(1)    123B : 20 8F 11                   jsr     div16           ; A*S/F
-(1)    123E : 8A                         txa
-(1)    123F : 18                         clc
-(1)    1240 : 63 01                      adc     1,S             ; A*Q+A*S/F
-(1)    1242 : 7A                         ply                     ; discard A*Q
-(1)    1243 : 0A                         asl     A               ; 2*(A*Q+A*S/F)
-(1)    1244 : 18                         clc
-(1)    1245 : 65 20                      adc     vD              ; 2*(A*Q+A*S/F)+D
-(1)    1247 : 85 1C                      sta     vB              ; B=2*(A*Q+A*S/F)+D
-(1)    1249 : A6 28                      ldx     vT
-(1)    124B : 86 1A                      stx     vA
-(1)    124D : A0 32 00                   ldy     #F
-(1)    1250 : 20 8F 11                   jsr     div16           ; A/F
-(1)    1253 : 86 22                      stx     vP              ; P=A/F
-(1)    1255 : 9B                         txy
-(1)    1256 : 20 3D 11                   jsr     mul16           ; P*P
-(1)    1259 : DA                         phx                     ; push P*P
-(1)    125A : A6 1C                      ldx     vB
-(1)    125C : A0 32 00                   ldy     #F
-(1)    125F : 20 8F 11                   jsr     div16           ; B/F
-(1)    1262 : 86 24                      stx     vQ              ; Q=B/F
-(1)    1264 : 9B                         txy
-(1)    1265 : 20 3D 11                   jsr     mul16           ; Q*Q
-(1)    1268 : 8A                         txa
-(1)    1269 : 18                         clc
-(1)    126A : 63 01                      adc     1,S             ; P*P+Q*Q
-(1)    126C : 85 28                      sta     vT              ; T=P*P+Q*Q
-(1)    126E : 7A                         ply                     ; discard P*P
-(1)    126F :
-(1)    126F :                            ;; pha
-(1)    126F :                            ;; jsr     putspace
-(1)    126F :                            ;; ldx     vI
-(1)    126F :                            ;; lda     #'I'
-(1)    126F :                            ;; jsr     print
-(1)    126F :                            ;; ldx     vA
-(1)    126F :                            ;; lda     #'A'
-(1)    126F :                            ;; jsr     print
-(1)    126F :                            ;; ldx     vB
-(1)    126F :                            ;; lda     #'B'
-(1)    126F :                            ;; jsr     print
-(1)    126F :                            ;; ldx     vP
-(1)    126F :                            ;; lda     #'P'
-(1)    126F :                            ;; jsr     print
-(1)    126F :                            ;; ldx     vQ
-(1)    126F :                            ;; lda     #'Q'
-(1)    126F :                            ;; jsr     print
-(1)    126F :                            ;; ldx     vT
-(1)    126F :                            ;; lda     #'T'
-(1)    126F :                            ;; jsr     print
-(1)    126F :                            ;; jsr     newline
-(1)    126F :                            ;; pla
-(1)    126F :
-(1)    126F : C9 05 00                   cmp     #4+1            ; P*P+Q*Q-4
-(1)    1272 : 10 12                      bpl     print_i         ; if P*P+Q*Q>=5
-(1)    1274 : A5 18                      lda     vI
-(1)    1276 : 1A                         inc     A
-(1)    1277 : 85 18                      sta     vI              ; I+=1
-(1)    1279 : C9 10 00                   cmp     #16
-(1)    127C : 10 03                      bpl     print_space     ; if I>=16
-(1)    127E : 4C F3 11                   jmp     loop_i          ; if I<16 loop_i
-(1)    1281 :                    print_space:
-(1)    1281 : A9 20 00                   lda     #' '
-(1)    1284 : 80 12                      bra     print_char
-(1)    1286 :                    print_i:
-(1)    1286 : A5 18                      lda     vI
-(1)    1288 : 38                         sec
-(1)    1289 : E9 0A 00                   sbc     #10
-(1)    128C : 10 06                      bpl     print_hex
-(1)    128E : 18                         clc
-(1)    128F : 69 3A 00                   adc     #10+'0'
-(1)    1292 : 80 04                      bra     print_char
-(1)    1294 :                    print_hex:
-(1)    1294 : 18                         clc
-(1)    1295 : 69 41 00                   adc     #'A'
-(1)    1298 :                    print_char:
-(1)    1298 : 20 39 10                   jsr     putchar
-(1)    129B :
-(1)    129B :                            ;; pha
-(1)    129B :                            ;; lda     #'@'
-(1)    129B :                            ;; jsr     putchar
-(1)    129B :                            ;; lda     #'='
-(1)    129B :                            ;; jsr     putchar
-(1)    129B :                            ;; pla
-(1)    129B :                            ;; jsr     putchar
-(1)    129B :                            ;; jsr     newline
-(1)    129B :
-(1)    129B : 20 2D 10                   jsr     getchar
-(1)    129E : B0 07                      bcs     next_x
-(1)    12A0 : 29 FF 00                   and     #$FF
-(1)    12A3 : D0 02                      bne     next_x
-(1)    12A5 : 00                         brk
-(1)    12A6 : 00                         .byte   0
-(1)    12A7 :                    next_x:
-(1)    12A7 : A5 16                      lda     vX
-(1)    12A9 : 1A                         inc     A
-(1)    12AA : 85 16                      sta     vX              ; X+=1
-(1)    12AC : C9 1E 00                   cmp     #30
-(1)    12AF : 10 03                      bpl     next_y          ; if X>=30
-(1)    12B1 : 4C CD 11                   jmp     loop_x
-(1)    12B4 :                    next_y:
-(1)    12B4 : 20 55 10                   jsr     newline
-(1)    12B7 : A5 14                      lda     vY
-(1)    12B9 : 1A                         inc     A
-(1)    12BA : 85 14                      sta     vY              ; Y+=1
-(1)    12BC : C9 0D 00                   cmp     #13
-(1)    12BF : 10 03                      bpl     mandelbrot_end  ; if Y>=13
-(1)    12C1 : 4C C8 11                   jmp     loop_y
-(1)    12C4 :                    mandelbrot_end:
-(1)    12C4 : 60                         rts
-       12C5 :
-       12C5 :                    isr_nirq:
-       12C5 :                            ;; P_D is cleared on interrupt
-       12C5 : E2 20                      sep     #P_M            ; 8-bit memory
-       12C7 :                            longa   off
-       12C7 : 48                         pha                     ; save A
-       12C8 : DA                         phx                     ; save X
-       12C9 : AD 00 DF                   lda     ACIA_status
-       12CC : 29 80                      and     #IRQF_bm
-       12CE : F0 22                      beq     isr_nirq_exit
-       12D0 : AD 00 DF                   lda     ACIA_status
-       12D3 : 29 01                      and     #RDRF_bm
-       12D5 : F0 09                      beq     isr_nirq_send
-       12D7 : AD 01 DF                   lda     ACIA_data       ; receive character
-       12DA : A2 00 20                   ldx     #rx_queue
-       12DD : 20 85 10                   jsr     queue_add
-       12E0 :                    isr_nirq_send:
-       12E0 : AD 00 DF                   lda     ACIA_status
-       12E3 : 29 02                      and     #TDRE_bm
-       12E5 : F0 0B                      beq     isr_nirq_exit
-       12E7 : A2 80 20                   ldx     #tx_queue
-       12EA : 20 BD 10                   jsr     queue_remove
-       12ED : B0 06                      bcs     isr_nirq_send_empty
-       12EF : 8D 01 DF                   sta     ACIA_data       ; send character
-       12F2 :                    isr_nirq_exit:
-       12F2 : FA                         plx                     ; restore X
-       12F3 : 68                         pla                     ; restore Y
-       12F4 : 40                         rti                     ; restore P and PC
-       12F5 :                    isr_nirq_send_empty:
-       12F5 : A9 94                      lda     #RX_INT_TX_NO
-       12F7 : 8D 00 DF                   sta     ACIA_control    ; disable Tx interrupt
-       12FA : 80 F6                      bra     isr_nirq_exit
-       12FC :
-       12FC :                    isr_cop:
-       12FC : 00                         brk
-       12FD : 00                         .byte   0
-       12FE :
-       12FE :                    isr_abort:
-       12FE : 00                         brk
-       12FF : 00                         .byte   0
-       1300 :
-       1300 :                    isr_nmi:
-       1300 : 00                         brk
-       1301 : 00                         .byte   0
-       1302 :
-       1302 :                    isr_irq:
-       1302 : 00                         brk
-       1303 : 00                         .byte   0
-       1304 :
-       1304 :                    isr_ncop:
-       1304 : 00                         brk
-       1305 : 00                         .byte   0
-       1306 :
-       1306 :                    isr_nbrk:
-       1306 : 00                         brk
-       1307 : 00                         .byte   0
-       1308 :
-       1308 :                    isr_nabort:
-       1308 : 00                         brk
-       1309 : 00                         .byte   0
-       130A :
-       130A :                    isr_nnmi:
-       130A : 00                         brk
-       130B : 00                         .byte   0
+(1)    1152 : 4A                         lsr     A               ; C=lsb(multiplier)
+(1)    1153 : 90 02                      bcc     umul8_1
+(1)    1155 : 65 10                      adc     arith_work      ; result += multiplicand<<8
+(1)    1157 :                    umul8_1:
+(1)    1157 : 6A                         ror     A               ; result >>= 1, next multiplier bit to C
+(1)    1158 : 90 02                      bcc     umul8_2
+(1)    115A : 65 10                      adc     arith_work      ; result += multiplicand<<8
+(1)    115C :                    umul8_2:
+(1)    115C : 6A                         ror     A               ; result >>= 1, next multiplier bit to C
+(1)    115D : 90 02                      bcc     umul8_3
+(1)    115F : 65 10                      adc     arith_work      ; result += multiplicand<<8
+(1)    1161 :                    umul8_3:
+(1)    1161 : 6A                         ror     A               ; result >>= 1, next multiplier bit to C
+(1)    1162 : 90 02                      bcc     umul8_4
+(1)    1164 : 65 10                      adc     arith_work      ; result += multiplicand<<8
+(1)    1166 :                    umul8_4:
+(1)    1166 : 6A                         ror     A               ; result >>= 1, next multiplier bit to C
+(1)    1167 : 90 02                      bcc     umul8_5
+(1)    1169 : 65 10                      adc     arith_work      ; result += multiplicand<<8
+(1)    116B :                    umul8_5:
+(1)    116B : 6A                         ror     A               ; result >>= 1, next multiplier bit to C
+(1)    116C : 90 02                      bcc     umul8_6
+(1)    116E : 65 10                      adc     arith_work      ; result += multiplicand<<8
+(1)    1170 :                    umul8_6:
+(1)    1170 : 6A                         ror     A               ; result >>= 1, next multiplier bit to C
+(1)    1171 : 90 02                      bcc     umul8_7
+(1)    1173 : 65 10                      adc     arith_work      ; result += multiplicand<<8
+(1)    1175 :                    umul8_7:
+(1)    1175 : 6A                         ror     A               ; result >>= 1, next multiplier bit to C
+(1)    1176 : 90 02                      bcc     umul8_8
+(1)    1178 : 65 10                      adc     arith_work      ; result += multiplicand<<8
+(1)    117A :                    umul8_8:
+(1)    117A : 6A                         ror     A               ; result >>= 1, next multiplier bit to C
+(1)    117B :                    umul8_zero:
+(1)    117B : AA                         tax                     ; X=result
+(1)    117C : 60                         rts
+(1)    117D :
+(1)    117D :                    ;;; Multiply: result = multiplicand * multiplier
+(1)    117D :                    ;;; @param X multiplicand
+(1)    117D :                    ;;; @param Y multiplier
+(1)    117D :                    ;;; @return X result
+(1)    117D :                    ;;; @clobber C Y arith_work
+(1)    117D :                    ;;; A 16-bit product is the same signed or unsigned; a negative
+(1)    117D :                    ;;; multiplier is negated only to shorten the loop. Magnitudes below
+(1)    117D :                    ;;; 256 take umul8.
+(1)    117D :                            longa   on
+(1)    117D :                    mul16:
+(1)    117D : 98                         tya
+(1)    117E : F0 FB                      beq     umul8_zero      ; branch if multiplier == 0
+(1)    1180 : 10 0B                      bpl     mul16_small     ; branch if multiplier > 0
+(1)    1182 : 49 FF FF                   eor     #$FFFF
+(1)    1185 : 1A                         inc     A
+(1)    1186 : A8                         tay                     ; negate multiplier
+(1)    1187 : 8A                         txa
+(1)    1188 : 49 FF FF                   eor     #$FFFF
+(1)    118B : 1A                         inc     A
+(1)    118C : AA                         tax                     ; negate multiplicand
+(1)    118D :                    mul16_small:
+(1)    118D : C0 00 01                   cpy     #$100
+(1)    1190 : B0 15                      bcs     umul16          ; branch if multiplier >= 256
+(1)    1192 : 8A                         txa
+(1)    1193 : 10 B1                      bpl     umul8           ; branch if multiplicand >= 0
+(1)    1195 : 49 FF FF                   eor     #$FFFF
+(1)    1198 : 1A                         inc     A               ; |multiplicand|
+(1)    1199 : C9 00 01                   cmp     #$100
+(1)    119C : B0 09                      bcs     umul16          ; branch if |multiplicand| >= 256
+(1)    119E : 20 46 11                   jsr     umul8           ; never reaches umul16 with the signed X
+(1)    11A1 : 49 FF FF                   eor     #$FFFF
+(1)    11A4 : 1A                         inc     A
+(1)    11A5 : AA                         tax                     ; negate result
+(1)    11A6 : 60                         rts
+(1)    11A7 :
+(1)    11A7 :                    ;;; Unsigned multiplication: result = multiplicand * multiplier
+(1)    11A7 :                    ;;; @param X multiplicand
+(1)    11A7 :                    ;;; @param Y multiplier
+(1)    11A7 :                    ;;; @return X result
+(1)    11A7 :                    ;;; @clobber C Y
+(1)    11A7 :                            longa   on
+(1)    11A7 :                    umul16:
+(1)    11A7 : A9 00 00                   lda     #0
+(1)    11AA : 48                         pha                     ; result (1,S)
+(1)    11AB : 80 0E                      bra     umul16_check
+(1)    11AD :                    umul16_loop:
+(1)    11AD : 98                         tya
+(1)    11AE : 4A                         lsr     A               ; multiplier >>= 1
+(1)    11AF : A8                         tay
+(1)    11B0 : 90 06                      bcc     umul16_sr
+(1)    11B2 : 8A                         txa
+(1)    11B3 : 18                         clc
+(1)    11B4 : 63 01                      adc     1,S
+(1)    11B6 : 83 01                      sta     1,S             ; result += multiplicand
+(1)    11B8 :                    umul16_sr:
+(1)    11B8 : 8A                         txa
+(1)    11B9 : 0A                         asl     A               ; multiplicand <<= 1
+(1)    11BA : AA                         tax
+(1)    11BB :                    umul16_check:
+(1)    11BB : 98                         tya
+(1)    11BC : D0 EF                      bne     umul16_loop     ; while multiplier != 0
+(1)    11BE :                    umul16_end:
+(1)    11BE : FA                         plx                     ; X=result
+(1)    11BF : 60                         rts
+(1)    11C0 :
+(1)    11C0 :                    ;;; Unsigned division: dividend / divisor = quotient ... remainder
+(1)    11C0 :                    ;;; @praram X dividend
+(1)    11C0 :                    ;;; @praram Y divisor
+(1)    11C0 :                    ;;; @return X quotient
+(1)    11C0 :                    ;;; @return Y remainder
+(1)    11C0 :                    ;;; @clobber C arith_work
+(1)    11C0 :                    ;;; A divisor below 128 and a dividend below divisor<<8 take a long
+(1)    11C0 :                    ;;; division keeping the remainder in the upper byte of C and shifting
+(1)    11C0 :                    ;;; quotient bits into the lower byte.
+(1)    11C0 :                            longa   on
+(1)    11C0 :                    udiv16:
+(1)    11C0 : 86 12                      stx     arith_work+2    ; dividend
+(1)    11C2 : 98                         tya                     ; C=divisor
+(1)    11C3 : F0 76                      beq     udiv16_zero     ; branch if Y==0
+(1)    11C5 : C9 80 00                   cmp     #$80
+(1)    11C8 : B0 4D                      bcs     udiv16_wide     ; branch if divisor >= 128
+(1)    11CA : EB                         xba
+(1)    11CB : 3A                         dec     A
+(1)    11CC : 85 10                      sta     arith_work      ; divisor<<8 - 1
+(1)    11CE : 8A                         txa                     ; C=dividend
+(1)    11CF : C5 10                      cmp     arith_work
+(1)    11D1 : B0 44                      bcs     udiv16_wide     ; branch if quotient may be >= 256
+(1)    11D3 :                    udiv16_s1:
+(1)    11D3 : 0A                         asl     A
+(1)    11D4 : C5 10                      cmp     arith_work
+(1)    11D6 : 90 02                      bcc     udiv16_s2
+(1)    11D8 : E5 10                      sbc     arith_work      ; remainder -= divisor, quotient |= 1
+(1)    11DA :                    udiv16_s2:
+(1)    11DA : 0A                         asl     A
+(1)    11DB : C5 10                      cmp     arith_work
+(1)    11DD : 90 02                      bcc     udiv16_s3
+(1)    11DF : E5 10                      sbc     arith_work      ; remainder -= divisor, quotient |= 1
+(1)    11E1 :                    udiv16_s3:
+(1)    11E1 : 0A                         asl     A
+(1)    11E2 : C5 10                      cmp     arith_work
+(1)    11E4 : 90 02                      bcc     udiv16_s4
+(1)    11E6 : E5 10                      sbc     arith_work      ; remainder -= divisor, quotient |= 1
+(1)    11E8 :                    udiv16_s4:
+(1)    11E8 : 0A                         asl     A
+(1)    11E9 : C5 10                      cmp     arith_work
+(1)    11EB : 90 02                      bcc     udiv16_s5
+(1)    11ED : E5 10                      sbc     arith_work      ; remainder -= divisor, quotient |= 1
+(1)    11EF :                    udiv16_s5:
+(1)    11EF : 0A                         asl     A
+(1)    11F0 : C5 10                      cmp     arith_work
+(1)    11F2 : 90 02                      bcc     udiv16_s6
+(1)    11F4 : E5 10                      sbc     arith_work      ; remainder -= divisor, quotient |= 1
+(1)    11F6 :                    udiv16_s6:
+(1)    11F6 : 0A                         asl     A
+(1)    11F7 : C5 10                      cmp     arith_work
+(1)    11F9 : 90 02                      bcc     udiv16_s7
+(1)    11FB : E5 10                      sbc     arith_work      ; remainder -= divisor, quotient |= 1
+(1)    11FD :                    udiv16_s7:
+(1)    11FD : 0A                         asl     A
+(1)    11FE : C5 10                      cmp     arith_work
+(1)    1200 : 90 02                      bcc     udiv16_s8
+(1)    1202 : E5 10                      sbc     arith_work      ; remainder -= divisor, quotient |= 1
+(1)    1204 :                    udiv16_s8:
+(1)    1204 : 0A                         asl     A
+(1)    1205 : C5 10                      cmp     arith_work
+(1)    1207 : 90 02                      bcc     udiv16_s9
+(1)    1209 : E5 10                      sbc     arith_work      ; remainder -= divisor, quotient |= 1
+(1)    120B :                    udiv16_s9:
+(1)    120B : A8                         tay                     ; Y=remainder:quotient
+(1)    120C : 29 FF 00                   and     #$FF
+(1)    120F : AA                         tax                     ; X=quotient
+(1)    1210 : 98                         tya
+(1)    1211 : EB                         xba
+(1)    1212 : 29 FF 00                   and     #$FF
+(1)    1215 : A8                         tay                     ; Y=remainder
+(1)    1216 : 60                         rts
+(1)    1217 :                    udiv16_wide:
+(1)    1217 : A2 01 00                   ldx     #1              ; X=bits
+(1)    121A : 98                         tya                     ; C=divisor
+(1)    121B : 30 08                      bmi     udiv16_prep_end ; branch if msb(divisor) == 1
+(1)    121D :                    udiv16_prep:
+(1)    121D : C5 12                      cmp     arith_work+2
+(1)    121F : B0 04                      bcs     udiv16_prep_end ; until divisor >= dividend
+(1)    1221 : E8                         inx                     ; ++bits
+(1)    1222 : 0A                         asl     A               ; divisor <<= 1
+(1)    1223 : 10 F8                      bpl     udiv16_prep     ; while msb(divisor) == 0
+(1)    1225 :                    udiv16_prep_end:
+(1)    1225 : 85 10                      sta     arith_work      ; divisor
+(1)    1227 : A5 12                      lda     arith_work+2    ; C=dividend
+(1)    1229 : 64 12                      stz     arith_work+2    ; quotient=0
+(1)    122B : 80 02                      bra     udiv16_enter_loop
+(1)    122D :                    udiv16_loop:
+(1)    122D : 46 10                      lsr     arith_work      ; divisor >>= 1
+(1)    122F :                    udiv16_enter_loop:
+(1)    122F : C5 10                      cmp     arith_work
+(1)    1231 : 90 02                      bcc     udiv16_next     ; if dividend < divisor
+(1)    1233 : E5 10                      sbc     arith_work      ; dividend -= divisor
+(1)    1235 :                    udiv16_next:
+(1)    1235 : 26 12                      rol     arith_work+2    ; quotient = quotient<<1 | C
+(1)    1237 : CA                         dex
+(1)    1238 : D0 F3                      bne     udiv16_loop     ; while bits != 0
+(1)    123A : A8                         tay                     ; Y=remainder
+(1)    123B :                    udiv16_zero:
+(1)    123B : A6 12                      ldx     arith_work+2    ; X=quotient
+(1)    123D : 60                         rts
+(1)    123E :
+(1)    123E :                    ;;; Division: dividend / divisor = quotient ... remainder
+(1)    123E :                    ;;; @param X dividend
+(1)    123E :                    ;;; @param Y divisor
+(1)    123E :                    ;;; @return X quotient
+(1)    123E :                    ;;; @return Y remainder
+(1)    123E :                    ;;; @clobber C
+(1)    123E :                            longa   on
+(1)    123E :                    div16:
+(1)    123E : 5A                         phy                     ; save divisor
+(1)    123F : 8A                         txa
+(1)    1240 : 43 01                      eor     1,S
+(1)    1242 : 83 01                      sta     1,S             ; save (dividend^divisor)
+(1)    1244 : 98                         tya
+(1)    1245 : 10 05                      bpl     div16_dividend
+(1)    1247 : 49 FF FF                   eor     #$FFFF
+(1)    124A : 1A                         inc     A
+(1)    124B : A8                         tay                     ; negate divisor
+(1)    124C :                    div16_dividend:
+(1)    124C : 8A                         txa
+(1)    124D : 10 05                      bpl     div16_multiply
+(1)    124F : 49 FF FF                   eor     #$FFFF
+(1)    1252 : 1A                         inc     A
+(1)    1253 : AA                         tax                     ; negate dividend
+(1)    1254 :                    div16_multiply:
+(1)    1254 : 20 C0 11                   jsr     udiv16          ; R0=result
+(1)    1257 : 68                         pla                     ; A=(dividend^divisor)
+(1)    1258 : 10 06                      bpl     div16_return
+(1)    125A : 8A                         txa
+(1)    125B : 49 FF FF                   eor     #$FFFF
+(1)    125E : 1A                         inc     A
+(1)    125F : AA                         tax                     ; negate result
+(1)    1260 :                    div16_return:
+(1)    1260 : 60                         rts
+       1261 :                            .include "mandelbrot.inc"
+(1)    1261 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)    1261 :                            cpu     65816
+(1)    1261 :                            longa   on
+(1)    1261 :
+(1)    1261 :                    ;;; Print variable: "A=X "
+(1)    1261 :                    ;;; @param X variable
+(1)    1261 :                    ;;; @param A variable letter
+(1)    1261 :                    print:
+(1)    1261 : 20 39 10                   jsr     putchar         ; print variable letter
+(1)    1264 : A9 3D 00                   lda     #'='
+(1)    1267 : 20 39 10                   jsr     putchar         ; '='
+(1)    126A : 20 EE 10                   jsr     print_int16
+(1)    126D : 4C 64 10                   jmp     putspace
+(1)    1270 :
+(1)    1270 :                    ;;; Divide by F: dividend / F = quotient ... remainder
+(1)    1270 :                    ;;; @param X dividend
+(1)    1270 :                    ;;; @return X quotient
+(1)    1270 :                    ;;; @return Y |remainder|
+(1)    1270 :                    ;;; @clobber C arith_work
+(1)    1270 :                    ;;; Long division keeping the remainder in the upper byte of C and
+(1)    1270 :                    ;;; shifting quotient bits into the lower byte; F must be below 128.
+(1)    1270 :                    ;;; Small dividends skip the leading steps whose quotient bits are 0.
+(1)    1270 :                    divF:
+(1)    1270 : 8A                         txa
+(1)    1271 : 10 04                      bpl     divF_abs        ; branch if dividend >= 0
+(1)    1273 : 49 FF FF                   eor     #$FFFF
+(1)    1276 : 1A                         inc     A               ; |dividend|
+(1)    1277 :                    divF_abs:
+(1)    1277 : C9 32 00                   cmp     #F
+(1)    127A : 90 7A                      bcc     divF_zero       ; branch if quotient == 0
+(1)    127C : C9 C8 00                   cmp     #F*4
+(1)    127F : B0 08                      bcs     divF_16
+(1)    1281 : 0A                         asl     A
+(1)    1282 : 0A                         asl     A
+(1)    1283 : 0A                         asl     A
+(1)    1284 : 0A                         asl     A
+(1)    1285 : 0A                         asl     A
+(1)    1286 : 0A                         asl     A
+(1)    1287 : 80 46                      bra     divF_s7         ; 2 quotient bits
+(1)    1289 :                    divF_16:
+(1)    1289 : C9 20 03                   cmp     #F*16
+(1)    128C : B0 06                      bcs     divF_256
+(1)    128E : 0A                         asl     A
+(1)    128F : 0A                         asl     A
+(1)    1290 : 0A                         asl     A
+(1)    1291 : 0A                         asl     A
+(1)    1292 : 80 29                      bra     divF_s5         ; 4 quotient bits
+(1)    1294 :                    divF_256:
+(1)    1294 : C9 00 32                   cmp     #F*256
+(1)    1297 : B0 62                      bcs     divF_long       ; branch if quotient >= 256
+(1)    1299 :                    divF_s1:
+(1)    1299 : 0A                         asl     A
+(1)    129A : C9 FF 31                   cmp     #F*256-1
+(1)    129D : 90 03                      bcc     divF_s2
+(1)    129F : E9 FF 31                   sbc     #F*256-1        ; remainder -= F, quotient |= 1
+(1)    12A2 :                    divF_s2:
+(1)    12A2 : 0A                         asl     A
+(1)    12A3 : C9 FF 31                   cmp     #F*256-1
+(1)    12A6 : 90 03                      bcc     divF_s3
+(1)    12A8 : E9 FF 31                   sbc     #F*256-1        ; remainder -= F, quotient |= 1
+(1)    12AB :                    divF_s3:
+(1)    12AB : 0A                         asl     A
+(1)    12AC : C9 FF 31                   cmp     #F*256-1
+(1)    12AF : 90 03                      bcc     divF_s4
+(1)    12B1 : E9 FF 31                   sbc     #F*256-1        ; remainder -= F, quotient |= 1
+(1)    12B4 :                    divF_s4:
+(1)    12B4 : 0A                         asl     A
+(1)    12B5 : C9 FF 31                   cmp     #F*256-1
+(1)    12B8 : 90 03                      bcc     divF_s5
+(1)    12BA : E9 FF 31                   sbc     #F*256-1        ; remainder -= F, quotient |= 1
+(1)    12BD :                    divF_s5:
+(1)    12BD : 0A                         asl     A
+(1)    12BE : C9 FF 31                   cmp     #F*256-1
+(1)    12C1 : 90 03                      bcc     divF_s6
+(1)    12C3 : E9 FF 31                   sbc     #F*256-1        ; remainder -= F, quotient |= 1
+(1)    12C6 :                    divF_s6:
+(1)    12C6 : 0A                         asl     A
+(1)    12C7 : C9 FF 31                   cmp     #F*256-1
+(1)    12CA : 90 03                      bcc     divF_s7
+(1)    12CC : E9 FF 31                   sbc     #F*256-1        ; remainder -= F, quotient |= 1
+(1)    12CF :                    divF_s7:
+(1)    12CF : 0A                         asl     A
+(1)    12D0 : C9 FF 31                   cmp     #F*256-1
+(1)    12D3 : 90 03                      bcc     divF_s8
+(1)    12D5 : E9 FF 31                   sbc     #F*256-1        ; remainder -= F, quotient |= 1
+(1)    12D8 :                    divF_s8:
+(1)    12D8 : 0A                         asl     A
+(1)    12D9 : C9 FF 31                   cmp     #F*256-1
+(1)    12DC : 90 03                      bcc     divF_s9
+(1)    12DE : E9 FF 31                   sbc     #F*256-1        ; remainder -= F, quotient |= 1
+(1)    12E1 :                    divF_s9:
+(1)    12E1 : A8                         tay                     ; Y=remainder:quotient
+(1)    12E2 : 29 FF 00                   and     #$FF            ; C=quotient
+(1)    12E5 : E0 00 00                   cpx     #0
+(1)    12E8 : 10 04                      bpl     divF_sign       ; branch if dividend >= 0
+(1)    12EA : 49 FF FF                   eor     #$FFFF
+(1)    12ED : 1A                         inc     A               ; negate quotient
+(1)    12EE :                    divF_sign:
+(1)    12EE : AA                         tax                     ; X=quotient
+(1)    12EF : 98                         tya
+(1)    12F0 : EB                         xba
+(1)    12F1 : 29 FF 00                   and     #$FF
+(1)    12F4 : A8                         tay                     ; Y=|remainder|
+(1)    12F5 : 60                         rts
+(1)    12F6 :                    divF_zero:
+(1)    12F6 : A8                         tay                     ; Y=|remainder|
+(1)    12F7 : A2 00 00                   ldx     #0              ; X=quotient
+(1)    12FA : 60                         rts
+(1)    12FB :                    divF_long:
+(1)    12FB : A0 32 00                   ldy     #F
+(1)    12FE : 4C 3E 12                   jmp     div16
+(1)    1301 :
+(1)    1301 :                    mandelbrot:
+(1)    1301 : C2 20                      rep     #P_M            ; 16-bit memory
+(1)    1303 : A9 F4 FF                   lda     #-12
+(1)    1306 : 85 14                      sta     vY
+(1)    1308 :                    loop_y:
+(1)    1308 : A6 14                      ldx     vY
+(1)    130A : A0 A0 01                   ldy     #416
+(1)    130D : 20 7D 11                   jsr     mul16           ; Y*416
+(1)    1310 : A0 64 00                   ldy     #100
+(1)    1313 : 20 3E 12                   jsr     div16           ; Y*416/100
+(1)    1316 : 86 20                      stx     vD              ; D=Y*416/100, the same for the whole row
+(1)    1318 : A9 CF FF                   lda     #-49
+(1)    131B : 85 16                      sta     vX
+(1)    131D :                    loop_x:
+(1)    131D : A6 16                      ldx     vX
+(1)    131F : A0 E5 00                   ldy     #229
+(1)    1322 : 20 7D 11                   jsr     mul16           ; X*229
+(1)    1325 : A0 64 00                   ldy     #100
+(1)    1328 : 20 3E 12                   jsr     div16           ; X*229/100
+(1)    132B : 86 1E                      stx     vC              ; C=X*229/100
+(1)    132D : 86 1A                      stx     vA              ; A=C
+(1)    132F : A6 20                      ldx     vD
+(1)    1331 : 86 1C                      stx     vB              ; B=D
+(1)    1333 : 20 70 12                   jsr     divF            ; B/F
+(1)    1336 : 86 24                      stx     vQ              ; Q=B/F
+(1)    1338 : 84 26                      sty     vS              ; |B-Q*F|
+(1)    133A : 64 18                      stz     vI              ; I=0
+(1)    133C :
+(1)    133C :                            ;; ldx     vY
+(1)    133C :                            ;; lda     #'Y'
+(1)    133C :                            ;; jsr     print
+(1)    133C :                            ;; ldx     vX
+(1)    133C :                            ;; lda     #'X'
+(1)    133C :                            ;; jsr     print
+(1)    133C :                            ;; ldx     vC
+(1)    133C :                            ;; lda     #'C'
+(1)    133C :                            ;; jsr     print
+(1)    133C :                            ;; ldx     vD
+(1)    133C :                            ;; lda     #'D'
+(1)    133C :                            ;; jsr     print
+(1)    133C :                            ;; jsr     newline
+(1)    133C :
+(1)    133C :                    loop_i:
+(1)    133C : A5 26                      lda     vS
+(1)    133E : 24 1C                      bit     vB
+(1)    1340 : 10 06                      bpl     loop_i_s        ; branch if B>=0
+(1)    1342 : 49 FF FF                   eor     #$FFFF
+(1)    1345 : 1A                         inc     A               ; the remainder takes the sign of B
+(1)    1346 : 85 26                      sta     vS
+(1)    1348 :                    loop_i_s:                       ; S=B-Q*F
+(1)    1348 : A5 1A                      lda     vA
+(1)    134A : 18                         clc
+(1)    134B : 65 1C                      adc     vB
+(1)    134D : AA                         tax                     ; A+B
+(1)    134E : A5 1A                      lda     vA
+(1)    1350 : 38                         sec
+(1)    1351 : E5 1C                      sbc     vB
+(1)    1353 : A8                         tay                     ; A-B
+(1)    1354 : 20 7D 11                   jsr     mul16           ; A*A-B*B=(A+B)*(A-B), also modulo 2^16
+(1)    1357 : 20 70 12                   jsr     divF            ; (A*A-B*B)/F
+(1)    135A : 8A                         txa
+(1)    135B : 18                         clc
+(1)    135C : 65 1E                      adc     vC
+(1)    135E : 85 28                      sta     vT              ; T=(A*A-B*B)/F+C
+(1)    1360 : A6 1A                      ldx     vA
+(1)    1362 : A4 26                      ldy     vS
+(1)    1364 : 20 7D 11                   jsr     mul16           ; A*S
+(1)    1367 : 20 70 12                   jsr     divF            ; A*S/F
+(1)    136A : 8A                         txa
+(1)    136B : A4 24                      ldy     vQ
+(1)    136D : F0 0B                      beq     loop_i_aq       ; branch if A*Q=0
+(1)    136F : 85 1C                      sta     vB              ; B=A*S/F
+(1)    1371 : A6 1A                      ldx     vA
+(1)    1373 : 20 7D 11                   jsr     mul16           ; A*Q
+(1)    1376 : 8A                         txa
+(1)    1377 : 18                         clc
+(1)    1378 : 65 1C                      adc     vB              ; A*Q+A*S/F
+(1)    137A :                    loop_i_aq:
+(1)    137A : 0A                         asl     A               ; 2*(A*Q+A*S/F)
+(1)    137B : 18                         clc
+(1)    137C : 65 20                      adc     vD              ; 2*(A*Q+A*S/F)+D
+(1)    137E : 85 1C                      sta     vB              ; B=2*(A*Q+A*S/F)+D
+(1)    1380 : A6 28                      ldx     vT
+(1)    1382 : 86 1A                      stx     vA              ; A=T
+(1)    1384 : 20 70 12                   jsr     divF            ; A/F
+(1)    1387 : 86 22                      stx     vP              ; P=A/F
+(1)    1389 : 8A                         txa
+(1)    138A : F0 04                      beq     loop_i_pp       ; branch if P*P=0
+(1)    138C : 20 3D 11                   jsr     sqr16           ; P*P
+(1)    138F : 8A                         txa
+(1)    1390 :                    loop_i_pp:
+(1)    1390 : 85 28                      sta     vT              ; T=P*P
+(1)    1392 : A6 1C                      ldx     vB
+(1)    1394 : 20 70 12                   jsr     divF            ; B/F
+(1)    1397 : 86 24                      stx     vQ              ; Q=B/F
+(1)    1399 : 84 26                      sty     vS              ; |B-Q*F|
+(1)    139B : 8A                         txa
+(1)    139C : F0 09                      beq     loop_i_t        ; branch if Q*Q=0
+(1)    139E : 20 3D 11                   jsr     sqr16           ; Q*Q
+(1)    13A1 : 8A                         txa
+(1)    13A2 : 18                         clc
+(1)    13A3 : 65 28                      adc     vT
+(1)    13A5 : 85 28                      sta     vT              ; T=P*P+Q*Q
+(1)    13A7 :                    loop_i_t:
+(1)    13A7 : A5 28                      lda     vT
+(1)    13A9 :
+(1)    13A9 :                            ;; pha
+(1)    13A9 :                            ;; jsr     putspace
+(1)    13A9 :                            ;; ldx     vI
+(1)    13A9 :                            ;; lda     #'I'
+(1)    13A9 :                            ;; jsr     print
+(1)    13A9 :                            ;; ldx     vA
+(1)    13A9 :                            ;; lda     #'A'
+(1)    13A9 :                            ;; jsr     print
+(1)    13A9 :                            ;; ldx     vB
+(1)    13A9 :                            ;; lda     #'B'
+(1)    13A9 :                            ;; jsr     print
+(1)    13A9 :                            ;; ldx     vP
+(1)    13A9 :                            ;; lda     #'P'
+(1)    13A9 :                            ;; jsr     print
+(1)    13A9 :                            ;; ldx     vQ
+(1)    13A9 :                            ;; lda     #'Q'
+(1)    13A9 :                            ;; jsr     print
+(1)    13A9 :                            ;; ldx     vT
+(1)    13A9 :                            ;; lda     #'T'
+(1)    13A9 :                            ;; jsr     print
+(1)    13A9 :                            ;; jsr     newline
+(1)    13A9 :                            ;; pla
+(1)    13A9 :
+(1)    13A9 : C9 05 00                   cmp     #4+1            ; P*P+Q*Q-4
+(1)    13AC : 10 0F                      bpl     print_i         ; if P*P+Q*Q>=5
+(1)    13AE : A5 18                      lda     vI
+(1)    13B0 : 1A                         inc     A
+(1)    13B1 : 85 18                      sta     vI              ; I+=1
+(1)    13B3 : C9 10 00                   cmp     #16
+(1)    13B6 : 30 84                      bmi     loop_i          ; if I<16 loop_i
+(1)    13B8 :                    print_space:                    ; if I>=16
+(1)    13B8 : A9 20 00                   lda     #' '
+(1)    13BB : 80 12                      bra     print_char
+(1)    13BD :                    print_i:
+(1)    13BD : A5 18                      lda     vI
+(1)    13BF : 38                         sec
+(1)    13C0 : E9 0A 00                   sbc     #10
+(1)    13C3 : 10 06                      bpl     print_hex
+(1)    13C5 : 18                         clc
+(1)    13C6 : 69 3A 00                   adc     #10+'0'
+(1)    13C9 : 80 04                      bra     print_char
+(1)    13CB :                    print_hex:
+(1)    13CB : 18                         clc
+(1)    13CC : 69 41 00                   adc     #'A'
+(1)    13CF :                    print_char:
+(1)    13CF : 20 39 10                   jsr     putchar
+(1)    13D2 :
+(1)    13D2 :                            ;; pha
+(1)    13D2 :                            ;; lda     #'@'
+(1)    13D2 :                            ;; jsr     putchar
+(1)    13D2 :                            ;; lda     #'='
+(1)    13D2 :                            ;; jsr     putchar
+(1)    13D2 :                            ;; pla
+(1)    13D2 :                            ;; jsr     putchar
+(1)    13D2 :                            ;; jsr     newline
+(1)    13D2 :
+(1)    13D2 : 20 2D 10                   jsr     getchar
+(1)    13D5 : B0 07                      bcs     next_x
+(1)    13D7 : 29 FF 00                   and     #$FF
+(1)    13DA : D0 02                      bne     next_x
+(1)    13DC : 00                         brk
+(1)    13DD : 00                         .byte   0
+(1)    13DE :                    next_x:
+(1)    13DE : A5 16                      lda     vX
+(1)    13E0 : 1A                         inc     A
+(1)    13E1 : 85 16                      sta     vX              ; X+=1
+(1)    13E3 : C9 1E 00                   cmp     #30
+(1)    13E6 : 10 03                      bpl     next_y          ; if X>=30
+(1)    13E8 : 4C 1D 13                   jmp     loop_x
+(1)    13EB :                    next_y:
+(1)    13EB : 20 55 10                   jsr     newline
+(1)    13EE : A5 14                      lda     vY
+(1)    13F0 : 1A                         inc     A
+(1)    13F1 : 85 14                      sta     vY              ; Y+=1
+(1)    13F3 : C9 0D 00                   cmp     #13
+(1)    13F6 : 10 03                      bpl     mandelbrot_end  ; if Y>=13
+(1)    13F8 : 4C 08 13                   jmp     loop_y
+(1)    13FB :                    mandelbrot_end:
+(1)    13FB : 60                         rts
+       13FC :
+       13FC :                    isr_nirq:
+       13FC :                            ;; P_D is cleared on interrupt
+       13FC : E2 20                      sep     #P_M            ; 8-bit memory
+       13FE :                            longa   off
+       13FE : 48                         pha                     ; save A
+       13FF : DA                         phx                     ; save X
+       1400 : AD 00 DF                   lda     ACIA_status
+       1403 : 29 80                      and     #IRQF_bm
+       1405 : F0 22                      beq     isr_nirq_exit
+       1407 : AD 00 DF                   lda     ACIA_status
+       140A : 29 01                      and     #RDRF_bm
+       140C : F0 09                      beq     isr_nirq_send
+       140E : AD 01 DF                   lda     ACIA_data       ; receive character
+       1411 : A2 00 20                   ldx     #rx_queue
+       1414 : 20 85 10                   jsr     queue_add
+       1417 :                    isr_nirq_send:
+       1417 : AD 00 DF                   lda     ACIA_status
+       141A : 29 02                      and     #TDRE_bm
+       141C : F0 0B                      beq     isr_nirq_exit
+       141E : A2 80 20                   ldx     #tx_queue
+       1421 : 20 BD 10                   jsr     queue_remove
+       1424 : B0 06                      bcs     isr_nirq_send_empty
+       1426 : 8D 01 DF                   sta     ACIA_data       ; send character
+       1429 :                    isr_nirq_exit:
+       1429 : FA                         plx                     ; restore X
+       142A : 68                         pla                     ; restore Y
+       142B : 40                         rti                     ; restore P and PC
+       142C :                    isr_nirq_send_empty:
+       142C : A9 94                      lda     #RX_INT_TX_NO
+       142E : 8D 00 DF                   sta     ACIA_control    ; disable Tx interrupt
+       1431 : 80 F6                      bra     isr_nirq_exit
+       1433 :
+       1433 :                    isr_cop:
+       1433 : 00                         brk
+       1434 : 00                         .byte   0
+       1435 :
+       1435 :                    isr_abort:
+       1435 : 00                         brk
+       1436 : 00                         .byte   0
+       1437 :
+       1437 :                    isr_nmi:
+       1437 : 00                         brk
+       1438 : 00                         .byte   0
+       1439 :
+       1439 :                    isr_irq:
+       1439 : 00                         brk
+       143A : 00                         .byte   0
+       143B :
+       143B :                    isr_ncop:
+       143B : 00                         brk
+       143C : 00                         .byte   0
+       143D :
+       143D :                    isr_nbrk:
+       143D : 00                         brk
+       143E : 00                         .byte   0
+       143F :
+       143F :                    isr_nabort:
+       143F : 00                         brk
+       1440 : 00                         .byte   0
+       1441 :
+       1441 :                    isr_nnmi:
+       1441 : 00                         brk
+       1442 : 00                         .byte   0

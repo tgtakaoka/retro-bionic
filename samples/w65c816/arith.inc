@@ -77,17 +77,87 @@ cmp16_eq:
         lda     #0
         rts
 
+;;; Square: result = value * value
+;;; @param X value
+;;; @return X result
+;;; @clobber C Y arith_work
+        longa   on
+sqr16:
+        txa
+        bpl     sqr16_abs       ; branch if value >= 0
+        eor     #$FFFF
+        inc     A
+        tax                     ; |value|
+sqr16_abs:
+        tay                     ; multiplier=multiplicand=|value|
+                                ; fall through to umul8
+
+;;; Unsigned multiplication by a multiplier below 256
+;;; @param C multiplicand, also in X
+;;; @param Y multiplier, below 256
+;;; @return C,X result
+;;; @clobber Y arith_work
+;;; A multiplicand below 256 takes an unrolled 8-bit by 8-bit
+;;; multiply; others go to umul16 with X and Y, which clobbers Y.
+        longa   on
+umul8:
+        beq     umul8_zero      ; branch if multiplicand == 0
+        cmp     #$100
+        bcs     umul16          ; branch if multiplicand >= 256
+        xba
+        dec     A
+        sta     arith_work      ; multiplicand<<8 - 1, as ADC adds C=1
+        tya
+        lsr     A               ; C=lsb(multiplier)
+        bcc     umul8_1
+        adc     arith_work      ; result += multiplicand<<8
+umul8_1:
+        ror     A               ; result >>= 1, next multiplier bit to C
+        bcc     umul8_2
+        adc     arith_work      ; result += multiplicand<<8
+umul8_2:
+        ror     A               ; result >>= 1, next multiplier bit to C
+        bcc     umul8_3
+        adc     arith_work      ; result += multiplicand<<8
+umul8_3:
+        ror     A               ; result >>= 1, next multiplier bit to C
+        bcc     umul8_4
+        adc     arith_work      ; result += multiplicand<<8
+umul8_4:
+        ror     A               ; result >>= 1, next multiplier bit to C
+        bcc     umul8_5
+        adc     arith_work      ; result += multiplicand<<8
+umul8_5:
+        ror     A               ; result >>= 1, next multiplier bit to C
+        bcc     umul8_6
+        adc     arith_work      ; result += multiplicand<<8
+umul8_6:
+        ror     A               ; result >>= 1, next multiplier bit to C
+        bcc     umul8_7
+        adc     arith_work      ; result += multiplicand<<8
+umul8_7:
+        ror     A               ; result >>= 1, next multiplier bit to C
+        bcc     umul8_8
+        adc     arith_work      ; result += multiplicand<<8
+umul8_8:
+        ror     A               ; result >>= 1, next multiplier bit to C
+umul8_zero:
+        tax                     ; X=result
+        rts
+
 ;;; Multiply: result = multiplicand * multiplier
 ;;; @param X multiplicand
 ;;; @param Y multiplier
 ;;; @return X result
-;;; @clobber C Y
+;;; @clobber C Y arith_work
 ;;; A 16-bit product is the same signed or unsigned; a negative
-;;; multiplier is negated only to shorten the loop.
+;;; multiplier is negated only to shorten the loop. Magnitudes below
+;;; 256 take umul8.
         longa   on
 mul16:
         tya
-        bpl     umul16          ; branch if multiplier >= 0
+        beq     umul8_zero      ; branch if multiplier == 0
+        bpl     mul16_small     ; branch if multiplier > 0
         eor     #$FFFF
         inc     A
         tay                     ; negate multiplier
@@ -95,7 +165,20 @@ mul16:
         eor     #$FFFF
         inc     A
         tax                     ; negate multiplicand
-                                ; fall through to umul16
+mul16_small:
+        cpy     #$100
+        bcs     umul16          ; branch if multiplier >= 256
+        txa
+        bpl     umul8           ; branch if multiplicand >= 0
+        eor     #$FFFF
+        inc     A               ; |multiplicand|
+        cmp     #$100
+        bcs     umul16          ; branch if |multiplicand| >= 256
+        jsr     umul8           ; never reaches umul16 with the signed X
+        eor     #$FFFF
+        inc     A
+        tax                     ; negate result
+        rts
 
 ;;; Unsigned multiplication: result = multiplicand * multiplier
 ;;; @param X multiplicand
@@ -133,12 +216,74 @@ umul16_end:
 ;;; @return X quotient
 ;;; @return Y remainder
 ;;; @clobber C arith_work
+;;; A divisor below 128 and a dividend below divisor<<8 take a long
+;;; division keeping the remainder in the upper byte of C and shifting
+;;; quotient bits into the lower byte.
         longa   on
 udiv16:
         stx     arith_work+2    ; dividend
-        ldx     #1              ; X=bits
         tya                     ; C=divisor
         beq     udiv16_zero     ; branch if Y==0
+        cmp     #$80
+        bcs     udiv16_wide     ; branch if divisor >= 128
+        xba
+        dec     A
+        sta     arith_work      ; divisor<<8 - 1
+        txa                     ; C=dividend
+        cmp     arith_work
+        bcs     udiv16_wide     ; branch if quotient may be >= 256
+udiv16_s1:
+        asl     A
+        cmp     arith_work
+        bcc     udiv16_s2
+        sbc     arith_work      ; remainder -= divisor, quotient |= 1
+udiv16_s2:
+        asl     A
+        cmp     arith_work
+        bcc     udiv16_s3
+        sbc     arith_work      ; remainder -= divisor, quotient |= 1
+udiv16_s3:
+        asl     A
+        cmp     arith_work
+        bcc     udiv16_s4
+        sbc     arith_work      ; remainder -= divisor, quotient |= 1
+udiv16_s4:
+        asl     A
+        cmp     arith_work
+        bcc     udiv16_s5
+        sbc     arith_work      ; remainder -= divisor, quotient |= 1
+udiv16_s5:
+        asl     A
+        cmp     arith_work
+        bcc     udiv16_s6
+        sbc     arith_work      ; remainder -= divisor, quotient |= 1
+udiv16_s6:
+        asl     A
+        cmp     arith_work
+        bcc     udiv16_s7
+        sbc     arith_work      ; remainder -= divisor, quotient |= 1
+udiv16_s7:
+        asl     A
+        cmp     arith_work
+        bcc     udiv16_s8
+        sbc     arith_work      ; remainder -= divisor, quotient |= 1
+udiv16_s8:
+        asl     A
+        cmp     arith_work
+        bcc     udiv16_s9
+        sbc     arith_work      ; remainder -= divisor, quotient |= 1
+udiv16_s9:
+        tay                     ; Y=remainder:quotient
+        and     #$FF
+        tax                     ; X=quotient
+        tya
+        xba
+        and     #$FF
+        tay                     ; Y=remainder
+        rts
+udiv16_wide:
+        ldx     #1              ; X=bits
+        tya                     ; C=divisor
         bmi     udiv16_prep_end ; branch if msb(divisor) == 1
 udiv16_prep:
         cmp     arith_work+2

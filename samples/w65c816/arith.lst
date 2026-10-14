@@ -432,7 +432,7 @@
        1232 :                    mulsi2:
        1232 : 08                         php
        1233 : C2 20                      rep     #P_M            ; 16-bit memory
-       1235 : 20 91 12                   jsr     mul16
+       1235 : 20 D1 12                   jsr     mul16
        1238 : 28                         plp
        1239 : 60                         rts
        123A :
@@ -446,7 +446,7 @@
        123A :                    divsi2:
        123A : 08                         php
        123B : C2 20                      rep     #P_M            ; 16-bit memory
-       123D : 20 E3 12                   jsr     div16
+       123D : 20 92 13                   jsr     div16
        1240 : 28                         plp
        1241 : 60                         rts
        1242 :
@@ -490,7 +490,7 @@
 (1)    1260 : 8A                         txa
 (1)    1261 : F0 11                      beq     print_uint16_exit
 (1)    1263 : A0 0A 00                   ldy     #10
-(1)    1266 : 20 B8 12                   jsr     udiv16
+(1)    1266 : 20 14 13                   jsr     udiv16
 (1)    1269 : 5A                         phy                     ; push remainder
 (1)    126A : 20 60 12                   jsr     print_uint16_inner
 (1)    126D : 68                         pla                     ; pop remainder
@@ -530,125 +530,270 @@
 (1)    128D : A9 00 00                   lda     #0
 (1)    1290 : 60                         rts
 (1)    1291 :
-(1)    1291 :                    ;;; Multiply: result = multiplicand * multiplier
-(1)    1291 :                    ;;; @param X multiplicand
-(1)    1291 :                    ;;; @param Y multiplier
+(1)    1291 :                    ;;; Square: result = value * value
+(1)    1291 :                    ;;; @param X value
 (1)    1291 :                    ;;; @return X result
-(1)    1291 :                    ;;; @clobber C Y
-(1)    1291 :                    ;;; A 16-bit product is the same signed or unsigned; a negative
-(1)    1291 :                    ;;; multiplier is negated only to shorten the loop.
+(1)    1291 :                    ;;; @clobber C Y arith_work
 (1)    1291 :                            longa   on
-(1)    1291 :                    mul16:
-(1)    1291 : 98                         tya
-(1)    1292 : 10 0B                      bpl     umul16          ; branch if multiplier >= 0
+(1)    1291 :                    sqr16:
+(1)    1291 : 8A                         txa
+(1)    1292 : 10 05                      bpl     sqr16_abs       ; branch if value >= 0
 (1)    1294 : 49 FF FF                   eor     #$FFFF
 (1)    1297 : 1A                         inc     A
-(1)    1298 : A8                         tay                     ; negate multiplier
-(1)    1299 : 8A                         txa
-(1)    129A : 49 FF FF                   eor     #$FFFF
-(1)    129D : 1A                         inc     A
-(1)    129E : AA                         tax                     ; negate multiplicand
-(1)    129F :                                                    ; fall through to umul16
-(1)    129F :
-(1)    129F :                    ;;; Unsigned multiplication: result = multiplicand * multiplier
-(1)    129F :                    ;;; @param X multiplicand
-(1)    129F :                    ;;; @param Y multiplier
-(1)    129F :                    ;;; @return X result
-(1)    129F :                    ;;; @clobber C Y
-(1)    129F :                            longa   on
-(1)    129F :                    umul16:
-(1)    129F : A9 00 00                   lda     #0
-(1)    12A2 : 48                         pha                     ; result (1,S)
-(1)    12A3 : 80 0E                      bra     umul16_check
-(1)    12A5 :                    umul16_loop:
+(1)    1298 : AA                         tax                     ; |value|
+(1)    1299 :                    sqr16_abs:
+(1)    1299 : A8                         tay                     ; multiplier=multiplicand=|value|
+(1)    129A :                                                    ; fall through to umul8
+(1)    129A :
+(1)    129A :                    ;;; Unsigned multiplication by a multiplier below 256
+(1)    129A :                    ;;; @param C multiplicand, also in X
+(1)    129A :                    ;;; @param Y multiplier, below 256
+(1)    129A :                    ;;; @return C,X result
+(1)    129A :                    ;;; @clobber Y arith_work
+(1)    129A :                    ;;; A multiplicand below 256 takes an unrolled 8-bit by 8-bit
+(1)    129A :                    ;;; multiply; others go to umul16 with X and Y, which clobbers Y.
+(1)    129A :                            longa   on
+(1)    129A :                    umul8:
+(1)    129A : F0 33                      beq     umul8_zero      ; branch if multiplicand == 0
+(1)    129C : C9 00 01                   cmp     #$100
+(1)    129F : B0 5A                      bcs     umul16          ; branch if multiplicand >= 256
+(1)    12A1 : EB                         xba
+(1)    12A2 : 3A                         dec     A
+(1)    12A3 : 85 10                      sta     arith_work      ; multiplicand<<8 - 1, as ADC adds C=1
 (1)    12A5 : 98                         tya
-(1)    12A6 : 4A                         lsr     A               ; multiplier >>= 1
-(1)    12A7 : A8                         tay
-(1)    12A8 : 90 06                      bcc     umul16_sr
-(1)    12AA : 8A                         txa
-(1)    12AB : 18                         clc
-(1)    12AC : 63 01                      adc     1,S
-(1)    12AE : 83 01                      sta     1,S             ; result += multiplicand
-(1)    12B0 :                    umul16_sr:
-(1)    12B0 : 8A                         txa
-(1)    12B1 : 0A                         asl     A               ; multiplicand <<= 1
-(1)    12B2 : AA                         tax
-(1)    12B3 :                    umul16_check:
-(1)    12B3 : 98                         tya
-(1)    12B4 : D0 EF                      bne     umul16_loop     ; while multiplier != 0
-(1)    12B6 :                    umul16_end:
-(1)    12B6 : FA                         plx                     ; X=result
-(1)    12B7 : 60                         rts
-(1)    12B8 :
-(1)    12B8 :                    ;;; Unsigned division: dividend / divisor = quotient ... remainder
-(1)    12B8 :                    ;;; @praram X dividend
-(1)    12B8 :                    ;;; @praram Y divisor
-(1)    12B8 :                    ;;; @return X quotient
-(1)    12B8 :                    ;;; @return Y remainder
-(1)    12B8 :                    ;;; @clobber C arith_work
-(1)    12B8 :                            longa   on
-(1)    12B8 :                    udiv16:
-(1)    12B8 : 86 12                      stx     arith_work+2    ; dividend
-(1)    12BA : A2 01 00                   ldx     #1              ; X=bits
-(1)    12BD : 98                         tya                     ; C=divisor
-(1)    12BE : F0 20                      beq     udiv16_zero     ; branch if Y==0
-(1)    12C0 : 30 08                      bmi     udiv16_prep_end ; branch if msb(divisor) == 1
-(1)    12C2 :                    udiv16_prep:
-(1)    12C2 : C5 12                      cmp     arith_work+2
-(1)    12C4 : B0 04                      bcs     udiv16_prep_end ; until divisor >= dividend
-(1)    12C6 : E8                         inx                     ; ++bits
-(1)    12C7 : 0A                         asl     A               ; divisor <<= 1
-(1)    12C8 : 10 F8                      bpl     udiv16_prep     ; while msb(divisor) == 0
-(1)    12CA :                    udiv16_prep_end:
-(1)    12CA : 85 10                      sta     arith_work      ; divisor
-(1)    12CC : A5 12                      lda     arith_work+2    ; C=dividend
-(1)    12CE : 64 12                      stz     arith_work+2    ; quotient=0
-(1)    12D0 : 80 02                      bra     udiv16_enter_loop
-(1)    12D2 :                    udiv16_loop:
-(1)    12D2 : 46 10                      lsr     arith_work      ; divisor >>= 1
-(1)    12D4 :                    udiv16_enter_loop:
-(1)    12D4 : C5 10                      cmp     arith_work
-(1)    12D6 : 90 02                      bcc     udiv16_next     ; if dividend < divisor
-(1)    12D8 : E5 10                      sbc     arith_work      ; dividend -= divisor
-(1)    12DA :                    udiv16_next:
-(1)    12DA : 26 12                      rol     arith_work+2    ; quotient = quotient<<1 | C
-(1)    12DC : CA                         dex
-(1)    12DD : D0 F3                      bne     udiv16_loop     ; while bits != 0
-(1)    12DF : A8                         tay                     ; Y=remainder
-(1)    12E0 :                    udiv16_zero:
-(1)    12E0 : A6 12                      ldx     arith_work+2    ; X=quotient
-(1)    12E2 : 60                         rts
-(1)    12E3 :
-(1)    12E3 :                    ;;; Division: dividend / divisor = quotient ... remainder
-(1)    12E3 :                    ;;; @param X dividend
-(1)    12E3 :                    ;;; @param Y divisor
-(1)    12E3 :                    ;;; @return X quotient
-(1)    12E3 :                    ;;; @return Y remainder
-(1)    12E3 :                    ;;; @clobber C
-(1)    12E3 :                            longa   on
-(1)    12E3 :                    div16:
-(1)    12E3 : 5A                         phy                     ; save divisor
-(1)    12E4 : 8A                         txa
-(1)    12E5 : 43 01                      eor     1,S
-(1)    12E7 : 83 01                      sta     1,S             ; save (dividend^divisor)
-(1)    12E9 : 98                         tya
-(1)    12EA : 10 05                      bpl     div16_dividend
-(1)    12EC : 49 FF FF                   eor     #$FFFF
-(1)    12EF : 1A                         inc     A
-(1)    12F0 : A8                         tay                     ; negate divisor
-(1)    12F1 :                    div16_dividend:
-(1)    12F1 : 8A                         txa
-(1)    12F2 : 10 05                      bpl     div16_multiply
-(1)    12F4 : 49 FF FF                   eor     #$FFFF
-(1)    12F7 : 1A                         inc     A
-(1)    12F8 : AA                         tax                     ; negate dividend
-(1)    12F9 :                    div16_multiply:
-(1)    12F9 : 20 B8 12                   jsr     udiv16          ; R0=result
-(1)    12FC : 68                         pla                     ; A=(dividend^divisor)
-(1)    12FD : 10 06                      bpl     div16_return
-(1)    12FF : 8A                         txa
-(1)    1300 : 49 FF FF                   eor     #$FFFF
-(1)    1303 : 1A                         inc     A
-(1)    1304 : AA                         tax                     ; negate result
-(1)    1305 :                    div16_return:
-(1)    1305 : 60                         rts
+(1)    12A6 : 4A                         lsr     A               ; C=lsb(multiplier)
+(1)    12A7 : 90 02                      bcc     umul8_1
+(1)    12A9 : 65 10                      adc     arith_work      ; result += multiplicand<<8
+(1)    12AB :                    umul8_1:
+(1)    12AB : 6A                         ror     A               ; result >>= 1, next multiplier bit to C
+(1)    12AC : 90 02                      bcc     umul8_2
+(1)    12AE : 65 10                      adc     arith_work      ; result += multiplicand<<8
+(1)    12B0 :                    umul8_2:
+(1)    12B0 : 6A                         ror     A               ; result >>= 1, next multiplier bit to C
+(1)    12B1 : 90 02                      bcc     umul8_3
+(1)    12B3 : 65 10                      adc     arith_work      ; result += multiplicand<<8
+(1)    12B5 :                    umul8_3:
+(1)    12B5 : 6A                         ror     A               ; result >>= 1, next multiplier bit to C
+(1)    12B6 : 90 02                      bcc     umul8_4
+(1)    12B8 : 65 10                      adc     arith_work      ; result += multiplicand<<8
+(1)    12BA :                    umul8_4:
+(1)    12BA : 6A                         ror     A               ; result >>= 1, next multiplier bit to C
+(1)    12BB : 90 02                      bcc     umul8_5
+(1)    12BD : 65 10                      adc     arith_work      ; result += multiplicand<<8
+(1)    12BF :                    umul8_5:
+(1)    12BF : 6A                         ror     A               ; result >>= 1, next multiplier bit to C
+(1)    12C0 : 90 02                      bcc     umul8_6
+(1)    12C2 : 65 10                      adc     arith_work      ; result += multiplicand<<8
+(1)    12C4 :                    umul8_6:
+(1)    12C4 : 6A                         ror     A               ; result >>= 1, next multiplier bit to C
+(1)    12C5 : 90 02                      bcc     umul8_7
+(1)    12C7 : 65 10                      adc     arith_work      ; result += multiplicand<<8
+(1)    12C9 :                    umul8_7:
+(1)    12C9 : 6A                         ror     A               ; result >>= 1, next multiplier bit to C
+(1)    12CA : 90 02                      bcc     umul8_8
+(1)    12CC : 65 10                      adc     arith_work      ; result += multiplicand<<8
+(1)    12CE :                    umul8_8:
+(1)    12CE : 6A                         ror     A               ; result >>= 1, next multiplier bit to C
+(1)    12CF :                    umul8_zero:
+(1)    12CF : AA                         tax                     ; X=result
+(1)    12D0 : 60                         rts
+(1)    12D1 :
+(1)    12D1 :                    ;;; Multiply: result = multiplicand * multiplier
+(1)    12D1 :                    ;;; @param X multiplicand
+(1)    12D1 :                    ;;; @param Y multiplier
+(1)    12D1 :                    ;;; @return X result
+(1)    12D1 :                    ;;; @clobber C Y arith_work
+(1)    12D1 :                    ;;; A 16-bit product is the same signed or unsigned; a negative
+(1)    12D1 :                    ;;; multiplier is negated only to shorten the loop. Magnitudes below
+(1)    12D1 :                    ;;; 256 take umul8.
+(1)    12D1 :                            longa   on
+(1)    12D1 :                    mul16:
+(1)    12D1 : 98                         tya
+(1)    12D2 : F0 FB                      beq     umul8_zero      ; branch if multiplier == 0
+(1)    12D4 : 10 0B                      bpl     mul16_small     ; branch if multiplier > 0
+(1)    12D6 : 49 FF FF                   eor     #$FFFF
+(1)    12D9 : 1A                         inc     A
+(1)    12DA : A8                         tay                     ; negate multiplier
+(1)    12DB : 8A                         txa
+(1)    12DC : 49 FF FF                   eor     #$FFFF
+(1)    12DF : 1A                         inc     A
+(1)    12E0 : AA                         tax                     ; negate multiplicand
+(1)    12E1 :                    mul16_small:
+(1)    12E1 : C0 00 01                   cpy     #$100
+(1)    12E4 : B0 15                      bcs     umul16          ; branch if multiplier >= 256
+(1)    12E6 : 8A                         txa
+(1)    12E7 : 10 B1                      bpl     umul8           ; branch if multiplicand >= 0
+(1)    12E9 : 49 FF FF                   eor     #$FFFF
+(1)    12EC : 1A                         inc     A               ; |multiplicand|
+(1)    12ED : C9 00 01                   cmp     #$100
+(1)    12F0 : B0 09                      bcs     umul16          ; branch if |multiplicand| >= 256
+(1)    12F2 : 20 9A 12                   jsr     umul8           ; never reaches umul16 with the signed X
+(1)    12F5 : 49 FF FF                   eor     #$FFFF
+(1)    12F8 : 1A                         inc     A
+(1)    12F9 : AA                         tax                     ; negate result
+(1)    12FA : 60                         rts
+(1)    12FB :
+(1)    12FB :                    ;;; Unsigned multiplication: result = multiplicand * multiplier
+(1)    12FB :                    ;;; @param X multiplicand
+(1)    12FB :                    ;;; @param Y multiplier
+(1)    12FB :                    ;;; @return X result
+(1)    12FB :                    ;;; @clobber C Y
+(1)    12FB :                            longa   on
+(1)    12FB :                    umul16:
+(1)    12FB : A9 00 00                   lda     #0
+(1)    12FE : 48                         pha                     ; result (1,S)
+(1)    12FF : 80 0E                      bra     umul16_check
+(1)    1301 :                    umul16_loop:
+(1)    1301 : 98                         tya
+(1)    1302 : 4A                         lsr     A               ; multiplier >>= 1
+(1)    1303 : A8                         tay
+(1)    1304 : 90 06                      bcc     umul16_sr
+(1)    1306 : 8A                         txa
+(1)    1307 : 18                         clc
+(1)    1308 : 63 01                      adc     1,S
+(1)    130A : 83 01                      sta     1,S             ; result += multiplicand
+(1)    130C :                    umul16_sr:
+(1)    130C : 8A                         txa
+(1)    130D : 0A                         asl     A               ; multiplicand <<= 1
+(1)    130E : AA                         tax
+(1)    130F :                    umul16_check:
+(1)    130F : 98                         tya
+(1)    1310 : D0 EF                      bne     umul16_loop     ; while multiplier != 0
+(1)    1312 :                    umul16_end:
+(1)    1312 : FA                         plx                     ; X=result
+(1)    1313 : 60                         rts
+(1)    1314 :
+(1)    1314 :                    ;;; Unsigned division: dividend / divisor = quotient ... remainder
+(1)    1314 :                    ;;; @praram X dividend
+(1)    1314 :                    ;;; @praram Y divisor
+(1)    1314 :                    ;;; @return X quotient
+(1)    1314 :                    ;;; @return Y remainder
+(1)    1314 :                    ;;; @clobber C arith_work
+(1)    1314 :                    ;;; A divisor below 128 and a dividend below divisor<<8 take a long
+(1)    1314 :                    ;;; division keeping the remainder in the upper byte of C and shifting
+(1)    1314 :                    ;;; quotient bits into the lower byte.
+(1)    1314 :                            longa   on
+(1)    1314 :                    udiv16:
+(1)    1314 : 86 12                      stx     arith_work+2    ; dividend
+(1)    1316 : 98                         tya                     ; C=divisor
+(1)    1317 : F0 76                      beq     udiv16_zero     ; branch if Y==0
+(1)    1319 : C9 80 00                   cmp     #$80
+(1)    131C : B0 4D                      bcs     udiv16_wide     ; branch if divisor >= 128
+(1)    131E : EB                         xba
+(1)    131F : 3A                         dec     A
+(1)    1320 : 85 10                      sta     arith_work      ; divisor<<8 - 1
+(1)    1322 : 8A                         txa                     ; C=dividend
+(1)    1323 : C5 10                      cmp     arith_work
+(1)    1325 : B0 44                      bcs     udiv16_wide     ; branch if quotient may be >= 256
+(1)    1327 :                    udiv16_s1:
+(1)    1327 : 0A                         asl     A
+(1)    1328 : C5 10                      cmp     arith_work
+(1)    132A : 90 02                      bcc     udiv16_s2
+(1)    132C : E5 10                      sbc     arith_work      ; remainder -= divisor, quotient |= 1
+(1)    132E :                    udiv16_s2:
+(1)    132E : 0A                         asl     A
+(1)    132F : C5 10                      cmp     arith_work
+(1)    1331 : 90 02                      bcc     udiv16_s3
+(1)    1333 : E5 10                      sbc     arith_work      ; remainder -= divisor, quotient |= 1
+(1)    1335 :                    udiv16_s3:
+(1)    1335 : 0A                         asl     A
+(1)    1336 : C5 10                      cmp     arith_work
+(1)    1338 : 90 02                      bcc     udiv16_s4
+(1)    133A : E5 10                      sbc     arith_work      ; remainder -= divisor, quotient |= 1
+(1)    133C :                    udiv16_s4:
+(1)    133C : 0A                         asl     A
+(1)    133D : C5 10                      cmp     arith_work
+(1)    133F : 90 02                      bcc     udiv16_s5
+(1)    1341 : E5 10                      sbc     arith_work      ; remainder -= divisor, quotient |= 1
+(1)    1343 :                    udiv16_s5:
+(1)    1343 : 0A                         asl     A
+(1)    1344 : C5 10                      cmp     arith_work
+(1)    1346 : 90 02                      bcc     udiv16_s6
+(1)    1348 : E5 10                      sbc     arith_work      ; remainder -= divisor, quotient |= 1
+(1)    134A :                    udiv16_s6:
+(1)    134A : 0A                         asl     A
+(1)    134B : C5 10                      cmp     arith_work
+(1)    134D : 90 02                      bcc     udiv16_s7
+(1)    134F : E5 10                      sbc     arith_work      ; remainder -= divisor, quotient |= 1
+(1)    1351 :                    udiv16_s7:
+(1)    1351 : 0A                         asl     A
+(1)    1352 : C5 10                      cmp     arith_work
+(1)    1354 : 90 02                      bcc     udiv16_s8
+(1)    1356 : E5 10                      sbc     arith_work      ; remainder -= divisor, quotient |= 1
+(1)    1358 :                    udiv16_s8:
+(1)    1358 : 0A                         asl     A
+(1)    1359 : C5 10                      cmp     arith_work
+(1)    135B : 90 02                      bcc     udiv16_s9
+(1)    135D : E5 10                      sbc     arith_work      ; remainder -= divisor, quotient |= 1
+(1)    135F :                    udiv16_s9:
+(1)    135F : A8                         tay                     ; Y=remainder:quotient
+(1)    1360 : 29 FF 00                   and     #$FF
+(1)    1363 : AA                         tax                     ; X=quotient
+(1)    1364 : 98                         tya
+(1)    1365 : EB                         xba
+(1)    1366 : 29 FF 00                   and     #$FF
+(1)    1369 : A8                         tay                     ; Y=remainder
+(1)    136A : 60                         rts
+(1)    136B :                    udiv16_wide:
+(1)    136B : A2 01 00                   ldx     #1              ; X=bits
+(1)    136E : 98                         tya                     ; C=divisor
+(1)    136F : 30 08                      bmi     udiv16_prep_end ; branch if msb(divisor) == 1
+(1)    1371 :                    udiv16_prep:
+(1)    1371 : C5 12                      cmp     arith_work+2
+(1)    1373 : B0 04                      bcs     udiv16_prep_end ; until divisor >= dividend
+(1)    1375 : E8                         inx                     ; ++bits
+(1)    1376 : 0A                         asl     A               ; divisor <<= 1
+(1)    1377 : 10 F8                      bpl     udiv16_prep     ; while msb(divisor) == 0
+(1)    1379 :                    udiv16_prep_end:
+(1)    1379 : 85 10                      sta     arith_work      ; divisor
+(1)    137B : A5 12                      lda     arith_work+2    ; C=dividend
+(1)    137D : 64 12                      stz     arith_work+2    ; quotient=0
+(1)    137F : 80 02                      bra     udiv16_enter_loop
+(1)    1381 :                    udiv16_loop:
+(1)    1381 : 46 10                      lsr     arith_work      ; divisor >>= 1
+(1)    1383 :                    udiv16_enter_loop:
+(1)    1383 : C5 10                      cmp     arith_work
+(1)    1385 : 90 02                      bcc     udiv16_next     ; if dividend < divisor
+(1)    1387 : E5 10                      sbc     arith_work      ; dividend -= divisor
+(1)    1389 :                    udiv16_next:
+(1)    1389 : 26 12                      rol     arith_work+2    ; quotient = quotient<<1 | C
+(1)    138B : CA                         dex
+(1)    138C : D0 F3                      bne     udiv16_loop     ; while bits != 0
+(1)    138E : A8                         tay                     ; Y=remainder
+(1)    138F :                    udiv16_zero:
+(1)    138F : A6 12                      ldx     arith_work+2    ; X=quotient
+(1)    1391 : 60                         rts
+(1)    1392 :
+(1)    1392 :                    ;;; Division: dividend / divisor = quotient ... remainder
+(1)    1392 :                    ;;; @param X dividend
+(1)    1392 :                    ;;; @param Y divisor
+(1)    1392 :                    ;;; @return X quotient
+(1)    1392 :                    ;;; @return Y remainder
+(1)    1392 :                    ;;; @clobber C
+(1)    1392 :                            longa   on
+(1)    1392 :                    div16:
+(1)    1392 : 5A                         phy                     ; save divisor
+(1)    1393 : 8A                         txa
+(1)    1394 : 43 01                      eor     1,S
+(1)    1396 : 83 01                      sta     1,S             ; save (dividend^divisor)
+(1)    1398 : 98                         tya
+(1)    1399 : 10 05                      bpl     div16_dividend
+(1)    139B : 49 FF FF                   eor     #$FFFF
+(1)    139E : 1A                         inc     A
+(1)    139F : A8                         tay                     ; negate divisor
+(1)    13A0 :                    div16_dividend:
+(1)    13A0 : 8A                         txa
+(1)    13A1 : 10 05                      bpl     div16_multiply
+(1)    13A3 : 49 FF FF                   eor     #$FFFF
+(1)    13A6 : 1A                         inc     A
+(1)    13A7 : AA                         tax                     ; negate dividend
+(1)    13A8 :                    div16_multiply:
+(1)    13A8 : 20 14 13                   jsr     udiv16          ; R0=result
+(1)    13AB : 68                         pla                     ; A=(dividend^divisor)
+(1)    13AC : 10 06                      bpl     div16_return
+(1)    13AE : 8A                         txa
+(1)    13AF : 49 FF FF                   eor     #$FFFF
+(1)    13B2 : 1A                         inc     A
+(1)    13B3 : AA                         tax                     ; negate result
+(1)    13B4 :                    div16_return:
+(1)    13B4 : 60                         rts
