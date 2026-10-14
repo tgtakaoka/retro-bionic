@@ -189,6 +189,9 @@ Signals *PinsMc68HC05C0::completeCycle(Signals *signals) {
     osc1_hi();
     auto s = static_cast<SignalsMc68HC05C0 *>(signals);
     if (s->write()) {
+        // An IRQ pushes before reading its vector; a Dx fetch it discarded
+        // must not leave the vector's low byte undriven
+        _dummyIn = 0;
         s->getData();
         delayNanoseconds(c3_hi_write);
         // c4
