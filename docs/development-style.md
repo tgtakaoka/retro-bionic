@@ -1682,6 +1682,13 @@ One table serves the whole family, and the profile
 `TRAP n` makes two bus cycles, its vector reads, which `tms7000.txt` had
 as none.
 
+An interrupt pending at a halt was taken at the save's first fetch and fed
+the injected bytes to its vector reads. `park()` runs `JMP $` there until it
+has run twice without one, or an entry shows and the save starts at the
+handler. The entry is an acknowledge cycle at address 0 and two vector
+reads, but a TMS70C02 can be at the vector reads already at the halt, so a
+read at FFD0 or above counts too. **[hw]**
+
 ### Z8
 
 **Pitfalls.** The stack is external, and the tables must see

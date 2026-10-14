@@ -554,7 +554,8 @@ uint16_t PinsTms7000::execute(const uint8_t *inst, uint8_t len, uint8_t *buf,
     uint8_t inj = 0;
     uint8_t cap = 0;
     while (inj < len || cap < max) {
-        auto s = prepareCycle();
+        auto s = _parked ? _parked : prepareCycle();
+        _parked = nullptr;
         if (inj < len)
             s->inject(inst[inj]);
         if (cap < max)
@@ -571,6 +572,39 @@ uint16_t PinsTms7000::execute(const uint8_t *inst, uint8_t len, uint8_t *buf,
         }
     }
     return addr;
+}
+
+// JMP $ runs without an interrupt this many times before a save: one
+// pending at the halt is taken at the first boundary, and one recognized a
+// boundary late at the second.
+constexpr auto park_jumps = 2;
+
+// An interrupt entry shows only an acknowledge cycle and its two vector
+// reads, with the stack on chip, and the TMS70C02 can be at the vector reads
+// already at the halt. JMP $ runs at the halt until it has run park_jumps
+// times without one, or an interrupt is taken, which masks the rest: the
+// save then starts at the handler's fetch, with the program's PC and ST
+// stacked.
+void PinsTms7000::park() {
+    auto s = prepareCycle();
+    for (auto jumps = 0;; ++jumps) {
+        if (s->intack()) {
+            completeCycle(s);
+            s = prepareCycle();
+        }
+        if (s->read() && s->addr >= InstTms7000::VEC_TRAP23) {
+            completeCycle(s);  // lo(vector)
+            cycle();           // hi(vector)
+            s = prepareCycle();
+            break;
+        }
+        if (jumps == park_jumps)
+            break;
+        completeCycle(s->inject(InstTms7000::JMP));
+        inject(InstTms7000::JMP_HERE);
+        s = prepareCycle();
+    }
+    _parked = s;
 }
 
 void PinsTms7000::idle() {
