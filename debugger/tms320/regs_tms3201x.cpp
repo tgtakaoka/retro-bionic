@@ -95,6 +95,7 @@ void RegsTms3201X::save() {
     // restore working memory for ST
     _pins->injectRead(InstTms3201X::IN(0, INDIR_AR));
     _pins->injectRead(save);  // restore work memory
+    _pins->injectRead(InstTms3201X::DINT);
 }
 
 void RegsTms3201X::loadReg(
@@ -130,6 +131,9 @@ void RegsTms3201X::restore() {
     // restore working memory
     _pins->injectRead(InstTms3201X::IN(0, DIR_DMA));
     _pins->injectRead(tmp);
+    // LST leaves INTM alone; EINT takes effect after B
+    _pins->injectRead((_st & InstTms3201X::ST_INTM) ? InstTms3201X::DINT
+                                                    : InstTms3201X::EINT);
     // restore PC
     _pins->injectRead(InstTms3201X::B);
     _pins->injectRead(_pc);
