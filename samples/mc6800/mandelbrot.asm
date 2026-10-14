@@ -17,6 +17,22 @@ vS:     rmb     2
 vP:     rmb     2
 vQ:     rmb     2
 vT:     rmb     2
+signAB: rmb     1               ; sign of A*B in bit 7
+;;; Pointers into sqql, sqqh and sqr; the low bytes are |A|, |B| and
+;;; E=||A|-|B||
+pAql:   rmb     2
+pAqh:   rmb     2
+pAr:    rmb     2
+pBql:   rmb     2
+pBqh:   rmb     2
+pBr:    rmb     2
+pEql:   rmb     2
+pEqh:   rmb     2
+pEr:    rmb     2
+pCl:    rmb     2               ; pointers into cl and ch; the low byte is X
+pCh:    rmb     2
+absA:   equ     pAql+1
+absB:   equ     pBql+1
 vY:     rmb     1
 vX:     rmb     1
 vI:     rmb     1
@@ -32,6 +48,14 @@ R2:
 R2H:    rmb     1
 R2L:    rmb     1
 sign:   rmb     1
+
+        org     $0800
+;;; Tables for mandelbrot.inc, n*n=F*q+r for n=0 to 3F-1, filled at startup
+sqql:   rmb     256             ; low bytes of q
+sqqh:   rmb     256             ; high bytes of q
+sqr:    rmb     256             ; r
+cl:     rmb     256             ; low bytes of C=X*229/100 for X=-128 to 127
+ch:     rmb     256             ; high bytes of C
 
         org     $2000
 rx_queue_size:  equ     128
@@ -66,6 +90,7 @@ initialize:
         ldx     #tx_queue
         ldab    #tx_queue_size
         jsr     queue_init
+        jsr     tables_init
         ;; initialize ACIA
         ldaa    #CDS_RESET_gc   ; master reset
         staa    ACIA_control
