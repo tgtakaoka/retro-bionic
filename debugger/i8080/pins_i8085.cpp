@@ -313,7 +313,7 @@ Signals *PinsI8085::loop() const {
             Cycles::discard(halt);
             return halt;
         }
-        if (haltSwitch() && s->fetch()) {
+        if (s->fetch() && haltSwitch()) {
             negate_ready();
             return nullptr;
         }

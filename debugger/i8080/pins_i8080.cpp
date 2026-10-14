@@ -378,7 +378,8 @@ Signals *PinsI8080::loop() const {
             Cycles::discard(halt);
             return halt;
         }
-        if (haltSwitch() && s->fetch()) {
+        // The 8080's interrupt acknowledge is an M1 cycle too
+        if (s->fetch() && !s->intAck() && haltSwitch()) {
             enterWait();
             return nullptr;
         }

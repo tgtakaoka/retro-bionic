@@ -11,10 +11,8 @@ struct RegsI8085 final : i8080::RegsI8080 {
 
     const char *cpu() const override;
 
+    void save() override;
     void saveContext(uint16_t pc);
-
-protected:
-    bool ie() const override;
 };
 
 }  // namespace i8085
