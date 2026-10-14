@@ -29,6 +29,7 @@ struct InstMc6809 : MatchWalker::Arch {
     static constexpr uint8_t SWI = 0x3F;
 
     virtual uint16_t vec_swi() const { return 0xFFFA; }
+    static constexpr uint16_t VEC_NMI = 0xFFFC;
     static constexpr uint16_t VEC_RESET = 0xFFFE;
 
     // Keeps the board's bus alive while a walk goes, if set.

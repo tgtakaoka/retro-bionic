@@ -35,6 +35,10 @@ void negate_firq() {
     digitalWriteFast(PIN_FIRQ, HIGH);
 }
 
+inline bool asserted(uint8_t pin) {
+    return (*portOutputRegister(pin) & digitalPinToBitMask(pin)) == 0;
+}
+
 }  // namespace
 
 void PinsMc6809Base::resetPins() {
@@ -188,8 +192,9 @@ reentry:
         }
     }
     negate_nmi();
-    if (s->addr == _inst->vec_swi()) {
-        cycle();  // SWI lo(vector)
+    if (s->addr != InstMc6809::VEC_NMI) {
+        // SWI or an interrupt got in first; NMI follows at its handler.
+        cycle();  // lo(vector)
         cycle();  // non-VMA
         goto reentry;
     }
@@ -231,6 +236,19 @@ bool PinsMc6809Base::step(bool show) {
     _regs->restore();
     if (show)
         Cycles::reset();
+    // With IRQ or FIRQ pending and unmasked, its entry begins right after
+    // the restoring RTI; the step's NMI would win and stay in place.
+    const auto r = regs<RegsMc6809>();
+    if ((asserted(PIN_IRQ) && !r->irqMasked()) ||
+            (asserted(PIN_FIRQ) && !r->firqMasked())) {
+        for (auto n = 0; n < SUSPEND_CYCLES; ++n) {
+            if (cycle()->vector()) {  // hi(vector)
+                cycle();              // lo(vector)
+                cycle();              // non-VMA
+                break;
+            }
+        }
+    }
     suspend(show);
     if (show) {
         // Discard prefetch cycle.
