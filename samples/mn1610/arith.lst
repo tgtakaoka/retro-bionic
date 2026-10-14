@@ -82,12 +82,12 @@
           8 : 0218               I_putchar:      dc      putchar
           9 : 0215               I_newline:      dc      newline
           A : 021F               I_print_int16:  dc      print_int16
-          B : 026C               I_mul16:        dc      mul16
+          B : 0343               I_mul16:        dc      mul16
           C : 0249               I_div16:        dc      div16
-          D : 02A3               I_arith:        dc      arith
-          E : 027D               I_expr:         dc      expr
-          F : 028F               I_answer:       dc      answer
-         10 : 0298               I_comp:         dc      comp
+          D : 0407               I_arith:        dc      arith
+          E : 03E1               I_expr:         dc      expr
+          F : 03F3               I_answer:       dc      answer
+         10 : 03FC               I_comp:         dc      comp
          11 :
         200 :                            loc     X'0200'
         200 : =1FF               stack:  equ     *-1
@@ -229,401 +229,787 @@
 (1)     25E :                    *** @param R1 dividend
 (1)     25E :                    *** @param R2 divisor
 (1)     25E :                    *** @return R1 quotient
-(1)     25E :                    *** @clobber R0 R2 STR.15
+(1)     25E :                    *** @clobber R0
 (1)     25E :                    divu16:
-(1)     25E : 360F                       rbit    STR, 15         clear STR.15
-(1)     25F : 2950                       tbit    R1, 0, nz       skip if msb(dividend)=1
-(1)     260 : CF05                       b       divu16_divide
-(1)     261 : 3E0F                       sbit    STR, 15         set STR.15
-(1)     262 : 6000                       eor     R0, R0
-(1)     263 : 5801                       s       R0, R1
-(1)     264 : 7908                       mv      R1, R0          negate dividend
-(1)     265 :                    divu16_divide:
-(1)     265 : 8FCE                       bal     udiv16
-(1)     266 : 2E5F                       tbit    STR, 15, nz     skip if quotient must be negated
-(1)     267 : CF03                       b       divu16_return
-(1)     268 : 6101                       eor     R1, R1
-(1)     269 : 5910                       s       R1, R0, skp     negate quotient
-(1)     26A :                    divu16_return:
-(1)     26A : 7908                       mv      R1, R0
-(1)     26B : 2003                       ret
-(1)     26C :
-(1)     26C :                    *** Signed Multiply: multiplicand * multiplier = product
-(1)     26C :                    *** @param R1 multiplicand
-(1)     26C :                    *** @param R2 multiplier
-(1)     26C :                    *** @return R1 product
-(1)     26C :                    *** @clobber R0 R2
-(1)     26C :                    mul16:
-(1)     26C : 2A50                       tbit    R2, 0, nz       skip if msb(multiplier)=1
-(1)     26D : CF07                       b       umul16
-(1)     26E : 6000                       eor     R0, R0
-(1)     26F : 5802                       s       R0, R2
-(1)     270 : 7A08                       mv      R2, R0          negate multiplier
-(1)     271 : 6000                       eor     R0, R0
-(1)     272 : 5801                       s       R0, R1
-(1)     273 : 7908                       mv      R1, R0          negate multiplicand
-(1)     274 :                    *** Unsigned Multiply: multiplicand * multiplier = product
-(1)     274 :                    *** @param R1 multiplicand
-(1)     274 :                    *** @param R2 multiplier
-(1)     274 :                    *** @return R1 product
-(1)     274 :                    *** @clobber R0 R2
-(1)     274 :                    umul16:
-(1)     274 : 6000                       eor     R0, R0          product=0
-(1)     275 : CF04                       b       umul16_enter_loop
-(1)     276 :                    umul16_loop:
-(1)     276 : 2289                       sr      R2, re, ez      multiplier>>=1, skip if lsb(multiplier)=0
-(1)     277 : 5809                       a       R0, R1          product+=multiplicand
-(1)     278 : 210D                       sl      R1, re          multiplicand<<=1
-(1)     279 :                    umul16_enter_loop:
-(1)     279 : 624A                       or      R2, R2, z       skip if multiplier=0
-(1)     27A : CFFC                       b       umul16_loop
-(1)     27B : 7908                       mv      R1, R0
-(1)     27C : 2003                       ret
-        27D :
-        27D :                    *** Print "VA op VB"
-        27D :                    *** @param R0 op letter
-        27D :                    *** @param R1 VA
-        27D :                    *** @param R2 VB
-        27D :                    *** @clobber R0
-        27D :                    expr:
-        27D : 2101                       push    R1
-        27E : 2201                       push    R2
-        27F : 2001                       push    R0
-        280 : 7809                       mv      R0, R1
-        281 : 970A                       bal     (I_print_int16) print VA
-        282 : 0820                       mvi     R0, ' '
-        283 : 9708                       bal     (I_putchar)     print ' '
-        284 : 2002                       pop     R0
-        285 : 9708                       bal     (I_putchar)     print op
-        286 : 0820                       mvi     R0, ' '
-        287 : 9708                       bal     (I_putchar)     print ' '
-        288 : 2202                       pop     R2
-        289 : 2201                       push    R2
-        28A : 780A                       mv      R0, R2
-        28B : 970A                       bal     (I_print_int16) print VB
-        28C : 2202                       pop     R2
-        28D : 2102                       pop     R1
-        28E : 2003                       ret
-        28F :
-        28F :                    *** Print " = value\n"
-        28F :                    *** @param R1 value
-        28F :                    *** @clobber R1
-        28F :                    answer:
-        28F : 0820                       mvi     R0, ' '
-        290 : 9708                       bal     (I_putchar)     print ' '
-        291 : 083D                       mvi     R0, '='
-        292 : 9708                       bal     (I_putchar)     print '='
-        293 : 0820                       mvi     R0, ' '
-        294 : 9708                       bal     (I_putchar)     print ' '
-        295 : 7809                       mv      R0, R1
-        296 : 970A                       bal     (I_print_int16) print value
-        297 : D709                       b       (I_newline)
-        298 :
-        298 :                    *** Print "VA rel VB\n"
-        298 :                    *** @param R1 VA
-        298 :                    *** @param R2 VB
-        298 :                    *** @clobber R0
-        298 :                    comp:
-        298 : 516A                       c       R1, R2, mz      skip if VA<=VB
-        299 : CF05                       b       comp_gt
-        29A : 514A                       c       R1, R2, z       skip if VA==VB
-        29B : CF05                       b       comp_lt
-        29C :                    comp_eq:
-        29C : 083D                       mvi     R0, '='
-        29D : CF04                       b       comp_out
-        29E :                    comp_gt:
-        29E : 083E                       mvi     R0, '>'
-        29F : CF02                       b       comp_out
-        2A0 :                    comp_lt:
-        2A0 : 083C                       mvi     R0, '<'
-        2A1 :                    comp_out:
-        2A1 : 8FDC                       bal     expr            print "VA rel VB"
-        2A2 : D709                       b       (I_newline)
-        2A3 :
-        2A3 :                    arith:
-        2A3 : 0946                       mvi     R1, hi(18000)
-        2A4 : 7109                       bswp    R1, R1
-        2A5 : 0950                       mvi     R1, lo(18000)
-        2A6 : 0A6D                       mvi     R2, hi(28000)
-        2A7 : 720A                       bswp    R2, R2
-        2A8 : 0A60                       mvi     R2, lo(28000)
-        2A9 : 082B                       mvi     R0, '+'
-        2AA : 8FD3                       bal     expr
-        2AB : 590A                       a       R1, R2          R1+=R2
-        2AC : 8FE3                       bal     answer          ; -19536
-        2AD :
-        2AD : 0946                       mvi     R1, hi(18000)
-        2AE : 7109                       bswp    R1, R1
-        2AF : 0950                       mvi     R1, lo(18000)
-        2B0 : 0AB9                       mvi     R2, hi(-18000)
-        2B1 : 720A                       bswp    R2, R2
-        2B2 : 0AB0                       mvi     R2, lo(-18000)
-        2B3 : 082B                       mvi     R0, '+'
-        2B4 : 8FC9                       bal     expr
-        2B5 : 590A                       a       R1, R2          R1+=R2
-        2B6 : 8FD9                       bal     answer          ; 0
-        2B7 :
-        2B7 : 09B9                       mvi     R1, hi(-18000)
-        2B8 : 7109                       bswp    R1, R1
-        2B9 : 09B0                       mvi     R1, lo(-18000)
-        2BA : 0AB9                       mvi     R2, hi(-18000)
-        2BB : 720A                       bswp    R2, R2
-        2BC : 0AB0                       mvi     R2, lo(-18000)
-        2BD : 082B                       mvi     R0, '+'
-        2BE : 8FBF                       bal     expr
-        2BF : 590A                       a       R1, R2          R1+=R2
-        2C0 : 8FCF                       bal     answer          ; 29536
-        2C1 :
-        2C1 : 09B9                       mvi     R1, hi(-18000)
-        2C2 : 7109                       bswp    R1, R1
-        2C3 : 09B0                       mvi     R1, lo(-18000)
-        2C4 : 0A92                       mvi     R2, hi(-28000)
-        2C5 : 720A                       bswp    R2, R2
-        2C6 : 0AA0                       mvi     R2, lo(-28000)
-        2C7 : 082D                       mvi     R0, '-'
-        2C8 : 8FB5                       bal     expr
-        2C9 : 5902                       s       R1, R2          R1-=R2
-        2CA : 8FC5                       bal     answer          ; 10000
-        2CB :
-        2CB : 0946                       mvi     R1, hi(18000)
-        2CC : 7109                       bswp    R1, R1
-        2CD : 0950                       mvi     R1, lo(18000)
-        2CE : 0AB9                       mvi     R2, hi(-18000)
-        2CF : 720A                       bswp    R2, R2
-        2D0 : 0AB0                       mvi     R2, lo(-18000)
-        2D1 : 082D                       mvi     R0, '-'
-        2D2 : 8FAB                       bal     expr
-        2D3 : 5902                       s       R1, R2          R1-=R2
-        2D4 : 8FBB                       bal     answer          ; -29536
-        2D5 :
-        2D5 : 0992                       mvi     R1, hi(-28000)
-        2D6 : 7109                       bswp    R1, R1
-        2D7 : 09A0                       mvi     R1, lo(-28000)
-        2D8 : 0AB9                       mvi     R2, hi(-18000)
-        2D9 : 720A                       bswp    R2, R2
-        2DA : 0AB0                       mvi     R2, lo(-18000)
-        2DB : 082D                       mvi     R0, '-'
-        2DC : 8FA1                       bal     expr
-        2DD : 5902                       s       R1, R2          R1-=R2
-        2DE : 8FB1                       bal     answer          ; -10000
-        2DF :
-        2DF : 0900                       mvi     R1, hi(100)
-        2E0 : 7109                       bswp    R1, R1
-        2E1 : 0964                       mvi     R1, lo(100)
-        2E2 : 0A01                       mvi     R2, hi(300)
-        2E3 : 720A                       bswp    R2, R2
-        2E4 : 0A2C                       mvi     R2, lo(300)
-        2E5 : 082A                       mvi     R0, '*'
-        2E6 : 8F97                       bal     expr
-        2E7 : 970B                       bal     (I_mul16)
-        2E8 : 8FA7                       bal     answer          ; 30000
-        2E9 :
-        2E9 : 0900                       mvi     R1, hi(200)
-        2EA : 7109                       bswp    R1, R1
-        2EB : 09C8                       mvi     R1, lo(200)
-        2EC : 0A00                       mvi     R2, hi(100)
-        2ED : 720A                       bswp    R2, R2
-        2EE : 0A64                       mvi     R2, lo(100)
-        2EF : 082A                       mvi     R0, '*'
-        2F0 : 8F8D                       bal     expr
-        2F1 : 970B                       bal     (I_mul16)
-        2F2 : 8F9D                       bal     answer          ; 20000
-        2F3 :
-        2F3 : 0901                       mvi     R1, hi(300)
-        2F4 : 7109                       bswp    R1, R1
-        2F5 : 092C                       mvi     R1, lo(300)
-        2F6 : 0AFF                       mvi     R2, hi(-200)
-        2F7 : 720A                       bswp    R2, R2
-        2F8 : 0A38                       mvi     R2, lo(-200)
-        2F9 : 082A                       mvi     R0, '*'
-        2FA : 8F83                       bal     expr
-        2FB : 970B                       bal     (I_mul16)
-        2FC : 8F93                       bal     answer          ; 5536
-        2FD :
-        2FD : 0900                       mvi     R1, hi(100)
-        2FE : 7109                       bswp    R1, R1
-        2FF : 0964                       mvi     R1, lo(100)
-        300 : 0AFE                       mvi     R2, hi(-300)
-        301 : 720A                       bswp    R2, R2
-        302 : 0AD4                       mvi     R2, lo(-300)
-        303 : 082A                       mvi     R0, '*'
-        304 : 970E                       bal     (I_expr)
-        305 : 970B                       bal     (I_mul16)
-        306 : 8F89                       bal     answer          ; -30000
-        307 :
-        307 : 09FF                       mvi     R1, hi(-200)
-        308 : 7109                       bswp    R1, R1
-        309 : 0938                       mvi     R1, lo(-200)
-        30A : 0AFF                       mvi     R2, hi(-100)
-        30B : 720A                       bswp    R2, R2
-        30C : 0A9C                       mvi     R2, lo(-100)
-        30D : 082A                       mvi     R0, '*'
-        30E : 970E                       bal     (I_expr)
-        30F : 970B                       bal     (I_mul16)
-        310 : 970F                       bal     (I_answer)      ; 20000
-        311 :
-        311 : 0975                       mvi     R1, hi(30000)
-        312 : 7109                       bswp    R1, R1
-        313 : 0930                       mvi     R1, lo(30000)
-        314 : 0A00                       mvi     R2, hi(100)
-        315 : 720A                       bswp    R2, R2
-        316 : 0A64                       mvi     R2, lo(100)
-        317 : 082F                       mvi     R0, '/'
-        318 : 970E                       bal     (I_expr)
-        319 : 970C                       bal     (I_div16)
-        31A : 970F                       bal     (I_answer)      ; 300
-        31B :
-        31B : 09FF                       mvi     R1, hi(-200)
-        31C : 7109                       bswp    R1, R1
-        31D : 0938                       mvi     R1, lo(-200)
-        31E : 0A00                       mvi     R2, hi(100)
-        31F : 720A                       bswp    R2, R2
-        320 : 0A64                       mvi     R2, lo(100)
-        321 : 082F                       mvi     R0, '/'
-        322 : 970E                       bal     (I_expr)
-        323 : 970C                       bal     (I_div16)
-        324 : 970F                       bal     (I_answer)      ; -2
-        325 :
-        325 : 098A                       mvi     R1, hi(-30000)
-        326 : 7109                       bswp    R1, R1
-        327 : 09D0                       mvi     R1, lo(-30000)
-        328 : 0AFF                       mvi     R2, hi(-200)
-        329 : 720A                       bswp    R2, R2
-        32A : 0A38                       mvi     R2, lo(-200)
-        32B : 082F                       mvi     R0, '/'
-        32C : 970E                       bal     (I_expr)
-        32D : 970C                       bal     (I_div16)
-        32E : 970F                       bal     (I_answer)      ; 150
-        32F :
-        32F : 098A                       mvi     R1, hi(-30000)
-        330 : 7109                       bswp    R1, R1
-        331 : 09D0                       mvi     R1, lo(-30000)
-        332 : 0A00                       mvi     R2, hi(78)
-        333 : 720A                       bswp    R2, R2
-        334 : 0A4E                       mvi     R2, lo(78)
-        335 : 082F                       mvi     R0, '/'
-        336 : 970E                       bal     (I_expr)
-        337 : 970C                       bal     (I_div16)
-        338 : 970F                       bal     (I_answer)      ; -384
-        339 :
-        339 : 0913                       mvi     R1, hi(5000)
-        33A : 7109                       bswp    R1, R1
-        33B : 0988                       mvi     R1, lo(5000)
-        33C : 0A0F                       mvi     R2, hi(4000)
-        33D : 720A                       bswp    R2, R2
-        33E : 0AA0                       mvi     R2, lo(4000)
-        33F : 9710                       bal     (I_comp)
-        340 :
-        340 : 0913                       mvi     R1, hi(5000)
-        341 : 7109                       bswp    R1, R1
-        342 : 0988                       mvi     R1, lo(5000)
-        343 : 0A13                       mvi     R2, hi(5000)
-        344 : 720A                       bswp    R2, R2
-        345 : 0A88                       mvi     R2, lo(5000)
-        346 : 9710                       bal     (I_comp)
-        347 :
-        347 : 090F                       mvi     R1, hi(4000)
-        348 : 7109                       bswp    R1, R1
-        349 : 09A0                       mvi     R1, lo(4000)
-        34A : 0A13                       mvi     R2, hi(5000)
-        34B : 720A                       bswp    R2, R2
-        34C : 0A88                       mvi     R2, lo(5000)
-        34D : 9710                       bal     (I_comp)
-        34E :
-        34E : 09EC                       mvi     R1, hi(-5000)
-        34F : 7109                       bswp    R1, R1
-        350 : 0978                       mvi     R1, lo(-5000)
-        351 : 0AF0                       mvi     R2, hi(-4000)
-        352 : 720A                       bswp    R2, R2
-        353 : 0A60                       mvi     R2, lo(-4000)
-        354 : 9710                       bal     (I_comp)
-        355 :
-        355 : 09EC                       mvi     R1, hi(-5000)
-        356 : 7109                       bswp    R1, R1
-        357 : 0978                       mvi     R1, lo(-5000)
-        358 : 0AEC                       mvi     R2, hi(-5000)
-        359 : 720A                       bswp    R2, R2
-        35A : 0A78                       mvi     R2, lo(-5000)
-        35B : 9710                       bal     (I_comp)
-        35C :
-        35C : 09F0                       mvi     R1, hi(-4000)
-        35D : 7109                       bswp    R1, R1
-        35E : 0960                       mvi     R1, lo(-4000)
-        35F : 0AEC                       mvi     R2, hi(-5000)
-        360 : 720A                       bswp    R2, R2
-        361 : 0A78                       mvi     R2, lo(-5000)
-        362 : 9710                       bal     (I_comp)
-        363 :
-        363 : 097F                       mvi     R1, hi(32700)
-        364 : 7109                       bswp    R1, R1
-        365 : 09BC                       mvi     R1, lo(32700)
-        366 : 0A7F                       mvi     R2, hi(32600)
-        367 : 720A                       bswp    R2, R2
-        368 : 0A58                       mvi     R2, lo(32600)
-        369 : 9710                       bal     (I_comp)
-        36A :
-        36A : 097F                       mvi     R1, hi(32700)
-        36B : 7109                       bswp    R1, R1
-        36C : 09BC                       mvi     R1, lo(32700)
-        36D : 0A7F                       mvi     R2, hi(32700)
-        36E : 720A                       bswp    R2, R2
-        36F : 0ABC                       mvi     R2, lo(32700)
-        370 : 9710                       bal     (I_comp)
-        371 :
-        371 : 097F                       mvi     R1, hi(32600)
-        372 : 7109                       bswp    R1, R1
-        373 : 0958                       mvi     R1, lo(32600)
-        374 : 0A7F                       mvi     R2, hi(32700)
-        375 : 720A                       bswp    R2, R2
-        376 : 0ABC                       mvi     R2, lo(32700)
-        377 : 9710                       bal     (I_comp)
-        378 :
-        378 : 0980                       mvi     R1, hi(-32700)
-        379 : 7109                       bswp    R1, R1
-        37A : 0944                       mvi     R1, lo(-32700)
-        37B : 0A80                       mvi     R2, hi(-32600)
-        37C : 720A                       bswp    R2, R2
-        37D : 0AA8                       mvi     R2, lo(-32600)
-        37E : 9710                       bal     (I_comp)
-        37F :
-        37F : 0980                       mvi     R1, hi(-32700)
-        380 : 7109                       bswp    R1, R1
-        381 : 0944                       mvi     R1, lo(-32700)
-        382 : 0A80                       mvi     R2, hi(-32700)
-        383 : 720A                       bswp    R2, R2
-        384 : 0A44                       mvi     R2, lo(-32700)
-        385 : 9710                       bal     (I_comp)
-        386 :
-        386 : 0980                       mvi     R1, hi(-32600)
-        387 : 7109                       bswp    R1, R1
-        388 : 09A8                       mvi     R1, lo(-32600)
-        389 : 0A80                       mvi     R2, hi(-32700)
-        38A : 720A                       bswp    R2, R2
-        38B : 0A44                       mvi     R2, lo(-32700)
-        38C : 9710                       bal     (I_comp)
-        38D :
-        38D : 0946                       mvi     R1, hi(18000)
-        38E : 7109                       bswp    R1, R1
-        38F : 0950                       mvi     R1, lo(18000)
-        390 : 0A92                       mvi     R2, hi(-28000)
-        391 : 720A                       bswp    R2, R2
-        392 : 0AA0                       mvi     R2, lo(-28000)
-        393 : 9710                       bal     (I_comp)
-        394 :
-        394 : 0992                       mvi     R1, hi(-28000)
-        395 : 7109                       bswp    R1, R1
-        396 : 09A0                       mvi     R1, lo(-28000)
-        397 : 0A92                       mvi     R2, hi(-28000)
-        398 : 720A                       bswp    R2, R2
-        399 : 0AA0                       mvi     R2, lo(-28000)
-        39A : 9710                       bal     (I_comp)
-        39B :
-        39B : 0992                       mvi     R1, hi(-28000)
-        39C : 7109                       bswp    R1, R1
-        39D : 09A0                       mvi     R1, lo(-28000)
-        39E : 0A46                       mvi     R2, hi(18000)
-        39F : 720A                       bswp    R2, R2
-        3A0 : 0A50                       mvi     R2, lo(18000)
-        3A1 : 9710                       bal     (I_comp)
-        3A2 :
-        3A2 : 2003                       ret
+(1)     25E : 6000                       eor     R0, R0          quotient=0
+(1)     25F : 2940                       tbit    R1, 0, z        skip if dividend>=0
+(1)     260 : CF6C                       b       divu16_neg
+(1)     261 : 51FA                       c       R1, R2, lm      skip if dividend<divisor
+(1)     262 : CF03                       b       divu16_shift
+(1)     263 : 7908                       mv      R1, R0          quotient=0
+(1)     264 : 2003                       ret
+(1)     265 :                    *** Shift divisor up until it exceeds dividend, then enter the step
+(1)     265 :                    *** that shifts it back down; dividend<X'8000' bounds this to 14.
+(1)     265 :                    divu16_shift:
+(1)     265 : 220D                       sl      R2, re          divisor<<=1
+(1)     266 : 51EA                       c       R1, R2, lpz     skip if dividend>=divisor
+(1)     267 : CF5F                       b       divu16_1
+(1)     268 : 220D                       sl      R2, re
+(1)     269 : 51EA                       c       R1, R2, lpz
+(1)     26A : CF58                       b       divu16_2
+(1)     26B : 220D                       sl      R2, re
+(1)     26C : 51EA                       c       R1, R2, lpz
+(1)     26D : CF51                       b       divu16_3
+(1)     26E : 220D                       sl      R2, re
+(1)     26F : 51EA                       c       R1, R2, lpz
+(1)     270 : CF4A                       b       divu16_4
+(1)     271 : 220D                       sl      R2, re
+(1)     272 : 51EA                       c       R1, R2, lpz
+(1)     273 : CF43                       b       divu16_5
+(1)     274 : 220D                       sl      R2, re
+(1)     275 : 51EA                       c       R1, R2, lpz
+(1)     276 : CF3C                       b       divu16_6
+(1)     277 : 220D                       sl      R2, re
+(1)     278 : 51EA                       c       R1, R2, lpz
+(1)     279 : CF35                       b       divu16_7
+(1)     27A : 220D                       sl      R2, re
+(1)     27B : 51EA                       c       R1, R2, lpz
+(1)     27C : CF2E                       b       divu16_8
+(1)     27D : 220D                       sl      R2, re
+(1)     27E : 51EA                       c       R1, R2, lpz
+(1)     27F : CF27                       b       divu16_9
+(1)     280 : 220D                       sl      R2, re
+(1)     281 : 51EA                       c       R1, R2, lpz
+(1)     282 : CF20                       b       divu16_10
+(1)     283 : 220D                       sl      R2, re
+(1)     284 : 51EA                       c       R1, R2, lpz
+(1)     285 : CF19                       b       divu16_11
+(1)     286 : 220D                       sl      R2, re
+(1)     287 : 51EA                       c       R1, R2, lpz
+(1)     288 : CF12                       b       divu16_12
+(1)     289 : 220D                       sl      R2, re
+(1)     28A : 51EA                       c       R1, R2, lpz
+(1)     28B : CF0B                       b       divu16_13
+(1)     28C : 220D                       sl      R2, re
+(1)     28D : 51EA                       c       R1, R2, lpz
+(1)     28E : CF04                       b       divu16_14
+(1)     28F :                    *** One restoring step per quotient bit, each setting its own bit.
+(1)     28F : 59F2                       s       R1, R2, lm      dividend-=divisor, skip if borrow
+(1)     290 : 3811                       sbit    R0, 1, skp      set quotient bit, skip the restore
+(1)     291 : 590A                       a       R1, R2          restore dividend
+(1)     292 :                    divu16_14:
+(1)     292 : 2209                       sr      R2, re          divisor>>=1
+(1)     293 : 59F2                       s       R1, R2, lm
+(1)     294 : 3812                       sbit    R0, 2, skp
+(1)     295 : 590A                       a       R1, R2
+(1)     296 :                    divu16_13:
+(1)     296 : 2209                       sr      R2, re
+(1)     297 : 59F2                       s       R1, R2, lm
+(1)     298 : 3813                       sbit    R0, 3, skp
+(1)     299 : 590A                       a       R1, R2
+(1)     29A :                    divu16_12:
+(1)     29A : 2209                       sr      R2, re
+(1)     29B : 59F2                       s       R1, R2, lm
+(1)     29C : 3814                       sbit    R0, 4, skp
+(1)     29D : 590A                       a       R1, R2
+(1)     29E :                    divu16_11:
+(1)     29E : 2209                       sr      R2, re
+(1)     29F : 59F2                       s       R1, R2, lm
+(1)     2A0 : 3815                       sbit    R0, 5, skp
+(1)     2A1 : 590A                       a       R1, R2
+(1)     2A2 :                    divu16_10:
+(1)     2A2 : 2209                       sr      R2, re
+(1)     2A3 : 59F2                       s       R1, R2, lm
+(1)     2A4 : 3816                       sbit    R0, 6, skp
+(1)     2A5 : 590A                       a       R1, R2
+(1)     2A6 :                    divu16_9:
+(1)     2A6 : 2209                       sr      R2, re
+(1)     2A7 : 59F2                       s       R1, R2, lm
+(1)     2A8 : 3817                       sbit    R0, 7, skp
+(1)     2A9 : 590A                       a       R1, R2
+(1)     2AA :                    divu16_8:
+(1)     2AA : 2209                       sr      R2, re
+(1)     2AB : 59F2                       s       R1, R2, lm
+(1)     2AC : 3818                       sbit    R0, 8, skp
+(1)     2AD : 590A                       a       R1, R2
+(1)     2AE :                    divu16_7:
+(1)     2AE : 2209                       sr      R2, re
+(1)     2AF : 59F2                       s       R1, R2, lm
+(1)     2B0 : 3819                       sbit    R0, 9, skp
+(1)     2B1 : 590A                       a       R1, R2
+(1)     2B2 :                    divu16_6:
+(1)     2B2 : 2209                       sr      R2, re
+(1)     2B3 : 59F2                       s       R1, R2, lm
+(1)     2B4 : 381A                       sbit    R0, 10, skp
+(1)     2B5 : 590A                       a       R1, R2
+(1)     2B6 :                    divu16_5:
+(1)     2B6 : 2209                       sr      R2, re
+(1)     2B7 : 59F2                       s       R1, R2, lm
+(1)     2B8 : 381B                       sbit    R0, 11, skp
+(1)     2B9 : 590A                       a       R1, R2
+(1)     2BA :                    divu16_4:
+(1)     2BA : 2209                       sr      R2, re
+(1)     2BB : 59F2                       s       R1, R2, lm
+(1)     2BC : 381C                       sbit    R0, 12, skp
+(1)     2BD : 590A                       a       R1, R2
+(1)     2BE :                    divu16_3:
+(1)     2BE : 2209                       sr      R2, re
+(1)     2BF : 59F2                       s       R1, R2, lm
+(1)     2C0 : 381D                       sbit    R0, 13, skp
+(1)     2C1 : 590A                       a       R1, R2
+(1)     2C2 :                    divu16_2:
+(1)     2C2 : 2209                       sr      R2, re
+(1)     2C3 : 59F2                       s       R1, R2, lm
+(1)     2C4 : 381E                       sbit    R0, 14, skp
+(1)     2C5 : 590A                       a       R1, R2
+(1)     2C6 :                    divu16_1:
+(1)     2C6 : 2209                       sr      R2, re
+(1)     2C7 : 59F2                       s       R1, R2, lm
+(1)     2C8 : 381F                       sbit    R0, 15, skp
+(1)     2C9 : 590A                       a       R1, R2
+(1)     2CA : 7908                       mv      R1, R0
+(1)     2CB : 2003                       ret
+(1)     2CC :                    *** Negative dividend: divide -dividend, then negate the quotient.
+(1)     2CC :                    divu16_neg:
+(1)     2CC : 5801                       s       R0, R1          R0=-dividend
+(1)     2CD : 50EA                       c       R0, R2, lpz     skip if -dividend>=divisor
+(1)     2CE : CF6C                       b       divu16_n_zero
+(1)     2CF : 7938                       mv      R1, R0, pz      skip if -dividend<X'8000'
+(1)     2D0 : CF6C                       b       divu16_min
+(1)     2D1 : 6000                       eor     R0, R0          quotient=0
+(1)     2D2 :                    divu16_n_shift:
+(1)     2D2 : 220D                       sl      R2, re
+(1)     2D3 : 51EA                       c       R1, R2, lpz
+(1)     2D4 : CF5F                       b       divu16_n_1
+(1)     2D5 : 220D                       sl      R2, re
+(1)     2D6 : 51EA                       c       R1, R2, lpz
+(1)     2D7 : CF58                       b       divu16_n_2
+(1)     2D8 : 220D                       sl      R2, re
+(1)     2D9 : 51EA                       c       R1, R2, lpz
+(1)     2DA : CF51                       b       divu16_n_3
+(1)     2DB : 220D                       sl      R2, re
+(1)     2DC : 51EA                       c       R1, R2, lpz
+(1)     2DD : CF4A                       b       divu16_n_4
+(1)     2DE : 220D                       sl      R2, re
+(1)     2DF : 51EA                       c       R1, R2, lpz
+(1)     2E0 : CF43                       b       divu16_n_5
+(1)     2E1 : 220D                       sl      R2, re
+(1)     2E2 : 51EA                       c       R1, R2, lpz
+(1)     2E3 : CF3C                       b       divu16_n_6
+(1)     2E4 : 220D                       sl      R2, re
+(1)     2E5 : 51EA                       c       R1, R2, lpz
+(1)     2E6 : CF35                       b       divu16_n_7
+(1)     2E7 : 220D                       sl      R2, re
+(1)     2E8 : 51EA                       c       R1, R2, lpz
+(1)     2E9 : CF2E                       b       divu16_n_8
+(1)     2EA : 220D                       sl      R2, re
+(1)     2EB : 51EA                       c       R1, R2, lpz
+(1)     2EC : CF27                       b       divu16_n_9
+(1)     2ED : 220D                       sl      R2, re
+(1)     2EE : 51EA                       c       R1, R2, lpz
+(1)     2EF : CF20                       b       divu16_n_10
+(1)     2F0 : 220D                       sl      R2, re
+(1)     2F1 : 51EA                       c       R1, R2, lpz
+(1)     2F2 : CF19                       b       divu16_n_11
+(1)     2F3 : 220D                       sl      R2, re
+(1)     2F4 : 51EA                       c       R1, R2, lpz
+(1)     2F5 : CF12                       b       divu16_n_12
+(1)     2F6 : 220D                       sl      R2, re
+(1)     2F7 : 51EA                       c       R1, R2, lpz
+(1)     2F8 : CF0B                       b       divu16_n_13
+(1)     2F9 : 220D                       sl      R2, re
+(1)     2FA : 51EA                       c       R1, R2, lpz
+(1)     2FB : CF04                       b       divu16_n_14
+(1)     2FC : 59F2                       s       R1, R2, lm
+(1)     2FD : 3811                       sbit    R0, 1, skp
+(1)     2FE : 590A                       a       R1, R2
+(1)     2FF :                    divu16_n_14:
+(1)     2FF : 2209                       sr      R2, re
+(1)     300 : 59F2                       s       R1, R2, lm
+(1)     301 : 3812                       sbit    R0, 2, skp
+(1)     302 : 590A                       a       R1, R2
+(1)     303 :                    divu16_n_13:
+(1)     303 : 2209                       sr      R2, re
+(1)     304 : 59F2                       s       R1, R2, lm
+(1)     305 : 3813                       sbit    R0, 3, skp
+(1)     306 : 590A                       a       R1, R2
+(1)     307 :                    divu16_n_12:
+(1)     307 : 2209                       sr      R2, re
+(1)     308 : 59F2                       s       R1, R2, lm
+(1)     309 : 3814                       sbit    R0, 4, skp
+(1)     30A : 590A                       a       R1, R2
+(1)     30B :                    divu16_n_11:
+(1)     30B : 2209                       sr      R2, re
+(1)     30C : 59F2                       s       R1, R2, lm
+(1)     30D : 3815                       sbit    R0, 5, skp
+(1)     30E : 590A                       a       R1, R2
+(1)     30F :                    divu16_n_10:
+(1)     30F : 2209                       sr      R2, re
+(1)     310 : 59F2                       s       R1, R2, lm
+(1)     311 : 3816                       sbit    R0, 6, skp
+(1)     312 : 590A                       a       R1, R2
+(1)     313 :                    divu16_n_9:
+(1)     313 : 2209                       sr      R2, re
+(1)     314 : 59F2                       s       R1, R2, lm
+(1)     315 : 3817                       sbit    R0, 7, skp
+(1)     316 : 590A                       a       R1, R2
+(1)     317 :                    divu16_n_8:
+(1)     317 : 2209                       sr      R2, re
+(1)     318 : 59F2                       s       R1, R2, lm
+(1)     319 : 3818                       sbit    R0, 8, skp
+(1)     31A : 590A                       a       R1, R2
+(1)     31B :                    divu16_n_7:
+(1)     31B : 2209                       sr      R2, re
+(1)     31C : 59F2                       s       R1, R2, lm
+(1)     31D : 3819                       sbit    R0, 9, skp
+(1)     31E : 590A                       a       R1, R2
+(1)     31F :                    divu16_n_6:
+(1)     31F : 2209                       sr      R2, re
+(1)     320 : 59F2                       s       R1, R2, lm
+(1)     321 : 381A                       sbit    R0, 10, skp
+(1)     322 : 590A                       a       R1, R2
+(1)     323 :                    divu16_n_5:
+(1)     323 : 2209                       sr      R2, re
+(1)     324 : 59F2                       s       R1, R2, lm
+(1)     325 : 381B                       sbit    R0, 11, skp
+(1)     326 : 590A                       a       R1, R2
+(1)     327 :                    divu16_n_4:
+(1)     327 : 2209                       sr      R2, re
+(1)     328 : 59F2                       s       R1, R2, lm
+(1)     329 : 381C                       sbit    R0, 12, skp
+(1)     32A : 590A                       a       R1, R2
+(1)     32B :                    divu16_n_3:
+(1)     32B : 2209                       sr      R2, re
+(1)     32C : 59F2                       s       R1, R2, lm
+(1)     32D : 381D                       sbit    R0, 13, skp
+(1)     32E : 590A                       a       R1, R2
+(1)     32F :                    divu16_n_2:
+(1)     32F : 2209                       sr      R2, re
+(1)     330 : 59F2                       s       R1, R2, lm
+(1)     331 : 381E                       sbit    R0, 14, skp
+(1)     332 : 590A                       a       R1, R2
+(1)     333 :                    divu16_n_1:
+(1)     333 : 2209                       sr      R2, re
+(1)     334 : 59F2                       s       R1, R2, lm
+(1)     335 : 381F                       sbit    R0, 15, skp
+(1)     336 : 590A                       a       R1, R2
+(1)     337 : 6101                       eor     R1, R1
+(1)     338 : 5900                       s       R1, R0          R1=-quotient
+(1)     339 : 2003                       ret
+(1)     33A :                    divu16_n_zero:
+(1)     33A : 6101                       eor     R1, R1          quotient=0
+(1)     33B : 2003                       ret
+(1)     33C :                    divu16_min:
+(1)     33C : 2201                       push    R2
+(1)     33D : 9F05                       bal     (I_udiv16)      dividend=-32768
+(1)     33E : 2202                       pop     R2
+(1)     33F : 6101                       eor     R1, R1
+(1)     340 : 5900                       s       R1, R0          R1=-quotient
+(1)     341 : 2003                       ret
+(1)     342 : 0233               I_udiv16:       dc      udiv16
+(1)     343 :
+(1)     343 :                    *** Signed Multiply: multiplicand * multiplier = product
+(1)     343 :                    *** @param R1 multiplicand
+(1)     343 :                    *** @param R2 multiplier
+(1)     343 :                    *** @return R1 product
+(1)     343 :                    *** @clobber R0 R2
+(1)     343 :                    mul16:
+(1)     343 : 7809                       mv      R0, R1          R0=multiplicand
+(1)     344 : 6101                       eor     R1, R1          product=0
+(1)     345 : 2A40                       tbit    R2, 0, z        skip if multiplier>=0
+(1)     346 : CF4A                       b       mul16_neg
+(1)     347 :                    *** One step per multiplier bit, until no 1 bits are left.
+(1)     347 : 2A4F                       tbit    R2, 15, z       skip if lsb(multiplier)=0
+(1)     348 : 5908                       a       R1, R0          product+=multiplicand
+(1)     349 : 2259                       sr      R2, re, nz      multiplier>>=1, skip if multiplier!=0
+(1)     34A : 2003                       ret
+(1)     34B : 200D                       sl      R0, re          multiplicand<<=1
+(1)     34C : 2A4F                       tbit    R2, 15, z
+(1)     34D : 5908                       a       R1, R0
+(1)     34E : 2259                       sr      R2, re, nz
+(1)     34F : 2003                       ret
+(1)     350 : 200D                       sl      R0, re
+(1)     351 : 2A4F                       tbit    R2, 15, z
+(1)     352 : 5908                       a       R1, R0
+(1)     353 : 2259                       sr      R2, re, nz
+(1)     354 : 2003                       ret
+(1)     355 : 200D                       sl      R0, re
+(1)     356 : 2A4F                       tbit    R2, 15, z
+(1)     357 : 5908                       a       R1, R0
+(1)     358 : 2259                       sr      R2, re, nz
+(1)     359 : 2003                       ret
+(1)     35A : 200D                       sl      R0, re
+(1)     35B : 2A4F                       tbit    R2, 15, z
+(1)     35C : 5908                       a       R1, R0
+(1)     35D : 2259                       sr      R2, re, nz
+(1)     35E : 2003                       ret
+(1)     35F : 200D                       sl      R0, re
+(1)     360 : 2A4F                       tbit    R2, 15, z
+(1)     361 : 5908                       a       R1, R0
+(1)     362 : 2259                       sr      R2, re, nz
+(1)     363 : 2003                       ret
+(1)     364 : 200D                       sl      R0, re
+(1)     365 : 2A4F                       tbit    R2, 15, z
+(1)     366 : 5908                       a       R1, R0
+(1)     367 : 2259                       sr      R2, re, nz
+(1)     368 : 2003                       ret
+(1)     369 : 200D                       sl      R0, re
+(1)     36A : 2A4F                       tbit    R2, 15, z
+(1)     36B : 5908                       a       R1, R0
+(1)     36C : 2259                       sr      R2, re, nz
+(1)     36D : 2003                       ret
+(1)     36E : 200D                       sl      R0, re
+(1)     36F : 2A4F                       tbit    R2, 15, z
+(1)     370 : 5908                       a       R1, R0
+(1)     371 : 2259                       sr      R2, re, nz
+(1)     372 : 2003                       ret
+(1)     373 : 200D                       sl      R0, re
+(1)     374 : 2A4F                       tbit    R2, 15, z
+(1)     375 : 5908                       a       R1, R0
+(1)     376 : 2259                       sr      R2, re, nz
+(1)     377 : 2003                       ret
+(1)     378 : 200D                       sl      R0, re
+(1)     379 : 2A4F                       tbit    R2, 15, z
+(1)     37A : 5908                       a       R1, R0
+(1)     37B : 2259                       sr      R2, re, nz
+(1)     37C : 2003                       ret
+(1)     37D : 200D                       sl      R0, re
+(1)     37E : 2A4F                       tbit    R2, 15, z
+(1)     37F : 5908                       a       R1, R0
+(1)     380 : 2259                       sr      R2, re, nz
+(1)     381 : 2003                       ret
+(1)     382 : 200D                       sl      R0, re
+(1)     383 : 2A4F                       tbit    R2, 15, z
+(1)     384 : 5908                       a       R1, R0
+(1)     385 : 2259                       sr      R2, re, nz
+(1)     386 : 2003                       ret
+(1)     387 : 200D                       sl      R0, re
+(1)     388 : 2A4F                       tbit    R2, 15, z
+(1)     389 : 5908                       a       R1, R0
+(1)     38A : 2259                       sr      R2, re, nz
+(1)     38B : 2003                       ret
+(1)     38C : 200D                       sl      R0, re
+(1)     38D : 2A4F                       tbit    R2, 15, z
+(1)     38E : 5908                       a       R1, R0
+(1)     38F : 2003                       ret
+(1)     390 :                    *** Multiply by -multiplier, subtracting the partial products.
+(1)     390 :                    mul16_neg:
+(1)     390 : 5902                       s       R1, R2
+(1)     391 : 7A09                       mv      R2, R1          negate multiplier
+(1)     392 : 6101                       eor     R1, R1          product=0
+(1)     393 : 2A4F                       tbit    R2, 15, z       skip if lsb(multiplier)=0
+(1)     394 : 5900                       s       R1, R0          product-=multiplicand
+(1)     395 : 2259                       sr      R2, re, nz      multiplier>>=1, skip if multiplier!=0
+(1)     396 : 2003                       ret
+(1)     397 : 200D                       sl      R0, re          multiplicand<<=1
+(1)     398 : 2A4F                       tbit    R2, 15, z
+(1)     399 : 5900                       s       R1, R0
+(1)     39A : 2259                       sr      R2, re, nz
+(1)     39B : 2003                       ret
+(1)     39C : 200D                       sl      R0, re
+(1)     39D : 2A4F                       tbit    R2, 15, z
+(1)     39E : 5900                       s       R1, R0
+(1)     39F : 2259                       sr      R2, re, nz
+(1)     3A0 : 2003                       ret
+(1)     3A1 : 200D                       sl      R0, re
+(1)     3A2 : 2A4F                       tbit    R2, 15, z
+(1)     3A3 : 5900                       s       R1, R0
+(1)     3A4 : 2259                       sr      R2, re, nz
+(1)     3A5 : 2003                       ret
+(1)     3A6 : 200D                       sl      R0, re
+(1)     3A7 : 2A4F                       tbit    R2, 15, z
+(1)     3A8 : 5900                       s       R1, R0
+(1)     3A9 : 2259                       sr      R2, re, nz
+(1)     3AA : 2003                       ret
+(1)     3AB : 200D                       sl      R0, re
+(1)     3AC : 2A4F                       tbit    R2, 15, z
+(1)     3AD : 5900                       s       R1, R0
+(1)     3AE : 2259                       sr      R2, re, nz
+(1)     3AF : 2003                       ret
+(1)     3B0 : 200D                       sl      R0, re
+(1)     3B1 : 2A4F                       tbit    R2, 15, z
+(1)     3B2 : 5900                       s       R1, R0
+(1)     3B3 : 2259                       sr      R2, re, nz
+(1)     3B4 : 2003                       ret
+(1)     3B5 : 200D                       sl      R0, re
+(1)     3B6 : 2A4F                       tbit    R2, 15, z
+(1)     3B7 : 5900                       s       R1, R0
+(1)     3B8 : 2259                       sr      R2, re, nz
+(1)     3B9 : 2003                       ret
+(1)     3BA : 200D                       sl      R0, re
+(1)     3BB : 2A4F                       tbit    R2, 15, z
+(1)     3BC : 5900                       s       R1, R0
+(1)     3BD : 2259                       sr      R2, re, nz
+(1)     3BE : 2003                       ret
+(1)     3BF : 200D                       sl      R0, re
+(1)     3C0 : 2A4F                       tbit    R2, 15, z
+(1)     3C1 : 5900                       s       R1, R0
+(1)     3C2 : 2259                       sr      R2, re, nz
+(1)     3C3 : 2003                       ret
+(1)     3C4 : 200D                       sl      R0, re
+(1)     3C5 : 2A4F                       tbit    R2, 15, z
+(1)     3C6 : 5900                       s       R1, R0
+(1)     3C7 : 2259                       sr      R2, re, nz
+(1)     3C8 : 2003                       ret
+(1)     3C9 : 200D                       sl      R0, re
+(1)     3CA : 2A4F                       tbit    R2, 15, z
+(1)     3CB : 5900                       s       R1, R0
+(1)     3CC : 2259                       sr      R2, re, nz
+(1)     3CD : 2003                       ret
+(1)     3CE : 200D                       sl      R0, re
+(1)     3CF : 2A4F                       tbit    R2, 15, z
+(1)     3D0 : 5900                       s       R1, R0
+(1)     3D1 : 2259                       sr      R2, re, nz
+(1)     3D2 : 2003                       ret
+(1)     3D3 : 200D                       sl      R0, re
+(1)     3D4 : 2A4F                       tbit    R2, 15, z
+(1)     3D5 : 5900                       s       R1, R0
+(1)     3D6 : 2259                       sr      R2, re, nz
+(1)     3D7 : 2003                       ret
+(1)     3D8 : 200D                       sl      R0, re
+(1)     3D9 : 2A4F                       tbit    R2, 15, z
+(1)     3DA : 5900                       s       R1, R0
+(1)     3DB : 2259                       sr      R2, re, nz
+(1)     3DC : 2003                       ret
+(1)     3DD : 200D                       sl      R0, re
+(1)     3DE : 2A4F                       tbit    R2, 15, z
+(1)     3DF : 5900                       s       R1, R0
+(1)     3E0 : 2003                       ret
+        3E1 :
+        3E1 :                    *** Print "VA op VB"
+        3E1 :                    *** @param R0 op letter
+        3E1 :                    *** @param R1 VA
+        3E1 :                    *** @param R2 VB
+        3E1 :                    *** @clobber R0
+        3E1 :                    expr:
+        3E1 : 2101                       push    R1
+        3E2 : 2201                       push    R2
+        3E3 : 2001                       push    R0
+        3E4 : 7809                       mv      R0, R1
+        3E5 : 970A                       bal     (I_print_int16) print VA
+        3E6 : 0820                       mvi     R0, ' '
+        3E7 : 9708                       bal     (I_putchar)     print ' '
+        3E8 : 2002                       pop     R0
+        3E9 : 9708                       bal     (I_putchar)     print op
+        3EA : 0820                       mvi     R0, ' '
+        3EB : 9708                       bal     (I_putchar)     print ' '
+        3EC : 2202                       pop     R2
+        3ED : 2201                       push    R2
+        3EE : 780A                       mv      R0, R2
+        3EF : 970A                       bal     (I_print_int16) print VB
+        3F0 : 2202                       pop     R2
+        3F1 : 2102                       pop     R1
+        3F2 : 2003                       ret
+        3F3 :
+        3F3 :                    *** Print " = value\n"
+        3F3 :                    *** @param R1 value
+        3F3 :                    *** @clobber R1
+        3F3 :                    answer:
+        3F3 : 0820                       mvi     R0, ' '
+        3F4 : 9708                       bal     (I_putchar)     print ' '
+        3F5 : 083D                       mvi     R0, '='
+        3F6 : 9708                       bal     (I_putchar)     print '='
+        3F7 : 0820                       mvi     R0, ' '
+        3F8 : 9708                       bal     (I_putchar)     print ' '
+        3F9 : 7809                       mv      R0, R1
+        3FA : 970A                       bal     (I_print_int16) print value
+        3FB : D709                       b       (I_newline)
+        3FC :
+        3FC :                    *** Print "VA rel VB\n"
+        3FC :                    *** @param R1 VA
+        3FC :                    *** @param R2 VB
+        3FC :                    *** @clobber R0
+        3FC :                    comp:
+        3FC : 516A                       c       R1, R2, mz      skip if VA<=VB
+        3FD : CF05                       b       comp_gt
+        3FE : 514A                       c       R1, R2, z       skip if VA==VB
+        3FF : CF05                       b       comp_lt
+        400 :                    comp_eq:
+        400 : 083D                       mvi     R0, '='
+        401 : CF04                       b       comp_out
+        402 :                    comp_gt:
+        402 : 083E                       mvi     R0, '>'
+        403 : CF02                       b       comp_out
+        404 :                    comp_lt:
+        404 : 083C                       mvi     R0, '<'
+        405 :                    comp_out:
+        405 : 8FDC                       bal     expr            print "VA rel VB"
+        406 : D709                       b       (I_newline)
+        407 :
+        407 :                    arith:
+        407 : 0946                       mvi     R1, hi(18000)
+        408 : 7109                       bswp    R1, R1
+        409 : 0950                       mvi     R1, lo(18000)
+        40A : 0A6D                       mvi     R2, hi(28000)
+        40B : 720A                       bswp    R2, R2
+        40C : 0A60                       mvi     R2, lo(28000)
+        40D : 082B                       mvi     R0, '+'
+        40E : 8FD3                       bal     expr
+        40F : 590A                       a       R1, R2          R1+=R2
+        410 : 8FE3                       bal     answer          ; -19536
+        411 :
+        411 : 0946                       mvi     R1, hi(18000)
+        412 : 7109                       bswp    R1, R1
+        413 : 0950                       mvi     R1, lo(18000)
+        414 : 0AB9                       mvi     R2, hi(-18000)
+        415 : 720A                       bswp    R2, R2
+        416 : 0AB0                       mvi     R2, lo(-18000)
+        417 : 082B                       mvi     R0, '+'
+        418 : 8FC9                       bal     expr
+        419 : 590A                       a       R1, R2          R1+=R2
+        41A : 8FD9                       bal     answer          ; 0
+        41B :
+        41B : 09B9                       mvi     R1, hi(-18000)
+        41C : 7109                       bswp    R1, R1
+        41D : 09B0                       mvi     R1, lo(-18000)
+        41E : 0AB9                       mvi     R2, hi(-18000)
+        41F : 720A                       bswp    R2, R2
+        420 : 0AB0                       mvi     R2, lo(-18000)
+        421 : 082B                       mvi     R0, '+'
+        422 : 8FBF                       bal     expr
+        423 : 590A                       a       R1, R2          R1+=R2
+        424 : 8FCF                       bal     answer          ; 29536
+        425 :
+        425 : 09B9                       mvi     R1, hi(-18000)
+        426 : 7109                       bswp    R1, R1
+        427 : 09B0                       mvi     R1, lo(-18000)
+        428 : 0A92                       mvi     R2, hi(-28000)
+        429 : 720A                       bswp    R2, R2
+        42A : 0AA0                       mvi     R2, lo(-28000)
+        42B : 082D                       mvi     R0, '-'
+        42C : 8FB5                       bal     expr
+        42D : 5902                       s       R1, R2          R1-=R2
+        42E : 8FC5                       bal     answer          ; 10000
+        42F :
+        42F : 0946                       mvi     R1, hi(18000)
+        430 : 7109                       bswp    R1, R1
+        431 : 0950                       mvi     R1, lo(18000)
+        432 : 0AB9                       mvi     R2, hi(-18000)
+        433 : 720A                       bswp    R2, R2
+        434 : 0AB0                       mvi     R2, lo(-18000)
+        435 : 082D                       mvi     R0, '-'
+        436 : 8FAB                       bal     expr
+        437 : 5902                       s       R1, R2          R1-=R2
+        438 : 8FBB                       bal     answer          ; -29536
+        439 :
+        439 : 0992                       mvi     R1, hi(-28000)
+        43A : 7109                       bswp    R1, R1
+        43B : 09A0                       mvi     R1, lo(-28000)
+        43C : 0AB9                       mvi     R2, hi(-18000)
+        43D : 720A                       bswp    R2, R2
+        43E : 0AB0                       mvi     R2, lo(-18000)
+        43F : 082D                       mvi     R0, '-'
+        440 : 8FA1                       bal     expr
+        441 : 5902                       s       R1, R2          R1-=R2
+        442 : 8FB1                       bal     answer          ; -10000
+        443 :
+        443 : 0900                       mvi     R1, hi(100)
+        444 : 7109                       bswp    R1, R1
+        445 : 0964                       mvi     R1, lo(100)
+        446 : 0A01                       mvi     R2, hi(300)
+        447 : 720A                       bswp    R2, R2
+        448 : 0A2C                       mvi     R2, lo(300)
+        449 : 082A                       mvi     R0, '*'
+        44A : 8F97                       bal     expr
+        44B : 970B                       bal     (I_mul16)
+        44C : 8FA7                       bal     answer          ; 30000
+        44D :
+        44D : 0900                       mvi     R1, hi(200)
+        44E : 7109                       bswp    R1, R1
+        44F : 09C8                       mvi     R1, lo(200)
+        450 : 0A00                       mvi     R2, hi(100)
+        451 : 720A                       bswp    R2, R2
+        452 : 0A64                       mvi     R2, lo(100)
+        453 : 082A                       mvi     R0, '*'
+        454 : 8F8D                       bal     expr
+        455 : 970B                       bal     (I_mul16)
+        456 : 8F9D                       bal     answer          ; 20000
+        457 :
+        457 : 0901                       mvi     R1, hi(300)
+        458 : 7109                       bswp    R1, R1
+        459 : 092C                       mvi     R1, lo(300)
+        45A : 0AFF                       mvi     R2, hi(-200)
+        45B : 720A                       bswp    R2, R2
+        45C : 0A38                       mvi     R2, lo(-200)
+        45D : 082A                       mvi     R0, '*'
+        45E : 8F83                       bal     expr
+        45F : 970B                       bal     (I_mul16)
+        460 : 8F93                       bal     answer          ; 5536
+        461 :
+        461 : 0900                       mvi     R1, hi(100)
+        462 : 7109                       bswp    R1, R1
+        463 : 0964                       mvi     R1, lo(100)
+        464 : 0AFE                       mvi     R2, hi(-300)
+        465 : 720A                       bswp    R2, R2
+        466 : 0AD4                       mvi     R2, lo(-300)
+        467 : 082A                       mvi     R0, '*'
+        468 : 970E                       bal     (I_expr)
+        469 : 970B                       bal     (I_mul16)
+        46A : 8F89                       bal     answer          ; -30000
+        46B :
+        46B : 09FF                       mvi     R1, hi(-200)
+        46C : 7109                       bswp    R1, R1
+        46D : 0938                       mvi     R1, lo(-200)
+        46E : 0AFF                       mvi     R2, hi(-100)
+        46F : 720A                       bswp    R2, R2
+        470 : 0A9C                       mvi     R2, lo(-100)
+        471 : 082A                       mvi     R0, '*'
+        472 : 970E                       bal     (I_expr)
+        473 : 970B                       bal     (I_mul16)
+        474 : 970F                       bal     (I_answer)      ; 20000
+        475 :
+        475 : 0975                       mvi     R1, hi(30000)
+        476 : 7109                       bswp    R1, R1
+        477 : 0930                       mvi     R1, lo(30000)
+        478 : 0A00                       mvi     R2, hi(100)
+        479 : 720A                       bswp    R2, R2
+        47A : 0A64                       mvi     R2, lo(100)
+        47B : 082F                       mvi     R0, '/'
+        47C : 970E                       bal     (I_expr)
+        47D : 970C                       bal     (I_div16)
+        47E : 970F                       bal     (I_answer)      ; 300
+        47F :
+        47F : 09FF                       mvi     R1, hi(-200)
+        480 : 7109                       bswp    R1, R1
+        481 : 0938                       mvi     R1, lo(-200)
+        482 : 0A00                       mvi     R2, hi(100)
+        483 : 720A                       bswp    R2, R2
+        484 : 0A64                       mvi     R2, lo(100)
+        485 : 082F                       mvi     R0, '/'
+        486 : 970E                       bal     (I_expr)
+        487 : 970C                       bal     (I_div16)
+        488 : 970F                       bal     (I_answer)      ; -2
+        489 :
+        489 : 098A                       mvi     R1, hi(-30000)
+        48A : 7109                       bswp    R1, R1
+        48B : 09D0                       mvi     R1, lo(-30000)
+        48C : 0AFF                       mvi     R2, hi(-200)
+        48D : 720A                       bswp    R2, R2
+        48E : 0A38                       mvi     R2, lo(-200)
+        48F : 082F                       mvi     R0, '/'
+        490 : 970E                       bal     (I_expr)
+        491 : 970C                       bal     (I_div16)
+        492 : 970F                       bal     (I_answer)      ; 150
+        493 :
+        493 : 098A                       mvi     R1, hi(-30000)
+        494 : 7109                       bswp    R1, R1
+        495 : 09D0                       mvi     R1, lo(-30000)
+        496 : 0A00                       mvi     R2, hi(78)
+        497 : 720A                       bswp    R2, R2
+        498 : 0A4E                       mvi     R2, lo(78)
+        499 : 082F                       mvi     R0, '/'
+        49A : 970E                       bal     (I_expr)
+        49B : 970C                       bal     (I_div16)
+        49C : 970F                       bal     (I_answer)      ; -384
+        49D :
+        49D : 0913                       mvi     R1, hi(5000)
+        49E : 7109                       bswp    R1, R1
+        49F : 0988                       mvi     R1, lo(5000)
+        4A0 : 0A0F                       mvi     R2, hi(4000)
+        4A1 : 720A                       bswp    R2, R2
+        4A2 : 0AA0                       mvi     R2, lo(4000)
+        4A3 : 9710                       bal     (I_comp)
+        4A4 :
+        4A4 : 0913                       mvi     R1, hi(5000)
+        4A5 : 7109                       bswp    R1, R1
+        4A6 : 0988                       mvi     R1, lo(5000)
+        4A7 : 0A13                       mvi     R2, hi(5000)
+        4A8 : 720A                       bswp    R2, R2
+        4A9 : 0A88                       mvi     R2, lo(5000)
+        4AA : 9710                       bal     (I_comp)
+        4AB :
+        4AB : 090F                       mvi     R1, hi(4000)
+        4AC : 7109                       bswp    R1, R1
+        4AD : 09A0                       mvi     R1, lo(4000)
+        4AE : 0A13                       mvi     R2, hi(5000)
+        4AF : 720A                       bswp    R2, R2
+        4B0 : 0A88                       mvi     R2, lo(5000)
+        4B1 : 9710                       bal     (I_comp)
+        4B2 :
+        4B2 : 09EC                       mvi     R1, hi(-5000)
+        4B3 : 7109                       bswp    R1, R1
+        4B4 : 0978                       mvi     R1, lo(-5000)
+        4B5 : 0AF0                       mvi     R2, hi(-4000)
+        4B6 : 720A                       bswp    R2, R2
+        4B7 : 0A60                       mvi     R2, lo(-4000)
+        4B8 : 9710                       bal     (I_comp)
+        4B9 :
+        4B9 : 09EC                       mvi     R1, hi(-5000)
+        4BA : 7109                       bswp    R1, R1
+        4BB : 0978                       mvi     R1, lo(-5000)
+        4BC : 0AEC                       mvi     R2, hi(-5000)
+        4BD : 720A                       bswp    R2, R2
+        4BE : 0A78                       mvi     R2, lo(-5000)
+        4BF : 9710                       bal     (I_comp)
+        4C0 :
+        4C0 : 09F0                       mvi     R1, hi(-4000)
+        4C1 : 7109                       bswp    R1, R1
+        4C2 : 0960                       mvi     R1, lo(-4000)
+        4C3 : 0AEC                       mvi     R2, hi(-5000)
+        4C4 : 720A                       bswp    R2, R2
+        4C5 : 0A78                       mvi     R2, lo(-5000)
+        4C6 : 9710                       bal     (I_comp)
+        4C7 :
+        4C7 : 097F                       mvi     R1, hi(32700)
+        4C8 : 7109                       bswp    R1, R1
+        4C9 : 09BC                       mvi     R1, lo(32700)
+        4CA : 0A7F                       mvi     R2, hi(32600)
+        4CB : 720A                       bswp    R2, R2
+        4CC : 0A58                       mvi     R2, lo(32600)
+        4CD : 9710                       bal     (I_comp)
+        4CE :
+        4CE : 097F                       mvi     R1, hi(32700)
+        4CF : 7109                       bswp    R1, R1
+        4D0 : 09BC                       mvi     R1, lo(32700)
+        4D1 : 0A7F                       mvi     R2, hi(32700)
+        4D2 : 720A                       bswp    R2, R2
+        4D3 : 0ABC                       mvi     R2, lo(32700)
+        4D4 : 9710                       bal     (I_comp)
+        4D5 :
+        4D5 : 097F                       mvi     R1, hi(32600)
+        4D6 : 7109                       bswp    R1, R1
+        4D7 : 0958                       mvi     R1, lo(32600)
+        4D8 : 0A7F                       mvi     R2, hi(32700)
+        4D9 : 720A                       bswp    R2, R2
+        4DA : 0ABC                       mvi     R2, lo(32700)
+        4DB : 9710                       bal     (I_comp)
+        4DC :
+        4DC : 0980                       mvi     R1, hi(-32700)
+        4DD : 7109                       bswp    R1, R1
+        4DE : 0944                       mvi     R1, lo(-32700)
+        4DF : 0A80                       mvi     R2, hi(-32600)
+        4E0 : 720A                       bswp    R2, R2
+        4E1 : 0AA8                       mvi     R2, lo(-32600)
+        4E2 : 9710                       bal     (I_comp)
+        4E3 :
+        4E3 : 0980                       mvi     R1, hi(-32700)
+        4E4 : 7109                       bswp    R1, R1
+        4E5 : 0944                       mvi     R1, lo(-32700)
+        4E6 : 0A80                       mvi     R2, hi(-32700)
+        4E7 : 720A                       bswp    R2, R2
+        4E8 : 0A44                       mvi     R2, lo(-32700)
+        4E9 : 9710                       bal     (I_comp)
+        4EA :
+        4EA : 0980                       mvi     R1, hi(-32600)
+        4EB : 7109                       bswp    R1, R1
+        4EC : 09A8                       mvi     R1, lo(-32600)
+        4ED : 0A80                       mvi     R2, hi(-32700)
+        4EE : 720A                       bswp    R2, R2
+        4EF : 0A44                       mvi     R2, lo(-32700)
+        4F0 : 9710                       bal     (I_comp)
+        4F1 :
+        4F1 : 0946                       mvi     R1, hi(18000)
+        4F2 : 7109                       bswp    R1, R1
+        4F3 : 0950                       mvi     R1, lo(18000)
+        4F4 : 0A92                       mvi     R2, hi(-28000)
+        4F5 : 720A                       bswp    R2, R2
+        4F6 : 0AA0                       mvi     R2, lo(-28000)
+        4F7 : 9710                       bal     (I_comp)
+        4F8 :
+        4F8 : 0992                       mvi     R1, hi(-28000)
+        4F9 : 7109                       bswp    R1, R1
+        4FA : 09A0                       mvi     R1, lo(-28000)
+        4FB : 0A92                       mvi     R2, hi(-28000)
+        4FC : 720A                       bswp    R2, R2
+        4FD : 0AA0                       mvi     R2, lo(-28000)
+        4FE : 9710                       bal     (I_comp)
+        4FF :
+        4FF : 0992                       mvi     R1, hi(-28000)
+        500 : 7109                       bswp    R1, R1
+        501 : 09A0                       mvi     R1, lo(-28000)
+        502 : 0A46                       mvi     R2, hi(18000)
+        503 : 720A                       bswp    R2, R2
+        504 : 0A50                       mvi     R2, lo(18000)
+        505 : 9710                       bal     (I_comp)
+        506 :
+        506 : 2003                       ret

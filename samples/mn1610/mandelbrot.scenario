@@ -1,14 +1,14 @@
 # Scenario for scripts/record-scenario.py: plain MN1610 code on the MN1613.
 # Subroutines are called indirectly through a zero-page table, as in
-# `bal (I_mul16)`, and with no multiply instruction, umul16 shifts and
+# `bal (I_mul16)`, and with no multiply instruction, mul16 shifts and
 # adds, using each instruction's skip condition in place of a branch.
 #
 # ADDRESSES ARE PINNED TO THE CURRENT samples/mn1610/mandelbrot.hex:
-# loop_x at 2DF, the I_ table at 0008 (I_mul16 at 000F holds 02C6),
-# mul16 at 2C6, umul16 at 2CE. If the sources or the image ever change,
-# re-check them against the fresh .lst before recording -- a stale
-# address will look like it works (it disassembles *something*) while
-# showing the wrong thing.
+# loop_x at 443, the I_ table at 0008 (I_mul16 at 000F holds 039D),
+# mul16 at 39D, its bit loop at 3A1. If the sources or the image ever
+# change, re-check them against the fresh .lst before recording -- a
+# stale address will look like it works (it disassembles *something*)
+# while showing the wrong thing.
 
 key ?
 pace 2.0
@@ -23,7 +23,7 @@ pace 1.5
 # Stop at the top of the X loop.
 type g
 wait Go until?
-command 2DF 8
+command 443 8
 pace 2.0
 
 # The zero-page table of subroutine addresses.
@@ -32,23 +32,25 @@ wait Data dump?
 command 8 B
 pace 2.0
 
-# L, EOR, MVI, then `bal (I_mul16)` jumps through 000F to mul16 at 02C6.
+# L, EOR, MVI, then `bal (I_mul16)` jumps through 000F to mul16 at 039D.
 step 4
 pace 1.5
 
-# The shift-and-add multiply: SR skips the add when the bit shifted out
-# is 0, OR skips the loop branch once the multiplier is 0.
+# The shift-and-add multiply, one unrolled step per bit: TBIT skips the
+# add when the multiplier's lsb is 0, SR skips the RET while 1 bits are
+# left.
 type D
 wait Disassemble?
-command 2CE 8
+command 39D 8
 pace 2.0
 
-# Run on into umul16 and step it; the second SR skips over the add.
+# Run on into the bit loop and step two bits; the second TBIT skips
+# over the add.
 type g
 wait Go until?
-command 2CE 8
+command 3A1 8
 pace 1.5
-step 11
+step 7
 pace 1.5
 
 # Watch one frame render.

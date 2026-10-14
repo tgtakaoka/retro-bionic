@@ -83,11 +83,11 @@
         10A :
         102 :                            loc     NPSW1
         102 : 0000                       dc      X'0000'
-        103 : 0363                       dc      irq1_isr
+        103 : 04C2                       dc      irq1_isr
         104 :
         104 :                            loc     NPSW2
         104 : 0000                       dc      X'0000'
-        105 : 0370                       dc      irq2_isr
+        105 : 04CF                       dc      irq2_isr
         106 :
        2000 :                            loc     X'2000'
        2000 : =80                rx_queue_size:  equ     128
@@ -105,10 +105,10 @@
           C : 0230               I_putspace:     dc      putspace
           D : 0227               I_getchar:      dc      getchar
           E : 0279               I_print_int16:  dc      print_int16
-          F : 02C6               I_mul16:        dc      mul16
+          F : 039D               I_mul16:        dc      mul16
          10 : 02B8               I_divu16:       dc      divu16
-         11 : 02D7               I_mandelbrot    dc      mandelbrot
-         12 : 035D               I_debug:        dc      debug
+         11 : 043B               I_mandelbrot    dc      mandelbrot
+         12 : 04BC               I_debug:        dc      debug
          13 :
          13 :                    vC:     ds	1
          14 :                    vD:     ds	1
@@ -385,299 +385,683 @@
 (1)     2B8 :                    *** @param R1 dividend
 (1)     2B8 :                    *** @param R2 divisor
 (1)     2B8 :                    *** @return R1 quotient
-(1)     2B8 :                    *** @clobber R0 R2 STR.15
+(1)     2B8 :                    *** @clobber R0
 (1)     2B8 :                    divu16:
-(1)     2B8 : 360F                       rbit    STR, 15         clear STR.15
-(1)     2B9 : 2950                       tbit    R1, 0, nz       skip if msb(dividend)=1
-(1)     2BA : CF05                       b       divu16_divide
-(1)     2BB : 3E0F                       sbit    STR, 15         set STR.15
-(1)     2BC : 6000                       eor     R0, R0
-(1)     2BD : 5801                       s       R0, R1
-(1)     2BE : 7908                       mv      R1, R0          negate dividend
-(1)     2BF :                    divu16_divide:
-(1)     2BF : 8FCE                       bal     udiv16
-(1)     2C0 : 2E5F                       tbit    STR, 15, nz     skip if quotient must be negated
-(1)     2C1 : CF03                       b       divu16_return
-(1)     2C2 : 6101                       eor     R1, R1
-(1)     2C3 : 5910                       s       R1, R0, skp     negate quotient
-(1)     2C4 :                    divu16_return:
-(1)     2C4 : 7908                       mv      R1, R0
-(1)     2C5 : 2003                       ret
-(1)     2C6 :
-(1)     2C6 :                    *** Signed Multiply: multiplicand * multiplier = product
-(1)     2C6 :                    *** @param R1 multiplicand
-(1)     2C6 :                    *** @param R2 multiplier
-(1)     2C6 :                    *** @return R1 product
-(1)     2C6 :                    *** @clobber R0 R2
-(1)     2C6 :                    mul16:
-(1)     2C6 : 2A50                       tbit    R2, 0, nz       skip if msb(multiplier)=1
-(1)     2C7 : CF07                       b       umul16
-(1)     2C8 : 6000                       eor     R0, R0
-(1)     2C9 : 5802                       s       R0, R2
-(1)     2CA : 7A08                       mv      R2, R0          negate multiplier
-(1)     2CB : 6000                       eor     R0, R0
-(1)     2CC : 5801                       s       R0, R1
-(1)     2CD : 7908                       mv      R1, R0          negate multiplicand
-(1)     2CE :                    *** Unsigned Multiply: multiplicand * multiplier = product
-(1)     2CE :                    *** @param R1 multiplicand
-(1)     2CE :                    *** @param R2 multiplier
-(1)     2CE :                    *** @return R1 product
-(1)     2CE :                    *** @clobber R0 R2
-(1)     2CE :                    umul16:
-(1)     2CE : 6000                       eor     R0, R0          product=0
-(1)     2CF : CF04                       b       umul16_enter_loop
-(1)     2D0 :                    umul16_loop:
-(1)     2D0 : 2289                       sr      R2, re, ez      multiplier>>=1, skip if lsb(multiplier)=0
-(1)     2D1 : 5809                       a       R0, R1          product+=multiplicand
-(1)     2D2 : 210D                       sl      R1, re          multiplicand<<=1
-(1)     2D3 :                    umul16_enter_loop:
-(1)     2D3 : 624A                       or      R2, R2, z       skip if multiplier=0
-(1)     2D4 : CFFC                       b       umul16_loop
-(1)     2D5 : 7908                       mv      R1, R0
-(1)     2D6 : 2003                       ret
-        2D7 :                            include "mandelbrot.inc"
-(1)     2D7 :                    *** -*- mode: asm; mode: flyspell-prog* -*-
-(1)     2D7 :
-(1)     2D7 : =32                F:      equ     50
-(1)     2D7 :
-(1)     2D7 :                    mandelbrot:
-(1)     2D7 : 08FF                       mvi     R0, hi(-12)
-(1)     2D8 : 7008                       bswp    R0, R0
-(1)     2D9 : 08F4                       mvi     R0, lo(-12)
-(1)     2DA : 801B                       st      R0, vY          Y=-12
-(1)     2DB :                    loop_y:
-(1)     2DB : 08FF                       mvi     R0, hi(-49)
-(1)     2DC : 7008                       bswp    R0, R0
-(1)     2DD : 08CF                       mvi     R0, lo(-49)
-(1)     2DE : 801C                       st      R0, vX          X=-49
-(1)     2DF :                    loop_x:
-(1)     2DF : C11C                       l       R1, vX
-(1)     2E0 : 6202                       eor     R2, R2
-(1)     2E1 : 0AE5                       mvi     R2, 229
-(1)     2E2 : 970F                       bal     (I_mul16)       R1=X*229
-(1)     2E3 : 6202                       eor     R2, R2
-(1)     2E4 : 0A64                       mvi     R2, 100
-(1)     2E5 : 9710                       bal     (I_divu16)      R1=X*229/100
-(1)     2E6 : 8113                       st      R1, vC          C=X*229/100
-(1)     2E7 : 8115                       st      R1, vA          A=C
-(1)     2E8 : C11B                       l       R1, vY
-(1)     2E9 : 0A01                       mvi     R2, hi(416)
-(1)     2EA : 720A                       bswp    R2, R2
-(1)     2EB : 0AA0                       mvi     R2, lo(416)
-(1)     2EC : 970F                       bal     (I_mul16)       R1=Y*416
-(1)     2ED : 6202                       eor     R2, R2
-(1)     2EE : 0A64                       mvi     R2, 100
-(1)     2EF : 9710                       bal     (I_divu16)      R1=Y*416/100
-(1)     2F0 : 8114                       st      R1, vD          D=Y*416/100
-(1)     2F1 : 8116                       st      R1, vB          B=D
-(1)     2F2 : 6202                       eor     R2, R2
-(1)     2F3 : 821D                       st      R2, vI          I=0
-(1)     2F4 :
-(1)     2F4 :                            * l       R1, vY
-(1)     2F4 :                            * mvi     R0, 'Y'
-(1)     2F4 :                            * bal     (I_debug)
-(1)     2F4 :                            * l       R1, vX
-(1)     2F4 :                            * mvi     R0, 'X'
-(1)     2F4 :                            * bal     (I_debug)
-(1)     2F4 :                            * l       R1, vC
-(1)     2F4 :                            * mvi     R0, 'C'
-(1)     2F4 :                            * bal     (I_debug)
-(1)     2F4 :                            * l       R1, vD
-(1)     2F4 :                            * mvi     R0, 'D'
-(1)     2F4 :                            * bal     (I_debug)
-(1)     2F4 :                            * bal     (I_newline)
-(1)     2F4 :
-(1)     2F4 :                    loop_i:
-(1)     2F4 : C116                       l       R1, vB
-(1)     2F5 : 6202                       eor     R2, R2
-(1)     2F6 : 0A32                       mvi     R2, F
-(1)     2F7 : 9710                       bal     (I_divu16)      R1=B/F
-(1)     2F8 : 8119                       st      R1, vQ          Q=B/F
-(1)     2F9 : 7A09                       mv      R2, R1          R2=Q, the shorter multiplier
-(1)     2FA : 09FF                       mvi     R1, hi(-F)
-(1)     2FB : 7109                       bswp    R1, R1
-(1)     2FC : 09CE                       mvi     R1, lo(-F)
-(1)     2FD : 970F                       bal     (I_mul16)       R1=-Q*F
-(1)     2FE : C216                       l       R2, vB
-(1)     2FF : 590A                       a       R1, R2          R1=B-Q*F
-(1)     300 : 8117                       st      R1, vS          S=B-Q*F
-(1)     301 : C116                       l       R1, vB
-(1)     302 : 7A09                       mv      R2, R1
-(1)     303 : 970F                       bal     (I_mul16)       R1=B*B
-(1)     304 : 7B09                       mv      R3, R1          R3=B*B
-(1)     305 : C115                       l       R1, vA
-(1)     306 : 7A09                       mv      R2, R1
-(1)     307 : 970F                       bal     (I_mul16)       R1=A*A
-(1)     308 : 5903                       s       R1, R3          R1=A*A-B*B
-(1)     309 : 6202                       eor     R2, R2
-(1)     30A : 0A32                       mvi     R2, F
-(1)     30B : 9710                       bal     (I_divu16)      R1=(A*A-B*B)/F
-(1)     30C : C213                       l       R2, vC
-(1)     30D : 590A                       a       R1, R2          R1=(A*A-B*B)/F+C
-(1)     30E : 7B09                       mv      R3, R1          R3=(A*A-B*B)/F+C
-(1)     30F : C115                       l       R1, vA
-(1)     310 : C219                       l       R2, vQ
-(1)     311 : 970F                       bal     (I_mul16)       R1=A*Q
-(1)     312 : 7C09                       mv      R4, R1          R4=A*Q
-(1)     313 : C115                       l       R1, vA
-(1)     314 : C217                       l       R2, vS
-(1)     315 : 970F                       bal     (I_mul16)       R1=A*S
-(1)     316 : 6202                       eor     R2, R2
-(1)     317 : 0A32                       mvi     R2, F
-(1)     318 : 9710                       bal     (I_divu16)      R1=A*S/F
-(1)     319 : 590C                       a       R1, R4          R1=A*Q+A*S/F
-(1)     31A : 5909                       a       R1, R1          R1=2*(A*Q+A*S/F)
-(1)     31B : C214                       l       R2, vD
-(1)     31C : 590A                       a       R1, R2          R1=2*(A*Q+A*S/F)+D
-(1)     31D : 8116                       st      R1, vB          B=2*(A*Q+A*S/F)+D
-(1)     31E : 790B                       mv      R1, R3          R1=(A*A-B*B)/F+C
-(1)     31F : 8115                       st      R1, vA          A=(A*A-B*B)/F+C
-(1)     320 : 6202                       eor     R2, R2
-(1)     321 : 0A32                       mvi     R2, F
-(1)     322 : 9710                       bal     (I_divu16)      R1=A/F
-(1)     323 : 8118                       st      R1, vP          P=A/F
-(1)     324 : 7A09                       mv      R2, R1
-(1)     325 : 970F                       bal     (I_mul16)       R1=P*P
-(1)     326 : 7B09                       mv      R3, R1          R3=P*P
-(1)     327 : C116                       l       R1, vB
-(1)     328 : 6202                       eor     R2, R2
-(1)     329 : 0A32                       mvi     R2, F
-(1)     32A : 9710                       bal     (I_divu16)      R1=B/F
-(1)     32B : 8119                       st      R1, vQ          Q=B/F
-(1)     32C : 7A09                       mv      R2, R1
-(1)     32D : 970F                       bal     (I_mul16)       R1=Q*Q
-(1)     32E : 590B                       a       R1, R3          R1=P*P+Q*Q
-(1)     32F : 811A                       st      R1, vT          T=P*P+Q*Q
-(1)     330 :
-(1)     330 :                            * bal     (I_putspace)
-(1)     330 :                            * l       R1, vI
-(1)     330 :                            * mvi     R0, 'I'
-(1)     330 :                            * bal     (I_debug)
-(1)     330 :                            * l       R1, vA
-(1)     330 :                            * mvi     R0, 'A'
-(1)     330 :                            * bal     (I_debug)
-(1)     330 :                            * l       R1, vB
-(1)     330 :                            * mvi     R0, 'B'
-(1)     330 :                            * bal     (I_debug)
-(1)     330 :                            * l       R1, vP
-(1)     330 :                            * mvi     R0, 'P'
-(1)     330 :                            * bal     (I_debug)
-(1)     330 :                            * l       R1, vQ
-(1)     330 :                            * mvi     R0, 'Q'
-(1)     330 :                            * bal     (I_debug)
-(1)     330 :                            * l       R1, vT
-(1)     330 :                            * mvi     R0, 'T'
-(1)     330 :                            * bal     (I_debug)
-(1)     330 :                            * bal     (I_newline)
-(1)     330 :
-(1)     330 : C01A                       l       R0, vT
-(1)     331 : 6202                       eor     R2, R2
-(1)     332 : 0A04                       mvi     R2, 4
-(1)     333 : 506A                       c       R0, R2, mz      skip if T<=4
-(1)     334 : CF09                       b       print_i         if 4<T
-(1)     335 : C01D                       l       R0, vI
-(1)     336 : 4801                       ai      R0, 1
-(1)     337 : 801D                       st      R0, vI
-(1)     338 : 0A10                       mvi     R2, 16
-(1)     339 : 50E2                       cb      R0, R2, lpz     skip if I>=16
-(1)     33A : CFBA                       b       loop_i          if I<16
-(1)     33B : 0820                       mvi     R0, ' '
-(1)     33C : CF09                       b       print_char
-(1)     33D :                    print_i:
-(1)     33D : C01D                       l       R0, vI
-(1)     33E : 090A                       mvi     R1, 10
-(1)     33F : 50E1                       cb      R0, R1, lpz     skip if I>=10
-(1)     340 : CF03                       b       print_dec
-(1)     341 : 0941                       mvi     R1, 'A'
-(1)     342 : 401A                       si      R0, 10, skp
-(1)     343 :                    print_dec:
-(1)     343 : 0930                       mvi     R1, '0'
-(1)     344 : 5809                       a       R0, R1
-(1)     345 :                    print_char:
-(1)     345 : 970A                       bal     (I_putchar)
-(1)     346 :
-(1)     346 :                            * mv      R2, R0
-(1)     346 :                            * mvi     R0, '@'
-(1)     346 :                            * bal     (I_putchar)
-(1)     346 :                            * mvi     R0, '='
-(1)     346 :                            * bal     (I_putchar)
-(1)     346 :                            * mv      R0, R2
-(1)     346 :                            * bal     (I_putchar)
-(1)     346 :                            * bal     (I_newline)
-(1)     346 :
-(1)     346 : 970D                       bal     (I_getchar)
-(1)     347 : 6098                       or      R0, R0, enz     skip if E=1
-(1)     348 : CF03                       b       next_x
-(1)     349 : 6058                       or      R0, R0, nz      skip if R0!=0
-(1)     34A : 2000                       h                       halt to system
-(1)     34B :                    next_x:
-(1)     34B : C01C                       l       R0, vX
-(1)     34C : 4801                       ai      R0, 1
-(1)     34D : 801C                       st      R0, vX
-(1)     34E : 6202                       eor     R2, R2
-(1)     34F : 0A1E                       mvi     R2, 30
-(1)     350 : 503A                       c       R0, R2, pz      skip if X>=30
-(1)     351 : DF0A                       b       (I_loop_x)      if X<30
-(1)     352 :                    next_y:
-(1)     352 : 970B                       bal     (I_newline)
-(1)     353 : C01B                       l       R0, vY
-(1)     354 : 4801                       ai      R0, 1
-(1)     355 : 801B                       st      R0, vY
-(1)     356 : 6202                       eor     R2, R2
-(1)     357 : 0A0D                       mvi     R2, 13
-(1)     358 : 503A                       c       R0, R2, pz      skip if Y>=13
-(1)     359 : DF03                       b       (I_loop_y)      if Y<13
-(1)     35A : 2003                       ret
-(1)     35B :
-(1)     35B : 02DF               I_loop_x:       dc      loop_x
-(1)     35C : 02DB               I_loop_y:       dc      loop_y
-(1)     35D :
-(1)     35D :                    *** Print variable: "name=variable "
-(1)     35D :                    *** @param R1 variable
-(1)     35D :                    *** @param R0 variable name
-(1)     35D :                    *** @clobber R0 R1
-(1)     35D :                    debug:
-(1)     35D : 970A                       bal     (I_putchar)     Print name
-(1)     35E : 083D                       mvi     R0, '='
-(1)     35F : 970A                       bal     (I_putchar)
-(1)     360 : 7809                       mv      R0, R1
-(1)     361 : 970E                       bal     (I_print_int16)
-(1)     362 : D70C                       b       (I_putspace)
-        363 :
-        363 :                    irq1_isr:
-        363 : 2001                       push    R0
-        364 : 2301                       push    X0
-        365 : 1881                       rd      R0, USARTS
-        366 : 285E                       tbit    R0, ST_RxRDY_bp, nz     Skip if RxRDY=1
-        367 : CF06                       b       irq1_isr_exit
-        368 : 1880                       rd      R0, USARTD      Receive character
-        369 : 0B20                       mvi     X0, hi(rx_queue)
-        36A : 730B                       bswp    X0, X0
-        36B : 0B00                       mvi     X0, lo(rx_queue)
-        36C : 9708                       bal     (I_queue_add)   Add to Rx queue
-        36D :                    irq1_isr_exit:
-        36D : 2302                       pop     X0
-        36E : 2002                       pop     R0
-        36F : 2005                       lpsw    1               Return from interrupt
-        370 :
-        370 :                    irq2_isr:
-        370 : 2001                       push    R0
-        371 : 2301                       push    X0
-        372 : 1881                       rd      R0, USARTS
-        373 : 285F                       tbit    R0, ST_TxRDY_bp, nz     Skip if TxRDY=1
-        374 : CF08                       b       irq2_isr_exit
-        375 : 0B20                       mvi     X0, hi(tx_queue)
-        376 : 730B                       bswp    X0, X0
-        377 : 0B80                       mvi     X0, lo(tx_queue)
-        378 : 9709                       bal     (I_queue_remove)        Remove from Tx queue
-        379 : 7898                       mv      R0, R0, enz     Skip if ST.E=1
-        37A : CF05                       b       irq2_isr_empty
-        37B : 1080                       wt      R0, USARTD      Transmit charater
-        37C :                    irq2_isr_exit:
-        37C : 2302                       pop     X0
-        37D : 2002                       pop     R0
-        37E : 2006                       lpsw    2               Return from interrupt
-        37F :                    irq2_isr_empty:
-        37F : 0836                       mvi     R0, RX_EN_TX_DIS
-        380 : 1081                       wt      R0, USARTC      Disable Tx
-        381 : CFFB                       b       irq2_isr_exit
+(1)     2B8 : 6000                       eor     R0, R0          quotient=0
+(1)     2B9 : 2940                       tbit    R1, 0, z        skip if dividend>=0
+(1)     2BA : CF6C                       b       divu16_neg
+(1)     2BB : 51FA                       c       R1, R2, lm      skip if dividend<divisor
+(1)     2BC : CF03                       b       divu16_shift
+(1)     2BD : 7908                       mv      R1, R0          quotient=0
+(1)     2BE : 2003                       ret
+(1)     2BF :                    *** Shift divisor up until it exceeds dividend, then enter the step
+(1)     2BF :                    *** that shifts it back down; dividend<X'8000' bounds this to 14.
+(1)     2BF :                    divu16_shift:
+(1)     2BF : 220D                       sl      R2, re          divisor<<=1
+(1)     2C0 : 51EA                       c       R1, R2, lpz     skip if dividend>=divisor
+(1)     2C1 : CF5F                       b       divu16_1
+(1)     2C2 : 220D                       sl      R2, re
+(1)     2C3 : 51EA                       c       R1, R2, lpz
+(1)     2C4 : CF58                       b       divu16_2
+(1)     2C5 : 220D                       sl      R2, re
+(1)     2C6 : 51EA                       c       R1, R2, lpz
+(1)     2C7 : CF51                       b       divu16_3
+(1)     2C8 : 220D                       sl      R2, re
+(1)     2C9 : 51EA                       c       R1, R2, lpz
+(1)     2CA : CF4A                       b       divu16_4
+(1)     2CB : 220D                       sl      R2, re
+(1)     2CC : 51EA                       c       R1, R2, lpz
+(1)     2CD : CF43                       b       divu16_5
+(1)     2CE : 220D                       sl      R2, re
+(1)     2CF : 51EA                       c       R1, R2, lpz
+(1)     2D0 : CF3C                       b       divu16_6
+(1)     2D1 : 220D                       sl      R2, re
+(1)     2D2 : 51EA                       c       R1, R2, lpz
+(1)     2D3 : CF35                       b       divu16_7
+(1)     2D4 : 220D                       sl      R2, re
+(1)     2D5 : 51EA                       c       R1, R2, lpz
+(1)     2D6 : CF2E                       b       divu16_8
+(1)     2D7 : 220D                       sl      R2, re
+(1)     2D8 : 51EA                       c       R1, R2, lpz
+(1)     2D9 : CF27                       b       divu16_9
+(1)     2DA : 220D                       sl      R2, re
+(1)     2DB : 51EA                       c       R1, R2, lpz
+(1)     2DC : CF20                       b       divu16_10
+(1)     2DD : 220D                       sl      R2, re
+(1)     2DE : 51EA                       c       R1, R2, lpz
+(1)     2DF : CF19                       b       divu16_11
+(1)     2E0 : 220D                       sl      R2, re
+(1)     2E1 : 51EA                       c       R1, R2, lpz
+(1)     2E2 : CF12                       b       divu16_12
+(1)     2E3 : 220D                       sl      R2, re
+(1)     2E4 : 51EA                       c       R1, R2, lpz
+(1)     2E5 : CF0B                       b       divu16_13
+(1)     2E6 : 220D                       sl      R2, re
+(1)     2E7 : 51EA                       c       R1, R2, lpz
+(1)     2E8 : CF04                       b       divu16_14
+(1)     2E9 :                    *** One restoring step per quotient bit, each setting its own bit.
+(1)     2E9 : 59F2                       s       R1, R2, lm      dividend-=divisor, skip if borrow
+(1)     2EA : 3811                       sbit    R0, 1, skp      set quotient bit, skip the restore
+(1)     2EB : 590A                       a       R1, R2          restore dividend
+(1)     2EC :                    divu16_14:
+(1)     2EC : 2209                       sr      R2, re          divisor>>=1
+(1)     2ED : 59F2                       s       R1, R2, lm
+(1)     2EE : 3812                       sbit    R0, 2, skp
+(1)     2EF : 590A                       a       R1, R2
+(1)     2F0 :                    divu16_13:
+(1)     2F0 : 2209                       sr      R2, re
+(1)     2F1 : 59F2                       s       R1, R2, lm
+(1)     2F2 : 3813                       sbit    R0, 3, skp
+(1)     2F3 : 590A                       a       R1, R2
+(1)     2F4 :                    divu16_12:
+(1)     2F4 : 2209                       sr      R2, re
+(1)     2F5 : 59F2                       s       R1, R2, lm
+(1)     2F6 : 3814                       sbit    R0, 4, skp
+(1)     2F7 : 590A                       a       R1, R2
+(1)     2F8 :                    divu16_11:
+(1)     2F8 : 2209                       sr      R2, re
+(1)     2F9 : 59F2                       s       R1, R2, lm
+(1)     2FA : 3815                       sbit    R0, 5, skp
+(1)     2FB : 590A                       a       R1, R2
+(1)     2FC :                    divu16_10:
+(1)     2FC : 2209                       sr      R2, re
+(1)     2FD : 59F2                       s       R1, R2, lm
+(1)     2FE : 3816                       sbit    R0, 6, skp
+(1)     2FF : 590A                       a       R1, R2
+(1)     300 :                    divu16_9:
+(1)     300 : 2209                       sr      R2, re
+(1)     301 : 59F2                       s       R1, R2, lm
+(1)     302 : 3817                       sbit    R0, 7, skp
+(1)     303 : 590A                       a       R1, R2
+(1)     304 :                    divu16_8:
+(1)     304 : 2209                       sr      R2, re
+(1)     305 : 59F2                       s       R1, R2, lm
+(1)     306 : 3818                       sbit    R0, 8, skp
+(1)     307 : 590A                       a       R1, R2
+(1)     308 :                    divu16_7:
+(1)     308 : 2209                       sr      R2, re
+(1)     309 : 59F2                       s       R1, R2, lm
+(1)     30A : 3819                       sbit    R0, 9, skp
+(1)     30B : 590A                       a       R1, R2
+(1)     30C :                    divu16_6:
+(1)     30C : 2209                       sr      R2, re
+(1)     30D : 59F2                       s       R1, R2, lm
+(1)     30E : 381A                       sbit    R0, 10, skp
+(1)     30F : 590A                       a       R1, R2
+(1)     310 :                    divu16_5:
+(1)     310 : 2209                       sr      R2, re
+(1)     311 : 59F2                       s       R1, R2, lm
+(1)     312 : 381B                       sbit    R0, 11, skp
+(1)     313 : 590A                       a       R1, R2
+(1)     314 :                    divu16_4:
+(1)     314 : 2209                       sr      R2, re
+(1)     315 : 59F2                       s       R1, R2, lm
+(1)     316 : 381C                       sbit    R0, 12, skp
+(1)     317 : 590A                       a       R1, R2
+(1)     318 :                    divu16_3:
+(1)     318 : 2209                       sr      R2, re
+(1)     319 : 59F2                       s       R1, R2, lm
+(1)     31A : 381D                       sbit    R0, 13, skp
+(1)     31B : 590A                       a       R1, R2
+(1)     31C :                    divu16_2:
+(1)     31C : 2209                       sr      R2, re
+(1)     31D : 59F2                       s       R1, R2, lm
+(1)     31E : 381E                       sbit    R0, 14, skp
+(1)     31F : 590A                       a       R1, R2
+(1)     320 :                    divu16_1:
+(1)     320 : 2209                       sr      R2, re
+(1)     321 : 59F2                       s       R1, R2, lm
+(1)     322 : 381F                       sbit    R0, 15, skp
+(1)     323 : 590A                       a       R1, R2
+(1)     324 : 7908                       mv      R1, R0
+(1)     325 : 2003                       ret
+(1)     326 :                    *** Negative dividend: divide -dividend, then negate the quotient.
+(1)     326 :                    divu16_neg:
+(1)     326 : 5801                       s       R0, R1          R0=-dividend
+(1)     327 : 50EA                       c       R0, R2, lpz     skip if -dividend>=divisor
+(1)     328 : CF6C                       b       divu16_n_zero
+(1)     329 : 7938                       mv      R1, R0, pz      skip if -dividend<X'8000'
+(1)     32A : CF6C                       b       divu16_min
+(1)     32B : 6000                       eor     R0, R0          quotient=0
+(1)     32C :                    divu16_n_shift:
+(1)     32C : 220D                       sl      R2, re
+(1)     32D : 51EA                       c       R1, R2, lpz
+(1)     32E : CF5F                       b       divu16_n_1
+(1)     32F : 220D                       sl      R2, re
+(1)     330 : 51EA                       c       R1, R2, lpz
+(1)     331 : CF58                       b       divu16_n_2
+(1)     332 : 220D                       sl      R2, re
+(1)     333 : 51EA                       c       R1, R2, lpz
+(1)     334 : CF51                       b       divu16_n_3
+(1)     335 : 220D                       sl      R2, re
+(1)     336 : 51EA                       c       R1, R2, lpz
+(1)     337 : CF4A                       b       divu16_n_4
+(1)     338 : 220D                       sl      R2, re
+(1)     339 : 51EA                       c       R1, R2, lpz
+(1)     33A : CF43                       b       divu16_n_5
+(1)     33B : 220D                       sl      R2, re
+(1)     33C : 51EA                       c       R1, R2, lpz
+(1)     33D : CF3C                       b       divu16_n_6
+(1)     33E : 220D                       sl      R2, re
+(1)     33F : 51EA                       c       R1, R2, lpz
+(1)     340 : CF35                       b       divu16_n_7
+(1)     341 : 220D                       sl      R2, re
+(1)     342 : 51EA                       c       R1, R2, lpz
+(1)     343 : CF2E                       b       divu16_n_8
+(1)     344 : 220D                       sl      R2, re
+(1)     345 : 51EA                       c       R1, R2, lpz
+(1)     346 : CF27                       b       divu16_n_9
+(1)     347 : 220D                       sl      R2, re
+(1)     348 : 51EA                       c       R1, R2, lpz
+(1)     349 : CF20                       b       divu16_n_10
+(1)     34A : 220D                       sl      R2, re
+(1)     34B : 51EA                       c       R1, R2, lpz
+(1)     34C : CF19                       b       divu16_n_11
+(1)     34D : 220D                       sl      R2, re
+(1)     34E : 51EA                       c       R1, R2, lpz
+(1)     34F : CF12                       b       divu16_n_12
+(1)     350 : 220D                       sl      R2, re
+(1)     351 : 51EA                       c       R1, R2, lpz
+(1)     352 : CF0B                       b       divu16_n_13
+(1)     353 : 220D                       sl      R2, re
+(1)     354 : 51EA                       c       R1, R2, lpz
+(1)     355 : CF04                       b       divu16_n_14
+(1)     356 : 59F2                       s       R1, R2, lm
+(1)     357 : 3811                       sbit    R0, 1, skp
+(1)     358 : 590A                       a       R1, R2
+(1)     359 :                    divu16_n_14:
+(1)     359 : 2209                       sr      R2, re
+(1)     35A : 59F2                       s       R1, R2, lm
+(1)     35B : 3812                       sbit    R0, 2, skp
+(1)     35C : 590A                       a       R1, R2
+(1)     35D :                    divu16_n_13:
+(1)     35D : 2209                       sr      R2, re
+(1)     35E : 59F2                       s       R1, R2, lm
+(1)     35F : 3813                       sbit    R0, 3, skp
+(1)     360 : 590A                       a       R1, R2
+(1)     361 :                    divu16_n_12:
+(1)     361 : 2209                       sr      R2, re
+(1)     362 : 59F2                       s       R1, R2, lm
+(1)     363 : 3814                       sbit    R0, 4, skp
+(1)     364 : 590A                       a       R1, R2
+(1)     365 :                    divu16_n_11:
+(1)     365 : 2209                       sr      R2, re
+(1)     366 : 59F2                       s       R1, R2, lm
+(1)     367 : 3815                       sbit    R0, 5, skp
+(1)     368 : 590A                       a       R1, R2
+(1)     369 :                    divu16_n_10:
+(1)     369 : 2209                       sr      R2, re
+(1)     36A : 59F2                       s       R1, R2, lm
+(1)     36B : 3816                       sbit    R0, 6, skp
+(1)     36C : 590A                       a       R1, R2
+(1)     36D :                    divu16_n_9:
+(1)     36D : 2209                       sr      R2, re
+(1)     36E : 59F2                       s       R1, R2, lm
+(1)     36F : 3817                       sbit    R0, 7, skp
+(1)     370 : 590A                       a       R1, R2
+(1)     371 :                    divu16_n_8:
+(1)     371 : 2209                       sr      R2, re
+(1)     372 : 59F2                       s       R1, R2, lm
+(1)     373 : 3818                       sbit    R0, 8, skp
+(1)     374 : 590A                       a       R1, R2
+(1)     375 :                    divu16_n_7:
+(1)     375 : 2209                       sr      R2, re
+(1)     376 : 59F2                       s       R1, R2, lm
+(1)     377 : 3819                       sbit    R0, 9, skp
+(1)     378 : 590A                       a       R1, R2
+(1)     379 :                    divu16_n_6:
+(1)     379 : 2209                       sr      R2, re
+(1)     37A : 59F2                       s       R1, R2, lm
+(1)     37B : 381A                       sbit    R0, 10, skp
+(1)     37C : 590A                       a       R1, R2
+(1)     37D :                    divu16_n_5:
+(1)     37D : 2209                       sr      R2, re
+(1)     37E : 59F2                       s       R1, R2, lm
+(1)     37F : 381B                       sbit    R0, 11, skp
+(1)     380 : 590A                       a       R1, R2
+(1)     381 :                    divu16_n_4:
+(1)     381 : 2209                       sr      R2, re
+(1)     382 : 59F2                       s       R1, R2, lm
+(1)     383 : 381C                       sbit    R0, 12, skp
+(1)     384 : 590A                       a       R1, R2
+(1)     385 :                    divu16_n_3:
+(1)     385 : 2209                       sr      R2, re
+(1)     386 : 59F2                       s       R1, R2, lm
+(1)     387 : 381D                       sbit    R0, 13, skp
+(1)     388 : 590A                       a       R1, R2
+(1)     389 :                    divu16_n_2:
+(1)     389 : 2209                       sr      R2, re
+(1)     38A : 59F2                       s       R1, R2, lm
+(1)     38B : 381E                       sbit    R0, 14, skp
+(1)     38C : 590A                       a       R1, R2
+(1)     38D :                    divu16_n_1:
+(1)     38D : 2209                       sr      R2, re
+(1)     38E : 59F2                       s       R1, R2, lm
+(1)     38F : 381F                       sbit    R0, 15, skp
+(1)     390 : 590A                       a       R1, R2
+(1)     391 : 6101                       eor     R1, R1
+(1)     392 : 5900                       s       R1, R0          R1=-quotient
+(1)     393 : 2003                       ret
+(1)     394 :                    divu16_n_zero:
+(1)     394 : 6101                       eor     R1, R1          quotient=0
+(1)     395 : 2003                       ret
+(1)     396 :                    divu16_min:
+(1)     396 : 2201                       push    R2
+(1)     397 : 9F05                       bal     (I_udiv16)      dividend=-32768
+(1)     398 : 2202                       pop     R2
+(1)     399 : 6101                       eor     R1, R1
+(1)     39A : 5900                       s       R1, R0          R1=-quotient
+(1)     39B : 2003                       ret
+(1)     39C : 028D               I_udiv16:       dc      udiv16
+(1)     39D :
+(1)     39D :                    *** Signed Multiply: multiplicand * multiplier = product
+(1)     39D :                    *** @param R1 multiplicand
+(1)     39D :                    *** @param R2 multiplier
+(1)     39D :                    *** @return R1 product
+(1)     39D :                    *** @clobber R0 R2
+(1)     39D :                    mul16:
+(1)     39D : 7809                       mv      R0, R1          R0=multiplicand
+(1)     39E : 6101                       eor     R1, R1          product=0
+(1)     39F : 2A40                       tbit    R2, 0, z        skip if multiplier>=0
+(1)     3A0 : CF4A                       b       mul16_neg
+(1)     3A1 :                    *** One step per multiplier bit, until no 1 bits are left.
+(1)     3A1 : 2A4F                       tbit    R2, 15, z       skip if lsb(multiplier)=0
+(1)     3A2 : 5908                       a       R1, R0          product+=multiplicand
+(1)     3A3 : 2259                       sr      R2, re, nz      multiplier>>=1, skip if multiplier!=0
+(1)     3A4 : 2003                       ret
+(1)     3A5 : 200D                       sl      R0, re          multiplicand<<=1
+(1)     3A6 : 2A4F                       tbit    R2, 15, z
+(1)     3A7 : 5908                       a       R1, R0
+(1)     3A8 : 2259                       sr      R2, re, nz
+(1)     3A9 : 2003                       ret
+(1)     3AA : 200D                       sl      R0, re
+(1)     3AB : 2A4F                       tbit    R2, 15, z
+(1)     3AC : 5908                       a       R1, R0
+(1)     3AD : 2259                       sr      R2, re, nz
+(1)     3AE : 2003                       ret
+(1)     3AF : 200D                       sl      R0, re
+(1)     3B0 : 2A4F                       tbit    R2, 15, z
+(1)     3B1 : 5908                       a       R1, R0
+(1)     3B2 : 2259                       sr      R2, re, nz
+(1)     3B3 : 2003                       ret
+(1)     3B4 : 200D                       sl      R0, re
+(1)     3B5 : 2A4F                       tbit    R2, 15, z
+(1)     3B6 : 5908                       a       R1, R0
+(1)     3B7 : 2259                       sr      R2, re, nz
+(1)     3B8 : 2003                       ret
+(1)     3B9 : 200D                       sl      R0, re
+(1)     3BA : 2A4F                       tbit    R2, 15, z
+(1)     3BB : 5908                       a       R1, R0
+(1)     3BC : 2259                       sr      R2, re, nz
+(1)     3BD : 2003                       ret
+(1)     3BE : 200D                       sl      R0, re
+(1)     3BF : 2A4F                       tbit    R2, 15, z
+(1)     3C0 : 5908                       a       R1, R0
+(1)     3C1 : 2259                       sr      R2, re, nz
+(1)     3C2 : 2003                       ret
+(1)     3C3 : 200D                       sl      R0, re
+(1)     3C4 : 2A4F                       tbit    R2, 15, z
+(1)     3C5 : 5908                       a       R1, R0
+(1)     3C6 : 2259                       sr      R2, re, nz
+(1)     3C7 : 2003                       ret
+(1)     3C8 : 200D                       sl      R0, re
+(1)     3C9 : 2A4F                       tbit    R2, 15, z
+(1)     3CA : 5908                       a       R1, R0
+(1)     3CB : 2259                       sr      R2, re, nz
+(1)     3CC : 2003                       ret
+(1)     3CD : 200D                       sl      R0, re
+(1)     3CE : 2A4F                       tbit    R2, 15, z
+(1)     3CF : 5908                       a       R1, R0
+(1)     3D0 : 2259                       sr      R2, re, nz
+(1)     3D1 : 2003                       ret
+(1)     3D2 : 200D                       sl      R0, re
+(1)     3D3 : 2A4F                       tbit    R2, 15, z
+(1)     3D4 : 5908                       a       R1, R0
+(1)     3D5 : 2259                       sr      R2, re, nz
+(1)     3D6 : 2003                       ret
+(1)     3D7 : 200D                       sl      R0, re
+(1)     3D8 : 2A4F                       tbit    R2, 15, z
+(1)     3D9 : 5908                       a       R1, R0
+(1)     3DA : 2259                       sr      R2, re, nz
+(1)     3DB : 2003                       ret
+(1)     3DC : 200D                       sl      R0, re
+(1)     3DD : 2A4F                       tbit    R2, 15, z
+(1)     3DE : 5908                       a       R1, R0
+(1)     3DF : 2259                       sr      R2, re, nz
+(1)     3E0 : 2003                       ret
+(1)     3E1 : 200D                       sl      R0, re
+(1)     3E2 : 2A4F                       tbit    R2, 15, z
+(1)     3E3 : 5908                       a       R1, R0
+(1)     3E4 : 2259                       sr      R2, re, nz
+(1)     3E5 : 2003                       ret
+(1)     3E6 : 200D                       sl      R0, re
+(1)     3E7 : 2A4F                       tbit    R2, 15, z
+(1)     3E8 : 5908                       a       R1, R0
+(1)     3E9 : 2003                       ret
+(1)     3EA :                    *** Multiply by -multiplier, subtracting the partial products.
+(1)     3EA :                    mul16_neg:
+(1)     3EA : 5902                       s       R1, R2
+(1)     3EB : 7A09                       mv      R2, R1          negate multiplier
+(1)     3EC : 6101                       eor     R1, R1          product=0
+(1)     3ED : 2A4F                       tbit    R2, 15, z       skip if lsb(multiplier)=0
+(1)     3EE : 5900                       s       R1, R0          product-=multiplicand
+(1)     3EF : 2259                       sr      R2, re, nz      multiplier>>=1, skip if multiplier!=0
+(1)     3F0 : 2003                       ret
+(1)     3F1 : 200D                       sl      R0, re          multiplicand<<=1
+(1)     3F2 : 2A4F                       tbit    R2, 15, z
+(1)     3F3 : 5900                       s       R1, R0
+(1)     3F4 : 2259                       sr      R2, re, nz
+(1)     3F5 : 2003                       ret
+(1)     3F6 : 200D                       sl      R0, re
+(1)     3F7 : 2A4F                       tbit    R2, 15, z
+(1)     3F8 : 5900                       s       R1, R0
+(1)     3F9 : 2259                       sr      R2, re, nz
+(1)     3FA : 2003                       ret
+(1)     3FB : 200D                       sl      R0, re
+(1)     3FC : 2A4F                       tbit    R2, 15, z
+(1)     3FD : 5900                       s       R1, R0
+(1)     3FE : 2259                       sr      R2, re, nz
+(1)     3FF : 2003                       ret
+(1)     400 : 200D                       sl      R0, re
+(1)     401 : 2A4F                       tbit    R2, 15, z
+(1)     402 : 5900                       s       R1, R0
+(1)     403 : 2259                       sr      R2, re, nz
+(1)     404 : 2003                       ret
+(1)     405 : 200D                       sl      R0, re
+(1)     406 : 2A4F                       tbit    R2, 15, z
+(1)     407 : 5900                       s       R1, R0
+(1)     408 : 2259                       sr      R2, re, nz
+(1)     409 : 2003                       ret
+(1)     40A : 200D                       sl      R0, re
+(1)     40B : 2A4F                       tbit    R2, 15, z
+(1)     40C : 5900                       s       R1, R0
+(1)     40D : 2259                       sr      R2, re, nz
+(1)     40E : 2003                       ret
+(1)     40F : 200D                       sl      R0, re
+(1)     410 : 2A4F                       tbit    R2, 15, z
+(1)     411 : 5900                       s       R1, R0
+(1)     412 : 2259                       sr      R2, re, nz
+(1)     413 : 2003                       ret
+(1)     414 : 200D                       sl      R0, re
+(1)     415 : 2A4F                       tbit    R2, 15, z
+(1)     416 : 5900                       s       R1, R0
+(1)     417 : 2259                       sr      R2, re, nz
+(1)     418 : 2003                       ret
+(1)     419 : 200D                       sl      R0, re
+(1)     41A : 2A4F                       tbit    R2, 15, z
+(1)     41B : 5900                       s       R1, R0
+(1)     41C : 2259                       sr      R2, re, nz
+(1)     41D : 2003                       ret
+(1)     41E : 200D                       sl      R0, re
+(1)     41F : 2A4F                       tbit    R2, 15, z
+(1)     420 : 5900                       s       R1, R0
+(1)     421 : 2259                       sr      R2, re, nz
+(1)     422 : 2003                       ret
+(1)     423 : 200D                       sl      R0, re
+(1)     424 : 2A4F                       tbit    R2, 15, z
+(1)     425 : 5900                       s       R1, R0
+(1)     426 : 2259                       sr      R2, re, nz
+(1)     427 : 2003                       ret
+(1)     428 : 200D                       sl      R0, re
+(1)     429 : 2A4F                       tbit    R2, 15, z
+(1)     42A : 5900                       s       R1, R0
+(1)     42B : 2259                       sr      R2, re, nz
+(1)     42C : 2003                       ret
+(1)     42D : 200D                       sl      R0, re
+(1)     42E : 2A4F                       tbit    R2, 15, z
+(1)     42F : 5900                       s       R1, R0
+(1)     430 : 2259                       sr      R2, re, nz
+(1)     431 : 2003                       ret
+(1)     432 : 200D                       sl      R0, re
+(1)     433 : 2A4F                       tbit    R2, 15, z
+(1)     434 : 5900                       s       R1, R0
+(1)     435 : 2259                       sr      R2, re, nz
+(1)     436 : 2003                       ret
+(1)     437 : 200D                       sl      R0, re
+(1)     438 : 2A4F                       tbit    R2, 15, z
+(1)     439 : 5900                       s       R1, R0
+(1)     43A : 2003                       ret
+        43B :                            include "mandelbrot.inc"
+(1)     43B :                    *** -*- mode: asm; mode: flyspell-prog* -*-
+(1)     43B :
+(1)     43B : =32                F:      equ     50
+(1)     43B :
+(1)     43B :                    mandelbrot:
+(1)     43B : 08FF                       mvi     R0, hi(-12)
+(1)     43C : 7008                       bswp    R0, R0
+(1)     43D : 08F4                       mvi     R0, lo(-12)
+(1)     43E : 801B                       st      R0, vY          Y=-12
+(1)     43F :                    loop_y:
+(1)     43F : 08FF                       mvi     R0, hi(-49)
+(1)     440 : 7008                       bswp    R0, R0
+(1)     441 : 08CF                       mvi     R0, lo(-49)
+(1)     442 : 801C                       st      R0, vX          X=-49
+(1)     443 :                    loop_x:
+(1)     443 : C11C                       l       R1, vX
+(1)     444 : 6202                       eor     R2, R2
+(1)     445 : 0AE5                       mvi     R2, 229
+(1)     446 : 970F                       bal     (I_mul16)       R1=X*229
+(1)     447 : 6202                       eor     R2, R2
+(1)     448 : 0A64                       mvi     R2, 100
+(1)     449 : 9710                       bal     (I_divu16)      R1=X*229/100
+(1)     44A : 8113                       st      R1, vC          C=X*229/100
+(1)     44B : 8115                       st      R1, vA          A=C
+(1)     44C : C21B                       l       R2, vY          R2=Y, the shorter multiplier
+(1)     44D : 0901                       mvi     R1, hi(416)
+(1)     44E : 7109                       bswp    R1, R1
+(1)     44F : 09A0                       mvi     R1, lo(416)
+(1)     450 : 970F                       bal     (I_mul16)       R1=416*Y
+(1)     451 : 6202                       eor     R2, R2
+(1)     452 : 0A64                       mvi     R2, 100
+(1)     453 : 9710                       bal     (I_divu16)      R1=416*Y/100
+(1)     454 : 8114                       st      R1, vD          D=416*Y/100
+(1)     455 : 8116                       st      R1, vB          B=D
+(1)     456 : 7C09                       mv      R4, R1          R4=B
+(1)     457 : 0AFF                       mvi     R2, hi(-16)
+(1)     458 : 720A                       bswp    R2, R2
+(1)     459 : 0AF0                       mvi     R2, lo(-16)
+(1)     45A : 821D                       st      R2, vI          I=0, kept as I-16
+(1)     45B :
+(1)     45B :                            * l       R1, vY
+(1)     45B :                            * mvi     R0, 'Y'
+(1)     45B :                            * bal     (I_debug)
+(1)     45B :                            * l       R1, vX
+(1)     45B :                            * mvi     R0, 'X'
+(1)     45B :                            * bal     (I_debug)
+(1)     45B :                            * l       R1, vC
+(1)     45B :                            * mvi     R0, 'C'
+(1)     45B :                            * bal     (I_debug)
+(1)     45B :                            * l       R1, vD
+(1)     45B :                            * mvi     R0, 'D'
+(1)     45B :                            * bal     (I_debug)
+(1)     45B :                            * bal     (I_newline)
+(1)     45B :
+(1)     45B :                    loop_i:
+(1)     45B : 790C                       mv      R1, R4          R1=B
+(1)     45C : 6202                       eor     R2, R2
+(1)     45D : 0A32                       mvi     R2, F
+(1)     45E : 9710                       bal     (I_divu16)      R1=B/F, R2=F
+(1)     45F : 8119                       st      R1, vQ          Q=B/F
+(1)     460 : 7949                       mv      R1, R1, z       skip if Q=0, then Q*F=R1=0
+(1)     461 : 970F                       bal     (I_mul16)       R1=Q*F
+(1)     462 : 7A0C                       mv      R2, R4
+(1)     463 : 5A01                       s       R2, R1          R2=B-Q*F
+(1)     464 : 8217                       st      R2, vS          S=B-Q*F
+(1)     465 : 790C                       mv      R1, R4
+(1)     466 : 7A49                       mv      R2, R1, z       skip if B=0, then B*B=R1=0
+(1)     467 : 970F                       bal     (I_mul16)       R1=B*B
+(1)     468 : 7B09                       mv      R3, R1          R3=B*B
+(1)     469 : C115                       l       R1, vA
+(1)     46A : 7A49                       mv      R2, R1, z       skip if A=0, then A*A=R1=0
+(1)     46B : 970F                       bal     (I_mul16)       R1=A*A
+(1)     46C : 5903                       s       R1, R3          R1=A*A-B*B
+(1)     46D : 6202                       eor     R2, R2
+(1)     46E : 0A32                       mvi     R2, F
+(1)     46F : 9710                       bal     (I_divu16)      R1=(A*A-B*B)/F
+(1)     470 : C213                       l       R2, vC
+(1)     471 : 590A                       a       R1, R2          R1=(A*A-B*B)/F+C
+(1)     472 : 7B09                       mv      R3, R1          R3=(A*A-B*B)/F+C
+(1)     473 : C215                       l       R2, vA
+(1)     474 : C119                       l       R1, vQ
+(1)     475 : 7949                       mv      R1, R1, z       skip if Q=0, then A*Q=R1=0
+(1)     476 : 970F                       bal     (I_mul16)       R1=A*Q
+(1)     477 : 7C09                       mv      R4, R1          R4=A*Q
+(1)     478 : C115                       l       R1, vA
+(1)     479 : C217                       l       R2, vS
+(1)     47A : 970F                       bal     (I_mul16)       R1=A*S
+(1)     47B : 6202                       eor     R2, R2
+(1)     47C : 0A32                       mvi     R2, F
+(1)     47D : 9710                       bal     (I_divu16)      R1=A*S/F, R2=F
+(1)     47E : 590C                       a       R1, R4          R1=A*Q+A*S/F
+(1)     47F : 5909                       a       R1, R1          R1=2*(A*Q+A*S/F)
+(1)     480 : C014                       l       R0, vD
+(1)     481 : 5908                       a       R1, R0          R1=2*(A*Q+A*S/F)+D
+(1)     482 : 8116                       st      R1, vB          B=2*(A*Q+A*S/F)+D
+(1)     483 : 7C09                       mv      R4, R1          R4=B
+(1)     484 : 8315                       st      R3, vA          A=(A*A-B*B)/F+C
+(1)     485 : 790B                       mv      R1, R3
+(1)     486 : 9710                       bal     (I_divu16)      R1=A/F
+(1)     487 : 8118                       st      R1, vP          P=A/F
+(1)     488 : 7A49                       mv      R2, R1, z       skip if P=0, then P*P=R1=0
+(1)     489 : 970F                       bal     (I_mul16)       R1=P*P
+(1)     48A : 7B09                       mv      R3, R1          R3=P*P
+(1)     48B : 790C                       mv      R1, R4
+(1)     48C : 6202                       eor     R2, R2
+(1)     48D : 0A32                       mvi     R2, F
+(1)     48E : 9710                       bal     (I_divu16)      R1=B/F
+(1)     48F : 8119                       st      R1, vQ          Q=B/F
+(1)     490 : 7A49                       mv      R2, R1, z       skip if Q=0, then Q*Q=R1=0
+(1)     491 : 970F                       bal     (I_mul16)       R1=Q*Q
+(1)     492 : 590B                       a       R1, R3          R1=P*P+Q*Q
+(1)     493 : 811A                       st      R1, vT          T=P*P+Q*Q
+(1)     494 :
+(1)     494 :                            * bal     (I_putspace)
+(1)     494 :                            * l       R1, vI
+(1)     494 :                            * ai      R1, 15
+(1)     494 :                            * ai      R1, 1
+(1)     494 :                            * mvi     R0, 'I'
+(1)     494 :                            * bal     (I_debug)
+(1)     494 :                            * l       R1, vA
+(1)     494 :                            * mvi     R0, 'A'
+(1)     494 :                            * bal     (I_debug)
+(1)     494 :                            * l       R1, vB
+(1)     494 :                            * mvi     R0, 'B'
+(1)     494 :                            * bal     (I_debug)
+(1)     494 :                            * l       R1, vP
+(1)     494 :                            * mvi     R0, 'P'
+(1)     494 :                            * bal     (I_debug)
+(1)     494 :                            * l       R1, vQ
+(1)     494 :                            * mvi     R0, 'Q'
+(1)     494 :                            * bal     (I_debug)
+(1)     494 :                            * l       R1, vT
+(1)     494 :                            * mvi     R0, 'T'
+(1)     494 :                            * bal     (I_debug)
+(1)     494 :                            * bal     (I_newline)
+(1)     494 :                            * l       R1, vT
+(1)     494 :
+(1)     494 : 4125                       si      R1, 5, m        skip if T<=4
+(1)     495 : CF05                       b       print_i         if 4<T
+(1)     496 : C61D                       ims     vI              I+=1, skip if I>=16
+(1)     497 : CFC4                       b       loop_i          if I<16
+(1)     498 : 0820                       mvi     R0, ' '
+(1)     499 : CF0B                       b       print_char
+(1)     49A :                    print_i:
+(1)     49A : C01D                       l       R0, vI
+(1)     49B : 480F                       ai      R0, 15
+(1)     49C : 4801                       ai      R0, 1           R0=I
+(1)     49D : 090A                       mvi     R1, 10
+(1)     49E : 50E1                       cb      R0, R1, lpz     skip if I>=10
+(1)     49F : CF03                       b       print_dec
+(1)     4A0 : 0941                       mvi     R1, 'A'
+(1)     4A1 : 401A                       si      R0, 10, skp
+(1)     4A2 :                    print_dec:
+(1)     4A2 : 0930                       mvi     R1, '0'
+(1)     4A3 : 5809                       a       R0, R1
+(1)     4A4 :                    print_char:
+(1)     4A4 : 970A                       bal     (I_putchar)
+(1)     4A5 :
+(1)     4A5 :                            * mv      R2, R0
+(1)     4A5 :                            * mvi     R0, '@'
+(1)     4A5 :                            * bal     (I_putchar)
+(1)     4A5 :                            * mvi     R0, '='
+(1)     4A5 :                            * bal     (I_putchar)
+(1)     4A5 :                            * mv      R0, R2
+(1)     4A5 :                            * bal     (I_putchar)
+(1)     4A5 :                            * bal     (I_newline)
+(1)     4A5 :
+(1)     4A5 : 970D                       bal     (I_getchar)
+(1)     4A6 : 6098                       or      R0, R0, enz     skip if E=1
+(1)     4A7 : CF03                       b       next_x
+(1)     4A8 : 6058                       or      R0, R0, nz      skip if R0!=0
+(1)     4A9 : 2000                       h                       halt to system
+(1)     4AA :                    next_x:
+(1)     4AA : C01C                       l       R0, vX
+(1)     4AB : 4801                       ai      R0, 1
+(1)     4AC : 801C                       st      R0, vX
+(1)     4AD : 6202                       eor     R2, R2
+(1)     4AE : 0A1E                       mvi     R2, 30
+(1)     4AF : 503A                       c       R0, R2, pz      skip if X>=30
+(1)     4B0 : DF0A                       b       (I_loop_x)      if X<30
+(1)     4B1 :                    next_y:
+(1)     4B1 : 970B                       bal     (I_newline)
+(1)     4B2 : C01B                       l       R0, vY
+(1)     4B3 : 4801                       ai      R0, 1
+(1)     4B4 : 801B                       st      R0, vY
+(1)     4B5 : 6202                       eor     R2, R2
+(1)     4B6 : 0A0D                       mvi     R2, 13
+(1)     4B7 : 503A                       c       R0, R2, pz      skip if Y>=13
+(1)     4B8 : DF03                       b       (I_loop_y)      if Y<13
+(1)     4B9 : 2003                       ret
+(1)     4BA :
+(1)     4BA : 0443               I_loop_x:       dc      loop_x
+(1)     4BB : 043F               I_loop_y:       dc      loop_y
+(1)     4BC :
+(1)     4BC :                    *** Print variable: "name=variable "
+(1)     4BC :                    *** @param R1 variable
+(1)     4BC :                    *** @param R0 variable name
+(1)     4BC :                    *** @clobber R0 R1
+(1)     4BC :                    debug:
+(1)     4BC : 970A                       bal     (I_putchar)     Print name
+(1)     4BD : 083D                       mvi     R0, '='
+(1)     4BE : 970A                       bal     (I_putchar)
+(1)     4BF : 7809                       mv      R0, R1
+(1)     4C0 : 970E                       bal     (I_print_int16)
+(1)     4C1 : D70C                       b       (I_putspace)
+        4C2 :
+        4C2 :                    irq1_isr:
+        4C2 : 2001                       push    R0
+        4C3 : 2301                       push    X0
+        4C4 : 1881                       rd      R0, USARTS
+        4C5 : 285E                       tbit    R0, ST_RxRDY_bp, nz     Skip if RxRDY=1
+        4C6 : CF06                       b       irq1_isr_exit
+        4C7 : 1880                       rd      R0, USARTD      Receive character
+        4C8 : 0B20                       mvi     X0, hi(rx_queue)
+        4C9 : 730B                       bswp    X0, X0
+        4CA : 0B00                       mvi     X0, lo(rx_queue)
+        4CB : 9708                       bal     (I_queue_add)   Add to Rx queue
+        4CC :                    irq1_isr_exit:
+        4CC : 2302                       pop     X0
+        4CD : 2002                       pop     R0
+        4CE : 2005                       lpsw    1               Return from interrupt
+        4CF :
+        4CF :                    irq2_isr:
+        4CF : 2001                       push    R0
+        4D0 : 2301                       push    X0
+        4D1 : 1881                       rd      R0, USARTS
+        4D2 : 285F                       tbit    R0, ST_TxRDY_bp, nz     Skip if TxRDY=1
+        4D3 : CF08                       b       irq2_isr_exit
+        4D4 : 0B20                       mvi     X0, hi(tx_queue)
+        4D5 : 730B                       bswp    X0, X0
+        4D6 : 0B80                       mvi     X0, lo(tx_queue)
+        4D7 : 9709                       bal     (I_queue_remove)        Remove from Tx queue
+        4D8 : 7898                       mv      R0, R0, enz     Skip if ST.E=1
+        4D9 : CF05                       b       irq2_isr_empty
+        4DA : 1080                       wt      R0, USARTD      Transmit charater
+        4DB :                    irq2_isr_exit:
+        4DB : 2302                       pop     X0
+        4DC : 2002                       pop     R0
+        4DD : 2006                       lpsw    2               Return from interrupt
+        4DE :                    irq2_isr_empty:
+        4DE : 0836                       mvi     R0, RX_EN_TX_DIS
+        4DF : 1081                       wt      R0, USARTC      Disable Tx
+        4E0 : CFFB                       b       irq2_isr_exit
