@@ -38,70 +38,96 @@ print_uint16_zero:
 print_uint16_end:
         rts
 
-;;; Unsigned multiplication: result = multiplicand * multiplier
-;;; @param R1 multiplicand
-;;; @param R2 multiplier
-;;; @return R0 result
-;;; @clobber R0 R1 R2
-umul16:
-        ldaa    R1L
-        ldab    R2L
-        mul                     ; low(multiplicand)*low(multiplier)
-        std     R0
-        ldab    R2H
-        beq     umul16_high     ; branch if high(multiplier) == 0
-        ldaa    R1L
-        mul                     ; low(multiplicand)*high(multiplier)
-        addb    R0H
-        stab    R0H
-umul16_high:
-        ldab    R1H
-        beq     umul16_end      ; branch if high(multiplicand) == 0
-        ldaa    R2L
-        mul                     ; high(multiplicand)*low(multiplier)
-        addb    R0H
-        stab    R0H
-umul16_end:
-        rts
-
 ;;; Multiply; result = multiplicand * multiplier
+;;; The low 16 bits of a product don't depend on the operands' signs. A
+;;; high byte of 0 or $FF, a small positive or negative operand, needs
+;;; no MUL for its cross product: $FF*n adds -n to the high byte.
 ;;; @param D multiplicand
 ;;; @param X multiplier
 ;;; @return D result
 ;;; @clobber R0 R1 R2
 mul16:
-        std     R1
+        std     R1              ; R1=multiplicand
         beq     mul16_end       ; branch if multiplicand == 0
-        stx     R2
+        stx     R2              ; R2=multiplier
         beq     mul16_zero      ; branch if multiplier == 0
-        eora    R2H
-        staa    sign            ; save hi(multiplicand^multiplier)
-        ldd     R2
-        bpl     mul16_multiplicand
-        coma
-        comb
-        addd    #1              ; negate multiplier
-        std     R2
-mul16_multiplicand:
-        ldd     R1
-        bpl     mul16_multiply
-        coma
-        comb
-        addd    #1              ; negate multiplicand
-        std     R1
-mul16_multiply:
-        bsr     umul16          ; R0=result
-        ldd     R0
-        tst     sign            ; A=(multiplicand^multiplier)
-        bpl     mul16_end
-        coma
-        comb
-        addd    #1              ; negate result
+        tsta
+        bne     mul16_high      ; branch if high(multiplicand) != 0
+        ldaa    R2H
+        bne     mul16_multiplier ; branch if high(multiplier) != 0
+        ldaa    R2L
+        mul                     ; low(multiplicand)*low(multiplier)
 mul16_end:
         rts
 mul16_zero:
-        clra
-        clrb
+        ldd     #0
+        rts
+mul16_multiplier:
+        inca
+        bne     mul16_cross     ; branch if high(multiplier) != $FF
+        ldaa    R2L
+        mul                     ; low(multiplicand)*low(multiplier)
+        suba    R1L             ; low(multiplicand)*$FF00
+        rts
+mul16_high:
+        inca
+        bne     mul16_cross     ; branch if high(multiplicand) != $FF
+        ldaa    R2H
+        beq     mul16_ff_low    ; branch if high(multiplier) == 0
+        inca
+        bne     mul16_cross     ; branch if high(multiplier) != $FF
+        ldaa    R2L
+        mul                     ; low(multiplicand)*low(multiplier)
+        suba    R1L             ; low(multiplicand)*$FF00
+        suba    R2L             ; $FF00*low(multiplier)
+        rts
+mul16_ff_low:
+        ldaa    R2L
+        mul                     ; low(multiplicand)*low(multiplier)
+        suba    R2L             ; $FF00*low(multiplier)
+        rts
+mul16_cross:
+        ldaa    R1H
+        ldab    R2L
+        mul                     ; high(multiplicand)*low(multiplier)
+        stab    R0H
+        ldaa    R1L
+        ldab    R2H
+        mul                     ; low(multiplicand)*high(multiplier)
+        addb    R0H
+        stab    R0H             ; R0H=sum of cross products
+        ldaa    R1L
+        ldab    R2L
+        mul                     ; low(multiplicand)*low(multiplier)
+        adda    R0H
+        rts
+
+;;; Square; result = value * value
+;;; The square doesn't depend on the sign, and a magnitude below 256
+;;; squares in one MUL.
+;;; @param D value
+;;; @return D result
+;;; @clobber R0
+sqr16:
+        tsta
+        bpl     sqr16_plus
+        nega
+        negb
+        sbca    #0              ; negate value
+sqr16_plus:
+        bne     sqr16_wide      ; branch if |value| >= 256
+        tba
+        mul                     ; low(value)*low(value)
+        rts
+sqr16_wide:
+        std     R0
+        mul                     ; high(value)*low(value)
+        lslb                    ; twice the cross product, its low byte
+        stab    R0H             ; is all that reaches the result
+        ldaa    R0L
+        tab
+        mul                     ; low(value)*low(value)
+        adda    R0H
         rts
 
 ;;; Unsigned division: dividend / divisor = quotient ... remainder
@@ -109,55 +135,18 @@ mul16_zero:
 ;;; @praram R2 divisor
 ;;; @return R0 quotient
 ;;; @return R1 remainder
-;;; @clobber R2
+;;; @clobber D X R2 sign
 udiv16:
-        ldd     R2              ; D=divisor
-        beq     udiv16_end      ; branch if divisor==0
-        cmpa    R1H
-        bhi     udiv16_zero     ; branch if divisor > dividend
-        bcs     udiv16_start
-        cmpb    R1L
-        bhi     udiv16_zero
-udiv16_start:
-        ldx     #1              ; X=bits
-        bra     udiv16_prep_msb
-udiv16_prep_loop:
-        lsld                    ; divisor <<= 1
-        inx                     ; ++bits
-udiv16_prep:
-        cmpa    R1H
-        bhi     udiv16_prep_end ; until divisor > dividend
-        bcs     udiv16_prep_msb
-        cmpb    R1L
-        bhi     udiv16_prep_end
-udiv16_prep_msb:
-        tsta
-        bpl     udiv16_prep_loop ; while msb(divisor) == 0
-udiv16_prep_end:
-        std     R2               ; update divisor
-        ldd     R1               ; D=dividend
-        clr     R0H
-        clr     R0L             ; quotient=0
-        bra     udiv16_enter_loop
-udiv16_loop:
-        lsr     R2H
-        ror     R2L             ; divisor >>= 1
-        lsl     R0L
-        rol     R0H             ; quotient <<= 1
-udiv16_enter_loop:
-        subd    R2              ; dividend -= divisor
-        bcs     udiv16_readd
-        inc     R0L             ; quotient |= 1
-        bra     udiv16_next
-udiv16_readd:
-        addd    R2              ; dividend += divisor
-udiv16_next:
-        dex                     ; --bits
-        bne     udiv16_loop     ; while bits != 0
-udiv16_end:
-        std     R1              ; R1=remainder
+        clr     sign            ; positive quotient
+        ldd     R1
+        subd    R2
+        bcs     udiv16_small    ; branch if dividend < divisor
+        ldx     R2
+        bsr     div16_unsigned
+        std     R0              ; R0=quotient
+        stx     R1              ; R1=remainder
         rts
-udiv16_zero:
+udiv16_small:
         ldx     #0
         stx     R0              ; quotient=0, R1=remainder
         rts
@@ -169,31 +158,212 @@ udiv16_zero:
 ;;; @return X remainder
 ;;; @clobber R0 R1 R2
 div16:
-        std     R1
-        stx     R2
-        eora    R2H
-        staa    sign            ; save hi(dividend^divisor)
-        ldd     R2
+        staa    sign            ; save hi(dividend)
         bpl     div16_dividend
-        coma
-        comb
-        addd    #1              ; negate divisor
-        std     R2
+        nega
+        negb
+        sbca    #0              ; negate dividend
 div16_dividend:
-        ldd     R1
-        bpl     div16_divide
-        coma
-        comb
-        addd    #1              ; negate dividend
-        std     R1
-div16_divide:
-        bsr     udiv16          ; R0=quotient
-        ldd     R0
-        ldx     R1
-        tst     sign            ; A=(dividend^divisor)
-        bpl     div16_end
-        coma
-        comb
-        addd    #1              ; negate result
-div16_end:
+        std     R1              ; R1=|dividend|
+        stx     R2
+        bmi     div16_divisor   ; branch if divisor < 0
+div16_compare:
+        subd    R2
+        bcs     div16_small     ; branch if |dividend| < |divisor|
+;;; @param X divisor
+;;; @param R1 dividend, not less than divisor
+;;; @param R2 divisor
+;;; @param sign sign of quotient at bit 7
+div16_unsigned:
+        dex
+        cpx     #127
+        bcc     div16_wide      ; branch if divisor == 0 or divisor >= 128
+        ldd     R1              ; A=remainder
+        cmpa    R2L
+        bcc     div16_wide      ; branch if quotient >= 256
+        jsr     udiv16_8_shift  ; the quotient fits in 8 bits
+        tst     sign
+        bmi     div16_byte_negate
         rts
+div16_byte_negate:
+        negb
+        ldaa    #$FF            ; D=-quotient, quotient isn't 0
+        rts
+div16_small:
+        ldx     R1              ; X=remainder
+        ldd     #0              ; D=quotient
+        rts
+div16_divisor:
+        com     sign            ; flip sign of quotient
+        ldd     R2
+        nega
+        negb
+        sbca    #0              ; negate divisor
+        std     R2              ; R2=|divisor|
+        ldx     R2
+        ldd     R1
+        jmp     div16_compare
+div16_wide:
+        ldd     R2
+        beq     div16_small     ; divide by zero
+        ldx     #1              ; X=quotient bits
+div16_prep_loop:
+        lsld                    ; divisor <<= 1
+        bcs     div16_prep_end  ; until divisor overflows
+        cmpa    R1H
+        bcs     div16_prep_next
+        bne     div16_prep_end  ; or divisor > dividend
+        cmpb    R1L
+        bhi     div16_prep_end
+div16_prep_next:
+        inx                     ; ++bits
+        bra     div16_prep_loop
+div16_prep_end:
+        rora
+        rorb                    ; divisor >>= 1, C back into msb
+        std     R2              ; R2=divisor aligned to dividend
+        ldd     #~1
+        std     R0              ; R0=~quotient, the first bit 1
+        ldd     R1
+        subd    R2              ; the first subtraction always fits
+        bra     div16_next
+div16_loop:
+        lsr     R2H
+        ror     R2L             ; divisor >>= 1
+        subd    R2              ; dividend -= divisor
+        bcc     div16_bit       ; C=0
+        addd    R2              ; dividend += divisor, C=1
+div16_bit:
+        rol     R0L
+        rol     R0H             ; ~quotient = ~quotient<<1 | C
+div16_next:
+        dex                     ; --bits
+        bne     div16_loop      ; while bits != 0
+        std     R1
+        ldx     R1              ; X=remainder
+        ldd     R0
+        tst     sign
+        bmi     div16_negate
+        coma
+        comb                    ; D=quotient
+        rts
+div16_negate:
+        addd    #1              ; D=-quotient=~quotient+1
+        rts
+
+;;; Division by a divisor from 1 to 127; dividend / divisor = quotient ... remainder
+;;; @param D dividend
+;;; @param X divisor, 1 to 127
+;;; @return D quotient
+;;; @return X |remainder|
+;;; @clobber R1 R2 sign
+div16_8:
+        tsta
+        bpl     udiv16_8        ; branch if dividend >= 0
+        nega
+        negb
+        sbca    #0              ; negate dividend
+        bsr     udiv16_8
+        nega
+        negb
+        sbca    #0              ; negate quotient
+        rts
+
+;;; Unsigned division by a divisor from 1 to 127; dividend / divisor = quotient ... remainder
+;;; A dividend below 256 has a quotient below 8 for a divisor of 32 or
+;;; more, which subtracts faster than it shifts.
+;;; @param D dividend
+;;; @param X divisor, 1 to 127
+;;; @return D quotient
+;;; @return X remainder
+;;; @clobber R1 R2 sign
+udiv16_8:
+        stx     R2              ; R2L=divisor
+        tsta
+        bne     udiv16_8_high   ; branch if dividend >= 256
+        cmpb    R2L
+        bcs     udiv16_8_zero   ; branch if dividend < divisor
+        ldaa    R2L
+        cmpa    #32
+        bcs     udiv16_8_byte   ; branch if divisor < 32
+        ldaa    #-1             ; A=quotient-1
+udiv16_8_sub:
+        inca                    ; ++quotient
+        subb    R2L             ; dividend -= divisor
+        bcc     udiv16_8_sub    ; at most 8 times as divisor >= 32
+        addb    R2L             ; B=remainder
+        ldx     #0
+        abx                     ; X=remainder
+        tab
+        clra                    ; D=quotient
+        rts
+udiv16_8_zero:
+        ldx     #0
+        abx                     ; X=remainder
+        clrb                    ; D=quotient
+        rts
+udiv16_8_high:
+        cmpa    R2L
+        bcs     udiv16_8_shift  ; branch if quotient < 256
+        std     R1              ; R1=dividend
+        clr     sign            ; positive quotient
+        jmp     div16_wide
+udiv16_8_byte:
+        clra                    ; A=hi(dividend)
+udiv16_8_shift:
+;;; The quotient fits in 8 bits: shift the low byte of the dividend
+;;; through A as the remainder, and the quotient into B behind it. A
+;;; divisor below 128 keeps the shifted remainder within A.
+        lsld                    ; remainder = remainder<<1 | msb(dividend)
+        cmpa    R2L
+        bcs     udiv16_8_1
+        suba    R2L             ; remainder -= divisor
+        incb                    ; quotient |= 1
+udiv16_8_1:
+        lsld                    ; remainder = remainder<<1 | msb(dividend)
+        cmpa    R2L
+        bcs     udiv16_8_2
+        suba    R2L             ; remainder -= divisor
+        incb                    ; quotient |= 1
+udiv16_8_2:
+        lsld                    ; remainder = remainder<<1 | msb(dividend)
+        cmpa    R2L
+        bcs     udiv16_8_3
+        suba    R2L             ; remainder -= divisor
+        incb                    ; quotient |= 1
+udiv16_8_3:
+        lsld                    ; remainder = remainder<<1 | msb(dividend)
+        cmpa    R2L
+        bcs     udiv16_8_4
+        suba    R2L             ; remainder -= divisor
+        incb                    ; quotient |= 1
+udiv16_8_4:
+        lsld                    ; remainder = remainder<<1 | msb(dividend)
+        cmpa    R2L
+        bcs     udiv16_8_5
+        suba    R2L             ; remainder -= divisor
+        incb                    ; quotient |= 1
+udiv16_8_5:
+        lsld                    ; remainder = remainder<<1 | msb(dividend)
+        cmpa    R2L
+        bcs     udiv16_8_6
+        suba    R2L             ; remainder -= divisor
+        incb                    ; quotient |= 1
+udiv16_8_6:
+        lsld                    ; remainder = remainder<<1 | msb(dividend)
+        cmpa    R2L
+        bcs     udiv16_8_7
+        suba    R2L             ; remainder -= divisor
+        incb                    ; quotient |= 1
+udiv16_8_7:
+        lsld                    ; remainder = remainder<<1 | msb(dividend)
+        cmpa    R2L
+        bcs     udiv16_8_8
+        suba    R2L             ; remainder -= divisor
+        incb                    ; quotient |= 1
+udiv16_8_8:
+        staa    R1L
+        clra
+        staa    R1H
+        ldx     R1              ; X=remainder
+        rts                     ; D=quotient

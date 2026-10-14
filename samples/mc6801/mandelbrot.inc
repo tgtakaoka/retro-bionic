@@ -41,6 +41,23 @@ mandelbrot:
         ldaa    #-12
         staa    vY              ; Y=-12
 loop_y:
+        ldab    vY
+        bsr     sex_B
+        ldx     #416
+        jsr     mul16           ; Y*416
+        ldx     #100
+        jsr     div16_8         ; Y*416/100
+        std     vD              ; D=Y*416/100
+        bpl     loop_y_abs
+        nega
+        negb
+        sbca    #0              ; |D|
+loop_y_abs:
+        stab    vDm             ; every pixel starts with B=D
+        ldx     #F
+        jsr     udiv16_8        ; |D|/F
+        std     vDQ             ; Q=|D|/F
+        stx     vDS             ; S=|D|-Q*F
         ldaa    #-49
         staa    vX              ; X=-49
 loop_x:
@@ -49,17 +66,21 @@ loop_x:
         ldx     #229
         jsr     mul16           ; X*229
         ldx     #100
-        jsr     div16           ; X*229/100
+        jsr     div16_8         ; X*229/100
         std     vC              ; C=X*229/100
         std     vA              ; A=C
-        ldab    vY
-        bsr     sex_B
-        ldx     #416
-        jsr     mul16           ; Y*416
-        ldx     #100
-        jsr     div16           ; Y*416/100
-        std     vD              ; D=Y*416/100
+        bpl     loop_x_abs
+        negb                    ; |C| < 256
+loop_x_abs:
+        stab    vAm             ; |A|
+        ldd     vD
         std     vB              ; B=D
+        ldab    vDm
+        stab    vBm             ; |B|
+        ldd     vDQ
+        std     vQ              ; Q=|B|/F
+        ldd     vDS
+        std     vS              ; S=|B|-Q*F
         clr     vI              ; I=0
 
         ;; ldaa    vY              ; Y
@@ -78,66 +99,96 @@ loop_x:
         ;; jsr     print
         ;; jsr     newline
 
+;;; A step starts with |A| and |B| below 3F: C and D do, and a step
+;;; continues only when P*P+Q*Q <= 4, so |P| and |Q| were 2 or less.
+;;; With 3F below 256, |A|, |B|, Q <= 2 and S < F then multiply in
+;;; single MULs as bytes.
+;;; Q=|B|/F and S=|B|-Q*F come from the previous step, which divided B
+;;; by F for T; A*Q+A*S/F, which is A*B/F without overflowing 16 bits,
+;;; has the sign of A*B. B goes first, as vAm and vBm still hold this
+;;; step's |A| and |B| for A*A-B*B.
 loop_i:
-        ldd     vB
+        ldaa    vAm
+        ldab    vS+1
+        mul                     ; |A*S|
         ldx     #F
-        jsr     div16           ; B/F
-        std     vQ              ; Q=B/F
-        ldx     #-F
-        jsr     mul16           ; -Q*F
-        addd    vB              ; B-Q*F
-        std     vS              ; S=B-Q*F
-        ldd     vB
-        ldx     vB
-        jsr     mul16           ; B*B
-        pshb
-        psha                    ; push B*B
-        ldd     vA
-        ldx     vA
-        jsr     mul16           ; A*A
-        pulx                    ; push B*B
-        stx     R2
-        subd    R2              ; A*A-B*B
-        ldx     #F
-        jsr     div16           ; (A*A-B*B)/F
-        addd    vC
-        pshb
-        psha                    ; push (A*A-B*B)/F+C
-        ldd     vA
+        jsr     udiv16_8        ; |A*S/F|
         ldx     vQ
-        jsr     mul16           ; R0=A*Q
-        pshb
-        psha                    ; push A*Q
-        ldd     vA
-        ldx     vS
-        jsr     mul16           ; A*S
-        ldx     #F
-        jsr     div16           ; A*S/F
-        pulx                    ; pull A*Q
-        stx     R2
-        addd    R2              ; A*Q+A*S/F
-        lsld                    ; 2*(A*Q+A*S/F)
-        addd    vD              ; 2*(A*Q+A*S/F)+D
+        beq     loop_i_aq       ; branch if A*Q=0
+        std     tmp             ; tmp=|A*S/F|
+        ldaa    vAm
+        ldab    vQ+1
+        mul                     ; |A*Q|
+        addd    tmp             ; |A*Q+A*S/F|
+loop_i_aq:
+        lsld
+        std     tmp             ; tmp=|2*(A*Q+A*S/F)|
+        ldaa    vA
+        eora    vB
+        bmi     loop_i_minus    ; branch if A*B < 0
+        ldd     vD
+        addd    tmp             ; 2*(A*Q+A*S/F)+D
+        bra     loop_i_b
+loop_i_minus:
+        ldd     vD
+        subd    tmp             ; 2*(A*Q+A*S/F)+D
+loop_i_b:
         std     vB              ; B=2*(A*Q+A*S/F)+D
-        pula
-        pulb                    ; pull (A*A-B*B)/F+C
+        ldaa    vBm
+        tab
+        mul                     ; B*B
+        std     tmp             ; tmp=B*B
+        ldaa    vAm
+        tab
+        mul                     ; A*A
+        subd    tmp             ; A*A-B*B
+        ldx     #F
+        jsr     div16_8         ; (A*A-B*B)/F
+        addd    vC
         std     vA              ; A=(A*A-B*B)/F+C
+        bpl     loop_i_a
+        nega
+        negb
+        sbca    #0              ; |A|
+loop_i_a:
+        stab    vAm
+        tsta
+        bne     loop_i_p        ; branch if |A| >= 256
+        cmpb    #F
+        bcc     loop_i_p        ; branch if |A| >= F
+        clrb                    ; P*P=0
+        std     vP              ; P=0
+        bra     loop_i_pp
+loop_i_p:
         ldx     #F
-        jsr     div16           ; A/F
-        std     vP              ; P=A/F
-        ldx     vP
-        jsr     mul16           ; P*P
-        pshb
-        psha                    ; push P*P
+        jsr     udiv16_8        ; |A|/F
+        std     vP              ; P=|A|/F
+        jsr     sqr16           ; P*P
+loop_i_pp:
+        std     vT              ; T=P*P
         ldd     vB
+        bpl     loop_i_b_abs
+        nega
+        negb
+        sbca    #0              ; |B|
+loop_i_b_abs:
+        stab    vBm
+        tsta
+        bne     loop_i_q        ; branch if |B| >= 256
+        cmpb    #F
+        bcc     loop_i_q        ; branch if |B| >= F
+        std     vS              ; S=|B| for the next step
+        clrb                    ; Q*Q=0
+        std     vQ              ; Q=0
+        bra     loop_i_qq
+loop_i_q:
         ldx     #F
-        jsr     div16           ; B/F
-        std     vQ              ; Q=B/F
-        ldx     vQ
-        jsr     mul16           ; Q*Q
-        pulx                    ; pull P*P
-        stx     R2
-        addd    R2              ; P*P+Q*Q
+        jsr     udiv16_8        ; |B|/F
+        stx     vS              ; S=|B|-Q*F for the next step
+        std     vQ              ; Q=|B|/F
+        jsr     sqr16           ; Q*Q
+loop_i_qq:
+        addd    vT              ; P*P+Q*Q
         std     vT              ; T=P*P+Q*Q
 
         ;; jsr     putspace
@@ -162,7 +213,6 @@ loop_i:
         ;; jsr     print
         ;; jsr     newline
 
-        ldd     vT
         subd    #4
         bgt     print_i         ; if 4<T
         inc     vI              ; I+=1

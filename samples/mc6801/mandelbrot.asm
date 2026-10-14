@@ -17,9 +17,15 @@ vS:     rmb     2
 vP:     rmb     2
 vQ:     rmb     2
 vT:     rmb     2
+vAm:    rmb     1               ; |A|
+vBm:    rmb     1               ; |B|
+vDm:    rmb     1               ; |D|, the first |B| of every pixel in a row
+vDQ:    rmb     2               ; |D|/F, the first Q
+vDS:    rmb     2               ; |D|-vDQ*F, the first S
 vY:     rmb     1
 vX:     rmb     1
 vI:     rmb     1
+tmp:    rmb     2
 
 ;;; Working space for arith.inc
 R0:
