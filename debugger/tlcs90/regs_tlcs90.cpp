@@ -11,6 +11,9 @@ namespace {
 const char line1[] = "PC=xxxx SP=xxxx  BC=xxxx DE=xxxx HL=xxxx A=xx F=SZIHXVNC";
 const char line2[] = "IX=xxxx IY=xxxx (BC=xxxx DE=xxxx HL=xxxx A=xx F=SZIHXVNC)";
 // clang-format on
+
+// Interrupt enable flag in F, shared with F'
+constexpr uint8_t IFF = 0x20;
 }  // namespace
 
 RegsTlcs90::RegsTlcs90(PinsTlcs90 *pins)
@@ -82,14 +85,19 @@ void RegsTlcs90::save() {
     _pins->captureWrites(
             SAVE_SP, sizeof(SAVE_SP), buffer, sizeof(buffer), &_pc);
     _sp = le16(buffer);
-    saveRegisters();
+    saveRegisters(false);
 }
 
-void RegsTlcs90::saveRegisters() {
+void RegsTlcs90::saveRegisters(bool frame) {
+    // The interrupt cleared IFF; the frame's F has the program's
+    const auto f = _main.f;
     saveRegs(_main);
     exchangeRegs();
     saveRegs(_alt);
     exchangeRegs();
+    if (frame)
+        _main.f = f;
+    _alt.f = (_alt.f & ~IFF) | (_main.f & IFF);
     static constexpr uint8_t SAVE_INDEX[] = {
             0x54,  // PUSH IX   ; 0:N:d:W:W
             0x55,  // PUSH IY   ; 0:N:d:W:W
@@ -127,18 +135,23 @@ void RegsTlcs90::restore() {
     exchangeRegs();
     restoreRegs(_alt);
     exchangeRegs();
+    // EI takes effect after JP
+    const uint8_t ei = (_main.f & IFF) ? 0x03 : 0x02;
     const uint8_t LOAD_ALL[] = {
             0x3C, lo(_ix), hi(_ix),  // LD IX, _ix  ; 0:2:3:N
             0x3D, lo(_iy), hi(_iy),  // LD IY, _iy  ; 0:2:3:N
             0x3E, lo(_sp), hi(_sp),  // LD SP, _sp  ; 0:2:3:N
+            ei,                      // EI/DI       ; 0:N
             0x1A, lo(_pc), hi(_pc),  // JP _pc     ; 0:2:3:d:J
     };
     _pins->execInst(LOAD_ALL, sizeof(LOAD_ALL));
 }
 
 void RegsTlcs90::restoreRegs(const reg &regs) const {
+    // restore() enables interrupts last
+    const uint8_t f = regs.f & ~IFF;
     const uint8_t LOAD_ALL[] = {
-            0x5E, 0x09, regs.f, regs.a,  // POP AF    ; 0:n:R:R:d:N
+            0x5E, 0x09, f, regs.a,       // POP AF    ; 0:n:R:R:d:N
             0x38, regs.c, regs.b,        // LD BC, _bc  ; 0:2:3:N
             0x39, regs.e, regs.d,        // LD DE, _de  ; 0:2:3:N
             0x3A, regs.l, regs.h,        // LD HL, _hl  ; 0:2:3:N

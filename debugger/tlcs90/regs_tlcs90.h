@@ -21,7 +21,8 @@ struct RegsTlcs90 final : Regs {
 
     void reset() override;
     bool saveContext(const Signals *frame);
-    void saveRegisters();
+    // frame: saveContext() took A and F from an interrupt's stack frame
+    void saveRegisters(bool frame = true);
     void setIp(uint32_t pc) override { _pc = pc; }
     void offsetStack(int16_t delta) { _sp += delta; }
 
