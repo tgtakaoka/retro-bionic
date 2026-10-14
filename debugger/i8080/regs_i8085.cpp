@@ -10,14 +10,32 @@ const char *RegsI8085::cpu() const {
     return "i8085";
 }
 
-bool RegsI8085::ie() const {
-    static const uint8_t RIM[] = {
+void RegsI8085::save() {
+    // RIM reads IE but clobbers A, so DI waits until A is pushed
+    static const uint8_t PUSH_ALL[] = {
+            0xF5,  // PUSH PSW
             0x20,  // RIM
+            0xF3,  // DI
             0x77,  // MOV M, A
+            0xC7,  // RST 0
+            0xC5,  // PUSH B
+            0xD5,  // PUSH D
+            0xE5,  // PUSH H
     };
-    uint8_t rim;
-    _pins->captureWrites(RIM, sizeof(RIM), &rim, sizeof(rim));
-    return (rim & 0x08) != 0;
+    uint8_t buffer[11];
+    _sp = _pins->captureWrites(
+            PUSH_ALL, sizeof(PUSH_ALL), buffer, sizeof(buffer));
+    _sp++;
+    _a = buffer[0];
+    _psw = buffer[1];
+    _ie = (buffer[2] & 0x08) != 0;
+    _pc = be16(buffer + 3) - 5;  // offset instructions before RST
+    _b = buffer[5];
+    _c = buffer[6];
+    _d = buffer[7];
+    _e = buffer[8];
+    _h = buffer[9];
+    _l = buffer[10];
 }
 
 void RegsI8085::saveContext(uint16_t pc) {

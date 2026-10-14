@@ -55,7 +55,7 @@ protected:
         _h = hi(hl);
     }
 
-    virtual bool ie() const;
+    bool ie() const;
 
     mutable CharBuffer _buffer;
 };

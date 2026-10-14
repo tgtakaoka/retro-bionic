@@ -39,7 +39,9 @@ bool RegsI8080::ie() const {
 }
 
 void RegsI8080::save() {
+    _ie = ie();
     static const uint8_t PUSH_ALL[] = {
+            0xF3,  // DI
             0xC7,  // RST 0
             0xF5,  // PUSH PSW
             0xC5,  // PUSH B
@@ -50,7 +52,7 @@ void RegsI8080::save() {
     _sp = _pins->captureWrites(
             PUSH_ALL, sizeof(PUSH_ALL), buffer, sizeof(buffer));
     _sp++;
-    _pc = be16(buffer) - 1;  // offset RST instruction
+    _pc = be16(buffer) - 2;  // offset DI and RST instructions
     _a = buffer[2];
     _psw = buffer[3];
     _b = buffer[4];
@@ -59,7 +61,6 @@ void RegsI8080::save() {
     _e = buffer[7];
     _h = buffer[8];
     _l = buffer[9];
-    _ie = ie();
 }
 
 void RegsI8080::saveContext(uint16_t pc, uint8_t inte) {
