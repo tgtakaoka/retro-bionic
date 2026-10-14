@@ -12,56 +12,6 @@ dep12,          .-.
         dca     R0H             / store high(R0)
         jmp     I dep12         / return, AC=0
 
-/// 12-bit/24-bit addition; summand += addend
-/// @param R0 Signed 24-bit summand
-/// @param AC Signed 12-bit addend
-/// @return R0
-/// @return AC=0
-/// @clobber R1
-add12,          .-.
-        dca     R1L             / low(addend)
-        dca     R1H             / high(addend)
-        tad     R1L
-        sma cla                 / Skip if addend < 0, AC=0
-        jmp     add12_add
-        sta                     / AC=-1
-        dca     R1H             / sign extended addend
-add12_add,
-        tad     R1L
-        tad     R0L
-        dca     R0L
-        ral
-        tad     R1H
-        tad     R0H
-        dca     R0H
-        jmp     I add12         / return
-
-/// 12-bit/24-bit subtraction; minuend -= subtrahend
-/// @param R0 Signed 24-bit minuend
-/// @param AC Signed 12-bit minuend
-/// @return AC=0
-/// @return L=0 if borrow
-/// @clobber R1
-sub12,          .-.
-        dca     R1L             / low(subtrahend)
-        dca     R1H             / high(subtrahend)
-        tad     R1H
-        sma cla                 / Skip if subtrahend < 0, AC=0
-        jmp     sub12_sub
-        sta
-        dca     R1H             / sign extended subtrahend
-sub12_sub,
-        tad     R1L             / AC=low(subtrahend)
-        stl cia                 / negate to form 13-bit negative
-        tad     R0L             / AC=low(R0)-low(subtrahend)
-        dca     R0L             / L=0 if borrowed
-        ral                     / propagate complemented borrow
-        tad     R1L             / AC=high(subtrahend)
-        cia cml                 / form 13-bit negative
-        tad     R0H             / add high(R0)
-        dca     R0H             / store high(R0), AC=0
-        jmp     I sub12         / return
-
 /// Signed 12-bit multiply; R0 *= multiplier
 /// @param R0 multiplicand
 /// @param AC multiplier
@@ -134,7 +84,7 @@ divu12_negative,
         dca     R0H             / negate quotient, AC=0
         jmp     I divu12        / return, AC=0
 
-/// Mandelbrot draw variables
+/// Mandelbrot draw
 mandelbrot_end,
         jmp     I mandelbrot
 mandelbrot,     .-.
@@ -143,20 +93,6 @@ mandelbrot,     .-.
         dca     vY              / Y=-12
 loop_y,
         cla
-        tad     const_m49
-        dca     vX              / X=-49
-loop_x,
-        cla
-        tad     vX
-        jms     I I_dep12       / R0=X
-        tad     const_229
-        jms     I I_mul12       / R0=X*229
-        tad     const_100
-        jms     I I_divu12      / R0=X*229/100
-        tad     R0
-        dca     vC              / C=X*229/100
-        tad     R0
-        dca     vA              / A=C
         tad     vY
         jms     I I_dep12       / R0=Y
         tad     const_416
@@ -164,10 +100,291 @@ loop_x,
         tad     const_100
         jms     I I_divu12      / R0=Y*416/100
         tad     R0
-        dca     vD              / D=Y*416/100
-        tad     R0
+        dca     vD              / D=Y*416/100, the same for the whole row
+        tad     vD
+        spa
+        cia
+        dca     absD            / |D|
+        tad     const_C0
+        dca     absC
+        tad     const_C0r
+        dca     absC_rem        / |C| for X=-49
+        tad     const_m49
+        dca     vX              / X=-49
+        jmp     I I_loop_x
+I_loop_x,       loop_x
+        decimal
+const_C0,       112             / 49*229=112*100+21
+const_C0r,      21
+        octal
+
+        page
+/// Mandelbrot inner loop
+/// Each round starts with |A|, |B|, S=|B| mod F and aQ=|A|*Q, where
+/// Q=|B|/F, left by the previous round. Products and quotients are
+/// formed from magnitudes and take their signs afterwards, which
+/// truncates toward zero as the signed divide does.
+loop_i,
+        tad     absA
+        dca     md_x            / x=|A|
+        tad     vB
+        and     bit_sign
+        tad     vA              / AC<0 if A*B<0
+        spa cla                 / skip if A*B>=0
+        jmp     loop_i_bneg
+        tad     vS
+        jms     I I_muldivF     / AC=|A*S/F|
+        tad     aQ              / AC=|A*Q+A*S/F|
+        jmp     loop_i_b
+loop_i_bneg,
+        tad     vS
+        jms     I I_muldivF     / AC=|A*S/F|
+        tad     aQ
+        cia                     / AC=A*Q+A*S/F
+loop_i_b,
+        cll ral                 / AC=2*(A*Q+A*S/F)
+        tad     vD
+        dca     vB              / B=2*(A*Q+A*S/F)+D
+        tad     absA
+        tad     absB
+        dca     md_x            / x=|A|+|B|
+        tad     absB
+        cia
+        tad     absA            / AC=|A|-|B|
+        spa
+        jmp     loop_i_aneg
+        jms     I I_muldivF     / AC=(|A|+|B|)*(|A|-|B|)/F=(A*A-B*B)/F
+        jmp     loop_i_a
+loop_i_aneg,
+        cia
+        jms     I I_muldivF     / AC=(|A|+|B|)*(|B|-|A|)/F
+        cia                     / AC=(A*A-B*B)/F
+loop_i_a,
+        tad     vC
+        dca     vA              / A=(A*A-B*B)/F+C
+
+//        jms     I I_putspace
+//        tad     const_m16
+//        cia
+//        tad     vI              / I=vI+16
+//        jms     I I_debug
+//        111                     / char 'I'
+//        tad     vA
+//        jms     I I_debug
+//        101                     / char 'A'
+//        tad     vB
+//        jms     I I_debug
+//        102                     / char 'B'
+//        jms     I I_newline
+
+/// T=P*P+Q*Q>4, with P=|A|/F and Q=|B|/F, exactly when P+Q>2
+        tad     vB
+        spa
+        cia
+        dca     absB            / |B|
+        tad     vA
+        spa
+        cia
+        dca     absA            / |A|
+        jms     divB            / S=|B| mod F, aQ=|A|*Q
+        tad     vS
+        cia
+        tad     absB            / AC=Q*F
+        tad     absA
+        tad     const_m3F       / AC=|A|+Q*F-3*F
+        sma cla                 / skip if P+Q<3
+        jmp     I I_print_i     / T>4
+        isz     vI              / I+=1, skip if I=16
+        jmp     loop_i
+        jmp     I I_print_space / I=16
+I_print_i,      print_i
+I_print_space,  print_space
+bit_sign,       4000
+
+/// Divide |B| by F
+/// @param AC=0
+/// @return vS remainder |B| mod F
+/// @return aQ |A|*(|B|/F)
+divB,           .-.
+        dca     aQ
+        tad     absB
+divB_loop,
+        tad     const_mF
+        spa                     / skip if no borrow
+        jmp     divB_end
+        dca     vS
+        tad     absA
+        tad     aQ
+        dca     aQ              / aQ+=|A| for each F taken out
+        tad     vS
+        jmp     divB_loop
+divB_end,
+        tad     const_F
+        dca     vS              / S=|B| mod F
+        jmp     I divB
+
+        page
+/// Multiply and divide by F; quotient = multiplicand * multiplier / F
+/// @param md_x multiplicand, below 1024
+/// @param AC multiplier
+/// @return AC quotient, which must fit in 12 bits
+/// @clobber MQ L
+/// The multiply shifts the product right into MQ as the multiplier
+/// leaves it, one octal digit of the multiplier per pass. The high
+/// word, held in AC, stays below 2*multiplicand; taking out 2*F while
+/// it can leaves a remainder below F to start the divide, and puts
+/// those quotient bits at the bottom of MQ. The divide then shifts the
+/// product's low bits back out of MQ while quotient bits enter at the
+/// bottom, in as many passes. Its remainder may go negative instead of
+/// being restored.
+md_mul_count,   0               / multiply passes
+md_div_count,   0               / divide passes
+muldivF,        .-.
+        sna                     / skip if multiplier != 0
+        jmp     I muldivF       / AC=0
+        mql                     / MQ=multiplier
+        mqa                     / AC=multiplier
+        and     bits_7770
+        sna cla                 / skip if multiplier >= 8
+        jmp     muldivF_1digit
+        mqa
+        and     bits_7700
+        sna cla                 / skip if multiplier >= 64
+        jmp     muldivF_2digits
+        mqa
+        and     bits_7000
+        sna cla                 / skip if multiplier >= 512
+        jmp     muldivF_3digits
+        tad     const_m1
+muldivF_3digits,
+        tad     const_m1
+muldivF_2digits,
+        tad     const_m1
+muldivF_1digit,
+        tad     const_m1        / AC=-digits
+        dca     md_mul_count
+        tad     md_mul_count
+        dca     md_div_count    / AC=0, the high word
+muldivF_mul,
+        cll rar                 / high >>= 1, L=its LSB
+        swp                     / AC=low, MQ=high
+        rar                     / low = L:low>>1, L=multiplier bit
+        swp                     / AC=high, MQ=low
+        szl                     / skip if multiplier bit=0
+        tad     md_x            / high += multiplicand
+        cll rar
+        swp
+        rar
+        swp
+        szl
+        tad     md_x
+        cll rar
+        swp
+        rar
+        swp
+        szl
+        tad     md_x
+        isz     md_mul_count
+        jmp     muldivF_mul
+muldivF_high,                   / AC=high*2 before the last shift
+        tad     const_m2F
+        spa                     / skip if high*2 >= 2*F
+        jmp     muldivF_div
+        swp
+        iac                     / quotient high bits += 1
+        swp
+        jmp     muldivF_high
+muldivF_div,
+        tad     const_2F
+        cll rar                 / AC=remainder<F, L=next product bit
+muldivF_loop,
+        ral                     / remainder = remainder*2+L, L=sign
+        szl                     / skip if remainder was not negative
+        tad     const_2F
+        tad     const_mF        / remainder -= F, L=quotient bit
+        swp                     / AC=low, MQ=remainder
+        ral                     / quotient bit in, next product bit out
+        swp                     / AC=remainder, MQ=low
+        ral
+        szl
+        tad     const_2F
+        tad     const_mF
+        swp
+        ral
+        swp
+        ral
+        szl
+        tad     const_2F
+        tad     const_mF
+        swp
+        ral
+        swp
+        isz     md_div_count
+        jmp     muldivF_loop
+        acl                     / AC=quotient
+        jmp     I muldivF
+bits_7770,      7770
+bits_7700,      7700
+bits_7000,      7000
+const_m1,       -1
+
+        page
+/// Mandelbrot row: C steps along with X instead of being divided anew
+loop_x,
+        cla
+        tad     absC
+        dca     absA            / |A|=|C|
+        tad     vX
+        sma cla                 / skip if X<0
+        jmp     loop_x_cpos
+        tad     absC
+        cia
+        jmp     loop_x_c
+loop_x_cpos,
+        tad     absC
+loop_x_c,
+        dca     vC              / C=X*229/100
+        tad     vC
+        dca     vA              / A=C
+/// Step |C| to the next X; |X|*229 moves by 2*100+29
+        tad     vX
+        spa cla                 / skip if X>=0
+        jmp     loop_x_down
+        tad     absC_rem
+        tad     const_29
+        tad     const_m2F
+        spa                     / skip if the remainder reached 100
+        jmp     loop_x_up2
+        dca     absC_rem
+        tad     const_3
+        jmp     loop_x_step
+loop_x_up2,
+        tad     const_2F
+        dca     absC_rem
+        tad     const_2
+        jmp     loop_x_step
+loop_x_down,
+        tad     absC_rem
+        tad     const_m29
+        sma                     / skip if the remainder went negative
+        jmp     loop_x_down2
+        tad     const_2F
+        dca     absC_rem
+        tad     const_m3
+        jmp     loop_x_step
+loop_x_down2,
+        dca     absC_rem
+        tad     const_m2
+loop_x_step,
+        tad     absC
+        dca     absC            / |C| for X+1
+        tad     vD
         dca     vB              / B=D
-        dca     vI              / I=0
+        tad     absD
+        dca     absB            / |B|
+        jms     I I_divB        / S=|B| mod F, aQ=|A|*Q
+        tad     const_m16
+        dca     vI              / I=0, counted from -16
 
 //        tad     vY
 //        jms     I I_debug
@@ -183,141 +400,28 @@ loop_x,
 //        104                     / char 'D'
 //        jms     I I_newline
 
-loop_i,
-        cla
-        tad     vB
-        jms     I I_dep12       / R0=B
-        tad     const_F
-        jms     I I_divu12      / R0=B/F
-        tad     R0
-        dca     vQ              / Q=B/F
-        tad     const_F
-        cia                     / AC=-F
-        jms     I I_dep12       / R0=-F
-        tad     vQ
-        jms     I I_mul12       / R0=-F*Q, Q the shorter multiplier
-        tad     vB
-        jms     I I_add12       / R0=B-Q*F
-        tad     R0
-        dca     vS              / S=B-Q*F
-        tad     vB
-        jms     I I_dep12       / R0=B
-        tad     vB
-        jms     I I_mul12       / R0=B*B
-        tad     R0L
-        dca     R3L
-        tad     R0H
-        dca     R3H             / R3=B*B
-        tad     vA
-        jms     I I_dep12       / R0=A
-        tad     vA
-        jms     I I_mul12       / R0=A*A
-        jms     I I_sub24       / R0=A*A-B*B, needs 24-bit
-        R3
-        tad     const_F
-        jms     I I_divu12      / R0=(A*A-B*B)/F, 12-bit is enough
-        tad     vC
-        jms     I I_add12       / R0=(A*A-B*B)/F+C
-        tad     R0
-        dca     R3L             / TMP=(A*A-B*B)/F+C, 12-bit is enough
-        tad     vA
-        jms     I I_dep12       / R0=A
-        tad     vQ
-        jms     I I_mul12       / R0=A*Q
-        tad     R0
-        dca     vT              / T=A*Q
-        tad     vA
-        jms     I I_dep12       / R0=A
-        tad     vS
-        jms     I I_mul12       / R0=A*S
-        tad     const_F
-        jms     I I_divu12      / R0=A*S/F
-        tad     vT
-        jms     I I_add12       / R0=A*Q+A*S/F
-        tad     R0
-        dca     vT              / T=A*Q+A*S/F
-        tad     vT
-        tad     vT              / AC=2*(A*Q+A*S/F)
-        tad     vD              / AC=2*(A*Q+A*S/F)+D
-        dca     vB              / B=2*(A*Q+A*S/F)+D
-        tad     R3L             / AC=(A*A-B*B)/F+C
-        dca     vA              / A=(A*A-B*B)/F+C
-        tad     vA
-        jms     I I_dep12       / R0=A
-        tad     const_F
-        jms     I I_divu12      / R0=A/F
-        tad     R0
-        dca     vP              / P=A/F
-        tad     vP
-        jms     I I_mul12       / R0=P*P
-        tad     R0
-        dca     vT              / T=P*P
-        tad     vB
-        jms     I I_dep12       / R0=B
-        tad     const_F
-        jms     I I_divu12      / R0=B/F
-        tad     R0
-        dca     vQ              / Q=B/F
-        tad     vQ
-        jms     I I_mul12       / R0=Q*Q
-        tad     R0
-        tad     vT              / R0=P*P+Q*Q
-        dca     vT              / T=P*P+Q*Q
+        jmp     I I_loop_i
+        decimal
+const_29,       29
+const_m29,      -29
+const_2,        2
+const_m2,       -2
+const_3,        3
+const_m3,       -3
+        octal
 
-//        jms     I I_putspace
-//        cla
-//        tad     vI
-//        jms     I I_debug
-//        111                     / char 'I'
-//        tad     vA
-//        jms     I I_debug
-//        101                     / char 'A'
-//        tad     vB
-//        jms     I I_debug
-//        102                     / char 'B'
-//        tad     vP
-//        jms     I I_debug
-//        120                     / char 'P'
-//        tad     vQ
-//        jms     I I_debug
-//        121                     / char 'Q'
-//        tad     vT
-//        jms     I I_debug
-//        124                     / char 'T'
-//        jms     I I_newline
-//        cla
-
-        jmp     I I_debug_t
-I_debug_t,      debug_t
-        page
-debug_t,
-        tad     vT
-        tad     const_m5        / T-5
-        sma cla                 / skip if T-5<0
-        jmp     print_i         / if 4<T (T>=5)
-        tad     vI
-        iac
-        dca     vI              / I+=1
-        tad     vI
-        tad     const_m16       / I-16
-        spa cla                 / skip if I-16>=0
-        jmp     I I_loop_i      / if I<16
+print_space,
         jms     I I_putspace    / print ' '
         jmp     check_break
-
-I_loop_i,       loop_i
-
 print_i,
-        cla
         tad     vI
-        tad     const_m10       / I-10
+        tad     const_p6        / I-10
         spa                     / if I>=10
         jmp     print_dec       / if I<10
         tad     char_A          / I-10+'A'
         jmp     print_char
 print_dec,
-        cla
-        tad     vI
+        tad     const_p10       / I
         tad     char_zero       / '0'
 print_char,
         jms     I I_putchar
@@ -344,7 +448,6 @@ check_break,
         jmp     next_x
         hlt                     / halt to system
 
-I_loop_x,               loop_x
 next_x,
         cla
         tad     vX
@@ -353,7 +456,7 @@ next_x,
         tad     vX
         tad     const_m30       / X-30
         spa                     / Skip if X-30>=0
-        jmp     I I_loop_x      / if X<30
+        jmp     loop_x          / if X<30
 next_y,
         jms     I I_newline
         cla
@@ -364,9 +467,11 @@ next_y,
         tad     const_m13       / Y-13
         spa                     / Skip if Y-13>=0
         jmp     I I_loop_y      / if Y<13
-I_loop_y,               loop_y
         jmp     I I_mandelbrot_end
+I_loop_y,               loop_y
 I_mandelbrot_end,       mandelbrot_end
+const_p6,       6
+const_p10,      12
 
 /// Print variable: "name=R0 "
 /// @param AC variable

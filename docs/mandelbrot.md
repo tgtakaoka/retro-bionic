@@ -55,6 +55,7 @@ The tables time them on real chips, from recorded casts, with
 | MC68HC05C0  |   9.9 |   0.400 |   0.090 | MC6805 code        | [mandelbrot_mc68hc05.cast](../samples/mc6805/mandelbrot_mc68hc05.cast)   | [mc6805/mandelbrot.lst](../samples/mc6805/mandelbrot.lst)       |
 | HD6309E     |  10.1 |   0.411 |   0.114 | native mode        | [mandelbrot_hd6309e.cast](../samples/mc6809/mandelbrot_hd6309e.cast)     | [mc6809/mandelbrot.lst](../samples/mc6809/mandelbrot.lst)       |
 | HD6309      |  10.6 |   0.432 |   0.119 | native mode        | [mandelbrot_hd6309.cast](../samples/mc6809/mandelbrot_hd6309.cast)       | [mc6809/mandelbrot.lst](../samples/mc6809/mandelbrot.lst)       |
+| HD6120      |  10.9 |   0.441 |   0.117 |                    | [mandelbrot_hd6120.cast](../samples/pdp8/mandelbrot_hd6120.cast)         | [pdp8/mandelbrot.lst](../samples/pdp8/mandelbrot.lst)           |
 | MC6809E     |  12.4 |   0.505 |   0.143 |                    | [mandelbrot_mc6809e.cast](../samples/mc6809/mandelbrot_mc6809e.cast)     | [mc6809/mandelbrot.lst](../samples/mc6809/mandelbrot.lst)       |
 | MC6809      |  13.1 |   0.533 |   0.150 |                    | [mandelbrot.cast](../samples/mc6809/mandelbrot.cast)                     | [mc6809/mandelbrot.lst](../samples/mc6809/mandelbrot.lst)       |
 | MC146805E2  |  13.3 |   0.538 |   0.121 |                    | [mandelbrot.cast](../samples/mc6805/mandelbrot.cast)                     | [mc6805/mandelbrot.lst](../samples/mc6805/mandelbrot.lst)       |
@@ -64,6 +65,7 @@ The tables time them on real chips, from recorded casts, with
 | KL5C80A12   |  16.5 |   0.669 |   0.172 | Z80 code           | [mandelbrot_kl5c80.cast](../samples/z80/mandelbrot_kl5c80.cast)          | [z80/mandelbrot.lst](../samples/z80/mandelbrot.lst)             |
 | Z380        |  16.7 |   0.681 |   0.182 | Z180 code          | [mandelbrot_z380.cast](../samples/z180/mandelbrot_z380.cast)             | [z180/mandelbrot.lst](../samples/z180/mandelbrot.lst)           |
 | Z380        |  17.0 |   0.691 |   0.181 | Z80 code           | [mandelbrot_z380.cast](../samples/z80/mandelbrot_z380.cast)              | [z80/mandelbrot.lst](../samples/z80/mandelbrot.lst)             |
+| IM6100      |  17.0 |   0.693 |   0.185 |                    | [mandelbrot.cast](../samples/pdp8/mandelbrot.cast)                       | [pdp8/mandelbrot.lst](../samples/pdp8/mandelbrot.lst)           |
 | TMS370Cx5x  |  20.2 |   0.823 |   0.259 |                    | [mandelbrot.cast](../samples/tms370/mandelbrot.cast)                     | [tms370/mandelbrot.lst](../samples/tms370/mandelbrot.lst)       |
 | Z88C00      |  20.5 |   0.837 |   0.278 |                    | [mandelbrot.cast](../samples/z88/mandelbrot.cast)                        | [z88/mandelbrot.lst](../samples/z88/mandelbrot.lst)             |
 | Z80         |  27.5 |   1.117 |   0.283 |                    | [mandelbrot.cast](../samples/z80/mandelbrot.cast)                        | [z80/mandelbrot.lst](../samples/z80/mandelbrot.lst)             |
@@ -87,10 +89,8 @@ The tables time them on real chips, from recorded casts, with
 | TMS9980     |  37.4 |   1.528 |   0.497 |                    | [mandelbrot_tms9980.cast](../samples/tms9900/mandelbrot_tms9980.cast)    | [tms9900/mandelbrot.lst](../samples/tms9900/mandelbrot.lst)     |
 | P8085       |  40.2 |   1.632 |   0.393 |                    | [mandelbrot_p8085.cast](../samples/i8080/mandelbrot_p8085.cast)          | [i8080/mandelbrot.lst](../samples/i8080/mandelbrot.lst)         |
 | INS8070     |  56.6 |   2.312 |   0.744 |                    | [mandelbrot.cast](../samples/ins8070/mandelbrot.cast)                    | [ins8070/mandelbrot.lst](../samples/ins8070/mandelbrot.lst)     |
-| HD6120      |  59.2 |   2.401 |   0.546 |                    | [mandelbrot_hd6120.cast](../samples/pdp8/mandelbrot_hd6120.cast)         | [pdp8/mandelbrot.lst](../samples/pdp8/mandelbrot.lst)           |
 | P8080       |  63.2 |   2.566 |   0.611 |                    | [mandelbrot.cast](../samples/i8080/mandelbrot.cast)                      | [i8080/mandelbrot.lst](../samples/i8080/mandelbrot.lst)         |
 | P8039       |  76.2 |   3.099 |   0.832 |                    | [mandelbrot.cast](../samples/i8048/mandelbrot.cast)                      | [i8048/mandelbrot.lst](../samples/i8048/mandelbrot.lst)         |
-| IM6100      |  89.4 |   3.627 |   0.817 |                    | [mandelbrot.cast](../samples/pdp8/mandelbrot.cast)                       | [pdp8/mandelbrot.lst](../samples/pdp8/mandelbrot.lst)           |
 | CDP1804A    | 112.7 |   4.583 |   1.173 |                    | [mandelbrot.cast](../samples/cdp1804a/mandelbrot.cast)                   | [cdp1804a/mandelbrot.lst](../samples/cdp1804a/mandelbrot.lst)   |
 | SCN2650     | 120.7 |   4.894 |   1.119 |                    | [mandelbrot.cast](../samples/scn2650/mandelbrot.cast)                    | [scn2650/mandelbrot.lst](../samples/scn2650/mandelbrot.lst)     |
 | INS8060     | 152.1 |   6.163 |   1.277 |                    | [mandelbrot.cast](../samples/ins8060/mandelbrot.cast)                    | [ins8060/mandelbrot.lst](../samples/ins8060/mandelbrot.lst)     |
@@ -176,7 +176,7 @@ multiply `M` and divide `D` the MN1610 lacks.
 
 | | IM6100 | HD6120 |
 |---|---:|---:|
-| [pdp8](../samples/pdp8/mandelbrot.lst) | 89.4 | 59.2 |
+| [pdp8](../samples/pdp8/mandelbrot.lst) | 17.0 | 10.9 |
 | Data bus | 12-bit, multiplexed | 12-bit, multiplexed |
 
 The HD6120 runs the IM6100's code as is, and in less time on its board.

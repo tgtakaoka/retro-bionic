@@ -32,14 +32,15 @@ I_neg24,        neg24
 I_add24,        add24
 I_sub24,        sub24
 I_dep12,        dep12
-I_add12,        add12
-I_sub12,        sub12
 I_mul12,        mul12
 I_divu12,       divu12
 I_umul24,       umul24
 I_udiv16,       udiv16
 I_print_int24,  print_int24
 I_debug,        debug
+I_divB,         divB
+I_loop_i,       loop_i
+I_muldivF,      muldivF
 
 arith_ptr,      0       / arithmetic routine work
 R0,                     / 24-bit arithmetic accumulator
@@ -61,24 +62,29 @@ vD,     0
 vA,     0
 vB,     0
 vS,     0
-vP,     0
-vQ,     0
-vT,     0
 vY,     0
 vX,     0
 vI,     0
+absA,   0                       / |A|
+absB,   0                       / |B|
+absD,   0                       / |D|
+absC,   0                       / |C|=|X|*229/100
+absC_rem,       0               / |X|*229-|C|*100
+aQ,     0                       / |A|*Q
+md_x,   0                       / muldivF multiplicand
 
 /// Mandelbrot draw constants
         decimal
 const_m12,      -12
 const_m49,      -49
-const_229,      229
 const_100,      100
 const_416,      416
 const_F,         50
-const_m5,        -5
+const_mF,       -50
+const_2F,       100
+const_m2F,     -100
+const_m3F,     -150
 const_m16,      -16
-const_m10,      -10
 const_m13,      -13
 const_m30,      -30
         octal
