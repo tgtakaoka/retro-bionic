@@ -36,6 +36,9 @@ void RegsMc6805::save() {
     _sp = _pins->captureWrites(context, sizeof(context));
     // Capturing writes to stack in little endian order.
     _pc = le16(context) - 1;  //  offset SWI instruction.
+    // An IRQ that takes the place of the SWI stacks the PC before it
+    if (isHC08() && !_pins->swiVector())
+        ++_pc;
     _x = context[2];
     _a = context[3];
     _cc = context[4];

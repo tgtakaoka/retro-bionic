@@ -335,8 +335,9 @@ void PinsMc68HC08AZ0::loop() {
         while (*seq) {
             if (seq[1] == 0 && *seq == 'N') {
                 // last cycle is prefetch; an SWI injected there would never
-                // run after WAIT or STOP.
-                if (!sleeps && haltSwitch()) {
+                // run after WAIT or STOP, nor in an interrupt's stacking,
+                // whose writes can fall here.
+                if (!sleeps && !s->write() && haltSwitch()) {
                     fetch->markFetch();
                     if (is_internal(s->addr)) {
                         // Can't inject instruction for context save
