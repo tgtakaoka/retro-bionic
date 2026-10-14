@@ -288,6 +288,8 @@ Signals *PinsTms9900::completeCycle(Signals *_s) {
             Cycles::next();
             s->inputMode();
         } else {
+            // A held ring reuses this slot, and next() clears its capture flag
+            const auto store = s->writeMemory();
             delayNanoseconds(phi1_write);
             // phi2
             phi2_hi();
@@ -299,7 +301,7 @@ Signals *PinsTms9900::completeCycle(Signals *_s) {
             // negate_debug();
             // phi3
             phi3_hi();
-            if (s->writeMemory()) {
+            if (store) {
                 auto m = mems<MemsTms9900>();
                 m->write(s->addr, s->data);
                 if (phi3_write)

@@ -202,10 +202,12 @@ Signals *PinsTms320C15::completeCycle(Signals *s) {
         delayNanoseconds(debug_ns);
         s->getData();
         // negate_debug();
+        // A held ring reuses this slot, and next() clears its capture flag
+        const auto store = s->writeMemory();
         clkin_hi();
         Cycles::next();
         clkin_lo();
-        if (s->writeMemory()) {
+        if (store) {
             if (s->addr >= 8) {
                 _mems->write(s->addr, s->data);  // TBLW
             } else {

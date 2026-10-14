@@ -32,6 +32,12 @@ void BreakPoints::setTemp(uint32_t addr) {
 }
 
 bool BreakPoints::clear(uint_fast8_t index) {
+    // Slot 0 is the temporary break point, not a list entry to shift into
+    if (index == 0) {
+        const auto had = _has_temp;
+        clearTemp();
+        return had;
+    }
     if (index > _num)
         return false;
     for (auto i = index; i < _num; ++i) {

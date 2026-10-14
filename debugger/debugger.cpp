@@ -798,11 +798,15 @@ void printElapsed(uint32_t us) {
 
 void Debugger::go(uint32_t lines) {
     if (_breakPoints.on(target().nextIp())) {
-        // step over break point
-        if (!target().step(false))
+        // step over break point; returning before run() must drop a
+        // go-until's temporary break point itself
+        if (!target().step(false)) {
+            _breakPoints.clearTemp();
             return;
+        }
         // Stop at consecutive break point
         if (_breakPoints.on(target().nextIp())) {
+            _breakPoints.clearTemp();
             target().printRegisters();
             return;
         }

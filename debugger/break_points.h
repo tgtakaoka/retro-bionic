@@ -11,6 +11,7 @@ struct BreakPoints {
     bool on(uint32_t addr) const;
     bool set(uint32_t addr);
     void setTemp(uint32_t addr);
+    void clearTemp() { _has_temp = false; }
     bool clear(uint_fast8_t index);
     bool print() const;
     void saveInsts();
