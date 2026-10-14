@@ -19,10 +19,18 @@ vC:     rmb     2
 vD:     rmb     2
 vA:     rmb     2
 vB:     rmb     2
-vS:     rmb     2
-vP:     rmb     2
-vQ:     rmb     2
 vT:     rmb     2
+vU:     rmb     2
+vQ:     rmb     1               ; |Q|
+absA:   rmb     1               ; |A|
+absB:   rmb     1               ; |B|
+rowB:   rmb     1               ; |D|, |B| at the start of a row
+divF_hi:
+        rmb     1
+divF_lo:
+        rmb     1
+divF_mid:
+        rmb     1
 vY:     rmb     1
 vX:     rmb     1
 vI:     rmb     1
@@ -116,7 +124,7 @@ putchar_exit:
         ldx     save_x          ; restore X
         rts
 
-        include "../mc6805/mandelbrot.inc"
+        include "mandelbrot.inc"
         include "arith.inc"
         include "../mc6805/queue.inc"
 
