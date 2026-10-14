@@ -42,10 +42,13 @@ print_uint16_end:
 ;;; @return B remainder
 ;;; @clobber A
 udiv16_8:
-        movw    R5, B           ; A:B=dividend
+        mov     R4, A
+        cmp     R7, A
+        jhs     udiv16_8_high   ; branch if R4>=R7
+        clr     R4              ; R4=high(quotient)=0, A=R4%R7=R4
+udiv16_8_low:
+        mov     R5, B           ; A:B=R4%R7:R5
         div     R7, A           ; A=low(quotient), B=remainder
-        jv      udiv16_8_high   ; branch if R4>=R7, A:B unchanged
-        clr     R4              ; R4=high(quotient)=0
         mov     A, R5           ; R5=low(quotient)
         rts
 udiv16_8_high:
@@ -54,10 +57,7 @@ udiv16_8_high:
         div     R7, A           ; A=R4/R7, B=R4%R7
         mov     A, R4           ; R4=high(quotient)
         mov     B, A
-        mov     R5, B           ; A:B=R4%R7:R5
-        div     R7, A           ; A=low(quotient), B=remainder
-        mov     A, R5           ; R5=low(quotient)
-        rts
+        jmp     udiv16_8_low
 
 ;;; Addition: R4:R5 += R6:R7
 add16:
@@ -107,7 +107,8 @@ cmp16_end:
         rts
 
 ;;; Multiply: result = multiplicand * multiplier
-;;; The 16-bit product is the same for signed and unsigned operands.
+;;; The 16-bit product is the same for signed and unsigned operands, and
+;;; a high byte of 0FFH contributes -lo(other operand) without an MPY.
 ;;; @param R4:R5 multiplicand
 ;;; @param R6:R7 multiplier
 ;;; @return R4:R5 result
@@ -115,50 +116,38 @@ cmp16_end:
 mul16:
 umul16:
         mov     R4, A
-        jz      umul16_hi       ; branch if hi(multiplicand)==0
-        mpy     R7, A           ; A:B=hi(multiplicand)*lo(multiplier)
-        mov     B, R4           ; R4=hi(result)
-umul16_hi:
+        jnz     mul16_hi1       ; branch if hi(multiplicand)!=0
         mov     R6, A
-        jz      umul16_lo       ; branch if hi(multiplier)==0
-        mpy     R5, A           ; A:B=lo(multiplicand)*hi(multiplier)
+        jnz     mul16_hi2       ; branch if hi(multiplier)!=0
+        mpy     R5, R7          ; A:B=lo(multiplicand)*lo(multiplier)
+        movw    B, R5           ; R4:R5=result
+        rts
+mul16_hi1:
+        inc     A
+        jz      mul16_hi1_neg   ; branch if hi(multiplicand)==0FFH
+        mpy     R7, R4          ; A:B=hi(multiplicand)*lo(multiplier)
+        mov     B, R4           ; R4=hi(result)
+        jmp     mul16_hi
+mul16_hi1_neg:
+        sub     R7, A
+        mov     A, R4           ; R4=hi(result)=-lo(multiplier)
+mul16_hi:
+        mov     R6, A
+        jz      mul16_lo        ; branch if hi(multiplier)==0
+mul16_hi2:
+        inc     A
+        jz      mul16_hi2_neg   ; branch if hi(multiplier)==0FFH
+        mpy     R5, R6          ; A:B=lo(multiplicand)*hi(multiplier)
         add     B, R4           ; R4=hi(result)
-umul16_lo:
+        jmp     mul16_lo
+mul16_hi2_neg:
+        sub     R5, R4          ; R4=hi(result)-lo(multiplicand)
+mul16_lo:
         mpy     R5, R7          ; A:B=lo(multiplicand)*lo(multiplier)
         add     R4, A
         movw    B, R5           ; R4:R5=result
         rts
 
-;;; Division: dividend / divisor = quotient ... remainder
-;;; @param R4:R5 dividend
-;;; @param R6:R7 divisor
-;;; @return R4:R5 quotient
-;;; @return R6:R7 remainder
-;;; @clobber A B
-div16:
-        btjo    #080H, R6, div16_divisor
-        btjz    #080H, R4, udiv16
-        inv     R4
-        inv     R5
-        inc     R5
-        adc     #0, R4          ; negate dividend
-div16_negate:
-        call    udiv16          ; R4:R5=quotient
-        inv     R4
-        inv     R5
-        inc     R5
-        adc     #0, R4          ; negate quotient
-        rts
-div16_divisor:
-        inv     R6
-        inv     R7
-        inc     R7
-        adc     #0, R6          ; negate divisor
-        btjz    #080H, R4, div16_negate
-        inv     R4
-        inv     R5
-        inc     R5
-        adc     #0, R4          ; negate dividend
 ;;; Unsigned division: dividend / divisor = quotient ... remainder
 ;;; @param R4:R5 dividend
 ;;; @param R6:R7 divisor
@@ -167,17 +156,9 @@ div16_divisor:
 ;;; @clobber A B
 udiv16:
         mov     R6, A
-        jnz     udiv16_16       ; branch if divisor>=256
-        movw    R5, B           ; A:B=dividend
-        div     R7, A           ; A=low(quotient), B=remainder
-        jv      udiv16_8bit     ; branch if R4>=R7, A:B unchanged
-        clr     R4              ; R4=high(quotient)=0
-        mov     A, R5           ; R5=low(quotient)
-        mov     B, R7           ; R6:R7=remainder
-        rts
-udiv16_8bit:
-        call    udiv16_8_high   ; R4:R5/R7=R4:R5...B
-        mov     B, R7           ; R6:R7=remainder
+        jnz     udiv16_16
+        call    udiv16_8        ; R4:R5/R7=R4:R5...B
+        mov     B, R7
         rts
 udiv16_16:      
         or      R7, A
@@ -212,4 +193,36 @@ udiv16_next:
         movw    R1, R7          ; save remainder
         pop     R8
 udiv16_end:
+        rts
+
+;;; Division: dividend / divisor = quotient ... remainder
+;;; @param R4:R5 dividend
+;;; @param R6:R7 divisor
+;;; @return R4:R5 quotient
+;;; @return R6:R7 remainder
+;;; @clobber A
+div16:
+        mov     R4, A
+        xor     R6, A
+        push    A               ; save hi(dividend^divisor)
+        btjz    #080H, R6, div16_dividend
+        inv     R6
+        inv     R7
+        inc     R7
+        adc     #0, R6          ; negate divisor
+div16_dividend:
+        btjz    #080H, R4, div16_divide
+        inv     R4
+        inv     R5
+        inc     R5
+        adc     #0, R4          ; negate dividend
+div16_divide:
+        call    udiv16          ; R4:R5=quotient
+        pop     A               ; A=(dividend^divisor)
+        jpz     div16_end
+        inv     R4
+        inv     R5
+        inc     R5
+        adc     #0, R4          ; negate quotient
+div16_end:
         rts

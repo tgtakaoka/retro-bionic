@@ -44,6 +44,7 @@ cF:     equ     50
 vY:     .block  1
 vX:     .block  1
 vI:     .block  1
+vF:     .block  1
 
 ;;; TMS370's SP is pre-increment/post-decrement
         org     00D0H

@@ -22,9 +22,93 @@ sex:
 sex_end:
         rts
 
+;;; Square: Rd=Rd*Rd
+;;; A high byte of 0FFH contributes -2*lo(Rd) without an MPY.
+;;; @param Rd value
+;;; @return Rd 16-bit square
+;;; @clobber A B
+sqr16:
+        mov     RdH, A
+        jnz     sqr16_hi        ; branch if hi(Rd)!=0
+        mpy     RdL, RdL        ; A:B=lo(Rd)*lo(Rd)
+        movw    B, Rd
+        rts
+sqr16_hi:
+        inc     A
+        jz      sqr16_neg       ; branch if hi(Rd)==0FFH
+        mpy     RdL, RdH        ; A:B=hi(Rd)*lo(Rd)
+        mov     B, A
+        add     B, A
+        mov     A, RdH          ; RdH=2*hi(Rd)*lo(Rd)
+        jmp     sqr16_lo
+sqr16_neg:
+        sub     RdL, A
+        sub     RdL, A
+        mov     A, RdH          ; RdH=-2*lo(Rd)
+sqr16_lo:
+        mpy     RdL, RdL        ; A:B=lo(Rd)*lo(Rd)
+        add     RdH, A
+        movw    B, Rd
+        rts
+
+;;; Divide by F: Rd=Rd/F, truncated toward zero
+;;; @param Rd dividend
+;;; @param vF divisor F
+;;; @return Rd quotient
+;;; @return B remainder of |dividend|/F
+;;; @clobber A
+divF:
+        btjo    #080H, RdH, divF_neg
+        movw    Rd, B           ; A:B=dividend
+        div     vF, A           ; A=quotient, B=remainder
+        jv      divF_long       ; branch if hi(dividend)>=F
+        clr     RdH
+        mov     A, RdL          ; Rd=quotient
+        rts
+divF_neg:
+        clr     A
+        clr     B
+        sub     RdL, B
+        sbb     RdH, A          ; A:B=-dividend
+        div     vF, A           ; A=quotient, B=remainder
+        jv      divF_neg_long   ; branch if hi(-dividend)>=F
+        clr     RdH
+        clr     RdL
+        sub     A, RdL
+        sbb     #0, RdH         ; Rd=-quotient
+        rts
+divF_neg_long:
+        call    divF_long       ; Rd=-dividend/F
+        inv     RdH
+        inv     RdL
+        inc     RdL
+        adc     #0, RdH         ; negate quotient
+        rts
+;;; Divide by F in two DIVs
+;;; @param A:B dividend, A>=F
+divF_long:
+        mov     B, RdL
+        mov     A, B
+        clr     A               ; A:B=hi(dividend)
+        div     vF, A           ; A=hi(quotient), B=hi(dividend)%F
+        mov     A, RdH
+        mov     B, A
+        mov     RdL, B          ; A:B=hi(dividend)%F:lo(dividend)
+        div     vF, A           ; A=lo(quotient), B=remainder
+        mov     A, RdL          ; Rd=quotient
+        rts
+
 mandelbrot:
+        mov     #cF, vF         ; F=50, the divisor divF uses
         mov     #-12, vY        ; Y=-12
 loop_y:
+        mov     vY, A
+        call    sex             ; Rd=extend(Y)
+        movw    #416, Rs
+        call    mul16           ; Rd=Y*416
+        movw    #100, Rs
+        call    div16           ; Rd=Y*416/100
+        movw    Rd, vD          ; D=Y*416/100, the same for the whole row
         mov     #-49, vX        ; X=-49
 loop_x:
         mov     vX, A
@@ -35,13 +119,6 @@ loop_x:
         call    div16           ; Rd=X*229/100
         movw    Rd, vC          ; C=X*229/100
         movw    vC, vA          ; A=C
-        mov     vY, A
-        call    sex             ; Rd=extend(Y)
-        movw    #416, Rs
-        call    mul16           ; Rd=Y*416
-        movw    #100, Rs
-        call    div16           ; Rd=Y*416/100
-        movw    Rd, vD          ; D=Y*416/100
         movw    vD, vB          ; B=D
         clr     vI              ; I=0
 
@@ -61,74 +138,60 @@ loop_x:
         ;; call    print
         ;; call    newline
 
-loop_i:
-        movw    vB, Rd          ; Rd=B
-        movw    #cF, Rs
-        call    div16           ; Rd=B/F
-        movw    Rd, vQ          ; Q=B/F
-        movw    #cF, Rs
-        call    mul16           ; Rd=Q*F
-        movw    vB, vS          ; S=B
-        sub     RdL, vS
-        sbb     RdH, vS-1       ; S=B-Q*F
         movw    vB, Rd
-        movw    vB, Rs
-        call    mul16           ; Rd=B*B
-        push    RdH
-        push    RdL             ; push B*B
+        call    divF            ; Rd=B/F, B=|B|%F
+        movw    Rd, vQ          ; Q=B/F
+        clr     vS-1
+        mov     B, vS           ; S=|B|%F
+        btjz    #080H, vB-1, loop_i
+        clr     vS
+        sub     B, vS
+        sbb     #0, vS-1        ; S=B-Q*F, the remainder with B's sign
+loop_i:
+        movw    vB, Rd
+        call    sqr16           ; Rd=B*B
+        movw    Rd, tmp         ; tmp=B*B
         movw    vA, Rd
-        movw    vA, Rs
-        call    mul16           ; Rd=A*A
-        pop     RsL
-        pop     RsH             ; Rs=B*B
-        sub     RsL, RdL
-        sbb     RsH, RdH        ; Rd=A*A-B*B
-        movw    #cF, Rs
-        call    div16           ; Rd=(A*A-B*B)/F
+        call    sqr16           ; Rd=A*A
+        sub     tmp, RdL
+        sbb     tmp-1, RdH      ; Rd=A*A-B*B
+        call    divF            ; Rd=(A*A-B*B)/F
         add     vC, RdL
         adc     vC-1, RdH       ; Rd=(A*A-B*B)/F+C
-        push    RdH
-        push    RdL             ; push (A*A-B*B)/F+C
-        movw    vA, Rd
-        movw    vQ, Rs
-        call    mul16           ; Rd=A*Q
-        push    RdH
-        push    RdL             ; push A*Q
-        movw    vA, Rd
-        movw    vS, Rs
+        movw    Rd, tmp         ; tmp=(A*A-B*B)/F+C
+        movw    vA, Rs
+        movw    vQ, Rd
+        call    mul16           ; Rd=A*Q, Rs=A
+        movw    Rd, vB          ; B=A*Q, the old B is no longer used
+        movw    vS, Rd
         call    mul16           ; Rd=A*S
-        movw    #cF, Rs
-        call    div16           ; Rd=A*S/F
-        pop     RsL
-        pop     RsH             ; pop A*Q
-        add     RsL, RdL
-        adc     RsH, RdH        ; Rd=A*Q+A*S/F
-        clrc
-        rlc     RdL
-        rlc     RdH             ; Rd=2*(A*Q+A*S/F)
+        call    divF            ; Rd=A*S/F
+        add     vB, RdL
+        adc     vB-1, RdH       ; Rd=A*Q+A*S/F
+        add     RdL, RdL
+        adc     RdH, RdH        ; Rd=2*(A*Q+A*S/F)
         add     vD, RdL
         adc     vD-1, RdH       ; Rd=2*(A*Q+A*S/F)+D
         movw    Rd, vB          ; B=2*(A*Q+A*S/F)+D
-        pop     RdL
-        pop     RdH             ; pop (A*A-B*B)/F+C
+        movw    tmp, Rd
         movw    Rd, vA          ; A=(A*A-B*B)/F+C
-        movw    #cF, Rs
-        call    div16           ; Rd=A/F
+        call    divF            ; Rd=A/F
         movw    Rd, vP          ; P=A/F
-        movw    Rd, Rs
-        call    mul16           ; P*P
-        push    RdH
-        push    RdL             ; push P*P
+        call    sqr16           ; Rd=P*P
+        movw    Rd, tmp         ; tmp=P*P
         movw    vB, Rd
-        movw    #cF, Rs
-        call    div16           ; Rd=B/F
+        call    divF            ; Rd=B/F, B=|B|%F
         movw    Rd, vQ          ; Q=B/F
-        movw    Rd, Rs
-        call    mul16           ; Q*Q
-        pop     RsL
-        pop     RsH             ; pop P*P
-        add     RsL, RdL
-        adc     RsH, RdH        ; Rd=Q*Q+P*P
+        clr     vS-1
+        mov     B, vS           ; S=|B|%F
+        btjz    #080H, vB-1, loop_i_qq
+        clr     vS
+        sub     B, vS
+        sbb     #0, vS-1        ; S=B-Q*F for the next iteration
+loop_i_qq:
+        call    sqr16           ; Rd=Q*Q
+        add     tmp, RdL
+        adc     tmp-1, RdH      ; Rd=Q*Q+P*P
         movw    Rd, vT          ; T=Q*Q+P*P
 
         ;; call    putspace

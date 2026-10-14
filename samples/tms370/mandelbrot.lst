@@ -130,13 +130,14 @@
          1A :                    vY:     .block  1
          1B :                    vX:     .block  1
          1C :                    vI:     .block  1
-         1D :
-         1D :                    ;;; TMS370's SP is pre-increment/post-decrement
+         1D :                    vF:     .block  1
+         1E :
+         1E :                    ;;; TMS370's SP is pre-increment/post-decrement
          D0 :                            org     00D0H
          D0 : =CF                stack:  equ     $-1
          D0 :
        7FFC :                            org     VEC_INT1
-       7FFC : 23 4B                      .word   isr_int1
+       7FFC : 23 9E                      .word   isr_int1
        7FFE :
        7FFE :                            org     VEC_RESET
        7FFE : 20 00                      .word   initialize
@@ -150,10 +151,10 @@
        2002 : FD                         ldsp
        2003 : 88 30 00 03                movw    #rx_queue, R3
        2007 : 52 80                      mov     #rx_queue_size, B
-       2009 : 8E 22 D9                   call    queue_init
+       2009 : 8E 23 2C                   call    queue_init
        200C : 88 30 80 03                movw    #tx_queue, R3
        2010 : 52 80                      mov     #tx_queue_size, B
-       2012 : 8E 22 D9                   call    queue_init
+       2012 : 8E 23 2C                   call    queue_init
        2015 :                    ;;; initialize ACIA
        2015 : F7 03 F0                   mov     #CDS_RESET_gc, ACIA_control     ; Master reset
        2018 : F7 94 F0                   mov     #RX_INT_TX_NO, ACIA_control
@@ -162,7 +163,7 @@
        2021 : F0 0C                      eint
        2023 :
        2023 :                    loop:
-       2023 : 8E 20 73                   call    mandelbrot
+       2023 : 8E 20 DF                   call    mandelbrot
        2026 : 8E 20 40                   call    newline
        2029 : 00 F8                      jmp     loop
        202B :
@@ -174,7 +175,7 @@
        202B : FB                         push    st
        202C : 88 30 00 03                movw    #rx_queue, R3
        2030 : F0 00                      dint
-       2032 : 8E 23 21                   call    queue_remove
+       2032 : 8E 23 74                   call    queue_remove
        2035 : 07 03                      jnc     getchar_empty
        2037 : FC                         pop     st
        2038 : F8                         setc                    ; ST.C=1
@@ -198,7 +199,7 @@
        2048 : 88 30 80 03                movw    #tx_queue, R3
        204C :                    putchar_retry:
        204C : F0 00                      dint
-       204E : 8E 22 EF                   call    queue_add
+       204E : 8E 23 42                   call    queue_add
        2051 : 03 04                      jc      putchar_queued
        2053 : F0 0C                      eint                    ; let the Tx interrupt drain the queue
        2055 : 00 F5                      jmp     putchar_retry
@@ -218,7 +219,7 @@
 (1)    205C : 8E 20 47                   call    putchar         ; print variable letter
 (1)    205F : 22 3D                      mov     #'=', A
 (1)    2061 : 8E 20 47                   call    putchar
-(1)    2064 : 8E 21 B0                   call    print_int16
+(1)    2064 : 8E 21 FC                   call    print_int16
 (1)    2067 : 8C 20 3C                   br      putspace
 (1)    206A :
 (1)    206A :                    ;;; Sign extend
@@ -232,513 +233,589 @@
 (1)    2072 :                    sex_end:
 (1)    2072 : F9                         rts
 (1)    2073 :
-(1)    2073 :                    mandelbrot:
-(1)    2073 : 72 F4 1A                   mov     #-12, vY        ; Y=-12
-(1)    2076 :                    loop_y:
-(1)    2076 : 72 CF 1B                   mov     #-49, vX        ; X=-49
-(1)    2079 :                    loop_x:
-(1)    2079 : 12 1B                      mov     vX, A
-(1)    207B : 8E 20 6A                   call    sex             ; Rd=extend(X)
-(1)    207E : 88 00 E5 07                movw    #229, Rs
-(1)    2082 : 8E 22 3D                   call    mul16           ; Rd=X*229
-(1)    2085 : 88 00 64 07                movw    #100, Rs
-(1)    2089 : 8E 22 57                   call    div16           ; Rd=X*229/100
-(1)    208C : 98 05 0B                   movw    Rd, vC          ; C=X*229/100
-(1)    208F : 98 0B 0F                   movw    vC, vA          ; A=C
-(1)    2092 : 12 1A                      mov     vY, A
-(1)    2094 : 8E 20 6A                   call    sex             ; Rd=extend(Y)
-(1)    2097 : 88 01 A0 07                movw    #416, Rs
-(1)    209B : 8E 22 3D                   call    mul16           ; Rd=Y*416
-(1)    209E : 88 00 64 07                movw    #100, Rs
-(1)    20A2 : 8E 22 57                   call    div16           ; Rd=Y*416/100
-(1)    20A5 : 98 05 0D                   movw    Rd, vD          ; D=Y*416/100
-(1)    20A8 : 98 0D 11                   movw    vD, vB          ; B=D
-(1)    20AB : D5 1C                      clr     vI              ; I=0
-(1)    20AD :
-(1)    20AD :                            ;; mov     vY, A
-(1)    20AD :                            ;; call    sex             ; Rd=Y
-(1)    20AD :                            ;; mov     #'Y', A
-(1)    20AD :                            ;; call    print
-(1)    20AD :                            ;; mov     vX, A
-(1)    20AD :                            ;; call    sex             ; Rd=X
-(1)    20AD :                            ;; mov     #'X', A
-(1)    20AD :                            ;; call    print
-(1)    20AD :                            ;; movw    vC, Rd          ; C
-(1)    20AD :                            ;; mov     #'C', A
-(1)    20AD :                            ;; call    print
-(1)    20AD :                            ;; movw    vD, Rd          ; D
-(1)    20AD :                            ;; mov     #'D', A
-(1)    20AD :                            ;; call    print
-(1)    20AD :                            ;; call    newline
-(1)    20AD :
-(1)    20AD :                    loop_i:
-(1)    20AD : 98 11 05                   movw    vB, Rd          ; Rd=B
-(1)    20B0 : 88 00 32 07                movw    #cF, Rs
-(1)    20B4 : 8E 22 57                   call    div16           ; Rd=B/F
-(1)    20B7 : 98 05 15                   movw    Rd, vQ          ; Q=B/F
-(1)    20BA : 88 00 32 07                movw    #cF, Rs
-(1)    20BE : 8E 22 3D                   call    mul16           ; Rd=Q*F
-(1)    20C1 : 98 11 17                   movw    vB, vS          ; S=B
-(1)    20C4 : 4A 05 17                   sub     RdL, vS
-(1)    20C7 : 4B 04 16                   sbb     RdH, vS-1       ; S=B-Q*F
-(1)    20CA : 98 11 05                   movw    vB, Rd
-(1)    20CD : 98 11 07                   movw    vB, Rs
-(1)    20D0 : 8E 22 3D                   call    mul16           ; Rd=B*B
-(1)    20D3 : D8 04                      push    RdH
-(1)    20D5 : D8 05                      push    RdL             ; push B*B
-(1)    20D7 : 98 0F 05                   movw    vA, Rd
-(1)    20DA : 98 0F 07                   movw    vA, Rs
-(1)    20DD : 8E 22 3D                   call    mul16           ; Rd=A*A
-(1)    20E0 : D9 07                      pop     RsL
-(1)    20E2 : D9 06                      pop     RsH             ; Rs=B*B
-(1)    20E4 : 4A 07 05                   sub     RsL, RdL
-(1)    20E7 : 4B 06 04                   sbb     RsH, RdH        ; Rd=A*A-B*B
-(1)    20EA : 88 00 32 07                movw    #cF, Rs
-(1)    20EE : 8E 22 57                   call    div16           ; Rd=(A*A-B*B)/F
-(1)    20F1 : 48 0B 05                   add     vC, RdL
-(1)    20F4 : 49 0A 04                   adc     vC-1, RdH       ; Rd=(A*A-B*B)/F+C
-(1)    20F7 : D8 04                      push    RdH
-(1)    20F9 : D8 05                      push    RdL             ; push (A*A-B*B)/F+C
-(1)    20FB : 98 0F 05                   movw    vA, Rd
-(1)    20FE : 98 15 07                   movw    vQ, Rs
-(1)    2101 : 8E 22 3D                   call    mul16           ; Rd=A*Q
-(1)    2104 : D8 04                      push    RdH
-(1)    2106 : D8 05                      push    RdL             ; push A*Q
-(1)    2108 : 98 0F 05                   movw    vA, Rd
-(1)    210B : 98 17 07                   movw    vS, Rs
-(1)    210E : 8E 22 3D                   call    mul16           ; Rd=A*S
-(1)    2111 : 88 00 32 07                movw    #cF, Rs
-(1)    2115 : 8E 22 57                   call    div16           ; Rd=A*S/F
-(1)    2118 : D9 07                      pop     RsL
-(1)    211A : D9 06                      pop     RsH             ; pop A*Q
-(1)    211C : 48 07 05                   add     RsL, RdL
-(1)    211F : 49 06 04                   adc     RsH, RdH        ; Rd=A*Q+A*S/F
-(1)    2122 : B0                         clrc
-(1)    2123 : DF 05                      rlc     RdL
-(1)    2125 : DF 04                      rlc     RdH             ; Rd=2*(A*Q+A*S/F)
-(1)    2127 : 48 0D 05                   add     vD, RdL
-(1)    212A : 49 0C 04                   adc     vD-1, RdH       ; Rd=2*(A*Q+A*S/F)+D
-(1)    212D : 98 05 11                   movw    Rd, vB          ; B=2*(A*Q+A*S/F)+D
-(1)    2130 : D9 05                      pop     RdL
-(1)    2132 : D9 04                      pop     RdH             ; pop (A*A-B*B)/F+C
-(1)    2134 : 98 05 0F                   movw    Rd, vA          ; A=(A*A-B*B)/F+C
-(1)    2137 : 88 00 32 07                movw    #cF, Rs
-(1)    213B : 8E 22 57                   call    div16           ; Rd=A/F
-(1)    213E : 98 05 13                   movw    Rd, vP          ; P=A/F
-(1)    2141 : 98 05 07                   movw    Rd, Rs
-(1)    2144 : 8E 22 3D                   call    mul16           ; P*P
-(1)    2147 : D8 04                      push    RdH
-(1)    2149 : D8 05                      push    RdL             ; push P*P
-(1)    214B : 98 11 05                   movw    vB, Rd
-(1)    214E : 88 00 32 07                movw    #cF, Rs
-(1)    2152 : 8E 22 57                   call    div16           ; Rd=B/F
-(1)    2155 : 98 05 15                   movw    Rd, vQ          ; Q=B/F
-(1)    2158 : 98 05 07                   movw    Rd, Rs
-(1)    215B : 8E 22 3D                   call    mul16           ; Q*Q
-(1)    215E : D9 07                      pop     RsL
-(1)    2160 : D9 06                      pop     RsH             ; pop P*P
-(1)    2162 : 48 07 05                   add     RsL, RdL
-(1)    2165 : 49 06 04                   adc     RsH, RdH        ; Rd=Q*Q+P*P
-(1)    2168 : 98 05 19                   movw    Rd, vT          ; T=Q*Q+P*P
-(1)    216B :
-(1)    216B :                            ;; call    putspace
-(1)    216B :                            ;; mov     vI, A
-(1)    216B :                            ;; call    sex             ; Rd=I
-(1)    216B :                            ;; mov     #'I', A
-(1)    216B :                            ;; call    print
-(1)    216B :                            ;; movw    vA, Rd          ; A
-(1)    216B :                            ;; mov     #'A', A
-(1)    216B :                            ;; call    print
-(1)    216B :                            ;; movw    vB, Rd          ; B
-(1)    216B :                            ;; mov     #'B', A
-(1)    216B :                            ;; call    print
-(1)    216B :                            ;; movw    vP, Rd          ; P
-(1)    216B :                            ;; mov     #'P', A
-(1)    216B :                            ;; call    print
-(1)    216B :                            ;; movw    vQ, Rd          ; Q
-(1)    216B :                            ;; mov     #'Q', A
-(1)    216B :                            ;; call    print
-(1)    216B :                            ;; movw    vT, Rd          ; T
-(1)    216B :                            ;; mov     #'T', A
-(1)    216B :                            ;; call    print
-(1)    216B :                            ;; call    newline
-(1)    216B :
-(1)    216B : 12 18                      mov     vT-1, A
-(1)    216D : 06 13                      jnz     print_i         ; if hi(T)>0
-(1)    216F : 7D 05 19                   cmp     #5, vT
-(1)    2172 : 0B 0E                      jhs     print_i         ; if T>4
-(1)    2174 : D3 1C                      inc     vI              ; I+=1
-(1)    2176 : 7D 10 1C                   cmp     #16, vI
-(1)    2179 : 05 03                      jpz     print_space     ; if I>=16
-(1)    217B : 8C 20 AD                   br      loop_i          ; if I<16
-(1)    217E :                    print_space:
-(1)    217E : 22 20                      mov     #' ', A
-(1)    2180 : 00 0A                      jmp     print_char
-(1)    2182 :                    print_i:
-(1)    2182 : 12 1C                      mov     vI, A
-(1)    2184 : 2D 0A                      cmp     #10, A
-(1)    2186 : 09 02                      jl      print_i2        ; if I<10
-(1)    2188 : 28 07                      add     #'A'-'0'-10, A
-(1)    218A :                    print_i2:
-(1)    218A : 28 30                      add     #'0', A
-(1)    218C :                    print_char:
-(1)    218C :                            ;; push    A
-(1)    218C :                            ;; mov     #'@', A
-(1)    218C :                            ;; call    putchar
-(1)    218C :                            ;; mov     #'=', A
-(1)    218C :                            ;; call    putchar
-(1)    218C :                            ;; pop     A
-(1)    218C :                            ;; call    putchar
-(1)    218C :                            ;; call    newline
-(1)    218C :
-(1)    218C : 8E 20 47                   call    putchar
-(1)    218F : 8E 20 2B                   call    getchar
-(1)    2192 : 07 04                      jnc     next_x
-(1)    2194 : B0                         tst     a
-(1)    2195 : 06 01                      jnz     next_x
-(1)    2197 : E0                         trap    15              ; halt to system
-(1)    2198 :                    next_x:
-(1)    2198 : D3 1B                      inc     vX              ; X+=1
-(1)    219A : 7D 1E 1B                   cmp     #30, vX
-(1)    219D : 0D 03                      jge     next_y          ; if X>=30
-(1)    219F : 8C 20 79                   br      loop_x          ; if X<30
-(1)    21A2 :                    next_y:
-(1)    21A2 : 8E 20 40                   call    newline
-(1)    21A5 : D3 1A                      inc     vY              ; Y+=1
-(1)    21A7 : 7D 0D 1A                   cmp     #13, vY
-(1)    21AA : 0D 03                      jge     mandelbrot_end  ; if Y>=13
-(1)    21AC : 8C 20 76                   br      loop_y          ; if Y<13
-(1)    21AF :                    mandelbrot_end:
-(1)    21AF : F9                         rts
-       21B0 :                            include "arith.inc"
-(1)    21B0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
-(1)    21B0 :
-(1)    21B0 :                    ;;; Print signed 16-bit integer as decimal
-(1)    21B0 :                    ;;; @param R4:R5 value
-(1)    21B0 :                    ;;; @clobber A R4:R5
-(1)    21B0 :                    print_int16:
-(1)    21B0 : 77 80 04 0E                btjz    #080H, R4, print_uint16
-(1)    21B4 : 22 2D                      mov     #'-', A
-(1)    21B6 : 8E 20 47                   call    putchar
-(1)    21B9 : D4 04                      inv     R4
-(1)    21BB : D4 05                      inv     R5
-(1)    21BD : D3 05                      inc     R5
-(1)    21BF : 79 00 04                   adc     #0, R4    ; negate R4:R5
-(1)    21C2 :                    ;;; Print unsigned 16-bit integer as decimal
-(1)    21C2 :                    ;;; @param R4:R5 value
-(1)    21C2 :                    ;;; @clobber A B R4:R5
-(1)    21C2 :                    print_uint16:
-(1)    21C2 : 12 04                      mov     R4, A
-(1)    21C4 : 14 05                      or      R5, A
-(1)    21C6 : 02 15                      jz      print_uint16_zero
-(1)    21C8 :                    print_uint16_loop:
-(1)    21C8 : 12 04                      mov     R4, A
-(1)    21CA : 14 05                      or      R5, A
-(1)    21CC : 02 14                      jz      print_uint16_end
-(1)    21CE : D8 07                      push    R7
-(1)    21D0 : 72 0A 07                   mov     #10, R7
-(1)    21D3 : 8E 21 E3                   call    udiv16_8        ; R4:R5/R7 => R4:R5...B
-(1)    21D6 : D9 07                      pop     R7
-(1)    21D8 : C8                         push    B               ; push remainder
-(1)    21D9 : 8E 21 C8                   call    print_uint16_loop
-(1)    21DC : B9                         pop     A
-(1)    21DD :                    print_uint16_zero:
-(1)    21DD : 28 30                      add     #'0', A
-(1)    21DF : 8C 20 47                   br      putchar
-(1)    21E2 :                    print_uint16_end:
-(1)    21E2 : F9                         rts
-(1)    21E3 :
-(1)    21E3 :                    ;;; Divide unsigned 16bit by 8bit
-(1)    21E3 :                    ;;; @param R4:R5 dividend
-(1)    21E3 :                    ;;; @param R7 divisor
-(1)    21E3 :                    ;;; @return R4:R5 quotient
-(1)    21E3 :                    ;;; @return B remainder
-(1)    21E3 :                    ;;; @clobber A
-(1)    21E3 :                    udiv16_8:
-(1)    21E3 : 98 05 01                   movw    R5, B           ; A:B=dividend
-(1)    21E6 : F4 F8 07                   div     R7, A           ; A=low(quotient), B=remainder
-(1)    21E9 : 08 05                      jv      udiv16_8_high   ; branch if R4>=R7, A:B unchanged
-(1)    21EB : D5 04                      clr     R4              ; R4=high(quotient)=0
-(1)    21ED : D0 05                      mov     A, R5           ; R5=low(quotient)
-(1)    21EF : F9                         rts
-(1)    21F0 :                    udiv16_8_high:
-(1)    21F0 : C0                         mov     A, B
-(1)    21F1 : B5                         clr     A               ; A:B=0:R4
-(1)    21F2 : F4 F8 07                   div     R7, A           ; A=R4/R7, B=R4%R7
-(1)    21F5 : D0 04                      mov     A, R4           ; R4=high(quotient)
-(1)    21F7 : 62                         mov     B, A
-(1)    21F8 : 32 05                      mov     R5, B           ; A:B=R4%R7:R5
-(1)    21FA : F4 F8 07                   div     R7, A           ; A=low(quotient), B=remainder
-(1)    21FD : D0 05                      mov     A, R5           ; R5=low(quotient)
-(1)    21FF : F9                         rts
-(1)    2200 :
-(1)    2200 :                    ;;; Addition: R4:R5 += R6:R7
-(1)    2200 :                    add16:
-(1)    2200 : 48 07 05                   add     R7, R5
-(1)    2203 : 49 06 04                   adc     R6, R4
-(1)    2206 : F9                         rts
-(1)    2207 :
-(1)    2207 :                    ;;; Subtraction: R4:R5 -= R6:R7
-(1)    2207 :                    sub16:
-(1)    2207 : 4A 07 05                   sub     R7, R5
-(1)    220A : 4B 06 04                   sbb     R6, R4
-(1)    220D : F9                         rts
-(1)    220E :
-(1)    220E :                    ;;; Signed compare A=sign(minuend-subtrahend)
-(1)    220E :                    ;;; @param R4:R5 minuend
-(1)    220E :                    ;;; @param R6:R7 subtrahend
-(1)    220E :                    ;;; @return A=0  JEQ (minuend == subtrahend)
-(1)    220E :                    ;;;         A=1  JGT (minuend > subtrahend)
-(1)    220E :                    ;;;         A=-1 JLT (minuend < subtrahend)
-(1)    220E :                    ;;; @clobber A
-(1)    220E :                    cmp16:
-(1)    220E : D8 03                      push    R3
-(1)    2210 : D8 02                      push    R2
-(1)    2212 : 98 05 03                   movw    R5, R3          ; R2:R3=minuend
-(1)    2215 : 4A 07 03                   sub     R7, R3
-(1)    2218 : 4B 06 02                   sbb     R6, R2          ; R2:R3=minuend-subtrahend
-(1)    221B : 12 02                      mov     R2, A
-(1)    221D : 14 03                      or      R3, A
-(1)    221F : 02 16                      jeq     cmp16_end       ; return with A=0
-(1)    2221 : 12 02                      mov     R2, A           ; A=hi(minuend-subtrahend)
-(1)    2223 : 15 04                      xor     R4, A           ; A=hi((minuend-subtrahend)^minuend)
-(1)    2225 : D0 03                      mov     A, R3           ; R3=hi((minuend-subtrahend)^minuend)
-(1)    2227 : 12 04                      mov     R4, A           ; A=hi(minuend)
-(1)    2229 : 15 06                      xor     R6, A           ; A=hi(minuend^subtrahend)
-(1)    222B : 13 03                      and     R3, A           ; A=overflow flag
-(1)    222D : 15 02                      xor     R2, A           ; A=V^N
-(1)    222F : 01 04                      jn      cmp16_lt        ; branch if minuend < subtrahend
-(1)    2231 :                    cmp16_gt:
-(1)    2231 : 22 01                      mov     #1, A
-(1)    2233 : 00 02                      jmp     cmp16_end
-(1)    2235 :                    cmp16_lt:
-(1)    2235 : 22 FF                      mov     #-1, A
-(1)    2237 :                    cmp16_end:
-(1)    2237 : D9 02                      pop     R2
-(1)    2239 : D9 03                      pop     R3
-(1)    223B : B0                         tst     A
-(1)    223C : F9                         rts
-(1)    223D :
-(1)    223D :                    ;;; Multiply: result = multiplicand * multiplier
-(1)    223D :                    ;;; The 16-bit product is the same for signed and unsigned operands.
-(1)    223D :                    ;;; @param R4:R5 multiplicand
-(1)    223D :                    ;;; @param R6:R7 multiplier
-(1)    223D :                    ;;; @return R4:R5 result
-(1)    223D :                    ;;; @clobber A B
-(1)    223D :                    mul16:
-(1)    223D :                    umul16:
-(1)    223D : 12 04                      mov     R4, A
-(1)    223F : 02 04                      jz      umul16_hi       ; branch if hi(multiplicand)==0
-(1)    2241 : 1C 07                      mpy     R7, A           ; A:B=hi(multiplicand)*lo(multiplier)
-(1)    2243 : D1 04                      mov     B, R4           ; R4=hi(result)
-(1)    2245 :                    umul16_hi:
-(1)    2245 : 12 06                      mov     R6, A
-(1)    2247 : 02 05                      jz      umul16_lo       ; branch if hi(multiplier)==0
-(1)    2249 : 1C 05                      mpy     R5, A           ; A:B=lo(multiplicand)*hi(multiplier)
-(1)    224B : 48 01 04                   add     B, R4           ; R4=hi(result)
-(1)    224E :                    umul16_lo:
-(1)    224E : 4C 05 07                   mpy     R5, R7          ; A:B=lo(multiplicand)*lo(multiplier)
-(1)    2251 : 18 04                      add     R4, A
-(1)    2253 : 98 01 05                   movw    B, R5           ; R4:R5=result
+(1)    2073 :                    ;;; Square: Rd=Rd*Rd
+(1)    2073 :                    ;;; A high byte of 0FFH contributes -2*lo(Rd) without an MPY.
+(1)    2073 :                    ;;; @param Rd value
+(1)    2073 :                    ;;; @return Rd 16-bit square
+(1)    2073 :                    ;;; @clobber A B
+(1)    2073 :                    sqr16:
+(1)    2073 : 12 04                      mov     RdH, A
+(1)    2075 : 06 07                      jnz     sqr16_hi        ; branch if hi(Rd)!=0
+(1)    2077 : 4C 05 05                   mpy     RdL, RdL        ; A:B=lo(Rd)*lo(Rd)
+(1)    207A : 98 01 05                   movw    B, Rd
+(1)    207D : F9                         rts
+(1)    207E :                    sqr16_hi:
+(1)    207E : B3                         inc     A
+(1)    207F : 02 09                      jz      sqr16_neg       ; branch if hi(Rd)==0FFH
+(1)    2081 : 4C 05 04                   mpy     RdL, RdH        ; A:B=hi(Rd)*lo(Rd)
+(1)    2084 : 62                         mov     B, A
+(1)    2085 : 68                         add     B, A
+(1)    2086 : D0 04                      mov     A, RdH          ; RdH=2*hi(Rd)*lo(Rd)
+(1)    2088 : 00 06                      jmp     sqr16_lo
+(1)    208A :                    sqr16_neg:
+(1)    208A : 1A 05                      sub     RdL, A
+(1)    208C : 1A 05                      sub     RdL, A
+(1)    208E : D0 04                      mov     A, RdH          ; RdH=-2*lo(Rd)
+(1)    2090 :                    sqr16_lo:
+(1)    2090 : 4C 05 05                   mpy     RdL, RdL        ; A:B=lo(Rd)*lo(Rd)
+(1)    2093 : 18 04                      add     RdH, A
+(1)    2095 : 98 01 05                   movw    B, Rd
+(1)    2098 : F9                         rts
+(1)    2099 :
+(1)    2099 :                    ;;; Divide by F: Rd=Rd/F, truncated toward zero
+(1)    2099 :                    ;;; @param Rd dividend
+(1)    2099 :                    ;;; @param vF divisor F
+(1)    2099 :                    ;;; @return Rd quotient
+(1)    2099 :                    ;;; @return B remainder of |dividend|/F
+(1)    2099 :                    ;;; @clobber A
+(1)    2099 :                    divF:
+(1)    2099 : 76 80 04 0D                btjo    #080H, RdH, divF_neg
+(1)    209D : 98 05 01                   movw    Rd, B           ; A:B=dividend
+(1)    20A0 : F4 F8 1D                   div     vF, A           ; A=quotient, B=remainder
+(1)    20A3 : 08 28                      jv      divF_long       ; branch if hi(dividend)>=F
+(1)    20A5 : D5 04                      clr     RdH
+(1)    20A7 : D0 05                      mov     A, RdL          ; Rd=quotient
+(1)    20A9 : F9                         rts
+(1)    20AA :                    divF_neg:
+(1)    20AA : B5                         clr     A
+(1)    20AB : C5                         clr     B
+(1)    20AC : 3A 05                      sub     RdL, B
+(1)    20AE : 1B 04                      sbb     RdH, A          ; A:B=-dividend
+(1)    20B0 : F4 F8 1D                   div     vF, A           ; A=quotient, B=remainder
+(1)    20B3 : 08 0B                      jv      divF_neg_long   ; branch if hi(-dividend)>=F
+(1)    20B5 : D5 04                      clr     RdH
+(1)    20B7 : D5 05                      clr     RdL
+(1)    20B9 : 4A 00 05                   sub     A, RdL
+(1)    20BC : 7B 00 04                   sbb     #0, RdH         ; Rd=-quotient
+(1)    20BF : F9                         rts
+(1)    20C0 :                    divF_neg_long:
+(1)    20C0 : 8E 20 CD                   call    divF_long       ; Rd=-dividend/F
+(1)    20C3 : D4 04                      inv     RdH
+(1)    20C5 : D4 05                      inv     RdL
+(1)    20C7 : D3 05                      inc     RdL
+(1)    20C9 : 79 00 04                   adc     #0, RdH         ; negate quotient
+(1)    20CC : F9                         rts
+(1)    20CD :                    ;;; Divide by F in two DIVs
+(1)    20CD :                    ;;; @param A:B dividend, A>=F
+(1)    20CD :                    divF_long:
+(1)    20CD : D1 05                      mov     B, RdL
+(1)    20CF : C0                         mov     A, B
+(1)    20D0 : B5                         clr     A               ; A:B=hi(dividend)
+(1)    20D1 : F4 F8 1D                   div     vF, A           ; A=hi(quotient), B=hi(dividend)%F
+(1)    20D4 : D0 04                      mov     A, RdH
+(1)    20D6 : 62                         mov     B, A
+(1)    20D7 : 32 05                      mov     RdL, B          ; A:B=hi(dividend)%F:lo(dividend)
+(1)    20D9 : F4 F8 1D                   div     vF, A           ; A=lo(quotient), B=remainder
+(1)    20DC : D0 05                      mov     A, RdL          ; Rd=quotient
+(1)    20DE : F9                         rts
+(1)    20DF :
+(1)    20DF :                    mandelbrot:
+(1)    20DF : 72 32 1D                   mov     #cF, vF         ; F=50, the divisor divF uses
+(1)    20E2 : 72 F4 1A                   mov     #-12, vY        ; Y=-12
+(1)    20E5 :                    loop_y:
+(1)    20E5 : 12 1A                      mov     vY, A
+(1)    20E7 : 8E 20 6A                   call    sex             ; Rd=extend(Y)
+(1)    20EA : 88 01 A0 07                movw    #416, Rs
+(1)    20EE : 8E 22 86                   call    mul16           ; Rd=Y*416
+(1)    20F1 : 88 00 64 07                movw    #100, Rs
+(1)    20F5 : 8E 22 FD                   call    div16           ; Rd=Y*416/100
+(1)    20F8 : 98 05 0D                   movw    Rd, vD          ; D=Y*416/100, the same for the whole row
+(1)    20FB : 72 CF 1B                   mov     #-49, vX        ; X=-49
+(1)    20FE :                    loop_x:
+(1)    20FE : 12 1B                      mov     vX, A
+(1)    2100 : 8E 20 6A                   call    sex             ; Rd=extend(X)
+(1)    2103 : 88 00 E5 07                movw    #229, Rs
+(1)    2107 : 8E 22 86                   call    mul16           ; Rd=X*229
+(1)    210A : 88 00 64 07                movw    #100, Rs
+(1)    210E : 8E 22 FD                   call    div16           ; Rd=X*229/100
+(1)    2111 : 98 05 0B                   movw    Rd, vC          ; C=X*229/100
+(1)    2114 : 98 0B 0F                   movw    vC, vA          ; A=C
+(1)    2117 : 98 0D 11                   movw    vD, vB          ; B=D
+(1)    211A : D5 1C                      clr     vI              ; I=0
+(1)    211C :
+(1)    211C :                            ;; mov     vY, A
+(1)    211C :                            ;; call    sex             ; Rd=Y
+(1)    211C :                            ;; mov     #'Y', A
+(1)    211C :                            ;; call    print
+(1)    211C :                            ;; mov     vX, A
+(1)    211C :                            ;; call    sex             ; Rd=X
+(1)    211C :                            ;; mov     #'X', A
+(1)    211C :                            ;; call    print
+(1)    211C :                            ;; movw    vC, Rd          ; C
+(1)    211C :                            ;; mov     #'C', A
+(1)    211C :                            ;; call    print
+(1)    211C :                            ;; movw    vD, Rd          ; D
+(1)    211C :                            ;; mov     #'D', A
+(1)    211C :                            ;; call    print
+(1)    211C :                            ;; call    newline
+(1)    211C :
+(1)    211C : 98 11 05                   movw    vB, Rd
+(1)    211F : 8E 20 99                   call    divF            ; Rd=B/F, B=|B|%F
+(1)    2122 : 98 05 15                   movw    Rd, vQ          ; Q=B/F
+(1)    2125 : D5 16                      clr     vS-1
+(1)    2127 : D1 17                      mov     B, vS           ; S=|B|%F
+(1)    2129 : 77 80 10 08                btjz    #080H, vB-1, loop_i
+(1)    212D : D5 17                      clr     vS
+(1)    212F : 4A 01 17                   sub     B, vS
+(1)    2132 : 7B 00 16                   sbb     #0, vS-1        ; S=B-Q*F, the remainder with B's sign
+(1)    2135 :                    loop_i:
+(1)    2135 : 98 11 05                   movw    vB, Rd
+(1)    2138 : 8E 20 73                   call    sqr16           ; Rd=B*B
+(1)    213B : 98 05 09                   movw    Rd, tmp         ; tmp=B*B
+(1)    213E : 98 0F 05                   movw    vA, Rd
+(1)    2141 : 8E 20 73                   call    sqr16           ; Rd=A*A
+(1)    2144 : 4A 09 05                   sub     tmp, RdL
+(1)    2147 : 4B 08 04                   sbb     tmp-1, RdH      ; Rd=A*A-B*B
+(1)    214A : 8E 20 99                   call    divF            ; Rd=(A*A-B*B)/F
+(1)    214D : 48 0B 05                   add     vC, RdL
+(1)    2150 : 49 0A 04                   adc     vC-1, RdH       ; Rd=(A*A-B*B)/F+C
+(1)    2153 : 98 05 09                   movw    Rd, tmp         ; tmp=(A*A-B*B)/F+C
+(1)    2156 : 98 0F 07                   movw    vA, Rs
+(1)    2159 : 98 15 05                   movw    vQ, Rd
+(1)    215C : 8E 22 86                   call    mul16           ; Rd=A*Q, Rs=A
+(1)    215F : 98 05 11                   movw    Rd, vB          ; B=A*Q, the old B is no longer used
+(1)    2162 : 98 17 05                   movw    vS, Rd
+(1)    2165 : 8E 22 86                   call    mul16           ; Rd=A*S
+(1)    2168 : 8E 20 99                   call    divF            ; Rd=A*S/F
+(1)    216B : 48 11 05                   add     vB, RdL
+(1)    216E : 49 10 04                   adc     vB-1, RdH       ; Rd=A*Q+A*S/F
+(1)    2171 : 48 05 05                   add     RdL, RdL
+(1)    2174 : 49 04 04                   adc     RdH, RdH        ; Rd=2*(A*Q+A*S/F)
+(1)    2177 : 48 0D 05                   add     vD, RdL
+(1)    217A : 49 0C 04                   adc     vD-1, RdH       ; Rd=2*(A*Q+A*S/F)+D
+(1)    217D : 98 05 11                   movw    Rd, vB          ; B=2*(A*Q+A*S/F)+D
+(1)    2180 : 98 09 05                   movw    tmp, Rd
+(1)    2183 : 98 05 0F                   movw    Rd, vA          ; A=(A*A-B*B)/F+C
+(1)    2186 : 8E 20 99                   call    divF            ; Rd=A/F
+(1)    2189 : 98 05 13                   movw    Rd, vP          ; P=A/F
+(1)    218C : 8E 20 73                   call    sqr16           ; Rd=P*P
+(1)    218F : 98 05 09                   movw    Rd, tmp         ; tmp=P*P
+(1)    2192 : 98 11 05                   movw    vB, Rd
+(1)    2195 : 8E 20 99                   call    divF            ; Rd=B/F, B=|B|%F
+(1)    2198 : 98 05 15                   movw    Rd, vQ          ; Q=B/F
+(1)    219B : D5 16                      clr     vS-1
+(1)    219D : D1 17                      mov     B, vS           ; S=|B|%F
+(1)    219F : 77 80 10 08                btjz    #080H, vB-1, loop_i_qq
+(1)    21A3 : D5 17                      clr     vS
+(1)    21A5 : 4A 01 17                   sub     B, vS
+(1)    21A8 : 7B 00 16                   sbb     #0, vS-1        ; S=B-Q*F for the next iteration
+(1)    21AB :                    loop_i_qq:
+(1)    21AB : 8E 20 73                   call    sqr16           ; Rd=Q*Q
+(1)    21AE : 48 09 05                   add     tmp, RdL
+(1)    21B1 : 49 08 04                   adc     tmp-1, RdH      ; Rd=Q*Q+P*P
+(1)    21B4 : 98 05 19                   movw    Rd, vT          ; T=Q*Q+P*P
+(1)    21B7 :
+(1)    21B7 :                            ;; call    putspace
+(1)    21B7 :                            ;; mov     vI, A
+(1)    21B7 :                            ;; call    sex             ; Rd=I
+(1)    21B7 :                            ;; mov     #'I', A
+(1)    21B7 :                            ;; call    print
+(1)    21B7 :                            ;; movw    vA, Rd          ; A
+(1)    21B7 :                            ;; mov     #'A', A
+(1)    21B7 :                            ;; call    print
+(1)    21B7 :                            ;; movw    vB, Rd          ; B
+(1)    21B7 :                            ;; mov     #'B', A
+(1)    21B7 :                            ;; call    print
+(1)    21B7 :                            ;; movw    vP, Rd          ; P
+(1)    21B7 :                            ;; mov     #'P', A
+(1)    21B7 :                            ;; call    print
+(1)    21B7 :                            ;; movw    vQ, Rd          ; Q
+(1)    21B7 :                            ;; mov     #'Q', A
+(1)    21B7 :                            ;; call    print
+(1)    21B7 :                            ;; movw    vT, Rd          ; T
+(1)    21B7 :                            ;; mov     #'T', A
+(1)    21B7 :                            ;; call    print
+(1)    21B7 :                            ;; call    newline
+(1)    21B7 :
+(1)    21B7 : 12 18                      mov     vT-1, A
+(1)    21B9 : 06 13                      jnz     print_i         ; if hi(T)>0
+(1)    21BB : 7D 05 19                   cmp     #5, vT
+(1)    21BE : 0B 0E                      jhs     print_i         ; if T>4
+(1)    21C0 : D3 1C                      inc     vI              ; I+=1
+(1)    21C2 : 7D 10 1C                   cmp     #16, vI
+(1)    21C5 : 05 03                      jpz     print_space     ; if I>=16
+(1)    21C7 : 8C 21 35                   br      loop_i          ; if I<16
+(1)    21CA :                    print_space:
+(1)    21CA : 22 20                      mov     #' ', A
+(1)    21CC : 00 0A                      jmp     print_char
+(1)    21CE :                    print_i:
+(1)    21CE : 12 1C                      mov     vI, A
+(1)    21D0 : 2D 0A                      cmp     #10, A
+(1)    21D2 : 09 02                      jl      print_i2        ; if I<10
+(1)    21D4 : 28 07                      add     #'A'-'0'-10, A
+(1)    21D6 :                    print_i2:
+(1)    21D6 : 28 30                      add     #'0', A
+(1)    21D8 :                    print_char:
+(1)    21D8 :                            ;; push    A
+(1)    21D8 :                            ;; mov     #'@', A
+(1)    21D8 :                            ;; call    putchar
+(1)    21D8 :                            ;; mov     #'=', A
+(1)    21D8 :                            ;; call    putchar
+(1)    21D8 :                            ;; pop     A
+(1)    21D8 :                            ;; call    putchar
+(1)    21D8 :                            ;; call    newline
+(1)    21D8 :
+(1)    21D8 : 8E 20 47                   call    putchar
+(1)    21DB : 8E 20 2B                   call    getchar
+(1)    21DE : 07 04                      jnc     next_x
+(1)    21E0 : B0                         tst     a
+(1)    21E1 : 06 01                      jnz     next_x
+(1)    21E3 : E0                         trap    15              ; halt to system
+(1)    21E4 :                    next_x:
+(1)    21E4 : D3 1B                      inc     vX              ; X+=1
+(1)    21E6 : 7D 1E 1B                   cmp     #30, vX
+(1)    21E9 : 0D 03                      jge     next_y          ; if X>=30
+(1)    21EB : 8C 20 FE                   br      loop_x          ; if X<30
+(1)    21EE :                    next_y:
+(1)    21EE : 8E 20 40                   call    newline
+(1)    21F1 : D3 1A                      inc     vY              ; Y+=1
+(1)    21F3 : 7D 0D 1A                   cmp     #13, vY
+(1)    21F6 : 0D 03                      jge     mandelbrot_end  ; if Y>=13
+(1)    21F8 : 8C 20 E5                   br      loop_y          ; if Y<13
+(1)    21FB :                    mandelbrot_end:
+(1)    21FB : F9                         rts
+       21FC :                            include "arith.inc"
+(1)    21FC :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)    21FC :
+(1)    21FC :                    ;;; Print signed 16-bit integer as decimal
+(1)    21FC :                    ;;; @param R4:R5 value
+(1)    21FC :                    ;;; @clobber A R4:R5
+(1)    21FC :                    print_int16:
+(1)    21FC : 77 80 04 0E                btjz    #080H, R4, print_uint16
+(1)    2200 : 22 2D                      mov     #'-', A
+(1)    2202 : 8E 20 47                   call    putchar
+(1)    2205 : D4 04                      inv     R4
+(1)    2207 : D4 05                      inv     R5
+(1)    2209 : D3 05                      inc     R5
+(1)    220B : 79 00 04                   adc     #0, R4    ; negate R4:R5
+(1)    220E :                    ;;; Print unsigned 16-bit integer as decimal
+(1)    220E :                    ;;; @param R4:R5 value
+(1)    220E :                    ;;; @clobber A B R4:R5
+(1)    220E :                    print_uint16:
+(1)    220E : 12 04                      mov     R4, A
+(1)    2210 : 14 05                      or      R5, A
+(1)    2212 : 02 15                      jz      print_uint16_zero
+(1)    2214 :                    print_uint16_loop:
+(1)    2214 : 12 04                      mov     R4, A
+(1)    2216 : 14 05                      or      R5, A
+(1)    2218 : 02 14                      jz      print_uint16_end
+(1)    221A : D8 07                      push    R7
+(1)    221C : 72 0A 07                   mov     #10, R7
+(1)    221F : 8E 22 2F                   call    udiv16_8        ; R4:R5/R7 => R4:R5...B
+(1)    2222 : D9 07                      pop     R7
+(1)    2224 : C8                         push    B               ; push remainder
+(1)    2225 : 8E 22 14                   call    print_uint16_loop
+(1)    2228 : B9                         pop     A
+(1)    2229 :                    print_uint16_zero:
+(1)    2229 : 28 30                      add     #'0', A
+(1)    222B : 8C 20 47                   br      putchar
+(1)    222E :                    print_uint16_end:
+(1)    222E : F9                         rts
+(1)    222F :
+(1)    222F :                    ;;; Divide unsigned 16bit by 8bit
+(1)    222F :                    ;;; @param R4:R5 dividend
+(1)    222F :                    ;;; @param R7 divisor
+(1)    222F :                    ;;; @return R4:R5 quotient
+(1)    222F :                    ;;; @return B remainder
+(1)    222F :                    ;;; @clobber A
+(1)    222F :                    udiv16_8:
+(1)    222F : 12 04                      mov     R4, A
+(1)    2231 : 1D 07                      cmp     R7, A
+(1)    2233 : 0B 0A                      jhs     udiv16_8_high   ; branch if R4>=R7
+(1)    2235 : D5 04                      clr     R4              ; R4=high(quotient)=0, A=R4%R7=R4
+(1)    2237 :                    udiv16_8_low:
+(1)    2237 : 32 05                      mov     R5, B           ; A:B=R4%R7:R5
+(1)    2239 : F4 F8 07                   div     R7, A           ; A=low(quotient), B=remainder
+(1)    223C : D0 05                      mov     A, R5           ; R5=low(quotient)
+(1)    223E : F9                         rts
+(1)    223F :                    udiv16_8_high:
+(1)    223F : C0                         mov     A, B
+(1)    2240 : B5                         clr     A               ; A:B=0:R4
+(1)    2241 : F4 F8 07                   div     R7, A           ; A=R4/R7, B=R4%R7
+(1)    2244 : D0 04                      mov     A, R4           ; R4=high(quotient)
+(1)    2246 : 62                         mov     B, A
+(1)    2247 : 00 EE                      jmp     udiv16_8_low
+(1)    2249 :
+(1)    2249 :                    ;;; Addition: R4:R5 += R6:R7
+(1)    2249 :                    add16:
+(1)    2249 : 48 07 05                   add     R7, R5
+(1)    224C : 49 06 04                   adc     R6, R4
+(1)    224F : F9                         rts
+(1)    2250 :
+(1)    2250 :                    ;;; Subtraction: R4:R5 -= R6:R7
+(1)    2250 :                    sub16:
+(1)    2250 : 4A 07 05                   sub     R7, R5
+(1)    2253 : 4B 06 04                   sbb     R6, R4
 (1)    2256 : F9                         rts
 (1)    2257 :
-(1)    2257 :                    ;;; Division: dividend / divisor = quotient ... remainder
-(1)    2257 :                    ;;; @param R4:R5 dividend
-(1)    2257 :                    ;;; @param R6:R7 divisor
-(1)    2257 :                    ;;; @return R4:R5 quotient
-(1)    2257 :                    ;;; @return R6:R7 remainder
-(1)    2257 :                    ;;; @clobber A B
-(1)    2257 :                    div16:
-(1)    2257 : 76 80 06 1A                btjo    #080H, R6, div16_divisor
-(1)    225B : 77 80 04 2C                btjz    #080H, R4, udiv16
-(1)    225F : D4 04                      inv     R4
-(1)    2261 : D4 05                      inv     R5
-(1)    2263 : D3 05                      inc     R5
-(1)    2265 : 79 00 04                   adc     #0, R4          ; negate dividend
-(1)    2268 :                    div16_negate:
-(1)    2268 : 8E 22 8B                   call    udiv16          ; R4:R5=quotient
-(1)    226B : D4 04                      inv     R4
-(1)    226D : D4 05                      inv     R5
-(1)    226F : D3 05                      inc     R5
-(1)    2271 : 79 00 04                   adc     #0, R4          ; negate quotient
-(1)    2274 : F9                         rts
-(1)    2275 :                    div16_divisor:
-(1)    2275 : D4 06                      inv     R6
-(1)    2277 : D4 07                      inv     R7
-(1)    2279 : D3 07                      inc     R7
-(1)    227B : 79 00 06                   adc     #0, R6          ; negate divisor
-(1)    227E : 77 80 04 E6                btjz    #080H, R4, div16_negate
-(1)    2282 : D4 04                      inv     R4
-(1)    2284 : D4 05                      inv     R5
-(1)    2286 : D3 05                      inc     R5
-(1)    2288 : 79 00 04                   adc     #0, R4          ; negate dividend
-(1)    228B :                    ;;; Unsigned division: dividend / divisor = quotient ... remainder
-(1)    228B :                    ;;; @param R4:R5 dividend
-(1)    228B :                    ;;; @param R6:R7 divisor
-(1)    228B :                    ;;; @return R4:R5 quotient
-(1)    228B :                    ;;; @return R6:R7 remainder
-(1)    228B :                    ;;; @clobber A B
-(1)    228B :                    udiv16:
-(1)    228B : 12 06                      mov     R6, A
-(1)    228D : 06 15                      jnz     udiv16_16       ; branch if divisor>=256
-(1)    228F : 98 05 01                   movw    R5, B           ; A:B=dividend
-(1)    2292 : F4 F8 07                   div     R7, A           ; A=low(quotient), B=remainder
-(1)    2295 : 08 07                      jv      udiv16_8bit     ; branch if R4>=R7, A:B unchanged
-(1)    2297 : D5 04                      clr     R4              ; R4=high(quotient)=0
-(1)    2299 : D0 05                      mov     A, R5           ; R5=low(quotient)
-(1)    229B : D1 07                      mov     B, R7           ; R6:R7=remainder
-(1)    229D : F9                         rts
-(1)    229E :                    udiv16_8bit:
-(1)    229E : 8E 21 F0                   call    udiv16_8_high   ; R4:R5/R7=R4:R5...B
-(1)    22A1 : D1 07                      mov     B, R7           ; R6:R7=remainder
-(1)    22A3 : F9                         rts
-(1)    22A4 :                    udiv16_16:      
-(1)    22A4 : 14 07                      or      R7, A
-(1)    22A6 : 02 30                      jz      udiv16_end      branch if divisor==0
-(1)    22A8 : D8 08                      push    R8
-(1)    22AA : 72 10 08                   mov     #16, R8
-(1)    22AD : B5                         clr     A
-(1)    22AE : C5                         clr     B               ; initialize quotient
-(1)    22AF :                    udiv16_loop:
-(1)    22AF : DF 05                      rlc     R5
-(1)    22B1 : DF 04                      rlc     R4              ; dividend <<= 1
-(1)    22B3 : CF                         rlc     B
-(1)    22B4 : BF                         rlc     A               ;
-(1)    22B5 : 07 07                      jnc     udiv16_skip
-(1)    22B7 : 3A 07                      sub     R7, B
-(1)    22B9 : 1B 06                      sbb     R6, A
-(1)    22BB : F8                         setc
-(1)    22BC : 00 0E                      jmp     udiv16_next
-(1)    22BE :                    udiv16_skip:
-(1)    22BE : 1D 06                      cmp     R6, A
-(1)    22C0 : 07 0A                      jnc     udiv16_next
-(1)    22C2 : 06 04                      jne     udiv16_sub
-(1)    22C4 : 3D 07                      cmp     R7, B
-(1)    22C6 : 07 04                      jnc     udiv16_next
-(1)    22C8 :                    udiv16_sub:
-(1)    22C8 : 3A 07                      sub     R7, B
-(1)    22CA : 1B 06                      sbb     R6, A
-(1)    22CC :                    udiv16_next:
-(1)    22CC : DA 08 E0                   djnz    R8, udiv16_loop
-(1)    22CF : DF 05                      rlc     R5
-(1)    22D1 : DF 04                      rlc     R4
-(1)    22D3 : 98 01 07                   movw    R1, R7          ; save remainder
-(1)    22D6 : D9 08                      pop     R8
-(1)    22D8 :                    udiv16_end:
-(1)    22D8 : F9                         rts
-       22D9 :                            include "queue.inc"
-(1)    22D9 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
-(1)    22D9 :                    ;;; [queue] queue structure
-(1)    22D9 : =0                 queue_len:      equ     0       ; queue length
-(1)    22D9 : =1                 queue_size:     equ     1       ; buffer size
-(1)    22D9 : =2                 queue_put:      equ     2       ; queue put index
-(1)    22D9 : =3                 queue_get:      equ     3       ; queue get index
-(1)    22D9 : =4                 queue_buf:      equ     4       ; buffer start offset
-(1)    22D9 :
-(1)    22D9 :                    ;;; [queue] Initialize queue
-(1)    22D9 :                    ;;; @param R2:R3 queue work space pointer
-(1)    22D9 :                    ;;; @param B queue work space size
-(1)    22D9 :                    ;;; @clobber A B R2:R3
-(1)    22D9 :                    queue_init:
-(1)    22D9 : B5                         clr     A
-(1)    22DA : 9B 03                      mov     A, @R3          ; queue_len
-(1)    22DC : 62                         mov     B, A
-(1)    22DD : 2A 04                      sub     #queue_buf, A
-(1)    22DF : D3 03                      inc     R3
-(1)    22E1 : 9B 03                      mov     A, @R3          ; queue_size
-(1)    22E3 : 5A 02                      sub     #queue_put, B   ; offset queue_len and queue_size
-(1)    22E5 : D3 03                      inc     R3              ; R2:R3=&queue_put
-(1)    22E7 : B5                         clr     A
-(1)    22E8 :                    queue_init_loop:
-(1)    22E8 : 9B 03                      mov     A, @R3
-(1)    22EA : D3 03                      inc     R3
-(1)    22EC : CA FA                      djnz    B, queue_init_loop
-(1)    22EE : F9                         rts
-(1)    22EF :
-(1)    22EF :                    ;;; [queue] Add an element to queue
-(1)    22EF :                    ;;; @param R2:R3 queue work space pointer
-(1)    22EF :                    ;;; @param A an element
-(1)    22EF :                    ;;; @return ST.C 0 if queue is full
-(1)    22EF :                    ;;; @clobber R2:R3
-(1)    22EF :                    queue_add:
-(1)    22EF : B8                         push    A
-(1)    22F0 : 9A 03                      mov     @R3, A          ; A=queue_len
-(1)    22F2 : F4 ED 01 03                cmp     queue_size(R3), A
-(1)    22F6 : 09 02                      jl      queue_add_element
-(1)    22F8 : B9                         pop     A               ; ST.C=0
-(1)    22F9 : F9                         rts
-(1)    22FA :                    queue_add_element:
-(1)    22FA : B3                         inc     A
-(1)    22FB : 9B 03                      mov     A, @R3          ; queue_len++
-(1)    22FD : F4 EA 02 03                mov     queue_put(R3), A
-(1)    2301 : 28 04                      add     #queue_buf, A
-(1)    2303 : D8 03                      push    R3              ; save pointer
-(1)    2305 : 48 00 03                   add     A, R3           ; R2:R3=&queue_buf[queue_put]
-(1)    2308 : F1 FF                      mov     -1(SP), A       ; element
-(1)    230A : 9B 03                      mov     A, @R3          ; store element
-(1)    230C : D9 03                      pop     R3              ; restore pointer
-(1)    230E : F4 EA 02 03                mov     queue_put(R3), A
-(1)    2312 : B3                         inc     A
-(1)    2313 : F4 ED 01 03                cmp     queue_size(R3), A
-(1)    2317 : 09 01                      jl      queue_add_return
-(1)    2319 : B5                         clr     A               ; wraparound
-(1)    231A :                    queue_add_return:
-(1)    231A : F4 EB 02 03                mov     A, queue_put(R3) ; update queue_put
-(1)    231E : B9                         pop     A
-(1)    231F : F8                         setc                    ; ST.C=1
-(1)    2320 : F9                         rts
-(1)    2321 :
-(1)    2321 :                    ;;; [queue] Remove an element from queue
-(1)    2321 :                    ;;; @param R2:R3 queue work space pointer
-(1)    2321 :                    ;;; @return A an element
-(1)    2321 :                    ;;; @return ST.C 0 if queue is empty
-(1)    2321 :                    queue_remove:
-(1)    2321 : 9A 03                      mov     @R3, A          ; A=queue_len, ST.C=0
-(1)    2323 : 02 25                      jz      queue_remove_end
-(1)    2325 :                    queue_remove_elem:
-(1)    2325 : B2                         dec     A
-(1)    2326 : 9B 03                      mov     A, @R3          ; queue_len--
-(1)    2328 : F4 EA 03 03                mov     queue_get(R3), A
-(1)    232C : 28 04                      add     #queue_buf, A
-(1)    232E : D8 03                      push    R3              ; save pointer
-(1)    2330 : 48 00 03                   add     A, R3           ; R2:R3=&queue_buf[queue_get]
-(1)    2333 : 9A 03                      mov     @R3, A          ; remove element
-(1)    2335 : D9 03                      pop     R3              ; restore pointer
-(1)    2337 : B8                         push    A               ; save element
-(1)    2338 : F4 EA 03 03                mov     queue_get(R3), A
-(1)    233C : B3                         inc     A
-(1)    233D : F4 ED 01 03                cmp     queue_size(R3), A
-(1)    2341 : 09 01                      jl      queue_remove_return
-(1)    2343 : B5                         clr     A               ; wraparound
-(1)    2344 :                    queue_remove_return:
-(1)    2344 : F4 EB 03 03                mov     A, queue_get(R3)
-(1)    2348 : B9                         pop     A               ; restore element
-(1)    2349 : F8                         setc
-(1)    234A :                    queue_remove_end:
-(1)    234A : F9                         rts
-       234B :
-       234B :                    isr_int1:
-       234B : A3 7F 17                   and     #~INT_FLAG & 0FFH, INT1 ; clear INT1_FLAG
-       234E : A7 80 F0 2B                btjz    #IRQF_bm, ACIA_status, isr_int1_return
-       2352 : B8                         push    A
-       2353 : D8 02                      push    R2
-       2355 : D8 03                      push    R3
-       2357 : A7 01 F0 09                btjz    #RDRF_bm, ACIA_status, isr_tx
-       235B : 80 F1                      mov     ACIA_data, A
-       235D : 88 30 00 03                movw    #rx_queue, R3
-       2361 : 8E 22 EF                   call    queue_add
-       2364 :                    isr_tx:
-       2364 : A7 02 F0 10                btjz    #TDRE_bm, ACIA_status, isr_int1_exit
-       2368 : 88 30 80 03                movw    #tx_queue, R3
-       236C : 8E 23 21                   call    queue_remove
-       236F : 07 04                      jnc     isr_tx_empty
-       2371 : 21 F1                      mov     A, ACIA_data    ; send character
-       2373 : 00 03                      jmp     isr_int1_exit
-       2375 :                    isr_tx_empty:
-       2375 : F7 94 F0                   mov     #RX_INT_TX_NO, ACIA_control ; disable Tx interrupt
-       2378 :                    isr_int1_exit:
-       2378 : D9 03                      pop     R3
-       237A : D9 02                      pop     R2
-       237C : B9                         pop     A
-       237D :                    isr_int1_return:
-       237D : FA                         rti
+(1)    2257 :                    ;;; Signed compare A=sign(minuend-subtrahend)
+(1)    2257 :                    ;;; @param R4:R5 minuend
+(1)    2257 :                    ;;; @param R6:R7 subtrahend
+(1)    2257 :                    ;;; @return A=0  JEQ (minuend == subtrahend)
+(1)    2257 :                    ;;;         A=1  JGT (minuend > subtrahend)
+(1)    2257 :                    ;;;         A=-1 JLT (minuend < subtrahend)
+(1)    2257 :                    ;;; @clobber A
+(1)    2257 :                    cmp16:
+(1)    2257 : D8 03                      push    R3
+(1)    2259 : D8 02                      push    R2
+(1)    225B : 98 05 03                   movw    R5, R3          ; R2:R3=minuend
+(1)    225E : 4A 07 03                   sub     R7, R3
+(1)    2261 : 4B 06 02                   sbb     R6, R2          ; R2:R3=minuend-subtrahend
+(1)    2264 : 12 02                      mov     R2, A
+(1)    2266 : 14 03                      or      R3, A
+(1)    2268 : 02 16                      jeq     cmp16_end       ; return with A=0
+(1)    226A : 12 02                      mov     R2, A           ; A=hi(minuend-subtrahend)
+(1)    226C : 15 04                      xor     R4, A           ; A=hi((minuend-subtrahend)^minuend)
+(1)    226E : D0 03                      mov     A, R3           ; R3=hi((minuend-subtrahend)^minuend)
+(1)    2270 : 12 04                      mov     R4, A           ; A=hi(minuend)
+(1)    2272 : 15 06                      xor     R6, A           ; A=hi(minuend^subtrahend)
+(1)    2274 : 13 03                      and     R3, A           ; A=overflow flag
+(1)    2276 : 15 02                      xor     R2, A           ; A=V^N
+(1)    2278 : 01 04                      jn      cmp16_lt        ; branch if minuend < subtrahend
+(1)    227A :                    cmp16_gt:
+(1)    227A : 22 01                      mov     #1, A
+(1)    227C : 00 02                      jmp     cmp16_end
+(1)    227E :                    cmp16_lt:
+(1)    227E : 22 FF                      mov     #-1, A
+(1)    2280 :                    cmp16_end:
+(1)    2280 : D9 02                      pop     R2
+(1)    2282 : D9 03                      pop     R3
+(1)    2284 : B0                         tst     A
+(1)    2285 : F9                         rts
+(1)    2286 :
+(1)    2286 :                    ;;; Multiply: result = multiplicand * multiplier
+(1)    2286 :                    ;;; The 16-bit product is the same for signed and unsigned operands, and
+(1)    2286 :                    ;;; a high byte of 0FFH contributes -lo(other operand) without an MPY.
+(1)    2286 :                    ;;; @param R4:R5 multiplicand
+(1)    2286 :                    ;;; @param R6:R7 multiplier
+(1)    2286 :                    ;;; @return R4:R5 result
+(1)    2286 :                    ;;; @clobber A B
+(1)    2286 :                    mul16:
+(1)    2286 :                    umul16:
+(1)    2286 : 12 04                      mov     R4, A
+(1)    2288 : 06 0B                      jnz     mul16_hi1       ; branch if hi(multiplicand)!=0
+(1)    228A : 12 06                      mov     R6, A
+(1)    228C : 06 19                      jnz     mul16_hi2       ; branch if hi(multiplier)!=0
+(1)    228E : 4C 05 07                   mpy     R5, R7          ; A:B=lo(multiplicand)*lo(multiplier)
+(1)    2291 : 98 01 05                   movw    B, R5           ; R4:R5=result
+(1)    2294 : F9                         rts
+(1)    2295 :                    mul16_hi1:
+(1)    2295 : B3                         inc     A
+(1)    2296 : 02 07                      jz      mul16_hi1_neg   ; branch if hi(multiplicand)==0FFH
+(1)    2298 : 4C 07 04                   mpy     R7, R4          ; A:B=hi(multiplicand)*lo(multiplier)
+(1)    229B : D1 04                      mov     B, R4           ; R4=hi(result)
+(1)    229D : 00 04                      jmp     mul16_hi
+(1)    229F :                    mul16_hi1_neg:
+(1)    229F : 1A 07                      sub     R7, A
+(1)    22A1 : D0 04                      mov     A, R4           ; R4=hi(result)=-lo(multiplier)
+(1)    22A3 :                    mul16_hi:
+(1)    22A3 : 12 06                      mov     R6, A
+(1)    22A5 : 02 0E                      jz      mul16_lo        ; branch if hi(multiplier)==0
+(1)    22A7 :                    mul16_hi2:
+(1)    22A7 : B3                         inc     A
+(1)    22A8 : 02 08                      jz      mul16_hi2_neg   ; branch if hi(multiplier)==0FFH
+(1)    22AA : 4C 05 06                   mpy     R5, R6          ; A:B=lo(multiplicand)*hi(multiplier)
+(1)    22AD : 48 01 04                   add     B, R4           ; R4=hi(result)
+(1)    22B0 : 00 03                      jmp     mul16_lo
+(1)    22B2 :                    mul16_hi2_neg:
+(1)    22B2 : 4A 05 04                   sub     R5, R4          ; R4=hi(result)-lo(multiplicand)
+(1)    22B5 :                    mul16_lo:
+(1)    22B5 : 4C 05 07                   mpy     R5, R7          ; A:B=lo(multiplicand)*lo(multiplier)
+(1)    22B8 : 18 04                      add     R4, A
+(1)    22BA : 98 01 05                   movw    B, R5           ; R4:R5=result
+(1)    22BD : F9                         rts
+(1)    22BE :
+(1)    22BE :                    ;;; Unsigned division: dividend / divisor = quotient ... remainder
+(1)    22BE :                    ;;; @param R4:R5 dividend
+(1)    22BE :                    ;;; @param R6:R7 divisor
+(1)    22BE :                    ;;; @return R4:R5 quotient
+(1)    22BE :                    ;;; @return R6:R7 remainder
+(1)    22BE :                    ;;; @clobber A B
+(1)    22BE :                    udiv16:
+(1)    22BE : 12 06                      mov     R6, A
+(1)    22C0 : 06 06                      jnz     udiv16_16
+(1)    22C2 : 8E 22 2F                   call    udiv16_8        ; R4:R5/R7=R4:R5...B
+(1)    22C5 : D1 07                      mov     B, R7
+(1)    22C7 : F9                         rts
+(1)    22C8 :                    udiv16_16:      
+(1)    22C8 : 14 07                      or      R7, A
+(1)    22CA : 02 30                      jz      udiv16_end      branch if divisor==0
+(1)    22CC : D8 08                      push    R8
+(1)    22CE : 72 10 08                   mov     #16, R8
+(1)    22D1 : B5                         clr     A
+(1)    22D2 : C5                         clr     B               ; initialize quotient
+(1)    22D3 :                    udiv16_loop:
+(1)    22D3 : DF 05                      rlc     R5
+(1)    22D5 : DF 04                      rlc     R4              ; dividend <<= 1
+(1)    22D7 : CF                         rlc     B
+(1)    22D8 : BF                         rlc     A               ;
+(1)    22D9 : 07 07                      jnc     udiv16_skip
+(1)    22DB : 3A 07                      sub     R7, B
+(1)    22DD : 1B 06                      sbb     R6, A
+(1)    22DF : F8                         setc
+(1)    22E0 : 00 0E                      jmp     udiv16_next
+(1)    22E2 :                    udiv16_skip:
+(1)    22E2 : 1D 06                      cmp     R6, A
+(1)    22E4 : 07 0A                      jnc     udiv16_next
+(1)    22E6 : 06 04                      jne     udiv16_sub
+(1)    22E8 : 3D 07                      cmp     R7, B
+(1)    22EA : 07 04                      jnc     udiv16_next
+(1)    22EC :                    udiv16_sub:
+(1)    22EC : 3A 07                      sub     R7, B
+(1)    22EE : 1B 06                      sbb     R6, A
+(1)    22F0 :                    udiv16_next:
+(1)    22F0 : DA 08 E0                   djnz    R8, udiv16_loop
+(1)    22F3 : DF 05                      rlc     R5
+(1)    22F5 : DF 04                      rlc     R4
+(1)    22F7 : 98 01 07                   movw    R1, R7          ; save remainder
+(1)    22FA : D9 08                      pop     R8
+(1)    22FC :                    udiv16_end:
+(1)    22FC : F9                         rts
+(1)    22FD :
+(1)    22FD :                    ;;; Division: dividend / divisor = quotient ... remainder
+(1)    22FD :                    ;;; @param R4:R5 dividend
+(1)    22FD :                    ;;; @param R6:R7 divisor
+(1)    22FD :                    ;;; @return R4:R5 quotient
+(1)    22FD :                    ;;; @return R6:R7 remainder
+(1)    22FD :                    ;;; @clobber A
+(1)    22FD :                    div16:
+(1)    22FD : 12 04                      mov     R4, A
+(1)    22FF : 15 06                      xor     R6, A
+(1)    2301 : B8                         push    A               ; save hi(dividend^divisor)
+(1)    2302 : 77 80 06 09                btjz    #080H, R6, div16_dividend
+(1)    2306 : D4 06                      inv     R6
+(1)    2308 : D4 07                      inv     R7
+(1)    230A : D3 07                      inc     R7
+(1)    230C : 79 00 06                   adc     #0, R6          ; negate divisor
+(1)    230F :                    div16_dividend:
+(1)    230F : 77 80 04 09                btjz    #080H, R4, div16_divide
+(1)    2313 : D4 04                      inv     R4
+(1)    2315 : D4 05                      inv     R5
+(1)    2317 : D3 05                      inc     R5
+(1)    2319 : 79 00 04                   adc     #0, R4          ; negate dividend
+(1)    231C :                    div16_divide:
+(1)    231C : 8E 22 BE                   call    udiv16          ; R4:R5=quotient
+(1)    231F : B9                         pop     A               ; A=(dividend^divisor)
+(1)    2320 : 05 09                      jpz     div16_end
+(1)    2322 : D4 04                      inv     R4
+(1)    2324 : D4 05                      inv     R5
+(1)    2326 : D3 05                      inc     R5
+(1)    2328 : 79 00 04                   adc     #0, R4          ; negate quotient
+(1)    232B :                    div16_end:
+(1)    232B : F9                         rts
+       232C :                            include "queue.inc"
+(1)    232C :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)    232C :                    ;;; [queue] queue structure
+(1)    232C : =0                 queue_len:      equ     0       ; queue length
+(1)    232C : =1                 queue_size:     equ     1       ; buffer size
+(1)    232C : =2                 queue_put:      equ     2       ; queue put index
+(1)    232C : =3                 queue_get:      equ     3       ; queue get index
+(1)    232C : =4                 queue_buf:      equ     4       ; buffer start offset
+(1)    232C :
+(1)    232C :                    ;;; [queue] Initialize queue
+(1)    232C :                    ;;; @param R2:R3 queue work space pointer
+(1)    232C :                    ;;; @param B queue work space size
+(1)    232C :                    ;;; @clobber A B R2:R3
+(1)    232C :                    queue_init:
+(1)    232C : B5                         clr     A
+(1)    232D : 9B 03                      mov     A, @R3          ; queue_len
+(1)    232F : 62                         mov     B, A
+(1)    2330 : 2A 04                      sub     #queue_buf, A
+(1)    2332 : D3 03                      inc     R3
+(1)    2334 : 9B 03                      mov     A, @R3          ; queue_size
+(1)    2336 : 5A 02                      sub     #queue_put, B   ; offset queue_len and queue_size
+(1)    2338 : D3 03                      inc     R3              ; R2:R3=&queue_put
+(1)    233A : B5                         clr     A
+(1)    233B :                    queue_init_loop:
+(1)    233B : 9B 03                      mov     A, @R3
+(1)    233D : D3 03                      inc     R3
+(1)    233F : CA FA                      djnz    B, queue_init_loop
+(1)    2341 : F9                         rts
+(1)    2342 :
+(1)    2342 :                    ;;; [queue] Add an element to queue
+(1)    2342 :                    ;;; @param R2:R3 queue work space pointer
+(1)    2342 :                    ;;; @param A an element
+(1)    2342 :                    ;;; @return ST.C 0 if queue is full
+(1)    2342 :                    ;;; @clobber R2:R3
+(1)    2342 :                    queue_add:
+(1)    2342 : B8                         push    A
+(1)    2343 : 9A 03                      mov     @R3, A          ; A=queue_len
+(1)    2345 : F4 ED 01 03                cmp     queue_size(R3), A
+(1)    2349 : 09 02                      jl      queue_add_element
+(1)    234B : B9                         pop     A               ; ST.C=0
+(1)    234C : F9                         rts
+(1)    234D :                    queue_add_element:
+(1)    234D : B3                         inc     A
+(1)    234E : 9B 03                      mov     A, @R3          ; queue_len++
+(1)    2350 : F4 EA 02 03                mov     queue_put(R3), A
+(1)    2354 : 28 04                      add     #queue_buf, A
+(1)    2356 : D8 03                      push    R3              ; save pointer
+(1)    2358 : 48 00 03                   add     A, R3           ; R2:R3=&queue_buf[queue_put]
+(1)    235B : F1 FF                      mov     -1(SP), A       ; element
+(1)    235D : 9B 03                      mov     A, @R3          ; store element
+(1)    235F : D9 03                      pop     R3              ; restore pointer
+(1)    2361 : F4 EA 02 03                mov     queue_put(R3), A
+(1)    2365 : B3                         inc     A
+(1)    2366 : F4 ED 01 03                cmp     queue_size(R3), A
+(1)    236A : 09 01                      jl      queue_add_return
+(1)    236C : B5                         clr     A               ; wraparound
+(1)    236D :                    queue_add_return:
+(1)    236D : F4 EB 02 03                mov     A, queue_put(R3) ; update queue_put
+(1)    2371 : B9                         pop     A
+(1)    2372 : F8                         setc                    ; ST.C=1
+(1)    2373 : F9                         rts
+(1)    2374 :
+(1)    2374 :                    ;;; [queue] Remove an element from queue
+(1)    2374 :                    ;;; @param R2:R3 queue work space pointer
+(1)    2374 :                    ;;; @return A an element
+(1)    2374 :                    ;;; @return ST.C 0 if queue is empty
+(1)    2374 :                    queue_remove:
+(1)    2374 : 9A 03                      mov     @R3, A          ; A=queue_len, ST.C=0
+(1)    2376 : 02 25                      jz      queue_remove_end
+(1)    2378 :                    queue_remove_elem:
+(1)    2378 : B2                         dec     A
+(1)    2379 : 9B 03                      mov     A, @R3          ; queue_len--
+(1)    237B : F4 EA 03 03                mov     queue_get(R3), A
+(1)    237F : 28 04                      add     #queue_buf, A
+(1)    2381 : D8 03                      push    R3              ; save pointer
+(1)    2383 : 48 00 03                   add     A, R3           ; R2:R3=&queue_buf[queue_get]
+(1)    2386 : 9A 03                      mov     @R3, A          ; remove element
+(1)    2388 : D9 03                      pop     R3              ; restore pointer
+(1)    238A : B8                         push    A               ; save element
+(1)    238B : F4 EA 03 03                mov     queue_get(R3), A
+(1)    238F : B3                         inc     A
+(1)    2390 : F4 ED 01 03                cmp     queue_size(R3), A
+(1)    2394 : 09 01                      jl      queue_remove_return
+(1)    2396 : B5                         clr     A               ; wraparound
+(1)    2397 :                    queue_remove_return:
+(1)    2397 : F4 EB 03 03                mov     A, queue_get(R3)
+(1)    239B : B9                         pop     A               ; restore element
+(1)    239C : F8                         setc
+(1)    239D :                    queue_remove_end:
+(1)    239D : F9                         rts
+       239E :
+       239E :                    isr_int1:
+       239E : A3 7F 17                   and     #~INT_FLAG & 0FFH, INT1 ; clear INT1_FLAG
+       23A1 : A7 80 F0 2B                btjz    #IRQF_bm, ACIA_status, isr_int1_return
+       23A5 : B8                         push    A
+       23A6 : D8 02                      push    R2
+       23A8 : D8 03                      push    R3
+       23AA : A7 01 F0 09                btjz    #RDRF_bm, ACIA_status, isr_tx
+       23AE : 80 F1                      mov     ACIA_data, A
+       23B0 : 88 30 00 03                movw    #rx_queue, R3
+       23B4 : 8E 23 42                   call    queue_add
+       23B7 :                    isr_tx:
+       23B7 : A7 02 F0 10                btjz    #TDRE_bm, ACIA_status, isr_int1_exit
+       23BB : 88 30 80 03                movw    #tx_queue, R3
+       23BF : 8E 23 74                   call    queue_remove
+       23C2 : 07 04                      jnc     isr_tx_empty
+       23C4 : 21 F1                      mov     A, ACIA_data    ; send character
+       23C6 : 00 03                      jmp     isr_int1_exit
+       23C8 :                    isr_tx_empty:
+       23C8 : F7 94 F0                   mov     #RX_INT_TX_NO, ACIA_control ; disable Tx interrupt
+       23CB :                    isr_int1_exit:
+       23CB : D9 03                      pop     R3
+       23CD : D9 02                      pop     R2
+       23CF : B9                         pop     A
+       23D0 :                    isr_int1_return:
+       23D0 : FA                         rti
