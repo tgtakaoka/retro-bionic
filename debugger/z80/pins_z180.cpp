@@ -267,7 +267,10 @@ Signals *PinsZ180::completeCycle(Signals *s) const {
 Signals *PinsZ180::resumeCycle(uint16_t pc) const {
     const auto s = Signals::put();
     negate_wait();
-    s->setAddress(pc);
+    // execute() may have stopped past an interrupt acknowledge, at its
+    // handler's fetch rather than at |pc|.
+    s->setAddress(_heldFetch ? _heldAddr : pc);
+    _heldFetch = false;
     s->getControl();
     return completeCycle(s);
 }
@@ -311,6 +314,8 @@ uint16_t PinsZ180::execute(
         completeCycle(s);
         s = prepareCycle();
     }
+    _heldFetch = true;
+    _heldAddr = s->addr;
     assert_wait();
     return addr;
 }
@@ -384,8 +389,8 @@ Signals *PinsZ180::suspend() {
         const auto s = prepareCycle();
         if (s->fetch() && s->addr == InstZ80::ORG_NMI) {
             negate_nmi();
-            completeCycle(s->inject(InstZ80::RETN_PREFIX));
-            inject(InstZ80::RETN);
+            // RET, not RETN, keeps IFF1 clear through the save
+            completeCycle(s->inject(InstZ80::RET));
             inject(s->prev()->data);
             inject(s->prev(2)->data);
             assert_wait();

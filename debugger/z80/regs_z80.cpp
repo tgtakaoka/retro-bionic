@@ -74,28 +74,42 @@ void RegsZ80::restoreRegs(const reg &regs) const {
 }
 
 void RegsZ80::save() {
-    static constexpr uint8_t PUSH_PC[] = {
-            0xC7,  // RST 0
+    // LD A,I copies IFF2, which a halt's NMI left as the program had it
+    static constexpr uint8_t SAVE_MAIN[] = {
+            0xC7,        // RST 0
+            0xF5,        // PUSH AF
+            0xED, 0x57,  // LD A, I
+            0xF5,        // PUSH AF
+            0xF3,        // DI
+            0xC5,        // PUSH BC
+            0xD5,        // PUSH DE
+            0xE5,        // PUSH HL
     };
-    uint8_t buffer[5];
-    _sp = _pins->captureWrites(PUSH_PC, sizeof(PUSH_PC), buffer, sizeof(_pc));
+    uint8_t buffer[12];
+    _sp = _pins->captureWrites(
+            SAVE_MAIN, sizeof(SAVE_MAIN), buffer, sizeof(buffer));
     _sp += 1;
     _pc = be16(buffer) - 1;  // offset RST instruction
-    saveRegs(_main);
+    _main.a = buffer[2];
+    _main.f = buffer[3];
+    _i = buffer[4];
+    _iff = (buffer[5] & 0x04) != 0;  // P/V
+    _main.b = buffer[6];
+    _main.c = buffer[7];
+    _main.d = buffer[8];
+    _main.e = buffer[9];
+    _main.h = buffer[10];
+    _main.l = buffer[11];
     exchangeRegs();
     saveRegs(_alt);
     exchangeRegs();
     static constexpr uint8_t SAVE_OTHERS[] = {
             0xDD, 0xE5,  // PUSH IX
             0xFD, 0xE5,  // PUSH IY
-            0xED, 0x57,  // LD A, I
-            0x77,        // LD (HL), A
     };
-    _pins->captureWrites(
-            SAVE_OTHERS, sizeof(SAVE_OTHERS), buffer, sizeof(buffer));
+    _pins->captureWrites(SAVE_OTHERS, sizeof(SAVE_OTHERS), buffer, 4);
     _ix = be16(buffer + 0);
     _iy = be16(buffer + 2);
-    _i = buffer[4];
 }
 
 void RegsZ80::restore() {
@@ -110,8 +124,11 @@ void RegsZ80::restore() {
     exchangeRegs();
     restoreRegs(_alt);
     exchangeRegs();
+    // EI takes effect after JP
+    const uint8_t ei = _iff ? 0xFB : 0xF3;
     const uint8_t LD_ALL[] = {
             0x31, lo(_sp), hi(_sp),  // LD SP, _sp
+            ei,                      // EI/DI
             0xC3, lo(_pc), hi(_pc),  // JP _pc
     };
     _pins->execInst(LD_ALL, sizeof(LD_ALL));

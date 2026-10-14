@@ -112,6 +112,9 @@ protected:
 private:
     const uint8_t *const _config;
     const uint_fast8_t _configLen;
+    // The fetch execute() left the CPU waiting in
+    mutable bool _heldFetch = false;
+    mutable uint32_t _heldAddr;
 };
 
 }  // namespace z180
