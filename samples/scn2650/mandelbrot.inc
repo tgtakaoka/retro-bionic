@@ -12,17 +12,11 @@ vQ:     res     2
 vS:     res     2
 vT:     res     2
 tmp:    res     2
-vF:     acon    50
-C229:   acon    229
-C100:   acon    100
-C416:   acon    416
-C4:     acon    4
 C1:     acon    1
-C16:    acon    16
-C10:    acon    10
 C30:    acon    30
 C13:    acon    13
 vI:     res     1
+F:      equ     50
 
         org     H'1000'
 mandelbrot:
@@ -38,28 +32,26 @@ loop_y:
 loop_x:
         loda,r0 vX
         loda,r1 vX+1
+        lodi,r2 >229
+        lodi,r3 <229
+        bsta,un mul16           ; X*229
+        lodi,r2 >100
+        lodi,r3 <100
+        bsta,un div16           ; X*229/100
         stra,r0 vC
-        stra,r1 vC+1            ; C=X
-        lodi,r2 vC-arith_work
-        lodi,r3 C229-arith_work
-        bsta,un mulsi2          ; C=X*229
-        lodi,r3 C100-arith_work
-        bsta,un divsi2          ; C=X*229/100
-        loda,r0 vY
-        loda,r1 vY+1
-        stra,r0 vD
-        stra,r1 vD+1            ; D=Y
-        lodi,r2 vD-arith_work
-        lodi,r3 C416-arith_work
-        bsta,un mulsi2          ; D=Y*416
-        lodi,r3 C100-arith_work
-        bsta,un divsi2          ; D=Y*416/100
-        loda,r0 vC
-        loda,r1 vC+1
+        stra,r1 vC+1            ; C=X*229/100
         stra,r0 vA
         stra,r1 vA+1            ; A=C
-        loda,r0 vD
-        loda,r1 vD+1
+        loda,r0 vY
+        loda,r1 vY+1
+        lodi,r2 >416
+        lodi,r3 <416
+        bsta,un mul16           ; Y*416
+        lodi,r2 >100
+        lodi,r3 <100
+        bsta,un div16           ; Y*416/100
+        stra,r0 vD
+        stra,r1 vD+1            ; D=Y*416/100
         stra,r0 vB
         stra,r1 vB+1            ; B=D
         eorz    r0
@@ -86,91 +78,93 @@ loop_x:
 loop_i:
         loda,r0 vB
         loda,r1 vB+1
+        lodi,r2 >F
+        lodi,r3 <F
+        bsta,un div16           ; B/F
         stra,r0 vQ
-        stra,r1 vQ+1            ; Q=B
-        lodi,r2 vQ-arith_work
-        lodi,r3 vF-arith_work
-        bsta,un divsi2          ; Q=B/F
-        lodi,r2 vS-arith_work
-        lodi,r3 vF-arith_work
-        bsta,un negsi2          ; S=-F
-        lodi,r3 vQ-arith_work
-        bsta,un mulsi2          ; S=-F*Q, Q the shorter multiplier
-        lodi,r3 vB-arith_work
-        bsta,un addsi2          ; S=B-Q*F
+        stra,r1 vQ+1            ; Q=B/F
+        strz    r2
+        lodz    r1
+        strz    r3              ; R2:R3=Q
+        lodi,r0 >-F
+        lodi,r1 <-F
+        bsta,un mul16           ; -F*Q, Q the shorter multiplier
+        cpsl    PSL_C           ; PSL.C=0
+        adda,r1 vB+1
+        adda,r0 vB
+        stra,r0 vS
+        stra,r1 vS+1            ; S=B-Q*F
         loda,r0 vB
         loda,r1 vB+1
+        bsta,un sqr16           ; B*B
         stra,r0 tmp
-        stra,r1 tmp+1           ; tmp=B
-        lodi,r2 tmp-arith_work
-        bsta,un mulsi2          ; tmp=B*B
+        stra,r1 tmp+1           ; tmp=B*B
         loda,r0 vA
         loda,r1 vA+1
+        bsta,un sqr16           ; A*A
+        ppsl    PSL_C           ; PSL.C=1
+        suba,r1 tmp+1
+        suba,r0 tmp             ; A*A-B*B
+        lodi,r2 >F
+        lodi,r3 <F
+        bsta,un div16           ; (A*A-B*B)/F
+        cpsl    PSL_C           ; PSL.C=0
+        adda,r1 vC+1
+        adda,r0 vC
         stra,r0 vT
-        stra,r1 vT+1            ; T=A
-        lodi,r2 vT-arith_work
-        lodi,r3 vA-arith_work
-        bsta,un mulsi2          ; T=A*A
-        lodi,r3 tmp-arith_work
-        bsta,un subsi2          ; T=A*A-B*B
-        lodi,r3 vF-arith_work
-        bsta,un divsi2          ; T=(A*A-B*B)/F
-        lodi,r3 vC-arith_work
-        bsta,un addsi2          ; T=(A*A-B*B)/F+C
+        stra,r1 vT+1            ; T=(A*A-B*B)/F+C
         loda,r0 vA
         loda,r1 vA+1
+        loda,r2 vS
+        loda,r3 vS+1
+        bsta,un mul16           ; A*S
+        lodi,r2 >F
+        lodi,r3 <F
+        bsta,un div16           ; A*S/F
         stra,r0 tmp
-        stra,r1 tmp+1           ; tmp=A
-        lodi,r2 tmp-arith_work
-        lodi,r3 vS-arith_work
-        bsta,un mulsi2          ; tmp=A*S
-        lodi,r3 vF-arith_work
-        bsta,un divsi2          ; tmp=A*S/F
+        stra,r1 tmp+1           ; tmp=A*S/F
         loda,r0 vA
         loda,r1 vA+1
+        loda,r2 vQ
+        loda,r3 vQ+1
+        bsta,un mul16           ; A*Q
+        cpsl    PSL_C           ; PSL.C=0
+        adda,r1 tmp+1
+        adda,r0 tmp             ; A*Q+A*S/F
+        cpsl    PSL_C           ; PSL.C=0
+        rrl     r1
+        rrl     r0              ; 2*(A*Q+A*S/F)
+        cpsl    PSL_C           ; PSL.C=0
+        adda,r1 vD+1
+        adda,r0 vD
         stra,r0 vB
-        stra,r1 vB+1            ; B=A
-        lodi,r2 vB-arith_work
-        lodi,r3 vQ-arith_work
-        bsta,un mulsi2          ; B=A*Q
-        lodi,r3 tmp-arith_work
-        bsta,un addsi2          ; B=A*Q+A*S/F
-        lodi,r3 vB-arith_work
-        bsta,un addsi2          ; B=2*(A*Q+A*S/F)
-        lodi,r3 vD-arith_work
-        bsta,un addsi2          ; B=2*(A*Q+A*S/F)+D
+        stra,r1 vB+1            ; B=2*(A*Q+A*S/F)+D
         loda,r0 vT
         loda,r1 vT+1
         stra,r0 vA
         stra,r1 vA+1            ; A=T
+        lodi,r2 >F
+        lodi,r3 <F
+        bsta,un div16           ; A/F
         stra,r0 vP
-        stra,r1 vP+1            ; P=A
-        lodi,r2 vP-arith_work
-        lodi,r3 vF-arith_work
-        bsta,un divsi2          ; P=A/F
+        stra,r1 vP+1            ; P=A/F
+        bsta,un sqr16           ; P*P
+        stra,r0 tmp
+        stra,r1 tmp+1           ; tmp=P*P
         loda,r0 vB
         loda,r1 vB+1
+        lodi,r2 >F
+        lodi,r3 <F
+        bsta,un div16           ; B/F
         stra,r0 vQ
-        stra,r1 vQ+1            ; Q=B
-        lodi,r2 vQ-arith_work
-        bsta,un divsi2          ; Q=B/F
-        loda,r0 vQ
-        loda,r1 vQ+1
-        stra,r0 tmp
-        stra,r1 tmp+1           ; tmp=Q
-        lodi,r2 tmp-arith_work
-        lodi,r3 vQ-arith_work
-        bsta,un mulsi2          ; tmp=Q*Q
-        loda,r0 vP
-        loda,r1 vP+1
-        stra,r0 vT
-        stra,r1 vT+1            ; T=P
-        lodi,r2 vT-arith_work
-        lodi,r3 vP-arith_work
-        bsta,un mulsi2          ; T=P*P
-        lodi,r3 tmp-arith_work
-        bsta,un addsi2          ; T=P*P+Q*Q
+        stra,r1 vQ+1            ; Q=B/F
+        bsta,un sqr16           ; Q*Q
+        cpsl    PSL_C           ; PSL.C=0
+        adda,r1 tmp+1
+        adda,r0 tmp             ; R0:R1=T=P*P+Q*Q
 
+        ;; stra,r0 vT
+        ;; stra,r1 vT+1
         ;; bsta,un putspace
         ;; lodi,r2 A'I'
         ;; lodi,r0 0
@@ -193,10 +187,15 @@ loop_i:
         ;; loda,r1 vQ+1
         ;; bsta,un print
         ;; bsta,un newline
+        ;; loda,r0 vT
+        ;; loda,r1 vT+1
 
-        lodi,r3 C4-arith_work
-        bsta,un cmpsi2          ; T-4
+        iorz    r0
+        bctr,lt next_i          ; if T<0
+        bctr,gt print_i         ; if T>=256
+        comi,r1 4
         bctr,gt print_i         ; if T>4
+next_i:
         loda,r0 vI
         cpsl    PSL_C           ; PSL.C=0
         addi,r0 1
