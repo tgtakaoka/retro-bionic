@@ -75,6 +75,7 @@ struct RegsZ380 final : Regs {
     // Select Register (User's Manual 5.3).
     static constexpr uint32_t SR_XM = 0x80;
     static constexpr uint32_t SR_LW = 0x40;
+    static constexpr uint32_t SR_IEF1 = 0x20;
     // XM, IEF1, IM and LCK: restore() cannot load these.
     static constexpr uint32_t SR_FIXED = 0xBA;
 

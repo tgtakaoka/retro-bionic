@@ -210,9 +210,12 @@ void RegsZ380::save() {
     // HL and the Select Register first, each 16-bit half pushed as a word
     // under DDIR W, since the program may have left Long Word mode on;
     // then RESC LW so the rest runs in Word mode. restore() puts the SR
-    // back last. None of these touches the flags.
+    // back last. None of these touches the flags. DI keeps interrupts out
+    // of the save; an NMI has cleared IEF1 already, and DI would clear the
+    // IEF2 its RETN restores IEF1 from.
+    const uint8_t di = _vector == NMI ? 0x00 : 0xF3;
     // clang-format off
-    static constexpr uint8_t ENTRY[] = {
+    const uint8_t ENTRY[] = {
         0xDD, 0xC0, 0xE5,  // DDIR W; PUSH HL  ; captured
         0xED, 0x3E,        // SWAP HL
         0xDD, 0xC0, 0xE5,  // DDIR W; PUSH HL  ; captured
@@ -222,6 +225,7 @@ void RegsZ380::save() {
         0xED, 0x3E,        // SWAP HL
         0xDD, 0xC0, 0xE5,  // DDIR W; PUSH HL  ; captured
         0xDD, 0xFF,        // RESC LW
+        di, 0x00,          // DI or NOP; NOP
         0x18, 0x00,        // JR $+2
     };
     // CALL pushes the resume point, the origin plus its length: 2 bytes
@@ -401,8 +405,8 @@ void RegsZ380::restore() {
     }
     // The selections last, as edited, through the byte forms of LDCTL so
     // that no bank's HL carries the SR: then Long Word mode, the one mode
-    // bit the debugger changed, HL as selected, and SP. XM, IM and IEF1
-    // it never touched; after an NMI, RETN restores IEF1 from IEF2.
+    // bit the debugger changed, HL as selected, and SP. XM and IM it never
+    // touched; IEF1 comes back with EI, or after an NMI, from IEF2 by RETN.
     const auto hl = live().hl[alt(_sr)];
     uint8_t seq[40];
     uint_fast8_t len = 0;
@@ -422,6 +426,8 @@ void RegsZ380::restore() {
         put({0xDD, 0xF7});                  // SETC LW
     put({DDIR_IW_LW_0, DDIR_IW_LW_1, 0x21, lo8(hl), hi8(hl), lo8z(hl), hi8z(hl)});  // LD HL, hl
     put({DDIR_IW_LW_0, DDIR_IW_LW_1, 0x31, lo8(sp), hi8(sp), lo8z(sp), hi8z(sp)});  // LD SP, sp
+    if (_vector != NMI && (_sr & SR_IEF1))
+        put({0xFB});                        // EI; after the jump
     // clang-format on
     for (uint_fast8_t i = 0; i < retLen; ++i)
         put({ret[i]});
