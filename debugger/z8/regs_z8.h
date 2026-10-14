@@ -28,6 +28,13 @@ protected:
     virtual void save_sfrs() = 0;
     virtual void restore_sfrs() = 0;
 
+    uint8_t _ie;
+    // The register whose interrupt enable DI clears: IMR, or the Super8's
+    // SYM
+    virtual uint8_t ieReg() const = 0;
+    virtual uint8_t sph() const = 0;
+    void save_ie();
+
     uint8_t _r[16];
     void save_all_r();
     virtual uint_fast8_t save_r(uint_fast8_t num) const = 0;

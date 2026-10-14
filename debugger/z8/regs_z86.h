@@ -26,11 +26,14 @@ private:
     uint_fast8_t save_rp() const;
     void restore_rp(uint8_t rp) const;
 
+    static constexpr uint8_t IMR = 0xFB;
     static constexpr uint8_t FLAGS = 0xFC;
     static constexpr uint8_t RP = 0xFD;
     static constexpr uint8_t SPH = 0xFE;
     static constexpr uint8_t SPL = 0xFF;
     static constexpr uint8_t R(uint_fast8_t num) { return 0xE0 + num; }
+    uint8_t ieReg() const override { return IMR; }
+    uint8_t sph() const override { return SPH; }
     void save_sfrs() override;
     void restore_sfrs() override;
     uint_fast8_t save_r(uint_fast8_t num) const override;

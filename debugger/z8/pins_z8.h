@@ -73,6 +73,8 @@ struct PinsZ8 : Pins {
     void printCycles() override;
 
     Signals *cycle(uint8_t insn);
+    // The next fetch's address, past an interrupt acknowledge under way.
+    uint16_t nextFetch();
     void execInst(const uint8_t *inst, uint8_t len);
     void captureWrites(const uint8_t *inst, uint8_t len, uint16_t *addr,
             uint8_t *buf, uint8_t max);

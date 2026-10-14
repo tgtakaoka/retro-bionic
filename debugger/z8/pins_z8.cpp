@@ -161,6 +161,45 @@ Signals *PinsZ8::cycle(uint8_t inst) {
     return completeCycle(prepareCycle()->inject(inst));
 }
 
+uint16_t PinsZ8::nextFetch() {
+    // An interrupt already taken here shows as a discarded fetch and read,
+    // then the Super8 fetches its vector, before the pushes.
+    constexpr uint16_t SUPER8_VECTOR_END = 0x0020;
+    uint16_t pc = 0;
+    Signals *s = nullptr;
+    for (auto n = 0;; ++n) {
+        if (n == 3)
+            return pc;
+        s = prepareCycle();
+        if (s->write() || (!fetchVectorAfterContextSave() &&
+                                  s->addr < SUPER8_VECTOR_END))
+            break;
+        if (n == 0)
+            pc = s->addr;
+        completeCycle(s->inject(InstZ8::NOP));
+    }
+    // Let the acknowledge fetch its vector and finish its pushes.
+    while (!s->write()) {
+        completeCycle(s);
+        s = prepareCycle();
+    }
+    while (s->write()) {
+        completeCycle(s);
+        s = prepareCycle();
+    }
+    if (fetchVectorAfterContextSave()) {
+        completeCycle(s);
+        s = cycle();
+        intrAck(s->prev(6));
+        s = prepareCycle();
+    } else {
+        intrAck(s->prev(7));
+    }
+    pc = s->addr;
+    completeCycle(s->inject(InstZ8::NOP));
+    return pc;
+}
+
 bool PinsZ8::rawStep() {
     auto s = prepareCycle();
     if (s->write()) {

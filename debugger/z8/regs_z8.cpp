@@ -24,9 +24,19 @@ void RegsZ8::print() const {
 }
 
 void RegsZ8::save() {
-    _pc = _pins->cycle(InstZ8::NOP)->addr;
+    _pc = _pins->nextFetch();
+    save_ie();
     save_all_r();
     save_sfrs();
+}
+
+void RegsZ8::save_ie() {
+    const uint8_t SAVE_IE[] = {
+            0xA0, sph(),    // INCW SP
+            0x70, ieReg(),  // PUSH IMR/SYM
+            0x8F,           // DI
+    };
+    _pins->captureWrites(SAVE_IE, sizeof(SAVE_IE), nullptr, &_ie, 1);
 }
 
 void RegsZ8::save_all_r() {
@@ -39,6 +49,11 @@ void RegsZ8::restore() {
     for (auto num = 0; num < 16; num++) {
         restore_r(num, _r[num]);
     }
+    // ATTENTION: an interrupt can still come in between these two.
+    const uint8_t LD_IE[] = {
+            0xE6, ieReg(), _ie,  // LD IMR/SYM, #_ie
+    };
+    _pins->execInst(LD_IE, sizeof(LD_IE));
     const uint8_t JP[] = {
             0x8D, hi(_pc), lo(_pc),  // JP _pc
     };
