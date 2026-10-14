@@ -133,6 +133,24 @@ addsub_flags_v:
         pop     R15
         ret
 
+;;; Signed multiplication: result = multiplicand * multiplier
+;;; The low 16 bits of a product don't depend on the multiplicand's
+;;; sign, so only a negative multiplier needs both operands negated.
+;;; @param RR14: multiplicand
+;;; @param RR12: multiplier
+;;; @return RR14: result
+;;; @clobber R10-R15
+mul16:
+        or      R12, R12
+        jr      pl, umul16      ; if multiplier >= 0
+        com     R12
+        com     R13
+        incw    RR12            ; multiplier = -multiplier
+        com     R14
+        com     R15
+        incw    RR14            ; multiplicand = -multiplicand
+        ;; fall through to umul16
+
 ;;; Unsigned multiplication: result = multiplicand * multiplier
 ;;; @param RR14: multiplicand
 ;;; @param RR12: multiplier
@@ -143,7 +161,14 @@ umul16:
         ld      R11, R15
         clr     R14             ; hi(result)=0
         or      R12, R12
-        jr      z, umul16_low   ; if hi(multiplier) == 0
+        jr      nz, umul16_high ; if hi(multiplier) != 0
+umul16_low:
+        clr     R15             ; lo(result)=0
+        or      R13, R13
+        jr      z, umul16_end   ; if lo(multiplier) == 0
+        rcf                     ; lo(multiplier) >>= 1, clearing its msb
+        rrc     R13
+        jr      umul16_bit
 umul16_high:
         rcf                     ; hi(multiplier) >>= 1
         rrc     R12
@@ -153,21 +178,21 @@ umul16_high_next:
         add     R15, R15        ; lo(multiplicand) <<= 1
         or      R12, R12
         jr      nz, umul16_high ; while hi(multiplier) != 0
-umul16_low:
-        clr     R15             ; lo(result)=0
-        jr      umul16_check
-umul16_loop:
-        rcf                     ; lo(multiplier) >>= 1
-        rrc     R13
-        jr      nc, umul16_next ; if lsb(multiplier) == 0
-        add     R15, R11
-        adc     R14, R10        ; result += multiplicand
-umul16_next:
+        jr      umul16_low
+umul16_shift:
         add     R11, R11        ; multiplicand <<= 1
         adc     R10, R10
-umul16_check:
-        or      R13, R13
-        jr      nz, umul16_loop ; while lo(multiplier) != 0
+        sra     R13             ; lo(multiplier) >>= 1
+umul16_bit:
+        jr      nc, umul16_shift ; if lsb(multiplier) == 0
+        jr      z, umul16_last  ; if no more bits in multiplier
+        add     R15, R11
+        adc     R14, R10        ; result += multiplicand
+        jr      umul16_shift
+umul16_last:
+        add     R15, R11
+        adc     R14, R10        ; result += multiplicand
+umul16_end:
         ret
 
 ;;; Signed multiplication: multiplicand *= multiplier
@@ -179,26 +204,7 @@ mulsi2:
         ld      R15, 1(R4)
         ld      R12, 0(R5)
         ld      R13, 1(R5)
-        or      R12, R12
-        jr      pl, mulsi2_abs_muliplicand
-        com     R12
-        com     R13
-        incw    RR12            ; multiplicand = -multiplicand
-mulsi2_abs_muliplicand:
-        or      R14, R14
-        jr      pl, mulsi2_multiply
-        com     R14
-        com     R15
-        incw    RR14            ; multiplier = -multiplier
-mulsi2_multiply:
-        call    umul16          ; result = multiplicand * multiplier
-        ld      R12, @R4
-        xor     R12, @R5        ; R12=sign(@R4)^sign(@R5)
-        jr      pl, mulsi2_end
-        com     R14
-        com     R15
-        incw    RR14            ; result = -result
-mulsi2_end:
+        call    mul16
         ld      0(R4), R14
         ld      1(R4), R15
         ret
@@ -210,31 +216,113 @@ mulsi2_end:
 ;;; @return RR12: quotient
 ;;; @clobber R10-R15
 udiv16:
-        push    R9
-        incw    RR12
-        decw    RR12
-        jp      z, udiv16_end
-        ld      R9, #1          ; R9=bits
+        or      R12, R12
+        jp      nz, udiv16_word ; if divisor >= 256
+        or      R14, R14
+        jr      nz, udiv16_wide ; if dividend >= 256
+        cp      R15, R13
+        jr      c, udiv16_none  ; if dividend < divisor
+        ld      R10, R15
+        swap    R10
+        and     R10, #%0F       ; R10=dividend>>4
+        cp      R10, R13
+        jr      nc, udiv16_long ; if quotient >= 16 or divisor == 0
+        ;; A quotient below 16 is counted by subtraction.
+        ld      R10, #-1        ; R10=quotient
+udiv16_count:
+        inc     R10
+        sub     R15, R13        ; dividend -= divisor
+        jr      nc, udiv16_count ; while dividend >= 0
+        add     R15, R13        ; RR14=remainder
+        ld      R13, R10        ; RR12=quotient
+        ret
+udiv16_none:
+        clr     R13             ; quotient=0, remainder=dividend
+udiv16_zero:
+        ret
+udiv16_long:
+        or      R13, R13
+        jr      z, udiv16_zero  ; if divisor == 0
+        jr      udiv16_low      ; remainder=0
+udiv16_wide:
+        or      R13, R13
+        jr      z, udiv16_zero  ; if divisor == 0
+        jp      mi, udiv16_word ; if divisor >= 128
+        ;; A divisor below 128 keeps remainder<<1 within a byte, so
+        ;; the quotient is found a byte at a time.
+        cp      R14, R13
+        jr      c, udiv16_low   ; if hi(quotient) == 0
+udiv16_high:
+        ld      R10, R14
+        swap    R10
+        and     R10, #%0F       ; R10=hi(dividend)>>4
+        cp      R10, R13
+        jr      nc, udiv16_high_bits ; if hi(quotient) >= 16
+        ;; A hi(quotient) below 16 is counted by subtraction.
+        ld      R12, #-1        ; R12=hi(quotient)
+udiv16_high_count:
+        inc     R12
+        sub     R14, R13        ; hi(dividend) -= divisor
+        jr      nc, udiv16_high_count ; while hi(dividend) >= 0
+        add     R14, R13        ; R14=remainder
+        jr      udiv16_low
+udiv16_high_bits:
+        clr     R10             ; R10=remainder
+        ld      R11, #8         ; R11=bits
+udiv16_high_loop:
+        rlc     R14             ; ~quotient<<1 | C, next dividend bit to C
+        rlc     R10             ; remainder = remainder<<1 | C
+        cp      R10, R13        ; C=1 if remainder < divisor
+        jr      c, udiv16_high_next
+        sub     R10, R13        ; remainder -= divisor, C=0
+udiv16_high_next:
+        djnz    R11, udiv16_high_loop
+        rlc     R14
+        com     R14
+        ld      R12, R14        ; hi(quotient)
+        ld      R14, R10        ; remainder
+udiv16_low:
+        ld      R10, #8/2       ; R10=bits/2
+udiv16_low_loop:
+        rlc     R15             ; ~quotient<<1 | C, next dividend bit to C
+        rlc     R14             ; remainder = remainder<<1 | C
+        cp      R14, R13        ; C=1 if remainder < divisor
+        jr      c, udiv16_low_next1
+        sub     R14, R13        ; remainder -= divisor, C=0
+udiv16_low_next1:
+        rlc     R15
+        rlc     R14
+        cp      R14, R13
+        jr      c, udiv16_low_next2
+        sub     R14, R13
+udiv16_low_next2:
+        djnz    R10, udiv16_low_loop
+        rlc     R15
+        com     R15
+        ld      R13, R15        ; lo(quotient)
+        ld      R15, R14
+        clr     R14             ; RR14=remainder
+        ret
+udiv16_word:
         ld      R10, R14
         ld      R11, R15
-        rcf                     ; RR10=dividend>>1
-        rrc     R10
-        rrc     R11
-        sub     R11, R13        ; RR10=dividend>>1-divisor
+        sub     R11, R13        ; RR10=dividend-divisor
         sbc     R10, R12
-        jr      c, udiv16_prep_end ; if divisor > dividend>>1
+        jr      nc, udiv16_word_divide ; if dividend >= divisor
+        clr     R12             ; quotient=0, remainder=dividend
+        clr     R13
+        ret
+udiv16_word_divide:
+        push    R9
+        ld      R9, #1          ; R9=bits
 udiv16_prep_loop:
-        sub     R11, R13        ; RR10=dividend>>1-(divisor<<1)
+        sub     R11, R13        ; RR10=dividend-(divisor<<1)
         sbc     R10, R12
-        jr      c, udiv16_prep_last ; until divisor<<1 > dividend>>1
+        jr      c, udiv16_prep_end ; until divisor<<1 > dividend
         add     R13, R13        ; divisor <<= 1
         adc     R12, R12
         inc     R9
         jr      udiv16_prep_loop
-udiv16_prep_last:
-        add     R13, R13        ; divisor <<= 1
-        adc     R12, R12
-        inc     R9
 udiv16_prep_end:
         ld      R10, #%FF
         ld      R11, #%FF       ; RR10=~quotient
@@ -253,15 +341,57 @@ udiv16_next:
         rlc     R11             ; ~quotient = ~quotient<<1 | C
         rlc     R10
         djnz    R9, udiv16_loop ; RR14=remainder
+        pop     R9
         com     R10
         com     R11
         ld      R12, R10        ; RR12=quotient
         ld      R13, R11
-udiv16_end:
-        pop     R9
         ret
 
-;;; Signed division: dividend *= divisor
+;;; Signed division: dividend / divisor = quotient ... remainder
+;;; @param RR14: dividend
+;;; @param RR12: divisor
+;;; @return RR12: quotient, rounded toward zero
+;;; @return RR14: remainder, with the dividend's sign
+;;; @clobber R10-R15
+div16:
+        or      R12, R12
+        jr      mi, div16_neg_divisor ; if divisor < 0
+div16_pos_divisor:
+        or      R14, R14
+        jp      pl, udiv16      ; if dividend >= 0
+        ld      R10, R14
+        ld      R11, R15
+        add     R11, R13
+        adc     R10, R12
+        decw    RR10            ; RR10=dividend+divisor-1
+        jr      mi, div16_negative ; if -dividend >= divisor
+        clr     R12             ; quotient=0, remainder=dividend
+        clr     R13
+        ret
+div16_negative:
+        com     R14
+        com     R15
+        incw    RR14            ; dividend = -dividend
+        call    udiv16
+        com     R14
+        com     R15
+        incw    RR14            ; remainder = -remainder
+        com     R12
+        com     R13
+        incw    RR12            ; quotient = -quotient
+        ret
+div16_neg_divisor:
+        com     R12
+        com     R13
+        incw    RR12            ; divisor = -divisor
+        call    div16_pos_divisor
+        com     R12
+        com     R13
+        incw    RR12            ; quotient = -quotient
+        ret
+
+;;; Signed division: dividend /= divisor
 ;;; @param @R4: dividend
 ;;; @param @R5: divisor
 ;;; @clobber R10-R15
@@ -270,26 +400,7 @@ divsi2:
         ld      R15, 1(R4)
         ld      R12, 0(R5)
         ld      R13, 1(R5)
-        or      R14, R14
-        jr      pl, divsi2_abs_dividend
-        com     R14
-        com     R15
-        incw    RR14            ; dividend = -dividend
-divsi2_abs_dividend:
-        or      R12, R12
-        jr      pl, divsi2_divide
-        com     R12
-        com     R13
-        incw    RR12            ; divisor = -divisor
-divsi2_divide:
-        call    udiv16
-        ld      R14, @R4
-        xor     R14, @R5        ; R14=sign(@R4)^sign(@R5)
-        jr      pl, divsi2_end
-        com     R12
-        com     R13
-        incw    RR12            ; dividend = = -dividend
-divsi2_end:
+        call    div16
         ld      0(R4), R12
         ld      1(R4), R13
         ret

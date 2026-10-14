@@ -29,12 +29,9 @@ c100:   ds      2
 vF:     ds      2
 vC:     ds      2
 vD:     ds      2
-vA:     ds      2
-vB:     ds      2
 vP:     ds      2
 vQ:     ds      2
 vS:     ds      2
-vT:     ds      2
 tmp:    ds      2
 vY:     ds      2
 vX:     ds      2

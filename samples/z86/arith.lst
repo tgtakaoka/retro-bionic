@@ -374,7 +374,7 @@
        119E : E6 43 38                   ld      b+1, #LOW -200
        11A1 : 0C 2A                      ld      R0, #'*'
        11A3 : D6 10 8D                   call    expr
-       11A6 : D6 13 B5                   call    mulsi2
+       11A6 : D6 13 D1                   call    mulsi2
        11A9 : D6 10 A8                   call    answer          ; 5536
        11AC :
        11AC : E6 40 00                   ld      a, #HIGH 100
@@ -383,7 +383,7 @@
        11B5 : E6 43 D4                   ld      b+1, #LOW -300
        11B8 : 0C 2A                      ld      R0, #'*'
        11BA : D6 10 8D                   call    expr
-       11BD : D6 13 B5                   call    mulsi2
+       11BD : D6 13 D1                   call    mulsi2
        11C0 : D6 10 A8                   call    answer          ; -30000
        11C3 :
        11C3 : E6 40 FF                   ld      a, #HIGH -200
@@ -392,7 +392,7 @@
        11CC : E6 43 9C                   ld      b+1, #LOW -100
        11CF : 0C 2A                      ld      R0, #'*'
        11D1 : D6 10 8D                   call    expr
-       11D4 : D6 13 B5                   call    mulsi2
+       11D4 : D6 13 D1                   call    mulsi2
        11D7 : D6 10 A8                   call    answer          ; 20000
        11DA :
        11DA : E6 40 FF                   ld      a, #HIGH -200
@@ -401,14 +401,14 @@
        11E3 : E6 43 64                   ld      b+1, #LOW 100
        11E6 : 0C 2F                      ld      R0, #'/'
        11E8 : D6 10 8D                   call    expr
-       11EB : D6 14 3A                   call    divsi2
+       11EB : D6 14 F3                   call    divsi2
        11EE : D6 10 A8                   call    answer          ; -2
        11F1 :
        11F1 : E6 40 75                   ld      a, #HIGH 30000
        11F4 : E6 41 30                   ld      a+1, #LOW 30000
        11F7 : 0C 2F                      ld      R0, #'/'
        11F9 : D6 10 8D                   call    expr
-       11FC : D6 14 3A                   call    divsi2
+       11FC : D6 14 F3                   call    divsi2
        11FF : D6 10 A8                   call    answer          ; 300
        1202 :
        1202 : E6 40 8A                   ld      a, #HIGH -30000
@@ -417,7 +417,7 @@
        120B : E6 43 38                   ld      b+1, #LOW -200
        120E : 0C 2F                      ld      R0, #'/'
        1210 : D6 10 8D                   call    expr
-       1213 : D6 14 3A                   call    divsi2
+       1213 : D6 14 F3                   call    divsi2
        1216 : D6 10 A8                   call    answer          ; 150
        1219 :
        1219 : E6 40 8A                   ld      a, #HIGH -30000
@@ -426,7 +426,7 @@
        1222 : E6 43 4E                   ld      b+1, #LOW 78
        1225 : 0C 2F                      ld      R0, #'/'
        1227 : D6 10 8D                   call    expr
-       122A : D6 14 3A                   call    divsi2
+       122A : D6 14 F3                   call    divsi2
        122D : D6 10 A8                   call    answer          ; -384
        1230 :
        1230 : E6 40 13                   ld      a, #HIGH 5000
@@ -525,7 +525,7 @@
 (1)    12EA : F8 E1                      ld      R15, R1
 (1)    12EC : CC 00                      ld      R12, #HIGH 10
 (1)    12EE : DC 0A                      ld      R13, #LOW 10
-(1)    12F0 : D6 13 E8                   call    udiv16
+(1)    12F0 : D6 13 E4                   call    udiv16
 (1)    12F3 : 70 EF                      push    R15
 (1)    12F5 : 08 EC                      ld      R0, R12
 (1)    12F7 : 18 ED                      ld      R1, R13
@@ -637,170 +637,281 @@
 (1)    1385 : 50 EF                      pop     R15
 (1)    1387 : AF                         ret
 (1)    1388 :
-(1)    1388 :                    ;;; Unsigned multiplication: result = multiplicand * multiplier
+(1)    1388 :                    ;;; Signed multiplication: result = multiplicand * multiplier
+(1)    1388 :                    ;;; The low 16 bits of a product don't depend on the multiplicand's
+(1)    1388 :                    ;;; sign, so only a negative multiplier needs both operands negated.
 (1)    1388 :                    ;;; @param RR14: multiplicand
 (1)    1388 :                    ;;; @param RR12: multiplier
 (1)    1388 :                    ;;; @return RR14: result
 (1)    1388 :                    ;;; @clobber R10-R15
-(1)    1388 :                    umul16:
-(1)    1388 : A8 EE                      ld      R10, R14        ; RR10=multiplicand
-(1)    138A : B8 EF                      ld      R11, R15
-(1)    138C : B0 EE                      clr     R14             ; hi(result)=0
-(1)    138E : 42 CC                      or      R12, R12
-(1)    1390 : 6B 0D                      jr      z, umul16_low   ; if hi(multiplier) == 0
-(1)    1392 :                    umul16_high:
-(1)    1392 : CF                         rcf                     ; hi(multiplier) >>= 1
-(1)    1393 : C0 EC                      rrc     R12
-(1)    1395 : FB 02                      jr      nc, umul16_high_next ; if lsb(multiplier) == 0
-(1)    1397 : 02 EF                      add     R14, R15        ; hi(result) += lo(multiplicand)
-(1)    1399 :                    umul16_high_next:
-(1)    1399 : 02 FF                      add     R15, R15        ; lo(multiplicand) <<= 1
-(1)    139B : 42 CC                      or      R12, R12
-(1)    139D : EB F3                      jr      nz, umul16_high ; while hi(multiplier) != 0
-(1)    139F :                    umul16_low:
-(1)    139F : B0 EF                      clr     R15             ; lo(result)=0
-(1)    13A1 : 8B 0D                      jr      umul16_check
-(1)    13A3 :                    umul16_loop:
-(1)    13A3 : CF                         rcf                     ; lo(multiplier) >>= 1
-(1)    13A4 : C0 ED                      rrc     R13
-(1)    13A6 : FB 04                      jr      nc, umul16_next ; if lsb(multiplier) == 0
-(1)    13A8 : 02 FB                      add     R15, R11
-(1)    13AA : 12 EA                      adc     R14, R10        ; result += multiplicand
-(1)    13AC :                    umul16_next:
-(1)    13AC : 02 BB                      add     R11, R11        ; multiplicand <<= 1
-(1)    13AE : 12 AA                      adc     R10, R10
-(1)    13B0 :                    umul16_check:
-(1)    13B0 : 42 DD                      or      R13, R13
-(1)    13B2 : EB EF                      jr      nz, umul16_loop ; while lo(multiplier) != 0
-(1)    13B4 : AF                         ret
-(1)    13B5 :
-(1)    13B5 :                    ;;; Signed multiplication: multiplicand *= multiplier
-(1)    13B5 :                    ;;; @param @R4: multiplicand
-(1)    13B5 :                    ;;; @param @R5: multiplier
-(1)    13B5 :                    ;;; @clobber R10-R15
-(1)    13B5 :                    mulsi2:
-(1)    13B5 : E3 E4                      ld      R14, 0(R4)
-(1)    13B7 : C7 F4 01                   ld      R15, 1(R4)
-(1)    13BA : E3 C5                      ld      R12, 0(R5)
-(1)    13BC : C7 D5 01                   ld      R13, 1(R5)
-(1)    13BF : 42 CC                      or      R12, R12
-(1)    13C1 : DB 06                      jr      pl, mulsi2_abs_muliplicand
-(1)    13C3 : 60 EC                      com     R12
-(1)    13C5 : 60 ED                      com     R13
-(1)    13C7 : A0 EC                      incw    RR12            ; multiplicand = -multiplicand
-(1)    13C9 :                    mulsi2_abs_muliplicand:
-(1)    13C9 : 42 EE                      or      R14, R14
-(1)    13CB : DB 06                      jr      pl, mulsi2_multiply
-(1)    13CD : 60 EE                      com     R14
-(1)    13CF : 60 EF                      com     R15
-(1)    13D1 : A0 EE                      incw    RR14            ; multiplier = -multiplier
-(1)    13D3 :                    mulsi2_multiply:
-(1)    13D3 : D6 13 88                   call    umul16          ; result = multiplicand * multiplier
-(1)    13D6 : E3 C4                      ld      R12, @R4
-(1)    13D8 : B3 C5                      xor     R12, @R5        ; R12=sign(@R4)^sign(@R5)
-(1)    13DA : DB 06                      jr      pl, mulsi2_end
-(1)    13DC : 60 EE                      com     R14
-(1)    13DE : 60 EF                      com     R15
-(1)    13E0 : A0 EE                      incw    RR14            ; result = -result
-(1)    13E2 :                    mulsi2_end:
-(1)    13E2 : F3 4E                      ld      0(R4), R14
-(1)    13E4 : D7 F4 01                   ld      1(R4), R15
-(1)    13E7 : AF                         ret
-(1)    13E8 :
-(1)    13E8 :                    ;;; Unsigned division: dividend / divisor = quotient ... remainder
-(1)    13E8 :                    ;;; @praram RR14: dividend
-(1)    13E8 :                    ;;; @praram RR12: divisor
-(1)    13E8 :                    ;;; @return RR14: remainder
-(1)    13E8 :                    ;;; @return RR12: quotient
-(1)    13E8 :                    ;;; @clobber R10-R15
-(1)    13E8 :                    udiv16:
-(1)    13E8 : 70 E9                      push    R9
-(1)    13EA : A0 EC                      incw    RR12
-(1)    13EC : 80 EC                      decw    RR12
-(1)    13EE : 6D 14 37                   jp      z, udiv16_end
-(1)    13F1 : 9C 01                      ld      R9, #1          ; R9=bits
-(1)    13F3 : A8 EE                      ld      R10, R14
-(1)    13F5 : B8 EF                      ld      R11, R15
-(1)    13F7 : CF                         rcf                     ; RR10=dividend>>1
-(1)    13F8 : C0 EA                      rrc     R10
-(1)    13FA : C0 EB                      rrc     R11
-(1)    13FC : 22 BD                      sub     R11, R13        ; RR10=dividend>>1-divisor
-(1)    13FE : 32 AC                      sbc     R10, R12
-(1)    1400 : 7B 12                      jr      c, udiv16_prep_end ; if divisor > dividend>>1
-(1)    1402 :                    udiv16_prep_loop:
-(1)    1402 : 22 BD                      sub     R11, R13        ; RR10=dividend>>1-(divisor<<1)
-(1)    1404 : 32 AC                      sbc     R10, R12
-(1)    1406 : 7B 07                      jr      c, udiv16_prep_last ; until divisor<<1 > dividend>>1
-(1)    1408 : 02 DD                      add     R13, R13        ; divisor <<= 1
-(1)    140A : 12 CC                      adc     R12, R12
-(1)    140C : 9E                         inc     R9
-(1)    140D : 8B F3                      jr      udiv16_prep_loop
-(1)    140F :                    udiv16_prep_last:
-(1)    140F : 02 DD                      add     R13, R13        ; divisor <<= 1
-(1)    1411 : 12 CC                      adc     R12, R12
-(1)    1413 : 9E                         inc     R9
-(1)    1414 :                    udiv16_prep_end:
-(1)    1414 : AC FF                      ld      R10, #%FF
-(1)    1416 : BC FF                      ld      R11, #%FF       ; RR10=~quotient
-(1)    1418 : 8B 05                      jr      udiv16_enter_loop
-(1)    141A :                    udiv16_loop:
-(1)    141A : CF                         rcf                     ; divisor >>= 1
-(1)    141B : C0 EC                      rrc     R12
-(1)    141D : C0 ED                      rrc     R13
-(1)    141F :                    udiv16_enter_loop:
-(1)    141F : 22 FD                      sub     R15, R13        ; dividend -= divisor
-(1)    1421 : 32 EC                      sbc     R14, R12
-(1)    1423 : FB 04                      jr      nc, udiv16_next ; if dividend >= 0
-(1)    1425 : 02 FD                      add     R15, R13        ; dividend += divisor
-(1)    1427 : 12 EC                      adc     R14, R12        ; C=1, FLAG.D is always cleared
-(1)    1429 :                    udiv16_next:
-(1)    1429 : 10 EB                      rlc     R11             ; ~quotient = ~quotient<<1 | C
-(1)    142B : 10 EA                      rlc     R10
-(1)    142D : 9A EB                      djnz    R9, udiv16_loop ; RR14=remainder
-(1)    142F : 60 EA                      com     R10
-(1)    1431 : 60 EB                      com     R11
-(1)    1433 : C8 EA                      ld      R12, R10        ; RR12=quotient
-(1)    1435 : D8 EB                      ld      R13, R11
-(1)    1437 :                    udiv16_end:
-(1)    1437 : 50 E9                      pop     R9
-(1)    1439 : AF                         ret
-(1)    143A :
-(1)    143A :                    ;;; Signed division: dividend *= divisor
-(1)    143A :                    ;;; @param @R4: dividend
-(1)    143A :                    ;;; @param @R5: divisor
-(1)    143A :                    ;;; @clobber R10-R15
-(1)    143A :                    divsi2:
-(1)    143A : E3 E4                      ld      R14, 0(R4)
-(1)    143C : C7 F4 01                   ld      R15, 1(R4)
-(1)    143F : E3 C5                      ld      R12, 0(R5)
-(1)    1441 : C7 D5 01                   ld      R13, 1(R5)
-(1)    1444 : 42 EE                      or      R14, R14
-(1)    1446 : DB 06                      jr      pl, divsi2_abs_dividend
-(1)    1448 : 60 EE                      com     R14
-(1)    144A : 60 EF                      com     R15
-(1)    144C : A0 EE                      incw    RR14            ; dividend = -dividend
-(1)    144E :                    divsi2_abs_dividend:
-(1)    144E : 42 CC                      or      R12, R12
-(1)    1450 : DB 06                      jr      pl, divsi2_divide
-(1)    1452 : 60 EC                      com     R12
-(1)    1454 : 60 ED                      com     R13
-(1)    1456 : A0 EC                      incw    RR12            ; divisor = -divisor
-(1)    1458 :                    divsi2_divide:
-(1)    1458 : D6 13 E8                   call    udiv16
-(1)    145B : E3 E4                      ld      R14, @R4
-(1)    145D : B3 E5                      xor     R14, @R5        ; R14=sign(@R4)^sign(@R5)
-(1)    145F : DB 06                      jr      pl, divsi2_end
-(1)    1461 : 60 EC                      com     R12
-(1)    1463 : 60 ED                      com     R13
-(1)    1465 : A0 EC                      incw    RR12            ; dividend = = -dividend
-(1)    1467 :                    divsi2_end:
-(1)    1467 : F3 4C                      ld      0(R4), R12
-(1)    1469 : D7 D4 01                   ld      1(R4), R13
+(1)    1388 :                    mul16:
+(1)    1388 : 42 CC                      or      R12, R12
+(1)    138A : DB 0C                      jr      pl, umul16      ; if multiplier >= 0
+(1)    138C : 60 EC                      com     R12
+(1)    138E : 60 ED                      com     R13
+(1)    1390 : A0 EC                      incw    RR12            ; multiplier = -multiplier
+(1)    1392 : 60 EE                      com     R14
+(1)    1394 : 60 EF                      com     R15
+(1)    1396 : A0 EE                      incw    RR14            ; multiplicand = -multiplicand
+(1)    1398 :                            ;; fall through to umul16
+(1)    1398 :
+(1)    1398 :                    ;;; Unsigned multiplication: result = multiplicand * multiplier
+(1)    1398 :                    ;;; @param RR14: multiplicand
+(1)    1398 :                    ;;; @param RR12: multiplier
+(1)    1398 :                    ;;; @return RR14: result
+(1)    1398 :                    ;;; @clobber R10-R15
+(1)    1398 :                    umul16:
+(1)    1398 : A8 EE                      ld      R10, R14        ; RR10=multiplicand
+(1)    139A : B8 EF                      ld      R11, R15
+(1)    139C : B0 EE                      clr     R14             ; hi(result)=0
+(1)    139E : 42 CC                      or      R12, R12
+(1)    13A0 : EB 0B                      jr      nz, umul16_high ; if hi(multiplier) != 0
+(1)    13A2 :                    umul16_low:
+(1)    13A2 : B0 EF                      clr     R15             ; lo(result)=0
+(1)    13A4 : 42 DD                      or      R13, R13
+(1)    13A6 : 6B 28                      jr      z, umul16_end   ; if lo(multiplier) == 0
+(1)    13A8 : CF                         rcf                     ; lo(multiplier) >>= 1, clearing its msb
+(1)    13A9 : C0 ED                      rrc     R13
+(1)    13AB : 8B 15                      jr      umul16_bit
+(1)    13AD :                    umul16_high:
+(1)    13AD : CF                         rcf                     ; hi(multiplier) >>= 1
+(1)    13AE : C0 EC                      rrc     R12
+(1)    13B0 : FB 02                      jr      nc, umul16_high_next ; if lsb(multiplier) == 0
+(1)    13B2 : 02 EF                      add     R14, R15        ; hi(result) += lo(multiplicand)
+(1)    13B4 :                    umul16_high_next:
+(1)    13B4 : 02 FF                      add     R15, R15        ; lo(multiplicand) <<= 1
+(1)    13B6 : 42 CC                      or      R12, R12
+(1)    13B8 : EB F3                      jr      nz, umul16_high ; while hi(multiplier) != 0
+(1)    13BA : 8B E6                      jr      umul16_low
+(1)    13BC :                    umul16_shift:
+(1)    13BC : 02 BB                      add     R11, R11        ; multiplicand <<= 1
+(1)    13BE : 12 AA                      adc     R10, R10
+(1)    13C0 : D0 ED                      sra     R13             ; lo(multiplier) >>= 1
+(1)    13C2 :                    umul16_bit:
+(1)    13C2 : FB F8                      jr      nc, umul16_shift ; if lsb(multiplier) == 0
+(1)    13C4 : 6B 06                      jr      z, umul16_last  ; if no more bits in multiplier
+(1)    13C6 : 02 FB                      add     R15, R11
+(1)    13C8 : 12 EA                      adc     R14, R10        ; result += multiplicand
+(1)    13CA : 8B F0                      jr      umul16_shift
+(1)    13CC :                    umul16_last:
+(1)    13CC : 02 FB                      add     R15, R11
+(1)    13CE : 12 EA                      adc     R14, R10        ; result += multiplicand
+(1)    13D0 :                    umul16_end:
+(1)    13D0 : AF                         ret
+(1)    13D1 :
+(1)    13D1 :                    ;;; Signed multiplication: multiplicand *= multiplier
+(1)    13D1 :                    ;;; @param @R4: multiplicand
+(1)    13D1 :                    ;;; @param @R5: multiplier
+(1)    13D1 :                    ;;; @clobber R10-R15
+(1)    13D1 :                    mulsi2:
+(1)    13D1 : E3 E4                      ld      R14, 0(R4)
+(1)    13D3 : C7 F4 01                   ld      R15, 1(R4)
+(1)    13D6 : E3 C5                      ld      R12, 0(R5)
+(1)    13D8 : C7 D5 01                   ld      R13, 1(R5)
+(1)    13DB : D6 13 88                   call    mul16
+(1)    13DE : F3 4E                      ld      0(R4), R14
+(1)    13E0 : D7 F4 01                   ld      1(R4), R15
+(1)    13E3 : AF                         ret
+(1)    13E4 :
+(1)    13E4 :                    ;;; Unsigned division: dividend / divisor = quotient ... remainder
+(1)    13E4 :                    ;;; @praram RR14: dividend
+(1)    13E4 :                    ;;; @praram RR12: divisor
+(1)    13E4 :                    ;;; @return RR14: remainder
+(1)    13E4 :                    ;;; @return RR12: quotient
+(1)    13E4 :                    ;;; @clobber R10-R15
+(1)    13E4 :                    udiv16:
+(1)    13E4 : 42 CC                      or      R12, R12
+(1)    13E6 : ED 14 6D                   jp      nz, udiv16_word ; if divisor >= 256
+(1)    13E9 : 42 EE                      or      R14, R14
+(1)    13EB : EB 24                      jr      nz, udiv16_wide ; if dividend >= 256
+(1)    13ED : A2 FD                      cp      R15, R13
+(1)    13EF : 7B 17                      jr      c, udiv16_none  ; if dividend < divisor
+(1)    13F1 : A8 EF                      ld      R10, R15
+(1)    13F3 : F0 EA                      swap    R10
+(1)    13F5 : 56 EA 0F                   and     R10, #%0F       ; R10=dividend>>4
+(1)    13F8 : A2 AD                      cp      R10, R13
+(1)    13FA : FB 0F                      jr      nc, udiv16_long ; if quotient >= 16 or divisor == 0
+(1)    13FC :                            ;; A quotient below 16 is counted by subtraction.
+(1)    13FC : AC FF                      ld      R10, #-1        ; R10=quotient
+(1)    13FE :                    udiv16_count:
+(1)    13FE : AE                         inc     R10
+(1)    13FF : 22 FD                      sub     R15, R13        ; dividend -= divisor
+(1)    1401 : FB FB                      jr      nc, udiv16_count ; while dividend >= 0
+(1)    1403 : 02 FD                      add     R15, R13        ; RR14=remainder
+(1)    1405 : D8 EA                      ld      R13, R10        ; RR12=quotient
+(1)    1407 : AF                         ret
+(1)    1408 :                    udiv16_none:
+(1)    1408 : B0 ED                      clr     R13             ; quotient=0, remainder=dividend
+(1)    140A :                    udiv16_zero:
+(1)    140A : AF                         ret
+(1)    140B :                    udiv16_long:
+(1)    140B : 42 DD                      or      R13, R13
+(1)    140D : 6B FB                      jr      z, udiv16_zero  ; if divisor == 0
+(1)    140F : 8B 39                      jr      udiv16_low      ; remainder=0
+(1)    1411 :                    udiv16_wide:
+(1)    1411 : 42 DD                      or      R13, R13
+(1)    1413 : 6B F5                      jr      z, udiv16_zero  ; if divisor == 0
+(1)    1415 : 5D 14 6D                   jp      mi, udiv16_word ; if divisor >= 128
+(1)    1418 :                            ;; A divisor below 128 keeps remainder<<1 within a byte, so
+(1)    1418 :                            ;; the quotient is found a byte at a time.
+(1)    1418 : A2 ED                      cp      R14, R13
+(1)    141A : 7B 2E                      jr      c, udiv16_low   ; if hi(quotient) == 0
+(1)    141C :                    udiv16_high:
+(1)    141C : A8 EE                      ld      R10, R14
+(1)    141E : F0 EA                      swap    R10
+(1)    1420 : 56 EA 0F                   and     R10, #%0F       ; R10=hi(dividend)>>4
+(1)    1423 : A2 AD                      cp      R10, R13
+(1)    1425 : FB 0B                      jr      nc, udiv16_high_bits ; if hi(quotient) >= 16
+(1)    1427 :                            ;; A hi(quotient) below 16 is counted by subtraction.
+(1)    1427 : CC FF                      ld      R12, #-1        ; R12=hi(quotient)
+(1)    1429 :                    udiv16_high_count:
+(1)    1429 : CE                         inc     R12
+(1)    142A : 22 ED                      sub     R14, R13        ; hi(dividend) -= divisor
+(1)    142C : FB FB                      jr      nc, udiv16_high_count ; while hi(dividend) >= 0
+(1)    142E : 02 ED                      add     R14, R13        ; R14=remainder
+(1)    1430 : 8B 18                      jr      udiv16_low
+(1)    1432 :                    udiv16_high_bits:
+(1)    1432 : B0 EA                      clr     R10             ; R10=remainder
+(1)    1434 : BC 08                      ld      R11, #8         ; R11=bits
+(1)    1436 :                    udiv16_high_loop:
+(1)    1436 : 10 EE                      rlc     R14             ; ~quotient<<1 | C, next dividend bit to C
+(1)    1438 : 10 EA                      rlc     R10             ; remainder = remainder<<1 | C
+(1)    143A : A2 AD                      cp      R10, R13        ; C=1 if remainder < divisor
+(1)    143C : 7B 02                      jr      c, udiv16_high_next
+(1)    143E : 22 AD                      sub     R10, R13        ; remainder -= divisor, C=0
+(1)    1440 :                    udiv16_high_next:
+(1)    1440 : BA F4                      djnz    R11, udiv16_high_loop
+(1)    1442 : 10 EE                      rlc     R14
+(1)    1444 : 60 EE                      com     R14
+(1)    1446 : C8 EE                      ld      R12, R14        ; hi(quotient)
+(1)    1448 : E8 EA                      ld      R14, R10        ; remainder
+(1)    144A :                    udiv16_low:
+(1)    144A : AC 04                      ld      R10, #8/2       ; R10=bits/2
+(1)    144C :                    udiv16_low_loop:
+(1)    144C : 10 EF                      rlc     R15             ; ~quotient<<1 | C, next dividend bit to C
+(1)    144E : 10 EE                      rlc     R14             ; remainder = remainder<<1 | C
+(1)    1450 : A2 ED                      cp      R14, R13        ; C=1 if remainder < divisor
+(1)    1452 : 7B 02                      jr      c, udiv16_low_next1
+(1)    1454 : 22 ED                      sub     R14, R13        ; remainder -= divisor, C=0
+(1)    1456 :                    udiv16_low_next1:
+(1)    1456 : 10 EF                      rlc     R15
+(1)    1458 : 10 EE                      rlc     R14
+(1)    145A : A2 ED                      cp      R14, R13
+(1)    145C : 7B 02                      jr      c, udiv16_low_next2
+(1)    145E : 22 ED                      sub     R14, R13
+(1)    1460 :                    udiv16_low_next2:
+(1)    1460 : AA EA                      djnz    R10, udiv16_low_loop
+(1)    1462 : 10 EF                      rlc     R15
+(1)    1464 : 60 EF                      com     R15
+(1)    1466 : D8 EF                      ld      R13, R15        ; lo(quotient)
+(1)    1468 : F8 EE                      ld      R15, R14
+(1)    146A : B0 EE                      clr     R14             ; RR14=remainder
 (1)    146C : AF                         ret
-(1)    146D :
-(1)    146D :                    ;;; Local Variables:
-(1)    146D :                    ;;; mode: asm
-(1)    146D :                    ;;; End:
-(1)    146D :                    ;;; vim: set ft=asm et ts=4 sw=4:
-       146D :
-       146D :                            end
+(1)    146D :                    udiv16_word:
+(1)    146D : A8 EE                      ld      R10, R14
+(1)    146F : B8 EF                      ld      R11, R15
+(1)    1471 : 22 BD                      sub     R11, R13        ; RR10=dividend-divisor
+(1)    1473 : 32 AC                      sbc     R10, R12
+(1)    1475 : FB 05                      jr      nc, udiv16_word_divide ; if dividend >= divisor
+(1)    1477 : B0 EC                      clr     R12             ; quotient=0, remainder=dividend
+(1)    1479 : B0 ED                      clr     R13
+(1)    147B : AF                         ret
+(1)    147C :                    udiv16_word_divide:
+(1)    147C : 70 E9                      push    R9
+(1)    147E : 9C 01                      ld      R9, #1          ; R9=bits
+(1)    1480 :                    udiv16_prep_loop:
+(1)    1480 : 22 BD                      sub     R11, R13        ; RR10=dividend-(divisor<<1)
+(1)    1482 : 32 AC                      sbc     R10, R12
+(1)    1484 : 7B 07                      jr      c, udiv16_prep_end ; until divisor<<1 > dividend
+(1)    1486 : 02 DD                      add     R13, R13        ; divisor <<= 1
+(1)    1488 : 12 CC                      adc     R12, R12
+(1)    148A : 9E                         inc     R9
+(1)    148B : 8B F3                      jr      udiv16_prep_loop
+(1)    148D :                    udiv16_prep_end:
+(1)    148D : AC FF                      ld      R10, #%FF
+(1)    148F : BC FF                      ld      R11, #%FF       ; RR10=~quotient
+(1)    1491 : 8B 05                      jr      udiv16_enter_loop
+(1)    1493 :                    udiv16_loop:
+(1)    1493 : CF                         rcf                     ; divisor >>= 1
+(1)    1494 : C0 EC                      rrc     R12
+(1)    1496 : C0 ED                      rrc     R13
+(1)    1498 :                    udiv16_enter_loop:
+(1)    1498 : 22 FD                      sub     R15, R13        ; dividend -= divisor
+(1)    149A : 32 EC                      sbc     R14, R12
+(1)    149C : FB 04                      jr      nc, udiv16_next ; if dividend >= 0
+(1)    149E : 02 FD                      add     R15, R13        ; dividend += divisor
+(1)    14A0 : 12 EC                      adc     R14, R12        ; C=1, FLAG.D is always cleared
+(1)    14A2 :                    udiv16_next:
+(1)    14A2 : 10 EB                      rlc     R11             ; ~quotient = ~quotient<<1 | C
+(1)    14A4 : 10 EA                      rlc     R10
+(1)    14A6 : 9A EB                      djnz    R9, udiv16_loop ; RR14=remainder
+(1)    14A8 : 50 E9                      pop     R9
+(1)    14AA : 60 EA                      com     R10
+(1)    14AC : 60 EB                      com     R11
+(1)    14AE : C8 EA                      ld      R12, R10        ; RR12=quotient
+(1)    14B0 : D8 EB                      ld      R13, R11
+(1)    14B2 : AF                         ret
+(1)    14B3 :
+(1)    14B3 :                    ;;; Signed division: dividend / divisor = quotient ... remainder
+(1)    14B3 :                    ;;; @param RR14: dividend
+(1)    14B3 :                    ;;; @param RR12: divisor
+(1)    14B3 :                    ;;; @return RR12: quotient, rounded toward zero
+(1)    14B3 :                    ;;; @return RR14: remainder, with the dividend's sign
+(1)    14B3 :                    ;;; @clobber R10-R15
+(1)    14B3 :                    div16:
+(1)    14B3 : 42 CC                      or      R12, R12
+(1)    14B5 : 5B 2C                      jr      mi, div16_neg_divisor ; if divisor < 0
+(1)    14B7 :                    div16_pos_divisor:
+(1)    14B7 : 42 EE                      or      R14, R14
+(1)    14B9 : DD 13 E4                   jp      pl, udiv16      ; if dividend >= 0
+(1)    14BC : A8 EE                      ld      R10, R14
+(1)    14BE : B8 EF                      ld      R11, R15
+(1)    14C0 : 02 BD                      add     R11, R13
+(1)    14C2 : 12 AC                      adc     R10, R12
+(1)    14C4 : 80 EA                      decw    RR10            ; RR10=dividend+divisor-1
+(1)    14C6 : 5B 05                      jr      mi, div16_negative ; if -dividend >= divisor
+(1)    14C8 : B0 EC                      clr     R12             ; quotient=0, remainder=dividend
+(1)    14CA : B0 ED                      clr     R13
+(1)    14CC : AF                         ret
+(1)    14CD :                    div16_negative:
+(1)    14CD : 60 EE                      com     R14
+(1)    14CF : 60 EF                      com     R15
+(1)    14D1 : A0 EE                      incw    RR14            ; dividend = -dividend
+(1)    14D3 : D6 13 E4                   call    udiv16
+(1)    14D6 : 60 EE                      com     R14
+(1)    14D8 : 60 EF                      com     R15
+(1)    14DA : A0 EE                      incw    RR14            ; remainder = -remainder
+(1)    14DC : 60 EC                      com     R12
+(1)    14DE : 60 ED                      com     R13
+(1)    14E0 : A0 EC                      incw    RR12            ; quotient = -quotient
+(1)    14E2 : AF                         ret
+(1)    14E3 :                    div16_neg_divisor:
+(1)    14E3 : 60 EC                      com     R12
+(1)    14E5 : 60 ED                      com     R13
+(1)    14E7 : A0 EC                      incw    RR12            ; divisor = -divisor
+(1)    14E9 : D6 14 B7                   call    div16_pos_divisor
+(1)    14EC : 60 EC                      com     R12
+(1)    14EE : 60 ED                      com     R13
+(1)    14F0 : A0 EC                      incw    RR12            ; quotient = -quotient
+(1)    14F2 : AF                         ret
+(1)    14F3 :
+(1)    14F3 :                    ;;; Signed division: dividend /= divisor
+(1)    14F3 :                    ;;; @param @R4: dividend
+(1)    14F3 :                    ;;; @param @R5: divisor
+(1)    14F3 :                    ;;; @clobber R10-R15
+(1)    14F3 :                    divsi2:
+(1)    14F3 : E3 E4                      ld      R14, 0(R4)
+(1)    14F5 : C7 F4 01                   ld      R15, 1(R4)
+(1)    14F8 : E3 C5                      ld      R12, 0(R5)
+(1)    14FA : C7 D5 01                   ld      R13, 1(R5)
+(1)    14FD : D6 14 B3                   call    div16
+(1)    1500 : F3 4C                      ld      0(R4), R12
+(1)    1502 : D7 D4 01                   ld      1(R4), R13
+(1)    1505 : AF                         ret
+(1)    1506 :
+(1)    1506 :                    ;;; Local Variables:
+(1)    1506 :                    ;;; mode: asm
+(1)    1506 :                    ;;; End:
+(1)    1506 :                    ;;; vim: set ft=asm et ts=4 sw=4:
+       1506 :
+       1506 :                            end

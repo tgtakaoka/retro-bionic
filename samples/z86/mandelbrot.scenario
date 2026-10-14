@@ -1,10 +1,12 @@
 # Scenario for scripts/record-scenario.py: the Z8's register file.
-# mandelbrot.inc keeps all its variables in on-chip registers 40-5F, so
-# moving one to another is a single instruction that never reaches the
-# bus. SRP #10 at reset puts the working registers R0-R15 at 10-1F.
+# mandelbrot.inc keeps its variables in on-chip registers 40-59, and
+# the inner loop's A, B and T in working registers R4-R9, so loading
+# one is a single instruction that never reaches the bus. SRP #10 at
+# reset puts the working registers R0-R15 at 10-1F.
 #
 # ADDRESS IS PINNED TO THE CURRENT samples/z86/mandelbrot.hex:
-# loop_x at 00C6, its "ld vC, vX" moving register 5C to 48. If
+# loop_x at 00DC, its first four "ld" loading 229 from register 40 into
+# R14-R15 and X from register 56 into R12-R13 for mul16. If
 # mandelbrot.asm/.inc or the .hex ever change, re-check it against the
 # fresh .lst before recording -- a stale address will look like it works
 # (it disassembles *something*) while showing the wrong thing.
@@ -20,25 +22,26 @@ key R
 pace 1.5
 
 # Stop at the first pixel. The backtrace shows only instruction fetches:
-# the stores to vX at 5C make no bus cycles.
+# the stores to vX at 56 make no bus cycles.
 type g
 wait Go until?
-command C6 10
+command DC 10
 pace 2.0
 
 # Data addresses below 100 are the register file: the constants 229,
-# 416, 100 and 50 at 40-47, Y=-12 at 5A and X=-49 at 5C.
+# 416, 100 and 50 at 40-47, Y=-12 at 54 and X=-49 at 56.
 type d
 wait Data dump?
 command 40 20
 pace 2.5
 
-# C=X, a byte at a time, then R4 (register 14) points at vC for mulsi2.
-step 3
+# The multiply's operands, a byte at a time: R12-R13 (registers 1C-1D)
+# hold X=-49 and R14-R15 (1E-1F) hold 229.
+step 4
 pace 1.5
 type d
 wait Data dump?
-command 48 2
+command 1C 4
 pace 2.0
 
 # Watch one frame render.
