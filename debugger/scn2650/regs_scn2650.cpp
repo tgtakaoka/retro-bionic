@@ -68,6 +68,7 @@ void RegsScn2650::save() {
             0xC8, 0x00,        // STRR,R0 $
             0x13, 0xC8, 0x00,  // SPSL, STRR,R0 $
             0x12, 0xC8, 0x00,  // SPSU; STRR,R0 $
+            0x76, 0x20,        // PPSU II; LPSU restores it
     };
     uint8_t buffer[3];
     _pins->captureWrites(
