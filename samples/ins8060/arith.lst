@@ -338,7 +338,7 @@
        1140 :                    expr_div:
        1140 : C4 14                      ldi     H(ADDR(divsi2))
        1142 : 35                         xpah    P1
-       1143 : C4 63                      ldi     L(ADDR(divsi2))
+       1143 : C4 53                      ldi     L(ADDR(divsi2))
        1145 :                    expr_do:
        1145 : 31                         xpal    P1              ; P1=ADDR(calculate))
        1146 : 3D                         xppc    P1              ; calculate result in vA
@@ -510,7 +510,7 @@
 (1)    1226 : CA 00                      st      0(P2)           ; buffer[0]=0
 (1)    1228 : C4 01                      ldi     1
 (1)    122A : 01                         xae                     ; E=1
-(1)    122B : C4 E1                      ldi     L(ADDR(udiv16))
+(1)    122B : C4 DA                      ldi     L(ADDR(udiv16))
 (1)    122D : 31                         xpal    P1
 (1)    122E : C4 14                      ldi     H(ADDR(udiv16))
 (1)    1230 : 35                         xpah    P1
@@ -786,374 +786,487 @@
 (1)    13AF :                    ;;; Signed multiply on the stack; P2[3:2] *= P2[1:0]
 (1)    13AF :                    ;;;   P1=ADDR(mul16)
 (1)    13AF :                    ;;;   xppc   P1                 ; leaves P1=ADDR(mul16)
-(1)    13AF :                    ;;; @local P2[0]   H(multiplicand ^ multiplier)
-(1)    13AF :                    ;;; @local P2[2:1] product
-(1)    13AF :                    ;;; @local P2[3]   L(multiplicand)
-(1)    13AF :                    ;;; @clobber E
-(1)    13AF : =0                 MSIGN   =       0
-(1)    13AF : =1                 MPROD   =       1
-(1)    13AF : =3                 MLO     =       3
-(1)    13AF : =4                 MPLIER  =       4               ; multiplier, offset past the locals
-(1)    13AF : =6                 MCAND   =       6               ; multiplicand, offset past the locals
+(1)    13AF :                    ;;; @local P2[1:0] product
+(1)    13AF :                    ;;; @local P2[2]   L(multiplicand)
+(1)    13AF :                    ;;; @clobber P2[1:0] E
+(1)    13AF : =0                 MPROD   =       0
+(1)    13AF : =2                 MLO     =       2
+(1)    13AF : =3                 MPLIER  =       3               ; multiplier, offset past the locals
+(1)    13AF : =5                 MCAND   =       5               ; multiplicand, offset past the locals
 (1)    13AF :                    mul16_exit:
 (1)    13AF : 3D                         xppc    P1              ; return, leaving P1=ADDR(mul16)
 (1)    13B0 :                    mul16:
 (1)    13B0 : C2 00                      ld      0(P2)
 (1)    13B2 : DA 01                      or      1(P2)
-(1)    13B4 : 9C 06                      jnz     mul16_signed    ; branch if multiplier != 0
+(1)    13B4 : 9C 06                      jnz     mul16_nonzero   ; branch if multiplier != 0
 (1)    13B6 : CA 02                      st      2(P2)
 (1)    13B8 : CA 03                      st      3(P2)           ; multiplicand=0
 (1)    13BA : 90 F3                      jmp     mul16_exit
-(1)    13BC :                    mul16_signed:
-(1)    13BC : C2 01                      ld      1(P2)           ; H(multiplier)
-(1)    13BE : E2 03                      xor     3(P2)           ; H(multiplicand)
-(1)    13C0 : CE FC                      st      @-4(P2)         ; P2[0]=sign
-(1)    13C2 : C2 05                      ld      MPLIER+1(P2)
-(1)    13C4 : 94 0D                      jp      mul16_multiplicand
+(1)    13BC :                    mul16_nonzero:
+(1)    13BC : C4 00                      ldi     0
+(1)    13BE : CE FD                      st      @-MPLIER(P2)
+(1)    13C0 : CA 01                      st      MPROD+1(P2)     ; product=0
+(1)    13C2 :                    ;;; The low 16 bits of a product don't depend on the signs, so only a
+(1)    13C2 :                    ;;; negative multiplier is negated, with the multiplicand to compensate.
+(1)    13C2 : C2 04                      ld      MPLIER+1(P2)
+(1)    13C4 : 94 1A                      jp      mul16_hi
 (1)    13C6 : 03                         scl                     ; clear borrow
 (1)    13C7 : C4 00                      ldi     0
-(1)    13C9 : FA 04                      cad     MPLIER(P2)
-(1)    13CB : CA 04                      st      MPLIER(P2)
+(1)    13C9 : FA 03                      cad     MPLIER(P2)
+(1)    13CB : CA 03                      st      MPLIER(P2)
 (1)    13CD : C4 00                      ldi     0
-(1)    13CF : FA 05                      cad     MPLIER+1(P2)
-(1)    13D1 : CA 05                      st      MPLIER+1(P2)    ; negate multiplier
-(1)    13D3 :                    mul16_multiplicand:
-(1)    13D3 : C2 07                      ld      MCAND+1(P2)
-(1)    13D5 : 94 0D                      jp      mul16_zero
-(1)    13D7 : 03                         scl                     ; clear borrow
-(1)    13D8 : C4 00                      ldi     0
-(1)    13DA : FA 06                      cad     MCAND(P2)
-(1)    13DC : CA 06                      st      MCAND(P2)
-(1)    13DE : C4 00                      ldi     0
-(1)    13E0 : FA 07                      cad     MCAND+1(P2)
-(1)    13E2 : CA 07                      st      MCAND+1(P2)     ; negate multiplicand
-(1)    13E4 :                    mul16_zero:
-(1)    13E4 : C4 00                      ldi     0
-(1)    13E6 : CA 01                      st      MPROD(P2)
-(1)    13E8 : CA 02                      st      MPROD+1(P2)     ; product=0
-(1)    13EA :                    ;;; H(multiplier) only adds L(multiplicand) into H(product)
-(1)    13EA : C2 05                      ld      MPLIER+1(P2)
-(1)    13EC : 98 21                      jz      mul16_lo        ; branch if H(multiplier)==0
-(1)    13EE : 01                         xae                     ; E=H(multiplier)
-(1)    13EF : C2 06                      ld      MCAND(P2)
-(1)    13F1 : CA 03                      st      MLO(P2)
-(1)    13F3 :                    mul16_hi_loop:
-(1)    13F3 : 02                         ccl
-(1)    13F4 : 40                         lde
-(1)    13F5 : 1F                         rrl
-(1)    13F6 : 01                         xae                     ; H(multiplier) >>= 1
-(1)    13F7 : 06                         csa
-(1)    13F8 : 94 07                      jp      mul16_hi_next   ; branch if lsb(multiplier)==0
+(1)    13CF : FA 04                      cad     MPLIER+1(P2)
+(1)    13D1 : CA 04                      st      MPLIER+1(P2)    ; negate multiplier
+(1)    13D3 : 03                         scl                     ; clear borrow
+(1)    13D4 : C4 00                      ldi     0
+(1)    13D6 : FA 05                      cad     MCAND(P2)
+(1)    13D8 : CA 05                      st      MCAND(P2)
+(1)    13DA : C4 00                      ldi     0
+(1)    13DC : FA 06                      cad     MCAND+1(P2)
+(1)    13DE : CA 06                      st      MCAND+1(P2)     ; negate multiplicand
+(1)    13E0 :                    ;;; H(multiplier) only adds L(multiplicand) into H(product)
+(1)    13E0 :                    mul16_hi:
+(1)    13E0 : C2 04                      ld      MPLIER+1(P2)
+(1)    13E2 : 98 21                      jz      mul16_lo        ; branch if H(multiplier)==0
+(1)    13E4 : 01                         xae                     ; E=H(multiplier)
+(1)    13E5 : C2 05                      ld      MCAND(P2)
+(1)    13E7 : CA 02                      st      MLO(P2)
+(1)    13E9 :                    mul16_hi_loop:
+(1)    13E9 : 02                         ccl
+(1)    13EA : 40                         lde
+(1)    13EB : 1F                         rrl
+(1)    13EC : 01                         xae                     ; H(multiplier) >>= 1
+(1)    13ED : 06                         csa
+(1)    13EE : 94 07                      jp      mul16_hi_next   ; branch if lsb(multiplier)==0
+(1)    13F0 : 02                         ccl
+(1)    13F1 : C2 02                      ld      MLO(P2)
+(1)    13F3 : F2 01                      add     MPROD+1(P2)
+(1)    13F5 : CA 01                      st      MPROD+1(P2)     ; H(product) += L(multiplicand)
+(1)    13F7 :                    mul16_hi_next:
+(1)    13F7 : 40                         lde
+(1)    13F8 : 98 0B                      jz      mul16_lo        ; until H(multiplier)==0
 (1)    13FA : 02                         ccl
-(1)    13FB : C2 03                      ld      MLO(P2)
-(1)    13FD : F2 02                      add     MPROD+1(P2)
-(1)    13FF : CA 02                      st      MPROD+1(P2)     ; H(product) += L(multiplicand)
-(1)    1401 :                    mul16_hi_next:
-(1)    1401 : 40                         lde
-(1)    1402 : 98 0B                      jz      mul16_lo        ; until H(multiplier)==0
-(1)    1404 : 02                         ccl
-(1)    1405 : C2 03                      ld      MLO(P2)
-(1)    1407 : F2 03                      add     MLO(P2)
-(1)    1409 : CA 03                      st      MLO(P2)         ; L(multiplicand) <<= 1
-(1)    140B : 90 E6                      jmp     mul16_hi_loop
-(1)    140D :                    mul16_return:
-(1)    140D : 90 A0                      jmp     mul16_exit
-(1)    140F :                    mul16_lo:
-(1)    140F : C2 04                      ld      MPLIER(P2)
-(1)    1411 : 98 27                      jz      mul16_sign      ; branch if L(multiplier)==0
-(1)    1413 : 01                         xae                     ; E=L(multiplier)
-(1)    1414 :                    mul16_lo_loop:
-(1)    1414 : 02                         ccl
-(1)    1415 : 40                         lde
-(1)    1416 : 1F                         rrl
-(1)    1417 : 01                         xae                     ; L(multiplier) >>= 1
-(1)    1418 : 06                         csa
-(1)    1419 : 94 0D                      jp      mul16_lo_next   ; branch if lsb(multiplier)==0
-(1)    141B : 02                         ccl
-(1)    141C : C2 06                      ld      MCAND(P2)
-(1)    141E : F2 01                      add     MPROD(P2)
-(1)    1420 : CA 01                      st      MPROD(P2)
-(1)    1422 : C2 07                      ld      MCAND+1(P2)
-(1)    1424 : F2 02                      add     MPROD+1(P2)
-(1)    1426 : CA 02                      st      MPROD+1(P2)     ; product += multiplicand
-(1)    1428 :                    mul16_lo_next:
-(1)    1428 : 40                         lde
-(1)    1429 : 98 0F                      jz      mul16_sign      ; until L(multiplier)==0
-(1)    142B : 02                         ccl
-(1)    142C : C2 06                      ld      MCAND(P2)
-(1)    142E : F2 06                      add     MCAND(P2)
-(1)    1430 : CA 06                      st      MCAND(P2)
-(1)    1432 : C2 07                      ld      MCAND+1(P2)
-(1)    1434 : F2 07                      add     MCAND+1(P2)
-(1)    1436 : CA 07                      st      MCAND+1(P2)     ; multiplicand <<= 1
-(1)    1438 : 90 DA                      jmp     mul16_lo_loop
-(1)    143A :                    mul16_sign:
-(1)    143A : C2 00                      ld      MSIGN(P2)
-(1)    143C : 94 11                      jp      mul16_store
-(1)    143E : 03                         scl                     ; clear borrow
-(1)    143F : C4 00                      ldi     0
-(1)    1441 : FA 01                      cad     MPROD(P2)
-(1)    1443 : CA 06                      st      MCAND(P2)
-(1)    1445 : C4 00                      ldi     0
-(1)    1447 : FA 02                      cad     MPROD+1(P2)
-(1)    1449 : CA 07                      st      MCAND+1(P2)     ; multiplicand=-product
-(1)    144B : C6 04                      ld      @4(P2)          ; discard locals
-(1)    144D : 90 BE                      jmp     mul16_return
-(1)    144F :                    mul16_store:
-(1)    144F : C2 01                      ld      MPROD(P2)
-(1)    1451 : CA 06                      st      MCAND(P2)
-(1)    1453 : C2 02                      ld      MPROD+1(P2)
-(1)    1455 : CA 07                      st      MCAND+1(P2)     ; multiplicand=product
-(1)    1457 : C6 04                      ld      @4(P2)          ; discard locals
-(1)    1459 : 90 B2                      jmp     mul16_return
-(1)    145B :
-(1)    145B :                    ;;; Signed divide; dividend /= divisor ... remainder
-(1)    145B :                    ;;;   xppc   P1
-(1)    145B :                    ;;;   .dbyte &divisor
-(1)    145B :                    ;;;   .dbyte &dividend
-(1)    145B :                    ;;; @local P2[1:0] &divisor, divisor, remainder
-(1)    145B :                    ;;; @local P2[3:2] dividend, quotient
-(1)    145B :                    ;;; @local P2[5:4] &dividend
-(1)    145B :                    ;;; @local P2[7:6] return address
-(1)    145B :                    divsi2_exit:
-(1)    145B : C6 06                      ld      @6(P2)          ; discard locals
-(1)    145D : C6 01                      ld      @1(P2)
-(1)    145F : 31                         xpal    P1
-(1)    1460 : C6 01                      ld      @1(P2)
-(1)    1462 : 35                         xpah    P1
-(1)    1463 : 3D                         xppc    P1              ; return
-(1)    1464 :                    divsi2:
-(1)    1464 : C5 01                      ld      @1(P1)          ; point to &divisor
-(1)    1466 : C5 01                      ld      @1(P1)
-(1)    1468 : CE F8                      st      @-8(P2)         ; P2[1:0]=&divisor
-(1)    146A : C5 01                      ld      @1(P1)
-(1)    146C : CA 01                      st      1(P2)
-(1)    146E : C5 01                      ld      @1(P1)
-(1)    1470 : CA 04                      st      4(P2)           ; P2[5:4]=&dividend
-(1)    1472 : C1 00                      ld      0(P1)           ; P1=return address
-(1)    1474 : CA 05                      st      5(P2)
-(1)    1476 : C2 00                      ld      0(P2)
-(1)    1478 : 31                         xpal    P1
-(1)    1479 : CA 06                      st      6(P2)           ; P2[7:6]=return address
-(1)    147B : C2 01                      ld      1(P2)
-(1)    147D : 35                         xpah    P1              ; P1=&divisor
-(1)    147E : CA 07                      st      7(P2)
-(1)    1480 : C1 00                      ld      0(P1)
-(1)    1482 : CA 00                      st      0(P2)
-(1)    1484 : C1 01                      ld      1(P1)
-(1)    1486 : CA 01                      st      1(P2)           ; P2[1:0]=divisor
-(1)    1488 : C2 04                      ld      4(P2)
-(1)    148A : 31                         xpal    P1
-(1)    148B : C2 05                      ld      5(P2)
-(1)    148D : 35                         xpah    P1              ; P1=&dividend
-(1)    148E : C1 00                      ld      0(P1)
-(1)    1490 : CA 02                      st      2(P2)
-(1)    1492 : C1 01                      ld      1(P1)
-(1)    1494 : CA 03                      st      3(P2)           ; P2[3:2]=dividend
-(1)    1496 : C4 AC                      ldi     L(ADDR(div16))
-(1)    1498 : 31                         xpal    P1
-(1)    1499 : C4 14                      ldi     H(ADDR(div16))
-(1)    149B : 35                         xpah    P1
-(1)    149C : 3D                         xppc    P1              ; P2[3:2]/=P2[1:0]
-(1)    149D : C2 04                      ld      4(P2)
-(1)    149F : 31                         xpal    P1
-(1)    14A0 : C2 05                      ld      5(P2)
-(1)    14A2 : 35                         xpah    P1              ; P1=&dividend
-(1)    14A3 : C2 02                      ld      2(P2)
-(1)    14A5 : C9 00                      st      0(P1)
-(1)    14A7 : C2 03                      ld      3(P2)
-(1)    14A9 : C9 01                      st      1(P1)           ; store quotient
-(1)    14AB : 90 AE                      jmp     divsi2_exit
-(1)    14AD :
-(1)    14AD :                    ;;; Signed divide on the stack; P2[3:2] /= P2[1:0] ... remainder
-(1)    14AD :                    ;;;   P1=ADDR(div16)
-(1)    14AD :                    ;;;   xppc   P1                 ; leaves P1=ADDR(udiv16)
-(1)    14AD :                    ;;; @return P2[1:0] |dividend| % |divisor|
-(1)    14AD :                    ;;; @clobber E
-(1)    14AD :                    div16:
-(1)    14AD : C2 01                      ld      1(P2)           ; H(divisor)
-(1)    14AF : E2 03                      xor     3(P2)           ; H(dividend)
-(1)    14B1 : CE FA                      st      @-DREM(P2)      ; P2[0]=sign
-(1)    14B3 : C2 07                      ld      DREM+1(P2)
-(1)    14B5 : 94 0F                      jp      div16_divisor
-(1)    14B7 : 03                         scl                     ; clear borrow
-(1)    14B8 : C4 00                      ldi     0
-(1)    14BA : FA 06                      cad     DREM(P2)
-(1)    14BC : CA 04                      st      DDVS(P2)
-(1)    14BE : C4 00                      ldi     0
-(1)    14C0 : FA 07                      cad     DREM+1(P2)
-(1)    14C2 : CA 05                      st      DDVS+1(P2)      ; divisor=-divisor
-(1)    14C4 : 90 08                      jmp     div16_dividend
-(1)    14C6 :                    div16_divisor:
-(1)    14C6 : C2 06                      ld      DREM(P2)
-(1)    14C8 : CA 04                      st      DDVS(P2)
-(1)    14CA : C2 07                      ld      DREM+1(P2)
-(1)    14CC : CA 05                      st      DDVS+1(P2)
-(1)    14CE :                    div16_dividend:
-(1)    14CE : C2 09                      ld      DQUO+1(P2)
-(1)    14D0 : 94 1C                      jp      udiv16_dividend
-(1)    14D2 : 03                         scl                     ; clear borrow
-(1)    14D3 : C4 00                      ldi     0
-(1)    14D5 : FA 08                      cad     DQUO(P2)
-(1)    14D7 : CA 06                      st      DREM(P2)
-(1)    14D9 : C4 00                      ldi     0
-(1)    14DB : FA 09                      cad     DQUO+1(P2)
-(1)    14DD : CA 07                      st      DREM+1(P2)      ; remainder=-dividend
-(1)    14DF : 90 15                      jmp     udiv16_divide
-(1)    14E1 :
-(1)    14E1 :                    ;;; Unsigned divide on the stack; P2[3:2] /= P2[1:0] ... remainder
-(1)    14E1 :                    ;;;   P1=ADDR(udiv16)
-(1)    14E1 :                    ;;;   xppc   P1                 ; leaves P1=ADDR(udiv16)
-(1)    14E1 :                    ;;; @return P2[1:0] dividend % divisor
-(1)    14E1 :                    ;;; @local P2[0]   sign of quotient
-(1)    14E1 :                    ;;; @local P2[1]   bits
-(1)    14E1 :                    ;;; @local P2[3:2] dividend>>1, then H(remainder-divisor)
-(1)    14E1 :                    ;;; @local P2[5:4] divisor
-(1)    14E1 :                    ;;; @clobber E
-(1)    14E1 : =0                 DSIGN   =       0
-(1)    14E1 : =1                 DBITS   =       1
-(1)    14E1 : =2                 DHALF   =       2
-(1)    14E1 : =4                 DDVS    =       4
-(1)    14E1 : =6                 DREM    =       6               ; divisor, then remainder
-(1)    14E1 : =8                 DQUO    =       8               ; dividend, then quotient
-(1)    14E1 :                    udiv16_exit:
-(1)    14E1 : 3D                         xppc    P1              ; return, leaving P1=ADDR(udiv16)
-(1)    14E2 :                    udiv16:
-(1)    14E2 : C4 00                      ldi     0
-(1)    14E4 : CE FA                      st      @-DREM(P2)      ; P2[0]=sign
-(1)    14E6 : C2 06                      ld      DREM(P2)
-(1)    14E8 : CA 04                      st      DDVS(P2)
-(1)    14EA : C2 07                      ld      DREM+1(P2)
-(1)    14EC : CA 05                      st      DDVS+1(P2)
-(1)    14EE :                    udiv16_dividend:
-(1)    14EE : C2 08                      ld      DQUO(P2)
-(1)    14F0 : CA 06                      st      DREM(P2)
-(1)    14F2 : C2 09                      ld      DQUO+1(P2)
-(1)    14F4 : CA 07                      st      DREM+1(P2)      ; remainder=dividend
-(1)    14F6 :                    udiv16_divide:
-(1)    14F6 : C4 00                      ldi     0
-(1)    14F8 : CA 08                      st      DQUO(P2)
-(1)    14FA : CA 09                      st      DQUO+1(P2)      ; quotient=0
-(1)    14FC : C2 04                      ld      DDVS(P2)
-(1)    14FE : DA 05                      or      DDVS+1(P2)
-(1)    1500 : 98 45                      jz      udiv16_zero     ; divide by zero
-(1)    1502 : 03                         scl                     ; clear borrow
-(1)    1503 : C2 06                      ld      DREM(P2)
-(1)    1505 : FA 04                      cad     DDVS(P2)
-(1)    1507 : C2 07                      ld      DREM+1(P2)
-(1)    1509 : FA 05                      cad     DDVS+1(P2)
-(1)    150B : 06                         csa
-(1)    150C : 94 39                      jp      udiv16_zero     ; branch if dividend<divisor
-(1)    150E : 02                         ccl
-(1)    150F : C2 07                      ld      DREM+1(P2)
-(1)    1511 : 1F                         rrl
-(1)    1512 : CA 03                      st      DHALF+1(P2)
-(1)    1514 : C2 06                      ld      DREM(P2)
-(1)    1516 : 1F                         rrl
-(1)    1517 : CA 02                      st      DHALF(P2)       ; half=dividend>>1
-(1)    1519 : C4 01                      ldi     1
-(1)    151B : CA 01                      st      DBITS(P2)       ; bits=1
-(1)    151D :                    udiv16_prep:
-(1)    151D : 03                         scl                     ; clear borrow
-(1)    151E : C2 02                      ld      DHALF(P2)
-(1)    1520 : FA 04                      cad     DDVS(P2)
-(1)    1522 : C2 03                      ld      DHALF+1(P2)
-(1)    1524 : FA 05                      cad     DDVS+1(P2)
-(1)    1526 : 06                         csa
-(1)    1527 : 94 11                      jp      udiv16_prep_end ; until divisor>half
-(1)    1529 : 02                         ccl
-(1)    152A : C2 04                      ld      DDVS(P2)
-(1)    152C : F2 04                      add     DDVS(P2)
-(1)    152E : CA 04                      st      DDVS(P2)
-(1)    1530 : C2 05                      ld      DDVS+1(P2)
-(1)    1532 : F2 05                      add     DDVS+1(P2)
-(1)    1534 : CA 05                      st      DDVS+1(P2)      ; divisor<<=1
-(1)    1536 : AA 01                      ild     DBITS(P2)       ; ++bits
-(1)    1538 : 90 E3                      jmp     udiv16_prep
-(1)    153A :                    udiv16_prep_end:
-(1)    153A : C2 01                      ld      DBITS(P2)
-(1)    153C : 03                         scl                     ; clear borrow
-(1)    153D : FC 08                      cai     8               ; bits-8
-(1)    153F : 98 46                      jz      udiv16_lo       ; 8 bits into L(quotient)
-(1)    1541 : 94 06                      jp      udiv16_hi_bits  ; branch if bits>8
-(1)    1543 : 90 42                      jmp     udiv16_lo       ; bits into L(quotient)
-(1)    1545 :                    udiv16_return:
-(1)    1545 : 90 9A                      jmp     udiv16_exit
-(1)    1547 :                    udiv16_zero:
-(1)    1547 : 90 6F                      jmp     udiv16_pop
-(1)    1549 :                    udiv16_hi_bits:
-(1)    1549 : CA 01                      st      DBITS(P2)       ; bits-8 into H(quotient)
-(1)    154B : 90 0B                      jmp     udiv16_hi
-(1)    154D :                    udiv16_hi_loop:
-(1)    154D : 02                         ccl
-(1)    154E : C2 05                      ld      DDVS+1(P2)
-(1)    1550 : 1F                         rrl
-(1)    1551 : CA 05                      st      DDVS+1(P2)
-(1)    1553 : C2 04                      ld      DDVS(P2)
-(1)    1555 : 1F                         rrl
-(1)    1556 : CA 04                      st      DDVS(P2)        ; divisor>>=1
-(1)    1558 :                    udiv16_hi:
-(1)    1558 : 03                         scl                     ; clear borrow
-(1)    1559 : C2 06                      ld      DREM(P2)
-(1)    155B : FA 04                      cad     DDVS(P2)
-(1)    155D : 01                         xae                     ; E=L(remainder-divisor)
-(1)    155E : C2 07                      ld      DREM+1(P2)
-(1)    1560 : FA 05                      cad     DDVS+1(P2)
-(1)    1562 : CA 02                      st      DHALF(P2)       ; H(remainder-divisor)
-(1)    1564 : 06                         csa
-(1)    1565 : 94 07                      jp      udiv16_hi_next  ; branch if remainder<divisor
-(1)    1567 : C2 02                      ld      DHALF(P2)
-(1)    1569 : CA 07                      st      DREM+1(P2)
-(1)    156B : 40                         lde
-(1)    156C : CA 06                      st      DREM(P2)        ; remainder-=divisor
-(1)    156E :                    udiv16_hi_next:
+(1)    13FB : C2 02                      ld      MLO(P2)
+(1)    13FD : F2 02                      add     MLO(P2)
+(1)    13FF : CA 02                      st      MLO(P2)         ; L(multiplicand) <<= 1
+(1)    1401 : 90 E6                      jmp     mul16_hi_loop
+(1)    1403 :                    mul16_return:
+(1)    1403 : 90 AA                      jmp     mul16_exit
+(1)    1405 :                    ;;; L(multiplier) shifts in place, and E holds L(multiplicand)
+(1)    1405 :                    mul16_lo:
+(1)    1405 : C2 03                      ld      MPLIER(P2)
+(1)    1407 : 98 36                      jz      mul16_store     ; branch if L(multiplier)==0
+(1)    1409 : C2 05                      ld      MCAND(P2)
+(1)    140B : 01                         xae                     ; E=L(multiplicand)
+(1)    140C :                    mul16_lo_loop:
+(1)    140C : 02                         ccl
+(1)    140D : C2 03                      ld      MPLIER(P2)
+(1)    140F : 1F                         rrl
+(1)    1410 : CA 03                      st      MPLIER(P2)      ; L(multiplier) >>= 1
+(1)    1412 : 98 1B                      jz      mul16_lo_last   ; branch if this is the last bit, which is 1
+(1)    1414 : 06                         csa
+(1)    1415 : 94 0C                      jp      mul16_lo_next   ; branch if lsb(multiplier)==0
+(1)    1417 : 02                         ccl
+(1)    1418 : 40                         lde
+(1)    1419 : F2 00                      add     MPROD(P2)
+(1)    141B : CA 00                      st      MPROD(P2)
+(1)    141D : C2 06                      ld      MCAND+1(P2)
+(1)    141F : F2 01                      add     MPROD+1(P2)
+(1)    1421 : CA 01                      st      MPROD+1(P2)     ; product += multiplicand
+(1)    1423 :                    mul16_lo_next:
+(1)    1423 : 02                         ccl
+(1)    1424 : 40                         lde
+(1)    1425 : 70                         ade
+(1)    1426 : 01                         xae
+(1)    1427 : C2 06                      ld      MCAND+1(P2)
+(1)    1429 : F2 06                      add     MCAND+1(P2)
+(1)    142B : CA 06                      st      MCAND+1(P2)     ; multiplicand <<= 1
+(1)    142D : 90 DD                      jmp     mul16_lo_loop
+(1)    142F :                    mul16_lo_last:
+(1)    142F : 02                         ccl
+(1)    1430 : 40                         lde
+(1)    1431 : F2 00                      add     MPROD(P2)
+(1)    1433 : CA 05                      st      MCAND(P2)
+(1)    1435 : C2 06                      ld      MCAND+1(P2)
+(1)    1437 : F2 01                      add     MPROD+1(P2)
+(1)    1439 : CA 06                      st      MCAND+1(P2)     ; multiplicand=product+multiplicand
+(1)    143B : C6 03                      ld      @MPLIER(P2)     ; discard locals
+(1)    143D : 90 C4                      jmp     mul16_return
+(1)    143F :                    mul16_store:
+(1)    143F : C2 00                      ld      MPROD(P2)
+(1)    1441 : CA 05                      st      MCAND(P2)
+(1)    1443 : C2 01                      ld      MPROD+1(P2)
+(1)    1445 : CA 06                      st      MCAND+1(P2)     ; multiplicand=product
+(1)    1447 : C6 03                      ld      @MPLIER(P2)     ; discard locals
+(1)    1449 : 90 B8                      jmp     mul16_return
+(1)    144B :
+(1)    144B :                    ;;; Signed divide; dividend /= divisor ... remainder
+(1)    144B :                    ;;;   xppc   P1
+(1)    144B :                    ;;;   .dbyte &divisor
+(1)    144B :                    ;;;   .dbyte &dividend
+(1)    144B :                    ;;; @local P2[1:0] &divisor, divisor, remainder
+(1)    144B :                    ;;; @local P2[3:2] dividend, quotient
+(1)    144B :                    ;;; @local P2[5:4] &dividend
+(1)    144B :                    ;;; @local P2[7:6] return address
+(1)    144B :                    divsi2_exit:
+(1)    144B : C6 06                      ld      @6(P2)          ; discard locals
+(1)    144D : C6 01                      ld      @1(P2)
+(1)    144F : 31                         xpal    P1
+(1)    1450 : C6 01                      ld      @1(P2)
+(1)    1452 : 35                         xpah    P1
+(1)    1453 : 3D                         xppc    P1              ; return
+(1)    1454 :                    divsi2:
+(1)    1454 : C5 01                      ld      @1(P1)          ; point to &divisor
+(1)    1456 : C5 01                      ld      @1(P1)
+(1)    1458 : CE F8                      st      @-8(P2)         ; P2[1:0]=&divisor
+(1)    145A : C5 01                      ld      @1(P1)
+(1)    145C : CA 01                      st      1(P2)
+(1)    145E : C5 01                      ld      @1(P1)
+(1)    1460 : CA 04                      st      4(P2)           ; P2[5:4]=&dividend
+(1)    1462 : C1 00                      ld      0(P1)           ; P1=return address
+(1)    1464 : CA 05                      st      5(P2)
+(1)    1466 : C2 00                      ld      0(P2)
+(1)    1468 : 31                         xpal    P1
+(1)    1469 : CA 06                      st      6(P2)           ; P2[7:6]=return address
+(1)    146B : C2 01                      ld      1(P2)
+(1)    146D : 35                         xpah    P1              ; P1=&divisor
+(1)    146E : CA 07                      st      7(P2)
+(1)    1470 : C1 00                      ld      0(P1)
+(1)    1472 : CA 00                      st      0(P2)
+(1)    1474 : C1 01                      ld      1(P1)
+(1)    1476 : CA 01                      st      1(P2)           ; P2[1:0]=divisor
+(1)    1478 : C2 04                      ld      4(P2)
+(1)    147A : 31                         xpal    P1
+(1)    147B : C2 05                      ld      5(P2)
+(1)    147D : 35                         xpah    P1              ; P1=&dividend
+(1)    147E : C1 00                      ld      0(P1)
+(1)    1480 : CA 02                      st      2(P2)
+(1)    1482 : C1 01                      ld      1(P1)
+(1)    1484 : CA 03                      st      3(P2)           ; P2[3:2]=dividend
+(1)    1486 : C4 9C                      ldi     L(ADDR(div16))
+(1)    1488 : 31                         xpal    P1
+(1)    1489 : C4 14                      ldi     H(ADDR(div16))
+(1)    148B : 35                         xpah    P1
+(1)    148C : 3D                         xppc    P1              ; P2[3:2]/=P2[1:0]
+(1)    148D : C2 04                      ld      4(P2)
+(1)    148F : 31                         xpal    P1
+(1)    1490 : C2 05                      ld      5(P2)
+(1)    1492 : 35                         xpah    P1              ; P1=&dividend
+(1)    1493 : C2 02                      ld      2(P2)
+(1)    1495 : C9 00                      st      0(P1)
+(1)    1497 : C2 03                      ld      3(P2)
+(1)    1499 : C9 01                      st      1(P1)           ; store quotient
+(1)    149B : 90 AE                      jmp     divsi2_exit
+(1)    149D :
+(1)    149D :                    ;;; Signed divide on the stack; P2[3:2] /= P2[1:0] ... remainder
+(1)    149D :                    ;;;   P1=ADDR(div16)
+(1)    149D :                    ;;;   xppc   P1                 ; leaves P1=ADDR(udiv16)
+(1)    149D :                    ;;; @return P2[1:0] |dividend| % |divisor|
+(1)    149D :                    ;;; @clobber E
+(1)    149D :                    div16:
+(1)    149D : C2 01                      ld      1(P2)           ; H(divisor)
+(1)    149F : E2 03                      xor     3(P2)           ; H(dividend)
+(1)    14A1 : CE FA                      st      @-DREM(P2)      ; P2[0]=sign
+(1)    14A3 : C2 07                      ld      DREM+1(P2)
+(1)    14A5 : 94 0D                      jp      div16_dividend
+(1)    14A7 : 03                         scl                     ; clear borrow
+(1)    14A8 : C4 00                      ldi     0
+(1)    14AA : FA 06                      cad     DREM(P2)
+(1)    14AC : CA 06                      st      DREM(P2)
+(1)    14AE : C4 00                      ldi     0
+(1)    14B0 : FA 07                      cad     DREM+1(P2)
+(1)    14B2 : CA 07                      st      DREM+1(P2)      ; divisor=-divisor
+(1)    14B4 :                    div16_dividend:
+(1)    14B4 : C2 09                      ld      DQUO+1(P2)
+(1)    14B6 : 94 27                      jp      udiv16_divide
+(1)    14B8 : 03                         scl                     ; clear borrow
+(1)    14B9 : C4 00                      ldi     0
+(1)    14BB : FA 08                      cad     DQUO(P2)
+(1)    14BD : CA 08                      st      DQUO(P2)
+(1)    14BF : C4 00                      ldi     0
+(1)    14C1 : FA 09                      cad     DQUO+1(P2)
+(1)    14C3 : CA 09                      st      DQUO+1(P2)      ; dividend=-dividend
+(1)    14C5 : 90 18                      jmp     udiv16_divide
+(1)    14C7 :
+(1)    14C7 :                    ;;; Unsigned divide on the stack; P2[3:2] /= P2[1:0] ... remainder
+(1)    14C7 :                    ;;;   P1=ADDR(udiv16)
+(1)    14C7 :                    ;;;   xppc   P1                 ; leaves P1=ADDR(udiv16)
+(1)    14C7 :                    ;;; @return P2[1:0] dividend % divisor
+(1)    14C7 :                    ;;; @local P2[0]   sign of quotient
+(1)    14C7 :                    ;;; @local P2[1]   bits
+(1)    14C7 :                    ;;; @local P2[3:2] dividend>>1, then H(remainder-divisor)
+(1)    14C7 :                    ;;; @local P2[5:4] divisor
+(1)    14C7 :                    ;;; @clobber E
+(1)    14C7 : =0                 DSIGN   =       0
+(1)    14C7 : =1                 DBITS   =       1
+(1)    14C7 : =2                 DHALF   =       2
+(1)    14C7 : =4                 DDVS    =       4
+(1)    14C7 : =6                 DREM    =       6               ; divisor, then remainder
+(1)    14C7 : =8                 DQUO    =       8               ; dividend, then quotient
+(1)    14C7 :                    udiv16_end:
+(1)    14C7 : C2 00                      ld      DSIGN(P2)
+(1)    14C9 : 94 0D                      jp      udiv16_pop
+(1)    14CB : 03                         scl                     ; clear borrow
+(1)    14CC : C4 00                      ldi     0
+(1)    14CE : FA 08                      cad     DQUO(P2)
+(1)    14D0 : CA 08                      st      DQUO(P2)
+(1)    14D2 : C4 00                      ldi     0
+(1)    14D4 : FA 09                      cad     DQUO+1(P2)
+(1)    14D6 : CA 09                      st      DQUO+1(P2)      ; negate quotient
+(1)    14D8 :                    udiv16_pop:
+(1)    14D8 : C6 06                      ld      @DREM(P2)       ; discard locals
+(1)    14DA :                    udiv16_exit:
+(1)    14DA : 3D                         xppc    P1              ; return, leaving P1=ADDR(udiv16)
+(1)    14DB :                    udiv16:
+(1)    14DB : C4 00                      ldi     0
+(1)    14DD : CE FA                      st      @-DREM(P2)      ; P2[0]=sign
+(1)    14DF :                    udiv16_divide:
+(1)    14DF : C2 07                      ld      DREM+1(P2)
+(1)    14E1 : 9C 42                      jnz     udiv16_to_word  ; branch if divisor>255
+(1)    14E3 : C2 06                      ld      DREM(P2)
+(1)    14E5 : 98 04                      jz      udiv16_zero     ; divide by zero
+(1)    14E7 : 94 3E                      jp      udiv16_byte     ; branch if divisor<128
+(1)    14E9 : 90 3A                      jmp     udiv16_to_word
+(1)    14EB :                    udiv16_zero:
+(1)    14EB : C2 08                      ld      DQUO(P2)
+(1)    14ED : CA 06                      st      DREM(P2)
+(1)    14EF : C2 09                      ld      DQUO+1(P2)
+(1)    14F1 : CA 07                      st      DREM+1(P2)      ; remainder=dividend
+(1)    14F3 : C4 00                      ldi     0
+(1)    14F5 : CA 08                      st      DQUO(P2)
+(1)    14F7 : CA 09                      st      DQUO+1(P2)      ; quotient=0
+(1)    14F9 : 90 DD                      jmp     udiv16_pop
+(1)    14FB :
+(1)    14FB :                    ;;; A divisor below 128 keeps the remainder in E, and shifts the
+(1)    14FB :                    ;;; dividend out of L(quotient) as the quotient bits shift in.
+(1)    14FB :                    udiv16_byte_bits:
+(1)    14FB : CA 01                      st      DBITS(P2)
+(1)    14FD : 02                         ccl                     ; the bit shifted in first ends above the quotient
+(1)    14FE :                    udiv16_byte_loop:
+(1)    14FE : C2 08                      ld      DQUO(P2)
+(1)    1500 : F2 08                      add     DQUO(P2)
+(1)    1502 : CA 08                      st      DQUO(P2)        ; shift C into quotient, dividend bit into C
+(1)    1504 : 40                         lde
+(1)    1505 : 70                         ade
+(1)    1506 : 01                         xae                     ; E=remainder<<1|C
+(1)    1507 : 40                         lde
+(1)    1508 : 03                         scl                     ; clear borrow
+(1)    1509 : FA 06                      cad     DREM(P2)        ; C=1 if remainder>=divisor
+(1)    150B : 94 06                      jp      udiv16_byte_sub ; branch if remainder>=divisor
+(1)    150D : BA 01                      dld     DBITS(P2)       ; --bits
+(1)    150F : 9C ED                      jnz     udiv16_byte_loop
+(1)    1511 : 90 05                      jmp     udiv16_byte_end
+(1)    1513 :                    udiv16_byte_sub:
+(1)    1513 : 01                         xae                     ; remainder-=divisor
+(1)    1514 : BA 01                      dld     DBITS(P2)       ; --bits
+(1)    1516 : 9C E6                      jnz     udiv16_byte_loop ; while bits!=0
+(1)    1518 :                    udiv16_byte_end:
+(1)    1518 : C2 08                      ld      DQUO(P2)
+(1)    151A : F2 08                      add     DQUO(P2)
+(1)    151C : CA 08                      st      DQUO(P2)        ; shift the last C into quotient
+(1)    151E : 40                         lde
+(1)    151F : CA 06                      st      DREM(P2)        ; remainder=E, H(remainder) is already 0
+(1)    1521 : 90 A4                      jmp     udiv16_end
+(1)    1523 :                    udiv16_to_end:
+(1)    1523 : 90 A2                      jmp     udiv16_end
+(1)    1525 :                    udiv16_to_word:
+(1)    1525 : 90 70                      jmp     udiv16_word
+(1)    1527 :                    udiv16_byte:
+(1)    1527 : C2 09                      ld      DQUO+1(P2)
+(1)    1529 : 9C 4E                      jnz     udiv16_byte_hi  ; branch if dividend>255
+(1)    152B : 03                         scl                     ; clear borrow
+(1)    152C : C2 08                      ld      DQUO(P2)
+(1)    152E : FA 06                      cad     DREM(P2)
+(1)    1530 : 01                         xae                     ; E=dividend-divisor
+(1)    1531 : 06                         csa
+(1)    1532 : 94 B7                      jp      udiv16_zero     ; branch if dividend<divisor
+(1)    1534 : C2 08                      ld      DQUO(P2)
+(1)    1536 : 1C                         sr
+(1)    1537 : 03                         scl                     ; clear borrow
+(1)    1538 : FA 06                      cad     DREM(P2)
+(1)    153A : 94 09                      jp      udiv16_byte_lo4 ; branch if dividend>>1>=divisor
+(1)    153C : 40                         lde
+(1)    153D : CA 06                      st      DREM(P2)        ; remainder=dividend-divisor
+(1)    153F : C4 01                      ldi     1
+(1)    1541 : CA 08                      st      DQUO(P2)        ; quotient=1
+(1)    1543 : 90 DE                      jmp     udiv16_to_end
+(1)    1545 :                    udiv16_byte_lo4:
+(1)    1545 : C2 08                      ld      DQUO(P2)
+(1)    1547 : 1C                         sr
+(1)    1548 : 1C                         sr
+(1)    1549 : 1C                         sr
+(1)    154A : 1C                         sr
+(1)    154B : 01                         xae                     ; E=dividend>>4
+(1)    154C : 40                         lde
+(1)    154D : 03                         scl                     ; clear borrow
+(1)    154E : FA 06                      cad     DREM(P2)
+(1)    1550 : 94 12                      jp      udiv16_byte8    ; branch if dividend>>4>=divisor
+(1)    1552 :                    udiv16_byte4:
+(1)    1552 : C2 08                      ld      DQUO(P2)
+(1)    1554 : 1E                         rr
+(1)    1555 : 1E                         rr
+(1)    1556 : 1E                         rr
+(1)    1557 : 1E                         rr
+(1)    1558 : D4 F0                      ani     X'F0
+(1)    155A : CA 08                      st      DQUO(P2)        ; L(quotient)=dividend<<4
+(1)    155C : C4 00                      ldi     0
+(1)    155E : CA 09                      st      DQUO+1(P2)      ; H(quotient)=0
+(1)    1560 : C4 04                      ldi     4               ; quotient has 4 bits
+(1)    1562 : 90 97                      jmp     udiv16_byte_bits
+(1)    1564 :                    udiv16_byte8:
+(1)    1564 : 03                         scl                     ; clear borrow
+(1)    1565 : C2 09                      ld      DQUO+1(P2)
+(1)    1567 : FA 06                      cad     DREM(P2)
+(1)    1569 : 06                         csa
+(1)    156A : 94 02                      jp      udiv16_byte_lo  ; branch if H(dividend)<divisor
+(1)    156C : 90 B7                      jmp     udiv16_to_word  ; quotient has more than 8 bits
+(1)    156E :                    udiv16_byte_lo:
 (1)    156E : C2 09                      ld      DQUO+1(P2)
-(1)    1570 : F2 09                      add     DQUO+1(P2)
-(1)    1572 : CA 09                      st      DQUO+1(P2)      ; shift C into H(quotient)
-(1)    1574 : BA 01                      dld     DBITS(P2)       ; --bits
-(1)    1576 : 9C D5                      jnz     udiv16_hi_loop  ; while bits!=0
-(1)    1578 : C4 08                      ldi     8
-(1)    157A : CA 01                      st      DBITS(P2)       ; 8 bits into L(quotient)
-(1)    157C :                    udiv16_lo_loop:
-(1)    157C : 02                         ccl
-(1)    157D : C2 05                      ld      DDVS+1(P2)
-(1)    157F : 1F                         rrl
-(1)    1580 : CA 05                      st      DDVS+1(P2)
-(1)    1582 : C2 04                      ld      DDVS(P2)
-(1)    1584 : 1F                         rrl
-(1)    1585 : CA 04                      st      DDVS(P2)        ; divisor>>=1
-(1)    1587 :                    udiv16_lo:
-(1)    1587 : 03                         scl                     ; clear borrow
-(1)    1588 : C2 06                      ld      DREM(P2)
-(1)    158A : FA 04                      cad     DDVS(P2)
-(1)    158C : 01                         xae                     ; E=L(remainder-divisor)
-(1)    158D : C2 07                      ld      DREM+1(P2)
-(1)    158F : FA 05                      cad     DDVS+1(P2)
-(1)    1591 : CA 02                      st      DHALF(P2)       ; H(remainder-divisor)
-(1)    1593 : 06                         csa
-(1)    1594 : 94 07                      jp      udiv16_lo_next  ; branch if remainder<divisor
-(1)    1596 : C2 02                      ld      DHALF(P2)
-(1)    1598 : CA 07                      st      DREM+1(P2)
-(1)    159A : 40                         lde
-(1)    159B : CA 06                      st      DREM(P2)        ; remainder-=divisor
-(1)    159D :                    udiv16_lo_next:
-(1)    159D : C2 08                      ld      DQUO(P2)
-(1)    159F : F2 08                      add     DQUO(P2)
-(1)    15A1 : CA 08                      st      DQUO(P2)        ; shift C into L(quotient)
-(1)    15A3 : BA 01                      dld     DBITS(P2)       ; --bits
-(1)    15A5 : 9C D5                      jnz     udiv16_lo_loop  ; while bits!=0
-(1)    15A7 :                    udiv16_end:
-(1)    15A7 : C2 00                      ld      DSIGN(P2)
-(1)    15A9 : 94 0D                      jp      udiv16_pop
-(1)    15AB : 03                         scl                     ; clear borrow
-(1)    15AC : C4 00                      ldi     0
-(1)    15AE : FA 08                      cad     DQUO(P2)
-(1)    15B0 : CA 08                      st      DQUO(P2)
-(1)    15B2 : C4 00                      ldi     0
-(1)    15B4 : FA 09                      cad     DQUO+1(P2)
-(1)    15B6 : CA 09                      st      DQUO+1(P2)      ; negate quotient
-(1)    15B8 :                    udiv16_pop:
-(1)    15B8 : C6 06                      ld      @DREM(P2)       ; discard locals
-(1)    15BA : 90 89                      jmp     udiv16_return
-       15BC :
-       15BC :                            end
+(1)    1570 : 01                         xae                     ; E=H(dividend) as remainder
+(1)    1571 : C4 00                      ldi     0
+(1)    1573 : CA 09                      st      DQUO+1(P2)      ; H(quotient)=0
+(1)    1575 : C4 08                      ldi     8               ; quotient has 8 bits
+(1)    1577 : 90 82                      jmp     udiv16_byte_bits
+(1)    1579 :                    udiv16_byte_hi:
+(1)    1579 : D4 F0                      ani     X'F0
+(1)    157B : 9C E7                      jnz     udiv16_byte8    ; branch if dividend>4095
+(1)    157D : C2 09                      ld      DQUO+1(P2)
+(1)    157F : 1E                         rr
+(1)    1580 : 1E                         rr
+(1)    1581 : 1E                         rr
+(1)    1582 : 1E                         rr
+(1)    1583 : 01                         xae                     ; E=H(dividend)<<4
+(1)    1584 : C2 08                      ld      DQUO(P2)
+(1)    1586 : 1C                         sr
+(1)    1587 : 1C                         sr
+(1)    1588 : 1C                         sr
+(1)    1589 : 1C                         sr
+(1)    158A : 58                         ore
+(1)    158B : 01                         xae                     ; E=dividend>>4
+(1)    158C : 40                         lde
+(1)    158D : 03                         scl                     ; clear borrow
+(1)    158E : FA 06                      cad     DREM(P2)
+(1)    1590 : 06                         csa
+(1)    1591 : 94 BF                      jp      udiv16_byte4    ; branch if dividend>>4<divisor
+(1)    1593 : 90 CF                      jmp     udiv16_byte8
+(1)    1595 :                    udiv16_word_to_end:
+(1)    1595 : 90 8C                      jmp     udiv16_to_end
+(1)    1597 :
+(1)    1597 :                    udiv16_word:
+(1)    1597 : C2 06                      ld      DREM(P2)
+(1)    1599 : CA 04                      st      DDVS(P2)
+(1)    159B : C2 07                      ld      DREM+1(P2)
+(1)    159D : CA 05                      st      DDVS+1(P2)      ; divisor
+(1)    159F : C2 08                      ld      DQUO(P2)
+(1)    15A1 : CA 06                      st      DREM(P2)
+(1)    15A3 : C2 09                      ld      DQUO+1(P2)
+(1)    15A5 : CA 07                      st      DREM+1(P2)      ; remainder=dividend
+(1)    15A7 : C4 00                      ldi     0
+(1)    15A9 : CA 08                      st      DQUO(P2)
+(1)    15AB : CA 09                      st      DQUO+1(P2)      ; quotient=0
+(1)    15AD : 03                         scl                     ; clear borrow
+(1)    15AE : C2 06                      ld      DREM(P2)
+(1)    15B0 : FA 04                      cad     DDVS(P2)
+(1)    15B2 : C2 07                      ld      DREM+1(P2)
+(1)    15B4 : FA 05                      cad     DDVS+1(P2)
+(1)    15B6 : 06                         csa
+(1)    15B7 : 94 37                      jp      udiv16_word_end ; branch if dividend<divisor
+(1)    15B9 : 02                         ccl
+(1)    15BA : C2 07                      ld      DREM+1(P2)
+(1)    15BC : 1F                         rrl
+(1)    15BD : CA 03                      st      DHALF+1(P2)
+(1)    15BF : C2 06                      ld      DREM(P2)
+(1)    15C1 : 1F                         rrl
+(1)    15C2 : CA 02                      st      DHALF(P2)       ; half=dividend>>1
+(1)    15C4 : C4 01                      ldi     1
+(1)    15C6 : CA 01                      st      DBITS(P2)       ; bits=1
+(1)    15C8 :                    udiv16_prep:
+(1)    15C8 : 03                         scl                     ; clear borrow
+(1)    15C9 : C2 02                      ld      DHALF(P2)
+(1)    15CB : FA 04                      cad     DDVS(P2)
+(1)    15CD : C2 03                      ld      DHALF+1(P2)
+(1)    15CF : FA 05                      cad     DDVS+1(P2)
+(1)    15D1 : 06                         csa
+(1)    15D2 : 94 11                      jp      udiv16_prep_end ; until divisor>half
+(1)    15D4 : 02                         ccl
+(1)    15D5 : C2 04                      ld      DDVS(P2)
+(1)    15D7 : F2 04                      add     DDVS(P2)
+(1)    15D9 : CA 04                      st      DDVS(P2)
+(1)    15DB : C2 05                      ld      DDVS+1(P2)
+(1)    15DD : F2 05                      add     DDVS+1(P2)
+(1)    15DF : CA 05                      st      DDVS+1(P2)      ; divisor<<=1
+(1)    15E1 : AA 01                      ild     DBITS(P2)       ; ++bits
+(1)    15E3 : 90 E3                      jmp     udiv16_prep
+(1)    15E5 :                    udiv16_prep_end:
+(1)    15E5 : C2 01                      ld      DBITS(P2)
+(1)    15E7 : 03                         scl                     ; clear borrow
+(1)    15E8 : FC 08                      cai     8               ; bits-8
+(1)    15EA : 98 44                      jz      udiv16_lo       ; 8 bits into L(quotient)
+(1)    15EC : 94 04                      jp      udiv16_hi_bits  ; branch if bits>8
+(1)    15EE : 90 40                      jmp     udiv16_lo       ; bits into L(quotient)
+(1)    15F0 :                    udiv16_word_end:
+(1)    15F0 : 90 A3                      jmp     udiv16_word_to_end
+(1)    15F2 :                    udiv16_hi_bits:
+(1)    15F2 : CA 01                      st      DBITS(P2)       ; bits-8 into H(quotient)
+(1)    15F4 : 90 0B                      jmp     udiv16_hi
+(1)    15F6 :                    udiv16_hi_loop:
+(1)    15F6 : 02                         ccl
+(1)    15F7 : C2 05                      ld      DDVS+1(P2)
+(1)    15F9 : 1F                         rrl
+(1)    15FA : CA 05                      st      DDVS+1(P2)
+(1)    15FC : C2 04                      ld      DDVS(P2)
+(1)    15FE : 1F                         rrl
+(1)    15FF : CA 04                      st      DDVS(P2)        ; divisor>>=1
+(1)    1601 :                    udiv16_hi:
+(1)    1601 : 03                         scl                     ; clear borrow
+(1)    1602 : C2 06                      ld      DREM(P2)
+(1)    1604 : FA 04                      cad     DDVS(P2)
+(1)    1606 : 01                         xae                     ; E=L(remainder-divisor)
+(1)    1607 : C2 07                      ld      DREM+1(P2)
+(1)    1609 : FA 05                      cad     DDVS+1(P2)
+(1)    160B : CA 02                      st      DHALF(P2)       ; H(remainder-divisor)
+(1)    160D : 06                         csa
+(1)    160E : 94 07                      jp      udiv16_hi_next  ; branch if remainder<divisor
+(1)    1610 : C2 02                      ld      DHALF(P2)
+(1)    1612 : CA 07                      st      DREM+1(P2)
+(1)    1614 : 40                         lde
+(1)    1615 : CA 06                      st      DREM(P2)        ; remainder-=divisor
+(1)    1617 :                    udiv16_hi_next:
+(1)    1617 : C2 09                      ld      DQUO+1(P2)
+(1)    1619 : F2 09                      add     DQUO+1(P2)
+(1)    161B : CA 09                      st      DQUO+1(P2)      ; shift C into H(quotient)
+(1)    161D : BA 01                      dld     DBITS(P2)       ; --bits
+(1)    161F : 9C D5                      jnz     udiv16_hi_loop  ; while bits!=0
+(1)    1621 : C4 08                      ldi     8
+(1)    1623 : CA 01                      st      DBITS(P2)       ; 8 bits into L(quotient)
+(1)    1625 :                    udiv16_lo_loop:
+(1)    1625 : 02                         ccl
+(1)    1626 : C2 05                      ld      DDVS+1(P2)
+(1)    1628 : 1F                         rrl
+(1)    1629 : CA 05                      st      DDVS+1(P2)
+(1)    162B : C2 04                      ld      DDVS(P2)
+(1)    162D : 1F                         rrl
+(1)    162E : CA 04                      st      DDVS(P2)        ; divisor>>=1
+(1)    1630 :                    udiv16_lo:
+(1)    1630 : 03                         scl                     ; clear borrow
+(1)    1631 : C2 06                      ld      DREM(P2)
+(1)    1633 : FA 04                      cad     DDVS(P2)
+(1)    1635 : 01                         xae                     ; E=L(remainder-divisor)
+(1)    1636 : C2 07                      ld      DREM+1(P2)
+(1)    1638 : FA 05                      cad     DDVS+1(P2)
+(1)    163A : CA 02                      st      DHALF(P2)       ; H(remainder-divisor)
+(1)    163C : 06                         csa
+(1)    163D : 94 07                      jp      udiv16_lo_next  ; branch if remainder<divisor
+(1)    163F : C2 02                      ld      DHALF(P2)
+(1)    1641 : CA 07                      st      DREM+1(P2)
+(1)    1643 : 40                         lde
+(1)    1644 : CA 06                      st      DREM(P2)        ; remainder-=divisor
+(1)    1646 :                    udiv16_lo_next:
+(1)    1646 : C2 08                      ld      DQUO(P2)
+(1)    1648 : F2 08                      add     DQUO(P2)
+(1)    164A : CA 08                      st      DQUO(P2)        ; shift C into L(quotient)
+(1)    164C : BA 01                      dld     DBITS(P2)       ; --bits
+(1)    164E : 9C D5                      jnz     udiv16_lo_loop  ; while bits!=0
+(1)    1650 : 90 9E                      jmp     udiv16_word_end
+       1652 :
+       1652 :                            end
