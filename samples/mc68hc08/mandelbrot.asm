@@ -22,13 +22,16 @@ vC:     rmb     2
 vD:     rmb     2
 vA:     rmb     2
 vB:     rmb     2
-vS:     rmb     2
-vP:     rmb     2
-vQ:     rmb     2
 vT:     rmb     2
 vY:     rmb     1
 vX:     rmb     1
 vI:     rmb     1
+;;; Magnitudes for MUL and DIV; signs stay in vA and vB
+absA:   rmb     1               ; |A|
+absB:   rmb     1               ; |B|
+absD:   rmb     1               ; |D|
+absQ:   rmb     1               ; |Q|=|B/F|
+absS:   rmb     1               ; |S|=|B-Q*F|
 
 ;;; Working space for arith.inc
 R0:

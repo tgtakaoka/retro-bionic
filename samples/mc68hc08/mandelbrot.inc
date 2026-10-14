@@ -29,21 +29,6 @@ mandelbrot:
         lda     #-12
         sta     vY              ; Y=-12
 loop_y:
-        lda     #-49
-        sta     vX              ; X=-49
-loop_x:
-        lda     vX
-        jsr     sex_A
-        sthx    R1              ; R1=X
-        ldhx    #229
-        sthx    R2              ; R2=229
-        jsr     mul16           ; R0=X*229
-        sthx    R1
-        ldhx    #100
-        sthx    R2              ; R2=100
-        jsr     div16           ; R0=X*229/100
-        sthx    vC              ; C=X*229/100
-        sthx    vA              ; A=C
         lda     vY
         jsr     sex_A
         sthx    R1              ; R1=Y
@@ -54,8 +39,44 @@ loop_x:
         ldhx    #100
         sthx    R2              ; R2=100
         jsr     div16           ; R0=Y*416/100
-        sthx    vD              ; D=Y*416/100
+        sthx    vD              ; D=Y*416/100, constant along the row
+        lda     vD+1
+        brclr   7,vD,loop_y_abs ; branch if D >= 0
+        nega                    ; |D|<=49 fits in a byte
+loop_y_abs:
+        sta     absD            ; |D|
+        lda     #-49
+        sta     vX              ; X=-49
+loop_x:
+        lda     vX
+        bpl     loop_x_abs
+        nega
+loop_x_abs:
+        ldx     #229
+        mul                     ; X:A=|X|*229
+        pshx
+        pulh                    ; H:A=|X|*229
+        ldx     #100
+        div                     ; A=|X*229/100|
+        sta     absA            ; |A|=|C|
+        brclr   7,vX,loop_x_C   ; branch if X >= 0
+        nega                    ; C takes X's sign
+loop_x_C:
+        tsta
+        jsr     sex_A
+        sthx    vC              ; C=X*229/100
+        sthx    vA              ; A=C
+        ldhx    vD
         sthx    vB              ; B=D
+        lda     absD
+        sta     absB            ; |B|=|D|
+        clrh
+        ldx     #F
+        div                     ; A=|B/F|, H=|B|-|B/F|*F
+        sta     absQ            ; |Q|=|B/F|
+        pshh
+        pula
+        sta     absS            ; |S|=|B-Q*F|
         clr     vI              ; I=0
 
         ;; lda     vY
@@ -74,106 +95,134 @@ loop_x:
         ;; jsr     print
         ;; jsr     newline
 
+;;; The loop works on magnitudes so that MUL and DIV need no sign
+;;; handling. It starts from |C|<=112 and |D|<=49 and only goes on while
+;;; P*P+Q*Q<=4, so |P|<=2, |Q|<=2 and |A|,|B|<3*F fit in a byte. Q and
+;;; S take B's sign, so A*Q and A*S/F share the sign of A*B. Q and S
+;;; come from the previous step's B/F.
 loop_i:
         lda     COP_RESET
         sta     COP_RESET
-        ldhx    vB
-        sthx    R1              ; R1=B
-        ldhx    #F
-        sthx    R2              ; R2=F
-        jsr     div16           ; R0=B/F
-        sthx    vQ              ; Q=B/F
-        sthx    R1              ; R1=Q
-        ldhx    #F
-        sthx    R2              ; R2=F
-        jsr     mul16           ; R0=Q*F
-        sthx    R2              ; R2=Q*F
-        ldhx    vB
-        sthx    R1              ; R1=B
-        jsr     sub16           ; R0=B-Q*F
-        sthx    vS              ; S=B-Q*F
+        lda     absA
+        ldx     absS
+        mul                     ; X:A=|A*S|
+        pshx
+        pulh                    ; H:A=|A*S|
+        ldx     #F
+        div                     ; A=|A*S/F|
+        sta     R0L
+        lda     absA
+        ldx     absQ
+        mul                     ; X:A=|A*Q|
+        add     R0L
+        sta     R0L
+        txa
+        adc     #0              ; A:R0L=|A*Q+A*S/F|
+        lsl     R0L
+        rola
+        sta     R0H             ; R0=|2*(A*Q+A*S/F)|
+        lda     vA
+        eor     vB
+        bmi     loop_i_B_neg    ; branch if A*B < 0
+        lda     vD+1
+        add     R0L
+        sta     vB+1
+        lda     vD
+        adc     R0H
+        bra     loop_i_B_end
+loop_i_B_neg:
+        lda     vD+1
+        sub     R0L
+        sta     vB+1
+        lda     vD
+        sbc     R0H
+loop_i_B_end:
+        sta     vB              ; B=2*(A*Q+A*S/F)+D
+        lda     absB
+        tax
+        mul
+        sta     R1L
+        stx     R1H             ; R1=B*B
+        lda     absA
+        tax
+        mul                     ; X:A=A*A
+        sub     R1L
+        sta     R0L
+        txa
+        sbc     R1H             ; A:R0L=A*A-B*B
+        bcc     loop_i_A_div    ; branch if A*A >= B*B
+        nega
+        neg     R0L
+        sbc     #0              ; A:R0L=B*B-A*A
+loop_i_A_div:
+        clrh
+        ldx     #F
+        div                     ; A=high byte of quotient, H=remainder
+        sta     R0H
+        lda     R0L
+        div                     ; A=low byte of quotient
+        sta     R0L             ; R0=|(A*A-B*B)/F|
+        lda     absA
+        cmp     absB
+        blo     loop_i_A_neg    ; branch if A*A < B*B
+        lda     vC+1
+        add     R0L
+        sta     vA+1
+        lda     vC
+        adc     R0H
+        bra     loop_i_A_end
+loop_i_A_neg:
+        lda     vC+1
+        sub     R0L
+        sta     vA+1
+        lda     vC
+        sbc     R0H
+loop_i_A_end:
+        sta     vA              ; A=(A*A-B*B)/F+C
         ldhx    vA
-        sthx    R1              ; R1=A
-        sthx    R2              ; R2=A
-        jsr     mul16           ; R0=A*A
-        pshx
-        pshh                    ; push A*A
+        bpl     loop_i_P
+        clra
+        sub     vA+1
+        tax
+        clra
+        sbc     vA
+        psha
+        pulh                    ; H:X=-A
+loop_i_P:
+        txa                     ; H:A=|A|
+        sta     absA
+        ldx     #F
+        div                     ; A=|P|=|A/F|
+        tax
+        mul
+        sta     vT+1
+        stx     vT              ; T=P*P
         ldhx    vB
-        sthx    R1              ; R1=B
-        sthx    R2              ; R2=B
-        jsr     mul16           ; R0=B*B
-        sthx    R2              ; R2=B*B
-        pulh
-        pulx
-        sthx    R1              ; R1=A*A
-        jsr     sub16           ; R0=A*A-B*B
-        sthx    R1              ; R1=A*A-B*B
-        ldhx    #F
-        sthx    R2              ; R2=F
-        jsr     div16           ; R0=(A*A-B*B)/F
-        sthx    R1              ; R1=(A*A-B*B)/F
-        ldhx    vC
-        sthx    R2              ; R2=C
-        jsr     add16           ; R0=(A*A-B*B)/F+C
-        pshx
-        pshh                    ; push (A*A-B*B)/F+C
-        ldhx    vA
-        sthx    R1              ; R1=A
-        ldhx    vQ
-        sthx    R2              ; R2=Q
-        jsr     mul16           ; R0=A*Q
-        pshx
-        pshh                    ; push A*Q
-        ldhx    vA
-        sthx    R1              ; R1=A
-        ldhx    vS
-        sthx    R2              ; R2=S
-        jsr     mul16           ; R0=A*S
-        sthx    R1              ; R1=A*S
-        ldhx    #F
-        sthx    R2              ; R2=F
-        jsr     div16           ; R0=A*S/F
-        sthx    R2              ; R2=A*S/F
-        pulh
-        pulx
-        sthx    R1              ; R1=A*Q
-        jsr     add16           ; R0=A*Q+A*S/F
-        sthx    R1              ; R1=A*Q+A*S/F
-        sthx    R2              ; R2=A*Q+A*S/F
-        jsr     add16           ; R0=2*(A*Q+A*S/F)
-        sthx    R1              ; R1=2*(A*Q+A*S/F)
-        ldhx    vD
-        sthx    R2              ; R2=D
-        jsr     add16           ; R0=2*(A*Q+A*S/F)+D
-        sthx    vB              ; B=2*(A*Q+A*S/F)+D
-        pulh
-        pulx
-        sthx    vA              ; A=(A*A-B*B)/F+C
-        sthx    R1              ; R1=A
-        ldhx    #F
-        sthx    R2              ; R2=F
-        jsr     div16           ; R0=A/F
-        sthx    vP              ; P=A/F
-        sthx    R1              ; R1=P
-        sthx    R2              ; R2=P
-        jsr     mul16           ; R0=P*P
-        pshx
-        pshh                    ; push P*P
-        ldhx    vB
-        sthx    R1              ; R1=B
-        ldhx    #F
-        sthx    R2              ; R2=F
-        jsr     div16           ; R0=B/F
-        sthx    vQ              ; Q=B/F
-        sthx    R1              ; R1=Q
-        sthx    R2              ; R2=Q
-        jsr     mul16           ; R0=Q*Q
-        sthx    R2              ; R2=Q*Q
-        pulh
-        pulx
-        sthx    R1              ; R1=P*P
-        jsr     add16           ; R0=P*P+Q*Q
-        sthx    vT              ; T=P*P+Q*Q
+        bpl     loop_i_Q
+        clra
+        sub     vB+1
+        tax
+        clra
+        sbc     vB
+        psha
+        pulh                    ; H:X=-B
+loop_i_Q:
+        txa                     ; H:A=|B|
+        sta     absB
+        ldx     #F
+        div                     ; A=|B/F|, H=|B|-|B/F|*F
+        sta     absQ            ; |Q|=|B/F|
+        pshh
+        pula
+        sta     absS            ; |S|=|B-Q*F| for the next step
+        lda     absQ
+        tax
+        mul                     ; X:A=Q*Q
+        add     vT+1
+        sta     vT+1
+        txa
+        adc     vT
+        sta     vT              ; T=P*P+Q*Q
 
         ;; jsr     putspace
         ;; lda     vI              ; I
@@ -185,12 +234,6 @@ loop_i:
         ;; jsr     print
         ;; ldhx    vB              ; B
         ;; lda     #'B'
-        ;; jsr     print
-        ;; ldhx    vP              ; P
-        ;; lda     #'P'
-        ;; jsr     print
-        ;; ldhx    vQ              ; Q
-        ;; lda     #'Q'
         ;; jsr     print
         ;; ldhx    vT              ; T
         ;; lda     #'T'
