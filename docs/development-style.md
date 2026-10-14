@@ -1450,6 +1450,9 @@ falls again. **[hw]**
   the instruction boundary and with it halts and breakpoints.
 - `MUL` and `DIV` re-read the next opcode's address: a step's `SWI` must go
   into every read of it.
+- An interrupt's stacking can fall where the cycle table expects the last
+  prefetch, the slot a halt injects its `SWI` at: no halt there on a write.
+  **[hw]**
 - The HC08's COP watchdog is a mask option and cannot be disabled; its reset
   also turns off the internal read visibility the debugger needs, so the run
   loop sets it up again at the reset's vector read.

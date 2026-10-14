@@ -29,6 +29,8 @@ struct PinsMc6805 : Pins {
             bool discard = false);
     uint16_t captureWrites(
             uint8_t *buf, uint_fast8_t len, bool discard = false);
+    // Whether the next bus cycle reads the SWI vector
+    bool swiVector() const;
     Signals *inject(uint8_t data);
 
 protected:

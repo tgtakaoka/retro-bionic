@@ -73,6 +73,10 @@ uint16_t PinsMc6805::captureWrites(
     return addr;
 }
 
+bool PinsMc6805::swiVector() const {
+    return currCycle()->addr == mems<MemsMc6805>()->vecSwi();
+}
+
 bool PinsMc6805::checkBreakPoint(Signals *s) {
     auto r = regs<RegsMc6805>();
     if (r->captureContext(s->prev(5))) {
