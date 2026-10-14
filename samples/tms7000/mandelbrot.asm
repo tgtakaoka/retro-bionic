@@ -32,15 +32,9 @@ vD:     bss     1
 vA:     bss     1
         bss     1
 vB:     bss     1
-        bss     1
-vP:     bss     1
-        bss     1
-vQ:     bss     1
-        bss     1
-vS:     bss     1
-vTH:    bss     1
-vTL:    bss     1
-vT:     equ     vTL
+aA:     bss     1               ; |A|, below 3*F at the top of loop_i
+aB:     bss     1               ; |B|, below 3*F at the top of loop_i
+aD:     bss     1               ; |D|
 cF:     equ     50
 vY:     bss     1
 vX:     bss     1
