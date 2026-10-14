@@ -94,8 +94,12 @@ struct PinsI8051 final : Pins {
             uint8_t *buf, uint8_t max);
 
     bool isCmos() const;
+    // Stops at an opcode fetch the register save can start from
+    void park();
 
 private:
+    // The fetch park() left prepared, for execute() to start from
+    Signals *_parked = nullptr;
     // An idle-mode reset in progress, whether it found no bus cycle, and
     // whether one ended the run.
     bool _idleReset = false;

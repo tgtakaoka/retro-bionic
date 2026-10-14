@@ -411,7 +411,8 @@ uint8_t PinsI8051::execute(const uint8_t *inst, uint8_t len, uint16_t *addr,
             cli.println("?halt: no writes");
             break;
         }
-        auto s = prepareCycle();
+        auto s = _parked ? _parked : prepareCycle();
+        _parked = nullptr;
         if (inj == 0 && addr)
             *addr = s->addr;
         if (inj < len)
@@ -427,6 +428,52 @@ uint8_t PinsI8051::execute(const uint8_t *inst, uint8_t len, uint16_t *addr,
         }
     }
     return cap;
+}
+
+namespace {
+// SJMP $ runs without an interrupt this many times before a save: one
+// pending at the halt is taken at the first boundary, and one recognized a
+// boundary late at the second.
+constexpr auto park_jumps = 2;
+// Bus cycles for the SJMPs, or an interrupt's discarded fetches, to reach
+// the next fetch; far fewer are needed.
+constexpr auto park_cycles = 32;
+
+bool isVector(uint16_t addr) {
+    return addr < 0x30 && (addr & 7) == 3;
+}
+}  // namespace
+
+// The interrupt LCALL pushes to internal RAM, so the bus shows only fetches
+// it discards and then one at its vector. SJMP $ is fed to fetches at the
+// halt address until it has run park_jumps times, or a vector fetch shows an
+// interrupt taken, which blocks its level: the save then starts at the
+// handler, with the program's PC stacked. Only the halt address and the next
+// get SJMP's bytes, so a vector fetch is never fed one.
+void PinsI8051::park() {
+    auto s = prepareCycle();
+    const auto here = s->addr;
+    auto jumps = 0;
+    auto fed = false;  // SJMP's offset went in since the last fetch here
+    for (auto n = 0; n < park_cycles; ++n) {
+        if (s->fetch()) {
+            if (s->addr == here) {
+                if (fed && ++jumps == park_jumps)
+                    break;
+                fed = false;
+                s->inject(InstI8051::SJMP);
+            } else if (s->addr == here + 1U) {
+                s->inject(InstI8051::SJMP_HERE);
+                fed = true;
+            } else if (isVector(s->addr) && s->addr - here > 3U) {
+                // not one of SJMP's own dummy fetches
+                break;
+            }
+        }
+        completeCycle(s);
+        s = prepareCycle();
+    }
+    _parked = s;
 }
 
 void PinsI8051::idle() {

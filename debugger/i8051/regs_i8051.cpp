@@ -39,10 +39,14 @@ const uint8_t RegsI8051::SAVE_A[] = {
 };
 
 void RegsI8051::save() {
+    // An interrupt's LCALL at the first fetch would feed it to its handler
+    _pins->park();
     _pins->captureWrites(SAVE_A, sizeof(SAVE_A), &_pc, &_a, sizeof(_a));
     // PSW first: its parity flag follows A, which every later read
     // overwrites.
     _psw = raw_read_internal(PSW);
+    _ie = raw_read_internal(IE);
+    raw_write_internal(IE, _ie & ~IE_EA);
     _b = raw_read_internal(B);
     _sp = raw_read_internal(SP);
     _dptr = uint16(raw_read_internal(DPH), raw_read_internal(DPL));
@@ -75,6 +79,8 @@ void RegsI8051::restore() {
     write_internal(PSW, _psw);
     write_internal(B, _b);
     write_internal(ACC, _a);
+    // A write to IE holds off interrupts for one more instruction
+    raw_write_internal(IE, _ie);
     const uint8_t LJMP[] = {
             0x02, hi(_pc), lo(_pc), 0,  // LJMP _pc
     };
@@ -97,12 +103,22 @@ uint8_t RegsI8051::raw_read_internal(uint8_t addr) const {
 }
 
 uint8_t RegsI8051::read_internal(uint8_t addr) const {
+    if (addr == IE)
+        return _ie;
     const auto data = raw_read_internal(addr);
     write_internal(ACC, _a);  // restore A
     return data;
 }
 
 void RegsI8051::write_internal(uint8_t addr, uint8_t data) const {
+    if (addr == IE) {
+        _ie = data;
+        data &= ~IE_EA;
+    }
+    raw_write_internal(addr, data);
+}
+
+void RegsI8051::raw_write_internal(uint8_t addr, uint8_t data) const {
     if (addr == ACC) {
         const uint8_t WRITE_A[] = {
                 0x74, data,  // MOV A, #data
