@@ -13,6 +13,11 @@ struct InstTms3201X {
     static constexpr uint16_t B = 0xF900;
     /** move P to ACC */
     static constexpr uint16_t PAC = 0x7F8E;
+    /** disable/enable interrupts */
+    static constexpr uint16_t DINT = 0x7F81;
+    static constexpr uint16_t EINT = 0x7F82;
+    /** ST's interrupt mode bit, set when disabled */
+    static constexpr uint16_t ST_INTM = 0x2000;
 
     /** input from IO */
     static constexpr uint16_t IN(uint_fast8_t pa, uint_fast8_t dma) {
