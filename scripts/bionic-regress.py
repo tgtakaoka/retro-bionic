@@ -807,6 +807,11 @@ def case_gountil(board, n=3, regress=None):
         if not _stopped_at(pc, addr, how):
             notes.append('%d:stopped at %s' % (i, pc))
             break
+        # A go-until whose step off the start address fails or never
+        # advances returns before the run, so prints no elapsed time.
+        if 'Elapsed' not in txt:
+            notes.append('%d:did not run' % i)
+            break
         left = board.list_breaks()
         if addr.lstrip('0') in left.replace(' ', '').upper():
             notes.append('%d:temp breakpoint left behind' % i)
