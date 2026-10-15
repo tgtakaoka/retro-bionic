@@ -467,6 +467,8 @@ bool PinsI8096::rawStep(bool show) {
     const uint8_t all = (1 << len) - 1;
     uint8_t fetched = 0;
     for (uint32_t i = 0; i < cycles; i++) {
+        if (i)
+            restoreExtint();
         auto s = prepareCycle();
         if (!s->read()) {
             completeCycle(s);
@@ -560,6 +562,15 @@ bool PinsI8096::haltCycle(Signals *s) {
     if (!s->read() || s->addr != haltEntry()) {
         if (++_halt.cycles < 2000)
             return false;
+        // A masked EXTINT can keep the halt out for long; ask again before
+        // giving up on the CPU.
+        if (++_halt.tries < 8) {
+            negateInt(INTR_NMI);
+            assertInt(INTR_NMI);
+            _halt.cycles = 1;
+            return false;
+        }
+        cli.println("?halt not taken, reset");
         resetPins();
         return true;
     }
@@ -632,6 +643,7 @@ Signals *PinsI8096::loop() {
                 continue;
         }
         completeCycle(s);
+        restoreExtint();
         _devs->loop();
         if ((n >= MAX_CYCLES || haltSwitch()) &&
                 (_halt.cycles == 0 || carried)) {
@@ -667,6 +679,7 @@ Signals *PinsI8096::loop() {
                 continue;
         }
         completeCycle(s);
+        restoreExtint();
         _devs->loop();
         if (haltSwitch() && (_halt.cycles == 0 || carried)) {
             requestHalt();
@@ -707,7 +720,6 @@ void PinsI8096::setBreakInst(uint32_t addr) const {
     _mems->put_prog(addr, InstI8096::TRAP);
 }
 
-// The board without NMI raises EXTINT for INTR_NMI too.
 void PinsI8096::assertInt(uint8_t) {
     digitalWriteFast(PIN_EXTINT, HIGH);
 }

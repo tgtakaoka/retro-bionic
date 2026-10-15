@@ -124,6 +124,10 @@ protected:
     // Where the halt's INTR_NMI enters: the vector it reads, or the
     // address an 8096's NMI calls. EXTINT stands in on a board without NMI.
     virtual uint16_t haltEntry() const { return InstI8096::VEC_EXTINT; }
+    // Raises EXTINT again after the halt dropped it to give the CPU an
+    // edge; called after each bus cycle, as the halt's entry may leave it
+    // low until the next run.
+    virtual void restoreExtint() {}
 
 private:
     const CpuType _cpu;
@@ -141,6 +145,7 @@ private:
     // runs before the save. It waits across a break in that handler.
     struct Halt {
         int16_t cycles = 0;
+        uint8_t tries = 0;
         bool waiting = false;
         uint16_t park;
         uint16_t sp;
