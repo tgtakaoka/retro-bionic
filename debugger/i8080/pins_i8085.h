@@ -98,12 +98,14 @@ private:
     Signals *resumeCycle(uint16_t pc = 0) const;
     Signals *completeCycle(Signals *s) const;
     Signals *inject(uint8_t data) const;
-    Signals *loop() const;
-    bool rawStep() const;
-    bool suspend(Signals *s) const;
-    // The PC and SP the TRAP that stopped the CPU stacked
-    mutable uint16_t _trapPc;
-    mutable uint16_t _trapSp;
+    // The PC a TRAP stacked and the SP it pushed from; sp is 0 without one
+    struct Trap {
+        uint16_t pc;
+        uint16_t sp;
+    };
+    Signals *loop(Trap &trap) const;
+    bool rawStep(Trap &trap) const;
+    bool suspend(Signals *s, Trap &trap) const;
 
     const SignalsImpl *findBacktraceStart() override;
     void printBacktrace() override;

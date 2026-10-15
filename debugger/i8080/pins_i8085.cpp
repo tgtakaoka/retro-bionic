@@ -302,7 +302,7 @@ void PinsI8085::idle() {
     x1_cycle_lo();
 }
 
-Signals *PinsI8085::loop() const {
+Signals *PinsI8085::loop(Trap &trap) const {
     auto s = resumeCycle(_regs->nextIp());
     while (true) {
         completeCycle(s);
@@ -314,7 +314,7 @@ Signals *PinsI8085::loop() const {
             return halt;
         }
         if (s->fetch() && haltSwitch()) {
-            suspend(s);
+            suspend(s, trap);
             return nullptr;
         }
     }
@@ -327,10 +327,9 @@ constexpr auto trap_cycles = 64;
 // Stop through TRAP: run from |s| until the TRAP is taken, which clears
 // IE and pushes the PC, and stop at its fetch from 0024H with READY low.
 // RIM there still reads the IE the TRAP cleared.
-bool PinsI8085::suspend(Signals *s) const {
+bool PinsI8085::suspend(Signals *s, Trap &trap) const {
     assert_trap();
-    _trapPc = 0;
-    _trapSp = 0;
+    trap = {};
     uint8_t writes = 0;
     for (auto n = 0; n < trap_cycles; ++n) {
         completeCycle(s);
@@ -339,11 +338,11 @@ bool PinsI8085::suspend(Signals *s) const {
             negate_trap();
             negate_ready();
             const auto pch = s->prev(2);
-            _trapPc = uint16(pch->data, s->prev(1)->data);
-            _trapSp = pch->addr + 1;
+            trap.pc = uint16(pch->data, s->prev(1)->data);
+            trap.sp = pch->addr + 1;
             // The TRAP's machine cycles start with a fetch it ignores
             const auto m1 = pch->prev();
-            Cycles::discard(m1->fetch() && m1->addr == _trapPc ? m1 : pch);
+            Cycles::discard(m1->fetch() && m1->addr == trap.pc ? m1 : pch);
             return true;
         }
         writes = s->writeEnable() ? writes + 1 : 0;
@@ -359,7 +358,8 @@ void PinsI8085::run() {
     Cycles::reset();
     saveBreakInsts();
     startRunTimer();
-    const auto halt = loop();
+    Trap trap = {};
+    const auto halt = loop(trap);
     stopRunTimer();
     restoreBreakInsts();
     disassembleCycles();
@@ -372,14 +372,14 @@ void PinsI8085::run() {
         } while (signal_ale() == LOW);
         negate_trap();
         regs<RegsI8085>()->saveContext(pc);
-    } else if (_trapSp) {
-        regs<RegsI8085>()->saveTrap(_trapPc, _trapSp);
+    } else if (trap.sp) {
+        regs<RegsI8085>()->saveTrap(trap.pc, trap.sp);
     } else {
         _regs->save();
     }
 }
 
-bool PinsI8085::rawStep() const {
+bool PinsI8085::rawStep(Trap &trap) const {
     auto s = resumeCycle(_regs->nextIp());
     const auto insn = _mems->read(s->addr);
     if (insn == InstI8085::HLT) {
@@ -389,7 +389,7 @@ bool PinsI8085::rawStep() const {
     s->inject(insn);
     // Taken at the end of this instruction, or of the interrupt entry
     // the restore let in
-    return suspend(s);
+    return suspend(s, trap);
 }
 
 bool PinsI8085::step(bool show) {
@@ -397,10 +397,11 @@ bool PinsI8085::step(bool show) {
     _regs->restore();
     if (show)
         Cycles::reset();
-    if (rawStep()) {
+    Trap trap;
+    if (rawStep(trap)) {
         if (show)
             printCycles();
-        regs<RegsI8085>()->saveTrap(_trapPc, _trapSp);
+        regs<RegsI8085>()->saveTrap(trap.pc, trap.sp);
         return true;
     }
     return false;
