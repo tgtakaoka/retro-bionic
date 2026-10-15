@@ -1686,6 +1686,27 @@ after it. **[hw]**
 
 ### CP1600
 
+**Pitfalls.** The interrupt sequence pushes only the PC and leaves INTFF
+alone, so `#INTRM` stays enabled through the debugger's own entry. `HLT`
+stops the CPU only after the next interruptible instruction.
+
+`HLT` itself is not interruptible, so a run of injected `HLT`s never
+stops the CPU: the debugger parks it with `HLT` then `NOP`, and a program
+that halts takes its PC from the next fetch, past that instruction.
+**[doc]**
+
+The debugger halts through `#INTR`, which is not maskable and is driven
+only by the Teensy and by the `SIN` trap logic (`#PCIT` with `#ENSWI`).
+The CPU settles a pending `#INTRM` at that boundary itself, and the
+debugger captures SP at `INTAK` and the PC from the push. **[code]** The
+sequence is `INTAK`, `DW`/`DWS` and `IAB` only, and the manuals leave
+INTFF to `EIS`, `DIS`, `JE`, `JD`, `JSRE` and `JSRD`; service routines are
+expected to mask `#INTRM` themselves. **[doc]** So, as on the PDP-8, the
+debugger holds `#INTRM` off from the halt until the program's first bus
+cycle after the restore, which then ends in `JE` or `JD` to set INTFF with
+the jump. `save()` reads INTFF by asserting `#INTRM` over an injected
+`NOP`. **[code]**
+
 Draft board for the CP1610 (40-pin DIP); not built yet.
 
 - The CP1610 runs from +11 V VDD and −2.2 V VBB, both ±5 %, not the
