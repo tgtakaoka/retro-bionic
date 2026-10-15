@@ -21,6 +21,7 @@ struct RegsMos6502 final : Regs {
     void restore() override;
 
     uint32_t nextIp() const override;
+    bool irqMasked() const { return _p & 0x04; }
     void setIp(uint32_t pc) override;
     void helpRegisters() const override;
     const RegList *listRegisters(uint_fast8_t n) const override;
@@ -52,6 +53,7 @@ private:
     void setP(uint8_t value);
     void setE(uint8_t value);
     void save65816();
+    void saveNmi();
     void restore65816();
 
     mutable CharBuffer _buffer;
