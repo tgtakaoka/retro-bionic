@@ -30,6 +30,9 @@ struct PinsPdp8 : Pins {
     /** Hold INTREQ off until the program fetches ION or RTF itself. */
     void gateInterrupts(bool gate);
     bool interruptsGated() const { return _intGate; }
+    // While the debugger owns the CPU, from a halt until the program's
+    // first fetch after the restore, INTREQ stays off.
+    void holdInterrupts(bool hold);
     void setBreakInst(uint32_t addr) const override;
     void printCycles() override;
 
@@ -41,6 +44,8 @@ protected:
     Mems *_cpmems;
     bool _intGate = false;
     bool _intWanted = false;
+    bool _intHold = false;
+    void driveIntreq();
 
     PinsPdp8() {}
 

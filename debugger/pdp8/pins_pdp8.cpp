@@ -99,8 +99,10 @@ void PinsPdp8::idle() {
 
 void PinsPdp8::loop() {
     auto s = resumeCycle(_regs->nextIp());
+    holdInterrupts(false);
     while (true) {
         if (completeCycle(s) == nullptr) {
+            holdInterrupts(true);
             Cycles::Hold hold;
             _regs->save();
             Cycles::discard(s);
@@ -137,6 +139,8 @@ void PinsPdp8::run() {
 // an interrupt's store take far fewer.
 constexpr auto fetch_cycles = 16;
 
+// Stops at the next fetch: an interrupt taken before it has stored its PC
+// by then, and from there INTREQ is held off for the save.
 bool PinsPdp8::suspend() {
     auto s = prepareCycle();
     for (auto n = 0; !s->fetch(); ++n) {
@@ -147,13 +151,16 @@ bool PinsPdp8::suspend() {
         fetched(completeCycle(s));
         s = prepareCycle();
     }
+    holdInterrupts(true);
     return true;
 }
 
 bool PinsPdp8::rawStep() {
     auto s = resumeCycle(_regs->nextIp());
+    holdInterrupts(false);
     if (completeCycle(s) == nullptr) {
         // A HLT, left unexecuted as loop() leaves it.
+        holdInterrupts(true);
         Cycles::Hold hold;
         _regs->save();
         Cycles::discard(s);
@@ -179,21 +186,29 @@ bool PinsPdp8::step(bool show) {
 
 void PinsPdp8::assertInt(uint8_t) {
     _intWanted = true;
-    if (!_intGate)
-        assert_intreq();
+    driveIntreq();
 }
 
 void PinsPdp8::negateInt(uint8_t) {
     _intWanted = false;
-    negate_intreq();
+    driveIntreq();
 }
 
 void PinsPdp8::gateInterrupts(bool gate) {
     _intGate = gate;
-    if (gate) {
-        negate_intreq();
-    } else if (_intWanted) {
+    driveIntreq();
+}
+
+void PinsPdp8::holdInterrupts(bool hold) {
+    _intHold = hold;
+    driveIntreq();
+}
+
+void PinsPdp8::driveIntreq() {
+    if (_intWanted && !_intGate && !_intHold) {
         assert_intreq();
+    } else {
+        negate_intreq();
     }
 }
 
