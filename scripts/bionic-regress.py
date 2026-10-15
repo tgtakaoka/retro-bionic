@@ -646,7 +646,9 @@ def case_haltgo(board, n=None, regress=None):
     if not hexes:
         return None, 'no samples'
     path = hexes[0]
-    load(board, path)
+    # A halt that times out and resets the CPU reports the reset PC, and
+    # the program starts over and prints again after the resume.
+    start = pc_from(load(board, path))
     # a sane PC stays inside one of these, in the target's own units
     ranges = [(lo // unit, hi // unit) for lo, hi in load_ranges(path)]
     # 'G 0': no backtrace to disassemble and print at the next halt --
@@ -683,6 +685,9 @@ def case_haltgo(board, n=None, regress=None):
         if not inside or not got:
             bad += 1
             drift.append('%d:PC=%s,%dB' % (i, pc, got))
+        elif start is not None and pc == start:
+            bad += 1
+            drift.append('%d:PC=%s,reset' % (i, pc))
     if interval_hi and not output and not bad:
         bad += 1
         drift.append('no output after a resume')
