@@ -46,6 +46,13 @@ void RegsI8085::saveContext(uint16_t pc) {
     _pc = pc;
 }
 
+// At the TRAP's fetch from 0024H: |pc| and |sp| are what it stacked from
+void RegsI8085::saveTrap(uint16_t pc, uint16_t sp) {
+    save();
+    _sp = sp;
+    _pc = pc;
+}
+
 }  // namespace i8085
 }  // namespace debugger
 

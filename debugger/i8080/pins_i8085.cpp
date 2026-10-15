@@ -314,10 +314,44 @@ Signals *PinsI8085::loop() const {
             return halt;
         }
         if (s->fetch() && haltSwitch()) {
-            negate_ready();
+            suspend(s);
             return nullptr;
         }
     }
+}
+
+// Cycles to take a TRAP: the instruction under way, an interrupt entry
+// before it, then the TRAP's pushes.
+constexpr auto trap_cycles = 64;
+
+// Stop through TRAP: run from |s| until the TRAP is taken, which clears
+// IE and pushes the PC, and stop at its fetch from 0024H with READY low.
+// RIM there still reads the IE the TRAP cleared.
+bool PinsI8085::suspend(Signals *s) const {
+    assert_trap();
+    _trapPc = 0;
+    _trapSp = 0;
+    uint8_t writes = 0;
+    for (auto n = 0; n < trap_cycles; ++n) {
+        completeCycle(s);
+        s = prepareCycle();
+        if (s->fetch() && s->addr == InstI8085::ORG_TRAP && writes == 2) {
+            negate_trap();
+            negate_ready();
+            const auto pch = s->prev(2);
+            _trapPc = uint16(pch->data, s->prev(1)->data);
+            _trapSp = pch->addr + 1;
+            // The TRAP's machine cycles start with a fetch it ignores
+            const auto m1 = pch->prev();
+            Cycles::discard(m1->fetch() && m1->addr == _trapPc ? m1 : pch);
+            return true;
+        }
+        writes = s->writeEnable() ? writes + 1 : 0;
+    }
+    negate_trap();
+    negate_ready();
+    cli.println("?halt: no TRAP");
+    return false;
 }
 
 void PinsI8085::run() {
@@ -338,6 +372,8 @@ void PinsI8085::run() {
         } while (signal_ale() == LOW);
         negate_trap();
         regs<RegsI8085>()->saveContext(pc);
+    } else if (_trapSp) {
+        regs<RegsI8085>()->saveTrap(_trapPc, _trapSp);
     } else {
         _regs->save();
     }
@@ -351,12 +387,9 @@ bool PinsI8085::rawStep() const {
         return false;
     }
     s->inject(insn);
-    do {
-        completeCycle(s);
-        s = prepareCycle();
-    } while (!s->fetch());
-    negate_ready();
-    return true;
+    // Taken at the end of this instruction, or of the interrupt entry
+    // the restore let in
+    return suspend(s);
 }
 
 bool PinsI8085::step(bool show) {
@@ -367,7 +400,7 @@ bool PinsI8085::step(bool show) {
     if (rawStep()) {
         if (show)
             printCycles();
-        _regs->save();
+        regs<RegsI8085>()->saveTrap(_trapPc, _trapSp);
         return true;
     }
     return false;
