@@ -1,0 +1,607 @@
+          0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+          0 :                            include "cp1600.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :                    ;;; CP1600
+(1)       0 :                            cpu     cp1600
+(1)       0 :                            radix   10
+(1)       0 :                    ;;; Reset address (see debugger InstCp1610::RESET_PC)
+(1)       0 : =1000              RESET_PC:       equ     X'1000'
+          0 :                    ;;; i8251 Universal Synchronous/Asynchronous Receiver/Transmitter
+          0 : =FFF0              USART:          equ     X'FFF0'
+          0 : =FFF0              USARTD:         equ     USART+0 ; Data register
+          0 : =FFF1              USARTS:         equ     USART+1 ; Status register
+          0 : =FFF1              USARTC:         equ     USART+1 ; Control register
+          0 : =FFF2              USARTRV:        equ     USART+2 ; Receive interrupt vector
+          0 : =FFF3              USARTTV:        equ     USART+3 ; Transmit interrupt vector
+          0 :                            include "i8251.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :
+(1)       0 :                    ;;; i8251 USART device emulator.
+(1)       0 :                    ;;; Bit definition of mode instruction (asynchronous)
+(1)       0 : =6                 MODE_STOP_gp:   equ     6
+(1)       0 : =C0                MODE_STOP_gm:   equ     11000000B
+(1)       0 : =40                MODE_STOP1_gc:  equ     (1 << MODE_STOP_gp)
+(1)       0 : =80                MODE_STOP15_gc: equ     (2 << MODE_STOP_gp)
+(1)       0 : =C0                MODE_STOP2_gc:  equ     (3 << MODE_STOP_gp)
+(1)       0 : =20                MODE_EVEN_bm:   equ     00100000B   ; Even parity
+(1)       0 : =10                MODE_PARITY_bm: equ     00010000B   ; Parity enable
+(1)       0 : =2                 MODE_LEN_gp:    equ     2
+(1)       0 : =C                 MODE_LEN_gm:    equ     00001100B
+(1)       0 : =0                 MODE_LEN5_gc:   equ     (0 << MODE_LEN_gp)
+(1)       0 : =4                 MODE_LEN6_gc:   equ     (1 << MODE_LEN_gp)
+(1)       0 : =8                 MODE_LEN7_gc:   equ     (2 << MODE_LEN_gp)
+(1)       0 : =C                 MODE_LEN8_gc:   equ     (3 << MODE_LEN_gp)
+(1)       0 : =0                 MODE_BAUD_gp:   equ     0
+(1)       0 : =3                 MODE_BAUD_gm:   equ     00000011B
+(1)       0 : =1                 MODE_BAUD_X1:   equ     (1 << MODE_BAUD_gp)
+(1)       0 : =2                 MODE_BAUD_X16:  equ (2 << MODE_BAUD_gp)
+(1)       0 : =3                 MODE_BAUD_X64:  equ (3 << MODE_BAUD_gp)
+(1)       0 :                    ;;; Bit Definition of command register
+(1)       0 : =80                CMD_EH_bm:      equ     10000000B   ; Enter hunt mode
+(1)       0 : =40                CMD_IR_bm:      equ     01000000B   ; Internal Reset
+(1)       0 : =20                CMD_RTS_bm:     equ     00100000B   ; Request To Send
+(1)       0 : =10                CMD_ER_bm:      equ     00010000B   ; Error Reset
+(1)       0 : =8                 CMD_SBRK_bm:    equ     00001000B   ; Send Break
+(1)       0 : =4                 CMD_RxEN_bm:    equ     00000100B   ; Receive Enable
+(1)       0 : =2                 CMD_DTR_bm:     equ     00000010B   ; Data Terminal Ready
+(1)       0 : =1                 CMD_TxEN_bm:    equ     00000001B   ; Transmit enable
+(1)       0 :
+(1)       0 :                    ;;; Bit definition of status register
+(1)       0 : =80                ST_DSR_bm:      equ     10000000B   ; Data Set Ready
+(1)       0 : =40                ST_BRK_bm:      equ     01000000B   ; BREAK detected
+(1)       0 : =20                ST_FE_bm:       equ     00100000B   ; Framing Error
+(1)       0 : =10                ST_OE_bm:       equ     00010000B   ; Overrun Error
+(1)       0 : =8                 ST_PE_bm:       equ     00001000B   ; Parity Error
+(1)       0 : =4                 ST_TxEMPTY_bm:  equ     00000100B   ; Transmitter empty
+(1)       0 : =2                 ST_RxRDY_bm:    equ     00000010B   ; Receiver ready
+(1)       0 : =1                 ST_TxRDY_bm:    equ     00000001B   ; Transmitter ready
+          0 :                    ;;; Async 1stop 8data x16
+          0 : =4E                ASYNC_MODE:     equ     MODE_STOP1_gc|MODE_LEN8_gc|MODE_BAUD_X16
+          0 :                    ;;; RTS/DTR, error reset, Rx enable, Tx enable
+          0 : =37                RX_EN_TX_EN:    equ     CMD_RTS_bm|CMD_DTR_bm|CMD_ER_bm|CMD_RxEN_bm|CMD_TxEN_bm
+          0 : =36                RX_EN_TX_DIS:   equ     CMD_RTS_bm|CMD_DTR_bm|CMD_ER_bm|CMD_RxEN_bm
+          0 :
+          0 :                    ;;; The interrupt name the USART is given is its vector.
+         10 :                            org     X'0010'
+         10 :                    USART_VEC:
+         10 : 0004 0312 01FB             jd      isr_usart       ; Disable interrupts with the jump
+         13 :
+        100 :                            org     X'0100'
+        100 :                    vC:     res     1
+        101 :                    vD:     res     1
+        102 :                    vA:     res     1
+        103 :                    vB:     res     1
+        104 :                    vS:     res     1
+        105 :                    vP:     res     1
+        106 :                    vQ:     res     1
+        107 :                    vT:     res     1
+        108 :                    vY:     res     1
+        109 :                    vX:     res     1
+        10A :                    vI:     res     1
+        10B :
+       2000 :                            org     X'2000'
+       2000 : =80                rx_queue_size:  equ     128
+       2000 :                    rx_queue:
+       2000 :                            res     rx_queue_size
+       2080 : =80                tx_queue_size:  equ     128
+       2080 :                    tx_queue:
+       2080 :                            res     tx_queue_size
+       2100 :
+        200 :                            org     X'0200'
+        200 :                    stack:
+        200 :
+       1000 :                            org     RESET_PC
+       1000 :                    initialize:
+       1000 : 02BE 0200                  mvii    stack, r6
+       1002 : 02BB 2000                  mvii    rx_queue, r3
+       1004 : 02B8 0080                  mvii    rx_queue_size, r0
+       1006 : 0004 0110 0061             jsr     r5, queue_init
+       1009 : 02BB 2080                  mvii    tx_queue, r3
+       100B : 02B8 0080                  mvii    tx_queue_size, r0
+       100D : 0004 0110 0061             jsr     r5, queue_init
+       1010 : 0004 0110 001C             jsr     r5, init_usart
+       1013 : 0002                       eis
+       1014 : 0004 0110 011D     loop:   jsr     r5, mandelbrot
+       1017 : 0004 0110 0048             jsr     r5, newline
+       101A : 0220 0007                  b       loop
+       101C :
+       101C :                    init_usart:
+       101C : 01C0                       clrr    r0
+       101D : 0240 FFF1                  mvo     r0, USARTC
+       101F : 0240 FFF1                  mvo     r0, USARTC
+       1021 : 0240 FFF1                  mvo     r0, USARTC      ; Safest way to sync mode
+       1023 : 02B8 0040                  mvii    CMD_IR_bm, r0
+       1025 : 0240 FFF1                  mvo     r0, USARTC      ; Reset
+       1027 : 0034                       nop
+       1028 : 0034                       nop
+       1029 : 02B8 004E                  mvii    ASYNC_MODE, r0
+       102B : 0240 FFF1                  mvo     r0, USARTC
+       102D : 0034                       nop
+       102E : 0034                       nop
+       102F : 02B8 0036                  mvii    RX_EN_TX_DIS, r0
+       1031 : 0240 FFF1                  mvo     r0, USARTC      ; Enable Rx, Disable Tx
+       1033 :                            ;; Rx and Tx share #INTRM, so share the vector too.
+       1033 : 02B8 0010                  mvii    USART_VEC, r0
+       1035 : 0240 FFF2                  mvo     r0, USARTRV     ; Enable Rx interrupt
+       1037 : 0240 FFF3                  mvo     r0, USARTTV     ; Enable Tx interrupt
+       1039 : 00AF                       jr      r5
+       103A :
+       103A :                    ;;; Receive a character if any
+       103A :                    ;;; @return R0 a character
+       103A :                    ;;; @return C 0 if none received
+       103A :                    getchar:
+       103A : 0275                       pshr    r5
+       103B : 0273                       pshr    r3
+       103C : 02BB 2000                  mvii    rx_queue, r3
+       103E : 0004 0112 0095             jsrd    r5, queue_remove
+       1041 : 0002                       eis
+       1042 : 02B3                       pulr    r3
+       1043 : 02B7                       pulr    r7
+       1044 :
+       1044 :                    ;;; Put a space (putspace), CR LF (newline) or char R0 (putchar)
+       1044 :                    putspace:
+       1044 : 02B8 0020                  mvii    ' ', r0
+       1046 : 0200 0009                  b       putchar
+       1048 :                    newline:
+       1048 : 0275                       pshr    r5
+       1049 : 02B8 000D                  mvii    X'0D', r0
+       104B : 0004 0110 0051             jsr     r5, putchar
+       104E : 02B8 000A                  mvii    X'0A', r0
+       1050 : 02B5                       pulr    r5
+       1051 :                    putchar:
+       1051 : 0275                       pshr    r5
+       1052 : 0273                       pshr    r3
+       1053 : 02BB 2080                  mvii    tx_queue, r3
+       1055 :                    putchar_retry:
+       1055 : 0004 0112 0072             jsrd    r5, queue_add
+       1058 : 0002                       eis
+       1059 : 0229 0005                  bnc     putchar_retry   ; branch if queue is full
+       105B : 02BB 0037                  mvii    RX_EN_TX_EN, r3
+       105D : 0243 FFF1                  mvo     r3, USARTC      ; Enable Rx/Tx
+       105F : 02B3                       pulr    r3
+       1060 : 02B7                       pulr    r7
+       1061 :
+       1061 :                            include "queue.inc"
+(1)    1061 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)    1061 :                    ;;; [queue] queue structure
+(1)    1061 : =0                 queue_len:      equ     0       ; queue length
+(1)    1061 : =1                 queue_size:     equ     1       ; buffer size
+(1)    1061 : =2                 queue_put:      equ     2       ; queue put index
+(1)    1061 : =3                 queue_get:      equ     3       ; queue get index
+(1)    1061 : =4                 queue_buf:      equ     4       ; buffer start offset
+(1)    1061 :
+(1)    1061 :                    ;;; [queue] Initialize queue
+(1)    1061 :                    ;;; @param R3 queue work space pointer
+(1)    1061 :                    ;;; @param R0 queue work space size, including the 4-word header
+(1)    1061 :                    ;;; @clobber R0
+(1)    1061 :                    queue_init:
+(1)    1061 : 0271                       pshr    r1
+(1)    1062 : 0274                       pshr    r4
+(1)    1063 : 009C                       movr    r3, r4
+(1)    1064 : 01C9                       clrr    r1
+(1)    1065 : 0261                       mvo@    r1, r4          ; clear queue_len
+(1)    1066 : 0338 0004                  subi    queue_buf, r0
+(1)    1068 : 0260                       mvo@    r0, r4          ; set queue_size
+(1)    1069 : 0261                       mvo@    r1, r4          ; clear queue_put
+(1)    106A : 0261                       mvo@    r1, r4          ; clear queue_get
+(1)    106B :                    queue_init_loop:
+(1)    106B : 0261                       mvo@    r1, r4          ; clear queue_buf
+(1)    106C : 0010                       decr    r0
+(1)    106D : 022C 0003                  bneq    queue_init_loop
+(1)    106F : 02B4                       pulr    r4
+(1)    1070 : 02B1                       pulr    r1
+(1)    1071 : 00AF                       jr      r5
+(1)    1072 :
+(1)    1072 :                    ;;; [queue] Add an element to queue
+(1)    1072 :                    ;;; @param R3 queue work space pointer
+(1)    1072 :                    ;;; @param R0 an element
+(1)    1072 :                    ;;; @return C 0 if queue is full
+(1)    1072 :                    queue_add:
+(1)    1072 : 0271                       pshr    r1
+(1)    1073 : 0272                       pshr    r2
+(1)    1074 : 0274                       pshr    r4
+(1)    1075 : 0299                       mvi@    r3, r1          ; R1=queue_len
+(1)    1076 : 009C                       movr    r3, r4
+(1)    1077 : 000C                       incr    r4
+(1)    1078 : 02A2                       mvi@    r4, r2          ; R2=queue_size
+(1)    1079 : 0151                       cmpr    r2, r1
+(1)    107A : 0201 0014                  blge    queue_add_full  ; branch if queue_len >= queue_size
+(1)    107C : 0009                       incr    r1
+(1)    107D : 0259                       mvo@    r1, r3          ; queue_len+=1
+(1)    107E : 02A1                       mvi@    r4, r1          ; R1=queue_put
+(1)    107F : 009C                       movr    r3, r4
+(1)    1080 : 02FC 0004                  addi    queue_buf, r4
+(1)    1082 : 00CC                       addr    r1, r4          ; R4=&queue_buf[queue_put]
+(1)    1083 : 0260                       mvo@    r0, r4          ; store element
+(1)    1084 : 0009                       incr    r1              ; queue_put+=1
+(1)    1085 : 0151                       cmpr    r2, r1
+(1)    1086 : 0209 0001                  bllt    queue_add_update        ; branch if queue_put < queue_size
+(1)    1088 : 01C9                       clrr    r1
+(1)    1089 :                    queue_add_update:
+(1)    1089 : 009C                       movr    r3, r4
+(1)    108A : 02FC 0002                  addi    queue_put, r4
+(1)    108C : 0261                       mvo@    r1, r4          ; update queue_put
+(1)    108D : 0007                       setc
+(1)    108E : 0200 0001                  b       queue_add_return
+(1)    1090 :                    queue_add_full:
+(1)    1090 : 0006                       clrc
+(1)    1091 :                    queue_add_return:
+(1)    1091 : 02B4                       pulr    r4
+(1)    1092 : 02B2                       pulr    r2
+(1)    1093 : 02B1                       pulr    r1
+(1)    1094 : 00AF                       jr      r5
+(1)    1095 :
+(1)    1095 :                    ;;; [queue] Remove an element from queue
+(1)    1095 :                    ;;; @param R3 queue work space pointer
+(1)    1095 :                    ;;; @return R0 an element
+(1)    1095 :                    ;;; @return C 0 if queue is empty
+(1)    1095 :                    queue_remove:
+(1)    1095 : 0271                       pshr    r1
+(1)    1096 : 0272                       pshr    r2
+(1)    1097 : 0274                       pshr    r4
+(1)    1098 : 0299                       mvi@    r3, r1          ; R1=queue_len
+(1)    1099 : 0089                       tstr    r1
+(1)    109A : 0204 0015                  beq     queue_remove_empty
+(1)    109C : 0011                       decr    r1
+(1)    109D : 0259                       mvo@    r1, r3          ; queue_len-=1
+(1)    109E : 009C                       movr    r3, r4
+(1)    109F : 000C                       incr    r4
+(1)    10A0 : 02A2                       mvi@    r4, r2          ; R2=queue_size
+(1)    10A1 : 000C                       incr    r4
+(1)    10A2 : 02A1                       mvi@    r4, r1          ; R1=queue_get
+(1)    10A3 : 00CC                       addr    r1, r4          ; R4=&queue_buf[queue_get]
+(1)    10A4 : 02A0                       mvi@    r4, r0          ; remove element
+(1)    10A5 : 0009                       incr    r1              ; queue_get+=1
+(1)    10A6 : 0151                       cmpr    r2, r1
+(1)    10A7 : 0209 0001                  bllt    queue_remove_update     ; branch if queue_get < queue_size
+(1)    10A9 : 01C9                       clrr    r1
+(1)    10AA :                    queue_remove_update:
+(1)    10AA : 009C                       movr    r3, r4
+(1)    10AB : 02FC 0003                  addi    queue_get, r4
+(1)    10AD : 0261                       mvo@    r1, r4          ; update queue_get
+(1)    10AE : 0007                       setc
+(1)    10AF : 0200 0001                  b       queue_remove_return
+(1)    10B1 :                    queue_remove_empty:
+(1)    10B1 : 0006                       clrc
+(1)    10B2 :                    queue_remove_return:
+(1)    10B2 : 02B4                       pulr    r4
+(1)    10B3 : 02B2                       pulr    r2
+(1)    10B4 : 02B1                       pulr    r1
+(1)    10B5 : 00AF                       jr      r5
+       10B6 :                            include "arith.inc"
+(1)    10B6 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)    10B6 :                    ;;; Print signed 16-bit integer as decimal
+(1)    10B6 :                    ;;; @param R0 value
+(1)    10B6 :                    ;;; @clobber R0 R1 R2
+(1)    10B6 :                    print_int16:
+(1)    10B6 : 0080                       tstr    r0
+(1)    10B7 : 0203 000A                  bpl     print_uint16
+(1)    10B9 : 0275                       pshr    r5
+(1)    10BA : 0270                       pshr    r0
+(1)    10BB : 02B8 002D                  mvii    '-', r0
+(1)    10BD : 0004 0110 0051             jsr     r5, putchar
+(1)    10C0 : 02B0                       pulr    r0
+(1)    10C1 : 0020                       negr    r0              ; value=-value
+(1)    10C2 : 02B5                       pulr    r5
+(1)    10C3 :                    print_uint16:
+(1)    10C3 : 0275                       pshr    r5
+(1)    10C4 : 0081                       movr    r0, r1          ; R1=value
+(1)    10C5 : 02BA 000A                  mvii    10, r2          ; R2=10
+(1)    10C7 : 0004 0110 00D7             jsr     r5, udiv16      ; R0=value/10, R1=value%10
+(1)    10CA : 0271                       pshr    r1              ; push remainder
+(1)    10CB : 0080                       tstr    r0
+(1)    10CC : 0204 0003                  beq     print_uint16_digit
+(1)    10CE : 0004 0110 00C3             jsr     r5, print_uint16        ; next digit
+(1)    10D1 :                    print_uint16_digit:
+(1)    10D1 : 02B0                       pulr    r0              ; pop remainder
+(1)    10D2 : 02F8 0030                  addi    '0', r0
+(1)    10D4 : 02B5                       pulr    r5
+(1)    10D5 : 0220 0085                  b       putchar         ; print digit and return
+(1)    10D7 :
+(1)    10D7 :                    ;;; Unsigned Divide: dividend / divisor = quotient ... remainder
+(1)    10D7 :                    ;;; @param R1 dividend
+(1)    10D7 :                    ;;; @param R2 divisor
+(1)    10D7 :                    ;;; @return R0 quotient
+(1)    10D7 :                    ;;; @return R1 remainder
+(1)    10D7 :                    ;;; @clobber R2
+(1)    10D7 :                    udiv16:
+(1)    10D7 : 0092                       tstr    r2
+(1)    10D8 : 020C 0001                  bneq    udiv16_divide
+(1)    10DA : 00AF                       jr      r5              ; divide by zero
+(1)    10DB :                    udiv16_divide:
+(1)    10DB : 0273                       pshr    r3
+(1)    10DC : 02BB 0001                  mvii    1, r3           ; bit=1
+(1)    10DE : 0200 0002                  b       udiv16_prep
+(1)    10E0 :                    udiv16_prep_loop:
+(1)    10E0 : 004A                       sll     r2              ; divisor<<=1
+(1)    10E1 : 004B                       sll     r3              ; bit<<=1
+(1)    10E2 :                    udiv16_prep:
+(1)    10E2 : 0151                       cmpr    r2, r1
+(1)    10E3 : 0209 0003                  bllt    udiv16_prep_end ; branch if dividend<divisor
+(1)    10E5 : 0092                       tstr    r2
+(1)    10E6 : 0223 0007                  bpl     udiv16_prep_loop        ; branch if msb(divisor)=0
+(1)    10E8 :                    udiv16_prep_end:
+(1)    10E8 : 01C0                       clrr    r0              ; quotient=0
+(1)    10E9 :                    udiv16_loop:
+(1)    10E9 : 0151                       cmpr    r2, r1
+(1)    10EA : 0209 0002                  bllt    udiv16_next     ; branch if dividend<divisor
+(1)    10EC : 0111                       subr    r2, r1          ; dividend-=divisor
+(1)    10ED : 00D8                       addr    r3, r0          ; quotient|=bit
+(1)    10EE :                    udiv16_next:
+(1)    10EE : 0062                       slr     r2              ; divisor>>=1
+(1)    10EF : 0063                       slr     r3              ; bit>>=1
+(1)    10F0 : 022C 0008                  bneq    udiv16_loop     ; branch if bit!=0
+(1)    10F2 : 02B3                       pulr    r3
+(1)    10F3 : 00AF                       jr      r5
+(1)    10F4 :
+(1)    10F4 :                    ;;; Signed Divide: dividend / divisor = quotient
+(1)    10F4 :                    ;;; @param R1 dividend
+(1)    10F4 :                    ;;; @param R2 divisor
+(1)    10F4 :                    ;;; @return R1 quotient
+(1)    10F4 :                    ;;; @clobber R0 R2
+(1)    10F4 :                    div16:
+(1)    10F4 : 0275                       pshr    r5
+(1)    10F5 : 0273                       pshr    r3
+(1)    10F6 : 008B                       movr    r1, r3
+(1)    10F7 : 01D3                       xorr    r2, r3          ; R3=sign(quotient)
+(1)    10F8 : 0089                       tstr    r1
+(1)    10F9 : 0203 0001                  bpl     div16_divisor
+(1)    10FB : 0021                       negr    r1              ; negate dividend
+(1)    10FC :                    div16_divisor:
+(1)    10FC : 0092                       tstr    r2
+(1)    10FD : 0203 0001                  bpl     div16_divide
+(1)    10FF : 0022                       negr    r2              ; negate divisor
+(1)    1100 :                    div16_divide:
+(1)    1100 : 0004 0110 00D7             jsr     r5, udiv16
+(1)    1103 : 0081                       movr    r0, r1
+(1)    1104 : 009B                       tstr    r3
+(1)    1105 : 0203 0001                  bpl     div16_return
+(1)    1107 : 0021                       negr    r1              ; negate quotient
+(1)    1108 :                    div16_return:
+(1)    1108 : 02B3                       pulr    r3
+(1)    1109 : 02B7                       pulr    r7
+(1)    110A :
+(1)    110A :                    ;;; Signed Multiply: multiplicand * multiplier = product
+(1)    110A :                    ;;; @param R1 multiplicand
+(1)    110A :                    ;;; @param R2 multiplier
+(1)    110A :                    ;;; @return R1 product
+(1)    110A :                    ;;; @clobber R0 R2
+(1)    110A :                    mul16:
+(1)    110A : 0092                       tstr    r2
+(1)    110B : 0203 0002                  bpl     umul16
+(1)    110D : 0022                       negr    r2              ; negate multiplier
+(1)    110E : 0021                       negr    r1              ; negate multiplicand
+(1)    110F :                    ;;; Unsigned Multiply: multiplicand * multiplier = product
+(1)    110F :                    ;;; @param R1 multiplicand
+(1)    110F :                    ;;; @param R2 multiplier
+(1)    110F :                    ;;; @return R1 product
+(1)    110F :                    ;;; @clobber R0 R2
+(1)    110F :                    umul16:
+(1)    110F : 01C0                       clrr    r0              ; product=0
+(1)    1110 : 0200 0006                  b       umul16_enter_loop
+(1)    1112 :                    umul16_loop:
+(1)    1112 : 0006                       clrc
+(1)    1113 : 0072                       rrc     r2              ; multiplier>>=1, C=lsb(multiplier)
+(1)    1114 : 0209 0001                  bnc     umul16_next
+(1)    1116 : 00C8                       addr    r1, r0          ; product+=multiplicand
+(1)    1117 :                    umul16_next:
+(1)    1117 : 0049                       sll     r1              ; multiplicand<<=1
+(1)    1118 :                    umul16_enter_loop:
+(1)    1118 : 0092                       tstr    r2
+(1)    1119 : 022C 0008                  bneq    umul16_loop     ; branch if multiplier!=0
+(1)    111B : 0081                       movr    r0, r1
+(1)    111C : 00AF                       jr      r5
+       111D :                            include "mandelbrot.inc"
+(1)    111D :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)    111D :
+(1)    111D : =32                F:      equ     50              ; fixed-point scale, 1.0=F
+(1)    111D :
+(1)    111D :                    mandelbrot:
+(1)    111D : 0275                       pshr    r5
+(1)    111E : 02B8 FFF4                  mvii    -12, r0
+(1)    1120 : 0240 0108                  mvo     r0, vY          ; Y=-12
+(1)    1122 :                    loop_y:
+(1)    1122 : 02B8 FFCF                  mvii    -49, r0
+(1)    1124 : 0240 0109                  mvo     r0, vX          ; X=-49
+(1)    1126 :                    loop_x:
+(1)    1126 : 0281 0109                  mvi     vX, r1
+(1)    1128 : 02BA 00E5                  mvii    229, r2
+(1)    112A : 0004 0110 010A             jsr     r5, mul16       ; R1=X*229
+(1)    112D : 02BA 0064                  mvii    100, r2
+(1)    112F : 0004 0110 00F4             jsr     r5, div16       ; R1=X*229/100
+(1)    1132 : 0241 0100                  mvo     r1, vC          ; C=X*229/100
+(1)    1134 : 0241 0102                  mvo     r1, vA          ; A=C
+(1)    1136 : 0281 0108                  mvi     vY, r1
+(1)    1138 : 02BA 01A0                  mvii    416, r2
+(1)    113A : 0004 0110 010A             jsr     r5, mul16       ; R1=Y*416
+(1)    113D : 02BA 0064                  mvii    100, r2
+(1)    113F : 0004 0110 00F4             jsr     r5, div16       ; R1=Y*416/100
+(1)    1142 : 0241 0101                  mvo     r1, vD          ; D=Y*416/100
+(1)    1144 : 0241 0103                  mvo     r1, vB          ; B=D
+(1)    1146 : 01C0                       clrr    r0
+(1)    1147 : 0240 010A                  mvo     r0, vI          ; I=0
+(1)    1149 :
+(1)    1149 :                            ;; mvi     vY, r1
+(1)    1149 :                            ;; mvii    'Y', r0
+(1)    1149 :                            ;; jsr     r5, debug
+(1)    1149 :                            ;; mvi     vX, r1
+(1)    1149 :                            ;; mvii    'X', r0
+(1)    1149 :                            ;; jsr     r5, debug
+(1)    1149 :                            ;; mvi     vC, r1
+(1)    1149 :                            ;; mvii    'C', r0
+(1)    1149 :                            ;; jsr     r5, debug
+(1)    1149 :                            ;; mvi     vD, r1
+(1)    1149 :                            ;; mvii    'D', r0
+(1)    1149 :                            ;; jsr     r5, debug
+(1)    1149 :                            ;; jsr     r5, newline
+(1)    1149 :
+(1)    1149 :                    loop_i:
+(1)    1149 :                            ;; A*B/F = A*Q+A*S/F with Q=B/F, S=B-Q*F; keeps products in 16 bits
+(1)    1149 : 0281 0103                  mvi     vB, r1
+(1)    114B : 02BA 0032                  mvii    F, r2
+(1)    114D : 0004 0110 00F4             jsr     r5, div16       ; R1=B/F
+(1)    1150 : 0241 0106                  mvo     r1, vQ          ; Q=B/F
+(1)    1152 : 02BA FFCE                  mvii    -F, r2
+(1)    1154 : 0004 0110 010A             jsr     r5, mul16       ; R1=-Q*F
+(1)    1157 : 02C1 0103                  add     vB, r1          ; R1=B-Q*F
+(1)    1159 : 0241 0104                  mvo     r1, vS          ; S=B-Q*F
+(1)    115B : 0281 0103                  mvi     vB, r1
+(1)    115D : 008A                       movr    r1, r2
+(1)    115E : 0004 0110 010A             jsr     r5, mul16       ; R1=B*B
+(1)    1161 : 008B                       movr    r1, r3          ; R3=B*B
+(1)    1162 : 0281 0102                  mvi     vA, r1
+(1)    1164 : 008A                       movr    r1, r2
+(1)    1165 : 0004 0110 010A             jsr     r5, mul16       ; R1=A*A
+(1)    1168 : 0119                       subr    r3, r1          ; R1=A*A-B*B
+(1)    1169 : 02BA 0032                  mvii    F, r2
+(1)    116B : 0004 0110 00F4             jsr     r5, div16       ; R1=(A*A-B*B)/F
+(1)    116E : 02C1 0100                  add     vC, r1          ; R1=(A*A-B*B)/F+C
+(1)    1170 : 008B                       movr    r1, r3          ; R3=(A*A-B*B)/F+C
+(1)    1171 : 0281 0102                  mvi     vA, r1
+(1)    1173 : 0282 0106                  mvi     vQ, r2
+(1)    1175 : 0004 0110 010A             jsr     r5, mul16       ; R1=A*Q
+(1)    1178 : 008C                       movr    r1, r4          ; R4=A*Q
+(1)    1179 : 0281 0102                  mvi     vA, r1
+(1)    117B : 0282 0104                  mvi     vS, r2
+(1)    117D : 0004 0110 010A             jsr     r5, mul16       ; R1=A*S
+(1)    1180 : 02BA 0032                  mvii    F, r2
+(1)    1182 : 0004 0110 00F4             jsr     r5, div16       ; R1=A*S/F
+(1)    1185 : 00E1                       addr    r4, r1          ; R1=A*Q+A*S/F
+(1)    1186 : 00C9                       addr    r1, r1          ; R1=2*(A*Q+A*S/F)
+(1)    1187 : 02C1 0101                  add     vD, r1          ; R1=2*(A*Q+A*S/F)+D
+(1)    1189 : 0241 0103                  mvo     r1, vB          ; B=2*(A*Q+A*S/F)+D
+(1)    118B : 0243 0102                  mvo     r3, vA          ; A=(A*A-B*B)/F+C
+(1)    118D : 0099                       movr    r3, r1
+(1)    118E : 02BA 0032                  mvii    F, r2
+(1)    1190 : 0004 0110 00F4             jsr     r5, div16       ; R1=A/F
+(1)    1193 : 0241 0105                  mvo     r1, vP          ; P=A/F
+(1)    1195 : 008A                       movr    r1, r2
+(1)    1196 : 0004 0110 010A             jsr     r5, mul16       ; R1=P*P
+(1)    1199 : 008B                       movr    r1, r3          ; R3=P*P
+(1)    119A : 0281 0103                  mvi     vB, r1
+(1)    119C : 02BA 0032                  mvii    F, r2
+(1)    119E : 0004 0110 00F4             jsr     r5, div16       ; R1=B/F
+(1)    11A1 : 0241 0106                  mvo     r1, vQ          ; Q=B/F
+(1)    11A3 : 008A                       movr    r1, r2
+(1)    11A4 : 0004 0110 010A             jsr     r5, mul16       ; R1=Q*Q
+(1)    11A7 : 00D9                       addr    r3, r1          ; R1=P*P+Q*Q
+(1)    11A8 : 0241 0107                  mvo     r1, vT          ; T=P*P+Q*Q
+(1)    11AA :
+(1)    11AA :                            ;; jsr     r5, putspace
+(1)    11AA :                            ;; mvi     vI, r1
+(1)    11AA :                            ;; mvii    'I', r0
+(1)    11AA :                            ;; jsr     r5, debug
+(1)    11AA :                            ;; mvi     vA, r1
+(1)    11AA :                            ;; mvii    'A', r0
+(1)    11AA :                            ;; jsr     r5, debug
+(1)    11AA :                            ;; mvi     vB, r1
+(1)    11AA :                            ;; mvii    'B', r0
+(1)    11AA :                            ;; jsr     r5, debug
+(1)    11AA :                            ;; mvi     vP, r1
+(1)    11AA :                            ;; mvii    'P', r0
+(1)    11AA :                            ;; jsr     r5, debug
+(1)    11AA :                            ;; mvi     vQ, r1
+(1)    11AA :                            ;; mvii    'Q', r0
+(1)    11AA :                            ;; jsr     r5, debug
+(1)    11AA :                            ;; mvi     vT, r1
+(1)    11AA :                            ;; mvii    'T', r0
+(1)    11AA :                            ;; jsr     r5, debug
+(1)    11AA :                            ;; jsr     r5, newline
+(1)    11AA :
+(1)    11AA : 0280 0107                  mvi     vT, r0
+(1)    11AC : 0378 0004                  cmpi    4, r0
+(1)    11AE : 020E 000D                  bgt     print_i         ; branch if 4<T
+(1)    11B0 : 0280 010A                  mvi     vI, r0
+(1)    11B2 : 0008                       incr    r0
+(1)    11B3 : 0240 010A                  mvo     r0, vI          ; I+=1
+(1)    11B5 : 0378 0010                  cmpi    16, r0
+(1)    11B7 : 0225 006F                  blt     loop_i          ; branch if I<16
+(1)    11B9 : 02B8 0020                  mvii    ' ', r0
+(1)    11BB : 0200 000C                  b       print_char
+(1)    11BD :                    print_i:
+(1)    11BD : 0280 010A                  mvi     vI, r0
+(1)    11BF : 0378 000A                  cmpi    10, r0
+(1)    11C1 : 0205 0004                  blt     print_dec       ; branch if I<10
+(1)    11C3 : 02F8 0037                  addi    'A'-10, r0
+(1)    11C5 : 0200 0002                  b       print_char
+(1)    11C7 :                    print_dec:
+(1)    11C7 : 02F8 0030                  addi    '0', r0
+(1)    11C9 :                    print_char:
+(1)    11C9 : 0004 0110 0051             jsr     r5, putchar
+(1)    11CC :
+(1)    11CC :                            ;; movr    r0, r2
+(1)    11CC :                            ;; mvii    '@', r0
+(1)    11CC :                            ;; jsr     r5, putchar
+(1)    11CC :                            ;; mvii    '=', r0
+(1)    11CC :                            ;; jsr     r5, putchar
+(1)    11CC :                            ;; movr    r2, r0
+(1)    11CC :                            ;; jsr     r5, putchar
+(1)    11CC :                            ;; jsr     r5, newline
+(1)    11CC :
+(1)    11CC : 0004 0110 003A             jsr     r5, getchar
+(1)    11CF : 0209 0004                  bnc     next_x          ; branch if no input
+(1)    11D1 : 0080                       tstr    r0
+(1)    11D2 : 020C 0001                  bneq    next_x
+(1)    11D4 : 0000                       hlt                     ; halt to system on NUL
+(1)    11D5 :                    next_x:
+(1)    11D5 : 0280 0109                  mvi     vX, r0
+(1)    11D7 : 0008                       incr    r0
+(1)    11D8 : 0240 0109                  mvo     r0, vX          ; X+=1
+(1)    11DA : 0378 001E                  cmpi    30, r0
+(1)    11DC : 0225 00B7                  blt     loop_x          ; branch if X<30
+(1)    11DE : 0004 0110 0048             jsr     r5, newline
+(1)    11E1 : 0280 0108                  mvi     vY, r0
+(1)    11E3 : 0008                       incr    r0
+(1)    11E4 : 0240 0108                  mvo     r0, vY          ; Y+=1
+(1)    11E6 : 0378 000D                  cmpi    13, r0
+(1)    11E8 : 0225 00C7                  blt     loop_y          ; branch if Y<13
+(1)    11EA : 02B7                       pulr    r7
+(1)    11EB :
+(1)    11EB :                    ;;; Print variable: "name=variable "
+(1)    11EB :                    ;;; @param R1 variable
+(1)    11EB :                    ;;; @param R0 variable name
+(1)    11EB :                    ;;; @clobber R0 R1 R2
+(1)    11EB :                    debug:
+(1)    11EB : 0275                       pshr    r5
+(1)    11EC : 0004 0110 0051             jsr     r5, putchar     ; print name
+(1)    11EF : 02B8 003D                  mvii    '=', r0
+(1)    11F1 : 0004 0110 0051             jsr     r5, putchar
+(1)    11F4 : 0088                       movr    r1, r0
+(1)    11F5 : 0004 0110 00B6             jsr     r5, print_int16
+(1)    11F8 : 02B5                       pulr    r5
+(1)    11F9 : 0220 01B6                  b       putspace
+       11FB :
+       11FB :                    ;;; The interrupt sequence leaves interrupts enabled, and #INTRM stays
+       11FB :                    ;;; low until the data register is read, so USART_VEC disables them.
+       11FB :                    isr_usart:
+       11FB : 0270                       pshr    r0
+       11FC : 0030                       gswd    r0
+       11FD : 0270                       pshr    r0
+       11FE : 0273                       pshr    r3
+       11FF : 0275                       pshr    r5
+       1200 : 0280 FFF1                  mvi     USARTS, r0
+       1202 : 03B8 0002                  andi    ST_RxRDY_bm, r0
+       1204 : 0204 0007                  beq     isr_usart_tx
+       1206 : 0280 FFF0                  mvi     USARTD, r0      ; Receive character
+       1208 : 02BB 2000                  mvii    rx_queue, r3
+       120A : 0004 0110 0072             jsr     r5, queue_add   ; Add to Rx queue
+       120D :                    isr_usart_tx:
+       120D : 0280 FFF1                  mvi     USARTS, r0
+       120F : 03B8 0001                  andi    ST_TxRDY_bm, r0
+       1211 : 0204 0009                  beq     isr_usart_exit
+       1213 : 02BB 2080                  mvii    tx_queue, r3
+       1215 : 0004 0110 0095             jsr     r5, queue_remove        ; Remove from Tx queue
+       1218 : 0209 0009                  bnc     isr_usart_empty
+       121A : 0240 FFF0                  mvo     r0, USARTD      ; Transmit character
+       121C :                    isr_usart_exit:
+       121C : 02B5                       pulr    r5
+       121D : 02B3                       pulr    r3
+       121E : 02B0                       pulr    r0
+       121F : 0038                       rswd    r0
+       1220 : 02B0                       pulr    r0
+       1221 : 0002                       eis
+       1222 : 02B7                       pulr    r7              ; Return from interrupt
+       1223 :                    isr_usart_empty:
+       1223 : 02B8 0036                  mvii    RX_EN_TX_DIS, r0
+       1225 : 0240 FFF1                  mvo     r0, USARTC      ; Disable Tx
+       1227 : 0220 000C                  b       isr_usart_exit
