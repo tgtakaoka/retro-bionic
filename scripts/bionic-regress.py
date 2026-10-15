@@ -653,7 +653,7 @@ def case_haltgo(board, n=None, regress=None):
     # only the PC and a nonzero byte count are checked, so it would
     # only cost time here.
     board.send(b'G 0\r', wait=3.0, idle=1.0, delay=1.0)
-    bad, drift, output = 0, [], 0
+    bad, drift, output, done = 0, [], 0, n
     for i in range(n):
         if interval_hi:
             # run for exactly this long: the idle timeout never ends it early
@@ -670,16 +670,25 @@ def case_haltgo(board, n=None, regress=None):
                 break
         inside = pc is not None and any(lo <= address(pc) < hi for lo, hi in ranges)
         # the resume echoes at once; what the program prints counts below
-        got = len(board.send(b'G 0\r', wait=0.3, idle=0.1))
+        resumed = board.send(b'G 0\r', wait=0.3, idle=0.1)
+        got = len(resumed)
+        if bc.at_prompt(resumed):
+            # the resume stopped at once: every later halt finds nothing
+            # running, so report where it stopped and give up
+            bad += 1
+            drift.append('%d:PC=%s,resume stopped at PC=%s' % (
+                i, pc, pc_from(resumed)))
+            done = i + 1
+            break
         if not inside or not got:
             bad += 1
             drift.append('%d:PC=%s,%dB' % (i, pc, got))
-    if interval_hi and not output:
+    if interval_hi and not output and not bad:
         bad += 1
         drift.append('no output after a resume')
     board.abort()
     board.send(wait=6.0, idle=1.0, delay=0.8)
-    return bad == 0, ('%d/%d halt+continue ok' % (n - bad, n)
+    return bad == 0, ('%d/%d halt+continue ok' % (done - bad, n)
                       + ('; %s' % ' '.join(drift) if drift else ''))
 
 
