@@ -82,12 +82,15 @@ void RegsI8096::save() {
     _psw = le16(buffer);
 }
 
-void RegsI8096::captureContext(uint16_t sp, uint16_t pc, bool breakTrap) {
+bool RegsI8096::captureContext(uint16_t sp, uint16_t pc, bool breakTrap) {
     save();
+    if (InstI8096::vector(_pins->park()))
+        return false;
     _sp = sp + 2;
     _pc = pc;
     if (breakTrap)
         --_pc;
+    return true;
 }
 
 void RegsI8096::restore() {

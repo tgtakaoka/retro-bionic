@@ -144,6 +144,7 @@ void PinsI8096::resetPins() {
     negate_reset();
     _idle = false;
     _held = false;
+    _halt = Halt();
     // The CCB at 2018H, read before the CCR selects the 16-bit bus: AD0-AD7
     // carry it in every bus mode.
     auto ccb = prepareCycle();
@@ -318,6 +319,14 @@ uint16_t PinsI8096::execute(uint16_t org, const uint8_t *inst, uint_fast8_t len,
         if (s->read()) {
             const uint16_t from = s->addr;
             const uint16_t to = from + s->bytes();
+            if (InstI8096::vector(from) &&
+                    static_cast<uint16_t>(from - org) >= len &&
+                    static_cast<uint16_t>(from - at) >= size) {
+                // An interrupt took the CPU before the sequence ran: leave
+                // its vector's read to the caller.
+                hold(s, from);
+                return first;
+            }
             if (whole && cap >= max && static_cast<uint16_t>(leaves - from) <
                                                static_cast<uint16_t>(to - from)) {
                 hold(s, leaves);
@@ -463,6 +472,16 @@ bool PinsI8096::rawStep(bool show) {
             completeCycle(s);
             continue;
         }
+        // The handler a halt waits on returns to its park.
+        if (_halt.waiting && s->addr == _halt.park) {
+            hold(s, s->addr);
+            if (saveHalt()) {
+                if (show)
+                    Cycles::discard(s);
+                return true;
+            }
+            continue;
+        }
         if (s->addr == InstI8096::VEC_TRAP && !ownTrap) {
             handleTrap(s, 0x2344, true);
             if (show)
@@ -510,15 +529,73 @@ bool PinsI8096::step(bool show) {
     return false;
 }
 
-// |s| reads the vector: answer |vector|, capture the PC the CPU pushes,
-// and park at |vector|, an even address.
-void PinsI8096::handleTrap(Signals *s, uint16_t vector, bool breakTrap) {
+// |s| reads the vector: answer |vector|, capture the PC the CPU pushes
+// into |pc|, and park at |vector|, an even address. Returns the SP the
+// push left.
+uint16_t PinsI8096::serveVector(Signals *s, uint16_t vector, uint16_t &pc) {
     const uint8_t vec[] = {lo(vector), hi(vector)};
-    uint8_t pc[2];
+    uint8_t push[2];
     hold(s, s->addr);
-    const auto sp = execute(s->addr, vec, sizeof(vec), pc, sizeof(pc),
-            vector, false);
-    regs<RegsI8096>()->captureContext(sp, pc[0] | (pc[1] << 8), breakTrap);
+    const auto sp = execute(
+            s->addr, vec, sizeof(vec), push, sizeof(push), vector, false);
+    pc = push[0] | (push[1] << 8);
+    return sp;
+}
+
+void PinsI8096::handleTrap(Signals *s, uint16_t vector, bool breakTrap) {
+    uint16_t pc;
+    const auto sp = serveVector(s, vector, pc);
+    regs<RegsI8096>()->captureContext(sp, pc, breakTrap);
+}
+
+// The cycle |s| of a halt under way: whether the CPU stopped, or the board
+// was reset after the CPU never took INTR_NMI.
+bool PinsI8096::haltCycle(Signals *s) {
+    if (_halt.waiting) {
+        if (!s->read() || s->addr != _halt.park)
+            return false;
+        hold(s, s->addr);
+        return saveHalt();
+    }
+    if (!s->read() || s->addr != haltEntry()) {
+        if (++_halt.cycles < 2000)
+            return false;
+        resetPins();
+        return true;
+    }
+    negateInt(INTR_NMI);
+    if (s->addr == InstI8096::ORG_NMI) {
+        // The 8096's NMI pushes the PC, then calls 0000H.
+        const auto push = s->prev();
+        _halt.sp = push->addr;
+        _halt.pc =
+                uint16(push->byteAt(push->addr + 1), push->byteAt(push->addr));
+        hold(s, s->addr);
+    } else {
+        _halt.sp = serveVector(s, 0x5678, _halt.pc);
+    }
+    _halt.park = park();
+    _halt.waiting = true;
+    return saveHalt();
+}
+
+// A halt asked while a wait an earlier break left is pending drops the
+// wait: its handler may never return to the park.
+// ATTENTION: if it does, it returns to the park's address in memory.
+void PinsI8096::requestHalt() {
+    _halt = Halt();
+    assertInt(INTR_NMI);
+    _halt.cycles = 1;
+}
+
+// Saves the halt's frame, the CPU held at its park. False when an
+// interrupt took the CPU first, held at its vector's read: its handler
+// returns to the park, where the save runs again.
+bool PinsI8096::saveHalt() {
+    if (!regs<RegsI8096>()->captureContext(_halt.sp, _halt.pc, false))
+        return false;
+    _halt = Halt();
+    return true;
 }
 
 // Whether the read |s| fetched a breakpoint's TRAP.
@@ -538,7 +615,8 @@ bool PinsI8096::fetchedBreak(const Signals *s) const {
 // the ring wraps; the debug pin frames the run, to trigger a capture on.
 Signals *PinsI8096::loop() {
     constexpr auto MAX_CYCLES = 96;
-    int16_t tryHalt = 0;
+    // A wait an earlier break left.
+    auto carried = _halt.waiting;
     assert_debug();
     for (auto n = 0;; ++n) {
         auto s = prepareCycle();
@@ -547,30 +625,27 @@ Signals *PinsI8096::loop() {
             handleTrap(s, 0x4566, true);
             return s;
         }
-        if (tryHalt) {
-            if (s->addr == InstI8096::VEC_EXTINT && s->read()) {
-                negateInt();
-                handleTrap(s, 0x5678, false);
+        if (_halt.cycles) {
+            if (haltCycle(s))
                 return s;
-            }
-            if (++tryHalt >= 2000) {
-                resetPins();
-                return s;
-            }
+            if (_held)
+                continue;
         }
         completeCycle(s);
         _devs->loop();
-        if ((n >= MAX_CYCLES || haltSwitch()) && tryHalt == 0) {
+        if ((n >= MAX_CYCLES || haltSwitch()) &&
+                (_halt.cycles == 0 || carried)) {
             negate_debug();
             cli.println(n >= MAX_CYCLES ? "?cycles" : "?halt");
-            assertInt();
-            tryHalt = 1;
+            requestHalt();
+            carried = false;
         }
     }
 }
 #else
 Signals *PinsI8096::loop() {
-    int16_t tryHalt = 0;
+    // A wait an earlier break left.
+    auto carried = _halt.waiting;
     while (true) {
         auto s = prepareCycle();
         if (s->addr == InstI8096::VEC_TRAP && s->read()) {
@@ -585,22 +660,17 @@ Signals *PinsI8096::loop() {
                 return s;
             }
         }
-        if (tryHalt) {
-            if (s->addr == InstI8096::VEC_EXTINT && s->read()) {
-                negateInt();
-                handleTrap(s, 0x5678, false);
+        if (_halt.cycles) {
+            if (haltCycle(s))
                 return s;
-            }
-            if (++tryHalt >= 2000) {
-                resetPins();
-                return s;
-            }
+            if (_held)
+                continue;
         }
         completeCycle(s);
         _devs->loop();
-        if (haltSwitch() && tryHalt == 0) {
-            assertInt();
-            tryHalt = 1;
+        if (haltSwitch() && (_halt.cycles == 0 || carried)) {
+            requestHalt();
+            carried = false;
         }
     }
 }
@@ -623,6 +693,12 @@ void PinsI8096::run() {
     stopRunTimer();
     Cycles::discard(s);
 #endif
+    // A break that got in ahead of the halt's entry.
+    // ATTENTION: the CPU may have latched NMI's edge already.
+    if (_halt.cycles && !_halt.waiting) {
+        negateInt(INTR_NMI);
+        _halt = Halt();
+    }
     restoreBreakInsts();
     disassembleCycles();
 }
@@ -631,6 +707,7 @@ void PinsI8096::setBreakInst(uint32_t addr) const {
     _mems->put_prog(addr, InstI8096::TRAP);
 }
 
+// The board without NMI raises EXTINT for INTR_NMI too.
 void PinsI8096::assertInt(uint8_t) {
     digitalWriteFast(PIN_EXTINT, HIGH);
 }

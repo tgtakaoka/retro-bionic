@@ -172,6 +172,10 @@ and Z8000 halt this way. **[code]**
 - A trap that acts like a call (TMS7000 and TMS370 `TRAP`, 8080 `RST`) neither
   masks nor stacks the status, so it is no better than an injected save.
   **[doc]**
+- An NMI that acts like a call (i8096) stacks only the PC and leaves the
+  next instruction boundary open: an interrupt taken there reads its vector
+  in place of the save. Serve it from memory and save when its handler
+  returns to the park. **[doc]**
 - Every NMI-class input is a Teensy output, and the emulated devices only change
   interrupt pins from `devs->loop()`, which does not run during a save or
   restore. Where every interrupt source is the firmware (PDP-8), holding the
