@@ -75,6 +75,18 @@ void negate_irq() {
     digitalWriteFast(PIN_IRQ, HIGH);
 }
 
+void assert_nmi() {
+    digitalWriteFast(PIN_NMI, LOW);
+}
+
+void negate_nmi() {
+    digitalWriteFast(PIN_NMI, HIGH);
+}
+
+inline bool asserted(uint8_t pin) {
+    return (*portOutputRegister(pin) & digitalPinToBitMask(pin)) == 0;
+}
+
 void assert_rdy() {
     pinMode(PIN_RDY, INPUT_PULLUP);
 }
@@ -418,18 +430,66 @@ void PinsMos6502::run() {
         _regs->save();
 }
 
-// Cycles to wait for the next opcode fetch; an instruction or interrupt
-// takes under 10, but WAI, STP and the NMOS JAM opcodes never fetch again.
-constexpr auto fetch_cycles = 32;
+// Cycles to take an NMI: the instruction under way, an IRQ entry the NMI
+// may follow, the handler's first instruction, then the NMI entry. WAI
+// wakes on the NMI; STP and the NMOS JAM opcodes never fetch again.
+constexpr auto nmi_cycles = 64;
 
+// Stop through an NMI, which masks IRQ and stacks PC and P itself, and
+// leave the CPU at the handler's first fetch, not completed. The next
+// opcode fetch is fed a JMP to itself until the NMI is taken, so the
+// frame's PC is that fetch's address.
 bool PinsMos6502::suspend() {
-    for (auto n = 0; n < fetch_cycles; ++n) {
+    _frame.len = 0;
+    assert_nmi();
+    const Signals *first = nullptr;  // the first fed fetch
+    uint32_t park = 0;
+    auto parked = false;
+    const Signals *push = nullptr;  // the first of consecutive writes
+    uint8_t writes = 0;
+    for (auto n = 0; n < nmi_cycles; ++n) {
         auto s = prepareCycle();
-        if (s->fetch())
+        if (s->fetch()) {
+            if (first == nullptr) {
+                first = s;
+                park = s->addr;
+                parked = true;
+            } else if (s->addr != park) {
+                parked = false;  // an IRQ entry took it elsewhere
+            }
+        }
+        if (parked && s->read() && s->addr - park < 3) {
+            const uint8_t JMP_HERE[] = {
+                    InstMos6502::JMP, lo(park), hi(park)};
+            s->inject(JMP_HERE[s->addr - park]);
+        }
+        const auto native = s->addr == InstMos6502::W65816_NMI;
+        const uint8_t len = native ? 4 : 3;
+        if (s->read() && writes >= len &&
+                (native || s->addr == InstMos6502::VECTOR_NMI)) {
+            negate_nmi();
+            const auto frame = push->next(writes - len);
+            _frame.len = len;
+            _frame.sp = frame->addr;
+            for (auto i = 0; i < len; ++i)
+                _frame.data[i] = frame->next(i)->data;
+            // The NMI entry starts with a discarded fetch and a dummy read
+            Cycles::discard(parked ? first : frame->prev(2));
+            // Any vector will do: the save is injected at its fetch
+            inject(lo(park));
+            inject(hi(park));
             return true;
+        }
         completeCycle(s);
+        if (s->write()) {
+            if (writes++ == 0)
+                push = s;
+        } else {
+            writes = 0;
+        }
     }
-    cli.println("?halt: no fetch");
+    negate_nmi();
+    cli.println("?halt: no NMI");
     return false;
 }
 
@@ -445,6 +505,17 @@ bool PinsMos6502::rawStep() {
     }
     assert_rdy();
     completeCycle(s);
+    // A pending IRQ the restored P lets in starts its entry before any
+    // instruction, and an NMI raised during it would take its vector: let
+    // the IRQ fetch its vector first, so the step stops at its handler.
+    if (asserted(PIN_IRQ) && !regs<RegsMos6502>()->irqMasked()) {
+        for (auto n = 0; n < nmi_cycles; ++n) {
+            const auto v = cycle();
+            if (v->read() && (v->addr == InstMos6502::VECTOR_IRQ + 1 ||
+                                     v->addr == InstMos6502::W65816_IRQ + 1))
+                break;
+        }
+    }
     if (!suspend()) {
         negate_rdy();
         return false;

@@ -114,12 +114,23 @@ struct PinsMos6502 final : Pins {
 
     Signals *inject(uint8_t data);
     bool native65816() const;
+
+    // What the NMI that stopped the CPU stacked: PBR (native), PCH, PCL,
+    // P, and the S they were pushed from; len is 0 without one.
+    struct Frame {
+        uint8_t len;
+        uint16_t sp;
+        uint8_t data[4];
+    };
+    const Frame &frame() const { return _frame; }
+    void clearFrame() { _frame.len = 0; }
     static HardwareType hardwareType() { return _hardType; }
     static SoftwareType softwareType() { return _softType; }
 
 private:
     static HardwareType _hardType;
     static SoftwareType _softType;
+    Frame _frame = {};
 
     void checkHardwareType();
     void checkSoftwareType();

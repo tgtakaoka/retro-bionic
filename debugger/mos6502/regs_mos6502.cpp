@@ -73,6 +73,11 @@ void RegsMos6502::print() const {
 static constexpr uint8_t noop = 0xFF;
 
 void RegsMos6502::save() {
+    if (_pins->frame().len) {
+        saveNmi();
+        _pins->clearFrame();  // a reset's save has none
+        return;
+    }
     if (_pins->native65816()) {
         save65816();
         return;
@@ -130,6 +135,55 @@ void RegsMos6502::save65816() {
     _x = be16(buffer + 7);
     _y = be16(buffer + 9);
     _d = be16(buffer + 11);
+}
+
+// The rest of the registers, from the handler of the NMI that stacked
+// the frame; the NMI has already set I.
+void RegsMos6502::saveNmi() {
+    const auto &frame = _pins->frame();
+    if (frame.len == 4) {
+        static constexpr uint8_t PUSH_ALL[] = {
+                0xC2, 0x30, noop,  // REP #$30; M=0, X=0
+                0x48, noop,        // PHA; C=0
+                0x8B, noop,        // PHB; DBR=2
+                0xDA, noop,        // PHX; X=3
+                0x5A, noop,        // PHY; Y=5
+                0x0B, noop,        // PHD; D=7
+        };
+        uint8_t buffer[9];
+        _pins->captureWrites(
+                PUSH_ALL, sizeof(PUSH_ALL), nullptr, buffer, sizeof(buffer));
+        _s = frame.sp;
+        _pbr = frame.data[0];
+        _pc = be16(frame.data + 1);
+        _e = 0;
+        setP(frame.data[3]);
+        _b = buffer[0];
+        _a = buffer[1];
+        _dbr = buffer[2];
+        _x = be16(buffer + 3);
+        _y = be16(buffer + 5);
+        _d = be16(buffer + 7);
+        return;
+    }
+    static constexpr uint8_t PUSH_ALL[] = {
+            0x48, noop,  // PHA
+            0x8A, noop,  // TXA
+            0x48, noop,  // PHA
+            0x98, noop,  // TYA
+            0x48, noop,  // PHA
+    };
+    uint8_t buffer[3];
+    _pins->captureWrites(
+            PUSH_ALL, sizeof(PUSH_ALL), nullptr, buffer, sizeof(buffer));
+    _s = lo(frame.sp) | 0x0100;
+    _pc = be16(frame.data);
+    _e = 1;
+    // B reads as set, as PHP pushes it
+    setP(frame.data[2] | 0x10);
+    _a = buffer[0];
+    _x = buffer[1];
+    _y = buffer[2];
 }
 
 void RegsMos6502::setE(uint8_t value) {
