@@ -13,9 +13,17 @@ namespace debugger {
 namespace p8095bh {
 
 struct PinsP8095BH final : i8096::PinsI8096 {
+    void assertInt(uint8_t name) override;
+    void negateInt(uint8_t name) override;
+
 private:
     void resetPins() override;
     bool getControl(Signals *s) const override;
+    void restoreExtint() override;
+
+    // Without NMI, the halt shares EXTINT with the USART.
+    bool _extintAsserted = false;
+    bool _nmiAsserted = false;
 };
 
 }  // namespace p8095bh
