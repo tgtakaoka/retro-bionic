@@ -50,6 +50,12 @@ struct Pins {
 
     static void initDebug();
     static bool haltSwitch();
+#ifdef STRESS_HALTGO
+    // yield() on only one in this many haltSwitch() calls, so halts land
+    // where a pending interrupt reaches the save
+    static uint32_t yieldInterval() { return _yieldInterval; }
+    static void setYieldInterval(uint32_t n) { _yieldInterval = n ? n : 1; }
+#endif
     static void assert_debug();
     static void negate_debug();
     static void toggle_debug();
@@ -122,6 +128,10 @@ protected:
 
 private:
     static volatile bool _halted;
+#ifdef STRESS_HALTGO
+    static uint32_t _yieldInterval;
+    static uint32_t _yieldCount;
+#endif
 };
 }  // namespace debugger
 
