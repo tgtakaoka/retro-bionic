@@ -187,6 +187,33 @@ CDP1802, Z8, TMS7000, TMS370, TMS320C15, MN1613), the save has to read the
 interrupt mask before setting it, and the restore has to enable interrupts in
 the same instruction as the jump.
 
+### Stress `haltgo` with the `teensy41-stress` build **[hw]**
+
+A halt that reaches the register save with an interrupt pending is rare with
+`yield()` on every halt poll, so a passing `haltgo` proves little. The
+`teensy41-stress` build (`BIONIC_ENV=teensy41-stress` for
+`bionic-control.py flash`) adds `Y n`: `yield()` on one in `n` halt polls.
+`Y 1024` makes the pending interrupt common; a power cycle puts it back to
+`Y 1`. The test is the regress plus five runs of `haltgo=30` at `Y 1024`.
+
+Results on 2026-10-15, five or more runs each unless noted:
+
+- With a remedy, in their own sections: MCS-51, MC6805 family (MC68HC08AZ0),
+  TMS7000 family, TMS370.
+- Halting through the CPU's own entry, all passing: MOS6502 family (NMI),
+  8085 (TRAP), PDP-8 (INTREQ held off), 8096 (NMI/EXTINT), MC6800 family and
+  MC6809 family (NMI), TLCS90 (NMI), Z80 family and Z380 (NMI), Z280 (NMI
+  park), TMS9900 (LOAD), TMS9995 and TMS99105 (NMI), Z8000 (NMI).
+- Masking interrupts in the save and enabling them with the jump, all
+  passing: 8080, SC/MP, INS8070, SCN2650, TMS320C15, Z8. The Z8's `IRET`
+  restore passed two more runs on the Z86C91 and Z88C00 on 2026-10-16.
+- Passing with no change: CDP1802, CDP1804A, F3850, MC146805E2,
+  MC68HC05C0, MCS-48 (P8039, MSM80C39), MN1613, and the Z280's RST park
+  (breakpoint and gountil at `Y 1024`).
+- TMS9980 family, after its bus re-timing: the TMS9981 passes the regress
+  and two runs of `haltgo` at `Y 1024`, short of the full test; the bench
+  TMS9980ANL passes and fails from run to run, so it waits for another chip.
+
 ### Compare a pin read against `LOW`, never `HIGH` **[code]**
 
 `digitalReadFast()` is not guaranteed to normalise to 1 — a fast read can hand

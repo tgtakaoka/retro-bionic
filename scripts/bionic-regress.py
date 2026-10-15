@@ -629,12 +629,12 @@ def case_haltgo(board, n=None, regress=None):
     command line still wins), `address_unit = N` bytes per PC unit for
     a word/longword-addressed target (default 1, byte-addressed), and
     `halt_interval = [min, max]` randomizes each halt's run time in
-    seconds (default [0, 0], immediate) so a corrupted resume that only
+    seconds (default [0.05, 0.2]) so a corrupted resume that only
     shows up mid-instruction gets the chance to.
     """
     how = drive_table(regress).get('haltgo', {})
     unit = how.get('address_unit', 1)
-    interval_lo, interval_hi = how.get('halt_interval', (0.0, 0.0))
+    interval_lo, interval_hi = how.get('halt_interval', (0.05, 0.2))
     if n is None:
         n = how.get('halt_count', 10)
     hexes = samples(board.who)
@@ -653,14 +653,14 @@ def case_haltgo(board, n=None, regress=None):
     ranges = [(lo // unit, hi // unit) for lo, hi in load_ranges(path)]
     # 'G 0': no backtrace to disassemble and print at the next halt --
     # only the PC and a nonzero byte count are checked, so it would
-    # only cost time here.
-    board.send(b'G 0\r', wait=3.0, idle=1.0, delay=1.0)
+    # only cost time here. The first halt comes at a random point too, so
+    # a sample's setup and first interrupts get halted in as well.
+    board.send(b'G 0\r', wait=0, idle=0)
     bad, drift, output, done = 0, [], 0, n
     for i in range(n):
-        if interval_hi:
-            # run for exactly this long: the idle timeout never ends it early
-            run = random.uniform(interval_lo, interval_hi)
-            output += len(board.send(wait=run, idle=run))
+        # run for exactly this long: the idle timeout never ends it early
+        run = random.uniform(interval_lo, interval_hi)
+        output += len(board.send(wait=run, idle=run))
         board.abort()
         # The dump can lag the halt; a reply ends at the prompt anyway.
         halted = board.send(wait=3.0, idle=2.0, delay=0.2)
@@ -688,7 +688,7 @@ def case_haltgo(board, n=None, regress=None):
         elif start is not None and pc == start:
             bad += 1
             drift.append('%d:PC=%s,reset' % (i, pc))
-    if interval_hi and not output and not bad:
+    if not output and not bad:
         bad += 1
         drift.append('no output after a resume')
     board.abort()

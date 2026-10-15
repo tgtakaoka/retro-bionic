@@ -45,6 +45,10 @@ void Pins::pinsMode(
 }
 
 volatile bool Pins::_halted;
+#ifdef STRESS_HALTGO
+uint32_t Pins::_yieldInterval = 1;
+uint32_t Pins::_yieldCount;
+#endif
 
 void Pins::isrHaltSwitch() {
     _halted = true;
@@ -67,7 +71,14 @@ bool Pins::haltSwitch() {
     // yield() only through console I/O (usb_serial_available() yields
     // when the buffer is empty), so a program that never enables the
     // console device could not be stopped. Poll here.
+#ifdef STRESS_HALTGO
+    if (++_yieldCount >= _yieldInterval) {
+        _yieldCount = 0;
+        yield();
+    }
+#else
     yield();
+#endif
     Watchdog::tick();
     return _halted;
 }

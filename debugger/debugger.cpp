@@ -82,6 +82,9 @@ constexpr char HELP2[] =
         "  P [from to]    : show, or set, protect area\r\n"
         "  W +identity    : write identity EEPROM\r\n"
         "  V              : toggle verbose bus-cycle printing\r\n"
+#ifdef STRESS_HALTGO
+        "  Y [n]          : yield on one in n halt polls (default 1)\r\n"
+#endif
         "  ?              : this help\r\n"
         "\r\n";
 // The two ways to stop a run; each names the CPU, known only at runtime.
@@ -447,6 +450,22 @@ void handleGo(uint32_t value, uintptr_t extra, State state) {
     }
     printPrompt();
 }
+
+#ifdef STRESS_HALTGO
+void handleYield(uint32_t value, uintptr_t extra, State state) {
+    if (state == State::CLI_DELETE)
+        return;
+    if (state != State::CLI_CANCEL) {
+        if (!cli.wasNumberEmpty())
+            Pins::setYieldInterval(value);
+        cli.println();
+        cli.print("Yield on one in ");
+        cli.printDec(Pins::yieldInterval());
+        cli.println(" halt polls");
+    }
+    printPrompt();
+}
+#endif
 
 #if defined(ENABLE_SDCARD)
 void listDirectory(File dir) {
@@ -945,6 +964,12 @@ void Debugger::exec(char c) {
         cli.print("Verbose ");
         cli.println(_verbose ? "ON" : "OFF");
         break;
+#ifdef STRESS_HALTGO
+    case 'Y':
+        cli.print("Yield interval? ");
+        cli.readDec(handleYield, 0, UINT32_MAX);
+        return;
+#endif
     case '?':
         help();
         break;
