@@ -146,6 +146,43 @@ Ctrl-C (`0x03`), Ctrl-Space (`0x00`), then the halt port. If none of the three
 draws a reply, the firmware is stuck in a wait: the watchdog reboots it within
 4 s if the wait feeds nothing, and otherwise only a reflash brings it back.
 
+### Halt through an entry the CPU takes itself
+
+**An injected save races a pending interrupt.** A save injected at an ordinary
+opcode fetch starts at an instruction boundary where the CPU may take a
+pending interrupt instead, and feed the injected bytes to its entry: the Z8
+saved one of its pushes as the PC, the TMS370's vector reads ate injected
+bytes, and the TMS7000's `POP ST; BR` restore let one in before the jump.
+Polling the halt port less often makes it common: with `yield()` on one in
+1024 halt polls, most `haltgo` runs failed on the TMS7002, Z86C91, TMS370 and
+Z88C00. **[hw]**
+
+**Prefer an NMI, TRAP or LOAD input, or an injected trap that masks
+interrupts.** The CPU then finishes the instruction, settles priority with any
+pending interrupt itself, stacks one coherent frame including the program's
+interrupt mask, and masks itself; the debugger serves the vector and captures
+the frame. Resume with the instruction that restores the mask together with the
+PC (`RTI`, `RETI`, `RETN`, `IRET`), or `EI` right before the jump. The MC6800
+family, MC6809, MOS6502, 8085, Z80 family, Z280, Z380, TLCS90, TMS9900 family
+and Z8000 halt this way. **[code]**
+
+- An injected `SWI` needs the opcode fetch marked by hardware (`SYNC`, `M1`,
+  `LIR`, `IAQ`, `#OCF`) and a check of which vector was read: a pending IRQ can
+  still win that boundary and discard the `SWI` (MC68HC08). **[hw]**
+- A trap that acts like a call (TMS7000 and TMS370 `TRAP`, 8080 `RST`) neither
+  masks nor stacks the status, so it is no better than an injected save.
+  **[doc]**
+- Every NMI-class input is a Teensy output, and the emulated devices only change
+  interrupt pins from `devs->loop()`, which does not run during a save or
+  restore. Where every interrupt source is the firmware (PDP-8), holding the
+  request off from the halt to the program's first fetch after the restore is
+  enough. On-chip peripherals cannot be held off this way. **[code]**
+
+Where none of this is available (8051, 8048, F3850, SC/MP, INS8070, SCN2650,
+CDP1802, Z8, TMS7000, TMS370, TMS320C15, MN1613), the save has to read the
+interrupt mask before setting it, and the restore has to enable interrupts in
+the same instruction as the jump.
+
 ### Compare a pin read against `LOW`, never `HIGH` **[code]**
 
 `digitalReadFast()` is not guaranteed to normalise to 1 — a fast read can hand
