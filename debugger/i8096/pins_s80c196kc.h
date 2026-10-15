@@ -20,6 +20,7 @@ struct PinsS80C196KC final : i8096::PinsI8096 {
 private:
     void resetPins() override;
     bool getControl(Signals *s) const override;
+    bool hasInst() const override { return true; }
 };
 
 }  // namespace s80c196kc

@@ -25,6 +25,10 @@ struct InstI8096 final {
     static constexpr uint16_t ORG_RESET = 0x2080;
     static constexpr uint16_t VEC_EXTINT = 0x200E;
     static constexpr uint16_t VEC_TRAP = 0x2010;
+    // Whether a read at |addr| is an interrupt vector's: one taken.
+    static bool vector(uint16_t addr) {
+        return addr >= 0x2000 && addr < 0x2040;
+    }
 
     static constexpr uint8_t TRAP = 0xF7;
     static constexpr uint8_t BMOV = 0xC1;
