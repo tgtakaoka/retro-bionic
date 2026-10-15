@@ -43,19 +43,20 @@ namespace tms9980 {
 // tPHL: max tw+20 ns ; #PHI3+ to #WE-
 // tPLH: min tw    ns ; #PHI3+ to #WE+
 
+// ATTENTION: the bench TMS9980ANL passes and fails on this timing from
+// run to run (step, arith, echo), while the TMS9981 passes everything;
+// suspect the chip, but recheck with another TMS9980.
+
 namespace {
 
 constexpr auto ckin_lo_ns = 40;       // 50
 constexpr auto ckin_hi_ns = 20;       // 50
-constexpr auto ckin_hi_laddr = 10;    // 50
-constexpr auto ckin_lo_haddr = 0;     // 50
-constexpr auto ckin_hi_phi4 = 2;      // 50
-constexpr auto ckin_lo_phi1 = 2;      // 50
+constexpr auto ckin_hi_phi1 = 40;     // 50, the delay runs short after work
+constexpr auto ckin_lo_phi4 = 30;     // 50, inputMode() takes the rest
+constexpr auto phi3_polls = 40;       // #PHI3 falls some 30 ns after CKIN+
 constexpr auto ckin_hi_inject = 30;   // 50
-constexpr auto ckin_lo_output = 0;    // 50
-constexpr auto ckin_hi_get = 5;       // 50
 constexpr auto ckin_lo_capture = 30;  // 50
-constexpr auto ckin_lo_input = 6;     // 50
+constexpr auto phi3_delay_ns = 100;   // CKIN- to #PHI3- is 90-100 ns
 
 const uint8_t PINS_LOW[] = {
         PIN_CKIN,
@@ -154,9 +155,14 @@ void PinsTms9980::resetPins() {
     pinsMode(PINS_INPUT, sizeof(PINS_INPUT), INPUT);
 
     system_cycle();
-    // Synchronize CKIN to #PHI3
-    while (signal_phi3() != LOW)
+    // Synchronize CKIN to #PHI3, which falls some 100 ns after CKIN does:
+    // reading it sooner can see the fall a cycle late, one phase off.
+    noInterrupts();
+    do {
         ckin_cycle();
+        delayNanoseconds(phi3_delay_ns);
+    } while (signal_phi3() != LOW);
+    interrupts();
     ckin_cycle();  // phi4
 
     for (auto i = 0; i < 10; ++i)
@@ -170,83 +176,95 @@ void PinsTms9980::resetPins() {
     _regs->reset();
 }
 
+namespace {
+bool phi3_fell() {
+    for (auto n = 0; n < phi3_polls; ++n) {
+        if (signal_phi3() == LOW)
+            return true;
+    }
+    return false;
+}
+}  // namespace
+
 Signals *PinsTms9980::prepareCycle() {
     auto s = SignalsTms9980::put();
+    // Each edge's samples are timed from it
+    noInterrupts();
     // phi1
     ckin_cycle();
     // phi2
-    noInterrupts();
     ckin_cycle();
-    // phi3
-    ckin_lo();
-    delayNanoseconds(ckin_lo_ns);
-    ckin_hi();
-    delayNanoseconds(ckin_hi_laddr);
+    // phi3: #PHI3 falls some 100 ns after the CKIN fall that starts it, and
+    // the outputs settle some 100 ns before that. Clock on until it has
+    // fallen, at most a clock, so a phase that slipped heals here.
+    for (auto n = 0; n < 4; ++n) {
+        ckin_lo();
+        delayNanoseconds(ckin_lo_ns);
+        ckin_hi();
+        if (phi3_fell())
+            break;
+    }
     // assert_debug();
     s->getLowAddr();
-    // phi4
+    // negate_debug();
+    // phi4: the outputs hold through it
     ckin_lo();
     s->getHighAddr();
-    // negate_debug();
-    delayNanoseconds(ckin_lo_haddr);
+    s->getControl();
     ckin_hi();
     interrupts();
-    delayNanoseconds(ckin_hi_phi4);
     return s;
 }
 
+// Read data goes on the bus in phi1, a clock and more ahead of the #PHI3
+// rise that latches it, and is released in phi4, the bus holder keeping
+// it; write data is valid with the address. The work in each low phase
+// takes the place of its delay.
 Signals *PinsTms9980::completeCycle(Signals *_s) {
     auto s = static_cast<SignalsTms9980 *>(_s);
+    noInterrupts();
+    const auto read = s->memory() && s->read();
     // phi1
     ckin_lo();
-    delayNanoseconds(ckin_lo_phi1);
-    // assert_debug();
-    s->getControl();
-    // negate_debug();
-    ckin_hi();
-    if (s->memory()) {
-        if (s->read()) {
-            if (s->readMemory()) {
-                s->data = _mems->read(s->addr);
-            } else {
-                delayNanoseconds(ckin_hi_inject);
-            }
-            // phi2
-            ckin_lo();
-            // assert_debug();
-            s->outData();
-            // negate_debug();
+    if (read) {
+        if (s->readMemory()) {
+            s->data = _mems->read(s->addr);
         } else {
-            delayNanoseconds(ckin_hi_get);
-            // assert_debug();
-            s->getData();
-            // negate_debug();
-            // phi2
-            ckin_lo();
-            if (s->writeMemory()) {
-                _mems->write(s->addr, s->data);
-            } else {
-                delayNanoseconds(ckin_lo_capture);
-            }
+            delayNanoseconds(ckin_hi_inject);
         }
-        ckin_hi();
-        Cycles::next();
-        // phi3
-        ckin_lo();
-        delayNanoseconds(ckin_lo_input);
-        s->inputMode();
-        ckin_hi();
+        // assert_debug();
+        s->outData();
+        // negate_debug();
+    } else if (s->memory()) {
+        s->getData();
+        if (s->writeMemory()) {
+            _mems->write(s->addr, s->data);
+        } else {
+            delayNanoseconds(ckin_lo_capture);
+        }
     } else {
-        delayNanoseconds(ckin_hi_ns);
-        // phi2
-        ckin_cycle();
-        // phi3
-        ckin_cycle_hi();
+        delayNanoseconds(ckin_lo_ns);
     }
+    ckin_hi();
+    delayNanoseconds(ckin_hi_phi1);
+    // phi2
+    ckin_lo();
+    if (s->memory()) {
+        Cycles::next();
+    } else {
+        delayNanoseconds(ckin_lo_ns);
+    }
+    ckin_hi();
     delayNanoseconds(ckin_hi_ns);
+    // phi3
+    ckin_cycle();
     // phi4
-    ckin_cycle_hi();
-    delayNanoseconds(ckin_hi_phi4);
+    ckin_lo();
+    if (read)
+        s->inputMode();
+    delayNanoseconds(ckin_lo_phi4);
+    ckin_hi();
+    interrupts();
     return s;
 }
 
@@ -254,6 +272,7 @@ Signals *PinsTms9980::resumeCycle(uint16_t) {
     auto s = SignalsTms9980::put();
     s->getLowAddr();
     s->getHighAddr();
+    s->getControl();
     assert_ready();
     return s;
 }
