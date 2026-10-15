@@ -264,7 +264,7 @@ Signals *PinsZ180::completeCycle(Signals *s) const {
     return s;
 }
 
-Signals *PinsZ180::resumeCycle(uint16_t pc) const {
+Signals *PinsZ180::resumeCycle(uint16_t pc) {
     const auto s = Signals::put();
     negate_wait();
     // execute() may have stopped past an interrupt acknowledge, at its

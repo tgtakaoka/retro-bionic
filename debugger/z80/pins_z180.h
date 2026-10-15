@@ -95,7 +95,7 @@ struct PinsZ180 final : z80::PinsZ80Base {
 protected:
     Signals *prepareCycle() const;
     Signals *completeCycle(Signals *signals) const;
-    Signals *resumeCycle(uint16_t pc) const;
+    Signals *resumeCycle(uint16_t pc);
 
     Signals *inject(uint8_t data) const;
     bool isRst38Break(const Signals *org_rst) const;
@@ -113,8 +113,8 @@ private:
     const uint8_t *const _config;
     const uint_fast8_t _configLen;
     // The fetch execute() left the CPU waiting in
-    mutable bool _heldFetch = false;
-    mutable uint32_t _heldAddr;
+    bool _heldFetch = false;
+    uint32_t _heldAddr;
 };
 
 }  // namespace z180
