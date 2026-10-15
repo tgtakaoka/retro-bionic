@@ -14,8 +14,12 @@ namespace n8097bh {
 
 // The PLCC-68 N8097BH has INST and NMI where the P8095BH has PWM and ACH4.
 struct PinsN8097BH final : i8096::PinsI8096 {
+    void assertInt(uint8_t name) override;
+    void negateInt(uint8_t name) override;
+
 private:
     void resetPins() override;
+    uint16_t haltEntry() const override { return i8096::InstI8096::ORG_NMI; }
     bool getControl(Signals *s) const override;
     bool hasInst() const override { return true; }
 };

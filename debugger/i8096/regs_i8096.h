@@ -18,8 +18,9 @@ struct RegsI8096 final : Regs {
     void reset() override;
     void save() override;
     void restore() override;
-    // A trap pushed |pc| below |sp|.
-    void captureContext(uint16_t sp, uint16_t pc, bool breakTrap);
+    // A trap pushed |pc| below |sp|. False when an interrupt took the CPU
+    // before the save.
+    bool captureContext(uint16_t sp, uint16_t pc, bool breakTrap);
 
     uint32_t nextIp() const override { return _pc; }
     uint16_t sp() const { return _sp; }

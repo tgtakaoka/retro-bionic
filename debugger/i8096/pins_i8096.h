@@ -72,6 +72,13 @@
 namespace debugger {
 namespace i8096 {
 
+// A device's interrupt name: 0 leaves it unconnected, and the samples
+// connect the USART with 1.
+enum IntrName : uint8_t {
+    INTR_EXTINT = 1,
+    INTR_NMI = 2,
+};
+
 // The board the P8095BH, the N8097BH and the S80C196KB/KC sit on; each
 // adds its own pins and control lines.
 struct PinsI8096 : Pins {
@@ -114,6 +121,10 @@ protected:
     // Whether the CPU has INST, high on a fetch from the instruction stream.
     virtual bool hasInst() const { return false; }
 
+    // Where the halt's INTR_NMI enters: the vector it reads, or the
+    // address an 8096's NMI calls. EXTINT stands in on a board without NMI.
+    virtual uint16_t haltEntry() const { return InstI8096::VEC_EXTINT; }
+
 private:
     const CpuType _cpu;
     bool _idle = false;
@@ -125,6 +136,19 @@ private:
 
     bool rawStep(bool show);
     Signals *loop();
+    // A halt under way: the cycles since its request, and once entered,
+    // the frame its interrupt pushed while another interrupt's handler
+    // runs before the save. It waits across a break in that handler.
+    struct Halt {
+        int16_t cycles = 0;
+        bool waiting = false;
+        uint16_t park;
+        uint16_t sp;
+        uint16_t pc;
+    } _halt;
+    void requestHalt();
+    bool haltCycle(Signals *s);
+    bool saveHalt();
 
     bool awaitControl(Signals *s) const;
     Signals *prepareCycle();
@@ -140,6 +164,7 @@ private:
     bool fetchedBreak(const Signals *s) const;
     uint16_t jumpTarget(uint16_t next, uint_fast8_t opc) const;
     uint16_t readData16(uint16_t addr) const;
+    uint16_t serveVector(Signals *s, uint16_t vector, uint16_t &pc);
     void handleTrap(Signals *s, uint16_t vector, bool breakTrap);
 
     void printCycles(const Signals *end);

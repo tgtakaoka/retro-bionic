@@ -30,6 +30,9 @@ struct InstI8096 final {
         return addr >= 0x2000 && addr < 0x2040;
     }
 
+    // Where an 8096's NMI calls, with no vector read.
+    static constexpr uint16_t ORG_NMI = 0x0000;
+
     static constexpr uint8_t TRAP = 0xF7;
     static constexpr uint8_t BMOV = 0xC1;
     static constexpr uint8_t BMOVI = 0xCD;

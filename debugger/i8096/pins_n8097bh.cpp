@@ -15,6 +15,22 @@ void PinsN8097BH::resetPins() {
     PinsI8096::resetPins();
 }
 
+void PinsN8097BH::assertInt(uint8_t name) {
+    if (name == i8096::INTR_NMI) {
+        digitalWriteFast(PIN_NMI, HIGH);
+    } else {
+        PinsI8096::assertInt(name);
+    }
+}
+
+void PinsN8097BH::negateInt(uint8_t name) {
+    if (name == i8096::INTR_NMI) {
+        digitalWriteFast(PIN_NMI, LOW);
+    } else {
+        PinsI8096::negateInt(name);
+    }
+}
+
 bool PinsN8097BH::getControl(i8096::SignalsI8096 *s) const {
     return static_cast<n8097bh::Signals *>(s)->getControl();
 }
