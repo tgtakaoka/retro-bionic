@@ -71,12 +71,20 @@ void PinsTms9900Base::run() {
     disassembleCycles();
 }
 
+// Bus cycles to wait for the NMI vector; an instruction takes far fewer.
+constexpr auto nmi_cycles = 1024;
+
 void PinsTms9900Base::suspend(uint16_t pc) {
     bool assert_nmi = true;
     auto s = resumeCycle(pc);
-    while (true) {
+    for (auto n = 0;; ++n) {
         if (s->addr == mems<MemsTms9900>()->vec_nmi())
             break;
+        if (n >= nmi_cycles) {
+            negateInt(tms9900::INTR_NMI);
+            cli.println("?halt: no NMI vector");
+            return;
+        }
         completeCycle(s);
         if (assert_nmi && s->fetch()) {
             assertInt(tms9900::INTR_NMI);
