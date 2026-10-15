@@ -17,6 +17,7 @@ struct PinsN8097BH final : i8096::PinsI8096 {
 private:
     void resetPins() override;
     bool getControl(Signals *s) const override;
+    bool hasInst() const override { return true; }
 };
 
 }  // namespace n8097bh

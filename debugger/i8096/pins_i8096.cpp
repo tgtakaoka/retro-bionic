@@ -414,12 +414,15 @@ uint16_t PinsI8096::jumpTarget(uint16_t next, uint_fast8_t opc) const {
         return next + static_cast<int16_t>(_mems->read16(pc + 1));
     } else if (opc == 0xF0) {  // RET
         return readData16(regs<RegsI8096>()->sp());
-    } else if (opc == InstI8096::TRAP) {  // TRAP
-        return _mems->read16(InstI8096::VEC_TRAP);
     }
     return next;
 }
 
+// Feeds a TRAP to the fetches past the instruction: the next one, a
+// branch's target, or an interrupt's handler. INST, where the CPU has it,
+// marks every fetch from the instruction stream, prefetches and operands
+// too; elsewhere the address does. The instruction's own bytes come from
+// memory but at a branch back to them.
 bool PinsI8096::rawStep(bool show) {
     show &= !Debugger.verbose();
     InstI8096 inst;
@@ -431,57 +434,70 @@ bool PinsI8096::rawStep(bool show) {
     const uint16_t next = pc + len;
     const auto opc = inst.opc();
     const auto target = jumpTarget(next, opc);
+    uint16_t handler = next;  // once an interrupt's vector was read
     // A block move takes two cycles a word; its count is read while the
     // register file is still the debugger's.
-    uint32_t cycles = 30;
+    uint32_t cycles = 100;
     if (c196() && (opc == InstI8096::BMOV || opc == InstI8096::BMOVI))
         cycles += 2 * readData16(_mems->read(pc + 1));
-    auto stepTrap = opc == InstI8096::TRAP;
+    // The first read of the TRAP vector is a stepped TRAP's own.
+    auto ownTrap = opc == InstI8096::TRAP;
     _regs->restore();
     if (show)
         Cycles::reset();
     _idle = false;
-    // The instruction's bytes come from memory until each was fetched;
-    // after them, a fetch of the next or the target gets a TRAP.
+    // Whether a fetch of |addr| in |s| gets the TRAP, once each of the
+    // instruction's bytes was fetched.
+    const auto stops = [&](const Signals *s, uint16_t addr) {
+        if (static_cast<uint16_t>(addr - pc) < len)
+            return addr == target;  // a branch back to itself
+        if (hasInst())
+            return s->inst();
+        return addr == next || addr == target || addr == handler;
+    };
     const uint8_t all = (1 << len) - 1;
     uint8_t fetched = 0;
     for (uint32_t i = 0; i < cycles; i++) {
         auto s = prepareCycle();
-        if (s->read() && s->addr == InstI8096::VEC_TRAP) {
-            if (stepTrap) {
-                stepTrap = false;
-            } else {
-                handleTrap(s, 0x2344, true);
-                if (show)
-                    Cycles::discard(s);
-                break;
-            }
-        } else if (s->read()) {
-            const auto first = fetched == 0;
-            auto word = readBus(s);
-            auto trap = false;
-            for (uint_fast8_t j = 0; j < s->bytes(); ++j) {
-                const uint16_t addr = s->addr + j;
-                const uint16_t off = addr - pc;
-                if (off < len && fetched != all) {
-                    fetched |= 1 << off;
-                } else if (addr == next || addr == target) {
-                    const auto lane = (addr & 1) ? 8 : 0;
-                    word &= ~(0xFF << lane);
-                    word |= InstI8096::TRAP << lane;
-                    trap = true;
-                }
-            }
-            if (trap)
-                s->inject(word);
+        if (!s->read()) {
             completeCycle(s);
-            if (first && fetched)
-                s->markStart(pc);
             continue;
         }
+        if (s->addr == InstI8096::VEC_TRAP && !ownTrap) {
+            handleTrap(s, 0x2344, true);
+            if (show)
+                Cycles::discard(s);
+            return true;
+        }
+        if (InstI8096::vector(s->addr)) {
+            ownTrap = false;
+            handler = _mems->read16(s->addr);
+            completeCycle(s);
+            continue;
+        }
+        const auto first = fetched == 0;
+        auto word = readBus(s);
+        auto trap = false;
+        for (uint_fast8_t j = 0; j < s->bytes(); ++j) {
+            const uint16_t addr = s->addr + j;
+            const uint16_t off = addr - pc;
+            if (off < len && fetched != all) {
+                fetched |= 1 << off;
+            } else if (stops(s, addr)) {
+                const auto lane = (addr & 1) ? 8 : 0;
+                word &= ~(0xFF << lane);
+                word |= InstI8096::TRAP << lane;
+                trap = true;
+            }
+        }
+        if (trap)
+            s->inject(word);
         completeCycle(s);
+        if (first && fetched)
+            s->markStart(pc);
     }
-    return true;
+    cli.println("?step: no TRAP");
+    return false;
 }
 
 bool PinsI8096::step(bool show) {

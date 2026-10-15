@@ -111,6 +111,8 @@ protected:
     void resetPins() override;
     // Reads the control lines into |s|: whether a read or a write is on.
     virtual bool getControl(Signals *s) const = 0;
+    // Whether the CPU has INST, high on a fetch from the instruction stream.
+    virtual bool hasInst() const { return false; }
 
 private:
     const CpuType _cpu;
