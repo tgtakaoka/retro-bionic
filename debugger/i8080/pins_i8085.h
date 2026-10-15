@@ -100,6 +100,10 @@ private:
     Signals *inject(uint8_t data) const;
     Signals *loop() const;
     bool rawStep() const;
+    bool suspend(Signals *s) const;
+    // The PC and SP the TRAP that stopped the CPU stacked
+    mutable uint16_t _trapPc;
+    mutable uint16_t _trapSp;
 
     const SignalsImpl *findBacktraceStart() override;
     void printBacktrace() override;

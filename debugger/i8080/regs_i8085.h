@@ -13,6 +13,7 @@ struct RegsI8085 final : i8080::RegsI8080 {
 
     void save() override;
     void saveContext(uint16_t pc);
+    void saveTrap(uint16_t pc, uint16_t sp);
 };
 
 }  // namespace i8085
