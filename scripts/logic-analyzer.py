@@ -22,9 +22,28 @@ import sys
 import tomllib
 import urllib.request
 from abc import ABC, abstractmethod
+from importlib.machinery import SourceFileLoader
 
 RUN_DIR = os.environ.get('BIONIC_RUN_DIR', '/tmp/bionic-bench')
 os.makedirs(RUN_DIR, exist_ok=True)
+bench = SourceFileLoader('bench', os.path.join(os.path.dirname(
+        os.path.abspath(__file__)), 'bionic-bench.py')).load_module()
+
+
+def analyzer():
+    """(name, attributes) of the logic analyzer to use: BIONIC_LOGIC names
+    one, else the one this session holds, else the only one. Each is a
+    resource added with `bionic-bench.py add NAME kind=logic mcp=URL`; exits if
+    another session holds it."""
+    found = bench.resources(kind='logic')
+    if not found:
+        return None, {}
+    name = bench.pick(list(found), 'BIONIC_LOGIC')
+    if name is None:
+        sys.exit('more than one logic analyzer: lock one '
+                 '(`scripts/bionic-bench.py lock NAME`) or set BIONIC_LOGIC')
+    bench.check(name)
+    return name, found.get(name, {})
 
 
 def load_channels(path, name):
@@ -71,8 +90,9 @@ class SaleaeLogicPro16(LogicAnalyzer):
     """Talks to the Logic 2 desktop app's MCP server."""
 
     def __init__(self, mcp_url=None, config_path=None):
-        self.mcp_url = mcp_url or os.environ.get(
-                'BIONIC_LOGIC_MCP', 'http://127.0.0.1:10530')
+        self.mcp_url = mcp_url or os.environ.get('BIONIC_LOGIC_MCP')
+        if not self.mcp_url:
+            self.mcp_url = analyzer()[1].get('mcp', 'http://127.0.0.1:10530')
         self.config_path = config_path or os.environ.get(
                 'BIONIC_LOGIC_CONFIG', os.path.expanduser('~/.config/Logic/config.json'))
 
@@ -116,6 +136,7 @@ class SaleaeLogicPro16(LogicAnalyzer):
 
     def start_capture(self, channels, trigger, edge='rise', before=20e-6,
                       after=200e-6, glitch=None):
+        analyzer()
         # The 3.3V threshold: the default one reads ringing as extra pulses.
         device = {'digitalSampleRate': 100000000, 'digitalThresholdVolts': 3.3,
                   'logicChannels': {'digitalChannels': sorted(set(channels) | {trigger})}}
