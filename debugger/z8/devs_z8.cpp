@@ -12,6 +12,7 @@ DevsZ8::DevsZ8(SerialHandler *serial)
       _serial(serial)
 #endif
 {
+    _usart->setBaseAddr(USART_BASE);
 }
 
 DevsZ8::~DevsZ8() {
@@ -26,7 +27,6 @@ void DevsZ8::reset() {
     _serial->reset();
 #endif
     _usart->reset();
-    _usart->setBaseAddr(USART_BASE);
 }
 
 void DevsZ8::begin() {

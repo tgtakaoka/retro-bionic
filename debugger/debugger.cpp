@@ -84,6 +84,7 @@ constexpr char HELP2[] =
 #endif
         "\r\n"
         "  I dev [addr]   : select an I/O device, optionally its base\r\n"
+        "  I dev addr vec : likewise, and its interrupt vector\r\n"
         "  P [from to]    : show, or set, protect area\r\n"
         "  W +identity    : write identity EEPROM\r\n"
         "  V              : toggle verbose bus-cycle printing\r\n"
@@ -689,6 +690,26 @@ void handleRegisterValue(uint32_t value, uintptr_t reg, State state) {
 }
 
 void handleIo(char *, uintptr_t, State);
+void handleIoBase(uint32_t, uintptr_t, State);
+
+uint32_t io_base;
+
+void handleIoVector(uint32_t val, uintptr_t extra, State state) {
+    if (state != State::CLI_CANCEL) {
+        auto &dev = *reinterpret_cast<Device *>(extra);
+        if (state == State::CLI_DELETE) {
+            cli.backspace();
+            cli.readNum(handleIoBase, extra, Debugger.target().inputRadix(),
+                    Debugger.target().maxData(), io_base);
+            return;
+        }
+        dev.setBaseAddr(io_base);
+        dev.setVector(val);
+        cli.println();
+        Debugger.target().printDevices();
+    }
+    printPrompt();
+}
 
 void handleIoBase(uint32_t val, uintptr_t extra, State state) {
     if (state != State::CLI_CANCEL) {
@@ -697,6 +718,12 @@ void handleIoBase(uint32_t val, uintptr_t extra, State state) {
             cli.backspace();
             strcpy(str_buffer, dev.name());
             cli.readWord(handleIo, 0, str_buffer, sizeof(str_buffer), true);
+            return;
+        }
+        if (state == State::CLI_SPACE) {
+            io_base = val;
+            cli.readNum(handleIoVector, extra, Debugger.target().inputRadix(),
+                    UINT8_MAX);
             return;
         }
         dev.setBaseAddr(val);

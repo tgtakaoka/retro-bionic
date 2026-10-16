@@ -5,7 +5,9 @@
 namespace debugger {
 namespace i8048 {
 
-DevsI8048::DevsI8048() : _usart(new I8251()) {}
+DevsI8048::DevsI8048() : _usart(new I8251()) {
+    _usart->setBaseAddr(USART_BASE);
+}
 
 DevsI8048::~DevsI8048() {
     delete _usart;
@@ -13,7 +15,6 @@ DevsI8048::~DevsI8048() {
 
 void DevsI8048::reset() {
     _usart->reset();
-    _usart->setBaseAddr(USART_BASE);
 }
 
 void DevsI8048::begin() {

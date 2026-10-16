@@ -13,13 +13,13 @@ const char *Mc6850::description() const {
 
 void Mc6850::print() const {
     // RX and TX share the same interrupt
+    const auto radix = Debugger.target().inputRadix();
     cli.print("  #IRQ: ");
-    cli.printlnDec(_rxIntr);
+    cli.printNum(_rxIntr, radix, Debugger::numDigits(8, radix));
+    cli.println();
 }
 
 void Mc6850::resetUart() {
-    // RX and TX share the same interrupt
-    _rxIntr = _txIntr = 1;
     _control = CDS_DIV1_gc;
     _status = TDRE_bm;
     _txData = _rxData = 0;

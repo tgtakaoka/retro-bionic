@@ -5,7 +5,9 @@
 namespace debugger {
 namespace scn2650 {
 
-DevsScn2650::DevsScn2650() : _usart(new I8251()) {}
+DevsScn2650::DevsScn2650() : _usart(new I8251()) {
+    _usart->setBaseAddr(USART_BASE);
+}
 
 DevsScn2650::~DevsScn2650() {
     delete _usart;
@@ -13,7 +15,6 @@ DevsScn2650::~DevsScn2650() {
 
 void DevsScn2650::reset() {
     _usart->reset();
-    _usart->setBaseAddr(USART_BASE);
 }
 
 void DevsScn2650::begin() {

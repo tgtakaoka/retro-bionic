@@ -107,7 +107,11 @@ radix can be octal for the PDP-8 targets.
 
 ## I/O devices
 
-`I` lists the emulated peripherals and lets you move them in the address map.
+`I` lists the emulated peripherals and selects the console one. `I dev addr` moves a
+device in the address map, and `I dev addr vec` also sets its interrupt vector (both Rx
+and Tx; 0 asserts no interrupt). A program can set the vectors too, by writing them to
+the device's third and fourth registers. These are the board's wiring, so `R` leaves them
+alone; a reset clears only the device's own registers and pending interrupts.
 
 - **MC6850 ACIA** — `debugger/mc6850.cpp`
 - **i8251 USART** — `debugger/i8251.cpp`

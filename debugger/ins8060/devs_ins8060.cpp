@@ -13,6 +13,7 @@ DevsIns8060::DevsIns8060()
       _sci(new Ins8060SciHandler())
 #endif
 {
+    _acia->setBaseAddr(ACIA_BASE);
 }
 
 DevsIns8060::~DevsIns8060() {
@@ -27,7 +28,6 @@ void DevsIns8060::reset() {
     _sci->reset();
 #endif
     _acia->reset();
-    _acia->setBaseAddr(ACIA_BASE);
 }
 
 void DevsIns8060::begin() {

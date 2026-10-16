@@ -12,10 +12,12 @@ const char *I8251::description() const {
 }
 
 void I8251::print() const {
+    const auto radix = Debugger.target().inputRadix();
+    const auto digits = Debugger::numDigits(8, radix);
     cli.print("  INT: Rx=");
-    cli.printHex(_rxIntr, 2);
+    cli.printNum(_rxIntr, radix, digits);
     cli.print(" Tx=");
-    cli.printHex(_txIntr, 2);
+    cli.printNum(_txIntr, radix, digits);
     cli.println();
 }
 

@@ -4,14 +4,21 @@
 
 namespace debugger {
 
+// The base address and the interrupt vectors are board wiring, which a
+// reset leaves alone.
 void UartBase::reset() {
     negateRxIntr();
     negateTxIntr();
     _rxVec = _txVec = 0;
-    _rxIntr = _txIntr = 0;
     _delay = 0;
     _txDone = false;
     resetUart();
+}
+
+void UartBase::setVector(uint8_t vector) {
+    negateRxIntr();
+    negateTxIntr();
+    _rxIntr = _txIntr = vector;
 }
 
 void UartBase::loop() {

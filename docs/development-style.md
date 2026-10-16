@@ -353,6 +353,14 @@ the `I` command for that sample only. Reset does not change the selection, so
 the script reads the enabled device from `I`'s listing first and switches back
 to it afterwards, pass or fail.
 
+### Reset keeps the board's wiring **[code]**
+
+A device's base address and interrupt vectors are the board's wiring, not
+device state: a `Devs` constructor sets the defaults, then only `I dev addr
+[vec]` or a program writing the vector registers changes them. `reset()`,
+including the 8251's internal-reset command, clears only the device's own
+registers and pending interrupts.
+
 ### Reset after uploading, not only before **[hw]**
 
 `R` before an upload stops the CPU, but resets from the vector already in

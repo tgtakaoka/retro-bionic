@@ -14,6 +14,7 @@ DevsTms7000::DevsTms7000()
       _serial(nullptr)
 #endif
 {
+    _acia->setBaseAddr(ACIA_BASE);
 }
 
 DevsTms7000::~DevsTms7000() {
@@ -32,7 +33,6 @@ void DevsTms7000::addSerialHandler(HardwareType type) {
 
 void DevsTms7000::reset() {
     _acia->reset();
-    _acia->setBaseAddr(ACIA_BASE);
 #if defined(ENABLE_SERIAL_HANDLER)
     if (_serial)
         _serial->reset();
