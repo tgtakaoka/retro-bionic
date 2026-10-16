@@ -48,7 +48,7 @@ The tables time them on real chips, from recorded casts, with
 | Z380        |  16.7 |   0.681 |   0.182 | Z180 code          | [mandelbrot_z380.cast](../samples/z180/mandelbrot_z380.cast)             | [z180/mandelbrot.lst](../samples/z180/mandelbrot.lst)           |
 | Z380        |  17.0 |   0.691 |   0.181 | Z80 code           | [mandelbrot_z380.cast](../samples/z80/mandelbrot_z380.cast)              | [z80/mandelbrot.lst](../samples/z80/mandelbrot.lst)             |
 | TMS370Cx5x  |  20.2 |   0.823 |   0.259 | TMS370 code        | [mandelbrot.cast](../samples/tms370/mandelbrot.cast)                     | [tms370/mandelbrot.lst](../samples/tms370/mandelbrot.lst)       |
-| Z88C00      |  20.5 |   0.837 |   0.278 | Z88 code           | [mandelbrot.cast](../samples/z88/mandelbrot.cast)                        | [z88/mandelbrot.lst](../samples/z88/mandelbrot.lst)             |
+| Z88C00      |  21.3 |   0.870 |   0.289 | Z88 code           | [mandelbrot.cast](../samples/z88/mandelbrot.cast)                        | [z88/mandelbrot.lst](../samples/z88/mandelbrot.lst)             |
 | MC68HC08AZ0 |  23.0 |   0.941 |   0.312 |                    | [mandelbrot.cast](../samples/mc68hc08/mandelbrot.cast)                   | [mc68hc08/mandelbrot.lst](../samples/mc68hc08/mandelbrot.lst)   |
 | Z80         |  27.5 |   1.117 |   0.283 |                    | [mandelbrot.cast](../samples/z80/mandelbrot.cast)                        | [z80/mandelbrot.lst](../samples/z80/mandelbrot.lst)             |
 | MC68HC11    |  28.1 |   1.147 |   0.385 |                    | [mandelbrot.cast](../samples/mc68hc11/mandelbrot.cast)                   | [mc68hc11/mandelbrot.lst](../samples/mc68hc11/mandelbrot.lst)   |
@@ -59,10 +59,10 @@ The tables time them on real chips, from recorded casts, with
 | TMS70C02    |  29.6 |   1.202 |   0.315 | TMS7000 code       | [mandelbrot_tms70c02.cast](../samples/tms7000/mandelbrot_tms70c02.cast)  | [tms7000/mandelbrot.lst](../samples/tms7000/mandelbrot.lst)     |
 | HD6301      |  30.2 |   1.226 |   0.285 | MC6801 code        | [mandelbrot_hd6301.cast](../samples/mc6801/mandelbrot_hd6301.cast)       | [mc6801/mandelbrot.lst](../samples/mc6801/mandelbrot.lst)       |
 | Z280        |  30.7 |   1.250 |   0.320 | Z80 code           | [mandelbrot_z280.cast](../samples/z80/mandelbrot_z280.cast)              | [z80/mandelbrot.lst](../samples/z80/mandelbrot.lst)             |
+| Z86C91      |  30.7 |   1.250 |   0.350 | Z86 code           | [mandelbrot.cast](../samples/z86/mandelbrot.cast)                        | [z86/mandelbrot.lst](../samples/z86/mandelbrot.lst)             |
 | Z180        |  31.3 |   1.271 |   0.324 | Z80 code           | [mandelbrot_z180.cast](../samples/z80/mandelbrot_z180.cast)              | [z80/mandelbrot.lst](../samples/z80/mandelbrot.lst)             |
 | HD64180S    |  31.3 |   1.272 |   0.324 | Z80 code           | [mandelbrot_hd64180s.cast](../samples/z80/mandelbrot_hd64180s.cast)      | [z80/mandelbrot.lst](../samples/z80/mandelbrot.lst)             |
 | HD6309E     |  31.3 |   1.270 |   0.299 | MC6809 code        | [mandelbrot_hd6309e.cast](../samples/mc6809/mandelbrot_hd6309e.cast)     | [mc6809/mandelbrot.lst](../samples/mc6809/mandelbrot.lst)       |
-| Z86C91      |  31.9 |   1.297 |   0.363 | Z86 code           | [mandelbrot.cast](../samples/z86/mandelbrot.cast)                        | [z86/mandelbrot.lst](../samples/z86/mandelbrot.lst)             |
 | Z80         |  32.6 |   1.323 |   0.319 | i8080 code         | [mandelbrot_z80.cast](../samples/i8080/mandelbrot_z80.cast)              | [i8080/mandelbrot.lst](../samples/i8080/mandelbrot.lst)         |
 | W65C816S    |  32.7 |   1.327 |   0.321 |                    | [mandelbrot.cast](../samples/w65c816/mandelbrot.cast)                    | [w65c816/mandelbrot.lst](../samples/w65c816/mandelbrot.lst)     |
 | MC68HC11    |  32.7 |   1.328 |   0.303 | MC6801 code        | [mandelbrot_mc68hc11.cast](../samples/mc6801/mandelbrot_mc68hc11.cast)   | [mc6801/mandelbrot.lst](../samples/mc6801/mandelbrot.lst)       |

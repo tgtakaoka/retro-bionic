@@ -32,6 +32,9 @@ protected:
     // The register whose interrupt enable DI clears: IMR, or the Super8's
     // SYM
     virtual uint8_t ieReg() const = 0;
+    virtual uint8_t ieBit() const = 0;
+    // Whether IRET would return from a fast interrupt, popping nothing
+    virtual bool fastIret() const { return false; }
     virtual uint8_t sph() const = 0;
     void save_ie();
 

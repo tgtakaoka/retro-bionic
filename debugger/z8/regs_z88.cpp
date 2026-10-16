@@ -99,6 +99,10 @@ void RegsZ88::restore_sfrs() {
     write_reg(IPL, lo(_ip));
     write_reg(IPH, hi(_ip));
     restore_rp0(_rp0);
+#if defined(Z88_FAST_INTERRUPT)
+    static_cast<PinsZ88 *>(_pins)->startFast(
+            _ip, _ie & SYM_FAST, _flags & F_FIS);
+#endif
 }
 
 uint_fast8_t RegsZ88::save_r(uint_fast8_t num) const {
