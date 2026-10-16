@@ -3,11 +3,11 @@
 a matcher's host test.
 
 Runs on the normal image, verbose: its backtrace prints every cycle of
-the ring, in order. Each sample
-stops at breakpoints set at labels of its listing: an interrupt sample at
-its handler's first, which puts the interrupt's entry at the ring's end,
-and at its main loop's, which continuing from the handler next reaches
-just after the return. Each stop is one ring.
+the ring, in order. Each sample stops at breakpoints set at labels of
+its listing: an interrupt sample at its handler's first, which puts the
+interrupt's entry at the ring's end, and at its main loop's, which
+continuing from the handler next reaches just after the return. Each
+stop is one ring.
 
     record-rings.py PLUGIN --record FILE     record every ring not yet in
                                              FILE (JSON lines; .zst for zstd)
@@ -17,9 +17,10 @@ just after the return. Each stop is one ring.
                        plugin's debugger/<arch>)
       --redo           record again what FILE already has
 
-PLUGIN is the target's scripts/record-cycles.py plugin: its NAME and
-cycles(txt). A record is the Z380's capture format, {sample, halt, text,
-starts, image}, with key, the stop PC as stop, and the cycles parsed;
+PLUGIN is the target's record-cycles.py plugin,
+debugger/<arch>/tools/cycles_<x>.py: its NAME, RADIX and cycles(txt).
+A record is the Z380's capture format, {sample, halt, text, starts,
+image}, with key, label, the stop PC as stop, and the cycles parsed;
 test/match_rings.py --bench makes the test's rings of them.
 """
 import argparse

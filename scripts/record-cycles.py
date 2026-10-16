@@ -13,6 +13,8 @@ ending each pattern, and holds the debug pin active for the run's span.
                                                   zstd, compacted at the end)
     record-cycles.py PLUGIN status --record FILE  what is recorded, what is not
     record-cycles.py PLUGIN check --record FILE   compare FILE with the tables
+                                                  (status and check need no
+                                                  board)
       --only KEY        only this run
       --redo            rerun runs already recorded
       --from N          skip the first N runs

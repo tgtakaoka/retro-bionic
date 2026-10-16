@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Time the Mandelbrot samples' rows in a recorded cast or a live run.
+"""Time the Mandelbrot samples' rows in recorded casts.
 
     scripts/mandelbrot-timing.py CAST...
 
@@ -8,7 +8,8 @@ asciinema.org. Prints one Markdown table row per program a cast runs,
 mandelbrot (integer) or fmandel (floating point), told apart by their
 golden frames: a full frame's seconds -- measured between two frame
 boundaries when the cast has one, else estimated -- the average seconds
-per row and their standard deviation, and the CPU the banner names.
+per row and their standard deviation, the CPU the banner names, the
+cast, and the program.
 
 Rows differ in work: each pixel prints its iteration count (0-9, A-F,
 or a space for 16), and costs that many iterations plus a fixed part.

@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 """Saleae Logic Pro / Logic 2 specific tooling -- not part of the generic
-logic_analyzer.LogicAnalyzer interface.
+LogicAnalyzer interface in logic-analyzer.py.
 
-  load-preset PRESET [SET_NAME]   dump a live Logic 2 preset's channel
-                                   labels as a TOML table, to redirect or
-                                   append into samples/<target>/bench/
-                                   channels.toml
+  load-preset PRESET [SET_NAME]   dump a Logic 2 preset's channel labels
+                                   as a TOML table named SET_NAME (default
+                                   PRESET), to redirect or append into
+                                   samples/<target>/bench/channels.toml
+
+The preset is read from Logic 2's config file, $BIONIC_LOGIC_CONFIG
+(default ~/.config/Logic/config.json).
 """
 import os
 import sys
