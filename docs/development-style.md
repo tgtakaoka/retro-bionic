@@ -359,7 +359,9 @@ A device's base address and interrupt vectors are the board's wiring, not
 device state: a `Devs` constructor sets the defaults, then only `I dev addr
 [vec]` or a program writing the vector registers changes them. `reset()`,
 including the 8251's internal-reset command, clears only the device's own
-registers and pending interrupts.
+registers and pending interrupts. Since R keeps whatever a run left
+behind, the regress applies `[devices]` before each program it loads, and
+`record-scenario.py` puts back any device a scenario moved.
 
 ### Reset after uploading, not only before **[hw]**
 

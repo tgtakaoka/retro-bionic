@@ -301,12 +301,21 @@ def case_reset(board, n=4, regress=None):
     return ok, note
 
 
+# `[devices]`, set once in main(): the wiring every program runs with.
+DEVICES = {}
+
+
 def load(board, path):
     """Upload `path` and reset, so the PC starts from the loaded program's
     own reset vector -- the reset before the upload (which stops the CPU)
-    takes whatever vector the previous program left in memory."""
+    takes whatever vector the previous program left in memory.
+
+    R keeps the devices' wiring, so `[devices]` is applied again here: a
+    vector the previous program set must not reach this one."""
     board.send(b'R')
     board.upload_file(path)
+    for dev, where in DEVICES.items():
+        place_io(board, dev, where)
     return board.send(b'R')
 
 
@@ -369,9 +378,11 @@ def drive_table(regress=None):
     `io = "SCI"` routes the console through that device (the I command)
     for this sample only, then back to whichever one was enabled before.
 
-    `[devices]`, e.g. `ACIA = "17F8"`, moves those devices (the I command)
-    for the whole run and back afterwards, so a binary built for another
-    chip of the family runs as is -- every case, not just the samples.
+    `[devices]`, e.g. `ACIA = "17F8"` or `USART = "0C00 0"`, wires those
+    devices (the I command: base, then optionally both interrupt vectors)
+    before every program the run loads, and back afterwards, so a binary
+    built for another chip of the family runs as is -- every case, not
+    just the samples.
 
     `chips = [...]` runs a sample only on those chips, e.g. one using an
     instruction the others of the file lack; on the rest it is skipped.
@@ -436,23 +447,23 @@ def select_io(board, name):
     return before
 
 
-def place_io(board, name, addr):
-    """Move device `name` to `addr` with the I command; returns its
-    address before, or None if `addr` did not take."""
-    txt = board.send(b'I' + name.encode() + b' ' + addr.encode() + b'\r',
-                     wait=4.0, idle=0.5, delay=0.3).decode(
-                             'ascii', 'replace').replace('\r', '')
-    # I lists the devices before and after: `NAME  DESC  at ADDR`.
-    lists = txt.split('which?')
-    def at(part):
-        found = re.findall(r'^%s\s.* at ([0-9A-Fa-f]+)' % re.escape(name),
-                           part, re.M | re.I)
-        return found[0] if found else None
-    before = at(lists[0])
-    after = at(lists[1]) if len(lists) > 1 else None
-    if after is None or int(after, 16) != int(addr, 16):
+def place_io(board, name, where):
+    """Wire device `name` as `where`, "ADDR" or "ADDR VECTOR", with the I
+    command; returns its (addr, vector) before, or None if it did not take."""
+    addr, _, vector = where.partition(' ')
+    before, after = board.place_io(name, addr, vector.strip() or None)
+    now = after.get(name.upper())
+    want = [addr] + ([vector.strip()] if vector.strip() else [])
+    if now is None or any(w is None or int(w, 16) != int(v, 16)
+                          for v, w in zip(want, now)):
         return None
-    return before
+    return before.get(name.upper())
+
+
+def unplace_io(board, name, before):
+    """Put device `name` back as place_io() found it."""
+    addr, vector = before
+    board.place_io(name, addr, vector)
 
 
 def drive_sample(board, path, regress=None):
@@ -927,40 +938,43 @@ def main():
                     ' '.join(files_for(board.who or '')) or 'none'))
         failed, skipped = [], []
         moved = {}
-        for dev, addr in drive_table(regress).get('devices', {}).items():
-            before = place_io(board, dev, addr)
+        for dev, where in drive_table(regress).get('devices', {}).items():
+            before = place_io(board, dev, where)
             if before is None:
-                sys.exit('could not move %s to %s' % (dev, addr))
+                sys.exit('could not wire %s as %s' % (dev, where))
             moved[dev] = before
-        for name, fn in CASES:
-            if want and name not in want:
-                continue
-            if not ensure_prompt(board, 'previous case'):
-                print('%-8s SKIP  board will not return to its prompt' % name)
-                failed.append(name)
-                continue
-            t0 = time.time()
-            kw = {} if want.get(name) is None else {'n': want[name]}
-            if name in ('reset', 'step', 'samples', 'haltgo', 'breakpoint', 'gountil',
-                        'disasm'):
-                kw['regress'] = regress
-            if name in only:
-                kw['only'] = only[name]
-            try:
-                ok, note = fn(board, **kw)
-            except Exception as e:
-                # One case's crash must not end the suite: it fails.
-                ok, note = False, '%s: %s' % (type(e).__name__, e)
-            took = time.time() - t0
-            mark = 'SKIP' if ok is None else ('ok' if ok else 'FAIL')
-            print('%-8s %-4s %6.1fs  %s' % (name, mark, took, note))
-            if ok is False:
-                failed.append(name)
-            elif ok is None:
-                skipped.append(name)
-        ensure_prompt(board, 'last case')
-        for dev, addr in moved.items():
-            place_io(board, dev, addr)
+            DEVICES[dev] = where
+        try:
+            for name, fn in CASES:
+                if want and name not in want:
+                    continue
+                if not ensure_prompt(board, 'previous case'):
+                    print('%-8s SKIP  board will not return to its prompt' % name)
+                    failed.append(name)
+                    continue
+                t0 = time.time()
+                kw = {} if want.get(name) is None else {'n': want[name]}
+                if name in ('reset', 'step', 'samples', 'haltgo', 'breakpoint', 'gountil',
+                            'disasm'):
+                    kw['regress'] = regress
+                if name in only:
+                    kw['only'] = only[name]
+                try:
+                    ok, note = fn(board, **kw)
+                except Exception as e:
+                    # One case's crash must not end the suite: it fails.
+                    ok, note = False, '%s: %s' % (type(e).__name__, e)
+                took = time.time() - t0
+                mark = 'SKIP' if ok is None else ('ok' if ok else 'FAIL')
+                print('%-8s %-4s %6.1fs  %s' % (name, mark, took, note))
+                if ok is False:
+                    failed.append(name)
+                elif ok is None:
+                    skipped.append(name)
+        finally:
+            ensure_prompt(board, 'last case')
+            for dev, before in moved.items():
+                unplace_io(board, dev, before)
         target = board.who
     # A skip is not a pass: say so, so an empty suite cannot read as green.
     summary = 'FAILED: %s' % ' '.join(failed) if failed else \
