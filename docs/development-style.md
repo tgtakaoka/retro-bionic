@@ -615,6 +615,29 @@ no fillet, and about 1 mm of each pad lay bare under the lead's shoulder. Size
 a QFP's pads from the vendor's package table, from just behind the shortest
 lead's heel to past the longest lead's tip.
 
+### PCB layout
+
+Board drafts under `schematics/<board>` follow these rules:
+
+- **Schematic.** Draw the CPU on the left with its bus and control pins
+  facing right. J1/J2 sit back to back on the right. The title block stays
+  at revision 1 while the board is being drafted.
+- **GND.** GND has no tracks. The pours on both layers carry it. Stitch any
+  GND pad the pour leaves isolated with a via.
+- **Bypass capacitors.** Each supply pin is fed from the VCC line through
+  its capacitor's pad: supply line → capacitor → IC VCC pin, with the
+  capacitor next to the pin. No VCC track may reach the pin without passing
+  the capacitor pad.
+- **Tie pins.** Inputs strapped to VCC (mode pins, unused interrupts, serial
+  inputs) carry no supply current. They are exempt from the bypass rule and
+  join VCC wherever is closest. Input-only pins tie directly. Bidirectional
+  pins tie through a 10k pull-up.
+- **Track widths.** The Power netclass is 0.3 mm. Tie tracks are 0.15 mm.
+  Signals are 0.15 mm, which is what escapes 0.5 mm-pitch pads.
+- **Checks.** Before committing, the board passes DRC and ERC, and its
+  netlist matches the schematic. Check the `*_bionic.toml` pin map against
+  the PCB's pad nets.
+
 ### Order bench work by image, not by fix **[hw]**
 
 Seating a chip takes moments; flashing the Teensy takes minutes and wipes the
@@ -2025,6 +2048,29 @@ after each drive and before each sample settles it 40 ns before that edge
 and 110 ns before `#MEN` rises, and holds it 120 ns after, with analyser
 leads on the bus too. Too little margin shows as a few wrong mandelbrot
 pixels at the same places, not every frame.
+
+### TMS320C25
+
+**Pitfalls.** The C25 is not static: CLKIN may run no slower than 6.7 MHz
+(a 597 ns machine cycle), and a three-level pipeline fetches two words
+ahead of the instruction executing, discarding them on every branch.
+**[doc]**
+
+Draft board for the TMS320C25FNL (68-pin PLCC); not built yet.
+
+- MP/`#MC` is tied high, the microprocessor mode, so every program fetch
+  is on the bus; the on-chip ROM is off. **[doc]**
+- A0-A15 share P30-P37 through two 74AHCT157 selected by ASEL (P54): low
+  gives A0-A3 and A8-A11, high A4-A7 and A12-A15. **[code]**
+- `#PS`, `#DS`, `#IS`, R/`#W` (P40-P43) and `#STRB` (P46) sit on GPIO9
+  bits 4-8, readable in one access; D0-D15 are on GPIO6 bits 16-31.
+  **[code]**
+- The Teensy drives CLKIN (P47) and READY (P52); CLKOUT1 (P55) runs at a
+  quarter of CLKIN. Bus signals follow the rising CLKIN edge by 25-60 ns,
+  and `#STRB` is low for two quarters without wait states. **[doc]**
+- `#SYNC`, `#HOLD`, `#INT2` and the serial inputs DR, FSR, CLKR and CLKX
+  are tied high; FSX, which resets to an input, has a 10k pull-up.
+  **[code]**
 
 ### TMS7000 family
 
