@@ -11,8 +11,8 @@ Dependencies are declared in `platformio.ini` and resolved by PlatformIO:
 
 | Library | Version | Role |
 |---|---|---|
-| [`tgtakaoka/libasm`](https://github.com/tgtakaoka/libasm) | 1.6.65 | Assembler and disassembler for every target |
-| [`tgtakaoka/libcli`](https://github.com/tgtakaoka/libcli) | 1.4.2 | Serial command-line interface |
+| [`tgtakaoka/libasm`](https://github.com/tgtakaoka/libasm) | 1.6.67 | Assembler and disassembler for every target |
+| [`tgtakaoka/libcli`](https://github.com/tgtakaoka/libcli) | 1.5.1 | Serial command-line interface |
 
 ## Build and flash
 
@@ -21,7 +21,9 @@ pio run                 # build the teensy41 environment
 pio run -t upload       # build and flash
 ```
 
-There is a single environment, `teensy41`:
+The default environment is `teensy41`; `teensy41-profile` adds
+`-D PROFILE_CYCLES`, `teensy41-stress` adds `-D STRESS_HALTGO`, and `native` runs the host
+tests:
 
 ```ini
 [env:teensy41]
@@ -57,11 +59,11 @@ minicom -D /dev/ttyACM0 -b 115200
 ## First contact
 
 Plug a CPU adapter into the ZIF socket before powering up: the firmware reads the board's
-identity EEPROM at boot and configures itself for that processor. Press `?` for the banner:
+identity EEPROM at boot and configures itself for that processor. Press `?` for the banner,
+the registers and the list of commands:
 
 ```
 * BionicMC6809 * 1.0
-R:eset r:egs =:setReg p/d:ump M/m:emory D:is U:pload I:o P:rotect
 ```
 
 If the identity cannot be read, or you hold the user switch low during reset, the firmware
@@ -89,4 +91,5 @@ The database is also generated automatically before each build by
 ## Continuous integration
 
 [`.github/workflows/platformio-ci.yml`](../.github/workflows/platformio-ci.yml) installs both
-libraries and runs `pio ci -c platformio.ini debugger` on every push and pull request.
+libraries, runs the host tests (`pio test -e native`) and `pio ci -c platformio.ini -e teensy41
+debugger` on every push and pull request.

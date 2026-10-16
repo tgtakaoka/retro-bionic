@@ -38,7 +38,7 @@ and 25, leaving `E0` and `E1` (pins 10 and 39) spare as a second facing pair.
 
 That blocks both directions. A 5 V adapter over a 3.3 V base drives pins 24 and 25 into the
 plugs; a 3.3 V adapter over a 5 V base drives its `E2` and `E3` pins into the plugs there.
-Neither can go down, and all 47 existing adapters are untouched — they have empty holes at
+Neither can go down, and all 49 existing adapters are untouched — they have empty holes at
 `E2` and `E3` already, and a base already built is retrofitted by pushing the plugs in. No
 PCB revision on either side.
 

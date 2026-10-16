@@ -35,7 +35,7 @@ keeps its value.
 The Teensy's own USB port carries the debugger console. The second USB serial port is the
 **software HALT** — see [build.md](build.md).
 
-## 2. CPU adapter — 47 boards
+## 2. CPU adapter — 49 boards
 
 One board per processor, and usually almost empty: the CPU, its identity EEPROM, a couple of
 LEDs, decoupling, and two 48-pin connectors down to the base. Everything else is the base
@@ -114,7 +114,7 @@ dip = 40
  8 = "P20, A0"
 16 = "P30, A8"
 24 = "P17, D7"
-32 = "P41, R/W"
+32 = "P41, R/#W"
 34 = "P47, E"
 37 = "P53, #RESET"
 ```
@@ -123,7 +123,7 @@ dip = 40
 
 Every adapter carries a Microchip **11AA010** UNI/O serial EEPROM holding a 16-byte name.
 At boot the firmware bit-bangs the UNI/O protocol on pin 34 (`PIN_ID`), reads the string,
-and instantiates the matching target — this is why one firmware image serves all 40 CPUs.
+and instantiates the matching target — this is why one firmware image serves all 45 CPUs.
 Holding the user switch low during reset forces the null target instead. The `W` command
 writes a new identity string.
 
@@ -174,5 +174,5 @@ keyed so neither family can reach the wrong base — see [3v3-base.md](3v3-base.
 
 ## Manufacturing
 
-Boards are designed in KiCad 8 and manufactured at JLCPCB as 2- and 4-layer PCBs. Gerbers
+Boards are designed in KiCad 8 or 9 and manufactured at JLCPCB as 2- and 4-layer PCBs. Gerbers
 are committed next to each project, so any board here can be ordered as-is.

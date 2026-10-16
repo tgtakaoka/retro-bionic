@@ -80,7 +80,8 @@ def report(txt, head=14, full=False, out_path=None):
 
 
 def logic_report(path):
-    """`path` is a CSV already relabeled by logic_analyzer.py's export."""
+    """`path` is a CSV already relabeled by scripts/logic-analyzer.py's
+    export."""
     import csv
     r = csv.DictReader(open(path))
     f = r.fieldnames
