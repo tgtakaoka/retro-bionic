@@ -1,5 +1,5 @@
 ;;; -*- mode: asm; mode: flyspell-prog; -*-
-;;; NIBL Tiny Basic Console I/O
+;;; NIBL Tiny Basic Console I/O, delays retimed for 1200 bps
         cpu     ins8060
 
 NUM     =       -21
@@ -53,7 +53,7 @@ GETCO4: ST      TEMP(P2)        ;SAVE BIT VALUE (0 OR 1)
         CSA                     ;SET STOP BIT
         ANI     X'FE
         CAS
-        LDE                     ; AC HAS INPUT CHARCTER
+        LDE                     ; AC HAS INPUT CHARACTER
         XAE
         LDE
         XPPC    P3              ;RETURN

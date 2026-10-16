@@ -25,7 +25,7 @@ echo:   call    putchar
         mov     #0AH, A
         jmp     echo
 halt_to_system:
-        trap    15
+        trap    15              ; halt to system
 
 getchar:
         btjz    #RDRF_bm, ACIA_status, getchar
@@ -37,7 +37,7 @@ putchar:
         mov     A, ACIA_data
         rts
 
-;;; local Variables:
+;;; Local Variables:
 ;;; mode: asm
 ;;; mode: flyspell-prog
 ;;; comment-start: ";"

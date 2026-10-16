@@ -24,7 +24,7 @@ initialize:
 loop:
         jsr     getchar
         ora     #0
-        beq     halt_to_system
+        beq     halt_to_system  ; NUL halts
         jsr     putchar
         cmp     #$0D
         bne     loop
@@ -35,6 +35,8 @@ halt_to_system:
         brk
         .byte     0             ; halt to system
 
+;;; Wait for a character
+;;; @return A character
 getchar:
         php
         sep     #P_M            ; 8-bit memory
@@ -46,6 +48,8 @@ getchar_loop:
         plp
         rts
 
+;;; Wait until Tx is ready and send a character
+;;; @param A character
 putchar:
         php
         sep     #P_M            ; 8-bit memory

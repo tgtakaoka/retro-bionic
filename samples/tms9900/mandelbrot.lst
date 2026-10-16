@@ -106,7 +106,7 @@
        2100 :
         200 :                            org     >0200
         200 :                    initialize:
-        200 : 020A 2000                  li      R10, stack
+        200 : 020A 2000                  li      R10, stack      R10 is the stack pointer, grows down
         204 : 0209 2000                  li      R9, rx_queue
         208 : 0200 0080                  li      R0, rx_queue_size
         20C : 06A0 04EE                  bl      @queue_init
@@ -127,8 +127,9 @@
         23C : 10FB                       jmp     loop
         23E :
         23E :                            *** Get character
-        23E :                            *** @return R0
+        23E :                            *** @return R0 character in high byte
         23E :                            *** @return ST.C 0 if no character
+        23E :                            *** @clobber R9
         23E :                    getchar:
         23E : 064A                       dect    R10
         240 : C68B                       mov     R11, *R10       Push return address
@@ -152,6 +153,9 @@
         270 : C2FA                       mov     *R10+, R11      Pop return address
         272 : 045B                       rt
         274 :
+        274 :                            *** Put character
+        274 :                            *** @param R0 character in high byte
+        274 :                            *** @clobber R9
         274 :                    putspace:
         274 : 0200 2000                  li      R0, hibyte(' ')
         278 :                    putchar:
@@ -170,11 +174,11 @@
         29C : 045B                       rt
         29E :
         29E :                            include "mandelbrot.inc"
-(1)     29E :                    *** -*- mode: asm; mode: flyspell-prog* -*-
+(1)     29E :                    *** -*- mode: asm; mode: flyspell-prog; -*-
 (1)     29E :
 (1)     29E :                            *** Print variable: "name=variable "
 (1)     29E :                            *** @param R1 variable
-(1)     29E :                            *** @param R0 variable name
+(1)     29E :                            *** @param R0 variable name in high byte
 (1)     29E :                            *** @clobber R0 R1
 (1)     29E :                    print:
 (1)     29E : 064A                       dect    R10
@@ -188,7 +192,9 @@
 (1)     2B8 : C2FA                       mov     *R10+, R11      Pop return address
 (1)     2BA : 045B                       rt
 (1)     2BC :
-(1)     2BC : =32                F:      equ     50
+(1)     2BC :                            *** Print the Mandelbrot set in fixed point scaled by F.
+(1)     2BC :                            *** A NUL from the console halts to system.
+(1)     2BC : =32                F:      equ     50              fixed-point scale
 (1)     2BC :                    vC:     bss     2
 (1)     2BE :                    vD:     bss     2
 (1)     2C0 :                    vA:     bss     2
@@ -318,10 +324,10 @@
 (1)     3D6 : 05A0 02D0                  inc     @vI             I+=1
 (1)     3DA : C020 02D0                  mov     @vI, R0
 (1)     3DE : 0280 0010                  ci      R0, 16
-(1)     3E2 : 1402                       jhe     print_space
+(1)     3E2 : 1402                       jhe     print_space     if I>=16
 (1)     3E4 : 0460 0322                  b       @loop_i         if I<16
 (1)     3E8 :                    print_space:
-(1)     3E8 : 0200 2000                  li      R0, >2000
+(1)     3E8 : 0200 2000                  li      R0, >2000       ' ' in high byte
 (1)     3EC : 100C                       jmp     print_char
 (1)     3EE :                    print_table:
 (1)     3EE : 3031                       data    '01'
@@ -349,7 +355,7 @@
 (1)     40A :
 (1)     40A : 06A0 023E                  bl      @getchar
 (1)     40E : 1703                       jnc     next_x
-(1)     410 : E000                       soc     R0, R0
+(1)     410 : E000                       soc     R0, R0          test R0
 (1)     412 : 1601                       jne     next_x
 (1)     414 : 2FCF                       xop     R15,15          halt to system
 (1)     416 :                    next_x:
@@ -369,14 +375,14 @@
 (1)     43E : C2FA                       mov     *R10+, R11      Pop return address
 (1)     440 : 045B                       rt
         442 :                            include "arith.inc"
-(1)     442 :                    *** -*- mode: asm; mode: flyspell-prog* -*-
+(1)     442 :                    *** -*- mode: asm; mode: flyspell-prog; -*-
 (1)     442 :                            *** Print signed 16-bit integer as decimal
 (1)     442 :                            *** @param R0 value
 (1)     442 :                    print_int16:
 (1)     442 : 064A                       dect    R10
 (1)     444 : C68B                       mov     R11, *R10       Push return address
 (1)     446 : 064A                       dect    R10
-(1)     448 : C680                       mov     R0, *R10        Push R0
+(1)     448 : C680                       mov     R0, *R10        Push R0, ST from R0
 (1)     44A : 1314                       jeq     print_int16_zero
 (1)     44C : 1506                       jgt     print_uint16
 (1)     44E : 0200 2D00                  li      R0, hibyte('-')
@@ -429,7 +435,7 @@
 (1)     4A8 : 0741                       abs     R1
 (1)     4AA : 3801                       mpy     R1, R0          R0:R1=R0*R1
 (1)     4AC : 0200 8000                  li      R0, >8000
-(1)     4B0 : 4002                       szc     R2, R0
+(1)     4B0 : 4002                       szc     R2, R0          R0=0 if signs differ
 (1)     4B2 : 1601                       jne     mul16_return
 (1)     4B4 : 0501                       neg     R1
 (1)     4B6 :                    mul16_return:
@@ -437,7 +443,7 @@
 (1)     4B8 :
 (1)     4B8 :                            *** Divide by positive divisor
 (1)     4B8 :                            *** R1 / R2 = R1 (R2 > 0)
-(1)     4B8 :                            *** @clobber R2, R0
+(1)     4B8 :                            *** @clobber R0
 (1)     4B8 :                    divu16:
 (1)     4B8 : 04C0                       clr     R0
 (1)     4BA : 0741                       abs     R1
@@ -452,7 +458,7 @@
 (1)     4CA : 045B                       rt
 (1)     4CC :
 (1)     4CC :                            *** Divide
-(1)     4CC :                            *** R1 / R2 = R1 ... R0
+(1)     4CC :                            *** R1 / R2 = R1 ... R0 (R0=|remainder|)
 (1)     4CC :                            *** @clobber R2
 (1)     4CC :                    div16:
 (1)     4CC : C001                       mov     R1, R0
@@ -473,7 +479,7 @@
 (1)     4EA : C042                       mov     R2, R1
 (1)     4EC : 045B                       rt
         4EE :                            include "queue.inc"
-(1)     4EE :                    *** -*- mode: asm; mode: flying-spell; -*-
+(1)     4EE :                    *** -*- mode: asm; mode: flyspell-prog; -*-
 (1)     4EE :                    *** [queue] queue structure
 (1)     4EE : =0                 queue_len:      equ     0       ; queue length
 (1)     4EE : =2                 queue_size:     equ     2       ; buffer size
@@ -500,8 +506,8 @@
 (1)     504 :
 (1)     504 :                    *** [queue] Add an element to queue
 (1)     504 :                    *** @param R9 queue work space pointer
-(1)     504 :                    *** @param R0 an element
-(1)     504 :                    *** @return CC.C 0 if queue is full
+(1)     504 :                    *** @param R0 an element in high byte
+(1)     504 :                    *** @return ST.C 0 if queue is full
 (1)     504 :                    *** @clobber R1
 (1)     504 :                    queue_add:
 (1)     504 : 8A59 0002                  c       *R9, @queue_size(R9)    check queue_len
@@ -527,8 +533,8 @@
 (1)     532 :
 (1)     532 :                    *** [queue] Remove an element from queue
 (1)     532 :                    *** @param R9 queue work space pointer
-(1)     532 :                    *** @return R0 an element
-(1)     532 :                    *** @return CC.C 0 if queue is empty
+(1)     532 :                    *** @return R0 an element in high byte
+(1)     532 :                    *** @return ST.C 0 if queue is empty
 (1)     532 :                    *** @clobber R1
 (1)     532 :                    queue_remove:
 (1)     532 : C059                       mov     *R9, R1                 check queue_len
@@ -550,6 +556,7 @@
 (1)     558 : 0911                       srl     R1, 1                   set/clear ST.C
 (1)     55A : 045B                       rt
         55C :
+        55C :                            *** Runs in workspace_int1; RTWP restores the caller's WP, PC and ST
         55C :                    int1_isr:
         55C : D020 0080                  movb    @ACIA_status, R0
         560 : 0240 0100                  andi    R0, hibyte(RDRF_bm)
@@ -568,7 +575,6 @@
         58A :                    int1_isr_exit:
         58A : 0380                       rtwp
         58C :                    int1_isr_send_empty:
-        58C :                            * Disable Tx interrupt
         58C : 0201 2000                  li      R1, hibyte(TCB_EI_gc)
         590 : 5801 0080                  szcb    R1, @ACIA_control       Disable Tx interrupt
         594 : 0380                       rtwp

@@ -30,7 +30,7 @@
           0 :                            include "usart.inc"
 (1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
 (1)       0 :                    ;;; i8251 Universal Synchronous/Asynchronous Receiver/Transmitter
-(1)       0 : =140               USART:  equ     0140H
+(1)       0 : =140               USART:  equ     0140H           ; A8-A15 nonzero: clear of on-chip I/O
 (1)       0 : =140               USARTD: equ     USART+0         ; Data register
 (1)       0 : =141               USARTS: equ     USART+1         ; Status register
 (1)       0 : =141               USARTC: equ     USART+1         ; Control register
@@ -40,6 +40,7 @@
 (2)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
 (2)       0 :
 (2)       0 :                    ;;; i8251 USART device emulator.
+(2)       0 :                    ;;; Bit definition of mode register
 (2)       0 : =6                 MODE_STOP_gp:   equ     6
 (2)       0 : =C0                MODE_STOP_gm:   equ     11000000B
 (2)       0 : =40                MODE_STOP1_gc:  equ     (1 << MODE_STOP_gp)
@@ -126,16 +127,16 @@
         128 : 00                         nop
         129 : 3E 36                      ld      A, RX_EN_TX_DIS
         12B : ED 79                      out     (C), A
-        12D : 3E                         db      3EH             ; LD A, n
+        12D : 3E                         db      3EH             ; LD A, n: the RST 28H opcode
         12E : EF                         rst     28H
         12F : 01 42 01                   ld      BC, USARTRV
         132 : ED 79                      out     (C), A          ; set RxRDY interrupt vector RST 28H
-        134 : 3E                         db      3EH             ; LD A, n
+        134 : 3E                         db      3EH             ; LD A, n: the RST 30H opcode
         135 : F7                         rst     30H
         136 : 01 43 01                   ld      BC, USARTTV
         139 : ED 79                      out     (C), A          ; set TxRDY interrupt vector RST 30H
         13B :
-        13B : ED 46                      im      0
+        13B : ED 46                      im      0               ; execute the USART's RST vector
         13D : FB                         ei
         13E :
         13E :                    receive_loop:
@@ -156,7 +157,7 @@
         15D : 18 DF                      jr      receive_loop
         15F :                    halt_to_system:
         15F : 21 38 00                   ld      HL, ORG_RST38
-        162 : 36 FF                      ld      (HL), 0FFH
+        162 : 36 FF                      ld      (HL), 0FFH      ; RST 38H at its vector: exit to the debugger
         164 : FF                         rst     38h
         165 :
         165 :                    ;;; Print uint8_t in hex
@@ -179,7 +180,7 @@
         17E : C6 90                      add     A, 90H
         180 : 27                         daa
         181 : CE 40                      adc     A, 40H
-        183 : 27                         daa
+        183 : 27                         daa                     ; A='0'-'9','A'-'F'
         184 : 18 37                      jr      putchar
         186 :
         186 :                    ;;; Print uint8_t in binary
@@ -205,13 +206,13 @@
         1A1 : CB 27                      sla     A               ; F.C=MSB
         1A3 : 47                         ld      B, A
         1A4 : 3E 30                      ld      A, '0'
-        1A6 : 30 15                      jr      NC, putchar     ; F.0=1
+        1A6 : 30 15                      jr      NC, putchar     ; F.C=0
         1A8 : 3C                         inc     A               ; F.C=1
         1A9 : 18 12                      jr      putchar
         1AB :
         1AB :                    ;;; Get character
         1AB :                    ;;; @return A
-        1AB :                    ;;; @return CC.C 0 if no character
+        1AB :                    ;;; @return F.C 0 if no character
         1AB :                    getchar:
         1AB : E5                         push    HL
         1AC : 21 00 20                   ld      HL, rx_queue
@@ -260,7 +261,6 @@
 (1)     1D5 :                    ;;; [queue] Initialize queue
 (1)     1D5 :                    ;;; @param HL queue work space pointer
 (1)     1D5 :                    ;;; @param B queue work space size
-(1)     1D5 :                    ;;; @clobber B
 (1)     1D5 :                    queue_init:
 (1)     1D5 : F5                         push    AF
 (1)     1D6 : E5                         push    HL
@@ -292,7 +292,7 @@
 (1)     1F1 : DD BE 01                   cp      (IX+queue_size)
 (1)     1F4 : 7A                         ld      A, D               ; restore an element
 (1)     1F5 : 38 05                      jr      C, queue_add_store ; queue_len < queue_size
-(1)     1F7 : DD E3                      ex      (SP), IX           ; F.C=1
+(1)     1F7 : DD E3                      ex      (SP), IX           ; F.C=0
 (1)     1F9 : E1                         pop     HL
 (1)     1FA : D1                         pop     DE
 (1)     1FB : C9                         ret

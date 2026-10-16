@@ -30,7 +30,7 @@
           0 :                            include "usart.inc"
 (1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
 (1)       0 :                    ;;; i8251 Universal Synchronous/Asynchronous Receiver/Transmitter
-(1)       0 : =140               USART:  equ     0140H
+(1)       0 : =140               USART:  equ     0140H           ; A8-A15 nonzero: clear of on-chip I/O
 (1)       0 : =140               USARTD: equ     USART+0         ; Data register
 (1)       0 : =141               USARTS: equ     USART+1         ; Status register
 (1)       0 : =141               USARTC: equ     USART+1         ; Control register
@@ -40,6 +40,7 @@
 (2)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
 (2)       0 :
 (2)       0 :                    ;;; i8251 USART device emulator.
+(2)       0 :                    ;;; Bit definition of mode register
 (2)       0 : =6                 MODE_STOP_gp:   equ     6
 (2)       0 : =C0                MODE_STOP_gm:   equ     11000000B
 (2)       0 : =40                MODE_STOP1_gc:  equ     (1 << MODE_STOP_gp)
@@ -92,6 +93,7 @@
        1000 :                            org     1000H
        1000 : =1000              stack:          equ     $
        1000 :
+       1000 :                    ;;; Mode 2 vectors for the alternative setup commented out in init
        1000 : =1000              vec_base:       equ     $
        1012 :                            org     vec_base+12H
        1012 : 29 04              vec_rx: dw      isr_intr_rx
@@ -133,15 +135,15 @@
         129 : 3E 36                      ld      A, RX_EN_TX_DIS
         12B : ED 79                      out     (C), A
         12D :
-        12D : 3E                         db      3EH             ; LD A, n
+        12D : 3E                         db      3EH             ; LD A, n: the RST 28H opcode
         12E : EF                         rst     28H
         12F : 01 42 01                   ld      BC, USARTRV
         132 : ED 79                      out     (C), A          ; set RxRDY interrupt vector RST 28H
-        134 : 3E                         db      3EH             ; LD A, n
+        134 : 3E                         db      3EH             ; LD A, n: the RST 30H opcode
         135 : F7                         rst     30H
         136 : 01 43 01                   ld      BC, USARTTV
         139 : ED 79                      out     (C), A          ; set TxRDY interrupt vector RST 30H
-        13B : ED 46                      im      0
+        13B : ED 46                      im      0               ; execute the USART's RST vector
         13D :
         13D :                            ;; ld      A, HIGH vec_base
         13D :                            ;; ld      I, A
@@ -162,7 +164,7 @@
         146 :
         146 :                    ;;; Get character
         146 :                    ;;; @return A
-        146 :                    ;;; @return CC.C 0 if no character
+        146 :                    ;;; @return F.C 0 if no character
         146 :                    getchar:
         146 : E5                         push    HL
         147 : 21 00 20                   ld      HL, rx_queue
@@ -200,7 +202,7 @@
         16E : F1                         pop     AF
         16F : C9                         ret
         170 :
-        170 :                    ;;; Put newline
+        170 :                    ;;; Put space
         170 :                    ;;; @clobber A
         170 :                    putspace:
         170 : 3E 20                      ld      A, ' '
@@ -215,7 +217,7 @@
 (1)     174 :                    sex_BC:
 (1)     174 : 4F                         ld      C, A
 (1)     175 : 87                         add     A, A            ; AF.C=sign(A)
-(1)     176 : 9F                         sbc     A, A            ; A=A-A-C
+(1)     176 : 9F                         sbc     A, A            ; A=-C: 00H or FFH
 (1)     177 : 47                         ld      B, A
 (1)     178 : C9                         ret
 (1)     179 :
@@ -225,11 +227,14 @@
 (1)     179 :                    sex_HL:
 (1)     179 : 6F                         ld      L, A
 (1)     17A : 87                         add     A, A            ; AF.C=sign(A)
-(1)     17B : 9F                         sbc     A, A            ; A=A-A-C
+(1)     17B : 9F                         sbc     A, A            ; A=-C: 00H or FFH
 (1)     17C : 67                         ld      H, A
 (1)     17D : C9                         ret
 (1)     17E :
-(1)     17E : =32                Fv:     equ     50
+(1)     17E : =32                Fv:     equ     50              ; fixed-point 1.0
+(1)     17E :                    ;;; Print one 79x25 frame of the Mandelbrot set: each point is its
+(1)     17E :                    ;;; escape iteration in hex, or a space if it does not escape in 16.
+(1)     17E :                    ;;; Exits to the debugger when NUL is received.
 (1)     17E :                    mandelbrot:
 (1)     17E : 3E F4                      ld      A, -12
 (1)     180 : 32 D7 02                   ld      (vY), A         ; Y=-12
@@ -386,7 +391,7 @@
 (1)     280 : C6 90                      add     A, 90H
 (1)     282 : 27                         daa
 (1)     283 : CE 40                      adc     A, 40H
-(1)     285 : 27                         daa
+(1)     285 : 27                         daa                     ; A='0'-'9','A'-'F'
 (1)     286 :                    print_char:
 (1)     286 : CD 58 01                   call    putchar
 (1)     289 :
@@ -405,7 +410,7 @@
 (1)     28F : 20 06                      jr      NZ, next_x
 (1)     291 :                    halt_to_system:
 (1)     291 : 21 38 00                   ld      HL, ORG_RST38
-(1)     294 : 36 FF                      ld      (HL), 0FFH
+(1)     294 : 36 FF                      ld      (HL), 0FFH      ; RST 38H at its vector: exit to the debugger
 (1)     296 : FF                         rst     38H
 (1)     297 :
 (1)     297 :                    next_x:
@@ -687,7 +692,6 @@
 (1)     3BE :                    ;;; [queue] Initialize queue
 (1)     3BE :                    ;;; @param HL queue work space pointer
 (1)     3BE :                    ;;; @param B queue work space size
-(1)     3BE :                    ;;; @clobber B
 (1)     3BE :                    queue_init:
 (1)     3BE : F5                         push    AF
 (1)     3BF : E5                         push    HL
@@ -719,7 +723,7 @@
 (1)     3DA : DD BE 01                   cp      (IX+queue_size)
 (1)     3DD : 7A                         ld      A, D               ; restore an element
 (1)     3DE : 38 05                      jr      C, queue_add_store ; queue_len < queue_size
-(1)     3E0 : DD E3                      ex      (SP), IX           ; F.C=1
+(1)     3E0 : DD E3                      ex      (SP), IX           ; F.C=0
 (1)     3E2 : E1                         pop     HL
 (1)     3E3 : D1                         pop     DE
 (1)     3E4 : C9                         ret

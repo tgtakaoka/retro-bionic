@@ -110,6 +110,7 @@ subsi2:
 ;;; Signed comparison: minuend - subtrahend
 ;;; @param @R2: minuend
 ;;; @param @R3: subtrahend
+;;; @return PSL.CC eq, gt or lt as minuend is =, > or < subtrahend
 ;;; @clobber R0 R1 PSL
 cmpsi2:
         loda,r0 arith_work+1,r2
@@ -132,10 +133,10 @@ cmpsi2_hi:
         res     1
 
 ;;; Unsigned multiplication: result = multiplicand * multiplier
-;;; @param mul16_multiplicand
-;;; @param mul16_multiplier
+;;; @param umul16_multiplicand
+;;; @param umul16_multiplier
 ;;; @return R0:R1 result
-;;; @clobber R0 R1 PSL
+;;; @clobber R0 R1 PSL umul16_multiplicand
 umul16:
         stra,r2 umul16_r2
         stra,r3 umul16_r3
@@ -246,7 +247,7 @@ mulsi2_r2:
 udiv16:
         loda,r0 udiv16_divisor
         iora,r0 udiv16_divisor+1
-        retc,eq                 ; divide by zero
+        retc,eq                 ; divide by zero: R0=0, R1 unchanged
         loda,r1 udiv16_dividend+1
         ppsl    PSL_C           ; PSL.C=1
         suba,r1 udiv16_divisor+1
@@ -403,7 +404,7 @@ udiv16_hi_end:
 ;;; Signed division: dividend /= divisor
 ;;; @param @R2: dividend
 ;;; @param @R3: divisor
-;;; @return udiv16_reminder: remainder
+;;; @return udiv16_reminder: remainder of |dividend|/|divisor|, unsigned
 ;;; @clobber R0 R1 PSL
 divsi2:
         loda,r0 arith_work,r2

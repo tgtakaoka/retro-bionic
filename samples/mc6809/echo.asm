@@ -23,9 +23,9 @@ loop:   bsr     getchar
         tsta
         beq     halt_to_system
 echo:   bsr     putchar
-        cmpa    #$0D
+        cmpa    #$0D            ; Carriage Return
         bne     loop
-        lda     #$0A
+        lda     #$0A            ; Newline
         bra     echo
 halt_to_system:
         ldx     #step_swi

@@ -1,6 +1,7 @@
 /// -*- mode: asm; mode: flyspell-prog; -*-
 /// MC6850
 /// Asynchronous Communication Interface Adapter
+/// IOT function: +1 selects the data register, +4 writes
 ACIA_status     = 0
 ACIA_control    = 4
 ACIA_receive    = 1

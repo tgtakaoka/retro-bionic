@@ -50,5 +50,5 @@ transmit_data:
         jr      transmit_loop
 halt_to_system:
         ld      A, 0FFH
-        ld      (ORG_RST38), A
+        ld      (ORG_RST38), A  ; RST 38H at its vector: exit to the debugger
         rst     38h

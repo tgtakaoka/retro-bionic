@@ -62,7 +62,7 @@ init_uart:
         nop
         mov     A, #RX_EN_TX_EN
         movx    @DPTR, A
-        inc     DPTR
+        inc     DPTR            ; DPTR=USARTRV
         mov     A, #ORG_IE0
         movx    @DPTR, A        ; enable Rx interrupt using INT0
         setb    IE.EX0          ; enable INT0
@@ -74,7 +74,7 @@ receive_loop:
         lcall   queue_remove
         setb    IE.EA           ; enable interrupt
         jnc     receive_loop
-        jz      halt_to_system
+        jz      halt_to_system  ; NUL halts
         mov     R7, A           ; save character
 transmit_loop:
         mov     DPTR, #USARTS
@@ -85,19 +85,20 @@ transmit_data:
         mov     A, R7
         movx    @DPTR, A
         cjne    A, #0DH, receive_loop
-        mov     R7, #0AH
+        mov     R7, #0AH        ; follow CR with LF
         sjmp    transmit_loop
 halt_to_system:
         db      0A5H            ; halt to system
 
         include "queue.inc"
 
+;;; #INT0 from the USART RxRDY: queue the received character
 isr_intr:
         push    PSW
         clr     PSW.RS1
         setb    PSW.RS0         ; select BANK 1
         mov     R1, DPL
-        mov     R2, DPH         ; save DPR
+        mov     R2, DPH         ; save DPTR
         mov     R3, A           ; save A
         mov     DPTR, #USARTS
         movx    A, @DPTR

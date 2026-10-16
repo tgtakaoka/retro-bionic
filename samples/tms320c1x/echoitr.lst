@@ -140,6 +140,8 @@
         22A :                    halt_to_system:
         22A : A000                       .word   HALT
         22B :
+        22B :                    ;;; The hardware stack has only 4 levels, so a routine that calls
+        22B :                    ;;; others keeps its return address in data memory.
         22B :                    ;;; get letter
         22B :                    ;;; @return ACC letter
         22B :                    ;;; @return char letter
@@ -158,7 +160,7 @@
         237 : 6604                       zals    char
         238 : 7F8D                       ret
         239 :
-        239 :                    ;;; put letter
+        239 :                    ;;; put letter; dropped if tx_queue is full
         239 :                    ;;; @param ACC letter
         239 :                    putchar:
         239 : 500C                       sacl    putchar_work
@@ -243,7 +245,7 @@
         289 : 2804                       lac     char,8
         28A : 5004                       sacl    char            ; char<<=8
         28B :                    put_bin1:
-        28B : 2104                       lac     char,1          ;
+        28B : 2104                       lac     char,1
         28C : 5004                       sacl    char            ; char<<=1
         28D : 5803                       sach    work
         28E : 6603                       zals    work
@@ -259,7 +261,7 @@
         29A :
         29A :                            .include "queue.inc"
 (1)     29A :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
-(1)     29A :                    ;;; [queue] queue structure
+(1)     29A :                    ;;; [queue] queue structure in program memory, accessed by TBLR/TBLW
 (1)     29A : =0                 queue_len:      equ     0       ; queue length
 (1)     29A : =1                 queue_size:     equ     1       ; buffer size
 (1)     29A : =2                 queue_put:      equ     2       ; queue put index
@@ -267,7 +269,7 @@
 (1)     29A : =4                 queue_buf:      equ     4       ; buffer start offset
 (1)     29A :
 (1)     29A :                    ;;; [queue] Initialize queue
-(1)     29A :                    ;;; @param @SP queue work space pointer
+(1)     29A :                    ;;; @param .word queue work space pointer
 (1)     29A :                    ;;; @param ACC queue work space size
 (1)     29A :                    ;;; @clobber ACC AR0 ARP=0 DP=0
 (1)     29A :                    queue_init:
@@ -301,7 +303,7 @@
 (1)     2B5 : 7F8D                       ret
 (1)     2B6 :
 (1)     2B6 :                    ;;; [queue] Add an element to queue
-(1)     2B6 :                    ;;; @param @SP queue work space pointer
+(1)     2B6 :                    ;;; @param .word queue work space pointer
 (1)     2B6 :                    ;;; @param ACC an element
 (1)     2B6 :                    ;;; @return ACC<0 if queue is full
 (1)     2B6 :                    ;;; @clobber DP=0
@@ -350,7 +352,7 @@
 (1)     2DF : 7F8D                       ret
 (1)     2E0 :
 (1)     2E0 :                    ;;; [queue] Remove an element from queue
-(1)     2E0 :                    ;;; @param @SP queue work space pointer
+(1)     2E0 :                    ;;; @param .word queue work space pointer
 (1)     2E0 :                    ;;; @return ACC an element
 (1)     2E0 :                    ;;; @return ACC<0 if queue is empty
 (1)     2E0 :                    ;;; @clobber DP=0
@@ -394,7 +396,7 @@
 (1)     304 : 7F8D                       ret
         305 :
         305 :                    int_isr:
-        305 : 7C00                       sst     isr_st          ; save ST
+        305 : 7C00                       sst     isr_st          ; save ST (SST writes page 1)
         306 : 6E01                       ldpk    1               ; page 1
         307 : 5001                       sacl    isr_accl        ; save ACC
         308 : 5802                       sach    isr_acch

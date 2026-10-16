@@ -83,7 +83,7 @@ cmp16:
         glo     R8              ; D=subtrahend.0
         str     R2              ; stack top=subtrahend.0
         glo     R7              ; D=minuend.0
-        sm                      ; D=minuend.0=subtrahend.0
+        sm                      ; D=minuend.0-subtrahend.0
         plo     R7              ; R7.0=result.0
         ghi     R8              ; D=subtrahend.1
         str     R2              ; stack top=subtrahend.1
@@ -91,11 +91,11 @@ cmp16:
         xor                     ; D=minuend.1^subtrahend.1
         plo     R8              ; R8.0=minuend.1^subtrahend.1
         ghi     R7              ; D=minuend.1
-        smb                     ; D=minuend.1=subtrahend.1
+        smb                     ; D=minuend.1-subtrahend.1
         phi     R8              ; R8.1=result.1
         bnz     cmp16_neq       ; branch if result.1!=0
         glo     R7              ; D=result.0
-        bnz     cmp16_neq       ; branch if result.0!=-
+        bnz     cmp16_neq       ; branch if result.0!=0
         ldi     1
         shr
         sret    R4
@@ -140,7 +140,7 @@ expr:
         sret    R4
 
 ;;; Print out answer " = result\n"
-;;; @params R7 result
+;;; @param R7 result
 ;;; @clobber D R7 R15
 answer:
         scal    R4, putspace
@@ -153,7 +153,7 @@ answer:
 ;;; Compare 2 integers and print out "operand1 <=> operand2\n"
 ;;; @param R7 operand1
 ;;; @param R8 operand2
-;;; @clobber R15
+;;; @clobber D R15
 comp:
         rsxd    R7              ; save R7
         rsxd    R8              ; save R8

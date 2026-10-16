@@ -49,15 +49,15 @@ loop:
         tst     A
         jz      halt_to_system
         mov     A, B
-        call    putchar        echo
+        call    putchar         ; echo
         call    putspace
-        call    put_hex8       print in hex
+        call    put_hex8        ; print in hex
         call    putspace
-        call    put_bin8       print in binary
+        call    put_bin8        ; print in binary
         call    newline
         jmp     loop
 halt_to_system:
-        trap    15
+        trap    15              ; halt to system
 
 ;;; Put space
 ;;; @clobber A
@@ -150,7 +150,7 @@ putchar_queued:
         include "queue.inc"
 
 isr_int1:
-        and     #~INT_FLAG & 0FFH, INT1 ; clear INT1_FLAG
+        and     #~INT_FLAG & 0FFH, INT1 ; clear INT_FLAG of INT1
         btjz    #IRQF_bm, ACIA_status, isr_int1_return
         push    A
         push    R2

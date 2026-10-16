@@ -47,9 +47,9 @@ loop:
         tsta
         beq     halt_to_system
         bsr     putchar
-        cmpa    #$0D
+        cmpa    #$0D            ; carriage return
         bne     loop
-        lda     #$0A
+        lda     #$0A            ; newline
         bsr     putchar
         bra     loop
 halt_to_system:

@@ -8,7 +8,7 @@ queue_buf:      equ     4       ; buffer start offset
 
 ;;; [queue] Initialize queue
 ;;; @param HL queue work space pointer
-;;; @param B queue work space size
+;;; @param B queue work space size, including the 4-byte header
 ;;; @clobber B
 queue_init:
         push    psw

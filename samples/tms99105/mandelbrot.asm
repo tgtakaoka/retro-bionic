@@ -25,6 +25,8 @@ workspace:
 workspace_int15:
         bss     2*16            R0-R15
 
+        * R10 is the stack pointer; BLSK pushes the return address
+        * and BIND *R10+ returns.  Leaf routines use BL and RT.
         org     >2000
 stack:          equ     $
 rx_queue_size:  equ     128
@@ -57,6 +59,7 @@ loop:
         *** Get character
         *** @return R0
         *** @return ST.C 0 if no character
+        *** @clobber R9
 getchar:
         dect    R10
         mov     R1, *R10        Push R1
@@ -74,6 +77,8 @@ newline:
         blsk    R10, putchar
         bind    *R10+           Pop return address
 
+        *** Queue R0 high byte for the Tx interrupt
+        *** @clobber R9
 putspace:
         li      R0, hibyte(' ')
 putchar:
@@ -92,6 +97,7 @@ putchar:
         include "arith.inc"
         include "../tms9900/queue.inc"
 
+        *** ACIA interrupt; runs in its own workspace, so no registers need saving
 int15_isr:
         movb    @ACIA_status, R0
         andi    R0, hibyte(RDRF_bm)
@@ -110,7 +116,6 @@ int15_isr_send:
 int15_isr_exit:
         rtwp
 int15_isr_send_empty:
-        * Disable Tx interrupt
         li      R1, hibyte(TCB_EI_gc)
         szcb    R1, @ACIA_control       Disable Tx interrupt
         rtwp

@@ -1,15 +1,15 @@
 ;;; -*- mode: asm; mode: flyspell-prog; -*-
 ;;; [queue_tmp] must be allocated 2 bytes on zero page
-;;; [queue] queue structure
+;;; [queue] queue structure on zero page, buffer outside
 queue_len       =       0       ; queue length
 queue_size      =       1       ; buffer size
 queue_put       =       2       ; queue put index
 queue_get       =       3       ; queue get index
 queue_buf       =       4       ; buffer start address
 
-;;; [queue] Initialize queue
-;;; @param X queue work space pointer
-;;; @param A queue work space size
+;;; [queue] Initialize queue and clear its buffer
+;;; @param X queue work space pointer; queue_buf,X holds the buffer address
+;;; @param A buffer size
 ;;; @clobber A, Y
 queue_init:
         sta     queue_size,x
@@ -25,7 +25,7 @@ queue_init_loop:
         bne     queue_init_loop
         rts
 
-;;; init_tmp
+;;; init_queue_tmp
 ;;; @param X queue work space pointer
 ;;; store [queue_buf,x] to queue_tmp
 ;;; @clobber Y
@@ -40,6 +40,7 @@ init_queue_tmp:
 ;;; @param X queue work space pointer
 ;;; @param A an element
 ;;; @return P.C 1 if queue is full
+;;; @clobber Y
 queue_add:
         pha                     ; save an element
         jsr     init_queue_tmp

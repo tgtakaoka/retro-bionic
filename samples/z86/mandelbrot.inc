@@ -1,5 +1,8 @@
 ;;; -*- mode: asm; mode: flyspell-prog; -*-
 
+;;; Print the Mandelbrot set for Y=-12..12, X=-49..29 in fixed point
+;;; scaled by F; each point shows its escape iteration 0-F, or a space if
+;;; it never escapes.  A NUL received halts the CPU.
 mandelbrot:
         ld      c229, #HIGH 229
         ld      c229+1, #LOW 229
@@ -173,7 +176,7 @@ print_i:
         ld      R0, vI+1
         add     R0, #'0'
         cp      R0, #'9'+1
-        jr      c, print_char   ; if I<'9'+1
+        jr      c, print_char   ; if I<10
         add     R0, #'A'-'0'-10
 print_char:
         call    putchar
@@ -188,10 +191,10 @@ print_char:
         ;; call    newline
 
         call    getchar
-        jr      nc, next_x
+        jr      nc, next_x          ; no input
         or      R0, R0
         jr      nz, next_x
-        halt
+        halt                        ; NUL received
 next_x:
         incw    vX
         ld      R0, vX
@@ -204,14 +207,14 @@ next_x:
         incw    vY
         ld      R0, vY
         or      R0, R0
-        jp      nz, loop_y      ; if X<0
+        jp      nz, loop_y      ; if Y<0
         ld      R0, vY+1
         sub     R0, #13
-        jp      lt, loop_y      ; if X<13
+        jp      lt, loop_y      ; if Y<13
         ret
 
 ;;; Print variable
-;;; @param R2 variable name
+;;; @param R2 variable name letter
 ;;; @param RR0 variable value
 print:
         push    R0

@@ -19,8 +19,6 @@
 (2)       0 : =8                 TDR:    equ     $08          ; $08: Timer Data Register
 (2)       0 : =9                 TCR:    equ     $09          ; $09: Timer Control Register
 (2)       0 :
-(2)       0 :                    ;;; Port 2 Data Register
-(2)       0 :
 (2)       0 :                    ;;; Timer Control Register
 (2)       0 : =7                 TCR_SCALER_gm:  equ     %00000111 ; Prescaler
 (2)       0 : =0                 TCR_DIV1_gc:    equ     %00000000 ; - 1/1
@@ -59,7 +57,7 @@
 (1)       0 :                    ;;; MC6850
 (1)       0 :                    ;;; Asynchronous Communication Interface Adapter
 (1)       0 :
-(1)       0 :                    ;;; Control register
+(1)       0 :                    ;;; Control register (write)
 (1)       0 : =17F8              ACIA_control:   equ     ACIA+0
 (1)       0 :                            ;; Counter Divider Select Bits
 (1)       0 : =3                 CDS_gm:         equ     %11    ; Group mask
@@ -86,7 +84,7 @@
 (1)       0 :                                                      ; Transmit Break Level
 (1)       0 : =80                RIEB_bm:        equ     %10000000 ; Receive Interrupt Enable Bit mask
 (1)       0 :
-(1)       0 :                    ;;; Status register
+(1)       0 :                    ;;; Status register (read)
 (1)       0 : =17F8              ACIA_status:    equ     ACIA+0
 (1)       0 : =1                 RDRF_bm:        equ     %00000001 ; Receive Data Register Full
 (1)       0 : =2                 TDRE_bm:        equ     %00000010 ; Transmit Data Register Empty
@@ -112,10 +110,10 @@
          55 :                    R2L:    rmb     1
          56 :                    arith_work:
          56 :                            rmb     1
-         57 :                    SP:     rmb     1
+         57 :                    SP:     rmb     1               ; software stack index
          58 :
         100 :                            org     $0100
-        100 :                    stack:  rmb     20
+        100 :                    stack:  rmb     20              ; software stack for push_XA/pull_XA
         114 :
        1FFC :                            org     VEC_SWI
        1FFC : 1F FC                      fdb     VEC_SWI         ; for halt to system
@@ -133,7 +131,7 @@
        100A :
        100A : 3F 57                      clr     SP
        100C : CD 10 7E                   jsr     arith
-       100F : 83                         swi                     ; halt to stop
+       100F : 83                         swi                     ; halt to system
        1010 :
        1010 :                    ;;; Print out char
        1010 :                    ;;; @param A char
@@ -159,8 +157,8 @@
        102B :                            rmb     1
        102C :
        102C :                    ;;; Print "R1 op R2"
-       102C :                    ;;; @params A op letter
-       102C :                    ;;; @clobber R2 R3 R4
+       102C :                    ;;; @param A op letter
+       102C :                    ;;; @clobber A X R0
        102C :                    expr:
        102C : C7 10 4E                   sta     expr_op
        102F : BE 52                      ldx     R1H
@@ -181,7 +179,7 @@
        104E :                            rmb     1
        104F :
        104F :                    ;;; Print " = R0\n"
-       104F :                    ;;; @clobber R0 R1 R2
+       104F :                    ;;; @clobber A X R0
        104F :                    answer:
        104F : CD 10 10                   jsr     putspace
        1052 : A6 3D                      lda     #'='
@@ -191,7 +189,7 @@
        105D : CC 10 14                   jmp     newline
        1060 :
        1060 :                    ;;; Print "R1 rel R2"
-       1060 :                    ;;; @clobber R0
+       1060 :                    ;;; @clobber A X R0
        1060 :                    comp:
        1060 : CD 13 A6                   jsr     cmp16
        1063 : B6 51                      lda     R0L
@@ -582,22 +580,22 @@
 (1)    1364 : B7 55                      sta     R2L
 (1)    1366 : 81                         rts
 (1)    1367 :
-(1)    1367 :                    ;;; Push X:A
+(1)    1367 :                    ;;; Push X:A onto the software stack at stack, indexed by SP
 (1)    1367 :                    ;;; @param X:A value
 (1)    1367 :                    ;;; @clobber X:A
 (1)    1367 :                    push_XA:
 (1)    1367 : B7 56                      sta     arith_work      ; save A
 (1)    1369 : 9F                         txa
 (1)    136A : BE 57                      ldx     SP
-(1)    136C : D7 01 00                   sta     stack,X         ; push high(value))
+(1)    136C : D7 01 00                   sta     stack,X         ; push high(value)
 (1)    136F : B6 56                      lda     arith_work
-(1)    1371 : D7 01 01                   sta     stack+1,X       ; push low(register)
+(1)    1371 : D7 01 01                   sta     stack+1,X       ; push low(value)
 (1)    1374 : 5C                         incx
 (1)    1375 : 5C                         incx
 (1)    1376 : BF 57                      stx     SP              ; update stack pointer
 (1)    1378 : 81                         rts
 (1)    1379 :
-(1)    1379 :                    ;;; Pull X:A
+(1)    1379 :                    ;;; Pull X:A from the software stack
 (1)    1379 :                    ;;; @return X:A value
 (1)    1379 :                    pull_XA:
 (1)    1379 : BE 57                      ldx     SP
@@ -622,7 +620,7 @@
 (1)    1393 : B6 51                      lda     R0L
 (1)    1395 : 81                         rts
 (1)    1396 :
-(1)    1396 :                    ;;; Subtraction: R0 = R1 + R2
+(1)    1396 :                    ;;; Subtraction: R0 = R1 - R2
 (1)    1396 :                    ;;; @return X:A subtraction
 (1)    1396 :                    ;;; @clobber A
 (1)    1396 :                    sub16:
@@ -637,10 +635,12 @@
 (1)    13A5 : 81                         rts
 (1)    13A6 :
 (1)    13A6 :                    ;;; Signed compare R0=sign(R1-R2)
+(1)    13A6 :                    ;;; @param R1 minuend
+(1)    13A6 :                    ;;; @param R2 subtrahend
 (1)    13A6 :                    ;;; @return R0=A=0;  BEQ (minuend == subtrahend)
 (1)    13A6 :                    ;;;         R0=A=1;  BPL (minuend > subtrahend)
 (1)    13A6 :                    ;;;         R0=A=-1; BMI (minuend < subtrahend)
-(1)    13A6 :                    ;;; @clobber A
+(1)    13A6 :                    ;;; @clobber A X
 (1)    13A6 :                    cmp16:
 (1)    13A6 : AD EE                      bsr     sub16
 (1)    13A8 : B6 50                      lda     R0H
@@ -652,7 +652,7 @@
 (1)    13B4 : B6 52                      lda     R1H
 (1)    13B6 : B8 54                      eor     R2H             ; minuend^subtrahend
 (1)    13B8 : B4 51                      and     R0L             ; overflow flag
-(1)    13BA : B8 50                      eor     R0H
+(1)    13BA : B8 50                      eor     R0H             ; N^V
 (1)    13BC : 2B 06                      bmi     cmp16_lt
 (1)    13BE :                    cmp16_gt:
 (1)    13BE : 3F 50                      clr     R0H
@@ -708,7 +708,7 @@
 (1)    13FD :                    umul16_end:
 (1)    13FD : 81                         rts
 (1)    13FE :
-(1)    13FE :                    ;;; Multiply; result = multiplicand * multiplier
+(1)    13FE :                    ;;; Signed multiplication: result = multiplicand * multiplier
 (1)    13FE :                    ;;; @param R1 multiplicand
 (1)    13FE :                    ;;; @param R2 multiplier
 (1)    13FE :                    ;;; @return R0 result
@@ -733,7 +733,7 @@
 (1)    1418 : B7 52                      sta     R1H             ; negate multiplicand
 (1)    141A :                    mul16_multiply:
 (1)    141A : AD AF                      bsr     umul16          ; R0=result
-(1)    141C : B6 56                      lda     arith_work      ; A=(multiplicand^multiplier)
+(1)    141C : B6 56                      lda     arith_work      ; sign(result)
 (1)    141E : 2A 09                      bpl     mul16_end
 (1)    1420 : B6 50                      lda     R0H
 (1)    1422 : 40                         nega
@@ -750,7 +750,7 @@
 (1)    142E :                    ;;; @param R2 divisor
 (1)    142E :                    ;;; @return R0 quotient
 (1)    142E :                    ;;; @return R1 remainder
-(1)    142E :                    ;;; @clobber R2
+(1)    142E :                    ;;; @clobber A R2
 (1)    142E :                    udiv16:
 (1)    142E : CF 14 AB                   stx     udiv16_x        ; save X
 (1)    1431 : B6 54                      lda     R2H
@@ -833,12 +833,12 @@
 (1)    14AB :                    udiv16_x:
 (1)    14AB :                            rmb     1
 (1)    14AC :
-(1)    14AC :                    ;;; Division; dividend / divisor = quotient ... remainder
+(1)    14AC :                    ;;; Signed division: dividend / divisor = quotient ... remainder
 (1)    14AC :                    ;;; @param R1 dividend
 (1)    14AC :                    ;;; @param R2 divisor
 (1)    14AC :                    ;;; @return R0 quotient
 (1)    14AC :                    ;;; @return X:A quotient
-(1)    14AC :                    ;;; @return R1 remainder
+(1)    14AC :                    ;;; @return R1 |remainder|
 (1)    14AC :                    ;;; @clobber R2
 (1)    14AC :                    div16:
 (1)    14AC : B6 52                      lda     R1H
@@ -859,7 +859,7 @@
 (1)    14C7 : B7 52                      sta     R1H             ; negate dividend
 (1)    14C9 :                    div16_divide:
 (1)    14C9 : CD 14 2E                   jsr     udiv16          ; R0=quotient
-(1)    14CC : C6 14 DF                   lda     div16_sign      ; A=(dividend^divisor)
+(1)    14CC : C6 14 DF                   lda     div16_sign      ; sign(quotient)
 (1)    14CF : 2A 09                      bpl     div16_end
 (1)    14D1 : B6 50                      lda     R0H
 (1)    14D3 : 40                         nega

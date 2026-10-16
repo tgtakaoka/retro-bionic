@@ -1,4 +1,7 @@
 ;;; -*- mode: asm; mode: flyspell-prog; -*-
+
+;;; Print the Mandelbrot set in ASCII; fixed point, F is 1.0
+;;; Halts to system when a NUL is received.
 mandelbrot:
         ld      P2, =mandelbrot_work
 
@@ -120,12 +123,12 @@ loop_i:
 
         ld      EA, =4
         sub     EA, vT, P2      ; 4-T
-        xch     A, E
+        xch     A, E            ; A=high(4-T)
         bp      next_i          ; if 4>=T
 print_i:
         ld      A, vI, P2
         sub     A, =10
-        bp      print_i2        ; if I<10
+        bp      print_i2        ; if I>=10
         add     A, =10+'0'-'A'
 print_i2:
         add     A, ='A'
@@ -150,9 +153,9 @@ print_char:
         ;; jsr     newline
 
         jsr     getchar
-        bz      next_x
+        bz      next_x          ; no char
         ld      A, E
-        bnz     next_x
+        bnz     next_x          ; not NUL
         call    15              ; halt to system
 next_x:
         ld      EA, vX, P2
@@ -166,7 +169,7 @@ next_y:
         jsr     newline
         ld      EA, vY, P2
         add     EA, =1
-        st      EA, vY, P2
+        st      EA, vY, P2      ; Y+=1
         sub     EA, =13
         xch     A, E
         bp      mandelbrot_end  ; if Y>=13
@@ -177,6 +180,7 @@ mandelbrot_end:
 ;;; Print variable
 ;;; @param A variable name
 ;;; @param T variable value
+;;; @clobber EA
 print:
         jsr     putchar
         ld      A, ='='

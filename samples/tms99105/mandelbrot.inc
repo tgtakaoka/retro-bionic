@@ -2,8 +2,8 @@
 
         *** Print variable: "name=variable "
         *** @param R1 variable
-        *** @param R0 variable name
-        *** @clobber R0 R1
+        *** @param R0 variable name letter in high byte
+        *** @clobber R0
 print:
         blsk    R10, putchar        Print name
         li      R0, hibyte('=')
@@ -13,7 +13,7 @@ print:
         blsk    R10, putspace
         bind    *R10+           Pop return address
 
-F:      equ     50
+F:      equ     50              Fixed-point scale; 1.0 is F
 vC:     bss     2
 vD:     bss     2
 vA:     bss     2
@@ -26,6 +26,9 @@ vY:     bss     2
 vX:     bss     2
 vI:     bss     2
 
+        *** Print the Mandelbrot set for Y=-12..12, X=-49..29; each point
+        *** shows its escape iteration 0-F, or a space if it never escapes.
+        *** A NUL received halts the CPU.
 mandelbrot:
         li      R0, -12
         mov     R0, @vY         Y=-12
@@ -137,7 +140,7 @@ loop_i:
 
         mov     @vT, R0
         ci      R0, 4
-        jgt     print_i         if 4<P*P+Q*Q
+        jgt     print_i         if 4<T
         inc     @vI             I+=1
         mov     @vI, R0
         ci      R0, 16
@@ -171,10 +174,10 @@ print_char:
         * blsk    R10, newline
 
         blsk    R10, getchar
-        jnc     next_x
-        soc     R0, R0
+        jnc     next_x          No input
+        soc     R0, R0          Test R0
         jne     next_x
-        xop     R15,15          halt to system
+        xop     R15,15          NUL; halt to system
 next_x:
         inc     @vX             X+=1
         mov     @vX, R0

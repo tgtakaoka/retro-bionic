@@ -6,9 +6,9 @@
 (1)       0 :                    *** Status Register
 (1)       0 : =0                 STR_E:          equ     0       Extension
 (1)       0 : =2                 STR_OV:         equ     2       Overflow
-(1)       0 : =5                 STR_IRQ0:       equ     5       IRQ0 Mask
-(1)       0 : =6                 STR_IRQ1:       equ     6       IRQ1 Mask
-(1)       0 : =7                 STR_IRQ2:       equ     7       IRQ2 Mask
+(1)       0 : =5                 STR_IRQ0:       equ     5       IRQ0 Mask, 1=enabled
+(1)       0 : =6                 STR_IRQ1:       equ     6       IRQ1 Mask, 1=enabled
+(1)       0 : =7                 STR_IRQ2:       equ     7       IRQ2 Mask, 1=enabled
 (1)       0 :                    *** Interrupt vector and save area
 (1)       0 : =0                 OPSW0:          equ     X'0000' IRQ0 old STR:IC
 (1)       0 : =2                 OPSW1:          equ     X'0002' IRQ1 old STR:IC
@@ -146,6 +146,7 @@
         22C : 8F2C                       bal     newline
         22D : CFF4                       b       loop
         22E :
+        22E :                    *** @return R0 received char
         22E :                    getchar:
         22E : 2301                       push    X0
         22F : 7B0F 2000                  mvwi    X0, rx_queue
@@ -157,6 +158,7 @@
         235 : 2302                       pop     X0
         236 : 2003                       ret
         237 :
+        237 :                    *** @param R1 value, low byte printed
         237 :                    put_hex8:
         237 : 0830                       mvi     R0, '0'
         238 : 8F23                       bal     putchar
@@ -172,12 +174,14 @@
         242 : 50E7 000A                  cbi     R0, 10, lpz     skip if R0>=10
         244 : CF04                       b       put_hex4_dec
         245 : 400A                       si      R0, 10
-        246 : 581F 0041                  awi     R0, 'A', skp
+        246 : 581F 0041                  awi     R0, 'A', skp    R0+='A', skip the '0'
         248 :                    put_hex4_dec:
         248 : 580F 0030                  awi     R0, '0'
         24A : 2102                       pop     R1
         24B : CF10                       b       putchar
         24C :
+        24C :                    *** @param R1 value, low byte printed
+        24C :                    *** @clobber R1
         24C :                    put_bin8:
         24C : 0830                       mvi     R0, '0'
         24D : 8F0E                       bal     putchar
@@ -195,6 +199,7 @@
         256 : 0831                       mvi     R0, '1'
         257 : CF04                       b       putchar
         258 :
+        258 :                    *** Put CR LF (newline) or char R0 (putchar)
         258 :                    newline:
         258 : 080D                       mvi     R0, X'0D'
         259 : 8F02                       bal     putchar
@@ -234,7 +239,7 @@
 (1)     26B : 4004                       si      R0, queue_buf
 (1)     26C : A001                       st      R0, queue_size(X0)      set queue_size
 (1)     26D : A102                       st      R1, queue_put(X0)       clear queue_put
-(1)     26E : A103                       st      R1, queue_get(X0)       clear queue_put
+(1)     26E : A103                       st      R1, queue_get(X0)       clear queue_get
 (1)     26F : 4B04                       ai      X0, queue_buf
 (1)     270 :                    queue_init_loop:
 (1)     270 : 21C6                       str     R1, (X0)+
@@ -255,17 +260,17 @@
 (1)     279 : 51FA                       c       R1, R2, lm              skip if queue_len < queue_size
 (1)     27A : CF0B                       b       queue_add_return
 (1)     27B : E102                       l       R1, queue_put(X0)
-(1)     27C : 5B09                       a       X0, R1                  X0=&queu_buf[queue_put]
+(1)     27C : 5B09                       a       X0, R1                  X0=&queue_buf[queue_put]
 (1)     27D : A004                       st      R0, queue_buf(X0)       store element
 (1)     27E : 5B01                       s       X0, R1                  restore X0
 (1)     27F : 4901                       ai      R1, 1                   queue_put+=1
-(1)     280 : 51FA                       c       R1, R2, lm              skip if queue_len < queue_size
+(1)     280 : 51FA                       c       R1, R2, lm              skip if queue_put < queue_size
 (1)     281 : 6101                       eor     R1, R1                  R1=0
-(1)     282 : A102                       st      R1, queue_put(X0)       update queue_len
+(1)     282 : A102                       st      R1, queue_put(X0)       update queue_put
 (1)     283 : E600                       ims     queue_len(X0)           queue_len+=1
 (1)     284 : 3E10                       sbit    STR, STR_E, skp         ST.E=1, then skip
 (1)     285 :                    queue_add_return:
-(1)     285 : 3600                       rbit    STR, STR_E              ST_E=0
+(1)     285 : 3600                       rbit    STR, STR_E              ST.E=0
 (1)     286 : 2202                       pop     R2
 (1)     287 : 2102                       pop     R1
 (1)     288 : 2003                       ret
@@ -286,12 +291,12 @@
 (1)     291 : 4901                       ai      R1, 1                   queue_get+=1
 (1)     292 : 2201                       push    R2
 (1)     293 : E201                       l       R2, queue_size(X0)      R2=queue_size
-(1)     294 : 51FA                       c       R1, R2, lm              skip if queue_get
+(1)     294 : 51FA                       c       R1, R2, lm              skip if queue_get < queue_size
 (1)     295 : 6101                       eor     R1, R1                  R1=0
 (1)     296 : A103                       st      R1, queue_get(X0)       update queue_get
 (1)     297 : 2202                       pop     R2
 (1)     298 : A600                       dms     queue_len(X0)           queue_len-=1
-(1)     299 : 7808                       mv      R0, R0                  nop
+(1)     299 : 7808                       mv      R0, R0                  nop, for dms skipping on zero
 (1)     29A : 3E10                       sbit    STR, STR_E, skp         ST.E=1, then skip
 (1)     29B :                    queue_remove_return:
 (1)     29B : 3600                       rbit    STR, STR_E              ST.E=0

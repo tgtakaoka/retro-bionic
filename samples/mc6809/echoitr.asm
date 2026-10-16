@@ -139,7 +139,7 @@ putchar_retry:
         include "queue.inc"
 
 isr_firq:
-        pshs    x,b,a
+        pshs    x,b,a           ; FIRQ stacks only PC and CC
         ldb     ACIA_status
         bitb    #IRQF_bm
         beq     isr_firq_exit

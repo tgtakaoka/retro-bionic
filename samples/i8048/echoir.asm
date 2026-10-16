@@ -6,7 +6,7 @@
 ;;; i8251 Universal Synchronous/Asynchronous Receiver/Transmitter
 USART:          equ     0FCH
 USARTD:         equ     USART+0 ; Receive/Transmit data
-USARTS:         equ     USART+1 ; Srtatus register
+USARTS:         equ     USART+1 ; Status register
 USARTC:         equ     USART+1 ; Control register
 USARTRV:        equ     USART+2 ; Receive interrupt vector (ORG_*)
 USARTTV:        equ     USART+3 ; Transmit interrupt vector (ORG_*)
@@ -87,7 +87,7 @@ transmit_data:
         mov     R7, #0AH
         jmp     transmit_loop
 halt_to_system:
-        db      01H
+        db      01H             ; halt to system
 
         include "queue.inc"
 
@@ -105,4 +105,4 @@ isr_intr_receive:
         call    queue_add
 isr_intr_recv_end:
         mov     A, R2
-        retr
+        retr                    ; restores PSW, so bank 0

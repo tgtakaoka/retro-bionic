@@ -17,7 +17,7 @@ queue_tmp:
         *=      *+2
 rx_queue:
         *=      *+queue_buf
-        .word   $2000
+        .word   $2000           ; buffer address
 rx_queue_size   =     128
 
         *=      $1000
@@ -25,7 +25,7 @@ stack   =       $01ff
 initialize:
         ldx     #stack & $FF
         txs
-        cld                     ; clear decimal flag
+        cld                     ; D is undefined after reset
         ldx     #rx_queue
         lda     #rx_queue_size
         jsr     queue_init
@@ -40,10 +40,10 @@ loop:
         jsr     getchar
         bcs     loop
         ora     #0
-        beq     halt_to_system
+        beq     halt_to_system  ; NUL halts
         jsr     putchar
         cmp     #$0D
-        bne     loop
+        bne     loop            ; follow CR with LF
         lda     #$0A
         jsr     putchar
         jmp     loop
@@ -51,6 +51,10 @@ halt_to_system:
         brk
         .byte   0               ; halt to system
 
+;;; Get character
+;;; @return A
+;;; @return P.C 1 if no character
+;;; @clobber X Y
 getchar:
         ldx     #rx_queue
         sei                     ; Disable IRQ
@@ -58,6 +62,8 @@ getchar:
         cli                     ; Enable IRQ
         rts
 
+;;; Wait until Tx is ready and send a character
+;;; @param A character
 putchar:
         pha
 putchar_loop:
@@ -71,7 +77,7 @@ putchar_loop:
         .include "queue.inc"
 
 isr_irq:
-        cld                     ; clear decimal flag
+        cld                     ; NMOS 6502 keeps D on interrupt
         pha                     ; save A
         txa
         pha                     ; save X

@@ -1,7 +1,7 @@
 *** -*- mode: asm; mode: flyspell-prog* -*-
 *** Print signed 16-bit integer as decimal
 *** @param R0 value
-*** @clobber R1 R2
+*** @clobber R0 R1 R2
 print_int16:
         tbit    R0, 0, nz       skip if msb(value)=1
         b       print_uint16
@@ -15,7 +15,7 @@ print_uint16:
         mvwi    R2, 10          R2=10
         bal     udiv16          R0=value/10, R1=value%10
         push    R1              push remainder
-        or      R0, R0, z       skip if value=0
+        or      R0, R0, z       skip if quotient=0
         bal     print_uint16    next digit
         pop     R0              pop remainder
         awi     R0, '0'
@@ -49,7 +49,7 @@ div16:
         tbit    R2, 0, z        skip if msb(divisor)=0
         neg     R2, c           negate divisor
         bal     udiv16
-        tbit    R3, 0, z        skip if quotient needs not be negated
+        tbit    R3, 0, z        skip if quotient stays positive
         neg     R0, c           negate quotient
         mv      R1, R0
         pop     R3
@@ -67,7 +67,7 @@ divu16:
         tbit    R1, 0, z        skip if msb(dividend)=0
         neg     R1, c           negate dividend
         bal     udiv16
-        tbit    STR, 15, z      skip if quotient needs not be negated
+        tbit    STR, 15, z      skip if quotient stays positive
         neg     R0, c           negate quotient
         mv      R1, R0
         ret
@@ -89,7 +89,7 @@ mul16:
         mv      R2, SP          R2 points |multiplicand|
         push    R1              push |multiplicand|
         m       DR0, (R2)       DR0=|multiplicand|*|multiplier|
-        tbit    R3, 0, z        skip if product needs not to be negated
+        tbit    R3, 0, z        skip if product stays positive
         neg     R1, c           negate low(product)
         mv      SP, R2          discard pushed |multiplicand|
         pop     R3

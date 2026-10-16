@@ -1,7 +1,7 @@
 *** -*- mode: asm; mode: flyspell-prog* -*-
 *** Print signed 16-bit integer as decimal
 *** @param R0 value
-*** @clobber R1 R2
+*** @clobber R0 R1 R2
 print_int16:
         tbit    R0, 0, nz       skip if msb(value)=1
         b       print_uint16
@@ -18,7 +18,7 @@ print_uint16:
         mvi     R2, 10          R2=10
         bal     udiv16          R0=value/10, R1=value%10
         push    R1              push remainder
-        or      R0, R0, z       skip if value=0
+        or      R0, R0, z       skip if quotient=0
         bal     print_uint16    next digit
         pop     R0              pop remainder
         mvi     R2, '0'
@@ -115,6 +115,8 @@ divu16_return:
         ret
 
 *** Signed Multiply: multiplicand * multiplier = product
+*** A negative multiplier is negated with the multiplicand, so the loop
+*** runs on |multiplier|.
 *** @param R1 multiplicand
 *** @param R2 multiplier
 *** @return R1 product

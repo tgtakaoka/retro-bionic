@@ -4,7 +4,7 @@
 ;;; i8251 Universal Synchronous/Asynchronous Receiver/Transmitter
 USART:          equ     %FF00
 USARTD:         equ     USART+0 ; Receive/Transmit data
-USARTS:         equ     USART+1 ; Srtatus register
+USARTS:         equ     USART+1 ; Status register
 USARTC:         equ     USART+1 ; Control register
 USARTRI:        equ     USART+2 ; Receive interrupt name (IRQ0~2)
 USARTTI:        equ     USART+3 ; Transmit interrupt name (IRQ0~2)
@@ -81,7 +81,7 @@ receive_loop:
         jr      nz, transmit_loop
         halt
 transmit_loop:
-        lde     R1, @RR12       ; USARTC
+        lde     R1, @RR12       ; USARTS
         tm      R1, #ST_TxRDY_bm
         jr      z, transmit_loop
 transmit_data:
@@ -93,6 +93,7 @@ transmit_data:
 
         include "queue.inc"
 
+;;; Shares RR2=rx_queue, RR10=USARTD and RR12=USARTS with the main loop
         setrp   -1
 isr_intr:
         push    R0

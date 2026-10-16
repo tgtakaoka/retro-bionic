@@ -86,6 +86,8 @@ loop:   call    getchar
 halt_to_system:
         .word   HALT
 
+;;; The hardware stack has only 4 levels, so a routine that calls
+;;; others keeps its return address in data memory.
 ;;; get letter
 ;;; @return ACC letter
 ;;; @return char letter
@@ -104,7 +106,7 @@ getchar_loop:
         zals    char
         ret
 
-;;; put letter
+;;; put letter; dropped if tx_queue is full
 ;;; @param ACC letter
 putchar:
         sacl    putchar_work
@@ -189,7 +191,7 @@ put_bin8:
         lac     char,8
         sacl    char            ; char<<=8
 put_bin1:
-        lac     char,1          ;
+        lac     char,1
         sacl    char            ; char<<=1
         sach    work
         zals    work
@@ -206,7 +208,7 @@ put_bin1:
         .include "queue.inc"
 
 int_isr:
-        sst     isr_st          ; save ST
+        sst     isr_st          ; save ST (SST writes page 1)
         ldpk    1               ; page 1
         sacl    isr_accl        ; save ACC
         sach    isr_acch

@@ -18,7 +18,7 @@ print_int16:
 ;;; @param D value
 ;;; @clobber D X
 print_uint16:
-        addd    #0
+        addd    #0              ; test value
         beq     print_uint16_zero
 print_uint16_loop:
         addd    #0
@@ -59,11 +59,11 @@ umul16:
         ldd     R0
         rts
 
-;;; Multiply; result = multiplicand * multiplier
+;;; Signed multiplication: result = multiplicand * multiplier
 ;;; @param D multiplicand
 ;;; @param X multiplier
 ;;; @return D result
-;;; @clobber R0 R1 R2
+;;; @clobber X R0 R1 R2
 mul16:
         std     R1
         stx     R2
@@ -83,8 +83,8 @@ mul16_multiplier:
         addd    #1              ; negate multiplier
 mul16_multiply:
         xgdx
-        bsr     umul16          ; R0=result
-        tst     sign            ; (multiplicand^multiplier)
+        bsr     umul16          ; D=result
+        tst     sign            ; sign(result)
         bpl     mul16_end
         coma
         comb
@@ -92,11 +92,11 @@ mul16_multiply:
 mul16_end:
         rts
 
-;;; Division; dividend / divisor = quotient ... remainder
+;;; Signed division: dividend / divisor = quotient ... remainder
 ;;; @param D dividend
 ;;; @param X divisor
 ;;; @return D quotient
-;;; @return X remainder
+;;; @return X |remainder|
 ;;; @clobber R0 R1 R2
 div16:
         std     R1
@@ -119,7 +119,7 @@ div16_divide:
         xgdx
         idiv                    ; D/X, X=quotient, D=remainder
         xgdx
-        tst     sign            ; A=(dividend^divisor)
+        tst     sign            ; sign(quotient)
         bpl     div16_end
         coma
         comb

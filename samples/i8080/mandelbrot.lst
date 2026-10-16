@@ -18,7 +18,7 @@
 (1)       0 : =20                ORG_RST4:       equ     0020H   ; RST 4
 (1)       0 : =28                ORG_RST5:       equ     0028H   ; RST 5
 (1)       0 : =30                ORG_RST6:       equ     0030H   ; RST 6
-(1)       0 : =38                ORG_RST7:       equ     0038H   ; RST 3
+(1)       0 : =38                ORG_RST7:       equ     0038H   ; RST 7
 (1)       0 :                    ;;; RST instructions, which the 8251 hands the CPU in an INTA cycle
 (1)       0 : =C7                INST_RST0:      equ     0C7H    ; RST 0
 (1)       0 : =CF                INST_RST1:      equ     0CFH    ; RST 1
@@ -32,7 +32,7 @@
           0 :                    ;;; i8251 Universal Synchronous/Asynchronous Receiver/Transmitter
           0 : =40                USART:          equ     40H
           0 : =40                USARTD:         equ     USART+0 ; Receive/Transmit data
-          0 : =41                USARTS:         equ     USART+1 ; Srtatus register
+          0 : =41                USARTS:         equ     USART+1 ; Status register
           0 : =41                USARTC:         equ     USART+1 ; Control register
           0 : =42                USARTRV:        equ     USART+2 ; Receive interrupt instruction (INST_RST*)
           0 : =43                USARTTV:        equ     USART+3 ; Transmit interrupt instruction (INST_RST*)
@@ -40,13 +40,14 @@
 (1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
 (1)       0 :
 (1)       0 :                    ;;; i8251 USART device emulator.
+(1)       0 :                    ;;; Bit definition of mode instruction (asynchronous)
 (1)       0 : =6                 MODE_STOP_gp:   equ     6
 (1)       0 : =C0                MODE_STOP_gm:   equ     11000000B
 (1)       0 : =40                MODE_STOP1_gc:  equ     (1 << MODE_STOP_gp)
 (1)       0 : =80                MODE_STOP15_gc: equ     (2 << MODE_STOP_gp)
 (1)       0 : =C0                MODE_STOP2_gc:  equ     (3 << MODE_STOP_gp)
-(1)       0 : =20                MODE_EVEN_bm:   equ     00100000B
-(1)       0 : =10                MODE_PARITY_bm: equ     00010000B
+(1)       0 : =20                MODE_EVEN_bm:   equ     00100000B   ; Even parity
+(1)       0 : =10                MODE_PARITY_bm: equ     00010000B   ; Parity enable
 (1)       0 : =2                 MODE_LEN_gp:    equ     2
 (1)       0 : =C                 MODE_LEN_gm:    equ     00001100B
 (1)       0 : =0                 MODE_LEN5_gc:   equ     (0 << MODE_LEN_gp)
@@ -138,7 +139,7 @@
         13C :
         13C :                    ;;; Get character
         13C :                    ;;; @return A
-        13C :                    ;;; @return CC.C 0 if no character
+        13C :                    ;;; @return F.C 0 if no character
         13C :                    getchar:
         13C : E5                         push    h
         13D : 21 00 20                   lxi     h, rx_queue
@@ -174,7 +175,7 @@
         160 : 3E 0A                      mvi     A, 0AH
         162 : C3 47 01                   jmp     putchar
         165 :
-        165 :                    ;;; Put newline
+        165 :                    ;;; Put space
         165 :                    ;;; @clobber A
         165 :                    putspace:
         165 : 3E 20                      mvi     A, ' '
@@ -205,7 +206,10 @@
 (1)     177 : 26 FF                      mvi     H, -1
 (1)     179 : C9                         ret
 (1)     17A :
-(1)     17A : =32                Fv:     equ     50
+(1)     17A : =32                Fv:     equ     50              ; fixed-point scale
+(1)     17A :                    ;;; Print the Mandelbrot set, one character per point: the escape
+(1)     17A :                    ;;; iteration as a hex digit, or a space if it stays bounded for 16.
+(1)     17A :                    ;;; A NUL from the console halts.
 (1)     17A :                    mandelbrot:
 (1)     17A : 3E F4                      mvi     A, -12
 (1)     17C : 32 D7 02                   sta     vY              ; Y=-12
@@ -221,7 +225,7 @@
 (1)     191 : 4D                         mov     C, L
 (1)     192 : 11 64 00                   lxi     D, 100
 (1)     195 : CD CC 03                   call    div16           ; X*229/100
-(1)     198 : 22 C7 02                   shld    vC              ; C=X*229/200
+(1)     198 : 22 C7 02                   shld    vC              ; C=X*229/100
 (1)     19B : 22 CB 02                   shld    vA              ; A=C
 (1)     19E : 3A D7 02                   lda     vY
 (1)     1A1 : CD 6A 01                   call    sex_BC          ; BC=Y
@@ -231,7 +235,7 @@
 (1)     1AB : 4D                         mov     C, L
 (1)     1AC : 11 64 00                   lxi     D, 100
 (1)     1AF : CD CC 03                   call    div16           ; Y*416/100
-(1)     1B2 : 22 C9 02                   shld    vD              ; D=y*416/100
+(1)     1B2 : 22 C9 02                   shld    vD              ; D=Y*416/100
 (1)     1B5 : 22 CD 02                   shld    vB              ; B=D
 (1)     1B8 : AF                         xra     A
 (1)     1B9 : 32 DB 02                   sta     vI              ; I=0
@@ -383,7 +387,7 @@
 (1)     27F : C3 8B 02                   jmp     print_char
 (1)     282 :                    print_i:
 (1)     282 : 3A DB 02                   lda     vI
-(1)     285 : C6 90                      adi     90H
+(1)     285 : C6 90                      adi     90H             ; I as a hex digit (DAA trick)
 (1)     287 : 27                         daa
 (1)     288 : CE 40                      aci     40H
 (1)     28A : 27                         daa
@@ -419,7 +423,7 @@
 (1)     2AF : B7                         ora     A
 (1)     2B0 : FA 7F 01                   jm      loop_y          ; if Y<0
 (1)     2B3 : FE 0D                      cpi     13
-(1)     2B5 : DA 7F 01                   jc      loop_y          ; if X<13
+(1)     2B5 : DA 7F 01                   jc      loop_y          ; if Y<13
 (1)     2B8 : C9                         ret
 (1)     2B9 :
 (1)     2B9 :                    ;;; Print variable
@@ -495,7 +499,8 @@
 (1)     316 :                    ;;; Signed comparison; minuend - subtrahend
 (1)     316 :                    ;;; @param BC minuend
 (1)     316 :                    ;;; @param DE subtrahend
-(1)     316 :                    ;;; @return PSW.Z, PSW.S
+(1)     316 :                    ;;; @return PSW.Z 1 if equal
+(1)     316 :                    ;;; @return PSW.S 1 if minuend < subtrahend
 (1)     316 :                    ;;; @clobber A
 (1)     316 :                    cmp16:
 (1)     316 : C5                         push    B
@@ -570,7 +575,7 @@
 (1)     355 :                    umul16_end:
 (1)     355 : C9                         ret
 (1)     356 :
-(1)     356 :                    ;;; Signed multiplication; result =multiplicand * multiplier
+(1)     356 :                    ;;; Signed multiplication; result = multiplicand * multiplier
 (1)     356 :                    ;;; @param BC multiplicand
 (1)     356 :                    ;;; @param DE multiplier
 (1)     356 :                    ;;; @return HL result
@@ -600,7 +605,7 @@
 (1)     36E : 13                         inx     D               ; multiplier = -multiplier
 (1)     36F :                    mul16_multiply:
 (1)     36F : CD 38 03                   call    umul16          ; HL = multiplicand * multiplier
-(1)     372 : F1                         pop     PSW             ; save high(multiplicand^multiplier)
+(1)     372 : F1                         pop     PSW             ; restore high(multiplicand^multiplier)
 (1)     373 : B7                         ora     A
 (1)     374 : F2 7E 03                   jp      mul16_return
 (1)     377 : 7C                         mov     A, H
@@ -677,7 +682,7 @@
 (1)     3B9 : 67                         mov     H, A            ; dividend -= divisor
 (1)     3BA : DA C1 03                   jc      udiv16_readd    ; if dividend < 0
 (1)     3BD : 03                         inx     B               ; quotient |= 1
-(1)     3BE : C3 C2 03                   jmp     udiv16_next    ;
+(1)     3BE : C3 C2 03                   jmp     udiv16_next
 (1)     3C1 :                    udiv16_readd:
 (1)     3C1 : 19                         dad     D               ; dividend += divisor
 (1)     3C2 :                    udiv16_next:
@@ -693,14 +698,14 @@
 (1)     3CC :                    ;;; Signed division; dividend / divisor = quotient ... remainder
 (1)     3CC :                    ;;; @param BC dividend
 (1)     3CC :                    ;;; @param DE divisor
-(1)     3CC :                    ;;; @return BC remainder
+(1)     3CC :                    ;;; @return BC remainder of |dividend|/|divisor|
 (1)     3CC :                    ;;; @return HL quotient
 (1)     3CC :                    ;;; @clobber A DE
 (1)     3CC :                    div16:
 (1)     3CC : 78                         mov     A, B
 (1)     3CD : AA                         xra     D
 (1)     3CE : F5                         push    PSW             ; save high(dividend^divisor)
-(1)     3CF : 78                         mov     A, B            ; H=high(dividend)
+(1)     3CF : 78                         mov     A, B            ; A=high(dividend)
 (1)     3D0 : B7                         ora     A
 (1)     3D1 : F2 DA 03                   jp      div16_abs_dividend
 (1)     3D4 : 2F                         cma
@@ -744,7 +749,7 @@
 (1)     3F5 :
 (1)     3F5 :                    ;;; [queue] Initialize queue
 (1)     3F5 :                    ;;; @param HL queue work space pointer
-(1)     3F5 :                    ;;; @param B queue work space size
+(1)     3F5 :                    ;;; @param B queue work space size, including the 4-byte header
 (1)     3F5 :                    ;;; @clobber B
 (1)     3F5 :                    queue_init:
 (1)     3F5 : F5                         push    psw
@@ -847,6 +852,7 @@
 (1)     455 : 37                         stc                     ; set carry
 (1)     456 : C9                         ret
         457 :
+        457 :                    ;;; RxRDY interrupt: queue the received character
         457 :                    isr_intr_rx:
         457 : F5                         push    psw
         458 : DB 41                      in      USARTS
@@ -862,6 +868,8 @@
         46A : FB                         ei
         46B : C9                         ret
         46C :
+        46C :                    ;;; TxRDY interrupt: send the next queued character, or disable Tx
+        46C :                    ;;; when the queue is empty
         46C :                    isr_intr_tx:
         46C : F5                         push    psw
         46D : DB 41                      in      USARTS

@@ -1,4 +1,4 @@
-;;; -*- mode: asm; mode: flyspell-prog* -*-
+;;; -*- mode: asm; mode: flyspell-prog; -*-
 
 ;;; Print variable: "name=variable "
 ;;; @param .word variable name
@@ -22,8 +22,9 @@ debug:
         push                    ; return address
         ret
 
-;;; Load 16-bit into ACC
+;;; Load 16-bit constant into ACC
 ;;; @param .word 16-bit constant
+;;; @clobber R0
 load:
         pop                     ; return address
         tblr    R0              ; load constant
@@ -32,6 +33,8 @@ load:
         lac     R0
         ret
 
+;;; Print the Mandelbrot set repeatedly in fixed point scaled by F.
+;;; A NUL from the console halts to system.
 F:      .equ    50
 
 mandelbrot:

@@ -53,7 +53,7 @@ GETCO4: ST      TEMP(P2)        ;SAVE BIT VALUE (0 OR 1)
         CSA                     ;SET STOP BIT
         ANI     X'FE
         CAS
-        LDE                     ; AC HAS INPUT CHARCTER
+        LDE                     ; AC HAS INPUT CHARACTER
         XAE
         LDE
         XPPC    P3              ;RETURN

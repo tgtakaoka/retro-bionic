@@ -39,7 +39,7 @@ receive_loop:
         jz      receive_loop
 receive_data:
         ld      ACIA_D(P1)
-        jz      halt_to_system
+        jz      halt_to_system  ; NUL halts
         xae                     ; E=data
 transmit_loop:
         ld      ACIA_S(P1)
@@ -48,9 +48,9 @@ transmit_loop:
 transmit_data:
         xae                     ; A=data
         st      ACIA_D(P1)
-        xri     0x0D
+        xri     0x0D            ; carriage return
         jnz     receive_loop
-        ldi     0x0A
+        ldi     0x0A            ; follow CR with LF
         xae                     ; E=data
         jmp     transmit_loop
 halt_to_system:

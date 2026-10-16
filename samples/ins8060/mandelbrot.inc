@@ -1,6 +1,6 @@
 ;;; -*- mode: asm; mode: flyspell-prog; -*-
 
-F       =       50
+F       =       50              ; fixed-point scale
 cF:     .dbyte  F               ; constant
 c_12:   .dbyte  -12
 c_49:   .dbyte  -49
@@ -28,8 +28,8 @@ vI:     .byte  0
 ;;;   xppc   P1
 ;;;   .byte  vname
 ;;;   .dbyte &value
-;;; @local P[1:0] &value
-;;; @local P[3:2] return address
+;;; @local P2[1:0] &value
+;;; @local P2[3:2] return address
 print_exit:
         ld      @2(P2)          ; discard local
         ld      @1(P2)
@@ -78,12 +78,12 @@ print:
         jmp     print_exit
 vDEBUG: .dbyte  2
 
-;;; Print variable "vname=value "
+;;; Print 8-bit variable "vname=value "
 ;;;   xppc   P1
 ;;;   .byte  vname
 ;;;   .dbyte &value
-;;; @local P[1:0] &value
-;;; @local P[3:2] return address
+;;; @local P2[1:0] &value
+;;; @local P2[3:2] return address
 print_int8_exit:
         ld      @2(P2)          ; discard local
         ld      @1(P2)
@@ -136,6 +136,9 @@ print_int8_extend:
         xppc    P1              ; print space
         jmp     print_int8_exit
 
+;;; Print the Mandelbrot set, one character per point: the escape
+;;; iteration as a hex digit, or a space if it stays bounded for 16.
+;;; A NUL from the console halts.
 mandelbrot:
         ldi     H(vY)
         xpah    P1
@@ -602,10 +605,10 @@ loop_i:
         scl                     ; clear borrow
         ldi     4
         cad     (vT-vBASE)(P1)  ; 4-L(T)
-        jp      next_i          ; branch if 4<T
+        jp      next_i          ; branch if T<=4
         ld      (vI-vBASE)(P1)
         ccl
-        dai     X'90
+        dai     X'90            ; I as a hex digit
         dai     X'40
         jmp     print_char
 next_i:

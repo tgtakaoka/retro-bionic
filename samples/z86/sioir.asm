@@ -27,9 +27,9 @@ init_config:
         ld      R1, #rx_queue_size
         call    queue_init
 
-;;; XTAL=14.7546MHz
+;;; XTAL=14.7456MHz
 ;;; p=1 for PRE0, t=12 for T0
-;;; bit rate = 14754600 / (2 x 4 x p x t x 16) = 9600 bps
+;;; bit rate = 14745600 / (2 x 4 x p x t x 16) = 9600 bps
 init_sio:
         ld      R0, SIO          ; dummy read
         or      PORT3, #%80      ; TxD(P37)=High
@@ -42,7 +42,7 @@ init_irq:
         ld      IPR, #IPR_ACB LOR IPR_A35 LOR IPR_C41 LOR IPR_B02
         ld      IMR, #IMR_IRQ3 ; enable IRQ3
         ei                     ; clear IRQ and enable interrupt system
-        or      IRQ, #IRQ_IRQ4
+        or      IRQ, #IRQ_IRQ4 ; transmitter is ready
 
 receive_loop:
         di                      ; Disable INTR
@@ -68,8 +68,8 @@ transmit_data:
         setrp   -1
 isr_intr:
         push    R0
-        ld      R0, SIO
-        and     IRQ, #LNOT IRQ_IRQ3
+        ld      R0, SIO             ; read received letter
+        and     IRQ, #LNOT IRQ_IRQ3 ; acknowledge IRQ3
         push    R3
         push    R2
         ld      R2, #HIGH rx_queue

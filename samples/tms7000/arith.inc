@@ -225,7 +225,7 @@ udiv16_end:
         *** @param R4:R5 dividend
         *** @param R6:R7 divisor
         *** @return R4:R5 quotient
-        *** @return R6:R7 remainder
+        *** @return R6:R7 |remainder|
         *** @clobber A B
 div16:
         mov     R4, A
@@ -244,7 +244,7 @@ div16_dividend:
         adc     %0, R4          ; negate dividend
 div16_divide:
         call    @udiv16         ; R4:R5=quotient
-        pop     A               ; A=(dividend^divisor)
+        pop     A               ; A=hi(dividend^divisor)
         jpz     div16_end
         inv     R4
         inv     R5

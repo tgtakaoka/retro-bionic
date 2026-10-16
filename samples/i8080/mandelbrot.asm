@@ -4,7 +4,7 @@
 ;;; i8251 Universal Synchronous/Asynchronous Receiver/Transmitter
 USART:          equ     40H
 USARTD:         equ     USART+0 ; Receive/Transmit data
-USARTS:         equ     USART+1 ; Srtatus register
+USARTS:         equ     USART+1 ; Status register
 USARTC:         equ     USART+1 ; Control register
 USARTRV:        equ     USART+2 ; Receive interrupt instruction (INST_RST*)
 USARTTV:        equ     USART+3 ; Transmit interrupt instruction (INST_RST*)
@@ -70,7 +70,7 @@ loop:
 
 ;;; Get character
 ;;; @return A
-;;; @return CC.C 0 if no character
+;;; @return F.C 0 if no character
 getchar:
         push    h
         lxi     h, rx_queue
@@ -106,7 +106,7 @@ newline:
         mvi     A, 0AH
         jmp     putchar
 
-;;; Put newline
+;;; Put space
 ;;; @clobber A
 putspace:
         mvi     A, ' '
@@ -116,6 +116,7 @@ putspace:
         include "arith.inc"
         include "queue.inc"
 
+;;; RxRDY interrupt: queue the received character
 isr_intr_rx:
         push    psw
         in      USARTS
@@ -131,6 +132,8 @@ isr_intr_rx_exit:
         ei
         ret
 
+;;; TxRDY interrupt: send the next queued character, or disable Tx
+;;; when the queue is empty
 isr_intr_tx:
         push    psw
         in      USARTS

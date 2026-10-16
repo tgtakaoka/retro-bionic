@@ -9,12 +9,12 @@ queue_buf:      equ     4       ; buffer start offset
 ;;; [queue] Initialize queue
 ;;; @param Q queue work space pointer
 ;;; @param 0 queue work space size
-;;; @clobber A H DC
+;;; @clobber 0 A H DC
 queue_init:
         lr      DC, Q
         clr
         st                      ; queue_len = 0
-        lr      A, 0            ; restore queue size
+        lr      A, 0            ; work space size
         ai      -queue_buf
         st                      ; queue_size
         ai      2               ; for queue_put and queue_get
@@ -46,7 +46,7 @@ queue_add:
         st                      ; update queue_len
         lm                      ; queue_size
         lm                      ; queue_put
-        inc                     ; for queue_get
+        inc                     ; skip queue_get
         adc                     ; DC=&queue_buf[queue_put]
         lr      A, 0            ; get element
         st                      ; store element
@@ -85,7 +85,7 @@ queue_add_end:
 queue_remove:
         lr      DC, Q
         clr
-        om                      ; queue_len
+        om                      ; A=queue_len, set flags
         bz      queue_remove_empty
         ai      -1              ; queue_len--
         lr      DC, Q
@@ -107,7 +107,7 @@ queue_remove:
         inc                     ; queue_get++
         lr      HU, A           ; HU=queue_get
         as      HL              ; queue_get-queue_size
-        bnc     queue_remove_update ; queue_get<queueu_size
+        bnc     queue_remove_update ; queue_get<queue_size
         clr
         lr      HU, A           ; wrap around
 queue_remove_update:

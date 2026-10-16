@@ -5,7 +5,7 @@ ACIA:   equ     $DF00
         include "../mc6800/mc6850.inc"
 
         org     $1000
-stack:  equ     *-1             ; MC6800's SP is post-decrement/pre-increment
+stack:  equ     *-1             ; from MC6800, whose push is post-decrement
 
         org     VEC_SWI
         fdb     VEC_SWI         ; for halt to system
@@ -23,10 +23,10 @@ initialize:
         sta     ACIA_control
 
         jsr     arith
-        swi
+        swi                     ; halt to system
 
-;;; Print out char
-;;; @param A char
+;;; Print a space, CR LF (newline) or char A (putchar)
+;;; @param A char for putchar
 ;;; @clobber A B
 putspace:
         lda     #' '
@@ -44,10 +44,10 @@ putchar:
 
 ;;; Print "v1 op v2"
 ;;; @param X v1
-;;; @param Y v2
+;;; @param U v2
 ;;; @param A op
-;;; @return D=X
-;;; @return X=U
+;;; @return D v1
+;;; @return X v2
 expr:
         pshs    U,X,A
         tfr     X,D
@@ -115,105 +115,105 @@ arith:
         ldu     #28000
         lda     #'+'
         jsr     expr
-        jsr     add16           ; R0=R1+R2
+        jsr     add16           ; D=X+U
         jsr     answer          ; -19536
 
         ldx     #18000
         ldu     #-18000
         lda     #'+'
         jsr     expr
-        jsr     add16           ; R0=R1+R2
+        jsr     add16           ; D=X+U
         jsr     answer          ; 0
 
         ldx     #-18000
         ldu     #-18000
         lda     #'+'
         jsr     expr
-        jsr     add16           ; R0=R1+R2
+        jsr     add16           ; D=X+U
         jsr     answer          ; 29536
 
         ldx     #-18000
         ldu     #-28000
         lda     #'-'
         jsr     expr
-        jsr     sub16           ; R0=R1-R2
+        jsr     sub16           ; D=X-U
         jsr     answer          ; 10000
 
         ldx     #18000
         ldu     #-18000
         lda     #'-'
         jsr     expr
-        jsr     sub16           ; R0=R1-R2
+        jsr     sub16           ; D=X-U
         jsr     answer          ; -29536
 
         ldx     #-28000
         ldu     #-18000
         lda     #'-'
         jsr     expr
-        jsr     sub16           ; R0=R1-R2
+        jsr     sub16           ; D=X-U
         jsr     answer          ; -10000
 
         ldx     #100
         ldu     #300
         lda     #'*'
         jsr     expr
-        jsr     mul16           ; R0=R1*R2
+        jsr     mul16           ; D=X*U
         jsr     answer          ; 30000
 
         ldx     #200
         ldu     #100
         lda     #'*'
         jsr     expr
-        jsr     mul16           ; R0=R1*R2
+        jsr     mul16           ; D=X*U
         jsr     answer          ; 20000
 
         ldx     #300
         ldu     #-200
         lda     #'*'
         jsr     expr
-        jsr     mul16           ; R0=R1*R2
+        jsr     mul16           ; D=X*U
         jsr     answer          ; 5536
 
         ldx     #100
         ldu     #-300
         lda     #'*'
         jsr     expr
-        jsr     mul16           ; R0=R1*R2
+        jsr     mul16           ; D=X*U
         jsr     answer          ; -30000
 
         ldx     #-200
         ldu     #-100
         lda     #'*'
         jsr     expr
-        jsr     mul16           ; R0=R1*R2
+        jsr     mul16           ; D=X*U
         jsr     answer          ; 20000
 
         ldx     #30000
         ldu     #100
         lda     #'/'
         jsr     expr
-        jsr     div16           ; R0=R1/R2
+        jsr     div16           ; D=X/U
         jsr     answer          ; 300
 
         ldx     #-200
         ldu     #100
         lda     #'/'
         jsr     expr
-        jsr     div16           ; R0=R1/R2
+        jsr     div16           ; D=X/U
         jsr     answer          ; -2
 
         ldx     #-30000
         ldu     #-200
         lda     #'/'
         jsr     expr
-        jsr     div16           ; R0=R1/R2
+        jsr     div16           ; D=X/U
         jsr     answer          ; 150
 
         ldx     #-30000
         ldu     #78
         lda     #'/'
         jsr     expr
-        jsr     div16           ; R0=R1/R2
+        jsr     div16           ; D=X/U
         jsr     answer          ; -384
 
         ldx     #5000

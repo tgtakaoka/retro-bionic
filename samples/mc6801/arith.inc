@@ -17,7 +17,7 @@ print_int16:
         std     R0
 ;;; Print unsigned 16-bit integer as decimal
 ;;; @param R0 value
-;;; @clobber D X
+;;; @clobber D X R0 R1 R2
 print_uint16:
         ldd     R0
         beq     print_uint16_zero
@@ -42,7 +42,7 @@ print_uint16_end:
 ;;; @param R1 multiplicand
 ;;; @param R2 multiplier
 ;;; @return R0 result
-;;; @clobber R0 R1 R2
+;;; @clobber D
 umul16:
         ldaa    R1L
         ldab    R2L
@@ -64,7 +64,7 @@ umul16_high:
 umul16_end:
         rts
 
-;;; Multiply; result = multiplicand * multiplier
+;;; Signed multiplication: result = multiplicand * multiplier
 ;;; @param D multiplicand
 ;;; @param X multiplier
 ;;; @return D result
@@ -92,7 +92,7 @@ mul16_multiplicand:
 mul16_multiply:
         bsr     umul16          ; R0=result
         ldd     R0
-        tst     sign            ; A=(multiplicand^multiplier)
+        tst     sign            ; sign(result)
         bpl     mul16_end
         coma
         comb
@@ -105,11 +105,11 @@ mul16_zero:
         rts
 
 ;;; Unsigned division: dividend / divisor = quotient ... remainder
-;;; @praram R1 dividend
-;;; @praram R2 divisor
+;;; @param R1 dividend
+;;; @param R2 divisor
 ;;; @return R0 quotient
 ;;; @return R1 remainder
-;;; @clobber R2
+;;; @clobber D X R2
 udiv16:
         ldd     R2              ; D=divisor
         beq     udiv16_end      ; branch if divisor==0
@@ -162,11 +162,11 @@ udiv16_zero:
         stx     R0              ; quotient=0, R1=remainder
         rts
 
-;;; Division; dividend / divisor = quotient ... remainder
+;;; Signed division: dividend / divisor = quotient ... remainder
 ;;; @param D dividend
 ;;; @param X divisor
 ;;; @return D quotient
-;;; @return X remainder
+;;; @return X |remainder|
 ;;; @clobber R0 R1 R2
 div16:
         std     R1
@@ -190,7 +190,7 @@ div16_divide:
         bsr     udiv16          ; R0=quotient
         ldd     R0
         ldx     R1
-        tst     sign            ; A=(dividend^divisor)
+        tst     sign            ; sign(quotient)
         bpl     div16_end
         coma
         comb

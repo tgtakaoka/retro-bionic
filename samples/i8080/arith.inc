@@ -48,7 +48,8 @@ print_uint16_zero:
 ;;; Signed comparison; minuend - subtrahend
 ;;; @param BC minuend
 ;;; @param DE subtrahend
-;;; @return PSW.Z, PSW.S
+;;; @return PSW.Z 1 if equal
+;;; @return PSW.S 1 if minuend < subtrahend
 ;;; @clobber A
 cmp16:
         push    B
@@ -123,7 +124,7 @@ umul16_check:
 umul16_end:
         ret
 
-;;; Signed multiplication; result =multiplicand * multiplier
+;;; Signed multiplication; result = multiplicand * multiplier
 ;;; @param BC multiplicand
 ;;; @param DE multiplier
 ;;; @return HL result
@@ -153,7 +154,7 @@ mul16_abs_muliplicand:
         inx     D               ; multiplier = -multiplier
 mul16_multiply:
         call    umul16          ; HL = multiplicand * multiplier
-        pop     PSW             ; save high(multiplicand^multiplier)
+        pop     PSW             ; restore high(multiplicand^multiplier)
         ora     A
         jp      mul16_return
         mov     A, H
@@ -230,7 +231,7 @@ udiv16_enter_loop:
         mov     H, A            ; dividend -= divisor
         jc      udiv16_readd    ; if dividend < 0
         inx     B               ; quotient |= 1
-        jmp     udiv16_next    ;
+        jmp     udiv16_next
 udiv16_readd:
         dad     D               ; dividend += divisor
 udiv16_next:
@@ -246,14 +247,14 @@ udiv16_next:
 ;;; Signed division; dividend / divisor = quotient ... remainder
 ;;; @param BC dividend
 ;;; @param DE divisor
-;;; @return BC remainder
+;;; @return BC remainder of |dividend|/|divisor|
 ;;; @return HL quotient
 ;;; @clobber A DE
 div16:
         mov     A, B
         xra     D
         push    PSW             ; save high(dividend^divisor)
-        mov     A, B            ; H=high(dividend)
+        mov     A, B            ; A=high(dividend)
         ora     A
         jp      div16_abs_dividend
         cma

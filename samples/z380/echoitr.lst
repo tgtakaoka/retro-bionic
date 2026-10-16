@@ -40,6 +40,7 @@
 (2)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
 (2)       0 :
 (2)       0 :                    ;;; i8251 USART device emulator.
+(2)       0 :                    ;;; Bit definition of mode register
 (2)       0 : =6                 MODE_STOP_gp:   equ     6
 (2)       0 : =C0                MODE_STOP_gm:   equ     11000000B
 (2)       0 : =40                MODE_STOP1_gc:  equ     (1 << MODE_STOP_gp)
@@ -125,14 +126,14 @@
         131 : 00                         nop
         132 : 3E 36                      ld      A, RX_EN_TX_DIS
         134 : ED D3 41 01                outa    (USARTC), A
-        138 : 3E                         db      3EH             ; LD A, n
+        138 : 3E                         db      3EH             ; LD A, n: the RST 28H opcode
         139 : EF                         rst     28H
         13A : ED D3 42 01                outa    (USARTRV), A    ; set RxRDY interrupt vector RST 28H
-        13E : 3E                         db      3EH             ; LD A, n
+        13E : 3E                         db      3EH             ; LD A, n: the RST 30H opcode
         13F : F7                         rst     30H
         140 : ED D3 43 01                outa    (USARTTV), A    ; set TxRDY interrupt vector RST 30H
         144 :
-        144 : ED 46                      im      0
+        144 : ED 46                      im      0               ; execute the USART's RST vector
         146 : FB                         ei
         147 :
         147 :                    receive_loop:
@@ -153,7 +154,7 @@
         166 : 18 DF                      jr      receive_loop
         168 :                    halt_to_system:
         168 : 3E FF                      ld      A, 0FFH
-        16A : 32 38 00                   ld      (ORG_RST38), A
+        16A : 32 38 00                   ld      (ORG_RST38), A  ; RST 38H at its vector: exit to the debugger
         16D : FF                         rst     38h
         16E :
         16E :                    ;;; Print uint8_t in hex
@@ -176,7 +177,7 @@
         187 : C6 90                      add     A, 90H
         189 : 27                         daa
         18A : CE 40                      adc     A, 40H
-        18C : 27                         daa
+        18C : 27                         daa                     ; A='0'-'9','A'-'F'
         18D : 18 3A                      jr      putchar
         18F :
         18F :                    ;;; Print uint8_t in binary
@@ -202,13 +203,13 @@
         1AA : CB 27                      sla     A               ; F.C=MSB
         1AC : 47                         ld      B, A
         1AD : 3E 30                      ld      A, '0'
-        1AF : 30 18                      jr      NC, putchar     ; F.0=1
+        1AF : 30 18                      jr      NC, putchar     ; F.C=0
         1B1 : 3C                         inc     A               ; F.C=1
         1B2 : 18 15                      jr      putchar
         1B4 :
         1B4 :                    ;;; Get character
         1B4 :                    ;;; @return A
-        1B4 :                    ;;; @return CC.C 0 if no character
+        1B4 :                    ;;; @return F.C 0 if no character
         1B4 :                    getchar:
         1B4 : DD E5                      push    IX
         1B6 : DD 21 00 20                ld      IX, rx_queue
@@ -254,7 +255,6 @@
 (1)     1E1 :                    ;;; [queue] Initialize queue
 (1)     1E1 :                    ;;; @param IX queue work space pointer
 (1)     1E1 :                    ;;; @param B queue work space size
-(1)     1E1 :                    ;;; @clobber B
 (1)     1E2 :                            align   2
 (1)     1E2 :                    queue_init:
 (1)     1E2 : F5                         push    AF

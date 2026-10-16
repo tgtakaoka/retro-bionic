@@ -16,7 +16,7 @@ ACIA:   EQU   $DF00
         ORG   $A080
 PEEK:
         LDAB  ACIA
-        ASRB
+        ASRB                    ; C=RDRF
         RTS
 INCH:
         BSR   PEEK
@@ -26,7 +26,7 @@ INCH:
 
 OUTCH:
         BSR   PEEK
-        ASRB
+        ASRB                    ; C=TDRE
         BHS   OUTCH
         ANDA  #$7F
         STAA  ACIA+1

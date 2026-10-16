@@ -1,5 +1,7 @@
 ;;; -*- mode: asm; mode: flyspell-prog; -*-
         include "i8096.inc"
+;;; Runs each instruction in each addressing mode once, for the bus
+;;; cycle profile
 
         org     1000H
 stack:  equ     $
@@ -22,7 +24,7 @@ CH:     dsb     1
         dsw     1
 
         org     ORG_RESET
-        nop
+        nop                     ; patched to br [DX] for the RST test
         nop
 init:
         ld      SP, #stack
@@ -459,7 +461,7 @@ trap_a:
 
         nop
         nop
-        ld      AX, #0FDFDH     ; nop
+        ld      AX, #0FDFDH     ; nop nop: restore ORG_RESET
         st      AX, ORG_RESET
         nop
         nop

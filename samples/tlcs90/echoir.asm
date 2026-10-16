@@ -74,6 +74,7 @@ transmit_data:
 
         include "queue.inc"
 
+;;; Interrupt entry pushes PC and AF; RETI pops both.
 isr_intr:
         bit     ST_RxRDY_bp, (USARTS)
         jr      z, isr_intr_recv_end

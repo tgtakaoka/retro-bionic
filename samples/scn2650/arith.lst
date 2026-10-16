@@ -93,7 +93,7 @@
          1B :
          1B : 1F 10 00                   bcta,un arith
          1E :
-         1E :                    ;;; Print out char
+         1E :                    ;;; Print a character; CR is followed by LF
          1E :                    ;;; @param R0 char
          1E :                    ;;; @clobber R0
          1E :                    putchar:
@@ -113,16 +113,24 @@
          33 :                    putchar_r1:
          33 :                            res     1
          34 :
+         34 :                    ;;; Print CR LF
+         34 :                    ;;; @clobber R0
          34 :                    newline:
          34 : 04 0D                      lodi,r0 H'0D'
          36 : 1B 66                      bctr,un putchar
          38 :
+         38 :                    ;;; Print a space
+         38 :                    ;;; @clobber R0
          38 :                    putspace:
          38 : 04 20                      lodi,r0 A' '
          3A : 1B 62                      bctr,un putchar
          3C :
          3C :                    expr_r0:
          3C :                            res     1
+         3D :                    ;;; Print "@R2 op @R3", then copy @R2 to arith_work and point R2 there
+         3D :                    ;;; so the operation that follows leaves the constant intact
+         3D :                    ;;; @param R0 op letter
+         3D :                    ;;; @clobber R0 R1 R2
          3D :                    expr:
          3D : C8 7D                      strr,r0 expr_r0
          3F : 0E 6F 01                   loda,r0 arith_work+1,r2
@@ -141,6 +149,8 @@
          60 : 0F 6F 00                   loda,r0 arith_work,r3
          63 : 1F 11 AF                   bcta,un print_int16
          66 :
+         66 :                    ;;; Print " = @R2\n"
+         66 :                    ;;; @clobber R0 R1
          66 :                    answer:
          66 : 3F 00 38                   bsta,un putspace
          69 : 04 3D                      lodi,r0 A'='
@@ -152,6 +162,8 @@
          78 : 3F 11 AF                   bsta,un print_int16
          7B : 1F 00 34                   bcta,un newline
          7E :
+         7E :                    ;;; Print "@R2 rel @R3\n"
+         7E :                    ;;; @clobber R0 R1 R2
          7E :                    comp:
          7E : 3F 12 08                   bsta,un cmpsi2
          81 : 19 08                      bctr,gt comp_gt
@@ -172,8 +184,9 @@
          98 : 1F 00 34                   bcta,un newline
          9B :
         F00 :                            org     H'0F00'
+        F00 :                    ;;; Operands, addressed by R2/R3 as offsets from arith_work
         F00 : =F00               arith_work:     equ     $
-        F00 :                            res     2
+        F00 :                            res     2               ; result of the current operation
         F02 : 46 50              p18000: acon    18000
         F04 : 6D 60              p28000: acon    28000
         F06 : B9 B0              n18000: acon    -18000
@@ -198,6 +211,7 @@
         F2C : 80 A8              n32600: acon    -32600
         F2E :
        1000 :                            org     H'1000'
+       1000 :                    ;;; Print each operation and its result; comments give the expected answer
        1000 :                    arith:
        1000 : 06 16                      lodi,r2 zero-arith_work
        1002 : 07 08                      lodi,r3 n28000-arith_work
@@ -493,6 +507,7 @@
 (1)    1208 :                    ;;; Signed comparison: minuend - subtrahend
 (1)    1208 :                    ;;; @param @R2: minuend
 (1)    1208 :                    ;;; @param @R3: subtrahend
+(1)    1208 :                    ;;; @return PSL.CC eq, gt or lt as minuend is =, > or < subtrahend
 (1)    1208 :                    ;;; @clobber R0 R1 PSL
 (1)    1208 :                    cmpsi2:
 (1)    1208 : 0E 6F 01                   loda,r0 arith_work+1,r2
@@ -515,10 +530,10 @@
 (1)    1226 :                            res     1
 (1)    1227 :
 (1)    1227 :                    ;;; Unsigned multiplication: result = multiplicand * multiplier
-(1)    1227 :                    ;;; @param mul16_multiplicand
-(1)    1227 :                    ;;; @param mul16_multiplier
+(1)    1227 :                    ;;; @param umul16_multiplicand
+(1)    1227 :                    ;;; @param umul16_multiplier
 (1)    1227 :                    ;;; @return R0:R1 result
-(1)    1227 :                    ;;; @clobber R0 R1 PSL
+(1)    1227 :                    ;;; @clobber R0 R1 PSL umul16_multiplicand
 (1)    1227 :                    umul16:
 (1)    1227 : CE 12 70                   stra,r2 umul16_r2
 (1)    122A : CF 12 71                   stra,r3 umul16_r3
@@ -629,7 +644,7 @@
 (1)    12BF :                    udiv16:
 (1)    12BF : 0C 13 2F                   loda,r0 udiv16_divisor
 (1)    12C2 : 6C 13 30                   iora,r0 udiv16_divisor+1
-(1)    12C5 : 14                         retc,eq                 ; divide by zero
+(1)    12C5 : 14                         retc,eq                 ; divide by zero: R0=0, R1 unchanged
 (1)    12C6 : 0D 13 2E                   loda,r1 udiv16_dividend+1
 (1)    12C9 : 77 01                      ppsl    PSL_C           ; PSL.C=1
 (1)    12CB : AD 13 30                   suba,r1 udiv16_divisor+1
@@ -786,7 +801,7 @@
 (1)    13B9 :                    ;;; Signed division: dividend /= divisor
 (1)    13B9 :                    ;;; @param @R2: dividend
 (1)    13B9 :                    ;;; @param @R3: divisor
-(1)    13B9 :                    ;;; @return udiv16_reminder: remainder
+(1)    13B9 :                    ;;; @return udiv16_reminder: remainder of |dividend|/|divisor|, unsigned
 (1)    13B9 :                    ;;; @clobber R0 R1 PSL
 (1)    13B9 :                    divsi2:
 (1)    13B9 : 0E 6F 00                   loda,r0 arith_work,r2

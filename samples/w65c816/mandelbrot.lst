@@ -43,7 +43,7 @@
 (1)       0 :                    ;;; MC6850
 (1)       0 :                    ;;; Asynchronous Communication Interface Adapter
 (1)       0 :
-(1)       0 :                    ;;; Control register
+(1)       0 :                    ;;; Control register (write)
 (1)       0 : =DF00              ACIA_control    =       ACIA+0
 (1)       0 :                            ;; Counter Divider Select Bits
 (1)       0 : =3                 CDS_gm          =       %11    ; Group mask
@@ -70,7 +70,7 @@
 (1)       0 :                                                      ; Transmit Break Level
 (1)       0 : =80                RIEB_bm         =       %10000000 ; Receive Interrupt Enable Bit mask
 (1)       0 :
-(1)       0 :                    ;;; Status register
+(1)       0 :                    ;;; Status register (read)
 (1)       0 : =DF00              ACIA_status     =       ACIA+0
 (1)       0 : =1                 RDRF_bm         =       %00000001 ; Receive Data Register Full
 (1)       0 : =2                 TDRE_bm         =       %00000010 ; Transmit Data Register Empty
@@ -82,7 +82,7 @@
 (1)       0 : =80                IRQF_bm         =       %10000000 ; Interrupt Request Flag
 (1)       0 :
 (1)       0 :                    ;;; Data register
-(1)       0 : =DF01              ACIA_data       =       ACIA+1          ; Data register
+(1)       0 : =DF01              ACIA_data       =       ACIA+1
           0 : =94                RX_INT_TX_NO    =       WSB_8N1_gc|RIEB_bm
           0 : =B4                RX_INT_TX_INT   =       WSB_8N1_gc|RIEB_bm|TCB_EI_gc
           0 :
@@ -119,10 +119,10 @@
        2100 :                    ;;; Work area for arith.inc
          10 :                            *=      $10
          10 :                    arith_work:
-         10 : 00 00                      .word   0
-         12 : 00 00                      .word   0
+         10 : 00 00                      .word   0               ; udiv16 divisor
+         12 : 00 00                      .word   0               ; udiv16 dividend, quotient
          14 :                    ;;; Work area for mandelbrot.inc
-         14 : =32                F       =       50
+         14 : =32                F       =       50              ; fixed-point 1.0
          14 : 00 00              vY:     .word   0
          16 : 00 00              vX:     .word   0
          18 : 00 00              vI:     .word   0
@@ -168,6 +168,7 @@
        102D :                    ;;; @return A
        102D :                    ;;; @return P.C 1 if no character
        102D :                    ;;; @clobber X
+       102D :                    ;;; Returns with 16-bit memory.
        102D :                    getchar:
        102D : E2 20                      sep     #P_M            ; 8-bit memory
        102F :                            longa   off
@@ -179,7 +180,6 @@
        1039 :
        1039 :                    ;;; Put character
        1039 :                    ;;; @param A
-       1039 :                    ;;; @clobber X
        1039 :                    putchar:
        1039 : 08                         php
        103A : E2 20                      sep     #P_M            ; 8-bit memory
@@ -228,7 +228,7 @@
        106E :
        106E :                            .include "queue.inc"
 (1)    106E :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
-(1)    106E :                    ;;; [queue] queue structure
+(1)    106E :                    ;;; [queue] queue structure; index registers must be 16-bit
 (1)    106E : =0                 queue_len       =       0       ; queue length
 (1)    106E : =1                 queue_size      =       1       ; buffer size
 (1)    106E : =2                 queue_put       =       2       ; queue put index
@@ -237,7 +237,7 @@
 (1)    106E :
 (1)    106E :                    ;;; [queue] Initialize queue
 (1)    106E :                    ;;; @param X queue pointer
-(1)    106E :                    ;;; @param A queue size
+(1)    106E :                    ;;; @param A queue work space size, header included
 (1)    106E :                    ;;; @clobber A B X
 (1)    106E :                    queue_init:
 (1)    106E : 08                         php
@@ -287,7 +287,7 @@
 (1)    10A1 : 69 00                      adc     #0
 (1)    10A3 : 83 02                      sta     2,S
 (1)    10A5 : A3 02                      lda     2,S
-(1)    10A7 : 7A                         ply
+(1)    10A7 : 7A                         ply                     ; Y=queue pointer+queue_put
 (1)    10A8 : A3 03                      lda     3,S             ; restore an element
 (1)    10AA : 99 04 00                   sta     queue_buf,Y     ; store an element
 (1)    10AD : 7A                         ply                     ; restore Y
@@ -328,7 +328,7 @@
 (1)    10D3 : A3 02                      lda     2,S             ; hi(queue pointer)
 (1)    10D5 : 69 00                      adc     #0
 (1)    10D7 : 83 02                      sta     2,S
-(1)    10D9 : 7A                         ply
+(1)    10D9 : 7A                         ply                     ; Y=queue pointer+queue_get
 (1)    10DA : B9 04 00                   lda     queue_buf,Y     ; read an element
 (1)    10DD : 7A                         ply                     ; restore Y
 (1)    10DE : 48                         pha                     ; save an element
@@ -474,8 +474,8 @@
 (1)    1163 : 60                         rts
 (1)    1164 :
 (1)    1164 :                    ;;; Unsigned division: dividend / divisor = quotient ... remainder
-(1)    1164 :                    ;;; @praram X dividend
-(1)    1164 :                    ;;; @praram Y divisor
+(1)    1164 :                    ;;; @param X dividend
+(1)    1164 :                    ;;; @param Y divisor
 (1)    1164 :                    ;;; @return X quotient
 (1)    1164 :                    ;;; @return Y remainder
 (1)    1164 :                    ;;; @clobber C arith_work
@@ -484,7 +484,7 @@
 (1)    1164 : 86 12                      stx     arith_work+2    ; dividend
 (1)    1166 : A2 01 00                   ldx     #1              ; X=bits
 (1)    1169 : 98                         tya                     ; C=divisor
-(1)    116A : F0 20                      beq     udiv16_zero     ; branch if Y==0
+(1)    116A : F0 20                      beq     udiv16_zero     ; divisor==0: X=dividend, Y=0
 (1)    116C : 30 08                      bmi     udiv16_prep_end ; branch if msb(divisor) == 1
 (1)    116E :                    udiv16_prep:
 (1)    116E : C5 12                      cmp     arith_work+2
@@ -516,8 +516,8 @@
 (1)    118F :                    ;;; @param X dividend
 (1)    118F :                    ;;; @param Y divisor
 (1)    118F :                    ;;; @return X quotient
-(1)    118F :                    ;;; @return Y remainder
-(1)    118F :                    ;;; @clobber C
+(1)    118F :                    ;;; @return Y remainder of |dividend|/|divisor|, unsigned
+(1)    118F :                    ;;; @clobber C arith_work
 (1)    118F :                            longa   on
 (1)    118F :                    div16:
 (1)    118F : 5A                         phy                     ; save divisor
@@ -536,7 +536,7 @@
 (1)    11A3 : 1A                         inc     A
 (1)    11A4 : AA                         tax                     ; negate dividend
 (1)    11A5 :                    div16_multiply:
-(1)    11A5 : 20 64 11                   jsr     udiv16          ; R0=result
+(1)    11A5 : 20 64 11                   jsr     udiv16          ; X=quotient
 (1)    11A8 : 68                         pla                     ; A=(dividend^divisor)
 (1)    11A9 : 10 06                      bpl     div16_return
 (1)    11AB : 8A                         txa
@@ -551,7 +551,7 @@
 (1)    11B2 :                            longa   on
 (1)    11B2 :
 (1)    11B2 :                    ;;; Print variable: "A=X "
-(1)    11B2 :                    ;;; @param X variable
+(1)    11B2 :                    ;;; @param X value
 (1)    11B2 :                    ;;; @param A variable letter
 (1)    11B2 :                    print:
 (1)    11B2 : 20 39 10                   jsr     putchar         ; print variable letter
@@ -560,6 +560,10 @@
 (1)    11BB : 20 EE 10                   jsr     print_int16
 (1)    11BE : 4C 64 10                   jmp     putspace
 (1)    11C1 :
+(1)    11C1 :                    ;;; Print the Mandelbrot set, X -49..29 by Y -12..12, in fixed point
+(1)    11C1 :                    ;;; with F=1.0: each point shows the iteration I (hex) at which
+(1)    11C1 :                    ;;; P*P+Q*Q exceeds 4, or a space if it stays within 16 iterations.
+(1)    11C1 :                    ;;; A NUL received from the console halts.
 (1)    11C1 :                    mandelbrot:
 (1)    11C1 : C2 20                      rep     #P_M            ; 16-bit memory
 (1)    11C3 : A9 F4 FF                   lda     #-12
@@ -581,7 +585,7 @@
 (1)    11E7 : A0 64 00                   ldy     #100
 (1)    11EA : 20 8F 11                   jsr     div16           ; Y*416/100
 (1)    11ED : 86 20                      stx     vD              ; D=Y*416/100
-(1)    11EF : 86 1C                      stx     vB
+(1)    11EF : 86 1C                      stx     vB              ; B=D
 (1)    11F1 : 64 18                      stz     vI              ; I=0
 (1)    11F3 :
 (1)    11F3 :                            ;; ldx     vY
@@ -598,6 +602,7 @@
 (1)    11F3 :                            ;; jsr     print
 (1)    11F3 :                            ;; jsr     newline
 (1)    11F3 :
+(1)    11F3 :                    ;;; B=Q*F+S keeps 2*A*B/F = 2*(A*Q+A*S/F) within 16 bits
 (1)    11F3 :                    loop_i:
 (1)    11F3 : A6 1C                      ldx     vB
 (1)    11F5 : A0 32 00                   ldy     #F
@@ -688,7 +693,7 @@
 (1)    126F :                            ;; jsr     newline
 (1)    126F :                            ;; pla
 (1)    126F :
-(1)    126F : C9 05 00                   cmp     #4+1            ; P*P+Q*Q-4
+(1)    126F : C9 05 00                   cmp     #4+1            ; A=T
 (1)    1272 : 10 12                      bpl     print_i         ; if P*P+Q*Q>=5
 (1)    1274 : A5 18                      lda     vI
 (1)    1276 : 1A                         inc     A
@@ -724,7 +729,7 @@
 (1)    129B :
 (1)    129B : 20 2D 10                   jsr     getchar
 (1)    129E : B0 07                      bcs     next_x
-(1)    12A0 : 29 FF 00                   and     #$FF
+(1)    12A0 : 29 FF 00                   and     #$FF            ; B is stale; a NUL halts
 (1)    12A3 : D0 02                      bne     next_x
 (1)    12A5 : 00                         brk
 (1)    12A6 : 00                         .byte   0
@@ -771,13 +776,14 @@
        12EF : 8D 01 DF                   sta     ACIA_data       ; send character
        12F2 :                    isr_nirq_exit:
        12F2 : FA                         plx                     ; restore X
-       12F3 : 68                         pla                     ; restore Y
+       12F3 : 68                         pla                     ; restore A
        12F4 : 40                         rti                     ; restore P and PC
        12F5 :                    isr_nirq_send_empty:
        12F5 : A9 94                      lda     #RX_INT_TX_NO
        12F7 : 8D 00 DF                   sta     ACIA_control    ; disable Tx interrupt
        12FA : 80 F6                      bra     isr_nirq_exit
        12FC :
+       12FC :                    ;;; Unused vectors halt to system
        12FC :                    isr_cop:
        12FC : 00                         brk
        12FD : 00                         .byte   0

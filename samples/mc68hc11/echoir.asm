@@ -11,7 +11,7 @@ rx_queue:       rmb     rx_queue_size
 RX_INT_TX_NO:   equ     WSB_8N1_gc|RIEB_bm
 
         org     $1000
-stack:  equ     *-1             ; MC6801's SP is post-decrement/pre-increment
+stack:  equ     *-1             ; MC68HC11's SP is post-decrement/pre-increment
 
         org     VEC_IRQ
         fdb     isr_irq
@@ -53,7 +53,7 @@ loop:
         bsr     putchar
         bra     loop
 halt_to_system:
-        swi                     ; halt_to_system
+        swi                     ; halt to system
 
 putchar:
         ldab    ACIA_status

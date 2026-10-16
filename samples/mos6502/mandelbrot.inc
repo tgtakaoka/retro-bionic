@@ -4,7 +4,7 @@
 ;;; Print variable: "A=variable "
 ;;; @param X &variable
 ;;; @param A variable letter
-;;; @clobber R0
+;;; @clobber A X Y R0
 print:
         pha
         lda     0,X
@@ -19,9 +19,9 @@ print:
         jmp     putspace
 
 ;;; Print variable: "A=X "
-;;; @param X variable
+;;; @param X signed 8-bit value
 ;;; @param A variable letter
-;;; @clobber R0
+;;; @clobber A X Y R0
 print_X:
         stx     R0L
         jsr     putchar         ; print variable letter
@@ -34,6 +34,11 @@ print_X:
         jsr     print_int16
         jmp     putspace
 
+;;; Print the Mandelbrot set, X -49..29 by Y -12..12, in fixed point
+;;; with F=1.0: each point shows the iteration I (hex) at which
+;;; P*P+Q*Q exceeds 4, or a space if it stays within 16 iterations.
+;;; A NUL received from the console halts.
+;;; @clobber A X Y R0 R1 R2
 mandelbrot:
         lda     #-12
         sta     vY
@@ -88,6 +93,7 @@ loop_x:
         ;; jsr     print
         ;; jsr     newline
 
+;;; B=Q*F+S keeps 2*A*B/F = 2*(A*Q+A*S/F) within 16 bits
 loop_i:
         ldx     #vB
         jsr     load_R1         ; R1=B

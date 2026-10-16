@@ -25,7 +25,7 @@
 (1)       0 :                    ;;; MC6850
 (1)       0 :                    ;;; Asynchronous Communication Interface Adapter
 (1)       0 :
-(1)       0 :                    ;;; Control register
+(1)       0 :                    ;;; Control register (write)
 (1)       0 : =DF00              ACIA_control    =       ACIA+0
 (1)       0 :                            ;; Counter Divider Select Bits
 (1)       0 : =3                 CDS_gm          =       %11    ; Group mask
@@ -52,7 +52,7 @@
 (1)       0 :                                                      ; Transmit Break Level
 (1)       0 : =80                RIEB_bm         =       %10000000 ; Receive Interrupt Enable Bit mask
 (1)       0 :
-(1)       0 :                    ;;; Status register
+(1)       0 :                    ;;; Status register (read)
 (1)       0 : =DF00              ACIA_status     =       ACIA+0
 (1)       0 : =1                 RDRF_bm         =       %00000001 ; Receive Data Register Full
 (1)       0 : =2                 TDRE_bm         =       %00000010 ; Transmit Data Register Empty
@@ -64,7 +64,7 @@
 (1)       0 : =80                IRQF_bm         =       %10000000 ; Interrupt Request Flag
 (1)       0 :
 (1)       0 :                    ;;; Data register
-(1)       0 : =DF01              ACIA_data       =       ACIA+1          ; Data register
+(1)       0 : =DF01              ACIA_data       =       ACIA+1
           0 : =94                RX_INT_TX_NO    =       WSB_8N1_gc|RIEB_bm
           0 : =B4                RX_INT_TX_INT   =       WSB_8N1_gc|RIEB_bm|TCB_EI_gc
           0 :
@@ -82,11 +82,11 @@
          82 :                            *=      *+2
          82 :                    rx_queue:
          86 :                            *=      *+queue_buf
-         86 : 00 20                      .word   $2000
+         86 : 00 20                      .word   $2000           ; buffer address
          88 : =80                rx_queue_size   =       128
          88 :                    tx_queue:
          8C :                            *=      *+queue_buf
-         8C : 80 20                      .word   $2000 + rx_queue_size
+         8C : 80 20                      .word   $2000 + rx_queue_size ; buffer address
          8E : =80                tx_queue_size   =       128
          8E :
          8E :                    ;;; Work area for arith.inc
@@ -103,7 +103,7 @@
          16 :                    arith_work:
          16 : 00 00                      .word   0
          18 :                    ;;; Work area for mandelbrot.inc
-         18 : =32                F       =       50
+         18 : =32                F       =       50              ; fixed-point 1.0
          18 : 00                 vY:     .byte   0
          19 : 00                 vX:     .byte   0
          1A : 00 00              vC:     .word   0
@@ -121,7 +121,7 @@
        1000 :                    initialize:
        1000 : A2 FF                      ldx     #stack & $FF
        1002 : 9A                         txs
-       1003 : D8                         cld                     ; clear decimal flag
+       1003 : D8                         cld                     ; D is undefined after reset
        1004 : A2 82                      ldx     #rx_queue
        1006 : A9 80                      lda     #rx_queue_size
        1008 : 20 F8 13                   jsr     queue_init
@@ -143,7 +143,7 @@
        1026 :                    ;;; Get character
        1026 :                    ;;; @return A
        1026 :                    ;;; @return P.C 1 if no character
-       1026 :                    ;;; @clobber X
+       1026 :                    ;;; @clobber X Y
        1026 :                    getchar:
        1026 : A2 82                      ldx     #rx_queue
        1028 : 78                         sei                     ; disable IRQ
@@ -153,7 +153,7 @@
        102E :
        102E :                    ;;; Put character
        102E :                    ;;; @param A
-       102E :                    ;;; @clobber X
+       102E :                    ;;; @clobber X Y
        102E :                    putchar:
        102E : 48                         pha
        102F :                    putchar_retry:
@@ -168,7 +168,7 @@
        103E : 60                         rts
        103F :
        103F :                    ;;; Put newline
-       103F :                    ;;; @clobber A
+       103F :                    ;;; @clobber A X Y
        103F :                    newline:
        103F : A9 0D                      lda     #$0D
        1041 : 20 2E 10                   jsr     putchar
@@ -176,7 +176,7 @@
        1046 : 4C 2E 10                   jmp     putchar
        1049 :
        1049 :                    ;;; Put space
-       1049 :                    ;;; @clobber A
+       1049 :                    ;;; @clobber A X Y
        1049 :                    putspace:
        1049 : A9 20                      lda     #' '
        104B : 4C 2E 10                   jmp     putchar
@@ -188,7 +188,7 @@
 (1)    104E :                    ;;; Print variable: "A=variable "
 (1)    104E :                    ;;; @param X &variable
 (1)    104E :                    ;;; @param A variable letter
-(1)    104E :                    ;;; @clobber R0
+(1)    104E :                    ;;; @clobber A X Y R0
 (1)    104E :                    print:
 (1)    104E : 48                         pha
 (1)    104F : B5 00                      lda     0,X
@@ -203,9 +203,9 @@
 (1)    1063 : 4C 49 10                   jmp     putspace
 (1)    1066 :
 (1)    1066 :                    ;;; Print variable: "A=X "
-(1)    1066 :                    ;;; @param X variable
+(1)    1066 :                    ;;; @param X signed 8-bit value
 (1)    1066 :                    ;;; @param A variable letter
-(1)    1066 :                    ;;; @clobber R0
+(1)    1066 :                    ;;; @clobber A X Y R0
 (1)    1066 :                    print_X:
 (1)    1066 : 86 10                      stx     R0L
 (1)    1068 : 20 2E 10                   jsr     putchar         ; print variable letter
@@ -218,6 +218,11 @@
 (1)    1079 : 20 68 12                   jsr     print_int16
 (1)    107C : 4C 49 10                   jmp     putspace
 (1)    107F :
+(1)    107F :                    ;;; Print the Mandelbrot set, X -49..29 by Y -12..12, in fixed point
+(1)    107F :                    ;;; with F=1.0: each point shows the iteration I (hex) at which
+(1)    107F :                    ;;; P*P+Q*Q exceeds 4, or a space if it stays within 16 iterations.
+(1)    107F :                    ;;; A NUL received from the console halts.
+(1)    107F :                    ;;; @clobber A X Y R0 R1 R2
 (1)    107F :                    mandelbrot:
 (1)    107F : A9 F4                      lda     #-12
 (1)    1081 : 85 18                      sta     vY
@@ -272,6 +277,7 @@
 (1)    10D7 :                            ;; jsr     print
 (1)    10D7 :                            ;; jsr     newline
 (1)    10D7 :
+(1)    10D7 :                    ;;; B=Q*F+S keeps 2*A*B/F = 2*(A*Q+A*S/F) within 16 bits
 (1)    10D7 :                    loop_i:
 (1)    10D7 : A2 20                      ldx     #vB
 (1)    10D9 : 20 E1 12                   jsr     load_R1         ; R1=B
@@ -471,7 +477,7 @@
 (1)    123E :
 (1)    123E :                    ;;; Print unsigned 16-bit integer as decimal
 (1)    123E :                    ;;; @param R0 value
-(1)    123E :                    ;;; @clobber R0 R1 R2
+(1)    123E :                    ;;; @clobber A X Y R0 R1 R2
 (1)    123E :                    print_uint16:
 (1)    123E : A5 11                      lda     R0H
 (1)    1240 : 05 10                      ora     R0L
@@ -500,7 +506,7 @@
 (1)    1268 :
 (1)    1268 :                    ;;; Print signed 16-bit integer as decimal
 (1)    1268 :                    ;;; @param R0 value
-(1)    1268 :                    ;;; @clobber R0
+(1)    1268 :                    ;;; @clobber A X Y R0
 (1)    1268 :                    print_int16:
 (1)    1268 : A5 13                      lda     R1H
 (1)    126A : 48                         pha
@@ -531,7 +537,7 @@
 (1)    1292 :                    ;;; Set constant to R1
 (1)    1292 :                    ;;;     jsr     set_R1
 (1)    1292 :                    ;;;     .word   constant
-(1)    1292 :                    ;;; @clobber A Y
+(1)    1292 :                    ;;; @clobber A X Y
 (1)    1292 :                    set_R1:
 (1)    1292 : A2 12                      ldx     #R1
 (1)    1294 : 4C 9C 12                   jmp     set_RX
@@ -539,7 +545,7 @@
 (1)    1297 :                    ;;; Set constant to R2
 (1)    1297 :                    ;;;     jsr     set_R2
 (1)    1297 :                    ;;;     .word   constant
-(1)    1297 :                    ;;; @clobber A Y
+(1)    1297 :                    ;;; @clobber A X Y
 (1)    1297 :                    set_R2:
 (1)    1297 : A2 14                      ldx     #R2
 (1)    1299 : 4C 9C 12                   jmp     set_RX
@@ -548,6 +554,7 @@
 (1)    129C :                    ;;;     ldx     #Rx
 (1)    129C :                    ;;;     jsr     set_RX
 (1)    129C :                    ;;;     .word   constant
+(1)    129C :                    ;;; Reads the word after the JSR and returns past it.
 (1)    129C :                    ;;; @clobber A Y
 (1)    129C :                    set_RX:
 (1)    129C : 68                         pla
@@ -588,6 +595,7 @@
 (1)    12CF :                    ;;; Store R0 to variable
 (1)    12CF :                    ;;; @param R0
 (1)    12CF :                    ;;; @param X &variable
+(1)    12CF :                    ;;; @clobber A
 (1)    12CF :                    store_RX:
 (1)    12CF : A5 10                      lda     R0L
 (1)    12D1 : 95 00                      sta     0,X
@@ -636,8 +644,8 @@
 (1)    12FB :                    sex_A_return:
 (1)    12FB : 60                         rts
 (1)    12FC :
-(1)    12FC :                    ;;; Negate
-(1)    12FC :                    ;;; @param X point to value
+(1)    12FC :                    ;;; Negate 16-bit value in place
+(1)    12FC :                    ;;; @param X &value
 (1)    12FC :                    ;;; @clobber A
 (1)    12FC :                    neg16:
 (1)    12FC : 38                         sec
@@ -678,12 +686,12 @@
 (1)    1325 : 60                         rts
 (1)    1326 :
 (1)    1326 :                    ;;; Signed compare helper
-(1)    1326 :                    ;;; @param R0 minuend-subtrahend
 (1)    1326 :                    ;;; @param R1 minuend
 (1)    1326 :                    ;;; @param R2 subtrahend
 (1)    1326 :                    ;;; @return R0=0;  BZ (minuend == subtrahend)
 (1)    1326 :                    ;;;         R0=1;  BP (minuend > subtrahend)
 (1)    1326 :                    ;;;         R0=-1; BM (minuend < subtrahend)
+(1)    1326 :                    ;;; @clobber A
 (1)    1326 :                    cmpsi2:
 (1)    1326 : 38                         sec
 (1)    1327 : A5 12                      lda     R1L
@@ -735,7 +743,7 @@
 (1)    135D :                    ;;; @clobber A X Y R1 R2
 (1)    135D :                    umul16:
 (1)    135D : A9 00                      lda     #0
-(1)    135F : 85 10                      sta     R0L             ; A=hi(result)
+(1)    135F : 85 10                      sta     R0L             ; lo(result)=0, A=hi(result)
 (1)    1361 : A6 15                      ldx     R2H
 (1)    1363 : F0 11                      beq     umul16_lo       ; branch if hi(multiplier)==0
 (1)    1365 : A6 12                      ldx     R1L             ; save lo(multiplicand)
@@ -783,7 +791,7 @@
 (1)    1398 : A5 15                      lda     R2H
 (1)    139A : 30 15                      bmi     udiv16_prep_end ; branch if msb(divisor) == 1
 (1)    139C : 05 14                      ora     R2L
-(1)    139E : F0 34                      beq     udiv16_return   ; branch if R2==0
+(1)    139E : F0 34                      beq     udiv16_return   ; divisor==0: R0, R1 unchanged
 (1)    13A0 :                    udiv16_prep:
 (1)    13A0 : A5 12                      lda     R1L
 (1)    13A2 : C5 14                      cmp     R2L
@@ -824,8 +832,8 @@
 (1)    13D5 :                    ;;; @param R1 dividend
 (1)    13D5 :                    ;;; @param R2 divisor
 (1)    13D5 :                    ;;; @return R0 quotient
-(1)    13D5 :                    ;;; @return R1 remainder
-(1)    13D5 :                    ;;; @clobber R2
+(1)    13D5 :                    ;;; @return R1 remainder of |dividend|/|divisor|, unsigned
+(1)    13D5 :                    ;;; @clobber A X Y R2
 (1)    13D5 :                    divsi2:
 (1)    13D5 : A5 13                      lda     R1H
 (1)    13D7 : 45 15                      eor     R2H
@@ -841,7 +849,7 @@
 (1)    13E9 : 20 FC 12                   jsr     neg16           ; negate dividend
 (1)    13EC :                    divsi2_divide:
 (1)    13EC : 20 96 13                   jsr     udiv16          ; R0=result
-(1)    13EF : 68                         pla                     ; A=(dividend^divisor)
+(1)    13EF : 68                         pla                     ; A=hi(dividend^divisor)
 (1)    13F0 : 10 05                      bpl     divsi2_return
 (1)    13F2 : A2 10                      ldx     #R0L
 (1)    13F4 : 20 FC 12                   jsr     neg16           ; negate result
@@ -850,16 +858,16 @@
        13F8 :                            .include "queue.inc"
 (1)    13F8 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
 (1)    13F8 :                    ;;; [queue_tmp] must be allocated 2 bytes on zero page
-(1)    13F8 :                    ;;; [queue] queue structure
+(1)    13F8 :                    ;;; [queue] queue structure on zero page, buffer outside
 (1)    13F8 : =0                 queue_len       =       0       ; queue length
 (1)    13F8 : =1                 queue_size      =       1       ; buffer size
 (1)    13F8 : =2                 queue_put       =       2       ; queue put index
 (1)    13F8 : =3                 queue_get       =       3       ; queue get index
 (1)    13F8 : =4                 queue_buf       =       4       ; buffer start address
 (1)    13F8 :
-(1)    13F8 :                    ;;; [queue] Initialize queue
-(1)    13F8 :                    ;;; @param X queue work space pointer
-(1)    13F8 :                    ;;; @param A queue work space size
+(1)    13F8 :                    ;;; [queue] Initialize queue and clear its buffer
+(1)    13F8 :                    ;;; @param X queue work space pointer; queue_buf,X holds the buffer address
+(1)    13F8 :                    ;;; @param A buffer size
 (1)    13F8 :                    ;;; @clobber A, Y
 (1)    13F8 :                    queue_init:
 (1)    13F8 : 95 01                      sta     queue_size,x
@@ -875,7 +883,7 @@
 (1)    1409 : D0 FB                      bne     queue_init_loop
 (1)    140B : 60                         rts
 (1)    140C :
-(1)    140C :                    ;;; init_tmp
+(1)    140C :                    ;;; init_queue_tmp
 (1)    140C :                    ;;; @param X queue work space pointer
 (1)    140C :                    ;;; store [queue_buf,x] to queue_tmp
 (1)    140C :                    ;;; @clobber Y
@@ -890,6 +898,7 @@
 (1)    1415 :                    ;;; @param X queue work space pointer
 (1)    1415 :                    ;;; @param A an element
 (1)    1415 :                    ;;; @return P.C 1 if queue is full
+(1)    1415 :                    ;;; @clobber Y
 (1)    1415 :                    queue_add:
 (1)    1415 : 48                         pha                     ; save an element
 (1)    1416 : 20 0C 14                   jsr     init_queue_tmp
@@ -942,7 +951,7 @@
 (1)    1454 : 60                         rts
        1455 :
        1455 :                    isr_irq:
-       1455 : D8                         cld                     ; clear decimal flag
+       1455 : D8                         cld                     ; NMOS 6502 keeps D on interrupt
        1456 : 48                         pha                     ; save A
        1457 : 8A                         txa
        1458 : 48                         pha                     ; save X
@@ -979,4 +988,4 @@
        148F :
        148F :                    isr_nmi:
        148F : 00                         brk
-       1490 : 00                         .byte   0
+       1490 : 00                         .byte   0               ; halt to system

@@ -82,6 +82,7 @@ transmit_data:
 
         include "queue.inc"
 
+;;; Shares RR2=rx_queue and RR12=USART with the main loop
         setrp   -1
 isr_intr:
         ld      P2AIP, #1 SHL 5 ; clear P23 IRQ0

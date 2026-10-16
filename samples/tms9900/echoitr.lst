@@ -106,7 +106,7 @@
        2100 :
         200 :                            org     >0200
         200 :                    initialize:
-        200 : 020A 2000                  li      R10, stack
+        200 : 020A 2000                  li      R10, stack      R10 is the stack pointer, grows down
         204 : 0209 2000                  li      R9, rx_queue
         208 : 0200 0080                  li      R0, rx_queue_size
         20C : 06A0 0342                  bl      @queue_init
@@ -198,15 +198,16 @@
         2D4 :                    put_bin8_putchar:
         2D4 : 06A0 031C                  bl      @putchar
         2D8 : 0912                       srl     R2, 1
-        2DA : 0282 0080                  ci      R2, >0080
+        2DA : 0282 0080                  ci      R2, >0080       8 bits done
         2DE : 16F3                       jne     put_bin8_loop
         2E0 : C0BA                       mov     *R10+, R2       Pop R2
         2E2 : C2FA                       mov     *R10+, R11      Pop return address
         2E4 : 045B                       rt
         2E6 :
         2E6 :                            *** Get character
-        2E6 :                            *** @return R0
+        2E6 :                            *** @return R0 character in high byte
         2E6 :                            *** @return ST.C 0 if no character
+        2E6 :                            *** @clobber R9
         2E6 :                    getchar:
         2E6 : 064A                       dect    R10
         2E8 : C68B                       mov     R11, *R10       Push return address
@@ -233,6 +234,8 @@
         31A : 045B                       rt
         31C :
         31C :                            *** Put character
+        31C :                            *** @param R0 character in high byte
+        31C :                            *** @clobber R9
         31C :                    putchar:
         31C : 064A                       dect    R10
         31E : C68B                       mov     R11, *R10       Push return address
@@ -249,7 +252,7 @@
         340 : 045B                       rt
         342 :
         342 :                            include "queue.inc"
-(1)     342 :                    *** -*- mode: asm; mode: flying-spell; -*-
+(1)     342 :                    *** -*- mode: asm; mode: flyspell-prog; -*-
 (1)     342 :                    *** [queue] queue structure
 (1)     342 : =0                 queue_len:      equ     0       ; queue length
 (1)     342 : =2                 queue_size:     equ     2       ; buffer size
@@ -276,8 +279,8 @@
 (1)     358 :
 (1)     358 :                    *** [queue] Add an element to queue
 (1)     358 :                    *** @param R9 queue work space pointer
-(1)     358 :                    *** @param R0 an element
-(1)     358 :                    *** @return CC.C 0 if queue is full
+(1)     358 :                    *** @param R0 an element in high byte
+(1)     358 :                    *** @return ST.C 0 if queue is full
 (1)     358 :                    *** @clobber R1
 (1)     358 :                    queue_add:
 (1)     358 : 8A59 0002                  c       *R9, @queue_size(R9)    check queue_len
@@ -303,8 +306,8 @@
 (1)     386 :
 (1)     386 :                    *** [queue] Remove an element from queue
 (1)     386 :                    *** @param R9 queue work space pointer
-(1)     386 :                    *** @return R0 an element
-(1)     386 :                    *** @return CC.C 0 if queue is empty
+(1)     386 :                    *** @return R0 an element in high byte
+(1)     386 :                    *** @return ST.C 0 if queue is empty
 (1)     386 :                    *** @clobber R1
 (1)     386 :                    queue_remove:
 (1)     386 : C059                       mov     *R9, R1                 check queue_len
@@ -326,6 +329,7 @@
 (1)     3AC : 0911                       srl     R1, 1                   set/clear ST.C
 (1)     3AE : 045B                       rt
         3B0 :
+        3B0 :                            *** Runs in workspace_int1; RTWP restores the caller's WP, PC and ST
         3B0 :                    int1_isr:
         3B0 : D020 0080                  movb    @ACIA_status, R0
         3B4 : 0240 0100                  andi    R0, hibyte(RDRF_bm)
@@ -344,7 +348,6 @@
         3DE :                    int1_isr_exit:
         3DE : 0380                       rtwp
         3E0 :                    int1_isr_send_empty:
-        3E0 :                            * Disable Tx interrupt
         3E0 : 0201 2000                  li      R1, hibyte(TCB_EI_gc)
         3E4 : 5801 0080                  szcb    R1, @ACIA_control       Disable Tx interrupt
         3E8 : 0380                       rtwp

@@ -4,10 +4,10 @@
           0 :                    ;;; i8251 Universal Synchronous/Asynchronous Receiver/Transmitter
           0 : =F0                USART:          equ     0F0H
           0 : =F0                USARTD:         equ     USART+0 ; Receive/Transmit data
-          0 : =F1                USARTS:         equ     USART+1 ; Srtatus register
+          0 : =F1                USARTS:         equ     USART+1 ; Status register
           0 : =F1                USARTC:         equ     USART+1 ; Control register
-          0 : =F2                USARTRV:        equ     USART+2 ; Receive interrupt vector (ORG_*)
-          0 : =F3                USARTTV:        equ     USART+3 ; Transmit interrupt vector (ORG_*)
+          0 : =F2                USARTRV:        equ     USART+2 ; Receive interrupt vector; 0 disables
+          0 : =F3                USARTTV:        equ     USART+3 ; Transmit interrupt vector; 0 disables
           0 :                            include "i8251.inc"
 (1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
 (1)       0 :
@@ -116,8 +116,8 @@
         242 : 02 66                      da      newline
         244 : 29 02 3A                   jmp     loop
         247 :
-        247 :                    ;;; Get character
-        247 :                    ;;; @return 0
+        247 :                    ;;; Get character; interrupts are taken only in the EI/NOP/DI window
+        247 :                    ;;; @return 0 character
         247 :                    ;;; @return CC.C 0 if no character
         247 :                    getchar:
         247 : 1B                         ei
@@ -128,8 +128,8 @@
         24E : 29 03 91                   jmp     queue_remove
         251 :
         251 :                    ;;; Put character
-        251 :                    ;;; @param 0
-        251 :                    ;;; @clobber 0
+        251 :                    ;;; @param 0 character
+        251 :                    ;;; @clobber A H DC Q
         251 :                    putchar:
         251 : 1B                         ei
         252 : 2B                         nop
@@ -158,7 +158,7 @@
         277 : 29 02 51                   jmp     putchar
         27A :
         27A :                    isr_intr_rx:
-        27A : 08                         lr      K, P
+        27A : 08                         lr      K, P            ; K=interrupted PC, saved in PC1
         27B : 28 02 D5                   pi      pushK
         27E : 28 02 C1                   pi      push0
         281 : 26 F1                      in      USARTS
@@ -175,7 +175,7 @@
         296 : 29 03 40                   jmp     return
         299 :
         299 :                    isr_intr_tx:
-        299 : 08                         lr      K, P
+        299 : 08                         lr      K, P            ; K=interrupted PC, saved in PC1
         29A : 28 02 D5                   pi      pushK
         29D : 28 02 C1                   pi      push0
         2A0 : 2A 20 80                   dci     tx_queue
@@ -201,7 +201,7 @@
 (1)     2BE : =F                 __STACK_U:      equ     ((stack - 1) >> 8)
 (1)     2BE :
 (1)     2BE :                    ;;; Initialize stack
-(1)     2BE :                    ;;; @param stack
+(1)     2BE :                    ;;; @param stack top of stack; must be page aligned since SP starts at 0
 (1)     2BE :                    ;;; @clobber A
 (1)     2BE :                    init_stack:
 (1)     2BE : 70                         clr
@@ -209,7 +209,7 @@
 (1)     2C0 : 1C                         pop
 (1)     2C1 :
 (1)     2C1 :                    ;;; Push 0
-(1)     2C1 :                    ;;; @clobber A H W
+(1)     2C1 :                    ;;; @clobber A H DC W
 (1)     2C1 :                    ;;; PI push0
 (1)     2C1 :                    push0:
 (1)     2C1 : 38                         ds      SP              ; SP-=1
@@ -223,7 +223,7 @@
 (1)     2CA : 1C                         pop
 (1)     2CB :
 (1)     2CB :                    ;;; Push 1
-(1)     2CB :                    ;;; @clobber A H W
+(1)     2CB :                    ;;; @clobber A H DC W
 (1)     2CB :                    ;;; PI push1
 (1)     2CB :                    push1:
 (1)     2CB : 38                         ds      SP              ; SP-=1
@@ -237,7 +237,7 @@
 (1)     2D4 : 1C                         pop
 (1)     2D5 :
 (1)     2D5 :                    ;;; Push K
-(1)     2D5 :                    ;;; @clobber A H W
+(1)     2D5 :                    ;;; @clobber A H DC W
 (1)     2D5 :                    ;;; PI pushK
 (1)     2D5 :                    pushK:
 (1)     2D5 : 38                         ds      SP
@@ -254,11 +254,11 @@
 (1)     2E1 : 1C                         pop
 (1)     2E2 :
 (1)     2E2 :                    ;;; Push Q
-(1)     2E2 :                    ;;; @clobber A H W
+(1)     2E2 :                    ;;; @clobber A H DC W
 (1)     2E2 :                    ;;; PI pushQ
 (1)     2E2 :                    pushQ:
 (1)     2E2 : 38                         ds      SP
-(1)     2E3 : 38                         ds      SP              ; SP -= 2
+(1)     2E3 : 38                         ds      SP              ; SP-=2
 (1)     2E4 : 20 0F                      li      __STACK_U
 (1)     2E6 : 5A                         lr      HU, A
 (1)     2E7 : 48                         lr      A, SP
@@ -270,8 +270,8 @@
 (1)     2ED : 17                         st
 (1)     2EE : 1C                         pop
 (1)     2EF :
-(1)     2EF :                    ;;; POP 0
-(1)     2EF :                    ;;; @clobber A H
+(1)     2EF :                    ;;; Pop 0
+(1)     2EF :                    ;;; @clobber A H DC
 (1)     2EF :                    ;;; PI pop0
 (1)     2EF :                    pop0:
 (1)     2EF : 20 0F                      li      __STACK_U
@@ -286,8 +286,8 @@
 (1)     2F9 : 58                         lr      SP, A
 (1)     2FA : 1C                         pop
 (1)     2FB :
-(1)     2FB :                    ;;; POP 1
-(1)     2FB :                    ;;; @clobber A H
+(1)     2FB :                    ;;; Pop 1
+(1)     2FB :                    ;;; @clobber A H DC
 (1)     2FB :                    ;;; PI pop1
 (1)     2FB :                    pop1:
 (1)     2FB : 20 0F                      li      __STACK_U
@@ -303,7 +303,7 @@
 (1)     306 : 1C                         pop
 (1)     307 :
 (1)     307 :                    ;;; Pop K
-(1)     307 :                    ;;; @clobber A H
+(1)     307 :                    ;;; @clobber A H DC
 (1)     307 :                    ;;; PI popK
 (1)     307 :                    popK:
 (1)     307 : 20 0F                      li      __STACK_U
@@ -320,8 +320,8 @@
 (1)     313 : 58                         lr      SP, A
 (1)     314 : 1C                         pop
 (1)     315 :
-(1)     315 :                    ;;; pop Q
-(1)     315 :                    ;;; @clobber A H
+(1)     315 :                    ;;; Pop Q
+(1)     315 :                    ;;; @clobber A H DC
 (1)     315 :                    ;;; PI popQ
 (1)     315 :                    popQ:
 (1)     315 : 20 0F                      li      __STACK_U
@@ -338,8 +338,8 @@
 (1)     321 : 58                         lr      SP, A
 (1)     322 : 1C                         pop
 (1)     323 :
-(1)     323 :                    ;;; Call subroutine
-(1)     323 :                    ;;; @clobber A H K W
+(1)     323 :                    ;;; Call subroutine; pushes the return address on the SP stack
+(1)     323 :                    ;;; @clobber A H K DC W
 (1)     323 :                    ;;; PI call
 (1)     323 :                    ;;; DA subroutine
 (1)     323 :                    call:
@@ -373,7 +373,7 @@
 (1)     33F : 1C                         pop                     ; jump to subroutine
 (1)     340 :
 (1)     340 :                    ;;; Return from subroutine
-(1)     340 :                    ;;; @clobber A H K
+(1)     340 :                    ;;; @clobber A H K DC
 (1)     340 :                    ;;; JMP return
 (1)     340 :                    return:
 (1)     340 : 20 0F                      li      __STACK_U
@@ -402,12 +402,12 @@
 (1)     34F :                    ;;; [queue] Initialize queue
 (1)     34F :                    ;;; @param Q queue work space pointer
 (1)     34F :                    ;;; @param 0 queue work space size
-(1)     34F :                    ;;; @clobber A H DC
+(1)     34F :                    ;;; @clobber 0 A H DC
 (1)     34F :                    queue_init:
 (1)     34F : 0F                         lr      DC, Q
 (1)     350 : 70                         clr
 (1)     351 : 17                         st                      ; queue_len = 0
-(1)     352 : 40                         lr      A, 0            ; restore queue size
+(1)     352 : 40                         lr      A, 0            ; work space size
 (1)     353 : 24 FC                      ai      -queue_buf
 (1)     355 : 17                         st                      ; queue_size
 (1)     356 : 24 02                      ai      2               ; for queue_put and queue_get
@@ -439,7 +439,7 @@
 (1)     36D : 17                         st                      ; update queue_len
 (1)     36E : 16                         lm                      ; queue_size
 (1)     36F : 16                         lm                      ; queue_put
-(1)     370 : 1F                         inc                     ; for queue_get
+(1)     370 : 1F                         inc                     ; skip queue_get
 (1)     371 : 8E                         adc                     ; DC=&queue_buf[queue_put]
 (1)     372 : 40                         lr      A, 0            ; get element
 (1)     373 : 17                         st                      ; store element
@@ -478,7 +478,7 @@
 (1)     391 :                    queue_remove:
 (1)     391 : 0F                         lr      DC, Q
 (1)     392 : 70                         clr
-(1)     393 : 8B                         om                      ; queue_len
+(1)     393 : 8B                         om                      ; A=queue_len, set flags
 (1)     394 : 84 26                      bz      queue_remove_empty
 (1)     396 : 24 FF                      ai      -1              ; queue_len--
 (1)     398 : 0F                         lr      DC, Q
@@ -500,7 +500,7 @@
 (1)     3A8 : 1F                         inc                     ; queue_get++
 (1)     3A9 : 5A                         lr      HU, A           ; HU=queue_get
 (1)     3AA : CB                         as      HL              ; queue_get-queue_size
-(1)     3AB : 92 03                      bnc     queue_remove_update ; queue_get<queueu_size
+(1)     3AB : 92 03                      bnc     queue_remove_update ; queue_get<queue_size
 (1)     3AD : 70                         clr
 (1)     3AE : 5A                         lr      HU, A           ; wrap around
 (1)     3AF :                    queue_remove_update:
@@ -521,7 +521,9 @@
 (1)     3BF :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
 (1)     3BF :                            cpu     f3850
 (1)     3BF :
-(1)     3BF :                    ;;; Print unsigned 16-bit integer as decimal
+(1)     3BF :                    ;;; @n: the 16-bit scratchpad pair whose address is in register n, MSB first
+(1)     3BF :
+(1)     3BF :                    ;;; Print unsigned 16-bit integer as decimal; recurses once per digit
 (1)     3BF :                    ;;; @param 0:1 value
 (1)     3BF :                    ;;; @clobber 0 1 4 5 6 7 A
 (1)     3BF :                    print_uint16:
@@ -654,7 +656,7 @@
 (1)     44B :                    ;;; Signed subtraction: minuend -= subtrahend
 (1)     44B :                    ;;; @param @2: minuend
 (1)     44B :                    ;;; @param @3: subtrahend
-(1)     44B :                    ;;; @clobber 0 1 A
+(1)     44B :                    ;;; @clobber 0 1 ISAR A
 (1)     44B :                    subsi2:
 (1)     44B : 43                         lr      A, 3
 (1)     44C : 0B                         lr      IS, A           ; point MSB(subtrahend)
@@ -736,7 +738,7 @@
 (1)     498 :                    ;;; @param 4:5 multiplicand
 (1)     498 :                    ;;; @param 6:7 multiplier
 (1)     498 :                    ;;; @return 4:5 result
-(1)     498 :                    ;;; @clobber 4 5 6 7
+(1)     498 :                    ;;; @clobber 4 5 6 7 A
 (1)     498 :                    umul16:
 (1)     498 : 28 02 E2                   pi      pushQ           ; save Q
 (1)     49B : 28 02 C1                   pi      push0           ; save 0
@@ -801,7 +803,7 @@
 (1)     4E0 :                    ;;; Signed multiplication: multiplicand *= multiplier
 (1)     4E0 :                    ;;; @param @2: multiplicand
 (1)     4E0 :                    ;;; @param @3: multiplier
-(1)     4E0 :                    ;;; @clobber 4 5 6 7 A
+(1)     4E0 :                    ;;; @clobber 4 5 6 7 ISAR A
 (1)     4E0 :                    mulsi2:
 (1)     4E0 : 42                         lr      A, 2
 (1)     4E1 : 1F                         inc
@@ -995,7 +997,7 @@
 (1)     5AF :                    ;;; Signed division: dividend /= divisor
 (1)     5AF :                    ;;; @param @2: dividend
 (1)     5AF :                    ;;; @param @3: divisor
-(1)     5AF :                    ;;; @clobber 4 5 6 7 A
+(1)     5AF :                    ;;; @clobber 4 5 6 7 ISAR A
 (1)     5AF :                    divsi2:
 (1)     5AF : 42                         lr      A, 2
 (1)     5B0 : 1F                         inc
@@ -1093,7 +1095,7 @@
 (1)     5F7 :                    ;;; Store DC to scratchpad pointed by 2
 (1)     5F7 :                    ;;; @param DC value
 (1)     5F7 :                    ;;; @param 2 scratchpad number
-(1)     5F7 :                    ;;; @clobber H A
+(1)     5F7 :                    ;;; @clobber H ISAR A
 (1)     5F7 :                    store_2:
 (1)     5F7 : 42                         lr      A, 2
 (1)     5F8 : 0B                         lr      IS, A
@@ -1107,7 +1109,7 @@
 (1)     5FF :                    ;;; Store DC to scratchpad pointed by 3
 (1)     5FF :                    ;;; @param DC value
 (1)     5FF :                    ;;; @param 3 scratchpad number
-(1)     5FF :                    ;;; @clobber H A
+(1)     5FF :                    ;;; @clobber H ISAR A
 (1)     5FF :                    store_3:
 (1)     5FF : 43                         lr      A, 3
 (1)     600 : 0B                         lr      IS, A
@@ -1121,7 +1123,7 @@
 (1)     607 :                    ;;; Assign @3 to @2
 (1)     607 :                    ;;; @param @2 assignee
 (1)     607 :                    ;;; @param @3 value
-(1)     607 :                    ;;; @clobber H A
+(1)     607 :                    ;;; @clobber H ISAR A
 (1)     607 :                    assign_2:
 (1)     607 : 43                         lr      A, 3
 (1)     608 : 0B                         lr      IS, A
@@ -1139,7 +1141,7 @@
 (1)     614 :
 (1)     614 :                    ;;; Increment: result += 1
 (1)     614 :                    ;;; @param @2: result
-(1)     614 :                    ;;; @clobber A
+(1)     614 :                    ;;; @clobber ISAR A
 (1)     614 :                    inc16:
 (1)     614 : 42                         lr      A, 2
 (1)     615 : 1F                         inc
@@ -1152,6 +1154,9 @@
 (1)     61C : 5C                         lr      S, A
 (1)     61D : 1C                         pop
 (1)     61E :
+(1)     61E :                    ;;; Print variable: "letter=value "
+(1)     61E :                    ;;; @param 0 variable letter
+(1)     61E :                    ;;; @param @2 variable
 (1)     61E :                    print_2:
 (1)     61E : 28 03 23                   pi      call
 (1)     621 : 02 51                      da      putchar
@@ -1169,6 +1174,8 @@
 (1)     634 : 03 F8                      da      print_int16
 (1)     636 : 29 02 74                   jmp     putspace
 (1)     639 :
+(1)     639 :                    ;;; Print one frame: a char per point, the escape iteration in hex
+(1)     639 :                    ;;; or ' ' if none; NUL from the console halts.
 (1)     639 :                    mandelbrot:
 (1)     639 : 2A 00 04                   dci     4
 (1)     63C : 20 2A                      li      c4
@@ -1276,6 +1283,8 @@
 (1)     6D7 :                            ;; pi      call
 (1)     6D7 :                            ;; da      newline
 (1)     6D7 :
+(1)     6D7 :                            ;; A*B/F is computed as A*Q+A*S/F with Q=B/F, S=B-Q*F,
+(1)     6D7 :                            ;; to avoid 16-bit overflow
 (1)     6D7 :                    loop_i:
 (1)     6D7 : 20 1C                      li      vQ
 (1)     6D9 : 52                         lr      2, A

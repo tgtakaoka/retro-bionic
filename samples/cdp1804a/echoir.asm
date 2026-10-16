@@ -33,7 +33,7 @@ main:
         sex     R8              ; R8 for out
         out     ACIA_control    ; Master reset
         out     ACIA_control    ; Set mode
-        sex     R3
+        sex     R3              ; RET/DIS take X:P from the inline byte
         ret
         dc      X'33'           ; enable interrupt
         sex     R2
@@ -68,6 +68,7 @@ echo:
 halt_to_system:
         idl
 
+;;; Put character
 ;;; @param D char
 ;;; @unchanged D
 ;;; @clobber R15

@@ -88,7 +88,7 @@ put_hex8:
         pula
 put_hex4:
         and     #$0F
-        add     #$90
+        add     #$90            ; DAA trick: 0-15 to '0'-'9','A'-'F'
         daa
         adc     #$40
         daa
@@ -112,7 +112,7 @@ put_bin2:
 put_bin1:
         psha
         lda     #'0'
-        rol     1,sp
+        rol     1,sp            ; next bit into C
         bcc     put_bin
         inca
 put_bin:
@@ -133,7 +133,7 @@ getchar:
 
 ;;; Put character
 ;;; @param A
-;;; @clobber A HX
+;;; @clobber HX
 putchar:
         ldhx    #tx_queue
         psha
@@ -151,7 +151,7 @@ putchar_exit:
         include "queue.inc"
 
 isr_irq:
-        pshh
+        pshh                    ; interrupts don't stack H
         lda     ACIA_status
         bit     #IRQF_bm
         beq     isr_irq_exit

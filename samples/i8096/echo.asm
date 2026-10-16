@@ -36,7 +36,7 @@ receive_loop:
 receive_data:
         ldb     B, USARTD
         orb     B, B
-        je      halt_to_system
+        je      halt_to_system  ; NUL halts
 transmit_loop:
         ldb     A, USARTS
         jbc     A, ST_TxRDY_bp, transmit_loop
@@ -44,7 +44,7 @@ transmit_data:
         stb     B, USARTD
         cmpb    B, #0DH
         jne     receive_loop
-        ldb     B, #0AH
+        ldb     B, #0AH         ; follow CR with LF
         sjmp    transmit_loop
 
 halt_to_system:

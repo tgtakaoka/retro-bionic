@@ -14,7 +14,7 @@ stack   =       $01ff
 initialize:
         ldx     #stack & 0xFF
         txs
-        cld                     ; clear decimal flag
+        cld                     ; D is undefined after reset
         lda     #CDS_RESET_gc   ; Master reset
         sta     ACIA_control
         lda     #WSB_8N1_gc     ; 8 bits + No Parity + 1 Stop Bits
@@ -24,10 +24,10 @@ initialize:
 loop:
         jsr     getchar
         ora     #0
-        beq     halt_to_system
+        beq     halt_to_system  ; NUL halts
         jsr     putchar
         cmp     #$0D
-        bne     loop
+        bne     loop            ; follow CR with LF
         lda     #$0A
         jsr     putchar
         jmp     loop
@@ -35,6 +35,8 @@ halt_to_system:
         brk
         .byte     0             ; halt to system
 
+;;; Wait for a character
+;;; @return A character
 getchar:
         lda     ACIA_status
         and     #RDRF_bm
@@ -42,6 +44,8 @@ getchar:
         lda     ACIA_data
         rts
 
+;;; Wait until Tx is ready and send a character
+;;; @param A character
 putchar:
         pha
 putchar_loop:

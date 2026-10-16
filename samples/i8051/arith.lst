@@ -41,7 +41,7 @@
 (1)       0 : =87                PCON:   equ     87H             ; Power control
 (1)       0 :                    ;;; PSW (0D0H) Program status word (bit addressable)
 (1)       0 : =7                 CY:     equ     7              ; set to 1 if carry
-(1)       0 : =6                 AC:     equ     6              ; set to 1 if auxillary carry
+(1)       0 : =6                 AC:     equ     6              ; set to 1 if auxiliary carry
 (1)       0 : =5                 F0:     equ     5              ; user flag 0
 (1)       0 : =4                 RS1:    equ     4              ; register bank select
 (1)       0 : =3                 RS0:    equ     3              ; register bank select
@@ -55,7 +55,7 @@
 (1)       0 : =2                 EX1:    equ     2               ; #INT1
 (1)       0 : =1                 ET0:    equ     1               ; Timer 0 overflow
 (1)       0 : =0                 EX0:    equ     0               ; #INT0
-(1)       0 :                    ;;; SCON (89H) Serial control (bit addressable)
+(1)       0 :                    ;;; SCON (98H) Serial control (bit addressable)
 (1)       0 : =7                 SM0:    equ     7               ; Serial mode SM[0:1:2]=010 8-bit UART
 (1)       0 : =6                 SM1:    equ     6
 (1)       0 : =5                 SM2:    equ     5
@@ -70,8 +70,8 @@
 (1)       0 :                    ;;; TMOD (89H) Timer/Counter mode control register
 (1)       0 : =4                 T1MODE_gp:      equ     4       ; Timer 1 mode
 (1)       0 : =0                 T0MODE_gp:      equ     0       ; Timer 0 mode
-(1)       0 : =8                 TGATE:          equ     1000B
-(1)       0 : =4                 TXPIN:          equ     0100B   ; Input from Tx pin
+(1)       0 : =8                 TGATE:          equ     1000B   ; Run only while #INTx is high
+(1)       0 : =4                 TXPIN:          equ     0100B   ; Count pulses on T0/T1 pin
 (1)       0 : =2                 T8MODE:         equ     0010B   ; 8-bit auto-reload timer/counter
 (1)       0 :                    ;;; PCON (87H) Power control register
 (1)       0 : =40                SMOD:   equ     1000000B        ; Double baudrate
@@ -85,13 +85,14 @@
 (1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
 (1)       0 :
 (1)       0 :                    ;;; i8251 USART device emulator.
+(1)       0 :                    ;;; Bit definition of mode instruction (asynchronous)
 (1)       0 : =6                 MODE_STOP_gp:   equ     6
 (1)       0 : =C0                MODE_STOP_gm:   equ     11000000B
 (1)       0 : =40                MODE_STOP1_gc:  equ     (1 << MODE_STOP_gp)
 (1)       0 : =80                MODE_STOP15_gc: equ     (2 << MODE_STOP_gp)
 (1)       0 : =C0                MODE_STOP2_gc:  equ     (3 << MODE_STOP_gp)
-(1)       0 : =20                MODE_EVEN_bm:   equ     00100000B
-(1)       0 : =10                MODE_PARITY_bm: equ     00010000B
+(1)       0 : =20                MODE_EVEN_bm:   equ     00100000B   ; Even parity
+(1)       0 : =10                MODE_PARITY_bm: equ     00010000B   ; Parity enable
 (1)       0 : =2                 MODE_LEN_gp:    equ     2
 (1)       0 : =C                 MODE_LEN_gm:    equ     00001100B
 (1)       0 : =0                 MODE_LEN5_gc:   equ     (0 << MODE_LEN_gp)
@@ -192,6 +193,7 @@
          52 : D0 83                      pop     DPH
          54 : 22                         ret
          55 :
+         55 :                    ;;; Put space
          55 :                    putspace:
          55 : 74 20                      mov     A, #' '
          57 :
@@ -278,8 +280,8 @@
          AF : 80 A6                      sjmp    putchar
          B1 :
          B1 :                    ;;; Print "v1 rel v2\n"
-         B1 :                    ;;; @param R2:R3 v1
-         B1 :                    ;;; @param R4:R5 v2
+         B1 :                    ;;; @param R3:R2 v1
+         B1 :                    ;;; @param R5:R4 v2
          B1 :                    comp:
          B1 : 11 6E                      acall   set_vAvB
          B3 : 51 CE                      acall   cmpsi2
@@ -532,7 +534,7 @@
 (1)     251 :
 (1)     251 :                    ;;; Print signed 16-bit integer as decimal
 (1)     251 :                    ;;; @param R0 &value
-(1)     251 :                    ;;; @clobber A
+(1)     251 :                    ;;; @clobber A B R1 R4 DPTR
 (1)     251 :                    print_int16:
 (1)     251 : E8                         mov     A, R0
 (1)     252 : C0 E0                      push    ACC             ; save R0
@@ -548,17 +550,18 @@
 (1)     261 : 74 2D                      mov     A, #'-'
 (1)     263 : 11 57                      acall   putchar         ; print '-'
 (1)     265 : 51 8C                      acall   neg_R3R2        ; negate value
-(1)     267 :                    ;;; Print unsigned 16-bit integer as decimal
+(1)     267 :                    ;;; Print unsigned 16-bit integer as decimal; entered only from
+(1)     267 :                    ;;; print_int16, which saved R0/R2/R3 on the stack
 (1)     267 :                    ;;; @param R3:R2 value
 (1)     267 :                    ;;; @param print_uint16_buf external data memory
-(1)     267 :                    ;;; @clobber A
+(1)     267 :                    ;;; @clobber A B R1 R4 DPTR
 (1)     267 :                    print_uint16:
 (1)     267 : 90 20 00                   mov     DPTR, #print_uint16_buf
 (1)     26A : E4                         clr     A
 (1)     26B : F0                         movx    @DPTR, A        ; mark EOS
 (1)     26C :                    print_uint16_loop:
 (1)     26C : 7C 0A                      mov     R4, #10
-(1)     26E : 71 50                      acall   udiv16_8        ; R2:R3/10=R2:R3...R4
+(1)     26E : 71 50                      acall   udiv16_8        ; R3:R2/10=R3:R2...R4
 (1)     270 : EC                         mov     A, R4           ; lo(remainder)
 (1)     271 : 24 30                      add     A, #'0'
 (1)     273 : A3                         inc     DPTR
@@ -633,7 +636,7 @@
 (1)     2AD :                    ;;; Signed addition: summand += addend
 (1)     2AD :                    ;;; @param R2: &summand
 (1)     2AD :                    ;;; @param R3: &addend
-(1)     2AD :                    ;;; @clobber A R2 R3
+(1)     2AD :                    ;;; @clobber A R0 R2 R3
 (1)     2AD :                    addsi2:
 (1)     2AD : EB                         mov     A, R3
 (1)     2AE : F8                         mov     R0, A           ; R0=&addend
@@ -695,7 +698,7 @@
 (1)     2D8 : E6                         mov     A, @R0          ; A=lo(minuend)
 (1)     2D9 : C3                         clr     C
 (1)     2DA : 9B                         subb    A, R3
-(1)     2DB : FB                         mov     R3, A           ; A=lo(minuend-subtrahend)
+(1)     2DB : FB                         mov     R3, A           ; R3=lo(minuend-subtrahend)
 (1)     2DC : 08                         inc     R0
 (1)     2DD : E6                         mov     A, @R0          ; A=hi(minuend)
 (1)     2DE : 9A                         subb    A, R2
@@ -726,7 +729,7 @@
 (1)     2FB :                    ;;; @param R3:R2 multiplicand
 (1)     2FB :                    ;;; @param R5:R4 multiplier
 (1)     2FB :                    ;;; @return R3:R2 result
-(1)     2FB :                    ;;; @clobber A R2 R3 R6 R7
+(1)     2FB :                    ;;; @clobber A B R2 R3 R6 R7
 (1)     2FB :                    umul16:
 (1)     2FB : EA                         mov     A, R2           ; A=lo(multiplicand)
 (1)     2FC : 8C F0                      mov     B, R4           ; B=lo(multiplier)
@@ -750,7 +753,7 @@
 (1)     311 :                    ;;; Signed multiplication: multiplicand *= multiplier
 (1)     311 :                    ;;; @param R2: &multiplicand
 (1)     311 :                    ;;; @param R3: &multiplier
-(1)     311 :                    ;;; @clobber A R0 R2 R3 R4 R5 R6 R7
+(1)     311 :                    ;;; @clobber A B R0 R2 R3 R4 R5 R6 R7
 (1)     311 :                    mulsi2:
 (1)     311 : EA                         mov     A, R2
 (1)     312 : C0 E0                      push    ACC             ; save &multiplicand
@@ -801,14 +804,14 @@
 (1)     347 :                    ;;; @param R5:R4 divisor
 (1)     347 :                    ;;; @return R3:R2 quotient
 (1)     347 :                    ;;; @return R5:R4 remainder
-(1)     347 :                    ;;; @clobber A R1 R2 R3 R4 R5 R6 R7
+(1)     347 :                    ;;; @clobber A B R1 R2 R3 R4 R5 R6 R7
 (1)     347 :                    udiv16:
 (1)     347 : ED                         mov     A, R5
 (1)     348 : 70 37                      jnz     udiv16_large    ; branch if divisor >= 256
 (1)     34A : 4C                         orl     A, R4
 (1)     34B : 60 2C                      jz      udiv16_zero     ; divide by zero
 (1)     34D : EB                         mov     A, R3
-(1)     34E : 60 21                      jz      udiv8_8         ; branch if divisor < 256
+(1)     34E : 60 21                      jz      udiv8_8         ; branch if dividend < 256
 (1)     350 :                    ;;; Unsigned division: dividend / divisor = quotient ... remainder
 (1)     350 :                    ;;; @param R3:R2 dividend
 (1)     350 :                    ;;; @param R4 divisor
@@ -818,7 +821,7 @@
 (1)     350 :                    udiv16_8:
 (1)     350 : EB                         mov     A, R3           ; high(dividend)
 (1)     351 : 8C F0                      mov     B, R4           ; divisor
-(1)     353 : 84                         div     AB              ; A=high(quotient), B=reminder of high
+(1)     353 : 84                         div     AB              ; A=high(quotient), B=remainder of high
 (1)     354 : FB                         mov     R3, A           ; R3=high(quotient)
 (1)     355 :                            ;; Divide B:R2 by R4 where B<R4
 (1)     355 : 79 08                      mov     R1, #8          ; loop counter
@@ -842,7 +845,7 @@
 (1)     36B : 0A                         inc     R2              ; set lowest bit as part of low(quotient)
 (1)     36C :                    udiv16_8_next:
 (1)     36C : D9 E9                      djnz    R1, udiv16_8_loop
-(1)     36E : AC F0                      mov     R4, B           ; R4=reminder
+(1)     36E : AC F0                      mov     R4, B           ; R4=remainder
 (1)     370 : 22                         ret
 (1)     371 :                    ;;; Unsigned division: dividend / divisor = quotient ... remainder
 (1)     371 :                    ;;; @param R2 dividend
@@ -853,7 +856,7 @@
 (1)     371 :                    udiv8_8:
 (1)     371 : EA                         mov     A, R2
 (1)     372 : 8C F0                      mov     B, R4           ; A=dividend, B=divisor
-(1)     374 : 84                         div     AB              ; A=quotient, B=reminder
+(1)     374 : 84                         div     AB              ; A=quotient, B=remainder
 (1)     375 : FA                         mov     R2, A
 (1)     376 : AC F0                      mov     R4, B
 (1)     378 : 22                         ret
@@ -866,7 +869,7 @@
 (1)     37E : FB                         mov     R3, A
 (1)     37F : FA                         mov     R2, A
 (1)     380 : 22                         ret
-(1)     381 :                    ;;; dividend > divisor
+(1)     381 :                    ;;; divisor >= 256, so the quotient fits in 8 bits
 (1)     381 :                    udiv16_large:
 (1)     381 : EB                         mov     A, R3
 (1)     382 : C3                         clr     C
@@ -880,7 +883,7 @@
 (1)     38D :                    udiv16_estimate:
 (1)     38D : EB                         mov     A, R3
 (1)     38E : 8D F0                      mov     B, R5
-(1)     390 : 84                         div     AB              ; A=estimated quotient
+(1)     390 : 84                         div     AB              ; A=estimated quotient, never too small
 (1)     391 : F9                         mov     R1, A           ; R1=estimated quotient
 (1)     392 :                    udiv16_refine:
 (1)     392 : E9                         mov     A, R1
@@ -917,7 +920,7 @@
 (1)     3B5 :                    ;;; Signed division: dividend /= divisor
 (1)     3B5 :                    ;;; @param R2: &dividend
 (1)     3B5 :                    ;;; @param R3: &divisor
-(1)     3B5 :                    ;;; @clobber A R0 R2 R3 R4 R5 R6 R7
+(1)     3B5 :                    ;;; @clobber A B R0 R2 R3 R4 R5 R6 R7
 (1)     3B5 :                    divsi2:
 (1)     3B5 : EA                         mov     A, R2
 (1)     3B6 : C0 E0                      push    ACC             ; save &dividend

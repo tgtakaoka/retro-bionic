@@ -40,7 +40,7 @@
 (1)       4 :                    ;;; R4: Link register, pointer to the return location and arguments
 (1)       4 :                    ;;;     passed by the calling program
 (1)       4 :
-(1)       4 :                    ;;; Call subroutine
+(1)       4 :                    ;;; Call subroutine; SCAL/SRET push and pop R4 via R(X), so X=2
 (1)       4 :                    ;;;   SCAL R4, subroutine
 (1)       4 :                    ;;;   DC   arguments...
 (1)       4 :                    ;;; Subroutine return
@@ -56,7 +56,7 @@
 (1)       4 :                    ;;; @return R1=scrt_isr
 (1)       4 :                    ;;; @return R2=stack
 (1)       4 :                    ;;; @return R3=main
-(1)       4 :                    ;;; @clobber D, R15
+(1)       4 :                    ;;; @return X=2
 (1)       4 :                    scrt_init:
 (1)       4 : 68 C3 00 09                rldi    R3, scrt_start
 (1)       8 : D3                         sep     R3              ; P=3
@@ -77,7 +77,7 @@
 (1)      1C : 72                         ldxa                    ; pop D
 (1)      1D : 70                         ret                     ; restore X,P IE=1
 (1)      1E :                            ;; R1 points scrt_isr
-(1)      1E :                    ;;; CDP1802 interrupt entry, X=2, P=1, IE=0
+(1)      1E :                    ;;; CDP1804A interrupt entry, X=2, P=1, IE=0
 (1)      1E :                    ;;; @unchanged D, DF, X, P, R3, R15
 (1)      1E :                    scrt_isr:
 (1)      1E :                            ;; R2[0] must be preserved because it may be in the pop process
@@ -162,7 +162,7 @@
         10B : E8                         sex     R8              ; R8 for out
         10C : 64                         out     ACIA_control    ; Master reset
         10D : 64                         out     ACIA_control    ; Set mode
-        10E : E3                         sex     R3
+        10E : E3                         sex     R3              ; RET/DIS take X:P from the inline byte
         10F : 70                         ret
         110 : 33                         dc      X'33'           ; enable interrupt
         111 : E2                         sex     R2
@@ -197,6 +197,7 @@
         137 :                    halt_to_system:
         137 : 00                         idl
         138 :
+        138 :                    ;;; Put character
         138 :                    ;;; @param D char
         138 :                    ;;; @unchanged D
         138 :                    ;;; @clobber R15
@@ -231,7 +232,7 @@
 (1)     151 : =3                 queue_get:      equ     3       ; queue get index
 (1)     151 : =4                 queue_buf:      equ     4       ; buffer start offset
 (1)     151 :
-(1)     151 :                    ;;; [queue] Initialize queue
+(1)     151 :                    ;;; [queue] Initialize queue; arguments follow the call inline
 (1)     151 :                    ;;; @param R4+0 queue work space pointer
 (1)     151 :                    ;;; @param R4+2 queue work space size
 (1)     151 :                    ;;; @clobber D, R15
@@ -256,13 +257,14 @@
 (1)     16A : E2                         sex     R2
 (1)     16B : 60                         irx
 (1)     16C : 68 6E                      rlxa    R14             ; restore R14
-(1)     16E : 22                         dec     R2
+(1)     16E : 22                         dec     R2              ; RLXA overshoots by one; SRET pre-increments
 (1)     16F : 68 94                      sret    R4
 (1)     171 :
 (1)     171 :                    ;;; [queue] Add an element to queue
 (1)     171 :                    ;;; @param R4+0 queue work space pointer
 (1)     171 :                    ;;; @param R7.0 an element
 (1)     171 :                    ;;; @return D 0 if queue is full
+(1)     171 :                    ;;; @clobber R15
 (1)     171 :                    queue_add:
 (1)     171 : 68 AE                      rsxd    R14             ; save R14
 (1)     173 : E4                         sex     R4
@@ -270,7 +272,7 @@
 (1)     176 : EF                         sex     R15
 (1)     177 : 72                         ldxa                    ; load queue_len
 (1)     178 : F3                         xor                     ; queue_len ^ queue_size
-(1)     179 : 32 A0                      bz      queue_add_return ; branch if D=0
+(1)     179 : 32 A0                      bz      queue_add_return ; branch if queue is full
 (1)     17B : 2F                         dec     R15
 (1)     17C : 8F                         glo     R15
 (1)     17D : FC 04                      adi     queue_buf
@@ -320,7 +322,7 @@
 (1)     1AB : E4                         sex     R4
 (1)     1AC : 68 6F                      rlxa    R15                 ; R15=queue space pointer
 (1)     1AE : 0F                         ldn     R15                 ; load queue_len
-(1)     1AF : 32 D7                      bz      queue_remove_return ; branch if D=0
+(1)     1AF : 32 D7                      bz      queue_remove_return ; branch if queue is empty
 (1)     1B1 : FF 01                      smi     1
 (1)     1B3 : 5F                         str     R15             ; queue_len--
 (1)     1B4 : 8F                         glo     R15
@@ -339,7 +341,7 @@
 (1)     1C3 : 9E                         ghi     R14
 (1)     1C4 : 7C 00                      adci    0
 (1)     1C6 : BE                         phi     R14             ; R14=&queue_buf[queue_get]
-(1)     1C7 : 0E                         ldn     R14             ; load an alement
+(1)     1C7 : 0E                         ldn     R14             ; load an element
 (1)     1C8 : A7                         plo     R7              ; R7.0=an element
 (1)     1C9 : 0F                         ldn     R15             ; load queue_get
 (1)     1CA : FC 01                      adi     1
@@ -347,7 +349,7 @@
 (1)     1CD : 2F                         dec     R15
 (1)     1CE : 2F                         dec     R15
 (1)     1CF : F3                         xor                     ; queue_get ^ queue_size
-(1)     1D0 : 3A D7                      bnz     queue_remove_return ; brnach if D!=0
+(1)     1D0 : 3A D7                      bnz     queue_remove_return ; branch if D!=0
 (1)     1D2 : 1F                         inc     R15
 (1)     1D3 : 1F                         inc     R15
 (1)     1D4 : 5F                         str     R15             ; queue_get=0

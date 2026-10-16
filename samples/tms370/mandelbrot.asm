@@ -14,6 +14,7 @@ tx_queue_size:  equ     128
 tx_queue:       .block  tx_queue_size
 
 ;;; Internal registers
+;;; A 16-bit variable names its low byte Rn; Rn-1 is the high byte
         org     00004H
 RdH:    .block  1
 RdL:    .block  1
@@ -40,7 +41,7 @@ vS:     .block  1
 vTH:    .block  1
 vTL:    .block  1
 vT:     equ     vTL
-cF:     equ     50
+cF:     equ     50              ; fixed-point scale
 vY:     .block  1
 vX:     .block  1
 vI:     .block  1
@@ -126,7 +127,7 @@ putchar_queued:
         include "queue.inc"
 
 isr_int1:
-        and     #~INT_FLAG & 0FFH, INT1 ; clear INT1_FLAG
+        and     #~INT_FLAG & 0FFH, INT1 ; clear INT_FLAG of INT1
         btjz    #IRQF_bm, ACIA_status, isr_int1_return
         push    A
         push    R2

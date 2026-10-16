@@ -5,13 +5,13 @@ VEC_INT4:       equ     >FFF6   Serial port
 INT4_F: equ     ?0010   INT4 flag
 INT4_E: equ     ?0001   INT4 enable
         ** SMODE
-STOP_bm:        equ     ?10000000       1=2 stop bits. 0=1 stop bits
+STOP_bm:        equ     ?10000000       1=2 stop bits, 0=1 stop bit
 CMODE_bm:       equ     ?01000000       1=Communication mode, 0=Serial I/O mode
 PEVEN_bm:       equ     ?00100000       1=Even parity, 0=Odd parity
 PEN_bm:         equ     ?00010000       1=Parity enable, 0=Parity disable
 CHAR8_bm:       equ     ?00001100       3=8 bits/char
 ASYNC_bm:       equ     ?00000010       1=Asynchronous, 0=Synchronous
-MULTI_bm:       equ     ?00000001       1=Intel protocol, 0-Motorola protocol
+MULTI_bm:       equ     ?00000001       1=Intel protocol, 0=Motorola protocol
         ** SCTL0
 UR_bm:          equ     ?01000000       1=Reset serial port
 ER_bm:          equ     ?00010000       1=Reset error flags

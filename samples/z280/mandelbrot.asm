@@ -11,6 +11,7 @@ tx_queue:       ds      tx_queue_size
         org     1000H
 stack:          equ     $
 
+;;; Mode 2 vectors: I holds HIGH vec_base, the USART supplies the low byte
 vec_base:       equ     $
         org     vec_base+12H
 vec_rx: dw      isr_intr_rx
@@ -82,7 +83,7 @@ loop:
 
 ;;; Get character
 ;;; @return A
-;;; @return CC.C 0 if no character
+;;; @return F.C 0 if no character
 getchar:
         push    HL
         ld      HL, rx_queue
@@ -120,7 +121,7 @@ putchar_exit:
         pop     AF
         ret
 
-;;; Put newline
+;;; Put space
 ;;; @clobber A
 putspace:
         ld      A, ' '
@@ -130,6 +131,8 @@ putspace:
         include "arith.inc"
         include "queue.inc"
 
+;;; Wait until the Tx queue is empty
+;;; @clobber A HL
 wait_tx_finish:
         ld      HL, tx_queue
         ld      A, (HL)

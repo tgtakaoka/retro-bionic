@@ -17,6 +17,8 @@ ACIA:   equ     >0080
 workspace:
         bss     2*16
 
+        * R10 is the stack pointer; BLSK pushes the return address
+        * and BIND *R10+ returns.  Leaf routines use BL and RT.
         org     >2000
 stack:          equ     $
 
@@ -54,7 +56,7 @@ putchar_loop:
         bind    *R10+
 
         *** Print "R1 op R2"
-        *** @params R0 op letter
+        *** @param R0 op letter in high byte
         *** @clobber R0
 expr:
         dect    R10
@@ -81,7 +83,7 @@ answer:
         blsk    R10, newline
         bind    *R10+
 
-        *** Print "R1 rel R2"
+        *** Print "R1 rel R2" where rel is the signed comparison
         *** @clobber R0
 comp:
         c       R1, R2

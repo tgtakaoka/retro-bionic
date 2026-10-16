@@ -16,6 +16,7 @@ RX_EN_TX_EN:    equ     CMD_RTS_bm|CMD_DTR_bm|CMD_ER_bm|CMD_RxEN_bm|CMD_TxEN_bm
         dc      initialize      IC
 
         loc     ZERO_PAGE
+*** Zero-page pointers for indirect BAL to distant routines
 I_putchar:      dc      putchar
 I_newline:      dc      newline
 I_print_int16:  dc      print_int16
@@ -97,7 +98,7 @@ expr:
 
 *** Print " = value\n"
 *** @param R1 value
-*** @clobber R1
+*** @clobber R0 R1 R2
 answer:
         mvi     R0, ' '
         bal     (I_putchar)     print ' '

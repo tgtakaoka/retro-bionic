@@ -131,10 +131,13 @@
         140 :                    workspace_int15:
         140 :                            bss     2*16            R0-R15
         160 :
+        160 :                    *** INT2: illegal or privileged opcode
         160 :                    illop:
         160 : 2FCF                       xop     R15,15          halt to system
         162 :
         162 :
+        162 :                            * R10 is the stack pointer; BLSK pushes the return address
+        162 :                            * and BIND *R10+ returns.  Leaf routines use BL and RT.
        2000 :                            org     >2000
        2000 : =2000              stack:          equ     $
        2000 : =80                rx_queue_size:  equ     128
@@ -167,6 +170,7 @@
         23E :                    *** Get character
         23E :                    *** @return R0
         23E :                    *** @return ST.C 0 if no character
+        23E :                    *** @clobber R9
         23E :                    getchar:
         23E : 064A                       dect    R10
         240 : C681                       mov     R1, *R10        Push R1
@@ -184,6 +188,8 @@
         262 : 00BA 026C                  blsk    R10, putchar
         266 : 017A                       bind    *R10+           Pop return address
         268 :
+        268 :                    *** Queue R0 high byte for the Tx interrupt
+        268 :                    *** @clobber R9
         268 :                    putspace:
         268 : 0200 2000                  li      R0, hibyte(' ')
         26C :                    putchar:
@@ -203,7 +209,7 @@
 (1)     28C :
 (1)     28C :                    *** Print variable: "name=variable "
 (1)     28C :                    *** @param R2 float variable address
-(1)     28C :                    *** @param R0 variable name
+(1)     28C :                    *** @param R0 variable name letter in high byte
 (1)     28C :                    *** @clobber R0 R1
 (1)     28C :                    fprint:
 (1)     28C : 064A                       dect    R10
@@ -212,10 +218,11 @@
 (1)     292 : 0C00                       cri                     R0=integer value
 (1)     294 : C040                       mov     R0, R1
 (1)     296 : C03A                       mov     *R10+, R0       Pop variable name
+(1)     298 :                            * Fall through
 (1)     298 :                    *** Print variable: "name=variable "
 (1)     298 :                    *** @param R1 variable
-(1)     298 :                    *** @param R0 variable name
-(1)     298 :                    *** @clobber R0 R1
+(1)     298 :                    *** @param R0 variable name letter in high byte
+(1)     298 :                    *** @clobber R0
 (1)     298 :                    print:
 (1)     298 : 00BA 026C                  blsk    R10, putchar        Print name
 (1)     29C : 0200 3D00                  li      R0, hibyte('=')
@@ -239,6 +246,9 @@
 (1)     2CC :                    vX:     bss     2
 (1)     2CE :                    vI:     bss     2
 (1)     2D0 :
+(1)     2D0 :                    *** Print the Mandelbrot set for Y=-12..12, X=-49..29 in single float;
+(1)     2D0 :                    *** each point shows its escape iteration 0-F, or a space if it never
+(1)     2D0 :                    *** escapes.  A NUL received halts the CPU.
 (1)     2D0 :                    fmandel:
 (1)     2D0 : 0200 FFF4                  li      R0, -12
 (1)     2D4 : C800 02CA                  mov     R0, @vY         Y=-12
@@ -249,11 +259,11 @@
 (1)     2E0 : 0CA0 02CC                  cir     @vX
 (1)     2E4 : C060 02CC                  mov     @vX, R1
 (1)     2E8 : 0D20 02B0                  mr      @kCA            X*0.0458
-(1)     2EC : 0DE0 02B8                  str     @vCA            CA=X*0.0457
+(1)     2EC : 0DE0 02B8                  str     @vCA            CA=X*0.0458
 (1)     2F0 : 0DE0 02C0                  str     @vA             A=CA
 (1)     2F4 : 0CA0 02CA                  cir     @vY
 (1)     2F8 : 0D20 02B4                  mr      @kCB            Y*0.08333
-(1)     2FC : 0DE0 02BC                  str     @vCB            CB=y*0.08333
+(1)     2FC : 0DE0 02BC                  str     @vCB            CB=Y*0.08333
 (1)     300 : 0DE0 02C4                  str     @vB             B=CB
 (1)     304 : 04E0 02CE                  clr     @vI             I=0
 (1)     308 :
@@ -318,7 +328,7 @@
 (1)     350 :
 (1)     350 : C020 02C8                  mov     @vT, R0
 (1)     354 : 0280 0004                  ci      R0, 4
-(1)     358 : 1514                       jgt     print_i         if 4<P*P+Q*Q
+(1)     358 : 1514                       jgt     print_i         if 4<A*A+B*B
 (1)     35A : 05A0 02CE                  inc     @vI             I+=1
 (1)     35E : C020 02CE                  mov     @vI, R0
 (1)     362 : 0280 0010                  ci      R0, 16
@@ -352,10 +362,10 @@
 (1)     38E :                            * blsk    R10, newline
 (1)     38E :
 (1)     38E : 00BA 023E                  blsk    R10, getchar
-(1)     392 : 1703                       jnc     next_x
-(1)     394 : E000                       soc     R0, R0
+(1)     392 : 1703                       jnc     next_x          No input
+(1)     394 : E000                       soc     R0, R0          Test R0
 (1)     396 : 1601                       jne     next_x
-(1)     398 : 2FCF                       xop     R15,15          halt to system
+(1)     398 : 2FCF                       xop     R15,15          NUL; halt to system
 (1)     39A :                    next_x:
 (1)     39A : 05A0 02CC                  inc     @vX             X+=1
 (1)     39E : C020 02CC                  mov     @vX, R0
@@ -401,24 +411,28 @@
 (1)     3F4 : 00BA 026C                  blsk    R10, putchar
 (1)     3F8 : 10F9                       jmp     print_int16_return
 (1)     3FA :
+(1)     3FA :                            *** Print unsigned decimal recursively, most significant digit first
+(1)     3FA :                            *** @param R0 value; 0 prints nothing
+(1)     3FA :                            *** @param R2 radix 10
+(1)     3FA :                            *** @clobber R0 R1
 (1)     3FA :                    print_uint16_loop:
 (1)     3FA : C040                       mov     R0, R1
 (1)     3FC : 130C                       jeq     print_uint16_return
 (1)     3FE : 04C0                       clr     R0
-(1)     400 : 3C02                       div     R2, R0          R0:R1/R2 ; R0=quotient R1=reminder
+(1)     400 : 3C02                       div     R2, R0          R0:R1/R2 ; R0=quotient R1=remainder
 (1)     402 : 064A                       dect    R10
-(1)     404 : C681                       mov     R1, *R10        Push reminder
+(1)     404 : C681                       mov     R1, *R10        Push remainder
 (1)     406 : 00BA 03FA                  blsk    R10, print_uint16_loop
-(1)     40A : C03A                       mov     *R10+, R0       Pop reminder
+(1)     40A : C03A                       mov     *R10+, R0       Pop remainder
 (1)     40C : 06C0                       swpb    R0
 (1)     40E : 0220 3000                  ai      R0, hibyte('0')
 (1)     412 : 00BA 026C                  blsk    R10, putchar
 (1)     416 :                    print_uint16_return:
 (1)     416 : 017A                       bind    *R10+           Pop return address
 (1)     418 :
-(1)     418 :                            *** Unsigned Divide
-(1)     418 :                            *** R1 / |R2| = R1
-(1)     418 :                            *** @clobber R2
+(1)     418 :                            *** Divide by positive divisor, quotient only
+(1)     418 :                            *** R1 / R2 = R1 (R2 > 0)
+(1)     418 :                            *** @clobber R0
 (1)     418 :                    udiv16:
 (1)     418 : 0281 0000                  ci      R1, 0
 (1)     41C : 1104                       jlt     udiv16_negative R1 < 0
@@ -432,7 +446,7 @@
 (1)     42A : C040                       mov     R0, R1
 (1)     42C : 045B                       rt
         42E :                            include "../tms9900/queue.inc"
-(1)     42E :                    *** -*- mode: asm; mode: flying-spell; -*-
+(1)     42E :                    *** -*- mode: asm; mode: flyspell-prog; -*-
 (1)     42E :                    *** [queue] queue structure
 (1)     42E : =0                 queue_len:      equ     0       ; queue length
 (1)     42E : =2                 queue_size:     equ     2       ; buffer size
@@ -459,8 +473,8 @@
 (1)     444 :
 (1)     444 :                    *** [queue] Add an element to queue
 (1)     444 :                    *** @param R9 queue work space pointer
-(1)     444 :                    *** @param R0 an element
-(1)     444 :                    *** @return CC.C 0 if queue is full
+(1)     444 :                    *** @param R0 an element in high byte
+(1)     444 :                    *** @return ST.C 0 if queue is full
 (1)     444 :                    *** @clobber R1
 (1)     444 :                    queue_add:
 (1)     444 : 8A59 0002                  c       *R9, @queue_size(R9)    check queue_len
@@ -486,8 +500,8 @@
 (1)     472 :
 (1)     472 :                    *** [queue] Remove an element from queue
 (1)     472 :                    *** @param R9 queue work space pointer
-(1)     472 :                    *** @return R0 an element
-(1)     472 :                    *** @return CC.C 0 if queue is empty
+(1)     472 :                    *** @return R0 an element in high byte
+(1)     472 :                    *** @return ST.C 0 if queue is empty
 (1)     472 :                    *** @clobber R1
 (1)     472 :                    queue_remove:
 (1)     472 : C059                       mov     *R9, R1                 check queue_len
@@ -509,6 +523,7 @@
 (1)     498 : 0911                       srl     R1, 1                   set/clear ST.C
 (1)     49A : 045B                       rt
         49C :
+        49C :                    *** ACIA interrupt; runs in its own workspace, so no registers need saving
         49C :                    int15_isr:
         49C : D020 0080                  movb    @ACIA_status, R0
         4A0 : 0240 0100                  andi    R0, hibyte(RDRF_bm)
@@ -527,7 +542,6 @@
         4CA :                    int15_isr_exit:
         4CA : 0380                       rtwp
         4CC :                    int15_isr_send_empty:
-        4CC :                            * Disable Tx interrupt
         4CC : 0201 2000                  li      R1, hibyte(TCB_EI_gc)
         4D0 : 5801 0080                  szcb    R1, @ACIA_control       Disable Tx interrupt
         4D4 : 0380                       rtwp

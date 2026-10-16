@@ -39,7 +39,7 @@ IMR_IRQ4:       equ     (1 SHL 4)
 IMR_IRQ5:       equ     (1 SHL 5)
 IMR_IRQ6:       equ     (1 SHL 6)
 IMR_IRQ7:       equ     (1 SHL 7)
-SYM:    equ     %DE                  ; R/W; System Mode
+SYM:    equ     %DE                  ; R/W: System Mode
 SYM_INTR:       equ     %(2)00000001 ; Global interrupt enable
 SYM_FAST:       equ     %(2)00000010 ; Fast interrupt enable
 SYM_FAST_gm:    equ     %(2)111      ; Fast interrupt select mask
@@ -57,7 +57,7 @@ VEC_UART_ERROR: equ     %0010   ; IRQ6: UART overrun/framing/parity error
 VEC_UART_BREAK: equ     %0012   ; IRQ6: UART break/control char/wake-up
 VEC_UART_RECV:  equ     %0014   ; IRQ6: UART receive/P30 external
 VEC_IRQ6_P20:   equ     %0016   ; IRQ6: P20 external
-VEC_IRQ1_P21:   equ     %0018   ; IRQ1: UART zero/P21 external
+VEC_IRQ1_P21:   equ     %0018   ; IRQ1: UART zero count/P21 external
 VEC_UART_TRNS:  equ     %001A   ; IRQ1: UART transmit/P31 external
 VEC_IRQ4:       equ     %001C   ; IRQ4: P24/P25 external
 VEC_IRQ7:       equ     %001E   ; IRQ7: P34/P35 external
@@ -79,7 +79,7 @@ H1C:    equ     %F5                   ; W/O: Handshake 1 Control
 P4D:    equ     %F6             ; W/O: Port 4 direction: 1=in, 0=out
 P4OD:   equ     %F7 ; W/O: Port 4 open-drain: 1=open-drain, 0=push-pull
 P2AM:   equ     %F8 ; W/O: Port 2/3 A mode; P31,P30,P21,P20
-P2BM:   equ     %F9 ; W/O: Port 2/3 B mode; P33,P32,P23,P21
+P2BM:   equ     %F9 ; W/O: Port 2/3 B mode; P33,P32,P23,P22
 P2CM:   equ     %FA ; W/O: Port 2/3 C mode; P35,P34,P25,P24
 P2DM:   equ     %FB ; W/O: Port 2/3 D mode; P37,P36,P27,P26
 P2M_IN_gm:      equ     %(2)00     ; input
@@ -155,6 +155,6 @@ UMB_COS_P21:    equ     %(2)00000000 ; P21=I/O
 UMB_COS_SYSTEM: equ     %(2)01000000 ; P21=System clock (XTAL/2)
 UMB_COS_BAUD:   equ     %(2)10000000 ; P21=Baud-rate generator output
 UMB_COS_TDR:    equ     %(2)11000000 ; P21=Transmit data rate
-;;; UBRG=1/(2 x baud-rate x UMA_CR x BRG-input) - 1
+;;; UBG=BRG-input / (2 x baud-rate x UMA_CR) - 1
 UBG0:   equ     %F8             ; BANK1: UART Baud-Rate Generator 0
 UBG1:   equ     %f9             ; BANK1: UART Baud-Rate Generator 1

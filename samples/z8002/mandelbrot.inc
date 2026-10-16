@@ -3,7 +3,10 @@
 ;;; DIV divides it rounded toward zero, the remainder with the dividend's
 ;;; sign, as C does.
 
-Fv:     equ     50
+Fv:     equ     50              ; fixed-point 1.0
+;;; Print one 79x25 frame of the Mandelbrot set: each point is its
+;;; escape iteration in hex, or a space if it does not escape in 16.
+;;; Exits to the debugger when NUL is received.
 mandelbrot:
         ld      r1, #-12
         ld      vY, r1          ; Y=-12

@@ -1,5 +1,5 @@
 ;;; -*- mode: asm; mode: flyspell-prog; -*-
-;;; [queue] queue structure
+;;; [queue] queue structure, in external data memory (LDE)
 queue_len:      equ     0       ; queue length
 queue_size:     equ     1       ; buffer size
 queue_put:      equ     2       ; queue put index
@@ -72,7 +72,7 @@ queue_add_update:
         decw    RR2
         decw    RR2             ; RR2 points queue_len
         scf                     ; set carry flag
-        pop     R4              ; restpre R1, R4
+        pop     R4              ; restore R1, R4
         pop     R1              ; restore R1
         ret
 

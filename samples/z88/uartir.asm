@@ -23,9 +23,9 @@ init_config:
         ld      R1, #rx_queue_size
         call    queue_init
 
-;;; XTAL=14.7546MHz
+;;; XTAL=14.7456MHz
 ;;; clock divider N=32, baud-rate generator UBG=11
-;;; bit rate = (14,754,600 / 4) / (2 x (UBG+1) x N) = 9600 bps
+;;; bit rate = (14,745,600 / 4) / (2 x (UBG+1) x N) = 9600 bps
 init_uart:
         ld      P2AM, #P2M_OUTPP_gm SHL 6   ; P31/TXD=output
         or      PORT3, #1                   ; TXD=high

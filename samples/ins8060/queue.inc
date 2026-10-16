@@ -1,4 +1,6 @@
 ;;; -*- mode: asm; mode: flyspell-prog; -*-
+;;; Routines are called by XPPC P1; each exit XPPC sits just before the
+;;; entry, so the return leaves P1 ready for the next call.
 ;;; [queue] queue structure
 queue_len       =       0       ; queue length
 queue_size      =       1       ; buffer size
@@ -7,7 +9,7 @@ queue_get       =       3       ; queue get index
 queue_buf       =       4       ; buffer start offset
 
 ;;; [queue] Initialize queue
-;;; @param A queue space size
+;;; @param A queue space size, including the 4-byte header
 ;;; @param P1 return address pointer
 ;;; @param P1[1:2] queue space pointer
 ;;; @clobber A
@@ -25,7 +27,7 @@ queue_init:
         st      @-2(P2)         ; save lo(queue space)
         ld      0(P1)
         xpah    P1
-        st      1(P2)           ; P[1:0] push P1
+        st      1(P2)           ; P2[1:0] push P1
         ld      0(P2)
         xpal    P1              ; P1=queue space pointer
         st      0(P2)
@@ -152,7 +154,7 @@ queue_not_empty:
         xpah    P1
         ild     queue_get(P1)   ; advanced queue_get
         xor     queue_size(P1)
-        jnz     queue_remove_end ; branch if queue_put != queue_size
+        jnz     queue_remove_end ; branch if queue_get != queue_size
         st      queue_get(P1)   ; reset queue_get
 queue_remove_end:
         ldi     1

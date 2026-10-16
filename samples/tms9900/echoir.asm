@@ -23,7 +23,7 @@ hibyte: function v,(v)*256      Hi byte constant
 workspace:
         bss     2*16            R0-R15
 workspace_int1:
-        bss     2*16            R0~R15
+        bss     2*16            R0-R15
 
         org     >2000
 rx_queue_size:  equ     128
@@ -69,6 +69,7 @@ putchar:
 
         include "queue.inc"
 
+        *** Runs in workspace_int1; RTWP restores the caller's WP, PC and ST
 int1_isr:
         movb    @ACIA_status, R0
         andi    R0, hibyte(RDRF_bm)

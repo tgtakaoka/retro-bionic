@@ -4,6 +4,7 @@
 ;;; Print variable: "A=variable "
 ;;; @param X variable
 ;;; @param A variable letter
+;;; @clobber D X
 print:
         jsr     putchar         ; print variable letter
         lda     #'='
@@ -30,9 +31,9 @@ loop_x:
         ldb     vY
         sex                     ; D=Y
         ldx     #416
-        jsr     mul16           ; R0=Y*416
+        jsr     mul16           ; D=Y*416
         ldx     #100
-        jsr     div16           ; R0=Y*416/100
+        jsr     div16           ; D=Y*416/100
         std     vD              ; D=Y*416/100
         std     vB              ; B=D
         clr     vI              ; I=0
@@ -56,9 +57,10 @@ loop_x:
         ;; jsr     newline
 
 loop_i:
+        ;; A*B/F = A*Q+A*S/F with Q=B/F, S=B-Q*F; keeps products in 16 bits
         ldd     vB
         ldx     #F
-        jsr     div16           ; R0=B/F
+        jsr     div16           ; D=B/F
         std     vQ              ; Q=B/F
         ldx     #-F
         jsr     mul16           ; -Q*F
@@ -73,7 +75,7 @@ loop_i:
         jsr     mul16           ; A*A
         subd    ,S++            ; A*A-B*B
         ldx     #F
-        jsr     div16           ; R0=(A*A-B*B)/F
+        jsr     div16           ; D=(A*A-B*B)/F
         addd    vC
         pshs    D               ; push (A*A-B*B)/F+C
         ldd     vA
@@ -163,7 +165,7 @@ print_char:
         jsr     getchar
         bcc     next_x
         tsta
-        bne     next_x
+        bne     next_x          ; halt on NUL
         swi                     ; halt to system
 next_x:
         inc     vX              ; X+=1

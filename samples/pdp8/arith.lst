@@ -21,6 +21,7 @@
 (1)       0 :                    /// -*- mode: asm; mode: flyspell-prog; -*-
 (1)       0 :                    /// MC6850
 (1)       0 :                    /// Asynchronous Communication Interface Adapter
+(1)       0 :                    /// IOT function: +1 selects the data register, +4 writes
 (1)       0 : =0                 ACIA_status     = 0
 (1)       0 : =4                 ACIA_control    = 4
 (1)       0 : =1                 ACIA_receive    = 1
@@ -61,7 +62,7 @@
           0 :
        7776 :                            *ORG_RESET-1
        7776 : 0200                       initialize
-       7777 : 5776                       jmp     I .-1
+       7777 : 5776                       jmp     I .-1           / reset starts here
       10000 :
          20 :                            *PAGE0
          20 : 0232               I_putchar,      putchar
@@ -137,6 +138,7 @@
         232 :
         232 :                    /// Print character
         232 :                    /// @param AC character
+        232 :                    /// @return AC character
         232 : 0000               putchar,        .-.
         233 : 3245                       dca     putchar_char    / Save character
         234 :                    putchar_loop,
@@ -499,7 +501,7 @@
        1115 : 1047                       tad     VAH
        1116 : 3041                       dca     R0H
        1117 : 5671                       jmp     I expr          / return, AC=0
-       1120 :                    expr_op,
+       1120 :                    expr_op,                        / shares answer's return-address word
        1120 :
        1120 :                    /// Print answer; " = C\n"
        1120 :                    /// @param R0 value of C
@@ -727,13 +729,13 @@
 (1)    1471 : 3437                       dca     I arith_ptr     / store high(source), AC=0
 (1)    1472 : 5654                       jmp     I neg24         / return
 (1)    1473 :
-(1)    1473 :                    // Unsigned 16-bit division; quotient = dividend / divisor ... remainder
-(1)    1473 :                    // @param R1 Unsigned 16-bit dividend
-(1)    1473 :                    // @param R2 Unsigned 16-bit divisor
-(1)    1473 :                    // @return R0 quotient
-(1)    1473 :                    // @return R1 remainder
-(1)    1473 :                    // @return AC=0
-(1)    1473 :                    // @clobber R2 arith_ptr
+(1)    1473 :                    /// Unsigned 24-bit division; quotient = dividend / divisor ... remainder
+(1)    1473 :                    /// @param R1 Unsigned 24-bit dividend
+(1)    1473 :                    /// @param R2 Unsigned 24-bit divisor
+(1)    1473 :                    /// @return R0 quotient
+(1)    1473 :                    /// @return R1 remainder
+(1)    1473 :                    /// @return AC=0
+(1)    1473 :                    /// @clobber R2 arith_ptr
 (1)    1473 : 0000               udiv16_bits,    0
 (1)    1474 : 0000               udiv16,         .-.
 (1)    1475 : 7200                       cla
@@ -743,7 +745,7 @@
 (1)    1501 : 7450                       sna                     / skip if low(divisor) != 0
 (1)    1502 : 1045                       tad     R2H
 (1)    1503 : 7450                       sna                     / skip if divisor != 0
-(1)    1504 : 5674                       jmp     I udiv16        / return as divide by zero, AC=0
+(1)    1504 : 5674                       jmp     I udiv16        / divide by zero: R0=0, R1 unchanged
 (1)    1505 : 7201                       cla iac                 / AC=1
 (1)    1506 : 3273                       dca     udiv16_bits     / bits=1, AC=0
 (1)    1507 :                    udiv16_prep,
@@ -814,7 +816,7 @@
        1600 :                    /// @param (PC+1) multiplier source address
        1600 :                    /// @return R0 product
        1600 :                    /// @return AC=0
-       1600 :                    /// @clobber R1 R2
+       1600 :                    /// @clobber R1 R2 arith_ptr
        1600 : 0000               mul24_sign,     0
        1601 : 0000               mul24,          .-.
        1602 : 7200                       cla
@@ -859,9 +861,9 @@
        1644 :                    /// @param R0 dividend
        1644 :                    /// @param (PC+1) signed 24-bit divisor address
        1644 :                    /// @return R0 quotient
-       1644 :                    /// @return R1 remainder
+       1644 :                    /// @return R1 remainder of |dividend|/|divisor|, unsigned
        1644 :                    /// @return AC=0
-       1644 :                    /// @clobber R2
+       1644 :                    /// @clobber R2 arith_ptr
        1644 : 0000               div24_sign,     0
        1645 : 0000               div24,          .-.
        1646 : 7200                       cla
@@ -886,7 +888,7 @@
        1670 : 1041                       tad     R0H
        1671 : 3043                       dca     R1H
        1672 : 1043                       tad     R1H
-       1673 : 7500                       sma                     / skip if R0H<0
+       1673 : 7500                       sma                     / skip if dividend<0
        1674 : 5300                       jmp     div24_divide
        1675 : 2244                       isz     div24_sign      / sign++
        1676 : 4425                       jms     I I_neg24       / negate dividend

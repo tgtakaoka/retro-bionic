@@ -25,7 +25,7 @@
 (1)       0 :                    ;;; MC6850
 (1)       0 :                    ;;; Asynchronous Communication Interface Adapter
 (1)       0 :
-(1)       0 :                    ;;; Control register
+(1)       0 :                    ;;; Control register (write)
 (1)       0 : =DF00              ACIA_control    =       ACIA+0
 (1)       0 :                            ;; Counter Divider Select Bits
 (1)       0 : =3                 CDS_gm          =       %11    ; Group mask
@@ -52,7 +52,7 @@
 (1)       0 :                                                      ; Transmit Break Level
 (1)       0 : =80                RIEB_bm         =       %10000000 ; Receive Interrupt Enable Bit mask
 (1)       0 :
-(1)       0 :                    ;;; Status register
+(1)       0 :                    ;;; Status register (read)
 (1)       0 : =DF00              ACIA_status     =       ACIA+0
 (1)       0 : =1                 RDRF_bm         =       %00000001 ; Receive Data Register Full
 (1)       0 : =2                 TDRE_bm         =       %00000010 ; Transmit Data Register Empty
@@ -64,7 +64,7 @@
 (1)       0 : =80                IRQF_bm         =       %10000000 ; Interrupt Request Flag
 (1)       0 :
 (1)       0 :                    ;;; Data register
-(1)       0 : =DF01              ACIA_data       =       ACIA+1          ; Data register
+(1)       0 : =DF01              ACIA_data       =       ACIA+1
           0 :
           0 :
        FFFC :                            *=      VEC_RESET
@@ -75,7 +75,7 @@
        1000 :                    initialize:
        1000 : A2 FF                      ldx     #stack & 0xFF
        1002 : 9A                         txs
-       1003 : D8                         cld                     ; clear decimal flag
+       1003 : D8                         cld                     ; D is undefined after reset
        1004 : A9 03                      lda     #CDS_RESET_gc   ; Master reset
        1006 : 8D 00 DF                   sta     ACIA_control
        1009 : A9 14                      lda     #WSB_8N1_gc     ; 8 bits + No Parity + 1 Stop Bits
@@ -85,10 +85,10 @@
        100E :                    loop:
        100E : 20 26 10                   jsr     getchar
        1011 : 09 00                      ora     #0
-       1013 : F0 0F                      beq     halt_to_system
+       1013 : F0 0F                      beq     halt_to_system  ; NUL halts
        1015 : 20 31 10                   jsr     putchar
        1018 : C9 0D                      cmp     #$0D
-       101A : D0 F2                      bne     loop
+       101A : D0 F2                      bne     loop            ; follow CR with LF
        101C : A9 0A                      lda     #$0A
        101E : 20 31 10                   jsr     putchar
        1021 : 4C 0E 10                   jmp     loop
@@ -96,6 +96,8 @@
        1024 : 00                         brk
        1025 : 00                         .byte     0             ; halt to system
        1026 :
+       1026 :                    ;;; Wait for a character
+       1026 :                    ;;; @return A character
        1026 :                    getchar:
        1026 : AD 00 DF                   lda     ACIA_status
        1029 : 29 01                      and     #RDRF_bm
@@ -103,6 +105,8 @@
        102D : AD 01 DF                   lda     ACIA_data
        1030 : 60                         rts
        1031 :
+       1031 :                    ;;; Wait until Tx is ready and send a character
+       1031 :                    ;;; @param A character
        1031 :                    putchar:
        1031 : 48                         pha
        1032 :                    putchar_loop:

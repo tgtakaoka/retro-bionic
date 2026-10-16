@@ -22,19 +22,20 @@
 (1)       0 : =200               USARTD: equ     USART+0         ; Data register
 (1)       0 : =202               USARTS: equ     USART+2         ; Status register
 (1)       0 : =202               USARTC: equ     USART+2         ; Control register
-(1)       0 : =204               USARTRV:        equ     USART+4 ; Receive interrupt vector (ORG_*)
-(1)       0 : =206               USARTTV:        equ     USART+6 ; Transmit interrupt vector (ORG_*)
+(1)       0 : =204               USARTRV:        equ     USART+4 ; Receive interrupt enable (EXTINT), 0=off
+(1)       0 : =206               USARTTV:        equ     USART+6 ; Transmit interrupt enable (EXTINT), 0=off
 (1)       0 :                            include "i8251.inc"
 (2)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
 (2)       0 :
 (2)       0 :                    ;;; i8251 USART device emulator.
+(2)       0 :                    ;;; Bit definition of mode instruction (asynchronous)
 (2)       0 : =6                 MODE_STOP_gp:   equ     6
 (2)       0 : =C0                MODE_STOP_gm:   equ     11000000B
 (2)       0 : =40                MODE_STOP1_gc:  equ     (1 << MODE_STOP_gp)
 (2)       0 : =80                MODE_STOP15_gc: equ     (2 << MODE_STOP_gp)
 (2)       0 : =C0                MODE_STOP2_gc:  equ     (3 << MODE_STOP_gp)
-(2)       0 : =20                MODE_EVEN_bm:   equ     00100000B
-(2)       0 : =10                MODE_PARITY_bm: equ     00010000B
+(2)       0 : =20                MODE_EVEN_bm:   equ     00100000B   ; Even parity
+(2)       0 : =10                MODE_PARITY_bm: equ     00010000B   ; Parity enable
 (2)       0 : =2                 MODE_LEN_gp:    equ     2
 (2)       0 : =C                 MODE_LEN_gm:    equ     00001100B
 (2)       0 : =0                 MODE_LEN5_gc:   equ     (0 << MODE_LEN_gp)
@@ -105,7 +106,7 @@
        20BB :                    receive_data:
        20BB : B3 01 00 02 1B             ldb     B, USARTD
        20C0 : 90 1B 1B                   orb     B, B
-       20C3 : DF 17                      je      halt_to_system
+       20C3 : DF 17                      je      halt_to_system  ; NUL halts
        20C5 :                    transmit_loop:
        20C5 : B3 01 02 02 1A             ldb     A, USARTS
        20CA : 30 1A F8                   jbc     A, ST_TxRDY_bp, transmit_loop
@@ -113,7 +114,7 @@
        20CD : C7 01 00 02 1B             stb     B, USARTD
        20D2 : 99 0D 1B                   cmpb    B, #0DH
        20D5 : D7 DC                      jne     receive_loop
-       20D7 : B1 0A 1B                   ldb     B, #0AH
+       20D7 : B1 0A 1B                   ldb     B, #0AH         ; follow CR with LF
        20DA : 27 E9                      sjmp    transmit_loop
        20DC :
        20DC :                    halt_to_system:

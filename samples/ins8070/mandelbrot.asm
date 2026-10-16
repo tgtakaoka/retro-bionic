@@ -143,7 +143,7 @@ isr_irq_send_empty:
 isr_irq_exit:
         pop     P2
         pop     ea
-        or      S, =S_IE
+        or      S, =S_IE        ; IE was cleared on interrupt
         ret
 
         end

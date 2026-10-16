@@ -170,13 +170,13 @@ neg24,          .-.
         dca     I arith_ptr     / store high(source), AC=0
         jmp     I neg24         / return
 
-// Unsigned 16-bit division; quotient = dividend / divisor ... remainder
-// @param R1 Unsigned 16-bit dividend
-// @param R2 Unsigned 16-bit divisor
-// @return R0 quotient
-// @return R1 remainder
-// @return AC=0
-// @clobber R2 arith_ptr
+/// Unsigned 24-bit division; quotient = dividend / divisor ... remainder
+/// @param R1 Unsigned 24-bit dividend
+/// @param R2 Unsigned 24-bit divisor
+/// @return R0 quotient
+/// @return R1 remainder
+/// @return AC=0
+/// @clobber R2 arith_ptr
 udiv16_bits,    0
 udiv16,         .-.
         cla
@@ -186,7 +186,7 @@ udiv16,         .-.
         sna                     / skip if low(divisor) != 0
         tad     R2H
         sna                     / skip if divisor != 0
-        jmp     I udiv16        / return as divide by zero, AC=0
+        jmp     I udiv16        / divide by zero: R0=0, R1 unchanged
         cla iac                 / AC=1
         dca     udiv16_bits     / bits=1, AC=0
 udiv16_prep,

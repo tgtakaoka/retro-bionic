@@ -22,19 +22,20 @@
 (1)       0 : =200               USARTD: equ     USART+0         ; Data register
 (1)       0 : =202               USARTS: equ     USART+2         ; Status register
 (1)       0 : =202               USARTC: equ     USART+2         ; Control register
-(1)       0 : =204               USARTRV:        equ     USART+4 ; Receive interrupt vector (ORG_*)
-(1)       0 : =206               USARTTV:        equ     USART+6 ; Transmit interrupt vector (ORG_*)
+(1)       0 : =204               USARTRV:        equ     USART+4 ; Receive interrupt enable (EXTINT), 0=off
+(1)       0 : =206               USARTTV:        equ     USART+6 ; Transmit interrupt enable (EXTINT), 0=off
 (1)       0 :                            include "i8251.inc"
 (2)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
 (2)       0 :
 (2)       0 :                    ;;; i8251 USART device emulator.
+(2)       0 :                    ;;; Bit definition of mode instruction (asynchronous)
 (2)       0 : =6                 MODE_STOP_gp:   equ     6
 (2)       0 : =C0                MODE_STOP_gm:   equ     11000000B
 (2)       0 : =40                MODE_STOP1_gc:  equ     (1 << MODE_STOP_gp)
 (2)       0 : =80                MODE_STOP15_gc: equ     (2 << MODE_STOP_gp)
 (2)       0 : =C0                MODE_STOP2_gc:  equ     (3 << MODE_STOP_gp)
-(2)       0 : =20                MODE_EVEN_bm:   equ     00100000B
-(2)       0 : =10                MODE_PARITY_bm: equ     00010000B
+(2)       0 : =20                MODE_EVEN_bm:   equ     00100000B   ; Even parity
+(2)       0 : =10                MODE_PARITY_bm: equ     00010000B   ; Parity enable
 (2)       0 : =2                 MODE_LEN_gp:    equ     2
 (2)       0 : =C                 MODE_LEN_gm:    equ     00001100B
 (2)       0 : =0                 MODE_LEN5_gc:   equ     (0 << MODE_LEN_gp)
@@ -122,7 +123,7 @@
        20CC : D3 FA                      jnc     receive_loop
        20CE : B0 1A 1B                   ldb     B, A            ; save character
        20D1 : 90 1A 1A                   orb     A, A
-       20D4 : DF 17                      je      halt_to_system
+       20D4 : DF 17                      je      halt_to_system  ; NUL halts
        20D6 :                    transmit_loop:
        20D6 : B3 01 02 02 1A             ldb     A, USARTS
        20DB : 30 1A F8                   jbc     A, ST_TxRDY_bp, transmit_loop
@@ -130,7 +131,7 @@
        20DE : C7 01 00 02 1B             stb     B, USARTD
        20E3 : 99 0D 1B                   cmpb    B, #0DH
        20E6 : D7 E0                      jne     receive_loop
-       20E8 : B1 0A 1B                   ldb     B, #0AH
+       20E8 : B1 0A 1B                   ldb     B, #0AH         ; follow CR with LF
        20EB : 27 E9                      sjmp    transmit_loop
        20ED :
        20ED :                    halt_to_system:
@@ -150,7 +151,7 @@
 (1)    20F8 :                            align   2               ; an even entry: a whole word first
 (1)    20F8 :                    ;;; [queue] Initialize queue
 (1)    20F8 :                    ;;; @param HL queue work space pointer
-(1)    20F8 :                    ;;; @param B queue work space size
+(1)    20F8 :                    ;;; @param B queue work space size, including the 4-byte header
 (1)    20F8 :                    queue_init:
 (1)    20F8 : C8 1A                      push    A               ; push A,B
 (1)    20FA : C8 1C                      push    HL
@@ -235,6 +236,7 @@
 (1)    219B : F0                         ret
        219C :
        219C :                            align   2
+       219C :                    ;;; EXTINT from the USART RxRDY: queue the received character
        219C :                    isr_intr:
        219C : F2                         pushf
        219D : C8 1A                      push    A               ; push A,B

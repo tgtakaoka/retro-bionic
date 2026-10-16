@@ -5,7 +5,7 @@
 ;;; i8251 Universal Synchronous/Asynchronous Receiver/Transmitter
 USART:          equ     0FCH
 USARTD:         equ     USART+0 ; Receive/Transmit data
-USARTS:         equ     USART+1 ; Srtatus register
+USARTS:         equ     USART+1 ; Status register
 USARTC:         equ     USART+1 ; Control register
 USARTRV:        equ     USART+2 ; Receive interrupt vector (ORG_*)
 USARTTV:        equ     USART+3 ; Transmit interrupt vector (ORG_*)
@@ -87,7 +87,7 @@ receive_loop:
         call    newline
         jmp     receive_loop
 halt_to_system:
-        db      01H
+        db      01H             ; halt to system
 
 ;;; Print uint8_t in hex
 ;;; @param R3 uint8_t value to be printed in hex.
@@ -121,6 +121,8 @@ put_bin8:
         mov     A, R3
         mov     R2, A
         call    put_bin4
+;;; Print the top 4/2/1 bits of R2, shifting them out;
+;;; each level calls the next and then falls into it.
 put_bin4:
         call    put_bin2
 put_bin2:
@@ -135,7 +137,7 @@ put_bin1:
         jmp     putchar
         
 ;;; Get character
-;;; @return A
+;;; @return A character
 ;;; @return PSW.C 0 if no character
 getchar:
         mov     A, R0
@@ -165,7 +167,7 @@ newline:
         mov     A, #0AH
 
 ;;; Put character
-;;; @param A
+;;; @param A character
 ;;; @clobber A
 putchar:
         xch     A, R0           ; save character

@@ -11,7 +11,7 @@ tx_buffer:      ds      tx_buffer_size
 
 ;;; Internal data memory
         org     BASE_BIT
-tx_disable:     ds      1
+tx_disable:     ds      1       ; bit 0: Tx idle
         org     BASE_MEMORY
 rx_queue:       ds      queue_work_size
 tx_queue:       ds      queue_work_size
@@ -45,21 +45,21 @@ init_uart:
         setb    SCON.REN        ; Enable reception
 init_timer:
         orl     PCON, #SMOD     ; Double baudrate
-        orl     TMOD, #T8MODE SHL T1MODE_gp
+        orl     TMOD, #T8MODE SHL T1MODE_gp ; Timer 1 8-bit auto-reload
 ;;; baudrate = K*fosc/(32*12*(256-TH1))
 ;;; TH1=256 - (K*fosc/(384*baudrate))
 ;;; fosc=12MHz, K=2(SMOD=1) baudrate=4,800bps, TH1=243(256-13)
         mov     TL1, #243
         mov     TH1, #243
         setb    TCON.TR1        ; Run Timer 1
-        setb    tx_disable.0    ; disable Tx
+        setb    tx_disable.0    ; Tx idle
         setb    IE.ES           ; enable UART interrupt
         setb    IE.EA           ; enable interrupt
 
 receive_loop:
         acall   getchar
         jnc     receive_loop
-        jz      halt_to_system
+        jz      halt_to_system  ; NUL halts
         mov     R3, A           ; save letter
         acall   putchar         ; echo
         acall   putspace
@@ -69,7 +69,7 @@ receive_loop:
         acall   newline
         sjmp    receive_loop
 halt_to_system:
-        db      0A5H
+        db      0A5H            ; halt to system
 
 ;;; Print uint8_t in hex
 ;;; @param R3 uint8_t value to be printed in hex.
@@ -181,6 +181,8 @@ putchar_exit:
 
         include "queue.inc"
 
+;;; Serial interrupt: queue a received character on RI; on TI send
+;;; the next queued character, or mark Tx idle when the queue is empty
 isr_intr:
         push    PSW
         clr     PSW.RS1
@@ -208,7 +210,7 @@ isr_intr_tx:
         mov     SBUF, A         ; send character
         sjmp    isr_intr_exit
 isr_intr_tx_empty:
-        setb    tx_disable.0    ; disable Tx
+        setb    tx_disable.0    ; Tx idle; putchar restarts it
         sjmp    isr_intr_exit
 
         end

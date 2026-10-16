@@ -30,7 +30,7 @@
 (1)       0 :                    ;;; MC6850
 (1)       0 :                    ;;; Asynchronous Communication Interface Adapter
 (1)       0 :
-(1)       0 :                    ;;; Control register
+(1)       0 :                    ;;; Control register (write)
 (1)       0 : =FFE0              ACIA_control:   equ     ACIA+0
 (1)       0 :                            ;; Counter Divider Select Bits
 (1)       0 : =3                 CDS_gm:         equ     %11    ; Group mask
@@ -57,7 +57,7 @@
 (1)       0 :                                                      ; Transmit Break Level
 (1)       0 : =80                RIEB_bm:        equ     %10000000 ; Receive Interrupt Enable Bit mask
 (1)       0 :
-(1)       0 :                    ;;; Status register
+(1)       0 :                    ;;; Status register (read)
 (1)       0 : =FFE0              ACIA_status:    equ     ACIA+0
 (1)       0 : =1                 RDRF_bm:        equ     %00000001 ; Receive Data Register Full
 (1)       0 : =2                 TDRE_bm:        equ     %00000010 ; Transmit Data Register Empty
@@ -100,10 +100,10 @@
        100B : C7 FF E0                   sta     ACIA_control
        100E :
        100E : CD 10 74                   jsr     arith
-       1011 : 83                         swi
+       1011 : 83                         swi                     ; halt to system
        1012 :
-       1012 :                    ;;; Print out char
-       1012 :                    ;;; @param A char
+       1012 :                    ;;; Print a space, CR LF (newline) or char A (putchar)
+       1012 :                    ;;; @param A char for putchar
        1012 :                    ;;; @clobber A
        1012 :                    putspace:
        1012 : A6 20                      lda     #' '
@@ -124,8 +124,8 @@
        1028 : 81                         rts
        1029 :
        1029 :                    ;;; Print "R1 op R2"
-       1029 :                    ;;; @params A op letter
-       1029 :                    ;;; @clobber R2 R3 R4
+       1029 :                    ;;; @param A op letter
+       1029 :                    ;;; @clobber A HX R0
        1029 :                    expr:
        1029 : 87                         psha
        102A : C6 FF FF                   lda     COP_RESET
@@ -143,7 +143,7 @@
        1045 : 81                         rts
        1046 :
        1046 :                    ;;; Print " = R0\n"
-       1046 :                    ;;; @clobber R0 R1 R2
+       1046 :                    ;;; @clobber A HX R0
        1046 :                    answer:
        1046 : CD 10 12                   jsr     putspace
        1049 : A6 3D                      lda     #'='
@@ -153,7 +153,7 @@
        1054 : CC 10 16                   jmp     newline
        1057 :
        1057 :                    ;;; Print "R1 rel R2"
-       1057 :                    ;;; @clobber R0
+       1057 :                    ;;; @clobber A HX R0
        1057 :                    comp:
        1057 : 55 52                      ldhx    R1
        1059 : 75 54                      cphx    R2
@@ -405,7 +405,7 @@
 (1)    1273 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
 (1)    1273 :                    ;;; Print unsigned 16-bit integer as decimal
 (1)    1273 :                    ;;; @param R0 value
-(1)    1273 :                    ;;; @clobber A X R0 R1 R2
+(1)    1273 :                    ;;; @clobber A HX R0 R1 R2
 (1)    1273 :                    print_uint16:
 (1)    1273 : 45 12 A9                   ldhx    #print_uint16_buf
 (1)    1276 :                    print_uint16_loop:
@@ -421,7 +421,7 @@
 (1)    1288 : AA 30                      ora     #'0'
 (1)    128A : 8A                         pulh
 (1)    128B : 88                         pulx
-(1)    128C : F7                         sta     ,x
+(1)    128C : F7                         sta     ,x              ; digits, least significant first
 (1)    128D : AF 01                      aix     #1
 (1)    128F : 20 E5                      bra     print_uint16_loop
 (1)    1291 :                    print_uint16_zero:
@@ -443,7 +443,7 @@
 (1)    12B1 :
 (1)    12B1 :                    ;;; Print signed 16-bit integer as decimal
 (1)    12B1 :                    ;;; @param R0 value
-(1)    12B1 :                    ;;; @clobber A X R0
+(1)    12B1 :                    ;;; @clobber A HX R0
 (1)    12B1 :                    print_int16:
 (1)    12B1 : 55 52                      ldhx    R1
 (1)    12B3 : 89                         pshx
@@ -471,7 +471,7 @@
 (1)    12D5 : 81                         rts
 (1)    12D6 :
 (1)    12D6 :                    ;;; Addition: R0 = R1 + R2
-(1)    12D6 :                    ;;; @return HX addition
+(1)    12D6 :                    ;;; @return HX sum
 (1)    12D6 :                    ;;; @clobber A
 (1)    12D6 :                    add16:
 (1)    12D6 : B6 53                      lda     R1L
@@ -483,8 +483,8 @@
 (1)    12E2 : 55 50                      ldhx    R0
 (1)    12E4 : 81                         rts
 (1)    12E5 :
-(1)    12E5 :                    ;;; Subtraction: R0 = R1 + R2
-(1)    12E5 :                    ;;; @return HX subtraction
+(1)    12E5 :                    ;;; Subtraction: R0 = R1 - R2
+(1)    12E5 :                    ;;; @return HX difference
 (1)    12E5 :                    ;;; @clobber A
 (1)    12E5 :                    sub16:
 (1)    12E5 : B6 53                      lda     R1L
@@ -499,7 +499,8 @@
 (1)    12F4 :                    ;;; Unsigned multiplication: result = multiplicand * multiplier
 (1)    12F4 :                    ;;; @param R1 multiplicand
 (1)    12F4 :                    ;;; @param R2 multiplier
-(1)    12F4 :                    ;;; @return R0 result
+(1)    12F4 :                    ;;; @return R0 result, low 16 bits
+(1)    12F4 :                    ;;; @clobber A X
 (1)    12F4 :                    umul16:
 (1)    12F4 : B6 55                      lda     R2L             ; A=low(multiplier)
 (1)    12F6 : BE 53                      ldx     R1L             ; X=low(multiplicand)
@@ -560,11 +561,12 @@
 (1)    1340 : 81                         rts
 (1)    1341 :
 (1)    1341 :                    ;;; Unsigned division: dividend / divisor = quotient ... remainder
-(1)    1341 :                    ;;; @praram R1 dividend
-(1)    1341 :                    ;;; @praram R2 divisor
+(1)    1341 :                    ;;; Division by zero returns with R0 and R1 unchanged.
+(1)    1341 :                    ;;; @param R1 dividend
+(1)    1341 :                    ;;; @param R2 divisor
 (1)    1341 :                    ;;; @return R0 quotient
 (1)    1341 :                    ;;; @return R1 remainder
-(1)    1341 :                    ;;; @clobber R2
+(1)    1341 :                    ;;; @clobber A HX R2
 (1)    1341 :                    udiv16:
 (1)    1341 : B6 54                      lda     R2H
 (1)    1343 : 26 12                      bne     udiv16_calc     ; branch if divisor >= 256
@@ -638,7 +640,7 @@
 (1)    13A8 :                    ;;; @param R2 divisor
 (1)    13A8 :                    ;;; @return R0 quotient
 (1)    13A8 :                    ;;; @return HX quotient
-(1)    13A8 :                    ;;; @return R1 remainder
+(1)    13A8 :                    ;;; @return R1 remainder of |dividend|/|divisor|
 (1)    13A8 :                    ;;; @clobber R2
 (1)    13A8 :                    div16:
 (1)    13A8 : B6 52                      lda     R1H

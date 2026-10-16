@@ -1,6 +1,6 @@
         include "mc6801.inc"
 
-;;; SCI: Emable Rx and Tx
+;;; SCI: Enable Rx and Tx
 RX_ON_TX_ON:   equ     TRCSR_TE_bm|TRCSR_RE_bm
 
         org     $1000

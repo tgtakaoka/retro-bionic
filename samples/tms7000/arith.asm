@@ -49,7 +49,9 @@ putchar:
         *** @param vA v1
         *** @param vB v2
         *** @param A op letter
-        *** @clobber Rd Rs
+        *** @return Rd v1
+        *** @return Rs v2
+        *** @clobber A B
 expr:
         push    A
         movd    vA, Rd
@@ -66,7 +68,7 @@ expr:
 
         *** Print " = v\n"
         *** @param Rd v
-        *** @clobber Rd Rs
+        *** @clobber A B Rd Rs
 answer:
         call    @putspace
         mov     %'=', A
@@ -76,9 +78,9 @@ answer:
         jmp     newline
 
         *** Print "v1 rel v2"
-        *** @param R8:vA v1
-        *** @param R10:vB v2
-        *** @clobber Rd Rs
+        *** @param vA v1
+        *** @param vB v2
+        *** @clobber A B Rd Rs
 comp:
         movd    vA, Rd
         movd    vB, Rs

@@ -3,7 +3,7 @@
         longa   on
 
 ;;; Print variable: "A=X "
-;;; @param X variable
+;;; @param X value
 ;;; @param A variable letter
 print:
         jsr     putchar         ; print variable letter
@@ -12,6 +12,10 @@ print:
         jsr     print_int16
         jmp     putspace
 
+;;; Print the Mandelbrot set, X -49..29 by Y -12..12, in fixed point
+;;; with F=1.0: each point shows the iteration I (hex) at which
+;;; P*P+Q*Q exceeds 4, or a space if it stays within 16 iterations.
+;;; A NUL received from the console halts.
 mandelbrot:
         rep     #P_M            ; 16-bit memory
         lda     #-12
@@ -33,7 +37,7 @@ loop_x:
         ldy     #100
         jsr     div16           ; Y*416/100
         stx     vD              ; D=Y*416/100
-        stx     vB
+        stx     vB              ; B=D
         stz     vI              ; I=0
 
         ;; ldx     vY
@@ -50,6 +54,7 @@ loop_x:
         ;; jsr     print
         ;; jsr     newline
 
+;;; B=Q*F+S keeps 2*A*B/F = 2*(A*Q+A*S/F) within 16 bits
 loop_i:
         ldx     vB
         ldy     #F
@@ -140,7 +145,7 @@ loop_i:
         ;; jsr     newline
         ;; pla
 
-        cmp     #4+1            ; P*P+Q*Q-4
+        cmp     #4+1            ; A=T
         bpl     print_i         ; if P*P+Q*Q>=5
         lda     vI
         inc     A
@@ -176,7 +181,7 @@ print_char:
 
         jsr     getchar
         bcs     next_x
-        and     #$FF
+        and     #$FF            ; B is stale; a NUL halts
         bne     next_x
         brk
         .byte   0

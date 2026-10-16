@@ -21,6 +21,7 @@
 (1)       0 :                    /// -*- mode: asm; mode: flyspell-prog; -*-
 (1)       0 :                    /// MC6850
 (1)       0 :                    /// Asynchronous Communication Interface Adapter
+(1)       0 :                    /// IOT function: +1 selects the data register, +4 writes
 (1)       0 : =0                 ACIA_status     = 0
 (1)       0 : =4                 ACIA_control    = 4
 (1)       0 : =1                 ACIA_receive    = 1
@@ -73,7 +74,7 @@
           3 :
        7776 :                            *ORG_RESET-1
        7776 : 0200                       initialize
-       7777 : 5776                       jmp     I .-1
+       7777 : 5776                       jmp     I .-1           / reset starts here
       10000 :
          20 :                            *PAGE0
          20 : 0400               I_queue_init,   queue_init
@@ -190,6 +191,7 @@
         243 :
         243 :                    /// Print character
         243 :                    /// @param AC character
+        243 :                    /// @return AC character
         243 : 0000               putchar,        .-.
         244 : 3260                       dca     putchar_char    / Save character
         245 : 1260                       tad     putchar_char
@@ -208,7 +210,8 @@
         261 : 0264               ENABLE_TX_INT,  WSB_8N1_gc|RIEB_bm|TCB_EI_gc
         262 :
         262 :                    /// Read character
-        262 :                    /// @return AC character
+        262 :                    /// @return AC character, 0 if none
+        262 :                    /// @return L 0 if no character
         262 : 0000               getchar,        .-.
         263 : 6002                       iof                     / Disable interrupt
         264 : 4422                       jms     I I_queue_remove
@@ -238,7 +241,7 @@
 (1)     400 :                    /// @return AC=0
 (1)     400 :                    /// @clobber AC
 (1)     400 : 0000               queue_init, .-.                 / parameter address
-(1)     401 : 1223                       tad     queue_work_size / subtract queue work space
+(1)     401 : 1223                       tad     queue_work_size / subtract header size
 (1)     402 : 7041                       cia                     / AC=-size
 (1)     403 : 3264                       dca     queue_tmp       / queue_tmp = -size
 (1)     404 : 1600                       tad     I queue_init    / load queue work space pointer
@@ -248,7 +251,7 @@
 (1)     410 : 3665                       dca     I queue_ptr     / queue_size = -size
 (1)     411 : 2265                       isz     queue_ptr       / &queue_len
 (1)     412 : 1264                       tad     queue_tmp       / -size
-(1)     413 : 1223                       tad     queue_work_size / -queue work space
+(1)     413 : 1223                       tad     queue_work_size / -header size
 (1)     414 : 7001                       iac                     / offset queue_size
 (1)     415 : 3264                       dca     queue_tmp       / counter
 (1)     416 :                    queue_init_clear,
@@ -257,11 +260,12 @@
 (1)     420 : 2264                       isz     queue_tmp
 (1)     421 : 5216                       jmp     queue_init_clear
 (1)     422 : 5600                       jmp     I queue_init    / return, AC=0
-(1)     423 : 7774               queue_work_size,        -4
+(1)     423 : 7774               queue_work_size,        -4      / header words
 (1)     424 :
 (1)     424 :                    /// [queue] Add an element to queue
 (1)     424 :                    /// @param (PC+1) queue work space pointer
 (1)     424 :                    /// @param AC an element
+(1)     424 :                    /// @return AC the element
 (1)     424 :                    /// @return L 0 if queue is full
 (1)     424 : 0000               queue_add, .-.                  / parameter/return address
 (1)     425 : 3266                       dca     queue_element   / save element
@@ -328,7 +332,7 @@
 (1)     513 : 3267                       dca     queue_buf
 (1)     514 : 1667                       tad     I queue_buf     / AC=queue_buf[queue_get]
 (1)     515 : 3266                       dca     queue_element   / save element
-(1)     516 : 2665                       isz     I queue_ptr     / queue_get
+(1)     516 : 2665                       isz     I queue_ptr     / queue_get++
 (1)     517 : 1665                       tad     I queue_ptr     / AC=queue_get
 (1)     520 : 1264                       tad     queue_tmp       / AC=queue_get-queue_size
 (1)     521 : 7700                       sma cla                 / skip if queue_get < queue_size, AC=0
@@ -514,13 +518,13 @@
 (1)    1071 : 3443                       dca     I arith_ptr     / store high(source), AC=0
 (1)    1072 : 5654                       jmp     I neg24         / return
 (1)    1073 :
-(1)    1073 :                    // Unsigned 16-bit division; quotient = dividend / divisor ... remainder
-(1)    1073 :                    // @param R1 Unsigned 16-bit dividend
-(1)    1073 :                    // @param R2 Unsigned 16-bit divisor
-(1)    1073 :                    // @return R0 quotient
-(1)    1073 :                    // @return R1 remainder
-(1)    1073 :                    // @return AC=0
-(1)    1073 :                    // @clobber R2 arith_ptr
+(1)    1073 :                    /// Unsigned 24-bit division; quotient = dividend / divisor ... remainder
+(1)    1073 :                    /// @param R1 Unsigned 24-bit dividend
+(1)    1073 :                    /// @param R2 Unsigned 24-bit divisor
+(1)    1073 :                    /// @return R0 quotient
+(1)    1073 :                    /// @return R1 remainder
+(1)    1073 :                    /// @return AC=0
+(1)    1073 :                    /// @clobber R2 arith_ptr
 (1)    1073 : 0000               udiv16_bits,    0
 (1)    1074 : 0000               udiv16,         .-.
 (1)    1075 : 7200                       cla
@@ -530,7 +534,7 @@
 (1)    1101 : 7450                       sna                     / skip if low(divisor) != 0
 (1)    1102 : 1051                       tad     R2H
 (1)    1103 : 7450                       sna                     / skip if divisor != 0
-(1)    1104 : 5674                       jmp     I udiv16        / return as divide by zero, AC=0
+(1)    1104 : 5674                       jmp     I udiv16        / divide by zero: R0=0, R1 unchanged
 (1)    1105 : 7201                       cla iac                 / AC=1
 (1)    1106 : 3273                       dca     udiv16_bits     / bits=1, AC=0
 (1)    1107 :                    udiv16_prep,
@@ -596,7 +600,7 @@
        1175 :
        1200 :                            page
        1200 :                            include "mandelbrot.inc"
-(1)    1200 :                    /// -*- mode: asm; mode: flyspell-prog* -*-
+(1)    1200 :                    /// -*- mode: asm; mode: flyspell-prog; -*-
 (1)    1200 :
 (1)    1200 :                    /// Deposit 12-bit data to R0 with sign extend
 (1)    1200 :                    /// @param AC 12-bit data
@@ -636,9 +640,11 @@
 (1)    1227 :
 (1)    1227 :                    /// 12-bit/24-bit subtraction; minuend -= subtrahend
 (1)    1227 :                    /// @param R0 Signed 24-bit minuend
-(1)    1227 :                    /// @param AC Signed 12-bit minuend
+(1)    1227 :                    /// @param AC Signed 12-bit subtrahend
 (1)    1227 :                    /// @return AC=0
-(1)    1227 :                    /// @return L=0 if borrow
+(1)    1227 :                    /// @return L=1 if borrow
+(1)    1227 :                    /// ATTENTION: unused; sign-tests the zeroed R1H and subtracts R1L as
+(1)    1227 :                    /// the high word.
 (1)    1227 :                    /// @clobber R1
 (1)    1227 : 0000               sub12,          .-.
 (1)    1230 : 3046                       dca     R1L             / low(subtrahend)
@@ -652,7 +658,7 @@
 (1)    1237 : 1046                       tad     R1L             / AC=low(subtrahend)
 (1)    1240 : 7161                       stl cia                 / negate to form 13-bit negative
 (1)    1241 : 1044                       tad     R0L             / AC=low(R0)-low(subtrahend)
-(1)    1242 : 3044                       dca     R0L             / L=0 if borrowed
+(1)    1242 : 3044                       dca     R0L             / L=1 if borrowed
 (1)    1243 : 7004                       ral                     / propagate complemented borrow
 (1)    1244 : 1046                       tad     R1L             / AC=high(subtrahend)
 (1)    1245 : 7061                       cia cml                 / form 13-bit negative
@@ -677,7 +683,7 @@
 (1)    1261 : 1045                       tad     R0H
 (1)    1262 : 3047                       dca     R1H             / R1=multiplicand
 (1)    1263 : 5277                       jmp     mul12_multiply
-(1)    1264 :                    mul12_negative,                 / multiplicand*-multiplier
+(1)    1264 :                    mul12_negative,                 / (-multiplicand)*(-multiplier)
 (1)    1264 : 1050                       tad     R2L
 (1)    1265 : 7041                       cia
 (1)    1266 : 3050                       dca     R2L             / negate multiplier
@@ -695,9 +701,9 @@
 (1)    1301 :
 (1)    1301 :                    /// Signed 24-bit/Unsigned 12-bit division; quotient = dividend / divisor ... remainder
 (1)    1301 :                    /// @param R0 dividend
-(1)    1301 :                    /// @param AC unsigned 12-bit divisor address
+(1)    1301 :                    /// @param AC unsigned 12-bit divisor
 (1)    1301 :                    /// @return R0 quotient
-(1)    1301 :                    /// @return R1 remainder
+(1)    1301 :                    /// @return R1 remainder of |dividend|/divisor, unsigned
 (1)    1301 :                    /// @return AC=0
 (1)    1301 :                    /// @clobber R2 arith_ptr
 (1)    1301 : 0000               divu12,         .-.
@@ -732,7 +738,10 @@
 (1)    1335 : 3045                       dca     R0H             / negate quotient, AC=0
 (1)    1336 : 5701                       jmp     I divu12        / return, AC=0
 (1)    1337 :
-(1)    1337 :                    /// Mandelbrot draw variables
+(1)    1337 :                    /// Print the Mandelbrot set, X -49..29 by Y -12..12, in fixed point
+(1)    1337 :                    /// with F=1.0: each point shows the iteration I (hex) at which
+(1)    1337 :                    /// P*P+Q*Q exceeds 4, or a space if it stays within 16 iterations.
+(1)    1337 :                    /// A NUL received from the console halts.
 (1)    1337 :                    mandelbrot_end,
 (1)    1337 : 5740                       jmp     I mandelbrot
 (1)    1340 : 0000               mandelbrot,     .-.
@@ -817,7 +826,7 @@
 (1)    1435 : 1054                       tad     vC
 (1)    1436 : 4433                       jms     I I_add12       / R0=(A*A-B*B)/F+C
 (1)    1437 : 1044                       tad     R0
-(1)    1440 : 3052                       dca     R3L             / TMP=(A*A-B*B)/F+C, 12-bit is enough
+(1)    1440 : 3052                       dca     R3L             / R3L=(A*A-B*B)/F+C, 12-bit is enough
 (1)    1441 : 1056                       tad     vA
 (1)    1442 : 4432                       jms     I I_dep12       / R0=A
 (1)    1443 : 1062                       tad     vQ
@@ -909,7 +918,7 @@
 (1)    1616 : 7200                       cla
 (1)    1617 : 1066                       tad     vI
 (1)    1620 : 1077                       tad     const_m10       / I-10
-(1)    1621 : 7510                       spa                     / if I>=10
+(1)    1621 : 7510                       spa                     / skip if I-10>=0
 (1)    1622 : 5225                       jmp     print_dec       / if I<10
 (1)    1623 : 1102                       tad     char_A          / I-10+'A'
 (1)    1624 : 5230                       jmp     print_char
@@ -938,7 +947,7 @@
 (1)    1631 : 4423                       jms     I I_getchar
 (1)    1632 : 7420                       snl                     / Skip if L=1
 (1)    1633 : 5240                       jmp     next_x
-(1)    1634 : 7440                       sza                     / Skip if AC=0
+(1)    1634 : 7440                       sza                     / Skip if NUL
 (1)    1635 : 5240                       jmp     next_x
 (1)    1636 : 7402                       hlt                     / halt to system
 (1)    1637 :

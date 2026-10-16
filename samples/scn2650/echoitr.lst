@@ -71,7 +71,7 @@
 (1)       0 : =3                 INTR_IRQ2:      equ     3
           0 :                    ;;; Async 1stop 8data x16
           0 : =4E                ASYNC_MODE:     equ     MODE_STOP1_gc|MODE_LEN8_gc|MODE_BAUD_X16
-          0 :                    ;;; RTS/DTR, error reset, Rx enable, Tx enable
+          0 :                    ;;; RTS/DTR, Rx enable, Tx enable or disable
           0 : =27                RX_EN_TX_EN:    equ     CMD_RTS_bm + CMD_DTR_bm + CMD_RxEN_bm + CMD_TxEN_bm
           0 : =26                RX_EN_TX_DIS:   equ     CMD_RTS_bm + CMD_DTR_bm + CMD_RxEN_bm
           0 :
@@ -86,7 +86,7 @@
           2 : 77 0A                      ppsl    PSL_WC+PSL_COM  ; with carry, logical compare
           4 : 1F 01 00                   bcta,un init
           7 :
-          7 : =7                 RXINTR_VEC:     equ     $
+          7 : =7                 RXINTR_VEC:     equ     $       ; direct vector
           7 : 1F 02 83                   bcta,un isr_intr_rx
           A :
           A : =8A                TXINTR_VEC:     equ     $ + H'80' ; indirect vector
@@ -129,7 +129,7 @@
         136 : B5 01                      tpsl    PSL_C
         138 : 98 79                      bcfr,eq receive_loop    ; PSL.C=0
         13A : 60                         iorz    r0
-        13B : 18 19                      bctr,eq echoitr_halt
+        13B : 18 19                      bctr,eq echoitr_halt    ; NUL halts
         13D :                    echo_back:
         13D : C1                         strz    r1              ; save letter
         13E : 3F 01 BA                   bsta,un putchar         ; echo
@@ -256,8 +256,7 @@
 (1)     1DA :
 (1)     1DA :                    ;;; [queue] Initialize queue
 (1)     1DA :                    ;;; @param r2:r3 queue work space pointer
-(1)     1DA :                    ;;; @param r1 queue work space size
-(1)     1DA :                    ;;; @clobber r1
+(1)     1DA :                    ;;; @param r1 queue work space size, header included
 (1)     1DA :                    queue_init:
 (1)     1DA : CE 02 3F                   stra,r2 queue_top
 (1)     1DD : CF 02 40                   stra,r3 queue_top+1
@@ -392,6 +391,7 @@
         2AF : D4 01                      wrte,r0 USARTC          ; disable Tx
         2B1 : 1B 11                      bctr,un isr_return
         2B3 :
+        2B3 :                    ;;; Save r0-r3 and PSL to isr_context
         2B3 :                    isr_save:
         2B3 : C8 0A                      strr,r0 isr_context
         2B5 : C9 09                      strr,r1 isr_context+1
@@ -404,6 +404,8 @@
         2BF :                    isr_context:
         2BF :                            res     5
         2C4 :
+        2C4 :                    ;;; Restore from isr_context; the final LODR r0 changes CC, so put
+        2C4 :                    ;;; back the saved CC that LPSL left
         2C4 :                    isr_return:
         2C4 : 0B 7C                      lodr,r3 isr_context+3
         2C6 : 0A 79                      lodr,r2 isr_context+2

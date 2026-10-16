@@ -39,13 +39,13 @@
 (1)       0 : =12                ACNTR:  equ     $12     ; 16-Bit Timer Alternate Counter Register
 (1)       0 : =14                SCBR:   equ     $14     ; Serial Communications Baud Rate Register
 (1)       0 : =6                 SCBR_SCP_gp:    equ     6 ; SCI Prescaler; 0=/1 1=/3 2=/4 3=/13
-(1)       0 : =3                 SCBR_SCT_gp:    equ     3 ; SCI Transmit Baud Rate; n=1/(1<<n)
-(1)       0 : =0                 SCBR_SCR_gp:    equ     0 ; SCI Receive Baud Rate;  0<=n<=7
+(1)       0 : =3                 SCBR_SCT_gp:    equ     3 ; SCI Transmit Baud Rate; divide by 1<<n
+(1)       0 : =0                 SCBR_SCR_gp:    equ     0 ; SCI Receive Baud Rate;  divide by 1<<n
 (1)       0 : =15                SCCR1:  equ     $15     ; Serial Communications Control Register 1
 (1)       0 : =7                 SCCR1_R8_bp:    equ     7 ; Receive Data Bit 8
 (1)       0 : =6                 SCCR1_T8_bp:    equ     6 ; Transmit Data Bit 8
 (1)       0 : =5                 SCCR1_SCKM_bp:  equ     5 ; Serial Clock Mode 0=-PB4 is GPIO
-(1)       0 : =4                 SCCR1_M_bp:     equ     4 ; Mode 1=9-bit, 0=8-nit
+(1)       0 : =4                 SCCR1_M_bp:     equ     4 ; Mode 1=9-bit, 0=8-bit
 (1)       0 : =3                 SCCR1_WAKE_bp:  equ     3 ; Wake-Up Select 1=MSB cause wake-up
 (1)       0 : =2                 SCCR1_CPOL_bp:  equ     2 ; Clock Polarity
 (1)       0 : =1                 SCCR1_CPHL_bp:  equ     1 ; Clock Phase
@@ -90,7 +90,7 @@
 (1)       0 :                    ;;; MC6850
 (1)       0 :                    ;;; Asynchronous Communication Interface Adapter
 (1)       0 :
-(1)       0 :                    ;;; Control register
+(1)       0 :                    ;;; Control register (write)
 (1)       0 : =FFE0              ACIA_control:   equ     ACIA+0
 (1)       0 :                            ;; Counter Divider Select Bits
 (1)       0 : =3                 CDS_gm:         equ     %11    ; Group mask
@@ -117,7 +117,7 @@
 (1)       0 :                                                      ; Transmit Break Level
 (1)       0 : =80                RIEB_bm:        equ     %10000000 ; Receive Interrupt Enable Bit mask
 (1)       0 :
-(1)       0 :                    ;;; Status register
+(1)       0 :                    ;;; Status register (read)
 (1)       0 : =FFE0              ACIA_status:    equ     ACIA+0
 (1)       0 : =1                 RDRF_bm:        equ     %00000001 ; Receive Data Register Full
 (1)       0 : =2                 TDRE_bm:        equ     %00000010 ; Transmit Data Register Empty
@@ -141,7 +141,7 @@
           0 :
          80 :                            org     $80
          80 :                    ;;; Working space for mandelbrot.inc
-         80 : =32                F:      equ     50
+         80 : =32                F:      equ     50              ; fixed-point scale, 1.0=F
          80 :                    vC:     rmb     2
          82 :                    vD:     rmb     2
          84 :                    vA:     rmb     2
@@ -166,7 +166,7 @@
          98 :                    R2L:    rmb     1
          99 :                    arith_work:
          99 :                            rmb     1
-         9A :                    SP:     rmb     1
+         9A :                    SP:     rmb     1               ; software stack index
          9B :
          9B :                    save_a: rmb     1
          9C :                    save_x: rmb     1
@@ -176,7 +176,7 @@
          AD :                            rmb     tx_queue_size
          CD :
         100 :                            org     $0100
-        100 :                    stack:  rmb     20
+        100 :                    stack:  rmb     20              ; for push_XA/pull_XA
         114 :
        FFFA :                            org     VEC_IRQ
        FFFA : 14 60                      fdb     isr_irq
@@ -219,8 +219,8 @@
        1029 : 9A                         cli                     ; enable IRQ
        102A : 81                         rts
        102B :
-       102B :                    ;;; Put character
-       102B :                    ;;; @param A
+       102B :                    ;;; Put a space, CR LF (newline) or char A (putchar)
+       102B :                    ;;; @param A char for putchar
        102B :                    ;;; @clobber A
        102B :                    putspace:
        102B : A6 20                      lda     #' '
@@ -248,7 +248,7 @@
 (1)    1048 :                    ;;; Print variable: "A=variable "
 (1)    1048 :                    ;;; @param R1 variable
 (1)    1048 :                    ;;; @param A variable letter
-(1)    1048 :                    ;;; @clobber R0
+(1)    1048 :                    ;;; @clobber A X R0
 (1)    1048 :                    print:
 (1)    1048 : CD 10 35                   jsr     putchar         ; print variable letter
 (1)    104B : A6 3D                      lda     #'='
@@ -260,7 +260,7 @@
 (1)    1058 : CD 12 6B                   jsr     print_int16
 (1)    105B : CC 10 2B                   jmp     putspace
 (1)    105E :
-(1)    105E :                    ;;; Sign extend 80bit value
+(1)    105E :                    ;;; Sign extend 8-bit value
 (1)    105E :                    ;;; @param A variable
 (1)    105E :                    ;;; @param CC condition of A
 (1)    105E :                    ;;; @return X:A value
@@ -272,6 +272,8 @@
 (1)    1062 : AE FF                      ldx     #-1
 (1)    1064 : 81                         rts
 (1)    1065 :
+(1)    1065 :                    ;;; Print the Mandelbrot set in ASCII; fixed point, F is 1.0
+(1)    1065 :                    ;;; Halts to system when a NUL is received.
 (1)    1065 :                    mandelbrot:
 (1)    1065 : A6 F4                      lda     #-12
 (1)    1067 : B7 90                      sta     vY              ; Y=-12
@@ -491,8 +493,8 @@
 (1)    11E4 : 5F                         clrx
 (1)    11E5 : A6 04                      lda     #4
 (1)    11E7 : CD 12 98                   jsr     set_R1          ; R1=4
-(1)    11EA : CD 12 E1                   jsr     cmp16           ; compare 4 and Q*Q+P*P
-(1)    11ED : 2B 0F                      bmi     print_i         ; if 4<P*P+Q*Q
+(1)    11EA : CD 12 E1                   jsr     cmp16           ; compare 4 and T
+(1)    11ED : 2B 0F                      bmi     print_i         ; if 4<T
 (1)    11EF : 3C 92                      inc     vI              ; I+=1
 (1)    11F1 : B6 92                      lda     vI
 (1)    11F3 : A1 10                      cmp     #16
@@ -522,9 +524,9 @@
 (1)    120D :                            ;; jsr     newline
 (1)    120D :
 (1)    120D : CD 10 23                   jsr     getchar
-(1)    1210 : 24 04                      bcc     next_x
+(1)    1210 : 24 04                      bcc     next_x          ; no char
 (1)    1212 : 4D                         tsta
-(1)    1213 : 26 01                      bne     next_x
+(1)    1213 : 26 01                      bne     next_x          ; not NUL
 (1)    1215 : 83                         swi                     ; halt to system
 (1)    1216 :                    next_x:
 (1)    1216 : 3C 91                      inc     vX              ; X+=1
@@ -559,9 +561,9 @@
 (1)    123F : A6 0A                      lda     #10
 (1)    1241 : B7 98                      sta     R2L             ; divisor=10
 (1)    1243 : CD 13 56                   jsr     udiv16          ; R0=value/10
-(1)    1246 : B6 96                      lda     R1L
+(1)    1246 : B6 96                      lda     R1L             ; R1L=value%10
 (1)    1248 : AA 30                      ora     #'0'
-(1)    124A : D7 12 63                   sta     print_uint16_buf,x
+(1)    124A : D7 12 63                   sta     print_uint16_buf,x ; digits, least significant first
 (1)    124D : 5C                         incx
 (1)    124E : 20 E1                      bra     print_uint16_loop
 (1)    1250 :                    print_uint16_zero:
@@ -597,7 +599,7 @@
 (1)    1282 : 40                         nega
 (1)    1283 : 30 94                      neg     R0L
 (1)    1285 : A2 00                      sbc     #0
-(1)    1287 : B7 93                      sta     R0H
+(1)    1287 : B7 93                      sta     R0H             ; R0=-value
 (1)    1289 :                    print_int16_print:
 (1)    1289 : AD A5                      bsr     print_uint16
 (1)    128B : AD 27                      bsr     pull_XA         ; pull R2
@@ -624,22 +626,22 @@
 (1)    129F : B7 98                      sta     R2L
 (1)    12A1 : 81                         rts
 (1)    12A2 :
-(1)    12A2 :                    ;;; Push X:A
+(1)    12A2 :                    ;;; Push X:A onto the software stack at stack, indexed by SP
 (1)    12A2 :                    ;;; @param X:A value
 (1)    12A2 :                    ;;; @clobber X:A
 (1)    12A2 :                    push_XA:
 (1)    12A2 : B7 99                      sta     arith_work      ; save A
 (1)    12A4 : 9F                         txa
 (1)    12A5 : BE 9A                      ldx     SP
-(1)    12A7 : D7 01 00                   sta     stack,X         ; push high(value))
+(1)    12A7 : D7 01 00                   sta     stack,X         ; push high(value)
 (1)    12AA : B6 99                      lda     arith_work
-(1)    12AC : D7 01 01                   sta     stack+1,X       ; push low(register)
+(1)    12AC : D7 01 01                   sta     stack+1,X       ; push low(value)
 (1)    12AF : 5C                         incx
 (1)    12B0 : 5C                         incx
 (1)    12B1 : BF 9A                      stx     SP              ; update stack pointer
 (1)    12B3 : 81                         rts
 (1)    12B4 :
-(1)    12B4 :                    ;;; Pull X:A
+(1)    12B4 :                    ;;; Pull X:A from the software stack
 (1)    12B4 :                    ;;; @return X:A value
 (1)    12B4 :                    pull_XA:
 (1)    12B4 : BE 9A                      ldx     SP
@@ -651,7 +653,7 @@
 (1)    12C0 : 81                         rts
 (1)    12C1 :
 (1)    12C1 :                    ;;; Addition: R0 = R1 + R2
-(1)    12C1 :                    ;;; @return X:A addition
+(1)    12C1 :                    ;;; @return X:A sum
 (1)    12C1 :                    ;;; @clobber A
 (1)    12C1 :                    add16:
 (1)    12C1 : B6 96                      lda     R1L
@@ -664,8 +666,8 @@
 (1)    12CE : B6 94                      lda     R0L
 (1)    12D0 : 81                         rts
 (1)    12D1 :
-(1)    12D1 :                    ;;; Subtraction: R0 = R1 + R2
-(1)    12D1 :                    ;;; @return X:A subtraction
+(1)    12D1 :                    ;;; Subtraction: R0 = R1 - R2
+(1)    12D1 :                    ;;; @return X:A difference
 (1)    12D1 :                    ;;; @clobber A
 (1)    12D1 :                    sub16:
 (1)    12D1 : B6 96                      lda     R1L
@@ -694,7 +696,7 @@
 (1)    12EF : B6 95                      lda     R1H
 (1)    12F1 : B8 97                      eor     R2H             ; minuend^subtrahend
 (1)    12F3 : B4 94                      and     R0L             ; overflow flag
-(1)    12F5 : B8 93                      eor     R0H
+(1)    12F5 : B8 93                      eor     R0H             ; N=sign^overflow, set if R1<R2
 (1)    12F7 : 2B 06                      bmi     cmp16_lt
 (1)    12F9 :                    cmp16_gt:
 (1)    12F9 : 3F 93                      clr     R0H
@@ -710,7 +712,8 @@
 (1)    1306 :                    ;;; Unsigned multiplication: result = multiplicand * multiplier
 (1)    1306 :                    ;;; @param R1 multiplicand
 (1)    1306 :                    ;;; @param R2 multiplier
-(1)    1306 :                    ;;; @return R0 result
+(1)    1306 :                    ;;; @return R0 result, low 16 bits
+(1)    1306 :                    ;;; @clobber A X
 (1)    1306 :                    umul16:
 (1)    1306 : B6 98                      lda     R2L             ; A=low(multiplier)
 (1)    1308 : BE 96                      ldx     R1L             ; X=low(multiplicand)
@@ -771,11 +774,12 @@
 (1)    1355 : 81                         rts
 (1)    1356 :
 (1)    1356 :                    ;;; Unsigned division: dividend / divisor = quotient ... remainder
-(1)    1356 :                    ;;; @praram R1 dividend
-(1)    1356 :                    ;;; @praram R2 divisor
+(1)    1356 :                    ;;; Division by zero returns with R0 and R1 unchanged.
+(1)    1356 :                    ;;; @param R1 dividend
+(1)    1356 :                    ;;; @param R2 divisor
 (1)    1356 :                    ;;; @return R0 quotient
 (1)    1356 :                    ;;; @return R1 remainder
-(1)    1356 :                    ;;; @clobber R2
+(1)    1356 :                    ;;; @clobber A R2
 (1)    1356 :                    udiv16:
 (1)    1356 : CF 13 D3                   stx     udiv16_x        ; save X
 (1)    1359 : B6 97                      lda     R2H
@@ -863,7 +867,7 @@
 (1)    13D4 :                    ;;; @param R2 divisor
 (1)    13D4 :                    ;;; @return R0 quotient
 (1)    13D4 :                    ;;; @return X:A quotient
-(1)    13D4 :                    ;;; @return R1 remainder
+(1)    13D4 :                    ;;; @return R1 remainder of |dividend|/|divisor|
 (1)    13D4 :                    ;;; @clobber R2
 (1)    13D4 :                    div16:
 (1)    13D4 : B6 95                      lda     R1H
@@ -924,7 +928,7 @@
 (1)    1412 :                    queue_add_X:
 (1)    1412 :                            rmb     1               ; save X
 (1)    1413 :                    queue_add_A:
-(1)    1413 :                            rmb     1               ; save X
+(1)    1413 :                            rmb     1               ; save A
 (1)    1414 :                    queue_add:
 (1)    1414 : C7 14 13                   sta     queue_add_A     ; save A
 (1)    1417 : F6                         lda     queue_len,x

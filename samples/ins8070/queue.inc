@@ -8,7 +8,7 @@ queue_buf       =       4       ; buffer start offset
 ;;; [queue] Initialize queue
 ;;; @param P2 queue work space pointer
 ;;; @param A queue work space size
-;;; @clobber A
+;;; @clobber EA P2
 queue_init:
         ld      E, A
         ld      A, =0
@@ -19,7 +19,7 @@ queue_init:
         sub     A, =queue_buf
         st      A, queue_size, P2
         push    A               ; 0,SP=counter
-        ld      A, @queue_buf, P2
+        ld      A, @queue_buf, P2 ; P2+=queue_buf
 queue_init_loop:
         ld      A, E            ; E=0
         st      A, @1, P2
@@ -28,7 +28,7 @@ queue_init_loop:
         pop     A               ; discard counter
         ret
 
-;;; [add_p2_a] Add A to P2
+;;; [add_p2_a] Add unsigned A to P2
 ;;; @param P2
 ;;; @param A
 ;;; @return P3=P2+A
@@ -37,9 +37,9 @@ add_p2_a:
         xch     A, E
         ld      A, =0
         xch     A, E
-        push    ea              ; 0:E
+        push    ea              ; 0:A
         ld      ea, P2
-        add     ea, 0, SP       ; EA=P2+E
+        add     ea, 0, SP       ; EA=P2+A
         ld      P3, ea
         pop     ea
         pop     ea              ; restore EA

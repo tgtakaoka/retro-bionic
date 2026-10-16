@@ -2,7 +2,7 @@
 ;;; Print variable: "A=variable "
 ;;; @param HX variable
 ;;; @param A variable letter
-;;; @clobber R0
+;;; @clobber A HX R0
 print:
         sthx    R0
         jsr     putchar         ; print variable letter
@@ -11,7 +11,7 @@ print:
         jsr     print_int16
         jmp     putspace
 
-;;; Sign extend 8-bit to 16-bot
+;;; Sign extend 8-bit to 16-bit
 ;;; @param A 8-bit value
 ;;; @param CC condition of A
 ;;; @return H:X sign extended 16-bit value
@@ -77,6 +77,7 @@ loop_x:
 loop_i:
         lda     COP_RESET
         sta     COP_RESET
+        ;; A*B/F = A*Q+A*S/F with Q=B/F, S=B-Q*F; keeps products in 16 bits
         ldhx    vB
         sthx    R1              ; R1=B
         ldhx    #F
@@ -210,7 +211,7 @@ print_space:
         bra     print_char
 print_i:
         lda     vI
-        add     #$90
+        add     #$90            ; DAA trick: I to hex digit
         daa
         adc     #$40
         daa
@@ -230,7 +231,7 @@ print_char:
         jsr     getchar
         bcc     next_x
         tsta
-        bne     next_x
+        bne     next_x          ; halt on NUL
         swi                     ; halt to system
 next_x:
         inc     vX              ; X+=1

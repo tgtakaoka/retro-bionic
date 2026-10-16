@@ -4,6 +4,7 @@
 ;;; Print variable: "A=variable "
 ;;; @param W variable
 ;;; @param A variable letter
+;;; @clobber D
 print:
         jsr     putchar         ; print variable letter
         lda     #'='
@@ -52,6 +53,7 @@ loop_x:
         ;; jsr     newline
 
 loop_i:
+        ;; A*B/F = A*Q+A*S/F with Q=B/F, S=B-Q*F; keeps products in 16 bits
         ldw     vB              ; W: B
         sexw                    ; Q: B
         divq    #F              ; W: B/F
@@ -153,7 +155,7 @@ print_char:
         jsr     getchar
         bcc     next_x
         tsta
-        bne     next_x
+        bne     next_x          ; halt on NUL
         swi                     ; halt to system
 next_x:
         inc     vX              ; X+=1

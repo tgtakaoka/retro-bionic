@@ -38,7 +38,7 @@ SBUF:   equ     99H             ; Serial data buffer
 PCON:   equ     87H             ; Power control
 ;;; PSW (0D0H) Program status word (bit addressable)
 CY:     equ     7              ; set to 1 if carry
-AC:     equ     6              ; set to 1 if auxillary carry
+AC:     equ     6              ; set to 1 if auxiliary carry
 F0:     equ     5              ; user flag 0
 RS1:    equ     4              ; register bank select
 RS0:    equ     3              ; register bank select
@@ -52,7 +52,7 @@ ET1:    equ     3               ; Timer 1 overflow
 EX1:    equ     2               ; #INT1
 ET0:    equ     1               ; Timer 0 overflow
 EX0:    equ     0               ; #INT0
-;;; SCON (89H) Serial control (bit addressable)
+;;; SCON (98H) Serial control (bit addressable)
 SM0:    equ     7               ; Serial mode SM[0:1:2]=010 8-bit UART
 SM1:    equ     6
 SM2:    equ     5
@@ -67,8 +67,8 @@ TR0:    equ     4               ; Timer 0 run control
 ;;; TMOD (89H) Timer/Counter mode control register
 T1MODE_gp:      equ     4       ; Timer 1 mode
 T0MODE_gp:      equ     0       ; Timer 0 mode
-TGATE:          equ     1000B
-TXPIN:          equ     0100B   ; Input from Tx pin
+TGATE:          equ     1000B   ; Run only while #INTx is high
+TXPIN:          equ     0100B   ; Count pulses on T0/T1 pin
 T8MODE:         equ     0010B   ; 8-bit auto-reload timer/counter
 ;;; PCON (87H) Power control register
 SMOD:   equ     1000000B        ; Double baudrate

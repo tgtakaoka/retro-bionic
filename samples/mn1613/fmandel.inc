@@ -69,7 +69,7 @@ loop_i:
         mvwi    R2, k4
         fs      DR0, (R2)       A*A+B*B-4
         mv      R0, R0, mz      skip if A*A+B*B<=4
-        b       print_i         if 4<T
+        b       print_i         if 4<A*A+B*B
         l       R0, vI
         ai      R0, 1
         st      R0, vI
@@ -91,7 +91,7 @@ print_char:
         or      R0, R0, enz     skip if E=1
         b       next_x
         or      R0, R0, nz      skip if R0!=0
-        h                       halt to system
+        h                       halt to system on NUL
 next_x:
         l       R0, vX
         ai      R0, 1

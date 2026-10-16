@@ -78,6 +78,7 @@ putspace:
         ldb     rl0, #' '
         jr      putchar
 
+;;; RxRDY interrupt: queue the received character
 isr_rx:
         push    @rr14, r0
         push    @rr14, r1
@@ -92,6 +93,7 @@ isr_rx_exit:
         pop     r0, @rr14
         jp      isr_return
 
+;;; TxRDY interrupt: send the next queued character, or disable Tx
 isr_tx:
         push    @rr14, r0
         push    @rr14, r1

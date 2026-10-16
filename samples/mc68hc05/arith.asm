@@ -19,10 +19,10 @@ R2H:    rmb     1
 R2L:    rmb     1
 arith_work:
         rmb     1
-SP:     rmb     1
+SP:     rmb     1               ; software stack index
 
         org     $0100
-stack:  rmb     20
+stack:  rmb     20              ; for push_XA/pull_XA
 
         org     VEC_SWI
         fdb     VEC_SWI         ; for halt to system
@@ -40,10 +40,10 @@ initialize:
 
         clr     SP
         jsr     arith
-        swi                     ; halt to stop
+        swi                     ; halt to system
 
-;;; Print out char
-;;; @param A char
+;;; Print a space, CR LF (newline) or char A (putchar)
+;;; @param A char for putchar
 ;;; @clobber A
 putspace:
         lda     #' '
@@ -68,8 +68,8 @@ putchar_a:
         rmb     1
 
 ;;; Print "R1 op R2"
-;;; @params A op letter
-;;; @clobber R2 R3 R4
+;;; @param A op letter
+;;; @clobber A X R0
 expr:
         sta     expr_op
         ldx     R1H
@@ -90,7 +90,7 @@ expr_op:
         rmb     1
 
 ;;; Print " = R0\n"
-;;; @clobber R0 R1 R2
+;;; @clobber A X R0
 answer:
         jsr     putspace
         lda     #'='
@@ -100,7 +100,7 @@ answer:
         jmp     newline
 
 ;;; Print "R1 rel R2"
-;;; @clobber R0
+;;; @clobber A X R0
 comp:
         jsr     cmp16
         lda     R0L

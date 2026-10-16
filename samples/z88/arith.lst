@@ -41,7 +41,7 @@
 (1)       0 : =20                IMR_IRQ5:       equ     (1 SHL 5)
 (1)       0 : =40                IMR_IRQ6:       equ     (1 SHL 6)
 (1)       0 : =80                IMR_IRQ7:       equ     (1 SHL 7)
-(1)       0 : =DE                SYM:    equ     %DE                  ; R/W; System Mode
+(1)       0 : =DE                SYM:    equ     %DE                  ; R/W: System Mode
 (1)       0 : =1                 SYM_INTR:       equ     %(2)00000001 ; Global interrupt enable
 (1)       0 : =2                 SYM_FAST:       equ     %(2)00000010 ; Fast interrupt enable
 (1)       0 : =7                 SYM_FAST_gm:    equ     %(2)111      ; Fast interrupt select mask
@@ -59,7 +59,7 @@
 (1)       0 : =12                VEC_UART_BREAK: equ     %0012   ; IRQ6: UART break/control char/wake-up
 (1)       0 : =14                VEC_UART_RECV:  equ     %0014   ; IRQ6: UART receive/P30 external
 (1)       0 : =16                VEC_IRQ6_P20:   equ     %0016   ; IRQ6: P20 external
-(1)       0 : =18                VEC_IRQ1_P21:   equ     %0018   ; IRQ1: UART zero/P21 external
+(1)       0 : =18                VEC_IRQ1_P21:   equ     %0018   ; IRQ1: UART zero count/P21 external
 (1)       0 : =1A                VEC_UART_TRNS:  equ     %001A   ; IRQ1: UART transmit/P31 external
 (1)       0 : =1C                VEC_IRQ4:       equ     %001C   ; IRQ4: P24/P25 external
 (1)       0 : =1E                VEC_IRQ7:       equ     %001E   ; IRQ7: P34/P35 external
@@ -81,7 +81,7 @@
 (1)       0 : =F6                P4D:    equ     %F6             ; W/O: Port 4 direction: 1=in, 0=out
 (1)       0 : =F7                P4OD:   equ     %F7 ; W/O: Port 4 open-drain: 1=open-drain, 0=push-pull
 (1)       0 : =F8                P2AM:   equ     %F8 ; W/O: Port 2/3 A mode; P31,P30,P21,P20
-(1)       0 : =F9                P2BM:   equ     %F9 ; W/O: Port 2/3 B mode; P33,P32,P23,P21
+(1)       0 : =F9                P2BM:   equ     %F9 ; W/O: Port 2/3 B mode; P33,P32,P23,P22
 (1)       0 : =FA                P2CM:   equ     %FA ; W/O: Port 2/3 C mode; P35,P34,P25,P24
 (1)       0 : =FB                P2DM:   equ     %FB ; W/O: Port 2/3 D mode; P37,P36,P27,P26
 (1)       0 : =0                 P2M_IN_gm:      equ     %(2)00     ; input
@@ -157,7 +157,7 @@
 (1)       0 : =40                UMB_COS_SYSTEM: equ     %(2)01000000 ; P21=System clock (XTAL/2)
 (1)       0 : =80                UMB_COS_BAUD:   equ     %(2)10000000 ; P21=Baud-rate generator output
 (1)       0 : =C0                UMB_COS_TDR:    equ     %(2)11000000 ; P21=Transmit data rate
-(1)       0 :                    ;;; UBRG=1/(2 x baud-rate x UMA_CR x BRG-input) - 1
+(1)       0 :                    ;;; UBG=BRG-input / (2 x baud-rate x UMA_CR) - 1
 (1)       0 : =F8                UBG0:   equ     %F8             ; BANK1: UART Baud-Rate Generator 0
 (1)       0 : =F9                UBG1:   equ     %f9             ; BANK1: UART Baud-Rate Generator 1
           0 :
@@ -169,6 +169,7 @@
           0 :                            include "../z86/i8251.inc"
 (1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
 (1)       0 :                    ;;; i8251 USART device emulator.
+(1)       0 :                    ;;; Bit definition of mode register
 (1)       0 : =6                 MODE_STOP_gp:   equ     6
 (1)       0 : =C0                MODE_STOP_gm:   equ     %(2)11000000
 (1)       0 : =40                MODE_STOP1_gc:  equ     (1 SHL MODE_STOP_gp)
@@ -247,6 +248,8 @@
          52 : F6 00 72                   call    newline
          55 : 3F                         wfi                     ; halt to system
          56 :
+         56 :                    ;;; @param R0 character; CR is followed by LF
+         56 :                    ;;; @clobber R0 RR12
          56 :                    putchar:
          56 : 70 C1                      push    R1
          58 : C6 CC FF 00                ldw     RR12, #USART
@@ -277,6 +280,9 @@
          83 : 50 C0                      pop     R0
          85 : AF                         ret
          86 :
+         86 :                    ;;; Print " " and the letters of the set C, Z, S, V flags, if any
+         86 :                    ;;; @param FLAGS
+         86 :                    ;;; @clobber R0 R1
          86 :                    putflags:
          86 : 18 D5                      ld      R1, FLAGS
          88 : 76 C1 F0                   tm      R1, #F_CARRY LOR F_ZERO LOR F_SIGN LOR F_OVERFLOW
@@ -306,6 +312,9 @@
          B5 :                    putflags_nov:
          B5 : AF                         ret
          B6 :
+         B6 :                    ;;; Print "a op b"
+         B6 :                    ;;; @param R0 op letter
+         B6 :                    ;;; @clobber RR0 R10-R15
          B6 :                    expr:
          B6 : 70 C0                      push    R0
          B8 : C4 10 C0                   ldw     RR0, a
@@ -317,6 +326,8 @@
          C9 : C4 12 C0                   ldw     RR0, b
          CC : 8D 11 86                   jp      print_int16
          CF :
+         CF :                    ;;; Print " = a\n"
+         CF :                    ;;; @clobber RR0 R10-R15
          CF :                    answer:
          CF : F6 00 7C                   call    putspace
          D2 : 0C 3D                      ld      R0, #'='
@@ -326,6 +337,8 @@
          DD : F6 11 86                   call    print_int16
          E0 : 8D 00 72                   jp      newline
          E3 :
+         E3 :                    ;;; Print "a rel b" and the flags of cmpsi2
+         E3 :                    ;;; @clobber RR0 R4 R5 R10-R15
          E3 :                    comp:
          E3 : 4C 10                      ld      R4, #a
          E5 : 5C 12                      ld      R5, #b
@@ -350,6 +363,7 @@
         105 : F6 00 86                   call    putflags
         108 : 8D 00 72                   jp      newline
         10B :
+        10B :                    ;;; Operands in the register file, big endian
          10 :                            org     %10
          10 :                    a:      ds      2
          12 :                    b:      ds      2
@@ -500,15 +514,16 @@
 (1)    115A :
 (1)    115A :                    ;;; Print unsigned 16-bit integer as decimal
 (1)    115A :                    ;;; @param RR0: value
-(1)    115A :                    ;;; @clobber RR0
+(1)    115A :                    ;;; @clobber RR0 R10-R15
 (1)    115A :                    print_uint16:
 (1)    115A : A0 C0                      incw    RR0
-(1)    115C : 80 C0                      decw    RR0
+(1)    115C : 80 C0                      decw    RR0             ; test RR0 for zero
 (1)    115E : EB 06                      jr      nz, print_uint16_inner
 (1)    1160 : 0C 30                      ld      R0, #'0'
 (1)    1162 : F6 00 56                   call    putchar
 (1)    1165 :                    print_uint16_end:
 (1)    1165 : AF                         ret
+(1)    1166 :                    ;;; Print non-zero RR0 recursively, most significant digit first
 (1)    1166 :                    print_uint16_inner:
 (1)    1166 : A0 C0                      incw    RR0
 (1)    1168 : 80 C0                      decw    RR0
@@ -525,7 +540,7 @@
 (1)    1186 :
 (1)    1186 :                    ;;; Print signed 16-bit integer as decimal
 (1)    1186 :                    ;;; @param RR0: value
-(1)    1186 :                    ;;; @clobber RR0
+(1)    1186 :                    ;;; @clobber RR0 R10-R15
 (1)    1186 :                    print_int16:
 (1)    1186 : 37 0E D1                   btjrf   print_uint16, R0, #7
 (1)    1189 : 70 C0                      push    R0
@@ -564,7 +579,7 @@
 (1)    11B6 : 97 F4 01                   ld      1(R4), R15
 (1)    11B9 : AF                         ret
 (1)    11BA :
-(1)    11BA :                    ;;; Singed subtraction: minuend -= subtrahend
+(1)    11BA :                    ;;; Signed subtraction: minuend -= subtrahend
 (1)    11BA :                    ;;; @param @R4: minuend
 (1)    11BA :                    ;;; @param @R5: subtrahend
 (1)    11BA :                    ;;; @clobber R14, R15
@@ -581,6 +596,7 @@
 (1)    11CA :                    ;;; Signed comparison: minuend - subtrahend
 (1)    11CA :                    ;;; @param @R4: minuend
 (1)    11CA :                    ;;; @param @R5: subtrahend
+(1)    11CA :                    ;;; @return FLAGS: C, Z, S, V of the 16-bit subtraction
 (1)    11CA :                    ;;; @clobber R14, R15
 (1)    11CA :                    cmpsi2:
 (1)    11CA : C5 C4 CE                   ldw     RR14, @R4
@@ -595,7 +611,7 @@
 (1)    11D8 :                    ;;; @param @R4: operand 1
 (1)    11D8 :                    ;;; @param @R5: operand 2
 (1)    11D8 :                    ;;; @param RR14: result
-(1)    11D8 :                    ;;; @param FLAGS
+(1)    11D8 :                    ;;; @param FLAGS: C of the operation
 (1)    11D8 :                    ;;; @return FLAGS: C, Z, S, V
 (1)    11D8 :                    addsub_flags:
 (1)    11D8 : 70 CF                      push    R15
@@ -651,12 +667,12 @@
 (1)    1224 : 37 CE 06                   btjrf   mulsi2_abs_muliplicand, R12, #7
 (1)    1227 : 60 CC                      com     R12
 (1)    1229 : 60 CD                      com     R13
-(1)    122B : A0 CC                      incw    RR12            ; multiplicand = -multiplicand
+(1)    122B : A0 CC                      incw    RR12            ; multiplier = -multiplier
 (1)    122D :                    mulsi2_abs_muliplicand:
 (1)    122D : 37 EE 06                   btjrf   mulsi2_multiply, R14, #7
 (1)    1230 : 60 CE                      com     R14
 (1)    1232 : 60 CF                      com     R15
-(1)    1234 : A0 CE                      incw    RR14            ; multiplier = -multiplier
+(1)    1234 : A0 CE                      incw    RR14            ; multiplicand = -multiplicand
 (1)    1236 :                    mulsi2_multiply:
 (1)    1236 : F6 12 01                   call    umul16          ; result = multiplicand * multiplier
 (1)    1239 : C7 C4                      ld      R12, @R4
@@ -671,15 +687,15 @@
 (1)    124B : AF                         ret
 (1)    124C :
 (1)    124C :                    ;;; Unsigned division: dividend / divisor = quotient ... remainder
-(1)    124C :                    ;;; @praram RR14: dividend
-(1)    124C :                    ;;; @praram RR12: divisor
+(1)    124C :                    ;;; @param RR14: dividend
+(1)    124C :                    ;;; @param RR12: divisor; 0 returns RR14 unchanged, RR12=0
 (1)    124C :                    ;;; @return RR14: remainder
 (1)    124C :                    ;;; @return RR12: quotient
 (1)    124C :                    ;;; @clobber R10-R15
 (1)    124C :                    udiv16:
 (1)    124C : A0 CC                      incw    RR12
 (1)    124E : 80 CC                      decw    RR12
-(1)    1250 : 6D 12 CB                   jp      z, udiv16_end   ; divide by zero erro
+(1)    1250 : 6D 12 CB                   jp      z, udiv16_end   ; divide by zero error
 (1)    1253 : CE                         inc     R12
 (1)    1254 : 00 CC                      dec     R12
 (1)    1256 : EB 3C                      jr      nz, udiv16_16   ; branch if high(divisor)!=0
@@ -748,7 +764,7 @@
 (1)    12CB :                    udiv16_end:
 (1)    12CB : AF                         ret
 (1)    12CC :
-(1)    12CC :                    ;;; Signed division: dividend *= divisor
+(1)    12CC :                    ;;; Signed division: dividend /= divisor
 (1)    12CC :                    ;;; @param @R4: dividend
 (1)    12CC :                    ;;; @param @R5: divisor
 (1)    12CC :                    ;;; @clobber R10-R15
@@ -771,7 +787,7 @@
 (1)    12EB : 37 EE 06                   btjrf   divsi2_end, R14, #7
 (1)    12EE : 60 CC                      com     R12
 (1)    12F0 : 60 CD                      com     R13
-(1)    12F2 : A0 CC                      incw    RR12            ; dividend = = -dividend
+(1)    12F2 : A0 CC                      incw    RR12            ; quotient = -quotient
 (1)    12F4 :                    divsi2_end:
 (1)    12F4 : D7 4C                      ld      0(R4), R12
 (1)    12F6 : 97 D4 01                   ld      1(R4), R13

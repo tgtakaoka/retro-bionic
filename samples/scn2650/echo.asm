@@ -37,7 +37,7 @@ receive_loop:
         bcfr,eq receive_loop
 receive_data:
         rede,r0 USARTD
-        bctr,eq echo_halt
+        bctr,eq echo_halt       ; NUL halts
 transmit_loop:
         rede,r1 USARTS
         tmi,r1  ST_TxRDY_bm

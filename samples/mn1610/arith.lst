@@ -6,9 +6,9 @@
 (1)       0 :                    *** Status Register
 (1)       0 : =0                 STR_E:          equ     0       Extension
 (1)       0 : =2                 STR_OV:         equ     2       Overflow
-(1)       0 : =5                 STR_IRQ0:       equ     5       IRQ0 Mask
-(1)       0 : =6                 STR_IRQ1:       equ     6       IRQ1 Mask
-(1)       0 : =7                 STR_IRQ2:       equ     7       IRQ2 Mask
+(1)       0 : =5                 STR_IRQ0:       equ     5       IRQ0 Mask, 1=enabled
+(1)       0 : =6                 STR_IRQ1:       equ     6       IRQ1 Mask, 1=enabled
+(1)       0 : =7                 STR_IRQ2:       equ     7       IRQ2 Mask, 1=enabled
 (1)       0 :                    *** Interrupt vector and save area
 (1)       0 : =0                 OPSW0:          equ     X'0000' IRQ0 old STR:IC
 (1)       0 : =2                 OPSW1:          equ     X'0002' IRQ1 old STR:IC
@@ -79,6 +79,7 @@
         109 : 0200                       dc      initialize      IC
         10A :
           8 :                            loc     ZERO_PAGE
+          8 :                    *** Zero-page pointers for indirect BAL to distant routines
           8 : 0218               I_putchar:      dc      putchar
           9 : 0215               I_newline:      dc      newline
           A : 021F               I_print_int16:  dc      print_int16
@@ -135,7 +136,7 @@
 (1)     21F :                    *** -*- mode: asm; mode: flyspell-prog* -*-
 (1)     21F :                    *** Print signed 16-bit integer as decimal
 (1)     21F :                    *** @param R0 value
-(1)     21F :                    *** @clobber R1 R2
+(1)     21F :                    *** @clobber R0 R1 R2
 (1)     21F :                    print_int16:
 (1)     21F : 2850                       tbit    R0, 0, nz       skip if msb(value)=1
 (1)     220 : CF08                       b       print_uint16
@@ -152,7 +153,7 @@
 (1)     22A : 0A0A                       mvi     R2, 10          R2=10
 (1)     22B : 8F08                       bal     udiv16          R0=value/10, R1=value%10
 (1)     22C : 2101                       push    R1              push remainder
-(1)     22D : 6048                       or      R0, R0, z       skip if value=0
+(1)     22D : 6048                       or      R0, R0, z       skip if quotient=0
 (1)     22E : 8FFA                       bal     print_uint16    next digit
 (1)     22F : 2002                       pop     R0              pop remainder
 (1)     230 : 0A30                       mvi     R2, '0'
@@ -249,6 +250,8 @@
 (1)     26B : 2003                       ret
 (1)     26C :
 (1)     26C :                    *** Signed Multiply: multiplicand * multiplier = product
+(1)     26C :                    *** A negative multiplier is negated with the multiplicand, so the loop
+(1)     26C :                    *** runs on |multiplier|.
 (1)     26C :                    *** @param R1 multiplicand
 (1)     26C :                    *** @param R2 multiplier
 (1)     26C :                    *** @return R1 product
@@ -307,7 +310,7 @@
         28F :
         28F :                    *** Print " = value\n"
         28F :                    *** @param R1 value
-        28F :                    *** @clobber R1
+        28F :                    *** @clobber R0 R1 R2
         28F :                    answer:
         28F : 0820                       mvi     R0, ' '
         290 : 9708                       bal     (I_putchar)     print ' '

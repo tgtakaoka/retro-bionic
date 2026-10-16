@@ -22,19 +22,20 @@
 (1)       0 : =200               USARTD: equ     USART+0         ; Data register
 (1)       0 : =202               USARTS: equ     USART+2         ; Status register
 (1)       0 : =202               USARTC: equ     USART+2         ; Control register
-(1)       0 : =204               USARTRV:        equ     USART+4 ; Receive interrupt vector (ORG_*)
-(1)       0 : =206               USARTTV:        equ     USART+6 ; Transmit interrupt vector (ORG_*)
+(1)       0 : =204               USARTRV:        equ     USART+4 ; Receive interrupt enable (EXTINT), 0=off
+(1)       0 : =206               USARTTV:        equ     USART+6 ; Transmit interrupt enable (EXTINT), 0=off
 (1)       0 :                            include "i8251.inc"
 (2)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
 (2)       0 :
 (2)       0 :                    ;;; i8251 USART device emulator.
+(2)       0 :                    ;;; Bit definition of mode instruction (asynchronous)
 (2)       0 : =6                 MODE_STOP_gp:   equ     6
 (2)       0 : =C0                MODE_STOP_gm:   equ     11000000B
 (2)       0 : =40                MODE_STOP1_gc:  equ     (1 << MODE_STOP_gp)
 (2)       0 : =80                MODE_STOP15_gc: equ     (2 << MODE_STOP_gp)
 (2)       0 : =C0                MODE_STOP2_gc:  equ     (3 << MODE_STOP_gp)
-(2)       0 : =20                MODE_EVEN_bm:   equ     00100000B
-(2)       0 : =10                MODE_PARITY_bm: equ     00010000B
+(2)       0 : =20                MODE_EVEN_bm:   equ     00100000B   ; Even parity
+(2)       0 : =10                MODE_PARITY_bm: equ     00010000B   ; Parity enable
 (2)       0 : =2                 MODE_LEN_gp:    equ     2
 (2)       0 : =C                 MODE_LEN_gm:    equ     00001100B
 (2)       0 : =0                 MODE_LEN5_gc:   equ     (0 << MODE_LEN_gp)
@@ -110,6 +111,8 @@
        20B9 : C3 01 10 20 1A             st      A, VEC_TRAP     ; halt to system
        20BE : F7                         trap
        20BF :
+       20BF :                    ;;; Put character
+       20BF :                    ;;; @param A
        20BF :                    putchar:
        20BF : C8 1A                      push    A
        20C1 :                    putchar_loop:
@@ -119,6 +122,7 @@
        20CB : C7 01 00 02 1A             stb     A, USARTD
        20D0 : F0                         ret
        20D1 :
+       20D1 :                    ;;; Put newline
        20D1 :                    newline:
        20D1 : C8 1A                      push    A
        20D3 : B1 0D 1A                   ldb     A, #0DH
@@ -128,6 +132,7 @@
        20DD : CC 1A                      pop     A
        20DF : F0                         ret
        20E0 :
+       20E0 :                    ;;; Put space
        20E0 :                    putspace:
        20E0 : C8 1A                      push    A
        20E2 : B1 20 1A                   ldb     A, #' '
@@ -135,7 +140,7 @@
        20E7 : CC 1A                      pop     A
        20E9 : F0                         ret
        20EA :
-       20EA :                    ;;; Print "v1 op v2 = "
+       20EA :                    ;;; Print "v1 op v2"
        20EA :                    ;;; @param v1 HL
        20EA :                    ;;; @param v2 DE
        20EA :                    ;;; @param op A
@@ -154,7 +159,7 @@
        2100 : CC 1C                      pop     HL
        2102 : F0                         ret
        2103 :
-       2103 :                    ;;; Print " v1\n"
+       2103 :                    ;;; Print " = v1\n"
        2103 :                    ;;; @param v1 HL
        2103 :                    ;;; @clobber A HL
        2103 :                    answer:

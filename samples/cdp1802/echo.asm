@@ -12,7 +12,7 @@ main:
         ldi     A.1(ACIA_config)
         phi     R8
         ldi     A.0(ACIA_config)
-        plo     R8              ; R8=ACIA
+        plo     R8              ; R8=ACIA_config
         sex     R8              ; R8 for inp/out
         out     ACIA_control    ; Master reset
         out     ACIA_control    ; Mode set
@@ -40,7 +40,7 @@ receive_data:
 transmit:
         plo     R7              ; R7.0=char
 transmit_loop:
-        inp     ACIA_status     ; ACIA_status
+        inp     ACIA_status
         ani     TDRE_bm
         bz      transmit_loop
 transmit_data:

@@ -76,7 +76,7 @@ loop:
 
 ;;; Get character
 ;;; @return A
-;;; @return CC.C 0 if no character
+;;; @return F.C 0 if no character
 getchar:
         push    HL
         ld      HL, rx_queue
@@ -124,6 +124,7 @@ putspace:
         include "arith.inc"
         include "queue.inc"
 
+;;; Rx and Tx share the vector: receive if RxRDY, then send if TxRDY
 isr_intr:
         push    AF
         push    BC

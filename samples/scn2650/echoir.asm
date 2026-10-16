@@ -60,7 +60,7 @@ receive_loop:
         tpsl    PSL_C
         bcfr,eq receive_loop    ; PSL.C=0
         iorz    r0
-        bctr,eq echoir_halt
+        bctr,eq echoir_halt     ; NUL halts
 transmit_loop:
         rede,r1 USARTS
         tmi,r1  ST_TxRDY_bm
@@ -86,6 +86,7 @@ isr_intr:
 isr_intr_recv_end:
         bctr,un isr_return
 
+;;; Save r0-r3 and PSL to isr_context
 isr_save:
         strr,r0 isr_context
         strr,r1 isr_context+1
@@ -98,6 +99,8 @@ isr_save:
 isr_context:
         res     5
 
+;;; Restore from isr_context; the final LODR r0 changes CC, so put
+;;; back the saved CC that LPSL left
 isr_return:
         lodr,r3 isr_context+3
         lodr,r2 isr_context+2

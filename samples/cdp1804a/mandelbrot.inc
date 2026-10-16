@@ -26,6 +26,8 @@ print:
         scal    R4, print_int16
         br      putspace
 
+;;; Print one frame: a char per point, the escape iteration in hex
+;;; or ' ' if none; NUL from the console halts.
 mandelbrot:
         rldi    rY, -12         ; Y=-12
 loop_y:
@@ -79,6 +81,8 @@ loop_x:
         ;; scal    R4, print
         ;; scal    R4, newline
 
+        ;; A*B/F is computed as A*Q+A*S/F with Q=B/F, S=B-Q*F,
+        ;; to avoid 16-bit overflow
 loop_i:
         scal    R4, load_R7
         dc      A(vB)
@@ -230,7 +234,7 @@ loop_i:
         br      print_char
 print_i:
         glo     rI
-        dadi    x'90'
+        dadi    x'90'           ; I to ASCII hex digit
         daci    x'40'
 print_char:
         scal    R4, putchar

@@ -1,6 +1,7 @@
 ;;; -*- mode: asm; mode: flyspell-prog; -*-
 
 ;;; i8251 USART device emulator.
+;;; Bit definition of mode register
 MODE_STOP_gp:   equ     6
 MODE_STOP_gm:   equ     11000000B
 MODE_STOP1_gc:  equ     (1 << MODE_STOP_gp)
@@ -19,7 +20,7 @@ MODE_BAUD_gm:   equ     00000011B
 MODE_BAUD_X1:   equ     (1 << MODE_BAUD_gp)
 MODE_BAUD_X16:  equ (2 << MODE_BAUD_gp)
 MODE_BAUD_X64:  equ (3 << MODE_BAUD_gp)
-;;; Bit Definition of command register
+;;; Bit definition of command register
 CMD_EH_bm:      equ     10000000B   ; Enter hunt mode
 CMD_IR_bm:      equ     01000000B   ; Internal Reset
 CMD_RTS_bm:     equ     00100000B   ; Request To Send

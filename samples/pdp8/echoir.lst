@@ -21,6 +21,7 @@
 (1)       0 :                    /// -*- mode: asm; mode: flyspell-prog; -*-
 (1)       0 :                    /// MC6850
 (1)       0 :                    /// Asynchronous Communication Interface Adapter
+(1)       0 :                    /// IOT function: +1 selects the data register, +4 writes
 (1)       0 : =0                 ACIA_status     = 0
 (1)       0 : =4                 ACIA_control    = 4
 (1)       0 : =1                 ACIA_receive    = 1
@@ -70,7 +71,7 @@
           3 :
        7776 :                            *ORG_RESET-1
        7776 : 0200                       initialize
-       7777 : 5776                       jmp     I .-1
+       7777 : 5776                       jmp     I .-1           / reset starts here
       10000 :
          20 :                            *PAGE0
          20 : 0400               I_queue_init,   queue_init
@@ -97,7 +98,7 @@
         215 :                    loop,
         215 : 4232                       jms     getchar
         216 : 7450                       sna                     / Skip if AC != 0
-        217 : 5227                       jmp     halt_to_system
+        217 : 5227                       jmp     halt_to_system  / NUL halts
         220 :                    echo,
         220 : 4245                       jms     putchar
         221 : 7041                       cia                     / negate AC
@@ -111,6 +112,8 @@
         230 : 0015               char_CR,        015             / Carriage return
         231 : 0012               char_LF,        012             / Line feed
         232 :
+        232 :                    /// Wait for a character from rx_queue
+        232 :                    /// @return AC character
         232 : 0000               getchar,        .-.
         233 :                    getchar_loop,
         233 : 6002                       iof                     / Disable interrupt
@@ -124,6 +127,9 @@
         243 : 5632                       jmp     I getchar       / Return
         244 : 0000               getchar_char,   0
         245 :
+        245 :                    /// Wait until Tx is ready and send a character
+        245 :                    /// @param AC character
+        245 :                    /// @return AC character
         245 : 0000               putchar,        .-.
         246 : 3257                       dca     putchar_char    / Save character
         247 :                    putchar_loop,
@@ -156,7 +162,7 @@
 (1)     400 :                    /// @return AC=0
 (1)     400 :                    /// @clobber AC
 (1)     400 : 0000               queue_init, .-.                 / parameter address
-(1)     401 : 1223                       tad     queue_work_size / subtract queue work space
+(1)     401 : 1223                       tad     queue_work_size / subtract header size
 (1)     402 : 7041                       cia                     / AC=-size
 (1)     403 : 3264                       dca     queue_tmp       / queue_tmp = -size
 (1)     404 : 1600                       tad     I queue_init    / load queue work space pointer
@@ -166,7 +172,7 @@
 (1)     410 : 3665                       dca     I queue_ptr     / queue_size = -size
 (1)     411 : 2265                       isz     queue_ptr       / &queue_len
 (1)     412 : 1264                       tad     queue_tmp       / -size
-(1)     413 : 1223                       tad     queue_work_size / -queue work space
+(1)     413 : 1223                       tad     queue_work_size / -header size
 (1)     414 : 7001                       iac                     / offset queue_size
 (1)     415 : 3264                       dca     queue_tmp       / counter
 (1)     416 :                    queue_init_clear,
@@ -175,11 +181,12 @@
 (1)     420 : 2264                       isz     queue_tmp
 (1)     421 : 5216                       jmp     queue_init_clear
 (1)     422 : 5600                       jmp     I queue_init    / return, AC=0
-(1)     423 : 7774               queue_work_size,        -4
+(1)     423 : 7774               queue_work_size,        -4      / header words
 (1)     424 :
 (1)     424 :                    /// [queue] Add an element to queue
 (1)     424 :                    /// @param (PC+1) queue work space pointer
 (1)     424 :                    /// @param AC an element
+(1)     424 :                    /// @return AC the element
 (1)     424 :                    /// @return L 0 if queue is full
 (1)     424 : 0000               queue_add, .-.                  / parameter/return address
 (1)     425 : 3266                       dca     queue_element   / save element
@@ -246,7 +253,7 @@
 (1)     513 : 3267                       dca     queue_buf
 (1)     514 : 1667                       tad     I queue_buf     / AC=queue_buf[queue_get]
 (1)     515 : 3266                       dca     queue_element   / save element
-(1)     516 : 2665                       isz     I queue_ptr     / queue_get
+(1)     516 : 2665                       isz     I queue_ptr     / queue_get++
 (1)     517 : 1665                       tad     I queue_ptr     / AC=queue_get
 (1)     520 : 1264                       tad     queue_tmp       / AC=queue_get-queue_size
 (1)     521 : 7700                       sma cla                 / skip if queue_get < queue_size, AC=0

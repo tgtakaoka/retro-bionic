@@ -133,6 +133,7 @@
         23E :                            *** Get character
         23E :                            *** @return R0
         23E :                            *** @return ST.C 0 if no character
+        23E :                            *** @clobber R9
         23E :                    getchar:
         23E : 064A                       dect    R10
         240 : C68B                       mov     R11, *R10       Push return address
@@ -156,6 +157,8 @@
         270 : C2FA                       mov     *R10+, R11      Pop return address
         272 : 045B                       rt
         274 :
+        274 :                            *** Queue R0 high byte for the Tx interrupt
+        274 :                            *** @clobber R9
         274 :                    putspace:
         274 : 0200 2000                  li      R0, hibyte(' ')
         278 :                    putchar:
@@ -178,8 +181,8 @@
 (1)     29E :
 (1)     29E :                            *** Print variable: "name=variable "
 (1)     29E :                            *** @param R1 variable
-(1)     29E :                            *** @param R0 variable name
-(1)     29E :                            *** @clobber R0 R1
+(1)     29E :                            *** @param R0 variable name letter in high byte
+(1)     29E :                            *** @clobber R0
 (1)     29E :                    print:
 (1)     29E : 064A                       dect    R10
 (1)     2A0 : C68B                       mov     R11, *R10       Push return address
@@ -192,7 +195,7 @@
 (1)     2B8 : C2FA                       mov     *R10+, R11      Pop return address
 (1)     2BA : 045B                       rt
 (1)     2BC :
-(1)     2BC : =32                F:      equ     50
+(1)     2BC : =32                F:      equ     50              Fixed-point scale; 1.0 is F
 (1)     2BC :                    vC:     bss     2
 (1)     2BE :                    vD:     bss     2
 (1)     2C0 :                    vA:     bss     2
@@ -205,6 +208,9 @@
 (1)     2CE :                    vX:     bss     2
 (1)     2D0 :                    vI:     bss     2
 (1)     2D2 :
+(1)     2D2 :                            *** Print the Mandelbrot set for Y=-12..12, X=-49..29; each point
+(1)     2D2 :                            *** shows its escape iteration 0-F, or a space if it never escapes.
+(1)     2D2 :                            *** A NUL received halts the CPU.
 (1)     2D2 :                    mandelbrot:
 (1)     2D2 : 064A                       dect    R10
 (1)     2D4 : C68B                       mov     R11, *R10       Push return address
@@ -318,7 +324,7 @@
 (1)     3BA :
 (1)     3BA : C020 02CA                  mov     @vT, R0
 (1)     3BE : 0280 0004                  ci      R0, 4
-(1)     3C2 : 1514                       jgt     print_i         if 4<P*P+Q*Q
+(1)     3C2 : 1514                       jgt     print_i         if 4<T
 (1)     3C4 : 05A0 02D0                  inc     @vI             I+=1
 (1)     3C8 : C020 02D0                  mov     @vI, R0
 (1)     3CC : 0280 0010                  ci      R0, 16
@@ -352,10 +358,10 @@
 (1)     3F8 :                            * bl      @newline
 (1)     3F8 :
 (1)     3F8 : 06A0 023E                  bl      @getchar
-(1)     3FC : 1703                       jnc     next_x
-(1)     3FE : E000                       soc     R0, R0
+(1)     3FC : 1703                       jnc     next_x          No input
+(1)     3FE : E000                       soc     R0, R0          Test R0
 (1)     400 : 1601                       jne     next_x
-(1)     402 : 2FCF                       xop     R15,15          halt to system
+(1)     402 : 2FCF                       xop     R15,15          NUL; halt to system
 (1)     404 :                    next_x:
 (1)     404 : 05A0 02CE                  inc     @vX             X+=1
 (1)     408 : C020 02CE                  mov     @vX, R0
@@ -405,17 +411,21 @@
 (1)     466 : 06A0 0278                  bl      @putchar
 (1)     46A : 10F8                       jmp     print_int16_return
 (1)     46C :
+(1)     46C :                            *** Print unsigned decimal recursively, most significant digit first
+(1)     46C :                            *** @param R0 value; 0 prints nothing
+(1)     46C :                            *** @param R2 radix 10
+(1)     46C :                            *** @clobber R0 R1
 (1)     46C :                    print_uint16_loop:
 (1)     46C : 064A                       dect    R10
 (1)     46E : C68B                       mov     R11, *R10       Push return address
 (1)     470 : C040                       mov     R0, R1
 (1)     472 : 130C                       jeq     print_uint16_return
 (1)     474 : 04C0                       clr     R0
-(1)     476 : 3C02                       div     R2, R0          R0:R1/R2 ; R0=quotient R1=reminder
+(1)     476 : 3C02                       div     R2, R0          R0:R1/R2 ; R0=quotient R1=remainder
 (1)     478 : 064A                       dect    R10
-(1)     47A : C681                       mov     R1, *R10        Push reminder
+(1)     47A : C681                       mov     R1, *R10        Push remainder
 (1)     47C : 06A0 046C                  bl      @print_uint16_loop
-(1)     480 : C03A                       mov     *R10+, R0       Pop reminder
+(1)     480 : C03A                       mov     *R10+, R0       Pop remainder
 (1)     482 : 06C0                       swpb    R0
 (1)     484 : 0220 3000                  ai      R0, hibyte('0')
 (1)     488 : 06A0 0278                  bl      @putchar
@@ -423,17 +433,17 @@
 (1)     48C : C2FA                       mov     *R10+, R11      Pop return address
 (1)     48E : 045B                       rt
 (1)     490 :
-(1)     490 :                            *** Unsigned Divide
-(1)     490 :                            *** R1 / |R2| = R1
-(1)     490 :                            *** @clobber R2
+(1)     490 :                            *** Signed divide, quotient only
+(1)     490 :                            *** R1 / R2 = R1
+(1)     490 :                            *** @clobber R0
 (1)     490 :                    divu16:
 (1)     490 : C001                       mov     R1, R0
 (1)     492 : 08F0                       sra     R0, 15          Extend sign bit
-(1)     494 : 0182                       divs    R2              R0:R1/R2=R0..R1
+(1)     494 : 0182                       divs    R2              R0:R1/R2=R0...R1
 (1)     496 : C040                       mov     R0, R1
 (1)     498 : 045B                       rt
 (1)     49A :
-(1)     49A :                            *** Divide
+(1)     49A :                            *** Signed divide
 (1)     49A :                            *** R1 / R2 = R1 ... R0
 (1)     49A :                            *** @clobber R2
 (1)     49A :                    div16:
@@ -445,7 +455,7 @@
 (1)     4A4 : C002                       mov     R2, R0
 (1)     4A6 : 045B                       rt
         4A8 :                            include "../tms9900/queue.inc"
-(1)     4A8 :                    *** -*- mode: asm; mode: flying-spell; -*-
+(1)     4A8 :                    *** -*- mode: asm; mode: flyspell-prog; -*-
 (1)     4A8 :                    *** [queue] queue structure
 (1)     4A8 : =0                 queue_len:      equ     0       ; queue length
 (1)     4A8 : =2                 queue_size:     equ     2       ; buffer size
@@ -472,8 +482,8 @@
 (1)     4BE :
 (1)     4BE :                    *** [queue] Add an element to queue
 (1)     4BE :                    *** @param R9 queue work space pointer
-(1)     4BE :                    *** @param R0 an element
-(1)     4BE :                    *** @return CC.C 0 if queue is full
+(1)     4BE :                    *** @param R0 an element in high byte
+(1)     4BE :                    *** @return ST.C 0 if queue is full
 (1)     4BE :                    *** @clobber R1
 (1)     4BE :                    queue_add:
 (1)     4BE : 8A59 0002                  c       *R9, @queue_size(R9)    check queue_len
@@ -499,8 +509,8 @@
 (1)     4EC :
 (1)     4EC :                    *** [queue] Remove an element from queue
 (1)     4EC :                    *** @param R9 queue work space pointer
-(1)     4EC :                    *** @return R0 an element
-(1)     4EC :                    *** @return CC.C 0 if queue is empty
+(1)     4EC :                    *** @return R0 an element in high byte
+(1)     4EC :                    *** @return ST.C 0 if queue is empty
 (1)     4EC :                    *** @clobber R1
 (1)     4EC :                    queue_remove:
 (1)     4EC : C059                       mov     *R9, R1                 check queue_len
@@ -522,6 +532,7 @@
 (1)     512 : 0911                       srl     R1, 1                   set/clear ST.C
 (1)     514 : 045B                       rt
         516 :
+        516 :                            *** ACIA interrupt; runs in its own workspace, so no registers need saving
         516 :                    int1_isr:
         516 : D020 0080                  movb    @ACIA_status, R0
         51A : 0240 0100                  andi    R0, hibyte(RDRF_bm)
@@ -540,7 +551,6 @@
         544 :                    int1_isr_exit:
         544 : 0380                       rtwp
         546 :                    int1_isr_send_empty:
-        546 :                            * Disable Tx interrupt
         546 : 0201 2000                  li      R1, hibyte(TCB_EI_gc)
         54A : 5801 0080                  szcb    R1, @ACIA_control       Disable Tx interrupt
         54E : 0380                       rtwp

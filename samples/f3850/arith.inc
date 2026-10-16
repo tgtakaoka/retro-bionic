@@ -1,7 +1,9 @@
 ;;; -*- mode: asm; mode: flyspell-prog; -*-
         cpu     f3850
 
-;;; Print unsigned 16-bit integer as decimal
+;;; @n: the 16-bit scratchpad pair whose address is in register n, MSB first
+
+;;; Print unsigned 16-bit integer as decimal; recurses once per digit
 ;;; @param 0:1 value
 ;;; @clobber 0 1 4 5 6 7 A
 print_uint16:
@@ -134,7 +136,7 @@ addsi2:
 ;;; Signed subtraction: minuend -= subtrahend
 ;;; @param @2: minuend
 ;;; @param @3: subtrahend
-;;; @clobber 0 1 A
+;;; @clobber 0 1 ISAR A
 subsi2:
         lr      A, 3
         lr      IS, A           ; point MSB(subtrahend)
@@ -216,7 +218,7 @@ cmpsi2_eq:
 ;;; @param 4:5 multiplicand
 ;;; @param 6:7 multiplier
 ;;; @return 4:5 result
-;;; @clobber 4 5 6 7
+;;; @clobber 4 5 6 7 A
 umul16:
         pi      pushQ           ; save Q
         pi      push0           ; save 0
@@ -281,7 +283,7 @@ umul16_return:
 ;;; Signed multiplication: multiplicand *= multiplier
 ;;; @param @2: multiplicand
 ;;; @param @3: multiplier
-;;; @clobber 4 5 6 7 A
+;;; @clobber 4 5 6 7 ISAR A
 mulsi2:
         lr      A, 2
         inc
@@ -475,7 +477,7 @@ udiv16_end:
 ;;; Signed division: dividend /= divisor
 ;;; @param @2: dividend
 ;;; @param @3: divisor
-;;; @clobber 4 5 6 7 A
+;;; @clobber 4 5 6 7 ISAR A
 divsi2:
         lr      A, 2
         inc

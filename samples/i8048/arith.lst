@@ -5,7 +5,7 @@
 (1)       0 :                    ;;; i8048
 (1)       0 :                    ;;; PSW Register
 (1)       0 : =80                PSW_CY:         equ     10000000B ; set to 1 if carry
-(1)       0 : =40                PSW_AC:         equ     01000000B ; set to 1 if auxillary carry
+(1)       0 : =40                PSW_AC:         equ     01000000B ; set to 1 if auxiliary carry
 (1)       0 : =10                PSW_F0:         equ     00010000B ; flag 0
 (1)       0 : =4                 PSW_BS:         equ     00000100B ; register bank select
 (1)       0 : =7                 PSW_SP:         equ     00000111B ; stack pointer (grow upward)
@@ -131,6 +131,7 @@
          2C : 28                         xch     A, R0           ; restore character
          2D : 83                         ret
          2E :
+         2E :                    ;;; Put space; falls into putchar
          2E :                    putspace:
          2E : 23 20                      mov     A, #' '
          30 :
@@ -167,7 +168,7 @@
          47 :                    ;;; @param A op
          47 :                    ;;; @return R2 &vA
          47 :                    ;;; @return R3 &vB
-         47 :                    ;;; @clobber A
+         47 :                    ;;; @clobber A R0 R4 R5 R6 R7
          47 :                    expr:
          47 : C9                         dec     R1
          48 : 91                         movx    @R1, A          ; save op
@@ -199,7 +200,7 @@
          6B :
          6B :                    ;;; Print " = val\n"
          6B :                    ;;; @param vA val
-         6B :                    ;;; @clobber A
+         6B :                    ;;; @clobber A R0 R4 R5 R6 R7
          6B :                    answer:
          6B : 14 2E                      call    putspace
          6D : 23 3D                      mov     A, #'='
@@ -214,8 +215,8 @@
          7D : 04 30                      jmp     putchar
          7F :
          7F :                    ;;; Print "v1 rel v2\n"
-         7F :                    ;;; @param R2:R3 v1
-         7F :                    ;;; @param R4:R5 v2
+         7F :                    ;;; @param R3:R2 v1
+         7F :                    ;;; @param R5:R4 v2
          7F :                    comp:
          7F : FA                         mov     A, R2
          80 : B8 20                      mov     R0, #vA
@@ -483,7 +484,7 @@
 (1)     22F :
 (1)     22F :                    ;;; Print signed 16-bit integer as decimal
 (1)     22F :                    ;;; @param R0 &value
-(1)     22F :                    ;;; @clobber A
+(1)     22F :                    ;;; @clobber A R4 R5 R6 R7
 (1)     22F :                    print_int16:
 (1)     22F : F8                         mov     A, R0
 (1)     230 : C9                         dec     R1
@@ -503,8 +504,9 @@
 (1)     23F : 23 2D                      mov     A, #'-'
 (1)     241 : 14 30                      call    putchar         ; print '-'
 (1)     243 : 74 00                      call    neg_R3R2        ; negate value
-(1)     245 :                    ;;; Print unsigned 16-bit integer as decimal
-(1)     245 :                    ;;; @param R2:R3: value
+(1)     245 :                    ;;; Print unsigned 16-bit integer as decimal; tail of print_int16,
+(1)     245 :                    ;;; expects its saved R0, R2, R3 on the R1 stack
+(1)     245 :                    ;;; @param R3:R2 value
 (1)     245 :                    ;;; @param print_uint16_buf external data memory
 (1)     245 :                    ;;; @clobber A
 (1)     245 :                    print_uint16:
@@ -548,6 +550,7 @@
 (1)     270 : A8                         mov     R0, A           ; restore R0
 (1)     271 : 83                         ret
 (1)     272 :
+(1)     272 :                    ;;; Conditional jumps stay in their page; start a new one.
 (1)     300 :                            org     $+(256-LOW($))
 (1)     300 :
 (1)     300 :                    ;;; Negation; result = -result
@@ -605,7 +608,7 @@
 (1)     32A :                    ;;; Signed addition: summand += addend
 (1)     32A :                    ;;; @param R2: &summand
 (1)     32A :                    ;;; @param R3: &addend
-(1)     32A :                    ;;; @clobber A R2 R3
+(1)     32A :                    ;;; @clobber A R0 R2 R3
 (1)     32A :                    addsi2:
 (1)     32A : FB                         mov     A, R3
 (1)     32B : A8                         mov     R0, A           ; R0=&addend
@@ -674,7 +677,7 @@
 (1)     35F : A8                         mov     R0, A           ; R0=&minuend
 (1)     360 : F0                         mov     A, @R0          ; A=lo(minuend)
 (1)     361 : 6B                         add     A, R3
-(1)     362 : AB                         mov     R3, A           ; A=lo(minuend-subtrahend)
+(1)     362 : AB                         mov     R3, A           ; R3=lo(minuend-subtrahend)
 (1)     363 : 18                         inc     R0
 (1)     364 : 81                         movx    A, @R1          ; restore hi(subtrahend)
 (1)     365 : D0                         xrl     A, @R0          ; A=hi(minuend^subtrahend)
@@ -699,7 +702,7 @@
 (1)     379 : 23 FF                      mov     A, #-1
 (1)     37B : 83                         ret
 (1)     37C :                    cmpsi2_eq:
-(1)     37C : 19                         inc     R1              ; discard hi(subtrahend)
+(1)     37C : 19                         inc     R1              ; discard hi(minuend^subtrahend)
 (1)     37D : 83                         ret
 (1)     37E :
 (1)     37E :                    ;;; Unsigned multiplication: result = multiplicand * multiplier
@@ -824,6 +827,7 @@
 (1)     400 :                    ;;; @param R5:R4 divisor
 (1)     400 :                    ;;; @return R3:R2 quotient
 (1)     400 :                    ;;; @return R5:R4 remainder
+(1)     400 :                    ;;; R2-R5 are unchanged if divisor is 0.
 (1)     400 :                    ;;; @clobber A R0 R2 R3 R4 R5 R6 R7
 (1)     400 :                    udiv16:
 (1)     400 : FC                         mov     A, R4

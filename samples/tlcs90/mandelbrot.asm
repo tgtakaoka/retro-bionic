@@ -66,7 +66,7 @@ loop:
 
 ;;; Get character
 ;;; @return A
-;;; @return CC.C 0 if no character
+;;; @return F.C 0 if no character
 getchar:
         push    ix
         ld      ix, rx_queue
@@ -102,6 +102,7 @@ putspace:
         ld      A, ' '
         jr      putchar
 
+;;; Interrupt entry pushes PC and AF; RETI pops both.
 isr_intr:
         bit     ST_RxRDY_bp, (USARTS)
         jr      nz, isr_intr_rx

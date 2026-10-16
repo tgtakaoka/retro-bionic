@@ -56,6 +56,7 @@
 (2)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
 (2)       0 :
 (2)       0 :                    ;;; i8251 USART device emulator.
+(2)       0 :                    ;;; Bit definition of mode register
 (2)       0 : =6                 MODE_STOP_gp:   equ     6
 (2)       0 : =C0                MODE_STOP_gm:   equ     11000000B
 (2)       0 : =40                MODE_STOP1_gc:  equ     (1 << MODE_STOP_gp)
@@ -146,7 +147,10 @@
 (1)   10136 :                    ;;; DIV divides it rounded toward zero, the remainder with the dividend's
 (1)   10136 :                    ;;; sign, as C does.
 (1)   10136 :
-(1)   10136 : =32                Fv:     equ     50
+(1)   10136 : =32                Fv:     equ     50              ; fixed-point 1.0
+(1)   10136 :                    ;;; Print one 79x25 frame of the Mandelbrot set: each point is its
+(1)   10136 :                    ;;; escape iteration in hex, or a space if it does not escape in 16.
+(1)   10136 :                    ;;; Exits to the debugger when NUL is received.
 (1)   10136 :                    mandelbrot:
 (1)   10136 : 2101 FFF4                  ld      r1, #-12
 (1)   1013A : 6F01 0210                  ld      vY, r1          ; Y=-12
@@ -179,7 +183,7 @@
 (1)   10194 : 9246                       subl    rr6, rr4        ; A*A-B*B
 (1)   10196 : 1B06 0032                  div     rr6, #Fv        ; R7=(A*A-B*B)/F
 (1)   1019A : 4107 0200                  add     r7, vC          ; (A*A-B*B)/F+C
-(1)   1019E : 93E7                       push    @rr14, r7        ; push (A*A-B*B)/F+C
+(1)   1019E : 93E7                       push    @rr14, r7       ; push (A*A-B*B)/F+C
 (1)   101A0 : 6105 0204                  ld      r5, vA
 (1)   101A4 : 5904 020C                  mult    rr4, vS         ; RR4=A*S
 (1)   101A8 : 1B04 0032                  div     rr4, #Fv        ; R5=A*S/F
@@ -189,7 +193,7 @@
 (1)   101B6 : 8177                       add     r7, r7          ; 2*(A*Q+A*S/F)
 (1)   101B8 : 4107 0202                  add     r7, vD          ; 2*(A*Q+A*S/F)+D
 (1)   101BC : 6F07 0206                  ld      vB, r7          ; B=2*(A*Q+A*S/F)+D
-(1)   101C0 : 97E7                       pop     r7, @rr14        ; pop (A*A-B*B)/F+C
+(1)   101C0 : 97E7                       pop     r7, @rr14       ; pop (A*A-B*B)/F+C
 (1)   101C2 : 6F07 0204                  ld      vA, r7          ; A=(A*A-B*B)/F+C
 (1)   101C6 : B16A                       exts    rr6
 (1)   101C8 : 1B06 0032                  div     rr6, #Fv        ; R7=A/F
@@ -335,6 +339,7 @@
 (1)   102D8 : C820                       ldb     rl0, #' '
 (1)   102DA : E8EE                       jr      putchar
 (1)   102DC :
+(1)   102DC :                    ;;; RxRDY interrupt: queue the received character
 (1)   102DC :                    isr_rx:
 (1)   102DC : 93E0                       push    @rr14, r0
 (1)   102DE : 93E1                       push    @rr14, r1
@@ -349,6 +354,7 @@
 (1)   102F8 : 97E0                       pop     r0, @rr14
 (1)   102FA : 5E08 8100 03F2             jp      isr_return
 (1)   10300 :
+(1)   10300 :                    ;;; TxRDY interrupt: send the next queued character, or disable Tx
 (1)   10300 :                    isr_tx:
 (1)   10300 : 93E0                       push    @rr14, r0
 (1)   10302 : 93E1                       push    @rr14, r1

@@ -11,7 +11,7 @@
 (1)       0 : =8                 ST_IE2: equ  00001000B          ; if 1, level 2 interrupt is enabled
 (1)       0 : =4                 ST_IE1: equ  00000100B          ; if 1, level 1 interrupt is enabled
 (1)       0 :                    ;;; Vector
-(1)       0 : =7FF8              VEC_INT3:       equ     7FF8H   ; #INT2 interrupt
+(1)       0 : =7FF8              VEC_INT3:       equ     7FF8H   ; #INT3 interrupt
 (1)       0 : =7FFA              VEC_INT2:       equ     7FFAH   ; #INT2 interrupt
 (1)       0 : =7FFC              VEC_INT1:       equ     7FFCH   ; #INT1 interrupt
 (1)       0 : =7FFE              VEC_RESET:      equ     7FFEH   ; #RESET vector
@@ -115,7 +115,7 @@
        2009 :                                                    ; Transmit, Receive interrupts disabled
        2009 :
        2009 : 8E 20 70                   call    arith
-       200C : E0                         trap    15
+       200C : E0                         trap    15              ; halt to system
        200D :
        200D :                    ;;; Print out char
        200D :                    ;;; @param A char
@@ -136,36 +136,38 @@
        201F :                    ;;; @param vA v1
        201F :                    ;;; @param vB v2
        201F :                    ;;; @param A op letter
-       201F :                    ;;; @clobber Rd Rs
+       201F :                    ;;; @return Rd v1
+       201F :                    ;;; @return Rs v2
+       201F :                    ;;; @clobber A B
        201F :                    expr:
        201F : B8                         push    A
        2020 : 98 09 05                   movw    vA, Rd
-       2023 : 8E 22 33                   call    print_int16    print v1
+       2023 : 8E 22 33                   call    print_int16     ; print v1
        2026 : 8E 20 0D                   call    putspace
        2029 : B9                         pop     A
-       202A : 8E 20 18                   call    putchar        print op
+       202A : 8E 20 18                   call    putchar         ; print op
        202D : 8E 20 0D                   call    putspace
        2030 : 98 0B 05                   movw    vB, Rd
-       2033 : 8E 22 33                   call    print_int16    print v2
+       2033 : 8E 22 33                   call    print_int16     ; print v2
        2036 : 98 09 05                   movw    vA, Rd
        2039 : 98 0B 07                   movw    vB, Rs
        203C : F9                         rts
        203D :
        203D :                    ;;; Print " = v\n"
        203D :                    ;;; @param Rd v
-       203D :                    ;;; @clobber Rd Rs
+       203D :                    ;;; @clobber A B Rd
        203D :                    answer:
        203D : 8E 20 0D                   call    putspace
        2040 : 22 3D                      mov     #'=', A
        2042 : 8E 20 18                   call    putchar
        2045 : 8E 20 0D                   call    putspace
-       2048 : 8E 22 33                   call    print_int16    print v
+       2048 : 8E 22 33                   call    print_int16     ; print v
        204B : 00 C4                      jmp     newline
        204D :
        204D :                    ;;; Print "v1 rel v2"
-       204D :                    ;;; @param R8:vA v1
-       204D :                    ;;; @param R10:vB v2
-       204D :                    ;;; @clobber Rd Rs
+       204D :                    ;;; @param vA v1
+       204D :                    ;;; @param vB v2
+       204D :                    ;;; @clobber A B Rd Rs
        204D :                    comp:
        204D : 98 09 05                   movw    vA, Rd
        2050 : 98 0B 07                   movw    vB, Rs
@@ -360,7 +362,7 @@
 (1)    2233 :
 (1)    2233 :                    ;;; Print signed 16-bit integer as decimal
 (1)    2233 :                    ;;; @param R4:R5 value
-(1)    2233 :                    ;;; @clobber A R4:R5
+(1)    2233 :                    ;;; @clobber A B R4:R5
 (1)    2233 :                    print_int16:
 (1)    2233 : 77 80 04 0E                btjz    #080H, R4, print_uint16
 (1)    2237 : 22 2D                      mov     #'-', A
@@ -491,7 +493,7 @@
 (1)    22DA :                    ;;; @param R4:R5 dividend
 (1)    22DA :                    ;;; @param R6:R7 divisor
 (1)    22DA :                    ;;; @return R4:R5 quotient
-(1)    22DA :                    ;;; @return R6:R7 remainder
+(1)    22DA :                    ;;; @return R6:R7 |remainder|
 (1)    22DA :                    ;;; @clobber A B
 (1)    22DA :                    div16:
 (1)    22DA : 76 80 06 1A                btjo    #080H, R6, div16_divisor
@@ -539,16 +541,16 @@
 (1)    2326 : F9                         rts
 (1)    2327 :                    udiv16_16:      
 (1)    2327 : 14 07                      or      R7, A
-(1)    2329 : 02 30                      jz      udiv16_end      branch if divisor==0
+(1)    2329 : 02 30                      jz      udiv16_end      ; branch if divisor==0
 (1)    232B : D8 08                      push    R8
 (1)    232D : 72 10 08                   mov     #16, R8
 (1)    2330 : B5                         clr     A
-(1)    2331 : C5                         clr     B               ; initialize quotient
+(1)    2331 : C5                         clr     B               ; A:B=remainder=0
 (1)    2332 :                    udiv16_loop:
 (1)    2332 : DF 05                      rlc     R5
-(1)    2334 : DF 04                      rlc     R4              ; dividend <<= 1
+(1)    2334 : DF 04                      rlc     R4              ; dividend <<= 1, quotient bit in
 (1)    2336 : CF                         rlc     B
-(1)    2337 : BF                         rlc     A               ;
+(1)    2337 : BF                         rlc     A               ; A:B=remainder<<1|dividend msb
 (1)    2338 : 07 07                      jnc     udiv16_skip
 (1)    233A : 3A 07                      sub     R7, B
 (1)    233C : 1B 06                      sbb     R6, A
@@ -566,8 +568,8 @@
 (1)    234F :                    udiv16_next:
 (1)    234F : DA 08 E0                   djnz    R8, udiv16_loop
 (1)    2352 : DF 05                      rlc     R5
-(1)    2354 : DF 04                      rlc     R4
-(1)    2356 : 98 01 07                   movw    R1, R7          ; save remainder
+(1)    2354 : DF 04                      rlc     R4              ; shift the last quotient bit in
+(1)    2356 : 98 01 07                   movw    R1, R7          ; R6:R7=remainder
 (1)    2359 : D9 08                      pop     R8
 (1)    235B :                    udiv16_end:
 (1)    235B : F9                         rts

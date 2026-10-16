@@ -39,6 +39,8 @@ init_usart:
         call    arith
         hlt
 
+;;; Put character
+;;; @param A
 putchar:
         push    PSW
 putchar_loop:
@@ -49,6 +51,7 @@ putchar_loop:
         out     USARTD
         ret
 
+;;; Put newline
 newline:
         push    PSW
         mvi     A, 0DH
@@ -58,6 +61,7 @@ newline:
         pop     PSW
         ret
 
+;;; Put space
 putspace:
         push    PSW
         mvi     A, ' '
@@ -65,7 +69,7 @@ putspace:
         pop     PSW
         ret
 
-;;; Print "v1 op v2 = "
+;;; Print "v1 op v2"
 ;;; @param v1 BC
 ;;; @param v2 DE
 ;;; @param op A
@@ -87,7 +91,7 @@ expr:
         mov     L, C
         ret
 
-;;; Print " v1\n"
+;;; Print " = v1\n"
 ;;; @param v1 HL
 ;;; @clobber A HL
 answer:

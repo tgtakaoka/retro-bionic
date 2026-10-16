@@ -3,7 +3,7 @@
 
 ;;; Print signed 16-bit integer as decimal
 ;;; @param R0 &value
-;;; @clobber A
+;;; @clobber A B R1 R4 DPTR
 print_int16:
         mov     A, R0
         push    ACC             ; save R0
@@ -19,17 +19,18 @@ print_int16:
         mov     A, #'-'
         acall   putchar         ; print '-'
         acall   neg_R3R2        ; negate value
-;;; Print unsigned 16-bit integer as decimal
+;;; Print unsigned 16-bit integer as decimal; entered only from
+;;; print_int16, which saved R0/R2/R3 on the stack
 ;;; @param R3:R2 value
 ;;; @param print_uint16_buf external data memory
-;;; @clobber A
+;;; @clobber A B R1 R4 DPTR
 print_uint16:
         mov     DPTR, #print_uint16_buf
         clr     A
         movx    @DPTR, A        ; mark EOS
 print_uint16_loop:
         mov     R4, #10
-        acall   udiv16_8        ; R2:R3/10=R2:R3...R4
+        acall   udiv16_8        ; R3:R2/10=R3:R2...R4
         mov     A, R4           ; lo(remainder)
         add     A, #'0'
         inc     DPTR
@@ -104,7 +105,7 @@ negsi2:
 ;;; Signed addition: summand += addend
 ;;; @param R2: &summand
 ;;; @param R3: &addend
-;;; @clobber A R2 R3
+;;; @clobber A R0 R2 R3
 addsi2:
         mov     A, R3
         mov     R0, A           ; R0=&addend
@@ -166,7 +167,7 @@ cmpsi2:
         mov     A, @R0          ; A=lo(minuend)
         clr     C
         subb    A, R3
-        mov     R3, A           ; A=lo(minuend-subtrahend)
+        mov     R3, A           ; R3=lo(minuend-subtrahend)
         inc     R0
         mov     A, @R0          ; A=hi(minuend)
         subb    A, R2
@@ -197,7 +198,7 @@ cmpsi2_eq:
 ;;; @param R3:R2 multiplicand
 ;;; @param R5:R4 multiplier
 ;;; @return R3:R2 result
-;;; @clobber A R2 R3 R6 R7
+;;; @clobber A B R2 R3 R6 R7
 umul16:
         mov     A, R2           ; A=lo(multiplicand)
         mov     B, R4           ; B=lo(multiplier)
@@ -221,7 +222,7 @@ umul16:
 ;;; Signed multiplication: multiplicand *= multiplier
 ;;; @param R2: &multiplicand
 ;;; @param R3: &multiplier
-;;; @clobber A R0 R2 R3 R4 R5 R6 R7
+;;; @clobber A B R0 R2 R3 R4 R5 R6 R7
 mulsi2:
         mov     A, R2
         push    ACC             ; save &multiplicand
@@ -272,14 +273,14 @@ mulsi2_store:
 ;;; @param R5:R4 divisor
 ;;; @return R3:R2 quotient
 ;;; @return R5:R4 remainder
-;;; @clobber A R1 R2 R3 R4 R5 R6 R7
+;;; @clobber A B R1 R2 R3 R4 R5 R6 R7
 udiv16:
         mov     A, R5
         jnz     udiv16_large    ; branch if divisor >= 256
         orl     A, R4
         jz      udiv16_zero     ; divide by zero
         mov     A, R3
-        jz      udiv8_8         ; branch if divisor < 256
+        jz      udiv8_8         ; branch if dividend < 256
 ;;; Unsigned division: dividend / divisor = quotient ... remainder
 ;;; @param R3:R2 dividend
 ;;; @param R4 divisor
@@ -289,7 +290,7 @@ udiv16:
 udiv16_8:
         mov     A, R3           ; high(dividend)
         mov     B, R4           ; divisor
-        div     AB              ; A=high(quotient), B=reminder of high
+        div     AB              ; A=high(quotient), B=remainder of high
         mov     R3, A           ; R3=high(quotient)
         ;; Divide B:R2 by R4 where B<R4
         mov     R1, #8          ; loop counter
@@ -313,7 +314,7 @@ udiv16_8_set:
         inc     R2              ; set lowest bit as part of low(quotient)
 udiv16_8_next:
         djnz    R1, udiv16_8_loop
-        mov     R4, B           ; R4=reminder
+        mov     R4, B           ; R4=remainder
         ret
 ;;; Unsigned division: dividend / divisor = quotient ... remainder
 ;;; @param R2 dividend
@@ -324,7 +325,7 @@ udiv16_8_next:
 udiv8_8:
         mov     A, R2
         mov     B, R4           ; A=dividend, B=divisor
-        div     AB              ; A=quotient, B=reminder
+        div     AB              ; A=quotient, B=remainder
         mov     R2, A
         mov     R4, B
         ret
@@ -337,7 +338,7 @@ udiv16_zero:
         mov     R3, A
         mov     R2, A
         ret
-;;; dividend > divisor
+;;; divisor >= 256, so the quotient fits in 8 bits
 udiv16_large:
         mov     A, R3
         clr     C
@@ -351,7 +352,7 @@ udiv16_large:
 udiv16_estimate:
         mov     A, R3
         mov     B, R5
-        div     AB              ; A=estimated quotient
+        div     AB              ; A=estimated quotient, never too small
         mov     R1, A           ; R1=estimated quotient
 udiv16_refine:
         mov     A, R1
@@ -388,7 +389,7 @@ udiv16_end:
 ;;; Signed division: dividend /= divisor
 ;;; @param R2: &dividend
 ;;; @param R3: &divisor
-;;; @clobber A R0 R2 R3 R4 R5 R6 R7
+;;; @clobber A B R0 R2 R3 R4 R5 R6 R7
 divsi2:
         mov     A, R2
         push    ACC             ; save &dividend

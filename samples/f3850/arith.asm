@@ -40,7 +40,7 @@ init_usart:
 
         pi      call
         da      arith
-        dc      H'2F'
+        dc      H'2F'           ; unknown opcode; halt to system
 
 ;;; Print out char
 ;;; @param 0 char
@@ -75,7 +75,7 @@ putspace:
 ;;; @param @2: operand1
 ;;; @param @3: operand2
 ;;; @param 0: operator letter
-;;; @clobber 0 1 A
+;;; @clobber 0 1 4 5 6 7 ISAR A
 expr:
         pi      push0           ; save operator letter
         lr      A, 2
@@ -103,7 +103,7 @@ expr:
 
 ;;; Print out answer "= result\n"
 ;;; @param @2: answer
-;;; @clobber 0 1 A
+;;; @clobber 0 1 4 5 6 7 ISAR A
 answer:
         pi      call
         da      putspace
@@ -130,7 +130,7 @@ vB:     equ     H'12'
 ;;; Compare 2 integers and print out "operand1 <=> operand2\n"
 ;;; @param @2: operand1
 ;;; @param @3: operand2
-;;; @clobber 0 1 A
+;;; @clobber 0 1 4 5 6 7 ISAR A J
 comp:
         pi      call
         da      cmpsi2
@@ -156,7 +156,7 @@ comp_out:
 ;;; Store DC to scratchpad pointed by 2
 ;;; @param DC value
 ;;; @param 2 scratchpad number
-;;; @clobber H A
+;;; @clobber H ISAR A
 store_2:
         lr      A, 2
         lr      IS, A
@@ -170,7 +170,7 @@ store_2:
 ;;; Store DC to scratchpad pointed by 3
 ;;; @param DC value
 ;;; @param 3 scratchpad number
-;;; @clobber H A
+;;; @clobber H ISAR A
 store_3:
         lr      A, 3
         lr      IS, A

@@ -62,7 +62,7 @@ putchar:
         staa    ACIA_data
         rts
 
-;;; Print "v1 op R2"
+;;; Print "v1 op v2"
 ;;; @param D v1
 ;;; @param X v2
 ;;; @param exprop op
@@ -80,7 +80,7 @@ expr:
         bsr     putspace
         ldaa    vB
         ldab    vB+1
-        jsr     print_int16     ; print R2
+        jsr     print_int16     ; print v2
         pula
         pulb
         ldx     vB

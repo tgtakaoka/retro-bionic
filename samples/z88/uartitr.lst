@@ -41,7 +41,7 @@
 (1)       0 : =20                IMR_IRQ5:       equ     (1 SHL 5)
 (1)       0 : =40                IMR_IRQ6:       equ     (1 SHL 6)
 (1)       0 : =80                IMR_IRQ7:       equ     (1 SHL 7)
-(1)       0 : =DE                SYM:    equ     %DE                  ; R/W; System Mode
+(1)       0 : =DE                SYM:    equ     %DE                  ; R/W: System Mode
 (1)       0 : =1                 SYM_INTR:       equ     %(2)00000001 ; Global interrupt enable
 (1)       0 : =2                 SYM_FAST:       equ     %(2)00000010 ; Fast interrupt enable
 (1)       0 : =7                 SYM_FAST_gm:    equ     %(2)111      ; Fast interrupt select mask
@@ -59,7 +59,7 @@
 (1)       0 : =12                VEC_UART_BREAK: equ     %0012   ; IRQ6: UART break/control char/wake-up
 (1)       0 : =14                VEC_UART_RECV:  equ     %0014   ; IRQ6: UART receive/P30 external
 (1)       0 : =16                VEC_IRQ6_P20:   equ     %0016   ; IRQ6: P20 external
-(1)       0 : =18                VEC_IRQ1_P21:   equ     %0018   ; IRQ1: UART zero/P21 external
+(1)       0 : =18                VEC_IRQ1_P21:   equ     %0018   ; IRQ1: UART zero count/P21 external
 (1)       0 : =1A                VEC_UART_TRNS:  equ     %001A   ; IRQ1: UART transmit/P31 external
 (1)       0 : =1C                VEC_IRQ4:       equ     %001C   ; IRQ4: P24/P25 external
 (1)       0 : =1E                VEC_IRQ7:       equ     %001E   ; IRQ7: P34/P35 external
@@ -81,7 +81,7 @@
 (1)       0 : =F6                P4D:    equ     %F6             ; W/O: Port 4 direction: 1=in, 0=out
 (1)       0 : =F7                P4OD:   equ     %F7 ; W/O: Port 4 open-drain: 1=open-drain, 0=push-pull
 (1)       0 : =F8                P2AM:   equ     %F8 ; W/O: Port 2/3 A mode; P31,P30,P21,P20
-(1)       0 : =F9                P2BM:   equ     %F9 ; W/O: Port 2/3 B mode; P33,P32,P23,P21
+(1)       0 : =F9                P2BM:   equ     %F9 ; W/O: Port 2/3 B mode; P33,P32,P23,P22
 (1)       0 : =FA                P2CM:   equ     %FA ; W/O: Port 2/3 C mode; P35,P34,P25,P24
 (1)       0 : =FB                P2DM:   equ     %FB ; W/O: Port 2/3 D mode; P37,P36,P27,P26
 (1)       0 : =0                 P2M_IN_gm:      equ     %(2)00     ; input
@@ -157,7 +157,7 @@
 (1)       0 : =40                UMB_COS_SYSTEM: equ     %(2)01000000 ; P21=System clock (XTAL/2)
 (1)       0 : =80                UMB_COS_BAUD:   equ     %(2)10000000 ; P21=Baud-rate generator output
 (1)       0 : =C0                UMB_COS_TDR:    equ     %(2)11000000 ; P21=Transmit data rate
-(1)       0 :                    ;;; UBRG=1/(2 x baud-rate x UMA_CR x BRG-input) - 1
+(1)       0 :                    ;;; UBG=BRG-input / (2 x baud-rate x UMA_CR) - 1
 (1)       0 : =F8                UBG0:   equ     %F8             ; BANK1: UART Baud-Rate Generator 0
 (1)       0 : =F9                UBG1:   equ     %f9             ; BANK1: UART Baud-Rate Generator 1
           0 :
@@ -191,9 +191,9 @@
          3A : 1C 80                      ld      R1, #tx_queue_size
          3C : F6 01 11                   call    queue_init
          3F :
-         3F :                    ;;; XTAL=14.7546MHz
+         3F :                    ;;; XTAL=14.7456MHz
          3F :                    ;;; clock divider N=32, baud-rate generator UBG=11
-         3F :                    ;;; bit rate = (14,754,600 / 4) / (2 x (UBG+1) x N) = 9600 bps
+         3F :                    ;;; bit rate = (14,745,600 / 4) / (2 x (UBG+1) x N) = 9600 bps
          3F :                    init_uart:
          3F : E6 F8 80                   ld      P2AM, #P2M_OUTPP_gm SHL 6   ; P31/TXD=output
          42 : 46 D3 01                   or      PORT3, #1                   ; TXD=high
@@ -254,7 +254,7 @@
          A9 :                    put_hex4:
          A9 : 56 C0 0F                   and     R0, #%F
          AC : A6 C0 0A                   cp      R0, #10
-         AF : 7B 05                      jr      c, put_hex8_dec ; A<10
+         AF : 7B 05                      jr      c, put_hex8_dec ; R0<10
          B1 : 06 C0 37                   add     R0, #'A'-10
          B4 : 8B 3E                      jr      putchar
          B6 :                    put_hex8_dec:
@@ -322,7 +322,7 @@
         111 :
         111 :                            include "queue.inc"
 (1)     111 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
-(1)     111 :                    ;;; [queue] queue structure
+(1)     111 :                    ;;; [queue] queue structure, in external data memory (LDE)
 (1)     111 : =0                 queue_len:      equ     0       ; queue length
 (1)     111 : =1                 queue_size:     equ     1       ; buffer size
 (1)     111 : =2                 queue_put:      equ     2       ; queue put index
@@ -386,7 +386,7 @@
 (1)     166 : B0 C1                      clr     R1
 (1)     168 :                    queue_add_update:
 (1)     168 : F7 13 02                   lde     queue_put(RR2), R1
-(1)     16B : 50 C4                      pop     R4              ; restpre R1, R4
+(1)     16B : 50 C4                      pop     R4              ; restore R1, R4
 (1)     16D : 50 C1                      pop     R1
 (1)     16F : DF                         scf                     ; set carry flag
 (1)     170 : AF                         ret

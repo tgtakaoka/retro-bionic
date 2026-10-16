@@ -1,7 +1,7 @@
 ;;; -*- mode: asm; mode: flyspell-prog; -*-
 ;;; Print unsigned 16-bit integer as decimal
 ;;; @param R0 value
-;;; @clobber A X R0 R1 R2
+;;; @clobber A HX R0 R1 R2
 print_uint16:
         ldhx    #print_uint16_buf
 print_uint16_loop:
@@ -17,7 +17,7 @@ print_uint16_loop:
         ora     #'0'
         pulh
         pulx
-        sta     ,x
+        sta     ,x              ; digits, least significant first
         aix     #1
         bra     print_uint16_loop
 print_uint16_zero:
@@ -39,7 +39,7 @@ print_uint16_buf:
 
 ;;; Print signed 16-bit integer as decimal
 ;;; @param R0 value
-;;; @clobber A X R0
+;;; @clobber A HX R0
 print_int16:
         ldhx    R1
         pshx
@@ -67,7 +67,7 @@ print_int16_print:
         rts
 
 ;;; Addition: R0 = R1 + R2
-;;; @return HX addition
+;;; @return HX sum
 ;;; @clobber A
 add16:
         lda     R1L
@@ -79,8 +79,8 @@ add16:
         ldhx    R0
         rts
 
-;;; Subtraction: R0 = R1 + R2
-;;; @return HX subtraction
+;;; Subtraction: R0 = R1 - R2
+;;; @return HX difference
 ;;; @clobber A
 sub16:
         lda     R1L
@@ -95,7 +95,8 @@ sub16:
 ;;; Unsigned multiplication: result = multiplicand * multiplier
 ;;; @param R1 multiplicand
 ;;; @param R2 multiplier
-;;; @return R0 result
+;;; @return R0 result, low 16 bits
+;;; @clobber A X
 umul16:
         lda     R2L             ; A=low(multiplier)
         ldx     R1L             ; X=low(multiplicand)
@@ -156,11 +157,12 @@ mul16_end:
         rts
 
 ;;; Unsigned division: dividend / divisor = quotient ... remainder
-;;; @praram R1 dividend
-;;; @praram R2 divisor
+;;; Division by zero returns with R0 and R1 unchanged.
+;;; @param R1 dividend
+;;; @param R2 divisor
 ;;; @return R0 quotient
 ;;; @return R1 remainder
-;;; @clobber R2
+;;; @clobber A HX R2
 udiv16:
         lda     R2H
         bne     udiv16_calc     ; branch if divisor >= 256
@@ -234,7 +236,7 @@ udiv16_end:
 ;;; @param R2 divisor
 ;;; @return R0 quotient
 ;;; @return HX quotient
-;;; @return R1 remainder
+;;; @return R1 remainder of |dividend|/|divisor|
 ;;; @clobber R2
 div16:
         lda     R1H

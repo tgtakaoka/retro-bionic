@@ -11,7 +11,7 @@
 (1)       0 : =8                 ST_IE2: equ  00001000B          ; if 1, level 2 interrupt is enabled
 (1)       0 : =4                 ST_IE1: equ  00000100B          ; if 1, level 1 interrupt is enabled
 (1)       0 :                    ;;; Vector
-(1)       0 : =7FF8              VEC_INT3:       equ     7FF8H   ; #INT2 interrupt
+(1)       0 : =7FF8              VEC_INT3:       equ     7FF8H   ; #INT3 interrupt
 (1)       0 : =7FFA              VEC_INT2:       equ     7FFAH   ; #INT2 interrupt
 (1)       0 : =7FFC              VEC_INT1:       equ     7FFCH   ; #INT1 interrupt
 (1)       0 : =7FFE              VEC_RESET:      equ     7FFEH   ; #RESET vector
@@ -100,6 +100,7 @@
        3080 :                    tx_queue:       .block  tx_queue_size
        3100 :
        3100 :                    ;;; Internal registers
+       3100 :                    ;;; A 16-bit variable names its low byte Rn; Rn-1 is the high byte
           4 :                            org     00004H
           4 :                    RdH:    .block  1
           5 :                    RdL:    .block  1
@@ -126,7 +127,7 @@
          18 :                    vTH:    .block  1
          19 :                    vTL:    .block  1
          1A : =19                vT:     equ     vTL
-         1A : =32                cF:     equ     50
+         1A : =32                cF:     equ     50              ; fixed-point scale
          1A :                    vY:     .block  1
          1B :                    vX:     .block  1
          1C :                    vI:     .block  1
@@ -223,7 +224,7 @@
 (1)    206A :
 (1)    206A :                    ;;; Sign extend
 (1)    206A :                    ;;; @param A 8-bit value
-(1)    206A :                    ;;; @return Rd signed extended 16-bit value
+(1)    206A :                    ;;; @return Rd sign-extended 16-bit value
 (1)    206A :                    sex:
 (1)    206A : D5 04                      clr     RdH
 (1)    206C : D0 05                      mov     A, RdL
@@ -232,6 +233,8 @@
 (1)    2072 :                    sex_end:
 (1)    2072 : F9                         rts
 (1)    2073 :
+(1)    2073 :                    ;;; Print the Mandelbrot set in fixed point scaled by cF.
+(1)    2073 :                    ;;; A NUL from the console halts to system.
 (1)    2073 :                    mandelbrot:
 (1)    2073 : 72 F4 1A                   mov     #-12, vY        ; Y=-12
 (1)    2076 :                    loop_y:
@@ -415,7 +418,7 @@
 (1)    21B0 :
 (1)    21B0 :                    ;;; Print signed 16-bit integer as decimal
 (1)    21B0 :                    ;;; @param R4:R5 value
-(1)    21B0 :                    ;;; @clobber A R4:R5
+(1)    21B0 :                    ;;; @clobber A B R4:R5
 (1)    21B0 :                    print_int16:
 (1)    21B0 : 77 80 04 0E                btjz    #080H, R4, print_uint16
 (1)    21B4 : 22 2D                      mov     #'-', A
@@ -546,7 +549,7 @@
 (1)    2257 :                    ;;; @param R4:R5 dividend
 (1)    2257 :                    ;;; @param R6:R7 divisor
 (1)    2257 :                    ;;; @return R4:R5 quotient
-(1)    2257 :                    ;;; @return R6:R7 remainder
+(1)    2257 :                    ;;; @return R6:R7 |remainder|
 (1)    2257 :                    ;;; @clobber A B
 (1)    2257 :                    div16:
 (1)    2257 : 76 80 06 1A                btjo    #080H, R6, div16_divisor
@@ -594,16 +597,16 @@
 (1)    22A3 : F9                         rts
 (1)    22A4 :                    udiv16_16:      
 (1)    22A4 : 14 07                      or      R7, A
-(1)    22A6 : 02 30                      jz      udiv16_end      branch if divisor==0
+(1)    22A6 : 02 30                      jz      udiv16_end      ; branch if divisor==0
 (1)    22A8 : D8 08                      push    R8
 (1)    22AA : 72 10 08                   mov     #16, R8
 (1)    22AD : B5                         clr     A
-(1)    22AE : C5                         clr     B               ; initialize quotient
+(1)    22AE : C5                         clr     B               ; A:B=remainder=0
 (1)    22AF :                    udiv16_loop:
 (1)    22AF : DF 05                      rlc     R5
-(1)    22B1 : DF 04                      rlc     R4              ; dividend <<= 1
+(1)    22B1 : DF 04                      rlc     R4              ; dividend <<= 1, quotient bit in
 (1)    22B3 : CF                         rlc     B
-(1)    22B4 : BF                         rlc     A               ;
+(1)    22B4 : BF                         rlc     A               ; A:B=remainder<<1|dividend msb
 (1)    22B5 : 07 07                      jnc     udiv16_skip
 (1)    22B7 : 3A 07                      sub     R7, B
 (1)    22B9 : 1B 06                      sbb     R6, A
@@ -621,8 +624,8 @@
 (1)    22CC :                    udiv16_next:
 (1)    22CC : DA 08 E0                   djnz    R8, udiv16_loop
 (1)    22CF : DF 05                      rlc     R5
-(1)    22D1 : DF 04                      rlc     R4
-(1)    22D3 : 98 01 07                   movw    R1, R7          ; save remainder
+(1)    22D1 : DF 04                      rlc     R4              ; shift the last quotient bit in
+(1)    22D3 : 98 01 07                   movw    R1, R7          ; R6:R7=remainder
 (1)    22D6 : D9 08                      pop     R8
 (1)    22D8 :                    udiv16_end:
 (1)    22D8 : F9                         rts
@@ -659,7 +662,6 @@
 (1)    22EF :                    ;;; @param R2:R3 queue work space pointer
 (1)    22EF :                    ;;; @param A an element
 (1)    22EF :                    ;;; @return ST.C 0 if queue is full
-(1)    22EF :                    ;;; @clobber R2:R3
 (1)    22EF :                    queue_add:
 (1)    22EF : B8                         push    A
 (1)    22F0 : 9A 03                      mov     @R3, A          ; A=queue_len
@@ -702,7 +704,7 @@
 (1)    232C : 28 04                      add     #queue_buf, A
 (1)    232E : D8 03                      push    R3              ; save pointer
 (1)    2330 : 48 00 03                   add     A, R3           ; R2:R3=&queue_buf[queue_get]
-(1)    2333 : 9A 03                      mov     @R3, A          ; remove element
+(1)    2333 : 9A 03                      mov     @R3, A          ; read element
 (1)    2335 : D9 03                      pop     R3              ; restore pointer
 (1)    2337 : B8                         push    A               ; save element
 (1)    2338 : F4 EA 03 03                mov     queue_get(R3), A
@@ -718,7 +720,7 @@
 (1)    234A : F9                         rts
        234B :
        234B :                    isr_int1:
-       234B : A3 7F 17                   and     #~INT_FLAG & 0FFH, INT1 ; clear INT1_FLAG
+       234B : A3 7F 17                   and     #~INT_FLAG & 0FFH, INT1 ; clear INT_FLAG of INT1
        234E : A7 80 F0 2B                btjz    #IRQF_bm, ACIA_status, isr_int1_return
        2352 : B8                         push    A
        2353 : D8 02                      push    R2

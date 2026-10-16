@@ -5,7 +5,7 @@ ACIA:   equ     $DF00
         include "../mc6800/mc6850.inc"
 
         org     $1000
-stack:  equ     *-1             ; MC6801's SP is post-decrement/pre-increment
+stack:  equ     *-1             ; MC68HC11's SP is post-decrement/pre-increment
 
         org     VEC_RESET
         fdb     initialize

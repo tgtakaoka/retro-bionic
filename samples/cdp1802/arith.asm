@@ -99,8 +99,9 @@ set_R7:
 ;;; Set constant to R8
 ;;;   SEP  R5
 ;;;   DC   A(set_R8)
-;;;   DC   A(variable)
-;;; @clobber R15
+;;;   DC   A(constant)
+;;; @return R8 constant
+;;; @clobber D
 set_R8:
         sex     R4
         ldxa
@@ -130,12 +131,13 @@ add16:
         phi     R7
         sep     R6
 
-;;; Singed subtraction: minuend -= subtrahend
+;;; Signed subtraction: minuend -= subtrahend
 ;;; @param R7 minuend
 ;;; @param R8 subtrahend
 ;;; @return R7 minuend - subtrahend
 ;;;   SEP R5
 ;;;   DC  A(sub16)
+;;; @clobber D
 sub16:
         glo     R8
         str     R2
@@ -165,7 +167,7 @@ cmp16:
         glo     R8              ; D=subtrahend.0
         str     R2              ; stack top=subtrahend.0
         glo     R7              ; D=minuend.0
-        sm                      ; D=minuend.0=subtrahend.0
+        sm                      ; D=minuend.0-subtrahend.0
         plo     R7              ; R7.0=result.0
         ghi     R8              ; D=subtrahend.1
         str     R2              ; stack top=subtrahend.1
@@ -173,11 +175,11 @@ cmp16:
         xor                     ; D=minuend.1^subtrahend.1
         plo     R8              ; R8.0=minuend.1^subtrahend.1
         ghi     R7              ; D=minuend.1
-        smb                     ; D=minuend.1=subtrahend.1
+        smb                     ; D=minuend.1-subtrahend.1
         phi     R8              ; R8.1=result.1
         bnz     cmp16_neq       ; branch if result.1!=0
         glo     R7              ; D=result.0
-        bnz     cmp16_neq       ; branch if result.0!=-
+        bnz     cmp16_neq       ; branch if result.0!=0
         ldi     1
         shr
         sep     R6              ; return with D=0, DF=1
@@ -242,7 +244,7 @@ expr:
         sep     R6
 
 ;;; Print out answer " = result\n"
-;;; @params R7 result
+;;; @param R7 result
 ;;; @clobber D R7 R15
 answer:
         sep     R5
@@ -259,7 +261,7 @@ answer:
 ;;; Compare 2 integers and print out "operand1 <=> operand2\n"
 ;;; @param R7 operand1
 ;;; @param R8 operand2
-;;; @clobber R15
+;;; @clobber D R15
 comp:
         glo     R7
         stxd

@@ -36,6 +36,9 @@ R15L    = SW16_REGS+$1E
 R15H    = R15L+1
 
         cpu     6502
+;;; Wozniak's SWEET16 interpreter at its Apple II ROM address. Not
+;;; assembled by any sample; SW16_SAVE and SW16_RESTORE are not defined
+;;; here. Every handler entry must share the page of SW16_SET.
         *=      $F689
 SWEET16:
         jsr     SW16_SAVE       ; save 6502 registers
@@ -87,7 +90,7 @@ SW16_SETZ:
         dey
         lda     (R15L),y        ; low byte of constant
         sta     R0L,X
-        tya                     ; Y=1 ?????
+        tya                     ; A=1, plus C
         sec
         adc     R15L            ; PC+=2
         sta     R15L
@@ -95,6 +98,7 @@ SW16_SETZ:
         inc     R15H
 SW16_SET2:
         rts
+;;; Interleaved tables: SW16_OPTBL-2+2n for nX, SW16_BRTBL+2n for 0n
 SW16_OPTBL:
         .byte   SW16_SET-1      ; 1X
 SW16_BRTBL:
@@ -133,7 +137,7 @@ SW16_SET:
         bpl     SW16_SETZ       ; always branch
 SW16_LD:
         lda     R0L,x
-SW16_BK =       *-1
+SW16_BK =       *-1             ; the $00 operand executes as BRK
         sta     R0L
         lda     R0H,x
         sta     R0H             ; move Rx to R0
@@ -223,7 +227,7 @@ SW16_ADD:
         lda     R0H
         adc     R0H,x
         ldy     #0              ; Y=R0
-        beq     SW16_SUB2       ; always brancg
+        beq     SW16_SUB2       ; always branch
 SW16_BS:                        ; X=R12
         lda     R15L
         jsr     SW16_STAT2      ; push low PC via R12

@@ -133,7 +133,7 @@ getchar:
         sei                     ; disable IRQ
         ldx     #rx_queue
         jsr     queue_remove
-        cli
+        cli                     ; enable IRQ
         pulx
         rts
 

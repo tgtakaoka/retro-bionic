@@ -109,7 +109,7 @@
        1008 : 3D                         xppc    P1              ; call queue_init
        1009 : 00 20                      .dbyte  rx_queue
        100B : C4 30                      ldi     tx_queue_size
-       100D : 3D                         xppc    P1              ; call queue init
+       100D : 3D                         xppc    P1              ; call queue_init
        100E : 10 20                      .dbyte  tx_queue
        1010 :
        1010 :                            ;; initialize ACIA
@@ -120,8 +120,8 @@
        1016 : C4 03                      ldi     CDS_RESET_gc    ; Master reset
        1018 : C9 00                      st      ACIA_C(P1)
        101A : C4 94                      ldi     RX_INT_TX_NO   ; 8 bits + No Parity + 1 Stop Bits
-       101C :                                                    ; Transmit, Receive interrupts disabled
-       101C : C9 00                      st      ACIA_C(P1)      ;
+       101C :                                                    ; Receive interrupt enabled, Transmit disabled
+       101C : C9 00                      st      ACIA_C(P1)
        101E : 05                         ien                     ; enable interrupt
        101F :
        101F :                    loop:
@@ -133,7 +133,7 @@
        1025 : 3D                         xppc    P1              ; call getchar
        1026 : 98 FD                      jz      wait_char
        1028 : 40                         lde
-       1029 : 98 30                      jz      halt_to_system
+       1029 : 98 30                      jz      halt_to_system  ; NUL halts
        102B : C4 03                      ldi     L(ADDR(putchar))
        102D : 31                         xpal    P1
        102E : C4 11                      ldi     H(ADDR(putchar))
@@ -206,6 +206,7 @@
        1085 : 3D                         xppc    P1              ; call put_hex4
        1086 : 90 D4                      jmp     put_hex8_exit
        1088 :
+       1088 :                    ;;; Print the low nibble of E as a hex digit
        1088 :                    put_hex4_exit:
        1088 : C6 01                      ld      @1(P2)          ; pop P1
        108A : 31                         xpal    P1
@@ -334,6 +335,8 @@
        1129 :
        1129 :                            include "queue.inc"
 (1)    1129 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)    1129 :                    ;;; Routines are called by XPPC P1; each exit XPPC sits just before the
+(1)    1129 :                    ;;; entry, so the return leaves P1 ready for the next call.
 (1)    1129 :                    ;;; [queue] queue structure
 (1)    1129 : =0                 queue_len       =       0       ; queue length
 (1)    1129 : =1                 queue_size      =       1       ; buffer size
@@ -342,7 +345,7 @@
 (1)    1129 : =4                 queue_buf       =       4       ; buffer start offset
 (1)    1129 :
 (1)    1129 :                    ;;; [queue] Initialize queue
-(1)    1129 :                    ;;; @param A queue space size
+(1)    1129 :                    ;;; @param A queue space size, including the 4-byte header
 (1)    1129 :                    ;;; @param P1 return address pointer
 (1)    1129 :                    ;;; @param P1[1:2] queue space pointer
 (1)    1129 :                    ;;; @clobber A
@@ -360,7 +363,7 @@
 (1)    1138 : CE FE                      st      @-2(P2)         ; save lo(queue space)
 (1)    113A : C1 00                      ld      0(P1)
 (1)    113C : 35                         xpah    P1
-(1)    113D : CA 01                      st      1(P2)           ; P[1:0] push P1
+(1)    113D : CA 01                      st      1(P2)           ; P2[1:0] push P1
 (1)    113F : C2 00                      ld      0(P2)
 (1)    1141 : 31                         xpal    P1              ; P1=queue space pointer
 (1)    1142 : CA 00                      st      0(P2)
@@ -487,12 +490,14 @@
 (1)    11EB : 35                         xpah    P1
 (1)    11EC : A9 03                      ild     queue_get(P1)   ; advanced queue_get
 (1)    11EE : E1 01                      xor     queue_size(P1)
-(1)    11F0 : 9C 02                      jnz     queue_remove_end ; branch if queue_put != queue_size
+(1)    11F0 : 9C 02                      jnz     queue_remove_end ; branch if queue_get != queue_size
 (1)    11F2 : C9 03                      st      queue_get(P1)   ; reset queue_get
 (1)    11F4 :                    queue_remove_end:
 (1)    11F4 : C4 01                      ldi     1
 (1)    11F6 : 90 B9                      jmp     queue_remove_exit
        11F8 :
+       11F8 :                    ;;; Sense A interrupt from the ACIA: queue a received character, then
+       11F8 :                    ;;; send the next queued one, or disable the Tx interrupt when empty
        11F8 :                    isr_sensea_exit:
        11F8 : C6 01                      ld      @1(P2)          ; pop P1
        11FA : 31                         xpal    P1
@@ -502,7 +507,7 @@
        1200 : 07                         cas
        1201 : C6 01                      ld      @1(P2)          ; pop E
        1203 : 01                         xae
-       1204 : C6 01                      ld      @1(P2)          ; pop D
+       1204 : C6 01                      ld      @1(P2)          ; pop A
        1206 : 05                         ien                     ; enable interrupt
        1207 : 3F                         xppc    P3              ; return from interrupt
        1208 :                    isr_sensea:

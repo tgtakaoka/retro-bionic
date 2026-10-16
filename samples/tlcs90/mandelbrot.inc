@@ -20,7 +20,9 @@ sex_HL:
         ld      H, -1
         ret
 
-Fv:     equ     50
+;;; Print the Mandelbrot set in fixed point scaled by F.
+;;; A NUL from the console halts to system.
+Fv:     equ     50              ; F
 mandelbrot:
         ld      (vY), -12       ; Y=-12
 loop_y:
@@ -38,7 +40,7 @@ loop_x:
         ld      C, (vY)
         call    sex_BC
         ld      DE, 416
-        call    mul16           ; D=Y*416
+        call    mul16           ; Y*416
         ld      BC, HL
         ld      DE, 100
         call    div16           ; D=Y*416/100
@@ -86,7 +88,7 @@ loop_i:
         ld      BC, HL
         ld      DE, Fv
         call    div16           ; (A*A-B*B)/F
-        add     HL, (vC)        ; (A*A-B*B)/+C
+        add     HL, (vC)        ; (A*A-B*B)/F+C
         push    HL              ; push (A*A-B*B)/F+C
         ld      BC, (vA)
         ld      DE, (vS)

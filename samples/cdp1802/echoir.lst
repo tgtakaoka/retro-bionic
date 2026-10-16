@@ -126,7 +126,7 @@
 (1)      3E :
 (1)      3E :                    ;;; Return subroutine, P=6
 (1)      3E :                    ;;; @param R4 return address
-(1)      3E :                    ;;; @oaram M(R2) R4.1, R4.0, X:P(3)
+(1)      3E :                    ;;; @param M(R2) R4.1, R4.0
 (1)      3E :                    ;;; @clobber R15.1, X
 (1)      3E :                    ;;; @unchanged D, DF, R0, R1, R7-R14, R15.0
 (1)      3E :                    scrt_return_exit:
@@ -288,7 +288,7 @@
         10C : E8                         sex     R8              ; R8 for inp/out
         10D : 64                         out     ACIA_control    ; Master reset
         10E : 64                         out     ACIA_control    ; Set mode
-        10F : E3                         sex     R3
+        10F : E3                         sex     R3              ; RET/DIS take X:P from the inline byte
         110 : 70                         ret
         111 : 33                         dc      X'33'           ; enable interrupt
         112 : E2                         sex     R2
@@ -325,6 +325,7 @@
         136 :                    halt_to_system:
         136 : 00                         idl
         137 :
+        137 :                    ;;; Put character
         137 :                    ;;; @param D char
         137 :                    ;;; @unchanged D
         137 :                    ;;; @clobber R15
@@ -368,7 +369,7 @@
 (1)     154 : =3                 queue_get:      equ     3       ; queue get index
 (1)     154 : =4                 queue_buf:      equ     4       ; buffer start offset
 (1)     154 :
-(1)     154 :                    ;;; [queue] Initialize queue
+(1)     154 :                    ;;; [queue] Initialize queue; arguments follow the call inline
 (1)     154 :                    ;;; @param R4+0 queue work space pointer
 (1)     154 :                    ;;; @param R4+2 queue work space size
 (1)     154 :                    ;;; @clobber D, R15
@@ -406,6 +407,7 @@
 (1)     173 :                    ;;; @param R4+0 queue work space pointer
 (1)     173 :                    ;;; @param R7.0 an element
 (1)     173 :                    ;;; @return D 0 if queue is full
+(1)     173 :                    ;;; @clobber R15
 (1)     173 :                    queue_add:
 (1)     173 : 8E                         glo     R14             ; save R14
 (1)     174 : 73                         stxd
@@ -419,7 +421,7 @@
 (1)     17B : EF                         sex     R15
 (1)     17C : 72                         ldxa                    ; load queue_len
 (1)     17D : F3                         xor                     ; queue_len ^ queue_size
-(1)     17E : 32 A5                      bz      queue_add_return ; branch if D=0
+(1)     17E : 32 A5                      bz      queue_add_return ; branch if queue is full
 (1)     180 : 2F                         dec     R15
 (1)     181 : 8F                         glo     R15
 (1)     182 : FC 04                      adi     queue_buf
@@ -477,7 +479,7 @@
 (1)     1B4 : 44                         lda     R4
 (1)     1B5 : AF                         plo     R15             ; R15=queue space pointer
 (1)     1B6 : 0F                         ldn     R15             ; load queue_len
-(1)     1B7 : 32 DF                      bz      queue_remove_return ; branch if D=0
+(1)     1B7 : 32 DF                      bz      queue_remove_return ; branch if queue is empty
 (1)     1B9 : FF 01                      smi     1
 (1)     1BB : 5F                         str     R15             ; queue_len--
 (1)     1BC : 8F                         glo     R15
@@ -496,7 +498,7 @@
 (1)     1CB : 9E                         ghi     R14
 (1)     1CC : 7C 00                      adci    0
 (1)     1CE : BE                         phi     R14             ; R14=&queue_buf[queue_get]
-(1)     1CF : 0E                         ldn     R14             ; load an alement
+(1)     1CF : 0E                         ldn     R14             ; load an element
 (1)     1D0 : A7                         plo     R7              ; R7.0=an element
 (1)     1D1 : 0F                         ldn     R15             ; load queue_get
 (1)     1D2 : FC 01                      adi     1
@@ -504,7 +506,7 @@
 (1)     1D5 : 2F                         dec     R15
 (1)     1D6 : 2F                         dec     R15
 (1)     1D7 : F3                         xor                     ; queue_get ^ queue_size
-(1)     1D8 : 3A DF                      bnz     queue_remove_return ; brnach if D!=0
+(1)     1D8 : 3A DF                      bnz     queue_remove_return ; branch if D!=0
 (1)     1DA : 1F                         inc     R15
 (1)     1DB : 1F                         inc     R15
 (1)     1DC : 5F                         str     R15             ; queue_get=0

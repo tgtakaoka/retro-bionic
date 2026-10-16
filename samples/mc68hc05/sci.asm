@@ -29,11 +29,13 @@ echo:   bsr     putchar
 halt_to_system:
         swi
 
+;;; @return A received char
 getchar:
         brclr   SCSR_RDRF_bp,SCSR,getchar
         lda     SCDR
         rts
 
+;;; @param A char to send
 putchar:
         brclr   SCSR_TDRE_bp,SCSR,putchar
         sta     SCDR

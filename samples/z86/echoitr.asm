@@ -113,7 +113,7 @@ put_hex8:
 put_hex4:
         and     R0, #%F
         cp      R0, #10
-        jr      c, put_hex8_dec ; A<10
+        jr      c, put_hex8_dec ; R0<10
         add     R0, #'A'-10
         jr      putchar
 put_hex8_dec:

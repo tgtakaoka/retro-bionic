@@ -6,7 +6,7 @@ queue_put:      equ     2       ; queue put index
 queue_get:      equ     3       ; queue get index
 queue_buf:      equ     4       ; buffer start offset
 
-;;; [queue] Initialize queue
+;;; [queue] Initialize queue; arguments follow the call inline
 ;;; @param R4+0 queue work space pointer
 ;;; @param R4+2 queue work space size
 ;;; @clobber D, R15
@@ -44,6 +44,7 @@ queue_init_clear:
 ;;; @param R4+0 queue work space pointer
 ;;; @param R7.0 an element
 ;;; @return D 0 if queue is full
+;;; @clobber R15
 queue_add:
         glo     R14             ; save R14
         stxd
@@ -57,7 +58,7 @@ queue_add:
         sex     R15
         ldxa                    ; load queue_len
         xor                     ; queue_len ^ queue_size
-        bz      queue_add_return ; branch if D=0
+        bz      queue_add_return ; branch if queue is full
         dec     R15
         glo     R15
         adi     queue_buf
@@ -115,7 +116,7 @@ queue_remove:
         lda     R4
         plo     R15             ; R15=queue space pointer
         ldn     R15             ; load queue_len
-        bz      queue_remove_return ; branch if D=0
+        bz      queue_remove_return ; branch if queue is empty
         smi     1
         str     R15             ; queue_len--
         glo     R15
@@ -134,7 +135,7 @@ queue_remove:
         ghi     R14
         adci    0
         phi     R14             ; R14=&queue_buf[queue_get]
-        ldn     R14             ; load an alement
+        ldn     R14             ; load an element
         plo     R7              ; R7.0=an element
         ldn     R15             ; load queue_get
         adi     1
@@ -142,7 +143,7 @@ queue_remove:
         dec     R15
         dec     R15
         xor                     ; queue_get ^ queue_size
-        bnz     queue_remove_return ; brnach if D!=0
+        bnz     queue_remove_return ; branch if D!=0
         inc     R15
         inc     R15
         str     R15             ; queue_get=0

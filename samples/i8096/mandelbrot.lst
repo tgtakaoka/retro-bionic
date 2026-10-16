@@ -22,19 +22,20 @@
 (1)       0 : =200               USARTD: equ     USART+0         ; Data register
 (1)       0 : =202               USARTS: equ     USART+2         ; Status register
 (1)       0 : =202               USARTC: equ     USART+2         ; Control register
-(1)       0 : =204               USARTRV:        equ     USART+4 ; Receive interrupt vector (ORG_*)
-(1)       0 : =206               USARTTV:        equ     USART+6 ; Transmit interrupt vector (ORG_*)
+(1)       0 : =204               USARTRV:        equ     USART+4 ; Receive interrupt enable (EXTINT), 0=off
+(1)       0 : =206               USARTTV:        equ     USART+6 ; Transmit interrupt enable (EXTINT), 0=off
 (1)       0 :                            include "i8251.inc"
 (2)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
 (2)       0 :
 (2)       0 :                    ;;; i8251 USART device emulator.
+(2)       0 :                    ;;; Bit definition of mode instruction (asynchronous)
 (2)       0 : =6                 MODE_STOP_gp:   equ     6
 (2)       0 : =C0                MODE_STOP_gm:   equ     11000000B
 (2)       0 : =40                MODE_STOP1_gc:  equ     (1 << MODE_STOP_gp)
 (2)       0 : =80                MODE_STOP15_gc: equ     (2 << MODE_STOP_gp)
 (2)       0 : =C0                MODE_STOP2_gc:  equ     (3 << MODE_STOP_gp)
-(2)       0 : =20                MODE_EVEN_bm:   equ     00100000B
-(2)       0 : =10                MODE_PARITY_bm: equ     00010000B
+(2)       0 : =20                MODE_EVEN_bm:   equ     00100000B   ; Even parity
+(2)       0 : =10                MODE_PARITY_bm: equ     00010000B   ; Parity enable
 (2)       0 : =2                 MODE_LEN_gp:    equ     2
 (2)       0 : =C                 MODE_LEN_gm:    equ     00001100B
 (2)       0 : =0                 MODE_LEN5_gc:   equ     (0 << MODE_LEN_gp)
@@ -140,7 +141,7 @@
        20D8 :
        20D8 :                    ;;; Get character
        20D8 :                    ;;; @return A
-       20D8 :                    ;;; @return CC.C 0 if no character
+       20D8 :                    ;;; @return F.C 0 if no character
        20D8 :                    getchar:
        20D8 : C8 1C                      push    HL
        20DA : A1 00 30 1C                ld      HL, #rx_queue
@@ -158,7 +159,7 @@
        20EA : B1 0A 1A                   ldb     A, #0AH
        20ED : 20 03                      sjmp    putchar
        20EF :
-       20EF :                    ;;; Put spcase
+       20EF :                    ;;; Put space
        20EF :                    ;;; @clobber A
        20EF :                    putspace:
        20EF : B1 20 1A                   ldb     A, #' '
@@ -184,7 +185,10 @@
 (1)    210D :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
 (1)    210D :
 (1)    210D :
-(1)    210D : =32                Fv:     equ     50
+(1)    210D : =32                Fv:     equ     50              ; fixed-point scale
+(1)    210D :                    ;;; Print the Mandelbrot set, one character per point: the escape
+(1)    210D :                    ;;; iteration as a hex digit, or a space if it stays bounded for 16.
+(1)    210D :                    ;;; A NUL from the console halts.
 (1)    210D :                    mandelbrot:
 (1)    210D : B1 F4 32                   ldb     vY, #-12        ; Y=-12
 (1)    2110 :                    loop_y:
@@ -278,7 +282,7 @@
 (1)    21B9 :                            ;; scall   newline
 (1)    21B9 :
 (1)    21B9 : 89 04 00 30                cmp     vT, #4
-(1)    21BD : D2 0E                      jgt     print_i
+(1)    21BD : D2 0E                      jgt     print_i         ; if T>4
 (1)    21BF : 17 34                      incb    vI              ; I++
 (1)    21C1 : 99 10 34                   cmpb    vI, #16
 (1)    21C4 : D6 02                      jge     print_space     ; if I>=16
@@ -377,7 +381,7 @@
 (1)    223C :                            align   2               ; an even entry: a whole word first
 (1)    223C :                    ;;; [queue] Initialize queue
 (1)    223C :                    ;;; @param HL queue work space pointer
-(1)    223C :                    ;;; @param B queue work space size
+(1)    223C :                    ;;; @param B queue work space size, including the 4-byte header
 (1)    223C :                    queue_init:
 (1)    223C : C8 1A                      push    A               ; push A,B
 (1)    223E : C8 1C                      push    HL
@@ -463,6 +467,8 @@
        22E0 :
        22E0 :
        22E0 :                            align   2
+       22E0 :                    ;;; EXTINT from the USART: queue a received character, then send the
+       22E0 :                    ;;; next queued one, or disable Tx when the queue is empty
        22E0 :                    isr_intr:
        22E0 : F2                         pushf
        22E1 : C8 1A                      push    A               ; push A,B

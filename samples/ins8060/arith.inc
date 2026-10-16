@@ -36,7 +36,8 @@ print_int16:
         ldi     '-'
         xppc    P1              ; print '-'
         jmp     print_uint16
-;;; Print uint16_t value
+;;; Print uint16_t value; entered only from print_int16, which set up
+;;; the locals
 ;;; @param vPRINT value
 ;;; @local P2[7:0] buffer
 ;;; @local P2[9:8] return address
@@ -143,7 +144,7 @@ addsi2:
         add     0(P2)           ; L(summand+addend)
         st      0(P1)
         ld      1(P1)
-        add     1(P2)           ; L(summand+addend)
+        add     1(P2)           ; H(summand+addend)
         st      1(P1)
         jmp     addsi2_exit
 
@@ -256,7 +257,7 @@ cmpsi2_lt:
         ldi     -1              ; V=0, N=1
         jmp     cmpsi2_exit
 cmpsi2_ov:
-        ld      1(P2)           ; H(result)
+        ld      1(P2)           ; H(subtrahend)
         jp      cmpsi2_lt       ; V=1, N=0
 cmpsi2_gt:                      ; V=1, N=1
         ldi     1

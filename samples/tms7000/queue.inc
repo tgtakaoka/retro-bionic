@@ -71,6 +71,7 @@ queue_add_return:
         *** @param R2:R3 queue work space pointer
         *** @return A an element
         *** @return ST.C 0 if queue is empty
+        *** @clobber R2:R3
 queue_remove:
         lda     *R3             A=queue_len
         jnz     queue_remove_elem
@@ -84,7 +85,7 @@ queue_remove_elem:
         lda     *R3             A=queue_get
         add     %queue_buf-queue_get, A
         add     A, R3           R2:R3=&queue_buf[queue_get]
-        lda     *R3             remove element
+        lda     *R3             read element
         pop     R3              R2:R3=&queue_get
         push    A
         lda     *R3

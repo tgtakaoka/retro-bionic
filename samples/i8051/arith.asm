@@ -76,6 +76,7 @@ getchar_exit:
         pop     DPH
         ret
 
+;;; Put space
 putspace:
         mov     A, #' '
 
@@ -162,8 +163,8 @@ newline:
         sjmp    putchar
 
 ;;; Print "v1 rel v2\n"
-;;; @param R2:R3 v1
-;;; @param R4:R5 v2
+;;; @param R3:R2 v1
+;;; @param R5:R4 v2
 comp:
         acall   set_vAvB
         acall   cmpsi2

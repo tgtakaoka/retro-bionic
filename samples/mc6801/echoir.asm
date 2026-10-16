@@ -59,7 +59,7 @@ loop:
         bsr     putchar
         bra     loop
 halt_to_system:
-        swi                     ; halt_to_system
+        swi                     ; halt to system
 
 putchar:
         ldab    ACIA_status

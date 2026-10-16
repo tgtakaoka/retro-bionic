@@ -35,6 +35,7 @@ tx_queue:
         ds      tx_queue_size
 
         loc     ZERO_PAGE
+*** Zero-page pointers for indirect BAL to distant routines
 I_queue_add:    dc      queue_add
 I_queue_remove: dc      queue_remove
 I_putchar:      dc      putchar
@@ -106,6 +107,8 @@ loop:   bal     (I_mandelbrot)
         bal     (I_newline)
         b       loop
 
+*** @return R0 received char
+*** @return ST.E 0 if none
 getchar:
         push    X0
         mvi     X0, hi(rx_queue)
@@ -117,6 +120,7 @@ getchar:
         pop     X0
         ret
 
+*** Put a space, CR LF (newline) or char R0 (putchar)
 putspace:
         mvi     R0, ' '
         b       putchar
@@ -173,7 +177,7 @@ irq2_isr:
         bal     (I_queue_remove)        Remove from Tx queue
         mv      R0, R0, enz     Skip if ST.E=1
         b       irq2_isr_empty
-        wt      R0, USARTD      Transmit charater
+        wt      R0, USARTD      Transmit character
 irq2_isr_exit:
         pop     X0
         pop     R0

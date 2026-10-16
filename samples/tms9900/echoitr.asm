@@ -34,7 +34,7 @@ tx_queue:       bss     tx_queue_size
 
         org     >0200
 initialize:
-        li      R10, stack
+        li      R10, stack      R10 is the stack pointer, grows down
         li      R9, rx_queue
         li      R0, rx_queue_size
         bl      @queue_init
@@ -126,15 +126,16 @@ put_bin8_zero:
 put_bin8_putchar:
         bl      @putchar
         srl     R2, 1
-        ci      R2, >0080
+        ci      R2, >0080       8 bits done
         jne     put_bin8_loop
         mov     *R10+, R2       Pop R2
         mov     *R10+, R11      Pop return address
         rt
 
         *** Get character
-        *** @return R0
+        *** @return R0 character in high byte
         *** @return ST.C 0 if no character
+        *** @clobber R9
 getchar:
         dect    R10
         mov     R11, *R10       Push return address
@@ -161,6 +162,8 @@ newline:
         rt
 
         *** Put character
+        *** @param R0 character in high byte
+        *** @clobber R9
 putchar:
         dect    R10
         mov     R11, *R10       Push return address
@@ -178,6 +181,7 @@ putchar:
 
         include "queue.inc"
 
+        *** Runs in workspace_int1; RTWP restores the caller's WP, PC and ST
 int1_isr:
         movb    @ACIA_status, R0
         andi    R0, hibyte(RDRF_bm)
@@ -196,7 +200,6 @@ int1_isr_send:
 int1_isr_exit:
         rtwp
 int1_isr_send_empty:
-        * Disable Tx interrupt
         li      R1, hibyte(TCB_EI_gc)
         szcb    R1, @ACIA_control       Disable Tx interrupt
         rtwp

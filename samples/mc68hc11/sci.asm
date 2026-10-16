@@ -5,7 +5,7 @@
 RX_ON_TX_ON:   equ     SCCR2_TE_bm|SCCR2_RE_bm
 
         org     $1000
-stack:  equ     *-1      ; MC6801's SP is post-decrement/pre-increment
+stack:  equ     *-1      ; MC68HC11's SP is post-decrement/pre-increment
 
         org     VEC_SWI
         fdb     VEC_SWI         ; for halt to system
@@ -15,7 +15,7 @@ stack:  equ     *-1      ; MC6801's SP is post-decrement/pre-increment
 
         org     $0100
 device_base:
-        fdb     $0000
+        fdb     $0000           ; internal register block base
 initialize:
         lds     #stack
 	;; Initialize SCI

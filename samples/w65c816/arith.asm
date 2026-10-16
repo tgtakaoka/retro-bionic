@@ -11,8 +11,8 @@ ACIA    =       $DF00
 ;;; Work area for arith.inc
         *=      $10
 arith_work:
-        .word   0
-        .word   0
+        .word   0               ; udiv16 divisor
+        .word   0               ; udiv16 dividend, quotient
 
         *=      $1000
 stack   =       *-1
@@ -35,9 +35,8 @@ initialize:
         brk
         .byte   0               ; halt to system
 
-;;; Print out char
+;;; Print a character
 ;;; @param A char
-;;; @clobber A
 putchar:
         php
         sep     #P_M            ; 8-bit memory
@@ -55,6 +54,8 @@ _putchar_loop:
         sta     ACIA_data
         rts
 
+;;; Print CR LF
+;;; @clobber A
 newline:
         php
         sep     #P_M            ; 8-bit memory
@@ -66,6 +67,8 @@ newline:
         plp
         rts
 
+;;; Print a space
+;;; @clobber A
 putspace:
         php
         sep     #P_M            ; 8-bit memory
@@ -76,7 +79,8 @@ putspace:
         rts
 
 ;;; Print "X op Y"
-;;; @params A op letter
+;;; @param A op letter
+;;; @clobber A
 expr:
         pha                     ; save op letter
         jsr     print_int16     ; print X
@@ -91,7 +95,7 @@ expr:
         rts
 
 ;;; Print " = X\n"
-;;; clobber A
+;;; @clobber A
 answer:
         jsr     putspace
         lda     #'='
@@ -121,6 +125,7 @@ comp_out:
         jsr     expr
         jmp     newline
 
+;;; Print each operation and its result; comments give the expected answer
 arith:
         ldx     #18000
         ldy     #28000
@@ -148,14 +153,14 @@ arith:
         lda     #'-'
         jsr     expr
         jsr     subsi2
-        jsr     answer          ; -19536
+        jsr     answer          ; 10000
 
         ldx     #18000
         ldy     #-18000
         lda     #'-'
         jsr     expr
         jsr     subsi2
-        jsr     answer          ; 29536
+        jsr     answer          ; -29536
 
         ldx     #-28000
         ldy     #-18000
@@ -331,7 +336,6 @@ subsi2:
 ;;; Signed compare
 ;;; @param X minuend
 ;;; @param Y subtrahend
-;;; @return C minuend-subtrahend
 ;;; @return C=0;  BEQ (minuend == subtrahend)
 ;;;         C=1;  BPL (minuend > subtrahend)
 ;;;         C=-1; BMI (minuend < subtrahend)

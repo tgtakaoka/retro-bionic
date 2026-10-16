@@ -13,7 +13,7 @@ print:
 
 ;;; Sign extend
 ;;; @param A 8-bit value
-;;; @return Rd signed extended 16-bit value
+;;; @return Rd sign-extended 16-bit value
 sex:
         clr     RdH
         mov     A, RdL
@@ -22,6 +22,8 @@ sex:
 sex_end:
         rts
 
+;;; Print the Mandelbrot set in fixed point scaled by cF.
+;;; A NUL from the console halts to system.
 mandelbrot:
         mov     #-12, vY        ; Y=-12
 loop_y:

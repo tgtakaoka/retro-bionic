@@ -14,7 +14,7 @@
 (2)       0 : =8                 F_DECIMAL_ADJ:  equ     %(2)00001000 ; decimal adjust
 (2)       0 : =4                 F_HALF_CARRY:   equ     %(2)00000100 ; set to 1 if carry from bit-3
 (2)       0 : =2                 F_USER2:        equ     %(2)00000010 ; User flag F2
-(2)       0 : =1                 F_USER1:        equ     %(2)00000001 ; User flah F1
+(2)       0 : =1                 F_USER1:        equ     %(2)00000001 ; User flag F1
 (1)       0 :                    ;;; Z86
 (1)       0 :                            cpu     Z86C
 (1)       0 :                            option  "reg-alias", "disable"
@@ -51,8 +51,8 @@
 (1)       0 : =20                IPR_A35:        equ     %(2)100000 ; A: IRQ3 > IRQ5
 (1)       0 : =0                 IPR_B20:        equ     %(2)000000 ; B: IRQ2 > IRQ0
 (1)       0 : =4                 IPR_B02:        equ     %(2)000100 ; B: IRQ0 > IRQ2
-(1)       0 : =0                 IPR_C14:        equ     %(2)000000 ; C: IRQ0 > IRQ4
-(1)       0 : =2                 IPR_C41:        equ     %(2)000010 ; C: IRQ4 > IRQ0
+(1)       0 : =0                 IPR_C14:        equ     %(2)000000 ; C: IRQ1 > IRQ4
+(1)       0 : =2                 IPR_C41:        equ     %(2)000010 ; C: IRQ4 > IRQ1
 (1)       0 : =FB                IMR:    equ     251             ; R/W: Interrupt Mask
 (1)       0 : =80                IMR_ENABLE:     equ     %(2)10000000 ; Interrupt enable
 (1)       0 : =1                 IMR_IRQ0:       equ     (1 SHL 0)
@@ -121,9 +121,9 @@
        100F : 1C 80                      ld      R1, #rx_queue_size
        1011 : D6 10 4E                   call    queue_init
        1014 :
-       1014 :                    ;;; XTAL=14.7546MHz
+       1014 :                    ;;; XTAL=14.7456MHz
        1014 :                    ;;; p=1 for PRE0, t=12 for T0
-       1014 :                    ;;; bit rate = 14754600 / (2 x 4 x p x t x 16) = 9600 bps
+       1014 :                    ;;; bit rate = 14745600 / (2 x 4 x p x t x 16) = 9600 bps
        1014 :                    init_sio:
        1014 : 08 F0                      ld      R0, SIO          ; dummy read
        1016 : 46 03 80                   or      PORT3, #%80      ; TxD(P37)=High
@@ -136,7 +136,7 @@
        1025 : E6 F9 2F                   ld      IPR, #IPR_ACB LOR IPR_A35 LOR IPR_C41 LOR IPR_B02
        1028 : E6 FB 08                   ld      IMR, #IMR_IRQ3 ; enable IRQ3
        102B : 9F                         ei                     ; clear IRQ and enable interrupt system
-       102C : 46 FA 10                   or      IRQ, #IRQ_IRQ4
+       102C : 46 FA 10                   or      IRQ, #IRQ_IRQ4 ; transmitter is ready
        102F :
        102F :                    receive_loop:
        102F : 8F                         di                      ; Disable INTR
@@ -159,7 +159,7 @@
        104E :
        104E :                            include "queue.inc"
 (1)    104E :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
-(1)    104E :                    ;;; [queue] queue structure
+(1)    104E :                    ;;; [queue] queue structure, in external data memory (LDE)
 (1)    104E : =0                 queue_len:      equ     0       ; queue length
 (1)    104E : =1                 queue_size:     equ     1       ; buffer size
 (1)    104E : =2                 queue_put:      equ     2       ; queue put index
@@ -232,7 +232,7 @@
 (1)    10AF : 80 E2                      decw    RR2
 (1)    10B1 : 80 E2                      decw    RR2             ; RR2 points queue_len
 (1)    10B3 : DF                         scf                     ; set carry flag
-(1)    10B4 : 50 E4                      pop     R4              ; restpre R1, R4
+(1)    10B4 : 50 E4                      pop     R4              ; restore R1, R4
 (1)    10B6 : 50 E1                      pop     R1              ; restore R1
 (1)    10B8 : AF                         ret
 (1)    10B9 :
@@ -282,8 +282,8 @@
        10FB :                            setrp   -1
        10FB :                    isr_intr:
        10FB : 70 E0                      push    R0
-       10FD : 08 F0                      ld      R0, SIO
-       10FF : 56 FA F7                   and     IRQ, #LNOT IRQ_IRQ3
+       10FD : 08 F0                      ld      R0, SIO             ; read received letter
+       10FF : 56 FA F7                   and     IRQ, #LNOT IRQ_IRQ3 ; acknowledge IRQ3
        1102 : 70 E3                      push    R3
        1104 : 70 E2                      push    R2
        1106 : 2C 20                      ld      R2, #HIGH rx_queue

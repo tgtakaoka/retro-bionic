@@ -24,7 +24,7 @@ queue_init:
 queue_add_X:
         rmb     1               ; save X
 queue_add_A:
-        rmb     1               ; save X
+        rmb     1               ; save A
 queue_add:
         sta     queue_add_A     ; save A
         lda     queue_len,x

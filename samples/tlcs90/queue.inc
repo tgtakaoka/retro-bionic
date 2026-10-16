@@ -32,7 +32,7 @@ queue_add:
         cp      a, (ix+queue_size)
         jr      c, queue_add_store ; queue_len < queue_size
         pop     af
-        rcf                     ; clear carry
+        rcf
         ret
 queue_add_store:
         inc     a               ; queue_len++
@@ -52,7 +52,7 @@ queue_add_store:
 queue_add_update:
         ld      (ix+queue_put), a
         pop     af
-        scf                     ; set carry
+        scf
         ret
 
 ;;; [queue] Remove an element from queue
@@ -79,5 +79,5 @@ queue_remove_update:
         ld      (ix+queue_get), a
         ld      a, h            ; restore element
         pop     hl
-        scf                     ; set carry
+        scf
         ret

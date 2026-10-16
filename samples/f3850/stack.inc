@@ -5,7 +5,7 @@ SP:     equ     8               ; SP is scratchpad register 8
 __STACK_U:      equ     ((stack - 1) >> 8)
 
 ;;; Initialize stack
-;;; @param stack
+;;; @param stack top of stack; must be page aligned since SP starts at 0
 ;;; @clobber A
 init_stack:
         clr
@@ -13,7 +13,7 @@ init_stack:
         pop
 
 ;;; Push 0
-;;; @clobber A H W
+;;; @clobber A H DC W
 ;;; PI push0
 push0:
         ds      SP              ; SP-=1
@@ -27,7 +27,7 @@ push0:
         pop
 
 ;;; Push 1
-;;; @clobber A H W
+;;; @clobber A H DC W
 ;;; PI push1
 push1:
         ds      SP              ; SP-=1
@@ -41,7 +41,7 @@ push1:
         pop
 
 ;;; Push K
-;;; @clobber A H W
+;;; @clobber A H DC W
 ;;; PI pushK
 pushK:
         ds      SP
@@ -58,11 +58,11 @@ pushK:
         pop
 
 ;;; Push Q
-;;; @clobber A H W
+;;; @clobber A H DC W
 ;;; PI pushQ
 pushQ:
         ds      SP
-        ds      SP              ; SP -= 2
+        ds      SP              ; SP-=2
         li      __STACK_U
         lr      HU, A
         lr      A, SP
@@ -74,8 +74,8 @@ pushQ:
         st
         pop
 
-;;; POP 0
-;;; @clobber A H
+;;; Pop 0
+;;; @clobber A H DC
 ;;; PI pop0
 pop0:
         li      __STACK_U
@@ -90,8 +90,8 @@ pop0:
         lr      SP, A
         pop
 
-;;; POP 1
-;;; @clobber A H
+;;; Pop 1
+;;; @clobber A H DC
 ;;; PI pop1
 pop1:
         li      __STACK_U
@@ -107,7 +107,7 @@ pop1:
         pop
 
 ;;; Pop K
-;;; @clobber A H
+;;; @clobber A H DC
 ;;; PI popK
 popK:
         li      __STACK_U
@@ -124,8 +124,8 @@ popK:
         lr      SP, A
         pop
 
-;;; pop Q
-;;; @clobber A H
+;;; Pop Q
+;;; @clobber A H DC
 ;;; PI popQ
 popQ:
         li      __STACK_U
@@ -142,8 +142,8 @@ popQ:
         lr      SP, A
         pop
 
-;;; Call subroutine
-;;; @clobber A H K W
+;;; Call subroutine; pushes the return address on the SP stack
+;;; @clobber A H K DC W
 ;;; PI call
 ;;; DA subroutine
 call:
@@ -177,7 +177,7 @@ call:
         pop                     ; jump to subroutine
 
 ;;; Return from subroutine
-;;; @clobber A H K
+;;; @clobber A H K DC
 ;;; JMP return
 return:
         li      __STACK_U

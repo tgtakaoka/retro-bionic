@@ -36,9 +36,9 @@ init_config:
         ld      R1, #tx_queue_size
         call    queue_init
 
-;;; XTAL=14.7546MHz
+;;; XTAL=14.7456MHz
 ;;; p=1 for PRE0, t=12 for T0
-;;; bit rate = 14754600 / (2 x 4 x p x t x 16) = 9600 bps
+;;; bit rate = 14745600 / (2 x 4 x p x t x 16) = 9600 bps
 init_sio:
         ld      R0, SIO          ; dummy read
         or      PORT3, #%80      ; TxD(P37)=High
@@ -93,7 +93,7 @@ put_hex8:
 put_hex4:
         and     R0, #%F
         cp      R0, #10
-        jr      c, put_hex8_dec ; A<10
+        jr      c, put_hex8_dec ; R0<10
         add     R0, #'A'-10
         jr      putchar
 put_hex8_dec:
@@ -160,7 +160,7 @@ putchar_retry:
         jr      nz, putchar_exit ; already enabled
         OR      PORT2, #4
         or      IMR, #IMR_IRQ4   ; enable IRQ4
-        or      IRQ, #IRQ_IRQ4   ; software IRQ4
+        or      IRQ, #IRQ_IRQ4   ; software IRQ4 starts sending
 putchar_exit:
         ei
         pop     R0

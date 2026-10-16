@@ -1,5 +1,6 @@
 ;;; -*- mode: asm; mode: flyspell-prog; -*-
         org     H'F00'
+;;; Variables, addressed by R2/R3 as offsets from arith_work
 arith_work:     equ     $
 vY:     res     2
 vX:     res     2
@@ -12,7 +13,7 @@ vQ:     res     2
 vS:     res     2
 vT:     res     2
 tmp:    res     2
-vF:     acon    50
+vF:     acon    50              ; F, fixed-point 1.0
 C229:   acon    229
 C100:   acon    100
 C416:   acon    416
@@ -25,6 +26,10 @@ C13:    acon    13
 vI:     res     1
 
         org     H'1000'
+;;; Print the Mandelbrot set, X -49..29 by Y -12..12, in fixed point
+;;; with F=1.0: each point shows the iteration I (hex) at which
+;;; P*P+Q*Q exceeds 4, or a space if it stays within 16 iterations.
+;;; A NUL received from the console halts.
 mandelbrot:
         lodi,r0 >-12
         stra,r0 vY
@@ -83,6 +88,7 @@ loop_x:
         ;; bsta,un print
         ;; bsta,un newline
 
+;;; B=Q*F+S keeps 2*A*B/F = 2*(A*Q+A*S/F) within 16 bits
 loop_i:
         loda,r0 vB
         loda,r1 vB+1
@@ -233,7 +239,7 @@ print_char:
 next_x:
         lodi,r2 vX-arith_work
         lodi,r3 C1-arith_work
-        bsta,un addsi2
+        bsta,un addsi2          ; X+=1
         lodi,r3 C30-arith_work
         bsta,un cmpsi2          ; X-30
         bcta,lt loop_x          ; if X<30
@@ -252,6 +258,7 @@ next_x:
 ;;; Print variable
 ;;; @param R2 variable name
 ;;; @param R0:R1 variable value
+;;; @clobber R0 R1 R3
 print:
         strz    r3
         lodz    r2

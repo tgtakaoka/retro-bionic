@@ -121,6 +121,8 @@
         120 :                    workspace_int15:
         120 :                            bss     2*16            R0-R15
         140 :
+        140 :                            * R10 is the stack pointer; BLSK pushes the return address
+        140 :                            * and BIND *R10+ returns.  Leaf routines use BL and RT.
        2000 :                            org     >2000
        2000 : =2000              stack:          equ     $
        2000 : =80                rx_queue_size:  equ     128
@@ -153,6 +155,7 @@
         23E :                            *** Get character
         23E :                            *** @return R0
         23E :                            *** @return ST.C 0 if no character
+        23E :                            *** @clobber R9
         23E :                    getchar:
         23E : 064A                       dect    R10
         240 : C681                       mov     R1, *R10        Push R1
@@ -170,6 +173,8 @@
         262 : 00BA 026C                  blsk    R10, putchar
         266 : 017A                       bind    *R10+           Pop return address
         268 :
+        268 :                            *** Queue R0 high byte for the Tx interrupt
+        268 :                            *** @clobber R9
         268 :                    putspace:
         268 : 0200 2000                  li      R0, hibyte(' ')
         26C :                    putchar:
@@ -189,8 +194,8 @@
 (1)     28C :
 (1)     28C :                            *** Print variable: "name=variable "
 (1)     28C :                            *** @param R1 variable
-(1)     28C :                            *** @param R0 variable name
-(1)     28C :                            *** @clobber R0 R1
+(1)     28C :                            *** @param R0 variable name letter in high byte
+(1)     28C :                            *** @clobber R0
 (1)     28C :                    print:
 (1)     28C : 00BA 026C                  blsk    R10, putchar        Print name
 (1)     290 : 0200 3D00                  li      R0, hibyte('=')
@@ -200,7 +205,7 @@
 (1)     29E : 00BA 0268                  blsk    R10, putspace
 (1)     2A2 : 017A                       bind    *R10+           Pop return address
 (1)     2A4 :
-(1)     2A4 : =32                F:      equ     50
+(1)     2A4 : =32                F:      equ     50              Fixed-point scale; 1.0 is F
 (1)     2A4 :                    vC:     bss     2
 (1)     2A6 :                    vD:     bss     2
 (1)     2A8 :                    vA:     bss     2
@@ -213,6 +218,9 @@
 (1)     2B6 :                    vX:     bss     2
 (1)     2B8 :                    vI:     bss     2
 (1)     2BA :
+(1)     2BA :                            *** Print the Mandelbrot set for Y=-12..12, X=-49..29; each point
+(1)     2BA :                            *** shows its escape iteration 0-F, or a space if it never escapes.
+(1)     2BA :                            *** A NUL received halts the CPU.
 (1)     2BA :                    mandelbrot:
 (1)     2BA : 0200 FFF4                  li      R0, -12
 (1)     2BE : C800 02B4                  mov     R0, @vY         Y=-12
@@ -324,7 +332,7 @@
 (1)     39E :
 (1)     39E : C020 02B2                  mov     @vT, R0
 (1)     3A2 : 0280 0004                  ci      R0, 4
-(1)     3A6 : 1514                       jgt     print_i         if 4<P*P+Q*Q
+(1)     3A6 : 1514                       jgt     print_i         if 4<T
 (1)     3A8 : 05A0 02B8                  inc     @vI             I+=1
 (1)     3AC : C020 02B8                  mov     @vI, R0
 (1)     3B0 : 0280 0010                  ci      R0, 16
@@ -358,10 +366,10 @@
 (1)     3DC :                            * blsk    R10, newline
 (1)     3DC :
 (1)     3DC : 00BA 023E                  blsk    R10, getchar
-(1)     3E0 : 1703                       jnc     next_x
-(1)     3E2 : E000                       soc     R0, R0
+(1)     3E0 : 1703                       jnc     next_x          No input
+(1)     3E2 : E000                       soc     R0, R0          Test R0
 (1)     3E4 : 1601                       jne     next_x
-(1)     3E6 : 2FCF                       xop     R15,15          halt to system
+(1)     3E6 : 2FCF                       xop     R15,15          NUL; halt to system
 (1)     3E8 :                    next_x:
 (1)     3E8 : 05A0 02B6                  inc     @vX             X+=1
 (1)     3EC : C020 02B6                  mov     @vX, R0
@@ -407,6 +415,10 @@
 (1)     442 : 00BA 026C                  blsk    R10, putchar
 (1)     446 : 10F9                       jmp     print_int16_return
 (1)     448 :
+(1)     448 :                            *** Print unsigned decimal recursively, most significant digit first
+(1)     448 :                            *** @param R0 value; 0 prints nothing
+(1)     448 :                            *** @param R2 radix 10
+(1)     448 :                            *** @clobber R0 R1
 (1)     448 :                    print_uint16_loop:
 (1)     448 : C040                       mov     R0, R1
 (1)     44A : 130C                       jeq     print_uint16_return
@@ -422,9 +434,9 @@
 (1)     464 :                    print_uint16_return:
 (1)     464 : 017A                       bind    *R10+           Pop return address
 (1)     466 :
-(1)     466 :                            *** Unsigned Divide
-(1)     466 :                            *** R1 / |R2| = R1
-(1)     466 :                            *** @clobber R2
+(1)     466 :                            *** Signed divide, quotient only
+(1)     466 :                            *** R1 / R2 = R1
+(1)     466 :                            *** @clobber R0
 (1)     466 :                    divu16:
 (1)     466 : C001                       mov     R1, R0
 (1)     468 : 08F0                       sra     R0, 15          Extend sign bit
@@ -432,7 +444,7 @@
 (1)     46C : C040                       mov     R0, R1
 (1)     46E : 045B                       rt
 (1)     470 :
-(1)     470 :                            *** Divide
+(1)     470 :                            *** Signed divide
 (1)     470 :                            *** R1 / R2 = R1 ... R0
 (1)     470 :                            *** @clobber R2
 (1)     470 :                    div16:
@@ -444,7 +456,7 @@
 (1)     47A : C002                       mov     R2, R0
 (1)     47C : 045B                       rt
         47E :                            include "../tms9900/queue.inc"
-(1)     47E :                    *** -*- mode: asm; mode: flying-spell; -*-
+(1)     47E :                    *** -*- mode: asm; mode: flyspell-prog; -*-
 (1)     47E :                    *** [queue] queue structure
 (1)     47E : =0                 queue_len:      equ     0       ; queue length
 (1)     47E : =2                 queue_size:     equ     2       ; buffer size
@@ -471,8 +483,8 @@
 (1)     494 :
 (1)     494 :                    *** [queue] Add an element to queue
 (1)     494 :                    *** @param R9 queue work space pointer
-(1)     494 :                    *** @param R0 an element
-(1)     494 :                    *** @return CC.C 0 if queue is full
+(1)     494 :                    *** @param R0 an element in high byte
+(1)     494 :                    *** @return ST.C 0 if queue is full
 (1)     494 :                    *** @clobber R1
 (1)     494 :                    queue_add:
 (1)     494 : 8A59 0002                  c       *R9, @queue_size(R9)    check queue_len
@@ -498,8 +510,8 @@
 (1)     4C2 :
 (1)     4C2 :                    *** [queue] Remove an element from queue
 (1)     4C2 :                    *** @param R9 queue work space pointer
-(1)     4C2 :                    *** @return R0 an element
-(1)     4C2 :                    *** @return CC.C 0 if queue is empty
+(1)     4C2 :                    *** @return R0 an element in high byte
+(1)     4C2 :                    *** @return ST.C 0 if queue is empty
 (1)     4C2 :                    *** @clobber R1
 (1)     4C2 :                    queue_remove:
 (1)     4C2 : C059                       mov     *R9, R1                 check queue_len
@@ -521,6 +533,7 @@
 (1)     4E8 : 0911                       srl     R1, 1                   set/clear ST.C
 (1)     4EA : 045B                       rt
         4EC :
+        4EC :                            *** ACIA interrupt; runs in its own workspace, so no registers need saving
         4EC :                    int15_isr:
         4EC : D020 0080                  movb    @ACIA_status, R0
         4F0 : 0240 0100                  andi    R0, hibyte(RDRF_bm)
@@ -539,7 +552,6 @@
         51A :                    int15_isr_exit:
         51A : 0380                       rtwp
         51C :                    int15_isr_send_empty:
-        51C :                            * Disable Tx interrupt
         51C : 0201 2000                  li      R1, hibyte(TCB_EI_gc)
         520 : 5801 0080                  szcb    R1, @ACIA_control       Disable Tx interrupt
         524 : 0380                       rtwp

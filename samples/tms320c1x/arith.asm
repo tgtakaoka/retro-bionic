@@ -50,6 +50,8 @@ initialize:
         out     work,ACIA_control ; 8 bits + No Parity + 1 Stop Bits
         b       arith
 
+;;; The hardware stack has only 4 levels, so a routine that calls
+;;; others keeps its return address in data memory.
 newline:
         pop                     ; return address
         sacl    newline_ret
@@ -85,9 +87,9 @@ putchar_loop:
         ret
 
 ;;; Print "A op B"
-;;; @params .word A
-;;; @params .word B
-;;; @params .word op
+;;; @param .word A
+;;; @param .word B
+;;; @param .word op
 ;;; @return R1=A
 ;;; @return R2=B
 ;;; @return ACC=A

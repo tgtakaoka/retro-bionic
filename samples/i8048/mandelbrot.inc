@@ -1,5 +1,7 @@
 ;;; -*- mode: asm; mode: flyspell-prog; -*-
 
+;;; Print one frame: a char per point, the escape iteration in hex
+;;; or ' ' if none; NUL from the console halts.
 mandelbrot:
         mov     R4, #LOW(50)
         mov     R5, #HIGH(50)
@@ -69,6 +71,8 @@ loop_x:
         ;; call    print           ; print D
         ;; call    newline
 
+        ;; A*B/F is computed as A*Q+A*S/F with Q=B/F, S=B-Q*F,
+        ;; to avoid 16-bit overflow
 loop_i:
         mov     R2, #vQ
         mov     R3, #vB
@@ -249,7 +253,7 @@ set:
         mov     @R0, A
         ret
 
-;;; Assign 8-bit variable; v1 = v2
+;;; Sign-extend 8-bit v2 into 16-bit v1
 ;;; @param R2 &v1
 ;;; @param R3 &v2
 ;;; @clobber A R0

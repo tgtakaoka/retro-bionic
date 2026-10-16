@@ -25,7 +25,7 @@ queue_init_loop:
         stab    queue_size,x
         rts
 
-;;; [abx] Add B to X
+;;; [abx] Add unsigned B to X, as MC6801 ABX
 ;;; @return X X+B
 abx_tmp:
         rmb     2

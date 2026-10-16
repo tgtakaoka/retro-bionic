@@ -33,7 +33,7 @@ initialize:
         ldi     CDS_RESET_gc    ; Master reset
         st      ACIA_C(P1)
         ldi     RX_INT_TX_NO    ; 8 bits + No Parity + 1 Stop Bits
-                                ; Transmit, Receive interrupts disabled
+                                ; Receive interrupt enabled, Transmit disabled
         st      ACIA_C(P1)
 
 arith:
@@ -277,7 +277,7 @@ expr_div:
         xpah    P1
         ldi     L(ADDR(divsi2))
 expr_do:
-        xpal    P1              ; P1=ADDR(calculate))
+        xpal    P1              ; P1=ADDR(calculate)
         xppc    P1              ; calculate result in vA
         .dbyte  vB
         .dbyte  vA
@@ -339,7 +339,7 @@ comp_eq:
 comp_gt:
         ldi     '>'
 comp_print:
-        st      @-1(P2)         ; save result
+        st      @-1(P2)         ; save relation
         ldi     L(ADDR(print_int16))
         xpal    P1
         ldi     H(ADDR(print_int16))
@@ -352,8 +352,8 @@ comp_print:
         xpah    P1              ; P1=ADDR(putchar)
         ldi     ' '
         xppc    P1              ; print space
-        ld      @1(P2)          ; restore result
-        xppc    P1              ; print vOP
+        ld      @1(P2)          ; restore relation
+        xppc    P1              ; print relation
         ldi     ' '
         xppc    P1              ; print space
         ldi     L(ADDR(print_int16))

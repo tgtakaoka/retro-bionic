@@ -118,7 +118,7 @@ getchar:
         dint
         call    @queue_remove
         jnc     getchar_empty
-        eint                    ST.C=1
+        eint                    ST.C=1 (EINT sets all ST bits)
         rets
 getchar_empty:
         eint                    ST.C=1
@@ -139,7 +139,7 @@ putchar_add:
         movd    %tx_queue, R3
         dint
         call    @queue_add
-        jnc     putchar_add
+        jnc     putchar_add     retry while tx_queue is full
         eint
         rets
 

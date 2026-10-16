@@ -37,7 +37,7 @@ init:
 receive_loop:
         mov     R0, #USARTS
         movx    A, @R0
-        cpl     A
+        cpl     A               ; JB tests for 1; branch while RxRDY=0
         jb      ST_RxRDY_bp, receive_loop
 receive_data:
         mov     R0, #USARTD

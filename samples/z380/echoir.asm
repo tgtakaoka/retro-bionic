@@ -37,9 +37,9 @@ init_usart:
         ld      A, RX_EN_TX_EN
         outa    (USARTC), A
         ld      A, ORG_INT
-        outa    (USARTRV), A    ; enable RxRDY interrupt using RST 7
+        outa    (USARTRV), A    ; enable RxRDY interrupt; mode 1 ignores the vector
         ld      A, ORG_RESET
-        outa    (USARTTV), A    ; disable TxRDY interrupt
+        outa    (USARTTV), A    ; 0 disables TxRDY interrupt
 
         im      1
         ei
@@ -66,7 +66,7 @@ transmit_data:
         jr      transmit_loop
 halt_to_system:
         ld      A, 0FFH
-        ld      (ORG_RST38), A
+        ld      (ORG_RST38), A  ; RST 38H at its vector: exit to the debugger
         rst     38h
 
         include "queue.inc"

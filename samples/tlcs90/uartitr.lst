@@ -132,10 +132,10 @@
         12C :                    echo_back:
         12C : 28                         ld      b, a
         12D : 1C 9F 01                   call    putchar         ; echo
-        130 : 36 20                      ld      a, ' '          ; space
+        130 : 36 20                      ld      a, ' '
         132 : 1C 9F 01                   call    putchar
         135 : 1C 4F 01                   call    put_hex8        ; print in hex
-        138 : 36 20                      ld      a, ' '          ; space
+        138 : 36 20                      ld      a, ' '
         13A : 1C 9F 01                   call    putchar
         13D : 1C 72 01                   call    put_bin8        ; print in binary
         140 : 1C 45 01                   call    newline
@@ -200,7 +200,7 @@
         194 :
         194 :                    ;;; Get character
         194 :                    ;;; @return A
-        194 :                    ;;; @return CC.C 0 if no character
+        194 :                    ;;; @return F.C 0 if no character
         194 :                    getchar:
         194 : 54                         push    ix
         195 : 3C 00 20                   ld      ix, rx_queue
@@ -210,7 +210,8 @@
         19D : 5C                         pop     ix
         19E : 1E                         ret
         19F :
-        19F :                    ;;; Put character
+        19F :                    ;;; Put character; writes SCBUF directly while INTTX is disabled,
+        19F :                    ;;; otherwise queues it for the INTTX handler.
         19F :                    ;;; @param A
         19F :                    putchar:
         19F : A8 E6                      bit     INTEL_IETX_bp, (INTEL)
@@ -264,7 +265,7 @@
 (1)     1D0 : F0 01 67                   cp      a, (ix+queue_size)
 (1)     1D3 : C7 03                      jr      c, queue_add_store ; queue_len < queue_size
 (1)     1D5 : 5E                         pop     af
-(1)     1D6 : 0C                         rcf                     ; clear carry
+(1)     1D6 : 0C                         rcf
 (1)     1D7 : 1E                         ret
 (1)     1D8 :                    queue_add_store:
 (1)     1D8 : 86                         inc     a               ; queue_len++
@@ -284,7 +285,7 @@
 (1)     1F6 :                    queue_add_update:
 (1)     1F6 : F4 02 26                   ld      (ix+queue_put), a
 (1)     1F9 : 5E                         pop     af
-(1)     1FA : 0D                         scf                     ; set carry
+(1)     1FA : 0D                         scf
 (1)     1FB : 1E                         ret
 (1)     1FC :
 (1)     1FC :                    ;;; [queue] Remove an element from queue
@@ -311,9 +312,10 @@
 (1)     21B : F4 03 26                   ld      (ix+queue_get), a
 (1)     21E : 24                         ld      a, h            ; restore element
 (1)     21F : 5A                         pop     hl
-(1)     220 : 0D                         scf                     ; set carry
+(1)     220 : 0D                         scf
 (1)     221 : 1E                         ret
         222 :
+        222 :                    ;;; Interrupt entry pushes PC and AF; RETI pops both.
         222 :                    isr_intr_rx:
         222 : A9 C3                      bit     IRFH_IRFRX_bp, (IRFH)
         224 : C6 0A                      jr      z, isr_intr_rx_end

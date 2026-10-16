@@ -53,7 +53,7 @@ receive_loop:
         jnc     receive_loop
         ldb     B, A            ; save character
         orb     A, A
-        je      halt_to_system
+        je      halt_to_system  ; NUL halts
 transmit_loop:
         ldb     A, USARTS
         jbc     A, ST_TxRDY_bp, transmit_loop
@@ -61,7 +61,7 @@ transmit_data:
         stb     B, USARTD
         cmpb    B, #0DH
         jne     receive_loop
-        ldb     B, #0AH
+        ldb     B, #0AH         ; follow CR with LF
         sjmp    transmit_loop
 
 halt_to_system:
@@ -72,6 +72,7 @@ halt_to_system:
         include "queue.inc"
 
         align   2
+;;; EXTINT from the USART RxRDY: queue the received character
 isr_intr:
         pushf
         push    A               ; push A,B

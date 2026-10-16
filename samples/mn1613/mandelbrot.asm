@@ -86,6 +86,8 @@ loop:   bald    mandelbrot
         bal     newline
         b       loop
 
+*** @return R0 received char
+*** @return ST.E 0 if none
 getchar:
         push    X0
         mvwi    X0, rx_queue
@@ -95,6 +97,7 @@ getchar:
         pop     X0
         ret
 
+*** Put a space, CR LF (newline) or char R0 (putchar)
 putspace:
         mvi     R0, ' '
         b       putchar

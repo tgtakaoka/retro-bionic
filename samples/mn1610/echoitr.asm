@@ -91,6 +91,7 @@ loop:   bal     getchar
         bal     newline
         b       loop
 
+*** @return R0 received char
 getchar:
         push    X0
         mvi     X0, hi(rx_queue)
@@ -104,6 +105,7 @@ getchar_wait:
         pop     X0
         ret
 
+*** @param R1 value, low byte printed
 put_hex8:
         mvi     R0, '0'
         bal     putchar
@@ -121,13 +123,15 @@ put_hex4:
         cb      R0, R1, lpz     skip if R0>=10
         b       put_hex4_dec
         mvi     R1, 'A'
-        si      R0, 10, skp
+        si      R0, 10, skp     R0-=10, skip the '0'
 put_hex4_dec:
         mvi     R1, '0'
         a       R0, R1
         pop     R1
         b       putchar
 
+*** @param R1 value, low byte printed
+*** @clobber R1
 put_bin8:
         mvi     R0, '0'
         bal     putchar
@@ -145,6 +149,7 @@ put_bin1:
         mvi     R0, '1'
         b       putchar
 
+*** Put CR LF (newline) or char R0 (putchar)
 newline:
         mvi     R0, X'0D'
         bal     putchar
@@ -196,7 +201,7 @@ irq2_isr:
         bal     queue_remove    Remove from Tx queue
         mv      R0, R0, enz     Skip if ST.E=1
         b       irq2_isr_empty
-        wt      R0, USARTD      Transmit charater
+        wt      R0, USARTD      Transmit character
 irq2_isr_exit:
         pop     X0
         pop     R0

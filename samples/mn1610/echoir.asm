@@ -71,6 +71,8 @@ echo:   bal     putchar
         mvi     R0, x'0A'       NL
         b       echo
 
+*** @return R0 received char
+*** @clobber X0
 getchar:
         mvi     X0, hi(rx_queue)
         bswp    X0, X0
@@ -82,6 +84,7 @@ getchar_wait:
         b       getchar_wait
         ret
 
+*** @param R0 char to send
 putchar:
         push    R0
 putchar_wait:
