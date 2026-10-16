@@ -1,21 +1,22 @@
 #!/usr/bin/env python3
 """Regression suite for the Bionic debugger board.
 
-Target agnostic: the `?` banner names the target, and that name picks the
-sample directory (`samples/<target>/`).  Every case reports pass or fail
-with the firmware timing parameters, and a case that leaves the board
-stuck is recovered before the next one runs -- one bad case must not take
-the rest of the suite with it.
+Target agnostic: the regress file names the chips it is for and, by
+where it lives (samples/<dir>/bench/), the samples it drives.  Every
+case reports pass, fail or skip with its time and a note, and a case
+that leaves the board stuck is recovered before the next one runs --
+one bad case must not take the rest of the suite with it.
 
 Cases, named on the command line and run in this order:
 
   reset    R reports the reset PC, repeatably
   step     S advances the PC through a loaded program
-  samples  every samples/<target>/*.hex, each driven as it expects:
+  samples  every sample image (.hex/.s19/.s28/.s37) in samples/<dir>/,
+           plus any a table's `path` borrows, each driven as it expects:
            input fed to the echo samples, iterations counted for one
            that loops for ever, run to completion for the rest
   sample:name[,name...]
-           just those samples, by their file names without .hex
+           just those samples, by their file names without extension
   haltgo   halt a running program with the halt port, then continue with
            G -- repeatedly.  This one exists because it caught a real bug
            that none of the others see: the continue appeared to work
@@ -27,16 +28,17 @@ Cases, named on the command line and run in this order:
            program/break_at there, so it is a no-op without them
   gountil  `g` a named label repeatedly, from [gountil] in the
            regress.toml file; needs program/break_at there too
+  disasm   a halted run's backtrace is disassembled, at least n lines
 
 A regress.toml-style file (see drive_table()) is mandatory and always
 first: which arch/variant this run exercises is not inferred from the
-target's own banner, it comes entirely from that file's own name (e.g.
+target's own banner, it comes entirely from that file (e.g.
 samples/<target>/bench/regress_<variant>.toml) and from the human's
 choice of which one to name. Its top-level `chips` lists the chips it is
 for, as their banners name them; on any other chip the run is refused,
-naming the files that are for it. At least one case must be named too; a
-file with none names what it drives instead of guessing "every case"
-is meant.
+naming the files that are for it. At least one case must be named too;
+with none, it lists the cases and the file's tables instead of guessing
+"every case" is meant.
 
   bionic-regress.py REGRESS.toml
        # no case named: lists the cases and the file's own samples,
@@ -330,34 +332,31 @@ def case_step(board, n=4, regress=None):
 
 def drive_table(regress=None):
     """|regress|, an explicit regress.toml-style file describing how each
-    sample has to be driven. Running them all the same way is wrong: an
-    echo sample blocks waiting for input and would look like a failure,
-    and a drawing sample never ends on its own -- but which samples need
-    that, and how, is not this script's business to assume. Different
-    targets share sample names (echo/echoir/echoitr/mandelbrot are common
-    across many, but not all, and not always driven identically), so
-    that knowledge lives in the file, not a built-in default here.
+    sample has to be driven, as {table name: table}. Running them all the
+    same way is wrong: an echo sample blocks waiting for input and would
+    look like a failure, and a drawing sample never ends on its own.
+    Targets share sample names without always driving them identically,
+    so that knowledge lives in the file, not a built-in default here.
 
-    No default path: bionic-regress.py does not infer which arch/variant
-    config applies from the target name, or guess a samples/<target>/
-    bench/regress.toml location for it. That mapping -- which file goes
-    with which board configuration -- lives in the file itself (its name
-    carries the variant, see [[sample-variant-naming]]) and in the
-    human's choice of which one to name on the command line (this
-    script's own first argument): a target with more than one board
-    configuration of the same CPU (e.g. cache enabled vs. disabled) keeps
-    one regress.toml-style file per configuration, and switching between
-    them means physically reconfiguring the board, which only a human can
-    do. With no file named, every sample gets the same default: run to
-    completion, expect some output.
+    No default path: a target with more than one board configuration of
+    the same CPU (e.g. cache enabled vs. disabled) keeps one file per
+    configuration, its name carrying the variant, and switching between
+    them means physically reconfiguring the board, which only a human
+    can do. With no file, every sample gets the same default: run to
+    completion (120 s cap), expect more than two lines of output.
 
-    TOML rather than JSON so the file can carry comments -- worth it for
-    a hand-maintained, per-target/variant file like this.
+    TOML rather than JSON so the hand-maintained file can carry comments.
 
     Keyed by sample basename, one table per sample:
-    [name]\nfeed = "irq\r"\nexpect = "irq", or frames = 1, or
-    silent = true\ncap = 180, or skip = true for a sample this case
-    cannot drive (e.g. one needing a device the default setup lacks).
+      feed = "irq\\r", expect = "irq"
+                      G, type `feed`, then NUL; the echo must contain `expect`
+      expect = "..."  run to completion; the output must contain it
+      frames = N      N iterations of a looping sample, within `cap` seconds
+                      (default 300)
+      silent = true, cap = N
+                      prints nothing; must reach the prompt within `cap`
+      skip = true     a sample this case cannot drive (e.g. one needing a
+                      device the default setup lacks)
 
     `lines = N` instead halts at the first completed frame, or once N
     drawn rows have arrived and MIN_RUN seconds have passed -- so a
@@ -381,7 +380,8 @@ def drive_table(regress=None):
     samples directory, relative to the project; its basename must be the
     table's name.
 
-    The top-level `chips` list, which chips_of() reads, is not a sample.
+    The top-level `chips` list, which chips_of() reads, is not a sample;
+    [reset], [haltgo], [breakpoint] and [gountil] configure those cases.
     """
     table = {}
     if regress:

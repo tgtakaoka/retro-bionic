@@ -5,6 +5,13 @@ A LogicAnalyzer exports the newest capture as a CSV, its `Channel N`
 columns relabeled per a checked-in samples/<target>/bench/channels.toml
 set -- nothing board- or architecture-specific, and no live dependency
 on any particular analyzer's own preset format at report time.
+
+    logic-analyzer.py CHANNELS.toml SET_NAME
+
+exports the newest Logic 2 capture that way and prints the CSV's path.
+Environment: BIONIC_RUN_DIR (default /tmp/bionic-bench) for exported
+files, BIONIC_LOGIC_MCP (default http://127.0.0.1:10530) for Logic 2's
+MCP server, BIONIC_LOGIC_CONFIG for its config file holding presets.
 """
 import csv
 import json

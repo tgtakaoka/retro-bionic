@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Compare routed track length with the straight-line distance between pads.
 
-Summary (default): every routed net, ranked by how much copper it uses
+Summary (default): the routed nets ranked by how much copper each uses
 beyond the shortest straight-line tree joining its pads (a minimum
-spanning tree; for a two-pad net, the pad-to-pad distance).
+spanning tree; for a two-pad net, the pad-to-pad distance), or by the
+ratio of the two with --sort ratio; the top 10, or --top N (0 for all).
 
     scripts/route-length.py schematics/cdp1802/bionic-cdp1802.kicad_pcb
 
@@ -14,8 +15,9 @@ net's connector pad (a J reference) unless --source names one.
     scripts/route-length.py board.kicad_pcb --net ASEL0 --net ASEL1
 
 Reads the saved file, so save the board in KiCad first. Copper pours are
-not counted; nets carried by them (GND, VCC by default) are skipped.
-Needs KiCad's Python module (pcbnew): run with the python KiCad ships.
+not counted; nets carried by them (GND, VCC, and any --exclude) are
+left out of the summary. Needs KiCad's Python module (pcbnew): run with
+the python KiCad ships.
 """
 
 import argparse

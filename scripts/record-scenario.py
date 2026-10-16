@@ -23,9 +23,10 @@ and streams its output to stdout live -- run it manually to watch or dry
 scenario.py SCENARIO"`) for more control over asciinema's own flags.
 
 --save PATH re-invokes itself under `asciinema rec`, saved locally to
-PATH; not uploaded. --upload does the same but uploads it to
-asciinema.org instead, printing the resulting URL. Either replays the
-scenario in full at whatever pace applies -- neither is instant.
+PATH (replaced only once the scenario reaches its end); not uploaded.
+--upload does the same but uploads it to asciinema.org instead,
+printing the resulting URL. Either replays the scenario in full at
+whatever pace applies -- neither is instant.
 
 --nopace shortens every pause to a tenth, for a dry run of the command
 sequence without sitting through the real timing.
@@ -55,10 +56,9 @@ ignored.
     upload PATH      type 'U', wait for "Upload waiting...", paste the
                       Intel HEX/S-record file at PATH (relative to the
                       repo root), end with ^C, wait for the prompt
-    rows N           terminal size for --save/--upload's asciinema
-    cols N            recording (default 60x90); no effect live, since
-                      the recorded pty always takes it from these, but a
-                      live run just inherits the real terminal instead
+    rows N           terminal size of the --save/--upload recording
+    cols N            (default 60 rows, 90 columns); a live run keeps
+                      the real terminal's
 """
 import argparse
 import os
@@ -74,7 +74,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 bc = SourceFileLoader('bc', os.path.join(HERE, 'bionic-control.py')).load_module()
 PROJ = bc.PROJ
 
-SCALE = 1.0   # set from --nopace in main(); pace() reads this each call
+SCALE = 1.0   # set from --nopace in run_direct(); pace() reads this each call
 
 # A drawing sample's frame can be thousands of instructions; 'run N' abstracts
 # it into "watch N frames render", so the backtrace after the halt is for
@@ -288,10 +288,9 @@ def run_scenario(con, path):
 def _ensure_verbose_off(board):
     """Force V off before the recording starts, whatever it was left at.
 
-    'V' toggles; only 'R' looks at it -- S/g/G always show the raw
-    bus-cycle trace regardless -- but a stale ON would still make every
-    'R' print its own cycle dump on top of the usual register dump. Done
-    with board.send, not the Console, so it never reaches stdout.
+    'V' toggles; a stale ON makes 'R' and 'S' print a cycle dump on top
+    of their usual output, and some targets add detail to backtraces.
+    Done with board.send, not the Console, so it never reaches stdout.
     """
     if b'Verbose ON' in board.send(b'V', wait=2.0, idle=0.4):
         board.send(b'V', wait=2.0, idle=0.4)

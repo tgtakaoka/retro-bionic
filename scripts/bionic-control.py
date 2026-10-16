@@ -10,12 +10,13 @@ logic-analyzer.py's job.
 Subcommands
   flash            build and upload, retrying (boards differ: some take
                    the first attempt, some reliably fail it)
-  reset [cmd...]   send V (verbose on) then the commands, default R;
-                   print the captured text
+  reset [cmd...]   the default: turn verbose on, then send the commands,
+                   default R; print the captured text
   send CMDS        send raw command characters, print the reply
   full             same as reset
-  upload F [cmd..] inject an Intel HEX / S-record file with the U command,
-                   then optionally send more commands in the same session
+  upload F [cmd..] R, then inject an Intel HEX / S-record file with the U
+                   command, then optionally send more commands in the same
+                   session
   run [cap [n]]    send G and wait for the run to finish; waits as long as
                    it keeps producing output, so a target that needs tens of
                    minutes is fine.  An optional cap in seconds bounds it;
@@ -33,8 +34,19 @@ Every board operation has a hard deadline and every one of them ends by
 classifying the board (see `state`), so a run that never comes back is
 reported as a failure instead of hanging the caller.
 
-Full text always lands in $BIONIC_OUT for a follow-up look without
-re-running the board.
+reset, send, upload and run write the full text to $BIONIC_OUT for a
+follow-up look without re-running the board.
+
+Environment (defaults in brackets)
+  BIONIC_PORT       console serial port [/dev/ttyACM0]
+  BIONIC_HALT_PORT  halt-switch serial port [/dev/ttyACM1]
+  BIONIC_ENV        PlatformIO environment for flash [teensy41]
+  BIONIC_PROJ       repository to build [the one holding this script]
+  BIONIC_RUN_DIR    scratch directory [/tmp/bionic-bench]
+  BIONIC_OUT        full text of the last session [$BIONIC_RUN_DIR/last.txt]
+  BIONIC_LOCK       board lock file [$BIONIC_RUN_DIR/board.lock]
+  BIONIC_LOCK_WAIT  seconds to wait for a held lock [0]
+  BIONIC_STALL      seconds of silence before a run counts as stuck [45]
 """
 import fcntl
 import os
