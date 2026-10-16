@@ -41,26 +41,24 @@ add12_add,
 /// @param AC Signed 12-bit subtrahend
 /// @return AC=0
 /// @return L=1 if borrow
-/// ATTENTION: unused; sign-tests the zeroed R1H and subtracts R1L as
-/// the high word.
 /// @clobber R1
 sub12,          .-.
         dca     R1L             / low(subtrahend)
-        dca     R1H             / high(subtrahend)
-        tad     R1H
-        sma cla                 / Skip if subtrahend < 0, AC=0
+        dca     R1H             / ~high(subtrahend) if subtrahend < 0
+        tad     R1L
+        spa cla                 / Skip if subtrahend >= 0, AC=0
         jmp     sub12_sub
         sta
-        dca     R1H             / sign extended subtrahend
+        dca     R1H             / ~high(subtrahend) if subtrahend >= 0
 sub12_sub,
         tad     R1L             / AC=low(subtrahend)
-        stl cia                 / negate to form 13-bit negative
+        cll cia                 / negate, L=1 if low(subtrahend)=0
         tad     R0L             / AC=low(R0)-low(subtrahend)
-        dca     R0L             / L=1 if borrowed
-        ral                     / propagate complemented borrow
-        tad     R1L             / AC=high(subtrahend)
-        cia cml                 / form 13-bit negative
-        tad     R0H             / add high(R0)
+        dca     R0L             / L=1 if no borrow
+        ral                     / AC=carry
+        tad     R1H             / AC=carry+~high(subtrahend)
+        tad     R0H             / add high(R0), L=1 if no borrow
+        cml                     / L=1 if borrow
         dca     R0H             / store high(R0), AC=0
         jmp     I sub12         / return
 
