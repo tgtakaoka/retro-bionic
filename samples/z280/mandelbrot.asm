@@ -78,7 +78,8 @@ init_usart:
 loop:
         call    mandelbrot
         call    newline
-        call    wait_tx_finish
+        ld      HL, tx_queue
+        call    queue_wait_empty
         jr      loop
 
 ;;; Get character
@@ -130,15 +131,7 @@ putspace:
         include "mandelbrot.inc"
         include "arith.inc"
         include "queue.inc"
-
-;;; Wait until the Tx queue is empty
-;;; @clobber A HL
-wait_tx_finish:
-        ld      HL, tx_queue
-        ld      A, (HL)
-        or      A
-        ret     z
-        jp      wait_tx_finish
+        include "queue_wait.inc"
 
 isr_intr_rx:
         push    AF

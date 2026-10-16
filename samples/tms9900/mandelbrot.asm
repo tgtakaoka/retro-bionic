@@ -52,6 +52,8 @@ initialize:
 loop:
         bl      @mandelbrot
         bl      @newline
+        li      R9, tx_queue
+        bl      @queue_wait_empty
         jmp     loop
 
         *** Get character
@@ -104,6 +106,7 @@ putchar:
         include "mandelbrot.inc"
         include "arith.inc"
         include "queue.inc"
+        include "queue_wait.inc"
 
         *** Runs in workspace_int1; RTWP restores the caller's WP, PC and ST
 int1_isr:

@@ -67,6 +67,8 @@ init_usart:
 loop:
         scall   mandelbrot
         scall   newline
+        ld      HL, #tx_queue
+        scall   queue_wait_empty
         sjmp    loop
 
 ;;; Get character
@@ -114,6 +116,7 @@ putchar_retry:
         include "mandelbrot.inc"
         include "arith.inc"
         include "queue.inc"
+        include "queue_wait.inc"
 
 
         align   2

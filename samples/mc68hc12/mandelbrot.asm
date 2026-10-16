@@ -69,7 +69,8 @@ initialize:
 loop:
         jsr     mandelbrot
         jsr     newline
-        jsr     flush_tx
+        ldx     #tx_queue
+        jsr     queue_wait_empty
         bra     loop
 
 ;;; Get character
@@ -88,11 +89,6 @@ getchar:
 putspace:
         ldaa    #' '
         bra     putchar
-;;; Wait until the Tx queue is empty
-flush_tx:
-        tst     tx_queue+queue_len
-        bne     flush_tx
-        rts
 
 newline:
         ldaa    #$0D
@@ -116,6 +112,7 @@ putchar_retry:
         include "mandelbrot.inc"
         include "arith.inc"
         include "../mc6801/queue.inc"
+        include "../mc6801/queue_wait.inc"
 
 isr_irq:
         ldab    ACIA_status

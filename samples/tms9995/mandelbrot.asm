@@ -52,6 +52,8 @@ initialize:
 loop:
         bl      @mandelbrot
         bl      @newline
+        li      R9, tx_queue
+        bl      @queue_wait_empty
         jmp     loop
 
         *** Get character
@@ -103,6 +105,7 @@ putchar:
         include "mandelbrot.inc"
         include "arith.inc"
         include "../tms9900/queue.inc"
+        include "../tms9900/queue_wait.inc"
 
         *** ACIA interrupt; runs in its own workspace, so no registers need saving
 int1_isr:

@@ -87,7 +87,7 @@
           4 :
           4 :                            org     VEC_INT1
           4 : F020                       data    workspace_int1
-          6 : 0516                       data    int1_isr
+          6 : 0524                       data    int1_isr
           8 :
          7C :                            org     VEC_XOP15
          7C : 007C                       data    VEC_XOP15       for halt to system
@@ -113,10 +113,10 @@
         200 : 020A 2000                  li      R10, stack
         204 : 0209 2000                  li      R9, rx_queue
         208 : 0200 0080                  li      R0, rx_queue_size
-        20C : 06A0 04A8                  bl      @queue_init
+        20C : 06A0 04B0                  bl      @queue_init
         210 : 0209 2080                  li      R9, tx_queue
         214 : 0200 0080                  li      R0, tx_queue_size
-        218 : 06A0 04A8                  bl      @queue_init
+        218 : 06A0 04B0                  bl      @queue_init
         21C :                            * Initialize ACIA
         21C : 0200 0300                  li      R0, hibyte(CDS_RESET_gc)
         220 : D800 0080                  movb    R0, @ACIA_control       Master reset
@@ -126,431 +126,441 @@
         230 : D800 0084                  movb    R0, @ACIA_intr          set INT1 name for MC6850 emulator
         234 :
         234 :                    loop:
-        234 : 06A0 02D2                  bl      @mandelbrot
-        238 : 06A0 025C                  bl      @newline
-        23C : 10FB                       jmp     loop
-        23E :
-        23E :                            *** Get character
-        23E :                            *** @return R0
-        23E :                            *** @return ST.C 0 if no character
-        23E :                            *** @clobber R9
-        23E :                    getchar:
-        23E : 064A                       dect    R10
-        240 : C68B                       mov     R11, *R10       Push return address
-        242 : 064A                       dect    R10
-        244 : C681                       mov     R1, *R10        Push R1
-        246 : 0300 0000                  limi    0               Disable interrupt
-        24A : 0209 2000                  li      R9, rx_queue
-        24E : 06A0 04EC                  bl      @queue_remove
-        252 : 0300 000F                  limi    15              Enable interrupt
-        256 : C07A                       mov     *R10+, R1       Pop R1
-        258 : C2FA                       mov     *R10+, R11      Pop return address
-        25A : 045B                       rt
-        25C :
-        25C :                    newline:
-        25C : 064A                       dect    R10
-        25E : C68B                       mov     R11, *R10       Push return address
-        260 : 0200 0D00                  li      R0, hibyte(>0D)
-        264 : 06A0 0278                  bl      @putchar
-        268 : 0200 0A00                  li      R0, hibyte(>0A)
-        26C : 06A0 0278                  bl      @putchar
-        270 : C2FA                       mov     *R10+, R11      Pop return address
-        272 : 045B                       rt
-        274 :
-        274 :                            *** Queue R0 high byte for the Tx interrupt
-        274 :                            *** @clobber R9
-        274 :                    putspace:
-        274 : 0200 2000                  li      R0, hibyte(' ')
-        278 :                    putchar:
-        278 : 064A                       dect    R10
-        27A : C68B                       mov     R11, *R10       Push return address
-        27C : 064A                       dect    R10
-        27E : C681                       mov     R1, *R10        Push R1
-        280 : 0300 0000                  limi    0               Disable interrupt
-        284 : 0209 2080                  li      R9, tx_queue
-        288 : 06A0 04BE                  bl      @queue_add
-        28C : 0300 000F                  limi    15              Enable interrupt
-        290 : 0201 2000                  li      R1, hibyte(TCB_EI_gc)
-        294 : F801 0080                  socb    R1, @ACIA_control       Enable Tx interrupt
-        298 : C07A                       mov     *R10+, R1       Pop R1
-        29A : C2FA                       mov     *R10+, R11      Pop return address
-        29C : 045B                       rt
-        29E :
-        29E :                            include "mandelbrot.inc"
-(1)     29E :                    *** -*- mode: asm; mode: flyspell-prog* -*-
-(1)     29E :
-(1)     29E :                            *** Print variable: "name=variable "
-(1)     29E :                            *** @param R1 variable
-(1)     29E :                            *** @param R0 variable name letter in high byte
-(1)     29E :                            *** @clobber R0
-(1)     29E :                    print:
-(1)     29E : 064A                       dect    R10
-(1)     2A0 : C68B                       mov     R11, *R10       Push return address
-(1)     2A2 : 06A0 0278                  bl      @putchar        Print name
-(1)     2A6 : 0200 3D00                  li      R0, hibyte('=')
-(1)     2AA : 06A0 0278                  bl      @putchar
-(1)     2AE : C001                       mov     R1, R0
-(1)     2B0 : 06A0 0430                  bl      @print_int16
-(1)     2B4 : 06A0 0274                  bl      @putspace
-(1)     2B8 : C2FA                       mov     *R10+, R11      Pop return address
-(1)     2BA : 045B                       rt
-(1)     2BC :
-(1)     2BC : =32                F:      equ     50              Fixed-point scale; 1.0 is F
-(1)     2BC :                    vC:     bss     2
-(1)     2BE :                    vD:     bss     2
-(1)     2C0 :                    vA:     bss     2
-(1)     2C2 :                    vB:     bss     2
-(1)     2C4 :                    vS:     bss     2
-(1)     2C6 :                    vP:     bss     2
-(1)     2C8 :                    vQ:     bss     2
-(1)     2CA :                    vT:     bss     2
-(1)     2CC :                    vY:     bss     2
-(1)     2CE :                    vX:     bss     2
-(1)     2D0 :                    vI:     bss     2
-(1)     2D2 :
-(1)     2D2 :                            *** Print the Mandelbrot set for Y=-12..12, X=-49..29; each point
-(1)     2D2 :                            *** shows its escape iteration 0-F, or a space if it never escapes.
-(1)     2D2 :                            *** A NUL received halts the CPU.
-(1)     2D2 :                    mandelbrot:
-(1)     2D2 : 064A                       dect    R10
-(1)     2D4 : C68B                       mov     R11, *R10       Push return address
-(1)     2D6 : 0200 FFF4                  li      R0, -12
-(1)     2DA : C800 02CC                  mov     R0, @vY         Y=-12
-(1)     2DE :                    loop_y:
-(1)     2DE : 0200 FFCF                  li      R0, -49
-(1)     2E2 : C800 02CE                  mov     R0, @vX         X=-49
-(1)     2E6 :                    loop_x:
-(1)     2E6 : C060 02CE                  mov     @vX, R1
-(1)     2EA : 0200 00E5                  li      R0, 229
-(1)     2EE : 01C1                       mpys    R1              R1=X*229
-(1)     2F0 : 0202 0064                  li      R2, 100
-(1)     2F4 : 06A0 0490                  bl      @divu16         R1=X*229/100
-(1)     2F8 : C801 02BC                  mov     R1, @vC         C=X*229/100
-(1)     2FC : C801 02C0                  mov     R1, @vA         A=C
-(1)     300 : C060 02CC                  mov     @vY, R1
-(1)     304 : 0200 01A0                  li      R0, 416
-(1)     308 : 01C1                       mpys    R1              R1=Y*416
-(1)     30A : 0202 0064                  li      R2, 100
-(1)     30E : 06A0 0490                  bl      @divu16         R1=Y*416/100
-(1)     312 : C801 02BE                  mov     R1, @vD         D=Y*416/100
-(1)     316 : C801 02C2                  mov     R1, @vB         B=D
-(1)     31A : 04E0 02D0                  clr     @vI             I=0
-(1)     31E :
-(1)     31E :                            * mov     @vY, R1
-(1)     31E :                            * li      R0, hibyte('Y')
-(1)     31E :                            * bl      @print
-(1)     31E :                            * mov     @vX, R1
-(1)     31E :                            * li      R0, hibyte('X')
-(1)     31E :                            * bl      @print
-(1)     31E :                            * mov     @vC, R1
-(1)     31E :                            * li      R0, hibyte('C')
-(1)     31E :                            * bl      @print
-(1)     31E :                            * mov     @vD, R1
-(1)     31E :                            * li      R0, hibyte('D')
-(1)     31E :                            * bl      @print
-(1)     31E :                            * bl      @newline
-(1)     31E :
-(1)     31E :                    loop_i:
-(1)     31E : C060 02C2                  mov     @vB, R1
-(1)     322 : 0202 0032                  li      R2, F
-(1)     326 : 06A0 0490                  bl      @divu16         R1=B/F
-(1)     32A : C801 02C8                  mov     R1, @vQ         Q=B/F
-(1)     32E : 0200 FFCE                  li      R0, -F
-(1)     332 : 01C1                       mpys    R1              R1=-Q*F
-(1)     334 : A060 02C2                  a       @vB, R1         R1=B-Q*F
-(1)     338 : C801 02C4                  mov     R1, @vS         S=B-Q*F
-(1)     33C : C060 02C2                  mov     @vB, R1
-(1)     340 : C001                       mov     R1, R0
-(1)     342 : 01C1                       mpys    R1              R1=B*B
-(1)     344 : C0C1                       mov     R1, R3          R3=B*B
-(1)     346 : C060 02C0                  mov     @vA, R1
-(1)     34A : C001                       mov     R1, R0
-(1)     34C : 01C1                       mpys    R1              R1=A*A
-(1)     34E : 6043                       s       R3, R1          R1=A*A-B*B
-(1)     350 : 0202 0032                  li      R2, F
-(1)     354 : 06A0 0490                  bl      @divu16         R1=(A*A-B*B)/F
-(1)     358 : A060 02BC                  a       @vC, R1         R1=(A*A-B*B)/F+C
-(1)     35C : C0C1                       mov     R1, R3          R3=(A*A-B*B)/F+C
-(1)     35E : C060 02C0                  mov     @vA, R1
-(1)     362 : C020 02C8                  mov     @vQ, R0
-(1)     366 : 01C1                       mpys    R1              R1=A*Q
-(1)     368 : C101                       mov     R1, R4          R4=A*Q
-(1)     36A : C060 02C0                  mov     @vA, R1
-(1)     36E : C020 02C4                  mov     @vS, R0
-(1)     372 : 01C1                       mpys    R1              R1=A*S
-(1)     374 : 0202 0032                  li      R2, F
-(1)     378 : 06A0 0490                  bl      @divu16         R1=A*S/F
-(1)     37C : A044                       a       R4, R1          R1=A*Q+A*S/F
-(1)     37E : A041                       a       R1, R1          R1=2*(A*Q+A*S/F)
-(1)     380 : A060 02BE                  a       @vD, R1         R1=2*(A*Q+A*S/F)+D
-(1)     384 : C801 02C2                  mov     R1, @vB         B=2*(A*Q+A*S/F)+D
-(1)     388 : C043                       mov     R3, R1          R1=(A*A-B*B)/F+C
-(1)     38A : C801 02C0                  mov     R1, @vA         A=(A*A-B*B)/F+C
-(1)     38E : 0202 0032                  li      R2, F
-(1)     392 : 06A0 0490                  bl      @divu16         R1=A/F
-(1)     396 : C801 02C6                  mov     R1, @vP         P=A/F
-(1)     39A : C001                       mov     R1, R0
-(1)     39C : 01C1                       mpys    R1              R1=P*P
-(1)     39E : C0C1                       mov     R1, R3          R3=P*P
-(1)     3A0 : C060 02C2                  mov     @vB, R1
-(1)     3A4 : 0202 0032                  li      R2, F
-(1)     3A8 : 06A0 0490                  bl      @divu16         R1=B/F
-(1)     3AC : C801 02C8                  mov     R1, @vQ         Q=B/F
-(1)     3B0 : C001                       mov     R1, R0
-(1)     3B2 : 01C1                       mpys                    R1=Q*Q
-(1)     3B4 : A043                       a       R3, R1          R1=P*P+Q*Q
-(1)     3B6 : C801 02CA                  mov     R1, @vT         T=P*P+Q*Q
-(1)     3BA :
-(1)     3BA :                            * bl      @putspace
-(1)     3BA :                            * mov     @vI, R1
-(1)     3BA :                            * li      R0, hibyte('I')
-(1)     3BA :                            * bl      @print
-(1)     3BA :                            * mov     @vA, R1
-(1)     3BA :                            * li      R0, hibyte('A')
-(1)     3BA :                            * bl      @print
-(1)     3BA :                            * mov     @vB, R1
-(1)     3BA :                            * li      R0, hibyte('B')
-(1)     3BA :                            * bl      @print
-(1)     3BA :                            * mov     @vP, R1
-(1)     3BA :                            * li      R0, hibyte('P')
-(1)     3BA :                            * bl      @print
-(1)     3BA :                            * mov     @vQ, R1
-(1)     3BA :                            * li      R0, hibyte('Q')
-(1)     3BA :                            * bl      @print
-(1)     3BA :                            * mov     @vT, R1
-(1)     3BA :                            * li      R0, hibyte('T')
-(1)     3BA :                            * bl      @print
-(1)     3BA :                            * bl      @newline
-(1)     3BA :
-(1)     3BA : C020 02CA                  mov     @vT, R0
-(1)     3BE : 0280 0004                  ci      R0, 4
-(1)     3C2 : 1514                       jgt     print_i         if 4<T
-(1)     3C4 : 05A0 02D0                  inc     @vI             I+=1
-(1)     3C8 : C020 02D0                  mov     @vI, R0
-(1)     3CC : 0280 0010                  ci      R0, 16
-(1)     3D0 : 1402                       jhe     print_space
-(1)     3D2 : 0460 031E                  b       @loop_i         if I<16
-(1)     3D6 :                    print_space:
-(1)     3D6 : 0200 2000                  li      R0, >2000
-(1)     3DA : 100C                       jmp     print_char
-(1)     3DC :                    print_table:
-(1)     3DC : 3031                       data    '01'
-(1)     3DE : 3233                       data    '23'
-(1)     3E0 : 3435                       data    '45'
-(1)     3E2 : 3637                       data    '67'
-(1)     3E4 : 3839                       data    '89'
-(1)     3E6 : 4142                       data    'AB'
-(1)     3E8 : 4344                       data    'CD'
-(1)     3EA : 4546                       data    'EF'
-(1)     3EC :                    print_i:
-(1)     3EC : C060 02D0                  mov     @vI, R1
-(1)     3F0 : D021 03DC                  movb    @print_table(R1), R0
-(1)     3F4 :                    print_char:
-(1)     3F4 : 06A0 0278                  bl      @putchar
-(1)     3F8 :
-(1)     3F8 :                            * mov     R0, R2
-(1)     3F8 :                            * li      R0, hibyte('@')
-(1)     3F8 :                            * bl      @putchar
-(1)     3F8 :                            * li      R0, hibyte('=')
-(1)     3F8 :                            * bl      @putchar
-(1)     3F8 :                            * mov     R2, R0
-(1)     3F8 :                            * bl      @putchar
-(1)     3F8 :                            * bl      @newline
-(1)     3F8 :
-(1)     3F8 : 06A0 023E                  bl      @getchar
-(1)     3FC : 1703                       jnc     next_x          No input
-(1)     3FE : E000                       soc     R0, R0          Test R0
-(1)     400 : 1601                       jne     next_x
-(1)     402 : 2FCF                       xop     R15,15          NUL; halt to system
-(1)     404 :                    next_x:
-(1)     404 : 05A0 02CE                  inc     @vX             X+=1
-(1)     408 : C020 02CE                  mov     @vX, R0
-(1)     40C : 0280 001E                  ci      R0, 30
-(1)     410 : 1302                       jeq     next_y
-(1)     412 : 0460 02E6                  b       @loop_x         if X<30
-(1)     416 :                    next_y:
-(1)     416 : 06A0 025C                  bl      @newline
-(1)     41A : 05A0 02CC                  inc     @vY             Y+=1
-(1)     41E : C020 02CC                  mov     @vY, R0
-(1)     422 : 0280 000D                  ci      R0, 13
-(1)     426 : 1302                       jeq     mandelbrot_end
-(1)     428 : 0460 02DE                  b       @loop_y         if Y<13
-(1)     42C :                    mandelbrot_end:
-(1)     42C : C2FA                       mov     *R10+, R11      Pop return address
-(1)     42E : 045B                       rt
-        430 :                            include "arith.inc"
-(1)     430 :                    *** -*- mode: asm; mode: flyspell-prog* -*-
-(1)     430 :                            *** Print signed 16-bit integer as decimal
-(1)     430 :                            *** @param R0 value
-(1)     430 :                    print_int16:
-(1)     430 : 064A                       dect    R10
-(1)     432 : C68B                       mov     R11, *R10       Push return address
-(1)     434 : 064A                       dect    R10
-(1)     436 : C680                       mov     R0, *R10        Push R0
-(1)     438 : 1314                       jeq     print_int16_zero
-(1)     43A : 1506                       jgt     print_uint16
-(1)     43C : 0200 2D00                  li      R0, hibyte('-')
-(1)     440 : 06A0 0278                  bl      @putchar
-(1)     444 : C01A                       mov     *R10, R0        Restore R0
-(1)     446 : 0500                       neg     R0
-(1)     448 :                    print_uint16:
-(1)     448 : 064A                       dect    R10
-(1)     44A : C681                       mov     R1, *R10        Push R1
-(1)     44C : 064A                       dect    R10
-(1)     44E : C682                       mov     R2, *R10        Push R2
-(1)     450 : 0202 000A                  li      R2, 10
-(1)     454 : 06A0 046C                  bl      @print_uint16_loop
-(1)     458 : C0BA                       mov     *R10+, R2       Pop R2
-(1)     45A : C07A                       mov     *R10+, R1       Pop R1
-(1)     45C :                    print_int16_return:
-(1)     45C : C03A                       mov     *R10+, R0       Pop R0
-(1)     45E : C2FA                       mov     *R10+, R11      Pop return address
-(1)     460 : 045B                       rt
-(1)     462 :                    print_int16_zero:
-(1)     462 : 0200 3000                  li      R0, hibyte('0')
-(1)     466 : 06A0 0278                  bl      @putchar
-(1)     46A : 10F8                       jmp     print_int16_return
-(1)     46C :
-(1)     46C :                            *** Print unsigned decimal recursively, most significant digit first
-(1)     46C :                            *** @param R0 value; 0 prints nothing
-(1)     46C :                            *** @param R2 radix 10
-(1)     46C :                            *** @clobber R0 R1
-(1)     46C :                    print_uint16_loop:
-(1)     46C : 064A                       dect    R10
-(1)     46E : C68B                       mov     R11, *R10       Push return address
-(1)     470 : C040                       mov     R0, R1
-(1)     472 : 130C                       jeq     print_uint16_return
-(1)     474 : 04C0                       clr     R0
-(1)     476 : 3C02                       div     R2, R0          R0:R1/R2 ; R0=quotient R1=remainder
-(1)     478 : 064A                       dect    R10
-(1)     47A : C681                       mov     R1, *R10        Push remainder
-(1)     47C : 06A0 046C                  bl      @print_uint16_loop
-(1)     480 : C03A                       mov     *R10+, R0       Pop remainder
-(1)     482 : 06C0                       swpb    R0
-(1)     484 : 0220 3000                  ai      R0, hibyte('0')
-(1)     488 : 06A0 0278                  bl      @putchar
-(1)     48C :                    print_uint16_return:
-(1)     48C : C2FA                       mov     *R10+, R11      Pop return address
-(1)     48E : 045B                       rt
-(1)     490 :
-(1)     490 :                            *** Signed divide, quotient only
-(1)     490 :                            *** R1 / R2 = R1
-(1)     490 :                            *** @clobber R0
-(1)     490 :                    divu16:
-(1)     490 : C001                       mov     R1, R0
-(1)     492 : 08F0                       sra     R0, 15          Extend sign bit
-(1)     494 : 0182                       divs    R2              R0:R1/R2=R0...R1
-(1)     496 : C040                       mov     R0, R1
-(1)     498 : 045B                       rt
-(1)     49A :
-(1)     49A :                            *** Signed divide
-(1)     49A :                            *** R1 / R2 = R1 ... R0
-(1)     49A :                            *** @clobber R2
-(1)     49A :                    div16:
-(1)     49A : C001                       mov     R1, R0
-(1)     49C : 08F0                       sra     R0, 15          Extend sign bit
-(1)     49E : 0182                       divs    R2              R0:R1/R2=R0...R1
-(1)     4A0 : C081                       mov     R1, R2
-(1)     4A2 : C040                       mov     R0, R1
-(1)     4A4 : C002                       mov     R2, R0
-(1)     4A6 : 045B                       rt
-        4A8 :                            include "../tms9900/queue.inc"
-(1)     4A8 :                    *** -*- mode: asm; mode: flyspell-prog; -*-
-(1)     4A8 :                    *** [queue] queue structure
-(1)     4A8 : =0                 queue_len:      equ     0       ; queue length
-(1)     4A8 : =2                 queue_size:     equ     2       ; buffer size
-(1)     4A8 : =4                 queue_put:      equ     4       ; queue put index
-(1)     4A8 : =6                 queue_get:      equ     6       ; queue get index
-(1)     4A8 : =8                 queue_buf:      equ     8       ; buffer start offset
-(1)     4A8 :
-(1)     4A8 :                    *** [queue] Initialize queue
-(1)     4A8 :                    *** @param R9 queue work space pointer
-(1)     4A8 :                    *** @param R0 queue work space size
-(1)     4A8 :                    *** @clobber R0 R1 R9
-(1)     4A8 :                    queue_init:
-(1)     4A8 : 04F9                       clr     *R9+            clear queue_len
-(1)     4AA : 0220 FFF8                  ai      R0, -queue_buf
-(1)     4AE : CE40                       mov     R0, *R9+        set queue_size
-(1)     4B0 : 04F9                       clr     *R9+            clear queue_put
-(1)     4B2 : 04F9                       clr     *R9+            clear queue_get
-(1)     4B4 : 04C1                       clr     R1
-(1)     4B6 :                    queue_init_loop:
-(1)     4B6 : DE41                       movb    R1, *R9+
-(1)     4B8 : 0600                       dec     R0
-(1)     4BA : 16FD                       jne     queue_init_loop
-(1)     4BC : 045B                       rt
-(1)     4BE :
-(1)     4BE :                    *** [queue] Add an element to queue
-(1)     4BE :                    *** @param R9 queue work space pointer
-(1)     4BE :                    *** @param R0 an element in high byte
-(1)     4BE :                    *** @return ST.C 0 if queue is full
-(1)     4BE :                    *** @clobber R1
-(1)     4BE :                    queue_add:
-(1)     4BE : 8A59 0002                  c       *R9, @queue_size(R9)    check queue_len
-(1)     4C2 : 1A02                       jl      queue_add_element
-(1)     4C4 : 04C1                       clr     R1                      to clear ST.C
-(1)     4C6 : 1010                       jmp     queue_add_exit
-(1)     4C8 :                    queue_add_element:
-(1)     4C8 : C049                       mov     R9, R1
-(1)     4CA : A069 0004                  a       @queue_put(R9), R1
-(1)     4CE : D840 0008                  movb    R0, @queue_buf(R1)
-(1)     4D2 : 0599                       inc     *R9                     update queue_len
-(1)     4D4 : C069 0004                  mov     @queue_put(R9), R1
-(1)     4D8 : 0581                       inc     R1
-(1)     4DA : 8A41 0002                  c       R1, @queue_size(R9)
-(1)     4DE : 1101                       jlt     queue_add_return
-(1)     4E0 : 04C1                       clr     R1
-(1)     4E2 :                    queue_add_return:
-(1)     4E2 : CA41 0004                  mov     R1, @queue_put(R9)
-(1)     4E6 : 0701                       seto    R1                      to set ST.C
-(1)     4E8 :                    queue_add_exit:
-(1)     4E8 : 0911                       srl     R1, 1                   set/clear ST.C
-(1)     4EA : 045B                       rt
-(1)     4EC :
-(1)     4EC :                    *** [queue] Remove an element from queue
-(1)     4EC :                    *** @param R9 queue work space pointer
-(1)     4EC :                    *** @return R0 an element in high byte
-(1)     4EC :                    *** @return ST.C 0 if queue is empty
-(1)     4EC :                    *** @clobber R1
-(1)     4EC :                    queue_remove:
-(1)     4EC : C059                       mov     *R9, R1                 check queue_len
-(1)     4EE : 1311                       jeq     queue_remove_exit       to clear ST.C
-(1)     4F0 : C049                       mov     R9, R1
-(1)     4F2 : A069 0006                  a       @queue_get(R9), R1
-(1)     4F6 : 04C0                       clr     R0                      clear low byte
-(1)     4F8 : D021 0008                  movb    @queue_buf(R1), R0
-(1)     4FC : 0619                       dec     *R9                     update queue_len
-(1)     4FE : C069 0006                  mov     @queue_get(R9), R1
-(1)     502 : 0581                       inc     R1
-(1)     504 : 8A41 0002                  c       R1, @queue_size(R9)
-(1)     508 : 1101                       jlt     queue_remove_return
-(1)     50A : 04C1                       clr     R1
-(1)     50C :                    queue_remove_return:
-(1)     50C : CA41 0006                  mov     R1, @queue_get(R9)
-(1)     510 : 0701                       seto    R1                      to set ST.C
-(1)     512 :                    queue_remove_exit:
-(1)     512 : 0911                       srl     R1, 1                   set/clear ST.C
-(1)     514 : 045B                       rt
-        516 :
-        516 :                            *** ACIA interrupt; runs in its own workspace, so no registers need saving
-        516 :                    int1_isr:
-        516 : D020 0080                  movb    @ACIA_status, R0
-        51A : 0240 0100                  andi    R0, hibyte(RDRF_bm)
-        51E : 1306                       jeq     int1_isr_send   lo(R0) is cleared
-        520 : D020 0082                  movb    @ACIA_data, R0
-        524 : 0209 2000                  li      R9, rx_queue
-        528 : 06A0 04BE                  bl      @queue_add
-        52C :                    int1_isr_send:
-        52C : D020 0080                  movb    @ACIA_status, R0
-        530 : 0240 0200                  andi    R0, hibyte(TDRE_bm)
-        534 : 1307                       jeq     int1_isr_exit
-        536 : 0209 2080                  li      R9, tx_queue
-        53A : 06A0 04EC                  bl      @queue_remove
-        53E : 1703                       jnc     int1_isr_send_empty
-        540 : D800 0082                  movb    R0, @ACIA_data
-        544 :                    int1_isr_exit:
-        544 : 0380                       rtwp
-        546 :                    int1_isr_send_empty:
-        546 : 0201 2000                  li      R1, hibyte(TCB_EI_gc)
-        54A : 5801 0080                  szcb    R1, @ACIA_control       Disable Tx interrupt
-        54E : 0380                       rtwp
+        234 : 06A0 02DA                  bl      @mandelbrot
+        238 : 06A0 0264                  bl      @newline
+        23C : 0209 2080                  li      R9, tx_queue
+        240 : 06A0 051E                  bl      @queue_wait_empty
+        244 : 10F7                       jmp     loop
+        246 :
+        246 :                            *** Get character
+        246 :                            *** @return R0
+        246 :                            *** @return ST.C 0 if no character
+        246 :                            *** @clobber R9
+        246 :                    getchar:
+        246 : 064A                       dect    R10
+        248 : C68B                       mov     R11, *R10       Push return address
+        24A : 064A                       dect    R10
+        24C : C681                       mov     R1, *R10        Push R1
+        24E : 0300 0000                  limi    0               Disable interrupt
+        252 : 0209 2000                  li      R9, rx_queue
+        256 : 06A0 04F4                  bl      @queue_remove
+        25A : 0300 000F                  limi    15              Enable interrupt
+        25E : C07A                       mov     *R10+, R1       Pop R1
+        260 : C2FA                       mov     *R10+, R11      Pop return address
+        262 : 045B                       rt
+        264 :
+        264 :                    newline:
+        264 : 064A                       dect    R10
+        266 : C68B                       mov     R11, *R10       Push return address
+        268 : 0200 0D00                  li      R0, hibyte(>0D)
+        26C : 06A0 0280                  bl      @putchar
+        270 : 0200 0A00                  li      R0, hibyte(>0A)
+        274 : 06A0 0280                  bl      @putchar
+        278 : C2FA                       mov     *R10+, R11      Pop return address
+        27A : 045B                       rt
+        27C :
+        27C :                            *** Queue R0 high byte for the Tx interrupt
+        27C :                            *** @clobber R9
+        27C :                    putspace:
+        27C : 0200 2000                  li      R0, hibyte(' ')
+        280 :                    putchar:
+        280 : 064A                       dect    R10
+        282 : C68B                       mov     R11, *R10       Push return address
+        284 : 064A                       dect    R10
+        286 : C681                       mov     R1, *R10        Push R1
+        288 : 0300 0000                  limi    0               Disable interrupt
+        28C : 0209 2080                  li      R9, tx_queue
+        290 : 06A0 04C6                  bl      @queue_add
+        294 : 0300 000F                  limi    15              Enable interrupt
+        298 : 0201 2000                  li      R1, hibyte(TCB_EI_gc)
+        29C : F801 0080                  socb    R1, @ACIA_control       Enable Tx interrupt
+        2A0 : C07A                       mov     *R10+, R1       Pop R1
+        2A2 : C2FA                       mov     *R10+, R11      Pop return address
+        2A4 : 045B                       rt
+        2A6 :
+        2A6 :                            include "mandelbrot.inc"
+(1)     2A6 :                    *** -*- mode: asm; mode: flyspell-prog* -*-
+(1)     2A6 :
+(1)     2A6 :                            *** Print variable: "name=variable "
+(1)     2A6 :                            *** @param R1 variable
+(1)     2A6 :                            *** @param R0 variable name letter in high byte
+(1)     2A6 :                            *** @clobber R0
+(1)     2A6 :                    print:
+(1)     2A6 : 064A                       dect    R10
+(1)     2A8 : C68B                       mov     R11, *R10       Push return address
+(1)     2AA : 06A0 0280                  bl      @putchar        Print name
+(1)     2AE : 0200 3D00                  li      R0, hibyte('=')
+(1)     2B2 : 06A0 0280                  bl      @putchar
+(1)     2B6 : C001                       mov     R1, R0
+(1)     2B8 : 06A0 0438                  bl      @print_int16
+(1)     2BC : 06A0 027C                  bl      @putspace
+(1)     2C0 : C2FA                       mov     *R10+, R11      Pop return address
+(1)     2C2 : 045B                       rt
+(1)     2C4 :
+(1)     2C4 : =32                F:      equ     50              Fixed-point scale; 1.0 is F
+(1)     2C4 :                    vC:     bss     2
+(1)     2C6 :                    vD:     bss     2
+(1)     2C8 :                    vA:     bss     2
+(1)     2CA :                    vB:     bss     2
+(1)     2CC :                    vS:     bss     2
+(1)     2CE :                    vP:     bss     2
+(1)     2D0 :                    vQ:     bss     2
+(1)     2D2 :                    vT:     bss     2
+(1)     2D4 :                    vY:     bss     2
+(1)     2D6 :                    vX:     bss     2
+(1)     2D8 :                    vI:     bss     2
+(1)     2DA :
+(1)     2DA :                            *** Print the Mandelbrot set for Y=-12..12, X=-49..29; each point
+(1)     2DA :                            *** shows its escape iteration 0-F, or a space if it never escapes.
+(1)     2DA :                            *** A NUL received halts the CPU.
+(1)     2DA :                    mandelbrot:
+(1)     2DA : 064A                       dect    R10
+(1)     2DC : C68B                       mov     R11, *R10       Push return address
+(1)     2DE : 0200 FFF4                  li      R0, -12
+(1)     2E2 : C800 02D4                  mov     R0, @vY         Y=-12
+(1)     2E6 :                    loop_y:
+(1)     2E6 : 0200 FFCF                  li      R0, -49
+(1)     2EA : C800 02D6                  mov     R0, @vX         X=-49
+(1)     2EE :                    loop_x:
+(1)     2EE : C060 02D6                  mov     @vX, R1
+(1)     2F2 : 0200 00E5                  li      R0, 229
+(1)     2F6 : 01C1                       mpys    R1              R1=X*229
+(1)     2F8 : 0202 0064                  li      R2, 100
+(1)     2FC : 06A0 0498                  bl      @divu16         R1=X*229/100
+(1)     300 : C801 02C4                  mov     R1, @vC         C=X*229/100
+(1)     304 : C801 02C8                  mov     R1, @vA         A=C
+(1)     308 : C060 02D4                  mov     @vY, R1
+(1)     30C : 0200 01A0                  li      R0, 416
+(1)     310 : 01C1                       mpys    R1              R1=Y*416
+(1)     312 : 0202 0064                  li      R2, 100
+(1)     316 : 06A0 0498                  bl      @divu16         R1=Y*416/100
+(1)     31A : C801 02C6                  mov     R1, @vD         D=Y*416/100
+(1)     31E : C801 02CA                  mov     R1, @vB         B=D
+(1)     322 : 04E0 02D8                  clr     @vI             I=0
+(1)     326 :
+(1)     326 :                            * mov     @vY, R1
+(1)     326 :                            * li      R0, hibyte('Y')
+(1)     326 :                            * bl      @print
+(1)     326 :                            * mov     @vX, R1
+(1)     326 :                            * li      R0, hibyte('X')
+(1)     326 :                            * bl      @print
+(1)     326 :                            * mov     @vC, R1
+(1)     326 :                            * li      R0, hibyte('C')
+(1)     326 :                            * bl      @print
+(1)     326 :                            * mov     @vD, R1
+(1)     326 :                            * li      R0, hibyte('D')
+(1)     326 :                            * bl      @print
+(1)     326 :                            * bl      @newline
+(1)     326 :
+(1)     326 :                    loop_i:
+(1)     326 : C060 02CA                  mov     @vB, R1
+(1)     32A : 0202 0032                  li      R2, F
+(1)     32E : 06A0 0498                  bl      @divu16         R1=B/F
+(1)     332 : C801 02D0                  mov     R1, @vQ         Q=B/F
+(1)     336 : 0200 FFCE                  li      R0, -F
+(1)     33A : 01C1                       mpys    R1              R1=-Q*F
+(1)     33C : A060 02CA                  a       @vB, R1         R1=B-Q*F
+(1)     340 : C801 02CC                  mov     R1, @vS         S=B-Q*F
+(1)     344 : C060 02CA                  mov     @vB, R1
+(1)     348 : C001                       mov     R1, R0
+(1)     34A : 01C1                       mpys    R1              R1=B*B
+(1)     34C : C0C1                       mov     R1, R3          R3=B*B
+(1)     34E : C060 02C8                  mov     @vA, R1
+(1)     352 : C001                       mov     R1, R0
+(1)     354 : 01C1                       mpys    R1              R1=A*A
+(1)     356 : 6043                       s       R3, R1          R1=A*A-B*B
+(1)     358 : 0202 0032                  li      R2, F
+(1)     35C : 06A0 0498                  bl      @divu16         R1=(A*A-B*B)/F
+(1)     360 : A060 02C4                  a       @vC, R1         R1=(A*A-B*B)/F+C
+(1)     364 : C0C1                       mov     R1, R3          R3=(A*A-B*B)/F+C
+(1)     366 : C060 02C8                  mov     @vA, R1
+(1)     36A : C020 02D0                  mov     @vQ, R0
+(1)     36E : 01C1                       mpys    R1              R1=A*Q
+(1)     370 : C101                       mov     R1, R4          R4=A*Q
+(1)     372 : C060 02C8                  mov     @vA, R1
+(1)     376 : C020 02CC                  mov     @vS, R0
+(1)     37A : 01C1                       mpys    R1              R1=A*S
+(1)     37C : 0202 0032                  li      R2, F
+(1)     380 : 06A0 0498                  bl      @divu16         R1=A*S/F
+(1)     384 : A044                       a       R4, R1          R1=A*Q+A*S/F
+(1)     386 : A041                       a       R1, R1          R1=2*(A*Q+A*S/F)
+(1)     388 : A060 02C6                  a       @vD, R1         R1=2*(A*Q+A*S/F)+D
+(1)     38C : C801 02CA                  mov     R1, @vB         B=2*(A*Q+A*S/F)+D
+(1)     390 : C043                       mov     R3, R1          R1=(A*A-B*B)/F+C
+(1)     392 : C801 02C8                  mov     R1, @vA         A=(A*A-B*B)/F+C
+(1)     396 : 0202 0032                  li      R2, F
+(1)     39A : 06A0 0498                  bl      @divu16         R1=A/F
+(1)     39E : C801 02CE                  mov     R1, @vP         P=A/F
+(1)     3A2 : C001                       mov     R1, R0
+(1)     3A4 : 01C1                       mpys    R1              R1=P*P
+(1)     3A6 : C0C1                       mov     R1, R3          R3=P*P
+(1)     3A8 : C060 02CA                  mov     @vB, R1
+(1)     3AC : 0202 0032                  li      R2, F
+(1)     3B0 : 06A0 0498                  bl      @divu16         R1=B/F
+(1)     3B4 : C801 02D0                  mov     R1, @vQ         Q=B/F
+(1)     3B8 : C001                       mov     R1, R0
+(1)     3BA : 01C1                       mpys                    R1=Q*Q
+(1)     3BC : A043                       a       R3, R1          R1=P*P+Q*Q
+(1)     3BE : C801 02D2                  mov     R1, @vT         T=P*P+Q*Q
+(1)     3C2 :
+(1)     3C2 :                            * bl      @putspace
+(1)     3C2 :                            * mov     @vI, R1
+(1)     3C2 :                            * li      R0, hibyte('I')
+(1)     3C2 :                            * bl      @print
+(1)     3C2 :                            * mov     @vA, R1
+(1)     3C2 :                            * li      R0, hibyte('A')
+(1)     3C2 :                            * bl      @print
+(1)     3C2 :                            * mov     @vB, R1
+(1)     3C2 :                            * li      R0, hibyte('B')
+(1)     3C2 :                            * bl      @print
+(1)     3C2 :                            * mov     @vP, R1
+(1)     3C2 :                            * li      R0, hibyte('P')
+(1)     3C2 :                            * bl      @print
+(1)     3C2 :                            * mov     @vQ, R1
+(1)     3C2 :                            * li      R0, hibyte('Q')
+(1)     3C2 :                            * bl      @print
+(1)     3C2 :                            * mov     @vT, R1
+(1)     3C2 :                            * li      R0, hibyte('T')
+(1)     3C2 :                            * bl      @print
+(1)     3C2 :                            * bl      @newline
+(1)     3C2 :
+(1)     3C2 : C020 02D2                  mov     @vT, R0
+(1)     3C6 : 0280 0004                  ci      R0, 4
+(1)     3CA : 1514                       jgt     print_i         if 4<T
+(1)     3CC : 05A0 02D8                  inc     @vI             I+=1
+(1)     3D0 : C020 02D8                  mov     @vI, R0
+(1)     3D4 : 0280 0010                  ci      R0, 16
+(1)     3D8 : 1402                       jhe     print_space
+(1)     3DA : 0460 0326                  b       @loop_i         if I<16
+(1)     3DE :                    print_space:
+(1)     3DE : 0200 2000                  li      R0, >2000
+(1)     3E2 : 100C                       jmp     print_char
+(1)     3E4 :                    print_table:
+(1)     3E4 : 3031                       data    '01'
+(1)     3E6 : 3233                       data    '23'
+(1)     3E8 : 3435                       data    '45'
+(1)     3EA : 3637                       data    '67'
+(1)     3EC : 3839                       data    '89'
+(1)     3EE : 4142                       data    'AB'
+(1)     3F0 : 4344                       data    'CD'
+(1)     3F2 : 4546                       data    'EF'
+(1)     3F4 :                    print_i:
+(1)     3F4 : C060 02D8                  mov     @vI, R1
+(1)     3F8 : D021 03E4                  movb    @print_table(R1), R0
+(1)     3FC :                    print_char:
+(1)     3FC : 06A0 0280                  bl      @putchar
+(1)     400 :
+(1)     400 :                            * mov     R0, R2
+(1)     400 :                            * li      R0, hibyte('@')
+(1)     400 :                            * bl      @putchar
+(1)     400 :                            * li      R0, hibyte('=')
+(1)     400 :                            * bl      @putchar
+(1)     400 :                            * mov     R2, R0
+(1)     400 :                            * bl      @putchar
+(1)     400 :                            * bl      @newline
+(1)     400 :
+(1)     400 : 06A0 0246                  bl      @getchar
+(1)     404 : 1703                       jnc     next_x          No input
+(1)     406 : E000                       soc     R0, R0          Test R0
+(1)     408 : 1601                       jne     next_x
+(1)     40A : 2FCF                       xop     R15,15          NUL; halt to system
+(1)     40C :                    next_x:
+(1)     40C : 05A0 02D6                  inc     @vX             X+=1
+(1)     410 : C020 02D6                  mov     @vX, R0
+(1)     414 : 0280 001E                  ci      R0, 30
+(1)     418 : 1302                       jeq     next_y
+(1)     41A : 0460 02EE                  b       @loop_x         if X<30
+(1)     41E :                    next_y:
+(1)     41E : 06A0 0264                  bl      @newline
+(1)     422 : 05A0 02D4                  inc     @vY             Y+=1
+(1)     426 : C020 02D4                  mov     @vY, R0
+(1)     42A : 0280 000D                  ci      R0, 13
+(1)     42E : 1302                       jeq     mandelbrot_end
+(1)     430 : 0460 02E6                  b       @loop_y         if Y<13
+(1)     434 :                    mandelbrot_end:
+(1)     434 : C2FA                       mov     *R10+, R11      Pop return address
+(1)     436 : 045B                       rt
+        438 :                            include "arith.inc"
+(1)     438 :                    *** -*- mode: asm; mode: flyspell-prog* -*-
+(1)     438 :                            *** Print signed 16-bit integer as decimal
+(1)     438 :                            *** @param R0 value
+(1)     438 :                    print_int16:
+(1)     438 : 064A                       dect    R10
+(1)     43A : C68B                       mov     R11, *R10       Push return address
+(1)     43C : 064A                       dect    R10
+(1)     43E : C680                       mov     R0, *R10        Push R0
+(1)     440 : 1314                       jeq     print_int16_zero
+(1)     442 : 1506                       jgt     print_uint16
+(1)     444 : 0200 2D00                  li      R0, hibyte('-')
+(1)     448 : 06A0 0280                  bl      @putchar
+(1)     44C : C01A                       mov     *R10, R0        Restore R0
+(1)     44E : 0500                       neg     R0
+(1)     450 :                    print_uint16:
+(1)     450 : 064A                       dect    R10
+(1)     452 : C681                       mov     R1, *R10        Push R1
+(1)     454 : 064A                       dect    R10
+(1)     456 : C682                       mov     R2, *R10        Push R2
+(1)     458 : 0202 000A                  li      R2, 10
+(1)     45C : 06A0 0474                  bl      @print_uint16_loop
+(1)     460 : C0BA                       mov     *R10+, R2       Pop R2
+(1)     462 : C07A                       mov     *R10+, R1       Pop R1
+(1)     464 :                    print_int16_return:
+(1)     464 : C03A                       mov     *R10+, R0       Pop R0
+(1)     466 : C2FA                       mov     *R10+, R11      Pop return address
+(1)     468 : 045B                       rt
+(1)     46A :                    print_int16_zero:
+(1)     46A : 0200 3000                  li      R0, hibyte('0')
+(1)     46E : 06A0 0280                  bl      @putchar
+(1)     472 : 10F8                       jmp     print_int16_return
+(1)     474 :
+(1)     474 :                            *** Print unsigned decimal recursively, most significant digit first
+(1)     474 :                            *** @param R0 value; 0 prints nothing
+(1)     474 :                            *** @param R2 radix 10
+(1)     474 :                            *** @clobber R0 R1
+(1)     474 :                    print_uint16_loop:
+(1)     474 : 064A                       dect    R10
+(1)     476 : C68B                       mov     R11, *R10       Push return address
+(1)     478 : C040                       mov     R0, R1
+(1)     47A : 130C                       jeq     print_uint16_return
+(1)     47C : 04C0                       clr     R0
+(1)     47E : 3C02                       div     R2, R0          R0:R1/R2 ; R0=quotient R1=remainder
+(1)     480 : 064A                       dect    R10
+(1)     482 : C681                       mov     R1, *R10        Push remainder
+(1)     484 : 06A0 0474                  bl      @print_uint16_loop
+(1)     488 : C03A                       mov     *R10+, R0       Pop remainder
+(1)     48A : 06C0                       swpb    R0
+(1)     48C : 0220 3000                  ai      R0, hibyte('0')
+(1)     490 : 06A0 0280                  bl      @putchar
+(1)     494 :                    print_uint16_return:
+(1)     494 : C2FA                       mov     *R10+, R11      Pop return address
+(1)     496 : 045B                       rt
+(1)     498 :
+(1)     498 :                            *** Signed divide, quotient only
+(1)     498 :                            *** R1 / R2 = R1
+(1)     498 :                            *** @clobber R0
+(1)     498 :                    divu16:
+(1)     498 : C001                       mov     R1, R0
+(1)     49A : 08F0                       sra     R0, 15          Extend sign bit
+(1)     49C : 0182                       divs    R2              R0:R1/R2=R0...R1
+(1)     49E : C040                       mov     R0, R1
+(1)     4A0 : 045B                       rt
+(1)     4A2 :
+(1)     4A2 :                            *** Signed divide
+(1)     4A2 :                            *** R1 / R2 = R1 ... R0
+(1)     4A2 :                            *** @clobber R2
+(1)     4A2 :                    div16:
+(1)     4A2 : C001                       mov     R1, R0
+(1)     4A4 : 08F0                       sra     R0, 15          Extend sign bit
+(1)     4A6 : 0182                       divs    R2              R0:R1/R2=R0...R1
+(1)     4A8 : C081                       mov     R1, R2
+(1)     4AA : C040                       mov     R0, R1
+(1)     4AC : C002                       mov     R2, R0
+(1)     4AE : 045B                       rt
+        4B0 :                            include "../tms9900/queue.inc"
+(1)     4B0 :                    *** -*- mode: asm; mode: flyspell-prog; -*-
+(1)     4B0 :                    *** [queue] queue structure
+(1)     4B0 : =0                 queue_len:      equ     0       ; queue length
+(1)     4B0 : =2                 queue_size:     equ     2       ; buffer size
+(1)     4B0 : =4                 queue_put:      equ     4       ; queue put index
+(1)     4B0 : =6                 queue_get:      equ     6       ; queue get index
+(1)     4B0 : =8                 queue_buf:      equ     8       ; buffer start offset
+(1)     4B0 :
+(1)     4B0 :                    *** [queue] Initialize queue
+(1)     4B0 :                    *** @param R9 queue work space pointer
+(1)     4B0 :                    *** @param R0 queue work space size
+(1)     4B0 :                    *** @clobber R0 R1 R9
+(1)     4B0 :                    queue_init:
+(1)     4B0 : 04F9                       clr     *R9+            clear queue_len
+(1)     4B2 : 0220 FFF8                  ai      R0, -queue_buf
+(1)     4B6 : CE40                       mov     R0, *R9+        set queue_size
+(1)     4B8 : 04F9                       clr     *R9+            clear queue_put
+(1)     4BA : 04F9                       clr     *R9+            clear queue_get
+(1)     4BC : 04C1                       clr     R1
+(1)     4BE :                    queue_init_loop:
+(1)     4BE : DE41                       movb    R1, *R9+
+(1)     4C0 : 0600                       dec     R0
+(1)     4C2 : 16FD                       jne     queue_init_loop
+(1)     4C4 : 045B                       rt
+(1)     4C6 :
+(1)     4C6 :                    *** [queue] Add an element to queue
+(1)     4C6 :                    *** @param R9 queue work space pointer
+(1)     4C6 :                    *** @param R0 an element in high byte
+(1)     4C6 :                    *** @return ST.C 0 if queue is full
+(1)     4C6 :                    *** @clobber R1
+(1)     4C6 :                    queue_add:
+(1)     4C6 : 8A59 0002                  c       *R9, @queue_size(R9)    check queue_len
+(1)     4CA : 1A02                       jl      queue_add_element
+(1)     4CC : 04C1                       clr     R1                      to clear ST.C
+(1)     4CE : 1010                       jmp     queue_add_exit
+(1)     4D0 :                    queue_add_element:
+(1)     4D0 : C049                       mov     R9, R1
+(1)     4D2 : A069 0004                  a       @queue_put(R9), R1
+(1)     4D6 : D840 0008                  movb    R0, @queue_buf(R1)
+(1)     4DA : 0599                       inc     *R9                     update queue_len
+(1)     4DC : C069 0004                  mov     @queue_put(R9), R1
+(1)     4E0 : 0581                       inc     R1
+(1)     4E2 : 8A41 0002                  c       R1, @queue_size(R9)
+(1)     4E6 : 1101                       jlt     queue_add_return
+(1)     4E8 : 04C1                       clr     R1
+(1)     4EA :                    queue_add_return:
+(1)     4EA : CA41 0004                  mov     R1, @queue_put(R9)
+(1)     4EE : 0701                       seto    R1                      to set ST.C
+(1)     4F0 :                    queue_add_exit:
+(1)     4F0 : 0911                       srl     R1, 1                   set/clear ST.C
+(1)     4F2 : 045B                       rt
+(1)     4F4 :
+(1)     4F4 :                    *** [queue] Remove an element from queue
+(1)     4F4 :                    *** @param R9 queue work space pointer
+(1)     4F4 :                    *** @return R0 an element in high byte
+(1)     4F4 :                    *** @return ST.C 0 if queue is empty
+(1)     4F4 :                    *** @clobber R1
+(1)     4F4 :                    queue_remove:
+(1)     4F4 : C059                       mov     *R9, R1                 check queue_len
+(1)     4F6 : 1311                       jeq     queue_remove_exit       to clear ST.C
+(1)     4F8 : C049                       mov     R9, R1
+(1)     4FA : A069 0006                  a       @queue_get(R9), R1
+(1)     4FE : 04C0                       clr     R0                      clear low byte
+(1)     500 : D021 0008                  movb    @queue_buf(R1), R0
+(1)     504 : 0619                       dec     *R9                     update queue_len
+(1)     506 : C069 0006                  mov     @queue_get(R9), R1
+(1)     50A : 0581                       inc     R1
+(1)     50C : 8A41 0002                  c       R1, @queue_size(R9)
+(1)     510 : 1101                       jlt     queue_remove_return
+(1)     512 : 04C1                       clr     R1
+(1)     514 :                    queue_remove_return:
+(1)     514 : CA41 0006                  mov     R1, @queue_get(R9)
+(1)     518 : 0701                       seto    R1                      to set ST.C
+(1)     51A :                    queue_remove_exit:
+(1)     51A : 0911                       srl     R1, 1                   set/clear ST.C
+(1)     51C : 045B                       rt
+        51E :                            include "../tms9900/queue_wait.inc"
+(1)     51E :                    *** [queue] Wait until queue is empty
+(1)     51E :                    *** @param R9 queue work space pointer
+(1)     51E :                    *** @clobber R0
+(1)     51E :                    queue_wait_empty:
+(1)     51E : C019                       mov     *R9, R0                 check queue_len
+(1)     520 : 16FE                       jne     queue_wait_empty
+(1)     522 : 045B                       rt
+        524 :
+        524 :                            *** ACIA interrupt; runs in its own workspace, so no registers need saving
+        524 :                    int1_isr:
+        524 : D020 0080                  movb    @ACIA_status, R0
+        528 : 0240 0100                  andi    R0, hibyte(RDRF_bm)
+        52C : 1306                       jeq     int1_isr_send   lo(R0) is cleared
+        52E : D020 0082                  movb    @ACIA_data, R0
+        532 : 0209 2000                  li      R9, rx_queue
+        536 : 06A0 04C6                  bl      @queue_add
+        53A :                    int1_isr_send:
+        53A : D020 0080                  movb    @ACIA_status, R0
+        53E : 0240 0200                  andi    R0, hibyte(TDRE_bm)
+        542 : 1307                       jeq     int1_isr_exit
+        544 : 0209 2080                  li      R9, tx_queue
+        548 : 06A0 04F4                  bl      @queue_remove
+        54C : 1703                       jnc     int1_isr_send_empty
+        54E : D800 0082                  movb    R0, @ACIA_data
+        552 :                    int1_isr_exit:
+        552 : 0380                       rtwp
+        554 :                    int1_isr_send_empty:
+        554 : 0201 2000                  li      R1, hibyte(TCB_EI_gc)
+        558 : 5801 0080                  szcb    R1, @ACIA_control       Disable Tx interrupt
+        55C : 0380                       rtwp

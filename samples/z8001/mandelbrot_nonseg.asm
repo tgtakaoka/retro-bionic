@@ -38,6 +38,8 @@ init:
 loop:
         call    mandelbrot
         sc      #SC_NEWLINE
+        ld      r1, #tx_queue
+        call    queue_wait_empty
         jr      loop
 
 user_ps:
@@ -46,6 +48,7 @@ user_ps:
 
         include "../z8002/mandelbrot.inc"
         include "../z8002/io.inc"
+        include "../z8002/queue_wait.inc"
 
 ;;; Return from an interrupt handler. The Z8001 must be segmented to IRET
 ;;; (its operation in nonsegmented mode is undefined), and then pops the
