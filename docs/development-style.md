@@ -159,6 +159,74 @@ rather than polling `status`.
 `scripts/bionic-bench.py peek NAME` follows what a bench prints to whichever
 session drives it, without touching it.
 
+### Start a target from what the CPU offers
+
+Before writing a debugger, list what the chip gives, hardware and
+software, then pick for each feature the strongest mechanism the list
+allows. Don't port another target's design; the features all depend on
+the same few capabilities. The examples below are from this tree.
+**[code]**
+
+**Capabilities to look for:**
+
+- **An instruction-boundary signal:** a pin or status code that marks
+  opcode fetches, such as `SYNC`, `M1`, `IAQ`, `#LIR`/LI, `IFETCH`,
+  `FSYC`, `#OCF`, S0/S1 or ST0-3. Pipeline status that replays a queue,
+  such as IPIPE1:0, also counts. A strobe that marks every program read,
+  operands included (`#MEN`, `#PSEN`), does not.
+- **An interrupt-acknowledge signal** that marks the vector fetch or the
+  acknowledge cycle: INTA, `IORQ` with `M1`, `#IACK`, a vector-fetch
+  status (BA/BS, VP), INTACK.
+- **A non-maskable stop input:** NMI, `#XIRQ`, TRAP, `#LOAD`, or a
+  hardware halt/run pair (MN1613 `#HLT`/STRT). Note whether it stacks the
+  status and masks interrupts, or acts like a call.
+- **A software interrupt:** SWI, BRK, `RST`, XOP, TRAP, SC. Note whether
+  it masks interrupts and stacks the status. Even a trap that acts like a
+  call is taken only when the CPU decodes it, never for a discarded
+  prefetch or an operand. Failing that, an undefined opcode that the
+  debugger can catch at its fetch.
+- **A bus-hold input:** HOLD, BUSRQ, `#BR`. Note whether it is granted
+  between instructions (TMS320C25 `#HOLD`) or between bus cycles (Z80
+  BUSRQ); the first is a boundary the debugger can command.
+- **Bus control:** READY or WAIT to stretch a cycle, a single-step pin
+  (8048 `#SS`). Note whether the clock may stop: a dynamic part with a
+  minimum clock cannot be parked with the clock held.
+- **Register access:** whether a stack, a status register or a hidden
+  register can be stored and loaded by instructions alone, and where
+  those stores land on the bus.
+
+**Features, and what serves each best:**
+
+- **Halt switch:** a non-maskable input, which ends the instruction and
+  stacks a coherent frame (see below). Without one, inject the software
+  interrupt at a boundary; parking on an injected jump-to-self is the
+  last resort.
+- **Inject a trap before a jump-to-self.** The CPU decides whether the
+  trap runs and stacks the address it stopped at, so a discarded
+  prefetch or a taken branch needs no guessing. A jump-to-self only parks
+  the CPU, leaving the debugger to work out where it was.
+- **Step:** the same input armed after one fetch, or a software
+  interrupt fed to the fetch after the instruction. Without either,
+  count the instruction's cycles from a table.
+- **Break points and a program's own halt:** a software interrupt
+  patched into memory. The CPU takes it only at a real instruction
+  start, never for a discarded prefetch or an operand. Without one, use
+  an undefined opcode caught at its fetch and replaced by a
+  jump-to-self.
+- **Bus-cycle disassembly:** count fetches from the boundary signal.
+  Without one, match the ring against recorded cycle tables
+  (`MatchWalker`), replay a pipeline queue, or step the free run from
+  an opcode table.
+- **An interrupt during free run:** the acknowledge signal. Without
+  one, a run of pushes followed by a vector read, or a fetch at a vector
+  address, which a program's own jump there also gives. A vector fetch
+  is unambiguous wherever the debugger knows the next fetch: in its own
+  injected sequence, or in the ring once the decoder has the branch's
+  target (TMS320C25).
+
+Where the board pin map is still a draft, route the signals these
+mechanisms need ahead of ones the debugger never reads.
+
 ### Halt through an entry the CPU takes itself
 
 **An injected save races a pending interrupt.** A save injected at an ordinary
@@ -1819,6 +1887,110 @@ Draft board for the TMS320C25FNL (68-pin PLCC); not built yet.
 - `#SYNC`, `#HOLD`, `#INT2` and the serial inputs DR, FSR, CLKR and CLKX
   are tied high; FSX, which resets to an input, has a 10k pull-up.
   **[code]**
+
+The debugger is being redesigned from the chip's capabilities (see
+"Start a target from what the CPU offers"); the draft committed with the
+board drains the pipeline with NOPs and is to be replaced.
+
+**What the chip offers.** **[doc]**
+
+- No instruction-boundary signal. `#STRB` with `#PS` marks every program
+  read: fetches, operands, discarded prefetches and table reads alike.
+  `#MSC` marks every completed memory operation; it is a wait-state
+  helper.
+- `#IACK` is low during the fetch of an interrupt vector's first word.
+- No non-maskable input but `#RS`. INT0-INT2 are masked by INTM and IMR.
+- `#HOLD` is granted with `#HOLDA` only after the current instruction
+  completes, a repeat loop included; with HM = 1, set by reset, the core
+  stops until `#HOLD` is released. The next instruction is then already
+  latched, and the one after it is fetched again after the release.
+- `TRAP` (CE1Eh) pushes PC + 1 onto the on-chip stack and branches to
+  001Eh. It neither masks interrupts nor stores the status, and, like
+  any instruction, it runs only when the CPU decodes it.
+- No illegal-opcode trap.
+- The eight-level stack is on chip: POP and PUSH reach it only through
+  ACC, and no push reaches the bus.
+- The chip is dynamic: CLKIN must run at 6.7 MHz or faster.
+- SST and SST1 store to page 0 in direct addressing, whatever DP is.
+  LST1 also copies ARB into ARP. P has no low-half load: T = 1 and MPY
+  give the low half, LPH the high half. No interrupt is taken between
+  EINT and the next instruction.
+
+**Plan.** The board routes `#HOLD` and `#HOLDA` to the Teensy; READY
+stays, to park the CPU inside a bus cycle.
+
+- **Break points and program halt:** `TRAP` is patched into memory. The
+  run stops at the fetch from 001Eh, and TOS − 1 is the stop address. A
+  `TRAP` that is neither a break point nor a halt, because the program
+  keeps a handler at 001Eh, gets 001Eh served from memory and runs on.
+- **Step:** the restore ends with a branch to PC, a known boundary. The
+  instruction's own words and its table reads come from memory; table
+  addresses follow from the opcode and the restored registers. Every
+  later program read gets `TRAP`. A discarded prefetch drops its `TRAP`,
+  so the one that runs is at the next PC, whichever way the instruction
+  went.
+- **Halt switch:** assert `#HOLD` and wait for `#HOLDA`, which is the
+  boundary. Release it and feed `TRAP` from the first fetch that starts
+  an instruction; the latched instruction runs first.
+- **Register save:** `TRAP` stacked only the PC and left interrupts
+  open. The save starts at 001Eh with SST, which keeps the program's
+  INTM, then DINT. An interrupt taken at a boundary before them fetches
+  its vector in place of the next injected word: halt at the vector,
+  with the stacked return set to the stop address. The stack is saved whole by
+  eight POPs and restored by eight PUSHes.
+- **Interrupts:** a vector fetch, with no `#IACK`. The C25 stacks the PC
+  on chip, so no push reaches the bus; the fetch alone is enough
+  wherever the next fetch is known. In an injected sequence any jump to
+  a vector is an interrupt. In the ring, the decoder knows each
+  branch's target, so a jump to a vector that no branch names is one.
+  Only a program's own branch to a vector address stays ambiguous, and
+  the free run itself needs no live detection.
+- **Disassembly:** anchor at known starts (the restore's branch target,
+  each interrupt's vector fetch, the stop) and decode forward by instruction length.
+  Match the non-sequential reads, branch targets and table reads, and
+  the discarded prefetches against per-instruction cycle tables
+  recorded on the bench, as for the TMS320C15.
+- **Idle:** the CPU waits in hold. Whether CLKIN may stop there decides
+  whether the Teensy has to keep clocking it.
+
+**The family.** The TMS320C20x (C209) and TMS320C5x (C51) run C2x
+source code, and libasm assembles both. They give more than the C25, so
+the shared code is built around their mechanisms, with the C25's as its
+fallback. **[doc]**
+
+| | C25 | C20x (C209) | C5x (C51) |
+|---|---|---|---|
+| Boundary signal | none | none | `#IAQ`: instruction words, both words of a two-word one; not table reads, block moves or MAC operands |
+| Interrupt acknowledge | `#IACK` | `#IACK` | `#IACK`, with A1-A4 naming the vector |
+| Non-maskable input | none | `#NMI` | `#NMI` |
+| Masking software interrupt | none | `NMI`, `INTR k` | `NMI`, `INTR k` |
+| `TRAP` | does not mask | does not mask | does not mask |
+| Context stacked on interrupt | PC | PC | PC; ACC, P, ST0, ST1, T and more to shadow registers, back on `RETE`/`RETI` |
+| Bus hold | `#HOLD`, granted at a boundary | through `#INT1` and IDLE | `#HOLD` |
+| Clock | dynamic, 6.7 MHz minimum | static | static |
+
+- Halt switch: the `#NMI` pin on C20x and C5x; on the C25, `#HOLD`
+  followed by an injected `TRAP`.
+- Step and break points: inject or patch the masking `NMI` instruction
+  where there is one; `TRAP` on the C25, whose save watches for an
+  interrupt's vector fetch.
+- Disassembly: on the C5x, `#IAQ` tells instruction words from table
+  reads; the C20x and C25 decode instruction lengths against cycle
+  tables.
+- Only the C25 needs its clock kept running.
+
+**To check on the bench first:**
+
+- Whether the chip keeps its state with CLKIN stopped, in hold or in a
+  bus cycle.
+- Halting by `#HOLD`, which no other target here does: whether `#HOLDA`
+  comes only between instructions and after a repeat, whether HM = 1
+  stops the core with its state kept, which address the first fetch
+  after the release carries, and whether a two-word instruction's
+  operand can come before it. A program that clears HM keeps running in
+  hold. Without the hold, the halt switch injects `TRAP` at a fetch the
+  decoder takes for an instruction start.
+- How many prefetches a taken branch discards.
 
 ### TMS7000 family
 
