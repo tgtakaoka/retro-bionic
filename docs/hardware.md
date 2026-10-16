@@ -147,6 +147,7 @@ These boards run from a timer:
 | INS8060, INS8070 | `P46`, XIN | `P52`, `#HOLD` | 4.05 MHz |
 | P8085 | `P50`, X1 | `P52`, READY | 10 MHz |
 | P8080 | `P46`, PHI1; `P47`, PHI2 | `P54`, READY | 2.5 MHz |
+| TMS320C25 | `P47`, CLKIN | `P52`, READY | 8 MHz |
 
 The P8080's two phases come from two FlexPWM modules whose counters are restarted
 together, and in a run its plain memory reads take no wait state.
