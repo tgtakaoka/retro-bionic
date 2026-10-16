@@ -417,6 +417,17 @@ the next, and when a fix needs a new image, first finish what the image
 already on the board can still do: a TMS7000 fix found mid-run waited
 while the P8095BH and TMS320C15 checks ran on the same profile image.
 
+### Keep commit messages short
+
+A subject line, and a body only when the reason isn't plain from the
+subject: one or two sentences on what changed and why, never how the code
+got there. Wrap the body at 72 columns.
+
+### Record what a change taught in the same commit
+
+Facts found while making a change, a bus timing, a pitfall, a bench lesson,
+go into this document in that change's commit, not in a later docs commit.
+
 ### `ENABLE_SERIAL_HANDLER` builds were broken in many targets **[code]**
 
 The option is off by default, so nothing noticed that most `devs_*` files
@@ -1140,6 +1151,25 @@ The bench's chip, marked TMS99105, has the TMS99110's ROM on chip, so
 `MACRO=STANDARD` reports TMS99110 and only `MACRO=BASELINE` runs it as a
 plain TMS99105. The `?` banner reads `BionicTMS99105 (CPU: TMS99110)`;
 take the CPU from the `CPU:` field, not the board name. **[hw]**
+
+#### TMS9980 bus timing
+
+**Sample at the `#PHI3` fall, not at a delay from CKIN.** `#PHI3` falls some
+50–100 ns after the CKIN fall that starts its phase; the address, control and
+write data change some 100 ns before it and hold through the next CKIN phase.
+Fixed delays from the firmware's own CKIN edges raced those changes. Each
+cycle polls for the fall and clocks on at most one clock until it comes, so a
+phase that slipped, as on a `READY` resume, heals within a cycle. The TMS9981
+shares this code. **[hw][code]**
+
+**Each CKIN half needs 40 ns or more** (TWH/TWL). Do the per-cycle work, the
+memory access, data drive and ring advance, inside a low phase in place of its
+delay. A `delayNanoseconds()` right after long work comes out short, so check
+the widths with a capture after any change. **[hw][code]**
+
+**The bench TMS9980ANL passed and failed from run to run on one image**, also
+after a reseat, while the TMS9981 passes everything. Rerun twice before
+reading a TMS9980 result as a timing one. **[hw]**
 
 ### 6502
 
