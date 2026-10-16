@@ -90,6 +90,7 @@
 (1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
 (1)       0 :
 (1)       0 :                    ;;; i8251 USART device emulator.
+(1)       0 :                    ;;; Bit definition of mode register
 (1)       0 : =6                 MODE_STOP_gp:   equ     6
 (1)       0 : =C0                MODE_STOP_gm:   equ     11000000B
 (1)       0 : =40                MODE_STOP1_gc:  equ     (1 << MODE_STOP_gp)
@@ -108,7 +109,7 @@
 (1)       0 : =1                 MODE_BAUD_X1:   equ     (1 << MODE_BAUD_gp)
 (1)       0 : =2                 MODE_BAUD_X16:  equ (2 << MODE_BAUD_gp)
 (1)       0 : =3                 MODE_BAUD_X64:  equ (3 << MODE_BAUD_gp)
-(1)       0 :                    ;;; Bit Definition of command register
+(1)       0 :                    ;;; Bit definition of command register
 (1)       0 : =80                CMD_EH_bm:      equ     10000000B   ; Enter hunt mode
 (1)       0 : =40                CMD_IR_bm:      equ     01000000B   ; Internal Reset
 (1)       0 : =20                CMD_RTS_bm:     equ     00100000B   ; Request To Send
@@ -183,7 +184,7 @@
         13A :
         13A :                    ;;; Get character
         13A :                    ;;; @return A
-        13A :                    ;;; @return CC.C 0 if no character
+        13A :                    ;;; @return F.C 0 if no character
         13A :                    getchar:
         13A : 54                         push    ix
         13B : 3C 00 20                   ld      ix, rx_queue
@@ -219,6 +220,7 @@
         160 : 36 20                      ld      A, ' '
         162 : C8 E1                      jr      putchar
         164 :
+        164 :                    ;;; Interrupt entry pushes PC and AF; RETI pops both.
         164 :                    isr_intr:
         164 : A9 F1                      bit     ST_RxRDY_bp, (USARTS)
         166 : CE 05                      jr      nz, isr_intr_rx
@@ -281,7 +283,7 @@
 (1)     1A4 : F0 01 67                   cp      a, (ix+queue_size)
 (1)     1A7 : C7 03                      jr      c, queue_add_store ; queue_len < queue_size
 (1)     1A9 : 5E                         pop     af
-(1)     1AA : 0C                         rcf                     ; clear carry
+(1)     1AA : 0C                         rcf
 (1)     1AB : 1E                         ret
 (1)     1AC :                    queue_add_store:
 (1)     1AC : 86                         inc     a               ; queue_len++
@@ -301,7 +303,7 @@
 (1)     1CA :                    queue_add_update:
 (1)     1CA : F4 02 26                   ld      (ix+queue_put), a
 (1)     1CD : 5E                         pop     af
-(1)     1CE : 0D                         scf                     ; set carry
+(1)     1CE : 0D                         scf
 (1)     1CF : 1E                         ret
 (1)     1D0 :
 (1)     1D0 :                    ;;; [queue] Remove an element from queue
@@ -328,7 +330,7 @@
 (1)     1EF : F4 03 26                   ld      (ix+queue_get), a
 (1)     1F2 : 24                         ld      a, h            ; restore element
 (1)     1F3 : 5A                         pop     hl
-(1)     1F4 : 0D                         scf                     ; set carry
+(1)     1F4 : 0D                         scf
 (1)     1F5 : 1E                         ret
         1F6 :                            include "mandelbrot.inc"
 (1)     1F6 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
@@ -353,7 +355,9 @@
 (1)     205 : 34 FF                      ld      H, -1
 (1)     207 : 1E                         ret
 (1)     208 :
-(1)     208 : =32                Fv:     equ     50
+(1)     208 :                    ;;; Print the Mandelbrot set in fixed point scaled by F.
+(1)     208 :                    ;;; A NUL from the console halts to system.
+(1)     208 : =32                Fv:     equ     50              ; F
 (1)     208 :                    mandelbrot:
 (1)     208 : EB 5D 03 37 F4             ld      (vY), -12       ; Y=-12
 (1)     20D :                    loop_y:
@@ -371,7 +375,7 @@
 (1)     22E : E3 5D 03 29                ld      C, (vY)
 (1)     232 : 1C F6 01                   call    sex_BC
 (1)     235 : 39 A0 01                   ld      DE, 416
-(1)     238 : 1C AD 03                   call    mul16           ; D=Y*416
+(1)     238 : 1C AD 03                   call    mul16           ; Y*416
 (1)     23B : 48                         ld      BC, HL
 (1)     23C : 39 64 00                   ld      DE, 100
 (1)     23F : 1C 39 04                   call    div16           ; D=Y*416/100
@@ -419,7 +423,7 @@
 (1)     285 : 48                         ld      BC, HL
 (1)     286 : 39 32 00                   ld      DE, Fv
 (1)     289 : 1C 39 04                   call    div16           ; (A*A-B*B)/F
-(1)     28C : E3 4D 03 70                add     HL, (vC)        ; (A*A-B*B)/+C
+(1)     28C : E3 4D 03 70                add     HL, (vC)        ; (A*A-B*B)/F+C
 (1)     290 : 52                         push    HL              ; push (A*A-B*B)/F+C
 (1)     291 : E3 51 03 48                ld      BC, (vA)
 (1)     295 : E3 59 03 49                ld      DE, (vS)
@@ -605,7 +609,7 @@
 (1)     3A6 : 24                         ld      A, H
 (1)     3A7 : FB 60                      add     A, E
 (1)     3A9 : F8 60                      add     A, B
-(1)     3AB : 2C                         ld      H, A
+(1)     3AB : 2C                         ld      H, A            ; add cross terms to high(product)
 (1)     3AC : 1E                         ret
 (1)     3AD :
 (1)     3AD :
@@ -613,7 +617,7 @@
 (1)     3AD :                    ;;; @param BC multiplicand
 (1)     3AD :                    ;;; @param DE multiplier
 (1)     3AD :                    ;;; @return HL result
-(1)     3AD :                    ;;; @clobber A
+(1)     3AD :                    ;;; @clobber A BC DE
 (1)     3AD :                    mul16:
 (1)     3AD : 20                         ld      A, B
 (1)     3AE : FA 65                      xor     A, D
@@ -673,7 +677,7 @@
 (1)     3F6 : FE 13                      div     HL, A
 (1)     3F8 : FD 31                      ld      C, L            ; low(quotient)=low(dividend)/divisor
 (1)     3FA : FC 33                      ld      E, H            ; low(remainder)=low(dividend)%divisor
-(1)     3FC : 41                         ld      HL, DE
+(1)     3FC : 41                         ld      HL, DE          ; HL=high(remainder):low(remainder)
 (1)     3FD : FE 13                      div     HL, A           ; H=remainder, L=quotient
 (1)     3FF : 52                         push    HL              ; save remainder
 (1)     400 : 34 00                      ld      H, 0
@@ -721,7 +725,7 @@
 (1)     439 :                    ;;; @param BC dividend
 (1)     439 :                    ;;; @param DE divisor
 (1)     439 :                    ;;; @return HL quotient
-(1)     439 :                    ;;; @return BC remainder
+(1)     439 :                    ;;; @return BC |remainder|
 (1)     439 :                    ;;; @clobber DE A
 (1)     439 :                    div16:
 (1)     439 : 20                         ld      A, B
@@ -741,7 +745,7 @@
 (1)     44F : 92                         inc     HL
 (1)     450 : 49                         ld      DE, HL          ; divisor = -divisor
 (1)     451 :                    div16_divide:
-(1)     451 : 1C D2 03                   call    udiv16          ; BC = dividend / divisor
+(1)     451 : 1C D2 03                   call    udiv16          ; HL = dividend / divisor
 (1)     454 : 5E                         pop     AF              ; A=sign
 (1)     455 : FE AF                      bit     7, A
 (1)     457 : FE D6                      ret     Z

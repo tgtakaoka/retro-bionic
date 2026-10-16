@@ -3,7 +3,7 @@
 
 ;;; Print unsigned 16-bit integer as decimal
 ;;; @param R0 value
-;;; @clobber R0 R1 R2
+;;; @clobber A X Y R0 R1 R2
 print_uint16:
         lda     R0H
         ora     R0L
@@ -32,7 +32,7 @@ print_uint16_exit:
 
 ;;; Print signed 16-bit integer as decimal
 ;;; @param R0 value
-;;; @clobber R0
+;;; @clobber A X Y R0
 print_int16:
         lda     R1H
         pha
@@ -63,7 +63,7 @@ print_value:
 ;;; Set constant to R1
 ;;;     jsr     set_R1
 ;;;     .word   constant
-;;; @clobber A Y
+;;; @clobber A X Y
 set_R1:
         ldx     #R1
         jmp     set_RX
@@ -71,7 +71,7 @@ set_R1:
 ;;; Set constant to R2
 ;;;     jsr     set_R2
 ;;;     .word   constant
-;;; @clobber A Y
+;;; @clobber A X Y
 set_R2:
         ldx     #R2
         jmp     set_RX
@@ -80,6 +80,7 @@ set_R2:
 ;;;     ldx     #Rx
 ;;;     jsr     set_RX
 ;;;     .word   constant
+;;; Reads the word after the JSR and returns past it.
 ;;; @clobber A Y
 set_RX:
         pla
@@ -120,6 +121,7 @@ store_R2:
 ;;; Store R0 to variable
 ;;; @param R0
 ;;; @param X &variable
+;;; @clobber A
 store_RX:
         lda     R0L
         sta     0,X
@@ -168,8 +170,8 @@ sex_A:
 sex_A_return:
         rts
 
-;;; Negate
-;;; @param X point to value
+;;; Negate 16-bit value in place
+;;; @param X &value
 ;;; @clobber A
 neg16:
         sec
@@ -210,12 +212,12 @@ subsi2:
         rts
 
 ;;; Signed compare helper
-;;; @param R0 minuend-subtrahend
 ;;; @param R1 minuend
 ;;; @param R2 subtrahend
 ;;; @return R0=0;  BZ (minuend == subtrahend)
 ;;;         R0=1;  BP (minuend > subtrahend)
 ;;;         R0=-1; BM (minuend < subtrahend)
+;;; @clobber A
 cmpsi2:
         sec
         lda     R1L
@@ -267,7 +269,7 @@ mulsi2:
 ;;; @clobber A X Y R1 R2
 umul16:
         lda     #0
-        sta     R0L             ; A=hi(result)
+        sta     R0L             ; lo(result)=0, A=hi(result)
         ldx     R2H
         beq     umul16_lo       ; branch if hi(multiplier)==0
         ldx     R1L             ; save lo(multiplicand)
@@ -315,7 +317,7 @@ udiv16:
         lda     R2H
         bmi     udiv16_prep_end ; branch if msb(divisor) == 1
         ora     R2L
-        beq     udiv16_return   ; branch if R2==0
+        beq     udiv16_return   ; divisor==0: R0, R1 unchanged
 udiv16_prep:
         lda     R1L
         cmp     R2L
@@ -356,8 +358,8 @@ udiv16_return:
 ;;; @param R1 dividend
 ;;; @param R2 divisor
 ;;; @return R0 quotient
-;;; @return R1 remainder
-;;; @clobber R2
+;;; @return R1 remainder of |dividend|/|divisor|, unsigned
+;;; @clobber A X Y R2
 divsi2:
         lda     R1H
         eor     R2H
@@ -373,7 +375,7 @@ divsi2_dividend:
         jsr     neg16           ; negate dividend
 divsi2_divide:
         jsr     udiv16          ; R0=result
-        pla                     ; A=(dividend^divisor)
+        pla                     ; A=hi(dividend^divisor)
         bpl     divsi2_return
         ldx     #R0L
         jsr     neg16           ; negate result

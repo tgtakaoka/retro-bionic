@@ -1,5 +1,6 @@
 ;;; -*- mode: asm; mode: flyspell-prog; -*-
 ;;; [queue] queue structure on internal data memory
+;;; R1 is the software stack pointer in external data memory
 queue_len:      equ     0       ; queue length
 queue_size:     equ     1       ; buffer size
 queue_buf:      equ     2       ; buffer pointer to external data memory
@@ -11,7 +12,7 @@ queue_work_size:        equ     5
 ;;; @param R0 queue work space pointer
 ;;; @param R2 queue buffer pointer
 ;;; @param A queue buffer size
-;;; @clobber A R0
+;;; @clobber A R0 R7
 queue_init:
         mov     R7, A
         mov     @R0, #0         ; queue_len
@@ -19,13 +20,13 @@ queue_init:
         mov     @R0, A          ; queue_size
         inc     R0
         mov     A, R2
-        mov     @R0, A          ; queue_buffer
+        mov     @R0, A          ; queue_buf
         inc     R0
         mov     @R0, #0         ; queue_put
         inc     R0
         mov     @R0, #0         ; queue_get
         mov     A, R2
-        mov     R0, A           ; R0=queue_buffer
+        mov     R0, A           ; R0=queue_buf
         clr     A
 queue_init_loop:
         movx    @R0, A
@@ -61,7 +62,7 @@ queue_add_store:
         mov     A, @R0          ; A=queue_buf
         inc     R0
         add     A, @R0          ; A=queue_buf+queue_put
-        xch     A, R1           ; A=R1, R0=&queue_buf[queue_put]
+        xch     A, R1           ; A=R1, R1=&queue_buf[queue_put]
         xch     A, R7           ; A=an element, R7=R1
         movx    @R1, A          ; add an element
         mov     A, R7           ; A=R1

@@ -24,7 +24,7 @@
 (1)       0 :                    ;;; MC6850
 (1)       0 :                    ;;; Asynchronous Communication Interface Adapter
 (1)       0 :
-(1)       0 :                    ;;; Control register
+(1)       0 :                    ;;; Control register (write)
 (1)       0 : =DF00              ACIA_control:   equ     ACIA+0
 (1)       0 :                            ;; Counter Divider Select Bits
 (1)       0 : =3                 CDS_gm:         equ     %11    ; Group mask
@@ -51,7 +51,7 @@
 (1)       0 :                                                      ; Transmit Break Level
 (1)       0 : =80                RIEB_bm:        equ     %10000000 ; Receive Interrupt Enable Bit mask
 (1)       0 :
-(1)       0 :                    ;;; Status register
+(1)       0 :                    ;;; Status register (read)
 (1)       0 : =DF00              ACIA_status:    equ     ACIA+0
 (1)       0 : =1                 RDRF_bm:        equ     %00000001 ; Receive Data Register Full
 (1)       0 : =2                 TDRE_bm:        equ     %00000010 ; Transmit Data Register Empty
@@ -123,7 +123,7 @@
         124 : B7 DF 01                   staa    ACIA_data
         127 : 39                         rts
         128 :
-        128 :                    ;;; Print "v1 op R2"
+        128 :                    ;;; Print "v1 op v2"
         128 :                    ;;; @param D v1
         128 :                    ;;; @param X v2
         128 :                    ;;; @param exprop op
@@ -141,7 +141,7 @@
         135 : 8D DA                      bsr     putspace
         137 : 96 4A                      ldaa    vB
         139 : D6 4B                      ldab    vB+1
-        13B : BD 03 1E                   jsr     print_int16     ; print R2
+        13B : BD 03 1E                   jsr     print_int16     ; print v2
         13E : 32                         pula
         13F : 33                         pulb
         140 : DE 4A                      ldx     vB
@@ -411,7 +411,7 @@
 (1)     333 : D7 41                      stab    R0L
 (1)     335 :                    ;;; Print unsigned 16-bit integer as decimal
 (1)     335 :                    ;;; @param R0 value
-(1)     335 :                    ;;; @clobber A X R0 R1 R2
+(1)     335 :                    ;;; @clobber D X R0 R1 R2
 (1)     335 :                    print_uint16:
 (1)     335 : DE 40                      ldx     R0
 (1)     337 : 27 14                      beq     print_uint16_zero
@@ -433,6 +433,8 @@
 (1)     352 : 39                         rts   
 (1)     353 :
 (1)     353 :                    ;;; Signed compare R0=sign(R1-R2)
+(1)     353 :                    ;;; @param R1 minuend
+(1)     353 :                    ;;; @param R2 subtrahend
 (1)     353 :                    ;;; @return R0=A=0;  BEQ (minuend == subtrahend)
 (1)     353 :                    ;;;         R0=A=1;  BPL (minuend > subtrahend)
 (1)     353 :                    ;;;         R0=A=-1; BMI (minuend < subtrahend)
@@ -452,7 +454,7 @@
 (1)     369 : 96 42                      ldaa    R1H
 (1)     36B : 98 44                      eora    R2H             ; minuend^subtrahend
 (1)     36D : 94 41                      anda    R0L             ; overflow flag
-(1)     36F : 98 40                      eora    R0H
+(1)     36F : 98 40                      eora    R0H             ; N^V
 (1)     371 : 2B 07                      bmi     cmp16_lt
 (1)     373 :                    cmp16_gt:
 (1)     373 : 7F 00 40                   clr     R0H
@@ -486,7 +488,7 @@
 (1)     392 : 58                         lslb                    ; B <<= 1
 (1)     393 : 20 F5                      bra     umul16_high
 (1)     395 :                    umul16_high_last:
-(1)     395 : 1B                         aba                     ; hi(result) += B
+(1)     395 : 1B                         aba                     ; last bit out is 1; hi(result) += B
 (1)     396 : 5F                         clrb
 (1)     397 :                    umul16_low:
 (1)     397 : 74 00 45                   lsr     R2L             ; lo(multiplier) >>= 1
@@ -507,7 +509,7 @@
 (1)     3B2 : D7 41                      stab    R0L
 (1)     3B4 : 39                         rts
 (1)     3B5 :
-(1)     3B5 :                    ;;; Multiply; result = multiplicand * multiplier
+(1)     3B5 :                    ;;; Signed multiplication: result = multiplicand * multiplier
 (1)     3B5 :                    ;;; @param D multiplicand
 (1)     3B5 :                    ;;; @param X multiplier
 (1)     3B5 :                    ;;; @return D result
@@ -543,7 +545,7 @@
 (1)     3E3 : D7 43                      stab    R1L
 (1)     3E5 :                    mul16_multiply:
 (1)     3E5 : 8D 9A                      bsr     umul16          ; D=R0=result
-(1)     3E7 : 7D 00 46                   tst     sign            ; A=(multiplicand^multiplier)
+(1)     3E7 : 7D 00 46                   tst     sign            ; sign(result)
 (1)     3EA : 2A 0A                      bpl     mul16_end
 (1)     3EC : 43                         coma
 (1)     3ED : 53                         comb
@@ -565,7 +567,7 @@
 (1)     3FE :                    ;;; @param R2 divisor
 (1)     3FE :                    ;;; @return R0 quotient
 (1)     3FE :                    ;;; @return R1 remainder
-(1)     3FE :                    ;;; @clobber R2
+(1)     3FE :                    ;;; @clobber D X R2
 (1)     3FE :                    udiv16:
 (1)     3FE : 96 44                      ldaa    R2H
 (1)     400 : 9A 45                      oraa    R2L
@@ -627,7 +629,7 @@
 (1)     45D : DF 40                      stx     R0              ; quotient=0, R1=remainder
 (1)     45F : 39                         rts
 (1)     460 :
-(1)     460 :                    ;;; Division; dividend / divisor = quotient ... remainder
+(1)     460 :                    ;;; Signed division: quotient = dividend / divisor
 (1)     460 :                    ;;; @param D dividend
 (1)     460 :                    ;;; @param X divisor
 (1)     460 :                    ;;; @return D quotient
@@ -662,7 +664,7 @@
 (1)     48A : BD 03 FE                   jsr     udiv16          ; R0=quotient
 (1)     48D : 96 40                      ldaa    R0H
 (1)     48F : D6 41                      ldab    R0L
-(1)     491 : 7D 00 46                   tst     sign            ; A=(dividend^divisor)
+(1)     491 : 7D 00 46                   tst     sign            ; sign(quotient)
 (1)     494 : 2A 0A                      bpl     div16_end
 (1)     496 : 43                         coma
 (1)     497 : 53                         comb

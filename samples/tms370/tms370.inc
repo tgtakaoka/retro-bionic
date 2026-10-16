@@ -9,7 +9,7 @@ ST_V:   equ  00010000B          ; set to 1 if result is overflow
 ST_IE2: equ  00001000B          ; if 1, level 2 interrupt is enabled
 ST_IE1: equ  00000100B          ; if 1, level 1 interrupt is enabled
 ;;; Vector
-VEC_INT3:       equ     7FF8H   ; #INT2 interrupt
+VEC_INT3:       equ     7FF8H   ; #INT3 interrupt
 VEC_INT2:       equ     7FFAH   ; #INT2 interrupt
 VEC_INT1:       equ     7FFCH   ; #INT1 interrupt
 VEC_RESET:      equ     7FFEH   ; #RESET vector

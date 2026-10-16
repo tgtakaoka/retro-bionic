@@ -18,11 +18,11 @@ queue_tmp:
         *=      *+2
 rx_queue:
         *=      *+queue_buf
-        .word   $2000
+        .word   $2000           ; buffer address
 rx_queue_size   =       128
 tx_queue:
         *=      *+queue_buf
-        .word   $2000 + rx_queue_size
+        .word   $2000 + rx_queue_size ; buffer address
 tx_queue_size   =       128
 
         *=      $1000
@@ -30,7 +30,7 @@ stack   =       $01ff
 initialize:
         ldx     #stack & $FF
         txs
-        cld                     ; clear decimal flag
+        cld                     ; D is undefined after reset
         ldx     #rx_queue
         lda     #rx_queue_size
         jsr     queue_init
@@ -48,7 +48,7 @@ receive_loop:
         jsr     getchar
         bcs     receive_loop
         ora     #0
-        beq     halt_to_system
+        beq     halt_to_system  ; NUL halts
 echo_back:
         pha
         jsr     putchar         ; echo
@@ -68,7 +68,7 @@ halt_to_system:
         fcb     0               ; halt to system
 
 ;;; Put newline
-;;; @clobber A
+;;; @clobber A X Y
 newline:
         lda     #$0d
         jsr     putchar
@@ -77,7 +77,7 @@ newline:
 
 ;;; Print uint8_t in hex
 ;;; @param A uint8_t value to be printed in hex.
-;;; @clobber A
+;;; @clobber A X Y
 put_hex8:
         pha
         lda     #'0'
@@ -104,7 +104,7 @@ put_hex8_dec:
 
 ;;; Print uint8_t in binary
 ;;; @param A uint8_t value to be printed in binary.
-;;; @clobber A
+;;; @clobber A X Y
 put_bin8:
         pha
         lda     #'0'
@@ -133,7 +133,7 @@ put_binchar:
 ;;; Get character
 ;;; @return A
 ;;; @return P.C 1 if no character
-;;; @clobber X
+;;; @clobber X Y
 getchar:
         ldx     #rx_queue
         sei                     ; disable IRQ
@@ -143,7 +143,7 @@ getchar:
 
 ;;; Put character
 ;;; @param A
-;;; @clobber X
+;;; @clobber X Y
 putchar:
         pha
 putchar_retry:
@@ -160,7 +160,7 @@ putchar_retry:
         .include "queue.inc"
 
 isr_irq:
-        cld                     ; clear decimal flag
+        cld                     ; NMOS 6502 keeps D on interrupt
         pha                     ; save A
         txa
         pha                     ; save X

@@ -43,7 +43,7 @@
 (1)       0 :                    ;;; MC6850
 (1)       0 :                    ;;; Asynchronous Communication Interface Adapter
 (1)       0 :
-(1)       0 :                    ;;; Control register
+(1)       0 :                    ;;; Control register (write)
 (1)       0 : =DF00              ACIA_control    =       ACIA+0
 (1)       0 :                            ;; Counter Divider Select Bits
 (1)       0 : =3                 CDS_gm          =       %11    ; Group mask
@@ -70,7 +70,7 @@
 (1)       0 :                                                      ; Transmit Break Level
 (1)       0 : =80                RIEB_bm         =       %10000000 ; Receive Interrupt Enable Bit mask
 (1)       0 :
-(1)       0 :                    ;;; Status register
+(1)       0 :                    ;;; Status register (read)
 (1)       0 : =DF00              ACIA_status     =       ACIA+0
 (1)       0 : =1                 RDRF_bm         =       %00000001 ; Receive Data Register Full
 (1)       0 : =2                 TDRE_bm         =       %00000010 ; Transmit Data Register Empty
@@ -82,7 +82,7 @@
 (1)       0 : =80                IRQF_bm         =       %10000000 ; Interrupt Request Flag
 (1)       0 :
 (1)       0 :                    ;;; Data register
-(1)       0 : =DF01              ACIA_data       =       ACIA+1          ; Data register
+(1)       0 : =DF01              ACIA_data       =       ACIA+1
           0 :
        FFFC :                            *=      VEC_RESET
        FFFC : 00 10                      .word   initialize
@@ -90,8 +90,8 @@
        FFFE :                    ;;; Work area for arith.inc
          10 :                            *=      $10
          10 :                    arith_work:
-         10 : 00 00                      .word   0
-         12 : 00 00                      .word   0
+         10 : 00 00                      .word   0               ; udiv16 divisor
+         12 : 00 00                      .word   0               ; udiv16 dividend, quotient
          14 :
        1000 :                            *=      $1000
        1000 : =FFF               stack   =       *-1
@@ -114,9 +114,8 @@
        1016 : 00                         brk
        1017 : 00                         .byte   0               ; halt to system
        1018 :
-       1018 :                    ;;; Print out char
+       1018 :                    ;;; Print a character
        1018 :                    ;;; @param A char
-       1018 :                    ;;; @clobber A
        1018 :                    putchar:
        1018 : 08                         php
        1019 : E2 20                      sep     #P_M            ; 8-bit memory
@@ -134,6 +133,8 @@
        1029 : 8D 01 DF                   sta     ACIA_data
        102C : 60                         rts
        102D :
+       102D :                    ;;; Print CR LF
+       102D :                    ;;; @clobber A
        102D :                    newline:
        102D : 08                         php
        102E : E2 20                      sep     #P_M            ; 8-bit memory
@@ -145,6 +146,8 @@
        103A : 28                         plp
        103B : 60                         rts
        103C :
+       103C :                    ;;; Print a space
+       103C :                    ;;; @clobber A
        103C :                    putspace:
        103C : 08                         php
        103D : E2 20                      sep     #P_M            ; 8-bit memory
@@ -155,7 +158,8 @@
        1045 : 60                         rts
        1046 :
        1046 :                    ;;; Print "X op Y"
-       1046 :                    ;;; @params A op letter
+       1046 :                    ;;; @param A op letter
+       1046 :                    ;;; @clobber A
        1046 :                    expr:
        1046 : 48                         pha                     ; save op letter
        1047 : 20 42 12                   jsr     print_int16     ; print X
@@ -170,7 +174,7 @@
        105A : 60                         rts
        105B :
        105B :                    ;;; Print " = X\n"
-       105B :                    ;;; clobber A
+       105B :                    ;;; @clobber A
        105B :                    answer:
        105B : 20 3C 10                   jsr     putspace
        105E : A9 3D                      lda     #'='
@@ -200,6 +204,7 @@
        1083 : 20 46 10                   jsr     expr
        1086 : 4C 2D 10                   jmp     newline
        1089 :
+       1089 :                    ;;; Print each operation and its result; comments give the expected answer
        1089 :                    arith:
        1089 : A2 50 46                   ldx     #18000
        108C : A0 60 6D                   ldy     #28000
@@ -227,14 +232,14 @@
        10C2 : A9 2D                      lda     #'-'
        10C4 : 20 46 10                   jsr     expr
        10C7 : 20 1C 12                   jsr     subsi2
-       10CA : 20 5B 10                   jsr     answer          ; -19536
+       10CA : 20 5B 10                   jsr     answer          ; 10000
        10CD :
        10CD : A2 50 46                   ldx     #18000
        10D0 : A0 B0 B9                   ldy     #-18000
        10D3 : A9 2D                      lda     #'-'
        10D5 : 20 46 10                   jsr     expr
        10D8 : 20 1C 12                   jsr     subsi2
-       10DB : 20 5B 10                   jsr     answer          ; 29536
+       10DB : 20 5B 10                   jsr     answer          ; -29536
        10DE :
        10DE : A2 A0 92                   ldx     #-28000
        10E1 : A0 B0 B9                   ldy     #-18000
@@ -410,7 +415,6 @@
        1228 :                    ;;; Signed compare
        1228 :                    ;;; @param X minuend
        1228 :                    ;;; @param Y subtrahend
-       1228 :                    ;;; @return C minuend-subtrahend
        1228 :                    ;;; @return C=0;  BEQ (minuend == subtrahend)
        1228 :                    ;;;         C=1;  BPL (minuend > subtrahend)
        1228 :                    ;;;         C=-1; BMI (minuend < subtrahend)
@@ -581,8 +585,8 @@
 (1)    12B7 : 60                         rts
 (1)    12B8 :
 (1)    12B8 :                    ;;; Unsigned division: dividend / divisor = quotient ... remainder
-(1)    12B8 :                    ;;; @praram X dividend
-(1)    12B8 :                    ;;; @praram Y divisor
+(1)    12B8 :                    ;;; @param X dividend
+(1)    12B8 :                    ;;; @param Y divisor
 (1)    12B8 :                    ;;; @return X quotient
 (1)    12B8 :                    ;;; @return Y remainder
 (1)    12B8 :                    ;;; @clobber C arith_work
@@ -591,7 +595,7 @@
 (1)    12B8 : 86 12                      stx     arith_work+2    ; dividend
 (1)    12BA : A2 01 00                   ldx     #1              ; X=bits
 (1)    12BD : 98                         tya                     ; C=divisor
-(1)    12BE : F0 20                      beq     udiv16_zero     ; branch if Y==0
+(1)    12BE : F0 20                      beq     udiv16_zero     ; divisor==0: X=dividend, Y=0
 (1)    12C0 : 30 08                      bmi     udiv16_prep_end ; branch if msb(divisor) == 1
 (1)    12C2 :                    udiv16_prep:
 (1)    12C2 : C5 12                      cmp     arith_work+2
@@ -623,8 +627,8 @@
 (1)    12E3 :                    ;;; @param X dividend
 (1)    12E3 :                    ;;; @param Y divisor
 (1)    12E3 :                    ;;; @return X quotient
-(1)    12E3 :                    ;;; @return Y remainder
-(1)    12E3 :                    ;;; @clobber C
+(1)    12E3 :                    ;;; @return Y remainder of |dividend|/|divisor|, unsigned
+(1)    12E3 :                    ;;; @clobber C arith_work
 (1)    12E3 :                            longa   on
 (1)    12E3 :                    div16:
 (1)    12E3 : 5A                         phy                     ; save divisor
@@ -643,7 +647,7 @@
 (1)    12F7 : 1A                         inc     A
 (1)    12F8 : AA                         tax                     ; negate dividend
 (1)    12F9 :                    div16_multiply:
-(1)    12F9 : 20 B8 12                   jsr     udiv16          ; R0=result
+(1)    12F9 : 20 B8 12                   jsr     udiv16          ; X=quotient
 (1)    12FC : 68                         pla                     ; A=(dividend^divisor)
 (1)    12FD : 10 06                      bpl     div16_return
 (1)    12FF : 8A                         txa

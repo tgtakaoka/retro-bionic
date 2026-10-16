@@ -30,6 +30,8 @@ print:
         dc      A(print_int16)
         br      putspace
 
+;;; Print one frame: a char per point, the escape iteration in hex
+;;; or ' ' if none; NUL from the console halts.
 mandelbrot:
         ldi     A.1(-12)
         phi     rY
@@ -118,6 +120,8 @@ loop_x:
         ;; sep     R5
         ;; dc      A(newline)
 
+        ;; A*B/F is computed as A*Q+A*S/F with Q=B/F, S=B-Q*F,
+        ;; to avoid 16-bit overflow
 loop_i:
         sep     R5
         dc      A(load_R7)
@@ -249,7 +253,7 @@ loop_i:
         plo     R7
         ghi     R7
         shlc
-        phi     R7              ; R7=2*(A*A+A*S/F)
+        phi     R7              ; R7=2*(A*Q+A*S/F)
         sep     R5
         dc      A(load_R8)
         dc      A(vD)           ; R8=D
@@ -262,7 +266,7 @@ loop_i:
         str     R2
         ghi     R8
         adc
-        phi     R7              ; R7=2*(A*A+A*S/F)+D
+        phi     R7              ; R7=2*(A*Q+A*S/F)+D
         sep     R5
         dc      A(store_R7)
         dc      A(vB)           ; B=2*(A*Q+A*S/F)+D
@@ -300,7 +304,7 @@ loop_i:
         ldi     A.0(cF)
         plo     R8
         sep     R5
-        dc      A(div16)        ; R7=B/Q
+        dc      A(div16)        ; R7=B/F
         sep     R5
         dc      A(store_R7)
         dc      A(vQ)           ; Q=B/F

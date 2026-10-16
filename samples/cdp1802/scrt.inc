@@ -94,7 +94,7 @@ scrt_call:
 
 ;;; Return subroutine, P=6
 ;;; @param R4 return address
-;;; @oaram M(R2) R4.1, R4.0, X:P(3)
+;;; @param M(R2) R4.1, R4.0
 ;;; @clobber R15.1, X
 ;;; @unchanged D, DF, R0, R1, R7-R14, R15.0
 scrt_return_exit:

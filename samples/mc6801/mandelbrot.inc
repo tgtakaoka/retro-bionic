@@ -4,7 +4,7 @@
 ;;; Print variable: "A=variable "
 ;;; @param X variable
 ;;; @param A variable letter
-;;; @clobber R0
+;;; @clobber D X R0 R1 R2
 print:
         jsr     putchar         ; print variable letter
         ldaa    #'='
@@ -17,6 +17,7 @@ print:
 ;;; Sign extend A into X
 ;;; @param A
 ;;; @return X sign extended A
+;;; @clobber R0
 sex_A:
         clr     R0H
         staa    R0L
@@ -37,6 +38,8 @@ sex_B:
 sex_B_exit:
         rts
 
+;;; Print the Mandelbrot set in ASCII; fixed point, F is 1.0
+;;; Halts to system when a NUL is received.
 mandelbrot:
         ldaa    #-12
         staa    vY              ; Y=-12
@@ -95,7 +98,7 @@ loop_i:
         ldd     vA
         ldx     vA
         jsr     mul16           ; A*A
-        pulx                    ; push B*B
+        pulx                    ; pull B*B
         stx     R2
         subd    R2              ; A*A-B*B
         ldx     #F
@@ -105,7 +108,7 @@ loop_i:
         psha                    ; push (A*A-B*B)/F+C
         ldd     vA
         ldx     vQ
-        jsr     mul16           ; R0=A*Q
+        jsr     mul16           ; A*Q
         pshb
         psha                    ; push A*Q
         ldd     vA
@@ -194,9 +197,9 @@ print_char:
         ;; jsr     newline
 
         jsr     getchar
-        bcc     next_x
+        bcc     next_x          ; no char
         tsta
-        bne     next_x
+        bne     next_x          ; not NUL
         swi                     ; halt to system
 next_x:
         inc     vX              ; X+=1

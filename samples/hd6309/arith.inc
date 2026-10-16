@@ -18,6 +18,7 @@ print_int16_print:
         pulsw
         puls    D, PC
 ;;; Print unsigned 16-bit integer as decimal
+;;; Recursion stacks the digits so the most significant prints first.
 ;;; @param W value
 ;;; @clobber D W
 print_uint16:

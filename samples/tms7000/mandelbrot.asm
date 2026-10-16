@@ -15,6 +15,7 @@ tx_queue_size:  equ     128
 tx_queue:       bss     tx_queue_size
 
         * Internal registers
+        * A 16-bit variable names its low byte Rn; Rn-1 is the high byte
         org     >0004
 RdH:    bss     1
 RdL:    bss     1
@@ -41,7 +42,7 @@ vS:     bss     1
 vTH:    bss     1
 vTL:    bss     1
 vT:     equ     vTL
-cF:     equ     50
+cF:     equ     50              fixed-point scale
 vY:     bss     1
 vX:     bss     1
 vI:     bss     1
@@ -84,7 +85,7 @@ getchar:
         dint
         call    @queue_remove
         jnc     getchar_empty
-        eint                    ST.C=1
+        eint                    ST.C=1 (EINT sets all ST bits)
         rets
 getchar_empty:
         eint                    ST.C=1
@@ -106,7 +107,7 @@ putchar:
         movd    %tx_queue, R3
         dint
         call    @queue_add
-        jnc     putchar
+        jnc     putchar         retry while tx_queue is full
         eint
         movp    %RX_INT_TX_INT, ACIA_control    enable Tx interrupt
         rets

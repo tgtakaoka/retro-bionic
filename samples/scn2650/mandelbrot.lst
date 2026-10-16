@@ -71,7 +71,7 @@
 (1)       0 : =3                 INTR_IRQ2:      equ     3
           0 :                    ;;; Async 1stop 8data x16
           0 : =4E                ASYNC_MODE:     equ     MODE_STOP1_gc|MODE_LEN8_gc|MODE_BAUD_X16
-          0 :                    ;;; RTS/DTR, error reset, Rx enable, Tx enable
+          0 :                    ;;; RTS/DTR, Rx enable, Tx enable or disable
           0 : =27                RX_EN_TX_EN:    equ     CMD_RTS_bm + CMD_DTR_bm + CMD_RxEN_bm + CMD_TxEN_bm
           0 : =26                RX_EN_TX_DIS:   equ     CMD_RTS_bm + CMD_DTR_bm + CMD_RxEN_bm
           0 :
@@ -172,12 +172,16 @@
          7C :                    save_r0:
          7C :                            res     1
          7D :
+         7D :                    ;;; Put newline
+         7D :                    ;;; @clobber r0
          7D :                    newline:
          7D : 04 0D                      lodi,r0 H'0D'
          7F : 3B 59                      bstr,un putchar
          81 : 04 0A                      lodi,r0 H'0A'
          83 : 1B 55                      bctr,un putchar
          85 :
+         85 :                    ;;; Put space
+         85 :                    ;;; @clobber r0
          85 :                    putspace:
          85 : 04 20                      lodi,r0 A' '
          87 : 1B 51                      bctr,un putchar
@@ -185,6 +189,7 @@
          89 :                            include "mandelbrot.inc"
 (1)      89 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
 (1)     F00 :                            org     H'F00'
+(1)     F00 :                    ;;; Variables, addressed by R2/R3 as offsets from arith_work
 (1)     F00 : =F00               arith_work:     equ     $
 (1)     F00 :                    vY:     res     2
 (1)     F02 :                    vX:     res     2
@@ -197,7 +202,7 @@
 (1)     F10 :                    vS:     res     2
 (1)     F12 :                    vT:     res     2
 (1)     F14 :                    tmp:    res     2
-(1)     F16 : 00 32              vF:     acon    50
+(1)     F16 : 00 32              vF:     acon    50              ; F, fixed-point 1.0
 (1)     F18 : 00 E5              C229:   acon    229
 (1)     F1A : 00 64              C100:   acon    100
 (1)     F1C : 01 A0              C416:   acon    416
@@ -210,6 +215,10 @@
 (1)     F2A :                    vI:     res     1
 (1)     F2B :
 (1)    1000 :                            org     H'1000'
+(1)    1000 :                    ;;; Print the Mandelbrot set, X -49..29 by Y -12..12, in fixed point
+(1)    1000 :                    ;;; with F=1.0: each point shows the iteration I (hex) at which
+(1)    1000 :                    ;;; P*P+Q*Q exceeds 4, or a space if it stays within 16 iterations.
+(1)    1000 :                    ;;; A NUL received from the console halts.
 (1)    1000 :                    mandelbrot:
 (1)    1000 : 04 FF                      lodi,r0 >-12
 (1)    1002 : CC 0F 00                   stra,r0 vY
@@ -268,6 +277,7 @@
 (1)    1060 :                            ;; bsta,un print
 (1)    1060 :                            ;; bsta,un newline
 (1)    1060 :
+(1)    1060 :                    ;;; B=Q*F+S keeps 2*A*B/F = 2*(A*Q+A*S/F) within 16 bits
 (1)    1060 :                    loop_i:
 (1)    1060 : 0C 0F 0A                   loda,r0 vB
 (1)    1063 : 0D 0F 0B                   loda,r1 vB+1
@@ -418,7 +428,7 @@
 (1)    117B :                    next_x:
 (1)    117B : 06 02                      lodi,r2 vX-arith_work
 (1)    117D : 07 20                      lodi,r3 C1-arith_work
-(1)    117F : 3F 12 2A                   bsta,un addsi2
+(1)    117F : 3F 12 2A                   bsta,un addsi2          ; X+=1
 (1)    1182 : 07 26                      lodi,r3 C30-arith_work
 (1)    1184 : 3F 12 54                   bsta,un cmpsi2          ; X-30
 (1)    1187 : 1E 10 14                   bcta,lt loop_x          ; if X<30
@@ -437,6 +447,7 @@
 (1)    11A4 :                    ;;; Print variable
 (1)    11A4 :                    ;;; @param R2 variable name
 (1)    11A4 :                    ;;; @param R0:R1 variable value
+(1)    11A4 :                    ;;; @clobber R0 R1 R3
 (1)    11A4 :                    print:
 (1)    11A4 : C3                         strz    r3
 (1)    11A5 : 02                         lodz    r2
@@ -559,6 +570,7 @@
 (1)    1254 :                    ;;; Signed comparison: minuend - subtrahend
 (1)    1254 :                    ;;; @param @R2: minuend
 (1)    1254 :                    ;;; @param @R3: subtrahend
+(1)    1254 :                    ;;; @return PSL.CC eq, gt or lt as minuend is =, > or < subtrahend
 (1)    1254 :                    ;;; @clobber R0 R1 PSL
 (1)    1254 :                    cmpsi2:
 (1)    1254 : 0E 6F 01                   loda,r0 arith_work+1,r2
@@ -581,10 +593,10 @@
 (1)    1272 :                            res     1
 (1)    1273 :
 (1)    1273 :                    ;;; Unsigned multiplication: result = multiplicand * multiplier
-(1)    1273 :                    ;;; @param mul16_multiplicand
-(1)    1273 :                    ;;; @param mul16_multiplier
+(1)    1273 :                    ;;; @param umul16_multiplicand
+(1)    1273 :                    ;;; @param umul16_multiplier
 (1)    1273 :                    ;;; @return R0:R1 result
-(1)    1273 :                    ;;; @clobber R0 R1 PSL
+(1)    1273 :                    ;;; @clobber R0 R1 PSL umul16_multiplicand
 (1)    1273 :                    umul16:
 (1)    1273 : CE 12 BC                   stra,r2 umul16_r2
 (1)    1276 : CF 12 BD                   stra,r3 umul16_r3
@@ -695,7 +707,7 @@
 (1)    130B :                    udiv16:
 (1)    130B : 0C 13 7B                   loda,r0 udiv16_divisor
 (1)    130E : 6C 13 7C                   iora,r0 udiv16_divisor+1
-(1)    1311 : 14                         retc,eq                 ; divide by zero
+(1)    1311 : 14                         retc,eq                 ; divide by zero: R0=0, R1 unchanged
 (1)    1312 : 0D 13 7A                   loda,r1 udiv16_dividend+1
 (1)    1315 : 77 01                      ppsl    PSL_C           ; PSL.C=1
 (1)    1317 : AD 13 7C                   suba,r1 udiv16_divisor+1
@@ -852,7 +864,7 @@
 (1)    1405 :                    ;;; Signed division: dividend /= divisor
 (1)    1405 :                    ;;; @param @R2: dividend
 (1)    1405 :                    ;;; @param @R3: divisor
-(1)    1405 :                    ;;; @return udiv16_reminder: remainder
+(1)    1405 :                    ;;; @return udiv16_reminder: remainder of |dividend|/|divisor|, unsigned
 (1)    1405 :                    ;;; @clobber R0 R1 PSL
 (1)    1405 :                    divsi2:
 (1)    1405 : 0E 6F 00                   loda,r0 arith_work,r2
@@ -896,8 +908,7 @@
 (1)    1445 :
 (1)    1445 :                    ;;; [queue] Initialize queue
 (1)    1445 :                    ;;; @param r2:r3 queue work space pointer
-(1)    1445 :                    ;;; @param r1 queue work space size
-(1)    1445 :                    ;;; @clobber r1
+(1)    1445 :                    ;;; @param r1 queue work space size, header included
 (1)    1445 :                    queue_init:
 (1)    1445 : CE 14 AA                   stra,r2 queue_top
 (1)    1448 : CF 14 AB                   stra,r3 queue_top+1
@@ -1032,6 +1043,7 @@
        151A : D4 01                      wrte,r0 USARTC          ; disable Tx
        151C : 1B 11                      bctr,un isr_return
        151E :
+       151E :                    ;;; Save r0-r3 and PSL to isr_context
        151E :                    isr_save:
        151E : C8 0A                      strr,r0 isr_context
        1520 : C9 09                      strr,r1 isr_context+1
@@ -1044,6 +1056,8 @@
        152A :                    isr_context:
        152A :                            res     5
        152F :
+       152F :                    ;;; Restore from isr_context; the final LODR r0 changes CC, so put
+       152F :                    ;;; back the saved CC that LPSL left
        152F :                    isr_return:
        152F : 0B 7C                      lodr,r3 isr_context+3
        1531 : 0A 79                      lodr,r2 isr_context+2

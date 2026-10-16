@@ -33,7 +33,7 @@ init_usart:
 
         bcta,un arith
 
-;;; Print out char
+;;; Print a character; CR is followed by LF
 ;;; @param R0 char
 ;;; @clobber R0
 putchar:
@@ -53,16 +53,24 @@ putchar_nl:
 putchar_r1:
         res     1
 
+;;; Print CR LF
+;;; @clobber R0
 newline:
         lodi,r0 H'0D'
         bctr,un putchar
 
+;;; Print a space
+;;; @clobber R0
 putspace:
         lodi,r0 A' '
         bctr,un putchar
 
 expr_r0:
         res     1
+;;; Print "@R2 op @R3", then copy @R2 to arith_work and point R2 there
+;;; so the operation that follows leaves the constant intact
+;;; @param R0 op letter
+;;; @clobber R0 R1 R2
 expr:
         strr,r0 expr_r0
         loda,r0 arith_work+1,r2
@@ -81,6 +89,8 @@ expr:
         loda,r0 arith_work,r3
         bcta,un print_int16
 
+;;; Print " = @R2\n"
+;;; @clobber R0 R1
 answer:
         bsta,un putspace
         lodi,r0 A'='
@@ -92,6 +102,8 @@ answer:
         bsta,un print_int16
         bcta,un newline
 
+;;; Print "@R2 rel @R3\n"
+;;; @clobber R0 R1 R2
 comp:
         bsta,un cmpsi2
         bctr,gt comp_gt
@@ -112,8 +124,9 @@ comp_out:
         bcta,un newline
 
         org     H'0F00'
+;;; Operands, addressed by R2/R3 as offsets from arith_work
 arith_work:     equ     $
-        res     2
+        res     2               ; result of the current operation
 p18000: acon    18000
 p28000: acon    28000
 n18000: acon    -18000
@@ -138,6 +151,7 @@ n32700: acon    -32700
 n32600: acon    -32600
 
         org     H'1000'
+;;; Print each operation and its result; comments give the expected answer
 arith:
         lodi,r2 zero-arith_work
         lodi,r3 n28000-arith_work

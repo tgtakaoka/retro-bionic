@@ -1,5 +1,8 @@
 ;;; -*- mode: asm; mode: flyspell-prog; -*-
         cpu     6800
+
+;;; Identify the CPU from opcodes that differ between variants
+;;; @return X $6800, $8861, $6301, $6801 or $6811
 mc68xx:
         ldx     #$55AA
         ldab    #100

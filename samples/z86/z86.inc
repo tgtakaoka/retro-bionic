@@ -36,8 +36,8 @@ IPR_A53:        equ     %(2)000000 ; A: IRQ5 > IRQ3
 IPR_A35:        equ     %(2)100000 ; A: IRQ3 > IRQ5
 IPR_B20:        equ     %(2)000000 ; B: IRQ2 > IRQ0
 IPR_B02:        equ     %(2)000100 ; B: IRQ0 > IRQ2
-IPR_C14:        equ     %(2)000000 ; C: IRQ0 > IRQ4
-IPR_C41:        equ     %(2)000010 ; C: IRQ4 > IRQ0
+IPR_C14:        equ     %(2)000000 ; C: IRQ1 > IRQ4
+IPR_C41:        equ     %(2)000010 ; C: IRQ4 > IRQ1
 IMR:    equ     251             ; R/W: Interrupt Mask
 IMR_ENABLE:     equ     %(2)10000000 ; Interrupt enable
 IMR_IRQ0:       equ     (1 SHL 0)

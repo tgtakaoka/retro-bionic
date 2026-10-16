@@ -1,6 +1,6 @@
 *** -*- mode: asm; mode: flyspell-prog* -*-
 
-F:      equ     50
+F:      equ     50              fixed-point scale, 1.0=F
 
 mandelbrot:
         mvwi    R0, -12
@@ -41,6 +41,7 @@ loop_x:
         * bald    newline
 
 loop_i:
+        * A*B/F = A*Q+A*S/F with Q=B/F, S=B-Q*F; keeps products in 16 bits
         l       R1, vB
         mvwi    R2, F
         bald    divu16          R1=B/F
@@ -149,7 +150,7 @@ print_char:
         or      R0, R0, enz     skip if E=1
         b       next_x
         or      R0, R0, nz      skip if R0!=0
-        h                       halt to system
+        h                       halt to system on NUL
 next_x:
         l       R0, vX
         ai      R0, 1
@@ -168,7 +169,7 @@ next_y:
 *** Print variable: "name=variable "
 *** @param R1 variable
 *** @param R0 variable name
-*** @clobber R0 R1
+*** @clobber R0 R1 R2
 debug:
         bald    putchar     Print name
         mvi     R0, '='

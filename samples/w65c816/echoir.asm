@@ -41,7 +41,7 @@ loop:
         jsr     getchar
         bcs     loop
         ora     #0
-        beq     halt_to_system
+        beq     halt_to_system  ; NUL halts
         jsr     putchar
         cmp     #$0D
         bne     loop
@@ -52,6 +52,10 @@ halt_to_system:
         brk
         .byte   0               ; halt to system
 
+;;; Get character
+;;; @return A
+;;; @return P.C 1 if no character
+;;; @clobber X
 getchar:
         ldx     #rx_queue
         sei                     ; Disable IRQ
@@ -59,6 +63,8 @@ getchar:
         cli                     ; Enable IRQ
         rts
 
+;;; Wait until Tx is ready and send a character
+;;; @param A character
 putchar:
         pha
 putchar_loop:

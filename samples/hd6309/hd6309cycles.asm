@@ -1,5 +1,7 @@
         include "hd6309.inc"
         cpu     6309
+;;; Run every instruction form in emulation mode (mode=0), then again in
+;;; native mode (mode=1), and halt without printing.
 
         org     VEC_ILLOPC
         fdb     halt_to_system
@@ -11,13 +13,13 @@
         fdb     main
 
         org     $20
-djmp:   jmp     inst6809_jmp
-djsr:   rts
-mode:   rmb     1
-mdir:   rmb     4
+djmp:   jmp     inst6809_jmp    ; direct-page JMP target
+djsr:   rts                     ; direct-page JSR target
+mode:   rmb     1               ; 0=emulation, 1=native
+mdir:   rmb     4               ; direct-page operand
 
         org     $8000
-mabs:   rmb     4
+mabs:   rmb     4               ; extended operand
 
         org     $0100
 main:
@@ -82,14 +84,14 @@ inst6809_jmp:
         pshs    U,Y,X,DP
         tst     mode
         beq     normal_mode
-        pshs    D
+        pshs    D               ; stand-in for W, native mode only
 normal_mode:
         pshs    D,CC
         rti
 irq_rti:
         leax    firq_rti,PCR
         pshs    X
-        lda     #$7F
+        lda     #$7F            ; E=0: RTI pulls CC and PC only
         pshs    A
         rti
 
@@ -105,7 +107,7 @@ swi_return:
         leas    12,S
         tst     mode
         beq     swi_normal
-        leas    2,S             ; disacrd W
+        leas    2,S             ; discard W
 swi_normal:     
         ldx     #VEC_SWI
         stx     VEC_SWI         ; for halt to system

@@ -19,9 +19,9 @@ print_uint16:
         ld      r3, r1
         clr     r2              ; RR2=value, zero-extended
         div     rr2, #10        ; R3=value/10, R2=value%10
-        push    @rr14, r2        ; push remainder
+        push    @rr14, r2       ; push remainder
         ld      r1, r3
         call    print_uint16
-        pop     r0, @rr14        ; pop remainder
+        pop     r0, @rr14       ; pop remainder
         addb    rl0, #'0'
         jp      putchar

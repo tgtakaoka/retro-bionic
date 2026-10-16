@@ -6,9 +6,9 @@
 (1)       0 :                    *** Status Register
 (1)       0 : =0                 STR_E:          equ     0       Extension
 (1)       0 : =2                 STR_OV:         equ     2       Overflow
-(1)       0 : =5                 STR_IRQ0:       equ     5       IRQ0 Mask
-(1)       0 : =6                 STR_IRQ1:       equ     6       IRQ1 Mask
-(1)       0 : =7                 STR_IRQ2:       equ     7       IRQ2 Mask
+(1)       0 : =5                 STR_IRQ0:       equ     5       IRQ0 Mask, 1=enabled
+(1)       0 : =6                 STR_IRQ1:       equ     6       IRQ1 Mask, 1=enabled
+(1)       0 : =7                 STR_IRQ2:       equ     7       IRQ2 Mask, 1=enabled
 (1)       0 :                    *** Interrupt vector and save area
 (1)       0 : =0                 OPSW0:          equ     X'0000' IRQ0 old STR:IC
 (1)       0 : =2                 OPSW1:          equ     X'0002' IRQ1 old STR:IC
@@ -98,6 +98,7 @@
        2080 :                            ds      tx_queue_size
        2100 :
           8 :                            loc     ZERO_PAGE
+          8 :                    *** Zero-page pointers for indirect BAL to distant routines
           8 : 0250               I_queue_add:    dc      queue_add
           9 : 0264               I_queue_remove: dc      queue_remove
           A : 0235               I_putchar:      dc      putchar
@@ -169,6 +170,8 @@
         225 : 970B                       bal     (I_newline)
         226 : CFFE                       b       loop
         227 :
+        227 :                    *** @return R0 received char
+        227 :                    *** @return ST.E 0 if none
         227 :                    getchar:
         227 : 2301                       push    X0
         228 : 0B20                       mvi     X0, hi(rx_queue)
@@ -180,6 +183,7 @@
         22E : 2302                       pop     X0
         22F : 2003                       ret
         230 :
+        230 :                    *** Put a space, CR LF (newline) or char R0 (putchar)
         230 :                    putspace:
         230 : 0820                       mvi     R0, ' '
         231 : CF04                       b       putchar
@@ -216,7 +220,7 @@
 (1)     243 :                    *** [queue] Initialize queue
 (1)     243 :                    *** @param X0 queue work space pointer
 (1)     243 :                    *** @param R0 queue work space size
-(1)     243 :                    *** @clobber R0
+(1)     243 :                    *** @clobber R0 X0
 (1)     243 :                    queue_init:
 (1)     243 : 2101                       push    R1
 (1)     244 : 6101                       eor     R1, R1          clear R1
@@ -224,7 +228,7 @@
 (1)     246 : 4004                       si      R0, queue_buf
 (1)     247 : A001                       st      R0, queue_size(X0)      set queue_size
 (1)     248 : A102                       st      R1, queue_put(X0)       clear queue_put
-(1)     249 : A103                       st      R1, queue_get(X0)       clear queue_put
+(1)     249 : A103                       st      R1, queue_get(X0)       clear queue_get
 (1)     24A :                    queue_init_loop:
 (1)     24A : A104                       st      R1, queue_buf(X0)
 (1)     24B : 4B01                       ai      X0, 1
@@ -245,17 +249,17 @@
 (1)     254 : 51FA                       c       R1, R2, lm              skip if queue_len < queue_size
 (1)     255 : CF0B                       b       queue_add_return
 (1)     256 : E102                       l       R1, queue_put(X0)
-(1)     257 : 5B09                       a       X0, R1                  X0=&queu_buf[queue_put]
+(1)     257 : 5B09                       a       X0, R1                  X0=&queue_buf[queue_put]
 (1)     258 : A004                       st      R0, queue_buf(X0)       store element
 (1)     259 : 5B01                       s       X0, R1                  restore X0
 (1)     25A : 4901                       ai      R1, 1                   queue_put+=1
-(1)     25B : 51FA                       c       R1, R2, lm              skip if queue_len < queue_size
+(1)     25B : 51FA                       c       R1, R2, lm              skip if queue_put < queue_size
 (1)     25C : 6101                       eor     R1, R1                  R1=0
-(1)     25D : A102                       st      R1, queue_put(X0)       update queue_len
+(1)     25D : A102                       st      R1, queue_put(X0)       update queue_put
 (1)     25E : E600                       ims     queue_len(X0)           queue_len+=1
 (1)     25F : 3E10                       sbit    STR, STR_E, skp         ST.E=1, then skip
 (1)     260 :                    queue_add_return:
-(1)     260 : 3600                       rbit    STR, STR_E              ST_E=0
+(1)     260 : 3600                       rbit    STR, STR_E              ST.E=0
 (1)     261 : 2202                       pop     R2
 (1)     262 : 2102                       pop     R1
 (1)     263 : 2003                       ret
@@ -276,12 +280,12 @@
 (1)     26C : 4901                       ai      R1, 1                   queue_get+=1
 (1)     26D : 2201                       push    R2
 (1)     26E : E201                       l       R2, queue_size(X0)      R2=queue_size
-(1)     26F : 51FA                       c       R1, R2, lm              skip if queue_get
+(1)     26F : 51FA                       c       R1, R2, lm              skip if queue_get < queue_size
 (1)     270 : 6101                       eor     R1, R1                  R1=0
 (1)     271 : A103                       st      R1, queue_get(X0)       update queue_get
 (1)     272 : 2202                       pop     R2
 (1)     273 : A600                       dms     queue_len(X0)           queue_len-=1
-(1)     274 : 7808                       mv      R0, R0                  nop
+(1)     274 : 7808                       mv      R0, R0                  nop, for dms skipping on zero
 (1)     275 : 3E10                       sbit    STR, STR_E, skp         ST.E=1, then skip
 (1)     276 :                    queue_remove_return:
 (1)     276 : 3600                       rbit    STR, STR_E              ST.E=0
@@ -291,7 +295,7 @@
 (1)     279 :                    *** -*- mode: asm; mode: flyspell-prog* -*-
 (1)     279 :                    *** Print signed 16-bit integer as decimal
 (1)     279 :                    *** @param R0 value
-(1)     279 :                    *** @clobber R1 R2
+(1)     279 :                    *** @clobber R0 R1 R2
 (1)     279 :                    print_int16:
 (1)     279 : 2850                       tbit    R0, 0, nz       skip if msb(value)=1
 (1)     27A : CF08                       b       print_uint16
@@ -308,7 +312,7 @@
 (1)     284 : 0A0A                       mvi     R2, 10          R2=10
 (1)     285 : 8F08                       bal     udiv16          R0=value/10, R1=value%10
 (1)     286 : 2101                       push    R1              push remainder
-(1)     287 : 6048                       or      R0, R0, z       skip if value=0
+(1)     287 : 6048                       or      R0, R0, z       skip if quotient=0
 (1)     288 : 8FFA                       bal     print_uint16    next digit
 (1)     289 : 2002                       pop     R0              pop remainder
 (1)     28A : 0A30                       mvi     R2, '0'
@@ -405,6 +409,8 @@
 (1)     2C5 : 2003                       ret
 (1)     2C6 :
 (1)     2C6 :                    *** Signed Multiply: multiplicand * multiplier = product
+(1)     2C6 :                    *** A negative multiplier is negated with the multiplicand, so the loop
+(1)     2C6 :                    *** runs on |multiplier|.
 (1)     2C6 :                    *** @param R1 multiplicand
 (1)     2C6 :                    *** @param R2 multiplier
 (1)     2C6 :                    *** @return R1 product
@@ -438,7 +444,7 @@
         2D7 :                            include "mandelbrot.inc"
 (1)     2D7 :                    *** -*- mode: asm; mode: flyspell-prog* -*-
 (1)     2D7 :
-(1)     2D7 : =32                F:      equ     50
+(1)     2D7 : =32                F:      equ     50              fixed-point scale, 1.0=F
 (1)     2D7 :
 (1)     2D7 :                    mandelbrot:
 (1)     2D7 : 08FF                       mvi     R0, hi(-12)
@@ -488,6 +494,7 @@
 (1)     2F4 :                            * bal     (I_newline)
 (1)     2F4 :
 (1)     2F4 :                    loop_i:
+(1)     2F4 :                            * A*B/F = A*Q+A*S/F with Q=B/F, S=B-Q*F; keeps products in 16 bits
 (1)     2F4 : C116                       l       R1, vB
 (1)     2F5 : 6202                       eor     R2, R2
 (1)     2F6 : 0A32                       mvi     R2, F
@@ -609,7 +616,7 @@
 (1)     347 : 6098                       or      R0, R0, enz     skip if E=1
 (1)     348 : CF03                       b       next_x
 (1)     349 : 6058                       or      R0, R0, nz      skip if R0!=0
-(1)     34A : 2000                       h                       halt to system
+(1)     34A : 2000                       h                       halt to system on NUL
 (1)     34B :                    next_x:
 (1)     34B : C01C                       l       R0, vX
 (1)     34C : 4801                       ai      R0, 1
@@ -635,7 +642,7 @@
 (1)     35D :                    *** Print variable: "name=variable "
 (1)     35D :                    *** @param R1 variable
 (1)     35D :                    *** @param R0 variable name
-(1)     35D :                    *** @clobber R0 R1
+(1)     35D :                    *** @clobber R0 R1 R2
 (1)     35D :                    debug:
 (1)     35D : 970A                       bal     (I_putchar)     Print name
 (1)     35E : 083D                       mvi     R0, '='
@@ -672,7 +679,7 @@
         378 : 9709                       bal     (I_queue_remove)        Remove from Tx queue
         379 : 7898                       mv      R0, R0, enz     Skip if ST.E=1
         37A : CF05                       b       irq2_isr_empty
-        37B : 1080                       wt      R0, USARTD      Transmit charater
+        37B : 1080                       wt      R0, USARTD      Transmit character
         37C :                    irq2_isr_exit:
         37C : 2302                       pop     X0
         37D : 2002                       pop     R0

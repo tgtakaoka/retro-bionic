@@ -61,7 +61,7 @@ putchar_wait:
 *** @param R0 op letter
 *** @param R1 VA
 *** @param R2 VB
-*** @clobber R0 R1 R2
+*** @clobber R0
 expr:
         push    R1
         push    R2
@@ -98,7 +98,7 @@ answer:
 *** Print "VA rel VB\n"
 *** @param R1 VA
 *** @param R2 VB
-*** @clobber R0 R1 R2
+*** @clobber R0
 comp:
         c       R1, R2, mz      skip if VA<=VB
         b       comp_gt

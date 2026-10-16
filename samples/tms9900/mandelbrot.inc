@@ -1,8 +1,8 @@
-*** -*- mode: asm; mode: flyspell-prog* -*-
+*** -*- mode: asm; mode: flyspell-prog; -*-
 
         *** Print variable: "name=variable "
         *** @param R1 variable
-        *** @param R0 variable name
+        *** @param R0 variable name in high byte
         *** @clobber R0 R1
 print:
         dect    R10
@@ -16,7 +16,9 @@ print:
         mov     *R10+, R11      Pop return address
         rt
 
-F:      equ     50
+        *** Print the Mandelbrot set in fixed point scaled by F.
+        *** A NUL from the console halts to system.
+F:      equ     50              fixed-point scale
 vC:     bss     2
 vD:     bss     2
 vA:     bss     2
@@ -146,10 +148,10 @@ loop_i:
         inc     @vI             I+=1
         mov     @vI, R0
         ci      R0, 16
-        jhe     print_space
+        jhe     print_space     if I>=16
         b       @loop_i         if I<16
 print_space:
-        li      R0, >2000
+        li      R0, >2000       ' ' in high byte
         jmp     print_char
 print_table:
         data    '01'
@@ -177,7 +179,7 @@ print_char:
 
         bl      @getchar
         jnc     next_x
-        soc     R0, R0
+        soc     R0, R0          test R0
         jne     next_x
         xop     R15,15          halt to system
 next_x:

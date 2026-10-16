@@ -105,6 +105,7 @@
        2080 :                    tx_queue:       bss     tx_queue_size
        2100 :
        2100 :                            * Internal registers
+       2100 :                            * A 16-bit variable names its low byte Rn; Rn-1 is the high byte
           4 :                            org     >0004
           4 :                    RdH:    bss     1
           5 :                    RdL:    bss     1
@@ -131,7 +132,7 @@
          18 :                    vTH:    bss     1
          19 :                    vTL:    bss     1
          1A : =19                vT:     equ     vTL
-         1A : =32                cF:     equ     50
+         1A : =32                cF:     equ     50              fixed-point scale
          1A :                    vY:     bss     1
          1B :                    vX:     bss     1
          1C :                    vI:     bss     1
@@ -174,7 +175,7 @@
        102D : 06                         dint
        102E : 8E 13 54                   call    @queue_remove
        1031 : E7 02                      jnc     getchar_empty
-       1033 : 05                         eint                    ST.C=1
+       1033 : 05                         eint                    ST.C=1 (EINT sets all ST bits)
        1034 : 0A                         rets
        1035 :                    getchar_empty:
        1035 : 05                         eint                    ST.C=1
@@ -196,7 +197,7 @@
        1044 : 88 20 80 03                movd    %tx_queue, R3
        1048 : 06                         dint
        1049 : 8E 13 1F                   call    @queue_add
-       104C : E7 F5                      jnc     putchar
+       104C : E7 F5                      jnc     putchar         retry while tx_queue is full
        104E : 05                         eint
        104F : A2 B4 F0                   movp    %RX_INT_TX_INT, ACIA_control    enable Tx interrupt
        1052 : 0A                         rets
@@ -218,7 +219,7 @@
 (1)    1061 :
 (1)    1061 :                            *** Sign extend
 (1)    1061 :                            *** @param A 8-bit value
-(1)    1061 :                            *** @return Rd signed extended 16-bit value
+(1)    1061 :                            *** @return Rd sign-extended 16-bit value
 (1)    1061 :                    sex:
 (1)    1061 : D5 04                      clr     RdH
 (1)    1063 : D0 05                      mov     A, RdL
@@ -227,6 +228,8 @@
 (1)    1069 :                    sex_end:
 (1)    1069 : 0A                         rets
 (1)    106A :
+(1)    106A :                            *** Print the Mandelbrot set in fixed point scaled by cF.
+(1)    106A :                            *** A NUL from the console halts to system.
 (1)    106A :                    mandelbrot:
 (1)    106A : 72 F4 1A                   mov     %-12, vY        ; Y=-12
 (1)    106D :                    loop_y:
@@ -633,7 +636,7 @@
 (1)    12DA :                            *** @param R4:R5 dividend
 (1)    12DA :                            *** @param R6:R7 divisor
 (1)    12DA :                            *** @return R4:R5 quotient
-(1)    12DA :                            *** @return R6:R7 remainder
+(1)    12DA :                            *** @return R6:R7 |remainder|
 (1)    12DA :                            *** @clobber A B
 (1)    12DA :                    div16:
 (1)    12DA : 12 04                      mov     R4, A
@@ -652,7 +655,7 @@
 (1)    12F6 : 79 00 04                   adc     %0, R4          ; negate dividend
 (1)    12F9 :                    div16_divide:
 (1)    12F9 : 8E 12 53                   call    @udiv16         ; R4:R5=quotient
-(1)    12FC : B9                         pop     A               ; A=(dividend^divisor)
+(1)    12FC : B9                         pop     A               ; A=hi(dividend^divisor)
 (1)    12FD : E5 09                      jpz     div16_end
 (1)    12FF : D4 04                      inv     R4
 (1)    1301 : D4 05                      inv     R5
@@ -734,6 +737,7 @@
 (1)    1354 :                            *** @param R2:R3 queue work space pointer
 (1)    1354 :                            *** @return A an element
 (1)    1354 :                            *** @return ST.C 0 if queue is empty
+(1)    1354 :                            *** @clobber R2:R3
 (1)    1354 :                    queue_remove:
 (1)    1354 : 9A 03                      lda     *R3             A=queue_len
 (1)    1356 : E6 02                      jnz     queue_remove_elem
@@ -747,7 +751,7 @@
 (1)    1362 : 9A 03                      lda     *R3             A=queue_get
 (1)    1364 : 28 01                      add     %queue_buf-queue_get, A
 (1)    1366 : 48 00 03                   add     A, R3           R2:R3=&queue_buf[queue_get]
-(1)    1369 : 9A 03                      lda     *R3             remove element
+(1)    1369 : 9A 03                      lda     *R3             read element
 (1)    136B : D9 03                      pop     R3              R2:R3=&queue_get
 (1)    136D : B8                         push    A
 (1)    136E : 9A 03                      lda     *R3

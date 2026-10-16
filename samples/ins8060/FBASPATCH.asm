@@ -26,7 +26,7 @@ putchar_loop:
         dld     -24(p2)         ; decrement bit count
         jz      putchar_stop
         lde
-        ani     1               ;
+        ani     1
         st      -23(p2)         ; extract LSB
         xae
         rr                      ; shift right char
@@ -44,12 +44,12 @@ putchar_stop:
         xae                     ; restore E
         xri     X'C
         jnz     putchar_nol
-        dly     255
+        dly     255             ; long delay after form feed
         jmp     38(p3)
 putchar_nol:
         ani     X'60
         jnz     38(p3)
-        dly     16
+        dly     16              ; short delay after a control char
         jmp     38(p3)
 
 
@@ -66,7 +66,7 @@ getchar_wait:
         dly     0               ; delay 1/2 bit
         csa
         ani     X'20           ; check start bit on SENSEB
-        jnz     getchar_wait    ; brach if SENSEB=HIGH
+        jnz     getchar_wait    ; branch if SENSEB=HIGH
 getchar_loop:
         ldi     150
         dly     0               ; delay 1 bit

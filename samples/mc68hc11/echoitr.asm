@@ -14,7 +14,7 @@ tx_queue_size:  equ     128
 tx_queue:       rmb     tx_queue_size
 
         org     $1000
-stack:  equ     *-1             ; MC6801's SP is post-decrement/pre-increment
+stack:  equ     *-1             ; MC68HC11's SP is post-decrement/pre-increment
 
         org     VEC_IRQ
         fdb     isr_irq
@@ -127,7 +127,7 @@ getchar:
         sei                     ; disable IRQ
         ldx     #rx_queue
         jsr     queue_remove
-        cli
+        cli                     ; enable IRQ
         pulx
         rts
 

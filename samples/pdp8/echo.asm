@@ -19,7 +19,7 @@ RX_NO_TX_NO,    WSB_8N1_gc
 loop,
         jms     getchar
         sna                     / Skip if AC != 0
-        jmp     halt_to_system
+        jmp     halt_to_system  / NUL halts
 echo,
         jms     putchar
         cia                     / negate AC
@@ -33,6 +33,8 @@ halt_to_system,
 char_CR,        015             / Carriage return
 char_LF,        012             / Line feed
 
+/// Wait for a character
+/// @return AC character
 getchar,        .-.
         cla
 getchar_loop,
@@ -44,6 +46,9 @@ getchar_loop,
         jmp     I getchar
 bit_receive,    RDRF_bm
 
+/// Wait until Tx is ready and send a character
+/// @param AC character
+/// @return AC character
 putchar,        .-.
         dca     putchar_char    / Save character
 putchar_loop,
@@ -60,5 +65,5 @@ bit_transmit,   TDRE_bm
 
         *ORG_RESET-1
         initialize
-        jmp     I .-1
+        jmp     I .-1           / reset starts here
 

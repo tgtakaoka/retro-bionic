@@ -57,6 +57,7 @@ loop:
         *** Get character
         *** @return R0
         *** @return ST.C 0 if no character
+        *** @clobber R9
 getchar:
         dect    R10
         mov     R11, *R10       Push return address
@@ -80,6 +81,8 @@ newline:
         mov     *R10+, R11      Pop return address
         rt
 
+        *** Queue R0 high byte for the Tx interrupt
+        *** @clobber R9
 putspace:
         li      R0, hibyte(' ')
 putchar:
@@ -101,6 +104,7 @@ putchar:
         include "arith.inc"
         include "../tms9900/queue.inc"
 
+        *** ACIA interrupt; runs in its own workspace, so no registers need saving
 int1_isr:
         movb    @ACIA_status, R0
         andi    R0, hibyte(RDRF_bm)
@@ -119,7 +123,6 @@ int1_isr_send:
 int1_isr_exit:
         rtwp
 int1_isr_send_empty:
-        * Disable Tx interrupt
         li      R1, hibyte(TCB_EI_gc)
         szcb    R1, @ACIA_control       Disable Tx interrupt
         rtwp

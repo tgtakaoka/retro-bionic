@@ -36,6 +36,7 @@
 (2)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
 (2)       0 :
 (2)       0 :                    ;;; i8251 USART device emulator.
+(2)       0 :                    ;;; Bit definition of mode register
 (2)       0 : =6                 MODE_STOP_gp:   equ     6
 (2)       0 : =C0                MODE_STOP_gm:   equ     11000000B
 (2)       0 : =40                MODE_STOP1_gc:  equ     (1 << MODE_STOP_gp)
@@ -174,7 +175,7 @@
         14E :
         14E :                    ;;; Get character
         14E :                    ;;; @return A
-        14E :                    ;;; @return CC.C 0 if no character
+        14E :                    ;;; @return F.C 0 if no character
         14E :                    getchar:
         14E : E5                         push    HL
         14F : 21 00 20                   ld      HL, rx_queue
@@ -227,7 +228,7 @@
 (1)     17C :                    sex_BC:
 (1)     17C : 4F                         ld      C, A
 (1)     17D : 87                         add     A, A            ; AF.C=sign(A)
-(1)     17E : 9F                         sbc     A, A            ; A=A-A-C
+(1)     17E : 9F                         sbc     A, A            ; A=-C: 00H or FFH
 (1)     17F : 47                         ld      B, A
 (1)     180 : C9                         ret
 (1)     181 :
@@ -237,11 +238,14 @@
 (1)     181 :                    sex_HL:
 (1)     181 : 6F                         ld      L, A
 (1)     182 : 87                         add     A, A            ; AF.C=sign(A)
-(1)     183 : 9F                         sbc     A, A            ; A=A-A-C
+(1)     183 : 9F                         sbc     A, A            ; A=-C: 00H or FFH
 (1)     184 : 67                         ld      H, A
 (1)     185 : C9                         ret
 (1)     186 :
-(1)     186 : =32                Fv:     equ     50
+(1)     186 : =32                Fv:     equ     50              ; fixed-point 1.0
+(1)     186 :                    ;;; Print one 79x25 frame of the Mandelbrot set: each point is its
+(1)     186 :                    ;;; escape iteration in hex, or a space if it does not escape in 16.
+(1)     186 :                    ;;; Exits to the debugger when NUL is received.
 (1)     186 :                    mandelbrot:
 (1)     186 : 3E F4                      ld      A, -12
 (1)     188 : 32 DF 02                   ld      (vY), A         ; Y=-12
@@ -398,7 +402,7 @@
 (1)     288 : C6 90                      add     A, 90H
 (1)     28A : 27                         daa
 (1)     28B : CE 40                      adc     A, 40H
-(1)     28D : 27                         daa
+(1)     28D : 27                         daa                     ; A='0'-'9','A'-'F'
 (1)     28E :                    print_char:
 (1)     28E : CD 60 01                   call    putchar
 (1)     291 :
@@ -417,7 +421,7 @@
 (1)     297 : 20 06                      jr      NZ, next_x
 (1)     299 :                    halt_to_system:
 (1)     299 : 21 38 00                   ld      HL, ORG_RST38
-(1)     29C : 36 FF                      ld      (HL), 0FFH
+(1)     29C : 36 FF                      ld      (HL), 0FFH      ; RST 38H at its vector: exit to the debugger
 (1)     29E : FF                         rst     38H
 (1)     29F :
 (1)     29F :                    next_x:
@@ -701,7 +705,6 @@
 (1)     3CC :                    ;;; [queue] Initialize queue
 (1)     3CC :                    ;;; @param HL queue work space pointer
 (1)     3CC :                    ;;; @param B queue work space size
-(1)     3CC :                    ;;; @clobber B
 (1)     3CC :                    queue_init:
 (1)     3CC : F5                         push    AF
 (1)     3CD : E5                         push    HL
@@ -733,7 +736,7 @@
 (1)     3E8 : DD BE 01                   cp      (IX+queue_size)
 (1)     3EB : 7A                         ld      A, D               ; restore an element
 (1)     3EC : 38 05                      jr      C, queue_add_store ; queue_len < queue_size
-(1)     3EE : DD E3                      ex      (SP), IX           ; F.C=1
+(1)     3EE : DD E3                      ex      (SP), IX           ; F.C=0
 (1)     3F0 : E1                         pop     HL
 (1)     3F1 : D1                         pop     DE
 (1)     3F2 : C9                         ret
@@ -790,6 +793,7 @@
 (1)     435 : 37                         scf                     ; set carry
 (1)     436 : C9                         ret
         437 :
+        437 :                    ;;; Rx and Tx share the vector: receive if RxRDY, then send if TxRDY
         437 :                    isr_intr:
         437 : F5                         push    AF
         438 : C5                         push    BC

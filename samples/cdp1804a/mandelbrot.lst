@@ -40,7 +40,7 @@
 (1)       4 :                    ;;; R4: Link register, pointer to the return location and arguments
 (1)       4 :                    ;;;     passed by the calling program
 (1)       4 :
-(1)       4 :                    ;;; Call subroutine
+(1)       4 :                    ;;; Call subroutine; SCAL/SRET push and pop R4 via R(X), so X=2
 (1)       4 :                    ;;;   SCAL R4, subroutine
 (1)       4 :                    ;;;   DC   arguments...
 (1)       4 :                    ;;; Subroutine return
@@ -56,7 +56,7 @@
 (1)       4 :                    ;;; @return R1=scrt_isr
 (1)       4 :                    ;;; @return R2=stack
 (1)       4 :                    ;;; @return R3=main
-(1)       4 :                    ;;; @clobber D, R15
+(1)       4 :                    ;;; @return X=2
 (1)       4 :                    scrt_init:
 (1)       4 : 68 C3 00 09                rldi    R3, scrt_start
 (1)       8 : D3                         sep     R3              ; P=3
@@ -77,7 +77,7 @@
 (1)      1C : 72                         ldxa                    ; pop D
 (1)      1D : 70                         ret                     ; restore X,P IE=1
 (1)      1E :                            ;; R1 points scrt_isr
-(1)      1E :                    ;;; CDP1802 interrupt entry, X=2, P=1, IE=0
+(1)      1E :                    ;;; CDP1804A interrupt entry, X=2, P=1, IE=0
 (1)      1E :                    ;;; @unchanged D, DF, X, P, R3, R15
 (1)      1E :                    scrt_isr:
 (1)      1E :                            ;; R2[0] must be preserved because it may be in the pop process
@@ -169,7 +169,7 @@
        1012 : E8                         sex     R8              ; R8 for out
        1013 : 64                         out     ACIA_control    ; Master reset
        1014 : 64                         out     ACIA_control    ; Set mode
-       1015 : E3                         sex     R3
+       1015 : E3                         sex     R3              ; RET/DIS take X:P from the inline byte
        1016 : 70                         ret
        1017 : 33                         dc      X'33'           ; enable interrupt
        1018 : E2                         sex     R2
@@ -186,7 +186,8 @@
        1027 :
        1027 :                    ;;; Get character
        1027 :                    ;;; @return R7.0 char
-       1027 :                    ;;; @return A 0 if no char received
+       1027 :                    ;;; @return D 0 if no char received
+       1027 :                    ;;; @clobber R15
        1027 :                    getchar:
        1027 : E3                         sex     R3
        1028 : 71                         dis                     ; disable interrupt
@@ -316,7 +317,7 @@
 (1)    10AE : =3                 queue_get:      equ     3       ; queue get index
 (1)    10AE : =4                 queue_buf:      equ     4       ; buffer start offset
 (1)    10AE :
-(1)    10AE :                    ;;; [queue] Initialize queue
+(1)    10AE :                    ;;; [queue] Initialize queue; arguments follow the call inline
 (1)    10AE :                    ;;; @param R4+0 queue work space pointer
 (1)    10AE :                    ;;; @param R4+2 queue work space size
 (1)    10AE :                    ;;; @clobber D, R15
@@ -341,13 +342,14 @@
 (1)    10C7 : E2                         sex     R2
 (1)    10C8 : 60                         irx
 (1)    10C9 : 68 6E                      rlxa    R14             ; restore R14
-(1)    10CB : 22                         dec     R2
+(1)    10CB : 22                         dec     R2              ; RLXA overshoots by one; SRET pre-increments
 (1)    10CC : 68 94                      sret    R4
 (1)    10CE :
 (1)    10CE :                    ;;; [queue] Add an element to queue
 (1)    10CE :                    ;;; @param R4+0 queue work space pointer
 (1)    10CE :                    ;;; @param R7.0 an element
 (1)    10CE :                    ;;; @return D 0 if queue is full
+(1)    10CE :                    ;;; @clobber R15
 (1)    10CE :                    queue_add:
 (1)    10CE : 68 AE                      rsxd    R14             ; save R14
 (1)    10D0 : E4                         sex     R4
@@ -355,7 +357,7 @@
 (1)    10D3 : EF                         sex     R15
 (1)    10D4 : 72                         ldxa                    ; load queue_len
 (1)    10D5 : F3                         xor                     ; queue_len ^ queue_size
-(1)    10D6 : 32 FD                      bz      queue_add_return ; branch if D=0
+(1)    10D6 : 32 FD                      bz      queue_add_return ; branch if queue is full
 (1)    10D8 : 2F                         dec     R15
 (1)    10D9 : 8F                         glo     R15
 (1)    10DA : FC 04                      adi     queue_buf
@@ -405,7 +407,7 @@
 (1)    1108 : E4                         sex     R4
 (1)    1109 : 68 6F                      rlxa    R15                 ; R15=queue space pointer
 (1)    110B : 0F                         ldn     R15                 ; load queue_len
-(1)    110C : 32 34                      bz      queue_remove_return ; branch if D=0
+(1)    110C : 32 34                      bz      queue_remove_return ; branch if queue is empty
 (1)    110E : FF 01                      smi     1
 (1)    1110 : 5F                         str     R15             ; queue_len--
 (1)    1111 : 8F                         glo     R15
@@ -424,7 +426,7 @@
 (1)    1120 : 9E                         ghi     R14
 (1)    1121 : 7C 00                      adci    0
 (1)    1123 : BE                         phi     R14             ; R14=&queue_buf[queue_get]
-(1)    1124 : 0E                         ldn     R14             ; load an alement
+(1)    1124 : 0E                         ldn     R14             ; load an element
 (1)    1125 : A7                         plo     R7              ; R7.0=an element
 (1)    1126 : 0F                         ldn     R15             ; load queue_get
 (1)    1127 : FC 01                      adi     1
@@ -432,7 +434,7 @@
 (1)    112A : 2F                         dec     R15
 (1)    112B : 2F                         dec     R15
 (1)    112C : F3                         xor                     ; queue_get ^ queue_size
-(1)    112D : 3A 34                      bnz     queue_remove_return ; brnach if D!=0
+(1)    112D : 3A 34                      bnz     queue_remove_return ; branch if D!=0
 (1)    112F : 1F                         inc     R15
 (1)    1130 : 1F                         inc     R15
 (1)    1131 : 5F                         str     R15             ; queue_get=0
@@ -449,7 +451,7 @@
 (1)    113D :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
 (1)    113D :                            cpu     1804A
 (1)    113D :
-(1)    113D :                    ;;; Print unsigned 16-bit integer as decimal
+(1)    113D :                    ;;; Print unsigned 16-bit integer as decimal; recurses once per digit
 (1)    113D :                    ;;; @param R7 value
 (1)    113D :                    ;;; @clobber D R7 R8 R15
 (1)    113D :                    print_uint16:
@@ -504,13 +506,13 @@
 (1)    1183 : 22                         dec     R2
 (1)    1184 : 68 94                      sret    R4
 (1)    1186 :
-(1)    1186 :                    ;;; Store R7 to variable
+(1)    1186 :                    ;;; Store R7 to variable, big-endian
 (1)    1186 :                    ;;;   SCAL R4, store_R7
 (1)    1186 :                    ;;;   DC   A(variable)
-(1)    1186 :                    ;;; @clobber D R15
+(1)    1186 :                    ;;; @clobber R15
 (1)    1186 :                    store_R7:
 (1)    1186 : E4                         sex     R4
-(1)    1187 : 68 6F                      rlxa    R15             ; R15=&valiable
+(1)    1187 : 68 6F                      rlxa    R15             ; R15=&variable
 (1)    1189 : EF                         sex     R15
 (1)    118A : 60                         irx
 (1)    118B : 68 A7                      rsxd    R7
@@ -521,7 +523,6 @@
 (1)    1190 :                    ;;;   SCAL R4, load_R7
 (1)    1190 :                    ;;;   DC   A(variable)
 (1)    1190 :                    ;;; @return R7 variable
-(1)    1190 :                    ;;; @clobber R15
 (1)    1190 :                    load_R7:
 (1)    1190 : E4                         sex     R4
 (1)    1191 : 68 67                      rlxa    R7              ; R7=&variable
@@ -533,7 +534,7 @@
 (1)    1199 :                    ;;; Load variable to R8
 (1)    1199 :                    ;;;   SCAL R4, load_R8
 (1)    1199 :                    ;;;   DC   A(variable)
-(1)    1199 :                    ;;; @clobber R15
+(1)    1199 :                    ;;; @return R8 variable
 (1)    1199 :                    load_R8:
 (1)    1199 : E4                         sex     R4
 (1)    119A : 68 68                      rlxa    R8              ; R8=&variable
@@ -561,7 +562,7 @@
 (1)    11AB : B7                         phi     R7
 (1)    11AC : 68 94                      sret    R4
 (1)    11AE :
-(1)    11AE :                    ;;; Singed subtraction: minuend -= subtrahend
+(1)    11AE :                    ;;; Signed subtraction: minuend -= subtrahend
 (1)    11AE :                    ;;;   SCAL R4, sub16
 (1)    11AE :                    ;;; @param R7 minuend
 (1)    11AE :                    ;;; @param R8 subtrahend
@@ -633,7 +634,7 @@
 (1)    11E7 :                    ;;; @param R8 multiplier
 (1)    11E7 :                    ;;; @return R7 multiplicand * multiplier
 (1)    11E7 :                    ;;;   SCAL R4, mul16
-(1)    11E7 :                    ;;; @clobber R8 R15
+(1)    11E7 :                    ;;; @clobber D R8 R15
 (1)    11E7 :                    mul16:
 (1)    11E7 : 98                         ghi     R8
 (1)    11E8 : 52                         str     R2
@@ -678,11 +679,12 @@
 (1)    121C : 68 94                      sret    R4
 (1)    121E :
 (1)    121E :                    ;;; Unsigned division: dividend / divisor = quotient ... remainder
-(1)    121E :                    ;;; @praram R7 dividend
-(1)    121E :                    ;;; @praram R8 divisor
+(1)    121E :                    ;;; Non-restoring; R7 and R8 are unchanged if divisor is 0.
+(1)    121E :                    ;;; @param R7 dividend
+(1)    121E :                    ;;; @param R8 divisor
 (1)    121E :                    ;;; @return R7 quotient
 (1)    121E :                    ;;; @return R8 remainder
-(1)    121E :                    ;;; @clobber R7 R8 R15
+(1)    121E :                    ;;; @clobber D R7 R8 R15
 (1)    121E :                    udiv16:
 (1)    121E : 98                         ghi     R8
 (1)    121F : 3A 26                      bnz     udiv16_calc
@@ -800,11 +802,9 @@
 (1)    1297 :                    ;;; @param R7 dividend
 (1)    1297 :                    ;;; @param R8 divisor
 (1)    1297 :                    ;;; @return R7 quotient
-(1)    1297 :                    ;;; @return R8 remainder
-(1)    1297 :                    ;;;   SCAL R4, duvsi2
-(1)    1297 :                    ;;;   SEP R5
-(1)    1297 :                    ;;;   DC  A(div16)
-(1)    1297 :                    ;;; @clobber R15
+(1)    1297 :                    ;;; @return R8 remainder of the absolute values
+(1)    1297 :                    ;;;   SCAL R4, div16
+(1)    1297 :                    ;;; @clobber D R15
 (1)    1297 :                    div16:
 (1)    1297 : 98                         ghi     R8
 (1)    1298 : 52                         str     R2
@@ -822,7 +822,7 @@
 (1)    12A8 : A8                         plo     R8
 (1)    12A9 : 18                         inc     R8              ; negate divisor
 (1)    12AA :                    div16_dividend:
-(1)    12AA : 97                         ghi     R7              ; R7=dividend
+(1)    12AA : 97                         ghi     R7
 (1)    12AB : FA 80                      ani     X'80'
 (1)    12AD : 32 B8                      bz      div16_divide
 (1)    12AF : 97                         ghi     R7
@@ -876,6 +876,8 @@
 (1)    12E5 : 68 84 11 62                scal    R4, print_int16
 (1)    12E9 : C0 10 65                   br      putspace
 (1)    12EC :
+(1)    12EC :                    ;;; Print one frame: a char per point, the escape iteration in hex
+(1)    12EC :                    ;;; or ' ' if none; NUL from the console halts.
 (1)    12EC :                    mandelbrot:
 (1)    12EC : 68 CB FF F4                rldi    rY, -12         ; Y=-12
 (1)    12F0 :                    loop_y:
@@ -929,6 +931,8 @@
 (1)    1338 :                            ;; scal    R4, print
 (1)    1338 :                            ;; scal    R4, newline
 (1)    1338 :
+(1)    1338 :                            ;; A*B/F is computed as A*Q+A*S/F with Q=B/F, S=B-Q*F,
+(1)    1338 :                            ;; to avoid 16-bit overflow
 (1)    1338 :                    loop_i:
 (1)    1338 : 68 84 11 90                scal    R4, load_R7
 (1)    133C : 12 D3                      dc      A(vB)
@@ -1080,7 +1084,7 @@
 (1)    1447 : 30 50                      br      print_char
 (1)    1449 :                    print_i:
 (1)    1449 : 8D                         glo     rI
-(1)    144A : 68 FC 90                   dadi    x'90'
+(1)    144A : 68 FC 90                   dadi    x'90'           ; I to ASCII hex digit
 (1)    144D : 68 7C 40                   daci    x'40'
 (1)    1450 :                    print_char:
 (1)    1450 : 68 84 10 37                scal    R4, putchar

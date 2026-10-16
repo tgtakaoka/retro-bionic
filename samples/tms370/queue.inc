@@ -30,7 +30,6 @@ queue_init_loop:
 ;;; @param R2:R3 queue work space pointer
 ;;; @param A an element
 ;;; @return ST.C 0 if queue is full
-;;; @clobber R2:R3
 queue_add:
         push    A
         mov     @R3, A          ; A=queue_len
@@ -73,7 +72,7 @@ queue_remove_elem:
         add     #queue_buf, A
         push    R3              ; save pointer
         add     A, R3           ; R2:R3=&queue_buf[queue_get]
-        mov     @R3, A          ; remove element
+        mov     @R3, A          ; read element
         pop     R3              ; restore pointer
         push    A               ; save element
         mov     queue_get(R3), A

@@ -21,11 +21,11 @@ queue_tmp:
         *=      *+2
 rx_queue:
         *=      *+queue_buf
-        .word   $2000
+        .word   $2000           ; buffer address
 rx_queue_size   =       128
 tx_queue:
         *=      *+queue_buf
-        .word   $2000 + rx_queue_size
+        .word   $2000 + rx_queue_size ; buffer address
 tx_queue_size   =       128
 
 ;;; Work area for arith.inc
@@ -42,7 +42,7 @@ R2H:    .byte   0
 arith_work:
         .word   0
 ;;; Work area for mandelbrot.inc
-F       =       50
+F       =       50              ; fixed-point 1.0
 vY:     .byte   0
 vX:     .byte   0
 vC:     .word   0
@@ -60,7 +60,7 @@ stack   =       $01FF
 initialize:
         ldx     #stack & $FF
         txs
-        cld                     ; clear decimal flag
+        cld                     ; D is undefined after reset
         ldx     #rx_queue
         lda     #rx_queue_size
         jsr     queue_init
@@ -82,7 +82,7 @@ loop:
 ;;; Get character
 ;;; @return A
 ;;; @return P.C 1 if no character
-;;; @clobber X
+;;; @clobber X Y
 getchar:
         ldx     #rx_queue
         sei                     ; disable IRQ
@@ -92,7 +92,7 @@ getchar:
 
 ;;; Put character
 ;;; @param A
-;;; @clobber X
+;;; @clobber X Y
 putchar:
         pha
 putchar_retry:
@@ -107,7 +107,7 @@ putchar_retry:
         rts
 
 ;;; Put newline
-;;; @clobber A
+;;; @clobber A X Y
 newline:
         lda     #$0D
         jsr     putchar
@@ -115,7 +115,7 @@ newline:
         jmp     putchar
 
 ;;; Put space
-;;; @clobber A
+;;; @clobber A X Y
 putspace:
         lda     #' '
         jmp     putchar
@@ -125,7 +125,7 @@ putspace:
         .include "queue.inc"
 
 isr_irq:
-        cld                     ; clear decimal flag
+        cld                     ; NMOS 6502 keeps D on interrupt
         pha                     ; save A
         txa
         pha                     ; save X
@@ -162,4 +162,4 @@ isr_irq_send_empty:
 
 isr_nmi:
         brk
-        .byte   0
+        .byte   0               ; halt to system

@@ -18,7 +18,7 @@ tx_queue,
 
         *ORG_RESET-1
         initialize
-        jmp     I .-1
+        jmp     I .-1           / reset starts here
 
         *PAGE0
 I_queue_init,   queue_init
@@ -47,7 +47,7 @@ initialize,
 loop,
         jms     I I_getchar
         sna                     / Skip if AC != 0
-        jmp     halt_to_system
+        jmp     halt_to_system  / NUL halts
         dca     received_char   / Save character
         tad     received_char
         jms     I I_putchar
@@ -69,6 +69,8 @@ received_char,  0
 
 char_0,         060             / char '0'
 char_x,         170             / char 'x'
+/// Print received_char as "0xHH"
+/// @clobber AC
 put_hex8,       .-.
         cla
         tad     char_0
@@ -88,6 +90,8 @@ put_hex8,       .-.
 
 lower_nibble,   017             / 0x0F
 char_A,         101             / char 'A'
+/// Print the low 4 bits of AC as a hex digit
+/// @clobber AC
 put_hex4,       .-.
         and     lower_nibble
         dca     put_work
@@ -110,6 +114,8 @@ put_work,       0
 char_b,         142             / char 'b'
 const_8,        10              / constant 8
 put_count,      0
+/// Print received_char as "0bBBBBBBBB"
+/// @clobber AC put_work put_count
 put_bin8,       .-.
         cla
         tad     char_0
@@ -127,10 +133,12 @@ put_bin8,       .-.
         dca     put_count
 put_bin8_loop,
         jms     put_bin1
-        isz     put_count       / Skip if print 8 bits
+        isz     put_count       / Skip after 8 bits
         jmp     put_bin8_loop
         jmp     I put_bin8
 
+/// Print the MSB of put_work and shift it out
+/// @clobber AC
 put_bin1,       .-.
         cla
         tad     put_work
@@ -168,6 +176,7 @@ char_LF,        012             / Line feed
 
 /// Print character
 /// @param AC character
+/// @return AC character
 putchar,        .-.
         dca     putchar_char    / Save character
         tad     putchar_char
@@ -186,7 +195,7 @@ putchar_loop,
 putchar_char,   0
 ENABLE_TX_INT,  WSB_8N1_gc|RIEB_bm|TCB_EI_gc
 
-/// Read character
+/// Wait for a character from rx_queue
 /// @return AC character
 getchar,        .-.
 getchar_loop,

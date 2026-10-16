@@ -1,4 +1,4 @@
-/// -*- mode: asm; mode: flyspell-prog* -*-
+/// -*- mode: asm; mode: flyspell-prog; -*-
 
 /// Deposit 12-bit data to R0 with sign extend
 /// @param AC 12-bit data
@@ -38,9 +38,11 @@ add12_add,
 
 /// 12-bit/24-bit subtraction; minuend -= subtrahend
 /// @param R0 Signed 24-bit minuend
-/// @param AC Signed 12-bit minuend
+/// @param AC Signed 12-bit subtrahend
 /// @return AC=0
-/// @return L=0 if borrow
+/// @return L=1 if borrow
+/// ATTENTION: unused; sign-tests the zeroed R1H and subtracts R1L as
+/// the high word.
 /// @clobber R1
 sub12,          .-.
         dca     R1L             / low(subtrahend)
@@ -54,7 +56,7 @@ sub12_sub,
         tad     R1L             / AC=low(subtrahend)
         stl cia                 / negate to form 13-bit negative
         tad     R0L             / AC=low(R0)-low(subtrahend)
-        dca     R0L             / L=0 if borrowed
+        dca     R0L             / L=1 if borrowed
         ral                     / propagate complemented borrow
         tad     R1L             / AC=high(subtrahend)
         cia cml                 / form 13-bit negative
@@ -79,7 +81,7 @@ mul12,          .-.
         tad     R0H
         dca     R1H             / R1=multiplicand
         jmp     mul12_multiply
-mul12_negative,                 / multiplicand*-multiplier
+mul12_negative,                 / (-multiplicand)*(-multiplier)
         tad     R2L
         cia
         dca     R2L             / negate multiplier
@@ -97,9 +99,9 @@ mul12_multiply,
 
 /// Signed 24-bit/Unsigned 12-bit division; quotient = dividend / divisor ... remainder
 /// @param R0 dividend
-/// @param AC unsigned 12-bit divisor address
+/// @param AC unsigned 12-bit divisor
 /// @return R0 quotient
-/// @return R1 remainder
+/// @return R1 remainder of |dividend|/divisor, unsigned
 /// @return AC=0
 /// @clobber R2 arith_ptr
 divu12,         .-.
@@ -134,7 +136,10 @@ divu12_negative,
         dca     R0H             / negate quotient, AC=0
         jmp     I divu12        / return, AC=0
 
-/// Mandelbrot draw variables
+/// Print the Mandelbrot set, X -49..29 by Y -12..12, in fixed point
+/// with F=1.0: each point shows the iteration I (hex) at which
+/// P*P+Q*Q exceeds 4, or a space if it stays within 16 iterations.
+/// A NUL received from the console halts.
 mandelbrot_end,
         jmp     I mandelbrot
 mandelbrot,     .-.
@@ -219,7 +224,7 @@ loop_i,
         tad     vC
         jms     I I_add12       / R0=(A*A-B*B)/F+C
         tad     R0
-        dca     R3L             / TMP=(A*A-B*B)/F+C, 12-bit is enough
+        dca     R3L             / R3L=(A*A-B*B)/F+C, 12-bit is enough
         tad     vA
         jms     I I_dep12       / R0=A
         tad     vQ
@@ -311,7 +316,7 @@ print_i,
         cla
         tad     vI
         tad     const_m10       / I-10
-        spa                     / if I>=10
+        spa                     / skip if I-10>=0
         jmp     print_dec       / if I<10
         tad     char_A          / I-10+'A'
         jmp     print_char
@@ -340,7 +345,7 @@ check_break,
         jms     I I_getchar
         snl                     / Skip if L=1
         jmp     next_x
-        sza                     / Skip if AC=0
+        sza                     / Skip if NUL
         jmp     next_x
         hlt                     / halt to system
 

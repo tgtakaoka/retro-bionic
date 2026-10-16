@@ -15,6 +15,9 @@ sex_Aend:
         mov     R5, A
         ret
 
+;;; Print the Mandelbrot set, one character per point: the escape
+;;; iteration as a hex digit, or a space if it stays bounded for 16.
+;;; A NUL from the console halts.
 mandelbrot:
         mov     R4, #LOW(229)
         mov     R5, #HIGH(229)
@@ -219,7 +222,7 @@ print_char:
 next_x:
         inc     vX               ; X+=1
         mov     A, vX
-        jb      ACC.7, jmp_loop_x ; if hi(X)<0
+        jb      ACC.7, jmp_loop_x ; if X<0
         add     A, #-30
         jc      next_y
 jmp_loop_x:
@@ -228,7 +231,7 @@ next_y:
         acall   newline
         inc     vY              ; Y+=1
         mov     A, vY
-        jb      ACC.7, jmp_loop_y ; if hi(Y)<0
+        jb      ACC.7, jmp_loop_y ; if Y<0
         add     A, #-13
         jc      mandelbrot_end
 jmp_loop_y:

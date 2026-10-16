@@ -25,7 +25,7 @@
 (1)       0 :                    ;;; MC6850
 (1)       0 :                    ;;; Asynchronous Communication Interface Adapter
 (1)       0 :
-(1)       0 :                    ;;; Control register
+(1)       0 :                    ;;; Control register (write)
 (1)       0 : =DF00              ACIA_control    =       ACIA+0
 (1)       0 :                            ;; Counter Divider Select Bits
 (1)       0 : =3                 CDS_gm          =       %11    ; Group mask
@@ -52,7 +52,7 @@
 (1)       0 :                                                      ; Transmit Break Level
 (1)       0 : =80                RIEB_bm         =       %10000000 ; Receive Interrupt Enable Bit mask
 (1)       0 :
-(1)       0 :                    ;;; Status register
+(1)       0 :                    ;;; Status register (read)
 (1)       0 : =DF00              ACIA_status     =       ACIA+0
 (1)       0 : =1                 RDRF_bm         =       %00000001 ; Receive Data Register Full
 (1)       0 : =2                 TDRE_bm         =       %00000010 ; Transmit Data Register Empty
@@ -64,7 +64,7 @@
 (1)       0 : =80                IRQF_bm         =       %10000000 ; Interrupt Request Flag
 (1)       0 :
 (1)       0 :                    ;;; Data register
-(1)       0 : =DF01              ACIA_data       =       ACIA+1          ; Data register
+(1)       0 : =DF01              ACIA_data       =       ACIA+1
           0 :
        FFFC :                            *=      VEC_RESET
        FFFC : 00 10                      .word   initialize
@@ -80,7 +80,7 @@
          14 :                    R2:
          14 : 00                 R2L:    .byte   0
          15 : 00                 R2H:    .byte   0
-         16 :                    arith_work:
+         16 :                    arith_work:                     ; set_RX return-address pointer
          16 : 00 00                      .word   0
          18 :
        1000 :                            *=      $1000
@@ -88,7 +88,7 @@
        1000 :                    initialize:
        1000 : A2 FF                      ldx     #stack & 0xFF
        1002 : 9A                         txs
-       1003 : D8                         cld                     ; clear decimal flag
+       1003 : D8                         cld                     ; D is undefined after reset
        1004 : A9 03                      lda     #CDS_RESET_gc   ; Master reset
        1006 : 8D 00 DF                   sta     ACIA_control
        1009 : A9 14                      lda     #WSB_8N1_gc     ; 8 bits + No Parity + 1 Stop Bits
@@ -99,9 +99,8 @@
        1011 : 00                         brk
        1012 : 00                         .byte   0               ; halt to system
        1013 :
-       1013 :                    ;;; Print out char
+       1013 :                    ;;; Print a character
        1013 :                    ;;; @param A char
-       1013 :                    ;;; @clobber A
        1013 :                    putchar:
        1013 : 48                         pha                     ; save A
        1014 :                    putchar_loop:
@@ -112,19 +111,23 @@
        101C : 8D 01 DF                   sta     ACIA_data
        101F : 60                         rts
        1020 :
+       1020 :                    ;;; Print CR LF
+       1020 :                    ;;; @clobber A
        1020 :                    newline:
        1020 : A9 0D                      lda     #$0D
        1022 : 20 13 10                   jsr     putchar
        1025 : A9 0A                      lda     #$0A
        1027 : D0 EA                      bne     putchar         ; always branch
        1029 :
+       1029 :                    ;;; Print a space
+       1029 :                    ;;; @clobber A
        1029 :                    putspace:
        1029 : A9 20                      lda     #' '
        102B : D0 E6                      bne     putchar         ; always branch
        102D :
        102D :                    ;;; Print "R1 op R2"
        102D :                    ;;; @param A op letter
-       102D :                    ;;; @clobber R0
+       102D :                    ;;; @clobber A X Y R0
        102D :                    expr:
        102D : 48                         pha                     ; save op letter
        102E : A5 13                      lda     R1H
@@ -143,6 +146,7 @@
        104B : 4C A1 12                   jmp     print_int16
        104E :
        104E :                    ;;; Print " = R0\n"
+       104E :                    ;;; @clobber A X Y R0
        104E :                    answer:
        104E : 20 29 10                   jsr     putspace
        1051 : A9 3D                      lda     #'='
@@ -152,7 +156,7 @@
        105C : 4C 20 10                   jmp     newline
        105F :
        105F :                    ;;; Print "R1 rel R2"
-       105F :                    ;;; @clobber R0 R1 R2
+       105F :                    ;;; @clobber A X Y R0
        105F :                    comp:
        105F : 20 5F 13                   jsr     cmpsi2
        1062 : A5 10                      lda     R0L
@@ -170,6 +174,7 @@
        1072 : 20 2D 10                   jsr     expr
        1075 : 4C 20 10                   jmp     newline
        1078 :
+       1078 :                    ;;; Print each operation and its result; comments give the expected answer
        1078 :                    arith:
        1078 : 20 CB 12                   jsr     set_R1
        107B : 50 46                      .word   18000
@@ -404,7 +409,7 @@
 (1)    1277 :
 (1)    1277 :                    ;;; Print unsigned 16-bit integer as decimal
 (1)    1277 :                    ;;; @param R0 value
-(1)    1277 :                    ;;; @clobber R0 R1 R2
+(1)    1277 :                    ;;; @clobber A X Y R0 R1 R2
 (1)    1277 :                    print_uint16:
 (1)    1277 : A5 11                      lda     R0H
 (1)    1279 : 05 10                      ora     R0L
@@ -433,7 +438,7 @@
 (1)    12A1 :
 (1)    12A1 :                    ;;; Print signed 16-bit integer as decimal
 (1)    12A1 :                    ;;; @param R0 value
-(1)    12A1 :                    ;;; @clobber R0
+(1)    12A1 :                    ;;; @clobber A X Y R0
 (1)    12A1 :                    print_int16:
 (1)    12A1 : A5 13                      lda     R1H
 (1)    12A3 : 48                         pha
@@ -464,7 +469,7 @@
 (1)    12CB :                    ;;; Set constant to R1
 (1)    12CB :                    ;;;     jsr     set_R1
 (1)    12CB :                    ;;;     .word   constant
-(1)    12CB :                    ;;; @clobber A Y
+(1)    12CB :                    ;;; @clobber A X Y
 (1)    12CB :                    set_R1:
 (1)    12CB : A2 12                      ldx     #R1
 (1)    12CD : 4C D5 12                   jmp     set_RX
@@ -472,7 +477,7 @@
 (1)    12D0 :                    ;;; Set constant to R2
 (1)    12D0 :                    ;;;     jsr     set_R2
 (1)    12D0 :                    ;;;     .word   constant
-(1)    12D0 :                    ;;; @clobber A Y
+(1)    12D0 :                    ;;; @clobber A X Y
 (1)    12D0 :                    set_R2:
 (1)    12D0 : A2 14                      ldx     #R2
 (1)    12D2 : 4C D5 12                   jmp     set_RX
@@ -481,6 +486,7 @@
 (1)    12D5 :                    ;;;     ldx     #Rx
 (1)    12D5 :                    ;;;     jsr     set_RX
 (1)    12D5 :                    ;;;     .word   constant
+(1)    12D5 :                    ;;; Reads the word after the JSR and returns past it.
 (1)    12D5 :                    ;;; @clobber A Y
 (1)    12D5 :                    set_RX:
 (1)    12D5 : 68                         pla
@@ -521,6 +527,7 @@
 (1)    1308 :                    ;;; Store R0 to variable
 (1)    1308 :                    ;;; @param R0
 (1)    1308 :                    ;;; @param X &variable
+(1)    1308 :                    ;;; @clobber A
 (1)    1308 :                    store_RX:
 (1)    1308 : A5 10                      lda     R0L
 (1)    130A : 95 00                      sta     0,X
@@ -569,8 +576,8 @@
 (1)    1334 :                    sex_A_return:
 (1)    1334 : 60                         rts
 (1)    1335 :
-(1)    1335 :                    ;;; Negate
-(1)    1335 :                    ;;; @param X point to value
+(1)    1335 :                    ;;; Negate 16-bit value in place
+(1)    1335 :                    ;;; @param X &value
 (1)    1335 :                    ;;; @clobber A
 (1)    1335 :                    neg16:
 (1)    1335 : 38                         sec
@@ -611,12 +618,12 @@
 (1)    135E : 60                         rts
 (1)    135F :
 (1)    135F :                    ;;; Signed compare helper
-(1)    135F :                    ;;; @param R0 minuend-subtrahend
 (1)    135F :                    ;;; @param R1 minuend
 (1)    135F :                    ;;; @param R2 subtrahend
 (1)    135F :                    ;;; @return R0=0;  BZ (minuend == subtrahend)
 (1)    135F :                    ;;;         R0=1;  BP (minuend > subtrahend)
 (1)    135F :                    ;;;         R0=-1; BM (minuend < subtrahend)
+(1)    135F :                    ;;; @clobber A
 (1)    135F :                    cmpsi2:
 (1)    135F : 38                         sec
 (1)    1360 : A5 12                      lda     R1L
@@ -668,7 +675,7 @@
 (1)    1396 :                    ;;; @clobber A X Y R1 R2
 (1)    1396 :                    umul16:
 (1)    1396 : A9 00                      lda     #0
-(1)    1398 : 85 10                      sta     R0L             ; A=hi(result)
+(1)    1398 : 85 10                      sta     R0L             ; lo(result)=0, A=hi(result)
 (1)    139A : A6 15                      ldx     R2H
 (1)    139C : F0 11                      beq     umul16_lo       ; branch if hi(multiplier)==0
 (1)    139E : A6 12                      ldx     R1L             ; save lo(multiplicand)
@@ -716,7 +723,7 @@
 (1)    13D1 : A5 15                      lda     R2H
 (1)    13D3 : 30 15                      bmi     udiv16_prep_end ; branch if msb(divisor) == 1
 (1)    13D5 : 05 14                      ora     R2L
-(1)    13D7 : F0 34                      beq     udiv16_return   ; branch if R2==0
+(1)    13D7 : F0 34                      beq     udiv16_return   ; divisor==0: R0, R1 unchanged
 (1)    13D9 :                    udiv16_prep:
 (1)    13D9 : A5 12                      lda     R1L
 (1)    13DB : C5 14                      cmp     R2L
@@ -757,8 +764,8 @@
 (1)    140E :                    ;;; @param R1 dividend
 (1)    140E :                    ;;; @param R2 divisor
 (1)    140E :                    ;;; @return R0 quotient
-(1)    140E :                    ;;; @return R1 remainder
-(1)    140E :                    ;;; @clobber R2
+(1)    140E :                    ;;; @return R1 remainder of |dividend|/|divisor|, unsigned
+(1)    140E :                    ;;; @clobber A X Y R2
 (1)    140E :                    divsi2:
 (1)    140E : A5 13                      lda     R1H
 (1)    1410 : 45 15                      eor     R2H
@@ -774,7 +781,7 @@
 (1)    1422 : 20 35 13                   jsr     neg16           ; negate dividend
 (1)    1425 :                    divsi2_divide:
 (1)    1425 : 20 CF 13                   jsr     udiv16          ; R0=result
-(1)    1428 : 68                         pla                     ; A=(dividend^divisor)
+(1)    1428 : 68                         pla                     ; A=hi(dividend^divisor)
 (1)    1429 : 10 05                      bpl     divsi2_return
 (1)    142B : A2 10                      ldx     #R0L
 (1)    142D : 20 35 13                   jsr     neg16           ; negate result

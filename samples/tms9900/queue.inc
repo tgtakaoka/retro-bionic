@@ -1,4 +1,4 @@
-*** -*- mode: asm; mode: flying-spell; -*-
+*** -*- mode: asm; mode: flyspell-prog; -*-
 *** [queue] queue structure
 queue_len:      equ     0       ; queue length
 queue_size:     equ     2       ; buffer size
@@ -25,8 +25,8 @@ queue_init_loop:
 
 *** [queue] Add an element to queue
 *** @param R9 queue work space pointer
-*** @param R0 an element
-*** @return CC.C 0 if queue is full
+*** @param R0 an element in high byte
+*** @return ST.C 0 if queue is full
 *** @clobber R1
 queue_add:
         c       *R9, @queue_size(R9)    check queue_len
@@ -52,8 +52,8 @@ queue_add_exit:
 
 *** [queue] Remove an element from queue
 *** @param R9 queue work space pointer
-*** @return R0 an element
-*** @return CC.C 0 if queue is empty
+*** @return R0 an element in high byte
+*** @return ST.C 0 if queue is empty
 *** @clobber R1
 queue_remove:
         mov     *R9, R1                 check queue_len

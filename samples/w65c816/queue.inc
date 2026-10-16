@@ -1,5 +1,5 @@
 ;;; -*- mode: asm; mode: flyspell-prog; -*-
-;;; [queue] queue structure
+;;; [queue] queue structure; index registers must be 16-bit
 queue_len       =       0       ; queue length
 queue_size      =       1       ; buffer size
 queue_put       =       2       ; queue put index
@@ -8,7 +8,7 @@ queue_buf       =       4       ; buffer start address
 
 ;;; [queue] Initialize queue
 ;;; @param X queue pointer
-;;; @param A queue size
+;;; @param A queue work space size, header included
 ;;; @clobber A B X
 queue_init:
         php
@@ -17,7 +17,7 @@ queue_init:
         sec
         sbc     #queue_buf
         sta     queue_size,X
-        xba
+        xba                     ; ATTENTION: A=B, so the clear count is stale B
         stz     queue_len,X
         stz     queue_put,X
         stz     queue_get,X
@@ -58,7 +58,7 @@ queue_add_element:
         adc     #0
         sta     2,S
         lda     2,S
-        ply
+        ply                     ; Y=queue pointer+queue_put
         lda     3,S             ; restore an element
         sta     queue_buf,Y     ; store an element
         ply                     ; restore Y
@@ -99,7 +99,7 @@ queue_remove_elem:
         lda     2,S             ; hi(queue pointer)
         adc     #0
         sta     2,S
-        ply
+        ply                     ; Y=queue pointer+queue_get
         lda     queue_buf,Y     ; read an element
         ply                     ; restore Y
         pha                     ; save an element

@@ -4,10 +4,10 @@
           0 :                    ;;; i8251 Universal Synchronous/Asynchronous Receiver/Transmitter
           0 : =F0                USART:          equ     0F0H
           0 : =F0                USARTD:         equ     USART+0 ; Receive/Transmit data
-          0 : =F1                USARTS:         equ     USART+1 ; Srtatus register
+          0 : =F1                USARTS:         equ     USART+1 ; Status register
           0 : =F1                USARTC:         equ     USART+1 ; Control register
-          0 : =F2                USARTRV:        equ     USART+2 ; Receive interrupt vector (ORG_*)
-          0 : =F3                USARTTV:        equ     USART+3 ; Transmit interrupt vector (ORG_*)
+          0 : =F2                USARTRV:        equ     USART+2 ; Receive interrupt vector; 0 disables
+          0 : =F3                USARTTV:        equ     USART+3 ; Transmit interrupt vector; 0 disables
           0 :                            include "i8251.inc"
 (1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
 (1)       0 :
@@ -144,7 +144,7 @@
          81 : 01 00                      da      putchar
          83 : 90 BF                      br      receive_loop
          85 :                    halt_to_system:
-         85 : 2F                         dc      H'2F'           ; unknown instruction
+         85 : 2F                         dc      H'2F'           ; unknown opcode; halt to system
          86 :
          86 :                    ;;; Print uint8_t in hex
          86 :                    ;;; @param 1 uint8_t value to be printed in hex.
@@ -197,7 +197,7 @@
          CA : 41                         lr      A, 1
          CB : 15                         sl      4
          CC : 50                         lr      0, A
-         CD :                    ;;; Pinrt uint4_t in binary
+         CD :                    ;;; Print uint4_t in binary
          CD :                    ;;; @param 0 4-bit value in upper nibble
          CD :                    ;;; @clobber 0 A
          CD :                    put_bin4:
@@ -233,8 +233,8 @@
          F2 : 50                         lr      0, A
          F3 : 29 01 00                   jmp     putchar
          F6 :
-         F6 :                    ;;; Get character
-         F6 :                    ;;; @return 0
+         F6 :                    ;;; Get character; interrupts are taken only in the EI/NOP/DI window
+         F6 :                    ;;; @return 0 character
          F6 :                    ;;; @return CC.C 0 if no character
          F6 :                    getchar:
          F6 : 1B                         ei
@@ -245,8 +245,8 @@
          FD : 29 02 2C                   jmp     queue_remove
         100 :
         100 :                    ;;; Put character
-        100 :                    ;;; @param 0
-        100 :                    ;;; @clobber 0
+        100 :                    ;;; @param 0 character
+        100 :                    ;;; @clobber A H DC Q
         100 :                    putchar:
         100 : 1B                         ei
         101 : 2B                         nop
@@ -261,7 +261,7 @@
         112 : 29 01 DB                   jmp     return
         115 :
         115 :                    isr_intr_rx:
-        115 : 08                         lr      K, P
+        115 : 08                         lr      K, P            ; K=interrupted PC, saved in PC1
         116 : 28 01 70                   pi      pushK
         119 : 28 01 5C                   pi      push0
         11C : 26 F1                      in      USARTS
@@ -278,7 +278,7 @@
         131 : 29 01 DB                   jmp     return
         134 :
         134 :                    isr_intr_tx:
-        134 : 08                         lr      K, P
+        134 : 08                         lr      K, P            ; K=interrupted PC, saved in PC1
         135 : 28 01 70                   pi      pushK
         138 : 28 01 5C                   pi      push0
         13B : 2A 20 80                   dci     tx_queue
@@ -304,7 +304,7 @@
 (1)     159 : =F                 __STACK_U:      equ     ((stack - 1) >> 8)
 (1)     159 :
 (1)     159 :                    ;;; Initialize stack
-(1)     159 :                    ;;; @param stack
+(1)     159 :                    ;;; @param stack top of stack; must be page aligned since SP starts at 0
 (1)     159 :                    ;;; @clobber A
 (1)     159 :                    init_stack:
 (1)     159 : 70                         clr
@@ -312,7 +312,7 @@
 (1)     15B : 1C                         pop
 (1)     15C :
 (1)     15C :                    ;;; Push 0
-(1)     15C :                    ;;; @clobber A H W
+(1)     15C :                    ;;; @clobber A H DC W
 (1)     15C :                    ;;; PI push0
 (1)     15C :                    push0:
 (1)     15C : 38                         ds      SP              ; SP-=1
@@ -326,7 +326,7 @@
 (1)     165 : 1C                         pop
 (1)     166 :
 (1)     166 :                    ;;; Push 1
-(1)     166 :                    ;;; @clobber A H W
+(1)     166 :                    ;;; @clobber A H DC W
 (1)     166 :                    ;;; PI push1
 (1)     166 :                    push1:
 (1)     166 : 38                         ds      SP              ; SP-=1
@@ -340,7 +340,7 @@
 (1)     16F : 1C                         pop
 (1)     170 :
 (1)     170 :                    ;;; Push K
-(1)     170 :                    ;;; @clobber A H W
+(1)     170 :                    ;;; @clobber A H DC W
 (1)     170 :                    ;;; PI pushK
 (1)     170 :                    pushK:
 (1)     170 : 38                         ds      SP
@@ -357,11 +357,11 @@
 (1)     17C : 1C                         pop
 (1)     17D :
 (1)     17D :                    ;;; Push Q
-(1)     17D :                    ;;; @clobber A H W
+(1)     17D :                    ;;; @clobber A H DC W
 (1)     17D :                    ;;; PI pushQ
 (1)     17D :                    pushQ:
 (1)     17D : 38                         ds      SP
-(1)     17E : 38                         ds      SP              ; SP -= 2
+(1)     17E : 38                         ds      SP              ; SP-=2
 (1)     17F : 20 0F                      li      __STACK_U
 (1)     181 : 5A                         lr      HU, A
 (1)     182 : 48                         lr      A, SP
@@ -373,8 +373,8 @@
 (1)     188 : 17                         st
 (1)     189 : 1C                         pop
 (1)     18A :
-(1)     18A :                    ;;; POP 0
-(1)     18A :                    ;;; @clobber A H
+(1)     18A :                    ;;; Pop 0
+(1)     18A :                    ;;; @clobber A H DC
 (1)     18A :                    ;;; PI pop0
 (1)     18A :                    pop0:
 (1)     18A : 20 0F                      li      __STACK_U
@@ -389,8 +389,8 @@
 (1)     194 : 58                         lr      SP, A
 (1)     195 : 1C                         pop
 (1)     196 :
-(1)     196 :                    ;;; POP 1
-(1)     196 :                    ;;; @clobber A H
+(1)     196 :                    ;;; Pop 1
+(1)     196 :                    ;;; @clobber A H DC
 (1)     196 :                    ;;; PI pop1
 (1)     196 :                    pop1:
 (1)     196 : 20 0F                      li      __STACK_U
@@ -406,7 +406,7 @@
 (1)     1A1 : 1C                         pop
 (1)     1A2 :
 (1)     1A2 :                    ;;; Pop K
-(1)     1A2 :                    ;;; @clobber A H
+(1)     1A2 :                    ;;; @clobber A H DC
 (1)     1A2 :                    ;;; PI popK
 (1)     1A2 :                    popK:
 (1)     1A2 : 20 0F                      li      __STACK_U
@@ -423,8 +423,8 @@
 (1)     1AE : 58                         lr      SP, A
 (1)     1AF : 1C                         pop
 (1)     1B0 :
-(1)     1B0 :                    ;;; pop Q
-(1)     1B0 :                    ;;; @clobber A H
+(1)     1B0 :                    ;;; Pop Q
+(1)     1B0 :                    ;;; @clobber A H DC
 (1)     1B0 :                    ;;; PI popQ
 (1)     1B0 :                    popQ:
 (1)     1B0 : 20 0F                      li      __STACK_U
@@ -441,8 +441,8 @@
 (1)     1BC : 58                         lr      SP, A
 (1)     1BD : 1C                         pop
 (1)     1BE :
-(1)     1BE :                    ;;; Call subroutine
-(1)     1BE :                    ;;; @clobber A H K W
+(1)     1BE :                    ;;; Call subroutine; pushes the return address on the SP stack
+(1)     1BE :                    ;;; @clobber A H K DC W
 (1)     1BE :                    ;;; PI call
 (1)     1BE :                    ;;; DA subroutine
 (1)     1BE :                    call:
@@ -476,7 +476,7 @@
 (1)     1DA : 1C                         pop                     ; jump to subroutine
 (1)     1DB :
 (1)     1DB :                    ;;; Return from subroutine
-(1)     1DB :                    ;;; @clobber A H K
+(1)     1DB :                    ;;; @clobber A H K DC
 (1)     1DB :                    ;;; JMP return
 (1)     1DB :                    return:
 (1)     1DB : 20 0F                      li      __STACK_U
@@ -505,12 +505,12 @@
 (1)     1EA :                    ;;; [queue] Initialize queue
 (1)     1EA :                    ;;; @param Q queue work space pointer
 (1)     1EA :                    ;;; @param 0 queue work space size
-(1)     1EA :                    ;;; @clobber A H DC
+(1)     1EA :                    ;;; @clobber 0 A H DC
 (1)     1EA :                    queue_init:
 (1)     1EA : 0F                         lr      DC, Q
 (1)     1EB : 70                         clr
 (1)     1EC : 17                         st                      ; queue_len = 0
-(1)     1ED : 40                         lr      A, 0            ; restore queue size
+(1)     1ED : 40                         lr      A, 0            ; work space size
 (1)     1EE : 24 FC                      ai      -queue_buf
 (1)     1F0 : 17                         st                      ; queue_size
 (1)     1F1 : 24 02                      ai      2               ; for queue_put and queue_get
@@ -542,7 +542,7 @@
 (1)     208 : 17                         st                      ; update queue_len
 (1)     209 : 16                         lm                      ; queue_size
 (1)     20A : 16                         lm                      ; queue_put
-(1)     20B : 1F                         inc                     ; for queue_get
+(1)     20B : 1F                         inc                     ; skip queue_get
 (1)     20C : 8E                         adc                     ; DC=&queue_buf[queue_put]
 (1)     20D : 40                         lr      A, 0            ; get element
 (1)     20E : 17                         st                      ; store element
@@ -581,7 +581,7 @@
 (1)     22C :                    queue_remove:
 (1)     22C : 0F                         lr      DC, Q
 (1)     22D : 70                         clr
-(1)     22E : 8B                         om                      ; queue_len
+(1)     22E : 8B                         om                      ; A=queue_len, set flags
 (1)     22F : 84 26                      bz      queue_remove_empty
 (1)     231 : 24 FF                      ai      -1              ; queue_len--
 (1)     233 : 0F                         lr      DC, Q
@@ -603,7 +603,7 @@
 (1)     243 : 1F                         inc                     ; queue_get++
 (1)     244 : 5A                         lr      HU, A           ; HU=queue_get
 (1)     245 : CB                         as      HL              ; queue_get-queue_size
-(1)     246 : 92 03                      bnc     queue_remove_update ; queue_get<queueu_size
+(1)     246 : 92 03                      bnc     queue_remove_update ; queue_get<queue_size
 (1)     248 : 70                         clr
 (1)     249 : 5A                         lr      HU, A           ; wrap around
 (1)     24A :                    queue_remove_update:

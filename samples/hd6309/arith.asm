@@ -5,7 +5,7 @@ ACIA:   equ     $DF00
         include "../mc6800/mc6850.inc"
 
         org     $1000
-stack:  equ     *-1             ; MC6800's SP is post-decrement/pre-increment
+stack:  equ     *-1             ; from MC6800, whose push is post-decrement
 
         org     VEC_SWI
         fdb     VEC_SWI         ; for halt to system
@@ -15,7 +15,7 @@ stack:  equ     *-1             ; MC6800's SP is post-decrement/pre-increment
 
         org     $0100
 initialize:
-        ldmd    #1
+        ldmd    #1              ; 6309 native mode
         lds     #stack
         lda     #CDS_RESET_gc   ; Master reset
         sta     ACIA_control
@@ -24,10 +24,10 @@ initialize:
         sta     ACIA_control
 
         jsr     arith
-        swi
+        swi                     ; halt to system
 
-;;; Print out char
-;;; @param A char
+;;; Print a space, CR LF (newline) or char A (putchar)
+;;; @param A char for putchar
 ;;; @clobber A B
 putspace:
         lda     #' '
@@ -44,7 +44,7 @@ putchar:
         rts
 
 ;;; Print "X op U"
-;;; @params A op letter
+;;; @param A op letter
 ;;; @return W=X
 ;;; @return D=U
 expr:
@@ -71,7 +71,7 @@ answer:
         bra     newline
 
 ;;; Print "X rel U"
-;;; @clobber D
+;;; @clobber D W
 comp:
         cmpr    U, X            ; X-U
         beq     comp_eq

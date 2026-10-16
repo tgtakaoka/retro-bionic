@@ -18,8 +18,9 @@ print_int16_plus:
         pop     EA
         pop     P3
         ret
-;;; Print unsigned 16-bit integer
+;;; Print unsigned 16-bit integer; recurses once per digit
 ;;; @param P3 value
+;;; @clobber EA P3 T
 print_uint16:
         ld      EA, P3
         or      A, E
@@ -42,6 +43,7 @@ print_uint16_end:
 ;;; @param P3 value
 ;;; @return P3 value/10
 ;;; @return EA value%10
+;;; @clobber T
 divmod10:
         ld      EA, P3
         ld      T, =10
@@ -135,11 +137,11 @@ mulsi2_multiply:
         st      EA, 2, SP       ; store product
 mulsi2_exit:
         pop     EA
-        ld      T, EA           ; T=multiplier
+        ld      T, EA           ; T=|multiplier|
         pop     EA              ; EA=product
         ret
 
-;;; Signed division: quotient = dividend * divisor
+;;; Signed division: quotient = dividend / divisor
 ;;; @param EA: dividend
 ;;; @param T: divisor
 ;;; @return EA: quotient
@@ -177,6 +179,6 @@ divsi2_divide:
         st      EA, 2, SP       ; store quotient
 divsi2_exit:
         pop     EA
-        ld      T, EA           ; T=divisor
+        ld      T, EA           ; T=|divisor|
         pop     EA              ; EA=quotient
         ret

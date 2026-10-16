@@ -19,7 +19,7 @@ R1H:    .byte   0
 R2:
 R2L:    .byte   0
 R2H:    .byte   0
-arith_work:
+arith_work:                     ; set_RX return-address pointer
         .word   0
 
         *=      $1000
@@ -27,7 +27,7 @@ stack   =       $01ff
 initialize:
         ldx     #stack & 0xFF
         txs
-        cld                     ; clear decimal flag
+        cld                     ; D is undefined after reset
         lda     #CDS_RESET_gc   ; Master reset
         sta     ACIA_control
         lda     #WSB_8N1_gc     ; 8 bits + No Parity + 1 Stop Bits
@@ -38,9 +38,8 @@ initialize:
         brk
         .byte   0               ; halt to system
 
-;;; Print out char
+;;; Print a character
 ;;; @param A char
-;;; @clobber A
 putchar:
         pha                     ; save A
 putchar_loop:
@@ -51,19 +50,23 @@ putchar_loop:
         sta     ACIA_data
         rts
 
+;;; Print CR LF
+;;; @clobber A
 newline:
         lda     #$0D
         jsr     putchar
         lda     #$0A
         bne     putchar         ; always branch
 
+;;; Print a space
+;;; @clobber A
 putspace:
         lda     #' '
         bne     putchar         ; always branch
 
 ;;; Print "R1 op R2"
 ;;; @param A op letter
-;;; @clobber R0
+;;; @clobber A X Y R0
 expr:
         pha                     ; save op letter
         lda     R1H
@@ -82,6 +85,7 @@ expr:
         jmp     print_int16
 
 ;;; Print " = R0\n"
+;;; @clobber A X Y R0
 answer:
         jsr     putspace
         lda     #'='
@@ -91,7 +95,7 @@ answer:
         jmp     newline
 
 ;;; Print "R1 rel R2"
-;;; @clobber R0 R1 R2
+;;; @clobber A X Y R0
 comp:
         jsr     cmpsi2
         lda     R0L
@@ -109,6 +113,7 @@ comp_out:
         jsr     expr
         jmp     newline
 
+;;; Print each operation and its result; comments give the expected answer
 arith:
         jsr     set_R1
         .word   18000

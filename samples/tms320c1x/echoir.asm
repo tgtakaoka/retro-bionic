@@ -87,7 +87,7 @@ putchar_loop:
         .include "queue.inc"
 
 int_isr:
-        sst     isr_st          ; save ST
+        sst     isr_st          ; save ST (SST writes page 1)
         ldpk    1               ; page 1
         sacl    isr_accl        ; save ACC
         sach    isr_acch

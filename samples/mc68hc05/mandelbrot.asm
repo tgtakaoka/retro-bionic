@@ -14,7 +14,7 @@ RX_INT_TX_INT:  equ     WSB_8N1_gc|RIEB_bm|TCB_EI_gc
 
         org     $80
 ;;; Working space for mandelbrot.inc
-F:      equ     50
+F:      equ     50              ; fixed-point scale, 1.0=F
 vC:     rmb     2
 vD:     rmb     2
 vA:     rmb     2
@@ -39,7 +39,7 @@ R2H:    rmb     1
 R2L:    rmb     1
 arith_work:
         rmb     1
-SP:     rmb     1
+SP:     rmb     1               ; software stack index
 
 save_a: rmb     1
 save_x: rmb     1
@@ -49,7 +49,7 @@ tx_queue:
         rmb     tx_queue_size
 
         org     $0100
-stack:  rmb     20
+stack:  rmb     20              ; for push_XA/pull_XA
 
         org     VEC_IRQ
         fdb     isr_irq
@@ -92,8 +92,8 @@ getchar:
         cli                     ; enable IRQ
         rts
 
-;;; Put character
-;;; @param A
+;;; Put a space, CR LF (newline) or char A (putchar)
+;;; @param A char for putchar
 ;;; @clobber A
 putspace:
         lda     #' '

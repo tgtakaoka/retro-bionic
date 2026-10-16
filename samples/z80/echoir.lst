@@ -36,6 +36,7 @@
 (2)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
 (2)       0 :
 (2)       0 :                    ;;; i8251 USART device emulator.
+(2)       0 :                    ;;; Bit definition of mode register
 (2)       0 : =6                 MODE_STOP_gp:   equ     6
 (2)       0 : =C0                MODE_STOP_gm:   equ     11000000B
 (2)       0 : =40                MODE_STOP1_gc:  equ     (1 << MODE_STOP_gp)
@@ -114,9 +115,9 @@
         11E : 3E 37                      ld      A, RX_EN_TX_EN
         120 : D3 41                      out     (USARTC), A
         122 : 3E 38                      ld      A, ORG_INT
-        124 : D3 42                      out     (USARTRV), A    ; enable RxRDY interrupt using RST 7
+        124 : D3 42                      out     (USARTRV), A    ; enable RxRDY interrupt; mode 1 ignores the vector
         126 : 3E 00                      ld      A, ORG_RESET
-        128 : D3 43                      out     (USARTTV), A    ; disable TxRDY interrupt
+        128 : D3 43                      out     (USARTTV), A    ; 0 disables TxRDY interrupt
         12A :
         12A : ED 56                      im      1
         12C : FB                         ei
@@ -143,7 +144,7 @@
         14A : 18 EF                      jr      transmit_loop
         14C :                    halt_to_system:
         14C : 21 38 00                   ld      HL, ORG_RST38
-        14F : 36 FF                      ld      (HL), 0FFH
+        14F : 36 FF                      ld      (HL), 0FFH      ; RST 38H at its vector: exit to the debugger
         151 : FF                         rst     38h
         152 :
         152 :                            include "queue.inc"
@@ -158,7 +159,6 @@
 (1)     152 :                    ;;; [queue] Initialize queue
 (1)     152 :                    ;;; @param HL queue work space pointer
 (1)     152 :                    ;;; @param B queue work space size
-(1)     152 :                    ;;; @clobber B
 (1)     152 :                    queue_init:
 (1)     152 : F5                         push    AF
 (1)     153 : E5                         push    HL
@@ -190,7 +190,7 @@
 (1)     16E : DD BE 01                   cp      (IX+queue_size)
 (1)     171 : 7A                         ld      A, D               ; restore an element
 (1)     172 : 38 05                      jr      C, queue_add_store ; queue_len < queue_size
-(1)     174 : DD E3                      ex      (SP), IX           ; F.C=1
+(1)     174 : DD E3                      ex      (SP), IX           ; F.C=0
 (1)     176 : E1                         pop     HL
 (1)     177 : D1                         pop     DE
 (1)     178 : C9                         ret

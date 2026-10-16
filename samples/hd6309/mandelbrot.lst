@@ -24,13 +24,13 @@
 (1)       0 :                            cpu     HD6309
 (1)       0 :                    ;;; Mode and Error Register (MD)
 (1)       0 : =1                 MD_EMULATION  equ  %00000001   ; if 1, 6309 native mode
-(1)       0 : =2                 MD_FIRQ_MODE  equ  %00000010   ; if 1, FIRQ operate as IRQ
+(1)       0 : =2                 MD_FIRQ_MODE  equ  %00000010   ; if 1, FIRQ operates as IRQ
 (1)       0 : =40                MD_ILLEGAL_OP equ  %01000000   ; set to 1 if illegal instruction occurred
 (1)       0 : =80                MD_DIV_ZERO   equ  %10000000   ; set to 1 if divided by 0 occurred
 (1)       0 :
 (1)       0 :                    ;;; Vector
 (1)       0 : =FFF0              VEC_DIVZERO:    equ     $FFF0   ; $FFF0: Divided by Zero Trap
-(1)       0 : =FFF0              VEC_ILLOPC:     equ     $FFF0   ; $FFF0: Illegal Opcode Trap
+(1)       0 : =FFF0              VEC_ILLOPC:     equ     $FFF0   ; $FFF0: Illegal Opcode Trap, shared
           0 :
           0 :                    ;;; MC6850 Asynchronous Communication Interface Adapter
           0 : =DF00              ACIA:   equ     $DF00
@@ -40,7 +40,7 @@
 (1)       0 :                    ;;; MC6850
 (1)       0 :                    ;;; Asynchronous Communication Interface Adapter
 (1)       0 :
-(1)       0 :                    ;;; Control register
+(1)       0 :                    ;;; Control register (write)
 (1)       0 : =DF00              ACIA_control:   equ     ACIA+0
 (1)       0 :                            ;; Counter Divider Select Bits
 (1)       0 : =3                 CDS_gm:         equ     %11    ; Group mask
@@ -67,7 +67,7 @@
 (1)       0 :                                                      ; Transmit Break Level
 (1)       0 : =80                RIEB_bm:        equ     %10000000 ; Receive Interrupt Enable Bit mask
 (1)       0 :
-(1)       0 :                    ;;; Status register
+(1)       0 :                    ;;; Status register (read)
 (1)       0 : =DF00              ACIA_status:    equ     ACIA+0
 (1)       0 : =1                 RDRF_bm:        equ     %00000001 ; Receive Data Register Full
 (1)       0 : =2                 TDRE_bm:        equ     %00000010 ; Transmit Data Register Empty
@@ -85,7 +85,7 @@
           0 :
          20 :                            org     $20
          20 :                    ;;; Working space for mandelbrot.inc
-         20 : =32                F:      equ     50
+         20 : =32                F:      equ     50              ; fixed-point scale, 1.0=F
          20 :                    vC:     rmb     2
          22 :                    vD:     rmb     2
          24 :                    vA:     rmb     2
@@ -104,7 +104,7 @@
        2080 :                    tx_queue:       rmb     tx_queue_size
        2100 :
        1000 :                            org     $1000
-       1000 : =FFF               stack:  equ     *-1             ; MC6800's SP is post-decrement/pre-increment
+       1000 : =FFF               stack:  equ     *-1             ; from MC6800, whose push is post-decrement
        1000 :
        FFF6 :                            org     VEC_FIRQ
        FFF6 : 02 D9                      fdb     isr_firq
@@ -117,7 +117,7 @@
       10000 :
         100 :                            org     $0100
         100 :                    main:
-        100 : 11 3D 01                   ldmd    #1
+        100 : 11 3D 01                   ldmd    #1              ; 6309 native mode
         103 : 10 CE 0F FF                lds     #stack
         107 : 8E 20 00                   ldx     #rx_queue
         10A : C6 80                      ldb     #rx_queue_size
@@ -150,8 +150,9 @@
         13A : 1C BF                      andcc   #~CC_FIRQ        ; enable FIRQ
         13C : 35 90                      puls    x,pc
         13E :
-        13E :                    ;;; Put character
-        13E :                    ;;; @param A
+        13E :                    ;;; Put a space, CR LF (newline) or char A (putchar)
+        13E :                    ;;; @param A char for putchar
+        13E :                    ;;; @clobber A for putspace and newline
         13E :                    putspace:
         13E : 86 20                      lda     #' '
         140 : 20 06                      bra     putchar
@@ -178,6 +179,7 @@
 (1)     15D :                    ;;; Print variable: "A=variable "
 (1)     15D :                    ;;; @param W variable
 (1)     15D :                    ;;; @param A variable letter
+(1)     15D :                    ;;; @clobber D
 (1)     15D :                    print:
 (1)     15D : BD 01 48                   jsr     putchar         ; print variable letter
 (1)     160 : 86 3D                      lda     #'='
@@ -226,6 +228,7 @@
 (1)     199 :                            ;; jsr     newline
 (1)     199 :
 (1)     199 :                    loop_i:
+(1)     199 :                            ;; A*B/F = A*Q+A*S/F with Q=B/F, S=B-Q*F; keeps products in 16 bits
 (1)     199 : 10 96 26                   ldw     vB              ; W: B
 (1)     19C : 14                         sexw                    ; Q: B
 (1)     19D : 11 8E 00 32                divq    #F              ; W: B/F
@@ -327,7 +330,7 @@
 (1)     235 : BD 01 30                   jsr     getchar
 (1)     238 : 24 04                      bcc     next_x
 (1)     23A : 4D                         tsta
-(1)     23B : 26 01                      bne     next_x
+(1)     23B : 26 01                      bne     next_x          ; halt on NUL
 (1)     23D : 3F                         swi                     ; halt to system
 (1)     23E :                    next_x:
 (1)     23E : 0C 2F                      inc     vX              ; X+=1
@@ -361,6 +364,7 @@
 (1)     26B : 10 39                      pulsw
 (1)     26D : 35 86                      puls    D, PC
 (1)     26F :                    ;;; Print unsigned 16-bit integer as decimal
+(1)     26F :                    ;;; Recursion stacks the digits so the most significant prints first.
 (1)     26F :                    ;;; @param W value
 (1)     26F :                    ;;; @clobber D W
 (1)     26F :                    print_uint16:
@@ -392,6 +396,7 @@
 (1)     28E :                    ;;; [queue] Initialize queue
 (1)     28E :                    ;;; @param X queue work space pointer
 (1)     28E :                    ;;; @param B queue work space size
+(1)     28E :                    ;;; @clobber B
 (1)     28E :                    queue_init:
 (1)     28E : 34 14                      pshs    x,b
 (1)     290 :                    queue_init_loop:
@@ -412,7 +417,7 @@
 (1)     29E : 1F 13                      tfr     x,u
 (1)     2A0 : E6 C4                      ldb     queue_len,u
 (1)     2A2 : E1 41                      cmpb    queue_size,u
-(1)     2A4 : 24 12                      bhs     queue_add_return ;carry is cleared
+(1)     2A4 : 24 12                      bhs     queue_add_return ; carry is cleared
 (1)     2A6 : E6 42                      ldb     queue_put,u     ; 8 bits offset
 (1)     2A8 : 3A                         abx                     ; X+=B
 (1)     2A9 : A7 04                      sta     queue_buf,x     ; store an element
@@ -452,7 +457,7 @@
 (1)     2D7 : 35 D4                      puls    b,x,u,pc
         2D9 :
         2D9 :                    isr_firq:
-        2D9 : 34 16                      pshs    x,b,a
+        2D9 : 34 16                      pshs    x,b,a           ; FIRQ stacks only PC and CC
         2DB : F6 DF 00                   ldb     ACIA_status
         2DE : C5 80                      bitb    #IRQF_bm
         2E0 : 27 1C                      beq     isr_firq_exit

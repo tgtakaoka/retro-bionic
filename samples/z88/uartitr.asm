@@ -31,9 +31,9 @@ init_config:
         ld      R1, #tx_queue_size
         call    queue_init
 
-;;; XTAL=14.7546MHz
+;;; XTAL=14.7456MHz
 ;;; clock divider N=32, baud-rate generator UBG=11
-;;; bit rate = (14,754,600 / 4) / (2 x (UBG+1) x N) = 9600 bps
+;;; bit rate = (14,745,600 / 4) / (2 x (UBG+1) x N) = 9600 bps
 init_uart:
         ld      P2AM, #P2M_OUTPP_gm SHL 6   ; P31/TXD=output
         or      PORT3, #1                   ; TXD=high
@@ -94,7 +94,7 @@ put_hex8:
 put_hex4:
         and     R0, #%F
         cp      R0, #10
-        jr      c, put_hex8_dec ; A<10
+        jr      c, put_hex8_dec ; R0<10
         add     R0, #'A'-10
         jr      putchar
 put_hex8_dec:

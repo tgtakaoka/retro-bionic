@@ -1,6 +1,9 @@
 ;;; -*- mode: asm; mode: flyspell-prog; -*-
 
-Fv:     equ     50
+Fv:     equ     50              ; fixed-point 1.0
+;;; Print one 79x25 frame of the Mandelbrot set: each point is its
+;;; escape iteration in hex, or a space if it does not escape in 16.
+;;; Exits to the debugger when NUL is received.
 mandelbrot:
         ld      A, -12
         ld      (vY), A         ; Y=-12
@@ -119,7 +122,7 @@ print_i:
         add     A, 90H
         daa
         adc     A, 40H
-        daa
+        daa                     ; A='0'-'9','A'-'F'
 print_char:
         call    putchar
 
@@ -138,7 +141,7 @@ print_char:
         jr      NZ, next_x
 halt_to_system:
         ld      HL, ORG_RST38
-        ld      (HL), 0FFH
+        ld      (HL), 0FFH      ; RST 38H at its vector: exit to the debugger
         rst     38H
 
 next_x:

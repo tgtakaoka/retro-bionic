@@ -1,13 +1,14 @@
 ;;; -*- mode: asm; mode: flyspell-prog; -*-
 
 ;;; i8251 USART device emulator.
+;;; Bit definition of mode instruction (asynchronous)
 MODE_STOP_gp:   equ     6
 MODE_STOP_gm:   equ     11000000B
 MODE_STOP1_gc:  equ     (1 << MODE_STOP_gp)
 MODE_STOP15_gc: equ     (2 << MODE_STOP_gp)
 MODE_STOP2_gc:  equ     (3 << MODE_STOP_gp)
-MODE_EVEN_bm:   equ     00100000B
-MODE_PARITY_bm: equ     00010000B
+MODE_EVEN_bm:   equ     00100000B   ; Even parity
+MODE_PARITY_bm: equ     00010000B   ; Parity enable
 MODE_LEN_gp:    equ     2
 MODE_LEN_gm:    equ     00001100B
 MODE_LEN5_gc:   equ     (0 << MODE_LEN_gp)

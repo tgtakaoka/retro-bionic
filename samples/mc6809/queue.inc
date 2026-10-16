@@ -9,6 +9,7 @@ queue_buf:      equ     4       ; buffer start offset
 ;;; [queue] Initialize queue
 ;;; @param X queue work space pointer
 ;;; @param B queue work space size
+;;; @clobber B
 queue_init:
         pshs    x,b
 queue_init_loop:
@@ -29,7 +30,7 @@ queue_add:
         tfr     x,u
         ldb     queue_len,u
         cmpb    queue_size,u
-        bhs     queue_add_return ;carry is cleared
+        bhs     queue_add_return ; carry is cleared
         ldb     queue_put,u     ; 8 bits offset
         abx                     ; X+=B
         sta     queue_buf,x     ; store an element

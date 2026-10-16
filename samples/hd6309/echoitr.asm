@@ -44,7 +44,7 @@ initialize:
         sta     ACIA+2          ; set #FIRQ name for MC6850 emulator
 
 wait:   
-        cwai    #~CC_FIRQ       ; Clear FIRQ mask
+        cwai    #~CC_FIRQ       ; clear FIRQ mask and wait for one
 loop:
         bsr     getchar
         bcc     loop
@@ -147,7 +147,7 @@ putchar_retry:
         include "../mc6809/queue.inc"
 
 isr_firq:
-        pshs    x,b,a
+        pshs    x,b,a           ; FIRQ stacks only PC and CC
         ldb     ACIA_status
         bitb    #IRQF_bm
         beq     isr_firq_exit

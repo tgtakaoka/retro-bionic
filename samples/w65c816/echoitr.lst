@@ -43,7 +43,7 @@
 (1)       0 :                    ;;; MC6850
 (1)       0 :                    ;;; Asynchronous Communication Interface Adapter
 (1)       0 :
-(1)       0 :                    ;;; Control register
+(1)       0 :                    ;;; Control register (write)
 (1)       0 : =DF00              ACIA_control    =       ACIA+0
 (1)       0 :                            ;; Counter Divider Select Bits
 (1)       0 : =3                 CDS_gm          =       %11    ; Group mask
@@ -70,7 +70,7 @@
 (1)       0 :                                                      ; Transmit Break Level
 (1)       0 : =80                RIEB_bm         =       %10000000 ; Receive Interrupt Enable Bit mask
 (1)       0 :
-(1)       0 :                    ;;; Status register
+(1)       0 :                    ;;; Status register (read)
 (1)       0 : =DF00              ACIA_status     =       ACIA+0
 (1)       0 : =1                 RDRF_bm         =       %00000001 ; Receive Data Register Full
 (1)       0 : =2                 TDRE_bm         =       %00000010 ; Transmit Data Register Empty
@@ -82,7 +82,7 @@
 (1)       0 : =80                IRQF_bm         =       %10000000 ; Interrupt Request Flag
 (1)       0 :
 (1)       0 :                    ;;; Data register
-(1)       0 : =DF01              ACIA_data       =       ACIA+1          ; Data register
+(1)       0 : =DF01              ACIA_data       =       ACIA+1
           0 : =94                RX_INT_TX_NO    =       WSB_8N1_gc|RIEB_bm
           0 : =B4                RX_INT_TX_INT   =       WSB_8N1_gc|RIEB_bm|TCB_EI_gc
           0 :
@@ -127,7 +127,7 @@
        1024 : 20 9B 10                   jsr     getchar
        1027 : B0 FB                      bcs     receive_loop
        1029 : 09 00                      ora     #0
-       102B : F0 1C                      beq     halt_to_system
+       102B : F0 1C                      beq     halt_to_system  ; NUL halts
        102D :                    echo_back:
        102D : 48                         pha
        102E : 20 A4 10                   jsr     putchar         ; echo
@@ -146,7 +146,7 @@
        104A : 00                         .byte    0              ; halt to system
        104B :
        104B :                    ;;; Put newline
-       104B :                    ;;; @clobber A
+       104B :                    ;;; @clobber A X
        104B :                    newline:
        104B : A9 0D                      lda     #$0D
        104D : 20 A4 10                   jsr     putchar
@@ -155,7 +155,7 @@
        1054 :
        1054 :                    ;;; Print uint8_t in hex
        1054 :                    ;;; @param A uint8_t value to be printed in hex.
-       1054 :                    ;;; @clobber A
+       1054 :                    ;;; @clobber A X
        1054 :                    put_hex8:
        1054 : 48                         pha
        1055 : A9 30                      lda     #'0'
@@ -181,7 +181,7 @@
        1077 :
        1077 :                    ;;; Print uint8_t in binary
        1077 :                    ;;; @param A uint8_t value to be printed in binary.
-       1077 :                    ;;; @clobber A
+       1077 :                    ;;; @clobber A X
        1077 :                    put_bin8:
        1077 : 48                         pha
        1078 : A9 30                      lda     #'0'
@@ -236,7 +236,7 @@
        10B6 :
        10B6 :                            .include "queue.inc"
 (1)    10B6 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
-(1)    10B6 :                    ;;; [queue] queue structure
+(1)    10B6 :                    ;;; [queue] queue structure; index registers must be 16-bit
 (1)    10B6 : =0                 queue_len       =       0       ; queue length
 (1)    10B6 : =1                 queue_size      =       1       ; buffer size
 (1)    10B6 : =2                 queue_put       =       2       ; queue put index
@@ -245,7 +245,7 @@
 (1)    10B6 :
 (1)    10B6 :                    ;;; [queue] Initialize queue
 (1)    10B6 :                    ;;; @param X queue pointer
-(1)    10B6 :                    ;;; @param A queue size
+(1)    10B6 :                    ;;; @param A queue work space size, header included
 (1)    10B6 :                    ;;; @clobber A B X
 (1)    10B6 :                    queue_init:
 (1)    10B6 : 08                         php
@@ -295,7 +295,7 @@
 (1)    10E9 : 69 00                      adc     #0
 (1)    10EB : 83 02                      sta     2,S
 (1)    10ED : A3 02                      lda     2,S
-(1)    10EF : 7A                         ply
+(1)    10EF : 7A                         ply                     ; Y=queue pointer+queue_put
 (1)    10F0 : A3 03                      lda     3,S             ; restore an element
 (1)    10F2 : 99 04 00                   sta     queue_buf,Y     ; store an element
 (1)    10F5 : 7A                         ply                     ; restore Y
@@ -336,7 +336,7 @@
 (1)    111B : A3 02                      lda     2,S             ; hi(queue pointer)
 (1)    111D : 69 00                      adc     #0
 (1)    111F : 83 02                      sta     2,S
-(1)    1121 : 7A                         ply
+(1)    1121 : 7A                         ply                     ; Y=queue pointer+queue_get
 (1)    1122 : B9 04 00                   lda     queue_buf,Y     ; read an element
 (1)    1125 : 7A                         ply                     ; restore Y
 (1)    1126 : 48                         pha                     ; save an element
@@ -376,7 +376,7 @@
        1160 : 8D 01 DF                   sta     ACIA_data       ; send character
        1163 :                    isr_irq_exit:
        1163 : FA                         plx                     ; restore X
-       1164 : 68                         pla                     ; restore Y
+       1164 : 68                         pla                     ; restore A
        1165 : 40                         rti                     ; restore P and PC
        1166 :                    isr_irq_send_empty:
        1166 : A9 94                      lda     #RX_INT_TX_NO

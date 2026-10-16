@@ -4,9 +4,9 @@
 *** Status Register
 STR_E:          equ     0       Extension
 STR_OV:         equ     2       Overflow
-STR_IRQ0:       equ     5       IRQ0 Mask
-STR_IRQ1:       equ     6       IRQ1 Mask
-STR_IRQ2:       equ     7       IRQ2 Mask
+STR_IRQ0:       equ     5       IRQ0 Mask, 1=enabled
+STR_IRQ1:       equ     6       IRQ1 Mask, 1=enabled
+STR_IRQ2:       equ     7       IRQ2 Mask, 1=enabled
 *** Interrupt vector and save area
 OPSW0:          equ     X'0000' IRQ0 old STR:IC
 OPSW1:          equ     X'0002' IRQ1 old STR:IC

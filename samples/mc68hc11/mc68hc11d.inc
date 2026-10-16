@@ -42,7 +42,7 @@ OPTION: equ     $39             ; $39: System Configuration Options
 COPRST: equ     $3A             ; $3A: Arm/Reset COP Timer Circuitry
 HPRIO:  equ     $3C             ; $3C: Highest Priority I-Bit Interrupt and Miscellaneous
 INIT:   equ     $3D             ; $3D: RAM and I/O Mapping Register
-TEST1:  equ     $3E
+TEST1:  equ     $3E             ; $3E: Factory Test
 CONFIG: equ     $3F             ; $3F: System Configuration
 
 ;;; PIOC: Parallel I/O Control
@@ -123,10 +123,10 @@ TMSK2_PR8_gc:   equ     %00000010 ; prescaler 8
 TMSK2_PR16_gc:  equ     %00000011 ; prescaler 16
 
 ;;; TFLG2: Timer Interrupt Flag 2
-TFLG2_TOF_gm:   equ     %10000000 ; Timer Overflow Interrupt FLag
-TFLG2_RTIF_gm:  equ     %01000000 ; Real-time Interrupt FLag
-TFLG2_PAOVF_gm: equ     %00100000 ; Pulse Accumulator Overflow Interrupt FLag
-TFLG2_PAIF_gm:  equ     %00010000 ; Pulse Accumulator Input Edge Interrupt FLag
+TFLG2_TOF_gm:   equ     %10000000 ; Timer Overflow Interrupt Flag
+TFLG2_RTIF_gm:  equ     %01000000 ; Real-time Interrupt Flag
+TFLG2_PAOVF_gm: equ     %00100000 ; Pulse Accumulator Overflow Interrupt Flag
+TFLG2_PAIF_gm:  equ     %00010000 ; Pulse Accumulator Input Edge Interrupt Flag
 
 ;;; PACTL: Pulse Accumulator Control
 PACTL_DDRA7_bm: equ     %10000000 ; Data Direction Control for Port A Bit 7
@@ -171,18 +171,18 @@ BAUD_SCP13_gc:  equ     %00110000 ; E is divided by 13
 BAUD_SCR_gm:    equ     %00000111 ; SCI Baud Rate Selects (baud rate x16)
 BAUD_SCR1_gc:   equ     %00000000 ; Divide Prescaler by 1
 BAUD_SCR2_gc:   equ     %00000001 ; Divide Prescaler by 2
-BAUD_SCR4_gc:   equ     %00000010 ; Divide Prescaler by 3
-BAUD_SCR8_gc:   equ     %00000011 ; Divide Prescaler by 4
-BAUD_SCR16_gc:  equ     %00000100 ; Divide Prescaler by 5
-BAUD_SCR32_gc:  equ     %00000101 ; Divide Prescaler by 6
-BAUD_SCR64_gc:  equ     %00000110 ; Divide Prescaler by 7
-BAUD_SCR128_gc: equ     %00000111 ; Divide Prescaler by 8
+BAUD_SCR4_gc:   equ     %00000010 ; Divide Prescaler by 4
+BAUD_SCR8_gc:   equ     %00000011 ; Divide Prescaler by 8
+BAUD_SCR16_gc:  equ     %00000100 ; Divide Prescaler by 16
+BAUD_SCR32_gc:  equ     %00000101 ; Divide Prescaler by 32
+BAUD_SCR64_gc:  equ     %00000110 ; Divide Prescaler by 64
+BAUD_SCR128_gc: equ     %00000111 ; Divide Prescaler by 128
 
 ;;; SCCR1: SCI Control Register 1
 SCCR1_R8_bm:    equ     %10000000 ; Receive Data Bit 8
 SCCR1_T8_bm:    equ     %01000000 ; Transmit Data Bit 8
 SCCR1_M_bm:     equ     %00010000 ; Mode (0=8data-1stop, 1=9data-1stop)
-SCCR1_WAKE_bm:  equ     %00001000 ; Wake-up by Address Mar/Idle (0=idle, 1=mark)
+SCCR1_WAKE_bm:  equ     %00001000 ; Wake-up by Address Mark/Idle (0=idle, 1=mark)
 
 ;;; SCCR2: SCI Control Register 2
 SCCR2_TIE_bm:   equ     %10000000 ; Transmit Interrupt Enable
@@ -243,7 +243,7 @@ HPRIO_PSEL_TOC5_gc:     equ     %1111     ; Timer Output Compare 5
 ;;; INIT: RAM and I/O Mapping Register
 INIT_RAM_gm:    equ     %11110000 ; RAM Map Position
 INIT_RAM_gp:    equ     4
-INIT_REG_gm:    equ     %00001111 ; 54-Byte Register Block Position
+INIT_REG_gm:    equ     %00001111 ; 64-Byte Register Block Position
 INIT_REG_gp:    equ     0
 
 ;;; CONFIG: System configuration
@@ -251,17 +251,17 @@ CONFIG_NOCOP_bm:        equ     %00000100 ; COP System disable
 CONFIG_ROMON_bm:        equ     %00000010 ; ROM enable
 
 ;;; Vector
-VEC_SCI:        equ     $FFD6  ; $FFF0: SCI Interrupt (TDRE+TC+RDRF+IDLE+OR/NF/FE)
+VEC_SCI:        equ     $FFD6  ; $FFD6: SCI Interrupt (TDRE+TC+RDRF+IDLE+OR/NF/FE)
 VEC_SPITX:      equ     $FFD8  ; $FFD8: SPI Serial Transfer Complete
 VEC_PAI:        equ     $FFDA  ; $FFDA: Pulse Accumulator Input Edge
 VEC_PAOV:       equ     $FFDC  ; $FFDC: Pulse Accumulator Overflow
 VEC_TO:         equ     $FFDE  ; $FFDE: Timer Overflow
-VEC_TOC5:       equ     $FFE0  ; $FFE0: Timer Input Compare 5 (=VEC_TICAP4)
-VEC_TOC4:       equ     $FFE2  ; $FFE2: Timer Input Compare 4
-VEC_TOC3:       equ     $FFE4  ; $FFE4: Timer Input Compare 3
-VEC_TOC2:       equ     $FFE6  ; $FFE6: Timer Input Compare 2
-VEC_TOC1:       equ     $FFE8  ; $FFE8: Timer Input Compare 1
-VEC_TIC4:       equ     $FFE0  ; $FFE0: Timer Input Capture 4 (=VEC_TOCMP5)
+VEC_TOC5:       equ     $FFE0  ; $FFE0: Timer Output Compare 5 (=VEC_TIC4)
+VEC_TOC4:       equ     $FFE2  ; $FFE2: Timer Output Compare 4
+VEC_TOC3:       equ     $FFE4  ; $FFE4: Timer Output Compare 3
+VEC_TOC2:       equ     $FFE6  ; $FFE6: Timer Output Compare 2
+VEC_TOC1:       equ     $FFE8  ; $FFE8: Timer Output Compare 1
+VEC_TIC4:       equ     $FFE0  ; $FFE0: Timer Input Capture 4 (=VEC_TOC5)
 VEC_TIC3:       equ     $FFEA  ; $FFEA: Timer Input Capture 3
 VEC_TIC2:       equ     $FFEC  ; $FFEC: Timer Input Capture 2
 VEC_TIC1:       equ     $FFEE  ; $FFEE: Timer Input Capture 1

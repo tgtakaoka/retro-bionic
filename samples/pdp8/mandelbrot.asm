@@ -18,7 +18,7 @@ tx_queue,
 
         *ORG_RESET-1
         initialize
-        jmp     I .-1
+        jmp     I .-1           / reset starts here
 
         *PAGE0
 I_queue_init,   queue_init
@@ -135,6 +135,7 @@ char_LF,        012             / Line feed
 
 /// Print character
 /// @param AC character
+/// @return AC character
 putchar,        .-.
         dca     putchar_char    / Save character
         tad     putchar_char
@@ -153,7 +154,8 @@ putchar_char,   0
 ENABLE_TX_INT,  WSB_8N1_gc|RIEB_bm|TCB_EI_gc
 
 /// Read character
-/// @return AC character
+/// @return AC character, 0 if none
+/// @return L 0 if no character
 getchar,        .-.
         iof                     / Disable interrupt
         jms     I I_queue_remove

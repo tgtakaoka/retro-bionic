@@ -39,16 +39,16 @@ init_usart:
         ld      A, RX_EN_TX_EN
         out     (USARTC), A
 
-        ld      a, 1            ; enable interrupt on USART
+        ld      a, 1            ; nonzero enables the USART interrupt on IR0
         out     (USARTRV), a
-        ld      a, 1            ; select edge trigger
+        ld      a, 1            ; IR0 edge triggered
         out     (LERL), a
         ld      a, high vector
         ld      i, a
         ld      a, low vector
         out     (IVR), a        ; vector register
         ld      a, ~1           ; disable mask for IR0
-        out     (IMRL), a       ;
+        out     (IMRL), a
         im      2               ; mode 2 only
         ei
 
@@ -74,7 +74,7 @@ transmit_data:
         jr      transmit_loop
 halt_to_system:
         ld      HL, ORG_RST38
-        ld      (HL), 0FFH
+        ld      (HL), 0FFH      ; RST 38H at its vector: exit to the debugger
         rst     38H
 
         include "../z80/queue.inc"

@@ -40,10 +40,10 @@ tx_queue:
 ;;; Work area for arith.inc
         *=      $10
 arith_work:
-        .word   0
-        .word   0
+        .word   0               ; udiv16 divisor
+        .word   0               ; udiv16 dividend, quotient
 ;;; Work area for mandelbrot.inc
-F       =       50
+F       =       50              ; fixed-point 1.0
 vY:     .word   0
 vX:     .word   0
 vI:     .word   0
@@ -89,6 +89,7 @@ loop:
 ;;; @return A
 ;;; @return P.C 1 if no character
 ;;; @clobber X
+;;; Returns with 16-bit memory.
 getchar:
         sep     #P_M            ; 8-bit memory
         longa   off
@@ -100,7 +101,6 @@ getchar:
 
 ;;; Put character
 ;;; @param A
-;;; @clobber X
 putchar:
         php
         sep     #P_M            ; 8-bit memory
@@ -176,13 +176,14 @@ isr_nirq_send:
         sta     ACIA_data       ; send character
 isr_nirq_exit:
         plx                     ; restore X
-        pla                     ; restore Y
+        pla                     ; restore A
         rti                     ; restore P and PC
 isr_nirq_send_empty:
         lda     #RX_INT_TX_NO
         sta     ACIA_control    ; disable Tx interrupt
         bra     isr_nirq_exit
 
+;;; Unused vectors halt to system
 isr_cop:
         brk
         .byte   0

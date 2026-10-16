@@ -44,14 +44,14 @@ init_usart:
         nop
         ld      A, RX_EN_TX_DIS
         outa    (USARTC), A
-        db      3EH             ; LD A, n
+        db      3EH             ; LD A, n: the RST 28H opcode
         rst     28H
         outa    (USARTRV), A    ; set RxRDY interrupt vector RST 28H
-        db      3EH             ; LD A, n
+        db      3EH             ; LD A, n: the RST 30H opcode
         rst     30H
         outa    (USARTTV), A    ; set TxRDY interrupt vector RST 30H
 
-        im      0
+        im      0               ; execute the USART's RST vector
         ei
 
 receive_loop:
@@ -72,7 +72,7 @@ echo_back:
         jr      receive_loop
 halt_to_system:
         ld      A, 0FFH
-        ld      (ORG_RST38), A
+        ld      (ORG_RST38), A  ; RST 38H at its vector: exit to the debugger
         rst     38h
 
 ;;; Print uint8_t in hex
@@ -95,7 +95,7 @@ put_hex4:
         add     A, 90H
         daa
         adc     A, 40H
-        daa
+        daa                     ; A='0'-'9','A'-'F'
         jr      putchar
 
 ;;; Print uint8_t in binary
@@ -121,13 +121,13 @@ put_bin1:
         sla     A               ; F.C=MSB
         ld      B, A
         ld      A, '0'
-        jr      NC, putchar     ; F.0=1
+        jr      NC, putchar     ; F.C=0
         inc     A               ; F.C=1
         jr      putchar
 
 ;;; Get character
 ;;; @return A
-;;; @return CC.C 0 if no character
+;;; @return F.C 0 if no character
 getchar:
         push    IX
         ld      IX, rx_queue

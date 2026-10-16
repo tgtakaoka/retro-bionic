@@ -10,7 +10,7 @@ rx_queue:       rmb     rx_queue_size
 RX_INT_TX_NO:   equ     SCCR2_TE_bm|SCCR2_RE_bm|SCCR2_RIE_bm
 
         org     $1000
-stack:  equ     *-1             ; MC6801's SP is post-decrement/pre-increment
+stack:  equ     *-1             ; MC68HC11's SP is post-decrement/pre-increment
 
         org     VEC_SCI
         fdb     isr_sci
@@ -23,7 +23,7 @@ stack:  equ     *-1             ; MC6801's SP is post-decrement/pre-increment
 
         org     $0100
 device_base:
-        fdb     $0000
+        fdb     $0000           ; internal register block base
 initialize:
         lds     #stack
         ldx     #rx_queue
@@ -56,7 +56,7 @@ loop:
         bsr     putchar
         bra     loop
 halt_to_system:
-        swi                     ; halt_to_system
+        swi                     ; halt to system
 
 putchar:
         pshx

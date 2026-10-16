@@ -106,12 +106,12 @@
         838 : 7104                       sb      R4, R4
         83A : 0A13                       sla     R3, 1           ; is FPAC negative?
         83C : 1702                       jnc     AR_abs_oper
-        83E : 06A0 0AE6                  bl      @NegFPAC24      ; no: negate FPAC
+        83E : 06A0 0AE6                  bl      @NegFPAC24      ; yes: negate FPAC
         842 :                    AR_abs_oper:
         842 : 0993                       srl     R3, 9           ; R3=exponent of FPAC
         844 : 0A17                       sla     R7, 1           ; is operand negative?
         846 : 1704                       jnc     AR_align_FPAC
-        848 : 0544                       inv     R4              ; no: negate operand
+        848 : 0544                       inv     R4              ; yes: negate operand
         84A : 0505                       neg     R5
         84C : 1701                       jnc     AR_align_FPAC
         84E : 0584                       inc     R4
@@ -210,7 +210,7 @@
         900 :                    *** 32 x 32 => 64 bit multiply. S is R0,R1 and D is R4,R5
         900 :                    *** result is in R0-R3
         900 :                    *** used for both MM (R6!=0) and MR (R6==0)
-        900 :                    *** in case of MR it multiplies two 24 bit manrissas
+        900 :                    *** in case of MR it multiplies two 24 bit mantissas
         900 :                    MM_entry:
         900 : C085                       mov     R5, R2          ; long multiply in four 16x16 bit steps
         902 : 3881                       mpy     R1, R2
@@ -374,7 +374,7 @@
         A24 : C001                       mov     R1, R0          ; CRE: fit result in 32 bits
         A26 : C1C7                       mov     R7, R7          ; if real was negative, negate 32 bit
         A28 : 1504                       jgt     >0A32           ; (bug: should be >0A38)
-        A2A :                    ;;;        jgt     >0A32           ; (bug: was >0A32)
+        A2A :                    ;;;        jgt     CRE_positive    ; (bug: was >0A32)
         A2A : 0540                       inv     R0
         A2C : 0502                       neg     R2
         A2E : 1701                       jnc     CRE_negate_hi
@@ -404,7 +404,7 @@
         A4C : C000                       mov     R0, R0          ; is FPAC zero?
         A4E : 13C4                       jeq     FPAC_clear_trampoline ; yes: set flags & finish
         A50 : C158                       mov     *R8, R5         ; fetch 2nd word of operand
-        A52 : C180                       mov     R0, R6          ; save exponents i R6 and R7
+        A52 : C180                       mov     R0, R6          ; save exponents in R6 and R7
         A54 : C1C4                       mov     R4, R7
         A56 : 7000                       sb      R0, R0          ; remove exponents from mantissas
         A58 : 7104                       sb      R4, R4
@@ -460,7 +460,7 @@
         AC2 : 001D 4100                  slam    R0, 4
         AC6 : 0606                       dec     R6              ; and adjust exponent accordingly
         AC8 :                    CxR_exponent:
-        AC8 : 06C6                       swpb    R6              ; mere exponent (R6), mantissa (R0,R1) and
+        AC8 : 06C6                       swpb    R6              ; merge exponent (R6), mantissa (R0,R1) and
         ACA : 001C 4200                  sram    R0, 8           ; sign (R7) together
         ACE : D006                       movb    R6, R0
         AD0 : E007                       soc     R7, R0
@@ -492,7 +492,7 @@
         AFC : 27E0 0B1A                  czc     @PRIV_BIT, R15  ; are we in user mode?
         B00 : 1303                       jeq     LDx_super
         B02 : 0300 0000                  limi    >0000           ; yes: set up PRIVOP error
-        B06 : 0380                       rtwp                    ; will cause INT2 after thr RTWP
+        B06 : 0380                       rtwp                    ; will cause INT2 after the RTWP
         B08 :                    LDx_super:
         B08 : 0283 C000                  ci      R3, >C000       ; is this a first LDS?
         B0C : 1303                       jeq     LDx_second
@@ -501,11 +501,11 @@
         B14 :                    LDx_second:
         B14 : C08E                       mov     R14, R2         ; save address+2 of first LDS/LDD in a sequence
         B16 :                    LDx_return:
-        B16 : 0384                       rtwp    4               ; return & defer interrput
+        B16 : 0384                       rtwp    4               ; return & defer interrupt
         B18 :                    LDx_BITS:
         B18 : F83F                       data    >F83F           ; reverse bit pattern of LDD/LDS
         B1A :                    PRIV_BIT:
-        B1A : 0100                       data    ST_PRV          ; PRV but in ST register
+        B1A : 0100                       data    ST_PRV          ; PRV bit in ST register
         B1C :
         B1C :                    FLOAT_2op:
         B1C : 0285 0302                  ci      R5, >0302       ; CR or MM opcode
@@ -561,7 +561,7 @@
         B88 : 1609                       jne     >0B9C           ; Ts = 3 ?
         B8A : 024B FFC0                  andi    R11, >FFC0      ; mask out operand bits
         B8E : 028B 0C80                  ci      R11, >0C80      ; opcode is CIR?
-        B92 : 1602                       jne     FLOAT_1op_inc4  ; yes; auto increment by 2, else by 4
+        B92 : 1602                       jne     FLOAT_1op_inc4  ; CIR: auto increment by 2, else by 4
         B94 : 05DA                       inct    *R10
         B96 : 1002                       jmp     FLOAT_1op_switch
         B98 :                    FLOAT_1op_inc4:
@@ -572,15 +572,15 @@
         BA2 :                    FLOAT_0op:
         BA2 : C01D                       mov     *R13, R0        ; fetch FPAC into local R0,R1
         BA4 : C06D 0002                  mov     @2(R13), R1
-        BA8 : C08F                       mov     R15, R2         ; save status ^ clear ST0-ST4
+        BA8 : C08F                       mov     R15, R2         ; save status & clear ST0-ST4
         BAA : 024F 07FF                  andi    R15, >07FF      ; (status is saved to restore ST3-ST4 as needed)
         BAE : 0165 0BBE                  bind    @FLOAT_TABLE(R5) ; jump to specific opcode routine
         BB2 :
         BB2 :                    CHECK_XIT:                      ; Exit float emulation for TI990/12
-        BB2 : C1C5                       mov     R5, R7          ; test for XIT (>0C0E ad >0C0F)
+        BB2 : C1C5                       mov     R5, R7          ; test for XIT (>0C0E and >0C0F)
         BB4 : 0917                       srl     R7, 1           ; XIT is a no-op
         BB6 : 0287 0607                  ci      R7, >0607
-        BBA : 1612                       jne     CHECK_ROM       ; no test for extension & exit
+        BBA : 1612                       jne     CHECK_ROM       ; no: test for extension & exit
         BBC : 0380                       rtwp                    ; macro processing complete
         BBE :
         BBE :                    FLOAT_TABLE:
@@ -609,7 +609,7 @@
         BE0 :                    CHECK_ROM:
         BE0 : C1E0 1000                  mov     @EXTERNAL_ROM, R7 ; test macro location >1000 for >AAAA magic
         BE4 : 0287 AAAA                  ci      R7, EXTERNAL_MAGIC
-        BE8 : 1602                       jne     RETURN_ILLOP    ; if nor present exit
+        BE8 : 1602                       jne     RETURN_ILLOP    ; if not present exit
         BEA : 0460 1002                  b       @EXTERNAL_ENTRY ; jump to external macro code
         BEE :                    RETURN_ILLOP:
         BEE : 0382                       rtwp    2               ; return & trigger ILLOP interrupt

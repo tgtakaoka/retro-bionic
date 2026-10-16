@@ -41,7 +41,7 @@
 (1)       0 : =87                PCON:   equ     87H             ; Power control
 (1)       0 :                    ;;; PSW (0D0H) Program status word (bit addressable)
 (1)       0 : =7                 CY:     equ     7              ; set to 1 if carry
-(1)       0 : =6                 AC:     equ     6              ; set to 1 if auxillary carry
+(1)       0 : =6                 AC:     equ     6              ; set to 1 if auxiliary carry
 (1)       0 : =5                 F0:     equ     5              ; user flag 0
 (1)       0 : =4                 RS1:    equ     4              ; register bank select
 (1)       0 : =3                 RS0:    equ     3              ; register bank select
@@ -55,7 +55,7 @@
 (1)       0 : =2                 EX1:    equ     2               ; #INT1
 (1)       0 : =1                 ET0:    equ     1               ; Timer 0 overflow
 (1)       0 : =0                 EX0:    equ     0               ; #INT0
-(1)       0 :                    ;;; SCON (89H) Serial control (bit addressable)
+(1)       0 :                    ;;; SCON (98H) Serial control (bit addressable)
 (1)       0 : =7                 SM0:    equ     7               ; Serial mode SM[0:1:2]=010 8-bit UART
 (1)       0 : =6                 SM1:    equ     6
 (1)       0 : =5                 SM2:    equ     5
@@ -70,8 +70,8 @@
 (1)       0 :                    ;;; TMOD (89H) Timer/Counter mode control register
 (1)       0 : =4                 T1MODE_gp:      equ     4       ; Timer 1 mode
 (1)       0 : =0                 T0MODE_gp:      equ     0       ; Timer 0 mode
-(1)       0 : =8                 TGATE:          equ     1000B
-(1)       0 : =4                 TXPIN:          equ     0100B   ; Input from Tx pin
+(1)       0 : =8                 TGATE:          equ     1000B   ; Run only while #INTx is high
+(1)       0 : =4                 TXPIN:          equ     0100B   ; Count pulses on T0/T1 pin
 (1)       0 : =2                 T8MODE:         equ     0010B   ; 8-bit auto-reload timer/counter
 (1)       0 :                    ;;; PCON (87H) Power control register
 (1)       0 : =40                SMOD:   equ     1000000B        ; Double baudrate
@@ -95,7 +95,7 @@
          29 : D2 9C                      setb    SCON.REN        ; Enable reception
          2B :                    init_timer:
          2B : 43 87 40                   orl     PCON, #SMOD     ; Double baudrate
-         2E : 43 89 20                   orl     TMOD, #T8MODE SHL T1MODE_gp
+         2E : 43 89 20                   orl     TMOD, #T8MODE SHL T1MODE_gp ; Timer 1 8-bit auto-reload
          31 :                    ;;; baudrate = K*fosc/(32*12*(256-TH1))
          31 :                    ;;; TH1=256 - (K*fosc/(384*baudrate))
          31 :                    ;;; fosc=12MHz, K=2(SMOD=1) baudrate=4,800bps, TH1=243(256-13)
@@ -108,13 +108,13 @@
          3C : 80 FB                      sjmp    receive_loop
          3E :                    receive_data:
          3E : E5 99                      mov     A, SBUF
-         40 : 60 0E                      jz      halt_to_system
+         40 : 60 0E                      jz      halt_to_system  ; NUL halts
          42 :                    transmit_loop:
          42 : F5 99                      mov     SBUF, A
-         44 : 30 99 FD                   jnb     SCON.TI, $
+         44 : 30 99 FD                   jnb     SCON.TI, $      ; wait for Tx done
          47 : C2 99                      clr     SCON.TI
          49 : B4 0D ED                   cjne    A, #0DH, receive_loop
-         4C : 74 0A                      mov     A, #0AH
+         4C : 74 0A                      mov     A, #0AH         ; follow CR with LF
          4E : 80 F2                      sjmp    transmit_loop
          50 :                    halt_to_system:
          50 : A5                         db      0A5H            ; halt to system

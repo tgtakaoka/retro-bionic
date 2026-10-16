@@ -57,7 +57,7 @@ init_usart:
                                 ; the identifier pushed, but zero would disable it
         ld      A, ORG_RESET
         ld      BC, USARTTV
-        out     (C), A          ; disable TxRDY interrupt
+        out     (C), A          ; 0 disables TxRDY interrupt
 init_ivt:
         ld      C, CNTL_VTABLE
         ld      HL, IVTP        ; not "(IVT>>12)<<4": a leading parenthesis reads as indirect
@@ -135,7 +135,7 @@ receive_loop:
 
 halt_to_system:
         ld      HL, ORG_RST38
-        ld      (HL), 0FFH
+        ld      (HL), 0FFH      ; RST 38H at its vector: exit to the debugger
         rst     38h
 
 ;;; Any trap not expected: break in system mode with the trap's

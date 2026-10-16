@@ -41,7 +41,7 @@ R2H:    rmb     1
 R2L:    rmb     1
 arith_work:
         rmb     1
-SP:     rmb     1
+SP:     rmb     1               ; software stack index
 
 save_a: rmb     1
 save_x: rmb     1
@@ -51,7 +51,7 @@ tx_queue:
         rmb     tx_queue_size
 
         org     $0100
-stack:  rmb     20
+stack:  rmb     20              ; software stack for push_XA/pull_XA
 
         org     VEC_IRQ
         fdb     isr_irq

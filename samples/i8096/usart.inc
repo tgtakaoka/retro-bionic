@@ -4,8 +4,8 @@ USART:  equ     0200H
 USARTD: equ     USART+0         ; Data register
 USARTS: equ     USART+2         ; Status register
 USARTC: equ     USART+2         ; Control register
-USARTRV:        equ     USART+4 ; Receive interrupt vector (ORG_*)
-USARTTV:        equ     USART+6 ; Transmit interrupt vector (ORG_*)
+USARTRV:        equ     USART+4 ; Receive interrupt enable (EXTINT), 0=off
+USARTTV:        equ     USART+6 ; Transmit interrupt enable (EXTINT), 0=off
         include "i8251.inc"
 ;;; Async 1stop 8data x16
 ASYNC_MODE:     equ     MODE_STOP1_gc|MODE_LEN8_gc|MODE_BAUD_X16

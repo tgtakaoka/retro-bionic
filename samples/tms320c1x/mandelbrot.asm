@@ -99,7 +99,9 @@ initialize:
 
         b       mandelbrot
 
-;;; put letter
+;;; The hardware stack has only 4 levels, so a routine that calls
+;;; others keeps its return address in data memory.
+;;; put letter; dropped if tx_queue is full
 ;;; @param ACC letter
 putchar:
         sacl    putchar_work
@@ -141,7 +143,7 @@ newline:
         .include "queue.inc"
 
 int_isr:
-        sst     isr_st          ; save ST
+        sst     isr_st          ; save ST (SST writes page 1)
         ldpk    1               ; page 1
         sacl    isr_accl        ; save ACC
         sach    isr_acch

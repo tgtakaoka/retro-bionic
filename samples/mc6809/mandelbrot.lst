@@ -28,7 +28,7 @@
 (1)       0 :                    ;;; MC6850
 (1)       0 :                    ;;; Asynchronous Communication Interface Adapter
 (1)       0 :
-(1)       0 :                    ;;; Control register
+(1)       0 :                    ;;; Control register (write)
 (1)       0 : =DF00              ACIA_control:   equ     ACIA+0
 (1)       0 :                            ;; Counter Divider Select Bits
 (1)       0 : =3                 CDS_gm:         equ     %11    ; Group mask
@@ -55,7 +55,7 @@
 (1)       0 :                                                      ; Transmit Break Level
 (1)       0 : =80                RIEB_bm:        equ     %10000000 ; Receive Interrupt Enable Bit mask
 (1)       0 :
-(1)       0 :                    ;;; Status register
+(1)       0 :                    ;;; Status register (read)
 (1)       0 : =DF00              ACIA_status:    equ     ACIA+0
 (1)       0 : =1                 RDRF_bm:        equ     %00000001 ; Receive Data Register Full
 (1)       0 : =2                 TDRE_bm:        equ     %00000010 ; Transmit Data Register Empty
@@ -73,7 +73,7 @@
           0 :
          20 :                            org     $20
          20 :                    ;;; Working space for mandelbrot.inc
-         20 : =32                F:      equ     50
+         20 : =32                F:      equ     50              ; fixed-point scale, 1.0=F
          20 :                    vC:     rmb     2
          22 :                    vD:     rmb     2
          24 :                    vA:     rmb     2
@@ -86,7 +86,7 @@
          31 :                    vX:     rmb     1
          32 :                    vI:     rmb     1
          33 :
-         33 :                    ;;; Working space for arith.inc
+         33 :                    ;;; Not used: arith.inc passes values in D and X
          33 :                    R0:
          33 :                    R0H:    rmb     1
          34 :                    R0L:    rmb     1
@@ -104,7 +104,7 @@
        2080 :                    tx_queue:       rmb     tx_queue_size
        2100 :
        1000 :                            org     $1000
-       1000 : =FFF               stack:  equ     *-1             ; MC6800's SP is post-decrement/pre-increment
+       1000 : =FFF               stack:  equ     *-1             ; from MC6800, whose push is post-decrement
        1000 :
        FFF6 :                            org     VEC_FIRQ
        FFF6 : 03 60                      fdb     isr_firq
@@ -155,8 +155,9 @@
         137 : 1C BF                      andcc   #~CC_FIRQ        ; enable FIRQ
         139 : 35 90                      puls    x,pc
         13B :
-        13B :                    ;;; Put character
-        13B :                    ;;; @param A
+        13B :                    ;;; Put a space, CR LF (newline) or char A (putchar)
+        13B :                    ;;; @param A char for putchar
+        13B :                    ;;; @clobber A for putspace and newline
         13B :                    putspace:
         13B : 86 20                      lda     #' '
         13D : 20 06                      bra     putchar
@@ -183,6 +184,7 @@
 (1)     15A :                    ;;; Print variable: "A=variable "
 (1)     15A :                    ;;; @param X variable
 (1)     15A :                    ;;; @param A variable letter
+(1)     15A :                    ;;; @clobber D X
 (1)     15A :                    print:
 (1)     15A : BD 01 45                   jsr     putchar         ; print variable letter
 (1)     15D : 86 3D                      lda     #'='
@@ -209,9 +211,9 @@
 (1)     185 : D6 30                      ldb     vY
 (1)     187 : 1D                         sex                     ; D=Y
 (1)     188 : 8E 01 A0                   ldx     #416
-(1)     18B : BD 02 89                   jsr     mul16           ; R0=Y*416
+(1)     18B : BD 02 89                   jsr     mul16           ; D=Y*416
 (1)     18E : 8E 00 64                   ldx     #100
-(1)     191 : BD 02 ED                   jsr     div16           ; R0=Y*416/100
+(1)     191 : BD 02 ED                   jsr     div16           ; D=Y*416/100
 (1)     194 : DD 22                      std     vD              ; D=Y*416/100
 (1)     196 : DD 26                      std     vB              ; B=D
 (1)     198 : 0F 32                      clr     vI              ; I=0
@@ -235,9 +237,10 @@
 (1)     19A :                            ;; jsr     newline
 (1)     19A :
 (1)     19A :                    loop_i:
+(1)     19A :                            ;; A*B/F = A*Q+A*S/F with Q=B/F, S=B-Q*F; keeps products in 16 bits
 (1)     19A : DC 26                      ldd     vB
 (1)     19C : 8E 00 32                   ldx     #F
-(1)     19F : BD 02 ED                   jsr     div16           ; R0=B/F
+(1)     19F : BD 02 ED                   jsr     div16           ; D=B/F
 (1)     1A2 : DD 2C                      std     vQ              ; Q=B/F
 (1)     1A4 : 8E FF CE                   ldx     #-F
 (1)     1A7 : BD 02 89                   jsr     mul16           ; -Q*F
@@ -252,7 +255,7 @@
 (1)     1BB : BD 02 89                   jsr     mul16           ; A*A
 (1)     1BE : A3 E1                      subd    ,S++            ; A*A-B*B
 (1)     1C0 : 8E 00 32                   ldx     #F
-(1)     1C3 : BD 02 ED                   jsr     div16           ; R0=(A*A-B*B)/F
+(1)     1C3 : BD 02 ED                   jsr     div16           ; D=(A*A-B*B)/F
 (1)     1C6 : D3 20                      addd    vC
 (1)     1C8 : 34 06                      pshs    D               ; push (A*A-B*B)/F+C
 (1)     1CA : DC 24                      ldd     vA
@@ -342,7 +345,7 @@
 (1)     233 : BD 01 2D                   jsr     getchar
 (1)     236 : 24 04                      bcc     next_x
 (1)     238 : 4D                         tsta
-(1)     239 : 26 01                      bne     next_x
+(1)     239 : 26 01                      bne     next_x          ; halt on NUL
 (1)     23B : 3F                         swi                     ; halt to system
 (1)     23C :                    next_x:
 (1)     23C : 0C 31                      inc     vX              ; X+=1
@@ -377,6 +380,7 @@
 (1)     267 : 35 86                      puls    D,PC
 (1)     269 :
 (1)     269 :                    ;;; Print unsigned 16-bit integer as decimal
+(1)     269 :                    ;;; Recursion stacks the digits so the most significant prints first.
 (1)     269 :                    ;;; @param D value
 (1)     269 :                    ;;; @clobber D X
 (1)     269 :                    print_uint16:
@@ -433,7 +437,7 @@
 (1)     2AA : 27 39                      beq     udiv16_small    ; divide by zero
 (1)     2AC : 34 06                      pshs    D               ; S[0:1]=dividend, S[2:3]=divisor
 (1)     2AE : CC FF FF                   ldd     #-1
-(1)     2B1 : 34 06                      pshs    D               ; S[0:1]=quotient marker
+(1)     2B1 : 34 06                      pshs    D               ; S[0:1]=~quotient and marker
 (1)     2B3 : 1F 10                      tfr     X,D
 (1)     2B5 : 4D                         tsta
 (1)     2B6 : 2B 0E                      bmi     udiv16_prep_end
@@ -441,7 +445,7 @@
 (1)     2B8 : 58                         lslb
 (1)     2B9 : 49                         rola                    ; divisor <<= 1
 (1)     2BA : 64 E4                      lsr     ,S
-(1)     2BC : 66 61                      ror     1,S             ; marker >>= 1
+(1)     2BC : 66 61                      ror     1,S             ; marker >>= 1, one 0 bit per shift
 (1)     2BE : 10 A3 62                   cmpd    2,S
 (1)     2C1 : 22 03                      bhi     udiv16_prep_end ; until divisor > dividend
 (1)     2C3 : 4D                         tsta
@@ -459,7 +463,7 @@
 (1)     2D4 : E3 64                      addd    4,S             ; dividend += divisor, C=1
 (1)     2D6 :                    udiv16_next:
 (1)     2D6 : 69 61                      rol     1,S
-(1)     2D8 : 69 E4                      rol     ,S              ; quotient = quotient<<1 | C
+(1)     2D8 : 69 E4                      rol     ,S              ; ~quotient = ~quotient<<1 | C
 (1)     2DA : 24 F0                      bcc     udiv16_loop     ; until marker shifts out
 (1)     2DC : 1F 01                      tfr     D,X             ; X=remainder
 (1)     2DE : EC E4                      ldd     ,S
@@ -477,7 +481,7 @@
 (1)     2ED :                    ;;; @param D dividend
 (1)     2ED :                    ;;; @param X divisor
 (1)     2ED :                    ;;; @return D quotient
-(1)     2ED :                    ;;; @return X remainder
+(1)     2ED :                    ;;; @return X remainder of |dividend|/|divisor|
 (1)     2ED :                    div16:
 (1)     2ED : 8C 00 00                   cmpx    #0
 (1)     2F0 : 2B 10                      bmi     div16_divisor   ; divisor < 0
@@ -516,6 +520,7 @@
 (1)     315 :                    ;;; [queue] Initialize queue
 (1)     315 :                    ;;; @param X queue work space pointer
 (1)     315 :                    ;;; @param B queue work space size
+(1)     315 :                    ;;; @clobber B
 (1)     315 :                    queue_init:
 (1)     315 : 34 14                      pshs    x,b
 (1)     317 :                    queue_init_loop:
@@ -536,7 +541,7 @@
 (1)     325 : 1F 13                      tfr     x,u
 (1)     327 : E6 C4                      ldb     queue_len,u
 (1)     329 : E1 41                      cmpb    queue_size,u
-(1)     32B : 24 12                      bhs     queue_add_return ;carry is cleared
+(1)     32B : 24 12                      bhs     queue_add_return ; carry is cleared
 (1)     32D : E6 42                      ldb     queue_put,u     ; 8 bits offset
 (1)     32F : 3A                         abx                     ; X+=B
 (1)     330 : A7 04                      sta     queue_buf,x     ; store an element
@@ -576,7 +581,7 @@
 (1)     35E : 35 D4                      puls    b,x,u,pc
         360 :
         360 :                    isr_firq:
-        360 : 34 16                      pshs    x,b,a
+        360 : 34 16                      pshs    x,b,a           ; FIRQ stacks only PC and CC
         362 : F6 DF 00                   ldb     ACIA_status
         365 : C5 80                      bitb    #IRQF_bm
         367 : 27 1C                      beq     isr_firq_exit
@@ -601,6 +606,7 @@
         38D : 35 16                      puls    a,b,x
         38F : 3B                         rti
         390 :
+        390 :                    ;;; Unexpected IRQ and NMI halt to system
         390 :                    isr_irq:
         390 : 3F                         swi
         391 :

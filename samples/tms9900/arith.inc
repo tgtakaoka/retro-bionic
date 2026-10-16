@@ -1,11 +1,11 @@
-*** -*- mode: asm; mode: flyspell-prog* -*-
+*** -*- mode: asm; mode: flyspell-prog; -*-
         *** Print signed 16-bit integer as decimal
         *** @param R0 value
 print_int16:
         dect    R10
         mov     R11, *R10       Push return address
         dect    R10
-        mov     R0, *R10        Push R0
+        mov     R0, *R10        Push R0, ST from R0
         jeq     print_int16_zero
         jgt     print_uint16
         li      R0, hibyte('-')
@@ -58,7 +58,7 @@ mul16:
         abs     R1
         mpy     R1, R0          R0:R1=R0*R1
         li      R0, >8000
-        szc     R2, R0
+        szc     R2, R0          R0=0 if signs differ
         jne     mul16_return
         neg     R1
 mul16_return:
@@ -66,7 +66,7 @@ mul16_return:
 
         *** Divide by positive divisor
         *** R1 / R2 = R1 (R2 > 0)
-        *** @clobber R2, R0
+        *** @clobber R0
 divu16:
         clr     R0
         abs     R1
@@ -81,7 +81,7 @@ divu16_negative:
         rt
 
         *** Divide
-        *** R1 / R2 = R1 ... R0
+        *** R1 / R2 = R1 ... R0 (R0=|remainder|)
         *** @clobber R2
 div16:
         mov     R1, R0

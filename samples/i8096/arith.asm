@@ -41,6 +41,8 @@ halt_to_system:
         st      A, VEC_TRAP     ; halt to system
         trap
 
+;;; Put character
+;;; @param A
 putchar:
         push    A
 putchar_loop:
@@ -50,6 +52,7 @@ putchar_loop:
         stb     A, USARTD
         ret
 
+;;; Put newline
 newline:
         push    A
         ldb     A, #0DH
@@ -59,6 +62,7 @@ newline:
         pop     A
         ret
 
+;;; Put space
 putspace:
         push    A
         ldb     A, #' '
@@ -66,7 +70,7 @@ putspace:
         pop     A
         ret
 
-;;; Print "v1 op v2 = "
+;;; Print "v1 op v2"
 ;;; @param v1 HL
 ;;; @param v2 DE
 ;;; @param op A
@@ -85,7 +89,7 @@ expr:
         pop     HL
         ret
 
-;;; Print " v1\n"
+;;; Print " = v1\n"
 ;;; @param v1 HL
 ;;; @clobber A HL
 answer:

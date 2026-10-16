@@ -14,7 +14,7 @@
 (2)       0 : =8                 F_DECIMAL_ADJ:  equ     %(2)00001000 ; decimal adjust
 (2)       0 : =4                 F_HALF_CARRY:   equ     %(2)00000100 ; set to 1 if carry from bit-3
 (2)       0 : =2                 F_USER2:        equ     %(2)00000010 ; User flag F2
-(2)       0 : =1                 F_USER1:        equ     %(2)00000001 ; User flah F1
+(2)       0 : =1                 F_USER1:        equ     %(2)00000001 ; User flag F1
 (1)       0 :                    ;;; Z86
 (1)       0 :                            cpu     Z86C
 (1)       0 :                            option  "reg-alias", "disable"
@@ -51,8 +51,8 @@
 (1)       0 : =20                IPR_A35:        equ     %(2)100000 ; A: IRQ3 > IRQ5
 (1)       0 : =0                 IPR_B20:        equ     %(2)000000 ; B: IRQ2 > IRQ0
 (1)       0 : =4                 IPR_B02:        equ     %(2)000100 ; B: IRQ0 > IRQ2
-(1)       0 : =0                 IPR_C14:        equ     %(2)000000 ; C: IRQ0 > IRQ4
-(1)       0 : =2                 IPR_C41:        equ     %(2)000010 ; C: IRQ4 > IRQ0
+(1)       0 : =0                 IPR_C14:        equ     %(2)000000 ; C: IRQ1 > IRQ4
+(1)       0 : =2                 IPR_C41:        equ     %(2)000010 ; C: IRQ4 > IRQ1
 (1)       0 : =FB                IMR:    equ     251             ; R/W: Interrupt Mask
 (1)       0 : =80                IMR_ENABLE:     equ     %(2)10000000 ; Interrupt enable
 (1)       0 : =1                 IMR_IRQ0:       equ     (1 SHL 0)
@@ -105,6 +105,7 @@
           0 :                            include "i8251.inc"
 (1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
 (1)       0 :                    ;;; i8251 USART device emulator.
+(1)       0 :                    ;;; Bit definition of mode register
 (1)       0 : =6                 MODE_STOP_gp:   equ     6
 (1)       0 : =C0                MODE_STOP_gm:   equ     %(2)11000000
 (1)       0 : =40                MODE_STOP1_gc:  equ     (1 SHL MODE_STOP_gp)
@@ -158,7 +159,8 @@
        2080 : =80                tx_queue_size:  equ     128
        2080 :                    tx_queue:       ds      tx_queue_size
        2100 :
-       2100 :                    ;;; work area for mandelbrot.inc
+       2100 :                    ;;; work area for mandelbrot.inc; constants too, as arith.inc takes
+       2100 :                    ;;; operands by register address
          40 :                            org     %40
          40 :                    c229:   ds      2
          42 :                    c416:   ds      2
@@ -290,6 +292,9 @@
          A2 :                            include "mandelbrot.inc"
 (1)      A2 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
 (1)      A2 :
+(1)      A2 :                    ;;; Print the Mandelbrot set for Y=-12..12, X=-49..29 in fixed point
+(1)      A2 :                    ;;; scaled by F; each point shows its escape iteration 0-F, or a space if
+(1)      A2 :                    ;;; it never escapes.  A NUL received halts the CPU.
 (1)      A2 :                    mandelbrot:
 (1)      A2 : E6 40 00                   ld      c229, #HIGH 229
 (1)      A5 : E6 41 E5                   ld      c229+1, #LOW 229
@@ -463,7 +468,7 @@
 (1)     1D2 : 08 5F                      ld      R0, vI+1
 (1)     1D4 : 06 E0 30                   add     R0, #'0'
 (1)     1D7 : A6 E0 3A                   cp      R0, #'9'+1
-(1)     1DA : 7B 03                      jr      c, print_char   ; if I<'9'+1
+(1)     1DA : 7B 03                      jr      c, print_char   ; if I<10
 (1)     1DC : 06 E0 07                   add     R0, #'A'-'0'-10
 (1)     1DF :                    print_char:
 (1)     1DF : D6 00 75                   call    putchar
@@ -478,10 +483,10 @@
 (1)     1E2 :                            ;; call    newline
 (1)     1E2 :
 (1)     1E2 : D6 00 63                   call    getchar
-(1)     1E5 : FB 05                      jr      nc, next_x
+(1)     1E5 : FB 05                      jr      nc, next_x          ; no input
 (1)     1E7 : 42 00                      or      R0, R0
 (1)     1E9 : EB 01                      jr      nz, next_x
-(1)     1EB : 7F                         halt
+(1)     1EB : 7F                         halt                        ; NUL received
 (1)     1EC :                    next_x:
 (1)     1EC : A0 5C                      incw    vX
 (1)     1EE : 08 5C                      ld      R0, vX
@@ -494,14 +499,14 @@
 (1)     200 : A0 5A                      incw    vY
 (1)     202 : 08 5A                      ld      R0, vY
 (1)     204 : 42 00                      or      R0, R0
-(1)     206 : ED 00 C0                   jp      nz, loop_y      ; if X<0
+(1)     206 : ED 00 C0                   jp      nz, loop_y      ; if Y<0
 (1)     209 : 08 5B                      ld      R0, vY+1
 (1)     20B : 26 E0 0D                   sub     R0, #13
-(1)     20E : 1D 00 C0                   jp      lt, loop_y      ; if X<13
+(1)     20E : 1D 00 C0                   jp      lt, loop_y      ; if Y<13
 (1)     211 : AF                         ret
 (1)     212 :
 (1)     212 :                    ;;; Print variable
-(1)     212 :                    ;;; @param R2 variable name
+(1)     212 :                    ;;; @param R2 variable name letter
 (1)     212 :                    ;;; @param RR0 variable value
 (1)     212 :                    print:
 (1)     212 : 70 E0                      push    R0
@@ -519,15 +524,16 @@
 (1)     226 :
 (1)     226 :                    ;;; Print unsigned 16-bit integer as decimal
 (1)     226 :                    ;;; @param RR0: value
-(1)     226 :                    ;;; @clobber RR0 RR12 RR14
+(1)     226 :                    ;;; @clobber RR0 R10-R15
 (1)     226 :                    print_uint16:
 (1)     226 : A0 E0                      incw    RR0
-(1)     228 : 80 E0                      decw    RR0
+(1)     228 : 80 E0                      decw    RR0             ; test RR0 for zero
 (1)     22A : EB 06                      jr      nz, print_uint16_inner
 (1)     22C : 0C 30                      ld      R0, #'0'
 (1)     22E : D6 00 75                   call    putchar
 (1)     231 :                    print_uint16_end:
 (1)     231 : AF                         ret
+(1)     232 :                    ;;; Print non-zero RR0 recursively, most significant digit first
 (1)     232 :                    print_uint16_inner:
 (1)     232 : A0 E0                      incw    RR0
 (1)     234 : 80 E0                      decw    RR0
@@ -547,7 +553,7 @@
 (1)     254 :
 (1)     254 :                    ;;; Print signed 16-bit integer as decimal
 (1)     254 :                    ;;; @param RR0: value
-(1)     254 :                    ;;; @clobber RR0
+(1)     254 :                    ;;; @clobber RR0 R10-R15
 (1)     254 :                    print_int16:
 (1)     254 : 42 00                      or      R0, R0
 (1)     256 : DB CE                      jr      pl, print_uint16
@@ -589,7 +595,7 @@
 (1)     289 : D7 F4 01                   ld      1(R4), R15
 (1)     28C : AF                         ret
 (1)     28D :
-(1)     28D :                    ;;; Singed subtraction: minuend -= subtrahend
+(1)     28D :                    ;;; Signed subtraction: minuend -= subtrahend
 (1)     28D :                    ;;; @param @R4: minuend
 (1)     28D :                    ;;; @param @R5: subtrahend
 (1)     28D :                    ;;; @clobber R14, R15
@@ -607,6 +613,7 @@
 (1)     29F :                    ;;; Signed comparison: minuend - subtrahend
 (1)     29F :                    ;;; @param @R4: minuend
 (1)     29F :                    ;;; @param @R5: subtrahend
+(1)     29F :                    ;;; @return FLAGS: C, Z, S, V of the 16-bit subtraction
 (1)     29F :                    ;;; @clobber R14, R15
 (1)     29F :                    cmpsi2:
 (1)     29F : E3 E4                      ld      R14, 0(R4)
@@ -622,7 +629,7 @@
 (1)     2AF :                    ;;; @param @R4: operand 1
 (1)     2AF :                    ;;; @param @R5: operand 2
 (1)     2AF :                    ;;; @param RR14: result
-(1)     2AF :                    ;;; @param FLAGS
+(1)     2AF :                    ;;; @param FLAGS: C of the operation
 (1)     2AF :                    ;;; @return FLAGS: C, Z, S, V
 (1)     2AF :                    addsub_flags:
 (1)     2AF : 70 EF                      push    R15
@@ -698,13 +705,13 @@
 (1)     311 : DB 06                      jr      pl, mulsi2_abs_muliplicand
 (1)     313 : 60 EC                      com     R12
 (1)     315 : 60 ED                      com     R13
-(1)     317 : A0 EC                      incw    RR12            ; multiplicand = -multiplicand
+(1)     317 : A0 EC                      incw    RR12            ; multiplier = -multiplier
 (1)     319 :                    mulsi2_abs_muliplicand:
 (1)     319 : 42 EE                      or      R14, R14
 (1)     31B : DB 06                      jr      pl, mulsi2_multiply
 (1)     31D : 60 EE                      com     R14
 (1)     31F : 60 EF                      com     R15
-(1)     321 : A0 EE                      incw    RR14            ; multiplier = -multiplier
+(1)     321 : A0 EE                      incw    RR14            ; multiplicand = -multiplicand
 (1)     323 :                    mulsi2_multiply:
 (1)     323 : D6 02 D8                   call    umul16          ; result = multiplicand * multiplier
 (1)     326 : E3 C4                      ld      R12, @R4
@@ -719,8 +726,8 @@
 (1)     337 : AF                         ret
 (1)     338 :
 (1)     338 :                    ;;; Unsigned division: dividend / divisor = quotient ... remainder
-(1)     338 :                    ;;; @praram RR14: dividend
-(1)     338 :                    ;;; @praram RR12: divisor
+(1)     338 :                    ;;; @param RR14: dividend
+(1)     338 :                    ;;; @param RR12: divisor; 0 returns RR14 unchanged, RR12=0
 (1)     338 :                    ;;; @return RR14: remainder
 (1)     338 :                    ;;; @return RR12: quotient
 (1)     338 :                    ;;; @clobber R10-R15
@@ -776,7 +783,7 @@
 (1)     387 : 50 E9                      pop     R9
 (1)     389 : AF                         ret
 (1)     38A :
-(1)     38A :                    ;;; Signed division: dividend *= divisor
+(1)     38A :                    ;;; Signed division: dividend /= divisor
 (1)     38A :                    ;;; @param @R4: dividend
 (1)     38A :                    ;;; @param @R5: divisor
 (1)     38A :                    ;;; @clobber R10-R15
@@ -803,7 +810,7 @@
 (1)     3AF : DB 06                      jr      pl, divsi2_end
 (1)     3B1 : 60 EC                      com     R12
 (1)     3B3 : 60 ED                      com     R13
-(1)     3B5 : A0 EC                      incw    RR12            ; dividend = = -dividend
+(1)     3B5 : A0 EC                      incw    RR12            ; quotient = -quotient
 (1)     3B7 :                    divsi2_end:
 (1)     3B7 : F3 4C                      ld      0(R4), R12
 (1)     3B9 : D7 D4 01                   ld      1(R4), R13
@@ -815,7 +822,7 @@
 (1)     3BD :                    ;;; vim: set ft=asm et ts=4 sw=4:
         3BD :                            include "queue.inc"
 (1)     3BD :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
-(1)     3BD :                    ;;; [queue] queue structure
+(1)     3BD :                    ;;; [queue] queue structure, in external data memory (LDE)
 (1)     3BD : =0                 queue_len:      equ     0       ; queue length
 (1)     3BD : =1                 queue_size:     equ     1       ; buffer size
 (1)     3BD : =2                 queue_put:      equ     2       ; queue put index
@@ -888,7 +895,7 @@
 (1)     41E : 80 E2                      decw    RR2
 (1)     420 : 80 E2                      decw    RR2             ; RR2 points queue_len
 (1)     422 : DF                         scf                     ; set carry flag
-(1)     423 : 50 E4                      pop     R4              ; restpre R1, R4
+(1)     423 : 50 E4                      pop     R4              ; restore R1, R4
 (1)     425 : 50 E1                      pop     R1              ; restore R1
 (1)     427 : AF                         ret
 (1)     428 :

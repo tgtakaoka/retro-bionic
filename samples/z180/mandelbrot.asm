@@ -11,6 +11,7 @@ tx_queue:       ds      tx_queue_size
         org     1000H
 stack:          equ     $
 
+;;; Mode 2 vectors for the alternative setup commented out in init
 vec_base:       equ     $
         org     vec_base+12H
 vec_rx: dw      isr_intr_rx
@@ -52,15 +53,15 @@ init_usart:
         ld      A, RX_EN_TX_DIS
         out     (C), A
 
-        db      3EH             ; LD A, n
+        db      3EH             ; LD A, n: the RST 28H opcode
         rst     28H
         ld      BC, USARTRV
         out     (C), A          ; set RxRDY interrupt vector RST 28H
-        db      3EH             ; LD A, n
+        db      3EH             ; LD A, n: the RST 30H opcode
         rst     30H
         ld      BC, USARTTV
         out     (C), A          ; set TxRDY interrupt vector RST 30H
-        im      0
+        im      0               ; execute the USART's RST vector
 
         ;; ld      A, HIGH vec_base
         ;; ld      I, A
@@ -81,7 +82,7 @@ loop:
 
 ;;; Get character
 ;;; @return A
-;;; @return CC.C 0 if no character
+;;; @return F.C 0 if no character
 getchar:
         push    HL
         ld      HL, rx_queue
@@ -119,7 +120,7 @@ putchar_exit:
         pop     AF
         ret
 
-;;; Put newline
+;;; Put space
 ;;; @clobber A
 putspace:
         ld      A, ' '

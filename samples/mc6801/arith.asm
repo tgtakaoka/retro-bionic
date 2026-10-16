@@ -20,7 +20,7 @@ vA:     rmb     2
 vB:     rmb     2
 
         org     $1000
-stack:  equ     *-1             ; MC6800's SP is post-decrement/pre-increment
+stack:  equ     *-1             ; MC6801's SP is post-decrement/pre-increment
 
         org     $FFF6           ; MC68HC11 SWI
         fdb     $FFF6

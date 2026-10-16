@@ -41,7 +41,7 @@
 (1)       0 : =87                PCON:   equ     87H             ; Power control
 (1)       0 :                    ;;; PSW (0D0H) Program status word (bit addressable)
 (1)       0 : =7                 CY:     equ     7              ; set to 1 if carry
-(1)       0 : =6                 AC:     equ     6              ; set to 1 if auxillary carry
+(1)       0 : =6                 AC:     equ     6              ; set to 1 if auxiliary carry
 (1)       0 : =5                 F0:     equ     5              ; user flag 0
 (1)       0 : =4                 RS1:    equ     4              ; register bank select
 (1)       0 : =3                 RS0:    equ     3              ; register bank select
@@ -55,7 +55,7 @@
 (1)       0 : =2                 EX1:    equ     2               ; #INT1
 (1)       0 : =1                 ET0:    equ     1               ; Timer 0 overflow
 (1)       0 : =0                 EX0:    equ     0               ; #INT0
-(1)       0 :                    ;;; SCON (89H) Serial control (bit addressable)
+(1)       0 :                    ;;; SCON (98H) Serial control (bit addressable)
 (1)       0 : =7                 SM0:    equ     7               ; Serial mode SM[0:1:2]=010 8-bit UART
 (1)       0 : =6                 SM1:    equ     6
 (1)       0 : =5                 SM2:    equ     5
@@ -70,8 +70,8 @@
 (1)       0 :                    ;;; TMOD (89H) Timer/Counter mode control register
 (1)       0 : =4                 T1MODE_gp:      equ     4       ; Timer 1 mode
 (1)       0 : =0                 T0MODE_gp:      equ     0       ; Timer 0 mode
-(1)       0 : =8                 TGATE:          equ     1000B
-(1)       0 : =4                 TXPIN:          equ     0100B   ; Input from Tx pin
+(1)       0 : =8                 TGATE:          equ     1000B   ; Run only while #INTx is high
+(1)       0 : =4                 TXPIN:          equ     0100B   ; Count pulses on T0/T1 pin
 (1)       0 : =2                 T8MODE:         equ     0010B   ; 8-bit auto-reload timer/counter
 (1)       0 :                    ;;; PCON (87H) Power control register
 (1)       0 : =40                SMOD:   equ     1000000B        ; Double baudrate
@@ -110,7 +110,7 @@
          45 : D2 9C                      setb    SCON.REN        ; Enable reception
          47 :                    init_timer:
          47 : 43 87 40                   orl     PCON, #SMOD     ; Double baudrate
-         4A : 43 89 20                   orl     TMOD, #T8MODE SHL T1MODE_gp
+         4A : 43 89 20                   orl     TMOD, #T8MODE SHL T1MODE_gp ; Timer 1 8-bit auto-reload
          4D :                    ;;; baudrate = K*fosc/(32*12*(256-TH1))
          4D :                    ;;; TH1=256 - (K*fosc/(384*baudrate))
          4D :                    ;;; fosc=12MHz, K=2(SMOD=1) baudrate=4,800bps, TH1=243(256-13)
@@ -126,14 +126,14 @@
          5D : 11 B5                      acall   queue_remove
          5F : D2 AF                      setb    IE.EA           ; enable interrupt
          61 : 50 F6                      jnc     receive_loop
-         63 : 60 0F                      jz      halt_to_system
+         63 : 60 0F                      jz      halt_to_system  ; NUL halts
          65 : FF                         mov     R7, A           ; save character
          66 :                    transmit_loop:
          66 : F5 99                      mov     SBUF, A
-         68 : 30 99 FD                   jnb     SCON.TI, $
+         68 : 30 99 FD                   jnb     SCON.TI, $      ; wait for Tx done
          6B : C2 99                      clr     SCON.TI
          6D : B4 0D E9                   cjne    A, #0DH, receive_loop
-         70 : 74 0A                      mov     A, #0AH
+         70 : 74 0A                      mov     A, #0AH         ; follow CR with LF
          72 : 80 F2                      sjmp    transmit_loop
          74 :                    halt_to_system:
          74 : A5                         db      0A5H            ; halt to system
@@ -145,8 +145,8 @@
 (1)      75 : =1                 queue_size:     equ     1       ; buffer size
 (1)      75 : =2                 queue_put:      equ     2       ; queue put index
 (1)      75 : =3                 queue_get:      equ     3       ; queue get index
-(1)      75 : =4                 queue_buf_lo:   equ     4       ; lo(queue buffer) pointer to  external data memory
-(1)      75 : =5                 queue_buf_hi:   equ     5       ; hi(queue_buffer)
+(1)      75 : =4                 queue_buf_lo:   equ     4       ; lo(queue buffer) pointer to external data memory
+(1)      75 : =5                 queue_buf_hi:   equ     5       ; hi(queue_buf)
 (1)      75 : =6                 queue_work_size: equ    6       ; queue work size
 (1)      75 :
 (1)      75 :                    ;;; [queue] Initialize queue
@@ -239,7 +239,7 @@
 (1)      C0 : 26                         add     A, @R0          ; A=lo(queue_buf)+queue_get
 (1)      C1 : F5 82                      mov     DPL, A
 (1)      C3 : 08                         inc     R0
-(1)      C4 : E6                         mov     A, @R0          ; A=hi(queue)
+(1)      C4 : E6                         mov     A, @R0          ; A=hi(queue_buf)
 (1)      C5 : 34 00                      addc    A, #0
 (1)      C7 : F5 83                      mov     DPH, A
 (1)      C9 : E0                         movx    A, @DPTR        ; read an element
@@ -260,6 +260,8 @@
 (1)      DA : D3                         setb    C
 (1)      DB : 22                         ret
          DC :
+         DC :                    ;;; Serial interrupt: queue a received character; TI is polled by
+         DC :                    ;;; the main loop
          DC :                    isr_intr:
          DC : 10 98 01                   jbc     SCON.RI, isr_intr_rx
          DF : 32                         reti

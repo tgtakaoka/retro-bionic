@@ -16,7 +16,7 @@ init:
 echo:
         call    getch
         ora     a
-        jz      halt_to_system
+        jz      halt_to_system  ; NUL halts
 echo_back:
         call    putch
         cpi     0DH
@@ -30,6 +30,8 @@ halt_to_system:
 ;;; Assume that 8085 is running with 3MHz CLK.
 ;;; 9,600bps bit duration = 3,000,000/9,600 = 312.5 CLK
 
+;;; Receive a character on SID, 8 data bits LSB first
+;;; @return A received character
 ;;; SID is latched at T3/CLK=0 of RIM instruction
 getch:  push    b               ;12
         push    d               ;12
@@ -67,7 +69,8 @@ get3:   rim                     ;4,4
         pop     b               ;10
         ret                     ;10
 
-;;; SOD is set at T2/CLK=0 of SIM instruciton
+;;; Send A on SOD, 8 data bits LSB first, 1 stop bit
+;;; SOD is set at T2/CLK=0 of SIM instruction
 putch:  push    psw             ;12
         push    b               ;12
         push    d               ;12
@@ -82,7 +85,7 @@ putch:  push    psw             ;12
         call    delay           ;17*14+25,274
 ;;; 4*8+7*3+10+16*14+25 = 312
 put1:   mov     a,b             ;4,278
-        rrc                     ;4.282
+        rrc                     ;4,282
         mov     b,a             ;4,286
         ani     80H             ;7,293 data bit
         ori     SIM_SDE         ;7,300

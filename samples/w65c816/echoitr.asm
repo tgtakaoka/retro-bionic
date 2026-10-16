@@ -48,7 +48,7 @@ receive_loop:
         jsr     getchar
         bcs     receive_loop
         ora     #0
-        beq     halt_to_system
+        beq     halt_to_system  ; NUL halts
 echo_back:
         pha
         jsr     putchar         ; echo
@@ -67,7 +67,7 @@ halt_to_system:
         .byte    0              ; halt to system
 
 ;;; Put newline
-;;; @clobber A
+;;; @clobber A X
 newline:
         lda     #$0D
         jsr     putchar
@@ -76,7 +76,7 @@ newline:
 
 ;;; Print uint8_t in hex
 ;;; @param A uint8_t value to be printed in hex.
-;;; @clobber A
+;;; @clobber A X
 put_hex8:
         pha
         lda     #'0'
@@ -102,7 +102,7 @@ put_hex8_dec:
 
 ;;; Print uint8_t in binary
 ;;; @param A uint8_t value to be printed in binary.
-;;; @clobber A
+;;; @clobber A X
 put_bin8:
         pha
         lda     #'0'
@@ -181,7 +181,7 @@ isr_irq_send:
         sta     ACIA_data       ; send character
 isr_irq_exit:
         plx                     ; restore X
-        pla                     ; restore Y
+        pla                     ; restore A
         rti                     ; restore P and PC
 isr_irq_send_empty:
         lda     #RX_INT_TX_NO

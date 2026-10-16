@@ -4,7 +4,7 @@
 ;;; i8251 Universal Synchronous/Asynchronous Receiver/Transmitter
 USART:          equ     40H
 USARTD:         equ     USART+0 ; Receive/Transmit data
-USARTS:         equ     USART+1 ; Srtatus register
+USARTS:         equ     USART+1 ; Status register
 USARTC:         equ     USART+1 ; Control register
 USARTRV:        equ     USART+2 ; Receive interrupt vector (ORG_*)
 USARTTV:        equ     USART+3 ; Transmit interrupt vector (ORG_*)
@@ -64,7 +64,7 @@ init_usart:
 
         rim
         ani     ~(SIM_M55|SIM_M65) ; enable RST 5.5/RST 6.5
-        ori     SIM_MSE|SIM_R75
+        ori     SIM_MSE|SIM_R75 ; apply masks, reset RST 7.5 latch
         sim
         ei
 
@@ -72,7 +72,7 @@ receive_loop:
         call    getchar
         jnc     receive_loop
         ora     a
-        jz      halt_to_system
+        jz      halt_to_system  ; NUL halts
 echo_back:
         mov     b, a
         call    putchar         ; echo
@@ -104,7 +104,7 @@ put_hex8:
         mov     a, b
 put_hex4:
         ani     0FH
-        adi     90H
+        adi     90H             ; DAA trick: 0-15 to '0'-'9','A'-'F'
         daa
         aci     40H
         daa
@@ -142,7 +142,7 @@ put_bin0:
 
 ;;; Get character
 ;;; @return A
-;;; @return CC.C 0 if no character
+;;; @return F.C 0 if no character
 getchar:
         push    h
         lxi     h, rx_queue
@@ -179,6 +179,7 @@ putchar_retry:
 
         include "queue.inc"
 
+;;; RxRDY interrupt: queue the received character
 isr_intr_rx:
         push    psw
 isr_intr_receive:
@@ -195,6 +196,8 @@ isr_intr_rx_exit:
         ei
         ret
 
+;;; TxRDY interrupt: send the next queued character, or disable Tx
+;;; when the queue is empty
 isr_intr_tx:
         push    psw
         in      USARTS

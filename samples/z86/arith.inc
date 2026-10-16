@@ -4,15 +4,16 @@
 
 ;;; Print unsigned 16-bit integer as decimal
 ;;; @param RR0: value
-;;; @clobber RR0 RR12 RR14
+;;; @clobber RR0 R10-R15
 print_uint16:
         incw    RR0
-        decw    RR0
+        decw    RR0             ; test RR0 for zero
         jr      nz, print_uint16_inner
         ld      R0, #'0'
         call    putchar
 print_uint16_end:
         ret
+;;; Print non-zero RR0 recursively, most significant digit first
 print_uint16_inner:
         incw    RR0
         decw    RR0
@@ -32,7 +33,7 @@ print_uint16_inner:
 
 ;;; Print signed 16-bit integer as decimal
 ;;; @param RR0: value
-;;; @clobber RR0
+;;; @clobber RR0 R10-R15
 print_int16:
         or      R0, R0
         jr      pl, print_uint16
@@ -74,7 +75,7 @@ addsi2:
         ld      1(R4), R15
         ret
 
-;;; Singed subtraction: minuend -= subtrahend
+;;; Signed subtraction: minuend -= subtrahend
 ;;; @param @R4: minuend
 ;;; @param @R5: subtrahend
 ;;; @clobber R14, R15
@@ -92,6 +93,7 @@ subsi2:
 ;;; Signed comparison: minuend - subtrahend
 ;;; @param @R4: minuend
 ;;; @param @R5: subtrahend
+;;; @return FLAGS: C, Z, S, V of the 16-bit subtraction
 ;;; @clobber R14, R15
 cmpsi2:
         ld      R14, 0(R4)
@@ -107,7 +109,7 @@ cmpsi2:
 ;;; @param @R4: operand 1
 ;;; @param @R5: operand 2
 ;;; @param RR14: result
-;;; @param FLAGS
+;;; @param FLAGS: C of the operation
 ;;; @return FLAGS: C, Z, S, V
 addsub_flags:
         push    R15
@@ -183,13 +185,13 @@ mulsi2:
         jr      pl, mulsi2_abs_muliplicand
         com     R12
         com     R13
-        incw    RR12            ; multiplicand = -multiplicand
+        incw    RR12            ; multiplier = -multiplier
 mulsi2_abs_muliplicand:
         or      R14, R14
         jr      pl, mulsi2_multiply
         com     R14
         com     R15
-        incw    RR14            ; multiplier = -multiplier
+        incw    RR14            ; multiplicand = -multiplicand
 mulsi2_multiply:
         call    umul16          ; result = multiplicand * multiplier
         ld      R12, @R4
@@ -204,8 +206,8 @@ mulsi2_end:
         ret
 
 ;;; Unsigned division: dividend / divisor = quotient ... remainder
-;;; @praram RR14: dividend
-;;; @praram RR12: divisor
+;;; @param RR14: dividend
+;;; @param RR12: divisor; 0 returns RR14 unchanged, RR12=0
 ;;; @return RR14: remainder
 ;;; @return RR12: quotient
 ;;; @clobber R10-R15
@@ -261,7 +263,7 @@ udiv16_end:
         pop     R9
         ret
 
-;;; Signed division: dividend *= divisor
+;;; Signed division: dividend /= divisor
 ;;; @param @R4: dividend
 ;;; @param @R5: divisor
 ;;; @clobber R10-R15
@@ -288,7 +290,7 @@ divsi2_divide:
         jr      pl, divsi2_end
         com     R12
         com     R13
-        incw    RR12            ; dividend = = -dividend
+        incw    RR12            ; quotient = -quotient
 divsi2_end:
         ld      0(R4), R12
         ld      1(R4), R13

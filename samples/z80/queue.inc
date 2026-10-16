@@ -9,7 +9,6 @@ queue_buf:      equ     4       ; buffer start offset
 ;;; [queue] Initialize queue
 ;;; @param HL queue work space pointer
 ;;; @param B queue work space size
-;;; @clobber B
 queue_init:
         push    AF
         push    HL
@@ -41,7 +40,7 @@ queue_add:
         cp      (IX+queue_size)
         ld      A, D               ; restore an element
         jr      C, queue_add_store ; queue_len < queue_size
-        ex      (SP), IX           ; F.C=1
+        ex      (SP), IX           ; F.C=0
         pop     HL
         pop     DE
         ret

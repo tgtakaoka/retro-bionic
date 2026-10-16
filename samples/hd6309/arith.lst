@@ -24,13 +24,13 @@
 (1)       0 :                            cpu     HD6309
 (1)       0 :                    ;;; Mode and Error Register (MD)
 (1)       0 : =1                 MD_EMULATION  equ  %00000001   ; if 1, 6309 native mode
-(1)       0 : =2                 MD_FIRQ_MODE  equ  %00000010   ; if 1, FIRQ operate as IRQ
+(1)       0 : =2                 MD_FIRQ_MODE  equ  %00000010   ; if 1, FIRQ operates as IRQ
 (1)       0 : =40                MD_ILLEGAL_OP equ  %01000000   ; set to 1 if illegal instruction occurred
 (1)       0 : =80                MD_DIV_ZERO   equ  %10000000   ; set to 1 if divided by 0 occurred
 (1)       0 :
 (1)       0 :                    ;;; Vector
 (1)       0 : =FFF0              VEC_DIVZERO:    equ     $FFF0   ; $FFF0: Divided by Zero Trap
-(1)       0 : =FFF0              VEC_ILLOPC:     equ     $FFF0   ; $FFF0: Illegal Opcode Trap
+(1)       0 : =FFF0              VEC_ILLOPC:     equ     $FFF0   ; $FFF0: Illegal Opcode Trap, shared
           0 :
           0 :                    ;;; MC6850 Asynchronous Communication Interface Adapter
           0 : =DF00              ACIA:   equ     $DF00
@@ -40,7 +40,7 @@
 (1)       0 :                    ;;; MC6850
 (1)       0 :                    ;;; Asynchronous Communication Interface Adapter
 (1)       0 :
-(1)       0 :                    ;;; Control register
+(1)       0 :                    ;;; Control register (write)
 (1)       0 : =DF00              ACIA_control:   equ     ACIA+0
 (1)       0 :                            ;; Counter Divider Select Bits
 (1)       0 : =3                 CDS_gm:         equ     %11    ; Group mask
@@ -67,7 +67,7 @@
 (1)       0 :                                                      ; Transmit Break Level
 (1)       0 : =80                RIEB_bm:        equ     %10000000 ; Receive Interrupt Enable Bit mask
 (1)       0 :
-(1)       0 :                    ;;; Status register
+(1)       0 :                    ;;; Status register (read)
 (1)       0 : =DF00              ACIA_status:    equ     ACIA+0
 (1)       0 : =1                 RDRF_bm:        equ     %00000001 ; Receive Data Register Full
 (1)       0 : =2                 TDRE_bm:        equ     %00000010 ; Transmit Data Register Empty
@@ -82,7 +82,7 @@
 (1)       0 : =DF01              ACIA_data:      equ     ACIA+1          ; Data register
           0 :
        1000 :                            org     $1000
-       1000 : =FFF               stack:  equ     *-1             ; MC6800's SP is post-decrement/pre-increment
+       1000 : =FFF               stack:  equ     *-1             ; from MC6800, whose push is post-decrement
        1000 :
        FFFA :                            org     VEC_SWI
        FFFA : FF FA                      fdb     VEC_SWI         ; for halt to system
@@ -92,7 +92,7 @@
       10000 :
         100 :                            org     $0100
         100 :                    initialize:
-        100 : 11 3D 01                   ldmd    #1
+        100 : 11 3D 01                   ldmd    #1              ; 6309 native mode
         103 : 10 CE 0F FF                lds     #stack
         107 : 86 03                      lda     #CDS_RESET_gc   ; Master reset
         109 : B7 DF 00                   sta     ACIA_control
@@ -101,10 +101,10 @@
         10E : B7 DF 00                   sta     ACIA_control
         111 :
         111 : BD 01 6B                   jsr     arith
-        114 : 3F                         swi
+        114 : 3F                         swi                     ; halt to system
         115 :
-        115 :                    ;;; Print out char
-        115 :                    ;;; @param A char
+        115 :                    ;;; Print a space, CR LF (newline) or char A (putchar)
+        115 :                    ;;; @param A char for putchar
         115 :                    ;;; @clobber A B
         115 :                    putspace:
         115 : 86 20                      lda     #' '
@@ -121,7 +121,7 @@
         129 : 39                         rts
         12A :
         12A :                    ;;; Print "X op U"
-        12A :                    ;;; @params A op letter
+        12A :                    ;;; @param A op letter
         12A :                    ;;; @return W=X
         12A :                    ;;; @return D=U
         12A :                    expr:
@@ -148,7 +148,7 @@
         14E : 20 C9                      bra     newline
         150 :
         150 :                    ;;; Print "X rel U"
-        150 :                    ;;; @clobber D
+        150 :                    ;;; @clobber D W
         150 :                    comp:
         150 : 10 37 31                   cmpr    U, X            ; X-U
         153 : 27 0C                      beq     comp_eq
@@ -369,6 +369,7 @@
 (1)     31D : 10 39                      pulsw
 (1)     31F : 35 86                      puls    D, PC
 (1)     321 :                    ;;; Print unsigned 16-bit integer as decimal
+(1)     321 :                    ;;; Recursion stacks the digits so the most significant prints first.
 (1)     321 :                    ;;; @param W value
 (1)     321 :                    ;;; @clobber D W
 (1)     321 :                    print_uint16:

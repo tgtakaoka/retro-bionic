@@ -2,7 +2,7 @@
         include "i8080.inc"
         cpu     8085
 ;;; i8085
-;;; Set Innterrupt Maske
+;;; Set Interrupt Mask
 SIM_SOD:        equ     10000000B ; Serial Output Data
 SIM_SDE:        equ     01000000B ; Serial Data Enable
 SIM_R75:        equ     00010000B ; Reset RST 7.5 latch

@@ -1,5 +1,5 @@
 ;;; -*- mode: asm; mode: flyspell-prog; -*-
-;;; [queue] queue structure
+;;; [queue] queue structure in program memory, accessed by TBLR/TBLW
 queue_len:      equ     0       ; queue length
 queue_size:     equ     1       ; buffer size
 queue_put:      equ     2       ; queue put index
@@ -7,7 +7,7 @@ queue_get:      equ     3       ; queue get index
 queue_buf:      equ     4       ; buffer start offset
 
 ;;; [queue] Initialize queue
-;;; @param @SP queue work space pointer
+;;; @param .word queue work space pointer
 ;;; @param ACC queue work space size
 ;;; @clobber ACC AR0 ARP=0 DP=0
 queue_init:
@@ -41,7 +41,7 @@ queue_init_enter:
         ret
 
 ;;; [queue] Add an element to queue
-;;; @param @SP queue work space pointer
+;;; @param .word queue work space pointer
 ;;; @param ACC an element
 ;;; @return ACC<0 if queue is full
 ;;; @clobber DP=0
@@ -90,7 +90,7 @@ queue_add_exit:
         ret
 
 ;;; [queue] Remove an element from queue
-;;; @param @SP queue work space pointer
+;;; @param .word queue work space pointer
 ;;; @return ACC an element
 ;;; @return ACC<0 if queue is empty
 ;;; @clobber DP=0

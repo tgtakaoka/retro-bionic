@@ -17,7 +17,7 @@ R2L:    rmb     1
 sign:   rmb     1
 
         org     $1000
-stack:  equ     *-1             ; MC6800's SP is post-decrement/pre-increment
+stack:  equ     *-1             ; MC68HC11's SP is post-decrement/pre-increment
 
         org     VEC_SWI
         fdb     VEC_SWI         ; for halt to system
@@ -92,6 +92,8 @@ answer:
         bra     newline
 
 ;;; Print "v1 rel v2"
+;;; @param X v1
+;;; @param Y v2
 ;;; @clobber R1 R2
 comp:
         stx     R1
@@ -197,28 +199,28 @@ arith:
         ldy     #100
         ldaa    #'/'
         jsr     expr
-        jsr     div16           ; R0=R1/R2
+        jsr     div16
         jsr     answer          ; 300
 
         ldx     #-200
         ldy     #100
         ldaa    #'/'
         jsr     expr
-        jsr     div16           ; R0=R1/R2
+        jsr     div16
         jsr     answer          ; -2
 
         ldx     #-30000
         ldy     #-200
         ldaa    #'/'
         jsr     expr
-        jsr     div16           ; R0=R1/R2
+        jsr     div16
         jsr     answer          ; 150
 
         ldx     #-30000
         ldy     #78
         ldaa    #'/'
         jsr     expr
-        jsr     div16           ; R0=R1/R2
+        jsr     div16
         jsr     answer          ; -384
 
         ldx     #5000

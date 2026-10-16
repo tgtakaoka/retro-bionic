@@ -2,7 +2,7 @@
 ;;; Print variable: "A=variable "
 ;;; @param R1 variable
 ;;; @param A variable letter
-;;; @clobber R0
+;;; @clobber A X R0
 print:
         jsr     putchar         ; print variable letter
         lda     #'='
@@ -14,7 +14,7 @@ print:
         jsr     print_int16
         jmp     putspace
 
-;;; Sign extend 80bit value
+;;; Sign extend 8-bit value
 ;;; @param A variable
 ;;; @param CC condition of A
 ;;; @return X:A value
@@ -26,6 +26,8 @@ sex_A_negative:
         ldx     #-1
         rts
 
+;;; Print the Mandelbrot set in ASCII; fixed point, F is 1.0
+;;; Halts to system when a NUL is received.
 mandelbrot:
         lda     #-12
         sta     vY              ; Y=-12
@@ -245,8 +247,8 @@ loop_i:
         clrx
         lda     #4
         jsr     set_R1          ; R1=4
-        jsr     cmp16           ; compare 4 and Q*Q+P*P
-        bmi     print_i         ; if 4<P*P+Q*Q
+        jsr     cmp16           ; compare 4 and T
+        bmi     print_i         ; if 4<T
         inc     vI              ; I+=1
         lda     vI
         cmp     #16
@@ -276,9 +278,9 @@ print_char:
         ;; jsr     newline
 
         jsr     getchar
-        bcc     next_x
+        bcc     next_x          ; no char
         tsta
-        bne     next_x
+        bne     next_x          ; not NUL
         swi                     ; halt to system
 next_x:
         inc     vX              ; X+=1

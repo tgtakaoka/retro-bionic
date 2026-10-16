@@ -46,12 +46,12 @@ CR_entry:
         sb      R4, R4
         sla     R3, 1           ; is FPAC negative?
         jnc     AR_abs_oper
-        bl      @NegFPAC24      ; no: negate FPAC
+        bl      @NegFPAC24      ; yes: negate FPAC
 AR_abs_oper:
         srl     R3, 9           ; R3=exponent of FPAC
         sla     R7, 1           ; is operand negative?
         jnc     AR_align_FPAC
-        inv     R4              ; no: negate operand
+        inv     R4              ; yes: negate operand
         neg     R5
         jnc     AR_align_FPAC
         inc     R4
@@ -150,7 +150,7 @@ MR_entry:
 *** 32 x 32 => 64 bit multiply. S is R0,R1 and D is R4,R5
 *** result is in R0-R3
 *** used for both MM (R6!=0) and MR (R6==0)
-*** in case of MR it multiplies two 24 bit manrissas
+*** in case of MR it multiplies two 24 bit mantissas
 MM_entry:
         mov     R5, R2          ; long multiply in four 16x16 bit steps
         mpy     R1, R2
@@ -314,7 +314,7 @@ CRE_fixup:
         mov     R1, R0          ; CRE: fit result in 32 bits
         mov     R7, R7          ; if real was negative, negate 32 bit
         jgt     >0A32           ; (bug: should be >0A38)
-;;;        jgt     >0A32           ; (bug: was >0A32)
+;;;        jgt     CRE_positive    ; (bug: was >0A32)
         inv     R0
         neg     R2
         jnc     CRE_negate_hi
@@ -344,7 +344,7 @@ Calc_Exponent:
         mov     R0, R0          ; is FPAC zero?
         jeq     FPAC_clear_trampoline ; yes: set flags & finish
         mov     *R8, R5         ; fetch 2nd word of operand
-        mov     R0, R6          ; save exponents i R6 and R7
+        mov     R0, R6          ; save exponents in R6 and R7
         mov     R4, R7
         sb      R0, R0          ; remove exponents from mantissas
         sb      R4, R4
@@ -400,7 +400,7 @@ CxR_msb4:
         slam    R0, 4
         dec     R6              ; and adjust exponent accordingly
 CxR_exponent:
-        swpb    R6              ; mere exponent (R6), mantissa (R0,R1) and
+        swpb    R6              ; merge exponent (R6), mantissa (R0,R1) and
         sram    R0, 8           ; sign (R7) together
         movb    R6, R0
         soc     R7, R0
@@ -432,7 +432,7 @@ LDx_entry:
         czc     @PRIV_BIT, R15  ; are we in user mode?
         jeq     LDx_super
         limi    >0000           ; yes: set up PRIVOP error
-        rtwp                    ; will cause INT2 after thr RTWP
+        rtwp                    ; will cause INT2 after the RTWP
 LDx_super:
         ci      R3, >C000       ; is this a first LDS?
         jeq     LDx_second
@@ -441,11 +441,11 @@ LDx_super:
 LDx_second:
         mov     R14, R2         ; save address+2 of first LDS/LDD in a sequence
 LDx_return:
-        rtwp    4               ; return & defer interrput
+        rtwp    4               ; return & defer interrupt
 LDx_BITS:
         data    >F83F           ; reverse bit pattern of LDD/LDS
 PRIV_BIT:
-        data    ST_PRV          ; PRV but in ST register
+        data    ST_PRV          ; PRV bit in ST register
 
 FLOAT_2op:
         ci      R5, >0302       ; CR or MM opcode
@@ -501,7 +501,7 @@ FLOAT_1op:
         jne     >0B9C           ; Ts = 3 ?
         andi    R11, >FFC0      ; mask out operand bits
         ci      R11, >0C80      ; opcode is CIR?
-        jne     FLOAT_1op_inc4  ; yes; auto increment by 2, else by 4
+        jne     FLOAT_1op_inc4  ; CIR: auto increment by 2, else by 4
         inct    *R10
         jmp     FLOAT_1op_switch
 FLOAT_1op_inc4:
@@ -512,15 +512,15 @@ FLOAT_1op_switch:
 FLOAT_0op:
         mov     *R13, R0        ; fetch FPAC into local R0,R1
         mov     @2(R13), R1
-        mov     R15, R2         ; save status ^ clear ST0-ST4
+        mov     R15, R2         ; save status & clear ST0-ST4
         andi    R15, >07FF      ; (status is saved to restore ST3-ST4 as needed)
         bind    @FLOAT_TABLE(R5) ; jump to specific opcode routine
 
 CHECK_XIT:                      ; Exit float emulation for TI990/12
-        mov     R5, R7          ; test for XIT (>0C0E ad >0C0F)
+        mov     R5, R7          ; test for XIT (>0C0E and >0C0F)
         srl     R7, 1           ; XIT is a no-op
         ci      R7, >0607
-        jne     CHECK_ROM       ; no test for extension & exit
+        jne     CHECK_ROM       ; no: test for extension & exit
         rtwp                    ; macro processing complete
 
 FLOAT_TABLE:
@@ -549,7 +549,7 @@ EXP_BITS:
 CHECK_ROM:
         mov     @EXTERNAL_ROM, R7 ; test macro location >1000 for >AAAA magic
         ci      R7, EXTERNAL_MAGIC
-        jne     RETURN_ILLOP    ; if nor present exit
+        jne     RETURN_ILLOP    ; if not present exit
         b       @EXTERNAL_ENTRY ; jump to external macro code
 RETURN_ILLOP:
         rtwp    2               ; return & trigger ILLOP interrupt

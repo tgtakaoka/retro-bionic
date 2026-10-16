@@ -36,6 +36,7 @@
 (2)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
 (2)       0 :
 (2)       0 :                    ;;; i8251 USART device emulator.
+(2)       0 :                    ;;; Bit definition of mode register
 (2)       0 : =6                 MODE_STOP_gp:   equ     6
 (2)       0 : =C0                MODE_STOP_gm:   equ     11000000B
 (2)       0 : =40                MODE_STOP1_gc:  equ     (1 << MODE_STOP_gp)
@@ -121,14 +122,14 @@
         125 : 00                         nop
         126 : 3E 36                      ld      A, RX_EN_TX_DIS
         128 : D3 41                      out     (USARTC), A
-        12A : 3E                         db      3EH             ; LD A, n
+        12A : 3E                         db      3EH             ; LD A, n: the RST 28H opcode
         12B : EF                         rst     28H
         12C : D3 42                      out     (USARTRV), A    ; set RxRDY interrupt vector RST 28H
-        12E : 3E                         db      3EH             ; LD A, n
+        12E : 3E                         db      3EH             ; LD A, n: the RST 30H opcode
         12F : F7                         rst     30H
         130 : D3 43                      out     (USARTTV), A    ; set TxRDY interrupt vector RST 30H
         132 :
-        132 : ED 46                      im      0
+        132 : ED 46                      im      0               ; execute the USART's RST vector
         134 : FB                         ei
         135 :
         135 :                    receive_loop:
@@ -149,7 +150,7 @@
         154 : 18 DF                      jr      receive_loop
         156 :                    halt_to_system:
         156 : 21 38 00                   ld      HL, ORG_RST38
-        159 : 36 FF                      ld      (HL), 0FFH
+        159 : 36 FF                      ld      (HL), 0FFH      ; RST 38H at its vector: exit to the debugger
         15B : FF                         rst     38h
         15C :
         15C :                    ;;; Print uint8_t in hex
@@ -172,7 +173,7 @@
         175 : C6 90                      add     A, 90H
         177 : 27                         daa
         178 : CE 40                      adc     A, 40H
-        17A : 27                         daa
+        17A : 27                         daa                     ; A='0'-'9','A'-'F'
         17B : 18 37                      jr      putchar
         17D :
         17D :                    ;;; Print uint8_t in binary
@@ -198,13 +199,13 @@
         198 : CB 27                      sla     A               ; F.C=MSB
         19A : 47                         ld      B, A
         19B : 3E 30                      ld      A, '0'
-        19D : 30 15                      jr      NC, putchar     ; F.0=1
+        19D : 30 15                      jr      NC, putchar     ; F.C=0
         19F : 3C                         inc     A               ; F.C=1
         1A0 : 18 12                      jr      putchar
         1A2 :
         1A2 :                    ;;; Get character
         1A2 :                    ;;; @return A
-        1A2 :                    ;;; @return CC.C 0 if no character
+        1A2 :                    ;;; @return F.C 0 if no character
         1A2 :                    getchar:
         1A2 : E5                         push    HL
         1A3 : 21 00 20                   ld      HL, rx_queue
@@ -250,7 +251,6 @@
 (1)     1C7 :                    ;;; [queue] Initialize queue
 (1)     1C7 :                    ;;; @param HL queue work space pointer
 (1)     1C7 :                    ;;; @param B queue work space size
-(1)     1C7 :                    ;;; @clobber B
 (1)     1C7 :                    queue_init:
 (1)     1C7 : F5                         push    AF
 (1)     1C8 : E5                         push    HL
@@ -282,7 +282,7 @@
 (1)     1E3 : DD BE 01                   cp      (IX+queue_size)
 (1)     1E6 : 7A                         ld      A, D               ; restore an element
 (1)     1E7 : 38 05                      jr      C, queue_add_store ; queue_len < queue_size
-(1)     1E9 : DD E3                      ex      (SP), IX           ; F.C=1
+(1)     1E9 : DD E3                      ex      (SP), IX           ; F.C=0
 (1)     1EB : E1                         pop     HL
 (1)     1EC : D1                         pop     DE
 (1)     1ED : C9                         ret

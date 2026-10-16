@@ -15,7 +15,7 @@
 /// @return AC=0
 /// @clobber AC
 queue_init, .-.                 / parameter address
-        tad     queue_work_size / subtract queue work space
+        tad     queue_work_size / subtract header size
         cia                     / AC=-size
         dca     queue_tmp       / queue_tmp = -size
         tad     I queue_init    / load queue work space pointer
@@ -25,7 +25,7 @@ queue_init, .-.                 / parameter address
         dca     I queue_ptr     / queue_size = -size
         isz     queue_ptr       / &queue_len
         tad     queue_tmp       / -size
-        tad     queue_work_size / -queue work space
+        tad     queue_work_size / -header size
         iac                     / offset queue_size
         dca     queue_tmp       / counter
 queue_init_clear,
@@ -34,11 +34,12 @@ queue_init_clear,
         isz     queue_tmp
         jmp     queue_init_clear
         jmp     I queue_init    / return, AC=0
-queue_work_size,        -4
+queue_work_size,        -4      / header words
 
 /// [queue] Add an element to queue
 /// @param (PC+1) queue work space pointer
 /// @param AC an element
+/// @return AC the element
 /// @return L 0 if queue is full
 queue_add, .-.                  / parameter/return address
         dca     queue_element   / save element
@@ -105,7 +106,7 @@ queue_remove, .-.               / parameter/return address
         dca     queue_buf
         tad     I queue_buf     / AC=queue_buf[queue_get]
         dca     queue_element   / save element
-        isz     I queue_ptr     / queue_get
+        isz     I queue_ptr     / queue_get++
         tad     I queue_ptr     / AC=queue_get
         tad     queue_tmp       / AC=queue_get-queue_size
         sma cla                 / skip if queue_get < queue_size, AC=0

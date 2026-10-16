@@ -20,10 +20,10 @@
 (2)       0 : =20                ORG_RST4:       equ     0020H   ; RST 4
 (2)       0 : =28                ORG_RST5:       equ     0028H   ; RST 5
 (2)       0 : =30                ORG_RST6:       equ     0030H   ; RST 6
-(2)       0 : =38                ORG_RST7:       equ     0038H   ; RST 3
+(2)       0 : =38                ORG_RST7:       equ     0038H   ; RST 7
 (1)       0 :                            cpu     8085
 (1)       0 :                    ;;; i8085
-(1)       0 :                    ;;; Set Innterrupt Maske
+(1)       0 :                    ;;; Set Interrupt Mask
 (1)       0 : =80                SIM_SOD:        equ     10000000B ; Serial Output Data
 (1)       0 : =40                SIM_SDE:        equ     01000000B ; Serial Data Enable
 (1)       0 : =10                SIM_R75:        equ     00010000B ; Reset RST 7.5 latch
@@ -49,7 +49,7 @@
           0 :                    ;;; i8251 Universal Synchronous/Asynchronous Receiver/Transmitter
           0 : =40                USART:          equ     40H
           0 : =40                USARTD:         equ     USART+0 ; Receive/Transmit data
-          0 : =41                USARTS:         equ     USART+1 ; Srtatus register
+          0 : =41                USARTS:         equ     USART+1 ; Status register
           0 : =41                USARTC:         equ     USART+1 ; Control register
           0 : =42                USARTRV:        equ     USART+2 ; Receive interrupt vector (ORG_*)
           0 : =43                USARTTV:        equ     USART+3 ; Transmit interrupt vector (ORG_*)
@@ -57,13 +57,14 @@
 (1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
 (1)       0 :
 (1)       0 :                    ;;; i8251 USART device emulator.
+(1)       0 :                    ;;; Bit definition of mode instruction (asynchronous)
 (1)       0 : =6                 MODE_STOP_gp:   equ     6
 (1)       0 : =C0                MODE_STOP_gm:   equ     11000000B
 (1)       0 : =40                MODE_STOP1_gc:  equ     (1 << MODE_STOP_gp)
 (1)       0 : =80                MODE_STOP15_gc: equ     (2 << MODE_STOP_gp)
 (1)       0 : =C0                MODE_STOP2_gc:  equ     (3 << MODE_STOP_gp)
-(1)       0 : =20                MODE_EVEN_bm:   equ     00100000B
-(1)       0 : =10                MODE_PARITY_bm: equ     00010000B
+(1)       0 : =20                MODE_EVEN_bm:   equ     00100000B   ; Even parity
+(1)       0 : =10                MODE_PARITY_bm: equ     00010000B   ; Parity enable
 (1)       0 : =2                 MODE_LEN_gp:    equ     2
 (1)       0 : =C                 MODE_LEN_gm:    equ     00001100B
 (1)       0 : =0                 MODE_LEN5_gc:   equ     (0 << MODE_LEN_gp)
@@ -148,9 +149,9 @@
         133 : D2 2E 01                   jnc     receive_loop
         136 : 47                         mov     b, a            ; save character
         137 : B7                         ora     a
-        138 : CA 4F 01                   jz      halt_to_system
+        138 : CA 4F 01                   jz      halt_to_system  ; NUL halts
         13B :                    transmit_loop:
-        13B : DB 41                      in      USARTC
+        13B : DB 41                      in      USARTC          ; status
         13D : E6 01                      ani     ST_TxRDY_bm
         13F : CA 3B 01                   jz      transmit_loop
         142 :                    transmit_data:
@@ -158,7 +159,7 @@
         143 : D3 40                      out     USARTD
         145 : FE 0D                      cpi     0DH
         147 : C2 2E 01                   jnz     receive_loop
-        14A : 06 0A                      mvi     b, 0AH
+        14A : 06 0A                      mvi     b, 0AH          ; follow CR with LF
         14C : C3 3B 01                   jmp     transmit_loop
         14F :                    halt_to_system:
         14F : 76                         hlt
@@ -174,7 +175,7 @@
 (1)     150 :
 (1)     150 :                    ;;; [queue] Initialize queue
 (1)     150 :                    ;;; @param HL queue work space pointer
-(1)     150 :                    ;;; @param B queue work space size
+(1)     150 :                    ;;; @param B queue work space size, including the 4-byte header
 (1)     150 :                    ;;; @clobber B
 (1)     150 :                    queue_init:
 (1)     150 : F5                         push    psw
@@ -277,6 +278,7 @@
 (1)     1B0 : 37                         stc                     ; set carry
 (1)     1B1 : C9                         ret
         1B2 :
+        1B2 :                    ;;; RxRDY interrupt: queue the received character
         1B2 :                    isr_intr:
         1B2 : F5                         push    psw
         1B3 : E5                         push    h

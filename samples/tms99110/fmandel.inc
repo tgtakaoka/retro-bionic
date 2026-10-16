@@ -2,7 +2,7 @@
 
 *** Print variable: "name=variable "
 *** @param R2 float variable address
-*** @param R0 variable name
+*** @param R0 variable name letter in high byte
 *** @clobber R0 R1
 fprint:
         dect    R10
@@ -11,10 +11,11 @@ fprint:
         cri                     R0=integer value
         mov     R0, R1
         mov     *R10+, R0       Pop variable name
+        * Fall through
 *** Print variable: "name=variable "
 *** @param R1 variable
-*** @param R0 variable name
-*** @clobber R0 R1
+*** @param R0 variable name letter in high byte
+*** @clobber R0
 print:
         blsk    R10, putchar        Print name
         li      R0, hibyte('=')
@@ -38,6 +39,9 @@ vY:     bss     2
 vX:     bss     2
 vI:     bss     2
 
+*** Print the Mandelbrot set for Y=-12..12, X=-49..29 in single float;
+*** each point shows its escape iteration 0-F, or a space if it never
+*** escapes.  A NUL received halts the CPU.
 fmandel:
         li      R0, -12
         mov     R0, @vY         Y=-12
@@ -48,11 +52,11 @@ loop_x:
         cir     @vX
         mov     @vX, R1
         mr      @kCA            X*0.0458
-        str     @vCA            CA=X*0.0457
+        str     @vCA            CA=X*0.0458
         str     @vA             A=CA
         cir     @vY
         mr      @kCB            Y*0.08333
-        str     @vCB            CB=y*0.08333
+        str     @vCB            CB=Y*0.08333
         str     @vB             B=CB
         clr     @vI             I=0
 
@@ -117,7 +121,7 @@ loop_i:
 
         mov     @vT, R0
         ci      R0, 4
-        jgt     print_i         if 4<P*P+Q*Q
+        jgt     print_i         if 4<A*A+B*B
         inc     @vI             I+=1
         mov     @vI, R0
         ci      R0, 16
@@ -151,10 +155,10 @@ print_char:
         * blsk    R10, newline
 
         blsk    R10, getchar
-        jnc     next_x
-        soc     R0, R0
+        jnc     next_x          No input
+        soc     R0, R0          Test R0
         jne     next_x
-        xop     R15,15          halt to system
+        xop     R15,15          NUL; halt to system
 next_x:
         inc     @vX             X+=1
         mov     @vX, R0

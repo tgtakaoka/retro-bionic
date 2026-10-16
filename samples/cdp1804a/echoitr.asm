@@ -39,7 +39,7 @@ main:
         sex     R8              ; R8 for out
         out     ACIA_control    ; Master reset
         out     ACIA_control    ; Set mode
-        sex     R3
+        sex     R3              ; RET/DIS take X:P from the inline byte
         ret
         dc      X'33'           ; enable interrupt
         sex     R2
@@ -54,7 +54,7 @@ loop:
         bz      loop
         glo     R7
         bnz     echo_back
-        idl
+        idl                     ; halt on NUL
 echo_back:
         scal    R4, putchar
         ldi     ' '
@@ -72,7 +72,8 @@ echo_back:
         br      loop
 
 ;;; Print uint8_t in hex
-;;; @param D uint8_t value to be printed in binary.
+;;; @param D uint8_t value to be printed in hex.
+;;; @clobber D R15
 put_hex8:
         plo     R15             ; save D to scratch pad
         glo     R7              ; save R7.0
@@ -100,17 +101,17 @@ put_hex8:
 
 ;;; Print hexadecimal digit
 ;;; @param D nibble
-;;; @clobber D
+;;; @clobber D R15
 put_hex4:
         ani     x'0F'
-        dadi    x'90'
+        dadi    x'90'           ; BCD trick: 0-9 to '0'-'9', A-F to 'A'-'F'
         daci    x'40'
         scal    R4, putchar
         sret    R4
 
 ;;; Print uint8_t in binary
 ;;; @param D uint8_t value to be printed in binary.
-;;; @clobber D
+;;; @clobber D R15
 put_bin8:
         plo     R15             ; save D to scratch pad
         glo     R7              ; save R7.0
@@ -128,8 +129,10 @@ put_bin8:
         ;;
         irx
         ldx
-        plo     R7              ; restore R7
+        plo     R7              ; restore R7.0
         sret    R4
+;;; Print the top 4/2/1 bits of R7.0, shifting them out;
+;;; each level calls the next and then falls into it.
 put_bin4:
         scal    R4, put_bin2
 put_bin2:
@@ -145,7 +148,8 @@ put_bin1:
 
 ;;; Get character
 ;;; @return R7.0 char
-;;; @return A 0 if no char received
+;;; @return D 0 if no char received
+;;; @clobber R15
 getchar:
         sex     R3
         dis                     ; disable interrupt

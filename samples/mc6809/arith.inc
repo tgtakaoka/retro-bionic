@@ -19,6 +19,7 @@ print_int16_print:
         puls    D,PC
 
 ;;; Print unsigned 16-bit integer as decimal
+;;; Recursion stacks the digits so the most significant prints first.
 ;;; @param D value
 ;;; @clobber D X
 print_uint16:
@@ -75,7 +76,7 @@ udiv16:
         beq     udiv16_small    ; divide by zero
         pshs    D               ; S[0:1]=dividend, S[2:3]=divisor
         ldd     #-1
-        pshs    D               ; S[0:1]=quotient marker
+        pshs    D               ; S[0:1]=~quotient and marker
         tfr     X,D
         tsta
         bmi     udiv16_prep_end
@@ -83,7 +84,7 @@ udiv16_prep_loop:
         lslb
         rola                    ; divisor <<= 1
         lsr     ,S
-        ror     1,S             ; marker >>= 1
+        ror     1,S             ; marker >>= 1, one 0 bit per shift
         cmpd    2,S
         bhi     udiv16_prep_end ; until divisor > dividend
         tsta
@@ -101,7 +102,7 @@ udiv16_enter_loop:
         addd    4,S             ; dividend += divisor, C=1
 udiv16_next:
         rol     1,S
-        rol     ,S              ; quotient = quotient<<1 | C
+        rol     ,S              ; ~quotient = ~quotient<<1 | C
         bcc     udiv16_loop     ; until marker shifts out
         tfr     D,X             ; X=remainder
         ldd     ,S
@@ -119,7 +120,7 @@ udiv16_small:
 ;;; @param D dividend
 ;;; @param X divisor
 ;;; @return D quotient
-;;; @return X remainder
+;;; @return X remainder of |dividend|/|divisor|
 div16:
         cmpx    #0
         bmi     div16_divisor   ; divisor < 0

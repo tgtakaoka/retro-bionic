@@ -15,7 +15,7 @@ rx_queue,
 
         *ORG_RESET-1
         initialize
-        jmp     I .-1
+        jmp     I .-1           / reset starts here
 
         *PAGE0
 I_queue_init,   queue_init
@@ -42,7 +42,7 @@ queue_size,     rx_queue_size
 loop,
         jms     getchar
         sna                     / Skip if AC != 0
-        jmp     halt_to_system
+        jmp     halt_to_system  / NUL halts
 echo,
         jms     putchar
         cia                     / negate AC
@@ -56,6 +56,8 @@ halt_to_system,
 char_CR,        015             / Carriage return
 char_LF,        012             / Line feed
 
+/// Wait for a character from rx_queue
+/// @return AC character
 getchar,        .-.
 getchar_loop,
         iof                     / Disable interrupt
@@ -69,6 +71,9 @@ getchar_loop,
         jmp     I getchar       / Return
 getchar_char,   0
 
+/// Wait until Tx is ready and send a character
+/// @param AC character
+/// @return AC character
 putchar,        .-.
         dca     putchar_char    / Save character
 putchar_loop,

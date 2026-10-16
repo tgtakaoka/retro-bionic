@@ -25,7 +25,7 @@
 (1)       0 :                    ;;; MC6850
 (1)       0 :                    ;;; Asynchronous Communication Interface Adapter
 (1)       0 :
-(1)       0 :                    ;;; Control register
+(1)       0 :                    ;;; Control register (write)
 (1)       0 : =DF00              ACIA_control    =       ACIA+0
 (1)       0 :                            ;; Counter Divider Select Bits
 (1)       0 : =3                 CDS_gm          =       %11    ; Group mask
@@ -52,7 +52,7 @@
 (1)       0 :                                                      ; Transmit Break Level
 (1)       0 : =80                RIEB_bm         =       %10000000 ; Receive Interrupt Enable Bit mask
 (1)       0 :
-(1)       0 :                    ;;; Status register
+(1)       0 :                    ;;; Status register (read)
 (1)       0 : =DF00              ACIA_status     =       ACIA+0
 (1)       0 : =1                 RDRF_bm         =       %00000001 ; Receive Data Register Full
 (1)       0 : =2                 TDRE_bm         =       %00000010 ; Transmit Data Register Empty
@@ -64,7 +64,7 @@
 (1)       0 : =80                IRQF_bm         =       %10000000 ; Interrupt Request Flag
 (1)       0 :
 (1)       0 :                    ;;; Data register
-(1)       0 : =DF01              ACIA_data       =       ACIA+1          ; Data register
+(1)       0 : =DF01              ACIA_data       =       ACIA+1
           0 : =94                RX_INT_TX_NO    =     WSB_8N1_gc|RIEB_bm
           0 :
        FFFE :                            *=      VEC_IRQ
@@ -78,7 +78,7 @@
           2 :                            *=      *+2
           2 :                    rx_queue:
           6 :                            *=      *+queue_buf
-          6 : 00 20                      .word   $2000
+          6 : 00 20                      .word   $2000           ; buffer address
           8 : =80                rx_queue_size   =     128
           8 :
        1000 :                            *=      $1000
@@ -86,7 +86,7 @@
        1000 :                    initialize:
        1000 : A2 FF                      ldx     #stack & $FF
        1002 : 9A                         txs
-       1003 : D8                         cld                     ; clear decimal flag
+       1003 : D8                         cld                     ; D is undefined after reset
        1004 : A2 02                      ldx     #rx_queue
        1006 : A9 80                      lda     #rx_queue_size
        1008 : 20 45 10                   jsr     queue_init
@@ -101,10 +101,10 @@
        1016 : 20 30 10                   jsr     getchar
        1019 : B0 FB                      bcs     loop
        101B : 09 00                      ora     #0
-       101D : F0 0F                      beq     halt_to_system
+       101D : F0 0F                      beq     halt_to_system  ; NUL halts
        101F : 20 38 10                   jsr     putchar
        1022 : C9 0D                      cmp     #$0D
-       1024 : D0 F0                      bne     loop
+       1024 : D0 F0                      bne     loop            ; follow CR with LF
        1026 : A9 0A                      lda     #$0A
        1028 : 20 38 10                   jsr     putchar
        102B : 4C 16 10                   jmp     loop
@@ -112,6 +112,10 @@
        102E : 00                         brk
        102F : 00                         .byte   0               ; halt to system
        1030 :
+       1030 :                    ;;; Get character
+       1030 :                    ;;; @return A
+       1030 :                    ;;; @return P.C 1 if no character
+       1030 :                    ;;; @clobber X Y
        1030 :                    getchar:
        1030 : A2 02                      ldx     #rx_queue
        1032 : 78                         sei                     ; Disable IRQ
@@ -119,6 +123,8 @@
        1036 : 58                         cli                     ; Enable IRQ
        1037 : 60                         rts
        1038 :
+       1038 :                    ;;; Wait until Tx is ready and send a character
+       1038 :                    ;;; @param A character
        1038 :                    putchar:
        1038 : 48                         pha
        1039 :                    putchar_loop:
@@ -132,16 +138,16 @@
        1045 :                            .include "queue.inc"
 (1)    1045 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
 (1)    1045 :                    ;;; [queue_tmp] must be allocated 2 bytes on zero page
-(1)    1045 :                    ;;; [queue] queue structure
+(1)    1045 :                    ;;; [queue] queue structure on zero page, buffer outside
 (1)    1045 : =0                 queue_len       =       0       ; queue length
 (1)    1045 : =1                 queue_size      =       1       ; buffer size
 (1)    1045 : =2                 queue_put       =       2       ; queue put index
 (1)    1045 : =3                 queue_get       =       3       ; queue get index
 (1)    1045 : =4                 queue_buf       =       4       ; buffer start address
 (1)    1045 :
-(1)    1045 :                    ;;; [queue] Initialize queue
-(1)    1045 :                    ;;; @param X queue work space pointer
-(1)    1045 :                    ;;; @param A queue work space size
+(1)    1045 :                    ;;; [queue] Initialize queue and clear its buffer
+(1)    1045 :                    ;;; @param X queue work space pointer; queue_buf,X holds the buffer address
+(1)    1045 :                    ;;; @param A buffer size
 (1)    1045 :                    ;;; @clobber A, Y
 (1)    1045 :                    queue_init:
 (1)    1045 : 95 01                      sta     queue_size,x
@@ -157,7 +163,7 @@
 (1)    1056 : D0 FB                      bne     queue_init_loop
 (1)    1058 : 60                         rts
 (1)    1059 :
-(1)    1059 :                    ;;; init_tmp
+(1)    1059 :                    ;;; init_queue_tmp
 (1)    1059 :                    ;;; @param X queue work space pointer
 (1)    1059 :                    ;;; store [queue_buf,x] to queue_tmp
 (1)    1059 :                    ;;; @clobber Y
@@ -172,6 +178,7 @@
 (1)    1062 :                    ;;; @param X queue work space pointer
 (1)    1062 :                    ;;; @param A an element
 (1)    1062 :                    ;;; @return P.C 1 if queue is full
+(1)    1062 :                    ;;; @clobber Y
 (1)    1062 :                    queue_add:
 (1)    1062 : 48                         pha                     ; save an element
 (1)    1063 : 20 59 10                   jsr     init_queue_tmp
@@ -224,7 +231,7 @@
 (1)    10A1 : 60                         rts
        10A2 :
        10A2 :                    isr_irq:
-       10A2 : D8                         cld                     ; clear decimal flag
+       10A2 : D8                         cld                     ; NMOS 6502 keeps D on interrupt
        10A3 : 48                         pha                     ; save A
        10A4 : 8A                         txa
        10A5 : 48                         pha                     ; save X

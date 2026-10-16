@@ -123,9 +123,12 @@
         120 :                    workspace_illop:
         120 :                            bss     2*16
         140 :
+        140 :                    *** INT2: illegal or privileged opcode
         140 :                    illop:
         140 : 2FCF                       xop     R15,15          halt to system
         142 :
+        142 :                            * R10 is the stack pointer; BLSK pushes the return address
+        142 :                            * and BIND *R10+ returns.  Leaf routines use BL and RT.
        2000 :                            org     >2000
        2000 : =2000              stack:          equ     $
        2000 :
@@ -182,14 +185,14 @@
         264 : 064A                       dect    R10
         266 : C681                       mov     R1, *R10        Push R1
         268 : 0C82                       cir     R2              convert R2 into R0:R1
-        26A : 0DC2                       str     R2              move R1:R2 to R2:F3
+        26A : 0DC2                       str     R2              move R0:R1 to R2:R3
         26C : C07A                       mov     *R10+, R1       Pop R1
         26E : 0C81                       cir     R1              convert R1 into R0:R1
         270 : 017A                       bind    *R10+
         272 :
-        272 :                    *** Print " = V\n"
+        272 :                    *** Print " = V\n" with V converted to a 16-bit integer
         272 :                    *** @param R0:R1 single 32-bit float V
-        272 :                    *** @clobber R0:R1
+        272 :                    *** @clobber R0 R1
         272 :                    answer:
         272 : 064A                       dect    R10
         274 : C680                       mov     R0, *R10        Push R0
@@ -206,7 +209,7 @@
         294 :                    *** Print "A rel B"
         294 :                    *** @param R1 signed 16-bit integer A
         294 :                    *** @param R2 signed 16-bit integer B
-        294 :                    *** @clobber R0 R1 R2 R2
+        294 :                    *** @clobber R0 R1 R2 R3
         294 :                    comp:
         294 : 064A                       dect    R10
         296 : C682                       mov     R2, *R10        Push R2
@@ -437,24 +440,28 @@
 (1)     504 : 00BA 0230                  blsk    R10, putchar
 (1)     508 : 10F9                       jmp     print_int16_return
 (1)     50A :
+(1)     50A :                            *** Print unsigned decimal recursively, most significant digit first
+(1)     50A :                            *** @param R0 value; 0 prints nothing
+(1)     50A :                            *** @param R2 radix 10
+(1)     50A :                            *** @clobber R0 R1
 (1)     50A :                    print_uint16_loop:
 (1)     50A : C040                       mov     R0, R1
 (1)     50C : 130C                       jeq     print_uint16_return
 (1)     50E : 04C0                       clr     R0
-(1)     510 : 3C02                       div     R2, R0          R0:R1/R2 ; R0=quotient R1=reminder
+(1)     510 : 3C02                       div     R2, R0          R0:R1/R2 ; R0=quotient R1=remainder
 (1)     512 : 064A                       dect    R10
-(1)     514 : C681                       mov     R1, *R10        Push reminder
+(1)     514 : C681                       mov     R1, *R10        Push remainder
 (1)     516 : 00BA 050A                  blsk    R10, print_uint16_loop
-(1)     51A : C03A                       mov     *R10+, R0       Pop reminder
+(1)     51A : C03A                       mov     *R10+, R0       Pop remainder
 (1)     51C : 06C0                       swpb    R0
 (1)     51E : 0220 3000                  ai      R0, hibyte('0')
 (1)     522 : 00BA 0230                  blsk    R10, putchar
 (1)     526 :                    print_uint16_return:
 (1)     526 : 017A                       bind    *R10+           Pop return address
 (1)     528 :
-(1)     528 :                            *** Unsigned Divide
-(1)     528 :                            *** R1 / |R2| = R1
-(1)     528 :                            *** @clobber R2
+(1)     528 :                            *** Divide by positive divisor, quotient only
+(1)     528 :                            *** R1 / R2 = R1 (R2 > 0)
+(1)     528 :                            *** @clobber R0
 (1)     528 :                    udiv16:
 (1)     528 : 0281 0000                  ci      R1, 0
 (1)     52C : 1104                       jlt     udiv16_negative R1 < 0

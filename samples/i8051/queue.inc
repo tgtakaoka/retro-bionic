@@ -4,8 +4,8 @@ queue_len:      equ     0       ; queue length
 queue_size:     equ     1       ; buffer size
 queue_put:      equ     2       ; queue put index
 queue_get:      equ     3       ; queue get index
-queue_buf_lo:   equ     4       ; lo(queue buffer) pointer to  external data memory
-queue_buf_hi:   equ     5       ; hi(queue_buffer)
+queue_buf_lo:   equ     4       ; lo(queue buffer) pointer to external data memory
+queue_buf_hi:   equ     5       ; hi(queue_buf)
 queue_work_size: equ    6       ; queue work size
 
 ;;; [queue] Initialize queue
@@ -98,7 +98,7 @@ queue_remove_elem:
         add     A, @R0          ; A=lo(queue_buf)+queue_get
         mov     DPL, A
         inc     R0
-        mov     A, @R0          ; A=hi(queue)
+        mov     A, @R0          ; A=hi(queue_buf)
         addc    A, #0
         mov     DPH, A
         movx    A, @DPTR        ; read an element

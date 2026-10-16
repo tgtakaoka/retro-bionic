@@ -16,8 +16,6 @@ DDRB:   equ     $05          ; $05: Port B Data Direction Register
 TDR:    equ     $08          ; $08: Timer Data Register
 TCR:    equ     $09          ; $09: Timer Control Register
 
-;;; Port 2 Data Register
-
 ;;; Timer Control Register
 TCR_SCALER_gm:  equ     %00000111 ; Prescaler
 TCR_DIV1_gc:    equ     %00000000 ; - 1/1

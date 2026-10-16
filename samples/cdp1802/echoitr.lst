@@ -106,7 +106,7 @@
         112 : E8                         sex     R8              ; R8 for inp/out
         113 : 64                         out     ACIA_control    ; Master reset
         114 : 64                         out     ACIA_control    ; Set mode
-        115 : E3                         sex     R3
+        115 : E3                         sex     R3              ; RET/DIS take X:P from the inline byte
         116 : 70                         ret
         117 : 33                         dc      X'33'           ; enable interrupt
         118 : E2                         sex     R2
@@ -122,7 +122,7 @@
         120 : 32 1D                      bz      loop
         122 : 87                         glo     R7
         123 : 3A 26                      bnz     echo_back
-        125 : 00                         idl
+        125 : 00                         idl                     ; halt on NUL
         126 :                    echo_back:
         126 : D5                         sep     R5              ; call putchar
         127 : 01 AD                      dc      A(putchar)
@@ -147,7 +147,8 @@
         145 : 30 1D                      br      loop
         147 :
         147 :                    ;;; Print uint8_t in hex
-        147 :                    ;;; @param D uint8_t value to be printed in binary.
+        147 :                    ;;; @param D uint8_t value to be printed in hex.
+        147 :                    ;;; @clobber D R15
         147 :                    put_hex8:
         147 : AF                         plo     R15             ; save D to scratch pad
         148 : 87                         glo     R7              ; save R7.0
@@ -179,7 +180,7 @@
         166 :
         166 :                    ;;; Print hexadecimal digit
         166 :                    ;;; @param D nibble
-        166 :                    ;;; @clobber D
+        166 :                    ;;; @clobber D R15
         166 :                    put_hex4:
         166 : FA 0F                      ani     0Fh
         168 : FF 0A                      smi     10
@@ -194,7 +195,7 @@
         175 :
         175 :                    ;;; Print uint8_t in binary
         175 :                    ;;; @param D uint8_t value to be printed in binary.
-        175 :                    ;;; @clobber D
+        175 :                    ;;; @clobber D R15
         175 :                    put_bin8:
         175 : AF                         plo     R15             ; save D to scratch pad
         176 : 87                         glo     R7              ; save R7.0
@@ -216,8 +217,10 @@
         18A :                            ;;
         18A : 60                         irx
         18B : F0                         ldx
-        18C : A7                         plo     R7              ; restore R7
+        18C : A7                         plo     R7              ; restore R7.0
         18D : D6                         sep     R6              ; return
+        18E :                    ;;; Print the top 4/2/1 bits of R7.0, shifting them out;
+        18E :                    ;;; each level calls the next and then falls into it.
         18E :                    put_bin4:
         18E : D5                         sep     R5
         18F : 01 91                      dc      A(put_bin2)
@@ -235,7 +238,8 @@
         19F :
         19F :                    ;;; Get character
         19F :                    ;;; @return R7.0 char
-        19F :                    ;;; @return A 0 if no char received
+        19F :                    ;;; @return D 0 if no char received
+        19F :                    ;;; @clobber R15
         19F :                    getchar:
         19F : E3                         sex     R3
         1A0 : 71                         dis                     ; disable interrupt
@@ -279,7 +283,7 @@
         1C4 : BF                         phi     R15
         1C5 : F8 D0                      ldi     A.0(putchar_txint)
         1C7 : AF                         plo     R15
-        1C8 : EF                         sex     R15             ; R15 out output
+        1C8 : EF                         sex     R15             ; R15 for out
         1C9 : 64                         out     ACIA_control
         1CA :                    putchar_exit:
         1CA : E2                         sex     R2
@@ -301,7 +305,7 @@
 (1)     300 : =3                 queue_get:      equ     3       ; queue get index
 (1)     300 : =4                 queue_buf:      equ     4       ; buffer start offset
 (1)     300 :
-(1)     300 :                    ;;; [queue] Initialize queue
+(1)     300 :                    ;;; [queue] Initialize queue; arguments follow the call inline
 (1)     300 :                    ;;; @param R4+0 queue work space pointer
 (1)     300 :                    ;;; @param R4+2 queue work space size
 (1)     300 :                    ;;; @clobber D, R15
@@ -339,6 +343,7 @@
 (1)     31F :                    ;;; @param R4+0 queue work space pointer
 (1)     31F :                    ;;; @param R7.0 an element
 (1)     31F :                    ;;; @return D 0 if queue is full
+(1)     31F :                    ;;; @clobber R15
 (1)     31F :                    queue_add:
 (1)     31F : 8E                         glo     R14             ; save R14
 (1)     320 : 73                         stxd
@@ -352,7 +357,7 @@
 (1)     327 : EF                         sex     R15
 (1)     328 : 72                         ldxa                    ; load queue_len
 (1)     329 : F3                         xor                     ; queue_len ^ queue_size
-(1)     32A : 32 51                      bz      queue_add_return ; branch if D=0
+(1)     32A : 32 51                      bz      queue_add_return ; branch if queue is full
 (1)     32C : 2F                         dec     R15
 (1)     32D : 8F                         glo     R15
 (1)     32E : FC 04                      adi     queue_buf
@@ -410,7 +415,7 @@
 (1)     360 : 44                         lda     R4
 (1)     361 : AF                         plo     R15             ; R15=queue space pointer
 (1)     362 : 0F                         ldn     R15             ; load queue_len
-(1)     363 : 32 8B                      bz      queue_remove_return ; branch if D=0
+(1)     363 : 32 8B                      bz      queue_remove_return ; branch if queue is empty
 (1)     365 : FF 01                      smi     1
 (1)     367 : 5F                         str     R15             ; queue_len--
 (1)     368 : 8F                         glo     R15
@@ -429,7 +434,7 @@
 (1)     377 : 9E                         ghi     R14
 (1)     378 : 7C 00                      adci    0
 (1)     37A : BE                         phi     R14             ; R14=&queue_buf[queue_get]
-(1)     37B : 0E                         ldn     R14             ; load an alement
+(1)     37B : 0E                         ldn     R14             ; load an element
 (1)     37C : A7                         plo     R7              ; R7.0=an element
 (1)     37D : 0F                         ldn     R15             ; load queue_get
 (1)     37E : FC 01                      adi     1
@@ -437,7 +442,7 @@
 (1)     381 : 2F                         dec     R15
 (1)     382 : 2F                         dec     R15
 (1)     383 : F3                         xor                     ; queue_get ^ queue_size
-(1)     384 : 3A 8B                      bnz     queue_remove_return ; brnach if D!=0
+(1)     384 : 3A 8B                      bnz     queue_remove_return ; branch if D!=0
 (1)     386 : 1F                         inc     R15
 (1)     387 : 1F                         inc     R15
 (1)     388 : 5F                         str     R15             ; queue_get=0
@@ -616,7 +621,7 @@
 (1)      3E :
 (1)      3E :                    ;;; Return subroutine, P=6
 (1)      3E :                    ;;; @param R4 return address
-(1)      3E :                    ;;; @oaram M(R2) R4.1, R4.0, X:P(3)
+(1)      3E :                    ;;; @param M(R2) R4.1, R4.0
 (1)      3E :                    ;;; @clobber R15.1, X
 (1)      3E :                    ;;; @unchanged D, DF, R0, R1, R7-R14, R15.0
 (1)      3E :                    scrt_return_exit:

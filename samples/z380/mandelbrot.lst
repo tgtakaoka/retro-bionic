@@ -40,6 +40,7 @@
 (2)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
 (2)       0 :
 (2)       0 :                    ;;; i8251 USART device emulator.
+(2)       0 :                    ;;; Bit definition of mode register
 (2)       0 : =6                 MODE_STOP_gp:   equ     6
 (2)       0 : =C0                MODE_STOP_gm:   equ     11000000B
 (2)       0 : =40                MODE_STOP1_gc:  equ     (1 << MODE_STOP_gp)
@@ -92,6 +93,7 @@
        1000 :                            org     1000H
        1000 : =1000              stack:          equ     $
        1000 :
+       1000 :                    ;;; Mode 2 vectors for the alternative setup commented out in init
        1000 : =1000              vec_base:       equ     $
        1012 :                            org     vec_base+12H
        1012 : 96 03              vec_rx: dw      isr_intr_rx
@@ -132,13 +134,13 @@
         132 : 3E 36                      ld      A, RX_EN_TX_DIS
         134 : ED D3 41 01                outa    (USARTC), A
         138 :
-        138 : 3E                         db      3EH             ; LD A, n
+        138 : 3E                         db      3EH             ; LD A, n: the RST 28H opcode
         139 : EF                         rst     28H
         13A : ED D3 42 01                outa    (USARTRV), A    ; set RxRDY interrupt vector RST 28H
-        13E : 3E                         db      3EH             ; LD A, n
+        13E : 3E                         db      3EH             ; LD A, n: the RST 30H opcode
         13F : F7                         rst     30H
         140 : ED D3 43 01                outa    (USARTTV), A    ; set TxRDY interrupt vector RST 30H
-        144 : ED 46                      im      0
+        144 : ED 46                      im      0               ; execute the USART's RST vector
         146 :
         146 :                            ;; ld      A, HIGH vec_base
         146 :                            ;; ld      I, A
@@ -157,7 +159,7 @@
         14F :
         14F :                    ;;; Get character
         14F :                    ;;; @return A
-        14F :                    ;;; @return CC.C 0 if no character
+        14F :                    ;;; @return F.C 0 if no character
         150 :                            align   2
         150 :                    getchar:
         150 : DD E5                      push    IX
@@ -204,7 +206,10 @@
         182 :                            include "mandelbrot.inc"
 (1)     182 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
 (1)     182 :
-(1)     182 : =32                Fv:     equ     50
+(1)     182 : =32                Fv:     equ     50              ; fixed-point 1.0
+(1)     182 :                    ;;; Print one 79x25 frame of the Mandelbrot set: each point is its
+(1)     182 :                    ;;; escape iteration in hex, or a space if it does not escape in 16.
+(1)     182 :                    ;;; Exits to the debugger when NUL is received.
 (1)     182 :                            align   2
 (1)     182 :                    mandelbrot:
 (1)     182 : 3E F4                      ld      A, -12
@@ -331,7 +336,7 @@
 (1)     24D : C6 90                      add     A, 90H
 (1)     24F : 27                         daa
 (1)     250 : CE 40                      adc     A, 40H
-(1)     252 : 27                         daa
+(1)     252 : 27                         daa                     ; A='0'-'9','A'-'F'
 (1)     253 :                    print_char:
 (1)     253 : CD 65 01                   call    putchar
 (1)     256 :
@@ -350,7 +355,7 @@
 (1)     25C : 20 06                      jr      NZ, next_x
 (1)     25E :                    halt_to_system:
 (1)     25E : 3E FF                      ld      A, 0FFH
-(1)     260 : 32 38 00                   ld      (ORG_RST38), A
+(1)     260 : 32 38 00                   ld      (ORG_RST38), A  ; RST 38H at its vector: exit to the debugger
 (1)     263 : FF                         rst     38H
 (1)     264 :
 (1)     264 :                    next_x:
@@ -508,7 +513,6 @@
 (1)     325 :                    ;;; [queue] Initialize queue
 (1)     325 :                    ;;; @param IX queue work space pointer
 (1)     325 :                    ;;; @param B queue work space size
-(1)     325 :                    ;;; @clobber B
 (1)     326 :                            align   2
 (1)     326 :                    queue_init:
 (1)     326 : F5                         push    AF

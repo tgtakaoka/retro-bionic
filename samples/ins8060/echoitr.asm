@@ -46,7 +46,7 @@ initialize:
         xppc    P1              ; call queue_init
         .dbyte  rx_queue
         ldi     tx_queue_size
-        xppc    P1              ; call queue init
+        xppc    P1              ; call queue_init
         .dbyte  tx_queue
 
         ;; initialize ACIA
@@ -57,8 +57,8 @@ initialize:
         ldi     CDS_RESET_gc    ; Master reset
         st      ACIA_C(P1)
         ldi     RX_INT_TX_NO   ; 8 bits + No Parity + 1 Stop Bits
-                                ; Transmit, Receive interrupts disabled
-        st      ACIA_C(P1)      ;
+                                ; Receive interrupt enabled, Transmit disabled
+        st      ACIA_C(P1)
         ien                     ; enable interrupt
 
 loop:
@@ -70,7 +70,7 @@ wait_char:
         xppc    P1              ; call getchar
         jz      wait_char
         lde
-        jz      halt_to_system
+        jz      halt_to_system  ; NUL halts
         ldi     L(ADDR(putchar))
         xpal    P1
         ldi     H(ADDR(putchar))
@@ -143,6 +143,7 @@ put_hex8:
         xppc    P1              ; call put_hex4
         jmp     put_hex8_exit
 
+;;; Print the low nibble of E as a hex digit
 put_hex4_exit:
         ld      @1(P2)          ; pop P1
         xpal    P1
@@ -271,6 +272,8 @@ putchar_return:
 
         include "queue.inc"
 
+;;; Sense A interrupt from the ACIA: queue a received character, then
+;;; send the next queued one, or disable the Tx interrupt when empty
 isr_sensea_exit:
         ld      @1(P2)          ; pop P1
         xpal    P1
@@ -280,7 +283,7 @@ isr_sensea_exit:
         cas
         ld      @1(P2)          ; pop E
         xae
-        ld      @1(P2)          ; pop D
+        ld      @1(P2)          ; pop A
         ien                     ; enable interrupt
         xppc    P3              ; return from interrupt
 isr_sensea:

@@ -99,7 +99,7 @@
 (1)       0 :                    ;;; MC6850
 (1)       0 :                    ;;; Asynchronous Communication Interface Adapter
 (1)       0 :
-(1)       0 :                    ;;; Control register
+(1)       0 :                    ;;; Control register (write)
 (1)       0 : =DF00              ACIA_control:   equ     ACIA+0
 (1)       0 :                            ;; Counter Divider Select Bits
 (1)       0 : =3                 CDS_gm:         equ     %11    ; Group mask
@@ -126,7 +126,7 @@
 (1)       0 :                                                      ; Transmit Break Level
 (1)       0 : =80                RIEB_bm:        equ     %10000000 ; Receive Interrupt Enable Bit mask
 (1)       0 :
-(1)       0 :                    ;;; Status register
+(1)       0 :                    ;;; Status register (read)
 (1)       0 : =DF00              ACIA_status:    equ     ACIA+0
 (1)       0 : =1                 RDRF_bm:        equ     %00000001 ; Receive Data Register Full
 (1)       0 : =2                 TDRE_bm:        equ     %00000010 ; Transmit Data Register Empty
@@ -176,7 +176,7 @@
        2080 :                    tx_queue:       rmb     tx_queue_size
        2100 :
        1000 :                            org     $1000
-       1000 : =FFF               stack:  equ     *-1             ; MC6800's SP is post-decrement/pre-increment
+       1000 : =FFF               stack:  equ     *-1             ; MC6801's SP is post-decrement/pre-increment
        1000 :
        FFF2 :                            org     $FFF2           ; MC68HC11 IRQ
        FFF2 : 03 B5                      fdb     isr_irq
@@ -227,7 +227,6 @@
         12F :
         12F :                    ;;; Put character
         12F :                    ;;; @param A
-        12F :                    ;;; @clobber X
         12F :                    putspace:
         12F : 86 20                      ldaa    #' '
         131 : 20 06                      bra     putchar
@@ -257,7 +256,7 @@
 (1)     14D :                    ;;; Print variable: "A=variable "
 (1)     14D :                    ;;; @param X variable
 (1)     14D :                    ;;; @param A variable letter
-(1)     14D :                    ;;; @clobber R0
+(1)     14D :                    ;;; @clobber D X R0 R1 R2
 (1)     14D :                    print:
 (1)     14D : BD 01 39                   jsr     putchar         ; print variable letter
 (1)     150 : 86 3D                      ldaa    #'='
@@ -270,6 +269,7 @@
 (1)     15F :                    ;;; Sign extend A into X
 (1)     15F :                    ;;; @param A
 (1)     15F :                    ;;; @return X sign extended A
+(1)     15F :                    ;;; @clobber R0
 (1)     15F :                    sex_A:
 (1)     15F : 7F 00 53                   clr     R0H
 (1)     162 : 97 54                      staa    R0L
@@ -290,6 +290,8 @@
 (1)     171 :                    sex_B_exit:
 (1)     171 : 39                         rts
 (1)     172 :
+(1)     172 :                    ;;; Print the Mandelbrot set in ASCII; fixed point, F is 1.0
+(1)     172 :                    ;;; Halts to system when a NUL is received.
 (1)     172 :                    mandelbrot:
 (1)     172 : 86 F4                      ldaa    #-12
 (1)     174 : 97 50                      staa    vY              ; Y=-12
@@ -348,7 +350,7 @@
 (1)     1C2 : DC 44                      ldd     vA
 (1)     1C4 : DE 44                      ldx     vA
 (1)     1C6 : BD 02 BA                   jsr     mul16           ; A*A
-(1)     1C9 : 38                         pulx                    ; push B*B
+(1)     1C9 : 38                         pulx                    ; pull B*B
 (1)     1CA : DF 57                      stx     R2
 (1)     1CC : 93 57                      subd    R2              ; A*A-B*B
 (1)     1CE : CE 00 32                   ldx     #F
@@ -358,7 +360,7 @@
 (1)     1D7 : 36                         psha                    ; push (A*A-B*B)/F+C
 (1)     1D8 : DC 44                      ldd     vA
 (1)     1DA : DE 4C                      ldx     vQ
-(1)     1DC : BD 02 BA                   jsr     mul16           ; R0=A*Q
+(1)     1DC : BD 02 BA                   jsr     mul16           ; A*Q
 (1)     1DF : 37                         pshb
 (1)     1E0 : 36                         psha                    ; push A*Q
 (1)     1E1 : DC 44                      ldd     vA
@@ -447,9 +449,9 @@
 (1)     247 :                            ;; jsr     newline
 (1)     247 :
 (1)     247 : BD 01 26                   jsr     getchar
-(1)     24A : 24 04                      bcc     next_x
+(1)     24A : 24 04                      bcc     next_x          ; no char
 (1)     24C : 4D                         tsta
-(1)     24D : 26 01                      bne     next_x
+(1)     24D : 26 01                      bne     next_x          ; not NUL
 (1)     24F : 3F                         swi                     ; halt to system
 (1)     250 :                    next_x:
 (1)     250 : 7C 00 51                   inc     vX              ; X+=1
@@ -486,7 +488,7 @@
 (1)     27C : DD 53                      std     R0
 (1)     27E :                    ;;; Print unsigned 16-bit integer as decimal
 (1)     27E :                    ;;; @param R0 value
-(1)     27E :                    ;;; @clobber D X
+(1)     27E :                    ;;; @clobber D X R0 R1 R2
 (1)     27E :                    print_uint16:
 (1)     27E : DC 53                      ldd     R0
 (1)     280 : 27 14                      beq     print_uint16_zero
@@ -511,7 +513,7 @@
 (1)     29C :                    ;;; @param R1 multiplicand
 (1)     29C :                    ;;; @param R2 multiplier
 (1)     29C :                    ;;; @return R0 result
-(1)     29C :                    ;;; @clobber R0 R1 R2
+(1)     29C :                    ;;; @clobber D
 (1)     29C :                    umul16:
 (1)     29C : 96 56                      ldaa    R1L
 (1)     29E : D6 58                      ldab    R2L
@@ -533,7 +535,7 @@
 (1)     2B9 :                    umul16_end:
 (1)     2B9 : 39                         rts
 (1)     2BA :
-(1)     2BA :                    ;;; Multiply; result = multiplicand * multiplier
+(1)     2BA :                    ;;; Signed multiplication: result = multiplicand * multiplier
 (1)     2BA :                    ;;; @param D multiplicand
 (1)     2BA :                    ;;; @param X multiplier
 (1)     2BA :                    ;;; @return D result
@@ -561,7 +563,7 @@
 (1)     2DC :                    mul16_multiply:
 (1)     2DC : 8D BE                      bsr     umul16          ; R0=result
 (1)     2DE : DC 53                      ldd     R0
-(1)     2E0 : 7D 00 59                   tst     sign            ; A=(multiplicand^multiplier)
+(1)     2E0 : 7D 00 59                   tst     sign            ; sign(result)
 (1)     2E3 : 2A 05                      bpl     mul16_end
 (1)     2E5 : 43                         coma
 (1)     2E6 : 53                         comb
@@ -574,11 +576,11 @@
 (1)     2ED : 39                         rts
 (1)     2EE :
 (1)     2EE :                    ;;; Unsigned division: dividend / divisor = quotient ... remainder
-(1)     2EE :                    ;;; @praram R1 dividend
-(1)     2EE :                    ;;; @praram R2 divisor
+(1)     2EE :                    ;;; @param R1 dividend
+(1)     2EE :                    ;;; @param R2 divisor
 (1)     2EE :                    ;;; @return R0 quotient
 (1)     2EE :                    ;;; @return R1 remainder
-(1)     2EE :                    ;;; @clobber R2
+(1)     2EE :                    ;;; @clobber D X R2
 (1)     2EE :                    udiv16:
 (1)     2EE : DC 57                      ldd     R2              ; D=divisor
 (1)     2F0 : 27 44                      beq     udiv16_end      ; branch if divisor==0
@@ -631,11 +633,11 @@
 (1)     33C : DF 53                      stx     R0              ; quotient=0, R1=remainder
 (1)     33E : 39                         rts
 (1)     33F :
-(1)     33F :                    ;;; Division; dividend / divisor = quotient ... remainder
+(1)     33F :                    ;;; Signed division: dividend / divisor = quotient ... remainder
 (1)     33F :                    ;;; @param D dividend
 (1)     33F :                    ;;; @param X divisor
 (1)     33F :                    ;;; @return D quotient
-(1)     33F :                    ;;; @return X remainder
+(1)     33F :                    ;;; @return X |remainder|
 (1)     33F :                    ;;; @clobber R0 R1 R2
 (1)     33F :                    div16:
 (1)     33F : DD 55                      std     R1
@@ -659,7 +661,7 @@
 (1)     35D : 8D 8F                      bsr     udiv16          ; R0=quotient
 (1)     35F : DC 53                      ldd     R0
 (1)     361 : DE 55                      ldx     R1
-(1)     363 : 7D 00 59                   tst     sign            ; A=(dividend^divisor)
+(1)     363 : 7D 00 59                   tst     sign            ; sign(quotient)
 (1)     366 : 2A 05                      bpl     div16_end
 (1)     368 : 43                         coma
 (1)     369 : 53                         comb

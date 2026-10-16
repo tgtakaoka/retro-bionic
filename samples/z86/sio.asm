@@ -16,9 +16,9 @@ init_config:
         srp     #%10
         setrp   %10
 
-;;; XTAL=14.7546MHz
+;;; XTAL=14.7456MHz
 ;;; p=1 for PRE0, t=12 for T0
-;;; bit rate = 14754600 / (2 x 4 x p x t x 16) = 9600 bps
+;;; bit rate = 14745600 / (2 x 4 x p x t x 16) = 9600 bps
 init_sio:
         ld      R0, SIO          ; dummy read
         or      PORT3, #%80      ; TxD(P37)=High
@@ -31,8 +31,8 @@ init_irq:
         ld      IPR, #IPR_ACB LOR IPR_A35 LOR IPR_C41 LOR IPR_B02
         clr     IMR            ; mask all IRQs
         ei                     ; clear IRQ and enable interrupt system
-        di                     ; disable IRQ heading
-        or      IRQ, #IRQ_IRQ4
+        di                     ; poll IRQ instead of interrupts
+        or      IRQ, #IRQ_IRQ4 ; transmitter is ready
 
 receive_loop:
         tm      IRQ, #IRQ_IRQ3  ; check IRQ3

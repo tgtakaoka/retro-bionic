@@ -48,7 +48,7 @@ loop:
         or      S, =S_IE        ; Enable IRQ
         bz      loop
         ld      A, E            ; A=data
-        bz      halt_to_system
+        bz      halt_to_system  ; NUL halts
 echo:
         jsr     putchar
         xor     A, =X'0D       ; carriage return
@@ -94,7 +94,7 @@ isr_irq_receive:
 isr_irq_exit:
         pop     P2
         pop     ea
-        or      S, =S_IE
+        or      S, =S_IE        ; IE was cleared on interrupt
         ret
 
         end

@@ -56,7 +56,7 @@ umul16:
         ld      A, H
         add     A, E
         add     A, B
-        ld      H, A
+        ld      H, A            ; add cross terms to high(product)
         ret
 
 
@@ -64,7 +64,7 @@ umul16:
 ;;; @param BC multiplicand
 ;;; @param DE multiplier
 ;;; @return HL result
-;;; @clobber A
+;;; @clobber A BC DE
 mul16:
         ld      A, B
         xor     A, D
@@ -124,7 +124,7 @@ udiv16_8:
         div     HL, A
         ld      C, L            ; low(quotient)=low(dividend)/divisor
         ld      E, H            ; low(remainder)=low(dividend)%divisor
-        ld      HL, DE
+        ld      HL, DE          ; HL=high(remainder):low(remainder)
         div     HL, A           ; H=remainder, L=quotient
         push    HL              ; save remainder
         ld      H, 0
@@ -172,7 +172,7 @@ udiv16_return:
 ;;; @param BC dividend
 ;;; @param DE divisor
 ;;; @return HL quotient
-;;; @return BC remainder
+;;; @return BC |remainder|
 ;;; @clobber DE A
 div16:
         ld      A, B
@@ -192,7 +192,7 @@ div16_abs_dividend:
         inc     HL
         ld      DE, HL          ; divisor = -divisor
 div16_divide:
-        call    udiv16          ; BC = dividend / divisor
+        call    udiv16          ; HL = dividend / divisor
         pop     AF              ; A=sign
         bit     7, A
         ret     Z

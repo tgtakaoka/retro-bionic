@@ -3,7 +3,7 @@
 ;;; MC6850
 ;;; Asynchronous Communication Interface Adapter
 
-;;; Control register
+;;; Control register (write)
 ACIA_control    =       ACIA+0
         ;; Counter Divider Select Bits
 CDS_gm          =       X'03   ; Group mask
@@ -30,7 +30,7 @@ TCB_BREAK_gc    =       X'60   ; RTS=Low,  Tx Interrupt Disabled
                                 ; Transmit Break Level
 RIEB_bm         =       X'80   ; Receive Interrupt Enable Bit mask
 
-;;; Status register
+;;; Status register (read)
 ACIA_status     =       ACIA+0
 RDRF_bm         =       X'01   ; Receive Data Register Full
 TDRE_bm         =       X'02   ; Transmit Data Register Empty

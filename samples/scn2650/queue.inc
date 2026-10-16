@@ -8,8 +8,7 @@ queue_buf:      equ     4       ; buffer start offset
 
 ;;; [queue] Initialize queue
 ;;; @param r2:r3 queue work space pointer
-;;; @param r1 queue work space size
-;;; @clobber r1
+;;; @param r1 queue work space size, header included
 queue_init:
         stra,r2 queue_top
         stra,r3 queue_top+1

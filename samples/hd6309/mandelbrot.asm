@@ -8,7 +8,7 @@ RX_INT_TX_INT:  equ     WSB_8N1_gc|RIEB_bm|TCB_EI_gc
 
         org     $20
 ;;; Working space for mandelbrot.inc
-F:      equ     50
+F:      equ     50              ; fixed-point scale, 1.0=F
 vC:     rmb     2
 vD:     rmb     2
 vA:     rmb     2
@@ -27,7 +27,7 @@ tx_queue_size:  equ     128
 tx_queue:       rmb     tx_queue_size
 
         org     $1000
-stack:  equ     *-1             ; MC6800's SP is post-decrement/pre-increment
+stack:  equ     *-1             ; from MC6800, whose push is post-decrement
 
         org     VEC_FIRQ
         fdb     isr_firq
@@ -40,7 +40,7 @@ stack:  equ     *-1             ; MC6800's SP is post-decrement/pre-increment
 
         org     $0100
 main:
-        ldmd    #1
+        ldmd    #1              ; 6309 native mode
         lds     #stack
         ldx     #rx_queue
         ldb     #rx_queue_size
@@ -73,8 +73,9 @@ getchar:
         andcc   #~CC_FIRQ        ; enable FIRQ
         puls    x,pc
 
-;;; Put character
-;;; @param A
+;;; Put a space, CR LF (newline) or char A (putchar)
+;;; @param A char for putchar
+;;; @clobber A for putspace and newline
 putspace:
         lda     #' '
         bra     putchar
@@ -99,7 +100,7 @@ putchar_retry:
         include "../mc6809/queue.inc"
 
 isr_firq:
-        pshs    x,b,a
+        pshs    x,b,a           ; FIRQ stacks only PC and CC
         ldb     ACIA_status
         bitb    #IRQF_bm
         beq     isr_firq_exit

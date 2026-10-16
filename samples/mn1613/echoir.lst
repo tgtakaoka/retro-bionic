@@ -6,9 +6,9 @@
 (1)       0 :                    *** Status Register
 (1)       0 : =0                 STR_E:          equ     0       Extension
 (1)       0 : =2                 STR_OV:         equ     2       Overflow
-(1)       0 : =5                 STR_IRQ0:       equ     5       IRQ0 Mask
-(1)       0 : =6                 STR_IRQ1:       equ     6       IRQ1 Mask
-(1)       0 : =7                 STR_IRQ2:       equ     7       IRQ2 Mask
+(1)       0 : =5                 STR_IRQ0:       equ     5       IRQ0 Mask, 1=enabled
+(1)       0 : =6                 STR_IRQ1:       equ     6       IRQ1 Mask, 1=enabled
+(1)       0 : =7                 STR_IRQ2:       equ     7       IRQ2 Mask, 1=enabled
 (1)       0 :                    *** Interrupt vector and save area
 (1)       0 : =0                 OPSW0:          equ     X'0000' IRQ0 old STR:IC
 (1)       0 : =2                 OPSW1:          equ     X'0002' IRQ1 old STR:IC
@@ -128,6 +128,8 @@
         221 : 080A                       mvi     R0, x'0A'       NL
         222 : CFFB                       b       echo
         223 :
+        223 :                    *** @return R0 received char
+        223 :                    *** @clobber X0
         223 :                    getchar:
         223 : 7B0F 2000                  mvwi    X0, rx_queue
         225 :                    getchar_wait:
@@ -137,6 +139,7 @@
         228 : CFFD                       b       getchar_wait
         229 : 2003                       ret
         22A :
+        22A :                    *** @param R0 char to send
         22A :                    putchar:
         22A : 2001                       push    R0
         22B :                    putchar_wait:
@@ -167,7 +170,7 @@
 (1)     234 : 4004                       si      R0, queue_buf
 (1)     235 : A001                       st      R0, queue_size(X0)      set queue_size
 (1)     236 : A102                       st      R1, queue_put(X0)       clear queue_put
-(1)     237 : A103                       st      R1, queue_get(X0)       clear queue_put
+(1)     237 : A103                       st      R1, queue_get(X0)       clear queue_get
 (1)     238 : 4B04                       ai      X0, queue_buf
 (1)     239 :                    queue_init_loop:
 (1)     239 : 21C6                       str     R1, (X0)+
@@ -188,17 +191,17 @@
 (1)     242 : 51FA                       c       R1, R2, lm              skip if queue_len < queue_size
 (1)     243 : CF0B                       b       queue_add_return
 (1)     244 : E102                       l       R1, queue_put(X0)
-(1)     245 : 5B09                       a       X0, R1                  X0=&queu_buf[queue_put]
+(1)     245 : 5B09                       a       X0, R1                  X0=&queue_buf[queue_put]
 (1)     246 : A004                       st      R0, queue_buf(X0)       store element
 (1)     247 : 5B01                       s       X0, R1                  restore X0
 (1)     248 : 4901                       ai      R1, 1                   queue_put+=1
-(1)     249 : 51FA                       c       R1, R2, lm              skip if queue_len < queue_size
+(1)     249 : 51FA                       c       R1, R2, lm              skip if queue_put < queue_size
 (1)     24A : 6101                       eor     R1, R1                  R1=0
-(1)     24B : A102                       st      R1, queue_put(X0)       update queue_len
+(1)     24B : A102                       st      R1, queue_put(X0)       update queue_put
 (1)     24C : E600                       ims     queue_len(X0)           queue_len+=1
 (1)     24D : 3E10                       sbit    STR, STR_E, skp         ST.E=1, then skip
 (1)     24E :                    queue_add_return:
-(1)     24E : 3600                       rbit    STR, STR_E              ST_E=0
+(1)     24E : 3600                       rbit    STR, STR_E              ST.E=0
 (1)     24F : 2202                       pop     R2
 (1)     250 : 2102                       pop     R1
 (1)     251 : 2003                       ret
@@ -219,12 +222,12 @@
 (1)     25A : 4901                       ai      R1, 1                   queue_get+=1
 (1)     25B : 2201                       push    R2
 (1)     25C : E201                       l       R2, queue_size(X0)      R2=queue_size
-(1)     25D : 51FA                       c       R1, R2, lm              skip if queue_get
+(1)     25D : 51FA                       c       R1, R2, lm              skip if queue_get < queue_size
 (1)     25E : 6101                       eor     R1, R1                  R1=0
 (1)     25F : A103                       st      R1, queue_get(X0)       update queue_get
 (1)     260 : 2202                       pop     R2
 (1)     261 : A600                       dms     queue_len(X0)           queue_len-=1
-(1)     262 : 7808                       mv      R0, R0                  nop
+(1)     262 : 7808                       mv      R0, R0                  nop, for dms skipping on zero
 (1)     263 : 3E10                       sbit    STR, STR_E, skp         ST.E=1, then skip
 (1)     264 :                    queue_remove_return:
 (1)     264 : 3600                       rbit    STR, STR_E              ST.E=0

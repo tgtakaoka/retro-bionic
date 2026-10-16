@@ -11,10 +11,10 @@ CNTL_BUSINIT:   equ     0FFH    ; Bus Timing and Initialization register
 CNTL_BUSCNTL:   equ     02H     ; Bus Timing and Control register
 CNTL_SPLIMIT:   equ     04H     ; Stack Limit register
 CNTL_TRAP:      equ     10H     ; Trap Control register
-CNTL_CACHE:     equ     12H     ; Cach Control register
+CNTL_CACHE:     equ     12H     ; Cache Control register
 CNTL_LOCAL:     equ     14H     ; Local Address register
 ;;; On-Chip Peripherals
-REFRESH_RATE:   equ     0FF00E8H ; Refresh Rate Reigster
+REFRESH_RATE:   equ     0FF00E8H ; Refresh Rate Register
 ;;; Master Status register (3.3.1)
 MSR_BH_bm:      equ     8000H   ; Breakpoint-on-Halt enable
 MSR_US_bm:      equ     4000H   ; User/System: 1 = user mode

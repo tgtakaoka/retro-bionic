@@ -55,7 +55,7 @@ initialize:
         ldi     CDS_RESET_gc    ; Master reset
         st      ACIA_C(P1)
         ldi     RX_INT_TX_NO   ; 8 bits + No Parity + 1 Stop Bits
-                                ; Transmit, Receive interrupts disabled
+                                ; Receive interrupt enabled, Transmit disabled
         st      ACIA_C(P1)
         ien                     ; enable interrupt
 
@@ -65,12 +65,12 @@ loop:
         ldi     H(ADDR(queue_remove))
         xpah    P1
         dint                    ; Disable IRQ
-        xppc    P1              ; call queue_remote
+        xppc    P1              ; call queue_remove
         .dbyte  rx_queue
         ien                     ; Enable IRQ
         jz      loop
         lde
-        jz      halt_to_system
+        jz      halt_to_system  ; NUL halts
 echo:
         ldi     L(ADDR(putchar))
         xpal    p1
@@ -86,6 +86,7 @@ echo:
 halt_to_system:
         halt
 
+;;; Put character
 ;;; @param E char
 putchar_exit:
         xppc    P1              ; return
@@ -111,6 +112,7 @@ transmit_data:
 
         include "queue.inc"
 
+;;; Sense A interrupt from the ACIA: queue a received character
 isr_sensea_exit:
         ld      @1(P2)          ; pop P1
         xpal    P1

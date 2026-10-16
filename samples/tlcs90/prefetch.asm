@@ -9,7 +9,7 @@
         org     ORG_SWI
         halt                    ; halt to system
 
-dir:    equ     0FFF8H
+dir:    equ     0FFF8H          ; direct addressing reaches FF00H-FFFFH
 
         org     1000H
 main:

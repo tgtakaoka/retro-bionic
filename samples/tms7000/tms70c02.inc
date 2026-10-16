@@ -32,7 +32,7 @@ T2_HALT:        equ     ?00100000       1=Halt during idle
         *** Serial Port
         *** - SCTL0 has SCLK enable
         *** - SCTL1 has start/stop bit of Timer 3
-        *** - Serial baud-rate is doubled than TMS7001
+        *** - Serial baud rate is twice the TMS7001's
         *** - #INT1 and #INT3 can be level active
         *** - No /4 clock option
 SMODE:  equ     >0114   Serial mode

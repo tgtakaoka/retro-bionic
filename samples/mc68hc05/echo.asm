@@ -35,6 +35,7 @@ echo:   bsr     putchar
 halt_to_system:
         swi                     ; halt to system
 
+;;; @return A received char
 getchar:
         lda     COP_RESET       ; service the MC68HC08's COP
         sta     COP_RESET
@@ -44,6 +45,7 @@ getchar:
         lda     ACIA_data
         rts
 
+;;; @param A char to send
 putchar:
         sta     save_a
 putchar_loop:

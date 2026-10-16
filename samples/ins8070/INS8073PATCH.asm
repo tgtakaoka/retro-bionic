@@ -14,7 +14,7 @@ ACIA_D  =       1               ; ACIA data register offset
 
 ;;; Baudrate flag
         .=      BAUDFLG
-        .byte   0               ; bit7:0 call extenal routine
+        .byte   0               ; bit7:0 call external routine
         .dbyte  getchar
         .dbyte  putchar
 
@@ -42,6 +42,7 @@ init_console:
 
         .=      ENDNIBL2
 
+;;; @return A 0 if Control-C received
 check_break:
         pli     P2, =ACIA
         ld      A, ACIA_S, P2
@@ -56,6 +57,8 @@ got_break:
         pop     P2
         ret
 
+;;; Receive a char, skipping LF, and echo it
+;;; @return A char
 getchar:
         pli     P2, =ACIA
         push    A

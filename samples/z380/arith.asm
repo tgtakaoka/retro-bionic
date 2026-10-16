@@ -29,9 +29,11 @@ init_usart:
         call    arith
 halt_to_system:
         ld      A, 0FFH
-        ld      (ORG_RST38), A
+        ld      (ORG_RST38), A  ; RST 38H at its vector: exit to the debugger
         rst     38h
 
+;;; Put character, waiting for TxRDY
+;;; @param A
 putchar:
         push    AF
 putchar_loop:

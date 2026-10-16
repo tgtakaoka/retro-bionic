@@ -52,13 +52,13 @@ udiv16:
         pop                     ; return address
         sacl    udiv16_ret
         larp    AR1
-        lark    AR1,15
+        lark    AR1,15          ; 16 SUBC steps
         zals    R1              ; ACC=dividend
 udiv16_loop:
         subc    R2
         banz    udiv16_loop
-        sach    R0              ; remainder
-        sacl    R1              ; quotient
+        sach    R0              ; remainder in ACCH
+        sacl    R1              ; quotient in ACCL
 udiv16_return:
         zals    udiv16_ret
         push                    ; return address
@@ -68,7 +68,7 @@ udiv16_return:
 ;;; Divide by positive divisor
 ;;; R1 / |R2| = R1 ... R0
 ;;; @return ACC=R1
-;;; @clobber R2
+;;; @clobber AR1 ARP=1
 divu16:
         pop                     ; return address
         sacl    divu16_ret
@@ -92,7 +92,7 @@ divu16_return:
 ;;; Divide
 ;;; R1 / R2 = R1 ... R0
 ;;; @return ACC=R1
-;;; @clobber R2
+;;; @clobber R2 AR1 ARP=1
 div16:
         pop                     ; return address
         sacl    div16_ret

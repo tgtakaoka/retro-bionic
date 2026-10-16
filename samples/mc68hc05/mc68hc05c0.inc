@@ -25,13 +25,13 @@ CNTR:   equ     $10     ; 16-Bit Timer Counter Register
 ACNTR:  equ     $12     ; 16-Bit Timer Alternate Counter Register
 SCBR:   equ     $14     ; Serial Communications Baud Rate Register
 SCBR_SCP_gp:    equ     6 ; SCI Prescaler; 0=/1 1=/3 2=/4 3=/13
-SCBR_SCT_gp:    equ     3 ; SCI Transmit Baud Rate; n=1/(1<<n)
-SCBR_SCR_gp:    equ     0 ; SCI Receive Baud Rate;  0<=n<=7
+SCBR_SCT_gp:    equ     3 ; SCI Transmit Baud Rate; divide by 1<<n
+SCBR_SCR_gp:    equ     0 ; SCI Receive Baud Rate;  divide by 1<<n
 SCCR1:  equ     $15     ; Serial Communications Control Register 1
 SCCR1_R8_bp:    equ     7 ; Receive Data Bit 8
 SCCR1_T8_bp:    equ     6 ; Transmit Data Bit 8
 SCCR1_SCKM_bp:  equ     5 ; Serial Clock Mode 0=-PB4 is GPIO
-SCCR1_M_bp:     equ     4 ; Mode 1=9-bit, 0=8-nit
+SCCR1_M_bp:     equ     4 ; Mode 1=9-bit, 0=8-bit
 SCCR1_WAKE_bp:  equ     3 ; Wake-Up Select 1=MSB cause wake-up
 SCCR1_CPOL_bp:  equ     2 ; Clock Polarity
 SCCR1_CPHL_bp:  equ     1 ; Clock Phase

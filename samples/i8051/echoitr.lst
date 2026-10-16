@@ -41,7 +41,7 @@
 (1)       0 : =87                PCON:   equ     87H             ; Power control
 (1)       0 :                    ;;; PSW (0D0H) Program status word (bit addressable)
 (1)       0 : =7                 CY:     equ     7              ; set to 1 if carry
-(1)       0 : =6                 AC:     equ     6              ; set to 1 if auxillary carry
+(1)       0 : =6                 AC:     equ     6              ; set to 1 if auxiliary carry
 (1)       0 : =5                 F0:     equ     5              ; user flag 0
 (1)       0 : =4                 RS1:    equ     4              ; register bank select
 (1)       0 : =3                 RS0:    equ     3              ; register bank select
@@ -55,7 +55,7 @@
 (1)       0 : =2                 EX1:    equ     2               ; #INT1
 (1)       0 : =1                 ET0:    equ     1               ; Timer 0 overflow
 (1)       0 : =0                 EX0:    equ     0               ; #INT0
-(1)       0 :                    ;;; SCON (89H) Serial control (bit addressable)
+(1)       0 :                    ;;; SCON (98H) Serial control (bit addressable)
 (1)       0 : =7                 SM0:    equ     7               ; Serial mode SM[0:1:2]=010 8-bit UART
 (1)       0 : =6                 SM1:    equ     6
 (1)       0 : =5                 SM2:    equ     5
@@ -70,8 +70,8 @@
 (1)       0 :                    ;;; TMOD (89H) Timer/Counter mode control register
 (1)       0 : =4                 T1MODE_gp:      equ     4       ; Timer 1 mode
 (1)       0 : =0                 T0MODE_gp:      equ     0       ; Timer 0 mode
-(1)       0 : =8                 TGATE:          equ     1000B
-(1)       0 : =4                 TXPIN:          equ     0100B   ; Input from Tx pin
+(1)       0 : =8                 TGATE:          equ     1000B   ; Run only while #INTx is high
+(1)       0 : =4                 TXPIN:          equ     0100B   ; Count pulses on T0/T1 pin
 (1)       0 : =2                 T8MODE:         equ     0010B   ; 8-bit auto-reload timer/counter
 (1)       0 :                    ;;; PCON (87H) Power control register
 (1)       0 : =40                SMOD:   equ     1000000B        ; Double baudrate
@@ -79,7 +79,7 @@
           0 :                    ;;; i8251 Universal Synchronous/Asynchronous Receiver/Transmitter
           0 : =FFF0              USART:          equ     0FFF0H
           0 : =FFF0              USARTD:         equ     USART+0 ; Receive/Transmit data
-          0 : =FFF1              USARTS:         equ     USART+1 ; Srtatus register
+          0 : =FFF1              USARTS:         equ     USART+1 ; Status register
           0 : =FFF1              USARTC:         equ     USART+1 ; Control register
           0 : =FFF2              USARTRV:        equ     USART+2 ; Receive interrupt vector (ORG_*)
           0 : =FFF3              USARTTV:        equ     USART+3 ; Transmit interrupt vector (ORG_*)
@@ -87,13 +87,14 @@
 (1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
 (1)       0 :
 (1)       0 :                    ;;; i8251 USART device emulator.
+(1)       0 :                    ;;; Bit definition of mode instruction (asynchronous)
 (1)       0 : =6                 MODE_STOP_gp:   equ     6
 (1)       0 : =C0                MODE_STOP_gm:   equ     11000000B
 (1)       0 : =40                MODE_STOP1_gc:  equ     (1 << MODE_STOP_gp)
 (1)       0 : =80                MODE_STOP15_gc: equ     (2 << MODE_STOP_gp)
 (1)       0 : =C0                MODE_STOP2_gc:  equ     (3 << MODE_STOP_gp)
-(1)       0 : =20                MODE_EVEN_bm:   equ     00100000B
-(1)       0 : =10                MODE_PARITY_bm: equ     00010000B
+(1)       0 : =20                MODE_EVEN_bm:   equ     00100000B   ; Even parity
+(1)       0 : =10                MODE_PARITY_bm: equ     00010000B   ; Parity enable
 (1)       0 : =2                 MODE_LEN_gp:    equ     2
 (1)       0 : =C                 MODE_LEN_gm:    equ     00001100B
 (1)       0 : =0                 MODE_LEN5_gc:   equ     (0 << MODE_LEN_gp)
@@ -184,12 +185,12 @@
          4B : 00                         nop
          4C : 74 37                      mov     a, #RX_EN_TX_EN
          4E : F0                         movx    @DPTR, A
-         4F : A3                         inc     DPTR
+         4F : A3                         inc     DPTR            ; DPTR=USARTRV
          50 : 74 03                      mov     A, #ORG_IE0
          52 : F0                         movx    @DPTR, A        ; enable Rx interrupt using INT0
          53 : D2 A8                      setb    IE.EX0          ; enable INT0
          55 : 74 13                      mov     A, #ORG_IE1
-         57 : A3                         inc     DPTR
+         57 : A3                         inc     DPTR            ; DPTR=USARTTV
          58 : F0                         movx    @DPTR, A        ; enable Tx interrupt using INT1
          59 : D2 AA                      setb    IE.EX1          ; enable INT1
          5B : D2 AF                      setb    IE.EA           ; enable interrupt
@@ -197,7 +198,7 @@
          5D :                    receive_loop:
          5D : 11 A6                      acall   getchar
          5F : 50 FC                      jnc     receive_loop
-         61 : 60 0F                      jz      halt_to_system
+         61 : 60 0F                      jz      halt_to_system  ; NUL halts
          63 : FB                         mov     R3, A           ; save letter
          64 : 11 C0                      acall   putchar         ; echo
          66 : 11 B6                      acall   putspace
@@ -207,7 +208,7 @@
          6E : 11 BA                      acall   newline
          70 : 80 EB                      sjmp    receive_loop
          72 :                    halt_to_system:
-         72 : A5                         db      0A5H
+         72 : A5                         db      0A5H            ; halt to system
          73 :
          73 :                    ;;; Print uint8_t in hex
          73 :                    ;;; @param R3 uint8_t value to be printed in hex.
@@ -250,7 +251,7 @@
          9D : 33                         rlc     A               ; PSW.C=MSB
          9E : FA                         mov     R2, A
          9F : 74 30                      mov     A, #'0'
-         A1 : 50 1D                      jnc     putchar         ; MSB=1
+         A1 : 50 1D                      jnc     putchar         ; MSB=0
          A3 : 04                         inc     A
          A4 : 80 1A                      sjmp    putchar
          A6 :
@@ -310,8 +311,8 @@
 (1)      D8 : =1                 queue_size:     equ     1       ; buffer size
 (1)      D8 : =2                 queue_put:      equ     2       ; queue put index
 (1)      D8 : =3                 queue_get:      equ     3       ; queue get index
-(1)      D8 : =4                 queue_buf_lo:   equ     4       ; lo(queue buffer) pointer to  external data memory
-(1)      D8 : =5                 queue_buf_hi:   equ     5       ; hi(queue_buffer)
+(1)      D8 : =4                 queue_buf_lo:   equ     4       ; lo(queue buffer) pointer to external data memory
+(1)      D8 : =5                 queue_buf_hi:   equ     5       ; hi(queue_buf)
 (1)      D8 : =6                 queue_work_size: equ    6       ; queue work size
 (1)      D8 :
 (1)      D8 :                    ;;; [queue] Initialize queue
@@ -404,7 +405,7 @@
 (1)     123 : 26                         add     A, @R0          ; A=lo(queue_buf)+queue_get
 (1)     124 : F5 82                      mov     DPL, A
 (1)     126 : 08                         inc     R0
-(1)     127 : E6                         mov     A, @R0          ; A=hi(queue)
+(1)     127 : E6                         mov     A, @R0          ; A=hi(queue_buf)
 (1)     128 : 34 00                      addc    A, #0
 (1)     12A : F5 83                      mov     DPH, A
 (1)     12C : E0                         movx    A, @DPTR        ; read an element
@@ -425,6 +426,7 @@
 (1)     13D : D3                         setb    C
 (1)     13E : 22                         ret
         13F :
+        13F :                    ;;; #INT0 from the USART RxRDY: queue the received character
         13F :                    isr_intr_rx:
         13F : C0 D0                      push    PSW
         141 : C2 D4                      clr     PSW.RS1
@@ -446,6 +448,8 @@
         15D : D0 D0                      pop     PSW
         15F : 32                         reti
         160 :
+        160 :                    ;;; #INT1 from the USART TxRDY: send the next queued character, or
+        160 :                    ;;; disable Tx when the queue is empty
         160 :                    isr_intr_tx:
         160 : C0 D0                      push    PSW
         162 : C2 D4                      clr     PSW.RS1

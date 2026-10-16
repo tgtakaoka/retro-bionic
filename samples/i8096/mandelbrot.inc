@@ -1,7 +1,10 @@
 ;;; -*- mode: asm; mode: flyspell-prog; -*-
 
 
-Fv:     equ     50
+Fv:     equ     50              ; fixed-point scale
+;;; Print the Mandelbrot set, one character per point: the escape
+;;; iteration as a hex digit, or a space if it stays bounded for 16.
+;;; A NUL from the console halts.
 mandelbrot:
         ldb     vY, #-12        ; Y=-12
 loop_y:
@@ -95,7 +98,7 @@ loop_i:
         ;; scall   newline
 
         cmp     vT, #4
-        jgt     print_i
+        jgt     print_i         ; if T>4
         incb    vI              ; I++
         cmpb    vI, #16
         jge     print_space     ; if I>=16

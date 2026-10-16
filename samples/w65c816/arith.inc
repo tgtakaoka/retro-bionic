@@ -128,8 +128,8 @@ umul16_end:
         rts
 
 ;;; Unsigned division: dividend / divisor = quotient ... remainder
-;;; @praram X dividend
-;;; @praram Y divisor
+;;; @param X dividend
+;;; @param Y divisor
 ;;; @return X quotient
 ;;; @return Y remainder
 ;;; @clobber C arith_work
@@ -138,7 +138,7 @@ udiv16:
         stx     arith_work+2    ; dividend
         ldx     #1              ; X=bits
         tya                     ; C=divisor
-        beq     udiv16_zero     ; branch if Y==0
+        beq     udiv16_zero     ; divisor==0: X=dividend, Y=0
         bmi     udiv16_prep_end ; branch if msb(divisor) == 1
 udiv16_prep:
         cmp     arith_work+2
@@ -170,8 +170,8 @@ udiv16_zero:
 ;;; @param X dividend
 ;;; @param Y divisor
 ;;; @return X quotient
-;;; @return Y remainder
-;;; @clobber C
+;;; @return Y remainder of |dividend|/|divisor|, unsigned
+;;; @clobber C arith_work
         longa   on
 div16:
         phy                     ; save divisor
@@ -190,7 +190,7 @@ div16_dividend:
         inc     A
         tax                     ; negate dividend
 div16_multiply:
-        jsr     udiv16          ; R0=result
+        jsr     udiv16          ; X=quotient
         pla                     ; A=(dividend^divisor)
         bpl     div16_return
         txa

@@ -121,9 +121,9 @@ put_bin1:
 getchar:
         pshx
         ldx     #rx_queue
-        sei
+        sei                     ; disable IRQ
         jsr     queue_remove
-        cli
+        cli                     ; enable IRQ
         pulx
         rts
 

@@ -120,7 +120,7 @@
         12F : B5 01                      tpsl    PSL_C
         131 : 98 75                      bcfr,eq receive_loop    ; PSL.C=0
         133 : 60                         iorz    r0
-        134 : 18 10                      bctr,eq echoir_halt
+        134 : 18 10                      bctr,eq echoir_halt     ; NUL halts
         136 :                    transmit_loop:
         136 : 55 01                      rede,r1 USARTS
         138 : F5 01                      tmi,r1  ST_TxRDY_bm
@@ -145,8 +145,7 @@
 (1)     147 :
 (1)     147 :                    ;;; [queue] Initialize queue
 (1)     147 :                    ;;; @param r2:r3 queue work space pointer
-(1)     147 :                    ;;; @param r1 queue work space size
-(1)     147 :                    ;;; @clobber r1
+(1)     147 :                    ;;; @param r1 queue work space size, header included
 (1)     147 :                    queue_init:
 (1)     147 : CE 01 AC                   stra,r2 queue_top
 (1)     14A : CF 01 AD                   stra,r3 queue_top+1
@@ -263,6 +262,7 @@
         1FD :                    isr_intr_recv_end:
         1FD : 1B 11                      bctr,un isr_return
         1FF :
+        1FF :                    ;;; Save r0-r3 and PSL to isr_context
         1FF :                    isr_save:
         1FF : C8 0A                      strr,r0 isr_context
         201 : C9 09                      strr,r1 isr_context+1
@@ -275,6 +275,8 @@
         20B :                    isr_context:
         20B :                            res     5
         210 :
+        210 :                    ;;; Restore from isr_context; the final LODR r0 changes CC, so put
+        210 :                    ;;; back the saved CC that LPSL left
         210 :                    isr_return:
         210 : 0B 7C                      lodr,r3 isr_context+3
         212 : 0A 79                      lodr,r2 isr_context+2

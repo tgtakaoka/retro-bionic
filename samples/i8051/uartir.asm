@@ -36,7 +36,7 @@ init_uart:
         setb    SCON.REN        ; Enable reception
 init_timer:
         orl     PCON, #SMOD     ; Double baudrate
-        orl     TMOD, #T8MODE SHL T1MODE_gp
+        orl     TMOD, #T8MODE SHL T1MODE_gp ; Timer 1 8-bit auto-reload
 ;;; baudrate = K*fosc/(32*12*(256-TH1))
 ;;; TH1=256 - (K*fosc/(384*baudrate))
 ;;; fosc=12MHz, K=2(SMOD=1) baudrate=4,800bps, TH1=243(256-13)
@@ -52,20 +52,22 @@ receive_loop:
         acall   queue_remove
         setb    IE.EA           ; enable interrupt
         jnc     receive_loop
-        jz      halt_to_system
+        jz      halt_to_system  ; NUL halts
         mov     R7, A           ; save character
 transmit_loop:
         mov     SBUF, A
-        jnb     SCON.TI, $
+        jnb     SCON.TI, $      ; wait for Tx done
         clr     SCON.TI
         cjne    A, #0DH, receive_loop
-        mov     A, #0AH
+        mov     A, #0AH         ; follow CR with LF
         sjmp    transmit_loop
 halt_to_system:
         db      0A5H            ; halt to system
 
         include "queue.inc"
 
+;;; Serial interrupt: queue a received character; TI is polled by
+;;; the main loop
 isr_intr:
         jbc     SCON.RI, isr_intr_rx
         reti

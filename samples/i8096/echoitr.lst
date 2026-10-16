@@ -22,19 +22,20 @@
 (1)       0 : =200               USARTD: equ     USART+0         ; Data register
 (1)       0 : =202               USARTS: equ     USART+2         ; Status register
 (1)       0 : =202               USARTC: equ     USART+2         ; Control register
-(1)       0 : =204               USARTRV:        equ     USART+4 ; Receive interrupt vector (ORG_*)
-(1)       0 : =206               USARTTV:        equ     USART+6 ; Transmit interrupt vector (ORG_*)
+(1)       0 : =204               USARTRV:        equ     USART+4 ; Receive interrupt enable (EXTINT), 0=off
+(1)       0 : =206               USARTTV:        equ     USART+6 ; Transmit interrupt enable (EXTINT), 0=off
 (1)       0 :                            include "i8251.inc"
 (2)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
 (2)       0 :
 (2)       0 :                    ;;; i8251 USART device emulator.
+(2)       0 :                    ;;; Bit definition of mode instruction (asynchronous)
 (2)       0 : =6                 MODE_STOP_gp:   equ     6
 (2)       0 : =C0                MODE_STOP_gm:   equ     11000000B
 (2)       0 : =40                MODE_STOP1_gc:  equ     (1 << MODE_STOP_gp)
 (2)       0 : =80                MODE_STOP15_gc: equ     (2 << MODE_STOP_gp)
 (2)       0 : =C0                MODE_STOP2_gc:  equ     (3 << MODE_STOP_gp)
-(2)       0 : =20                MODE_EVEN_bm:   equ     00100000B
-(2)       0 : =10                MODE_PARITY_bm: equ     00010000B
+(2)       0 : =20                MODE_EVEN_bm:   equ     00100000B   ; Even parity
+(2)       0 : =10                MODE_PARITY_bm: equ     00010000B   ; Parity enable
 (2)       0 : =2                 MODE_LEN_gp:    equ     2
 (2)       0 : =C                 MODE_LEN_gm:    equ     00001100B
 (2)       0 : =0                 MODE_LEN5_gc:   equ     (0 << MODE_LEN_gp)
@@ -123,7 +124,7 @@
        20D2 : 28 73                      scall   getchar
        20D4 : D3 FC                      jnc     receive_loop
        20D6 : 90 1A 1A                   orb     A, A
-       20D9 : DF 17                      je      halt_to_system
+       20D9 : DF 17                      je      halt_to_system  ; NUL halts
        20DB :                    echo_back:
        20DB : B0 1A 1B                   ldb     B, A
        20DE : 28 7C                      scall   putchar         ; echo
@@ -182,13 +183,13 @@
        213B :                    put_bin1:
        213B : 19 01 1B                   shlb    B, 1            ; F.C=MSB
        213E : B1 30 1A                   ldb     A, #'0'
-       2141 : D3 19                      jnc     putchar         ; F.0=1
-       2143 : 17 1A                      incb    A               ; F.C=1
+       2141 : D3 19                      jnc     putchar         ; MSB=0
+       2143 : 17 1A                      incb    A               ; MSB=1
        2145 : 20 15                      sjmp    putchar
        2147 :
        2147 :                    ;;; Get character
        2147 :                    ;;; @return A
-       2147 :                    ;;; @return CC.C 0 if no character
+       2147 :                    ;;; @return F.C 0 if no character
        2147 :                    getchar:
        2147 : C8 1C                      push    HL
        2149 : A1 00 30 1C                ld      HL, #rx_queue
@@ -234,7 +235,7 @@
 (1)    2178 :                            align   2               ; an even entry: a whole word first
 (1)    2178 :                    ;;; [queue] Initialize queue
 (1)    2178 :                    ;;; @param HL queue work space pointer
-(1)    2178 :                    ;;; @param B queue work space size
+(1)    2178 :                    ;;; @param B queue work space size, including the 4-byte header
 (1)    2178 :                    queue_init:
 (1)    2178 : C8 1A                      push    A               ; push A,B
 (1)    217A : C8 1C                      push    HL
@@ -319,6 +320,8 @@
 (1)    221B : F0                         ret
        221C :
        221C :                            align   2
+       221C :                    ;;; EXTINT from the USART: queue a received character, then send the
+       221C :                    ;;; next queued one, or disable Tx when the queue is empty
        221C :                    isr_intr:
        221C : F2                         pushf
        221D : C8 1A                      push    A               ; push A,B

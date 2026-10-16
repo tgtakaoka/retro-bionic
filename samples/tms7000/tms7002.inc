@@ -9,7 +9,7 @@ ADDR:   equ     >0105   Port A data direction register
 IOCNT1: equ     >0110   I/O control register 1
         *** Serial Port
         *** - SCTL1 has start/stop bit of Timer 3
-        *** - Serial baud-rate is doubled than TMS7001
+        *** - Serial baud rate is twice the TMS7001's
         *** - #INT1 and #INT3 can be level active
         *** - No /4 clock option
 SMODE:  equ     >0111   Serial mode (first write)

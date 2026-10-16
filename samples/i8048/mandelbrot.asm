@@ -5,7 +5,7 @@
 ;;; i8251 Universal Synchronous/Asynchronous Receiver/Transmitter
 USART:          equ     0FCH
 USARTD:         equ     USART+0 ; Receive/Transmit data
-USARTS:         equ     USART+1 ; Srtatus register
+USARTS:         equ     USART+1 ; Status register
 USARTC:         equ     USART+1 ; Control register
 USARTRV:        equ     USART+2 ; Receive interrupt vector (ORG_*)
 USARTTV:        equ     USART+3 ; Transmit interrupt vector (ORG_*)
@@ -96,7 +96,7 @@ loop:
         jmp     loop
 
 ;;; Get character
-;;; @return A
+;;; @return A character
 ;;; @return PSW.C 0 if no character
 getchar:
         mov     A, R0
@@ -126,7 +126,7 @@ putspace:
         mov     A, #' '
 
 ;;; Put character
-;;; @param A
+;;; @param A character
 ;;; @clobber A
 putchar:
         xch     A, R0           ; save character

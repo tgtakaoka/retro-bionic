@@ -24,7 +24,7 @@ hibyte: function v,(v)*256      Hi byte constant
 
         org     >0200
 initialize:
-        li      R10, stack
+        li      R10, stack      R10 is the stack pointer, grows down
         * Initialize ACIA
         li      R0, hibyte(CDS_RESET_gc)        Master reset
         movb    R0, @ACIA_control
@@ -57,7 +57,7 @@ putchar_loop:
         rt
 
         *** Print "R1 op R2"
-        *** @params R0 op letter
+        *** @param R0 op letter
         *** @clobber R0
 expr:
         dect    R10

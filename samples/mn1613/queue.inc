@@ -17,7 +17,7 @@ queue_init:
         si      R0, queue_buf
         st      R0, queue_size(X0)      set queue_size
         st      R1, queue_put(X0)       clear queue_put
-        st      R1, queue_get(X0)       clear queue_put
+        st      R1, queue_get(X0)       clear queue_get
         ai      X0, queue_buf
 queue_init_loop:
         str     R1, (X0)+
@@ -38,17 +38,17 @@ queue_add:
         c       R1, R2, lm              skip if queue_len < queue_size
         b       queue_add_return
         l       R1, queue_put(X0)
-        a       X0, R1                  X0=&queu_buf[queue_put]
+        a       X0, R1                  X0=&queue_buf[queue_put]
         st      R0, queue_buf(X0)       store element
         s       X0, R1                  restore X0
         ai      R1, 1                   queue_put+=1
-        c       R1, R2, lm              skip if queue_len < queue_size
+        c       R1, R2, lm              skip if queue_put < queue_size
         eor     R1, R1                  R1=0
-        st      R1, queue_put(X0)       update queue_len
+        st      R1, queue_put(X0)       update queue_put
         ims     queue_len(X0)           queue_len+=1
         sbit    STR, STR_E, skp         ST.E=1, then skip
 queue_add_return:
-        rbit    STR, STR_E              ST_E=0
+        rbit    STR, STR_E              ST.E=0
         pop     R2
         pop     R1
         ret
@@ -69,12 +69,12 @@ queue_remove:
         ai      R1, 1                   queue_get+=1
         push    R2
         l       R2, queue_size(X0)      R2=queue_size
-        c       R1, R2, lm              skip if queue_get
+        c       R1, R2, lm              skip if queue_get < queue_size
         eor     R1, R1                  R1=0
         st      R1, queue_get(X0)       update queue_get
         pop     R2
         dms     queue_len(X0)           queue_len-=1
-        mv      R0, R0                  nop
+        mv      R0, R0                  nop, for dms skipping on zero
         sbit    STR, STR_E, skp         ST.E=1, then skip
 queue_remove_return:
         rbit    STR, STR_E              ST.E=0

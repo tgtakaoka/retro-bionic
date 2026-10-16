@@ -54,7 +54,7 @@ receive_loop:
         scall   getchar
         jnc     receive_loop
         orb     A, A
-        je      halt_to_system
+        je      halt_to_system  ; NUL halts
 echo_back:
         ldb     B, A
         scall   putchar         ; echo
@@ -113,13 +113,13 @@ put_bin2:
 put_bin1:
         shlb    B, 1            ; F.C=MSB
         ldb     A, #'0'
-        jnc     putchar         ; F.0=1
-        incb    A               ; F.C=1
+        jnc     putchar         ; MSB=0
+        incb    A               ; MSB=1
         sjmp    putchar
 
 ;;; Get character
 ;;; @return A
-;;; @return CC.C 0 if no character
+;;; @return F.C 0 if no character
 getchar:
         push    HL
         ld      HL, #rx_queue
@@ -156,6 +156,8 @@ putchar_retry:
         include "queue.inc"
 
         align   2
+;;; EXTINT from the USART: queue a received character, then send the
+;;; next queued one, or disable Tx when the queue is empty
 isr_intr:
         pushf
         push    A               ; push A,B

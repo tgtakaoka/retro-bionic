@@ -31,6 +31,7 @@ init_usart:
         li      CMD_RTS_bm|CMD_DTR_bm|CMD_ER_bm|CMD_RxEN_bm|CMD_TxEN_bm
         out     USARTC
 
+        ;; Fill scratchpad registers 00-3FH with their own numbers
         lis     0
 loop:   
         lr      is,a
@@ -51,7 +52,7 @@ receive_data:
         in      USARTD
         lr      0, A
         bnz     transmit_loop
-        dc      H'2F'
+        dc      H'2F'           ; unknown opcode; halt to system
 transmit_loop:
         in      USARTS
         ni      ST_TxRDY_bm

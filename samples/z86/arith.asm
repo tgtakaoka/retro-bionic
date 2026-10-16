@@ -16,6 +16,7 @@ RX_EN_TX_EN:    equ     CMD_RTS_bm LOR CMD_DTR_bm LOR CMD_ER_bm LOR CMD_RxEN_bm 
         setrp   -1
         jp      init_config
 
+;;; Operands in the register file, big endian
         org     %40
 a:      ds      2
 b:      ds      2
@@ -55,9 +56,11 @@ init_usart:
         call      arith
         halt
 
+;;; @param R0 character
+;;; @param RR8 USARTD
 putchar:
         push    R0
-        incw    RR8
+        incw    RR8             ; USARTS
 putchar_loop:   
         lde     R0, @RR8
         tm      R0, #ST_TxRDY_bm
@@ -83,6 +86,9 @@ putspace:
         pop     R0
         ret
 
+;;; Print " " and the letters of the set C, Z, S, V flags, if any
+;;; @param FLAGS
+;;; @clobber R0 R1
 putflags:
         ld      R1, FLAGS
         tm      R1, #F_CARRY LOR F_ZERO LOR F_SIGN LOR F_OVERFLOW
@@ -112,6 +118,9 @@ putflags_pl:
 putflags_nov:
         ret
 
+;;; Print "a op b"
+;;; @param R0 op letter
+;;; @clobber RR0 R10-R15
 expr:
         push    R0
         ld      R0, a
@@ -125,6 +134,8 @@ expr:
         ld      R1, b+1
         jp      print_int16
 
+;;; Print " = a\n"
+;;; @clobber RR0 R10-R15
 answer:
         call    putspace
         ld      R0, #'='
@@ -135,6 +146,8 @@ answer:
         call    print_int16
         jp      newline
 
+;;; Print "a rel b" and the flags of cmpsi2
+;;; @clobber RR0 R4 R5 R10-R15
 comp:
         ld      R4, #a
         ld      R5, #b

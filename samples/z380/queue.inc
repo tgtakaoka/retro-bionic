@@ -9,7 +9,6 @@ queue_buf:      equ     4       ; buffer start offset
 ;;; [queue] Initialize queue
 ;;; @param IX queue work space pointer
 ;;; @param B queue work space size
-;;; @clobber B
         align   2
 queue_init:
         push    AF

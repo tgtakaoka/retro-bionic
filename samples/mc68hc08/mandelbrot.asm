@@ -17,7 +17,7 @@ tx_queue:
 
         org     RAM_START
 ;;; Working space for mandelbrot.inc
-F:      equ     50
+F:      equ     50              ; fixed-point scale, 1.0=F
 vC:     rmb     2
 vD:     rmb     2
 vA:     rmb     2
@@ -74,7 +74,7 @@ loop:
         bra     loop
 
 ;;; Get character
-;;; @clobber X
+;;; @clobber HX
 ;;; @return A
 ;;; @return CC.C 0 if no char received
 getchar:
@@ -84,8 +84,8 @@ getchar:
         cli                     ; enable IRQ
         rts
 
-;;; Put character
-;;; @param A
+;;; Put a space, CR LF (newline) or char A (putchar)
+;;; @param A char for putchar
 ;;; @clobber A HX
 putspace:
         lda     #' '
@@ -111,7 +111,7 @@ putchar_exit:
         include "queue.inc"
 
 isr_irq:
-        pshh
+        pshh                    ; interrupts don't stack H
         lda     ACIA_status
         bit     #IRQF_bm
         beq     isr_irq_exit

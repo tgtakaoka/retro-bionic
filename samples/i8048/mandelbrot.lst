@@ -5,7 +5,7 @@
 (1)       0 :                    ;;; i8048
 (1)       0 :                    ;;; PSW Register
 (1)       0 : =80                PSW_CY:         equ     10000000B ; set to 1 if carry
-(1)       0 : =40                PSW_AC:         equ     01000000B ; set to 1 if auxillary carry
+(1)       0 : =40                PSW_AC:         equ     01000000B ; set to 1 if auxiliary carry
 (1)       0 : =10                PSW_F0:         equ     00010000B ; flag 0
 (1)       0 : =4                 PSW_BS:         equ     00000100B ; register bank select
 (1)       0 : =7                 PSW_SP:         equ     00000111B ; stack pointer (grow upward)
@@ -21,7 +21,7 @@
           0 :                    ;;; i8251 Universal Synchronous/Asynchronous Receiver/Transmitter
           0 : =FC                USART:          equ     0FCH
           0 : =FC                USARTD:         equ     USART+0 ; Receive/Transmit data
-          0 : =FD                USARTS:         equ     USART+1 ; Srtatus register
+          0 : =FD                USARTS:         equ     USART+1 ; Status register
           0 : =FD                USARTC:         equ     USART+1 ; Control register
           0 : =FE                USARTRV:        equ     USART+2 ; Receive interrupt vector (ORG_*)
           0 : =FF                USARTTV:        equ     USART+3 ; Transmit interrupt vector (ORG_*)
@@ -154,7 +154,7 @@
          3A : 04 36                      jmp     loop
          3C :
          3C :                    ;;; Get character
-         3C :                    ;;; @return A
+         3C :                    ;;; @return A character
          3C :                    ;;; @return PSW.C 0 if no character
          3C :                    getchar:
          3C : F8                         mov     A, R0
@@ -184,7 +184,7 @@
          52 : 23 20                      mov     A, #' '
          54 :
          54 :                    ;;; Put character
-         54 :                    ;;; @param A
+         54 :                    ;;; @param A character
          54 :                    ;;; @clobber A
          54 :                    putchar:
          54 : 28                         xch     A, R0           ; save character
@@ -239,6 +239,8 @@
          90 :                            include "mandelbrot.inc"
 (1)      90 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
 (1)      90 :
+(1)      90 :                    ;;; Print one frame: a char per point, the escape iteration in hex
+(1)      90 :                    ;;; or ' ' if none; NUL from the console halts.
 (1)      90 :                    mandelbrot:
 (1)      90 : BC 32                      mov     R4, #LOW(50)
 (1)      92 : BD 00                      mov     R5, #HIGH(50)
@@ -308,6 +310,8 @@
 (1)      EA :                            ;; call    print           ; print D
 (1)      EA :                            ;; call    newline
 (1)      EA :
+(1)      EA :                            ;; A*B/F is computed as A*Q+A*S/F with Q=B/F, S=B-Q*F,
+(1)      EA :                            ;; to avoid 16-bit overflow
 (1)      EA :                    loop_i:
 (1)      EA : BA 36                      mov     R2, #vQ
 (1)      EC : BB 34                      mov     R3, #vB
@@ -488,7 +492,7 @@
 (1)     1D2 : A0                         mov     @R0, A
 (1)     1D3 : 83                         ret
 (1)     1D4 :
-(1)     1D4 :                    ;;; Assign 8-bit variable; v1 = v2
+(1)     1D4 :                    ;;; Sign-extend 8-bit v2 into 16-bit v1
 (1)     1D4 :                    ;;; @param R2 &v1
 (1)     1D4 :                    ;;; @param R3 &v2
 (1)     1D4 :                    ;;; @clobber A R0
@@ -555,7 +559,7 @@
 (1)     207 :
 (1)     207 :                    ;;; Print signed 16-bit integer as decimal
 (1)     207 :                    ;;; @param R0 &value
-(1)     207 :                    ;;; @clobber A
+(1)     207 :                    ;;; @clobber A R4 R5 R6 R7
 (1)     207 :                    print_int16:
 (1)     207 : F8                         mov     A, R0
 (1)     208 : C9                         dec     R1
@@ -575,8 +579,9 @@
 (1)     217 : 23 2D                      mov     A, #'-'
 (1)     219 : 14 54                      call    putchar         ; print '-'
 (1)     21B : 74 00                      call    neg_R3R2        ; negate value
-(1)     21D :                    ;;; Print unsigned 16-bit integer as decimal
-(1)     21D :                    ;;; @param R2:R3: value
+(1)     21D :                    ;;; Print unsigned 16-bit integer as decimal; tail of print_int16,
+(1)     21D :                    ;;; expects its saved R0, R2, R3 on the R1 stack
+(1)     21D :                    ;;; @param R3:R2 value
 (1)     21D :                    ;;; @param print_uint16_buf external data memory
 (1)     21D :                    ;;; @clobber A
 (1)     21D :                    print_uint16:
@@ -620,6 +625,7 @@
 (1)     248 : A8                         mov     R0, A           ; restore R0
 (1)     249 : 83                         ret
 (1)     24A :
+(1)     24A :                    ;;; Conditional jumps stay in their page; start a new one.
 (1)     300 :                            org     $+(256-LOW($))
 (1)     300 :
 (1)     300 :                    ;;; Negation; result = -result
@@ -677,7 +683,7 @@
 (1)     32A :                    ;;; Signed addition: summand += addend
 (1)     32A :                    ;;; @param R2: &summand
 (1)     32A :                    ;;; @param R3: &addend
-(1)     32A :                    ;;; @clobber A R2 R3
+(1)     32A :                    ;;; @clobber A R0 R2 R3
 (1)     32A :                    addsi2:
 (1)     32A : FB                         mov     A, R3
 (1)     32B : A8                         mov     R0, A           ; R0=&addend
@@ -746,7 +752,7 @@
 (1)     35F : A8                         mov     R0, A           ; R0=&minuend
 (1)     360 : F0                         mov     A, @R0          ; A=lo(minuend)
 (1)     361 : 6B                         add     A, R3
-(1)     362 : AB                         mov     R3, A           ; A=lo(minuend-subtrahend)
+(1)     362 : AB                         mov     R3, A           ; R3=lo(minuend-subtrahend)
 (1)     363 : 18                         inc     R0
 (1)     364 : 81                         movx    A, @R1          ; restore hi(subtrahend)
 (1)     365 : D0                         xrl     A, @R0          ; A=hi(minuend^subtrahend)
@@ -771,7 +777,7 @@
 (1)     379 : 23 FF                      mov     A, #-1
 (1)     37B : 83                         ret
 (1)     37C :                    cmpsi2_eq:
-(1)     37C : 19                         inc     R1              ; discard hi(subtrahend)
+(1)     37C : 19                         inc     R1              ; discard hi(minuend^subtrahend)
 (1)     37D : 83                         ret
 (1)     37E :
 (1)     37E :                    ;;; Unsigned multiplication: result = multiplicand * multiplier
@@ -896,6 +902,7 @@
 (1)     400 :                    ;;; @param R5:R4 divisor
 (1)     400 :                    ;;; @return R3:R2 quotient
 (1)     400 :                    ;;; @return R5:R4 remainder
+(1)     400 :                    ;;; R2-R5 are unchanged if divisor is 0.
 (1)     400 :                    ;;; @clobber A R0 R2 R3 R4 R5 R6 R7
 (1)     400 :                    udiv16:
 (1)     400 : FC                         mov     A, R4
@@ -1035,6 +1042,7 @@
         485 :                            include "queue.inc"
 (1)     485 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
 (1)     485 :                    ;;; [queue] queue structure on internal data memory
+(1)     485 :                    ;;; R1 is the software stack pointer in external data memory
 (1)     485 : =0                 queue_len:      equ     0       ; queue length
 (1)     485 : =1                 queue_size:     equ     1       ; buffer size
 (1)     485 : =2                 queue_buf:      equ     2       ; buffer pointer to external data memory
@@ -1046,7 +1054,7 @@
 (1)     485 :                    ;;; @param R0 queue work space pointer
 (1)     485 :                    ;;; @param R2 queue buffer pointer
 (1)     485 :                    ;;; @param A queue buffer size
-(1)     485 :                    ;;; @clobber A R0
+(1)     485 :                    ;;; @clobber A R0 R7
 (1)     485 :                    queue_init:
 (1)     485 : AF                         mov     R7, A
 (1)     486 : B0 00                      mov     @R0, #0         ; queue_len
@@ -1054,13 +1062,13 @@
 (1)     489 : A0                         mov     @R0, A          ; queue_size
 (1)     48A : 18                         inc     R0
 (1)     48B : FA                         mov     A, R2
-(1)     48C : A0                         mov     @R0, A          ; queue_buffer
+(1)     48C : A0                         mov     @R0, A          ; queue_buf
 (1)     48D : 18                         inc     R0
 (1)     48E : B0 00                      mov     @R0, #0         ; queue_put
 (1)     490 : 18                         inc     R0
 (1)     491 : B0 00                      mov     @R0, #0         ; queue_get
 (1)     493 : FA                         mov     A, R2
-(1)     494 : A8                         mov     R0, A           ; R0=queue_buffer
+(1)     494 : A8                         mov     R0, A           ; R0=queue_buf
 (1)     495 : 27                         clr     A
 (1)     496 :                    queue_init_loop:
 (1)     496 : 90                         movx    @R0, A
@@ -1096,7 +1104,7 @@
 (1)     4AE : F0                         mov     A, @R0          ; A=queue_buf
 (1)     4AF : 18                         inc     R0
 (1)     4B0 : 60                         add     A, @R0          ; A=queue_buf+queue_put
-(1)     4B1 : 29                         xch     A, R1           ; A=R1, R0=&queue_buf[queue_put]
+(1)     4B1 : 29                         xch     A, R1           ; A=R1, R1=&queue_buf[queue_put]
 (1)     4B2 : 2F                         xch     A, R7           ; A=an element, R7=R1
 (1)     4B3 : 91                         movx    @R1, A          ; add an element
 (1)     4B4 : FF                         mov     A, R7           ; A=R1

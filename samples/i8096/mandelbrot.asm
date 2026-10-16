@@ -71,7 +71,7 @@ loop:
 
 ;;; Get character
 ;;; @return A
-;;; @return CC.C 0 if no character
+;;; @return F.C 0 if no character
 getchar:
         push    HL
         ld      HL, #rx_queue
@@ -89,7 +89,7 @@ newline:
         ldb     A, #0AH
         sjmp    putchar
 
-;;; Put spcase
+;;; Put space
 ;;; @clobber A
 putspace:
         ldb     A, #' '
@@ -117,6 +117,8 @@ putchar_retry:
 
 
         align   2
+;;; EXTINT from the USART: queue a received character, then send the
+;;; next queued one, or disable Tx when the queue is empty
 isr_intr:
         pushf
         push    A               ; push A,B

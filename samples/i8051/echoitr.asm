@@ -5,7 +5,7 @@
 ;;; i8251 Universal Synchronous/Asynchronous Receiver/Transmitter
 USART:          equ     0FFF0H
 USARTD:         equ     USART+0 ; Receive/Transmit data
-USARTS:         equ     USART+1 ; Srtatus register
+USARTS:         equ     USART+1 ; Status register
 USARTC:         equ     USART+1 ; Control register
 USARTRV:        equ     USART+2 ; Receive interrupt vector (ORG_*)
 USARTTV:        equ     USART+3 ; Transmit interrupt vector (ORG_*)
@@ -68,12 +68,12 @@ init_usart:
         nop
         mov     a, #RX_EN_TX_EN
         movx    @DPTR, A
-        inc     DPTR
+        inc     DPTR            ; DPTR=USARTRV
         mov     A, #ORG_IE0
         movx    @DPTR, A        ; enable Rx interrupt using INT0
         setb    IE.EX0          ; enable INT0
         mov     A, #ORG_IE1
-        inc     DPTR
+        inc     DPTR            ; DPTR=USARTTV
         movx    @DPTR, A        ; enable Tx interrupt using INT1
         setb    IE.EX1          ; enable INT1
         setb    IE.EA           ; enable interrupt
@@ -81,7 +81,7 @@ init_usart:
 receive_loop:
         acall   getchar
         jnc     receive_loop
-        jz      halt_to_system
+        jz      halt_to_system  ; NUL halts
         mov     R3, A           ; save letter
         acall   putchar         ; echo
         acall   putspace
@@ -91,7 +91,7 @@ receive_loop:
         acall   newline
         sjmp    receive_loop
 halt_to_system:
-        db      0A5H
+        db      0A5H            ; halt to system
 
 ;;; Print uint8_t in hex
 ;;; @param R3 uint8_t value to be printed in hex.
@@ -134,7 +134,7 @@ put_bin1:
         rlc     A               ; PSW.C=MSB
         mov     R2, A
         mov     A, #'0'
-        jnc     putchar         ; MSB=1
+        jnc     putchar         ; MSB=0
         inc     A
         sjmp    putchar
 
@@ -189,6 +189,7 @@ putchar_loop:
 
         include "queue.inc"
 
+;;; #INT0 from the USART RxRDY: queue the received character
 isr_intr_rx:
         push    PSW
         clr     PSW.RS1
@@ -210,6 +211,8 @@ isr_intr_exit:
         pop     PSW
         reti
 
+;;; #INT1 from the USART TxRDY: send the next queued character, or
+;;; disable Tx when the queue is empty
 isr_intr_tx:
         push    PSW
         clr     PSW.RS1

@@ -2,7 +2,7 @@
 
 ;;; Print signed 16-bit integer as decimal
 ;;; @param R4:R5 value
-;;; @clobber A R4:R5
+;;; @clobber A B R4:R5
 print_int16:
         btjz    #080H, R4, print_uint16
         mov     #'-', A
@@ -133,7 +133,7 @@ umul16_lo:
 ;;; @param R4:R5 dividend
 ;;; @param R6:R7 divisor
 ;;; @return R4:R5 quotient
-;;; @return R6:R7 remainder
+;;; @return R6:R7 |remainder|
 ;;; @clobber A B
 div16:
         btjo    #080H, R6, div16_divisor
@@ -181,16 +181,16 @@ udiv16_8bit:
         rts
 udiv16_16:      
         or      R7, A
-        jz      udiv16_end      branch if divisor==0
+        jz      udiv16_end      ; branch if divisor==0
         push    R8
         mov     #16, R8
         clr     A
-        clr     B               ; initialize quotient
+        clr     B               ; A:B=remainder=0
 udiv16_loop:
         rlc     R5
-        rlc     R4              ; dividend <<= 1
+        rlc     R4              ; dividend <<= 1, quotient bit in
         rlc     B
-        rlc     A               ;
+        rlc     A               ; A:B=remainder<<1|dividend msb
         jnc     udiv16_skip
         sub     R7, B
         sbb     R6, A
@@ -208,8 +208,8 @@ udiv16_sub:
 udiv16_next:
         djnz    R8, udiv16_loop
         rlc     R5
-        rlc     R4
-        movw    R1, R7          ; save remainder
+        rlc     R4              ; shift the last quotient bit in
+        movw    R1, R7          ; R6:R7=remainder
         pop     R8
 udiv16_end:
         rts

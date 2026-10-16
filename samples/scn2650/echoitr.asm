@@ -11,7 +11,7 @@ USARTTI:        equ     H'03'           ; Transmit interrupt vector
         include "i8251.inc"
 ;;; Async 1stop 8data x16
 ASYNC_MODE:     equ     MODE_STOP1_gc|MODE_LEN8_gc|MODE_BAUD_X16
-;;; RTS/DTR, error reset, Rx enable, Tx enable
+;;; RTS/DTR, Rx enable, Tx enable or disable
 RX_EN_TX_EN:    equ     CMD_RTS_bm + CMD_DTR_bm + CMD_RxEN_bm + CMD_TxEN_bm
 RX_EN_TX_DIS:   equ     CMD_RTS_bm + CMD_DTR_bm + CMD_RxEN_bm
 
@@ -26,7 +26,7 @@ tx_queue:       res     tx_queue_size
         ppsl    PSL_WC+PSL_COM  ; with carry, logical compare
         bcta,un init
 
-RXINTR_VEC:     equ     $
+RXINTR_VEC:     equ     $       ; direct vector
         bcta,un isr_intr_rx
 
 TXINTR_VEC:     equ     $ + H'80' ; indirect vector
@@ -69,7 +69,7 @@ receive_loop:
         tpsl    PSL_C
         bcfr,eq receive_loop    ; PSL.C=0
         iorz    r0
-        bctr,eq echoitr_halt
+        bctr,eq echoitr_halt    ; NUL halts
 echo_back:
         strz    r1              ; save letter
         bsta,un putchar         ; echo
@@ -215,6 +215,7 @@ isr_intr_send_empty:
         wrte,r0 USARTC          ; disable Tx
         bctr,un isr_return
 
+;;; Save r0-r3 and PSL to isr_context
 isr_save:
         strr,r0 isr_context
         strr,r1 isr_context+1
@@ -227,6 +228,8 @@ isr_save:
 isr_context:
         res     5
 
+;;; Restore from isr_context; the final LODR r0 changes CC, so put
+;;; back the saved CC that LPSL left
 isr_return:
         lodr,r3 isr_context+3
         lodr,r2 isr_context+2

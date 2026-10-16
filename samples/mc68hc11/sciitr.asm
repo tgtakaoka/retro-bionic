@@ -14,7 +14,7 @@ RX_INT_TX_NO:   equ     SCCR2_TE_bm|SCCR2_RE_bm|SCCR2_RIE_bm
 RX_INT_TX_INT:  equ     SCCR2_TE_bm|SCCR2_RE_bm|SCCR2_RIE_bm|SCCR2_TIE_bm
 
         org     $1000
-stack:  equ     *-1             ; MC6801's SP is post-decrement/pre-increment
+stack:  equ     *-1             ; MC68HC11's SP is post-decrement/pre-increment
 
         org     VEC_SCI
         fdb     isr_sci
@@ -27,7 +27,7 @@ stack:  equ     *-1             ; MC6801's SP is post-decrement/pre-increment
 
         org     $0100
 device_base:
-        fdb     $0000           ; device base
+        fdb     $0000           ; internal register block base
 initialize:
         lds     #stack
         ldx     #rx_queue
@@ -159,7 +159,7 @@ putchar_retry:
 isr_sci:
         ldy     device_base
         brclr   SCSR,y, #SCSR_OR_bm|SCSR_NF_bm|SCSR_FE_bm, isr_sci_receive
-        ldaa    SCDR,y          ; reset ORFE
+        ldaa    SCDR,y          ; clear OR/NF/FE
 isr_sci_receive:
         brclr   SCSR,y, #SCSR_RDRF_bm, isr_sci_send
         ldaa    SCDR,y          ; receive character

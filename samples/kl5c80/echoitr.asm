@@ -44,17 +44,17 @@ init_usart:
         ld      A, RX_EN_TX_DIS
         out     (USARTC), A
 
-        ld      a, 1            ; enable interrupt on USART
+        ld      a, 1            ; nonzero enables the USART interrupt on IR0
         out     (USARTRV), a
         out     (USARTTV), a
-        ld      a, 1            ; select edge trigger
+        ld      a, 1            ; IR0 edge triggered
         out     (LERL), a
         ld      a, high vector
         ld      i, a
         ld      a, low vector
         out     (IVR), a        ; vector register
         ld      a, ~1           ; disable mask for IR0
-        out     (IMRL), a       ;
+        out     (IMRL), a
         im      2               ; mode 2 only
         ei
 
@@ -76,7 +76,7 @@ echo_back:
         jr      receive_loop
 halt_to_system:
         ld      HL, ORG_RST38
-        ld      (HL), 0FFH
+        ld      (HL), 0FFH      ; RST 38H at its vector: exit to the debugger
         rst     38H
 
 ;;; Print uint8_t in hex
@@ -99,7 +99,7 @@ put_hex4:
         add     A, 90H
         daa
         adc     A, 40H
-        daa
+        daa                     ; A='0'-'9','A'-'F'
         jr      putchar
 
 ;;; Print uint8_t in binary
@@ -125,13 +125,13 @@ put_bin1:
         sla     A               ; F.C=MSB
         ld      B, A
         ld      A, '0'
-        jr      NC, putchar     ; F.0=1
+        jr      NC, putchar     ; F.C=0
         inc     A               ; F.C=1
         jr      putchar
 
 ;;; Get character
 ;;; @return A
-;;; @return CC.C 0 if no character
+;;; @return F.C 0 if no character
 getchar:
         push    HL
         ld      HL, rx_queue
@@ -167,6 +167,7 @@ putchar_retry:
 
         include "../z80/queue.inc"
 
+;;; Rx and Tx share IR0: receive if RxRDY, then send if TxRDY
 isr_intr:
         push    AF
         push    HL

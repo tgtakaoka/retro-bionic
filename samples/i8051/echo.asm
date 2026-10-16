@@ -50,7 +50,7 @@ receive_loop:
 eceive_data:
         dec     DPL             ; DPTR=USARTD
         movx    A, @DPTR
-        jz      halt_to_system
+        jz      halt_to_system  ; NUL halts
         mov     R2, A           ; save character
 transmit_loop:
         mov     DPTR, #USARTS
@@ -61,7 +61,7 @@ transmit_data:
         mov     A, R2
         movx    @DPTR, A
         cjne    A, #0DH, receive_loop
-        mov     R2, #0AH
+        mov     R2, #0AH        ; follow CR with LF
         sjmp    transmit_loop
 halt_to_system:
         db      0A5H            ; halt to system

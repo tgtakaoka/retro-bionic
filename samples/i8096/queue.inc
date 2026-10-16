@@ -9,7 +9,7 @@ queue_buf:      equ     4       ; buffer start offset
         align   2               ; an even entry: a whole word first
 ;;; [queue] Initialize queue
 ;;; @param HL queue work space pointer
-;;; @param B queue work space size
+;;; @param B queue work space size, including the 4-byte header
 queue_init:
         push    A               ; push A,B
         push    HL

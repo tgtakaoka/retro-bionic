@@ -46,7 +46,7 @@ receive_data:
         in      USARTD
         mov     b, a
         ora     a
-        jz      halt_to_system
+        jz      halt_to_system  ; NUL halts
 transmit_loop:
         in      USARTS
         ani     ST_TxRDY_bm
@@ -56,7 +56,7 @@ transmit_data:
         out     USARTD
         cpi     0DH
         jnz     receive_loop
-        mvi     b, 0AH
+        mvi     b, 0AH          ; follow CR with LF
         jmp     transmit_loop
 halt_to_system:
         hlt

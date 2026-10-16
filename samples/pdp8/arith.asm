@@ -6,7 +6,7 @@ ACIA    = 07
 
         *ORG_RESET-1
         initialize
-        jmp     I .-1
+        jmp     I .-1           / reset starts here
 
         *PAGE0
 I_putchar,      putchar
@@ -82,6 +82,7 @@ char_LF,        012             / Line feed
 
 /// Print character
 /// @param AC character
+/// @return AC character
 putchar,        .-.
         dca     putchar_char    / Save character
 putchar_loop,
@@ -444,7 +445,7 @@ expr,           .-.
         tad     VAH
         dca     R0H
         jmp     I expr          / return, AC=0
-expr_op,
+expr_op,                        / shares answer's return-address word
 
 /// Print answer; " = C\n"
 /// @param R0 value of C
@@ -508,7 +509,7 @@ comp_putchar,
 /// @param (PC+1) multiplier source address
 /// @return R0 product
 /// @return AC=0
-/// @clobber R1 R2
+/// @clobber R1 R2 arith_ptr
 mul24_sign,     0
 mul24,          .-.
         cla
@@ -553,9 +554,9 @@ mul24_return,
 /// @param R0 dividend
 /// @param (PC+1) signed 24-bit divisor address
 /// @return R0 quotient
-/// @return R1 remainder
+/// @return R1 remainder of |dividend|/|divisor|, unsigned
 /// @return AC=0
-/// @clobber R2
+/// @clobber R2 arith_ptr
 div24_sign,     0
 div24,          .-.
         cla
@@ -580,7 +581,7 @@ div24_dividend,
         tad     R0H
         dca     R1H
         tad     R1H
-        sma                     / skip if R0H<0
+        sma                     / skip if dividend<0
         jmp     div24_divide
         isz     div24_sign      / sign++
         jms     I I_neg24       / negate dividend

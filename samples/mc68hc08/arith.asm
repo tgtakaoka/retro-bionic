@@ -33,10 +33,10 @@ initialize:
         sta     ACIA_control
 
         jsr     arith
-        swi
+        swi                     ; halt to system
 
-;;; Print out char
-;;; @param A char
+;;; Print a space, CR LF (newline) or char A (putchar)
+;;; @param A char for putchar
 ;;; @clobber A
 putspace:
         lda     #' '
@@ -57,8 +57,8 @@ putchar_data:
         rts
 
 ;;; Print "R1 op R2"
-;;; @params A op letter
-;;; @clobber R2 R3 R4
+;;; @param A op letter
+;;; @clobber A HX R0
 expr:
         psha
         lda     COP_RESET
@@ -76,7 +76,7 @@ expr:
         rts
 
 ;;; Print " = R0\n"
-;;; @clobber R0 R1 R2
+;;; @clobber A HX R0
 answer:
         jsr     putspace
         lda     #'='
@@ -86,7 +86,7 @@ answer:
         jmp     newline
 
 ;;; Print "R1 rel R2"
-;;; @clobber R0
+;;; @clobber A HX R0
 comp:
         ldhx    R1
         cphx    R2

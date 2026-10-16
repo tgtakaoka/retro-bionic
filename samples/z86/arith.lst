@@ -14,7 +14,7 @@
 (2)       0 : =8                 F_DECIMAL_ADJ:  equ     %(2)00001000 ; decimal adjust
 (2)       0 : =4                 F_HALF_CARRY:   equ     %(2)00000100 ; set to 1 if carry from bit-3
 (2)       0 : =2                 F_USER2:        equ     %(2)00000010 ; User flag F2
-(2)       0 : =1                 F_USER1:        equ     %(2)00000001 ; User flah F1
+(2)       0 : =1                 F_USER1:        equ     %(2)00000001 ; User flag F1
 (1)       0 :                    ;;; Z86
 (1)       0 :                            cpu     Z86C
 (1)       0 :                            option  "reg-alias", "disable"
@@ -51,8 +51,8 @@
 (1)       0 : =20                IPR_A35:        equ     %(2)100000 ; A: IRQ3 > IRQ5
 (1)       0 : =0                 IPR_B20:        equ     %(2)000000 ; B: IRQ2 > IRQ0
 (1)       0 : =4                 IPR_B02:        equ     %(2)000100 ; B: IRQ0 > IRQ2
-(1)       0 : =0                 IPR_C14:        equ     %(2)000000 ; C: IRQ0 > IRQ4
-(1)       0 : =2                 IPR_C41:        equ     %(2)000010 ; C: IRQ4 > IRQ0
+(1)       0 : =0                 IPR_C14:        equ     %(2)000000 ; C: IRQ1 > IRQ4
+(1)       0 : =2                 IPR_C41:        equ     %(2)000010 ; C: IRQ4 > IRQ1
 (1)       0 : =FB                IMR:    equ     251             ; R/W: Interrupt Mask
 (1)       0 : =80                IMR_ENABLE:     equ     %(2)10000000 ; Interrupt enable
 (1)       0 : =1                 IMR_IRQ0:       equ     (1 SHL 0)
@@ -103,6 +103,7 @@
           0 :                            include "i8251.inc"
 (1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
 (1)       0 :                    ;;; i8251 USART device emulator.
+(1)       0 :                    ;;; Bit definition of mode register
 (1)       0 : =6                 MODE_STOP_gp:   equ     6
 (1)       0 : =C0                MODE_STOP_gm:   equ     %(2)11000000
 (1)       0 : =40                MODE_STOP1_gc:  equ     (1 SHL MODE_STOP_gp)
@@ -153,6 +154,7 @@
           C :                            setrp   -1
           C : 8D 10 00                   jp      init_config
           F :
+          F :                    ;;; Operands in the register file, big endian
          40 :                            org     %40
          40 :                    a:      ds      2
          42 :                    b:      ds      2
@@ -192,9 +194,11 @@
        102E : D6 10 E5                   call      arith
        1031 : 7F                         halt
        1032 :
+       1032 :                    ;;; @param R0 character
+       1032 :                    ;;; @param RR8 USARTD
        1032 :                    putchar:
        1032 : 70 E0                      push    R0
-       1034 : A0 E8                      incw    RR8
+       1034 : A0 E8                      incw    RR8             ; USARTS
        1036 :                    putchar_loop:   
        1036 : 82 08                      lde     R0, @RR8
        1038 : 76 E0 01                   tm      R0, #ST_TxRDY_bm
@@ -220,6 +224,9 @@
        105A : 50 E0                      pop     R0
        105C : AF                         ret
        105D :
+       105D :                    ;;; Print " " and the letters of the set C, Z, S, V flags, if any
+       105D :                    ;;; @param FLAGS
+       105D :                    ;;; @clobber R0 R1
        105D :                    putflags:
        105D : 18 FC                      ld      R1, FLAGS
        105F : 76 E1 F0                   tm      R1, #F_CARRY LOR F_ZERO LOR F_SIGN LOR F_OVERFLOW
@@ -249,6 +256,9 @@
        108C :                    putflags_nov:
        108C : AF                         ret
        108D :
+       108D :                    ;;; Print "a op b"
+       108D :                    ;;; @param R0 op letter
+       108D :                    ;;; @clobber RR0 R10-R15
        108D :                    expr:
        108D : 70 E0                      push    R0
        108F : 08 40                      ld      R0, a
@@ -262,6 +272,8 @@
        10A3 : 18 43                      ld      R1, b+1
        10A5 : 8D 13 04                   jp      print_int16
        10A8 :
+       10A8 :                    ;;; Print " = a\n"
+       10A8 :                    ;;; @clobber RR0 R10-R15
        10A8 :                    answer:
        10A8 : D6 10 53                   call    putspace
        10AB : 0C 3D                      ld      R0, #'='
@@ -272,6 +284,8 @@
        10B7 : D6 13 04                   call    print_int16
        10BA : 8D 10 44                   jp      newline
        10BD :
+       10BD :                    ;;; Print "a rel b" and the flags of cmpsi2
+       10BD :                    ;;; @clobber RR0 R4 R5 R10-R15
        10BD :                    comp:
        10BD : 4C 40                      ld      R4, #a
        10BF : 5C 42                      ld      R5, #b
@@ -508,15 +522,16 @@
 (1)    12D6 :
 (1)    12D6 :                    ;;; Print unsigned 16-bit integer as decimal
 (1)    12D6 :                    ;;; @param RR0: value
-(1)    12D6 :                    ;;; @clobber RR0 RR12 RR14
+(1)    12D6 :                    ;;; @clobber RR0 R10-R15
 (1)    12D6 :                    print_uint16:
 (1)    12D6 : A0 E0                      incw    RR0
-(1)    12D8 : 80 E0                      decw    RR0
+(1)    12D8 : 80 E0                      decw    RR0             ; test RR0 for zero
 (1)    12DA : EB 06                      jr      nz, print_uint16_inner
 (1)    12DC : 0C 30                      ld      R0, #'0'
 (1)    12DE : D6 10 32                   call    putchar
 (1)    12E1 :                    print_uint16_end:
 (1)    12E1 : AF                         ret
+(1)    12E2 :                    ;;; Print non-zero RR0 recursively, most significant digit first
 (1)    12E2 :                    print_uint16_inner:
 (1)    12E2 : A0 E0                      incw    RR0
 (1)    12E4 : 80 E0                      decw    RR0
@@ -536,7 +551,7 @@
 (1)    1304 :
 (1)    1304 :                    ;;; Print signed 16-bit integer as decimal
 (1)    1304 :                    ;;; @param RR0: value
-(1)    1304 :                    ;;; @clobber RR0
+(1)    1304 :                    ;;; @clobber RR0 R10-R15
 (1)    1304 :                    print_int16:
 (1)    1304 : 42 00                      or      R0, R0
 (1)    1306 : DB CE                      jr      pl, print_uint16
@@ -578,7 +593,7 @@
 (1)    1339 : D7 F4 01                   ld      1(R4), R15
 (1)    133C : AF                         ret
 (1)    133D :
-(1)    133D :                    ;;; Singed subtraction: minuend -= subtrahend
+(1)    133D :                    ;;; Signed subtraction: minuend -= subtrahend
 (1)    133D :                    ;;; @param @R4: minuend
 (1)    133D :                    ;;; @param @R5: subtrahend
 (1)    133D :                    ;;; @clobber R14, R15
@@ -596,6 +611,7 @@
 (1)    134F :                    ;;; Signed comparison: minuend - subtrahend
 (1)    134F :                    ;;; @param @R4: minuend
 (1)    134F :                    ;;; @param @R5: subtrahend
+(1)    134F :                    ;;; @return FLAGS: C, Z, S, V of the 16-bit subtraction
 (1)    134F :                    ;;; @clobber R14, R15
 (1)    134F :                    cmpsi2:
 (1)    134F : E3 E4                      ld      R14, 0(R4)
@@ -611,7 +627,7 @@
 (1)    135F :                    ;;; @param @R4: operand 1
 (1)    135F :                    ;;; @param @R5: operand 2
 (1)    135F :                    ;;; @param RR14: result
-(1)    135F :                    ;;; @param FLAGS
+(1)    135F :                    ;;; @param FLAGS: C of the operation
 (1)    135F :                    ;;; @return FLAGS: C, Z, S, V
 (1)    135F :                    addsub_flags:
 (1)    135F : 70 EF                      push    R15
@@ -687,13 +703,13 @@
 (1)    13C1 : DB 06                      jr      pl, mulsi2_abs_muliplicand
 (1)    13C3 : 60 EC                      com     R12
 (1)    13C5 : 60 ED                      com     R13
-(1)    13C7 : A0 EC                      incw    RR12            ; multiplicand = -multiplicand
+(1)    13C7 : A0 EC                      incw    RR12            ; multiplier = -multiplier
 (1)    13C9 :                    mulsi2_abs_muliplicand:
 (1)    13C9 : 42 EE                      or      R14, R14
 (1)    13CB : DB 06                      jr      pl, mulsi2_multiply
 (1)    13CD : 60 EE                      com     R14
 (1)    13CF : 60 EF                      com     R15
-(1)    13D1 : A0 EE                      incw    RR14            ; multiplier = -multiplier
+(1)    13D1 : A0 EE                      incw    RR14            ; multiplicand = -multiplicand
 (1)    13D3 :                    mulsi2_multiply:
 (1)    13D3 : D6 13 88                   call    umul16          ; result = multiplicand * multiplier
 (1)    13D6 : E3 C4                      ld      R12, @R4
@@ -708,8 +724,8 @@
 (1)    13E7 : AF                         ret
 (1)    13E8 :
 (1)    13E8 :                    ;;; Unsigned division: dividend / divisor = quotient ... remainder
-(1)    13E8 :                    ;;; @praram RR14: dividend
-(1)    13E8 :                    ;;; @praram RR12: divisor
+(1)    13E8 :                    ;;; @param RR14: dividend
+(1)    13E8 :                    ;;; @param RR12: divisor; 0 returns RR14 unchanged, RR12=0
 (1)    13E8 :                    ;;; @return RR14: remainder
 (1)    13E8 :                    ;;; @return RR12: quotient
 (1)    13E8 :                    ;;; @clobber R10-R15
@@ -765,7 +781,7 @@
 (1)    1437 : 50 E9                      pop     R9
 (1)    1439 : AF                         ret
 (1)    143A :
-(1)    143A :                    ;;; Signed division: dividend *= divisor
+(1)    143A :                    ;;; Signed division: dividend /= divisor
 (1)    143A :                    ;;; @param @R4: dividend
 (1)    143A :                    ;;; @param @R5: divisor
 (1)    143A :                    ;;; @clobber R10-R15
@@ -792,7 +808,7 @@
 (1)    145F : DB 06                      jr      pl, divsi2_end
 (1)    1461 : 60 EC                      com     R12
 (1)    1463 : 60 ED                      com     R13
-(1)    1465 : A0 EC                      incw    RR12            ; dividend = = -dividend
+(1)    1465 : A0 EC                      incw    RR12            ; quotient = -quotient
 (1)    1467 :                    divsi2_end:
 (1)    1467 : F3 4C                      ld      0(R4), R12
 (1)    1469 : D7 D4 01                   ld      1(R4), R13

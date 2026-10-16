@@ -153,7 +153,9 @@
         217 :
         217 : F900 0254                  b       mandelbrot
         219 :
-        219 :                    ;;; put letter
+        219 :                    ;;; The hardware stack has only 4 levels, so a routine that calls
+        219 :                    ;;; others keeps its return address in data memory.
+        219 :                    ;;; put letter; dropped if tx_queue is full
         219 :                    ;;; @param ACC letter
         219 :                    putchar:
         219 : 500C                       sacl    putchar_work
@@ -191,7 +193,7 @@
         239 : 7F8D                       ret
         23A :
         23A :                            .include "mandelbrot.inc"
-(1)     23A :                    ;;; -*- mode: asm; mode: flyspell-prog* -*-
+(1)     23A :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
 (1)     23A :
 (1)     23A :                    ;;; Print variable: "name=variable "
 (1)     23A :                    ;;; @param .word variable name
@@ -215,8 +217,9 @@
 (1)     24C : 7F9C                       push                    ; return address
 (1)     24D : 7F8D                       ret
 (1)     24E :
-(1)     24E :                    ;;; Load 16-bit into ACC
+(1)     24E :                    ;;; Load 16-bit constant into ACC
 (1)     24E :                    ;;; @param .word 16-bit constant
+(1)     24E :                    ;;; @clobber R0
 (1)     24E :                    load:
 (1)     24E : 7F9D                       pop                     ; return address
 (1)     24F : 670E                       tblr    R0              ; load constant
@@ -225,6 +228,8 @@
 (1)     252 : 200E                       lac     R0
 (1)     253 : 7F8D                       ret
 (1)     254 :
+(1)     254 :                    ;;; Print the Mandelbrot set repeatedly in fixed point scaled by F.
+(1)     254 :                    ;;; A NUL from the console halts to system.
 (1)     254 : =32                F:      .equ    50
 (1)     254 :
 (1)     254 :                    mandelbrot:
@@ -470,13 +475,13 @@
 (1)     31D : 7F9D                       pop                     ; return address
 (1)     31E : 5012                       sacl    udiv16_ret
 (1)     31F : 6881                       larp    AR1
-(1)     320 : 710F                       lark    AR1,15
+(1)     320 : 710F                       lark    AR1,15          ; 16 SUBC steps
 (1)     321 : 660F                       zals    R1              ; ACC=dividend
 (1)     322 :                    udiv16_loop:
 (1)     322 : 6410                       subc    R2
 (1)     323 : F400 0322                  banz    udiv16_loop
-(1)     325 : 580E                       sach    R0              ; remainder
-(1)     326 : 500F                       sacl    R1              ; quotient
+(1)     325 : 580E                       sach    R0              ; remainder in ACCH
+(1)     326 : 500F                       sacl    R1              ; quotient in ACCL
 (1)     327 :                    udiv16_return:
 (1)     327 : 6612                       zals    udiv16_ret
 (1)     328 : 7F9C                       push                    ; return address
@@ -486,7 +491,7 @@
 (1)     32B :                    ;;; Divide by positive divisor
 (1)     32B :                    ;;; R1 / |R2| = R1 ... R0
 (1)     32B :                    ;;; @return ACC=R1
-(1)     32B :                    ;;; @clobber R2
+(1)     32B :                    ;;; @clobber AR1 ARP=1
 (1)     32B :                    divu16:
 (1)     32B : 7F9D                       pop                     ; return address
 (1)     32C : 5013                       sacl    divu16_ret
@@ -510,7 +515,7 @@
 (1)     33F :                    ;;; Divide
 (1)     33F :                    ;;; R1 / R2 = R1 ... R0
 (1)     33F :                    ;;; @return ACC=R1
-(1)     33F :                    ;;; @clobber R2
+(1)     33F :                    ;;; @clobber R2 AR1 ARP=1
 (1)     33F :                    div16:
 (1)     33F : 7F9D                       pop                     ; return address
 (1)     340 : 5014                       sacl    div16_ret
@@ -532,7 +537,7 @@
 (1)     352 : 7F8D                       ret
         353 :                            .include "queue.inc"
 (1)     353 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
-(1)     353 :                    ;;; [queue] queue structure
+(1)     353 :                    ;;; [queue] queue structure in program memory, accessed by TBLR/TBLW
 (1)     353 : =0                 queue_len:      equ     0       ; queue length
 (1)     353 : =1                 queue_size:     equ     1       ; buffer size
 (1)     353 : =2                 queue_put:      equ     2       ; queue put index
@@ -540,7 +545,7 @@
 (1)     353 : =4                 queue_buf:      equ     4       ; buffer start offset
 (1)     353 :
 (1)     353 :                    ;;; [queue] Initialize queue
-(1)     353 :                    ;;; @param @SP queue work space pointer
+(1)     353 :                    ;;; @param .word queue work space pointer
 (1)     353 :                    ;;; @param ACC queue work space size
 (1)     353 :                    ;;; @clobber ACC AR0 ARP=0 DP=0
 (1)     353 :                    queue_init:
@@ -574,7 +579,7 @@
 (1)     36E : 7F8D                       ret
 (1)     36F :
 (1)     36F :                    ;;; [queue] Add an element to queue
-(1)     36F :                    ;;; @param @SP queue work space pointer
+(1)     36F :                    ;;; @param .word queue work space pointer
 (1)     36F :                    ;;; @param ACC an element
 (1)     36F :                    ;;; @return ACC<0 if queue is full
 (1)     36F :                    ;;; @clobber DP=0
@@ -623,7 +628,7 @@
 (1)     398 : 7F8D                       ret
 (1)     399 :
 (1)     399 :                    ;;; [queue] Remove an element from queue
-(1)     399 :                    ;;; @param @SP queue work space pointer
+(1)     399 :                    ;;; @param .word queue work space pointer
 (1)     399 :                    ;;; @return ACC an element
 (1)     399 :                    ;;; @return ACC<0 if queue is empty
 (1)     399 :                    ;;; @clobber DP=0
@@ -667,7 +672,7 @@
 (1)     3BD : 7F8D                       ret
         3BE :
         3BE :                    int_isr:
-        3BE : 7C00                       sst     isr_st          ; save ST
+        3BE : 7C00                       sst     isr_st          ; save ST (SST writes page 1)
         3BF : 6E01                       ldpk    1               ; page 1
         3C0 : 5001                       sacl    isr_accl        ; save ACC
         3C1 : 5802                       sach    isr_acch

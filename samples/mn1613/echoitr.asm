@@ -83,6 +83,7 @@ loop:   bal     getchar
         bal     newline
         b       loop
 
+*** @return R0 received char
 getchar:
         push    X0
         mvwi    X0, rx_queue
@@ -94,6 +95,7 @@ getchar_wait:
         pop     X0
         ret
 
+*** @param R1 value, low byte printed
 put_hex8:
         mvi     R0, '0'
         bal     putchar
@@ -109,12 +111,14 @@ put_hex4:
         cbi     R0, 10, lpz     skip if R0>=10
         b       put_hex4_dec
         si      R0, 10
-        awi     R0, 'A', skp
+        awi     R0, 'A', skp    R0+='A', skip the '0'
 put_hex4_dec:
         awi     R0, '0'
         pop     R1
         b       putchar
 
+*** @param R1 value, low byte printed
+*** @clobber R1
 put_bin8:
         mvi     R0, '0'
         bal     putchar
@@ -132,6 +136,7 @@ put_bin1:
         mvi     R0, '1'
         b       putchar
 
+*** Put CR LF (newline) or char R0 (putchar)
 newline:
         mvi     R0, X'0D'
         bal     putchar

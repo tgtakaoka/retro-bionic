@@ -15,9 +15,9 @@ print_uint16_loop:
         lda     #10
         sta     R2L             ; divisor=10
         jsr     udiv16          ; R0=value/10
-        lda     R1L
+        lda     R1L             ; R1L=value%10
         ora     #'0'
-        sta     print_uint16_buf,x
+        sta     print_uint16_buf,x ; digits, least significant first
         incx
         bra     print_uint16_loop
 print_uint16_zero:
@@ -53,7 +53,7 @@ print_int16:
         nega
         neg     R0L
         sbc     #0
-        sta     R0H
+        sta     R0H             ; R0=-value
 print_int16_print:
         bsr     print_uint16
         bsr     pull_XA         ; pull R2
@@ -80,22 +80,22 @@ set_R2:
         sta     R2L
         rts
 
-;;; Push X:A
+;;; Push X:A onto the software stack at stack, indexed by SP
 ;;; @param X:A value
 ;;; @clobber X:A
 push_XA:
         sta     arith_work      ; save A
         txa
         ldx     SP
-        sta     stack,X         ; push high(value))
+        sta     stack,X         ; push high(value)
         lda     arith_work
-        sta     stack+1,X       ; push low(register)
+        sta     stack+1,X       ; push low(value)
         incx
         incx
         stx     SP              ; update stack pointer
         rts
 
-;;; Pull X:A
+;;; Pull X:A from the software stack
 ;;; @return X:A value
 pull_XA:
         ldx     SP
@@ -107,7 +107,7 @@ pull_XA:
         rts
 
 ;;; Addition: R0 = R1 + R2
-;;; @return X:A addition
+;;; @return X:A sum
 ;;; @clobber A
 add16:
         lda     R1L
@@ -120,8 +120,8 @@ add16:
         lda     R0L
         rts
 
-;;; Subtraction: R0 = R1 + R2
-;;; @return X:A subtraction
+;;; Subtraction: R0 = R1 - R2
+;;; @return X:A difference
 ;;; @clobber A
 sub16:
         lda     R1L
@@ -150,7 +150,7 @@ cmp16:
         lda     R1H
         eor     R2H             ; minuend^subtrahend
         and     R0L             ; overflow flag
-        eor     R0H
+        eor     R0H             ; N=sign^overflow, set if R1<R2
         bmi     cmp16_lt
 cmp16_gt:
         clr     R0H
@@ -166,7 +166,8 @@ cmp16_end:
 ;;; Unsigned multiplication: result = multiplicand * multiplier
 ;;; @param R1 multiplicand
 ;;; @param R2 multiplier
-;;; @return R0 result
+;;; @return R0 result, low 16 bits
+;;; @clobber A X
 umul16:
         lda     R2L             ; A=low(multiplier)
         ldx     R1L             ; X=low(multiplicand)
@@ -227,11 +228,12 @@ mul16_end:
         rts
 
 ;;; Unsigned division: dividend / divisor = quotient ... remainder
-;;; @praram R1 dividend
-;;; @praram R2 divisor
+;;; Division by zero returns with R0 and R1 unchanged.
+;;; @param R1 dividend
+;;; @param R2 divisor
 ;;; @return R0 quotient
 ;;; @return R1 remainder
-;;; @clobber R2
+;;; @clobber A R2
 udiv16:
         stx     udiv16_x        ; save X
         lda     R2H
@@ -319,7 +321,7 @@ udiv16_x:
 ;;; @param R2 divisor
 ;;; @return R0 quotient
 ;;; @return X:A quotient
-;;; @return R1 remainder
+;;; @return R1 remainder of |dividend|/|divisor|
 ;;; @clobber R2
 div16:
         lda     R1H

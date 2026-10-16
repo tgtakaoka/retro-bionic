@@ -31,7 +31,7 @@ receive_loop:
         bz      receive_loop
 receive_data:
         ld      A, ACIA_D, P2
-        bz      halt_to_system
+        bz      halt_to_system  ; NUL halts
         xch     A, E            ; E=data
 transmit_loop:
         ld      A, ACIA_S, P2

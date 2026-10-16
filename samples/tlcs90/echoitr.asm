@@ -72,10 +72,10 @@ receive_loop:
 echo_back:
         ld      b, a
         call    putchar         ; echo
-        ld      a, ' '          ; space
+        ld      a, ' '
         call    putchar
         call    put_hex8        ; print in hex
-        ld      a, ' '          ; space
+        ld      a, ' '
         call    putchar
         call    put_bin8        ; print in binary
         call    newline
@@ -140,7 +140,7 @@ put_bin1:
 
 ;;; Get character
 ;;; @return A
-;;; @return CC.C 0 if no character
+;;; @return F.C 0 if no character
 getchar:
         push    ix
         ld      ix, rx_queue
@@ -168,6 +168,7 @@ putchar_retry:
 
         include "queue.inc"
 
+;;; Interrupt entry pushes PC and AF; RETI pops both.
 isr_intr_rx:
         push    ix
         ld      a, (USARTD)     ; receive character

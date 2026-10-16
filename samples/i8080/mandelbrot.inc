@@ -22,7 +22,10 @@ sex_HL:
         mvi     H, -1
         ret
 
-Fv:     equ     50
+Fv:     equ     50              ; fixed-point scale
+;;; Print the Mandelbrot set, one character per point: the escape
+;;; iteration as a hex digit, or a space if it stays bounded for 16.
+;;; A NUL from the console halts.
 mandelbrot:
         mvi     A, -12
         sta     vY              ; Y=-12
@@ -38,7 +41,7 @@ loop_x:
         mov     C, L
         lxi     D, 100
         call    div16           ; X*229/100
-        shld    vC              ; C=X*229/200
+        shld    vC              ; C=X*229/100
         shld    vA              ; A=C
         lda     vY
         call    sex_BC          ; BC=Y
@@ -48,7 +51,7 @@ loop_x:
         mov     C, L
         lxi     D, 100
         call    div16           ; Y*416/100
-        shld    vD              ; D=y*416/100
+        shld    vD              ; D=Y*416/100
         shld    vB              ; B=D
         xra     A
         sta     vI              ; I=0
@@ -200,7 +203,7 @@ loop_i:
         jmp     print_char
 print_i:
         lda     vI
-        adi     90H
+        adi     90H             ; I as a hex digit (DAA trick)
         daa
         aci     40H
         daa
@@ -236,7 +239,7 @@ next_x:
         ora     A
         jm      loop_y          ; if Y<0
         cpi     13
-        jc      loop_y          ; if X<13
+        jc      loop_y          ; if Y<13
         ret
 
 ;;; Print variable

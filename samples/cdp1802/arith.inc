@@ -1,7 +1,7 @@
 ;;; -*- mode: asm; mode: flyspell-prog; -*-
         cpu     1802
 
-;;; Print unsigned 16-bit integer as decimal
+;;; Print unsigned 16-bit integer as decimal; recurses once per digit
 ;;; @param R7 value
 ;;; @clobber D R7 R8 R15
 print_uint16:
@@ -70,7 +70,7 @@ print_int16_print:
         plo     R8              ; restore R8
         sep     R6
 
-;;; Store R7 to variable
+;;; Store R7 to variable, big-endian
 ;;;   SEP  R5
 ;;;   DC   A(store_R7)
 ;;;   DC   A(variable)
@@ -80,7 +80,7 @@ store_R7:
         ldxa
         phi     R15
         ldxa
-        plo     R15             ; R15=&valiable
+        plo     R15             ; R15=&variable
         ghi     R7
         str     R15
         inc     R15
@@ -186,7 +186,7 @@ umul16_check:
 ;;; @return R7 multiplicand * multiplier
 ;;;   SEP R5
 ;;;   DC  A(mul16)
-;;; @clobber R8 R15
+;;; @clobber D R8 R15
 mul16:
         ghi     R8
         str     R2
@@ -232,11 +232,12 @@ mul16_return:
         sep     R6
 
 ;;; Unsigned division: dividend / divisor = quotient ... remainder
-;;; @praram R7 dividend
-;;; @praram R8 divisor
+;;; Non-restoring; R7 and R8 are unchanged if divisor is 0.
+;;; @param R7 dividend
+;;; @param R8 divisor
 ;;; @return R7 quotient
 ;;; @return R8 remainder
-;;; @clobber R7 R8 R15
+;;; @clobber D R7 R8 R15
 udiv16:
         ghi     R8
         bnz     udiv16_calc
@@ -298,7 +299,7 @@ udiv16_loop:
         phi     R7              ; quotient <<= 1
 udiv16_enter_loop:
         ghi     R15             ; borrow
-        bz      udiv16_add      ; brancg if borrow (0)
+        bz      udiv16_add      ; branch if borrow (0)
         glo     R8
         str     R2
         glo     R9
@@ -359,10 +360,10 @@ udiv16_return:
 ;;; @param R7 dividend
 ;;; @param R8 divisor
 ;;; @return R7 quotient
-;;; @return R8 remainder
+;;; @return R8 remainder of the absolute values
 ;;;   SEP R5
 ;;;   DC  A(div16)
-;;; @clobber R15
+;;; @clobber D R15
 div16:
         ghi     R8
         str     R2
@@ -380,7 +381,7 @@ div16:
         plo     R8
         inc     R8              ; negate divisor
 div16_dividend:
-        ghi     R7              ; R7=dividend
+        ghi     R7
         ani     X'80'
         bz      div16_divide
         ghi     R7

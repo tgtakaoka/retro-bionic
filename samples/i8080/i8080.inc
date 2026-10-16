@@ -16,7 +16,7 @@ ORG_RST3:       equ     0018H   ; RST 3
 ORG_RST4:       equ     0020H   ; RST 4
 ORG_RST5:       equ     0028H   ; RST 5
 ORG_RST6:       equ     0030H   ; RST 6
-ORG_RST7:       equ     0038H   ; RST 3
+ORG_RST7:       equ     0038H   ; RST 7
 ;;; RST instructions, which the 8251 hands the CPU in an INTA cycle
 INST_RST0:      equ     0C7H    ; RST 0
 INST_RST1:      equ     0CFH    ; RST 1

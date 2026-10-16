@@ -2,7 +2,7 @@
 ;;; i8048
 ;;; PSW Register
 PSW_CY:         equ     10000000B ; set to 1 if carry
-PSW_AC:         equ     01000000B ; set to 1 if auxillary carry
+PSW_AC:         equ     01000000B ; set to 1 if auxiliary carry
 PSW_F0:         equ     00010000B ; flag 0
 PSW_BS:         equ     00000100B ; register bank select
 PSW_SP:         equ     00000111B ; stack pointer (grow upward)

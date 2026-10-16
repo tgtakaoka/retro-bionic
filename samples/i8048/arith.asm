@@ -73,6 +73,7 @@ getchar_exit:
         xch     A, R0           ; restore character
         ret
 
+;;; Put space; falls into putchar
 putspace:
         mov     A, #' '
 
@@ -109,7 +110,7 @@ putchar_loop:
 ;;; @param A op
 ;;; @return R2 &vA
 ;;; @return R3 &vB
-;;; @clobber A
+;;; @clobber A R0 R4 R5 R6 R7
 expr:
         dec     R1
         movx    @R1, A          ; save op
@@ -141,7 +142,7 @@ expr_out:
 
 ;;; Print " = val\n"
 ;;; @param vA val
-;;; @clobber A
+;;; @clobber A R0 R4 R5 R6 R7
 answer:
         call    putspace
         mov     A, #'='
@@ -156,8 +157,8 @@ newline:
         jmp     putchar
 
 ;;; Print "v1 rel v2\n"
-;;; @param R2:R3 v1
-;;; @param R4:R5 v2
+;;; @param R3:R2 v1
+;;; @param R5:R4 v2
 comp:
         mov     A, R2
         mov     R0, #vA

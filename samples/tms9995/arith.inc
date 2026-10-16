@@ -30,17 +30,21 @@ print_int16_zero:
         bl      @putchar
         jmp     print_int16_return
 
+        *** Print unsigned decimal recursively, most significant digit first
+        *** @param R0 value; 0 prints nothing
+        *** @param R2 radix 10
+        *** @clobber R0 R1
 print_uint16_loop:
         dect    R10
         mov     R11, *R10       Push return address
         mov     R0, R1
         jeq     print_uint16_return
         clr     R0
-        div     R2, R0          R0:R1/R2 ; R0=quotient R1=reminder
+        div     R2, R0          R0:R1/R2 ; R0=quotient R1=remainder
         dect    R10
-        mov     R1, *R10        Push reminder
+        mov     R1, *R10        Push remainder
         bl      @print_uint16_loop
-        mov     *R10+, R0       Pop reminder
+        mov     *R10+, R0       Pop remainder
         swpb    R0
         ai      R0, hibyte('0')
         bl      @putchar
@@ -48,17 +52,17 @@ print_uint16_return:
         mov     *R10+, R11      Pop return address
         rt
 
-        *** Unsigned Divide
-        *** R1 / |R2| = R1
-        *** @clobber R2
+        *** Signed divide, quotient only
+        *** R1 / R2 = R1
+        *** @clobber R0
 divu16:
         mov     R1, R0
         sra     R0, 15          Extend sign bit
-        divs    R2              R0:R1/R2=R0..R1
+        divs    R2              R0:R1/R2=R0...R1
         mov     R0, R1
         rt
 
-        *** Divide
+        *** Signed divide
         *** R1 / R2 = R1 ... R0
         *** @clobber R2
 div16:

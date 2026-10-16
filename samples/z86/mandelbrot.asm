@@ -21,7 +21,8 @@ rx_queue:       ds      rx_queue_size
 tx_queue_size:  equ     128
 tx_queue:       ds      tx_queue_size
 
-;;; work area for mandelbrot.inc
+;;; work area for mandelbrot.inc; constants too, as arith.inc takes
+;;; operands by register address
         org     %40
 c229:   ds      2
 c416:   ds      2

@@ -52,7 +52,7 @@ loop:
         jsr     getchar
         bz      loop
         ld      A, E
-        bz      halt_to_system
+        bz      halt_to_system  ; NUL halts
         jsr     putchar         ; echo
         ld      A, =' '         ; space
         jsr     putchar
@@ -65,7 +65,7 @@ loop:
         jsr     newline
         bra     loop
 halt_to_system:
-        call    15
+        call    15              ; halt to system
 
 ;;; Put newline
 ;;; @clobber A
@@ -104,7 +104,7 @@ put_hex4_hex:
         jmp     putchar
 
 ;;; Print uint8_t in binary
-;;; @param A(save_a) uint8_t value to be printed in binary.
+;;; @param A uint8_t value to be printed in binary.
 put_bin8:
         push    ea
         ld      A, ='0'
@@ -207,7 +207,7 @@ isr_irq_send_empty:
 isr_irq_exit:
         pop     P2
         pop     ea
-        or      S, =S_IE
+        or      S, =S_IE        ; IE was cleared on interrupt
         ret
 
         end

@@ -45,7 +45,7 @@ main:
         sex     R8              ; R8 for out
         out     ACIA_control    ; Master reset
         out     ACIA_control    ; Set mode
-        sex     R3
+        sex     R3              ; RET/DIS take X:P from the inline byte
         ret
         dc      X'33'           ; enable interrupt
         sex     R2
@@ -64,7 +64,8 @@ loop:
 
 ;;; Get character
 ;;; @return R7.0 char
-;;; @return A 0 if no char received
+;;; @return D 0 if no char received
+;;; @clobber R15
 getchar:
         sex     R3
         dis                     ; disable interrupt

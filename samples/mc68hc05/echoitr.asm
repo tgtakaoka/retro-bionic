@@ -49,7 +49,7 @@ loop:
         sta     COP_RESET
         bsr     getchar
         bcc     loop
-        sta     save_a
+        sta     save_a          ; sets Z
         beq     halt_to_system
         bsr     putchar         ; echo
         lda     #' '            ; space

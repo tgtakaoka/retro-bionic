@@ -4,7 +4,7 @@
 ;;; i8251 Universal Synchronous/Asynchronous Receiver/Transmitter
 USART:          equ     40H
 USARTD:         equ     USART+0 ; Receive/Transmit data
-USARTS:         equ     USART+1 ; Srtatus register
+USARTS:         equ     USART+1 ; Status register
 USARTC:         equ     USART+1 ; Control register
 USARTRV:        equ     USART+2 ; Receive interrupt instruction (INST_RST*)
 USARTTV:        equ     USART+3 ; Transmit interrupt instruction (INST_RST*)
@@ -63,9 +63,9 @@ receive_loop:
         jnc     receive_loop
         mov     b, a            ; save character
         ora     a
-        jz      halt_to_system
+        jz      halt_to_system  ; NUL halts
 transmit_loop:
-        in      USARTC
+        in      USARTC          ; status
         ani     ST_TxRDY_bm
         jz      transmit_loop
 transmit_data:
@@ -73,13 +73,14 @@ transmit_data:
         out     USARTD
         cpi     0DH
         jnz     receive_loop
-        mvi     b, 0AH
+        mvi     b, 0AH          ; follow CR with LF
         jmp     transmit_loop
 halt_to_system:
         hlt
 
         include "queue.inc"
 
+;;; RxRDY interrupt: queue the received character
 isr_intr:
         push    psw
         push    h

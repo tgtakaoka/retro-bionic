@@ -29,7 +29,7 @@ initialize:
                                 ; Transmit, Receive interrupts disabled
 
         call    arith
-        trap    15
+        trap    15              ; halt to system
 
 ;;; Print out char
 ;;; @param A char
@@ -50,36 +50,38 @@ putchar:
 ;;; @param vA v1
 ;;; @param vB v2
 ;;; @param A op letter
-;;; @clobber Rd Rs
+;;; @return Rd v1
+;;; @return Rs v2
+;;; @clobber A B
 expr:
         push    A
         movw    vA, Rd
-        call    print_int16    print v1
+        call    print_int16     ; print v1
         call    putspace
         pop     A
-        call    putchar        print op
+        call    putchar         ; print op
         call    putspace
         movw    vB, Rd
-        call    print_int16    print v2
+        call    print_int16     ; print v2
         movw    vA, Rd
         movw    vB, Rs
         rts
 
 ;;; Print " = v\n"
 ;;; @param Rd v
-;;; @clobber Rd Rs
+;;; @clobber A B Rd
 answer:
         call    putspace
         mov     #'=', A
         call    putchar
         call    putspace
-        call    print_int16    print v
+        call    print_int16     ; print v
         jmp     newline
 
 ;;; Print "v1 rel v2"
-;;; @param R8:vA v1
-;;; @param R10:vB v2
-;;; @clobber Rd Rs
+;;; @param vA v1
+;;; @param vB v2
+;;; @clobber A B Rd Rs
 comp:
         movw    vA, Rd
         movw    vB, Rs

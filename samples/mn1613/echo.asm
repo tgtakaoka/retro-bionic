@@ -50,6 +50,7 @@ echo:   bal     putchar
         mvi     R0, x'0A'       NL
         b       echo
 
+*** @return R0 received char
 getchar:
         rd      R0, USARTS
         tbit    R0, ST_RxRDY_bp, nz     Skip if RxRDY=1
@@ -57,6 +58,7 @@ getchar:
         rd      R0, USARTD
         ret
 
+*** @param R0 char to send
 putchar:
         push    R0
 putchar_wait:

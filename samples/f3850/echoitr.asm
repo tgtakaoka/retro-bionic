@@ -4,10 +4,10 @@
 ;;; i8251 Universal Synchronous/Asynchronous Receiver/Transmitter
 USART:          equ     0F0H
 USARTD:         equ     USART+0 ; Receive/Transmit data
-USARTS:         equ     USART+1 ; Srtatus register
+USARTS:         equ     USART+1 ; Status register
 USARTC:         equ     USART+1 ; Control register
-USARTRV:        equ     USART+2 ; Receive interrupt vector (ORG_*)
-USARTTV:        equ     USART+3 ; Transmit interrupt vector (ORG_*)
+USARTRV:        equ     USART+2 ; Receive interrupt vector; 0 disables
+USARTTV:        equ     USART+3 ; Transmit interrupt vector; 0 disables
         include "i8251.inc"
 ;;; Async 1stop 8data x16
 ASYNC_MODE:     equ     MODE_STOP1_gc|MODE_LEN8_gc|MODE_BAUD_X16
@@ -104,7 +104,7 @@ echo_back:
         da      putchar
         br      receive_loop
 halt_to_system:
-        dc      H'2F'           ; unknown instruction
+        dc      H'2F'           ; unknown opcode; halt to system
 
 ;;; Print uint8_t in hex
 ;;; @param 1 uint8_t value to be printed in hex.
@@ -157,7 +157,7 @@ put_bin8:
         lr      A, 1
         sl      4
         lr      0, A
-;;; Pinrt uint4_t in binary
+;;; Print uint4_t in binary
 ;;; @param 0 4-bit value in upper nibble
 ;;; @clobber 0 A
 put_bin4:
@@ -193,8 +193,8 @@ put_bin0:
         lr      0, A
         jmp     putchar
 
-;;; Get character
-;;; @return 0
+;;; Get character; interrupts are taken only in the EI/NOP/DI window
+;;; @return 0 character
 ;;; @return CC.C 0 if no character
 getchar:
         ei
@@ -205,8 +205,8 @@ getchar:
         jmp     queue_remove
 
 ;;; Put character
-;;; @param 0
-;;; @clobber 0
+;;; @param 0 character
+;;; @clobber A H DC Q
 putchar:
         ei
         nop
@@ -221,7 +221,7 @@ putchar:
         jmp     return
 
 isr_intr_rx:
-        lr      K, P
+        lr      K, P            ; K=interrupted PC, saved in PC1
         pi      pushK
         pi      push0
         in      USARTS
@@ -238,7 +238,7 @@ isr_intr_end:
         jmp     return
 
 isr_intr_tx:
-        lr      K, P
+        lr      K, P            ; K=interrupted PC, saved in PC1
         pi      pushK
         pi      push0
         dci     tx_queue

@@ -19,7 +19,7 @@ print_int16:
         stab    R0L
 ;;; Print unsigned 16-bit integer as decimal
 ;;; @param R0 value
-;;; @clobber A X R0 R1 R2
+;;; @clobber D X R0 R1 R2
 print_uint16:
         ldx     R0
         beq     print_uint16_zero
@@ -41,6 +41,8 @@ print_uint16_end:
         rts   
 
 ;;; Signed compare R0=sign(R1-R2)
+;;; @param R1 minuend
+;;; @param R2 subtrahend
 ;;; @return R0=A=0;  BEQ (minuend == subtrahend)
 ;;;         R0=A=1;  BPL (minuend > subtrahend)
 ;;;         R0=A=-1; BMI (minuend < subtrahend)
@@ -60,7 +62,7 @@ cmp16:
         ldaa    R1H
         eora    R2H             ; minuend^subtrahend
         anda    R0L             ; overflow flag
-        eora    R0H
+        eora    R0H             ; N^V
         bmi     cmp16_lt
 cmp16_gt:
         clr     R0H
@@ -94,7 +96,7 @@ umul16_high_next:
         lslb                    ; B <<= 1
         bra     umul16_high
 umul16_high_last:
-        aba                     ; hi(result) += B
+        aba                     ; last bit out is 1; hi(result) += B
         clrb
 umul16_low:
         lsr     R2L             ; lo(multiplier) >>= 1
@@ -115,7 +117,7 @@ umul16_end:
         stab    R0L
         rts
 
-;;; Multiply; result = multiplicand * multiplier
+;;; Signed multiplication: result = multiplicand * multiplier
 ;;; @param D multiplicand
 ;;; @param X multiplier
 ;;; @return D result
@@ -151,7 +153,7 @@ mul16_multiplicand:
         stab    R1L
 mul16_multiply:
         bsr     umul16          ; D=R0=result
-        tst     sign            ; A=(multiplicand^multiplier)
+        tst     sign            ; sign(result)
         bpl     mul16_end
         coma
         comb
@@ -173,7 +175,7 @@ mul16_zero:
 ;;; @param R2 divisor
 ;;; @return R0 quotient
 ;;; @return R1 remainder
-;;; @clobber R2
+;;; @clobber D X R2
 udiv16:
         ldaa    R2H
         oraa    R2L
@@ -235,7 +237,7 @@ udiv16_zero:
         stx     R0              ; quotient=0, R1=remainder
         rts
 
-;;; Division; dividend / divisor = quotient ... remainder
+;;; Signed division: quotient = dividend / divisor
 ;;; @param D dividend
 ;;; @param X divisor
 ;;; @return D quotient
@@ -270,7 +272,7 @@ div16_divide:
         jsr     udiv16          ; R0=quotient
         ldaa    R0H
         ldab    R0L
-        tst     sign            ; A=(dividend^divisor)
+        tst     sign            ; sign(quotient)
         bpl     div16_end
         coma
         comb

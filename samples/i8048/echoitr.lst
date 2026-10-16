@@ -5,7 +5,7 @@
 (1)       0 :                    ;;; i8048
 (1)       0 :                    ;;; PSW Register
 (1)       0 : =80                PSW_CY:         equ     10000000B ; set to 1 if carry
-(1)       0 : =40                PSW_AC:         equ     01000000B ; set to 1 if auxillary carry
+(1)       0 : =40                PSW_AC:         equ     01000000B ; set to 1 if auxiliary carry
 (1)       0 : =10                PSW_F0:         equ     00010000B ; flag 0
 (1)       0 : =4                 PSW_BS:         equ     00000100B ; register bank select
 (1)       0 : =7                 PSW_SP:         equ     00000111B ; stack pointer (grow upward)
@@ -21,7 +21,7 @@
           0 :                    ;;; i8251 Universal Synchronous/Asynchronous Receiver/Transmitter
           0 : =FC                USART:          equ     0FCH
           0 : =FC                USARTD:         equ     USART+0 ; Receive/Transmit data
-          0 : =FD                USARTS:         equ     USART+1 ; Srtatus register
+          0 : =FD                USARTS:         equ     USART+1 ; Status register
           0 : =FD                USARTC:         equ     USART+1 ; Control register
           0 : =FE                USARTRV:        equ     USART+2 ; Receive interrupt vector (ORG_*)
           0 : =FF                USARTTV:        equ     USART+3 ; Transmit interrupt vector (ORG_*)
@@ -145,7 +145,7 @@
          47 : 14 91                      call    newline
          49 : 04 36                      jmp     receive_loop
          4B :                    halt_to_system:
-         4B : 01                         db      01H
+         4B : 01                         db      01H             ; halt to system
          4C :
          4C :                    ;;; Print uint8_t in hex
          4C :                    ;;; @param R3 uint8_t value to be printed in hex.
@@ -179,6 +179,8 @@
          6D : FB                         mov     A, R3
          6E : AA                         mov     R2, A
          6F : 14 71                      call    put_bin4
+         71 :                    ;;; Print the top 4/2/1 bits of R2, shifting them out;
+         71 :                    ;;; each level calls the next and then falls into it.
          71 :                    put_bin4:
          71 : 14 73                      call    put_bin2
          73 :                    put_bin2:
@@ -193,7 +195,7 @@
          7D : 04 97                      jmp     putchar
          7F :                            
          7F :                    ;;; Get character
-         7F :                    ;;; @return A
+         7F :                    ;;; @return A character
          7F :                    ;;; @return PSW.C 0 if no character
          7F :                    getchar:
          7F : F8                         mov     A, R0
@@ -223,7 +225,7 @@
          95 : 23 0A                      mov     A, #0AH
          97 :
          97 :                    ;;; Put character
-         97 :                    ;;; @param A
+         97 :                    ;;; @param A character
          97 :                    ;;; @clobber A
          97 :                    putchar:
          97 : 28                         xch     A, R0           ; save character
@@ -247,6 +249,7 @@
          AC :                            include "queue.inc"
 (1)      AC :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
 (1)      AC :                    ;;; [queue] queue structure on internal data memory
+(1)      AC :                    ;;; R1 is the software stack pointer in external data memory
 (1)      AC : =0                 queue_len:      equ     0       ; queue length
 (1)      AC : =1                 queue_size:     equ     1       ; buffer size
 (1)      AC : =2                 queue_buf:      equ     2       ; buffer pointer to external data memory
@@ -258,7 +261,7 @@
 (1)      AC :                    ;;; @param R0 queue work space pointer
 (1)      AC :                    ;;; @param R2 queue buffer pointer
 (1)      AC :                    ;;; @param A queue buffer size
-(1)      AC :                    ;;; @clobber A R0
+(1)      AC :                    ;;; @clobber A R0 R7
 (1)      AC :                    queue_init:
 (1)      AC : AF                         mov     R7, A
 (1)      AD : B0 00                      mov     @R0, #0         ; queue_len
@@ -266,13 +269,13 @@
 (1)      B0 : A0                         mov     @R0, A          ; queue_size
 (1)      B1 : 18                         inc     R0
 (1)      B2 : FA                         mov     A, R2
-(1)      B3 : A0                         mov     @R0, A          ; queue_buffer
+(1)      B3 : A0                         mov     @R0, A          ; queue_buf
 (1)      B4 : 18                         inc     R0
 (1)      B5 : B0 00                      mov     @R0, #0         ; queue_put
 (1)      B7 : 18                         inc     R0
 (1)      B8 : B0 00                      mov     @R0, #0         ; queue_get
 (1)      BA : FA                         mov     A, R2
-(1)      BB : A8                         mov     R0, A           ; R0=queue_buffer
+(1)      BB : A8                         mov     R0, A           ; R0=queue_buf
 (1)      BC : 27                         clr     A
 (1)      BD :                    queue_init_loop:
 (1)      BD : 90                         movx    @R0, A
@@ -308,7 +311,7 @@
 (1)      D5 : F0                         mov     A, @R0          ; A=queue_buf
 (1)      D6 : 18                         inc     R0
 (1)      D7 : 60                         add     A, @R0          ; A=queue_buf+queue_put
-(1)      D8 : 29                         xch     A, R1           ; A=R1, R0=&queue_buf[queue_put]
+(1)      D8 : 29                         xch     A, R1           ; A=R1, R1=&queue_buf[queue_put]
 (1)      D9 : 2F                         xch     A, R7           ; A=an element, R7=R1
 (1)      DA : 91                         movx    @R1, A          ; add an element
 (1)      DB : FF                         mov     A, R7           ; A=R1

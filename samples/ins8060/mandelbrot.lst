@@ -109,7 +109,7 @@
        1008 : 3D                         xppc    P1              ; call queue_init
        1009 : 00 20                      .dbyte  rx_queue
        100B : C4 30                      ldi     tx_queue_size
-       100D : 3D                         xppc    P1              ; call queue init
+       100D : 3D                         xppc    P1              ; call queue_init
        100E : 10 20                      .dbyte  tx_queue
        1010 :
        1010 :                            ;; initialize ACIA
@@ -120,8 +120,8 @@
        1016 : C4 03                      ldi     CDS_RESET_gc    ; Master reset
        1018 : C9 00                      st      ACIA_C(P1)
        101A : C4 94                      ldi     RX_INT_TX_NO    ; 8 bits + No Parity + 1 Stop Bits
-       101C :                                                    ; Transmit, Receive interrupts disabled
-       101C : C9 00                      st      ACIA_C(P1)      ;
+       101C :                                                    ; Receive interrupt enabled, Transmit disabled
+       101C : C9 00                      st      ACIA_C(P1)
        101E : 05                         ien                     ; enable interrupt
        101F :
        101F :                    loop:
@@ -134,13 +134,13 @@
        1028 : 31                         xpal    P1
        1029 : C4 18                      ldi     H(ADDR(newline))
        102B : 35                         xpah    P1
-       102C : 3D                         xppc    P1              ; call mandelbrot
+       102C : 3D                         xppc    P1              ; call newline
        102D : 90 F0                      jmp     loop
        102F :
        102F :                            include "mandelbrot.inc"
 (1)    102F :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
 (1)    102F :
-(1)    102F : =32                F       =       50
+(1)    102F : =32                F       =       50              ; fixed-point scale
 (1)    102F : 32 00              cF:     .dbyte  F               ; constant
 (1)    1031 : F4 FF              c_12:   .dbyte  -12
 (1)    1033 : CF FF              c_49:   .dbyte  -49
@@ -168,8 +168,8 @@
 (1)    1056 :                    ;;;   xppc   P1
 (1)    1056 :                    ;;;   .byte  vname
 (1)    1056 :                    ;;;   .dbyte &value
-(1)    1056 :                    ;;; @local P[1:0] &value
-(1)    1056 :                    ;;; @local P[3:2] return address
+(1)    1056 :                    ;;; @local P2[1:0] &value
+(1)    1056 :                    ;;; @local P2[3:2] return address
 (1)    1056 :                    print_exit:
 (1)    1056 : C6 02                      ld      @2(P2)          ; discard local
 (1)    1058 : C6 01                      ld      @1(P2)
@@ -218,12 +218,12 @@
 (1)    109B : 90 B9                      jmp     print_exit
 (1)    109D : 02 00              vDEBUG: .dbyte  2
 (1)    109F :
-(1)    109F :                    ;;; Print variable "vname=value "
+(1)    109F :                    ;;; Print 8-bit variable "vname=value "
 (1)    109F :                    ;;;   xppc   P1
 (1)    109F :                    ;;;   .byte  vname
 (1)    109F :                    ;;;   .dbyte &value
-(1)    109F :                    ;;; @local P[1:0] &value
-(1)    109F :                    ;;; @local P[3:2] return address
+(1)    109F :                    ;;; @local P2[1:0] &value
+(1)    109F :                    ;;; @local P2[3:2] return address
 (1)    109F :                    print_int8_exit:
 (1)    109F : C6 02                      ld      @2(P2)          ; discard local
 (1)    10A1 : C6 01                      ld      @1(P2)
@@ -276,6 +276,9 @@
 (1)    10E9 : 3D                         xppc    P1              ; print space
 (1)    10EA : 90 B3                      jmp     print_int8_exit
 (1)    10EC :
+(1)    10EC :                    ;;; Print the Mandelbrot set, one character per point: the escape
+(1)    10EC :                    ;;; iteration as a hex digit, or a space if it stays bounded for 16.
+(1)    10EC :                    ;;; A NUL from the console halts.
 (1)    10EC :                    mandelbrot:
 (1)    10EC : C4 10                      ldi     H(vY)
 (1)    10EE : 35                         xpah    P1
@@ -742,10 +745,10 @@
 (1)    13A3 : 03                         scl                     ; clear borrow
 (1)    13A4 : C4 04                      ldi     4
 (1)    13A6 : F9 0E                      cad     (vT-vBASE)(P1)  ; 4-L(T)
-(1)    13A8 : 94 09                      jp      next_i          ; branch if 4<T
+(1)    13A8 : 94 09                      jp      next_i          ; branch if T<=4
 (1)    13AA : C1 16                      ld      (vI-vBASE)(P1)
 (1)    13AC : 02                         ccl
-(1)    13AD : EC 90                      dai     X'90
+(1)    13AD : EC 90                      dai     X'90            ; I as a hex digit
 (1)    13AF : EC 40                      dai     X'40
 (1)    13B1 : 90 10                      jmp     print_char
 (1)    13B3 :                    next_i:
@@ -872,7 +875,8 @@
 (1)    143E : C4 2D                      ldi     '-'
 (1)    1440 : 3D                         xppc    P1              ; print '-'
 (1)    1441 : 90 02                      jmp     print_uint16
-(1)    1443 :                    ;;; Print uint16_t value
+(1)    1443 :                    ;;; Print uint16_t value; entered only from print_int16, which set up
+(1)    1443 :                    ;;; the locals
 (1)    1443 :                    ;;; @param vPRINT value
 (1)    1443 :                    ;;; @local P2[7:0] buffer
 (1)    1443 :                    ;;; @local P2[9:8] return address
@@ -979,7 +983,7 @@
 (1)    14D3 : F2 00                      add     0(P2)           ; L(summand+addend)
 (1)    14D5 : C9 00                      st      0(P1)
 (1)    14D7 : C1 01                      ld      1(P1)
-(1)    14D9 : F2 01                      add     1(P2)           ; L(summand+addend)
+(1)    14D9 : F2 01                      add     1(P2)           ; H(summand+addend)
 (1)    14DB : C9 01                      st      1(P1)
 (1)    14DD : 90 BE                      jmp     addsi2_exit
 (1)    14DF :
@@ -1092,7 +1096,7 @@
 (1)    1572 : C4 FF                      ldi     -1              ; V=0, N=1
 (1)    1574 : 90 AB                      jmp     cmpsi2_exit
 (1)    1576 :                    cmpsi2_ov:
-(1)    1576 : C2 01                      ld      1(P2)           ; H(result)
+(1)    1576 : C2 01                      ld      1(P2)           ; H(subtrahend)
 (1)    1578 : 94 F8                      jp      cmpsi2_lt       ; V=1, N=0
 (1)    157A :                    cmpsi2_gt:                      ; V=1, N=1
 (1)    157A : C4 01                      ldi     1
@@ -1592,6 +1596,7 @@
        182A :                    putchar_return:
        182A : 90 CF                      jmp     putchar_exit
        182C :
+       182C :                    ;;; Put CR and LF
        182C :                    newline:
        182C : C4 06                      ldi     L(ADDR(putchar))
        182E : 31                         xpal    P1
@@ -1611,6 +1616,8 @@
        1843 :
        1843 :                            include "queue.inc"
 (1)    1843 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)    1843 :                    ;;; Routines are called by XPPC P1; each exit XPPC sits just before the
+(1)    1843 :                    ;;; entry, so the return leaves P1 ready for the next call.
 (1)    1843 :                    ;;; [queue] queue structure
 (1)    1843 : =0                 queue_len       =       0       ; queue length
 (1)    1843 : =1                 queue_size      =       1       ; buffer size
@@ -1619,7 +1626,7 @@
 (1)    1843 : =4                 queue_buf       =       4       ; buffer start offset
 (1)    1843 :
 (1)    1843 :                    ;;; [queue] Initialize queue
-(1)    1843 :                    ;;; @param A queue space size
+(1)    1843 :                    ;;; @param A queue space size, including the 4-byte header
 (1)    1843 :                    ;;; @param P1 return address pointer
 (1)    1843 :                    ;;; @param P1[1:2] queue space pointer
 (1)    1843 :                    ;;; @clobber A
@@ -1637,7 +1644,7 @@
 (1)    1852 : CE FE                      st      @-2(P2)         ; save lo(queue space)
 (1)    1854 : C1 00                      ld      0(P1)
 (1)    1856 : 35                         xpah    P1
-(1)    1857 : CA 01                      st      1(P2)           ; P[1:0] push P1
+(1)    1857 : CA 01                      st      1(P2)           ; P2[1:0] push P1
 (1)    1859 : C2 00                      ld      0(P2)
 (1)    185B : 31                         xpal    P1              ; P1=queue space pointer
 (1)    185C : CA 00                      st      0(P2)
@@ -1764,12 +1771,14 @@
 (1)    1905 : 35                         xpah    P1
 (1)    1906 : A9 03                      ild     queue_get(P1)   ; advanced queue_get
 (1)    1908 : E1 01                      xor     queue_size(P1)
-(1)    190A : 9C 02                      jnz     queue_remove_end ; branch if queue_put != queue_size
+(1)    190A : 9C 02                      jnz     queue_remove_end ; branch if queue_get != queue_size
 (1)    190C : C9 03                      st      queue_get(P1)   ; reset queue_get
 (1)    190E :                    queue_remove_end:
 (1)    190E : C4 01                      ldi     1
 (1)    1910 : 90 B9                      jmp     queue_remove_exit
        1912 :
+       1912 :                    ;;; Sense A interrupt from the ACIA: queue a received character, then
+       1912 :                    ;;; send the next queued one, or disable the Tx interrupt when empty
        1912 :                    isr_sensea_exit:
        1912 : C6 01                      ld      @1(P2)          ; pop P1
        1914 : 31                         xpal    P1

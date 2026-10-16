@@ -24,14 +24,16 @@
 (1)       0 :                            cpu     HD6309
 (1)       0 :                    ;;; Mode and Error Register (MD)
 (1)       0 : =1                 MD_EMULATION  equ  %00000001   ; if 1, 6309 native mode
-(1)       0 : =2                 MD_FIRQ_MODE  equ  %00000010   ; if 1, FIRQ operate as IRQ
+(1)       0 : =2                 MD_FIRQ_MODE  equ  %00000010   ; if 1, FIRQ operates as IRQ
 (1)       0 : =40                MD_ILLEGAL_OP equ  %01000000   ; set to 1 if illegal instruction occurred
 (1)       0 : =80                MD_DIV_ZERO   equ  %10000000   ; set to 1 if divided by 0 occurred
 (1)       0 :
 (1)       0 :                    ;;; Vector
 (1)       0 : =FFF0              VEC_DIVZERO:    equ     $FFF0   ; $FFF0: Divided by Zero Trap
-(1)       0 : =FFF0              VEC_ILLOPC:     equ     $FFF0   ; $FFF0: Illegal Opcode Trap
+(1)       0 : =FFF0              VEC_ILLOPC:     equ     $FFF0   ; $FFF0: Illegal Opcode Trap, shared
           0 :                            cpu     6309
+          0 :                    ;;; Run every instruction form in emulation mode (mode=0), then again in
+          0 :                    ;;; native mode (mode=1), and halt without printing.
           0 :
        FFF0 :                            org     VEC_ILLOPC
        FFF0 : 01 18                      fdb     halt_to_system
@@ -43,13 +45,13 @@
        FFFE : 01 00                      fdb     main
       10000 :
          20 :                            org     $20
-         20 : 7E 01 25           djmp:   jmp     inst6809_jmp
-         23 : 39                 djsr:   rts
-         24 :                    mode:   rmb     1
-         25 :                    mdir:   rmb     4
+         20 : 7E 01 25           djmp:   jmp     inst6809_jmp    ; direct-page JMP target
+         23 : 39                 djsr:   rts                     ; direct-page JSR target
+         24 :                    mode:   rmb     1               ; 0=emulation, 1=native
+         25 :                    mdir:   rmb     4               ; direct-page operand
          29 :
        8000 :                            org     $8000
-       8000 :                    mabs:   rmb     4
+       8000 :                    mabs:   rmb     4               ; extended operand
        8004 :
         100 :                            org     $0100
         100 :                    main:
@@ -114,14 +116,14 @@
         180 : 34 78                      pshs    U,Y,X,DP
         182 : 0D 24                      tst     mode
         184 : 27 02                      beq     normal_mode
-        186 : 34 06                      pshs    D
+        186 : 34 06                      pshs    D               ; stand-in for W, native mode only
         188 :                    normal_mode:
         188 : 34 07                      pshs    D,CC
         18A : 3B                         rti
         18B :                    irq_rti:
         18B : 30 8C 09                   leax    firq_rti,PCR
         18E : 34 10                      pshs    X
-        190 : 86 7F                      lda     #$7F
+        190 : 86 7F                      lda     #$7F            ; E=0: RTI pulls CC and PC only
         192 : 34 02                      pshs    A
         194 : 3B                         rti
         195 :
@@ -137,7 +139,7 @@
         19F : 32 6C                      leas    12,S
         1A1 : 0D 24                      tst     mode
         1A3 : 27 02                      beq     swi_normal
-        1A5 : 32 62                      leas    2,S             ; disacrd W
+        1A5 : 32 62                      leas    2,S             ; discard W
         1A7 :                    swi_normal:     
         1A7 : 8E FF FA                   ldx     #VEC_SWI
         1AA : BF FF FA                   stx     VEC_SWI         ; for halt to system

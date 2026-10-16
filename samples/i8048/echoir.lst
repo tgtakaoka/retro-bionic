@@ -6,7 +6,7 @@
 (1)       0 :                    ;;; i8048
 (1)       0 :                    ;;; PSW Register
 (1)       0 : =80                PSW_CY:         equ     10000000B ; set to 1 if carry
-(1)       0 : =40                PSW_AC:         equ     01000000B ; set to 1 if auxillary carry
+(1)       0 : =40                PSW_AC:         equ     01000000B ; set to 1 if auxiliary carry
 (1)       0 : =10                PSW_F0:         equ     00010000B ; flag 0
 (1)       0 : =4                 PSW_BS:         equ     00000100B ; register bank select
 (1)       0 : =7                 PSW_SP:         equ     00000111B ; stack pointer (grow upward)
@@ -22,7 +22,7 @@
           0 :                    ;;; i8251 Universal Synchronous/Asynchronous Receiver/Transmitter
           0 : =FC                USART:          equ     0FCH
           0 : =FC                USARTD:         equ     USART+0 ; Receive/Transmit data
-          0 : =FD                USARTS:         equ     USART+1 ; Srtatus register
+          0 : =FD                USARTS:         equ     USART+1 ; Status register
           0 : =FD                USARTC:         equ     USART+1 ; Control register
           0 : =FE                USARTRV:        equ     USART+2 ; Receive interrupt vector (ORG_*)
           0 : =FF                USARTTV:        equ     USART+3 ; Transmit interrupt vector (ORG_*)
@@ -145,11 +145,12 @@
          45 : BF 0A                      mov     R7, #0AH
          47 : 04 37                      jmp     transmit_loop
          49 :                    halt_to_system:
-         49 : 01                         db      01H
+         49 : 01                         db      01H             ; halt to system
          4A :
          4A :                            include "queue.inc"
 (1)      4A :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
 (1)      4A :                    ;;; [queue] queue structure on internal data memory
+(1)      4A :                    ;;; R1 is the software stack pointer in external data memory
 (1)      4A : =0                 queue_len:      equ     0       ; queue length
 (1)      4A : =1                 queue_size:     equ     1       ; buffer size
 (1)      4A : =2                 queue_buf:      equ     2       ; buffer pointer to external data memory
@@ -161,7 +162,7 @@
 (1)      4A :                    ;;; @param R0 queue work space pointer
 (1)      4A :                    ;;; @param R2 queue buffer pointer
 (1)      4A :                    ;;; @param A queue buffer size
-(1)      4A :                    ;;; @clobber A R0
+(1)      4A :                    ;;; @clobber A R0 R7
 (1)      4A :                    queue_init:
 (1)      4A : AF                         mov     R7, A
 (1)      4B : B0 00                      mov     @R0, #0         ; queue_len
@@ -169,13 +170,13 @@
 (1)      4E : A0                         mov     @R0, A          ; queue_size
 (1)      4F : 18                         inc     R0
 (1)      50 : FA                         mov     A, R2
-(1)      51 : A0                         mov     @R0, A          ; queue_buffer
+(1)      51 : A0                         mov     @R0, A          ; queue_buf
 (1)      52 : 18                         inc     R0
 (1)      53 : B0 00                      mov     @R0, #0         ; queue_put
 (1)      55 : 18                         inc     R0
 (1)      56 : B0 00                      mov     @R0, #0         ; queue_get
 (1)      58 : FA                         mov     A, R2
-(1)      59 : A8                         mov     R0, A           ; R0=queue_buffer
+(1)      59 : A8                         mov     R0, A           ; R0=queue_buf
 (1)      5A : 27                         clr     A
 (1)      5B :                    queue_init_loop:
 (1)      5B : 90                         movx    @R0, A
@@ -211,7 +212,7 @@
 (1)      73 : F0                         mov     A, @R0          ; A=queue_buf
 (1)      74 : 18                         inc     R0
 (1)      75 : 60                         add     A, @R0          ; A=queue_buf+queue_put
-(1)      76 : 29                         xch     A, R1           ; A=R1, R0=&queue_buf[queue_put]
+(1)      76 : 29                         xch     A, R1           ; A=R1, R1=&queue_buf[queue_put]
 (1)      77 : 2F                         xch     A, R7           ; A=an element, R7=R1
 (1)      78 : 91                         movx    @R1, A          ; add an element
 (1)      79 : FF                         mov     A, R7           ; A=R1
@@ -296,4 +297,4 @@
          C2 : 14 60                      call    queue_add
          C4 :                    isr_intr_recv_end:
          C4 : FA                         mov     A, R2
-         C5 : 93                         retr
+         C5 : 93                         retr                    ; restores PSW, so bank 0

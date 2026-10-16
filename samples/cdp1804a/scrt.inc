@@ -8,7 +8,7 @@
 ;;; R4: Link register, pointer to the return location and arguments
 ;;;     passed by the calling program
 
-;;; Call subroutine
+;;; Call subroutine; SCAL/SRET push and pop R4 via R(X), so X=2
 ;;;   SCAL R4, subroutine
 ;;;   DC   arguments...
 ;;; Subroutine return
@@ -24,7 +24,7 @@
 ;;; @return R1=scrt_isr
 ;;; @return R2=stack
 ;;; @return R3=main
-;;; @clobber D, R15
+;;; @return X=2
 scrt_init:
         rldi    R3, scrt_start
         sep     R3              ; P=3
@@ -45,7 +45,7 @@ scrt_isr_exit:
         ldxa                    ; pop D
         ret                     ; restore X,P IE=1
         ;; R1 points scrt_isr
-;;; CDP1802 interrupt entry, X=2, P=1, IE=0
+;;; CDP1804A interrupt entry, X=2, P=1, IE=0
 ;;; @unchanged D, DF, X, P, R3, R15
 scrt_isr:
         ;; R2[0] must be preserved because it may be in the pop process

@@ -126,7 +126,7 @@
 (1)      3E :
 (1)      3E :                    ;;; Return subroutine, P=6
 (1)      3E :                    ;;; @param R4 return address
-(1)      3E :                    ;;; @oaram M(R2) R4.1, R4.0, X:P(3)
+(1)      3E :                    ;;; @param M(R2) R4.1, R4.0
 (1)      3E :                    ;;; @clobber R15.1, X
 (1)      3E :                    ;;; @unchanged D, DF, R0, R1, R7-R14, R15.0
 (1)      3E :                    scrt_return_exit:
@@ -296,7 +296,7 @@
        1012 : E8                         sex     R8              ; R8 for out
        1013 : 64                         out     ACIA_control    ; Master reset
        1014 : 64                         out     ACIA_control    ; Set mode
-       1015 : E3                         sex     R3
+       1015 : E3                         sex     R3              ; RET/DIS take X:P from the inline byte
        1016 : 70                         ret
        1017 : 33                         dc      X'33'           ; enable interrupt
        1018 : E2                         sex     R2
@@ -315,7 +315,8 @@
        1025 :
        1025 :                    ;;; Get character
        1025 :                    ;;; @return R7.0 char
-       1025 :                    ;;; @return A 0 if no char received
+       1025 :                    ;;; @return D 0 if no char received
+       1025 :                    ;;; @clobber R15
        1025 :                    getchar:
        1025 : E3                         sex     R3
        1026 : 71                         dis                     ; disable interrupt
@@ -455,7 +456,7 @@
 (1)    10A7 : =3                 queue_get:      equ     3       ; queue get index
 (1)    10A7 : =4                 queue_buf:      equ     4       ; buffer start offset
 (1)    10A7 :
-(1)    10A7 :                    ;;; [queue] Initialize queue
+(1)    10A7 :                    ;;; [queue] Initialize queue; arguments follow the call inline
 (1)    10A7 :                    ;;; @param R4+0 queue work space pointer
 (1)    10A7 :                    ;;; @param R4+2 queue work space size
 (1)    10A7 :                    ;;; @clobber D, R15
@@ -493,6 +494,7 @@
 (1)    10C6 :                    ;;; @param R4+0 queue work space pointer
 (1)    10C6 :                    ;;; @param R7.0 an element
 (1)    10C6 :                    ;;; @return D 0 if queue is full
+(1)    10C6 :                    ;;; @clobber R15
 (1)    10C6 :                    queue_add:
 (1)    10C6 : 8E                         glo     R14             ; save R14
 (1)    10C7 : 73                         stxd
@@ -506,7 +508,7 @@
 (1)    10CE : EF                         sex     R15
 (1)    10CF : 72                         ldxa                    ; load queue_len
 (1)    10D0 : F3                         xor                     ; queue_len ^ queue_size
-(1)    10D1 : 32 F8                      bz      queue_add_return ; branch if D=0
+(1)    10D1 : 32 F8                      bz      queue_add_return ; branch if queue is full
 (1)    10D3 : 2F                         dec     R15
 (1)    10D4 : 8F                         glo     R15
 (1)    10D5 : FC 04                      adi     queue_buf
@@ -564,7 +566,7 @@
 (1)    1107 : 44                         lda     R4
 (1)    1108 : AF                         plo     R15             ; R15=queue space pointer
 (1)    1109 : 0F                         ldn     R15             ; load queue_len
-(1)    110A : 32 32                      bz      queue_remove_return ; branch if D=0
+(1)    110A : 32 32                      bz      queue_remove_return ; branch if queue is empty
 (1)    110C : FF 01                      smi     1
 (1)    110E : 5F                         str     R15             ; queue_len--
 (1)    110F : 8F                         glo     R15
@@ -583,7 +585,7 @@
 (1)    111E : 9E                         ghi     R14
 (1)    111F : 7C 00                      adci    0
 (1)    1121 : BE                         phi     R14             ; R14=&queue_buf[queue_get]
-(1)    1122 : 0E                         ldn     R14             ; load an alement
+(1)    1122 : 0E                         ldn     R14             ; load an element
 (1)    1123 : A7                         plo     R7              ; R7.0=an element
 (1)    1124 : 0F                         ldn     R15             ; load queue_get
 (1)    1125 : FC 01                      adi     1
@@ -591,7 +593,7 @@
 (1)    1128 : 2F                         dec     R15
 (1)    1129 : 2F                         dec     R15
 (1)    112A : F3                         xor                     ; queue_get ^ queue_size
-(1)    112B : 3A 32                      bnz     queue_remove_return ; brnach if D!=0
+(1)    112B : 3A 32                      bnz     queue_remove_return ; branch if D!=0
 (1)    112D : 1F                         inc     R15
 (1)    112E : 1F                         inc     R15
 (1)    112F : 5F                         str     R15             ; queue_get=0
@@ -610,7 +612,7 @@
 (1)    113B :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
 (1)    113B :                            cpu     1802
 (1)    113B :
-(1)    113B :                    ;;; Print unsigned 16-bit integer as decimal
+(1)    113B :                    ;;; Print unsigned 16-bit integer as decimal; recurses once per digit
 (1)    113B :                    ;;; @param R7 value
 (1)    113B :                    ;;; @clobber D R7 R8 R15
 (1)    113B :                    print_uint16:
@@ -679,7 +681,7 @@
 (1)    1182 : A8                         plo     R8              ; restore R8
 (1)    1183 : D6                         sep     R6
 (1)    1184 :
-(1)    1184 :                    ;;; Store R7 to variable
+(1)    1184 :                    ;;; Store R7 to variable, big-endian
 (1)    1184 :                    ;;;   SEP  R5
 (1)    1184 :                    ;;;   DC   A(store_R7)
 (1)    1184 :                    ;;;   DC   A(variable)
@@ -689,7 +691,7 @@
 (1)    1185 : 72                         ldxa
 (1)    1186 : BF                         phi     R15
 (1)    1187 : 72                         ldxa
-(1)    1188 : AF                         plo     R15             ; R15=&valiable
+(1)    1188 : AF                         plo     R15             ; R15=&variable
 (1)    1189 : 97                         ghi     R7
 (1)    118A : 5F                         str     R15
 (1)    118B : 1F                         inc     R15
@@ -795,7 +797,7 @@
 (1)    11D8 :                    ;;; @return R7 multiplicand * multiplier
 (1)    11D8 :                    ;;;   SEP R5
 (1)    11D8 :                    ;;;   DC  A(mul16)
-(1)    11D8 :                    ;;; @clobber R8 R15
+(1)    11D8 :                    ;;; @clobber D R8 R15
 (1)    11D8 :                    mul16:
 (1)    11D8 : 98                         ghi     R8
 (1)    11D9 : 52                         str     R2
@@ -841,11 +843,12 @@
 (1)    120B : D6                         sep     R6
 (1)    120C :
 (1)    120C :                    ;;; Unsigned division: dividend / divisor = quotient ... remainder
-(1)    120C :                    ;;; @praram R7 dividend
-(1)    120C :                    ;;; @praram R8 divisor
+(1)    120C :                    ;;; Non-restoring; R7 and R8 are unchanged if divisor is 0.
+(1)    120C :                    ;;; @param R7 dividend
+(1)    120C :                    ;;; @param R8 divisor
 (1)    120C :                    ;;; @return R7 quotient
 (1)    120C :                    ;;; @return R8 remainder
-(1)    120C :                    ;;; @clobber R7 R8 R15
+(1)    120C :                    ;;; @clobber D R7 R8 R15
 (1)    120C :                    udiv16:
 (1)    120C : 98                         ghi     R8
 (1)    120D : 3A 13                      bnz     udiv16_calc
@@ -907,7 +910,7 @@
 (1)    124A : B7                         phi     R7              ; quotient <<= 1
 (1)    124B :                    udiv16_enter_loop:
 (1)    124B : 9F                         ghi     R15             ; borrow
-(1)    124C : 32 5A                      bz      udiv16_add      ; brancg if borrow (0)
+(1)    124C : 32 5A                      bz      udiv16_add      ; branch if borrow (0)
 (1)    124E : 88                         glo     R8
 (1)    124F : 52                         str     R2
 (1)    1250 : 89                         glo     R9
@@ -968,10 +971,10 @@
 (1)    1286 :                    ;;; @param R7 dividend
 (1)    1286 :                    ;;; @param R8 divisor
 (1)    1286 :                    ;;; @return R7 quotient
-(1)    1286 :                    ;;; @return R8 remainder
+(1)    1286 :                    ;;; @return R8 remainder of the absolute values
 (1)    1286 :                    ;;;   SEP R5
 (1)    1286 :                    ;;;   DC  A(div16)
-(1)    1286 :                    ;;; @clobber R15
+(1)    1286 :                    ;;; @clobber D R15
 (1)    1286 :                    div16:
 (1)    1286 : 98                         ghi     R8
 (1)    1287 : 52                         str     R2
@@ -989,7 +992,7 @@
 (1)    1297 : A8                         plo     R8
 (1)    1298 : 18                         inc     R8              ; negate divisor
 (1)    1299 :                    div16_dividend:
-(1)    1299 : 97                         ghi     R7              ; R7=dividend
+(1)    1299 : 97                         ghi     R7
 (1)    129A : FA 80                      ani     X'80'
 (1)    129C : 32 A7                      bz      div16_divide
 (1)    129E : 97                         ghi     R7
@@ -1048,6 +1051,8 @@
 (1)    12D1 : 11 5D                      dc      A(print_int16)
 (1)    12D3 : C0 10 60                   br      putspace
 (1)    12D6 :
+(1)    12D6 :                    ;;; Print one frame: a char per point, the escape iteration in hex
+(1)    12D6 :                    ;;; or ' ' if none; NUL from the console halts.
 (1)    12D6 :                    mandelbrot:
 (1)    12D6 : F8 FF                      ldi     A.1(-12)
 (1)    12D8 : BB                         phi     rY
@@ -1136,6 +1141,8 @@
 (1)    1326 :                            ;; sep     R5
 (1)    1326 :                            ;; dc      A(newline)
 (1)    1326 :
+(1)    1326 :                            ;; A*B/F is computed as A*Q+A*S/F with Q=B/F, S=B-Q*F,
+(1)    1326 :                            ;; to avoid 16-bit overflow
 (1)    1326 :                    loop_i:
 (1)    1326 : D5                         sep     R5
 (1)    1327 : 11 90                      dc      A(load_R7)
@@ -1267,7 +1274,7 @@
 (1)    13CB : A7                         plo     R7
 (1)    13CC : 97                         ghi     R7
 (1)    13CD : 7E                         shlc
-(1)    13CE : B7                         phi     R7              ; R7=2*(A*A+A*S/F)
+(1)    13CE : B7                         phi     R7              ; R7=2*(A*Q+A*S/F)
 (1)    13CF : D5                         sep     R5
 (1)    13D0 : 11 9E                      dc      A(load_R8)
 (1)    13D2 : 12 BC                      dc      A(vD)           ; R8=D
@@ -1280,7 +1287,7 @@
 (1)    13DA : 52                         str     R2
 (1)    13DB : 98                         ghi     R8
 (1)    13DC : 74                         adc
-(1)    13DD : B7                         phi     R7              ; R7=2*(A*A+A*S/F)+D
+(1)    13DD : B7                         phi     R7              ; R7=2*(A*Q+A*S/F)+D
 (1)    13DE : D5                         sep     R5
 (1)    13DF : 11 84                      dc      A(store_R7)
 (1)    13E1 : 12 C0                      dc      A(vB)           ; B=2*(A*Q+A*S/F)+D
@@ -1318,7 +1325,7 @@
 (1)    140D : F8 32                      ldi     A.0(cF)
 (1)    140F : A8                         plo     R8
 (1)    1410 : D5                         sep     R5
-(1)    1411 : 12 86                      dc      A(div16)        ; R7=B/Q
+(1)    1411 : 12 86                      dc      A(div16)        ; R7=B/F
 (1)    1413 : D5                         sep     R5
 (1)    1414 : 11 84                      dc      A(store_R7)
 (1)    1416 : 12 C4                      dc      A(vQ)           ; Q=B/F

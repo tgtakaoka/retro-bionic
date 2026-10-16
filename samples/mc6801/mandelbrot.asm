@@ -40,7 +40,7 @@ tx_queue_size:  equ     128
 tx_queue:       rmb     tx_queue_size
 
         org     $1000
-stack:  equ     *-1             ; MC6800's SP is post-decrement/pre-increment
+stack:  equ     *-1             ; MC6801's SP is post-decrement/pre-increment
 
         org     $FFF2           ; MC68HC11 IRQ
         fdb     isr_irq
@@ -91,7 +91,6 @@ getchar:
 
 ;;; Put character
 ;;; @param A
-;;; @clobber X
 putspace:
         ldaa    #' '
         bra     putchar

@@ -58,6 +58,7 @@
 (2)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
 (2)       0 :
 (2)       0 :                    ;;; i8251 USART device emulator.
+(2)       0 :                    ;;; Bit definition of mode register
 (2)       0 : =6                 MODE_STOP_gp:   equ     6
 (2)       0 : =C0                MODE_STOP_gm:   equ     11000000B
 (2)       0 : =40                MODE_STOP1_gc:  equ     (1 << MODE_STOP_gp)
@@ -137,16 +138,16 @@
         11E : 3E 37                      ld      A, RX_EN_TX_EN
         120 : D3 41                      out     (USARTC), A
         122 :
-        122 : 3E 01                      ld      a, 1            ; enable interrupt on USART
+        122 : 3E 01                      ld      a, 1            ; nonzero enables the USART interrupt on IR0
         124 : D3 42                      out     (USARTRV), a
-        126 : 3E 01                      ld      a, 1            ; select edge trigger
+        126 : 3E 01                      ld      a, 1            ; IR0 edge triggered
         128 : D3 34                      out     (LERL), a
         12A : 3E 00                      ld      a, high vector
         12C : ED 47                      ld      i, a
         12E : 3E 80                      ld      a, low vector
         130 : D3 37                      out     (IVR), a        ; vector register
         132 : 3E FE                      ld      a, ~1           ; disable mask for IR0
-        134 : D3 36                      out     (IMRL), a       ;
+        134 : D3 36                      out     (IMRL), a
         136 : ED 5E                      im      2               ; mode 2 only
         138 : FB                         ei
         139 :
@@ -172,7 +173,7 @@
         156 : 18 EF                      jr      transmit_loop
         158 :                    halt_to_system:
         158 : 21 38 00                   ld      HL, ORG_RST38
-        15B : 36 FF                      ld      (HL), 0FFH
+        15B : 36 FF                      ld      (HL), 0FFH      ; RST 38H at its vector: exit to the debugger
         15D : FF                         rst     38H
         15E :
         15E :                            include "../z80/queue.inc"
@@ -187,7 +188,6 @@
 (1)     15E :                    ;;; [queue] Initialize queue
 (1)     15E :                    ;;; @param HL queue work space pointer
 (1)     15E :                    ;;; @param B queue work space size
-(1)     15E :                    ;;; @clobber B
 (1)     15E :                    queue_init:
 (1)     15E : F5                         push    AF
 (1)     15F : E5                         push    HL
@@ -219,7 +219,7 @@
 (1)     17A : DD BE 01                   cp      (IX+queue_size)
 (1)     17D : 7A                         ld      A, D               ; restore an element
 (1)     17E : 38 05                      jr      C, queue_add_store ; queue_len < queue_size
-(1)     180 : DD E3                      ex      (SP), IX           ; F.C=1
+(1)     180 : DD E3                      ex      (SP), IX           ; F.C=0
 (1)     182 : E1                         pop     HL
 (1)     183 : D1                         pop     DE
 (1)     184 : C9                         ret

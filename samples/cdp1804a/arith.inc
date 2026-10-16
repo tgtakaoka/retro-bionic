@@ -1,7 +1,7 @@
 ;;; -*- mode: asm; mode: flyspell-prog; -*-
         cpu     1804A
 
-;;; Print unsigned 16-bit integer as decimal
+;;; Print unsigned 16-bit integer as decimal; recurses once per digit
 ;;; @param R7 value
 ;;; @clobber D R7 R8 R15
 print_uint16:
@@ -56,13 +56,13 @@ print_int16_print:
         dec     R2
         sret    R4
 
-;;; Store R7 to variable
+;;; Store R7 to variable, big-endian
 ;;;   SCAL R4, store_R7
 ;;;   DC   A(variable)
-;;; @clobber D R15
+;;; @clobber R15
 store_R7:
         sex     R4
-        rlxa    R15             ; R15=&valiable
+        rlxa    R15             ; R15=&variable
         sex     R15
         irx
         rsxd    R7
@@ -73,7 +73,6 @@ store_R7:
 ;;;   SCAL R4, load_R7
 ;;;   DC   A(variable)
 ;;; @return R7 variable
-;;; @clobber R15
 load_R7:
         sex     R4
         rlxa    R7              ; R7=&variable
@@ -85,7 +84,7 @@ load_R7:
 ;;; Load variable to R8
 ;;;   SCAL R4, load_R8
 ;;;   DC   A(variable)
-;;; @clobber R15
+;;; @return R8 variable
 load_R8:
         sex     R4
         rlxa    R8              ; R8=&variable
@@ -113,7 +112,7 @@ add16:
         phi     R7
         sret    R4
 
-;;; Singed subtraction: minuend -= subtrahend
+;;; Signed subtraction: minuend -= subtrahend
 ;;;   SCAL R4, sub16
 ;;; @param R7 minuend
 ;;; @param R8 subtrahend
@@ -185,7 +184,7 @@ umul16_check:
 ;;; @param R8 multiplier
 ;;; @return R7 multiplicand * multiplier
 ;;;   SCAL R4, mul16
-;;; @clobber R8 R15
+;;; @clobber D R8 R15
 mul16:
         ghi     R8
         str     R2
@@ -230,11 +229,12 @@ mul16_return:
         sret    R4
 
 ;;; Unsigned division: dividend / divisor = quotient ... remainder
-;;; @praram R7 dividend
-;;; @praram R8 divisor
+;;; Non-restoring; R7 and R8 are unchanged if divisor is 0.
+;;; @param R7 dividend
+;;; @param R8 divisor
 ;;; @return R7 quotient
 ;;; @return R8 remainder
-;;; @clobber R7 R8 R15
+;;; @clobber D R7 R8 R15
 udiv16:
         ghi     R8
         bnz     udiv16_calc
@@ -352,11 +352,9 @@ udiv16_return:
 ;;; @param R7 dividend
 ;;; @param R8 divisor
 ;;; @return R7 quotient
-;;; @return R8 remainder
-;;;   SCAL R4, duvsi2
-;;;   SEP R5
-;;;   DC  A(div16)
-;;; @clobber R15
+;;; @return R8 remainder of the absolute values
+;;;   SCAL R4, div16
+;;; @clobber D R15
 div16:
         ghi     R8
         str     R2
@@ -374,7 +372,7 @@ div16:
         plo     R8
         inc     R8              ; negate divisor
 div16_dividend:
-        ghi     R7              ; R7=dividend
+        ghi     R7
         ani     X'80'
         bz      div16_divide
         ghi     R7

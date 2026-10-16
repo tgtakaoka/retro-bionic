@@ -3,7 +3,7 @@
 
 ;;; Print signed 16-bit integer as decimal
 ;;; @param R0 &value
-;;; @clobber A
+;;; @clobber A R4 R5 R6 R7
 print_int16:
         mov     A, R0
         dec     R1
@@ -23,8 +23,9 @@ print_int16:
         mov     A, #'-'
         call    putchar         ; print '-'
         call    neg_R3R2        ; negate value
-;;; Print unsigned 16-bit integer as decimal
-;;; @param R2:R3: value
+;;; Print unsigned 16-bit integer as decimal; tail of print_int16,
+;;; expects its saved R0, R2, R3 on the R1 stack
+;;; @param R3:R2 value
 ;;; @param print_uint16_buf external data memory
 ;;; @clobber A
 print_uint16:
@@ -68,6 +69,7 @@ print_uint16_end:
         mov     R0, A           ; restore R0
         ret
 
+;;; Conditional jumps stay in their page; start a new one.
         org     $+(256-LOW($))
 
 ;;; Negation; result = -result
@@ -125,7 +127,7 @@ negsi2:
 ;;; Signed addition: summand += addend
 ;;; @param R2: &summand
 ;;; @param R3: &addend
-;;; @clobber A R2 R3
+;;; @clobber A R0 R2 R3
 addsi2:
         mov     A, R3
         mov     R0, A           ; R0=&addend
@@ -194,7 +196,7 @@ cmpsi2:
         mov     R0, A           ; R0=&minuend
         mov     A, @R0          ; A=lo(minuend)
         add     A, R3
-        mov     R3, A           ; A=lo(minuend-subtrahend)
+        mov     R3, A           ; R3=lo(minuend-subtrahend)
         inc     R0
         movx    A, @R1          ; restore hi(subtrahend)
         xrl     A, @R0          ; A=hi(minuend^subtrahend)
@@ -219,7 +221,7 @@ cmpsi2_lt:
         mov     A, #-1
         ret
 cmpsi2_eq:
-        inc     R1              ; discard hi(subtrahend)
+        inc     R1              ; discard hi(minuend^subtrahend)
         ret
 
 ;;; Unsigned multiplication: result = multiplicand * multiplier
@@ -344,6 +346,7 @@ mulsi2_store:
 ;;; @param R5:R4 divisor
 ;;; @return R3:R2 quotient
 ;;; @return R5:R4 remainder
+;;; R2-R5 are unchanged if divisor is 0.
 ;;; @clobber A R0 R2 R3 R4 R5 R6 R7
 udiv16:
         mov     A, R4

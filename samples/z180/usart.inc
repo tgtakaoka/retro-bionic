@@ -1,6 +1,6 @@
 ;;; -*- mode: asm; mode: flyspell-prog; -*-
 ;;; i8251 Universal Synchronous/Asynchronous Receiver/Transmitter
-USART:  equ     0140H
+USART:  equ     0140H           ; A8-A15 nonzero: clear of on-chip I/O
 USARTD: equ     USART+0         ; Data register
 USARTS: equ     USART+1         ; Status register
 USARTC: equ     USART+1         ; Control register

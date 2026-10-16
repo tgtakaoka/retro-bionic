@@ -57,7 +57,7 @@ putchar_loop:
         rt
 
         *** Print "R1 op R2"
-        *** @params R0 op letter
+        *** @param R0 op letter in high byte
         *** @clobber R0
 expr:
         dect    R10
@@ -90,7 +90,7 @@ answer:
         mov     *R10+, R11      Pop return address
         rt
 
-        *** Print "R1 rel R2"
+        *** Print "R1 rel R2" where rel is the signed comparison
         *** @clobber R0
 comp:
         c       R1, R2

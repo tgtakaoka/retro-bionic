@@ -23,9 +23,12 @@ workspace:
 workspace_illop:
         bss     2*16
 
+*** INT2: illegal or privileged opcode
 illop:
         xop     R15,15          halt to system
 
+        * R10 is the stack pointer; BLSK pushes the return address
+        * and BIND *R10+ returns.  Leaf routines use BL and RT.
         org     >2000
 stack:          equ     $
 
@@ -82,14 +85,14 @@ expr:
         dect    R10
         mov     R1, *R10        Push R1
         cir     R2              convert R2 into R0:R1
-        str     R2              move R1:R2 to R2:F3
+        str     R2              move R0:R1 to R2:R3
         mov     *R10+, R1       Pop R1
         cir     R1              convert R1 into R0:R1
         bind    *R10+
 
-*** Print " = V\n"
+*** Print " = V\n" with V converted to a 16-bit integer
 *** @param R0:R1 single 32-bit float V
-*** @clobber R0:R1
+*** @clobber R0 R1
 answer:
         dect    R10
         mov     R0, *R10        Push R0
@@ -106,7 +109,7 @@ answer:
 *** Print "A rel B"
 *** @param R1 signed 16-bit integer A
 *** @param R2 signed 16-bit integer B
-*** @clobber R0 R1 R2 R2
+*** @clobber R0 R1 R2 R3
 comp:
         dect    R10
         mov     R2, *R10        Push R2

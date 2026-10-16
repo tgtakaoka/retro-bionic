@@ -28,7 +28,7 @@ c416:   rs      2               ; constant 416
 ;;; Store DC to scratchpad pointed by 2
 ;;; @param DC value
 ;;; @param 2 scratchpad number
-;;; @clobber H A
+;;; @clobber H ISAR A
 store_2:
         lr      A, 2
         lr      IS, A
@@ -42,7 +42,7 @@ store_2:
 ;;; Store DC to scratchpad pointed by 3
 ;;; @param DC value
 ;;; @param 3 scratchpad number
-;;; @clobber H A
+;;; @clobber H ISAR A
 store_3:
         lr      A, 3
         lr      IS, A
@@ -56,7 +56,7 @@ store_3:
 ;;; Assign @3 to @2
 ;;; @param @2 assignee
 ;;; @param @3 value
-;;; @clobber H A
+;;; @clobber H ISAR A
 assign_2:
         lr      A, 3
         lr      IS, A
@@ -74,7 +74,7 @@ assign_2:
 
 ;;; Increment: result += 1
 ;;; @param @2: result
-;;; @clobber A
+;;; @clobber ISAR A
 inc16:
         lr      A, 2
         inc
@@ -87,6 +87,9 @@ inc16:
         lr      S, A
         pop
 
+;;; Print variable: "letter=value "
+;;; @param 0 variable letter
+;;; @param @2 variable
 print_2:
         pi      call
         da      putchar
@@ -104,6 +107,8 @@ print_2:
         da      print_int16
         jmp     putspace
 
+;;; Print one frame: a char per point, the escape iteration in hex
+;;; or ' ' if none; NUL from the console halts.
 mandelbrot:
         dci     4
         li      c4
@@ -211,6 +216,8 @@ loop_x:
         ;; pi      call
         ;; da      newline
 
+        ;; A*B/F is computed as A*Q+A*S/F with Q=B/F, S=B-Q*F,
+        ;; to avoid 16-bit overflow
 loop_i:
         li      vQ
         lr      2, A

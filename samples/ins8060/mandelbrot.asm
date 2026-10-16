@@ -46,7 +46,7 @@ initialize:
         xppc    P1              ; call queue_init
         .dbyte  rx_queue
         ldi     tx_queue_size
-        xppc    P1              ; call queue init
+        xppc    P1              ; call queue_init
         .dbyte  tx_queue
 
         ;; initialize ACIA
@@ -57,8 +57,8 @@ initialize:
         ldi     CDS_RESET_gc    ; Master reset
         st      ACIA_C(P1)
         ldi     RX_INT_TX_NO    ; 8 bits + No Parity + 1 Stop Bits
-                                ; Transmit, Receive interrupts disabled
-        st      ACIA_C(P1)      ;
+                                ; Receive interrupt enabled, Transmit disabled
+        st      ACIA_C(P1)
         ien                     ; enable interrupt
 
 loop:
@@ -71,7 +71,7 @@ loop:
         xpal    P1
         ldi     H(ADDR(newline))
         xpah    P1
-        xppc    P1              ; call mandelbrot
+        xppc    P1              ; call newline
         jmp     loop
 
         include "mandelbrot.inc"
@@ -140,6 +140,7 @@ putchar_retry:
 putchar_return:
         jmp     putchar_exit
 
+;;; Put CR and LF
 newline:
         ldi     L(ADDR(putchar))
         xpal    P1
@@ -159,6 +160,8 @@ newline:
 
         include "queue.inc"
 
+;;; Sense A interrupt from the ACIA: queue a received character, then
+;;; send the next queued one, or disable the Tx interrupt when empty
 isr_sensea_exit:
         ld      @1(P2)          ; pop P1
         xpal    P1

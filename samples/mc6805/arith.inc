@@ -80,22 +80,22 @@ set_R2:
         sta     R2L
         rts
 
-;;; Push X:A
+;;; Push X:A onto the software stack at stack, indexed by SP
 ;;; @param X:A value
 ;;; @clobber X:A
 push_XA:
         sta     arith_work      ; save A
         txa
         ldx     SP
-        sta     stack,X         ; push high(value))
+        sta     stack,X         ; push high(value)
         lda     arith_work
-        sta     stack+1,X       ; push low(register)
+        sta     stack+1,X       ; push low(value)
         incx
         incx
         stx     SP              ; update stack pointer
         rts
 
-;;; Pull X:A
+;;; Pull X:A from the software stack
 ;;; @return X:A value
 pull_XA:
         ldx     SP
@@ -120,7 +120,7 @@ add16:
         lda     R0L
         rts
 
-;;; Subtraction: R0 = R1 + R2
+;;; Subtraction: R0 = R1 - R2
 ;;; @return X:A subtraction
 ;;; @clobber A
 sub16:
@@ -135,10 +135,12 @@ sub16:
         rts
 
 ;;; Signed compare R0=sign(R1-R2)
+;;; @param R1 minuend
+;;; @param R2 subtrahend
 ;;; @return R0=A=0;  BEQ (minuend == subtrahend)
 ;;;         R0=A=1;  BPL (minuend > subtrahend)
 ;;;         R0=A=-1; BMI (minuend < subtrahend)
-;;; @clobber A
+;;; @clobber A X
 cmp16:
         bsr     sub16
         lda     R0H
@@ -150,7 +152,7 @@ cmp16:
         lda     R1H
         eor     R2H             ; minuend^subtrahend
         and     R0L             ; overflow flag
-        eor     R0H
+        eor     R0H             ; N^V
         bmi     cmp16_lt
 cmp16_gt:
         clr     R0H
@@ -206,7 +208,7 @@ umul16_next:
 umul16_end:
         rts
 
-;;; Multiply; result = multiplicand * multiplier
+;;; Signed multiplication: result = multiplicand * multiplier
 ;;; @param R1 multiplicand
 ;;; @param R2 multiplier
 ;;; @return R0 result
@@ -231,7 +233,7 @@ mul16_multiplicand:
         sta     R1H             ; negate multiplicand
 mul16_multiply:
         bsr     umul16          ; R0=result
-        lda     arith_work      ; A=(multiplicand^multiplier)
+        lda     arith_work      ; sign(result)
         bpl     mul16_end
         lda     R0H
         nega
@@ -248,7 +250,7 @@ mul16_end:
 ;;; @param R2 divisor
 ;;; @return R0 quotient
 ;;; @return R1 remainder
-;;; @clobber R2
+;;; @clobber A R2
 udiv16:
         stx     udiv16_x        ; save X
         lda     R2H
@@ -331,12 +333,12 @@ udiv16_end:
 udiv16_x:
         rmb     1
 
-;;; Division; dividend / divisor = quotient ... remainder
+;;; Signed division: dividend / divisor = quotient ... remainder
 ;;; @param R1 dividend
 ;;; @param R2 divisor
 ;;; @return R0 quotient
 ;;; @return X:A quotient
-;;; @return R1 remainder
+;;; @return R1 |remainder|
 ;;; @clobber R2
 div16:
         lda     R1H
@@ -357,7 +359,7 @@ div16_dividend:
         sta     R1H             ; negate dividend
 div16_divide:
         jsr     udiv16          ; R0=quotient
-        lda     div16_sign      ; A=(dividend^divisor)
+        lda     div16_sign      ; sign(quotient)
         bpl     div16_end
         lda     R0H
         nega

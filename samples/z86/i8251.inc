@@ -1,5 +1,6 @@
 ;;; -*- mode: asm; mode: flyspell-prog; -*-
 ;;; i8251 USART device emulator.
+;;; Bit definition of mode register
 MODE_STOP_gp:   equ     6
 MODE_STOP_gm:   equ     %(2)11000000
 MODE_STOP1_gc:  equ     (1 SHL MODE_STOP_gp)

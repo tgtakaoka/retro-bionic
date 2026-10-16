@@ -41,7 +41,7 @@
 (1)       0 : =87                PCON:   equ     87H             ; Power control
 (1)       0 :                    ;;; PSW (0D0H) Program status word (bit addressable)
 (1)       0 : =7                 CY:     equ     7              ; set to 1 if carry
-(1)       0 : =6                 AC:     equ     6              ; set to 1 if auxillary carry
+(1)       0 : =6                 AC:     equ     6              ; set to 1 if auxiliary carry
 (1)       0 : =5                 F0:     equ     5              ; user flag 0
 (1)       0 : =4                 RS1:    equ     4              ; register bank select
 (1)       0 : =3                 RS0:    equ     3              ; register bank select
@@ -55,7 +55,7 @@
 (1)       0 : =2                 EX1:    equ     2               ; #INT1
 (1)       0 : =1                 ET0:    equ     1               ; Timer 0 overflow
 (1)       0 : =0                 EX0:    equ     0               ; #INT0
-(1)       0 :                    ;;; SCON (89H) Serial control (bit addressable)
+(1)       0 :                    ;;; SCON (98H) Serial control (bit addressable)
 (1)       0 : =7                 SM0:    equ     7               ; Serial mode SM[0:1:2]=010 8-bit UART
 (1)       0 : =6                 SM1:    equ     6
 (1)       0 : =5                 SM2:    equ     5
@@ -70,8 +70,8 @@
 (1)       0 :                    ;;; TMOD (89H) Timer/Counter mode control register
 (1)       0 : =4                 T1MODE_gp:      equ     4       ; Timer 1 mode
 (1)       0 : =0                 T0MODE_gp:      equ     0       ; Timer 0 mode
-(1)       0 : =8                 TGATE:          equ     1000B
-(1)       0 : =4                 TXPIN:          equ     0100B   ; Input from Tx pin
+(1)       0 : =8                 TGATE:          equ     1000B   ; Run only while #INTx is high
+(1)       0 : =4                 TXPIN:          equ     0100B   ; Count pulses on T0/T1 pin
 (1)       0 : =2                 T8MODE:         equ     0010B   ; 8-bit auto-reload timer/counter
 (1)       0 :                    ;;; PCON (87H) Power control register
 (1)       0 : =40                SMOD:   equ     1000000B        ; Double baudrate
@@ -85,13 +85,14 @@
 (1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
 (1)       0 :
 (1)       0 :                    ;;; i8251 USART device emulator.
+(1)       0 :                    ;;; Bit definition of mode instruction (asynchronous)
 (1)       0 : =6                 MODE_STOP_gp:   equ     6
 (1)       0 : =C0                MODE_STOP_gm:   equ     11000000B
 (1)       0 : =40                MODE_STOP1_gc:  equ     (1 << MODE_STOP_gp)
 (1)       0 : =80                MODE_STOP15_gc: equ     (2 << MODE_STOP_gp)
 (1)       0 : =C0                MODE_STOP2_gc:  equ     (3 << MODE_STOP_gp)
-(1)       0 : =20                MODE_EVEN_bm:   equ     00100000B
-(1)       0 : =10                MODE_PARITY_bm: equ     00010000B
+(1)       0 : =20                MODE_EVEN_bm:   equ     00100000B   ; Even parity
+(1)       0 : =10                MODE_PARITY_bm: equ     00010000B   ; Parity enable
 (1)       0 : =2                 MODE_LEN_gp:    equ     2
 (1)       0 : =C                 MODE_LEN_gm:    equ     00001100B
 (1)       0 : =0                 MODE_LEN5_gc:   equ     (0 << MODE_LEN_gp)
@@ -166,7 +167,7 @@
          41 :                    eceive_data:
          41 : 15 82                      dec     DPL             ; DPTR=USARTD
          43 : E0                         movx    A, @DPTR
-         44 : 60 13                      jz      halt_to_system
+         44 : 60 13                      jz      halt_to_system  ; NUL halts
          46 : FA                         mov     R2, A           ; save character
          47 :                    transmit_loop:
          47 : 90 FF F1                   mov     DPTR, #USARTS
@@ -177,7 +178,7 @@
          50 : EA                         mov     A, R2
          51 : F0                         movx    @DPTR, A
          52 : B4 0D E5                   cjne    A, #0DH, receive_loop
-         55 : 7A 0A                      mov     R2, #0AH
+         55 : 7A 0A                      mov     R2, #0AH        ; follow CR with LF
          57 : 80 EE                      sjmp    transmit_loop
          59 :                    halt_to_system:
          59 : A5                         db      0A5H            ; halt to system

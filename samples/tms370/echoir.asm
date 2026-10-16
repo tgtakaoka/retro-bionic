@@ -52,7 +52,7 @@ loop:
         call    putchar
         jmp     loop
 halt_to_system:
-        trap    15
+        trap    15              ; halt to system
 
 putchar:
         btjz    #TDRE_bm, ACIA_status, putchar
@@ -62,7 +62,7 @@ putchar:
         include "queue.inc"
 
 isr_int1:
-        and     #~INT_FLAG & 0FFH, INT1 ; clear INT1_FLAG
+        and     #~INT_FLAG & 0FFH, INT1 ; clear INT_FLAG of INT1
         btjz    #IRQF_bm, ACIA_status, isr_int1_return
         btjz    #RDRF_bm, ACIA_status, isr_int1_return
         push    A
