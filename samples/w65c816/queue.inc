@@ -9,15 +9,14 @@ queue_buf       =       4       ; buffer start address
 ;;; [queue] Initialize queue
 ;;; @param X queue pointer
 ;;; @param A queue work space size, header included
-;;; @clobber A B X
+;;; @clobber A X
 queue_init:
         php
         sep     #P_M            ; 8-bit memory
         longa   off
         sec
-        sbc     #queue_buf
+        sbc     #queue_buf      ; A=buffer size, the clear count
         sta     queue_size,X
-        xba                     ; ATTENTION: A=B, so the clear count is stale B
         stz     queue_len,X
         stz     queue_put,X
         stz     queue_get,X

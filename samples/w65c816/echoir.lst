@@ -86,7 +86,7 @@
           0 : =94                RX_INT_TX_NO    =       WSB_8N1_gc|RIEB_bm
           0 :
        FFEE :                            *=      NVEC_IRQ        ; native vector
-       FFEE : CC 10                      .word   isr_irq
+       FFEE : CB 10                      .word   isr_irq
        FFF0 :
        FFFC :                            *=      VEC_RESET
        FFFC : 00 10                      .word   initialize
@@ -138,7 +138,7 @@
        1036 :                    getchar:
        1036 : A2 00 20                   ldx     #rx_queue
        1039 : 78                         sei                     ; Disable IRQ
-       103A : 20 9B 10                   jsr     queue_remove
+       103A : 20 9A 10                   jsr     queue_remove
        103D : 58                         cli                     ; Enable IRQ
        103E : 60                         rts
        103F :
@@ -166,128 +166,127 @@
 (1)    104C :                    ;;; [queue] Initialize queue
 (1)    104C :                    ;;; @param X queue pointer
 (1)    104C :                    ;;; @param A queue work space size, header included
-(1)    104C :                    ;;; @clobber A B X
+(1)    104C :                    ;;; @clobber A X
 (1)    104C :                    queue_init:
 (1)    104C : 08                         php
 (1)    104D : E2 20                      sep     #P_M            ; 8-bit memory
 (1)    104F :                            longa   off
 (1)    104F : 38                         sec
-(1)    1050 : E9 04                      sbc     #queue_buf
+(1)    1050 : E9 04                      sbc     #queue_buf      ; A=buffer size, the clear count
 (1)    1052 : 95 01                      sta     queue_size,X
-(1)    1054 : EB                         xba
-(1)    1055 : 74 00                      stz     queue_len,X
-(1)    1057 : 74 02                      stz     queue_put,X
-(1)    1059 : 74 03                      stz     queue_get,X
-(1)    105B :                    queue_init_loop:
-(1)    105B : 74 04                      stz     queue_buf,X
-(1)    105D : E8                         inx
-(1)    105E : 3A                         dec     A
-(1)    105F : D0 FA                      bne     queue_init_loop
-(1)    1061 : 28                         plp
-(1)    1062 : 60                         rts
-(1)    1063 :
-(1)    1063 :                    ;;; [queue] Add an element to queue
-(1)    1063 :                    ;;; @param X queue pointer
-(1)    1063 :                    ;;; @param A an element
-(1)    1063 :                    ;;; @return P.C 1 if queue is full
-(1)    1063 :                    queue_add:
-(1)    1063 : 08                         php
-(1)    1064 : E2 20                      sep     #P_M            ; 8-bit memory
-(1)    1066 :                            longa   off
-(1)    1066 : 48                         pha                     ; save an element
-(1)    1067 : B5 00                      lda     queue_len,X
-(1)    1069 : D5 01                      cmp     queue_size,X
-(1)    106B : 90 04                      bcc     queue_add_element  ; queue_len < queue_size
-(1)    106D : 68                         pla
-(1)    106E : 28                         plp
-(1)    106F : 38                         sec                     ; C=1
-(1)    1070 : 60                         rts
-(1)    1071 :                    queue_add_element:      
-(1)    1071 : 1A                         inc     A
-(1)    1072 : 95 00                      sta     queue_len,X
-(1)    1074 : 5A                         phy                     ; save Y
-(1)    1075 : DA                         phx                     ; save queue pointer
-(1)    1076 : B5 02                      lda     queue_put,X
-(1)    1078 : 18                         clc
-(1)    1079 : 63 01                      adc     1,S             ; lo(queue pointer)
-(1)    107B : 83 01                      sta     1,S
-(1)    107D : A3 02                      lda     2,S             ; hi(queue pointer)
-(1)    107F : 69 00                      adc     #0
-(1)    1081 : 83 02                      sta     2,S
-(1)    1083 : A3 02                      lda     2,S
-(1)    1085 : 7A                         ply                     ; Y=queue pointer+queue_put
-(1)    1086 : A3 03                      lda     3,S             ; restore an element
-(1)    1088 : 99 04 00                   sta     queue_buf,Y     ; store an element
-(1)    108B : 7A                         ply                     ; restore Y
-(1)    108C : B5 02                      lda     queue_put,X
-(1)    108E : 1A                         inc     A
-(1)    108F : D5 01                      cmp     queue_size,X
-(1)    1091 : 90 02                      bcc     queue_add_return ; queue_put < queue_size
-(1)    1093 : A9 00                      lda     #0
-(1)    1095 :                    queue_add_return:
-(1)    1095 : 95 02                      sta     queue_put,X
-(1)    1097 : 68                         pla
-(1)    1098 : 28                         plp
-(1)    1099 : 18                         clc                     ;  C=0
-(1)    109A : 60                         rts
-(1)    109B :
-(1)    109B :                    ;;; [queue] Remove an element from queue
-(1)    109B :                    ;;; @param X queue pointer
-(1)    109B :                    ;;; @return A an element
-(1)    109B :                    ;;; @return P.C 1 if queue is empty
-(1)    109B :                    queue_remove:
-(1)    109B : 08                         php
-(1)    109C : E2 20                      sep     #P_M            ; 8-bit memory
-(1)    109E :                            longa   off
-(1)    109E : B5 00                      lda     queue_len,X
-(1)    10A0 : D0 03                      bne     queue_remove_elem
-(1)    10A2 : 28                         plp
-(1)    10A3 : 38                         sec                     ; C=1
-(1)    10A4 : 60                         rts
-(1)    10A5 :                    queue_remove_elem:
-(1)    10A5 : 3A                         dec     A
-(1)    10A6 : 95 00                      sta     queue_len,X
-(1)    10A8 : 5A                         phy                     ; save Y
-(1)    10A9 : DA                         phx                     ; save queue pointer
-(1)    10AA : B5 03                      lda     queue_get,X
-(1)    10AC : 18                         clc
-(1)    10AD : 63 01                      adc     1,S             ; lo(queue pointer)
-(1)    10AF : 83 01                      sta     1,S
-(1)    10B1 : A3 02                      lda     2,S             ; hi(queue pointer)
-(1)    10B3 : 69 00                      adc     #0
-(1)    10B5 : 83 02                      sta     2,S
-(1)    10B7 : 7A                         ply                     ; Y=queue pointer+queue_get
-(1)    10B8 : B9 04 00                   lda     queue_buf,Y     ; read an element
-(1)    10BB : 7A                         ply                     ; restore Y
-(1)    10BC : 48                         pha                     ; save an element
-(1)    10BD : B5 03                      lda     queue_get,X
-(1)    10BF : 1A                         inc     A
-(1)    10C0 : D5 01                      cmp     queue_size,X
-(1)    10C2 : 90 02                      bcc     queue_remove_return ; queue_get < queue_size
-(1)    10C4 : A9 00                      lda     #0
-(1)    10C6 :                    queue_remove_return:
-(1)    10C6 : 95 03                      sta     queue_get,X
-(1)    10C8 : 68                         pla                     ; restore an element
-(1)    10C9 : 28                         plp
-(1)    10CA : 18                         clc                     ; C=0
-(1)    10CB : 60                         rts
-       10CC :
-       10CC :                    isr_irq:
-       10CC :                            ;; P_D is cleared on interrupt
-       10CC : E2 20                      sep     #P_M            ; 8-bit memory
-       10CE : 48                         pha                     ; save A
-       10CF : DA                         phx                     ; save X
-       10D0 : AD 00 DF                   lda     ACIA_status
-       10D3 : 29 80                      and     #IRQF_bm
-       10D5 : F0 10                      beq     isr_irq_return
-       10D7 :                    isr_irq_receive:
-       10D7 : AD 00 DF                   lda     ACIA_status
-       10DA : 29 01                      and     #RDRF_bm
-       10DC : F0 09                      beq     isr_irq_return
-       10DE : AD 01 DF                   lda     ACIA_data
-       10E1 : A2 00 20                   ldx     #rx_queue
-       10E4 : 20 63 10                   jsr     queue_add
-       10E7 :                    isr_irq_return:
-       10E7 : FA                         plx                     ; restore X
-       10E8 : 68                         pla                     ; restore A
-       10E9 : 40                         rti                     ; restore P and PC
+(1)    1054 : 74 00                      stz     queue_len,X
+(1)    1056 : 74 02                      stz     queue_put,X
+(1)    1058 : 74 03                      stz     queue_get,X
+(1)    105A :                    queue_init_loop:
+(1)    105A : 74 04                      stz     queue_buf,X
+(1)    105C : E8                         inx
+(1)    105D : 3A                         dec     A
+(1)    105E : D0 FA                      bne     queue_init_loop
+(1)    1060 : 28                         plp
+(1)    1061 : 60                         rts
+(1)    1062 :
+(1)    1062 :                    ;;; [queue] Add an element to queue
+(1)    1062 :                    ;;; @param X queue pointer
+(1)    1062 :                    ;;; @param A an element
+(1)    1062 :                    ;;; @return P.C 1 if queue is full
+(1)    1062 :                    queue_add:
+(1)    1062 : 08                         php
+(1)    1063 : E2 20                      sep     #P_M            ; 8-bit memory
+(1)    1065 :                            longa   off
+(1)    1065 : 48                         pha                     ; save an element
+(1)    1066 : B5 00                      lda     queue_len,X
+(1)    1068 : D5 01                      cmp     queue_size,X
+(1)    106A : 90 04                      bcc     queue_add_element  ; queue_len < queue_size
+(1)    106C : 68                         pla
+(1)    106D : 28                         plp
+(1)    106E : 38                         sec                     ; C=1
+(1)    106F : 60                         rts
+(1)    1070 :                    queue_add_element:      
+(1)    1070 : 1A                         inc     A
+(1)    1071 : 95 00                      sta     queue_len,X
+(1)    1073 : 5A                         phy                     ; save Y
+(1)    1074 : DA                         phx                     ; save queue pointer
+(1)    1075 : B5 02                      lda     queue_put,X
+(1)    1077 : 18                         clc
+(1)    1078 : 63 01                      adc     1,S             ; lo(queue pointer)
+(1)    107A : 83 01                      sta     1,S
+(1)    107C : A3 02                      lda     2,S             ; hi(queue pointer)
+(1)    107E : 69 00                      adc     #0
+(1)    1080 : 83 02                      sta     2,S
+(1)    1082 : A3 02                      lda     2,S
+(1)    1084 : 7A                         ply                     ; Y=queue pointer+queue_put
+(1)    1085 : A3 03                      lda     3,S             ; restore an element
+(1)    1087 : 99 04 00                   sta     queue_buf,Y     ; store an element
+(1)    108A : 7A                         ply                     ; restore Y
+(1)    108B : B5 02                      lda     queue_put,X
+(1)    108D : 1A                         inc     A
+(1)    108E : D5 01                      cmp     queue_size,X
+(1)    1090 : 90 02                      bcc     queue_add_return ; queue_put < queue_size
+(1)    1092 : A9 00                      lda     #0
+(1)    1094 :                    queue_add_return:
+(1)    1094 : 95 02                      sta     queue_put,X
+(1)    1096 : 68                         pla
+(1)    1097 : 28                         plp
+(1)    1098 : 18                         clc                     ;  C=0
+(1)    1099 : 60                         rts
+(1)    109A :
+(1)    109A :                    ;;; [queue] Remove an element from queue
+(1)    109A :                    ;;; @param X queue pointer
+(1)    109A :                    ;;; @return A an element
+(1)    109A :                    ;;; @return P.C 1 if queue is empty
+(1)    109A :                    queue_remove:
+(1)    109A : 08                         php
+(1)    109B : E2 20                      sep     #P_M            ; 8-bit memory
+(1)    109D :                            longa   off
+(1)    109D : B5 00                      lda     queue_len,X
+(1)    109F : D0 03                      bne     queue_remove_elem
+(1)    10A1 : 28                         plp
+(1)    10A2 : 38                         sec                     ; C=1
+(1)    10A3 : 60                         rts
+(1)    10A4 :                    queue_remove_elem:
+(1)    10A4 : 3A                         dec     A
+(1)    10A5 : 95 00                      sta     queue_len,X
+(1)    10A7 : 5A                         phy                     ; save Y
+(1)    10A8 : DA                         phx                     ; save queue pointer
+(1)    10A9 : B5 03                      lda     queue_get,X
+(1)    10AB : 18                         clc
+(1)    10AC : 63 01                      adc     1,S             ; lo(queue pointer)
+(1)    10AE : 83 01                      sta     1,S
+(1)    10B0 : A3 02                      lda     2,S             ; hi(queue pointer)
+(1)    10B2 : 69 00                      adc     #0
+(1)    10B4 : 83 02                      sta     2,S
+(1)    10B6 : 7A                         ply                     ; Y=queue pointer+queue_get
+(1)    10B7 : B9 04 00                   lda     queue_buf,Y     ; read an element
+(1)    10BA : 7A                         ply                     ; restore Y
+(1)    10BB : 48                         pha                     ; save an element
+(1)    10BC : B5 03                      lda     queue_get,X
+(1)    10BE : 1A                         inc     A
+(1)    10BF : D5 01                      cmp     queue_size,X
+(1)    10C1 : 90 02                      bcc     queue_remove_return ; queue_get < queue_size
+(1)    10C3 : A9 00                      lda     #0
+(1)    10C5 :                    queue_remove_return:
+(1)    10C5 : 95 03                      sta     queue_get,X
+(1)    10C7 : 68                         pla                     ; restore an element
+(1)    10C8 : 28                         plp
+(1)    10C9 : 18                         clc                     ; C=0
+(1)    10CA : 60                         rts
+       10CB :
+       10CB :                    isr_irq:
+       10CB :                            ;; P_D is cleared on interrupt
+       10CB : E2 20                      sep     #P_M            ; 8-bit memory
+       10CD : 48                         pha                     ; save A
+       10CE : DA                         phx                     ; save X
+       10CF : AD 00 DF                   lda     ACIA_status
+       10D2 : 29 80                      and     #IRQF_bm
+       10D4 : F0 10                      beq     isr_irq_return
+       10D6 :                    isr_irq_receive:
+       10D6 : AD 00 DF                   lda     ACIA_status
+       10D9 : 29 01                      and     #RDRF_bm
+       10DB : F0 09                      beq     isr_irq_return
+       10DD : AD 01 DF                   lda     ACIA_data
+       10E0 : A2 00 20                   ldx     #rx_queue
+       10E3 : 20 62 10                   jsr     queue_add
+       10E6 :                    isr_irq_return:
+       10E6 : FA                         plx                     ; restore X
+       10E7 : 68                         pla                     ; restore A
+       10E8 : 40                         rti                     ; restore P and PC

@@ -65,7 +65,7 @@ The tables time them on real chips, from recorded casts, with
 | HD64180S    |  31.3 |   1.272 |   0.324 | Z80 code           | [mandelbrot_hd64180s.cast](../samples/z80/mandelbrot_hd64180s.cast)      | [z80/mandelbrot.lst](../samples/z80/mandelbrot.lst)             |
 | HD6309E     |  31.3 |   1.270 |   0.299 | MC6809 code        | [mandelbrot_hd6309e.cast](../samples/mc6809/mandelbrot_hd6309e.cast)     | [mc6809/mandelbrot.lst](../samples/mc6809/mandelbrot.lst)       |
 | Z80         |  32.6 |   1.323 |   0.319 | i8080 code         | [mandelbrot_z80.cast](../samples/i8080/mandelbrot_z80.cast)              | [i8080/mandelbrot.lst](../samples/i8080/mandelbrot.lst)         |
-| W65C816S    |  32.7 |   1.327 |   0.321 |                    | [mandelbrot.cast](../samples/w65c816/mandelbrot.cast)                    | [w65c816/mandelbrot.lst](../samples/w65c816/mandelbrot.lst)     |
+| W65C816S    |  33.7 |   1.368 |   0.331 |                    | [mandelbrot.cast](../samples/w65c816/mandelbrot.cast)                    | [w65c816/mandelbrot.lst](../samples/w65c816/mandelbrot.lst)     |
 | MC68HC11    |  32.7 |   1.328 |   0.303 | MC6801 code        | [mandelbrot_mc68hc11.cast](../samples/mc6801/mandelbrot_mc68hc11.cast)   | [mc6801/mandelbrot.lst](../samples/mc6801/mandelbrot.lst)       |
 | MC6801      |  32.9 |   1.336 |   0.304 |                    | [mandelbrot.cast](../samples/mc6801/mandelbrot.cast)                     | [mc6801/mandelbrot.lst](../samples/mc6801/mandelbrot.lst)       |
 | HD6309      |  33.0 |   1.339 |   0.315 | MC6809 code        | [mandelbrot_hd6309.cast](../samples/mc6809/mandelbrot_hd6309.cast)       | [mc6809/mandelbrot.lst](../samples/mc6809/mandelbrot.lst)       |
