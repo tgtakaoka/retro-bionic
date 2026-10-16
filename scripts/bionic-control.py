@@ -8,8 +8,8 @@ nothing here knows about any other piece of bench equipment -- that's
 logic-analyzer.py's job.
 
 Subcommands
-  flash            build and upload, retrying (boards differ: some take
-                   the first attempt, some reliably fail it)
+  flash            build and program the Teensy on BIONIC_PORT only (a
+                   /dev/serial/by-id path picks the bench), retrying
   reset [cmd...]   the default: turn verbose on, then send the commands,
                    default R; print the captured text
   send CMDS        send raw command characters, print the reply
@@ -52,15 +52,32 @@ import fcntl
 import os
 import re
 import select
+import socket
 import subprocess
 import sys
 import time
 
-PORT = os.environ.get('BIONIC_PORT', '/dev/ttyACM0')
+from importlib.machinery import SourceFileLoader
+bench = SourceFileLoader('bench', os.path.join(os.path.dirname(
+        os.path.abspath(__file__)), 'bionic-bench.py')).load_module()
+
+# Which bench: BIONIC_BENCH names one (`scripts/bionic-bench.py status`), else
+# the one this session holds, else the only one on USB. Its two USB serials are
+# the console (if00) and the halt port (if02); BIONIC_PORT and
+# BIONIC_HALT_PORT override them.
+BENCH = os.environ.get('BIONIC_BENCH')
+if BENCH is None and 'BIONIC_PORT' not in os.environ:
+    BENCH = bench.mine()
+    if BENCH is None:
+        _on = bench.present()
+        BENCH = next(iter(_on)) if len(_on) == 1 else None
+_ports = bench.ports(BENCH) if BENCH else None
+PORT = os.environ.get('BIONIC_PORT', _ports[0] if _ports else '/dev/ttyACM0')
 # The second USB serial is the halt switch: main.cpp's serialEventUSB1()
 # fires Pins::isrHaltSwitch() on any byte, which loop() checks each step.
 # It is the only way out of a run that does not come back on its own.
-HALT_PORT = os.environ.get('BIONIC_HALT_PORT', '/dev/ttyACM1')
+HALT_PORT = os.environ.get('BIONIC_HALT_PORT',
+                           _ports[1] if _ports else '/dev/ttyACM1')
 # The repository this script lives in, so a worktree needs no edit here.
 PROJ = os.environ.get(
     'BIONIC_PROJ', os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -70,8 +87,13 @@ ENV = os.environ.get('BIONIC_ENV', 'teensy41')
 # cleanup.
 RUN_DIR = os.environ.get('BIONIC_RUN_DIR', '/tmp/bionic-bench')
 os.makedirs(RUN_DIR, exist_ok=True)
-OUT = os.environ.get('BIONIC_OUT', os.path.join(RUN_DIR, 'last.txt'))
-LOCK = os.environ.get('BIONIC_LOCK', os.path.join(RUN_DIR, 'board.lock'))
+OUT = os.environ.get('BIONIC_OUT', os.path.join(
+        RUN_DIR, 'last-%s.txt' % BENCH if BENCH else 'last.txt'))
+# Commands are logged under this name; the watcher's own queries are not.
+LOG_AS = BENCH
+# One per bench: two benches run side by side.
+LOCK = os.environ.get('BIONIC_LOCK', os.path.join(
+        RUN_DIR, 'board-%s.lock' % BENCH if BENCH else 'board.lock'))
 # A run is judged by progress, not by elapsed time: STALL is how long the
 # console may stay silent before a run counts as stuck.  It has to exceed the
 # gap between two lines of output on the slowest target, not the fastest.
@@ -93,7 +115,7 @@ BANNER = re.compile(r'\* Bionic(\S*)(?: \(CPU: (\S+)\))? \* (\S+)')
 _lockfd = None
 
 
-def acquire(timeout=0.0):
+def acquire(timeout=0.0, path=None):
     """Take the board lock, so only one test drives the hardware at a time.
 
     This is a physical device, not a service: two sessions talking to it
@@ -104,7 +126,8 @@ def acquire(timeout=0.0):
     global _lockfd
     if _lockfd is not None:
         return True
-    fd = os.open(LOCK, os.O_CREAT | os.O_RDWR, 0o666)
+    path = path or LOCK
+    fd = os.open(path, os.O_CREAT | os.O_RDWR, 0o666)
     end = time.time() + timeout
     while True:
         try:
@@ -116,7 +139,7 @@ def acquire(timeout=0.0):
                 except OSError:
                     held = '?'
                 os.close(fd)
-                sys.exit('board is in use by pid %s (%s)' % (held, LOCK))
+                sys.exit('board is in use by pid %s (%s)' % (held, path))
             time.sleep(0.2)
             continue
         os.ftruncate(fd, 0)
@@ -134,17 +157,38 @@ def release():
 
 
 # ---------------------------------------------------------------- serial
-def _open(timeout=20):
-    acquire(float(os.environ.get('BIONIC_LOCK_WAIT', '0')))
+def usable():
+    """Exit unless this session may use the bench: one is picked, and no
+    other session holds it."""
+    if BENCH is None and 'BIONIC_PORT' not in os.environ and \
+            len(bench.present()) > 1:
+        held = bench.held()
+        if held:
+            sys.exit('you hold %s: name one with BIONIC_BENCH=NAME'
+                     % ' and '.join(held))
+        sys.exit('more than one bench on USB: lock one '
+                 '(`scripts/bionic-bench.py lock NAME`) or set BIONIC_BENCH')
+    if BENCH:
+        bench.check(BENCH)
+
+
+def _open(timeout=20, port=None, name=None, query=False):
+    """The console of this bench, or of bench `name` on `port`; `query` is the
+    watcher's look at who is seated, which a bench's holder allows."""
+    if not query:
+        usable()
+    port = port or PORT
+    acquire(float(os.environ.get('BIONIC_LOCK_WAIT', '0')),
+            os.path.join(RUN_DIR, 'board-%s.lock' % name) if name else None)
     end = time.time() + timeout
     while time.time() < end:
         try:
-            fd = os.open(PORT, os.O_RDWR | os.O_NOCTTY | os.O_NONBLOCK)
-            os.system('stty -F %s raw -echo' % PORT)
+            fd = os.open(port, os.O_RDWR | os.O_NOCTTY | os.O_NONBLOCK)
+            os.system('stty -F %s raw -echo' % port)
             return fd
         except OSError:
             time.sleep(0.5)
-    sys.exit('%s never appeared' % PORT)
+    sys.exit('%s never appeared' % port)
 
 
 def pc_from(buf, name=None):
@@ -192,8 +236,58 @@ def write_all(fd, data):
         data = data[n:]
 
 
+# Peekers (`scripts/bionic-bench.py peek NAME`) of what this process reads
+# from its bench, served on an abstract Unix socket: nothing on disk, gone
+# with the process.
+_peek = {'server': None, 'clients': []}
+
+
+def mirror(data):
+    """Pass console output on to any peeker of this bench."""
+    if not LOG_AS or not data:
+        return
+    if _peek['server'] is None:
+        server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        try:
+            server.bind(bench.peek_address(LOG_AS))
+        except OSError:   # another process drives it; no peeking from here
+            _peek['server'] = False
+            return
+        server.listen(4)
+        server.setblocking(False)
+        _peek['server'] = server
+    if not _peek['server']:
+        return
+    try:
+        while True:
+            _peek['clients'].append(_peek['server'].accept()[0])
+    except BlockingIOError:
+        pass
+    for c in list(_peek['clients']):
+        try:
+            c.send(data, socket.MSG_DONTWAIT)
+        except OSError:   # gone, or too slow to keep up
+            c.close()
+            _peek['clients'].remove(c)
+
+
+def note(data=b'', text=None):
+    """Log a command sent to this bench, or `text`, in the bench's
+    bench-events.log: what each session did to it, next to what it reported."""
+    if not LOG_AS:
+        return
+    if text is None:
+        text = '> ' + ''.join(
+                c if ' ' <= c <= '~' else '\\r' if c == '\r' else
+                '^%c' % (ord(c) + 64) if ord(c) < 32 else '\\x%02x' % ord(c)
+                for c in data.decode('latin-1'))
+    bench.say(LOG_AS, text)
+
+
 def abort():
     """Stop a running CPU. Harmless when it is not running."""
+    usable()
+    note(text='abort')
     acquire(float(os.environ.get('BIONIC_LOCK_WAIT', '0')))
     try:
         fd = os.open(HALT_PORT, os.O_WRONLY | os.O_NOCTTY | os.O_NONBLOCK)
@@ -257,7 +351,7 @@ class Board:
             r, _, _ = select.select([self.fd], [], [], 0.02 if prompt else 0.1)
             if r:
                 try:
-                    d = os.read(self.fd, 65536)
+                    d = self._read()
                     if d:
                         buf += d
                         last = time.time()
@@ -276,7 +370,9 @@ class Board:
         keystroke before checking for a reply.
         """
         if data:
-            self._write(data if isinstance(data, bytes) else data.encode())
+            data = data if isinstance(data, bytes) else data.encode()
+            note(data)
+            self._write(data)
         if delay:
             time.sleep(delay)
         return self._drain(wait, idle)
@@ -318,7 +414,7 @@ class Board:
             now = time.time()
             if r:
                 try:
-                    d = os.read(self.fd, 65536)
+                    d = self._read()
                 except BlockingIOError:
                     d = b''
                 if d:
@@ -358,6 +454,7 @@ class Board:
         one-shot command like `g<addr>\r` that also starts a run. G takes
         an optional line-limit field, so it needs the trailing \r to
         submit an empty one and actually start running."""
+        note(cmd)
         self._write(cmd)
         return self.wait_run(**kw)
 
@@ -484,6 +581,11 @@ class Board:
     def _write(self, data):
         write_all(self.fd, data)
 
+    def _read(self):
+        d = os.read(self.fd, 65536)
+        mirror(d)
+        return d
+
     # ---------------------------------------------------------------- session
     def upload_file(self, path):
         """Inject one HEX/S-record file through the debugger's U command.
@@ -493,6 +595,7 @@ class Board:
         that sends the wrong one is left stuck in the loop and every later
         command is eaten as a malformed record.
         """
+        note(text='upload %s' % os.path.relpath(path, PROJ))
         self._write(b'\x03')                            # leave any half-finished prompt
         self._drain(1.5, 0.3)
         self._write(b'U')
@@ -509,7 +612,7 @@ class Board:
             # buffer, which this opportunistic, non-blocking read alone
             # keeps from filling on a long upload.
             try:
-                os.read(self.fd, 65536)
+                self._read()
             except BlockingIOError:
                 pass
             sent += 1
@@ -548,25 +651,46 @@ class Board:
 
 
 # ---------------------------------------------------------------- main
-def flash(tries=3):
-    """Build and upload, retrying.
+# Each bench's Teensy console, named by its serial number.
+LOADER = os.path.expanduser(
+        '~/.platformio/packages/tool-teensy/teensy_loader_cli')
 
-    Some boards program on the first attempt, others reliably fail it and
-    take the second -- so retry rather than assuming either, and treat
-    'Booting' as success even when pio reports failure (the teensy_size
-    step can error out after the image is already in).
+
+def flash(tries=3):
+    """Build, then program the Teensy on PORT, and only that one.
+
+    PlatformIO's upload reboots and programs whichever Teensy it finds;
+    with two benches on USB that may be the wrong one. Opening PORT at 134
+    baud sends just its Teensy into the HalfKay bootloader, and the loader
+    then programs the only Teensy waiting there. The first try is retried
+    because some boards miss the reboot.
     """
+    usable()
     b = subprocess.run(['pio', 'run', '-e', ENV], cwd=PROJ,
                        capture_output=True, text=True)
     if 'SUCCESS' not in b.stdout:
         print(b.stdout[-2000:])
         sys.exit('build failed')
+    image = os.path.join(PROJ, '.pio', 'build', ENV, 'firmware.hex')
+    serial = bench.serial_at(PORT)   # its port is gone while it is flashed
     out = ''
     for i in range(tries):
-        p = subprocess.run(['pio', 'run', '-e', ENV, '-t', 'upload'],
-                           cwd=PROJ, capture_output=True, text=True)
-        out = p.stdout + p.stderr
-        if 'SUCCESS' in out or 'Booting' in out:
+        if bench.halfkay():
+            sys.exit('another Teensy is in its bootloader; not flashing')
+        subprocess.run(['stty', '-F', PORT, '134'], capture_output=True)
+        try:
+            p = subprocess.run([LOADER, '--mcu=TEENSY41', '-w', image],
+                               capture_output=True, text=True, timeout=30)
+            out, ok = p.stdout + p.stderr, p.returncode == 0
+        except subprocess.TimeoutExpired:   # it never reached the loader
+            out, ok = 'no Teensy entered the bootloader', False
+        if ok:
+            bench.record_firmware(serial, image, PROJ)
+            note(text='flash %s' % bench.firmware(serial))
+            for _ in range(50):   # the console comes back after the boot
+                if os.path.exists(PORT):
+                    break
+                time.sleep(0.2)
             print('upload ok (attempt %d)' % (i + 1))
             return
         print('upload attempt %d failed' % (i + 1))

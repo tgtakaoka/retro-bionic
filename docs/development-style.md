@@ -131,6 +131,30 @@ Recovery order for an unresponsive board, in increasing violence: Ctrl-C
 firmware is stuck in a wait: the watchdog reboots it within 4 s if the wait
 feeds nothing, and otherwise only a reflash brings it back.
 
+### Lock a bench before using it **[hw]**
+
+Several benches can be on USB at once, each a Teensy named `bench1`,
+`bench2`, ... in the order first seen (`scripts/bionic-bench.py rename` gives
+a clearer name), so several sessions work side by side, one bench each. A
+session takes one with `scripts/bionic-bench.py lock NAME`, or queues with
+`reserve`; `bionic-control.py`, and every tool built on it, then talks to the
+bench the session holds, and refuses one another session holds. The bench's
+two USB serials, console and halt port, follow from its Teensy's serial
+number.
+
+A logic analyzer is locked the same way. Each is a resource added with
+`scripts/bionic-bench.py add NAME kind=logic mcp=URL`, its Logic 2 MCP
+server; `logic-analyzer.py` captures on the one the session holds (or
+`BIONIC_LOGIC`, or the only one) and refuses one another session holds.
+Logic 2's MCP tools called directly cannot check: lock the analyzer first.
+
+Powering a board off drops its Teensy off USB; a flash passes through the
+HalfKay bootloader and a firmware crash re-enumerates within a second or two.
+`scripts/bionic-bench.py daemon` logs each change to `bench-events.log`,
+then the target seated, so a seat needs no reply in chat.
+`scripts/bionic-bench.py peek NAME` follows what a bench prints to whichever
+session drives it, without touching it.
+
 ### Halt through an entry the CPU takes itself
 
 **An injected save races a pending interrupt.** A save injected at an ordinary

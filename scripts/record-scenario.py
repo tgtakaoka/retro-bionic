@@ -136,6 +136,7 @@ class Console:
                 continue
             try:
                 d = os.read(self.fd, 4096)
+                bc.mirror(d)
             except BlockingIOError:
                 # select() can report ready and the read still find
                 # nothing; ending here would stop draining the board,
@@ -165,6 +166,7 @@ class Console:
 
     def type_line(self, text, cr=True):
         """Type `text` one key at a time, then Enter unless `cr` is False."""
+        bc.note((text + ('\r' if cr else '')).encode())
         pace(0.5)   # "about to type" beat
         for i, ch in enumerate(text):
             os.write(self.fd, ch.encode())
@@ -232,6 +234,7 @@ def do_key(con, letter):
 
 
 def do_upload(con, path):
+    bc.note(text='upload %s' % path)
     con.type_line('U', cr=False)
     need(con.wait_for(b'Upload waiting...', anywhere=True), 'the upload prompt')
     pace(0.3)
