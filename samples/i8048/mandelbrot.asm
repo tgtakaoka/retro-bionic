@@ -42,9 +42,9 @@ vC:     ds      2
 vD:     ds      2
 vA:     ds      2
 vB:     ds      2
-vP:     ds      2
 vQ:     ds      2
 vS:     ds      2
+vP:     equ     vS              ; S is dead before P is set
 vT:     ds      2
 vY:     ds      1
 vX:     ds      1

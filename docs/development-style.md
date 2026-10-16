@@ -1219,6 +1219,12 @@ told apart by `DEC @R0`, which the Intel parts lack. The board identity is
 The stack lives in internal RAM 08h-17h, with SP in PSW's low three bits; each
 call stores the return address with PSW's top four flags. **[doc]**
 
+**Samples fit in 64 bytes of internal RAM**, the smallest of the parts the
+board takes: past the registers and stack, 20h-3Fh is all there is. The
+MSM80C35 wraps 40h-7Fh onto 00h-3Fh, so a variable at 40h overwrote R0 and
+mandelbrot drew the wrong picture; it also reports as MSM80C39, since
+`DEC @R0` tells only the maker apart. **[hw]**
+
 The fetch data drive is released about 300 ns before `#PSEN` rises. It is
 harmless on the parts tried. **[hw]**
 
