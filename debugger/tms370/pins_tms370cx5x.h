@@ -90,7 +90,7 @@ private:
 
     void loop();
     bool rawStep();
-    void pauseCpu();
+    bool pauseCpu();
     void resumeCpu();
     Signals *resetCpu();
 };
