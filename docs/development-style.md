@@ -1743,6 +1743,13 @@ without one, so an interrupt recognized a boundary late is taken there too;
 with one run only, about one halt in 400 still saved the injected bytes.
 **[hw]**
 
+A CPU that stops issuing bus cycles no longer wedges the board until the
+watchdog reboots it. The waits for #EDS and #OCF give up after 1024 CLKIN
+cycles, four times the longest instruction (DIV, 63 SYSCLK cycles), print
+`?halt: no bus cycle` and assert #WAIT, so the next `resumeCpu()` resets a
+CPU whose SYSCLK has stopped. That print can trip the fault logic, but only
+once the sequence has already failed. **[code]**
+
 ### Z8
 
 **Pitfalls.** The stack is external, and the tables must see

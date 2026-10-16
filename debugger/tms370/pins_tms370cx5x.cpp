@@ -146,6 +146,17 @@ void clkin_cycle() {
     delayNanoseconds(clkin_ns);
 }
 
+// CLKIN cycles to wait for #EDS or #OCF; DIV, the longest instruction,
+// runs 63 SYSCLK cycles of 4 CLKIN each.
+constexpr auto stall_clocks = 1024;
+
+// Gives up a wait rather than wedge the board; the next resumeCpu() resets
+// a CPU whose SYSCLK has stopped.
+void no_bus_cycle() {
+    assert_wait();
+    cli.println("?halt: no bus cycle");
+}
+
 }  // namespace
 
 PinsTms370Cx5x::PinsTms370Cx5x() {
@@ -181,7 +192,9 @@ Signals *PinsTms370Cx5x::resetCpu() {
 
 Signals *PinsTms370Cx5x::prepareCycle() {
     auto s = SignalsTms370Cx5x::put();
-    while (!eds_asserted()) {
+    for (auto n = 0; !eds_asserted(); ++n) {
+        if (n >= stall_clocks)
+            return nullptr;
         delayNanoseconds(clkin_ns);
         clkin_cycle_lo();
     }
@@ -231,7 +244,7 @@ Signals *PinsTms370Cx5x::completeCycle(Signals *_s) {
         }
         clkin_lo();
     }
-    while (eds_asserted()) {
+    for (auto n = 0; eds_asserted() && n < stall_clocks; ++n) {
         delayNanoseconds(clkin_ns);
         clkin_cycle_lo();
     }
@@ -239,12 +252,16 @@ Signals *PinsTms370Cx5x::completeCycle(Signals *_s) {
     return s;
 }
 
-void PinsTms370Cx5x::pauseCpu() {
-    while (ocf_asserted()) {
+bool PinsTms370Cx5x::pauseCpu() {
+    for (auto n = 0; ocf_asserted(); ++n) {
+        if (n >= stall_clocks)
+            return false;
         delayNanoseconds(clkin_ns);
         clkin_cycle_lo();
     }
-    while (!ocf_asserted()) {
+    for (auto n = 0; !ocf_asserted(); ++n) {
+        if (n >= stall_clocks)
+            return false;
         // An interrupt taken here reads its vector first. #OCF is read
         // again, since it may settle after #EDS.
         if (eds_asserted()) {
@@ -258,6 +275,7 @@ void PinsTms370Cx5x::pauseCpu() {
     }
     assert_wait();
     clkin_cycle_lo();
+    return true;
 }
 
 void PinsTms370Cx5x::resumeCpu() {
@@ -287,13 +305,16 @@ void PinsTms370Cx5x::injectReads(const uint8_t *data, uint_fast8_t len) {
     uint_fast8_t inj = 0;
     while (inj < len) {
         auto s = prepareCycle();
+        if (s == nullptr)
+            return no_bus_cycle();
         if (inj < len)
             s->inject(data[inj]);
         completeCycle(s);
         if (s->read())
             inj++;
     }
-    pauseCpu();
+    if (!pauseCpu())
+        no_bus_cycle();
 }
 
 uint16_t PinsTms370Cx5x::captureWrites(
@@ -304,6 +325,10 @@ uint16_t PinsTms370Cx5x::captureWrites(
     uint_fast8_t cap = 0;
     while (inj < len || cap < max) {
         auto s = prepareCycle();
+        if (s == nullptr) {
+            no_bus_cycle();
+            return addr;
+        }
         if (inj < len)
             s->inject(data[inj]);
         if (cap < max)
@@ -316,7 +341,8 @@ uint16_t PinsTms370Cx5x::captureWrites(
             buf[cap++] = s->data;
         }
     }
-    pauseCpu();
+    if (!pauseCpu())
+        no_bus_cycle();
     return addr;
 }
 
@@ -333,6 +359,8 @@ void PinsTms370Cx5x::loop() {
     Cycles::reset();
     while (true) {
         auto s = prepareCycle();
+        if (s == nullptr)
+            return no_bus_cycle();
         if (s->fetch()) {
             if (haltSwitch()) {
             stop:
@@ -371,16 +399,13 @@ void PinsTms370Cx5x::takePendingInterrupt(Signals *fetch) {
     // vector next, so it is taken here rather than in the middle of the
     // save; the save then starts at its handler's fetch. Otherwise JMP to
     // itself leaves PC as it was.
-    // ATTENTION: prepareCycle(), completeCycle() and pauseCpu() still wait
-    // without a bound; a CPU that stops issuing bus cycles ends in a
-    // watchdog reboot.
     const auto pc = fetch->addr;
     auto s = fetch;
     for (auto jumps = 0; jumps < park_jumps; ++jumps) {
         completeCycle(s->inject(InstTms370::JMP));
         s = prepareCycle();
-        for (auto n = 0; !s->fetch(); ++n) {
-            if (n >= park_cycles) {
+        for (auto n = 0; s == nullptr || !s->fetch(); ++n) {
+            if (s == nullptr || n >= park_cycles) {
                 cli.println("?halt: no fetch");
                 return;
             }
@@ -409,26 +434,17 @@ bool PinsTms370Cx5x::rawStep() {
         return false;
     resumeCpu();
     auto s = prepareCycle();
+    if (s == nullptr) {
+        no_bus_cycle();
+        return false;
+    }
     // An interrupt enabled by the restore fetches its handler instead.
     completeCycle(s->inject(_mems->read(s->addr)));
     s->clearInject();
-    // finish instruction fetch
-    while (ocf_asserted()) {
-        delayNanoseconds(clkin_ns);
-        clkin_cycle_lo();
-    }
-    // execute bus cycles until #OCF asserted
-    while (true) {
-        while (!eds_asserted() && !ocf_asserted())
-            clkin_cycle_lo();
-        if (ocf_asserted()) {
-            assert_wait();
-            clkin_cycle_lo();
-            return true;
-        }
-        s = prepareCycle();
-        completeCycle(s);
-    }
+    if (pauseCpu())
+        return true;
+    no_bus_cycle();
+    return false;
 }
 
 bool PinsTms370Cx5x::step(bool show) {
