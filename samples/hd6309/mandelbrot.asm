@@ -60,6 +60,8 @@ main:
 loop:
         jsr     mandelbrot
         jsr     newline
+        ldx     #tx_queue
+        jsr     queue_wait_empty
         bra     loop
 
 ;;; Get character
@@ -98,6 +100,7 @@ putchar_retry:
         include "mandelbrot.inc"
         include "arith.inc"
         include "../mc6809/queue.inc"
+        include "../mc6809/queue_wait.inc"
 
 isr_firq:
         pshs    x,b,a           ; FIRQ stacks only PC and CC

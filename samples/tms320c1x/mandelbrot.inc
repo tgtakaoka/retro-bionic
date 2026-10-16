@@ -224,4 +224,6 @@ next_x:
         bgz     loop_y          ; branch if 13>Y
 mandelbrot_end:
         call    newline
+        call    queue_wait_empty
+        .word   tx_queue
         b       mandelbrot

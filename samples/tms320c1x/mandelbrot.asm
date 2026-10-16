@@ -141,6 +141,7 @@ newline:
         .include "mandelbrot.inc"
         .include "arith.inc"
         .include "queue.inc"
+        .include "queue_wait.inc"
 
 int_isr:
         sst     isr_st          ; save ST (SST writes page 1)

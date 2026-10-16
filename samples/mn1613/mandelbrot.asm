@@ -84,6 +84,8 @@ init_usart:
 
 loop:   bald    mandelbrot
         bal     newline
+        mvwi    X0, tx_queue
+        bal     queue_wait_empty
         b       loop
 
 *** @return R0 received char
@@ -121,6 +123,7 @@ putchar_retry:
         ret
 
         include "queue.inc"
+        include "queue_wait.inc"
         include "arith.inc"
         include "mandelbrot.inc"
 

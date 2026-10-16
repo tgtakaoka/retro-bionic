@@ -34,6 +34,8 @@ init:
 loop:
         call    mandelbrot
         sc      #SC_NEWLINE
+        ld      r1, #tx_queue
+        call    queue_wait_empty
         jr      loop
 
 user_ps:
@@ -42,6 +44,7 @@ user_ps:
 
         include "mandelbrot.inc"
         include "io.inc"
+        include "queue_wait.inc"
 
 ;;; Return from an interrupt handler.
 isr_return:

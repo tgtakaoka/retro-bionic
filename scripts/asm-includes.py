@@ -12,7 +12,7 @@ import os
 import re
 import sys
 
-INCLUDE = re.compile(r'^\s*include\s+"([^"]+)"', re.IGNORECASE)
+INCLUDE = re.compile(r'^\s*\.?include\s+"([^"]+)"', re.IGNORECASE)
 
 
 def includes(path, top, seen):

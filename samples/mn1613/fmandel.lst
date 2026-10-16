@@ -83,11 +83,11 @@
         10A :
         102 :                            loc     NPSW1
         102 : 0000                       dc      X'0000'
-        103 : 02EE                       dc      irq1_isr
+        103 : 02F5                       dc      irq1_isr
         104 :
         104 :                            loc     NPSW2
         104 : 0000                       dc      X'0000'
-        105 : 02FB                       dc      irq2_isr
+        105 : 0302                       dc      irq2_isr
         106 :
           8 :                            loc     ZERO_PAGE
           8 :                    vCA:    ds      2
@@ -113,10 +113,10 @@
         200 : 7D0F 01FF                  mvwi    SP, stack
         202 : 780F 0080                  mvwi    R0, rx_queue_size
         204 : 7B0F 2000                  mvwi    X0, rx_queue
-        206 : 8F39                       bal     queue_init
+        206 : 8F3C                       bal     queue_init
         207 : 780F 0080                  mvwi    R0, tx_queue_size
         209 : 7B0F 2080                  mvwi    X0, tx_queue
-        20B : 8F34                       bal     queue_init
+        20B : 8F37                       bal     queue_init
         20C : 8F02                       bal     init_usart
         20D : CF14                       b       loop
         20E :
@@ -142,267 +142,278 @@
         21F : 1083                       wt      R0, USARTTV
         220 : 2003                       ret
         221 :
-        221 : 2617 027B          loop:   bald    fmandel
-        223 : 8F0C                       bal     newline
-        224 : CFFD                       b       loop
-        225 :
-        225 :                    *** @return R0 received char
-        225 :                    *** @return ST.E 0 if none
-        225 :                    getchar:
-        225 : 2301                       push    X0
-        226 : 7B0F 2000                  mvwi    X0, rx_queue
-        228 : 3606                       rbit    STR, STR_IRQ1   Disable IRQ1
-        229 : 8F37                       bal     queue_remove
-        22A : 3E06                       sbit    STR, STR_IRQ1   Enable IRQ1
-        22B : 2302                       pop     X0
-        22C : 2003                       ret
-        22D :
-        22D :                    *** Put a space, CR LF (newline) or char R0 (putchar)
-        22D :                    putspace:
-        22D : 0820                       mvi     R0, ' '
-        22E : CF04                       b       putchar
-        22F :                    newline:
-        22F : 080D                       mvi     R0, X'0D'
-        230 : 8F02                       bal     putchar
-        231 : 080A                       mvi     R0, X'0A'
-        232 :                    putchar:
-        232 : 2001                       push    R0
-        233 : 2301                       push    X0
-        234 : 7B0F 2080                  mvwi    X0, tx_queue
-        236 :                    putchar_retry:
-        236 : 3607                       rbit    STR, STR_IRQ2           Disable IRQ2
-        237 : 8F15                       bal     queue_add
-        238 : 3E97                       sbit    STR, STR_IRQ2, enz      Enable IRQ2, skip if E=1
-        239 : CFFD                       b       putchar_retry
-        23A : 0837                       mvi     R0, RX_EN_TX_EN
-        23B : 1081                       wt      R0, USARTC              Enable Rx/Tx
-        23C : 2302                       pop     X0
-        23D : 2002                       pop     R0
-        23E : 2003                       ret
-        23F :
-        23F :                            include "queue.inc"
-(1)     23F :                    *** -*- mode: asm; mode: flying-spell; -*-
-(1)     23F :                    *** [queue] queue structure
-(1)     23F : =0                 queue_len:      equ     0       ; queue length
-(1)     23F : =1                 queue_size:     equ     1       ; buffer size
-(1)     23F : =2                 queue_put:      equ     2       ; queue put index
-(1)     23F : =3                 queue_get:      equ     3       ; queue get index
-(1)     23F : =4                 queue_buf:      equ     4       ; buffer start offset
-(1)     23F :
-(1)     23F :                    *** [queue] Initialize queue
-(1)     23F :                    *** @param X0 queue work space pointer
-(1)     23F :                    *** @param R0 queue work space size
-(1)     23F :                    *** @clobber R0 X0
-(1)     23F :                    queue_init:
-(1)     23F : 2101                       push    R1
-(1)     240 : 6101                       eor     R1, R1          clear R1
-(1)     241 : A100                       st      R1, queue_len(X0)       clear queue_len
-(1)     242 : 4004                       si      R0, queue_buf
-(1)     243 : A001                       st      R0, queue_size(X0)      set queue_size
-(1)     244 : A102                       st      R1, queue_put(X0)       clear queue_put
-(1)     245 : A103                       st      R1, queue_get(X0)       clear queue_get
-(1)     246 : 4B04                       ai      X0, queue_buf
-(1)     247 :                    queue_init_loop:
-(1)     247 : 21C6                       str     R1, (X0)+
-(1)     248 : 4041                       si      R0, 1, z
-(1)     249 : CFFE                       b       queue_init_loop
-(1)     24A : 2102                       pop     R1
-(1)     24B : 2003                       ret
-(1)     24C :
-(1)     24C :                    *** [queue] Add an element to queue
-(1)     24C :                    *** @param X0 queue work space pointer
-(1)     24C :                    *** @param R0 an element
-(1)     24C :                    *** @return ST.E 0 if queue is full
-(1)     24C :                    queue_add:
-(1)     24C : 2101                       push    R1
-(1)     24D : 2201                       push    R2
-(1)     24E : E100                       l       R1, queue_len(X0)
-(1)     24F : E201                       l       R2, queue_size(X0)      R2=queue_size
-(1)     250 : 51FA                       c       R1, R2, lm              skip if queue_len < queue_size
-(1)     251 : CF0B                       b       queue_add_return
-(1)     252 : E102                       l       R1, queue_put(X0)
-(1)     253 : 5B09                       a       X0, R1                  X0=&queue_buf[queue_put]
-(1)     254 : A004                       st      R0, queue_buf(X0)       store element
-(1)     255 : 5B01                       s       X0, R1                  restore X0
-(1)     256 : 4901                       ai      R1, 1                   queue_put+=1
-(1)     257 : 51FA                       c       R1, R2, lm              skip if queue_put < queue_size
-(1)     258 : 6101                       eor     R1, R1                  R1=0
-(1)     259 : A102                       st      R1, queue_put(X0)       update queue_put
-(1)     25A : E600                       ims     queue_len(X0)           queue_len+=1
-(1)     25B : 3E10                       sbit    STR, STR_E, skp         ST.E=1, then skip
-(1)     25C :                    queue_add_return:
-(1)     25C : 3600                       rbit    STR, STR_E              ST.E=0
-(1)     25D : 2202                       pop     R2
-(1)     25E : 2102                       pop     R1
-(1)     25F : 2003                       ret
-(1)     260 :
-(1)     260 :                    *** [queue] Remove an element from queue
-(1)     260 :                    *** @param X0 queue work space pointer
-(1)     260 :                    *** @return R0 an element
-(1)     260 :                    *** @return ST.E 0 if queue is empty
-(1)     260 :                    queue_remove:
-(1)     260 : 2101                       push    R1
-(1)     261 : E100                       l       R1, queue_len(X0)
-(1)     262 : 6159                       or      R1, R1, nz              skip if queue_len != 0
-(1)     263 : CF0F                       b       queue_remove_return
-(1)     264 : E103                       l       R1, queue_get(X0)
-(1)     265 : 5B09                       a       X0, R1                  X0=&queue_buf[queue_get]
-(1)     266 : E004                       l       R0, queue_buf(X0)       remove element
-(1)     267 : 5B01                       s       X0, R1                  restore X0
-(1)     268 : 4901                       ai      R1, 1                   queue_get+=1
-(1)     269 : 2201                       push    R2
-(1)     26A : E201                       l       R2, queue_size(X0)      R2=queue_size
-(1)     26B : 51FA                       c       R1, R2, lm              skip if queue_get < queue_size
-(1)     26C : 6101                       eor     R1, R1                  R1=0
-(1)     26D : A103                       st      R1, queue_get(X0)       update queue_get
-(1)     26E : 2202                       pop     R2
-(1)     26F : A600                       dms     queue_len(X0)           queue_len-=1
-(1)     270 : 7808                       mv      R0, R0                  nop, for dms skipping on zero
-(1)     271 : 3E10                       sbit    STR, STR_E, skp         ST.E=1, then skip
-(1)     272 :                    queue_remove_return:
-(1)     272 : 3600                       rbit    STR, STR_E              ST.E=0
-(1)     273 : 2102                       pop     R1
-(1)     274 : 2003                       ret
-        275 :                            include "fmandel.inc"
-(1)     275 :                    *** -*- mode: asm; mode: flyspell-prog* -*-
-(1)     275 :
-(1)     275 : 3FBB 98C8          kCA:    dc      0.0458
-(1)     277 : 4015 551D          kCB:    dc      0.08333
-(1)     279 : 4140 0000          k4:     dc      4.0
-(1)     27B :
-(1)     27B :                    fmandel:
-(1)     27B : 7B0F 000C                  mvwi    R3, vA          R3=&A
-(1)     27D : 7C0F 000E                  mvwi    R4, vB          R4=&B
-(1)     27F : 780F FFF4                  mvwi    R0, -12
-(1)     281 : 8012                       st      R0, vY          Y=-12
-(1)     282 :                    loop_y:
-(1)     282 : 780F FFCF                  mvwi    R0, -49
-(1)     284 : 8013                       st      R0, vX          X=-49
-(1)     285 :                    loop_x:
-(1)     285 : C013                       l       R0, vX
-(1)     286 : 1F07                       flt     DR0, R0
-(1)     287 : 7A0F 0275                  mvwi    R2, kCA
-(1)     289 : 670D                       fm      DR0, (R2)       X*0.0458
-(1)     28A : 8008                       st      R0, vCA
-(1)     28B : 8109                       st      R1, vCA+1       CA=X*0.0458
-(1)     28C : 800C                       st      R0, vA
-(1)     28D : 810D                       st      R1, vA+1        A=CA
-(1)     28E : C012                       l       R0, vY
-(1)     28F : 1F07                       flt     DR0, R0
-(1)     290 : 7A0F 0277                  mvwi    R2, kCB
-(1)     292 : 670D                       fm      DR0, (R2)       Y*0.08333
-(1)     293 : 800A                       st      R0, vCB
-(1)     294 : 810B                       st      R1, vCB+1       CB=Y*0.08333
-(1)     295 : 800E                       st      R0, vB
-(1)     296 : 810F                       st      R1, vB+1        B=CB
-(1)     297 : 6202                       eor     R2, R2
-(1)     298 : 8214                       st      R2, vI          I=0
-(1)     299 :                    loop_i:
-(1)     299 : C00E                       l       R0, vB
-(1)     29A : C10F                       l       R1, vB+1
-(1)     29B : 670F                       fm      DR0, (R4)       B*B
-(1)     29C : 8010                       st      R0, vT
-(1)     29D : 8111                       st      R1, vT+1        T=B*B
-(1)     29E : C00C                       l       R0, vA
-(1)     29F : C10D                       l       R1, vA+1
-(1)     2A0 : 670E                       fm      DR0, (R3)       A*A
-(1)     2A1 : 7A0F 0010                  mvwi    R2, vT
-(1)     2A3 : 6F05                       fs      DR0, (R2)       A*A-B*B
-(1)     2A4 : 7A0F 0008                  mvwi    R2, vCA
-(1)     2A6 : 6F0D                       fa      DR0, (R2)       A*A-B*B+CA
-(1)     2A7 : 8010                       st      R0, vT
-(1)     2A8 : 8111                       st      R1, vT+1        T=A*A-B*B+CA
-(1)     2A9 : C00C                       l       R0, vA
-(1)     2AA : C10D                       l       R1, vA+1
-(1)     2AB : 6F0E                       fa      DR0, (R3)       2*A
-(1)     2AC : 670F                       fm      DR0, (R4)       2*A*B
-(1)     2AD : 7A0F 000A                  mvwi    R2, vCB
-(1)     2AF : 6F0D                       fa      DR0, (R2)       2*A*B+CB
-(1)     2B0 : 800E                       st      R0, vB
-(1)     2B1 : 810F                       st      R1, vB+1        B=2*A*B+CB
-(1)     2B2 : C010                       l       R0, vT
-(1)     2B3 : C111                       l       R1, vT+1
-(1)     2B4 : 800C                       st      R0, vA
-(1)     2B5 : 810D                       st      R1, vA+1        A=T
-(1)     2B6 : 670E                       fm      DR0, (R3)       A*A
-(1)     2B7 : 8010                       st      R0, vT
-(1)     2B8 : 8111                       st      R1, vT+1        T=A*A
-(1)     2B9 : C00E                       l       R0, vB
-(1)     2BA : C10F                       l       R1, vB+1
-(1)     2BB : 670F                       fm      DR0, (R4)       B*B
-(1)     2BC : 7A0F 0010                  mvwi    R2, vT
-(1)     2BE : 6F0D                       fa      DR0, (R2)       A*A+B*B
-(1)     2BF : 7A0F 0279                  mvwi    R2, k4
-(1)     2C1 : 6F05                       fs      DR0, (R2)       A*A+B*B-4
-(1)     2C2 : 7868                       mv      R0, R0, mz      skip if A*A+B*B<=4
-(1)     2C3 : CF09                       b       print_i         if 4<A*A+B*B
-(1)     2C4 : C014                       l       R0, vI
-(1)     2C5 : 4801                       ai      R0, 1
-(1)     2C6 : 8014                       st      R0, vI
-(1)     2C7 : 50EF 0010                  cwi     R0, 16, lpz     skip if I>=16
-(1)     2C9 : CFD0                       b       loop_i          if I<16
-(1)     2CA : 0820                       mvi     R0, ' '
-(1)     2CB : CF0A                       b       print_char
-(1)     2CC :                    print_i:
-(1)     2CC : C014                       l       R0, vI
-(1)     2CD : 50EF 000A                  cwi     R0, 10, lpz     skip if I>=10
-(1)     2CF : CF04                       b       print_dec
-(1)     2D0 : 400A                       si      R0, 10
-(1)     2D1 : 581F 0041                  awi     R0, 'A', skp
-(1)     2D3 :                    print_dec:
-(1)     2D3 : 580F 0030                  awi     R0, '0'
-(1)     2D5 :                    print_char:
-(1)     2D5 : 2617 0232                  bald    putchar
-(1)     2D7 : 2617 0225                  bald    getchar
-(1)     2D9 : 6098                       or      R0, R0, enz     skip if E=1
-(1)     2DA : CF03                       b       next_x
-(1)     2DB : 6058                       or      R0, R0, nz      skip if R0!=0
-(1)     2DC : 2000                       h                       halt to system on NUL
-(1)     2DD :                    next_x:
-(1)     2DD : C013                       l       R0, vX
-(1)     2DE : 4801                       ai      R0, 1
-(1)     2DF : 8013                       st      R0, vX
-(1)     2E0 : 503F 001E                  cwi     R0, 30, pz      skip if X>=30
-(1)     2E2 : 2607 0285                  bd      loop_x          if X<30
-(1)     2E4 :                    next_y:
-(1)     2E4 : 2617 022F                  bald    newline
-(1)     2E6 : C012                       l       R0, vY
-(1)     2E7 : 4801                       ai      R0, 1
-(1)     2E8 : 8012                       st      R0, vY
-(1)     2E9 : 503F 000D                  cwi     R0, 13, pz      skip if Y>=13
-(1)     2EB : 2607 0282                  bd      loop_y          if Y<13
-(1)     2ED : 2003                       ret
-        2EE :
-        2EE :                    irq1_isr:
-        2EE : 2001                       push    R0
-        2EF : 2301                       push    X0
-        2F0 : 1881                       rd      R0, USARTS
-        2F1 : 285E                       tbit    R0, ST_RxRDY_bp, nz     Skip if RxRDY=1
-        2F2 : CF06                       b       irq1_isr_exit
-        2F3 : 1880                       rd      R0, USARTD      Receive character
-        2F4 : 7B0F 2000                  mvwi    X0, rx_queue
-        2F6 : 2617 024C                  bald    queue_add       Add to Rx queue
-        2F8 :                    irq1_isr_exit:
-        2F8 : 2302                       pop     X0
-        2F9 : 2002                       pop     R0
-        2FA : 2005                       lpsw    1               Return from interrupt
-        2FB :
-        2FB :                    irq2_isr:
-        2FB : 2001                       push    R0
-        2FC : 2301                       push    X0
-        2FD : 1881                       rd      R0, USARTS
-        2FE : 285F                       tbit    R0, ST_TxRDY_bp, nz     Skip if TxRDY=1
-        2FF : CF08                       b       irq2_isr_exit
-        300 : 7B0F 2080                  mvwi    X0, tx_queue
-        302 : 2617 0260                  bald    queue_remove    Remove from Tx queue
-        304 : 7898                       mv      R0, R0, enz     Skip if ST.E=1
-        305 : CF05                       b       irq2_isr_empty
-        306 : 1080                       wt      R0, USARTD      Transmit character
-        307 :                    irq2_isr_exit:
-        307 : 2302                       pop     X0
-        308 : 2002                       pop     R0
-        309 : 2006                       lpsw    2               Return from interrupt
-        30A :                    irq2_isr_empty:
-        30A : 0836                       mvi     R0, RX_EN_TX_DIS
-        30B : 1081                       wt      R0, USARTC      Disable Tx
-        30C : CFFB                       b       irq2_isr_exit
+        221 : 2617 0282          loop:   bald    fmandel
+        223 : 8F0F                       bal     newline
+        224 : 7B0F 2080                  mvwi    X0, tx_queue
+        226 : 8F52                       bal     queue_wait_empty
+        227 : CFFA                       b       loop
+        228 :
+        228 :                    *** @return R0 received char
+        228 :                    *** @return ST.E 0 if none
+        228 :                    getchar:
+        228 : 2301                       push    X0
+        229 : 7B0F 2000                  mvwi    X0, rx_queue
+        22B : 3606                       rbit    STR, STR_IRQ1   Disable IRQ1
+        22C : 8F37                       bal     queue_remove
+        22D : 3E06                       sbit    STR, STR_IRQ1   Enable IRQ1
+        22E : 2302                       pop     X0
+        22F : 2003                       ret
+        230 :
+        230 :                    *** Put a space, CR LF (newline) or char R0 (putchar)
+        230 :                    putspace:
+        230 : 0820                       mvi     R0, ' '
+        231 : CF04                       b       putchar
+        232 :                    newline:
+        232 : 080D                       mvi     R0, X'0D'
+        233 : 8F02                       bal     putchar
+        234 : 080A                       mvi     R0, X'0A'
+        235 :                    putchar:
+        235 : 2001                       push    R0
+        236 : 2301                       push    X0
+        237 : 7B0F 2080                  mvwi    X0, tx_queue
+        239 :                    putchar_retry:
+        239 : 3607                       rbit    STR, STR_IRQ2           Disable IRQ2
+        23A : 8F15                       bal     queue_add
+        23B : 3E97                       sbit    STR, STR_IRQ2, enz      Enable IRQ2, skip if E=1
+        23C : CFFD                       b       putchar_retry
+        23D : 0837                       mvi     R0, RX_EN_TX_EN
+        23E : 1081                       wt      R0, USARTC              Enable Rx/Tx
+        23F : 2302                       pop     X0
+        240 : 2002                       pop     R0
+        241 : 2003                       ret
+        242 :
+        242 :                            include "queue.inc"
+(1)     242 :                    *** -*- mode: asm; mode: flying-spell; -*-
+(1)     242 :                    *** [queue] queue structure
+(1)     242 : =0                 queue_len:      equ     0       ; queue length
+(1)     242 : =1                 queue_size:     equ     1       ; buffer size
+(1)     242 : =2                 queue_put:      equ     2       ; queue put index
+(1)     242 : =3                 queue_get:      equ     3       ; queue get index
+(1)     242 : =4                 queue_buf:      equ     4       ; buffer start offset
+(1)     242 :
+(1)     242 :                    *** [queue] Initialize queue
+(1)     242 :                    *** @param X0 queue work space pointer
+(1)     242 :                    *** @param R0 queue work space size
+(1)     242 :                    *** @clobber R0 X0
+(1)     242 :                    queue_init:
+(1)     242 : 2101                       push    R1
+(1)     243 : 6101                       eor     R1, R1          clear R1
+(1)     244 : A100                       st      R1, queue_len(X0)       clear queue_len
+(1)     245 : 4004                       si      R0, queue_buf
+(1)     246 : A001                       st      R0, queue_size(X0)      set queue_size
+(1)     247 : A102                       st      R1, queue_put(X0)       clear queue_put
+(1)     248 : A103                       st      R1, queue_get(X0)       clear queue_get
+(1)     249 : 4B04                       ai      X0, queue_buf
+(1)     24A :                    queue_init_loop:
+(1)     24A : 21C6                       str     R1, (X0)+
+(1)     24B : 4041                       si      R0, 1, z
+(1)     24C : CFFE                       b       queue_init_loop
+(1)     24D : 2102                       pop     R1
+(1)     24E : 2003                       ret
+(1)     24F :
+(1)     24F :                    *** [queue] Add an element to queue
+(1)     24F :                    *** @param X0 queue work space pointer
+(1)     24F :                    *** @param R0 an element
+(1)     24F :                    *** @return ST.E 0 if queue is full
+(1)     24F :                    queue_add:
+(1)     24F : 2101                       push    R1
+(1)     250 : 2201                       push    R2
+(1)     251 : E100                       l       R1, queue_len(X0)
+(1)     252 : E201                       l       R2, queue_size(X0)      R2=queue_size
+(1)     253 : 51FA                       c       R1, R2, lm              skip if queue_len < queue_size
+(1)     254 : CF0B                       b       queue_add_return
+(1)     255 : E102                       l       R1, queue_put(X0)
+(1)     256 : 5B09                       a       X0, R1                  X0=&queue_buf[queue_put]
+(1)     257 : A004                       st      R0, queue_buf(X0)       store element
+(1)     258 : 5B01                       s       X0, R1                  restore X0
+(1)     259 : 4901                       ai      R1, 1                   queue_put+=1
+(1)     25A : 51FA                       c       R1, R2, lm              skip if queue_put < queue_size
+(1)     25B : 6101                       eor     R1, R1                  R1=0
+(1)     25C : A102                       st      R1, queue_put(X0)       update queue_put
+(1)     25D : E600                       ims     queue_len(X0)           queue_len+=1
+(1)     25E : 3E10                       sbit    STR, STR_E, skp         ST.E=1, then skip
+(1)     25F :                    queue_add_return:
+(1)     25F : 3600                       rbit    STR, STR_E              ST.E=0
+(1)     260 : 2202                       pop     R2
+(1)     261 : 2102                       pop     R1
+(1)     262 : 2003                       ret
+(1)     263 :
+(1)     263 :                    *** [queue] Remove an element from queue
+(1)     263 :                    *** @param X0 queue work space pointer
+(1)     263 :                    *** @return R0 an element
+(1)     263 :                    *** @return ST.E 0 if queue is empty
+(1)     263 :                    queue_remove:
+(1)     263 : 2101                       push    R1
+(1)     264 : E100                       l       R1, queue_len(X0)
+(1)     265 : 6159                       or      R1, R1, nz              skip if queue_len != 0
+(1)     266 : CF0F                       b       queue_remove_return
+(1)     267 : E103                       l       R1, queue_get(X0)
+(1)     268 : 5B09                       a       X0, R1                  X0=&queue_buf[queue_get]
+(1)     269 : E004                       l       R0, queue_buf(X0)       remove element
+(1)     26A : 5B01                       s       X0, R1                  restore X0
+(1)     26B : 4901                       ai      R1, 1                   queue_get+=1
+(1)     26C : 2201                       push    R2
+(1)     26D : E201                       l       R2, queue_size(X0)      R2=queue_size
+(1)     26E : 51FA                       c       R1, R2, lm              skip if queue_get < queue_size
+(1)     26F : 6101                       eor     R1, R1                  R1=0
+(1)     270 : A103                       st      R1, queue_get(X0)       update queue_get
+(1)     271 : 2202                       pop     R2
+(1)     272 : A600                       dms     queue_len(X0)           queue_len-=1
+(1)     273 : 7808                       mv      R0, R0                  nop, for dms skipping on zero
+(1)     274 : 3E10                       sbit    STR, STR_E, skp         ST.E=1, then skip
+(1)     275 :                    queue_remove_return:
+(1)     275 : 3600                       rbit    STR, STR_E              ST.E=0
+(1)     276 : 2102                       pop     R1
+(1)     277 : 2003                       ret
+        278 :                            include "queue_wait.inc"
+(1)     278 :                    *** [queue] Wait until queue is empty
+(1)     278 :                    *** @param X0 queue work space pointer
+(1)     278 :                    *** @clobber R0
+(1)     278 :                    queue_wait_empty:
+(1)     278 : E000                       l       R0, queue_len(X0)
+(1)     279 : 6048                       or      R0, R0, z               skip if queue_len == 0
+(1)     27A : CFFE                       b       queue_wait_empty
+(1)     27B : 2003                       ret
+        27C :                            include "fmandel.inc"
+(1)     27C :                    *** -*- mode: asm; mode: flyspell-prog* -*-
+(1)     27C :
+(1)     27C : 3FBB 98C8          kCA:    dc      0.0458
+(1)     27E : 4015 551D          kCB:    dc      0.08333
+(1)     280 : 4140 0000          k4:     dc      4.0
+(1)     282 :
+(1)     282 :                    fmandel:
+(1)     282 : 7B0F 000C                  mvwi    R3, vA          R3=&A
+(1)     284 : 7C0F 000E                  mvwi    R4, vB          R4=&B
+(1)     286 : 780F FFF4                  mvwi    R0, -12
+(1)     288 : 8012                       st      R0, vY          Y=-12
+(1)     289 :                    loop_y:
+(1)     289 : 780F FFCF                  mvwi    R0, -49
+(1)     28B : 8013                       st      R0, vX          X=-49
+(1)     28C :                    loop_x:
+(1)     28C : C013                       l       R0, vX
+(1)     28D : 1F07                       flt     DR0, R0
+(1)     28E : 7A0F 027C                  mvwi    R2, kCA
+(1)     290 : 670D                       fm      DR0, (R2)       X*0.0458
+(1)     291 : 8008                       st      R0, vCA
+(1)     292 : 8109                       st      R1, vCA+1       CA=X*0.0458
+(1)     293 : 800C                       st      R0, vA
+(1)     294 : 810D                       st      R1, vA+1        A=CA
+(1)     295 : C012                       l       R0, vY
+(1)     296 : 1F07                       flt     DR0, R0
+(1)     297 : 7A0F 027E                  mvwi    R2, kCB
+(1)     299 : 670D                       fm      DR0, (R2)       Y*0.08333
+(1)     29A : 800A                       st      R0, vCB
+(1)     29B : 810B                       st      R1, vCB+1       CB=Y*0.08333
+(1)     29C : 800E                       st      R0, vB
+(1)     29D : 810F                       st      R1, vB+1        B=CB
+(1)     29E : 6202                       eor     R2, R2
+(1)     29F : 8214                       st      R2, vI          I=0
+(1)     2A0 :                    loop_i:
+(1)     2A0 : C00E                       l       R0, vB
+(1)     2A1 : C10F                       l       R1, vB+1
+(1)     2A2 : 670F                       fm      DR0, (R4)       B*B
+(1)     2A3 : 8010                       st      R0, vT
+(1)     2A4 : 8111                       st      R1, vT+1        T=B*B
+(1)     2A5 : C00C                       l       R0, vA
+(1)     2A6 : C10D                       l       R1, vA+1
+(1)     2A7 : 670E                       fm      DR0, (R3)       A*A
+(1)     2A8 : 7A0F 0010                  mvwi    R2, vT
+(1)     2AA : 6F05                       fs      DR0, (R2)       A*A-B*B
+(1)     2AB : 7A0F 0008                  mvwi    R2, vCA
+(1)     2AD : 6F0D                       fa      DR0, (R2)       A*A-B*B+CA
+(1)     2AE : 8010                       st      R0, vT
+(1)     2AF : 8111                       st      R1, vT+1        T=A*A-B*B+CA
+(1)     2B0 : C00C                       l       R0, vA
+(1)     2B1 : C10D                       l       R1, vA+1
+(1)     2B2 : 6F0E                       fa      DR0, (R3)       2*A
+(1)     2B3 : 670F                       fm      DR0, (R4)       2*A*B
+(1)     2B4 : 7A0F 000A                  mvwi    R2, vCB
+(1)     2B6 : 6F0D                       fa      DR0, (R2)       2*A*B+CB
+(1)     2B7 : 800E                       st      R0, vB
+(1)     2B8 : 810F                       st      R1, vB+1        B=2*A*B+CB
+(1)     2B9 : C010                       l       R0, vT
+(1)     2BA : C111                       l       R1, vT+1
+(1)     2BB : 800C                       st      R0, vA
+(1)     2BC : 810D                       st      R1, vA+1        A=T
+(1)     2BD : 670E                       fm      DR0, (R3)       A*A
+(1)     2BE : 8010                       st      R0, vT
+(1)     2BF : 8111                       st      R1, vT+1        T=A*A
+(1)     2C0 : C00E                       l       R0, vB
+(1)     2C1 : C10F                       l       R1, vB+1
+(1)     2C2 : 670F                       fm      DR0, (R4)       B*B
+(1)     2C3 : 7A0F 0010                  mvwi    R2, vT
+(1)     2C5 : 6F0D                       fa      DR0, (R2)       A*A+B*B
+(1)     2C6 : 7A0F 0280                  mvwi    R2, k4
+(1)     2C8 : 6F05                       fs      DR0, (R2)       A*A+B*B-4
+(1)     2C9 : 7868                       mv      R0, R0, mz      skip if A*A+B*B<=4
+(1)     2CA : CF09                       b       print_i         if 4<A*A+B*B
+(1)     2CB : C014                       l       R0, vI
+(1)     2CC : 4801                       ai      R0, 1
+(1)     2CD : 8014                       st      R0, vI
+(1)     2CE : 50EF 0010                  cwi     R0, 16, lpz     skip if I>=16
+(1)     2D0 : CFD0                       b       loop_i          if I<16
+(1)     2D1 : 0820                       mvi     R0, ' '
+(1)     2D2 : CF0A                       b       print_char
+(1)     2D3 :                    print_i:
+(1)     2D3 : C014                       l       R0, vI
+(1)     2D4 : 50EF 000A                  cwi     R0, 10, lpz     skip if I>=10
+(1)     2D6 : CF04                       b       print_dec
+(1)     2D7 : 400A                       si      R0, 10
+(1)     2D8 : 581F 0041                  awi     R0, 'A', skp
+(1)     2DA :                    print_dec:
+(1)     2DA : 580F 0030                  awi     R0, '0'
+(1)     2DC :                    print_char:
+(1)     2DC : 2617 0235                  bald    putchar
+(1)     2DE : 2617 0228                  bald    getchar
+(1)     2E0 : 6098                       or      R0, R0, enz     skip if E=1
+(1)     2E1 : CF03                       b       next_x
+(1)     2E2 : 6058                       or      R0, R0, nz      skip if R0!=0
+(1)     2E3 : 2000                       h                       halt to system on NUL
+(1)     2E4 :                    next_x:
+(1)     2E4 : C013                       l       R0, vX
+(1)     2E5 : 4801                       ai      R0, 1
+(1)     2E6 : 8013                       st      R0, vX
+(1)     2E7 : 503F 001E                  cwi     R0, 30, pz      skip if X>=30
+(1)     2E9 : 2607 028C                  bd      loop_x          if X<30
+(1)     2EB :                    next_y:
+(1)     2EB : 2617 0232                  bald    newline
+(1)     2ED : C012                       l       R0, vY
+(1)     2EE : 4801                       ai      R0, 1
+(1)     2EF : 8012                       st      R0, vY
+(1)     2F0 : 503F 000D                  cwi     R0, 13, pz      skip if Y>=13
+(1)     2F2 : 2607 0289                  bd      loop_y          if Y<13
+(1)     2F4 : 2003                       ret
+        2F5 :
+        2F5 :                    irq1_isr:
+        2F5 : 2001                       push    R0
+        2F6 : 2301                       push    X0
+        2F7 : 1881                       rd      R0, USARTS
+        2F8 : 285E                       tbit    R0, ST_RxRDY_bp, nz     Skip if RxRDY=1
+        2F9 : CF06                       b       irq1_isr_exit
+        2FA : 1880                       rd      R0, USARTD      Receive character
+        2FB : 7B0F 2000                  mvwi    X0, rx_queue
+        2FD : 2617 024F                  bald    queue_add       Add to Rx queue
+        2FF :                    irq1_isr_exit:
+        2FF : 2302                       pop     X0
+        300 : 2002                       pop     R0
+        301 : 2005                       lpsw    1               Return from interrupt
+        302 :
+        302 :                    irq2_isr:
+        302 : 2001                       push    R0
+        303 : 2301                       push    X0
+        304 : 1881                       rd      R0, USARTS
+        305 : 285F                       tbit    R0, ST_TxRDY_bp, nz     Skip if TxRDY=1
+        306 : CF08                       b       irq2_isr_exit
+        307 : 7B0F 2080                  mvwi    X0, tx_queue
+        309 : 2617 0263                  bald    queue_remove    Remove from Tx queue
+        30B : 7898                       mv      R0, R0, enz     Skip if ST.E=1
+        30C : CF05                       b       irq2_isr_empty
+        30D : 1080                       wt      R0, USARTD      Transmit character
+        30E :                    irq2_isr_exit:
+        30E : 2302                       pop     X0
+        30F : 2002                       pop     R0
+        310 : 2006                       lpsw    2               Return from interrupt
+        311 :                    irq2_isr_empty:
+        311 : 0836                       mvi     R0, RX_EN_TX_DIS
+        312 : 1081                       wt      R0, USARTC      Disable Tx
+        313 : CFFB                       b       irq2_isr_exit
