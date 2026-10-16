@@ -49,7 +49,21 @@ void RegsZ8::restore() {
     for (auto num = 0; num < 16; num++) {
         restore_r(num, _r[num]);
     }
-    // ATTENTION: an interrupt can still come in between these two.
+    if ((_ie & ieBit()) && !fastIret()) {
+        // IRET enables interrupts together with the jump.
+        const uint8_t IRET[] = {
+                0xE6, ieReg(), uint8(_ie & ~ieBit()),  // LD IMR/SYM, #_ie-EI
+                0x80, sph(),                           // DECW SP
+                0x80, sph(),                           // DECW SP
+                0x80, sph(),                           // DECW SP
+                0xBF, 0,  // IRET, which reads the next byte first
+                _flags, hi(_pc), lo(_pc),
+        };
+        _pins->execInst(IRET, sizeof(IRET));
+        return;
+    }
+    // A fast IRET pops nothing; an interrupt can still come in before the
+    // JP when one was enabled in a fast interrupt handler.
     const uint8_t LD_IE[] = {
             0xE6, ieReg(), _ie,  // LD IMR/SYM, #_ie
     };

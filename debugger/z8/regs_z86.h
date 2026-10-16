@@ -33,6 +33,7 @@ private:
     static constexpr uint8_t SPL = 0xFF;
     static constexpr uint8_t R(uint_fast8_t num) { return 0xE0 + num; }
     uint8_t ieReg() const override { return IMR; }
+    uint8_t ieBit() const override { return 0x80; }
     uint8_t sph() const override { return SPH; }
     void save_sfrs() override;
     void restore_sfrs() override;

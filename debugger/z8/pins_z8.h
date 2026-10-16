@@ -47,6 +47,10 @@
 #define PIN_RESET 28   /* P8.18 */
 #define PIN_DM 30      /* P8.23 */
 
+// Follows the Super8's fast interrupt, which pushes nothing; left out of
+// normal builds, since checking every bus cycle for one slows the Z8 bus.
+// #define Z88_FAST_INTERRUPT
+
 #include "inst_z8.h"
 #include "pins.h"
 #include "serial_handler.h"
@@ -110,6 +114,19 @@ protected:
     void intrAck(Signals *frame) const;
     void execute(const uint8_t *inst, uint8_t len, uint16_t *addr, uint8_t *buf,
             uint8_t max);
+
+#if defined(Z88_FAST_INTERRUPT)
+    // The Super8's fast interrupt pushes nothing; PinsZ88 follows it, and
+    // keeps here the fetch at IP one would make while it can be taken.
+    // Out of address range otherwise, as always on the Z86.
+    static constexpr uint32_t NO_FAST = 0x10000;
+    uint32_t _fastFetch = NO_FAST;
+    bool fastEntry(const Signals *s) const;
+    virtual void takeFast(Signals *) {}
+    virtual uint8_t fastCycles(uint16_t, uint8_t, uint8_t cycles) {
+        return cycles;
+    }
+#endif
 
     const SignalsImpl *findBacktraceStart() override;
     void printBacktrace() override;

@@ -47,6 +47,22 @@ namespace z88 {
 
 struct PinsZ88 final : z8::PinsZ8 {
     PinsZ88();
+
+#if defined(Z88_FAST_INTERRUPT)
+    void startFast(uint16_t ip, bool enabled, bool fis);
+
+private:
+    // A fast interrupt pushes nothing, so the bus doesn't show it without
+    // IP, the fast interrupt enable in SYM, and FIS in FLAGS: the restored
+    // state, then what the program does.
+    uint16_t _ip = 0;
+    bool _fastEnabled = false;
+    bool _fis = false;
+
+    void armFast();
+    void takeFast(z8::Signals *s) override;
+    uint8_t fastCycles(uint16_t addr, uint8_t inst, uint8_t cycles) override;
+#endif
 };
 
 }  // namespace z88

@@ -1772,6 +1772,25 @@ found two matcher errors. **[hw]**
 `HALT` on the Z86C91 and `WFI` on the Z88C00 read the byte after them,
 then the bus stops. **[hw]**
 
+`restore()` enables interrupts with `IRET`, which pops FLAGS and PC and sets
+the global enable (IMR bit 7, the Super8's SYM bit 0): it loads the mask
+without that bit, moves SP down three bytes and feeds `IRET` the pops.
+`IRET` reads the byte after it before popping, on both chips. **[hw]** With
+the enable clear it still ends in `JP`, and so it does on the Super8 while
+FIS is set, since `IRET` then returns from a fast interrupt without popping.
+**[doc]**
+
+Normal builds don't follow the Super8's fast interrupt. It pushes nothing,
+and the run loop, which finds instruction boundaries by counting each
+instruction's bus cycles, lost them at the first one: a fast-interrupt
+mandelbrot stopped within 20 ms. `Z88_FAST_INTERRUPT` in `pins_z8.h` follows
+IP, SYM's fast enable and FIS from the restored state and the program's
+immediate writes to them (an IP written from a register, or by `NEXT`,
+`ENTER` or `EXIT`, isn't followed). It takes a fetch at IP after an opcode
+fetch and a read of the byte after it as an entry, and counts a fast `IRET`
+as two bus cycles. Checking every bus cycle for an entry slows the bus of
+both chips, so it stays out of normal builds. **[hw]**
+
 On the Z88C00, a working register set with `=` was lost on the next `G` or
 step whenever RP0 wasn't C0. **[hw]** `write_reg()` reread r0-r15 into the
 register cache on any RP0 or RP1 write, `restore_sfrs()`'s too, made while

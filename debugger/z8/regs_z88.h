@@ -30,6 +30,11 @@ struct RegsZ88 final : z8::RegsZ8 {
     const RegList *listRegisters(uint_fast8_t n) const override;
     bool setRegister(uint_fast8_t reg, uint32_t value) override;
 
+    static constexpr uint8_t IPH = 0xDA;
+    static constexpr uint8_t IPL = 0xDB;
+    static constexpr uint8_t SYM = 0xDE;
+    static constexpr uint8_t SYM_FAST = 0x02;  // Fast interrupt enable
+
 private:
     uint16_t _ip;
     uint8_t _rp0;
@@ -42,11 +47,11 @@ private:
     static constexpr uint8_t RP1 = 0xD7;
     static constexpr uint8_t SPH = 0xD8;
     static constexpr uint8_t SPL = 0xD9;
-    static constexpr uint8_t IPH = 0xDA;
-    static constexpr uint8_t IPL = 0xDB;
-    static constexpr uint8_t SYM = 0xDE;
+    static constexpr uint8_t F_FIS = 0x02;  // Fast interrupt status
     static constexpr uint_fast8_t R(uint_fast8_t num) { return 0xC0 + num; }
     uint8_t ieReg() const override { return SYM; }
+    uint8_t ieBit() const override { return 0x01; }
+    bool fastIret() const override { return _flags & F_FIS; }
     uint8_t sph() const override { return SPH; }
     void save_sfrs() override;
     void restore_sfrs() override;

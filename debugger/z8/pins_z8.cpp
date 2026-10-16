@@ -161,6 +161,19 @@ Signals *PinsZ8::cycle(uint8_t inst) {
     return completeCycle(prepareCycle()->inject(inst));
 }
 
+#if defined(Z88_FAST_INTERRUPT)
+// A fast interrupt discards an opcode fetch and reads the byte after it,
+// then fetches at IP.
+bool PinsZ8::fastEntry(const Signals *s) const {
+    if (s->addr != _fastFetch || !s->read())
+        return false;
+    const auto next = s->prev();
+    const auto discarded = s->prev(2);
+    return next->read() && discarded->read() &&
+           next->addr == uint16_t(discarded->addr + 1);
+}
+#endif
+
 uint16_t PinsZ8::nextFetch() {
     // An interrupt already taken here shows as a discarded fetch and read,
     // then the Super8 fetches its vector, before the pushes.
@@ -176,6 +189,14 @@ uint16_t PinsZ8::nextFetch() {
             break;
         if (n == 0)
             pc = s->addr;
+#if defined(Z88_FAST_INTERRUPT)
+        if (n == 2 && fastEntry(s)) {
+            // The save starts at the handler; IP and FIS hold the return.
+            pc = s->addr;
+            completeCycle(s->inject(InstZ8::NOP));
+            return pc;
+        }
+#endif
         completeCycle(s->inject(InstZ8::NOP));
     }
     // Let the acknowledge fetch its vector and finish its pushes.
@@ -218,18 +239,34 @@ bool PinsZ8::rawStep() {
             intrAck(s->prev(7));
         }
     }
+#if defined(Z88_FAST_INTERRUPT)
+    if (fastEntry(s))
+        takeFast(s);
+#endif
     const auto inst = _mems->read_byte(s->addr);
-    const auto cycles = _inst.busCycles(inst);
+    auto cycles = _inst.busCycles(inst);
     if (_inst.isBreak(inst) || cycles == 0) {
         completeCycle(s->inject(InstZ8::JR));
         cycle(InstZ8::JR_HERE);
         Cycles::discard(s);
         return false;
     }
+#if defined(Z88_FAST_INTERRUPT)
+    cycles = fastCycles(s->addr, inst, cycles);
+#endif
     auto fetch = s;
     completeCycle(s);
     for (auto c = 1; c < cycles; ++c) {
+#if defined(Z88_FAST_INTERRUPT)
+        s = prepareCycle();
+        // Left pending, the handler's fetch is the next rawStep()'s, since
+        // prepareCycle() returns a cycle under way again.
+        if (fastEntry(s))
+            return true;
+        completeCycle(s);
+#else
         s = cycle();
+#endif
         if (_writes == 3) {
             if (fetchVectorAfterContextSave()) {
                 cycle();
