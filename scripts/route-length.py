@@ -5,7 +5,7 @@ Summary (default): every routed net, ranked by how much copper it uses
 beyond the shortest straight-line tree joining its pads (a minimum
 spanning tree; for a two-pad net, the pad-to-pad distance).
 
-    scripts/route-length.py schematics/mc68hc16z/bionic-mc68hc16z.kicad_pcb
+    scripts/route-length.py schematics/cdp1802/bionic-cdp1802.kicad_pcb
 
 Per pad (--net): the copper path from a source pad to each other pad of
 the net against the straight line between them. The source is the

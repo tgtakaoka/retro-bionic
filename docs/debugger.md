@@ -22,6 +22,8 @@ From the header of `debugger/debugger.cpp`:
 | `p` | Dump program memory — `addr [length]` |
 | `m` | Read/write data memory |
 | `M` | Read/write program memory |
+| `c` | Fill data memory — `addr n v...` |
+| `C` | Fill program memory |
 | `P` | Show/set write-protect area |
 | `D` | Disassemble |
 | `A` | Assemble |
@@ -31,7 +33,7 @@ From the header of `debugger/debugger.cpp`:
 | `B` | Set breakpoint |
 | `b` | Show/clear breakpoints |
 | `U` | Upload Intel HEX or Motorola S-record |
-| `L` | Load S-record from SD card |
+| `L` | Load Intel HEX or S-record file from SD card |
 | `F` | List files on SD card |
 | `I` | Show/select I/O device |
 | `W` | Write identity EEPROM |
@@ -39,8 +41,8 @@ From the header of `debugger/debugger.cpp`:
 | `?` | Print version and usage |
 
 Separate `d`/`p` and `m`/`M` pairs exist because Harvard-architecture targets have distinct
-program and data address spaces. `P` only appears on targets that report
-`hasProtectArea()`.
+program and data address spaces. `P` works only on targets that report
+`hasProtectArea()`; elsewhere it prints `No Protect area`.
 
 ### Not in a stock build
 
@@ -116,7 +118,7 @@ i8085 SIO, MC6801, MC68HC11, MC68HC05C0, TLCS-90, TMS7002, Z86 and Z88.
 
 ## Bus-cycle capture
 
-`debugger/signals.h` keeps a 128-entry ring of captured cycles, each recording the address,
+`debugger/cycles.h` keeps a 128-entry ring of captured cycles, each recording the address,
 the data, and whether the controller injected or captured it.
 
 ## Halting a running program

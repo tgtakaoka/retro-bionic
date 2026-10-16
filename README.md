@@ -1,7 +1,7 @@
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE.md)
 [![PlatformIO CI](https://github.com/tgtakaoka/retro-bionic/actions/workflows/platformio-ci.yml/badge.svg)](https://github.com/tgtakaoka/retro-bionic/actions/workflows/platformio-ci.yml)
-[![Targets](https://img.shields.io/badge/CPU%20targets-42-orange.svg)](docs/supported-cpus.md)
-[![Boards](https://img.shields.io/badge/KiCad%20boards-49-green.svg)](schematics)
+[![Targets](https://img.shields.io/badge/CPU%20targets-45-orange.svg)](docs/supported-cpus.md)
+[![Boards](https://img.shields.io/badge/KiCad%20boards-51-green.svg)](schematics)
 
 <div align="center">
 
@@ -33,7 +33,7 @@ cycle at a time, from a terminal on your desk.
 [Teensy 4.1](https://www.pjrc.com/store/teensy41.html) is wired to every pin of the target
 CPU and drives the whole system around it: the clock, every bus cycle, and the memory and
 peripherals the chip thinks it is talking to. One firmware image — about 300 kB including
-every assembler, disassembler and debugger — covers all **42 supported targets**, and the
+every assembler, disassembler and debugger — covers all **45 supported targets**, and the
 board tells the controller which one it is.
 
 <div align="center">
@@ -79,7 +79,7 @@ disassembly, single-stepping with the bus trace, then drawing the Mandelbrot set
 
 ## Supported CPUs
 
-All 44 targets, grouped by vendor and architecture:
+All 45 targets, grouped by vendor and architecture:
 
 <table>
 <thead>
@@ -124,11 +124,11 @@ CPUs still to be supported.
 
 | Path | Contents |
 |---|---|
-| [`debugger/`](debugger) | Teensy 4.1 firmware — shared framework plus 22 per-family back ends |
-| [`schematics/`](schematics) | KiCad projects: base, mezzanine and 47 CPU adapter boards, with gerbers and PDFs |
+| [`debugger/`](debugger) | Teensy 4.1 firmware — shared framework plus 25 per-family back ends |
+| [`schematics/`](schematics) | KiCad projects: base, mezzanine and 49 CPU adapter boards, with gerbers and PDFs |
 | [`pinout/`](pinout) | Pin-map definitions consumed by [dip](https://github.com/tgtakaoka/dip) |
 | [`samples/`](samples) | Test programs — Mandelbrot, arithmetic suites, serial echo — ported to every CPU |
-| [`scripts/`](scripts) | PlatformIO helper for generating `compile_commands.json` |
+| [`scripts/`](scripts) | Bench control, regression, cycle recording and timing scripts, and the PlatformIO `compile_commands.json` helper |
 
 ## Related projects
 

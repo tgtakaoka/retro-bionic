@@ -1,7 +1,7 @@
 # Samples
 
 [`samples/`](../samples) holds the same handful of programs ported to every supported
-architecture — 40 CPU directories plus one host-side reference. Each contains the assembly
+architecture — 42 CPU directories plus one host-side reference. Each contains the assembly
 source, a listing, and a pre-built `.s19` or `.hex` ready to paste into the debugger.
 
 ## The programs
@@ -42,7 +42,7 @@ ASM=asm
 all: echo.s19 echoir.s19 echoitr.s19 arith.s19 mandelbrot.s19 mc6x09.s19
 
 %.s19:	%.asm
-	$(ASM) -l $*.lst -o $@ $^
+	$(ASM) -l $*.lst -o $@ $<
 ```
 
 So with `asm` on your `PATH`:
