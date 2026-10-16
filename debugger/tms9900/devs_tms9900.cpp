@@ -5,7 +5,9 @@
 namespace debugger {
 namespace tms9900 {
 
-DevsTms9900::DevsTms9900() : _acia(new Mc6850(2)) {}
+DevsTms9900::DevsTms9900() : _acia(new Mc6850(2)) {
+    _acia->setBaseAddr(ACIA_BASE);
+}
 
 DevsTms9900::~DevsTms9900() {
     delete _acia;
@@ -13,7 +15,6 @@ DevsTms9900::~DevsTms9900() {
 
 void DevsTms9900::reset() {
     _acia->reset();
-    _acia->setBaseAddr(ACIA_BASE);
 }
 
 void DevsTms9900::begin() {

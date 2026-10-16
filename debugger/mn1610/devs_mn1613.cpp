@@ -5,7 +5,9 @@
 namespace debugger {
 namespace mn1613 {
 
-DevsMn1613::DevsMn1613() : _usart(new I8251()) {}
+DevsMn1613::DevsMn1613() : _usart(new I8251()) {
+    _usart->setBaseAddr(USART_BASE);
+}
 
 DevsMn1613::~DevsMn1613() {
     delete _usart;
@@ -13,7 +15,6 @@ DevsMn1613::~DevsMn1613() {
 
 void DevsMn1613::reset() {
     _usart->reset();
-    _usart->setBaseAddr(USART_BASE);
 }
 
 void DevsMn1613::begin() {

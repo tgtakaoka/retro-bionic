@@ -6,7 +6,14 @@
 namespace debugger {
 namespace pdp8 {
 
-DevsPdp8::DevsPdp8() : _acia(new Mc6850()) {}
+DevsPdp8::DevsPdp8() : _acia(new Mc6850()) {
+#if defined(ACIA_IO)
+    _acia->setBaseAddr(ACIA_IO);
+#endif
+#if defined(ACIA_ADDR)
+    _acia->setBaseAddr(ACIA_ADDR);
+#endif
+}
 
 DevsPdp8::~DevsPdp8() {
     delete _acia;
@@ -14,12 +21,6 @@ DevsPdp8::~DevsPdp8() {
 
 void DevsPdp8::reset() {
     _acia->reset();
-#if defined(ACIA_IO)
-    _acia->setBaseAddr(ACIA_IO);
-#endif
-#if defined(ACIA_ADDR)
-    _acia->setBaseAddr(ACIA_ADDR);
-#endif
 }
 
 void DevsPdp8::begin() {

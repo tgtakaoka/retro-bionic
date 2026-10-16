@@ -9,7 +9,8 @@ namespace debugger {
  *  MC6850 ACIA device emulator
  */
 struct Mc6850 final : UartBase {
-    Mc6850(uint8_t step = 1) : UartBase(step) {}
+    // Interrupt name 1 until a program or the I command sets another.
+    Mc6850(uint8_t step = 1) : UartBase(step, 1) {}
 
     const char *name() const override;
     const char *description() const override;

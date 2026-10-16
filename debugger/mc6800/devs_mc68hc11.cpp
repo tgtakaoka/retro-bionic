@@ -16,6 +16,7 @@ DevsMc68hc11::DevsMc68hc11(Mc68hc11Init &init)
       _sci(new Mc68hc11SciHandler(init))
 #endif
 {
+    _acia->setBaseAddr(ACIA_BASE);
 }
 
 DevsMc68hc11::~DevsMc68hc11() {
@@ -31,7 +32,6 @@ void DevsMc68hc11::reset() {
     _sci->reset();
 #endif
     _acia->reset();
-    _acia->setBaseAddr(ACIA_BASE);
 }
 
 void DevsMc68hc11::begin() {

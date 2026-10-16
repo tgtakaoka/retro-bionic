@@ -5,7 +5,9 @@
 namespace debugger {
 namespace z80 {
 
-DevsZ80::DevsZ80(uint16_t addr) : _addr(addr), _usart(new I8251()) {}
+DevsZ80::DevsZ80(uint16_t addr) : _usart(new I8251()) {
+    _usart->setBaseAddr(addr);
+}
 
 DevsZ80::~DevsZ80() {
     delete _usart;
@@ -13,7 +15,6 @@ DevsZ80::~DevsZ80() {
 
 void DevsZ80::reset() {
     _usart->reset();
-    _usart->setBaseAddr(_addr);
 }
 
 void DevsZ80::begin() {

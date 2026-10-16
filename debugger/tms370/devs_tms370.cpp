@@ -5,7 +5,9 @@
 namespace debugger {
 namespace tms370 {
 
-DevsTms370::DevsTms370() : _acia(new Mc6850()) {}
+DevsTms370::DevsTms370() : _acia(new Mc6850()) {
+    _acia->setBaseAddr(ACIA_BASE);
+}
 
 DevsTms370::~DevsTms370() {
     delete _acia;
@@ -13,7 +15,6 @@ DevsTms370::~DevsTms370() {
 
 void DevsTms370::reset() {
     _acia->reset();
-    _acia->setBaseAddr(ACIA_BASE);
 }
 
 void DevsTms370::begin() {

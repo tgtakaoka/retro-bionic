@@ -25,7 +25,6 @@ struct DevsZ80 final : Devs {
     void printDevices() const override;
 
 private:
-    const uint16_t _addr;
     Device *_usart;
 };
 

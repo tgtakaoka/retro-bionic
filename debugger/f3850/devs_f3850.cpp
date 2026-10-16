@@ -5,7 +5,9 @@
 namespace debugger {
 namespace f3850 {
 
-DevsF3850::DevsF3850() : _usart(new I8251()) {}
+DevsF3850::DevsF3850() : _usart(new I8251()) {
+    _usart->setBaseAddr(USART_BASE);
+}
 
 DevsF3850::~DevsF3850() {
     delete _usart;
@@ -13,7 +15,6 @@ DevsF3850::~DevsF3850() {
 
 void DevsF3850::reset() {
     _usart->reset();
-    _usart->setBaseAddr(USART_BASE);
 }
 
 void DevsF3850::begin() {

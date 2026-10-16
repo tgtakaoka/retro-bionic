@@ -15,6 +15,7 @@ DevsTlcs90::DevsTlcs90()
       _uart(new Tlcs90UartHandler())
 #endif
 {
+    _usart->setBaseAddr(USART_BASE);
 }
 
 DevsTlcs90::~DevsTlcs90() {
@@ -29,7 +30,6 @@ void DevsTlcs90::reset() {
     _uart->reset();
 #endif
     _usart->reset();
-    _usart->setBaseAddr(USART_BASE);
 }
 
 void DevsTlcs90::begin() {

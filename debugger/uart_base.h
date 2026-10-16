@@ -19,11 +19,20 @@ struct UartBase : Device {
         return _enabled && (addr & ~_mask) == _base_addr;
     }
     void setBaseAddr(uint32_t addr) override { _base_addr = addr & ~_mask; }
+    // Both interrupt vectors; 0 asserts no interrupt.
+    void setVector(uint8_t vector) override;
     uint32_t baseAddr() const override { return _base_addr; }
     uint16_t vector() const override { return _rxVec ? _rxVec : _txVec; }
 
 protected:
-    UartBase(uint8_t step = 1) : Device(), _step(step), _mask(step * 3) {}
+    UartBase(uint8_t step = 1, uint8_t vector = 0)
+        : Device(),
+          _step(step),
+          _mask(step * 3),
+          _rxIntr(vector),
+          _txIntr(vector),
+          _rxVec(0),
+          _txVec(0) {}
 
     const uint8_t _step;
     const uint32_t _mask;

@@ -13,6 +13,7 @@ DevsCdp1802::DevsCdp1802()
       _sci(new Cdp1802SciHandler())
 #endif
 {
+    _acia->setBaseAddr(ACIA_BASE);
 }
 
 DevsCdp1802::~DevsCdp1802() {
@@ -27,7 +28,6 @@ void DevsCdp1802::reset() {
     _sci->reset();
 #endif
     _acia->reset();
-    _acia->setBaseAddr(ACIA_BASE);
 }
 
 void DevsCdp1802::begin() {

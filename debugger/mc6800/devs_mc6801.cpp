@@ -13,6 +13,7 @@ DevsMc6801::DevsMc6801()
       _sci(new Mc6801SciHandler())
 #endif
 {
+    _acia->setBaseAddr(ACIA_BASE);
 }
 
 DevsMc6801::~DevsMc6801() {
@@ -27,7 +28,6 @@ void DevsMc6801::reset() {
     _sci->reset();
 #endif
     _acia->reset();
-    _acia->setBaseAddr(ACIA_BASE);
 }
 
 void DevsMc6801::begin() {

@@ -5,7 +5,9 @@
 namespace debugger {
 namespace mos6502 {
 
-DevsMos6502::DevsMos6502() : _acia(new Mc6850()) {}
+DevsMos6502::DevsMos6502() : _acia(new Mc6850()) {
+    _acia->setBaseAddr(ACIA_BASE);
+}
 
 DevsMos6502::~DevsMos6502() {
     delete _acia;
@@ -13,7 +15,6 @@ DevsMos6502::~DevsMos6502() {
 
 void DevsMos6502::reset() {
     _acia->reset();
-    _acia->setBaseAddr(ACIA_BASE);
 }
 
 void DevsMos6502::begin() {

@@ -13,6 +13,7 @@ DevsI8051::DevsI8051()
       _uart(new I8051UartHandler())
 #endif
 {
+    _usart->setBaseAddr(USART_BASE);
 }
 
 DevsI8051::~DevsI8051() {
@@ -27,7 +28,6 @@ void DevsI8051::reset() {
     _uart->reset();
 #endif
     _usart->reset();
-    _usart->setBaseAddr(USART_BASE);
 }
 
 void DevsI8051::begin() {
