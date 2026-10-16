@@ -10,10 +10,10 @@ struct InstTms370 {
     static constexpr uint16_t VEC_RESET = 0x7FFE;
     static constexpr uint16_t VEC_TRAP15 = 0x7FC0;
 
-    static constexpr uint8_t TRAP15 = 0xE0;
+    static constexpr uint8_t TRAP15 = 0xE0;  // break point
     static constexpr uint8_t IDLE = 0xF6;
     static constexpr uint8_t JMP = 0x00;
-    static constexpr uint8_t JMP_HERE = 0xFE;
+    static constexpr uint8_t JMP_HERE = 0xFE;  // JMP offset to itself
 };
 
 }  // namespace tms370

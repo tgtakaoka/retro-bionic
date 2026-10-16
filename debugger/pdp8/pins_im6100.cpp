@@ -200,6 +200,7 @@ void PinsIm6100::resetPins() {
         osc_cycle();
     negate_reset();
     osc_cycle();
+    // A #RUN/HLT pulse, one OSC cycle covering tRHP, starts the CPU.
     assert_runhlt();
     osc_cycle();
     negate_runhlt();
@@ -223,6 +224,7 @@ pdp8::Signals *PinsIm6100::resumeCycle(uint16_t pc) const {
 pdp8::Signals *PinsIm6100::prepareCycle() const {
     auto s = Signals::put();
     noInterrupts();
+    // Clock until LXMAR is high; the address is read off DX as it latches.
     if (signal_lxmar() != LOW) {
         osc_cycle_lo();
     } else {
@@ -235,6 +237,7 @@ pdp8::Signals *PinsIm6100::prepareCycle() const {
     // assert_debug();
     s->getAddress();
     // negate_debug();
+    // Clock until a #MEMSEL, #DEVSEL, #CPSEL or #SWSEL asserts.
     do {
         osc_cycle();
     } while (!s->getControl());
@@ -290,6 +293,7 @@ pdp8::Signals *PinsIm6100::completeCycle(pdp8::Signals *_s) const {
     delayNanoseconds(osc_lo_next);
     osc_cycle();
     noInterrupts();
+    // A second select before XTC rises is the cycle's optional write half.
     do {
         osc_cycle_lo();
         // assert_debug();

@@ -6,6 +6,8 @@ namespace debugger {
 struct Pins;
 struct Target;
 
+// Each target's static Identity adds itself to a list, which
+// readIdentity() searches for the name in the identity EEPROM.
 struct Identity final {
     Identity(const char *name, Pins *(*instance)());
 

@@ -184,6 +184,7 @@ PinsIns8060::PinsIns8060() {
     _mems = new MemsIns8060(_devs);
 }
 
+// Polls the bit-banged serial handler at every XIN fall.
 void PinsIns8060::xin_lo() const {
     digitalWriteFast(PIN_XIN, LOW);
     devs<DevsIns8060>()->sciLoop();
@@ -202,8 +203,8 @@ void PinsIns8060::resetPins() {
         xin_cycle();
     negate_enin();
     negate_reset();
-    // The #BREQ output goes low, indicating the start of execution;
-    // this occurs at a time within 13 Tc after #RST is set high.
+    // #BREQ goes low within 13 Tc after #RST rises; the save's first
+    // prepareCycle() waits for its bus cycle.
     _regs->save();
 }
 
@@ -382,6 +383,7 @@ bool PinsIns8060::loop() {
 #ifdef PROFILE_CYCLES
             negate_debug();
 #endif
+            // Park on a jump back to the HALT, kept off the bus by #ENIN.
             inject(InstIns8060::JMP);
             inject(InstIns8060::JMP_HALT);
             negate_enin();
@@ -414,6 +416,7 @@ bool PinsIns8060::suspend() const {
     for (auto n = 0; n < fetch_cycles; ++n) {
         auto s = prepareCycle();
         if (s->fetch()) {
+            // A JMP $ refetches this opcode once #ENIN lets the CPU go.
             completeCycle(s->inject(InstIns8060::JMP));
             inject(InstIns8060::JMP_HERE);
             negate_enin();

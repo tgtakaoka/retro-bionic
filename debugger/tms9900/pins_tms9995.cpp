@@ -264,6 +264,7 @@ bool PinsTms9995::is_internal(uint16_t addr) const {
     return addr >= 0xFFFA;
 }
 
+// Ends each 3-word MOV/MOVB below, bringing PC back to where it paused.
 const uint16_t JMP_6 = 0x10FC;  // JMP $-6
 const uint16_t ZERO = 0x0000;   // @>0000
 
@@ -339,6 +340,7 @@ void PinsTms9995::injectReads(const uint16_t *data, uint_fast8_t len) {
         s->inject(high ? hi(data[i]) : lo(data[i]));
         completeCycle(s);
         if (s->read()) {
+            // An on-chip word takes one cycle, an external one two bytes.
             if (is_internal(s->addr)) {
                 i++;
             } else {
@@ -374,6 +376,7 @@ void PinsTms9995::captureWrites(uint16_t *buf, uint_fast8_t len) {
         }
         s = (i < len) ? prepareCycle() : pauseCycle();
     }
+    // Data written on chip never shows on the bus; read it back.
     for (uint_fast8_t i = 0; i < len; ++i) {
         if (is_internal(addr[i]))
             buf[i] = internal_read16(addr[i]);

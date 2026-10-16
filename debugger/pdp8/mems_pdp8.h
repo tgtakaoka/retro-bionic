@@ -44,6 +44,7 @@ struct ControlPanel final : DmaMemory {
 
 private:
     MemsPdp8 *const _mems;
+    // Panel memory is kept past the 15-bit main memory space.
     static constexpr auto OFFSET = UINT32_C(0100000);
 
     void isPrint(const uint8_t *data, char buf[2]) const override {

@@ -19,7 +19,7 @@ bool Signals::getControl() {
 }
 
 void Signals::getDirection() {
-    // XTC(READ), IFETCH are active high
+    // XTC (READ) and IFETCH are active high; flipped to read as active low
     dir() = busRead(DIR) ^ (DIR_XTC | DIR_IFETCH);
 }
 

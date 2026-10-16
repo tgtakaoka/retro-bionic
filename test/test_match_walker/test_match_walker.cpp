@@ -19,6 +19,8 @@ using namespace debugger;
 
 namespace {
 
+// _signals[0] is the cycle's kind, [1] and [2] the role and span the
+// walk marks.
 struct ToySignals final : SignalsBase<ToySignals> {
     void set(char kind, uint16_t a, uint16_t d) {
         _signals[0] = kind;
@@ -144,6 +146,7 @@ struct Cycle {
     uint16_t data;  // a word's low byte first
 };
 
+// The Toy a case walks with: |plain|, or one with traits of its own.
 Toy plain;
 Toy *arch = &plain;
 #define toy (*arch)

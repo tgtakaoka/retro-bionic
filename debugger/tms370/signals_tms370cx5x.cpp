@@ -12,6 +12,7 @@ void SignalsTms370Cx5x::getAddr() {
 
 bool SignalsTms370Cx5x::getDirection() {
     cntl() = busRead(CNTL);
+    // only #EDS low cycles are external bus accesses
     return (cntl() & CNTL_EDS) == 0;
 }
 

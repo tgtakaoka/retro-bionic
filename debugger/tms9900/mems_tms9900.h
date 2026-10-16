@@ -15,6 +15,7 @@ struct MemsTms9900 : DmaMemory {
     uint16_t read(uint32_t addr) const override;
     void write(uint32_t addr, uint16_t data) const override;
 
+    // NMI's WP and PC are the last two words
     uint16_t vec_nmi() const { return maxAddr() - 3; }
 
 protected:

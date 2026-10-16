@@ -88,6 +88,7 @@ void PinsPdp8::captureWrites(const uint16_t *data, uint_fast8_t len,
             goto capture;
         }
         s = prepareCycle();
+        // Bound the sequence in case the expected writes never come.
         if (cyc >= 20)
             break;
     }
@@ -102,6 +103,8 @@ void PinsPdp8::loop() {
     holdInterrupts(false);
     while (true) {
         if (completeCycle(s) == nullptr) {
+            // A HLT fetched, a break point or the program's own, left
+            // unexecuted.
             holdInterrupts(true);
             Cycles::Hold hold;
             _regs->save();
@@ -174,7 +177,7 @@ bool PinsPdp8::step(bool show) {
     Cycles::reset();
     _regs->restore();
     if (show)
-        Cycles::reset();
+        Cycles::reset();  // drop the restore's injected cycles from the display
     if (rawStep()) {
         if (show)
             printCycles();

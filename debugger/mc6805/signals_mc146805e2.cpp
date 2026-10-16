@@ -8,6 +8,7 @@ namespace mc146805e2 {
 
 void SignalsMc146805E2::getControl() {
 #if CNTL_WRITE == CNTL_RW && CNTL_FETCH == CNTL_LI
+    // No read strobe: R/W tells a write, and the read flag is always set.
     cntl() = busRead(CNTL) & ~CNTL_READ;
 #else
 #error "Check CNTL_ definitions"

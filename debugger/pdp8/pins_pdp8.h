@@ -51,7 +51,7 @@ protected:
 
     virtual pdp8::Signals *resumeCycle(uint16_t pc = 0) const = 0;
     virtual pdp8::Signals *prepareCycle() const = 0;
-    // Returns nullptr if found HLT instruction
+    // Returns nullptr on a HLT fetch, which is left unexecuted.
     virtual pdp8::Signals *completeCycle(Signals *signals) const = 0;
 
     void loop();

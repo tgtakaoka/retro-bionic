@@ -217,6 +217,7 @@ Signals *PinsScn2650::completeCycle(Signals *s) {
         delayNanoseconds(clock_lo_t1w);
         clock_hi();  // T2H
         if (s->io()) {
+            // Extended I/O (A13 high) carries its port on A0-A7.
             if (s->addr & 0x2000) {
                 s->addr &= 0xFF;
                 if (_devs->isSelected(s->addr)) {
@@ -379,7 +380,7 @@ bool PinsScn2650::rawStep() {
     const auto inst = _mems->read(s->addr);
     const auto len = InstScn2650::instLen(inst);
     if (inst == InstScn2650::HALT || len == 0) {
-        // HALT or unknown instruction. Just return.
+        // A HALT or unknown instruction is left unexecuted.
         return false;
     }
 

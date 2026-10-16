@@ -188,13 +188,13 @@ bool PinsMos6502::native65816() const {
 HardwareType PinsMos6502::_hardType;
 
 void PinsMos6502::checkHardwareType() {
-    // This negate #RES pulse negate #VP of W65Cxxx
+    // A #RES pulse negates #VP on a W65Cxx; the pin is Vss on the others.
     negate_reset();
     phi0_hi();
     delayNanoseconds(500);
     assert_reset();
     if (signal_phi1o() == LOW) {
-        // PIN_PHI1O is inverted PIN_PHI0, means not W65C816_ABORT.
+        // PIN_PHI1O follows PHI0 inverted: not the W65C816's #ABORT.
         if (signal_vp() == LOW) {
             // PIN_VP keeps LOW, means Vss of MOS6502, G65SC02, R65C02.
             _hardType = HW_MOS6502;
@@ -222,6 +222,7 @@ void PinsMos6502::checkSoftwareType() {
         return;
     }
 
+    // Tell the parts apart by where opcodes some of them lack take the bus.
     inject(InstMos6502::JMP);
     inject(0x00);
     inject(0x10);
@@ -232,6 +233,7 @@ void PinsMos6502::checkSoftwareType() {
     auto det65 = inject(InstMos6502::JMP);
     inject(0x00);
     inject(0x10);
+    // $80 is a two-byte NOP on the NMOS 6502.
     if (det65->addr == base->addr + 3U) {
         _softType = SW_MOS6502;
         return;
@@ -245,6 +247,7 @@ void PinsMos6502::checkSoftwareType() {
     inject(InstMos6502::NOP);
     det65 = inject(InstMos6502::NOP);
     inject(InstMos6502::NOP);
+    // The G65SC02 has no BBR0 and runs $0F as a one-byte NOP.
     if (det65->addr == base->addr + 4) {
         _softType = SW_G65SC02;
     } else {

@@ -43,6 +43,7 @@ private:
     uint16_t _dev_base;
 
     uint8_t init() const { return (_ram_base >> 8) | (_dev_base >> 12); }
+    // INIT: RAM page in bits 7-4, register block page in bits 3-0.
     void set(uint8_t init) {
         _ram_base = ((init & 0xF0) << 8) + _ram_offset;
         _dev_base = (init & 0x0F) << 12;

@@ -5,6 +5,7 @@
 
 namespace debugger {
 
+// Slot 0 is the one-shot break point of 'g'; 1.._num the ones set by 'B'.
 struct BreakPoints {
     BreakPoints() : _num(0), _has_temp(false) {}
 

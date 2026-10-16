@@ -193,7 +193,8 @@ void PinsMc68hc11::resetPins() {
     pinsMode(PINS_PULLUP, sizeof(PINS_PULLUP), INPUT_PULLUP);
     pinsMode(PINS_INPUT, sizeof(PINS_INPUT), INPUT);
 
-    // Reset vector should not point internal registers.
+    // The save injects into the first fetch, so it must be external: the
+    // CPU answers an internal address itself. Start at 8000H until then.
     const auto reset_vec = _mems->read16(InstMc68hc11::VEC_RESET);
     _mems->write16(InstMc68hc11::VEC_RESET, 0x8000);
 
@@ -231,8 +232,7 @@ void PinsMc68hc11::resetPins() {
     // Read Reset vector
     cycle();
     cycle();
-    // The first instruction will be saving registers, and certainly can be
-    // injected.
+    // The first fetch takes the save's injected instructions.
     _regs->reset();
     _regs->save();
     _init.configSystem(regs<RegsMc68hc11>());
@@ -247,7 +247,7 @@ mc6800::Signals *PinsMc68hc11::cycle() {
 }
 
 mc6800::Signals *PinsMc68hc11::rawCycle() {
-    // MC68HC11 clock E is CLK/4, so we toggle CLK 4 times
+    // E is EXTAL/4: one bus cycle is four EXTAL cycles, c1-c4.
     // C1H
     Signals::inputMode();
     extal_hi();
@@ -280,11 +280,12 @@ mc6800::Signals *PinsMc68hc11::rawCycle() {
         extal_lo();
         delayNanoseconds(c4_lo_read);
         s->getControl();
+        // E low where it must be high: a STOP froze it or shifted its
+        // phase; stopped() resyncs.
         if (clock_e() == LOW)
             return stopped(s);
         // C4H
         extal_hi();
-        // change data bus to output
         Cycles::next();
         delayNanoseconds(c4_hi_read);
     } else {

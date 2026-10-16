@@ -5,6 +5,8 @@ namespace scn2650 {
 
 namespace {
 
+// A table entry: bit 7 set when the operand may be indirect, bits 3-2 the
+// instruction length, bits 1-0 its data bus cycles.
 constexpr uint8_t inst_len(uint8_t e) {
     return (e >> 2) & 3;
 }
@@ -300,6 +302,7 @@ bool InstScn2650::isBranch(uint8_t inst) {
 // opcode's fetch, not the pointer's read. A pointer right after the branch
 // reads the same, and counts as not taken.
 bool InstScn2650::notTaken(uint16_t fetch, uint8_t len, uint16_t addr) {
+    // The PC wraps inside its 8K page.
     return addr == ((fetch & 0x6000) | ((fetch + len) & 0x1FFF));
 }
 
@@ -307,7 +310,7 @@ uint8_t InstScn2650::busCycles(uint8_t inst, uint8_t opr) {
     const auto e = INST_TABLE[inst];
     auto cycles = bus_cycles(e);
     if (has_indirect(e) && (opr & 0x80) != 0)
-        cycles += 2;  // for indirect access
+        cycles += 2;  // operand bit 7: the 2-byte pointer's reads
     return cycles;
 }
 }  // namespace scn2650

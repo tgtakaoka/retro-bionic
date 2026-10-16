@@ -1,6 +1,7 @@
 #!/usr/bin/gawk -f
 # -*- mode: awk; -*-
-# Generates the tables of inst_mc6805.cpp, inst_mc146805.cpp, inst_mc68hc05.cpp; from debugger/mc6805:
+# Generates the tables of inst_mc6805.cpp, inst_mc146805.cpp and
+# inst_mc68hc05.cpp; from debugger/mc6805:
 #
 #   gawk -f inst_mc6805.awk mc6805.txt \
 #       | clang-format --assume-filename=inst_mc6805.cpp
@@ -56,6 +57,7 @@ function pretty_print(opc, mne, opr, clk, len) {
     printf("%-2s  %-5s  %-7s  %2s  %s\n", opc, mne, opr, clk, len);
 }
 
+# INST_TABLE is a bitmap of the valid opcodes, eight a byte, MSB first.
 function generate_ENTRY(opc, len,  num, pos, bit) {
     if (GENERATE_TABLE == 0)
         return;

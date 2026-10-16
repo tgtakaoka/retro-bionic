@@ -4,6 +4,9 @@ line of the backtrace with samples/z280/*.lst, to check the matcher
 built from the z280-PAGExx.txt tables.
 
     debugger/z280/tools/check_samples.py
+
+Each sample's output is kept as $BIONIC_RUN_DIR/z280-check-<sample>.txt;
+exits 1 if any sample fails.
 """
 import importlib.machinery
 import os

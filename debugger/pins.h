@@ -32,8 +32,7 @@ struct Pins {
     // target -- between startRunTimer() and stopRunTimer(), so it
     // excludes register save/restore and any post-run disassembly. Reads
     // and clears in one step, so a value is reported once: 0 if this
-    // target has not called them yet (most don't; see z280 for the first
-    // one), or if already retrieved.
+    // target never calls them, or if already retrieved.
     uint32_t retrieveRunMicros() {
         const auto us = _runMicros;
         _runMicros = 0;
@@ -52,7 +51,7 @@ struct Pins {
     static bool haltSwitch();
 #ifdef STRESS_HALTGO
     // yield() on only one in this many haltSwitch() calls, so halts land
-    // where a pending interrupt reaches the save
+    // where a pending interrupt reaches the save.
     static uint32_t yieldInterval() { return _yieldInterval; }
     static void setYieldInterval(uint32_t n) { _yieldInterval = n ? n : 1; }
 #endif

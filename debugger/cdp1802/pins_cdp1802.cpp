@@ -34,7 +34,7 @@ namespace cdp1802 {
  *  - c0 falling edge to TPA rising edge is ~100ns (200~300ns)
  *  - c1 rising edge to #MRD falling edge is ~
  *  - c1 falling edge to TPA falling edge is ~100ns (200~300ns)
- *  - BUS data is sampled at rising edge of c7 with hodling time 200ns.
+ *  - BUS data is sampled at rising edge of c7 with holding time 200ns.
  */
 
 namespace {
@@ -163,7 +163,8 @@ void PinsCdp1802::pulseReset() {
         clock_cycle();
     negate_reset();
     // The first machine cycle after termination of reset is an
-    // initialization cycle which requires 9 clock pulses.
+    // initialization cycle which requires 9 clock pulses; wait for its
+    // TPA, bounded in case the CPU does not respond.
     for (auto i = 0; i < 20; i++) {
         clock_cycle();
         if (signal_tpa() != LOW)
@@ -180,17 +181,16 @@ void PinsCdp1802::resetPins() {
     // R's verbose trace, where the decision can be read straight off.
     Cycles::reset();
     pulseReset();
-    // reset() (CPU-type detection) feeds the chip its own extra fetch(es),
-    // leaving R(P) advanced by however many bytes it injected -- pulse
-    // reset again afterward to put R(P) back to 0 for real, rather than
-    // track and subtract the byte count later.
+    // CPU-type detection injects fetches that advance R(P); reset again
+    // to put R(P) back to 0.
     _regs->reset();
     pulseReset();
     _regs->save();
 }
 
 Signals *PinsCdp1802::startCycle() {
-    // CDP1802 bus cycle is CLOCK/8, so we toggle CLOCK 8 times
+    // A machine cycle is 8 clocks, c11 through c10, clocked by
+    // prepareCycle() and completeCycle().
     auto s = Signals::put();
     // assert_debug();
     s->getStatus();
@@ -356,6 +356,8 @@ void PinsCdp1802::execute(const uint8_t *inst, uint8_t len, uint16_t *addr,
     uint8_t inj = 0;
     uint8_t cap = 0;
     auto s = startCycle();
+    // Feed every byte and capture up to |max| writes, then run on to the
+    // next fetch so the instruction completes.
     while (inj < len || cap < max) {
         if (inj < len)
             s->inject(inst[inj]);
@@ -446,6 +448,8 @@ bool PinsCdp1802::step(bool show) {
     return false;
 }
 
+// Execute a long skip |inst|; true if it skipped, i.e. the next fetch is
+// 3 bytes past it.
 bool PinsCdp1802::skip(uint8_t inst) {
     auto org = startCycle();
     completeCycle(prepareCycle(org->inject(inst)));

@@ -9,7 +9,7 @@ namespace tms9900 {
 struct InstTms9900 {
     static constexpr uint16_t VEC_RESET = 0x0000;
     static constexpr uint16_t VEC_XOP15 = 0x007C;
-    static constexpr uint16_t XOP15 = 0x2FCF;  // XOP R15,15
+    static constexpr uint16_t XOP15 = 0x2FCF;  // XOP R15,15; break point
 };
 
 }  // namespace tms9900

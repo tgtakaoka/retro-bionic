@@ -110,6 +110,8 @@ const uint8_t PINS_INPUT[] = {
         PIN_ADR8,
 };
 
+// PHI1-PHI4 are taps of the board's 74ACT164 shift registers: phi1_hi()
+// shifts a high bit in on PHICLK, and each later phase shifts it on.
 void phi_clock() {
     digitalWriteFast(PIN_PHICLK, HIGH);
     delayNanoseconds(clk_lo_ns);
@@ -163,6 +165,8 @@ void out_clock() {
     digitalWriteFast(PIN_OUTCLK, HIGH);
 }
 
+// LOAD, INTREQ, HOLD and IC0-IC3 are held in a 74HCT259 addressable latch:
+// SEL picks the bit, OUTCLK latches DATA into it.
 void control_low(uint_fast8_t sel) {
     busWrite(SEL, sel);
     digitalWriteFast(PIN_DATA, LOW);

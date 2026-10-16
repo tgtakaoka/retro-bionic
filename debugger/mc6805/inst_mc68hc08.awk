@@ -30,6 +30,8 @@
 # Interrupt sequence
 # 1:R:d:w:W:W:W:W:V:v:J
 
+# A bus sequence as a SEQUENCES entry: N for any next-instruction fetch,
+# w for any write, r for any other read; ":" and V dropped.
 function parseSeq(seq, r, i, c) {
     if (seq == "" || seq == "-")
         return "-";

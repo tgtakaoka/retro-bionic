@@ -25,10 +25,10 @@ void RegsI8085::save() {
     uint8_t buffer[11];
     _sp = _pins->captureWrites(
             PUSH_ALL, sizeof(PUSH_ALL), buffer, sizeof(buffer));
-    _sp++;
+    _sp++;  // the first push went to SP-1
     _a = buffer[0];
     _psw = buffer[1];
-    _ie = (buffer[2] & 0x08) != 0;
+    _ie = (buffer[2] & 0x08) != 0;  // RIM's IE bit
     _pc = be16(buffer + 3) - 5;  // offset instructions before RST
     _b = buffer[5];
     _c = buffer[6];

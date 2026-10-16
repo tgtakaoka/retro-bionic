@@ -292,6 +292,7 @@ constexpr uint8_t INST_TABLE[] = {
 };
 }  // namespace
 
+// 0 for an undefined opcode or one this part lacks.
 uint8_t InstI8048::instLength(uint8_t inst) const {
     const auto entry = INST_TABLE[inst];
     if (entry == 0)

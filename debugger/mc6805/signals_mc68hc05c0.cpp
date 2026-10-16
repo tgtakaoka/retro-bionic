@@ -8,6 +8,7 @@ namespace mc68hc05c0 {
 
 void SignalsMc68HC05C0::getControl() {
 #if CNTL_WRITE == CNTL_WR && CNTL_FETCH == CNTL_LIR && (CNTL_RD >> 3) == CNTL_READ
+    // #LIR turns into the active-high fetch flag; #RD moves down to READ.
     cntl() = busRead(CNTL) ^ CNTL_LIR;
     cntl() |= (cntl() & CNTL_RD) >> 3;
 #else

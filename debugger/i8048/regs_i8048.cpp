@@ -52,6 +52,8 @@ void RegsI8048::save() {
     _pins->captureWrites(SAVE, sizeof(SAVE), &_pc, buffer, sizeof(buffer));
     _a = buffer[0];
     _psw = buffer[1];
+    // JMP takes PC bit 11 from the MB flag, and JF1 jumps only when F1 is
+    // set, so the fetch addresses that follow reveal both flags.
     _pins->cycle(InstI8048::JMP(_pc));
     _pins->cycle(0);
     const auto mb = _pins->cycle(InstI8048::JF1);
@@ -91,8 +93,8 @@ void RegsI8048::restore_r() const {
 }
 
 void RegsI8048::restore_pc(uint16_t pc, uint8_t mb) const {
-    // Bit 11 is not altered by normal incrementing of the program
-    // counter.
+    // JMP takes PC bit 11 from the MB flag. The final SEL MB, fetched at
+    // pc-1, restores the saved flag; incrementing never alters bit 11.
     const auto offset = InstI8048::offset(pc - 1);
     const uint8_t JUMP[] = {
             InstI8048::SEL_MB(InstI8048::mb(pc)),
@@ -124,9 +126,10 @@ void RegsI8048::set_rb(uint8_t val) {
     }
     const uint8_t SEL_RB = val ? 0xD5 : 0xC5;
     _pins->execInst(&SEL_RB, sizeof(SEL_RB));
-    save_r();
+    save_r();  // reload R0~R7 from the new bank
 }
 
+// R0 is the pointer, so R0 itself is the saved copy.
 uint8_t RegsI8048::read_internal(uint8_t addr) const {
     if (addr == r_base())
         return _r[0];

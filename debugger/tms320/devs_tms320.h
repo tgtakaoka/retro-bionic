@@ -3,7 +3,7 @@
 
 #include "devs.h"
 
-#define ACIA 0x0004
+#define ACIA 0x0004  // I/O port
 
 namespace debugger {
 namespace tms320 {

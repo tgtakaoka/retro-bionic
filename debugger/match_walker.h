@@ -227,13 +227,13 @@ private:
     struct Match;
 
     const Arch *_arch;
-    SignalsImpl *_begin;
-    uint_fast8_t _size;
+    SignalsImpl *_begin;    // the ring's first cycle, index 0
+    uint_fast8_t _size;     // the cycles in [begin, end)
     uint32_t _stop;
     uint_fast8_t _from;     // the start being walked
     bool _before;           // it began before the ring
     uint_fast8_t _written;  // how far an alternative's match marked
-    uint32_t _budget;
+    uint32_t _budget;       // walkFrom() calls left
     uint_fast8_t _start;
     // a fetch may bring two instructions, and the queue more
     static constexpr uint_fast16_t MAX_STEPS =
@@ -243,6 +243,7 @@ private:
     Role _role[Cycles::MAX_CYCLES];
     Kind _kind[Cycles::MAX_CYCLES];  // each cycle's, from Arch::cycleKind()
 
+    // cycle |i| from |_begin|, wrapping around the ring
     SignalsImpl *at(uint_fast8_t i) const { return _begin->_next(i); }
     void classify();
     bool walked(uint_fast8_t i);

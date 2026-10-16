@@ -33,13 +33,18 @@ struct PinsMc6800Base : Pins {
     void setBreakInst(uint32_t addr) const override;
     void printCycles() override { printCycles(nullptr); }
 
+    // Injects |inst| into the next |len| cycles, then NOPs up to |cycles|.
     void injectReads(const uint8_t *inst, uint8_t len, uint8_t cycles = 0);
+    // Captures the next |len| writes, kept from memory; |addr| gets the
+    // first one's address.
     void captureWrites(uint8_t *buf, uint8_t len, uint16_t *addr = nullptr);
+    // Whether a non-VMA cycle comes between a context push and its vector
+    // read.
     virtual bool nonVmaAfterContextSave() const { return true; }
 
 protected:
     ArchMc6800 *_inst;
-    uint8_t _writes;
+    uint8_t _writes;  // writes in a row: a context push counts up
 
     virtual Signals *rawCycle() = 0;
     virtual Signals *cycle() = 0;

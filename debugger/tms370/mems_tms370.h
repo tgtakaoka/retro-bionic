@@ -18,6 +18,7 @@ struct MemsTms370 : DmaMemory {
     void write(uint32_t addr, uint16_t data) const override;
     uint16_t get_data(uint32_t addr) const override;
     void put_data(uint32_t addr, uint16_t data) const override;
+    // on-chip, reached only by injected instructions
     virtual bool internal(uint32_t addr) const = 0;
 
 private:

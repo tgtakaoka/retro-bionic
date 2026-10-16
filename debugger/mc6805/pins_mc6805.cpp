@@ -16,7 +16,8 @@ constexpr auto WAKE_CYCLES = 4096;
 
 void PinsMc6805::resetPins() {
     resetCpu();
-    // We should certainly inject SWI by pointing external address here.
+    // resetCpu() leaves the CPU fetching at the external dummy vector,
+    // where save() can inject its SWI.
     _regs->save();
     _regs->setIp(mems<mc6805::MemsMc6805>()->resetVector());
 }
@@ -31,7 +32,7 @@ Signals *PinsMc6805::inject(uint8_t data) {
 
 void PinsMc6805::injectReads(const uint8_t *inst, uint_fast8_t len,
         uint_fast8_t cycles, bool discard) {
-    // inject |inst| then execute extra |cycles|
+    // inject |inst|, then run |cycles| more bus cycles
     auto s = currCycle();
     for (uint_fast8_t inj = 0; inj < len; ++inj) {
         completeCycle(s->inject(inst[inj]));
@@ -183,7 +184,7 @@ Signals *PinsMc6805::wakeUp(Signals *s) {
     // After STOP the bus clock restarts at another phase against the
     // debugger's; after WAIT it doesn't.
     if (_inst->isStop(_lastOpcode))
-        resyncBus(5 * WAKE_CYCLES);
+        resyncBus(5 * WAKE_CYCLES);  // 5 OSC1 clocks per bus cycle
     uint_fast8_t writes = 0;
     for (auto n = 0; writes < 5; ++n) {
         s = prepareCycle();
@@ -199,7 +200,7 @@ Signals *PinsMc6805::wakeUp(Signals *s) {
     negateInt(0);
     regs<RegsMc6805>()->captureContext(s->prev(5));
     static constexpr uint8_t VECTOR[] = {0x10, 0x00};
-    injectReads(VECTOR, sizeof(VECTOR), 1);  // V:v:n, as in save()
+    injectReads(VECTOR, sizeof(VECTOR), 1);  // V:v:n, parked at 1000
     _woken = true;
     return currCycle();
 }

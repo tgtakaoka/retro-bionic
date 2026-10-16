@@ -48,7 +48,7 @@ void RegsScn2650::setRs(uint8_t rs) const {
 void RegsScn2650::saveRegs(uint8_t *regs) const {
     static constexpr uint8_t SAVE[] = {
             0xC9, 0x00,  // STRR,R1 $
-            0xCA, 0x00,  // STRR,R2,$
+            0xCA, 0x00,  // STRR,R2 $
             0xCB, 0x00,  // STRR,R3 $
     };
     _pins->captureWrites(SAVE, sizeof(SAVE), nullptr, regs, 3);
@@ -66,7 +66,7 @@ void RegsScn2650::restoreRegs(const uint8_t *regs) const {
 void RegsScn2650::save() {
     static constexpr uint8_t SAVE_R0PS[] = {
             0xC8, 0x00,        // STRR,R0 $
-            0x13, 0xC8, 0x00,  // SPSL, STRR,R0 $
+            0x13, 0xC8, 0x00,  // SPSL; STRR,R0 $
             0x12, 0xC8, 0x00,  // SPSU; STRR,R0 $
             0x76, 0x20,        // PPSU II; LPSU restores it
     };
@@ -76,6 +76,7 @@ void RegsScn2650::save() {
     _r0 = buffer[0];
     _psl = buffer[1];
     _psu = buffer[2];
+    // R1-R3 of both banks, flipping RS to reach the other bank.
     saveRegs(_r[rs()]);
     setRs(rs() ? CPSL : PPSL);
     saveRegs(_r[1 - rs()]);

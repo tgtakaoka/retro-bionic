@@ -70,6 +70,7 @@ void RegsMc68HC08::restore() {
     _pins->injectReads(STA_COPCTL, sizeof(STA_COPCTL), 0);
     uint8_t copctl;
     _pins->captureWrites(&copctl, sizeof(copctl), true);
+    // TXS sets SP to HX-1, just below the frame RegsMc6805::restore() writes.
     const uint8_t LDSP_HX[] = {
             0x45, hi(_sp - 4), lo(_sp - 4),  // LDHX #_sp-4; 0:2:3:N
             0x94, 0x45,                      // TXS        ; 0:N:N

@@ -26,8 +26,8 @@ void RegsTms370::print() const {
     _pins->idle();
 }
 
-/* CAVEAT: Disabling AUTO_WAIT causes Interrupt response to stall Not
-   sure this is my misunderstanding or a bug. */
+/* CAVEAT: Disabling AUTO_WAIT makes interrupt response stall; the
+   cause is unknown. */
 void RegsTms370::reset() {
     // set SCCR0.6 (OSC POWER ON)
     // set SCCR1.4 (AUTO-WAIT DISABLE)
@@ -44,6 +44,8 @@ void RegsTms370::reset() {
     _pins->injectReads(CONFIG, sizeof(CONFIG));
 }
 
+// A one-byte instruction is followed by a copy of the next opcode byte.
+// Writes to 8000H are captured.
 void RegsTms370::save() {
     static constexpr uint8_t SAVE_ALL[] = {
             0xFB, 0xF0,        // PUSH ST
@@ -87,6 +89,7 @@ void RegsTms370::restore() {
     _pins->injectReads(LOAD_ALL, sizeof(LOAD_ALL));
 }
 
+// A is the scratch register; each sequence reloads it from _a.
 uint_fast8_t RegsTms370::read_internal(uint16_t addr) {
     const uint8_t CAPTURE[] = {
             0x8A, hi(addr), lo(addr),  // MOV addr, A
@@ -99,6 +102,7 @@ uint_fast8_t RegsTms370::read_internal(uint16_t addr) {
 }
 
 void RegsTms370::write_internal(uint16_t addr, uint8_t data) {
+    // A and B also update the saved copies restore() loads
     if (addr == A) {
         _a = data;
         const uint8_t MOV_A[] = {

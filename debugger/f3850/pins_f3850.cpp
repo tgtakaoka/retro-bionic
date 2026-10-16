@@ -181,13 +181,9 @@ void PinsF3850::resetPins() {
 }
 
 Signals *PinsF3850::cycle() {
-    // Setup and hold are safe against preemption -- WRITE and the chip's
-    // latch follow the clock driven here, and the bus holder keeps data
-    // for a late sample -- but the WRITE polls' phase against the spike
-    // our data-bus drive couples onto the line is not. Masked for the
-    // cycle only, so each cycle's timing is the same every time and a
-    // glitch is caught always or never, not by chance; _devs->loop()
-    // between cycles still services USB.
+    // A Teensy interrupt mid-cycle shifts the WRITE polls against the
+    // spike the data-bus drive couples onto WRITE, and desynchronised the
+    // ROMC sequence. _devs->loop() between cycles still services USB.
     noInterrupts();
 #ifdef PROFILE_CYCLES
     xtly_periods = 0;
@@ -212,10 +208,8 @@ Signals *PinsF3850::cycle() {
     }
     xtly_lo();
     Cycles::next();
-    // The bus holder keeps a driven byte for the chip's latch at the next
-    // WRITE-, so release here: the edge and the ring bookkeeping above
-    // have given the holder a few dozen ns to take the level, and the
-    // chip cannot raise WRITE (and drive) until well after that edge.
+    // The bus holder keeps the byte for the chip's latch at the next
+    // WRITE-, and the chip cannot drive until well after this edge.
     Signals::inputMode();
     delayNanoseconds(xtly_lo_next);
     xtly_hi();
@@ -331,20 +325,20 @@ void PinsF3850::run() {
 }
 
 bool PinsF3850::rawStep() {
-    // Program counter is not in CPU but in _regs->
+    // The program counter is off-chip, kept in _regs.
     const auto opc = _mems->read(_regs->nextIp());
     if (InstF3850::instLength(opc) == 0) {
-        // Unknown instruction. Just return.
+        // Unknown opcode; stop rather than run it.
         return false;
     }
     auto inst = cycle();
     while (!inst->fetch()) {
-        // may be interrupt acknowledging.
+        // Not a fetch, e.g. an interrupt acknowledge.
         inst = cycle();
     }
     const auto len = InstF3850::instLength(inst->data);
     const auto busCycles = InstF3850::busCycles(inst->data) + len;
-    for (auto i = 1; i < busCycles; ++i)
+    for (auto i = 1; i < busCycles; ++i)  // the fetch was the first
         cycle();
     return true;
 }

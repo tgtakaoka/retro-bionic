@@ -16,7 +16,7 @@ struct RegsTms370Cx5x final : tms370::RegsTms370 {
 
 private:
     static constexpr uint8_t INT1 = 0x17; // P017
-    uint8_t _INTx[3];
+    uint8_t _INTx[3];  // INT1-INT3 control
     // TODO: save/restore SCI1 registers
 };
 

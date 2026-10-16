@@ -1100,6 +1100,7 @@ constexpr uint8_t PAGE3[] = {
         0,   // FF: -    -      ; -
 };
 
+// Four 2-bit values to a byte, the lowest opcode in the low bits.
 constexpr uint8_t MV(uint8_t v0, uint8_t v1, uint8_t v2, uint8_t v3) {
     return (v0 << 0) | (v1 << 2) | (v2 << 4) | (v3 << 6);
 }
@@ -1117,6 +1118,7 @@ constexpr const uint8_t *const PAGES[] = {
         PAGE3,
 };
 
+// The page each prefix E0-FF opens; FF (SWI) is no prefix.
 constexpr uint8_t PAGE_MAP[] = {
         MV(2, 2, 2, 2),  // E0~E3
         MV(2, 2, 2, 2),  // E4~E7
@@ -1132,6 +1134,7 @@ constexpr const uint8_t page_no(uint8_t opc) {
     return (opc < 0xE0) ? 0 : M_VALUE(PAGE_MAP, opc - 0xE0);
 }
 
+// How far past a prefix its page's opcode is: the prefix and its operand.
 constexpr uint8_t PREFIX_LEN[] = {
         MV(1, 1, 1, 3),  // E0~E3
         MV(1, 1, 1, 2),  // E4~E7

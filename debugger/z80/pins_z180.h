@@ -112,7 +112,8 @@ protected:
 private:
     const uint8_t *const _config;
     const uint_fast8_t _configLen;
-    // The fetch execute() left the CPU waiting in
+    // The fetch execute() left the CPU waiting in, maybe past an interrupt
+    // acknowledge; resumeCycle() resumes there rather than at the PC.
     bool _heldFetch = false;
     uint32_t _heldAddr;
 };

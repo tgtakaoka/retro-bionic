@@ -5,6 +5,7 @@
 
 namespace debugger {
 
+// An emulated peripheral, selected by address on the target's bus.
 struct Device {
     Device() : _enabled(false) {}
     virtual ~Device() {}

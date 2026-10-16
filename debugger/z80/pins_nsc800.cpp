@@ -210,7 +210,7 @@ void PinsNsc800::resetPins() {
     pinsMode(PINS_INPUT, sizeof(PINS_INPUT), INPUT);
 
     // #RESET_IN should be kept low for a minimum of three clock
-    // #periods to ensure proper synchronization of the CPU.
+    // periods to ensure proper synchronization of the CPU.
     for (auto i = 0; i < 10; i++)
         xin_cycle();
     negate_reset();
@@ -336,12 +336,13 @@ uint16_t PinsNsc800::execute(
 }
 
 void PinsNsc800::idle() {
-    // #WAIT=L
+    // Parked by #WAIT; this only keeps the clock alive.
     xin_cycle();
     xin_cycle_lo();
 }
 
 bool PinsNsc800::isRst38Break(const Signals *org_rst) const {
+    // The RST 38H fetch, its two pushes, then this vector fetch.
     const auto rst38h = org_rst->prev(3);
     if (rst38h->data == InstZ80::RST38H) {
         if (org_rst->prev(1)->mwrite() && org_rst->prev(2)->mwrite()) {
@@ -404,6 +405,7 @@ bool PinsNsc800::suspend() {
             negate_nmi();
             // RET, not RETN, keeps IFF1 clear through the save
             completeCycle(s->inject(InstZ80::RET));
+            // Feed RET the PC the NMI pushed, low byte first.
             inject(s->prev()->data);
             inject(s->prev(2)->data);
             // Unlike the Z80's, the NMI's dummy opcode fetch has no RD, so

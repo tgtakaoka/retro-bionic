@@ -22,6 +22,7 @@ inline void negate_ready() {
 
 }  // namespace
 
+// READY low holds the CPU in the cycle prepared here.
 Signals *PinsTms9900Base::pauseCycle() {
     negate_ready();
     return prepareCycle();
@@ -42,6 +43,8 @@ void PinsTms9900Base::loop() {
             suspend(s->addr);
             return;
         }
+        // A break is an XOP 15 whose vector holds its own address; its
+        // fetch is among the last few cycles before the vector read.
         constexpr auto vec_xop15 = InstTms9900::VEC_XOP15;
         if (s->addr == vec_xop15 && _mems->get_prog(vec_xop15) == vec_xop15) {
             for (auto i = 1; i < 6; ++i) {
@@ -74,6 +77,9 @@ void PinsTms9900Base::run() {
 // Bus cycles to wait for the NMI vector; an instruction takes far fewer.
 constexpr auto nmi_cycles = 1024;
 
+// Runs from pc until NMI reaches its vector, then saves there. NMI is
+// asserted only after the first opcode fetch, or the step lands on the
+// wrong instruction.
 void PinsTms9900Base::suspend(uint16_t pc) {
     bool assert_nmi = true;
     auto s = resumeCycle(pc);

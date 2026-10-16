@@ -49,7 +49,7 @@ uint8_t DevsPdp8::control(uint16_t addr) const {
 }
 
 uint16_t DevsPdp8::read(uint32_t addr) const {
-    if (addr & 4)  // control is for writing
+    if (addr & 4)  // IOT 4-7 deposit
         return 0;
 #if defined(ACIA_IO)
     return _acia->read(addr & 0773);
@@ -60,7 +60,7 @@ uint16_t DevsPdp8::read(uint32_t addr) const {
 }
 
 void DevsPdp8::write(uint32_t addr, uint16_t data) const {
-    if ((addr & 4) == 0)  // control is for reading
+    if ((addr & 4) == 0)  // IOT 0-3 read
         return;
 #if defined(ACIA_IO)
     _acia->write(addr & 0773, data);

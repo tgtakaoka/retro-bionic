@@ -16,6 +16,7 @@ MemsF3850::MemsF3850(RegsF3850 *regs)
 #endif
 }
 
+// Data addresses 00~3F reach the 64-byte scratchpad.
 uint16_t MemsF3850::get_data(uint32_t addr) const {
     return addr < 0x40 ? _regs->read_reg(addr) : read(addr);
 }

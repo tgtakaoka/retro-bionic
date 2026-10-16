@@ -10,6 +10,7 @@ struct InstPdp8 final {
     // Group 2 OPR (bit 0 clear) with HLT set; group 3 reuses bit 10.
     static bool isHalt(uint16_t inst) { return (inst & 07403) == HLT; }
 
+    // An interrupt saves PC at 0000 and runs from 0001.
     static constexpr uint16_t SAVED_PC = 00000;
     static constexpr uint16_t ORG_INTR = 00001;
     static constexpr uint16_t ORG_RESET = 07777;

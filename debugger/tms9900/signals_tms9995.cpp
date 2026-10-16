@@ -14,6 +14,7 @@ void SignalsTms9995::getControl() {
     // CNTL_MEMEN is active low
     // CNTL_DBIN is active low
     // CNTL_IAQ is active high
+    // Flip DBIN to the TMS9900's active-high sense
     cntl() = busRead(CNTL) ^ CNTL_DBIN;
 }
 

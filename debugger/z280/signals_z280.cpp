@@ -45,7 +45,7 @@ void Signals::print() const {
 #ifdef PROFILE_CYCLES
     constexpr auto suffix = true;
 #else
-    const auto suffix = Debugger.verbose();  // a bench recording's
+    const auto suffix = Debugger.verbose();  // for bench recordings
 #endif
     auto &buffer = Cycles::buffer();
     buffer.set(line);

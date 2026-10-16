@@ -18,6 +18,7 @@ struct MemsIns8070 final : DmaMemory {
     uint16_t get_data(uint32_t addr) const override;
     void put_data(uint32_t addr, uint16_t data) const override;
 
+    // On-chip RAM, invisible on the bus.
     static bool is_internal(uint16_t addr) { return addr >= 0xFFC0; }
 
 private:

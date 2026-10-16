@@ -22,7 +22,7 @@
 namespace unio {
 
 /**
- * Microchip 11AAXXX Serial EEOROM
+ * Microchip 11AAXXX Serial EEPROM
  */
 struct Eeprom final {
     /**

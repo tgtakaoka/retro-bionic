@@ -29,6 +29,9 @@ const char *RegsF3850::cpu() const {
     return "F3850";
 }
 
+// The F3850 has no address bus; like the memory chips, track PC0, PC1, DC0
+// and DC1 from each ROMC command. Returns true when the debugger drives the
+// data bus.
 bool RegsF3850::romc_read(Signals *s) {
     LOG_ROMC(cli.print("@@ R ROMC="));
     LOG_ROMC(cli.printHex(s->romc(), 2));
@@ -236,22 +239,26 @@ void RegsF3850::save() {
             0x02, 0x17,  // LR A,QU; ST
             0x03, 0x17,  // LR A,QL; ST
     };
+    // W reaches A only through J, which is saved first.
     static constexpr uint8_t SAVE_W[] = {
             0x1E,  // LR J,W
             0x49,  // LR A,J
             0x17,  // ST
     };
 
-    const auto pc = _pc0;  // save PC0
-    const auto dc = _dc0;  // save DC0
+    // Injected fetches advance PC0 and each ST advances DC0.
+    const auto pc = _pc0;
+    const auto dc = _dc0;
     _pins->captureWrites(SAVE_A, sizeof(SAVE_A), &_a, sizeof(_a));
     _pins->captureWrites(SAVE_ISAR, sizeof(SAVE_ISAR), &_isar, sizeof(_isar));
     _pins->captureWrites(SAVE_REGS, sizeof(SAVE_REGS), _r, sizeof(_r));
     _pins->captureWrites(SAVE_W, sizeof(SAVE_W), &_w, sizeof(_w));
-    _pc0 = pc;  // restore PC0
-    _dc0 = dc;  // restore DC0
+    _pc0 = pc;
+    _dc0 = dc;
 }
 
+// Scratchpad registers are written through as they are set; W goes through A
+// and J, so J follows it, and A, used by every load, comes last.
 void RegsF3850::restore() {
     const uint8_t LOAD_ALL[] = {
             0x20, _w, 0x59, 0x1D,  // LI w;  LR J,A; LR W,J
@@ -261,9 +268,9 @@ void RegsF3850::restore() {
             0x20, _a,              // LI a
     };
 
-    const auto pc = _pc0;  // save PC0
+    const auto pc = _pc0;
     _pins->execInst(LOAD_ALL, sizeof(LOAD_ALL));
-    _pc0 = pc;  // restore PC0
+    _pc0 = pc;
 }
 
 void RegsF3850::set_isl(uint8_t val) {
@@ -287,13 +294,13 @@ uint8_t RegsF3850::read_reg(uint8_t addr) {
     const uint8_t READ_REG[] = {
             uint8(0x60 | isu),  // LISU isu
             uint8(0x68 | isl),  // LISL isl
-            0x4C,               // LD A,S
+            0x4C,               // LR A,S
             0x17,               // ST
     };
 
     uint8_t val;
-    const auto pc = _pc0;  // save PC0
-    const auto dc = _dc0;  // save DC0
+    const auto pc = _pc0;
+    const auto dc = _dc0;
     _pins->captureWrites(READ_REG, sizeof(READ_REG), &val, sizeof(val));
     _pc0 = pc;
     _dc0 = dc;
@@ -307,20 +314,20 @@ void RegsF3850::write_reg(uint8_t addr, uint8_t val) {
             uint8(0x60 | isu),  // LISU isu
             uint8(0x68 | isl),  // LISL isl
             0x20, val,          // LI val
-            0x5C,               // LD S,A
+            0x5C,               // LR S,A
     };
-    const auto pc = _pc0;  // save PC0
+    const auto pc = _pc0;
     _pins->execInst(WRITE_REG, sizeof(WRITE_REG));
     _pc0 = pc;
 }
 
 uint8_t RegsF3850::read_io(uint8_t addr) {
-    if (addr < 2) {
+    if (addr < 2) {  // ports 0 and 1 are on the CPU
         const uint8_t READ_IO[] = {
-                uint8(0xA0 | addr), 0x17,  // INS p; ST
+                uint8(0xA0 | addr), 0x17,  // INS addr; ST
         };
-        const auto pc = _pc0;  // save PC0
-        const auto dc = _dc0;  // save DC0
+        const auto pc = _pc0;
+        const auto dc = _dc0;
         uint8_t val;
         _pins->captureWrites(READ_IO, sizeof(READ_IO), &val, sizeof(val));
         _pc0 = pc;
@@ -333,12 +340,12 @@ uint8_t RegsF3850::read_io(uint8_t addr) {
 }
 
 void RegsF3850::write_io(uint8_t addr, uint8_t val) {
-    if (addr < 2) {
+    if (addr < 2) {  // ports 0 and 1 are on the CPU
         const uint8_t WRITE_IO[] = {
-                0x20, val,           // LI d
+                0x20, val,           // LI val
                 uint8(0xB0 | addr),  // OUTS addr
         };
-        const auto pc = _pc0;  // save PC0
+        const auto pc = _pc0;
         _pins->execInst(WRITE_IO, sizeof(WRITE_IO));
         _pc0 = pc;
         return;

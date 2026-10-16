@@ -25,6 +25,9 @@ void RegsIns8060::print() const {
 }
 
 void RegsIns8060::save() {
+    // A goes first, before LDE overwrites it; CSA before DINT keeps IE in
+    // S. The first write's address is the saved PC. XPAL/XPAH swap A into
+    // each pointer; restore() reloads them.
     static constexpr uint8_t ST_ALL[] = {
             0xC8, 0xFE,                          // ST $-1
             0x40, 0xC8, 0xFF,                    // LDE, ST $
@@ -64,7 +67,8 @@ void RegsIns8060::restore() {
     _pins->execInst(LD_SE, sizeof(LD_SE));
     restorePtr(3, _p3());
     restorePtr(2, _p2());
-    const auto pc = _addr(_pc(), _pc() - 8);  // offset restore P1 and A
+    // XPPC P1 loads PC; the 8 bytes restoring P1 and A then advance it.
+    const auto pc = _addr(_pc(), _pc() - 8);
     restorePtr(1, pc);
     static constexpr uint8_t XPPC_P1[] = { 0x3D };
     _pins->execInst(XPPC_P1, sizeof(XPPC_P1));

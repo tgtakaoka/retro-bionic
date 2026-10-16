@@ -14,6 +14,7 @@ struct MemsTms320C15 final : tms320::MemsTms320 {
 
     uint32_t maxAddr() const override { return UINT16_C(0xFFF); }
     uint32_t maxData() const override { return UINT8_MAX; }
+    // Data RAM is internal, reached by injected instructions.
     uint16_t get_data(uint32_t addr) const override {
         return _regs->read_data(addr);
     }

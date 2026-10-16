@@ -181,6 +181,7 @@ Signals *PinsTms370Cx5x::resetCpu() {
     for (uint_fast8_t i = 0; i < 10; i++)
         clkin_cycle();
     negate_reset();
+    // #RESET is open drain; clock until it reads high again.
     while (reset_asserted())
         clkin_cycle();
     auto s = SignalsTms370Cx5x::put();
@@ -252,6 +253,8 @@ Signals *PinsTms370Cx5x::completeCycle(Signals *_s) {
     return s;
 }
 
+// Clocks past the current fetch to the next one, then holds the CPU there
+// with #WAIT.
 bool PinsTms370Cx5x::pauseCpu() {
     for (auto n = 0; ocf_asserted(); ++n) {
         if (n >= stall_clocks)
@@ -347,12 +350,13 @@ uint16_t PinsTms370Cx5x::captureWrites(
 }
 
 void PinsTms370Cx5x::idle() {
-    // #WAIT is asserted
+    // #WAIT is asserted: CLKIN keeps running while the CPU holds
     clkin_cycle();
     clkin_cycle_lo();
 }
 
 void PinsTms370Cx5x::loop() {
+    // The oscillator fault logic may have reset the CPU at the prompt.
     resetCpu();
     _regs->restore();
     resumeCpu();

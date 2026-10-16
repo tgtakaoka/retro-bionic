@@ -661,12 +661,14 @@ Signals *PinsI8096::loop() {
     while (true) {
         auto s = prepareCycle();
         if (s->addr == InstI8096::VEC_TRAP && s->read()) {
+            // A breakpoint's TRAP was fetched a few cycles before.
             for (uint_fast8_t i = 1; i < 10; ++i) {
                 if (fetchedBreak(s->prev(i))) {
                     handleTrap(s, 0x3456, true);
                     return s;
                 }
             }
+            // A TRAP vector pointing at itself is a program's halt to system.
             if (_mems->read16(InstI8096::VEC_TRAP) == InstI8096::VEC_TRAP) {
                 handleTrap(s, 0x4566, true);
                 return s;
@@ -748,11 +750,9 @@ const Signals *PinsI8096::findFetch(Signals *begin, const Signals *end) {
     return begin->next(walker.start());
 }
 
-// fetch() isn't live here: findFetch() marks it only as a
-// side effect of matching decoded instructions against real memory, so
-// that has to run -- once, right here -- before backtraceStartFrom()
-// counting fetch() cycles means anything. printBacktrace() re-runs it
-// over the now-disposed range, which re-derives the same marks.
+// findFetch() marks the fetch() cycles as it matches instructions against
+// memory, so it runs before backtraceStartFrom() counts them;
+// printBacktrace() runs it again and derives the same marks.
 const SignalsImpl *PinsI8096::findBacktraceStart() {
     const auto end = Signals::put();
     const auto begin = findFetch(Signals::get(), end);

@@ -2,8 +2,8 @@
 
 Each pattern is one opcode of mc68hc08-P00.txt/-P9E.txt with SWI ($83) as
 its operand bytes, run from ORG in memory filled with SWI, so any transfer
-stops at once. Needs the profile image (-D PROFILE_CYCLES). The
-recording is kept as mc68hc08-cycles.jsonl.zst, beside this file:
+stops at once. Needs the profile image (-D PROFILE_CYCLES). check()
+holds each recorded cycle against its letter of the table's sequence.
 
     P=debugger/mc6805/tools/cycles_mc68hc08.py
     R=debugger/mc6805/tools/mc68hc08-cycles.jsonl.zst

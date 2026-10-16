@@ -59,7 +59,7 @@ void RegsTlcs90::reset() {
 }
 
 bool RegsTlcs90::saveContext(const Signals *frame) {
-    // Machine context were pushed in the following order; PCH, PCL, A, F
+    // An interrupt pushes PCH, PCL, A and F, in that order.
     const auto pch = frame;
     const auto pcl = frame->next();
     if (pch->write() && pcl->write()) {
@@ -259,6 +259,7 @@ bool RegsTlcs90::setRegister(uint_fast8_t reg, uint32_t value) {
     return false;
 }
 
+// What the bus doesn't show, read by the CPU and written out through A.
 uint8_t RegsTlcs90::internal_read(uint16_t addr) const {
     static uint8_t LD[] = {
             0xE3, 0, 0, 0x2E,  // LD A,(mn) ; 0:2:3:7:R:N

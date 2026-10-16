@@ -264,8 +264,8 @@ void PinsZ380::setupBus() {
 #ifdef PROFILE_CYCLES
 // Send a walking 1 and a walking 0 through each data lane and read them
 // back from the CPU's push, so a bad data line shows at reset; silent when
-// all lines pass. Opcodes ride the
-// other lane, so a fault on the lane under test corrupts only the operand.
+// all lines pass. Opcodes ride the other lane, so a fault on the lane under
+// test corrupts only the operand.
 void PinsZ380::dataLoopback() {
     const auto start = _regs->nextIp();  // even: the reset fetch
     auto org = start;
@@ -647,8 +647,8 @@ bool PinsZ380::step(bool show) {
         return false;
     // An instruction whose bytes are not all fetched when #NMI is asserted
     // may not start at all: BIT 7,H (CB 7C) at an odd address was taken
-    // with its own PC pushed. If nothing changed, assert it later; an
-    // LDIR iteration or a DJNZ to itself changes a register.
+    // with its own PC pushed. If nothing changed, assert it one or two bus
+    // cycles later; an LDIR iteration or a DJNZ to itself changes a register.
     const auto regs = this->regs<RegsZ380>();
     const auto before = regs->fingerprint();
     for (uint_fast8_t holdOff = 0; holdOff < 3; ++holdOff) {

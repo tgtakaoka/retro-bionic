@@ -6,10 +6,10 @@
 namespace debugger {
 namespace z8000 {
 
-// Big-endian; the even byte rides AD8-AD15. Z8001 addresses are
-// seg<<16|off.
 struct RegsZ8000;
 
+// Big-endian; the even byte rides AD8-AD15. Z8001 addresses are
+// seg<<16|off.
 struct MemsZ8000 : ExtMemory {
     MemsZ8000(bool segmented);
     void setRegs(const RegsZ8000 *regs) { _regs = regs; }

@@ -39,6 +39,7 @@ protected:
     uint8_t _st;
     uint16_t _pc;
 
+    // A and B are R0 and R1 of the register file
     static constexpr uint16_t A = 0x0000;
     static constexpr uint16_t B = 0x0001;
 

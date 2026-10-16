@@ -10,9 +10,9 @@ struct InstF3850 final {
     static uint8_t instLength(uint8_t inst);
     static uint8_t busCycles(uint8_t inst);
 
-    static constexpr uint8_t BREAK = 0x2F;
+    static constexpr uint8_t BREAK = 0x2F;  // undefined opcode
     static constexpr uint8_t BR = 0x90;
-    static constexpr uint8_t BR_HERE = 0xFF;
+    static constexpr uint8_t BR_HERE = 0xFF;  // BR offset back to itself
 };
 
 }  // namespace f3850

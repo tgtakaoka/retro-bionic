@@ -160,6 +160,8 @@ void PinsMc6802::resetPins() {
     pinsMode(PINS_INPUT, sizeof(PINS_INPUT), INPUT);
 
     mems<MemsMc6802>()->set_internal_ram(digitalReadFast(PIN_RE) != LOW);
+    // The save injects into the first fetch, so it must be external: the
+    // CPU answers an internal address itself. Start at 8000H until then.
     const auto reset_vec = _mems->read16(ArchMc6800::VEC_RESET);
     _mems->write16(ArchMc6800::VEC_RESET, 0x8000);
 
@@ -175,7 +177,7 @@ void PinsMc6802::resetPins() {
         delayNanoseconds(extal_hi_ns);
     }
     // #RESET, when brought low, must be held low at least three clock
-    // #cycles.
+    // cycles.
     for (auto i = 0; i < 3; i++)
         cycle();
     cycle();
@@ -186,8 +188,7 @@ void PinsMc6802::resetPins() {
     // Read Reset vector
     cycle();
     cycle();
-    // The first instruction will be saving registers, and certainly can be
-    // injected.
+    // The first fetch takes the save's injected instructions.
     _regs->reset();
     _regs->save();
     _mems->write16(ArchMc6800::VEC_RESET, reset_vec);
@@ -201,7 +202,7 @@ mc6800::Signals *PinsMc6802::cycle() {
 }
 
 mc6800::Signals *PinsMc6802::rawCycle() {
-    // MC6802/MC6808 clock E is CLK/4, so we toggle CLK 4 times
+    // E is EXTAL/4: one bus cycle is four EXTAL cycles, c1-c4.
     // c1
     extal_lo();
     Signals::inputMode();
@@ -252,7 +253,7 @@ mc6800::Signals *PinsMc6802::rawCycle() {
         if (s->write()) {
             ++_writes;
         } else {
-            _writes = 0;  // CPU output internal RAM reading to bus
+            _writes = 0;  // an internal RAM read the CPU drives out
         }
         delayNanoseconds(c3_lo_write);
         // c4

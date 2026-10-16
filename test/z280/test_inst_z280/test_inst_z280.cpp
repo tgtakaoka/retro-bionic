@@ -7,10 +7,11 @@
 // dumps/ holds verbose console dumps of sample runs on the board, with
 // the HEX and listing of each sample as it was when recorded. Each dump
 // is replayed through InstZ280::findFetch() and every mark checked
-// against that listing, except the first lines, where a ring cut inside
+// against that listing, except the first two, where a ring cut inside
 // an instruction may still decode as a chain.
 //
-// Z280_DUMP=<file> [Z280_TRACE=1] replays that dump and prints every
+// Z280_DUMP=<file> [Z280_HEX=<sample.hex>] [Z280_TRACE=1] replays that
+// dump, with mandelbrot's HEX unless given another, and prints every
 // cycle's mark (I fetch, b byte or stale prefetch, o data). Sanitizers:
 //   PLATFORMIO_BUILD_FLAGS='-fsanitize=address,undefined' pio test -e native
 
@@ -295,7 +296,7 @@ void check(const char *sample, const char *dump) {
     Replay replay;
     replay.run(memory, pc);
     TEST_ASSERT_GREATER_THAN_MESSAGE(10, replay.matched, dump);
-    // The ring's ends: cut instructions.
+    // Reads nothing explains: only the cut instructions at the ring's ends.
     TEST_ASSERT_LESS_OR_EQUAL_MESSAGE(16, replay.unexplained, dump);
     unsigned seen = 0, first = replay.cycles, last = 0;
     for (unsigned i = 0; i < replay.cycles; ++i) {

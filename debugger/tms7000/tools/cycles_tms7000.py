@@ -81,7 +81,7 @@ def patterns(args=None):
         assert len(code) == length, '%02X %s %s' % (opc, mnemo, opr)
         base = dict(key='%02X' % opc, mnemo=mnemo, operands=opr,
                     bytes=code + [TRAP23] * (PAD - len(code)))
-        if '*Rp' in opr or mnemo in ('RETS', 'RETI') or opc == 0x08:
+        if '*Rp' in opr or mnemo in ('RETS', 'RETI') or opc == 0x08:    # POP ST
             base['data_seed'] = SEED
         out.append(base)
     return out

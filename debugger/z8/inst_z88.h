@@ -14,6 +14,7 @@ struct InstZ88 final : z8::InstZ8 {
 
     static constexpr uint8_t SRP0(uint8_t val) { return ((val & 0xF8) + 2); }
     static constexpr uint8_t SRP1(uint8_t val) { return ((val & 0xF8) + 1); }
+    // Whether working register |num| is write-only, so not to be restored
     static bool writeOnly(uint8_t rp0, uint8_t rp1, uint8_t num);
 
     static constexpr uint16_t ORG_RESET = 0x0020;

@@ -157,7 +157,6 @@ auto adsd_asserted() {
 }
 
 }  // namespace
-   // namespace
 
 PinsMn1613::PinsMn1613() {
     _devs = new DevsMn1613();
@@ -196,6 +195,7 @@ Signals *PinsMn1613::waitReset() const {
     return prepareCycle(s);
 }
 
+// The next bus cycle, or |s| unprepared once the CPU has halted.
 Signals *PinsMn1613::waitBus() const {
     // X2=LOW
     auto s = Signals::put();
@@ -213,7 +213,7 @@ Signals *PinsMn1613::waitBus() const {
 }
 
 Signals *PinsMn1613::prepareCycle(Signals *s) const {
-    // X2=LOW
+    // X2=LOW; clock until ADSD marks the address
     do {
         x2_hi();
         delayNanoseconds(x2_hi_adsd);
@@ -377,6 +377,7 @@ bool PinsMn1613::step(bool show) {
     return false;
 }
 
+// Serve the reset PSW reads, with #HLT asserted so the CPU stops after them.
 void PinsMn1613::injectReset(const uint16_t *data, uint_fast8_t len) {
     assert_hlt();
     for (uint_fast8_t i = 0; i < len; ++i) {
@@ -395,6 +396,7 @@ void PinsMn1613::unhalt() const {
         x2_cycle();
 }
 
+// Feed NOPs until the CPU stops on #HLT.
 void PinsMn1613::halt() const {
     assert_hlt();
     while (true) {
@@ -422,6 +424,7 @@ void PinsMn1613::injectInst(const uint16_t *inst, uint_fast8_t len) {
     halt();
 }
 
+// Run |inst| and capture its first write; NOPs fill the prefetches.
 void PinsMn1613::captureInst(uint16_t inst, uint16_t *buf) {
     unhalt();
     auto s = waitBus()->inject(inst);
@@ -444,6 +447,8 @@ void PinsMn1613::captureInst(uint16_t inst, uint16_t *buf) {
     halt();
 }
 
+// Run |inst| and serve |data| to its reads from |addr| on, giving up after
+// 10 bus cycles; NOPs fill the prefetches.
 void PinsMn1613::injectReads(
         uint16_t inst, uint32_t addr, const uint16_t *data, uint_fast8_t len) {
     unhalt();

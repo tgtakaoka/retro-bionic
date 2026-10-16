@@ -11,6 +11,7 @@ constexpr auto NOBUS = CNTL_EMRD | CNTL_EMWR | CNTL_EIORD | CNTL_EIOWR;
 
 void Signals::getAddr() {
     addr = busRead(AL) | busRead(AM) | busRead(AH);
+    // select the extended address lines for getAddrHigh()
     digitalWriteFast(PIN_ASEL, HIGH);
 }
 

@@ -37,6 +37,7 @@ void UartBase::negateRxIntr() {
     if (_rxIntr == 0 || _rxVec == 0)
         return;
     _rxVec = 0;
+    // keep a line Tx shares while Tx still asserts it
     if (_rxIntr != _txVec)
         negateIntreq(_rxIntr);
 }
@@ -45,6 +46,7 @@ void UartBase::negateTxIntr() {
     if (_txIntr == 0 || _txVec == 0)
         return;
     _txVec = 0;
+    // keep a line Rx shares while Rx still asserts it
     if (_txIntr != _rxVec)
         negateIntreq(_txIntr);
 }

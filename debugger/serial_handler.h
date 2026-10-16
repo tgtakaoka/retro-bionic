@@ -5,6 +5,8 @@
 
 namespace debugger {
 
+// Bit-bangs a CPU's on-chip serial port against the console: drives
+// its RXD and samples its TXD, paced by loop() calls.
 struct SerialHandler : Device {
     SerialHandler() : _serialEnabled(false) {}
 

@@ -40,7 +40,7 @@ private:
 
 }  // namespace cdp1802
 }  // namespace debugger
-#endif /* __DEVS_CDP1802H__ */
+#endif /* __DEVS_CDP1802_H__ */
 
 // Local Variables:
 // mode: c++

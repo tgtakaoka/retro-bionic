@@ -171,12 +171,13 @@ void PinsTlcs90::resetPins() {
     pinsMode(PINS_HIGH, sizeof(PINS_HIGH), OUTPUT, HIGH);
     pinsMode(PINS_INPUT, sizeof(PINS_INPUT), INPUT);
 
-    // #RESET input must be maintained at the "0" level for at least
-    // #10 system clock cycles (10 stated; 2usec at 10MHz).
+    // #RESET must stay low for at least 10 states (2 us at 10 MHz); a state
+    // is two X1 cycles. Then stop with CLK high.
     for (auto i = 0; i < 20 * 2 || signal_clk() == LOW; ++i)
         x1_cycle();
     negate_reset();
     Cycles::reset();
+    // Find the bus cycle phase: CLK falls at C3L.
     while (true) {
         x1_lo();
         delayNanoseconds(x1_lo_clk);
@@ -308,6 +309,7 @@ void PinsTlcs90::execute(const uint8_t *inst, uint8_t len, uint8_t *buf,
         }
         s = prepareCycle();
     }
+    // Park at the next bus cycle, held there by #WAIT.
     while (!s->read() && !s->write()) {
         completeCycle(s);
         s = prepareCycle();
@@ -316,7 +318,7 @@ void PinsTlcs90::execute(const uint8_t *inst, uint8_t len, uint8_t *buf,
 }
 
 void PinsTlcs90::idle() {
-    // TLCS90 is fully static and stop at #WAIT=LOW
+    // Fully static, and held in a bus cycle by #WAIT low.
 }
 
 #ifdef PROFILE_CYCLES
@@ -437,7 +439,7 @@ bool PinsTlcs90::step(bool show) {
     Cycles::reset();
     const auto opc = _mems->read(_regs->nextIp());
     if (opc == InstTlcs90::HALT || !InstTlcs90::valid(_regs->nextIp(), _mems)) {
-        // HALT or unknown instruction. Just return.
+        // A HALT or unknown instruction is left unexecuted.
         return false;
     }
     _regs->restore();
@@ -487,12 +489,9 @@ const Signals *PinsTlcs90::findFetch(Signals *begin, const Signals *end) {
     return begin->next(walker.start());
 }
 
-// fetch() isn't live here: findFetch() marks it only as a
-// side effect of matching decoded instructions against captured bus
-// cycles, so that has to run -- once, right here -- before
-// backtraceStartFrom() counting fetch() cycles means anything.
-// printBacktrace() re-runs it over the now-disposed range, which
-// re-derives the same marks.
+// fetch() is marked only by findFetch() matching instructions to the
+// cycles, so it runs before backtraceStartFrom() counts fetches;
+// printBacktrace() re-runs it and gets the same marks.
 const SignalsImpl *PinsTlcs90::findBacktraceStart() {
     const auto end = Signals::put();
     const auto begin = findFetch(Signals::get(), end);

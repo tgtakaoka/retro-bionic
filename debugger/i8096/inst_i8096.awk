@@ -12,7 +12,7 @@
 # before the long index variant. A row is its sequence's index: its
 # length is the sequence's bytes. J goes to the next + disp, RST's to 2080.
 # A row ending in "80196KB" is an instruction the 80C196KB added, "80196KC"
-# one only the 80C196KC has.
+# one only the 80C196KC has; PAGE00's go into KB_OPCODES[] and KC_OPCODES[].
 
 BEGIN {
     if (MODE == "")

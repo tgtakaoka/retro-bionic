@@ -30,6 +30,7 @@ private:
     uint16_t _sp;
     uint16_t _ix;
     uint16_t _iy;
+    // In PUSH write order, high byte first
     struct reg {
         uint8_t a;
         uint8_t f;
@@ -56,7 +57,7 @@ private:
         }
     } _main, _alt;
     uint8_t _i;
-    bool _iff;
+    bool _iff;  // IFF2
 
     void exchangeRegs() const;
     void saveRegs(reg &regs) const;

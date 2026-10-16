@@ -7,7 +7,7 @@ namespace debugger {
 namespace cdp1802 {
 struct InstCdp1802 {
     static constexpr uint8_t IDL = 0x00;
-    static constexpr uint8_t PREFIX = 0x68;
+    static constexpr uint8_t PREFIX = 0x68;  // CDP1804 extended opcodes
     static constexpr uint8_t RET = 0x70;
     static constexpr uint8_t DIS = 0x71;
     static constexpr uint8_t REQ = 0x7A;

@@ -61,7 +61,7 @@ PREFIXES = {('00', 0xCB), ('00', 0xED), ('00', 0xDD), ('00', 0xFD),
 
 def _patterns():
     """Every pattern of gen_z280.lst, then every other opcode libasm decodes
-    (profile/z280-opcodes.txt.gz, one row per page and opcode with filler
+    (z280-opcodes.txt.zst, one row per page and opcode with filler
     operand bytes): bytes, mnemonic, operands, page, opcode."""
     out = gen_patterns()
     seen = {(p['page'], p['opc']) for p in out}
@@ -181,10 +181,6 @@ def variants(p):
 
 # ------------------------------------------------------------ console
 # A matched fetch prints as I; slot and flags only from a profiling build.
-
-
-# ------------------------------------------------------------ console
-# A matched fetch prints as I; slot and flags only from a profiling build.
 CYC = re.compile(r'^(?:([ic ]{0,2})\s*(\d+)\s+)?([RWI]) ([AI])=([0-9A-F]{6}) '
                  r'D=([0-9A-F ]{4})(?: S=([0-9A-F]) b=(\d) r=(\d))?')
 
@@ -277,7 +273,8 @@ def setup(b):
 def reset(b):
     b.cmd('R', 30.0)
     b.set_regs(BASE)
-    # IVTP after a reset is unknown: set it, like any pattern.
+    # IVTP after a reset is unknown: set it, like any pattern, with
+    # LD C,06H; LD HL,IVTP; LDCTL (C),HL.
     b.write(ORG, [0x0E, 0x06, 0x21, IVTP & 0xFF, IVTP >> 8, 0xED, 0x6E] + [0xFF] * 5)
     b.run()
 

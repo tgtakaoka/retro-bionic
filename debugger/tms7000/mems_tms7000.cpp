@@ -29,6 +29,8 @@ void MemsTms7000::write(uint32_t addr, uint16_t data) const {
     }
 }
 
+// The register and peripheral files below 0200H are on-chip, reached by
+// injected instructions.
 uint16_t MemsTms7000::get_data(uint32_t addr) const {
     return addr < 0x0200 ? _regs->read_internal(addr) : read_byte(addr);
 }

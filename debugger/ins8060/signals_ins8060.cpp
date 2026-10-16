@@ -8,6 +8,8 @@ namespace debugger {
 namespace ins8060 {
 
 void Signals::getAddr() {
+    // At address strobe DB carries the status flags on D7-D4 and A15-A12
+    // on D3-D0.
     const auto db = busRead(DB);
     flags() = db;
     addr = (static_cast<uint16_t>(db & 0xF) << 12) | busRead(ADM) |

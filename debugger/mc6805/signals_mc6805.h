@@ -6,6 +6,7 @@
 #define LOG_MATCH(e) e
 // #define LOG_MATCH(e)
 
+// READ and WRITE are active low, FETCH active high.
 #define CNTL_READ 1  /* CNTL0 */
 #define CNTL_WRITE 2 /* CNTL1 */
 #define CNTL_FETCH 4 /* CNTL2 */

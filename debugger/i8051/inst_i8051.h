@@ -12,8 +12,8 @@ struct InstI8051 final {
 
     static constexpr uint8_t NOP = 0x00;
     static constexpr uint8_t SJMP = 0x80;
-    static constexpr uint8_t SJMP_HERE = 0xFE;
-    static constexpr uint8_t UNKNOWN = 0xA5;
+    static constexpr uint8_t SJMP_HERE = 0xFE;  // SJMP offset back to itself
+    static constexpr uint8_t UNKNOWN = 0xA5;    // undefined opcode
 };
 
 }  // namespace i8051

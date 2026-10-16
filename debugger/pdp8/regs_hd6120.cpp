@@ -63,7 +63,7 @@ void RegsHd6120::restore() {
             06217,          // LSP1      ; AC->SP1, AC=0
             01005, _sp2,    // TAD 0005  ; Load _sp2
             06237,          // LSP2      ; AC->SP2, AC=0
-            01002, _mq,     // TAD 0002  ; Load _mq2
+            01002, _mq,     // TAD 0002  ; Load _mq
             07421,          // MQL       ; AC->MQ
             01003, _flags,  // TAD 0003  ; Load _flags
             06005,          // RTF       ; AC->FLAGS
@@ -107,7 +107,7 @@ constexpr const char *REGS12[] = {
         "SP2",  // REG_SP2
 };
 constexpr const char *REGS1[] = {
-        "GT",  // REG_GR
+        "GT",  // REG_GT
 };
 constexpr const char *REGS3[] = {
         "IF",  // REG_IF

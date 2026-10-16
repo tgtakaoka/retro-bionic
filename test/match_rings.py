@@ -11,10 +11,9 @@ kind,addr,data,mark, where |mark| is field N (default 3) of a recorded
 cycle: what the profile image printed for it, and with --cntl N, field N
 as the cycle's control lines after it; given again, each further field
 takes the next byte up. A cycle recorded without data (no valid address)
-gets a blank kind, _. Data recorded as hex
-digits, '.' on a lane not driven, reads as 0 there. With --stop, a run
-also gets where the CPU stopped: the exit's RST 38H, one below the PC it
-pushed.
+gets a blank kind, _. Data recorded as hex digits, '.' on a lane not
+driven, reads as 0 there. With --stop, a run also gets where the CPU
+stopped: the exit's RST 38H, one below the PC it pushed.
 
 With --bench, the recording is scripts/record-rings.py's: each ring gets
 the PC it stopped at, the memory around its reads and the listing's

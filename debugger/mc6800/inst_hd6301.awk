@@ -100,8 +100,8 @@ function inst_len(seq,  tok, n, i, len) {
     return len;
 }
 
-# Its first byte fetched ahead or its next fetch looked at: one token
-# takes no cycle.
+# The clock of |seq|: one token takes no cycle, its first byte fetched
+# ahead or its next fetch only looked at.
 function clock(seq,  tok) {
     return seq == "-" ? 0 : tokens(seq, tok) - 1;
 }
@@ -146,22 +146,6 @@ function generate_TABLE() {
         printf("        \"%s\",  // %2d\n", cyc, c);
     }
     printf("};\n\n");
-
-    # printf("constexpr uint8_t INST_LENS[] = {\n");
-    # printf("        %d, // %2d: %s\n", 0, 0, "-");
-    # for (c = 1; c <= length(CYCLES); c++) {
-    #     cyc = CYCLES[c];
-    #     printf("        %d, // %2d: %s\n", inst_len_cyc(cyc), c, cyc);
-    # }
-    # printf("};\n\n");
-
-    # printf("constexpr uint8_t CLOCKS[] = {\n");
-    # printf("        %d, // %2d: %s\n", 0, 0, "-");
-    # for (c = 1; c <= length(CYCLES); c++) {
-    #     cyc = CYCLES[c];
-    #     printf("        %d, // %2d: %s\n", length(cyc), c, cyc);
-    # }
-    # printf("};\n\n");
 }
 
 function generate_ENTRY(opc, nem, opr, clk, len, seq, cyc) {

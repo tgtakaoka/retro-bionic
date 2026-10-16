@@ -23,7 +23,8 @@ void RegsMc6805::print() const {
 }
 
 void RegsMc6805::reset() {
-    // If reset vector pointing internal memory, we can't inject instructions.
+    // A reset vector of 1000: injection needs the fetches on the external
+    // bus, which a vector into internal memory wouldn't give.
     static constexpr uint8_t DUMMY_RESET[] = {0x10, 0x00};
     _pins->injectReads(DUMMY_RESET, sizeof(DUMMY_RESET), 0);
 }
@@ -34,28 +35,28 @@ void RegsMc6805::save() {
     _pins->injectReads(&SWI, sizeof(SWI), 0);
     uint8_t context[5];
     _sp = _pins->captureWrites(context, sizeof(context));
-    // Capturing writes to stack in little endian order.
-    _pc = le16(context) - 1;  //  offset SWI instruction.
+    // SWI pushes PCL, PCH, X, A, CC.
+    _pc = le16(context) - 1;  // back over the injected SWI
     // An IRQ that takes the place of the SWI stacks the PC before it
     if (isHC08() && !_pins->swiVector())
         ++_pc;
     _x = context[2];
     _a = context[3];
     _cc = context[4];
+    // An SWI vector of 1000, in external memory, for the next injection.
     context[0] = hi(0x1000);
     context[1] = lo(0x1000);
     _pins->injectReads(context, 2, isHC08() ? 0 : 1);
 }
 
 void RegsMc6805::restore() {
-    // Store registers into stack on internal RAM.
+    // Build the RTI frame on the stack in internal RAM.
     _sp -= 4;
     internal_write(_sp++, _cc, false);
     internal_write(_sp++, _a, false);
     internal_write(_sp++, _x, false);
     internal_write(_sp++, hi(_pc), false);
     internal_write(_sp, lo(_pc), false);
-    // Restore registers
     const uint8_t RTI = 0x80;  // 1:N:n:R:r:r:r:r:J (MC6805/MC68HC05)
                                // 0:N:R:r:r:r:r:J   (MC68HC08)
     _pins->injectReads(&RTI, sizeof(RTI), isHC08() ? 6 : 8);
@@ -66,7 +67,7 @@ bool RegsMc6805::captureContext(const Signals *frame) {
     // 1:N:w:W:W:W:W:V:v:n:J (MC6805/MC68HC05)
     // 0:n:w:W:W:W:W:V:v:J   (MC68HC08)
     //     PC  X A CC
-    // Machine context were pushed in the following order; PCL, PCH, X, A, CC
+    // The context is pushed PCL, PCH, X, A, CC.
     const auto pcl = frame;
     const auto pch = frame->next();
     if (pcl->write() && pch->write()) {
@@ -87,7 +88,7 @@ bool RegsMc6805::captureContext(const Signals *frame) {
 
 void RegsMc6805::captureExtra(uint16_t pc) {
     _pc = pc;
-    // If SWI vector pointing internal memory, we can't inject instructions.
+    // An SWI vector of 1000, in external memory, for the next injection.
     static constexpr uint8_t DUMMY_SWI[] = {0x10, 0x00};
     // Finish at the opcode fetch, as save() does.
     _pins->injectReads(DUMMY_SWI, sizeof(DUMMY_SWI), isHC08() ? 0 : 1);
@@ -154,7 +155,7 @@ uint8_t RegsMc6805::internal_read(uint16_t addr, bool branch) const {
     uint8_t data;
     _pins->captureWrites(&data, sizeof(data), true);
     if (branch)
-        bra(-6);  // offset LDA/STA
+        bra(-6);  // back over LDA/STA to keep the PC parked
     return data;
 }
 
@@ -169,7 +170,7 @@ void RegsMc6805::internal_write(
     };
     _pins->injectReads(LDA_STA, sizeof(LDA_STA), isHC08() ? 1 : 2, true);
     if (branch)
-        bra(-5);  // offset LDA/STA
+        bra(-5);  // back over LDA/STA to keep the PC parked
 }
 
 }  // namespace mc6805

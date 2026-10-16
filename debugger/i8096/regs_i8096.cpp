@@ -47,7 +47,7 @@ void RegsI8096::print() const {
 }
 
 void RegsI8096::reset() {
-    // Load external address to SP
+    // SP in external memory, so pushes show on the bus.
     write_data16(ADDR_SP, 0x1234);
     // A reset leaves INT_PENDING undefined, as SP: a stale EXTINT would
     // be taken once a program enables it.
@@ -78,7 +78,7 @@ void RegsI8096::save() {
     } else {
         _sp = _pins->execInst(PUSHF, length(PUSHF), buffer, 2);
     }
-    _sp += 2;
+    _sp += 2;  // the first push went to SP-2
     _psw = le16(buffer);
 }
 
@@ -143,6 +143,7 @@ void RegsI8096::write_upper16(uint16_t addr, uint16_t data) const {
             PinsI8096::EXIT_PARK);
 }
 
+// A register file byte is read by storing it out to the bus.
 uint16_t RegsI8096::read_data(uint16_t addr) const {
     if (addr >= 0x100) {
         const auto word = read_upper16(addr & ~1);

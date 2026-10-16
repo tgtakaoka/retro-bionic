@@ -51,7 +51,7 @@ void RegsI8080::save() {
     uint8_t buffer[10];
     _sp = _pins->captureWrites(
             PUSH_ALL, sizeof(PUSH_ALL), buffer, sizeof(buffer));
-    _sp++;
+    _sp++;                   // the first push went to SP-1
     _pc = be16(buffer) - 2;  // offset DI and RST instructions
     _a = buffer[2];
     _psw = buffer[3];
@@ -77,7 +77,7 @@ void RegsI8080::restore() {
             0x21, _l, _h,            // LXI H, _hl
             0xF1, _psw, _a,          // POP PSW
             0x31, lo(_sp), hi(_sp),  // LXI SP, _sp
-            ie,                      // EI/DI
+            ie,                      // EI/DI; EI enables after the JMP
             0xC3, lo(_pc), hi(_pc),  // JMP _pc
     };
     _pins->execInst(POP_ALL, sizeof(POP_ALL));

@@ -44,7 +44,7 @@ private:
     bool txReady() const { return _status & ST_TxRDY_bm; }
     bool rtsEnabled() const { return _command & CMD_RTS_bm; }
 
-    // Bit Definition of mode regisrer
+    // Bit Definition of mode register
     static constexpr int MODE_STOP_gp = 6;
     static constexpr uint8_t MODE_STOP_gm = 0xC0;
     static constexpr uint8_t MODE_SYNC_gc = (0 << MODE_STOP_gp);
@@ -75,7 +75,7 @@ private:
     static constexpr uint8_t CMD_TxEN_bm = 0x01;  // Transmit enable
 
     // Bit definition of status register
-    static constexpr uint8_t ST_DSR_bm = 0x80;      // Data Set Readt
+    static constexpr uint8_t ST_DSR_bm = 0x80;      // Data Set Ready
     static constexpr uint8_t ST_BRK_bm = 0x40;      // BREAK detected
     static constexpr uint8_t ST_FE_bm = 0x20;       // Framing Error
     static constexpr uint8_t ST_OE_bm = 0x10;       // Overrun Error

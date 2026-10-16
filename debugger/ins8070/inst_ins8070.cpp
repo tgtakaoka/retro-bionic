@@ -462,13 +462,13 @@ bool ArchIns8070::decode(uint32_t pc, MatchWalker::Decoded &inst) const {
     return true;
 }
 
-// The vector table of CALL n: 0020-003E.
 // An interrupt pushes the PC, then fetches the next instruction at 0004
 // or 0007.
 const char *ArchIns8070::interruptSequence() const {
     return "WW?";
 }
 
+// The vector table of CALL n: 0020-003E.
 bool ArchIns8070::isVectorTable(uint32_t addr) const {
     return (addr & ~UINT32_C(0x1E)) == 0x20;
 }

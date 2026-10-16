@@ -20,7 +20,7 @@ struct ArchMc6800 : MatchWalker::Arch {
 
     static constexpr uint8_t NOP = 0x01;
     static constexpr uint8_t BRA = 0x20;
-    static constexpr uint8_t BRA_HERE = 0xFE;
+    static constexpr uint8_t BRA_HERE = 0xFE;  // disp to the BRA itself
     static constexpr uint8_t RTI = 0x3B;
     static constexpr uint8_t SWI = 0x3F;
 

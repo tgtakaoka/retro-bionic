@@ -2196,7 +2196,8 @@ constexpr uint8_t PAGEFDCB_TABLE[] = {
 constexpr const char INTERRUPT[] = "~![Ww?]@~[Ww?]@~![WwRrP]";
 constexpr const char INTERRUPT_XM[] = "~![Wwww?]@~[Wwww?]@~![WwwwRrrrP]";
 
-// The |n|th of |seq|'s variants: [from, to), empty where it has none.
+// The |n|th of |seq|'s '/'-separated variants (Word, Long Word, Extended
+// mode): [from, to), empty where it has none.
 void variant(const char *seq, int n, const char *&from, const char *&to) {
     from = seq;
     for (; n > 0; --n) {
@@ -2441,13 +2442,14 @@ bool InstZ380::entersInterrupt(
     return s->addr == ORG_RESET || s->addr == ORG_RST38 || s->addr == ORG_NMI;
 }
 
-// One word pushed: where the CPU would have gone on, or for a trap the
-// instruction it aborts.
+// In Native mode, one word pushed: where the CPU would have gone on, or
+// for a trap the instruction it aborts. Extended mode's push is taken as is.
 bool InstZ380::pushesPc(
         const SignalsImpl *impl, uint32_t next, uint32_t last) const {
     const auto s = static_cast<const Signals *>(impl);
     if (_xm || next == UINT32_MAX)
         return true;
+    // The low byte lands at the even address, on D8-D15.
     const uint16_t pushed = (s->data << 8) | (s->data >> 8);
     return pushed == static_cast<uint16_t>(next) ||
            pushed == static_cast<uint16_t>(last);

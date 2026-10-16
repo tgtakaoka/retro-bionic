@@ -117,7 +117,7 @@ void RegsMn1613::restore() {
     /* Restore CSBR:IC */
     const uint16_t ADDR[] = {
             _seg[CSBR],
-            uint16(_reg[IC] - 2),  // offset setReg(SP) instructions
+            uint16(_reg[IC] - 2),  // the MVWI restoring SP runs from here
     };
     _pins->injectReads(0x3F07, ++sp, ADDR, length(ADDR));  // RETL
     /* Restore SP */
@@ -157,7 +157,7 @@ void RegsMn1613::checkCpuType() {
     constexpr uint16_t SETB = 0x0F00 | (TSR0 << 4) | R0;  // SETB R0, TSR0
     constexpr uint16_t CPYB = 0x0F80 | (TSR0 << 4) | R0;  // CPYB R0, TSR0
     injectReg(SETB, 0x3F);                                // write X'3F' to TSR0
-    _mn1613A = captureReg(CPYB) == 0x3F;                  // check TSR0
+    _mn1613A = captureReg(CPYB) == 0x3F;                  // MN1613 keeps 4 bits
     _mems->setMaxAddr(_mn1613A ? 0xFFFFF : 0x3FFFF);
 }
 

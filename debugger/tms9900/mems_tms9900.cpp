@@ -15,6 +15,7 @@ MemsTms9900::MemsTms9900(Devs *devs)
 #endif
 }
 
+// Byte-wide devices sit on the high byte of the word.
 uint16_t MemsTms9900::read(uint32_t addr) const {
     return _devs->isSelected(addr) ? uint16(_devs->read(addr), 0)
                                    : read_word(addr / 2);

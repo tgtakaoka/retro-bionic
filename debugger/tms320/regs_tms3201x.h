@@ -34,7 +34,7 @@ private:
     tms320::PinsTms320 *const _pins;
 
     uint16_t _pc;
-    uint16_t _st;
+    uint16_t _st;  // OV OVM INTM at bits 15-13, ARP bit 8, DP bit 0
     uint32_t _acc;
     uint16_t _ar[2];
     uint32_t _p;
@@ -48,7 +48,7 @@ private:
     mutable CharBuffer _buffer1;
     mutable CharBuffer _buffer2;
 
-    // working data memory (on page 1 but maybe page 0)
+    // working data word on page 1; direct addressing lands on page DP
     static constexpr uint16_t DMA = 0x8F;
     static constexpr uint16_t DIR_DMA = DMA & 0x7F;
     // indirect AR (*AR)

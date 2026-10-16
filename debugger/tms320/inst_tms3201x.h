@@ -7,6 +7,7 @@ namespace debugger {
 namespace tms3201x {
 
 struct InstTms3201X {
+    /** interrupt vector */
     static constexpr uint16_t ORG_INT = 0x002;
 
     /** branch */
@@ -35,7 +36,7 @@ struct InstTms3201X {
     /** store hi16(ACC) */
     static constexpr uint16_t SACH(uint_fast8_t dma) { return 0x5800 | dma; }
 
-    /** load lo16(ACC) */
+    /** zero ACC and load lo16(ACC) */
     static constexpr uint16_t ZALS(uint_fast8_t dma) { return 0x6600 | dma; }
 
     /** add to hi16(ACC) */
@@ -61,12 +62,12 @@ struct InstTms3201X {
         return 0x7000 | (ar << 8) | k;
     }
 
-    /** multiply K with T to P (store T) */
+    /** multiply T by K into P */
     static constexpr uint16_t MPYK(uint_fast16_t k) {
         return 0x8000 | (k & 0x1FFF);
     }
 
-    /** multiply to P (load P) */
+    /** multiply T by data into P */
     static constexpr uint16_t MPY(uint_fast8_t dma) { return 0x6D00 | dma; }
 
     /** load T */

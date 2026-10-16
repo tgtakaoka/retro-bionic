@@ -2507,8 +2507,8 @@ MatchWalker::Kind InstZ280::cycleKind(const SignalsImpl *impl) const {
     return MatchWalker::K_NONE;
 }
 
-// J goes to nn, a JR's or DJNZ's to the next + disp, the FD page's to the
-// next + disp16, RST's to its opcode & 38H.
+// J goes to nn, a JR's, DJNZ's or JAR's (DD 20) to the next + disp, the FD
+// page's JP and CALL to the next + disp16, RST's to its opcode & 38H.
 bool InstZ280::decode(uint32_t pc, MatchWalker::Decoded &inst) const {
     pc &= 0xFFFF;
     uint8_t page, opc;
@@ -2561,6 +2561,7 @@ bool InstZ280::sameAddress(uint32_t bus, uint32_t addr) const {
 bool InstZ280::pushesPc(
         const SignalsImpl *impl, uint32_t next, uint32_t last) const {
     const auto s = static_cast<const Signals *>(impl);
+    // The low byte lands at the even address, on AD8-AD15.
     const uint16_t pushed = (s->data << 8) | (s->data >> 8);
     return s->wordAccess() &&
            (sameAddress(pushed, next) || sameAddress(pushed, last));

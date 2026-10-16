@@ -56,7 +56,7 @@ void RegsI8051::save() {
 void RegsI8051::save_r() {
     for (auto num = 0; num < 8; ++num)
         _r[num] = raw_read_internal(r_base() + num);
-    write_internal(ACC, _a);  // restore A
+    write_internal(ACC, _a);  // the reads went through A
 }
 
 void RegsI8051::set_psw(uint8_t val) {
@@ -81,6 +81,7 @@ void RegsI8051::restore() {
     write_internal(ACC, _a);
     // A write to IE holds off interrupts for one more instruction
     raw_write_internal(IE, _ie);
+    // Two machine cycles fetch four bytes; the last is discarded.
     const uint8_t LJMP[] = {
             0x02, hi(_pc), lo(_pc), 0,  // LJMP _pc
     };
@@ -106,7 +107,7 @@ uint8_t RegsI8051::read_internal(uint8_t addr) const {
     if (addr == IE)
         return _ie;
     const auto data = raw_read_internal(addr);
-    write_internal(ACC, _a);  // restore A
+    write_internal(ACC, _a);  // the read went through A
     return data;
 }
 
@@ -125,6 +126,7 @@ void RegsI8051::raw_write_internal(uint8_t addr, uint8_t data) const {
         };
         _pins->execInst(WRITE_A, sizeof(WRITE_A));
     } else {
+        // Padded to the four bytes its two machine cycles fetch.
         const uint8_t WRITE[] = {
                 0x75, addr, data, data,  // MOV addr, #data
         };

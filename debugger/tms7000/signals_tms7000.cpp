@@ -28,6 +28,7 @@ bool Signals::write() const {
     return (cntl() & (CNTL_ENABLE | CNTL_RW)) == 0;
 }
 
+// Interrupt acknowledge: an internal read of address 0
 bool Signals::intack() const {
     return addr == 0 && (cntl() & (CNTL_ENABLE | CNTL_RW)) == (CNTL_ENABLE | CNTL_RW);
 }

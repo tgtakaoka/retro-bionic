@@ -201,6 +201,7 @@ Signals *PinsI8080::prepareCycle() const {
             phi1_pulse();
             delayNanoseconds(phi1_lo_ns);
             phi2_hi();
+            // SYNC is valid only tDC after PHI2+; reading it earlier missed T1.
             delayNanoseconds(phi2_hi_sync);
             if (signal_sync() != LOW) {
                 // SYNC=H
@@ -211,7 +212,7 @@ Signals *PinsI8080::prepareCycle() const {
             delayNanoseconds(phi2_lo_ns);
         }
     }
-    // T1
+    // T1; status is valid only tDD after PHI2+.
     // assert_debug();
     delayNanoseconds(phi2_hi_addr);
     s->getAddress();
@@ -363,7 +364,7 @@ uint16_t PinsI8080::captureWrites(
 }
 
 void PinsI8080::idle() {
-    // READY=L
+    // READY=L; keep clocking the waiting CPU, which is dynamic (tCY max 2 us).
     phi_pulses();
 }
 
@@ -413,6 +414,7 @@ bool PinsI8080::rawStep() const {
     auto s = resumeCycle(_regs->nextIp());
     const auto insn = _mems->read(s->addr);
     if (insn == InstI8080::HLT) {
+        // Leave HLT unexecuted; run() resumes from HALT only by a reset.
         enterWait();
         return false;
     }

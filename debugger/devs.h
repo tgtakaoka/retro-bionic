@@ -8,12 +8,14 @@ namespace debugger {
 
 struct Device;
 
+// The emulated devices on a target's bus.
 struct Devs {
     virtual ~Devs() {}
 
     virtual void begin() = 0;
     virtual void reset() = 0;
     virtual void loop() = 0;
+    // Whether the CPU is halted: false for the length of each run.
     virtual void setIdle(bool idle) {}
     virtual bool isSelected(uint32_t addr) const { return false; }
     virtual uint16_t read(uint32_t addr) const { return 0; }

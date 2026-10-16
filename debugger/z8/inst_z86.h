@@ -16,6 +16,7 @@ struct InstZ86 final : z8::InstZ8 {
 
     static constexpr uint16_t ORG_RESET = 0x000C;
 
+    // Whether working register |num| is write-only, so not to be restored
     static bool writeOnly(uint8_t rp, uint8_t num);
 
 private:

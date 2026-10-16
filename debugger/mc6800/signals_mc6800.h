@@ -20,6 +20,7 @@ struct Signals : SignalsBase<Signals> {
     bool read() const;
     bool write() const;
 
+    // 0 for no fetch, else the cycles the matcher gave its instruction + 1.
     void clearFetch() { _signals[1] = 0; }
     bool fetch() const { return _signals[1] != 0; }
     void markFetch(uint8_t matched) { _signals[1] = matched + 1; }

@@ -7,6 +7,8 @@ const InstZ88 Inst;
 
 namespace {
 
+// Length in bits 0-2, external data cycles in bits 4-5, stack cycles in
+// bits 6-7.
 constexpr uint8_t E(
         uint8_t inst_len, uint8_t external_cycles, uint8_t stack_cycles) {
     return static_cast<uint8_t>(

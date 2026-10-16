@@ -439,6 +439,7 @@ constexpr auto park_jumps = 2;
 // the next fetch; far fewer are needed.
 constexpr auto park_cycles = 32;
 
+// 0003, 000B, ..., 002B
 bool isVector(uint16_t addr) {
     return addr < 0x30 && (addr & 7) == 3;
 }
@@ -554,6 +555,7 @@ bool PinsI8051::rawStep() {
     const auto inst = _mems->read_byte(s->addr);
     const auto cycles = InstI8051::busCycles(inst);
     if (cycles == 0) {
+        // The break opcode (A5): feed SJMP $ in its place and stop.
         completeCycle(s->inject(InstI8051::SJMP));
         static constexpr uint8_t JMP_HERE[] = {
                 0,

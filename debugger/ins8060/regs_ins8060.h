@@ -40,6 +40,7 @@ private:
     uint16_t &_p3() { return _ptr[3]; }
     void restorePtr(uint8_t n, uint16_t val) const;
 
+    // Address arithmetic carries only within the 4K page.
     static constexpr uint16_t _addr(uint16_t page, uint16_t offset) {
         return (page & 0xF000) | (offset & 0x0FFF);
     }
