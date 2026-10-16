@@ -205,6 +205,23 @@ def abort():
     return True
 
 
+def parse_devices(txt):
+    """{name: (addr, vector)} from an I listing: `NAME  DESC  at ADDR`, then
+    for the enabled device `  #IRQ: v` (MC6850) or `  INT: Rx=v Tx=v`
+    (i8251), in the target's radix."""
+    found, last = {}, None
+    for line in txt.replace('\r', '').split('\n'):
+        m = re.match(r'(\S+) .* at ([0-9A-Fa-f]+)', line)
+        if m:
+            last = m.group(1).upper()
+            found[last] = (m.group(2), None)
+            continue
+        m = re.match(r'\s+(?:#IRQ:|INT: Rx=)\s*([0-9A-Fa-f]+)', line)
+        if m and last:
+            found[last] = (found[last][0], m.group(1))
+    return found
+
+
 class Board:
     """One open board session: the serial fd, and the target name once
     identify()/recover() has found it (None until then)."""
@@ -446,6 +463,23 @@ class Board:
     def set_break(self, addr):
         return self.send(b'B' + addr.encode() + b'\r', wait=6.0, idle=0.8).decode(
                 'ascii', 'replace').replace('\r', '')
+
+    def devices(self):
+        """{name: (addr, vector)} from I's listing, the prompt cancelled;
+        vector is None for a device that lists none (one not enabled)."""
+        txt = self.send(b'I', wait=4.0, idle=0.5).decode('ascii', 'replace')
+        self.send(b'\x03', wait=4.0, idle=0.5)
+        return parse_devices(txt.split('which?')[0])
+
+    def place_io(self, name, addr, vector=None):
+        """I name addr [vector]; returns the devices before and after."""
+        cmd = 'I%s %s' % (name, addr) + (' %s' % vector if vector else '')
+        txt = self.send(cmd.encode() + b'\r', wait=4.0, idle=0.5,
+                        delay=0.3).decode('ascii', 'replace')
+        # I lists the devices before and after.
+        lists = txt.split('which?')
+        return (parse_devices(lists[0]),
+                parse_devices(lists[1]) if len(lists) > 1 else {})
 
     def _write(self, data):
         write_all(self.fd, data)

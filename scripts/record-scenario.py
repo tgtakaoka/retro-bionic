@@ -154,6 +154,11 @@ class Console:
                 self._buf += d
                 del self._buf[:-4096]   # bounded tail, cheap to scan
 
+    def close(self):
+        """Stop the reader, so the board can be driven off camera."""
+        self._stop = True
+        self._thread.join(1.0)
+
     def tail(self, n=4096):
         with self._lock:
             return bytes(self._buf[-n:])
@@ -204,8 +209,6 @@ class Console:
             time.sleep(0.02)
         return False
 
-    def close(self):
-        self._stop = True
 
 
 def need(ok, what):
@@ -357,6 +360,7 @@ def run_direct(scenario, nopace):
     _ensure_verbose_off(board)
     if not board.clear_breaks():
         sys.exit('could not clear the breakpoints')
+    wiring = board.devices()
     con = Console(board.fd)
     try:
         run_scenario(con, scenario)
@@ -364,8 +368,22 @@ def run_direct(scenario, nopace):
             open(os.environ['SCENARIO_DONE'], 'w').close()
     finally:
         con.close()
+        restore_devices(board, wiring)
         board.close()
         bc.release()
+
+
+def restore_devices(board, wiring):
+    """Put back, off camera, any device the scenario moved or rewired: R
+    keeps the wiring, so it would outlive the recording."""
+    if board.state() != 'prompt':
+        print('board not at its prompt: devices left as the scenario set them',
+              file=sys.stderr)
+        return
+    now = board.devices()
+    for name, (addr, vector) in wiring.items():
+        if now.get(name) != (addr, vector):
+            board.place_io(name, addr, vector)
 
 
 def main():
