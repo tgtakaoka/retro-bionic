@@ -163,7 +163,8 @@ void PinsMc146805E2::resetCpu() {
     pinsMode(PINS_HIGH, sizeof(PINS_HIGH), OUTPUT, HIGH);
     pinsMode(PINS_INPUT, sizeof(PINS_INPUT), INPUT_PULLDOWN);
 
-    // #RESET must stay low for a minimum of one tRL (1.5usec at VDD=5V).
+    // #RESET must stay low for a minimum of one tRL (1.5usec at VDD=5V);
+    // this holds it for 15 bus cycles.
     for (auto i = 0; i < 15 * 5; i++)
         clock_cycle();
 
@@ -208,7 +209,7 @@ Signals *PinsMc146805E2::currCycle(uint16_t) const {
 }
 
 Signals *PinsMc146805E2::rawPrepareCycle() {
-    // MC146805E bus cycle is CLK/5, so we toggle CLK 5 times c1
+    // A bus cycle is five OSC1 clocks, c1-c5; this runs c1-c3.
     // c1
     osc1_hi();
     delayNanoseconds(c1_hi_ns);

@@ -6,6 +6,7 @@ namespace debugger {
 namespace tms7000 {
 
 namespace {
+// Indexed by hardwareType() + clockType()
 const char *const CPU_NAMES[/*HardwareType*/] = {
         "TMS7000",     // 0+0
         "TMS7000NL4",  // 0+1
@@ -46,6 +47,7 @@ void RegsTms7000::print() const {
 void RegsTms7000::save() {
     // An interrupt taken before PUSH ST would feed it to its vector reads
     _pins->park();
+    // Writes to @>8000 are captured
     static constexpr uint8_t SAVE_ALL[] = {
             0x0E,              // PUSH ST
             0x06,              // DINT; RETI restores it
@@ -105,6 +107,7 @@ uint8_t RegsTms7000::read_internal(uint16_t addr) {
 }
 
 void RegsTms7000::write_internal(uint16_t addr, uint8_t data) {
+    // A and B also update the saved copies restore() loads
     if (addr == A) {
         const uint8_t MOV_A[] = {
                 0x22, _a = data,  // MOV %data, A

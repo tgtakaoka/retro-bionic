@@ -85,7 +85,7 @@ void negate_reset() {
 constexpr uint8_t PINS_LOW[] = {
         PIN_RESET,
         PIN_OSCIN,
-        // The followings are driven by open-drain inverter buffer.
+        // Driven through open-drain inverting buffers: LOW releases them.
         PIN_SKIP,
         PIN_C0,
         PIN_C1,
@@ -278,12 +278,15 @@ bus_cycle:
     auto next = *s;
     Cycles::next();
     auto n = Signals::put();
+    // Clock until #READ/#WRITE negates.
     // assert_debug();
     while (next.getDirection()) {
         osc_cycle();
     }
     // negate_debug();
     s->resetIoc();
+    // Another #READ/#WRITE before the select ends continues the cycle,
+    // a read then a write to the same address.
     // assert_debug();
     while (next.getControl()) {
         if (next.getDirection()) {

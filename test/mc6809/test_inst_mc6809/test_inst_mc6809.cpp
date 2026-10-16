@@ -1,7 +1,7 @@
 // Host-side test of the MC6809 family's cycle matcher: `pio test -e native`.
 //
-// rings_<chip>.inc are the bench recordings (see test/match_rings.py);
-// golden_<chip>.inc what the matcher made of them (see
+// <set>.cycles.zst are the recorded rings (see test/match_rings.py),
+// <set>.marks.zst what the matcher made of them (see
 // test/match_harness.h). Every board matches with the HD6309's tables.
 
 #include "../../match_harness.h"
@@ -89,6 +89,7 @@ int replay(const std::vector<Cycle> &cycles, std::vector<int> &marks) {
     return start == end ? -1 : begin->diff(start);
 }
 
+// A set's goldens, then how its marks compare with the recording's.
 template <SoftwareType TYPE>
 void check(const char *set, const std::vector<Ring> &rings) {
     match_harness::check(DIR, set, rings, replay<TYPE>);

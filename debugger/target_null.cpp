@@ -6,6 +6,7 @@
 
 namespace debugger {
 
+// The target when none is identified: no CPU to drive.
 struct DevsNull final : Devs {
     void begin() override {}
     void reset() override {}

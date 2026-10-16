@@ -32,6 +32,7 @@ void RegsZ86::reset() {
     constexpr auto P3M = 247;
     constexpr auto P01M = 248;
     write_reg(P3M, 0);
+    // bit 2 selects the internal stack
     write_reg(P01M, 0x92 | ((1 - EXTERNAL_STACK) << 2));
     static constexpr uint8_t JP_RESET[] = {
             0x8D,  // JP ORG_RESET
@@ -76,6 +77,7 @@ void RegsZ86::restore_sfrs() {
     restore_rp(_rp);
 }
 
+// LDE writes to external memory, where it is captured.
 uint_fast8_t RegsZ86::save_r(uint_fast8_t num) const {
     const uint8_t SAVE_R[] = {
             0x92, uint8(num, 0),  // LDE @RR0,Rn
@@ -110,7 +112,7 @@ uint_fast8_t RegsZ86::read_reg(uint_fast8_t addr) {
     restore_rp(R(0));
     const auto r0 = save_r(0);
     uint_fast8_t val = raw_read_reg(addr);
-    if (addr == RP)
+    if (addr == RP)  // RP was moved above
         val = rp;
     restore_r(0, r0);
     restore_rp(rp);
@@ -123,7 +125,7 @@ void RegsZ86::write_reg(uint8_t addr, uint8_t val) {
     };
     _pins->execInst(WRITE_REG, sizeof(WRITE_REG));
     update_r(addr, val);
-    if (addr == RP)
+    if (addr == RP)  // brings other working registers into view
         save_all_r();
 }
 

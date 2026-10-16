@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Decode Z280 captured bus-cycle text and Logic-analyzer CSVs.
 
-Offline: takes already-captured text or a CSV path, not a live board.
+Offline, a library: report(txt) summarizes cycle lines a backtrace
+printed (e.g. bionic-control.py's output); logic_report(path) a capture
+CSV exported by scripts/logic-analyzer.py.
 """
 import collections
 import re
@@ -45,6 +47,8 @@ def rle(vals):
 
 
 def report(txt, head=14, full=False, out_path=None):
+    """Print counts by status, read-address deltas, the writes and the
+    first |head| cycle lines (all with |full|) of |txt|."""
     cy = parse(txt)
     if not cy:
         print('no cycle lines (%d bytes)\n%s' % (len(txt), txt[:400]))
@@ -81,7 +85,7 @@ def report(txt, head=14, full=False, out_path=None):
 
 def logic_report(path):
     """`path` is a CSV already relabeled by scripts/logic-analyzer.py's
-    export."""
+    export; unlabeled columns fall back to the Channel N defaults below."""
     import csv
     r = csv.DictReader(open(path))
     f = r.fieldnames

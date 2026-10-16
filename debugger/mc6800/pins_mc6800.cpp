@@ -154,8 +154,7 @@ void PinsMc6800::resetPins() {
     // Read Reset vector
     cycle();
     cycle();
-    // The first instruction will be saving registers, and certainly can be
-    // injected.
+    // The first fetch takes the save's injected instructions.
     _regs->reset();
     _regs->save();
     _regs->setIp(_mems->read16(ArchMc6800::VEC_RESET));

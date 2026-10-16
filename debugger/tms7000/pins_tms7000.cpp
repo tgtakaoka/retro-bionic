@@ -309,6 +309,8 @@ void PinsTms7000::div2Complete(Signals *s) const {
     }
 }
 
+// Runs the serial handler on every other high phase; div4_hi_wait pads the
+// rest to a similar length.
 void div4_hi(DevsTms7000 *devs) {
     static bool serial = false;
     clkin_hi();
@@ -400,7 +402,7 @@ void PinsTms7000::resetPins() {
 
     synchronizeClock();
 
-    // Clear IOCNT0 (>0100) to disable interrupts
+    // The reset sequence clears IOCNT0 (>0100), disabling interrupts
     cycle();
     // Inject dummy reset vector >8000
     inject(0x00);  // >FFFF
@@ -446,7 +448,8 @@ void PinsTms7000::synchronizeClock() {
             _clk_hi = div2_hi;
             _clk_lo = div2_lo;
         } else {
-            // CMOS device
+            // CMOS device, clocked on CLKIN inverted from the NMOS /2 parts
+            // (see the diagram): clk_hi() drives CLKIN low.
             _clockType = CLK_CMOS;
             _clk_hi = cmos_lo;
             _clk_lo = cmos_hi;
@@ -493,6 +496,7 @@ void PinsTms7000::synchronizeClock() {
                 break;
             clk_lo();
             delayNanoseconds(div2_lo_ns);
+            // ALATCH rising in the clk_lo() half is the TMS7002 timing.
             if (signal_alatch() != LOW) {
                 _wait_alatch = tms7002_alatch;
                 _prepareCycle = tms7002Prepare;
@@ -698,6 +702,8 @@ bool PinsTms7000::rawStep() {
     }
     const auto opc = _mems->read_byte(s->addr);
     const auto cycles = InstTms7000::busCycles(opc);
+    // Stop at a break (IDLE) or an opcode the table lacks: JMP $ in its
+    // place leaves PC at its fetch.
     if (opc == InstTms7000::IDLE || cycles == 0) {
         completeCycle(s->inject(InstTms7000::JMP));
         inject(InstTms7000::JMP_HERE);

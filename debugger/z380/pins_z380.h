@@ -86,11 +86,11 @@ struct PinsZ380 final : Pins {
 
     // Run |inst| on the parked CPU: its memory reads are fed from |inst|
     // by address and its writes are captured into |buf|, never touching
-    // real memory. Returns the lowest address written. |org| is where the
-    // CPU is parked, and is advanced to where the sequence leaves off, so
-    // a caller chaining sequences passes it on. Fetches are words, so
-    // |org| is even and a sequence that runs off its end has an even
-    // length.
+    // real memory; captureWrites() returns the lowest address written.
+    // |org| is where the CPU is parked, and is advanced to where the
+    // sequence leaves off, so a caller chaining sequences passes it on.
+    // Fetches are words, so |org| is even and a sequence that runs off
+    // its end has an even length.
     void execInst(const uint8_t *inst, uint_fast8_t len, uint32_t &org,
             uint32_t exit = EXIT_END);
     uint32_t captureWrites(const uint8_t *inst, uint_fast8_t len, uint8_t *buf,

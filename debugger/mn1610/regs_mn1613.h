@@ -46,6 +46,7 @@ private:
     static constexpr auto TSR0 = 2;
     static constexpr auto TSR1 = 3;
     uint32_t addr(uint_fast8_t seg, uint16_t off) const;
+    // Register fields of CPYS/SETS and CPYH/SETH.
     static constexpr auto NPP = 2;
     uint16_t _npp;
     static constexpr auto IISR = 6;

@@ -53,10 +53,8 @@ void Cycles::next() {
     if (!_hold) {
         _put = (_put + 1) % MAX_CYCLES;
         // The head slot is the transaction in progress, so the ring holds
-        // one fewer completed cycles than it has slots. Letting the count
-        // reach MAX_CYCLES left _get on the head for one cycle: with
-        // exactly that many recorded, tail and head coincided and the dump
-        // was empty.
+        // one fewer completed cycles than it has slots; once full, the
+        // tail follows the head.
         if (_cycles < MAX_CYCLES - 1) {
             _cycles++;
         } else {

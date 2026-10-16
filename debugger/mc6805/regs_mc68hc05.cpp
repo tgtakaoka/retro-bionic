@@ -8,7 +8,8 @@ RegsMc68HC05::RegsMc68HC05(mc6805::PinsMc6805 *pins)
     : RegsMc6805("MC68HC05", pins) {}
 
 void RegsMc68HC05::reset() {
-    // If reset vector pointing internal memory, we can't inject instructions.
+    // A reset vector of 1000: injection needs the fetches on the external
+    // bus, which a vector into internal memory wouldn't give.
     static constexpr uint8_t DUMMY_RESET[] = {0x10, 0x00, 0x00};
     _pins->injectReads(DUMMY_RESET, sizeof(DUMMY_RESET), 0);
     // Disable COP, enable IRV and ILRV of CNFGR($19); reset value 0x63

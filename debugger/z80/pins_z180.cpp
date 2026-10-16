@@ -199,11 +199,12 @@ Signals *PinsZ180::prepareCycle() const {
         extal_lo();
         delayNanoseconds(extal_lo_cntl);
         // assert_debug();
-        s->getControl();  // To capture #WR
+        s->getControl();  // #WR asserts after #MREQ; sample it again
         // negate_debug();
         interrupts();
         if (!s->nobus())
             return s;
+        // No data moves in this cycle; clock past its end.
         while (s->getControl())
             extal_cycle();
     }
@@ -258,7 +259,7 @@ Signals *PinsZ180::completeCycle(Signals *s) const {
     Cycles::next();
     auto n = Signals::put();
     noInterrupts();
-    while (n->getControl())
+    while (n->getControl())  // wait for end of bus cycle
         extal_cycle();
     interrupts();
     return s;
@@ -309,6 +310,8 @@ uint16_t PinsZ180::execute(
         delayNanoseconds(extal_lo_ns);
         s = prepareCycle();
     }
+    // Park on the next fetch, which may be past an interrupt acknowledge;
+    // resumeCycle() starts there.
     auto guard = Cycles::MAX_CYCLES;
     while (guard-- && !s->fetch()) {
         completeCycle(s);
@@ -321,12 +324,13 @@ uint16_t PinsZ180::execute(
 }
 
 void PinsZ180::idle() {
-    // #WAIT=L
+    // Parked by #WAIT; this only keeps the clock alive.
     extal_cycle();
     extal_cycle_lo();
 }
 
 bool PinsZ180::isRst38Break(const Signals *org_rst) const {
+    // The RST 38H fetch, its two pushes, then this vector fetch.
     const auto rst38h = org_rst->prev(3);
     if (rst38h->data == InstZ80::RST38H) {
         if (org_rst->prev(1)->mwrite() && org_rst->prev(2)->mwrite()) {
@@ -391,6 +395,7 @@ Signals *PinsZ180::suspend() {
             negate_nmi();
             // RET, not RETN, keeps IFF1 clear through the save
             completeCycle(s->inject(InstZ80::RET));
+            // Feed RET the PC the NMI pushed, low byte first.
             inject(s->prev()->data);
             inject(s->prev(2)->data);
             assert_wait();
@@ -408,7 +413,7 @@ bool PinsZ180::rawStep() {
     const auto pc = _regs->nextIp();
     if (_mems->read_byte(pc) == InstZ80::HALT)
         return false;
-    assert_nmi();  // Assert #NMI as soon as possible
+    assert_nmi();  // Before the fetch, to stop after this instruction
     resumeCycle(pc);
     const auto s = suspend();
     if (s == nullptr)

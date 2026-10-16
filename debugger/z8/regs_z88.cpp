@@ -105,6 +105,7 @@ void RegsZ88::restore_sfrs() {
 #endif
 }
 
+// LDE writes to external memory, where it is captured.
 uint_fast8_t RegsZ88::save_r(uint_fast8_t num) const {
     const uint8_t SAVE_R[] = {
             0xD3, uint8((num << 4) | 0 | 1),  // LDE @RR0,Rn

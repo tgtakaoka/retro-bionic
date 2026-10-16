@@ -31,12 +31,14 @@ bool Signals::write() const {
 }
 
 bool Signals::fetch() const {
+    // The W65C816 has no SYNC; VPA and VDA (VPD) both high mark a fetch.
     if (PinsMos6502::hardwareType() == HW_W65C816)
         return (cntl() & (CNTL_VPA | CNTL_VPD)) == (CNTL_VPA | CNTL_VPD);
     return cntl() & CNTL_SYNC;
 }
 
 bool Signals::vector() const {
+    // The 6502 pinout has no VP.
     if (PinsMos6502::hardwareType() == HW_MOS6502)
         return read() && addr >= InstMos6502::VECTOR_NMI;
     return (cntl() & CNTL_VP) == 0;

@@ -34,14 +34,14 @@ void RegsIm6100::save() {
             07701,         // ACL     ; MQ->AC
             03002, 07000,  // DCA 0002; dummy read, capture MQ
             06004, 07000,  // GTF     ; FLAGS->AC, dummy read, dummy write
-            03003, 07000,  // DCA 0003; dummy read capture FLAGS
+            03003, 07000,  // DCA 0003; dummy read, capture FLAGS
     };
     uint16_t buffer[5];
     _pins->captureWrites(SAVE, length(SAVE), buffer, length(buffer));
     _pc = (buffer[0] - 1) & 07777;  // offset JMS instruction
     _ac = buffer[1];
     _mq = buffer[2];
-    _flags = buffer[4];
+    _flags = buffer[4];  // after GTF's dummy write
     // restore()'s RTF set IEFF; the program hasn't enabled interrupts yet
     if (_pins->interruptsGated())
         set_ieff(0);

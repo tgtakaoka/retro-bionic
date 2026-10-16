@@ -44,9 +44,10 @@ inline bool asserted(uint8_t pin) {
 void PinsMc6809Base::resetPins() {
     Cycles::reset();
 
+    // Clock up to the reset vector read.
     while (!cycle()->vector())
         ;
-    // LSB of reset vector;
+    // lo(reset vector)
     cycle();
     cycle();  // non-VMA
     _regs->reset();
@@ -91,6 +92,7 @@ uint8_t PinsMc6809Base::captureContext(uint8_t *context, uint16_t &sp) {
     uint16_t pc = 0;
     uint8_t cap = 0;
     const Signals *s;
+    // Feed the captured PC as the SWI vector, so the CPU resumes at it.
     do {
         s = Signals::put()->inject(hi(pc))->capture();
         cycle();
@@ -107,6 +109,7 @@ uint8_t PinsMc6809Base::captureContext(uint8_t *context, uint16_t &sp) {
     return cap;
 }
 
+// BRA * clocks the CPU without moving it, then its cycles are discarded.
 void PinsMc6809Base::idle() {
     auto s = Signals::put();
     s->inject(InstMc6809::BRA);
@@ -116,6 +119,7 @@ void PinsMc6809Base::idle() {
     Cycles::discard(s);
 }
 
+// The first write of the context push that ends at |push|.
 const Signals *PinsMc6809Base::stackFrame(const Signals *push) const {
     while (push->write())
         push = push->prev();
@@ -298,15 +302,13 @@ const Signals *PinsMc6809Base::findFetch(Signals *begin, const Signals *end) {
     return begin->next(walker.start());
 }
 
-// fetch() isn't live on either board: findFetch() marks it
-// only as a side effect of matching decoded instructions against
-// captured bus cycles, so that has to run -- once, right here -- before
-// backtraceStartFrom() counting fetch() cycles means anything.
-// printBacktrace() re-runs findFetch() over the now-disposed range,
-// which re-derives the same marks.
+// fetch() isn't live on either board: findFetch() marks it while matching
+// instructions against the captured cycles, so it must run before
+// backtraceStartFrom() counts fetches.
 const SignalsImpl *PinsMc6809Base::findBacktraceStart() {
     const auto end = Signals::put();
-    // Make room for idle cycles -- see printBacktrace().
+    // Skip the oldest three cycles, which idle()'s BRA * can overwrite
+    // in a full ring.
     const auto begin = findFetch(Signals::get()->next(3), end);
     return backtraceStartFrom<Signals>(begin, _lineLimit);
 }
@@ -319,7 +321,7 @@ void PinsMc6809Base::printBacktrace() {
     findFetch(Signals::get(), _profileEnd ? _profileEnd : end);
     printCycles(end);
 #else
-    // Make room for idle cycles.
+    // Skip what idle() can overwrite, as findBacktraceStart() does.
     const auto begin = findFetch(Signals::get()->next(3), end);
     printCycles(begin);
     const auto cycles = begin->diff(end);

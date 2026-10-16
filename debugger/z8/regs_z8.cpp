@@ -30,6 +30,8 @@ void RegsZ8::save() {
     save_sfrs();
 }
 
+// The stack is external, so a PUSH's write is captured; INCW SP keeps SP
+// where it was.
 void RegsZ8::save_ie() {
     const uint8_t SAVE_IE[] = {
             0xA0, sph(),    // INCW SP
@@ -53,6 +55,7 @@ void RegsZ8::restore() {
         // IRET enables interrupts together with the jump.
         const uint8_t IRET[] = {
                 0xE6, ieReg(), uint8(_ie & ~ieBit()),  // LD IMR/SYM, #_ie-EI
+                // room for the FLAGS and PC that IRET pops, injected below
                 0x80, sph(),                           // DECW SP
                 0x80, sph(),                           // DECW SP
                 0x80, sph(),                           // DECW SP

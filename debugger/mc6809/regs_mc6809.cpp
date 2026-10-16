@@ -81,7 +81,6 @@ void RegsMc6809::save() {
     uint16_t sp;
     const auto n = _pins->captureContext(context, sp);
     saveContext(context, n, sp + 1);
-    // Capturing writes to stack in little endian order.
     _pc -= 1;  //  offset SWI instruction.
 }
 
@@ -140,7 +139,7 @@ uint16_t RegsMc6809::capture(const Signals *frame, bool step) {
 
 void RegsMc6809::saveContext(uint8_t *context, uint8_t n, uint16_t sp) {
     _s = sp;
-    _md = (n == 14);
+    _md = (n == 14);  // a native-mode HD6309 also pushes E and F
     // Capturing writes to stack in little endian order.
     _pc = le16(context + 0);
     _u = le16(context + 2);

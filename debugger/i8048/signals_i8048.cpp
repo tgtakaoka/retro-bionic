@@ -63,6 +63,7 @@ void Signals::print() const {
     auto &buffer = Cycles::buffer();
     buffer.set(line);
     if (port()) {
+        // PROG cycle to an 8243: command in bits 11~10, port P4~P7 in 9~8.
         static constexpr char CONTROL[] = {'R', 'W', 'O', 'A'};
         buffer[0] = CONTROL[(addr >> 10) & 3];
         buffer[2] = 'P';

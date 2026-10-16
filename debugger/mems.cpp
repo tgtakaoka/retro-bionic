@@ -193,7 +193,7 @@ void Mems::isPrint(const uint8_t *data, char buf[2]) const {
 uint8_t Mems::dataColumns(uint8_t len) const {
     const auto bits = opCodeWidth();
     const auto unit = addressUnit();
-    // if |len| is odd, |count| may be round down.
+    // if |len| is odd, |count| is rounded down.
     const auto count = (bits == 16 || unit == 2) ? len / 2 : len;
     return (1 + Debugger::numDigits(bits, listRadix())) * count;
 }
@@ -252,7 +252,6 @@ void Mems::dumpMemory(uint32_t addr, uint16_t len, bool prog) const {
     // Quantize address to a multiple of 8 or 16.
     const auto chunk = (bits == 16 || unit == 2 || wordAccess()) ? 2 : 1;
     const auto step = 16 / unit;
-    // Print 16 bytes of data
     for (addr &= ~(step - 1); addr < end; addr += step) {
         printAddress(addr);
         const auto head = (addr < start) ? start - addr : 0;

@@ -21,7 +21,6 @@ bool Signals::getControl() {
 bool Signals::getDirection() {
     // #WRITE, #READ, #IFETCH are active low
     dir() = busRead(DIR);
-    // #READ, #WRITE are active low
     constexpr auto DIR = (DIR_READ | DIR_WRITE);
     // Returns true if #READ or #WRITE found.
     return (dir() & DIR) != DIR;

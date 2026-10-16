@@ -5,6 +5,7 @@ namespace tms7000 {
 
 namespace {
 
+// Instruction length in bytes, and the bus cycles it adds beyond its fetches.
 constexpr uint8_t E(uint8_t len, uint8_t bus) {
     return (len << 4) | bus;
 }

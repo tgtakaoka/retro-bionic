@@ -6,33 +6,8 @@ namespace debugger {
 namespace mc6801 {
 
 /**
- * How to determine MC6800 variants.
- *
- * MC6800/MC6801/HD6301
- *   LDX  #$55AA
- *   LDAB #100
- *   LDAA #5
- *   ADDA #5
- *   FCB  $18
- *        ; DAA  ($19) on MC6800
- *        ; ABA  ($1B) on MC6801
- *        ; XGDX ($18) on HD6301
- *        ; prefix     on MC68HC11
- *   FCB  $08
- *        ; INX on MC6800/MC6801/HD6301
- *        ; INY on MC68HC11
- *   A=$10, X=$55AB: MC6800
- *   A=110, X=$55AB: MC6801
- *   A=$55, X=$0A65: HD6301
- *   A=10,  X=$55AA: MC68HC11
- *
- * MC6800/MB8861(MB8870)
- *   LDX  #$FFFF
- *   FCB  $EC, $01
- *        ; CPX 1,X ($AC $01, 6 clocks) on MC6800
- *        ; ADX #1  ($EC $01, 2 clocks) on MB8861
- * X=$FFFF: MC6800
- * X=$0000: MB8861
+ * MC6801 or HD6301: $18 is ABA on the MC6801, leaving A=$00, and XGDX on
+ * the HD6301, leaving A=hi(X)=$FF.
  */
 
 SoftwareType RegsMc6801::checkSoftwareType() {

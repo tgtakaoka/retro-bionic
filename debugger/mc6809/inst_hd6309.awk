@@ -122,7 +122,8 @@ function inst_len(seq,  tok, n, i, len) {
     return len;
 }
 
-# Its next fetch looked at: one token takes no cycle.
+# The clock of |seq|: one token takes no cycle, its next fetch only
+# looked at.
 function clock(seq,  tok) {
     return seq == "-" ? 0 : tokens(seq, tok) - 1;
 }

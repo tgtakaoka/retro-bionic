@@ -82,8 +82,8 @@ struct PinsZ280 final : Pins {
     static constexpr uint32_t EXIT_END = UINT32_MAX;
     static constexpr uint32_t EXIT_ORG = UINT32_MAX - 1;
 
-    // Run |inst| on the free-running CPU: its memory reads are fed
-    // from |inst| in program order and its writes are captured into
+    // Run |inst| on the free-running CPU: its memory reads are answered
+    // from |inst| by offset from |org| and its writes are captured into
     // |buf|, never touching real memory. Returns the first such write.
     // |org| is the 24-bit address the CPU is parked at, captured from the
     // bus; the sequence is keyed from it, and it is advanced to where the

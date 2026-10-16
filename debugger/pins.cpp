@@ -38,7 +38,8 @@ void Pins::pinsMode(
         const uint8_t *pins, uint8_t size, uint8_t mode, uint8_t val) {
     for (auto i = 0; i < size; ++i) {
         const auto pin = pins[i];
-        // This order is critical to initialize OUTPUT/HIGH pins.
+        // Mode first: digitalWrite() on an input pin only sets its pull
+        // resistor, so an OUTPUT/HIGH pin would start low.
         pinMode(pin, mode);
         digitalWrite(pin, val);
     }

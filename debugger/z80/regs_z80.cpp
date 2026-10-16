@@ -88,7 +88,7 @@ void RegsZ80::save() {
     uint8_t buffer[12];
     _sp = _pins->captureWrites(
             SAVE_MAIN, sizeof(SAVE_MAIN), buffer, sizeof(buffer));
-    _sp += 1;
+    _sp += 1;  // RST's first push is at SP-1
     _pc = be16(buffer) - 1;  // offset RST instruction
     _main.a = buffer[2];
     _main.f = buffer[3];
@@ -112,6 +112,7 @@ void RegsZ80::save() {
     _iy = be16(buffer + 2);
 }
 
+// POPs take the injected bytes, not the stack.
 void RegsZ80::restore() {
     const uint8_t LD_OTHERS[] = {
             0x3E, _i,                      // LD A, _i

@@ -11,7 +11,7 @@ void Signals::getAddr() {
 }
 
 void Signals::getDirection() {
-    cntl() = busRead(CNTL) | CNTL_VMA;
+    cntl() = busRead(CNTL) | CNTL_VMA;  // no VMA pin
 }
 
 void Signals::getControl() {

@@ -12,6 +12,7 @@ void Signals::getAddress() {
 }
 
 void Signals::getStatus() {
+    // The status word is on the data bus during SYNC.
     status() = busRead(DATA);
 }
 

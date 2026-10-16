@@ -165,11 +165,12 @@ void PinsMc6801::resetPins() {
     pinsMode(PINS_PULLUP, sizeof(PINS_PULLUP), INPUT_PULLUP);
     pinsMode(PINS_INPUT, sizeof(PINS_INPUT), INPUT);
 
-    // Reset vector should not point internal registers.
+    // The save injects into the first fetch, so it must be external: the
+    // CPU answers an internal address itself. Start at 8000H until then.
     const uint16_t reset_vec = _mems->read16(ArchMc6800::VEC_RESET);
     _mems->write16(ArchMc6800::VEC_RESET, 0x8000);
 
-    // Toggle reset to put MC6803/HD6303 in reset
+    // Clock a few cycles with #RESET low.
     clock_cycle();
     clock_cycle();
     clock_cycle();
@@ -196,8 +197,7 @@ void PinsMc6801::resetPins() {
     // Read Reset vector
     cycle();
     cycle();
-    // The first instruction will be saving registers, and certainly can be
-    // injected.
+    // The first fetch takes the save's injected instructions.
     _regs->reset();
     _regs->save();
     _mems->write16(ArchMc6800::VEC_RESET, reset_vec);
@@ -214,7 +214,7 @@ mc6800::Signals *PinsMc6801::cycle() {
 }
 
 mc6800::Signals *PinsMc6801::rawCycle() {
-    // MC6803/HD6303 clock E is CLK/4, so we toggle CLK 4 times
+    // E is EXTAL/4: one bus cycle is four EXTAL cycles, c1-c4.
     Signals::inputMode();
     // c1
     extal_hi();
@@ -273,6 +273,7 @@ mc6800::Signals *PinsMc6801::rawCycle() {
     return s;
 }
 
+// The MC6801's BRA takes 3 cycles.
 void PinsMc6801::idle() {
     auto s = Signals::put();
     s->inject(ArchMc6800::BRA);

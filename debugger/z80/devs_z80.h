@@ -3,7 +3,7 @@
 
 #include "devs.h"
 
-#define USART_BASE 0x40
+#define USART_BASE 0x40  // I/O port
 
 namespace debugger {
 namespace z80 {

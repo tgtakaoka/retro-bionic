@@ -35,6 +35,7 @@ struct RegsMc6809 : Regs {
     bool setRegister(uint_fast8_t reg, uint32_t value) override;
 
     SoftwareType checkSoftwareType();
+    // CC is EFHINZVC.
     bool irqMasked() const { return _cc & 0x10; }
     bool firqMasked() const { return _cc & 0x40; }
 

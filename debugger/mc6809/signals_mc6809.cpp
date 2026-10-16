@@ -18,7 +18,7 @@ void Signals::getLowAddr() {
 void Signals::getDirection() {
     // The MC6809 has no VMA; CNTL0 is its XTAL pin, or AVMA on the
     // MC6809E, which tells of the next cycle. Dummy cycles read FFFF,
-    // which the cycle sequences match as N.
+    // which the cycle sequences match as x.
     cntl() = busRead(CNTL) | CNTL_VMA;
 }
 
@@ -49,6 +49,7 @@ void Signals::print() const {
     LOG_MATCH(cli.print(' '));
     //                              0123456789012345
     static constexpr char line[] = " W A=xxxx D=xx L";
+    // BA:BS: running, vector fetch, SYNC acknowledge, halt or bus grant
     static constexpr char STATUS[] = {' ', 'V', 'S', 'H'};
     auto &buffer = Cycles::buffer();
     buffer.set(line);

@@ -97,9 +97,11 @@ void RegsCdp1802::print() const {
 }
 
 void RegsCdp1802::save() {
-    static constexpr uint8_t SAV[] = {0x78};
+    static constexpr uint8_t SAV[] = {0x78};  // SAV: M(R(X))=T
     _pins->captureWrites(SAV, sizeof(SAV), nullptr, &_t, sizeof(_t));
 
+    // STR Rn writes D to M(Rn), putting Rn on the address bus. MARK takes
+    // R2's slot: it writes X,P to M(R2), then sets X=P and decrements R2.
     // STR R0, STR R1, MARK, STR R3, ...
     static constexpr uint8_t STR[] = {
             0x50, 0x51, 0x79, 0x53, 0x54, 0x55, 0x56, 0x57,  //
@@ -118,7 +120,7 @@ void RegsCdp1802::save() {
     }
     _dirty[2] = true;                // because of MARK
     _dirty[_p] = true;               // because this is a program counter
-    _r[_p] -= sizeof(SAV) + _p + 1;  // adjust program counter
+    _r[_p] -= sizeof(SAV) + _p + 1;  // undo fetches of SAV, STR R0~Rp
 
     _df = _pins->skip(InstCdp1802::LSDF);  // LSDF: skip if DF=1
     _q = _pins->skip(InstCdp1802::LSQ);    // LSQ: skip if Q=1
@@ -128,11 +130,11 @@ void RegsCdp1802::save() {
 void RegsCdp1802::restore() {
     const uint8_t p = lo4(_t);
     const uint8_t x = hi4(_t);
-    _dirty[p] = true;
+    _dirty[p] = true;  // SEX and MARK are fetched through R(p)
     const uint8_t LDT[] = {
             uint8(InstCdp1802::SEP | p),  // SEP Rn
             uint8(InstCdp1802::SEX | x),  // SEX Rn
-            0x79,                         // MARK
+            0x79,                         // MARK: T=X,P
     };
     uint8_t tmp;
     _pins->captureWrites(LDT, sizeof(LDT), nullptr, &tmp, sizeof(tmp));
@@ -141,7 +143,7 @@ void RegsCdp1802::restore() {
     const uint8_t LDQ_DF[] = {
             q,                         // REQ:0x7A, SEQ:0x7B
             0xF8, uint8(_df ? 1 : 0),  // LDI df
-            0x76,                      // SHRC
+            0x76,                      // SHRC: DF=D bit 0
     };
     _pins->execInst(LDQ_DF, sizeof(LDQ_DF));
 
@@ -157,9 +159,9 @@ void RegsCdp1802::restore() {
         if (_dirty[n]) {
             auto rn = _r[n];
             if (n == 14)
-                rn -= 1;  // offset R14
+                rn -= 1;  // RET increments R(X)
             if (n == 15)
-                rn -= sizeof(LDD) + 1;  // offset R15
+                rn -= sizeof(LDD) + 1;  // LDD and RET fetch through R15
             const uint8_t LDR[] = {
                     InstCdp1802::LDI,
                     hi(rn),
@@ -175,8 +177,8 @@ void RegsCdp1802::restore() {
 
     const auto ie = _ie ? InstCdp1802::RET : InstCdp1802::DIS;
     const uint8_t RET[] = {
-            ie,             // RET: 0x70 or DIS:0x71
-            uint8(_x, _p),  // x,p
+            ie,             // RET: 0x70 (IE=1) or DIS: 0x71 (IE=0)
+            uint8(_x, _p),  // X,P, read from M(R(X))
     };
     _pins->execInst(RET, sizeof(RET));  // R15++, R14++
 }

@@ -34,14 +34,14 @@ def define(ns, boards, flags):
     """Fill |ns| with the plugin for the opcodes of |flags| on |boards|."""
     TRAP = 0x01                 # HALT
     ORG = 0x100
-    PAD = 4
+    PAD = 4                     # every write is this long, so no longer earlier pattern lingers
     PTR = 0x20                  # R0, R1, R3: internal RAM above the stack,
                                 # external RAM clear of the USART at FC
     # PSW: SP 0, register bank 0, flags clear; A high keeps the ports up.
     BASE = [('PC', ORG), ('MB', 0), ('PSW', 0x08), ('A', 0xFF), ('F1', 0),
             ('R0', PTR), ('R1', PTR), ('R3', PTR)]
     FILL = [(0x000, 0x1000, [TRAP])]
-    MAX_CYCLES = 96
+    MAX_CYCLES = 96             # pins_i8048.cpp's profile loop gives up here
     FRES = 0xE2
     # Flag conditions, run once clear and once set.
     FLAGGED = re.compile(r'^(JB|JC|JNC|JF0|JF1|JZ|JNZ)$')

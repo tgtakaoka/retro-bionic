@@ -5,6 +5,8 @@
 
 namespace debugger {
 
+// A fixed line a cycle or register print fills in place: hexN()/octN()
+// write an N-bit value's digits at |pos|.
 struct CharBuffer final {
     explicit CharBuffer(const char *str) { set(str); }
     void set(const char *str);

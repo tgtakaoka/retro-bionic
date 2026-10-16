@@ -51,6 +51,7 @@ void RegsTms9900::reset() {
     _st = 0;  // reset "sets all status register bits to zero"
 }
 
+// RTWP reads WR15, WR14 and WR13; inject the saved context instead.
 void RegsTms9900::restore() {
     const uint16_t RTWP[] = {
             0x0380,  // RTWP
@@ -63,6 +64,8 @@ void RegsTms9900::restore() {
 
 const uint16_t RegsTms9900::ZERO = 0;
 
+// Runs at an NMI or reset vector read: inject the new WP and PC, and
+// capture the old context the CPU stores into the new workspace.
 void RegsTms9900::save() {
     uint16_t buf[3];
     _pins->injectReads(&ZERO, 1);            // inject new WP

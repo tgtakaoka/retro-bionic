@@ -9,9 +9,7 @@ using namespace debugger;
 namespace {
 
 // The minimal concrete Signals type: what every target derives. fetch()
-// stands in for a target's own hardware marker; inject() flags an
-// "instruction" cycle here the same way clear() keeps every slot's real
-// marker bits test-clean until a test sets them.
+// stands in for a target's own hardware marker: here, an injected cycle.
 struct Sig : SignalsBase<Sig> {
     bool fetch() const { return !readMemory(); }
 };

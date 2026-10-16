@@ -1,9 +1,9 @@
 """P8095BH (i8096) plugin for scripts/record-cycles.py.
 
 Each pattern is one opcode of i8096-PAGE00.txt or, after FE, of
-PAGEFE.txt, with TRAP ($F7) as its operand bytes, run from ORG in memory
-filled with TRAP, so any transfer stops at once. Needs the profile image
-(-D PROFILE_CYCLES), whose dump prints every cycle and the matcher's
+i8096-PAGEFE.txt, with TRAP ($F7) as its operand bytes, run from ORG in
+memory filled with TRAP, so any transfer stops at once. Needs the profile
+image (-D PROFILE_CYCLES), whose dump prints every cycle and the matcher's
 fetches as I. The prefetch queue reads ahead of execution and the tables
 give no cycle counts, so check() holds only the matcher's fetches against
 the run: the pattern's opcode, and nothing else, before the TRAP's.
@@ -55,7 +55,7 @@ def table(page):
 # register. An even register set to an address in the fill instead: plain
 # external memory, clear of I/O, on-chip RAM, the vectors and the CCB.
 PAD = 8
-VEC_TRAP = 0x2010
+VEC_TRAP = 0x2010               # TRAP's vector
 # The long form sets the register byte's LSB and takes a 16-bit
 # displacement.
 POINTER = 0x30

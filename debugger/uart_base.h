@@ -11,8 +11,8 @@ namespace debugger {
 struct UartBase : Device {
     void reset() override;
     void loop() override;
-    // _base_addr+0*_step: UART implementation
-    // _base_addr+1*_step: UART implementation
+    // _base_addr+0*_step: the device's first register
+    // _base_addr+1*_step: the device's second register
     // _base_addr+2*_step: Rx interrupt vector
     // _base_addr+3*_step: Tx interrupt vector
     bool isSelected(uint32_t addr) const override {

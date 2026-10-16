@@ -20,7 +20,7 @@ struct Signals final : SignalsBase<Signals> {
 
     // The strobes as the pins read: a clear bit is an asserted strobe.
     bool memReq() const { return (cntl() & (MRD | MWR)) != (MRD | MWR); }
-    // /IORD alongside /M1 is the RETI transaction reproduced on the I/O
+    // #IORD alongside #M1 is the RETI transaction reproduced on the I/O
     // bus, whose data the CPU drives.
     bool ioReq() const {
         return (cntl() & (IORD | IOWR)) != (IORD | IOWR) && (cntl() & M1);
@@ -35,7 +35,7 @@ struct Signals final : SignalsBase<Signals> {
     // No strobe for a long time: the CPU halted (no #HALT on this board).
     void markHalt() { cntl() = NONE, mark() = HALT; }
     bool halt() const { return mark() == HALT; }
-    // /BHEN and /BLEN: both for a word, one for a byte on its lane, the
+    // #BHEN and #BLEN: both for a word, one for a byte on its lane, the
     // even address on D8-D15 and the odd one on D0-D7. I/O asserts
     // neither and moves bytes on D0-D7.
     bool wordAccess() const { return memReq() && ben() == 0; }

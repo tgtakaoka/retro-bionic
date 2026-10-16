@@ -37,6 +37,7 @@ function generated_by(script,  i, cmd, line, word) {
     return cmd line;
 }
 
+# Prints a clock such as 6 or 10/12 padded to a fixed width.
 function print_number(n, len, num, rem) {
     len = match(n, /^[0-9]+/);
     if (n == "-") {
@@ -72,6 +73,7 @@ function generate_TABLE(op, mne, opr, clk, len, ext, stk) {
     }
 }
 
+# The length |seq| implies: its highest instruction byte number.
 function inst_len(seq,  len, tmp, i, c) {
     len = 0;
     if (seq != "-") {

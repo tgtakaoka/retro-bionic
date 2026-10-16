@@ -50,7 +50,7 @@ private:
     RegsI8048 *const _regs;
     Devs *const _devs;
 
-    static constexpr auto OFFSET = UINT16_C(0x1000);
+    static constexpr auto OFFSET = UINT16_C(0x1000);  // above program memory
 };
 
 }  // namespace i8048

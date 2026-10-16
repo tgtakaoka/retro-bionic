@@ -21,33 +21,9 @@ const char line[] = "PC=xxxx SP=xxxx X=xxxx A=xx B=xx CC=HINZVC";
 RegsMc6800::RegsMc6800(PinsMc6800Base *pins) : _pins(pins), _buffer(line) {}
 
 /**
- * How to determine MC6800 variants.
- *
- * MC6800/MC6801/HD6301
- *   LDX  #$55AA
- *   LDAB #100
- *   LDAA #5
- *   ADDA #5
- *   FCB  $18
- *        ; DAA  ($19) on MC6800
- *        ; ABA  ($1B) on MC6801
- *        ; XGDX ($18) on HD6301
- *        ; prefix     on MC68HC11
- *   FCB  $08
- *        ; INX on MC6800/MC6801/HD6301
- *        ; INY on MC68HC11
- *   A=$10, X=$55AB: MC6800
- *   A=110, X=$55AB: MC6801
- *   A=$55, X=$0A65: HD6301
- *   A=10,  X=$55AA: MC68HC11
- *
- * MC6800/MB8861(MB8870)
- *   LDX  #$FFFF
- *   FCB  $EC, $01
- *        ; CPX 1,X ($AC $01, 6 clocks) on MC6800
- *        ; ADX #1  ($EC $01, 2 clocks) on MB8861
- * X=$FFFF: MC6800
- * X=$0000: MB8861
+ * MC6800 or MB8861 (MB8870): $EC $01 is CPX 1,X on the MC6800 and ADX #1
+ * on the MB8861, so the stored X is $FFFF on the MC6800, $0000 on the
+ * MB8861.
  */
 
 SoftwareType RegsMc6800::checkSoftwareType() {
@@ -103,13 +79,13 @@ void RegsMc6800::save() {
     _pins->injectReads(&SWI, sizeof(SWI));
     uint8_t context[7];
     _pins->captureWrites(context, sizeof(context), &_sp);
-    // Capturing writes to stack in little endian order.
-    _pc = le16(context) - 1;  //  offset SWI instruction.
+    // SWI pushes low bytes first: PCL, PCH, XL, XH, A, B, CC.
+    _pc = le16(context) - 1;  // back over the injected SWI
     _x = le16(context + 2);
     _a = context[4];
     _b = context[5];
     _cc = context[6];
-    // Read SWI vector
+    // Answer the SWI vector fetch with the saved PC.
     const auto readVector = _pins->nonVmaAfterContextSave() ? 3 : 2;
     context[0] = 0;  // irrelevant data
     context[readVector - 2] = hi(_pc);
@@ -118,7 +94,7 @@ void RegsMc6800::save() {
 }
 
 void RegsMc6800::restore() {
-    const uint16_t sp = _sp - 7;  // offset RTI
+    const uint16_t sp = _sp - 7;  // RTI pulls 7 bytes back to _sp
     // clang-format off
     const uint8_t LDS_RTI[3 + 10] = {
             0x8E, hi(sp), lo(sp),  // LDS #sp ; 1:2:3

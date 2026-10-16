@@ -3,6 +3,7 @@
 namespace debugger {
 namespace tms3201x {
 
+// Bus cycles per opcode, four 2-bit counts per byte; 0 is undefined.
 constexpr uint8_t E(uint8_t p0, uint8_t p1, uint8_t p2, uint8_t p3) {
     return static_cast<uint8_t>((p0 << 0) | (p1 << 2) | (p2 << 4) | (p3 << 6));
 }
@@ -94,6 +95,7 @@ constexpr uint8_t CYCLES[64] = {
 };
 
 uint_fast8_t InstTms3201X::cycles(uint16_t inst) {
+    // 7F80~7F9F decode on the low 5 bits; the rest on the high byte.
     if ((inst & 0xFFE0) == 0x7F80)
         return C(PAGE7F, inst & 0x1F);
     return C(CYCLES, inst >> 8);

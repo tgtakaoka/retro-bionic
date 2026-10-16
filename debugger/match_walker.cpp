@@ -20,7 +20,7 @@ bool MatchWalker::trace = false;
 
 namespace {
 
-// Walks tried, at most, before a ring is given up.
+// The walk's steps, walkFrom() calls, at most before a ring is given up.
 constexpr uint32_t BUDGET = 20000;
 
 // The end of the alternative starting at |seq|.
@@ -272,6 +272,7 @@ bool MatchWalker::atStop(uint32_t pc) const {
     return _stop != NO_STOP && _arch->sameAddress(pc, _stop) && confirmed();
 }
 
+// Whether the walk needs no next fetch to confirm it, or has seen one.
 bool MatchWalker::confirmed() const {
     if (_from == 0 && !_before && !_arch->traits.lastIsNextFetch)
         return true;

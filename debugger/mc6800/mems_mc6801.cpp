@@ -15,6 +15,7 @@ void MemsMc6801::write(uint32_t addr, uint16_t data) const {
     }
 }
 
+// The on-chip registers and RAM sit below 0100.
 uint16_t MemsMc6801::get_data(uint32_t addr) const {
     return addr < 0x100 ? _regs->internal_read(addr) : read(addr);
 }

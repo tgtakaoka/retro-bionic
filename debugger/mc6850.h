@@ -64,7 +64,7 @@ private:
     // DCD, CTS, FERR, PERR are always zero.
     static constexpr uint8_t RDRF_bm = 0x01;  // Receive Data Register Full
     static constexpr uint8_t TDRE_bm = 0x02;  // Transmit Data Register Empty
-    static constexpr uint8_t DCD_bm = 0x04;   // Data Carieer Detect
+    static constexpr uint8_t DCD_bm = 0x04;   // Data Carrier Detect
     static constexpr uint8_t CTS_bm = 0x08;   // Clear to Send
     static constexpr uint8_t FERR_bm = 0x10;  // Framing Error
     static constexpr uint8_t OVRN_bm = 0x20;  // Receiver Overrun

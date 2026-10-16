@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Turn the cycles_z380.py recording into the z380-PAGExx.txt tables.
 
-Reads z380-profile.jsonl.zst and writes one table per opcode page into the
-parent debugger/z380/ directory, alongside inst_z380.awk.
+Reads z380-profile.jsonl.zst and z380-opcodes.txt.zst, and writes one
+table per opcode page into the parent debugger/z380/ directory,
+alongside inst_z380.awk.
 
 The Z380 fetches code as a stream of aligned words, up to 5 bytes ahead,
 so what is measured per opcode is its length, how it transfers control
@@ -145,7 +146,8 @@ def derive(recs):
         row.update(c=classify(row['mnemo'], row['operands']), x='-',
                    data=defaultdict(dict))
     for r in recs:
-        # CALR M,$ taken calls itself until the ring is full: 'leading'
+        # Anomalous runs are left out, e.g. CALR M,$ taken, which calls
+        # itself until the ring is full ('leading').
         if r['end'] != 'exit' or r.get('anomaly'):
             continue
         if '/' in r['page']:

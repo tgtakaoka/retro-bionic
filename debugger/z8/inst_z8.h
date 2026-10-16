@@ -16,7 +16,7 @@ struct InstZ8 {
     virtual bool isBreak(uint8_t inst) const = 0;
 
     static constexpr uint8_t JR = 0x8B;
-    static constexpr uint8_t JR_HERE = 0xFE;
+    static constexpr uint8_t JR_HERE = 0xFE;  // JR offset to itself
     static constexpr uint8_t NOP = 0xFF;
 };
 

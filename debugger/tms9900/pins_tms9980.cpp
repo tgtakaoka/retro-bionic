@@ -188,7 +188,8 @@ bool phi3_fell() {
 
 Signals *PinsTms9980::prepareCycle() {
     auto s = SignalsTms9980::put();
-    // Each edge's samples are timed from it
+    // Masked so an interrupt can't stretch a phase between an edge and its
+    // samples
     noInterrupts();
     // phi1
     ckin_cycle();
@@ -311,6 +312,8 @@ void PinsTms9980::captureWrites(uint16_t *buf, uint_fast8_t len) {
     }
 }
 
+// INT2-INT0 carry a code: 0 resets, 2 is LOAD (NMI), level n is n+2 and 7
+// is none.
 void PinsTms9980::assertInt(uint8_t name_) {
     const auto name = static_cast<tms9900::IntrName>(name_);
     if (name == tms9900::INTR_NMI) {

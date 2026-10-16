@@ -90,7 +90,8 @@ void PinsZ8::resetPins() {
     pinsMode(PINS_PULLDOWN, sizeof(PINS_PULLDOWN), INPUT_PULLDOWN);
     pinsMode(PINS_INPUT, sizeof(PINS_INPUT), INPUT);
 
-    // #RESET must remain low for a minimum of 16 clocks.
+    // #RESET must remain low for a minimum of 16 clocks; the loop gives
+    // 16 T states, two XTAL1 cycles each.
     for (auto i = 0; i < 16 * 2; i++) {
         xtal1_cycle();
         delayNanoseconds(1);
@@ -181,6 +182,8 @@ uint16_t PinsZ8::nextFetch() {
     uint16_t pc = 0;
     Signals *s = nullptr;
     for (auto n = 0;; ++n) {
+        // Three reads with no push or vector fetch: no acknowledge is
+        // under way, and the first read was the next fetch.
         if (n == 3)
             return pc;
         s = prepareCycle();
@@ -224,8 +227,7 @@ uint16_t PinsZ8::nextFetch() {
 bool PinsZ8::rawStep() {
     auto s = prepareCycle();
     if (s->write()) {
-        // interrupt acknowledge is ongoing
-        // finish saving PC and FLAGS
+        // An interrupt acknowledge is under way; let it push PC and FLAGS.
         while (s->write()) {
             completeCycle(s);
             s = prepareCycle();
@@ -246,6 +248,7 @@ bool PinsZ8::rawStep() {
     const auto inst = _mems->read_byte(s->addr);
     auto cycles = _inst.busCycles(inst);
     if (_inst.isBreak(inst) || cycles == 0) {
+        // Stop on a JR to itself instead of the break.
         completeCycle(s->inject(InstZ8::JR));
         cycle(InstZ8::JR_HERE);
         Cycles::discard(s);
@@ -267,6 +270,7 @@ bool PinsZ8::rawStep() {
 #else
         s = cycle();
 #endif
+        // Three writes in a row are an acknowledge's PC and FLAGS pushes.
         if (_writes == 3) {
             if (fetchVectorAfterContextSave()) {
                 cycle();
@@ -314,6 +318,7 @@ void PinsZ8::execute(const uint8_t *inst, uint8_t len, uint16_t *addr,
     }
 }
 
+// A JR to itself keeps the CPU spinning in place.
 void PinsZ8::idle() {
     const auto s = cycle(InstZ8::JR);
     cycle(InstZ8::JR_HERE);
@@ -412,6 +417,8 @@ void PinsZ8::run() {
 #endif
 }
 
+// An acknowledge is 7 bus cycles: the discarded fetch and read, three
+// pushes and two vector reads (before the pushes on the Super8).
 void PinsZ8::intrAck(Signals *frame) const {
     for (auto i = 0; i < 7; ++i)
         frame->next(i)->fetch() = false;

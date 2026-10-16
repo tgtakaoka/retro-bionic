@@ -4,6 +4,7 @@
 namespace debugger {
 namespace mos6502 {
 
+// WAI and STP stop only the WDC parts.
 bool InstMos6502::isStop(uint8_t inst) {
     return PinsMos6502::hardwareType() != HardwareType::HW_MOS6502 &&
            (inst == WAI || inst == STP);

@@ -143,7 +143,8 @@ void PinsMc68HC05C0::resetCpu() {
     // #LIR/MODE=H; select multiplexed bus mode.
     pinsMode(PINS_PULLUP, sizeof(PINS_PULLUP), INPUT_PULLUP);
 
-    // #RESET input for a period of one and one-half machine cycles.
+    // #RESET low for at least one and one-half machine cycles; this holds
+    // it for 10, of 4 OSC1 clocks each.
     for (auto i = 0; i < 4 * 10; ++i)
         osc1_cycle();
     negate_reset();
@@ -237,6 +238,7 @@ Signals *PinsMc68HC05C0::completeCycle(Signals *signals) {
 
 bool PinsMc68HC05C0::is_internal(uint16_t addr) const {
     if (addr < 0x40) {
+        // One bit per address, MSB first; a clear bit is internal.
         static constexpr uint8_t IO_MAP[] = {
                 0x88,  // $00-$07
                 0x00,  // $08-$0F

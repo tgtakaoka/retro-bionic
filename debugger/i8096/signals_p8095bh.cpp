@@ -7,7 +7,7 @@ namespace debugger {
 namespace p8095bh {
 
 bool Signals::getControl() {
-    // CNTL_RD and CNTL_WR is active low
+    // CNTL_RD and CNTL_WR are active low
     constexpr auto BUS_INACTIVE = CNTL_RD | CNTL_WR;
     cntl() = busRead(CNTL);
     return (cntl() & BUS_INACTIVE) != BUS_INACTIVE;

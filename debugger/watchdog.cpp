@@ -11,7 +11,7 @@ constexpr uint16_t TIMEOUT = 500;
 
 uint16_t Watchdog::_ticks;
 
-// RTWDOG, for its refresh: one 32-bit write once CMD32EN is set.
+// Sets CMD32EN, so that feed() refreshes with one 32-bit write.
 void Watchdog::begin() {
     CCM_CCGR5 |= CCM_CCGR5_WDOG3(CCM_CCGR_ON);
     __disable_irq();

@@ -25,7 +25,7 @@ inline bool irq_asserted() {
     return (*portOutputRegister(PIN_IRQ) & digitalPinToBitMask(PIN_IRQ)) == 0;
 }
 
-// #NMI may be connected to other signal or switch
+// Open drain: #NMI may also be wired to another source or a switch.
 void assert_nmi() {
     pinMode(PIN_NMI, OUTPUT_OPENDRAIN);
     digitalWriteFast(PIN_NMI, LOW);
@@ -65,6 +65,8 @@ void PinsMc6800Base::captureWrites(uint8_t *buf, uint8_t len, uint16_t *addr) {
     }
 }
 
+// A 4-cycle BRA $ keeps the PC while the bus stays clocked; its cycles
+// are dropped from the ring.
 void PinsMc6800Base::idle() {
     auto s = Signals::put();
     s->inject(ArchMc6800::BRA);
@@ -113,6 +115,7 @@ void PinsMc6800Base::loop() {
     while (true) {
         _devs->loop();
         rawCycle();
+        // A context push: the vector read after it tells an SWI's.
         if (_writes == regs<RegsMc6800>()->contextLength()) {
             const auto frame = Signals::put()->prev(_writes);
             if (nonVmaAfterContextSave())
@@ -123,6 +126,8 @@ void PinsMc6800Base::loop() {
                 cycle();  // read interrupt low(vector)
                 const auto pc = regs<RegsMc6800>()->capture(frame, false);
                 const auto swi_vector = _mems->read16(vec_swi);
+                // An SWI vector pointing at itself is a program's halt to
+                // system.
                 if (isBreakPoint(pc) || swi_vector == vec_swi) {
                     const auto discard = nonVmaAfterContextSave() ? 1 : 2;
                     Cycles::discard(frame->prev(discard));
@@ -143,7 +148,7 @@ void PinsMc6800Base::suspend(bool show) {
     assert_nmi();
 reentry:
     _writes = 0;
-    // Wait for consecutive writes which means registers saved onto stack.
+    // Wait for the NMI's context push, a write per stacked byte.
     for (auto n = 0; _writes < regs<RegsMc6800>()->contextLength(); ++n) {
         const auto s = cycle();
         if (s->valid() && s->read() && s->addr == _inst->vec_nmi()) {
@@ -179,6 +184,7 @@ reentry:
         }
     }
     negate_nmi();
+    // An SWI pushed first: give NMI a fresh edge and wait for its push.
     if (v->addr == _inst->vec_swi()) {
         assert_nmi();
         cycle();  // SWI lo(vector);
@@ -260,12 +266,9 @@ const Signals *PinsMc6800Base::findFetch(Signals *begin, const Signals *end) {
     return begin->next(walker.start());
 }
 
-// fetch() isn't live here: findFetch() marks it only as a side effect
-// of walking decoded instructions against captured bus
-// cycles, so that has to run -- once, right here -- before
-// backtraceStartFrom() counting fetch() cycles means anything.
-// printBacktrace() re-runs it over the now-disposed range, which
-// re-derives the same marks.
+// findFetch() marks the fetch() cycles as it walks the ring, so it runs
+// before backtraceStartFrom() counts them; printBacktrace() runs it again
+// and derives the same marks.
 const SignalsImpl *PinsMc6800Base::findBacktraceStart() {
     const auto end = Signals::put();
     // Make room for idle cycles -- see printBacktrace().
@@ -281,7 +284,8 @@ void PinsMc6800Base::printBacktrace() {
     findFetch(Signals::get(), _profileEnd ? _profileEnd : end);
     printCycles(end);
 #else
-    // Make room for idle cycles.
+    // Skip the 4 oldest cycles: each idle() writes 4 past the ring's end,
+    // over them.
     const auto begin = findFetch(Signals::get()->next(4), end);
     printCycles(begin);
     const auto cycles = begin->diff(end);

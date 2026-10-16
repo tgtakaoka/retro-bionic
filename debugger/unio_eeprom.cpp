@@ -24,6 +24,7 @@ bool Eeprom::read(uint16_t addr, uint16_t len, uint8_t *buffer) {
 }
 
 bool Eeprom::write(uint16_t addr, uint16_t len, const uint8_t *buffer) {
+    // A write can't cross a 16-byte page.
     while (len) {
         auto plen = len;
         if ((addr & 0xF) + plen > 16)

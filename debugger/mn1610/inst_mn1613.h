@@ -7,9 +7,9 @@ namespace debugger {
 namespace mn1613 {
 
 struct InstMn1613 {
-    static constexpr uint16_t RESET_PSW = 0x0108;
-    static constexpr uint16_t NOP = 0x7808;  // MV R0,R0
-    static constexpr uint16_t H = 0x2000;
+    static constexpr uint16_t RESET_PSW = 0x0108;  // reset STR and IC
+    static constexpr uint16_t NOP = 0x7808;        // MV R0,R0
+    static constexpr uint16_t H = 0x2000;          // halt
 };
 
 }  // namespace mn1613

@@ -9,6 +9,7 @@
 
 namespace debugger {
 
+// What the command loop drives: a target's Pins, Regs, Mems and Devs.
 struct Target {
     Target(const Identity *id, Pins *pins);
     ~Target() { delete _pins; }

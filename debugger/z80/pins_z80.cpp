@@ -72,6 +72,8 @@ namespace {
 // TdCf(IORQf): max  85 ns; CLK- to #IORQ-
 // TdCf(IORQr): max  85 ns; CLK- to #IORQ+
 
+// Each pads a clock phase to the half period noted (125 ns of TcC) or
+// covers the parameter cited.
 constexpr auto clk_hi_ns = 100;      // 125 ns
 constexpr auto clk_lo_ns = 100;      // 125 ns
 constexpr auto clk_lo_addr = 10;     // +clk_lo_cntl; 125 ns
@@ -380,11 +382,12 @@ uint16_t PinsZ80::execute(
 }
 
 void PinsZ80::idle() {
-    // #WAIT=L
+    // Parked by #WAIT; this only keeps the clock alive.
     clk_cycle_lo();
 }
 
 bool PinsZ80::isRst38Break(const Signals *org_rst) const {
+    // The RST 38H fetch, its two pushes, then this vector fetch.
     const auto rst38h = org_rst->prev(3);
     if (rst38h->data == InstZ80::RST38H) {
         if (org_rst->prev(1)->mwrite() && org_rst->prev(2)->mwrite()) {
@@ -447,8 +450,10 @@ bool PinsZ80::suspend() {
             negate_nmi();
             // RET, not RETN, keeps IFF1 clear through the save
             completeCycle(s->inject(InstZ80::RET));
+            // Feed RET the PC the NMI pushed, low byte first.
             inject(s->prev()->data);
             inject(s->prev(2)->data);
+            // Drop the NMI's dummy opcode fetch and both pushes.
             Cycles::discard(s->prev(3));
             prepareWait();
             return true;

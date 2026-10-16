@@ -21,36 +21,6 @@ const char *RegsMc68hc11::cpu() const {
     return "68HC11";
 }
 
-/**
- * How to determine MC6800 variants.
- *
- * MC6800/MC6801/HD6301
- *   LDX  #$55AA
- *   LDAB #100
- *   LDAA #5
- *   ADDA #5
- *   FCB  $18
- *        ; DAA  ($19) on MC6800
- *        ; ABA  ($1B) on MC6801
- *        ; XGDX ($18) on HD6301
- *        ; prefix     on MC68HC11
- *   FCB  $08
- *        ; INX on MC6800/MC6801/HD6301
- *        ; INY on MC68HC11
- *   A=$10, X=$55AB: MC6800
- *   A=110, X=$55AB: MC6801
- *   A=$55, X=$0A65: HD6301
- *   A=10,  X=$55AA: MC68HC11
- *
- * MC6800/MB8861(MB8870)
- *   LDX  #$FFFF
- *   FCB  $EC, $01
- *        ; CPX 1,X ($AC $01, 6 clocks) on MC6800
- *        ; ADX #1  ($EC $01, 2 clocks) on MB8861
- * X=$FFFF: MC6800
- * X=$0000: MB8861
- */
-
 SoftwareType RegsMc68hc11::checkSoftwareType() {
     return _type = SW_MC68HC11;
 }
@@ -71,14 +41,14 @@ void RegsMc68hc11::save() {
     _pins->injectReads(&SWI, sizeof(SWI));
     uint8_t context[9];
     _pins->captureWrites(context, sizeof(context), &_sp);
-    // Capturing writes to stack in little endian order.
-    _pc = le16(context) - 1;  //  offset SWI instruction.
+    // SWI pushes low bytes first: PCL, PCH, YL, YH, XL, XH, A, B, CC.
+    _pc = le16(context) - 1;  // back over the injected SWI
     _y = le16(context + 2);
     _x = le16(context + 4);
     _a = context[6];
     _b = context[7];
     _cc = context[8];
-    // Read SWI vector
+    // Answer the SWI vector fetch with the saved PC.
     context[0] = 0;  // irrelevant data
     context[1] = hi(_pc);
     context[2] = lo(_pc);
@@ -87,7 +57,7 @@ void RegsMc68hc11::save() {
 
 void RegsMc68hc11::restore() {
     _cc &= ~0x40;  // clear X bit to enable #XIRQ for step/suspend
-    const uint16_t sp = _sp - 9;
+    const uint16_t sp = _sp - 9;  // RTI pulls 9 bytes back to _sp
     // clang-format off
     const uint8_t LDS_RTI[3 + 12] = {
         0x8E, hi(sp), lo(sp),   // LDS #sp ; 1:2:3

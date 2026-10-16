@@ -185,6 +185,8 @@ PinsI8048::~PinsI8048() {
 }
 
 void PinsI8048::checkSoftwareType() {
+    // Only the OKI parts have DEC @R0: through R0=1 it clears R1, which
+    // MOVX then puts on the bus.
     static constexpr uint8_t DETECT_MSM[] = {
             0x23, 0x01,  // MOV A, #1
             0xA8,        // MOV R0, A
@@ -209,14 +211,15 @@ void PinsI8048::resetPins() {
     pinsMode(PINS_PULLUP, sizeof(PINS_PULLUP), INPUT_PULLUP);
     pinsMode(PINS_INPUT, sizeof(PINS_INPUT), INPUT);
 
-    // Only 5 machine cycles are required if power is already on.
+    // Only 5 machine cycles are required if power is already on; give 7
+    // of 15 XTAL1 periods each.
     for (auto i = 0; i < 15 * (5 + 2); ++i)
         xtal1_cycle();
     negate_reset();
     while (signal_ale() != LOW)
         xtal1_cycle();
     Cycles::reset();
-    // #SS=L
+    // save() leaves #SS=L, holding the CPU in single-step.
     _regs->save();
     checkSoftwareType();
 }
@@ -241,6 +244,7 @@ Signals *PinsI8048::prepareCycle() {
             delayNanoseconds(xtal1_lo_ale);
             if (signal_ale() == LOW)
                 break;
+            // ALE still high past t5 under #SS=L: stopped in single-step.
             if (t >= 5 && signal_ss() == LOW) {
                 s->markInvalid();
                 return s;
@@ -402,7 +406,7 @@ uint8_t PinsI8048::execute(const uint8_t *inst, uint8_t len, uint16_t *addr,
 }
 
 void PinsI8048::idle() {
-    // #SS=L
+    // #SS=L holds the CPU in single-step.
     xtal1_cycle();
 }
 
@@ -450,6 +454,8 @@ void PinsI8048::run() {
 }
 
 void PinsI8048::injectJumpHere(Signals *s) {
+    // JMP takes A11 from MBF; if it lands in the other bank, select the
+    // halt's bank, jump again, and restore MBF.
     const auto offset = InstI8048::offset(s->addr - 1);
     s->inject(InstI8048::JMP(offset));
     completeCycle(s);
@@ -474,6 +480,7 @@ bool PinsI8048::rawStep(bool step) {
     const auto inst = _mems->read_byte(s->addr);
     const auto len = _inst.instLength(inst);
     if (inst == InstI8048::HALT || len == 0) {
+        // A break or unknown opcode: park the CPU on it and stop.
 #ifdef PROFILE_CYCLES
         negate_debug();
         s->markFetch(1);
@@ -488,6 +495,7 @@ bool PinsI8048::rawStep(bool step) {
     }
     if (step) {
         assert_ss();
+        // Run until #SS stops the CPU at the next instruction.
         while (s->valid()) {
             completeCycle(s);
             s = prepareCycle();
@@ -503,6 +511,7 @@ bool PinsI8048::rawStep(bool step) {
         completeCycle(prepareCycle());
 #else
     completeCycle(s);
+    // Later cycles are not fetches, even those that strobe #PSEN.
     for (auto i = 1; i < cycles; ++i) {
         completeCycle(prepareCycle())->clearFetch();
     }

@@ -125,11 +125,12 @@ void PinsMc68HC08AZ0::resetCpu() {
     pinsMode(PINS_HIGH, sizeof(PINS_HIGH), OUTPUT, HIGH);
     pinsMode(PINS_INPUT, sizeof(PINS_INPUT), INPUT);
 
-    // #RESET input for a period of one and one-half machine cycles.
+    // #RESET low for at least one and one-half machine cycles; this holds
+    // it for 10, of 4 OSC1 clocks each.
     for (uint_fast8_t i = 0; i < 4 * 10; ++i)
         osc1_cycle();
     negate_reset();
-    // Wait for finishing power on reset.
+    // The chip keeps RST low until its own reset sequence ends.
     while (reset_asserted())
         osc1_cycle();
     Cycles::reset();
@@ -242,6 +243,7 @@ Signals *PinsMc68HC08AZ0::completeCycle(Signals *signals) {
     }
     Cycles::next();
     s = SignalsMc68HC08AZ0::put();
+    // Clock OSC1 to the end of this bus cycle.
     do {
         osc1_cycle_lo();
         SignalsMc68HC08AZ0::inputMode();
@@ -307,7 +309,7 @@ void PinsMc68HC08AZ0::loop() {
             s = fetch = currCycle(0);
         }
         while (s->write() && _writes < 5) {
-            // acknowledge interrupt
+            // an interrupt's stacking: five writes, then its vector
             completeCycle(s);
             if (_writes == 5) {
                 cycle();  // read hi(vector)
@@ -326,6 +328,7 @@ void PinsMc68HC08AZ0::loop() {
             _regs->setIp(fetch->addr);
             return;
         }
+        // A prefetched opcode has already made the sequence's first cycle.
         if (fetch != s && *seq)
             seq++;
         auto prefetch = s;
@@ -423,6 +426,7 @@ bool PinsMc68HC08AZ0::rawStep() {
     return true;
 }
 
+// The ranges below go to the external bus; the rest is on chip.
 bool PinsMc68HC08AZ0::is_internal(uint16_t addr) const {
     if (addr >= 0x0A00 && addr < 0xFE00)
         return false;

@@ -27,6 +27,8 @@ void RegsIns8070::print() const {
 }
 
 void RegsIns8070::save() {
+    // The first write's address is the saved PC. S is stored before IE is
+    // cleared; SP moves off internal RAM so the pushes show on the bus.
     static constexpr uint8_t PUSH_ALL[] = {
             0x88, 0xFE,        // ST EA,-1,PC
             0x06, 0xC8, 0xFE,  // LD A,S; ST A,-1,PC
@@ -75,6 +77,7 @@ uint16_t RegsIns8070::effectiveAddr(
     case M_POP:
         return _sp();
     case M_AUTO:
+        // Pre-decrement for a negative disp, post-increment otherwise.
         return disp < 0 ? base + disp : base;
     case M_DIR:
         return 0xff00 + opr;
@@ -136,7 +139,7 @@ bool RegsIns8070::setRegister(uint_fast8_t reg, uint32_t value) {
 }
 
 uint8_t RegsIns8070::internal_read(uint16_t addr) const {
-    // No bus signals while internal RAM bus cycle.
+    // Internal RAM cycles show nothing on the bus; store it out through A.
     uint8_t LD_ST[] = {
             0xC5, uint8(addr),  // LD A,dir[addr]
             0xF8, 0xFE          // ST A,-1,PC
@@ -147,7 +150,7 @@ uint8_t RegsIns8070::internal_read(uint16_t addr) const {
 }
 
 void RegsIns8070::internal_write(uint16_t addr, uint8_t data) const {
-    // No bus signals while internal RAM bus cycle.
+    // Internal RAM cycles show nothing on the bus; write it through A.
     const uint8_t LD_ST[] = {
             0xC4, data,        // LD A,data
             0xCD, uint8(addr)  // ST A,dir[addr]

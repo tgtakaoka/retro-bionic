@@ -49,6 +49,7 @@ void SerialHandler::rxloop(Receiver &rx) const {
             // Pins::assert_debug();
             rx.bit = 9;  // data bits + stop bit
             rx.data = 0;
+            // 1.5 bit times: the middle of the first data bit
             rx.delay = _rx_divider + (_rx_divider >> 1);
             // Pins::negate_debug();
         }

@@ -38,7 +38,7 @@ struct InstIns8070 final {
 
     static constexpr uint8_t RET = 0x5C;
     static constexpr uint8_t BRA = 0x74;
-    static constexpr uint8_t BRA_HERE = 0xFE;
+    static constexpr uint8_t BRA_HERE = 0xFE;  // disp to the BRA itself
     static constexpr uint8_t CALL15 = 0x1F;
     static constexpr uint16_t VEC_CALL15 = 0x003E;
 

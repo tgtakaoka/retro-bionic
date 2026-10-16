@@ -156,10 +156,10 @@ void PinsI8085::resetPins() {
     pinsMode(PINS_INPUT, sizeof(PINS_INPUT), INPUT);
 
     // #RESET_IN should be kept low for a minimum of three clock
-    // #periods to ensure proper synchronization of the CPU.
+    // periods to ensure proper synchronization of the CPU; CLK is X1/2.
     for (auto i = 0; i < 3 * 2; i++)
         x1_cycle();
-    // #RESET_IN is sampled here falling transition of next CLK.
+    // #RESET_IN is sampled at the next CLK falling edge.
     negate_reset();
     Cycles::reset();
     do {
@@ -298,7 +298,7 @@ uint16_t PinsI8085::captureWrites(
 }
 
 void PinsI8085::idle() {
-    // READY=L
+    // READY=L; keep clocking the waiting CPU (tCYC max 2,000 ns).
     x1_cycle_lo();
 }
 
@@ -383,6 +383,7 @@ bool PinsI8085::rawStep(Trap &trap) const {
     auto s = resumeCycle(_regs->nextIp());
     const auto insn = _mems->read(s->addr);
     if (insn == InstI8085::HLT) {
+        // Leave HLT unexecuted; run() resumes from HALT only by a TRAP.
         negate_ready();
         return false;
     }

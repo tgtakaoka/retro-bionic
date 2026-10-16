@@ -162,6 +162,7 @@ PinsIns8070::PinsIns8070() {
     _mems = new MemsIns8070(regs, _devs);
 }
 
+// Polls the bit-banged serial handler at every XIN fall.
 void PinsIns8070::xin_lo() const {
     digitalWriteFast(PIN_XIN, LOW);
     devs<DevsIns8070>()->sciLoop();
@@ -180,8 +181,8 @@ void PinsIns8070::resetPins() {
     negate_reset();
     negate_enin();
     Cycles::reset();
-    // The first instruction will be fetched within 13 Tc after #RST
-    // has gone high.
+    // The first fetch comes within 13 Tc after #RST rises; the save's
+    // first prepareCycle() waits for it.
     _regs->save();
 }
 
@@ -206,7 +207,7 @@ Signals *PinsIns8070::prepareCycle() {
         xin_lo();
         delayNanoseconds(xin_lo_breq);
     }
-    // XIN=H, #BREQ=LOW
+    // XIN=H, #BREQ=LOW; #RDS or #WDS falls a few XIN later.
     while (true) {
         xin_hi();
         delayNanoseconds(xin_hi_dir);
@@ -271,7 +272,8 @@ Signals *PinsIns8070::completeCycle(Signals *s) {
     xin_lo();
     Signals::inputMode();
     delayNanoseconds(xin_lo_input);
-    // Read-Modify-Write bus cycle keeps #BREQ low.
+    // Clock up to 3 XIN until #BREQ rises; a read-modify-write keeps it
+    // low into the next cycle.
     for (auto i = 0; i < 3; i++) {
         if (signal_breq() != LOW)
             break;
@@ -331,6 +333,9 @@ void PinsIns8070::idle() {
     xin_cycle();
 }
 
+// The breakpoint's CALL 15 whose vector |vector| reads: its opcode three
+// cycles before, then its two pushes. A program's own CALL 15 counts when
+// its vector is 0000H.
 const Signals *PinsIns8070::isCall15(const Signals *vector) const {
     if (vector->read()) {
         const auto call = vector->prev(3);
@@ -361,12 +366,14 @@ bool PinsIns8070::loop() {
         if (s->addr == InstIns8070::VEC_CALL15) {
             const auto call = isCall15(s);
             if (call) {
+                // Vector 0000H, then a RET popping the CALL's address one
+                // early, as the PC is incremented before a fetch.
                 const uint16_t pc = call->addr - 1;
-                inject(0);                 // inject low vector
-                inject(0);                 // inject high vector
+                inject(0);                 // vector low
+                inject(0);                 // vector high
                 inject(InstIns8070::RET);  // cancel CALL 15
-                inject(lo(pc));            // inject low address
-                inject(hi(pc));            // inject high address
+                inject(lo(pc));            // return address low
+                inject(hi(pc));            // return address high
                 Cycles::discard(call);
 #ifdef PROFILE_CYCLES
                 negate_debug();
@@ -396,6 +403,7 @@ bool PinsIns8070::suspend() {
     for (auto n = 0; n < fetch_cycles; ++n) {
         auto s = prepareCycle();
         if (s->fetch()) {
+            // A BRA $ refetches this opcode on the next run.
             completeCycle(s->inject(InstIns8070::BRA));
             inject(InstIns8070::BRA_HERE);
             Cycles::discard(s);
@@ -449,7 +457,8 @@ bool PinsIns8070::step(bool show) {
         Cycles::reset();
     assert_enin();
     if (inst.addrMode() == M_SSM) {
-        // SSM instruction
+        // SSM's reads depend on the search: run to the fetch at SSM + 3
+        // (next + 2), bounded at 256 cycles.
         const auto addr = cycle()->addr;
         for (auto n = 0; n < 256; ++n) {
             auto s = prepareCycle();
@@ -517,15 +526,9 @@ const Signals *PinsIns8070::findFetch(Signals *begin, const Signals *end) {
     return begin->next(walker.start());
 }
 
-// The backtrace printer below reads fetchMark(), not fetch(): fetch()
-// is a different, self-contained on-the-fly check (see signals_ins8070.cpp)
-// used elsewhere, while fetchMark() is what findFetch() sets,
-// retroactively, by walking decoded instructions against captured bus
-// cycles -- so that has to run -- once, right here -- before counting
-// fetchMark() cycles means anything. Can't reuse signals.h's
-// backtraceStartFrom(), which is hardwired to fetch(); this is its
-// fetchMark() counterpart. printBacktrace() re-runs findFetch() over
-// the now-disposed range, which re-derives the same marks.
+// Counts fetchMark(), which findFetch() sets by walking the ring, not the
+// on-the-fly fetch() that signals.h's backtraceStartFrom() counts.
+// printBacktrace() runs findFetch() again and derives the same marks.
 const SignalsImpl *PinsIns8070::findBacktraceStart() {
     const auto end = Signals::put();
     const auto begin = findFetch(Signals::get(), end);

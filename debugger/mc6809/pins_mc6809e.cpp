@@ -142,6 +142,7 @@ void PinsMc6809E::resetPins() {
 }
 
 mc6809::Signals *PinsMc6809E::rawCycle() const {
+    // AVMA, read at the end of a cycle, tells whether the next is valid.
     static uint8_t vma_next = LOW;
     // c1
     mc6809::Signals::inputMode();

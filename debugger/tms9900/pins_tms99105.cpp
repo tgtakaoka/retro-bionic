@@ -237,6 +237,8 @@ Signals *PinsTms99105::completeCycle(Signals *_s) {
     return s;
 }
 
+// The address shares AD with data, so resumeCycle() reuses the one seen
+// here.
 Signals *PinsTms99105::pauseCycle() {
     auto s = PinsTms9900Base::pauseCycle();
     _addr = s->addr;
@@ -275,7 +277,8 @@ void PinsTms99105::captureWrites(uint16_t *buf, uint_fast8_t len) {
 
 void PinsTms99105::checkCpuType() {
     auto s = resumeCycle(_mems->read(tms9900::InstTms9900::VEC_RESET + 2));
-    // Inject CIR instruction and capture all writes.
+    // CIR makes two writes when a floating-point macrostore answers, as on
+    // a TMS99110; NMI then stops it at its vector.
     s->inject(0x0C80);  // CIR R0
     auto assert_nmi = true;
     uint_fast8_t writes = 0;

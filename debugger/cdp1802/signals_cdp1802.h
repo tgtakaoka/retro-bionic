@@ -41,7 +41,7 @@ private:
 
 }  // namespace cdp1802
 }  // namespace debugger
-#endif /* __SIGNALS_H__ */
+#endif /* __SIGNALS_CDP1802_H__ */
 
 // Local Variables:
 // mode: c++

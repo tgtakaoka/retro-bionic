@@ -15,6 +15,7 @@ void Signals::getAddr() {
 }
 
 bool Signals::getControl() {
+    // strobes are active low; any one low is a bus cycle
     constexpr auto BUS_ACTIVE = CNTL_MEM | CNTL_WE | CNTL_DEN;
     cntl() = busRead(CNTL);
     return (cntl() ^ BUS_ACTIVE) != 0;
@@ -62,6 +63,7 @@ void Signals::print() const {
         buffer[2] = 'I';
     } else if (write()) {
         buffer[0] = 'W';
+        // writes below 8 are OUT to a port
         buffer[2] = (addr >= 8) ? 'A' : 'I';
     }
     buffer.hex12(4, addr);

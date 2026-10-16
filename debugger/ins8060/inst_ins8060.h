@@ -11,6 +11,8 @@ struct InstIns8060 {
 
     static constexpr uint8_t HALT = 0x00;
     static constexpr uint8_t JMP = 0x90;
+    // JMP displacements: PC is incremented before each fetch, so -2 jumps
+    // to the JMP itself and -3 to the byte before it.
     static constexpr uint8_t JMP_HERE = 0xFE;
     static constexpr uint8_t JMP_HALT = 0xFD;
 };

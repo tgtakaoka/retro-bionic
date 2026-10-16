@@ -16,7 +16,8 @@ tenth pattern N more times, as rep1..repN.
 
 Z380_MODE=xm or Z380_MODE=lw records the patterns whose bus cycles
 depend on the mode -- stack, transfers and memory operands -- again in
-Extended or Long Word mode, keyed with an :xm or :lw suffix.
+Extended or Long Word mode, keyed with an :xm or :lw suffix. Run fill
+again under Z380_MODE=xm: its stack fill and far branch targets differ.
 """
 import os
 import re

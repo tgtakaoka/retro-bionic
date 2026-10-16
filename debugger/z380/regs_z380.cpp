@@ -30,6 +30,7 @@ constexpr uint8_t lo8z(uint32_t v) {
 constexpr uint8_t hi8z(uint32_t v) {
     return static_cast<uint8_t>(v >> 24);
 }
+// The low and high 16-bit halves, each little endian.
 constexpr uint32_t le32(const uint8_t *lo, const uint8_t *hi) {
     return static_cast<uint32_t>(hi[1]) << 24 |
            static_cast<uint32_t>(hi[0]) << 16 |
@@ -133,6 +134,7 @@ uint32_t RegsZ380::fingerprint() const {
     return h;
 }
 
+// The reading of the push that XM says, else whichever reading was valid.
 void RegsZ380::selectFrame() {
     const auto &f = _frames[extended() ? (_frames[1].valid ? 1 : 0)
                                        : (_frames[0].valid ? 0 : 1)];
@@ -225,7 +227,7 @@ void RegsZ380::save() {
         0xED, 0x3E,        // SWAP HL
         0xDD, 0xC0, 0xE5,  // DDIR W; PUSH HL  ; captured
         0xDD, 0xFF,        // RESC LW
-        di, 0x00,          // DI or NOP; NOP
+        di, 0x00,          // DI or NOP; NOP   ; pads to a word
         0x18, 0x00,        // JR $+2
     };
     // CALL pushes the resume point, the origin plus its length: 2 bytes
@@ -345,7 +347,7 @@ void RegsZ380::restoreBank(uint_fast8_t bank, uint32_t &org) const {
         DDIR_IW_LW_0, DDIR_IW_LW_1, 0x21, lo8(r.hl[0]), hi8(r.hl[0]), lo8z(r.hl[0]), hi8z(r.hl[0]),
         DDIR_IW_LW_0, DDIR_IW_LW_1, 0x31, lo8(scratch), hi8(scratch), lo8z(scratch), hi8z(scratch),
         0xF1, 0x08, 0xF1, 0x08,        // POP AF; EX AF,AF'; POP AF; EX AF,AF'
-        0x00,                          // NOP
+        0x00,                          // NOP: pads to a word
         0x18, 0x00,                    // JR $+2: exit after the POPs
     };
     // clang-format on
@@ -378,7 +380,7 @@ void RegsZ380::restore() {
         DDIR_IW_LW_0, DDIR_IW_LW_1,
         0x21, lo8(_i), hi8(_i), lo8z(_i), hi8z(_i),    // LD HL, _i
         0xFD, 0xC0, 0xDD, 0x47,                        // DDIR LW; LD I, HL
-        0x00,                                          // NOP
+        0x00,                                          // NOP: pads to a word
     };
     // clang-format on
     ASSERT_EVEN(LD_OTHERS);
@@ -405,8 +407,9 @@ void RegsZ380::restore() {
     }
     // The selections last, as edited, through the byte forms of LDCTL so
     // that no bank's HL carries the SR: then Long Word mode, the one mode
-    // bit the debugger changed, HL as selected, and SP. XM and IM it never
-    // touched; IEF1 comes back with EI, or after an NMI, from IEF2 by RETN.
+    // bit the debugger changed, HL as selected, and SP. XM goes on only if
+    // edited so (only reset clears it); IM is untouched; IEF1 comes back
+    // with EI, or after an NMI, from IEF2 by RETN.
     const auto hl = live().hl[alt(_sr)];
     uint8_t seq[40];
     uint_fast8_t len = 0;

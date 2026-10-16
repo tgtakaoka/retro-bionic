@@ -60,6 +60,7 @@ inline void negate_nmi() {
     digitalWriteFast(PIN_NMI, HIGH);
 }
 
+// IR0 is active high.
 inline void assert_int() {
     digitalWriteFast(PIN_IR0, HIGH);
 }
@@ -68,6 +69,7 @@ inline void negate_int() {
     digitalWriteFast(PIN_IR0, LOW);
 }
 
+// ERDY low inserts wait states, holding the CPU in its bus cycle.
 inline void assert_ready() {
     digitalWriteFast(PIN_ERDY, HIGH);
 }
@@ -309,12 +311,13 @@ uint16_t PinsKl5c80::execute(
 }
 
 void PinsKl5c80::idle() {
-    // ERDY=L
+    // Parked by ERDY; this only keeps the clock alive.
     xin_cycle();
     xin_cycle_lo();
 }
 
 bool PinsKl5c80::isRst38Break(const Signals *org_rst) const {
+    // The RST 38H fetch, its two pushes, then this vector fetch.
     const auto rst38h = org_rst->prev(3);
     if (rst38h->data == InstZ80::RST38H) {
         if (org_rst->prev(1)->mwr() && org_rst->prev(2)->mwr()) {
@@ -353,6 +356,7 @@ void PinsKl5c80::run() {
     _regs->restore();
     Cycles::reset();
     saveBreakInsts();
+    // Free-run at zero waits; ERDY holds the CPU only with waits on.
     enableExternalReady(false);
     startRunTimer();
     const auto s = loop();
@@ -381,6 +385,7 @@ Signals *PinsKl5c80::suspend() {
             negate_nmi();
             // RET, not RETN, keeps IFF1 clear through the save
             completeCycle(s->inject(InstZ80::RET));
+            // Feed RET the PC the NMI pushed, low byte first.
             inject(s->prev()->data);
             inject(s->prev(2)->data);
             // Park at the fetch RET returns to: what follows injects from

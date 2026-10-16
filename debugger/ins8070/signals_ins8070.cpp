@@ -30,8 +30,7 @@ private:
 
 // Whether an instruction of 2 to 5 cycles ends right before this one.
 bool Signals::fetch() const {
-    // check at least 5 bus cycles.
-    // this may not work for SSM instruction.
+    // Needs 5 earlier bus cycles; an SSM that runs longer is missed.
     if (write() || get()->diff(this) < 6)
         return false;
     const auto begin = const_cast<Signals *>(prev(5));

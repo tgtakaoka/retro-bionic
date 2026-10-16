@@ -156,6 +156,7 @@ $1 ~ /[0-9A-F][0-9A-F]/ {
 
     true_bus = bus_cycles(true_seq);
     false_bus = bus_cycles(false_seq);
+    # taken@not-taken
     bus = true_bus;
     if (false_bus != "-")
         bus = bus "@" false_bus;

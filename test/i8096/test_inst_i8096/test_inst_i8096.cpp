@@ -93,6 +93,7 @@ int replay(const std::vector<Cycle> &cycles, std::vector<int> &marks) {
         const auto s = Signals::put();
         s->addr = c.addr;
         s->data = c.data;
+        // active low: a write leaves #RD high, a read #WR
         s->cntl() = c.kind == 'W' ? CNTL_RD : CNTL_WR;
         s->mark() = 0;
         s->_signals[2] = c.cntl;

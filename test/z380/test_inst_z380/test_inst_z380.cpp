@@ -39,8 +39,8 @@ constexpr uint8_t BLEN = 0x01, BHEN = 0x02;
 
 struct Ring {
     std::string name;
-    bool xm;
-    bool lw;
+    bool xm;  // Extended mode
+    bool lw;  // Long Word mode
     uint32_t stop;
     std::string cycles;
     std::string memory;
@@ -229,8 +229,8 @@ void test_walks() {
     TEST_ASSERT_EQUAL_UINT_MESSAGE(0, unlisted, "bench rings off the listing");
 }
 
-// Every cycle of a walk belongs to an instruction, and each one's first
-// fetch is marked.
+// Every cycle of a walk belongs to an instruction, and fetches are marked
+// for more than half the instructions walked.
 void test_marks() {
     const auto &w = RINGS[0];
     Cycles::reset();

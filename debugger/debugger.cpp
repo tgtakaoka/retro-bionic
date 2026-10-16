@@ -7,6 +7,8 @@
  *  A - assemble
  *  m - read/write data memory
  *  M - read/write program memory
+ *  c - fill data memory
+ *  C - fill program memory
  *  p - dump program memory. addr [length]
  *  P - show/set write protect area
  *  B - set break point
@@ -17,11 +19,14 @@
  *  G - Go, continuously run CPU
  *  g - Go until address
  *  F - list files in SD card
- *  L - load S-record file
+ *  L - load Intel Hex/Motorola S-record file
  *  U - upload Intel Hex/Motorola S-record
  *  I - show/select I/O device
  *  W - write identity EEPROM
- *  ? - print version
+ *  V - toggle verbose bus cycle printing
+ *  ? - print help
+ *
+ *  HELP2 below is the full list, with each command's arguments.
  */
 
 #include "debugger.h"
@@ -45,12 +50,12 @@ using State = libcli::State;
 
 namespace {
 
-// One line per command, its arguments if any, aligned on ':'. Kept in
-// the order a session actually goes: reset, load, run, break/step,
-// registers, examine, id.
 constexpr char HELP1[] = "\r\n";
 // "  R              : reset the " + cpuName() fills the gap between the
 // two, since the name is only known at runtime.
+// One line per command, its arguments if any, aligned on ':'. Kept in
+// the order a session actually goes: reset, load, run, break/step,
+// registers, examine, id.
 constexpr char HELP2[] =
         "  U              : upload Intel HEX / S-record (^C to end)\r\n"
 #if defined(ENABLE_SDCARD)
@@ -87,12 +92,13 @@ constexpr char HELP2[] =
 #endif
         "  ?              : this help\r\n"
         "\r\n";
-// The two ways to stop a run; each names the CPU, known only at runtime.
+// The rest of the HALT button's entry, whose first line help() prints
+// with the CPU's name.
 constexpr char HELP3[] =
         "                   held at power up skips the identity EEPROM check, to recover\r\n"
         "                   from a bad identity EEPROM";
 
-// Identity, firmware version and uptime.
+// Identity and firmware version.
 void banner() {
     cli.println();
     cli.print("* Bionic");
@@ -102,10 +108,7 @@ void banner() {
 }
 
 // If the last boot ended in a fault, the crash report the core kept.
-// printPrompt() below calls this before every prompt, not just at
-// boot, since only a real power cycle -- not the debugger's 'R' -- ever
-// clears it; missing that would let a post-crash session run for a
-// while showing nothing wrong.
+// Shown before every prompt: only a power cycle, not 'R', clears it.
 void crashStatus() {
     if (CrashReport) {
         cli.println("Board status:");
@@ -114,10 +117,7 @@ void crashStatus() {
     }
 }
 
-// Boot, and '?' mid-session: identity/status, current registers, then
-// the full command list. A plain reset ('R') skips all of this -- by
-// then the operator knows the commands and only wants to see where
-// the CPU landed.
+// '?': identity, current registers, then the full command list.
 void help() {
     banner();
     auto &target = Debugger.target();
@@ -152,6 +152,8 @@ uint16_t last_length;
 uint32_t go_addr;
 constexpr auto MEMORY_LEN = 16;
 uint16_t mem_buffer[MEMORY_LEN];
+// Each cli callback's |extra| tags the prompt it answers: an index into
+// |mem_buffer| for data or program memory, or one of the fields below.
 static constexpr uintptr_t DATA_MEMORY(int index) {
     return static_cast<uintptr_t>(index);
 }
@@ -203,10 +205,8 @@ void handleDump(uint32_t value, uintptr_t extra, State state) {
 }
 
 #ifdef WITH_DISASSEMBLER
-// 'D addr [n]': n defaults to 20, whether it was left out entirely or
-// typed as 0 -- an unlimited disassemble dump has no use here, unlike
-// 'G'/'g''s backtrace, so there is no need to tell an empty Enter from
-// a literal 0 the way wasNumberEmpty() lets 'G'/'g' do.
+// 'D addr [n]': n defaults to 20, whether left out or typed as 0; an
+// unlimited disassembly has no use, unlike 'G'/'g''s backtrace.
 void handleDisassemble(uint32_t value, uintptr_t extra, State state) {
     const auto maxAddr = Debugger.target().maxAddr();
     const auto radix = Debugger.target().inputRadix();
@@ -401,9 +401,9 @@ void handleAssembler(uint32_t value, uintptr_t extra, State state) {
 
 void handleGoUntil(uint32_t value, uintptr_t extra, State state);
 
-// An empty Enter means "unlimited" backtrace (today's long-standing
-// default); a literal 0 means print none of it. Both report value 0
-// from readDec, so wasNumberEmpty() is what tells them apart.
+// An empty Enter means an unlimited backtrace, the default; a literal 0
+// means print none of it. Both report value 0 from readDec, so
+// wasNumberEmpty() is what tells them apart.
 void handleGoLines(uint32_t value, uintptr_t extra, State state) {
     if (state == State::CLI_DELETE) {
         // Back over the space into the address.
@@ -439,8 +439,7 @@ void handleGoUntil(uint32_t value, uintptr_t extra, State state) {
     printPrompt();
 }
 
-// 'G [n]': Enter alone means unlimited, the same "type nothing, get
-// today's behavior" default as 'g'.
+// 'G [n]': Enter alone means an unlimited backtrace, as for 'g'.
 void handleGo(uint32_t value, uintptr_t extra, State state) {
     if (state == State::CLI_DELETE)
         return;

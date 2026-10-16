@@ -115,6 +115,7 @@ $1 !~ /^[0-9A-F][0-9A-Fx]$/ { next; }
     }
 }
 
+# Four opcodes' cycles to an E() entry.
 function generate_TABLE(t,  name, first, last, c, i) {
     name = NAME[t];
     first = FIRST[t];

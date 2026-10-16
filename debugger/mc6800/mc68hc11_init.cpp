@@ -30,6 +30,8 @@ bool Mc68hc11Init::is_internal(uint16_t addr) const {
 
 void Mc68hc11Init::configSystem(RegsMc68hc11 *regs) {
     const auto current = init();
+    // The registers sit where the reset INIT puts them until INIT moves
+    // them to the current setting.
     set(_init);
     // Disable watchdog timer.
     constexpr uint8_t NOCOP = 0x04;
@@ -39,8 +41,8 @@ void Mc68hc11Init::configSystem(RegsMc68hc11 *regs) {
     // constexpr uint8_t CME = 0x08;
     regs->internal_write(_dev_base + OPTION, 0);
 
-    // It can be written to only once within the first 64 E-clock
-    // cycles after a reset, and then it becomes a read-only register.
+    // INIT can be written only once, within the first 64 E-clock cycles
+    // after a reset.
     regs->internal_write(_dev_base + INIT, current);
     set(current);
 }

@@ -37,7 +37,8 @@ constexpr auto clkin_hi_ns = 20;      // 25 ns
 constexpr auto clkin_hi_cntl = 20;    // 25 ns
 constexpr auto clkin_hi_input = 5;    // 25 ns
 constexpr auto clkin_hi_inject = 10;  // 25 ns
-// One debug pin toggle's worth, before a sample and after a drive.
+// One debug pin toggle's worth, before a sample and after a drive: the
+// bus's only setup margin, so don't remove it.
 constexpr auto debug_ns = 10;
 
 const uint8_t PINS_LOW[] = {
@@ -129,6 +130,7 @@ void PinsTms320C15::resetPins() {
     _regs->save();
 }
 
+// Keep the chip clocked in place with an injected branch to self.
 void PinsTms320C15::idle() {
     auto s = completeCycle(prepareCycle()->inject(InstTms3201X::B));
     const auto addr = s->addr;
@@ -240,6 +242,7 @@ interrupt:
     const auto inst = _mems->read(s->addr);
     const auto cycles = InstTms3201X::cycles(inst);
     if (cycles == 0) {
+        // A break point or unknown opcode: branch to self, left unexecuted.
         completeCycle(s->inject(InstTms3201X::B));
         completeCycle(prepareCycle()->inject(s->addr));
         Cycles::discard(s);
@@ -248,6 +251,7 @@ interrupt:
     completeCycle(s->inject(inst));
     for (uint_fast8_t i = 1; i < cycles; i++) {
         s = prepareCycle();
+        // An interrupt taken: step the vector's instruction instead.
         if (s->fetch() && s->addr == InstTms3201X::ORG_INT) {
             goto interrupt;
         }
@@ -349,7 +353,7 @@ void PinsTms320C15::run() {
 }
 
 void PinsTms320C15::setBreakInst(uint32_t addr) const {
-    _mems->put_prog(addr, 0xA000);
+    _mems->put_prog(addr, 0xA000);  // an undefined opcode
 }
 
 void PinsTms320C15::assertInt(uint8_t) {

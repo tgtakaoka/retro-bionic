@@ -70,6 +70,7 @@ void RegsMos6502::print() const {
     cli.println(_buffer);
 }
 
+// A cycle whose read the CPU discards: a dummy read or a stack cycle.
 static constexpr uint8_t noop = 0xFF;
 
 void RegsMos6502::save() {
@@ -319,7 +320,7 @@ void RegsMos6502::setP(uint8_t value) {
     } else {
         _mems->longA(false);
         _mems->longI(false);
-        _p = value | 0x20;
+        _p = value | 0x20;  // bit 5 reads as set
     }
 }
 

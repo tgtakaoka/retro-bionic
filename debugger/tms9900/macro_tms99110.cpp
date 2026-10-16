@@ -3,6 +3,7 @@
 namespace debugger {
 namespace tms99110 {
 
+// TMS99110 macrostore ROM image, loaded at macrostore 0800H
 // clang-format off
 constexpr uint16_t TMS99110_MACRO[] = {
     0x0BE0, 0x0BE0, 0x0BE0, 0x0B1C, 0x0B6E, 0x0B80, 0x0BE0, 0x0AF6,

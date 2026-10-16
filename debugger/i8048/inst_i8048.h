@@ -29,6 +29,7 @@ struct InstI8048 final {
         return mb == 0 ? SEL_MB0 : SEL_MB1;
     }
 
+    // JMP carries A10~A8 in opcode bits 7~5; A11 comes from the MB flag.
     static constexpr uint8_t JMP(uint16_t addr) {
         return ((addr >> 3) & 0xE0) + 0x04;
     }
@@ -39,9 +40,9 @@ struct InstI8048 final {
 
 private:
     enum CpuFlags : uint8_t {
-        F_80C39 = 0x2,
-        F_MSM39 = 0x4,
-        F_X8048 = 0x8,
+        F_80C39 = 0x2,  // HALT
+        F_MSM39 = 0x4,  // OKI extensions
+        F_X8048 = 0x8,  // BUS port instructions
         F_I8039 = 0x1,
         F_I80C39 = F_I8039 | F_80C39,
         F_MSM80C39 = F_I8039 | F_80C39 | F_MSM39,

@@ -12,8 +12,9 @@ struct SignalsImpl;
 /**
  * The ring buffer of captured bus cycles.
  *
- * Storage is deliberately untyped so that a single ring serves every target;
- * |SignalsBase| casts the entries to the concrete per-architecture type.
+ * Storage is the common |SignalsImpl| so that a single ring serves every
+ * target; |SignalsBase| casts the entries to the concrete per-architecture
+ * type.
  */
 struct Cycles {
     static constexpr uint_fast8_t MAX_CYCLES = 128;
@@ -53,15 +54,15 @@ private:
     static Cycles *_current;
     CharBuffer _buffer{""};
 
-    static uint_fast8_t _put;
-    static uint_fast8_t _get;
+    static uint_fast8_t _put;  // head(): the cycle in progress
+    static uint_fast8_t _get;  // tail(): the oldest completed
     static uint_fast8_t _cycles;
     static bool _hold;
     static SignalsImpl _ring[MAX_CYCLES];
 };
 
 }  // namespace debugger
-#endif /* __CYCLES_H__ */
+#endif /* __DEBUGGER_CYCLES_H__ */
 
 // Local Variables:
 // mode: c++

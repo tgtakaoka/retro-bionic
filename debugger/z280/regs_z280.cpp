@@ -101,7 +101,7 @@ void RegsZ280::saveRegs(reg &regs, uint32_t &org) const {
 void RegsZ280::restoreRegs(const reg &regs, uint32_t &org) const {
     // F has no load instruction of its own, so AF has to come back
     // through a real POP. Injection cannot answer that read: it lands
-    // at SP, nowhere near the window |inst| occupies, and only reads
+    // at SP, nowhere near the window RESTORE occupies, and only reads
     // inside the window are served from it. So the word goes into
     // memory just below the stack and is popped from there. SP ends
     // up exactly where it started, and restore() sets it for real
@@ -259,11 +259,9 @@ void RegsZ280::restore() {
     restoreRegs(_alt, org);
     exchangeRegs(org);
     restoreRegs(_main, org);
-    // The rest is one sequence from 8000H: the program's Cache Control
-    // back (then BC and HL, which that needed), a purge, SP, and the
-    // return. What is fetched after the purge stays cached, so it must
-    // not be the handler's line, or the next NMI's fetch never reaches
-    // the bus.
+    // The last sequence runs from 8000H: what is fetched after its purge
+    // stays cached, so it must not be the handler's line, or the next
+    // NMI's fetch never reaches the bus.
     static constexpr uint8_t TO_8000[] = {0xC3, 0x00, 0x80};  // JP 8000H
     _pins->execInst(TO_8000, sizeof(TO_8000), org, physical(0x8000));
     // Return the way the vector was taken: the status the push saved

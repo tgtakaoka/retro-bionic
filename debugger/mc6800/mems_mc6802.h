@@ -16,6 +16,7 @@ struct MemsMc6802 final : MemsMc6800 {
     void put_data(uint32_t addr, uint16_t data) const override;
 
     void set_internal_ram(bool enabled) { _internal_ram = enabled; }
+    // On-chip RAM at 0000-007F, enabled by RE.
     bool is_internal(uint16_t addr) const {
         return _internal_ram && addr < 0x80;
     }

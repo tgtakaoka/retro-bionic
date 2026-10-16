@@ -5,8 +5,8 @@ namespace debugger {
 namespace hd6309 {
 
 namespace {
-// Sequences: debugger/match_legend.md. The MC6809's interrupts, and the
-// HD6309's, its native mode's too.
+// Sequences: debugger/match_legend.md. An interrupt pushes every register,
+// FIRQ just PC and CC; the HD6309's native mode has its own.
 constexpr const char INTERRUPT_6809[] = "XXxwWWWWWWWWWWWxVrxP@XXxwWWxVrxP";
 constexpr const char INTERRUPT_6309[] =
         "XXxwWWWWWWWWWWWxVrxP@XXxwWWxVrxP"
@@ -1174,6 +1174,8 @@ struct Text {
         *out++ = c;
         return true;
     }
+    // A register in a PSH/PUL postbyte: CC, A, B and DP (below 10H) take a
+    // cycle, the 16-bit ones two.
     bool stack(uint8_t post, uint8_t mask, char c) {
         if ((post & mask) == 0)
             return true;

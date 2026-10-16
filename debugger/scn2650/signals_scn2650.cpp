@@ -49,6 +49,7 @@ void Signals::print() const {
     buffer[0] = io() ? (vector() ? 'V' : 'I') : 'M';
     buffer[1] = write() ? 'W' : 'R';
     if (io()) {
+        // In an I/O cycle, A13 is E/#NE and A14 D/#C.
         if (addr & 0x2000) {
             buffer[5] = 'E';
             buffer[6] = ':';

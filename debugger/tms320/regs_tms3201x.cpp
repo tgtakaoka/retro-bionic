@@ -61,7 +61,7 @@ uint16_t RegsTms3201X::saveAr(uint_fast8_t n) const {
 }
 
 void RegsTms3201X::save() {
-    // save PC
+    // the first injected fetch is at PC
     _pc = _pins->injectRead(InstTms3201X::OUT(0, DIR_DMA));
     // save working memory (DP is yet unknown)
     const auto tmp = _pins->captureWrite();
@@ -70,7 +70,7 @@ void RegsTms3201X::save() {
     // save P
     _pins->injectRead(InstTms3201X::PAC);
     _p = saveAcc();
-    // save T
+    // save T, as P=T*1
     _pins->injectRead(InstTms3201X::MPYK(1));
     _pins->injectRead(InstTms3201X::PAC);
     _pins->injectRead(InstTms3201X::SACL(DIR_DMA));
@@ -83,18 +83,19 @@ void RegsTms3201X::save() {
     // restore working memory
     _pins->injectRead(InstTms3201X::IN(0, DIR_DMA));
     _pins->injectRead(tmp);
-    // save working memory for ST using AR (ARP is unknown);
+    // reach the page 1 word via *AR, loading both ARs as ARP is unknown
     _pins->injectRead(InstTms3201X::LARK(0, DMA));
     _pins->injectRead(InstTms3201X::LARK(1, DMA));
     _pins->injectRead(InstTms3201X::OUT(0, INDIR_AR));
     const auto save = _pins->captureWrite();
-    // save ST into page 1
+    // save ST
     _pins->injectRead(InstTms3201X::SST(INDIR_AR));
     _pins->injectRead(InstTms3201X::OUT(0, INDIR_AR));
     _st = _pins->captureWrite();
     // restore working memory for ST
     _pins->injectRead(InstTms3201X::IN(0, INDIR_AR));
-    _pins->injectRead(save);  // restore work memory
+    _pins->injectRead(save);
+    // keep interrupts off while halted; restore() sets INTM back
     _pins->injectRead(InstTms3201X::DINT);
 }
 
@@ -106,7 +107,7 @@ void RegsTms3201X::loadReg(
 }
 
 void RegsTms3201X::restore() {
-    // save page1 working memory for ST (ARP is unknown)
+    // save the page 1 working word via *AR (ARP is unknown)
     _pins->injectRead(InstTms3201X::LARK(0, DMA));
     _pins->injectRead(InstTms3201X::LARK(1, DMA));
     _pins->injectRead(InstTms3201X::OUT(0, INDIR_AR));

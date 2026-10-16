@@ -135,7 +135,7 @@ inline void xtali_hi() {
     digitalWriteFast(PIN_XTALI, HIGH);
 }
 
-// Up to the rising edge. Returns high, as resetPins() needs.
+// Up to the rising edge; ends high, as the clocking loops expect.
 void xtali_cycle_hi() {
     xtali_lo();
     delayNanoseconds(xtali_lo_ns);
@@ -340,12 +340,9 @@ Signals *PinsZ280::completeCycle(Signals *s) {
         return s;
     }
 
-    // T2. #DS may be negated (from prepareCycle) or asserted (resumeCycle).
-    // That second case is why nothing here counts T states: after
-    // resumeCycle() the transaction is coming back out of a #WAIT stretch
-    // and there is no way to tell which T state the CPU is in, so both
-    // edges below are found by watching #DS, never by clocking a fixed
-    // number of cycles from a known one.
+    // T2. #DS may be negated (from prepareCycle) or asserted (resumeCycle):
+    // out of a #WAIT stretch the T state is unknown, so both edges below
+    // are found by watching #DS, never by counting clocks.
     for (;;) {
         const auto ds = signal_ds();
         if (ds == LOW)
@@ -357,11 +354,8 @@ Signals *PinsZ280::completeCycle(Signals *s) {
     }
 
     // An I/O port address is 16 bits; A16-A23 carry only the I/O Page.
-    // Every device branch below is gated on ioReq(): a device may answer an
-    // I/O transaction and nothing else. Selecting on the address alone let
-    // one answer an #NMI acknowledge -- which carries no address at all, and
-    // asks for no data, since #NMI vectors to 0066H by itself -- whenever
-    // the stale lines happened to fall in its range.
+    // Every device branch below is gated on ioReq(): an #NMI acknowledge
+    // carries no address, and its stale lines could select a device.
     const uint16_t ioaddr = s->addr;
 
     if (s->read()) {
@@ -524,6 +518,7 @@ void PinsZ280::disableRefresh() {
     // the longest interval; rate 0 is a special case, not the slowest.
     // The register is on-chip at FFxxE8, and reset clears the I/O Page, so
     // set the page to FF and put it back or later I/O never reaches the bus.
+    // clang-format off
     static constexpr uint8_t REFRESH_OFF[] = {
         0x0E, 0x08,        // LD C, 08H       ; I/O Page register
         0x21, 0xFF, 0x00,  // LD HL, 00FFH    ; on-chip peripheral page
@@ -544,6 +539,7 @@ void PinsZ280::disableRefresh() {
 void PinsZ280::disableCache() {
     // The on-chip memory comes up as a cache, hiding fetches. I=1 stops
     // new ones, PCACHE drops the rest, and the jump home parks the CPU.
+    // clang-format off
     static constexpr uint8_t CACHE_OFF[] = {
         0x0E, 0x12,        // LD C, 12H       ; Cache Control register
         0x21, 0x60, 0x00,  // LD HL, 0060H    ; I=1 D=1: cache nothing
@@ -568,7 +564,6 @@ uint16_t PinsZ280::captureWrites(const uint8_t *inst, uint_fast8_t len,
     return execute(inst, len, buf, max, org, exit);
 }
 
-// Step one instruction; the #NMI vector fetch is aborted with a RETN.
 // The last memory read before |s|: the program's fetch, whose page the
 // PC is in. The transaction the halt was noticed on may be anything --
 // an acknowledge cycle carries no address.
@@ -581,6 +576,8 @@ static uint32_t lastFetchBefore(const Signals *s, uint32_t fallback) {
     return fallback;
 }
 
+// Resume at |org| with #NMI raised, and park the CPU in the vector fetch
+// it takes, keeping the context it pushed.
 bool PinsZ280::suspend(uint32_t org) {
     // #NMI goes out during the opcode fetch: later steps two, earlier none.
     auto s = resumeCycle(org);
@@ -592,6 +589,7 @@ bool PinsZ280::suspend(uint32_t org) {
     auto seen = 0;
     while (guard--) {
         const Signals *push = nullptr;
+        // Five cycles in, so prev(1)-prev(5) all come from this suspend().
         if (s->memReq() && s->read() && seen >= 5) {
             // Interrupt mode 3 takes the NMI through the vector table:
             // an acknowledge cycle, then it pushes the PC, the MSR and
@@ -628,19 +626,10 @@ bool PinsZ280::suspend(uint32_t org) {
             }
         }
         if (s->addr == InstZ280::ORG_NMI && s->read() && s->memReq()) {
-            // A prefetch can land between the push and this fetch, so the
-            // push is not always s->prev() -- scan back for it, as
-            // isRst38Break() does. Insisting on s->prev() made the
-            // acknowledge go unrecognised whenever one did: the guard below
-            // then ran out and left the CPU inside the NMI service, and the
-            // PC saved from there was garbage. That is what made a halt, and
-            // the step over a breakpoint that a continue needs, fail
-            // intermittently.
-            // Only a prefetch may intervene, so accept the write either
-            // immediately before this fetch or one read behind it. Scanning
-            // further back matches an ordinary program write instead -- a
-            // write-heavy program then reports a pushed PC that is really a
-            // stored datum.
+            // A prefetch can land between the push and this fetch, so
+            // accept the write immediately before it or one read behind.
+            // Scanning further back would take an ordinary program write
+            // for the pushed PC.
             const auto one = s->prev(1);
             if (one->memReq() && one->write()) {
                 push = one;
@@ -749,11 +738,9 @@ bool PinsZ280::loop() {
         completeCycle(s);
         _devs->loop();
         s = prepareCycle();
-        // Only now, with a transaction recorded: suspend() opens with
-        // resumeCycle(), which reads that slot back. Asked before
-        // prepareCycle() it would find the one Cycles::next() had just
-        // cleared and complete a cycle that does not exist -- which only
-        // sometimes does visible damage, so a halt looked intermittent.
+        // Only now, with a transaction under way: suspend() opens with
+        // resumeCycle() on this slot, which before prepareCycle() holds
+        // no cycle at all.
         if (haltSwitch()) {
             const auto stop = s;
             if (suspend(s->addr)) {
@@ -761,13 +748,10 @@ bool PinsZ280::loop() {
                 Cycles::discard(stop);
                 return true;
             }
-            // When it fails the CPU is left somewhere inside the NMI
-            // service, so everything save() read there would be garbage --
-            // SP included -- and restore() would write that back on the
-            // next continue and destroy the program. Keep the registers
-            // from the last good save, as step() already does. The ring is
-            // left alone too: suspend() may have run its whole guard, and
-            // |stop| no longer points anywhere meaningful.
+            // The CPU is left somewhere inside the NMI service, where a
+            // save would read garbage, SP included, for restore() to write
+            // back: keep the last good save. The ring is left alone too:
+            // after a full guard |stop| no longer means anything.
             return false;
         }
     }

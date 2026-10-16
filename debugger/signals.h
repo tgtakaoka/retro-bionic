@@ -7,15 +7,19 @@
 
 namespace debugger {
 
+// One captured bus cycle; a target's Signals keeps its pins in _signals.
 struct SignalsImpl {
     uint32_t addr;
     uint16_t data;
 
     void clear() { _flags = 0; }
+    // Whether a read comes from memory, not data the debugger injected.
     bool readMemory() const { return (_flags & INJECT) == 0; }
+    // Whether a write goes to memory, not captured by the debugger.
     bool writeMemory() const { return (_flags & CAPTURE) == 0; }
 
     uint_fast8_t pos() const { return Cycles::indexOf(this); }
+    // The distance forward from this slot to |s|, modulo the ring.
     uint_fast8_t diff(const SignalsImpl *s) const;
 
 protected:
@@ -105,7 +109,7 @@ const SignalsImpl *backtraceStartByFetchCount(uint32_t limit) {
 }
 
 }  // namespace debugger
-#endif /* __SIGNALS_H__ */
+#endif /* __DEBUGGER_SIGNALS_H__ */
 
 // Local Variables:
 // mode: c++

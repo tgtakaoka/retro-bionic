@@ -11,9 +11,10 @@ exit, so only b's start is required. A change is right when no required
 start loses its fetch mark and it marks no more fetches that nothing
 proves than before, or when it only drops what the old matcher's start
 scan left: marks below the start it settled on, or a start that marks no
-fetch; or when each fetch it marks was marked before or is proven. Where a and b start at one address with
-other code, the test's memory holds only b's, so only what follows b's
-start is compared. Exits non-zero when any change isn't.
+fetch; or when each fetch it marks was marked before or is proven. Where
+a and b start at one address with other code, the test's memory holds
+only b's, so only what follows b's start is compared. Exits non-zero
+when any change isn't.
 
 A golden of walks (the Z380's: each ring's start and the instructions
 walked) is compared walk by walk, every change listed for review.
