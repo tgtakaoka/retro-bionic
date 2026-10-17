@@ -1992,6 +1992,22 @@ fallback. **[doc]**
   decoder takes for an instruction start.
 - How many prefetches a taken branch discards.
 
+`samples/tms320c2x` holds the TMS320C1x samples rewritten for the C25.
+They have not been run on a chip, only on a software model of the
+instructions they use.
+
+- Variables sit on page 4 (B0 at 0200h), the ISR's ST0/ST1 save on page 0
+  (B2 at 0060h), since SST/SST1 always store there, and the queues in B1
+  (0300h) through ARs. Data from 0400h up is the unified external
+  memory, the program's own. **[doc]**
+- Reset leaves OVM and IMR unchanged, so every sample runs `ROVM` and
+  the interrupt samples set IMR. The ACIA's default interrupt name 1
+  drives `#INT1`, vector 0004h. **[doc][code]**
+- The eight-level stack holds every return address, so routines call
+  and return directly. **[doc]**
+- libasm assembles a bare `BANZ label` with `*`, which leaves the AR
+  alone and loops forever; write `BANZ label,*-`. **[code]**
+
 ### TMS7000 family
 
 **Pitfalls.** Register-file accesses, pushes and pops included, never reach
