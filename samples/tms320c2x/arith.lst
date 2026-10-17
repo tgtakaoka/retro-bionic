@@ -1,0 +1,551 @@
+          0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+          0 :                            .include "tms320c25.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :                    ;;; TMS320C25
+(1)       0 :                            .cpu    320c25
+(1)       0 :                    ;;; Origin
+(1)       0 : =0                 ORG_RESET:      .equ    0000H   ; Reset
+(1)       0 : =2                 ORG_INT0:       .equ    0002H   ; #INT0
+(1)       0 : =4                 ORG_INT1:       .equ    0004H   ; #INT1
+(1)       0 : =6                 ORG_INT2:       .equ    0006H   ; #INT2
+(1)       0 : =18                ORG_TINT:       .equ    0018H   ; Timer
+(1)       0 : =1A                ORG_RINT:       .equ    001AH   ; Serial port receive
+(1)       0 : =1C                ORG_XINT:       .equ    001CH   ; Serial port transmit
+(1)       0 : =1E                ORG_TRAP:       .equ    001EH   ; TRAP
+(1)       0 :                    ;;; Memory mapped registers
+(1)       0 : =0                 DRR:    .equ    0               ; Serial port data receive
+(1)       0 : =1                 DXR:    .equ    1               ; Serial port data transmit
+(1)       0 : =2                 TIM:    .equ    2               ; Timer
+(1)       0 : =3                 PRD:    .equ    3               ; Period
+(1)       0 : =4                 IMR:    .equ    4               ; Interrupt mask
+(1)       0 : =5                 GREG:   .equ    5               ; Global memory allocation
+(1)       0 :                    ;;; Interrupt mask bits
+(1)       0 : =1                 IMR_INT0:       .equ    000001B
+(1)       0 : =2                 IMR_INT1:       .equ    000010B
+(1)       0 : =4                 IMR_INT2:       .equ    000100B
+(1)       0 : =8                 IMR_TINT:       .equ    001000B
+(1)       0 : =10                IMR_RINT:       .equ    010000B
+(1)       0 : =20                IMR_XINT:       .equ    100000B
+(1)       0 :                    ;;; Data memory
+(1)       0 : =60                B2:     .equ    0060H           ; 32 words on page 0
+(1)       0 : =200               B0:     .equ    0200H           ; 256 words on pages 4 and 5
+(1)       0 : =300               B1:     .equ    0300H           ; 256 words on pages 6 and 7
+(1)       0 : =4                 PAGE_B0:        .equ    B0>>7
+(1)       0 :                    ;;; Halt to system
+(1)       0 : =CE1E              HALT:   .equ    0CE1EH          ; TRAP
+          0 :
+          0 :                    ;;; MC6850 Asynchronous Communication Interface Adapter
+          0 : =4                 ACIA:   .equ    4
+          0 :                            .include "mc6850.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :                    ;;; MC6850
+(1)       0 :                    ;;; Asynchronous Communication Interface Adapter
+(1)       0 : =4                 ACIA_control:   .equ    ACIA+0
+(1)       0 : =4                 ACIA_status:    .equ    ACIA+0
+(1)       0 : =5                 ACIA_data:      .equ    ACIA+1
+(1)       0 : =6                 ACIA_intr:      .equ    ACIA+2
+(1)       0 :                    ;;;  Counter Divider Select Bits
+(1)       0 : =3                 CDS_gm:         .equ    11B       ; Group mask
+(1)       0 : =0                 CDS_DIV1_gc:    .equ    00000000B ; /1
+(1)       0 : =1                 CDS_DIV16_gc:   .equ    00000001B ; /16
+(1)       0 : =2                 CDS_DIV64_gc:   .equ    00000010B ; /64
+(1)       0 : =3                 CDS_RESET_gc:   .equ    00000011B ; Master Reset
+(1)       0 :                    ;;;  Word Select Bits
+(1)       0 : =1C                WSB_gm:         .equ    00011100B ; Group mask
+(1)       0 : =0                 WSB_7E2_gc:     .equ    00000000B ; 7 Bits + Even Parity + 2 Stop Bits
+(1)       0 : =4                 WSB_7O2_gc:     .equ    00000100B ; 7 bits + Odd Parity  + 2 Stop Bits
+(1)       0 : =8                 WSB_7E1_gc:     .equ    00001000B ; 7 bits + Even Parity + 1 Stop Bits
+(1)       0 : =C                 WSB_7O1_gc:     .equ    00001100B ; 7 bits + Odd Parity  + 1 Stop Bits
+(1)       0 : =10                WSB_8N2_gc:     .equ    00010000B ; 8 bits + No Parity   + 2 Stop Bits
+(1)       0 : =14                WSB_8N1_gc:     .equ    00010100B ; 8 bits + No Parity   + 1 Stop Bits
+(1)       0 : =18                WSB_8E1_gc:     .equ    00011000B ; 8 bits + Even Parity + 1 Stop Bits
+(1)       0 : =1C                WSB_8O1_gc:     .equ    00011100B ; 8 bits + Odd Parity  + 1 Stop Bits
+(1)       0 :                    ;;; Transmit Control Bits
+(1)       0 : =60                TCB_gm:         .equ    01100000B ; Group mask
+(1)       0 : =0                 TCB_DI_gc:      .equ    00000000B ; RTS=Low,  Tx Interrupt Disabled
+(1)       0 : =20                TCB_EI_gc:      .equ    00100000B ; RTS=Low,  Tx Interrupt Enabled
+(1)       0 : =40                TCB_RTS_gc:     .equ    01000000B ; RTS=High, Tx Interrupt Disabled
+(1)       0 : =60                TCB_BREAK_gc:   .equ    01100000B ; RTS=Low,  Tx Interrupt Disabled
+(1)       0 :                                                      ; Transmit Break Level
+(1)       0 : =80                RIEB_bm:        .equ    10000000B ; Receive Interrupt Enable Bit mask
+(1)       0 :                    ;;; Status register
+(1)       0 : =1                 RDRF_bm:        .equ    00000001B ; Receive Data Register Full
+(1)       0 : =2                 TDRE_bm:        .equ    00000010B ; Transmit Data Register Empty
+(1)       0 : =4                 DCDF_bm:        .equ    00000100B ; Data Carrier Detect Flag
+(1)       0 : =8                 CTSF_bm:        .equ    00001000B ; Clear To Send Flag
+(1)       0 : =10                FERR_bm:        .equ    00010000B ; Frame Error Flag
+(1)       0 : =20                OVRN_bm:        .equ    00100000B ; Receiver Overrun Flag
+(1)       0 : =40                PERR_bm:        .equ    01000000B ; Parity Error Flag
+(1)       0 : =80                IRQF_bm:        .equ    10000000B ; Interrupt Request Flag
+          0 :
+          0 :                    ;;; Data memory
+        200 :                            .org    B0
+        200 :                    work:   .bss    1
+        201 :                    char:   .bss    1
+        202 :                    vA:     .bss    1
+        203 :                    vB:     .bss    1
+        204 :                    expr_op:
+        204 :                    comp_rel:       .bss    1
+        205 :                    R0:     .bss    1
+        206 :                    R1:     .bss    1
+        207 :                    R2:     .bss    1
+        208 :                    print_buf:      .bss    8
+        210 :
+          0 :                            .org    ORG_RESET
+          0 : FF80 0100                  b       initialize
+          2 :
+        100 :                            .org    100H
+        100 :                    initialize:
+        100 : CE02                       rovm                    ; reset leaves OVM unchanged
+        101 : C804                       ldpk    PAGE_B0
+        102 :                    ;;; Initialize ACIA
+        102 : CA03                       lack    CDS_RESET_gc
+        103 : 6000                       sacl    work
+        104 : E400                       out     work,ACIA_control ; Master reset
+        105 : CA14                       lack    WSB_8N1_gc
+        106 : 6000                       sacl    work
+        107 : E400                       out     work,ACIA_control ; 8 bits + No Parity + 1 Stop Bits
+        108 : FF80 015A                  b       arith
+        10A :
+        10A :                    newline:
+        10A : CA0D                       lack    0DH
+        10B : FE80 0115                  call    putchar
+        10D : CA0A                       lack    0AH
+        10E : FE80 0115                  call    putchar
+        110 : CE26                       ret
+        111 :
+        111 :                    putspace:
+        111 : CA20                       lack    ' '
+        112 : FE80 0115                  call    putchar
+        114 : CE26                       ret
+        115 :
+        115 :                    putchar:
+        115 : 6001                       sacl    char
+        116 :                    putchar_loop:
+        116 : 8400                       in      work,ACIA_status
+        117 : 2000                       lac     work
+        118 : D004 0002                  andk    TDRE_bm
+        11A : F680 0116                  bz      putchar_loop
+        11C : E501                       out     char,ACIA_data
+        11D : 4101                       zals    char
+        11E : CE26                       ret
+        11F :
+        11F :                    ;;; Print "A op B"
+        11F :                    ;;; @param vA A
+        11F :                    ;;; @param vB B
+        11F :                    ;;; @param ACC op
+        11F :                    ;;; @return T=A
+        11F :                    ;;; @clobber R0 R1 R2
+        11F :                    expr:
+        11F : 6004                       sacl    expr_op
+        120 : 2002                       lac     vA
+        121 : FE80 02AB                  call    print_int16     ; print A
+        123 : FE80 0111                  call    putspace
+        125 : 4104                       zals    expr_op         ; print op
+        126 : FE80 0115                  call    putchar
+        128 : FE80 0111                  call    putspace
+        12A : 2003                       lac     vB
+        12B : FE80 02AB                  call    print_int16     ; print B
+        12D : CE26                       ret
+        12E :
+        12E :                    ;;; Print " = v\n"
+        12E :                    ;;; @param ACC v
+        12E :                    ;;; @clobber R0 R1 R2
+        12E :                    answer:
+        12E : 6002                       sacl    vA
+        12F : FE80 0111                  call    putspace
+        131 : CA3D                       lack    '='
+        132 : FE80 0115                  call    putchar
+        134 : FE80 0111                  call    putspace
+        136 : 2002                       lac     vA
+        137 : FE80 02AB                  call    print_int16     ; print v
+        139 : FE80 010A                  call    newline
+        13B : CE26                       ret
+        13C :
+        13C :                    ;;; Print "A rel B"
+        13C :                    ;;; @param vA A
+        13C :                    ;;; @param vB B
+        13C :                    ;;; @clobber R0 R1 R2
+        13C :                    comp:
+        13C : 2002                       lac     vA
+        13D : 1003                       sub     vB
+        13E : F680 0145                  bz      comp_eq
+        140 : F380 0148                  blz     comp_lt
+        142 :                    comp_gt:
+        142 : CA3E                       lack    '>'
+        143 : FF80 0149                  b       comp_put
+        145 :                    comp_eq:
+        145 : CA3D                       lack    '='
+        146 : FF80 0149                  b       comp_put
+        148 :                    comp_lt:
+        148 : CA3C                       lack    '<'
+        149 :                    comp_put:
+        149 : 6004                       sacl    comp_rel
+        14A : 2002                       lac     vA
+        14B : FE80 02AB                  call    print_int16     ; print A
+        14D : FE80 0111                  call    putspace
+        14F : 4104                       zals    comp_rel
+        150 : FE80 0115                  call    putchar         ; print rel
+        152 : FE80 0111                  call    putspace
+        154 : 2003                       lac     vB
+        155 : FE80 02AB                  call    print_int16     ; print B
+        157 : FE80 010A                  call    newline
+        159 : CE26                       ret
+        15A :
+        15A :                    arith:
+        15A : D001 4650                  lalk    18000
+        15C : 6002                       sacl    vA
+        15D : D001 6D60                  lalk    28000
+        15F : 6003                       sacl    vB
+        160 : CA2B                       lack    '+'
+        161 : FE80 011F                  call    expr
+        163 : 2002                       lac     vA
+        164 : 0003                       add     vB
+        165 : FE80 012E                  call    answer          ; -19536
+        167 :
+        167 : D001 4650                  lalk    18000
+        169 : 6002                       sacl    vA
+        16A : D001 B9B0                  lalk    -18000
+        16C : 6003                       sacl    vB
+        16D : CA2B                       lack    '+'
+        16E : FE80 011F                  call    expr
+        170 : 2002                       lac     vA
+        171 : 0003                       add     vB
+        172 : FE80 012E                  call    answer          ; 0
+        174 :
+        174 : D001 B9B0                  lalk    -18000
+        176 : 6002                       sacl    vA
+        177 : D001 B9B0                  lalk    -18000
+        179 : 6003                       sacl    vB
+        17A : CA2B                       lack    '+'
+        17B : FE80 011F                  call    expr
+        17D : 2002                       lac     vA
+        17E : 0003                       add     vB
+        17F : FE80 012E                  call    answer          ; 29536
+        181 :
+        181 : D001 B9B0                  lalk    -18000
+        183 : 6002                       sacl    vA
+        184 : D001 92A0                  lalk    -28000
+        186 : 6003                       sacl    vB
+        187 : CA2D                       lack    '-'
+        188 : FE80 011F                  call    expr
+        18A : 2002                       lac     vA
+        18B : 1003                       sub     vB
+        18C : FE80 012E                  call    answer          ; 10000
+        18E :
+        18E : D001 4650                  lalk    18000
+        190 : 6002                       sacl    vA
+        191 : D001 B9B0                  lalk    -18000
+        193 : 6003                       sacl    vB
+        194 : CA2D                       lack    '-'
+        195 : FE80 011F                  call    expr
+        197 : 2002                       lac     vA
+        198 : 1003                       sub     vB
+        199 : FE80 012E                  call    answer          ; -29536
+        19B :
+        19B : D001 92A0                  lalk    -28000
+        19D : 6002                       sacl    vA
+        19E : D001 B9B0                  lalk    -18000
+        1A0 : 6003                       sacl    vB
+        1A1 : CA2D                       lack    '-'
+        1A2 : FE80 011F                  call    expr
+        1A4 : 2002                       lac     vA
+        1A5 : 1003                       sub     vB
+        1A6 : FE80 012E                  call    answer          ; -10000
+        1A8 :
+        1A8 : D001 0064                  lalk    100
+        1AA : 6002                       sacl    vA
+        1AB : D001 012C                  lalk    300
+        1AD : 6003                       sacl    vB
+        1AE : CA2A                       lack    '*'
+        1AF : FE80 011F                  call    expr
+        1B1 : 3C02                       lt      vA
+        1B2 : 3803                       mpy     vB
+        1B3 : CE14                       pac
+        1B4 : FE80 012E                  call    answer          ; 30000
+        1B6 :
+        1B6 : D001 00C8                  lalk    200
+        1B8 : 6002                       sacl    vA
+        1B9 : D001 0064                  lalk    100
+        1BB : 6003                       sacl    vB
+        1BC : CA2A                       lack    '*'
+        1BD : FE80 011F                  call    expr
+        1BF : 3C02                       lt      vA
+        1C0 : 3803                       mpy     vB
+        1C1 : CE14                       pac
+        1C2 : FE80 012E                  call    answer          ; 20000
+        1C4 :
+        1C4 : D001 012C                  lalk    300
+        1C6 : 6002                       sacl    vA
+        1C7 : D001 FF38                  lalk    -200
+        1C9 : 6003                       sacl    vB
+        1CA : CA2A                       lack    '*'
+        1CB : FE80 011F                  call    expr
+        1CD : 3C02                       lt      vA
+        1CE : 3803                       mpy     vB
+        1CF : CE14                       pac
+        1D0 : FE80 012E                  call    answer          ; 5536
+        1D2 :
+        1D2 : D001 0064                  lalk    100
+        1D4 : 6002                       sacl    vA
+        1D5 : D001 FED4                  lalk    -300
+        1D7 : 6003                       sacl    vB
+        1D8 : CA2A                       lack    '*'
+        1D9 : FE80 011F                  call    expr
+        1DB : 3C02                       lt      vA
+        1DC : 3803                       mpy     vB
+        1DD : CE14                       pac
+        1DE : FE80 012E                  call    answer          ; -30000
+        1E0 :
+        1E0 : D001 FF38                  lalk    -200
+        1E2 : 6002                       sacl    vA
+        1E3 : D001 FF9C                  lalk    -100
+        1E5 : 6003                       sacl    vB
+        1E6 : CA2A                       lack    '*'
+        1E7 : FE80 011F                  call    expr
+        1E9 : 3C02                       lt      vA
+        1EA : 3803                       mpy     vB
+        1EB : CE14                       pac
+        1EC : FE80 012E                  call    answer          ; 20000
+        1EE :
+        1EE : D001 7530                  lalk    30000
+        1F0 : 6002                       sacl    vA
+        1F1 : D001 0064                  lalk    100
+        1F3 : 6003                       sacl    vB
+        1F4 : CA2F                       lack    '/'
+        1F5 : FE80 011F                  call    expr
+        1F7 : 2002                       lac     vA
+        1F8 : 6006                       sacl    R1
+        1F9 : 2003                       lac     vB
+        1FA : 6007                       sacl    R2
+        1FB : FE80 02EF                  call    div16
+        1FD : FE80 012E                  call    answer          ; 300
+        1FF :
+        1FF : D001 FF38                  lalk    -200
+        201 : 6002                       sacl    vA
+        202 : D001 0064                  lalk    100
+        204 : 6003                       sacl    vB
+        205 : CA2F                       lack    '/'
+        206 : FE80 011F                  call    expr
+        208 : 2002                       lac     vA
+        209 : 6006                       sacl    R1
+        20A : 2003                       lac     vB
+        20B : 6007                       sacl    R2
+        20C : FE80 02EF                  call    div16
+        20E : FE80 012E                  call    answer          ; -2
+        210 :
+        210 : D001 8AD0                  lalk    -30000
+        212 : 6002                       sacl    vA
+        213 : D001 FF38                  lalk    -200
+        215 : 6003                       sacl    vB
+        216 : CA2F                       lack    '/'
+        217 : FE80 011F                  call    expr
+        219 : 2002                       lac     vA
+        21A : 6006                       sacl    R1
+        21B : 2003                       lac     vB
+        21C : 6007                       sacl    R2
+        21D : FE80 02EF                  call    div16
+        21F : FE80 012E                  call    answer          ; 150
+        221 :
+        221 : D001 8AD0                  lalk    -30000
+        223 : 6002                       sacl    vA
+        224 : D001 004E                  lalk    78
+        226 : 6003                       sacl    vB
+        227 : CA2F                       lack    '/'
+        228 : FE80 011F                  call    expr
+        22A : 2002                       lac     vA
+        22B : 6006                       sacl    R1
+        22C : 2003                       lac     vB
+        22D : 6007                       sacl    R2
+        22E : FE80 02EF                  call    div16
+        230 : FE80 012E                  call    answer          ; -384
+        232 :
+        232 : D001 1388                  lalk    5000
+        234 : 6002                       sacl    vA
+        235 : D001 0FA0                  lalk    4000
+        237 : 6003                       sacl    vB
+        238 : FE80 013C                  call    comp
+        23A :
+        23A : D001 1388                  lalk    5000
+        23C : 6002                       sacl    vA
+        23D : D001 1388                  lalk    5000
+        23F : 6003                       sacl    vB
+        240 : FE80 013C                  call    comp
+        242 :
+        242 : D001 0FA0                  lalk    4000
+        244 : 6002                       sacl    vA
+        245 : D001 1388                  lalk    5000
+        247 : 6003                       sacl    vB
+        248 : FE80 013C                  call    comp
+        24A :
+        24A : D001 EC78                  lalk    -5000
+        24C : 6002                       sacl    vA
+        24D : D001 F060                  lalk    -4000
+        24F : 6003                       sacl    vB
+        250 : FE80 013C                  call    comp
+        252 :
+        252 : D001 EC78                  lalk    -5000
+        254 : 6002                       sacl    vA
+        255 : D001 EC78                  lalk    -5000
+        257 : 6003                       sacl    vB
+        258 : FE80 013C                  call    comp
+        25A :
+        25A : D001 F060                  lalk    -4000
+        25C : 6002                       sacl    vA
+        25D : D001 EC78                  lalk    -5000
+        25F : 6003                       sacl    vB
+        260 : FE80 013C                  call    comp
+        262 :
+        262 : D001 7FBC                  lalk    32700
+        264 : 6002                       sacl    vA
+        265 : D001 7F58                  lalk    32600
+        267 : 6003                       sacl    vB
+        268 : FE80 013C                  call    comp
+        26A :
+        26A : D001 7FBC                  lalk    32700
+        26C : 6002                       sacl    vA
+        26D : D001 7FBC                  lalk    32700
+        26F : 6003                       sacl    vB
+        270 : FE80 013C                  call    comp
+        272 :
+        272 : D001 7F58                  lalk    32600
+        274 : 6002                       sacl    vA
+        275 : D001 7FBC                  lalk    32700
+        277 : 6003                       sacl    vB
+        278 : FE80 013C                  call    comp
+        27A :
+        27A : D001 8044                  lalk    -32700
+        27C : 6002                       sacl    vA
+        27D : D001 80A8                  lalk    -32600
+        27F : 6003                       sacl    vB
+        280 : FE80 013C                  call    comp
+        282 :
+        282 : D001 8044                  lalk    -32700
+        284 : 6002                       sacl    vA
+        285 : D001 8044                  lalk    -32700
+        287 : 6003                       sacl    vB
+        288 : FE80 013C                  call    comp
+        28A :
+        28A : D001 80A8                  lalk    -32600
+        28C : 6002                       sacl    vA
+        28D : D001 8044                  lalk    -32700
+        28F : 6003                       sacl    vB
+        290 : FE80 013C                  call    comp
+        292 :
+        292 : D001 4650                  lalk    18000
+        294 : 6002                       sacl    vA
+        295 : D001 92A0                  lalk    -28000
+        297 : 6003                       sacl    vB
+        298 : FE80 013C                  call    comp
+        29A :
+        29A : D001 92A0                  lalk    -28000
+        29C : 6002                       sacl    vA
+        29D : D001 92A0                  lalk    -28000
+        29F : 6003                       sacl    vB
+        2A0 : FE80 013C                  call    comp
+        2A2 :
+        2A2 : D001 92A0                  lalk    -28000
+        2A4 : 6002                       sacl    vA
+        2A5 : D001 4650                  lalk    18000
+        2A7 : 6003                       sacl    vB
+        2A8 : FE80 013C                  call    comp
+        2AA :
+        2AA : CE1E                       .word   HALT
+        2AB :
+        2AB :                            .include "arith.inc"
+(1)     2AB :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)     2AB :
+(1)     2AB :                    ;;; Print signed 16-bit integer as decimal
+(1)     2AB :                    ;;; @param ACC value
+(1)     2AB :                    ;;; @clobber R0 R1 R2 AR0 AR1 ARP=0
+(1)     2AB :                    print_int16:
+(1)     2AB : 6006                       sacl    R1
+(1)     2AC : D000 0208                  lrlk    AR0,print_buf   ; buffer
+(1)     2AE : 5588                       larp    AR0
+(1)     2AF : CA00                       zac
+(1)     2B0 : 60A0                       sacl    *+              ; mark EOS
+(1)     2B1 : 2006                       lac     R1
+(1)     2B2 : F680 02D2                  bz      print_int16_zero
+(1)     2B4 : F180 02BB                  bgz     print_uint16    ; branch if R1>0
+(1)     2B6 : CE1B                       abs                     ; negate R1
+(1)     2B7 : 6006                       sacl    R1
+(1)     2B8 : CA2D                       lack    '-'
+(1)     2B9 : FE80 0115                  call    putchar
+(1)     2BB :                    print_uint16:
+(1)     2BB : 4106                       zals    R1
+(1)     2BC : F680 02C8                  bz      print_uint16_print
+(1)     2BE : CA0A                       lack    10
+(1)     2BF : 6007                       sacl    R2
+(1)     2C0 : FE80 02D6                  call    udiv16          ; R1 = R1 / 10
+(1)     2C2 : CA30                       lack    '0'
+(1)     2C3 : 0005                       add     R0              ; R0 = R1 % 10
+(1)     2C4 : 5588                       larp    AR0
+(1)     2C5 : 60A0                       sacl    *+
+(1)     2C6 : FF80 02BB                  b       print_uint16
+(1)     2C8 :                    print_uint16_print:
+(1)     2C8 : 5588                       larp    AR0
+(1)     2C9 : 5590                       mar     *-
+(1)     2CA : 4180                       zals    *
+(1)     2CB : F680 02D1                  bz      print_int16_return
+(1)     2CD : FE80 0115                  call    putchar
+(1)     2CF : FF80 02C8                  b       print_uint16_print
+(1)     2D1 :                    print_int16_return:
+(1)     2D1 : CE26                       ret
+(1)     2D2 :                    print_int16_zero:
+(1)     2D2 : CA30                       lack    '0'
+(1)     2D3 : FE80 0115                  call    putchar
+(1)     2D5 : CE26                       ret
+(1)     2D6 :
+(1)     2D6 :                    ;;; Unsigned Divide
+(1)     2D6 :                    ;;; |R1| / |R2| = R1 ... R0
+(1)     2D6 :                    ;;; @return ACC=R1
+(1)     2D6 :                    ;;; @clobber AR1 ARP=1
+(1)     2D6 :                    udiv16:
+(1)     2D6 : C10F                       lark    AR1,15          ; 16 SUBC steps
+(1)     2D7 : 5589                       larp    AR1
+(1)     2D8 : 4106                       zals    R1              ; ACC=dividend
+(1)     2D9 :                    udiv16_loop:
+(1)     2D9 : 4707                       subc    R2
+(1)     2DA : FB90 02D9                  banz    udiv16_loop,*-
+(1)     2DC : 6805                       sach    R0              ; remainder in ACCH
+(1)     2DD : 6006                       sacl    R1              ; quotient in ACCL
+(1)     2DE : 4106                       zals    R1              ; quotient
+(1)     2DF : CE26                       ret
+(1)     2E0 :
+(1)     2E0 :                    ;;; Divide by positive divisor
+(1)     2E0 :                    ;;; R1 / |R2| = R1 ... R0
+(1)     2E0 :                    ;;; @return ACC=R1
+(1)     2E0 :                    ;;; @clobber AR1 ARP=1
+(1)     2E0 :                    divu16:
+(1)     2E0 : 2006                       lac     R1
+(1)     2E1 : F480 02EB                  bgez    divu16_positive ; branch if R1>=0
+(1)     2E3 : CE1B                       abs
+(1)     2E4 : 6006                       sacl    R1              ; |R1|
+(1)     2E5 : FE80 02D6                  call    udiv16          ; |R1| / |R2| = R1 ... R0
+(1)     2E7 : CA00                       zac
+(1)     2E8 : 1006                       sub     R1              ; negate R1
+(1)     2E9 : 6006                       sacl    R1
+(1)     2EA : CE26                       ret
+(1)     2EB :                    divu16_positive:
+(1)     2EB : FE80 02D6                  call    udiv16
+(1)     2ED : 2006                       lac     R1
+(1)     2EE : CE26                       ret
+(1)     2EF :
+(1)     2EF :                    ;;; Divide
+(1)     2EF :                    ;;; R1 / R2 = R1 ... R0
+(1)     2EF :                    ;;; @return ACC=R1
+(1)     2EF :                    ;;; @clobber R2 AR1 ARP=1
+(1)     2EF :                    div16:
+(1)     2EF : 2007                       lac     R2
+(1)     2F0 : F480 02FA                  bgez    div16_positive  ; branch if R2 >= 0
+(1)     2F2 : CE1B                       abs
+(1)     2F3 : 6007                       sacl    R2              ; |R2|
+(1)     2F4 : FE80 02E0                  call    divu16          ; R1 / |R2| = R1 .. R0
+(1)     2F6 : CA00                       zac
+(1)     2F7 : 1006                       sub     R1              ; negate R1
+(1)     2F8 : 6006                       sacl    R1
+(1)     2F9 : CE26                       ret
+(1)     2FA :                    div16_positive:
+(1)     2FA : FE80 02E0                  call    divu16
+(1)     2FC : 2006                       lac     R1
+(1)     2FD : CE26                       ret
