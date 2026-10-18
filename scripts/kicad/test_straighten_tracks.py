@@ -1,0 +1,196 @@
+"""Tests for straighten_tracks.py on small synthetic boards.
+
+    cd scripts/kicad && python3 -m unittest test_straighten_tracks
+"""
+import unittest
+
+import pcbnew
+
+from straighten_tracks import P, Straightener, key, on_axis
+
+V = pcbnew.VECTOR2I_MM
+
+
+class Board:
+    def __init__(self):
+        self.b = pcbnew.BOARD()
+        self.b.SetCopperLayerCount(4)
+        self.net = pcbnew.NETINFO_ITEM(self.b, 'N')
+        self.b.Add(self.net)
+
+    def pad(self, x, y, w=1.4, h=0.3):
+        fp = pcbnew.FOOTPRINT(self.b)
+        p = pcbnew.PAD(fp)
+        p.SetAttribute(pcbnew.PAD_ATTRIB_SMD)
+        p.SetShape(pcbnew.PAD_SHAPE_RECT)
+        p.SetLayerSet(p.SMDMask())
+        p.SetSize(V(w, h))
+        fp.Add(p)
+        fp.SetPosition(V(x, y))
+        p.SetNet(self.net)
+        self.b.Add(fp)
+
+    def via(self, x, y):
+        v = pcbnew.PCB_VIA(self.b)
+        v.SetPosition(V(x, y))
+        v.SetWidth(pcbnew.FromMM(0.45))
+        v.SetDrill(pcbnew.FromMM(0.2))
+        v.SetNet(self.net)
+        self.b.Add(v)
+
+    def track(self, *pts, layer=pcbnew.F_Cu):
+        for a, c in zip(pts, pts[1:]):
+            t = pcbnew.PCB_TRACK(self.b)
+            t.SetStart(V(*a))
+            t.SetEnd(V(*c))
+            t.SetWidth(pcbnew.FromMM(0.15))
+            t.SetLayer(layer)
+            t.SetNet(self.net)
+            self.b.Add(t)
+
+    def run(self):
+        """one pass of the three steps, as main() does without DRC"""
+        Straightener(self.b).snap(set())
+        Straightener(self.b).joints(set())
+        st = Straightener(self.b)
+        res = st.straighten()
+        st.drop_idle()
+        return res
+
+    def tracks(self, layer=pcbnew.F_Cu):
+        return sorted(tuple(sorted((key(P(t.GetStart())), key(P(t.GetEnd()))))) for t in self.b.GetTracks()
+                      if t.Type() == pcbnew.PCB_TRACE_T and t.GetLayer() == layer)
+
+    def vias(self):
+        return [key(P(v.GetPosition())) for v in self.b.GetTracks() if v.Type() == pcbnew.PCB_VIA_T]
+
+
+class StraightenTest(unittest.TestCase):
+    def test_straight_run_untouched(self):
+        b = Board()
+        b.pad(0, 0)
+        b.pad(6, 0)
+        b.track((0, 0), (3, 0), (4, 1))
+        b.track((4, 1), (5, 0), (6, 0))
+        rebuilt, left = b.run()
+        self.assertEqual((rebuilt, left), ({}, []))
+
+    def test_micro_jog_dropped(self):
+        b = Board()
+        b.pad(0, 0)
+        b.pad(6, 0)
+        b.track((0, 0), (3, 0), (3.02, 0.02), (6, 0.02))
+        b.run()
+        # the pad ends slide along their pads to take up the jog
+        ((a, c),) = b.tracks()
+        self.assertEqual((a[1], c[1]), (0, 0))
+        self.assertLess(abs(a[0]), 0.1)
+        self.assertLess(abs(c[0] - 6), 0.1)
+
+    def test_pad_end_moves_onto_centre_line(self):
+        b = Board()
+        b.pad(0, 0)
+        b.via(3, 0)
+        b.track((0, 0.03), (3, 0.03), (3, 0))
+        b.track((3, 0), (3, 2), layer=pcbnew.B_Cu)
+        b.run()
+        self.assertEqual(b.tracks(), [((0, 0), (3, 0))])
+
+    def test_pad_end_never_slides_across_pad(self):
+        # the via cannot slide across its own horizontal track, so the run stays
+        b = Board()
+        b.pad(0, 0)
+        b.via(3, 0.04)
+        b.track((0, 0), (3, 0.04))
+        b.track((3, 0.04), (6, 0.04), layer=pcbnew.B_Cu)
+        rebuilt, left = b.run()
+        self.assertEqual(rebuilt, {})
+        self.assertEqual(len(left), 1)
+        self.assertEqual(b.tracks(), [((0, 0), (3, 0.04))])
+
+    def test_via_slides_along_its_other_track(self):
+        b = Board()
+        b.pad(0, 0)
+        b.via(1.75, -0.05)
+        b.track((0, 0), (1.75, -0.05))
+        b.track((1.75, -0.05), (3.35, -1.65), layer=pcbnew.In1_Cu)
+        b.run()
+        (via,) = b.vias()
+        self.assertAlmostEqual(via[1], 0, places=3)
+        (top,) = b.tracks()
+        self.assertEqual(top[1], via)
+        self.assertEqual(top[0][1], 0)
+        (inner,) = b.tracks(pcbnew.In1_Cu)
+        self.assertEqual(inner[0], via)
+        self.assertTrue(on_axis(*inner))
+
+    def test_deliberate_jog_into_via_kept(self):
+        # U1 pin 79 on mc9s12x: on the pad's centre line, then a 45-degree jog into the via
+        b = Board()
+        b.pad(124.3625, 96.75, 1.475, 0.3)
+        b.via(122.6, 96.8)
+        b.track((124.3625, 96.75), (122.65, 96.75), (122.6, 96.8))
+        b.track((122.6, 96.8), (121.0, 98.4), layer=pcbnew.In1_Cu)
+        before = b.tracks()
+        b.run()
+        self.assertEqual(b.tracks(), before)
+        self.assertEqual(b.vias(), [(122.6, 96.8)])
+
+    def test_end_short_of_via_snapped(self):
+        b = Board()
+        b.pad(0, 0)
+        b.via(3, 0)
+        b.track((0, 0), (2.997, 0.004))
+        b.track((3, 0), (3, 2), layer=pcbnew.B_Cu)
+        b.run()
+        self.assertEqual(b.tracks(), [((0, 0), (3, 0))])
+
+    def test_shared_end_snapped_together(self):
+        # a 14 micron 45-degree stub into the via: the run it hangs off follows it
+        b = Board()
+        b.pad(0, 0, 0.3, 1.4)
+        b.via(0.01, 5.01)
+        b.track((0, 0), (0, 5), (0.01, 5.01))
+        b.track((0.01, 5.01), (0.01, 8), layer=pcbnew.B_Cu)
+        b.run()
+        (top,) = b.tracks()
+        self.assertIn(top[1], b.vias())
+
+    def test_short_axial_stub_collapsed(self):
+        # a 25 micron stub between a run and its via goes, the run ends at the via
+        b = Board()
+        b.pad(0, 0)
+        b.via(3, 0.025)
+        b.track((0, 0.025), (3, 0.025))
+        b.track((0, 0), (0, 0.025))
+        b.track((3, 0.025), (3, 2), layer=pcbnew.B_Cu)
+        b.track((3, 0.025), (3.025, 0.025))
+        b.track((3.025, 0.025), (5, 0.025), layer=pcbnew.F_Cu)
+        b.run()
+        self.assertTrue(all(abs(e[0] - s[0]) + abs(e[1] - s[1]) >= 0.05 for s, e in b.tracks()))
+
+    def test_joint_moves_onto_axes(self):
+        # a via a few microns off both its tracks' lines
+        b = Board()
+        b.pad(0, 0)
+        b.pad(3, 3, 0.3, 1.4)
+        b.via(3.006, 0.004)
+        b.track((0, 0), (3.006, 0.004))
+        b.track((3.006, 0.004), (3, 3), layer=pcbnew.B_Cu)
+        b.run()
+        self.assertEqual(b.vias(), [(3, 0)])
+        self.assertEqual(b.tracks(), [((0, 0), (3, 0))])
+        self.assertEqual(b.tracks(pcbnew.B_Cu), [((3, 0), (3, 3))])
+
+    def test_track_on_track_dropped(self):
+        b = Board()
+        b.pad(0, 0)
+        b.pad(6, 0)
+        b.track((0, 0), (6, 0))
+        b.track((2, 0), (3, 0))
+        b.run()
+        self.assertEqual(b.tracks(), [((0, 0), (6, 0))])
+
+
+if __name__ == '__main__':
+    unittest.main()

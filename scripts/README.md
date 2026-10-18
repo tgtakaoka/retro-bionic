@@ -46,4 +46,5 @@ it so a re-arm is explicit.
 |---|---|
 | `asm-includes.py` | Lists the files an assembler source includes, for `samples/deps.mk`. |
 | `route-length.py` | Compares routed track lengths in a KiCad board with straight-line pad distances. |
+| `kicad/` | Draws a new board's first schematic, PCB, `<chip>_bionic.toml` and CPU STEP model; see [kicad/README.md](kicad/README.md). |
 | `setup_compiledb.py` | PlatformIO extra script that refreshes `compile_commands.json` for clangd. |
