@@ -497,8 +497,11 @@ class Board:
                    unbounded wait, and only a reflash clears that
         """
         if self.identify() is not None:
-            return 'prompt'
-        return 'running' if self._drain(1.5, 1.5) != b'' else 'wedged'
+            how = 'prompt'
+        else:
+            how = 'running' if self._drain(1.5, 1.5) != b'' else 'wedged'
+        note(text='state %s' % how)
+        return how
 
     def recover(self, tries=3):
         """Work the ladder back to the prompt. Returns the target name or None.
@@ -717,6 +720,7 @@ def main():
         time.sleep(1.0)
         who = board.identify() or board.recover()
         board.close()
+        note(text='recovered %s' % who if who else 'state still stuck')
         print('at prompt (%s)' % who if who else 'still stuck -- reflash')
         sys.exit(0 if who else 1)
     elif cmd == 'send':
