@@ -151,7 +151,11 @@ Logic 2's MCP tools called directly cannot check: lock the analyzer first.
 Powering a board off drops its Teensy off USB; a flash passes through the
 HalfKay bootloader and a firmware crash re-enumerates within a second or two.
 `scripts/bionic-bench.py daemon` logs each change to `bench-events.log`,
-then the target seated, so a seat needs no reply in chat.
+then the target seated, so a seat needs no reply in chat. Its look at the
+target is the first open after a re-enumeration, the only one to see a
+CrashReport, so it keeps the report and logs where. The session holding a
+bench follows it with `scripts/bionic-bench.py watch --mine` under a Monitor
+rather than polling `status`.
 `scripts/bionic-bench.py peek NAME` follows what a bench prints to whichever
 session drives it, without touching it.
 

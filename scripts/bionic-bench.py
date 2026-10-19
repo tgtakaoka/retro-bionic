@@ -12,6 +12,12 @@
     bionic-bench.py env NAME          shell exports that point every bench
                                       tool at NAME
     bionic-bench.py wait NAME         return after the next chip is seated
+    bionic-bench.py watch [NAME...] [--mine] [--all] [--deadline SECONDS]
+                                      follow state changes: every bench, the
+                                      ones named, or (--mine) the ones the
+                                      caller holds; --all adds the commands
+                                      sent; one line per event, for a
+                                      session's Monitor
     bionic-bench.py peek NAME         follow what NAME prints to the
                                       session driving it, without touching
                                       the bench
@@ -35,8 +41,9 @@ when its process is gone the lock passes to the next in the queue.
 
 The daemon follows each Teensy on USB: power off drops it, power on brings
 it back, a flash passes through the HalfKay bootloader. After any change it
-asks the board what is seated. Its events, and every lock change, are lines
-in bench-events.log, so a session can follow them with `tail -F`.
+asks the board what is seated, and logs any CrashReport the Teensy prints
+on that first look. Its events, its own start and stop, and every lock
+change are lines in bench-events.log, which `watch` follows for a session.
 
 Everything else shared lives in RUN_DIR as plain files, so the state
 survives the daemon and any session ending:
@@ -56,6 +63,7 @@ import glob
 import hashlib
 import json
 import os
+import signal
 import socket
 import subprocess
 import sys
@@ -264,6 +272,38 @@ def say(name, what):
         f.write('%s %s %s\n' % (time.strftime('%H:%M:%S'), name, what))
 
 
+# The first word of an event that changes a bench's state; the rest of the
+# log is the commands sessions send.
+STATE_EVENTS = {'power', 'gone', 're-enumerated', 'flashed', 'flash',
+                'seated', 'no', 'crash', 'locked', 'unlocked', 'queued',
+                'renamed', 'state', 'recovered', 'started', 'stopped'}
+
+
+def follow():
+    """Yield (time, name, event) for each line logged from now on; a log that
+    shrinks, as after a reboot empties RUN_DIR, is read again from its
+    start. Yields None every half second it is quiet."""
+    os.makedirs(RUN_DIR, exist_ok=True)
+    open(LOG, 'a').close()
+    f = open(LOG)
+    f.seek(0, 2)
+    while True:
+        line = f.readline()
+        if line:
+            parts = line.rstrip('\n').split(None, 2)
+            if len(parts) == 3:
+                yield tuple(parts)
+            continue
+        try:
+            if os.path.getsize(LOG) < f.tell():
+                f.close()
+                f = open(LOG)
+        except OSError:
+            pass
+        yield None
+        time.sleep(0.5)
+
+
 class Hold:
     """NAME.hold, read and changed under NAME.mutex:
     {"holder": {owner, pid, since} or null, "queue": [...]}."""
@@ -396,6 +436,10 @@ def daemon():
                     continue
                 try:
                     time.sleep(1.0)
+                    # the first open after a crash gets its CrashReport
+                    first = board._drain(1.5, 0.4)
+                    if b'CrashReport' in first:
+                        report(serial, first)
                     how = board.state()
                     who = board.identify() if how == 'prompt' else None
                 finally:
@@ -409,9 +453,33 @@ def daemon():
         note(serial, target=None)
         say(name(serial), 'no target: %s' % how)
 
+    def report(serial, text):
+        """Keep a CrashReport and log where it is, with its first fact."""
+        text = text.decode('ascii', 'replace').replace('\r', '')
+        path = os.path.join(RUN_DIR, 'crash-%s-%s.txt' % (
+                name(serial), time.strftime('%Y%m%d-%H%M%S')))
+        with open(path, 'w') as f:
+            f.write(text)
+        lines = [l.strip() for l in text.split('CrashReport', 1)[1]
+                 .splitlines() if l.strip()]
+        fact = next((l for l in lines if 'address' in l),
+                    lines[0] if lines else '')
+        say(name(serial), 'crash report: %s (%s)' % (fact, path))
+
     def probe(serial, port):
         threading.Thread(target=answer, args=(serial, port),
                          daemon=True).start()
+
+    fresh = not os.path.exists(LOG)
+    say('daemon', 'started pid %d%s' % (
+            os.getpid(), ', run dir was empty' if fresh else ''))
+
+    def stopped(*_):
+        say('daemon', 'stopped pid %d' % os.getpid())
+        os._exit(0)
+
+    signal.signal(signal.SIGTERM, stopped)
+    signal.signal(signal.SIGINT, stopped)
 
     on, gone, flashed, flashed_at = teensys(), {}, set(), {}
     with Registry() as r:
@@ -458,6 +526,58 @@ def daemon():
 
 
 # ------------------------------------------------------------------ cli
+def taken(name):
+    print('%s is yours' % name)
+    print('follow its changes: scripts/bionic-bench.py watch --mine '
+          '(one line per event, e.g. under a Monitor)', file=sys.stderr)
+
+
+def watch(args):
+    """Print each state event of the chosen benches as it is logged, and
+    the daemon's own start and stop, until the deadline if one is given."""
+    every = '--all' in args
+    only_mine = '--mine' in args
+    deadline = None
+    if '--deadline' in args:
+        i = args.index('--deadline')
+        deadline = time.time() + float(args[i + 1])
+        del args[i:i + 2]
+    wanted = [n for n in args if not n.startswith('--')]
+    for n in wanted:
+        if n not in names():
+            sys.exit('no bench %s; `scripts/bionic-bench.py status` lists '
+                     'them' % n)
+    # Ownership follows the log's own lock lines, not NAME.hold read when a
+    # line is seen, which may already be a later state.
+    who = me()
+    ours = set(held()) if only_mine else set()
+    for ev in follow():
+        if deadline is not None and time.time() > deadline:
+            print('%s watch deadline' % time.strftime('%H:%M:%S'),
+                  flush=True)
+            return
+        if ev is None:
+            continue
+        stamp, bench, event = ev
+        if bench != 'daemon':
+            if not every and event.split(None, 1)[0] not in STATE_EVENTS:
+                continue
+            if wanted and bench not in wanted:
+                continue
+            if only_mine:
+                if event.startswith('locked by '):
+                    owner = event[len('locked by '):].split(',', 1)[0]
+                    if owner == who[0]:
+                        ours.add(bench)
+                    else:
+                        ours.discard(bench)
+                if bench not in ours:
+                    continue
+                if event.startswith('unlocked'):
+                    ours.discard(bench)
+        print('%s %s %s' % (stamp, bench, event), flush=True)
+
+
 def status():
     try:
         seen = json.load(open(STATE))
@@ -491,6 +611,9 @@ def main():
     cmd, name = a[0], a[1] if len(a) > 1 else None
     if cmd == 'daemon':
         daemon()
+        return
+    if cmd == 'watch':
+        watch(a[1:])
         return
     if name is None:
         sys.exit(__doc__)
@@ -527,7 +650,7 @@ def main():
             else:
                 h.data['holder'] = entry
                 say(name, 'locked by %s' % who[0])
-                print('%s is yours' % name)
+                taken(name)
     elif cmd == 'reserve':
         with Hold(name) as h:
             if h.mine(who):
@@ -536,7 +659,7 @@ def main():
             if not h.data['holder'] and not h.data['queue']:
                 h.data['holder'] = entry
                 say(name, 'locked by %s' % who[0])
-                print('%s is yours' % name)
+                taken(name)
                 return
             if all(w['pid'] != who[1] for w in h.data['queue']):
                 h.data['queue'].append(entry)
@@ -546,7 +669,7 @@ def main():
             time.sleep(2.0)
             with Hold(name) as h:
                 if h.mine(who):
-                    print('%s is yours' % name)
+                    taken(name)
                     return
     elif cmd == 'unlock':
         force = '--force' in a
@@ -601,18 +724,10 @@ def main():
         print('export BIONIC_BENCH=%s BIONIC_PORT=%s BIONIC_HALT_PORT=%s'
               % (name, p[0], p[1]))
     elif cmd == 'wait':
-        with open(LOG) as f:
-            f.seek(0, 2)
-            while True:
-                line = f.readline()
-                if not line:
-                    time.sleep(0.5)
-                    continue
-                parts = line.split(None, 3)
-                if len(parts) == 4 and parts[1] == name and \
-                        parts[2] == 'seated':
-                    print(parts[3].strip())
-                    return
+        for ev in follow():
+            if ev and ev[1] == name and ev[2].startswith('seated '):
+                print(ev[2][len('seated '):])
+                return
     else:
         sys.exit(__doc__)
 

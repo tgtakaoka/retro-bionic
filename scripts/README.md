@@ -7,7 +7,7 @@ usage.
 
 | Script | What it does |
 |---|---|
-| `bionic-bench.py` | Names each bench (`bench1`, `bench2`, ... by Teensy serial), watches power, flashes and the target seated, and locks a bench or a logic analyzer for one session, with a queue (`lock`, `reserve`, `unlock`, `status`, `peek`, `daemon`). |
+| `bionic-bench.py` | Names each bench (`bench1`, `bench2`, ... by Teensy serial), watches power, flashes and the target seated, and locks a bench or a logic analyzer for one session, with a queue (`lock`, `reserve`, `unlock`, `status`, `watch`, `peek`, `daemon`). |
 | `bionic-control.py` | Drives one bench: `flash`, `reset`, `send`, `upload`, `run`, `abort`, `probe`, `recover`. Talks to the bench the session holds; the other bench tools build on it. |
 | `bionic-regress.py` | Runs a target's regression suite from `samples/<dir>/bench/regress.toml`: reset, step, samples, haltgo, breakpoint, gountil, disasm. |
 | `record-scenario.py` | Plays a `.scenario` console demo live, or records it as an asciinema cast with `--save`. |
@@ -26,7 +26,12 @@ scripts/bionic-bench.py unlock bench2
 
 `scripts/bionic-bench.py peek bench2` follows what bench2 prints while
 another session drives it. The daemon logs every power change, flash,
-target, lock and command in `/tmp/bionic-bench/bench-events.log`.
+target, CrashReport, lock and command in
+`/tmp/bionic-bench/bench-events.log`, and its own start and stop.
+`scripts/bionic-bench.py watch --mine` prints each state change of the
+benches the session holds, one line per event, for a Claude session's
+Monitor; `watch` alone covers every bench, and `--deadline SECONDS` ends
+it so a re-arm is explicit.
 
 ## Logic analyzer
 
