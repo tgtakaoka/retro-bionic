@@ -79,8 +79,8 @@ enum IntrName : uint8_t {
     INTR_NMI = 2,
 };
 
-// The board the P8095BH, the N8097BH and the S80C196KB/KC sit on; each
-// adds its own pins and control lines.
+// The board the P8095BH, the N8097BH, the S80C196KB/KC and the
+// S80C196NP/S80296SA sit on; each adds its own pins and control lines.
 struct PinsI8096 : Pins {
     void idle() override;
     bool step(bool show) override;
@@ -123,7 +123,7 @@ protected:
 
     // Where the halt's INTR_NMI enters: the vector it reads, or the
     // address an 8096's NMI calls. EXTINT stands in on a board without NMI.
-    virtual uint16_t haltEntry() const { return InstI8096::VEC_EXTINT; }
+    virtual uint16_t haltEntry() const { return InstI8096::vecExtint(_cpu); }
     // Raises EXTINT again after the halt dropped it to give the CPU an
     // edge; called after each bus cycle, as the halt's entry may leave it
     // low until the next run.
@@ -139,6 +139,10 @@ protected:
 
     // Serves the reset's CCB read |ccb|; returns the first fetch.
     Signals *startAfterReset(Signals *ccb);
+    // Whether |s| is an 80C196NP or 80296SA's CCB0 read after a program's
+    // RST: then serves the CCBs, sets BUSCON5 as R does and holds the
+    // first fetch.
+    bool programReset(Signals *s);
     // A full prefetch queue idles the bus for at most an instruction, even
     // a DIVL's ~40 state times; a CPU missing or held in reset never
     // answers.
@@ -151,13 +155,16 @@ protected:
 
 private:
     // The board's CPU, and the one in its socket: an S80C196KB on the
-    // S80C196KC board.
+    // S80C196KC board, an S80C196NP on the S80296SA board.
     const CpuType _board;
     CpuType _cpu;
     bool _idle = false;
     // The CPU waits in the read of |_park|, a copy of its cycle kept.
     bool _held = false;
     uint16_t _park;
+    // Where the run the ring began with started, while the ring has kept
+    // its first cycle; MatchWalker::NO_STOP otherwise.
+    uint32_t _ringFirst = MatchWalker::NO_STOP;
     Signals _idleSignals;
     Signals _heldSignals;
 
@@ -189,6 +196,7 @@ private:
             uint_fast8_t size = 0);
     bool fetchedBreak(const Signals *s) const;
     uint16_t jumpTarget(uint16_t next, uint_fast8_t opc) const;
+    uint16_t skippedCall(const Signals *push, uint16_t sp, uint16_t pc) const;
     uint16_t readData16(uint16_t addr) const;
     uint16_t serveVector(Signals *s, uint16_t vector, uint16_t &pc);
     void handleTrap(Signals *s, uint16_t vector, bool breakTrap);

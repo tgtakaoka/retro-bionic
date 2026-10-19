@@ -4,6 +4,7 @@
 #include "inst_i8096.h"
 #include "mems_i8096.h"
 #include "regs_i8096.h"
+#include "watchdog.h"
 
 namespace debugger {
 namespace i8096 {
@@ -141,6 +142,7 @@ void PinsI8096::resetPins() {
     for (auto i = 0; i < 10 * 4; i++)
         xtal1_cycle();
     Cycles::reset();
+    _ringFirst = MatchWalker::NO_STOP;
     negate_reset();
     _idle = false;
     _held = false;
@@ -167,25 +169,57 @@ Signals *PinsI8096::startAfterReset(Signals *ccb) {
     // address is on AD.
     if (_board == CPU_80C196KC)
         fetch->addr = InstI8096::ORG_RESET;
+    // The 80C196NP and 80296SA read CCB1 next, on the bus CCB0 set up.
+    if (fetch->addr == MemsI8096::CCB1) {
+        completeCycle(fetch->inject(_mems->read(MemsI8096::CCB1)), true);
+        fetch = prepareCycle();
+    }
     return fetch;
+}
+
+// ATTENTION: a program's own read of CCB0 is taken for its RST.
+bool PinsI8096::programReset(Signals *s) {
+    if (_cpu < CPU_80C196NP || !s->read() || s->addr != MemsI8096::CCB)
+        return false;
+    const auto fetch = startAfterReset(s);
+    hold(fetch, fetch->addr);
+    regs<RegsI8096>()->selectBus16();
+    return true;
 }
 
 // The S80C196KC's register RAM reaches 1FFH, the S80C196KB's 0FFH: a
 // store to 0100H shows on the bus only on the KB, before the one to 5678H
-// that ends the capture.
+// that ends the capture. DPTS, the PTS's, is an unimplemented opcode on
+// the S80296SA: its trap pushes the PC before that store. Its vector at
+// 2012H points at the closing SJMP, so the sequence's last byte is read
+// and the CPU parks either way.
 CpuType PinsI8096::probeCpu() {
-    if (_board != CPU_80C196KC)
-        return _board;
     constexpr uint16_t ext = 0x5678;
     uint8_t byte;
-    const uint8_t STB_0100[] = {
-            0xC7, 0x01, 0x00, 0x01, 0,        // STB ZERO, 0100H[0]
+    if (_board == CPU_80C196KC) {
+        const uint8_t STB_0100[] = {
+                0xC7, 0x01, 0x00, 0x01, 0,        // STB ZERO, 0100H[0]
+                0xC7, 0x01, lo(ext), hi(ext), 0,  // STB ZERO, 5678H[0]
+                SJMP(-12),                        // SJMP $+2-12
+        };
+        const auto first = execute(_park, STB_0100, sizeof(STB_0100), &byte,
+                1, EXIT_PARK, true);
+        return first == 0x0100 ? CPU_80C196KB : CPU_80C196KC;
+    }
+    if (_board != CPU_80296SA)
+        return _board;
+    constexpr uint16_t VEC_UNIMPLEMENTED = 0x2012;
+    const uint8_t DPTS[] = {
+            0xA1, lo(ext), hi(ext), 0x18,    // LD SP, #5678H
+            0xEC,                            // DPTS
             0xC7, 0x01, lo(ext), hi(ext), 0,  // STB ZERO, 5678H[0]
-            SJMP(-12),                        // SJMP $+2-12
+            SJMP(-12),                       // SJMP $+2-12
     };
-    const auto first = execute(
-            _park, STB_0100, sizeof(STB_0100), &byte, 1, EXIT_PARK, true);
-    return first == 0x0100 ? CPU_80C196KB : CPU_80C196KC;
+    const uint16_t sjmp = _park + sizeof(DPTS) - 2;
+    const uint8_t vec[] = {lo(sjmp), hi(sjmp)};
+    const auto first = execute(_park, DPTS, sizeof(DPTS), &byte, 1, EXIT_PARK,
+            true, VEC_UNIMPLEMENTED, vec, sizeof(vec));
+    return first != ext ? CPU_80296SA : CPU_80C196NP;
 }
 
 // #RD or #WR active within |settle_ns|.
@@ -253,6 +287,9 @@ Signals *PinsI8096::startCycle(Signals *s) {
 // switch to stop the run.
 Signals *PinsI8096::noBusCycle(Signals *s) {
     interrupts();
+    // A wait this long ticks too seldom to keep the watchdog off; the
+    // halt switch still stops the run.
+    Watchdog::feed();
     cli.println("?halt: no bus cycle");
     s->noCycle();
     return s;
@@ -268,10 +305,16 @@ void PinsI8096::hold(const Signals *s, uint16_t park) {
 }
 
 // A 16-bit read is always a word's, at an even address: the CPU discards
-// the byte it doesn't need.
+// the byte it doesn't need. An odd byte rides AD0-AD7 too, for an 8-bit
+// bus an 80C196NP or 80296SA program selects with a BUSCONx.
+// ATTENTION: a write there puts an odd byte on AD0-AD7, taken from
+// AD8-AD15 as on the 16-bit bus.
 uint16_t PinsI8096::readBus(const Signals *s) const {
-    const uint16_t even = s->addr & ~1;
-    return uint16(_mems->read(even + 1), _mems->read(even));
+    if (s->addr & 1) {
+        const auto odd = _mems->read(s->addr);
+        return uint16(odd, odd);
+    }
+    return uint16(_mems->read(s->addr + 1), _mems->read(s->addr));
 }
 
 void PinsI8096::writeBus(const Signals *s) const {
@@ -427,6 +470,31 @@ uint16_t PinsI8096::readData16(uint16_t addr) const {
     return uint16(_mems->get_data(addr + 1), _mems->get_data(addr));
 }
 
+// The S80296SA on its board was seen taking an interrupt inside a call,
+// after the call pushed its return address |pc| at |sp|: the cycle |push|
+// before the vector read is that push, and the interrupt pushes |pc|
+// again (W 0FFC=21FF, R 2006, W 0FFA=21FF). The call's target is where
+// the CPU resumes; its push stays.
+// ATTENTION: the S80C196NP is unchecked.
+uint16_t PinsI8096::skippedCall(
+        const Signals *push, uint16_t sp, uint16_t pc) const {
+    if (!push->write() || push->addr != sp ||
+            uint16(push->byteAt(sp + 1), push->byteAt(sp)) != pc)
+        return pc;
+    if (_cpu == CPU_80296SA && _mems->read(pc - 4) == 0xF1)  // ECALL
+        return pc + static_cast<int16_t>(_mems->read16(pc - 3));
+    if (_mems->read(pc - 3) == 0xEF)  // LCALL
+        return pc + static_cast<int16_t>(_mems->read16(pc - 2));
+    const auto opc = _mems->read(pc - 2);
+    if ((opc & 0xF8) == 0x28) {  // SCALL
+        const auto opr = ((opc & 7) << 8) | _mems->read(pc - 1);
+        constexpr auto sign = 1 << 10;
+        constexpr auto mask = (sign << 1) - 1;
+        return pc + static_cast<int16_t>(((opr + sign) & mask) - sign);
+    }
+    return pc;
+}
+
 uint16_t PinsI8096::jumpTarget(uint16_t next, uint_fast8_t opc) const {
     const auto pc = _regs->nextIp();
     if (opc >= 0x20 && opc < 0x30) {  // SJMP/SCALL
@@ -441,15 +509,19 @@ uint16_t PinsI8096::jumpTarget(uint16_t next, uint_fast8_t opc) const {
         return next + static_cast<int8_t>(_mems->read(pc + 1));
     } else if (opc == 0xE0 || (c196() && opc == 0xE1)) {  // DJNZ/DJNZW
         return next + static_cast<int8_t>(_mems->read(pc + 2));
-    } else if (_cpu == CPU_80C196KC && opc == 0xE2) {
+    } else if (_cpu >= CPU_80C196KC && opc == 0xE2) {
         // TIJMP TBASE,[INDEX],#MASK
         const auto index = _mems->get_data(readData16(_mems->read(pc + 1)));
         const auto mask = _mems->read(pc + 2);
         const auto tbase = readData16(_mems->read(pc + 3));
         return readData16(tbase + (index & mask) * 2);
-    } else if (opc == 0xE3) {  // BR
-        return regs<RegsI8096>()->read_data16(_mems->read(pc + 1));
+    } else if (opc == 0xE3) {  // BR, the 80296SA's EBR on an odd register
+        return regs<RegsI8096>()->read_data16(_mems->read(pc + 1) & ~1);
     } else if (opc == 0xE7 || opc == 0xEF) {  // LJMP/LCALL
+        return next + static_cast<int16_t>(_mems->read16(pc + 1));
+    } else if (_cpu == CPU_80296SA && (opc == 0xE6 || opc == 0xF1)) {
+        // EJMP/ECALL: a 24-bit displacement, its low 16 bits in 64-Kbyte
+        // mode
         return next + static_cast<int16_t>(_mems->read16(pc + 1));
     } else if (opc == 0xF0) {  // RET
         return readData16(regs<RegsI8096>()->sp());
@@ -477,13 +549,15 @@ bool PinsI8096::rawStep(bool show) {
     // A block move takes two cycles a word; its count is read while the
     // register file is still the debugger's.
     uint32_t cycles = 100;
-    if (c196() && (opc == InstI8096::BMOV || opc == InstI8096::BMOVI))
+    if (c196() && (opc == InstI8096::BMOV || opc == InstI8096::BMOVI ||
+                          opc == InstI8096::EBMOVI))
         cycles += 2 * readData16(_mems->read(pc + 1));
     // The first read of the TRAP vector is a stepped TRAP's own.
     auto ownTrap = opc == InstI8096::TRAP;
     _regs->restore();
     if (show)
         Cycles::reset();
+    _ringFirst = MatchWalker::NO_STOP;
     _idle = false;
     // Whether a fetch of |addr| in |s| gets the TRAP, once each of the
     // instruction's bytes was fetched.
@@ -563,6 +637,7 @@ bool PinsI8096::rawStep(bool show) {
 
 bool PinsI8096::step(bool show) {
     Cycles::reset();
+    _ringFirst = MatchWalker::NO_STOP;
     if (rawStep(show)) {
         if (show)
             printCycles();
@@ -638,7 +713,9 @@ bool PinsI8096::haltCycle(Signals *s) {
                 uint16(push->byteAt(push->addr + 1), push->byteAt(push->addr));
         hold(s, s->addr);
     } else {
+        const auto before = s->prev();
         _halt.sp = serveVector(s, 0x5678, _halt.pc);
+        _halt.pc = skippedCall(before, _halt.sp + 2, _halt.pc);
     }
     _halt.park = park();
     _halt.waiting = true;
@@ -691,6 +768,8 @@ Signals *PinsI8096::loop() {
             handleTrap(s, 0x4566, true);
             return s;
         }
+        if (programReset(s))
+            continue;
         if (_halt.cycles) {
             if (haltCycle(s))
                 return s;
@@ -729,6 +808,8 @@ Signals *PinsI8096::loop() {
                 return s;
             }
         }
+        if (programReset(s))
+            continue;
         if (_halt.cycles) {
             if (haltCycle(s))
                 return s;
@@ -749,6 +830,7 @@ Signals *PinsI8096::loop() {
 void PinsI8096::run() {
     _regs->restore();
     Cycles::reset();
+    _ringFirst = _regs->nextIp();
     _idle = false;
     saveBreakInsts();
     startRunTimer();
@@ -800,7 +882,12 @@ const Signals *PinsI8096::findFetch(Signals *begin, const Signals *end) {
     arch.setIdle(
             [](void *pins) { static_cast<PinsI8096 *>(pins)->idle(); }, this);
     auto &walker = MatchWalker::shared();
-    if (!walker.walk(arch, begin, end))
+    // The ring still begins with the run once it hasn't filled.
+    const auto first = begin == Signals::get() &&
+                                       Cycles::cycles() < Cycles::MAX_CYCLES - 1
+                               ? _ringFirst
+                               : MatchWalker::NO_STOP;
+    if (!walker.walk(arch, begin, end, MatchWalker::NO_STOP, first))
         return end;
     return begin->next(walker.start());
 }

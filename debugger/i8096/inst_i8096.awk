@@ -12,7 +12,8 @@
 # before the long index variant. A row is its sequence's index: its
 # length is the sequence's bytes. J goes to the next + disp, RST's to 2080.
 # A row ending in "80196KB" is an instruction the 80C196KB added, "80196KC"
-# one only the 80C196KC has; PAGE00's go into KB_OPCODES[] and KC_OPCODES[].
+# one the 80C196KC added, "80296" one only the 80296SA has; PAGE00's go
+# into KB_OPCODES[], KC_OPCODES[] and SA_OPCODES[].
 
 BEGIN {
     if (MODE == "")
@@ -108,6 +109,7 @@ END {
         printf("};\n");
     generate_OPCODES("KB");
     generate_OPCODES("KC");
+    generate_OPCODES("SA");
 }
 
 $1 !~ /[0-9A-F][0-9A-F]/ { next; }
@@ -120,7 +122,9 @@ $1 ~ /[0-9A-F][0-9A-F]/ {
     seq = $6
     if (seq == "") seq = "-"
     cpu = $7
-    if (match(cpu, /^80196(K[BC])$/, kx) && FILENAME ~ /PAGE00/) {
+    if (cpu == "80296")
+        kx[1] = "SA";
+    if ((cpu == "80296" || match(cpu, /^80196(K[BC])$/, kx)) && FILENAME ~ /PAGE00/) {
         N[kx[1]]++;
         OPCODES[kx[1], N[kx[1]]] = opc;
         MNEMOS[kx[1], N[kx[1]]] = mne;

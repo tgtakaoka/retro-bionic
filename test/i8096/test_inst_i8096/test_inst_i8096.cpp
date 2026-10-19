@@ -73,6 +73,8 @@ const auto RINGS = loadRings(DIR, "i8096");
 const auto RINGS16 = loadRings(DIR, "i8096_16");
 // The S80C196KC's, on its 16-bit bus.
 const auto RINGS_KC = loadRings(DIR, "s80c196kc_16");
+// The S80296SA's, on its 16-bit bus.
+const auto RINGS_SA = loadRings(DIR, "s80296sa_16");
 
 // The bench rings: where running samples stopped (scripts/record-rings.py),
 // on an 8-bit bus and on a 16-bit one.
@@ -93,7 +95,7 @@ int recorded(int mark) {
 
 // The walk as |cpu| decodes the instructions.
 int replayAs(CpuType cpu, const std::vector<Cycle> &cycles,
-        std::vector<int> &marks) {
+        std::vector<int> &marks, uint32_t first = MatchWalker::NO_STOP) {
     Cycles ring;
     for (const auto &c : cycles) {
         const auto s = Signals::put();
@@ -112,7 +114,9 @@ int replayAs(CpuType cpu, const std::vector<Cycle> &cycles,
     static MatchWalker walker;
     MatchWalker::trace = tracing();
     const auto start =
-            walker.walk(arch, begin, end) ? begin->next(walker.start()) : end;
+            walker.walk(arch, begin, end, MatchWalker::NO_STOP, first)
+                    ? begin->next(walker.start())
+                    : end;
     for (auto i = 0u; i < cycles.size(); ++i)
         marks.push_back(markOf(begin->next(i)));
     return start == end ? -1 : begin->diff(start);
@@ -124,6 +128,12 @@ int replay(const std::vector<Cycle> &cycles, std::vector<int> &marks) {
 
 int replayKc(const std::vector<Cycle> &cycles, std::vector<int> &marks) {
     return replayAs(CPU_80C196KC, cycles, marks);
+}
+
+// Each ring begins with the run from the pattern's origin, as the
+// firmware's does.
+int replaySa(const std::vector<Cycle> &cycles, std::vector<int> &marks) {
+    return replayAs(CPU_80296SA, cycles, marks, 0x3000);
 }
 
 }  // namespace
@@ -142,6 +152,10 @@ void test_recorded_runs16() {
 
 void test_recorded_runs_kc() {
     check(DIR, "s80c196kc_16", RINGS_KC, replayKc);
+}
+
+void test_recorded_runs_sa() {
+    check(DIR, "s80296sa_16", RINGS_SA, replaySa);
 }
 
 void test_bench_rings() {
@@ -238,6 +252,7 @@ int main() {
     RUN_TEST(test_recorded_runs);
     RUN_TEST(test_recorded_runs16);
     RUN_TEST(test_recorded_runs_kc);
+    RUN_TEST(test_recorded_runs_sa);
     RUN_TEST(test_bench_rings);
     RUN_TEST(test_bench16_rings);
     RUN_TEST(test_bench_kc_rings);

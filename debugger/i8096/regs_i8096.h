@@ -17,6 +17,10 @@ struct RegsI8096 final : Regs {
 
     void print() const override;
     void reset() override;
+    // The 80C196NP and 80296SA's BUSCON5 for a 16-bit bus, the register
+    // file left as it was.
+    void selectBus16() const;
+    bool hasWsr1() const;
     void save() override;
     void restore() override;
     // A trap pushed |pc| below |sp|. False when an interrupt took the CPU
@@ -43,6 +47,8 @@ private:
     // The 80C196's, PUSHA pushes them too.
     uint8_t _int_mask1;
     uint8_t _wsr;
+    // The 80C196NP and 80296SA's second window, which PUSHA leaves.
+    uint8_t _wsr1;
 
     mutable CharBuffer _buffer1;
     mutable CharBuffer _buffer2;
@@ -58,7 +64,9 @@ private:
     static constexpr auto ADDR_INT_PENDING = 0x09;
     static constexpr auto ADDR_INT_PENDING1 = 0x12;
     static constexpr auto ADDR_WSR = 0x14;
+    static constexpr auto ADDR_WSR1 = 0x15;
     static constexpr auto ADDR_SP = 0x18;
+    static constexpr uint16_t BUSCON5 = 0x1F6C;
 };
 
 }  // namespace i8096
