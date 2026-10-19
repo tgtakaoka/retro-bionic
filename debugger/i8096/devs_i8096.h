@@ -3,7 +3,9 @@
 
 #include "devs.h"
 
-#define USART 0x0200
+// Above the 80C196NP's register RAM and the 80296SA's reserved range,
+// which reach 3FFH, so every chip's samples share it.
+#define USART 0x0400
 
 namespace debugger {
 namespace i8096 {
