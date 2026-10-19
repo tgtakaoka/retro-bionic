@@ -6,7 +6,8 @@
 namespace debugger {
 namespace i8096 {
 
-// The 80C196KC has 488 bytes of register RAM up to 1FFH.
+// The 80C196KC and 80296SA have register RAM up to 1FFH, the 80C196NP up
+// to 3FFH.
 MemsI8096::MemsI8096(Devs *devs, RegsI8096 *regs, CpuType cpu)
     : DmaMemory(Endian::ENDIAN_LITTLE), _devs(devs), _regs(regs) {
     setCpu(cpu);
@@ -19,11 +20,21 @@ MemsI8096::MemsI8096(Devs *devs, RegsI8096 *regs, CpuType cpu)
 }
 
 void MemsI8096::setCpu(CpuType cpu) {
-    _regsEnd = cpu == CPU_80C196KC ? 0x200 : 0x100;
+    _cpu = cpu;
+    _regsEnd = cpu == CPU_80C196NP                              ? 0x400
+               : cpu == CPU_80C196KC || cpu == CPU_80296SA ? 0x200
+                                                           : 0x100;
 }
 
 uint16_t MemsI8096::read(uint32_t addr) const {
-    if (addr == CCB) {
+    if (_cpu >= CPU_80C196NP) {
+        // CCB0: no wait states, multiplexed, #WR/#BHE, 16-bit bus, no
+        // powerdown; CCB1: 64-Kbyte mode
+        if (addr == CCB)
+            return 0xC6;
+        if (addr == CCB1)
+            return 0xDA;
+    } else if (addr == CCB) {
         // Chip Configuration Register
         // 16 Bit width, #WR/#BHE, ALE, infinite READY, no ROM protection
         return 0xFF;
@@ -40,11 +51,11 @@ void MemsI8096::write(uint32_t addr, uint16_t data) const {
 }
 
 uint16_t MemsI8096::get_data(uint32_t addr) const {
-    return addr < _regsEnd ? _regs->read_data(addr) : read_byte(addr);
+    return onChip(addr) ? _regs->read_data(addr) : read_byte(addr);
 }
 
 void MemsI8096::put_data(uint32_t addr, uint16_t data) const {
-    if (addr < _regsEnd) {
+    if (onChip(addr)) {
         _regs->write_data(addr, data);
     } else {
         write_byte(addr, data);

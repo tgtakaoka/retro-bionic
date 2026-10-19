@@ -434,6 +434,11 @@ Keep captures triggered and short. `trimDataSeconds` only trims after the
 trigger fires, so a stopped, untriggered capture holds the whole run, and
 exporting one can fill the disk; closing the capture does not stop the export.
 
+With the leads on the bench side of the connector, a line the CPU doesn't
+drive keeps the last level the Teensy drove: an address bit that never
+changes, or the previous read's data during ALE, points to an open line
+between the CPU and the connector.
+
 ### Order bench work by image, not by fix **[hw]**
 
 Seating a chip takes moments; flashing the Teensy takes minutes and wipes the
@@ -1216,6 +1221,33 @@ vectors to 0000H, and reads INST as the fifth CNTL line. **[code]**
   addresses the bus shows with the expected ones (the reset vector, the
   value loaded into SP) to find the one bit that is off; if reseating
   doesn't help, check that pin's joint before suspecting firmware. **[hw]**
+
+**S80296SA.** The QFP-100 board serves CCB0 C6H and CCB1 DAH (multiplexed,
+16-bit, 64-Kbyte mode) and sets BUSCON5 to 40H for everything outside
+F2000-F20FFH. **[code]**
+
+- It reads a vector before it pushes the PC, as the 8096 does, not first
+  as the 80C196KB and KC. **[hw]**
+- Its reset, an RST's too, holds ALE high before the CCB0 fetch's own
+  ALE, so a cycle's address is the last ALE's before its strobe. A
+  program's RST resets BUSCON5, so the debugger sets it again, reading out
+  the register that takes first. **[hw][code]**
+- An interrupt requested during DI is taken after DI's next instruction
+  (80296SA User's Manual §6.4.1); the samples follow each DI that guards a
+  queue with a NOP. **[doc][hw]**
+- An odd register operand selects another instruction: a signed MUL or
+  DIV without the FE prefix, MVAC or MSAC, EBR; a MUL whose destination
+  byte is below 10H is the MAC family. The profile gives the base forms an
+  even register and records those forms on their own. **[doc][hw]**
+- With its queue full the bus runs 12 bytes past the instruction, beyond
+  the walker's old cap of 8. A ring a run began with keeps its first
+  instruction through `walk()`'s `first`. **[hw][code]**
+- EXTINT0 is P2.2's special function: a sample sets P2_MODE, P2_DIR and
+  P2_REG, then clears the pending bit writing P2_MODE sets. **[doc][hw]**
+- WSR1 windows 40H-7FH and PUSHA leaves it: the save stores it out and
+  clears it, the restore loads it before POPA. **[doc][code]**
+- AD lines open at the QFP's joints latch CCB0 with stray bits (DE for C6:
+  demultiplexed, five wait states); reflowing the AD pins fixed it. **[hw]**
 
 ### SC/MP (INS8060)
 

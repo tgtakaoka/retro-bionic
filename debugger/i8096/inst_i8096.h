@@ -8,20 +8,25 @@
 namespace debugger {
 namespace i8096 {
 
-// The instruction sets, each the one before's and more.
+// The instruction sets, each the one before's and more; the 80296SA
+// drops the KC's PTS.
 enum CpuType : uint8_t {
     CPU_8096,
     CPU_80C196KB,
     CPU_80C196KC,
+    CPU_80C196NP,
+    CPU_80296SA,
 };
 
 // An instruction's sequence, from the tables, as |cpu| has it.
 struct InstI8096 final {
     bool set(uint16_t pc, const MatchMemory *mems, CpuType cpu);
-    // An 80C196 pushes the PC before it reads a vector, the 8096 after.
-    // ATTENTION: seen on the S80C196KB and KC; the later ones follow them
-    // unverified.
-    static bool pushesBeforeVector(CpuType cpu) { return cpu >= CPU_80C196KB; }
+    // An 80C196 pushes the PC before it reads a vector; the 8096 and the
+    // 80296SA push after.
+    // ATTENTION: the 80C196NP follows the KB and KC unverified.
+    static bool pushesBeforeVector(CpuType cpu) {
+        return cpu >= CPU_80C196KB && cpu != CPU_80296SA;
+    }
     uint_fast8_t opc() const { return _opc; }
     const char *sequence() const { return _seq; }
     uint_fast8_t instLength() const;
@@ -33,6 +38,11 @@ struct InstI8096 final {
     static bool vector(uint16_t addr) {
         return addr >= 0x2000 && addr < 0x2040;
     }
+    // The 80C196NP and 80296SA's EXTINT0, INT03.
+    static constexpr uint16_t VEC_EXTINT0 = 0x2006;
+    static uint16_t vecExtint(CpuType cpu) {
+        return cpu >= CPU_80C196NP ? VEC_EXTINT0 : VEC_EXTINT;
+    }
 
     // Where an 8096's NMI calls, with no vector read.
     static constexpr uint16_t ORG_NMI = 0x0000;
@@ -43,6 +53,9 @@ struct InstI8096 final {
     static constexpr uint8_t RST = 0xFF;
     static constexpr uint8_t BMOV = 0xC1;
     static constexpr uint8_t BMOVI = 0xCD;
+    static constexpr uint8_t EBMOVI = 0xE4;
+    static constexpr uint8_t DPTS = 0xEC;
+    static constexpr uint8_t EPTS = 0xED;
 #define SJMP(disp) (0x20 | ((disp >> 8) & 7)), (disp & 0xFF)
 
 private:
@@ -50,15 +63,19 @@ private:
     const char *_seq;
 
     static bool indexAddressing(uint_fast8_t opc);
+    const char *macRelocates(uint16_t pc, const MatchMemory *mems) const;
 };
 
-// The 8096 as MatchWalker sees it, its code in |mems|: a queue of 4 bytes,
-// fetched a word at a time on a 16-bit bus.
+// The 8096 as MatchWalker sees it, its code in |mems|, fetched a word at a
+// time on a 16-bit bus.
 // The instruction bytes an i8096 holds past a running instruction: an
 // 80C196's 4-byte queue (8XC196Kx user's manual, 2.3.1) and the opcode it
-// has moved into the instruction register, as the S80C196KC's rings show.
+// has moved into the instruction register, as the S80C196KC's rings show;
+// the 80296SA's queue is 10 bytes (AP-717). With the queue full, an
+// S80296SA was seen 7 bytes past a running store, so 11 stays a bound.
+// ATTENTION: the 80296SA's walk is unverified; its sequences are the KC's.
 constexpr uint8_t queueBytes(CpuType cpu) {
-    return cpu >= CPU_80C196KB ? 5 : 4;
+    return cpu == CPU_80296SA ? 12 : cpu >= CPU_80C196KB ? 5 : 4;
 }
 
 struct ArchI8096 final : MatchWalker::Arch {

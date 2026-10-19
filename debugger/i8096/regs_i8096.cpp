@@ -12,17 +12,25 @@ namespace {
 // clang-format off
 //                    012345678901234567890123456789012345
 const char line1[] = "PC=xxxx SP=xxxx PSW=ZNVTC_IS11111111";
-//                    0123456789012345
-const char line2[] = " IM1=xx WSR=xx";
+//                    012345678901234567890
+const char line2[] = " IM1=xx WSR=xx WSR1=xx";
 // clang-format on
 }  // namespace
 
 RegsI8096::RegsI8096(i8096::PinsI8096 *pins)
     : _pins(pins), _buffer1(line1), _buffer2(line2) {}
 
+bool RegsI8096::hasWsr1() const {
+    return _pins->cpuType() >= CPU_80C196NP;
+}
+
 // libasm's names for the instruction sets.
 const char *RegsI8096::cpu() const {
     switch (_pins->cpuType()) {
+    case CPU_80296SA:
+        return "80296";
+    case CPU_80C196NP:
+        return "80196N";
     case CPU_80C196KC:
         return "80196";
     case CPU_80C196KB:
@@ -39,6 +47,8 @@ const char *RegsI8096::cpuName() const {
         return "S80C196KB";
     case CPU_80C196KC:
         return "S80C196KC";
+    case CPU_80C196NP:
+        return "S80C196NP";
     default:
         return Regs::cpuName();
     }
@@ -51,6 +61,13 @@ void RegsI8096::print() const {
     if (_pins->c196()) {
         _buffer2.hex8(5, _int_mask1);
         _buffer2.hex8(12, _wsr);
+        // WSR1 on the 80C196NP and 80296SA only
+        if (hasWsr1()) {
+            _buffer2[14] = ' ';
+            _buffer2.hex8(20, _wsr1);
+        } else {
+            _buffer2[14] = 0;
+        }
         cli.print(_buffer1);
         cli.println(_buffer2);
     } else {
@@ -58,7 +75,32 @@ void RegsI8096::print() const {
     }
 }
 
+// The 80C196NP and 80296SA run everything outside CS0's reset window,
+// F2000-F20FFH, on BUSCON5: a 16-bit bus with no wait states, like CS0
+// from CCB0. BUSCON5 is an SFR, written off the bus; tmp's byte is read
+// out first through a store to CS0's window, which the debugger captures.
+void RegsI8096::selectBus16() const {
+    if (_pins->cpuType() < CPU_80C196NP)
+        return;
+    constexpr auto tmp = 0x1A;
+    constexpr uint16_t window = 0x2020;
+    const uint8_t STB_TMP[] = {
+            0xC7, 0x01, lo(window), hi(window), tmp,  // STB tmp, 2020H[0]
+            SJMP(-7),                                 // SJMP $+2-7
+    };
+    uint8_t saved = 0;
+    _pins->execInst(STB_TMP, length(STB_TMP), &saved, 1);
+    const uint8_t LDB_BUSCON5[] = {
+            0xB1, 0x40, tmp,                            // LDB tmp, #40H
+            0xC7, 0x01, lo(BUSCON5), hi(BUSCON5), tmp,  // STB tmp, BUSCON5[0]
+            0xB1, saved, tmp,                           // LDB tmp, #saved
+            SJMP(-13),                                  // SJMP $+2-13
+    };
+    _pins->execInst(LDB_BUSCON5, length(LDB_BUSCON5));
+}
+
 void RegsI8096::reset() {
+    selectBus16();
     // SP in external memory, so pushes show on the bus.
     write_data16(ADDR_SP, 0x1234);
     // A reset leaves INT_PENDING undefined, as SP: a stale EXTINT would
@@ -70,7 +112,9 @@ void RegsI8096::reset() {
 
 // Each sequence runs where the CPU is parked and jumps back there. The
 // 80C196's PUSHA also pushes INT_MASK1 and WSR; WSR is cleared so the
-// debugger sees the register file unwindowed.
+// debugger sees the register file unwindowed. PUSHA leaves the 80C196NP
+// and 80296SA's WSR1, which windows 40H-7FH: it is stored out to the bus,
+// then cleared.
 void RegsI8096::save() {
     static constexpr uint8_t PUSHF[] = {
             0xF2,      // PUSHF
@@ -81,9 +125,22 @@ void RegsI8096::save() {
             0xB1, 0, ADDR_WSR,  // LDB WSR, #0
             SJMP(-6),           // SJMP $+2-6
     };
+    static constexpr uint16_t abs = 0x5678;
+    static constexpr uint8_t PUSHA_WSR1[] = {
+            0xF4,                                    // PUSHA
+            0xC7, 0x01, lo(abs), hi(abs), ADDR_WSR1,  // STB WSR1, 5678H[0]
+            0xB1, 0, ADDR_WSR1,                      // LDB WSR1, #0
+            0xB1, 0, ADDR_WSR,                       // LDB WSR, #0
+            SJMP(-14),                               // SJMP $+2-14
+    };
     _pc = _pins->park();
-    uint8_t buffer[4];
-    if (_pins->c196()) {
+    uint8_t buffer[5];
+    if (hasWsr1()) {
+        _sp = _pins->execInst(PUSHA_WSR1, length(PUSHA_WSR1), buffer, 5);
+        _int_mask1 = buffer[2];
+        _wsr = buffer[3];
+        _wsr1 = buffer[4];
+    } else if (_pins->c196()) {
         _sp = _pins->execInst(PUSHA, length(PUSHA), buffer, 4);
         _int_mask1 = buffer[2];
         _wsr = buffer[3];
@@ -107,7 +164,19 @@ bool RegsI8096::captureContext(uint16_t sp, uint16_t pc, bool breakTrap) {
 
 void RegsI8096::restore() {
     const auto disp = _pc - (_pins->park() + 4);  // POPF/POPA + LJMP
-    if (_pins->c196()) {
+    if (hasWsr1()) {
+        // WSR1 is set back while PSW is still the debugger's, interrupts
+        // off.
+        const auto wdisp = disp - 3;
+        write_data16(ADDR_SP, _sp - 4);
+        const uint8_t POPA[] = {
+                0xB1, _wsr1, ADDR_WSR1,      // LDB WSR1, #_wsr1
+                0xF5,                        // POPA
+                0xE7, lo(wdisp), hi(wdisp),  // LJMP _pc
+        };
+        const uint8_t words[] = {_int_mask1, _wsr, lo(_psw), hi(_psw)};
+        _pins->popInst(POPA, length(POPA), _sp - 4, words, sizeof(words), _pc);
+    } else if (_pins->c196()) {
         write_data16(ADDR_SP, _sp - 4);
         const uint8_t POPA[] = {
                 0xF5,                      // POPA
@@ -214,7 +283,9 @@ void RegsI8096::write_data16(uint8_t addr, uint16_t data) const {
 }
 
 void RegsI8096::helpRegisters() const {
-    cli.println(_pins->c196() ? "?Reg: PC SP PSW IM1 WSR" : "?Reg: PC SP PSW");
+    cli.println(hasWsr1()          ? "?Reg: PC SP PSW IM1 WSR WSR1"
+                : _pins->c196() ? "?Reg: PC SP PSW IM1 WSR"
+                                : "?Reg: PC SP PSW");
 }
 
 constexpr const char *REGS16[] = {
@@ -225,7 +296,8 @@ constexpr const char *REGS16[] = {
 
 constexpr const char *REGS8[] = {
         "IM1",  // 4
-        "WSR",  // 5
+        "WSR",   // 5
+        "WSR1",  // 6
 };
 
 const Regs::RegList *RegsI8096::listRegisters(uint_fast8_t n) const {
@@ -233,6 +305,12 @@ const Regs::RegList *RegsI8096::listRegisters(uint_fast8_t n) const {
             {REGS16, 3, 1, UINT16_MAX},
             {REGS8, 2, 4, UINT8_MAX},
     };
+    static constexpr RegList REG_LIST_WSR1[] = {
+            {REGS16, 3, 1, UINT16_MAX},
+            {REGS8, 3, 4, UINT8_MAX},
+    };
+    if (hasWsr1())
+        return n < 2 ? &REG_LIST_WSR1[n] : nullptr;
     return n < (_pins->c196() ? 2 : 1) ? &REG_LIST[n] : nullptr;
 }
 
@@ -252,6 +330,9 @@ bool RegsI8096::setRegister(uint_fast8_t reg, uint32_t value) {
         break;
     case 5:
         _wsr = value;
+        break;
+    case 6:
+        _wsr1 = value;
         break;
     default:
         break;
