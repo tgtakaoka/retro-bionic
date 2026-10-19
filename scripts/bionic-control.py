@@ -666,7 +666,9 @@ def flash(tries=3):
     with two benches on USB that may be the wrong one. Opening PORT at 134
     baud sends just its Teensy into the HalfKay bootloader, and the loader
     then programs the only Teensy waiting there. The first try is retried
-    because some boards miss the reboot.
+    because some boards miss the reboot, and others reach the bootloader too
+    late for the loader: on a retry, a Teensy in HalfKay is this bench's own,
+    so it is programmed where it waits.
     """
     usable()
     b = subprocess.run(['pio', 'run', '-e', ENV], cwd=PROJ,
@@ -678,9 +680,10 @@ def flash(tries=3):
     serial = bench.serial_at(PORT)   # its port is gone while it is flashed
     out = ''
     for i in range(tries):
-        if bench.halfkay():
+        if not bench.halfkay():
+            subprocess.run(['stty', '-F', PORT, '134'], capture_output=True)
+        elif i == 0:
             sys.exit('another Teensy is in its bootloader; not flashing')
-        subprocess.run(['stty', '-F', PORT, '134'], capture_output=True)
         try:
             p = subprocess.run([LOADER, '--mcu=TEENSY41', '-w', image],
                                capture_output=True, text=True, timeout=30)
@@ -696,7 +699,10 @@ def flash(tries=3):
                 time.sleep(0.2)
             print('upload ok (attempt %d)' % (i + 1))
             return
-        print('upload attempt %d failed' % (i + 1))
+        last = out.strip().splitlines()[-1] if out.strip() else 'no output'
+        note(text='flash attempt %d failed: %s' % (i + 1, last))
+        print('upload attempt %d failed:' % (i + 1))
+        print(out[-1500:])
         time.sleep(1.0)
     print(out[-1500:])
     sys.exit('upload failed after %d attempts' % tries)
