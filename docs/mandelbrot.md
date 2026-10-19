@@ -49,7 +49,7 @@ The tables time them on real chips, from recorded casts, with
 | TMS9995     |  16.1 |   0.658 |   0.214 | TMS9900 code       | [mandelbrot_tms9995.cast](../samples/tms9900/mandelbrot_tms9995.cast)    | [tms9900/mandelbrot.lst](../samples/tms9900/mandelbrot.lst)     |
 | KL5C80A12   |  16.5 |   0.669 |   0.172 | Z80 code           | [mandelbrot_kl5c80.cast](../samples/z80/mandelbrot_kl5c80.cast)          | [z80/mandelbrot.lst](../samples/z80/mandelbrot.lst)             |
 | Z380        |  16.7 |   0.681 |   0.182 | Z180 code          | [mandelbrot_z380.cast](../samples/z180/mandelbrot_z380.cast)             | [z180/mandelbrot.lst](../samples/z180/mandelbrot.lst)           |
-| Z380        |  17.0 |   0.691 |   0.181 | Z80 code           | [mandelbrot_z380.cast](../samples/z80/mandelbrot_z380.cast)              | [z80/mandelbrot.lst](../samples/z80/mandelbrot.lst)             |
+| Z380        |  17.4 |   0.709 |   0.185 | Z80 code           | [mandelbrot_z380.cast](../samples/z80/mandelbrot_z380.cast)              | [z80/mandelbrot.lst](../samples/z80/mandelbrot.lst)             |
 | TMS370Cx5x  |  20.2 |   0.823 |   0.259 | TMS370 code        | [mandelbrot.cast](../samples/tms370/mandelbrot.cast)                     | [tms370/mandelbrot.lst](../samples/tms370/mandelbrot.lst)       |
 | Z88C00      |  21.3 |   0.870 |   0.289 | Z88 code           | [mandelbrot.cast](../samples/z88/mandelbrot.cast)                        | [z88/mandelbrot.lst](../samples/z88/mandelbrot.lst)             |
 | MC68HC08AZ0 |  23.0 |   0.941 |   0.312 |                    | [mandelbrot.cast](../samples/mc68hc08/mandelbrot.cast)                   | [mc68hc08/mandelbrot.lst](../samples/mc68hc08/mandelbrot.lst)   |
@@ -232,7 +232,7 @@ TMS99105.
 | | P8080 | P8085 | Z80 | Z180 | Z280 | Z380 | NSC800 | HD64180S | KL5C80A12 |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | [i8080](../samples/i8080/mandelbrot.lst) | 63.2 | 40.2 | 32.6 | | | | 43.2 | | |
-| [z80](../samples/z80/mandelbrot.lst) | | | 27.5 | 31.3 | 30.7 | 17.0 | 36.2 | 31.3 | 16.5 |
+| [z80](../samples/z80/mandelbrot.lst) | | | 27.5 | 31.3 | 30.7 | 17.4 | 36.2 | 31.3 | 16.5 |
 | [z180](../samples/z180/mandelbrot.lst) | | | | 28.7 | | 16.7 | | 28.7 | |
 | [z280](../samples/z280/mandelbrot.lst) | | | | | 5.2 | | | | |
 | [z380](../samples/z380/mandelbrot.lst) | | | | | | 3.7 | | | |
