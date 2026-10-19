@@ -1168,9 +1168,10 @@ both lanes from the even word whatever A0 says. **[hw]**
   mode". Driving it on AD0-AD7 alone works. **[doc][hw]**
 - #BHE is bonded out on the DIP-48, despite the data sheet's note that it
   isn't on 48-pin parts: `PUSHF` pushes in one word cycle. **[hw]**
-- A status read at 0201H would read the data register at 0200H with it
+- A status read at 0401H would read the data register at 0400H with it
   and swallow a character, so the USART's registers sit a word apart:
-  data 0200H, status and control 0202H. **[code]**
+  data 0400H, status and control 0402H. 0400H is above the 80C196NP's
+  register RAM, so every chip runs the same samples. **[code]**
 - Injection is address-keyed: each sequence runs from where the CPU is
   parked and jumps back there, and the read of the exit is held for the
   next one. The vectors the debugger hands a trap are even, so a sequence

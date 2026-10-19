@@ -23,7 +23,7 @@ NAME = 'P8095BH'
 TRAP = 0xF7
 ORG = 0x3000
 INTERNAL = 0x0100               # the register file
-USART = range(0x0200, 0x0210)
+USART = range(0x0400, 0x0410)
 CCB = 0x2018                    # read at reset
 # PSW keeps interrupts disabled.
 BASE = [('PC', ORG), ('SP', 0x0F00), ('PSW', 0x0000)]

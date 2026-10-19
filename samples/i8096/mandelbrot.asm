@@ -11,6 +11,8 @@ tx_queue:       dsb     tx_queue_size
         org     1000H
 stack:          equ     $
 
+        org     VEC_EXTINT0     ; the 80C196NP and 80296SA's
+        dcw     isr_intr
         org     VEC_EXTINT
         dcw     isr_intr
 
