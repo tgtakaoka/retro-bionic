@@ -58,6 +58,9 @@ void I8251::write(uint32_t addr, uint16_t data) {
     if (addr == _base_addr) {
         _txData = data;
         _status &= ~(ST_TxRDY_bm | ST_TxEMPTY_bm);
+        // The previous character's deferred interrupt would rise while
+        // TxRDY is low, leaving no edge for when it is set again.
+        _txDone = false;
         negateTxIntr();
         return;
     }
