@@ -32,18 +32,6 @@ const char *RegsI8096::cpu() const {
     }
 }
 
-// The chip in the socket, where the board takes two.
-const char *RegsI8096::cpuName() const {
-    switch (_pins->cpuType()) {
-    case CPU_80C196KB:
-        return "S80C196KB";
-    case CPU_80C196KC:
-        return "S80C196KC";
-    default:
-        return Regs::cpuName();
-    }
-}
-
 void RegsI8096::print() const {
     _buffer1.hex16(3, _pc);
     _buffer1.hex16(11, _sp);

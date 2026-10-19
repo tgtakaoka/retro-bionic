@@ -8,18 +8,16 @@ namespace i8096 {
 
 // The 80C196KC has 488 bytes of register RAM up to 1FFH.
 MemsI8096::MemsI8096(Devs *devs, RegsI8096 *regs, CpuType cpu)
-    : DmaMemory(Endian::ENDIAN_LITTLE), _devs(devs), _regs(regs) {
-    setCpu(cpu);
+    : DmaMemory(Endian::ENDIAN_LITTLE),
+      _devs(devs),
+      _regs(regs),
+      _regsEnd(cpu == CPU_80C196KC ? 0x200 : 0x100) {
 #ifdef WITH_ASSEMBLER
     _assembler = new libasm::i8096::AsmI8096();
 #endif
 #ifdef WITH_DISASSEMBLER
     _disassembler = new libasm::i8096::DisI8096();
 #endif
-}
-
-void MemsI8096::setCpu(CpuType cpu) {
-    _regsEnd = cpu == CPU_80C196KC ? 0x200 : 0x100;
 }
 
 uint16_t MemsI8096::read(uint32_t addr) const {
