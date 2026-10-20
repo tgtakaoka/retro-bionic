@@ -1622,6 +1622,26 @@ built yet. The bus keeps the MC68HC12B's Teensy pins: AD0-AD15, R/`#W`,
   2.5s before falling back to the self-clock; an external reset after a
   running clock skips it. **[doc]**
 
+Board for the MC9S12XDP512MAG (144-pin LQFP, `schematics/mc9s12x`);
+not built yet. Four layers, In1 GND and In2 VCC, signals on F/B only.
+D0-D15 take P1x/P2x and the control pins P40-P53, but the S12X bus
+has 23 address lines, too many for P3x.
+
+- ADDR0-ADDR22 reach P30-P37 through four 74HCS153, selected by P54
+  (ASEL0) and P55 (ASEL1): 00 A0-A3/A16-A19, 01 A4-A7/A20-A22, 10
+  A12-A15, 11 A8-A11. Unused mux inputs are tied to GND.
+- On the S12X, XCLKS (PE7, P52) is latched only at a power-on reset,
+  before the Teensy drives anything, so the 10k pull-down alone selects
+  the external clock on EXTAL. **[doc]**
+- VREGEN is tied high: VDD1, VDD2 and VDDPLL are 2.5V regulator outputs
+  with only their 0.1u caps. XFC is pulled up to VDDPLL by 2.2k (AN3262)
+  since the PLL is unused. XTAL is open, TEST and VRL are tied low, VRH
+  high. **[doc]**
+- EXTAL is a 2.5V pin on VDDPLL, 3.0V at most (RM appendix A), so P47
+  drives it through a 74LVC1G17 on its own TLV70025 LDO: the regulator
+  outputs take no DC load. Rev 1 wired it straight to the base board's 5V
+  level shifter. **[doc]**
+
 Firmware (`debugger/mc68hc12`):
 
 - DIVBYP is driven high, so each EXTAL period is half an E cycle and one
