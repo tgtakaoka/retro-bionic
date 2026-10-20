@@ -48,6 +48,7 @@ cast, 📄 the listing.
 | mc68hc16 |  mc68hc16 | MC68HC16Z1PV16 |   2.3 |   0.095 |   0.029 | 10.00&nbsp;⏱️ |                          |                 [▶️](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/mc68hc16/mandelbrot.cast&lst=samples/mc68hc16/mandelbrot.lst "mandelbrot.cast") [📄](../samples/mc68hc16/mandelbrot.lst "mc68hc16/mandelbrot.lst")                 |
 |    h16   |    h16    |  HD641016CP10  |   2.5 |   0.100 |   0.022 | 10.00&nbsp;⏱️ |                          |                           [▶️](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/h16/mandelbrot.cast&lst=samples/h16/mandelbrot.lst "mandelbrot.cast") [📄](../samples/h16/mandelbrot.lst "h16/mandelbrot.lst")                           |
 |   z8000  |   z8002   |   Z16C0210PSC  |   2.6 |   0.104 |   0.030 |   6.86&nbsp;🔨 |                          |                       [▶️](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/z8002/mandelbrot.cast&lst=samples/z8002/mandelbrot.lst "mandelbrot.cast") [📄](../samples/z8002/mandelbrot.lst "z8002/mandelbrot.lst")                       |
+| mc68hc12 | mc68hcs12 |  MC9S12DG128B  |   2.8 |   0.112 |   0.031 |   1.96&nbsp;🔨 |                          |         [▶️](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/mc68hc12/mandelbrot_mc9s12d.cast&lst=samples/mc68hc12/mandelbrot.lst "mandelbrot_mc9s12d.cast") [📄](../samples/mc68hc12/mandelbrot.lst "mc68hc12/mandelbrot.lst")         |
 |   i8096  |   i8096   |     N8097BH    |   2.9 |   0.117 |   0.033 |  10.03&nbsp;🔨 | i8096 code               |                 [▶️](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/i8096/mandelbrot_n8097.cast&lst=samples/i8096/mandelbrot.lst "mandelbrot_n8097.cast") [📄](../samples/i8096/mandelbrot.lst "i8096/mandelbrot.lst")                 |
 |   i8096  |   i8096   |     P8095BH    |   2.9 |   0.119 |   0.033 |  10.06&nbsp;🔨 | i8096 code               |                       [▶️](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/i8096/mandelbrot.cast&lst=samples/i8096/mandelbrot.lst "mandelbrot.cast") [📄](../samples/i8096/mandelbrot.lst "i8096/mandelbrot.lst")                       |
 | mc68hc12 |  mc68hc12 |  MC68HC912BD32 |   3.0 |   0.121 |   0.034 |   1.80&nbsp;🔨 |                          |                 [▶️](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/mc68hc12/mandelbrot.cast&lst=samples/mc68hc12/mandelbrot.lst "mandelbrot.cast") [📄](../samples/mc68hc12/mandelbrot.lst "mc68hc12/mandelbrot.lst")                 |
@@ -206,6 +207,13 @@ the chip's.
 |  mc6809  |   hd6309  |    HD63B09P    |   3.14&nbsp;🔨 |                          |                                       34.4 |                                       11.2 |
 |  mc6809  |   mc6809  |    MC68B09EP   |   0.84&nbsp;🔨 | 2 phase clock            |                                       35.9 |                                            |
 |  mc6809  |   hd6309  |    HD63C09EP   |   0.87&nbsp;🔨 | 2 phase clock            |                                       32.5 |                                       10.1 |
+
+### MC68HC12 family
+
+|   arch   |    core   |       CPU      |           MHz | Note                     | [mc68hc12](../samples/mc68hc12/mandelbrot.lst) |
+| :------: | :-------: | :------------: | ------------: | ------------------------ | ---------------------------------------------: |
+| mc68hc12 |  mc68hc12 |  MC68HC912BD32 |   1.80&nbsp;🔨 |                          |                                            3.0 |
+| mc68hc12 | mc68hcs12 |  MC9S12DG128B  |   1.96&nbsp;🔨 |                          |                                            2.8 |
 
 ### MOS6502 family
 

@@ -15,7 +15,7 @@ const char *Mc68hc12SciHandler::description() const {
 }
 
 uint32_t Mc68hc12SciHandler::baseAddr() const {
-    return Mc68hc12Init::REG_BASE + Mc68hc12Init::SC0BDH;
+    return _init.sciBase();
 }
 
 bool Mc68hc12SciHandler::isSelected(uint32_t addr) const {

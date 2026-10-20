@@ -8,6 +8,7 @@ namespace mc68hc12 {
 
 // The CPU12 opcodes and vectors the debugger injects and watches.
 struct InstMc68hc12 {
+    static constexpr uint8_t PAGE2 = 0x18;  // the prebyte of the page 2 opcodes
     static constexpr uint8_t BRA = 0x20;
     static constexpr uint8_t BRA_HERE = 0xFE;  // BRA *
     static constexpr uint8_t NOP = 0xA7;

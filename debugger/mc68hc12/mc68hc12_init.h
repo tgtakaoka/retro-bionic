@@ -11,8 +11,9 @@ struct RegsMc68hc12;
 /**
  * The MC68HC912BD32's internal memory map, as reset leaves it in special
  * expanded wide mode: registers, RAM and EEPROM inside, the rest outside.
+ * Another chip of the family derives with its own map and setup.
  */
-struct Mc68hc12Init final : Device {
+struct Mc68hc12Init : Device {
     Mc68hc12Init() : Device() { enable(true); }
 
     const char *name() const override { return "INIT"; }
@@ -24,9 +25,13 @@ struct Mc68hc12Init final : Device {
     uint32_t baseAddr() const override { return REG_BASE; }
 
     // Clears the reset's external access stretch and stops the COP.
-    void configSystem(RegsMc68hc12 *regs) const;
+    virtual void configSystem(RegsMc68hc12 *regs) const;
 
-    bool is_internal(uint16_t addr) const;
+    virtual bool is_internal(uint16_t addr) const;
+    // SC0BDH, the first SCI0 register.
+    virtual uint16_t sciBase() const { return REG_BASE + SC0BDH; }
+    // The libasm CPU the disassembler takes.
+    virtual const char *cpuType() const { return "68HC12"; }
 
     static constexpr uint16_t REG_BASE = 0x0000;
     static constexpr uint16_t REG_SIZE = 0x0200;
@@ -39,6 +44,9 @@ struct Mc68hc12Init final : Device {
     static constexpr uint16_t COPCTL = 0x16;
     static constexpr uint16_t SC0BDH = 0xC0;
     static constexpr uint16_t SC0BDL = 0xC1;
+
+protected:
+    static void printRange(const char *name, uint16_t base, uint16_t size);
 };
 
 }  // namespace mc68hc12

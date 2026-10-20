@@ -49,7 +49,10 @@ it prints `No area`.
 
 On a CPU clocked from a timer (see [hardware.md](hardware.md#clocking-the-cpu)),
 `K [kHz]`, which `?` doesn't list, shows the clock rate a run uses or sets it;
-a rate the CPU can't take is answered with `?clock: not taken`.
+a rate the CPU can't take is answered with `?clock: not taken`. On a bus the
+debugger clocks edge by edge, such as the MC9S12D's, `K` scales the bus cycle's
+delays instead, as if the part ran at that rate: its rated clock leaves them
+as built.
 
 ### Not in a stock build
 
