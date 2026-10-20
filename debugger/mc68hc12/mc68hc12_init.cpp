@@ -9,14 +9,12 @@ const char *Mc68hc12Init::description() const {
     return Debugger.target().cpuName();
 }
 
-namespace {
-void printRange(const char *name, uint16_t base, uint16_t size) {
+void Mc68hc12Init::printRange(const char *name, uint16_t base, uint16_t size) {
     cli.print(name);
     cli.printHex(base, 4);
     cli.print('-');
     cli.printlnHex(base + size - 1, 4);
 }
-}  // namespace
 
 void Mc68hc12Init::print() const {
     printRange("  Registers at ", REG_BASE, REG_SIZE);

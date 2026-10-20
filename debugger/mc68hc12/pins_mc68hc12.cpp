@@ -1,4 +1,5 @@
 #include "pins_mc68hc12.h"
+#include "clock_mc68hc12.h"
 #include "debugger.h"
 #include "devs_mc68hc12.h"
 #include "inst_mc68hc12.h"
@@ -39,37 +40,13 @@ namespace mc68hc12 {
  */
 // clang-format on
 
-namespace {
+namespace clock {
 
 // E follows EXTAL once in phase, so a bus cycle is four fixed edges; E is
 // polled only through reset's stretched cycles and to catch STOP. The
 // address and #DBE settle about 24ns after a quiet edge.
-constexpr auto extal_ns = 25;    // an EXTAL half period, at least
-constexpr auto addr_ns = 40;     // quiet edge to address, R/W, #LSTRB
-constexpr auto dbe_ns = 40;      // quiet edge to #DBE, write data
-constexpr auto setup_ns = 25;    // read data to the E fall
-constexpr auto e_wait_ns = 200;  // active edge to E, at most
-constexpr uint32_t e_wait_cycles = F_CPU / 1000000 * e_wait_ns / 1000;
-
-// Where the CPU waits between injected sequences, and where it stores what
-// it reads for the debugger: both outside, away from any program.
-constexpr uint16_t PARK = 0xFF80;
-
 uint8_t active_level = HIGH;
 
-inline void active_edge() {
-    digitalWriteFast(PIN_EXTAL, active_level);
-}
-
-inline void quiet_edge() {
-    digitalWriteFast(PIN_EXTAL, !active_level);
-}
-
-inline auto clock_e() {
-    return digitalReadFast(PIN_E);
-}
-
-// Whether E reaches |level| soon after an edge.
 bool wait_e(uint8_t level) {
     const uint32_t start = ARM_DWT_CYCCNT;
     do {
@@ -79,20 +56,6 @@ bool wait_e(uint8_t level) {
     return false;
 }
 
-inline auto reset_signal() {
-    return digitalReadFast(PIN_RESET);
-}
-
-inline void assert_reset() {
-    digitalWriteFast(PIN_RESET, LOW);
-    pinMode(PIN_RESET, OUTPUT_OPENDRAIN);
-}
-
-inline void negate_reset() {
-    pinMode(PIN_RESET, INPUT_PULLUP);
-}
-
-// Half an E cycle, when E runs.
 void edge_pair() {
     quiet_edge();
     delayNanoseconds(extal_ns);
@@ -101,8 +64,6 @@ void edge_pair() {
     wait_e(!e);
 }
 
-// Finds which EXTAL level moves E and leaves the clock right after an E
-// fall. Returns false when E doesn't move.
 bool sync_e() {
     auto level = digitalReadFast(PIN_EXTAL);
     auto e = clock_e();
@@ -118,6 +79,12 @@ bool sync_e() {
     }
     return false;
 }
+
+}  // namespace clock
+
+using namespace clock;
+
+namespace {
 
 constexpr uint8_t PINS_LOW[] = {
         PIN_EXTAL,
@@ -174,7 +141,8 @@ void release_mode() {
 
 }  // namespace
 
-PinsMc68hc12::PinsMc68hc12(Mc68hc12Init &init) : _init(init), _park(PARK) {
+PinsMc68hc12::PinsMc68hc12(Mc68hc12Init &init, uint8_t stepAt)
+    : _init(init), _stepAt(stepAt), _park(PARK) {
     auto regs = new RegsMc68hc12(this, init);
     _regs = regs;
     _devs = new DevsMc68hc12(init);
@@ -209,8 +177,11 @@ void PinsMc68hc12::resetPins() {
         cli.println("?no E clock");
     if (clock_e() != LOW)
         edge_pair();
-    Cycles::reset();
+    startPark();
+}
 
+void PinsMc68hc12::startPark() {
+    Cycles::reset();
     // The reset vector (VfPPP) points at the park.
     static constexpr uint8_t BRA_HERE[] = {
             InstMc68hc12::BRA, InstMc68hc12::BRA_HERE};
@@ -220,6 +191,7 @@ void PinsMc68hc12::resetPins() {
             false);
     _init.configSystem(regs<RegsMc68hc12>());
     _stretch = false;
+    systemConfigured();
     _regs->reset();
     _regs->save();
     _regs->setIp(_mems->read16(InstMc68hc12::VEC_RESET));
@@ -311,10 +283,7 @@ Signals *PinsMc68hc12::completeCycle(Signals *s) {
         s->getStart();
         // A step's #XIRQ: RTI checks for an interrupt by its second queue
         // refill, the first instruction by the E fall that ends it.
-        if (_stepArm && ++_stepCycles == 2) {
-            assert_xirq();
-            _stepArm = false;
-        }
+        armStep();
         active_edge();
         // A stretched cycle keeps E high; the data stays until E falls.
         for (auto n = 0; _stretch && !wait_e(LOW) && n < 8; ++n) {
@@ -645,10 +614,14 @@ void PinsMc68hc12::negate_xirq() {
     _xirq = false;
 }
 
+void PinsMc68hc12::replay(Signals *begin, uint_fast8_t cycles) {
+    Queue().replay(begin, cycles);
+}
+
 void PinsMc68hc12::printCycles(const Signals *end) {
     const auto g = Signals::get();
     const auto cycles = g->diff(end ? end : Signals::put());
-    Queue().replay(g, cycles);
+    replay(g, cycles);
     for (auto i = 0u; i < cycles; ++i)
         g->next(i)->print();
 }
@@ -657,7 +630,7 @@ void PinsMc68hc12::printCycles(const Signals *end) {
 // once, here, before the ring is cut; disposing keeps the marks.
 const SignalsImpl *PinsMc68hc12::findBacktraceStart() {
     const auto g = Signals::get();
-    Queue().replay(g, g->diff(Signals::put()));
+    replay(g, g->diff(Signals::put()));
     _replayed = true;
     return backtraceStartFrom<Signals>(g, _lineLimit);
 }
@@ -668,7 +641,7 @@ void PinsMc68hc12::printBacktrace() {
     const auto g = Signals::get();
     const auto cycles = g->diff(Signals::put());
     if (!_replayed)
-        Queue().replay(g, cycles);
+        replay(g, cycles);
     _replayed = false;
     for (auto i = 0u; i < cycles; ++i) {
         const auto s = g->next(i);

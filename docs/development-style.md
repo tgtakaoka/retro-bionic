@@ -1676,6 +1676,31 @@ Firmware (`debugger/mc68hc12`):
 - The samples use EMULS and IDIVS inline; IDIVS's remainder is the
   `B-Q*F` that other targets multiply back. **[code]**
 
+Firmware for the MC9S12DG128B (`pins_mc9s12d.cpp`, identity `MC9S12D`),
+written before a chip arrived; the `ATTENTION:` constants are the guesses
+to check first:
+
+- MODC:MODB:MODA=010 is special test mode, the HCS12's special expanded
+  wide; 011, the HC12's code, is emulation expanded wide, where PEAR and
+  MODE are write-never and IVIS stays on. **[doc]**
+- There is no `#DBE`. IVIS shows the internal accesses with the CPU's
+  data, so a read is external only if NOACC doesn't mark it free and its
+  address is outside the registers and RAM ($0000-$1FFF). Keeping IVIS
+  matters: `save()` and `restore()` capture the frame from the stack
+  writes, and the samples' stack sits in internal RAM. **[doc]**
+- `configSystem()` clears PLLCTL first: CME and SCME are set by every
+  reset, and EXTAL stopping below 200kHz would move the bus to the
+  self-clock. Until then EXTAL never pauses, and `resetPins()` runs it for
+  100ms first, so that a chip powered up on the self-clock passes its
+  clock check and returns to EXTAL. **[doc]**
+- The HCS12 queue has three stages and no latch, so only ALD moves it.
+  IPIPE1:0 show the execution start before the E rise and the movement
+  before the E fall, both for this cycle, the reverse of the M68HC12
+  (`queue_hcs12.cpp`, host test `test/mc68hc12/test_queue_hcs12`).
+  **[doc]**
+- A cycle without E is taken as a free cycle until 64 in a row mean STOP:
+  the manuals don't say whether a free cycle shows E. **[code]**
+
 ### MC68HC16
 
 **Pitfalls.** The pin functions come from the data bus at reset: hold
