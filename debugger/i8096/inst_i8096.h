@@ -18,6 +18,10 @@ enum CpuType : uint8_t {
 // An instruction's sequence, from the tables, as |cpu| has it.
 struct InstI8096 final {
     bool set(uint16_t pc, const MatchMemory *mems, CpuType cpu);
+    // An 80C196 pushes the PC before it reads a vector, the 8096 after.
+    // ATTENTION: seen on the S80C196KB and KC; the later ones follow them
+    // unverified.
+    static bool pushesBeforeVector(CpuType cpu) { return cpu >= CPU_80C196KB; }
     uint_fast8_t opc() const { return _opc; }
     const char *sequence() const { return _seq; }
     uint_fast8_t instLength() const;
@@ -32,8 +36,11 @@ struct InstI8096 final {
 
     // Where an 8096's NMI calls, with no vector read.
     static constexpr uint16_t ORG_NMI = 0x0000;
+    // The 80C196's NMI vector.
+    static constexpr uint16_t VEC_NMI = 0x203E;
 
     static constexpr uint8_t TRAP = 0xF7;
+    static constexpr uint8_t RST = 0xFF;
     static constexpr uint8_t BMOV = 0xC1;
     static constexpr uint8_t BMOVI = 0xCD;
 #define SJMP(disp) (0x20 | ((disp >> 8) & 7)), (disp & 0xFF)
@@ -47,12 +54,24 @@ private:
 
 // The 8096 as MatchWalker sees it, its code in |mems|: a queue of 4 bytes,
 // fetched a word at a time on a 16-bit bus.
+// The instruction bytes an i8096 holds past a running instruction: an
+// 80C196's 4-byte queue (8XC196Kx user's manual, 2.3.1) and the opcode it
+// has moved into the instruction register, as the S80C196KC's rings show.
+constexpr uint8_t queueBytes(CpuType cpu) {
+    return cpu >= CPU_80C196KB ? 5 : 4;
+}
+
 struct ArchI8096 final : MatchWalker::Arch {
     explicit ArchI8096(const MatchMemory *mems, CpuType cpu = CPU_8096)
         : Arch(MatchWalker::Traits{.maxStart = 14,
-                  .queue = 4,
+                  .queue = queueBytes(cpu),
                   .cutStart = 7,
-                  .refetchWord = true}),
+                  .leadUnproven = cpu >= CPU_80C196KB,
+                  .refetchWord = true,
+                  .targetAhead = cpu >= CPU_80C196KB,
+                  .pushBeforeVector = InstI8096::pushesBeforeVector(cpu),
+                  .oddWordOneCycle = cpu >= CPU_80C196KB,
+                  .cutOverlap = cpu >= CPU_80C196KB}),
           _mems(mems),
           _cpu(cpu) {}
 

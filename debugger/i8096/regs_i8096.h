@@ -13,6 +13,7 @@ struct RegsI8096 final : Regs {
     RegsI8096(PinsI8096 *pins);
 
     const char *cpu() const override;
+    const char *cpuName() const override;
 
     void print() const override;
     void reset() override;

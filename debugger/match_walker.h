@@ -88,6 +88,17 @@ struct MatchWalker {
         // a word fetch takes the bytes the queue has room for, and the
         // word may be read again: for the rest, or at once
         bool refetchWord = false;
+        // a transfer's fetch may be one the queue took ahead, where the
+        // stream had got to its target
+        bool targetAhead = false;
+        // an interrupt's first cycle is its PC's push: a write in place of
+        // a fetch is one only where it pushes that fetch's address
+        bool pushBeforeVector = false;
+        // a word at an odd address moves in one bus cycle
+        bool oddWordOneCycle = false;
+        // the instruction a ring cuts may still move data among its first
+        // instruction's byte fetches
+        bool cutOverlap = false;
     };
 
     // A CPU, as the walk sees it.
