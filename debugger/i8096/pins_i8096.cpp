@@ -12,7 +12,7 @@ using Signals = SignalsI8096;
 
 // clang-format off
 /**
- * P8095BH, N8097BH and S80C196KB/KC bus cycle
+ * P8095BH and N8097BH bus cycle, the default PinsI8096 clocks
  *          __    __    __    __    __    __    __    __    __    __    __    __    __
  * XTAL1 __|  |__|  |__|  |__|  |__|  |__|  |__|  |__|  |__|  |__|  |__|  |__|  |__|  |
  *        __                                  __                                 __
@@ -125,7 +125,7 @@ void negate_reset() {
 
 }  // namespace
 
-PinsI8096::PinsI8096(CpuType cpu) : _cpu(cpu) {
+PinsI8096::PinsI8096(CpuType cpu) : _board(cpu), _cpu(cpu) {
     _devs = new DevsI8096();
     auto regs = new RegsI8096(this);
     _regs = regs;
@@ -145,24 +145,48 @@ void PinsI8096::resetPins() {
     _idle = false;
     _held = false;
     _halt = Halt();
-    // The CCB at 2018H, read before the CCR selects the 16-bit bus: AD0-AD7
-    // carry it in every bus mode.
-    auto ccb = prepareCycle();
-    ccb->addr = MemsI8096::CCB;  // AD held nothing while ALE was high
-    completeCycle(ccb->inject(_mems->read(MemsI8096::CCB)), true);
-    const auto fetch = prepareCycle();
+    auto fetch = startAfterReset(prepareCycle());
     if (fetch->addr != InstI8096::ORG_RESET) {
         cli.print("?reset fetch at ");
         cli.printlnHex(fetch->addr, 4);
     }
     hold(fetch, fetch->addr);
+    _cpu = probeCpu();
+    mems<MemsI8096>()->setCpu(_cpu);
     _regs->reset();
     _regs->save();
 }
 
-// A full prefetch queue idles the bus for at most an instruction, even a
-// DIVL's ~40 state times; a CPU missing or held in reset never answers.
-constexpr auto no_bus_cycles = 10000;
+// |ccb| reads the CCB at 2018H, before the CCR selects the 16-bit bus:
+// AD0-AD7 carry it in every bus mode. Returns the first fetch.
+Signals *PinsI8096::startAfterReset(Signals *ccb) {
+    ccb->addr = MemsI8096::CCB;  // AD held nothing while ALE was high
+    completeCycle(ccb->inject(_mems->read(MemsI8096::CCB)), true);
+    auto fetch = prepareCycle();
+    // The S80C196KB and KC hold ALE high about eight periods before the
+    // address is on AD.
+    if (_board == CPU_80C196KC)
+        fetch->addr = InstI8096::ORG_RESET;
+    return fetch;
+}
+
+// The S80C196KC's register RAM reaches 1FFH, the S80C196KB's 0FFH: a
+// store to 0100H shows on the bus only on the KB, before the one to 5678H
+// that ends the capture.
+CpuType PinsI8096::probeCpu() {
+    if (_board != CPU_80C196KC)
+        return _board;
+    constexpr uint16_t ext = 0x5678;
+    uint8_t byte;
+    const uint8_t STB_0100[] = {
+            0xC7, 0x01, 0x00, 0x01, 0,        // STB ZERO, 0100H[0]
+            0xC7, 0x01, lo(ext), hi(ext), 0,  // STB ZERO, 5678H[0]
+            SJMP(-12),                        // SJMP $+2-12
+    };
+    const auto first = execute(
+            _park, STB_0100, sizeof(STB_0100), &byte, 1, EXIT_PARK, true);
+    return first == 0x0100 ? CPU_80C196KB : CPU_80C196KC;
+}
 
 // #RD or #WR active within |settle_ns|.
 bool PinsI8096::awaitControl(Signals *s) const {
@@ -182,6 +206,10 @@ Signals *PinsI8096::prepareCycle() {
         *s = _heldSignals;
         return s;
     }
+    return startCycle(s);
+}
+
+Signals *PinsI8096::startCycle(Signals *s) {
     noInterrupts();
     // assert_debug();
     // completeCycle() leaves ALE low and unrisen. Sampled right after a
@@ -284,7 +312,7 @@ Signals *PinsI8096::completeCycle(Signals *s, bool low) {
         if (s->writeMemory())
             writeBus(s);
     }
-    if (_idle) {
+    if (idling()) {
         delayNanoseconds(xtal1_hi_ns);
     } else {
         Cycles::next();
@@ -327,6 +355,8 @@ uint16_t PinsI8096::execute(uint16_t org, const uint8_t *inst, uint_fast8_t len,
                 hold(s, from);
                 return first;
             }
+            // ATTENTION: a PTS cycle's vector read, 2040H-205FH on the
+            // 80C196KB, KC and NP, is answered with NOPs as a fetch ahead.
             if (whole && cap >= max && static_cast<uint16_t>(leaves - from) <
                                                static_cast<uint16_t>(to - from)) {
                 hold(s, leaves);
@@ -484,10 +514,20 @@ bool PinsI8096::rawStep(bool show) {
             }
             continue;
         }
+        // A stepped RST's reset pushes nothing: stop at its first fetch, as
+        // after the debugger's own.
+        if (opc == InstI8096::RST && s->addr == InstI8096::ORG_RESET) {
+            hold(s, s->addr);
+            _regs->reset();
+            _regs->save();
+            if (show)
+                Cycles::discard(s);
+            return true;
+        }
         if (s->addr == InstI8096::VEC_TRAP && !ownTrap) {
             handleTrap(s, 0x2344, true);
             if (show)
-                Cycles::discard(s);
+                Cycles::discard(ringEnd(s));
             return true;
         }
         if (InstI8096::vector(s->addr)) {
@@ -531,11 +571,26 @@ bool PinsI8096::step(bool show) {
     return false;
 }
 
+// Where a stop at |s| cuts the ring: an 80C196's vector read follows the
+// PC's push, which goes with it.
+Signals *PinsI8096::ringEnd(Signals *s) const {
+    if (InstI8096::pushesBeforeVector(_cpu) && s->read() && InstI8096::vector(s->addr))
+        return s->prev();
+    return s;
+}
+
 // |s| reads the vector: answer |vector|, capture the PC the CPU pushes
 // into |pc|, and park at |vector|, an even address. Returns the SP the
 // push left.
 uint16_t PinsI8096::serveVector(Signals *s, uint16_t vector, uint16_t &pc) {
     const uint8_t vec[] = {lo(vector), hi(vector)};
+    if (InstI8096::pushesBeforeVector(_cpu)) {
+        const auto push = s->prev();
+        hold(s, s->addr);
+        execute(s->addr, vec, sizeof(vec), nullptr, 0, vector, false);
+        pc = uint16(push->byteAt(push->addr + 1), push->byteAt(push->addr));
+        return push->addr;
+    }
     uint8_t push[2];
     hold(s, s->addr);
     const auto sp = execute(
@@ -699,14 +754,14 @@ void PinsI8096::run() {
     startRunTimer();
 #ifdef PROFILE_CYCLES
     // Keep the TRAP's cycles, its vector and pushes (1:~:Vr:Ww, a word
-    // each): without them the matcher can't place its fetch, the end of the
-    // pattern.
-    _profileEnd = loop()->next(2);
+    // each, the push first on an 80C196): without them the matcher can't
+    // place its fetch, the end of the pattern.
+    _profileEnd = loop()->next(InstI8096::pushesBeforeVector(_cpu) ? 1 : 2);
     stopRunTimer();
 #else
     const auto s = loop();
     stopRunTimer();
-    Cycles::discard(s);
+    Cycles::discard(ringEnd(s));
 #endif
     // A break that got in ahead of the halt's entry.
     // ATTENTION: the CPU may have latched NMI's edge already.

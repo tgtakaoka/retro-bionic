@@ -19,7 +19,7 @@ import re
 
 ARCH = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-NAME = 'P8095BH'
+NAME = ('P8095BH', 'N8097BH', 'S80C196KC', 'S80C196KB')
 TRAP = 0xF7
 ORG = 0x3000
 INTERNAL = 0x0100               # the register file
@@ -27,9 +27,29 @@ USART = range(0x0400, 0x0410)
 CCB = 0x2018                    # read at reset
 # PSW keeps interrupts disabled.
 BASE = [('PC', ORG), ('SP', 0x0F00), ('PSW', 0x0000)]
-FILL = [(INTERNAL, USART.start - INTERNAL, [TRAP]),
-        (USART.stop, CCB - USART.stop, [TRAP]),
-        (CCB + 1, 0x10000 - CCB - 1, [TRAP])]
+
+
+def fills():
+    return [(INTERNAL, USART.start - INTERNAL, [TRAP]),
+            (USART.stop, CCB - USART.stop, [TRAP]),
+            (CCB + 1, 0x10000 - CCB - 1, [TRAP])]
+
+
+FILL = fills()
+
+
+# An 80C196 pushes the PC before it reads a vector.
+PUSH_BEFORE_VECTOR = False
+
+
+def setup(b):
+    """The S80C196KC's register RAM reaches 1FFH: the fill starts above
+    it."""
+    global INTERNAL, FILL, PUSH_BEFORE_VECTOR
+    PUSH_BEFORE_VECTOR = b.who in ('S80C196KB', 'S80C196KC')
+    if b.who == 'S80C196KC':
+        INTERNAL = 0x0200
+        FILL = fills()
 
 
 def fill_value(addr):
@@ -60,6 +80,8 @@ VEC_TRAP = 0x2010               # TRAP's vector
 # displacement.
 POINTER = 0x30
 POINTS_AT = 0x2400
+# BMOV's and BMOVI's pointer pair, then their count.
+BLOCK = 0x38
 assert POINTS_AT >= 0x2100 and POINTS_AT not in USART
 
 
@@ -69,8 +91,9 @@ def patterns(args=None):
         for opc, (mnemo, opr, lengths, seq) in sorted(table(page).items()):
             if page == '00' and opc in (TRAP, 0xFE):
                 continue
-            if mnemo == 'RST':
-                continue    # a reset: it restarts at 2080, never at a TRAP
+            if mnemo in ('RST', 'IDLPD'):
+                continue    # a reset, as IDLPD's is with the fill's key: it
+                            # restarts at 2080, never at a TRAP
             forms = [('', lengths[0])]
             if 'n[' in opr:
                 forms.append((':long', lengths[1]))
@@ -95,6 +118,13 @@ def variants(page, prefix, opc, mnemo, opr, length, seq, suffix):
             if 'n[' in opr:
                 code[at + 1] = 0x02
         base['data_seed'] = (POINTER, [POINTS_AT & 0xFF, POINTS_AT >> 8])
+    if mnemo in ('BMOV', 'BMOVI'):
+        # The count word, then the source and destination pointers: two
+        # words from one place in the fill to another.
+        code[len(prefix) + 1:len(prefix) + 3] = [BLOCK + 4, BLOCK]
+        base['data_seed'] = (BLOCK, [POINTS_AT & 0xFF, POINTS_AT >> 8,
+                                     (POINTS_AT + 0x10) & 0xFF,
+                                     (POINTS_AT + 0x10) >> 8, 2, 0])
     # Every write is this long, so no longer earlier pattern lingers.
     code += [TRAP] * (PAD - len(code))
     if '@' in seq:
@@ -119,7 +149,11 @@ def record(run, cycles, ok):
     rec = dict(run, end='timeout' if not ok else 'other', cycles=cycles)
     vector = [i for i, c in enumerate(cycles) if c[0] == 'R' and c[1] == VEC_TRAP]
     if ok and vector:
-        rec.update(end='trap', cycles=cycles[:vector[0]])
+        end = vector[0]
+        # an 80C196's push before it goes too
+        if PUSH_BEFORE_VECTOR and end and cycles[end - 1][0] == 'W':
+            end -= 1
+        rec.update(end='trap', cycles=cycles[:end])
     return rec
 
 

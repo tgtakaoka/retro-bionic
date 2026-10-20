@@ -387,6 +387,21 @@ bool MatchWalker::matchAlternative(const Decoded &inst, const char *seq,
             _written = m.i;
         return true;
     };
+    // among the walk's first instruction's byte fetches, a data cycle of
+    // the one the ring cut, which the CPU had begun before it
+    uint_fast8_t cut = 0;
+    auto cutData = [&](uint32_t fetch) {
+        if (!arch.traits.cutOverlap || _steps != 0 || (*p != '2' && *p != 'n') ||
+                m.i >= _size || cut >= arch.traits.queue)
+            return false;
+        const auto q = at(m.i);
+        if (_kind[m.i] == K_READ && onStream(q, fetch))
+            return false;
+        m.fetch = fetch;
+        _role[m.i++] = R_NONE;
+        ++cut;
+        return true;
+    };
     // past ~, the queue fetches ahead; a stall fetches again what the
     // stream has already fetched
     auto fetchAhead = [&]() {
@@ -428,11 +443,14 @@ bool MatchWalker::matchAlternative(const Decoded &inst, const char *seq,
         // a data cycle that moves two bytes meets two tokens where the
         // next goes on from this one; else only the first byte is its
         const auto pair = p + 1 + stepChars;
-        const uint_fast8_t width = isData(c) && arch.dataBytes(s) > 1 &&
-                                                   pair < end &&
-                                                   *pair == continuation(c)
-                                           ? 2
-                                           : 1;
+        // so does one at an odd address, where the CPU moves a word there
+        // in one cycle
+        const auto wide = arch.dataBytes(s) > 1 ||
+                          (arch.traits.oddWordOneCycle && (s->addr & 1));
+        const uint_fast8_t width =
+                isData(c) && wide && pair < end && *pair == continuation(c)
+                        ? 2
+                        : 1;
         if (exact && isData(c) && arch.dataBytes(s) > width)
             return false;  // moves more than its tokens
         const auto lastByte = (s->addr + width - 1) & mask;
@@ -770,6 +788,23 @@ bool MatchWalker::matchAlternative(const Decoded &inst, const char *seq,
             if (known && m.i < _size && _kind[m.i] == K_READ &&
                     !arch.sameAddress(at(m.i)->addr, expect) && dropFetch())
                 continue;
+            if ((c == 'J' || c == 'P') && arch.traits.targetAhead &&
+                    m.queue.n &&
+                    (m.i >= _size || _kind[m.i] != K_READ ||
+                            !arch.sameAddress(at(m.i)->addr, expect))) {
+                // the stream had got to the target: what it read there was
+                // the transfer's fetch, and what followed is the target's
+                for (uint_fast8_t k = 0; k < m.queue.n; ++k) {
+                    const auto j = m.queue.at[k];
+                    if (_kind[j] == K_READ &&
+                            arch.sameAddress(at(j)->addr, expect)) {
+                        for (auto r = j; r < m.i; ++r)
+                            _role[r] = R_NONE;
+                        m.i = j;
+                        break;
+                    }
+                }
+            }
             if (m.queue.n) {  // a transfer: what the queue fetched is lost
                 m.queue.n = 0;
                 queueing = false;
@@ -783,7 +818,9 @@ bool MatchWalker::matchAlternative(const Decoded &inst, const char *seq,
             const auto s = at(m.i);
             const auto kind = _kind[m.i];
             if (known && p + 1 == end && !m.interrupt &&
-                    (kind == K_WRITE || kind == K_ACK)) {
+                    (kind == K_WRITE || kind == K_ACK) &&
+                    (!arch.traits.pushBeforeVector || kind != K_WRITE ||
+                            (s->data & mask) == expect)) {
                 // an interrupt before the fetch: it pushes where that is
                 m.hasNext = true;
                 m.next = expect;
@@ -838,8 +875,11 @@ bool MatchWalker::matchAlternative(const Decoded &inst, const char *seq,
         // a read of the stream is its fetch, not the data
         if ((c == 'R' || c == 'A' || c == 'X') && dropFetch())
             continue;
+        const auto fetch = m.fetch;
         if (!matchToken(p, after)) {
             if (dropFetch())
+                continue;
+            if (cutData(fetch))
                 continue;
             if (group) {  // the iteration stops: on after the group
                 giveBack(saved);

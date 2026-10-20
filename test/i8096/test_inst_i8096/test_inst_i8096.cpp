@@ -71,11 +71,15 @@ using Signals = SignalsI8096;
 const auto RINGS = loadRings(DIR, "i8096");
 // The profile's runs on the 16-bit bus.
 const auto RINGS16 = loadRings(DIR, "i8096_16");
+// The S80C196KC's, on its 16-bit bus.
+const auto RINGS_KC = loadRings(DIR, "s80c196kc_16");
 
 // The bench rings: where running samples stopped (scripts/record-rings.py),
 // on an 8-bit bus and on a 16-bit one.
 const auto BENCH = loadRings(DIR, "bench_i8096");
 const auto BENCH16 = loadRings(DIR, "bench_i8096_16");
+// The S80C196KC's, on its 16-bit bus.
+const auto BENCH_KC = loadRings(DIR, "bench_s80c196kc");
 
 // A raw mark: 1 for fetch(), 2 for an operand.
 int markOf(const Signals *s) {
@@ -87,7 +91,9 @@ int recorded(int mark) {
     return mark & 1;
 }
 
-int replay(const std::vector<Cycle> &cycles, std::vector<int> &marks) {
+// The walk as |cpu| decodes the instructions.
+int replayAs(CpuType cpu, const std::vector<Cycle> &cycles,
+        std::vector<int> &marks) {
     Cycles ring;
     for (const auto &c : cycles) {
         const auto s = Signals::put();
@@ -102,7 +108,7 @@ int replay(const std::vector<Cycle> &cycles, std::vector<int> &marks) {
     const RingMemory memory(cycles, InstI8096::TRAP);
     const auto begin = Signals::get();
     const auto end = Signals::put();
-    const ArchI8096 arch(&memory);
+    const ArchI8096 arch(&memory, cpu);
     static MatchWalker walker;
     MatchWalker::trace = tracing();
     const auto start =
@@ -110,6 +116,14 @@ int replay(const std::vector<Cycle> &cycles, std::vector<int> &marks) {
     for (auto i = 0u; i < cycles.size(); ++i)
         marks.push_back(markOf(begin->next(i)));
     return start == end ? -1 : begin->diff(start);
+}
+
+int replay(const std::vector<Cycle> &cycles, std::vector<int> &marks) {
+    return replayAs(CPU_8096, cycles, marks);
+}
+
+int replayKc(const std::vector<Cycle> &cycles, std::vector<int> &marks) {
+    return replayAs(CPU_80C196KC, cycles, marks);
 }
 
 }  // namespace
@@ -126,6 +140,10 @@ void test_recorded_runs16() {
     check(DIR, "i8096_16", RINGS16, replay);
 }
 
+void test_recorded_runs_kc() {
+    check(DIR, "s80c196kc_16", RINGS_KC, replayKc);
+}
+
 void test_bench_rings() {
     // the fetch bit; the operand one is the matcher's own
     match_harness::isFetch = [](int mark) { return (mark & 1) != 0; };
@@ -140,6 +158,14 @@ void test_bench16_rings() {
     check(DIR, "bench_i8096_16", BENCH16, replay);
 }
 
+void test_bench_kc_rings() {
+    match_harness::isFetch = [](int mark) { return (mark & 1) != 0; };
+    match_harness::fetchWidth = [](const Cycle &c) {
+        return c.cntl ? unsigned(c.cntl) : 1u;
+    };
+    check(DIR, "bench_s80c196kc", BENCH_KC, replayKc);
+}
+
 void test_report_recorded_marks() {
     report(RINGS, replay, recorded, true);
     report(RINGS16, replay, recorded, true);
@@ -149,6 +175,8 @@ void test_report_recorded_marks() {
 void test_sequences() {
     checkSequences(SEQUENCES);
     checkInterrupt(INTERRUPT);
+    checkInterrupt(INTERRUPT_C196);
+    checkSequence(TRAP_C196);
 }
 
 namespace {
@@ -209,8 +237,10 @@ int main() {
     RUN_TEST(test_c196_instructions);
     RUN_TEST(test_recorded_runs);
     RUN_TEST(test_recorded_runs16);
+    RUN_TEST(test_recorded_runs_kc);
     RUN_TEST(test_bench_rings);
     RUN_TEST(test_bench16_rings);
+    RUN_TEST(test_bench_kc_rings);
     RUN_TEST(test_report_recorded_marks);
     return UNITY_END();
 }

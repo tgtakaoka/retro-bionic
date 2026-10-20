@@ -34,6 +34,7 @@ The tables time them on real chips, from recorded casts, with
 | MC68HC12    |   3.3 |   0.133 |   0.039 |                    | [mandelbrot.cast](../samples/mc68hc12/mandelbrot.cast)                   | [mc68hc12/mandelbrot.lst](../samples/mc68hc12/mandelbrot.lst)   |
 | N8097BH     |   3.3 |   0.136 |   0.038 | i8096 code         | [mandelbrot_n8097.cast](../samples/i8096/mandelbrot_n8097.cast)          | [i8096/mandelbrot.lst](../samples/i8096/mandelbrot.lst)         |
 | P8095BH     |   3.4 |   0.139 |   0.039 | i8096 code         | [mandelbrot.cast](../samples/i8096/mandelbrot.cast)                      | [i8096/mandelbrot.lst](../samples/i8096/mandelbrot.lst)         |
+| S80C196KC   |   3.6 |   0.148 |   0.042 | i8096 code         | [mandelbrot_s80c196kc.cast](../samples/i8096/mandelbrot_s80c196kc.cast)  | [i8096/mandelbrot.lst](../samples/i8096/mandelbrot.lst)         |
 | Z380        |   3.7 |   0.151 |   0.044 |                    | [mandelbrot.cast](../samples/z380/mandelbrot.cast)                       | [z380/mandelbrot.lst](../samples/z380/mandelbrot.lst)           |
 | Z280        |   5.2 |   0.213 |   0.063 |                    | [mandelbrot.cast](../samples/z280/mandelbrot.cast)                       | [z280/mandelbrot.lst](../samples/z280/mandelbrot.lst)           |
 | TMS320C15   |   5.7 |   0.233 |   0.075 | TMS320C1x code     | [mandelbrot.cast](../samples/tms320c1x/mandelbrot.cast)                  | [tms320c1x/mandelbrot.lst](../samples/tms320c1x/mandelbrot.lst) |
@@ -174,12 +175,12 @@ is faster still, with `MULD`, `DIVQ` and the 16-bit W register.
 
 ### MCS-96 family
 
-| | P8095BH | N8097BH |
-|---|---:|---:|
-| [i8096](../samples/i8096/mandelbrot.lst) | 3.4 | 3.3 |
-| Data bus | 16-bit, multiplexed | 16-bit, multiplexed |
+| | P8095BH | N8097BH | S80C196KC |
+|---|---:|---:|---:|
+| [i8096](../samples/i8096/mandelbrot.lst) | 3.4 | 3.3 | 3.6 |
+| Data bus | 16-bit, multiplexed | 16-bit, multiplexed | 16-bit, multiplexed |
 
-Both chips run on a 16-bit data bus, with ALE marking the address. A word
+All three chips run on a 16-bit data bus, with ALE marking the address. A word
 moves in one bus cycle, so the code runs faster than on an 8-bit bus.
 Every read takes a whole word, so the USART's registers sit a word
 apart; otherwise a status read would also read the received data and

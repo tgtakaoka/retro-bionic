@@ -9,7 +9,8 @@ Pins *instance() {
     return new PinsS80C196KC(i8096::CPU_80C196KC);
 }
 
-const struct Identity S80C196KC{"S80C196KC", instance};
+// The S80C196KB or KC, told apart at reset.
+const struct Identity S80C196K{"S80C196K", instance};
 
 }  // namespace s80c196kc
 }  // namespace debugger
