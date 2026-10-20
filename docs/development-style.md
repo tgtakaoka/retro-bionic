@@ -1591,6 +1591,37 @@ positions are the board's assignment, not facts from a manual.
 - PT7/PAI is on P52 and PT0/IOC0 on P55, so the Teensy can drive edges
   into input capture or the pulse accumulator for timer samples.
 
+Board for the MC9S12DG128B (112-pin LQFP, `schematics/mc9s12d`); not
+built yet. The bus keeps the MC68HC12B's Teensy pins: AD0-AD15, R/`#W`,
+`#LSTRB`, MODA/IPIPE0, MODB/IPIPE1, BKGD, EXTAL, ECLK, `#IRQ`, `#XIRQ`,
+`#RESET`, PT7 and PT0.
+
+- The S12 has no `#DBE` or DIVBYP. P40 drives XCLKS (PE7), latched at
+  every RESET rise: low makes EXTAL an external clock input. A power-on
+  reset latches it too, before the Teensy drives anything, so a 10k
+  pull-down holds it low. After reset PE7 can be NOACC. **[doc]**
+- P45 drives ROMCTL (PK7), latched into ROMON at the RESET rise in the
+  normal expanded modes only; the special and emulation modes clear ROMON.
+  After reset PK7 is ECS. **[doc]**
+- XADDR14-XADDR19 (PK0-PK5) take P32-P37, GPIO7 bits 2-3 and 16-19, in
+  place of PS2-PS7. SCI0 stays on P30/P31.
+- VREGEN is tied high, so VDD1, VDD2 and VDDPLL are 2.5V outputs of the
+  on-chip regulator: each has only its 0.1u cap, never VCC. **[doc]**
+- The PLL is never used, so XFC has no loop filter: AN2727 asks for a 1k-5k
+  pull-up to VDDPLL instead (2.2k here), never VSSPLL, and the firmware to
+  clear PLLON after reset. XTAL is open, TEST and VRL are tied low, VRH
+  high. **[doc]**
+- EXTAL is a 2.5V pin on VDDPLL, 3.0V at most (DUG A.1.3.3, A.4), so P46
+  drives it through a 74LVC1G17 on its own TLV70025 LDO: the regulator
+  outputs take no DC load. Rev 1 wired it straight to the base board's 5V
+  level shifter. **[doc]**
+- Every reset sets CME and SCME in PLLCTL. EXTAL slower than fCMFA
+  (50-200kHz) moves the bus to the self-clock (1-5.5MHz) with no reset,
+  so EXTAL must stay above 200kHz until the firmware clears CME, which is
+  writable anytime. A power-on reset runs a clock quality check of up to
+  2.5s before falling back to the self-clock; an external reset after a
+  running clock skips it. **[doc]**
+
 Firmware (`debugger/mc68hc12`):
 
 - DIVBYP is driven high, so each EXTAL period is half an E cycle and one
