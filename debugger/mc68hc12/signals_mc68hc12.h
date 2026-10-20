@@ -23,6 +23,19 @@ struct Signals final : SignalsBase<Signals> {
     // An external read: the one the debugger answers. A read without #DBE
     // is a free cycle or an internal one the CPU shows.
     bool external() const { return read() && (cntl() & S_DBE) == 0; }
+    // Without #DBE (the HCS12), the cycle code decides.
+    void setExternal(bool external) {
+        if (external) {
+            cntl() &= ~S_DBE;
+        } else {
+            cntl() |= S_DBE;
+        }
+    }
+    // A cycle without E: a free read, no data.
+    void setFree() {
+        cntl() = S_READ | S_DBE;
+        data = 0;
+    }
     // A bus cycle that didn't happen.
     void noCycle() { cntl() = S_NONE; }
     bool none() const { return cntl() == S_NONE; }
@@ -44,6 +57,11 @@ struct Signals final : SignalsBase<Signals> {
     static constexpr uint8_t START_ODD = 3;
     uint8_t move() const { return ipipe() & 3; }
     uint8_t start() const { return (ipipe() >> 2) & 3; }
+    // The same samples by when they were taken: the HCS12 shows the start
+    // before the E rise and the movement before the E fall, both for this
+    // cycle.
+    uint8_t beforeRise() const { return move(); }
+    uint8_t beforeFall() const { return start(); }
 
     // An instruction starts at this cycle, at |inst()|; set by replaying
     // the queue.

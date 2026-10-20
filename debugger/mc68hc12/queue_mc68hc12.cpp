@@ -1,11 +1,8 @@
 #include "queue_mc68hc12.h"
+#include "inst_mc68hc12.h"
 
 namespace debugger {
 namespace mc68hc12 {
-
-namespace {
-constexpr uint8_t PAGE2 = 0x18;  // the prebyte of the page 2 opcodes
-}  // namespace
 
 // The parts of Signals that don't need the board, so that host tests can
 // replay recorded cycles.
@@ -99,7 +96,7 @@ void Queue::replay(Signals *begin, uint_fast8_t cycles) {
                 const uint8_t opc = odd ? _st2.data : _st2.data >> 8;
                 t->markFetch(start);
                 _start = start;
-                _prebyte = opc == PAGE2;
+                _prebyte = opc == InstMc68hc12::PAGE2;
             }
             break;
         case Signals::START_INT:
