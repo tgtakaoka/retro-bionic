@@ -11,13 +11,6 @@ print:
         jsr     print_int16
         jmp     putspace
 
-;;; Sign extend A into X
-;;; @param A
-;;; @return X sign extended A
-sex_A:
-        sex     a,x
-        rts
-
 mandelbrot:
         ldaa    #-12
         staa    vY              ; Y=-12
@@ -42,12 +35,17 @@ loop_x:
         stx     vD              ; D=Y*416/100
         stx     vB              ; B=D
         clr     vI              ; I=0
+        ldd     vB
+        ldx     #F
+        idivs                   ; X=B/F, D=B-B/F*F
+        stx     vQ              ; Q=B/F
+        std     vS              ; S=B-Q*F
         ;; ldaa    vY              ; Y
-        ;; jsr     sex_A
+        ;; sex     a,x
         ;; ldaa    #'Y'
         ;; jsr     print
         ;; ldaa    vX              ; X
-        ;; jsr     sex_A
+        ;; sex     a,x
         ;; ldaa    #'X'
         ;; jsr     print
         ;; ldx     vC              ; C
@@ -59,14 +57,22 @@ loop_x:
         ;; jsr     newline
 loop_i:
         ldd     vB
-        ldx     #F
-        idivs                   ; X=B/F, D=B-B/F*F
-        stx     vQ              ; Q=B/F
-        std     vS              ; S=B-Q*F
-        ldd     vB
         tfr     d,y
         emuls                   ; B*B
         pshd                    ; push B*B
+        ldd     vA
+        ldy     vS
+        emuls                   ; A*S
+        ldx     #F
+        idivs                   ; X=A*S/F
+        ldd     vA
+        ldy     vQ
+        emuls                   ; A*Q, EMULS keeps X
+        leax    d,x             ; X=A*Q+A*S/F
+        xgdx
+        lsld                    ; 2*(A*Q+A*S/F)
+        addd    vD              ; 2*(A*Q+A*S/F)+D
+        std     vB              ; B=2*(A*Q+A*S/F)+D
         ldd     vA
         tfr     d,y
         emuls                   ; A*A
@@ -75,42 +81,26 @@ loop_i:
         idivs                   ; X=(A*A-B*B)/F
         xgdx
         addd    vC              ; (A*A-B*B)/F+C
-        pshd                    ; push (A*A-B*B)/F+C
-        ldd     vA
-        ldy     vQ
-        emuls                   ; A*Q
-        pshd                    ; push A*Q
-        ldd     vA
-        ldy     vS
-        emuls                   ; A*S
-        ldx     #F
-        idivs                   ; X=A*S/F
-        xgdx
-        addd    2,sp+           ; A*Q+A*S/F, pull A*Q
-        lsld                    ; 2*(A*Q+A*S/F)
-        addd    vD              ; 2*(A*Q+A*S/F)+D
-        std     vB              ; B=2*(A*Q+A*S/F)+D
-        puld                    ; pull (A*A-B*B)/F+C
         std     vA              ; A=(A*A-B*B)/F+C
         ldx     #F
         idivs                   ; X=A/F
         stx     vP              ; P=A/F
-        tfr     x,d
-        tfr     x,y
-        emuls                   ; P*P
-        pshd                    ; push P*P
+        tfr     x,y             ; Y=P, IDIVS keeps Y
         ldd     vB
         ldx     #F
-        idivs                   ; X=B/F
+        idivs                   ; X=B/F, D=B-B/F*F
         stx     vQ              ; Q=B/F
-        tfr     x,d
-        tfr     x,y
+        std     vS              ; S=B-Q*F, for the next iteration
+        tfr     y,d
+        emuls                   ; P*P, EMULS keeps X
+        xgdx                    ; X=P*P, D=Q
+        tfr     d,y
         emuls                   ; Q*Q
-        addd    2,sp+           ; P*P+Q*Q, pull P*P
-        std     vT              ; T=P*P+Q*Q
+        leax    d,x             ; X=P*P+Q*Q
+        stx     vT              ; T=P*P+Q*Q
         ;; jsr     putspace
         ;; ldaa    vI              ; I
-        ;; jsr     sex_A
+        ;; sex     a,x
         ;; ldaa    #'I'
         ;; jsr     print
         ;; ldx     vA              ; A
@@ -130,8 +120,7 @@ loop_i:
         ;; jsr     print
         ;; jsr     newline
 
-        ldd     vT
-        cpd     #4
+        cpx     #4
         bgt     print_i         ; if 4<T
         inc     vI              ; I+=1
         ldaa    vI
