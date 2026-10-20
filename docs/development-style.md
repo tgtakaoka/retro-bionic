@@ -1958,6 +1958,43 @@ to check first:
 - A cycle without E is taken as a free cycle until 64 in a row mean STOP:
   the manuals don't say whether a free cycle shows E. **[code]**
 
+Firmware for the MC9S12XDP512 (`pins_mc9s12x.cpp`, identity `MC9S12X`),
+written before a chip arrived; the `ATTENTION:` constants are the guesses
+to check first:
+
+- MODC:MODB:MODA=010, special test mode, with ROMCTL low: the Flash off,
+  every register writable any time and none answered from the bus. The
+  emulation modes are the documented way to see ACC, IQSTAT and IVD, but
+  read their port replacement registers from the bus and make COPCTL,
+  ROMON and DIRECT write-once. The S12X has no IVIS, NOACC or PEAR to set.
+  **[doc]**
+- The cycle follows the emulation-mode timing (S12XEBIV2 4.2.2): ECLK high
+  first with the address; ACC, IQSTAT and the previous cycle's IVD
+  replace it in ECLK low. External read data is due one cycle late, in the
+  next ECLK high, so `completeCycle()` drives it in ECLK low and the next
+  `prepareCycle()` releases it once ECLK falls. **[doc]**
+- The bus shows global addresses; a read is external only for a CPU access
+  (ACC=001) to $7F_xxxx, whose low 16 bits are the local address with the
+  reset PPAGE. Internal ones map back to local through the reset RPAGE and
+  EPAGE (`Mc9s12xInit::local()`). **[doc]**
+- Internal read data comes out on ADDR15:0, not DATA: IVD follows its read
+  one cycle late, in ECLK low, and a byte read repeats the address byte in
+  the other half (S12XEBIV2 21.4.2, Table 21-16). The older 68-family
+  parts that show internal reads put them on the data bus. **[doc]**
+- Each address takes four mux selections in ECLK high, and IVD four more
+  in ECLK low; ACC and IQSTAT ride the high halves of selections 01 and
+  00. **[code]**
+- IQSTAT3:0 report the start of the cycle before and the ALD of the one
+  before that; the replay moves them back onto those cycles and runs the
+  HCS12 queue on them (`queue_hcs12x.cpp`, host test
+  `test/mc68hc12/test_queue_hcs12x`). **[doc]**
+- The CCR is 16 bits, U and IPL in CCRH, so the frame is 10 bytes and
+  `restore()` pushes the CCR with PSHD (`Mc68hc12Init::wideCcr()`).
+  **[doc]**
+- The samples share the CPU12 bodies under `samples/mc68hc12` with code
+  from $4000 and data and stack in internal RAM; the board has no SCI0
+  pins, so there are no SCI samples. **[code]**
+
 ### MC68HC16
 
 **Pitfalls.** The pin functions come from the data bus at reset: hold

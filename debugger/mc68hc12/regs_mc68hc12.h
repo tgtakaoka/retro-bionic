@@ -19,7 +19,7 @@ struct RegsMc68hc12 final : Regs {
     void reset() override;
     void save() override;
     void restore() override;
-    // An exception stacked |frame|, the 9 bytes from SP up.
+    // An exception stacked |frame|, the frame() bytes from SP up.
     void capture(uint16_t sp, const uint8_t *frame, bool breakTrap);
     // The frame stays stacked and the CPU goes on at |pc|, a handler.
     void vectored(uint16_t pc);
@@ -33,11 +33,15 @@ struct RegsMc68hc12 final : Regs {
     uint8_t internal_read(uint16_t addr) const;
     void internal_write(uint16_t addr, uint8_t data) const;
 
-    static constexpr uint8_t FRAME = 9;  // CCR B A XH XL YH YL PCH PCL
+    // CCR B A XH XL YH YL PCH PCL; the HCS12X stacks CCRH before CCR.
+    static constexpr uint8_t MAX_FRAME = 10;
+    uint8_t frame() const { return _wide ? 10 : 9; }
 
 private:
     PinsMc68hc12 *const _pins;
     Mc68hc12Init &_init;
+    // The HCS12X's 16-bit CCR: U and IPL above the M68HC12's bits.
+    const bool _wide;
 
     uint16_t _pc;
     uint16_t _sp;
@@ -45,7 +49,7 @@ private:
     uint16_t _y;
     uint8_t _a;
     uint8_t _b;
-    uint8_t _cc;
+    uint16_t _cc;
 
     mutable CharBuffer _buffer;
 
