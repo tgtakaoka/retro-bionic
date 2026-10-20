@@ -12,7 +12,7 @@ DevsMc68hc12::DevsMc68hc12(Mc68hc12Init &init)
       _acia(new Mc6850())
 #if defined(ENABLE_SERIAL_HANDLER)
       ,
-      _sci(new Mc68hc12SciHandler())
+      _sci(new Mc68hc12SciHandler(init))
 #endif
 {
     _acia->setBaseAddr(ACIA_BASE);

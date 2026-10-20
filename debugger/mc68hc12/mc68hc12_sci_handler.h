@@ -8,8 +8,11 @@ namespace mc68hc12 {
 
 // SCI0, bit-banged on PS0/PS1. The CPU's writes to SC0BDH/SC0BDL show on
 // the bus (IVIS), so the baud rate divisor is snooped there.
+struct Mc68hc12Init;
+
 struct Mc68hc12SciHandler final : SerialHandler {
-    Mc68hc12SciHandler() : SerialHandler(), _sbr(0) {}
+    Mc68hc12SciHandler(const Mc68hc12Init &init)
+        : SerialHandler(), _init(init), _sbr(0) {}
 
     const char *name() const override;
     const char *description() const override;
@@ -18,6 +21,7 @@ struct Mc68hc12SciHandler final : SerialHandler {
     void write(uint32_t addr, uint16_t data) override;
 
 protected:
+    const Mc68hc12Init &_init;
     uint16_t _sbr;  // SC0BDH:SC0BDL, SBR12:0
 
     void resetHandler() override;

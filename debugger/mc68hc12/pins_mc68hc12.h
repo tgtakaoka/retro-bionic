@@ -62,8 +62,8 @@ namespace mc68hc12 {
 struct Mc68hc12Init;
 struct RegsMc68hc12;
 
-struct PinsMc68hc12 final : Pins {
-    PinsMc68hc12(Mc68hc12Init &init);
+struct PinsMc68hc12 : Pins {
+    PinsMc68hc12(Mc68hc12Init &init) : PinsMc68hc12(init, 2) {}
 
     // The CPU12 is fully static: the clock simply stops.
     void idle() override {}
@@ -104,8 +104,17 @@ struct PinsMc68hc12 final : Pins {
             uint8_t max = 0, uint32_t exit = EXIT_PARK,
             const Window *win = nullptr);
 
-private:
+protected:
+    // |stepAt|: the cycle after restore() at whose E fall a step asserts
+    // #XIRQ.
+    PinsMc68hc12(Mc68hc12Init &init, uint8_t stepAt);
+
+    // Where the CPU waits between injected sequences, and where it stores
+    // what it reads for the debugger: both outside, away from any program.
+    static constexpr uint16_t PARK = 0xFF80;
+
     Mc68hc12Init &_init;
+    const uint8_t _stepAt;
     // The CPU waits in the read |_heldSignals|, at |_park|.
     bool _held = false;
     // Until MISC clears the stretch, an external access holds E high for
@@ -127,10 +136,24 @@ private:
     Capture _stacked;
 
     void resetPins() override;
-    Signals *prepareCycle();
-    Signals *completeCycle(Signals *s);
+    // After reset: the reset vector points at the park, the system is set
+    // up and the registers saved.
+    void startPark();
+    // The cycles after configSystem() run without the reset's stretch.
+    virtual void systemConfigured() {}
+    virtual Signals *prepareCycle();
+    virtual Signals *completeCycle(Signals *s);
     Signals *cycle() { return completeCycle(prepareCycle()); }
     Signals *noBusCycle(Signals *s);
+    // Marks the instruction starts and program words of |cycles| cycles.
+    virtual void replay(Signals *begin, uint_fast8_t cycles);
+    // Asserts a step's #XIRQ at the |_stepAt|th cycle after restore().
+    void armStep() {
+        if (_stepArm && ++_stepCycles == _stepAt) {
+            assert_xirq();
+            _stepArm = false;
+        }
+    }
     void hold(const Signals *s, uint16_t park);
     uint16_t readBus(const Signals *s) const;
     void writeBus(const Signals *s) const;
