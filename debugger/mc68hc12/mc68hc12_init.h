@@ -32,6 +32,8 @@ struct Mc68hc12Init : Device {
     virtual uint16_t sciBase() const { return REG_BASE + SC0BDH; }
     // The libasm CPU the disassembler takes.
     virtual const char *cpuType() const { return "68HC12"; }
+    // Whether the CCR is 16 bits, stacked as two bytes.
+    virtual bool wideCcr() const { return false; }
 
     static constexpr uint16_t REG_BASE = 0x0000;
     static constexpr uint16_t REG_SIZE = 0x0200;

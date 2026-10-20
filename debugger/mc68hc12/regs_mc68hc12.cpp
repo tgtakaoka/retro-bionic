@@ -8,8 +8,11 @@ namespace debugger {
 namespace mc68hc12 {
 
 namespace {
-//                    0123456789012345678901234567890123456789012345678
-constexpr char line[] = "PC=xxxx SP=xxxx X=xxxx Y=xxxx A=xx B=xx CC=SXHINZVC";
+//       0123456789012345678901234567890123456789012345678901234567
+constexpr char line[] =
+        "PC=xxxx SP=xxxx X=xxxx Y=xxxx A=xx B=xx CC=SXHINZVC U IPL=x";
+// Where the HCS12X's CCRH, U and IPL, starts in |line|.
+constexpr auto CCRH_POS = 51;
 // Where internal_read() stores what it read: outside, captured.
 constexpr uint16_t SCRATCH = 0xFFA0;
 
@@ -20,7 +23,10 @@ constexpr uint8_t bra(uint8_t from) {
 }  // namespace
 
 RegsMc68hc12::RegsMc68hc12(PinsMc68hc12 *pins, Mc68hc12Init &init)
-    : _pins(pins), _init(init), _buffer(line) {}
+    : _pins(pins), _init(init), _wide(init.wideCcr()), _buffer(line) {
+    if (!_wide)
+        _buffer[CCRH_POS] = 0;
+}
 
 const char *RegsMc68hc12::cpu() const {
     return _init.cpuType();
@@ -34,6 +40,10 @@ void RegsMc68hc12::print() const {
     _buffer.hex8(32, _a);
     _buffer.hex8(37, _b);
     _buffer.bits(43, _cc, 0x80, line + 43);
+    if (_wide) {
+        _buffer.bits(CCRH_POS + 1, _cc >> 8, 0x80, "U");
+        _buffer[CCRH_POS + 7] = '0' + ((_cc >> 8) & 7);
+    }
     cli.println(_buffer);
 }
 
@@ -57,15 +67,20 @@ void RegsMc68hc12::save() {
     const PinsMc68hc12::Window win{InstMc68hc12::VEC_SWI, vec, sizeof(vec)};
     PinsMc68hc12::Capture cap;
     _pins->execInst(
-            SWI, sizeof(SWI), &cap, FRAME, PinsMc68hc12::EXIT_PARK, &win);
-    uint8_t frame[FRAME];
-    const auto sp = cap.frame(frame, sizeof(frame));
-    capture(sp, frame, true);
+            SWI, sizeof(SWI), &cap, frame(), PinsMc68hc12::EXIT_PARK, &win);
+    uint8_t buf[MAX_FRAME];
+    const auto sp = cap.frame(buf, frame());
+    capture(sp, buf, true);
 }
 
 void RegsMc68hc12::capture(uint16_t sp, const uint8_t *frame, bool breakTrap) {
-    _sp = sp + FRAME;
-    _cc = frame[0];
+    _sp = sp + this->frame();
+    if (_wide) {
+        _cc = be16(frame);
+        ++frame;
+    } else {
+        _cc = frame[0];
+    }
     _b = frame[1];
     _a = frame[2];
     _x = be16(frame + 3);
@@ -76,7 +91,7 @@ void RegsMc68hc12::capture(uint16_t sp, const uint8_t *frame, bool breakTrap) {
 }
 
 void RegsMc68hc12::vectored(uint16_t pc) {
-    _sp -= FRAME;
+    _sp -= frame();
     _cc |= 0x10;  // I, as an interrupt sets it
     _pc = pc;
 }
@@ -98,18 +113,42 @@ void RegsMc68hc12::restore() {
         InstMc68hc12::PSHA,                         // PSHA
         InstMc68hc12::LDAA_IMM, _b,                 // LDAA #b
         InstMc68hc12::PSHA,                         // PSHA
-        InstMc68hc12::LDAA_IMM, _cc,                // LDAA #cc
+        InstMc68hc12::LDAA_IMM, lo(_cc),            // LDAA #cc
         InstMc68hc12::PSHA,                         // PSHA
         InstMc68hc12::RTI,                          // RTI
     };
-    const uint8_t frame[FRAME] = {
-        _cc, _b, _a, hi(_x), lo(_x), hi(_y), lo(_y), hi(_pc), lo(_pc),
+    // The HCS12X's RTI pulls the whole CCR, CCRH first.
+    const uint8_t PUSH_RTI_WIDE[] = {
+        InstMc68hc12::LDS_IMM, hi(_sp), lo(_sp),    // LDS #sp
+        InstMc68hc12::LDD_IMM, hi(_pc), lo(_pc),    // LDD #pc
+        InstMc68hc12::PSHD,                         // PSHD
+        InstMc68hc12::LDD_IMM, hi(_y), lo(_y),      // LDD #y
+        InstMc68hc12::PSHD,                         // PSHD
+        InstMc68hc12::LDD_IMM, hi(_x), lo(_x),      // LDD #x
+        InstMc68hc12::PSHD,                         // PSHD
+        InstMc68hc12::LDAA_IMM, _a,                 // LDAA #a
+        InstMc68hc12::PSHA,                         // PSHA
+        InstMc68hc12::LDAA_IMM, _b,                 // LDAA #b
+        InstMc68hc12::PSHA,                         // PSHA
+        InstMc68hc12::LDD_IMM, hi(_cc), lo(_cc),    // LDD #cc
+        InstMc68hc12::PSHD,                         // PSHD
+        InstMc68hc12::RTI,                          // RTI
+    };
+    const uint8_t frame[] = {
+        hi(_cc), lo(_cc), _b, _a,
+        hi(_x), lo(_x), hi(_y), lo(_y), hi(_pc), lo(_pc),
     };
     // clang-format on
+    const auto size = this->frame();
     const PinsMc68hc12::Window win{
-            static_cast<uint16_t>(_sp - FRAME), frame, sizeof(frame)};
+            static_cast<uint16_t>(_sp - size), frame + (_wide ? 0 : 1), size};
     PinsMc68hc12::Capture cap;
-    _pins->execInst(PUSH_RTI, sizeof(PUSH_RTI), &cap, FRAME, _pc, &win);
+    if (_wide) {
+        _pins->execInst(
+                PUSH_RTI_WIDE, sizeof(PUSH_RTI_WIDE), &cap, size, _pc, &win);
+    } else {
+        _pins->execInst(PUSH_RTI, sizeof(PUSH_RTI), &cap, size, _pc, &win);
+    }
 }
 
 uint8_t RegsMc68hc12::internal_read(uint16_t addr) const {
@@ -159,6 +198,14 @@ const Regs::RegList *RegsMc68hc12::listRegisters(uint_fast8_t n) const {
             {REGS8, 3, 1, UINT8_MAX},
             {REGS16, 5, 4, UINT16_MAX},
     };
+    // The HCS12X's CC takes 16 bits.
+    static constexpr RegList WIDE_LIST[] = {
+            {REGS8, 2, 1, UINT8_MAX},
+            {REGS8 + 2, 1, 3, UINT16_MAX},
+            {REGS16, 5, 4, UINT16_MAX},
+    };
+    if (_wide)
+        return n < 3 ? &WIDE_LIST[n] : nullptr;
     return n < 2 ? &REG_LIST[n] : nullptr;
 }
 

@@ -3,7 +3,7 @@
 
 #include <Arduino.h>
 
-#include "pins_mc68hc12.h"
+// The board's pins_*.h, included before this, names PIN_EXTAL and PIN_E.
 
 namespace debugger {
 namespace mc68hc12 {
@@ -20,19 +20,80 @@ constexpr auto setup_ns = 25;    // read data to the E fall
 constexpr auto e_wait_ns = 200;  // active edge to E, at most
 constexpr uint32_t e_wait_cycles = F_CPU / 1000000 * e_wait_ns / 1000;
 
-// The EXTAL level that moves E, found by sync_e().
-extern uint8_t active_level;
+// The clock on a board's EXTAL and E pins.
+template <uint8_t EXTAL, uint8_t E>
+struct Edges {
+    // The EXTAL level that moves E, found by sync_e().
+    static inline uint8_t active_level = HIGH;
+
+    static void active_edge() { digitalWriteFast(EXTAL, active_level); }
+    static void quiet_edge() { digitalWriteFast(EXTAL, !active_level); }
+    static auto clock_e() { return digitalReadFast(E); }
+
+    // Whether E reaches |level| soon after an edge.
+    static bool wait_e(uint8_t level) {
+        const uint32_t start = ARM_DWT_CYCCNT;
+        do {
+            if (clock_e() == level)
+                return true;
+        } while (ARM_DWT_CYCCNT - start < e_wait_cycles);
+        return false;
+    }
+
+    // Half an E cycle, when E runs.
+    static void edge_pair() {
+        quiet_edge();
+        delayNanoseconds(extal_ns);
+        const auto e = clock_e();
+        active_edge();
+        wait_e(!e);
+    }
+
+    // Finds which EXTAL level moves E and leaves the clock right after an E
+    // fall. Returns false when E doesn't move.
+    static bool sync_e() {
+        auto level = digitalReadFast(EXTAL);
+        auto e = clock_e();
+        for (auto n = 0; n < 16; ++n) {
+            level = !level;
+            digitalWriteFast(EXTAL, level);
+            if (wait_e(!e)) {
+                active_level = level;
+                for (auto i = 0; clock_e() != LOW && i < 8; ++i)
+                    edge_pair();
+                return clock_e() == LOW;
+            }
+        }
+        return false;
+    }
+};
+
+// This board's clock, for the file that includes it.
+namespace {
+using Board = Edges<PIN_EXTAL, PIN_E>;
 
 inline void active_edge() {
-    digitalWriteFast(PIN_EXTAL, active_level);
+    Board::active_edge();
 }
 
 inline void quiet_edge() {
-    digitalWriteFast(PIN_EXTAL, !active_level);
+    Board::quiet_edge();
 }
 
 inline auto clock_e() {
-    return digitalReadFast(PIN_E);
+    return Board::clock_e();
+}
+
+inline bool wait_e(uint8_t level) {
+    return Board::wait_e(level);
+}
+
+inline void edge_pair() {
+    Board::edge_pair();
+}
+
+inline bool sync_e() {
+    return Board::sync_e();
 }
 
 inline auto reset_signal() {
@@ -47,14 +108,7 @@ inline void assert_reset() {
 inline void negate_reset() {
     pinMode(PIN_RESET, INPUT_PULLUP);
 }
-
-// Whether E reaches |level| soon after an edge.
-bool wait_e(uint8_t level);
-// Half an E cycle, when E runs.
-void edge_pair();
-// Finds which EXTAL level moves E and leaves the clock right after an E
-// fall. Returns false when E doesn't move.
-bool sync_e();
+}  // namespace
 
 }  // namespace clock
 }  // namespace mc68hc12
