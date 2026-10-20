@@ -16,7 +16,7 @@ record.
 | `stitch.py` | `stitch.py <board> [drc.rpt]` joins GND pour pieces to the main pour with vias, and gives the GND pads a DRC report names a stub to their own via. |
 | `straighten_tracks.py` | `straighten_tracks.py <board>` joins track ends that stop microns short of a via or another end, moves vias and junctions onto their tracks' axes, rebuilds every run from horizontal, vertical and 45° segments with pad ends on the pad's centre line, drops micro jogs and segments of no length, inside a pad or on another track, and undoes any change DRC rejects. `python3 -m unittest test_straighten_tracks` in this directory runs its tests. |
 | `bionic_toml.py` | Writes `<chip>_bionic.toml` from the netlist and `pinout/<chip>.toml`. `bionic_toml.py map <netlist>` prints the Teensy pin to net table. |
-| `qfp_step.py` | STEP model of a square gull-wing QFP with its top marking. Needs build123d, so run it with `~/.venvs/cad/bin/python`. |
+| `qfp_step.py` | STEP model of a square or rectangular gull-wing QFP with its top marking. Needs build123d, so run it with `~/.venvs/cad/bin/python`. |
 
 ## A board script
 
