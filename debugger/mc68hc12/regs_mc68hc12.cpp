@@ -23,7 +23,7 @@ RegsMc68hc12::RegsMc68hc12(PinsMc68hc12 *pins, Mc68hc12Init &init)
     : _pins(pins), _init(init), _buffer(line) {}
 
 const char *RegsMc68hc12::cpu() const {
-    return "68HC12";
+    return _init.cpuType();
 }
 
 void RegsMc68hc12::print() const {
