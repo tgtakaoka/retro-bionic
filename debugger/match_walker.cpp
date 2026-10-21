@@ -1080,7 +1080,7 @@ uint_fast8_t MatchWalker::matchInstruction(
 }
 
 bool MatchWalker::walk(const Arch &arch, SignalsImpl *begin,
-        const SignalsImpl *end, uint32_t stop) {
+        const SignalsImpl *end, uint32_t stop, uint32_t first) {
     _arch = &arch;
     _begin = begin;
     _size = begin->diff(end);
@@ -1114,6 +1114,7 @@ bool MatchWalker::walk(const Arch &arch, SignalsImpl *begin,
         // instruction: its first bytes fetched before it
         const auto before = i == 0 ? arch.traits.cutStart : 0;
         auto walked = false;
+        auto known = false;  // from |first|
         // or any byte the fetch brings, after its first
         const int bytes = arch.fetchBytes(at(i));
         for (int n = 0; n < bytes + int(before) && !walked; ++n) {
@@ -1131,8 +1132,9 @@ bool MatchWalker::walk(const Arch &arch, SignalsImpl *begin,
             _from = i;
             _before = k > 0;
             walked = walkFrom(i, pc, fetched);
+            known = walked && i == 0 && k == 0 && pc == first;
         }
-        if (walked && arch.traits.leadUnproven) {
+        if (walked && arch.traits.leadUnproven && !known) {
             // the instructions ahead of the first with evidence: the
             // ring's, as is
             auto n = 0u;
@@ -1153,7 +1155,7 @@ bool MatchWalker::walk(const Arch &arch, SignalsImpl *begin,
     // with a budget of its own
     if (stop != NO_STOP) {
         TRACE("  nothing reaches the stop %X\n", (unsigned)stop);
-        return walk(arch, begin, end, NO_STOP);
+        return walk(arch, begin, end, NO_STOP, first);
     }
     _start = _size;
     _steps = 0;
