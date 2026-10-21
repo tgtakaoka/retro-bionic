@@ -39,7 +39,8 @@ queue_add:
         cmpb    A, queue_size[HL]
         ldb     A, DE              ; restore an element
         jlt     queue_add_store    ; queue_len < queue_size
-        pop     DE                 ; F.C=0
+        pop     DE
+        clrc                       ; full: CMPB left C=1, no borrow
         ret
         align   2
 queue_add_store:
