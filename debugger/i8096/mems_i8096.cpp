@@ -26,27 +26,45 @@ void MemsI8096::setCpu(CpuType cpu) {
                                                            : 0x100;
 }
 
-uint16_t MemsI8096::read(uint32_t addr) const {
+uint8_t MemsI8096::ccb(uint16_t addr) const {
     if (_cpu >= CPU_80C196NP) {
         // CCB0: no wait states, multiplexed, #WR/#BHE, 16-bit bus, no
         // powerdown; CCB1: 64-Kbyte mode
-        if (addr == CCB)
-            return 0xC6;
-        if (addr == CCB1)
-            return 0xDA;
-    } else if (addr == CCB) {
-        // Chip Configuration Register
-        // 16 Bit width, #WR/#BHE, ALE, infinite READY, no ROM protection
-        return 0xFF;
+        return addr == CCB1 ? 0xDA : 0xC6;
     }
-    return _devs->isSelected(addr) ? _devs->read(addr) : read_byte(addr);
+    // Chip Configuration Register
+    // 16 Bit width, #WR/#BHE, ALE, infinite READY, no ROM protection
+    return 0xFF;
+}
+
+// The bus cycles' accesses call DmaMemory's directly, not through the
+// virtual ones.
+uint16_t MemsI8096::read(uint32_t addr) const {
+    return _devs->isSelected(addr) ? _devs->read(addr)
+                                   : DmaMemory::read_byte(addr);
+}
+
+uint16_t MemsI8096::readWord(uint32_t addr) const {
+    if (_devs->isSelected(addr))
+        return uint16(_devs->read(addr + 1), _devs->read(addr));
+    // The words are little endian, as the bus is.
+    return DmaMemory::read_word(addr / 2);
+}
+
+void MemsI8096::writeWord(uint32_t addr, uint16_t data) const {
+    if (_devs->isSelected(addr)) {
+        _devs->write(addr, lo(data));
+        _devs->write(addr + 1, hi(data));
+    } else {
+        DmaMemory::write_word(addr / 2, data);
+    }
 }
 
 void MemsI8096::write(uint32_t addr, uint16_t data) const {
     if (_devs->isSelected(addr)) {
         _devs->write(addr, data);
     } else {
-        write_byte(addr, data);
+        DmaMemory::write_byte(addr, data);
     }
 }
 

@@ -35,10 +35,12 @@ namespace s80296sa {
 
 namespace {
 
-// ATTENTION: from the P8095BH's measurements: XTAL1 high and low 20 ns
-// minimum on the S80C196NP, 35% of a period on the S80296SA.
+// XTAL1 low 20 ns minimum on the S80C196NP, 35% of a period on the
+// S80296SA. Its high phase is the two writes alone, about 12 ns: the
+// S80296SA's outputs were seen 10-22 ns after a rising edge, and a low
+// phase is sampled at its end, 60 ns or more after it.
+// ATTENTION: the S80C196NP's high time is unverified.
 constexpr auto xtal1_lo_ns = 20;
-constexpr auto xtal1_hi_ns = 20;
 // The address settles on AD while ALE is high (TAVLL).
 constexpr auto addr_ns = 30;
 // A write's data is stable before #WR rises (TQVWH).
@@ -60,7 +62,6 @@ inline auto ale_asserted() {
 
 void xtal1_pulse() {
     xtal1_hi();
-    delayNanoseconds(xtal1_hi_ns);
     xtal1_lo();
 }
 

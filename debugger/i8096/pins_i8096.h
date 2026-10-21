@@ -139,9 +139,9 @@ protected:
 
     // Serves the reset's CCB read |ccb|; returns the first fetch.
     Signals *startAfterReset(Signals *ccb);
-    // Whether |s| is an 80C196NP or 80296SA's CCB0 read after a program's
-    // RST: then serves the CCBs, sets BUSCON5 as R does and holds the
-    // first fetch.
+    // Whether |s| is the CCB read after a program's RST: then serves it;
+    // an 80C196NP or 80296SA's CCBs, BUSCON5 set as R does and the first
+    // fetch held.
     bool programReset(Signals *s);
     // A full prefetch queue idles the bus for at most an instruction, even
     // a DIVL's ~40 state times; a CPU missing or held in reset never
