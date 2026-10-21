@@ -7,28 +7,16 @@ The full profile is at [asciinema.org/~tgtakaoka](https://asciinema.org/~tgtakao
 
 ## Recordings
 
-| CPU | Recording | Video | Date |
-|---|---|---|---|
-| Z86C91 | [a/656654](https://asciinema.org/a/656654) | | 2024-04-27 |
-| Z88C00 | [a/656655](https://asciinema.org/a/656655) | | 2024-04-27 |
-| Z80 | [a/661752](https://asciinema.org/a/661752) | | 2024-05-30 |
-| TMS7000 (TMS7002) | [a/691809](https://asciinema.org/a/691809) | [shorts](https://www.youtube.com/shorts/hNlnmbQgTaM) | 2024-11-24 |
-| NSC800 | [a/693783](https://asciinema.org/a/693783) | [shorts](https://www.youtube.com/shorts/VR8pdkmnnt4) | 2024-12-07 |
-| MC68HC05C0 | [a/695831](https://asciinema.org/a/695831) | [shorts](https://www.youtube.com/shorts/NFmAp0el6kg) | 2024-12-23 |
-| TMS9981 | [a/697735](https://asciinema.org/a/697735) | [shorts](https://www.youtube.com/shorts/3ToRp99UohU) | 2025-01-10 |
-| TMS9995 | [a/697736](https://asciinema.org/a/697736) | [shorts](https://www.youtube.com/shorts/OAq7bxscwEU) | 2025-01-12 |
-| TMS99105 | [a/697737](https://asciinema.org/a/697737) | [shorts](https://www.youtube.com/shorts/HN6jB54tI-s) | 2025-01-12 |
-| MN1613 (MN1613A) | [a/702189](https://asciinema.org/a/702189) | | 2025-02-08 |
-| IM6100 | [a/703143](https://asciinema.org/a/703143) | | 2025-02-13 |
-| HD6120 | [a/705921](https://asciinema.org/a/705921) | | 2025-03-01 |
-| P8080 | [a/706881](https://asciinema.org/a/706881) | | 2025-03-07 |
-| MC68HC08AZ0 | [a/716746](https://asciinema.org/a/716746) | | 2025-04-27 |
-| TMS9900 | [a/721668](https://asciinema.org/a/721668) | | 2025-06-02 |
-| TMS320C15 | [a/723753](https://asciinema.org/a/723753) | | 2025-06-19 |
-| KL5C80A12 | [a/757524](https://asciinema.org/a/757524) | | 2025-11-22 |
-| Z180 | [a/758967](https://asciinema.org/a/758967) | | 2025-11-30 |
-| TMS370Cx5x | [a/783176](https://asciinema.org/a/783176) | | 2026-02-08 |
-| P8095BH | [a/859146](https://asciinema.org/a/859146) | | 2026-03-21 |
+Every CPU's recording is listed in [mandelbrot.md](mandelbrot.md), with its
+Mandelbrot timing, its cast and its listing; the uploads are on the profile
+above.
+
+Some also have a short video: [TMS7000 (TMS7002)](https://www.youtube.com/shorts/hNlnmbQgTaM),
+[NSC800](https://www.youtube.com/shorts/VR8pdkmnnt4),
+[MC68HC05C0](https://www.youtube.com/shorts/NFmAp0el6kg),
+[TMS9981](https://www.youtube.com/shorts/3ToRp99UohU),
+[TMS9995](https://www.youtube.com/shorts/OAq7bxscwEU) and
+[TMS99105](https://www.youtube.com/shorts/HN6jB54tI-s).
 
 ## The GIFs in these docs
 
