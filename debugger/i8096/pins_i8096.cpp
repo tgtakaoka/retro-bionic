@@ -48,6 +48,10 @@ constexpr auto ale_lo_ns = 25;  // 40 ns
 // With getAddr(), XTAL1's minimum low time of 30 ns after the edge that
 // ends ALE.
 constexpr auto addr_lo_ns = 5;  // 65 ns
+// Bus cycles between polls of the halt switch in a run: its yield()
+// services the USB while XTAL1 is stopped, which would otherwise stretch
+// every cycle. The devices ration their own polling.
+constexpr auto halt_poll_cycles = 16;
 
 const uint8_t PINS_OPENDRAIN[] = {
         PIN_RESET,
@@ -163,7 +167,8 @@ void PinsI8096::resetPins() {
 // AD0-AD7 carry it in every bus mode. Returns the first fetch.
 Signals *PinsI8096::startAfterReset(Signals *ccb) {
     ccb->addr = MemsI8096::CCB;  // AD held nothing while ALE was high
-    completeCycle(ccb->inject(_mems->read(MemsI8096::CCB)), true);
+    completeCycle(
+            ccb->inject(mems<MemsI8096>()->ccb(MemsI8096::CCB)), true);
     auto fetch = prepareCycle();
     // The S80C196KB and KC hold ALE high about eight periods before the
     // address is on AD.
@@ -171,16 +176,22 @@ Signals *PinsI8096::startAfterReset(Signals *ccb) {
         fetch->addr = InstI8096::ORG_RESET;
     // The 80C196NP and 80296SA read CCB1 next, on the bus CCB0 set up.
     if (fetch->addr == MemsI8096::CCB1) {
-        completeCycle(fetch->inject(_mems->read(MemsI8096::CCB1)), true);
+        completeCycle(
+                fetch->inject(mems<MemsI8096>()->ccb(MemsI8096::CCB1)),
+                true);
         fetch = prepareCycle();
     }
     return fetch;
 }
 
-// ATTENTION: a program's own read of CCB0 is taken for its RST.
+// ATTENTION: a program's own read of the CCB is taken for its RST.
 bool PinsI8096::programReset(Signals *s) {
-    if (_cpu < CPU_80C196NP || !s->read() || s->addr != MemsI8096::CCB)
+    if (s->addr != MemsI8096::CCB || !s->read())
         return false;
+    if (_cpu < CPU_80C196NP) {
+        completeCycle(s->inject(mems<MemsI8096>()->ccb(MemsI8096::CCB)), true);
+        return true;
+    }
     const auto fetch = startAfterReset(s);
     hold(fetch, fetch->addr);
     regs<RegsI8096>()->selectBus16();
@@ -314,13 +325,14 @@ uint16_t PinsI8096::readBus(const Signals *s) const {
         const auto odd = _mems->read(s->addr);
         return uint16(odd, odd);
     }
-    return uint16(_mems->read(s->addr + 1), _mems->read(s->addr));
+    return mems<MemsI8096>()->readWord(s->addr);
 }
 
 void PinsI8096::writeBus(const Signals *s) const {
-    for (uint_fast8_t i = 0; i < s->bytes(); ++i) {
-        const uint16_t addr = s->addr + i;
-        _mems->write(addr, s->byteAt(addr));
+    if (s->bytes() == 2) {
+        mems<MemsI8096>()->writeWord(s->addr, s->data);
+    } else {
+        _mems->write(s->addr, s->byteAt(s->addr));
     }
 }
 
@@ -792,6 +804,7 @@ Signals *PinsI8096::loop() {
 Signals *PinsI8096::loop() {
     // A wait an earlier break left.
     auto carried = _halt.waiting;
+    uint_fast8_t poll = 0;
     while (true) {
         auto s = prepareCycle();
         if (s->addr == InstI8096::VEC_TRAP && s->read()) {
@@ -819,6 +832,9 @@ Signals *PinsI8096::loop() {
         completeCycle(s);
         restoreExtint();
         _devs->loop();
+        if (++poll < halt_poll_cycles)
+            continue;
+        poll = 0;
         if (haltSwitch() && (_halt.cycles == 0 || carried)) {
             requestHalt();
             carried = false;

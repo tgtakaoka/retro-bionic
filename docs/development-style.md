@@ -256,6 +256,29 @@ On the i8096 at 100 MS/s:
 - Work done inside the phase (a pin read, a port read, a bus drive) counts
   toward it, often enough to need no delay at all.
 
+### Squeezing a Teensy-clocked bus cycle **[hw][code]**
+
+Where a bus cycle's time goes is found by measuring, not by reading the code.
+The S80296SA's went this way:
+
+1. Capture XTAL1 with the bus strobes and time each phase from one bus state
+   to the next. The phases the software stretches stand out against the
+   ones the delays make; there each bus cycle lost about 650 ns twice.
+2. Stamp the suspects with `ARM_DWT_CYCCNT` into a scratch buffer, print it
+   after the run, and drop the stamps afterwards. A stamp costs about 50 ns,
+   so subtract it.
+3. A `yield()` on every cycle, from the halt switch's poll, cost about
+   160 ns: poll it every 16 bus cycles instead.
+4. A memory read through the virtual chain (`Mems::read`, the arch's
+   `read`, `Devs::isSelected`, each device's `isSelected`, `read_byte`)
+   cost about 350 ns, twice for a word: check the devices once for the
+   aligned word and call `DmaMemory::read_word`/`write_word` directly.
+5. Serve a special address (the CCB) where the CPU reads it (the reset),
+   not with a compare in every read.
+6. Trim a clock phase only after measuring how late the CPU's outputs
+   follow its edge: the S80296SA's followed a rising XTAL1 by 10-22 ns and
+   were sampled 60 ns or more later, so its high phase needs no delay.
+
 ### A logic analyser on the bus can break the board **[hw]**
 
 Probe leads add enough capacitance to stop a marginal target working at all

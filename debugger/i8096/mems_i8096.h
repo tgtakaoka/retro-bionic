@@ -18,6 +18,13 @@ struct MemsI8096 : DmaMemory {
 
     uint16_t read(uint32_t addr) const override;
     void write(uint32_t addr, uint16_t data) const override;
+    // The word at the even |addr|: a device's range is aligned, so its
+    // check covers both bytes.
+    uint16_t readWord(uint32_t addr) const;
+    void writeWord(uint32_t addr, uint16_t data) const;
+    // The configuration byte the CPU reads at |addr|, CCB or CCB1, after
+    // a reset.
+    uint8_t ccb(uint16_t addr) const;
 
     uint16_t get_data(uint32_t addr) const override;
     void put_data(uint32_t addr, uint16_t data) const override;
@@ -43,7 +50,7 @@ private:
     }
 };
 
-// The bytes as the CPU reads them, the CCB and the devices included.
+// The bytes as the CPU reads them, the devices included.
 struct CpuMemory final : MatchMemory {
     explicit CpuMemory(const MemsI8096 *mems) : _mems(mems) {}
     uint16_t read_byte(uint32_t addr) const override {
