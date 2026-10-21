@@ -2486,13 +2486,13 @@ bool InstZ380::walk(Signals *begin, const Signals *end, const Memory &mems,
 }
 
 #ifndef ARDUINO
-std::vector<const char *> InstZ380::sequences() {
-    return std::vector<const char *>(
-            std::begin(SEQUENCES), std::end(SEQUENCES));
+MatchWalker::Sequences InstZ380::sequences() {
+    return {SEQUENCES, SEQUENCES + sizeof(SEQUENCES) / sizeof(SEQUENCES[0])};
 }
 
-std::vector<const char *> InstZ380::interrupts() {
-    return {INTERRUPT, INTERRUPT_XM};
+MatchWalker::Sequences InstZ380::interrupts() {
+    static constexpr const char *INTERRUPTS[] = {INTERRUPT, INTERRUPT_XM};
+    return {INTERRUPTS, INTERRUPTS + 2};
 }
 #endif
 
