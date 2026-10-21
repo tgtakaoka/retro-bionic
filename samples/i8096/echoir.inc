@@ -49,7 +49,6 @@ init_usart:
         ld      HL, #rx_queue
 receive_loop:
         di                      ; Disable INTR
-        nop                     ; an 80296SA takes one after DI's next
         scall   queue_remove
         ei                      ; Enable INTR
         jnc     receive_loop

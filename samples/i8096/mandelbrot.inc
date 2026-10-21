@@ -4,12 +4,13 @@
 Fv:     equ     50              ; fixed-point scale
 ;;; Print the Mandelbrot set, one character per point: the escape
 ;;; iteration as a hex digit, or a space if it stays bounded for 16.
-;;; A NUL from the console halts.
+;;; A NUL from the console halts. Called with interrupts disabled;
+;;; enables them.
 mandelbrot:
+        ei
         ldb     vY, #-12        ; Y=-12
 loop_y:
         ldb     vX, #-49        ; X=-49
-        nop                     ; puts loop_x and loop_i at even addresses
 loop_x:
         ldbse   HL, vX
         mul     HL, #229        ; X*229
@@ -113,6 +114,7 @@ print_i:
         jle     print_char
         addb    A, #'A'-'9'-1
 print_char:
+        di                      ; see loop in mandelbrot_main.inc
         scall   putchar
 
         ;; push    A
@@ -124,6 +126,7 @@ print_char:
         ;; scall   putchar
         ;; scall   newline
 
+        di
         scall   getchar
         jnc     next_x
         orb     A, A
@@ -140,6 +143,7 @@ next_x:
         jge     next_y          ; if X>=30
         sjmp    loop_x         ; if X<30
 next_y:
+        di
         scall   newline
         incb    vY
         cmpb    vY, #13
