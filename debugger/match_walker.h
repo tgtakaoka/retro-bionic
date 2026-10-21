@@ -184,9 +184,11 @@ struct MatchWalker {
     // reaches the end, leaving the CPU at |stop|. Marks every cycle
     // through Arch::markCycle(); returns false when no start walks. It
     // recurses an instruction at a time, a few hundred bytes of stack
-    // each.
+    // each. |first| is where an instruction is known to start at the
+    // ring's first cycle, as when the ring began with a run: a walk from
+    // there keeps the instructions a leadUnproven CPU would drop.
     bool walk(const Arch &arch, SignalsImpl *begin, const SignalsImpl *end,
-            uint32_t stop = NO_STOP);
+            uint32_t stop = NO_STOP, uint32_t first = NO_STOP);
 
     // The cycles an instruction starting at |begin| takes, its next fetch
     // before |end|; 0 if it doesn't match there.
@@ -229,7 +231,7 @@ private:
     static_assert(Cycles::MAX_CYCLES < NO_FETCH, "a cycle's index is a byte");
     // The cycles that fetched the next instruction's first bytes ahead.
     struct Queue {
-        static constexpr uint8_t MAX = 8;
+        static constexpr uint8_t MAX = 16;
         uint8_t at[MAX];
         uint8_t n;
         uint32_t bias;  // where the fetch stream is on the bus: + the PC
