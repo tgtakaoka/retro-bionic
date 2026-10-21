@@ -22,7 +22,7 @@
 - [Build & run](docs/build.md) — toolchain, flashing, serial ports
 - [Samples](docs/samples.md) — the programs and how to run them
 - [CPU speed by an assembly-language Mandelbrot](docs/mandelbrot.md) — the benchmark's seconds per frame on each chip
-- [Demos](docs/demos.md) — recorded terminal sessions for 20 CPUs
+- [Demos](docs/demos.md) — recorded terminal sessions, and what to watch for in them
 
 ## What is this?
 
