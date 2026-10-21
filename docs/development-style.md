@@ -1232,9 +1232,18 @@ F2000-F20FFH. **[code]**
   ALE, so a cycle's address is the last ALE's before its strobe. A
   program's RST resets BUSCON5, so the debugger sets it again, reading out
   the register that takes first. **[hw][code]**
-- An interrupt requested during DI is taken after DI's next instruction
-  (80296SA User's Manual §6.4.1); the samples follow each DI that guards a
-  queue with a NOP. **[doc][hw]**
+- It can take an interrupt inside a call, after the call pushed its return
+  address: it pushes that address again, and the handler returns past the
+  callee, leaving the word on the stack. The bus shows the push, the vector
+  read, then the same push; its Specification Update (A0) doesn't list it.
+  With XTAL1 high for 12-265 ns, low up to 1 µs longer, or EXTINT changed at
+  either CLKOUT level, it dropped as many rows of mandelbrot: the chip's
+  logic, not the clock's margin. The interrupt-driven samples disable
+  interrupts before each call made with them enabled, and the callee enables
+  them again. The debugger's halt is an NMI, which no DI holds off: when the
+  cycle before its vector read pushes the halted PC at the interrupted SP,
+  the halt resumes at the call's target, the call's push left on the stack.
+  **[hw][code]**
 - An odd register operand selects another instruction: a signed MUL or
   DIV without the FE prefix, MVAC or MSAC, EBR; a MUL whose destination
   byte is below 10H is the MAC family. The profile gives the base forms an

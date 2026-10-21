@@ -113,9 +113,9 @@
 (1)    1000 : =1000              stack:          equ     $
 (1)    1000 :
 (1)    2006 :                            org     VEC_EXTINT0     ; the 80C196NP and 80296SA's
-(1)    2006 : 0E 23                      dcw     isr_intr
+(1)    2006 : 16 23                      dcw     isr_intr
 (1)    200E :                            org     VEC_EXTINT
-(1)    200E : 0E 23                      dcw     isr_intr
+(1)    200E : 16 23                      dcw     isr_intr
 (1)    2010 :
 (1)      1A :                            org     1AH
 (1)      1A :                    A:      dsb     1
@@ -144,10 +144,10 @@
 (1)    20B1 :
 (1)    20B1 : A1 00 30 1C                ld      HL, #rx_queue
 (1)    20B5 : B1 80 1B                   ldb     B, #rx_queue_size
-(1)    20B8 : 29 A4                      scall   queue_init
+(1)    20B8 : 29 AC                      scall   queue_init
 (1)    20BA : A1 80 30 1C                ld      HL, #tx_queue
 (1)    20BE : B1 80 1B                   ldb     B, #tx_queue_size
-(1)    20C1 : 29 9B                      scall   queue_init
+(1)    20C1 : 29 A3                      scall   queue_init
 (1)    20C3 :                    init_usart:
 (1)    20C3 : C7 01 02 04 00             stb     ZERO, USARTC
 (1)    20C8 : C7 01 02 04 00             stb     ZERO, USARTC
@@ -167,379 +167,395 @@
 (1)    20F6 : C7 01 06 04 1A             stb     A, USARTTV      ; enable transmit interrupt
 (1)    20FB : FB                         ei
 (1)    20FC :
+(1)    20FC :                    ;;; An 80296SA can take an interrupt inside a call, after the call pushed
+(1)    20FC :                    ;;; its return address: it pushes that address again, and the handler
+(1)    20FC :                    ;;; returns past the callee. So code running with interrupts enabled
+(1)    20FC :                    ;;; disables them before each call, and the callee enables them again.
+(1)    20FC :                    ;;; (The 80C196NP is not checked yet.)
 (1)    20FC :                    loop:
-(1)    20FC : 28 41                      scall   mandelbrot
-(1)    20FE : 28 16                      scall   newline
-(1)    2100 : A1 80 30 1C                ld      HL, #tx_queue
-(1)    2104 : 29 FE                      scall   queue_wait_empty
-(1)    2106 : 27 F4                      sjmp    loop
-(1)    2108 :
-(1)    2108 :                    ;;; Get character
-(1)    2108 :                    ;;; @return A
-(1)    2108 :                    ;;; @return F.C 0 if no character
-(1)    2108 :                    getchar:
-(1)    2108 : C8 1C                      push    HL
-(1)    210A : A1 00 30 1C                ld      HL, #rx_queue
-(1)    210E : FA                         di
-(1)    210F : FD                         nop                     ; an 80296SA takes one after DI's next
-(1)    2110 : 29 BA                      scall   queue_remove
-(1)    2112 : FB                         ei
-(1)    2113 : CC 1C                      pop     HL
-(1)    2115 : F0                         ret
-(1)    2116 :
-(1)    2116 :                    ;;; Put newline
-(1)    2116 :                    ;;; @clobber A
-(1)    2116 :                    newline:
-(1)    2116 : B1 0D 1A                   ldb     A, #0DH
-(1)    2119 : 28 08                      scall   putchar
-(1)    211B : B1 0A 1A                   ldb     A, #0AH
-(1)    211E : 20 03                      sjmp    putchar
-(1)    2120 :
-(1)    2120 :                    ;;; Put space
-(1)    2120 :                    ;;; @clobber A
-(1)    2120 :                    putspace:
-(1)    2120 : B1 20 1A                   ldb     A, #' '
-(1)    2123 :
-(1)    2123 :                    ;;; Put character
-(1)    2123 :                    ;;; @param A
-(1)    2123 :                    putchar:
-(1)    2123 : C8 1A                      push    A
-(1)    2125 : C8 1C                      push    HL
-(1)    2127 : A1 80 30 1C                ld      HL, #tx_queue
-(1)    212B :                    putchar_retry:
-(1)    212B : FA                         di
-(1)    212C : FD                         nop                     ; an 80296SA takes one after DI's next
-(1)    212D : 29 57                      scall   queue_add
-(1)    212F : FB                         ei
-(1)    2130 : D3 F9                      jnc     putchar_retry   ; branch if queue is full
-(1)    2132 : CC 1C                      pop     HL
-(1)    2134 : B1 37 1A                   ldb     A, #RX_EN_TX_EN ; enable Tx
-(1)    2137 : C7 01 02 04 1A             stb     A, USARTC
-(1)    213C : CC 1A                      pop     A
-(1)    213E : F0                         ret
-(1)    213F :
-(1)    213F :                            include "mandelbrot.inc"
-(2)    213F :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
-(2)    213F :
-(2)    213F :
-(2)    213F : =32                Fv:     equ     50              ; fixed-point scale
-(2)    213F :                    ;;; Print the Mandelbrot set, one character per point: the escape
-(2)    213F :                    ;;; iteration as a hex digit, or a space if it stays bounded for 16.
-(2)    213F :                    ;;; A NUL from the console halts.
-(2)    213F :                    mandelbrot:
-(2)    213F : B1 F4 32                   ldb     vY, #-12        ; Y=-12
-(2)    2142 :                    loop_y:
-(2)    2142 : B1 CF 33                   ldb     vX, #-49        ; X=-49
-(2)    2145 : FD                         nop                     ; puts loop_x and loop_i at even addresses
-(2)    2146 :                    loop_x:
-(2)    2146 : BC 33 1C                   ldbse   HL, vX
-(2)    2149 : 6D E5 00 1D                mul     HL, #229        ; X*229
-(2)    214D : 8D 64 00 1D                div     HL, #100        ; X*229/100
-(2)    2151 : A0 1C 22                   ld      vC, HL          ; C=X*229/100
-(2)    2154 : A0 1C 26                   ld      vA, HL          ; A=C
-(2)    2157 : BC 32 1C                   ldbse   HL, vY
-(2)    215A : 6D A0 01 1D                mul     HL, #416        ; Y*416
-(2)    215E : 8D 64 00 1D                div     HL, #100        ; Y*416/100
-(2)    2162 : A0 1C 24                   ld      vD, HL          ; D=Y*416/100
-(2)    2165 : A0 1C 28                   ld      vB, HL          ; B=D
-(2)    2168 : 11 34                      clrb    vI              ; I=0
-(2)    216A :
-(2)    216A :                            ;; ldbse   HL, vY
-(2)    216A :                            ;; ldb     A, #'Y'
-(2)    216A :                            ;; scall   print
-(2)    216A :                            ;; ldbse   HL, vX
-(2)    216A :                            ;; ldb     A, #'X'
-(2)    216A :                            ;; scall   print
-(2)    216A :                            ;; ld      HL, vC
-(2)    216A :                            ;; ldb     A, #'C'
-(2)    216A :                            ;; scall   print
-(2)    216A :                            ;; ld      HL, vD
-(2)    216A :                            ;; ldb     A, #'D'
-(2)    216A :                            ;; scall   print
-(2)    216A :                            ;; scall   newline
-(2)    216A :
-(2)    216A :                    loop_i:
-(2)    216A : A0 28 1C                   ld      HL, vB
-(2)    216D : 06 1C                      ext     HL
-(2)    216F : 8D 32 00 1D                div     HL, #Fv         ; B/F
-(2)    2173 : A0 1C 2C                   ld      vQ, HL          ; Q=B/F
-(2)    2176 : 6D 32 00 1D                mul     HL, #Fv         ; Q*F
-(2)    217A : 48 1C 28 2E                sub     vS, vB, HL      ; S=B-Q*F
-(2)    217E : A0 28 1C                   ld      HL, vB
-(2)    2181 : 6C 28 1D                   mul     HL, vB          ; B*B
-(2)    2184 : C8 1C                      push    HL              ; push B*B
-(2)    2186 : A0 26 1C                   ld      HL, vA
-(2)    2189 : 6C 26 1D                   mul     HL, vA          ; A*A
-(2)    218C : 6A 19 1C                   sub     HL, [SP]+       ; A*A-B*B
-(2)    218F : 06 1C                      ext     HL
-(2)    2191 : 8D 32 00 1D                div     HL, #Fv         ; (A*A-B*B)/F
-(2)    2195 : 64 22 1C                   add     HL, vC          ; (A*A-B*B)/F+C
-(2)    2198 : C8 1C                      push    HL              ; push (A*A-B*B)/F+C
-(2)    219A : 4C 2E 26 1D                mul     HL, vA, vS      ; A*S
-(2)    219E : 06 1C                      ext     HL
-(2)    21A0 : 8D 32 00 1D                div     HL, #Fv         ; A*S/F
-(2)    21A4 : C8 1C                      push    HL              ; push A*S/F
-(2)    21A6 : 4C 2C 26 1D                mul     HL, vA, vQ      ; A*Q
-(2)    21AA : 66 19 1C                   add     HL, [SP]+       ; A*Q+A*S/F
-(2)    21AD : 64 1C 1C                   add     HL, HL          ; 2*(A*Q+A*S/F)
-(2)    21B0 : 44 24 1C 28                add     vB, HL, vD      ; B=2*(A*Q+A*S/F)+D
-(2)    21B4 : A2 19 26                   ld      vA, [SP]+       ; A=(A*A-B*B)/F+C
-(2)    21B7 : A0 26 1C                   ld      HL, vA
-(2)    21BA : 06 1C                      ext     HL
-(2)    21BC : 8D 32 00 1D                div     HL, #Fv         ; A/F
-(2)    21C0 : A0 1C 2A                   ld      vP, HL          ; P=A/F
-(2)    21C3 : 6C 1C 1D                   mul     HL, HL          ; P*P
-(2)    21C6 : C8 1C                      push    HL              ; push P*P
-(2)    21C8 : A0 28 1C                   ld      HL, vB
-(2)    21CB : 06 1C                      ext     HL
-(2)    21CD : 8D 32 00 1D                div     HL, #Fv         ; B/F
-(2)    21D1 : A0 1C 2C                   ld      vQ, HL          ; Q=B/F
-(2)    21D4 : 6C 1C 1D                   mul     HL, HL          ; Q*Q
-(2)    21D7 : 46 19 1C 30                add     vT, HL, [SP]+   ; T=P*P+Q*Q
-(2)    21DB :
-(2)    21DB :                            ;; scall   putspace
-(2)    21DB :                            ;; ldbse   HL, vI
-(2)    21DB :                            ;; ldb     A, #'I'
-(2)    21DB :                            ;; scall   print
-(2)    21DB :                            ;; ld      HL, vA
-(2)    21DB :                            ;; ldb     A, #'A'
-(2)    21DB :                            ;; scall   print
-(2)    21DB :                            ;; ld      HL, vB
-(2)    21DB :                            ;; ldb     A, #'B'
-(2)    21DB :                            ;; scall   print
-(2)    21DB :                            ;; ld      HL, vP
-(2)    21DB :                            ;; ldb     A, #'P'
-(2)    21DB :                            ;; scall   print
-(2)    21DB :                            ;; ld      HL, vQ
-(2)    21DB :                            ;; ldb     A, #'Q'
-(2)    21DB :                            ;; scall   print
-(2)    21DB :                            ;; ld      HL, vT
-(2)    21DB :                            ;; ldb     A, #'T'
-(2)    21DB :                            ;; scall   print
-(2)    21DB :                            ;; scall   newline
-(2)    21DB :
-(2)    21DB : 89 04 00 30                cmp     vT, #4
-(2)    21DF : D2 0E                      jgt     print_i         ; if T>4
-(2)    21E1 : 17 34                      incb    vI              ; I++
-(2)    21E3 : 99 10 34                   cmpb    vI, #16
-(2)    21E6 : D6 02                      jge     print_space     ; if I>=16
-(2)    21E8 : 27 80                      sjmp    loop_i          ; if I<16
-(2)    21EA :                    print_space:
-(2)    21EA : B1 20 1A                   ldb     A, #' '
-(2)    21ED : 20 0E                      sjmp    print_char
-(2)    21EF :                    print_i:
-(2)    21EF : B0 34 1A                   ldb     A, vI
-(2)    21F2 : 75 30 1A                   addb    A, #'0'
-(2)    21F5 : 99 39 1A                   cmpb    A, #'9'
-(2)    21F8 : DA 03                      jle     print_char
-(2)    21FA : 75 07 1A                   addb    A, #'A'-'9'-1
-(2)    21FD :                    print_char:
-(2)    21FD : 2F 24                      scall   putchar
-(2)    21FF :
-(2)    21FF :                            ;; push    A
-(2)    21FF :                            ;; ldb     A, #'@'
-(2)    21FF :                            ;; scall   putchar
-(2)    21FF :                            ;; ldb     A, #'='
-(2)    21FF :                            ;; scall   putchar
-(2)    21FF :                            ;; pop     A
-(2)    21FF :                            ;; scall   putchar
-(2)    21FF :                            ;; scall   newline
-(2)    21FF :
-(2)    21FF : 2F 07                      scall   getchar
-(2)    2201 : D3 0F                      jnc     next_x
-(2)    2203 : 90 1A 1A                   orb     A, A
-(2)    2206 : D7 0A                      jne     next_x
-(2)    2208 :
-(2)    2208 :                    halt_to_system:
-(2)    2208 : A1 10 20 1C                ld      HL, #VEC_TRAP
-(2)    220C : C3 01 10 20 1C             st      HL, VEC_TRAP    ; halt to system
-(2)    2211 : F7                         trap
-(2)    2212 :
-(2)    2212 :                    next_x:
-(2)    2212 : 17 33                      incb    vX
-(2)    2214 : 99 1E 33                   cmpb    vX, #30
-(2)    2217 : D6 02                      jge     next_y          ; if X>=30
-(2)    2219 : 27 2B                      sjmp    loop_x         ; if X<30
-(2)    221B :                    next_y:
-(2)    221B : 2E F9                      scall   newline
-(2)    221D : 17 32                      incb    vY
-(2)    221F : 99 0D 32                   cmpb    vY, #13
-(2)    2222 : D6 02                      jge     mandelbrot_end  ; if Y>=13
-(2)    2224 : 27 1C                      sjmp    loop_y          ; if Y<13
-(2)    2226 :                    mandelbrot_end:
-(2)    2226 : F0                         ret
-(2)    2227 :
-(2)    2227 :                    ;;; Print variable
-(2)    2227 :                    ;;; @param A variable name
-(2)    2227 :                    ;;; @param HL variable value
-(2)    2227 :                    print:
-(2)    2227 : 2E FA                      scall   putchar
-(2)    2229 : B1 3D 1A                   ldb     A, #'='
-(2)    222C : 2E F5                      scall   putchar
-(2)    222E : 28 02                      scall   print_int16
-(2)    2230 : 26 EE                      sjmp    putspace
-(1)    2232 :                            include "arith.inc"
-(2)    2232 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
-(2)    2232 :
-(2)    2232 :                    ;;; Print signed 16-bit integer as decimal
-(2)    2232 :                    ;;; @param HL value
-(2)    2232 :                    ;;; @clobber A HL QHL
-(2)    2232 :                    print_int16:
-(2)    2232 : 89 00 00 1C                cmp     HL, #0
-(2)    2236 : DF 21                      je      print_uint16_zero
-(2)    2238 : D2 07                      jgt     print_uint16
-(2)    223A : B1 2D 1A                   ldb     A, #'-'
-(2)    223D : 2E E4                      scall   putchar
-(2)    223F : 03 1C                      neg     HL
-(2)    2241 :                    print_uint16:
-(2)    2241 : 89 00 00 1C                cmp     HL, #0
-(2)    2245 : D7 01                      jne     print_uint16_div10
-(2)    2247 : F0                         ret
-(2)    2248 :                    print_uint16_div10:
-(2)    2248 : 06 1C                      ext     HL              ; extend to 32-bit
-(2)    224A : 8D 0A 00 1C                divu    HL, #10
-(2)    224E : C8 1E                      push    QHL             ; push remainder
-(2)    2250 : 2F EF                      scall   print_uint16
-(2)    2252 : CC 1A                      pop     A               ; pop remainder
-(2)    2254 : 75 30 1A                   addb    A, #'0'
-(2)    2257 : 26 CA                      sjmp    putchar
-(2)    2259 :                    print_uint16_zero:
-(2)    2259 : B1 30 1A                   ldb     A, #'0'
-(2)    225C : 26 C5                      sjmp    putchar
-(1)    225E :                            include "queue.inc"
-(2)    225E :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
-(2)    225E :                    ;;; [queue] queue structure
-(2)    225E : =0                 queue_len:      equ     0       ; queue length
-(2)    225E : =1                 queue_size:     equ     1       ; buffer size
-(2)    225E : =2                 queue_put:      equ     2       ; queue put index
-(2)    225E : =3                 queue_get:      equ     3       ; queue get index
-(2)    225E : =4                 queue_buf:      equ     4       ; buffer start offset
-(2)    225E :
-(2)    225E :                            align   2               ; an even entry: a whole word first
-(2)    225E :                    ;;; [queue] Initialize queue
-(2)    225E :                    ;;; @param HL queue work space pointer
-(2)    225E :                    ;;; @param B queue work space size, including the 4-byte header
-(2)    225E :                    queue_init:
-(2)    225E : C8 1A                      push    A               ; push A,B
-(2)    2260 : C8 1C                      push    HL
-(2)    2262 : C6 1C 00                   stb     ZERO, queue_len[HL]
-(2)    2265 : B0 1B 1A                   ldb     A, B
-(2)    2268 : 79 04 1A                   subb    A, #queue_buf
-(2)    226B : C7 1C 01 1A                stb     A, queue_size[HL]
-(2)    226F : C7 1C 02 00                stb     ZERO, queue_put[HL]
-(2)    2273 : C7 1C 03 00                stb     ZERO, queue_get[HL]
-(2)    2277 : 65 04 00 1C                add     HL, #queue_buf
-(2)    227B :                    queue_init_loop:
-(2)    227B : C6 1D 00                   stb     ZERO, [HL]+
-(2)    227E : E0 1A FA                   djnz    A, queue_init_loop
-(2)    2281 : CC 1C                      pop     HL
-(2)    2283 : CC 1A                      pop     A
-(2)    2285 : F0                         ret
-(2)    2286 :
-(2)    2286 :                            align   2
-(2)    2286 :                    ;;; [queue] Add an element to queue
-(2)    2286 :                    ;;; @param HL queue work space pointer
-(2)    2286 :                    ;;; @param A an element
-(2)    2286 :                    ;;; @return F.C 0 if queue is full
-(2)    2286 :                    queue_add:
-(2)    2286 : C8 20                      push    DE
-(2)    2288 : B0 1A 20                   ldb     DE, A           ; save an element
-(2)    228B : B2 1C 1A                   ldb     A, queue_len[HL]
-(2)    228E : 9B 1C 01 1A                cmpb    A, queue_size[HL]
-(2)    2292 : B0 20 1A                   ldb     A, DE              ; restore an element
-(2)    2295 : DE 05                      jlt     queue_add_store    ; queue_len < queue_size
-(2)    2297 : CC 20                      pop     DE
-(2)    2299 : F8                         clrc                       ; full: CMPB left C=1, no borrow
-(2)    229A : F0                         ret
-(2)    229C :                            align   2
-(2)    229C :                    queue_add_store:
-(2)    229C : B2 1C 20                   ldb     DE, queue_len[HL]
-(2)    229F : 17 20                      incb    DE
-(2)    22A1 : C6 1C 20                   stb     DE, queue_len[HL]
-(2)    22A4 : AF 1C 02 20                ldbze   DE, queue_put[HL]
-(2)    22A8 : 65 04 00 20                add     DE, #queue_buf
-(2)    22AC : 64 1C 20                   add     DE, HL
-(2)    22AF : C6 20 1A                   stb     A, [DE]         ; store an element
-(2)    22B2 : B3 1C 02 1A                ldb     A, queue_put[HL]
-(2)    22B6 : 17 1A                      incb    A
-(2)    22B8 : 9B 1C 01 1A                cmpb    A, queue_size[HL]
-(2)    22BC : DE 02                      jlt     queue_add_update ; queue_put < queue_size
-(2)    22BE : 11 1A                      clrb    A                ; wrap around
-(2)    22C0 :                    queue_add_update:
-(2)    22C0 : C7 1C 02 1A                stb     A, queue_put[HL]
-(2)    22C4 : B2 20 1A                   ldb     A, [DE]         ; restore an element
-(2)    22C7 : CC 20                      pop     DE
-(2)    22C9 : F9                         setc                    ; set carry
-(2)    22CA : F0                         ret
-(2)    22CB :
-(2)    22CC :                            align   2
-(2)    22CC :                    ;;; [queue] Remove an element from queue
-(2)    22CC :                    ;;; @param HL queue work space pointer
-(2)    22CC :                    ;;; @return A an element
-(2)    22CC :                    ;;; @return F.C 0 if queue is empty
-(2)    22CC :                    queue_remove:
-(2)    22CC : B2 1C 1A                   ldb     A, queue_len[HL]
-(2)    22CF : 90 1A 1A                   orb     A, A              ; clear carry
-(2)    22D2 : D7 02                      jne     queue_remove_elem ; queue_len > 0
-(2)    22D4 : F0                         ret                       ; F.C=0
-(2)    22D6 :                            align   2
-(2)    22D6 :                    queue_remove_elem:
-(2)    22D6 : C8 20                      push    DE
-(2)    22D8 : B2 1C 20                   ldb     DE, queue_len[HL]
-(2)    22DB : 15 20                      decb    DE
-(2)    22DD : C6 1C 20                   stb     DE, queue_len[HL]
-(2)    22E0 : AF 1C 03 20                ldbze   DE, queue_get[HL]
-(2)    22E4 : 65 04 00 20                add     DE, #queue_buf
-(2)    22E8 : 64 1C 20                   add     DE, HL
-(2)    22EB : B3 1C 03 1A                ldb     A, queue_get[HL]
-(2)    22EF : 17 1A                      incb    A
-(2)    22F1 : 9B 1C 01 1A                cmpb    A, queue_size[HL]
-(2)    22F5 : DE 02                      jlt     queue_remove_update ; queue_get < queue_size
-(2)    22F7 : 11 1A                      clrb    A                   ; wrap around
-(2)    22F9 :                    queue_remove_update:
-(2)    22F9 : C7 1C 03 1A                stb     A, queue_get[HL]
-(2)    22FD : B2 20 1A                   ldb     A, [DE]         ; read an element
-(2)    2300 : CC 20                      pop     DE
-(2)    2302 : F9                         setc                    ; set carry
-(2)    2303 : F0                         ret
-(1)    2304 :                            include "queue_wait.inc"
-(2)    2304 :                    ;;; [queue] Wait until queue is empty
-(2)    2304 :                    ;;; @param HL queue work space pointer
-(2)    2304 :                    ;;; @clobber A
-(2)    2304 :                    queue_wait_empty:
-(2)    2304 : B2 1C 1A                   ldb     A, queue_len[HL]
-(2)    2307 : 90 1A 1A                   orb     A, A
-(2)    230A : D7 F8                      jne     queue_wait_empty
-(2)    230C : F0                         ret
-(1)    230D :
-(1)    230D :
-(1)    230E :                            align   2
-(1)    230E :                    ;;; EXTINT from the USART: queue a received character, then send the
-(1)    230E :                    ;;; next queued one, or disable Tx when the queue is empty
-(1)    230E :                    isr_intr:
-(1)    230E : F2                         pushf
-(1)    230F : C8 1A                      push    A               ; push A,B
-(1)    2311 : C8 1C                      push    HL
-(1)    2313 : B3 01 02 04 1A             ldb     A, USARTS
-(1)    2318 : 31 1A 0B                   jbc     A, ST_RxRDY_bp, isr_intr_tx
-(1)    231B : B3 01 00 04 1A             ldb     A, USARTD       ; receive character
-(1)    2320 : A1 00 30 1C                ld      HL, #rx_queue
-(1)    2324 : 2F 60                      scall   queue_add
-(1)    2326 :                    isr_intr_tx:
-(1)    2326 : B3 01 02 04 1A             ldb     A, USARTS
-(1)    232B : 30 1A 0D                   jbc     A, ST_TxRDY_bp, isr_intr_exit
-(1)    232E : A1 80 30 1C                ld      HL, #tx_queue
-(1)    2332 : 2F 98                      scall   queue_remove
-(1)    2334 : D3 0B                      jnc     isr_intr_send_empty
-(1)    2336 : C7 01 00 04 1A             stb     A, USARTD       ; send character
-(1)    233B :                    isr_intr_exit:
-(1)    233B : CC 1C                      pop     HL
-(1)    233D : CC 1A                      pop     A
-(1)    233F : F3                         popf
-(1)    2340 : F0                         ret
-(1)    2341 :                    isr_intr_send_empty:
-(1)    2341 : B1 36 1A                   ldb     A, #RX_EN_TX_DIS
-(1)    2344 : C7 01 02 04 1A             stb     A, USARTC       ; disable Tx
-(1)    2349 : 27 F0                      sjmp    isr_intr_exit
-(1)    234B :
-(1)    234B :                            end
+(1)    20FC : FA                         di
+(1)    20FD : 28 44                      scall   mandelbrot
+(1)    20FF : FA                         di
+(1)    2100 : 28 15                      scall   newline
+(1)    2102 : A1 80 30 1C                ld      HL, #tx_queue
+(1)    2106 : FA                         di
+(1)    2107 : 2A 03                      scall   queue_wait_empty
+(1)    2109 : 27 F1                      sjmp    loop
+(1)    210B :
+(1)    210B :                    ;;; Get character, called with interrupts disabled; enables them
+(1)    210B :                    ;;; @return A
+(1)    210B :                    ;;; @return F.C 0 if no character
+(1)    210B :                    getchar:
+(1)    210B : C8 1C                      push    HL
+(1)    210D : A1 00 30 1C                ld      HL, #rx_queue
+(1)    2111 : 29 C1                      scall   queue_remove
+(1)    2113 : FB                         ei
+(1)    2114 : CC 1C                      pop     HL
+(1)    2116 : F0                         ret
+(1)    2117 :
+(1)    2117 :                    ;;; Put newline, called with interrupts disabled; enables them
+(1)    2117 :                    ;;; @clobber A
+(1)    2117 :                    newline:
+(1)    2117 : B1 0D 1A                   ldb     A, #0DH
+(1)    211A : 28 0A                      scall   putchar
+(1)    211C : B1 0A 1A                   ldb     A, #0AH
+(1)    211F : FA                         di
+(1)    2120 : 20 04                      sjmp    putchar
+(1)    2122 :
+(1)    2122 :                    ;;; Put space
+(1)    2122 :                    ;;; @clobber A
+(1)    2122 :                    putspace:
+(1)    2122 : B1 20 1A                   ldb     A, #' '
+(1)    2125 : FA                         di
+(1)    2126 :
+(1)    2126 :                    ;;; Put character, called with interrupts disabled; enables them
+(1)    2126 :                    ;;; @param A
+(1)    2126 :                    putchar:
+(1)    2126 : C8 1A                      push    A
+(1)    2128 : C8 1C                      push    HL
+(1)    212A : A1 80 30 1C                ld      HL, #tx_queue
+(1)    212E :                    putchar_retry:
+(1)    212E : 29 5E                      scall   queue_add
+(1)    2130 : FB                         ei
+(1)    2131 : DB 03                      jc      putchar_queued
+(1)    2133 : FA                         di                      ; the queue is full, retry
+(1)    2134 : 27 F8                      sjmp    putchar_retry
+(1)    2136 :                    putchar_queued:
+(1)    2136 : CC 1C                      pop     HL
+(1)    2138 : B1 37 1A                   ldb     A, #RX_EN_TX_EN ; enable Tx
+(1)    213B : C7 01 02 04 1A             stb     A, USARTC
+(1)    2140 : CC 1A                      pop     A
+(1)    2142 : F0                         ret
+(1)    2143 :
+(1)    2143 :                            include "mandelbrot.inc"
+(2)    2143 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(2)    2143 :
+(2)    2143 :
+(2)    2143 : =32                Fv:     equ     50              ; fixed-point scale
+(2)    2143 :                    ;;; Print the Mandelbrot set, one character per point: the escape
+(2)    2143 :                    ;;; iteration as a hex digit, or a space if it stays bounded for 16.
+(2)    2143 :                    ;;; A NUL from the console halts. Called with interrupts disabled;
+(2)    2143 :                    ;;; enables them.
+(2)    2143 :                    mandelbrot:
+(2)    2143 : FB                         ei
+(2)    2144 : B1 F4 32                   ldb     vY, #-12        ; Y=-12
+(2)    2147 :                    loop_y:
+(2)    2147 : B1 CF 33                   ldb     vX, #-49        ; X=-49
+(2)    214A :                    loop_x:
+(2)    214A : BC 33 1C                   ldbse   HL, vX
+(2)    214D : 6D E5 00 1D                mul     HL, #229        ; X*229
+(2)    2151 : 8D 64 00 1D                div     HL, #100        ; X*229/100
+(2)    2155 : A0 1C 22                   ld      vC, HL          ; C=X*229/100
+(2)    2158 : A0 1C 26                   ld      vA, HL          ; A=C
+(2)    215B : BC 32 1C                   ldbse   HL, vY
+(2)    215E : 6D A0 01 1D                mul     HL, #416        ; Y*416
+(2)    2162 : 8D 64 00 1D                div     HL, #100        ; Y*416/100
+(2)    2166 : A0 1C 24                   ld      vD, HL          ; D=Y*416/100
+(2)    2169 : A0 1C 28                   ld      vB, HL          ; B=D
+(2)    216C : 11 34                      clrb    vI              ; I=0
+(2)    216E :
+(2)    216E :                            ;; ldbse   HL, vY
+(2)    216E :                            ;; ldb     A, #'Y'
+(2)    216E :                            ;; scall   print
+(2)    216E :                            ;; ldbse   HL, vX
+(2)    216E :                            ;; ldb     A, #'X'
+(2)    216E :                            ;; scall   print
+(2)    216E :                            ;; ld      HL, vC
+(2)    216E :                            ;; ldb     A, #'C'
+(2)    216E :                            ;; scall   print
+(2)    216E :                            ;; ld      HL, vD
+(2)    216E :                            ;; ldb     A, #'D'
+(2)    216E :                            ;; scall   print
+(2)    216E :                            ;; scall   newline
+(2)    216E :
+(2)    216E :                    loop_i:
+(2)    216E : A0 28 1C                   ld      HL, vB
+(2)    2171 : 06 1C                      ext     HL
+(2)    2173 : 8D 32 00 1D                div     HL, #Fv         ; B/F
+(2)    2177 : A0 1C 2C                   ld      vQ, HL          ; Q=B/F
+(2)    217A : 6D 32 00 1D                mul     HL, #Fv         ; Q*F
+(2)    217E : 48 1C 28 2E                sub     vS, vB, HL      ; S=B-Q*F
+(2)    2182 : A0 28 1C                   ld      HL, vB
+(2)    2185 : 6C 28 1D                   mul     HL, vB          ; B*B
+(2)    2188 : C8 1C                      push    HL              ; push B*B
+(2)    218A : A0 26 1C                   ld      HL, vA
+(2)    218D : 6C 26 1D                   mul     HL, vA          ; A*A
+(2)    2190 : 6A 19 1C                   sub     HL, [SP]+       ; A*A-B*B
+(2)    2193 : 06 1C                      ext     HL
+(2)    2195 : 8D 32 00 1D                div     HL, #Fv         ; (A*A-B*B)/F
+(2)    2199 : 64 22 1C                   add     HL, vC          ; (A*A-B*B)/F+C
+(2)    219C : C8 1C                      push    HL              ; push (A*A-B*B)/F+C
+(2)    219E : 4C 2E 26 1D                mul     HL, vA, vS      ; A*S
+(2)    21A2 : 06 1C                      ext     HL
+(2)    21A4 : 8D 32 00 1D                div     HL, #Fv         ; A*S/F
+(2)    21A8 : C8 1C                      push    HL              ; push A*S/F
+(2)    21AA : 4C 2C 26 1D                mul     HL, vA, vQ      ; A*Q
+(2)    21AE : 66 19 1C                   add     HL, [SP]+       ; A*Q+A*S/F
+(2)    21B1 : 64 1C 1C                   add     HL, HL          ; 2*(A*Q+A*S/F)
+(2)    21B4 : 44 24 1C 28                add     vB, HL, vD      ; B=2*(A*Q+A*S/F)+D
+(2)    21B8 : A2 19 26                   ld      vA, [SP]+       ; A=(A*A-B*B)/F+C
+(2)    21BB : A0 26 1C                   ld      HL, vA
+(2)    21BE : 06 1C                      ext     HL
+(2)    21C0 : 8D 32 00 1D                div     HL, #Fv         ; A/F
+(2)    21C4 : A0 1C 2A                   ld      vP, HL          ; P=A/F
+(2)    21C7 : 6C 1C 1D                   mul     HL, HL          ; P*P
+(2)    21CA : C8 1C                      push    HL              ; push P*P
+(2)    21CC : A0 28 1C                   ld      HL, vB
+(2)    21CF : 06 1C                      ext     HL
+(2)    21D1 : 8D 32 00 1D                div     HL, #Fv         ; B/F
+(2)    21D5 : A0 1C 2C                   ld      vQ, HL          ; Q=B/F
+(2)    21D8 : 6C 1C 1D                   mul     HL, HL          ; Q*Q
+(2)    21DB : 46 19 1C 30                add     vT, HL, [SP]+   ; T=P*P+Q*Q
+(2)    21DF :
+(2)    21DF :                            ;; scall   putspace
+(2)    21DF :                            ;; ldbse   HL, vI
+(2)    21DF :                            ;; ldb     A, #'I'
+(2)    21DF :                            ;; scall   print
+(2)    21DF :                            ;; ld      HL, vA
+(2)    21DF :                            ;; ldb     A, #'A'
+(2)    21DF :                            ;; scall   print
+(2)    21DF :                            ;; ld      HL, vB
+(2)    21DF :                            ;; ldb     A, #'B'
+(2)    21DF :                            ;; scall   print
+(2)    21DF :                            ;; ld      HL, vP
+(2)    21DF :                            ;; ldb     A, #'P'
+(2)    21DF :                            ;; scall   print
+(2)    21DF :                            ;; ld      HL, vQ
+(2)    21DF :                            ;; ldb     A, #'Q'
+(2)    21DF :                            ;; scall   print
+(2)    21DF :                            ;; ld      HL, vT
+(2)    21DF :                            ;; ldb     A, #'T'
+(2)    21DF :                            ;; scall   print
+(2)    21DF :                            ;; scall   newline
+(2)    21DF :
+(2)    21DF : 89 04 00 30                cmp     vT, #4
+(2)    21E3 : D2 0E                      jgt     print_i         ; if T>4
+(2)    21E5 : 17 34                      incb    vI              ; I++
+(2)    21E7 : 99 10 34                   cmpb    vI, #16
+(2)    21EA : D6 02                      jge     print_space     ; if I>=16
+(2)    21EC : 27 80                      sjmp    loop_i          ; if I<16
+(2)    21EE :                    print_space:
+(2)    21EE : B1 20 1A                   ldb     A, #' '
+(2)    21F1 : 20 0E                      sjmp    print_char
+(2)    21F3 :                    print_i:
+(2)    21F3 : B0 34 1A                   ldb     A, vI
+(2)    21F6 : 75 30 1A                   addb    A, #'0'
+(2)    21F9 : 99 39 1A                   cmpb    A, #'9'
+(2)    21FC : DA 03                      jle     print_char
+(2)    21FE : 75 07 1A                   addb    A, #'A'-'9'-1
+(2)    2201 :                    print_char:
+(2)    2201 : FA                         di                      ; see loop in mandelbrot_main.inc
+(2)    2202 : 2F 22                      scall   putchar
+(2)    2204 :
+(2)    2204 :                            ;; push    A
+(2)    2204 :                            ;; ldb     A, #'@'
+(2)    2204 :                            ;; scall   putchar
+(2)    2204 :                            ;; ldb     A, #'='
+(2)    2204 :                            ;; scall   putchar
+(2)    2204 :                            ;; pop     A
+(2)    2204 :                            ;; scall   putchar
+(2)    2204 :                            ;; scall   newline
+(2)    2204 :
+(2)    2204 : FA                         di
+(2)    2205 : 2F 04                      scall   getchar
+(2)    2207 : D3 0F                      jnc     next_x
+(2)    2209 : 90 1A 1A                   orb     A, A
+(2)    220C : D7 0A                      jne     next_x
+(2)    220E :
+(2)    220E :                    halt_to_system:
+(2)    220E : A1 10 20 1C                ld      HL, #VEC_TRAP
+(2)    2212 : C3 01 10 20 1C             st      HL, VEC_TRAP    ; halt to system
+(2)    2217 : F7                         trap
+(2)    2218 :
+(2)    2218 :                    next_x:
+(2)    2218 : 17 33                      incb    vX
+(2)    221A : 99 1E 33                   cmpb    vX, #30
+(2)    221D : D6 02                      jge     next_y          ; if X>=30
+(2)    221F : 27 29                      sjmp    loop_x         ; if X<30
+(2)    2221 :                    next_y:
+(2)    2221 : FA                         di
+(2)    2222 : 2E F3                      scall   newline
+(2)    2224 : 17 32                      incb    vY
+(2)    2226 : 99 0D 32                   cmpb    vY, #13
+(2)    2229 : D6 02                      jge     mandelbrot_end  ; if Y>=13
+(2)    222B : 27 1A                      sjmp    loop_y          ; if Y<13
+(2)    222D :                    mandelbrot_end:
+(2)    222D : F0                         ret
+(2)    222E :
+(2)    222E :                    ;;; Print variable
+(2)    222E :                    ;;; @param A variable name
+(2)    222E :                    ;;; @param HL variable value
+(2)    222E :                    print:
+(2)    222E : 2E F6                      scall   putchar
+(2)    2230 : B1 3D 1A                   ldb     A, #'='
+(2)    2233 : 2E F1                      scall   putchar
+(2)    2235 : 28 02                      scall   print_int16
+(2)    2237 : 26 E9                      sjmp    putspace
+(1)    2239 :                            include "arith.inc"
+(2)    2239 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(2)    2239 :
+(2)    2239 :                    ;;; Print signed 16-bit integer as decimal
+(2)    2239 :                    ;;; @param HL value
+(2)    2239 :                    ;;; @clobber A HL QHL
+(2)    2239 :                    print_int16:
+(2)    2239 : 89 00 00 1C                cmp     HL, #0
+(2)    223D : DF 21                      je      print_uint16_zero
+(2)    223F : D2 07                      jgt     print_uint16
+(2)    2241 : B1 2D 1A                   ldb     A, #'-'
+(2)    2244 : 2E E0                      scall   putchar
+(2)    2246 : 03 1C                      neg     HL
+(2)    2248 :                    print_uint16:
+(2)    2248 : 89 00 00 1C                cmp     HL, #0
+(2)    224C : D7 01                      jne     print_uint16_div10
+(2)    224E : F0                         ret
+(2)    224F :                    print_uint16_div10:
+(2)    224F : 06 1C                      ext     HL              ; extend to 32-bit
+(2)    2251 : 8D 0A 00 1C                divu    HL, #10
+(2)    2255 : C8 1E                      push    QHL             ; push remainder
+(2)    2257 : 2F EF                      scall   print_uint16
+(2)    2259 : CC 1A                      pop     A               ; pop remainder
+(2)    225B : 75 30 1A                   addb    A, #'0'
+(2)    225E : 26 C6                      sjmp    putchar
+(2)    2260 :                    print_uint16_zero:
+(2)    2260 : B1 30 1A                   ldb     A, #'0'
+(2)    2263 : 26 C1                      sjmp    putchar
+(1)    2265 :                            include "queue.inc"
+(2)    2265 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(2)    2265 :                    ;;; [queue] queue structure
+(2)    2265 : =0                 queue_len:      equ     0       ; queue length
+(2)    2265 : =1                 queue_size:     equ     1       ; buffer size
+(2)    2265 : =2                 queue_put:      equ     2       ; queue put index
+(2)    2265 : =3                 queue_get:      equ     3       ; queue get index
+(2)    2265 : =4                 queue_buf:      equ     4       ; buffer start offset
+(2)    2265 :
+(2)    2266 :                            align   2               ; an even entry: a whole word first
+(2)    2266 :                    ;;; [queue] Initialize queue
+(2)    2266 :                    ;;; @param HL queue work space pointer
+(2)    2266 :                    ;;; @param B queue work space size, including the 4-byte header
+(2)    2266 :                    queue_init:
+(2)    2266 : C8 1A                      push    A               ; push A,B
+(2)    2268 : C8 1C                      push    HL
+(2)    226A : C6 1C 00                   stb     ZERO, queue_len[HL]
+(2)    226D : B0 1B 1A                   ldb     A, B
+(2)    2270 : 79 04 1A                   subb    A, #queue_buf
+(2)    2273 : C7 1C 01 1A                stb     A, queue_size[HL]
+(2)    2277 : C7 1C 02 00                stb     ZERO, queue_put[HL]
+(2)    227B : C7 1C 03 00                stb     ZERO, queue_get[HL]
+(2)    227F : 65 04 00 1C                add     HL, #queue_buf
+(2)    2283 :                    queue_init_loop:
+(2)    2283 : C6 1D 00                   stb     ZERO, [HL]+
+(2)    2286 : E0 1A FA                   djnz    A, queue_init_loop
+(2)    2289 : CC 1C                      pop     HL
+(2)    228B : CC 1A                      pop     A
+(2)    228D : F0                         ret
+(2)    228E :
+(2)    228E :                            align   2
+(2)    228E :                    ;;; [queue] Add an element to queue
+(2)    228E :                    ;;; @param HL queue work space pointer
+(2)    228E :                    ;;; @param A an element
+(2)    228E :                    ;;; @return F.C 0 if queue is full
+(2)    228E :                    queue_add:
+(2)    228E : C8 20                      push    DE
+(2)    2290 : B0 1A 20                   ldb     DE, A           ; save an element
+(2)    2293 : B2 1C 1A                   ldb     A, queue_len[HL]
+(2)    2296 : 9B 1C 01 1A                cmpb    A, queue_size[HL]
+(2)    229A : B0 20 1A                   ldb     A, DE              ; restore an element
+(2)    229D : DE 05                      jlt     queue_add_store    ; queue_len < queue_size
+(2)    229F : CC 20                      pop     DE
+(2)    22A1 : F8                         clrc                       ; full: CMPB left C=1, no borrow
+(2)    22A2 : F0                         ret
+(2)    22A4 :                            align   2
+(2)    22A4 :                    queue_add_store:
+(2)    22A4 : B2 1C 20                   ldb     DE, queue_len[HL]
+(2)    22A7 : 17 20                      incb    DE
+(2)    22A9 : C6 1C 20                   stb     DE, queue_len[HL]
+(2)    22AC : AF 1C 02 20                ldbze   DE, queue_put[HL]
+(2)    22B0 : 65 04 00 20                add     DE, #queue_buf
+(2)    22B4 : 64 1C 20                   add     DE, HL
+(2)    22B7 : C6 20 1A                   stb     A, [DE]         ; store an element
+(2)    22BA : B3 1C 02 1A                ldb     A, queue_put[HL]
+(2)    22BE : 17 1A                      incb    A
+(2)    22C0 : 9B 1C 01 1A                cmpb    A, queue_size[HL]
+(2)    22C4 : DE 02                      jlt     queue_add_update ; queue_put < queue_size
+(2)    22C6 : 11 1A                      clrb    A                ; wrap around
+(2)    22C8 :                    queue_add_update:
+(2)    22C8 : C7 1C 02 1A                stb     A, queue_put[HL]
+(2)    22CC : B2 20 1A                   ldb     A, [DE]         ; restore an element
+(2)    22CF : CC 20                      pop     DE
+(2)    22D1 : F9                         setc                    ; set carry
+(2)    22D2 : F0                         ret
+(2)    22D3 :
+(2)    22D4 :                            align   2
+(2)    22D4 :                    ;;; [queue] Remove an element from queue
+(2)    22D4 :                    ;;; @param HL queue work space pointer
+(2)    22D4 :                    ;;; @return A an element
+(2)    22D4 :                    ;;; @return F.C 0 if queue is empty
+(2)    22D4 :                    queue_remove:
+(2)    22D4 : B2 1C 1A                   ldb     A, queue_len[HL]
+(2)    22D7 : 90 1A 1A                   orb     A, A              ; clear carry
+(2)    22DA : D7 02                      jne     queue_remove_elem ; queue_len > 0
+(2)    22DC : F0                         ret                       ; F.C=0
+(2)    22DE :                            align   2
+(2)    22DE :                    queue_remove_elem:
+(2)    22DE : C8 20                      push    DE
+(2)    22E0 : B2 1C 20                   ldb     DE, queue_len[HL]
+(2)    22E3 : 15 20                      decb    DE
+(2)    22E5 : C6 1C 20                   stb     DE, queue_len[HL]
+(2)    22E8 : AF 1C 03 20                ldbze   DE, queue_get[HL]
+(2)    22EC : 65 04 00 20                add     DE, #queue_buf
+(2)    22F0 : 64 1C 20                   add     DE, HL
+(2)    22F3 : B3 1C 03 1A                ldb     A, queue_get[HL]
+(2)    22F7 : 17 1A                      incb    A
+(2)    22F9 : 9B 1C 01 1A                cmpb    A, queue_size[HL]
+(2)    22FD : DE 02                      jlt     queue_remove_update ; queue_get < queue_size
+(2)    22FF : 11 1A                      clrb    A                   ; wrap around
+(2)    2301 :                    queue_remove_update:
+(2)    2301 : C7 1C 03 1A                stb     A, queue_get[HL]
+(2)    2305 : B2 20 1A                   ldb     A, [DE]         ; read an element
+(2)    2308 : CC 20                      pop     DE
+(2)    230A : F9                         setc                    ; set carry
+(2)    230B : F0                         ret
+(1)    230C :                            include "queue_wait.inc"
+(2)    230C :                    ;;; [queue] Wait until queue is empty, called with interrupts
+(2)    230C :                    ;;; disabled; enables them
+(2)    230C :                    ;;; @param HL queue work space pointer
+(2)    230C :                    ;;; @clobber A
+(2)    230C :                    queue_wait_empty:
+(2)    230C : FB                         ei
+(2)    230D :                    queue_wait_empty_loop:
+(2)    230D : B2 1C 1A                   ldb     A, queue_len[HL]
+(2)    2310 : 90 1A 1A                   orb     A, A
+(2)    2313 : D7 F8                      jne     queue_wait_empty_loop
+(2)    2315 : F0                         ret
+(1)    2316 :
+(1)    2316 :
+(1)    2316 :                            align   2
+(1)    2316 :                    ;;; EXTINT from the USART: queue a received character, then send the
+(1)    2316 :                    ;;; next queued one, or disable Tx when the queue is empty
+(1)    2316 :                    isr_intr:
+(1)    2316 : F2                         pushf
+(1)    2317 : C8 1A                      push    A               ; push A,B
+(1)    2319 : C8 1C                      push    HL
+(1)    231B : B3 01 02 04 1A             ldb     A, USARTS
+(1)    2320 : 31 1A 0B                   jbc     A, ST_RxRDY_bp, isr_intr_tx
+(1)    2323 : B3 01 00 04 1A             ldb     A, USARTD       ; receive character
+(1)    2328 : A1 00 30 1C                ld      HL, #rx_queue
+(1)    232C : 2F 60                      scall   queue_add
+(1)    232E :                    isr_intr_tx:
+(1)    232E : B3 01 02 04 1A             ldb     A, USARTS
+(1)    2333 : 30 1A 0D                   jbc     A, ST_TxRDY_bp, isr_intr_exit
+(1)    2336 : A1 80 30 1C                ld      HL, #tx_queue
+(1)    233A : 2F 98                      scall   queue_remove
+(1)    233C : D3 0B                      jnc     isr_intr_send_empty
+(1)    233E : C7 01 00 04 1A             stb     A, USARTD       ; send character
+(1)    2343 :                    isr_intr_exit:
+(1)    2343 : CC 1C                      pop     HL
+(1)    2345 : CC 1A                      pop     A
+(1)    2347 : F3                         popf
+(1)    2348 : F0                         ret
+(1)    2349 :                    isr_intr_send_empty:
+(1)    2349 : B1 36 1A                   ldb     A, #RX_EN_TX_DIS
+(1)    234C : C7 01 02 04 1A             stb     A, USARTC       ; disable Tx
+(1)    2351 : 27 F0                      sjmp    isr_intr_exit
+(1)    2353 :
+(1)    2353 :                            end

@@ -51,20 +51,32 @@ init_usart:
         stb     A, USARTTV      ; enable transmit interrupt
         ei
 
+;;; An 80296SA can take an interrupt inside a call, after the call pushed
+;;; its return address: it pushes that address again, and the handler
+;;; returns past the callee. So code running with interrupts enabled
+;;; disables them before each call, and the callee enables them again.
+;;; (The 80C196NP is not checked yet.)
 receive_loop:
+        di
         scall   getchar
         jnc     receive_loop
         orb     A, A
         je      halt_to_system  ; NUL halts
 echo_back:
         ldb     B, A
+        di
         scall   putchar         ; echo
         ldb     A, #' '         ; space
+        di
         scall   putchar
+        di
         scall   put_hex8        ; print in hex
         ldb     A, #' '         ; space
+        di
         scall   putchar
+        di
         scall   put_bin8        ; print in binary
+        di
         scall   newline
         sjmp    receive_loop
 
@@ -78,14 +90,18 @@ halt_to_system:
 ;;; @clobber A
 put_hex8:
         ldb     A, #'0'
+        di
         scall   putchar
         ldb     A, #'x'
+        di
         scall   putchar
         ldb     A, B
         shrb    A, 4
+        di
         scall   put_hex4
         ldb     A, B
 put_hex4:
+        di
         andb    A, #0FH
         cmpb    A, #10
         jlt     put_hex4_ascii
@@ -99,57 +115,63 @@ put_hex4_ascii:
 put_bin8:
         push    A               ; push A,B
         ldb     A, #'0'
+        di
         scall   putchar
         ldb     A, #'b'
+        di
         scall   putchar
         ldb     A, B
+        di
         scall   put_bin4
+        di
         scall   put_bin4
         pop     A
         ret
 put_bin4:
         scall   put_bin2
 put_bin2:
+        di
         scall   put_bin1
 put_bin1:
+        di
         shlb    B, 1            ; F.C=MSB
         ldb     A, #'0'
         jnc     putchar         ; MSB=0
         incb    A               ; MSB=1
         sjmp    putchar
 
-;;; Get character
+;;; Get character, called with interrupts disabled; enables them
 ;;; @return A
 ;;; @return F.C 0 if no character
 getchar:
         push    HL
         ld      HL, #rx_queue
-        di
-        nop                     ; an 80296SA takes one after DI's next
         scall   queue_remove
         ei
         pop     HL
         ret
 
-;;; Put newline
+;;; Put newline, called with interrupts disabled; enables them
 ;;; @clobber A
 newline:
         ldb     A, #0DH
         scall   putchar
-        ldb    A, #0AH
+        ldb     A, #0AH
+        di
 
-;;; Put character
+;;; Put character, called with interrupts disabled; enables them
 ;;; @param A
 putchar:
         push    A
         push    HL
         ld      HL, #tx_queue
 putchar_retry:
-        di
-        nop                     ; an 80296SA takes one after DI's next
         scall   queue_add
         ei
-        jnc     putchar_retry   ; branch if queue is full
+        jc      putchar_queued
+        di                      ; the queue is full, retry
+        sjmp    putchar_retry
+putchar_queued:
         pop     HL
         ldb     A, #RX_EN_TX_EN ; enable Tx
         stb     A, USARTC

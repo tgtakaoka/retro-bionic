@@ -113,9 +113,9 @@
 (1)    1000 : =1000              stack:  equ     $
 (1)    1000 :
 (1)    2006 :                            org     VEC_EXTINT0     ; the 80C196NP and 80296SA's
-(1)    2006 : 4A 22                      dcw     isr_intr
+(1)    2006 : 5A 22                      dcw     isr_intr
 (1)    200E :                            org     VEC_EXTINT
-(1)    200E : 4A 22                      dcw     isr_intr
+(1)    200E : 5A 22                      dcw     isr_intr
 (1)    2010 :
 (1)      1A :                            org     1AH
 (1)      1A :                    A:      dsb     1
@@ -130,10 +130,10 @@
 (1)    20B1 :
 (1)    20B1 : A1 00 30 1C                ld      HL, #rx_queue
 (1)    20B5 : B1 80 1B                   ldb     B, #rx_queue_size
-(1)    20B8 : 28 EA                      scall   queue_init
+(1)    20B8 : 28 FA                      scall   queue_init
 (1)    20BA : A1 80 30 1C                ld      HL, #tx_queue
 (1)    20BE : B1 80 1B                   ldb     B, #tx_queue_size
-(1)    20C1 : 28 E1                      scall   queue_init
+(1)    20C1 : 28 F1                      scall   queue_init
 (1)    20C3 :                    init_usart:
 (1)    20C3 : C7 01 02 04 00             stb     ZERO, USARTC
 (1)    20C8 : C7 01 02 04 00             stb     ZERO, USARTC
@@ -153,235 +153,257 @@
 (1)    20F6 : C7 01 06 04 1A             stb     A, USARTTV      ; enable transmit interrupt
 (1)    20FB : FB                         ei
 (1)    20FC :
+(1)    20FC :                    ;;; An 80296SA can take an interrupt inside a call, after the call pushed
+(1)    20FC :                    ;;; its return address: it pushes that address again, and the handler
+(1)    20FC :                    ;;; returns past the callee. So code running with interrupts enabled
+(1)    20FC :                    ;;; disables them before each call, and the callee enables them again.
+(1)    20FC :                    ;;; (The 80C196NP is not checked yet.)
 (1)    20FC :                    receive_loop:
-(1)    20FC : 28 73                      scall   getchar
-(1)    20FE : D3 FC                      jnc     receive_loop
-(1)    2100 : 90 1A 1A                   orb     A, A
-(1)    2103 : DF 17                      je      halt_to_system  ; NUL halts
-(1)    2105 :                    echo_back:
-(1)    2105 : B0 1A 1B                   ldb     B, A
-(1)    2108 : 28 7D                      scall   putchar         ; echo
-(1)    210A : B1 20 1A                   ldb     A, #' '         ; space
-(1)    210D : 28 78                      scall   putchar
-(1)    210F : 28 15                      scall   put_hex8        ; print in hex
-(1)    2111 : B1 20 1A                   ldb     A, #' '         ; space
-(1)    2114 : 28 71                      scall   putchar
-(1)    2116 : 28 33                      scall   put_bin8        ; print in binary
-(1)    2118 : 28 65                      scall   newline
-(1)    211A : 27 E0                      sjmp    receive_loop
-(1)    211C :
-(1)    211C :                    halt_to_system:
-(1)    211C : A1 10 20 1A                ld      A, #VEC_TRAP
-(1)    2120 : C3 01 10 20 1A             st      A, VEC_TRAP     ; halt to system
-(1)    2125 : F7                         trap
-(1)    2126 :
-(1)    2126 :                    ;;; Print uint8_t in hex
-(1)    2126 :                    ;;; @param B uint8_t value to be printed in hex.
-(1)    2126 :                    ;;; @clobber A
-(1)    2126 :                    put_hex8:
-(1)    2126 : B1 30 1A                   ldb     A, #'0'
-(1)    2129 : 28 5C                      scall   putchar
-(1)    212B : B1 78 1A                   ldb     A, #'x'
-(1)    212E : 28 57                      scall   putchar
-(1)    2130 : B0 1B 1A                   ldb     A, B
-(1)    2133 : 18 04 1A                   shrb    A, 4
-(1)    2136 : 28 03                      scall   put_hex4
-(1)    2138 : B0 1B 1A                   ldb     A, B
-(1)    213B :                    put_hex4:
-(1)    213B : 71 0F 1A                   andb    A, #0FH
-(1)    213E : 99 0A 1A                   cmpb    A, #10
-(1)    2141 : DE 03                      jlt     put_hex4_ascii
-(1)    2143 : 75 07 1A                   addb    A, #'A'-'0'-10
-(1)    2146 :                    put_hex4_ascii:
-(1)    2146 : 75 30 1A                   addb    A, #'0'
-(1)    2149 : 20 3C                      sjmp    putchar
-(1)    214B :
-(1)    214B :                    ;;; Print uint8_t in binary
-(1)    214B :                    ;;; @param B uint8_t value to be printed in binary.
-(1)    214B :                    put_bin8:
-(1)    214B : C8 1A                      push    A               ; push A,B
-(1)    214D : B1 30 1A                   ldb     A, #'0'
-(1)    2150 : 28 35                      scall   putchar
-(1)    2152 : B1 62 1A                   ldb     A, #'b'
-(1)    2155 : 28 30                      scall   putchar
-(1)    2157 : B0 1B 1A                   ldb     A, B
-(1)    215A : 28 05                      scall   put_bin4
-(1)    215C : 28 03                      scall   put_bin4
-(1)    215E : CC 1A                      pop     A
-(1)    2160 : F0                         ret
-(1)    2161 :                    put_bin4:
-(1)    2161 : 28 00                      scall   put_bin2
-(1)    2163 :                    put_bin2:
-(1)    2163 : 28 00                      scall   put_bin1
-(1)    2165 :                    put_bin1:
-(1)    2165 : 19 01 1B                   shlb    B, 1            ; F.C=MSB
-(1)    2168 : B1 30 1A                   ldb     A, #'0'
-(1)    216B : D3 1A                      jnc     putchar         ; MSB=0
-(1)    216D : 17 1A                      incb    A               ; MSB=1
-(1)    216F : 20 16                      sjmp    putchar
-(1)    2171 :
-(1)    2171 :                    ;;; Get character
-(1)    2171 :                    ;;; @return A
-(1)    2171 :                    ;;; @return F.C 0 if no character
-(1)    2171 :                    getchar:
-(1)    2171 : C8 1C                      push    HL
-(1)    2173 : A1 00 30 1C                ld      HL, #rx_queue
-(1)    2177 : FA                         di
-(1)    2178 : FD                         nop                     ; an 80296SA takes one after DI's next
-(1)    2179 : 28 97                      scall   queue_remove
-(1)    217B : FB                         ei
-(1)    217C : CC 1C                      pop     HL
-(1)    217E : F0                         ret
-(1)    217F :
-(1)    217F :                    ;;; Put newline
-(1)    217F :                    ;;; @clobber A
-(1)    217F :                    newline:
-(1)    217F : B1 0D 1A                   ldb     A, #0DH
-(1)    2182 : 28 03                      scall   putchar
-(1)    2184 : B1 0A 1A                   ldb    A, #0AH
-(1)    2187 :
-(1)    2187 :                    ;;; Put character
-(1)    2187 :                    ;;; @param A
-(1)    2187 :                    putchar:
-(1)    2187 : C8 1A                      push    A
-(1)    2189 : C8 1C                      push    HL
-(1)    218B : A1 80 30 1C                ld      HL, #tx_queue
-(1)    218F :                    putchar_retry:
-(1)    218F : FA                         di
-(1)    2190 : FD                         nop                     ; an 80296SA takes one after DI's next
-(1)    2191 : 28 39                      scall   queue_add
-(1)    2193 : FB                         ei
-(1)    2194 : D3 F9                      jnc     putchar_retry   ; branch if queue is full
-(1)    2196 : CC 1C                      pop     HL
-(1)    2198 : B1 37 1A                   ldb     A, #RX_EN_TX_EN ; enable Tx
-(1)    219B : C7 01 02 04 1A             stb     A, USARTC
-(1)    21A0 : CC 1A                      pop     A
-(1)    21A2 : F0                         ret
-(1)    21A3 :
-(1)    21A3 :                            include "queue.inc"
-(2)    21A3 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
-(2)    21A3 :                    ;;; [queue] queue structure
-(2)    21A3 : =0                 queue_len:      equ     0       ; queue length
-(2)    21A3 : =1                 queue_size:     equ     1       ; buffer size
-(2)    21A3 : =2                 queue_put:      equ     2       ; queue put index
-(2)    21A3 : =3                 queue_get:      equ     3       ; queue get index
-(2)    21A3 : =4                 queue_buf:      equ     4       ; buffer start offset
-(2)    21A3 :
-(2)    21A4 :                            align   2               ; an even entry: a whole word first
-(2)    21A4 :                    ;;; [queue] Initialize queue
-(2)    21A4 :                    ;;; @param HL queue work space pointer
-(2)    21A4 :                    ;;; @param B queue work space size, including the 4-byte header
-(2)    21A4 :                    queue_init:
-(2)    21A4 : C8 1A                      push    A               ; push A,B
-(2)    21A6 : C8 1C                      push    HL
-(2)    21A8 : C6 1C 00                   stb     ZERO, queue_len[HL]
-(2)    21AB : B0 1B 1A                   ldb     A, B
-(2)    21AE : 79 04 1A                   subb    A, #queue_buf
-(2)    21B1 : C7 1C 01 1A                stb     A, queue_size[HL]
-(2)    21B5 : C7 1C 02 00                stb     ZERO, queue_put[HL]
-(2)    21B9 : C7 1C 03 00                stb     ZERO, queue_get[HL]
-(2)    21BD : 65 04 00 1C                add     HL, #queue_buf
-(2)    21C1 :                    queue_init_loop:
-(2)    21C1 : C6 1D 00                   stb     ZERO, [HL]+
-(2)    21C4 : E0 1A FA                   djnz    A, queue_init_loop
-(2)    21C7 : CC 1C                      pop     HL
-(2)    21C9 : CC 1A                      pop     A
-(2)    21CB : F0                         ret
-(2)    21CC :
-(2)    21CC :                            align   2
-(2)    21CC :                    ;;; [queue] Add an element to queue
-(2)    21CC :                    ;;; @param HL queue work space pointer
-(2)    21CC :                    ;;; @param A an element
-(2)    21CC :                    ;;; @return F.C 0 if queue is full
-(2)    21CC :                    queue_add:
-(2)    21CC : C8 1E                      push    DE
-(2)    21CE : B0 1A 1E                   ldb     DE, A           ; save an element
-(2)    21D1 : B2 1C 1A                   ldb     A, queue_len[HL]
-(2)    21D4 : 9B 1C 01 1A                cmpb    A, queue_size[HL]
-(2)    21D8 : B0 1E 1A                   ldb     A, DE              ; restore an element
-(2)    21DB : DE 05                      jlt     queue_add_store    ; queue_len < queue_size
-(2)    21DD : CC 1E                      pop     DE
-(2)    21DF : F8                         clrc                       ; full: CMPB left C=1, no borrow
-(2)    21E0 : F0                         ret
-(2)    21E2 :                            align   2
-(2)    21E2 :                    queue_add_store:
-(2)    21E2 : B2 1C 1E                   ldb     DE, queue_len[HL]
-(2)    21E5 : 17 1E                      incb    DE
-(2)    21E7 : C6 1C 1E                   stb     DE, queue_len[HL]
-(2)    21EA : AF 1C 02 1E                ldbze   DE, queue_put[HL]
-(2)    21EE : 65 04 00 1E                add     DE, #queue_buf
-(2)    21F2 : 64 1C 1E                   add     DE, HL
-(2)    21F5 : C6 1E 1A                   stb     A, [DE]         ; store an element
-(2)    21F8 : B3 1C 02 1A                ldb     A, queue_put[HL]
-(2)    21FC : 17 1A                      incb    A
-(2)    21FE : 9B 1C 01 1A                cmpb    A, queue_size[HL]
-(2)    2202 : DE 02                      jlt     queue_add_update ; queue_put < queue_size
-(2)    2204 : 11 1A                      clrb    A                ; wrap around
-(2)    2206 :                    queue_add_update:
-(2)    2206 : C7 1C 02 1A                stb     A, queue_put[HL]
-(2)    220A : B2 1E 1A                   ldb     A, [DE]         ; restore an element
-(2)    220D : CC 1E                      pop     DE
-(2)    220F : F9                         setc                    ; set carry
-(2)    2210 : F0                         ret
-(2)    2211 :
-(2)    2212 :                            align   2
-(2)    2212 :                    ;;; [queue] Remove an element from queue
-(2)    2212 :                    ;;; @param HL queue work space pointer
-(2)    2212 :                    ;;; @return A an element
-(2)    2212 :                    ;;; @return F.C 0 if queue is empty
-(2)    2212 :                    queue_remove:
-(2)    2212 : B2 1C 1A                   ldb     A, queue_len[HL]
-(2)    2215 : 90 1A 1A                   orb     A, A              ; clear carry
-(2)    2218 : D7 02                      jne     queue_remove_elem ; queue_len > 0
-(2)    221A : F0                         ret                       ; F.C=0
-(2)    221C :                            align   2
-(2)    221C :                    queue_remove_elem:
-(2)    221C : C8 1E                      push    DE
-(2)    221E : B2 1C 1E                   ldb     DE, queue_len[HL]
-(2)    2221 : 15 1E                      decb    DE
-(2)    2223 : C6 1C 1E                   stb     DE, queue_len[HL]
-(2)    2226 : AF 1C 03 1E                ldbze   DE, queue_get[HL]
-(2)    222A : 65 04 00 1E                add     DE, #queue_buf
-(2)    222E : 64 1C 1E                   add     DE, HL
-(2)    2231 : B3 1C 03 1A                ldb     A, queue_get[HL]
-(2)    2235 : 17 1A                      incb    A
-(2)    2237 : 9B 1C 01 1A                cmpb    A, queue_size[HL]
-(2)    223B : DE 02                      jlt     queue_remove_update ; queue_get < queue_size
-(2)    223D : 11 1A                      clrb    A                   ; wrap around
-(2)    223F :                    queue_remove_update:
-(2)    223F : C7 1C 03 1A                stb     A, queue_get[HL]
-(2)    2243 : B2 1E 1A                   ldb     A, [DE]         ; read an element
-(2)    2246 : CC 1E                      pop     DE
-(2)    2248 : F9                         setc                    ; set carry
-(2)    2249 : F0                         ret
-(1)    224A :
-(1)    224A :                            align   2
-(1)    224A :                    ;;; EXTINT from the USART: queue a received character, then send the
-(1)    224A :                    ;;; next queued one, or disable Tx when the queue is empty
-(1)    224A :                    isr_intr:
-(1)    224A : F2                         pushf
-(1)    224B : C8 1A                      push    A               ; push A,B
-(1)    224D : C8 1C                      push    HL
-(1)    224F : B3 01 02 04 1A             ldb     A, USARTS
-(1)    2254 : 31 1A 0B                   jbc     A, ST_RxRDY_bp, isr_intr_tx
-(1)    2257 : B3 01 00 04 1A             ldb     A, USARTD       ; receive character
-(1)    225C : A1 00 30 1C                ld      HL, #rx_queue
-(1)    2260 : 2F 6A                      scall   queue_add
-(1)    2262 :                    isr_intr_tx:
-(1)    2262 : B3 01 02 04 1A             ldb     A, USARTS
-(1)    2267 : 30 1A 0D                   jbc     A, ST_TxRDY_bp, isr_intr_exit
-(1)    226A : A1 80 30 1C                ld      HL, #tx_queue
-(1)    226E : 2F A2                      scall   queue_remove
-(1)    2270 : D3 0B                      jnc     isr_intr_send_empty
-(1)    2272 : C7 01 00 04 1A             stb     A, USARTD       ; send character
-(1)    2277 :                    isr_intr_exit:
-(1)    2277 : CC 1C                      pop     HL
-(1)    2279 : CC 1A                      pop     A
-(1)    227B : F3                         popf
-(1)    227C : F0                         ret
-(1)    227D :                    isr_intr_send_empty:
-(1)    227D : B1 36 1A                   ldb     A, #RX_EN_TX_DIS
-(1)    2280 : C7 01 02 04 1A             stb     A, USARTC       ; disable Tx
-(1)    2285 : 27 F0                      sjmp    isr_intr_exit
-(1)    2287 :
-(1)    2287 :                            end
+(1)    20FC : FA                         di
+(1)    20FD : 28 83                      scall   getchar
+(1)    20FF : D3 FB                      jnc     receive_loop
+(1)    2101 : 90 1A 1A                   orb     A, A
+(1)    2104 : DF 1D                      je      halt_to_system  ; NUL halts
+(1)    2106 :                    echo_back:
+(1)    2106 : B0 1A 1B                   ldb     B, A
+(1)    2109 : FA                         di
+(1)    210A : 28 8B                      scall   putchar         ; echo
+(1)    210C : B1 20 1A                   ldb     A, #' '         ; space
+(1)    210F : FA                         di
+(1)    2110 : 28 85                      scall   putchar
+(1)    2112 : FA                         di
+(1)    2113 : 28 18                      scall   put_hex8        ; print in hex
+(1)    2115 : B1 20 1A                   ldb     A, #' '         ; space
+(1)    2118 : FA                         di
+(1)    2119 : 28 7C                      scall   putchar
+(1)    211B : FA                         di
+(1)    211C : 28 38                      scall   put_bin8        ; print in binary
+(1)    211E : FA                         di
+(1)    211F : 28 6D                      scall   newline
+(1)    2121 : 27 D9                      sjmp    receive_loop
+(1)    2123 :
+(1)    2123 :                    halt_to_system:
+(1)    2123 : A1 10 20 1A                ld      A, #VEC_TRAP
+(1)    2127 : C3 01 10 20 1A             st      A, VEC_TRAP     ; halt to system
+(1)    212C : F7                         trap
+(1)    212D :
+(1)    212D :                    ;;; Print uint8_t in hex
+(1)    212D :                    ;;; @param B uint8_t value to be printed in hex.
+(1)    212D :                    ;;; @clobber A
+(1)    212D :                    put_hex8:
+(1)    212D : B1 30 1A                   ldb     A, #'0'
+(1)    2130 : FA                         di
+(1)    2131 : 28 64                      scall   putchar
+(1)    2133 : B1 78 1A                   ldb     A, #'x'
+(1)    2136 : FA                         di
+(1)    2137 : 28 5E                      scall   putchar
+(1)    2139 : B0 1B 1A                   ldb     A, B
+(1)    213C : 18 04 1A                   shrb    A, 4
+(1)    213F : FA                         di
+(1)    2140 : 28 03                      scall   put_hex4
+(1)    2142 : B0 1B 1A                   ldb     A, B
+(1)    2145 :                    put_hex4:
+(1)    2145 : FA                         di
+(1)    2146 : 71 0F 1A                   andb    A, #0FH
+(1)    2149 : 99 0A 1A                   cmpb    A, #10
+(1)    214C : DE 03                      jlt     put_hex4_ascii
+(1)    214E : 75 07 1A                   addb    A, #'A'-'0'-10
+(1)    2151 :                    put_hex4_ascii:
+(1)    2151 : 75 30 1A                   addb    A, #'0'
+(1)    2154 : 20 41                      sjmp    putchar
+(1)    2156 :
+(1)    2156 :                    ;;; Print uint8_t in binary
+(1)    2156 :                    ;;; @param B uint8_t value to be printed in binary.
+(1)    2156 :                    put_bin8:
+(1)    2156 : C8 1A                      push    A               ; push A,B
+(1)    2158 : B1 30 1A                   ldb     A, #'0'
+(1)    215B : FA                         di
+(1)    215C : 28 39                      scall   putchar
+(1)    215E : B1 62 1A                   ldb     A, #'b'
+(1)    2161 : FA                         di
+(1)    2162 : 28 33                      scall   putchar
+(1)    2164 : B0 1B 1A                   ldb     A, B
+(1)    2167 : FA                         di
+(1)    2168 : 28 06                      scall   put_bin4
+(1)    216A : FA                         di
+(1)    216B : 28 03                      scall   put_bin4
+(1)    216D : CC 1A                      pop     A
+(1)    216F : F0                         ret
+(1)    2170 :                    put_bin4:
+(1)    2170 : 28 00                      scall   put_bin2
+(1)    2172 :                    put_bin2:
+(1)    2172 : FA                         di
+(1)    2173 : 28 00                      scall   put_bin1
+(1)    2175 :                    put_bin1:
+(1)    2175 : FA                         di
+(1)    2176 : 19 01 1B                   shlb    B, 1            ; F.C=MSB
+(1)    2179 : B1 30 1A                   ldb     A, #'0'
+(1)    217C : D3 19                      jnc     putchar         ; MSB=0
+(1)    217E : 17 1A                      incb    A               ; MSB=1
+(1)    2180 : 20 15                      sjmp    putchar
+(1)    2182 :
+(1)    2182 :                    ;;; Get character, called with interrupts disabled; enables them
+(1)    2182 :                    ;;; @return A
+(1)    2182 :                    ;;; @return F.C 0 if no character
+(1)    2182 :                    getchar:
+(1)    2182 : C8 1C                      push    HL
+(1)    2184 : A1 00 30 1C                ld      HL, #rx_queue
+(1)    2188 : 28 98                      scall   queue_remove
+(1)    218A : FB                         ei
+(1)    218B : CC 1C                      pop     HL
+(1)    218D : F0                         ret
+(1)    218E :
+(1)    218E :                    ;;; Put newline, called with interrupts disabled; enables them
+(1)    218E :                    ;;; @clobber A
+(1)    218E :                    newline:
+(1)    218E : B1 0D 1A                   ldb     A, #0DH
+(1)    2191 : 28 04                      scall   putchar
+(1)    2193 : B1 0A 1A                   ldb     A, #0AH
+(1)    2196 : FA                         di
+(1)    2197 :
+(1)    2197 :                    ;;; Put character, called with interrupts disabled; enables them
+(1)    2197 :                    ;;; @param A
+(1)    2197 :                    putchar:
+(1)    2197 : C8 1A                      push    A
+(1)    2199 : C8 1C                      push    HL
+(1)    219B : A1 80 30 1C                ld      HL, #tx_queue
+(1)    219F :                    putchar_retry:
+(1)    219F : 28 3B                      scall   queue_add
+(1)    21A1 : FB                         ei
+(1)    21A2 : DB 03                      jc      putchar_queued
+(1)    21A4 : FA                         di                      ; the queue is full, retry
+(1)    21A5 : 27 F8                      sjmp    putchar_retry
+(1)    21A7 :                    putchar_queued:
+(1)    21A7 : CC 1C                      pop     HL
+(1)    21A9 : B1 37 1A                   ldb     A, #RX_EN_TX_EN ; enable Tx
+(1)    21AC : C7 01 02 04 1A             stb     A, USARTC
+(1)    21B1 : CC 1A                      pop     A
+(1)    21B3 : F0                         ret
+(1)    21B4 :
+(1)    21B4 :                            include "queue.inc"
+(2)    21B4 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(2)    21B4 :                    ;;; [queue] queue structure
+(2)    21B4 : =0                 queue_len:      equ     0       ; queue length
+(2)    21B4 : =1                 queue_size:     equ     1       ; buffer size
+(2)    21B4 : =2                 queue_put:      equ     2       ; queue put index
+(2)    21B4 : =3                 queue_get:      equ     3       ; queue get index
+(2)    21B4 : =4                 queue_buf:      equ     4       ; buffer start offset
+(2)    21B4 :
+(2)    21B4 :                            align   2               ; an even entry: a whole word first
+(2)    21B4 :                    ;;; [queue] Initialize queue
+(2)    21B4 :                    ;;; @param HL queue work space pointer
+(2)    21B4 :                    ;;; @param B queue work space size, including the 4-byte header
+(2)    21B4 :                    queue_init:
+(2)    21B4 : C8 1A                      push    A               ; push A,B
+(2)    21B6 : C8 1C                      push    HL
+(2)    21B8 : C6 1C 00                   stb     ZERO, queue_len[HL]
+(2)    21BB : B0 1B 1A                   ldb     A, B
+(2)    21BE : 79 04 1A                   subb    A, #queue_buf
+(2)    21C1 : C7 1C 01 1A                stb     A, queue_size[HL]
+(2)    21C5 : C7 1C 02 00                stb     ZERO, queue_put[HL]
+(2)    21C9 : C7 1C 03 00                stb     ZERO, queue_get[HL]
+(2)    21CD : 65 04 00 1C                add     HL, #queue_buf
+(2)    21D1 :                    queue_init_loop:
+(2)    21D1 : C6 1D 00                   stb     ZERO, [HL]+
+(2)    21D4 : E0 1A FA                   djnz    A, queue_init_loop
+(2)    21D7 : CC 1C                      pop     HL
+(2)    21D9 : CC 1A                      pop     A
+(2)    21DB : F0                         ret
+(2)    21DC :
+(2)    21DC :                            align   2
+(2)    21DC :                    ;;; [queue] Add an element to queue
+(2)    21DC :                    ;;; @param HL queue work space pointer
+(2)    21DC :                    ;;; @param A an element
+(2)    21DC :                    ;;; @return F.C 0 if queue is full
+(2)    21DC :                    queue_add:
+(2)    21DC : C8 1E                      push    DE
+(2)    21DE : B0 1A 1E                   ldb     DE, A           ; save an element
+(2)    21E1 : B2 1C 1A                   ldb     A, queue_len[HL]
+(2)    21E4 : 9B 1C 01 1A                cmpb    A, queue_size[HL]
+(2)    21E8 : B0 1E 1A                   ldb     A, DE              ; restore an element
+(2)    21EB : DE 05                      jlt     queue_add_store    ; queue_len < queue_size
+(2)    21ED : CC 1E                      pop     DE
+(2)    21EF : F8                         clrc                       ; full: CMPB left C=1, no borrow
+(2)    21F0 : F0                         ret
+(2)    21F2 :                            align   2
+(2)    21F2 :                    queue_add_store:
+(2)    21F2 : B2 1C 1E                   ldb     DE, queue_len[HL]
+(2)    21F5 : 17 1E                      incb    DE
+(2)    21F7 : C6 1C 1E                   stb     DE, queue_len[HL]
+(2)    21FA : AF 1C 02 1E                ldbze   DE, queue_put[HL]
+(2)    21FE : 65 04 00 1E                add     DE, #queue_buf
+(2)    2202 : 64 1C 1E                   add     DE, HL
+(2)    2205 : C6 1E 1A                   stb     A, [DE]         ; store an element
+(2)    2208 : B3 1C 02 1A                ldb     A, queue_put[HL]
+(2)    220C : 17 1A                      incb    A
+(2)    220E : 9B 1C 01 1A                cmpb    A, queue_size[HL]
+(2)    2212 : DE 02                      jlt     queue_add_update ; queue_put < queue_size
+(2)    2214 : 11 1A                      clrb    A                ; wrap around
+(2)    2216 :                    queue_add_update:
+(2)    2216 : C7 1C 02 1A                stb     A, queue_put[HL]
+(2)    221A : B2 1E 1A                   ldb     A, [DE]         ; restore an element
+(2)    221D : CC 1E                      pop     DE
+(2)    221F : F9                         setc                    ; set carry
+(2)    2220 : F0                         ret
+(2)    2221 :
+(2)    2222 :                            align   2
+(2)    2222 :                    ;;; [queue] Remove an element from queue
+(2)    2222 :                    ;;; @param HL queue work space pointer
+(2)    2222 :                    ;;; @return A an element
+(2)    2222 :                    ;;; @return F.C 0 if queue is empty
+(2)    2222 :                    queue_remove:
+(2)    2222 : B2 1C 1A                   ldb     A, queue_len[HL]
+(2)    2225 : 90 1A 1A                   orb     A, A              ; clear carry
+(2)    2228 : D7 02                      jne     queue_remove_elem ; queue_len > 0
+(2)    222A : F0                         ret                       ; F.C=0
+(2)    222C :                            align   2
+(2)    222C :                    queue_remove_elem:
+(2)    222C : C8 1E                      push    DE
+(2)    222E : B2 1C 1E                   ldb     DE, queue_len[HL]
+(2)    2231 : 15 1E                      decb    DE
+(2)    2233 : C6 1C 1E                   stb     DE, queue_len[HL]
+(2)    2236 : AF 1C 03 1E                ldbze   DE, queue_get[HL]
+(2)    223A : 65 04 00 1E                add     DE, #queue_buf
+(2)    223E : 64 1C 1E                   add     DE, HL
+(2)    2241 : B3 1C 03 1A                ldb     A, queue_get[HL]
+(2)    2245 : 17 1A                      incb    A
+(2)    2247 : 9B 1C 01 1A                cmpb    A, queue_size[HL]
+(2)    224B : DE 02                      jlt     queue_remove_update ; queue_get < queue_size
+(2)    224D : 11 1A                      clrb    A                   ; wrap around
+(2)    224F :                    queue_remove_update:
+(2)    224F : C7 1C 03 1A                stb     A, queue_get[HL]
+(2)    2253 : B2 1E 1A                   ldb     A, [DE]         ; read an element
+(2)    2256 : CC 1E                      pop     DE
+(2)    2258 : F9                         setc                    ; set carry
+(2)    2259 : F0                         ret
+(1)    225A :
+(1)    225A :                            align   2
+(1)    225A :                    ;;; EXTINT from the USART: queue a received character, then send the
+(1)    225A :                    ;;; next queued one, or disable Tx when the queue is empty
+(1)    225A :                    isr_intr:
+(1)    225A : F2                         pushf
+(1)    225B : C8 1A                      push    A               ; push A,B
+(1)    225D : C8 1C                      push    HL
+(1)    225F : B3 01 02 04 1A             ldb     A, USARTS
+(1)    2264 : 31 1A 0B                   jbc     A, ST_RxRDY_bp, isr_intr_tx
+(1)    2267 : B3 01 00 04 1A             ldb     A, USARTD       ; receive character
+(1)    226C : A1 00 30 1C                ld      HL, #rx_queue
+(1)    2270 : 2F 6A                      scall   queue_add
+(1)    2272 :                    isr_intr_tx:
+(1)    2272 : B3 01 02 04 1A             ldb     A, USARTS
+(1)    2277 : 30 1A 0D                   jbc     A, ST_TxRDY_bp, isr_intr_exit
+(1)    227A : A1 80 30 1C                ld      HL, #tx_queue
+(1)    227E : 2F A2                      scall   queue_remove
+(1)    2280 : D3 0B                      jnc     isr_intr_send_empty
+(1)    2282 : C7 01 00 04 1A             stb     A, USARTD       ; send character
+(1)    2287 :                    isr_intr_exit:
+(1)    2287 : CC 1C                      pop     HL
+(1)    2289 : CC 1A                      pop     A
+(1)    228B : F3                         popf
+(1)    228C : F0                         ret
+(1)    228D :                    isr_intr_send_empty:
+(1)    228D : B1 36 1A                   ldb     A, #RX_EN_TX_DIS
+(1)    2290 : C7 01 02 04 1A             stb     A, USARTC       ; disable Tx
+(1)    2295 : 27 F0                      sjmp    isr_intr_exit
+(1)    2297 :
+(1)    2297 :                            end
