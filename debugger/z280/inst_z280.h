@@ -4,7 +4,6 @@
 #include <stdint.h>
 
 #ifndef ARDUINO
-#include <vector>
 #endif
 
 #include "match_memory.h"
@@ -59,8 +58,8 @@ struct InstZ280 final : MatchWalker::Arch {
 #ifndef ARDUINO
     // The sequences it walks with, for a host test to check: its
     // instructions', its interrupts'.
-    static std::vector<const char *> sequences();
-    static std::vector<const char *> interrupts();
+    static MatchWalker::Sequences sequences();
+    static MatchWalker::Sequences interrupts();
 #endif
     uint_fast8_t dataBytes(const SignalsImpl *s) const override;
     uint8_t dataByte(const SignalsImpl *s, uint_fast8_t k) const override;

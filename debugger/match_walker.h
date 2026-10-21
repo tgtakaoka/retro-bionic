@@ -167,6 +167,14 @@ struct MatchWalker {
     // instruction's alternatives are all as long; an interrupt's needn't.
     static const char *illFormed(
             const char *seq, const char *own = "", bool instruction = true);
+
+    // A decoder's sequences, for a host test to go through.
+    struct Sequences {
+        const char *const *first;
+        const char *const *last;
+        const char *const *begin() const { return first; }
+        const char *const *end() const { return last; }
+    };
 #endif
 
     // walk()'s |stop| when the PC isn't known: the ring may end anywhere.

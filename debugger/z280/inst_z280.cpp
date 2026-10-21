@@ -2568,13 +2568,13 @@ bool InstZ280::pushesPc(
 }
 
 #ifndef ARDUINO
-std::vector<const char *> InstZ280::sequences() {
-    return std::vector<const char *>(
-            std::begin(SEQUENCES), std::end(SEQUENCES));
+MatchWalker::Sequences InstZ280::sequences() {
+    return {SEQUENCES, SEQUENCES + sizeof(SEQUENCES) / sizeof(SEQUENCES[0])};
 }
 
-std::vector<const char *> InstZ280::interrupts() {
-    return {INTERRUPT};
+MatchWalker::Sequences InstZ280::interrupts() {
+    static constexpr const char *INTERRUPTS[] = {INTERRUPT};
+    return {INTERRUPTS, INTERRUPTS + 1};
 }
 #endif
 
