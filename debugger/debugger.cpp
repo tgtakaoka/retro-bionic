@@ -84,7 +84,9 @@ constexpr char HELP2[] =
 #endif
         "\r\n"
         "  I dev [addr]   : select an I/O device, optionally its base\r\n"
-        "  I dev addr vec : likewise, and its interrupt vector\r\n"
+        "  I dev addr rx [tx]\r\n"
+        "                 : likewise, and its Rx and Tx interrupt vectors\r\n"
+        "                   (0: none; tx defaults to rx)\r\n"
         "  P [from to]    : show, or set, protect area\r\n"
         "  W +identity    : write identity EEPROM\r\n"
         "  V              : toggle verbose bus-cycle printing\r\n"
@@ -691,20 +693,45 @@ void handleRegisterValue(uint32_t value, uintptr_t reg, State state) {
 
 void handleIo(char *, uintptr_t, State);
 void handleIoBase(uint32_t, uintptr_t, State);
+void handleIoRx(uint32_t, uintptr_t, State);
 
 uint32_t io_base;
+uint32_t io_rx;
 
-void handleIoVector(uint32_t val, uintptr_t extra, State state) {
+void handleIoTx(uint32_t val, uintptr_t extra, State state) {
+    if (state != State::CLI_CANCEL) {
+        auto &dev = *reinterpret_cast<Device *>(extra);
+        if (state == State::CLI_DELETE) {
+            cli.backspace();
+            cli.readNum(handleIoRx, extra, Debugger.target().inputRadix(),
+                    UINT8_MAX, io_rx);
+            return;
+        }
+        dev.setBaseAddr(io_base);
+        dev.setVector(io_rx, val);
+        cli.println();
+        Debugger.target().printDevices();
+    }
+    printPrompt();
+}
+
+void handleIoRx(uint32_t val, uintptr_t extra, State state) {
     if (state != State::CLI_CANCEL) {
         auto &dev = *reinterpret_cast<Device *>(extra);
         if (state == State::CLI_DELETE) {
             cli.backspace();
             cli.readNum(handleIoBase, extra, Debugger.target().inputRadix(),
-                    Debugger.target().maxData(), io_base);
+                    UINT32_MAX, io_base);
+            return;
+        }
+        if (state == State::CLI_SPACE) {
+            io_rx = val;
+            cli.readNum(handleIoTx, extra, Debugger.target().inputRadix(),
+                    UINT8_MAX);
             return;
         }
         dev.setBaseAddr(io_base);
-        dev.setVector(val);
+        dev.setVector(val, val);
         cli.println();
         Debugger.target().printDevices();
     }
@@ -722,7 +749,7 @@ void handleIoBase(uint32_t val, uintptr_t extra, State state) {
         }
         if (state == State::CLI_SPACE) {
             io_base = val;
-            cli.readNum(handleIoVector, extra, Debugger.target().inputRadix(),
+            cli.readNum(handleIoRx, extra, Debugger.target().inputRadix(),
                     UINT8_MAX);
             return;
         }
@@ -739,10 +766,10 @@ void handleIo(char *line, uintptr_t extra, State state) {
         auto dev = Debugger.target().parseDevice(line);
         if (state == State::CLI_SPACE) {
             if (dev != nulldev) {
-                const auto maxData = Debugger.target().maxData();
+                // A base of any width, so the listing's digits read back.
                 const auto radix = Debugger.target().inputRadix();
                 cli.readNum(handleIoBase, reinterpret_cast<uintptr_t>(dev),
-                        radix, maxData);
+                        radix, UINT32_MAX);
                 return;
             }
         }

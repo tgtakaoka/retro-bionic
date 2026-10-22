@@ -19,8 +19,8 @@ struct UartBase : Device {
         return _enabled && (addr & ~_mask) == _base_addr;
     }
     void setBaseAddr(uint32_t addr) override { _base_addr = addr & ~_mask; }
-    // Both interrupt vectors; 0 asserts no interrupt.
-    void setVector(uint8_t vector) override;
+    // The Rx and Tx interrupt vectors; 0 asserts no interrupt.
+    void setVector(uint8_t rx, uint8_t tx) override;
     uint32_t baseAddr() const override { return _base_addr; }
     uint16_t vector() const override { return _rxVec ? _rxVec : _txVec; }
 

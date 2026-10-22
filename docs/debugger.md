@@ -35,7 +35,7 @@ From the header of `debugger/debugger.cpp`:
 | `U` | Upload Intel HEX or Motorola S-record |
 | `L` | Load Intel HEX or S-record file from SD card |
 | `F` | List files on SD card |
-| `I` | Show/select I/O device |
+| `I` | Show/select I/O device — `dev [addr [vec]]` also sets its base and interrupt vector |
 | `W` | Write identity EEPROM |
 | `V` | Toggle verbose mode |
 | `?` | Print version and usage |
@@ -108,8 +108,9 @@ radix can be octal for the PDP-8 targets.
 ## I/O devices
 
 `I` lists the emulated peripherals and selects the console one. `I dev addr` moves a
-device in the address map, and `I dev addr vec` also sets its interrupt vector (both Rx
-and Tx; 0 asserts no interrupt). A program can set the vectors too, by writing them to
+device in the address map, and `I dev addr rx [tx]` also sets its Rx and Tx interrupt
+vectors (Tx defaults to Rx; 0 asserts no interrupt). The base reads back as the listing
+prints it, however many digits. A program can set the vectors too, by writing them to
 the device's third and fourth registers. These are the board's wiring, so `R` leaves them
 alone; a reset clears only the device's own registers and pending interrupts.
 
