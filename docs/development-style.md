@@ -466,6 +466,13 @@ drive keeps the last level the Teensy drove: an address bit that never
 changes, or the previous read's data during ALE, points to an open line
 between the CPU and the connector.
 
+A stock footprint for a QFP's body size can be drawn for shorter leads. KiCad's
+PQFP-100 14x20 mm ends its pads at a 17.2 x 23.2 mm span, while Intel's QFP
+spans 17.9 x 23.9 mm with a 0.8 mm foot: the toes reached the pad ends, leaving
+no fillet, and about 1 mm of each pad lay bare under the lead's shoulder. Size
+a QFP's pads from the vendor's package table, from just behind the shortest
+lead's heel to past the longest lead's tip.
+
 ### Order bench work by image, not by fix **[hw]**
 
 Seating a chip takes moments; flashing the Teensy takes minutes and wipes the
