@@ -379,7 +379,8 @@ def drive_table(regress=None):
     for this sample only, then back to whichever one was enabled before.
 
     `[devices]`, e.g. `ACIA = "17F8"` or `USART = "0C00 0"`, wires those
-    devices (the I command: base, then optionally both interrupt vectors)
+    devices (the I command: base, then optionally the Rx and Tx interrupt
+    vectors, Tx defaulting to Rx)
     before every program the run loads, and back afterwards, so a binary
     built for another chip of the family runs as is -- every case, not
     just the samples.
@@ -448,14 +449,19 @@ def select_io(board, name):
 
 
 def place_io(board, name, where):
-    """Wire device `name` as `where`, "ADDR" or "ADDR VECTOR", with the I
-    command; returns its (addr, vector) before, or None if it did not take."""
+    """Wire device `name` as `where`, "ADDR", "ADDR RX" or "ADDR RX TX", with
+    the I command; returns its (addr, vector) before, or None if it did not
+    take."""
     addr, _, vector = where.partition(' ')
-    before, after = board.place_io(name, addr, vector.strip() or None)
+    vector = vector.strip()
+    before, after = board.place_io(name, addr, vector or None)
     now = after.get(name.upper())
-    want = [addr] + ([vector.strip()] if vector.strip() else [])
-    if now is None or any(w is None or int(w, 16) != int(v, 16)
-                          for v, w in zip(want, now)):
+
+    def vectors(v):
+        rx, _, tx = v.partition(' ')
+        return int(rx, 16), int(tx or rx, 16)
+    if now is None or int(now[0], 16) != int(addr, 16) or (
+            vector and (now[1] is None or vectors(now[1]) != vectors(vector))):
         return None
     return before.get(name.upper())
 

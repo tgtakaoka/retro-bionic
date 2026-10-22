@@ -15,10 +15,11 @@ void UartBase::reset() {
     resetUart();
 }
 
-void UartBase::setVector(uint8_t vector) {
+void UartBase::setVector(uint8_t rx, uint8_t tx) {
     negateRxIntr();
     negateTxIntr();
-    _rxIntr = _txIntr = vector;
+    _rxIntr = rx;
+    _txIntr = tx;
 }
 
 void UartBase::loop() {

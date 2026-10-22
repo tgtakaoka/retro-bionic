@@ -385,11 +385,18 @@ to it afterwards, pass or fail.
 
 A device's base address and interrupt vectors are the board's wiring, not
 device state: a `Devs` constructor sets the defaults, then only `I dev addr
-[vec]` or a program writing the vector registers changes them. `reset()`,
+[rx [tx]]` or a program writing the vector registers changes them. `reset()`,
 including the 8251's internal-reset command, clears only the device's own
 registers and pending interrupts. Since R keeps whatever a run left
 behind, the regress applies `[devices]` before each program it loads, and
 `record-scenario.py` puts back any device a scenario moved.
+
+What a command lists must read back through it as printed, since the tools
+save the listing and restore it. `I` once read the base with `maxData()`'s
+four digits while the i8096's listing printed six, so restoring `000400`
+typed `0004` and set 000000, and every recording after that started with
+the USART off. libcli caps a number's digits at its limit's, so a field
+that echoes a listing takes the widest limit.
 
 ### Reset after uploading, not only before **[hw]**
 
