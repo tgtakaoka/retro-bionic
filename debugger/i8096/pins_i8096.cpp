@@ -659,9 +659,14 @@ bool PinsI8096::step(bool show) {
 }
 
 // Where a stop at |s| cuts the ring: an 80C196's vector read follows the
-// PC's push, which goes with it.
+// PC's push, and so does the 8096 NMI's fetch of 0000H, which reads no
+// vector; the push goes with it.
 Signals *PinsI8096::ringEnd(Signals *s) const {
-    if (InstI8096::pushesBeforeVector(_cpu) && s->read() && InstI8096::vector(s->addr))
+    if (!s->read())
+        return s;
+    if (InstI8096::pushesBeforeVector(_cpu) && InstI8096::vector(s->addr))
+        return s->prev();
+    if (s->addr == InstI8096::ORG_NMI && haltEntry() == InstI8096::ORG_NMI)
         return s->prev();
     return s;
 }

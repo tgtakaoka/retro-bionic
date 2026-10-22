@@ -187,6 +187,10 @@ and Z8000 halt this way. **[code]**
   next instruction boundary open: an interrupt taken there reads its vector
   in place of the save. Serve it from memory and save when its handler
   returns to the park. **[doc]**
+- Its push reads no vector, so the backtrace's ring must end before the
+  push, as it ends before an 80C196's push and vector read; a ring ending on
+  a bare push fits no interrupt sequence, and none of it disassembles.
+  **[hw][code]**
 - Every NMI-class input is a Teensy output, and the emulated devices only change
   interrupt pins from `devs->loop()`, which does not run during a save or
   restore. Where every interrupt source is the firmware (PDP-8), holding the
