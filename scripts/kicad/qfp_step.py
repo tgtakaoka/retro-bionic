@@ -4,10 +4,30 @@ Needs build123d (not in KiCad's Python): run with the CAD venv, e.g.
 ~/.venvs/cad/bin/python. Dimensions come from the package drawing; the
 marking lines and mold marks from a photo of the part.
 """
-from build123d import (Align, Axis, Box, Circle, Color, Compound, Cylinder, FontStyle, Pos, Rectangle, Rot, Text,
-                       chamfer, export_step, extrude)
+import math
+
+from build123d import (Align, Axis, Box, Circle, Color, Compound, Cylinder, FontStyle, Plane, Polygon, Pos, Rectangle,
+                       Rot, Text, chamfer, export_step, extrude)
 
 PIN1_DEPTH = 0.3    # the pin 1 dimple's depth
+BEND = 0.2          # a lead's bend radius, at its centre line
+
+
+def offset(line, d):
+    """the polyline |line| moved |d| to its left, corners mitred"""
+    def normal(p, q):
+        dx, dy = q[0] - p[0], q[1] - p[1]
+        n = math.hypot(dx, dy)
+        return -dy / n, dx / n
+    segs = list(zip(line, line[1:]))
+    normals = [normal(p, q) for p, q in segs]
+    out = [(line[0][0] + d * normals[0][0], line[0][1] + d * normals[0][1])]
+    for (_, q), n0, n1 in zip(segs, normals, normals[1:]):
+        mx, my = n0[0] + n1[0], n0[1] + n1[1]
+        k = d / (1 + n0[0] * n1[0] + n0[1] * n1[1])
+        out.append((q[0] + k * mx, q[1] + k * my))
+    out.append((line[-1][0] + d * normals[-1][0], line[-1][1] + d * normals[-1][1]))
+    return out
 
 
 def pair(value):
@@ -43,12 +63,17 @@ def qfp(out, label, body, span, pitch, per_side, lead_width, lead_thick, foot, s
         xe = -body / 2
         xt = -span / 2
         xk = xt + foot                 # heel
-        xb = xe - 0.25                 # shoulder
-        upper = Pos((xe + 0.1 + xb) / 2, 0, zmid) * Box(xe + 0.1 - xb, lead_width, lead_thick)
-        leg = Pos((xb + xk) / 2, 0, (zmid + lead_thick / 2) / 2) * Box(abs(xb - xk) + lead_thick, lead_width,
-                                                                       zmid + lead_thick / 2)
-        sole = Pos((xk + xt) / 2, 0, lead_thick / 2) * Box(xk - xt, lead_width, lead_thick)
-        return upper + leg + sole
+        # the lead's centre line, body to tip, drawn as a strip lead_thick thick: out of the body
+        # level, down at the heel through two bends of BEND, and the foot flat (Intel's Detail A)
+        xv, zf = xk + BEND, lead_thick / 2
+        arc = [math.radians(a) for a in range(0, 91, 15)]
+        line = ([(xe + 0.1, zmid)] +
+                [(xv + BEND - BEND * math.sin(a), zmid - BEND + BEND * math.cos(a)) for a in arc] +
+                [(xv - BEND + BEND * math.cos(a), zf + BEND - BEND * math.sin(a)) for a in arc] +
+                [(xt, zf)])
+        side = [offset(line, d) for d in (lead_thick / 2, -lead_thick / 2)]
+        profile = Plane.XZ * Polygon(*(side[0] + side[1][::-1]), align=None)
+        return extrude(profile, lead_width / 2, both=True)
 
     # sides -X, -Y, +X, +Y
     sides = [(gull_wing(body_x, span_x), count_x), (gull_wing(body_y, span_y), count_y)]
