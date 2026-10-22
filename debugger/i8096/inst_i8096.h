@@ -85,7 +85,7 @@ struct ArchI8096 final : MatchWalker::Arch {
                   .cutStart = 7,
                   .leadUnproven = cpu >= CPU_80C196KB,
                   .refetchWord = true,
-                  .targetAhead = cpu >= CPU_80C196KB,
+                  .targetAhead = true,
                   .pushBeforeVector = InstI8096::pushesBeforeVector(cpu),
                   .oddWordOneCycle = cpu >= CPU_80C196KB,
                   .cutOverlap = cpu >= CPU_80C196KB}),

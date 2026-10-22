@@ -1189,6 +1189,11 @@ The profile (`tools/cycles_i8096.py`, recorded as
 - When the short-index form of a `/` row fails, `InstI8096::match()` stops at
   the `/`: going on to an empty sequence matches without taking a cycle and
   `matchAll()` loops on it for ever, wedging the board on a backtrace.
+- A jump taken to a word the queue has fetched already reads it again; the
+  walk takes that fetch as the jump's (`targetAhead`), on the 8096 as on
+  an 80C196. A `JLT +2` over a `CLRB` fetches 220EH either way; the store
+  after it, of the register the `CLRB` would clear, shows it was taken.
+  **[hw][code]**
 
 A word access needs an even address; the profile keeps `n + [w]` even.
 The pointer register's LSB selects auto-increment for `[w]` and the long
