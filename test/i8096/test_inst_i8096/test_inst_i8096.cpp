@@ -82,6 +82,8 @@ const auto BENCH = loadRings(DIR, "bench_i8096");
 const auto BENCH16 = loadRings(DIR, "bench_i8096_16");
 // The S80C196KC's, on its 16-bit bus.
 const auto BENCH_KC = loadRings(DIR, "bench_s80c196kc");
+// The N8097BH's halts, each ring ending where its NMI took the CPU.
+const auto BENCH_NMI = loadRings(DIR, "bench_n8097bh_nmi");
 
 // A raw mark: 1 for fetch(), 2 for an operand.
 int markOf(const Signals *s) {
@@ -180,6 +182,14 @@ void test_bench_kc_rings() {
     check(DIR, "bench_s80c196kc", BENCH_KC, replayKc);
 }
 
+void test_bench_nmi_rings() {
+    match_harness::isFetch = [](int mark) { return (mark & 1) != 0; };
+    match_harness::fetchWidth = [](const Cycle &c) {
+        return c.cntl ? unsigned(c.cntl) : 1u;
+    };
+    check(DIR, "bench_n8097bh_nmi", BENCH_NMI, replay);
+}
+
 void test_report_recorded_marks() {
     report(RINGS, replay, recorded, true);
     report(RINGS16, replay, recorded, true);
@@ -256,6 +266,7 @@ int main() {
     RUN_TEST(test_bench_rings);
     RUN_TEST(test_bench16_rings);
     RUN_TEST(test_bench_kc_rings);
+    RUN_TEST(test_bench_nmi_rings);
     RUN_TEST(test_report_recorded_marks);
     return UNITY_END();
 }
