@@ -60,6 +60,8 @@ Then, in the board directory:
 Route only after the placement is agreed. Parts never go on the back
 between J1 and J2: they cannot be soldered there. Bypass capacitors sit
 at their supply pins, on the front where the pin rows leave room.
+A board with one PLCC-68 socket centres its pad ring at (113.7, 98.5),
+as BionicN80C186 does.
 
 freerouting treats every zone in a DSN as a plane and never models the
 fill, so:
