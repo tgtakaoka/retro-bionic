@@ -1610,6 +1610,17 @@ code. **[code]**
 `PinsMc6802` builds a `MemsMc6802`; never cast a base `Mems` object to a
 derived type. **[code]**
 
+Internal reads show on the data bus, never on the address pins, and only
+in some modes. The MC6802 drives its internal RAM's data out whenever RE
+is high (data sheet, Data Bus), so the debugger leaves the bus to it
+there. The MC6801 and HD6301 do it only in mode 0, the multiplexed test
+mode (MC6801 Reference Manual, Port 3; HD6301/HD6303 Series Handbook); the
+MC68HC11 only with IRV in HPRIO set, which starts at 1 in special test and
+bootstrap modes and on most parts can't be set in normal ones (M68HC11RM
+2.9.2). The MC6801 board runs mode 2 and the MC68HC11 board normal
+expanded mode, so neither shows them: the debugger models their internal
+registers and RAM (`mems_mc6801.cpp`, `mems_mc68hc11.cpp`). **[doc]**
+
 `WAI` stacks the context up front and then idles, which a halt must allow
 for; a board that wedges past the halt port when halted in `WAI` breaks one
 of these: **[hw]**
@@ -2016,6 +2027,10 @@ Board for the MC68HC16Z1 (144-pin LQFP, case 918); built, not yet brought up.
   never high. **[doc]**
 - MODCLK is tied low, so EXTAL (P47) is the system clock with the PLL off;
   CLKOUT comes back on P52. **[doc]**
+- Show cycles (SHEN in SIMCR, %00 from reset) would put internal transfers
+  on the data bus with `#DS` but no `#AS` (User's Manual 5.6.6.1); the
+  debugger leaves them off, so only external cycles reach the bus.
+  **[doc]**
 - IPIPE1:0 encode phase 1 (START, FETCH) and phase 2 (ADVANCE,
   EXCEPTION) of the pipeline state; latch them on the `#AS` and `#DS`
   edges. Under FREEZE they become DSI (an input) and DSO. **[doc]**
