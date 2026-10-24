@@ -147,6 +147,9 @@ A logic analyzer is locked the same way. Each is a resource added with
 server; `logic-analyzer.py` captures on the one the session holds (or
 `BIONIC_LOGIC`, or the only one) and refuses one another session holds.
 Logic 2's MCP tools called directly cannot check: lock the analyzer first.
+A capture it starts keeps at most 10 ms and stays open for a look until
+the next start closes it; one that never triggers is stopped, not
+exported, and an export takes only that capture's channels.
 
 Powering a board off drops its Teensy off USB; a flash passes through the
 HalfKay bootloader and a firmware crash re-enumerates within a second or two.
