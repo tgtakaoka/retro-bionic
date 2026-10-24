@@ -24,6 +24,13 @@ struct Pins {
 
     void reset();
 
+    // The CPU clock input a timer drives during a run, on a target that
+    // has one: its rate in Hz, 0 for none.
+    virtual uint32_t clockInput() const { return 0; }
+    // Set it as near |hz| as the timer allows; false if the CPU can't
+    // take it, leaving the rate as it was.
+    virtual bool setClockInput(uint32_t) { return false; }
+
     // Control USER LED
     void setRun() const;
     void setHalt() const;
