@@ -286,6 +286,32 @@ The S80296SA's went this way:
    follow its edge: the S80296SA's followed a rising XTAL1 by 10-22 ns and
    were sampled 60 ns or more later, so its high phase needs no delay.
 
+### Clocking a run from a timer **[hw][code]**
+
+A CPU whose clock may stop can run from a free-running FlexPWM output
+instead of bit-banged edges, which is the way to a CPU whose clock goes
+through a PLL. The MC68HC16 does this on EXTAL (P47); reset, step and
+injected sequences stay bit-banged.
+
+- Hold a bus cycle with the CPU's wait input (`#DSACK`, READY) instead of
+  stopping the clock: withhold it until the cycle is served, and negate it
+  as soon as the strobe ends, before the next cycle samples it. Mask
+  interrupts from asserting it to negating it: an interrupt can outlast
+  the gap between strobes, and the next cycle then ends unserved.
+- Hand the pin between GPIO and FlexPWM with the output masked. MASK
+  double-buffers, and with `CTRL2[FORCE_SEL]` on the local reload it
+  takes effect at a period start, so a pulse is never cut short: mask,
+  wait two periods, then switch the pad mux, or switch the mux, then
+  unmask. Never poll the counter for its low half: at a few MHz a read
+  and a mux write no longer fit in it.
+- A pad feeds GPIO or FlexIO, never both, and SION doesn't help either
+  way: muxed to FlexIO, GPIO reads it as 0; left on GPIO, FlexIO reads 0.
+  A FlexIO1 PIN read takes about 40 ns, too slow to poll a strobe at
+  10 MHz. A FlexIO latch needs its own pad for the signal.
+- The `teensy41-clock` build adds `K [kHz]` to set the rate at run time,
+  for a sweep with the regress; the normal build keeps the target's
+  constant.
+
 ### A logic analyser on the bus can break the board **[hw]**
 
 Probe leads add enough capacitance to stop a marginal target working at all
@@ -1648,8 +1674,9 @@ Board for the MC68HC16Z1 (144-pin LQFP, case 918); built, not yet brought up.
 - ADDR23:0, SIZ1:0 and FC2:0 share P30-P37 through four 74HCS153
   selected by ASEL0 (P54) and ASEL1 (P55): 00 A0-A3/A16-A19,
   01 A4-A7/A20-A23, 10 A12-A15/SIZ, 11 A8-A11/FC. The selects are
-  walked once per cycle in Gray order; the Teensy drives EXTAL, so the
-  bus holds still meanwhile. **[code]**
+  walked once per cycle in Gray order; the bus holds still meanwhile, as
+  the CPU waits on the bit-banged EXTAL or, in a run, on `#DSACK1`.
+  **[code]**
 - `#DSACK0`/`#DSACK1` (P44/P45) end external cycles. `#AVEC` is tied low,
   so every interrupt acknowledge is autovectored. `#IRQ7` (P50) and
   `#IRQ1` (P51) reach the Teensy; `#IRQ6`-`#IRQ2` are tied high. **[doc]**
@@ -1671,8 +1698,14 @@ landing point below is marked `ATTENTION:` in `debugger/mc68hc16/`.
 
 - The CPU is parked in S1 of a bus cycle with EXTAL stopped: external
   clock operation goes down to dc, so the timers and watchdog hold too.
-  `#DSACK1` stays asserted from reset on, so every external cycle ends at
+  Outside a run `#DSACK1` stays asserted, so every external cycle ends at
   its first S2/S3 fall with no wait states.
+- A run clocks EXTAL from FlexPWM3 at a constant 10 MHz, the fastest the
+  full regress passes at (see Clocking a run from a timer). `#DSACK1` is
+  negated then: each cycle waits until it is served, and the on-chip
+  timers keep running while the CPU waits. The MC68HC16Z1PV16 needs
+  EXTAL high and low for 29.8 ns, so 150 MHz / 10 = 15 MHz is the highest
+  rate the PWM can make for it. **[hw]**
   Sequences are address-keyed and end in `BRA` to their origin or a jump
   to a named exit.
 - CSBOOT covers 00000H-7FFFFH from reset and ends a cycle by itself after
@@ -1686,8 +1719,10 @@ landing point below is marked `ATTENTION:` in `debugger/mc68hc16/`.
 - Interrupt acknowledges (FC=7) end on `#AVEC` and autovector, even with
   `#DSACK1` asserted too, as the `#IRQ1` and `#IRQ7` samples showed on the
   bench; the Teensy drives no data for them.
-- Every microsecond the Teensy spends between clocks stretches the bus
-  cycle, since it drives EXTAL. A run polls the halt switch, whose
+- Every microsecond the Teensy spends serving a cycle stretches it, as
+  the CPU waits on `#DSACK1`. Above about 5 MHz the Teensy's time to
+  serve a cycle, not the clock, sets a run's speed. A run polls the halt
+  switch, whose
   `yield()` services the USB, only every 16 bus cycles; the devices
   ration their own polling. A CPU in `WAI` is polled every 16 clocks, so
   the devices that wake it and the watchdog are serviced often. **[code]**
@@ -1722,7 +1757,13 @@ landing point below is marked `ATTENTION:` in `debugger/mc68hc16/`.
   down (CPU16RM Figure 2-1). **[doc]**
 - Instruction boundaries come from IPIPE: phase 1 is read at `#AS`,
   phase 2 late in the cycle, and `PipeMc68hc16` maps each START back to
-  its opcode's fetch.
+  its opcode's fetch. In a run, phase 1 is read as `#AS` is first seen
+  low and phase 2 at the last read before it negates (User's Manual AC
+  timing 100-104). Phase 1 lasts only until S2, about half a clock after
+  `#AS`: at 15 MHz a poll misses it, and halts and the disassembly lose
+  the instruction starts. A FlexIO1 latch at `#AS` reads phase 1 right,
+  but takes the pads from GPIO9, and a run polled through FlexIO is too
+  slow. **[hw]**
 - The ACIA sits at FFE00H, outside the SIM's register block; samples
   reach it as `,Z` with ZK:IZ set from the reset vector, and keep data
   in bank 0.
