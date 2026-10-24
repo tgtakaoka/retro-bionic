@@ -74,6 +74,8 @@ struct PinsMc68hc16 final : Pins {
     void run() override;
 
     void printCycles() override;
+    uint32_t clockInput() const override { return _clockInput; }
+    bool setClockInput(uint32_t hz) override;
     void assertInt(uint8_t name) override;
     void negateInt(uint8_t name) override;
     void setBreakInst(uint32_t addr) const override;
@@ -103,6 +105,9 @@ struct PinsMc68hc16 final : Pins {
 
 private:
     bool _cutShort = false;
+    // A run's EXTAL rate, and the Teensy cycles in one of its clocks.
+    uint32_t _clockInput;
+    uint32_t _clockCycles;
     void resetPins() override;
     const SignalsImpl *findBacktraceStart() override;
     void printBacktrace() override;
@@ -118,6 +123,11 @@ private:
     Signals *prepareCycle(uint_fast16_t clocks);
     Signals *resumeCycle(uint32_t addr);
     Signals *completeCycle(Signals *s);
+    void serveRead(Signals *s);
+    void storeWrite(Signals *s);
+    // The same under the PWM clock, which a run uses.
+    Signals *prepareRun(uint_fast16_t clocks);
+    Signals *completeRun(Signals *s);
     uint_fast8_t execute(const uint8_t *inst, uint_fast8_t len, uint8_t *buf,
             uint32_t *addrs, uint_fast8_t max, uint32_t &org, uint32_t exit);
     bool suspend(uint32_t org);
