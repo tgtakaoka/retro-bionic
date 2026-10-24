@@ -31,6 +31,8 @@ struct Target {
     void printCycles() const;
     uint32_t retrieveRunMicros() const;
     void setRunLineLimit(uint32_t n) const;
+    uint32_t clockInput() const { return _pins->clockInput(); }
+    bool setClockInput(uint32_t hz) const { return _pins->setClockInput(hz); }
 
     void assertInt(uint8_t name = 0) const;
     void negateInt(uint8_t name = 0) const;

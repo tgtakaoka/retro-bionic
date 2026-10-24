@@ -90,6 +90,9 @@ constexpr char HELP2[] =
         "  P [from to]    : show, or set, protect area\r\n"
         "  W +identity    : write identity EEPROM\r\n"
         "  V              : toggle verbose bus-cycle printing\r\n"
+#ifdef TUNE_CLOCK
+        "  K [kHz]        : show, or set, the CPU clock input during a run\r\n"
+#endif
 #ifdef STRESS_HALTGO
         "  Y [n]          : yield on one in n halt polls (default 1)\r\n"
 #endif
@@ -452,6 +455,27 @@ void handleGo(uint32_t value, uintptr_t extra, State state) {
     }
     printPrompt();
 }
+
+#ifdef TUNE_CLOCK
+void printClockInput() {
+    cli.print("Clock input ");
+    cli.printDec(Debugger.target().clockInput());
+    cli.println(" Hz");
+}
+
+void handleClockInput(uint32_t value, uintptr_t, State state) {
+    if (state == State::CLI_DELETE)
+        return;
+    if (state != State::CLI_CANCEL) {
+        cli.println();
+        if (!cli.wasNumberEmpty() &&
+                !Debugger.target().setClockInput(value * 1000))
+            cli.println("?clock: not taken");
+        printClockInput();
+    }
+    printPrompt();
+}
+#endif
 
 #ifdef STRESS_HALTGO
 void handleYield(uint32_t value, uintptr_t extra, State state) {
@@ -1017,6 +1041,12 @@ void Debugger::exec(char c) {
         cli.print("Verbose ");
         cli.println(_verbose ? "ON" : "OFF");
         break;
+#ifdef TUNE_CLOCK
+    case 'K':
+        cli.print("Clock input kHz? ");
+        cli.readDec(handleClockInput, 0, UINT32_MAX / 1000);
+        return;
+#endif
 #ifdef STRESS_HALTGO
     case 'Y':
         cli.print("Yield interval? ");
