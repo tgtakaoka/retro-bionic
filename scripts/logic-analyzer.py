@@ -1,14 +1,17 @@
 #!/usr/bin/env python3
 """Logic analyzer interface, and the one implementation we have.
 
-A LogicAnalyzer exports the newest capture as a CSV, its `Channel N`
+A LogicAnalyzer exports the capture it left open as a CSV, its `Channel N`
 columns relabeled per a checked-in samples/<target>/bench/channels.toml
 set -- nothing board- or architecture-specific, and no live dependency
 on any particular analyzer's own preset format at report time.
 
     logic-analyzer.py CHANNELS.toml SET_NAME
 
-exports the newest Logic 2 capture that way and prints the CSV's path.
+exports the capture the last start_capture() left open that way and
+prints the CSV's path. A capture keeps at most MAX_WINDOW seconds, and
+one that never triggers is stopped and never exported: an untriggered
+capture's export once filled the disk.
 Environment: BIONIC_RUN_DIR (default /tmp/bionic-bench) for exported
 files, BIONIC_LOGIC_MCP (default http://127.0.0.1:10530) for Logic 2's
 MCP server, BIONIC_LOGIC_CONFIG for its config file holding presets.
@@ -26,6 +29,10 @@ from importlib.machinery import SourceFileLoader
 
 RUN_DIR = os.environ.get('BIONIC_RUN_DIR', '/tmp/bionic-bench')
 os.makedirs(RUN_DIR, exist_ok=True)
+# The longest capture, before plus after the trigger, in seconds.
+MAX_WINDOW = 10e-3
+# How long finish_capture() waits for the trigger, in seconds.
+TRIGGER_WAIT = 60
 bench = SourceFileLoader('bench', os.path.join(os.path.dirname(
         os.path.abspath(__file__)), 'bionic-bench.py')).load_module()
 
@@ -65,7 +72,7 @@ def _relabel(path, channels):
 class LogicAnalyzer(ABC):
     @abstractmethod
     def export_capture(self, channels_path, set_name, directory=os.path.join(RUN_DIR, 'logic')):
-        """Export the newest capture as a CSV, `Channel N` columns
+        """Export the capture left open as a CSV, `Channel N` columns
         renamed per channels_path's [set_name] table; returns the CSV path."""
 
     @abstractmethod
@@ -77,13 +84,16 @@ class LogicAnalyzer(ABC):
                       after=200e-6, glitch=None):
         """Arm a capture of |channels| that triggers on |trigger|'s |edge|
         ('rise' or 'fall') and keeps |before|/|after| seconds around it,
-        ignoring trigger pulses shorter than |glitch| seconds. Returns a
-        handle for finish_capture()."""
+        ignoring trigger pulses shorter than |glitch| seconds, after closing
+        the capture the last one left open. Returns a handle for
+        finish_capture()."""
 
     @abstractmethod
     def finish_capture(self, handle, directory):
-        """Wait for the capture, export it as a CSV with `Channel N`
-        columns, and close it; returns the CSV path."""
+        """Wait for the capture and export its channels as a CSV with
+        `Channel N` columns; returns the CSV path. A capture that never
+        triggers is stopped instead and raises RuntimeError. The capture
+        stays open for a look until the next start_capture()."""
 
 
 class SaleaeLogicPro16(LogicAnalyzer):
@@ -96,14 +106,14 @@ class SaleaeLogicPro16(LogicAnalyzer):
         self.config_path = config_path or os.environ.get(
                 'BIONIC_LOGIC_CONFIG', os.path.expanduser('~/.config/Logic/config.json'))
 
-    def _mcp(self, name, args):
+    def _mcp(self, name, args, timeout=120):
         req = urllib.request.Request(
                 self.mcp_url, method='POST',
                 headers={'Content-Type': 'application/json',
                          'Accept': 'application/json, text/event-stream'},
                 data=json.dumps({'jsonrpc': '2.0', 'id': 1, 'method': 'tools/call',
                                  'params': {'name': name, 'arguments': args}}).encode())
-        with urllib.request.urlopen(req, timeout=120) as r:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
             body = r.read().decode()
         for line in body.splitlines():
             if line.startswith('data: '):
@@ -111,20 +121,25 @@ class SaleaeLogicPro16(LogicAnalyzer):
         return json.loads(body)
 
     def export_capture(self, channels_path, set_name, directory=os.path.join(RUN_DIR, 'logic')):
-        for cid in range(60, -1, -1):              # newest id wins
-            res = self._mcp('export_raw_data_csv',
-                            {'captureId': cid, 'directory': directory,
-                             'analogDownsampleRatio': 1})
-            if 'does not exist' not in json.dumps(res):
-                path = os.path.join(directory, 'digital.csv')
-                _relabel(path, load_channels(channels_path, set_name))
-                print('capture id %d -> %s' % (cid, path))
-                return path
-        sys.exit('no Logic 2 capture found')
+        # Never probe ids: a wrong one may be someone's long session.
+        opened = self._open()
+        if opened is None:
+            sys.exit('no capture left open by start_capture')
+        path = self._export(opened['id'], opened['channels'], directory)
+        _relabel(path, load_channels(channels_path, set_name))
+        print('capture id %d -> %s' % (opened['id'], path))
+        return path
 
-    def _call(self, name, args):
+    def _export(self, handle, channels, directory):
+        shutil.rmtree(directory, ignore_errors=True)
+        self._call('export_raw_data_csv', {
+            'captureId': handle, 'directory': directory, 'analogDownsampleRatio': 1,
+            'logicChannels': {'digitalChannels': channels}})
+        return os.path.join(directory, 'digital.csv')
+
+    def _call(self, name, args, timeout=120):
         try:
-            res = self._mcp(name, args)
+            res = self._mcp(name, args, timeout)
         except (OSError, ValueError) as e:
             # Logic 2 away, a timeout or a garbled reply: callers handle
             # RuntimeError, so a recording goes on without its capture.
@@ -134,9 +149,33 @@ class SaleaeLogicPro16(LogicAnalyzer):
             raise RuntimeError('%s: %s' % (name, text[:300]))
         return text
 
+    # The capture left open, {"id": n, "channels": [...]}, so the next
+    # start can close it and an export knows what to take.
+    OPEN_ID = os.path.join(RUN_DIR, 'logic-open-capture.json')
+
+    def _open(self):
+        try:
+            return json.load(open(self.OPEN_ID))
+        except (OSError, ValueError):
+            return None
+
+    def _close_open(self):
+        opened = self._open()
+        if opened is None:
+            return
+        try:
+            self._call('close_capture', {'captureId': opened['id']})
+        except RuntimeError:
+            pass                        # closed by hand in the app
+        os.remove(self.OPEN_ID)
+
     def start_capture(self, channels, trigger, edge='rise', before=20e-6,
                       after=200e-6, glitch=None):
         analyzer()
+        if before + after > MAX_WINDOW:
+            raise RuntimeError('start_capture: %g s window over the %g s limit'
+                               % (before + after, MAX_WINDOW))
+        self._close_open()
         # The 3.3V threshold: the default one reads ringing as extra pulses.
         device = {'digitalSampleRate': 100000000, 'digitalThresholdVolts': 3.3,
                   'logicChannels': {'digitalChannels': sorted(set(channels) | {trigger})}}
@@ -152,20 +191,27 @@ class SaleaeLogicPro16(LogicAnalyzer):
         m = re.search(r'captureId\\*"?\s*:\s*(\d+)', text)
         if not m:
             raise RuntimeError('start_capture: no capture id in %s' % text[:300])
-        return int(m.group(1))
+        handle = int(m.group(1))
+        with open(self.OPEN_ID, 'w') as f:
+            json.dump({'id': handle,
+                       'channels': device['logicChannels']['digitalChannels']}, f)
+        return handle
 
     def finish_capture(self, handle, directory):
         try:
-            self._call('wait_capture', {'captureId': handle})
-            shutil.rmtree(directory, ignore_errors=True)
-            self._call('export_raw_data_csv', {'captureId': handle, 'directory': directory,
-                                               'analogDownsampleRatio': 1})
-            return os.path.join(directory, 'digital.csv')
-        finally:
+            self._call('wait_capture', {'captureId': handle}, timeout=TRIGGER_WAIT)
+        except RuntimeError:
+            # Untriggered, it would grow until stopped: stop, never export.
             try:
-                self._call('close_capture', {'captureId': handle})
+                self._call('stop_capture', {'captureId': handle})
             except RuntimeError:
-                pass                    # already gone with the error above
+                pass
+            raise
+        opened = self._open()
+        channels = opened['channels'] if opened and opened['id'] == handle else None
+        if channels is None:
+            raise RuntimeError('finish_capture: capture %d not the one left open' % handle)
+        return self._export(handle, channels, directory)
 
     def preset_channels(self, preset):
         """Channel names from a Logic 2 preset, as {channel index: name}.
