@@ -31,8 +31,8 @@ The tables time them on real chips, from recorded casts, with
 | S80296SA    |   1.7 |   0.068 |   0.018 | i80296 code        | [mandelbrot.cast](../samples/i80296/mandelbrot.cast)                     | [i80296/mandelbrot.lst](../samples/i80296/mandelbrot.lst)       |
 | S80296SA    |   1.8 |   0.071 |   0.019 | i8096 code         | [mandelbrot_s80296sa.cast](../samples/i8096/mandelbrot_s80296sa.cast)    | [i8096/mandelbrot.lst](../samples/i8096/mandelbrot.lst)         |
 | Z280        |   1.9 |   0.078 |   0.017 | cache on           | [mandelbrot.cast](../samples/z280/mandelbrot.cast)                       | [z280/mandelbrot.lst](../samples/z280/mandelbrot.lst)           |
+| MC68HC16Z1  |   2.3 |   0.095 |   0.029 | PWM 10MHz          | [mandelbrot.cast](../samples/mc68hc16/mandelbrot.cast)                   | [mc68hc16/mandelbrot.lst](../samples/mc68hc16/mandelbrot.lst)   |
 | Z8002       |   2.7 |   0.108 |   0.030 | normal mode        | [mandelbrot.cast](../samples/z8002/mandelbrot.cast)                      | [z8002/mandelbrot.lst](../samples/z8002/mandelbrot.lst)         |
-| MC68HC16Z1  |   2.8 |   0.116 |   0.035 |                    | [mandelbrot.cast](../samples/mc68hc16/mandelbrot.cast)                   | [mc68hc16/mandelbrot.lst](../samples/mc68hc16/mandelbrot.lst)   |
 | MC68HC12    |   2.8 |   0.116 |   0.033 |                    | [mandelbrot.cast](../samples/mc68hc12/mandelbrot.cast)                   | [mc68hc12/mandelbrot.lst](../samples/mc68hc12/mandelbrot.lst)   |
 | N8097BH     |   3.0 |   0.121 |   0.034 | i8096 code         | [mandelbrot_n8097.cast](../samples/i8096/mandelbrot_n8097.cast)          | [i8096/mandelbrot.lst](../samples/i8096/mandelbrot.lst)         |
 | S80C196KC   |   3.1 |   0.125 |   0.035 | i8096 code         | [mandelbrot_s80c196kc.cast](../samples/i8096/mandelbrot_s80c196kc.cast)  | [i8096/mandelbrot.lst](../samples/i8096/mandelbrot.lst)         |
