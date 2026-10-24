@@ -38,6 +38,10 @@ using mc6800::DevsMc6800;
  * so a cycle is held open by not clocking it, and #DSACK1 stays asserted:
  * every external cycle ends at its first S2/S3 fall. #AVEC is tied low,
  * so an interrupt acknowledge (FC 111) ends on it and autovectors.
+ *
+ * A run clocks EXTAL from FlexPWM3 instead, and a cycle is held by
+ * withholding #DSACK1: it is asserted once the cycle is served and
+ * negated as soon as #AS negates, before the next cycle's S2/S3 fall.
  */
 // clang-format on
 
@@ -64,14 +68,26 @@ constexpr auto halt_clocks = 1024;
 // the devices and the halt switch, and to tick the watchdog, often.
 constexpr auto wait_poll_clocks = 16;
 // Bus cycles between polls of the halt switch in a run: its yield()
-// services the USB while EXTAL is stopped, which would otherwise stretch
-// every cycle. The devices ration their own polling.
+// services the USB while the CPU waits on #DSACK1, which would otherwise
+// stretch every cycle. The devices ration their own polling.
 constexpr auto halt_poll_cycles = 16;
 // Bus cycles allowed for an #IRQ7 acknowledge; generous.
 constexpr auto irq_ack_cycles = 1024;
 // Cycles before an exception's vector read that may hold its frame: two
 // stack words, the acknowledge and prefetches between.
 constexpr auto frame_lookback = 10;
+// The clock input a run uses: the fastest the bench regress passes at.
+// At 15 MHz IPIPE phase 1 ends before a poll sees #AS, and halts and the
+// disassembly lose the instruction starts. K in a TUNE_CLOCK build sets
+// another rate. The clock-dependent bounds above become times of this
+// clock in a run, which bounds it from below.
+constexpr uint32_t clock_input_hz = 10000000;
+constexpr uint32_t clock_input_min_hz = 1000;
+// A cycle #DSACK1 ends negates #AS within a few clocks; this bounds the
+// wait, interrupts masked, when it doesn't.
+constexpr auto dsack_hold_clocks = 16;
+// EXTAL's high and low times at least this; 29.8ns is the minimum.
+constexpr auto extal_half_min_ns = 30;
 
 // Data bus mode select at reset (User's Manual Table 5-19): DATA1, DATA2
 // and DATA7 low for BR/BG/BGACK, FC2:FC0 and ADDR23:ADDR19; DATA0 (16-bit
@@ -165,6 +181,77 @@ inline void assert_dsack1() {
     digitalWriteFast(PIN_DSACK1, LOW);
 }
 
+inline void negate_dsack1() {
+    digitalWriteFast(PIN_DSACK1, HIGH);
+}
+
+// EXTAL's pad mux as a GPIO and as FlexPWM3 submodule 1 output A. Teensy
+// pin 28, #RESET, is output B of the same submodule: it stays a GPIO.
+uint32_t extal_gpio_mux;
+uint32_t extal_pwm_mux;
+
+// Time the PWM as near |hz| as its divider allows, any odd count going to
+// the low half. Returns the rate it runs at, or 0 for one EXTAL can't
+// take, changing nothing. The pad mux is left alone.
+uint32_t set_pwm_rate(uint32_t hz) {
+    if (hz < clock_input_min_hz)
+        return 0;
+    // Only an undivided count comes near the minimum half.
+    const uint32_t div = (F_BUS_ACTUAL + hz / 2) / hz;
+    if (uint64_t(div / 2) * 1000000000 <
+            uint64_t(extal_half_min_ns) * F_BUS_ACTUAL)
+        return 0;
+    analogWriteFrequency(PIN_EXTAL, hz);
+    auto &pwm = IMXRT_FLEXPWM3;
+    auto &sm = pwm.SM[1];
+    pwm.MCTRL |= FLEXPWM_MCTRL_CLDOK(1 << 1);
+    sm.VAL3 = (sm.VAL1 + 1) / 2;
+    pwm.MCTRL |= FLEXPWM_MCTRL_LDOK(1 << 1);
+    const auto prescale = (sm.CTRL >> 4) & 7;
+    return (F_BUS_ACTUAL >> prescale) / (sm.VAL1 + 1);
+}
+
+// Output A masked low, or let go, from the next period start: a mask
+// change waits for the reload (RT1060 RM 55.8.46), so the pulse in
+// progress is never cut short.
+void mask_pwm(bool mask) {
+    auto &pwm = IMXRT_FLEXPWM3;
+    const uint16_t a = FLEXPWM_MASK_MASKA(1 << 1);
+    pwm.MASK = mask ? (pwm.MASK | a) : (pwm.MASK & ~a);
+}
+
+void setup_pwm(uint32_t hz) {
+    set_pwm_rate(hz);
+    auto &sm = IMXRT_FLEXPWM3.SM[1];
+    // The reload takes MASK, not just a software FORCE.
+    sm.CTRL2 = (sm.CTRL2 & ~FLEXPWM_SMCTRL2_FORCE_SEL(7)) |
+               FLEXPWM_SMCTRL2_FORCE_SEL(2);
+    mask_pwm(true);
+    analogWrite(PIN_EXTAL, 128);  // 50% at the default 8-bit resolution
+    extal_pwm_mux = *portConfigRegister(PIN_EXTAL);
+}
+
+// Hand EXTAL to the PWM with the CPU parked in S1, EXTAL low. #DSACK1 is
+// negated first: the S2/S3 fall has yet to sample it, so the CPU waits.
+// The masked output is low as the GPIO was; the first high half is whole.
+void start_clock() {
+    negate_dsack1();
+    *portConfigRegister(PIN_EXTAL) = extal_pwm_mux;
+    mask_pwm(false);
+}
+
+// Take EXTAL back low once the mask holds it there, two periods of
+// |hz| on. With #DSACK1 withheld the CPU is in S1, a wait state or no bus
+// cycle, and S1 and a wait state clock alike from here. The settling lets
+// an #AS just asserting show.
+void stop_clock(uint32_t hz) {
+    mask_pwm(true);
+    delayNanoseconds(2 * (1000000000 / hz));
+    *portConfigRegister(PIN_EXTAL) = extal_gpio_mux;
+    delayNanoseconds(clk_delay_ns);
+    assert_dsack1();
+}
+
 // #IRQ7 is edge-sensitive and wants to stay low until acknowledged.
 void assert_irq7() {
     digitalWriteFast(PIN_IRQ7, LOW);
@@ -211,10 +298,24 @@ PinsMc68hc16::PinsMc68hc16() {
     // Memory first: RegsMc68hc16 stages its restore frame there.
     _mems = new MemsMc68hc16();
     _regs = new RegsMc68hc16(this, mems<MemsMc68hc16>());
+    _clockInput = clock_input_hz;
+    _clockCycles = F_CPU / _clockInput;
+}
+
+bool PinsMc68hc16::setClockInput(uint32_t hz) {
+    const auto rate = set_pwm_rate(hz);
+    if (rate == 0)
+        return false;
+    _clockInput = rate;
+    _clockCycles = F_CPU / rate;
+    return true;
 }
 
 void PinsMc68hc16::resetPins() {
+    // The CPU is about to be reset: a glitch on EXTAL is harmless.
+    setup_pwm(_clockInput);
     pinsMode(PINS_LOW, sizeof(PINS_LOW), OUTPUT, LOW);
+    extal_gpio_mux = *portConfigRegister(PIN_EXTAL);
     pinsMode(PINS_HIGH, sizeof(PINS_HIGH), OUTPUT, HIGH);
     pinsMode(PINS_INPUT, sizeof(PINS_INPUT), INPUT);
 
@@ -359,26 +460,11 @@ Signals *PinsMc68hc16::completeCycle(Signals *s) {
         return s;
     }
 
-    const auto mems = this->mems<MemsMc68hc16>();
-    const auto maddr = wrap(s->addr);
-    // A word access is even, so its address alone selects.
-    const auto device = _devs->isSelected(maddr);
     // S2: the read is looked up and driven while EXTAL is high; the fall
     // into S3 samples #DSACK1.
     extal_hi();
-    if (memRead(s)) {
-        if (s->readMemory()) {
-            if (device) {
-                s->data = s->wordAccess() ? uint16(_devs->read(maddr),
-                                                    _devs->read(maddr + 1))
-                                          : bothLanes(_devs->read(maddr));
-            } else {
-                // The aligned pair: a byte read takes its own lane of it.
-                s->data = mems->read_bus(maddr & ~1);
-            }
-        }
-        s->outData();
-    }
+    if (memRead(s))
+        serveRead(s);
     delayNanoseconds(extal_hi_ns);
     extal_lo();
     delayNanoseconds(clk_delay_ns);
@@ -389,20 +475,8 @@ Signals *PinsMc68hc16::completeCycle(Signals *s) {
     // phase is read. S5: read data is latched at the fall. ATTENTION: the
     // phase 2 sample point is unverified.
     extal_hi();
-    if (memWrite(s) && s->writeMemory()) {
-        if (device) {
-            if (s->wordAccess()) {
-                _devs->write(maddr, hi(s->data));
-                _devs->write(maddr + 1, lo(s->data));
-            } else {
-                _devs->write(maddr, lane(s));
-            }
-        } else if (s->wordAccess()) {
-            mems->write_bus(maddr, s->data);
-        } else {
-            mems->write_byte(maddr, lane(s));
-        }
-    }
+    if (memWrite(s))
+        storeWrite(s);
     delayNanoseconds(extal_hi_ns);
     s->getPhase2();
     extal_lo();
@@ -414,6 +488,108 @@ Signals *PinsMc68hc16::completeCycle(Signals *s) {
     while (probe.getControl() && guard--)
         extal_cycle();
 
+    if (memRead(s))
+        s->inputMode();  // only a read drove the bus
+    Cycles::next();
+    return s;
+}
+
+// Look up the read and drive it. A word access is even, so its address
+// alone selects.
+void PinsMc68hc16::serveRead(Signals *s) {
+    if (s->readMemory()) {
+        const auto maddr = wrap(s->addr);
+        if (_devs->isSelected(maddr)) {
+            s->data = s->wordAccess() ? uint16(_devs->read(maddr),
+                                                _devs->read(maddr + 1))
+                                      : bothLanes(_devs->read(maddr));
+        } else {
+            // The aligned pair: a byte read takes its own lane of it.
+            s->data = mems<MemsMc68hc16>()->read_bus(maddr & ~1);
+        }
+    }
+    s->outData();
+}
+
+void PinsMc68hc16::storeWrite(Signals *s) {
+    if (!s->writeMemory())
+        return;
+    const auto mems = this->mems<MemsMc68hc16>();
+    const auto maddr = wrap(s->addr);
+    if (_devs->isSelected(maddr)) {
+        if (s->wordAccess()) {
+            _devs->write(maddr, hi(s->data));
+            _devs->write(maddr + 1, lo(s->data));
+        } else {
+            _devs->write(maddr, lane(s));
+        }
+    } else if (s->wordAccess()) {
+        mems->write_bus(maddr, s->data);
+    } else {
+        mems->write_byte(maddr, lane(s));
+    }
+}
+
+// Under the PWM clock: wait up to |clocks| of it for #AS. Phase 1 holds
+// until S2 (AC timing 100-104), and the address while the CPU waits on
+// #DSACK1.
+Signals *PinsMc68hc16::prepareRun(uint_fast16_t clocks) {
+    auto s = Signals::put();
+    s->clearMark();
+    const uint32_t start = ARM_DWT_CYCCNT;
+    const uint32_t limit = clocks * _clockCycles;
+    while (!s->getControl()) {
+        if (ARM_DWT_CYCCNT - start >= limit) {
+            s->markHalt();
+            return s;
+        }
+    }
+    s->getAddr();
+    s->addr = wrap(s->addr);
+    return s;
+}
+
+// Under the PWM clock. The CPU waits in S2/S3 until #DSACK1, so the
+// cycle is served first. Phase 2 is valid up to #AS negating (User's
+// Manual AC timing 103), and #DSACK1 must be negated right after that,
+// before the next cycle's S2/S3 fall samples it. An acknowledge ends on
+// #AVEC by itself and gets no #DSACK1.
+Signals *PinsMc68hc16::completeRun(Signals *s) {
+    if (s->halt()) {
+        s->inputMode();
+        return s;
+    }
+    const uint32_t limit = halt_clocks * _clockCycles;
+    if (memRead(s)) {
+        serveRead(s);
+    } else if (memWrite(s)) {
+        // Write data is driven from S2, #DS asserted in S3.
+        const uint32_t start = ARM_DWT_CYCCNT;
+        while (busRead(CNTL) & Signals::DS) {
+            if (ARM_DWT_CYCCNT - start >= limit)
+                break;
+        }
+        s->getData();
+        storeWrite(s);
+    }
+    // Masked: an interrupt here can outlast #AS high between cycles, and
+    // the next one would end on this #DSACK1 unserved.
+    noInterrupts();
+    if (!s->iack())
+        assert_dsack1();
+    s->cntl2() = s->cntl();
+    const uint32_t start = ARM_DWT_CYCCNT;
+    const uint32_t hold = dsack_hold_clocks * _clockCycles;
+    while (true) {
+        const uint8_t cntl = busRead(CNTL);
+        if (cntl & Signals::AS)
+            break;
+        s->cntl2() = cntl;
+        if (ARM_DWT_CYCCNT - start >= hold)
+            break;
+    }
+    negate_dsack1();
+    interrupts();
     if (memRead(s))
         s->inputMode();  // only a read drove the bus
     Cycles::next();
@@ -729,16 +905,20 @@ bool PinsMc68hc16::maskSwi(Signals *s, const RegsMc68hc16::Frame &frame) {
     return false;
 }
 
-// Free-run. Returns whether the CPU stopped at a boundary its registers can
-// be saved from. The ring is left holding the program's cycles only.
+// Free-run under the PWM clock. Returns whether the CPU stopped at a
+// boundary its registers can be saved from. The ring is left holding the
+// program's cycles only. Every way out stops the clock with the CPU
+// waiting on #DSACK1 or in no bus cycle, and goes on bit-banged.
 bool PinsMc68hc16::loop() {
     auto s = resumeCycle(regs<RegsMc68hc16>()->parkedAt());
+    start_clock();
     uint_fast8_t poll = 0;
     while (true) {
         const Signals *from;
         RegsMc68hc16::Frame frame;
         if (memRead(s) && s->dataSpace() && s->addr == InstMc68hc16::VEC_SWI &&
                 isSwiBreak(s, frame, from)) {
+            stop_clock(_clockInput);
             const auto parked = maskSwi(s, frame);
             Cycles::discard(from);
             return parked;
@@ -746,21 +926,26 @@ bool PinsMc68hc16::loop() {
         if (s->halt()) {
             // WAI or LPSTOP: no bus cycle until an interrupt.
             _devs->loop();
-            if (haltSwitch())
+            if (haltSwitch()) {
+                stop_clock(_clockInput);
                 return suspend(UINT32_MAX);
-            s = prepareCycle(wait_poll_clocks);
+            }
+            s = prepareRun(wait_poll_clocks);
             continue;
         }
-        completeCycle(s);
+        completeRun(s);
         _devs->loop();
-        s = prepareCycle();
+        s = prepareRun(halt_clocks);
         // Only now, with a cycle recorded: suspend() opens with
         // resumeCycle(), which reads that slot back.
-        if (++poll < halt_poll_cycles)
+        // Not at an acknowledge: #AVEC ends it without waiting for us.
+        if (++poll < halt_poll_cycles || s->iack())
             continue;
         poll = 0;
-        if (haltSwitch())
+        if (haltSwitch()) {
+            stop_clock(_clockInput);
             return s->halt() ? suspend(UINT32_MAX) : suspend(s->addr);
+        }
     }
 }
 
