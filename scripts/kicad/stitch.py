@@ -224,7 +224,7 @@ def main(path, rpt=None):
     s = Stitcher(b)
     if rpt:
         done = set()
-        for num, ref in re.findall(r'Pad (\w+) \[GND\] of (\w+)', open(rpt).read()):
+        for num, ref in re.findall(r'[Pp]ad (\w+) \[GND\] of (\w+)', open(rpt).read()):
             if (ref, num) in done:
                 continue
             done.add((ref, num))
