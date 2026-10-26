@@ -35,7 +35,7 @@ keeps its value.
 The Teensy's own USB port carries the debugger console. The second USB serial port is the
 **software HALT** — see [build.md](build.md).
 
-## 2. CPU adapter — 49 boards
+## 2. CPU adapter — 54 boards
 
 One board per processor, and usually almost empty: the CPU, its identity EEPROM, a couple of
 LEDs, decoupling, and two 48-pin connectors down to the base. Everything else is the base
@@ -123,7 +123,7 @@ dip = 40
 
 Every adapter carries a Microchip **11AA010** UNI/O serial EEPROM holding a 16-byte name.
 At boot the firmware bit-bangs the UNI/O protocol on pin 34 (`PIN_ID`), reads the string,
-and instantiates the matching target — this is why one firmware image serves all 45 CPUs.
+and instantiates the matching target — this is why one firmware image serves all 49 targets.
 Holding the user switch low during reset forces the null target instead. The `W` command
 writes a new identity string.
 
