@@ -6,52 +6,94 @@
 <title>Retro Bionic cast</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/asciinema-player@3.15.1/dist/bundle/asciinema-player.css">
 <style>
-  :root { color-scheme: light dark; --bg: #ffffff; --fg: #1f2328; --muted: #59636e; --link: #0969da; }
+  :root { color-scheme: light dark; --bg: #ffffff; --fg: #1f2328; --muted: #59636e;
+          --link: #0969da; --panel: #f6f8fa; --border: #d1d9e0; }
   @media (prefers-color-scheme: dark) {
-    :root { --bg: #0d1117; --fg: #e6edf3; --muted: #9198a1; --link: #4493f8; }
+    :root { --bg: #0d1117; --fg: #e6edf3; --muted: #9198a1;
+            --link: #4493f8; --panel: #151b23; --border: #3d444d; }
   }
-  body { margin: 0; padding: 16px; background: var(--bg); color: var(--fg);
-         font: 14px/1.5 -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; }
-  main { max-width: 1100px; margin: 0 auto; }
-  h1 { font-size: 18px; margin: 0 0 4px; overflow-wrap: anywhere; }
-  p { margin: 0 0 12px; color: var(--muted); }
+  html, body { height: 100%; }
+  body { margin: 0; padding: 12px 16px; box-sizing: border-box; background: var(--bg);
+         color: var(--fg); font: 14px/1.5 -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+         display: flex; flex-direction: column; gap: 8px; }
+  header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 16px; }
+  h1 { font-size: 16px; margin: 0; overflow-wrap: anywhere; }
   a { color: var(--link); }
-  #error { color: #d1242f; }
+  #error { color: #d1242f; margin: 0; }
+  main { flex: 1; min-height: 0; display: flex; gap: 12px; }
+  #player { flex: none; }
+  #listing { flex: 1; min-width: 0; margin: 0; padding: 8px; overflow: auto;
+             background: var(--panel); border: 1px solid var(--border); border-radius: 6px;
+             font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+             white-space: pre; }
+  @media (max-width: 900px) {
+    body { height: auto; }
+    main { flex-direction: column; }
+    #player { height: auto; width: 100%; }
+    #listing { height: 70vh; flex: none; }
+  }
 </style>
 </head>
 <body>
-<main>
+<header>
   <h1 id="name">cast</h1>
-  <p><a id="source" href="https://github.com/tgtakaoka/retro-bionic">source</a></p>
+  <a id="source" href="https://github.com/tgtakaoka/retro-bionic">source</a>
+  <a id="listing-source" hidden></a>
+</header>
+<p id="error" hidden></p>
+<main>
   <div id="player"></div>
-  <p id="error" hidden></p>
+  <pre id="listing" hidden></pre>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/asciinema-player@3.15.1/dist/bundle/asciinema-player.min.js"></script>
 <script>
-  // play.html?cast=samples/<arch>/<name>.cast[&ref=<branch>] plays a cast
-  // from the repository.
+  // play.html?cast=samples/<arch>/<name>.cast[&lst=samples/<arch>/<name>.lst][&ref=<branch>]
+  // plays a cast from the repository, with its assembly listing beside it.
   const REPO = 'tgtakaoka/retro-bionic';
   const params = new URLSearchParams(location.search);
   const cast = params.get('cast') || '';
+  const lst = params.get('lst') || '';
   const ref = params.get('ref') || 'main';
+  const isPath = (path, ext) => new RegExp(`^[\\w.-]+(/[\\w.-]+)*\\.${ext}$`).test(path)
+        && !path.split('/').includes('..');
+  const raw = (path) => `https://raw.githubusercontent.com/${REPO}/${ref}/${path}`;
+  const blob = (path) => `https://github.com/${REPO}/blob/${ref}/${path}`;
   const error = (text) => {
     const e = document.getElementById('error');
     e.textContent = text;
     e.hidden = false;
   };
-  if (!/^[\w.-]+(\/[\w.-]+)*\.cast$/.test(cast) || cast.split('/').includes('..')
-      || !/^[\w.\/-]+$/.test(ref)) {
+  if (!isPath(cast, 'cast') || (lst && !isPath(lst, 'lst')) || !/^[\w.\/-]+$/.test(ref)) {
     document.getElementById('source').hidden = true;
-    error('Give a cast as play.html?cast=samples/<arch>/<name>.cast');
+    error('Give a cast as play.html?cast=samples/<arch>/<name>.cast&lst=samples/<arch>/<name>.lst');
   } else {
     document.title = cast + ' - Retro Bionic';
     document.getElementById('name').textContent = cast;
     const source = document.getElementById('source');
-    source.href = `https://github.com/${REPO}/blob/${ref}/${cast}`;
-    source.textContent = `${cast} on GitHub`;
-    AsciinemaPlayer.create(`https://raw.githubusercontent.com/${REPO}/${ref}/${cast}`,
-                           document.getElementById('player'),
-                           { fit: 'width', preload: true });
+    source.href = blob(cast);
+    source.textContent = 'cast on GitHub';
+    // 90 columns as recorded; as many rows as the window holds.
+    const narrow = matchMedia('(max-width: 900px)').matches;
+    const fontPx = 13, lineHeight = 1.33333;
+    const height = narrow ? innerHeight * 0.6 : document.querySelector('main').clientHeight;
+    const rows = Math.max(24, Math.floor((height - 8) / (fontPx * lineHeight)));
+    AsciinemaPlayer.create(raw(cast), document.getElementById('player'),
+                           narrow ? { cols: 90, rows, fit: 'width', preload: true }
+                                  : { cols: 90, rows, fit: false, terminalFontSize: fontPx + 'px',
+                                      terminalLineHeight: lineHeight, preload: true });
+    if (lst) {
+      const link = document.getElementById('listing-source');
+      link.href = blob(lst);
+      link.textContent = lst.split('/').slice(-2).join('/');
+      link.hidden = false;
+      const listing = document.getElementById('listing');
+      listing.hidden = false;
+      listing.textContent = 'Loading ' + lst + ' ...';
+      fetch(raw(lst))
+        .then((r) => r.ok ? r.text() : Promise.reject(new Error(`${r.status} ${r.statusText}`)))
+        .then((text) => { listing.textContent = text; })
+        .catch((e) => { listing.textContent = `Could not load ${lst}: ${e.message}`; });
+    }
   }
 </script>
 </body>
