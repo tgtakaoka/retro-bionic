@@ -72,6 +72,7 @@ struct PinsTms9980 final : tms9900::PinsTms9900Base {
     PinsTms9980();
 
     void resetPins() override;
+    void idle() override;
     void assertInt(uint8_t name) override;
     void negateInt(uint8_t name) override;
 

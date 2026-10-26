@@ -38,27 +38,32 @@ namespace tms9980 {
 //  tWL: min  40 ns ; CKIN low pulse width
 //  tOV: min tw-50 ns ; output valid to #PHI3 low
 //  tOX: max tw    ns ; output invalid to #PHI3 low
-//  tsu: min tw-30 ns ; input data setup from #PHI3+
-//   th: min 2tw+10ns ; input data hold from #PHI3+
+//  tsu: min tw-30 ns ; input setup to #PHI3+, READY too
+//   th: min 2tw+10ns ; input hold from #PHI3+, READY too
 // tPHL: max tw+20 ns ; #PHI3+ to #WE-
 // tPLH: min tw    ns ; #PHI3+ to #WE+
 
-// ATTENTION: two TMS9980ANLs passed and failed from run to run (step,
-// arith, echo) while the TMS9981 passed everything. CKIN is held past
-// the 167 ns of fext min at each bus cycle boundary, by the memory read
-// in phi1 and the work between cycles; a PWM clock with READY stalls
-// would keep it in spec.
+// READY is sampled at each #PHI3+ of a memory cycle but its first (Figure
+// 9b): low inserts a wait clock with the outputs held.
+
+// CKIN runs free from the PWM, and READY, low but to end a cycle, holds
+// the CPU in each memory cycle until it is served. A cycle starts at a
+// #PHI3 fall; it is served while the CPU waits. READY changes only past
+// the hold after a #PHI3 rise: asserted there, it is sampled by the next
+// rise, which latches read data, and negated after that rise's hold, well
+// before the next cycle's first sample two clocks on.
 
 namespace {
 
-constexpr auto ckin_lo_ns = 40;       // 50
-constexpr auto ckin_hi_ns = 20;       // 50
-constexpr auto ckin_hi_phi1 = 40;     // 50, the delay runs short after work
-constexpr auto ckin_lo_phi4 = 30;     // 50, inputMode() takes the rest
-constexpr auto phi3_polls = 40;       // #PHI3 falls some 30 ns after CKIN+
-constexpr auto ckin_hi_inject = 30;   // 50
-constexpr auto ckin_lo_capture = 30;  // 50
-constexpr auto phi3_delay_ns = 100;   // CKIN- to #PHI3- is 70-100 ns
+constexpr uint32_t ckin_hz = 10000000;  // 150 MHz / 15: halves of 47/53 ns
+constexpr auto tw_ns = 1000000000 / ckin_hz;
+constexpr auto ready_hold_ns = 2 * tw_ns + 10;
+// Asserted between the hold and the setup, tw-30, for the next rise; the
+// edge wait and the delay add some 80 ns to this.
+constexpr auto ready_assert_ns = 170;
+// Longer than any clock: no edge means no clock or no chip.
+constexpr auto edge_timeout_ns = 16 * tw_ns;
+constexpr auto reset_clocks = 10;
 
 const uint8_t PINS_LOW[] = {
         PIN_CKIN,
@@ -105,35 +110,8 @@ const uint8_t PINS_INPUT[] = {
         PIN_AH0,
 };
 
-inline void ckin_lo() {
-    digitalWriteFast(PIN_CKIN, LOW);
-}
-
-inline void ckin_hi() {
-    digitalWriteFast(PIN_CKIN, HIGH);
-}
-
-auto signal_phi3() {
-    return digitalReadFast(PIN_PHI3);
-}
-
-void ckin_cycle_hi() {
-    ckin_lo();
-    delayNanoseconds(ckin_lo_ns);
-    ckin_hi();
-}
-
-void ckin_cycle() {
-    ckin_cycle_hi();
-    delayNanoseconds(ckin_hi_ns);
-}
-
-void system_cycle() {
-    ckin_cycle();
-    ckin_cycle();
-    ckin_cycle();
-    ckin_cycle();
-}
+static_assert(PIN_CKIN == PIN_PWM_CLOCK && PIN_PHI3 == PIN_TIMING,
+        "CKIN and #PHI3 are the shared clock pins");
 
 void negate_reset() {
     busWrite(INT, 7);
@@ -141,6 +119,10 @@ void negate_reset() {
 
 void assert_ready() {
     digitalWriteFast(PIN_READY, HIGH);
+}
+
+void negate_ready() {
+    digitalWriteFast(PIN_READY, LOW);
 }
 
 }  // namespace
@@ -155,22 +137,10 @@ void PinsTms9980::resetPins() {
     pinsMode(PINS_LOW, sizeof(PINS_LOW), OUTPUT, LOW);
     pinsMode(PINS_HIGH, sizeof(PINS_HIGH), OUTPUT, HIGH);
     pinsMode(PINS_INPUT, sizeof(PINS_INPUT), INPUT);
+    startClock(ckin_hz);
 
-    system_cycle();
-    // Synchronize CKIN to #PHI3, which falls some 100 ns after CKIN does:
-    // reading it sooner can see the fall a cycle late, one phase off.
-    noInterrupts();
-    do {
-        ckin_cycle();
-        delayNanoseconds(phi3_delay_ns);
-    } while (signal_phi3() != LOW);
-    interrupts();
-    ckin_cycle();  // phi4
-
-    for (auto i = 0; i < 10; ++i)
-        system_cycle();
+    delayNanoseconds(reset_clocks * 4 * tw_ns);
     negate_reset();
-    system_cycle();
 
     Cycles::reset();
     prepareCycle();
@@ -178,106 +148,58 @@ void PinsTms9980::resetPins() {
     _regs->reset();
 }
 
-namespace {
-bool phi3_fell() {
-    for (auto n = 0; n < phi3_polls; ++n) {
-        if (signal_phi3() == LOW)
-            return true;
-    }
-    return false;
-}
-}  // namespace
+// The clock runs by itself.
+void PinsTms9980::idle() {}
 
+// Masked so the outputs are read right after the #PHI3 fall: a non-memory
+// clock holds them only until the next.
 Signals *PinsTms9980::prepareCycle() {
     auto s = SignalsTms9980::put();
-    // Masked so an interrupt can't stretch a phase between an edge and its
-    // samples
     noInterrupts();
-    // phi1
-    ckin_cycle();
-    // phi2
-    ckin_cycle();
-    // phi3: #PHI3 falls some 100 ns after the CKIN fall that starts it, and
-    // the outputs settle some 100 ns before that. Clock on until it has
-    // fallen, at most a clock, so a phase that slipped heals here.
-    for (auto n = 0; n < 4; ++n) {
-        ckin_lo();
-        delayNanoseconds(ckin_lo_ns);
-        ckin_hi();
-        if (phi3_fell())
-            break;
-    }
+    waitEdge(false, edge_timeout_ns);
     // assert_debug();
     s->getLowAddr();
-    // negate_debug();
-    // phi4: the outputs hold through it
-    ckin_lo();
     s->getHighAddr();
     s->getControl();
-    ckin_hi();
+    // negate_debug();
     interrupts();
     return s;
 }
 
-// Read data goes on the bus in phi1, a clock and more ahead of the #PHI3
-// rise that latches it, and is released in phi4, the bus holder keeping
-// it; write data is valid with the address. The work in each low phase
-// takes the place of its delay.
+// Write data is valid with the address. Read data is held past the #PHI3
+// rise that latches it, then released to the bus holder.
 Signals *PinsTms9980::completeCycle(Signals *_s) {
     auto s = static_cast<SignalsTms9980 *>(_s);
-    noInterrupts();
-    const auto read = s->memory() && s->read();
-    // phi1
-    ckin_lo();
+    if (!s->memory())
+        return s;
+    const auto read = s->read();
     if (read) {
-        if (s->readMemory()) {
+        if (s->readMemory())
             s->data = _mems->read(s->addr);
-        } else {
-            delayNanoseconds(ckin_hi_inject);
-        }
-        // assert_debug();
         s->outData();
-        // negate_debug();
-    } else if (s->memory()) {
+    } else {
         s->getData();
-        if (s->writeMemory()) {
+        if (s->writeMemory())
             _mems->write(s->addr, s->data);
-        } else {
-            delayNanoseconds(ckin_lo_capture);
-        }
-    } else {
-        delayNanoseconds(ckin_lo_ns);
     }
-    ckin_hi();
-    delayNanoseconds(ckin_hi_phi1);
-    // phi2
-    ckin_lo();
-    if (s->memory()) {
-        Cycles::next();
-    } else {
-        delayNanoseconds(ckin_lo_ns);
-    }
-    ckin_hi();
-    delayNanoseconds(ckin_hi_ns);
-    // phi3
-    ckin_cycle();
-    // phi4
-    ckin_lo();
+    noInterrupts();
+    waitEdge(true, edge_timeout_ns);
+    delayNanoseconds(ready_assert_ns);
+    assert_ready();
+    waitEdge(true, edge_timeout_ns);
+    delayNanoseconds(ready_hold_ns);
     if (read)
         s->inputMode();
-    delayNanoseconds(ckin_lo_phi4);
-    ckin_hi();
+    negate_ready();
     interrupts();
+    Cycles::next();
     return s;
 }
 
+// Read again at a #PHI3 fall: parked anywhere but a memory cycle, the CPU
+// has run on.
 Signals *PinsTms9980::resumeCycle(uint16_t) {
-    auto s = SignalsTms9980::put();
-    s->getLowAddr();
-    s->getHighAddr();
-    s->getControl();
-    assert_ready();
-    return s;
+    return prepareCycle();
 }
 
 void PinsTms9980::injectReads(const uint16_t *data, uint_fast8_t len) {

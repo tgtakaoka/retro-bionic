@@ -216,8 +216,8 @@ an interrupt pending, so a passing `haltgo` proves little. The
 
 Every family in "Halt through an entry the CPU takes itself" passes it, by
 the entry or the masked save named there, with the remedies in its own section
-where one was needed. The exception is the TMS9980 family: the TMS9981 passes
-the regress and two runs, and the bench TMS9980ANL is unstable.
+where one was needed. The exception is the TMS9980 family: on its PWM clock
+the TMS9980 and TMS9981 have passed only the plain regress.
 
 ### Compare a pin read against `LOW`, never `HIGH` **[code]**
 
@@ -291,7 +291,8 @@ The S80296SA's went this way:
 A CPU whose clock may stop can run from a free-running FlexPWM output
 instead of bit-banged edges, which is the way to a CPU whose clock goes
 through a PLL. The MC68HC16 does this on EXTAL (P47); reset, step and
-injected sequences stay bit-banged.
+injected sequences stay bit-banged. The TMS9980 and TMS9981 run every
+sequence from it on CKIN (pin 5), since their clock must not stop.
 
 - Hold a bus cycle with the CPU's wait input (`#DSACK`, READY) instead of
   stopping the clock: withhold it until the cycle is served, and negate it
@@ -311,6 +312,14 @@ injected sequences stay bit-banged.
 - The `teensy41-clock` build adds `K [kHz]` to set the rate at run time,
   for a sweep with the regress; the normal build keeps the target's
   constant.
+- A CPU that samples its wait input on a clock edge needs it moved only
+  outside that edge's setup and hold window, at its next sample too: the
+  TMS9980 takes `READY` up to 2tw+10 after the `#PHI3` rise, so raised
+  just after a rise it is seen a clock early and the next cycle ends
+  unserved. Measure where each change lands in a capture.
+- With the clock free-running, every read of the bus must follow the
+  strobe or clock edge that makes it valid; one taken whenever, as a
+  stopped clock allowed, catches the address changing.
 
 ### A logic analyser on the bus can break the board **[hw]**
 
@@ -1048,21 +1057,24 @@ take the CPU from the `CPU:` field, not the board name. **[hw]**
 
 #### TMS9980 bus timing
 
-**Sample at the `#PHI3` fall, not at a delay from CKIN.** `#PHI3` falls some
-50–100 ns after the CKIN fall that starts its phase; address, control and
-write data change some 100 ns before it and hold through the next CKIN phase,
-so fixed delays from CKIN race them. Each cycle polls for the fall and clocks
-on at most one clock until it comes, so a slipped phase (as on a `READY`
-resume) heals within a cycle. The TMS9981 shares this code. **[hw][code]**
+**CKIN never stops.** CKIN must stay within 6-10 MHz, and a bit-banged
+clock held at every cycle boundary by the work between cycles broke
+TMS9980s from run to run. CKIN is FlexPWM2 submodule 1 on pin 5 at
+10 MHz, and `READY`, low but to end a memory cycle, holds the CPU in each
+one until it is served. The TMS9981 shares this code. **[hw][code]**
 
-**Each CKIN half needs 40 ns or more** (TWH/TWL). Do the per-cycle work
-(memory access, data drive, ring advance) inside a low phase in place of its
-delay. A `delayNanoseconds()` right after long work comes out short, so check
-the widths with a capture after any change. **[hw][code]**
+**Sample at the `#PHI3` fall.** A cycle's address, control and write data
+are valid some 100 ns before it. Non-memory clocks are not held, so a
+read of the bus at any other moment, `resumeCycle()`'s too, may catch the
+next cycle's address changing. **[hw][code]**
 
-**The bench TMS9980ANL passes and fails from run to run on one image**, even
-after a reseat, while the TMS9981 passes everything. Rerun twice before
-reading a TMS9980 result as a timing one. **[hw]**
+**`READY` is sampled at each `#PHI3` rise of a memory cycle but its
+first, with tsu tw-30 and th 2tw+10** (Data Book Figure 9b and switching
+characteristics); the rise that sees it high latches read data. It is
+raised 250-290 ns after a rise, between that rise's hold and the next
+one's setup, and dropped after the latching rise's hold, two clocks
+before the next cycle samples it. A memory byte takes three clocks or
+more. **[hw][code]**
 
 ### 6502
 
