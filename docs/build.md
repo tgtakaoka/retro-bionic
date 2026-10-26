@@ -11,7 +11,7 @@ Dependencies are declared in `platformio.ini` and resolved by PlatformIO:
 
 | Library | Version | Role |
 |---|---|---|
-| [`tgtakaoka/libasm`](https://github.com/tgtakaoka/libasm) | 1.6.67 | Assembler and disassembler for every target |
+| [`tgtakaoka/libasm`](https://github.com/tgtakaoka/libasm) | 2.0.0 | Assembler and disassembler for every target |
 | [`tgtakaoka/libcli`](https://github.com/tgtakaoka/libcli) | 1.5.1 | Serial command-line interface |
 
 ## Build and flash

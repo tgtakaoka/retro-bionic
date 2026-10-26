@@ -61,7 +61,7 @@ report several parts.
 <tr><td>✅</td><td><code>P8085</code></td><td></td><td></td></tr>
 <tr><td rowspan="5"><code>i8096</code></td><td rowspan="2"><code>i8096</code></td><td>✅</td><td><code>P8095BH</code></td><td></td><td>16-bit bus; prefetches up to 4 bytes, so stepping uses TRAP</td></tr>
 <tr><td>✅</td><td><code>N8097BH</code></td><td></td><td>16-bit bus; INST marks each fetch in the bus trace</td></tr>
-<tr><td></td><td>✅</td><td><code>S80C196KC</code></td><td></td><td>Runs on <code>S80C196KC20</code></td></tr>
+<tr><td></td><td>✅</td><td><code>S80C196K</code></td><td><code>S80C196KB</code>, <code>S80C196KC</code></td><td>Runs on <code>S80C196KC20</code>; the KB is told apart at reset but untried</td></tr>
 <tr><td><code>i8096</code></td><td>✅</td><td><code>S80296SA</code></td><td></td><td>16-bit bus, 64-Kbyte mode; prefetches up to 12 bytes</td></tr>
 <tr><td></td><td>🚧</td><td><code>80C196NP</code></td><td></td><td><code>S80C196NP</code>; shares the S80296SA board, 64-Kbyte mode</td></tr>
 <tr><td rowspan="8"><code>i8086</code></td><td rowspan="8"></td><td>🚧</td><td><code>8086</code></td><td><code>8088</code></td><td><code>P80C86A-2</code>, <code>P80C88A-2</code>; shared DIP board</td></tr>

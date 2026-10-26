@@ -32,7 +32,7 @@ cycle at a time, from a terminal on your desk.
 **Bionic** runs *genuine* vintage processors — not emulations of them. A
 [Teensy 4.1](https://www.pjrc.com/store/teensy41.html) is wired to every pin of the target
 CPU and drives the whole system around it: the clock, every bus cycle, and the memory and
-peripherals the chip thinks it is talking to. One firmware image — about 300 kB including
+peripherals the chip thinks it is talking to. One firmware image — about 470 kB including
 every assembler, disassembler and debugger — covers all **49 supported targets**, and the
 board tells the controller which one it is.
 
@@ -100,7 +100,7 @@ All 49 targets, grouped by vendor and architecture:
 <tr><td rowspan="4">Intel</td><td>MCS-48</td><td>P8048 <em>P8039, MSM80C39</em></td></tr>
 <tr><td>MCS-51</td><td>P8051</td></tr>
 <tr><td>MCS-80/85</td><td>P8080, P8085</td></tr>
-<tr><td>MCS-96</td><td>P8095BH, N8097BH, S80C196KC, S80296SA</td></tr>
+<tr><td>MCS-96</td><td>P8095BH, N8097BH, S80C196K <em>S80C196KB, S80C196KC</em>, S80296SA</td></tr>
 <tr><td rowspan="4">Texas Instruments</td><td>TMS9900</td><td>TMS9900, TMS9980, TMS9981, TMS9995, TMS99105 <em>TMS99110</em></td></tr>
 <tr><td>TMS7000</td><td>TMS7000 <em>TMS7002</em></td></tr>
 <tr><td>TMS370</td><td>TMS370Cx5x</td></tr>
@@ -127,7 +127,7 @@ CPUs still to be supported.
 | Path | Contents |
 |---|---|
 | [`debugger/`](debugger) | Teensy 4.1 firmware — shared framework plus 25 per-family back ends |
-| [`schematics/`](schematics) | KiCad projects: base, mezzanine and 49 CPU adapter boards, with gerbers and PDFs |
+| [`schematics/`](schematics) | KiCad projects: base, mezzanine, PLCC adapter and 54 CPU adapter boards, with gerbers and PDFs |
 | [`pinout/`](pinout) | Pin-map definitions consumed by [dip](https://github.com/tgtakaoka/dip) |
 | [`samples/`](samples) | Test programs — Mandelbrot, arithmetic suites, serial echo — ported to every CPU |
 | [`scripts/`](scripts) | Bench control, regression, cycle recording and timing scripts, and the PlatformIO `compile_commands.json` helper |
@@ -136,7 +136,7 @@ CPUs still to be supported.
 
 | Project | Role |
 |---|---|
-| [**libasm**](https://github.com/tgtakaoka/libasm) | The assembler and disassembler engine — 40 architectures, 102 CPU variants, small enough to run on an AVR |
+| [**libasm**](https://github.com/tgtakaoka/libasm) | The assembler and disassembler engine — 41 architectures, 119 CPU variants, small enough to run on an AVR |
 | [**libcli**](https://github.com/tgtakaoka/libcli) | The serial command-line front end the debugger is built on |
 | [**dip**](https://github.com/tgtakaoka/dip) | Draws the pinout diagrams from the TOML files in [`pinout/`](pinout) |
 
