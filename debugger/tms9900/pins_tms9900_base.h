@@ -8,6 +8,8 @@
 #define CNTL_16BIT 0x10 /* CNTL4 */
 #define CNTL_BST 0x20   /* CNTL5 */
 #define PIN_READY 31    /* P8.22; active high */
+#define PIN_PWM_CLOCK 5 /* P9.08; FlexPWM2 submodule 1 output A */
+#define PIN_TIMING 29   /* P9.31; #PHI3 or CLKOUT */
 
 #include "pins.h"
 #include "signals_tms9900_base.h"
@@ -56,6 +58,12 @@ protected:
     void suspend(uint16_t pc);
     // Bytes a bus cycle carries: 1 on the 8-bit bus of TMS9980 and TMS9995.
     virtual uint_fast8_t busBytes() const { return 2; }
+
+    // A free-running clock input from the PWM: READY, low except to end a
+    // memory cycle, holds the CPU instead of a stopped clock.
+    static void startClock(uint32_t hz);
+    // Waits for an edge of the timing output, at most |ns|.
+    static bool waitEdge(bool rising, uint32_t ns);
 
     const SignalsImpl *findBacktraceStart() override;
     void printBacktrace() override;

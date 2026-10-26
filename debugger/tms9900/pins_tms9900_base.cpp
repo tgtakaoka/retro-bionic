@@ -27,6 +27,26 @@ constexpr auto halt_poll_cycles = 16;
 
 }  // namespace
 
+void PinsTms9900Base::startClock(uint32_t hz) {
+    analogWriteFrequency(PIN_PWM_CLOCK, hz);
+    analogWrite(PIN_PWM_CLOCK, 128);  // 50% at the default 8-bit resolution
+}
+
+bool PinsTms9900Base::waitEdge(bool rising, uint32_t ns) {
+    const uint8_t from = rising ? LOW : HIGH;
+    const uint32_t limit = ns * (F_CPU_ACTUAL / 1000000) / 1000;
+    const uint32_t start = ARM_DWT_CYCCNT;
+    while (digitalReadFast(PIN_TIMING) != from) {
+        if (ARM_DWT_CYCCNT - start >= limit)
+            return false;
+    }
+    while (digitalReadFast(PIN_TIMING) == from) {
+        if (ARM_DWT_CYCCNT - start >= limit)
+            return false;
+    }
+    return true;
+}
+
 // READY low holds the CPU in the cycle prepared here.
 Signals *PinsTms9900Base::pauseCycle() {
     negate_ready();
