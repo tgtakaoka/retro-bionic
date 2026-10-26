@@ -43,9 +43,11 @@ namespace tms9980 {
 // tPHL: max tw+20 ns ; #PHI3+ to #WE-
 // tPLH: min tw    ns ; #PHI3+ to #WE+
 
-// ATTENTION: the bench TMS9980ANL passes and fails on this timing from
-// run to run (step, arith, echo), while the TMS9981 passes everything;
-// suspect the chip, but recheck with another TMS9980.
+// ATTENTION: two TMS9980ANLs passed and failed from run to run (step,
+// arith, echo) while the TMS9981 passed everything. CKIN is held past
+// the 167 ns of fext min at each bus cycle boundary, by the memory read
+// in phi1 and the work between cycles; a PWM clock with READY stalls
+// would keep it in spec.
 
 namespace {
 
@@ -56,7 +58,7 @@ constexpr auto ckin_lo_phi4 = 30;     // 50, inputMode() takes the rest
 constexpr auto phi3_polls = 40;       // #PHI3 falls some 30 ns after CKIN+
 constexpr auto ckin_hi_inject = 30;   // 50
 constexpr auto ckin_lo_capture = 30;  // 50
-constexpr auto phi3_delay_ns = 100;   // CKIN- to #PHI3- is 90-100 ns
+constexpr auto phi3_delay_ns = 100;   // CKIN- to #PHI3- is 70-100 ns
 
 const uint8_t PINS_LOW[] = {
         PIN_CKIN,
