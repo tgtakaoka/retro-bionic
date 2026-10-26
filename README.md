@@ -73,7 +73,7 @@ its own pinout in a small TOML file. See **[docs/hardware.md](docs/hardware.md)*
 
 <div align="center">
 <img src="docs/images/bionic-demo.gif" alt="Debugging a TMS9900" width="665">
-<br><em>A <a href="https://asciinema.org/a/721668">real TMS9900 session</a>: registers,
+<br><em>A <a href="samples/tms9900/mandelbrot.cast">real TMS9900 session</a>: registers,
 disassembly, single-stepping with the bus trace, then drawing the Mandelbrot set.</em>
 </div>
 

@@ -20,13 +20,13 @@ Some also have a short video: [TMS7000 (TMS7002)](https://www.youtube.com/shorts
 
 ## The GIFs in these docs
 
-The animations in [the README](../README.md) and [debugger.md](debugger.md) are rendered from
-those recordings with [`agg`](https://github.com/asciinema/agg):
+The animations in [the README](../README.md) and [debugger.md](debugger.md) are rendered
+with [`agg`](https://github.com/asciinema/agg); the README's comes from the TMS9900 cast in
+the repository:
 
 ```sh
-curl -O https://asciinema.org/a/721668.cast
 agg --theme github-dark --idle-time-limit 1 --speed 2 --font-size 14 \
-    721668.cast docs/images/bionic-demo.gif
+    samples/tms9900/mandelbrot.cast docs/images/bionic-demo.gif
 ```
 
 ## What to watch for
