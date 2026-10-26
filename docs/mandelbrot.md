@@ -79,9 +79,10 @@ The tables time them on real chips, from recorded casts, with
 | P8051       |  35.0 |   1.428 |   0.442 | i8051 code         | [mandelbrot.cast](../samples/i8051/mandelbrot.cast)                      | [i8051/mandelbrot.lst](../samples/i8051/mandelbrot.lst)         |
 | NSC800      |  36.2 |   1.472 |   0.372 | Z80 code           | [mandelbrot_nsc800.cast](../samples/z80/mandelbrot_nsc800.cast)          | [z80/mandelbrot.lst](../samples/z80/mandelbrot.lst)             |
 | MC6809      |  36.6 |   1.488 |   0.354 |                    | [mandelbrot.cast](../samples/mc6809/mandelbrot.cast)                     | [mc6809/mandelbrot.lst](../samples/mc6809/mandelbrot.lst)       |
+| TMS9980     |  38.9 |   1.588 |   0.515 | TMS9900 code       | [mandelbrot_tms9980.cast](../samples/tms9900/mandelbrot_tms9980.cast)    | [tms9900/mandelbrot.lst](../samples/tms9900/mandelbrot.lst)     |
+| TMS9981     |  38.9 |   1.588 |   0.515 | TMS9900 code       | [mandelbrot_tms9981.cast](../samples/tms9900/mandelbrot_tms9981.cast)    | [tms9900/mandelbrot.lst](../samples/tms9900/mandelbrot.lst)     |
 | MC68HC08AZ0 |  39.9 |   1.628 |   0.521 | MC68HC05 code      | [mandelbrot_mc68hc08.cast](../samples/mc68hc05/mandelbrot_mc68hc08.cast) | [mc68hc05/mandelbrot.lst](../samples/mc68hc05/mandelbrot.lst)   |
 | P8085       |  40.2 |   1.632 |   0.393 | i8080 code         | [mandelbrot_p8085.cast](../samples/i8080/mandelbrot_p8085.cast)          | [i8080/mandelbrot.lst](../samples/i8080/mandelbrot.lst)         |
-| TMS9981     |  40.7 |   1.662 |   0.541 | TMS9900 code       | [mandelbrot_tms9981.cast](../samples/tms9900/mandelbrot_tms9981.cast)    | [tms9900/mandelbrot.lst](../samples/tms9900/mandelbrot.lst)     |
 | HD6301      |  41.1 |   1.666 |   0.375 | MC6800 code        | [mandelbrot_hd6301.cast](../samples/mc6800/mandelbrot_hd6301.cast)       | [mc6800/mandelbrot.lst](../samples/mc6800/mandelbrot.lst)       |
 | MC68HC11    |  42.3 |   1.716 |   0.382 | MC6800 code        | [mandelbrot_mc68hc11.cast](../samples/mc6800/mandelbrot_mc68hc11.cast)   | [mc6800/mandelbrot.lst](../samples/mc6800/mandelbrot.lst)       |
 | NSC800      |  43.2 |   1.755 |   0.423 | i8080 code         | [mandelbrot_nsc800.cast](../samples/i8080/mandelbrot_nsc800.cast)        | [i8080/mandelbrot.lst](../samples/i8080/mandelbrot.lst)         |
@@ -213,17 +214,18 @@ The code uses none of the HD6120's own instructions, such as its stacks
 
 ### TMS9900 family
 
-| | TMS9900 | TMS9981 | TMS9995 | TMS99105 |
-|---|---:|---:|---:|---:|
-| [tms9900](../samples/tms9900/mandelbrot.lst) | 31.4 | 40.7 | 16.1 | 10.5 |
-| [tms9995](../samples/tms9995/mandelbrot.lst) | | | 10.1 | 8.2 |
-| [tms99105](../samples/tms99105/mandelbrot.lst) | | | | 8.2 |
-| Data bus | 16-bit | 8-bit | 8-bit | 16-bit, multiplexed |
-| A word moves in | 1 bus cycle of 2 clocks | 2 byte cycles | 2 byte cycles | 1 machine cycle |
-| `A Rs,Rd` clocks | 14 | 22 | 4 on-chip, 8 off-chip | |
+| | TMS9900 | TMS9980 | TMS9981 | TMS9995 | TMS99105 |
+|---|---:|---:|---:|---:|---:|
+| [tms9900](../samples/tms9900/mandelbrot.lst) | 31.4 | 38.9 | 38.9 | 16.1 | 10.5 |
+| [tms9995](../samples/tms9995/mandelbrot.lst) | | | | 10.1 | 8.2 |
+| [tms99105](../samples/tms99105/mandelbrot.lst) | | | | | 8.2 |
+| Data bus | 16-bit | 8-bit | 8-bit | 8-bit | 16-bit, multiplexed |
+| A word moves in | 1 bus cycle of 2 clocks | 2 byte cycles | 2 byte cycles | 2 byte cycles | 1 machine cycle |
+| `A Rs,Rd` clocks | 14 | 22 | 22 | 4 on-chip, 8 off-chip | |
 
-The TMS9981 keeps the TMS9900's cycles but moves each word as two bytes,
-so the same code takes 30% longer. The TMS9995 has an 8-bit bus too, yet
+The TMS9980 and TMS9981 keep the TMS9900's cycles but move each word as
+two bytes, so the same code takes longer. Both run from a free-running
+10 MHz CKIN and wait on `READY` for each byte, so they draw alike. The TMS9995 has an 8-bit bus too, yet
 prefetches and keeps RAM on chip, and needs far fewer clocks: it runs the TMS9900 code in half the time, and its own build,
 which keeps the workspace registers in that RAM at `F000`, in a third.
 The TMS99105 moves a word in one machine cycle on its multiplexed bus and
