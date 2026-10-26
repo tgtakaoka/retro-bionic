@@ -1,6 +1,6 @@
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE.md)
 [![PlatformIO CI](https://github.com/tgtakaoka/retro-bionic/actions/workflows/platformio-ci.yml/badge.svg)](https://github.com/tgtakaoka/retro-bionic/actions/workflows/platformio-ci.yml)
-[![Targets](https://img.shields.io/badge/CPU%20targets-46-orange.svg)](docs/supported-cpus.md)
+[![Targets](https://img.shields.io/badge/CPU%20targets-49-orange.svg)](docs/supported-cpus.md)
 [![Boards](https://img.shields.io/badge/KiCad%20boards-51-green.svg)](schematics)
 
 <div align="center">
@@ -33,7 +33,7 @@ cycle at a time, from a terminal on your desk.
 [Teensy 4.1](https://www.pjrc.com/store/teensy41.html) is wired to every pin of the target
 CPU and drives the whole system around it: the clock, every bus cycle, and the memory and
 peripherals the chip thinks it is talking to. One firmware image — about 300 kB including
-every assembler, disassembler and debugger — covers all **46 supported targets**, and the
+every assembler, disassembler and debugger — covers all **49 supported targets**, and the
 board tells the controller which one it is.
 
 <div align="center">
@@ -79,7 +79,7 @@ disassembly, single-stepping with the bus trace, then drawing the Mandelbrot set
 
 ## Supported CPUs
 
-All 46 targets, grouped by vendor and architecture:
+All 49 targets, grouped by vendor and architecture:
 
 <table>
 <thead>
@@ -100,7 +100,7 @@ All 46 targets, grouped by vendor and architecture:
 <tr><td rowspan="4">Intel</td><td>MCS-48</td><td>P8048 <em>P8039, MSM80C39</em></td></tr>
 <tr><td>MCS-51</td><td>P8051</td></tr>
 <tr><td>MCS-80/85</td><td>P8080, P8085</td></tr>
-<tr><td>MCS-96</td><td>P8095BH, N8097BH</td></tr>
+<tr><td>MCS-96</td><td>P8095BH, N8097BH, S80C196KC, S80296SA</td></tr>
 <tr><td rowspan="4">Texas Instruments</td><td>TMS9900</td><td>TMS9900, TMS9980, TMS9981, TMS9995, TMS99105 <em>TMS99110</em></td></tr>
 <tr><td>TMS7000</td><td>TMS7000 <em>TMS7002</em></td></tr>
 <tr><td>TMS370</td><td>TMS370Cx5x</td></tr>
