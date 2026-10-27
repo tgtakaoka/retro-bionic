@@ -6,8 +6,6 @@
 namespace debugger {
 namespace tlcs90 {
 
-DevsTlcs90 Devs;
-
 DevsTlcs90::DevsTlcs90()
     : _usart(new I8251())
 #if defined(ENABLE_SERIAL_HANDLER)
