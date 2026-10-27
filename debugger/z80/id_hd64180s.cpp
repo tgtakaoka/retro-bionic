@@ -20,7 +20,9 @@ Pins *instance() {
     return new z180::PinsZ180(CONFIG, sizeof(CONFIG));
 }
 
-const struct Identity HD64180S{"HD64180S", instance};
+TARGET_OVERLAY(z80);
+
+const struct Identity HD64180S{"HD64180S", instance, overlay};
 
 }  // namespace hd64180s
 }  // namespace debugger

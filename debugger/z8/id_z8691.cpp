@@ -9,7 +9,9 @@ Pins *instance() {
     return new PinsZ86();
 }
 
-const struct Identity Z86C91{"Z86C91", instance};
+TARGET_OVERLAY(z8);
+
+const struct Identity Z86C91{"Z86C91", instance, overlay};
 
 }  // namespace z86
 }  // namespace debugger

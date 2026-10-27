@@ -536,6 +536,25 @@ under it without including `serial_handler.h` or the handler's own header and
 nothing notices. Syntax-check a target with and without
 `-DENABLE_SERIAL_HANDLER` when touching its devices.
 
+### One ITCM overlay per target directory **[code]**
+
+Only one target runs per power-up, so the `teensy41-overlay` image
+(`-D ITCM_OVERLAY`) makes the code in the namespaces each `debugger/<dir>/`
+declares an overlay: all of them are kept in flash and share one ITCM
+address, and `Identity::instance()` copies in the one the identity EEPROM
+names. RAM1 holds the shared code plus the largest overlay. Other images
+keep every target in ITCM, but the rules below hold for all of them.
+
+- Code that another directory calls belongs in the shared `debugger`
+  namespace, as `DevsZ80` and `DevsMc6800` are; the link fails on a reference
+  from one overlay into another.
+- A target namespace has no global objects with constructors: startup would
+  run them before any overlay is loaded. The build's overlay call check fails
+  on such a call. Targets create their objects from `instance()`.
+- Each `id_*.cpp` passes `TARGET_OVERLAY(<dir>)` to its `Identity`.
+- `teensy_size` counts only the shared ITCM code; the largest `.ovl_*`
+  section in `arm-none-eabi-size -A` adds to it.
+
 ## Per architecture
 
 ### Z280

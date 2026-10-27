@@ -9,7 +9,9 @@ Pins *instance() {
     return new PinsCdp1802();
 }
 
-const struct Identity CDP1802{"CDP1802", instance};
+TARGET_OVERLAY(cdp1802);
+
+const struct Identity CDP1802{"CDP1802", instance, overlay};
 
 }  // namespace cdp1802
 }  // namespace debugger

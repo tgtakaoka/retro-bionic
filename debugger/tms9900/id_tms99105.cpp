@@ -9,7 +9,9 @@ Pins *instance() {
     return new PinsTms99105();
 }
 
-const struct Identity TMS99105{"TMS99105", instance};
+TARGET_OVERLAY(tms9900);
+
+const struct Identity TMS99105{"TMS99105", instance, overlay};
 
 }  // namespace tms99105
 }  // namespace debugger

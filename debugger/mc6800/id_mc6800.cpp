@@ -9,7 +9,9 @@ Pins *instance() {
     return new PinsMc6800();
 }
 
-const struct Identity MC6800{"MC6800", instance};
+TARGET_OVERLAY(mc6800);
+
+const struct Identity MC6800{"MC6800", instance, overlay};
 
 }  // namespace mc6800
 }  // namespace debugger

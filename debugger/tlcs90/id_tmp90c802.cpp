@@ -9,7 +9,9 @@ Pins *instance() {
     return new PinsTlcs90();
 }
 
-const struct Identity TMP90C802P{"TMP90C802", instance};
+TARGET_OVERLAY(tlcs90);
+
+const struct Identity TMP90C802P{"TMP90C802", instance, overlay};
 
 }  // namespace tlcs90
 }  // namespace debugger

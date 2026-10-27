@@ -9,7 +9,9 @@ Pins *instance() {
     return new PinsZ280();
 }
 
-const struct Identity Z280{"Z280", instance};
+TARGET_OVERLAY(z280);
+
+const struct Identity Z280{"Z280", instance, overlay};
 
 }  // namespace z280
 }  // namespace debugger

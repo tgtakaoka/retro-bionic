@@ -9,7 +9,9 @@ Pins *instance() {
     return new PinsNsc800();
 }
 
-const struct Identity NSC800{"NSC800", instance};
+TARGET_OVERLAY(z80);
+
+const struct Identity NSC800{"NSC800", instance, overlay};
 
 }  // namespace nsc800
 }  // namespace debugger
