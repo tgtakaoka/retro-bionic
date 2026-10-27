@@ -6,7 +6,6 @@
 #define USART_BASE 0x40  // I/O port
 
 namespace debugger {
-namespace z80 {
 
 struct DevsZ80 final : Devs {
     DevsZ80(uint16_t addr = USART_BASE);
@@ -28,7 +27,6 @@ private:
     Device *_usart;
 };
 
-}  // namespace z80
 }  // namespace debugger
 #endif /* __DEVS_Z80_H__ */
 

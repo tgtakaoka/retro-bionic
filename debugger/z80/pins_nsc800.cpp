@@ -9,7 +9,6 @@
 namespace debugger {
 namespace nsc800 {
 
-using z80::DevsZ80;
 using z80::InstZ80;
 using z80::MemsZ80;
 

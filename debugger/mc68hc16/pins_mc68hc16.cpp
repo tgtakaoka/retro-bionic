@@ -11,7 +11,6 @@
 namespace debugger {
 namespace mc68hc16 {
 
-using mc6800::DevsMc6800;
 
 // clang-format off
 /**

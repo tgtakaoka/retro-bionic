@@ -3,7 +3,6 @@
 #include "mc6850.h"
 
 namespace debugger {
-namespace mc6800 {
 
 DevsMc6800::DevsMc6800(uint32_t aciaBase) : _acia(new Mc6850()) {
     _acia->setBaseAddr(aciaBase);
@@ -51,7 +50,6 @@ void DevsMc6800::printDevices() const {
     printDevice(_acia);
 }
 
-}  // namespace mc6800
 }  // namespace debugger
 
 // Local Variables:

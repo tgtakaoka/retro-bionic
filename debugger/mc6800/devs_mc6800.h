@@ -6,7 +6,6 @@
 #define ACIA_BASE 0xDF00
 
 namespace debugger {
-namespace mc6800 {
 
 struct DevsMc6800 final : Devs {
     DevsMc6800(uint32_t aciaBase = ACIA_BASE);
@@ -27,7 +26,6 @@ private:
     Device *_acia;
 };
 
-}  // namespace mc6800
 }  // namespace debugger
 #endif /* __DEVS_MC6800_H__ */
 

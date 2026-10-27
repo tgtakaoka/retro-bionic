@@ -11,7 +11,6 @@
 namespace debugger {
 namespace z180 {
 
-using z80::DevsZ80;
 using z80::InstZ80;
 using z80::MemsZ80;
 
