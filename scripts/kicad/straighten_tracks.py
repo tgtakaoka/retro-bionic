@@ -9,7 +9,8 @@ until nothing changes:
   via centre or of another track end are joined to it, and a segment
   shorter than SHORT collapses onto its stronger end (via, pad, the
   busier junction). Longer segments at 0, 45 or 90 degrees are
-  deliberate and keep their ends.
+  deliberate and keep their ends, but a loose end stopping short of
+  another end slides along its line to join it.
 - joints: a via or junction whose tracks meet slightly off-axis moves
   by up to SLIDE to where all of them run at 0, 45 or 90 degrees. A via
   between stubs shorter than LOOK on two layers moves to their corner.
@@ -19,7 +20,10 @@ until nothing changes:
   line) and vias free to slide along their other tracks take up the
   offset, long runs stay put. A pad end off its pad's centre line is
   moved onto it. A run that fits only with its via moved across the
-  via's other tracks gets it, those tracks rebuilt with it.
+  via's other tracks gets it, those tracks rebuilt with it. A via up to
+  SLIDE off the centre line of the pad its run leaves moves onto it, its
+  other runs rebuilt in the two legs next to it; a run with a leg across
+  the pad's line sets its via aside on purpose and stays.
 
 Segments of no length, inside one pad or lying on another track go too.
 Each pass is checked with kicad-cli DRC against the board as it came; a
@@ -82,19 +86,22 @@ class Straightener:
         (t.SetStart if i == 0 else t.SetEnd)(V(*p))
 
     def snap(self, skip):
-        """join off-axis segments' ends to the via centre or track end they stop short of"""
+        """join off-axis segments' ends, and loose ends sliding along their line, to the via
+        centre or track end they stop short of"""
         vias = [(v.GetNetCode(), k, mm(v.GetWidth(pcbnew.F_Cu)) / 2) for k, v in self.vias.items()]
         points = defaultdict(set)
         for n, L, k in self.ends:
             points[(n, L)].add(k)
-        done = {}
+        done, held = {}, set()
         for t in self.segs():
             a, c = key(P(t.GetStart())), key(P(t.GetEnd()))
-            if on_axis(a, c) and dist(a, c) >= SHORT:
-                continue
             n, L = t.GetNetCode(), t.GetLayer()
+            # a deliberate segment keeps its ends, unless one hangs loose next to another end
+            fixed = on_axis(a, c) and dist(a, c) >= SHORT
             for i, p in enumerate((a, c)):
-                if p in self.vias or ('snap', n, p) in skip:
+                if p in self.vias or p in held or ('snap', n, p) in skip:
+                    continue
+                if fixed and (len(self.ends[(n, L, p)]) != 1 or self.pad_at(p, n, L)):
                     continue
                 to = [k for vn, k, r in vias if vn == n and dist(p, k) < r]
                 if not to:
@@ -102,6 +109,8 @@ class Straightener:
                     # the busiest point wins, so a crowd of ends meets at one
                     to = sorted(near, key=lambda q: (-len(self.ends[(n, L, q)]), q))[:1]
                 q = c if i == 0 else a
+                if fixed and to and not on_axis(q, to[0]):
+                    continue        # it may only slide along its own line
                 if not to and dist(a, c) < SHORT and self.weaker(n, L, p, q):
                     # a segment this short is noise: its weaker end joins the other
                     to = [q]
@@ -111,6 +120,8 @@ class Straightener:
                     for u, j in self.ends[(n, L, p)]:
                         self.set_end(u, j, to[0])
                         segs.append((P(u.GetStart()), P(u.GetEnd())))
+                    if fixed:
+                        held.add(to[0])
                     done[('snap', n, p)] = (t.GetNetname(), segs)
         return done
 
@@ -217,12 +228,13 @@ class Straightener:
         return out
 
     @staticmethod
-    def solve(A, B, dirs, l0, slackA, slackB):
-        """lengths along dirs and pad-end offsets closing A..B, least weighted change"""
+    def solve(A, B, dirs, l0, slackA, slackB, held=()):
+        """lengths along dirs and pad-end offsets closing A..B, least weighted change;
+        the legs in held keep their lengths"""
         cols, w = [], []
-        for d, l in zip(dirs, l0):
+        for i, (d, l) in enumerate(zip(dirs, l0)):
             cols.append(d)
-            w.append(1.0 + 100 * l * l)      # long runs stay put
+            w.append(1e9 if i in held else 1.0 + 100 * l * l)      # long runs stay put
         for s, sign in ((slackA, 1), (slackB, -1)):
             if s:
                 cols.append((sign * s[0], sign * s[1]))
@@ -287,11 +299,12 @@ class Straightener:
         c = P(p.GetPosition())
         return key((pt[0], c[1]) if self.slack(p) == (1, 0) else (c[0], pt[1]))
 
-    def plan(self, n, L, chain, moved={}, slacks={}):
+    def plan(self, n, L, chain, moved={}, slacks={}, reach=SLIDE, pin=None):
         """the rebuilt run for a chain, 'left' if none fits, None if it is fine as it is
 
         moved puts a via end at a new place, held there; slacks lets a via end
-        slide along the given direction."""
+        slide along the given direction; reach caps how far a length may change;
+        with pin, only the two legs next to that end change, the rest stays on its lines."""
         A0, B0 = chain[0], chain[-1][1]
         pts = [A0] + [k for _, k in chain[1:]]
         tracks = [t for t, _ in chain[1:]]
@@ -322,14 +335,19 @@ class Straightener:
                 return slacks[k]
             return None if k in moved else self.via_slack(k, n, tracks)
         sa, sb = end_slack(A0, pa), end_slack(B0, pb)
-        res = self.solve(A, B, dirs, l0, sa, sb)
+        held = ()
+        if pin in (A0, B0):
+            held = {i for i in range(len(dirs)) if (i if pin == A0 else len(dirs) - 1 - i) >= 2}
+            # the far end holds too, or the held legs would slide with it
+            sa, sb = (sa, None) if pin == A0 else (None, sb)
+        res = self.solve(A, B, dirs, l0, sa, sb, held)
         if not res:
             return 'left'
         l, eA, eB = res
         A2, B2 = key((A[0] + eA[0], A[1] + eA[1])), key((B[0] + eB[0], B[1] + eB[1]))
         end = (A2[0] + sum(li * d[0] for li, d in zip(l, dirs)), A2[1] + sum(li * d[1] for li, d in zip(l, dirs)))
         if (math.hypot(end[0] - B2[0], end[1] - B2[1]) > 1e-3
-                or min(l) < -1e-6 or max(abs(x - y) for x, y in zip(l, l0)) > SLIDE
+                or min(l) < -1e-6 or max(abs(x - y) for x, y in zip(l, l0)) > reach
                 or math.hypot(*eA) > SLIDE or math.hypot(*eB) > SLIDE
                 or (pa and not pa.HitTest(V(*A2))) or (pb and not pb.HitTest(V(*B2)))):
             return 'left'
@@ -365,18 +383,18 @@ class Straightener:
                 self.touched |= {k, k2}
         return segs
 
-    def plan_move(self, n, k, to, chains, keep=None):
+    def plan_move(self, n, k, to, chains, keep=None, reach=SLIDE, pin=False):
         """where via k can go at `to`, or a few microns from it onto a run's axis, and the
         rebuilt runs that end on it; None if one does not fit"""
         at = [c for c in chains if c[0] == n and c[2] is not keep and k in (c[2][0], c[2][-1][1])]
         for _ in range(2):
-            plans = [self.plan(*c, moved={k: to}) for c in at]
+            plans = [self.plan(*c, moved={k: to}, reach=reach, pin=pin and k) for c in at]
             stuck = [c for c, p in zip(at, plans) if p == 'left']
             if not stuck:
                 return to, plans
             fits = []
             for d in DIRS[:4]:
-                p = self.plan(*stuck[0], moved={k: to}, slacks={k: d})
+                p = self.plan(*stuck[0], moved={k: to}, slacks={k: d}, reach=reach, pin=pin and k)
                 if p and p != 'left':
                     to2 = p[6][0] if k == stuck[0][2][0] else p[6][-1]
                     if dist(to2, to) <= 0.02:
@@ -425,8 +443,37 @@ class Straightener:
                 return segs
         return None
 
+    def centre(self, n, L, chain, chains):
+        """a via a little off the centre line of the pad its run leaves, moved onto it"""
+        A, B = chain[0], chain[-1][1]
+        for pk, k in ((A, B), (B, A)):
+            pad = None if pk in self.vias else self.pad_at(pk, n, L)
+            if not pad or k not in self.vias or k in self.touched or len(chain) < 3 or any(
+                    p.GetNetCode() == n and p.HitTest(V(*k)) for p in self.pads):
+                continue
+            s = self.slack(pad)
+            c = P(pad.GetPosition())
+            off = (k[0] - c[0]) * s[1] + (k[1] - c[1]) * s[0]
+            pts = [A] + [q for _, q in chain[1:]]
+            # a leg across the pad's line sets the via aside on purpose
+            if not 1e-4 < abs(off) <= SLIDE or any(
+                    dist(p, q) > 1e-4 and abs((q[0] - p[0]) * s[0] + (q[1] - p[1]) * s[1]) < 1e-4
+                    for p, q in zip(pts, pts[1:])):
+                continue
+            to = key((k[0] - off * s[1], k[1] - off * s[0]))
+            # a 45-degree leg of the via's other runs changes by the offset times root 2
+            m = self.plan_move(n, k, to, chains, keep=chain, reach=SLIDE * math.sqrt(2), pin=True)
+            if not m:
+                continue
+            again = self.plan(n, L, chain, moved={k: m[0]}, reach=SLIDE * math.sqrt(2))
+            if again == 'left':
+                continue
+            return k, self.move(n, k, m[0], m[1] + [again])
+        return None
+
     def straighten(self, keep=()):
-        """returns {(A, B): [segments]} for the runs rebuilt, and the runs left as they were"""
+        """returns {(A, B): [segments]} for the runs rebuilt and {('centre', net, via):
+        [segments]} for the vias centred, and the runs left as they were"""
         rebuilt, left = {}, []
         chains = self.chains()
         for c in chains:
@@ -436,6 +483,11 @@ class Straightener:
                 continue
             p = self.plan(n, L, chain)
             if p is None:
+                moved, name = None, chain[1][0].GetNetname()
+                if not any(('centre', n, k) in keep for k in (A, B)):
+                    moved = self.centre(n, L, chain, chains)
+                if moved:
+                    rebuilt[('centre', n, moved[0])] = (name, moved[1])
                 continue
             name = chain[1][0].GetNetname()
             if p == 'left':
@@ -631,8 +683,9 @@ def report(path):
         total['idle'] += dropped
         if not changes and not dropped:
             break
-    print('snapped %d ends, moved %d joints, rebuilt %d runs, moved %d vias aside, dropped %d idle segments'
-          % (total['snap'], total['joint'], total['run'], total['nudge'], total['idle']))
+    print('snapped %d ends, moved %d joints, rebuilt %d runs, centred %d vias, moved %d vias aside, '
+          'dropped %d idle segments'
+          % (total['snap'], total['joint'], total['run'], total['centre'], total['nudge'], total['idle']))
     for name, A, B in left:
         print('  left %s %s-%s: no 45-degree fit' % (name, A, B))
     for c, why in sorted(rejected.items(), key=str):

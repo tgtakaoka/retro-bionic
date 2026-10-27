@@ -137,7 +137,7 @@ class StraightenTest(unittest.TestCase):
         self.assertEqual(b.tracks(pcbnew.In1_Cu), [((121.0, 98.4), (122.65, 96.75))])
 
     def test_jog_into_via_kept(self):
-        # a 45-degree jog of 0.14 mm is deliberate
+        # a 45-degree jog of 0.14 mm stays: the via's other track ends where it cannot follow
         b = Board()
         b.pad(124.3625, 96.75, 1.475, 0.3)
         b.via(122.6, 96.85)
@@ -220,6 +220,60 @@ class StraightenTest(unittest.TestCase):
         self.assertEqual(b.vias(), [(-0.053, 0.0575)])
         self.assertEqual(b.tracks(), [((-0.053, 0.0575), (3, 0.0575))])
         self.assertEqual(b.tracks(pcbnew.B_Cu), [((-0.053, -5), (-0.053, 0.0575))])
+
+    def test_via_centred_on_pad_line(self):
+        # ASEL0 at U6 on mc68000fn: the via 0.1 mm off the pad's line, a 45-degree jog into it
+        b = Board()
+        b.pad(0, 0, 1.778, 0.3556)
+        b.pad(9.3025, 1.4, 1.0, 2.5)
+        b.via(1.277, -0.1025)
+        b.track((0, 0), (1.1745, 0), (1.277, -0.1025))
+        b.track((1.277, -0.1025), (7.8, -0.1025), (9.3025, 1.4), layer=pcbnew.B_Cu)
+        # the via's other front run: its long leg keeps to its line
+        b.pad(1.0, -8.0, 0.3556, 1.778)
+        b.track((1.277, -0.1025), (2.1817, -1.0072), (2.1817, -6.0), (1.0, -7.1817), (1.0, -8.0))
+        b.run()
+        self.assertEqual(b.vias(), [(1.277, 0)])
+        self.assertIn(((2.1817, -6.0), (2.1817, -0.9047)), b.tracks())
+        # the pad end may slide along the pad to take up the length
+        (a, c), = [t for t in b.tracks() if t[0][1] == 0 and t[1][1] == 0]
+        self.assertEqual(c, (1.277, 0))
+        self.assertLess(abs(a[0]), 0.15)
+        self.assertEqual(b.tracks(pcbnew.B_Cu), [((1.277, 0), (7.9025, 0)), ((7.9025, 0), (9.3025, 1.4))])
+
+    def test_via_far_off_pad_line_kept(self):
+        # a via 0.2 mm off the pad's line is a fan-out
+        b = Board()
+        b.pad(0, 0, 1.778, 0.3556)
+        b.pad(9.2, 1.5, 1.0, 2.5)
+        b.via(1.4, -0.2)
+        b.track((0, 0), (1.2, 0), (1.4, -0.2))
+        b.track((1.4, -0.2), (7.5, -0.2), (9.2, 1.5), layer=pcbnew.B_Cu)
+        before = b.tracks()
+        b.run()
+        self.assertEqual(b.vias(), [(1.4, -0.2)])
+        self.assertEqual(b.tracks(), before)
+
+    def test_via_across_pad_line_kept(self):
+        # a leg across the pad's line sets the via aside on purpose
+        b = Board()
+        b.pad(0, 0, 1.778, 0.3556)
+        b.pad(9.2, 1.5, 1.0, 2.5)
+        b.via(1.5, -0.1)
+        b.track((0, 0), (1.5, 0), (1.5, -0.1))
+        b.track((1.5, -0.1), (7.6, -0.1), (9.2, 1.5), layer=pcbnew.B_Cu)
+        b.run()
+        self.assertEqual(b.vias(), [(1.5, -0.1)])
+
+    def test_loose_end_joined(self):
+        # ASEL0 on mc68000fn: a run's end stops 5 microns past the next track's end
+        b = Board()
+        b.pad(0, 0)
+        b.pad(6, 1.4, 1.0, 2.5)
+        b.track((0, 0), (4.6048, 0))
+        b.track((4.6, 0), (6, 1.4))
+        b.run()
+        self.assertEqual(b.tracks(), [((0, 0), (4.6, 0)), ((4.6, 0), (6, 1.4))])
 
     def test_track_on_track_dropped(self):
         b = Board()
