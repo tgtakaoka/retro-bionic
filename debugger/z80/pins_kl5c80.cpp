@@ -9,7 +9,6 @@
 namespace debugger {
 namespace kl5c80 {
 
-using z80::DevsZ80;
 using z80::InstZ80;
 using z80::MemsZ80;
 using z80::RegsZ80;

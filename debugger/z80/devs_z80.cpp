@@ -3,7 +3,6 @@
 #include "i8251.h"
 
 namespace debugger {
-namespace z80 {
 
 DevsZ80::DevsZ80(uint16_t addr) : _usart(new I8251()) {
     _usart->setBaseAddr(addr);
@@ -55,7 +54,6 @@ void DevsZ80::printDevices() const {
     printDevice(_usart);
 }
 
-}  // namespace z80
 }  // namespace debugger
 
 // Local Variables:

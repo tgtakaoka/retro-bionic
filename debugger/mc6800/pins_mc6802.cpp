@@ -144,7 +144,7 @@ constexpr uint8_t PINS_INPUT[] = {
 
 PinsMc6802::PinsMc6802() {
     auto regs = new RegsMc6802(this);
-    auto devs = new mc6800::DevsMc6800();
+    auto devs = new DevsMc6800();
     auto mems = new MemsMc6802(regs, devs);
     _regs = regs;
     _mems = mems;

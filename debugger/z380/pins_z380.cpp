@@ -10,7 +10,6 @@
 namespace debugger {
 namespace z380 {
 
-using z80::DevsZ80;
 
 // clang-format off
 /**
