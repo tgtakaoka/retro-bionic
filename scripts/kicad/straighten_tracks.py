@@ -11,18 +11,23 @@ until nothing changes:
   busier junction). Longer segments at 0, 45 or 90 degrees are
   deliberate and keep their ends.
 - joints: a via or junction whose tracks meet slightly off-axis moves
-  by up to SLIDE to where all of them run at 0, 45 or 90 degrees.
+  by up to SLIDE to where all of them run at 0, 45 or 90 degrees. A via
+  between stubs shorter than LOOK on two layers moves to their corner.
 - runs: each run of track between anchors (pads, vias, junctions) is
   rebuilt from horizontal, vertical and 45-degree segments, dropping
   micro jogs: short jogs, the ends inside pads (along the pad's centre
   line) and vias free to slide along their other tracks take up the
   offset, long runs stay put. A pad end off its pad's centre line is
-  moved onto it.
+  moved onto it. A run that fits only with its via moved across the
+  via's other tracks gets it, those tracks rebuilt with it.
 
 Segments of no length, inside one pad or lying on another track go too.
 Each pass is checked with kicad-cli DRC against the board as it came; a
-change that adds a violation is undone and reported. The board is
-refilled and saved in place, so close it in KiCad first.
+change that adds a violation, or leaves a track at an odd angle, is
+undone and reported. A change whose only violation is another net's via
+is tried again with that via moved aside by up to SLIDE. The board is
+refilled and saved in place, so close it in KiCad first; on an error it
+is left as it was.
 """
 import math
 import os
@@ -33,9 +38,10 @@ from collections import defaultdict
 
 import pcbnew
 
-SHORT = 0.05      # segments shorter than this are jogs to absorb
+SHORT = 0.1       # segments shorter than this are jogs to absorb
 SLIDE = 0.12      # how far a length, a pad end or a joint may move
 NEAR = 0.03       # ends this close are one point
+LOOK = 0.1        # a via between stubs this short on two layers belongs at their corner
 V = pcbnew.VECTOR2I_MM
 mm = pcbnew.ToMM
 DIRS = [(math.cos(k * math.pi / 4), math.sin(k * math.pi / 4)) for k in range(8)]
@@ -124,13 +130,16 @@ class Straightener:
             for t, i in e:
                 q = key(P(t.GetEnd() if i == 0 else t.GetStart()))
                 # a pad end counts where the runs step will put it, on the pad's centre line
-                nodes[node].append((t, i, self.centred(q, self.pad_at(q, n, L))))
+                nodes[node].append((t, i, self.centred(q, self.pad_at(q, n, L)), None))
+        for (n, L, p), lst in nodes.items():
+            if L == 'via':
+                lst[:] = self.through_stubs(n, p, lst)
         done, frozen = {}, set()
         for (n, L, p), lst in nodes.items():
-            if (('joint', n, p) in skip or p in frozen or all(on_axis(p, q) for _, _, q in lst)
+            if (('joint', n, p) in skip or p in frozen or all(on_axis(p, q) for _, _, q, _ in lst)
                     or any(pd.GetNetCode() == n and pd.HitTest(V(*p)) for pd in self.pads)):
                 continue
-            qs = sorted({q for _, _, q in lst})
+            qs = sorted({q for _, _, q, _ in lst})
             cands = []
             for q in qs:
                 for d in DIRS[:4]:
@@ -146,19 +155,37 @@ class Straightener:
                                 u = ((q2[0] - q1[0]) * -d2[1] + (q2[1] - q1[1]) * d2[0]) / det
                                 cands.append((q1[0] + u * d1[0], q1[1] + u * d1[1]))
             cands = sorted((key(c) for c in cands if 1e-5 < dist(c, p) <= SLIDE), key=lambda c: dist(c, p))
-            to = next((c for c in cands if all(on_axis(c, q) and dist(c, q) > 1e-3 for _, _, q in lst)), None)
+            to = next((c for c in cands if all(on_axis(c, q) and dist(c, q) > 1e-3 for _, _, q, _ in lst)), None)
             if not to:
                 continue
             if L == 'via':
                 self.vias[p].SetPosition(V(*to))
             segs = [(to, to)]
-            for t, i, q in lst:
+            for t, i, q, stub in lst:
                 self.set_end(t, i, to)
+                if stub:
+                    # the stub shrinks to nothing and drop_idle takes it
+                    stub.SetStart(V(*to))
+                    stub.SetEnd(V(*to))
                 segs.append((to, q))
                 frozen.add(q)
             frozen.add(p)
             done[('joint', n, p)] = (lst[0][0].GetNetname(), segs)
         return done
+
+    def through_stubs(self, n, p, lst):
+        """a via between short stubs on two layers: see past each stub to the track it turns into"""
+        stubs = [(t, i, q) for t, i, q, _ in lst if dist(p, q) < LOOK and not self.pad_at(q, n, t.GetLayer())]
+        if len({t.GetLayer() for t, _, _ in stubs}) < 2:
+            return lst
+        out = [e for e in lst if not any(e[0] is t for t, _, _ in stubs)]
+        for t, i, q in stubs:
+            nxt = [(u, j) for u, j in self.ends[(n, t.GetLayer(), q)] if u is not t]
+            if len(nxt) != 1:
+                return lst
+            u, j = nxt[0]
+            out.append((u, j, key(P(u.GetEnd() if j == 0 else u.GetStart())), t))
+        return out
 
     def pad_at(self, pt, net, layer):
         for p in self.pads:
@@ -260,77 +287,165 @@ class Straightener:
         c = P(p.GetPosition())
         return key((pt[0], c[1]) if self.slack(p) == (1, 0) else (c[0], pt[1]))
 
+    def plan(self, n, L, chain, moved={}, slacks={}):
+        """the rebuilt run for a chain, 'left' if none fits, None if it is fine as it is
+
+        moved puts a via end at a new place, held there; slacks lets a via end
+        slide along the given direction."""
+        A0, B0 = chain[0], chain[-1][1]
+        pts = [A0] + [k for _, k in chain[1:]]
+        tracks = [t for t, _ in chain[1:]]
+        dirs, l0, wid = [], [], []
+        for p, q, t in zip(pts, pts[1:], tracks):
+            v = (q[0] - p[0], q[1] - p[1])
+            if math.hypot(*v) < SHORT:
+                continue
+            d = max(DIRS, key=lambda r: r[0] * v[0] + r[1] * v[1])
+            if dirs and dirs[-1] == d:
+                l0[-1] += d[0] * v[0] + d[1] * v[1]
+                wid[-1] = max(wid[-1], t.GetWidth())
+            else:
+                dirs.append(d)
+                l0.append(d[0] * v[0] + d[1] * v[1])
+                wid.append(t.GetWidth())
+        pa = None if A0 in self.vias else self.pad_at(A0, n, L)
+        pb = None if B0 in self.vias else self.pad_at(B0, n, L)
+        A, B = self.centred(moved.get(A0, A0), pa), self.centred(moved.get(B0, B0), pb)
+        if not dirs or (A == A0 and B == B0 and len(dirs) == len(tracks)
+                        and all(on_axis(p, q) for p, q in zip(pts, pts[1:]))):
+            return None
+
+        def end_slack(k, pad):
+            if pad:
+                return self.slack(pad)
+            if k in slacks:
+                return slacks[k]
+            return None if k in moved else self.via_slack(k, n, tracks)
+        sa, sb = end_slack(A0, pa), end_slack(B0, pb)
+        res = self.solve(A, B, dirs, l0, sa, sb)
+        if not res:
+            return 'left'
+        l, eA, eB = res
+        A2, B2 = key((A[0] + eA[0], A[1] + eA[1])), key((B[0] + eB[0], B[1] + eB[1]))
+        end = (A2[0] + sum(li * d[0] for li, d in zip(l, dirs)), A2[1] + sum(li * d[1] for li, d in zip(l, dirs)))
+        if (math.hypot(end[0] - B2[0], end[1] - B2[1]) > 1e-3
+                or min(l) < -1e-6 or max(abs(x - y) for x, y in zip(l, l0)) > SLIDE
+                or math.hypot(*eA) > SLIDE or math.hypot(*eB) > SLIDE
+                or (pa and not pa.HitTest(V(*A2))) or (pb and not pb.HitTest(V(*B2)))):
+            return 'left'
+        q, new = A2, [A2]
+        for li, d in zip(l, dirs):
+            if li >= 1e-4:
+                q = (q[0] + li * d[0], q[1] + li * d[1])
+                new.append(q)
+        new[-1] = B2
+        widths = [w for li, w in zip(l, wid) if li >= 1e-4]
+        return (n, L, A0, B0, A, B, new, widths, tracks)
+
+    def commit(self, plan):
+        """replace a chain's tracks by its planned run, sliding a via end with it"""
+        n, L, A0, B0, A, B, new, widths, tracks = plan
+        locked = any(t.IsLocked() for t in tracks)
+        for t in tracks:
+            self.b.Delete(t)
+        for p, q, w in zip(new, new[1:], widths):
+            t = pcbnew.PCB_TRACK(self.b)
+            t.SetStart(V(*p))
+            t.SetEnd(V(*q))
+            t.SetWidth(w)
+            t.SetLayer(L)
+            t.SetNetCode(n)
+            t.SetLocked(locked)
+            self.b.Add(t)
+        segs = list(zip(new, new[1:]))
+        for k, k2 in ((A0, new[0]), (B0, new[-1])):
+            if k in self.vias:
+                if k2 != k:
+                    segs += self.slide(k, k2, n)
+                self.touched |= {k, k2}
+        return segs
+
+    def plan_move(self, n, k, to, chains, keep=None):
+        """where via k can go at `to`, or a few microns from it onto a run's axis, and the
+        rebuilt runs that end on it; None if one does not fit"""
+        at = [c for c in chains if c[0] == n and c[2] is not keep and k in (c[2][0], c[2][-1][1])]
+        for _ in range(2):
+            plans = [self.plan(*c, moved={k: to}) for c in at]
+            stuck = [c for c, p in zip(at, plans) if p == 'left']
+            if not stuck:
+                return to, plans
+            fits = []
+            for d in DIRS[:4]:
+                p = self.plan(*stuck[0], moved={k: to}, slacks={k: d})
+                if p and p != 'left':
+                    to2 = p[6][0] if k == stuck[0][2][0] else p[6][-1]
+                    if dist(to2, to) <= 0.02:
+                        fits.append((dist(to2, to), to2))
+            if not fits:
+                return None
+            to = min(fits)[1]
+        return None
+
+    def move(self, n, k, to, plans):
+        segs = []
+        for p in plans:
+            if p:
+                segs += self.commit(p)
+        segs += self.slide(k, to, n)
+        self.touched |= {k, to}
+        return segs
+
+    def move_via(self, n, k, to, chains):
+        """move via k aside to about `to`, rebuilding its runs; None if one does not fit"""
+        m = self.plan_move(n, k, to, chains)
+        return m and self.move(n, k, m[0], m[1])
+
+    def shift(self, n, L, chain, chains):
+        """a run with a via end that fits only if the via moves across its other tracks"""
+        for k in (chain[0], chain[-1][1]):
+            if k not in self.vias or k in self.touched or any(
+                    p.GetNetCode() == n and p.HitTest(V(*k)) for p in self.pads):
+                continue
+            cands = []
+            for d in DIRS[:4]:
+                p = self.plan(n, L, chain, slacks={k: d})
+                if p and p != 'left':
+                    to = p[6][0] if k == chain[0] else p[6][-1]
+                    if to != k:
+                        cands.append((dist(k, to), to))
+            for _, to in sorted(cands):
+                # the via's other runs held at the new place, then this one
+                m = self.plan_move(n, k, to, chains, keep=chain)
+                if not m:
+                    continue
+                again = self.plan(n, L, chain, moved={k: m[0]})
+                if again == 'left':
+                    continue
+                segs = self.move(n, k, m[0], m[1] + [again])
+                return segs
+        return None
+
     def straighten(self, keep=()):
         """returns {(A, B): [segments]} for the runs rebuilt, and the runs left as they were"""
         rebuilt, left = {}, []
-        for n, L, chain in self.chains():
+        chains = self.chains()
+        for c in chains:
+            n, L, chain = c
             A, B = chain[0], chain[-1][1]
             if (A, B) in keep or (B, A) in keep or A in self.touched or B in self.touched:
                 continue
-            pts = [A] + [k for _, k in chain[1:]]
-            tracks = [t for t, _ in chain[1:]]
-            dirs, l0, wid = [], [], []
-            for p, q, t in zip(pts, pts[1:], tracks):
-                v = (q[0] - p[0], q[1] - p[1])
-                if math.hypot(*v) < SHORT:
+            p = self.plan(n, L, chain)
+            if p is None:
+                continue
+            name = chain[1][0].GetNetname()
+            if p == 'left':
+                segs = self.shift(n, L, chain, chains)
+                if segs is None:
+                    left.append((name, A, B))
                     continue
-                d = max(DIRS, key=lambda r: r[0] * v[0] + r[1] * v[1])
-                if dirs and dirs[-1] == d:
-                    l0[-1] += d[0] * v[0] + d[1] * v[1]
-                    wid[-1] = max(wid[-1], t.GetWidth())
-                else:
-                    dirs.append(d)
-                    l0.append(d[0] * v[0] + d[1] * v[1])
-                    wid.append(t.GetWidth())
-            pa = None if A in self.vias else self.pad_at(A, n, L)
-            pb = None if B in self.vias else self.pad_at(B, n, L)
-            A0, B0 = A, B
-            A, B = self.centred(A, pa), self.centred(B, pb)
-            if not dirs or (A == A0 and B == B0 and len(dirs) == len(tracks)
-                            and all(on_axis(p, q) for p, q in zip(pts, pts[1:]))):
-                continue
-            sa = self.slack(pa) if pa else self.via_slack(A, n, tracks)
-            sb = self.slack(pb) if pb else self.via_slack(B, n, tracks)
-            res = self.solve(A, B, dirs, l0, sa, sb)
-            name = tracks[0].GetNetname()
-            if not res:
-                left.append((name, A, B))
-                continue
-            l, eA, eB = res
-            A2, B2 = key((A[0] + eA[0], A[1] + eA[1])), key((B[0] + eB[0], B[1] + eB[1]))
-            end = (A2[0] + sum(li * d[0] for li, d in zip(l, dirs)), A2[1] + sum(li * d[1] for li, d in zip(l, dirs)))
-            if (math.hypot(end[0] - B2[0], end[1] - B2[1]) > 1e-3
-                    or min(l) < -1e-6 or max(abs(x - y) for x, y in zip(l, l0)) > SLIDE
-                    or math.hypot(*eA) > SLIDE or math.hypot(*eB) > SLIDE
-                    or (pa and not pa.HitTest(V(*A2))) or (pb and not pb.HitTest(V(*B2)))):
-                left.append((name, A, B))
-                continue
-            q, new = A2, [A2]
-            for li, d in zip(l, dirs):
-                if li >= 1e-4:
-                    q = (q[0] + li * d[0], q[1] + li * d[1])
-                    new.append(q)
-            new[-1] = B2
-            widths = [w for li, w in zip(l, wid) if li >= 1e-4]
-            locked = any(t.IsLocked() for t in tracks)
-            for t in tracks:
-                self.b.Delete(t)
-            for p, q, w in zip(new, new[1:], widths):
-                t = pcbnew.PCB_TRACK(self.b)
-                t.SetStart(V(*p))
-                t.SetEnd(V(*q))
-                t.SetWidth(w)
-                t.SetLayer(L)
-                t.SetNetCode(n)
-                t.SetLocked(locked)
-                self.b.Add(t)
-            segs = list(zip(new, new[1:]))
-            for k, k2 in ((A, A2), (B, B2)):
-                if k in self.vias:
-                    if k2 != k:
-                        segs += self.slide(k, k2, n)
-                    self.touched |= {k, k2}
-            rebuilt[(A0, B0)] = (name, segs)
+            else:
+                segs = self.commit(p)
+            rebuilt[(A, B)] = (name, segs)
         return rebuilt, left
 
     def drop_idle(self):
@@ -360,44 +475,106 @@ def seg_dist(p, a, c):
 
 
 def drc(path):
-    """[(x, y)] of the tracks and vias in violations, and the unconnected count"""
+    """[(x, y)] of the tracks and vias in violations, the unconnected count, and the
+    clearance violations as [(required, actual, [(kind, (x, y))])]"""
     rpt = path + '.straighten.rpt'
     subprocess.run(['kicad-cli', 'pcb', 'drc', '-o', rpt, path], capture_output=True)
     text = open(rpt).read()
     os.remove(rpt)
     pts = [(float(x), float(y)) for x, y in re.findall(r'@\(([\d.]+) mm, ([\d.]+) mm\): (?:Track|Via)', text)]
     unconnected = re.search(r'Found (\d+) unconnected', text)
-    return pts, int(unconnected.group(1)) if unconnected else 0
+    viols = []
+    for block in re.split(r'\n(?=\[)', text):
+        m = re.search(r'clearance ([\d.]+) mm; actual ([\d.]+) mm', block)
+        if m:
+            items = [(kind, (float(x), float(y))) for x, y, kind
+                     in re.findall(r'@\(([\d.]+) mm, ([\d.]+) mm\): (\w+)', block)]
+            viols.append((float(m.group(1)), float(m.group(2)), items))
+    return pts, int(unconnected.group(1)) if unconnected else 0, viols
 
 
-def apply(path, original, skip):
-    """the three steps on the original board, leaving out the changes in skip"""
+def off_axis(b):
+    """[(a, c)] of the segments that run at an odd angle"""
+    out = []
+    for t in b.GetTracks():
+        if t.Type() == pcbnew.PCB_TRACE_T and mm(t.GetLength()) >= 0.002:
+            # the raw ends: rounding them to keys can tip a 45-degree run off by 1e-4
+            a, c = P(t.GetStart()), P(t.GetEnd())
+            if not on_axis(a, c):
+                out.append((key(a), key(c)))
+    return out
+
+
+def apply(path, original, skip, nudges={}):
+    """the three steps on the original board, leaving out the changes in skip and moving
+    the vias in nudges; also returns the ends of segments the steps left at an odd angle"""
     open(path, 'wb').write(original)
     # load from the board's own directory: its .kicad_pro carries the rules SaveBoard keeps
     b = pcbnew.LoadBoard(path)
+    odd = off_axis(b)
     changes = Straightener(b).snap(skip)
     changes.update(Straightener(b).joints(skip))
     st = Straightener(b)
     rebuilt, left = st.straighten(skip)
     changes.update(rebuilt)
-    dropped = st.drop_idle()
+    if nudges:
+        st = Straightener(b)
+        chains = st.chains()
+        for k, to in nudges.items():
+            if k in st.vias and k not in st.touched:
+                n = st.vias[k].GetNetCode()
+                segs = st.move_via(n, k, to, chains)
+                if segs:
+                    changes[('nudge', n, k)] = (st.vias[k].GetNetname(), segs)
+    dropped = Straightener(b).drop_idle()
+    # an odd angle the steps made, not one the board came with along the same line
+    bent = [p for a, c in off_axis(b) if not any(seg_dist(a, a0, c0) < 0.05 and seg_dist(c, a0, c0) < 0.05
+                                                 for a0, c0 in odd) for p in (a, c)]
     pcbnew.ZONE_FILLER(b).Fill(b.Zones())
     pcbnew.SaveBoard(path, b)
-    return changes, dropped, left, drc(path)
+    return changes, dropped, left, drc(path), bent
+
+
+def nudges_for(change, segs, viols):
+    """moves of another net's via, nearest first, that would clear the change's violations with it"""
+    out = []
+    for req, act, items in viols:
+        mine = [p for _, p in items if any(seg_dist(p, a, e) < 0.01 for a, e in segs)]
+        vias = [p for kind, p in items if kind == 'Via' and p not in mine]
+        if len(mine) != 1 or len(vias) != 1:
+            continue
+        k = key(vias[0])
+        m = min(((a, e) for a, e in segs), key=lambda s: seg_dist(k, *s))
+        dx, dy = m[1][0] - m[0][0], m[1][1] - m[0][1]
+        n = dx * dx + dy * dy
+        u = 0 if n == 0 else max(0, min(1, ((k[0] - m[0][0]) * dx + (k[1] - m[0][1]) * dy) / n))
+        away = (k[0] - m[0][0] - u * dx, k[1] - m[0][1] - u * dy)
+        r = math.hypot(*away)
+        if r < 1e-6:
+            continue
+        away = (away[0] / r, away[1] / r)
+        for d in DIRS:
+            dot = d[0] * away[0] + d[1] * away[1]
+            if dot > 0.3:
+                L = math.ceil((req - act + 0.002) / dot * 1e4) / 1e4
+                if L <= SLIDE:
+                    out.append((L, k, key((k[0] + L * d[0], k[1] + L * d[1]))))
+    return [(k, to) for _, k, to in sorted(out)]
 
 
 def one_pass(path, before, unconnected, rejected):
-    """snap, joints and runs, undoing each change that breaks DRC; returns the report"""
+    """snap, joints and runs, undoing each change that breaks DRC or bends a track off
+    axis, and moving another net's via aside where that clears a change; returns the report"""
     original = open(path, 'rb').read()
 
     def bad(pts):
         return [p for p in pts if all(dist(p, q) > 1e-3 for q in before)]
 
-    skip = set(rejected)
+    skip, nudges = set(rejected), {}
     for _ in range(10):
-        changes, dropped, left, (pts, unc) = apply(path, original, skip)
+        changes, dropped, left, (pts, unc, _), bent = apply(path, original, skip)
         broke = {c for c, (_, sg) in changes.items()
-                 if any(seg_dist(p, a, e) < 0.01 for p in bad(pts) for a, e in sg)}
+                 if any(seg_dist(p, a, e) < 0.01 for p in bad(pts) + bent for a, e in sg)}
         if unc > unconnected:
             broke |= {c for c in changes if c[0] == 'snap'}
         if not broke:
@@ -408,24 +585,45 @@ def one_pass(path, before, unconnected, rejected):
         sys.exit('straighten_tracks.py: DRC still fails, board left as it was')
     # a violation blames every change near it: give each blamed change a try of its own
     result, last = (changes, dropped, left), True
-    for c in sorted(skip - rejected, key=str):
-        changes, dropped, left, (pts, unc) = apply(path, original, skip - {c})
-        last = not bad(pts) and unc <= unconnected
+    for c in sorted(skip - set(rejected), key=str):
+        changes, dropped, left, (pts, unc, viols), bent = apply(path, original, skip - {c}, nudges)
+        last = not bad(pts) and not bent and unc <= unconnected
+        if not last and not bent and unc <= unconnected and c in changes:
+            for k, to in nudges_for(c, changes[c][1], viols):
+                if k in nudges:
+                    continue
+                trial = apply(path, original, skip - {c}, {**nudges, k: to})
+                changes, dropped, left, (pts, unc, viols), bent = trial
+                last = not bad(pts) and not bent and unc <= unconnected
+                if last:
+                    nudges[k] = to
+                    break
         if last:
             skip.discard(c)
             result = (changes, dropped, left)
         else:
-            rejected.add(c)
+            rejected[c] = 'leaves a track off axis' if bent else 'the change breaks DRC'
     if not last:
-        result = apply(path, original, skip)[:3]
+        result = apply(path, original, skip, nudges)[:3]
     return result
 
 
 def main(path):
     path = os.path.abspath(path)
-    before, unconnected = drc(path)
+    start = open(path, 'rb').read()
+    try:
+        report(path)
+    except BaseException:
+        open(path, 'wb').write(start)
+        raise
+    sys.stdout.flush()
+    os._exit(0)     # pcbnew can crash tearing down a modified board
+
+
+def report(path):
+    before, unconnected, _ = drc(path)
     total = defaultdict(int)
-    rejected = set()
+    rejected = {}
     for _ in range(6):
         changes, dropped, left = one_pass(path, before, unconnected, rejected)
         for c in changes:
@@ -433,15 +631,13 @@ def main(path):
         total['idle'] += dropped
         if not changes and not dropped:
             break
-    print('snapped %d ends, moved %d joints, rebuilt %d runs, dropped %d idle segments'
-          % (total['snap'], total['joint'], total['run'], total['idle']))
+    print('snapped %d ends, moved %d joints, rebuilt %d runs, moved %d vias aside, dropped %d idle segments'
+          % (total['snap'], total['joint'], total['run'], total['nudge'], total['idle']))
     for name, A, B in left:
         print('  left %s %s-%s: no 45-degree fit' % (name, A, B))
-    for c in sorted(rejected, key=str):
+    for c, why in sorted(rejected.items(), key=str):
         what = '%s %s' % (c[0], c[2]) if isinstance(c[0], str) else 'run %s-%s' % c
-        print('  kept %s: the change breaks DRC' % what)
-    sys.stdout.flush()
-    os._exit(0)     # pcbnew can crash tearing down a modified board
+        print('  kept %s: %s' % (what, why))
 
 
 if __name__ == '__main__':
