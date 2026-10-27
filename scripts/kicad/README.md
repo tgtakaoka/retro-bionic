@@ -74,5 +74,11 @@ fill, so:
   pins' axes and centre each reference on its part, one line per row.
 - One freerouting pass; a second pass over a DSN with fixed wires loses
   them.
+- A hand pre-routed track must end on the centre of every pad it feeds.
+  freerouting counts a pad that a fixed wire only crosses, or one whose
+  wire ends a fraction of a micron off its centre, as unrouted, and then
+  skips its optimizer. The DSN export rounds to six significant digits,
+  so an end that is exact in KiCad can still miss by 0.5 µm; snap those
+  in the DSN.
 - In pcbnew scripts use `Board.Delete()`, not `Board.Remove()`, which
   crashes later.
