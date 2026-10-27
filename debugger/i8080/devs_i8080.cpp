@@ -3,7 +3,6 @@
 #include "i8251.h"
 
 namespace debugger {
-namespace i8080 {
 
 DevsI8080::DevsI8080() : _usart(new I8251()) {
     _usart->setBaseAddr(USART_BASE);
@@ -55,7 +54,6 @@ void DevsI8080::printDevices() const {
     printDevice(_usart);
 }
 
-}  // namespace i8080
 }  // namespace debugger
 
 // Local Variables:

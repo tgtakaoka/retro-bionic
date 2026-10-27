@@ -9,7 +9,7 @@
 namespace debugger {
 namespace i8085 {
 
-struct DevsI8085 final : i8080::DevsI8080 {
+struct DevsI8085 final : DevsI8080 {
     DevsI8085();
     ~DevsI8085();
 

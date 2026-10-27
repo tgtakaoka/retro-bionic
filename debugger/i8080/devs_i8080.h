@@ -6,7 +6,6 @@
 #define USART_BASE 0x40
 
 namespace debugger {
-namespace i8080 {
 
 struct DevsI8080 : Devs {
     DevsI8080();
@@ -28,7 +27,6 @@ protected:
     Device *_usart;
 };
 
-}  // namespace i8080
 }  // namespace debugger
 #endif /* __DEVS_I8080_H__ */
 
