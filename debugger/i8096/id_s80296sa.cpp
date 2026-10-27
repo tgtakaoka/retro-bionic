@@ -9,7 +9,9 @@ Pins *instance() {
     return new PinsI80296SA(i8096::CPU_80296SA);
 }
 
-const struct Identity S80296SA{"S80296SA", instance};
+TARGET_OVERLAY(i8096);
+
+const struct Identity S80296SA{"S80296SA", instance, overlay};
 
 }  // namespace s80296sa
 }  // namespace debugger

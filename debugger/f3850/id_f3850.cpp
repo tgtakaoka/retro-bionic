@@ -9,7 +9,9 @@ Pins *instance() {
     return new PinsF3850();
 }
 
-const struct Identity F3850{"F3850", instance};
+TARGET_OVERLAY(f3850);
+
+const struct Identity F3850{"F3850", instance, overlay};
 
 }  // namespace f3850
 }  // namespace debugger

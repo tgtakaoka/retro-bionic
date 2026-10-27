@@ -12,7 +12,9 @@ Pins *instance() {
     return new mc68hc12::PinsMc68hc12(Init);
 }
 
-const struct Identity MC68HC12B{"MC68HC12B", instance};
+TARGET_OVERLAY(mc68hc12);
+
+const struct Identity MC68HC12B{"MC68HC12B", instance, overlay};
 
 }  // namespace mc68hc12b
 }  // namespace debugger

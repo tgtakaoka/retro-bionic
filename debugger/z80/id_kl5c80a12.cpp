@@ -9,7 +9,9 @@ Pins *instance() {
     return new PinsKl5c80();
 }
 
-const struct Identity KL5C80A12{"KL5C80A12", instance};
+TARGET_OVERLAY(z80);
+
+const struct Identity KL5C80A12{"KL5C80A12", instance, overlay};
 
 }  // namespace kl5c80
 }  // namespace debugger

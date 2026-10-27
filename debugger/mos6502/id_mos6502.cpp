@@ -9,7 +9,9 @@ Pins *instance() {
     return new PinsMos6502();
 }
 
-const struct Identity MOS6502{"MOS6502", instance};
+TARGET_OVERLAY(mos6502);
+
+const struct Identity MOS6502{"MOS6502", instance, overlay};
 
 }  // namespace mos6502
 }  // namespace debugger

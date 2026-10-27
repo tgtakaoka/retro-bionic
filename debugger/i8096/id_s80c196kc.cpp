@@ -10,7 +10,9 @@ Pins *instance() {
 }
 
 // The S80C196KB or KC, told apart at reset.
-const struct Identity S80C196K{"S80C196K", instance};
+TARGET_OVERLAY(i8096);
+
+const struct Identity S80C196K{"S80C196K", instance, overlay};
 
 }  // namespace s80c196kc
 }  // namespace debugger

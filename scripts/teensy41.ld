@@ -1,5 +1,5 @@
-/* imxrt1062_t41.ld from the Teensy 4 core, with libasm kept in flash
-   (see scripts/libasm_flash.py) */
+/* imxrt1062_t41.ld from the Teensy 4 core, with libasm kept in flash and
+   per-target ITCM overlays (see scripts/teensy41_layout.py) */
 
 MEMORY
 {
@@ -43,8 +43,13 @@ SECTIONS
 		. = ALIGN(4);
 	} > FLASH
 
-	.text.itcm : {
+	.text.nulltrap (NOLOAD) : {
 		. = . + 32; /* MPU to trap NULL pointer deref */
+	} > ITCM
+
+	INCLUDE overlays.ld
+
+	.text.itcm : {
 		*(.fastrun)
 		*(.text*)
 		. = ALIGN(16);
@@ -105,7 +110,7 @@ SECTIONS
 	_extram_start = ADDR(.bss.extram);
 	_extram_end = ADDR(.bss.extram) + SIZEOF(.bss.extram);
 
-	_itcm_block_count = (SIZEOF(.text.itcm) + SIZEOF(.ARM.exidx) + 0x7FFF) >> 15;
+	_itcm_block_count = (ADDR(.ARM.exidx) + SIZEOF(.ARM.exidx) - ORIGIN(ITCM) + 0x7FFF) >> 15;
 	_flexram_bank_config = 0xAAAAAAAA | ((1 << (_itcm_block_count * 2)) - 1);
 	_estack = ORIGIN(DTCM) + ((16 - _itcm_block_count) << 15);
 

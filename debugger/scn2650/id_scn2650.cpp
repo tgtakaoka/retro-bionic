@@ -9,7 +9,9 @@ Pins *instance() {
     return new PinsScn2650();
 }
 
-const struct Identity SCN2650{"SCN2650", instance};
+TARGET_OVERLAY(scn2650);
+
+const struct Identity SCN2650{"SCN2650", instance, overlay};
 
 }  // namespace scn2650
 }  // namespace debugger

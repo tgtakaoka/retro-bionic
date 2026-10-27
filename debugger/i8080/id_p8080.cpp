@@ -9,7 +9,9 @@ Pins *instance() {
     return new PinsI8080();
 }
 
-const struct Identity P8080{"P8080", instance};
+TARGET_OVERLAY(i8080);
+
+const struct Identity P8080{"P8080", instance, overlay};
 
 }  // namespace i8080
 }  // namespace debugger

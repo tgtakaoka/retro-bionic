@@ -1,5 +1,6 @@
 #include "identity.h"
 
+#include <string.h>
 #include <strings.h>
 #include "config_debugger.h"
 #include "debugger.h"
@@ -14,12 +15,34 @@ unio::UnioBus unioBus{PIN_ID, 16};
 
 const struct Identity *Identity::_head = nullptr;
 
-Identity::Identity(const char *name, Pins *(*instance)())
-    : _name(name), _instance(instance), _next(_head) {
+#if defined(ITCM_OVERLAY)
+extern "C" uint8_t __overlay_vma[];
+#endif
+
+// The MPU maps ITCM read-only.
+void Overlay::load() const {
+#if defined(ITCM_OVERLAY)
+    if (start == stop)
+        return;
+    __disable_irq();
+    const auto ctrl = SCB_MPU_CTRL;
+    SCB_MPU_CTRL = 0;
+    asm volatile("dsb\n\tisb" ::: "memory");
+    memcpy(__overlay_vma, start, stop - start);
+    SCB_MPU_CTRL = ctrl;
+    asm volatile("dsb\n\tisb" ::: "memory");
+    __enable_irq();
+#endif
+}
+
+Identity::Identity(
+        const char *name, Pins *(*instance)(), Overlay overlay)
+    : _name(name), _instance(instance), _overlay(overlay), _next(_head) {
     _head = this;
 }
 
 Target *Identity::instance() const {
+    _overlay.load();
     return new Target(this, _instance());
 }
 

@@ -9,7 +9,9 @@ Pins *instance() {
     return new z8000::PinsZ8000(true);
 }
 
-const struct Identity Z8001{"Z8001", instance};
+TARGET_OVERLAY(z8000);
+
+const struct Identity Z8001{"Z8001", instance, overlay};
 
 }  // namespace z8001
 }  // namespace debugger

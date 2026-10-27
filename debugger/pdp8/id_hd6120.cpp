@@ -9,7 +9,9 @@ Pins *instance() {
     return new PinsHd6120();
 }
 
-const struct Identity HD6120{"HD6120", instance};
+TARGET_OVERLAY(pdp8);
+
+const struct Identity HD6120{"HD6120", instance, overlay};
 
 }  // namespace hd6120
 }  // namespace debugger
