@@ -525,10 +525,15 @@ void PinsMc68hc12::track(const Signals *s) {
     }
 }
 
+// The halt switch polls USB through yield(), longer than a bus cycle;
+// once in this many Teensy cycles is soon enough.
+constexpr uint32_t halt_poll_cycles = F_CPU / 100000;
+
 const Signals *PinsMc68hc12::loop() {
     _writes = 0;
     _stacked.n = 0;
     uint16_t tryHalt = 0;
+    uint32_t polled = ARM_DWT_CYCCNT;
     while (true) {
         auto s = prepareCycle();
         if (s->none())
@@ -561,9 +566,12 @@ const Signals *PinsMc68hc12::loop() {
         track(s);
         _devs->loop();
         if (tryHalt == 0) {
-            if (haltSwitch()) {
-                assert_xirq();
-                tryHalt = 1;
+            if (ARM_DWT_CYCCNT - polled >= halt_poll_cycles) {
+                polled = ARM_DWT_CYCCNT;
+                if (haltSwitch()) {
+                    assert_xirq();
+                    tryHalt = 1;
+                }
             }
         } else if (++tryHalt >= 5000) {
             cli.println("?halt: no #XIRQ");
