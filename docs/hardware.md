@@ -149,6 +149,33 @@ These boards run from a timer:
 The `teensy41-clock` build adds a `K` command to change the rate at run time (see
 [debugger.md](debugger.md#not-in-a-stock-build)).
 
+## A FlexIO bus engine (planned)
+
+Not built. A free-running clock leaves the firmware to catch every strobe by polling GPIO,
+and a multiplexed bus gives it too little time: on the P8085 at a 10 MHz X1, ALE comes
+90 ns after a held strobe ends and lasts 110 ns, which a polled Teensy misses, so its
+zero-wait reads work only at 6 MHz. FlexIO3 of the i.MX RT1062 can take the bus over in
+hardware for the 16- and 32-bit multiplexed-bus CPUs to come.
+
+- `P10`–`P27` are FlexIO3 D0–D15 in bus order. One parallel-receive shifter, 16 bits wide
+  from FlexIO3 pin 0, latches the whole address on the address strobe; a transmit shifter
+  drives read data, enabled by the read strobe; a receive shifter captures write data on
+  the write strobe. The firmware only reads and writes shift buffers.
+- A pad feeds GPIO or FlexIO, never both, so FlexIO3 owns `P10`–`P27`, and a strobe the
+  firmware also polls needs a second pad for FlexIO3.
+
+So each multiplexed-bus board is mapped for it before the schematic:
+
+- AD on `P10`–`P27`.
+- The address strobe (ALE, `#ADS`, AS) keeps its GPIO pad, for polling and holding the
+  cycle, and gets a copy on a FlexIO3 pad, `P34`–`P37`.
+- The read and write strobes get copies on the remaining FlexIO3 pads (`P34`–`P37`, `P56`,
+  `P57`).
+
+MCS-96 (8096, 80C196, 80296) is the best first target, but its boards have ALE on `P40`,
+which has no FlexIO3, so it needs a board revision. A P8085 revision could prove the engine
+at 8 bits: HLDA moves from `P36` to the unconnected `P33`, and `P36` takes a copy of ALE.
+
 ## Board identification
 
 Every adapter carries a Microchip **11AA010** UNI/O serial EEPROM holding a 16-byte name.
