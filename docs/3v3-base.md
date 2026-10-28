@@ -1,17 +1,27 @@
 # A 3.3 V base board (planned)
 
 Not built. The base board runs at 5 V, and that rail is what keeps every low-voltage part in
-the inventory out of reach. A second base board would drop the `TXS0108E` level shifters
-entirely and wire a 3.3 V CPU straight to the Teensy, which is a 3.3 V part itself.
+the inventory out of reach. A second base board would run its CPU side from 3.3 V, the
+Teensy's own level.
 
 ## What changes
 
-- **No level shifters.** The `TXS0108E` exists only to bridge 3.3 V and 5 V. A 3.3 V target
-  needs no translation, so the CPU connects directly to the controller's GPIO.
+- **The `TXS0108E`s stay, at 3.3 V on both sides.** A 3.3 V target needs no translation, but
+  they still buffer and protect the Teensy's pins. Both ports at 3.3 V is within the
+  datasheet's `VCCA ≤ VCCB`.
 - **A different bus holder.** The `SN74ACT1071` is 5 V only, and there is no low-voltage
   version of it. At 3.3 V the bus-hold cells built into `LVC` inputs do the same job — the
-  `H` in `SN74LVCH…` — with the outputs left disabled. They hold much more weakly, of order
-  75 µA against 0.3 mA, which is the number to check against the bus leakage.
+  `H` in `SN74LVCH…` — with the outputs left disabled. One cell is too weak behind a
+  `TXS0108E`, though: each `TXS0108E` pin has a pull-up on both ports, 40 kΩ while the line
+  is low, and its pass gate joins the two while the line is low, so holding a low at the
+  0.8 V input limit takes 2.5 V / 20 kΩ = 125 µA. A bus-hold cell guarantees only 75 µA
+  there. So each of the 16 data lines on `P1x` and `P2x` gets **four** bus-hold inputs in
+  parallel, four `SN74LVCH16244A`s with every output disabled, on the CPU side where the
+  `SN74ACT1071`s are today:
+  - holding: at least 4 × 75 µA = 300 µA, the `SN74ACT1071`'s strength, against 125 µA;
+  - overdriving: at most 4 × 500 µA = 2 mA for a new value to flip the line, which the CPU
+    supplies directly and the Teensy through the `TXS0108E`'s pass gate and edge
+    accelerators. Check that one on the bench.
 - **Dedicated adapters.** A 3.3 V target needs its own adapter board. Nothing in the 5 V
   family carries over.
 
