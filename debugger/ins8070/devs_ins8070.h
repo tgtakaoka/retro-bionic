@@ -27,9 +27,15 @@ struct DevsIns8070 final : Devs {
 
     void sciLoop() const {
 #if defined(ENABLE_SERIAL_HANDLER)
-        _sci->loop();
+        _sci->pace();
 #endif
     }
+
+#if defined(ENABLE_SERIAL_HANDLER)
+    void sciClock(uint32_t hz) const { _sci->setClock(hz); }
+#else
+    void sciClock(uint32_t) const {}
+#endif
 
 private:
     Device *_acia;

@@ -30,6 +30,9 @@ void Ins8070SciHandler::resetHandler() {
     pinMode(PIN_SA, OUTPUT);
     pinMode(PIN_F1, INPUT);
     // INS8070 bitbang speed: assuming XTAL is 2MHz
+    // ATTENTION: 74 x 14 is 1036 XIN a bit, which matches neither 2 MHz
+    // nor 4 MHz at 4800 bps; INS8073 BASIC echoes stray 0xFF and loses
+    // input. Measure the CPU's bit time on F1 and retune.
     // baudrate 4800 bps
     _pre_divider = 74;
     _tx_divider = _rx_divider = 14;
