@@ -1,0 +1,387 @@
+          0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+          0 :                            cpu     8086
+          0 :                            include "usart.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :                    ;;; i8251 Universal Synchronous/Asynchronous Receiver/Transmitter
+(1)       0 : =40                USART:          equ     40H
+(1)       0 : =40                USARTD:         equ     USART+0 ; Receive/Transmit data
+(1)       0 : =41                USARTS:         equ     USART+1 ; Status register
+(1)       0 : =41                USARTC:         equ     USART+1 ; Control register
+(1)       0 : =42                USARTRV:        equ     USART+2 ; Receive interrupt type
+(1)       0 : =43                USARTTV:        equ     USART+3 ; Transmit interrupt type
+(1)       0 :                            include "../i8080/i8251.inc"
+(2)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(2)       0 :
+(2)       0 :                    ;;; i8251 USART device emulator.
+(2)       0 :                    ;;; Bit definition of mode instruction (asynchronous)
+(2)       0 : =6                 MODE_STOP_gp:   equ     6
+(2)       0 : =C0                MODE_STOP_gm:   equ     11000000B
+(2)       0 : =40                MODE_STOP1_gc:  equ     (1 << MODE_STOP_gp)
+(2)       0 : =80                MODE_STOP15_gc: equ     (2 << MODE_STOP_gp)
+(2)       0 : =C0                MODE_STOP2_gc:  equ     (3 << MODE_STOP_gp)
+(2)       0 : =20                MODE_EVEN_bm:   equ     00100000B   ; Even parity
+(2)       0 : =10                MODE_PARITY_bm: equ     00010000B   ; Parity enable
+(2)       0 : =2                 MODE_LEN_gp:    equ     2
+(2)       0 : =C                 MODE_LEN_gm:    equ     00001100B
+(2)       0 : =0                 MODE_LEN5_gc:   equ     (0 << MODE_LEN_gp)
+(2)       0 : =4                 MODE_LEN6_gc:   equ     (1 << MODE_LEN_gp)
+(2)       0 : =8                 MODE_LEN7_gc:   equ     (2 << MODE_LEN_gp)
+(2)       0 : =C                 MODE_LEN8_gc:   equ     (3 << MODE_LEN_gp)
+(2)       0 : =0                 MODE_BAUD_gp:   equ     0
+(2)       0 : =3                 MODE_BAUD_gm:   equ     00000011B
+(2)       0 : =1                 MODE_BAUD_X1:   equ     (1 << MODE_BAUD_gp)
+(2)       0 : =2                 MODE_BAUD_X16:  equ (2 << MODE_BAUD_gp)
+(2)       0 : =3                 MODE_BAUD_X64:  equ (3 << MODE_BAUD_gp)
+(2)       0 :                    ;;; Bit Definition of command register
+(2)       0 : =80                CMD_EH_bm:      equ     10000000B   ; Enter hunt mode
+(2)       0 : =40                CMD_IR_bm:      equ     01000000B   ; Internal Reset
+(2)       0 : =20                CMD_RTS_bm:     equ     00100000B   ; Request To Send
+(2)       0 : =10                CMD_ER_bm:      equ     00010000B   ; Error Reset
+(2)       0 : =8                 CMD_SBRK_bm:    equ     00001000B   ; Send Break
+(2)       0 : =4                 CMD_RxEN_bm:    equ     00000100B   ; Receive Enable
+(2)       0 : =2                 CMD_DTR_bm:     equ     00000010B   ; Data Terminal Ready
+(2)       0 : =1                 CMD_TxEN_bm:    equ     00000001B   ; Transmit enable
+(2)       0 :
+(2)       0 :                    ;;; Bit definition of status register
+(2)       0 : =80                ST_DSR_bm:      equ     10000000B   ; Data Set Ready
+(2)       0 : =40                ST_BRK_bm:      equ     01000000B   ; BREAK detected
+(2)       0 : =20                ST_FE_bm:       equ     00100000B   ; Framing Error
+(2)       0 : =10                ST_OE_bm:       equ     00010000B   ; Overrun Error
+(2)       0 : =8                 ST_PE_bm:       equ     00001000B   ; Parity Error
+(2)       0 : =4                 ST_TxEMPTY_bm:  equ     00000100B   ; Transmitter empty
+(2)       0 : =2                 ST_RxRDY_bm:    equ     00000010B   ; Receiver ready
+(2)       0 : =1                 ST_TxRDY_bm:    equ     00000001B   ; Transmitter ready
+(1)       0 :                    ;;; Async 1stop 8data x16
+(1)       0 : =4E                ASYNC_MODE:     equ     MODE_STOP1_gc|MODE_LEN8_gc|MODE_BAUD_X16
+(1)       0 :                    ;;; RTS/DTR, error reset, Rx enable, Tx enable
+(1)       0 : =37                RX_EN_TX_EN:    equ     CMD_RTS_bm|CMD_DTR_bm|CMD_ER_bm|CMD_RxEN_bm|CMD_TxEN_bm
+(1)       0 : =36                RX_EN_TX_DIS:   equ     CMD_RTS_bm|CMD_DTR_bm|CMD_ER_bm|CMD_RxEN_bm
+(1)       0 :
+(1)       0 :                    ;;; Interrupt types the USART answers INTA with; the debugger owns
+(1)       0 :                    ;;; types 1-3.
+(1)       0 : =20                VEC_RX:         equ     20H
+(1)       0 : =21                VEC_TX:         equ     21H
+          0 :
+        100 :                            org     0100H
+        100 : =1000              stack:  equ     1000H
+        100 :
+        100 :                    init:
+        100 : 31 C0                      xor     ax, ax
+        102 : 8E D8                      mov     ds, ax
+        104 : 8E D0                      mov     ss, ax
+        106 : BC 00 10                   mov     sp, stack
+        109 : B4 37                      mov     ah, RX_EN_TX_EN
+        10B : E8 F1 01                   call    init_usart
+        10E :
+        10E : E8 85 00                   call    arith
+        111 :                    halt_to_system:
+        111 : F4                         hlt
+        112 :
+        112 :                            include "arith.inc"
+(1)     112 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)     112 :                    ;;; Print signed 16-bit arithmetic and comparisons, through a polled
+(1)     112 :                    ;;; USART.
+(1)     112 :
+(1)     112 :                    ;;; Put character
+(1)     112 :                    ;;; @param AL
+(1)     112 :                    putchar:
+(1)     112 : 50                         push    ax
+(1)     113 :                    putchar_loop:
+(1)     113 : E4 41                      in      al, USARTS
+(1)     115 : A8 01                      test    al, ST_TxRDY_bm
+(1)     117 : 74 FA                      jz      putchar_loop
+(1)     119 : 58                         pop     ax
+(1)     11A : E6 40                      out     USARTD, al
+(1)     11C : C3                         ret
+(1)     11D :
+(1)     11D :                    newline:
+(1)     11D : 50                         push    ax
+(1)     11E : B0 0D                      mov     al, 0DH
+(1)     120 : E8 EF FF                   call    putchar
+(1)     123 : B0 0A                      mov     al, 0AH
+(1)     125 : E8 EA FF                   call    putchar
+(1)     128 : 58                         pop     ax
+(1)     129 : C3                         ret
+(1)     12A :
+(1)     12A :                    putspace:
+(1)     12A : 50                         push    ax
+(1)     12B : B0 20                      mov     al, ' '
+(1)     12D : E8 E2 FF                   call    putchar
+(1)     130 : 58                         pop     ax
+(1)     131 : C3                         ret
+(1)     132 :
+(1)     132 :                    ;;; Print "v1 op v2"
+(1)     132 :                    ;;; @param SI v1
+(1)     132 :                    ;;; @param DI v2
+(1)     132 :                    ;;; @param CL op
+(1)     132 :                    ;;; @return AX v1
+(1)     132 :                    ;;; @clobber BX DX
+(1)     132 :                    expr:
+(1)     132 : 89 F0                      mov     ax, si
+(1)     134 : E8 36 00                   call    print_int16
+(1)     137 : E8 F0 FF                   call    putspace
+(1)     13A : 88 C8                      mov     al, cl
+(1)     13C : E8 D3 FF                   call    putchar
+(1)     13F : E8 E8 FF                   call    putspace
+(1)     142 : 89 F8                      mov     ax, di
+(1)     144 : E8 26 00                   call    print_int16
+(1)     147 : 89 F0                      mov     ax, si
+(1)     149 : C3                         ret
+(1)     14A :
+(1)     14A :                    ;;; Print " = v1\n"
+(1)     14A :                    ;;; @param AX v1
+(1)     14A :                    ;;; @clobber AX BX DX
+(1)     14A :                    answer:
+(1)     14A : E8 DD FF                   call    putspace
+(1)     14D : 50                         push    ax
+(1)     14E : B0 3D                      mov     al, '='
+(1)     150 : E8 BF FF                   call    putchar
+(1)     153 : 58                         pop     ax
+(1)     154 : E8 D3 FF                   call    putspace
+(1)     157 : E8 13 00                   call    print_int16
+(1)     15A : EB C1                      jmp     newline
+(1)     15C :
+(1)     15C :                    ;;; Compare and print "v1 rel v2\n"
+(1)     15C :                    ;;; @param SI v1
+(1)     15C :                    ;;; @param DI v2
+(1)     15C :                    ;;; @clobber AX BX CL DX
+(1)     15C :                    comp:
+(1)     15C : B1 3D                      mov     cl, '='
+(1)     15E : 39 FE                      cmp     si, di
+(1)     160 : 74 06                      je      comp_out
+(1)     162 : B1 3E                      mov     cl, '>'
+(1)     164 : 7F 02                      jg      comp_out
+(1)     166 : B1 3C                      mov     cl, '<'
+(1)     168 :                    comp_out:
+(1)     168 : E8 C7 FF                   call    expr
+(1)     16B : EB B0                      jmp     newline
+(1)     16D :
+(1)     16D :                    ;;; Print signed 16-bit integer as decimal
+(1)     16D :                    ;;; @param AX value
+(1)     16D :                    ;;; @clobber AX BX DX
+(1)     16D :                    print_int16:
+(1)     16D : 09 C0                      or      ax, ax
+(1)     16F : 75 04                      jnz     print_int16_nonzero
+(1)     171 : B0 30                      mov     al, '0'
+(1)     173 : EB 9D                      jmp     putchar
+(1)     175 :                    print_int16_nonzero:
+(1)     175 : 79 09                      jns     print_uint16
+(1)     177 : 50                         push    ax
+(1)     178 : B0 2D                      mov     al, '-'
+(1)     17A : E8 95 FF                   call    putchar
+(1)     17D : 58                         pop     ax
+(1)     17E : F7 D8                      neg     ax              ; AX=-value
+(1)     180 :                    print_uint16:
+(1)     180 : 09 C0                      or      ax, ax
+(1)     182 : 74 11                      jz      print_uint16_exit
+(1)     184 : 31 D2                      xor     dx, dx          ; DX:AX=value, zero-extended
+(1)     186 : BB 0A 00                   mov     bx, 10
+(1)     189 : F7 F3                      div     bx              ; AX=value/10, DX=value%10
+(1)     18B : 52                         push    dx              ; push remainder
+(1)     18C : E8 F1 FF                   call    print_uint16
+(1)     18F : 58                         pop     ax              ; pop remainder
+(1)     190 : 04 30                      add     al, '0'
+(1)     192 : E9 7D FF                   jmp     putchar
+(1)     195 :                    print_uint16_exit:
+(1)     195 : C3                         ret
+(1)     196 :
+(1)     196 :                    ;;; Print every case
+(1)     196 :                    arith:
+(1)     196 : BE 50 46                   mov     si, 18000
+(1)     199 : BF 60 6D                   mov     di, 28000
+(1)     19C : B1 2B                      mov     cl, '+'
+(1)     19E : E8 91 FF                   call    expr
+(1)     1A1 : 01 F8                      add     ax, di
+(1)     1A3 : E8 A4 FF                   call    answer          ; -19536
+(1)     1A6 :
+(1)     1A6 : BE 50 46                   mov     si, 18000
+(1)     1A9 : BF B0 B9                   mov     di, -18000
+(1)     1AC : B1 2B                      mov     cl, '+'
+(1)     1AE : E8 81 FF                   call    expr
+(1)     1B1 : 01 F8                      add     ax, di
+(1)     1B3 : E8 94 FF                   call    answer          ; 0
+(1)     1B6 :
+(1)     1B6 : BE B0 B9                   mov     si, -18000
+(1)     1B9 : BF B0 B9                   mov     di, -18000
+(1)     1BC : B1 2B                      mov     cl, '+'
+(1)     1BE : E8 71 FF                   call    expr
+(1)     1C1 : 01 F8                      add     ax, di
+(1)     1C3 : E8 84 FF                   call    answer          ; 29536
+(1)     1C6 :
+(1)     1C6 : BE B0 B9                   mov     si, -18000
+(1)     1C9 : BF A0 92                   mov     di, -28000
+(1)     1CC : B1 2D                      mov     cl, '-'
+(1)     1CE : E8 61 FF                   call    expr
+(1)     1D1 : 29 F8                      sub     ax, di
+(1)     1D3 : E8 74 FF                   call    answer          ; 10000
+(1)     1D6 :
+(1)     1D6 : BE 64 00                   mov     si, 100
+(1)     1D9 : BF 2C 01                   mov     di, 300
+(1)     1DC : B1 2A                      mov     cl, '*'
+(1)     1DE : E8 51 FF                   call    expr
+(1)     1E1 : E8 14 01                   call    mul16
+(1)     1E4 : E8 63 FF                   call    answer          ; 30000
+(1)     1E7 :
+(1)     1E7 : BE 2C 01                   mov     si, 300
+(1)     1EA : BF 38 FF                   mov     di, -200
+(1)     1ED : B1 2A                      mov     cl, '*'
+(1)     1EF : E8 40 FF                   call    expr
+(1)     1F2 : E8 03 01                   call    mul16
+(1)     1F5 : E8 52 FF                   call    answer          ; 5536
+(1)     1F8 :
+(1)     1F8 : BE 64 00                   mov     si, 100
+(1)     1FB : BF D4 FE                   mov     di, -300
+(1)     1FE : B1 2A                      mov     cl, '*'
+(1)     200 : E8 2F FF                   call    expr
+(1)     203 : E8 F2 00                   call    mul16
+(1)     206 : E8 41 FF                   call    answer          ; -30000
+(1)     209 :
+(1)     209 : BE 38 FF                   mov     si, -200
+(1)     20C : BF 9C FF                   mov     di, -100
+(1)     20F : B1 2A                      mov     cl, '*'
+(1)     211 : E8 1E FF                   call    expr
+(1)     214 : E8 E1 00                   call    mul16
+(1)     217 : E8 30 FF                   call    answer          ; 20000
+(1)     21A :
+(1)     21A : BE 30 75                   mov     si, 30000
+(1)     21D : BF 64 00                   mov     di, 100
+(1)     220 : B1 2F                      mov     cl, '/'
+(1)     222 : E8 0D FF                   call    expr
+(1)     225 : E8 D3 00                   call    div16
+(1)     228 : E8 1F FF                   call    answer          ; 300
+(1)     22B :
+(1)     22B : BE 38 FF                   mov     si, -200
+(1)     22E : BF 64 00                   mov     di, 100
+(1)     231 : B1 2F                      mov     cl, '/'
+(1)     233 : E8 FC FE                   call    expr
+(1)     236 : E8 C2 00                   call    div16
+(1)     239 : E8 0E FF                   call    answer          ; -2
+(1)     23C :
+(1)     23C : BE D0 8A                   mov     si, -30000
+(1)     23F : BF 38 FF                   mov     di, -200
+(1)     242 : B1 2F                      mov     cl, '/'
+(1)     244 : E8 EB FE                   call    expr
+(1)     247 : E8 B1 00                   call    div16
+(1)     24A : E8 FD FE                   call    answer          ; 150
+(1)     24D :
+(1)     24D : BE D0 8A                   mov     si, -30000
+(1)     250 : BF 4E 00                   mov     di, 78
+(1)     253 : B1 2F                      mov     cl, '/'
+(1)     255 : E8 DA FE                   call    expr
+(1)     258 : E8 A0 00                   call    div16
+(1)     25B : E8 EC FE                   call    answer          ; -384
+(1)     25E :
+(1)     25E : BE D0 FF                   mov     si, -48
+(1)     261 : BF 1E 00                   mov     di, 30
+(1)     264 : E8 F5 FE                   call    comp
+(1)     267 :
+(1)     267 : BE 1E 00                   mov     si, 30
+(1)     26A : BF D0 FF                   mov     di, -48
+(1)     26D : E8 EC FE                   call    comp
+(1)     270 :
+(1)     270 : BE 88 13                   mov     si, 5000
+(1)     273 : BF A0 0F                   mov     di, 4000
+(1)     276 : E8 E3 FE                   call    comp
+(1)     279 :
+(1)     279 : BE 88 13                   mov     si, 5000
+(1)     27C : BF 88 13                   mov     di, 5000
+(1)     27F : E8 DA FE                   call    comp
+(1)     282 :
+(1)     282 : BE A0 0F                   mov     si, 4000
+(1)     285 : BF 88 13                   mov     di, 5000
+(1)     288 : E8 D1 FE                   call    comp
+(1)     28B :
+(1)     28B : BE 78 EC                   mov     si, -5000
+(1)     28E : BF 60 F0                   mov     di, -4000
+(1)     291 : E8 C8 FE                   call    comp
+(1)     294 :
+(1)     294 : BE 78 EC                   mov     si, -5000
+(1)     297 : BF 78 EC                   mov     di, -5000
+(1)     29A : E8 BF FE                   call    comp
+(1)     29D :
+(1)     29D : BE 60 F0                   mov     si, -4000
+(1)     2A0 : BF 78 EC                   mov     di, -5000
+(1)     2A3 : E8 B6 FE                   call    comp
+(1)     2A6 :
+(1)     2A6 : BE BC 7F                   mov     si, 32700
+(1)     2A9 : BF 58 7F                   mov     di, 32600
+(1)     2AC : E8 AD FE                   call    comp
+(1)     2AF :
+(1)     2AF : BE BC 7F                   mov     si, 32700
+(1)     2B2 : BF BC 7F                   mov     di, 32700
+(1)     2B5 : E8 A4 FE                   call    comp
+(1)     2B8 :
+(1)     2B8 : BE 58 7F                   mov     si, 32600
+(1)     2BB : BF BC 7F                   mov     di, 32700
+(1)     2BE : E8 9B FE                   call    comp
+(1)     2C1 :
+(1)     2C1 : BE 44 80                   mov     si, -32700
+(1)     2C4 : BF A8 80                   mov     di, -32600
+(1)     2C7 : E8 92 FE                   call    comp
+(1)     2CA :
+(1)     2CA : BE 44 80                   mov     si, -32700
+(1)     2CD : BF 44 80                   mov     di, -32700
+(1)     2D0 : E8 89 FE                   call    comp
+(1)     2D3 :
+(1)     2D3 : BE A8 80                   mov     si, -32600
+(1)     2D6 : BF 44 80                   mov     di, -32700
+(1)     2D9 : E8 80 FE                   call    comp
+(1)     2DC :
+(1)     2DC : BE 50 46                   mov     si, 18000
+(1)     2DF : BF A0 92                   mov     di, -28000
+(1)     2E2 : E8 77 FE                   call    comp
+(1)     2E5 :
+(1)     2E5 : BE 50 46                   mov     si, 18000
+(1)     2E8 : BF 50 46                   mov     di, 18000
+(1)     2EB : E8 6E FE                   call    comp
+(1)     2EE :
+(1)     2EE : BE A0 92                   mov     si, -28000
+(1)     2F1 : BF 50 46                   mov     di, 18000
+(1)     2F4 : E8 65 FE                   call    comp
+(1)     2F7 :
+(1)     2F7 : C3                         ret
+(1)     2F8 :
+(1)     2F8 :                    ;;; Signed multiplication, the low 16 bits
+(1)     2F8 :                    ;;; @param AX multiplicand
+(1)     2F8 :                    ;;; @param DI multiplier
+(1)     2F8 :                    ;;; @return AX product
+(1)     2F8 :                    ;;; @clobber DX
+(1)     2F8 :                    mul16:
+(1)     2F8 : F7 EF                      imul    di              ; DX:AX=AX*DI
+(1)     2FA : C3                         ret
+(1)     2FB :
+(1)     2FB :                    ;;; Signed division, rounded toward zero
+(1)     2FB :                    ;;; @param AX dividend
+(1)     2FB :                    ;;; @param DI divisor
+(1)     2FB :                    ;;; @return AX quotient
+(1)     2FB :                    ;;; @clobber DX
+(1)     2FB :                    div16:
+(1)     2FB : 99                         cwd                     ; DX:AX=dividend, sign-extended
+(1)     2FC : F7 FF                      idiv    di              ; AX=quotient, DX=remainder
+(1)     2FE : C3                         ret
+        2FF :                            include "init_usart.inc"
+(1)     2FF :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)     2FF :                    ;;; Initialize the USART, interrupts not yet enabled
+(1)     2FF :                    ;;; @param AH the command, RX_EN_TX_EN or RX_EN_TX_DIS
+(1)     2FF :                    ;;; @clobber AL
+(1)     2FF :                    init_usart:
+(1)     2FF : 30 C0                      xor     al, al          ; clear AL
+(1)     301 : E6 41                      out     USARTC, al
+(1)     303 : E6 41                      out     USARTC, al
+(1)     305 : E6 41                      out     USARTC, al      ; safest way to sync mode
+(1)     307 : B0 40                      mov     al, CMD_IR_bm
+(1)     309 : E6 41                      out     USARTC, al      ; reset
+(1)     30B : 90                         nop
+(1)     30C : 90                         nop
+(1)     30D : B0 4E                      mov     al, ASYNC_MODE
+(1)     30F : E6 41                      out     USARTC, al
+(1)     311 : 90                         nop
+(1)     312 : 90                         nop
+(1)     313 : 88 E0                      mov     al, ah
+(1)     315 : E6 41                      out     USARTC, al
+(1)     317 : C3                         ret
+        318 :
+      FFFF0 :                            org     0FFFF0H
+      FFFF0 : EA 00 01 00 00             jmpf    0:init
+      FFFF5 :
+      FFFF5 :                            end

@@ -190,6 +190,11 @@ and Z8000 halt this way. **[code]**
   next instruction boundary open: an interrupt taken there reads its vector
   in place of the save. Serve it from memory and save when its handler
   returns to the park. **[doc]**
+- The 8086 family fetches at the handler before it pushes the return IP: the
+  bus shows the vector reads, the FLAGS and CS pushes, a fetch at the handler,
+  then the IP push. Start the frame at the vector read, answer handler fetches
+  with NOPs until all six bytes are pushed, and park at the next fetch.
+  **[hw]**
 - Its push reads no vector, so the backtrace's ring must end before the
   push, as it ends before an 80C196's push and vector read; a ring ending on
   a bare push fits no interrupt sequence, and none of it disassembles.
@@ -302,8 +307,9 @@ instead of bit-banged edges, which is the way to a CPU whose clock goes
 through a PLL. The MC68HC16 does this on EXTAL (P47); reset, step and
 injected sequences stay bit-banged. The TMS9980 and TMS9981 run every
 sequence from it on CKIN (pin 5), the TMS370Cx5x on CLKIN (pin 5), and
-the INS8060 and INS8070 on XIN (pin 5), and the 8085 on X1 (pin 6), since
-their clock must not stop. The SCN2650
+the INS8060 and INS8070 on XIN (pin 5), the 8085 on X1 (pin 6), and
+the P8086 and D8087 boards' x86 and 8087 on CLK (pin 29), since their
+clock must not stop. The SCN2650
 is static, but runs from it on CLOCK (pin 5) too: the timer paces the
 cycles, where bit-banged edges needed a tuned delay for each. On the 6502
 board (rev 11) the CMOS parts run from it on PHI0 (P47) once reset has
@@ -348,7 +354,32 @@ it stays bit-banged.
   its PHI2 being the PWM itself; the 65C02s read PHI2O, which lags PHI0.
 - With the clock free-running, every read of the bus must follow the
   strobe or clock edge that makes it valid; one taken whenever, as a
-  stopped clock allowed, catches the address changing.
+  stopped clock allowed, catches the address changing. The 8086's write
+  data follows T2's falling edge: wait for it by the counter, not a fixed
+  delay from T1.
+- A CPU with dynamic logic loses its state, at random, while its clock is
+  stopped for seconds: the V20/V30 (tCYK 500 ns at most) kept running
+  from a back-to-back reset and run, and lost IP across a park at the
+  prompt. Such a CPU always runs from the timer.
+- After raising the wait input, wait for the CPU's own sign that the wait
+  is over (the 8086's status going passive) before counting edges to the
+  data hold: the V20/V30 take READY an edge earlier than the 8086 does.
+- Never poll the FlexPWM counter in a wait: a peripheral read, it came
+  back late by up to a period now and then, and the 8086 board went from
+  failing above 5 MHz to passing at 6.8 MHz once the waits ran from the
+  CPU's cycle counter. Both count from one PLL, so read the PWM counter
+  once when the rate is set (the quickest of many reads: its latency
+  varies) and take every phase from the cycle counter after.
+- The phase that calibration gives is off by a constant the parts take
+  differently: the 8086s need READY and the T1 address read a few counts
+  later than the V20/V30 do. Reset at a slow, safe rate, tell the part,
+  then switch to its own rate and phase from a table; `K` overrides both
+  for a sweep.
+- Read the next cycle's address in the masked stretch that ends the
+  current one: an interrupt taken after it, before T1, makes the read
+  miss the address. Keep it out of the ring until the caller asks for
+  the cycle: while the ring is held, the head slot is still the cycle the
+  caller is finishing.
 - A CPU that synchronises its bus grant to its clock (the INS8060's
   `#ENIN`) waits up to a clock more for a grant that comes after its
   request, and at some rates the Teensy's fixed reaction just misses the

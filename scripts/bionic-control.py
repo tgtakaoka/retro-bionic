@@ -301,9 +301,9 @@ def abort():
 
 def parse_devices(txt):
     """{name: (addr, vector)} from an I listing: `NAME  DESC  at ADDR`, then
-    for the enabled device `  #IRQ: v` (MC6850) or `  INT: Rx=v Tx=w`
-    (i8251), in the target's radix; vector is "v", or "v w" when the two
-    differ, as I takes them."""
+    for the enabled device `  #IRQ: v` (MC6850), `  INT: Rx=v Tx=w`
+    (i8251) or `  INT: v NMI` (NPX), in the target's radix; vector is "v",
+    or "v w" when the two differ, as I takes them."""
     found, last = {}, None
     for line in txt.replace('\r', '').split('\n'):
         m = re.match(r'(\S+) .* at ([0-9A-Fa-f]+)', line)
@@ -311,7 +311,7 @@ def parse_devices(txt):
             last = m.group(1).upper()
             found[last] = (m.group(2), None)
             continue
-        m = re.match(r'\s+(?:#IRQ:|INT: Rx=)\s*([0-9A-Fa-f]+)(?: Tx=([0-9A-Fa-f]+))?',
+        m = re.match(r'\s+(?:#IRQ:|INT:(?: Rx=)?)\s*([0-9A-Fa-f]+)(?: Tx=([0-9A-Fa-f]+))?',
                      line)
         if m and last:
             rx, tx = m.group(1), m.group(2)
