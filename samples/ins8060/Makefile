@@ -3,7 +3,7 @@ ASM=asm
 .PHONY: clean
 
 all: NIBLPATCH.hex NIBL1200BPS.hex FBASPATCH.hex \
-     echo.hex echoir.hex echoitr.hex \
+     echo.hex echoir.hex echoitr.hex sio.hex \
      arith.hex mandelbrot.hex
 
 %.hex: %.asm

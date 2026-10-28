@@ -37,59 +37,61 @@ namespace ins8060 {
 // clang-format on
 
 namespace {
-//   fx: max 4.0 MHz    ; XIN frequency
-//   Tc: min 500 ns     ; 2 cycles of XIN
+//   fx: min 0.1 MHz, max 4.0 MHz; XIN frequency
+//   Tc: min 500 ns     ; 2 cycles of XIN, half a microcycle
 //  TW0: min 120 ns     ; XIN low width
 //  TW1: min 120 ns     ; XIN high width
 // TSAD: min Tc/2-165 ns; address setup to #ADS-
 // THAD: min       50 ns; address hold from #RDS/#WDS+
 // TSST: min Tc/2-150 ns; status setup to #ADS-
-// THST: min       50 ns; status hold from #ADS-
+// THST: min       50 ns; status hold from #ADS+
 // TSRD: min      175 ns; data setup to #RDS+
 // THRD: min        0 ns; data hold from #RDS+
 // TSWD: min Tc/2-200 ns; data setup to #WDS-
 // THWD:          100 ns; data hold from #WDS+
+// Tp2(ADS): Tc/2-3Tc/2 ; #ENIN- to #ADS-
+// TS(HOLD): min  200 ns; #HOLD- to the strobe's unextended end
+// Tp1(HOLD): 130-275 ns; #HOLD+ to #RDS/#WDS+
+// TH(HOLD): min    0 ns; #HOLD hold from #RDS/#WDS+
 
-constexpr auto xin_hi_ns = 100;      // 120
-constexpr auto xin_lo_ns = 80;       // 120
-constexpr auto xin_hi_ads = 80;      // 120
-constexpr auto xin_lo_ads = 100;     // 120
-constexpr auto xin_hi_addr = 14;     // 120
-constexpr auto xin_lo_addr = 50;     // 120
-constexpr auto xin_hi_wds = 100;     // 120
-constexpr auto xin_hi_bus = 83;      // 120
-constexpr auto xin_lo_wds = 70;      // 120
-constexpr auto xin_lo_get = 55;      // 120
-constexpr auto xin_hi_capture = 80;  // 120
-constexpr auto xin_lo_write = 94;    // 120
-constexpr auto xin_lo_inject = 85;   // 120
-constexpr auto xin_hi_output = 40;   // 120
-constexpr auto xin_hi_rds = 100;     // 120
-constexpr auto xin_lo_rds = 70;      // 120
-constexpr auto xin_lo_input = 40;    // 120
-constexpr auto xin_hi_read = 80;     // 120
-constexpr auto xin_bus_end = 20;     // 120
-constexpr auto xin_hi_enout = 100;   // 120
-constexpr auto xin_lo_enout = 70;    // 120
+// XIN runs free from the PWM. #ENIN, high between cycles, grants each
+// cycle, with interrupts masked until #ADS has put the status and A12-A15
+// on DB. #HOLD, low but to end a cycle, stretches its strobe until the
+// cycle is served. #ENIN goes high again only once the cycle is over, as
+// one it cuts short is repeated; an ILD or DLD keeps #BREQ low and waits
+// for it to store.
+
+constexpr uint32_t xin_hz = 4054054;  // 150 MHz / 37: halves of 120/127 ns
+constexpr uint32_t xin_min_hz = 100000;
+#ifdef TUNE_CLOCK
+// K may overclock XIN past fx, to 6.25 MHz.
+constexpr auto xin_half_min_ns = 80;
+#else
+// TW0 and TW1 are 120 ns.
+constexpr auto xin_half_min_ns = 120;
+#endif
+// Teensy cycles in an XIN clock at the slowest rate, so the waits below
+// hold at any rate.
+constexpr uint32_t xin_max_cycles = F_CPU / xin_min_hz;
+// #RST must remain low for a minimum of 4 Tc.
+constexpr auto reset_ns = 2 * 4 * (1000000000 / xin_min_hz);
+// DLY, the longest instruction, keeps #BREQ high for up to 131606
+// microcycles of 4 XIN.
+constexpr uint32_t breq_cycles = 131606u * 4 * xin_max_cycles;
+static_assert(uint64_t(131606u) * 4 * xin_max_cycles < (uint64_t(1) << 32),
+        "a cycle counter span");
+// Longer than any wait within a cycle: no edge means no clock or no chip.
+constexpr auto edge_cycles = 16 * xin_max_cycles;
+// XIN clocks #ENIN is granted ahead for, past the gap between most
+// cycles.
+constexpr auto grant_xins = 48;
+// XIN clocks from the strobe's end to #BREQ released.
+constexpr auto release_xins = 4;
+// Read data is driven before #HOLD rises: TSRD less Tp1(HOLD).
+constexpr auto read_setup_ns = 175 - 130;
 
 inline auto signal_breq() {
     return digitalReadFast(PIN_BREQ);
-}
-
-inline auto signal_enout() {
-    return digitalReadFast(PIN_ENOUT);
-}
-
-inline auto signal_ads() {
-    return digitalReadFast(PIN_ADS);
-}
-
-inline auto signal_wds() {
-    return digitalReadFast(PIN_WDS);
-}
-
-inline auto signal_rds() {
-    return digitalReadFast(PIN_RDS);
 }
 
 void assert_sense_a() {
@@ -100,12 +102,20 @@ void negate_sense_a() {
     digitalWriteFast(PIN_SENSEA, LOW);
 }
 
-void assert_enin() {
+inline void assert_enin() {
     digitalWriteFast(PIN_ENIN, LOW);
 }
 
-void negate_enin() {
+inline void negate_enin() {
     digitalWriteFast(PIN_ENIN, HIGH);
+}
+
+inline void assert_hold() {
+    digitalWriteFast(PIN_HOLD, LOW);
+}
+
+inline void negate_hold() {
+    digitalWriteFast(PIN_HOLD, HIGH);
 }
 
 void negate_reset() {
@@ -123,11 +133,11 @@ constexpr uint8_t PINS_LOW[] = {
 constexpr uint8_t PINS_HIGH[] = {
         PIN_CONT,
         PIN_ENIN,
+        PIN_HOLD,
 };
 
 constexpr uint8_t PINS_PULLUP[] = {
         PIN_BREQ,
-        PIN_HOLD,
 };
 
 constexpr uint8_t PINS_INPUT[] = {
@@ -161,34 +171,46 @@ constexpr uint8_t PINS_INPUT[] = {
         PIN_SOUT,
 };
 
-inline void xin_hi() {
-    digitalWriteFast(PIN_XIN, HIGH);
+// Waits up to |limit| Teensy cycles for PIN to read |level|.
+template <uint8_t PIN>
+inline bool wait_level(uint8_t level, uint32_t limit) {
+    const uint32_t start = ARM_DWT_CYCCNT;
+    while (digitalReadFast(PIN) != level) {
+        if (ARM_DWT_CYCCNT - start >= limit)
+            return false;
+    }
+    return true;
 }
 
-inline void xin_cycle_lo() {
-    digitalWriteFast(PIN_XIN, HIGH);
-    delayNanoseconds(xin_hi_ns);
-    digitalWriteFast(PIN_XIN, LOW);
-}
-
-inline void xin_cycle() {
-    xin_cycle_lo();
-    delayNanoseconds(xin_lo_ns);
+// Gives up a wait rather than wedge the board, leaving the halt switch to
+// stop the run.
+void no_bus_cycle() {
+    cli.println("?halt: no bus cycle");
 }
 
 }  // namespace
 
-PinsIns8060::PinsIns8060() {
+PinsIns8060::PinsIns8060() : _clock(xin_half_min_ns, xin_min_hz) {
     _regs = new RegsIns8060(this);
     _devs = new DevsIns8060();
     _mems = new MemsIns8060(_devs);
+#ifdef TUNE_CLOCK
+    _clockInput = xin_hz;
+#endif
 }
 
-// Polls the bit-banged serial handler at every XIN fall.
-void PinsIns8060::xin_lo() const {
-    digitalWriteFast(PIN_XIN, LOW);
-    devs<DevsIns8060>()->sciLoop();
+#ifdef TUNE_CLOCK
+bool PinsIns8060::setClockInput(uint32_t hz) {
+    // The rate reloads at a period start, so the running clock never
+    // glitches.
+    const auto rate = _clock.setRate(hz);
+    if (rate == 0)
+        return false;
+    _clockInput = rate;
+    devs<DevsIns8060>()->sciClock(rate);
+    return true;
 }
+#endif
 
 void PinsIns8060::resetPins() {
     // Assert reset condition
@@ -196,129 +218,113 @@ void PinsIns8060::resetPins() {
     pinsMode(PINS_HIGH, sizeof(PINS_HIGH), OUTPUT, HIGH);
     pinsMode(PINS_PULLUP, sizeof(PINS_PULLUP), INPUT_PULLUP);
     pinsMode(PINS_INPUT, sizeof(PINS_INPUT), INPUT);
+#ifdef TUNE_CLOCK
+    const auto hz = _clockInput;
+#else
+    const auto hz = xin_hz;
+#endif
+    _clock.begin(hz);
+    _clock.start();
+    devs<DevsIns8060>()->sciClock(hz);
 
     Cycles::reset();
-    // #RST must remain low for a minimum of 4 Tc.
-    for (auto i = 0; i < 2 * 4; i++)
-        xin_cycle();
-    negate_enin();
+    delayNanoseconds(reset_ns);
+    assert_hold();
     negate_reset();
     // #BREQ goes low within 13 Tc after #RST rises; the save's first
     // prepareCycle() waits for its bus cycle.
     _regs->save();
 }
 
-// XIN periods to wait for #ADS: the longest DLY is 131593 microcycles,
-// 2 XIN each.
-constexpr auto ads_cycles = 1000000;
-// XIN periods to wait for #WDS or #RDS within a bus cycle.
-constexpr auto strobe_cycles = 1000;
-
 Signals *PinsIns8060::prepareCycle() const {
-    // XIN=L
     auto s = Signals::put();
+    // Once a cycle at least: a granted cycle often skips the wait below.
+    devs<DevsIns8060>()->sciLoop();
+    // The status and A12-A15 are on DB only until just after #ADS rises.
+    // #ENIN low before #BREQ falls lets #ADS follow at once; asserted
+    // after, it is synchronised first, a Tc more at some rates.
     noInterrupts();
-    for (auto n = 0;; ++n) {
-        if (n >= ads_cycles) {
-            // A CPU that starts no bus cycle; give up rather than wedge
-            // the board, leaving the halt switch to stop the run.
-            interrupts();
-            cli.println("?halt: no bus cycle");
+    assert_enin();
+    if (wait_level<PIN_ADS>(LOW, grant_xins * xinCycles())) {
+        s->getAddr();
+        interrupts();
+        return s;
+    }
+    // A cycle #ENIN cuts short is repeated once it is low again.
+    negate_enin();
+    interrupts();
+    // A DLY keeps #BREQ high for as long as 50 ms.
+    const uint32_t start = ARM_DWT_CYCCNT;
+    while (signal_breq() != LOW) {
+        Watchdog::tick();
+        devs<DevsIns8060>()->sciLoop();
+        if (ARM_DWT_CYCCNT - start >= breq_cycles) {
+            no_bus_cycle();
             s->noCycle();
             return s;
         }
-        // A DLY keeps #ADS high for as long as 50 ms.
-        Watchdog::tick();
-        xin_hi();
-        if (signal_ads() == LOW) {
-            // assert_debug();
-            s->getAddr();
-            // negate_debug();
-            delayNanoseconds(xin_hi_addr);
-            xin_lo();
-            delayNanoseconds(xin_lo_addr);
-            // XIN=L
-            interrupts();
-            return s;
-        }
-        delayNanoseconds(xin_hi_ads);
-        xin_lo();
-        delayNanoseconds(xin_lo_ads);
     }
+    noInterrupts();
+    assert_enin();
+    if (!wait_level<PIN_ADS>(LOW, edge_cycles)) {
+        negate_enin();
+        interrupts();
+        no_bus_cycle();
+        s->noCycle();
+        return s;
+    }
+    // assert_debug();
+    s->getAddr();
+    // negate_debug();
+    interrupts();
+    return s;
 }
 
+// Write data is valid by #WDS falling. Read data is driven once #RDS
+// falls, as DB carries the status until then, and released once it rises.
 Signals *PinsIns8060::completeCycle(Signals *s) const {
-    // XIN=L
-    xin_hi();
-    delayNanoseconds(xin_hi_bus);
-    if (s->write()) {
-        for (auto n = 0;; ++n) {
-            xin_lo();
-            if (signal_wds() == LOW || n >= strobe_cycles)
-                break;
-            delayNanoseconds(xin_lo_wds);
-            xin_hi();
-            delayNanoseconds(xin_hi_wds);
-        }
+    const auto read = s->read();
+    if (read) {
+        if (s->readMemory())
+            s->data = _mems->read(s->addr);
+        if (!wait_level<PIN_RDS>(LOW, edge_cycles))
+            return s;  // no cycle
+        s->outData();
+        noInterrupts();
+        delayNanoseconds(read_setup_ns);
+        negate_hold();
+        wait_level<PIN_RDS>(HIGH, edge_cycles);
+        // assert_debug();
+        Signals::inputMode();
+    } else {
+        if (!wait_level<PIN_WDS>(LOW, edge_cycles))
+            return s;  // no cycle
         // assert_debug();
         s->getData();
-        // negate_debug();
-        delayNanoseconds(xin_lo_get);
-        xin_hi();
-        if (s->writeMemory()) {
+        if (s->writeMemory())
             _mems->write(s->addr, s->data);
-        } else {
-            delayNanoseconds(xin_hi_capture);
-        }
-        xin_lo();
-        delayNanoseconds(xin_lo_write);
-    } else {
-        xin_lo();
-        if (s->readMemory()) {
-            s->data = _mems->read(s->addr);
-        } else {
-            delayNanoseconds(xin_lo_inject);
-        }
-        xin_hi();
+        noInterrupts();
+        negate_hold();
+        wait_level<PIN_WDS>(HIGH, edge_cycles);
         // assert_debug();
-        s->outData();
-        delayNanoseconds(xin_hi_output);
-        // negate_debug();
-        for (auto n = 0;; ++n) {
-            xin_lo();
-            if (signal_rds() != LOW || n >= strobe_cycles) {
-                delayNanoseconds(xin_lo_input);
-                // assert_debug();
-                Signals::inputMode();
-                // negate_debug();
-                break;
-            }
-            delayNanoseconds(xin_lo_rds);
-            xin_hi();
-            delayNanoseconds(xin_hi_rds);
-        }
     }
-    // XIN=L
-    xin_hi();
+    // The cycle is over once the CPU lets #BREQ go and #ENOUT follows
+    // #ENIN low; an ILD or DLD holds it to store.
+    wait_level<PIN_ENOUT>(LOW, release_xins * xinCycles());
+    negate_enin();
+    assert_hold();
+    // negate_debug();
+    interrupts();
     Cycles::next();
-    delayNanoseconds(xin_bus_end);
-    if (s->read()) {
-        // Read-Modify-Write bus cycle keeps #BREQ low.
-        for (uint_fast8_t i = 0; i < 3; i++) {
-            xin_lo();
-            // assert_debug();
-            if (signal_enout() == LOW)
-                break;
-            // negate_debug();
-            delayNanoseconds(xin_lo_enout);
-            xin_hi();
-            delayNanoseconds(xin_hi_enout);
-        }
-        // negate_debug();
-    }
-    xin_lo();
-    // XIN=L
     return s;
+}
+
+uint32_t PinsIns8060::xinCycles() const {
+#ifdef TUNE_CLOCK
+    return F_CPU / _clockInput;
+#else
+    return F_CPU / xin_hz;
+#endif
 }
 
 Signals *PinsIns8060::inject(uint8_t data) const {
@@ -339,7 +345,6 @@ void PinsIns8060::execute(const uint8_t *inst, uint8_t len, uint16_t *addr,
         uint8_t *buf, uint8_t max) const {
     uint8_t inj = 0;
     uint8_t cap = 0;
-    assert_enin();
     while (inj < len || cap < max) {
         auto s = prepareCycle();
         if (inj < len)
@@ -358,12 +363,6 @@ void PinsIns8060::execute(const uint8_t *inst, uint8_t len, uint16_t *addr,
         }
     }
     suspend();
-}
-
-void PinsIns8060::idle() {
-    // #ENIN is HIGH and bus cycle is suspended.
-    xin_cycle_lo();
-    delayNanoseconds(0);
 }
 
 bool PinsIns8060::loop() {
@@ -386,7 +385,6 @@ bool PinsIns8060::loop() {
             // Park on a jump back to the HALT, kept off the bus by #ENIN.
             inject(InstIns8060::JMP);
             inject(InstIns8060::JMP_HALT);
-            negate_enin();
 #ifdef PROFILE_CYCLES
             // Keep the HALT's second read, the one with the H flag.
             Cycles::discard(s->next());
@@ -419,13 +417,11 @@ bool PinsIns8060::suspend() const {
             // A JMP $ refetches this opcode once #ENIN lets the CPU go.
             completeCycle(s->inject(InstIns8060::JMP));
             inject(InstIns8060::JMP_HERE);
-            negate_enin();
             Cycles::discard(s);
             return true;
         }
         completeCycle(s);
     }
-    negate_enin();
     cli.println("?halt: no fetch");
     return false;
 }
@@ -434,7 +430,6 @@ void PinsIns8060::run() {
     _regs->restore();
     Cycles::reset();
     saveBreakInsts();
-    assert_enin();
     startRunTimer();
     const auto stopped = loop();
     stopRunTimer();
@@ -447,13 +442,11 @@ void PinsIns8060::run() {
 }
 
 bool PinsIns8060::rawStep() const {
-    assert_enin();
     auto s = prepareCycle();
     completeCycle(s);
     if (s->halt()) {
         inject(InstIns8060::JMP);
         inject(InstIns8060::JMP_HALT);
-        negate_enin();
         Cycles::discard(s);
         return false;
     }

@@ -57,6 +57,7 @@
 #define PIN_ENOUT 30  /* P8.23 */
 
 #include "pins.h"
+#include "pwm_clock.h"
 #include "signals_ins8060.h"
 
 namespace debugger {
@@ -66,20 +67,31 @@ struct PinsIns8060 final : Pins {
     PinsIns8060();
 
     void resetPins() override;
-    void idle() override;
+    // The clock runs by itself.
+    void idle() override {}
     bool step(bool show) override;
     void run() override;
     void assertInt(uint8_t name) override;
     void negateInt(uint8_t name) override;
     void setBreakInst(uint32_t addr) const override;
     void printCycles() override;
+#ifdef TUNE_CLOCK
+    uint32_t clockInput() const override { return _clockInput; }
+    bool setClockInput(uint32_t hz) override;
+#endif
 
     void execInst(const uint8_t *inst, uint8_t len) const;
     void captureWrites(const uint8_t *inst, uint8_t len, uint16_t *addr,
             uint8_t *buf, uint8_t max) const;
 
 private:
-    void xin_lo() const;
+    PwmClock<PIN_XIN> _clock;
+#ifdef TUNE_CLOCK
+    // XIN's rate, which K sets.
+    uint32_t _clockInput;
+#endif
+
+    uint32_t xinCycles() const;
     Signals *prepareCycle() const;
     Signals *completeCycle(Signals *signals) const;
     Signals *inject(uint8_t data) const;

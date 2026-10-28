@@ -292,16 +292,17 @@ A CPU whose clock may stop can run from a free-running FlexPWM output
 instead of bit-banged edges, which is the way to a CPU whose clock goes
 through a PLL. The MC68HC16 does this on EXTAL (P47); reset, step and
 injected sequences stay bit-banged. The TMS9980 and TMS9981 run every
-sequence from it on CKIN (pin 5), and the TMS370Cx5x on CLKIN (pin 5),
-since their clock must not stop. The SCN2650 is static, but runs from it
-on CLOCK (pin 5) too: the timer paces the cycles, where bit-banged edges
-needed a tuned delay for each.
+sequence from it on CKIN (pin 5), the TMS370Cx5x on CLKIN (pin 5), and
+the INS8060 on XIN (pin 5), since their clock must not stop. The SCN2650
+is static, but runs from it on CLOCK (pin 5) too: the timer paces the
+cycles, where bit-banged edges needed a tuned delay for each.
 
-- Hold a bus cycle with the CPU's wait input (`#DSACK`, READY, `#OPACK`)
-  instead of stopping the clock: withhold it until the cycle is served,
-  and negate it as soon as the strobe ends, before the next cycle samples
-  it. Mask interrupts from asserting it to negating it: an interrupt can
-  outlast the gap between strobes, and the next cycle then ends unserved.
+- Hold a bus cycle with the CPU's wait input (`#DSACK`, READY, `#OPACK`,
+  `#HOLD`) instead of stopping the clock: withhold it until the cycle is
+  served, and negate it as soon as the strobe ends, before the next cycle
+  samples it. Mask interrupts from asserting it to negating it: an
+  interrupt can outlast the gap between strobes, and the next cycle then
+  ends unserved.
 - `PwmClock<PIN>` (`debugger/pwm_clock.h`) does this for a FlexPWM
   pin: the pin fixes every register at compile time, so a call costs no
   more than the bare register access, even in a per-cycle loop. A new
@@ -332,6 +333,13 @@ needed a tuned delay for each.
 - With the clock free-running, every read of the bus must follow the
   strobe or clock edge that makes it valid; one taken whenever, as a
   stopped clock allowed, catches the address changing.
+- A CPU that synchronises its bus grant to its clock (the INS8060's
+  `#ENIN`) waits up to a clock more for a grant that comes after its
+  request, and at some rates the Teensy's fixed reaction just misses the
+  sampling edge, so a faster clock runs slower. Grant ahead of the
+  request, for a bounded wait, then fall back to waiting for the request,
+  which a long instruction leaves unasked. Compare each phase of a cycle
+  at two rates in a capture.
 - A bit-banged serial handler paced by clock edges paces by the cycle
   counter instead: `SerialHandler::setClock()` and `pace()` tick once per
   prescaled count of the free-running clock, keeping the phase but
@@ -1393,6 +1401,15 @@ addresses are `ADDR(label)`, one less than the label.
 PC is incremented before each fetch, so it holds the address before the next
 instruction. Routine addresses are loaded as `ADDR(label)`, and a call is
 `XPPC P1` with the operands inline after it. **[doc]**
+
+XIN runs free from the PWM at 150 MHz / 37, halves of 120 and 127 ns.
+`#HOLD`, low but to end a cycle, stretches `#RDS`/`#WDS` until the cycle
+is served. The status and A12-A15 are on DB only around `#ADS`, which
+`#HOLD` does not stretch, so `#ENIN` grants each cycle with interrupts
+masked until `#ADS`, and goes high only once `#ENOUT` shows the cycle
+over: a cycle `#ENIN` cuts short is repeated, and an ILD or DLD's store
+waits for it. The board ran to 6.25 MHz XIN, 80 ns halves, in the
+`teensy41-clock` build. **[doc][hw]**
 
 `divsi2` in `arith.inc` must divide on every sign path, including a negative
 divisor, and must take the quotient's sign from the sign bytes, never the
