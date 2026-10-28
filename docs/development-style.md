@@ -2004,6 +2004,40 @@ landing point below is marked `ATTENTION:` in `debugger/mc68hc16/`.
   ported from: each sample's handler saves what it uses with `PSHM` and
   restores it with `PULM` before `RTI`. **[doc]**
 
+### H16 (HD641016)
+
+**Pitfalls.** The chip is dynamic: PHI is EXTAL/2 and no slower than
+1000 ns, so the clock never stops and every cycle is held with `#WAIT`
+instead. A1-A16 share pins with the data and hold only until the T2
+rise, half a state after `#AS` asserts, so the address is read the
+moment `#AS` falls. The data strobes assert before the CPU lets go of
+the bus, so read data waits for the T2 fall (Figure 17-4).
+
+Board for the HD641016CP (PLCC84); drawn, not yet built. The debugger is
+a draft: nothing below has run on a chip.
+
+- EXTAL (P47) runs free from FlexPWM3 from reset on, PHI comes back on
+  P46. `#WAIT` stays low; a served cycle negates it until `#AS` rises,
+  then it goes low again before the next T2 fall samples it. **[doc]**
+- Reset turns on DRAM refresh every 32 states, a Tp and 7 Tw in every
+  cycle (MCR H'F0E0, AWCR0 H'0047). Refresh cycles obey `#WAIT` too.
+  After the reset vector a sequence writes MCR H'8000 and AWCR0 H'0000.
+  **[doc]**
+- The reset vector (SSP, PC) comes in by prefetch, and the prefetch runs
+  on to 00000FH before the PC is taken. **[doc]**
+- Halt is `#NMI`; step sets T in the SR that RTE restores, and the trace
+  exception parks the CPU in its vector read. A breakpoint is H'C0, an
+  unimplemented opcode one byte long that stacks its own address; a
+  program ends with TRAPA #15, its vector pointing at itself. After a
+  trace, a break or a halt the debugger asserts `#NMI` while answering
+  the vector, so the save runs with every interrupt masked. **[doc]**
+- The frames and the save go through SSP: keep it off chip. The on-chip
+  RAM (FFF800H) and I/O (FFFE00H) never reach the bus. **[doc]**
+- Registers are saved with STM and STC through R15, which is SSP in
+  supervisor mode; STC has no SSP form. The restore stages USP, EBR,
+  R0-R14 and the RTE frame below SSP and loads them with LDC, LDM and
+  RTE. **[doc]**
+
 ### SCN2650
 
 **Pitfalls.** A conditional branch not taken skips its indirect address
