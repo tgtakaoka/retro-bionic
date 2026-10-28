@@ -2037,10 +2037,14 @@ Plan, written before any of it runs; every timing it implies gets an
 
 - **One directory for the family.** `debugger/mc68000/` serves the MC68000,
   MC68HC000, MC68HC001, MC68010 and MC68008: one instruction set, one
-  asynchronous bus. Two pins classes cover the five boards: one for the
-  16-bit-bus boards (`bionic-mc68000p`, `-ps`, `-fn`), one for the MC68008
-  boards (`bionic-mc68008p`, `-fn`). Identities `MC68000` and `MC68008`,
-  both `TARGET_OVERLAY(mc68000)`. **[code]**
+  asynchronous bus. `PinsMc68000` holds the engine -- reset, the cycle,
+  injection, halt, step and run -- for word and byte cycles alike, and two
+  `final` board classes read the address, move the data and drive the
+  interrupt level: `PinsMc68000x16` for the 16-bit-bus boards
+  (`bionic-mc68000p`, `-ps`, `-fn`), `PinsMc68008` for the MC68008 boards
+  (`bionic-mc68008p`, `-fn`). Identities `MC68000` and `MC68008`, both
+  `TARGET_OVERLAY(mc68000)`. A byte moves in bits 0-7 of a cycle's data
+  whatever lane carries it; a byte read goes out on both lanes. **[code]**
 - **Clock.** CLK (P47) comes from the shared `PwmClock<PIN>`, as the
   MC68HC16's EXTAL does. It runs from reset at 150 MHz / 20 = 7.5 MHz,
   67 ns halves: the 8 MHz parts need 4-8 MHz and 55 ns halves, the
@@ -2054,13 +2058,17 @@ Plan, written before any of it runs; every timing it implies gets an
   reads at 000000H: SSP, then PC. **[doc]**
 - **Bus cycle.** `#AS` (P40) falls in S2. The Teensy then walks ASEL1:ASEL0
   (P55:P54) in Gray order, reading GPIO7 once per phase: A1-A23, FC2:FC0
-  and MODE. It serves the cycle while the CPU waits. It asserts `#DTACK`
+  and MODE. A0 comes from the strobes: `#LDS` alone is the odd byte.
+  A read's strobes come with `#AS`; a write's come in S4, so its lanes
+  and data are read as one is first seen low. It serves the cycle while
+  the CPU waits. It asserts `#DTACK`
   (P44), sampled at S4's fall, and negates it once `#AS` rises, before the
   next cycle's S4. Interrupts stay masked from assert to negate, as for
   the MC68HC16's `#DSACK1`. A read drives D15-D0 (P10-P27) until the data
   strobes rise. `#UDS`/`#LDS` (P42/P43) select the byte lanes. **[doc]**
-- **Bus widths.** On the 16-bit boards, MODE (P37, phase 10) sampled at
-  reset tells an MC68HC001 strapped for 8 bits (JP1 closed). That chip
+- **Bus widths.** On the 16-bit boards, MODE (P37, phase 10), read while
+  `#RESET` is held, tells an MC68HC001 strapped for 8 bits (JP1 closed):
+  the first cycle's A0 already depends on it. That chip
   strobes only `#LDS`, puts its A0 on P30 in phase 00, and moves data on
   D7-D0. It is a flag in the 16-bit class, not a class of its own. The
   P and PS boards tie MODE high and A0 low. The MC68008 boards have `#DS`
@@ -2106,11 +2114,13 @@ Plan, written before any of it runs; every timing it implies gets an
   VBR 0 for now; the MC68010 will need it relative to VBR. A fetch of a
   break address proves nothing, as the CPU prefetches two words.
   **[doc][code]**
-- **MC68010.** Its first exception frame tells it apart, 8 bytes against 6
-  (the reset's halt is the first). That turns on libasm's `MC68010`, VBR,
-  SFC and DFC in the register listing, and the format word in the
-  restore. Its loop mode runs a `DBcc` loop without fetching opcodes.
-  **[doc]**
+- **MC68010.** Its exception frame tells it apart, 8 bytes against 6.
+  Reset halts once through level 7 while the CPU fetches injected NOPs at
+  the park, so nothing else writes, and counts the frame's bytes,
+  captured below 0FF000H. An 8-byte frame turns on libasm's `MC68010`
+  and a format word (0000H, format 0) in the restore's frame. VBR, SFC
+  and DFC are not read yet: the vectors are taken at VBR 0. Its loop
+  mode runs a `DBcc` loop without fetching opcodes. **[doc][code]**
 - **Not planned.** `BKPT` (MC68010 breakpoint acknowledge), bus arbitration
   (`#BR`, `#BGACK` tied high) and the 6800 bus (E, `#VMA`, `#VPA`). A
   backtrace waits: no pin marks an instruction start, and if one is
