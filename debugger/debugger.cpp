@@ -33,6 +33,9 @@
 #include <stdlib.h>
 #include <strings.h>
 #include "device.h"
+#ifdef FLEXIO_PROBE
+#include "flexio_probe.h"
+#endif
 
 #if defined(ENABLE_SDCARD)
 #include <SD.h>
@@ -95,6 +98,9 @@ constexpr char HELP2[] =
 #endif
 #ifdef STRESS_HALTGO
         "  Y [n]          : yield on one in n halt polls (default 1)\r\n"
+#endif
+#ifdef FLEXIO_PROBE
+        "  Q cmd          : probe FlexIO3 latching P10-P27 on P34 (Q ? for cmds)\r\n"
 #endif
         "  ?              : this help\r\n"
         "\r\n";
@@ -488,6 +494,16 @@ void handleYield(uint32_t value, uintptr_t extra, State state) {
         cli.print("Yield on one in ");
         cli.printDec(Pins::yieldInterval());
         cli.println(" halt polls");
+    }
+    printPrompt();
+}
+#endif
+
+#ifdef FLEXIO_PROBE
+void handleFlexioProbe(char *line, uintptr_t, State state) {
+    if (state != State::CLI_CANCEL) {
+        cli.println();
+        flexioProbe(line);
     }
     printPrompt();
 }
@@ -1051,6 +1067,12 @@ void Debugger::exec(char c) {
     case 'Y':
         cli.print("Yield interval? ");
         cli.readDec(handleYield, 0, UINT32_MAX);
+        return;
+#endif
+#ifdef FLEXIO_PROBE
+    case 'Q':
+        cli.print("FlexIO probe? ");
+        cli.readLine(handleFlexioProbe, 0, str_buffer, sizeof(str_buffer));
         return;
 #endif
     case '?':
