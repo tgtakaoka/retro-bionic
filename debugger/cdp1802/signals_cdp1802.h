@@ -13,6 +13,8 @@ struct Signals final : SignalsBase<Signals> {
     void getDirection();
     void getData();
     void outData() const;
+    void stageData() const;
+    static void outputMode();
     static void inputMode();
     void print() const;
 

@@ -10,64 +10,67 @@ namespace debugger {
 namespace cdp1802 {
 
 /**
- * CDP1802 bus cycle.
- *      __    __    __    __    __    __    __    __    __    __
- * OSC1 7 |_c|0 |_c|1 |_c|2 |_c|3 |_c|4 |_c|5 |_c|6 |_c|7 |_c|0 |__
- *              |>> _____
- *  TPA ___________|  |>>|_________________________________________
- *                                               |>>______
- *  TPB ___________________________________________|   |>>|________
- *             ____________  _____________________________
- *   MA -------<HHHHHHHHHHHH><LLLLLLLLLLLLLLLLLLLLLLLLLLLLL>-------
- *      _____________                                      ________
- * #MRD            |>|____________________________________|
- *      __________________________________              ___________
- * #MWR                                 |>|____________|
- *       _ |_______________________________________________  _______
- *   SC  _><_______________________________________________><_______
+ * CDP1802 bus cycle, a clock half each column of four; cXY is clock X,
+ * low half (Y=0) or high half (Y=1). Read data drives BUS only in a read
+ * cycle (#MRD low), write data only in a write cycle (#MWR low).
+ *       c11 c20 c21 c30 c31 c40 c41 c50 c51 c60 c61 c70 c71 c00 c01 c10
+ *        ___     ___     ___     ___     ___     ___     ___     ___
+ * CLOCK /   \___/   \___/   \___/   \___/   \___/   \___/   \___/   \___
+ *         _______
+ * TPA   _/       \______________________________________________________
+ *                                                    _______
+ * TPB   ____________________________________________/       \___________
+ *       _____                                                    _______
+ * #MRD       \__________________________________________________/
+ *       ________________________________                 _______________
+ * #MWR                                  \_______________/
+ * MA    <HHHHHHHHHHH><LLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL><HHHH>
+ * SC    <SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS><SSSS>
+ * BUS   ------<WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW>--------------
+ *       -----------------------------------------<RRRRRRRR>-------------
+ * Teensy       h  n         l m                   d w     z
  *
- *  BUS --------------WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW---------
- *                                                     v
- *      -------------------------------------------RRRRRRR---------
+ * Teensy: h high address, n N and #MRD, l low address, m memory read
+ * staged in the port, d read data driven, w write data captured, z BUS
+ * released.
  *
- *  - c7 falling edge to SC valid is ~130ns (300~450ns).
- *  - c0 falling edge to TPA rising edge is ~100ns (200~300ns)
- *  - c1 rising edge to #MRD falling edge is ~
- *  - c1 falling edge to TPA falling edge is ~100ns (200~300ns)
- *  - BUS data is sampled at rising edge of c7 with holding time 200ns.
+ * Measured on a CDP1802BCE with 100 ns halves:
+ *  - TPA rises 130-140 ns after the c10 fall and falls as long after c20.
+ *  - MA turns to the low address 30-50 ns into c30.
+ *  - #MRD falls 30 ns into c20; #MWR falls 10-20 ns into c51.
+ *  - TPB rises 10-20 ns into c70 and falls 20-30 ns into c00.
+ *  - SC changes 170 ns after the c00 fall.
  */
 
 namespace {
 // OSC1 5.0 MHz
 constexpr auto clock_hi_ns = 200;
 constexpr auto clock_lo_ns = 200;
-constexpr auto c00_ns = 26;       // 100 ns
-constexpr auto c01_ns = 72;       // 100 ns
-constexpr auto c11_ns = 80;       // 100 ns
-constexpr auto c20_ns = 58;       // 100 ns
-constexpr auto c21_ns = 38;       // 100 ns
-constexpr auto c30_ns = 84;       // 100 ns
-constexpr auto c31_ns = 80;       // 100 ns
-constexpr auto c40_ns = 52;       // 100 ns
-constexpr auto c41_io = 12;       // 100 ns
-constexpr auto c41_mem = 36;      // 100 ns
-constexpr auto c41_inject = 40;   // 100 ns
-constexpr auto c41_ns = 80;       // 100 ns
-constexpr auto c50_ns = 76;       // 100 ns
-constexpr auto c51_ns = 66;       // 100 ns
-constexpr auto c60_write = 40;    // 100 ns
-constexpr auto c61_write = 68;    // 100 ns
-constexpr auto c70_write = 44;    // 100 ns
-constexpr auto c70_capture = 64;  // 100 ns
-// constexpr auto c60_read = 44;     // 100 ns
-// constexpr auto c60_inject = 68;   // 100 ns
-constexpr auto c60_read = 30;   // 100 ns
-constexpr auto c61_read = 14;   // 100 ns
-constexpr auto c70_read = 68;   // 100 ns
-constexpr auto c60_nobus = 40;  // 100 ns
-constexpr auto c61_nobus = 76;  // 100 ns
-constexpr auto c70_nobus = 68;  // 100 ns
-constexpr auto c71_ns = 58;     // 100 ns
+constexpr auto c00_ns = 20;       // 110 ns
+constexpr auto c01_ns = 72;       // 97 ns
+constexpr auto c11_ns = 76;       // 100 ns
+constexpr auto c20_ns = 48;       // 92 ns
+constexpr auto c21_ns = 36;       // 97 ns
+constexpr auto c30_ns = 74;       // 103 ns
+constexpr auto c31_ns = 56;       // 94 ns
+constexpr auto c40_ns = 58;       // 102 ns
+constexpr auto c40_inject = 70;   // unmeasured
+constexpr auto c41_ns = 63;       // 86 ns
+constexpr auto c50_ns = 74;       // 103 ns
+constexpr auto c51_ns = 61;       // 99 ns
+constexpr auto c60_write = 8;     // 85 ns
+constexpr auto c61_write = 68;    // 109 ns
+constexpr auto c70_write = 18;    // 110 ns
+constexpr auto c70_capture = 64;  // unmeasured
+constexpr auto c60_read = 28;     // 95 ns
+constexpr auto c61_read = 50;     // 90 ns
+constexpr auto c70_read = 68;     // 93 ns
+constexpr auto c60_nobus = 23;    // 88 ns
+constexpr auto c61_nobus = 72;    // 99 ns
+constexpr auto c70_nobus = 68;    // 97 ns
+constexpr auto c71_ns = 52;       // 92 ns
+// The halt switch and devices are polled at a fetch once in 10 us.
+constexpr uint32_t poll_cycles = F_CPU / 100000;
 
 inline void clock_hi() {
     digitalWriteFast(PIN_CLOCK, HIGH);
@@ -229,28 +232,26 @@ Signals *PinsCdp1802::prepareCycle(Signals *s) {
     // c31
     clock_hi();
     delayNanoseconds(c31_ns);
-    // c40
-    clock_lo();
-    delayNanoseconds(c40_ns);
+    // The low address byte is out from c30.
     // assert_debug();
     s->getAddr2();
     // negate_debug();
+    // c40
+    clock_lo();
+    if (s->read()) {
+        // Read ahead, and stage the data in the port for c61.
+        if (ioaddr || s->readMemory()) {
+            s->inject(_mems->read(s->addr));
+        } else {
+            delayNanoseconds(c40_inject);
+        }
+        s->stageData();
+    } else {
+        delayNanoseconds(c40_ns);
+    }
     //  c41
     clock_hi();
-    if (s->read()) {
-        if (ioaddr) {
-            // Output from Memory to Device
-            s->inject(_mems->read(s->addr));  // avoid duplicate read
-            delayNanoseconds(c41_io);
-        } else if (s->readMemory()) {
-            s->inject(_mems->read(s->addr));
-            delayNanoseconds(c41_mem);
-        } else {
-            delayNanoseconds(c41_inject);
-        }
-    } else {
-        delayNanoseconds(c41_ns);
-    }
+    delayNanoseconds(c41_ns);
     // c50
     clock_lo();
     if (ioaddr && s->read()) {
@@ -296,7 +297,7 @@ Signals *PinsCdp1802::completeCycle(Signals *s) {
         // c61
         clock_hi();
         // assert_debug();
-        s->outData();
+        Signals::outputMode();
         // negate_debug();
         delayNanoseconds(c61_read);
         // c70
@@ -387,12 +388,19 @@ void PinsCdp1802::idle() {
 }
 
 void PinsCdp1802::loop() {
+    _devs->loop();
     auto s = startCycle();
+    auto polled = ARM_DWT_CYCCNT;
     while (true) {
-        _devs->loop();
         s = rawStep(s);
-        if (s == nullptr || haltSwitch())
+        if (s == nullptr)
             return;
+        if (ARM_DWT_CYCCNT - polled >= poll_cycles) {
+            polled = ARM_DWT_CYCCNT;
+            _devs->loop();
+            if (haltSwitch())
+                return;
+        }
     }
 }
 
@@ -412,7 +420,8 @@ Signals *PinsCdp1802::rawStep(Signals *s) {
     s = prepareCycle(s);
     if (s->data == InstCdp1802::IDL) {
         // Detect IDL, inject LBR * instead and halt.
-        completeCycle(s->inject(InstCdp1802::LBR));
+        s->inject(InstCdp1802::LBR)->stageData();
+        completeCycle(s);
         inject(hi(s->addr));
         inject(lo(s->addr));
         Cycles::discard(s);
