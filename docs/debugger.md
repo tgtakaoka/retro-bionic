@@ -44,6 +44,10 @@ Separate `d`/`p` and `m`/`M` pairs exist because Harvard-architecture targets ha
 program and data address spaces. `P` works only on targets that report
 `hasProtectArea()`; elsewhere it prints `No Protect area`.
 
+On a CPU clocked from a timer (see [hardware.md](hardware.md#clocking-the-cpu)),
+`K [kHz]`, which `?` doesn't list, shows the clock rate a run uses or sets it;
+a rate the CPU can't take is answered with `?clock: not taken`.
+
 ### Not in a stock build
 
 `debugger/config_debugger.h` controls what is compiled in. By default:
@@ -57,10 +61,6 @@ program and data address spaces. `P` works only on targets that report
 So the **disassembler is present but the assembler is not**, and the SD card commands are
 absent. `U` — upload over the serial link — is the working way to get code in. Enable the
 others by uncommenting and rebuilding; the firmware has room to spare.
-
-On a CPU clocked from a timer (see [hardware.md](hardware.md#clocking-the-cpu)), the
-`teensy41-clock` build adds `K [kHz]`, which shows the clock rate a run uses or sets it;
-a rate the CPU can't take is answered with `?clock: not taken`.
 
 ## Verbose mode
 

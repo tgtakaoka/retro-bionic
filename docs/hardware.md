@@ -151,8 +151,8 @@ These boards run from a timer:
 The P8080's two phases come from two FlexPWM modules whose counters are restarted
 together, and in a run its plain memory reads take no wait state.
 
-The `teensy41-clock` build adds a `K` command to change the rate at run time (see
-[debugger.md](debugger.md#not-in-a-stock-build)).
+The `K` command changes the rate at run time (see
+[debugger.md](debugger.md#commands)).
 
 ## A FlexIO bus engine (planned)
 
