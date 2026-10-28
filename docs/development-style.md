@@ -293,7 +293,7 @@ instead of bit-banged edges, which is the way to a CPU whose clock goes
 through a PLL. The MC68HC16 does this on EXTAL (P47); reset, step and
 injected sequences stay bit-banged. The TMS9980 and TMS9981 run every
 sequence from it on CKIN (pin 5), the TMS370Cx5x on CLKIN (pin 5), and
-the INS8060 on XIN (pin 5), since their clock must not stop. The SCN2650
+the INS8060 and INS8070 on XIN (pin 5), since their clock must not stop. The SCN2650
 is static, but runs from it on CLOCK (pin 5) too: the timer paces the
 cycles, where bit-banged edges needed a tuned delay for each.
 
@@ -1422,6 +1422,15 @@ as they were; `DIV EA,T` leaves no remainder.
 
 Same PC convention as the SC/MP. Reset clears only PC, SP and the status bits
 other than SA/SB; P2, P3, T, E and A keep leftover values. **[hw]**
+
+XIN runs free from the PWM at 150 MHz / 37, as on the SC/MP. `#HOLD`,
+held low from before the strobe, keeps the address, data and strobe of
+an external read or write until the cycle is served. The manual shows it
+lowered after the strobe starts, but held low throughout it works on the
+bench. `#ENIN` stays low through a run: the address is on its own lines
+and held, so a cycle started while the Teensy is busy waits for the next
+`prepareCycle()`. The board ran to 6.25 MHz XIN in the `teensy41-clock`
+build. **[doc][hw]**
 
 An interrupt handler must save S: an interrupt between an `ADD` and the
 `LD A,S` that reads its carry otherwise changes CY/L. The samples' ISRs

@@ -29,44 +29,38 @@ namespace ins8070 {
 
 namespace {
 
-constexpr auto xin_hi_ns = 105;       // 120
-constexpr auto xin_lo_ns = 98;        // 120
-constexpr auto xin_hi_breq = 90;      // 120
-constexpr auto xin_lo_breq = 82;      // 120
-constexpr auto xin_hi_dir = 100;      // 120
-constexpr auto xin_lo_dir = 52;       // 120
-constexpr auto xin_lo_addr = 56;      // 120
-constexpr auto xin_write_begin = 68;  // 120
-constexpr auto xin_hi_write = 66;     // 120
-constexpr auto xin_hi_wds = 100;      // 120
-constexpr auto xin_lo_wds = 64;       // 120
-constexpr auto xin_lo_capture = 54;   // 120
-constexpr auto xin_write_end = 52;    // 120
-constexpr auto xin_read_begin = 62;   // 120
-constexpr auto xin_hi_read = 20;      // 120
-constexpr auto xin_hi_inject = 92;    // 120
-constexpr auto xin_read_out = 2;      // 120
-constexpr auto xin_hi_rds = 100;      // 120
-constexpr auto xin_lo_rds = 64;       // 120
-constexpr auto xin_read_end = 30;     // 120
-constexpr auto xin_lo_input = 14;     // 120
-constexpr auto xin_breq_end = 50;     // 120
+//   fx: min 1.0 MHz, max 4.0 MHz; XIN frequency
+//   tx: 1/fx
+//  tDS: min 400 ns ; data setup to #RDS+
+//  tWS: min 2tx-200 ns ; data valid to #WDS-
+// tp1(HOLD): max 2tx read, tx write ; #RDS/#WDS- to #HOLD-
+//  ts(HOLD): min 2tx  ; #HOLD- setup
+// tp2(HOLD): max 3tx  ; #HOLD+ to #RDS/#WDS+
 
-inline auto signal_breq() {
-    return digitalReadFast(PIN_BREQ);
-}
+// XIN runs free from the PWM. #HOLD, low but to end a cycle, keeps the
+// address, data and strobe of an external read or write until the cycle
+// is served; it is raised then and lowered again once the strobe ends.
+// A CPU kept off the bus by #ENIN, or caught in a cycle by #HOLD, waits
+// there for the next prepareCycle().
 
-inline auto signal_enout() {
-    return digitalReadFast(PIN_ENOUT);
-}
-
-inline auto signal_wds() {
-    return digitalReadFast(PIN_WDS);
-}
-
-inline auto signal_rds() {
-    return digitalReadFast(PIN_RDS);
-}
+constexpr uint32_t xin_hz = 4054054;  // 150 MHz / 37: halves of 120/127 ns
+constexpr uint32_t xin_min_hz = 1000000;
+#ifdef TUNE_CLOCK
+// K may overclock XIN past fx, to 6.25 MHz.
+constexpr auto xin_half_min_ns = 80;
+#else
+// TW0 and TW1 are 120 ns.
+constexpr auto xin_half_min_ns = 120;
+#endif
+// Teensy cycles in an XIN clock at the slowest rate, so the waits below
+// hold at any rate.
+constexpr uint32_t xin_max_cycles = F_CPU / xin_min_hz;
+// #RST must remain low for 8 Tc.
+constexpr auto reset_ns = 4 * 8 * 2 * (1000000000 / xin_min_hz);
+// Far past the longest instruction.
+constexpr uint32_t strobe_cycles = 1000000 * xin_max_cycles;
+// Longer than any wait within a cycle: no edge means no clock or no chip.
+constexpr auto edge_cycles = 16 * xin_max_cycles;
 
 void assert_sa() {
     digitalWriteFast(PIN_SA, LOW);
@@ -87,6 +81,14 @@ void assert_enin() {
 
 void negate_enin() {
     digitalWriteFast(PIN_ENIN, HIGH);
+}
+
+inline void assert_hold() {
+    digitalWriteFast(PIN_HOLD, LOW);
+}
+
+inline void negate_hold() {
+    digitalWriteFast(PIN_HOLD, HIGH);
 }
 
 void negate_reset() {
@@ -142,31 +144,41 @@ constexpr uint8_t PINS_INPUT[] = {
         PIN_F3,
 };
 
-inline void xin_hi() {
-    digitalWriteFast(PIN_XIN, HIGH);
-}
-
-inline void xin_cycle() {
-    digitalWriteFast(PIN_XIN, HIGH);
-    delayNanoseconds(xin_hi_ns);
-    digitalWriteFast(PIN_XIN, LOW);
-    delayNanoseconds(xin_lo_ns);
+// Waits up to |limit| Teensy cycles for PIN to read |level|.
+template <uint8_t PIN>
+inline bool wait_level(uint8_t level, uint32_t limit) {
+    const uint32_t start = ARM_DWT_CYCCNT;
+    while (digitalReadFast(PIN) != level) {
+        if (ARM_DWT_CYCCNT - start >= limit)
+            return false;
+    }
+    return true;
 }
 
 }  // namespace
 
-PinsIns8070::PinsIns8070() {
+PinsIns8070::PinsIns8070() : _clock(xin_half_min_ns, xin_min_hz) {
     auto regs = new RegsIns8070(this);
     _regs = regs;
     _devs = new DevsIns8070();
     _mems = new MemsIns8070(regs, _devs);
+#ifdef TUNE_CLOCK
+    _clockInput = xin_hz;
+#endif
 }
 
-// Polls the bit-banged serial handler at every XIN fall.
-void PinsIns8070::xin_lo() const {
-    digitalWriteFast(PIN_XIN, LOW);
-    devs<DevsIns8070>()->sciLoop();
+#ifdef TUNE_CLOCK
+bool PinsIns8070::setClockInput(uint32_t hz) {
+    // The rate reloads at a period start, so the running clock never
+    // glitches.
+    const auto rate = _clock.setRate(hz);
+    if (rate == 0)
+        return false;
+    _clockInput = rate;
+    devs<DevsIns8070>()->sciClock(rate);
+    return true;
 }
+#endif
 
 void PinsIns8070::resetPins() {
     // Assert reset condition
@@ -174,116 +186,72 @@ void PinsIns8070::resetPins() {
     pinsMode(PINS_HIGH, sizeof(PINS_HIGH), OUTPUT, HIGH);
     pinsMode(PINS_PULLUP, sizeof(PINS_PULLUP), INPUT_PULLUP);
     pinsMode(PINS_INPUT, sizeof(PINS_INPUT), INPUT);
+#ifdef TUNE_CLOCK
+    const auto hz = _clockInput;
+#else
+    const auto hz = xin_hz;
+#endif
+    _clock.begin(hz);
+    _clock.start();
+    devs<DevsIns8070>()->sciClock(hz);
 
-    // #RST must remain low for 8 Tc.
-    for (auto i = 0; i < 4 * 8 * 2; i++)
-        xin_cycle();
+    delayNanoseconds(reset_ns);
+    assert_hold();
     negate_reset();
-    negate_enin();
     Cycles::reset();
     // The first fetch comes within 13 Tc after #RST rises; the save's
     // first prepareCycle() waits for it.
     _regs->save();
 }
 
-// XIN periods to wait for #BREQ, far past the longest instruction.
-constexpr auto breq_cycles = 1000000;
-
 Signals *PinsIns8070::prepareCycle() {
     auto s = Signals::put();
-    // XIN=H
-    for (auto n = 0;; ++n) {
-        if (n >= breq_cycles) {
+    // Once a cycle at least: one held by #HOLD skips the wait below.
+    devs<DevsIns8070>()->sciLoop();
+    const uint32_t start = ARM_DWT_CYCCNT;
+    while (!s->getDirection()) {
+        devs<DevsIns8070>()->sciLoop();
+        if (ARM_DWT_CYCCNT - start >= strobe_cycles) {
             // A CPU that starts no bus cycle; give up rather than wedge
             // the board, leaving the halt switch to stop the run.
             cli.println("?halt: no bus cycle");
             s->noCycle();
             return s;
         }
-        xin_hi();
-        delayNanoseconds(xin_hi_breq);
-        if (signal_breq() == LOW)
-            goto check_dir;
-        xin_lo();
-        delayNanoseconds(xin_lo_breq);
     }
-    // XIN=H, #BREQ=LOW; #RDS or #WDS falls a few XIN later.
-    while (true) {
-        xin_hi();
-        delayNanoseconds(xin_hi_dir);
-    check_dir:
-        xin_lo();
-        if (s->getDirection())
-            break;
-        delayNanoseconds(xin_lo_dir);
-    }
-    delayNanoseconds(xin_lo_addr);
-    xin_hi();
+    // assert_debug();
     s->getAddr();
+    // negate_debug();
     return s;
 }
 
+// Write data is valid with the address, ahead of #WDS. Read data is
+// driven before #HOLD rises and released once #RDS does.
 Signals *PinsIns8070::completeCycle(Signals *s) {
-    // XIN=H
-    xin_lo();
     if (s->write()) {
-        delayNanoseconds(xin_write_begin);
-        xin_hi();
         s->getData();
-        delayNanoseconds(xin_hi_write);
-        xin_lo();
-        if (s->writeMemory()) {
+        if (s->writeMemory())
             _mems->write(s->addr, s->data);
-        } else {
-            delayNanoseconds(xin_lo_capture);
-        }
-        while (signal_wds() == LOW) {
-            xin_hi();
-            delayNanoseconds(xin_hi_wds);
-            xin_lo();
-            delayNanoseconds(xin_lo_wds);
-        }
-        xin_hi();
-        Cycles::next();
-        delayNanoseconds(xin_write_end);
-    } else {
-        delayNanoseconds(xin_read_begin);
-        xin_hi();
-        if (s->readMemory()) {
+        noInterrupts();
+        negate_hold();
+        wait_level<PIN_WDS>(HIGH, edge_cycles);
+        // assert_debug();
+    } else if (s->read()) {
+        if (s->readMemory())
             s->data = _mems->read(s->addr);
-            delayNanoseconds(xin_hi_read);
-        } else {
-            delayNanoseconds(xin_hi_inject);
-        }
-        xin_lo();
         s->outData();
-        if (xin_read_out)
-            delayNanoseconds(xin_read_out);
-        while (signal_rds() == LOW) {
-            xin_hi();
-            delayNanoseconds(xin_hi_rds);
-            xin_lo();
-            delayNanoseconds(xin_lo_rds);
-        }
-        xin_hi();
-        Cycles::next();
-        delayNanoseconds(xin_read_end);
+        noInterrupts();
+        negate_hold();
+        wait_level<PIN_RDS>(HIGH, edge_cycles);
+        // assert_debug();
+        Signals::inputMode();
+    } else {
+        return s;  // no cycle
     }
-    xin_lo();
-    Signals::inputMode();
-    delayNanoseconds(xin_lo_input);
-    // Clock up to 3 XIN until #BREQ rises; a read-modify-write keeps it
-    // low into the next cycle.
-    for (auto i = 0; i < 3; i++) {
-        if (signal_breq() != LOW)
-            break;
-        xin_hi();
-        delayNanoseconds(xin_hi_breq);
-        xin_lo();
-        delayNanoseconds(xin_breq_end);
-    }
-    xin_hi();
-    // XIN=H
+    assert_hold();
+    // negate_debug();
+    interrupts();
+    Cycles::next();
     return s;
 }
 
@@ -326,11 +294,6 @@ void PinsIns8070::execute(const uint8_t *inst, uint8_t len, uint16_t *addr,
         }
     }
     negate_enin();
-}
-
-void PinsIns8070::idle() {
-    // #ENIN is HIGH and bus cycle is suspended.
-    xin_cycle();
 }
 
 // The breakpoint's CALL 15 whose vector |vector| reads: its opcode three
