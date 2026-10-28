@@ -8,7 +8,8 @@ Teensy's own level.
 
 - **The `TXS0108E`s stay, at 3.3 V on both sides.** A 3.3 V target needs no translation, but
   they still buffer and protect the Teensy's pins. Both ports at 3.3 V is within the
-  datasheet's `VCCA ≤ VCCB`.
+  datasheet's `VCCA ≤ VCCB`, as long as the B side's rail is never the lower one (see the
+  rail below).
 - **A different bus holder.** The `SN74ACT1071` is 5 V only, and there is no low-voltage
   version of it. At 3.3 V the bus-hold cells built into `LVC` inputs do the same job — the
   `H` in `SN74LVCH…` — with the outputs left disabled. One cell is too weak behind a
@@ -22,6 +23,14 @@ Teensy's own level.
   - overdriving: at most 4 × 500 µA = 2 mA for a new value to flip the line, which the CPU
     supplies directly and the Teensy through the `TXS0108E`'s pass gate and edge
     accelerators. Check that one on the bench.
+- **A 3.3 V rail of its own, from VBUS.** The Teensy's 3.3 V pin is rated for 250 mA of
+  external load, too little for a CPU like the `MC68040FE25V`, so the CPU side (the CPU,
+  the `SN74LVCH16244A`s and the `TXS0108E` B ports) runs from a much bigger LDO fed from
+  VBUS, sized for the hungriest planned CPU, with the heat sinking a 5 V to 3.3 V drop at
+  that current needs. The `TXS0108E` A ports stay on the Teensy's 3.3 V. The datasheet
+  wants `VCCA ≤ VCCB` at all times in operation, so the LDO is set a little above the
+  Teensy's rail, within the CPUs' 3.3 V tolerance, and OE is pulled down until both rails
+  are up.
 - **Dedicated adapters.** A 3.3 V target needs its own adapter board. Nothing in the 5 V
   family carries over.
 
