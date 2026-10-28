@@ -8,7 +8,6 @@
 #define CNTL_16BIT 0x10 /* CNTL4 */
 #define CNTL_BST 0x20   /* CNTL5 */
 #define PIN_READY 31    /* P8.22; active high */
-#define PIN_PWM_CLOCK 5 /* P9.08; FlexPWM2 submodule 1 output A */
 #define PIN_TIMING 29   /* P9.31; #PHI3 or CLKOUT */
 
 #include "pins.h"
@@ -61,7 +60,6 @@ protected:
 
     // A free-running clock input from the PWM: READY, low except to end a
     // memory cycle, holds the CPU instead of a stopped clock.
-    static void startClock(uint32_t hz);
     // Waits for an edge of the timing output, at most |ns|.
     static bool waitEdge(bool rising, uint32_t ns);
 

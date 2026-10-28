@@ -56,6 +56,8 @@ namespace tms9980 {
 namespace {
 
 constexpr uint32_t ckin_hz = 10000000;  // 150 MHz / 15: halves of 47/53 ns
+constexpr uint32_t ckin_min_hz = 6000000;
+constexpr auto ckin_half_min_ns = 40;
 constexpr auto tw_ns = 1000000000 / ckin_hz;
 constexpr auto ready_hold_ns = 2 * tw_ns + 10;
 // Asserted between the hold and the setup, tw-30, for the next rise; the
@@ -110,8 +112,7 @@ const uint8_t PINS_INPUT[] = {
         PIN_AH0,
 };
 
-static_assert(PIN_CKIN == PIN_PWM_CLOCK && PIN_PHI3 == PIN_TIMING,
-        "CKIN and #PHI3 are the shared clock pins");
+static_assert(PIN_PHI3 == PIN_TIMING, "#PHI3 is the shared timing pin");
 
 void negate_reset() {
     busWrite(INT, 7);
@@ -127,7 +128,7 @@ void negate_ready() {
 
 }  // namespace
 
-PinsTms9980::PinsTms9980() {
+PinsTms9980::PinsTms9980() : _clock(ckin_half_min_ns, ckin_min_hz) {
     _devs = new tms9900::DevsTms9900();
     _mems = new MemsTms9980(_devs);
     _regs = new RegsTms9980(this, _mems);
@@ -137,7 +138,8 @@ void PinsTms9980::resetPins() {
     pinsMode(PINS_LOW, sizeof(PINS_LOW), OUTPUT, LOW);
     pinsMode(PINS_HIGH, sizeof(PINS_HIGH), OUTPUT, HIGH);
     pinsMode(PINS_INPUT, sizeof(PINS_INPUT), INPUT);
-    startClock(ckin_hz);
+    _clock.begin(ckin_hz);
+    _clock.start();
 
     delayNanoseconds(reset_clocks * 4 * tw_ns);
     negate_reset();
