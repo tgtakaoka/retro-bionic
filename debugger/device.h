@@ -21,6 +21,8 @@ struct Device {
 
     virtual bool isSelected(uint32_t addr) const { return addr == baseAddr(); }
     virtual uint16_t read(uint32_t addr) { return 0; }
+    // What read() would return, without its side effects.
+    virtual uint16_t peek(uint32_t addr) const { return 0; }
     virtual void write(uint32_t addr, uint16_t data) {}
     virtual void setBaseAddr(uint32_t addr) {}
     virtual void setVector(uint8_t rx, uint8_t tx) {}

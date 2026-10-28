@@ -18,6 +18,7 @@ struct Mc6850 final : UartBase {
 
     void write(uint32_t addr, uint16_t data) override;
     uint16_t read(uint32_t addr) override;
+    uint16_t peek(uint32_t addr) const override;
 
 private:
     uint8_t _control;

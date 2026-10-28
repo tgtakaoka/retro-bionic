@@ -2188,6 +2188,45 @@ saved IEFF is clear: `RTF` enables interrupts one instruction late, so the
 an `IOF`, `SKON`, `JMP .-1` loop: it must never fall through to a `HLT`
 after it. **[hw]**
 
+### DCT11
+
+**Entry.** A HALT instruction and the HALT input (AI7) push the PS and
+the PC and fetch the restart address with PS 340; BPT and a T-bit trace
+trap push the same frame and read the vector at 14. **[doc]** The
+debugger answers that vector with the restart address and 340, so every
+entry parks on the fetch of 173004 with the frame below SP. A BPT's PC
+is the pushed PC less 2; a step's is the pushed PC. A step sets the T
+bit and restores with `RTT`, which defers the trace trap past the next
+instruction. A step onto a BPT or HALT is refused: the trace trap would
+still be pending after its own trap. **[code]**
+
+**Mode register.** It is read from DAL15-DAL8 and DAL1-DAL0 while #BCLR
+is low, at power-up and on every `RESET` instruction, so the board drives
+it at both: 153377, start 173000, 16-bit, static memory, normal
+read/write so R/#WHB and R/#WLB are valid at the #RAS fall. **[doc]**
+
+**Read before write.** Every write is preceded by a read of the same
+address, except the pushes of a trap or interrupt. **[doc]** That read
+would take a received character from the ACIA's data register, so a
+device read returns `peek()` and takes effect only if the next
+transaction is not a write to the same word. **[code]**
+
+**Interrupts.** The ACIA requests level 4 with #VEC, and its vector is
+driven on DAL7-DAL0 at the IACK. The AI lines must not change while PI
+is high, so a request a device raises inside a transaction is driven
+after it. **[doc][code]**
+
+**The DCJ11 to come.** `RegsPdp11` reads a PS without a frame with
+`MFPS`, a byte; the J11's PS is 16 bits, so that path needs a per-chip
+hook.
+
+**To check on the bench:**
+- The clock rests high and pins are read at the end of a full period;
+  confirm that #RAS is seen in the period it falls in, with the address
+  still on DAL.
+- The CPU has let DAL7-DAL1 go by the #RAS fall of an IACK.
+- The PS after power-up, as `MFPS` reads it.
+
 ### CP1600
 
 Draft board for the CP1610 (40-pin DIP); not built yet.
