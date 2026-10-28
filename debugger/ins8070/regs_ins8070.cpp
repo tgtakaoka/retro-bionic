@@ -142,7 +142,7 @@ uint8_t RegsIns8070::internal_read(uint16_t addr) const {
     // Internal RAM cycles show nothing on the bus; store it out through A.
     uint8_t LD_ST[] = {
             0xC5, uint8(addr),  // LD A,dir[addr]
-            0xF8, 0xFE          // ST A,-1,PC
+            0xC8, 0xFE          // ST A,-1,PC
     };
     uint8_t data;
     _pins->captureWrites(LD_ST, sizeof(LD_ST), nullptr, &data, sizeof(data));
