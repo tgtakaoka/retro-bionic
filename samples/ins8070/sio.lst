@@ -1,0 +1,153 @@
+          0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+          0 :                            cpu     ins8070
+          0 :                            include "ins8070.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :
+(1)       0 :                    ;;; INS8070
+(1)       0 :                    ;;; Status Register
+(1)       0 : =80                S_CY    =       X'80            ; Carry bit
+(1)       0 : =80                S_L     =       X'80            ; Link bit
+(1)       0 : =40                S_OV    =       X'40            ; Overflow bit
+(1)       0 : =20                S_SB    =       X'20            ; Sense B bit
+(1)       0 : =10                S_SA    =       X'10            ; Sense A bit
+(1)       0 : =8                 S_F3    =       X'08            ; Flag 3 bit
+(1)       0 : =4                 S_F2    =       X'04            ; Flag 2 bit
+(1)       0 : =2                 S_F1    =       X'02            ; Flag 1 bit
+(1)       0 : =1                 S_IE    =       X'01            ; Interrupt Enable bit
+(1)       0 :
+(1)       0 :                    ;;; Transfer locations
+(1)       0 : =1                 ORG_RESTART     =       X'0001  ; Restart transfer location
+(1)       0 : =4                 ORG_INTA        =       X'0004  ; Interrupt A transfer location
+(1)       0 : =7                 ORG_INTB        =       X'0007  ; Interrupt B transfer location
+(1)       0 : =A                 ORG_END         =       X'000A
+(1)       0 :
+(1)       0 :                    ;;; Call vectors
+(1)       0 : =20                VEC_CALL0       =       X'0020  ; Call 0 vector
+(1)       0 : =22                VEC_CALL1       =       X'0022  ; Call 1 vector
+(1)       0 : =24                VEC_CALL2       =       X'0024  ; Call 2 vector
+(1)       0 : =26                VEC_CALL3       =       X'0026  ; Call 3 vector
+(1)       0 : =28                VEC_CALL4       =       X'0028  ; Call 4 vector
+(1)       0 : =2A                VEC_CALL5       =       X'002A  ; Call 5 vector
+(1)       0 : =2C                VEC_CALL6       =       X'002C  ; Call 6 vector
+(1)       0 : =2E                VEC_CALL7       =       X'002E  ; Call 7 vector
+(1)       0 : =30                VEC_CALL8       =       X'0030  ; Call 8 vector
+(1)       0 : =32                VEC_CALL9       =       X'0032  ; Call 9 vector
+(1)       0 : =34                VEC_CALL10      =       X'0034  ; Call 10 vector
+(1)       0 : =36                VEC_CALL11      =       X'0036  ; Call 11 vector
+(1)       0 : =38                VEC_CALL12      =       X'0038  ; Call 12 vector
+(1)       0 : =3A                VEC_CALL13      =       X'003A  ; Call 13 vector
+(1)       0 : =3C                VEC_CALL14      =       X'003C  ; Call 14 vector
+(1)       0 : =3E                VEC_CALL15      =       X'003E  ; Call 15 vector
+(1)       0 : =40                VEC_END         =       X'0040
+          0 :
+          0 :                    ;;; Bit-banged console: SA is RXD, F1 is TXD inverted (F1 high sends a
+          0 :                    ;;; space). 8 data bits LSB first, 1 stop bit.
+          0 :                    ;;; A bit lasts these rounds of delay, plus the bit loop's own
+          0 :                    ;;; instructions; tuned on the bench to the serial handler's bits, which
+          0 :                    ;;; are 1073 XIN into the CPU and 1036 out of it.
+          0 : =C                 RX_DELAY        =       12
+          0 : =B                 TX_DELAY        =       11
+          0 : =6                 HALF_DELAY      =       RX_DELAY/2
+          0 :
+          1 :                            .=      ORG_RESTART
+          1 : 24 FF 0F                   jmp     initialize
+          4 :
+         3E :                            .=      VEC_CALL15
+         3E : 00 00                      .dbyte  0               ; halt to system
+         40 :
+       1000 :                            .=      X'1000
+       1000 :                    stack:
+       1000 :                    initialize:
+       1000 : 25 00 10                   ld      SP, =stack
+       1003 : 39 FD                      and     S, =~S_F1       ; mark
+       1005 :
+       1005 :                    echo:
+       1005 : 20 1A 10                   jsr     getch
+       1008 : 6C 10                      bz      halt_to_system  ; NUL halts
+       100A : 48                         ld      E, A
+       100B : 20 4C 10                   jsr     putch
+       100E : 40                         ld      A, E
+       100F : E4 0D                      xor     A, =X'0D
+       1011 : 7C F2                      bnz     echo
+       1013 : C4 0A                      ld      A, =X'0A        ; follow CR with LF
+       1015 : 20 4C 10                   jsr     putch
+       1018 : 74 EB                      bra     echo
+       101A :                    halt_to_system:
+       101A : 1F                         call    15
+       101B :
+       101B :                    ;;; Receive a character on SA
+       101B :                    ;;; @return A received character
+       101B :                    getch:
+       101B : 06                         ld      A, S
+       101C : D4 10                      and     A, =S_SA
+       101E : 6C FB                      bz      getch           ; wait for mark
+       1020 :                    getch_start:
+       1020 : 06                         ld      A, S
+       1021 : D4 10                      and     A, =S_SA
+       1023 : 7C FB                      bnz     getch_start     ; wait for start bit
+       1025 : C4 06                      ld      A, =HALF_DELAY
+       1027 : 20 7A 10                   jsr     delay           ; to the middle of the start bit
+       102A : C4 08                      ld      A, =8
+       102C : 0A                         push    A               ; bit count
+       102D : C4 00                      ld      A, =0
+       102F : 0A                         push    A               ; received bits
+       1030 :                    getch_bit:
+       1030 : C4 0C                      ld      A, =RX_DELAY
+       1032 : 20 7A 10                   jsr     delay
+       1035 : 06                         ld      A, S
+       1036 : D4 10                      and     A, =S_SA
+       1038 : F4 F0                      add     A, =X'F0        ; CY=SA
+       103A : C1 00                      ld      A, 0, SP
+       103C : 3F                         rrl     A               ; shift SA in from bit 7
+       103D : C9 00                      st      A, 0, SP
+       103F : 99 01                      dld     A, 1, SP
+       1041 : 7C ED                      bnz     getch_bit
+       1043 : C4 0C                      ld      A, =RX_DELAY
+       1045 : 20 7A 10                   jsr     delay           ; to the middle of the stop bit
+       1048 : 38                         pop     A               ; received bits
+       1049 : 01                         xch     A, E
+       104A : 38                         pop     A
+       104B : 01                         xch     A, E
+       104C : 5C                         ret
+       104D :
+       104D :                    ;;; Send a character on F1
+       104D :                    ;;; @param A character
+       104D :                    putch:
+       104D : 08                         push    ea
+       104E : 3B 02                      or      S, =S_F1        ; start bit
+       1050 : 48                         ld      E, A
+       1051 : C4 08                      ld      A, =8
+       1053 : 0A                         push    A               ; bit count
+       1054 :                    putch_bit:
+       1054 : C4 0B                      ld      A, =TX_DELAY
+       1056 : 20 7A 10                   jsr     delay
+       1059 : 40                         ld      A, E
+       105A : D4 01                      and     A, =1
+       105C : 7C 04                      bnz     putch_mark
+       105E : 3B 02                      or      S, =S_F1        ; space
+       1060 : 74 03                      bra     putch_next
+       1062 :                    putch_mark:
+       1062 : 39 FD                      and     S, =~S_F1       ; mark
+       1064 : 00                         nop
+       1065 :                    putch_next:
+       1065 : 40                         ld      A, E
+       1066 : 3C                         sr      A
+       1067 : 48                         ld      E, A
+       1068 : 99 00                      dld     A, 0, SP
+       106A : 7C E8                      bnz     putch_bit
+       106C : 38                         pop     A
+       106D : C4 0B                      ld      A, =TX_DELAY
+       106F : 20 7A 10                   jsr     delay
+       1072 : 39 FD                      and     S, =~S_F1       ; stop bit
+       1074 : C4 0B                      ld      A, =TX_DELAY
+       1076 : 20 7A 10                   jsr     delay
+       1079 : 3A                         pop     ea
+       107A : 5C                         ret
+       107B :
+       107B :                    ;;; @param A rounds
+       107B :                    delay:
+       107B : FC 01                      sub     A, =1
+       107D : 7C FC                      bnz     delay
+       107F : 5C                         ret
+       1080 :
+       1080 :                            end

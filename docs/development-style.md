@@ -1432,6 +1432,12 @@ and held, so a cycle started while the Teensy is busy waits for the next
 `prepareCycle()`. The board ran to 6.25 MHz XIN in the `teensy41-clock`
 build. **[doc][hw]**
 
+INS8073 BASIC's bit-banged serial times its bits with loops whose
+fetches the Teensy holds, so in XIN its bits depend on the loop: at
+4800 bps it sends a bit every 1012 XIN and receives, echoing each bit,
+one every 1078. The handler's dividers were measured on F1 and `sio.asm`
+is tuned to them; a `DLY`-timed SC/MP loop needs no such tuning. **[hw]**
+
 An interrupt handler must save S: an interrupt between an `ADD` and the
 `LD A,S` that reads its carry otherwise changes CY/L. The samples' ISRs
 push it after EA and restore it before `OR S,=S_IE`. The bit-banged clock
