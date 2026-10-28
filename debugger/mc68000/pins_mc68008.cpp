@@ -121,7 +121,7 @@ void PinsMc68008::getData(Signals *s) const {
 }
 
 void PinsMc68008::outData(const Signals *s) const {
-    busWrite(D, s->data);
+    busWriteFast(D, s->data);
     busMode(D, OUTPUT);
 }
 

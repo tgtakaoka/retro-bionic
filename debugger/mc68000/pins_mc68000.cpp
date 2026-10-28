@@ -149,7 +149,7 @@ void PinsMc68000::getData(Signals *s) const {
 
 // A byte goes out on both lanes: the CPU takes the one it strobed.
 void PinsMc68000::outData(const Signals *s) const {
-    busWrite(D, s->wordAccess() ? s->data : bothLanes(s->data));
+    busWriteFast(D, s->wordAccess() ? s->data : bothLanes(s->data));
     busMode(D, OUTPUT);
 }
 
@@ -159,7 +159,7 @@ void PinsMc68000::inputMode() const {
 
 // The level on #IPL2-#IPL0, active low.
 void PinsMc68000::setIpl() const {
-    busWrite(IPL, ~iplLevel() & 7);
+    busWriteFast(IPL, ~iplLevel() & 7);
 }
 
 }  // namespace mc68000
