@@ -59,6 +59,7 @@
 #define PIN_WAIT 31   /* P8.22 */
 
 #include "pins_tms370.h"
+#include "pwm_clock.h"
 #include "signals_tms370.h"
 
 namespace debugger {
@@ -70,19 +71,27 @@ struct PinsTms370Cx5x final : tms370::PinsTms370 {
     PinsTms370Cx5x();
 
     void resetPins() override;
-    void idle() override;
+    // The clock runs by itself.
+    void idle() override {}
     bool step(bool show) override;
     void run() override;
     void assertInt(uint8_t name) override;
     void negateInt(uint8_t name) override;
+#ifdef TUNE_CLOCK
+    uint32_t clockInput() const override { return _clockInput; }
+    bool setClockInput(uint32_t hz) override;
+#endif
 
     void injectReads(const uint8_t *data, uint_fast8_t len) override;
     uint16_t captureWrites(const uint8_t *data, uint_fast8_t len, uint8_t *buf,
             uint_fast8_t max) override;
 
 private:
-    // A reset in progress, which resumeCpu() must not start again.
-    bool _resetting = false;
+    PwmClock<PIN_CLKIN> _clock;
+#ifdef TUNE_CLOCK
+    // CLKIN's rate, which K sets.
+    uint32_t _clockInput;
+#endif
 
     void takePendingInterrupt(Signals *fetch);
     Signals *prepareCycle();
@@ -91,8 +100,7 @@ private:
     void loop();
     bool rawStep();
     bool pauseCpu();
-    void resumeCpu();
-    Signals *resetCpu();
+    void resetCpu();
 };
 
 }  // namespace tms370cx5x

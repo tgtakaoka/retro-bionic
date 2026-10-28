@@ -41,6 +41,7 @@ using tms370::InstTms370;
 namespace {
 
 //   CLKIN: min 2.0 MHz, max 20 MHz
+//  tw(CI): min 20 ns        ; CLKIN pulse duration
 //  SYSCLK: min 0.5 MHz, max 5.0 MHz
 //      tc: min 200 ns, max 2000 ns ; SYSCLK cycle time
 // CIH-SCL: max 100 ns       ; CLKIN+ to SYSCLK-
@@ -51,16 +52,28 @@ namespace {
 //  EL-DVR: max tc-95 ns     ; data hold after #EDS+
 //  tsu(D): 0.75tc-80 ns     ; data setup for #EDS+
 //   EH-DW: 0.75tc+15 ns     ; data hold after #EDS+
+//   EH-DR: min 1.25tc-40 ns ; #EDS+ to write data driven
+// tsu(WT): min 0.25tc+70 ns ; #WAIT setup to SYSCLK+
+//  th(WT): min 0 ns         ; #WAIT hold from SYSCLK+
 
-constexpr auto clkin_ns = 5;
+// CLKIN runs free from the PWM, and #WAIT, low but to end a cycle, holds
+// the CPU in each external access until it is served. With the auto wait
+// state, #WAIT is not sampled until the third SYSCLK of an access. It is
+// negated just after a SYSCLK rise, a whole tc ahead of the rise that
+// samples it, and asserted again once #EDS rises.
 
-inline void clkin_hi() {
-    digitalWriteFast(PIN_CLKIN, HIGH);
-}
-
-inline void clkin_lo() {
-    digitalWriteFast(PIN_CLKIN, LOW);
-}
+constexpr uint32_t clkin_hz = 18750000;  // 150 MHz / 8: halves of 27 ns
+constexpr uint32_t clkin_min_hz = 2000000;
+constexpr auto clkin_half_min_ns = 20;
+// Teensy cycles in a CLKIN clock at the slowest rate, so the waits below
+// hold at any rate.
+constexpr uint32_t clkin_max_cycles = F_CPU / clkin_min_hz;
+constexpr auto reset_ns = 10 * (1000000000 / clkin_min_hz);
+// Waits for #EDS last 1024 CLKIN clocks; DIV, the longest instruction,
+// runs 63 SYSCLK cycles of 4 CLKIN each.
+constexpr auto stall_cycles = 1024 * clkin_max_cycles;
+// Longer than any SYSCLK: no edge means no clock or no chip.
+constexpr auto edge_cycles = 16 * clkin_max_cycles;
 
 inline void assert_reset() {
     digitalWriteFast(PIN_RESET, LOW);
@@ -88,17 +101,12 @@ inline bool eds_asserted() {
     return digitalReadFast(PIN_EDS) == LOW;
 }
 
-inline bool ocf_asserted() {
-    return digitalReadFast(PIN_OCF) == LOW;
-}
-
-inline bool wait_asserted() {
-    return digitalReadFast(PIN_WAIT) == LOW;
-}
-
-const uint8_t PINS_HIGH[] = {
+const uint8_t PINS_LOW[] = {
         PIN_CLKIN,
         PIN_WAIT,
+};
+
+const uint8_t PINS_HIGH[] = {
         PIN_INT1,
         PIN_INT2,
         PIN_INT3,
@@ -135,176 +143,149 @@ const uint8_t PINS_INPUT[] = {
         PIN_OCF,
 };
 
-void clkin_cycle_lo() {
-    clkin_hi();
-    delayNanoseconds(clkin_ns);
-    clkin_lo();
+// Waits up to |limit| Teensy cycles for #EDS to read |low|.
+bool wait_eds(bool low, uint32_t limit) {
+    const uint32_t start = ARM_DWT_CYCCNT;
+    while (eds_asserted() != low) {
+        if (ARM_DWT_CYCCNT - start >= limit)
+            return false;
+    }
+    return true;
 }
 
-void clkin_cycle() {
-    clkin_cycle_lo();
-    delayNanoseconds(clkin_ns);
+// Waits up to |limit| Teensy cycles for a SYSCLK rise, or fall.
+bool wait_sysclk(bool rising, uint32_t limit) {
+    const uint8_t from = rising ? LOW : HIGH;
+    const uint32_t start = ARM_DWT_CYCCNT;
+    while (digitalReadFast(PIN_SYSCLK) != from) {
+        if (ARM_DWT_CYCCNT - start >= limit)
+            return false;
+    }
+    while (digitalReadFast(PIN_SYSCLK) == from) {
+        if (ARM_DWT_CYCCNT - start >= limit)
+            return false;
+    }
+    return true;
 }
 
-// CLKIN cycles to wait for #EDS or #OCF; DIV, the longest instruction,
-// runs 63 SYSCLK cycles of 4 CLKIN each.
-constexpr auto stall_clocks = 1024;
-
-// Gives up a wait rather than wedge the board; the next resumeCpu() resets
-// a CPU whose SYSCLK has stopped.
+// Gives up a wait rather than wedge the board.
 void no_bus_cycle() {
-    assert_wait();
     cli.println("?halt: no bus cycle");
 }
 
 }  // namespace
 
-PinsTms370Cx5x::PinsTms370Cx5x() {
+PinsTms370Cx5x::PinsTms370Cx5x() : _clock(clkin_half_min_ns, clkin_min_hz) {
     auto regs = new RegsTms370Cx5x(this);
     _regs = regs;
     _devs = new tms370::DevsTms370();
     _mems = new MemsTms370Cx5x(regs, this, _devs);
+#ifdef TUNE_CLOCK
+    _clockInput = clkin_hz;
+#endif
 }
 
+#ifdef TUNE_CLOCK
+bool PinsTms370Cx5x::setClockInput(uint32_t hz) {
+    // The rate reloads at a period start, so the running clock never
+    // glitches.
+    const auto rate = _clock.setRate(hz);
+    if (rate == 0)
+        return false;
+    _clockInput = rate;
+    return true;
+}
+#endif
+
 void PinsTms370Cx5x::resetPins() {
+    // The CPU is about to be reset: a glitch on CLKIN is harmless.
     assert_reset();
+    pinsMode(PINS_LOW, sizeof(PINS_LOW), OUTPUT, LOW);
     pinsMode(PINS_HIGH, sizeof(PINS_HIGH), OUTPUT, HIGH);
     pinsMode(PINS_INPUT, sizeof(PINS_INPUT), INPUT);
+#ifdef TUNE_CLOCK
+    _clock.begin(_clockInput);
+#else
+    _clock.begin(clkin_hz);
+#endif
+    _clock.start();
     resetCpu();
     _regs->save();
     _regs->setIp(_mems->read16(InstTms370::VEC_RESET));
 }
 
-Signals *PinsTms370Cx5x::resetCpu() {
+void PinsTms370Cx5x::resetCpu() {
     Cycles::reset();
     assert_reset();
-    for (uint_fast8_t i = 0; i < 10; i++)
-        clkin_cycle();
+    delayNanoseconds(reset_ns);
     negate_reset();
-    // #RESET is open drain; clock until it reads high again.
-    while (reset_asserted())
-        clkin_cycle();
-    auto s = SignalsTms370Cx5x::put();
-    _resetting = true;
+    // #RESET is open drain; the CPU may hold it low a while longer.
+    const uint32_t start = ARM_DWT_CYCCNT;
+    while (reset_asserted()) {
+        if (ARM_DWT_CYCCNT - start >= stall_cycles) {
+            cli.println("?halt: #RESET stuck low");
+            return;
+        }
+    }
     _regs->reset();
-    _resetting = false;
-    return s;
 }
 
+// The CPU is held in the cycle prepared here until completeCycle().
 Signals *PinsTms370Cx5x::prepareCycle() {
+    if (!wait_eds(true, stall_cycles))
+        return nullptr;
     auto s = SignalsTms370Cx5x::put();
-    for (auto n = 0; !eds_asserted(); ++n) {
-        if (n >= stall_clocks)
-            return nullptr;
-        delayNanoseconds(clkin_ns);
-        clkin_cycle_lo();
-    }
     // assert_debug();
-    s->getDirection();
-    clkin_hi();
     s->getAddr();
+    // #OCF is read after the address, since it may settle after #EDS.
+    s->getDirection();
     // negate_debug();
     return s;
 }
 
+// Read data is driven before #WAIT is negated and released after #EDS
+// rises. Write data is valid by a SYSCLK fall after #EDS falls.
 Signals *PinsTms370Cx5x::completeCycle(Signals *_s) {
-    clkin_lo();
-    delayNanoseconds(clkin_ns);
     auto s = static_cast<SignalsTms370Cx5x *>(_s);
-    // assert_debug();
-    if (s->read()) {
-        clkin_hi();
-        if (s->readMemory()) {
+    const auto read = s->read();
+    // A held ring reuses this slot, and next() clears its capture flag
+    const auto store = !read && s->writeMemory();
+    if (read) {
+        if (s->readMemory())
             s->data = _mems->read(s->addr);
-        } else {
-            delayNanoseconds(clkin_ns);
-        }
-        clkin_lo();
-        // toggle_debug();
         s->outData();
-        // toggle_debug();
-        clkin_hi();
-        Cycles::next();
-        clkin_lo();
-        s->inputMode();
-    } else {
-        // A held ring reuses this slot, and next() clears its capture flag
-        const auto store = s->writeMemory();
-        clkin_hi();
-        Cycles::next();
-        clkin_lo();
-        // toggle_debug();
-        delayNanoseconds(0);
+    }
+    noInterrupts();
+    if (!read) {
+        wait_sysclk(false, edge_cycles);
         s->getData();
-        // toggle_debug();
-        clkin_hi();
-        if (store) {
-            _mems->write(s->addr, s->data);
-        } else {
-            delayNanoseconds(clkin_ns);
-        }
-        clkin_lo();
     }
-    for (auto n = 0; eds_asserted() && n < stall_clocks; ++n) {
-        delayNanoseconds(clkin_ns);
-        clkin_cycle_lo();
-    }
-    // negate_debug();
+    wait_sysclk(true, edge_cycles);
+    // toggle_debug();
+    negate_wait();
+    wait_eds(false, edge_cycles);
+    if (read)
+        s->inputMode();
+    assert_wait();
+    // toggle_debug();
+    interrupts();
+    if (store)
+        _mems->write(s->addr, s->data);
+    Cycles::next();
     return s;
 }
 
-// Clocks past the current fetch to the next one, then holds the CPU there
-// with #WAIT.
+// Serves cycles up to the next fetch, and holds the CPU there.
 bool PinsTms370Cx5x::pauseCpu() {
-    for (auto n = 0; ocf_asserted(); ++n) {
-        if (n >= stall_clocks)
-            return false;
-        delayNanoseconds(clkin_ns);
-        clkin_cycle_lo();
+    for (auto s = prepareCycle(); s != nullptr; s = prepareCycle()) {
+        if (s->fetch())
+            return true;
+        completeCycle(s);
     }
-    for (auto n = 0; !ocf_asserted(); ++n) {
-        if (n >= stall_clocks)
-            return false;
-        // An interrupt taken here reads its vector first. #OCF is read
-        // again, since it may settle after #EDS.
-        if (eds_asserted()) {
-            if (ocf_asserted())
-                break;
-            completeCycle(prepareCycle());
-            continue;
-        }
-        delayNanoseconds(clkin_ns);
-        clkin_cycle_lo();
-    }
-    assert_wait();
-    clkin_cycle_lo();
-    return true;
-}
-
-void PinsTms370Cx5x::resumeCpu() {
-    if (wait_asserted()) {
-        // SYSCLK, CLKIN/4, goes low within 8 CLKIN cycles unless the
-        // oscillator fault logic has halted the CPU.
-        for (uint_fast8_t i = 0; i < 8; i++) {
-            clkin_cycle_lo();
-            if (digitalReadFast(PIN_SYSCLK) == LOW) {
-                negate_wait();
-                return;
-            }
-        }
-        if (_resetting) {
-            // The reset in progress hasn't started it either.
-            cli.println("?halt: no SYSCLK");
-        } else {
-            cli.println("?halt: SYSCLK stopped, reset");
-            resetCpu();
-        }
-        negate_wait();
-    }
+    return false;
 }
 
 void PinsTms370Cx5x::injectReads(const uint8_t *data, uint_fast8_t len) {
-    resumeCpu();
     uint_fast8_t inj = 0;
     while (inj < len) {
         auto s = prepareCycle();
@@ -322,7 +303,6 @@ void PinsTms370Cx5x::injectReads(const uint8_t *data, uint_fast8_t len) {
 
 uint16_t PinsTms370Cx5x::captureWrites(
         const uint8_t *data, uint_fast8_t len, uint8_t *buf, uint_fast8_t max) {
-    resumeCpu();
     uint16_t addr = 0;
     uint_fast8_t inj = 0;
     uint_fast8_t cap = 0;
@@ -349,17 +329,8 @@ uint16_t PinsTms370Cx5x::captureWrites(
     return addr;
 }
 
-void PinsTms370Cx5x::idle() {
-    // #WAIT is asserted: CLKIN keeps running while the CPU holds
-    clkin_cycle();
-    clkin_cycle_lo();
-}
-
 void PinsTms370Cx5x::loop() {
-    // The oscillator fault logic may have reset the CPU at the prompt.
-    resetCpu();
     _regs->restore();
-    resumeCpu();
     Cycles::reset();
     while (true) {
         auto s = prepareCycle();
@@ -436,7 +407,6 @@ bool PinsTms370Cx5x::rawStep() {
     const auto inst = _mems->read(_regs->nextIp());
     if (inst == InstTms370::TRAP15 || inst == InstTms370::IDLE)
         return false;
-    resumeCpu();
     auto s = prepareCycle();
     if (s == nullptr) {
         no_bus_cycle();
@@ -452,7 +422,6 @@ bool PinsTms370Cx5x::rawStep() {
 }
 
 bool PinsTms370Cx5x::step(bool show) {
-    resetCpu();
     _regs->restore();
     if (show)
         Cycles::reset();
