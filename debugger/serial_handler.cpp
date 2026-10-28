@@ -79,6 +79,11 @@ void SerialHandler::rxloop(Receiver &rx) const {
             rx.delay = _rx_divider + (_rx_divider >> 1);
             // Pins::negate_debug();
         }
+    } else if (rx.bit == 1) {
+        // Re-arm on a mark only: a sender's longer bit 7 may still be a
+        // space, which would read as the next start bit.
+        if (signal_txd() != 0)
+            rx.bit = 0;
     } else {
         if (--rx.delay == 0) {
             rx.data >>= 1;
@@ -88,7 +93,6 @@ void SerialHandler::rxloop(Receiver &rx) const {
             rx.delay = _rx_divider;
             if (--rx.bit == 1) {
                 Console.write(rx.data);
-                rx.delay = _rx_divider >> 1;
             } else {
                 // Pins::negate_debug();
             }
