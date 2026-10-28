@@ -1438,6 +1438,11 @@ fetches the Teensy holds, so in XIN its bits depend on the loop: at
 one every 1078. The handler's dividers were measured on F1 and `sio.asm`
 is tuned to them; a `DLY`-timed SC/MP loop needs no such tuning. **[hw]**
 
+INS8073 BASIC starts its program at 8000H when it finds RAM there, as
+the debugger's memory has, so its console patches end RAM at DEFFH, just
+below the ACIA; ending it at 7FFFH answered every program line with
+ERROR 1, out of memory. **[hw]**
+
 An interrupt handler must save S: an interrupt between an `ADD` and the
 `LD A,S` that reads its carry otherwise changes CY/L. The samples' ISRs
 push it after EA and restore it before `OR S,=S_IE`. The bit-banged clock

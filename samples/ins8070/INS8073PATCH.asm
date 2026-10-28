@@ -18,9 +18,10 @@ ACIA_D  =       1               ; ACIA data register offset
         .dbyte  getchar
         .dbyte  putchar
 
-;;; Override RAM end check
+;;; Override RAM end check: just below the ACIA. BASIC starts the
+;;; program at 8000H when it finds RAM there, as the debugger has.
         .=      COLD4
-        ld      P2, =X'7fff
+        ld      P2, =X'DEFF
         ld      A, @2, P2
 
 ;;; Break check
