@@ -2054,7 +2054,9 @@ Draft board for the CP1610 (40-pin DIP); not built yet.
 - A UCC27324 powered from VDD turns the Teensy's PHI1/PHI2 (P46/P47) into
   the two-phase clock, which must reach 10 V, rise and fall within 15 ns
   and never overlap. 33 Ω in series with each output damps ringing into
-  the 20-30 pF clock inputs. **[doc]**
+  the 20-30 pF clock inputs. TI's successor, the UCC27444, fits the same
+  footprint: its pins 1 and 8 are enables pulled up inside, and the board
+  leaves them unconnected. **[doc]**
 - `#INTR` is open drain with a 10 kΩ pull-up. The Teensy (P50) pulls it
   low to halt, and a 74LVC1G02 and 74LVC1G06 pull it low while `#PCIT`
   and `#ENSWI` (P34) are both low, so a `SIN` traps only when the Teensy
