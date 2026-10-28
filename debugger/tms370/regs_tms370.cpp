@@ -29,14 +29,10 @@ void RegsTms370::print() const {
 /* CAVEAT: Disabling AUTO_WAIT makes interrupt response stall; the
    cause is unknown. */
 void RegsTms370::reset() {
-    // set SCCR0.6 (OSC POWER ON)
     // set SCCR1.4 (AUTO-WAIT DISABLE)
     constexpr auto DUMMY = 0x2000;
     static constexpr uint8_t CONFIG[] = {
         lo(DUMMY), hi(DUMMY),  // inject dummy reset vector
-        // The oscillator fault logic resets the CPU whenever CLKIN pauses
-        // for long, which a halt or a slow run does.
-        0xF7, 0x40, 0x10,      // MOV #OSC_POWER,SCCR0
 #if DISABLE_AUTO_WAIT
         0xF7, 0x10, 0x11,      // MOV #AUTO_WAIT_DISABLE, SCCR1
 #endif

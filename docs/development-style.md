@@ -292,7 +292,8 @@ A CPU whose clock may stop can run from a free-running FlexPWM output
 instead of bit-banged edges, which is the way to a CPU whose clock goes
 through a PLL. The MC68HC16 does this on EXTAL (P47); reset, step and
 injected sequences stay bit-banged. The TMS9980 and TMS9981 run every
-sequence from it on CKIN (pin 5), since their clock must not stop.
+sequence from it on CKIN (pin 5), and the TMS370Cx5x on CLKIN (pin 5),
+since their clock must not stop.
 
 - Hold a bus cycle with the CPU's wait input (`#DSACK`, READY) instead of
   stopping the clock: withhold it until the cycle is served, and negate it
@@ -315,7 +316,10 @@ sequence from it on CKIN (pin 5), since their clock must not stop.
   10 MHz. A FlexIO latch needs its own pad for the signal.
 - The `teensy41-clock` build adds `K [kHz]` to set the rate at run time,
   for a sweep with the regress; the normal build keeps the target's
-  constant.
+  constant. Only that build keeps the rate in the Pins class:
+  `clockInput()`, `setClockInput()` and the rate member go under
+  `#ifdef TUNE_CLOCK`, and timeouts are sized for the slowest rate the CPU
+  takes, constants that hold at any rate.
 - A CPU that samples its wait input on a clock edge needs it moved only
   outside that edge's setup and hold window, at its next sample too: the
   TMS9980 takes `READY` up to 2tw+10 after the `#PHI3` rise, so raised
@@ -1872,15 +1876,21 @@ read at FFD0 or above counts too. **[hw]**
 
 ### TMS370
 
-**Pitfalls.** The oscillator fault logic watches CLKIN: when the Teensy stops
-clocking for long enough, it resets the CPU. **[hw]**
+**Pitfalls.** The oscillator fault logic watches CLKIN and resets the CPU
+whenever the clock runs slower than somewhere between 20 and 500 kHz; on the
+A and B parts no bit disables it. CLKIN therefore runs free from the PWM
+through every sequence and at the prompt, and `#WAIT` holds each external
+access until it is served. **[hw]**
 
-The debugger lets this happen while the CPU sits at the prompt: every run
-starts with `resetCpu()`, and `resumeCpu()` resets a CPU whose SYSCLK no
-longer follows CLKIN. Within an injected save or restore the clock must keep
-running, and a `cli.print()` there is a USB transfer, long enough to trip the
-fault logic. Debug code keeps what it finds in memory and prints it once the
-run is over, after the save.
+- `#WAIT` is sampled at a SYSCLK rise (setup 0.25tc+70, hold 0), and with
+  the auto wait state not before the third SYSCLK of an access. It is
+  negated just after a rise, a whole tc ahead of the rise that samples it,
+  and asserted again once `#EDS` rises. **[doc]**
+- Write data is valid only by the SYSCLK fall after `#EDS` falls, not at
+  the fall. **[doc]**
+- OSC POWER (SCCR0.6) must stay clear above 3 MHz SYSCLK. **[doc]**
+- A flash stops the clock and sets OSC FLT FLAG (SCCR0.4), which no reset
+  clears. **[hw]**
 
 An interrupt pending at a fetch aborts it and reads its vector next.
 `takePendingInterrupt()` runs `JMP $` at the halt until it has run twice
@@ -1888,11 +1898,9 @@ without one, so an interrupt recognised a boundary late is taken there too;
 one run is not enough. Injected bytes showing up in the saved state reveal
 a missed interrupt; only many halts in a row expose it. **[hw]**
 
-The waits for #EDS and #OCF give up after 1024 CLKIN cycles, four times the
-longest instruction (DIV, 63 SYSCLK cycles), print `?halt: no bus cycle` and
-assert #WAIT, so a CPU that stops issuing bus cycles doesn't wedge the board
-and the next `resumeCpu()` resets a CPU whose SYSCLK has stopped. That print
-can trip the fault logic, but only once the sequence has already failed.
+The wait for `#EDS` gives up after 1024 CLKIN cycles at the slowest rate,
+2 MHz, four times the longest instruction (DIV, 63 SYSCLK cycles), and prints `?halt: no bus
+cycle`, so a CPU that stops issuing bus cycles doesn't wedge the board.
 **[code]**
 
 ### Z8
