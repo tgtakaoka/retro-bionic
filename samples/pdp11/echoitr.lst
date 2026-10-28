@@ -1,0 +1,326 @@
+          0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+          0 :                            include "pdp11.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :                    ;;; PDP-11: the samples use only the DCT11's instructions, which the
+(1)       0 :                    ;;; DCJ11 also has, so one image runs on both.
+(1)       0 :                            cpu     t11
+(1)       0 :
+(1)       0 :                    ;;; Processor Status Word
+(1)       0 : =340               PSW_PRI_gm      =       340     ; Priority
+(1)       0 : =340               PSW_PRI7        =       340     ; Priority 7, interrupts disabled
+(1)       0 : =0                 PSW_PRI0        =       000     ; Priority 0, interrupts enabled
+(1)       0 : =20                PSW_T           =       020     ; Trace trap
+(1)       0 : =10                PSW_N           =       010     ; Negative
+(1)       0 : =4                 PSW_Z           =       004     ; Zero
+(1)       0 : =2                 PSW_V           =       002     ; Overflow
+(1)       0 : =1                 PSW_C           =       001     ; Carry
+(1)       0 :
+(1)       0 :                    ;;; Trap vectors: a PC, then a PSW
+(1)       0 : =4                 VEC_BUS         =       004     ; Bus error, odd address
+(1)       0 : =10                VEC_RESINST     =       010     ; Reserved instruction
+(1)       0 : =14                VEC_BPT         =       014     ; BPT instruction, T bit
+(1)       0 : =20                VEC_IOT         =       020     ; IOT instruction
+(1)       0 : =24                VEC_PWRFAIL     =       024     ; Power fail
+(1)       0 : =30                VEC_EMT         =       030     ; EMT instruction
+(1)       0 : =34                VEC_TRAP        =       034     ; TRAP instruction
+(1)       0 :
+(1)       0 :                    ;;; Both start at 173000 with PSW 340: the DCT11 with mode register
+(1)       0 :                    ;;; start address 6, the DCJ11 with power-up mode 2. The DCJ11's power-up
+(1)       0 :                    ;;; mode 0 reads the PC and PSW from VEC_PWRFAIL instead.
+(1)       0 : =173000            ORG_RESET       =       173000
+(1)       0 :
+(1)       0 :                    ;;; BPT hands control back to the debugger: HALT acts differently on the
+(1)       0 :                    ;;; two chips.
+          0 :
+          0 :                    ;;; MC6850 Asynchronous Communication Interface Adapter
+          0 : =177560            ACIA    =       177560
+          0 : =60                ACIA_VEC =      60
+          0 :                            include "mc6850.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :                    ;;; MC6850 Asynchronous Communication Interface Adapter
+(1)       0 :                    ;;; One register per word, accessed by byte.
+(1)       0 : =177560            ACIA_control    =       ACIA+0
+(1)       0 : =177560            ACIA_status     =       ACIA+0
+(1)       0 : =177562            ACIA_data       =       ACIA+2
+(1)       0 : =177564            ACIA_intr       =       ACIA+4  ; Interrupt vector, for Rx and Tx
+(1)       0 :                    ;;;  Counter Divider Select Bits
+(1)       0 : =3                 CDS_gm          =       003     ; Group mask
+(1)       0 : =0                 CDS_DIV1_gc     =       000     ; /1
+(1)       0 : =1                 CDS_DIV16_gc    =       001     ; /16
+(1)       0 : =2                 CDS_DIV64_gc    =       002     ; /64
+(1)       0 : =3                 CDS_RESET_gc    =       003     ; Master Reset
+(1)       0 :                    ;;;  Word Select Bits
+(1)       0 : =34                WSB_gm          =       034     ; Group mask
+(1)       0 : =0                 WSB_7E2_gc      =       000     ; 7 Bits + Even Parity + 2 Stop Bits
+(1)       0 : =4                 WSB_7O2_gc      =       004     ; 7 bits + Odd Parity  + 2 Stop Bits
+(1)       0 : =10                WSB_7E1_gc      =       010     ; 7 bits + Even Parity + 1 Stop Bits
+(1)       0 : =14                WSB_7O1_gc      =       014     ; 7 bits + Odd Parity  + 1 Stop Bits
+(1)       0 : =20                WSB_8N2_gc      =       020     ; 8 bits + No Parity   + 2 Stop Bits
+(1)       0 : =24                WSB_8N1_gc      =       024     ; 8 bits + No Parity   + 1 Stop Bits
+(1)       0 : =30                WSB_8E1_gc      =       030     ; 8 bits + Even Parity + 1 Stop Bits
+(1)       0 : =34                WSB_8O1_gc      =       034     ; 8 bits + Odd Parity  + 1 Stop Bits
+(1)       0 :                    ;;;  Transmit Control Bits
+(1)       0 : =140               TCB_gm          =       140     ; Group mask
+(1)       0 : =0                 TCB_DI_gc       =       000     ; RTS=Low,  Tx Interrupt Disabled
+(1)       0 : =40                TCB_EI_gc       =       040     ; RTS=Low,  Tx Interrupt Enabled
+(1)       0 : =100               TCB_RTS_gc      =       100     ; RTS=High, Tx Interrupt Disabled
+(1)       0 : =140               TCB_BREAK_gc    =       140     ; RTS=Low,  Tx Interrupt Disabled
+(1)       0 :                                                    ; Transmit Break Level
+(1)       0 : =200               RIEB_bm         =       200     ; Receive Interrupt Enable Bit mask
+(1)       0 :                    ;;; Status register
+(1)       0 : =1                 RDRF_bm         =       001     ; Receive Data Register Full
+(1)       0 : =2                 TDRE_bm         =       002     ; Transmit Data Register Empty
+(1)       0 : =4                 DCDF_bm         =       004     ; Data Carrier Detect Flag
+(1)       0 : =10                CTSF_bm         =       010     ; Clear To Send Flag
+(1)       0 : =20                FERR_bm         =       020     ; Frame Error Flag
+(1)       0 : =40                OVRN_bm         =       040     ; Receiver Overrun Flag
+(1)       0 : =100               PERR_bm         =       100     ; Parity Error Flag
+(1)       0 : =200               IRQF_bm         =       200     ; Interrupt Request Flag
+          0 : =224               RX_INT_TX_NO    =       WSB_8N1_gc|RIEB_bm
+          0 : =264               RX_INT_TX_INT   =       WSB_8N1_gc|RIEB_bm|TCB_EI_gc
+          0 :
+         14 :                            org     VEC_BPT
+         14 : 000014 000340              .word   VEC_BPT, PSW_PRI7 ; for halt to system
+         20 :
+         24 :                            org     VEC_PWRFAIL
+         24 : 001000 000340              .word   initialize, PSW_PRI7
+         30 :
+         60 :                            org     ACIA_VEC
+         60 : 001576 000340              .word   isr_acia, PSW_PRI7
+         64 :
+     173000 :                            org     ORG_RESET
+     173000 : 000137 001000              jmp     @#initialize
+     173004 :
+       4000 :                            org     4000
+       4000 : =200               rx_queue_size   =       128.
+       4000 :                    rx_queue:       .blkb   rx_queue_size
+       4200 : =200               tx_queue_size   =       128.
+       4200 :                    tx_queue:       .blkb   tx_queue_size
+       4400 :
+       1000 :                            org     1000
+       1000 : =1000              stack   =       .
+       1000 :                    initialize:
+       1000 : 012706 001000              mov     #stack, sp
+       1004 : 012702 004000              mov     #rx_queue, r2
+       1010 : 012700 000200              mov     #rx_queue_size, r0
+       1014 : 004767 000400              jsr     pc, queue_init
+       1020 : 012702 004200              mov     #tx_queue, r2
+       1024 : 012700 000200              mov     #tx_queue_size, r0
+       1030 : 004767 000364              jsr     pc, queue_init
+       1034 :                            ;; Initialize ACIA
+       1034 : 112737 000003              movb    #CDS_RESET_gc, @#ACIA_control ; Master reset
+       1040 : 177560
+       1042 : 112737 000224              movb    #RX_INT_TX_NO, @#ACIA_control ; 8 bits + No Parity + 1 Stop Bits
+       1046 : 177560
+       1050 : 112737 000060              movb    #ACIA_VEC, @#ACIA_intr ; set the vector for MC6850 emulator
+       1054 : 177564
+       1056 : 106427 000000              mtps    #PSW_PRI0       ; Enable interrupt
+       1062 :
+       1062 : 004767 000212      loop:   jsr     pc, getchar
+       1066 : 103375                     bcc     loop
+       1070 : 105700                     tstb    r0
+       1072 : 001416                     beq     halt_to_system
+       1074 : 010001                     mov     r0, r1
+       1076 : 004767 000256              jsr     pc, putchar     ; echo
+       1102 : 004767 000246              jsr     pc, putspace
+       1106 : 004767 000020              jsr     pc, put_hex8    ; print in hex
+       1112 : 004767 000236              jsr     pc, putspace
+       1116 : 004767 000102              jsr     pc, put_bin8    ; print in binary
+       1122 : 004767 000210              jsr     pc, newline
+       1126 : 000755                     br      loop
+       1130 :                    halt_to_system:
+       1130 : 000003                     bpt
+       1132 :
+       1132 :                    ;;; Print uint8_t in hex
+       1132 :                    ;;; @param R1 uint8_t value to be printed in hex
+       1132 :                    ;;; @clobber R0
+       1132 :                    put_hex8:
+       1132 : 112700 000060              movb    #'0, r0
+       1136 : 004767 000216              jsr     pc, putchar
+       1142 : 112700 000170              movb    #'x, r0
+       1146 : 004767 000206              jsr     pc, putchar
+       1152 : 010100                     mov     r1, r0
+       1154 : 006200                     asr     r0
+       1156 : 006200                     asr     r0
+       1160 : 006200                     asr     r0
+       1162 : 006200                     asr     r0
+       1164 : 004767 000002              jsr     pc, put_hex4
+       1170 : 010100                     mov     r1, r0
+       1172 :                    put_hex4:
+       1172 : 042700 177760              bic     #177760, r0     ; R0&=0x0F
+       1176 : 116000 001204              movb    hex_table(r0), r0
+       1202 : 000466                     br      putchar
+       1204 :                    hex_table:
+       1204 : 030460 031462              .ascii  "0123456789ABCDEF"
+       1210 : 032464 033466
+       1214 : 034470 041101
+       1220 : 042103 043105
+       1224 :
+       1224 :                    ;;; Print uint8_t in binary
+       1224 :                    ;;; @param R1 uint8_t value to be printed in binary
+       1224 :                    ;;; @clobber R0
+       1224 :                    put_bin8:
+       1224 : 010346                     mov     r3, -(sp)
+       1226 : 112700 000060              movb    #'0, r0
+       1232 : 004767 000122              jsr     pc, putchar
+       1236 : 112700 000142              movb    #'b, r0
+       1242 : 004767 000112              jsr     pc, putchar
+       1246 : 012703 000200              mov     #200, r3        ; bit mask, from MSB
+       1252 :                    put_bin8_loop:
+       1252 : 112700 000060              movb    #'0, r0
+       1256 : 030301                     bit     r3, r1
+       1260 : 001401                     beq     put_bin8_putchar
+       1262 : 105200                     incb    r0              ; '1'
+       1264 :                    put_bin8_putchar:
+       1264 : 004767 000070              jsr     pc, putchar
+       1270 : 006203                     asr     r3
+       1272 : 001367                     bne     put_bin8_loop
+       1274 : 012603                     mov     (sp)+, r3
+       1276 : 000207                     rts     pc
+       1300 :
+       1300 :                    ;;; Get character
+       1300 :                    ;;; @return R0 character
+       1300 :                    ;;; @return PSW.C 0 if no character
+       1300 :                    ;;; @clobber R2
+       1300 :                    getchar:
+       1300 : 012702 004000              mov     #rx_queue, r2
+       1304 : 106427 000340              mtps    #PSW_PRI7       ; Disable interrupt
+       1310 : 004767 000204              jsr     pc, queue_remove
+       1314 : 103004                     bcc     getchar_empty
+       1316 : 106427 000000              mtps    #PSW_PRI0       ; Enable interrupt
+       1322 : 000261                     sec
+       1324 : 000207                     rts     pc
+       1326 :                    getchar_empty:
+       1326 : 106427 000000              mtps    #PSW_PRI0       ; Enable interrupt
+       1332 : 000241                     clc
+       1334 : 000207                     rts     pc
+       1336 :
+       1336 :                    ;;; Put newline
+       1336 :                    ;;; @clobber R0 R2
+       1336 :                    newline:
+       1336 : 112700 000015              movb    #15, r0
+       1342 : 004767 000012              jsr     pc, putchar
+       1346 : 112700 000012              movb    #12, r0
+       1352 : 000402                     br      putchar
+       1354 :
+       1354 :                    ;;; Put space
+       1354 :                    ;;; @clobber R0 R2
+       1354 :                    putspace:
+       1354 : 112700 000040              movb    #' , r0
+       1360 :                    ;;; Put character
+       1360 :                    ;;; @param R0 character
+       1360 :                    ;;; @clobber R2
+       1360 :                    putchar:
+       1360 : 012702 004200              mov     #tx_queue, r2
+       1364 :                    putchar_retry:
+       1364 : 106427 000340              mtps    #PSW_PRI7       ; Disable interrupt
+       1370 : 004767 000046              jsr     pc, queue_add
+       1374 : 103403                     bcs     putchar_added
+       1376 : 106427 000000              mtps    #PSW_PRI0       ; Enable interrupt while the queue is full
+       1402 : 000770                     br      putchar_retry
+       1404 :                    putchar_added:
+       1404 : 112737 000264              movb    #RX_INT_TX_INT, @#ACIA_control ; Enable Tx interrupt
+       1410 : 177560
+       1412 : 106427 000000              mtps    #PSW_PRI0       ; Enable interrupt
+       1416 : 000207                     rts     pc
+       1420 :
+       1420 :                            include "queue.inc"
+(1)    1420 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)    1420 :                    ;;; [queue] queue structure
+(1)    1420 : =0                 queue_len       =       0       ; queue length
+(1)    1420 : =2                 queue_size      =       2       ; buffer size
+(1)    1420 : =4                 queue_put       =       4       ; queue put index
+(1)    1420 : =6                 queue_get       =       6       ; queue get index
+(1)    1420 : =10                queue_buf       =       10      ; buffer start offset
+(1)    1420 :
+(1)    1420 :                    ;;; [queue] Initialize queue
+(1)    1420 :                    ;;; @param R2 queue work space pointer
+(1)    1420 :                    ;;; @param R0 queue work space size
+(1)    1420 :                    ;;; @clobber R0 R2
+(1)    1420 :                    queue_init:
+(1)    1420 : 005022                     clr     (r2)+           ; clear queue_len
+(1)    1422 : 162700 000010              sub     #queue_buf, r0
+(1)    1426 : 010022                     mov     r0, (r2)+       ; set queue_size
+(1)    1430 : 005022                     clr     (r2)+           ; clear queue_put
+(1)    1432 : 005022                     clr     (r2)+           ; clear queue_get
+(1)    1434 :                    queue_init_loop:
+(1)    1434 : 105022                     clrb    (r2)+
+(1)    1436 : 077002                     sob     r0, queue_init_loop
+(1)    1440 : 000207                     rts     pc
+(1)    1442 :
+(1)    1442 :                    ;;; [queue] Add an element to queue
+(1)    1442 :                    ;;; @param R2 queue work space pointer
+(1)    1442 :                    ;;; @param R0 an element
+(1)    1442 :                    ;;; @return PSW.C 0 if queue is full
+(1)    1442 :                    queue_add:
+(1)    1442 : 021262 000002              cmp     (r2), queue_size(r2) ; check queue_len
+(1)    1446 : 103402                     blo     queue_add_element
+(1)    1450 : 000241                     clc                     ; queue is full
+(1)    1452 : 000207                     rts     pc
+(1)    1454 :                    queue_add_element:
+(1)    1454 : 010146                     mov     r1, -(sp)
+(1)    1456 : 010201                     mov     r2, r1
+(1)    1460 : 066201 000004              add     queue_put(r2), r1
+(1)    1464 : 110061 000010              movb    r0, queue_buf(r1)
+(1)    1470 : 012601                     mov     (sp)+, r1
+(1)    1472 : 005212                     inc     (r2)            ; update queue_len
+(1)    1474 : 005262 000004              inc     queue_put(r2)
+(1)    1500 : 026262 000004              cmp     queue_put(r2), queue_size(r2)
+       1504 : 000002
+(1)    1506 : 103402                     blo     queue_add_return
+(1)    1510 : 005062 000004              clr     queue_put(r2)
+(1)    1514 :                    queue_add_return:
+(1)    1514 : 000261                     sec
+(1)    1516 : 000207                     rts     pc
+(1)    1520 :
+(1)    1520 :                    ;;; [queue] Remove an element from queue
+(1)    1520 :                    ;;; @param R2 queue work space pointer
+(1)    1520 :                    ;;; @return R0 an element
+(1)    1520 :                    ;;; @return PSW.C 0 if queue is empty
+(1)    1520 :                    queue_remove:
+(1)    1520 : 005712                     tst     (r2)            ; check queue_len
+(1)    1522 : 001002                     bne     queue_remove_element
+(1)    1524 : 000241                     clc                     ; queue is empty
+(1)    1526 : 000207                     rts     pc
+(1)    1530 :                    queue_remove_element:
+(1)    1530 : 010146                     mov     r1, -(sp)
+(1)    1532 : 010201                     mov     r2, r1
+(1)    1534 : 066201 000006              add     queue_get(r2), r1
+(1)    1540 : 005000                     clr     r0
+(1)    1542 : 156100 000010              bisb    queue_buf(r1), r0 ; without sign extension
+(1)    1546 : 012601                     mov     (sp)+, r1
+(1)    1550 : 005312                     dec     (r2)            ; update queue_len
+(1)    1552 : 005262 000006              inc     queue_get(r2)
+(1)    1556 : 026262 000006              cmp     queue_get(r2), queue_size(r2)
+       1562 : 000002
+(1)    1564 : 103402                     blo     queue_remove_return
+(1)    1566 : 005062 000006              clr     queue_get(r2)
+(1)    1572 :                    queue_remove_return:
+(1)    1572 : 000261                     sec
+(1)    1574 : 000207                     rts     pc
+       1576 :
+       1576 :                    isr_acia:
+       1576 : 010046                     mov     r0, -(sp)
+       1600 : 010246                     mov     r2, -(sp)
+       1602 : 132737 000001              bitb    #RDRF_bm, @#ACIA_status
+       1606 : 177560
+       1610 : 001406                     beq     isr_acia_send
+       1612 : 113700 177562              movb    @#ACIA_data, r0
+       1616 : 012702 004000              mov     #rx_queue, r2
+       1622 : 004767 177614              jsr     pc, queue_add
+       1626 :                    isr_acia_send:
+       1626 : 132737 000002              bitb    #TDRE_bm, @#ACIA_status
+       1632 : 177560
+       1634 : 001407                     beq     isr_acia_exit
+       1636 : 012702 004200              mov     #tx_queue, r2
+       1642 : 004767 177652              jsr     pc, queue_remove
+       1646 : 103005                     bcc     isr_acia_send_empty
+       1650 : 110037 177562              movb    r0, @#ACIA_data
+       1654 :                    isr_acia_exit:
+       1654 : 012602                     mov     (sp)+, r2
+       1656 : 012600                     mov     (sp)+, r0
+       1660 : 000002                     rti
+       1662 :                    isr_acia_send_empty:
+       1662 : 112737 000224              movb    #RX_INT_TX_NO, @#ACIA_control ; Disable Tx interrupt
+       1666 : 177560
+       1670 : 000771                     br      isr_acia_exit

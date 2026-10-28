@@ -87,6 +87,8 @@ report several parts.
 <tr><td><code>tms320f</code></td><td></td><td>🚧</td><td><code>TMS320C32</code></td><td></td><td><code>TMS320C32PCM40</code>; floating point</td></tr>
 <tr><td rowspan="2"><code>pdp8</code></td><td rowspan="2"><code>pdp8</code></td><td>✅</td><td><code>IM6100</code></td><td></td><td>Short address-valid window makes tuning hard</td></tr>
 <tr><td>✅</td><td><code>HD6120</code></td><td></td><td>Needs no dummy read, so faster than IM6100</td></tr>
+<tr><td rowspan="2"><code>pdp11</code></td><td rowspan="2"><code>pdp11</code></td><td>🚧</td><td><code>DCT11</code></td><td></td><td>Debugger drafted; board not built</td></tr>
+<tr><td>🚧</td><td><code>DCJ11</code></td><td></td><td>Pin map drafted</td></tr>
 <tr><td rowspan="2"><code>pdp11</code></td><td rowspan="2"></td><td>🚧</td><td><code>T-11</code></td><td></td><td><code>DCT11</code></td></tr>
 <tr><td>🚧</td><td><code>J-11</code></td><td></td><td><code>DCJ11</code></td></tr>
 <tr><td><code>cdp1802</code></td><td><code>cdp1802</code></td><td>✅</td><td><code>CDP1802</code></td><td><code>CDP1804A</code></td><td></td></tr>
