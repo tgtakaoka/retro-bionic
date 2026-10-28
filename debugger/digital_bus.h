@@ -50,6 +50,17 @@
         const uint32_t o = POUT(name) & ~PORT_gm(name);                \
         POUT(name) = o | (writePort(name, v) & PORT_gm(name));         \
     } while (0)
+// busWrite() through the write-only clear and set registers: a read of the
+// data register can stall behind earlier peripheral accesses. Bits going
+// low change one store before bits going high. busWrite() stays as is,
+// since some targets' bus timing may count on its time.
+#define busWriteFast(name, val)                                        \
+    do {                                                               \
+        const uint32_t v = static_cast<uint32_t>(val) << BUS_vp(name); \
+        const uint32_t w = writePort(name, v) & PORT_gm(name);         \
+        PCLR(name) = ~w & PORT_gm(name);                               \
+        PSET(name) = w;                                                \
+    } while (0)
 
 #endif
 
