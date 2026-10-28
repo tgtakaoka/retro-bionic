@@ -285,6 +285,15 @@ The S80296SA's went this way:
 6. Trim a clock phase only after measuring how late the CPU's outputs
    follow its edge: the S80296SA's followed a rising XTAL1 by 10-22 ns and
    were sampled 60 ns or more later, so its high phase needs no delay.
+7. Do the work as soon as its input is valid, not where the old code
+   did it. The CDP1802 drives the low address byte from early c30, a clock
+   before the code read it, so the memory read moved into c40 and the byte
+   is staged in the port with `busWriteFast()` while the bus is still an
+   input; c61 only turns the port to output.
+8. Give every branch of a phase its own delay. A debugger-injected read
+   skips the memory lookup, and with no delay in its branch the CDP1802's
+   c40 low half shrank to about 30 ns: the CPU kept fetching the byte
+   staged before, while the firmware went on as if each fetch were served.
 
 ### Clocking a run from a timer **[hw][code]**
 
@@ -366,6 +375,13 @@ cycles, where bit-banged edges needed a tuned delay for each.
   keeps up: on the 8085 at 10 MHz X1, an ALE came 90 ns after a held
   write's strobe and was over before the Teensy looked, and zero-wait
   reads worked only at 6 MHz, slower than every cycle held at 10 MHz.
+- Measure the bit-banged machine cycle against the CPU's rated clock
+  before moving it to a timer. The CDP1802's bit-banged clock already
+  ran near its 5 MHz, a 1.73 us machine cycle against 1.60 us, so a timer
+  could gain at most that gap; holding each cycle with `#WAIT` made it
+  2.39 us. Squeeze the bit-banged cycle instead. The CDP1802 pauses on any
+  falling clock edge with `#WAIT` low, ignoring that edge; the CDP1804A
+  family pauses only as TPA or TPB rises.
 - A target moved to a timer adds its row to the table in
   [hardware.md](hardware.md#clocking-the-cpu) (clock input, the input that
   holds a cycle, default rate) in the same commit, and a cast recorded on
