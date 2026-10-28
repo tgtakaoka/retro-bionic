@@ -120,6 +120,10 @@ alone; a reset clears only the device's own registers and pending interrupts.
 
 - **MC6850 ACIA** — `debugger/mc6850.cpp`
 - **i8251 USART** — `debugger/i8251.cpp`
+- **8087 INT** (D8087 board) — `debugger/i8086/devs_d8087.cpp`: `NPX`, disabled at
+  power-up, `I NPX` turns it on and off. While the 8087 holds INT high it requests
+  interrupt type 2 by default, which raises NMI and stops the run in the debugger;
+  `I NPX 0 type` makes it raise INTR with that type instead.
 
 For microcontroller targets with a serial port on the die, that port is bridged to your
 terminal instead of an emulated chip. Handlers exist for CDP1802, INS8060, INS8070, i8051,

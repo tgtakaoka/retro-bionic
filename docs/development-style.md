@@ -302,8 +302,9 @@ instead of bit-banged edges, which is the way to a CPU whose clock goes
 through a PLL. The MC68HC16 does this on EXTAL (P47); reset, step and
 injected sequences stay bit-banged. The TMS9980 and TMS9981 run every
 sequence from it on CKIN (pin 5), the TMS370Cx5x on CLKIN (pin 5), and
-the INS8060 and INS8070 on XIN (pin 5), and the 8085 on X1 (pin 6), since
-their clock must not stop. The SCN2650
+the INS8060 and INS8070 on XIN (pin 5), the 8085 on X1 (pin 6), and
+the D8087 board's 8086 and 8087 on CLK (pin 29), since their clock must
+not stop. The SCN2650
 is static, but runs from it on CLOCK (pin 5) too: the timer paces the
 cycles, where bit-banged edges needed a tuned delay for each. On the 6502
 board (rev 11) the CMOS parts run from it on PHI0 (P47) once reset has

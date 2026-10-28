@@ -9,7 +9,7 @@ source, a listing, and a pre-built `.s19` or `.hex` ready to paste into the debu
 | Program | What it does |
 |---|---|
 | `mandelbrot` | Draws the Mandelbrot set as ASCII art. The cross-architecture benchmark; see [its timings](mandelbrot.md). |
-| `fmandel` | Floating-point variant, for targets with FP instructions (MN1613, TMS99110) |
+| `fmandel` | Floating-point variant, for targets with FP instructions (MN1613, TMS99110, 8087) |
 | `arith` | Arithmetic test suite — add, subtract, multiply, divide, negate, shift, and the resulting flags |
 | `echo` | Serial echo, polled |
 | `echoir` | Serial echo with an interrupt-driven receiver |
@@ -17,6 +17,13 @@ source, a listing, and a pre-built `.s19` or `.hex` ready to paste into the debu
 
 Shared assembly includes sit alongside them — `queue.inc`, `mc6850.inc`, `i8251.inc`,
 `usart.inc`, plus per-CPU register definitions.
+
+Where a family runs the same binary code, each CPU directory's `.asm` is only a harness:
+the `cpu` directive, the reset entry and vectors, and setup. The program itself is a
+shared include in the family's base directory, so a new variant adds harnesses, not
+copies. `samples/i8086` holds the x86 programs (`mandelbrot.inc`, `arith.inc`, `echo*.inc`,
+the `io.inc` console), which `samples/i8087` and later 80186-80486 harnesses include; a
+shared include names no CPU and stays in the 8086 instruction set.
 
 A few directories carry real vintage software as well:
 [`samples/mc6809/ASSIST09.S19`](../samples/mc6809/ASSIST09.S19) and

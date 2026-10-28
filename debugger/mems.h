@@ -85,9 +85,11 @@ struct Mems : MatchMemory {
 
 protected:
     Mems(Endian endian, bool wordAccess = false);
+    // For a target that learns its bus width from the CPU it runs.
+    void setWordAccess(bool wordAccess) { _wordAccess = wordAccess; }
 
     const Endian _endian;
-    const bool _wordAccess;
+    bool _wordAccess;
 #ifdef WITH_ASSEMBLER
     libasm::Assembler *_assembler;
     virtual libasm::Assembler *assembler() const;

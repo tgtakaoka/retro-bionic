@@ -154,6 +154,7 @@ These boards run from a timer:
 | G65SC02 | `P47`, PHI0 | `P52`, RDY | 4.05 MHz |
 | W65C02S, W65C816S | `P47`, PHI0 | `P52`, RDY | 12.5 MHz |
 | R65C02 | `P47`, PHI0 | `P52`, RDY | 3 MHz |
+| D8087 | `P47`, CLK | `P52`, READY | 2.5 MHz |
 
 The P8080's two phases come from two FlexPWM modules whose counters are restarted
 together, and in a run its plain memory reads take no wait state. The Z180's internal
