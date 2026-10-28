@@ -2292,7 +2292,62 @@ after it. **[hw]**
 
 ### CP1600
 
-Draft board for the CP1610 (40-pin DIP); not built yet.
+**Pitfalls.** The interrupt sequence pushes only the PC and leaves INTFF
+alone, so `#INTRM` stays enabled through the debugger's own entry. `HLT`
+stops the CPU only after the next interruptible instruction.
+
+`HLT` itself is not interruptible, so a run of injected `HLT`s never
+stops the CPU: the debugger parks it with `HLT` then `NOP`, and a program
+that halts takes its PC from the next fetch, past that instruction.
+**[doc]**
+
+The debugger halts and steps through `#STPST`, an edge-triggered toggle:
+a falling edge stops a running CPU after the next interruptible
+instruction, with HALT high, and the next starts it again. **[doc]** So
+the debugger raises it again before a register save, whose restart needs
+a fresh falling edge. A break point's fetch is served `HLT` then `NOP`
+instead. `#INTR` is not used: on the rev 1 board neither the Teensy nor
+the `SIN` trap gates pull it low against its pull-up. **[hw]**
+
+The interrupt sequence is `INTAK`, `DW`/`DWS` and `IAB` only, and the
+manuals leave INTFF to `EIS`, `DIS`, `JE`, `JD`, `JSRE` and `JSRD`;
+service routines are expected to mask `#INTRM` themselves. **[doc]** So,
+as on the PDP-8, the debugger holds `#INTRM` off from the halt until the
+program's first bus cycle after the restore, which then ends in `JE` or
+`JD` to set INTFF with the jump. `save()` reads INTFF by asserting
+`#INTRM` over an injected `NOP`. **[code]**
+
+PHI1 and PHI2 run free from FlexPWM, 207 ns each with 43 ns between, at
+the rated 2 MHz. The CP1610 data sheet's 250 ns minimum phase leaves no
+gap at 2 MHz; the CP1600 Data Manual's CP1610 table gives 200 ns. Nothing
+marks TS1, as PHI1 rises in TS1 and TS3. `#MSYNC` rising starts a TS3,
+and the microcycles keep that phase while the CPU waits on HALT or
+BUSRQ, so the debugger keeps a grid of Teensy cycles from reset rather
+than finding TS1 again from the bus, which locked onto TS3 when the CPU
+resumed within the period sampled first. **[code]**
+
+The CPU can be held only after `BAR` or `ADAR`, with BDRDY, and for 40 µs
+at most. **[doc]** The debugger holds a fetch with it where a stopped
+clock used to freeze the CPU. Device service, whose USB writes can take
+longer, waits on BUSRQ, which the CPU grants at an instruction boundary
+for as long as needed; BUSAK rises within the microcycle it resumes in,
+which may be an `INTAK`. The emulated UART counts time in calls of
+`loop()` and polls the console once in 256, so a pause comes every 256
+transactions and makes up one call for each; pausing on a timer every
+20 µs instead stopped the CPU for 3 µs in every 31. Only this pause
+enables interrupts; a BDRDY hold never does, so USB cannot stretch it
+past 40 µs. **[code]**
+
+Read data is due by TS3, and a read through `Mems` takes about 200 ns of
+that, so memory is read at the `BAR`, two microcycles ahead. A device
+may change as it is read, so it is read ahead only for an instruction
+that reads its operand, not an `MVO`; the `IAB` vector is read at
+`INTAK`, and break points are looked up at the `BAR` too, as either at
+the `DTB` made its data late. **[code]** A branch not
+taken skips its displacement word, so after a branch the fetch count
+takes a `DTB` at any other address as the next fetch. **[hw]**
+
+Board for the CP1610 (40-pin DIP), rev 1.
 
 - The CP1610 runs from +11 V VDD and −2.2 V VBB, both ±5 %, not the
   CP1600's +12 V and −3 V. An NJW4132 boost makes VDD from VCC; an LM2776
@@ -2302,7 +2357,8 @@ Draft board for the CP1610 (40-pin DIP); not built yet.
   the two-phase clock, which must reach 10 V, rise and fall within 15 ns
   and never overlap; see
   [Driving a high-voltage clock](#driving-a-high-voltage-clock). **[doc]**
-- `#INTR` is open drain with a 10 kΩ pull-up. The Teensy (P50) pulls it
-  low to halt, and a 74LVC1G02 and 74LVC1G06 pull it low while `#PCIT`
-  and `#ENSWI` (P34) are both low, so a `SIN` traps only when the Teensy
-  enables it.
+  A probe hook on U1-37 (PHI2) easily touches U1-36 (VDD), reading a flat
+  high and stopping the CPU. **[hw]**
+- `#INTR` is open drain with a 10 kΩ pull-up. The Teensy (P50) and a
+  74LVC1G02 and 74LVC1G06, while `#PCIT` and `#ENSWI` (P34) are both low,
+  were to pull it low; on rev 1 neither does. **[hw]**

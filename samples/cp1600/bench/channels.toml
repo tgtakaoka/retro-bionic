@@ -1,0 +1,138 @@
+# Channel labels for the CP1610, taken from cp1610_bionic.toml. PHI1 and
+# PHI2 are the Teensy's side of the UCC27324 unless named @CPU. Verify
+# against the wiring before trusting it -- a lead moved on the bench
+# leaves this stale. A hook on U1-37 easily touches U1-36 (VDD).
+
+# Channels follow the base board's headers in place order: P1x over P2x,
+# then P3x over P4x column by column, then P5x; PHI1/PHI2 at the CPU take
+# the places of P46/P47 that drive them. Reset, step, echoitr and run
+# share these leads; PHI1/PHI2 at the CPU are sampled analog, their rows
+# spanning -2 V to 12 V, and PHI2 digital too to clock the bus code.
+
+# A reset: #MSYNC rises within a PHI1, which starts a TS3; the CPU takes
+# its start address with IAB, BDRDY holds its first fetch, and the
+# registers are saved with #STPST starting the CPU and HALT ending it.
+[cp1610-reset]
+ 0 = { pin = "P10", signal = "D0" }
+ 1 = { pin = "P11", signal = "D1" }
+ 2 = { pin = "P12", signal = "D2" }
+ 3 = { pin = "P13", signal = "D3" }
+ 4 = { pin = "P40", signal = "BDIR" }
+ 5 = { pin = "P41", signal = "BC1" }
+ 6 = { pin = "P42", signal = "BC2" }
+ 7 = { pin = "P36", signal = "#BUSRQ" }
+ 8 = { pin = "U1-38", signal = "PHI1@CPU", analog = [12, -2] }
+ 9 = { pin = "P37", signal = "#BUSAK" }
+10 = { pin = "U1-37", signal = "PHI2@CPU", analog = [12, -2], digital = true }
+11 = { pin = "P51", signal = "#INTRM" }
+12 = { pin = "P52", signal = "#STPST" }
+13 = { pin = "P53", signal = "#MSYNC" }
+14 = { pin = "P54", signal = "BDRDY" }
+15 = { pin = "P55", signal = "HALT" }
+trigger = { signal = "#MSYNC", edge = "rise", before = 20e-6, after = 300e-6 }
+display = ["PHI1@CPU", "PHI2@CPU", "BDIR", "BC2", "BC1", "BDRDY", "#BUSRQ",
+        "#BUSAK", "#STPST", "HALT", "#INTRM", "#MSYNC", "D0", "D1", "D2", "D3"]
+# The bus code BDIR:BC2:BC1 as the Data Manual's Fig. 6 numbers it, NACT 0 to
+# INTAK 7, valid from tDC into TS1 to the next TS1.
+parallel = [
+  { data = ["BC1", "BC2", "BDIR"], clock = "PHI2@CPU", edge = "rise" },
+]
+
+# A step: the restore starts the CPU with #STPST and ends in a JE/JD whose
+# target fetch BDRDY holds; #STPST then falls again, and HALT rises after
+# the stepped instruction.
+[cp1610-step]
+ 0 = { pin = "P10", signal = "D0" }
+ 1 = { pin = "P11", signal = "D1" }
+ 2 = { pin = "P12", signal = "D2" }
+ 3 = { pin = "P13", signal = "D3" }
+ 4 = { pin = "P40", signal = "BDIR" }
+ 5 = { pin = "P41", signal = "BC1" }
+ 6 = { pin = "P42", signal = "BC2" }
+ 7 = { pin = "P36", signal = "#BUSRQ" }
+ 8 = { pin = "U1-38", signal = "PHI1@CPU", analog = [12, -2] }
+ 9 = { pin = "P37", signal = "#BUSAK" }
+10 = { pin = "U1-37", signal = "PHI2@CPU", analog = [12, -2], digital = true }
+11 = { pin = "P51", signal = "#INTRM" }
+12 = { pin = "P52", signal = "#STPST" }
+13 = { pin = "P53", signal = "#MSYNC" }
+14 = { pin = "P54", signal = "BDRDY" }
+15 = { pin = "P55", signal = "HALT" }
+trigger = { signal = "#STPST", edge = "fall", before = 20e-6, after = 400e-6 }
+display = ["PHI1@CPU", "PHI2@CPU", "BDIR", "BC2", "BC1", "BDRDY", "#BUSRQ",
+        "#BUSAK", "#STPST", "HALT", "#INTRM", "#MSYNC", "D0", "D1", "D2", "D3"]
+# The bus code BDIR:BC2:BC1 as the Data Manual's Fig. 6 numbers it, NACT 0 to
+# INTAK 7, valid from tDC into TS1 to the next TS1.
+parallel = [
+  { data = ["BC1", "BC2", "BDIR"], clock = "PHI2@CPU", edge = "rise" },
+]
+
+# echoitr: the USART pulls #INTRM low, and the CPU answers with INTAK,
+# pushes the PC with DW/DWS and takes the handler with IAB; BUSRQ and
+# BUSAK pause it for the devices. One letter received and its whole echo,
+# a Tx interrupt for each of 19 characters, take about 39 ms.
+[cp1610-echoitr]
+ 0 = { pin = "P10", signal = "D0" }
+ 1 = { pin = "P11", signal = "D1" }
+ 2 = { pin = "P12", signal = "D2" }
+ 3 = { pin = "P13", signal = "D3" }
+ 4 = { pin = "P40", signal = "BDIR" }
+ 5 = { pin = "P41", signal = "BC1" }
+ 6 = { pin = "P42", signal = "BC2" }
+ 7 = { pin = "P36", signal = "#BUSRQ" }
+ 8 = { pin = "U1-38", signal = "PHI1@CPU", analog = [12, -2] }
+ 9 = { pin = "P37", signal = "#BUSAK" }
+10 = { pin = "U1-37", signal = "PHI2@CPU", analog = [12, -2], digital = true }
+11 = { pin = "P51", signal = "#INTRM" }
+12 = { pin = "P52", signal = "#STPST" }
+13 = { pin = "P53", signal = "#MSYNC" }
+14 = { pin = "P54", signal = "BDRDY" }
+15 = { pin = "P55", signal = "HALT" }
+trigger = { signal = "#INTRM", edge = "fall", before = 20e-6, after = 39.9e-3, long = true }
+display = ["PHI1@CPU", "PHI2@CPU", "BDIR", "BC2", "BC1", "BDRDY", "#BUSRQ",
+        "#BUSAK", "#STPST", "HALT", "#INTRM", "#MSYNC", "D0", "D1", "D2", "D3"]
+# The bus code BDIR:BC2:BC1 as the Data Manual's Fig. 6 numbers it, NACT 0 to
+# INTAK 7, valid from tDC into TS1 to the next TS1.
+parallel = [
+  { data = ["BC1", "BC2", "BDIR"], clock = "PHI2@CPU", edge = "rise" },
+]
+
+# A run: BDRDY holding a fetch, and BUSRQ/BUSAK pausing the CPU for the
+# devices.
+[cp1610-run]
+ 0 = { pin = "P10", signal = "D0" }
+ 1 = { pin = "P11", signal = "D1" }
+ 2 = { pin = "P12", signal = "D2" }
+ 3 = { pin = "P13", signal = "D3" }
+ 4 = { pin = "P40", signal = "BDIR" }
+ 5 = { pin = "P41", signal = "BC1" }
+ 6 = { pin = "P42", signal = "BC2" }
+ 7 = { pin = "P36", signal = "#BUSRQ" }
+ 8 = { pin = "U1-38", signal = "PHI1@CPU", analog = [12, -2] }
+ 9 = { pin = "P37", signal = "#BUSAK" }
+10 = { pin = "U1-37", signal = "PHI2@CPU", analog = [12, -2], digital = true }
+11 = { pin = "P51", signal = "#INTRM" }
+12 = { pin = "P52", signal = "#STPST" }
+13 = { pin = "P53", signal = "#MSYNC" }
+14 = { pin = "P54", signal = "BDRDY" }
+15 = { pin = "P55", signal = "HALT" }
+trigger = { signal = "#BUSAK", edge = "fall", before = 10e-6, after = 200e-6 }
+display = ["PHI1@CPU", "PHI2@CPU", "BDIR", "BC2", "BC1", "BDRDY", "#BUSRQ",
+        "#BUSAK", "#STPST", "HALT", "#INTRM", "#MSYNC", "D0", "D1", "D2", "D3"]
+# The bus code BDIR:BC2:BC1 as the Data Manual's Fig. 6 numbers it, NACT 0 to
+# INTAK 7, valid from tDC into TS1 to the next TS1.
+parallel = [
+  { data = ["BC1", "BC2", "BDIR"], clock = "PHI2@CPU", edge = "rise" },
+]
+
+# The two-phase clock on both sides of its drivers, with no CPU fitted:
+# PHI1 and PHI2 must reach the socket at full swing and never be high
+# together.
+[cp1610-clock]
+ 0 = { pin = "P46", signal = "PHI1" }
+ 1 = { pin = "U1-38", signal = "PHI1@CPU", analog = [12, -2] }
+ 2 = { pin = "P47", signal = "PHI2" }
+ 3 = { pin = "U1-37", signal = "PHI2@CPU", analog = [12, -2] }
+ 4 = { pin = "P53", signal = "#MSYNC" }
+trigger = { signal = "#MSYNC", edge = "rise", before = 5e-6, after = 10e-6 }
+display = ["PHI1", "PHI1@CPU", "PHI2", "PHI2@CPU", "#MSYNC"]

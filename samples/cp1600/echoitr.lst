@@ -1,0 +1,355 @@
+          0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+          0 :                            include "cp1600.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :                    ;;; CP1600
+(1)       0 :                            cpu     cp1600
+(1)       0 :                            radix   10
+(1)       0 :                    ;;; Reset address (see debugger InstCp1610::RESET_PC)
+(1)       0 : =1000              RESET_PC:       equ     X'1000'
+          0 :                    ;;; i8251 Universal Synchronous/Asynchronous Receiver/Transmitter
+          0 : =FFF0              USART:          equ     X'FFF0'
+          0 : =FFF0              USARTD:         equ     USART+0 ; Data register
+          0 : =FFF1              USARTS:         equ     USART+1 ; Status register
+          0 : =FFF1              USARTC:         equ     USART+1 ; Control register
+          0 : =FFF2              USARTRV:        equ     USART+2 ; Receive interrupt vector
+          0 : =FFF3              USARTTV:        equ     USART+3 ; Transmit interrupt vector
+          0 :                            include "i8251.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :
+(1)       0 :                    ;;; i8251 USART device emulator.
+(1)       0 :                    ;;; Bit definition of mode instruction (asynchronous)
+(1)       0 : =6                 MODE_STOP_gp:   equ     6
+(1)       0 : =C0                MODE_STOP_gm:   equ     11000000B
+(1)       0 : =40                MODE_STOP1_gc:  equ     (1 << MODE_STOP_gp)
+(1)       0 : =80                MODE_STOP15_gc: equ     (2 << MODE_STOP_gp)
+(1)       0 : =C0                MODE_STOP2_gc:  equ     (3 << MODE_STOP_gp)
+(1)       0 : =20                MODE_EVEN_bm:   equ     00100000B   ; Even parity
+(1)       0 : =10                MODE_PARITY_bm: equ     00010000B   ; Parity enable
+(1)       0 : =2                 MODE_LEN_gp:    equ     2
+(1)       0 : =C                 MODE_LEN_gm:    equ     00001100B
+(1)       0 : =0                 MODE_LEN5_gc:   equ     (0 << MODE_LEN_gp)
+(1)       0 : =4                 MODE_LEN6_gc:   equ     (1 << MODE_LEN_gp)
+(1)       0 : =8                 MODE_LEN7_gc:   equ     (2 << MODE_LEN_gp)
+(1)       0 : =C                 MODE_LEN8_gc:   equ     (3 << MODE_LEN_gp)
+(1)       0 : =0                 MODE_BAUD_gp:   equ     0
+(1)       0 : =3                 MODE_BAUD_gm:   equ     00000011B
+(1)       0 : =1                 MODE_BAUD_X1:   equ     (1 << MODE_BAUD_gp)
+(1)       0 : =2                 MODE_BAUD_X16:  equ (2 << MODE_BAUD_gp)
+(1)       0 : =3                 MODE_BAUD_X64:  equ (3 << MODE_BAUD_gp)
+(1)       0 :                    ;;; Bit Definition of command register
+(1)       0 : =80                CMD_EH_bm:      equ     10000000B   ; Enter hunt mode
+(1)       0 : =40                CMD_IR_bm:      equ     01000000B   ; Internal Reset
+(1)       0 : =20                CMD_RTS_bm:     equ     00100000B   ; Request To Send
+(1)       0 : =10                CMD_ER_bm:      equ     00010000B   ; Error Reset
+(1)       0 : =8                 CMD_SBRK_bm:    equ     00001000B   ; Send Break
+(1)       0 : =4                 CMD_RxEN_bm:    equ     00000100B   ; Receive Enable
+(1)       0 : =2                 CMD_DTR_bm:     equ     00000010B   ; Data Terminal Ready
+(1)       0 : =1                 CMD_TxEN_bm:    equ     00000001B   ; Transmit enable
+(1)       0 :
+(1)       0 :                    ;;; Bit definition of status register
+(1)       0 : =80                ST_DSR_bm:      equ     10000000B   ; Data Set Ready
+(1)       0 : =40                ST_BRK_bm:      equ     01000000B   ; BREAK detected
+(1)       0 : =20                ST_FE_bm:       equ     00100000B   ; Framing Error
+(1)       0 : =10                ST_OE_bm:       equ     00010000B   ; Overrun Error
+(1)       0 : =8                 ST_PE_bm:       equ     00001000B   ; Parity Error
+(1)       0 : =4                 ST_TxEMPTY_bm:  equ     00000100B   ; Transmitter empty
+(1)       0 : =2                 ST_RxRDY_bm:    equ     00000010B   ; Receiver ready
+(1)       0 : =1                 ST_TxRDY_bm:    equ     00000001B   ; Transmitter ready
+          0 :                    ;;; Async 1stop 8data x16
+          0 : =4E                ASYNC_MODE:     equ     MODE_STOP1_gc|MODE_LEN8_gc|MODE_BAUD_X16
+          0 :                    ;;; RTS/DTR, error reset, Rx enable, Tx enable
+          0 : =37                RX_EN_TX_EN:    equ     CMD_RTS_bm|CMD_DTR_bm|CMD_ER_bm|CMD_RxEN_bm|CMD_TxEN_bm
+          0 : =36                RX_EN_TX_DIS:   equ     CMD_RTS_bm|CMD_DTR_bm|CMD_ER_bm|CMD_RxEN_bm
+          0 :
+          0 :                    ;;; The interrupt name the USART is given is its vector.
+         10 :                            org     X'0010'
+         10 :                    USART_VEC:
+         10 : 0004 0312 010F             jd      isr_usart       ; Disable interrupts with the jump
+         13 :
+       2000 :                            org     X'2000'
+       2000 : =80                rx_queue_size:  equ     128
+       2000 :                    rx_queue:
+       2000 :                            res     rx_queue_size
+       2080 : =80                tx_queue_size:  equ     128
+       2080 :                    tx_queue:
+       2080 :                            res     tx_queue_size
+       2100 :
+        200 :                            org     X'0200'
+        200 :                    stack:
+        200 :
+       1000 :                            org     RESET_PC
+       1000 :                    initialize:
+       1000 : 02BE 0200                  mvii    stack, r6
+       1002 : 02BB 2000                  mvii    rx_queue, r3
+       1004 : 02B8 0080                  mvii    rx_queue_size, r0
+       1006 : 0004 0110 00BA             jsr     r5, queue_init
+       1009 : 02BB 2080                  mvii    tx_queue, r3
+       100B : 02B8 0080                  mvii    tx_queue_size, r0
+       100D : 0004 0110 00BA             jsr     r5, queue_init
+       1010 : 0004 0110 0032             jsr     r5, init_usart
+       1013 : 0002                       eis
+       1014 : 0004 0110 0050     loop:   jsr     r5, getchar
+       1017 : 0080                       tstr    r0
+       1018 : 0204 0015                  beq     halt_to_system  ; halt on NUL
+       101A : 0081                       movr    r0, r1
+       101B : 0004 0110 00AA             jsr     r5, putchar
+       101E : 0004 0110 009D             jsr     r5, putspace
+       1021 : 0004 0110 005C             jsr     r5, put_hex8
+       1024 : 0004 0110 009D             jsr     r5, putspace
+       1027 : 0004 0110 007D             jsr     r5, put_bin8
+       102A : 0004 0110 00A1             jsr     r5, newline
+       102D : 0220 001A                  b       loop
+       102F :                    halt_to_system:
+       102F : 0000                       hlt
+       1030 : 0220 0002                  b       halt_to_system  ; HLT stops after this
+       1032 :
+       1032 :                    init_usart:
+       1032 : 01C0                       clrr    r0
+       1033 : 0240 FFF1                  mvo     r0, USARTC
+       1035 : 0240 FFF1                  mvo     r0, USARTC
+       1037 : 0240 FFF1                  mvo     r0, USARTC      ; Safest way to sync mode
+       1039 : 02B8 0040                  mvii    CMD_IR_bm, r0
+       103B : 0240 FFF1                  mvo     r0, USARTC      ; Reset
+       103D : 0034                       nop
+       103E : 0034                       nop
+       103F : 02B8 004E                  mvii    ASYNC_MODE, r0
+       1041 : 0240 FFF1                  mvo     r0, USARTC
+       1043 : 0034                       nop
+       1044 : 0034                       nop
+       1045 : 02B8 0036                  mvii    RX_EN_TX_DIS, r0
+       1047 : 0240 FFF1                  mvo     r0, USARTC      ; Enable Rx, Disable Tx
+       1049 :                            ;; Rx and Tx share #INTRM, so share the vector too.
+       1049 : 02B8 0010                  mvii    USART_VEC, r0
+       104B : 0240 FFF2                  mvo     r0, USARTRV     ; Enable Rx interrupt
+       104D : 0240 FFF3                  mvo     r0, USARTTV     ; Enable Tx interrupt
+       104F : 00AF                       jr      r5
+       1050 :
+       1050 :                    ;;; @return R0 received char
+       1050 :                    getchar:
+       1050 : 0275                       pshr    r5
+       1051 : 0273                       pshr    r3
+       1052 : 02BB 2000                  mvii    rx_queue, r3
+       1054 :                    getchar_wait:
+       1054 : 0004 0112 00EE             jsrd    r5, queue_remove
+       1057 : 0002                       eis
+       1058 : 0229 0005                  bnc     getchar_wait    ; branch if queue is empty
+       105A : 02B3                       pulr    r3
+       105B : 02B7                       pulr    r7
+       105C :
+       105C :                    ;;; Print "0xXX"
+       105C :                    ;;; @param R1 value
+       105C :                    ;;; @clobber R0
+       105C :                    put_hex8:
+       105C : 0275                       pshr    r5
+       105D : 02B8 0030                  mvii    '0', r0
+       105F : 0004 0110 00AA             jsr     r5, putchar
+       1062 : 02B8 0078                  mvii    'x', r0
+       1064 : 0004 0110 00AA             jsr     r5, putchar
+       1067 : 0088                       movr    r1, r0
+       1068 : 0064                       slr     r0, 2
+       1069 : 0064                       slr     r0, 2
+       106A : 0004 0110 006F             jsr     r5, put_hex4
+       106D : 0088                       movr    r1, r0
+       106E : 02B5                       pulr    r5
+       106F :                    put_hex4:
+       106F : 03B8 000F                  andi    X'0F', r0
+       1071 : 0378 000A                  cmpi    10, r0
+       1073 : 0205 0004                  blt     put_hex4_dec    ; branch if R0<10
+       1075 : 02F8 0037                  addi    'A'-10, r0
+       1077 : 0200 0031                  b       putchar
+       1079 :                    put_hex4_dec:
+       1079 : 02F8 0030                  addi    '0', r0
+       107B : 0200 002D                  b       putchar
+       107D :
+       107D :                    ;;; Print "0bXXXXXXXX"
+       107D :                    ;;; @param R1 value
+       107D :                    ;;; @clobber R0
+       107D :                    put_bin8:
+       107D : 0275                       pshr    r5
+       107E : 0272                       pshr    r2
+       107F : 0273                       pshr    r3
+       1080 : 02B8 0030                  mvii    '0', r0
+       1082 : 0004 0110 00AA             jsr     r5, putchar
+       1085 : 02B8 0062                  mvii    'b', r0
+       1087 : 0004 0110 00AA             jsr     r5, putchar
+       108A : 008A                       movr    r1, r2
+       108B : 0042                       swap    r2              ; bit 7 to bit 15
+       108C : 02BB 0008                  mvii    8, r3
+       108E :                    put_bin8_loop:
+       108E : 02B8 0030                  mvii    '0', r0
+       1090 : 005A                       sllc    r2              ; C=msb
+       1091 : 0209 0001                  bnc     put_bin8_bit
+       1093 : 0008                       incr    r0              ; '1'
+       1094 :                    put_bin8_bit:
+       1094 : 0004 0110 00AA             jsr     r5, putchar
+       1097 : 0013                       decr    r3
+       1098 : 022C 000B                  bneq    put_bin8_loop
+       109A : 02B3                       pulr    r3
+       109B : 02B2                       pulr    r2
+       109C : 02B7                       pulr    r7
+       109D :
+       109D :                    ;;; Put a space (putspace), CR LF (newline) or char R0 (putchar)
+       109D :                    putspace:
+       109D : 02B8 0020                  mvii    ' ', r0
+       109F : 0200 0009                  b       putchar
+       10A1 :                    newline:
+       10A1 : 0275                       pshr    r5
+       10A2 : 02B8 000D                  mvii    X'0D', r0
+       10A4 : 0004 0110 00AA             jsr     r5, putchar
+       10A7 : 02B8 000A                  mvii    X'0A', r0
+       10A9 : 02B5                       pulr    r5
+       10AA :                    putchar:
+       10AA : 0275                       pshr    r5
+       10AB : 0273                       pshr    r3
+       10AC : 02BB 2080                  mvii    tx_queue, r3
+       10AE :                    putchar_retry:
+       10AE : 0004 0112 00CB             jsrd    r5, queue_add
+       10B1 : 0002                       eis
+       10B2 : 0229 0005                  bnc     putchar_retry   ; branch if queue is full
+       10B4 : 02BB 0037                  mvii    RX_EN_TX_EN, r3
+       10B6 : 0243 FFF1                  mvo     r3, USARTC      ; Enable Rx/Tx
+       10B8 : 02B3                       pulr    r3
+       10B9 : 02B7                       pulr    r7
+       10BA :
+       10BA :                            include "queue.inc"
+(1)    10BA :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)    10BA :                    ;;; [queue] queue structure
+(1)    10BA : =0                 queue_len:      equ     0       ; queue length
+(1)    10BA : =1                 queue_size:     equ     1       ; buffer size
+(1)    10BA : =2                 queue_put:      equ     2       ; queue put index
+(1)    10BA : =3                 queue_get:      equ     3       ; queue get index
+(1)    10BA : =4                 queue_buf:      equ     4       ; buffer start offset
+(1)    10BA :
+(1)    10BA :                    ;;; [queue] Initialize queue
+(1)    10BA :                    ;;; @param R3 queue work space pointer
+(1)    10BA :                    ;;; @param R0 queue work space size, including the 4-word header
+(1)    10BA :                    ;;; @clobber R0
+(1)    10BA :                    queue_init:
+(1)    10BA : 0271                       pshr    r1
+(1)    10BB : 0274                       pshr    r4
+(1)    10BC : 009C                       movr    r3, r4
+(1)    10BD : 01C9                       clrr    r1
+(1)    10BE : 0261                       mvo@    r1, r4          ; clear queue_len
+(1)    10BF : 0338 0004                  subi    queue_buf, r0
+(1)    10C1 : 0260                       mvo@    r0, r4          ; set queue_size
+(1)    10C2 : 0261                       mvo@    r1, r4          ; clear queue_put
+(1)    10C3 : 0261                       mvo@    r1, r4          ; clear queue_get
+(1)    10C4 :                    queue_init_loop:
+(1)    10C4 : 0261                       mvo@    r1, r4          ; clear queue_buf
+(1)    10C5 : 0010                       decr    r0
+(1)    10C6 : 022C 0003                  bneq    queue_init_loop
+(1)    10C8 : 02B4                       pulr    r4
+(1)    10C9 : 02B1                       pulr    r1
+(1)    10CA : 00AF                       jr      r5
+(1)    10CB :
+(1)    10CB :                    ;;; [queue] Add an element to queue
+(1)    10CB :                    ;;; @param R3 queue work space pointer
+(1)    10CB :                    ;;; @param R0 an element
+(1)    10CB :                    ;;; @return C 0 if queue is full
+(1)    10CB :                    queue_add:
+(1)    10CB : 0271                       pshr    r1
+(1)    10CC : 0272                       pshr    r2
+(1)    10CD : 0274                       pshr    r4
+(1)    10CE : 0299                       mvi@    r3, r1          ; R1=queue_len
+(1)    10CF : 009C                       movr    r3, r4
+(1)    10D0 : 000C                       incr    r4
+(1)    10D1 : 02A2                       mvi@    r4, r2          ; R2=queue_size
+(1)    10D2 : 0151                       cmpr    r2, r1
+(1)    10D3 : 0201 0014                  blge    queue_add_full  ; branch if queue_len >= queue_size
+(1)    10D5 : 0009                       incr    r1
+(1)    10D6 : 0259                       mvo@    r1, r3          ; queue_len+=1
+(1)    10D7 : 02A1                       mvi@    r4, r1          ; R1=queue_put
+(1)    10D8 : 009C                       movr    r3, r4
+(1)    10D9 : 02FC 0004                  addi    queue_buf, r4
+(1)    10DB : 00CC                       addr    r1, r4          ; R4=&queue_buf[queue_put]
+(1)    10DC : 0260                       mvo@    r0, r4          ; store element
+(1)    10DD : 0009                       incr    r1              ; queue_put+=1
+(1)    10DE : 0151                       cmpr    r2, r1
+(1)    10DF : 0209 0001                  bllt    queue_add_update        ; branch if queue_put < queue_size
+(1)    10E1 : 01C9                       clrr    r1
+(1)    10E2 :                    queue_add_update:
+(1)    10E2 : 009C                       movr    r3, r4
+(1)    10E3 : 02FC 0002                  addi    queue_put, r4
+(1)    10E5 : 0261                       mvo@    r1, r4          ; update queue_put
+(1)    10E6 : 0007                       setc
+(1)    10E7 : 0200 0001                  b       queue_add_return
+(1)    10E9 :                    queue_add_full:
+(1)    10E9 : 0006                       clrc
+(1)    10EA :                    queue_add_return:
+(1)    10EA : 02B4                       pulr    r4
+(1)    10EB : 02B2                       pulr    r2
+(1)    10EC : 02B1                       pulr    r1
+(1)    10ED : 00AF                       jr      r5
+(1)    10EE :
+(1)    10EE :                    ;;; [queue] Remove an element from queue
+(1)    10EE :                    ;;; @param R3 queue work space pointer
+(1)    10EE :                    ;;; @return R0 an element
+(1)    10EE :                    ;;; @return C 0 if queue is empty
+(1)    10EE :                    queue_remove:
+(1)    10EE : 0271                       pshr    r1
+(1)    10EF : 0272                       pshr    r2
+(1)    10F0 : 0274                       pshr    r4
+(1)    10F1 : 0299                       mvi@    r3, r1          ; R1=queue_len
+(1)    10F2 : 0089                       tstr    r1
+(1)    10F3 : 0204 0015                  beq     queue_remove_empty
+(1)    10F5 : 0011                       decr    r1
+(1)    10F6 : 0259                       mvo@    r1, r3          ; queue_len-=1
+(1)    10F7 : 009C                       movr    r3, r4
+(1)    10F8 : 000C                       incr    r4
+(1)    10F9 : 02A2                       mvi@    r4, r2          ; R2=queue_size
+(1)    10FA : 000C                       incr    r4
+(1)    10FB : 02A1                       mvi@    r4, r1          ; R1=queue_get
+(1)    10FC : 00CC                       addr    r1, r4          ; R4=&queue_buf[queue_get]
+(1)    10FD : 02A0                       mvi@    r4, r0          ; remove element
+(1)    10FE : 0009                       incr    r1              ; queue_get+=1
+(1)    10FF : 0151                       cmpr    r2, r1
+(1)    1100 : 0209 0001                  bllt    queue_remove_update     ; branch if queue_get < queue_size
+(1)    1102 : 01C9                       clrr    r1
+(1)    1103 :                    queue_remove_update:
+(1)    1103 : 009C                       movr    r3, r4
+(1)    1104 : 02FC 0003                  addi    queue_get, r4
+(1)    1106 : 0261                       mvo@    r1, r4          ; update queue_get
+(1)    1107 : 0007                       setc
+(1)    1108 : 0200 0001                  b       queue_remove_return
+(1)    110A :                    queue_remove_empty:
+(1)    110A : 0006                       clrc
+(1)    110B :                    queue_remove_return:
+(1)    110B : 02B4                       pulr    r4
+(1)    110C : 02B2                       pulr    r2
+(1)    110D : 02B1                       pulr    r1
+(1)    110E : 00AF                       jr      r5
+       110F :
+       110F :                    ;;; The interrupt sequence leaves interrupts enabled, and #INTRM stays
+       110F :                    ;;; low until the data register is read, so USART_VEC disables them.
+       110F :                    isr_usart:
+       110F : 0270                       pshr    r0
+       1110 : 0030                       gswd    r0
+       1111 : 0270                       pshr    r0
+       1112 : 0273                       pshr    r3
+       1113 : 0275                       pshr    r5
+       1114 : 0280 FFF1                  mvi     USARTS, r0
+       1116 : 03B8 0002                  andi    ST_RxRDY_bm, r0
+       1118 : 0204 0007                  beq     isr_usart_tx
+       111A : 0280 FFF0                  mvi     USARTD, r0      ; Receive character
+       111C : 02BB 2000                  mvii    rx_queue, r3
+       111E : 0004 0110 00CB             jsr     r5, queue_add   ; Add to Rx queue
+       1121 :                    isr_usart_tx:
+       1121 : 0280 FFF1                  mvi     USARTS, r0
+       1123 : 03B8 0001                  andi    ST_TxRDY_bm, r0
+       1125 : 0204 0009                  beq     isr_usart_exit
+       1127 : 02BB 2080                  mvii    tx_queue, r3
+       1129 : 0004 0110 00EE             jsr     r5, queue_remove        ; Remove from Tx queue
+       112C : 0209 0009                  bnc     isr_usart_empty
+       112E : 0240 FFF0                  mvo     r0, USARTD      ; Transmit character
+       1130 :                    isr_usart_exit:
+       1130 : 02B5                       pulr    r5
+       1131 : 02B3                       pulr    r3
+       1132 : 02B0                       pulr    r0
+       1133 : 0038                       rswd    r0
+       1134 : 02B0                       pulr    r0
+       1135 : 0002                       eis
+       1136 : 02B7                       pulr    r7              ; Return from interrupt
+       1137 :                    isr_usart_empty:
+       1137 : 02B8 0036                  mvii    RX_EN_TX_DIS, r0
+       1139 : 0240 FFF1                  mvo     r0, USARTC      ; Disable Tx
+       113B : 0220 000C                  b       isr_usart_exit
