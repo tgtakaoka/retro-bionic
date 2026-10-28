@@ -507,6 +507,18 @@ The `schematics/<board>/*_bionic.toml` pin maps are hand-written and have been
 wrong (reversed data pins, wrong port, duplicated pin); check them against the
 PCB's pad nets, not the other way round.
 
+Capture a reset sequence with `R` once the prompt is ready: it runs the
+same reset as a boot. Arm a capture triggered on the reset's negation
+edge, then send `R`. A pulse-width trigger misses some resets: driving the
+reset pin as an output glitches it first, and at power-up the reset is
+already asserted, so the pulse is not always the width the firmware
+holds. To capture a boot's own reset instead, remember that the firmware
+waits at power-up until the console port opens, and that the daemon opens
+it at each power-on to see what is seated. Hold the board lock
+(`RUN_DIR/board-NAME.lock`, an flock) through the power cycle, arm once
+the board is back on USB, then open the console. A capture armed before
+the power cycle triggers on the power-off edges instead.
+
 Keep captures triggered and short. `trimDataSeconds` only trims after the
 trigger fires, so a stopped, untriggered capture holds the whole run, and
 exporting one can fill the disk; closing the capture does not stop the export.
