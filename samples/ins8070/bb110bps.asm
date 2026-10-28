@@ -9,7 +9,8 @@ BAUDFLG =       X'FD00
         ;; bit2-1: 0=4800bps, 1=1200bps, 2=300bps, 3=110bps
         .byte   (1 << 7) | (3 << 1)
 
-;;; Override RAM end check
+;;; Override RAM end check: just below the ACIA. BASIC starts the
+;;; program at 8000H when it finds RAM there, as the debugger has.
         .=      COLD4
-        ld      P2, =X'7FFF
+        ld      P2, =X'DEFF
         ld      A, @2, P2
