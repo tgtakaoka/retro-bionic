@@ -64,6 +64,7 @@
 #define PIN_OPACK 30     /* P8.23 */
 
 #include "pins.h"
+#include "pwm_clock.h"
 #include "signals_scn2650.h"
 
 namespace debugger {
@@ -73,19 +74,35 @@ struct PinsScn2650 final : Pins {
     PinsScn2650();
 
     void resetPins() override;
-    void idle() override;
+    // The clock runs by itself.
+    void idle() override {}
     bool step(bool show) override;
     void run() override;
     void assertInt(uint8_t name) override;
     void negateInt(uint8_t name) override;
     void setBreakInst(uint32_t addr) const override;
     void printCycles() override;
+#ifdef TUNE_CLOCK
+    uint32_t clockInput() const override { return _clockInput; }
+    bool setClockInput(uint32_t hz) override;
+#endif
 
     void execInst(const uint8_t *inst, uint8_t len);
     uint8_t captureWrites(const uint8_t *inst, uint8_t len, uint16_t *addr,
             uint8_t *buf, uint8_t max);
 
 private:
+    PwmClock<PIN_CLOCK> _clock;
+#ifdef TUNE_CLOCK
+    // CLOCK's rate, which K sets.
+    uint32_t _clockInput;
+#endif
+#ifdef PROFILE_CYCLES
+    // When OPREQ last fell, in Teensy cycles.
+    uint32_t _opreqLow;
+    uint32_t clockCycles() const;
+#endif
+
     Signals *prepareCycle();
     Signals *completeCycle(Signals *signals);
     void loop();

@@ -21,8 +21,8 @@ namespace scn2650 {
  *   #R/W                \____________________|_/                                 | \____
  *        ______________________________ _____ ___________________________________ ______
  *   DATA ______________________________X__in_X________________________out________X______
- *        ________________________    ________________________________    _______________
- * #OPACK                         \__/                                \__/
+ *        _______________________              _______________________             ______
+ * #OPACK                        \____________/                       \___________/
  *        ____________________________________________________       _______       ______
  *   #WRP                                                     \_____/       \_____/
  */
@@ -42,23 +42,31 @@ namespace {
 // tWPD: max tCH+100 ns; WRP delay from OPREQ+
 // tWPW: min tCL-50 ns; WRP width
 
-constexpr auto clock_hi_ns = 380;       // 400
-constexpr auto clock_lo_ns = 380;       // 400
-constexpr auto clock_lo_t0 = 390;       // 400
-constexpr auto clock_hi_t0p = 250;      // 400
-constexpr auto clock_hi_tcor = 100;     // 400
-constexpr auto clock_hi_t1 = 100;       // 400
-constexpr auto clock_lo_t1w = 350;      // 400
-constexpr auto clock_hi_iow = 72;       // 400
-constexpr auto clock_hi_write = 314;    // 400
-constexpr auto clock_hi_capture = 346;  // 400
-constexpr auto clock_lo_ior = 280;      // 400
-constexpr auto clock_lo_read = 250;     // 400
-constexpr auto clock_lo_inject = 290;   // 400
-constexpr auto clock_lo_input = 360;    // 400
-constexpr auto clock_hi_exec = 20;      // 400
-constexpr auto clock_hi_idle = 268;     // 400
-constexpr auto clock_lo_idle = 378;     // 400
+// CLOCK runs free from the PWM, and the CPU waits in each operation, with
+// OPREQ high, until #OPACK is asserted: #OPACK is sampled on each CLOCK
+// fall from T2 on. #OPACK is negated once OPREQ falls.
+
+constexpr uint32_t clock_hz = 1250000;  // 150 MHz / 120: halves of 400 ns
+// The 2650 is static: any rate K takes down to this one.
+constexpr uint32_t clock_min_hz = 100000;
+#ifdef TUNE_CLOCK
+// K may overclock the CPU, down to halves of 200 ns.
+constexpr auto clock_half_min_ns = 200;
+#else
+constexpr auto clock_half_min_ns = 400;
+#endif
+// Teensy cycles in a CLOCK clock at the slowest rate, so the waits below
+// hold at any rate.
+constexpr uint32_t clock_max_cycles = F_CPU / clock_min_hz;
+// RESET must remain high for at least 3 clocks.
+constexpr auto reset_ns = 5 * (1000000000 / clock_min_hz);
+// Waits for OPREQ last 1000 clocks, far past an instruction's two
+// processor cycles without it; a CPU in the WAIT state never raises it.
+constexpr auto opreq_cycles = 1000 * clock_max_cycles;
+// OPREQ falls on the clock that samples #OPACK.
+constexpr auto opack_cycles = 4 * clock_max_cycles;
+// Data and #OPACK are held after OPREQ falls.
+constexpr auto opack_hold_ns = 50;
 
 #ifdef PROFILE_CYCLES
 // An instruction leaves OPREQ low for at most two processor cycles; a CPU
@@ -66,20 +74,18 @@ constexpr auto clock_lo_idle = 378;     // 400
 constexpr auto wait_clocks = 3 * 8;
 #endif
 
-inline void clock_hi() {
-    digitalWriteFast(PIN_CLOCK, HIGH);
-}
-
-inline void clock_lo() {
-    digitalWriteFast(PIN_CLOCK, LOW);
-}
-
-inline auto signal_clock() {
-    return digitalReadFast(PIN_CLOCK);
-}
-
 inline auto signal_opreq() {
     return digitalReadFast(PIN_OPREQ);
+}
+
+// Waits up to |limit| Teensy cycles for OPREQ to read |level|.
+bool wait_opreq(uint8_t level, uint32_t limit) {
+    const uint32_t start = ARM_DWT_CYCCNT;
+    while (signal_opreq() != level) {
+        if (ARM_DWT_CYCCNT - start >= limit)
+            return false;
+    }
+    return true;
 }
 
 void assert_intreq() {
@@ -106,14 +112,13 @@ constexpr uint8_t PINS_LOW[] = {
         PIN_ADREN,
         PIN_DBUSEN,
         PIN_SENSE,
-        PIN_OPACK,
 };
 
 constexpr uint8_t PINS_HIGH[] = {
         PIN_RESET,
-        PIN_CLOCK,
         PIN_PAUSE,
         PIN_INTREQ,
+        PIN_OPACK,
 };
 
 constexpr uint8_t PINS_INPUT[] = {
@@ -149,119 +154,108 @@ constexpr uint8_t PINS_INPUT[] = {
         PIN_FLAG,
 };
 
-inline void clock_cycle() {
-    clock_hi();
-    delayNanoseconds(clock_hi_ns);
-    clock_lo();
-    delayNanoseconds(clock_lo_ns);
-}
-
 }  // namespace
 
-PinsScn2650::PinsScn2650() {
+PinsScn2650::PinsScn2650() : _clock(clock_half_min_ns, clock_min_hz) {
     _regs = new RegsScn2650(this);
     _mems = new MemsScn2650();
     _devs = new DevsScn2650();
+#ifdef TUNE_CLOCK
+    _clockInput = clock_hz;
+#endif
+#ifdef PROFILE_CYCLES
+    _opreqLow = 0;
+#endif
 }
 
-void PinsScn2650::resetPins() {
-    pinsMode(PINS_LOW, sizeof(PINS_LOW), OUTPUT, LOW);
-    pinsMode(PINS_HIGH, sizeof(PINS_HIGH), OUTPUT, HIGH);
-    pinsMode(PINS_INPUT, sizeof(PINS_INPUT), INPUT);
+#ifdef TUNE_CLOCK
+bool PinsScn2650::setClockInput(uint32_t hz) {
+    // The rate reloads at a period start, so the running clock never
+    // glitches.
+    const auto rate = _clock.setRate(hz);
+    if (rate == 0)
+        return false;
+    _clockInput = rate;
+    return true;
+}
+#endif
 
-    // RESET must remain high for at least 3 cycles
-    for (auto i = 0; i < 5; ++i)
-        clock_cycle();
+void PinsScn2650::resetPins() {
+    // RESET is asserted first: a glitch on CLOCK is harmless.
+    pinsMode(PINS_HIGH, sizeof(PINS_HIGH), OUTPUT, HIGH);
+    pinsMode(PINS_LOW, sizeof(PINS_LOW), OUTPUT, LOW);
+    pinsMode(PINS_INPUT, sizeof(PINS_INPUT), INPUT);
+#ifdef TUNE_CLOCK
+    _clock.begin(_clockInput);
+#else
+    _clock.begin(clock_hz);
+#endif
+    _clock.start();
+    delayNanoseconds(reset_ns);
     negate_reset();
     Cycles::reset();
 
     _regs->save();
 }
 
-// Clocks to wait for OPREQ, far past an instruction's two processor
-// cycles without it; a CPU in the WAIT state never raises it.
-constexpr auto opreq_clocks = 1000;
-
 // rawStep() keeps HALT from the CPU only while the cycle table is exact:
 // an overcount would feed it the next instruction. record-cycles checks
 // the table against the chip.
 Signals *PinsScn2650::prepareCycle() {
     auto s = Signals::put();
-    // T0H
-    for (auto n = 0; signal_opreq() == LOW; ++n) {
-        if (n >= opreq_clocks) {
-            // Give up rather than wedge the board, leaving the halt switch
-            // to stop the run.
-            cli.println("?halt: no bus cycle");
-            s->noCycle();
-            return s;
-        }
-        delayNanoseconds(clock_hi_t0p);
-        clock_lo();  // T0L
-        delayNanoseconds(clock_lo_t0);
-        clock_hi();  // T1H
-        delayNanoseconds(clock_hi_tcor);
+    if (!wait_opreq(HIGH, opreq_cycles)) {
+        // Give up rather than wedge the board, leaving the halt switch
+        // to stop the run.
+        cli.println("?halt: no bus cycle");
+        s->noCycle();
+        return s;
     }
-    // T1H, OPREQ=H
     s->getAddr();
     return s;
 }
 
+// The CPU is held in the cycle prepared until #OPACK is asserted here.
+// Address, control and write data are valid while OPREQ is high.
 Signals *PinsScn2650::completeCycle(Signals *s) {
-    // T1H, OPREQ=H
-    delayNanoseconds(clock_hi_t1);
-    clock_lo();  // T1L
-    if (s->write()) {
-        s->getData();
-        assert_opack();
-        delayNanoseconds(clock_lo_t1w);
-        clock_hi();  // T2H
-        if (s->io()) {
-            // Extended I/O (A13 high) carries its port on A0-A7.
-            if (s->addr & 0x2000) {
-                s->addr &= 0xFF;
-                if (_devs->isSelected(s->addr)) {
-                    _devs->write(s->addr, s->data);
-                }
-            }
-            delayNanoseconds(clock_hi_iow);
-        } else if (s->writeMemory()) {
-            _mems->write(s->addr, s->data);
-            delayNanoseconds(clock_hi_write);
-        } else {
-            delayNanoseconds(clock_hi_capture);
-        }
-    } else {
+    const auto read = s->read();
+    // Extended I/O (A13 high) carries its port on A0-A7.
+    const auto extended =
+            s->io() && !s->vector() && (s->addr & 0x2000) != 0;
+    if (extended)
+        s->addr &= 0xFF;
+    if (read) {
         if (s->io()) {
             if (s->vector()) {
                 s->data = _devs->vector();
-            } else if (s->addr & 0x2000) {
-                s->addr &= 0xFF;
-                if (_devs->isSelected(s->addr)) {
-                    s->data = _devs->read(s->addr);
-                }
+            } else if (extended && _devs->isSelected(s->addr)) {
+                s->data = _devs->read(s->addr);
             }
-            s->outData();
-            assert_opack();
-            delayNanoseconds(clock_lo_ior);
         } else if (s->readMemory()) {
             s->data = _mems->read(s->addr);
-            s->outData();
-            assert_opack();
-            delayNanoseconds(clock_lo_read);
-        } else {
-            s->outData();
-            assert_opack();
-            delayNanoseconds(clock_lo_inject);
         }
-        clock_hi();  // T2H
-        delayNanoseconds(clock_hi_ns);
+        s->outData();
+    } else {
+        s->getData();
     }
+    // An interrupt here would leave #OPACK asserted into the next cycle,
+    // which then ends unserved.
+    noInterrupts();
+    assert_opack();
+    wait_opreq(LOW, opack_cycles);
+#ifdef PROFILE_CYCLES
+    _opreqLow = ARM_DWT_CYCCNT;
+#endif
+    delayNanoseconds(opack_hold_ns);
     negate_opack();
-    clock_lo();  // T2L
-    delayNanoseconds(clock_lo_input);
-    Signals::inputMode();
-    clock_hi();  // T0H
+    interrupts();
+    if (read) {
+        Signals::inputMode();
+    } else if (s->io()) {
+        if (extended && _devs->isSelected(s->addr))
+            _devs->write(s->addr, s->data);
+    } else if (s->writeMemory()) {
+        _mems->write(s->addr, s->data);
+    }
     Cycles::next();
     return s;
 }
@@ -295,33 +289,26 @@ uint8_t PinsScn2650::execute(const uint8_t *inst, uint8_t len, uint16_t *addr,
             if (buf && cap < max)
                 buf[cap++] = s->data;
         }
-        delayNanoseconds(clock_hi_exec);
     }
     return cap;
 }
 
-void PinsScn2650::idle() {
-    clock_lo();
-    delayNanoseconds(clock_lo_idle);
-    clock_hi();
-    delayNanoseconds(clock_hi_idle);
+#ifdef PROFILE_CYCLES
+uint32_t PinsScn2650::clockCycles() const {
+#ifdef TUNE_CLOCK
+    return F_CPU / _clockInput;
+#else
+    return F_CPU / clock_hz;
+#endif
 }
 
-#ifdef PROFILE_CYCLES
 // prepareCycle(), or nullptr once OPREQ stays low: the CPU is in the WAIT
-// state.
+// state. OPREQ is low for half a clock more than the clocks counted.
 Signals *PinsScn2650::awaitCycle() {
-    uint8_t clocks = 0;
-    // T0H
-    while (signal_opreq() == LOW) {
-        if (++clocks > wait_clocks)
-            return nullptr;
-        delayNanoseconds(clock_hi_t0p);
-        clock_lo();  // T0L
-        delayNanoseconds(clock_lo_t0);
-        clock_hi();  // T1H
-        delayNanoseconds(clock_hi_tcor);
-    }
+    const auto cycles = clockCycles();
+    if (!wait_opreq(HIGH, wait_clocks * cycles))
+        return nullptr;
+    const uint8_t clocks = (ARM_DWT_CYCCNT - _opreqLow) / cycles;
     auto s = prepareCycle();
     s->clocks() = clocks;
     return s;
@@ -335,12 +322,15 @@ void PinsScn2650::loop() {
     constexpr auto MAX_CYCLES = 96;
     assert_debug();
     while (true) {
-        _devs->loop();
         auto s = awaitCycle();
         if (s == nullptr)
             break;
+        // The CPU waits on #OPACK meanwhile, so the clocks awaitCycle()
+        // counts until the next cycle stay exact.
+        _devs->loop();
+        const auto halt = haltSwitch();
         completeCycle(s);
-        if (Cycles::cycles() >= MAX_CYCLES || haltSwitch()) {
+        if (Cycles::cycles() >= MAX_CYCLES || halt) {
             cli.println(Cycles::cycles() >= MAX_CYCLES ? "?cycles" : "?halt");
             break;
         }
@@ -384,7 +374,8 @@ bool PinsScn2650::rawStep() {
         return false;
     }
 
-    completeCycle(s);
+    // The fetch is served the opcode just read.
+    completeCycle(s->inject(inst));
     const auto opr = _mems->read(s->addr + 1);
     const auto busCycles = len + InstScn2650::busCycles(inst, opr);
     const auto indirect = busCycles > len + InstScn2650::busCycles(inst, 0);
