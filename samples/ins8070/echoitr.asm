@@ -173,6 +173,8 @@ putchar_exit:
 
 isr_irq:
         push    ea
+        ld      A, S
+        push    A               ; save CY/L and OV
         pli     P2, =ACIA
         ld      A, ACIA_S, P2
         ld      E, A            ; save ACIA status in E
@@ -206,6 +208,8 @@ isr_irq_send_empty:
         st      A, ACIA_C, P2   ; disable Tx interrupt
 isr_irq_exit:
         pop     P2
+        pop     A
+        ld      S, A            ; restore CY/L and OV
         pop     ea
         or      S, =S_IE        ; IE was cleared on interrupt
         ret

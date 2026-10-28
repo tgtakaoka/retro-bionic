@@ -75,6 +75,8 @@ putchar_data:
 
 isr_irq:
         push    ea
+        ld      A, S
+        push    A               ; save CY/L and OV
         pli     P2, =ACIA
         ld      A, ACIA_S, P2
         ld      E, A
@@ -93,6 +95,8 @@ isr_irq_receive:
         jsr     queue_add
 isr_irq_exit:
         pop     P2
+        pop     A
+        ld      S, A            ; restore CY/L and OV
         pop     ea
         or      S, =S_IE        ; IE was cleared on interrupt
         ret
