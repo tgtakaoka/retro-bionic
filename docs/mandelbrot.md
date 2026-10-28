@@ -117,7 +117,7 @@ The tables time them on real chips, from recorded casts, with
 | CDP1804A    | 112.7 |   4.583 |   1.173 |                      | [mandelbrot.cast](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/cdp1804a/mandelbrot.cast&lst=samples/cdp1804a/mandelbrot.lst)                   | [cdp1804a/mandelbrot.lst](../samples/cdp1804a/mandelbrot.lst)         |
 | CDP1802     | 165.7 |   6.749 |   1.903 |                      | [mandelbrot.cast](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/cdp1802/mandelbrot.cast&lst=samples/cdp1802/mandelbrot.lst)                     | [cdp1802/mandelbrot.lst](../samples/cdp1802/mandelbrot.lst)           |
 | F3850       | 249.9 |  10.195 |   3.143 |                      | [mandelbrot.cast](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/f3850/mandelbrot.cast&lst=samples/f3850/mandelbrot.lst)                         | [f3850/mandelbrot.lst](../samples/f3850/mandelbrot.lst)               |
-| INS8060     | 256.3 |  10.390 |   2.264 |                      | [mandelbrot.cast](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/ins8060/mandelbrot.cast&lst=samples/ins8060/mandelbrot.lst)                     | [ins8060/mandelbrot.lst](../samples/ins8060/mandelbrot.lst)           |
+| INS8060     | 256.3 |  10.390 |   2.264 | PWM 4.05MHz          | [mandelbrot.cast](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/ins8060/mandelbrot.cast&lst=samples/ins8060/mandelbrot.lst)                     | [ins8060/mandelbrot.lst](../samples/ins8060/mandelbrot.lst)           |
 
 ## Floating point, fmandel
 
