@@ -184,69 +184,20 @@ inline void negate_dsack1() {
     digitalWriteFast(PIN_DSACK1, HIGH);
 }
 
-// EXTAL's pad mux as a GPIO and as FlexPWM3 submodule 1 output A. Teensy
-// pin 28, #RESET, is output B of the same submodule: it stays a GPIO.
-uint32_t extal_gpio_mux;
-uint32_t extal_pwm_mux;
-
-// Time the PWM as near |hz| as its divider allows, any odd count going to
-// the low half. Returns the rate it runs at, or 0 for one EXTAL can't
-// take, changing nothing. The pad mux is left alone.
-uint32_t set_pwm_rate(uint32_t hz) {
-    if (hz < clock_input_min_hz)
-        return 0;
-    // Only an undivided count comes near the minimum half.
-    const uint32_t div = (F_BUS_ACTUAL + hz / 2) / hz;
-    if (uint64_t(div / 2) * 1000000000 <
-            uint64_t(extal_half_min_ns) * F_BUS_ACTUAL)
-        return 0;
-    analogWriteFrequency(PIN_EXTAL, hz);
-    auto &pwm = IMXRT_FLEXPWM3;
-    auto &sm = pwm.SM[1];
-    pwm.MCTRL |= FLEXPWM_MCTRL_CLDOK(1 << 1);
-    sm.VAL3 = (sm.VAL1 + 1) / 2;
-    pwm.MCTRL |= FLEXPWM_MCTRL_LDOK(1 << 1);
-    const auto prescale = (sm.CTRL >> 4) & 7;
-    return (F_BUS_ACTUAL >> prescale) / (sm.VAL1 + 1);
-}
-
-// Output A masked low, or let go, from the next period start: a mask
-// change waits for the reload (RT1060 RM 55.8.46), so the pulse in
-// progress is never cut short.
-void mask_pwm(bool mask) {
-    auto &pwm = IMXRT_FLEXPWM3;
-    const uint16_t a = FLEXPWM_MASK_MASKA(1 << 1);
-    pwm.MASK = mask ? (pwm.MASK | a) : (pwm.MASK & ~a);
-}
-
-void setup_pwm(uint32_t hz) {
-    set_pwm_rate(hz);
-    auto &sm = IMXRT_FLEXPWM3.SM[1];
-    // The reload takes MASK, not just a software FORCE.
-    sm.CTRL2 = (sm.CTRL2 & ~FLEXPWM_SMCTRL2_FORCE_SEL(7)) |
-               FLEXPWM_SMCTRL2_FORCE_SEL(2);
-    mask_pwm(true);
-    analogWrite(PIN_EXTAL, 128);  // 50% at the default 8-bit resolution
-    extal_pwm_mux = *portConfigRegister(PIN_EXTAL);
-}
-
 // Hand EXTAL to the PWM with the CPU parked in S1, EXTAL low. #DSACK1 is
 // negated first: the S2/S3 fall has yet to sample it, so the CPU waits.
 // The masked output is low as the GPIO was; the first high half is whole.
-void start_clock() {
+void start_clock(const PinsMc68hc16::Clock &clock) {
     negate_dsack1();
-    *portConfigRegister(PIN_EXTAL) = extal_pwm_mux;
-    mask_pwm(false);
+    clock.start();
 }
 
 // Take EXTAL back low once the mask holds it there, two periods of
 // |hz| on. With #DSACK1 withheld the CPU is in S1, a wait state or no bus
 // cycle, and S1 and a wait state clock alike from here. The settling lets
 // an #AS just asserting show.
-void stop_clock(uint32_t hz) {
-    mask_pwm(true);
-    delayNanoseconds(2 * (1000000000 / hz));
-    *portConfigRegister(PIN_EXTAL) = extal_gpio_mux;
+void stop_clock(const PinsMc68hc16::Clock &clock, uint32_t hz) {
+    clock.stop(hz);
     delayNanoseconds(clk_delay_ns);
     assert_dsack1();
 }
@@ -292,7 +243,8 @@ inline void Signals::getPhase2() {
     cntl2() = busRead(CNTL);
 }
 
-PinsMc68hc16::PinsMc68hc16() {
+PinsMc68hc16::PinsMc68hc16()
+    : _clock(extal_half_min_ns, clock_input_min_hz) {
     _devs = new DevsMc6800(ACIA_BASE_HC16);
     // Memory first: RegsMc68hc16 stages its restore frame there.
     _mems = new MemsMc68hc16();
@@ -302,7 +254,7 @@ PinsMc68hc16::PinsMc68hc16() {
 }
 
 bool PinsMc68hc16::setClockInput(uint32_t hz) {
-    const auto rate = set_pwm_rate(hz);
+    const auto rate = _clock.setRate(hz);
     if (rate == 0)
         return false;
     _clockInput = rate;
@@ -312,9 +264,8 @@ bool PinsMc68hc16::setClockInput(uint32_t hz) {
 
 void PinsMc68hc16::resetPins() {
     // The CPU is about to be reset: a glitch on EXTAL is harmless.
-    setup_pwm(_clockInput);
+    _clock.begin(_clockInput);
     pinsMode(PINS_LOW, sizeof(PINS_LOW), OUTPUT, LOW);
-    extal_gpio_mux = *portConfigRegister(PIN_EXTAL);
     pinsMode(PINS_HIGH, sizeof(PINS_HIGH), OUTPUT, HIGH);
     pinsMode(PINS_INPUT, sizeof(PINS_INPUT), INPUT);
 
@@ -910,14 +861,14 @@ bool PinsMc68hc16::maskSwi(Signals *s, const RegsMc68hc16::Frame &frame) {
 // waiting on #DSACK1 or in no bus cycle, and goes on bit-banged.
 bool PinsMc68hc16::loop() {
     auto s = resumeCycle(regs<RegsMc68hc16>()->parkedAt());
-    start_clock();
+    start_clock(_clock);
     uint_fast8_t poll = 0;
     while (true) {
         const Signals *from;
         RegsMc68hc16::Frame frame;
         if (memRead(s) && s->dataSpace() && s->addr == InstMc68hc16::VEC_SWI &&
                 isSwiBreak(s, frame, from)) {
-            stop_clock(_clockInput);
+            stop_clock(_clock, _clockInput);
             const auto parked = maskSwi(s, frame);
             Cycles::discard(from);
             return parked;
@@ -926,7 +877,7 @@ bool PinsMc68hc16::loop() {
             // WAI or LPSTOP: no bus cycle until an interrupt.
             _devs->loop();
             if (haltSwitch()) {
-                stop_clock(_clockInput);
+                stop_clock(_clock, _clockInput);
                 return suspend(UINT32_MAX);
             }
             s = prepareRun(wait_poll_clocks);
@@ -942,7 +893,7 @@ bool PinsMc68hc16::loop() {
             continue;
         poll = 0;
         if (haltSwitch()) {
-            stop_clock(_clockInput);
+            stop_clock(_clock, _clockInput);
             return s->halt() ? suspend(UINT32_MAX) : suspend(s->addr);
         }
     }

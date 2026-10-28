@@ -58,6 +58,7 @@
 #define PIN_ASEL1 30  /* P8.23 */
 
 #include "pins.h"
+#include "pwm_clock.h"
 #include "regs_mc68hc16.h"
 #include "signals_mc68hc16.h"
 
@@ -66,6 +67,7 @@ namespace mc68hc16 {
 
 struct PinsMc68hc16 final : Pins {
     PinsMc68hc16();
+    using Clock = PwmClock<PIN_EXTAL>;
 
     // Fully static down to dc: the parked CPU and its timers hold while the
     // clock is stopped.
@@ -108,6 +110,7 @@ private:
     // A run's EXTAL rate, and the Teensy cycles in one of its clocks.
     uint32_t _clockInput;
     uint32_t _clockCycles;
+    Clock _clock;
     void resetPins() override;
     const SignalsImpl *findBacktraceStart() override;
     void printBacktrace() override;

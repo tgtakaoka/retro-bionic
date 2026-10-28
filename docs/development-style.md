@@ -299,6 +299,10 @@ sequence from it on CKIN (pin 5), since their clock must not stop.
   as soon as the strobe ends, before the next cycle samples it. Mask
   interrupts from asserting it to negating it: an interrupt can outlast
   the gap between strobes, and the next cycle then ends unserved.
+- `PwmClock<PIN>` (`debugger/pwm_clock.h`) does this for a FlexPWM
+  pin: the pin fixes every register at compile time, so a call costs no
+  more than the bare register access, even in a per-cycle loop. A new
+  clock pin adds its row to `PwmPin` from the Teensy core's `pwm.c`.
 - Hand the pin between GPIO and FlexPWM with the output masked. MASK
   double-buffers, and with `CTRL2[FORCE_SEL]` on the local reload it
   takes effect at a period start, so a pulse is never cut short: mask,
