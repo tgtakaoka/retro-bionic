@@ -22,8 +22,8 @@ pio run -t upload       # build and flash
 ```
 
 The default environment is `teensy41`; `teensy41-profile` adds
-`-D PROFILE_CYCLES`, `teensy41-stress` adds `-D STRESS_HALTGO`, `teensy41-clock` adds
-`-D TUNE_CLOCK`, and `native` runs the host tests:
+`-D PROFILE_CYCLES`, `teensy41-stress` adds `-D STRESS_HALTGO`, and `native` runs
+the host tests. Every Teensy build defines `-D TUNE_CLOCK`, for `K`:
 
 ```ini
 [env:teensy41]

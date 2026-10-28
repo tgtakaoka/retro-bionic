@@ -327,13 +327,13 @@ cycles, where bit-banged edges needed a tuned delay for each.
   way: muxed to FlexIO, GPIO reads it as 0; left on GPIO, FlexIO reads 0.
   A FlexIO1 PIN read takes about 40 ns, too slow to poll a strobe at
   10 MHz. A FlexIO latch needs its own pad for the signal.
-- The `teensy41-clock` build adds `K [kHz]` to set the rate at run time,
-  for a sweep with the regress; the normal build keeps the target's
-  constant. Only that build keeps the rate in the Pins class:
-  `clockInput()`, `setClockInput()` and the rate member go under
-  `#ifdef TUNE_CLOCK`, and timeouts are sized for the slowest rate the CPU
-  takes, constants that hold at any rate. That build may let `K` go past
-  the CPU's rated clock, to find where it stops keeping up: the SCN2650's
+- `K [kHz]`, which `?` doesn't list, sets the rate at run time, for a
+  sweep with the regress; a run starts at the target's constant.
+  `clockInput()`, `setClockInput()` and the rate member stay under
+  `#ifdef TUNE_CLOCK`, which every Teensy build defines, so a build
+  without them is still possible; timeouts are sized for the slowest rate
+  the CPU takes, constants that hold at any rate. `K` may go past the
+  CPU's rated clock, to find where it stops keeping up: the SCN2650's
   goes down to halves of 200 ns.
 - A CPU that samples its wait input on a clock edge needs it moved only
   outside that edge's setup and hold window, at its next sample too: the
@@ -1512,8 +1512,8 @@ is served. The status and A12-A15 are on DB only around `#ADS`, which
 `#HOLD` does not stretch, so `#ENIN` grants each cycle with interrupts
 masked until `#ADS`, and goes high only once `#ENOUT` shows the cycle
 over: a cycle `#ENIN` cuts short is repeated, and an ILD or DLD's store
-waits for it. The board ran to 6.25 MHz XIN, 80 ns halves, in the
-`teensy41-clock` build. **[doc][hw]**
+waits for it. The board ran to 6.25 MHz XIN, 80 ns halves, set by `K`.
+**[doc][hw]**
 
 `divsi2` in `arith.inc` must divide on every sign path, including a negative
 divisor, and must take the quotient's sign from the sign bytes, never the
@@ -1533,8 +1533,7 @@ an external read or write until the cycle is served. The manual shows it
 lowered after the strobe starts, but held low throughout it works on the
 bench. `#ENIN` stays low through a run: the address is on its own lines
 and held, so a cycle started while the Teensy is busy waits for the next
-`prepareCycle()`. The board ran to 6.25 MHz XIN in the `teensy41-clock`
-build. **[doc][hw]**
+`prepareCycle()`. The board ran to 6.25 MHz XIN, set by `K`. **[doc][hw]**
 
 INS8073 BASIC's bit-banged serial times its bits with loops whose
 fetches the Teensy holds, so in XIN its bits depend on the loop: at

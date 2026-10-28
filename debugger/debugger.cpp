@@ -90,9 +90,6 @@ constexpr char HELP2[] =
         "  P [from to]    : show, or set, protect area\r\n"
         "  W +identity    : write identity EEPROM\r\n"
         "  V              : toggle verbose bus-cycle printing\r\n"
-#ifdef TUNE_CLOCK
-        "  K [kHz]        : show, or set, the CPU clock input during a run\r\n"
-#endif
 #ifdef STRESS_HALTGO
         "  Y [n]          : yield on one in n halt polls (default 1)\r\n"
 #endif
