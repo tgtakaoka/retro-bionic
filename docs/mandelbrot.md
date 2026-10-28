@@ -80,6 +80,7 @@ The tables time them on real chips, from recorded casts, with
 | Z180        |  31.3 |   1.271 |   0.324 | Z80 code             | [mandelbrot_z180.cast](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/z80/mandelbrot_z180.cast&lst=samples/z80/mandelbrot.lst)                   | [z80/mandelbrot.lst](../samples/z80/mandelbrot.lst)                   |
 | HD64180S    |  31.3 |   1.272 |   0.324 | Z80 code             | [mandelbrot_hd64180s.cast](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/z80/mandelbrot_hd64180s.cast&lst=samples/z80/mandelbrot.lst)           | [z80/mandelbrot.lst](../samples/z80/mandelbrot.lst)                   |
 | HD6309E     |  31.3 |   1.270 |   0.299 | MC6809 code          | [mandelbrot_hd6309e.cast](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/mc6809/mandelbrot_hd6309e.cast&lst=samples/mc6809/mandelbrot.lst)       | [mc6809/mandelbrot.lst](../samples/mc6809/mandelbrot.lst)             |
+| P8085AH-2   |  32.2 |   1.308 |   0.317 | i8080, PWM 10MHz     | [mandelbrot_p8085.cast](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/i8080/mandelbrot_p8085.cast&lst=samples/i8080/mandelbrot.lst)             | [i8080/mandelbrot.lst](../samples/i8080/mandelbrot.lst)               |
 | Z80         |  32.6 |   1.323 |   0.319 | i8080 code           | [mandelbrot_z80.cast](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/i8080/mandelbrot_z80.cast&lst=samples/i8080/mandelbrot.lst)                 | [i8080/mandelbrot.lst](../samples/i8080/mandelbrot.lst)               |
 | MC68HC11    |  32.7 |   1.328 |   0.303 | MC6801 code          | [mandelbrot_mc68hc11.cast](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/mc6801/mandelbrot_mc68hc11.cast&lst=samples/mc6801/mandelbrot.lst)     | [mc6801/mandelbrot.lst](../samples/mc6801/mandelbrot.lst)             |
 | MC6801      |  32.9 |   1.336 |   0.304 |                      | [mandelbrot.cast](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/mc6801/mandelbrot.cast&lst=samples/mc6801/mandelbrot.lst)                       | [mc6801/mandelbrot.lst](../samples/mc6801/mandelbrot.lst)             |
@@ -92,7 +93,6 @@ The tables time them on real chips, from recorded casts, with
 | TMS9980     |  38.9 |   1.588 |   0.515 | TMS9900 code         | [mandelbrot_tms9980.cast](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/tms9900/mandelbrot_tms9980.cast&lst=samples/tms9900/mandelbrot.lst)     | [tms9900/mandelbrot.lst](../samples/tms9900/mandelbrot.lst)           |
 | TMS9981     |  38.9 |   1.588 |   0.515 | TMS9900 code         | [mandelbrot_tms9981.cast](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/tms9900/mandelbrot_tms9981.cast&lst=samples/tms9900/mandelbrot.lst)     | [tms9900/mandelbrot.lst](../samples/tms9900/mandelbrot.lst)           |
 | MC68HC08AZ0 |  39.9 |   1.628 |   0.521 | MC68HC05 code        | [mandelbrot_mc68hc08.cast](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/mc68hc05/mandelbrot_mc68hc08.cast&lst=samples/mc68hc05/mandelbrot.lst) | [mc68hc05/mandelbrot.lst](../samples/mc68hc05/mandelbrot.lst)         |
-| P8085       |  40.2 |   1.632 |   0.393 | i8080 code           | [mandelbrot_p8085.cast](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/i8080/mandelbrot_p8085.cast&lst=samples/i8080/mandelbrot.lst)             | [i8080/mandelbrot.lst](../samples/i8080/mandelbrot.lst)               |
 | HD6301      |  41.1 |   1.666 |   0.375 | MC6800 code          | [mandelbrot_hd6301.cast](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/mc6800/mandelbrot_hd6301.cast&lst=samples/mc6800/mandelbrot.lst)         | [mc6800/mandelbrot.lst](../samples/mc6800/mandelbrot.lst)             |
 | MC68HC11    |  42.3 |   1.716 |   0.382 | MC6800 code          | [mandelbrot_mc68hc11.cast](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/mc6800/mandelbrot_mc68hc11.cast&lst=samples/mc6800/mandelbrot.lst)     | [mc6800/mandelbrot.lst](../samples/mc6800/mandelbrot.lst)             |
 | NSC800      |  43.2 |   1.755 |   0.423 | i8080 code           | [mandelbrot_nsc800.cast](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/i8080/mandelbrot_nsc800.cast&lst=samples/i8080/mandelbrot.lst)           | [i8080/mandelbrot.lst](../samples/i8080/mandelbrot.lst)               |
@@ -249,7 +249,7 @@ TMS99105.
 
 | | P8080 | P8085 | Z80 | Z180 | Z280 | Z380 | NSC800 | HD64180S | KL5C80A12 |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| [i8080](../samples/i8080/mandelbrot.lst) | 63.2 | 40.2 | 32.6 | | | | 43.2 | | |
+| [i8080](../samples/i8080/mandelbrot.lst) | 63.2 | 32.2 | 32.6 | | | | 43.2 | | |
 | [z80](../samples/z80/mandelbrot.lst) | | | 27.5 | 31.3 | 30.7 | 17.4 | 36.2 | 31.3 | 16.5 |
 | [z180](../samples/z180/mandelbrot.lst) | | | | 28.7 | | 16.7 | | 28.7 | |
 | [z280](../samples/z280/mandelbrot.lst) | | | | | 5.2 | | | | |
