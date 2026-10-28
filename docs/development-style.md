@@ -349,6 +349,26 @@ cycles, where bit-banged edges needed a tuned delay for each.
   holds a cycle, default rate) in the same commit, and a cast recorded on
   it notes `PWM` and the rate in the mandelbrot table.
 
+### Driving a high-voltage clock **[hw]**
+
+The TMS9900 (four phases, 12 V), P8080 (two phases, 12 V) and CP1610 (two
+phases, 11 V) take clocks the Teensy's 5 V outputs can't reach, and the
+phases must never overlap.
+
+- The TMS9900 and P8080 boards level-shift each phase with a common-gate
+  2N7002 (gate at VCC, source driven by 5 V logic) and a 750 Ω pull-up to
+  the 12 V rail: the pull-up alone makes the rising edge.
+- A dual low-side gate driver powered from the CPU's VDD drives both edges
+  instead. The CP1610 board uses a UCC27324, with 33 Ω in series with each
+  output to damp ringing into the 20-30 pF clock inputs. The UCC27444 and
+  UCC27624 fit the same footprint: their pins 1 and 8 are enables pulled
+  up inside, so a board leaving them unconnected takes either.
+- The UCC27624 is the best of the three: its delay is the same for both
+  edges (17 ns typical, 27 ns max) and matched between channels within
+  2 ns, so the phases keep their widths and gaps; the UCC27444 delays a
+  falling input 12 ns more than a rising one. For four phases use two, and
+  pair in one chip the phases whose gap is tightest.
+
 ### A logic analyser on the bus can break the board **[hw]**
 
 Probe leads add enough capacitance to stop a marginal target working at all
@@ -2053,14 +2073,8 @@ Draft board for the CP1610 (40-pin DIP); not built yet.
   VBB from rising above GND while the rails come up. **[doc]**
 - A UCC27324 powered from VDD turns the Teensy's PHI1/PHI2 (P46/P47) into
   the two-phase clock, which must reach 10 V, rise and fall within 15 ns
-  and never overlap. 33 Ω in series with each output damps ringing into
-  the 20-30 pF clock inputs. The UCC27444 and UCC27624 fit the same
-  footprint: their pins 1 and 8 are enables pulled up inside, and the
-  board leaves them unconnected. The UCC27624 is the best clock driver of
-  the three: its delay is the same for both edges (17 ns typical, 27 ns
-  max) and matched between channels within 2 ns, so the phases keep their
-  widths and gaps, where the UCC27444 delays a falling input 12 ns more
-  than a rising one. **[doc]**
+  and never overlap; see
+  [Driving a high-voltage clock](#driving-a-high-voltage-clock). **[doc]**
 - `#INTR` is open drain with a 10 kΩ pull-up. The Teensy (P50) pulls it
   low to halt, and a 74LVC1G02 and 74LVC1G06 pull it low while `#PCIT`
   and `#ENSWI` (P34) are both low, so a `SIN` traps only when the Teensy
