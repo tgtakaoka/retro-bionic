@@ -1423,6 +1423,14 @@ as they were; `DIV EA,T` leaves no remainder.
 Same PC convention as the SC/MP. Reset clears only PC, SP and the status bits
 other than SA/SB; P2, P3, T, E and A keep leftover values. **[hw]**
 
+An interrupt handler must save S: an interrupt between an `ADD` and the
+`LD A,S` that reads its carry otherwise changes CY/L. The samples' ISRs
+push it after EA and restore it before `OR S,=S_IE`. The bit-banged clock
+hid this: devices raised interrupts only between bus cycles of a stopped
+CPU, so each landed on the same instruction every time; on the
+free-running clock they drift, and `echoitr` printed a wrong bit about
+once in 50 characters. **[hw]**
+
 `DIV EA,T` leaves the quotient in EA but not the remainder in T;
 `print_uint16` multiplies back to get it. **[hw]**
 
