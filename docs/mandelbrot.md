@@ -39,8 +39,8 @@ The tables time them on real chips, from recorded casts, with
 
 ## Integer, mandelbrot
 
-Icons: ▶️ play the cast, 📄 the listing, ⏱️ timer clock, 🔨 bit-banged
-clock (average), — bit-banged clock not yet measured.
+Icons: ⏱️ timer clock, 🔨 bit-banged clock (average), — bit-banged
+clock not yet measured, ▶️ play the cast, 📄 the listing.
 
 |   arch   |    core   |           CPU            | frame | avg row | std dev |   MHz    | Note                 |                                                                                  Cast                                                                                  |                                  Listing                                  |
 | :------: | :-------: | :----------------------: | ----: | ------: | ------: | :------: | -------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------: | :-----------------------------------------------------------------------: |
@@ -131,8 +131,8 @@ clock (average), — bit-banged clock not yet measured.
 
 ## Floating point, fmandel
 
-Icons: ▶️ play the cast, 📄 the listing, ⏱️ timer clock, 🔨 bit-banged
-clock (average), — bit-banged clock not yet measured.
+Icons: ⏱️ timer clock, 🔨 bit-banged clock (average), — bit-banged
+clock not yet measured, ▶️ play the cast, 📄 the listing.
 
 |   arch  |   core   |     CPU      | frame | avg row | std dev |  MHz  | Note |                                                                     Cast                                                                    |                           Listing                           |
 | :-----: | :------: | :----------: | ----: | ------: | ------: | :---: | ---- | :-----------------------------------------------------------------------------------------------------------------------------------------: | :---------------------------------------------------------: |
