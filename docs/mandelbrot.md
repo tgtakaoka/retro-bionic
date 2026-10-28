@@ -39,6 +39,9 @@ The tables time them on real chips, from recorded casts, with
 
 ## Integer, mandelbrot
 
+Icons: ▶️ play the cast, 📄 the listing, ⏱️ timer clock, 🔨 bit-banged
+clock (average), — bit-banged clock not yet measured.
+
 |   arch   |    core   |           CPU            | frame | avg row | std dev |   MHz    | Note                 |                                                                                  Cast                                                                                  |                                  Listing                                  |
 | :------: | :-------: | :----------------------: | ----: | ------: | ------: | :------: | -------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------: | :-----------------------------------------------------------------------: |
 |  i8096   |   i80296  |        S80296SA50        |   1.7 |   0.068 |   0.018 |    —     | i80296 code          |            [▶️](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/i80296/mandelbrot.cast&lst=samples/i80296/mandelbrot.lst "mandelbrot.cast")            |       [📄](../samples/i80296/mandelbrot.lst "i80296/mandelbrot.lst")       |
@@ -127,6 +130,9 @@ The tables time them on real chips, from recorded casts, with
 | ins8060  |  ins8060  |         INS8060N         | 256.3 |  10.390 |   2.264 | 4.05 ⏱️  |                      |           [▶️](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/ins8060/mandelbrot.cast&lst=samples/ins8060/mandelbrot.lst "mandelbrot.cast")           |      [📄](../samples/ins8060/mandelbrot.lst "ins8060/mandelbrot.lst")      |
 
 ## Floating point, fmandel
+
+Icons: ▶️ play the cast, 📄 the listing, ⏱️ timer clock, 🔨 bit-banged
+clock (average), — bit-banged clock not yet measured.
 
 |   arch  |   core   |     CPU      | frame | avg row | std dev |  MHz  | Note |                                                                     Cast                                                                    |                           Listing                           |
 | :-----: | :------: | :----------: | ----: | ------: | ------: | :---: | ---- | :-----------------------------------------------------------------------------------------------------------------------------------------: | :---------------------------------------------------------: |
