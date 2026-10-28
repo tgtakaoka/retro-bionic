@@ -344,6 +344,10 @@ cycles, where bit-banged edges needed a tuned delay for each.
   counter instead: `SerialHandler::setClock()` and `pace()` tick once per
   prescaled count of the free-running clock, keeping the phase but
   dropping a long absence's ticks.
+- A target moved to a timer adds its row to the table in
+  [hardware.md](hardware.md#clocking-the-cpu) (clock input, the input that
+  holds a cycle, default rate) in the same commit, and a cast recorded on
+  it notes `PWM` and the rate in the mandelbrot table.
 
 ### A logic analyser on the bus can break the board **[hw]**
 

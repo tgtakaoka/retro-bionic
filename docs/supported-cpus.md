@@ -79,7 +79,7 @@ report several parts.
 <tr><td>✅</td><td><code>TMS9995</code></td><td></td><td>Optimised bus, 16-bit internal RAM</td></tr>
 <tr><td>✅</td><td><code>TMS99105</code></td><td><code>TMS99110</code></td><td>A TMS99110 is recognised by its Macrostore ROM</td></tr>
 <tr><td><code>tms7000</code></td><td><code>tms7000</code></td><td>✅</td><td><code>TMS7000</code></td><td><code>TMS7002</code>, <code>TMS70C00</code></td><td>Highly orthogonal instruction set</td></tr>
-<tr><td><code>tms370</code></td><td><code>tms370</code></td><td>✅</td><td><code>TMS370Cx5x</code></td><td></td><td>Oscillator monitor resets the CPU if the clock looks unstable</td></tr>
+<tr><td><code>tms370</code></td><td><code>tms370</code></td><td>✅</td><td><code>TMS370Cx5x</code></td><td></td><td>Oscillator monitor resets the CPU if the clock looks unstable, so CLKIN runs from a timer</td></tr>
 <tr><td rowspan="4"><code>tms320</code></td><td><code>tms320</code></td><td>✅</td><td><code>TMS320C15</code></td><td></td><td>So few bus signals that instructions are tracked by counting cycles</td></tr>
 <tr><td rowspan="3"></td><td>🚧</td><td><code>TMS320C25</code></td><td></td><td><code>TMS320C25FNL</code></td></tr>
 <tr><td>🚧</td><td><code>TMS320C51</code></td><td></td><td><code>TMS320C51PQ</code></td></tr>
