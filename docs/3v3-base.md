@@ -17,7 +17,7 @@ Teensy's own level.
   is low, and its pass gate joins the two while the line is low, so holding a low at the
   0.8 V input limit takes 2.5 V / 20 kΩ = 125 µA. A bus-hold cell guarantees only 75 µA
   there. So each of the 16 data lines on `P1x` and `P2x` gets **four** bus-hold inputs in
-  parallel, four `SN74LVCH16244A`s with every output disabled, on the CPU side where the
+  parallel, eight `74LVCH244A`s with every output disabled, on the CPU side where the
   `SN74ACT1071`s are today:
   - holding: at least 4 × 75 µA = 300 µA, the `SN74ACT1071`'s strength, against 125 µA;
   - overdriving: at most 4 × 500 µA = 2 mA for a new value to flip the line, which the CPU
@@ -25,7 +25,7 @@ Teensy's own level.
     accelerators. Check that one on the bench.
 - **A 3.3 V rail of its own, from VBUS.** The Teensy's 3.3 V pin is rated for 250 mA of
   external load, too little for a CPU like the `MC68040FE25V`, so the CPU side (the CPU,
-  the `SN74LVCH16244A`s and the `TXS0108E` B ports) runs from a much bigger LDO fed from
+  the `74LVCH244A`s and the `TXS0108E` B ports) runs from a much bigger LDO fed from
   VBUS, sized for the hungriest planned CPU, with the heat sinking a 5 V to 3.3 V drop at
   that current needs. The `TXS0108E` A ports stay on the Teensy's 3.3 V. The datasheet
   wants `VCCA ≤ VCCB` at all times in operation, so the LDO is set a little above the
