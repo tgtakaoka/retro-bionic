@@ -163,13 +163,14 @@ void RegsMc68000::reset() {
 
 // Every register comes back as an immediate, USP through A0 first; then
 // A7 points at a frame staged just below SSP, which RTE pulls as real
-// memory. Exceptions write there anyway, so it is free stack.
+// memory. Exceptions write there anyway, so it is free stack. The
+// MC68010's RTE reads a format/vector word too: format 0, a short frame.
 void RegsMc68000::restore(bool trace) {
     if (_vector && !_pins->answerVector(_vecAddr, InstMc68000::ORG_PARK)) {
         cli.println("?restore: vector not answered");
         return;
     }
-    const auto frame = _mems->wrap(_ssp - 6);
+    const auto frame = _mems->wrap(_ssp - frameBytes());
     const auto sr = trace ? (_sr | InstMc68000::SR_T) : _sr;
     const auto stageWord = [this](uint32_t addr, uint16_t v) {
         _mems->write_byte(_mems->wrap(addr), v >> 8);
@@ -178,6 +179,8 @@ void RegsMc68000::restore(bool trace) {
     stageWord(frame, sr);
     stageWord(frame + 2, _pc >> 16);
     stageWord(frame + 4, _pc);
+    if (_mc68010)
+        stageWord(frame + 6, 0x0000);
     // MOVEA.L #usp,A0; MOVE A0,USP; MOVE.L #Dn x8; MOVEA.L #An x7, A7 last;
     // RTE.
     Sequence seq;
