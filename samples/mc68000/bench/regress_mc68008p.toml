@@ -1,0 +1,78 @@
+# How each sample must be driven. See scripts/bionic-regress.py's
+# drive_table() for the key shapes this file can use.
+
+# The chips, as their banners name them, this file is for: the MC68008P
+# board. The FN board's 22 address lines put the ACIA at 3FFFF0 instead.
+chips = ["MC68008"]
+
+# The ACIA at FFFFF0 masked to the P board's 20 address lines; every
+# interrupt takes a vector number, the ACIA's the first user vector.
+[devices]
+ACIA = "FFFF0 40"
+
+# Reset loads SSP from the long at 000000 and PC from the one at 000004.
+[reset]
+PC = "[0004 0005 0006 0007]"
+
+[arith]
+expect = """
+18000 + 28000 = -19536
+18000 + -18000 = 0
+-18000 + -18000 = 29536
+-18000 - -28000 = 10000
+18000 - -18000 = -29536
+-28000 - -18000 = -10000
+100 * 300 = 30000
+200 * 100 = 20000
+300 * -200 = 5536
+100 * -300 = -30000
+-200 * -100 = 20000
+30000 / 100 = 300
+-200 / 100 = -2
+-30000 / -200 = 150
+-30000 / 78 = -384
+5000 > 4000
+5000 = 5000
+4000 < 5000
+-5000 < -4000
+-5000 = -5000
+-4000 > -5000
+32700 > 32600
+32700 = 32700
+32600 < 32700
+-32700 < -32600
+-32700 = -32700
+-32600 > -32700
+18000 > -28000
+-28000 = -28000
+-28000 < 18000"""
+
+[echo]
+feed = "ok\r"
+expect = "ok"
+
+[echoir]
+feed = "irq\r"
+expect = "irq"
+
+# Halts at the first completed frame, or once 6 rows are drawn and at
+# least 20 seconds have passed; checks everything drawn so far.
+[mandelbrot]
+golden = "samples/arith/mandelbrot.golden"
+lines = 6
+
+# A random halt point, not always the same one, catches a corrupted
+# resume that only shows up mid-instruction.
+[haltgo]
+program = "mandelbrot"
+halt_interval = [0.05, 0.3]
+
+[breakpoint]
+program = "mandelbrot"
+break_at = "loop_x"
+
+# loop_y is reached once per row, so each go runs a whole row rather
+# than a single pixel.
+[gountil]
+program = "mandelbrot"
+break_at = "loop_y"

@@ -2024,6 +2024,112 @@ landing point below is marked `ATTENTION:` in `debugger/mc68hc16/`.
   ported from: each sample's handler saves what it uses with `PSHM` and
   restores it with `PULM` before `RTI`. **[doc]**
 
+### MC68000 family
+
+**Pitfalls.** The clock must never stop: a CLK half longer than 125 ns is
+out of spec (M68000UM 10.8), so reset, injection, step and run all run on
+the PWM clock, and the CPU waits for the Teensy by `#DTACK` alone. An
+external reset needs `#RESET` and `#HALT` low together. Level 7 is taken on
+a change to 7, not while it is held.
+
+Plan, written before any of it runs; every timing it implies gets an
+`ATTENTION:` in `debugger/mc68000/`.
+
+- **One directory for the family.** `debugger/mc68000/` serves the MC68000,
+  MC68HC000, MC68HC001, MC68010 and MC68008: one instruction set, one
+  asynchronous bus. Two pins classes cover the five boards: one for the
+  16-bit-bus boards (`bionic-mc68000p`, `-ps`, `-fn`), one for the MC68008
+  boards (`bionic-mc68008p`, `-fn`). Identities `MC68000` and `MC68008`,
+  both `TARGET_OVERLAY(mc68000)`. **[code]**
+- **Clock.** CLK (P47) comes from the shared `PwmClock<PIN>`, as the
+  MC68HC16's EXTAL does. It runs from reset at 150 MHz / 20 = 7.5 MHz,
+  67 ns halves: the 8 MHz parts need 4-8 MHz and 55 ns halves, the
+  MC68008 2-8 MHz. **[doc]**
+- **Reset.** `#RESET` (P53) and `#HALT` (P46) are open drain both ways and
+  carry no pull-up on the boards: drive them low together, or release them
+  to `INPUT_PULLUP` behind the level shifters, never drive them high. 100 ms
+  at power-up, 10 clocks after (M68000UM 5.5). The CPU drives `#RESET`
+  during a `RESET` instruction, and `#HALT` after a double bus fault, which
+  `#HALT` low with `#RESET` high reports. The reset vector is four word
+  reads at 000000H: SSP, then PC. **[doc]**
+- **Bus cycle.** `#AS` (P40) falls in S2. The Teensy then walks ASEL1:ASEL0
+  (P55:P54) in Gray order, reading GPIO7 once per phase: A1-A23, FC2:FC0
+  and MODE. It serves the cycle while the CPU waits. It asserts `#DTACK`
+  (P44), sampled at S4's fall, and negates it once `#AS` rises, before the
+  next cycle's S4. Interrupts stay masked from assert to negate, as for
+  the MC68HC16's `#DSACK1`. A read drives D15-D0 (P10-P27) until the data
+  strobes rise. `#UDS`/`#LDS` (P42/P43) select the byte lanes. **[doc]**
+- **Bus widths.** On the 16-bit boards, MODE (P37, phase 10) sampled at
+  reset tells an MC68HC001 strapped for 8 bits (JP1 closed). That chip
+  strobes only `#LDS`, puts its A0 on P30 in phase 00, and moves data on
+  D7-D0. It is a flag in the 16-bit class, not a class of its own. The
+  P and PS boards tie MODE high and A0 low. The MC68008 boards have `#DS`
+  on P43, A0-A7 direct on P20-P27, and 74AHCT157s on P30-P37 (one select,
+  P54). They take 20 bits on the P board and 22 on the FN board. Reset
+  parks the CPU at the fetch of 0FF000H and tells the two apart there:
+  P34-P35 show A16-A17 (11) under either select on the P board, and
+  A20-A21 (00) under select 1 on the FN board. FC
+  sits on P50-P52 there, and `#IPL2`/`#IPL0` (tied) on P42 is an *output*,
+  where the 16-bit boards' P42 is the input `#UDS`: each class has its
+  own `resetPins()`. A word moves as two byte cycles on an 8-bit bus.
+  **[doc]**
+- **Memory and devices.** All 16 MB sit in EXTMEM (`ExtMemory`). Devices
+  decode the address masked to the board's width. The ACIA at FFFFF0H
+  (masked: FFFF0H on the MC68008P) is reached by absolute short `$FFF0.W`,
+  so one `samples/mc68000` set runs on every board. `#VPA` is tied high on
+  every board, so every interrupt acknowledge (FC = 7, level on A3-A1)
+  takes a vector number on D7-D0 with `#DTACK`. The ACIA's comes from
+  `I ACIA addr rx tx`, and an acknowledge no device claims gets the
+  spurious vector, 24. The MC68008 boards reach levels 2, 5 and 7
+  only, so devices use 5. **[doc][code]**
+- **Halt.** `#IPL2`-`#IPL0` to 7 (P50-P52 on the 16-bit boards, P42 and
+  P55 on the MC68008's). The acknowledge is answered with 31, the
+  level-7 autovector, and IPL drops back to the device level at once.
+  The frame is SR and PC on the 68000/HC000/HC001/008 (6 bytes), plus the
+  format/vector word on the MC68010 (8 bytes). The vector read is answered
+  with an address in an injection window, and the CPU parks at its first
+  fetch. **[doc]**
+- **Save and restore.** Address-keyed, ending in a taken branch to the
+  window's origin, as on the MC68HC16. An exception's frame goes to
+  memory, where the program's stack takes it anyway, and is read back
+  from there. The save's writes are captured, never stored: `MOVEM.L
+  D0-D7/A0-A6,-(SP)`, `MOVE USP,A0` pushed, then `MOVE SR,-(SP)`, which
+  counts only when reset parked the CPU at its own fetch. On the MC68010
+  `MOVEC` will also read VBR, SFC and DFC. Restore: immediate loads
+  (`MOVE.L #`, `MOVEA.L #`, `MOVE A0,USP`), A7 last, pointing at the
+  frame staged in memory at SSP-6, then `RTE`. **[code]**
+- **Step and breaks.** Step restores with T set in SR; the trace exception
+  (vector 9) follows one instruction, or comes before the first
+  instruction of any exception it raised. A break is `ILLEGAL` (4AFCH,
+  vector 4), and every `ILLEGAL` stops a run: it is also how the samples
+  halt. Both are told by the vector read after the frame's pushes, at
+  VBR 0 for now; the MC68010 will need it relative to VBR. A fetch of a
+  break address proves nothing, as the CPU prefetches two words.
+  **[doc][code]**
+- **MC68010.** Its first exception frame tells it apart, 8 bytes against 6
+  (the reset's halt is the first). That turns on libasm's `MC68010`, VBR,
+  SFC and DFC in the register listing, and the format word in the
+  restore. Its loop mode runs a `DBcc` loop without fetching opcodes.
+  **[doc]**
+- **Not planned.** `BKPT` (MC68010 breakpoint acknowledge), bus arbitration
+  (`#BR`, `#BGACK` tied high) and the 6800 bus (E, `#VMA`, `#VPA`). A
+  backtrace waits: no pin marks an instruction start, and if one is
+  built, its lengths come from a table tested against libasm on the host.
+  **[doc][code]**
+- **Samples.** `samples/mc68000` serves every board: the vectors at 0,
+  code from 0400H or 1000H, the stack below 1000H, the ACIA as
+  `(ACIA_xxx).w`, and `ILLEGAL` to halt. The ACIA interrupts at level 5
+  with vector 64, which the regress wires with `ACIA = "FFFF0 40"`; on
+  the FN board the base is 3FFFF0. `ANDI #$F8FF,SR` and `ORI #$0700,SR`
+  switch interrupts without touching CCR, so a queue routine's carry
+  survives them. **[code]**
+- **libasm syntax.** Absolute operands take `(sym).w` or `(sym).l` and
+  displacements `(disp,An)`: a bare `sym` or `disp(An)` is "Operand not
+  allowed". A `BRA.S` to the next instruction, displacement 0, hangs the
+  assembler instead of failing. **[code]**
+- **Order.** The MC68008P board first, then the 16-bit boards: its 157 and
+  8-bit bus are the simpler start, and the same files carry on.
+
 ### SCN2650
 
 **Pitfalls.** A conditional branch not taken skips its indirect address

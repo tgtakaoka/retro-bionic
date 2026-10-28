@@ -34,11 +34,11 @@ report several parts.
 <tr><td>✅</td><td><code>MC68HC08AZ0</code></td><td></td><td>No NMI pin; stepped by monitoring every bus cycle</td></tr>
 <tr><td rowspan="2"><code>mc6809</code></td><td rowspan="2"><code>mc6809</code></td><td>✅</td><td><code>MC6809</code></td><td><code>HD6309</code></td><td></td></tr>
 <tr><td>✅</td><td><code>MC6809E</code></td><td><code>HD6309E</code></td><td></td></tr>
-<tr><td rowspan="7"><code>mc68000</code></td><td rowspan="7"></td><td>🚧</td><td><code>MC68008</code></td><td></td><td><code>MC68008P10</code>, <code>MC68008FN10</code></td></tr>
+<tr><td rowspan="7"><code>mc68000</code></td><td rowspan="4"><code>mc68000</code></td><td>🚧</td><td><code>MC68008</code></td><td></td><td><code>MC68008P10</code>, <code>MC68008FN10</code>; driver written, not yet run on a board</td></tr>
 <tr><td>🚧</td><td><code>MC68000</code></td><td></td><td><code>MC68HC000P10/P16/FN16/FN20</code>, <code>HD68HC000PS10</code></td></tr>
 <tr><td>🚧</td><td><code>MC68HC001</code></td><td></td><td><code>MC68HC001FN10</code>, <code>MC68HC001FN16</code></td></tr>
 <tr><td>🚧</td><td><code>MC68010</code></td><td></td><td><code>MC68010P12</code>, <code>MC68010FN12</code></td></tr>
-<tr><td>🚧</td><td><code>MC68020</code></td><td></td><td><code>MC68020FC16E</code></td></tr>
+<tr><td rowspan="3"></td><td>🚧</td><td><code>MC68020</code></td><td></td><td><code>MC68020FC16E</code></td></tr>
 <tr><td>🚧</td><td><code>MC68030</code></td><td></td><td><code>MC68030FE25C</code>, <code>MC68030FE33</code></td></tr>
 <tr><td>🚧</td><td><code>MC68040</code></td><td></td><td><code>MC68040FE33A</code>; needs a bus sizer</td></tr>
 <tr><td><code>mc68hc12</code></td><td><code>mc68hc12</code></td><td>✅</td><td><code>MC68HC12B</code></td><td></td><td><code>MC68HC912BD32CFU10</code></td></tr>
