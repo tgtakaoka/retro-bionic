@@ -1,0 +1,114 @@
+          0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+          0 :                            include "cp1600.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :                    ;;; CP1600
+(1)       0 :                            cpu     cp1600
+(1)       0 :                            radix   10
+(1)       0 :                    ;;; Reset address (see debugger InstCp1610::RESET_PC)
+(1)       0 : =1000              RESET_PC:       equ     X'1000'
+          0 :                    ;;; i8251 Universal Synchronous/Asynchronous Receiver/Transmitter
+          0 : =FFF0              USART:  equ     X'FFF0'
+          0 : =FFF0              USARTD: equ     USART+0         ; Data register
+          0 : =FFF1              USARTS: equ     USART+1         ; Status register
+          0 : =FFF1              USARTC: equ     USART+1         ; Control register
+          0 :                            include "i8251.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :
+(1)       0 :                    ;;; i8251 USART device emulator.
+(1)       0 :                    ;;; Bit definition of mode instruction (asynchronous)
+(1)       0 : =6                 MODE_STOP_gp:   equ     6
+(1)       0 : =C0                MODE_STOP_gm:   equ     11000000B
+(1)       0 : =40                MODE_STOP1_gc:  equ     (1 << MODE_STOP_gp)
+(1)       0 : =80                MODE_STOP15_gc: equ     (2 << MODE_STOP_gp)
+(1)       0 : =C0                MODE_STOP2_gc:  equ     (3 << MODE_STOP_gp)
+(1)       0 : =20                MODE_EVEN_bm:   equ     00100000B   ; Even parity
+(1)       0 : =10                MODE_PARITY_bm: equ     00010000B   ; Parity enable
+(1)       0 : =2                 MODE_LEN_gp:    equ     2
+(1)       0 : =C                 MODE_LEN_gm:    equ     00001100B
+(1)       0 : =0                 MODE_LEN5_gc:   equ     (0 << MODE_LEN_gp)
+(1)       0 : =4                 MODE_LEN6_gc:   equ     (1 << MODE_LEN_gp)
+(1)       0 : =8                 MODE_LEN7_gc:   equ     (2 << MODE_LEN_gp)
+(1)       0 : =C                 MODE_LEN8_gc:   equ     (3 << MODE_LEN_gp)
+(1)       0 : =0                 MODE_BAUD_gp:   equ     0
+(1)       0 : =3                 MODE_BAUD_gm:   equ     00000011B
+(1)       0 : =1                 MODE_BAUD_X1:   equ     (1 << MODE_BAUD_gp)
+(1)       0 : =2                 MODE_BAUD_X16:  equ (2 << MODE_BAUD_gp)
+(1)       0 : =3                 MODE_BAUD_X64:  equ (3 << MODE_BAUD_gp)
+(1)       0 :                    ;;; Bit Definition of command register
+(1)       0 : =80                CMD_EH_bm:      equ     10000000B   ; Enter hunt mode
+(1)       0 : =40                CMD_IR_bm:      equ     01000000B   ; Internal Reset
+(1)       0 : =20                CMD_RTS_bm:     equ     00100000B   ; Request To Send
+(1)       0 : =10                CMD_ER_bm:      equ     00010000B   ; Error Reset
+(1)       0 : =8                 CMD_SBRK_bm:    equ     00001000B   ; Send Break
+(1)       0 : =4                 CMD_RxEN_bm:    equ     00000100B   ; Receive Enable
+(1)       0 : =2                 CMD_DTR_bm:     equ     00000010B   ; Data Terminal Ready
+(1)       0 : =1                 CMD_TxEN_bm:    equ     00000001B   ; Transmit enable
+(1)       0 :
+(1)       0 :                    ;;; Bit definition of status register
+(1)       0 : =80                ST_DSR_bm:      equ     10000000B   ; Data Set Ready
+(1)       0 : =40                ST_BRK_bm:      equ     01000000B   ; BREAK detected
+(1)       0 : =20                ST_FE_bm:       equ     00100000B   ; Framing Error
+(1)       0 : =10                ST_OE_bm:       equ     00010000B   ; Overrun Error
+(1)       0 : =8                 ST_PE_bm:       equ     00001000B   ; Parity Error
+(1)       0 : =4                 ST_TxEMPTY_bm:  equ     00000100B   ; Transmitter empty
+(1)       0 : =2                 ST_RxRDY_bm:    equ     00000010B   ; Receiver ready
+(1)       0 : =1                 ST_TxRDY_bm:    equ     00000001B   ; Transmitter ready
+          0 :                    ;;; Async 1stop 8data x16
+          0 : =4E                ASYNC_MODE:     equ     MODE_STOP1_gc|MODE_LEN8_gc|MODE_BAUD_X16
+          0 :                    ;;; RTS/DTR, error reset, Rx enable, Tx enable
+          0 : =37                RX_EN_TX_EN:    equ     CMD_RTS_bm|CMD_DTR_bm|CMD_ER_bm|CMD_RxEN_bm|CMD_TxEN_bm
+          0 :
+        200 :                            org     X'0200'
+        200 :                    stack:
+        200 :
+       1000 :                            org     RESET_PC
+       1000 :                    initialize:
+       1000 : 02BE 0200                  mvii    stack, r6
+       1002 : 0004 0110 0019             jsr     r5, init_usart
+       1005 : 0004 0110 0031     loop:   jsr     r5, getchar
+       1008 : 0080                       tstr    r0
+       1009 : 0204 000B                  beq     halt_to_system  ; halt on NUL
+       100B : 0004 0110 003A     echo:   jsr     r5, putchar
+       100E : 0378 000D                  cmpi    X'0D', r0
+       1010 : 022C 000C                  bneq    loop            ; branch if R0!=CR
+       1012 : 02B8 000A                  mvii    X'0A', r0       ; NL
+       1014 : 0220 000A                  b       echo
+       1016 :                    halt_to_system:
+       1016 : 0000                       hlt
+       1017 : 0220 0002                  b       halt_to_system  ; HLT stops after this
+       1019 :
+       1019 :                    init_usart:
+       1019 : 01C0                       clrr    r0
+       101A : 0240 FFF1                  mvo     r0, USARTC
+       101C : 0240 FFF1                  mvo     r0, USARTC
+       101E : 0240 FFF1                  mvo     r0, USARTC      ; Safest way to sync mode
+       1020 : 02B8 0040                  mvii    CMD_IR_bm, r0
+       1022 : 0240 FFF1                  mvo     r0, USARTC      ; Reset
+       1024 : 0034                       nop
+       1025 : 0034                       nop
+       1026 : 02B8 004E                  mvii    ASYNC_MODE, r0
+       1028 : 0240 FFF1                  mvo     r0, USARTC
+       102A : 0034                       nop
+       102B : 0034                       nop
+       102C : 02B8 0037                  mvii    RX_EN_TX_EN, r0
+       102E : 0240 FFF1                  mvo     r0, USARTC      ; Enable Rx/Tx
+       1030 : 00AF                       jr      r5
+       1031 :
+       1031 :                    ;;; @return R0 received char
+       1031 :                    getchar:
+       1031 : 0280 FFF1                  mvi     USARTS, r0
+       1033 : 03B8 0002                  andi    ST_RxRDY_bm, r0
+       1035 : 0224 0005                  beq     getchar
+       1037 : 0280 FFF0                  mvi     USARTD, r0
+       1039 : 00AF                       jr      r5
+       103A :
+       103A :                    ;;; @param R0 char to send
+       103A :                    putchar:
+       103A : 0270                       pshr    r0
+       103B :                    putchar_wait:
+       103B : 0280 FFF1                  mvi     USARTS, r0
+       103D : 03B8 0001                  andi    ST_TxRDY_bm, r0
+       103F : 0224 0005                  beq     putchar_wait
+       1041 : 02B0                       pulr    r0
+       1042 : 0240 FFF0                  mvo     r0, USARTD
+       1044 : 00AF                       jr      r5
