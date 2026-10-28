@@ -504,6 +504,12 @@ registers and pending interrupts. Since R keeps whatever a run left
 behind, the regress applies `[devices]` before each program it loads, and
 `record-scenario.py` puts back any device a scenario moved.
 
+A vector write moves a pending request to the new vector, as `I` does:
+left on the old one, a vector of 0 can never negate it. Mandelbrot left
+the 8085's Tx wired to RST 6, so echoir's command write raised it there,
+its write of 0 to the Tx vector kept INTR high, and its `EI` took RST 6
+into the stale handler.
+
 What a command lists must read back through it as printed, since the tools
 save the listing and restore it. `I` once read the base with `maxData()`'s
 four digits while the i8096's listing printed six, so restoring `000400`

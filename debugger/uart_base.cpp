@@ -67,11 +67,21 @@ void UartBase::negateIntreq(uint8_t name) {
     Debugger.target().negateInt(name);
 }
 
+// A request pending on the old vector moves to the new one; left asserted,
+// a vector of 0 could never negate it.
 void UartBase::write(uint32_t addr, uint16_t data) {
     if (addr == _base_addr + 2 * _step) {
+        const auto pending = _rxVec != 0;
+        negateRxIntr();
         _rxIntr = data;
+        if (pending)
+            assertRxIntr();
     } else if (addr == _base_addr + 3 * _step) {
+        const auto pending = _txVec != 0;
+        negateTxIntr();
         _txIntr = data;
+        if (pending)
+            assertTxIntr();
     }
 }
 
