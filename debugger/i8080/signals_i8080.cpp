@@ -59,6 +59,14 @@ void Signals::outData() const {
     busMode(DATA, OUTPUT);
 }
 
+void Signals::stageData() const {
+    busWriteFast(DATA, data);
+}
+
+void Signals::driveData() {
+    busMode(DATA, OUTPUT);
+}
+
 void Signals::inputMode() {
     busMode(DATA, INPUT);
 }

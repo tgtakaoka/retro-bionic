@@ -63,6 +63,7 @@
 #define PIN_WAIT 30   /* P8.23 */
 
 #include "pins_i8080_base.h"
+#include "pwm_clock.h"
 #include "signals_i8080.h"
 
 namespace debugger {
@@ -79,25 +80,44 @@ enum IntrName : uint8_t {
     INTR_RST7 = 0x38,  // RST 7: 0038H
 };
 
+struct Phases;
+
 struct PinsI8080 final : PinsI8080Base {
     PinsI8080();
 
     void resetPins() override;
-    void idle() override;
+    // PHI1 and PHI2 run by themselves.
+    void idle() override {}
     bool step(bool show) override;
     void run() override;
     void assertInt(uint8_t name) override;
     void negateInt(uint8_t name) override;
     void printCycles() override;
+#ifdef TUNE_CLOCK
+    uint32_t clockInput() const override;
+    bool setClockInput(uint32_t hz) override;
+#endif
 
     uint16_t captureWrites(const uint8_t *inst, uint_fast8_t len, uint8_t *buf,
             uint_fast8_t max) override;
 
 private:
+    PwmClock<PIN_PHI1> _phi1;
+    PwmClock<PIN_PHI2> _phi2;
+#ifdef TUNE_CLOCK
+    // The clock period in bus clock counts, which K sets.
+    uint16_t _counts;
+#endif
+
+    const Phases &phases() const;
+    uint32_t phiCycles() const;
+    void setPhases() const;
+    bool latchCycle(const uint32_t *serviced = nullptr) const;
+    void resetCycles() const;
     Signals *prepareCycle() const;
-    void enterWait() const;
-    Signals *resumeCycle(uint16_t pc = 0) const;
-    Signals *completeCycle(Signals *s) const;
+    Signals *resumeCycle() const;
+    Signals *resumeCycle(uint16_t pc) const;
+    Signals *completeCycle(Signals *s, const uint32_t *serviced = nullptr) const;
     Signals *inject(uint8_t data) const;
     Signals *loop() const;
     bool rawStep() const;
