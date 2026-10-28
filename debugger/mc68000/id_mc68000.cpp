@@ -1,12 +1,12 @@
 #include "identity.h"
 
-#include "pins_mc68000x16.h"
+#include "pins_mc68000.h"
 
 namespace debugger {
 namespace mc68000 {
 
 Pins *instance() {
-    return new PinsMc68000x16();
+    return new PinsMc68000();
 }
 
 TARGET_OVERLAY(mc68000);

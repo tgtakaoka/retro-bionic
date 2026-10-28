@@ -65,7 +65,7 @@ const uint8_t PINS_INPUT[] = {
 
 }  // namespace
 
-PinsMc68008::PinsMc68008() : PinsMc68000(Signals::LDS) {
+PinsMc68008::PinsMc68008() : PinsMc68000Base(Signals::LDS) {
     _devs = new DevsMc68000(ADDR_MASK_P);
     _mems = new MemsMc68000(ADDR_MASK_P);
     _regs = new RegsMc68000(this, mems<MemsMc68000>());

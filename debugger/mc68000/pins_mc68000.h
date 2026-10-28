@@ -1,128 +1,76 @@
 #ifndef __PINS_MC68000_H__
 #define __PINS_MC68000_H__
 
-// The pins every 68000-family board shares.
-// The strobes and #HALT, one read of GPIO9. P42 and P43 are #UDS and #LDS
-// on a 16-bit bus; on the MC68008 P42 is an output, #IPL2/#IPL0, and P43
-// #DS.
-#define PORT_CNTL 9  /* GPIO9 */
-#define CNTL_gp 4    /* P9.04-P9.08 */
-#define CNTL_gm 0x1F /* P9.04-P9.08 */
-#define CNTL_vp 0
-#define PIN_AS 2     /* P9.04 */
-#define PIN_RW 3     /* P9.05 */
-#define PIN_P42 4    /* P9.06 */
-#define PIN_P43 33   /* P9.07 */
-#define PIN_HALT 5   /* P9.08 */
-#define PIN_DTACK 0  /* P6.03 */
-#define PIN_BERR 1   /* P6.02 */
-#define PIN_CLK 29   /* P9.31 */
-#define PIN_RESET 28 /* P8.18 */
-#define PIN_ASEL0 31 /* P8.22 */
+#define PORT_D 6    /* GPIO6 */
+#define D_gp 16     /* P6.16-P6.31 */
+#define D_gm 0xFFFF /* P6.16-P6.31 */
+#define D_vp 0      /* D0-D15 */
+#define PIN_D0 19   /* P6.16 */
+#define PIN_D1 18   /* P6.17 */
+#define PIN_D2 14   /* P6.18 */
+#define PIN_D3 15   /* P6.19 */
+#define PIN_D4 40   /* P6.20 */
+#define PIN_D5 41   /* P6.21 */
+#define PIN_D6 17   /* P6.22 */
+#define PIN_D7 16   /* P6.23 */
+#define PIN_D8 22   /* P6.24 */
+#define PIN_D9 23   /* P6.25 */
+#define PIN_D10 20  /* P6.26 */
+#define PIN_D11 21  /* P6.27 */
+#define PIN_D12 38  /* P6.28 */
+#define PIN_D13 39  /* P6.29 */
+#define PIN_D14 26  /* P6.30 */
+#define PIN_D15 27  /* P6.31 */
+// A0-A23, FC2:FC0 and MODE share P30-P37 through four 74HCS153 selected
+// by ASEL1:ASEL0: AL carries A0-A3 (00), A4-A7 (01), A12-A15 (10) and
+// A8-A11 (11), AH A16-A19, A20-A23, FC2:FC0 with MODE on P37, and
+// nothing. A0 is real only on an MC68HC001 strapped for 8 bits; the P
+// and PS boards tie it low, the FN board pulls it down. One read of GPIO7
+// takes both nibbles.
+#define PORT_ADDR 7 /* GPIO7 */
+#define PIN_AL0 10  /* P7.00 */
+#define PIN_AL1 12  /* P7.01 */
+#define PIN_AL2 11  /* P7.02 */
+#define PIN_AL3 13  /* P7.03 */
+#define PIN_AH0 8   /* P7.16 */
+#define PIN_AH1 7   /* P7.17 */
+#define PIN_AH2 36  /* P7.18 */
+#define PIN_AH3 37  /* P7.19 */
+// #IPL2-#IPL0 on P52-P50, one write of GPIO7.
+#define PORT_IPL 7  /* GPIO7 */
+#define IPL_gp 10   /* P7.10-P7.12 */
+#define IPL_gm 7    /* P7.10-P7.12 */
+#define IPL_vp 0    /* #IPL0-#IPL2 */
+#define PIN_IPL0 6  /* P7.10 */
+#define PIN_IPL1 9  /* P7.11 */
+#define PIN_IPL2 32 /* P7.12 */
+#define PIN_UDS PIN_P42
+#define PIN_LDS PIN_P43
+#define PIN_ASEL1 30 /* P8.23 */
 
-#include "pins.h"
-#include "pwm_clock.h"
-#include "regs_mc68000.h"
-#include "signals_mc68000.h"
+#include "pins_mc68000_base.h"
 
 namespace debugger {
 namespace mc68000 {
 
-// The bus-cycle engine, the halt, step and run every board shares. CLK
-// never stops: it runs from the PWM from reset on, and the CPU waits for
-// the Teensy by #DTACK alone. A board class reads the address, moves the
-// data and drives the interrupt level.
-struct PinsMc68000 : Pins {
-    // The clock runs free and the parked CPU waits on #DTACK.
-    void idle() override {}
-    bool step(bool show) override;
-    void run() override;
-
-    void printCycles() override;
-    uint32_t clockInput() const override { return _clockInput; }
-    bool setClockInput(uint32_t hz) override;
-    void assertInt(uint8_t name) override;
-    void negateInt(uint8_t name) override;
-    void setBreakInst(uint32_t addr) const override;
-
-    // Where an injected sequence leaves off: back at its own origin, or --
-    // given as a plain address -- the target of the jump it ends with.
-    static constexpr uint32_t EXIT_ORG = UINT32_MAX;
-
-    // Run |inst| on the parked CPU: its reads inside the window are fed
-    // from |inst| by address, other program reads get NOPs, data reads
-    // outside it come from memory, and every write is captured, never
-    // stored. The first |max| bytes written go to |buf| and their
-    // addresses to |addrs|; the count captured is returned. |org| is where
-    // the CPU is parked, and is advanced to where the sequence leaves off.
-    // Instructions are words, so |org| and |len| are even, and every
-    // sequence ends in a taken branch: the prefetch reaches the exit before
-    // the last instructions execute.
-    void execInst(const uint8_t *inst, uint_fast8_t len, uint32_t &org,
-            uint32_t exit);
-    uint_fast8_t captureWrites(const uint8_t *inst, uint_fast8_t len,
-            uint8_t *buf, uint32_t *addrs, uint_fast8_t max, uint32_t &org,
-            uint32_t exit);
-    // Complete the vector read the CPU is parked in with |handler|, and
-    // park it again at the handler's first fetch.
-    bool answerVector(uint32_t vecAddr, uint32_t handler);
-    // Whether the last sequence ended anywhere but its exit.
-    bool cutShort() const { return _cutShort; }
-
-protected:
-    // |strobes| are the data strobes a write waits for: #DS on the MC68008,
-    // #UDS and #LDS on a 16-bit bus.
-    PinsMc68000(uint8_t strobes);
-
-    bool _cutShort = false;
-    // The clock's rate, and the Teensy cycles in one of its clocks.
-    uint32_t _clockInput;
-    uint32_t _clockCycles;
-
-    // The reset sequence, once the board's pins are set up.
-    void resetCpu();
-    // The interrupt level to drive: 7 for a halt, 5 for a device, else 0.
-    uint8_t iplLevel() const { return _halting ? 7 : (_intr ? 5 : 0); }
-    uint32_t wrap(uint32_t addr) const;
-
-    // What each board does its own way.
-    // The board's straps, read while #RESET is held.
-    virtual void readStraps() {}
-    // Parked at the fetch of ORG_PARK after reset: what its address shows.
-    virtual void detectBoard() {}
-    // The address, FC, and for a read the byte lanes, as #AS opens a cycle.
-    virtual void getAddr(Signals *s) const = 0;
-    // A write's byte lanes, once its data strobes assert.
-    virtual void getLanes(Signals *s) const {}
-    // A byte moves in bits 0-7 of |data|, whatever lane carries it.
-    virtual void getData(Signals *s) const = 0;
-    virtual void outData(const Signals *s) const = 0;
-    virtual void inputMode() const = 0;
-    virtual void setIpl() const = 0;
+// The MC68000P (DIP64), HD68HC000PS (SDIP64) and MC68000FN (PLCC68)
+// boards, for the MC68000, MC68HC000, MC68HC001 and MC68010: a 16-bit
+// bus, or an 8-bit one from an MC68HC001 with MODE low.
+struct PinsMc68000 final : PinsMc68000Base {
+    PinsMc68000();
 
 private:
-    PwmClock<PIN_CLK> _clock;
-    const uint8_t _strobes;
-    // A device's interrupt is pending; level 7 is being raised for a halt.
-    bool _intr = false;
-    bool _halting = false;
+    // An MC68HC001 strapped for 8 bits: #LDS alone, A0 on the bus.
+    bool _bus8 = false;
 
-    void printBacktrace() override;
-    Signals *prepareCycle();
-    // Gives up after |clocks| without #AS: the CPU is stopped.
-    Signals *prepareCycle(uint_fast16_t clocks);
-    // The cycle the CPU is parked in, read again.
-    Signals *resumeCycle();
-    Signals *completeCycle(Signals *s);
-    void serveRead(Signals *s);
-    void storeWrite(Signals *s);
-    uint_fast8_t execute(const uint8_t *inst, uint_fast8_t len, uint8_t *buf,
-            uint32_t *addrs, uint_fast8_t max, uint32_t &org, uint32_t exit);
-    uint_fast8_t frameBytes();
-    bool findFrame(const Signals *s, RegsMc68000::Frame &frame,
-            const Signals *&from) const;
-    bool loop();
-    bool suspend(Signals *s);
+    void resetPins() override;
+    void readStraps() override;
+    void getAddr(Signals *s) const override;
+    void getLanes(Signals *s) const override;
+    void getData(Signals *s) const override;
+    void outData(const Signals *s) const override;
+    void inputMode() const override;
+    void setIpl() const override;
 };
 
 }  // namespace mc68000

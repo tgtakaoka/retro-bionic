@@ -7,11 +7,11 @@
 namespace debugger {
 namespace mc68000 {
 
-struct PinsMc68000;
+struct PinsMc68000Base;
 struct MemsMc68000;
 
 struct RegsMc68000 final : Regs {
-    RegsMc68000(PinsMc68000 *pins, MemsMc68000 *mems);
+    RegsMc68000(PinsMc68000Base *pins, MemsMc68000 *mems);
 
     const char *cpu() const override {
         return _mc68010 ? "MC68010" : "MC68000";
@@ -63,7 +63,7 @@ struct RegsMc68000 final : Regs {
     bool setRegister(uint_fast8_t reg, uint32_t value) override;
 
 private:
-    PinsMc68000 *const _pins;
+    PinsMc68000Base *const _pins;
     MemsMc68000 *const _mems;
     bool _mc68010 = false;
 

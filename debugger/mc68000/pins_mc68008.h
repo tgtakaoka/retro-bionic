@@ -48,14 +48,14 @@
 #define PIN_ASEL PIN_ASEL0
 #define PIN_IPL1 30 /* P8.23 */
 
-#include "pins_mc68000.h"
+#include "pins_mc68000_base.h"
 
 namespace debugger {
 namespace mc68000 {
 
 // The MC68008P (DIP48, 20 address lines) and MC68008FN (PLCC52, 22) boards,
 // told apart at reset by whether P34-P35 follow ASEL.
-struct PinsMc68008 final : PinsMc68000 {
+struct PinsMc68008 final : PinsMc68000Base {
     PinsMc68008();
 
 private:

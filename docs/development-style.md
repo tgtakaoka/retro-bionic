@@ -2037,10 +2037,10 @@ Plan, written before any of it runs; every timing it implies gets an
 
 - **One directory for the family.** `debugger/mc68000/` serves the MC68000,
   MC68HC000, MC68HC001, MC68010 and MC68008: one instruction set, one
-  asynchronous bus. `PinsMc68000` holds the engine -- reset, the cycle,
+  asynchronous bus. `PinsMc68000Base` holds the engine -- reset, the cycle,
   injection, halt, step and run -- for word and byte cycles alike, and two
   `final` board classes read the address, move the data and drive the
-  interrupt level: `PinsMc68000x16` for the 16-bit-bus boards
+  interrupt level: `PinsMc68000` for the 16-bit-bus boards
   (`bionic-mc68000p`, `-ps`, `-fn`), `PinsMc68008` for the MC68008 boards
   (`bionic-mc68008p`, `-fn`). Identities `MC68000` and `MC68008`, both
   `TARGET_OVERLAY(mc68000)`. A byte moves in bits 0-7 of a cycle's data
@@ -2135,8 +2135,10 @@ Plan, written before any of it runs; every timing it implies gets an
   survives them. **[code]**
 - **libasm syntax.** Absolute operands take `(sym).w` or `(sym).l` and
   displacements `(disp,An)`: a bare `sym` or `disp(An)` is "Operand not
-  allowed". A `BRA.S` to the next instruction, displacement 0, hangs the
-  assembler instead of failing. **[code]**
+  allowed". A `BRA.S` to the next instruction can't be encoded: a 0
+  displacement means a 16-bit one follows. libasm 2.0.0 hangs on it;
+  the fix came after, so it reports an error from the next release on.
+  **[code]**
 - **Order.** The MC68008P board first, then the 16-bit boards: its 157 and
   8-bit bus are the simpler start, and the same files carry on.
 

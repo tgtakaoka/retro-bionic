@@ -3,7 +3,7 @@
 #include "debugger.h"
 #include "inst_mc68000.h"
 #include "mems_mc68000.h"
-#include "pins_mc68000.h"
+#include "pins_mc68000_base.h"
 
 namespace debugger {
 namespace mc68000 {
@@ -65,7 +65,7 @@ struct Sequence {
 };
 }  // namespace
 
-RegsMc68000::RegsMc68000(PinsMc68000 *pins, MemsMc68000 *mems)
+RegsMc68000::RegsMc68000(PinsMc68000Base *pins, MemsMc68000 *mems)
     : _pins(pins),
       _mems(mems),
       _pc(InstMc68000::ORG_PARK),
@@ -130,7 +130,7 @@ void RegsMc68000::save() {
     uint8_t buf[BYTES];
     uint32_t addrs[BYTES];
     const auto n = _pins->captureWrites(SAVE, sizeof(SAVE), buf, addrs,
-            sizeof(buf), org, PinsMc68000::EXIT_ORG);
+            sizeof(buf), org, PinsMc68000Base::EXIT_ORG);
     if (n < sizeof(buf) || _pins->cutShort()) {
         cli.println("?save: registers not pushed");
         return;
