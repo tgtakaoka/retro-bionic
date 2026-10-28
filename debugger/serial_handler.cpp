@@ -10,6 +10,32 @@ void SerialHandler::reset() {
     _prescaler = _pre_divider;
     _rx.bit = 0;
     _tx.bit = 0;
+    setTick();
+}
+
+void SerialHandler::setClock(uint32_t hz) {
+    _clockHz = hz;
+    setTick();
+}
+
+void SerialHandler::setTick() {
+    if (_clockHz == 0)
+        return;
+    _tickCycles = uint64_t(_pre_divider) * F_CPU_ACTUAL / _clockHz;
+    _lastTick = ARM_DWT_CYCCNT;
+}
+
+void SerialHandler::pace() {
+    if (!_enabled || _tickCycles == 0)
+        return;
+    const uint32_t elapsed = ARM_DWT_CYCCNT - _lastTick;
+    if (elapsed < _tickCycles)
+        return;
+    // Keep the phase, but drop the ticks of a long absence rather than
+    // burst them.
+    _lastTick += (elapsed < 2 * _tickCycles) ? _tickCycles : elapsed;
+    txloop(_tx);
+    rxloop(_rx);
 }
 
 void SerialHandler::loop() {

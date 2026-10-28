@@ -332,6 +332,10 @@ needed a tuned delay for each.
 - With the clock free-running, every read of the bus must follow the
   strobe or clock edge that makes it valid; one taken whenever, as a
   stopped clock allowed, catches the address changing.
+- A bit-banged serial handler paced by clock edges paces by the cycle
+  counter instead: `SerialHandler::setClock()` and `pace()` tick once per
+  prescaled count of the free-running clock, keeping the phase but
+  dropping a long absence's ticks.
 
 ### A logic analyser on the bus can break the board **[hw]**
 
