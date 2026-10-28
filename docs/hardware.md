@@ -119,6 +119,36 @@ dip = 40
 37 = "P53, #RESET"
 ```
 
+## Clocking the CPU
+
+The Teensy is the CPU's oscillator, driving its clock input in one of two ways.
+
+- **Bit-banged** — the firmware toggles the clock pin itself, one edge at a time,
+  sampling and driving the bus between edges. The CPU advances only when the Teensy
+  clocks it, so a bus cycle lasts as long as the Teensy needs to serve it. A static
+  CPU is parked by not clocking it; a dynamic one is kept clocked while a wait input
+  or an injected jump-to-self holds it in place.
+- **From a timer** — a FlexPWM output of the i.MX RT1062 drives the clock pin at a fixed
+  rate, whatever the firmware is doing, so the CPU runs its internal cycles at that rate.
+  The firmware follows the bus by the CPU's strobes or clock output, and holds each bus
+  cycle with the CPU's wait input until it has served it. The CPU is parked the same
+  way, or by withholding its bus grant (the INS8060's and INS8070's `#ENIN`). This needs the clock input on a FlexPWM pin (`P46` or `P47`) and a wait input
+  that can hold a cycle indefinitely. It is the only choice for a CPU with a minimum
+  clock rate, an oscillator monitor or a PLL.
+
+These boards run from a timer:
+
+| CPU | Clock input | Cycle held by | Default rate |
+|---|---|---|---|
+| TMS9980, TMS9981 | `P46`, CKIN | `P54`, READY | 10 MHz |
+| MC68HC16Z1 | `P47`, EXTAL | `P45`, `#DSACK1` | 10 MHz |
+| TMS370Cx5x | `P46`, CLKIN | `P54`, `#WAIT` | 18.75 MHz |
+| SCN2650 | `P46`, CLOCK | `P55`, `#OPACK` | 1.25 MHz |
+| INS8060, INS8070 | `P46`, XIN | `P52`, `#HOLD` | 4.05 MHz |
+
+The `teensy41-clock` build adds a `K` command to change the rate at run time (see
+[debugger.md](debugger.md#not-in-a-stock-build)).
+
 ## Board identification
 
 Every adapter carries a Microchip **11AA010** UNI/O serial EEPROM holding a 16-byte name.
@@ -156,7 +186,8 @@ documentation for how a given CPU is driven. A few examples of what made them ha
 - **P8051** — the delay from clock edge to control signal is about 50 ns, roughly half a
   cycle at the target speed, and the external clock phase differs between HMOS and CMOS parts.
 - **TMS370Cx5x** — an on-chip oscillator monitor decides a software-generated clock is
-  unstable and resets the CPU.
+  unstable and resets the CPU, so CLKIN runs from a timer (see
+  [Clocking the CPU](#clocking-the-cpu)).
 - **P8095BH** — prefetches up to four bytes whenever the bus is free, and DIP-48 exposes
   neither NMI nor an instruction-fetch signal, so single-stepping uses TRAP instructions and
   the bus trace is reconstructed by pattern matching.

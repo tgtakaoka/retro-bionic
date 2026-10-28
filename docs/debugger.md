@@ -58,6 +58,10 @@ So the **disassembler is present but the assembler is not**, and the SD card com
 absent. `U` — upload over the serial link — is the working way to get code in. Enable the
 others by uncommenting and rebuilding; the firmware has room to spare.
 
+On a CPU clocked from a timer (see [hardware.md](hardware.md#clocking-the-cpu)), the
+`teensy41-clock` build adds `K [kHz]`, which shows the clock rate a run uses or sets it;
+a rate the CPU can't take is answered with `?clock: not taken`.
+
 ## Verbose mode
 
 `V` toggles printing of captured bus cycles. With it on, `R` and `S` show every cycle the

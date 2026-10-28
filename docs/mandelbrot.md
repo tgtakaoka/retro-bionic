@@ -24,6 +24,9 @@ The tables time them on real chips, from recorded casts, with
   plays it in the browser at the speed it ran, beside its listing, and
   `asciinema play` replays the file in a terminal.
 - **Listing** is the assembly source the chip ran.
+- **Note** `PWM` with a rate marks a chip clocked from a timer at that
+  rate instead of bit-banged edges (see
+  [hardware.md](hardware.md#clocking-the-cpu)).
 
 <!-- Link a cast as
      https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/<arch>/<name>.cast&lst=samples/<arch>/<name>.lst
