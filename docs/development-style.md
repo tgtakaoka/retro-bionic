@@ -293,13 +293,15 @@ instead of bit-banged edges, which is the way to a CPU whose clock goes
 through a PLL. The MC68HC16 does this on EXTAL (P47); reset, step and
 injected sequences stay bit-banged. The TMS9980 and TMS9981 run every
 sequence from it on CKIN (pin 5), and the TMS370Cx5x on CLKIN (pin 5),
-since their clock must not stop.
+since their clock must not stop. The SCN2650 is static, but runs from it
+on CLOCK (pin 5) too: the timer paces the cycles, where bit-banged edges
+needed a tuned delay for each.
 
-- Hold a bus cycle with the CPU's wait input (`#DSACK`, READY) instead of
-  stopping the clock: withhold it until the cycle is served, and negate it
-  as soon as the strobe ends, before the next cycle samples it. Mask
-  interrupts from asserting it to negating it: an interrupt can outlast
-  the gap between strobes, and the next cycle then ends unserved.
+- Hold a bus cycle with the CPU's wait input (`#DSACK`, READY, `#OPACK`)
+  instead of stopping the clock: withhold it until the cycle is served,
+  and negate it as soon as the strobe ends, before the next cycle samples
+  it. Mask interrupts from asserting it to negating it: an interrupt can
+  outlast the gap between strobes, and the next cycle then ends unserved.
 - `PwmClock<PIN>` (`debugger/pwm_clock.h`) does this for a FlexPWM
   pin: the pin fixes every register at compile time, so a call costs no
   more than the bare register access, even in a per-cycle loop. A new
@@ -319,7 +321,9 @@ since their clock must not stop.
   constant. Only that build keeps the rate in the Pins class:
   `clockInput()`, `setClockInput()` and the rate member go under
   `#ifdef TUNE_CLOCK`, and timeouts are sized for the slowest rate the CPU
-  takes, constants that hold at any rate.
+  takes, constants that hold at any rate. That build may let `K` go past
+  the CPU's rated clock, to find where it stops keeping up: the SCN2650's
+  goes down to halves of 200 ns.
 - A CPU that samples its wait input on a clock edge needs it moved only
   outside that edge's setup and hold window, at its next sample too: the
   TMS9980 takes `READY` up to 2tw+10 after the `#PHI3` rise, so raised
