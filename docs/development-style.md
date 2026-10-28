@@ -356,6 +356,16 @@ cycles, where bit-banged edges needed a tuned delay for each.
   than at 9.375 MHz until the halt switch, whose `yield()` took about
   120 ns before every fetch, was polled once in 10 us instead. Measure
   each phase of a cycle in a capture before blaming the rate.
+- Holding every cycle costs a wait state each. In a run, a plain memory
+  read can go without one: decide from the status as soon as it is valid,
+  leave the wait input released, stage the data in the port while it is
+  still an input (`busWriteFast()`, no read of the data register), and
+  drive it the moment the read strobe falls. Every 10 us hold a fetch to
+  run the devices, which may change an interrupt input only while the
+  CPU waits, and to poll the halt switch. It only pays while the Teensy
+  keeps up: on the 8085 at 10 MHz X1, an ALE came 90 ns after a held
+  write's strobe and was over before the Teensy looked, and zero-wait
+  reads worked only at 6 MHz, slower than every cycle held at 10 MHz.
 - A target moved to a timer adds its row to the table in
   [hardware.md](hardware.md#clocking-the-cpu) (clock input, the input that
   holds a cycle, default rate) in the same commit, and a cast recorded on
@@ -1281,6 +1291,28 @@ program bugs: bus corruption hits operands the CPU has been reading. **[hw]**
 The NMOS 8080 is dynamic (tCY max 2 us). To rule clock stretching in or
 out, arm a pulse-width trigger on PHI1 during a failing run; it has never
 fired, so stretching is not a cause of such corruption. **[hw]**
+
+PHI1 and PHI2 run free from FlexPWM2 and FlexPWM3. An XBAR sync from one
+to the other's EXT_SYNC never started the second counter, so the two
+are restarted back to back with FORCE, and PHI2's edges are set 4 counts
+early for the gap between the writes. They reach the CPU through passive
+level shifters: a rise takes about 100 ns, PHI1 peaks near 8.4 V, and
+only fixed phases as wide as the bit-banged ones (PHI1 100 ns, PHI2 at
+least 227 ns) keep it working, which tops the clock at 2.5 MHz. **[hw]**
+
+- READY must change outside the window where PHI2's fall samples it:
+  raised there, it missed tRS, and the CPU went on with part of its
+  state waiting, reading memory without fetches until it ran into the
+  weeds. `raise_ready()` waits on PHI1's counter.
+- The status is on D0-D7 only around SYNC, so the cycle the CPU waits in
+  carries it in its ring slot; `Cycles::reset()` rewinds to a stale slot,
+  and resuming from it served a fetch as a write, writing the held bus
+  over code. `resetCycles()` moves the waiting cycle along.
+- In a run, a plain memory read is served without a wait state: READY
+  goes high again as soon as the status shows it, the data is staged
+  with `busWriteFast()` and driven the moment DBIN rises. A fetch is
+  held every 10 us to run the devices, which change INT only while the
+  CPU waits, and to poll the halt switch. **[hw][code]**
 
 ### 8085
 

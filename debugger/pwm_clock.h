@@ -107,6 +107,39 @@ struct PwmClock {
         return (F_BUS_ACTUAL >> prescale) / (s.VAL1 + 1);
     }
 
+    /** The period in counts of the bus clock. */
+    static uint16_t period() { return sm().VAL1 + 1; }
+
+    /** High from count |on| to |off| of each period, from the next reload. */
+    static void setEdges(uint16_t on, uint16_t off) {
+        auto &s = sm();
+        pwm().MCTRL |= FLEXPWM_MCTRL_CLDOK(1 << Pin::submodule);
+        if (Pin::outputB) {
+            s.VAL4 = on;
+            s.VAL5 = off;
+        } else {
+            s.VAL2 = on;
+            s.VAL3 = off;
+        }
+        pwm().MCTRL |= FLEXPWM_MCTRL_LDOK(1 << Pin::submodule);
+    }
+
+    /**
+     * CTRL2 values that restart the counter from INIT at once: write
+     * restartNow(), then restartDone(). Two submodules restarted back to
+     * back keep the offset of the two writes, as both count the bus clock.
+     */
+    static uint16_t restartNow() {
+        const uint16_t c = sm().CTRL2 & ~FLEXPWM_SMCTRL2_FORCE_SEL(7);
+        return c | FLEXPWM_SMCTRL2_FRCEN | FLEXPWM_SMCTRL2_FORCE;
+    }
+    static uint16_t restartDone() {
+        const uint16_t c = sm().CTRL2 &
+                           ~(FLEXPWM_SMCTRL2_FORCE_SEL(7) |
+                                   FLEXPWM_SMCTRL2_FRCEN | FLEXPWM_SMCTRL2_FORCE);
+        return c | FLEXPWM_SMCTRL2_FORCE_SEL(2);
+    }
+
     /** Run the PWM at |hz|, masked low, and leave the pin a GPIO driving low. */
     void begin(uint32_t hz) {
         setRate(hz);

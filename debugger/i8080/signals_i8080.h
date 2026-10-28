@@ -11,6 +11,10 @@ struct Signals final : SignalsBase<Signals> {
     void getStatus();
     void getData();
     void outData() const;
+    // outData() in two steps: the data into the port while it is still an
+    // input, then the port driving it.
+    void stageData() const;
+    static void driveData();
     static void inputMode();
     void print() const;
 
