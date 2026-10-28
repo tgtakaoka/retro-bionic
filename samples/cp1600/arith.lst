@@ -1,0 +1,456 @@
+          0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+          0 :                            include "cp1600.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :                    ;;; CP1600
+(1)       0 :                            cpu     cp1600
+(1)       0 :                            radix   10
+(1)       0 :                    ;;; Reset address (see debugger InstCp1610::RESET_PC)
+(1)       0 : =1000              RESET_PC:       equ     X'1000'
+          0 :                    ;;; i8251 Universal Synchronous/Asynchronous Receiver/Transmitter
+          0 : =FFF0              USART:  equ     X'FFF0'
+          0 : =FFF0              USARTD: equ     USART+0         ; Data register
+          0 : =FFF1              USARTS: equ     USART+1         ; Status register
+          0 : =FFF1              USARTC: equ     USART+1         ; Control register
+          0 :                            include "i8251.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :
+(1)       0 :                    ;;; i8251 USART device emulator.
+(1)       0 :                    ;;; Bit definition of mode instruction (asynchronous)
+(1)       0 : =6                 MODE_STOP_gp:   equ     6
+(1)       0 : =C0                MODE_STOP_gm:   equ     11000000B
+(1)       0 : =40                MODE_STOP1_gc:  equ     (1 << MODE_STOP_gp)
+(1)       0 : =80                MODE_STOP15_gc: equ     (2 << MODE_STOP_gp)
+(1)       0 : =C0                MODE_STOP2_gc:  equ     (3 << MODE_STOP_gp)
+(1)       0 : =20                MODE_EVEN_bm:   equ     00100000B   ; Even parity
+(1)       0 : =10                MODE_PARITY_bm: equ     00010000B   ; Parity enable
+(1)       0 : =2                 MODE_LEN_gp:    equ     2
+(1)       0 : =C                 MODE_LEN_gm:    equ     00001100B
+(1)       0 : =0                 MODE_LEN5_gc:   equ     (0 << MODE_LEN_gp)
+(1)       0 : =4                 MODE_LEN6_gc:   equ     (1 << MODE_LEN_gp)
+(1)       0 : =8                 MODE_LEN7_gc:   equ     (2 << MODE_LEN_gp)
+(1)       0 : =C                 MODE_LEN8_gc:   equ     (3 << MODE_LEN_gp)
+(1)       0 : =0                 MODE_BAUD_gp:   equ     0
+(1)       0 : =3                 MODE_BAUD_gm:   equ     00000011B
+(1)       0 : =1                 MODE_BAUD_X1:   equ     (1 << MODE_BAUD_gp)
+(1)       0 : =2                 MODE_BAUD_X16:  equ (2 << MODE_BAUD_gp)
+(1)       0 : =3                 MODE_BAUD_X64:  equ (3 << MODE_BAUD_gp)
+(1)       0 :                    ;;; Bit Definition of command register
+(1)       0 : =80                CMD_EH_bm:      equ     10000000B   ; Enter hunt mode
+(1)       0 : =40                CMD_IR_bm:      equ     01000000B   ; Internal Reset
+(1)       0 : =20                CMD_RTS_bm:     equ     00100000B   ; Request To Send
+(1)       0 : =10                CMD_ER_bm:      equ     00010000B   ; Error Reset
+(1)       0 : =8                 CMD_SBRK_bm:    equ     00001000B   ; Send Break
+(1)       0 : =4                 CMD_RxEN_bm:    equ     00000100B   ; Receive Enable
+(1)       0 : =2                 CMD_DTR_bm:     equ     00000010B   ; Data Terminal Ready
+(1)       0 : =1                 CMD_TxEN_bm:    equ     00000001B   ; Transmit enable
+(1)       0 :
+(1)       0 :                    ;;; Bit definition of status register
+(1)       0 : =80                ST_DSR_bm:      equ     10000000B   ; Data Set Ready
+(1)       0 : =40                ST_BRK_bm:      equ     01000000B   ; BREAK detected
+(1)       0 : =20                ST_FE_bm:       equ     00100000B   ; Framing Error
+(1)       0 : =10                ST_OE_bm:       equ     00010000B   ; Overrun Error
+(1)       0 : =8                 ST_PE_bm:       equ     00001000B   ; Parity Error
+(1)       0 : =4                 ST_TxEMPTY_bm:  equ     00000100B   ; Transmitter empty
+(1)       0 : =2                 ST_RxRDY_bm:    equ     00000010B   ; Receiver ready
+(1)       0 : =1                 ST_TxRDY_bm:    equ     00000001B   ; Transmitter ready
+          0 :                    ;;; Async 1stop 8data x16
+          0 : =4E                ASYNC_MODE:     equ     MODE_STOP1_gc|MODE_LEN8_gc|MODE_BAUD_X16
+          0 :                    ;;; RTS/DTR, error reset, Rx enable, Tx enable
+          0 : =37                RX_EN_TX_EN:    equ     CMD_RTS_bm|CMD_DTR_bm|CMD_ER_bm|CMD_RxEN_bm|CMD_TxEN_bm
+          0 :
+        200 :                            org     X'0200'
+        200 :                    stack:
+        200 :
+       1000 :                            org     RESET_PC
+       1000 :                    initialize:
+       1000 : 02BE 0200                  mvii    stack, r6
+       1002 : 0004 0110 000B             jsr     r5, init_usart
+       1005 : 0004 0110 00E2             jsr     r5, arith
+       1008 :                    halt_to_system:
+       1008 : 0000                       hlt
+       1009 : 0220 0002                  b       halt_to_system  ; HLT stops after this
+       100B :
+       100B :                    init_usart:
+       100B : 01C0                       clrr    r0
+       100C : 0240 FFF1                  mvo     r0, USARTC
+       100E : 0240 FFF1                  mvo     r0, USARTC
+       1010 : 0240 FFF1                  mvo     r0, USARTC      ; Safest way to sync mode
+       1012 : 02B8 0040                  mvii    CMD_IR_bm, r0
+       1014 : 0240 FFF1                  mvo     r0, USARTC      ; Reset
+       1016 : 0034                       nop
+       1017 : 0034                       nop
+       1018 : 02B8 004E                  mvii    ASYNC_MODE, r0
+       101A : 0240 FFF1                  mvo     r0, USARTC
+       101C : 0034                       nop
+       101D : 0034                       nop
+       101E : 02B8 0037                  mvii    RX_EN_TX_EN, r0
+       1020 : 0240 FFF1                  mvo     r0, USARTC      ; Enable Rx/Tx
+       1022 : 00AF                       jr      r5
+       1023 :
+       1023 :                    ;;; Put a space (putspace), CR LF (newline) or char R0 (putchar)
+       1023 :                    putspace:
+       1023 : 02B8 0020                  mvii    ' ', r0
+       1025 : 0200 0009                  b       putchar
+       1027 :                    newline:
+       1027 : 0275                       pshr    r5
+       1028 : 02B8 000D                  mvii    X'0D', r0
+       102A : 0004 0110 0030             jsr     r5, putchar
+       102D : 02B8 000A                  mvii    X'0A', r0
+       102F : 02B5                       pulr    r5
+       1030 :                    putchar:
+       1030 : 0270                       pshr    r0
+       1031 :                    putchar_wait:
+       1031 : 0280 FFF1                  mvi     USARTS, r0
+       1033 : 03B8 0001                  andi    ST_TxRDY_bm, r0
+       1035 : 0224 0005                  beq     putchar_wait
+       1037 : 02B0                       pulr    r0
+       1038 : 0240 FFF0                  mvo     r0, USARTD
+       103A : 00AF                       jr      r5
+       103B :
+       103B :                            include "arith.inc"
+(1)    103B :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)    103B :                    ;;; Print signed 16-bit integer as decimal
+(1)    103B :                    ;;; @param R0 value
+(1)    103B :                    ;;; @clobber R0 R1 R2
+(1)    103B :                    print_int16:
+(1)    103B : 0080                       tstr    r0
+(1)    103C : 0203 000A                  bpl     print_uint16
+(1)    103E : 0275                       pshr    r5
+(1)    103F : 0270                       pshr    r0
+(1)    1040 : 02B8 002D                  mvii    '-', r0
+(1)    1042 : 0004 0110 0030             jsr     r5, putchar
+(1)    1045 : 02B0                       pulr    r0
+(1)    1046 : 0020                       negr    r0              ; value=-value
+(1)    1047 : 02B5                       pulr    r5
+(1)    1048 :                    print_uint16:
+(1)    1048 : 0275                       pshr    r5
+(1)    1049 : 0081                       movr    r0, r1          ; R1=value
+(1)    104A : 02BA 000A                  mvii    10, r2          ; R2=10
+(1)    104C : 0004 0110 005C             jsr     r5, udiv16      ; R0=value/10, R1=value%10
+(1)    104F : 0271                       pshr    r1              ; push remainder
+(1)    1050 : 0080                       tstr    r0
+(1)    1051 : 0204 0003                  beq     print_uint16_digit
+(1)    1053 : 0004 0110 0048             jsr     r5, print_uint16        ; next digit
+(1)    1056 :                    print_uint16_digit:
+(1)    1056 : 02B0                       pulr    r0              ; pop remainder
+(1)    1057 : 02F8 0030                  addi    '0', r0
+(1)    1059 : 02B5                       pulr    r5
+(1)    105A : 0220 002B                  b       putchar         ; print digit and return
+(1)    105C :
+(1)    105C :                    ;;; Unsigned Divide: dividend / divisor = quotient ... remainder
+(1)    105C :                    ;;; @param R1 dividend
+(1)    105C :                    ;;; @param R2 divisor
+(1)    105C :                    ;;; @return R0 quotient
+(1)    105C :                    ;;; @return R1 remainder
+(1)    105C :                    ;;; @clobber R2
+(1)    105C :                    udiv16:
+(1)    105C : 0092                       tstr    r2
+(1)    105D : 020C 0001                  bneq    udiv16_divide
+(1)    105F : 00AF                       jr      r5              ; divide by zero
+(1)    1060 :                    udiv16_divide:
+(1)    1060 : 0273                       pshr    r3
+(1)    1061 : 02BB 0001                  mvii    1, r3           ; bit=1
+(1)    1063 : 0200 0002                  b       udiv16_prep
+(1)    1065 :                    udiv16_prep_loop:
+(1)    1065 : 004A                       sll     r2              ; divisor<<=1
+(1)    1066 : 004B                       sll     r3              ; bit<<=1
+(1)    1067 :                    udiv16_prep:
+(1)    1067 : 0151                       cmpr    r2, r1
+(1)    1068 : 0209 0003                  bllt    udiv16_prep_end ; branch if dividend<divisor
+(1)    106A : 0092                       tstr    r2
+(1)    106B : 0223 0007                  bpl     udiv16_prep_loop        ; branch if msb(divisor)=0
+(1)    106D :                    udiv16_prep_end:
+(1)    106D : 01C0                       clrr    r0              ; quotient=0
+(1)    106E :                    udiv16_loop:
+(1)    106E : 0151                       cmpr    r2, r1
+(1)    106F : 0209 0002                  bllt    udiv16_next     ; branch if dividend<divisor
+(1)    1071 : 0111                       subr    r2, r1          ; dividend-=divisor
+(1)    1072 : 00D8                       addr    r3, r0          ; quotient|=bit
+(1)    1073 :                    udiv16_next:
+(1)    1073 : 0062                       slr     r2              ; divisor>>=1
+(1)    1074 : 0063                       slr     r3              ; bit>>=1
+(1)    1075 : 022C 0008                  bneq    udiv16_loop     ; branch if bit!=0
+(1)    1077 : 02B3                       pulr    r3
+(1)    1078 : 00AF                       jr      r5
+(1)    1079 :
+(1)    1079 :                    ;;; Signed Divide: dividend / divisor = quotient
+(1)    1079 :                    ;;; @param R1 dividend
+(1)    1079 :                    ;;; @param R2 divisor
+(1)    1079 :                    ;;; @return R1 quotient
+(1)    1079 :                    ;;; @clobber R0 R2
+(1)    1079 :                    div16:
+(1)    1079 : 0275                       pshr    r5
+(1)    107A : 0273                       pshr    r3
+(1)    107B : 008B                       movr    r1, r3
+(1)    107C : 01D3                       xorr    r2, r3          ; R3=sign(quotient)
+(1)    107D : 0089                       tstr    r1
+(1)    107E : 0203 0001                  bpl     div16_divisor
+(1)    1080 : 0021                       negr    r1              ; negate dividend
+(1)    1081 :                    div16_divisor:
+(1)    1081 : 0092                       tstr    r2
+(1)    1082 : 0203 0001                  bpl     div16_divide
+(1)    1084 : 0022                       negr    r2              ; negate divisor
+(1)    1085 :                    div16_divide:
+(1)    1085 : 0004 0110 005C             jsr     r5, udiv16
+(1)    1088 : 0081                       movr    r0, r1
+(1)    1089 : 009B                       tstr    r3
+(1)    108A : 0203 0001                  bpl     div16_return
+(1)    108C : 0021                       negr    r1              ; negate quotient
+(1)    108D :                    div16_return:
+(1)    108D : 02B3                       pulr    r3
+(1)    108E : 02B7                       pulr    r7
+(1)    108F :
+(1)    108F :                    ;;; Signed Multiply: multiplicand * multiplier = product
+(1)    108F :                    ;;; @param R1 multiplicand
+(1)    108F :                    ;;; @param R2 multiplier
+(1)    108F :                    ;;; @return R1 product
+(1)    108F :                    ;;; @clobber R0 R2
+(1)    108F :                    mul16:
+(1)    108F : 0092                       tstr    r2
+(1)    1090 : 0203 0002                  bpl     umul16
+(1)    1092 : 0022                       negr    r2              ; negate multiplier
+(1)    1093 : 0021                       negr    r1              ; negate multiplicand
+(1)    1094 :                    ;;; Unsigned Multiply: multiplicand * multiplier = product
+(1)    1094 :                    ;;; @param R1 multiplicand
+(1)    1094 :                    ;;; @param R2 multiplier
+(1)    1094 :                    ;;; @return R1 product
+(1)    1094 :                    ;;; @clobber R0 R2
+(1)    1094 :                    umul16:
+(1)    1094 : 01C0                       clrr    r0              ; product=0
+(1)    1095 : 0200 0006                  b       umul16_enter_loop
+(1)    1097 :                    umul16_loop:
+(1)    1097 : 0006                       clrc
+(1)    1098 : 0072                       rrc     r2              ; multiplier>>=1, C=lsb(multiplier)
+(1)    1099 : 0209 0001                  bnc     umul16_next
+(1)    109B : 00C8                       addr    r1, r0          ; product+=multiplicand
+(1)    109C :                    umul16_next:
+(1)    109C : 0049                       sll     r1              ; multiplicand<<=1
+(1)    109D :                    umul16_enter_loop:
+(1)    109D : 0092                       tstr    r2
+(1)    109E : 022C 0008                  bneq    umul16_loop     ; branch if multiplier!=0
+(1)    10A0 : 0081                       movr    r0, r1
+(1)    10A1 : 00AF                       jr      r5
+       10A2 :
+       10A2 :                    ;;; Print "VA op VB"
+       10A2 :                    ;;; @param R0 op letter
+       10A2 :                    ;;; @param R1 VA
+       10A2 :                    ;;; @param R2 VB
+       10A2 :                    ;;; @clobber R0
+       10A2 :                    expr:
+       10A2 : 0275                       pshr    r5
+       10A3 : 0271                       pshr    r1
+       10A4 : 0272                       pshr    r2
+       10A5 : 0270                       pshr    r0
+       10A6 : 0088                       movr    r1, r0
+       10A7 : 0004 0110 003B             jsr     r5, print_int16 ; print VA
+       10AA : 0004 0110 0023             jsr     r5, putspace
+       10AD : 02B0                       pulr    r0
+       10AE : 0004 0110 0030             jsr     r5, putchar     ; print op
+       10B1 : 0004 0110 0023             jsr     r5, putspace
+       10B4 : 02B2                       pulr    r2
+       10B5 : 0272                       pshr    r2
+       10B6 : 0090                       movr    r2, r0
+       10B7 : 0004 0110 003B             jsr     r5, print_int16 ; print VB
+       10BA : 02B2                       pulr    r2
+       10BB : 02B1                       pulr    r1
+       10BC : 02B7                       pulr    r7
+       10BD :
+       10BD :                    ;;; Print " = value\n"
+       10BD :                    ;;; @param R1 value
+       10BD :                    ;;; @clobber R0 R1 R2
+       10BD :                    answer:
+       10BD : 0275                       pshr    r5
+       10BE : 0004 0110 0023             jsr     r5, putspace
+       10C1 : 02B8 003D                  mvii    '=', r0
+       10C3 : 0004 0110 0030             jsr     r5, putchar
+       10C6 : 0004 0110 0023             jsr     r5, putspace
+       10C9 : 0088                       movr    r1, r0
+       10CA : 0004 0110 003B             jsr     r5, print_int16 ; print value
+       10CD : 02B5                       pulr    r5
+       10CE : 0220 00A8                  b       newline
+       10D0 :
+       10D0 :                    ;;; Print "VA rel VB\n"
+       10D0 :                    ;;; @param R1 VA
+       10D0 :                    ;;; @param R2 VB
+       10D0 :                    ;;; @clobber R0
+       10D0 :                    comp:
+       10D0 : 0275                       pshr    r5
+       10D1 : 02B8 003D                  mvii    '=', r0
+       10D3 : 0151                       cmpr    r2, r1
+       10D4 : 0204 0006                  beq     comp_out        ; branch if VA=VB
+       10D6 : 02B8 003E                  mvii    '>', r0
+       10D8 : 020E 0002                  bgt     comp_out        ; branch if VA>VB
+       10DA : 02B8 003C                  mvii    '<', r0
+       10DC :                    comp_out:
+       10DC : 0004 0110 00A2             jsr     r5, expr        ; print "VA rel VB"
+       10DF : 02B5                       pulr    r5
+       10E0 : 0220 00BA                  b       newline
+       10E2 :
+       10E2 :                    arith:
+       10E2 : 0275                       pshr    r5
+       10E3 : 02B9 4650                  mvii    18000, r1
+       10E5 : 02BA 6D60                  mvii    28000, r2
+       10E7 : 02B8 002B                  mvii    '+', r0
+       10E9 : 0004 0110 00A2             jsr     r5, expr
+       10EC : 00D1                       addr    r2, r1          ; R1+=R2
+       10ED : 0004 0110 00BD             jsr     r5, answer      ; -19536
+       10F0 :
+       10F0 : 02B9 4650                  mvii    18000, r1
+       10F2 : 02BA B9B0                  mvii    -18000, r2
+       10F4 : 02B8 002B                  mvii    '+', r0
+       10F6 : 0004 0110 00A2             jsr     r5, expr
+       10F9 : 00D1                       addr    r2, r1          ; R1+=R2
+       10FA : 0004 0110 00BD             jsr     r5, answer      ; 0
+       10FD :
+       10FD : 02B9 B9B0                  mvii    -18000, r1
+       10FF : 02BA B9B0                  mvii    -18000, r2
+       1101 : 02B8 002B                  mvii    '+', r0
+       1103 : 0004 0110 00A2             jsr     r5, expr
+       1106 : 00D1                       addr    r2, r1          ; R1+=R2
+       1107 : 0004 0110 00BD             jsr     r5, answer      ; 29536
+       110A :
+       110A : 02B9 B9B0                  mvii    -18000, r1
+       110C : 02BA 92A0                  mvii    -28000, r2
+       110E : 02B8 002D                  mvii    '-', r0
+       1110 : 0004 0110 00A2             jsr     r5, expr
+       1113 : 0111                       subr    r2, r1          ; R1-=R2
+       1114 : 0004 0110 00BD             jsr     r5, answer      ; 10000
+       1117 :
+       1117 : 02B9 4650                  mvii    18000, r1
+       1119 : 02BA B9B0                  mvii    -18000, r2
+       111B : 02B8 002D                  mvii    '-', r0
+       111D : 0004 0110 00A2             jsr     r5, expr
+       1120 : 0111                       subr    r2, r1          ; R1-=R2
+       1121 : 0004 0110 00BD             jsr     r5, answer      ; -29536
+       1124 :
+       1124 : 02B9 92A0                  mvii    -28000, r1
+       1126 : 02BA B9B0                  mvii    -18000, r2
+       1128 : 02B8 002D                  mvii    '-', r0
+       112A : 0004 0110 00A2             jsr     r5, expr
+       112D : 0111                       subr    r2, r1          ; R1-=R2
+       112E : 0004 0110 00BD             jsr     r5, answer      ; -10000
+       1131 :
+       1131 : 02B9 0064                  mvii    100, r1
+       1133 : 02BA 012C                  mvii    300, r2
+       1135 : 02B8 002A                  mvii    '*', r0
+       1137 : 0004 0110 00A2             jsr     r5, expr
+       113A : 0004 0110 008F             jsr     r5, mul16       ; R1*=R2
+       113D : 0004 0110 00BD             jsr     r5, answer      ; 30000
+       1140 :
+       1140 : 02B9 00C8                  mvii    200, r1
+       1142 : 02BA 0064                  mvii    100, r2
+       1144 : 02B8 002A                  mvii    '*', r0
+       1146 : 0004 0110 00A2             jsr     r5, expr
+       1149 : 0004 0110 008F             jsr     r5, mul16       ; R1*=R2
+       114C : 0004 0110 00BD             jsr     r5, answer      ; 20000
+       114F :
+       114F : 02B9 012C                  mvii    300, r1
+       1151 : 02BA FF38                  mvii    -200, r2
+       1153 : 02B8 002A                  mvii    '*', r0
+       1155 : 0004 0110 00A2             jsr     r5, expr
+       1158 : 0004 0110 008F             jsr     r5, mul16       ; R1*=R2
+       115B : 0004 0110 00BD             jsr     r5, answer      ; 5536
+       115E :
+       115E : 02B9 0064                  mvii    100, r1
+       1160 : 02BA FED4                  mvii    -300, r2
+       1162 : 02B8 002A                  mvii    '*', r0
+       1164 : 0004 0110 00A2             jsr     r5, expr
+       1167 : 0004 0110 008F             jsr     r5, mul16       ; R1*=R2
+       116A : 0004 0110 00BD             jsr     r5, answer      ; -30000
+       116D :
+       116D : 02B9 FF38                  mvii    -200, r1
+       116F : 02BA FF9C                  mvii    -100, r2
+       1171 : 02B8 002A                  mvii    '*', r0
+       1173 : 0004 0110 00A2             jsr     r5, expr
+       1176 : 0004 0110 008F             jsr     r5, mul16       ; R1*=R2
+       1179 : 0004 0110 00BD             jsr     r5, answer      ; 20000
+       117C :
+       117C : 02B9 7530                  mvii    30000, r1
+       117E : 02BA 0064                  mvii    100, r2
+       1180 : 02B8 002F                  mvii    '/', r0
+       1182 : 0004 0110 00A2             jsr     r5, expr
+       1185 : 0004 0110 0079             jsr     r5, div16       ; R1/=R2
+       1188 : 0004 0110 00BD             jsr     r5, answer      ; 300
+       118B :
+       118B : 02B9 FF38                  mvii    -200, r1
+       118D : 02BA 0064                  mvii    100, r2
+       118F : 02B8 002F                  mvii    '/', r0
+       1191 : 0004 0110 00A2             jsr     r5, expr
+       1194 : 0004 0110 0079             jsr     r5, div16       ; R1/=R2
+       1197 : 0004 0110 00BD             jsr     r5, answer      ; -2
+       119A :
+       119A : 02B9 8AD0                  mvii    -30000, r1
+       119C : 02BA FF38                  mvii    -200, r2
+       119E : 02B8 002F                  mvii    '/', r0
+       11A0 : 0004 0110 00A2             jsr     r5, expr
+       11A3 : 0004 0110 0079             jsr     r5, div16       ; R1/=R2
+       11A6 : 0004 0110 00BD             jsr     r5, answer      ; 150
+       11A9 :
+       11A9 : 02B9 8AD0                  mvii    -30000, r1
+       11AB : 02BA 004E                  mvii    78, r2
+       11AD : 02B8 002F                  mvii    '/', r0
+       11AF : 0004 0110 00A2             jsr     r5, expr
+       11B2 : 0004 0110 0079             jsr     r5, div16       ; R1/=R2
+       11B5 : 0004 0110 00BD             jsr     r5, answer      ; -384
+       11B8 :
+       11B8 : 02B9 1388                  mvii    5000, r1
+       11BA : 02BA 0FA0                  mvii    4000, r2
+       11BC : 0004 0110 00D0             jsr     r5, comp
+       11BF :
+       11BF : 02B9 1388                  mvii    5000, r1
+       11C1 : 02BA 1388                  mvii    5000, r2
+       11C3 : 0004 0110 00D0             jsr     r5, comp
+       11C6 :
+       11C6 : 02B9 0FA0                  mvii    4000, r1
+       11C8 : 02BA 1388                  mvii    5000, r2
+       11CA : 0004 0110 00D0             jsr     r5, comp
+       11CD :
+       11CD : 02B9 EC78                  mvii    -5000, r1
+       11CF : 02BA F060                  mvii    -4000, r2
+       11D1 : 0004 0110 00D0             jsr     r5, comp
+       11D4 :
+       11D4 : 02B9 EC78                  mvii    -5000, r1
+       11D6 : 02BA EC78                  mvii    -5000, r2
+       11D8 : 0004 0110 00D0             jsr     r5, comp
+       11DB :
+       11DB : 02B9 F060                  mvii    -4000, r1
+       11DD : 02BA EC78                  mvii    -5000, r2
+       11DF : 0004 0110 00D0             jsr     r5, comp
+       11E2 :
+       11E2 : 02B9 7FBC                  mvii    32700, r1
+       11E4 : 02BA 7F58                  mvii    32600, r2
+       11E6 : 0004 0110 00D0             jsr     r5, comp
+       11E9 :
+       11E9 : 02B9 7FBC                  mvii    32700, r1
+       11EB : 02BA 7FBC                  mvii    32700, r2
+       11ED : 0004 0110 00D0             jsr     r5, comp
+       11F0 :
+       11F0 : 02B9 7F58                  mvii    32600, r1
+       11F2 : 02BA 7FBC                  mvii    32700, r2
+       11F4 : 0004 0110 00D0             jsr     r5, comp
+       11F7 :
+       11F7 : 02B9 8044                  mvii    -32700, r1
+       11F9 : 02BA 80A8                  mvii    -32600, r2
+       11FB : 0004 0110 00D0             jsr     r5, comp
+       11FE :
+       11FE : 02B9 8044                  mvii    -32700, r1
+       1200 : 02BA 8044                  mvii    -32700, r2
+       1202 : 0004 0110 00D0             jsr     r5, comp
+       1205 :
+       1205 : 02B9 80A8                  mvii    -32600, r1
+       1207 : 02BA 8044                  mvii    -32700, r2
+       1209 : 0004 0110 00D0             jsr     r5, comp
+       120C :
+       120C : 02B9 4650                  mvii    18000, r1
+       120E : 02BA 92A0                  mvii    -28000, r2
+       1210 : 0004 0110 00D0             jsr     r5, comp
+       1213 :
+       1213 : 02B9 92A0                  mvii    -28000, r1
+       1215 : 02BA 92A0                  mvii    -28000, r2
+       1217 : 0004 0110 00D0             jsr     r5, comp
+       121A :
+       121A : 02B9 92A0                  mvii    -28000, r1
+       121C : 02BA 4650                  mvii    18000, r2
+       121E : 0004 0110 00D0             jsr     r5, comp
+       1221 :
+       1221 : 02B7                       pulr    r7

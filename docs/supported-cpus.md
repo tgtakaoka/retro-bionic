@@ -109,7 +109,7 @@ report several parts.
 <tr><td rowspan="2"><code>superh</code></td><td rowspan="2"></td><td>🚧</td><td><code>SH-1</code></td><td></td><td><code>HD6417034F20V</code>, <code>HD6437034F20</code></td></tr>
 <tr><td>🚧</td><td><code>SH-2</code></td><td></td><td><code>HD6477042F28</code>, <code>HD64F7047F50V</code></td></tr>
 <tr><td><code>mn1610</code></td><td><code>mn1610</code></td><td>✅</td><td><code>MN1613</code></td><td><code>MN1613A</code></td><td>Has floating-point instructions</td></tr>
-<tr><td><code>cp1600</code></td><td></td><td>🚧</td><td><code>CP1610</code></td><td></td><td><code>CP1610</code>; needs +11 V and −2.2 V and a non-overlapping two-phase +11 V clock</td></tr>
+<tr><td><code>cp1600</code></td><td><code>cp1600</code></td><td>🚧</td><td><code>CP1610</code></td><td></td><td><code>CP1610</code>; needs +11 V and −2.2 V and a non-overlapping two-phase +11 V clock</td></tr>
 <tr><td><code>am29000</code></td><td></td><td>🚧</td><td><code>Am29205</code></td><td></td><td><code>AM29205-16KC</code>; external 16-bit bus variant of Am29k</td></tr>
 </tbody>
 </table>
