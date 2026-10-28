@@ -22,9 +22,15 @@ struct DevsI8085 final : i8080::DevsI8080 {
 
     void sioLoop() const {
 #if defined(ENABLE_SERIAL_HANDLER)
-        _sio->loop();
+        _sio->pace();
 #endif
     }
+
+#if defined(ENABLE_SERIAL_HANDLER)
+    void sioClock(uint32_t hz) const { _sio->setClock(hz); }
+#else
+    void sioClock(uint32_t) const {}
+#endif
 
 private:
 #if defined(ENABLE_SERIAL_HANDLER)

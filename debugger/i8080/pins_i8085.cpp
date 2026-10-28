@@ -1,6 +1,7 @@
 #include "pins_i8085.h"
 #include "debugger.h"
 #include "devs_i8085.h"
+#include "digital_bus.h"
 #include "inst_i8085.h"
 #include "mems_i8080.h"
 #include "regs_i8085.h"
@@ -48,18 +49,64 @@ namespace {
 //  tCA: min 120 ns              ; A8-15 valid after control
 //  tCL: min  50 ns              ; trailing control to leading ALE
 
-constexpr auto x1_hi_ns = 57;       // 85
-constexpr auto x1_lo_ns = 60;       // 85
-constexpr auto x1_lo_ale = 27;      // 85
-constexpr auto x1_lo_status = 10;   // 85
-constexpr auto x1_hi_inject = 33;   // 85
-constexpr auto x1_lo_output = 0;    // 85
-constexpr auto x1_hi_get = 17;      // 85
-constexpr auto x1_lo_capture = 50;  // 85
-constexpr auto x1_hi_next = 10;     // 85
+// X1 runs free from the PWM, and the CPU waits in each cycle that
+// samples READY low. READY goes low as ALE starts a cycle and high once
+// the cycle is served, and stays high until the next ALE: the bus idle
+// cycles of DAD have no ALE, so they never wait.
 
-auto signal_ale() {
-    return digitalReadFast(PIN_ALE);
+// The 8085AH-2's rated X1; a plain 8085A is rated to 6.25 MHz.
+constexpr uint32_t x1_hz = 10000000;  // 150 MHz / 15: halves of 47/53 ns
+// tCYC max 2,000 ns; CLK is X1/2.
+constexpr uint32_t x1_min_hz = 1000000;
+#ifdef TUNE_CLOCK
+// K may overclock X1 past tCYC min, down to halves of 40 ns.
+constexpr auto x1_half_min_ns = 40;
+#else
+// tCYC min 200 ns (8085AH-2): X1 at most 10 MHz.
+constexpr auto x1_half_min_ns = 46;
+#endif
+// Teensy cycles in an X1 clock at the slowest rate, so the waits below
+// hold at any rate.
+constexpr uint32_t x1_max_cycles = F_CPU / x1_min_hz;
+// The halt switch polls USB through yield(), longer than a cycle's
+// service; once in this many Teensy cycles is soon enough.
+constexpr uint32_t halt_poll_cycles = F_CPU / 100000;
+// #RESET_IN should be kept low for a minimum of three clock periods.
+constexpr auto reset_ns = 2 * 10 * (1000000000 / x1_min_hz);
+// The gap between ALEs, at most a fetch's T4-T6 and DAD's two bus idle
+// cycles, is well within 32 CLK.
+constexpr auto ale_cycles = 2 * 32 * x1_max_cycles;
+// A strobe ends a CLK after READY is sampled high.
+constexpr auto strobe_cycles = 2 * 4 * x1_max_cycles;
+// X1 clocks from ALE falling to a strobe, past tLC, half a CLK; the next
+// ALE is at least two CLK on.
+constexpr auto strobe_x1s = 3;
+
+// The strobes, #RD, #WR and #INTA, all high.
+bool no_strobe() {
+    return (busRead(CNTL) & (CNTL_RD | CNTL_WR | CNTL_INTA)) ==
+           (CNTL_RD | CNTL_WR | CNTL_INTA);
+}
+
+// Waits up to |limit| Teensy cycles for PIN to read |level|.
+template <uint8_t PIN>
+inline bool wait_level(uint8_t level, uint32_t limit) {
+    const uint32_t start = ARM_DWT_CYCCNT;
+    while (digitalReadFast(PIN) != level) {
+        if (ARM_DWT_CYCCNT - start >= limit)
+            return false;
+    }
+    return true;
+}
+
+// Waits up to |limit| Teensy cycles for a strobe to be |active| or not.
+inline bool wait_strobe(bool active, uint32_t limit) {
+    const uint32_t start = ARM_DWT_CYCCNT;
+    while (no_strobe() == active) {
+        if (ARM_DWT_CYCCNT - start >= limit)
+            return false;
+    }
+    return true;
 }
 
 void assert_ready() {
@@ -124,86 +171,114 @@ const uint8_t PINS_INPUT[] = {
 
 }  // namespace
 
-PinsI8085::PinsI8085() {
+PinsI8085::PinsI8085() : _clock(x1_half_min_ns, x1_min_hz) {
     _regs = new RegsI8085(this);
     _mems = new i8080::MemsI8080();
     _devs = new DevsI8085();
+#ifdef TUNE_CLOCK
+    _clockInput = x1_hz;
+#endif
 }
 
-void PinsI8085::x1_hi() const {
-    digitalWriteFast(PIN_X1, HIGH);
+#ifdef TUNE_CLOCK
+bool PinsI8085::setClockInput(uint32_t hz) {
+    // The rate reloads at a period start, so the running clock never
+    // glitches.
+    const auto rate = _clock.setRate(hz);
+    if (rate == 0)
+        return false;
+    _clockInput = rate;
+    devs<DevsI8085>()->sioClock(rate);
+    return true;
 }
-
-void PinsI8085::x1_lo() const {
-    digitalWriteFast(PIN_X1, LOW);
-    devs<DevsI8085>()->sioLoop();
-}
-
-void PinsI8085::x1_cycle_lo() const {
-    x1_hi();
-    delayNanoseconds(x1_hi_ns);
-    x1_lo();
-}
-
-void PinsI8085::x1_cycle() const {
-    x1_cycle_lo();
-    delayNanoseconds(x1_lo_ns);
-}
+#endif
 
 void PinsI8085::resetPins() {
     // Assert reset condition
     pinsMode(PINS_LOW, sizeof(PINS_LOW), OUTPUT, LOW);
     pinsMode(PINS_INPUT, sizeof(PINS_INPUT), INPUT);
+#ifdef TUNE_CLOCK
+    const auto hz = _clockInput;
+#else
+    const auto hz = x1_hz;
+#endif
+    _clock.begin(hz);
+    _clock.start();
+    devs<DevsI8085>()->sioClock(hz);
 
-    // #RESET_IN should be kept low for a minimum of three clock
-    // periods to ensure proper synchronization of the CPU; CLK is X1/2.
-    for (auto i = 0; i < 3 * 2; i++)
-        x1_cycle();
-    // #RESET_IN is sampled at the next CLK falling edge.
+    delayNanoseconds(reset_ns);
     negate_reset();
     Cycles::reset();
-    do {
-        delayNanoseconds(x1_lo_ale);
-        x1_cycle_lo();
-    } while (signal_ale() == LOW);
-    prepareCycle();
+    noInterrupts();
+    latchCycle();
+    interrupts();
     _regs->save();
 }
 
+// Waits for the next ALE, lowers READY for its cycle and latches its
+// address and status into Signals::put(). AD0-AD7 carry the address only
+// until tLA after ALE falls, so the caller masks interrupts. A cycle with
+// no strobe, the acknowledge of TRAP or RST 5.5-7.5, doesn't wait for
+// READY: it is recorded as it passes, and the next one latched. Returns
+// false when no ALE comes, as in HALT, where the status reads S1=S0=0.
+bool PinsI8085::latchCycle() const {
+    while (true) {
+        auto s = Signals::put();
+        if (!wait_level<PIN_ALE>(HIGH, ale_cycles)) {
+            s->getStatus();
+            return false;
+        }
+        negate_ready();
+        wait_level<PIN_ALE>(LOW, ale_cycles);
+        // assert_debug();
+        s->getAddress();
+        s->getStatus();
+        // negate_debug();
+        if (s->halt() || wait_strobe(true, strobe_x1s * x1Cycles()))
+            return true;
+        assert_ready();
+        Cycles::next();
+    }
+}
+
+// The cycle latchCycle() caught, with its strobe, as the CPU waits in it.
 Signals *PinsI8085::prepareCycle() const {
     auto s = Signals::put();
-    // ALE=H
-    // assert_debug();
-    s->getAddress();
-    // negate_debug();
-    x1_cycle_lo();
-    s->getStatus();
-    delayNanoseconds(x1_lo_status);
-    x1_cycle_lo();
-    // assert_debug();
+    devs<DevsI8085>()->sioLoop();
     s->getDirection();
-    // negate_debug();
+    return s;
+}
+
+// The cycle the CPU waits in, as latched.
+Signals *PinsI8085::resumeCycle() const {
+    auto s = Signals::put();
+    s->getStatus();
     return s;
 }
 
 Signals *PinsI8085::resumeCycle(uint16_t pc) const {
-    auto s = Signals::put();
+    auto s = resumeCycle();
     s->addr = pc;
-    s->getStatus();
-    assert_ready();
     return s;
 }
 
+uint32_t PinsI8085::x1Cycles() const {
+#ifdef TUNE_CLOCK
+    return F_CPU / _clockInput;
+#else
+    return F_CPU / x1_hz;
+#endif
+}
+
+// Serves the cycle the CPU waits in, raises READY, and latches the next
+// cycle once the strobe ends. Write data is valid by the strobe; read
+// data is driven once the strobe has floated AD and released once it
+// rises (tRDH 0).
 Signals *PinsI8085::completeCycle(Signals *s) const {
-    // X1=L
-    x1_hi();
     if (s->readEnable()) {
         if (s->memory()) {  // Memory access
-            if (s->readMemory()) {
+            if (s->readMemory())
                 s->data = _mems->read(s->addr);
-            } else {
-                delayNanoseconds(x1_hi_inject);
-            }
         } else {  // I/O access
             const uint8_t ioaddr = s->addr;
             if (_devs->isSelected(ioaddr)) {
@@ -212,47 +287,29 @@ Signals *PinsI8085::completeCycle(Signals *s) const {
                 s->data = 0;
             }
         }
-        x1_lo();
-        // assert_debug();
         s->outData();
-        // negate_debug();
-        delayNanoseconds(x1_lo_output);
     } else if (s->writeEnable()) {
-        delayNanoseconds(x1_hi_get);
-        // assert_debug();
         s->getData();
-        // negate_debug();
-        x1_lo();
         if (s->memory()) {
-            if (s->writeMemory()) {
+            if (s->writeMemory())
                 _mems->write(s->addr, s->data);
-            } else {
-                delayNanoseconds(x1_lo_capture);
-            }
         } else {
             const uint8_t ioaddr = s->addr;
-            if (_devs->isSelected(ioaddr)) {
+            if (_devs->isSelected(ioaddr))
                 _devs->write(ioaddr, s->data);
-            }
         }
     } else if (s->intAck()) {
         s->data = InstI8085::vec2Inst(_devs->vector());
-        x1_lo();
-        // assert_debug();
         s->outData();
-        // negate_debug();
-        delayNanoseconds(x1_lo_output);
     }
-    x1_hi();
-    Cycles::next();
-    delayNanoseconds(x1_hi_next);
-    x1_lo();
+    // An interrupt from here to the next ALE could miss its address.
+    noInterrupts();
+    assert_ready();
+    wait_strobe(false, strobe_cycles);
     Signals::inputMode();
-    do {
-        delayNanoseconds(x1_lo_ale);
-        x1_cycle_lo();
-    } while (signal_ale() == LOW);
-    // ALE=H
+    Cycles::next();
+    latchCycle();
+    interrupts();
     return s;
 }
 
@@ -297,13 +354,9 @@ uint16_t PinsI8085::captureWrites(
     return addr;
 }
 
-void PinsI8085::idle() {
-    // READY=L; keep clocking the waiting CPU (tCYC max 2,000 ns).
-    x1_cycle_lo();
-}
-
 Signals *PinsI8085::loop(Trap &trap) const {
     auto s = resumeCycle(_regs->nextIp());
+    uint32_t polled = ARM_DWT_CYCCNT;
     while (true) {
         completeCycle(s);
         _devs->loop();
@@ -313,9 +366,12 @@ Signals *PinsI8085::loop(Trap &trap) const {
             Cycles::discard(halt);
             return halt;
         }
-        if (s->fetch() && haltSwitch()) {
-            suspend(s, trap);
-            return nullptr;
+        if (s->fetch() && ARM_DWT_CYCCNT - polled >= halt_poll_cycles) {
+            polled = ARM_DWT_CYCCNT;
+            if (haltSwitch()) {
+                suspend(s, trap);
+                return nullptr;
+            }
         }
     }
 }
@@ -334,7 +390,7 @@ bool PinsI8085::suspend(Signals *s, Trap &trap) const {
     for (auto n = 0; n < trap_cycles; ++n) {
         completeCycle(s);
         s = prepareCycle();
-        if (s->fetch() && s->addr == InstI8085::ORG_TRAP && writes == 2) {
+        if (s->fetch() && s->addr == InstI8085::ORG_TRAP && writes >= 2) {
             negate_trap();
             negate_ready();
             const auto pch = s->prev(2);
@@ -366,10 +422,9 @@ void PinsI8085::run() {
     if (halt) {
         const auto pc = halt->addr;
         assert_trap();  // resume from HALT
-        do {
-            delayNanoseconds(x1_lo_ale);
-            x1_cycle_lo();
-        } while (signal_ale() == LOW);
+        noInterrupts();
+        latchCycle();
+        interrupts();
         negate_trap();
         regs<RegsI8085>()->saveContext(pc);
     } else if (trap.sp) {

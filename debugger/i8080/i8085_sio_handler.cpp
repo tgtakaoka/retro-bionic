@@ -32,8 +32,9 @@ uint8_t I8085SioHandler::signal_txd() const {
 void I8085SioHandler::resetHandler() {
     pinMode(PIN_SID, OUTPUT);
     pinMode(PIN_SOD, INPUT);
-    // I8085 bitbang speed: assuming CLK is 3MHz
-    _pre_divider = 24 * 2;
+    // sio.asm times a bit as 312.5 CLK, but READY holds its bus cycles,
+    // so at 10 MHz X1 its bits measure 103-105 us: 1040 X1.
+    _pre_divider = 80;
     _tx_divider = _rx_divider = 13;
 }
 

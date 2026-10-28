@@ -26,6 +26,16 @@ struct PwmPin<5> {  // FlexPWM2_1_A, EMC_08
 };
 
 template <>
+struct PwmPin<6> {  // FlexPWM2_2_A, B0_10
+    static constexpr bool flexpwm = true;
+    static constexpr uint32_t module = IMXRT_FLEXPWM2_ADDRESS;
+    static constexpr uint8_t submodule = 2;
+    static constexpr bool outputB = false;
+    static constexpr uint32_t mux = 2;
+    static volatile uint32_t &pad() { return CORE_PIN6_CONFIG; }
+};
+
+template <>
 struct PwmPin<28> {  // FlexPWM3_1_B, EMC_32
     static constexpr bool flexpwm = true;
     static constexpr uint32_t module = IMXRT_FLEXPWM3_ADDRESS;

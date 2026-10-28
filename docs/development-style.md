@@ -293,7 +293,8 @@ instead of bit-banged edges, which is the way to a CPU whose clock goes
 through a PLL. The MC68HC16 does this on EXTAL (P47); reset, step and
 injected sequences stay bit-banged. The TMS9980 and TMS9981 run every
 sequence from it on CKIN (pin 5), the TMS370Cx5x on CLKIN (pin 5), and
-the INS8060 and INS8070 on XIN (pin 5), since their clock must not stop. The SCN2650
+the INS8060 and INS8070 on XIN (pin 5), and the 8085 on X1 (pin 6), since
+their clock must not stop. The SCN2650
 is static, but runs from it on CLOCK (pin 5) too: the timer paces the
 cycles, where bit-banged edges needed a tuned delay for each.
 
@@ -344,6 +345,17 @@ cycles, where bit-banged edges needed a tuned delay for each.
   counter instead: `SerialHandler::setClock()` and `pace()` tick once per
   prescaled count of the free-running clock, keeping the phase but
   dropping a long absence's ticks.
+- A cycle the CPU does not hold has to be caught as it passes: the
+  8085's acknowledge of TRAP and RST 5.5-7.5 has no strobe and ignores
+  READY, so waiting there for a strobe takes the next cycle's. Latch each
+  cycle and wait for its strobe in one masked stretch, with a bound of a
+  clock or so; a cycle with none is recorded, and the next one latched.
+- The speed is a staircase, not a slope: the CPU samples its wait input
+  once a clock, so a fixed Teensy service time costs a whole extra wait
+  state wherever it misses an edge. The 8085 ran slower at 10 MHz X1
+  than at 9.375 MHz until the halt switch, whose `yield()` took about
+  120 ns before every fetch, was polled once in 10 us instead. Measure
+  each phase of a cycle in a capture before blaming the rate.
 - A target moved to a timer adds its row to the table in
   [hardware.md](hardware.md#clocking-the-cpu) (clock input, the input that
   holds a cycle, default rate) in the same commit, and a cast recorded on
@@ -1297,6 +1309,20 @@ fired, so stretching is not a cause of such corruption. **[hw]**
 RST 5.5/6.5/7.5 are vectored inside the CPU: after a discarded opcode fetch it
 pushes the return address and jumps to the fixed vector, with no INTA cycle.
 **[hw]**
+
+X1 runs free from the PWM at 150 MHz / 15, the 8085AH-2's rated 10 MHz.
+READY goes low as ALE rises and high once the cycle is served, and stays
+high until the next ALE: DAD's two bus idle cycles have no ALE, so they
+must never wait. AD0-AD7 carry the low address only until tLA after ALE
+falls, so it is latched there, with interrupts masked from raising READY
+to the next ALE. The acknowledge of TRAP or RST 5.5-7.5 has no strobe
+and does not wait, so a step's TRAP is the cycle before its pushes, and an
+`OUT` just before it makes three writes in a row. **[doc][hw]**
+
+`sio.asm` times its SID/SOD bits as 312.5 CLK, but READY holds each of
+its bus cycles, so on the serial handler's image at 10 MHz X1 they
+measure 103-105 us, about 520 CLK: the handler's 80 x 13 X1 per bit was
+taken from a capture of SOD and SID, not from the listing. **[hw]**
 
 ### 8096
 

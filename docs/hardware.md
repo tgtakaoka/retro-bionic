@@ -132,7 +132,7 @@ The Teensy is the CPU's oscillator, driving its clock input in one of two ways.
   rate, whatever the firmware is doing, so the CPU runs its internal cycles at that rate.
   The firmware follows the bus by the CPU's strobes or clock output, and holds each bus
   cycle with the CPU's wait input until it has served it. The CPU is parked the same
-  way, or by withholding its bus grant (the INS8060's and INS8070's `#ENIN`). This needs the clock input on a FlexPWM pin (`P46` or `P47`) and a wait input
+  way, or by withholding its bus grant (the INS8060's and INS8070's `#ENIN`). This needs the clock input on a FlexPWM pin (`P46`, `P47`, or the P8085's `P50`) and a wait input
   that can hold a cycle indefinitely. It is the only choice for a CPU with a minimum
   clock rate, an oscillator monitor or a PLL.
 
@@ -145,6 +145,7 @@ These boards run from a timer:
 | TMS370Cx5x | `P46`, CLKIN | `P54`, `#WAIT` | 18.75 MHz |
 | SCN2650 | `P46`, CLOCK | `P55`, `#OPACK` | 1.25 MHz |
 | INS8060, INS8070 | `P46`, XIN | `P52`, `#HOLD` | 4.05 MHz |
+| P8085 | `P50`, X1 | `P52`, READY | 10 MHz |
 
 The `teensy41-clock` build adds a `K` command to change the rate at run time (see
 [debugger.md](debugger.md#not-in-a-stock-build)).

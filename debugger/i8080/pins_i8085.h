@@ -56,6 +56,7 @@
 #define PIN_IOM 30     /* P8.23 */
 
 #include "pins_i8080_base.h"
+#include "pwm_clock.h"
 #include "signals_i8085.h"
 
 namespace debugger {
@@ -79,23 +80,33 @@ struct PinsI8085 final : i8080::PinsI8080Base {
     PinsI8085();
 
     void resetPins() override;
-    void idle() override;
+    // X1 runs by itself.
+    void idle() override {}
     bool step(bool show) override;
     void run() override;
     void assertInt(uint8_t name) override;
     void negateInt(uint8_t name) override;
     void printCycles() override;
+#ifdef TUNE_CLOCK
+    uint32_t clockInput() const override { return _clockInput; }
+    bool setClockInput(uint32_t hz) override;
+#endif
 
     uint16_t captureWrites(const uint8_t *inst, uint_fast8_t len, uint8_t *buf,
             uint_fast8_t max) override;
 
 private:
-    void x1_hi() const;
-    void x1_lo() const;
-    void x1_cycle_lo() const;
-    void x1_cycle() const;
+    PwmClock<PIN_X1> _clock;
+#ifdef TUNE_CLOCK
+    // X1's rate, which K sets.
+    uint32_t _clockInput;
+#endif
+
+    bool latchCycle() const;
     Signals *prepareCycle() const;
-    Signals *resumeCycle(uint16_t pc = 0) const;
+    Signals *resumeCycle() const;
+    Signals *resumeCycle(uint16_t pc) const;
+    uint32_t x1Cycles() const;
     Signals *completeCycle(Signals *s) const;
     Signals *inject(uint8_t data) const;
     // The PC a TRAP stacked and the SP it pushed from; sp is 0 without one
