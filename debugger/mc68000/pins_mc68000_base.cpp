@@ -11,7 +11,7 @@ namespace debugger {
 namespace mc68000 {
 
 /**
- * The 68000-family bus cycle (M68000UM 5.1, Figures 5-2 to 5-5). CLK never
+ * The 68000-family bus cycle (M68000UM 5.1, Figures 5-1 to 5-7). CLK never
  * stops: a half longer than 125 ns (250 ns on the MC68008) is out of spec
  * (10.8, 10.9), so CLK runs from the PWM from reset on, and the CPU waits
  * for the Teensy by #DTACK alone. A cycle is eight half-clock states, S0
@@ -300,6 +300,9 @@ Signals *PinsMc68000Base::completeCycle(Signals *s) {
     // the next one would end on this #DTACK unserved. ATTENTION:
     // unmeasured. The next cycle's S4 samples #DTACK about two clocks
     // after #AS negates, which bounds how late it may be negated.
+    // ATTENTION: TAS holds #AS from its read through its write (M68000UM
+    // Figure 5-9), so this wait times out and the write is taken for a
+    // second read. No sample uses TAS.
     noInterrupts();
     assert_dtack();
     const uint32_t start = ARM_DWT_CYCCNT;
