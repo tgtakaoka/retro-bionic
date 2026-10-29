@@ -26,6 +26,18 @@ void PinsZ80Base::setBreakInst(uint32_t addr) const {
     _mems->put_prog(addr, InstZ80::RST38H);
 }
 
+#ifdef TUNE_CLOCK
+bool PinsZ80Base::setClockInput(uint32_t hz) {
+    // The rate reloads at a period start, so the running clock never
+    // glitches.
+    const auto rate = setClockRate(hz);
+    if (rate == 0)
+        return false;
+    _clockInput = rate;
+    return true;
+}
+#endif
+
 }  // namespace z80
 }  // namespace debugger
 

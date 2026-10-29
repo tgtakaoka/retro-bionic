@@ -382,6 +382,13 @@ cycles, where bit-banged edges needed a tuned delay for each.
   2.39 us. Squeeze the bit-banged cycle instead. The CDP1802 pauses on any
   falling clock edge with `#WAIT` low, ignoring that edge; the CDP1804A
   family pauses only as TPA or TPB rises.
+- A held cycle costs a wait state wherever the Teensy's service overruns
+  the CPU's first wait sample. The Z8400A at 4.05 MHz samples `#WAIT`
+  about 160 ns after `#MREQ`, and the Teensy needed about 300 ns from the
+  strobe to the release, so every cycle took one more state and the Z80
+  stays bit-banged. A DWT profile of the run loop's phases (address read,
+  lookup, data out, bookkeeping) shows where the time goes without a
+  capture.
 - A target moved to a timer adds its row to the table in
   [hardware.md](hardware.md#clocking-the-cpu) (clock input, the input that
   holds a cycle, default rate) in the same commit, and a cast recorded on
