@@ -405,6 +405,9 @@ cycles, where bit-banged edges needed a tuned delay for each.
 - Resuming a run serves the fetch the CPU waits in by its own status,
   read from the bus: a stale ring slot that said "write" stored the bus
   into memory at the PC.
+- A multiplexed address needs its settle time even on a held cycle: the
+  KL5C80A12's A16-A19 come through the ASEL mux about 20 ns after it
+  switches, and read sooner they sent CALL operands to the wrong page.
 - A target moved to a timer adds its row to the table in
   [hardware.md](hardware.md#clocking-the-cpu) (clock input, the input that
   holds a cycle, default rate) in the same commit, and a cast recorded on
