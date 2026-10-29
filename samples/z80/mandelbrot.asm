@@ -55,17 +55,8 @@ init_usart:
         out     (C), A          ; set RxRDY interrupt vector
         ld      C, USARTTV
         out     (C), A          ; set TxRDY interrupt vector
-        ld      A, HIGH vector
-        ld      I, A
-
-        ;; KL5C80A12 interrupt controller; IR0 is left level triggered
-        ;; as reset leaves it. OUT (n),A puts A on A8-A15, so a Z180
-        ;; doesn't take these for its on-chip I/O.
-        ld      A, LOW vector
-        out     (IVR), A        ; vector register
-        ld      A, ~1           ; disable mask for IR0
-        out     (IMRL), A
-        im      2
+        ;; IR0 is left level triggered as reset leaves it.
+        include "mode2.inc"
 
         ei
 
@@ -125,41 +116,5 @@ putspace:
         include "queue.inc"
 
 ;;; Rx and Tx share the vector: receive if RxRDY, then send if TxRDY
-isr_intr:
-        push    AF
-        push    BC
-        ld      BC, 0100H|USARTS
-        in      A, (C)
-        bit     ST_RxRDY_bp, A
-        jr      Z, isr_intr_tx
-isr_intr_rx:
-        ld      C, USARTD
-        in      A, (C)          ; receive character
-        push    HL
-        ld      HL, rx_queue
-        call    queue_add
-        pop     HL
-        ld      C, USARTS
-        in      A, (C)
-isr_intr_tx:
-        bit     ST_TxRDY_bp, A
-        jr      Z, isr_intr_exit
-        push    HL
-        ld      HL, tx_queue
-        call    queue_remove
-        pop     HL
-        jr      NC, isr_intr_send_empty
-        ld      C, USARTD
-        out     (C), A          ; send character
-isr_intr_exit:
-        pop     BC
-        pop     AF
-        ei
-        reti
-isr_intr_send_empty:
-        ld      A, RX_EN_TX_DIS
-        ld      C, USARTC
-        out     (C), A          ; disable Tx
-        jr      isr_intr_exit
-
+        include "usart_mode2.inc"
         end
