@@ -56,6 +56,7 @@
 #define PIN_IOM 30     /* P8.23 */
 
 #include "pins_z80_base.h"
+#include "pwm_clock.h"
 #include "signals_nsc800.h"
 
 namespace debugger {
@@ -79,14 +80,21 @@ struct PinsNsc800 final : z80::PinsZ80Base {
     PinsNsc800();
 
     void resetPins() override;
-    void idle() override;
+    // The clock runs by itself.
+    void idle() override {}
     bool step(bool show) override;
     void run() override;
     void assertInt(uint8_t name) override;
     void negateInt(uint8_t name) override;
     void printCycles() override;
 
+#ifdef TUNE_CLOCK
+protected:
+    uint32_t setClockRate(uint32_t hz) override { return _clock.setRate(hz); }
+#endif
+
 private:
+    PwmClock<PIN_XIN> _clock;
     Signals *prepareCycle() const;
     Signals *completeCycle(Signals *signals) const;
     Signals *prepareWait() const;
