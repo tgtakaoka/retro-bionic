@@ -54,6 +54,8 @@ constexpr auto dtack_hold_clocks = 16;
 constexpr uint32_t clock_input_hz = 7500000;
 constexpr uint32_t clock_input_min_hz = 2000000;
 constexpr auto clock_half_min_ns = 55;
+// Teensy cycles in a clock at the slowest rate: timeouts that hold at any.
+constexpr uint32_t clock_cycles = F_CPU / clock_input_min_hz;
 
 // #RESET and #HALT are open drain both ways, with no pull-up on the board:
 // drive them low or let the level shifters' pull-ups have them, never
@@ -110,19 +112,21 @@ uint16_t instData(const Signals *s, const uint8_t *inst, uint_fast8_t len,
 }  // namespace
 
 PinsMc68000Base::PinsMc68000Base(uint8_t strobes)
-    : _clockInput(clock_input_hz),
-      _clockCycles(F_CPU / clock_input_hz),
-      _clock(clock_half_min_ns, clock_input_min_hz),
-      _strobes(strobes) {}
+    : _clock(clock_half_min_ns, clock_input_min_hz), _strobes(strobes) {
+#ifdef TUNE_CLOCK
+    _clockInput = clock_input_hz;
+#endif
+}
 
+#ifdef TUNE_CLOCK
 bool PinsMc68000Base::setClockInput(uint32_t hz) {
     const auto rate = _clock.setRate(hz);
     if (rate == 0)
         return false;
     _clockInput = rate;
-    _clockCycles = F_CPU / rate;
     return true;
 }
+#endif
 
 uint32_t PinsMc68000Base::wrap(uint32_t addr) const {
     return mems<MemsMc68000>()->wrap(addr);
@@ -133,7 +137,11 @@ void PinsMc68000Base::resetCpu() {
     setIpl();
     // The CPU is held in reset: a glitch on CLK is harmless. From here on
     // it never stops.
+#ifdef TUNE_CLOCK
     _clock.begin(_clockInput);
+#else
+    _clock.begin(clock_input_hz);
+#endif
     _clock.start();
 
     Cycles::reset();
@@ -235,7 +243,7 @@ Signals *PinsMc68000Base::prepareCycle(uint_fast16_t clocks) {
     auto s = Signals::put();
     s->clearMark();  // Cycles::next() keeps the slot's old mark
     const uint32_t start = ARM_DWT_CYCCNT;
-    const uint32_t limit = clocks * _clockCycles;
+    const uint32_t limit = clocks * clock_cycles;
     uint8_t cntl;
     while ((cntl = busRead(CNTL)) & Signals::AS) {
         if (ARM_DWT_CYCCNT - start >= limit) {
@@ -269,7 +277,7 @@ Signals *PinsMc68000Base::completeCycle(Signals *s) {
         inputMode();
         return s;
     }
-    const uint32_t limit = dtack_hold_clocks * _clockCycles;
+    const uint32_t limit = dtack_hold_clocks * clock_cycles;
     if (s->read()) {
         serveRead(s);
         outData(s);

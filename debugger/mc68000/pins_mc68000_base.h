@@ -39,8 +39,10 @@ struct PinsMc68000Base : Pins {
     void run() override;
 
     void printCycles() override;
+#ifdef TUNE_CLOCK
     uint32_t clockInput() const override { return _clockInput; }
     bool setClockInput(uint32_t hz) override;
+#endif
     void assertInt(uint8_t name) override;
     void negateInt(uint8_t name) override;
     void setBreakInst(uint32_t addr) const override;
@@ -75,9 +77,10 @@ protected:
     PinsMc68000Base(uint8_t strobes);
 
     bool _cutShort = false;
-    // The clock's rate, and the Teensy cycles in one of its clocks.
+#ifdef TUNE_CLOCK
+    // The clock's rate, which K sets.
     uint32_t _clockInput;
-    uint32_t _clockCycles;
+#endif
 
     // The reset sequence, once the board's pins are set up.
     void resetCpu();
