@@ -173,10 +173,10 @@ class Schematic:
 
     # ------------------------------------------------------------ CPU helpers
     def supply_rows(self, ref, cpu, top='VCC', bottom='GND'):
-        """join the visible top pins to one rail and the bottom pins to another;
+        """join the top pins to one rail and the bottom pins to another;
         a row entry of type power_out is left for the caller"""
         for row, net, d in ((cpu.top, top, -G), (cpu.bottom, bottom, G)):
-            pts = sorted({self.P(ref, e[1][0]) for e in row if (len(e) < 3 or e[2] != 'power_out')})
+            pts = sorted({self.P(ref, num) for e in row if (len(e) < 3 or e[2] != 'power_out') for num in e[1]})
             if not pts:
                 continue
             self.chain(pts)
