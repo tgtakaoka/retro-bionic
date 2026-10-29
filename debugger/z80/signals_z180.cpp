@@ -26,6 +26,14 @@ bool Signals::getControl() {
     return ((cntl() = busRead(CNTL)) & NOREQ) != NOREQ;
 }
 
+bool Signals::busy() {
+    return (busRead(CNTL) & NOREQ) != NOREQ;
+}
+
+void Signals::noCycle() {
+    cntl() = NOREQ | NOBUS;
+}
+
 bool Signals::fetch() const {
     return (cntl() & (CNTL_M1 | CNTL_MREQ)) == 0;
 }
@@ -59,7 +67,7 @@ void Signals::getData() {
 }
 
 void Signals::outData() const {
-    busWrite(D, data);
+    busWriteFast(D, data);
     busMode(D, OUTPUT);
 }
 

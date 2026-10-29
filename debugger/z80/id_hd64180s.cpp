@@ -17,7 +17,9 @@ constexpr uint8_t CONFIG[] = {
 };
 
 Pins *instance() {
-    return new z180::PinsZ180(CONFIG, sizeof(CONFIG));
+    // HD64180SH10: EXTAL up to 20 MHz; internal I/O at 0000-0087H; #WAIT
+    // holds a cycle before its strobes.
+    return new z180::PinsZ180(CONFIG, sizeof(CONFIG), 18750000, 0x88, true);
 }
 
 TARGET_OVERLAY(z80);

@@ -389,6 +389,14 @@ cycles, where bit-banged edges needed a tuned delay for each.
   stays bit-banged. A DWT profile of the run loop's phases (address read,
   lookup, data out, bookkeeping) shows where the time goes without a
   capture.
+- A strobe can trail its request by part of a clock: the HD64180S drops
+  `#WR` 50-60 ns after `#ME`. Wait about a clock for it before deciding a
+  cycle has none; deciding at once released a write unheld, and it was
+  lost.
+- Keep bookkeeping off the release: poll the strobe's end straight from
+  the port, and advance the cycle ring once the wait input holds again.
+  With the ring advanced first, a Z8018010 at 16.67 MHz EXTAL let an NMI's
+  push run unheld in 4 of 6 steps, and every Z180-family chip ran slower.
 - A target moved to a timer adds its row to the table in
   [hardware.md](hardware.md#clocking-the-cpu) (clock input, the input that
   holds a cycle, default rate) in the same commit, and a cast recorded on
