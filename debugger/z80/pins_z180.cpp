@@ -13,6 +13,7 @@ namespace z180 {
 
 using z80::InstZ80;
 using z80::MemsZ80;
+using z80::waitUntil;
 
 // clang-format off
 /**
@@ -40,17 +41,38 @@ using z80::MemsZ80;
 
 namespace {
 
-constexpr auto extal_hi_ns = 20;
-constexpr auto extal_lo_ns = 20;
-constexpr auto extal_lo_cntl = 20;
+// EXTAL runs free from the PWM, and PHI is EXTAL/2. #WAIT, asserted except
+// to end a cycle, holds the CPU in a wait state from T2 of each external
+// memory and I/O cycle; it is sampled on each PHI fall from T2 on. An
+// internal I/O cycle ignores #WAIT but repeats on the bus.
 
-inline void extal_hi() {
-    digitalWriteFast(PIN_EXTAL, HIGH);
-}
-
-inline void extal_lo() {
-    digitalWriteFast(PIN_EXTAL, LOW);
-}
+// The clock must remain active: PHI periods of at most 2 us.
+constexpr uint32_t extal_min_hz = 1000000;
+#ifdef TUNE_CLOCK
+// K may overclock the CPU.
+constexpr auto extal_half_min_ns = 20;
+#else
+constexpr auto extal_half_min_ns = 25;
+#endif
+// Teensy cycles in a PHI clock at the slowest rate, so the waits below
+// hold at any rate.
+constexpr uint32_t phi_max_cycles = 2 * (F_CPU / extal_min_hz);
+// #RESET must be active for at least six clocks.
+constexpr auto reset_ns = 10 * 2 * (1000000000 / extal_min_hz);
+// Waits for a bus cycle last 1000 clocks, far past an instruction's
+// internal states; SLEEP makes none.
+constexpr auto cycle_cycles = 1000 * phi_max_cycles;
+// A strobe ends within a TW and T3 of #WAIT being negated.
+constexpr auto strobe_cycles = 4 * phi_max_cycles;
+// Refreshes prepareCycle() skips before giving up; one follows each
+// instruction fetch at most.
+constexpr auto skip_cycles = 16;
+// Bus cycles execute() takes before giving up on its injection.
+constexpr auto inject_cycles = 256;
+// Bus cycles between polls of the halt switch in a run: its yield()
+// services the USB while #WAIT holds the CPU, which would otherwise
+// stretch every cycle. The devices ration their own polling.
+constexpr auto halt_poll_cycles = 16;
 
 inline void assert_nmi() {
     digitalWriteFast(PIN_NMI, LOW);
@@ -81,7 +103,6 @@ void negate_reset() {
 }
 
 constexpr uint8_t PINS_LOW[] = {
-        PIN_EXTAL,
         PIN_RESET,
         PIN_ASEL,
 };
@@ -127,17 +148,6 @@ constexpr uint8_t PINS_INPUT[] = {
         PIN_BUSACK,
 };
 
-inline void extal_cycle_lo() {
-    extal_hi();
-    delayNanoseconds(extal_hi_ns);
-    extal_lo();
-}
-
-inline void extal_cycle() {
-    extal_cycle_lo();
-    delayNanoseconds(extal_lo_ns);
-}
-
 // Set 0-wait for memory and 1-wait for I/O (DCNTL)
 // Disable DRAM refresh (RCR)
 constexpr uint8_t Z180_CONFIG[] = {
@@ -148,29 +158,41 @@ constexpr uint8_t Z180_CONFIG[] = {
 };
 }  // namespace
 
-PinsZ180::PinsZ180(const uint8_t *config, uint_fast8_t len)
+PinsZ180::PinsZ180(const uint8_t *config, uint_fast8_t len, uint32_t extalHz,
+        uint16_t internalIo, bool holdsEarly)
     : PinsZ80Base(),
+      _clock(extal_half_min_ns, extal_min_hz),
       _config(config ? config : Z180_CONFIG),
-      _configLen(config ? len : sizeof(Z180_CONFIG)) {
+      _configLen(config ? len : sizeof(Z180_CONFIG)),
+      _internalIo(internalIo),
+      _extalHz(extalHz),
+      _holdsEarly(holdsEarly) {
     _devs = new DevsZ80(USART_Z180);
     _regs = new RegsZ180(this);
     _mems = new MemsZ80();
     mems<MemsZ80>()->setMaxAddr(0xFFFFF);  // 1MB
+#ifdef TUNE_CLOCK
+    _clockInput = extalHz;
+#endif
 }
 
 void PinsZ180::resetPins() {
-    // Assert reset condition
+    // #RESET is asserted first: a glitch on EXTAL is harmless.
     pinsMode(PINS_LOW, sizeof(PINS_LOW), OUTPUT, LOW);
     pinsMode(PINS_HIGH, sizeof(PINS_HIGH), OUTPUT, HIGH);
     pinsMode(PINS_INPUT, sizeof(PINS_INPUT), INPUT);
-
-    // #RESET must be active for at least three CLK cycles for CPU to
-    // properly accept it.
-    for (auto i = 0; i < 100; i++)
-        extal_cycle();
+#ifdef TUNE_CLOCK
+    _clock.begin(_clockInput);
+#else
+    _clock.begin(_extalHz);
+#endif
+    _clock.start();
+    delayNanoseconds(reset_ns);
     negate_reset();
-    Cycles::reset();
+    // #WAIT holds the first fetch, where configureCpu() resumes.
     assert_wait();
+    Cycles::reset();
+    prepareCycle();
     _regs->setIp(InstZ80::ORG_RESET);
     configureCpu();
     _regs->save();
@@ -180,98 +202,120 @@ void PinsZ180::configureCpu() {
     execInst(_config, _configLen);
 }
 
+// Waits for the strobe of the cycle |s| requests: #RD and #WR follow #MREQ
+// and #IORQ.
+void PinsZ180::awaitStrobe(Signals *s) const {
+    const auto strobe = [s] {
+        return !s->getControl() || s->read() || s->write() || s->intack();
+    };
+    // #WR falls part of a clock after #MREQ: releasing #WAIT before it
+    // lets the write run unheld.
+    if (_holdsEarly && !waitUntil(strobe, phi_max_cycles)) {
+        // Held before its strobe: let it on to the strobe, then hold it
+        // again from its next #WAIT sample.
+        noInterrupts();
+        negate_wait();
+        waitUntil(strobe, strobe_cycles);
+        assert_wait();
+        interrupts();
+    } else {
+        waitUntil(strobe, strobe_cycles);
+    }
+}
+
+// Returns the cycle a strobe starts, held by #WAIT unless an internal I/O
+// cycle; a refresh is skipped.
 Signals *PinsZ180::prepareCycle() const {
     const auto s = Signals::put();
-    while (true) {
-        noInterrupts();
-        do {
-            // negate_debug();
-            extal_hi();
+    for (auto skip = 0;; ++skip) {
+        if (skip >= skip_cycles) {
+            // Give up on a request that never moves data.
+            cli.print("?halt: no data cycle ");
             s->getAddr();
-            extal_lo();
-            delayNanoseconds(extal_lo_cntl);
-            // assert_debug();
-        } while (!s->getControl());
-        // negate_debug();
-        extal_hi();
-        s->getAddrHigh();
-        extal_lo();
-        delayNanoseconds(extal_lo_cntl);
-        // assert_debug();
-        s->getControl();  // #WR asserts after #MREQ; sample it again
-        // negate_debug();
-        interrupts();
-        if (!s->nobus())
+            s->print();
+            s->noCycle();
             return s;
-        // No data moves in this cycle; clock past its end.
-        while (s->getControl())
-            extal_cycle();
+        }
+        if (!waitUntil([s] { return s->getControl(); }, cycle_cycles)) {
+            // Give up rather than wedge the board, leaving the halt switch
+            // to stop the run.
+            cli.println("?halt: no bus cycle");
+            s->noCycle();
+            return s;
+        }
+        awaitStrobe(s);
+        if (!s->nobus()) {
+            s->getAddr();
+            s->getAddrHigh();
+            return s;
+        }
+        // A refresh moves no data; wait past its end.
+        waitUntil([s] { return !s->getControl(); }, strobe_cycles);
     }
 }
 
 Signals *PinsZ180::completeCycle(Signals *s) const {
-    extal_hi();
+    if (s->nobus())
+        return s;
     if (s->mreq()) {      // Memory request
         if (s->read()) {  // Memory read
-            if (s->readMemory()) {
+            if (s->readMemory())
                 s->data = _mems->read(s->addr);
-            } else {
-                delayNanoseconds(extal_hi_ns);
-            }
-            // assert_debug();
             s->outData();
-            // negate_debug();
         } else if (s->write()) {  // Memory write
-            // assert_debug();
             s->getData();
-            // negate_debug();
-            if (s->writeMemory()) {
+            if (s->writeMemory())
                 _mems->write(s->addr, s->data);
-            } else {
-                delayNanoseconds(extal_hi_ns);
-            }
         }
     } else {  // I/O request
         // using 16-bit for I/O device addressing.
         if (s->read() && _devs->isSelected(s->addr)) {
             s->data = _devs->read(s->addr);
-            // assert_debug();
             s->outData();
-            // negate_debug();
         } else if (s->write()) {  // I/O write
-            // assert_debug();
             s->getData();
-            // negate_debug();
             if (_devs->isSelected(s->addr))
                 _devs->write(s->addr, s->data);
         } else if (s->intack()) {
             s->data = _devs->vector();
-            // assert_debug();
             s->outData();
-            // negate_debug();
-        } else {
-            delayNanoseconds(extal_hi_ns);
         }
     }
-    extal_lo();
-    s->inputMode();  // data bus hold is acting
-    Cycles::next();
-    auto n = Signals::put();
+    if (internalIo(s)) {
+        // Not held: a pulse on #WAIT could release the next cycle.
+        waitUntil([] { return !Signals::busy(); }, strobe_cycles);
+        Cycles::next();
+        s->inputMode();
+        return s;
+    }
+    // An interrupt here would leave #WAIT negated into the next cycle,
+    // which then ends unserved.
     noInterrupts();
-    while (n->getControl())  // wait for end of bus cycle
-        extal_cycle();
+    // assert_debug();
+    negate_wait();
+    waitUntil([] { return !Signals::busy(); }, strobe_cycles);
+    assert_wait();
+    // negate_debug();
     interrupts();
+    // Kept off the release: the CPU is already held in its next cycle.
+    Cycles::next();
+    s->inputMode();  // data bus hold is acting
     return s;
+}
+
+bool PinsZ180::internalIo(const Signals *s) const {
+    return s->iorq() && !s->intack() && (s->addr & 0xFFFF) < _internalIo;
 }
 
 Signals *PinsZ180::resumeCycle(uint16_t pc) {
     const auto s = Signals::put();
-    negate_wait();
     // execute() may have stopped past an interrupt acknowledge, at its
     // handler's fetch rather than at |pc|.
     s->setAddress(_heldFetch ? _heldAddr : pc);
     _heldFetch = false;
-    s->getControl();
+    // The CPU comes to the fetch by itself and waits there.
+    waitUntil([s] { return s->getControl(); }, cycle_cycles);
+    awaitStrobe(s);
     return completeCycle(s);
 }
 
@@ -285,7 +329,11 @@ uint16_t PinsZ180::execute(
     uint_fast8_t inj = 0;
     uint_fast8_t cap = 0;
     auto s = Signals::put();
-    while (inj < len || cap < max) {
+    for (auto n = 0; inj < len || cap < max; ++n) {
+        if (n >= inject_cycles) {
+            cli.println("?halt: injection stalled");
+            break;
+        }
         if (inj < len)
             s->inject(inst[inj]);
         if (cap < max)
@@ -306,7 +354,6 @@ uint16_t PinsZ180::execute(
                     buf[cap++] = s->data;
             }
         }
-        delayNanoseconds(extal_lo_ns);
         s = prepareCycle();
     }
     // Park on the next fetch, which may be past an interrupt acknowledge;
@@ -318,14 +365,7 @@ uint16_t PinsZ180::execute(
     }
     _heldFetch = true;
     _heldAddr = s->addr;
-    assert_wait();
     return addr;
-}
-
-void PinsZ180::idle() {
-    // Parked by #WAIT; this only keeps the clock alive.
-    extal_cycle();
-    extal_cycle_lo();
 }
 
 bool PinsZ180::isRst38Break(const Signals *org_rst) const {
@@ -344,6 +384,7 @@ bool PinsZ180::isRst38Break(const Signals *org_rst) const {
 
 Signals *PinsZ180::loop() {
     resumeCycle(_regs->nextIp());
+    auto poll = 0;
     while (true) {
         const auto s = prepareCycle();
         if (s->addr == InstZ80::ORG_RST38H && s->fetch()) {
@@ -353,14 +394,16 @@ Signals *PinsZ180::loop() {
                 completeCycle(s->inject(InstZ80::RET));
                 inject(lo(rst38h->addr));
                 inject(hi(rst38h->addr));
-                assert_wait();
                 return rst38h;
             }
         }
         completeCycle(s);
         _devs->loop();
-        if (haltSwitch())
-            return suspend();
+        if (++poll >= halt_poll_cycles) {
+            poll = 0;
+            if (haltSwitch())
+                return suspend();
+        }
     }
 }
 
@@ -371,7 +414,6 @@ void PinsZ180::run() {
     startRunTimer();
     const auto s = loop();
     stopRunTimer();
-    assert_wait();
     if (s)
         Cycles::discard(s);
     restoreBreakInsts();
@@ -397,13 +439,11 @@ Signals *PinsZ180::suspend() {
             // Feed RET the PC the NMI pushed, low byte first.
             inject(s->prev()->data);
             inject(s->prev(2)->data);
-            assert_wait();
             return s->prev(3);
         }
         completeCycle(s);
     }
     negate_nmi();
-    assert_wait();
     cli.println("?halt: no NMI acknowledge");
     return nullptr;
 }

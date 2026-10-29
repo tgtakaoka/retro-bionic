@@ -74,6 +74,7 @@
 #define PIN_BUSACK 30  /* P8.23 */
 
 #include "pins_z80_base.h"
+#include "pwm_clock.h"
 #include "signals_z180.h"
 
 namespace debugger {
@@ -81,11 +82,17 @@ namespace z180 {
 
 struct PinsZ180 final : z80::PinsZ80Base {
     // |config|: what resetPins() runs to set the waits and refresh, a
-    // loop of |len| bytes; the Z180's DCNTL and RCR when null.
-    explicit PinsZ180(const uint8_t *config = nullptr, uint_fast8_t len = 0);
+    // loop of |len| bytes; the Z180's DCNTL and RCR when null. |extalHz|:
+    // the EXTAL rate. |internalIo|: the end of the internal I/O addresses.
+    // |holdsEarly|: #WAIT holds a cycle before its #RD, #WR or #M1.
+    explicit PinsZ180(const uint8_t *config = nullptr, uint_fast8_t len = 0,
+            // Z8018008: EXTAL up to 16 MHz.
+            uint32_t extalHz = 16666667, uint16_t internalIo = 0x40,
+            bool holdsEarly = false);
 
     void resetPins() override;
-    void idle() override;
+    // The clock runs by itself.
+    void idle() override {}
     bool step(bool show) override;
     void run() override;
     void assertInt(uint8_t name) override;
@@ -102,16 +109,25 @@ protected:
     Signals *loop();
     Signals *suspend();
     bool rawStep();
+    bool internalIo(const Signals *s) const;
+    void awaitStrobe(Signals *s) const;
     uint16_t execute(const uint8_t *inst, uint_fast8_t len, uint8_t *buf,
             uint_fast8_t max) override;
 
     const SignalsImpl *findBacktraceStart() override;
     void printBacktrace() override;
     void configureCpu();
+#ifdef TUNE_CLOCK
+    uint32_t setClockRate(uint32_t hz) override { return _clock.setRate(hz); }
+#endif
 
 private:
+    PwmClock<PIN_EXTAL> _clock;
     const uint8_t *const _config;
     const uint_fast8_t _configLen;
+    const uint16_t _internalIo;
+    const uint32_t _extalHz;
+    const bool _holdsEarly;
     // The fetch execute() left the CPU waiting in, maybe past an interrupt
     // acknowledge; resumeCycle() resumes there rather than at the PC.
     bool _heldFetch = false;

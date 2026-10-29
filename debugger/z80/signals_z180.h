@@ -10,10 +10,13 @@ struct Signals final : SignalsBase<Signals> {
     void getAddr();
     void getAddrHigh();
     bool getControl();
+    // A request on the bus, read without recording it.
+    static bool busy();
     void getData();
     void outData() const;
     void inputMode() const;
     void setAddress(uint32_t _addr) { addr = _addr; }
+    void noCycle();
     void print() const;
 
     bool fetch() const;
