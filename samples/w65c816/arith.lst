@@ -90,7 +90,7 @@
        FFFE :                    ;;; Work area for arith.inc
          10 :                            *=      $10
          10 :                    arith_work:
-         10 : 00 00                      .word   0               ; udiv16 divisor
+         10 : 00 00                      .word   0               ; udiv16 divisor, umul16 result
          12 : 00 00                      .word   0               ; udiv16 dividend, quotient
          14 :
        1000 :                            *=      $1000
@@ -450,7 +450,7 @@
        123A :                    divsi2:
        123A : 08                         php
        123B : C2 20                      rep     #P_M            ; 16-bit memory
-       123D : 20 E3 12                   jsr     div16
+       123D : 20 E2 12                   jsr     div16
        1240 : 28                         plp
        1241 : 60                         rts
        1242 :
@@ -494,7 +494,7 @@
 (1)    1260 : 8A                         txa
 (1)    1261 : F0 11                      beq     print_uint16_exit
 (1)    1263 : A0 0A 00                   ldy     #10
-(1)    1266 : 20 B8 12                   jsr     udiv16
+(1)    1266 : 20 B7 12                   jsr     udiv16
 (1)    1269 : 5A                         phy                     ; push remainder
 (1)    126A : 20 60 12                   jsr     print_uint16_inner
 (1)    126D : 68                         pla                     ; pop remainder
@@ -538,7 +538,7 @@
 (1)    1291 :                    ;;; @param X multiplicand
 (1)    1291 :                    ;;; @param Y multiplier
 (1)    1291 :                    ;;; @return X result
-(1)    1291 :                    ;;; @clobber C Y
+(1)    1291 :                    ;;; @clobber C Y arith_work
 (1)    1291 :                    ;;; A 16-bit product is the same signed or unsigned; a negative
 (1)    1291 :                    ;;; multiplier is negated only to shorten the loop.
 (1)    1291 :                            longa   on
@@ -558,101 +558,100 @@
 (1)    129F :                    ;;; @param X multiplicand
 (1)    129F :                    ;;; @param Y multiplier
 (1)    129F :                    ;;; @return X result
-(1)    129F :                    ;;; @clobber C Y
+(1)    129F :                    ;;; @clobber C Y arith_work
 (1)    129F :                            longa   on
 (1)    129F :                    umul16:
-(1)    129F : A9 00 00                   lda     #0
-(1)    12A2 : 48                         pha                     ; result (1,S)
-(1)    12A3 : 80 0E                      bra     umul16_check
-(1)    12A5 :                    umul16_loop:
-(1)    12A5 : 98                         tya
-(1)    12A6 : 4A                         lsr     A               ; multiplier >>= 1
-(1)    12A7 : A8                         tay
-(1)    12A8 : 90 06                      bcc     umul16_sr
-(1)    12AA : 8A                         txa
-(1)    12AB : 18                         clc
-(1)    12AC : 63 01                      adc     1,S
-(1)    12AE : 83 01                      sta     1,S             ; result += multiplicand
-(1)    12B0 :                    umul16_sr:
-(1)    12B0 : 8A                         txa
-(1)    12B1 : 0A                         asl     A               ; multiplicand <<= 1
-(1)    12B2 : AA                         tax
-(1)    12B3 :                    umul16_check:
-(1)    12B3 : 98                         tya
-(1)    12B4 : D0 EF                      bne     umul16_loop     ; while multiplier != 0
-(1)    12B6 :                    umul16_end:
-(1)    12B6 : FA                         plx                     ; X=result
-(1)    12B7 : 60                         rts
-(1)    12B8 :
-(1)    12B8 :                    ;;; Unsigned division: dividend / divisor = quotient ... remainder
-(1)    12B8 :                    ;;; @param X dividend
-(1)    12B8 :                    ;;; @param Y divisor
-(1)    12B8 :                    ;;; @return X quotient
-(1)    12B8 :                    ;;; @return Y remainder
-(1)    12B8 :                    ;;; @clobber C arith_work
-(1)    12B8 :                            longa   on
-(1)    12B8 :                    udiv16:
-(1)    12B8 : 86 12                      stx     arith_work+2    ; dividend
-(1)    12BA : A2 01 00                   ldx     #1              ; X=bits
-(1)    12BD : 98                         tya                     ; C=divisor
-(1)    12BE : F0 20                      beq     udiv16_zero     ; divisor==0: X=dividend, Y=0
-(1)    12C0 : 30 08                      bmi     udiv16_prep_end ; branch if msb(divisor) == 1
-(1)    12C2 :                    udiv16_prep:
-(1)    12C2 : C5 12                      cmp     arith_work+2
-(1)    12C4 : B0 04                      bcs     udiv16_prep_end ; until divisor >= dividend
-(1)    12C6 : E8                         inx                     ; ++bits
-(1)    12C7 : 0A                         asl     A               ; divisor <<= 1
-(1)    12C8 : 10 F8                      bpl     udiv16_prep     ; while msb(divisor) == 0
-(1)    12CA :                    udiv16_prep_end:
-(1)    12CA : 85 10                      sta     arith_work      ; divisor
-(1)    12CC : A5 12                      lda     arith_work+2    ; C=dividend
-(1)    12CE : 64 12                      stz     arith_work+2    ; quotient=0
-(1)    12D0 : 80 02                      bra     udiv16_enter_loop
-(1)    12D2 :                    udiv16_loop:
-(1)    12D2 : 46 10                      lsr     arith_work      ; divisor >>= 1
-(1)    12D4 :                    udiv16_enter_loop:
-(1)    12D4 : C5 10                      cmp     arith_work
-(1)    12D6 : 90 02                      bcc     udiv16_next     ; if dividend < divisor
-(1)    12D8 : E5 10                      sbc     arith_work      ; dividend -= divisor
-(1)    12DA :                    udiv16_next:
-(1)    12DA : 26 12                      rol     arith_work+2    ; quotient = quotient<<1 | C
-(1)    12DC : CA                         dex
-(1)    12DD : D0 F3                      bne     udiv16_loop     ; while bits != 0
-(1)    12DF : A8                         tay                     ; Y=remainder
-(1)    12E0 :                    udiv16_zero:
-(1)    12E0 : A6 12                      ldx     arith_work+2    ; X=quotient
-(1)    12E2 : 60                         rts
-(1)    12E3 :
-(1)    12E3 :                    ;;; Division: dividend / divisor = quotient ... remainder
-(1)    12E3 :                    ;;; @param X dividend
-(1)    12E3 :                    ;;; @param Y divisor
-(1)    12E3 :                    ;;; @return X quotient
-(1)    12E3 :                    ;;; @return Y remainder of |dividend|/|divisor|, unsigned
-(1)    12E3 :                    ;;; @clobber C arith_work
-(1)    12E3 :                            longa   on
-(1)    12E3 :                    div16:
-(1)    12E3 : 5A                         phy                     ; save divisor
-(1)    12E4 : 8A                         txa
-(1)    12E5 : 43 01                      eor     1,S
-(1)    12E7 : 83 01                      sta     1,S             ; save (dividend^divisor)
-(1)    12E9 : 98                         tya
-(1)    12EA : 10 05                      bpl     div16_dividend
-(1)    12EC : 49 FF FF                   eor     #$FFFF
-(1)    12EF : 1A                         inc     A
-(1)    12F0 : A8                         tay                     ; negate divisor
-(1)    12F1 :                    div16_dividend:
-(1)    12F1 : 8A                         txa
-(1)    12F2 : 10 05                      bpl     div16_multiply
-(1)    12F4 : 49 FF FF                   eor     #$FFFF
-(1)    12F7 : 1A                         inc     A
-(1)    12F8 : AA                         tax                     ; negate dividend
-(1)    12F9 :                    div16_multiply:
-(1)    12F9 : 20 B8 12                   jsr     udiv16          ; X=quotient
-(1)    12FC : 68                         pla                     ; A=(dividend^divisor)
-(1)    12FD : 10 06                      bpl     div16_return
-(1)    12FF : 8A                         txa
-(1)    1300 : 49 FF FF                   eor     #$FFFF
-(1)    1303 : 1A                         inc     A
-(1)    1304 : AA                         tax                     ; negate result
-(1)    1305 :                    div16_return:
-(1)    1305 : 60                         rts
+(1)    129F : 64 10                      stz     arith_work      ; result=0
+(1)    12A1 : 80 0E                      bra     umul16_check
+(1)    12A3 :                    umul16_loop:
+(1)    12A3 : 98                         tya
+(1)    12A4 : 4A                         lsr     A               ; multiplier >>= 1
+(1)    12A5 : A8                         tay
+(1)    12A6 : 90 06                      bcc     umul16_sr
+(1)    12A8 : 8A                         txa
+(1)    12A9 : 18                         clc
+(1)    12AA : 65 10                      adc     arith_work
+(1)    12AC : 85 10                      sta     arith_work      ; result += multiplicand
+(1)    12AE :                    umul16_sr:
+(1)    12AE : 8A                         txa
+(1)    12AF : 0A                         asl     A               ; multiplicand <<= 1
+(1)    12B0 : AA                         tax
+(1)    12B1 :                    umul16_check:
+(1)    12B1 : 98                         tya
+(1)    12B2 : D0 EF                      bne     umul16_loop     ; while multiplier != 0
+(1)    12B4 :                    umul16_end:
+(1)    12B4 : A6 10                      ldx     arith_work      ; X=result
+(1)    12B6 : 60                         rts
+(1)    12B7 :
+(1)    12B7 :                    ;;; Unsigned division: dividend / divisor = quotient ... remainder
+(1)    12B7 :                    ;;; @param X dividend
+(1)    12B7 :                    ;;; @param Y divisor
+(1)    12B7 :                    ;;; @return X quotient
+(1)    12B7 :                    ;;; @return Y remainder
+(1)    12B7 :                    ;;; @clobber C arith_work
+(1)    12B7 :                            longa   on
+(1)    12B7 :                    udiv16:
+(1)    12B7 : 86 12                      stx     arith_work+2    ; dividend
+(1)    12B9 : A2 01 00                   ldx     #1              ; X=bits
+(1)    12BC : 98                         tya                     ; C=divisor
+(1)    12BD : F0 20                      beq     udiv16_zero     ; divisor==0: X=dividend, Y=0
+(1)    12BF : 30 08                      bmi     udiv16_prep_end ; branch if msb(divisor) == 1
+(1)    12C1 :                    udiv16_prep:
+(1)    12C1 : C5 12                      cmp     arith_work+2
+(1)    12C3 : B0 04                      bcs     udiv16_prep_end ; until divisor >= dividend
+(1)    12C5 : E8                         inx                     ; ++bits
+(1)    12C6 : 0A                         asl     A               ; divisor <<= 1
+(1)    12C7 : 10 F8                      bpl     udiv16_prep     ; while msb(divisor) == 0
+(1)    12C9 :                    udiv16_prep_end:
+(1)    12C9 : 85 10                      sta     arith_work      ; divisor
+(1)    12CB : A5 12                      lda     arith_work+2    ; C=dividend
+(1)    12CD : 64 12                      stz     arith_work+2    ; quotient=0
+(1)    12CF : 80 02                      bra     udiv16_enter_loop
+(1)    12D1 :                    udiv16_loop:
+(1)    12D1 : 46 10                      lsr     arith_work      ; divisor >>= 1
+(1)    12D3 :                    udiv16_enter_loop:
+(1)    12D3 : C5 10                      cmp     arith_work
+(1)    12D5 : 90 02                      bcc     udiv16_next     ; if dividend < divisor
+(1)    12D7 : E5 10                      sbc     arith_work      ; dividend -= divisor
+(1)    12D9 :                    udiv16_next:
+(1)    12D9 : 26 12                      rol     arith_work+2    ; quotient = quotient<<1 | C
+(1)    12DB : CA                         dex
+(1)    12DC : D0 F3                      bne     udiv16_loop     ; while bits != 0
+(1)    12DE : A8                         tay                     ; Y=remainder
+(1)    12DF :                    udiv16_zero:
+(1)    12DF : A6 12                      ldx     arith_work+2    ; X=quotient
+(1)    12E1 : 60                         rts
+(1)    12E2 :
+(1)    12E2 :                    ;;; Division: dividend / divisor = quotient ... remainder
+(1)    12E2 :                    ;;; @param X dividend
+(1)    12E2 :                    ;;; @param Y divisor
+(1)    12E2 :                    ;;; @return X quotient
+(1)    12E2 :                    ;;; @return Y remainder of |dividend|/|divisor|, unsigned
+(1)    12E2 :                    ;;; @clobber C arith_work
+(1)    12E2 :                            longa   on
+(1)    12E2 :                    div16:
+(1)    12E2 : 5A                         phy                     ; save divisor
+(1)    12E3 : 8A                         txa
+(1)    12E4 : 43 01                      eor     1,S
+(1)    12E6 : 83 01                      sta     1,S             ; save (dividend^divisor)
+(1)    12E8 : 98                         tya
+(1)    12E9 : 10 05                      bpl     div16_dividend
+(1)    12EB : 49 FF FF                   eor     #$FFFF
+(1)    12EE : 1A                         inc     A
+(1)    12EF : A8                         tay                     ; negate divisor
+(1)    12F0 :                    div16_dividend:
+(1)    12F0 : 8A                         txa
+(1)    12F1 : 10 05                      bpl     div16_multiply
+(1)    12F3 : 49 FF FF                   eor     #$FFFF
+(1)    12F6 : 1A                         inc     A
+(1)    12F7 : AA                         tax                     ; negate dividend
+(1)    12F8 :                    div16_multiply:
+(1)    12F8 : 20 B7 12                   jsr     udiv16          ; X=quotient
+(1)    12FB : 68                         pla                     ; A=(dividend^divisor)
+(1)    12FC : 10 06                      bpl     div16_return
+(1)    12FE : 8A                         txa
+(1)    12FF : 49 FF FF                   eor     #$FFFF
+(1)    1302 : 1A                         inc     A
+(1)    1303 : AA                         tax                     ; negate result
+(1)    1304 :                    div16_return:
+(1)    1304 : 60                         rts

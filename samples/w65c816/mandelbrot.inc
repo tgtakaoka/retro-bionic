@@ -70,14 +70,13 @@ loop_i:
         ldx     vB
         txy
         jsr     mul16           ; B*B
-        phx                     ; push B*B
+        stx     vT              ; T=B*B
         ldx     vA
         txy
         jsr     mul16           ; A*A
         txa
         sec
-        sbc     1,S             ; A*A-B*B
-        ply                     ; discard B*B
+        sbc     vT              ; A*A-B*B
         tax
         ldy     #F
         jsr     div16           ; (A*A-B*B)/F
@@ -109,7 +108,7 @@ loop_i:
         stx     vP              ; P=A/F
         txy
         jsr     mul16           ; P*P
-        phx                     ; push P*P
+        stx     vT              ; T=P*P
         ldx     vB
         ldy     #F
         jsr     div16           ; B/F
@@ -118,9 +117,8 @@ loop_i:
         jsr     mul16           ; Q*Q
         txa
         clc
-        adc     1,S             ; P*P+Q*Q
+        adc     vT              ; P*P+Q*Q
         sta     vT              ; T=P*P+Q*Q
-        ply                     ; discard P*P
 
         ;; pha
         ;; jsr     putspace
