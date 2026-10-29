@@ -1,9 +1,8 @@
 """Draw a CPU schematic symbol from pin lists.
 
 Signal pins go on the left and right edges, one per 2.54 mm row; None
-leaves a gap. Supply pins go along the top and bottom; a supply name with
-several pins stacks them on one point, the first visible, the rest hidden.
-Unused pins are hidden no-connects.
+leaves a gap. Supply pins go along the top and bottom, each on its own
+point and visible. Unused pins are hidden no-connects.
 """
 G = 2.54
 
@@ -38,12 +37,10 @@ class CpuSymbol:
             if p:
                 yield p[0], p[1], p[2], self.W + G, -i * G, 180, False
         for row, y, a in ((self.top, self.YTOP + G, 270), (self.bottom, self.YBOT - G, 90)):
-            x0 = self._centred(len(row))
-            for i, entry in enumerate(row):
-                n, nums = entry[0], entry[1]
-                typ = entry[2] if len(entry) > 2 else 'power_in'
-                for k, num in enumerate(nums):
-                    yield n, num, typ if k == 0 else 'passive', x0 + i * G, y, a, k > 0
+            pins = [(e[0], num, e[2] if len(e) > 2 else 'power_in') for e in row for num in e[1]]
+            x0 = self._centred(len(pins))
+            for i, (n, num, typ) in enumerate(pins):
+                yield n, num, typ, x0 + i * G, y, a, False
         for i, (n, num) in enumerate(self.hidden):
             yield n, num, 'no_connect', 7.62 + (i % 12) * G, -20.32 - (i // 12) * G, 0, True
 

@@ -641,6 +641,10 @@ no fillet, and about 1 mm of each pad lay bare under the lead's shoulder. Size
 a QFP's pads from the vendor's package table, from just behind the shortest
 lead's heel to past the longest lead's tip.
 
+A CPU symbol shows every supply pin on its own, visible, with its number:
+stacking pins of one name behind a single visible pin hides which VCC and
+VSS pins a board actually ties.
+
 ### Order bench work by image, not by fix **[hw]**
 
 Seating a chip takes moments; flashing the Teensy takes minutes and wipes the
