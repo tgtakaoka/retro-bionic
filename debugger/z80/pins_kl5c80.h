@@ -73,6 +73,7 @@
 #define PIN_BACK 30     /* P8.23 */
 
 #include "pins_z80_base.h"
+#include "pwm_clock.h"
 #include "signals_kl5c80.h"
 
 namespace debugger {
@@ -82,7 +83,8 @@ struct PinsKl5c80 final : z80::PinsZ80Base {
     PinsKl5c80();
 
     void resetPins() override;
-    void idle() override;
+    // The clock runs by itself.
+    void idle() override {}
     bool step(bool show) override;
     void run() override;
     void assertInt(uint8_t name) override;
@@ -105,7 +107,13 @@ private:
 
     const SignalsImpl *findBacktraceStart() override;
     void printBacktrace() override;
-    void enableExternalReady(bool enable);
+    void enableExternalReady();
+#ifdef TUNE_CLOCK
+    uint32_t setClockRate(uint32_t hz) override { return _clock.setRate(hz); }
+#endif
+
+private:
+    PwmClock<PIN_XIN> _clock;
 };
 
 }  // namespace kl5c80

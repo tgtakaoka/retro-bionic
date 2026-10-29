@@ -150,10 +150,12 @@ These boards run from a timer:
 | Z8018008, Z8018010 | `P47`, EXTAL | `P52`, `#WAIT` | 16.67 MHz |
 | HD64180S | `P47`, EXTAL | `P52`, `#WAIT` | 18.75 MHz |
 | NSC800 | `P50`, XIN | `P52`, `#WAIT` | 8.33 MHz |
+| KL5C80A12 | `P47`, XIN | `P52`, ERDY | 18.75 MHz |
 
 The P8080's two phases come from two FlexPWM modules whose counters are restarted
 together, and in a run its plain memory reads take no wait state. The Z180's internal
-I/O cycles ignore `#WAIT`, so the firmware leaves them unheld.
+I/O cycles ignore `#WAIT`, so the firmware leaves them unheld. The KL5C80A12 honours ERDY
+only in the wait states SCR1 inserts, so it keeps one for memory and two for I/O.
 
 The `K` command changes the rate at run time (see
 [debugger.md](debugger.md#commands)).

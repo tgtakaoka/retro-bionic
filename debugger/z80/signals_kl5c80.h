@@ -10,6 +10,9 @@ struct Signals final : SignalsBase<Signals> {
     void getAddr();
     void getAddrHigh();
     bool getControl();
+    // A strobe on the bus, read without recording it.
+    static bool busy();
+    void noCycle();
     void getData();
     void outData() const;
     void inputMode() const;
