@@ -41,6 +41,8 @@ init_usart:
 
         ld      a, 1            ; nonzero enables the USART interrupt on IR0
         out     (USARTRV), a
+        xor     a               ; 0 disables TxRDY interrupt
+        out     (USARTTV), a
         ld      a, 1            ; IR0 edge triggered
         out     (LERL), a
         ld      a, high vector
