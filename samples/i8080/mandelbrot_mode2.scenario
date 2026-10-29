@@ -1,0 +1,42 @@
+# Scenario for scripts/record-scenario.py: the 8080's mandelbrot built
+# for interrupt mode 2, on the KL5C80A12, which has no mode 0. The
+# program sets the emulated 8251's vector to the low byte of its vector
+# table at 0080; the CPU reads it in the INTA cycle, pushes the return
+# address and jumps through the table entry, with I holding the high
+# byte.
+#
+# ADDRESS IS PINNED TO THE CURRENT samples/i8080/mandelbrot_mode2.hex:
+# isr_intr at 0463. If mandelbrot_mode2.asm, mandelbrot.inc or the .hex
+# ever change, re-check it against the fresh .lst before recording -- a
+# stale address will look like it works (it disassembles *something*)
+# while showing the wrong thing.
+
+key ?
+pace 2.0
+
+key R
+upload samples/i8080/mandelbrot_mode2.hex
+key R
+pace 1.5
+
+# Stop at the interrupt handler. The backtrace shows the interrupted
+# instruction, the INTA cycle reading the vector byte, the two stack
+# writes of the return address, and the table read at 0080.
+type g
+wait Go until?
+command 463 8
+pace 1.5
+
+# The return address sits on top of the stack at SP.
+type d
+wait Data dump?
+command FF0 10
+pace 2.0
+
+# Step through the handler's first instructions: PUSH AF and PUSH BC,
+# before the 8251 status read.
+step 2
+pace 1.5
+
+# Watch one frame render.
+run 1 300

@@ -49,13 +49,7 @@ init_usart:
         out     (USARTTV), a
         ld      a, 1            ; IR0 edge triggered
         out     (LERL), a
-        ld      a, high vector
-        ld      i, a
-        ld      a, low vector
-        out     (IVR), a        ; vector register
-        ld      a, ~1           ; disable mask for IR0
-        out     (IMRL), a
-        im      2               ; mode 2 only
+        include "../z80/mode2.inc"
         ei
 
 receive_loop:

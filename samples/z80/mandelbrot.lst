@@ -154,17 +154,20 @@
         131 : ED 79                      out     (C), A          ; set RxRDY interrupt vector
         133 : 0E 43                      ld      C, USARTTV
         135 : ED 79                      out     (C), A          ; set TxRDY interrupt vector
-        137 : 3E 00                      ld      A, HIGH vector
-        139 : ED 47                      ld      I, A
-        13B :
-        13B :                            ;; KL5C80A12 interrupt controller; IR0 is left level triggered
-        13B :                            ;; as reset leaves it. OUT (n),A puts A on A8-A15, so a Z180
-        13B :                            ;; doesn't take these for its on-chip I/O.
-        13B : 3E 80                      ld      A, LOW vector
-        13D : D3 37                      out     (IVR), A        ; vector register
-        13F : 3E FE                      ld      A, ~1           ; disable mask for IR0
-        141 : D3 36                      out     (IMRL), A
-        143 : ED 5E                      im      2
+        137 :                            ;; IR0 is left level triggered as reset leaves it.
+        137 :                            include "mode2.inc"
+(1)     137 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)     137 :                    ;;; Take interrupts in mode 2 through |vector|, the KL5C80A12's IR0
+(1)     137 :                    ;;; included. OUT (n),A puts A on A8-A15, so a Z180 doesn't take the
+(1)     137 :                    ;;; interrupt controller's ports for its on-chip I/O.
+(1)     137 :                            cpu     z80
+(1)     137 : 3E 00                      ld      A, HIGH vector
+(1)     139 : ED 47                      ld      I, A
+(1)     13B : 3E 80                      ld      A, LOW vector
+(1)     13D : D3 37                      out     (IVR), A        ; vector register
+(1)     13F : 3E FE                      ld      A, ~1           ; disable mask for IR0
+(1)     141 : D3 36                      out     (IMRL), A
+(1)     143 : ED 5E                      im      2
         145 :
         145 : FB                         ei
         146 :
@@ -794,41 +797,48 @@
 (1)     436 : C9                         ret
         437 :
         437 :                    ;;; Rx and Tx share the vector: receive if RxRDY, then send if TxRDY
-        437 :                    isr_intr:
-        437 : F5                         push    AF
-        438 : C5                         push    BC
-        439 : 01 41 01                   ld      BC, 0100H|USARTS
-        43C : ED 78                      in      A, (C)
-        43E : CB 4F                      bit     ST_RxRDY_bp, A
-        440 : 28 10                      jr      Z, isr_intr_tx
-        442 :                    isr_intr_rx:
-        442 : 0E 40                      ld      C, USARTD
-        444 : ED 78                      in      A, (C)          ; receive character
-        446 : E5                         push    HL
-        447 : 21 00 20                   ld      HL, rx_queue
-        44A : CD E0 03                   call    queue_add
-        44D : E1                         pop     HL
-        44E : 0E 41                      ld      C, USARTS
-        450 : ED 78                      in      A, (C)
-        452 :                    isr_intr_tx:
-        452 : CB 47                      bit     ST_TxRDY_bp, A
-        454 : 28 0E                      jr      Z, isr_intr_exit
-        456 : E5                         push    HL
-        457 : 21 80 20                   ld      HL, tx_queue
-        45A : CD 11 04                   call    queue_remove
-        45D : E1                         pop     HL
-        45E : 30 09                      jr      NC, isr_intr_send_empty
-        460 : 0E 40                      ld      C, USARTD
-        462 : ED 79                      out     (C), A          ; send character
-        464 :                    isr_intr_exit:
-        464 : C1                         pop     BC
-        465 : F1                         pop     AF
-        466 : FB                         ei
-        467 : ED 4D                      reti
-        469 :                    isr_intr_send_empty:
-        469 : 3E 36                      ld      A, RX_EN_TX_DIS
-        46B : 0E 41                      ld      C, USARTC
-        46D : ED 79                      out     (C), A          ; disable Tx
-        46F : 18 F3                      jr      isr_intr_exit
-        471 :
+        437 :                            include "usart_mode2.inc"
+(1)     437 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)     437 :                    ;;; Mode 2 RxRDY and TxRDY interrupt of the i8251, sharing one vector:
+(1)     437 :                    ;;; queue the received character, then send the next queued one, or
+(1)     437 :                    ;;; disable Tx when the queue is empty. IN/OUT (C) put B on A8-A15, so
+(1)     437 :                    ;;; boards decoding 16-bit I/O addresses find the USART at 0140H.
+(1)     437 :                            cpu     z80
+(1)     437 :                    isr_intr:
+(1)     437 : F5                         push    AF
+(1)     438 : C5                         push    BC
+(1)     439 : 01 41 01                   ld      BC, 0100H|USARTS
+(1)     43C : ED 78                      in      A, (C)
+(1)     43E : CB 4F                      bit     ST_RxRDY_bp, A
+(1)     440 : 28 10                      jr      Z, isr_intr_tx
+(1)     442 :                    isr_intr_rx:
+(1)     442 : 0E 40                      ld      C, USARTD
+(1)     444 : ED 78                      in      A, (C)          ; receive character
+(1)     446 : E5                         push    HL
+(1)     447 : 21 00 20                   ld      HL, rx_queue
+(1)     44A : CD E0 03                   call    queue_add
+(1)     44D : E1                         pop     HL
+(1)     44E : 0E 41                      ld      C, USARTS
+(1)     450 : ED 78                      in      A, (C)
+(1)     452 :                    isr_intr_tx:
+(1)     452 : CB 47                      bit     ST_TxRDY_bp, A
+(1)     454 : 28 0E                      jr      Z, isr_intr_exit
+(1)     456 : E5                         push    HL
+(1)     457 : 21 80 20                   ld      HL, tx_queue
+(1)     45A : CD 11 04                   call    queue_remove
+(1)     45D : E1                         pop     HL
+(1)     45E : 30 09                      jr      NC, isr_intr_send_empty
+(1)     460 : 0E 40                      ld      C, USARTD
+(1)     462 : ED 79                      out     (C), A          ; send character
+(1)     464 :                    isr_intr_exit:
+(1)     464 : C1                         pop     BC
+(1)     465 : F1                         pop     AF
+(1)     466 : FB                         ei
+(1)     467 : ED 4D                      reti
+(1)     469 :                    isr_intr_send_empty:
+(1)     469 : 3E 36                      ld      A, RX_EN_TX_DIS
+(1)     46B : 0E 41                      ld      C, USARTC
+(1)     46D : ED 79                      out     (C), A          ; disable Tx
+(1)     46F : 18 F3                      jr      isr_intr_exit
+(1)     471 :
         471 :                            end
