@@ -81,7 +81,7 @@ cmp16_eq:
 ;;; @param X multiplicand
 ;;; @param Y multiplier
 ;;; @return X result
-;;; @clobber C Y
+;;; @clobber C Y arith_work
 ;;; A 16-bit product is the same signed or unsigned; a negative
 ;;; multiplier is negated only to shorten the loop.
         longa   on
@@ -101,11 +101,10 @@ mul16:
 ;;; @param X multiplicand
 ;;; @param Y multiplier
 ;;; @return X result
-;;; @clobber C Y
+;;; @clobber C Y arith_work
         longa   on
 umul16:
-        lda     #0
-        pha                     ; result (1,S)
+        stz     arith_work      ; result=0
         bra     umul16_check
 umul16_loop:
         tya
@@ -114,8 +113,8 @@ umul16_loop:
         bcc     umul16_sr
         txa
         clc
-        adc     1,S
-        sta     1,S             ; result += multiplicand
+        adc     arith_work
+        sta     arith_work      ; result += multiplicand
 umul16_sr:
         txa
         asl     A               ; multiplicand <<= 1
@@ -124,7 +123,7 @@ umul16_check:
         tya
         bne     umul16_loop     ; while multiplier != 0
 umul16_end:
-        plx                     ; X=result
+        ldx     arith_work      ; X=result
         rts
 
 ;;; Unsigned division: dividend / divisor = quotient ... remainder

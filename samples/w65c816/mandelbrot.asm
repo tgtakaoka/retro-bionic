@@ -40,7 +40,7 @@ tx_queue:
 ;;; Work area for arith.inc
         *=      $10
 arith_work:
-        .word   0               ; udiv16 divisor
+        .word   0               ; udiv16 divisor, umul16 result
         .word   0               ; udiv16 dividend, quotient
 ;;; Work area for mandelbrot.inc
 F       =       50              ; fixed-point 1.0

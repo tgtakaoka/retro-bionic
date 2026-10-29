@@ -11,7 +11,7 @@ ACIA    =       $DF00
 ;;; Work area for arith.inc
         *=      $10
 arith_work:
-        .word   0               ; udiv16 divisor
+        .word   0               ; udiv16 divisor, umul16 result
         .word   0               ; udiv16 dividend, quotient
 
         *=      $1000

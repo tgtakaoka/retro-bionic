@@ -102,63 +102,6 @@ set_RX:
         sta     arith_work+1
         jmp     (arith_work)
 
-;;; Store R0 to R1
-store_R1:
-        lda     R0L
-        sta     R1L
-        lda     R0H
-        sta     R1H
-        rts
-
-;;; Store R0 to R2
-store_R2:       
-        lda     R0L
-        sta     R2L
-        lda     R0H
-        sta     R2H
-        rts
-
-;;; Store R0 to variable
-;;; @param R0
-;;; @param X &variable
-;;; @clobber A
-store_RX:
-        lda     R0L
-        sta     0,X
-        lda     R0H
-        sta     1,X
-        rts
-
-;;; Load variable to R0
-;;; @param X &variable
-;;; @return R0 variable
-load_R0:
-        lda     0,X
-        sta     R0L
-        lda     1,X
-        sta     R0H
-        rts
-
-;;; Load variable to R1
-;;; @param X &variable
-;;; @return R1 variable
-load_R1:
-        lda     0,X
-        sta     R1L
-        lda     1,X
-        sta     R1H
-        rts
-
-;;; Load variable to R2
-;;; @param X &variable
-;;; @return R2 variable
-load_R2:
-        lda     0,X
-        sta     R2L
-        lda     1,X
-        sta     R2H
-        rts
-
 ;;; Sign extend A into X
 ;;; @param A 8-bit value
 ;;; @return X:A sign extended 16-bit value
@@ -256,10 +199,20 @@ cmpsi2_return:
 mulsi2:
         lda     R2H
         bpl     umul16          ; branch if multiplier >= 0
-        ldx     #R2
-        jsr     neg16           ; negate multiplier
-        ldx     #R1
-        jsr     neg16           ; negate multiplicand
+        sec
+        lda     #0
+        sbc     R2L
+        sta     R2L
+        lda     #0
+        sbc     R2H
+        sta     R2H             ; negate multiplier
+        sec
+        lda     #0
+        sbc     R1L
+        sta     R1L
+        lda     #0
+        sbc     R1H
+        sta     R1H             ; negate multiplicand
                                 ; fall through to umul16
 
 ;;; Unsigned multiplication: result = multiplicand * multiplier
@@ -366,18 +319,33 @@ divsi2:
         pha                     ; save hi(dividend^divisor)
         lda     R2H             ; A=hi(divisor)
         bpl     divsi2_dividend
-        ldx     #R2
-        jsr     neg16           ; negate divisor
+        sec
+        lda     #0
+        sbc     R2L
+        sta     R2L
+        lda     #0
+        sbc     R2H
+        sta     R2H             ; negate divisor
 divsi2_dividend:
         lda     R1H             ; A=hi(dividend)
         bpl     divsi2_divide
-        ldx     #R1
-        jsr     neg16           ; negate dividend
+        sec
+        lda     #0
+        sbc     R1L
+        sta     R1L
+        lda     #0
+        sbc     R1H
+        sta     R1H             ; negate dividend
 divsi2_divide:
         jsr     udiv16          ; R0=result
         pla                     ; A=hi(dividend^divisor)
         bpl     divsi2_return
-        ldx     #R0L
-        jsr     neg16           ; negate result
+        sec
+        lda     #0
+        sbc     R0L
+        sta     R0L
+        lda     #0
+        sbc     R0H
+        sta     R0H             ; negate result
 divsi2_return:
         rts

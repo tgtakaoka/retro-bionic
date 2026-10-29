@@ -50,32 +50,50 @@ loop_x:
         jsr     sex_A
         stx     R1H
         sta     R1L             ; R1=X
-        jsr     set_R2
-        .word   229             ; R2=229
+        lda     #229
+        sta     R2L
+        lda     #0
+        sta     R2H             ; R2=229
         jsr     mulsi2          ; R0=X*229
-        jsr     store_R1
-        jsr     set_R2
-        .word   100
+        lda     R0L
+        sta     R1L
+        lda     R0H
+        sta     R1H             ; R1=X*229
+        lda     #100
+        sta     R2L
+        lda     #0
+        sta     R2H             ; R2=100
         jsr     divsi2          ; R0=X*229/100
-        ldx     #vC
-        jsr     store_RX        ; C=X*229/100
-        ldx     #vA
-        jsr     store_RX        ; A=C
+        lda     R0L
+        sta     vC
+        sta     vA
+        lda     R0H
+        sta     vC+1            ; C=X*229/100
+        sta     vA+1            ; A=C
         lda     vY
         jsr     sex_A
         stx     R1H
         sta     R1L             ; R1=Y
-        jsr     set_R2
-        .word   416
+        lda     #<416
+        sta     R2L
+        lda     #>416
+        sta     R2H             ; R2=416
         jsr     mulsi2          ; R0=Y*416
-        jsr     store_R1
-        jsr     set_R2
-        .word   100
+        lda     R0L
+        sta     R1L
+        lda     R0H
+        sta     R1H             ; R1=Y*416
+        lda     #100
+        sta     R2L
+        lda     #0
+        sta     R2H             ; R2=100
         jsr     divsi2          ; R0=Y*416/100
-        ldx     #vD
-        jsr     store_RX        ; D=Y*416/100
-        ldx     #vB
-        jsr     store_RX        ; B=D
+        lda     R0L
+        sta     vD
+        sta     vB
+        lda     R0H
+        sta     vD+1            ; D=Y*416/100
+        sta     vB+1            ; B=D
         lda     #0
         sta     vI              ; I=0
         
@@ -95,119 +113,167 @@ loop_x:
 
 ;;; B=Q*F+S keeps 2*A*B/F = 2*(A*Q+A*S/F) within 16 bits
 loop_i:
-        ldx     #vB
-        jsr     load_R1         ; R1=B
-        jsr     set_R2
-        .word   F
+        lda     vB
+        sta     R1L
+        lda     vB+1
+        sta     R1H             ; R1=B
+        lda     #F
+        sta     R2L
+        lda     #0
+        sta     R2H             ; R2=F
         jsr     divsi2          ; R0=B/F
-        ldx     #vQ
-        jsr     store_RX        ; Q=B/F
-        jsr     store_R2        ; R2=B/F, the shorter multiplier
-        jsr     set_R1
-        .word   F
-        jsr     mulsi2          ; R0=Q*F
-        jsr     store_R2
-        ldx     #vB
-        jsr     load_R1         ; R1=B
-        jsr     subsi2          ; R0=B-Q*F
-        ldx     #vS
-        jsr     store_RX        ; S=B-Q*F
-        ldx     #vA 
-        jsr     load_R1         ; R1=A
-        jsr     load_R2         ; R2=A
-        jsr     mulsi2          ; R0=A*A
-        ldx     #vT
-        jsr     store_RX        ; T=A*A
-        ldx     #vB
-        jsr     load_R1         ; R1=B
-        jsr     load_R2         ; R2=B
+        lda     R0L
+        sta     vQ
+        sta     R2L
+        lda     R0H
+        sta     vQ+1            ; Q=B/F
+        sta     R2H             ; R2=Q, the shorter multiplier
+        lda     #<-F
+        sta     R1L
+        lda     #>-F
+        sta     R1H             ; R1=-F
+        jsr     mulsi2          ; R0=-Q*F
+        clc
+        lda     R0L
+        adc     vB
+        sta     vS
+        lda     R0H
+        adc     vB+1
+        sta     vS+1            ; S=B-Q*F
+        lda     vB
+        sta     R1L
+        sta     R2L
+        lda     vB+1
+        sta     R1H
+        sta     R2H             ; R1=R2=B
         jsr     mulsi2          ; R0=B*B
-        jsr     store_R2        ; R2=B*B
-        ldx     #vT
-        jsr     load_R1         ; R1=A*A
-        jsr     subsi2          ; R0=A*A-B*B
-        jsr     store_R1
-        jsr     set_R2
-        .word   F
+        lda     R0L
+        sta     vT
+        lda     R0H
+        sta     vT+1            ; T=B*B
+        lda     vA
+        sta     R1L
+        sta     R2L
+        lda     vA+1
+        sta     R1H
+        sta     R2H             ; R1=R2=A
+        jsr     mulsi2          ; R0=A*A
+        sec
+        lda     R0L
+        sbc     vT
+        sta     R1L
+        lda     R0H
+        sbc     vT+1
+        sta     R1H             ; R1=A*A-B*B
+        lda     #F
+        sta     R2L
+        lda     #0
+        sta     R2H             ; R2=F
         jsr     divsi2          ; R0=(A*A-B*B)/F
-        jsr     store_R1        ; R1=(A*A-B*B)/F
-        ldx     #vC
-        jsr     load_R2         ; R2=C
-        jsr     addsi2          ; R0=(A*A-B*B)/F+C
-        ldx     #vT
-        jsr     store_RX        ; T=(A*A-B*B)/F+C
+        clc
+        lda     R0L
+        adc     vC
+        sta     vT
+        lda     R0H
+        adc     vC+1
+        sta     vT+1            ; T=(A*A-B*B)/F+C
 
-        ldx     #vA
-        jsr     load_R1         ; R1=A
-        ldx     #vQ
-        jsr     load_R2         ; R2=Q
+        lda     vA
+        sta     R1L
+        lda     vA+1
+        sta     R1H             ; R1=A
+        lda     vQ
+        sta     R2L
+        lda     vQ+1
+        sta     R2H             ; R2=Q
         jsr     mulsi2          ; R0=A*Q
         lda     R0H
         pha
         lda     R0L
         pha                     ; push A*Q
-        ldx     #vA
-        jsr     load_R1         ; R1=A
-        ldx     #vS
-        jsr     load_R2         ; R2=S
+        lda     vA
+        sta     R1L
+        lda     vA+1
+        sta     R1H             ; R1=A
+        lda     vS
+        sta     R2L
+        lda     vS+1
+        sta     R2H             ; R2=S
         jsr     mulsi2          ; R0=A*S
-        jsr     store_R1
-        jsr     set_R2
-        .word   F
-        jsr     divsi2          ; R0=A*S/F
-        jsr     store_R1        ; R1=A*S/F
-        pla
-        sta     R2L
-        pla
-        sta     R2H             ; R2=pop A*Q
-        jsr     addsi2          ; R0=A*Q+A*S/F
-        jsr     store_R1
-        jsr     store_R2
-        jsr     addsi2          ; R0=2*(A*Q+A*S/F)
-        jsr     store_R1        ; R1=2*(A*Q+A*S/F)
-        ldx     #vD
-        jsr     load_R2         ; R2=D
-        jsr     addsi2          ; R0=2*(A*Q+A*S/F)+D
-        ldx     #vB
-        jsr     store_RX        ; B=2*(A*Q+A*S/F)+D
-        ldx     vT
-        lda     vT+1
-        stx     vA
-        sta     vA+1            ; A=T
-        ldx     #vA
-        jsr     load_R1         ; R1=A
-        jsr     set_R2
-        .word   F
-        jsr     divsi2          ; R0=A/F
-        ldx     #vP
-        jsr     store_RX        ; P=A/F
-        ldx     #vB
-        jsr     load_R1         ; R1=B
-        jsr     set_R2
-        .word   F
-        jsr     divsi2          ; R0=B/F
-        ldx     #vQ
-        jsr     store_RX        ; Q=B/F
-        ldx     #vP
-        jsr     load_R1
-        jsr     load_R2
-        jsr     mulsi2          ; R0=P*P
-        lda     R0H
-        pha
         lda     R0L
-        pha                     ; push P*P
-        ldx     #vQ
-        jsr     load_R1
-        jsr     load_R2
-        jsr     mulsi2          ; R0=Q*Q
-        jsr     store_R1
-        pla
+        sta     R1L
+        lda     R0H
+        sta     R1H             ; R1=A*S
+        lda     #F
         sta     R2L
+        lda     #0
+        sta     R2H             ; R2=F
+        jsr     divsi2          ; R0=A*S/F
+        clc
         pla
-        sta     R2H             ; R2=pop P*P
-        jsr     addsi2          ; R0=Q*Q+P*P
-        ldx     #vT
-        jsr     store_RX        ; T=Q*Q+P*P
+        adc     R0L
+        sta     R0L
+        pla
+        adc     R0H
+        sta     R0H             ; R0=pop A*Q+A*S/F
+        asl     R0L
+        rol     R0H             ; R0=2*(A*Q+A*S/F)
+        clc
+        lda     R0L
+        adc     vD
+        sta     vB
+        lda     R0H
+        adc     vD+1
+        sta     vB+1            ; B=2*(A*Q+A*S/F)+D
+        lda     vT
+        sta     vA
+        sta     R1L
+        lda     vT+1
+        sta     vA+1            ; A=T
+        sta     R1H             ; R1=A
+        lda     #F
+        sta     R2L
+        lda     #0
+        sta     R2H             ; R2=F
+        jsr     divsi2          ; R0=A/F
+        lda     R0L
+        sta     vP
+        sta     R1L
+        sta     R2L
+        lda     R0H
+        sta     vP+1            ; P=A/F
+        sta     R1H
+        sta     R2H             ; R1=R2=P
+        jsr     mulsi2          ; R0=P*P
+        lda     R0L
+        sta     vT
+        lda     R0H
+        sta     vT+1            ; T=P*P
+        lda     vB
+        sta     R1L
+        lda     vB+1
+        sta     R1H             ; R1=B
+        lda     #F
+        sta     R2L
+        lda     #0
+        sta     R2H             ; R2=F
+        jsr     divsi2          ; R0=B/F
+        lda     R0L
+        sta     vQ
+        sta     R1L
+        sta     R2L
+        lda     R0H
+        sta     vQ+1            ; Q=B/F
+        sta     R1H
+        sta     R2H             ; R1=R2=Q
+        jsr     mulsi2          ; R0=Q*Q
+        clc
+        lda     R0L
+        adc     vT
+        sta     vT
+        lda     R0H
+        adc     vT+1
+        sta     vT+1            ; T=P*P+Q*Q
 
         ;; jsr     putspace
         ;; ldx     vI
