@@ -397,6 +397,14 @@ cycles, where bit-banged edges needed a tuned delay for each.
   the port, and advance the cycle ring once the wait input holds again.
   With the ring advanced first, a Z8018010 at 16.67 MHz EXTAL let an NMI's
   push run unheld in 4 of 6 steps, and every Z180-family chip ran slower.
+- On an ALE bus the next ALE may follow a strobe by tCL, 50 ns on the
+  NSC800, so slow work after the strobe misses it and the next cycle
+  waits for an ALE that has passed. A write held before `#WR` already has
+  its data out from the CLK rise after ALE: write the memory or device
+  then, while held, and advance the cycle ring while the strobe lasts.
+- Resuming a run serves the fetch the CPU waits in by its own status,
+  read from the bus: a stale ring slot that said "write" stored the bus
+  into memory at the PC.
 - A target moved to a timer adds its row to the table in
   [hardware.md](hardware.md#clocking-the-cpu) (clock input, the input that
   holds a cycle, default rate) in the same commit, and a cast recorded on

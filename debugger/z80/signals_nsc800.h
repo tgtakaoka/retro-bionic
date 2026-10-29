@@ -13,14 +13,18 @@ struct Signals final : SignalsBase<Signals> {
     void outData() const;
     void print() const;
     void setAddress(uint16_t _addr) { addr = _addr; }
+    void noCycle();
 
     bool nobus() const;
+    // A strobe on the bus, read without recording it.
+    static bool busy();
     bool read() const;
     bool write() const;
     bool mreq() const { return iom() == 0; }
     bool mwrite() const { return mreq() && write(); }
     bool fetch() const;
     bool intack() const;
+    bool writing() const;
 
 private:
     enum Status : uint8_t {

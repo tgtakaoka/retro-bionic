@@ -132,7 +132,7 @@ The Teensy is the CPU's oscillator, driving its clock input in one of two ways.
   rate, whatever the firmware is doing, so the CPU runs its internal cycles at that rate.
   The firmware follows the bus by the CPU's strobes or clock output, and holds each bus
   cycle with the CPU's wait input until it has served it. The CPU is parked the same
-  way, or by withholding its bus grant (the INS8060's and INS8070's `#ENIN`). This needs the clock input on a FlexPWM pin (`P46`, `P47`, or the P8085's `P50`) and a wait input
+  way, or by withholding its bus grant (the INS8060's and INS8070's `#ENIN`). This needs the clock input on a FlexPWM pin (`P46`, `P47`, or the P8085's and NSC800's `P50`) and a wait input
   that can hold a cycle indefinitely. It is the only choice for a CPU with a minimum
   clock rate, an oscillator monitor or a PLL.
 
@@ -149,6 +149,7 @@ These boards run from a timer:
 | P8080 | `P46`, PHI1; `P47`, PHI2 | `P54`, READY | 2.5 MHz |
 | Z8018008, Z8018010 | `P47`, EXTAL | `P52`, `#WAIT` | 16.67 MHz |
 | HD64180S | `P47`, EXTAL | `P52`, `#WAIT` | 18.75 MHz |
+| NSC800 | `P50`, XIN | `P52`, `#WAIT` | 8.33 MHz |
 
 The P8080's two phases come from two FlexPWM modules whose counters are restarted
 together, and in a run its plain memory reads take no wait state. The Z180's internal

@@ -17,9 +17,19 @@ void Signals::getControl() {
     cntl() = busRead(CNTL);
 }
 
+void Signals::noCycle() {
+    cntl() = CNTL_RD | CNTL_WR | CNTL_INTA;
+    iom() = 1;
+}
+
 bool Signals::nobus() const {
     constexpr auto BUS_ACTIVE = CNTL_RD | CNTL_WR | CNTL_INTA;
     return (cntl() & BUS_ACTIVE) == BUS_ACTIVE;
+}
+
+bool Signals::busy() {
+    constexpr auto BUS_ACTIVE = CNTL_RD | CNTL_WR | CNTL_INTA;
+    return (busRead(CNTL) & BUS_ACTIVE) != BUS_ACTIVE;
 }
 
 bool Signals::read() const {
@@ -34,6 +44,11 @@ bool Signals::fetch() const {
     return mreq() && (cntl() & CNTL_S) == S_FETCH;
 }
 
+// The status at ALE says a write, before #WR.
+bool Signals::writing() const {
+    return (cntl() & CNTL_S) == S_WRITE;
+}
+
 bool Signals::intack() const {
     return (cntl() & CNTL_INTA) == 0;
 }
@@ -43,7 +58,7 @@ void Signals::getData() {
 }
 
 void Signals::outData() const {
-    busWrite(AD, data);
+    busWriteFast(AD, data);
     busMode(AD, OUTPUT);
     // The bus level holders on P6.16-P6.23 keep the data there until the
     // CPU drives the bus itself.

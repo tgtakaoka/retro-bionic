@@ -11,6 +11,7 @@ namespace nsc800 {
 
 using z80::InstZ80;
 using z80::MemsZ80;
+using z80::waitUntil;
 
 // clang-format off
 /**
@@ -77,18 +78,41 @@ namespace {
 //  tCA: min 120 ns              ; A8-15 valid after control
 //  tCL: min  50 ns              ; trailing control to leading ALE
 
-constexpr auto xin_lo_ns = 38;       // 62.5 ns
-constexpr auto xin_hi_ns = 40;       // 62.5 ns
-constexpr auto xin_lo_ale = 40;      // 62.5 ns
-constexpr auto xin_lo_control = 35;  // 62.5 ns
+// XIN runs free from the PWM, and CLK is XIN/2. #WAIT, asserted except to
+// end a cycle, holds the CPU from T2 of each cycle with #RD or #INTA; a
+// write is held before #WR, and the cycle after an accepted interrupt
+// holds with no strobe at all. ALE latches nothing on the board, so the
+// Teensy reads A0-A7 off AD0-AD7 as ALE falls.
 
-inline void xin_hi() {
-    digitalWriteFast(PIN_XIN, HIGH);
-}
-
-inline void xin_lo() {
-    digitalWriteFast(PIN_XIN, LOW);
-}
+constexpr uint32_t xin_hz = 8333333;  // 150 MHz / 18; CLK 4.17 MHz
+// T at most 6,667 ns.
+constexpr uint32_t xin_min_hz = 300000;
+#ifdef TUNE_CLOCK
+// K may overclock the CPU.
+constexpr auto xin_half_min_ns = 50;
+#else
+// tx min 125 ns; an odd count leaves the high half at 60 ns.
+constexpr auto xin_half_min_ns = 60;
+#endif
+// Teensy cycles in a CLK clock at the slowest rate, so the waits below
+// hold at any rate.
+constexpr uint32_t clk_max_cycles = 2 * (F_CPU / xin_min_hz);
+// #RESET_IN must be low for at least three clocks.
+constexpr auto reset_ns = 5 * 2 * (1000000000 / xin_min_hz);
+// Waits for a bus cycle last 1000 clocks, far past an instruction's
+// internal states.
+constexpr auto cycle_cycles = 1000 * clk_max_cycles;
+// A strobe follows ALE, and ends, within a few clocks.
+constexpr auto strobe_cycles = 4 * clk_max_cycles;
+// ALE pulses prepareCycle() skips before giving up: a refresh, or the
+// strobeless cycle after an accepted interrupt.
+constexpr auto skip_cycles = 16;
+// Bus cycles execute() takes before giving up on its injection.
+constexpr auto inject_cycles = 256;
+// Bus cycles between polls of the halt switch in a run: its yield()
+// services the USB while #WAIT holds the CPU, which would otherwise
+// stretch every cycle. The devices ration their own polling.
+constexpr auto halt_poll_cycles = 16;
 
 inline auto signal_clk() {
     return digitalReadFast(PIN_CLK);
@@ -139,7 +163,6 @@ inline void negate_reset() {
 }
 
 const uint8_t PINS_LOW[] = {
-        PIN_XIN,
         PIN_RESET,
 };
 
@@ -183,114 +206,163 @@ const uint8_t PINS_INPUT[] = {
         PIN_RESOUT,
 };
 
-void xin_cycle_lo() {
-    xin_hi();
-    delayNanoseconds(xin_hi_ns);
-    xin_lo();
-}
-
-void xin_cycle() {
-    xin_cycle_lo();
-    delayNanoseconds(xin_lo_ns);
-}
-
 }  // namespace
 
-PinsNsc800::PinsNsc800() : PinsZ80Base() {
+PinsNsc800::PinsNsc800()
+    : PinsZ80Base(), _clock(xin_half_min_ns, xin_min_hz) {
     _devs = new DevsZ80();
     _regs = new z80::RegsZ80(this);
     _mems = new MemsZ80();
+#ifdef TUNE_CLOCK
+    _clockInput = xin_hz;
+#endif
 }
 
 void PinsNsc800::resetPins() {
-    // Assert reset condition
+    // #RESET_IN is asserted first: a glitch on XIN is harmless.
     pinsMode(PINS_LOW, sizeof(PINS_LOW), OUTPUT, LOW);
     pinsMode(PINS_HIGH, sizeof(PINS_HIGH), OUTPUT, HIGH);
     pinsMode(PINS_INPUT, sizeof(PINS_INPUT), INPUT);
-
-    // #RESET_IN should be kept low for a minimum of three clock
-    // periods to ensure proper synchronization of the CPU.
-    for (auto i = 0; i < 10; i++)
-        xin_cycle();
+#ifdef TUNE_CLOCK
+    _clock.begin(_clockInput);
+#else
+    _clock.begin(xin_hz);
+#endif
+    _clock.start();
+    delayNanoseconds(reset_ns);
     negate_reset();
+    // #WAIT holds the first fetch.
+    assert_wait();
     Cycles::reset();
     prepareWait();
     _regs->setIp(InstZ80::ORG_RESET);
     _regs->save();
 }
 
+// Returns the cycle ALE starts, held by #WAIT on its #RD or #INTA, or
+// before #WR. completeCycle() leaves interrupts masked until this has the
+// next address: an interrupt could outlast ALE, and the address with it.
 Signals *PinsNsc800::prepareCycle() const {
     const auto s = Signals::put();
-    do {
-        while (signal_ale() == LOW) {
-            xin_cycle_lo();
-            delayNanoseconds(xin_lo_ale);
+    for (auto skip = 0;; ++skip) {
+        if (skip >= skip_cycles) {
+            interrupts();
+            cli.println("?halt: no data cycle");
+            s->noCycle();
+            return s;
         }
-        // T1AH
-        xin_hi();
+        if (!waitUntil([] { return signal_ale() == HIGH; }, cycle_cycles) ||
+                !waitUntil([] { return signal_ale() == LOW; }, strobe_cycles)) {
+            interrupts();
+            // Give up rather than wedge the board, leaving the halt switch
+            // to stop the run.
+            cli.println("?halt: no bus cycle");
+            s->noCycle();
+            return s;
+        }
+        // tLA: A0-A7 stay 100 ns past ALE falling.
         s->getAddress();
-        // T1BL
-        xin_lo();
-        delayNanoseconds(xin_lo_ns);
-        // T2A
-        xin_cycle();
-        // T2B
-        xin_cycle_lo();
-        delayNanoseconds(xin_lo_control);
-        s->getControl();
-    } while (s->nobus());
+        if (s->writing())
+            break;
+        // A refresh ALE is soon followed by the next cycle's.
+        waitUntil(
+                [s] {
+                    s->getControl();
+                    return !s->nobus() || signal_ale() == HIGH;
+                },
+                strobe_cycles);
+        if (!s->nobus())
+            break;
+        if (signal_ale() == LOW) {
+            // The strobeless cycle after an accepted interrupt: let it end.
+            negate_wait();
+            waitUntil([] { return signal_ale() == HIGH; }, strobe_cycles);
+            assert_wait();
+        }
+    }
+    interrupts();
     return s;
 }
 
 Signals *PinsNsc800::completeCycle(Signals *s) const {
+    if (s->writing()) {
+        // Held before #WR, with the data out on AD0-AD7 from the CLK rise
+        // after ALE. Write it meanwhile: the next ALE follows #WR by
+        // less than a clock, too soon for a device write.
+        waitUntil([] { return signal_clk() == HIGH; }, clk_max_cycles);
+        waitUntil([] { return signal_clk() == LOW; }, clk_max_cycles);
+        s->getData();
+        if (s->mreq()) {
+            if (s->writeMemory())
+                _mems->write_byte(s->addr, s->data);
+        } else {
+            const uint8_t ioaddr = s->addr;
+            if (_devs->isSelected(ioaddr))
+                _devs->write(ioaddr, s->data);
+        }
+        // Left masked for the next prepareCycle(), which every caller
+        // runs next; it lasts through the wait for ALE, up to
+        // cycle_cycles if the CPU makes no cycle.
+        noInterrupts();
+        negate_wait();
+        // The control lines with #WR low mark the cycle a write.
+        waitUntil(
+                [s] {
+                    s->getControl();
+                    return s->write();
+                },
+                strobe_cycles);
+        // Done while #WR lasts, as in a read below.
+        Cycles::next();
+        waitUntil([] { return signal_wr() == HIGH; }, strobe_cycles);
+        assert_wait();
+        return s;
+    }
+    if (s->nobus())
+        return s;
     if (s->read()) {
         if (s->mreq()) {  // Memory access
-            if (s->readMemory()) {
+            if (s->readMemory())
                 s->data = _mems->read_byte(s->addr);
-            } else {
-                ;  // inject
-            }
         } else {  // I/O access
             const uint8_t ioaddr = s->addr;
             if (_devs->isSelected(ioaddr))
                 s->data = _devs->read(ioaddr);
         }
-        s->outData();
-    } else if (s->intack()) {
+    } else {  // Interrupt acknowledge
         s->data = _devs->vector();
-        s->outData();
-    } else {
-        s->getData();
-        if (s->mreq()) {
-            if (s->writeMemory()) {
-                _mems->write_byte(s->addr, s->data);
-            } else {
-                ;  // capture
-            }
-        } else if (s->write()) {
-            const uint8_t ioaddr = s->addr;
-            if (_devs->isSelected(ioaddr))
-                _devs->write(ioaddr, s->data);
-        }
     }
-    // T3A
-    xin_cycle_lo();
+    s->outData();
+    // Left masked for the next prepareCycle(), which every caller runs
+    // next; it lasts through the wait for ALE, up to cycle_cycles if the CPU
+    // makes no cycle.
+    noInterrupts();
+    // assert_debug();
+    negate_wait();
+    // Kept off the release, and done while the strobe lasts: the next ALE
+    // may follow its end by only tCL.
     Cycles::next();
+    waitUntil([] { return !Signals::busy(); }, strobe_cycles);
+    assert_wait();
+    // negate_debug();
     return s;
 }
 
+// The CPU comes to its next cycle by itself and waits there.
 Signals *PinsNsc800::prepareWait() const {
-    assert_wait();
-    const auto s = prepareCycle();
-    return s;
+    return prepareCycle();
 }
 
 Signals *PinsNsc800::resumeCycle(uint16_t pc) const {
     const auto s = Signals::put();
-    negate_wait();
-    xin_cycle();
-    xin_cycle();
-    s->getAddress();
+    // The CPU comes to the fetch of |pc| by itself, past its ALE, and
+    // waits there with #RD low; serve it by that status, not a stale one.
+    waitUntil(
+            [s] {
+                s->getAddress();
+                return !s->nobus();
+            },
+            cycle_cycles);
     s->setAddress(pc);
     return completeCycle(s);
 }
@@ -305,7 +377,12 @@ uint16_t PinsNsc800::execute(
     uint8_t inj = 0;
     uint8_t cap = 0;
     auto s = Signals::put();
-    while (true) {
+    for (auto n = 0;; ++n) {
+        if (n >= inject_cycles) {
+            cli.println("?halt: injection stalled");
+            prepareWait();
+            return addr;
+        }
         if (inj < len)
             s->inject(inst[inj]);
         if (cap < max)
@@ -334,12 +411,6 @@ uint16_t PinsNsc800::execute(
     }
 }
 
-void PinsNsc800::idle() {
-    // Parked by #WAIT; this only keeps the clock alive.
-    xin_cycle();
-    xin_cycle_lo();
-}
-
 bool PinsNsc800::isRst38Break(const Signals *org_rst) const {
     // The RST 38H fetch, its two pushes, then this vector fetch.
     const auto rst38h = org_rst->prev(3);
@@ -356,8 +427,19 @@ bool PinsNsc800::isRst38Break(const Signals *org_rst) const {
 
 bool PinsNsc800::loop() {
     resumeCycle(_regs->nextIp());
+    auto poll = 0;
     while (true) {
         const auto s = prepareCycle();
+        // #WAIT holds the CPU meanwhile, with the address taken.
+        _devs->loop();
+        if (++poll >= halt_poll_cycles) {
+            poll = 0;
+            if (haltSwitch()) {
+                // Serve the cycle held, then stop at an instruction.
+                completeCycle(s);
+                return suspend();
+            }
+        }
         if (s->addr == InstZ80::ORG_RST38H && s->fetch()) {
             if (isRst38Break(s)) {
                 const auto rst38h = s->prev(3);
@@ -371,9 +453,6 @@ bool PinsNsc800::loop() {
             }
         }
         completeCycle(s);
-        _devs->loop();
-        if (haltSwitch())
-            return suspend();
     }
 }
 
