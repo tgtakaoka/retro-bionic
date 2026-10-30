@@ -35,7 +35,7 @@ def pair(value):
 
 
 def qfp(out, label, body, span, pitch, per_side, lead_width, lead_thick, foot, standoff, thick,
-        lines=(), logo=None, pin1=None, marks=(), dots=(), rects=(), circled=(), font=None):
+        lines=(), logo=None, pin1=None, marks=(), dots=(), rects=(), circled=(), font=None, index=None):
     """body, span (lead tip to tip) and per_side (leads on each side) are one value for a square
     package, or (x, y) in the footprint's frame for a rectangular one: per_side[0] leads on each
     X side, the side pin 1 starts.
@@ -46,7 +46,8 @@ def qfp(out, label, body, span, pitch, per_side, lead_width, lead_thick, foot, s
     pin1: (u, v, radius) the pin 1 dimple, PIN1_DEPTH deep; marks: [(u, v, radius, depth)] other round
     dimples, e.g. ejector pin marks; dots: [(u, v, radius)] printed dots; rects: [(u, v, width,
     height)] printed rectangles, centred; circled: [(letter, u, v, ring radius)], e.g. (M) and (C)
-    font: a font file for the text, else build123d's own"""
+    font: a font file for the text, else build123d's own
+    index: the pin 1 corner's 45 degree cut, its legs this long, through the body's full height"""
     body_x, body_y = pair(body)
     span_x, span_y = pair(span)
     count_x, count_y = pair(per_side)
@@ -54,6 +55,9 @@ def qfp(out, label, body, span, pitch, per_side, lead_width, lead_thick, foot, s
     top = standoff + thick
     b = Box(body_x, body_y, thick, align=(Align.CENTER, Align.CENTER, Align.MIN))
     b = Pos(0, 0, standoff) * chamfer(b.edges().group_by(Axis.Z)[-1], 0.2)
+    if index:
+        # pin 1 is the top lead of the -X side
+        b = b - Pos(-body_x / 2, body_y / 2, 0) * Rot(0, 0, 45) * Box(index * 2 ** 0.5, index * 2 ** 0.5, 10)
     for u, v, r, depth in ([pin1 + (PIN1_DEPTH,)] if pin1 else []) + list(marks):
         b = b - Rot(0, 0, -90) * (Pos(u, v, top - depth) *
                                   Cylinder(r, depth + 0.05, align=(Align.CENTER, Align.CENTER, Align.MIN)))
