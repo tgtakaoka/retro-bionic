@@ -47,6 +47,54 @@ constexpr auto phi0_hi_write = 334;     // 500
 constexpr auto phi0_hi_inject = 70;
 constexpr auto phi0_hi_capture = 60;
 
+// The CMOS parts run PHI0 free from the PWM, and RDY holds the CPU in
+// every bus cycle until the debugger serves it. RDY changes only early in
+// PHI2 low: released there, the cycle ends at the next PHI2 fall; asserted
+// there, it holds the cycle that fall began. The W65Cxx sample RDY at the
+// PHI2 fall, the G65SC02 and R65C02 through phi1 and phi2, so the one rule
+// serves all. The 65C02s give the phase on PHI2O; the W65C816S has none, so
+// its phase comes from the PWM counter, PHI2 being PHI0 itself.
+//
+//  tPCS: min  10 ns; RDY to PHI2- (W65Cxx at 5 V)
+//  tPCH: min  10 ns; RDY hold from PHI2-
+//  tRDS: min 200 ns; RDY setup (R65C02 at 1 MHz)
+//  tBAS: max  33 ns; PHI2- to BA (W65C816S)
+//  tMDS: max  85 ns; PHI2+ to write data (R65C02 at 3 MHz)
+//  tDHW: min  10 ns; write data hold from PHI2-
+//  tDSR: min  40 ns; read data to PHI2- (R65C02 at 3 MHz)
+// R65C02: PHI2 low max 5 us; G65SC02: PHI0 low max 10 us.
+//
+// ATTENTION: unbenched until the rev 11 board exists. The rates below are
+// starting points for a K sweep, and the R65C02's tRDS edge is unpinned.
+// At 12.5 MHz the W65C816S's 40 ns high half has to fit driving and
+// releasing D0-D7 by polling the PWM count; lower the rate if reads fail.
+// RDY driven high on each cycle keeps a W65Cxx WAI from stopping, so WAI
+// runs as a no-op; STP stops PHI2O, and every wait then times out.
+
+// #RES (pin 28) is FlexPWM3_1_B, PHI0's submodule: never analogWrite() it.
+
+// PHI0 by SoftwareType: 0 for the bit-banged NMOS 6502. The owned parts
+// are rated G65SC02P-4, R65C02P3, W65C02S6TPG-14 and W65C816S8P-14.
+constexpr uint32_t clock_hz[] = {
+        0,         // SW_MOS6502
+        4054054,   // SW_G65SC02: 150 MHz / 37
+        3000000,   // SW_R65C02
+        12500000,  // SW_W65C02S: 150 MHz / 12; /11 leaves a 33 ns half
+        12500000,  // SW_W65C816
+};
+constexpr uint32_t clock_min_hz = 200000;
+// The W65Cxx take halves of 35 ns.
+constexpr auto clock_half_min_ns = 35;
+// Teensy cycles in a PHI0 clock at the slowest rate, so the waits below
+// hold at any rate.
+constexpr uint32_t clock_max_cycles = F_CPU / clock_min_hz;
+// RDY asserted after the PHI2 fall the debugger saw: tPCH.
+constexpr auto rdy_hold_ns = 20;
+// BA after the PHI2 fall: tBAS.
+constexpr auto ba_ns = 40;
+// Under the PWM, the devices and the halt switch are polled once in 10 us.
+constexpr uint32_t poll_cycles = F_CPU / 100000;
+
 inline void phi0_hi() {
     digitalWriteFast(PIN_PHI0, HIGH);
 }
@@ -96,6 +144,14 @@ void negate_rdy() {
     digitalWriteFast(PIN_RDY, LOW);
 }
 
+void hold_rdy() {
+    digitalWriteFast(PIN_RDY, LOW);
+}
+
+void release_rdy() {
+    digitalWriteFast(PIN_RDY, HIGH);
+}
+
 void assert_reset() {
     digitalWriteFast(PIN_RES, LOW);
 }
@@ -104,9 +160,10 @@ void negate_reset() {
     digitalWriteFast(PIN_RES, HIGH);
 }
 
+// #RES first: a glitch on PHI0 while it leaves the PWM is harmless.
 constexpr uint8_t PINS_LOW[] = {
-        PIN_PHI0,
         PIN_RES,
+        PIN_PHI0,
 };
 
 constexpr uint8_t PINS_HIGH[] = {
@@ -174,7 +231,7 @@ constexpr uint8_t PINS_INPUT[] = {
 
 }  // namespace
 
-PinsMos6502::PinsMos6502() {
+PinsMos6502::PinsMos6502() : _clock(clock_half_min_ns, clock_min_hz) {
     _devs = new DevsMos6502();
     auto mems = new MemsMos6502(_devs);
     _mems = mems;
@@ -183,6 +240,87 @@ PinsMos6502::PinsMos6502() {
 
 bool PinsMos6502::native65816() const {
     return _hardType == HW_W65C816 && signal_e() == LOW;
+}
+
+bool PinsMos6502::pwmClock() const {
+    using Pin = PwmPin<PIN_PHI0>;
+    return (Pin::pad() & 0xF) == Pin::mux;
+}
+
+// Hand PHI0 to the PWM on a CMOS part. The CPU is held by RDY in the cycle
+// the last bit-banged PHI0 fall began.
+void PinsMos6502::startClock() {
+    if (_softType == SW_MOS6502)
+        return;
+#ifdef TUNE_CLOCK
+    if (_clockInput == 0)
+        _clockInput = clock_hz[_softType];
+    _clock.setRate(_clockInput);
+#else
+    _clock.setRate(clock_hz[_softType]);
+#endif
+    _phi0High = PwmClock<PIN_PHI0>::sm().VAL3;
+    hold_rdy();
+    pinMode(PIN_RDY, OUTPUT);
+    _clock.start();
+}
+
+#ifdef TUNE_CLOCK
+bool PinsMos6502::setClockInput(uint32_t hz) {
+    if (_softType == SW_MOS6502)
+        return false;
+    // The rate reloads at a period start, so the running clock never
+    // glitches.
+    const auto rate = _clock.setRate(hz);
+    if (rate == 0)
+        return false;
+    _phi0High = PwmClock<PIN_PHI0>::sm().VAL3;
+    _clockInput = rate;
+    return true;
+}
+#endif
+
+bool PinsMos6502::phi2() const {
+    if (_hardType == HW_W65C816)
+        return _clock.count() < _phi0High;
+    return digitalReadFast(PIN_PHI2O) != LOW;
+}
+
+// Waits up to two clocks at the slowest rate for PHI2 to read |high|.
+bool PinsMos6502::waitPhi2(bool high) const {
+    const uint32_t start = ARM_DWT_CYCCNT;
+    while (phi2() != high) {
+        if (ARM_DWT_CYCCNT - start >= 2 * clock_max_cycles)
+            return false;
+    }
+    return true;
+}
+
+void PinsMos6502::waitFall() const {
+    waitPhi2(true);
+    waitPhi2(false);
+}
+
+// Waits for the last quarter of a high half on the W65C816S.
+void PinsMos6502::waitLateHigh() const {
+    const auto late = _phi0High - _phi0High / 4;
+    const uint32_t start = ARM_DWT_CYCCNT;
+    while (_clock.count() < late) {
+        if (ARM_DWT_CYCCNT - start >= 2 * clock_max_cycles)
+            return;
+    }
+}
+
+// Bit-banged, RDY stays high while the CPU follows the edges the debugger
+// makes; under the PWM, RDY holds each cycle until it is served instead.
+void PinsMos6502::allReady() const {
+    if (!pwmClock())
+        assert_rdy();
+}
+
+void PinsMos6502::notReady() const {
+    if (!pwmClock())
+        negate_rdy();
 }
 
 HardwareType PinsMos6502::_hardType;
@@ -261,6 +399,8 @@ void PinsMos6502::resetPins() {
     pinsMode(PINS_HIGH, sizeof(PINS_HIGH), OUTPUT, HIGH);
     pinsMode(PINS_PULLUP, sizeof(PINS_PULLUP), INPUT_PULLUP);
     pinsMode(PINS_INPUT, sizeof(PINS_INPUT), INPUT);
+    // PHI0 stays a GPIO, the PWM masked, until a CMOS part is found.
+    _clock.begin(clock_min_hz);
 
     checkHardwareType();
     // #RES must be held low for at least two clock cycles.
@@ -286,11 +426,14 @@ void PinsMos6502::resetPins() {
     assert_rdy();
     checkSoftwareType();
     negate_rdy();
+    startClock();
     _regs->setIp(reset_vec);
     _mems->write16(InstMos6502::VECTOR_RESET, reset_vec);
 }
 
 Signals *PinsMos6502::rawPrepareCycle() {
+    if (pwmClock())
+        return pwmPrepareCycle();
     auto s = Signals::put();
     if (_hardType == HW_W65C816) {
         // E, this cycle's: whether BA carries a bank.
@@ -306,11 +449,15 @@ Signals *PinsMos6502::rawPrepareCycle() {
 }
 
 Signals *PinsMos6502::prepareCycle() {
+    if (pwmClock())
+        return pwmPrepareCycle();
     delayNanoseconds(phi0_lo_ns);
     return rawPrepareCycle();
 }
 
 Signals *PinsMos6502::completeCycle(Signals *s) {
+    if (pwmClock())
+        return pwmCompleteCycle(s);
     phi0_hi();
     if (s->write()) {
         delayNanoseconds(phi0_hi_write);
@@ -344,6 +491,79 @@ Signals *PinsMos6502::completeCycle(Signals *s) {
     return s;
 }
 
+// The CPU is held in the cycle a PHI2 fall began: its address is valid by
+// the next rise, and the W65C816S's BA rides D0-D7 while PHI2 is low.
+Signals *PinsMos6502::pwmPrepareCycle() {
+    auto s = Signals::put();
+    if (_hardType == HW_W65C816) {
+        waitFall();
+        delayNanoseconds(ba_ns);
+        s->getControl();
+        if (s->addr24()) {
+            s->getAddr24();
+            return s;
+        }
+    } else {
+        waitPhi2(true);
+    }
+    s->getAddr16();
+    return s;
+}
+
+// Releases RDY early in a PHI2 low half, so the cycle ends at the next
+// fall, and holds the next cycle after it. An interrupt in between would
+// let that cycle run unserved.
+Signals *PinsMos6502::pwmCompleteCycle(Signals *s) {
+    const auto w65c816 = _hardType == HW_W65C816;
+    if (s->read()) {
+        if (s->readMemory())
+            s->data = _mems->read(s->addr);
+        s->stageData();
+        noInterrupts();
+        waitFall();
+        release_rdy();
+        if (w65c816) {
+            // BA owns D0-D7 while PHI2 is low: drive the data in the high
+            // half and let go before the fall; the bus holders keep it.
+            waitPhi2(true);
+            Signals::driveData();
+            waitLateHigh();
+            Signals::inputMode();
+            waitPhi2(false);
+        } else {
+            Signals::driveData();
+            waitFall();
+        }
+        delayNanoseconds(rdy_hold_ns);
+        hold_rdy();
+        interrupts();
+        Signals::inputMode();
+    } else {
+        noInterrupts();
+        if (w65c816) {
+            // Before the fall brings BA back.
+            waitPhi2(true);
+            waitLateHigh();
+            s->getData();
+            waitPhi2(false);
+        } else {
+            // PHI2O falls after PHI2 does; the bus holders keep the data
+            // past tDHW.
+            waitFall();
+            s->getData();
+        }
+        release_rdy();
+        waitFall();
+        delayNanoseconds(rdy_hold_ns);
+        hold_rdy();
+        interrupts();
+        if (s->writeMemory())
+            _mems->write(s->addr, s->data);
+    }
+    Cycles::next();
+    return s;
+}
+
 Signals *PinsMos6502::cycle() {
     return completeCycle(prepareCycle());
 }
@@ -363,7 +583,7 @@ void PinsMos6502::captureWrites(const uint8_t *inst, uint8_t len,
 
 void PinsMos6502::execute(const uint8_t *inst, uint8_t len, uint16_t *addr,
         uint8_t *buf, uint8_t max) {
-    assert_rdy();
+    allReady();
     uint8_t inj = 0;
     uint8_t cap = 0;
     while (inj < len || cap < max) {
@@ -372,7 +592,8 @@ void PinsMos6502::execute(const uint8_t *inst, uint8_t len, uint16_t *addr,
             s->inject(inst[inj]);
         if (cap < max)
             s->capture();
-        delayNanoseconds(phi0_lo_execute);
+        if (!pwmClock())
+            delayNanoseconds(phi0_lo_execute);
         completeCycle(s);
         if (s->read()) {
             if (inj < len)
@@ -384,10 +605,13 @@ void PinsMos6502::execute(const uint8_t *inst, uint8_t len, uint16_t *addr,
                 buf[cap++] = s->data;
         }
     }
-    negate_rdy();
+    notReady();
 }
 
 void PinsMos6502::idle() {
+    // Under the PWM, RDY holds the CPU on its own.
+    if (pwmClock())
+        return;
     // CPU is stopping with RDY=L
     delayNanoseconds(370);
     phi0_hi();
@@ -396,9 +620,17 @@ void PinsMos6502::idle() {
 }
 
 bool PinsMos6502::loop() {
+    uint32_t polled = ARM_DWT_CYCCNT - poll_cycles;
     while (true) {
-        _devs->loop();
-        delayNanoseconds(phi0_lo_fetch);
+        const auto pwm = pwmClock();
+        // Bit-banged, the devices' turn is part of PHI0 low.
+        const auto poll = !pwm || ARM_DWT_CYCCNT - polled >= poll_cycles;
+        if (poll) {
+            polled = ARM_DWT_CYCCNT;
+            _devs->loop();
+        }
+        if (!pwm)
+            delayNanoseconds(phi0_lo_fetch);
         auto s = rawPrepareCycle();
         if (s->fetch()) {
             const auto inst = _mems->read_byte(s->addr);
@@ -407,11 +639,11 @@ bool PinsMos6502::loop() {
                 if (opr == 0 || isBreakPoint(s->addr))
                     return suspend();
             }
-        } else {
+        } else if (!pwm) {
             delayNanoseconds(phi0_lo_loop);
         }
         completeCycle(s);
-        if (haltSwitch())
+        if (poll && haltSwitch())
             return suspend();
     }
 }
@@ -420,11 +652,11 @@ void PinsMos6502::run() {
     _regs->restore();
     Cycles::reset();
     saveBreakInsts();
-    assert_rdy();
+    allReady();
     startRunTimer();
     const auto stopped = loop();
     stopRunTimer();
-    negate_rdy();
+    notReady();
     restoreBreakInsts();
     disassembleCycles();
     // A failed halt leaves the CPU stopped mid-instruction: keep the
@@ -506,7 +738,7 @@ bool PinsMos6502::rawStep() {
         if (opr == 0 || isBreakPoint(s->addr))
             return false;
     }
-    assert_rdy();
+    allReady();
     completeCycle(s);
     // A pending IRQ the restored P lets in starts its entry before any
     // instruction, and an NMI raised during it would take its vector: let
@@ -520,10 +752,10 @@ bool PinsMos6502::rawStep() {
         }
     }
     if (!suspend()) {
-        negate_rdy();
+        notReady();
         return false;
     }
-    negate_rdy();
+    notReady();
     return true;
 }
 

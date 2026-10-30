@@ -52,22 +52,22 @@
 #define PIN_VP 2      /* P9.04 */
 #define PIN_RW 3      /* P9.05 */
 #define PIN_SYNC 4    /* P9.06 */
-#define PIN_PHI2O 33  /* P9.07 */
-#define PIN_E 5       /* P9.08 */
+#define PIN_E 33      /* P9.07 */
+#define PIN_PHI2O 5   /* P9.08 */
 #define CNTL_VP 0x1   /* CNTL0 */
 #define CNTL_RW 0x2   /* CNTL1 */
 #define CNTL_SYNC 0x4 /* CNTL2 */
-#define CNTL_VPD 0x8  /* CNTL3 */
-#define CNTL_E 0x10   /* CNTL4 */
+#define CNTL_E 0x8    /* CNTL3 */
+#define CNTL_VPD 0x10 /* CNTL4 */
 #define PIN_ML 0      /* P6.03 */
 #define PIN_SO 1      /* P6.02 */
-#define PIN_PHI1O 29  /* P9.31 */
+#define PIN_PHI1O 30  /* P8.23 */
 #define PIN_IRQ 6     /* P7.10 */
 #define PIN_NMI 9     /* P7.11 */
 #define PIN_RDY 32    /* P7.12 */
 #define PIN_RES 28    /* P8.18 */
 #define PIN_BE 31     /* P8.22 */
-#define PIN_PHI0 30   /* P8.23 */
+#define PIN_PHI0 29   /* P9.31 */
 
 // Pin alias for W65C816
 #define W65C816_VPA PIN_SYNC
@@ -77,6 +77,7 @@
 #define CNTL_VPA CNTL_SYNC
 
 #include "pins.h"
+#include "pwm_clock.h"
 #include "signals_mos6502.h"
 
 namespace debugger {
@@ -107,6 +108,10 @@ struct PinsMos6502 final : Pins {
     void negateInt(uint8_t name) override;
     void setBreakInst(uint32_t addr) const override;
     void printCycles() override;
+#ifdef TUNE_CLOCK
+    uint32_t clockInput() const override { return _clockInput; }
+    bool setClockInput(uint32_t hz) override;
+#endif
 
     void execInst(const uint8_t *inst, uint8_t len);
     void captureWrites(const uint8_t *inst, uint8_t len, uint16_t *addr,
@@ -128,6 +133,15 @@ struct PinsMos6502 final : Pins {
     static SoftwareType softwareType() { return _softType; }
 
 private:
+    // PHI0 of the CMOS parts, which RDY holds on every cycle; the NMOS
+    // 6502 ignores RDY on writes, so its PHI0 stays bit-banged.
+    PwmClock<PIN_PHI0> _clock;
+    // PHI0's high half in PWM counts, for the W65C816S, which has no PHI2O.
+    uint16_t _phi0High = 0;
+#ifdef TUNE_CLOCK
+    // PHI0's rate, which K sets; 0 until a CMOS part takes its default.
+    uint32_t _clockInput = 0;
+#endif
     static HardwareType _hardType;
     static SoftwareType _softType;
     Frame _frame = {};
@@ -135,6 +149,16 @@ private:
     void checkHardwareType();
     void checkSoftwareType();
     bool stopInst(uint8_t inst) const;
+    bool pwmClock() const;
+    void startClock();
+    bool phi2() const;
+    bool waitPhi2(bool high) const;
+    void waitFall() const;
+    void waitLateHigh() const;
+    void allReady() const;
+    void notReady() const;
+    Signals *pwmPrepareCycle();
+    Signals *pwmCompleteCycle(Signals *s);
 
     friend struct RegsMos6502;
     Signals *rawPrepareCycle();
