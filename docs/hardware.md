@@ -151,11 +151,15 @@ These boards run from a timer:
 | HD64180S | `P47`, EXTAL | `P52`, `#WAIT` | 18.75 MHz |
 | NSC800 | `P50`, XIN | `P52`, `#WAIT` | 8.33 MHz |
 | KL5C80A12 | `P47`, XIN | `P52`, ERDY | 18.75 MHz |
+| G65SC02 | `P47`, PHI0 | `P52`, RDY | 4.05 MHz |
+| W65C02S, W65C816S | `P47`, PHI0 | `P52`, RDY | 12.5 MHz |
+| R65C02 | `P47`, PHI0 | `P52`, RDY | 3 MHz |
 
 The P8080's two phases come from two FlexPWM modules whose counters are restarted
 together, and in a run its plain memory reads take no wait state. The Z180's internal
 I/O cycles ignore `#WAIT`, so the firmware leaves them unheld. The KL5C80A12 honours ERDY
-only in the wait states SCR1 inserts, so it keeps one for memory and two for I/O.
+only in the wait states SCR1 inserts, so it keeps one for memory and two for I/O. The
+NMOS 6502 ignores RDY on writes, so on the same board (rev 11) it stays bit-banged.
 
 The `K` command changes the rate at run time (see
 [debugger.md](debugger.md#commands)).
