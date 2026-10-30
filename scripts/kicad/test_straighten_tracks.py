@@ -112,6 +112,27 @@ class StraightenTest(unittest.TestCase):
         b.run()
         self.assertEqual(b.tracks(), [((0, 0), (0.6, 0)), ((0.6, 0), (0.6, 3))])
 
+    def test_near_centre_end_moves_the_run(self):
+        # an end 25 microns off centre along the pad: the run's lengths take it up, no leg
+        b = Board()
+        b.pad(0, 0)
+        b.pad(2.025, 4, 0.3, 1.4)
+        b.track((0.025, 0), (0.025, 2), (2.025, 4))
+        b.run()
+        self.assertEqual(b.tracks(), [((0, 0), (0, 1.975)), ((0, 1.975), (2.025, 4))])
+
+    def test_pad_leg_kept_across_a_micron_step(self):
+        # A5 on the H8/510: the leg onto the centre misses the run by a micron, so the run
+        # (left as it was) still reaches the centre through it
+        b = Board()
+        b.pad(0, 0, 1.95, 0.5)
+        b.pad(3, 0.3, 0.3, 1.4)
+        b.track((0, 0), (0.7, 0))
+        b.track((0.7009, 0.0009), (2.7009, 0.0009), (3, 0.3))
+        # as when DRC turned down the run's rebuild
+        Straightener(b.b).drop_idle()
+        self.assertIn(((0, 0), (0.7, 0)), b.tracks())
+
     def test_pad_end_never_slides_across_pad(self):
         # the via cannot slide across its own horizontal track, so the run stays
         b = Board()
@@ -253,6 +274,17 @@ class StraightenTest(unittest.TestCase):
         self.assertIn(((2.1817, -6.0), (2.1817, -0.9047)), b.tracks())
         self.assertIn(((0, 0), (1.277, 0)), b.tracks())
         self.assertEqual(b.tracks(pcbnew.B_Cu), [((1.277, 0), (7.9025, 0)), ((7.9025, 0), (9.3025, 1.4))])
+
+    def test_via_slides_along_pad_onto_centre(self):
+        # ~RES at J1-23 on the H8/536: a via 25 microns along the pad, one leg across it
+        b = Board()
+        b.pad(0, 0, 2.51, 1.0)
+        b.via(0.0254, -0.8636)
+        b.track((0.0254, -0.8636), (0.0254, 0))
+        b.track((0.0254, -0.8636), (0.0254, -4), (1.0254, -5), layer=pcbnew.B_Cu)
+        b.run()
+        self.assertEqual(b.vias(), [(0, -0.8636)])
+        self.assertEqual(b.tracks(), [((0, -0.8636), (0, 0))])
 
     def test_via_far_off_pad_line_kept(self):
         # a via 0.2 mm off the pad's line is a fan-out

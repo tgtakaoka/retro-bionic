@@ -25,7 +25,9 @@ until nothing changes:
   via's other tracks gets it, those tracks rebuilt with it. A via up to
   SLIDE off the centre line of the pad its run leaves moves onto it, its
   other runs rebuilt in the two legs next to it; a run with a leg across
-  the pad's line sets its via aside on purpose and stays.
+  the pad's line sets its via aside on purpose and stays, but a via whose
+  one straight leg crosses the pad a little off its centre slides along
+  the pad onto it.
 
 Segments of no length, inside one pad (but for the leg onto its centre)
 or lying on another track go too.
@@ -78,6 +80,7 @@ class Straightener:
         self.pads = list(b.GetPads())
         self.vias = {key(P(v.GetPosition())): v for v in b.GetTracks() if v.Type() == pcbnew.PCB_VIA_T}
         self.touched = set()     # vias whose tracks changed this pass
+        self.gone = set()        # ids of the tracks commit() deleted this pass
         self.ends = defaultdict(list)
         for t in self.segs():
             for i, e in enumerate((t.GetStart(), t.GetEnd())):
@@ -103,15 +106,15 @@ class Straightener:
             # a deliberate segment keeps its ends, unless one hangs loose next to another end
             fixed = on_axis(a, c) and dist(a, c) >= SHORT
             for i, p in enumerate((a, c)):
-                if p in self.vias or p in held or ('snap', n, p) in skip:
+                if p in self.vias or p in held or ('snap', n, p) in skip or self.at_centre(p, n, L):
                     continue
                 if fixed and (len(self.ends[(n, L, p)]) != 1 or self.pad_at(p, n, L)):
                     continue
                 to = [k for vn, k, r in vias if vn == n and dist(p, k) < r]
                 if not to:
                     near = [q for q in points[(n, L)] if q != p and dist(p, q) < NEAR]
-                    # the busiest point wins, so a crowd of ends meets at one
-                    to = sorted(near, key=lambda q: (-len(self.ends[(n, L, q)]), q))[:1]
+                    # a pad centre, then the busiest point wins, so a crowd of ends meets at one
+                    to = sorted(near, key=lambda q: (not self.at_centre(q, n, L), -len(self.ends[(n, L, q)]), q))[:1]
                 q = c if i == 0 else a
                 if fixed and to and not on_axis(q, to[0]):
                     continue        # it may only slide along its own line
@@ -207,6 +210,10 @@ class Straightener:
         for p in self.pads:
             if p.GetNetCode() == net and p.IsOnLayer(layer) and p.HitTest(V(*pt), pcbnew.FromMM(TOUCH)):
                 return p
+
+    def at_centre(self, k, net, layer):
+        pad = self.pad_at(k, net, layer)
+        return pad is not None and key(P(pad.GetPosition())) == k
 
     def anchor(self, net, layer, k):
         return k in self.vias or len(self.ends[(net, layer, k)]) != 2 or self.pad_at(k, net, layer)
@@ -350,18 +357,18 @@ class Straightener:
             held = {i for i in range(len(dirs)) if (i if pin == A0 else len(dirs) - 1 - i) >= 2}
             # the far end holds too, or the held legs would slide with it
             sa, sb = (sa, None) if pin == A0 else (None, sb)
-        res = self.solve(A, B, dirs, l0, sa, sb, held)
+        # a run that reaches its pad centres by changing its lengths needs no leg in the pads
+        res = self.solve(cA or A, cB or B, dirs, l0, None if cA else sa, None if cB else sb, held)
+        if res and self.fits(res, cA or A, cB or B, dirs, l0, reach, pa, pb):
+            A, B = cA or A, cB or B
+        else:
+            res = self.solve(A, B, dirs, l0, sa, sb, held)
         if not res:
             return 'left'
         l, eA, eB = res
-        A2, B2 = key((A[0] + eA[0], A[1] + eA[1])), key((B[0] + eB[0], B[1] + eB[1]))
-        end = (A2[0] + sum(li * d[0] for li, d in zip(l, dirs)), A2[1] + sum(li * d[1] for li, d in zip(l, dirs)))
-        if (math.hypot(end[0] - B2[0], end[1] - B2[1]) > 1e-3
-                or min(l) < -1e-6 or max(abs(x - y) for x, y in zip(l, l0)) > reach
-                or math.hypot(*eA) > SLIDE or math.hypot(*eB) > SLIDE
-                or (pa and not pa.HitTest(V(*A2), pcbnew.FromMM(TOUCH)))
-                or (pb and not pb.HitTest(V(*B2), pcbnew.FromMM(TOUCH)))):
+        if not self.fits(res, A, B, dirs, l0, reach, pa, pb):
             return 'left'
+        A2, B2 = key((A[0] + eA[0], A[1] + eA[1])), key((B[0] + eB[0], B[1] + eB[1]))
         q, new = A2, [A2]
         for li, d in zip(l, dirs):
             if li >= 1e-4:
@@ -369,36 +376,52 @@ class Straightener:
                 new.append(q)
         new[-1] = B2
         widths = [w for li, w in zip(l, wid) if li >= 1e-4]
-        self.to_centre(new, widths, cA, 0)
-        self.to_centre(new, widths, cB, -1)
-        return (n, L, A0, B0, A, B, new, widths, tracks)
+        legs = self.to_centre(new, widths, cA, 0), self.to_centre(new, widths, cB, -1)
+        # a leg this short into the pad is a via a little off it: centre() may do better
+        short = any(0 < x < SHORT for x in legs)
+        return (n, L, A0, B0, A, B, new, widths, tracks, short)
+
+    @staticmethod
+    def fits(res, A, B, dirs, l0, reach, pa, pb):
+        l, eA, eB = res
+        A2, B2 = key((A[0] + eA[0], A[1] + eA[1])), key((B[0] + eB[0], B[1] + eB[1]))
+        end = (A2[0] + sum(li * d[0] for li, d in zip(l, dirs)), A2[1] + sum(li * d[1] for li, d in zip(l, dirs)))
+        return not (math.hypot(end[0] - B2[0], end[1] - B2[1]) > 1e-3
+                    or min(l) < -1e-6 or max(abs(x - y) for x, y in zip(l, l0)) > reach
+                    or math.hypot(*eA) > SLIDE or math.hypot(*eB) > SLIDE
+                    or (pa and not pa.HitTest(V(*A2), pcbnew.FromMM(TOUCH)))
+                    or (pb and not pb.HitTest(V(*B2), pcbnew.FromMM(TOUCH))))
 
     def joined(self, k, c, n, L, tracks):
         """a track other than the run's own already joins end k to the pad centre c"""
-        return k != c and any(u not in tracks and {key(P(u.GetStart())), key(P(u.GetEnd()))} == {k, c}
-                             for u, _ in self.ends[(n, L, k)])
+        return k != c and any(id(u) not in self.gone and u not in tracks
+                              and {key(P(u.GetStart())), key(P(u.GetEnd()))} == {k, c}
+                              for u, _ in self.ends[(n, L, k)])
 
     @staticmethod
     def to_centre(new, widths, c, i):
         """a run ends on its pad's centre: its last leg stretched onto it when it runs
-        along the pad, else a leg along the pad's centre line added"""
+        along the pad, else a leg along the pad's centre line added; returns the added leg's length"""
         if not c or new[i] == c or len(new) < 2:
-            return
+            return 0
         p, q = new[i], new[1 if i == 0 else -2]
         if abs((p[0] - c[0]) * (q[1] - c[1]) - (p[1] - c[1]) * (q[0] - c[0])) < 1e-6 and q != c:
             new[i] = c
-        elif i == 0:
+            return 0
+        if i == 0:
             new.insert(0, c)
             widths.insert(0, widths[0])
         else:
             new.append(c)
             widths.append(widths[-1])
+        return dist(p, c)
 
     def commit(self, plan):
         """replace a chain's tracks by its planned run, sliding a via end with it"""
-        n, L, A0, B0, A, B, new, widths, tracks = plan
+        n, L, A0, B0, A, B, new, widths, tracks = plan[:9]
         locked = any(t.IsLocked() for t in tracks)
         for t in tracks:
+            self.gone.add(id(t))
             self.b.Delete(t)
         for p, q, w in zip(new, new[1:], widths):
             t = pcbnew.PCB_TRACK(self.b)
@@ -478,23 +501,30 @@ class Straightener:
         return None
 
     def centre(self, n, L, chain, chains):
-        """a via a little off the centre line of the pad its run leaves, moved onto it"""
+        """a via a little off the centre line of the pad its run leaves, moved onto it, or
+        a little along the pad when its run is one straight leg across it"""
         A, B = chain[0], chain[-1][1]
         for pk, k in ((A, B), (B, A)):
             pad = None if pk in self.vias else self.pad_at(pk, n, L)
-            if not pad or k not in self.vias or k in self.touched or len(chain) < 3 or any(
+            if not pad or k not in self.vias or k in self.touched or any(
                     p.GetNetCode() == n and p.HitTest(V(*k)) for p in self.pads):
                 continue
             s = self.slack(pad)
             c = P(pad.GetPosition())
-            off = (k[0] - c[0]) * s[1] + (k[1] - c[1]) * s[0]
             pts = [A] + [q for _, q in chain[1:]]
-            # a leg across the pad's line sets the via aside on purpose
-            if not 1e-4 < abs(off) <= SLIDE or any(
-                    dist(p, q) > 1e-4 and abs((q[0] - p[0]) * s[0] + (q[1] - p[1]) * s[1]) < 1e-4
-                    for p, q in zip(pts, pts[1:])):
+            across = [dist(p, q) > 1e-4 and abs((q[0] - p[0]) * s[0] + (q[1] - p[1]) * s[1]) < 1e-4
+                      for p, q in zip(pts, pts[1:])]
+            if all(across):
+                # one straight leg across the pad: the via slides along the pad onto its centre
+                off = (k[0] - c[0]) * s[0] + (k[1] - c[1]) * s[1]
+                to = key((k[0] - off * s[0], k[1] - off * s[1]))
+            else:
+                off = (k[0] - c[0]) * s[1] + (k[1] - c[1]) * s[0]
+                to = key((k[0] - off * s[1], k[1] - off * s[0]))
+            # otherwise a leg across the pad's line sets the via aside on purpose
+            if not 1e-4 < abs(off) <= SLIDE or (any(across) and not all(across)) or (
+                    len(chain) < 3 and not all(across)):
                 continue
-            to = key((k[0] - off * s[1], k[1] - off * s[0]))
             # a 45-degree leg of the via's other runs changes by the offset times root 2
             m = self.plan_move(n, k, to, chains, keep=chain, reach=SLIDE * math.sqrt(2), pin=True)
             if not m:
@@ -516,13 +546,15 @@ class Straightener:
             if (A, B) in keep or (B, A) in keep or A in self.touched or B in self.touched:
                 continue
             p = self.plan(n, L, chain)
-            if p is None:
+            if p is None or (p != 'left' and p[9]):
                 moved, name = None, chain[1][0].GetNetname()
                 if not any(('centre', n, k) in keep for k in (A, B)):
                     moved = self.centre(n, L, chain, chains)
                 if moved:
                     rebuilt[('centre', n, moved[0])] = (name, moved[1])
-                continue
+                    continue
+                if p is None:
+                    continue
             name = chain[1][0].GetNetname()
             if p == 'left':
                 segs = self.shift(n, L, chain, chains)
@@ -562,7 +594,8 @@ class Straightener:
             return False
         o = ends[1 - ends.index(c)]
         return any(u is not t and id(u) not in gone and u.GetNetCode() == t.GetNetCode()
-                   and u.GetLayer() == t.GetLayer() and o in (key(P(u.GetStart())), key(P(u.GetEnd())))
+                   and u.GetLayer() == t.GetLayer()
+                   and any(dist(o, e) < NEAR and key(e) != c for e in (P(u.GetStart()), P(u.GetEnd())))
                    for u in segs)
 
 
