@@ -356,15 +356,44 @@ struct DisMemory final : libasm::DisMemory {
 };
 #endif
 
+// Prints |insn|'s bytes [from, to) at their address, the name and the
+// operands on the first line; |bytes| false leaves the bytes out.
+void Mems::printInsn(const libasm::Disassembler *dis, const libasm::Insn &insn,
+        const char *operands, uint8_t from, uint8_t to, bool bytes) const {
+    constexpr auto chunk = 6;
+    const auto unit = addressUnit();
+    const auto nameWidth = dis->config().nameMax() + 1;
+    const auto codeMax = dis->config().codeMax();
+    const auto step = codeMax < chunk ? codeMax : chunk;
+    for (auto i = from; i < to; i += step) {
+        printAddress(insn.address() + i / unit);
+        auto len = to - i;
+        if (len >= step)
+            len = step;
+        if (bytes) {
+            dump(insn.bytes(), i, len);
+        } else {
+            len = 0;
+        }
+        if (len < step)
+            printSpaces(dataColumns(step - len));
+        if (i == from) {
+            printSpaces(2);
+            cli.printStr(insn.name(), -nameWidth);
+            cli.printStr(operands);
+        }
+        cli.println();
+        if (!bytes)
+            break;
+    }
+}
+
 uint32_t Mems::disassemble(uint32_t addr, uint8_t numInsn) const {
 #ifdef WITH_DISASSEMBLER
     auto dis = disassembler();
     if (dis) {
-        constexpr auto chunk = 6;
         const auto unit = addressUnit();
-        const auto nameWidth = dis->config().nameMax() + 1;
         dis->setOption("uppercase", "true");
-        const auto codeMax = dis->config().codeMax();
         DisMemory mem(this, (maxAddr() + 1) * unit - 1);
         uint16_t num = 0;
         while (num < numInsn) {
@@ -372,21 +401,16 @@ uint32_t Mems::disassemble(uint32_t addr, uint8_t numInsn) const {
             libasm::Insn insn(addr);
             mem.setAddress(addr * unit);
             dis->decode(mem, insn, operands, sizeof(operands));
-            auto step = codeMax < chunk ? codeMax : chunk;
-            for (auto i = 0; i < insn.length(); i += step) {
-                printAddress(insn.address() + i / unit);
-                auto len = insn.length() - i;
-                if (len >= step)
-                    len = step;
-                dump(insn.bytes(), i, len);
-                if (len < step)
-                    printSpaces(dataColumns(step - len));
-                if (i == 0) {
-                    printSpaces(2);
-                    cli.printStr(insn.name(), -nameWidth);
-                    cli.printStr(operands);
-                }
-                cli.println();
+            // A continuation splits the instruction at continueOffset, and a
+            // second decode names the rest: CP1600's SDBD, or the 8086's WAIT
+            // before an instruction it doesn't merge with. At 0 the two share
+            // the bytes, as a TMS320C3x parallel pair does.
+            const auto at = insn.hasContinue() ? insn.continueOffset() : 0;
+            printInsn(dis, insn, operands, 0, at ? at : insn.length(), true);
+            if (insn.hasContinue()) {
+                dis->decode(mem, insn, operands, sizeof(operands));
+                printInsn(dis, insn, operands, at, at ? insn.length() : 1,
+                        at != 0);
             }
             if (insn.getError()) {
                 cli.print("Error: ");
