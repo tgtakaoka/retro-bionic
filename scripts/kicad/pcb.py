@@ -49,6 +49,9 @@ def _header(out, title, date, layers):
     head = re.sub(r'\(title "[^"]*"\)', '(title "%s")' % title, head)
     head = re.sub(r'\(date "[^"]*"\)', '(date "%s")' % date, head)
     head = re.sub(r'\(rev "[^"]*"\)', '(rev "1")', head)
+    # origins at the outline's top left corner, where the outline's board has them
+    for key in ('aux_axis_origin', 'grid_origin'):
+        head = re.sub(r'\(%s [^)]*\)' % key, re.search(r'\(%s [^)]*\)' % key, et).group(0), head)
     edges = []
     pos = 0
     while True:
