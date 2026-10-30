@@ -81,11 +81,7 @@ class StraightenTest(unittest.TestCase):
         b.pad(6, 0)
         b.track((0, 0), (3, 0), (3.02, 0.02), (6, 0.02))
         b.run()
-        # the pad ends slide along their pads to take up the jog
-        ((a, c),) = b.tracks()
-        self.assertEqual((a[1], c[1]), (0, 0))
-        self.assertLess(abs(a[0]), 0.1)
-        self.assertLess(abs(c[0] - 6), 0.1)
+        self.assertEqual(b.tracks(), [((0, 0), (6, 0))])
 
     def test_pad_end_moves_onto_centre_line(self):
         b = Board()
@@ -95,6 +91,26 @@ class StraightenTest(unittest.TestCase):
         b.track((3, 0), (3, 2), layer=pcbnew.B_Cu)
         b.run()
         self.assertEqual(b.tracks(), [((0, 0), (3, 0))])
+
+    def test_pad_end_stretched_to_centre(self):
+        # a run along the pad, stopping at its edge
+        b = Board()
+        b.pad(0, 0)
+        b.pad(6, 0)
+        b.track((0.7, 0), (5.3, 0))
+        b.run()
+        self.assertEqual(b.tracks(), [((0, 0), (6, 0))])
+
+    def test_pad_end_led_to_centre(self):
+        # a run across the pad, touching its edge: a leg along the pad takes it to the centre
+        b = Board()
+        b.pad(0, 0)
+        b.pad(0.6, 3, 0.3, 1.4)
+        b.track((0.6, 0), (0.6, 3))
+        b.run()
+        self.assertEqual(b.tracks(), [((0, 0), (0.6, 0)), ((0.6, 0), (0.6, 3))])
+        b.run()
+        self.assertEqual(b.tracks(), [((0, 0), (0.6, 0)), ((0.6, 0), (0.6, 3))])
 
     def test_pad_end_never_slides_across_pad(self):
         # the via cannot slide across its own horizontal track, so the run stays
@@ -235,10 +251,7 @@ class StraightenTest(unittest.TestCase):
         b.run()
         self.assertEqual(b.vias(), [(1.277, 0)])
         self.assertIn(((2.1817, -6.0), (2.1817, -0.9047)), b.tracks())
-        # the pad end may slide along the pad to take up the length
-        (a, c), = [t for t in b.tracks() if t[0][1] == 0 and t[1][1] == 0]
-        self.assertEqual(c, (1.277, 0))
-        self.assertLess(abs(a[0]), 0.15)
+        self.assertIn(((0, 0), (1.277, 0)), b.tracks())
         self.assertEqual(b.tracks(pcbnew.B_Cu), [((1.277, 0), (7.9025, 0)), ((7.9025, 0), (9.3025, 1.4))])
 
     def test_via_far_off_pad_line_kept(self):

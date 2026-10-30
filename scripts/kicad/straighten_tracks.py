@@ -18,14 +18,17 @@ until nothing changes:
   rebuilt from horizontal, vertical and 45-degree segments, dropping
   micro jogs: short jogs, the ends inside pads (along the pad's centre
   line) and vias free to slide along their other tracks take up the
-  offset, long runs stay put. A pad end off its pad's centre line is
-  moved onto it. A run that fits only with its via moved across the
+  offset, long runs stay put. Every run ends on its pad's centre: its
+  last leg stretches onto it when it runs along the pad, else a leg
+  along the pad's centre line takes it there, so no track just touches
+  a pad's edge. A run that fits only with its via moved across the
   via's other tracks gets it, those tracks rebuilt with it. A via up to
   SLIDE off the centre line of the pad its run leaves moves onto it, its
   other runs rebuilt in the two legs next to it; a run with a leg across
   the pad's line sets its via aside on purpose and stays.
 
-Segments of no length, inside one pad or lying on another track go too.
+Segments of no length, inside one pad (but for the leg onto its centre)
+or lying on another track go too.
 Each pass is checked with kicad-cli DRC against the board as it came; a
 change that adds a violation, or leaves a track at an odd angle, is
 undone and reported. A change whose only violation is another net's via
@@ -45,6 +48,7 @@ import pcbnew
 SHORT = 0.1       # segments shorter than this are jogs to absorb
 SLIDE = 0.12      # how far a length, a pad end or a joint may move
 NEAR = 0.03       # ends this close are one point
+TOUCH = 0.075     # a 0.15 mm track ending this far outside a pad still reaches it
 LOOK = 0.1        # a via between stubs this short on two layers belongs at their corner
 V = pcbnew.VECTOR2I_MM
 mm = pcbnew.ToMM
@@ -199,8 +203,9 @@ class Straightener:
         return out
 
     def pad_at(self, pt, net, layer):
+        """the pad an end lies in, or touches with its track"""
         for p in self.pads:
-            if p.GetNetCode() == net and p.IsOnLayer(layer) and p.HitTest(V(*pt)):
+            if p.GetNetCode() == net and p.IsOnLayer(layer) and p.HitTest(V(*pt), pcbnew.FromMM(TOUCH)):
                 return p
 
     def anchor(self, net, layer, k):
@@ -324,8 +329,13 @@ class Straightener:
         pa = None if A0 in self.vias else self.pad_at(A0, n, L)
         pb = None if B0 in self.vias else self.pad_at(B0, n, L)
         A, B = self.centred(moved.get(A0, A0), pa), self.centred(moved.get(B0, B0), pb)
-        if not dirs or (A == A0 and B == B0 and len(dirs) == len(tracks)
-                        and all(on_axis(p, q) for p, q in zip(pts, pts[1:]))):
+        if pa and pb and key(P(pa.GetPosition())) == key(P(pb.GetPosition())):
+            return None         # the leg inside a pad onto its centre
+        # a pad end goes onto the pad's centre, unless a track already takes it there
+        cA, cB = (pad and not self.joined(k, key(P(pad.GetPosition())), n, L, tracks) and key(P(pad.GetPosition()))
+                  for k, pad in ((A0, pa), (B0, pb)))
+        if not dirs or (A == A0 and B == B0 and len(dirs) == len(tracks) and A0 == (cA or A0)
+                        and B0 == (cB or B0) and all(on_axis(p, q) for p, q in zip(pts, pts[1:]))):
             return None
 
         def end_slack(k, pad):
@@ -349,7 +359,8 @@ class Straightener:
         if (math.hypot(end[0] - B2[0], end[1] - B2[1]) > 1e-3
                 or min(l) < -1e-6 or max(abs(x - y) for x, y in zip(l, l0)) > reach
                 or math.hypot(*eA) > SLIDE or math.hypot(*eB) > SLIDE
-                or (pa and not pa.HitTest(V(*A2))) or (pb and not pb.HitTest(V(*B2)))):
+                or (pa and not pa.HitTest(V(*A2), pcbnew.FromMM(TOUCH)))
+                or (pb and not pb.HitTest(V(*B2), pcbnew.FromMM(TOUCH)))):
             return 'left'
         q, new = A2, [A2]
         for li, d in zip(l, dirs):
@@ -358,7 +369,30 @@ class Straightener:
                 new.append(q)
         new[-1] = B2
         widths = [w for li, w in zip(l, wid) if li >= 1e-4]
+        self.to_centre(new, widths, cA, 0)
+        self.to_centre(new, widths, cB, -1)
         return (n, L, A0, B0, A, B, new, widths, tracks)
+
+    def joined(self, k, c, n, L, tracks):
+        """a track other than the run's own already joins end k to the pad centre c"""
+        return k != c and any(u not in tracks and {key(P(u.GetStart())), key(P(u.GetEnd()))} == {k, c}
+                             for u, _ in self.ends[(n, L, k)])
+
+    @staticmethod
+    def to_centre(new, widths, c, i):
+        """a run ends on its pad's centre: its last leg stretched onto it when it runs
+        along the pad, else a leg along the pad's centre line added"""
+        if not c or new[i] == c or len(new) < 2:
+            return
+        p, q = new[i], new[1 if i == 0 else -2]
+        if abs((p[0] - c[0]) * (q[1] - c[1]) - (p[1] - c[1]) * (q[0] - c[0])) < 1e-6 and q != c:
+            new[i] = c
+        elif i == 0:
+            new.insert(0, c)
+            widths.insert(0, widths[0])
+        else:
+            new.append(c)
+            widths.append(widths[-1])
 
     def commit(self, plan):
         """replace a chain's tracks by its planned run, sliding a via end with it"""
@@ -512,11 +546,24 @@ class Straightener:
                           and u.GetLayer() == t.GetLayer() and u.GetWidth() >= t.GetWidth()
                           and seg_dist(a, P(u.GetStart()), P(u.GetEnd())) < 1e-3
                           and seg_dist(c, P(u.GetStart()), P(u.GetEnd())) < 1e-3 for u in segs)
-            if mm(t.GetLength()) < 0.002 or (p and p.HitTest(t.GetEnd())) or covered:
+            if mm(t.GetLength()) < 0.002 or (p and p.HitTest(t.GetEnd()) and not self.to_pad(t, p, segs, gone)) \
+                    or covered:
                 gone.add(id(t))
                 self.b.Delete(t)
                 n += 1
         return n
+
+    @staticmethod
+    def to_pad(t, pad, segs, gone):
+        """t, inside its pad, is the leg that takes a run on to the pad's centre"""
+        c = key(P(pad.GetPosition()))
+        ends = [key(P(t.GetStart())), key(P(t.GetEnd()))]
+        if c not in ends or ends[0] == ends[1]:
+            return False
+        o = ends[1 - ends.index(c)]
+        return any(u is not t and id(u) not in gone and u.GetNetCode() == t.GetNetCode()
+                   and u.GetLayer() == t.GetLayer() and o in (key(P(u.GetStart())), key(P(u.GetEnd())))
+                   for u in segs)
 
 
 def seg_dist(p, a, c):
