@@ -9,6 +9,7 @@
 namespace libasm {
 struct Assembler;
 struct Disassembler;
+struct Insn;
 }  // namespace libasm
 
 namespace debugger {
@@ -94,6 +95,8 @@ protected:
 #ifdef WITH_DISASSEMBLER
     libasm::Disassembler *_disassembler;
     virtual libasm::Disassembler *disassembler() const;
+    void printInsn(const libasm::Disassembler *dis, const libasm::Insn &insn,
+            const char *operands, uint8_t from, uint8_t to, bool bytes) const;
 #endif
 
     virtual void isPrint(const uint8_t *data, char buf[2]) const;
