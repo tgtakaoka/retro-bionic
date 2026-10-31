@@ -1,0 +1,423 @@
+          0 :                            include "h8500.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :                            cpu     h8/500
+(1)       0 :                            .maxmode on
+(1)       0 :                    ;;; Status register
+(1)       0 : =8000              SR_T:           equ     $8000           ; Trace
+(1)       0 : =700               SR_I_gm:        equ     $0700           ; Interrupt mask
+(1)       0 : =8                 CCR_N:          equ     %1000           ; Negative
+(1)       0 : =4                 CCR_Z:          equ     %0100           ; Zero
+(1)       0 : =2                 CCR_V:          equ     %0010           ; Overflow
+(1)       0 : =1                 CCR_C:          equ     %0001           ; Carry
+(1)       0 :                    ;;; Exception vectors in maximum mode (Programming Manual Table 3-2):
+(1)       0 :                    ;;; a word whose low byte is CP, then PC
+(1)       0 : =0                 VEC_RESET:      equ     $0000
+(1)       0 : =8                 VEC_INVALID:    equ     $0008           ; Invalid instruction
+(1)       0 : =C                 VEC_ZERODIV:    equ     $000C           ; DIVXU by zero
+(1)       0 : =10                VEC_TRAPVS:     equ     $0010           ; TRAP/VS
+(1)       0 : =20                VEC_ADDRERR:    equ     $0020           ; Address error
+(1)       0 : =24                VEC_TRACE:      equ     $0024
+(1)       0 : =2C                VEC_NMI:        equ     $002C
+(1)       0 : =40                VEC_TRAPA0:     equ     $0040
+(1)       0 : =7C                VEC_TRAPA15:    equ     $007C
+(1)       0 : =80                VEC_IRQ0:       equ     $0080
+(1)       0 :                    ;;; Interrupt priority register A, at the same address on every chip
+(1)       0 : =FF00              IPRA:           equ     $FF00
+(1)       0 : =70                IPRA_IRQ0_gm:   equ     %01110000       ; IRQ0 priority level
+(1)       0 : =10                IPRA_IRQ0_1_gc: equ     %00010000       ; level 1
+          0 :
+          0 :                    ;;; MC6850 Asynchronous Communication Interface Adapter
+          0 : =F000              ACIA:   equ     $F000
+          0 :                            include "../mc6800/mc6850.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :
+(1)       0 :                    ;;; MC6850
+(1)       0 :                    ;;; Asynchronous Communication Interface Adapter
+(1)       0 :
+(1)       0 :                    ;;; Control register (write)
+(1)       0 : =F000              ACIA_control:   equ     ACIA+0
+(1)       0 :                            ;; Counter Divider Select Bits
+(1)       0 : =3                 CDS_gm:         equ     %11    ; Group mask
+(1)       0 : =0                 CDS_DIV1_gc:    equ     %00000000 ; /1
+(1)       0 : =1                 CDS_DIV16_gc:   equ     %00000001 ; /16
+(1)       0 : =2                 CDS_DIV64_gc:   equ     %00000010 ; /64
+(1)       0 : =3                 CDS_RESET_gc:   equ     %00000011 ; Master Reset
+(1)       0 :                            ;; Word Select Bits
+(1)       0 : =1C                WSB_gm:         equ     %00011100 ; Group mask
+(1)       0 : =0                 WSB_7E2_gc:     equ     %00000000 ; 7 Bits + Even Parity + 2 Stop Bits
+(1)       0 : =4                 WSB_7O2_gc:     equ     %00000100 ; 7 bits + Odd Parity  + 2 Stop Bits
+(1)       0 : =8                 WSB_7E1_gc:     equ     %00001000 ; 7 bits + Even Parity + 1 Stop Bits
+(1)       0 : =C                 WSB_7O1_gc:     equ     %00001100 ; 7 bits + Odd Parity  + 1 Stop Bits
+(1)       0 : =10                WSB_8N2_gc:     equ     %00010000 ; 8 bits + No Parity   + 2 Stop Bits
+(1)       0 : =14                WSB_8N1_gc:     equ     %00010100 ; 8 bits + No Parity   + 1 Stop Bits
+(1)       0 : =18                WSB_8E1_gc:     equ     %00011000 ; 8 bits + Even Parity + 1 Stop Bits
+(1)       0 : =1C                WSB_8O1_gc:     equ     %00011100 ; 8 bits + Odd Parity  + 1 Stop Bits
+(1)       0 :                            ;; Transmit Control Bits
+(1)       0 : =60                TCB_gm:         equ     %01100000 ; Group mask
+(1)       0 : =0                 TCB_DI_gc:      equ     %00000000 ; RTS=Low,  Tx Interrupt Disabled
+(1)       0 : =20                TCB_EI_gc:      equ     %00100000 ; RTS=Low,  Tx Interrupt Enabled
+(1)       0 : =40                TCB_RTS_gc:     equ     %01000000 ; RTS=High, Tx Interrupt Disabled
+(1)       0 : =60                TCB_BREAK_gc:   equ     %01100000 ; RTS=Low,  Tx Interrupt Disabled
+(1)       0 :                                                      ; Transmit Break Level
+(1)       0 : =80                RIEB_bm:        equ     %10000000 ; Receive Interrupt Enable Bit mask
+(1)       0 :
+(1)       0 :                    ;;; Status register (read)
+(1)       0 : =F000              ACIA_status:    equ     ACIA+0
+(1)       0 : =1                 RDRF_bm:        equ     %00000001 ; Receive Data Register Full
+(1)       0 : =2                 TDRE_bm:        equ     %00000010 ; Transmit Data Register Empty
+(1)       0 : =4                 DCDF_bm:        equ     %00000100 ; Data Carrier Detect Flag
+(1)       0 : =8                 CTSF_bm:        equ     %00001000 ; Clear To Send Flag
+(1)       0 : =10                FERR_bm:        equ     %00010000 ; Frame Error Flag
+(1)       0 : =20                OVRN_bm:        equ     %00100000 ; Receiver Overrun Flag
+(1)       0 : =40                PERR_bm:        equ     %01000000 ; Parity Error Flag
+(1)       0 : =80                IRQF_bm:        equ     %10000000 ; Interrupt Request Flag
+(1)       0 :
+(1)       0 :                    ;;; Data register
+(1)       0 : =F001              ACIA_data:      equ     ACIA+1          ; Data register
+          0 :
+          0 : =1000              stack:  equ     $1000
+          0 :
+         7C :                            org     VEC_TRAPA15
+         7C : 00 00 00 7C                .data.l VEC_TRAPA15     ; for halt to system
+         80 :
+          0 :                            org     VEC_RESET
+          0 : 00 00 10 00                .data.l initialize
+          4 :
+       1000 :                            org     $1000
+       1000 :                    initialize:
+       1000 : 04 00 8F                   ldc.b   #0, tp          ; LDC holds off interrupts for one instruction
+       1003 : 5F 10 00                   mov.w   #stack, sp
+       1006 : 04 00 8D                   ldc.b   #0, dp          ; page of @aa:16 and @R0-@R3
+       1009 : 04 00 8C                   ldc.b   #0, ep          ; page of @R4-@R5
+       100C : 15 F0 00 06 03             mov.b   #CDS_RESET_gc, @ACIA_control ; Master reset
+       1011 : 15 F0 00 06 14             mov.b   #WSB_8N1_gc, @ACIA_control   ; 8 bits + No Parity + 1 Stop Bits
+       1016 :                                                    ; Transmit, Receive interrupts disabled
+       1016 : 0E 59                      bsr     arith
+       1018 : 08 1F                      trapa   #15             ; halt to system
+       101A :
+       101A :                    ;;; Print out char
+       101A :                    ;;; @param R0 char
+       101A :                    ;;; @clobber R0
+       101A :                    putspace:
+       101A : 50 20                      mov.b   #" ", r0
+       101C : 20 06                      bra     putchar
+       101E :                    newline:
+       101E : 50 0D                      mov.b   #$0D, r0
+       1020 : 0E 02                      bsr     putchar
+       1022 : 50 0A                      mov.b   #$0A, r0
+       1024 :                    putchar:
+       1024 : 15 F0 00 F1                btst.b  #1, @ACIA_status        ; TDRE
+       1028 : 27 FA                      beq     putchar
+       102A : 15 F0 01 90                mov.b   r0, @ACIA_data:16
+       102E : 19                         rts
+       102F :
+       102F :                    ;;; Print "v1 op v2"
+       102F :                    ;;; @param R1 v1
+       102F :                    ;;; @param R2 v2
+       102F :                    ;;; @param R0 op
+       102F :                    ;;; @return R0 v1
+       102F :                    expr:
+       102F : BF 90                      mov.w   r0, @-sp
+       1031 : A9 80                      mov.w   r1, r0
+       1033 : 1E 01 C5                   bsr     print_int16     ; print v1
+       1036 : 0E E2                      bsr     putspace
+       1038 : CF 80                      mov.w   @sp+, r0
+       103A : 0E E8                      bsr     putchar         ; print op
+       103C : 0E DC                      bsr     putspace
+       103E : AA 80                      mov.w   r2, r0
+       1040 : 1E 01 B8                   bsr     print_int16     ; print v2
+       1043 : A9 80                      mov.w   r1, r0
+       1045 : 19                         rts
+       1046 :
+       1046 :                    ;;; Print " = v\n"
+       1046 :                    ;;; @param R0 v
+       1046 :                    ;;; @clobber R0
+       1046 :                    answer:
+       1046 : BF 90                      mov.w   r0, @-sp
+       1048 : 0E D0                      bsr     putspace
+       104A : 50 3D                      mov.b   #"=", r0
+       104C : 0E D6                      bsr     putchar
+       104E : 0E CA                      bsr     putspace
+       1050 : CF 80                      mov.w   @sp+, r0
+       1052 : 1E 01 A6                   bsr     print_int16     ; print v
+       1055 : 20 C7                      bra     newline
+       1057 :
+       1057 :                    ;;; Print "v1 rel v2"
+       1057 :                    ;;; @param R1 v1
+       1057 :                    ;;; @param R2 v2
+       1057 :                    ;;; @clobber R0
+       1057 :                    comp:
+       1057 : AA 71                      cmp.w   r2, r1
+       1059 : 27 0C                      beq     comp_eq
+       105B : 2D 0E                      blt     comp_lt
+       105D : 2E 04                      bgt     comp_gt
+       105F : 50 3F                      mov.b   #"?", r0
+       1061 : 20 0A                      bra     comp_out
+       1063 :                    comp_gt:
+       1063 : 50 3E                      mov.b   #">", r0
+       1065 : 20 06                      bra     comp_out
+       1067 :                    comp_eq:
+       1067 : 50 3D                      mov.b   #"=", r0
+       1069 : 20 02                      bra     comp_out
+       106B :                    comp_lt:
+       106B : 50 3C                      mov.b   #"<", r0
+       106D :                    comp_out:
+       106D : 0E C0                      bsr     expr
+       106F : 20 AD                      bra     newline
+       1071 :
+       1071 :                    arith:
+       1071 : 59 46 50                   mov.w   #18000, r1
+       1074 : 5A 6D 60                   mov.w   #28000, r2
+       1077 : 50 2B                      mov.b   #"+", r0
+       1079 : 0E B4                      bsr     expr
+       107B : AA 20                      add.w   r2, r0
+       107D : 0E C7                      bsr     answer          ; -19536
+       107F :
+       107F : 59 46 50                   mov.w   #18000, r1
+       1082 : 5A B9 B0                   mov.w   #-18000, r2
+       1085 : 50 2B                      mov.b   #"+", r0
+       1087 : 0E A6                      bsr     expr
+       1089 : AA 20                      add.w   r2, r0
+       108B : 0E B9                      bsr     answer          ; 0
+       108D :
+       108D : 59 B9 B0                   mov.w   #-18000, r1
+       1090 : 5A B9 B0                   mov.w   #-18000, r2
+       1093 : 50 2B                      mov.b   #"+", r0
+       1095 : 0E 98                      bsr     expr
+       1097 : AA 20                      add.w   r2, r0
+       1099 : 0E AB                      bsr     answer          ; 29536
+       109B :
+       109B : 59 B9 B0                   mov.w   #-18000, r1
+       109E : 5A 92 A0                   mov.w   #-28000, r2
+       10A1 : 50 2D                      mov.b   #"-", r0
+       10A3 : 0E 8A                      bsr     expr
+       10A5 : AA 30                      sub.w   r2, r0
+       10A7 : 0E 9D                      bsr     answer          ; 10000
+       10A9 :
+       10A9 : 59 46 50                   mov.w   #18000, r1
+       10AC : 5A B9 B0                   mov.w   #-18000, r2
+       10AF : 50 2D                      mov.b   #"-", r0
+       10B1 : 1E FF 7B                   bsr     expr
+       10B4 : AA 30                      sub.w   r2, r0
+       10B6 : 0E 8E                      bsr     answer          ; -29536
+       10B8 :
+       10B8 : 59 92 A0                   mov.w   #-28000, r1
+       10BB : 5A B9 B0                   mov.w   #-18000, r2
+       10BE : 50 2D                      mov.b   #"-", r0
+       10C0 : 1E FF 6C                   bsr     expr
+       10C3 : AA 30                      sub.w   r2, r0
+       10C5 : 1E FF 7E                   bsr     answer          ; -10000
+       10C8 :
+       10C8 : 59 00 64                   mov.w   #100, r1
+       10CB : 5A 01 2C                   mov.w   #300, r2
+       10CE : 50 2A                      mov.b   #"*", r0
+       10D0 : 1E FF 5C                   bsr     expr
+       10D3 : 1E 01 5E                   bsr     mul16           ; R1=v1*v2
+       10D6 : A9 80                      mov.w   r1, r0
+       10D8 : 1E FF 6B                   bsr     answer          ; 30000
+       10DB :
+       10DB : 59 00 C8                   mov.w   #200, r1
+       10DE : 5A 00 64                   mov.w   #100, r2
+       10E1 : 50 2A                      mov.b   #"*", r0
+       10E3 : 1E FF 49                   bsr     expr
+       10E6 : 1E 01 4B                   bsr     mul16           ; R1=v1*v2
+       10E9 : A9 80                      mov.w   r1, r0
+       10EB : 1E FF 58                   bsr     answer          ; 20000
+       10EE :
+       10EE : 59 01 2C                   mov.w   #300, r1
+       10F1 : 5A FF 38                   mov.w   #-200, r2
+       10F4 : 50 2A                      mov.b   #"*", r0
+       10F6 : 1E FF 36                   bsr     expr
+       10F9 : 1E 01 38                   bsr     mul16           ; R1=v1*v2
+       10FC : A9 80                      mov.w   r1, r0
+       10FE : 1E FF 45                   bsr     answer          ; 5536
+       1101 :
+       1101 : 59 00 64                   mov.w   #100, r1
+       1104 : 5A FE D4                   mov.w   #-300, r2
+       1107 : 50 2A                      mov.b   #"*", r0
+       1109 : 1E FF 23                   bsr     expr
+       110C : 1E 01 25                   bsr     mul16           ; R1=v1*v2
+       110F : A9 80                      mov.w   r1, r0
+       1111 : 1E FF 32                   bsr     answer          ; -30000
+       1114 :
+       1114 : 59 FF 38                   mov.w   #-200, r1
+       1117 : 5A FF 9C                   mov.w   #-100, r2
+       111A : 50 2A                      mov.b   #"*", r0
+       111C : 1E FF 10                   bsr     expr
+       111F : 1E 01 12                   bsr     mul16           ; R1=v1*v2
+       1122 : A9 80                      mov.w   r1, r0
+       1124 : 1E FF 1F                   bsr     answer          ; 20000
+       1127 :
+       1127 : 59 75 30                   mov.w   #30000, r1
+       112A : 5A 00 64                   mov.w   #100, r2
+       112D : 50 2F                      mov.b   #"/", r0
+       112F : 1E FE FD                   bsr     expr
+       1132 : 1E 01 04                   bsr     div16           ; R1=v1/v2
+       1135 : A9 80                      mov.w   r1, r0
+       1137 : 1E FF 0C                   bsr     answer          ; 300
+       113A :
+       113A : 59 FF 38                   mov.w   #-200, r1
+       113D : 5A 00 64                   mov.w   #100, r2
+       1140 : 50 2F                      mov.b   #"/", r0
+       1142 : 1E FE EA                   bsr     expr
+       1145 : 1E 00 F1                   bsr     div16           ; R1=v1/v2
+       1148 : A9 80                      mov.w   r1, r0
+       114A : 1E FE F9                   bsr     answer          ; -2
+       114D :
+       114D : 59 8A D0                   mov.w   #-30000, r1
+       1150 : 5A FF 38                   mov.w   #-200, r2
+       1153 : 50 2F                      mov.b   #"/", r0
+       1155 : 1E FE D7                   bsr     expr
+       1158 : 1E 00 DE                   bsr     div16           ; R1=v1/v2
+       115B : A9 80                      mov.w   r1, r0
+       115D : 1E FE E6                   bsr     answer          ; 150
+       1160 :
+       1160 : 59 8A D0                   mov.w   #-30000, r1
+       1163 : 5A 00 4E                   mov.w   #78, r2
+       1166 : 50 2F                      mov.b   #"/", r0
+       1168 : 1E FE C4                   bsr     expr
+       116B : 1E 00 CB                   bsr     div16           ; R1=v1/v2
+       116E : A9 80                      mov.w   r1, r0
+       1170 : 1E FE D3                   bsr     answer          ; -384
+       1173 :
+       1173 : 59 13 88                   mov.w   #5000, r1
+       1176 : 5A 0F A0                   mov.w   #4000, r2
+       1179 : 1E FE DB                   bsr     comp
+       117C :
+       117C : 59 13 88                   mov.w   #5000, r1
+       117F : 5A 13 88                   mov.w   #5000, r2
+       1182 : 1E FE D2                   bsr     comp
+       1185 :
+       1185 : 59 0F A0                   mov.w   #4000, r1
+       1188 : 5A 13 88                   mov.w   #5000, r2
+       118B : 1E FE C9                   bsr     comp
+       118E :
+       118E : 59 EC 78                   mov.w   #-5000, r1
+       1191 : 5A F0 60                   mov.w   #-4000, r2
+       1194 : 1E FE C0                   bsr     comp
+       1197 :
+       1197 : 59 EC 78                   mov.w   #-5000, r1
+       119A : 5A EC 78                   mov.w   #-5000, r2
+       119D : 1E FE B7                   bsr     comp
+       11A0 :
+       11A0 : 59 F0 60                   mov.w   #-4000, r1
+       11A3 : 5A EC 78                   mov.w   #-5000, r2
+       11A6 : 1E FE AE                   bsr     comp
+       11A9 :
+       11A9 : 59 7F BC                   mov.w   #32700, r1
+       11AC : 5A 7F 58                   mov.w   #32600, r2
+       11AF : 1E FE A5                   bsr     comp
+       11B2 :
+       11B2 : 59 7F BC                   mov.w   #32700, r1
+       11B5 : 5A 7F BC                   mov.w   #32700, r2
+       11B8 : 1E FE 9C                   bsr     comp
+       11BB :
+       11BB : 59 7F 58                   mov.w   #32600, r1
+       11BE : 5A 7F BC                   mov.w   #32700, r2
+       11C1 : 1E FE 93                   bsr     comp
+       11C4 :
+       11C4 : 59 80 44                   mov.w   #-32700, r1
+       11C7 : 5A 80 A8                   mov.w   #-32600, r2
+       11CA : 1E FE 8A                   bsr     comp
+       11CD :
+       11CD : 59 80 44                   mov.w   #-32700, r1
+       11D0 : 5A 80 44                   mov.w   #-32700, r2
+       11D3 : 1E FE 81                   bsr     comp
+       11D6 :
+       11D6 : 59 80 A8                   mov.w   #-32600, r1
+       11D9 : 5A 80 44                   mov.w   #-32700, r2
+       11DC : 1E FE 78                   bsr     comp
+       11DF :
+       11DF : 59 46 50                   mov.w   #18000, r1
+       11E2 : 5A 92 A0                   mov.w   #-28000, r2
+       11E5 : 1E FE 6F                   bsr     comp
+       11E8 :
+       11E8 : 59 92 A0                   mov.w   #-28000, r1
+       11EB : 5A 92 A0                   mov.w   #-28000, r2
+       11EE : 1E FE 66                   bsr     comp
+       11F1 :
+       11F1 : 59 92 A0                   mov.w   #-28000, r1
+       11F4 : 5A 46 50                   mov.w   #18000, r2
+       11F7 : 1E FE 5D                   bsr     comp
+       11FA : 19                         rts
+       11FB :
+       11FB :                            include "arith.inc"
+(1)    11FB :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)    11FB :
+(1)    11FB :                    ;;; Print signed 16-bit integer as decimal
+(1)    11FB :                    ;;; @param R0 value
+(1)    11FB :                    ;;; @clobber R0
+(1)    11FB :                    print_int16:
+(1)    11FB : A8 16                      tst.w   r0
+(1)    11FD : 2A 0B                      bpl     print_uint16
+(1)    11FF : BF 90                      mov.w   r0, @-sp
+(1)    1201 : 50 2D                      mov.b   #"-", r0
+(1)    1203 : 1E FE 1E                   bsr     putchar
+(1)    1206 : CF 80                      mov.w   @sp+, r0
+(1)    1208 : A8 14                      neg.w   r0              ; negate value
+(1)    120A :                    ;;; Print unsigned 16-bit integer as decimal
+(1)    120A :                    ;;; @param R0 value
+(1)    120A :                    ;;; @clobber R0
+(1)    120A :                    print_uint16:
+(1)    120A : 12 02                      stm     (r1), @-sp
+(1)    120C : A8 81                      mov.w   r0, r1          ; R1=value
+(1)    120E : 27 05                      beq     print_uint16_zero
+(1)    1210 : 0E 0B                      bsr     print_uint16_loop
+(1)    1212 : 02 02                      ldm     @sp+, (r1)
+(1)    1214 : 19                         rts
+(1)    1215 :                    print_uint16_zero:
+(1)    1215 : 50 30                      mov.b   #"0", r0
+(1)    1217 : 1E FE 0A                   bsr     putchar
+(1)    121A : 02 02                      ldm     @sp+, (r1)
+(1)    121C : 19                         rts
+(1)    121D :                    ;;; @param R1 value
+(1)    121D :                    ;;; @clobber R0 R1
+(1)    121D :                    print_uint16_loop:
+(1)    121D : A9 16                      tst.w   r1
+(1)    121F : 27 12                      beq     print_uint16_end ; branch if value == 0
+(1)    1221 : A8 13                      clr.w   r0              ; R0:R1=value
+(1)    1223 : 0C 00 0A B8                divxu.w #10, r0         ; R0=remainder, R1=quotient
+(1)    1227 : BF 90                      mov.w   r0, @-sp        ; push remainder
+(1)    1229 : 0E F2                      bsr     print_uint16_loop
+(1)    122B : CF 80                      mov.w   @sp+, r0
+(1)    122D : 04 30 20                   add.b   #"0", r0
+(1)    1230 : 30 FD F1                   bra     putchar
+(1)    1233 :                    print_uint16_end:
+(1)    1233 : 19                         rts
+(1)    1234 :
+(1)    1234 :                    ;;; Multiply; the low word of a product is the same signed or unsigned
+(1)    1234 :                    ;;; R1 * R2 = R1
+(1)    1234 :                    ;;; @clobber R0
+(1)    1234 :                    mul16:
+(1)    1234 : A9 80                      mov.w   r1, r0
+(1)    1236 : AA A8                      mulxu.w r2, r0          ; R0:R1=R0*R2
+(1)    1238 : 19                         rts
+(1)    1239 :
+(1)    1239 :                    ;;; Divide, truncating toward zero
+(1)    1239 :                    ;;; R1 / R2 = R1
+(1)    1239 :                    ;;; @clobber R0
+(1)    1239 :                    div16:
+(1)    1239 : 12 0C                      stm     (r2-r3), @-sp
+(1)    123B : A9 83                      mov.w   r1, r3
+(1)    123D : AA 63                      xor.w   r2, r3          ; R3.15=sign of quotient
+(1)    123F : A9 16                      tst.w   r1
+(1)    1241 : 2A 02                      bpl     div16_dividend
+(1)    1243 : A9 14                      neg.w   r1
+(1)    1245 :                    div16_dividend:
+(1)    1245 : AA 16                      tst.w   r2
+(1)    1247 : 2A 02                      bpl     div16_divisor
+(1)    1249 : AA 14                      neg.w   r2
+(1)    124B :                    div16_divisor:
+(1)    124B : A8 13                      clr.w   r0              ; R0:R1=|dividend|
+(1)    124D : AA B8                      divxu.w r2, r0          ; R0=remainder, R1=quotient
+(1)    124F : AB 16                      tst.w   r3
+(1)    1251 : 2A 02                      bpl     div16_return
+(1)    1253 : A9 14                      neg.w   r1
+(1)    1255 :                    div16_return:
+(1)    1255 : 02 0C                      ldm     @sp+, (r2-r3)
+(1)    1257 : 19                         rts
+(1)    1258 :
+(1)    1258 :                    ;;; Local Variables:
+(1)    1258 :                    ;;; mode: asm
+(1)    1258 :                    ;;; End:
+(1)    1258 :                    ;;; vim: set ft=asm et ts=4 sw=4:
