@@ -1,0 +1,232 @@
+          0 :                            include "h8500.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :                            cpu     h8/500
+(1)       0 :                            .maxmode on
+(1)       0 :                    ;;; Status register
+(1)       0 : =8000              SR_T:           equ     $8000           ; Trace
+(1)       0 : =700               SR_I_gm:        equ     $0700           ; Interrupt mask
+(1)       0 : =8                 CCR_N:          equ     %1000           ; Negative
+(1)       0 : =4                 CCR_Z:          equ     %0100           ; Zero
+(1)       0 : =2                 CCR_V:          equ     %0010           ; Overflow
+(1)       0 : =1                 CCR_C:          equ     %0001           ; Carry
+(1)       0 :                    ;;; Exception vectors in maximum mode (Programming Manual Table 3-2):
+(1)       0 :                    ;;; a word whose low byte is CP, then PC
+(1)       0 : =0                 VEC_RESET:      equ     $0000
+(1)       0 : =8                 VEC_INVALID:    equ     $0008           ; Invalid instruction
+(1)       0 : =C                 VEC_ZERODIV:    equ     $000C           ; DIVXU by zero
+(1)       0 : =10                VEC_TRAPVS:     equ     $0010           ; TRAP/VS
+(1)       0 : =20                VEC_ADDRERR:    equ     $0020           ; Address error
+(1)       0 : =24                VEC_TRACE:      equ     $0024
+(1)       0 : =2C                VEC_NMI:        equ     $002C
+(1)       0 : =40                VEC_TRAPA0:     equ     $0040
+(1)       0 : =7C                VEC_TRAPA15:    equ     $007C
+(1)       0 : =80                VEC_IRQ0:       equ     $0080
+(1)       0 :                    ;;; Interrupt priority register A, at the same address on every chip
+(1)       0 : =FF00              IPRA:           equ     $FF00
+(1)       0 : =70                IPRA_IRQ0_gm:   equ     %01110000       ; IRQ0 priority level
+(1)       0 : =10                IPRA_IRQ0_1_gc: equ     %00010000       ; level 1
+          0 :
+          0 :                    ;;; MC6850 Asynchronous Communication Interface Adapter
+          0 : =F000              ACIA:   equ     $F000
+          0 :                            include "../mc6800/mc6850.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :
+(1)       0 :                    ;;; MC6850
+(1)       0 :                    ;;; Asynchronous Communication Interface Adapter
+(1)       0 :
+(1)       0 :                    ;;; Control register (write)
+(1)       0 : =F000              ACIA_control:   equ     ACIA+0
+(1)       0 :                            ;; Counter Divider Select Bits
+(1)       0 : =3                 CDS_gm:         equ     %11    ; Group mask
+(1)       0 : =0                 CDS_DIV1_gc:    equ     %00000000 ; /1
+(1)       0 : =1                 CDS_DIV16_gc:   equ     %00000001 ; /16
+(1)       0 : =2                 CDS_DIV64_gc:   equ     %00000010 ; /64
+(1)       0 : =3                 CDS_RESET_gc:   equ     %00000011 ; Master Reset
+(1)       0 :                            ;; Word Select Bits
+(1)       0 : =1C                WSB_gm:         equ     %00011100 ; Group mask
+(1)       0 : =0                 WSB_7E2_gc:     equ     %00000000 ; 7 Bits + Even Parity + 2 Stop Bits
+(1)       0 : =4                 WSB_7O2_gc:     equ     %00000100 ; 7 bits + Odd Parity  + 2 Stop Bits
+(1)       0 : =8                 WSB_7E1_gc:     equ     %00001000 ; 7 bits + Even Parity + 1 Stop Bits
+(1)       0 : =C                 WSB_7O1_gc:     equ     %00001100 ; 7 bits + Odd Parity  + 1 Stop Bits
+(1)       0 : =10                WSB_8N2_gc:     equ     %00010000 ; 8 bits + No Parity   + 2 Stop Bits
+(1)       0 : =14                WSB_8N1_gc:     equ     %00010100 ; 8 bits + No Parity   + 1 Stop Bits
+(1)       0 : =18                WSB_8E1_gc:     equ     %00011000 ; 8 bits + Even Parity + 1 Stop Bits
+(1)       0 : =1C                WSB_8O1_gc:     equ     %00011100 ; 8 bits + Odd Parity  + 1 Stop Bits
+(1)       0 :                            ;; Transmit Control Bits
+(1)       0 : =60                TCB_gm:         equ     %01100000 ; Group mask
+(1)       0 : =0                 TCB_DI_gc:      equ     %00000000 ; RTS=Low,  Tx Interrupt Disabled
+(1)       0 : =20                TCB_EI_gc:      equ     %00100000 ; RTS=Low,  Tx Interrupt Enabled
+(1)       0 : =40                TCB_RTS_gc:     equ     %01000000 ; RTS=High, Tx Interrupt Disabled
+(1)       0 : =60                TCB_BREAK_gc:   equ     %01100000 ; RTS=Low,  Tx Interrupt Disabled
+(1)       0 :                                                      ; Transmit Break Level
+(1)       0 : =80                RIEB_bm:        equ     %10000000 ; Receive Interrupt Enable Bit mask
+(1)       0 :
+(1)       0 :                    ;;; Status register (read)
+(1)       0 : =F000              ACIA_status:    equ     ACIA+0
+(1)       0 : =1                 RDRF_bm:        equ     %00000001 ; Receive Data Register Full
+(1)       0 : =2                 TDRE_bm:        equ     %00000010 ; Transmit Data Register Empty
+(1)       0 : =4                 DCDF_bm:        equ     %00000100 ; Data Carrier Detect Flag
+(1)       0 : =8                 CTSF_bm:        equ     %00001000 ; Clear To Send Flag
+(1)       0 : =10                FERR_bm:        equ     %00010000 ; Frame Error Flag
+(1)       0 : =20                OVRN_bm:        equ     %00100000 ; Receiver Overrun Flag
+(1)       0 : =40                PERR_bm:        equ     %01000000 ; Parity Error Flag
+(1)       0 : =80                IRQF_bm:        equ     %10000000 ; Interrupt Request Flag
+(1)       0 :
+(1)       0 :                    ;;; Data register
+(1)       0 : =F001              ACIA_data:      equ     ACIA+1          ; Data register
+          0 :
+       2000 :                            org     $2000
+       2000 :
+       2000 : =80                rx_queue_size:  equ     128
+       2000 :                    rx_queue:       .res.b  rx_queue_size
+       2080 : =94                RX_INT_TX_NO:   equ     WSB_8N1_gc|RIEB_bm
+       2080 :
+       2080 : =1000              stack:  equ     $1000
+       2080 :
+         80 :                            org     VEC_IRQ0
+         80 : 00 00 10 C5                .data.l isr_irq
+         84 :
+         7C :                            org     VEC_TRAPA15
+         7C : 00 00 00 7C                .data.l VEC_TRAPA15     ; for halt to system
+         80 :
+          0 :                            org     VEC_RESET
+          0 : 00 00 10 00                .data.l initialize
+          4 :
+       1000 :                            org     $1000
+       1000 :                    initialize:
+       1000 : 04 00 8F                   ldc.b   #0, tp          ; LDC holds off interrupts for one instruction
+       1003 : 5F 10 00                   mov.w   #stack, sp
+       1006 : 04 00 8D                   ldc.b   #0, dp          ; page of @aa:16 and @R0-@R3
+       1009 : 04 00 8C                   ldc.b   #0, ep          ; page of @R4-@R5
+       100C : 59 20 00                   mov.w   #rx_queue, r1
+       100F : 58 00 80                   mov.w   #rx_queue_size, r0
+       1012 : 0E 40                      bsr     queue_init
+       1014 :                            ;; initialize ACIA
+       1014 : 15 F0 00 06 03             mov.b   #CDS_RESET_gc, @ACIA_control ; Master reset
+       1019 : 15 F0 00 06 94             mov.b   #RX_INT_TX_NO, @ACIA_control
+       101E :                            ;; #IRQ0, low-level triggered, at level 1; the debugger enables the
+       101E :                            ;; #IRQ0 pin, whose register differs between the chips
+       101E : 15 FF 00 06 10             mov.b   #IPRA_IRQ0_1_gc, @IPRA
+       1023 : 0C F8 FF 58                andc.w  #~SR_I_gm, sr   ; Enable IRQ
+       1027 : 20 02                      bra     loop
+       1029 :
+       1029 :                    wait:
+       1029 : 20 00                      bra     loop            ; spin, IRQ enabled: it comes in running code
+       102B :                    loop:
+       102B : 0C 07 00 48                orc.w   #SR_I_gm, sr    ; Disable IRQ
+       102F : 0E 6D                      bsr     queue_remove
+       1031 : 0C F8 FF 58                andc.w  #~SR_I_gm, sr   ; Enable IRQ
+       1035 : 24 F2                      bcc     wait
+       1037 : A0 16                      tst.b   r0
+       1039 : 27 0C                      beq     halt_to_system
+       103B : 0E 0C                      bsr     putchar
+       103D : 40 0D                      cmp.b   #$0D, r0
+       103F : 26 EA                      bne     loop
+       1041 : 50 0A                      mov.b   #$0A, r0
+       1043 : 0E 04                      bsr     putchar
+       1045 : 20 E4                      bra     loop
+       1047 :                    halt_to_system:
+       1047 : 08 1F                      trapa   #15             ; halt to system
+       1049 :
+       1049 :                    putchar:
+       1049 : 15 F0 00 F1                btst.b  #1, @ACIA_status        ; TDRE
+       104D : 27 FA                      beq     putchar
+       104F : 15 F0 01 90                mov.b   r0, @ACIA_data:16
+       1053 : 19                         rts
+       1054 :
+       1054 :                            include "queue.inc"
+(1)    1054 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)    1054 :
+(1)    1054 :                    ;;; [queue] queue structure, in words
+(1)    1054 : =0                 queue_len:      equ     0       ; queue length
+(1)    1054 : =2                 queue_size:     equ     2       ; buffer size
+(1)    1054 : =4                 queue_put:      equ     4       ; queue put pointer
+(1)    1054 : =6                 queue_get:      equ     6       ; queue get pointer
+(1)    1054 : =8                 queue_end:      equ     8       ; pointer past the buffer
+(1)    1054 : =A                 queue_buf:      equ     10      ; buffer start offset
+(1)    1054 :
+(1)    1054 :                    ;;; [queue] Initialize queue
+(1)    1054 :                    ;;; @param R1 queue work space pointer
+(1)    1054 :                    ;;; @param R0 queue work space size
+(1)    1054 :                    ;;; @clobber R0
+(1)    1054 :                    queue_init:
+(1)    1054 : E9 00 13                   clr.w   @(queue_len, r1)
+(1)    1057 : A9 20                      add.w   r1, r0
+(1)    1059 : E9 08 90                   mov.w   r0, @(queue_end, r1)
+(1)    105C : A9 30                      sub.w   r1, r0
+(1)    105E : 0C 00 0A 30                sub.w   #queue_buf, r0
+(1)    1062 : E9 02 90                   mov.w   r0, @(queue_size, r1)
+(1)    1065 : A9 80                      mov.w   r1, r0
+(1)    1067 : 0C 00 0A 20                add.w   #queue_buf, r0
+(1)    106B : E9 04 90                   mov.w   r0, @(queue_put, r1)
+(1)    106E : E9 06 90                   mov.w   r0, @(queue_get, r1)
+(1)    1071 : 19                         rts
+(1)    1072 :
+(1)    1072 :                    ;;; [queue] Add an element to queue
+(1)    1072 :                    ;;; @param R1 queue work space pointer
+(1)    1072 :                    ;;; @param R0 an element
+(1)    1072 :                    ;;; @return CCR.C 0 if queue is full
+(1)    1072 :                    queue_add:
+(1)    1072 : 12 04                      stm     (r2), @-sp      ; STM and LDM leave the flags alone
+(1)    1074 : E9 00 82                   mov.w   @(queue_len, r1), r2
+(1)    1077 : E9 02 72                   cmp.w   @(queue_size, r1), r2
+(1)    107A : 24 1C                      bhs     queue_add_full
+(1)    107C : E9 04 82                   mov.w   @(queue_put, r1), r2
+(1)    107F : C2 90                      mov.b   r0, @r2+        ; store an element
+(1)    1081 : E9 00 08                   add.w   #1, @(queue_len, r1)
+(1)    1084 : E9 08 72                   cmp.w   @(queue_end, r1), r2
+(1)    1087 : 25 06                      blo     queue_add_put
+(1)    1089 : A9 82                      mov.w   r1, r2
+(1)    108B : 0C 00 0A 22                add.w   #queue_buf, r2  ; wrap around
+(1)    108F :                    queue_add_put:
+(1)    108F : E9 04 92                   mov.w   r2, @(queue_put, r1)
+(1)    1092 : 02 04                      ldm     @sp+, (r2)
+(1)    1094 : 04 01 49                   orc.b   #CCR_C, ccr     ; set carry
+(1)    1097 : 19                         rts
+(1)    1098 :                    queue_add_full:
+(1)    1098 : 02 04                      ldm     @sp+, (r2)
+(1)    109A : 04 FE 59                   andc.b  #~CCR_C, ccr    ; clear carry
+(1)    109D : 19                         rts
+(1)    109E :
+(1)    109E :                    ;;; [queue] Remove an element from queue
+(1)    109E :                    ;;; @param R1 queue work space pointer
+(1)    109E :                    ;;; @return R0 an element
+(1)    109E :                    ;;; @return CCR.C 0 if queue is empty
+(1)    109E :                    queue_remove:
+(1)    109E : E9 00 16                   tst.w   @(queue_len, r1)
+(1)    10A1 : 26 04                      bne     queue_remove_elem
+(1)    10A3 : 04 FE 59                   andc.b  #~CCR_C, ccr    ; clear carry
+(1)    10A6 : 19                         rts
+(1)    10A7 :                    queue_remove_elem:
+(1)    10A7 : 12 04                      stm     (r2), @-sp
+(1)    10A9 : E9 06 82                   mov.w   @(queue_get, r1), r2
+(1)    10AC : C2 80                      mov.b   @r2+, r0        ; read an element
+(1)    10AE : E9 00 0C                   add.w   #-1, @(queue_len, r1)
+(1)    10B1 : E9 08 72                   cmp.w   @(queue_end, r1), r2
+(1)    10B4 : 25 06                      blo     queue_remove_get
+(1)    10B6 : A9 82                      mov.w   r1, r2
+(1)    10B8 : 0C 00 0A 22                add.w   #queue_buf, r2  ; wrap around
+(1)    10BC :                    queue_remove_get:
+(1)    10BC : E9 06 92                   mov.w   r2, @(queue_get, r1)
+(1)    10BF : 02 04                      ldm     @sp+, (r2)
+(1)    10C1 : 04 01 49                   orc.b   #CCR_C, ccr     ; set carry
+(1)    10C4 : 19                         rts
+(1)    10C5 :
+(1)    10C5 :                    ;;; Local Variables:
+(1)    10C5 :                    ;;; mode: asm
+(1)    10C5 :                    ;;; End:
+(1)    10C5 :                    ;;; vim: set ft=asm et ts=4 sw=4:
+       10C5 :
+       10C5 :                    isr_irq:
+       10C5 : 12 03                      stm     (r0-r1), @-sp   ; an interrupt stacks only CP, PC and SR
+       10C7 : 15 F0 00 F7                btst.b  #7, @ACIA_status        ; IRQF
+       10CB : 27 0F                      beq     isr_irq_return
+       10CD :                    isr_irq_receive:
+       10CD : 15 F0 00 F0                btst.b  #0, @ACIA_status        ; RDRF
+       10D1 : 27 09                      beq     isr_irq_return
+       10D3 : 15 F0 01 80                mov.b   @ACIA_data:16, r0
+       10D7 : 59 20 00                   mov.w   #rx_queue, r1
+       10DA : 0E 96                      bsr     queue_add
+       10DC :                    isr_irq_return:
+       10DC : 02 03                      ldm     @sp+, (r0-r1)
+       10DE : 0A                         rte

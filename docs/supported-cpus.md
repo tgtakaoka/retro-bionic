@@ -104,7 +104,8 @@ report several parts.
 <tr><td>🚧</td><td><code>H8/300H</code></td><td></td><td><code>HD6413002F16</code>, <code>HD6433048F16</code></td></tr>
 <tr><td>🚧</td><td><code>H8S/2000</code></td><td></td><td><code>HD64F2148FA20V</code></td></tr>
 <tr><td>🚧</td><td><code>H8S/2600</code></td><td></td><td><code>HD64F2633F25V</code></td></tr>
-<tr><td><code>h8500</code></td><td></td><td>🚧</td><td><code>H8/500</code></td><td></td><td><code>HD6415108F10V</code>, <code>HD6435368TFW35</code></td></tr>
+<tr><td rowspan="2"><code>h8500</code></td><td rowspan="2"><code>h8500</code></td><td>✅</td><td><code>H8/510</code></td><td></td><td><code>HD6415108F10V</code>; clock runs free, every cycle held by <code>#WAIT</code></td></tr>
+<tr><td>✅</td><td><code>H8/536</code></td><td></td><td><code>HD6435368TFW35</code>; 8-bit bus, same samples</td></tr>
 <tr><td><code>h16</code></td><td></td><td>🚧</td><td><code>H16</code></td><td></td><td><code>HD641016CP10</code></td></tr>
 <tr><td rowspan="2"><code>superh</code></td><td rowspan="2"></td><td>🚧</td><td><code>SH-1</code></td><td></td><td><code>HD6417034F20V</code>, <code>HD6437034F20</code></td></tr>
 <tr><td>🚧</td><td><code>SH-2</code></td><td></td><td><code>HD6477042F28</code>, <code>HD64F7047F50V</code></td></tr>

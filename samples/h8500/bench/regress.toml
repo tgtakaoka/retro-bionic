@@ -1,0 +1,117 @@
+# How each sample must be driven. See scripts/bionic-regress.py's
+# drive_table() for the key shapes this file can use.
+# Not yet run: debugger/h8500 is still to be written.
+
+# The chips, as their banners name them, this file is for.
+chips = ["H8/510", "H8/536"]
+
+# In maximum mode reset reads a word whose low byte is CP, then PC, from
+# 0000; the PC shows as CP:PC.
+[reset]
+PC = "[0001 0002 0003]"
+
+[arith]
+expect = """
+18000 + 28000 = -19536
+18000 + -18000 = 0
+-18000 + -18000 = 29536
+-18000 - -28000 = 10000
+18000 - -18000 = -29536
+-28000 - -18000 = -10000
+100 * 300 = 30000
+200 * 100 = 20000
+300 * -200 = 5536
+100 * -300 = -30000
+-200 * -100 = 20000
+30000 / 100 = 300
+-200 / 100 = -2
+-30000 / -200 = 150
+-30000 / 78 = -384
+5000 > 4000
+5000 = 5000
+4000 < 5000
+-5000 < -4000
+-5000 = -5000
+-4000 > -5000
+32700 > 32600
+32700 = 32700
+32600 < 32700
+-32700 < -32600
+-32700 = -32700
+-32600 > -32700
+18000 > -28000
+-28000 = -28000
+-28000 < 18000"""
+
+[echo]
+feed = "ok\r"
+expect = "ok"
+
+[echoir]
+feed = "irq\r"
+expect = "irq"
+
+# Prints "<char> 0xXX 0bXXXXXXXX" per received byte, one line each
+# including the trailing \r.
+[echoitr]
+feed = "itr\r"
+expect = """
+i 0x69 0b01101001
+t 0x74 0b01110100
+r 0x72 0b01110010
+ 0x0D 0b00001101"""
+
+# The Programming Manual's readings; encoding.asm's header lists what
+# ASL and h8500-hms-as make of each probe. cmp-imm8w takes MOV's note 3
+# (sign extended) for CMP: 0000 there means a 4-byte instruction with
+# word data, as the CMP format footnote and ASL read it, 0008 zero
+# extension. invalid-pc, the last line, has no
+# reading to check.
+[encoding]
+expect = """
+trap-sr 0708
+trap-cp 0000
+trap-pc 0000
+movf-ld 1111
+movf-st 005A
+movg-d8 1111
+movg-d16 3333
+jmp-d8 600D
+jmp-d16 600D
+jsr-d8 600D
+jsr-d16 600D
+mov-imm8w FF80
+cmp-imm8w 0004
+cmp-g 0009
+cmp-g-ead 0001
+cmp-e-i 0404
+rtd-8 0004
+rtd-16 0104
+bcc-d16 600D
+stm-order 0123
+stm-r7 FFFE
+ldm-r7 0000
+aa8-br BEEF
+invalid-0b 0001"""
+
+# Halts at the first completed frame, or once 6 rows are drawn and at
+# least 20 seconds have passed; checks everything drawn so far.
+[mandelbrot]
+golden = "samples/arith/mandelbrot.golden"
+lines = 6
+
+# A random halt point, not always the same one, catches a corrupted
+# resume that only shows up mid-instruction.
+[haltgo]
+program = "mandelbrot"
+halt_interval = [0.05, 0.3]
+
+[breakpoint]
+program = "mandelbrot"
+break_at = "loop_x"
+
+# loop_y is reached once per row, so each go runs a whole row rather
+# than a single pixel.
+[gountil]
+program = "mandelbrot"
+break_at = "loop_y"

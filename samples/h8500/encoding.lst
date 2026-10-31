@@ -1,0 +1,547 @@
+          0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+          0 :                    ;;; Probe the encodings the assemblers disagree on, and what the manuals
+          0 :                    ;;; leave to the chip. Each probe prints "name value"; the expectations
+          0 :                    ;;; are the Programming Manual's readings. ASL rejects or misreads every
+          0 :                    ;;; negative @(d,Rn), h8500-hms-as drops JMP/JSR displacements and
+          0 :                    ;;; mis-encodes CMP:E and RTD #xx:16, and libasm can't emit 8-bit data for
+          0 :                    ;;; a word operation, so those probes are bytes.
+          0 :                    ;;;
+          0 :                    ;;;   probe      bytes      manual                       assemblers
+          0 :                    ;;;   movf-ld    88 FE      MOV:F.W @(-2,FP),R0: 1111    ASL rejects
+          0 :                    ;;;   movf-st    90 FC      MOV:F.B R0,@(-4,FP): 005A    ASL rejects
+          0 :                    ;;;   movg-d8    EB FE 80   MOV:G.W @(-2,R3),R0: 1111    ASL: B8 80 (@-R0)
+          0 :                    ;;;   movg-d16   FB FED4 80 MOV:G.W @(-300,R3),R0: 3333  ASL: B8 80 (@-R0)
+          0 :                    ;;;   jmp-d8     11 E0 FB   JMP @(-5,R0): 600D           ASL rejects, GAS d=0
+          0 :                    ;;;   jmp-d16    11 F0 00CE JMP @(206,R0): 600D          GAS d=0
+          0 :                    ;;;   jsr-d8     11 E8 FC   JSR @(-4,R0): 600D           ASL rejects, GAS d=0
+          0 :                    ;;;   jsr-d16    11 F8 FF30 JSR @(-208,R0): 600D         ASL rejects, GAS d=0
+          0 :                    ;;;   mov-imm8w  D9 06 80   #H'80:8 to a word, sign      ASL emits it, libasm
+          0 :                    ;;;                         extended (2.2.24 note 3):    can't; 0080 zero
+          0 :                    ;;;                         FF80                         extended, 8000 word
+          0 :                    ;;;   cmp-imm8w  D9 04 80   CMP.W #H'80:8 with FF80:     ASL rejects: data
+          0 :                    ;;;                         Z (0004) if sign extended;   length follows Sz,
+          0 :                    ;;;                         0000 if 4 bytes, data 8000;  as the CMP format
+          0 :                    ;;;                         N (0008) if zero extended    footnote reads
+          0 :                    ;;;   cmp-g      04 55 70   CMP:G.B #H'55,R0 with 54: NC -
+          0 :                    ;;;   cmp-g-ead  A0 04 55   GAS's CMP:G.B #H'55,R0: an   GAS's CMP:G form
+          0 :                    ;;;                         invalid instruction (Table
+          0 :                    ;;;                         2-10 (a)), taken once
+          0 :                    ;;;   cmp-e-i    40 55      CMP:E then CMP:I 48: Z, Z    GAS: 48 55 for CMP:E
+          0 :                    ;;;   rtd-8      14 04      RTD #4: SP+4                 -
+          0 :                    ;;;   rtd-16     1C 01 04   RTD #H'104: SP+104           GAS: 14 01 04
+          0 :                    ;;;   bcc-d16    36 00 CB   BNE d:16: 600D               GAS crashes
+          0 :                    ;;;   stm-order  12 0F      R0 at the lowest address     -
+          0 :                    ;;;   stm-r7     12 81      pushes R7-2: FFFE            -
+          0 :                    ;;;   ldm-r7     02 81      skips R7's slot, SP back: 0  -
+          0 :                    ;;;   trap-sr/cp/pc         SR 0708, CP 00, PC less the  -
+          0 :                    ;;;                         return address 0000
+          0 :                    ;;;                         (Hardware Manual Table 4-3)
+          0 :                    ;;;   aa8-br     68 40      @H'40:8 is BR:40: BEEF       -
+          0 :                    ;;;   invalid-0b 0B         an invalid instruction, once -
+          0 :                    ;;;   invalid-pc            stacked PC less the probe's address: "not
+          0 :                    ;;;                         necessarily" the first byte, so unknown
+          0 :                            include "h8500.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :                            cpu     h8/500
+(1)       0 :                            .maxmode on
+(1)       0 :                    ;;; Status register
+(1)       0 : =8000              SR_T:           equ     $8000           ; Trace
+(1)       0 : =700               SR_I_gm:        equ     $0700           ; Interrupt mask
+(1)       0 : =8                 CCR_N:          equ     %1000           ; Negative
+(1)       0 : =4                 CCR_Z:          equ     %0100           ; Zero
+(1)       0 : =2                 CCR_V:          equ     %0010           ; Overflow
+(1)       0 : =1                 CCR_C:          equ     %0001           ; Carry
+(1)       0 :                    ;;; Exception vectors in maximum mode (Programming Manual Table 3-2):
+(1)       0 :                    ;;; a word whose low byte is CP, then PC
+(1)       0 : =0                 VEC_RESET:      equ     $0000
+(1)       0 : =8                 VEC_INVALID:    equ     $0008           ; Invalid instruction
+(1)       0 : =C                 VEC_ZERODIV:    equ     $000C           ; DIVXU by zero
+(1)       0 : =10                VEC_TRAPVS:     equ     $0010           ; TRAP/VS
+(1)       0 : =20                VEC_ADDRERR:    equ     $0020           ; Address error
+(1)       0 : =24                VEC_TRACE:      equ     $0024
+(1)       0 : =2C                VEC_NMI:        equ     $002C
+(1)       0 : =40                VEC_TRAPA0:     equ     $0040
+(1)       0 : =7C                VEC_TRAPA15:    equ     $007C
+(1)       0 : =80                VEC_IRQ0:       equ     $0080
+(1)       0 :                    ;;; Interrupt priority register A, at the same address on every chip
+(1)       0 : =FF00              IPRA:           equ     $FF00
+(1)       0 : =70                IPRA_IRQ0_gm:   equ     %01110000       ; IRQ0 priority level
+(1)       0 : =10                IPRA_IRQ0_1_gc: equ     %00010000       ; level 1
+          0 :
+          0 :                    ;;; MC6850 Asynchronous Communication Interface Adapter
+          0 : =F000              ACIA:   equ     $F000
+          0 :                            include "../mc6800/mc6850.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :
+(1)       0 :                    ;;; MC6850
+(1)       0 :                    ;;; Asynchronous Communication Interface Adapter
+(1)       0 :
+(1)       0 :                    ;;; Control register (write)
+(1)       0 : =F000              ACIA_control:   equ     ACIA+0
+(1)       0 :                            ;; Counter Divider Select Bits
+(1)       0 : =3                 CDS_gm:         equ     %11    ; Group mask
+(1)       0 : =0                 CDS_DIV1_gc:    equ     %00000000 ; /1
+(1)       0 : =1                 CDS_DIV16_gc:   equ     %00000001 ; /16
+(1)       0 : =2                 CDS_DIV64_gc:   equ     %00000010 ; /64
+(1)       0 : =3                 CDS_RESET_gc:   equ     %00000011 ; Master Reset
+(1)       0 :                            ;; Word Select Bits
+(1)       0 : =1C                WSB_gm:         equ     %00011100 ; Group mask
+(1)       0 : =0                 WSB_7E2_gc:     equ     %00000000 ; 7 Bits + Even Parity + 2 Stop Bits
+(1)       0 : =4                 WSB_7O2_gc:     equ     %00000100 ; 7 bits + Odd Parity  + 2 Stop Bits
+(1)       0 : =8                 WSB_7E1_gc:     equ     %00001000 ; 7 bits + Even Parity + 1 Stop Bits
+(1)       0 : =C                 WSB_7O1_gc:     equ     %00001100 ; 7 bits + Odd Parity  + 1 Stop Bits
+(1)       0 : =10                WSB_8N2_gc:     equ     %00010000 ; 8 bits + No Parity   + 2 Stop Bits
+(1)       0 : =14                WSB_8N1_gc:     equ     %00010100 ; 8 bits + No Parity   + 1 Stop Bits
+(1)       0 : =18                WSB_8E1_gc:     equ     %00011000 ; 8 bits + Even Parity + 1 Stop Bits
+(1)       0 : =1C                WSB_8O1_gc:     equ     %00011100 ; 8 bits + Odd Parity  + 1 Stop Bits
+(1)       0 :                            ;; Transmit Control Bits
+(1)       0 : =60                TCB_gm:         equ     %01100000 ; Group mask
+(1)       0 : =0                 TCB_DI_gc:      equ     %00000000 ; RTS=Low,  Tx Interrupt Disabled
+(1)       0 : =20                TCB_EI_gc:      equ     %00100000 ; RTS=Low,  Tx Interrupt Enabled
+(1)       0 : =40                TCB_RTS_gc:     equ     %01000000 ; RTS=High, Tx Interrupt Disabled
+(1)       0 : =60                TCB_BREAK_gc:   equ     %01100000 ; RTS=Low,  Tx Interrupt Disabled
+(1)       0 :                                                      ; Transmit Break Level
+(1)       0 : =80                RIEB_bm:        equ     %10000000 ; Receive Interrupt Enable Bit mask
+(1)       0 :
+(1)       0 :                    ;;; Status register (read)
+(1)       0 : =F000              ACIA_status:    equ     ACIA+0
+(1)       0 : =1                 RDRF_bm:        equ     %00000001 ; Receive Data Register Full
+(1)       0 : =2                 TDRE_bm:        equ     %00000010 ; Transmit Data Register Empty
+(1)       0 : =4                 DCDF_bm:        equ     %00000100 ; Data Carrier Detect Flag
+(1)       0 : =8                 CTSF_bm:        equ     %00001000 ; Clear To Send Flag
+(1)       0 : =10                FERR_bm:        equ     %00010000 ; Frame Error Flag
+(1)       0 : =20                OVRN_bm:        equ     %00100000 ; Receiver Overrun Flag
+(1)       0 : =40                PERR_bm:        equ     %01000000 ; Parity Error Flag
+(1)       0 : =80                IRQF_bm:        equ     %10000000 ; Interrupt Request Flag
+(1)       0 :
+(1)       0 :                    ;;; Data register
+(1)       0 : =F001              ACIA_data:      equ     ACIA+1          ; Data register
+          0 :
+          0 : =1000              stack:  equ     $1000
+          0 : =3000              buffer: equ     $3000           ; scratch words, $3000-$31FF
+          0 : =3010              trap_frame:     equ     buffer+$10      ; SR, CP and PC a TRAPA #0 stacked
+          0 : =3020              invalid_pc:     equ     buffer+$20      ; PC an invalid instruction stacked
+          0 : =3022              invalid_resume: equ     buffer+$22      ; where isr_invalid returns to
+          0 : =3024              invalid_count:  equ     buffer+$24
+          0 :
+          8 :                            org     VEC_INVALID
+          8 : 00 00 14 95                .data.l isr_invalid
+          C :
+         40 :                            org     VEC_TRAPA0
+         40 : 00 00 14 5E                .data.l isr_trapa0
+         44 :
+         7C :                            org     VEC_TRAPA15
+         7C : 00 00 00 7C                .data.l VEC_TRAPA15     ; for halt to system
+         80 :
+          0 :                            org     VEC_RESET
+          0 : 00 00 10 00                .data.l initialize
+          4 :
+       1000 :                            org     $1000
+       1000 :                    initialize:
+       1000 : 04 00 8F                   ldc.b   #0, tp          ; LDC holds off interrupts for one instruction
+       1003 : 5F 10 00                   mov.w   #stack, sp
+       1006 : 04 00 8D                   ldc.b   #0, dp          ; page of @aa:16 and @R0-@R3
+       1009 : 04 00 8C                   ldc.b   #0, ep          ; page of @R4-@R5
+       100C : 15 F0 00 06 03             mov.b   #CDS_RESET_gc, @ACIA_control ; Master reset
+       1011 : 15 F0 00 06 14             mov.b   #WSB_8N1_gc, @ACIA_control   ; 8 bits + No Parity + 1 Stop Bits
+       1016 : 1E 04 1C                   bsr     check_trap      ; first: isr_invalid relies on its frame
+       1019 : 0E 1E                      bsr     check_movf
+       101B : 0E 4D                      bsr     check_movg
+       101D : 0E 67                      bsr     check_jmp
+       101F : 1E 01 56                   bsr     check_jsr
+       1022 : 1E 02 40                   bsr     check_imm8
+       1025 : 1E 02 6A                   bsr     check_cmp
+       1028 : 1E 02 B2                   bsr     check_rtd
+       102B : 1E 02 D4                   bsr     check_bcc16
+       102E : 1E 03 AD                   bsr     check_stm
+       1031 : 1E 04 74                   bsr     check_aa8
+       1034 : 1E 04 3D                   bsr     check_invalid   ; last: its stacked PC is unknown
+       1037 : 08 1F                      trapa   #15             ; halt to system
+       1039 :
+       1039 :                    ;;; MOV:F @(-2,FP) is below FP; an unsigned d:8 would read FP+254
+       1039 :                    check_movf:
+       1039 : 5E 31 00                   mov.w   #buffer+$100, r6
+       103C : 1D 30 FE 07 11 11          mov.w   #$1111, @buffer+$FE
+       1042 : 1D 31 FE 07 22 22          mov.w   #$2222, @buffer+$1FE
+       1048 : 88 FE                      mov:f.w @(-2,fp), r0
+       104A : 5A 15 07                   mov.w   #name_movf, r2
+       104D : 1E 04 68                   bsr     report
+       1050 : 50 5A                      mov.b   #$5A, r0
+       1052 : 15 30 FC 06 00             mov.b   #0, @buffer+$FC
+       1057 : 15 31 FC 06 00             mov.b   #0, @buffer+$1FC
+       105C : 90 FC                      mov:f.b r0, @(-4,fp)
+       105E : A8 13                      clr.w   r0
+       1060 : 15 30 FC 80                mov.b   @buffer+$FC:16, r0
+       1064 : 5A 15 0F                   mov.w   #name_movf_st, r2
+       1067 : 30 04 4E                   bra     report
+       106A :
+       106A :                    ;;; MOV:G @(-2,Rn) and @(-300,Rn)
+       106A :                    check_movg:
+       106A : 5B 31 00                   mov.w   #buffer+$100, r3
+       106D : EB FE 80                   mov:g.w @(-2,r3), r0
+       1070 : 5A 15 17                   mov.w   #name_movg8, r2
+       1073 : 1E 04 42                   bsr     report
+       1076 : 1D 2F D4 07 33 33          mov.w   #$3333, @buffer+$100-300
+       107C : FB FE D4 80                mov:g.w @(-300,r3), r0
+       1080 : 5A 15 1F                   mov.w   #name_movg16, r2
+       1083 : 30 04 32                   bra     report
+       1086 :
+       1086 :                    ;;; JMP @(d:8,Rn) and @(d:16,Rn); a dropped displacement lands on the
+       1086 :                    ;;; R0 address, *_bad
+       1086 :                    check_jmp:
+       1086 : 58 10 91                   mov.w   #jmp8_bad, r0
+       1089 : 11 E0 FB                   jmp     @(jmp8_target-jmp8_bad,r0)
+       108C :                    jmp8_target:
+       108C : 58 60 0D                   mov.w   #$600D, r0
+       108F : 20 03                      bra     jmp8_report
+       1091 :                    jmp8_bad:
+       1091 : 58 BA D0                   mov.w   #$BAD0, r0
+       1094 :                    jmp8_report:
+       1094 : 5A 15 28                   mov.w   #name_jmp8, r2
+       1097 : 1E 04 1E                   bsr     report
+       109A : 58 10 A1                   mov.w   #jmp16_bad, r0
+       109D : 11 F0 00 CE                jmp     @(jmp16_target-jmp16_bad,r0)
+       10A1 :                    jmp16_bad:
+       10A1 : 58 BA D1                   mov.w   #$BAD1, r0
+       10A4 : 30 00 CB                   bra     jmp16_report
+       10A7 :                            .res.b  200
+       116F :                    jmp16_target:
+       116F : 58 60 0D                   mov.w   #$600D, r0
+       1172 :                    jmp16_report:
+       1172 : 5A 15 2F                   mov.w   #name_jmp16, r2
+       1175 : 30 03 40                   bra     report
+       1178 :
+       1178 :                    ;;; JSR @(d:8,Rn) and @(d:16,Rn), both negative
+       1178 :                    check_jsr:
+       1178 : 58 12 61                   mov.w   #jsr_bad, r0
+       117B : 11 E8 FC                   jsr     @(jsr8_target-jsr_bad,r0)
+       117E : 5A 15 37                   mov.w   #name_jsr8, r2
+       1181 : 1E 03 34                   bsr     report
+       1184 : 58 12 61                   mov.w   #jsr_bad, r0
+       1187 : 11 F8 FF 30                jsr     @(jsr16_target-jsr_bad,r0)
+       118B : 5A 15 3E                   mov.w   #name_jsr16, r2
+       118E : 30 03 27                   bra     report
+       1191 :                    jsr16_target:
+       1191 : 58 60 0D                   mov.w   #$600D, r0
+       1194 : 19                         rts
+       1195 :                            .res.b  200
+       125D :                    jsr8_target:
+       125D : 58 60 0D                   mov.w   #$600D, r0
+       1260 : 19                         rts
+       1261 :                    jsr_bad:
+       1261 : 58 BA D2                   mov.w   #$BAD2, r0
+       1264 : 19                         rts
+       1265 :
+       1265 :                    ;;; 8-bit immediate data with a word EA is sign extended (Programming
+       1265 :                    ;;; Manual 2.2.24 note 3 for MOV; CMP has no such note). libasm can't emit
+       1265 :                    ;;; these, so they are bytes; the NOP after each absorbs a second data byte
+       1265 :                    ;;; if the chip takes the data length from Sz instead.
+       1265 :                    check_imm8:
+       1265 : 59 30 00                   mov.w   #buffer, r1
+       1268 : D9 07 00 00                mov.w   #0, @r1
+       126C : D9 06 80                   .data.b $D9, $06, $80   ; MOV:G.W #H'80:8, @R1
+       126F : 00                         nop
+       1270 : D9 80                      mov.w   @r1, r0
+       1272 : 5A 15 46                   mov.w   #name_mov_imm8, r2
+       1275 : 1E 02 40                   bsr     report
+       1278 : 59 30 00                   mov.w   #buffer, r1
+       127B : D9 07 FF 80                mov.w   #$FF80, @r1
+       127F : AB 13                      clr.w   r3
+       1281 : D9 04 80                   .data.b $D9, $04, $80   ; CMP:G.W #H'80:8, @R1
+       1284 : 00                         nop
+       1285 : A3 99                      stc.b   ccr, r3
+       1287 : 04 0F 53                   and.b   #$0F, r3
+       128A : AB 80                      mov.w   r3, r0
+       128C : 5A 15 50                   mov.w   #name_cmp_imm8, r2
+       128F : 30 02 26                   bra     report
+       1292 :
+       1292 :                    ;;; CMP:G #xx,Rd: ASL and libasm use the EA-source form (EA=#xx, CMP Rd),
+       1292 :                    ;;; h8500-hms-as the EA-destination one, which Table 2-10 (a) lists as an
+       1292 :                    ;;; invalid instruction (Rn with operation code H'04). CMP:E is 40 and
+       1292 :                    ;;; CMP:I 48.
+       1292 :                    check_cmp:
+       1292 : AB 13                      clr.w   r3
+       1294 : 58 00 54                   mov.w   #$0054, r0
+       1297 : 04 55 70                   cmp:g.b #$55, r0        ; 04 55 70
+       129A : A3 99                      stc.b   ccr, r3
+       129C : 04 0F 53                   and.b   #$0F, r3
+       129F : AB 80                      mov.w   r3, r0
+       12A1 : 5A 15 5A                   mov.w   #name_cmp_g, r2
+       12A4 : 1E 02 11                   bsr     report
+       12A7 : 1D 30 24 13                clr.w   @invalid_count
+       12AB : 1D 30 22 07 12 B7          mov.w   #cmp_g_resume, @invalid_resume
+       12B1 : 58 00 55                   mov.w   #$0055, r0
+       12B4 : A0 04 55                   .data.b $A0, $04, $55   ; CMP:G.B #H'55, R0, EA-destination form
+       12B7 :                    cmp_g_resume:
+       12B7 : 1D 30 24 80                mov.w   @invalid_count:16, r0
+       12BB : 5A 15 60                   mov.w   #name_cmp_g_ead, r2
+       12BE : 1E 01 F7                   bsr     report
+       12C1 : AB 13                      clr.w   r3
+       12C3 : 58 12 55                   mov.w   #$1255, r0
+       12C6 : 40 55                      cmp:e   #$55, r0        ; byte
+       12C8 : A3 99                      stc.b   ccr, r3
+       12CA : A3 10                      swap    r3
+       12CC : 48 12 55                   cmp:i   #$1255, r0      ; word
+       12CF : A3 99                      stc.b   ccr, r3
+       12D1 : 0C 0F 0F 53                and.w   #$0F0F, r3
+       12D5 : AB 80                      mov.w   r3, r0
+       12D7 : 5A 15 6A                   mov.w   #name_cmp_ei, r2
+       12DA : 30 01 DB                   bra     report
+       12DD :
+       12DD :                    ;;; RTD #xx:8 (14) and RTD #xx:16 (1C) drop the arguments after returning
+       12DD :                    check_rtd:
+       12DD : AF 84                      mov.w   sp, r4
+       12DF : 0E 1C                      bsr     rtd8
+       12E1 : AF 80                      mov.w   sp, r0
+       12E3 : AC 30                      sub.w   r4, r0
+       12E5 : AC 87                      mov.w   r4, sp
+       12E7 : 5A 15 72                   mov.w   #name_rtd8, r2
+       12EA : 1E 01 CB                   bsr     report
+       12ED : AF 84                      mov.w   sp, r4
+       12EF : 0E 0E                      bsr     rtd16
+       12F1 : AF 80                      mov.w   sp, r0
+       12F3 : AC 30                      sub.w   r4, r0
+       12F5 : AC 87                      mov.w   r4, sp
+       12F7 : 5A 15 78                   mov.w   #name_rtd16, r2
+       12FA : 30 01 BB                   bra     report
+       12FD :                    rtd8:
+       12FD : 14 04                      rtd     #4
+       12FF :                    rtd16:
+       12FF : 1C 01 04                   rtd     #$0104
+       1302 :
+       1302 :                    ;;; Bcc d:16 (3x); the short form can't reach
+       1302 :                    check_bcc16:
+       1302 : 58 BA D0                   mov.w   #$BAD0, r0
+       1305 : A8 16                      tst.w   r0
+       1307 : 36 00 CB                   bne     bcc16_target
+       130A : 30 00 CB                   bra     bcc16_report
+       130D :                            .res.b  200
+       13D5 :                    bcc16_target:
+       13D5 : 58 60 0D                   mov.w   #$600D, r0
+       13D8 :                    bcc16_report:
+       13D8 : 5A 15 7F                   mov.w   #name_bcc16, r2
+       13DB : 30 00 DA                   bra     report
+       13DE :
+       13DE :                    ;;; STM pushes R0 at the lowest address; with R7 in the list it pushes
+       13DE :                    ;;; R7-2, and LDM only reads past R7's slot
+       13DE :                    check_stm:
+       13DE : AF 84                      mov.w   sp, r4
+       13E0 : 58 00 00                   mov.w   #0, r0
+       13E3 : 59 00 01                   mov.w   #1, r1
+       13E6 : 5A 00 02                   mov.w   #2, r2
+       13E9 : 5B 00 03                   mov.w   #3, r3
+       13EC : 12 0F                      stm     (r0-r3), @-sp
+       13EE : EF 00 80                   mov.w   @(0,sp), r0
+       13F1 : A8 1A                      shll.w  r0
+       13F3 : A8 1A                      shll.w  r0
+       13F5 : A8 1A                      shll.w  r0
+       13F7 : A8 1A                      shll.w  r0
+       13F9 : EF 02 40                   or.w    @(2,sp), r0
+       13FC : A8 1A                      shll.w  r0
+       13FE : A8 1A                      shll.w  r0
+       1400 : A8 1A                      shll.w  r0
+       1402 : A8 1A                      shll.w  r0
+       1404 : EF 04 40                   or.w    @(4,sp), r0
+       1407 : A8 1A                      shll.w  r0
+       1409 : A8 1A                      shll.w  r0
+       140B : A8 1A                      shll.w  r0
+       140D : A8 1A                      shll.w  r0
+       140F : EF 06 40                   or.w    @(6,sp), r0
+       1412 : AC 87                      mov.w   r4, sp
+       1414 : 5A 15 87                   mov.w   #name_stm, r2
+       1417 : 1E 00 9E                   bsr     report
+       141A : 12 81                      stm     (r0,r7), @-sp
+       141C : EF 02 80                   mov.w   @(2,sp), r0     ; R7's slot
+       141F : AC 30                      sub.w   r4, r0
+       1421 : 5A 15 91                   mov.w   #name_stm_r7, r2
+       1424 : 1E 00 91                   bsr     report
+       1427 : 02 81                      ldm     @sp+, (r0,r7)
+       1429 : AF 80                      mov.w   sp, r0
+       142B : AC 30                      sub.w   r4, r0
+       142D : AC 87                      mov.w   r4, sp
+       142F : 5A 15 98                   mov.w   #name_ldm_r7, r2
+       1432 : 30 00 83                   bra     report
+       1435 :
+       1435 :                    ;;; A trap stacks SR, a word holding CP, then PC (Hardware Manual Table 4-3)
+       1435 :                    check_trap:
+       1435 : 0C 07 08 88                ldc.w   #$0700|CCR_N, sr
+       1439 : 08 10                      trapa   #0
+       143B :                    trap_next:
+       143B : 1D 30 10 80                mov.w   @trap_frame+0:16, r0
+       143F : 5A 15 9F                   mov.w   #name_trap_sr, r2
+       1442 : 0E 74                      bsr     report
+       1444 : 1D 30 12 80                mov.w   @trap_frame+2:16, r0
+       1448 : 0C 00 FF 50                and.w   #$00FF, r0      ; the upper byte is "don't care"
+       144C : 5A 15 A7                   mov.w   #name_trap_cp, r2
+       144F : 0E 67                      bsr     report
+       1451 : 1D 30 14 80                mov.w   @trap_frame+4:16, r0
+       1455 : 0C 14 3B 30                sub.w   #trap_next, r0
+       1459 : 5A 15 AF                   mov.w   #name_trap_pc, r2
+       145C : 20 5A                      bra     report
+       145E :                    isr_trapa0:
+       145E : EF 00 80                   mov.w   @(0,sp), r0
+       1461 : 1D 30 10 90                mov.w   r0, @trap_frame+0:16
+       1465 : EF 02 80                   mov.w   @(2,sp), r0
+       1468 : 1D 30 12 90                mov.w   r0, @trap_frame+2:16
+       146C : EF 04 80                   mov.w   @(4,sp), r0
+       146F : 1D 30 14 90                mov.w   r0, @trap_frame+4:16
+       1473 : 0A                         rte
+       1474 :
+       1474 :                    ;;; H'0B is an invalid instruction; the PC it stacks "is not necessarily
+       1474 :                    ;;; the address of the first byte" (Hardware Manual Table 4-3)
+       1474 :                    check_invalid:
+       1474 : 1D 30 24 13                clr.w   @invalid_count
+       1478 : 1D 30 22 07 14 7F          mov.w   #invalid_next, @invalid_resume
+       147E :                    invalid_insn:
+       147E : 0B                         .data.b $0B
+       147F :                    invalid_next:
+       147F : 1D 30 24 80                mov.w   @invalid_count:16, r0
+       1483 : 5A 15 B7                   mov.w   #name_invalid, r2
+       1486 : 0E 30                      bsr     report
+       1488 : 1D 30 20 80                mov.w   @invalid_pc:16, r0
+       148C : 0C 14 7E 30                sub.w   #invalid_insn, r0
+       1490 : 5A 15 C2                   mov.w   #name_invalid_pc, r2
+       1493 : 20 23                      bra     report
+       1495 :                    isr_invalid:
+       1495 : 1D 30 24 08                add.w   #1, @invalid_count
+       1499 : EF 04 80                   mov.w   @(4,sp), r0
+       149C : 1D 30 20 90                mov.w   r0, @invalid_pc:16
+       14A0 : 1D 30 22 80                mov.w   @invalid_resume:16, r0
+       14A4 : EF 04 90                   mov.w   r0, @(4,sp)
+       14A7 : 0A                         rte
+       14A8 :
+       14A8 :                    ;;; @aa:8 is BR:aa in page 0
+       14A8 :                    check_aa8:
+       14A8 : 1D 30 40 07 BE EF          mov.w   #$BEEF, @buffer+$40
+       14AE : 04 30 8B                   ldc.b   #buffer>>8, br
+       14B1 : 68 40                      mov:l.w @$40:8, r0
+       14B3 : 5A 15 CD                   mov.w   #name_aa8, r2
+       14B6 : 20 00                      bra     report
+       14B8 :
+       14B8 :                    ;;; Print "name value"
+       14B8 :                    ;;; @param R2 name
+       14B8 :                    ;;; @param R0 value
+       14B8 :                    ;;; @clobber R0 R2
+       14B8 :                    report:
+       14B8 : BF 90                      mov.w   r0, @-sp
+       14BA : 0E 0A                      bsr     puts
+       14BC : 50 20                      mov.b   #" ", r0
+       14BE : 0E 3C                      bsr     putchar
+       14C0 : CF 80                      mov.w   @sp+, r0
+       14C2 : 0E 0B                      bsr     put_hex16
+       14C4 : 20 30                      bra     newline
+       14C6 :
+       14C6 :                    ;;; Print a NUL-terminated string
+       14C6 :                    ;;; @param R2 string
+       14C6 :                    ;;; @clobber R0 R2
+       14C6 :                    puts:
+       14C6 : C2 80                      mov.b   @r2+, r0
+       14C8 : 27 04                      beq     puts_end
+       14CA : 0E 30                      bsr     putchar
+       14CC : 20 F8                      bra     puts
+       14CE :                    puts_end:
+       14CE : 19                         rts
+       14CF :
+       14CF :                    ;;; Print uint16_t in hex
+       14CF :                    ;;; @param R0 value
+       14CF :                    ;;; @clobber R0
+       14CF :                    put_hex16:
+       14CF : BF 90                      mov.w   r0, @-sp
+       14D1 : A0 10                      swap    r0
+       14D3 : 0E 02                      bsr     put_hex8
+       14D5 : CF 80                      mov.w   @sp+, r0
+       14D7 :                    put_hex8:
+       14D7 : BF 90                      mov.w   r0, @-sp
+       14D9 : A0 1B                      shlr.b  r0
+       14DB : A0 1B                      shlr.b  r0
+       14DD : A0 1B                      shlr.b  r0
+       14DF : A0 1B                      shlr.b  r0
+       14E1 : 0E 02                      bsr     put_hex4
+       14E3 : CF 80                      mov.w   @sp+, r0
+       14E5 :                    put_hex4:
+       14E5 : 04 0F 50                   and.b   #$0F, r0
+       14E8 : 40 0A                      cmp.b   #10, r0
+       14EA : 25 05                      blo     put_hex4_dec
+       14EC : 04 37 20                   add.b   #"A"-10, r0
+       14EF : 20 0B                      bra     putchar
+       14F1 :                    put_hex4_dec:
+       14F1 : 04 30 20                   add.b   #"0", r0
+       14F4 : 20 06                      bra     putchar
+       14F6 :
+       14F6 :                    newline:
+       14F6 : 50 0D                      mov.b   #$0D, r0
+       14F8 : 0E 02                      bsr     putchar
+       14FA : 50 0A                      mov.b   #$0A, r0
+       14FC :                    putchar:
+       14FC : 15 F0 00 F1                btst.b  #1, @ACIA_status        ; TDRE
+       1500 : 27 FA                      beq     putchar
+       1502 : 15 F0 01 90                mov.b   r0, @ACIA_data:16
+       1506 : 19                         rts
+       1507 :
+       1507 : 6D 6F 76 66 2D 6C  name_movf:      .sdata  "movf-ld"
+       150D : 64
+       150E : 00                                 .data.b 0
+       150F : 6D 6F 76 66 2D 73  name_movf_st:   .sdata  "movf-st"
+       1515 : 74
+       1516 : 00                                 .data.b 0
+       1517 : 6D 6F 76 67 2D 64  name_movg8:     .sdata  "movg-d8"
+       151D : 38
+       151E : 00                                 .data.b 0
+       151F : 6D 6F 76 67 2D 64  name_movg16:    .sdata  "movg-d16"
+       1525 : 31 36
+       1527 : 00                                 .data.b 0
+       1528 : 6A 6D 70 2D 64 38  name_jmp8:      .sdata  "jmp-d8"
+       152E : 00                                 .data.b 0
+       152F : 6A 6D 70 2D 64 31  name_jmp16:     .sdata  "jmp-d16"
+       1535 : 36
+       1536 : 00                                 .data.b 0
+       1537 : 6A 73 72 2D 64 38  name_jsr8:      .sdata  "jsr-d8"
+       153D : 00                                 .data.b 0
+       153E : 6A 73 72 2D 64 31  name_jsr16:     .sdata  "jsr-d16"
+       1544 : 36
+       1545 : 00                                 .data.b 0
+       1546 : 6D 6F 76 2D 69 6D  name_mov_imm8:  .sdata  "mov-imm8w"
+       154C : 6D 38 77
+       154F : 00                                 .data.b 0
+       1550 : 63 6D 70 2D 69 6D  name_cmp_imm8:  .sdata  "cmp-imm8w"
+       1556 : 6D 38 77
+       1559 : 00                                 .data.b 0
+       155A : 63 6D 70 2D 67     name_cmp_g:     .sdata  "cmp-g"
+       155F : 00                                 .data.b 0
+       1560 : 63 6D 70 2D 67 2D  name_cmp_g_ead: .sdata  "cmp-g-ead"
+       1566 : 65 61 64
+       1569 : 00                                 .data.b 0
+       156A : 63 6D 70 2D 65 2D  name_cmp_ei:    .sdata  "cmp-e-i"
+       1570 : 69
+       1571 : 00                                 .data.b 0
+       1572 : 72 74 64 2D 38     name_rtd8:      .sdata  "rtd-8"
+       1577 : 00                                 .data.b 0
+       1578 : 72 74 64 2D 31 36  name_rtd16:     .sdata  "rtd-16"
+       157E : 00                                 .data.b 0
+       157F : 62 63 63 2D 64 31  name_bcc16:     .sdata  "bcc-d16"
+       1585 : 36
+       1586 : 00                                 .data.b 0
+       1587 : 73 74 6D 2D 6F 72  name_stm:       .sdata  "stm-order"
+       158D : 64 65 72
+       1590 : 00                                 .data.b 0
+       1591 : 73 74 6D 2D 72 37  name_stm_r7:    .sdata  "stm-r7"
+       1597 : 00                                 .data.b 0
+       1598 : 6C 64 6D 2D 72 37  name_ldm_r7:    .sdata  "ldm-r7"
+       159E : 00                                 .data.b 0
+       159F : 74 72 61 70 2D 73  name_trap_sr:   .sdata  "trap-sr"
+       15A5 : 72
+       15A6 : 00                                 .data.b 0
+       15A7 : 74 72 61 70 2D 63  name_trap_cp:   .sdata  "trap-cp"
+       15AD : 70
+       15AE : 00                                 .data.b 0
+       15AF : 74 72 61 70 2D 70  name_trap_pc:   .sdata  "trap-pc"
+       15B5 : 63
+       15B6 : 00                                 .data.b 0
+       15B7 : 69 6E 76 61 6C 69  name_invalid:   .sdata  "invalid-0b"
+       15BD : 64 2D 30 62
+       15C1 : 00                                 .data.b 0
+       15C2 : 69 6E 76 61 6C 69  name_invalid_pc: .sdata "invalid-pc"
+       15C8 : 64 2D 70 63
+       15CC : 00                                 .data.b 0
+       15CD : 61 61 38 2D 62 72  name_aa8:       .sdata  "aa8-br"
+       15D3 : 00                                 .data.b 0
