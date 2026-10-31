@@ -94,7 +94,8 @@ report several parts.
 <tr><td><code>ins8060</code></td><td><code>ins8060</code></td><td>✅</td><td><code>INS8060</code></td><td></td><td>SC/MP II</td></tr>
 <tr><td><code>ins8070</code></td><td><code>ins8070</code></td><td>✅</td><td><code>INS8070</code></td><td></td><td>SC/MP III</td></tr>
 <tr><td><code>scn2650</code></td><td><code>scn2650</code></td><td>✅</td><td><code>SCN2650</code></td><td></td><td></td></tr>
-<tr><td><code>ns32000</code></td><td></td><td>🚧</td><td><code>NS32016</code></td><td></td><td><code>NS32016D-10</code>, <code>NS32016N10</code></td></tr>
+<tr><td rowspan="2"><code>ns32000</code></td><td rowspan="2"><code>ns32016</code></td><td>🚧</td><td><code>NS32016</code></td><td></td><td><code>NS32016D-10</code>, <code>NS32016N10</code>; debugger drafted, not yet run on a board</td></tr>
+<tr><td>🚧</td><td><code>NS32081</code></td><td></td><td>The NS32016 with an <code>NS32081D-10</code> FPU</td></tr>
 <tr><td><code>tlcs90</code></td><td><code>tlcs90</code></td><td>✅</td><td><code>TMP90C802</code></td><td><code>TMP90P802</code></td><td></td></tr>
 <tr><td rowspan="4"><code>tlcs900</code></td><td rowspan="4"></td><td>🚧</td><td><code>TLCS-900</code></td><td></td><td><code>TMP96C041AF</code></td></tr>
 <tr><td>🚧</td><td><code>TLCS-900/H</code></td><td></td><td><code>TMP95C061BF</code></td></tr>
