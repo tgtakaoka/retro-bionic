@@ -100,7 +100,7 @@ report several parts.
 <tr><td>🚧</td><td><code>TLCS-900/H</code></td><td></td><td><code>TMP95C061BF</code></td></tr>
 <tr><td>🚧</td><td><code>TLCS-900/H2</code></td><td></td><td><code>TMP94C251AFG</code></td></tr>
 <tr><td>🚧</td><td><code>TLCS-900/L</code></td><td></td><td><code>TMP93CS32FG</code></td></tr>
-<tr><td rowspan="4"><code>h8300</code></td><td rowspan="4"></td><td>🚧</td><td><code>H8/300</code></td><td></td><td>No part in hand yet</td></tr>
+<tr><td rowspan="4"><code>h8300</code></td><td rowspan="4"><code>h8300</code></td><td>✅</td><td><code>H8/323</code></td><td></td><td><code>HD6413238F10</code>; clock runs free, every cycle held by <code>#WAIT</code>; unbenched</td></tr>
 <tr><td>🚧</td><td><code>H8/300H</code></td><td></td><td><code>HD6413002F16</code>, <code>HD6433048F16</code></td></tr>
 <tr><td>🚧</td><td><code>H8S/2000</code></td><td></td><td><code>HD64F2148FA20V</code></td></tr>
 <tr><td>🚧</td><td><code>H8S/2600</code></td><td></td><td><code>HD64F2633F25V</code></td></tr>

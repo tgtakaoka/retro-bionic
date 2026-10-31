@@ -1,0 +1,127 @@
+          0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+          0 :                            include "hd6413238.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :                    ;;; HD6413238 (H8/323) in mode 1: H8/325 Series Hardware Manual
+(1)       0 :                            include "h8300.inc"
+(2)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(2)       0 :                            cpu     h8/300
+(2)       0 :                    ;;; Condition code register
+(2)       0 : =80                CCR_I:          equ     %10000000       ; Interrupt mask
+(2)       0 : =20                CCR_H:          equ     %00100000       ; Half carry
+(2)       0 : =8                 CCR_N:          equ     %00001000       ; Negative
+(2)       0 : =4                 CCR_Z:          equ     %00000100       ; Zero
+(2)       0 : =2                 CCR_V:          equ     %00000010       ; Overflow
+(2)       0 : =1                 CCR_C:          equ     %00000001       ; Carry
+(2)       0 :
+(2)       0 :                    ;;; Local Variables:
+(2)       0 :                    ;;; mode: asm
+(2)       0 :                    ;;; End:
+(2)       0 :                    ;;; vim: set ft=asm et ts=4 sw=4:
+(1)       0 :                    ;;; Exception vectors (Table 4-2): one word each, the handler's address
+(1)       0 : =0                 VEC_RESET:      equ     $0000
+(1)       0 : =4                 VEC_HALT:       equ     $0004   ; reserved; JSR @@VEC_HALT halts to system
+(1)       0 : =6                 VEC_NMI:        equ     $0006
+(1)       0 : =8                 VEC_IRQ0:       equ     $0008
+(1)       0 : =A                 VEC_IRQ1:       equ     $000A
+(1)       0 : =C                 VEC_IRQ2:       equ     $000C
+(1)       0 : =24                VEC_ERI0:       equ     $0024   ; SCI0 receive error
+(1)       0 : =26                VEC_RXI0:       equ     $0026   ; SCI0 receive end
+(1)       0 : =28                VEC_TXI0:       equ     $0028   ; SCI0 transmit end
+(1)       0 :                    ;;; System control
+(1)       0 : =FFC4              SYSCR:          equ     $FFC4
+(1)       0 : =0                 SYSCR_RAME_bp:  equ     0               ; on-chip RAM enable
+(1)       0 : =FFC6              ISCR:           equ     $FFC6           ; IRQ sense control
+(1)       0 : =FFC7              IER:            equ     $FFC7           ; IRQ enable
+(1)       0 : =0                 IER_IRQ0E_bp:   equ     0
+(1)       0 :                    ;;; Serial communication interface 0 (Table 9-2)
+(1)       0 : =FFD8              SMR0:           equ     $FFD8           ; serial mode
+(1)       0 : =FFD9              BRR0:           equ     $FFD9           ; bit rate
+(1)       0 : =FFDA              SCR0:           equ     $FFDA           ; serial control
+(1)       0 : =FFDB              TDR0:           equ     $FFDB           ; transmit data
+(1)       0 : =FFDC              SSR0:           equ     $FFDC           ; serial status
+(1)       0 : =FFDD              RDR0:           equ     $FFDD           ; receive data
+(1)       0 : =7                 SCR_TIE_bp:     equ     7               ; transmit interrupt enable
+(1)       0 : =6                 SCR_RIE_bp:     equ     6               ; receive interrupt enable
+(1)       0 : =5                 SCR_TE_bp:      equ     5               ; transmit enable
+(1)       0 : =4                 SCR_RE_bp:      equ     4               ; receive enable
+(1)       0 : =7                 SSR_TDRE_bp:    equ     7               ; transmit data register empty
+(1)       0 : =6                 SSR_RDRF_bp:    equ     6               ; receive data register full
+(1)       0 : =5                 SSR_ORER_bp:    equ     5               ; overrun error
+(1)       0 : =4                 SSR_FER_bp:     equ     4               ; framing error
+(1)       0 : =3                 SSR_PER_bp:     equ     3               ; parity error
+(1)       0 :                    ;;; 8 bits, no parity, 1 stop bit, from ø: a bit is 32 x (BRR + 1) ø
+(1)       0 :                    ;;; clocks, which the debugger's SCI handler counts.
+(1)       0 : =0                 SMR_8N1:        equ     0
+(1)       0 : =C                 BRR_VALUE:      equ     12
+(1)       0 :
+(1)       0 :                    ;;; Local Variables:
+(1)       0 :                    ;;; mode: asm
+(1)       0 :                    ;;; End:
+(1)       0 :                    ;;; vim: set ft=asm et ts=4 sw=4:
+          0 :
+          0 : =1000              stack:  equ     $1000
+          0 :
+          0 :                            org     VEC_RESET
+          0 : 1000                       .data.w initialize
+          2 :
+       1000 :                            org     $1000
+       1000 :                    initialize:
+       1000 : 7907 1000                  mov.w   #stack, sp
+       1004 :                            ;; SCI0: 8 bits, no parity, 1 stop bit, from ø
+       1004 : F800                       mov.b   #SMR_8N1, r0l
+       1006 : 38D8                       mov.b   r0l, @SMR0:8
+       1008 : F80C                       mov.b   #BRR_VALUE, r0l
+       100A : 38D9                       mov.b   r0l, @BRR0:8
+       100C :                            ;; at least a bit's time before enabling (9.3.2): 32 x (BRR + 1) ø,
+       100C :                            ;; and an iteration takes 18 states or more
+       100C : F81A                       mov.b   #(BRR_VALUE+1)*2, r0l
+       100E :                    init_wait:
+       100E : 1A08                       dec.b   r0l
+       1010 : 46FC                       bne     init_wait
+       1012 : F830                       mov.b   #(1<<SCR_TE_bp)|(1<<SCR_RE_bp), r0l
+       1014 : 38DA                       mov.b   r0l, @SCR0:8    ; enable Tx and Rx
+       1016 :                            include "echo.inc"
+(1)    1016 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)    1016 :                    ;;; Echo what getchar receives; CR is echoed as CR LF. NUL halts.
+(1)    1016 :                    echo_loop:
+(1)    1016 : 5E00 1030                  jsr     @getchar
+(1)    101A : 0C88                       mov.b   r0l, r0l
+(1)    101C : 470C                       beq     echo_halt
+(1)    101E :                    echo_char:
+(1)    101E : 5E00 103E                  jsr     @putchar
+(1)    1022 : A80D                       cmp.b   #$0D, r0l
+(1)    1024 : 46F0                       bne     echo_loop
+(1)    1026 : F80A                       mov.b   #$0A, r0l
+(1)    1028 : 40F4                       bra     echo_char
+(1)    102A :                    echo_halt:
+(1)    102A : 5A00 102E                  jmp     @halt_to_system
+(1)    102E :
+(1)    102E :                    ;;; Local Variables:
+(1)    102E :                    ;;; mode: asm
+(1)    102E :                    ;;; End:
+(1)    102E :                    ;;; vim: set ft=asm et ts=4 sw=4:
+       102E :                    halt_to_system:
+       102E : 5F04                       jsr     @@VEC_HALT      ; halt to system
+       1030 :
+       1030 :                    ;;; Get character
+       1030 :                    ;;; @return R0L
+       1030 :                    getchar:
+       1030 : 7EDC 7360                  btst    #SSR_RDRF_bp, @SSR0:8
+       1034 : 47FA                       beq     getchar
+       1036 : 28DD                       mov.b   @RDR0:8, r0l
+       1038 : 7FDC 7260                  bclr    #SSR_RDRF_bp, @SSR0:8
+       103C : 5470                       rts
+       103E :
+       103E :                    ;;; Put character
+       103E :                    ;;; @param R0L
+       103E :                    putchar:
+       103E : 7EDC 7370                  btst    #SSR_TDRE_bp, @SSR0:8
+       1042 : 47FA                       beq     putchar
+       1044 : 38DB                       mov.b   r0l, @TDR0:8
+       1046 : 7FDC 7270                  bclr    #SSR_TDRE_bp, @SSR0:8
+       104A : 5470                       rts
+       104C :
+       104C :                    ;;; Local Variables:
+       104C :                    ;;; mode: asm
+       104C :                    ;;; End:
+       104C :                    ;;; vim: set ft=asm et ts=4 sw=4:

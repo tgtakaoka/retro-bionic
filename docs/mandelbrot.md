@@ -138,6 +138,7 @@ cast, 📄 the listing.
 |  cdp1802 |  cdp1802  |   CDP1802BCE   | 144.8 |   5.896 |   1.662 |   5.06&nbsp;🔨 |                          |                   [▶️](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/cdp1802/mandelbrot.cast&lst=samples/cdp1802/mandelbrot.lst "mandelbrot.cast") [📄](../samples/cdp1802/mandelbrot.lst "cdp1802/mandelbrot.lst")                   |
 |   f3850  |   f3850   |     F3850PC    | 252.6 |  10.305 |   3.175 |   1.72&nbsp;🔨 |                          |                       [▶️](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/f3850/mandelbrot.cast&lst=samples/f3850/mandelbrot.lst "mandelbrot.cast") [📄](../samples/f3850/mandelbrot.lst "f3850/mandelbrot.lst")                       |
 |  ins8060 |  ins8060  |    INS8060N    | 256.3 |  10.390 |   2.264 |  4.05&nbsp;⏱️ |                          |                   [▶️](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/ins8060/mandelbrot.cast&lst=samples/ins8060/mandelbrot.lst "mandelbrot.cast") [📄](../samples/ins8060/mandelbrot.lst "ins8060/mandelbrot.lst")                   |
+|   h8300  |   h8300   |  HD6413238F10  |     — |       — |       — |   4.00&nbsp;⏱️ |                          |                                                                                                                                                    |
 
 ## Floating point, fmandel
 

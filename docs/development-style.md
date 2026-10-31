@@ -2024,6 +2024,51 @@ landing point below is marked `ATTENTION:` in `debugger/mc68hc16/`.
   ported from: each sample's handler saves what it uses with `PSHM` and
   restores it with `PULM` before `RTI`. **[doc]**
 
+### H8/300
+
+**Pitfalls.** Unbenched: the BionicH8/323 board is not built yet. The
+HD6413238F runs in mode 1, where `#WAIT` is live from reset with no wait
+controller, so the reset vector read already waits for the Teensy. EXTAL
+runs free from FlexPWM3 (P47) and every external cycle waits in Tw, as on
+the Z180. **[doc]**
+
+- The on-chip register field (FF90-FF9F, FFB0-FFFF) is accessed with `#AS`,
+  `#RD` and `#WR` high and never shows on the bus. The on-chip RAM
+  (FD80-FF7F) is the same until SYSCR's RAME is cleared, which the reset
+  setup does, so a stack there shows. **[doc]**
+- The H8/300 has no trap instruction. The halt a sample ends with is
+  `JSR @@H'04`, whose vector is reserved. A breakpoint patches only the
+  `JSR @@aa:8` opcode, since breakpoints save one byte each, so it reads
+  its vector wherever the instruction's second byte points. The run loop
+  recognises either by that vector read right after the prefetch of the
+  two bytes past the JSR. NMI asserted there is taken at the JSR's end and
+  masks interrupts: the JSR's push gives SP, and the NMI's frame gives
+  CCR. **[code]**
+- An interrupt pushes the PC at SP-2, then CCR at SP-4, each word high
+  byte first (H8/325 Series Hardware Manual Figure 4-5). **[doc]**
+- The restore ends `LDC #ccr,CCR` then `JMP @pc`. No interrupt is
+  detected at the end of LDC, ANDC, ORC or XORC, so CCR and the PC take
+  effect together. For the same reason, stepping one of those runs the
+  next instruction too. **[doc]**
+- A step asserts NMI at the instruction's third bus cycle. The JMP that
+  ends the restore fetches the PC's word, so the instruction's own cycles
+  start there. **[code]**
+- There is no fetch status, so a run's backtrace prints the bus cycles
+  without disassembly, as on the H8/500. **[code]**
+- SCI0 is bridged to the console by a bit-banged handler. A bit is 32 x
+  (BRR + 1) ø clocks (9.2.8), and ø runs free, so the handler counts it
+  on the cycle counter. The samples set BRR to 12. **[doc][code]**
+- Shared sample programs (`samples/h8300/*.inc` except the chip's own)
+  use only H8/300 instructions, so the H8/300H and H8S can assemble them.
+  The vectors, registers and halt live in each chip's `.inc` and harness
+  `.asm`. Branches reach only ±128 bytes, so calls between includes use
+  JSR. **[code]**
+
+To check on the bench: whether NMI asserted at the third cycle stops
+after exactly one instruction; the write data's timing after `#WR` at
+the slowest ø; and whether `#WAIT` changing with no regard to ø ever
+lands at a sampling edge.
+
 ### SCN2650
 
 **Pitfalls.** A conditional branch not taken skips its indirect address
