@@ -1,0 +1,351 @@
+          0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+          0 :                            include "ns32016.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :                    ;;; NS32016
+(1)       0 :                            cpu     ns32032
+(1)       0 :
+(1)       0 :                    ;;; Processor Status Register
+(1)       0 : =1                 PSR_C:  equ     0x0001          ; Carry
+(1)       0 : =2                 PSR_T:  equ     0x0002          ; Trace
+(1)       0 : =4                 PSR_L:  equ     0x0004          ; Lower
+(1)       0 : =20                PSR_F:  equ     0x0020          ; general condition Flag
+(1)       0 : =40                PSR_Z:  equ     0x0040          ; Zero
+(1)       0 : =80                PSR_N:  equ     0x0080          ; Negative
+(1)       0 : =100               PSR_U:  equ     0x0100          ; User mode
+(1)       0 : =200               PSR_S:  equ     0x0200          ; Stack select: SP1
+(1)       0 : =400               PSR_P:  equ     0x0400          ; trace Pending
+(1)       0 : =800               PSR_I:  equ     0x0800          ; Interrupt enable
+(1)       0 :
+(1)       0 :                    ;;; Dispatch table vectors: INTBASE+4*vector holds a procedure
+(1)       0 :                    ;;; descriptor, the module descriptor's address in the low word and the
+(1)       0 :                    ;;; offset from the module's program base in the high word.
+(1)       0 : =0                 VEC_NVI:        equ     0       ; non-vectored INT
+(1)       0 : =1                 VEC_NMI:        equ     1
+(1)       0 : =2                 VEC_ABT:        equ     2
+(1)       0 : =3                 VEC_SLAVE:      equ     3       ; FPU exception
+(1)       0 : =4                 VEC_ILL:        equ     4       ; illegal operation
+(1)       0 : =5                 VEC_SVC:        equ     5
+(1)       0 : =6                 VEC_DVZ:        equ     6       ; divide by zero
+(1)       0 : =7                 VEC_FLG:        equ     7
+(1)       0 : =8                 VEC_BPT:        equ     8       ; the debugger's: halt to system
+(1)       0 : =9                 VEC_TRC:        equ     9       ; the debugger's: step
+(1)       0 : =A                 VEC_UND:        equ     10      ; undefined, an FPU instruction without CFG.F
+(1)       0 :
+(1)       0 :                    ;;; The board's MC6850 ACIA: control/status at the even byte, data at the
+(1)       0 :                    ;;; odd one.
+(1)       0 : =FFFC00            ACIA:   equ     0xFFFC00
+          0 :                            include "../mc6800/mc6850.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :
+(1)       0 :                    ;;; MC6850
+(1)       0 :                    ;;; Asynchronous Communication Interface Adapter
+(1)       0 :
+(1)       0 :                    ;;; Control register (write)
+(1)       0 : =FFFC00            ACIA_control:   equ     ACIA+0
+(1)       0 :                            ;; Counter Divider Select Bits
+(1)       0 : =3                 CDS_gm:         equ     %11    ; Group mask
+(1)       0 : =0                 CDS_DIV1_gc:    equ     %00000000 ; /1
+(1)       0 : =1                 CDS_DIV16_gc:   equ     %00000001 ; /16
+(1)       0 : =2                 CDS_DIV64_gc:   equ     %00000010 ; /64
+(1)       0 : =3                 CDS_RESET_gc:   equ     %00000011 ; Master Reset
+(1)       0 :                            ;; Word Select Bits
+(1)       0 : =1C                WSB_gm:         equ     %00011100 ; Group mask
+(1)       0 : =0                 WSB_7E2_gc:     equ     %00000000 ; 7 Bits + Even Parity + 2 Stop Bits
+(1)       0 : =4                 WSB_7O2_gc:     equ     %00000100 ; 7 bits + Odd Parity  + 2 Stop Bits
+(1)       0 : =8                 WSB_7E1_gc:     equ     %00001000 ; 7 bits + Even Parity + 1 Stop Bits
+(1)       0 : =C                 WSB_7O1_gc:     equ     %00001100 ; 7 bits + Odd Parity  + 1 Stop Bits
+(1)       0 : =10                WSB_8N2_gc:     equ     %00010000 ; 8 bits + No Parity   + 2 Stop Bits
+(1)       0 : =14                WSB_8N1_gc:     equ     %00010100 ; 8 bits + No Parity   + 1 Stop Bits
+(1)       0 : =18                WSB_8E1_gc:     equ     %00011000 ; 8 bits + Even Parity + 1 Stop Bits
+(1)       0 : =1C                WSB_8O1_gc:     equ     %00011100 ; 8 bits + Odd Parity  + 1 Stop Bits
+(1)       0 :                            ;; Transmit Control Bits
+(1)       0 : =60                TCB_gm:         equ     %01100000 ; Group mask
+(1)       0 : =0                 TCB_DI_gc:      equ     %00000000 ; RTS=Low,  Tx Interrupt Disabled
+(1)       0 : =20                TCB_EI_gc:      equ     %00100000 ; RTS=Low,  Tx Interrupt Enabled
+(1)       0 : =40                TCB_RTS_gc:     equ     %01000000 ; RTS=High, Tx Interrupt Disabled
+(1)       0 : =60                TCB_BREAK_gc:   equ     %01100000 ; RTS=Low,  Tx Interrupt Disabled
+(1)       0 :                                                      ; Transmit Break Level
+(1)       0 : =80                RIEB_bm:        equ     %10000000 ; Receive Interrupt Enable Bit mask
+(1)       0 :
+(1)       0 :                    ;;; Status register (read)
+(1)       0 : =FFFC00            ACIA_status:    equ     ACIA+0
+(1)       0 : =1                 RDRF_bm:        equ     %00000001 ; Receive Data Register Full
+(1)       0 : =2                 TDRE_bm:        equ     %00000010 ; Transmit Data Register Empty
+(1)       0 : =4                 DCDF_bm:        equ     %00000100 ; Data Carrier Detect Flag
+(1)       0 : =8                 CTSF_bm:        equ     %00001000 ; Clear To Send Flag
+(1)       0 : =10                FERR_bm:        equ     %00010000 ; Frame Error Flag
+(1)       0 : =20                OVRN_bm:        equ     %00100000 ; Receiver Overrun Flag
+(1)       0 : =40                PERR_bm:        equ     %01000000 ; Parity Error Flag
+(1)       0 : =80                IRQF_bm:        equ     %10000000 ; Interrupt Request Flag
+(1)       0 :
+(1)       0 :                    ;;; Data register
+(1)       0 : =FFFC01            ACIA_data:      equ     ACIA+1          ; Data register
+          0 :                            include "vectors.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :                    ;;; Reset starts at 0 in supervisor mode with PSR 0. The one module has
+(1)       0 :                    ;;; its program base at 0, so a procedure's offset is its address; SB
+(1)       0 :                    ;;; and the link base are unused.
+(1)       0 :                            org     0
+(1)       0 : EA 81 00                   br      init
+(1)       3 :
+(1)      10 :                            org     0x10
+(1)      10 : 00 00 00 00        module: .double 0               ; static base
+(1)      14 : 00 00 00 00                .double 0               ; link base
+(1)      18 : 00 00 00 00                .double 0               ; program base
+(1)      1C : 00 00 00 00                .double 0
+         20 :
+         20 : =1000              stack:  equ     0x1000
+         20 :
+         20 :                            org     0x20
+         20 :                    dispatch:
+         20 :                            .space  4*VEC_BPT
+         40 : 10 00 20 01                .word   module, halt_to_system ; BPT
+         44 :
+        100 :                            org     0x100
+        100 :                    init:
+        100 : EF A4 00 00 10 00          lprd    sp, stack
+        106 : 6F A7 00 00 00 20          lprd    intbase, dispatch
+        10C : ED A7 00 10                lprw    mod, module
+        110 : 0E 0B 00                   setcfg  []
+        113 : 54 A5 03 BC 00             movb    CDS_RESET_gc, @ACIA_control ; Master reset
+        118 : 54 A5 14 BC 00             movb    WSB_8N1_gc, @ACIA_control   ; 8 bits + No Parity + 1 Stop Bits
+        11D :
+        11D : 02 8E E3                   bsr     arith
+        120 :                    halt_to_system:
+        120 : F2                         bpt
+        121 :
+        121 :                    ;;; Put character
+        121 :                    ;;; @param R0
+        121 :                    putchar:
+        121 : 74 A5 01 BC 00             tbitb   1, @ACIA_status ; TDRE
+        126 : 9A 7B                      bfc     putchar
+        128 : 54 05 BC 01                movb    r0, @ACIA_data
+        12C : 12 00                      ret     0
+        12E :
+        12E :                    newline:
+        12E : 62 01                      save    [r0]
+        130 : 14 A0 0D                   movb    0x0D, r0
+        133 : 02 6E                      bsr     putchar
+        135 : 14 A0 0A                   movb    0x0A, r0
+        138 : 02 69                      bsr     putchar
+        13A : 72 80                      restore [r0]
+        13C : 12 00                      ret     0
+        13E :
+        13E :                    putspace:
+        13E : 62 01                      save    [r0]
+        140 : 14 A0 20                   movb    ' ', r0
+        143 : 02 5E                      bsr     putchar
+        145 : 72 80                      restore [r0]
+        147 : 12 00                      ret     0
+        149 :
+        149 :                    ;;; Print "v1 op v2"
+        149 :                    ;;; @param R4 v1
+        149 :                    ;;; @param R5 v2
+        149 :                    ;;; @param R0 op
+        149 :                    ;;; @return R1 v1
+        149 :                    ;;; @clobber R0
+        149 :                    expr:
+        149 : 62 01                      save    [r0]
+        14B : 55 20                      movw    r4, r1
+        14D : 02 38                      bsr     print_int16
+        14F : 02 6F                      bsr     putspace
+        151 : 72 80                      restore [r0]
+        153 : 02 4E                      bsr     putchar
+        155 : 02 69                      bsr     putspace
+        157 : 55 28                      movw    r5, r1
+        159 : 02 2C                      bsr     print_int16
+        15B : 55 20                      movw    r4, r1
+        15D : 12 00                      ret     0
+        15F :
+        15F :                    ;;; Print " = v1\n"
+        15F :                    ;;; @param R1 v1
+        15F :                    ;;; @clobber R0 R1
+        15F :                    answer:
+        15F : 02 5F                      bsr     putspace
+        161 : 14 A0 3D                   movb    '=', r0
+        164 : 02 BF BD                   bsr     putchar
+        167 : 02 57                      bsr     putspace
+        169 : 02 1C                      bsr     print_int16
+        16B : EA 43                      br      newline
+        16D :
+        16D :                    ;;; Compare and print "v1 rel v2\n"
+        16D :                    ;;; @param R4 v1
+        16D :                    ;;; @param R5 v2
+        16D :                    ;;; @clobber R0 R1
+        16D :                    comp:
+        16D : 45 21                      cmpw    r4, r5
+        16F : 0A 0E                      beq     comp_eq
+        171 : 6A 07                      bgt     comp_gt         ; v1 > v2
+        173 : 14 A0 3C                   movb    '<', r0
+        176 : EA 0A                      br      comp_out
+        178 :                    comp_gt:
+        178 : 14 A0 3E                   movb    '>', r0
+        17B : EA 05                      br      comp_out
+        17D :                    comp_eq:
+        17D : 14 A0 3D                   movb    '=', r0
+        180 :                    comp_out:
+        180 : 02 49                      bsr     expr
+        182 : EA BF AC                   br      newline
+        185 :
+        185 :                            include "arith.inc"
+(1)     185 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)     185 :
+(1)     185 :                    ;;; Print signed 16-bit integer as decimal
+(1)     185 :                    ;;; @param R1 value
+(1)     185 :                    ;;; @clobber R0 R1
+(1)     185 :                    print_int16:
+(1)     185 : CE 5D 08                   movxwd  r1, r1          ; sign-extend
+(1)     188 : 1F 08                      cmpqd   0, r1
+(1)     18A : 1A 08                      bne     print_int16_nonzero
+(1)     18C : 14 A0 30                   movb    '0', r0
+(1)     18F : EA BF 92                   br      putchar
+(1)     192 :                    print_int16_nonzero:
+(1)     192 : 1F 08                      cmpqd   0, r1
+(1)     194 : 6A 04                      bgt     print_int16_negative ; 0 > value
+(1)     196 : EA 0B                      br      print_uint16
+(1)     198 :                    print_int16_negative:
+(1)     198 : 14 A0 2D                   movb    '-', r0
+(1)     19B : 02 BF 86                   bsr     putchar
+(1)     19E : 4E 63 08                   negd    r1, r1          ; R1=-value
+(1)     1A1 :                    print_uint16:
+(1)     1A1 : 1F 08                      cmpqd   0, r1
+(1)     1A3 : 1A 04                      bne     print_uint16_digit
+(1)     1A5 : 12 00                      ret     0
+(1)     1A7 :                    print_uint16_digit:
+(1)     1A7 : 17 08                      movd    r1, r0
+(1)     1A9 : CE 37 A0 00 00 00          remd    10, r0          ; R0=value%10
+        1AF : 0A
+(1)     1B0 : CE 73 A0 00 00 00          quod    10, r1          ; R1=value/10
+        1B6 : 0A
+(1)     1B7 : D7 05                      movd    r0, tos         ; push remainder
+(1)     1B9 : 02 68                      bsr     print_uint16
+(1)     1BB : 17 B8                      movd    tos, r0         ; pop remainder
+(1)     1BD : 03 A0 00 00 00 30          addd    '0', r0
+(1)     1C3 : EA BF 5E                   br      putchar
+        1C6 :
+       1000 :                            org     0x1000
+       1000 :                    arith:
+       1000 : 15 A1 46 50                movw    18000, r4
+       1004 : 55 A1 6D 60                movw    28000, r5
+       1008 : 14 A0 2B                   movb    '+', r0
+       100B : 02 B1 3E                   bsr     expr
+       100E : 41 28                      addw    r5, r1
+       1010 : 02 B1 4F                   bsr     answer          ; -19536
+       1013 : 15 A1 46 50                movw    18000, r4
+       1017 : 55 A1 B9 B0                movw    -18000, r5
+       101B : 14 A0 2B                   movb    '+', r0
+       101E : 02 B1 2B                   bsr     expr
+       1021 : 41 28                      addw    r5, r1
+       1023 : 02 B1 3C                   bsr     answer          ; 0
+       1026 : 15 A1 B9 B0                movw    -18000, r4
+       102A : 55 A1 B9 B0                movw    -18000, r5
+       102E : 14 A0 2B                   movb    '+', r0
+       1031 : 02 B1 18                   bsr     expr
+       1034 : 41 28                      addw    r5, r1
+       1036 : 02 B1 29                   bsr     answer          ; 29536
+       1039 : 15 A1 B9 B0                movw    -18000, r4
+       103D : 55 A1 92 A0                movw    -28000, r5
+       1041 : 14 A0 2D                   movb    '-', r0
+       1044 : 02 B1 05                   bsr     expr
+       1047 : 61 28                      subw    r5, r1
+       1049 : 02 B1 16                   bsr     answer          ; 10000
+       104C : 15 A1 00 64                movw    100, r4
+       1050 : 55 A1 01 2C                movw    300, r5
+       1054 : 14 A0 2A                   movb    '*', r0
+       1057 : 02 B0 F2                   bsr     expr
+       105A : CE 61 28                   mulw    r5, r1
+       105D : 02 B1 02                   bsr     answer          ; 30000
+       1060 : 15 A1 01 2C                movw    300, r4
+       1064 : 55 A1 FF 38                movw    -200, r5
+       1068 : 14 A0 2A                   movb    '*', r0
+       106B : 02 B0 DE                   bsr     expr
+       106E : CE 61 28                   mulw    r5, r1
+       1071 : 02 B0 EE                   bsr     answer          ; 5536
+       1074 : 15 A1 00 64                movw    100, r4
+       1078 : 55 A1 FE D4                movw    -300, r5
+       107C : 14 A0 2A                   movb    '*', r0
+       107F : 02 B0 CA                   bsr     expr
+       1082 : CE 61 28                   mulw    r5, r1
+       1085 : 02 B0 DA                   bsr     answer          ; -30000
+       1088 : 15 A1 FF 38                movw    -200, r4
+       108C : 55 A1 FF 9C                movw    -100, r5
+       1090 : 14 A0 2A                   movb    '*', r0
+       1093 : 02 B0 B6                   bsr     expr
+       1096 : CE 61 28                   mulw    r5, r1
+       1099 : 02 B0 C6                   bsr     answer          ; 20000
+       109C : 15 A1 75 30                movw    30000, r4
+       10A0 : 55 A1 00 64                movw    100, r5
+       10A4 : 14 A0 2F                   movb    '/', r0
+       10A7 : 02 B0 A2                   bsr     expr
+       10AA : CE 71 28                   quow    r5, r1
+       10AD : 02 B0 B2                   bsr     answer          ; 300
+       10B0 : 15 A1 FF 38                movw    -200, r4
+       10B4 : 55 A1 00 64                movw    100, r5
+       10B8 : 14 A0 2F                   movb    '/', r0
+       10BB : 02 B0 8E                   bsr     expr
+       10BE : CE 71 28                   quow    r5, r1
+       10C1 : 02 B0 9E                   bsr     answer          ; -2
+       10C4 : 15 A1 8A D0                movw    -30000, r4
+       10C8 : 55 A1 FF 38                movw    -200, r5
+       10CC : 14 A0 2F                   movb    '/', r0
+       10CF : 02 B0 7A                   bsr     expr
+       10D2 : CE 71 28                   quow    r5, r1
+       10D5 : 02 B0 8A                   bsr     answer          ; 150
+       10D8 : 15 A1 8A D0                movw    -30000, r4
+       10DC : 55 A1 00 4E                movw    78, r5
+       10E0 : 14 A0 2F                   movb    '/', r0
+       10E3 : 02 B0 66                   bsr     expr
+       10E6 : CE 71 28                   quow    r5, r1
+       10E9 : 02 B0 76                   bsr     answer          ; -384
+       10EC : 15 A1 FF D0                movw    -48, r4
+       10F0 : 55 A1 00 1E                movw    30, r5
+       10F4 : 02 B0 79                   bsr     comp
+       10F7 : 15 A1 00 1E                movw    30, r4
+       10FB : 55 A1 FF D0                movw    -48, r5
+       10FF : 02 B0 6E                   bsr     comp
+       1102 : 15 A1 13 88                movw    5000, r4
+       1106 : 55 A1 0F A0                movw    4000, r5
+       110A : 02 B0 63                   bsr     comp
+       110D : 15 A1 13 88                movw    5000, r4
+       1111 : 55 A1 13 88                movw    5000, r5
+       1115 : 02 B0 58                   bsr     comp
+       1118 : 15 A1 0F A0                movw    4000, r4
+       111C : 55 A1 13 88                movw    5000, r5
+       1120 : 02 B0 4D                   bsr     comp
+       1123 : 15 A1 EC 78                movw    -5000, r4
+       1127 : 55 A1 F0 60                movw    -4000, r5
+       112B : 02 B0 42                   bsr     comp
+       112E : 15 A1 EC 78                movw    -5000, r4
+       1132 : 55 A1 EC 78                movw    -5000, r5
+       1136 : 02 B0 37                   bsr     comp
+       1139 : 15 A1 F0 60                movw    -4000, r4
+       113D : 55 A1 EC 78                movw    -5000, r5
+       1141 : 02 B0 2C                   bsr     comp
+       1144 : 15 A1 7F BC                movw    32700, r4
+       1148 : 55 A1 7F 58                movw    32600, r5
+       114C : 02 B0 21                   bsr     comp
+       114F : 15 A1 7F BC                movw    32700, r4
+       1153 : 55 A1 7F BC                movw    32700, r5
+       1157 : 02 B0 16                   bsr     comp
+       115A : 15 A1 7F 58                movw    32600, r4
+       115E : 55 A1 7F BC                movw    32700, r5
+       1162 : 02 B0 0B                   bsr     comp
+       1165 : 15 A1 80 44                movw    -32700, r4
+       1169 : 55 A1 80 A8                movw    -32600, r5
+       116D : 02 B0 00                   bsr     comp
+       1170 : 15 A1 80 44                movw    -32700, r4
+       1174 : 55 A1 80 44                movw    -32700, r5
+       1178 : 02 AF F5                   bsr     comp
+       117B : 15 A1 80 A8                movw    -32600, r4
+       117F : 55 A1 80 44                movw    -32700, r5
+       1183 : 02 AF EA                   bsr     comp
+       1186 : 15 A1 46 50                movw    18000, r4
+       118A : 55 A1 92 A0                movw    -28000, r5
+       118E : 02 AF DF                   bsr     comp
+       1191 : 15 A1 46 50                movw    18000, r4
+       1195 : 55 A1 46 50                movw    18000, r5
+       1199 : 02 AF D4                   bsr     comp
+       119C : 15 A1 92 A0                movw    -28000, r4
+       11A0 : 55 A1 46 50                movw    18000, r5
+       11A4 : 02 AF C9                   bsr     comp
+       11A7 : 12 00                      ret     0

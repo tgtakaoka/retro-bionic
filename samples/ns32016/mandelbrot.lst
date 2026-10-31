@@ -1,0 +1,406 @@
+          0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+          0 :                            include "ns32016.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :                    ;;; NS32016
+(1)       0 :                            cpu     ns32032
+(1)       0 :
+(1)       0 :                    ;;; Processor Status Register
+(1)       0 : =1                 PSR_C:  equ     0x0001          ; Carry
+(1)       0 : =2                 PSR_T:  equ     0x0002          ; Trace
+(1)       0 : =4                 PSR_L:  equ     0x0004          ; Lower
+(1)       0 : =20                PSR_F:  equ     0x0020          ; general condition Flag
+(1)       0 : =40                PSR_Z:  equ     0x0040          ; Zero
+(1)       0 : =80                PSR_N:  equ     0x0080          ; Negative
+(1)       0 : =100               PSR_U:  equ     0x0100          ; User mode
+(1)       0 : =200               PSR_S:  equ     0x0200          ; Stack select: SP1
+(1)       0 : =400               PSR_P:  equ     0x0400          ; trace Pending
+(1)       0 : =800               PSR_I:  equ     0x0800          ; Interrupt enable
+(1)       0 :
+(1)       0 :                    ;;; Dispatch table vectors: INTBASE+4*vector holds a procedure
+(1)       0 :                    ;;; descriptor, the module descriptor's address in the low word and the
+(1)       0 :                    ;;; offset from the module's program base in the high word.
+(1)       0 : =0                 VEC_NVI:        equ     0       ; non-vectored INT
+(1)       0 : =1                 VEC_NMI:        equ     1
+(1)       0 : =2                 VEC_ABT:        equ     2
+(1)       0 : =3                 VEC_SLAVE:      equ     3       ; FPU exception
+(1)       0 : =4                 VEC_ILL:        equ     4       ; illegal operation
+(1)       0 : =5                 VEC_SVC:        equ     5
+(1)       0 : =6                 VEC_DVZ:        equ     6       ; divide by zero
+(1)       0 : =7                 VEC_FLG:        equ     7
+(1)       0 : =8                 VEC_BPT:        equ     8       ; the debugger's: halt to system
+(1)       0 : =9                 VEC_TRC:        equ     9       ; the debugger's: step
+(1)       0 : =A                 VEC_UND:        equ     10      ; undefined, an FPU instruction without CFG.F
+(1)       0 :
+(1)       0 :                    ;;; The board's MC6850 ACIA: control/status at the even byte, data at the
+(1)       0 :                    ;;; odd one.
+(1)       0 : =FFFC00            ACIA:   equ     0xFFFC00
+          0 :                            include "../mc6800/mc6850.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :
+(1)       0 :                    ;;; MC6850
+(1)       0 :                    ;;; Asynchronous Communication Interface Adapter
+(1)       0 :
+(1)       0 :                    ;;; Control register (write)
+(1)       0 : =FFFC00            ACIA_control:   equ     ACIA+0
+(1)       0 :                            ;; Counter Divider Select Bits
+(1)       0 : =3                 CDS_gm:         equ     %11    ; Group mask
+(1)       0 : =0                 CDS_DIV1_gc:    equ     %00000000 ; /1
+(1)       0 : =1                 CDS_DIV16_gc:   equ     %00000001 ; /16
+(1)       0 : =2                 CDS_DIV64_gc:   equ     %00000010 ; /64
+(1)       0 : =3                 CDS_RESET_gc:   equ     %00000011 ; Master Reset
+(1)       0 :                            ;; Word Select Bits
+(1)       0 : =1C                WSB_gm:         equ     %00011100 ; Group mask
+(1)       0 : =0                 WSB_7E2_gc:     equ     %00000000 ; 7 Bits + Even Parity + 2 Stop Bits
+(1)       0 : =4                 WSB_7O2_gc:     equ     %00000100 ; 7 bits + Odd Parity  + 2 Stop Bits
+(1)       0 : =8                 WSB_7E1_gc:     equ     %00001000 ; 7 bits + Even Parity + 1 Stop Bits
+(1)       0 : =C                 WSB_7O1_gc:     equ     %00001100 ; 7 bits + Odd Parity  + 1 Stop Bits
+(1)       0 : =10                WSB_8N2_gc:     equ     %00010000 ; 8 bits + No Parity   + 2 Stop Bits
+(1)       0 : =14                WSB_8N1_gc:     equ     %00010100 ; 8 bits + No Parity   + 1 Stop Bits
+(1)       0 : =18                WSB_8E1_gc:     equ     %00011000 ; 8 bits + Even Parity + 1 Stop Bits
+(1)       0 : =1C                WSB_8O1_gc:     equ     %00011100 ; 8 bits + Odd Parity  + 1 Stop Bits
+(1)       0 :                            ;; Transmit Control Bits
+(1)       0 : =60                TCB_gm:         equ     %01100000 ; Group mask
+(1)       0 : =0                 TCB_DI_gc:      equ     %00000000 ; RTS=Low,  Tx Interrupt Disabled
+(1)       0 : =20                TCB_EI_gc:      equ     %00100000 ; RTS=Low,  Tx Interrupt Enabled
+(1)       0 : =40                TCB_RTS_gc:     equ     %01000000 ; RTS=High, Tx Interrupt Disabled
+(1)       0 : =60                TCB_BREAK_gc:   equ     %01100000 ; RTS=Low,  Tx Interrupt Disabled
+(1)       0 :                                                      ; Transmit Break Level
+(1)       0 : =80                RIEB_bm:        equ     %10000000 ; Receive Interrupt Enable Bit mask
+(1)       0 :
+(1)       0 :                    ;;; Status register (read)
+(1)       0 : =FFFC00            ACIA_status:    equ     ACIA+0
+(1)       0 : =1                 RDRF_bm:        equ     %00000001 ; Receive Data Register Full
+(1)       0 : =2                 TDRE_bm:        equ     %00000010 ; Transmit Data Register Empty
+(1)       0 : =4                 DCDF_bm:        equ     %00000100 ; Data Carrier Detect Flag
+(1)       0 : =8                 CTSF_bm:        equ     %00001000 ; Clear To Send Flag
+(1)       0 : =10                FERR_bm:        equ     %00010000 ; Frame Error Flag
+(1)       0 : =20                OVRN_bm:        equ     %00100000 ; Receiver Overrun Flag
+(1)       0 : =40                PERR_bm:        equ     %01000000 ; Parity Error Flag
+(1)       0 : =80                IRQF_bm:        equ     %10000000 ; Interrupt Request Flag
+(1)       0 :
+(1)       0 :                    ;;; Data register
+(1)       0 : =FFFC01            ACIA_data:      equ     ACIA+1          ; Data register
+          0 :                            include "vectors.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :                    ;;; Reset starts at 0 in supervisor mode with PSR 0. The one module has
+(1)       0 :                    ;;; its program base at 0, so a procedure's offset is its address; SB
+(1)       0 :                    ;;; and the link base are unused.
+(1)       0 :                            org     0
+(1)       0 : EA 81 00                   br      init
+(1)       3 :
+(1)      10 :                            org     0x10
+(1)      10 : 00 00 00 00        module: .double 0               ; static base
+(1)      14 : 00 00 00 00                .double 0               ; link base
+(1)      18 : 00 00 00 00                .double 0               ; program base
+(1)      1C : 00 00 00 00                .double 0
+         20 :
+         20 : =1000              stack:  equ     0x1000
+         20 :
+         20 :                            org     0x20
+         20 :                    dispatch:
+         20 : 10 00 EA 02                .word   module, isr_nvi ; NVI
+         24 :                            .space  4*(VEC_BPT-1)
+         40 : 10 00 2C 02                .word   module, halt_to_system ; BPT
+         44 :
+        100 :                            org     0x100
+        100 :                    init:
+        100 : EF A4 00 00 10 00          lprd    sp, stack
+        106 : 6F A7 00 00 00 20          lprd    intbase, dispatch
+        10C : ED A7 00 10                lprw    mod, module
+        110 : 0E 0B 00                   setcfg  []
+        113 : 02 81 61                   bsr     init_io
+        116 : 7D A3 08 00                bispsrw PSR_I           ; enable interrupt
+        11A :
+        11A :                    loop:
+        11A : 02 0A                      bsr     mandelbrot
+        11C : 02 81 99                   bsr     newline
+        11F : 02 81 C1                   bsr     queue_wait_empty
+        122 : EA 78                      br      loop
+        124 :
+        124 :                            include "mandelbrot.inc"
+(1)     124 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)     124 :                    ;;; samples/arith/mandelbrot.c in 32-bit registers: QUOD divides rounded
+(1)     124 :                    ;;; toward zero, as C does.
+(1)     124 :
+(1)     124 : =32                Fv:     equ     50              ; fixed-point 1.0
+(1)     124 :                    ;;; Print one 79x25 frame of the Mandelbrot set: each point is its
+(1)     124 :                    ;;; escape iteration in hex, or a space if it does not escape in 16.
+(1)     124 :                    ;;; Exits to the debugger when NUL is received.
+(1)     124 :                    ;;; @clobber R0 R1 R2
+(1)     124 :                    mandelbrot:
+(1)     124 : 57 A5 FF FF FF F4          movd    -12, @vY        ; Y=-12
+        12A : 82 68
+(1)     12C :                    loop_y:
+(1)     12C : 57 A5 FF FF FF CF          movd    -49, @vX        ; X=-49
+        132 : 82 6C
+(1)     134 :                    loop_x:
+(1)     134 : 17 A8 82 6C                movd    @vX, r0
+(1)     138 : CE 23 A0 00 00 00          muld    229, r0
+        13E : E5
+(1)     13F : CE 33 A0 00 00 00          quod    100, r0
+        145 : 64
+(1)     146 : 57 05 82 50                movd    r0, @vC         ; C=X*229/100
+(1)     14A : 57 05 82 58                movd    r0, @vA         ; A=C
+(1)     14E : 17 A8 82 68                movd    @vY, r0
+(1)     152 : CE 23 A0 00 00 01          muld    416, r0
+        158 : A0
+(1)     159 : CE 33 A0 00 00 00          quod    100, r0
+        15F : 64
+(1)     160 : 57 05 82 54                movd    r0, @vD         ; D=Y*416/100
+(1)     164 : 57 05 82 5C                movd    r0, @vB         ; B=D
+(1)     168 : 5F A8 82 70                movqd   0, @vI          ; I=0
+(1)     16C :
+(1)     16C :                    loop_i:
+(1)     16C : 17 A8 82 5C                movd    @vB, r0
+(1)     170 : CE 33 A0 00 00 00          quod    Fv, r0
+        176 : 32
+(1)     177 : 57 05 82 60                movd    r0, @vQ         ; Q=B/F
+(1)     17B : CE 23 A0 00 00 00          muld    Fv, r0
+        181 : 32
+(1)     182 : 57 A8 82 5C                movd    @vB, r1
+(1)     186 : 63 00                      subd    r0, r1
+(1)     188 : 57 0D 82 64                movd    r1, @vS         ; S=B-Q*F
+(1)     18C : 17 A8 82 58                movd    @vA, r0
+(1)     190 : CE 23 00                   muld    r0, r0          ; A*A
+(1)     193 : 57 A8 82 5C                movd    @vB, r1
+(1)     197 : CE 63 08                   muld    r1, r1          ; B*B
+(1)     19A : 23 08                      subd    r1, r0
+(1)     19C : CE 33 A0 00 00 00          quod    Fv, r0
+        1A2 : 32
+(1)     1A3 : 03 A8 82 50                addd    @vC, r0
+(1)     1A7 : 97 00                      movd    r0, r2          ; R2=(A*A-B*B)/F+C
+(1)     1A9 : 17 A8 82 58                movd    @vA, r0
+(1)     1AD : CE 23 A8 82 64             muld    @vS, r0
+(1)     1B2 : CE 33 A0 00 00 00          quod    Fv, r0          ; A*S/F
+        1B8 : 32
+(1)     1B9 : 57 A8 82 58                movd    @vA, r1
+(1)     1BD : CE 63 A8 82 60             muld    @vQ, r1         ; A*Q
+(1)     1C2 : 03 08                      addd    r1, r0
+(1)     1C4 : 03 00                      addd    r0, r0
+(1)     1C6 : 03 A8 82 54                addd    @vD, r0
+(1)     1CA : 57 05 82 5C                movd    r0, @vB         ; B=2*(A*Q+A*S/F)+D
+(1)     1CE : 57 15 82 58                movd    r2, @vA         ; A=(A*A-B*B)/F+C
+(1)     1D2 : CE B3 A0 00 00 00          quod    Fv, r2          ; P=A/F
+        1D8 : 32
+(1)     1D9 : CE A3 10                   muld    r2, r2          ; P*P
+(1)     1DC : 17 A8 82 5C                movd    @vB, r0
+(1)     1E0 : CE 33 A0 00 00 00          quod    Fv, r0          ; Q=B/F
+        1E6 : 32
+(1)     1E7 : CE 23 00                   muld    r0, r0          ; Q*Q
+(1)     1EA : 83 00                      addd    r0, r2          ; T=P*P+Q*Q
+(1)     1EC : 07 15 00 00 00 04          cmpd    r2, 4
+(1)     1F2 : 6A 16                      bgt     print_i         ; if T>4
+(1)     1F4 : 8F A8 82 70                addqd   1, @vI          ; I+=1
+(1)     1F8 : 07 AD 82 70 00 00          cmpd    @vI, 16
+        1FE : 00 10
+(1)     200 : CA BF 6C                   blt     loop_i          ; if I<16
+(1)     203 : 14 A0 20                   movb    ' ', r0
+(1)     206 : EA 1A                      br      print_char
+(1)     208 :                    print_i:
+(1)     208 : 17 A8 82 70                movd    @vI, r0
+(1)     20C : 07 05 00 00 00 0A          cmpd    r0, 10
+(1)     212 : CA 08                      blt     print_digit
+(1)     214 : 03 A0 00 00 00 07          addd    'A'-'0'-10, r0
+(1)     21A :                    print_digit:
+(1)     21A : 03 A0 00 00 00 30          addd    '0', r0
+(1)     220 :                    print_char:
+(1)     220 : 02 80 9D                   bsr     putchar
+(1)     223 :
+(1)     223 : 02 80 7B                   bsr     getchar
+(1)     226 : 9A 07                      bfc     next_x
+(1)     228 : 1C 00                      cmpqb   0, r0
+(1)     22A : 1A 03                      bne     next_x
+(1)     22C :                    halt_to_system:
+(1)     22C : F2                         bpt
+(1)     22D :
+(1)     22D :                    next_x:
+(1)     22D : 8F A8 82 6C                addqd   1, @vX          ; X+=1
+(1)     231 : 07 AD 82 6C 00 00          cmpd    @vX, 30
+        237 : 00 1E
+(1)     239 : CA BE FB                   blt     loop_x          ; if X<30
+(1)     23C : 02 80 79                   bsr     newline
+(1)     23F : 8F A8 82 68                addqd   1, @vY          ; Y+=1
+(1)     243 : 07 AD 82 68 00 00          cmpd    @vY, 13
+        249 : 00 0D
+(1)     24B : CA BE E1                   blt     loop_y          ; if Y<13
+(1)     24E : 12 00                      ret     0
+(1)     250 :
+(1)     250 :                    ;;; workspace
+(1)     250 : 00 00 00 00        vC:     .double 0
+(1)     254 : 00 00 00 00        vD:     .double 0
+(1)     258 : 00 00 00 00        vA:     .double 0
+(1)     25C : 00 00 00 00        vB:     .double 0
+(1)     260 : 00 00 00 00        vQ:     .double 0
+(1)     264 : 00 00 00 00        vS:     .double 0
+(1)     268 : 00 00 00 00        vY:     .double 0
+(1)     26C : 00 00 00 00        vX:     .double 0
+(1)     270 : 00 00 00 00        vI:     .double 0
+        274 :                            include "io.inc"
+(1)     274 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)     274 :                    ;;; Console through the ACIA's interrupt: received characters queue at
+(1)     274 :                    ;;; rx_queue, characters to send at tx_queue.
+(1)     274 : =2000              rx_queue:       equ     0x2000
+(1)     274 : =80                rx_queue_size:  equ     128
+(1)     274 : =2080              tx_queue:       equ     0x2080
+(1)     274 : =80                tx_queue_size:  equ     128
+(1)     274 : =94                RX_INT_TX_NO:   equ     WSB_8N1_gc|RIEB_bm
+(1)     274 : =B4                RX_INT_TX_INT:  equ     WSB_8N1_gc|RIEB_bm|TCB_EI_gc
+(1)     274 :
+(1)     274 :                    ;;; Initialize the queues and the ACIA
+(1)     274 :                    ;;; @clobber R0 R1
+(1)     274 :                    init_io:
+(1)     274 : 57 A0 00 00 20 00          movd    rx_queue, r1
+(1)     27A : 17 A0 00 00 00 80          movd    rx_queue_size, r0
+(1)     280 : 02 80 A9                   bsr     queue_init
+(1)     283 : 57 A0 00 00 20 80          movd    tx_queue, r1
+(1)     289 : 17 A0 00 00 00 80          movd    tx_queue_size, r0
+(1)     28F : 02 80 9A                   bsr     queue_init
+(1)     292 : 54 A5 03 BC 00             movb    CDS_RESET_gc, @ACIA_control ; Master reset
+(1)     297 : 54 A5 94 BC 00             movb    RX_INT_TX_NO, @ACIA_control ; disable Tx interrupt
+(1)     29C : 12 00                      ret     0
+(1)     29E :
+(1)     29E :                    ;;; Get character
+(1)     29E :                    ;;; @return R0
+(1)     29E :                    ;;; @return PSR.F 0 if no character
+(1)     29E :                    getchar:
+(1)     29E : 62 02                      save    [r1]
+(1)     2A0 : 57 A0 00 00 20 00          movd    rx_queue, r1
+(1)     2A6 : 7D A1 08 00                bicpsrw PSR_I           ; disable interrupt
+(1)     2AA : 02 80 C1                   bsr     queue_remove
+(1)     2AD : 7D A3 08 00                bispsrw PSR_I           ; enable interrupt
+(1)     2B1 : 72 40                      restore [r1]
+(1)     2B3 : 12 00                      ret     0
+(1)     2B5 :
+(1)     2B5 :                    ;;; Put newline
+(1)     2B5 :                    ;;; @clobber R0
+(1)     2B5 :                    newline:
+(1)     2B5 : 14 A0 0D                   movb    0x0D, r0
+(1)     2B8 : 02 05                      bsr     putchar
+(1)     2BA : 14 A0 0A                   movb    0x0A, r0
+(1)     2BD :                    ;;; Put character
+(1)     2BD :                    ;;; @param R0
+(1)     2BD :                    putchar:
+(1)     2BD : 62 02                      save    [r1]
+(1)     2BF : 57 A0 00 00 20 80          movd    tx_queue, r1
+(1)     2C5 :                    putchar_retry:
+(1)     2C5 : 7D A1 08 00                bicpsrw PSR_I           ; disable interrupt
+(1)     2C9 : 02 80 70                   bsr     queue_add
+(1)     2CC : 7D A3 08 00                bispsrw PSR_I           ; enable interrupt
+(1)     2D0 : 9A 75                      bfc     putchar_retry   ; branch if queue is full
+(1)     2D2 : 54 A5 B4 BC 00             movb    RX_INT_TX_INT, @ACIA_control ; enable Tx interrupt
+(1)     2D7 : 72 40                      restore [r1]
+(1)     2D9 : 12 00                      ret     0
+(1)     2DB :
+(1)     2DB :                    ;;; Put space
+(1)     2DB :                    ;;; @clobber R0
+(1)     2DB :                    putspace:
+(1)     2DB : 14 A0 20                   movb    ' ', r0
+(1)     2DE : EA 5F                      br      putchar
+(1)     2E0 :
+(1)     2E0 :                    ;;; Wait until the transmit queue is empty
+(1)     2E0 :                    ;;; @clobber R0
+(1)     2E0 :                    queue_wait_empty:
+(1)     2E0 : 1C A8 C0 00 20 80          cmpqb   0, @tx_queue+queue_len
+(1)     2E6 : 1A 7A                      bne     queue_wait_empty
+(1)     2E8 : 12 00                      ret     0
+(1)     2EA :
+(1)     2EA :                    ;;; INT, non-vectored: receive or send, then RETT, which pops the PSR
+(1)     2EA :                    ;;; with I set again.
+(1)     2EA :                    isr_nvi:
+(1)     2EA : 62 07                      save    [r0,r1,r2]
+(1)     2EC : CE 98 A8 BC 00             movzbd  @ACIA_status, r2
+(1)     2F1 : B4 A0 07                   tbitb   7, r2           ; IRQF
+(1)     2F4 : 9A 28                      bfc     isr_nvi_exit
+(1)     2F6 : B4 A0 00                   tbitb   0, r2           ; RDRF
+(1)     2F9 : 9A 0F                      bfc     isr_nvi_send
+(1)     2FB : CE 18 A8 BC 01             movzbd  @ACIA_data, r0  ; receive character
+(1)     300 : 57 A0 00 00 20 00          movd    rx_queue, r1
+(1)     306 : 02 33                      bsr     queue_add
+(1)     308 :                    isr_nvi_send:
+(1)     308 : B4 A0 01                   tbitb   1, r2           ; TDRE
+(1)     30B : 9A 11                      bfc     isr_nvi_exit
+(1)     30D : 57 A0 00 00 20 80          movd    tx_queue, r1
+(1)     313 : 02 80 58                   bsr     queue_remove
+(1)     316 : 9A 0A                      bfc     isr_nvi_send_empty
+(1)     318 : 54 05 BC 01                movb    r0, @ACIA_data  ; send character
+(1)     31C :                    isr_nvi_exit:
+(1)     31C : 72 E0                      restore [r0,r1,r2]
+(1)     31E : 42 00                      rett    0
+(1)     320 :                    isr_nvi_send_empty:
+(1)     320 : 54 A5 94 BC 00             movb    RX_INT_TX_NO, @ACIA_control ; disable Tx interrupt
+(1)     325 : 72 E0                      restore [r0,r1,r2]
+(1)     327 : 42 00                      rett    0
+(1)     329 :
+(1)     329 :                            include "queue.inc"
+(2)     329 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(2)     329 :                    ;;; [queue] queue structure
+(2)     329 : =0                 queue_len:      equ     0       ; queue length
+(2)     329 : =1                 queue_size:     equ     1       ; buffer size
+(2)     329 : =2                 queue_put:      equ     2       ; queue put index
+(2)     329 : =3                 queue_get:      equ     3       ; queue get index
+(2)     329 : =4                 queue_buf:      equ     4       ; buffer start offset
+(2)     329 :
+(2)     329 :                    ;;; [queue] Initialize queue
+(2)     329 :                    ;;; @param R1 queue work space pointer
+(2)     329 :                    ;;; @param R0 queue work space size
+(2)     329 :                    ;;; @clobber R0
+(2)     329 :                    queue_init:
+(2)     329 : 5C 48 00                   movqb   0, queue_len(r1)
+(2)     32C : 0F 06                      addqd   -queue_buf, r0
+(2)     32E : 54 02 01                   movb    r0, queue_size(r1)
+(2)     331 : 5C 48 02                   movqb   0, queue_put(r1)
+(2)     334 : 5C 48 03                   movqb   0, queue_get(r1)
+(2)     337 : 12 00                      ret     0
+(2)     339 :
+(2)     339 :                    ;;; [queue] Add an element to queue
+(2)     339 :                    ;;; @param R1 queue work space pointer
+(2)     339 :                    ;;; @param R0 an element
+(2)     339 :                    ;;; @return PSR.F 0 if queue is full
+(2)     339 :                    queue_add:
+(2)     339 : 62 04                      save    [r2]
+(2)     33B : 44 4A 00 01                cmpb    queue_len(r1), queue_size(r1)
+(2)     33F : AA 09                      blo     queue_add_store ; queue_len < queue_size
+(2)     341 : 72 20                      restore [r2]
+(2)     343 : 7C A1 20                   bicpsrb PSR_F
+(2)     346 : 12 00                      ret     0
+(2)     348 :                    queue_add_store:
+(2)     348 : 8C 48 00                   addqb   1, queue_len(r1)
+(2)     34B : CE 98 48 02                movzbd  queue_put(r1), r2
+(2)     34F : 83 08                      addd    r1, r2
+(2)     351 : 94 02 04                   movb    r0, queue_buf(r2) ; store an element
+(2)     354 : CE 98 48 02                movzbd  queue_put(r1), r2
+(2)     358 : 8F 10                      addqd   1, r2             ; queue_put++
+(2)     35A : 44 12 01                   cmpb    r2, queue_size(r1)
+(2)     35D : AA 04                      blo     queue_add_update  ; queue_put < queue_size
+(2)     35F : 5F 10                      movqd   0, r2             ; wrap around
+(2)     361 :                    queue_add_update:
+(2)     361 : 54 12 02                   movb    r2, queue_put(r1)
+(2)     364 : 72 20                      restore [r2]
+(2)     366 : 7C A3 20                   bispsrb PSR_F
+(2)     369 : 12 00                      ret     0
+(2)     36B :
+(2)     36B :                    ;;; [queue] Remove an element from queue
+(2)     36B :                    ;;; @param R1 queue work space pointer
+(2)     36B :                    ;;; @return R0 an element
+(2)     36B :                    ;;; @return PSR.F 0 if queue is empty
+(2)     36B :                    queue_remove:
+(2)     36B : 1C 48 00                   cmpqb   0, queue_len(r1)
+(2)     36E : 1A 07                      bne     queue_remove_elem
+(2)     370 : 7C A1 20                   bicpsrb PSR_F
+(2)     373 : 12 00                      ret     0
+(2)     375 :                    queue_remove_elem:
+(2)     375 : 62 04                      save    [r2]
+(2)     377 : 8C 4F 00                   addqb   -1, queue_len(r1)
+(2)     37A : CE 98 48 03                movzbd  queue_get(r1), r2
+(2)     37E : 83 08                      addd    r1, r2
+(2)     380 : CE 18 50 04                movzbd  queue_buf(r2), r0 ; read an element
+(2)     384 : CE 98 48 03                movzbd  queue_get(r1), r2
+(2)     388 : 8F 10                      addqd   1, r2             ; queue_get++
+(2)     38A : 44 12 01                   cmpb    r2, queue_size(r1)
+(2)     38D : AA 04                      blo     queue_remove_update ; queue_get < queue_size
+(2)     38F : 5F 10                      movqd   0, r2               ; wrap around
+(2)     391 :                    queue_remove_update:
+(2)     391 : 54 12 03                   movb    r2, queue_get(r1)
+(2)     394 : 72 20                      restore [r2]
+(2)     396 : 7C A3 20                   bispsrb PSR_F
+(2)     399 : 12 00                      ret     0

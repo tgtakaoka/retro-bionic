@@ -2168,6 +2168,47 @@ Super8 indirect and stack accesses to C0-FF reach register set 2, not the
 registers a direct address names, so a working register at C0 can't point
 at itself. The profile keeps RP0 at 20. **[hw]**
 
+### NS32016
+
+Drafted for the BionicNS32016 and BionicNS32081 boards before either was
+built; nothing here is benched yet.
+
+**Clocking.** The CPU is dynamic: its clock may never stop, and PHI1/PHI2
+come from CLK through a cross-coupled 74LVC02, so CLK's halves must match
+within the datasheet's ±5 ns. The PWM therefore runs on even counts only:
+9.375 MHz (150 MHz / 16) by default. Everything else waits on RDY, which
+rests low, so every cycle holds in T3 until it is served. **[doc]**
+
+**Address capture.** AD0-AD15 carry the address only around `#ADS`:
+valid 25 ns before it rises, held 15 ns after. The bus loop reads AD while
+polling `#ADS`. A16-A23 (through the 157), the status, `#DDIN` and `#HBE`
+hold to the next T1. An interrupt taken while `#ADS` is low loses the
+cycle, so interrupts stay masked from RDY's rise to the next capture. They
+open only while a cycle is held, or while the status shows WAIT. RDY must
+drop again within the three clocks before the next cycle's first sample.
+**[doc][code]**
+
+**Traps by bus pattern.** A program moves INTBASE itself, so the debugger
+does not watch the dispatch table. It recognises any trap or interrupt
+entry on the bus: the PSR push, the dispatch entry's dword, SB at its
+module, then the program base at MOD+8. It answers that base so the handler
+lands on its park, a `BR *`, and parks once the MOD and PC pushes are done.
+- A BPT (the opcode at the pushed PC) or the halt's NMI stops there.
+- Any other trap jumps on to the program's own handler.
+- CXP and RXP read the same shape; a program using them may be taken for a
+  trap. **[code]**
+
+**Registers.**
+- `restore()` ends in `RETT 0`, its frame and the SB reload answered by
+  address.
+- A trap loads SB from the handler's module, so after a stop SB shows the
+  program module's, which RETT reloads anyway.
+- CFG is write-only: reset sets it per identity. A set F with no FPU would
+  wait for the slave forever. **[doc][code]**
+
+**Samples.** Checked only on a scratch simulator that decodes with libasm,
+against the goldens and the regress expectations. **[code]**
+
 ### PDP-8 (IM6100 / HD6120)
 
 **Pitfalls.** The debugger's `restore()` ends in `RTF` on both chips, and

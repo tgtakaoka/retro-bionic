@@ -1,7 +1,7 @@
 # Samples
 
 [`samples/`](../samples) holds the same handful of programs ported to every supported
-architecture — 43 CPU directories plus one host-side reference. Each contains the assembly
+architecture — 47 CPU directories plus one host-side reference. Each contains the assembly
 source, a listing, and a pre-built `.s19` or `.hex` ready to paste into the debugger.
 
 ## The programs
@@ -9,7 +9,7 @@ source, a listing, and a pre-built `.s19` or `.hex` ready to paste into the debu
 | Program | What it does |
 |---|---|
 | `mandelbrot` | Draws the Mandelbrot set as ASCII art. The cross-architecture benchmark; see [its timings](mandelbrot.md). |
-| `fmandel` | Floating-point variant, for targets with FP instructions (MN1613, TMS99110) |
+| `fmandel` | Floating-point variant, for targets with FP instructions (MN1613, TMS99110, NS32081) |
 | `arith` | Arithmetic test suite — add, subtract, multiply, divide, negate, shift, and the resulting flags |
 | `echo` | Serial echo, polled |
 | `echoir` | Serial echo with an interrupt-driven receiver |
