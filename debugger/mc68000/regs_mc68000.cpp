@@ -4,6 +4,7 @@
 #include "inst_mc68000.h"
 #include "mems_mc68000.h"
 #include "pins_mc68000_base.h"
+#include "save_mc68000.h"
 
 namespace debugger {
 namespace mc68000 {
@@ -17,38 +18,6 @@ const char line3[] = "A=xxxxxxxx xxxxxxxx xxxxxxxx xxxxxxxx xxxxxxxx xxxxxxxx xx
 const char line4[] = "VBR=xxxxxxxx SFC=x DFC=x";
 // clang-format on
 
-// Captured bytes by address: the longs a push stored, whatever order the
-// bus moved their bytes in.
-struct Captured {
-    const MemsMc68000 *mems;
-    const uint8_t *buf;
-    const uint32_t *addrs;
-    uint_fast8_t n;
-
-    bool readByte(uint32_t addr, uint8_t &v) const {
-        for (uint_fast8_t i = 0; i < n; ++i) {
-            if (addrs[i] == mems->wrap(addr)) {
-                v = buf[i];
-                return true;
-            }
-        }
-        return false;
-    }
-    bool readWord(uint32_t addr, uint16_t &v) const {
-        uint8_t h, l;
-        if (!readByte(addr, h) || !readByte(addr + 1, l))
-            return false;
-        v = static_cast<uint16_t>(h) << 8 | l;
-        return true;
-    }
-    bool readLong(uint32_t addr, uint32_t &v) const {
-        uint16_t h, l;
-        if (!readWord(addr, h) || !readWord(addr + 2, l))
-            return false;
-        v = static_cast<uint32_t>(h) << 16 | l;
-        return true;
-    }
-};
 // The restore's instructions, built word by word.
 struct Sequence {
     uint8_t buf[3 * (6 + 4) + 6 + 2 + 6 * 8 + 6 * 8 + 2];
@@ -121,77 +90,45 @@ void RegsMc68000::print() const {
     }
 }
 
-// MOVEM stacks D0-D7/A0-A6 from SSP down, D0 lowest; USP, on the MC68010
-// VBR, SFC and DFC, and SR follow. BRA back to the origin fetches it again
-// once all have run. SR is the program's only when the CPU was parked at
-// its own fetch, after reset; otherwise the exception frame holds it.
+// The pushes of SaveMc68000. SR is the program's only when the CPU was
+// parked at its own fetch, after reset; otherwise the exception frame
+// holds it.
 void RegsMc68000::save() {
-    // clang-format off
-    static constexpr uint8_t SAVE[] = {
-        0x48, 0xE7, 0xFF, 0xFE,  // MOVEM.L D0-D7/A0-A6,-(A7)
-        0x4E, 0x68,              // MOVE.L  USP,A0
-        0x2F, 0x08,              // MOVE.L  A0,-(A7)
-        0x40, 0xE7,              // MOVE    SR,-(A7)
-        0x60, 0xF4,              // BRA.S   org
-    };
-    static constexpr uint8_t SAVE10[] = {
-        0x48, 0xE7, 0xFF, 0xFE,  // MOVEM.L D0-D7/A0-A6,-(A7)
-        0x4E, 0x68,              // MOVE.L  USP,A0
-        0x2F, 0x08,              // MOVE.L  A0,-(A7)
-        0x4E, 0x7A, 0x88, 0x01,  // MOVEC   VBR,A0
-        0x2F, 0x08,              // MOVE.L  A0,-(A7)
-        0x4E, 0x7A, 0x80, 0x00,  // MOVEC   SFC,A0
-        0x2F, 0x08,              // MOVE.L  A0,-(A7)
-        0x4E, 0x7A, 0x80, 0x01,  // MOVEC   DFC,A0
-        0x2F, 0x08,              // MOVE.L  A0,-(A7)
-        0x40, 0xE7,              // MOVE    SR,-(A7)
-        0x60, 0xE2,              // BRA.S   org
-    };
-    // clang-format on
-    static_assert(SAVE[sizeof(SAVE) - 1] == uint8_t(-sizeof(SAVE)),
-            "BRA.S org: the displacement is from the BRA plus 2");
-    static_assert(SAVE10[sizeof(SAVE10) - 1] == uint8_t(-sizeof(SAVE10)),
-            "BRA.S org: the displacement is from the BRA plus 2");
-    constexpr uint_fast8_t MOVEM_BYTES = 15 * 4;
-    constexpr uint_fast8_t MAX_BYTES = MOVEM_BYTES + 4 + 3 * 4 + 2;
-    const uint_fast8_t BYTES = MOVEM_BYTES + 4 + (_mc68010 ? 3 * 4 : 0) + 2;
-    const auto save = _mc68010 ? SAVE10 : SAVE;
-    const auto saveLen = _mc68010 ? sizeof(SAVE10) : sizeof(SAVE);
     if (_vector && !_pins->answerVector(_vecAddr, InstMc68000::ORG_PARK)) {
         cli.println("?save: vector not answered");
         return;
     }
     auto org = _vector ? InstMc68000::ORG_PARK : _parkedAddr;
-    uint8_t buf[MAX_BYTES];
-    uint32_t addrs[MAX_BYTES];
+    const auto save = _mc68010 ? SaveMc68000::SAVE10 : SaveMc68000::SAVE;
+    const auto len =
+            _mc68010 ? sizeof(SaveMc68000::SAVE10) : sizeof(SaveMc68000::SAVE);
+    const auto bytes = SaveMc68000::bytes(_mc68010);
+    uint8_t buf[SaveMc68000::MAX_BYTES];
+    uint32_t addrs[SaveMc68000::MAX_BYTES];
     const auto n = _pins->captureWrites(
-            save, saveLen, buf, addrs, BYTES, org, PinsMc68000Base::EXIT_ORG);
-    if (n < BYTES || _pins->cutShort()) {
+            save, len, buf, addrs, bytes, org, PinsMc68000Base::EXIT_ORG);
+    SaveMc68000::Pushed p;
+    if (n < bytes || _pins->cutShort() ||
+            !SaveMc68000::decode(
+                    buf, addrs, n, _mems->maxAddr(), _mc68010, p)) {
         cli.println("?save: registers not pushed");
         return;
     }
-    const Captured c{_mems, buf, addrs, n};
-    // SR went last, as one word: its address is the lower of the last two.
-    const auto low = addrs[n - 2] < addrs[n - 1] ? addrs[n - 2] : addrs[n - 1];
-    const auto sp = _mems->wrap(low + BYTES);  // SSP as the save began
     for (uint_fast8_t i = 0; i < 8; ++i)
-        c.readLong(sp - MOVEM_BYTES + 4 * i, _d[i]);
+        _d[i] = p.d[i];
     for (uint_fast8_t i = 0; i < 7; ++i)
-        c.readLong(sp - MOVEM_BYTES + 32 + 4 * i, _a[i]);
-    c.readLong(sp - MOVEM_BYTES - 4, _usp);
+        _a[i] = p.a[i];
+    _usp = p.usp;
     if (_mc68010) {
-        uint32_t v;
-        c.readLong(sp - MOVEM_BYTES - 8, _vbr);
-        if (c.readLong(sp - MOVEM_BYTES - 12, v))
-            _sfc = v & 7;
-        if (c.readLong(sp - MOVEM_BYTES - 16, v))
-            _dfc = v & 7;
+        _vbr = p.vbr;
+        _sfc = p.sfc;
+        _dfc = p.dfc;
     }
     if (!_vector) {
         // Parked at the program's own fetch: the push was its SSP and SR.
         _pc = _parkedAddr;
-        _ssp = sp;
-        c.readWord(low, _sr);
+        _ssp = p.sp;
+        _sr = p.sr;
     }
     // Either way the CPU is parked at |org| again, outside a vector.
     _vector = false;

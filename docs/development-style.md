@@ -2103,7 +2103,9 @@ Plan, written before any of it runs; every timing it implies gets an
   from there. The save's writes are captured, never stored: `MOVEM.L
   D0-D7/A0-A6,-(SP)`, `MOVE USP,A0` pushed, then `MOVE SR,-(SP)`, which
   counts only when reset parked the CPU at its own fetch. On the MC68010
-  `MOVEC` pushes VBR, SFC and DFC through A0 before SR. Restore: immediate
+  `MOVEC` pushes VBR, SFC and DFC through A0 before SR; `save_mc68000.h`
+  holds the sequence and its layout, which `test/mc68000` checks against
+  libasm and a model of the pushes. Restore: immediate
   loads (`MOVE.L #`, `MOVEA.L #`, `MOVE A0,USP`, `MOVEC A0,VBR`), A7 last,
   pointing at the frame staged in memory at SSP-6 (SSP-8 on the MC68010),
   then `RTE`. **[code]**
