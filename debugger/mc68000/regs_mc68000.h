@@ -20,6 +20,9 @@ struct RegsMc68000 final : Regs {
     // eight bytes, not six.
     void setMc68010(bool mc68010) { _mc68010 = mc68010; }
     uint_fast8_t frameBytes() const { return _mc68010 ? 8 : 6; }
+    // Where the CPU reads vector |vecNum|: from VBR on the MC68010, which
+    // reset clears.
+    uint32_t vecAddr(uint8_t vecNum) const;
 
     void print() const override;
     // The state the program's reset vector sets, applied on resume.
@@ -76,10 +79,15 @@ private:
     uint32_t _usp;
     uint32_t _d[8];
     uint32_t _a[7];
+    // The MC68010's.
+    uint32_t _vbr;
+    uint8_t _sfc;
+    uint8_t _dfc;
 
     mutable CharBuffer _buffer1;
     mutable CharBuffer _buffer2;
     mutable CharBuffer _buffer3;
+    mutable CharBuffer _buffer4;
 };
 
 }  // namespace mc68000

@@ -2103,24 +2103,26 @@ Plan, written before any of it runs; every timing it implies gets an
   from there. The save's writes are captured, never stored: `MOVEM.L
   D0-D7/A0-A6,-(SP)`, `MOVE USP,A0` pushed, then `MOVE SR,-(SP)`, which
   counts only when reset parked the CPU at its own fetch. On the MC68010
-  `MOVEC` will also read VBR, SFC and DFC. Restore: immediate loads
-  (`MOVE.L #`, `MOVEA.L #`, `MOVE A0,USP`), A7 last, pointing at the
-  frame staged in memory at SSP-6, then `RTE`. **[code]**
+  `MOVEC` pushes VBR, SFC and DFC through A0 before SR. Restore: immediate
+  loads (`MOVE.L #`, `MOVEA.L #`, `MOVE A0,USP`, `MOVEC A0,VBR`), A7 last,
+  pointing at the frame staged in memory at SSP-6 (SSP-8 on the MC68010),
+  then `RTE`. **[code]**
 - **Step and breaks.** Step restores with T set in SR; the trace exception
   (vector 9) follows one instruction, or comes before the first
   instruction of any exception it raised. A break is `ILLEGAL` (4AFCH,
   vector 4), and every `ILLEGAL` stops a run: it is also how the samples
-  halt. Both are told by the vector read after the frame's pushes, at
-  VBR 0 for now; the MC68010 will need it relative to VBR. A fetch of a
+  halt. Both are told by the vector read after the frame's pushes, from
+  the saved VBR, so a program that moves VBR in a run is stopped only by
+  the halt switch until it next stops. A fetch of a
   break address proves nothing, as the CPU prefetches two words.
   **[doc][code]**
 - **MC68010.** Its exception frame tells it apart, 8 bytes against 6.
   Reset halts once through level 7 while the CPU fetches injected NOPs at
   the park, so nothing else writes, and counts the frame's bytes,
   captured below 0FF000H. An 8-byte frame turns on libasm's `MC68010`
-  and a format word (0000H, format 0) in the restore's frame. VBR, SFC
-  and DFC are not read yet: the vectors are taken at VBR 0. Its loop
-  mode runs a `DBcc` loop without fetching opcodes. **[doc][code]**
+  and a format word (0000H, format 0) in the restore's frame, and adds
+  VBR, SFC and DFC to the registers. Its loop mode runs a `DBcc` loop
+  without fetching opcodes. **[doc][code]**
 - **Not planned.** `BKPT` (MC68010 breakpoint acknowledge), bus arbitration
   (`#BR`, `#BGACK` tied high) and the 6800 bus (E, `#VMA`, `#VPA`). A
   backtrace waits: no pin marks an instruction start, and if one is
@@ -2132,7 +2134,13 @@ Plan, written before any of it runs; every timing it implies gets an
   with vector 64, which the regress wires with `ACIA = "FFFF0 40"`; on
   the FN board the base is 3FFFF0. `ANDI #$F8FF,SR` and `ORI #$0700,SR`
   switch interrupts without touching CCR, so a queue routine's carry
-  survives them. **[code]**
+  survives them. The same binaries are meant to run on the later family
+  too, so they keep to what every model does alike: the MC68000
+  instruction set, supervisor mode throughout (`MOVE from SR` is
+  privileged from the MC68010 on), vectors at 0 as reset leaves VBR, no
+  look into an exception frame, whose size varies, and words and longs
+  on even addresses, an address error only before the MC68020.
+  **[code]**
 - **libasm syntax.** Absolute operands take `(sym).w` or `(sym).l` and
   displacements `(disp,An)`: a bare `sym` or `disp(An)` is "Operand not
   allowed". A `BRA.S` to the next instruction can't be encoded: a 0

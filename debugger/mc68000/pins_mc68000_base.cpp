@@ -204,6 +204,7 @@ void PinsMc68000Base::resetCpu() {
 // and count the frame's bytes, captured, never stored. Nothing else writes
 // in between. The CPU is parked at ORG_PARK again.
 uint_fast8_t PinsMc68000Base::frameBytes() {
+    // Reset cleared an MC68010's VBR.
     _halting = true;
     setIpl();
     const auto vecAddr = InstMc68000::vecAddr(InstMc68000::VECNUM_HALT);
@@ -510,7 +511,8 @@ bool PinsMc68000Base::suspend(Signals *s) {
         completeCycle(s);
         s = prepareCycle();
     }
-    const auto vecAddr = InstMc68000::vecAddr(InstMc68000::VECNUM_HALT);
+    const auto vecAddr =
+            regs<RegsMc68000>()->vecAddr(InstMc68000::VECNUM_HALT);
     auto guard = irq_ack_cycles;
     while (guard-- && !s->halt()) {
         if (s->iack() && s->level() == 7) {
@@ -550,6 +552,8 @@ bool PinsMc68000Base::step(bool show) {
     }
     if (show)
         Cycles::reset();
+    const auto vecAddr =
+            regs<RegsMc68000>()->vecAddr(InstMc68000::VECNUM_TRACE);
     auto s = resumeCycle();
     auto parked = false;
     for (auto guard = Cycles::MAX_CYCLES; guard && !parked; --guard) {
@@ -561,13 +565,12 @@ bool PinsMc68000Base::step(bool show) {
             break;
         }
         if (memRead(s) && s->dataSpace() &&
-                (s->addr & ~1) == InstMc68000::VEC_TRACE) {
+                (s->addr & ~1) == vecAddr) {
             RegsMc68000::Frame frame;
             const Signals *from = nullptr;
             if (findFrame(s, frame, from)) {
                 frame.sr &= ~InstMc68000::SR_T;
-                regs<RegsMc68000>()->parkInVector(
-                        InstMc68000::VEC_TRACE, frame);
+                regs<RegsMc68000>()->parkInVector(vecAddr, frame);
                 Cycles::discard(from);
                 parked = true;
                 break;
@@ -591,6 +594,10 @@ bool PinsMc68000Base::step(bool show) {
 // be saved from: an ILLEGAL, the debugger's breakpoint, or a halt. The
 // ring is left holding the program's cycles only.
 bool PinsMc68000Base::loop() {
+    // ATTENTION: a program that moves VBR in a run hides its ILLEGAL from
+    // the debugger until the next stop.
+    const auto vecAddr =
+            regs<RegsMc68000>()->vecAddr(InstMc68000::VECNUM_ILLEGAL);
     auto s = resumeCycle();
     uint_fast8_t poll = 0;
     while (true) {
@@ -605,13 +612,12 @@ bool PinsMc68000Base::loop() {
             continue;
         }
         if (memRead(s) && s->dataSpace() &&
-                (s->addr & ~1) == InstMc68000::VEC_ILLEGAL) {
+                (s->addr & ~1) == vecAddr) {
             RegsMc68000::Frame frame;
             const Signals *from = nullptr;
             if (findFrame(s, frame, from)) {
                 // ILLEGAL stacks its own address.
-                regs<RegsMc68000>()->parkInVector(
-                        InstMc68000::VEC_ILLEGAL, frame);
+                regs<RegsMc68000>()->parkInVector(vecAddr, frame);
                 Cycles::discard(from);
                 return true;
             }
