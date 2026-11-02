@@ -635,7 +635,10 @@ A word at an odd address takes two bus cycles on a 16-bit bus. Shortening
 code above a workspace can move every variable to an odd address: the V30
 then ran `samples/i80186/mandelbrot.inc` slower than the 8086 code, while
 the V20 on its 8-bit bus showed no difference. Code moved the same way pays
-too: the first fetch after a jump to an odd address is a single byte. Put `align 2` before word
+too: the first fetch after a jump to an odd address is a single byte, so
+interrupt handlers and the routines called per character start at even
+addresses as well. `align` leaves its gap unwritten, so nothing may fall
+through into an aligned label. Put `align 2` before word
 variables, and compare the two variants' frame times on a 16-bit bus part
 before trusting either.
 

@@ -66,7 +66,7 @@
           0 : =80                rx_queue_size:  equ     128
           0 :
          80 :                            org     VEC_RX*4
-         80 : BA 10 00 00                dw      isr_intr, 0
+         80 : BC 10 00 00                dw      isr_intr, 0
          84 :
        1000 :                            org     1000H
        1000 : =1000              stack:  equ     $
@@ -94,7 +94,7 @@
 (1)    101F :                    receive_loop:
 (1)    101F : BB 00 20                   mov     bx, rx_queue
 (1)    1022 : FA                         cli
-(1)    1023 : E8 6F 00                   call    queue_remove
+(1)    1023 : E8 70 00                   call    queue_remove
 (1)    1026 : FB                         sti
 (1)    1027 : 73 F6                      jnc     receive_loop
 (1)    1029 : 08 C0                      or      al, al
@@ -156,79 +156,82 @@
 (2)    1068 : C6 47 03 00                mov     byte ptr [bx+queue_get], 0
 (2)    106C : C3                         ret
 (2)    106D :
-(2)    106D :                    ;;; [queue] Add an element to queue
-(2)    106D :                    ;;; @param BX queue work space pointer
-(2)    106D :                    ;;; @param AL an element
-(2)    106D :                    ;;; @return F.C 0 if queue is full
-(2)    106D :                    queue_add:
-(2)    106D : 56                         push    si
-(2)    106E : 52                         push    dx
-(2)    106F : 8A 17                      mov     dl, [bx+queue_len]
-(2)    1071 : 3A 57 01                   cmp     dl, [bx+queue_size]
-(2)    1074 : 72 03                      jb      queue_add_store ; queue_len < queue_size
-(2)    1076 : F8                         clc
-(2)    1077 : EB 19                      jmp     queue_add_exit
-(2)    1079 :                    queue_add_store:
-(2)    1079 : FE 07                      inc     byte ptr [bx+queue_len]
-(2)    107B : 8A 57 02                   mov     dl, [bx+queue_put]
-(2)    107E : 30 F6                      xor     dh, dh
-(2)    1080 : 89 D6                      mov     si, dx
-(2)    1082 : 88 40 04                   mov     [bx+si+queue_buf], al
-(2)    1085 : FE C2                      inc     dl              ; queue_put++
-(2)    1087 : 3A 57 01                   cmp     dl, [bx+queue_size]
-(2)    108A : 72 02                      jb      queue_add_update ; queue_put < queue_size
-(2)    108C : 30 D2                      xor     dl, dl          ; wrap around
-(2)    108E :                    queue_add_update:
-(2)    108E : 88 57 02                   mov     [bx+queue_put], dl
-(2)    1091 : F9                         stc
-(2)    1092 :                    queue_add_exit:
-(2)    1092 : 5A                         pop     dx
-(2)    1093 : 5E                         pop     si
-(2)    1094 : C3                         ret
-(2)    1095 :
-(2)    1095 :                    ;;; [queue] Remove an element from queue
-(2)    1095 :                    ;;; @param BX queue work space pointer
-(2)    1095 :                    ;;; @return AL an element
-(2)    1095 :                    ;;; @return F.C 0 if queue is empty
-(2)    1095 :                    queue_remove:
-(2)    1095 : 80 3F 00                   cmp     byte ptr [bx+queue_len], 0
-(2)    1098 : 75 02                      jne     queue_remove_elem ; queue_len > 0
-(2)    109A : F8                         clc
-(2)    109B : C3                         ret
-(2)    109C :                    queue_remove_elem:
-(2)    109C : 56                         push    si
-(2)    109D : 52                         push    dx
-(2)    109E : FE 0F                      dec     byte ptr [bx+queue_len]
-(2)    10A0 : 8A 57 03                   mov     dl, [bx+queue_get]
-(2)    10A3 : 30 F6                      xor     dh, dh
-(2)    10A5 : 89 D6                      mov     si, dx
-(2)    10A7 : 8A 40 04                   mov     al, [bx+si+queue_buf]
-(2)    10AA : FE C2                      inc     dl              ; queue_get++
-(2)    10AC : 3A 57 01                   cmp     dl, [bx+queue_size]
-(2)    10AF : 72 02                      jb      queue_remove_update ; queue_get < queue_size
-(2)    10B1 : 30 D2                      xor     dl, dl          ; wrap around
-(2)    10B3 :                    queue_remove_update:
-(2)    10B3 : 88 57 03                   mov     [bx+queue_get], dl
-(2)    10B6 : 5A                         pop     dx
-(2)    10B7 : 5E                         pop     si
-(2)    10B8 : F9                         stc
-(2)    10B9 : C3                         ret
-(1)    10BA :
-(1)    10BA :                    isr_intr:
-(1)    10BA : 50                         push    ax
-(1)    10BB : 53                         push    bx
-(1)    10BC : E4 41                      in      al, USARTS
-(1)    10BE : A8 02                      test    al, ST_RxRDY_bm
-(1)    10C0 : 74 08                      jz      isr_intr_exit
-(1)    10C2 : E4 40                      in      al, USARTD      ; receive character
-(1)    10C4 : BB 00 20                   mov     bx, rx_queue
-(1)    10C7 : E8 A3 FF                   call    queue_add
-(1)    10CA :                    isr_intr_exit:
-(1)    10CA : 5B                         pop     bx
-(1)    10CB : 58                         pop     ax
-(1)    10CC : CF                         iret
-(1)    10CD :
-       10CD :
+(2)    106E :                            align   2
+(2)    106E :                    ;;; [queue] Add an element to queue
+(2)    106E :                    ;;; @param BX queue work space pointer
+(2)    106E :                    ;;; @param AL an element
+(2)    106E :                    ;;; @return F.C 0 if queue is full
+(2)    106E :                    queue_add:
+(2)    106E : 56                         push    si
+(2)    106F : 52                         push    dx
+(2)    1070 : 8A 17                      mov     dl, [bx+queue_len]
+(2)    1072 : 3A 57 01                   cmp     dl, [bx+queue_size]
+(2)    1075 : 72 03                      jb      queue_add_store ; queue_len < queue_size
+(2)    1077 : F8                         clc
+(2)    1078 : EB 19                      jmp     queue_add_exit
+(2)    107A :                    queue_add_store:
+(2)    107A : FE 07                      inc     byte ptr [bx+queue_len]
+(2)    107C : 8A 57 02                   mov     dl, [bx+queue_put]
+(2)    107F : 30 F6                      xor     dh, dh
+(2)    1081 : 89 D6                      mov     si, dx
+(2)    1083 : 88 40 04                   mov     [bx+si+queue_buf], al
+(2)    1086 : FE C2                      inc     dl              ; queue_put++
+(2)    1088 : 3A 57 01                   cmp     dl, [bx+queue_size]
+(2)    108B : 72 02                      jb      queue_add_update ; queue_put < queue_size
+(2)    108D : 30 D2                      xor     dl, dl          ; wrap around
+(2)    108F :                    queue_add_update:
+(2)    108F : 88 57 02                   mov     [bx+queue_put], dl
+(2)    1092 : F9                         stc
+(2)    1093 :                    queue_add_exit:
+(2)    1093 : 5A                         pop     dx
+(2)    1094 : 5E                         pop     si
+(2)    1095 : C3                         ret
+(2)    1096 :
+(2)    1096 :                            align   2
+(2)    1096 :                    ;;; [queue] Remove an element from queue
+(2)    1096 :                    ;;; @param BX queue work space pointer
+(2)    1096 :                    ;;; @return AL an element
+(2)    1096 :                    ;;; @return F.C 0 if queue is empty
+(2)    1096 :                    queue_remove:
+(2)    1096 : 80 3F 00                   cmp     byte ptr [bx+queue_len], 0
+(2)    1099 : 75 02                      jne     queue_remove_elem ; queue_len > 0
+(2)    109B : F8                         clc
+(2)    109C : C3                         ret
+(2)    109D :                    queue_remove_elem:
+(2)    109D : 56                         push    si
+(2)    109E : 52                         push    dx
+(2)    109F : FE 0F                      dec     byte ptr [bx+queue_len]
+(2)    10A1 : 8A 57 03                   mov     dl, [bx+queue_get]
+(2)    10A4 : 30 F6                      xor     dh, dh
+(2)    10A6 : 89 D6                      mov     si, dx
+(2)    10A8 : 8A 40 04                   mov     al, [bx+si+queue_buf]
+(2)    10AB : FE C2                      inc     dl              ; queue_get++
+(2)    10AD : 3A 57 01                   cmp     dl, [bx+queue_size]
+(2)    10B0 : 72 02                      jb      queue_remove_update ; queue_get < queue_size
+(2)    10B2 : 30 D2                      xor     dl, dl          ; wrap around
+(2)    10B4 :                    queue_remove_update:
+(2)    10B4 : 88 57 03                   mov     [bx+queue_get], dl
+(2)    10B7 : 5A                         pop     dx
+(2)    10B8 : 5E                         pop     si
+(2)    10B9 : F9                         stc
+(2)    10BA : C3                         ret
+(1)    10BB :
+(1)    10BC :                            align   2
+(1)    10BC :                    isr_intr:
+(1)    10BC : 50                         push    ax
+(1)    10BD : 53                         push    bx
+(1)    10BE : E4 41                      in      al, USARTS
+(1)    10C0 : A8 02                      test    al, ST_RxRDY_bm
+(1)    10C2 : 74 08                      jz      isr_intr_exit
+(1)    10C4 : E4 40                      in      al, USARTD      ; receive character
+(1)    10C6 : BB 00 20                   mov     bx, rx_queue
+(1)    10C9 : E8 A2 FF                   call    queue_add
+(1)    10CC :                    isr_intr_exit:
+(1)    10CC : 5B                         pop     bx
+(1)    10CD : 58                         pop     ax
+(1)    10CE : CF                         iret
+(1)    10CF :
+       10CF :
       FFFF0 :                            org     0FFFF0H
       FFFF0 : EA 00 10 00 00             jmpf    0:init
       FFFF5 :
