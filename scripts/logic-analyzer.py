@@ -53,11 +53,17 @@ def analyzer():
     return name, found.get(name, {})
 
 
-def load_channels(path, name):
-    """{channel index: label} from channels.toml's [name] table."""
+def load_leads(path, name):
+    """{channel index: {'pin': Bionic Connector pin, 'signal': label}} from
+    channels.toml's [name] table, whose other keys are not channels."""
     with open(path, 'rb') as f:
         table = tomllib.load(f).get(name, {})
-    return {int(k): v for k, v in table.items()}
+    return {int(k): v for k, v in table.items() if k.isdigit()}
+
+
+def load_channels(path, name):
+    """{channel index: label} from channels.toml's [name] table."""
+    return {ch: lead['signal'] for ch, lead in load_leads(path, name).items()}
 
 
 def _relabel(path, channels):

@@ -5,7 +5,8 @@ LogicAnalyzer interface in logic-analyzer.py.
   load-preset PRESET [SET_NAME]   dump a Logic 2 preset's channel labels
                                    as a TOML table named SET_NAME (default
                                    PRESET), to redirect or append into
-                                   samples/<target>/bench/channels.toml
+                                   samples/<target>/bench/channels.toml;
+                                   fill in each channel's empty pin
 
 The preset is read from Logic 2's config file, $BIONIC_LOGIC_CONFIG
 (default ~/.config/Logic/config.json).
@@ -27,7 +28,7 @@ def load_preset_toml(preset, set_name=None):
     channels = la.SaleaeLogicPro16().preset_channels(preset)
     lines = ['[%s]' % (set_name or preset)]
     for ch, name in sorted(channels.items()):
-        lines.append('%d = %s' % (ch, _toml_string(name)))
+        lines.append('%2d = { pin = "", signal = %s }' % (ch, _toml_string(name)))
     return '\n'.join(lines) + '\n'
 
 
