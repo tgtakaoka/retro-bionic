@@ -10,7 +10,7 @@
  *  c - fill data memory
  *  C - fill program memory
  *  p - dump program memory. addr [length]
- *  P - show/set write protect area
+ *  P - show/set the target's memory area
  *  B - set break point
  *  b - show/clear break point
  *  r - print CPU registers
@@ -87,7 +87,7 @@ constexpr char HELP2[] =
         "  I dev addr rx [tx]\r\n"
         "                 : likewise, and its Rx and Tx interrupt vectors\r\n"
         "                   (0: none; tx defaults to rx)\r\n"
-        "  P [from to]    : show, or set, protect area\r\n"
+        "  P [from to]    : show, or set, the target's memory area\r\n"
         "  W +identity    : write identity EEPROM\r\n"
         "  V              : toggle verbose bus-cycle printing\r\n"
 #ifdef STRESS_HALTGO
@@ -960,11 +960,11 @@ void Debugger::exec(char c) {
         return;
     case 'P':
         if (target().printProtectArea()) {
-            cli.print("  Protect area? ");
+            cli.print("  Area? ");
             cli.readNum(handleProtectArea, PROG_ADDR, radix, maxAddr);
             return;
         } else {
-            cli.println("No Protect area");
+            cli.println("No area");
         }
         break;
     case 'B':

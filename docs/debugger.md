@@ -24,7 +24,7 @@ From the header of `debugger/debugger.cpp`:
 | `M` | Read/write program memory |
 | `c` | Fill data memory — `addr n v...` |
 | `C` | Fill program memory |
-| `P` | Show/set write-protect area |
+| `P` | Show/set the target's memory area |
 | `D` | Disassemble |
 | `A` | Assemble |
 | `S` | Step one instruction, printing bus cycles |
@@ -41,8 +41,10 @@ From the header of `debugger/debugger.cpp`:
 | `?` | Print version and usage |
 
 Separate `d`/`p` and `m`/`M` pairs exist because Harvard-architecture targets have distinct
-program and data address spaces. `P` works only on targets that report
-`hasProtectArea()`; elsewhere it prints `No Protect area`.
+program and data address spaces. `P` sets an area of the target's memory
+space, which the target names and gives its meaning, such as the Z86's
+protect area, write-protected ROM. It works only on targets that report
+`hasProtectArea()`; elsewhere it prints `No area`.
 
 On a CPU clocked from a timer (see [hardware.md](hardware.md#clocking-the-cpu)),
 `K [kHz]`, which `?` doesn't list, shows the clock rate a run uses or sets it;
