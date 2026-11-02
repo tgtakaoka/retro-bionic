@@ -233,7 +233,7 @@ exact. Write the test that way even where the current expansion is safe.
 
 ### Change a coded input through a neutral code **[code]**
 
-`busWriteFast()` clears bits before it sets them, so for one store the
+`busWrite()` clears bits before it sets them, so for one store the
 port shows the old and new values ANDed. Data the CPU latches later
 doesn't mind, but a code the CPU samples every clock can: TMS9980 INT2-0
 codes 4 and 3 AND to 0, which resets. Go through the code that means
@@ -302,7 +302,7 @@ The S80296SA's went this way:
 7. Do the work as soon as its input is valid, not where the old code
    did it. The CDP1802 drives the low address byte from early c30, a clock
    before the code read it, so the memory read moved into c40 and the byte
-   is staged in the port with `busWriteFast()` while the bus is still an
+   is staged in the port with `busWrite()` while the bus is still an
    input; c61 only turns the port to output.
 8. Give every branch of a phase its own delay. A debugger-injected read
    skips the memory lookup, and with no delay in its branch the CDP1802's
@@ -408,7 +408,7 @@ cycles, where bit-banged edges needed a tuned delay for each.
 - Holding every cycle costs a wait state each. In a run, a plain memory
   read can go without one: decide from the status as soon as it is valid,
   leave the wait input released, stage the data in the port while it is
-  still an input (`busWriteFast()`, no read of the data register), and
+  still an input (`busWrite()`, no read of the data register), and
   drive it the moment the read strobe falls. Every 10 us hold a fetch to
   run the devices, which may change an interrupt input only while the
   CPU waits, and to poll the halt switch. It only pays while the Teensy
@@ -1503,7 +1503,7 @@ least 227 ns) keep it working, which tops the clock at 2.5 MHz. **[hw]**
   over code. `resetCycles()` moves the waiting cycle along.
 - In a run, a plain memory read is served without a wait state: READY
   goes high again as soon as the status shows it, the data is staged
-  with `busWriteFast()` and driven the moment DBIN rises. A fetch is
+  with `busWrite()` and driven the moment DBIN rises. A fetch is
   held every 10 us to run the devices, which change INT only while the
   CPU waits, and to poll the halt switch. **[hw][code]**
 

@@ -21,7 +21,7 @@ void SignalsTms370Cx5x::getData() {
 }
 
 void SignalsTms370Cx5x::outData() const {
-    busWriteFast(DATA, data);
+    busWrite(DATA, data);
     busMode(DATA, OUTPUT);
 }
 

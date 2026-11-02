@@ -40,10 +40,10 @@ void Signals::getData() {
     data = busRead(D);
 }
 
-// #DSACK0 and #DSACK1 share GPIO6 with the data bus; busWriteFast() keeps
+// #DSACK0 and #DSACK1 share GPIO6 with the data bus; busWrite() keeps
 // their bits.
 void Signals::outData() const {
-    busWriteFast(D, data);
+    busWrite(D, data);
     busMode(D, OUTPUT);
 }
 

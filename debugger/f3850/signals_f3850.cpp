@@ -20,7 +20,7 @@ Signals *Signals::getData() {
 }
 
 void Signals::outData() const {
-    busWriteFast(DB, data);
+    busWrite(DB, data);
     busMode(DB, OUTPUT);
 }
 

@@ -40,7 +40,7 @@ void SignalsTms99105::getData() {
 }
 
 void SignalsTms99105::outData() const {
-    busWriteFast(DATA, data);
+    busWrite(DATA, data);
     busMode(DATA, OUTPUT);
 }
 

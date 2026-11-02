@@ -26,7 +26,7 @@ void SignalsTms9980::getData() {
 }
 
 void SignalsTms9980::outData() const {
-    busWriteFast(DATA, data);
+    busWrite(DATA, data);
     busMode(DATA, OUTPUT);
 }
 

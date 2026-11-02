@@ -50,10 +50,10 @@ void Signals::getData() {
 // The 8088's AD8-AD15 are A8-A15, the CPU's outputs.
 void Signals::outData() const {
     if (bus8()) {
-        busWriteFast(ADL, data);
+        busWrite(ADL, data);
         busMode(ADL, OUTPUT);
     } else {
-        busWriteFast(AD, data);
+        busWrite(AD, data);
         busMode(AD, OUTPUT);
     }
 }

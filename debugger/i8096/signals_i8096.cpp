@@ -16,12 +16,12 @@ void SignalsI8096::getData() {
 }
 
 void SignalsI8096::outData() const {
-    busWriteFast(AD, data);
+    busWrite(AD, data);
     busMode(AD, OUTPUT);
 }
 
 void SignalsI8096::outLow() const {
-    busWriteFast(DATA, data);
+    busWrite(DATA, data);
     busMode(DATA, OUTPUT);
 }
 

@@ -25,7 +25,7 @@ void SignalsMc68HC05C0::getData() {
 }
 
 void SignalsMc68HC05C0::outData() const {
-    busWriteFast(AD, data);
+    busWrite(AD, data);
     busMode(AD, OUTPUT);
 }
 

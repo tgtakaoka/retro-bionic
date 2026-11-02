@@ -37,7 +37,7 @@ void Signals::outData() const {
 }
 
 void Signals::stageData() const {
-    busWriteFast(DBUS, data);
+    busWrite(DBUS, data);
 }
 
 void Signals::outputMode() {
