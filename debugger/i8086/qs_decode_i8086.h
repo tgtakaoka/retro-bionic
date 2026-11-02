@@ -26,10 +26,27 @@ namespace i8086 {
  *   bool fetch(int i, uint32_t &first, uint32_t &next): a code fetch, its
  *     first byte and the address after it;
  *   int samples(), uint32_t sampleTime(int k), uint8_t qs(int k): QS1:QS0;
- *   uint32_t insn(uint32_t addr): shows the instruction, returns the next;
- *   uint8_t length(uint32_t addr): the instruction's length, quietly;
- *   void cycle(int i): shows a cycle that isn't a fetch.
+ *   uint32_t insn(uint32_t addr, bool emu): shows the instruction, as 8080
+ *     code if |emu|, returns the next;
+ *   uint8_t length(uint32_t addr, bool emu): the instruction's length,
+ *     quietly;
+ *   void cycle(int i): shows a cycle that isn't a fetch;
+ *   bool vector(int i): an interrupt vector read;
+ *   int popMode(int i): for a data cycle, the V20/V30 mode flag MD (bit 15)
+ *     of the word a read brings, 0 or 1, or -1 for a write or a read
+ *     without bit 15; -2 for any other cycle;
+ *   uint8_t code(uint32_t addr): a byte of memory;
+ *   int areaMode(uint32_t addr): 1 in the 8080EMU area, 0 outside it, -1
+ *     with no area set.
  * Times are counts that may wrap.
+ *
+ * A V20/V30 runs a stream as native or as 8080 code. Every change of mode
+ * empties the queue, so each stream has one mode, from what began it: an
+ * interrupt vector read, native, or 8080 after BRKEM (0F FF); a native
+ * IRET (CF), the MD its flags pop brings; RETEM (ED FD), native. Any other
+ * stream keeps the mode of the one before it, and the stream the CPU
+ * stopped in has |stopEmu|. With an 8080EMU area set, a stream's address
+ * decides instead.
  *
  * An instruction at |stopAt| started last is left out: its first byte was
  * taken just as the CPU stopped, before it ran. The stop's flush begins no
@@ -42,8 +59,9 @@ namespace i8086 {
  */
 template <typename S, int MAX_STREAMS>
 struct QsDecoder {
-    QsDecoder(S &src, bool pairs, uint32_t stopAt = UINT32_MAX)
-        : _src(src), _pairs(pairs), _stopAt(stopAt) {}
+    QsDecoder(S &src, bool pairs, uint32_t stopAt = UINT32_MAX,
+            bool stopEmu = false)
+        : _src(src), _pairs(pairs), _stopAt(stopAt), _stopEmu(stopEmu) {}
 
     /**
      * Shows the last |limit| instructions, and the cycles from the first of
@@ -52,9 +70,11 @@ struct QsDecoder {
     bool decode(uint32_t limit = UINT32_MAX) {
         if (!findStreams() && !placeFirst())
             return false;
-        // A quiet pass finds whether the last start is at |stopAt|: the
-        // bytes taken, not the instructions' lengths, place it.
+        // A quiet pass finds whether the last start is at |stopAt|, and
+        // each stream's last start: the bytes taken, not the instructions'
+        // lengths, place them.
         const auto hide = run(FIND, -1, 0);
+        findModes();
         int skip = 0;
         if (limit != UINT32_MAX) {
             restart();
@@ -74,6 +94,7 @@ private:
     S &_src;
     const bool _pairs;
     const uint32_t _stopAt;
+    const bool _stopEmu;
     int _streams = 0;
     // Each stream's first address, its first fetch's time, the flush that
     // began it (-1 for none), and its bytes taken so far.
@@ -81,6 +102,13 @@ private:
     uint32_t _since[MAX_STREAMS];
     int _flushedAt[MAX_STREAMS];
     uint32_t _taken[MAX_STREAMS];
+    // Whether an interrupt vector read came before each stream, the MD of
+    // the last data cycle before it, its last start, and its mode: -1 not
+    // yet known, 0 native, 1 8080.
+    bool _vector[MAX_STREAMS];
+    int8_t _popMode[MAX_STREAMS];
+    uint32_t _lastStart[MAX_STREAMS];
+    int8_t _emu[MAX_STREAMS];
     // The first stream placed by the stop, and its first instruction.
     bool _placed = false;
     uint32_t _firstInsn = 0;
@@ -92,6 +120,68 @@ private:
     void restart() {
         for (int s = 0; s < _streams; ++s)
             _taken[s] = 0;
+    }
+
+    bool emu(int s) const { return _emu[s] > 0; }
+
+    // What began stream |s|, from the last start of the one before it.
+    // Returns the mode it set, or -1 for one it keeps; |was| gets the mode
+    // that instruction needs the stream before to have had, or -1.
+    int8_t modeChange(int s, int8_t &was) {
+        const auto last = _lastStart[s - 1];
+        const auto prev = _emu[s - 1];
+        was = -1;
+        if (_vector[s]) {
+            const auto brkem = prev != 1 && last != UINT32_MAX &&
+                               _src.code(last) == 0x0F &&
+                               _src.code((last + 1) & 0xFFFFF) == 0xFF;
+            if (brkem)
+                was = 0;
+            return brkem ? 1 : 0;
+        }
+        if (last == UINT32_MAX)
+            return -1;
+        if (prev != 1 && _src.code(last) == 0xCF && _popMode[s] >= 0) {
+            was = 0;  // IRET
+            return _popMode[s] ? 0 : 1;
+        }
+        if (prev != 0 && _src.code(last) == 0xED &&
+                _src.code((last + 1) & 0xFFFFF) == 0xFD) {
+            was = 1;  // RETEM
+            return 0;
+        }
+        return -1;
+    }
+
+    void findModes() {
+        static int8_t change[MAX_STREAMS];
+        for (int s = 0; s < _streams; ++s)
+            _emu[s] = -1;
+        change[0] = -1;
+        for (int s = 1; s < _streams; ++s) {
+            int8_t was;
+            _emu[s] = change[s] = modeChange(s, was);
+            if (_emu[s - 1] < 0 && was >= 0)
+                _emu[s - 1] = was;
+        }
+        const auto last = _streams - 1;
+        _emu[last] = _stopEmu ? 1 : 0;
+        // A stream keeps its mode into the next one that sets none.
+        for (int s = last - 1; s >= 0; --s) {
+            if (_emu[s] < 0 && change[s + 1] < 0)
+                _emu[s] = _emu[s + 1];
+        }
+        for (int s = 1; s < _streams; ++s) {
+            if (_emu[s] < 0)
+                _emu[s] = _emu[s - 1];
+        }
+        if (_emu[0] < 0)
+            _emu[0] = _stopEmu ? 1 : 0;
+        for (int s = 0; s < _streams; ++s) {
+            const auto area = _src.areaMode(_start[s]);
+            if (area >= 0)
+                _emu[s] = area;
+        }
     }
 
     // Goes through the samples, leaving out the instruction at |_stopAt|
@@ -139,6 +229,8 @@ private:
             if (qs == 1) {
                 lastStart = taken;
                 atStop = a == _stopAt;
+                if (mode == FIND)
+                    _lastStart[cur] = a;
             }
             if (mode == FIND) {
                 ++taken;
@@ -156,9 +248,9 @@ private:
             if (a == next && !stopped) {
                 if (show && starts >= skip) {
                     showing = true;
-                    next = _src.insn(a);
+                    next = _src.insn(a, emu(cur));
                 } else {
-                    next = (a + _src.length(a)) & 0xFFFFF;
+                    next = (a + _src.length(a, emu(cur))) & 0xFFFFF;
                 }
                 ++starts;
             }
@@ -191,14 +283,14 @@ private:
                 continue;
             if (prev == UINT32_MAX) {
                 first = a;
-            } else if (prev + _src.length(prev) != a) {
+            } else if (prev + _src.length(prev, _stopEmu) != a) {
                 ++bad;
             }
             prev = a;
             ++starts;
         }
         if (prev != UINT32_MAX && prev != _stopAt &&
-                prev + _src.length(prev) != _stopAt)
+                prev + _src.length(prev, _stopEmu) != _stopAt)
             ++bad;
         return bad;
     }
@@ -236,10 +328,20 @@ private:
     bool findStreams() {
         uint32_t expect = UINT32_MAX;
         int k = 0;  // the next sample to look for a flush in
+        bool vector = false;    // a vector read since the last stream began
+        int8_t popMode = -1;    // the last data cycle's MD
         for (int i = 0; i < _src.cycles() && _streams < MAX_STREAMS; ++i) {
             uint32_t first, next;
-            if (!_src.fetch(i, first, next))
+            if (_src.vector(i)) {
+                vector = true;
                 continue;
+            }
+            if (!_src.fetch(i, first, next)) {
+                const auto md = _src.popMode(i);
+                if (md >= -1)
+                    popMode = md;
+                continue;
+            }
             const auto t = _src.cycleTime(i);
             int flushed = -1;
             for (; k < _src.samples() && before(_src.sampleTime(k), t); ++k) {
@@ -251,7 +353,12 @@ private:
                 _since[_streams] = t;
                 _flushedAt[_streams] = flushed;
                 _taken[_streams] = 0;
+                _vector[_streams] = vector;
+                _popMode[_streams] = popMode;
+                _lastStart[_streams] = UINT32_MAX;
+                _emu[_streams] = _stopEmu ? 1 : 0;
                 ++_streams;
+                vector = false;
             }
             expect = next;
         }

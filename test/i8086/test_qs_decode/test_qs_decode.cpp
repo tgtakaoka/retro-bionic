@@ -20,15 +20,25 @@ struct Bus {
         uint32_t time;
         bool fetch;
         uint32_t addr;
+        bool vector;
+        int md;  // a data read's MD, or -1
     };
     std::vector<Cycle> cyc;
     std::vector<uint8_t> qsAt;  // indexed by time
     std::map<uint32_t, uint32_t> len;
+    std::map<uint32_t, uint8_t> mem;
     std::string log;
     bool byteBus = false;
 
-    void fetch(uint32_t time, uint32_t addr) { cyc.push_back({time, true, addr}); }
-    void data(uint32_t time, uint32_t addr) { cyc.push_back({time, false, addr}); }
+    void fetch(uint32_t time, uint32_t addr) {
+        cyc.push_back({time, true, addr, false, -1});
+    }
+    void data(uint32_t time, uint32_t addr, int md = -1) {
+        cyc.push_back({time, false, addr, false, md});
+    }
+    void vec(uint32_t time, uint32_t addr) {
+        cyc.push_back({time, false, addr, true, -1});
+    }
     void qs(uint32_t time, uint8_t q) {
         if (qsAt.size() <= time)
             qsAt.resize(time + 1, 0);
@@ -47,16 +57,27 @@ struct Bus {
     int samples() const { return qsAt.size(); }
     uint32_t sampleTime(int k) const { return k; }
     uint8_t qs(int k) const { return qsAt[k]; }
-    uint8_t length(uint32_t addr) const {
+    uint8_t length(uint32_t addr, bool) const {
         const auto l = len.find(addr);
         return l == len.end() ? 1 : l->second;
     }
-    uint32_t insn(uint32_t addr) {
-        log += "I" + std::to_string(addr) + " ";
-        const auto l = len.find(addr);
-        return addr + (l == len.end() ? 1 : l->second);
+    uint32_t insn(uint32_t addr, bool emu) {
+        log += (emu ? "E" : "I") + std::to_string(addr) + " ";
+        return addr + length(addr, emu);
     }
     void cycle(int i) { log += "D" + std::to_string(cyc[i].addr) + " "; }
+    bool vector(int i) const { return cyc[i].vector; }
+    int popMode(int i) const { return cyc[i].fetch ? -2 : cyc[i].md; }
+    uint8_t code(uint32_t addr) const {
+        const auto m = mem.find(addr);
+        return m == mem.end() ? 0x90 : m->second;
+    }
+    uint32_t areaBegin = 1, areaEnd = 0;  // none
+    int areaMode(uint32_t addr) const {
+        if (areaBegin > areaEnd)
+            return -1;
+        return addr >= areaBegin && addr <= areaEnd;
+    }
 };
 
 using Decoder = QsDecoder<Bus, 16>;
@@ -285,6 +306,81 @@ void test_limit() {
     TEST_ASSERT_EQUAL_STRING("I103 D2001 I104 ", bus.log.c_str());
 }
 
+// BRKEM enters 8080 code, an interrupt leaves it for a native handler,
+// and IRET's flags pop (MD 0) returns to it; 8080 code shows as E.
+void test_emulation() {
+    Bus bus;
+    bus.len = {{100, 3}, {200, 1}, {201, 1}, {300, 1}};
+    bus.mem = {{100, 0x0F}, {101, 0xFF}, {300, 0xCF}};
+    prologue(bus);
+    bus.qs(5, 1);  // 100 BRKEM
+    bus.qs(6, 3);
+    bus.qs(7, 3);
+    bus.qs(8, 2);
+    bus.vec(9, 0x88);
+    bus.fetch(10, 200);
+    bus.qs(13, 1);  // 200, 8080
+    bus.qs(14, 2);  // an interrupt
+    bus.vec(15, 0x3BC);
+    bus.fetch(16, 300);
+    bus.qs(19, 1);  // 300 IRET, native
+    bus.data(20, 0xFF0);
+    bus.data(21, 0xFF2);
+    bus.data(22, 0xFF4, 0);  // flags, MD 0
+    bus.qs(23, 2);
+    bus.fetch(24, 201);
+    bus.qs(27, 1);  // 201, 8080 again
+    Decoder dec(bus, true, UINT32_MAX, true);
+    TEST_ASSERT_TRUE(dec.decode());
+    TEST_ASSERT_EQUAL_STRING(
+            "I100 D136 E200 D956 I300 D4080 D4082 D4084 E201 ",
+            bus.log.c_str());
+}
+
+// In 8080 code CF is RST 1, which pushes: the mode stays. RETEM (ED FD)
+// returns to native code.
+void test_emulation_lookalikes() {
+    Bus bus;
+    bus.len = {{100, 1}, {8, 2}, {500, 1}};
+    bus.mem = {{100, 0xCF}, {8, 0xED}, {9, 0xFD}};
+    prologue(bus);
+    bus.qs(5, 1);  // 100 RST 1
+    bus.qs(6, 2);
+    bus.data(7, 0xFFE, 0);  // a push: no MD
+    bus.data(8, 0xFFF);
+    bus.fetch(9, 8);
+    bus.qs(12, 1);  // 8 RETEM
+    bus.qs(13, 3);
+    bus.data(14, 0xFF0, 1);
+    bus.qs(15, 2);
+    bus.fetch(16, 500);
+    bus.qs(19, 1);  // 500, native
+    Decoder dec(bus, true, UINT32_MAX, false);
+    TEST_ASSERT_TRUE(dec.decode());
+    // The stream at 100 was 8080 code, as the RETEM after it shows.
+    TEST_ASSERT_EQUAL_STRING(
+            "E100 D4094 D4095 E8 D4080 I500 ", bus.log.c_str());
+}
+
+// An 8080EMU area decides a stream's mode by its address, over what began
+// it: here a RETEM look-alike in native code changes nothing.
+void test_emulation_area() {
+    Bus bus;
+    bus.len = {{100, 2}, {500, 1}};
+    bus.mem = {{100, 0xED}, {101, 0xFD}};
+    bus.areaBegin = 0x10000;
+    bus.areaEnd = 0x1FFFF;
+    prologue(bus);
+    bus.qs(5, 1);  // 100 IN AX,DX; STD as native code
+    bus.qs(6, 3);
+    bus.qs(7, 2);
+    bus.fetch(9, 500);
+    bus.qs(12, 1);  // 500
+    Decoder dec(bus, true, UINT32_MAX, false);
+    TEST_ASSERT_TRUE(dec.decode());
+    TEST_ASSERT_EQUAL_STRING("I100 I500 ", bus.log.c_str());
+}
+
 // Only the stream begun before the samples: nothing to show.
 void test_first_stream_only() {
     Bus bus;
@@ -313,6 +409,9 @@ int main() {
     RUN_TEST(test_lone_stream_at_stop);
     RUN_TEST(test_lone_stream_unplaced);
     RUN_TEST(test_limit);
+    RUN_TEST(test_emulation);
+    RUN_TEST(test_emulation_lookalikes);
+    RUN_TEST(test_emulation_area);
     RUN_TEST(test_first_stream_only);
     return UNITY_END();
 }

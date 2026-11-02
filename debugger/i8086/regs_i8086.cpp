@@ -2,6 +2,7 @@
 
 #include "debugger.h"
 #include "inst_i8086.h"
+#include "mems_i8086.h"
 #include "pins_i8086.h"
 
 namespace debugger {
@@ -59,9 +60,14 @@ void RegsI8086::parkInTrap(
     _parkCs = InstI8086::PARK_CS;
     _parkIp = parkIp;
     _s[CS] = cs;
-    // INT 3 pushes the address after itself; continuing runs the
+    // INT 3 pushes the address after itself, and so does the NMI that
+    // stops a HLT break point in 8080 code; continuing runs the
     // instruction it stood for.
-    _ip = (vector == InstI8086::VEC_BREAK) ? ip - 1 : ip;
+    const auto haltBreak = vector == InstI8086::VEC_NMI &&
+                           _pins->vSeries() && (flags & 0x8000) == 0 &&
+                           _pins->isBreakPoint(
+                                   InstI8086::physical(cs, ip - 1));
+    _ip = (vector == InstI8086::VEC_BREAK || haltBreak) ? ip - 1 : ip;
     // The single step's TF is the debugger's.
     _flags = (vector == InstI8086::VEC_STEP) ? (flags & ~InstI8086::FLAGS_TF)
                                              : flags;
@@ -92,6 +98,23 @@ void RegsI8086::print() const {
     regs.hex16(51, _r[BP]);
     cli.println(regs);
     _pins->idle();
+    if (emulation()) {
+        // The 8080's registers, as emulation maps them.
+        cli.print("8080EMU: A=");
+        cli.printHex(lo(_r[AX]), 2);
+        cli.print(" BC=");
+        cli.printHex(_r[CX], 4);
+        cli.print(" DE=");
+        cli.printHex(_r[DX], 4);
+        cli.print(" HL=");
+        cli.printHex(_r[BX], 4);
+        cli.print(" SP=");
+        cli.printHex(_r[BP], 4);
+        cli.print(" PC=");
+        cli.printHex(_ip, 4);
+        cli.println();
+        _pins->idle();
+    }
 }
 
 void RegsI8086::save() {
@@ -141,6 +164,11 @@ void RegsI8086::save() {
     } else {
         _flags = stored(STORE_F);
     }
+}
+
+// A V20/V30's MD flag is 0 in 8080 emulation; the 8086's bit 15 is 1.
+bool RegsI8086::emulation() const {
+    return _pins->vSeries() && (_flags & 0x8000) == 0;
 }
 
 bool RegsI8086::probeVSeries() {
