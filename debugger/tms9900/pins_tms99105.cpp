@@ -307,10 +307,10 @@ void PinsTms99105::assertInt(uint8_t name_) {
     if (name == tms9900::INTR_NMI) {
         digitalWriteFast(PIN_NMI, LOW);
     } else {
-        // busWriteFast() briefly shows the old and new codes ANDed, so
+        // busWrite() briefly shows the old and new codes ANDed, so
         // change IC0-IC3 only while #INTREQ is negated.
         digitalWriteFast(PIN_INTREQ, HIGH);
-        busWriteFast(IC, name_ / 4);
+        busWrite(IC, name_ / 4);
         digitalWriteFast(PIN_INTREQ, LOW);
     }
 }
@@ -321,7 +321,7 @@ void PinsTms99105::negateInt(uint8_t name_) {
         digitalWriteFast(PIN_NMI, HIGH);
     } else {
         digitalWriteFast(PIN_INTREQ, HIGH);
-        busWriteFast(IC, 0xF);
+        busWrite(IC, 0xF);
     }
 }
 

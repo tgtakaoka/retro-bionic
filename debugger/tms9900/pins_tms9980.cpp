@@ -115,7 +115,7 @@ const uint8_t PINS_INPUT[] = {
 static_assert(PIN_PHI3 == PIN_TIMING, "#PHI3 is the shared timing pin");
 
 void negate_reset() {
-    busWriteFast(INT, 7);
+    busWrite(INT, 7);
 }
 
 void assert_ready() {
@@ -239,20 +239,20 @@ void PinsTms9980::captureWrites(uint16_t *buf, uint_fast8_t len) {
 }
 
 // INT2-INT0 carry a code: 0 resets, 2 is LOAD (NMI), level n is n+2 and 7
-// is none. A new code goes through 7, since busWriteFast() briefly shows
+// is none. A new code goes through 7, since busWrite() briefly shows
 // the old and new codes ANDed, which can be 0.
 void PinsTms9980::assertInt(uint8_t name_) {
     const auto name = static_cast<tms9900::IntrName>(name_);
-    busWriteFast(INT, 7);
+    busWrite(INT, 7);
     if (name == tms9900::INTR_NMI) {
-        busWriteFast(INT, 2);
+        busWrite(INT, 2);
     } else {
-        busWriteFast(INT, (name_ / 4) + 2);
+        busWrite(INT, (name_ / 4) + 2);
     }
 }
 
 void PinsTms9980::negateInt(uint8_t) {
-    busWriteFast(INT, 7);
+    busWrite(INT, 7);
 }
 
 }  // namespace tms9980

@@ -28,7 +28,7 @@ void Signals::getData() {
 }
 
 void Signals::outData() const {
-    busWriteFast(DX, data);
+    busWrite(DX, data);
     busMode(DX, OUTPUT);
 }
 
@@ -37,7 +37,7 @@ void Signals::inputMode() {
 }
 
 void Signals::outIoc(uint8_t data) {
-    busWriteFast(IOC, ioc() = data);
+    busWrite(IOC, ioc() = data);
 }
 
 }  // namespace im6100

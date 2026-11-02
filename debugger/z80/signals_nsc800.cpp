@@ -58,7 +58,7 @@ void Signals::getData() {
 }
 
 void Signals::outData() const {
-    busWriteFast(AD, data);
+    busWrite(AD, data);
     busMode(AD, OUTPUT);
     // The bus level holders on P6.16-P6.23 keep the data there until the
     // CPU drives the bus itself.

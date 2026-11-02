@@ -40,7 +40,7 @@ void Signals::getData() {
 }
 
 void Signals::setData() const {
-    busWriteFast(DB, data);
+    busWrite(DB, data);
 }
 
 void Signals::outputMode() {

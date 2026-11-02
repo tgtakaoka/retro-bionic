@@ -25,7 +25,7 @@ void Signals::getFetch() {
 }
 
 void Signals::outData() const {
-    busWriteFast(DATA, data);
+    busWrite(DATA, data);
     busMode(DATA, OUTPUT);
 }
 
