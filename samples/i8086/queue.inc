@@ -18,6 +18,7 @@ queue_init:
         mov     byte ptr [bx+queue_get], 0
         ret
 
+        align   2
 ;;; [queue] Add an element to queue
 ;;; @param BX queue work space pointer
 ;;; @param AL an element
@@ -48,6 +49,7 @@ queue_add_exit:
         pop     si
         ret
 
+        align   2
 ;;; [queue] Remove an element from queue
 ;;; @param BX queue work space pointer
 ;;; @return AL an element

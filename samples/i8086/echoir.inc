@@ -27,6 +27,7 @@ halt_to_system:
         include "init_usart.inc"
         include "queue.inc"
 
+        align   2
 isr_intr:
         push    ax
         push    bx
