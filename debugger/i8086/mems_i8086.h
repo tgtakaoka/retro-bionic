@@ -14,6 +14,10 @@ struct MemsI8086 final : ExtMemory {
 
     uint32_t maxAddr() const override { return 0xFFFFF; }
 
+    // The length of the instruction at |addr|, as the queue status counts
+    // it: a WAIT before an 8087 instruction is one of its own.
+    uint8_t insnLength(uint32_t addr) const;
+
 private:
     const bool _fpu;
 

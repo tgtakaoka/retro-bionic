@@ -450,6 +450,47 @@ it stays bit-banged.
   holds a cycle, default rate) in the same commit, and a cast recorded on
   it notes `PWM` and the rate in the mandelbrot table.
 
+### Sampling a CPU output every clock by DMA **[hw][code]**
+
+The 8086's queue status (QS1, QS0) says which fetched byte the CPU takes
+and when its queue empties; `debugger/i8086/qs_i8086.cpp` keeps it in a
+ring, one sample per CLK, by DMA, so the bus loop never reads it.
+
+- DMA can't read the fast ports (GPIO6-9). Move the pad to its slow port
+  (clear its bit in `IOMUXC_GPR_GPR26`-`29`); nothing else may read it
+  there.
+- A slow-port read takes about 100 ns. Two channels, one per port,
+  could not both keep up at 5 MHz: one kept 7 samples in 8. One request
+  reading both ports (`SOFF` to the second, `SLAST` back, `CITER` 1)
+  keeps every clock and pairs the bits in one slot.
+- Time the request from the clock: FlexPWM3's trigger at CLK's rising
+  edge restarts a FlexPWM2 delay timer through XBAR1 `EXT_SYNC`, and that
+  timer's compare asks for the sample. It never counts to its reload, so
+  set `LDMOD`, or its compare values never load.
+- QS changes about 100 ns after CLK rises: sampled at the edge, the two
+  bits came from different clocks. 12 bus clocks later is inside the
+  window on all four P8086 parts.
+- Stop the ring at a known PWM phase, so the latest sample's time is
+  exact; matching samples to bus cycles by a time a clock off misplaced
+  bytes on the V30.
+
+Decoding the samples (`debugger/i8086/qs_decode_i8086.h`, host-tested in
+`test/i8086/test_qs_decode`):
+
+- Count the bytes taken against fetch streams, and with QS1 switch to a
+  stream at the flush (QS 10) that began it, not by timestamps: the V30
+  takes bytes soon after fetching them. A branch taken to the very address
+  the next prefetch would ask for shows only by its flush.
+- The stop's own flush begins no stream: ignore the bytes taken after it.
+  Leave out the instruction at CS:IP only when it started last: a stop at
+  the top of a loop has the same address earlier in the ring.
+- On an 8-bit bus the ring may hold one straight stream, begun before it.
+  CS:IP places it, checked by instruction lengths against the QS 01
+  marks.
+- The backtrace line limit applies to the decoded listing too.
+- `K 91` dumps the ring raw; replay it against the decoder on the host
+  before flashing a guess.
+
 ### Driving a high-voltage clock **[hw]**
 
 The TMS9900 (four phases, 12 V), P8080 (two phases, 12 V) and CP1610 (two

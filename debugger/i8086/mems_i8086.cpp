@@ -31,7 +31,35 @@ libasm::Disassembler *MemsI8086::disassembler() const {
         dis->setOption("fpu", _fpu ? "8087" : "off");
     return dis;
 }
+
+namespace {
+struct CodeMemory final : libasm::DisMemory {
+    CodeMemory(const Mems *mems, uint32_t addr)
+        : libasm::DisMemory(addr), _mems(mems) {}
+    bool hasNext() const override { return address() <= 0xFFFFF; }
+    uint8_t nextByte() override { return _mems->get_code(address()); }
+
+private:
+    const Mems *_mems;
+};
+}  // namespace
 #endif
+
+uint8_t MemsI8086::insnLength(uint32_t addr) const {
+#ifdef WITH_DISASSEMBLER
+    auto dis = disassembler();
+    if (dis) {
+        CodeMemory mem(this, addr);
+        libasm::Insn insn(addr);
+        char operands[80];
+        dis->decode(mem, insn, operands, sizeof(operands));
+        const auto at = insn.hasContinue() ? insn.continueOffset() : 0;
+        const auto len = at ? at : insn.length();
+        return len ? len : 1;
+    }
+#endif
+    return 1;
+}
 
 }  // namespace i8086
 }  // namespace debugger

@@ -73,6 +73,7 @@
 
 #include "pins.h"
 #include "pwm_clock.h"
+#include "qs_i8086.h"
 #include "signals_i8086.h"
 
 namespace debugger {
@@ -135,6 +136,7 @@ struct PinsI8086 final : Pins {
 private:
     const bool _fpu;
     PwmClock<PIN_CLK> _clock;
+    QsTracker _qs;
 #ifdef TUNE_CLOCK
     // CLK's rate, which K sets.
     uint32_t _clockInput;
@@ -144,12 +146,22 @@ private:
     // The next cycle's T1, read ahead by completeCycle().
     Signals _latch;
     uint8_t _latchStatus;
+    // When each cycle in the ring showed its status, in CPU cycles: where
+    // its queue status samples are.
+    uint32_t _latchSeen;
+    uint32_t _seenAt[Cycles::MAX_CYCLES];
     bool _latched = false;
 
     void resetPins() override;
     Signals *prepareCycle();
     bool latchCycle();
     void applyChipClock();
+    void dumpQueue();
+    void freezeQs();
+    bool printExecuted(bool stats);
+    // DIAG: K 94 picks the backtrace, by QS pairs, by QS0 alone, or raw.
+    enum QsMode : uint8_t { QS_PAIR, QS_ZERO, QS_RAW };
+    QsMode _qsMode = QS_PAIR;
     Signals *resumeCycle(uint32_t addr);
     Signals *completeCycle(Signals *s);
     void retrieveData(Signals *s);

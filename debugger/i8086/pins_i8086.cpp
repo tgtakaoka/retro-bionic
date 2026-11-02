@@ -1,4 +1,5 @@
 #include "pins_i8086.h"
+#include "qs_decode_i8086.h"
 #include "debugger.h"
 #include "devs_d8087.h"
 #include "devs_i8086.h"
@@ -374,6 +375,20 @@ bool PinsI8086::setClockInput(uint32_t hz) {
             override_phase_set = true;
             override_phase = phase_offset = n - 24;
             set_counts();
+        } else if (n == 91) {  // DIAG: the ring raw, for a host replay
+            dumpQueue();
+            return true;
+        } else if (n == 93) {  // DIAG: the backtrace again, and its QS check
+            if (_qsMode == QS_RAW || !_qs.frozen() || !printExecuted(true))
+                printCycles();
+            return true;
+        } else if (n == 94) {  // DIAG: backtrace by QS pairs, QS0, or raw
+            _qsMode = _qsMode == QS_PAIR ? QS_ZERO
+                    : _qsMode == QS_ZERO ? QS_RAW : QS_PAIR;
+            cli.println(_qsMode == QS_PAIR   ? "QS pair backtrace"
+                        : _qsMode == QS_ZERO ? "QS0 backtrace"
+                                             : "raw backtrace");
+            return true;
         } else if (n == 99) {
             override_hz = 0;
             override_phase_set = false;
@@ -420,6 +435,7 @@ void PinsI8086::resetPins() {
     // RESET is held high: a glitch on CLK is harmless.
     _clock.begin(reset_hz);
     _clock.start();
+    _qs.begin();
     phase_offset = reset_phase;
     set_counts();
 
@@ -477,6 +493,7 @@ Signals *PinsI8086::prepareCycle() {
     auto s = Signals::put();
     *s = _latch;
     s->clear();  // neither injected nor captured yet
+    _seenAt[s->pos()] = _latchSeen;
     // A fetch goes through CS, and a read has no data to take: no need for
     // T2, unless S3-S6 tell a vector read, or the 8087's own cycle (S6).
     if (!_fpu && (_latchStatus == Signals::STATUS_CODE ||
@@ -505,6 +522,7 @@ bool PinsI8086::latchCycle() {
     }
     // T4, past its rising edge. On to T1's address, or T1's high half.
     const auto seen = ARM_DWT_CYCCNT;
+    _latchSeen = seen;
     wait_from(seen, addr_periods, addr_count);
     // One read of each port: the address, #BHE and the status.
     const uint32_t p6 = PIN(AD);
@@ -840,6 +858,59 @@ bool PinsI8086::untilTrap(Signals *s, Mode mode) {
     return false;
 }
 
+// Stops the ring early in a CLK period, before that period's sample: the
+// latest sample is then the previous rising edge's, at a known time. The
+// rising edge is the PWM's count 0.
+void PinsI8086::freezeQs() {
+    const uint32_t sample = _qs.delay() * cycles_per_count;
+    const uint32_t off = (period_cycles - (phase_offset * int(cycles_per_count)) %
+                                                  int(period_cycles)) %
+                         period_cycles;
+    noInterrupts();
+    auto now = ARM_DWT_CYCCNT;
+    auto ph = (phase_at(now) + off) % period_cycles;
+    // Bounded: one period passes in a few hundred cycles.
+    for (auto i = 0; i < 1000 && ph >= sample / 2; ++i) {
+        now = ARM_DWT_CYCCNT;
+        ph = (phase_at(now) + off) % period_cycles;
+    }
+    _qs.freeze(now - ph - period_cycles + sample);
+    interrupts();
+}
+
+// DIAG: the ring raw, for a host replay of the decoder: each cycle's time
+// before the latest sample, in CPU cycles, and the cycle; then the queue
+// status as far back as the oldest cycle, oldest first.
+void PinsI8086::dumpQueue() {
+    const auto g = Signals::get();
+    const int n = g->diff(Signals::put());
+    cli.print("QSDUMP period=");
+    cli.printDec(period_cycles);
+    cli.print(" delay=");
+    cli.printDec(_qs.delay());
+    cli.print(" cycles=");
+    cli.printDec(n);
+    cli.println();
+    for (int i = 0; i < n; ++i) {
+        const auto s = g->next(i);
+        cli.printDec(_qs.stopCycle() - _seenAt[s->pos()]);
+        cli.print(' ');
+        s->print();
+    }
+    const int first =
+            n ? (_qs.stopCycle() - _seenAt[g->pos()]) / period_cycles : 0;
+    cli.print("QS");
+    for (int b = first < int(QsTracker::SAMPLES) ? first : QsTracker::SAMPLES - 1,
+             k = 0;
+            b >= 0; --b, ++k) {
+        if (k % 64 == 0)
+            cli.println();
+        cli.print(char('0' + _qs.sampleAt(b)));
+    }
+    cli.println();
+    cli.println("QSEND");
+}
+
 // At the prompt too, the phase base keeps up with the cycle counter.
 void PinsI8086::idle() {
     phase_at(ARM_DWT_CYCCNT);
@@ -851,11 +922,14 @@ bool PinsI8086::step(bool show) {
     if (_mems->read(regs->nextIp()) == InstI8086::HLT)
         return false;
     Cycles::reset();
+    _qs.thaw();
     {
         Cycles::Hold hold;
         regs->restore(true);
     }
-    if (untilTrap(_next, STEP)) {
+    const auto trapped = untilTrap(_next, STEP);
+    freezeQs();
+    if (trapped) {
         if (show)
             printCycles();
         Cycles::Hold hold;
@@ -872,9 +946,11 @@ void PinsI8086::run() {
         _regs->restore();
     }
     saveBreakInsts();
+    _qs.thaw();
     startRunTimer();
     const auto stopped = untilTrap(_next, RUN);
     stopRunTimer();
+    freezeQs();
     restoreBreakInsts();
     if (stopped) {
         Cycles::Hold hold;
@@ -918,7 +994,72 @@ const SignalsImpl *PinsI8086::findBacktraceStart() {
 }
 
 void PinsI8086::printBacktrace() {
+    if (_qsMode != QS_RAW && _qs.frozen() && printExecuted(false))
+        return;
     printCycles();
+}
+
+namespace {
+
+// The ring and the frozen queue status, as QsDecoder reads them.
+struct QsSource {
+    const Signals *g;
+    int n;
+    const uint32_t *seenAt;
+    const QsTracker &tracker;
+    uint32_t period;
+    int first;  // the samples back from the stop that the oldest cycle has
+    const MemsI8086 *mems;
+
+    int cycles() const { return n; }
+    uint32_t cycleTime(int i) const { return seenAt[g->next(i)->pos()]; }
+    bool fetch(int i, uint32_t &first, uint32_t &next) const {
+        const auto s = g->next(i);
+        if (!s->code() || InstI8086::vector(s->addr))
+            return false;
+        first = s->covers(s->addr) ? s->addr : (s->addr + 1) & 0xFFFFF;
+        next = (s->addr + (s->wordAccess() ? 2 : 1)) & 0xFFFFF;
+        return true;
+    }
+    int samples() const { return first + 1; }
+    uint32_t sampleTime(int k) const {
+        return tracker.stopCycle() - uint32_t(first - k) * period;
+    }
+    uint8_t qs(int k) const { return tracker.sampleAt(first - k); }
+    uint32_t insn(uint32_t addr) const { return mems->disassemble(addr, 1); }
+    uint8_t length(uint32_t addr) const { return mems->insnLength(addr); }
+    void cycle(int i) const { g->next(i)->print(); }
+};
+
+}  // namespace
+
+// The instructions the CPU executed, from the frozen queue status. False
+// when the ring holds no instruction to show.
+bool PinsI8086::printExecuted(bool stats) {
+    const auto g = Signals::get();
+    const int n = g->diff(Signals::put());
+    if (n == 0)
+        return false;
+    const int first = (_qs.stopCycle() - _seenAt[g->pos()]) / period_cycles;
+    if (first >= int(QsTracker::SAMPLES))
+        return false;
+    QsSource src{g, n, _seenAt, _qs, period_cycles, first,
+            static_cast<const MemsI8086 *>(_mems)};
+    const auto pairs = _qsMode == QS_PAIR;
+    QsDecoder<QsSource, Cycles::MAX_CYCLES * 2> dec(
+            src, pairs, this->regs<RegsI8086>()->nextIp());
+    if (!dec.decode(_lineLimit))
+        return false;
+    if (pairs && stats) {
+        cli.print("QS starts good=");
+        cli.printDec(dec.good);
+        cli.print(" bad=");
+        cli.printDec(dec.bad);
+        cli.print(" delay=");
+        cli.printDec(_qs.delay());
+        cli.println();
+    }
+    return true;
 }
 
 }  // namespace i8086
