@@ -133,11 +133,15 @@ bool Mems::ProtectArea::readOnly(uint32_t addr) const {
 }
 
 void Mems::ProtectArea::print() const {
-    cli.print("Protect area: ");
+    cli.print(_name);
+    cli.print(" area: ");
     if (_begin < _end) {
-        cli.printHex(_begin, 4);
+        uint8_t digits = 4;
+        while (Debugger.target().maxAddr() >> (digits * 4))
+            ++digits;
+        cli.printHex(_begin, digits);
         cli.print('-');
-        cli.printlnHex(_end, 4);
+        cli.printlnHex(_end, digits);
     } else {
         cli.println("none");
     }
@@ -359,14 +363,15 @@ struct DisMemory final : libasm::DisMemory {
 // Prints |insn|'s bytes [from, to) at their address, the name and the
 // operands on the first line; |bytes| false leaves the bytes out.
 void Mems::printInsn(const libasm::Disassembler *dis, const libasm::Insn &insn,
-        const char *operands, uint8_t from, uint8_t to, bool bytes) const {
+        const char *operands, uint8_t from, uint8_t to, bool bytes,
+        uint32_t base) const {
     constexpr auto chunk = 6;
     const auto unit = addressUnit();
     const auto nameWidth = dis->config().nameMax() + 1;
     const auto codeMax = dis->config().codeMax();
     const auto step = codeMax < chunk ? codeMax : chunk;
     for (auto i = from; i < to; i += step) {
-        printAddress(insn.address() + i / unit);
+        printAddress(base + insn.address() + i / unit);
         auto len = to - i;
         if (len >= step)
             len = step;

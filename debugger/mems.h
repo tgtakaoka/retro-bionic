@@ -63,19 +63,25 @@ struct Mems : MatchMemory {
         put_prog(addr, data);
     }
 
+    // An address range P sets; |name| says what it is for.
     struct ProtectArea {
+        ProtectArea(const char *name = "Protect") : _name(name) {}
         void set(uint32_t begin, uint32_t end);
         bool readOnly(uint32_t addr) const;
         void print() const;
+        bool empty() const { return _begin >= _end; }
+        uint32_t begin() const { return _begin; }
+        uint32_t end() const { return _end; }
 
     private:
-        uint32_t _begin;
-        uint32_t _end;
+        const char *const _name;
+        uint32_t _begin = 0;
+        uint32_t _end = 0;
     };
     virtual ProtectArea *protectArea() { return nullptr; }
 
-    uint32_t assemble(uint32_t addr, const char *line) const;
-    uint32_t disassemble(uint32_t addr, uint8_t numInsn) const;
+    virtual uint32_t assemble(uint32_t addr, const char *line) const;
+    virtual uint32_t disassemble(uint32_t addr, uint8_t numInsn) const;
     void dumpMemory(uint32_t addr, uint16_t len, bool prog = false) const;
     void writeMemory(uint32_t addr, const uint16_t *buffer, uint_fast8_t len,
             bool prog = false) const;
@@ -95,8 +101,10 @@ protected:
 #ifdef WITH_DISASSEMBLER
     libasm::Disassembler *_disassembler;
     virtual libasm::Disassembler *disassembler() const;
+    // |base| is added to the instruction's address where it prints.
     void printInsn(const libasm::Disassembler *dis, const libasm::Insn &insn,
-            const char *operands, uint8_t from, uint8_t to, bool bytes) const;
+            const char *operands, uint8_t from, uint8_t to, bool bytes,
+            uint32_t base = 0) const;
 #endif
 
     virtual void isPrint(const uint8_t *data, char buf[2]) const;
