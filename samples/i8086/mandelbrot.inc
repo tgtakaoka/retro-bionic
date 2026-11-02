@@ -109,7 +109,8 @@ next_y:
 mandelbrot_end:
         ret
 
-;;; workspace
+;;; workspace, word aligned: an odd word costs a 16-bit bus two cycles
+        align   2
 vC:     dw      0
 vD:     dw      0
 vA:     dw      0

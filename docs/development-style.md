@@ -629,6 +629,16 @@ frames: `bionic-control.py run <cap> <n>` stops after n of them and prints each
 interval. A run that ends on its own has exited early and is a failure, not a
 timing. **[hw]**
 
+### Word-align a sample's variables on a 16-bit bus **[hw]**
+
+A word at an odd address takes two bus cycles on a 16-bit bus. Shortening
+code above a workspace can move every variable to an odd address: the V30
+then ran `samples/i80186/mandelbrot.inc` slower than the 8086 code, while
+the V20 on its 8-bit bus showed no difference. Code moved the same way pays
+too: the first fetch after a jump to an odd address is a single byte. Put `align 2` before word
+variables, and compare the two variants' frame times on a 16-bit bus part
+before trusting either.
+
 ### Samples on another console device **[code]**
 
 `io = "SCI"` in a sample's table routes the console through that device with
@@ -639,7 +649,7 @@ to it afterwards, pass or fail.
 ### Another architecture's image, unchanged **[hw]**
 
 The V20/V30 run `samples/i8080/mandelbrot.hex` as is, in 8080 emulation
-mode (`samples/i8086/mandelbrot_i8080.asm`):
+mode (`samples/i8086/mandelbrot_8080emu.asm`):
 
 - Load it outside segment 0: there its RST 5/6 interrupt types (EFH, F7H)
   would have their native vectors inside its own code. The Makefile puts
