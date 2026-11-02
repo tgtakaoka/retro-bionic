@@ -890,6 +890,15 @@ void PinsI8086::dumpQueue() {
     cli.printDec(_qs.delay());
     cli.print(" cycles=");
     cli.printDec(n);
+    const auto mems = this->mems<MemsI8086>();
+    if (mems->hasEmulationArea()) {
+        cli.print(" area=");
+        cli.printHex(mems->protectArea()->begin(), 5);
+        cli.print('-');
+        cli.printHex(mems->protectArea()->end(), 5);
+    }
+    cli.print(" emu=");
+    cli.printDec(this->regs<RegsI8086>()->emulation());
     cli.println();
     for (int i = 0; i < n; ++i) {
         const auto s = g->next(i);
@@ -917,9 +926,11 @@ void PinsI8086::idle() {
 }
 
 bool PinsI8086::step(bool show) {
-    // A HLT waits for an interrupt; stepping into it would hang.
     auto regs = this->regs<RegsI8086>();
-    if (_mems->read(regs->nextIp()) == InstI8086::HLT)
+    const auto emu = regs->emulation();
+    // A HLT waits for an interrupt; stepping into it would hang.
+    if (_mems->read(regs->nextIp()) ==
+            (emu ? InstI8086::HLT_8080 : InstI8086::HLT))
         return false;
     Cycles::reset();
     _qs.thaw();
@@ -959,8 +970,11 @@ void PinsI8086::run() {
     disassembleCycles();
 }
 
+// In 8080 code INT 3 (CC) is CZ: a HLT there stops the CPU, and the halt's
+// NMI leaves emulation for the debugger.
 void PinsI8086::setBreakInst(uint32_t addr) const {
-    _mems->put_prog(addr, InstI8086::INT3);
+    const auto emu = mems<MemsI8086>()->emulationAt(addr);
+    _mems->put_prog(addr, emu ? InstI8086::HLT_8080 : InstI8086::INT3);
 }
 
 // Type 2 raises NMI, an edge the CPU latches and the trap negates; any
@@ -1026,8 +1040,32 @@ struct QsSource {
         return tracker.stopCycle() - uint32_t(first - k) * period;
     }
     uint8_t qs(int k) const { return tracker.sampleAt(first - k); }
-    uint32_t insn(uint32_t addr) const { return mems->disassemble(addr, 1); }
-    uint8_t length(uint32_t addr) const { return mems->insnLength(addr); }
+    uint32_t insn(uint32_t addr, bool emu) const {
+        return mems->disassembleAs(addr, emu);
+    }
+    uint8_t length(uint32_t addr, bool emu) const {
+        return mems->insnLength(addr, emu);
+    }
+    bool vector(int i) const {
+        const auto s = g->next(i);
+        return s->memory() && s->read() && InstI8086::vector(s->addr);
+    }
+    // The MD flag (bit 15) a data read brings: its byte at an odd address.
+    int popMode(int i) const {
+        const auto s = g->next(i);
+        if (s->code())
+            return -2;
+        if (!s->memory() || !s->read())
+            return s->memory() ? -1 : -2;
+        const auto odd = s->addr | 1;
+        return s->covers(odd) ? (s->byteAt(odd) >> 7) : -1;
+    }
+    uint8_t code(uint32_t addr) const { return mems->read_byte(addr); }
+    int areaMode(uint32_t addr) const {
+        if (!mems->hasEmulationArea())
+            return -1;
+        return mems->emulationAt(addr);
+    }
     void cycle(int i) const { g->next(i)->print(); }
 };
 
@@ -1046,8 +1084,9 @@ bool PinsI8086::printExecuted(bool stats) {
     QsSource src{g, n, _seenAt, _qs, period_cycles, first,
             static_cast<const MemsI8086 *>(_mems)};
     const auto pairs = _qsMode == QS_PAIR;
+    const auto regs = this->regs<RegsI8086>();
     QsDecoder<QsSource, Cycles::MAX_CYCLES * 2> dec(
-            src, pairs, this->regs<RegsI8086>()->nextIp());
+            src, pairs, regs->nextIp(), regs->emulation());
     if (!dec.decode(_lineLimit))
         return false;
     if (pairs && stats) {

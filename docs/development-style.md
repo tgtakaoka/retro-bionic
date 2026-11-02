@@ -647,6 +647,18 @@ mode (`samples/i8086/mandelbrot_i8080.asm`):
 - Every interrupt, and the halt's NMI, leaves emulation for a native
   handler; `IRET` resumes it. The 8086 sample's handlers serve the 8080
   program's queues through DS0, the same layout at the same addresses.
+- `P` sets the 8080EMU area, the 8080 code's window from its code
+  segment's base: `D` and the backtrace decode it as 8080 code, and a
+  break point there is an 8080 HLT (76H), since INT 3 (CCH) is CZ. The
+  halt is stopped through the NMI the bus loop already raises, and the
+  save backs IP up past it; nothing is added per bus cycle.
+- The trap flag steps 8080 code, and the mode changes too: BRKEM into
+  emulation, IRET back to it, on the V20 as an IRET on the 8088 steps.
+  Stepping by break points was tried and dropped.
+- The 8086 manuals hold interrupts, and so the trap, off for one
+  instruction after a segment register load: a step over MOV DS,AX would
+  also run the next one. The harness loads DS early, so the instruction
+  before its BRKEM steps alone; the V20's behaviour there is not tried.
 
 ### Reset keeps the board's wiring **[code]**
 

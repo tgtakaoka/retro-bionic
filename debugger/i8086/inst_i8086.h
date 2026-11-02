@@ -9,6 +9,7 @@ namespace i8086 {
 struct InstI8086 {
     static constexpr uint8_t INT3 = 0xCC;  // a breakpoint
     static constexpr uint8_t HLT = 0xF4;
+    static constexpr uint8_t HLT_8080 = 0x76;
     static constexpr uint8_t IRET = 0xCF;
     static constexpr uint8_t JMPF = 0xEA;  // JMP ptr16:16
     static constexpr uint8_t NOP = 0x90;

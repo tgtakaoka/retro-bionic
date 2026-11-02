@@ -27,6 +27,8 @@ struct RegsI8086 final : Regs {
     bool probeVSeries();
 
     uint32_t nextIp() const override;
+    // Stopped in 8080 code, on a V20/V30.
+    bool emulation() const;
     void setIp(uint32_t addr) override;
     // Parked in the program's fetch at |cs|:|ip|.
     void parkAt(uint16_t cs, uint16_t ip);

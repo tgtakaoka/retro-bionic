@@ -42,9 +42,10 @@ From the header of `debugger/debugger.cpp`:
 
 Separate `d`/`p` and `m`/`M` pairs exist because Harvard-architecture targets have distinct
 program and data address spaces. `P` sets an area of the target's memory
-space, which the target names and gives its meaning, such as the Z86's
-protect area, write-protected ROM. It works only on targets that report
-`hasProtectArea()`; elsewhere it prints `No area`.
+space, which the target names and gives its meaning: the Z86's protect
+area, write-protected ROM, or the V20/V30's 8080EMU area, which holds 8080
+code. It works only on targets that report `hasProtectArea()`; elsewhere
+it prints `No area`.
 
 On a CPU clocked from a timer (see [hardware.md](hardware.md#clocking-the-cpu)),
 `K [kHz]`, which `?` doesn't list, shows the clock rate a run uses or sets it;
