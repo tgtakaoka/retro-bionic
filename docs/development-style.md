@@ -636,6 +636,18 @@ the `I` command for that sample only. Reset does not change the selection, so
 the script reads the enabled device from `I`'s listing first and switches back
 to it afterwards, pass or fail.
 
+### Another architecture's image, unchanged **[hw]**
+
+The V20/V30 run `samples/i8080/mandelbrot.hex` as is, in 8080 emulation
+mode (`samples/i8086/mandelbrot_i8080.asm`):
+
+- Load it outside segment 0: there its RST 5/6 interrupt types (EFH, F7H)
+  would have their native vectors inside its own code. The Makefile puts
+  an extended linear address record (type 04) before the unchanged hex.
+- Every interrupt, and the halt's NMI, leaves emulation for a native
+  handler; `IRET` resumes it. The 8086 sample's handlers serve the 8080
+  program's queues through DS0, the same layout at the same addresses.
+
 ### Reset keeps the board's wiring **[code]**
 
 A device's base address and interrupt vectors are the board's wiring, not
