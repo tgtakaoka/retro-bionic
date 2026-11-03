@@ -766,6 +766,10 @@ emulated memory. Batch everything one image can test before flashing the next,
 and when a fix needs a new image, first finish what the image on the board can
 still do.
 
+Name every image by its branch or a feature name (`BIONIC_FIRMWARE`), never
+a commit hash: two hashes are hard to tell apart when deciding which bench
+runs what, and a flash from a detached checkout without a name is refused.
+
 ### Keep commit messages short
 
 A subject line, and a body only when the reason isn't plain from the subject:

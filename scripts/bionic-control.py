@@ -41,6 +41,8 @@ Environment (defaults in brackets)
   BIONIC_PORT       console serial port [/dev/ttyACM0]
   BIONIC_HALT_PORT  halt-switch serial port [/dev/ttyACM1]
   BIONIC_ENV        PlatformIO environment for flash [teensy41]
+  BIONIC_FIRMWARE   name of the flashed firmware, a feature name [the
+                    branch]; flash refuses a detached checkout without it
   BIONIC_PROJ       repository to build [the one holding this script]
   BIONIC_RUN_DIR    scratch directory [/tmp/bionic-bench]
   BIONIC_OUT        full text of the last session [$BIONIC_RUN_DIR/last.txt]
@@ -675,6 +677,9 @@ def flash(tries=3):
     so it is programmed where it waits.
     """
     usable()
+    if bench.firmware_name(PROJ) is None:
+        sys.exit('flash: a detached checkout has no firmware name; check out '
+                 'a branch or set BIONIC_FIRMWARE to a feature name')
     b = subprocess.run(['pio', 'run', '-e', ENV], cwd=PROJ,
                        capture_output=True, text=True)
     if 'SUCCESS' not in b.stdout:
