@@ -324,15 +324,15 @@ mulsi2:
 ;;; Signed multiply on the stack; P2[3:2] *= P2[1:0]
 ;;;   P1=ADDR(mul16)
 ;;;   xppc   P1                 ; leaves P1=ADDR(mul16)
-;;; @local P2[0]   H(multiplicand ^ multiplier)
-;;; @local P2[2:1] product
-;;; @local P2[3]   L(multiplicand)
+;;; @local P2[1:0] product
+;;; @local P2[2]   L(multiplicand)
 ;;; @clobber E
-MSIGN   =       0
-MPROD   =       1
-MLO     =       3
-MPLIER  =       4               ; multiplier, offset past the locals
-MCAND   =       6               ; multiplicand, offset past the locals
+;;; A 16-bit product is the same signed or unsigned; a negative
+;;; multiplier is negated only to shorten the loop.
+MPROD   =       0
+MLO     =       2
+MPLIER  =       3               ; multiplier, offset past the locals
+MCAND   =       5               ; multiplicand, offset past the locals
 mul16_exit:
         xppc    P1              ; return, leaving P1=ADDR(mul16)
 mul16:
@@ -344,30 +344,24 @@ mul16:
         jmp     mul16_exit
 mul16_signed:
         ld      1(P2)           ; H(multiplier)
-        xor     3(P2)           ; H(multiplicand)
-        st      @-4(P2)         ; P2[0]=sign
-        ld      MPLIER+1(P2)
-        jp      mul16_multiplicand
+        jp      mul16_zero      ; branch if multiplier >= 0
         scl                     ; clear borrow
         ldi     0
-        cad     MPLIER(P2)
-        st      MPLIER(P2)
+        cad     0(P2)
+        st      0(P2)
         ldi     0
-        cad     MPLIER+1(P2)
-        st      MPLIER+1(P2)    ; negate multiplier
-mul16_multiplicand:
-        ld      MCAND+1(P2)
-        jp      mul16_zero
+        cad     1(P2)
+        st      1(P2)           ; negate multiplier
         scl                     ; clear borrow
         ldi     0
-        cad     MCAND(P2)
-        st      MCAND(P2)
+        cad     2(P2)
+        st      2(P2)
         ldi     0
-        cad     MCAND+1(P2)
-        st      MCAND+1(P2)     ; negate multiplicand
+        cad     3(P2)
+        st      3(P2)           ; negate multiplicand
 mul16_zero:
         ldi     0
-        st      MPROD(P2)
+        st      @-3(P2)         ; allocate locals, L(product)=0
         st      MPROD+1(P2)     ; product=0
 ;;; H(multiplier) only adds L(multiplicand) into H(product)
         ld      MPLIER+1(P2)
@@ -398,7 +392,7 @@ mul16_return:
         jmp     mul16_exit
 mul16_lo:
         ld      MPLIER(P2)
-        jz      mul16_sign      ; branch if L(multiplier)==0
+        jz      mul16_store     ; branch if L(multiplier)==0
         xae                     ; E=L(multiplier)
 mul16_lo_loop:
         ccl
@@ -416,7 +410,7 @@ mul16_lo_loop:
         st      MPROD+1(P2)     ; product += multiplicand
 mul16_lo_next:
         lde
-        jz      mul16_sign      ; until L(multiplier)==0
+        jz      mul16_store     ; until L(multiplier)==0
         ccl
         ld      MCAND(P2)
         add     MCAND(P2)
@@ -425,24 +419,12 @@ mul16_lo_next:
         add     MCAND+1(P2)
         st      MCAND+1(P2)     ; multiplicand <<= 1
         jmp     mul16_lo_loop
-mul16_sign:
-        ld      MSIGN(P2)
-        jp      mul16_store
-        scl                     ; clear borrow
-        ldi     0
-        cad     MPROD(P2)
-        st      MCAND(P2)
-        ldi     0
-        cad     MPROD+1(P2)
-        st      MCAND+1(P2)     ; multiplicand=-product
-        ld      @4(P2)          ; discard locals
-        jmp     mul16_return
 mul16_store:
         ld      MPROD(P2)
         st      MCAND(P2)
         ld      MPROD+1(P2)
         st      MCAND+1(P2)     ; multiplicand=product
-        ld      @4(P2)          ; discard locals
+        ld      @3(P2)          ; discard locals
         jmp     mul16_return
 
 ;;; Signed divide; dividend /= divisor ... remainder

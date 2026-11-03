@@ -93,6 +93,16 @@ arith:
         .byte   '*'
 
         xppc    P1
+        .dbyte  -300
+        .dbyte  100             ; -30000
+        .byte   '*'
+
+        xppc    P1
+        .dbyte  3
+        .dbyte  -32768          ; -32768
+        .byte   '*'
+
+        xppc    P1
         .dbyte  30000
         .dbyte  100             ; 300
         .byte   '/'
