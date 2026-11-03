@@ -207,6 +207,24 @@ arith:
         jsr     mul16           ; R0=R1*R2
         jsr     answer          ; 20000
 
+        ldhx    #-300
+        sthx    R1
+        ldhx    #100
+        sthx    R2
+        lda     #'*'
+        jsr     expr
+        jsr     mul16           ; R0=R1*R2
+        jsr     answer          ; -30000
+
+        ldhx    #3
+        sthx    R1
+        ldhx    #-32768
+        sthx    R2
+        lda     #'*'
+        jsr     expr
+        jsr     mul16           ; R0=R1*R2
+        jsr     answer          ; -32768
+
         ldhx    #30000
         sthx    R1
         ldhx    #100
