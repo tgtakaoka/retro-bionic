@@ -181,6 +181,20 @@ arith:
         call    @mul16          ; Rd=Rd*Rs
         call    @answer         ; 20000
 
+        movd    %-300, vA
+        movd    %100, vB
+        mov     %'*', A
+        call    @expr
+        call    @mul16          ; Rd=Rd*Rs
+        call    @answer         ; -30000
+
+        movd    %3, vA
+        movd    %-32768, vB
+        mov     %'*', A
+        call    @expr
+        call    @mul16          ; Rd=Rd*Rs
+        call    @answer         ; -32768
+
         movd    %30000, vA
         movd    %100, vB
         mov     %'/', A

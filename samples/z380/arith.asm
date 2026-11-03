@@ -179,6 +179,20 @@ arith:
         multw   HL, DE          ; HL(31-0)=v1*v2
         call    answer          ; 20000
 
+        ld      BC, -300
+        ld      DE, 100
+        ld      A, '*'
+        call    expr
+        multw   HL, DE          ; HL(31-0)=v1*v2
+        call    answer          ; -30000
+
+        ld      BC, 3
+        ld      DE, -32768
+        ld      A, '*'
+        call    expr
+        multw   HL, DE          ; HL(31-0)=v1*v2
+        call    answer          ; -32768
+
         ld      BC, 30000
         ld      DE, 100
         ld      A, '/'

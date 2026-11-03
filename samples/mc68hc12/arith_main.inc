@@ -191,6 +191,20 @@ arith:
         jsr     mul16
         jsr     answer          ; 20000
 
+        ldx     #-300
+        ldy     #100
+        ldaa    #'*'
+        jsr     expr
+        jsr     mul16
+        jsr     answer          ; -30000
+
+        ldx     #3
+        ldy     #-32768
+        ldaa    #'*'
+        jsr     expr
+        jsr     mul16
+        jsr     answer          ; -32768
+
         ldx     #30000
         ldy     #100
         ldaa    #'/'

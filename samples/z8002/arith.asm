@@ -172,6 +172,20 @@ arith:
         call    mul16
         call    answer          ; 20000
 
+        ld      r4, #-300
+        ld      r5, #100
+        ldb     rl0, #'*'
+        call    expr
+        call    mul16
+        call    answer          ; -30000
+
+        ld      r4, #3
+        ld      r5, #-32768
+        ldb     rl0, #'*'
+        call    expr
+        call    mul16
+        call    answer          ; -32768
+
         ld      r4, #30000
         ld      r5, #100
         ldb     rl0, #'/'

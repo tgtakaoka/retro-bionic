@@ -163,6 +163,20 @@ arith:
         call    mul16
         call    answer          ; 20000
 
+        mov     si, -300
+        mov     di, 100
+        mov     cl, '*'
+        call    expr
+        call    mul16
+        call    answer          ; -30000
+
+        mov     si, 3
+        mov     di, -32768
+        mov     cl, '*'
+        call    expr
+        call    mul16
+        call    answer          ; -32768
+
         mov     si, 30000
         mov     di, 100
         mov     cl, '/'

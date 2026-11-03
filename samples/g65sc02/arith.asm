@@ -215,6 +215,24 @@ arith:
         jsr     answer          ; 20000
 
         jsr     set_R1
+        .word   -300
+        jsr     set_R2
+        .word   100
+        lda     #'*'
+        jsr     expr
+        jsr     mulsi2
+        jsr     answer          ; -30000
+
+        jsr     set_R1
+        .word   3
+        jsr     set_R2
+        .word   -32768
+        lda     #'*'
+        jsr     expr
+        jsr     mulsi2
+        jsr     answer          ; -32768
+
+        jsr     set_R1
         .word   30000
         jsr     set_R2
         .word   100
