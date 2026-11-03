@@ -176,31 +176,23 @@ umul16_check:
 ;;; @param @R4: multiplicand
 ;;; @param @R5: multiplier
 ;;; @clobber R10-R15
+;;; A 16-bit product is the same signed or unsigned; a negative
+;;; multiplier is negated only to shorten the loop.
 mulsi2:
         ld      R14, 0(R4)
         ld      R15, 1(R4)
         ld      R12, 0(R5)
         ld      R13, 1(R5)
         or      R12, R12
-        jr      pl, mulsi2_abs_muliplicand
+        jr      pl, mulsi2_multiply ; if multiplier >= 0
         com     R12
         com     R13
         incw    RR12            ; multiplier = -multiplier
-mulsi2_abs_muliplicand:
-        or      R14, R14
-        jr      pl, mulsi2_multiply
         com     R14
         com     R15
         incw    RR14            ; multiplicand = -multiplicand
 mulsi2_multiply:
         call    umul16          ; result = multiplicand * multiplier
-        ld      R12, @R4
-        xor     R12, @R5        ; R12=sign(@R4)^sign(@R5)
-        jr      pl, mulsi2_end
-        com     R14
-        com     R15
-        incw    RR14            ; result = -result
-mulsi2_end:
         ld      0(R4), R14
         ld      1(R4), R15
         ret
