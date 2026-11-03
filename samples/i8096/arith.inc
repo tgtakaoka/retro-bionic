@@ -15,7 +15,7 @@ print_uint16:
         jne     print_uint16_div10
         ret
 print_uint16_div10:
-        ext     HL              ; extend to 32-bit
+        clr     QHL             ; zero-extend to 32-bit
         divu    HL, #10
         push    QHL             ; push remainder
         scall   print_uint16
