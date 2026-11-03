@@ -218,7 +218,7 @@ class SaleaeLogicPro16(LogicAnalyzer):
         mode = {'triggerChannelIndex': trigger,
                 'triggerType': {'rise': 1, 'fall': 2, 'pulse_high': 3, 'pulse_low': 4}[edge],
                 'afterTriggerSeconds': after,
-                'trimDataSeconds': before + after}
+                'trimDataSeconds': before}  # kept before the trigger
         if linked:
             mode['linkedChannels'] = [{'channelIndex': ch, 'state': {'low': 1, 'high': 2}[v]}
                                       for ch, v in linked]
