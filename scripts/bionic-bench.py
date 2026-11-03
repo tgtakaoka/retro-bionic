@@ -192,24 +192,33 @@ def firmware_path(serial):
     return os.path.join(os.path.dirname(REGISTRY), 'firmware-%s.json' % serial)
 
 
+def firmware_name(proj):
+    """The name a firmware built from `proj` goes by: $BIONIC_FIRMWARE, a
+    feature name, else the checked-out branch, with -dirty for uncommitted
+    changes; None on a detached checkout, whose only name is a hash."""
+    def git(*args):
+        return subprocess.run(['git'] + list(args), cwd=proj,
+                              capture_output=True, text=True).stdout.strip()
+    name = os.environ.get('BIONIC_FIRMWARE') or git('rev-parse', '--abbrev-ref', 'HEAD')
+    if not name or name == 'HEAD':
+        return None
+    if git('describe', '--always', '--dirty').endswith('-dirty'):
+        name += '-dirty'
+    return name
+
+
 def record_firmware(serial, image, proj):
-    """Note what was just programmed into Teensy `serial`: the image's hash
-    and the commit it was built from."""
+    """Note what was just programmed into Teensy `serial`: its name, the
+    image's hash and the commit it was built from."""
     if serial is None:
         return
     with open(image, 'rb') as f:
         digest = hashlib.sha256(f.read()).hexdigest()[:12]
-    def git(*args):
-        return subprocess.run(['git'] + list(args), cwd=proj,
-                              capture_output=True, text=True).stdout.strip()
-    commit = git('describe', '--always', '--dirty')
-    branch = git('rev-parse', '--abbrev-ref', 'HEAD')
-    if branch and branch != 'HEAD' and commit.endswith('-dirty'):
-        branch += '-dirty'
+    commit = subprocess.run(['git', 'describe', '--always', '--dirty'], cwd=proj,
+                            capture_output=True, text=True).stdout.strip()
     with open(firmware_path(serial), 'w') as f:
         json.dump({'image': digest, 'commit': commit,
-                   'branch': branch if branch != 'HEAD' else None,
-                   'when': time.time()}, f)
+                   'branch': firmware_name(proj), 'when': time.time()}, f)
 
 
 def firmware(serial, since=0.0):
