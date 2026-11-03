@@ -3,7 +3,8 @@ ASM=asm
 .PHONY: clean
 
 all: echo.hex echoir.hex echoitr.hex arith.hex mandelbrot.hex \
-	mandelbrot_8080emu.hex mandelbrot_i80186.hex
+	mandelbrot_8080emu.hex mandelbrot_i80186.hex \
+	echoir_80c186.hex echoitr_80c186.hex mandelbrot_80c186.hex
 
 %.hex:	%.asm
 	$(ASM) -l $*.lst -o $@ $<

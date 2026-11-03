@@ -18,6 +18,8 @@ struct PinsI8086Base : Pins {
     bool vSeries() const { return _v_series; }
     // Whether the D8087 board has its 8087 seated, as reset found.
     bool npx() const { return _npx; }
+    // An 80C186, rather than an 8086, 8088, V20 or V30.
+    bool i80186() const { return _qs_board == QsTracker::N80C186; }
 
     bool step(bool show) override;
     void run() override;
@@ -68,9 +70,11 @@ struct PinsI8086Base : Pins {
     virtual bool npxBusy() const { return false; }
 
 protected:
-    PinsI8086Base(bool fpu) : _fpu(fpu) {}
+    PinsI8086Base(bool fpu, QsTracker::Board board = QsTracker::P8086)
+        : _fpu(fpu), _qs_board(board), _qs(board) {}
 
     const bool _fpu;
+    const QsTracker::Board _qs_board;
     QsTracker _qs;
     bool _bus8 = false;
     bool _v_series = false;

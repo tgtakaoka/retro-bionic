@@ -322,7 +322,7 @@ void negate_nmi() {
 PinsI8086::PinsI8086(bool fpu)
     : PinsI8086Base(fpu), _clock(cmos.high_min_ns, clock_min_hz) {
     _devs = fpu ? new DevsD8087() : new DevsI8080();
-    _mems = new MemsI8086(fpu);
+    _mems = new MemsI8086(fpu ? "8087" : "off");
     _regs = new RegsI8086(this);
 #ifdef TUNE_CLOCK
     _clockInput = reset_hz;
