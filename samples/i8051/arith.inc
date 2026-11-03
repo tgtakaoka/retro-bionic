@@ -220,47 +220,26 @@ umul16:
         ret
 
 ;;; Signed multiplication: multiplicand *= multiplier
+;;; Signed and unsigned products share the low 16 bits.
 ;;; @param R2: &multiplicand
 ;;; @param R3: &multiplier
 ;;; @clobber A B R0 R2 R3 R4 R5 R6 R7
 mulsi2:
-        mov     A, R2
-        push    ACC             ; save &multiplicand
         mov     A, R3
-        push    ACC             ; save &multiplier
         mov     R0, A           ; R0=&multiplier
         mov     A, @R0
         mov     R4, A
         inc     R0
         mov     A, @R0
         mov     R5, A           ; R5:R4=multiplier
-        jnb     ACC.7, mulsi2_multiplicand
-        acall   neg_R5R4
-mulsi2_multiplicand:
         mov     A, R2
         mov     R0, A           ; R0=&multiplicand
         mov     A, @R0
         mov     R2, A
         inc     R0
         mov     A, @R0
-        mov     R3, A
-        jnb     ACC.7, mulsi2_multiply
-        acall   neg_R3R2
-mulsi2_multiply:
-        acall   umul16
-        pop     ACC
-        mov     R0, A           ; R0=&multiplier
-        inc     R0
-        mov     A, @R0          ; A=hi(multiplier)
-        mov     R5, A           ; R5=hi(multiplier)
-        pop     ACC
-        mov     R0, A           ; R0=&multiplicand
-        inc     R0
-        mov     A, @R0          ; A=hi(multiplicand)
-        xrl     A, R5           ; A=hi(multiplicand^multiplier)
-        jnb     ACC.7, mulsi2_store
-        acall   neg_R3R2
-mulsi2_store:
+        mov     R3, A           ; R3:R2=multiplicand
+        acall   umul16          ; R0 stays &multiplicand+1
         mov     A, R3
         mov     @R0, A
         dec     R0
