@@ -286,51 +286,37 @@ umul16_end:
 ;;; @param R2: &multiplicand
 ;;; @param R3: &multiplier
 ;;; @clobber A R0 R2 R3 R4 R5 R6 R7
+;;; A 16-bit product is the same signed or unsigned; a negative
+;;; multiplier is negated only to shorten the loop.
 mulsi2:
         mov     A, R2
         dec     R1
         movx    @R1, A          ; save &multiplicand
         mov     A, R3
-        dec     R1
-        movx    @R1, A          ; save &multiplier
         mov     R0, A           ; R0=&multiplier
         mov     A, @R0
         mov     R4, A
         inc     R0
         mov     A, @R0
         mov     R5, A           ; R5:R4=multiplier
-        cpl     A
-        jb      7, mulsi2_multiplicand
-        call    neg_R5R4
-mulsi2_multiplicand:
         mov     A, R2
         mov     R0, A           ; R0=&multiplicand
         mov     A, @R0
         mov     R2, A
         inc     R0
         mov     A, @R0
-        mov     R3, A
+        mov     R3, A           ; R3:R2=multiplicand
+        mov     A, R5
         cpl     A
-        jb      7, mulsi2_multiply
-        call    neg_R3R2
+        jb      7, mulsi2_multiply ; branch if multiplier >= 0
+        call    neg_R5R4        ; negate multiplier
+        call    neg_R3R2        ; negate multiplicand
 mulsi2_multiply:
         call    umul16
         movx    A, @R1
         inc     R1
-        mov     R0, A           ; R0=&multiplier
-        inc     R0
-        mov     A, @R0          ; A=hi(multiplier)
-        mov     R5, A           ; R5=hi(multiplier)
-        movx    A, @R1
-        inc     R1
         mov     R0, A           ; R0=&multiplicand
         inc     R0
-        mov     A, @R0          ; A=hi(multiplicand)
-        xrl     A, R5           ; A=hi(multiplicand^multiplier)
-        cpl     A
-        jb      7, mulsi2_store
-        call    neg_R3R2
-mulsi2_store:
         mov     A, R3
         mov     @R0, A
         dec     R0
