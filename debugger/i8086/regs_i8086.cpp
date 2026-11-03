@@ -4,7 +4,7 @@
 #include "debugger.h"
 #include "inst_i8086.h"
 #include "mems_i8086.h"
-#include "pins_i8086.h"
+#include "pins_i8086_base.h"
 
 namespace debugger {
 namespace i8086 {
@@ -32,7 +32,7 @@ constexpr uint16_t STORE_NPX = 0x0500;
 constexpr auto npx_tries = 64;
 }  // namespace
 
-RegsI8086::RegsI8086(PinsI8086 *pins)
+RegsI8086::RegsI8086(PinsI8086Base *pins)
     : _pins(pins), _buffer1(line1), _buffer2(line2) {}
 
 const char *RegsI8086::cpu() const {
@@ -350,7 +350,7 @@ void RegsI8086::restore(bool step) {
     movImm(AX, _r[AX]);
     seq[len++] = InstI8086::IRET;
     auto org = InstI8086::physical(_parkCs, _parkIp);
-    _pins->execInst(seq, len, org, PinsI8086::EXIT_OVERLAY);
+    _pins->execInst(seq, len, org, PinsI8086Base::EXIT_OVERLAY);
 }
 
 void RegsI8086::helpRegisters() const {

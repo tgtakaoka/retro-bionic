@@ -8,10 +8,10 @@
 namespace debugger {
 namespace i8086 {
 
-struct PinsI8086;
+struct PinsI8086Base;
 
 struct RegsI8086 final : Regs {
-    RegsI8086(PinsI8086 *pins);
+    RegsI8086(PinsI8086Base *pins);
 
     const char *cpu() const override;
     // The chip reset found.
@@ -46,7 +46,7 @@ struct RegsI8086 final : Regs {
     bool setRegister(uint_fast8_t reg, uint32_t value) override;
 
 private:
-    PinsI8086 *const _pins;
+    PinsI8086Base *const _pins;
     // AX, CX, DX, BX, SP, BP, SI, DI: the order the encodings number them.
     uint16_t _r[8];
     // ES, CS, SS, DS: the same.
