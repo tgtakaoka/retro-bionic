@@ -29,8 +29,11 @@ from importlib.machinery import SourceFileLoader
 
 RUN_DIR = os.environ.get('BIONIC_RUN_DIR', '/tmp/bionic-bench')
 os.makedirs(RUN_DIR, exist_ok=True)
-# The longest capture, before plus after the trigger, in seconds.
+# The longest capture, before plus after the trigger, in seconds; a
+# table's trigger may allow up to LONG_WINDOW with `long = true`, for an
+# echo sample's whole reply.
 MAX_WINDOW = 10e-3
+LONG_WINDOW = 40e-3
 # How long finish_capture() waits for the trigger, in seconds.
 TRIGGER_WAIT = 60
 bench = SourceFileLoader('bench', os.path.join(os.path.dirname(
@@ -64,6 +67,29 @@ def load_leads(path, name):
 def load_channels(path, name):
     """{channel index: label} from channels.toml's [name] table."""
     return {ch: lead['signal'] for ch, lead in load_leads(path, name).items()}
+
+
+def load_capture(path, name):
+    """The [name] table's capture settings by channel index: its trigger,
+    a dict of start_capture() arguments or None, and its Simple Parallel
+    decoders as [(data channels, clock channel, edge)]. Settings name
+    signals; a trigger's `when` holds other signals "high" or "low", and
+    its `before`/`after` keep that many seconds around it."""
+    with open(path, 'rb') as f:
+        table = tomllib.load(f).get(name, {})
+    index = {v['signal']: int(k) for k, v in table.items() if k.isdigit()}
+    t = table.get('trigger')
+    trigger = None
+    if t:
+        trigger = {'trigger': index[t['signal']], 'edge': t.get('edge', 'rise'),
+                   'linked': [(index[s], v) for s, v in t.get('when', {}).items()],
+                   'min_width': t.get('min_width'), 'max_width': t.get('max_width')}
+        trigger.update({k: t[k] for k in ('before', 'after') if k in t})
+        if t.get('long'):
+            trigger['limit'] = LONG_WINDOW
+    parallel = [([index[d] for d in p['data']], index[p['clock']], p.get('edge', 'rise'))
+                for p in table.get('parallel', [])]
+    return trigger, parallel
 
 
 def _relabel(path, channels):
@@ -176,23 +202,32 @@ class SaleaeLogicPro16(LogicAnalyzer):
         os.remove(self.OPEN_ID)
 
     def start_capture(self, channels, trigger, edge='rise', before=20e-6,
-                      after=200e-6, glitch=None):
+                      after=200e-6, glitch=None, linked=(), min_width=None,
+                      max_width=None, limit=MAX_WINDOW):
         analyzer()
-        if before + after > MAX_WINDOW:
+        if before + after > min(limit, LONG_WINDOW):
             raise RuntimeError('start_capture: %g s window over the %g s limit'
-                               % (before + after, MAX_WINDOW))
+                               % (before + after, min(limit, LONG_WINDOW)))
         self._close_open()
         # The 3.3V threshold: the default one reads ringing as extra pulses.
         device = {'digitalSampleRate': 100000000, 'digitalThresholdVolts': 3.3,
-                  'logicChannels': {'digitalChannels': sorted(set(channels) | {trigger})}}
+                  'logicChannels': {'digitalChannels': sorted(
+                      set(channels) | {trigger} | {ch for ch, _ in linked})}}
         if glitch:
             device['glitchFilters'] = [{'channelIndex': trigger, 'pulseWidthSeconds': glitch}]
-        text = self._call('start_capture', {
-            'captureConfiguration': {'digitalCaptureMode': {
-                'triggerChannelIndex': trigger,
-                'triggerType': {'rise': 1, 'fall': 2}[edge],
+        mode = {'triggerChannelIndex': trigger,
+                'triggerType': {'rise': 1, 'fall': 2, 'pulse_high': 3, 'pulse_low': 4}[edge],
                 'afterTriggerSeconds': after,
-                'trimDataSeconds': before + after}},
+                'trimDataSeconds': before + after}
+        if linked:
+            mode['linkedChannels'] = [{'channelIndex': ch, 'state': {'low': 1, 'high': 2}[v]}
+                                      for ch, v in linked]
+        if min_width is not None:
+            mode['minPulseWidthSeconds'] = min_width
+        if max_width is not None:
+            mode['maxPulseWidthSeconds'] = max_width
+        text = self._call('start_capture', {
+            'captureConfiguration': {'digitalCaptureMode': mode},
             'logicDeviceConfiguration': device})
         m = re.search(r'captureId\\*"?\s*:\s*(\d+)', text)
         if not m:
@@ -203,7 +238,9 @@ class SaleaeLogicPro16(LogicAnalyzer):
                        'channels': device['logicChannels']['digitalChannels']}, f)
         return handle
 
-    def finish_capture(self, handle, directory):
+    def wait_capture(self, handle):
+        """Wait for the capture to trigger and fill; one that never
+        triggers is stopped instead and raises RuntimeError."""
         try:
             self._call('wait_capture', {'captureId': handle}, timeout=TRIGGER_WAIT)
         except RuntimeError:
@@ -213,6 +250,33 @@ class SaleaeLogicPro16(LogicAnalyzer):
             except RuntimeError:
                 pass
             raise
+
+    def add_parallel(self, handle, parallel):
+        """Add a Simple Parallel decoder per (data channels, clock, edge)."""
+        for data, clock, edge in parallel:
+            settings = {'D%d' % i: {'numberValue': ch} for i, ch in enumerate(data)}
+            settings['Clock'] = {'numberValue': clock}
+            settings['Clock State'] = {'stringValue': {
+                'rise': 'Rising edge', 'fall': 'Falling edge', 'dual': 'Dual edge'}[edge]}
+            self._call('add_analyzer', {'captureId': handle, 'analyzerName': 'Simple Parallel',
+                                        'settings': settings})
+
+    def save_capture(self, handle, path):
+        self._call('save_capture', {'captureId': handle, 'filepath': os.path.abspath(path)})
+
+    def show_saved(self, path):
+        """Close the capture left open and open the saved one in its
+        place, for a look; the next start_capture() closes it."""
+        opened = self._open()
+        self._close_open()
+        text = self._call('load_capture', {'filepath': os.path.abspath(path)})
+        m = re.search(r'captureId\\*"?\s*:\s*(\d+)', text)
+        if m and opened:
+            with open(self.OPEN_ID, 'w') as f:
+                json.dump({'id': int(m.group(1)), 'channels': opened['channels']}, f)
+
+    def finish_capture(self, handle, directory):
+        self.wait_capture(handle)
         opened = self._open()
         channels = opened['channels'] if opened and opened['id'] == handle else None
         if channels is None:
