@@ -163,11 +163,13 @@ cmp16_end:
         sta     R0L
         rts
 
-;;; Unsigned multiplication: result = multiplicand * multiplier
+;;; Multiply; result = multiplicand * multiplier
+;;; Signed and unsigned products share the low 16 bits.
 ;;; @param R1 multiplicand
 ;;; @param R2 multiplier
-;;; @return R0 result, low 16 bits
-;;; @clobber A X
+;;; @return R0 result
+;;; @return X:A result
+mul16:
 umul16:
         lda     R2L             ; A=low(multiplier)
         ldx     R1L             ; X=low(multiplicand)
@@ -188,41 +190,6 @@ umul16_high:
         add     R0H
         sta     R0H             ; high(result)+=A
 umul16_end:
-        rts
-
-;;; Multiply; result = multiplicand * multiplier
-;;; @param R1 multiplicand
-;;; @param R2 multiplier
-;;; @return R0 result
-;;; @return X:A result
-;;; @clobber R1 R2
-mul16:
-        lda     R1H
-        eor     R2H
-        sta     arith_work      ; save hi(multiplicand^multiplier)
-        lda     R2H             ; A=hi(multiplier)
-        bpl     mul16_multiplicand
-        nega
-        neg     R2L
-        sbc     #0
-        sta     R2H             ; negate multiplier
-mul16_multiplicand:
-        lda     R1H             ; A=hi(multiplicand)
-        bpl     mul16_multiply
-        nega
-        neg     R1L
-        sbc     #0
-        sta     R1H             ; negate multiplicand
-mul16_multiply:
-        bsr     umul16          ; R0=result
-        lda     arith_work      ; A=(multiplicand^multiplier)
-        bpl     mul16_end
-        lda     R0H
-        nega
-        neg     R0L
-        sbc     #0
-        sta     R0H             ; negate result
-mul16_end:
         ldx     R0H
         lda     R0L
         rts
