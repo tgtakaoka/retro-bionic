@@ -8,7 +8,7 @@
 namespace debugger {
 namespace i8086 {
 
-MemsI8086::MemsI8086(bool fpu)
+MemsI8086::MemsI8086(const char *fpu)
     : ExtMemory(Endian::ENDIAN_LITTLE), _fpu(fpu) {
 #ifdef WITH_ASSEMBLER
     _assembler = new libasm::i8086::AsmI8086();
@@ -37,7 +37,7 @@ uint32_t MemsI8086::windowBase(uint32_t addr) const {
 libasm::Assembler *MemsI8086::assembler() const {
     auto as = Mems::assembler();
     if (as)
-        as->setOption("fpu", _fpu ? "8087" : "off");
+        as->setOption("fpu", _fpu);
     return as;
 }
 #endif
@@ -46,7 +46,7 @@ libasm::Assembler *MemsI8086::assembler() const {
 libasm::Disassembler *MemsI8086::disassembler() const {
     auto dis = Mems::disassembler();
     if (dis)
-        dis->setOption("fpu", _fpu ? "8087" : "off");
+        dis->setOption("fpu", _fpu);
     return dis;
 }
 

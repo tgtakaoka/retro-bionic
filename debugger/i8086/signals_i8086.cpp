@@ -2,18 +2,14 @@
 #include "char_buffer.h"
 #include "debugger.h"
 #include "digital_bus.h"
-#include "pins_i8086.h"
+#include "pins_i8086_bus.h"
 
 namespace debugger {
 namespace i8086 {
 
-void Signals::getAddr(bool bus8) {
-    setAddr(bus8, busRead(AH) | busRead(AD), busRead(CNTL));
-}
-
-void Signals::setAddr(bool bus8, uint32_t a, uint8_t cntl) {
+void Signals::setAddr(bool bus8, uint32_t a, bool bhe) {
     addr = a;
-    this->cntl() = cntl;
+    cntl() = bhe ? 0 : BHE;
     st() = 0;
     mode() = bus8 ? BUS8 : 0;
 }
@@ -21,7 +17,7 @@ void Signals::setAddr(bool bus8, uint32_t a, uint8_t cntl) {
 void Signals::setFetch(bool bus8) {
     mode() = bus8 ? BUS8 : 0;
     // A fetch moves a word from an even address, or the odd byte.
-    cntl() = busRead(CNTL) & ~BHE;
+    cntl() = 0;
     st() = SEG_CS;
 }
 

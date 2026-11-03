@@ -1,17 +1,16 @@
 #include "qs_i8086.h"
 #include <DMAChannel.h>
 #include "debugger.h"
-#include "pins_i8086.h"
 
 namespace debugger {
 namespace i8086 {
 
 namespace {
 
-// QS0 is P7.16 and QS1 P9.06 on the fast ports, which DMA can't read;
-// their slow ports are GPIO2 and GPIO4. One DMA request reads QS1, then
-// QS0, 0x8000 below it, into a slot of the ring; two channels would take
-// two requests, too many for a CLK period.
+// On the P8086 boards QS0 is P7.16 and QS1 P9.06 on the fast ports, which
+// DMA can't read; their slow ports are GPIO2 and GPIO4. One DMA request
+// reads QS1, then QS0, 0x8000 below it, into a slot of the ring; two
+// channels would take two requests, too many for a CLK period.
 constexpr uint32_t QS0_BIT = 16;
 constexpr uint32_t QS1_BIT = 6;
 static_assert(IMXRT_GPIO4_ADDRESS - IMXRT_GPIO2_ADDRESS == 0x8000,
@@ -65,8 +64,14 @@ void set_tcd() {
 }  // namespace
 
 // FlexPWM3 submodule 1, CLK's, triggers when it counts VAL2, its rising
-// edge; set again on every reset, which sets the PWM up anew.
+// edge; set again on every reset, which sets the PWM up anew. The N80C186
+// boards push their samples, and start each reset afresh.
 void QsTracker::begin() {
+    if (_board == N80C186) {
+        _frozen = false;
+        _pushed = 0;
+        return;
+    }
     IMXRT_FLEXPWM3.SM[1].TCTRL |= FLEXPWM_SMTCTRL_OUT_TRIG_EN(1 << 2);
     if (_started)
         return;
@@ -105,10 +110,14 @@ void QsTracker::begin() {
 void QsTracker::freeze(uint32_t last) {
     if (_frozen)
         return;
-    dma.disable();
     _stopCycle = last;
-    _stopIndex = index_of();
     _frozen = true;
+    if (_board == N80C186) {
+        _stopIndex = _pushed;
+        return;
+    }
+    dma.disable();
+    _stopIndex = index_of();
     arm_dcache_delete(ring, sizeof(ring));
 }
 
@@ -116,11 +125,14 @@ void QsTracker::thaw() {
     if (!_frozen)
         return;
     _frozen = false;
-    dma.enable();
+    if (_board != N80C186)
+        dma.enable();
 }
 
 uint8_t QsTracker::sampleAt(uint32_t back) const {
     const auto i = (_stopIndex - 1 - back) % SAMPLES;
+    if (_board == N80C186)
+        return _samples[i];
     return ((ring[i * 2 + 1] >> QS0_BIT) & 1) |
            (((ring[i * 2] >> QS1_BIT) & 1) << 1);
 }

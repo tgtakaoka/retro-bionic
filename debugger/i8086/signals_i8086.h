@@ -16,10 +16,9 @@ enum Segment : uint8_t {
 };
 
 struct Signals final : SignalsBase<Signals> {
-    // T1: the address and #BHE. |bus8| is the 8088's bus.
-    void getAddr(bool bus8);
-    // Likewise, from the ports as read.
-    void setAddr(bool bus8, uint32_t addr, uint8_t cntl);
+    // T1: the address, and |bhe| when #BHE is low. |bus8| is the 8088's
+    // bus.
+    void setAddr(bool bus8, uint32_t addr, bool bhe);
     void getData();
     void outData() const;
     void inputMode() const;
