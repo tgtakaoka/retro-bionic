@@ -83,7 +83,7 @@
         200 :                    initialize:
         200 : 7D0F 01FF                  mvwi    SP, stack
         202 : 8F04                       bal     init_usart
-        203 : 2617 028F                  bald    arith
+        203 : 2617 0285                  bald    arith
         205 : 2000                       h                       halt to system
         206 :
         206 :                    init_usart:
@@ -193,252 +193,258 @@
 (1)     24D : 7908                       mv      R1, R0
 (1)     24E : 2003                       ret
 (1)     24F :
-(1)     24F :                    *** Signed Multiply: multiplicand * multiplier = product
+(1)     24F :                    *** Multiply: multiplicand * multiplier = product
+(1)     24F :                    *** Signed and unsigned products share the low 16 bits.
 (1)     24F :                    *** @param R1 multiplicand
 (1)     24F :                    *** @param R2 multiplier
 (1)     24F :                    *** @return R1 product
 (1)     24F :                    *** @clobber R0 R2
 (1)     24F :                    mul16:
-(1)     24F : 2301                       push    R3
-(1)     250 : 7B09                       mv      R3, R1
-(1)     251 : 6302                       eor     R3, R2          R3=sign(product)
-(1)     252 : 2940                       tbit    R1, 0, z        skip if msb(multiplicand)=0
-(1)     253 : 1F09                       neg     R1, c           negate multiplicand
-(1)     254 : 2A40                       tbit    R2, 0, z        skip if msb(multiplier)=0
-(1)     255 : 1F0A                       neg     R2, c           negate multiplier
-(1)     256 : 780A                       mv      R0, R2          R0=|multiplier|
-(1)     257 : 7A0D                       mv      R2, SP          R2 points |multiplicand|
-(1)     258 : 2101                       push    R1              push |multiplicand|
-(1)     259 : 7F0D                       m       DR0, (R2)       DR0=|multiplicand|*|multiplier|
-(1)     25A : 2B40                       tbit    R3, 0, z        skip if product stays positive
-(1)     25B : 1F09                       neg     R1, c           negate low(product)
-(1)     25C : 7D0A                       mv      SP, R2          discard pushed |multiplicand|
-(1)     25D : 2302                       pop     R3
-(1)     25E : 2003                       ret
-        25F :
-        25F :                    *** Print "VA op VB"
-        25F :                    *** @param R0 op letter
-        25F :                    *** @param R1 VA
-        25F :                    *** @param R2 VB
-        25F :                    *** @clobber R0
-        25F :                    expr:
-        25F : 2101                       push    R1
-        260 : 2201                       push    R2
-        261 : 2001                       push    R0
-        262 : 7809                       mv      R0, R1
-        263 : 2617 021F                  bald    print_int16     print VA
-        265 : 0820                       mvi     R0, ' '
-        266 : 2617 0218                  bald    putchar         print ' '
-        268 : 2002                       pop     R0
-        269 : 2617 0218                  bald    putchar         print op
+(1)     24F :                    umul16:
+(1)     24F : 780A                       mv      R0, R2          R0=multiplier
+(1)     250 : 7A0D                       mv      R2, SP          R2 points multiplicand
+(1)     251 : 2101                       push    R1              push multiplicand
+(1)     252 : 7F0D                       m       DR0, (R2)       DR0=multiplicand*multiplier
+(1)     253 : 7D0A                       mv      SP, R2          discard pushed multiplicand
+(1)     254 : 2003                       ret
+        255 :
+        255 :                    *** Print "VA op VB"
+        255 :                    *** @param R0 op letter
+        255 :                    *** @param R1 VA
+        255 :                    *** @param R2 VB
+        255 :                    *** @clobber R0
+        255 :                    expr:
+        255 : 2101                       push    R1
+        256 : 2201                       push    R2
+        257 : 2001                       push    R0
+        258 : 7809                       mv      R0, R1
+        259 : 2617 021F                  bald    print_int16     print VA
+        25B : 0820                       mvi     R0, ' '
+        25C : 2617 0218                  bald    putchar         print ' '
+        25E : 2002                       pop     R0
+        25F : 2617 0218                  bald    putchar         print op
+        261 : 0820                       mvi     R0, ' '
+        262 : 2617 0218                  bald    putchar         print ' '
+        264 : 2002                       pop     R0
+        265 : 2001                       push    R0              R0=VB
+        266 : 2617 021F                  bald    print_int16     print VB
+        268 : 2202                       pop     R2              restore VB
+        269 : 2102                       pop     R1              restore VA
+        26A : 2003                       ret
+        26B :
+        26B :                    *** Print " = value\n"
+        26B :                    *** @param R1 value
+        26B :                    *** @clobber R0 R1 R2
+        26B :                    answer:
         26B : 0820                       mvi     R0, ' '
         26C : 2617 0218                  bald    putchar         print ' '
-        26E : 2002                       pop     R0
-        26F : 2001                       push    R0              R0=VB
-        270 : 2617 021F                  bald    print_int16     print VB
-        272 : 2202                       pop     R2              restore VB
-        273 : 2102                       pop     R1              restore VA
-        274 : 2003                       ret
-        275 :
-        275 :                    *** Print " = value\n"
-        275 :                    *** @param R1 value
-        275 :                    *** @clobber R0 R1 R2
-        275 :                    answer:
-        275 : 0820                       mvi     R0, ' '
-        276 : 2617 0218                  bald    putchar         print ' '
-        278 : 083D                       mvi     R0, '='
-        279 : 2617 0218                  bald    putchar         print '='
-        27B : 0820                       mvi     R0, ' '
-        27C : 2617 0218                  bald    putchar         print ' '
-        27E : 7809                       mv      R0, R1
-        27F : 2617 021F                  bald    print_int16     print value
-        281 : 2607 0215                  bd      newline
-        283 :
-        283 :                    *** Print "VA rel VB\n"
-        283 :                    *** @param R1 VA
-        283 :                    *** @param R2 VB
-        283 :                    *** @clobber R0
-        283 :                    comp:
-        283 : 516A                       c       R1, R2, mz      skip if VA<=VB
-        284 : CF05                       b       comp_gt
-        285 : 514A                       c       R1, R2, z       skip if VA==VB
-        286 : CF05                       b       comp_lt
-        287 :                    comp_eq:
-        287 : 083D                       mvi     R0, '='
-        288 : CF04                       b       comp_out
-        289 :                    comp_gt:
-        289 : 083E                       mvi     R0, '>'
-        28A : CF02                       b       comp_out
-        28B :                    comp_lt:
-        28B : 083C                       mvi     R0, '<'
-        28C :                    comp_out:
-        28C : 8FD3                       bal     expr            print "VA rel VB"
-        28D : 2607 0215                  bd      newline
-        28F :
-        28F :                    arith:
-        28F : 790F 4650                  mvwi    R1, 18000
-        291 : 7A0F 6D60                  mvwi    R2, 28000
-        293 : 082B                       mvi     R0, '+'
-        294 : 8FCB                       bal     expr
-        295 : 590A                       a       R1, R2          R1+=R2
-        296 : 8FDF                       bal     answer          ; -19536
-        297 :
-        297 : 790F 4650                  mvwi    R1, 18000
-        299 : 7A0F B9B0                  mvwi    R2, -18000
-        29B : 082B                       mvi     R0, '+'
-        29C : 8FC3                       bal     expr
-        29D : 590A                       a       R1, R2          R1+=R2
-        29E : 8FD7                       bal     answer          ; 0
-        29F :
-        29F : 790F B9B0                  mvwi    R1, -18000
-        2A1 : 7A0F B9B0                  mvwi    R2, -18000
-        2A3 : 082B                       mvi     R0, '+'
-        2A4 : 8FBB                       bal     expr
-        2A5 : 590A                       a       R1, R2          R1+=R2
-        2A6 : 8FCF                       bal     answer          ; 29536
-        2A7 :
-        2A7 : 790F B9B0                  mvwi    R1, -18000
-        2A9 : 7A0F 92A0                  mvwi    R2, -28000
-        2AB : 082D                       mvi     R0, '-'
-        2AC : 8FB3                       bal     expr
-        2AD : 5902                       s       R1, R2          R1-=R2
-        2AE : 8FC7                       bal     answer          ; 10000
-        2AF :
-        2AF : 790F 4650                  mvwi    R1, 18000
-        2B1 : 7A0F B9B0                  mvwi    R2, -18000
-        2B3 : 082D                       mvi     R0, '-'
-        2B4 : 8FAB                       bal     expr
-        2B5 : 5902                       s       R1, R2          R1-=R2
-        2B6 : 8FBF                       bal     answer          ; -29536
-        2B7 :
-        2B7 : 790F 92A0                  mvwi    R1, -28000
-        2B9 : 7A0F B9B0                  mvwi    R2, -18000
-        2BB : 082D                       mvi     R0, '-'
-        2BC : 8FA3                       bal     expr
-        2BD : 5902                       s       R1, R2          R1-=R2
-        2BE : 8FB7                       bal     answer          ; -10000
-        2BF :
-        2BF : 790F 0064                  mvwi    R1, 100
-        2C1 : 7A0F 012C                  mvwi    R2, 300
-        2C3 : 082A                       mvi     R0, '*'
-        2C4 : 8F9B                       bal     expr
-        2C5 : 2617 024F                  bald    mul16
-        2C7 : 8FAE                       bal     answer          ; 30000
-        2C8 :
-        2C8 : 790F 00C8                  mvwi    R1, 200
-        2CA : 7A0F 0064                  mvwi    R2, 100
-        2CC : 082A                       mvi     R0, '*'
-        2CD : 8F92                       bal     expr
-        2CE : 2617 024F                  bald    mul16
-        2D0 : 8FA5                       bal     answer          ; 20000
-        2D1 :
-        2D1 : 790F 012C                  mvwi    R1, 300
-        2D3 : 7A0F FF38                  mvwi    R2, -200
-        2D5 : 082A                       mvi     R0, '*'
-        2D6 : 8F89                       bal     expr
+        26E : 083D                       mvi     R0, '='
+        26F : 2617 0218                  bald    putchar         print '='
+        271 : 0820                       mvi     R0, ' '
+        272 : 2617 0218                  bald    putchar         print ' '
+        274 : 7809                       mv      R0, R1
+        275 : 2617 021F                  bald    print_int16     print value
+        277 : 2607 0215                  bd      newline
+        279 :
+        279 :                    *** Print "VA rel VB\n"
+        279 :                    *** @param R1 VA
+        279 :                    *** @param R2 VB
+        279 :                    *** @clobber R0
+        279 :                    comp:
+        279 : 516A                       c       R1, R2, mz      skip if VA<=VB
+        27A : CF05                       b       comp_gt
+        27B : 514A                       c       R1, R2, z       skip if VA==VB
+        27C : CF05                       b       comp_lt
+        27D :                    comp_eq:
+        27D : 083D                       mvi     R0, '='
+        27E : CF04                       b       comp_out
+        27F :                    comp_gt:
+        27F : 083E                       mvi     R0, '>'
+        280 : CF02                       b       comp_out
+        281 :                    comp_lt:
+        281 : 083C                       mvi     R0, '<'
+        282 :                    comp_out:
+        282 : 8FD3                       bal     expr            print "VA rel VB"
+        283 : 2607 0215                  bd      newline
+        285 :
+        285 :                    arith:
+        285 : 790F 4650                  mvwi    R1, 18000
+        287 : 7A0F 6D60                  mvwi    R2, 28000
+        289 : 082B                       mvi     R0, '+'
+        28A : 8FCB                       bal     expr
+        28B : 590A                       a       R1, R2          R1+=R2
+        28C : 8FDF                       bal     answer          ; -19536
+        28D :
+        28D : 790F 4650                  mvwi    R1, 18000
+        28F : 7A0F B9B0                  mvwi    R2, -18000
+        291 : 082B                       mvi     R0, '+'
+        292 : 8FC3                       bal     expr
+        293 : 590A                       a       R1, R2          R1+=R2
+        294 : 8FD7                       bal     answer          ; 0
+        295 :
+        295 : 790F B9B0                  mvwi    R1, -18000
+        297 : 7A0F B9B0                  mvwi    R2, -18000
+        299 : 082B                       mvi     R0, '+'
+        29A : 8FBB                       bal     expr
+        29B : 590A                       a       R1, R2          R1+=R2
+        29C : 8FCF                       bal     answer          ; 29536
+        29D :
+        29D : 790F B9B0                  mvwi    R1, -18000
+        29F : 7A0F 92A0                  mvwi    R2, -28000
+        2A1 : 082D                       mvi     R0, '-'
+        2A2 : 8FB3                       bal     expr
+        2A3 : 5902                       s       R1, R2          R1-=R2
+        2A4 : 8FC7                       bal     answer          ; 10000
+        2A5 :
+        2A5 : 790F 4650                  mvwi    R1, 18000
+        2A7 : 7A0F B9B0                  mvwi    R2, -18000
+        2A9 : 082D                       mvi     R0, '-'
+        2AA : 8FAB                       bal     expr
+        2AB : 5902                       s       R1, R2          R1-=R2
+        2AC : 8FBF                       bal     answer          ; -29536
+        2AD :
+        2AD : 790F 92A0                  mvwi    R1, -28000
+        2AF : 7A0F B9B0                  mvwi    R2, -18000
+        2B1 : 082D                       mvi     R0, '-'
+        2B2 : 8FA3                       bal     expr
+        2B3 : 5902                       s       R1, R2          R1-=R2
+        2B4 : 8FB7                       bal     answer          ; -10000
+        2B5 :
+        2B5 : 790F 0064                  mvwi    R1, 100
+        2B7 : 7A0F 012C                  mvwi    R2, 300
+        2B9 : 082A                       mvi     R0, '*'
+        2BA : 8F9B                       bal     expr
+        2BB : 2617 024F                  bald    mul16
+        2BD : 8FAE                       bal     answer          ; 30000
+        2BE :
+        2BE : 790F 00C8                  mvwi    R1, 200
+        2C0 : 7A0F 0064                  mvwi    R2, 100
+        2C2 : 082A                       mvi     R0, '*'
+        2C3 : 8F92                       bal     expr
+        2C4 : 2617 024F                  bald    mul16
+        2C6 : 8FA5                       bal     answer          ; 20000
+        2C7 :
+        2C7 : 790F 012C                  mvwi    R1, 300
+        2C9 : 7A0F FF38                  mvwi    R2, -200
+        2CB : 082A                       mvi     R0, '*'
+        2CC : 8F89                       bal     expr
+        2CD : 2617 024F                  bald    mul16
+        2CF : 8F9C                       bal     answer          ; 5536
+        2D0 :
+        2D0 : 790F 0064                  mvwi    R1, 100
+        2D2 : 7A0F FED4                  mvwi    R2, -300
+        2D4 : 082A                       mvi     R0, '*'
+        2D5 : 2617 0255                  bald    expr
         2D7 : 2617 024F                  bald    mul16
-        2D9 : 8F9C                       bal     answer          ; 5536
+        2D9 : 8F92                       bal     answer          ; -30000
         2DA :
-        2DA : 790F 0064                  mvwi    R1, 100
-        2DC : 7A0F FED4                  mvwi    R2, -300
+        2DA : 790F FF38                  mvwi    R1, -200
+        2DC : 7A0F FF9C                  mvwi    R2, -100
         2DE : 082A                       mvi     R0, '*'
-        2DF : 2617 025F                  bald    expr
+        2DF : 2617 0255                  bald    expr
         2E1 : 2617 024F                  bald    mul16
-        2E3 : 8F92                       bal     answer          ; -30000
+        2E3 : 8F88                       bal     answer          ; 20000
         2E4 :
-        2E4 : 790F FF38                  mvwi    R1, -200
-        2E6 : 7A0F FF9C                  mvwi    R2, -100
+        2E4 : 790F FED4                  mvwi    R1, -300
+        2E6 : 7A0F 0064                  mvwi    R2, 100
         2E8 : 082A                       mvi     R0, '*'
-        2E9 : 2617 025F                  bald    expr
+        2E9 : 2617 0255                  bald    expr
         2EB : 2617 024F                  bald    mul16
-        2ED : 8F88                       bal     answer          ; 20000
-        2EE :
-        2EE : 790F 7530                  mvwi    R1, 30000
-        2F0 : 7A0F 0064                  mvwi    R2, 100
-        2F2 : 082F                       mvi     R0, '/'
-        2F3 : 2617 025F                  bald    expr
-        2F5 : 2617 0238                  bald    div16
-        2F7 : 2617 0275                  bald    answer          ; 300
-        2F9 :
-        2F9 : 790F FF38                  mvwi    R1, -200
-        2FB : 7A0F 0064                  mvwi    R2, 100
-        2FD : 082F                       mvi     R0, '/'
-        2FE : 2617 025F                  bald    expr
-        300 : 2617 0238                  bald    div16
-        302 : 2617 0275                  bald    answer          ; -2
-        304 :
-        304 : 790F 8AD0                  mvwi    R1, -30000
-        306 : 7A0F FF38                  mvwi    R2, -200
-        308 : 082F                       mvi     R0, '/'
-        309 : 2617 025F                  bald    expr
-        30B : 2617 0238                  bald    div16
-        30D : 2617 0275                  bald    answer          ; 150
-        30F :
-        30F : 790F 8AD0                  mvwi    R1, -30000
-        311 : 7A0F 004E                  mvwi    R2, 78
-        313 : 082F                       mvi     R0, '/'
-        314 : 2617 025F                  bald    expr
-        316 : 2617 0238                  bald    div16
-        318 : 2617 0275                  bald    answer          ; -384
-        31A :
-        31A : 790F 1388                  mvwi    R1, 5000
-        31C : 7A0F 0FA0                  mvwi    R2, 4000
-        31E : 2617 0283                  bald    comp
-        320 :
-        320 : 790F 1388                  mvwi    R1, 5000
-        322 : 7A0F 1388                  mvwi    R2, 5000
-        324 : 2617 0283                  bald    comp
+        2ED : 2617 026B                  bald    answer          ; -30000
+        2EF :
+        2EF : 790F 0003                  mvwi    R1, 3
+        2F1 : 7A0F 8000                  mvwi    R2, -32768
+        2F3 : 082A                       mvi     R0, '*'
+        2F4 : 2617 0255                  bald    expr
+        2F6 : 2617 024F                  bald    mul16
+        2F8 : 2617 026B                  bald    answer          ; -32768
+        2FA :
+        2FA : 790F 7530                  mvwi    R1, 30000
+        2FC : 7A0F 0064                  mvwi    R2, 100
+        2FE : 082F                       mvi     R0, '/'
+        2FF : 2617 0255                  bald    expr
+        301 : 2617 0238                  bald    div16
+        303 : 2617 026B                  bald    answer          ; 300
+        305 :
+        305 : 790F FF38                  mvwi    R1, -200
+        307 : 7A0F 0064                  mvwi    R2, 100
+        309 : 082F                       mvi     R0, '/'
+        30A : 2617 0255                  bald    expr
+        30C : 2617 0238                  bald    div16
+        30E : 2617 026B                  bald    answer          ; -2
+        310 :
+        310 : 790F 8AD0                  mvwi    R1, -30000
+        312 : 7A0F FF38                  mvwi    R2, -200
+        314 : 082F                       mvi     R0, '/'
+        315 : 2617 0255                  bald    expr
+        317 : 2617 0238                  bald    div16
+        319 : 2617 026B                  bald    answer          ; 150
+        31B :
+        31B : 790F 8AD0                  mvwi    R1, -30000
+        31D : 7A0F 004E                  mvwi    R2, 78
+        31F : 082F                       mvi     R0, '/'
+        320 : 2617 0255                  bald    expr
+        322 : 2617 0238                  bald    div16
+        324 : 2617 026B                  bald    answer          ; -384
         326 :
-        326 : 790F 0FA0                  mvwi    R1, 4000
-        328 : 7A0F 1388                  mvwi    R2, 5000
-        32A : 2617 0283                  bald    comp
+        326 : 790F 1388                  mvwi    R1, 5000
+        328 : 7A0F 0FA0                  mvwi    R2, 4000
+        32A : 2617 0279                  bald    comp
         32C :
-        32C : 790F EC78                  mvwi    R1, -5000
-        32E : 7A0F F060                  mvwi    R2, -4000
-        330 : 2617 0283                  bald    comp
+        32C : 790F 1388                  mvwi    R1, 5000
+        32E : 7A0F 1388                  mvwi    R2, 5000
+        330 : 2617 0279                  bald    comp
         332 :
-        332 : 790F EC78                  mvwi    R1, -5000
-        334 : 7A0F EC78                  mvwi    R2, -5000
-        336 : 2617 0283                  bald    comp
+        332 : 790F 0FA0                  mvwi    R1, 4000
+        334 : 7A0F 1388                  mvwi    R2, 5000
+        336 : 2617 0279                  bald    comp
         338 :
-        338 : 790F F060                  mvwi    R1, -4000
-        33A : 7A0F EC78                  mvwi    R2, -5000
-        33C : 2617 0283                  bald    comp
+        338 : 790F EC78                  mvwi    R1, -5000
+        33A : 7A0F F060                  mvwi    R2, -4000
+        33C : 2617 0279                  bald    comp
         33E :
-        33E : 790F 7FBC                  mvwi    R1, 32700
-        340 : 7A0F 7F58                  mvwi    R2, 32600
-        342 : 2617 0283                  bald    comp
+        33E : 790F EC78                  mvwi    R1, -5000
+        340 : 7A0F EC78                  mvwi    R2, -5000
+        342 : 2617 0279                  bald    comp
         344 :
-        344 : 790F 7FBC                  mvwi    R1, 32700
-        346 : 7A0F 7FBC                  mvwi    R2, 32700
-        348 : 2617 0283                  bald    comp
+        344 : 790F F060                  mvwi    R1, -4000
+        346 : 7A0F EC78                  mvwi    R2, -5000
+        348 : 2617 0279                  bald    comp
         34A :
-        34A : 790F 7F58                  mvwi    R1, 32600
-        34C : 7A0F 7FBC                  mvwi    R2, 32700
-        34E : 2617 0283                  bald    comp
+        34A : 790F 7FBC                  mvwi    R1, 32700
+        34C : 7A0F 7F58                  mvwi    R2, 32600
+        34E : 2617 0279                  bald    comp
         350 :
-        350 : 790F 8044                  mvwi    R1, -32700
-        352 : 7A0F 80A8                  mvwi    R2, -32600
-        354 : 2617 0283                  bald    comp
+        350 : 790F 7FBC                  mvwi    R1, 32700
+        352 : 7A0F 7FBC                  mvwi    R2, 32700
+        354 : 2617 0279                  bald    comp
         356 :
-        356 : 790F 8044                  mvwi    R1, -32700
-        358 : 7A0F 8044                  mvwi    R2, -32700
-        35A : 2617 0283                  bald    comp
+        356 : 790F 7F58                  mvwi    R1, 32600
+        358 : 7A0F 7FBC                  mvwi    R2, 32700
+        35A : 2617 0279                  bald    comp
         35C :
-        35C : 790F 80A8                  mvwi    R1, -32600
-        35E : 7A0F 8044                  mvwi    R2, -32700
-        360 : 2617 0283                  bald    comp
+        35C : 790F 8044                  mvwi    R1, -32700
+        35E : 7A0F 80A8                  mvwi    R2, -32600
+        360 : 2617 0279                  bald    comp
         362 :
-        362 : 790F 4650                  mvwi    R1, 18000
-        364 : 7A0F 92A0                  mvwi    R2, -28000
-        366 : 2617 0283                  bald    comp
+        362 : 790F 8044                  mvwi    R1, -32700
+        364 : 7A0F 8044                  mvwi    R2, -32700
+        366 : 2617 0279                  bald    comp
         368 :
-        368 : 790F 92A0                  mvwi    R1, -28000
-        36A : 7A0F 92A0                  mvwi    R2, -28000
-        36C : 2617 0283                  bald    comp
+        368 : 790F 80A8                  mvwi    R1, -32600
+        36A : 7A0F 8044                  mvwi    R2, -32700
+        36C : 2617 0279                  bald    comp
         36E :
-        36E : 790F 92A0                  mvwi    R1, -28000
-        370 : 7A0F 4650                  mvwi    R2, 18000
-        372 : 2617 0283                  bald    comp
+        36E : 790F 4650                  mvwi    R1, 18000
+        370 : 7A0F 92A0                  mvwi    R2, -28000
+        372 : 2617 0279                  bald    comp
         374 :
-        374 : 2003                       ret
+        374 : 790F 92A0                  mvwi    R1, -28000
+        376 : 7A0F 92A0                  mvwi    R2, -28000
+        378 : 2617 0279                  bald    comp
+        37A :
+        37A : 790F 92A0                  mvwi    R1, -28000
+        37C : 7A0F 4650                  mvwi    R2, 18000
+        37E : 2617 0279                  bald    comp
+        380 :
+        380 : 2003                       ret

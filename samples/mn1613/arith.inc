@@ -72,25 +72,17 @@ divu16:
         mv      R1, R0
         ret
 
-*** Signed Multiply: multiplicand * multiplier = product
+*** Multiply: multiplicand * multiplier = product
+*** Signed and unsigned products share the low 16 bits.
 *** @param R1 multiplicand
 *** @param R2 multiplier
 *** @return R1 product
 *** @clobber R0 R2
 mul16:
-        push    R3
-        mv      R3, R1
-        eor     R3, R2          R3=sign(product)
-        tbit    R1, 0, z        skip if msb(multiplicand)=0
-        neg     R1, c           negate multiplicand
-        tbit    R2, 0, z        skip if msb(multiplier)=0
-        neg     R2, c           negate multiplier
-        mv      R0, R2          R0=|multiplier|
-        mv      R2, SP          R2 points |multiplicand|
-        push    R1              push |multiplicand|
-        m       DR0, (R2)       DR0=|multiplicand|*|multiplier|
-        tbit    R3, 0, z        skip if product stays positive
-        neg     R1, c           negate low(product)
-        mv      SP, R2          discard pushed |multiplicand|
-        pop     R3
+umul16:
+        mv      R0, R2          R0=multiplier
+        mv      R2, SP          R2 points multiplicand
+        push    R1              push multiplicand
+        m       DR0, (R2)       DR0=multiplicand*multiplier
+        mv      SP, R2          discard pushed multiplicand
         ret
