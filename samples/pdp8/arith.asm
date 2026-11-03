@@ -260,6 +260,28 @@ arith_mul,
         VB
         jms     I I_answer      / 20000
 
+        jms     I I_set_VAVB
+        lo(-300)
+        hi(-300)
+        lo(100)
+        hi(100)
+        tad     char_mul
+        jms     I I_expr
+        jms     I I_mul24
+        VB
+        jms     I I_answer      / -30000
+
+        jms     I I_set_VAVB
+        lo(3)
+        hi(3)
+        lo(-8388608)
+        hi(-8388608)
+        tad     char_mul
+        jms     I I_expr
+        jms     I I_mul24
+        VB
+        jms     I I_answer      / -8388608
+
         jmp     .+2
 char_div,     2FH               / char '/'
 
@@ -415,6 +437,8 @@ char_div,     2FH               / char '/'
         jmp     I I_arith_end
 I_arith_end,    arith_end
 
+        page
+
 /// Print expression; "A op B"
 /// @param VA value of A
 /// @param VB value of B
@@ -505,15 +529,15 @@ comp_putchar,
         page
 
 /// Signed 24-bit multiply; R0 *= source
+/// A 24-bit product is the same signed or unsigned; a negative
+/// multiplier is negated only to shorten the loop.
 /// @param R0 multiplicand
 /// @param (PC+1) multiplier source address
 /// @return R0 product
 /// @return AC=0
 /// @clobber R1 R2 arith_ptr
-mul24_sign,     0
 mul24,          .-.
         cla
-        dca     mul24_sign      / clear sign
         tad     I mul24         / source address
         isz     mul24           / advance to return address
         dca     arith_ptr       / pointer to low(source)
@@ -522,32 +546,19 @@ mul24,          .-.
         isz     arith_ptr       / advance to high(source)
         tad     I arith_ptr     / high(source)
         dca     R2H             / high(multiplier)
-        tad     R2H
-        sma cla                 / skip if multiplier<0, AC=0
-        jmp     mul24_multiplicand
-        isz     mul24_sign      / sign++
-        jms     I I_neg24       / negate multiplier
-        R2
-mul24_multiplicand,
         tad     R0L
         dca     R1L             / low(multiplicand)
         tad     R0H
         dca     R1H             / high(multiplicand)
-        tad     R1H
-        sma                     / skip if multiplicand<0
+        tad     R2H
+        sma cla                 / skip if multiplier<0, AC=0
         jmp     mul24_multiply
-        isz     mul24_sign      / sign++
+        jms     I I_neg24       / negate multiplier
+        R2
         jms     I I_neg24       / negate multiplicand
         R1
 mul24_multiply,
         jms     I I_umul24      / R0 = R1 * R2
-        tad     mul24_sign
-        rar                     / L=LSB(sign)
-        snl cla                 / Skip if L=1, AC=0
-        jmp     mul24_return
-        jms     I I_neg24
-        R0                      / negate product
-mul24_return,
         jmp     I mul24         / return
 
 /// Signed 24-bit division; quotient = dividend / divisor ... remainder
