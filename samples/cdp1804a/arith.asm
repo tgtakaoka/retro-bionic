@@ -271,6 +271,20 @@ arith:
         scal    R4, mul16
         scal    R4, answer      ; 20000
 
+        rldi    R7, -300
+        rldi    R8, 100
+        ldi     T'*'
+        scal    R4, expr
+        scal    R4, mul16
+        scal    R4, answer      ; -30000
+
+        rldi    R7, 3
+        rldi    R8, -32768
+        ldi     T'*'
+        scal    R4, expr
+        scal    R4, mul16
+        scal    R4, answer      ; -32768
+
         rldi    R7, 30000
         rldi    R8, 100
         ldi     T'/'
