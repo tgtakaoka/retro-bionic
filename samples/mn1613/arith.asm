@@ -194,6 +194,20 @@ arith:
         bald    mul16
         bal     answer          ; 20000
 
+        mvwi    R1, -300
+        mvwi    R2, 100
+        mvi     R0, '*'
+        bald    expr
+        bald    mul16
+        bald    answer          ; -30000
+
+        mvwi    R1, 3
+        mvwi    R2, -32768
+        mvi     R0, '*'
+        bald    expr
+        bald    mul16
+        bald    answer          ; -32768
+
         mvwi    R1, 30000
         mvwi    R2, 100
         mvi     R0, '/'
