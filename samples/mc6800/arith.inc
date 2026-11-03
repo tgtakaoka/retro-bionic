@@ -75,11 +75,46 @@ cmp16_end:
         staa    R0L
         rts
 
+;;; Signed multiplication: result = multiplicand * multiplier
+;;; @param D multiplicand
+;;; @param X multiplier
+;;; @return D result
+;;; @return X result
+;;; @clobber R0 R1 R2
+;;; A 16-bit product is the same signed or unsigned; a negative
+;;; multiplier is negated only to shorten the loop.
+mul16:
+        stx     R2
+        beq     mul16_zero      ; branch if multiplier == 0
+        staa    R1H
+        stab    R1L
+        ldx     R1
+        beq     mul16_zero      ; branch if multiplicand == 0
+        ldaa    R2H             ; A=hi(multiplier)
+        bpl     umul16          ; branch if multiplier >= 0
+        ldab    R2L
+        coma
+        comb
+        addb    #1
+        adca    #0              ; negate multiplier
+        staa    R2H
+        stab    R2L
+        ldaa    R1H
+        ldab    R1L
+        coma
+        comb
+        addb    #1
+        adca    #0              ; negate multiplicand
+        staa    R1H
+        stab    R1L
+                                ; fall through to umul16
+
 ;;; Unsigned multiplication: result = multiplicand * multiplier
 ;;; @param R1 multiplicand
 ;;; @param R2 multiplier
 ;;; @return R0 result
 ;;; @return D result
+;;; @return X result
 ;;; @clobber R1 R2
 umul16:
         clra
@@ -115,53 +150,6 @@ umul16_last:
 umul16_end:
         staa    R0H
         stab    R0L
-        rts
-
-;;; Signed multiplication: result = multiplicand * multiplier
-;;; @param D multiplicand
-;;; @param X multiplier
-;;; @return D result
-;;; @return X result
-;;; @clobber R0 R1 R2
-mul16:
-        stx     R2
-        beq     mul16_zero      ; branch if multiplier == 0
-        staa    R1H
-        stab    R1L
-        ldx     R1
-        beq     mul16_zero      ; branch if multiplicand == 0
-        eora    R2H
-        staa    sign            ; save hi(multiplicand^multiplier)
-        ldaa    R2H             ; A=hi(multiplier)
-        bpl     mul16_multiplicand
-        ldab    R2L
-        coma
-        comb
-        addb    #1
-        adca    #0              ; negate multiplier
-        staa    R2H
-        stab    R2L
-mul16_multiplicand:
-        ldaa    R1H             ; A=hi(multiplicand)
-        bpl     mul16_multiply
-        ldab    R1L
-        coma
-        comb
-        addb    #1
-        adca    #0              ; negate multiplicand
-        staa    R1H
-        stab    R1L
-mul16_multiply:
-        bsr     umul16          ; D=R0=result
-        tst     sign            ; sign(result)
-        bpl     mul16_end
-        coma
-        comb
-        addb    #1
-        adca    #0              ; negate result
-        staa    R0H
-        stab    R0L
-mul16_end:
         ldx     R0
         rts
 mul16_zero:
