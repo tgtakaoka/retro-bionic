@@ -99,46 +99,33 @@ cmpsi2_equal:
         ret
 
 ;;; Signed multiplication: product = multiplicand * multiplier
+;;; MPY takes only a non-negative multiplier; a negative one is negated
+;;; with the multiplicand, which leaves the 16-bit product unchanged.
 ;;; @param EA: multiplicand
 ;;; @param T: multiplier
 ;;; @return EA: product
-;;; @local SP[4:3] multiplicand
-;;; @local SP[2:1] multiplier
-;;; @local SP[0] sign(product)
+;;; @local SP[3:2] multiplicand
+;;; @local SP[1:0] multiplier
 ;;; @discard T
 mulsi2:
         push    EA             ; save multiplicand
         ld      EA, T          ; EA=multiplier
         push    EA             ; save multiplier
         ld      A, E           ; A=high(multiplier)
-        xor     A, 3, SP       ; A=sign(product)
-        push    A              ; save sign(product)
-        ld      A, 2, SP       ; A=high(multiplier)
-        bp      mulsi2_multiplicand
+        bp      mulsi2_multiply ; branch if multiplier >= 0
         ld      EA, =0
-        sub     EA, 1, SP
-        st      EA, 1, SP       ; negate multiplier
-mulsi2_multiplicand:
-        ld      A, 4, SP        ; A=high(multiplicand)
-        bp      mulsi2_multiply
+        sub     EA, 0, SP
+        st      EA, 0, SP       ; negate multiplier
         ld      EA, =0
-        sub     EA, 3, SP
-        st      EA, 3, SP       ; negate multiplicand
+        sub     EA, 2, SP
+        st      EA, 2, SP       ; negate multiplicand
 mulsi2_multiply:
-        ld      EA, 3, SP       ; EA=|multiplicand|
-        ld      T, 1, SP        ; T=|multiplier|
+        ld      EA, 2, SP       ; EA=multiplicand
+        ld      T, 0, SP        ; T=multiplier
         mpy     EA, T           ; T=product
-        ld      EA, T
-        st      EA, 3, SP       ; store product
-        pop     A               ; A=high(multiplicand^multiplier)
-        bp      mulsi2_exit
-        ld      EA, =0
-        sub     EA, 2, SP       ; negate product
-        st      EA, 2, SP       ; store product
-mulsi2_exit:
         pop     EA
-        ld      T, EA           ; T=|multiplier|
-        pop     EA              ; EA=product
+        pop     EA              ; discard locals
+        ld      EA, T           ; EA=product
         ret
 
 ;;; Signed division: quotient = dividend / divisor

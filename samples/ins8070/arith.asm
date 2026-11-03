@@ -189,6 +189,20 @@ arith:
         jsr     mulsi2
         jsr     answer          ; 20000
 
+        ld      P2, =-300
+        ld      P3, =100
+        ld      A, ='*'
+        jsr     expr
+        jsr     mulsi2
+        jsr     answer          ; -30000
+
+        ld      P2, =3
+        ld      P3, =-32768
+        ld      A, ='*'
+        jsr     expr
+        jsr     mulsi2
+        jsr     answer          ; -32768
+
         ld      P2, =30000
         ld      P3, =100
         ld      A, ='/'
