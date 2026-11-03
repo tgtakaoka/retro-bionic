@@ -147,31 +147,15 @@ umul16:
         add     R14, R10        ; add a part 2 of high(product)
         ret
 
-;;; Signed multiplication: multiplicand *= multiplier
+;;; Multiply: multiplicand *= multiplier
+;;; Signed and unsigned products share the low 16 bits.
 ;;; @param @R4: multiplicand
 ;;; @param @R5: multiplier
 ;;; @clobber R10-R15
 mulsi2:
         ldw     RR14, @R4
         ldw     RR12, @R5
-        btjrf   mulsi2_abs_muliplicand, R12, #7
-        com     R12
-        com     R13
-        incw    RR12            ; multiplier = -multiplier
-mulsi2_abs_muliplicand:
-        btjrf   mulsi2_multiply, R14, #7
-        com     R14
-        com     R15
-        incw    RR14            ; multiplicand = -multiplicand
-mulsi2_multiply:
         call    umul16          ; result = multiplicand * multiplier
-        ld      R12, @R4
-        xor     R12, @R5        ; R12=sign(@R4)^sign(@R5)
-        btjrf   mulsi2_end, R12, #7
-        com     R14
-        com     R15
-        incw    RR14            ; result = -result
-mulsi2_end:
         ld      0(R4), R14
         ld      1(R4), R15
         ret

@@ -224,6 +224,20 @@ arith:
         call    mulsi2
         call    answer
 
+        ldw     a, #-300
+        ldw     b, #100
+        ld      R0, #'*'
+        call    expr
+        call    mulsi2
+        call    answer
+
+        ldw     a, #3
+        ldw     b, #-32768
+        ld      R0, #'*'
+        call    expr
+        call    mulsi2
+        call    answer
+
         ldw     a, #-200
         ldw     b, #100
         ld      R0, #'*'
