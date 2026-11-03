@@ -91,6 +91,32 @@ neg_DE:
         inx     D
         ret
 
+;;; Signed multiplication; result = multiplicand * multiplier
+;;; @param BC multiplicand
+;;; @param DE multiplier
+;;; @return HL result
+;;; @clobber A BC DE
+;;; A 16-bit product is the same signed or unsigned; a negative
+;;; multiplier is negated only to shorten the loop.
+mul16:
+        mov     A, D
+        ora     A
+        jp      umul16          ; if multiplier >= 0
+        cma
+        mov     D, A
+        mov     A, E
+        cma
+        mov     E, A
+        inx     D               ; multiplier = -multiplier
+        mov     A, B
+        cma
+        mov     B, A
+        mov     A, C
+        cma
+        mov     C, A
+        inx     B               ; multiplicand = -multiplicand
+                                ; fall through to umul16
+
 ;;; Unsigned multiplication; result = multiplicand * multiplier
 ;;; @param BC multiplicand
 ;;; @param DE multiplier
@@ -122,49 +148,6 @@ umul16_check:
         ora     E
         jnz     umul16_loop     ; while multiplier != 0
 umul16_end:
-        ret
-
-;;; Signed multiplication; result = multiplicand * multiplier
-;;; @param BC multiplicand
-;;; @param DE multiplier
-;;; @return HL result
-;;; @clobber A BC DE
-mul16:
-        mov     A, B
-        xra     D
-        push    PSW             ; save high(multiplicand^multiplier)
-        mov     A, B
-        ora     A
-        jp      mul16_abs_muliplicand
-        cma
-        mov     B, A
-        mov     A, C
-        cma
-        mov     C, A
-        inx     B               ; multiplicand = -multiplicand
-mul16_abs_muliplicand:
-        mov     A, D
-        ora     A
-        jp      mul16_multiply
-        cma
-        mov     D, A
-        mov     A, E
-        cma
-        mov     E, A
-        inx     D               ; multiplier = -multiplier
-mul16_multiply:
-        call    umul16          ; HL = multiplicand * multiplier
-        pop     PSW             ; restore high(multiplicand^multiplier)
-        ora     A
-        jp      mul16_return
-        mov     A, H
-        cma
-        mov     H, A
-        mov     A, L
-        cma
-        mov     L, A
-        inx     H               ; result = -result
-mul16_return:
         ret
 
 ;;; Unsigned division; dividend / divisor = quotient ... remainder
