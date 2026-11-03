@@ -511,9 +511,10 @@ The TMS9900 (four phases, 12 V), P8080 (two phases, 12 V) and CP1610 (two
 phases, 11 V) take clocks the Teensy's 5 V outputs can't reach, and the
 phases must never overlap.
 
-- The TMS9900 and P8080 boards level-shift each phase with a common-gate
-  2N7002 (gate at VCC, source driven by 5 V logic) and a 750 Ω pull-up to
-  the 12 V rail: the pull-up alone makes the rising edge.
+- The TMS9900 and P8080 rev 2 boards level-shift each phase with a
+  common-gate 2N7002 (gate at VCC, source driven by 5 V logic) and a 750 Ω
+  pull-up to the 12 V rail: the pull-up alone makes the rising edge, and
+  PHI1 stays below the 8080A's 9 V minimum.
 - A dual low-side gate driver powered from the CPU's VDD drives both edges
   instead. The CP1610 board uses a UCC27324, with 33 Ω in series with each
   output to damp ringing into the 20-30 pF clock inputs. The UCC27444 and
@@ -522,8 +523,11 @@ phases must never overlap.
 - The UCC27624 is the best of the three: its delay is the same for both
   edges (17 ns typical, 27 ns max) and matched between channels within
   2 ns, so the phases keep their widths and gaps; the UCC27444 delays a
-  falling input 12 ns more than a rising one. For four phases use two, and
-  pair in one chip the phases whose gap is tightest.
+  falling input 12 ns more than a rising one, and the UCC27324 10 ns
+  (25/35 ns typical), which narrows every gap between phases by as much.
+  The P8080 rev 3 board drives PHI1/PHI2 from one, enables tied to VDD.
+  For four phases use two, and pair in one chip the phases whose gap is
+  tightest.
 
 ### A logic analyser on the bus can break the board **[hw]**
 
