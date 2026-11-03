@@ -744,6 +744,11 @@ Keep captures triggered and short. `trimDataSeconds` only trims after the
 trigger fires, so a stopped, untriggered capture holds the whole run, and
 exporting one can fill the disk; closing the capture does not stop the export.
 
+A channels table's `display` lists its signals in the order a saved
+capture shows them: clocks, then bus status (address latch, read,
+write), firmware control such as the debug pin, bus control (ready,
+wait), interrupts and resets, and last the address and data buses.
+
 With the leads on the bench side of the connector, a line the CPU doesn't
 drive keeps the last level the Teensy drove: an address bit that never
 changes, or the previous read's data during ALE, points to an open line
