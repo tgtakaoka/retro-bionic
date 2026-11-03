@@ -284,6 +284,8 @@ umul16_return:
 ;;; @param @2: multiplicand
 ;;; @param @3: multiplier
 ;;; @clobber 4 5 6 7 ISAR A
+;;; A 16-bit product is the same signed or unsigned; a negative
+;;; multiplier is negated only to shorten the loop.
 mulsi2:
         lr      A, 2
         inc
@@ -292,18 +294,6 @@ mulsi2:
         lr      5, A
         lr      A, S
         lr      4, A            ; 4:5=multiplicand
-        oi      0
-        bp      mulsi2_multiplier
-        com
-        lr      4, A            ; MSB(~multiplicand)
-        lr      A, 5
-        com
-        inc
-        lr      5, A            ; LSB(-multiplicand)
-        lr      A, 4
-        lnk
-        lr      4, A            ; MSB(-multiplicand)
-mulsi2_multiplier:
         lr      A, 3
         inc
         lr      IS, A           ; point LSB(@3)
@@ -312,7 +302,7 @@ mulsi2_multiplier:
         lr      A, S
         lr      6, A
         oi      0
-        bp      mulsi2_multiply
+        bp      mulsi2_multiply ; branch if multiplier >= 0
         com
         lr      6, A            ; MSB(~multiplier)
         lr      A, 7
@@ -322,29 +312,21 @@ mulsi2_multiplier:
         lr      A, 6
         lnk
         lr      6, A            ; MSB(-multiplier)
-mulsi2_multiply:
-        pi      call
-        da      umul16
-        lr      A, 3
-        lr      IS, A
-        lr      A, S
-        lr      6, A            ; MSB(multiplier)
-        lr      A, 2
-        lr      IS, A
-        lr      A, S            ; MSB(multiplicand)
-        xs      6               ; MSB(multiplicand^multiplier)
-        bp      mulsi2_store
         lr      A, 4
         com
-        lr      4, A            ; MSB(~result)
+        lr      4, A            ; MSB(~multiplicand)
         lr      A, 5
         com
         inc
-        lr      5, A            ; LSB(-result)
+        lr      5, A            ; LSB(-multiplicand)
         lr      A, 4
         lnk
-        lr      4, A            ; MSB(-result)
-mulsi2_store:
+        lr      4, A            ; MSB(-multiplicand)
+mulsi2_multiply:
+        pi      call
+        da      umul16
+        lr      A, 2
+        lr      IS, A
         lr      A, 4
         lr      I, A
         lr      A, 5

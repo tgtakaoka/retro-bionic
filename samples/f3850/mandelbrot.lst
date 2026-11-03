@@ -111,7 +111,7 @@
         23A :
         23A :                    loop:
         23A : 28 03 23                   pi      call
-        23D : 06 39                      da      mandelbrot
+        23D : 06 24                      da      mandelbrot
         23F : 28 03 23                   pi      call
         242 : 02 66                      da      newline
         244 : 29 02 3A                   jmp     loop
@@ -552,7 +552,7 @@
 (1)     3DC : 20 0A                      li      10
 (1)     3DE : 57                         lr      7, A            ; 6:7=10
 (1)     3DF : 28 03 23                   pi      call
-(1)     3E2 : 05 28                      da      udiv16          ; 4:5/6:7=4:5...6:7
+(1)     3E2 : 05 13                      da      udiv16          ; 4:5/6:7=4:5...6:7
 (1)     3E4 : 47                         lr      A, 7
 (1)     3E5 : 50                         lr      0, A
 (1)     3E6 : 28 02 C1                   pi      push0           ; push remainder
@@ -804,6 +804,8 @@
 (1)     4E0 :                    ;;; @param @2: multiplicand
 (1)     4E0 :                    ;;; @param @3: multiplier
 (1)     4E0 :                    ;;; @clobber 4 5 6 7 ISAR A
+(1)     4E0 :                    ;;; A 16-bit product is the same signed or unsigned; a negative
+(1)     4E0 :                    ;;; multiplier is negated only to shorten the loop.
 (1)     4E0 :                    mulsi2:
 (1)     4E0 : 42                         lr      A, 2
 (1)     4E1 : 1F                         inc
@@ -812,263 +814,243 @@
 (1)     4E4 : 55                         lr      5, A
 (1)     4E5 : 4C                         lr      A, S
 (1)     4E6 : 54                         lr      4, A            ; 4:5=multiplicand
-(1)     4E7 : 22 00                      oi      0
-(1)     4E9 : 81 0A                      bp      mulsi2_multiplier
-(1)     4EB : 18                         com
-(1)     4EC : 54                         lr      4, A            ; MSB(~multiplicand)
-(1)     4ED : 45                         lr      A, 5
-(1)     4EE : 18                         com
-(1)     4EF : 1F                         inc
-(1)     4F0 : 55                         lr      5, A            ; LSB(-multiplicand)
-(1)     4F1 : 44                         lr      A, 4
-(1)     4F2 : 19                         lnk
-(1)     4F3 : 54                         lr      4, A            ; MSB(-multiplicand)
-(1)     4F4 :                    mulsi2_multiplier:
-(1)     4F4 : 43                         lr      A, 3
-(1)     4F5 : 1F                         inc
-(1)     4F6 : 0B                         lr      IS, A           ; point LSB(@3)
-(1)     4F7 : 4E                         lr      A, D
-(1)     4F8 : 57                         lr      7, A
-(1)     4F9 : 4C                         lr      A, S
-(1)     4FA : 56                         lr      6, A
-(1)     4FB : 22 00                      oi      0
-(1)     4FD : 81 0A                      bp      mulsi2_multiply
+(1)     4E7 : 43                         lr      A, 3
+(1)     4E8 : 1F                         inc
+(1)     4E9 : 0B                         lr      IS, A           ; point LSB(@3)
+(1)     4EA : 4E                         lr      A, D
+(1)     4EB : 57                         lr      7, A
+(1)     4EC : 4C                         lr      A, S
+(1)     4ED : 56                         lr      6, A
+(1)     4EE : 22 00                      oi      0
+(1)     4F0 : 81 14                      bp      mulsi2_multiply ; branch if multiplier >= 0
+(1)     4F2 : 18                         com
+(1)     4F3 : 56                         lr      6, A            ; MSB(~multiplier)
+(1)     4F4 : 47                         lr      A, 7
+(1)     4F5 : 18                         com
+(1)     4F6 : 1F                         inc
+(1)     4F7 : 57                         lr      7, A            ; LSB(-multiplier)
+(1)     4F8 : 46                         lr      A, 6
+(1)     4F9 : 19                         lnk
+(1)     4FA : 56                         lr      6, A            ; MSB(-multiplier)
+(1)     4FB : 44                         lr      A, 4
+(1)     4FC : 18                         com
+(1)     4FD : 54                         lr      4, A            ; MSB(~multiplicand)
+(1)     4FE : 45                         lr      A, 5
 (1)     4FF : 18                         com
-(1)     500 : 56                         lr      6, A            ; MSB(~multiplier)
-(1)     501 : 47                         lr      A, 7
-(1)     502 : 18                         com
-(1)     503 : 1F                         inc
-(1)     504 : 57                         lr      7, A            ; LSB(-multiplier)
-(1)     505 : 46                         lr      A, 6
-(1)     506 : 19                         lnk
-(1)     507 : 56                         lr      6, A            ; MSB(-multiplier)
-(1)     508 :                    mulsi2_multiply:
-(1)     508 : 28 03 23                   pi      call
-(1)     50B : 04 98                      da      umul16
-(1)     50D : 43                         lr      A, 3
-(1)     50E : 0B                         lr      IS, A
-(1)     50F : 4C                         lr      A, S
-(1)     510 : 56                         lr      6, A            ; MSB(multiplier)
-(1)     511 : 42                         lr      A, 2
-(1)     512 : 0B                         lr      IS, A
-(1)     513 : 4C                         lr      A, S            ; MSB(multiplicand)
-(1)     514 : E6                         xs      6               ; MSB(multiplicand^multiplier)
-(1)     515 : 81 0B                      bp      mulsi2_store
-(1)     517 : 44                         lr      A, 4
-(1)     518 : 18                         com
-(1)     519 : 54                         lr      4, A            ; MSB(~result)
-(1)     51A : 45                         lr      A, 5
-(1)     51B : 18                         com
-(1)     51C : 1F                         inc
-(1)     51D : 55                         lr      5, A            ; LSB(-result)
-(1)     51E : 44                         lr      A, 4
-(1)     51F : 19                         lnk
-(1)     520 : 54                         lr      4, A            ; MSB(-result)
-(1)     521 :                    mulsi2_store:
-(1)     521 : 44                         lr      A, 4
-(1)     522 : 5D                         lr      I, A
-(1)     523 : 45                         lr      A, 5
-(1)     524 : 5C                         lr      S, A            ; @2=result
-(1)     525 : 29 03 40                   jmp     return
-(1)     528 :
-(1)     528 :                    ;;; Unsigned division: dividend / divisor = quotient ... remainder
-(1)     528 :                    ;;; @param 4:5 dividend, below FF00H: its MSB takes a carry with LNK
-(1)     528 :                    ;;; @param 6:7 divisor
-(1)     528 :                    ;;; @return 4:5 quotient
-(1)     528 :                    ;;; @return 6:7 remainder
-(1)     528 :                    ;;; @clobber 4 5 6 7 A J
-(1)     528 :                    udiv16:
-(1)     528 : 28 02 E2                   pi      pushQ           ; save Q
-(1)     52B : 28 02 CB                   pi      push1           ; save 1
-(1)     52E : 28 02 C1                   pi      push0           ; save 0
-(1)     531 : 46                         lr      A, 6
-(1)     532 : 22 00                      oi      0
-(1)     534 : 94 06                      bnz     udiv16_start
-(1)     536 : 47                         lr      A, 7
-(1)     537 : 22 00                      oi      0
-(1)     539 : 84 69                      bz      udiv16_end      ; divide by zero
-(1)     53B :                    udiv16_start:
-(1)     53B : 71                         lis     1
-(1)     53C : 59                         lr      J, A            ; bits=1
-(1)     53D : 90 0B                      br      udiv16_prep
-(1)     53F :                    udiv16_prep_loop:
-(1)     53F : 47                         lr      A, 7
-(1)     540 : C7                         as      7
-(1)     541 : 57                         lr      7, A
-(1)     542 : 46                         lr      A, 6
-(1)     543 : 19                         lnk
-(1)     544 : C6                         as      6
-(1)     545 : 56                         lr      6, A            ; divisor <<= 1
-(1)     546 : 49                         lr      A, J
-(1)     547 : 1F                         inc
-(1)     548 : 59                         lr      J, A            ; ++bits
-(1)     549 :                    udiv16_prep:
-(1)     549 : 46                         lr      A, 6
-(1)     54A : 18                         com
-(1)     54B : 50                         lr      0, A
-(1)     54C : 47                         lr      A, 7
-(1)     54D : 18                         com
-(1)     54E : 1F                         inc
-(1)     54F : 51                         lr      1, A
-(1)     550 : 40                         lr      A, 0
-(1)     551 : 19                         lnk
-(1)     552 : 50                         lr      0, A            ; 0:1=-divisor
-(1)     553 : 45                         lr      A, 5
-(1)     554 : C1                         as      1
-(1)     555 : 44                         lr      A, 4
-(1)     556 : 19                         lnk
-(1)     557 : C0                         as      0               ; carry=1 if dividend >= divisor
-(1)     558 : 92 06                      bnc     udiv16_prep_end ; until divisor > dividend
-(1)     55A : 46                         lr      A, 6
-(1)     55B : 22 00                      oi      0
-(1)     55D : 81 E1                      bp      udiv16_prep_loop ; while msb(divisor) == 0
-(1)     55F :                    udiv16_prep_end:
-(1)     55F : 70                         clr
-(1)     560 : 06                         lr      QU, A
-(1)     561 : 07                         lr      QL, A           ; Q=quotient
-(1)     562 : 90 1E                      br      udiv16_enter_loop
-(1)     564 :                    udiv16_loop:
-(1)     564 : 39                         ds      J               ; --bits
-(1)     565 : 84 35                      bz      udiv16_return   ; while bits != 0
-(1)     567 : 70                         clr
-(1)     568 : 51                         lr      1, A            ; clear carry
-(1)     569 : 46                         lr      A, 6
-(1)     56A : 21 01                      ni      1
-(1)     56C : 84 04                      bz      udiv16_sr_lsb
-(1)     56E : 20 80                      li      H'80'
-(1)     570 : 51                         lr      1, A            ; set carry
-(1)     571 :                    udiv16_sr_lsb:
-(1)     571 : 46                         lr      A, 6
-(1)     572 : 12                         sr      1
-(1)     573 : 56                         lr      6, A
-(1)     574 : 47                         lr      A, 7
-(1)     575 : 12                         sr      1
-(1)     576 : E1                         xs      1               ; shift in carry
-(1)     577 : 57                         lr      7, A            ; divisor >>= 1
-(1)     578 : 03                         lr      A, QL
-(1)     579 : 51                         lr      1, A
-(1)     57A : C1                         as      1
-(1)     57B : 07                         lr      QL, A
-(1)     57C : 02                         lr      A, QU
-(1)     57D : 51                         lr      1, A
-(1)     57E : 19                         lnk
-(1)     57F : C1                         as      1
-(1)     580 : 06                         lr      QU, A           ; quotient <<= 1
-(1)     581 :                    udiv16_enter_loop:
-(1)     581 : 46                         lr      A, 6
-(1)     582 : 18                         com
-(1)     583 : 50                         lr      0, A
-(1)     584 : 47                         lr      A, 7
-(1)     585 : 18                         com
-(1)     586 : 1F                         inc
-(1)     587 : 51                         lr      1, A
-(1)     588 : 40                         lr      A, 0
-(1)     589 : 19                         lnk
-(1)     58A : 50                         lr      0, A            ; 0:1=-divisor
-(1)     58B : 45                         lr      A, 5
-(1)     58C : C1                         as      1
-(1)     58D : 51                         lr      1, A
-(1)     58E : 44                         lr      A, 4
-(1)     58F : 19                         lnk
-(1)     590 : C0                         as      0               ; 0:1=dividend-divisor
-(1)     591 : 92 D2                      bnc     udiv16_loop     ; branch if dividend < divisor
-(1)     593 : 54                         lr      4, A
-(1)     594 : 41                         lr      A, 1
-(1)     595 : 55                         lr      5, A            ; dividend-=divisor
-(1)     596 : 03                         lr      A, QL
-(1)     597 : 1F                         inc
-(1)     598 : 07                         lr      QL, A           ; quotient |= 1
-(1)     599 : 90 CA                      br      udiv16_loop
-(1)     59B :                    udiv16_return:
-(1)     59B : 44                         lr      A, 4
-(1)     59C : 56                         lr      6, A
-(1)     59D : 45                         lr      A, 5
-(1)     59E : 57                         lr      7, A            ; 6:7=remainder
-(1)     59F : 02                         lr      A, QU
-(1)     5A0 : 54                         lr      4, A
-(1)     5A1 : 03                         lr      A, QL
-(1)     5A2 : 55                         lr      5, A            ; 4:5=quotient
-(1)     5A3 :                    udiv16_end:
-(1)     5A3 : 28 02 EF                   pi      pop0            ; restore 0
-(1)     5A6 : 28 02 FB                   pi      pop1            ; restore 1
-(1)     5A9 : 28 03 15                   pi      popQ            ; restore Q
-(1)     5AC : 29 03 40                   jmp     return
-(1)     5AF :
-(1)     5AF :                    ;;; Signed division: dividend /= divisor
-(1)     5AF :                    ;;; @param @2: dividend
-(1)     5AF :                    ;;; @param @3: divisor
-(1)     5AF :                    ;;; @clobber 4 5 6 7 ISAR A
-(1)     5AF :                    divsi2:
-(1)     5AF : 42                         lr      A, 2
-(1)     5B0 : 1F                         inc
-(1)     5B1 : 0B                         lr      IS, A           ; point LSB(@2)
-(1)     5B2 : 4E                         lr      A, D
-(1)     5B3 : 55                         lr      5, A
-(1)     5B4 : 4C                         lr      A, S
-(1)     5B5 : 54                         lr      4, A            ; 4:5=dividend
-(1)     5B6 : 22 00                      oi      0
-(1)     5B8 : 81 0A                      bp      divsi2_divisor
-(1)     5BA : 18                         com
-(1)     5BB : 54                         lr      4, A            ; MSB(~dividend)
-(1)     5BC : 45                         lr      A, 5
-(1)     5BD : 18                         com
-(1)     5BE : 1F                         inc
-(1)     5BF : 55                         lr      5, A            ; LSB(-dividend)
-(1)     5C0 : 44                         lr      A, 4
-(1)     5C1 : 19                         lnk
-(1)     5C2 : 54                         lr      4, A            ; MSB(-dividend)
-(1)     5C3 :                    divsi2_divisor:
-(1)     5C3 : 43                         lr      A, 3
-(1)     5C4 : 1F                         inc
-(1)     5C5 : 0B                         lr      IS, A           ; point LSB(@3)
-(1)     5C6 : 4E                         lr      A, D
-(1)     5C7 : 57                         lr      7, A
-(1)     5C8 : 4C                         lr      A, S
-(1)     5C9 : 56                         lr      6, A
-(1)     5CA : 22 00                      oi      0
-(1)     5CC : 81 0A                      bp      divsi2_divide
-(1)     5CE : 18                         com
-(1)     5CF : 56                         lr      6, A            ; MSB(~divisor)
-(1)     5D0 : 47                         lr      A, 7
-(1)     5D1 : 18                         com
-(1)     5D2 : 1F                         inc
-(1)     5D3 : 57                         lr      7, A            ; LSB(-divisor)
-(1)     5D4 : 46                         lr      A, 6
-(1)     5D5 : 19                         lnk
-(1)     5D6 : 56                         lr      6, A            ; MSB(-divisor)
-(1)     5D7 :                    divsi2_divide:
-(1)     5D7 : 28 03 23                   pi      call
-(1)     5DA : 05 28                      da      udiv16
-(1)     5DC : 43                         lr      A, 3
-(1)     5DD : 0B                         lr      IS, A
-(1)     5DE : 4C                         lr      A, S
-(1)     5DF : 56                         lr      6, A            ; MSB(divisor)
-(1)     5E0 : 42                         lr      A, 2
-(1)     5E1 : 0B                         lr      IS, A
-(1)     5E2 : 4C                         lr      A, S            ; MSB(dividend)
-(1)     5E3 : E6                         xs      6               ; MSB(dividend^divisor)
-(1)     5E4 : 81 0B                      bp      divsi2_store
-(1)     5E6 : 44                         lr      A, 4
-(1)     5E7 : 18                         com
-(1)     5E8 : 54                         lr      4, A            ; MSB(~result)
-(1)     5E9 : 45                         lr      A, 5
-(1)     5EA : 18                         com
-(1)     5EB : 1F                         inc
-(1)     5EC : 55                         lr      5, A            ; LSB(-result)
-(1)     5ED : 44                         lr      A, 4
-(1)     5EE : 19                         lnk
-(1)     5EF : 54                         lr      4, A            ; MSB(-result)
-(1)     5F0 :                    divsi2_store:
-(1)     5F0 : 44                         lr      A, 4
-(1)     5F1 : 5D                         lr      I, A
-(1)     5F2 : 45                         lr      A, 5
-(1)     5F3 : 5C                         lr      S, A            ; @2=result
-(1)     5F4 : 29 03 40                   jmp     return
-        5F7 :                            include "mandelbrot.inc"
-(1)     5F7 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
-(1)     5F7 : =5F7               _mandelbrot:    equ     $
-(1)     5F7 :
-(1)     5F7 :                    ;;; Scratchpad registers
+(1)     500 : 1F                         inc
+(1)     501 : 55                         lr      5, A            ; LSB(-multiplicand)
+(1)     502 : 44                         lr      A, 4
+(1)     503 : 19                         lnk
+(1)     504 : 54                         lr      4, A            ; MSB(-multiplicand)
+(1)     505 :                    mulsi2_multiply:
+(1)     505 : 28 03 23                   pi      call
+(1)     508 : 04 98                      da      umul16
+(1)     50A : 42                         lr      A, 2
+(1)     50B : 0B                         lr      IS, A
+(1)     50C : 44                         lr      A, 4
+(1)     50D : 5D                         lr      I, A
+(1)     50E : 45                         lr      A, 5
+(1)     50F : 5C                         lr      S, A            ; @2=result
+(1)     510 : 29 03 40                   jmp     return
+(1)     513 :
+(1)     513 :                    ;;; Unsigned division: dividend / divisor = quotient ... remainder
+(1)     513 :                    ;;; @param 4:5 dividend, below FF00H: its MSB takes a carry with LNK
+(1)     513 :                    ;;; @param 6:7 divisor
+(1)     513 :                    ;;; @return 4:5 quotient
+(1)     513 :                    ;;; @return 6:7 remainder
+(1)     513 :                    ;;; @clobber 4 5 6 7 A J
+(1)     513 :                    udiv16:
+(1)     513 : 28 02 E2                   pi      pushQ           ; save Q
+(1)     516 : 28 02 CB                   pi      push1           ; save 1
+(1)     519 : 28 02 C1                   pi      push0           ; save 0
+(1)     51C : 46                         lr      A, 6
+(1)     51D : 22 00                      oi      0
+(1)     51F : 94 06                      bnz     udiv16_start
+(1)     521 : 47                         lr      A, 7
+(1)     522 : 22 00                      oi      0
+(1)     524 : 84 69                      bz      udiv16_end      ; divide by zero
+(1)     526 :                    udiv16_start:
+(1)     526 : 71                         lis     1
+(1)     527 : 59                         lr      J, A            ; bits=1
+(1)     528 : 90 0B                      br      udiv16_prep
+(1)     52A :                    udiv16_prep_loop:
+(1)     52A : 47                         lr      A, 7
+(1)     52B : C7                         as      7
+(1)     52C : 57                         lr      7, A
+(1)     52D : 46                         lr      A, 6
+(1)     52E : 19                         lnk
+(1)     52F : C6                         as      6
+(1)     530 : 56                         lr      6, A            ; divisor <<= 1
+(1)     531 : 49                         lr      A, J
+(1)     532 : 1F                         inc
+(1)     533 : 59                         lr      J, A            ; ++bits
+(1)     534 :                    udiv16_prep:
+(1)     534 : 46                         lr      A, 6
+(1)     535 : 18                         com
+(1)     536 : 50                         lr      0, A
+(1)     537 : 47                         lr      A, 7
+(1)     538 : 18                         com
+(1)     539 : 1F                         inc
+(1)     53A : 51                         lr      1, A
+(1)     53B : 40                         lr      A, 0
+(1)     53C : 19                         lnk
+(1)     53D : 50                         lr      0, A            ; 0:1=-divisor
+(1)     53E : 45                         lr      A, 5
+(1)     53F : C1                         as      1
+(1)     540 : 44                         lr      A, 4
+(1)     541 : 19                         lnk
+(1)     542 : C0                         as      0               ; carry=1 if dividend >= divisor
+(1)     543 : 92 06                      bnc     udiv16_prep_end ; until divisor > dividend
+(1)     545 : 46                         lr      A, 6
+(1)     546 : 22 00                      oi      0
+(1)     548 : 81 E1                      bp      udiv16_prep_loop ; while msb(divisor) == 0
+(1)     54A :                    udiv16_prep_end:
+(1)     54A : 70                         clr
+(1)     54B : 06                         lr      QU, A
+(1)     54C : 07                         lr      QL, A           ; Q=quotient
+(1)     54D : 90 1E                      br      udiv16_enter_loop
+(1)     54F :                    udiv16_loop:
+(1)     54F : 39                         ds      J               ; --bits
+(1)     550 : 84 35                      bz      udiv16_return   ; while bits != 0
+(1)     552 : 70                         clr
+(1)     553 : 51                         lr      1, A            ; clear carry
+(1)     554 : 46                         lr      A, 6
+(1)     555 : 21 01                      ni      1
+(1)     557 : 84 04                      bz      udiv16_sr_lsb
+(1)     559 : 20 80                      li      H'80'
+(1)     55B : 51                         lr      1, A            ; set carry
+(1)     55C :                    udiv16_sr_lsb:
+(1)     55C : 46                         lr      A, 6
+(1)     55D : 12                         sr      1
+(1)     55E : 56                         lr      6, A
+(1)     55F : 47                         lr      A, 7
+(1)     560 : 12                         sr      1
+(1)     561 : E1                         xs      1               ; shift in carry
+(1)     562 : 57                         lr      7, A            ; divisor >>= 1
+(1)     563 : 03                         lr      A, QL
+(1)     564 : 51                         lr      1, A
+(1)     565 : C1                         as      1
+(1)     566 : 07                         lr      QL, A
+(1)     567 : 02                         lr      A, QU
+(1)     568 : 51                         lr      1, A
+(1)     569 : 19                         lnk
+(1)     56A : C1                         as      1
+(1)     56B : 06                         lr      QU, A           ; quotient <<= 1
+(1)     56C :                    udiv16_enter_loop:
+(1)     56C : 46                         lr      A, 6
+(1)     56D : 18                         com
+(1)     56E : 50                         lr      0, A
+(1)     56F : 47                         lr      A, 7
+(1)     570 : 18                         com
+(1)     571 : 1F                         inc
+(1)     572 : 51                         lr      1, A
+(1)     573 : 40                         lr      A, 0
+(1)     574 : 19                         lnk
+(1)     575 : 50                         lr      0, A            ; 0:1=-divisor
+(1)     576 : 45                         lr      A, 5
+(1)     577 : C1                         as      1
+(1)     578 : 51                         lr      1, A
+(1)     579 : 44                         lr      A, 4
+(1)     57A : 19                         lnk
+(1)     57B : C0                         as      0               ; 0:1=dividend-divisor
+(1)     57C : 92 D2                      bnc     udiv16_loop     ; branch if dividend < divisor
+(1)     57E : 54                         lr      4, A
+(1)     57F : 41                         lr      A, 1
+(1)     580 : 55                         lr      5, A            ; dividend-=divisor
+(1)     581 : 03                         lr      A, QL
+(1)     582 : 1F                         inc
+(1)     583 : 07                         lr      QL, A           ; quotient |= 1
+(1)     584 : 90 CA                      br      udiv16_loop
+(1)     586 :                    udiv16_return:
+(1)     586 : 44                         lr      A, 4
+(1)     587 : 56                         lr      6, A
+(1)     588 : 45                         lr      A, 5
+(1)     589 : 57                         lr      7, A            ; 6:7=remainder
+(1)     58A : 02                         lr      A, QU
+(1)     58B : 54                         lr      4, A
+(1)     58C : 03                         lr      A, QL
+(1)     58D : 55                         lr      5, A            ; 4:5=quotient
+(1)     58E :                    udiv16_end:
+(1)     58E : 28 02 EF                   pi      pop0            ; restore 0
+(1)     591 : 28 02 FB                   pi      pop1            ; restore 1
+(1)     594 : 28 03 15                   pi      popQ            ; restore Q
+(1)     597 : 29 03 40                   jmp     return
+(1)     59A :
+(1)     59A :                    ;;; Signed division: dividend /= divisor
+(1)     59A :                    ;;; @param @2: dividend
+(1)     59A :                    ;;; @param @3: divisor
+(1)     59A :                    ;;; @clobber 4 5 6 7 ISAR A
+(1)     59A :                    divsi2:
+(1)     59A : 42                         lr      A, 2
+(1)     59B : 1F                         inc
+(1)     59C : 0B                         lr      IS, A           ; point LSB(@2)
+(1)     59D : 4E                         lr      A, D
+(1)     59E : 55                         lr      5, A
+(1)     59F : 4C                         lr      A, S
+(1)     5A0 : 54                         lr      4, A            ; 4:5=dividend
+(1)     5A1 : 22 00                      oi      0
+(1)     5A3 : 81 0A                      bp      divsi2_divisor
+(1)     5A5 : 18                         com
+(1)     5A6 : 54                         lr      4, A            ; MSB(~dividend)
+(1)     5A7 : 45                         lr      A, 5
+(1)     5A8 : 18                         com
+(1)     5A9 : 1F                         inc
+(1)     5AA : 55                         lr      5, A            ; LSB(-dividend)
+(1)     5AB : 44                         lr      A, 4
+(1)     5AC : 19                         lnk
+(1)     5AD : 54                         lr      4, A            ; MSB(-dividend)
+(1)     5AE :                    divsi2_divisor:
+(1)     5AE : 43                         lr      A, 3
+(1)     5AF : 1F                         inc
+(1)     5B0 : 0B                         lr      IS, A           ; point LSB(@3)
+(1)     5B1 : 4E                         lr      A, D
+(1)     5B2 : 57                         lr      7, A
+(1)     5B3 : 4C                         lr      A, S
+(1)     5B4 : 56                         lr      6, A
+(1)     5B5 : 22 00                      oi      0
+(1)     5B7 : 81 0A                      bp      divsi2_divide
+(1)     5B9 : 18                         com
+(1)     5BA : 56                         lr      6, A            ; MSB(~divisor)
+(1)     5BB : 47                         lr      A, 7
+(1)     5BC : 18                         com
+(1)     5BD : 1F                         inc
+(1)     5BE : 57                         lr      7, A            ; LSB(-divisor)
+(1)     5BF : 46                         lr      A, 6
+(1)     5C0 : 19                         lnk
+(1)     5C1 : 56                         lr      6, A            ; MSB(-divisor)
+(1)     5C2 :                    divsi2_divide:
+(1)     5C2 : 28 03 23                   pi      call
+(1)     5C5 : 05 13                      da      udiv16
+(1)     5C7 : 43                         lr      A, 3
+(1)     5C8 : 0B                         lr      IS, A
+(1)     5C9 : 4C                         lr      A, S
+(1)     5CA : 56                         lr      6, A            ; MSB(divisor)
+(1)     5CB : 42                         lr      A, 2
+(1)     5CC : 0B                         lr      IS, A
+(1)     5CD : 4C                         lr      A, S            ; MSB(dividend)
+(1)     5CE : E6                         xs      6               ; MSB(dividend^divisor)
+(1)     5CF : 81 0B                      bp      divsi2_store
+(1)     5D1 : 44                         lr      A, 4
+(1)     5D2 : 18                         com
+(1)     5D3 : 54                         lr      4, A            ; MSB(~result)
+(1)     5D4 : 45                         lr      A, 5
+(1)     5D5 : 18                         com
+(1)     5D6 : 1F                         inc
+(1)     5D7 : 55                         lr      5, A            ; LSB(-result)
+(1)     5D8 : 44                         lr      A, 4
+(1)     5D9 : 19                         lnk
+(1)     5DA : 54                         lr      4, A            ; MSB(-result)
+(1)     5DB :                    divsi2_store:
+(1)     5DB : 44                         lr      A, 4
+(1)     5DC : 5D                         lr      I, A
+(1)     5DD : 45                         lr      A, 5
+(1)     5DE : 5C                         lr      S, A            ; @2=result
+(1)     5DF : 29 03 40                   jmp     return
+        5E2 :                            include "mandelbrot.inc"
+(1)     5E2 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)     5E2 : =5E2               _mandelbrot:    equ     $
+(1)     5E2 :
+(1)     5E2 :                    ;;; Scratchpad registers
 (1)      10 :                            org     H'10'
 (1)      10 :                    vF:     rs      2
 (1)      12 :                    vC:     rs      2
@@ -1090,440 +1072,440 @@
 (1)      32 :                    c229:   rs      2               ; constant 229
 (1)      34 :                    c416:   rs      2               ; constant 416
 (1)      36 :
-(1)     5F7 :                            org     _mandelbrot
-(1)     5F7 :
-(1)     5F7 :                    ;;; Store DC to scratchpad pointed by 2
-(1)     5F7 :                    ;;; @param DC value
-(1)     5F7 :                    ;;; @param 2 scratchpad number
-(1)     5F7 :                    ;;; @clobber H ISAR A
-(1)     5F7 :                    store_2:
-(1)     5F7 : 42                         lr      A, 2
-(1)     5F8 : 0B                         lr      IS, A
-(1)     5F9 : 11                         lr      H, DC
+(1)     5E2 :                            org     _mandelbrot
+(1)     5E2 :
+(1)     5E2 :                    ;;; Store DC to scratchpad pointed by 2
+(1)     5E2 :                    ;;; @param DC value
+(1)     5E2 :                    ;;; @param 2 scratchpad number
+(1)     5E2 :                    ;;; @clobber H ISAR A
+(1)     5E2 :                    store_2:
+(1)     5E2 : 42                         lr      A, 2
+(1)     5E3 : 0B                         lr      IS, A
+(1)     5E4 : 11                         lr      H, DC
+(1)     5E5 : 4A                         lr      A, HU
+(1)     5E6 : 5D                         lr      I, A
+(1)     5E7 : 4B                         lr      A, HL
+(1)     5E8 : 5C                         lr      S, A
+(1)     5E9 : 1C                         pop
+(1)     5EA :
+(1)     5EA :                    ;;; Store DC to scratchpad pointed by 3
+(1)     5EA :                    ;;; @param DC value
+(1)     5EA :                    ;;; @param 3 scratchpad number
+(1)     5EA :                    ;;; @clobber H ISAR A
+(1)     5EA :                    store_3:
+(1)     5EA : 43                         lr      A, 3
+(1)     5EB : 0B                         lr      IS, A
+(1)     5EC : 11                         lr      H, DC
+(1)     5ED : 4A                         lr      A, HU
+(1)     5EE : 5D                         lr      I, A
+(1)     5EF : 4B                         lr      A, HL
+(1)     5F0 : 5C                         lr      S, A
+(1)     5F1 : 1C                         pop
+(1)     5F2 :
+(1)     5F2 :                    ;;; Assign @3 to @2
+(1)     5F2 :                    ;;; @param @2 assignee
+(1)     5F2 :                    ;;; @param @3 value
+(1)     5F2 :                    ;;; @clobber H ISAR A
+(1)     5F2 :                    assign_2:
+(1)     5F2 : 43                         lr      A, 3
+(1)     5F3 : 0B                         lr      IS, A
+(1)     5F4 : 4D                         lr      A, I
+(1)     5F5 : 5A                         lr      HU, A
+(1)     5F6 : 4C                         lr      A, S
+(1)     5F7 : 5B                         lr      HL, A
+(1)     5F8 : 42                         lr      A, 2
+(1)     5F9 : 0B                         lr      IS, A
 (1)     5FA : 4A                         lr      A, HU
 (1)     5FB : 5D                         lr      I, A
 (1)     5FC : 4B                         lr      A, HL
 (1)     5FD : 5C                         lr      S, A
 (1)     5FE : 1C                         pop
 (1)     5FF :
-(1)     5FF :                    ;;; Store DC to scratchpad pointed by 3
-(1)     5FF :                    ;;; @param DC value
-(1)     5FF :                    ;;; @param 3 scratchpad number
-(1)     5FF :                    ;;; @clobber H ISAR A
-(1)     5FF :                    store_3:
-(1)     5FF : 43                         lr      A, 3
-(1)     600 : 0B                         lr      IS, A
-(1)     601 : 11                         lr      H, DC
-(1)     602 : 4A                         lr      A, HU
-(1)     603 : 5D                         lr      I, A
-(1)     604 : 4B                         lr      A, HL
-(1)     605 : 5C                         lr      S, A
-(1)     606 : 1C                         pop
-(1)     607 :
-(1)     607 :                    ;;; Assign @3 to @2
-(1)     607 :                    ;;; @param @2 assignee
-(1)     607 :                    ;;; @param @3 value
-(1)     607 :                    ;;; @clobber H ISAR A
-(1)     607 :                    assign_2:
-(1)     607 : 43                         lr      A, 3
-(1)     608 : 0B                         lr      IS, A
-(1)     609 : 4D                         lr      A, I
-(1)     60A : 5A                         lr      HU, A
-(1)     60B : 4C                         lr      A, S
-(1)     60C : 5B                         lr      HL, A
-(1)     60D : 42                         lr      A, 2
-(1)     60E : 0B                         lr      IS, A
-(1)     60F : 4A                         lr      A, HU
-(1)     610 : 5D                         lr      I, A
-(1)     611 : 4B                         lr      A, HL
-(1)     612 : 5C                         lr      S, A
-(1)     613 : 1C                         pop
-(1)     614 :
-(1)     614 :                    ;;; Increment: result += 1
-(1)     614 :                    ;;; @param @2: result
-(1)     614 :                    ;;; @clobber ISAR A
-(1)     614 :                    inc16:
-(1)     614 : 42                         lr      A, 2
-(1)     615 : 1F                         inc
-(1)     616 : 0B                         lr      IS, A
-(1)     617 : 4C                         lr      A, S
-(1)     618 : 1F                         inc
-(1)     619 : 5E                         lr      D, A
+(1)     5FF :                    ;;; Increment: result += 1
+(1)     5FF :                    ;;; @param @2: result
+(1)     5FF :                    ;;; @clobber ISAR A
+(1)     5FF :                    inc16:
+(1)     5FF : 42                         lr      A, 2
+(1)     600 : 1F                         inc
+(1)     601 : 0B                         lr      IS, A
+(1)     602 : 4C                         lr      A, S
+(1)     603 : 1F                         inc
+(1)     604 : 5E                         lr      D, A
+(1)     605 : 4C                         lr      A, S
+(1)     606 : 19                         lnk
+(1)     607 : 5C                         lr      S, A
+(1)     608 : 1C                         pop
+(1)     609 :
+(1)     609 :                    ;;; Print variable: "letter=value "
+(1)     609 :                    ;;; @param 0 variable letter
+(1)     609 :                    ;;; @param @2 variable
+(1)     609 :                    print_2:
+(1)     609 : 28 03 23                   pi      call
+(1)     60C : 02 51                      da      putchar
+(1)     60E : 20 3D                      li      C'='
+(1)     610 : 50                         lr      0, A
+(1)     611 : 28 03 23                   pi      call
+(1)     614 : 02 51                      da      putchar
+(1)     616 : 42                         lr      A, 2
+(1)     617 : 0B                         lr      IS, A
+(1)     618 : 4D                         lr      A, I
+(1)     619 : 50                         lr      0, A
 (1)     61A : 4C                         lr      A, S
-(1)     61B : 19                         lnk
-(1)     61C : 5C                         lr      S, A
-(1)     61D : 1C                         pop
-(1)     61E :
-(1)     61E :                    ;;; Print variable: "letter=value "
-(1)     61E :                    ;;; @param 0 variable letter
-(1)     61E :                    ;;; @param @2 variable
-(1)     61E :                    print_2:
-(1)     61E : 28 03 23                   pi      call
-(1)     621 : 02 51                      da      putchar
-(1)     623 : 20 3D                      li      C'='
-(1)     625 : 50                         lr      0, A
-(1)     626 : 28 03 23                   pi      call
-(1)     629 : 02 51                      da      putchar
-(1)     62B : 42                         lr      A, 2
-(1)     62C : 0B                         lr      IS, A
-(1)     62D : 4D                         lr      A, I
-(1)     62E : 50                         lr      0, A
-(1)     62F : 4C                         lr      A, S
-(1)     630 : 51                         lr      1, A
-(1)     631 : 28 03 23                   pi      call
-(1)     634 : 03 F8                      da      print_int16
-(1)     636 : 29 02 74                   jmp     putspace
-(1)     639 :
-(1)     639 :                    ;;; Print one frame: a char per point, the escape iteration in hex
-(1)     639 :                    ;;; or ' ' if none; NUL from the console halts.
-(1)     639 :                    mandelbrot:
-(1)     639 : 2A 00 04                   dci     4
-(1)     63C : 20 2A                      li      c4
-(1)     63E : 52                         lr      2, A
-(1)     63F : 28 05 F7                   pi      store_2         ; c4=4
-(1)     642 : 2A 00 10                   dci     16
-(1)     645 : 20 2C                      li      c16
-(1)     647 : 52                         lr      2, A
-(1)     648 : 28 05 F7                   pi      store_2         ; c16=16
-(1)     64B : 2A 00 1E                   dci     30
-(1)     64E : 20 2E                      li      c30
-(1)     650 : 52                         lr      2, A
-(1)     651 : 28 05 F7                   pi      store_2         ; c30=30
-(1)     654 : 2A 00 64                   dci     100
-(1)     657 : 20 30                      li      c100
-(1)     659 : 52                         lr      2, A
-(1)     65A : 28 05 F7                   pi      store_2         ; c100=100
-(1)     65D : 2A 00 E5                   dci     229
-(1)     660 : 20 32                      li      c229
-(1)     662 : 52                         lr      2, A
-(1)     663 : 28 05 F7                   pi      store_2         ; c229=229
-(1)     666 : 2A 01 A0                   dci     416
-(1)     669 : 20 34                      li      c416
-(1)     66B : 52                         lr      2, A
-(1)     66C : 28 05 F7                   pi      store_2         ; c416=416
-(1)     66F : 2A 00 32                   dci     50
-(1)     672 : 20 10                      li      vF
-(1)     674 : 52                         lr      2, A
-(1)     675 : 28 05 F7                   pi      store_2         ; F=50
-(1)     678 : 2A FF F4                   dci     -12
-(1)     67B : 20 22                      li      vY
-(1)     67D : 52                         lr      2, A
-(1)     67E : 28 05 F7                   pi      store_2         ; Y=-12
-(1)     681 :                    loop_y:
-(1)     681 : 2A FF CF                   dci     -49
-(1)     684 : 20 24                      li      vX
-(1)     686 : 52                         lr      2, A
-(1)     687 : 28 05 F7                   pi      store_2         ; X=-49
-(1)     68A :                    loop_x:
-(1)     68A : 20 12                      li      vC
-(1)     68C : 52                         lr      2, A
-(1)     68D : 20 24                      li      vX
-(1)     68F : 53                         lr      3, A
-(1)     690 : 28 06 07                   pi      assign_2        ; C=X
-(1)     693 : 20 32                      li      c229
-(1)     695 : 53                         lr      3, A
-(1)     696 : 28 03 23                   pi      call
-(1)     699 : 04 E0                      da      mulsi2          ; C=X*229
-(1)     69B : 20 30                      li      c100
-(1)     69D : 53                         lr      3, A
-(1)     69E : 28 03 23                   pi      call
-(1)     6A1 : 05 AF                      da      divsi2          ; C=X*229/100
-(1)     6A3 : 20 14                      li      vD
-(1)     6A5 : 52                         lr      2, A
-(1)     6A6 : 20 22                      li      vY
-(1)     6A8 : 53                         lr      3, A
-(1)     6A9 : 28 06 07                   pi      assign_2        ; D=Y
-(1)     6AC : 20 34                      li      c416
-(1)     6AE : 53                         lr      3, A
-(1)     6AF : 28 03 23                   pi      call
-(1)     6B2 : 04 E0                      da      mulsi2          ; D=Y*416
-(1)     6B4 : 20 30                      li      c100
-(1)     6B6 : 53                         lr      3, A
-(1)     6B7 : 28 03 23                   pi      call
-(1)     6BA : 05 AF                      da      divsi2          ; D=Y*416/100
-(1)     6BC : 20 16                      li      vA
+(1)     61B : 51                         lr      1, A
+(1)     61C : 28 03 23                   pi      call
+(1)     61F : 03 F8                      da      print_int16
+(1)     621 : 29 02 74                   jmp     putspace
+(1)     624 :
+(1)     624 :                    ;;; Print one frame: a char per point, the escape iteration in hex
+(1)     624 :                    ;;; or ' ' if none; NUL from the console halts.
+(1)     624 :                    mandelbrot:
+(1)     624 : 2A 00 04                   dci     4
+(1)     627 : 20 2A                      li      c4
+(1)     629 : 52                         lr      2, A
+(1)     62A : 28 05 E2                   pi      store_2         ; c4=4
+(1)     62D : 2A 00 10                   dci     16
+(1)     630 : 20 2C                      li      c16
+(1)     632 : 52                         lr      2, A
+(1)     633 : 28 05 E2                   pi      store_2         ; c16=16
+(1)     636 : 2A 00 1E                   dci     30
+(1)     639 : 20 2E                      li      c30
+(1)     63B : 52                         lr      2, A
+(1)     63C : 28 05 E2                   pi      store_2         ; c30=30
+(1)     63F : 2A 00 64                   dci     100
+(1)     642 : 20 30                      li      c100
+(1)     644 : 52                         lr      2, A
+(1)     645 : 28 05 E2                   pi      store_2         ; c100=100
+(1)     648 : 2A 00 E5                   dci     229
+(1)     64B : 20 32                      li      c229
+(1)     64D : 52                         lr      2, A
+(1)     64E : 28 05 E2                   pi      store_2         ; c229=229
+(1)     651 : 2A 01 A0                   dci     416
+(1)     654 : 20 34                      li      c416
+(1)     656 : 52                         lr      2, A
+(1)     657 : 28 05 E2                   pi      store_2         ; c416=416
+(1)     65A : 2A 00 32                   dci     50
+(1)     65D : 20 10                      li      vF
+(1)     65F : 52                         lr      2, A
+(1)     660 : 28 05 E2                   pi      store_2         ; F=50
+(1)     663 : 2A FF F4                   dci     -12
+(1)     666 : 20 22                      li      vY
+(1)     668 : 52                         lr      2, A
+(1)     669 : 28 05 E2                   pi      store_2         ; Y=-12
+(1)     66C :                    loop_y:
+(1)     66C : 2A FF CF                   dci     -49
+(1)     66F : 20 24                      li      vX
+(1)     671 : 52                         lr      2, A
+(1)     672 : 28 05 E2                   pi      store_2         ; X=-49
+(1)     675 :                    loop_x:
+(1)     675 : 20 12                      li      vC
+(1)     677 : 52                         lr      2, A
+(1)     678 : 20 24                      li      vX
+(1)     67A : 53                         lr      3, A
+(1)     67B : 28 05 F2                   pi      assign_2        ; C=X
+(1)     67E : 20 32                      li      c229
+(1)     680 : 53                         lr      3, A
+(1)     681 : 28 03 23                   pi      call
+(1)     684 : 04 E0                      da      mulsi2          ; C=X*229
+(1)     686 : 20 30                      li      c100
+(1)     688 : 53                         lr      3, A
+(1)     689 : 28 03 23                   pi      call
+(1)     68C : 05 9A                      da      divsi2          ; C=X*229/100
+(1)     68E : 20 14                      li      vD
+(1)     690 : 52                         lr      2, A
+(1)     691 : 20 22                      li      vY
+(1)     693 : 53                         lr      3, A
+(1)     694 : 28 05 F2                   pi      assign_2        ; D=Y
+(1)     697 : 20 34                      li      c416
+(1)     699 : 53                         lr      3, A
+(1)     69A : 28 03 23                   pi      call
+(1)     69D : 04 E0                      da      mulsi2          ; D=Y*416
+(1)     69F : 20 30                      li      c100
+(1)     6A1 : 53                         lr      3, A
+(1)     6A2 : 28 03 23                   pi      call
+(1)     6A5 : 05 9A                      da      divsi2          ; D=Y*416/100
+(1)     6A7 : 20 16                      li      vA
+(1)     6A9 : 52                         lr      2, A
+(1)     6AA : 20 12                      li      vC
+(1)     6AC : 53                         lr      3, A
+(1)     6AD : 28 05 F2                   pi      assign_2        ; A=C
+(1)     6B0 : 20 18                      li      vB
+(1)     6B2 : 52                         lr      2, A
+(1)     6B3 : 20 14                      li      vD
+(1)     6B5 : 53                         lr      3, A
+(1)     6B6 : 28 05 F2                   pi      assign_2        ; B=D
+(1)     6B9 : 2A 00 00                   dci     0
+(1)     6BC : 20 26                      li      vI
 (1)     6BE : 52                         lr      2, A
-(1)     6BF : 20 12                      li      vC
-(1)     6C1 : 53                         lr      3, A
-(1)     6C2 : 28 06 07                   pi      assign_2        ; A=C
+(1)     6BF : 28 05 E2                   pi      store_2         ; I=0
+(1)     6C2 :
+(1)     6C2 :                            ;; li      vY
+(1)     6C2 :                            ;; lr      2, A
+(1)     6C2 :                            ;; li      C'Y'
+(1)     6C2 :                            ;; lr      0, A
+(1)     6C2 :                            ;; pi      call
+(1)     6C2 :                            ;; da      print_2
+(1)     6C2 :                            ;; li      vX
+(1)     6C2 :                            ;; lr      2, A
+(1)     6C2 :                            ;; li      C'X'
+(1)     6C2 :                            ;; lr      0, A
+(1)     6C2 :                            ;; pi      call
+(1)     6C2 :                            ;; da      print_2
+(1)     6C2 :                            ;; li      vC
+(1)     6C2 :                            ;; lr      2, A
+(1)     6C2 :                            ;; li      C'C'
+(1)     6C2 :                            ;; lr      0, A
+(1)     6C2 :                            ;; pi      call
+(1)     6C2 :                            ;; da      print_2
+(1)     6C2 :                            ;; li      vD
+(1)     6C2 :                            ;; lr      2, A
+(1)     6C2 :                            ;; li      C'D'
+(1)     6C2 :                            ;; lr      0, A
+(1)     6C2 :                            ;; pi      call
+(1)     6C2 :                            ;; da      print_2
+(1)     6C2 :                            ;; pi      call
+(1)     6C2 :                            ;; da      newline
+(1)     6C2 :
+(1)     6C2 :                            ;; A*B/F is computed as A*Q+A*S/F with Q=B/F, S=B-Q*F,
+(1)     6C2 :                            ;; to avoid 16-bit overflow
+(1)     6C2 :                    loop_i:
+(1)     6C2 : 20 1C                      li      vQ
+(1)     6C4 : 52                         lr      2, A
 (1)     6C5 : 20 18                      li      vB
-(1)     6C7 : 52                         lr      2, A
-(1)     6C8 : 20 14                      li      vD
-(1)     6CA : 53                         lr      3, A
-(1)     6CB : 28 06 07                   pi      assign_2        ; B=D
-(1)     6CE : 2A 00 00                   dci     0
-(1)     6D1 : 20 26                      li      vI
-(1)     6D3 : 52                         lr      2, A
-(1)     6D4 : 28 05 F7                   pi      store_2         ; I=0
-(1)     6D7 :
-(1)     6D7 :                            ;; li      vY
-(1)     6D7 :                            ;; lr      2, A
-(1)     6D7 :                            ;; li      C'Y'
-(1)     6D7 :                            ;; lr      0, A
-(1)     6D7 :                            ;; pi      call
-(1)     6D7 :                            ;; da      print_2
-(1)     6D7 :                            ;; li      vX
-(1)     6D7 :                            ;; lr      2, A
-(1)     6D7 :                            ;; li      C'X'
-(1)     6D7 :                            ;; lr      0, A
-(1)     6D7 :                            ;; pi      call
-(1)     6D7 :                            ;; da      print_2
-(1)     6D7 :                            ;; li      vC
-(1)     6D7 :                            ;; lr      2, A
-(1)     6D7 :                            ;; li      C'C'
-(1)     6D7 :                            ;; lr      0, A
-(1)     6D7 :                            ;; pi      call
-(1)     6D7 :                            ;; da      print_2
-(1)     6D7 :                            ;; li      vD
-(1)     6D7 :                            ;; lr      2, A
-(1)     6D7 :                            ;; li      C'D'
-(1)     6D7 :                            ;; lr      0, A
-(1)     6D7 :                            ;; pi      call
-(1)     6D7 :                            ;; da      print_2
-(1)     6D7 :                            ;; pi      call
-(1)     6D7 :                            ;; da      newline
-(1)     6D7 :
-(1)     6D7 :                            ;; A*B/F is computed as A*Q+A*S/F with Q=B/F, S=B-Q*F,
-(1)     6D7 :                            ;; to avoid 16-bit overflow
-(1)     6D7 :                    loop_i:
-(1)     6D7 : 20 1C                      li      vQ
-(1)     6D9 : 52                         lr      2, A
-(1)     6DA : 20 18                      li      vB
-(1)     6DC : 53                         lr      3, A
-(1)     6DD : 28 06 07                   pi      assign_2        ; Q=B
-(1)     6E0 : 20 10                      li      vF
-(1)     6E2 : 53                         lr      3, A
-(1)     6E3 : 28 03 23                   pi      call
-(1)     6E6 : 05 AF                      da      divsi2          ; Q=B/F
-(1)     6E8 : 20 1E                      li      vS
-(1)     6EA : 52                         lr      2, A
-(1)     6EB : 20 1C                      li      vQ
-(1)     6ED : 53                         lr      3, A
-(1)     6EE : 28 03 23                   pi      call
-(1)     6F1 : 04 17                      da      negsi2          ; S=-Q
-(1)     6F3 : 20 10                      li      vF
-(1)     6F5 : 53                         lr      3, A
-(1)     6F6 : 28 03 23                   pi      call
-(1)     6F9 : 04 E0                      da      mulsi2          ; S=-Q*F
-(1)     6FB : 20 18                      li      vB
-(1)     6FD : 53                         lr      3, A
-(1)     6FE : 28 03 23                   pi      call
-(1)     701 : 04 38                      da      addsi2          ; S=B-Q*F
-(1)     703 : 20 28                      li      vTmp
-(1)     705 : 52                         lr      2, A
-(1)     706 : 20 18                      li      vB
-(1)     708 : 53                         lr      3, A
-(1)     709 : 28 06 07                   pi      assign_2        ; vTmp=B
-(1)     70C : 28 03 23                   pi      call
-(1)     70F : 04 E0                      da      mulsi2          ; vTmp=B*B
-(1)     711 : 20 20                      li      vT
-(1)     713 : 52                         lr      2, A
-(1)     714 : 20 16                      li      vA
-(1)     716 : 53                         lr      3, A
-(1)     717 : 28 06 07                   pi      assign_2        ; T=A
-(1)     71A : 28 03 23                   pi      call
-(1)     71D : 04 E0                      da      mulsi2          ; T=A*A
-(1)     71F : 20 28                      li      vTmp
-(1)     721 : 53                         lr      3, A
-(1)     722 : 28 03 23                   pi      call
-(1)     725 : 04 4B                      da      subsi2          ; T=A*A-B*B
-(1)     727 : 20 10                      li      vF
-(1)     729 : 53                         lr      3, A
-(1)     72A : 28 03 23                   pi      call
-(1)     72D : 05 AF                      da      divsi2          ; T=(A*A-B*B)/F
-(1)     72F : 20 12                      li      vC
-(1)     731 : 53                         lr      3, A
-(1)     732 : 28 03 23                   pi      call
-(1)     735 : 04 38                      da      addsi2          ; T=(A*A-B*B)/F+C
-(1)     737 : 20 28                      li      vTmp
-(1)     739 : 52                         lr      2, A
-(1)     73A : 20 16                      li      vA
-(1)     73C : 53                         lr      3, A
-(1)     73D : 28 06 07                   pi      assign_2        ; vTmp=A
-(1)     740 : 20 1E                      li      vS
-(1)     742 : 53                         lr      3, A
-(1)     743 : 28 03 23                   pi      call
-(1)     746 : 04 E0                      da      mulsi2          ; vTmp=A*S
-(1)     748 : 20 10                      li      vF
-(1)     74A : 53                         lr      3, A
-(1)     74B : 28 03 23                   pi      call
-(1)     74E : 05 AF                      da      divsi2          ; vTmp=A*S/F
-(1)     750 : 20 18                      li      vB
-(1)     752 : 52                         lr      2, A
-(1)     753 : 20 16                      li      vA
-(1)     755 : 53                         lr      3, A
-(1)     756 : 28 06 07                   pi      assign_2        ; B=A
-(1)     759 : 20 1C                      li      vQ
-(1)     75B : 53                         lr      3, A
-(1)     75C : 28 03 23                   pi      call
-(1)     75F : 04 E0                      da      mulsi2          ; B=A*Q
-(1)     761 : 20 28                      li      vTmp
-(1)     763 : 53                         lr      3, A
-(1)     764 : 28 03 23                   pi      call
-(1)     767 : 04 38                      da      addsi2          ; B=A*Q+A*S/F
-(1)     769 : 20 18                      li      vB
-(1)     76B : 53                         lr      3, A
-(1)     76C : 28 03 23                   pi      call
-(1)     76F : 04 38                      da      addsi2          ; B=2*(A*Q+A*S/F)
-(1)     771 : 20 14                      li      vD
-(1)     773 : 53                         lr      3, A
-(1)     774 : 28 03 23                   pi      call
-(1)     777 : 04 38                      da      addsi2          ; B=2*(A*Q+A*S/F)+D
-(1)     779 : 20 16                      li      vA
-(1)     77B : 52                         lr      2, A
-(1)     77C : 20 20                      li      vT
-(1)     77E : 53                         lr      3, A
-(1)     77F : 28 06 07                   pi      assign_2        ; A=T
-(1)     782 : 20 1A                      li      vP
-(1)     784 : 52                         lr      2, A
-(1)     785 : 20 16                      li      vA
-(1)     787 : 53                         lr      3, A
-(1)     788 : 28 06 07                   pi      assign_2        ; P=A
-(1)     78B : 20 10                      li      vF
-(1)     78D : 53                         lr      3, A
-(1)     78E : 28 03 23                   pi      call
-(1)     791 : 05 AF                      da      divsi2          ; P=A/F
-(1)     793 : 20 1C                      li      vQ
-(1)     795 : 52                         lr      2, A
-(1)     796 : 20 18                      li      vB
-(1)     798 : 53                         lr      3, A
-(1)     799 : 28 06 07                   pi      assign_2        ; Q=B
-(1)     79C : 20 10                      li      vF
-(1)     79E : 53                         lr      3, A
-(1)     79F : 28 03 23                   pi      call
-(1)     7A2 : 05 AF                      da      divsi2          ; Q=B/F
-(1)     7A4 : 20 28                      li      vTmp
-(1)     7A6 : 52                         lr      2, A
-(1)     7A7 : 20 1C                      li      vQ
-(1)     7A9 : 53                         lr      3, A
-(1)     7AA : 28 06 07                   pi      assign_2        ; vTmp=Q
-(1)     7AD : 28 03 23                   pi      call
-(1)     7B0 : 04 E0                      da      mulsi2          ; vTmp=Q*Q
-(1)     7B2 : 20 20                      li      vT
-(1)     7B4 : 52                         lr      2, A
-(1)     7B5 : 20 1A                      li      vP
-(1)     7B7 : 53                         lr      3, A
-(1)     7B8 : 28 06 07                   pi      assign_2        ; T=P
-(1)     7BB : 28 03 23                   pi      call
-(1)     7BE : 04 E0                      da      mulsi2          ; T=P*P
-(1)     7C0 : 20 28                      li      vTmp
-(1)     7C2 : 53                         lr      3, A
-(1)     7C3 : 28 03 23                   pi      call
-(1)     7C6 : 04 38                      da      addsi2          ; T=P*P+Q*Q
-(1)     7C8 :
-(1)     7C8 :                            ;; pi      call
-(1)     7C8 :                            ;; da      putspace
-(1)     7C8 :                            ;; li      vI
-(1)     7C8 :                            ;; lr      2, A
-(1)     7C8 :                            ;; li      C'I'
-(1)     7C8 :                            ;; lr      0, A
-(1)     7C8 :                            ;; pi      call
-(1)     7C8 :                            ;; da      print_2
-(1)     7C8 :                            ;; li      vA
-(1)     7C8 :                            ;; lr      2, A
-(1)     7C8 :                            ;; li      C'A'
-(1)     7C8 :                            ;; lr      0, A
-(1)     7C8 :                            ;; pi      call
-(1)     7C8 :                            ;; da      print_2
-(1)     7C8 :                            ;; li      vB
-(1)     7C8 :                            ;; lr      2, A
-(1)     7C8 :                            ;; li      C'B'
-(1)     7C8 :                            ;; lr      0, A
-(1)     7C8 :                            ;; pi      call
-(1)     7C8 :                            ;; da      print_2
-(1)     7C8 :                            ;; li      vP
-(1)     7C8 :                            ;; lr      2, A
-(1)     7C8 :                            ;; li      C'P'
-(1)     7C8 :                            ;; lr      0, A
-(1)     7C8 :                            ;; pi      call
-(1)     7C8 :                            ;; da      print_2
-(1)     7C8 :                            ;; li      vQ
-(1)     7C8 :                            ;; lr      2, A
-(1)     7C8 :                            ;; li      C'Q'
-(1)     7C8 :                            ;; lr      0, A
-(1)     7C8 :                            ;; pi      call
-(1)     7C8 :                            ;; da      print_2
-(1)     7C8 :                            ;; pi      call
-(1)     7C8 :                            ;; da      newline
-(1)     7C8 :
-(1)     7C8 : 20 2A                      li      c4
-(1)     7CA : 52                         lr      2, A
-(1)     7CB : 20 20                      li      vT
-(1)     7CD : 53                         lr      3, A
-(1)     7CE : 28 03 23                   pi      call
-(1)     7D1 : 04 64                      da      cmpsi2          ; 4-T
-(1)     7D3 : 91 18                      bm      print_i         ; if 4<T
-(1)     7D5 : 20 26                      li      vI
-(1)     7D7 : 52                         lr      2, A
-(1)     7D8 : 28 06 14                   pi      inc16           ; I+=1
-(1)     7DB : 20 2C                      li      c16
-(1)     7DD : 53                         lr      3, A
-(1)     7DE : 28 03 23                   pi      call
-(1)     7E1 : 04 64                      da      cmpsi2
-(1)     7E3 : 91 05                      bm      jmp_loop_i      ; if I<16
-(1)     7E5 : 20 20                      li      C' '
-(1)     7E7 : 90 10                      br      print_char
-(1)     7E9 :                    jmp_loop_i:
-(1)     7E9 : 29 06 D7                   jmp     loop_i
-(1)     7EC :                    print_i:
-(1)     7EC : 20 27                      li      vI+1
-(1)     7EE : 0B                         lr      IS, A
-(1)     7EF : 4C                         lr      A, S
-(1)     7F0 : 25 09                      ci      9               ; 9-I
-(1)     7F2 : 81 03                      bp      print_i2        ; if I<10
-(1)     7F4 : 24 07                      ai      C'A'-C'0'-10
-(1)     7F6 :                    print_i2:
-(1)     7F6 : 24 30                      ai      C'0'
-(1)     7F8 :                    print_char:
-(1)     7F8 : 50                         lr      0, A
-(1)     7F9 : 28 03 23                   pi      call
-(1)     7FC : 02 51                      da      putchar
-(1)     7FE :
-(1)     7FE :                            ;; pi      push0
-(1)     7FE :                            ;; li      C'@'
-(1)     7FE :                            ;; lr      0, A
-(1)     7FE :                            ;; pi      call
-(1)     7FE :                            ;; da      putchar
-(1)     7FE :                            ;; li      C'='
-(1)     7FE :                            ;; lr      0, A
-(1)     7FE :                            ;; pi      call
-(1)     7FE :                            ;; da      putchar
-(1)     7FE :                            ;; pi      pop0
-(1)     7FE :                            ;; pi      call
-(1)     7FE :                            ;; da      putchar
-(1)     7FE :                            ;; pi      call
-(1)     7FE :                            ;; da      newline
-(1)     7FE :
-(1)     7FE : 28 03 23                   pi      call
-(1)     801 : 02 47                      da      getchar
-(1)     803 : 92 07                      bnc     next_x
-(1)     805 : 40                         lr      A, 0
-(1)     806 : 22 00                      oi      0
-(1)     808 : 94 02                      bnz     next_x
-(1)     80A : 2F                         dc      H'2F'           ; halt to system
-(1)     80B :                    next_x:
-(1)     80B : 20 24                      li      vX
+(1)     6C7 : 53                         lr      3, A
+(1)     6C8 : 28 05 F2                   pi      assign_2        ; Q=B
+(1)     6CB : 20 10                      li      vF
+(1)     6CD : 53                         lr      3, A
+(1)     6CE : 28 03 23                   pi      call
+(1)     6D1 : 05 9A                      da      divsi2          ; Q=B/F
+(1)     6D3 : 20 1E                      li      vS
+(1)     6D5 : 52                         lr      2, A
+(1)     6D6 : 20 1C                      li      vQ
+(1)     6D8 : 53                         lr      3, A
+(1)     6D9 : 28 03 23                   pi      call
+(1)     6DC : 04 17                      da      negsi2          ; S=-Q
+(1)     6DE : 20 10                      li      vF
+(1)     6E0 : 53                         lr      3, A
+(1)     6E1 : 28 03 23                   pi      call
+(1)     6E4 : 04 E0                      da      mulsi2          ; S=-Q*F
+(1)     6E6 : 20 18                      li      vB
+(1)     6E8 : 53                         lr      3, A
+(1)     6E9 : 28 03 23                   pi      call
+(1)     6EC : 04 38                      da      addsi2          ; S=B-Q*F
+(1)     6EE : 20 28                      li      vTmp
+(1)     6F0 : 52                         lr      2, A
+(1)     6F1 : 20 18                      li      vB
+(1)     6F3 : 53                         lr      3, A
+(1)     6F4 : 28 05 F2                   pi      assign_2        ; vTmp=B
+(1)     6F7 : 28 03 23                   pi      call
+(1)     6FA : 04 E0                      da      mulsi2          ; vTmp=B*B
+(1)     6FC : 20 20                      li      vT
+(1)     6FE : 52                         lr      2, A
+(1)     6FF : 20 16                      li      vA
+(1)     701 : 53                         lr      3, A
+(1)     702 : 28 05 F2                   pi      assign_2        ; T=A
+(1)     705 : 28 03 23                   pi      call
+(1)     708 : 04 E0                      da      mulsi2          ; T=A*A
+(1)     70A : 20 28                      li      vTmp
+(1)     70C : 53                         lr      3, A
+(1)     70D : 28 03 23                   pi      call
+(1)     710 : 04 4B                      da      subsi2          ; T=A*A-B*B
+(1)     712 : 20 10                      li      vF
+(1)     714 : 53                         lr      3, A
+(1)     715 : 28 03 23                   pi      call
+(1)     718 : 05 9A                      da      divsi2          ; T=(A*A-B*B)/F
+(1)     71A : 20 12                      li      vC
+(1)     71C : 53                         lr      3, A
+(1)     71D : 28 03 23                   pi      call
+(1)     720 : 04 38                      da      addsi2          ; T=(A*A-B*B)/F+C
+(1)     722 : 20 28                      li      vTmp
+(1)     724 : 52                         lr      2, A
+(1)     725 : 20 16                      li      vA
+(1)     727 : 53                         lr      3, A
+(1)     728 : 28 05 F2                   pi      assign_2        ; vTmp=A
+(1)     72B : 20 1E                      li      vS
+(1)     72D : 53                         lr      3, A
+(1)     72E : 28 03 23                   pi      call
+(1)     731 : 04 E0                      da      mulsi2          ; vTmp=A*S
+(1)     733 : 20 10                      li      vF
+(1)     735 : 53                         lr      3, A
+(1)     736 : 28 03 23                   pi      call
+(1)     739 : 05 9A                      da      divsi2          ; vTmp=A*S/F
+(1)     73B : 20 18                      li      vB
+(1)     73D : 52                         lr      2, A
+(1)     73E : 20 16                      li      vA
+(1)     740 : 53                         lr      3, A
+(1)     741 : 28 05 F2                   pi      assign_2        ; B=A
+(1)     744 : 20 1C                      li      vQ
+(1)     746 : 53                         lr      3, A
+(1)     747 : 28 03 23                   pi      call
+(1)     74A : 04 E0                      da      mulsi2          ; B=A*Q
+(1)     74C : 20 28                      li      vTmp
+(1)     74E : 53                         lr      3, A
+(1)     74F : 28 03 23                   pi      call
+(1)     752 : 04 38                      da      addsi2          ; B=A*Q+A*S/F
+(1)     754 : 20 18                      li      vB
+(1)     756 : 53                         lr      3, A
+(1)     757 : 28 03 23                   pi      call
+(1)     75A : 04 38                      da      addsi2          ; B=2*(A*Q+A*S/F)
+(1)     75C : 20 14                      li      vD
+(1)     75E : 53                         lr      3, A
+(1)     75F : 28 03 23                   pi      call
+(1)     762 : 04 38                      da      addsi2          ; B=2*(A*Q+A*S/F)+D
+(1)     764 : 20 16                      li      vA
+(1)     766 : 52                         lr      2, A
+(1)     767 : 20 20                      li      vT
+(1)     769 : 53                         lr      3, A
+(1)     76A : 28 05 F2                   pi      assign_2        ; A=T
+(1)     76D : 20 1A                      li      vP
+(1)     76F : 52                         lr      2, A
+(1)     770 : 20 16                      li      vA
+(1)     772 : 53                         lr      3, A
+(1)     773 : 28 05 F2                   pi      assign_2        ; P=A
+(1)     776 : 20 10                      li      vF
+(1)     778 : 53                         lr      3, A
+(1)     779 : 28 03 23                   pi      call
+(1)     77C : 05 9A                      da      divsi2          ; P=A/F
+(1)     77E : 20 1C                      li      vQ
+(1)     780 : 52                         lr      2, A
+(1)     781 : 20 18                      li      vB
+(1)     783 : 53                         lr      3, A
+(1)     784 : 28 05 F2                   pi      assign_2        ; Q=B
+(1)     787 : 20 10                      li      vF
+(1)     789 : 53                         lr      3, A
+(1)     78A : 28 03 23                   pi      call
+(1)     78D : 05 9A                      da      divsi2          ; Q=B/F
+(1)     78F : 20 28                      li      vTmp
+(1)     791 : 52                         lr      2, A
+(1)     792 : 20 1C                      li      vQ
+(1)     794 : 53                         lr      3, A
+(1)     795 : 28 05 F2                   pi      assign_2        ; vTmp=Q
+(1)     798 : 28 03 23                   pi      call
+(1)     79B : 04 E0                      da      mulsi2          ; vTmp=Q*Q
+(1)     79D : 20 20                      li      vT
+(1)     79F : 52                         lr      2, A
+(1)     7A0 : 20 1A                      li      vP
+(1)     7A2 : 53                         lr      3, A
+(1)     7A3 : 28 05 F2                   pi      assign_2        ; T=P
+(1)     7A6 : 28 03 23                   pi      call
+(1)     7A9 : 04 E0                      da      mulsi2          ; T=P*P
+(1)     7AB : 20 28                      li      vTmp
+(1)     7AD : 53                         lr      3, A
+(1)     7AE : 28 03 23                   pi      call
+(1)     7B1 : 04 38                      da      addsi2          ; T=P*P+Q*Q
+(1)     7B3 :
+(1)     7B3 :                            ;; pi      call
+(1)     7B3 :                            ;; da      putspace
+(1)     7B3 :                            ;; li      vI
+(1)     7B3 :                            ;; lr      2, A
+(1)     7B3 :                            ;; li      C'I'
+(1)     7B3 :                            ;; lr      0, A
+(1)     7B3 :                            ;; pi      call
+(1)     7B3 :                            ;; da      print_2
+(1)     7B3 :                            ;; li      vA
+(1)     7B3 :                            ;; lr      2, A
+(1)     7B3 :                            ;; li      C'A'
+(1)     7B3 :                            ;; lr      0, A
+(1)     7B3 :                            ;; pi      call
+(1)     7B3 :                            ;; da      print_2
+(1)     7B3 :                            ;; li      vB
+(1)     7B3 :                            ;; lr      2, A
+(1)     7B3 :                            ;; li      C'B'
+(1)     7B3 :                            ;; lr      0, A
+(1)     7B3 :                            ;; pi      call
+(1)     7B3 :                            ;; da      print_2
+(1)     7B3 :                            ;; li      vP
+(1)     7B3 :                            ;; lr      2, A
+(1)     7B3 :                            ;; li      C'P'
+(1)     7B3 :                            ;; lr      0, A
+(1)     7B3 :                            ;; pi      call
+(1)     7B3 :                            ;; da      print_2
+(1)     7B3 :                            ;; li      vQ
+(1)     7B3 :                            ;; lr      2, A
+(1)     7B3 :                            ;; li      C'Q'
+(1)     7B3 :                            ;; lr      0, A
+(1)     7B3 :                            ;; pi      call
+(1)     7B3 :                            ;; da      print_2
+(1)     7B3 :                            ;; pi      call
+(1)     7B3 :                            ;; da      newline
+(1)     7B3 :
+(1)     7B3 : 20 2A                      li      c4
+(1)     7B5 : 52                         lr      2, A
+(1)     7B6 : 20 20                      li      vT
+(1)     7B8 : 53                         lr      3, A
+(1)     7B9 : 28 03 23                   pi      call
+(1)     7BC : 04 64                      da      cmpsi2          ; 4-T
+(1)     7BE : 91 18                      bm      print_i         ; if 4<T
+(1)     7C0 : 20 26                      li      vI
+(1)     7C2 : 52                         lr      2, A
+(1)     7C3 : 28 05 FF                   pi      inc16           ; I+=1
+(1)     7C6 : 20 2C                      li      c16
+(1)     7C8 : 53                         lr      3, A
+(1)     7C9 : 28 03 23                   pi      call
+(1)     7CC : 04 64                      da      cmpsi2
+(1)     7CE : 91 05                      bm      jmp_loop_i      ; if I<16
+(1)     7D0 : 20 20                      li      C' '
+(1)     7D2 : 90 10                      br      print_char
+(1)     7D4 :                    jmp_loop_i:
+(1)     7D4 : 29 06 C2                   jmp     loop_i
+(1)     7D7 :                    print_i:
+(1)     7D7 : 20 27                      li      vI+1
+(1)     7D9 : 0B                         lr      IS, A
+(1)     7DA : 4C                         lr      A, S
+(1)     7DB : 25 09                      ci      9               ; 9-I
+(1)     7DD : 81 03                      bp      print_i2        ; if I<10
+(1)     7DF : 24 07                      ai      C'A'-C'0'-10
+(1)     7E1 :                    print_i2:
+(1)     7E1 : 24 30                      ai      C'0'
+(1)     7E3 :                    print_char:
+(1)     7E3 : 50                         lr      0, A
+(1)     7E4 : 28 03 23                   pi      call
+(1)     7E7 : 02 51                      da      putchar
+(1)     7E9 :
+(1)     7E9 :                            ;; pi      push0
+(1)     7E9 :                            ;; li      C'@'
+(1)     7E9 :                            ;; lr      0, A
+(1)     7E9 :                            ;; pi      call
+(1)     7E9 :                            ;; da      putchar
+(1)     7E9 :                            ;; li      C'='
+(1)     7E9 :                            ;; lr      0, A
+(1)     7E9 :                            ;; pi      call
+(1)     7E9 :                            ;; da      putchar
+(1)     7E9 :                            ;; pi      pop0
+(1)     7E9 :                            ;; pi      call
+(1)     7E9 :                            ;; da      putchar
+(1)     7E9 :                            ;; pi      call
+(1)     7E9 :                            ;; da      newline
+(1)     7E9 :
+(1)     7E9 : 28 03 23                   pi      call
+(1)     7EC : 02 47                      da      getchar
+(1)     7EE : 92 07                      bnc     next_x
+(1)     7F0 : 40                         lr      A, 0
+(1)     7F1 : 22 00                      oi      0
+(1)     7F3 : 94 02                      bnz     next_x
+(1)     7F5 : 2F                         dc      H'2F'           ; halt to system
+(1)     7F6 :                    next_x:
+(1)     7F6 : 20 24                      li      vX
+(1)     7F8 : 52                         lr      2, A
+(1)     7F9 : 28 05 FF                   pi      inc16           ; X+=1
+(1)     7FC : 20 2E                      li      c30
+(1)     7FE : 53                         lr      3, A
+(1)     7FF : 28 03 23                   pi      call
+(1)     802 : 04 64                      da      cmpsi2
+(1)     804 : 91 1F                      bm      jmp_loop_x      ; if X<30
+(1)     806 : 28 03 23                   pi      call
+(1)     809 : 02 66                      da      newline
+(1)     80B : 20 22                      li      vY
 (1)     80D : 52                         lr      2, A
-(1)     80E : 28 06 14                   pi      inc16           ; X+=1
-(1)     811 : 20 2E                      li      c30
-(1)     813 : 53                         lr      3, A
-(1)     814 : 28 03 23                   pi      call
-(1)     817 : 04 64                      da      cmpsi2
-(1)     819 : 91 1F                      bm      jmp_loop_x      ; if X<30
-(1)     81B : 28 03 23                   pi      call
-(1)     81E : 02 66                      da      newline
-(1)     820 : 20 22                      li      vY
-(1)     822 : 52                         lr      2, A
-(1)     823 : 28 06 14                   pi      inc16           ; Y+=1
-(1)     826 : 2A 00 0D                   dci     13
-(1)     829 : 20 28                      li      vTmp
-(1)     82B : 53                         lr      3, A
-(1)     82C : 28 05 FF                   pi      store_3         ; vTmp=13
-(1)     82F : 28 03 23                   pi      call
-(1)     832 : 04 64                      da      cmpsi2
-(1)     834 : 91 07                      bm      jmp_loop_y      ; if Y<13
-(1)     836 : 29 03 40                   jmp     return
-(1)     839 :                    jmp_loop_x:
-(1)     839 : 29 06 8A                   jmp     loop_x
-(1)     83C :                    jmp_loop_y:
-(1)     83C : 29 06 81                   jmp     loop_y
+(1)     80E : 28 05 FF                   pi      inc16           ; Y+=1
+(1)     811 : 2A 00 0D                   dci     13
+(1)     814 : 20 28                      li      vTmp
+(1)     816 : 53                         lr      3, A
+(1)     817 : 28 05 EA                   pi      store_3         ; vTmp=13
+(1)     81A : 28 03 23                   pi      call
+(1)     81D : 04 64                      da      cmpsi2
+(1)     81F : 91 07                      bm      jmp_loop_y      ; if Y<13
+(1)     821 : 29 03 40                   jmp     return
+(1)     824 :                    jmp_loop_x:
+(1)     824 : 29 06 75                   jmp     loop_x
+(1)     827 :                    jmp_loop_y:
+(1)     827 : 29 06 6C                   jmp     loop_y
