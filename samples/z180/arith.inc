@@ -69,11 +69,13 @@ cmp16_return:
         pop     HL
         ret
 
-;;; Unsigned multiplication; result = multiplicand * multiplier
+;;; Multiply; result = multiplicand * multiplier
+;;; Signed and unsigned products share the low 16 bits.
 ;;; @param BC multiplicand
 ;;; @param DE multiplier
 ;;; @return HL result
-;;; @clobber BC DE HL A
+;;; @clobber A BC DE
+mul16:
 umul16:
         ld      H, C
         ld      L, E
@@ -88,47 +90,6 @@ umul16:
         add     A, E
         ld      H, A            ; H+=low(BC)+low(DE)
 umul16_end:
-        ret
-
-;;; Signed multiplication; result = multiplicand * multiplier
-;;; @param BC multiplicand
-;;; @param DE multiplier
-;;; @return HL result
-;;; @clobber A BC DE
-mul16:
-        ld      A, B
-        xor     A, D
-        push    AF              ; save high(multiplicand^multiplier)
-        bit     7, B
-        jr      Z, mul16_abs_multiplicand
-        xor     A               ; AF.C=0
-        ld      H, A
-        ld      L, A
-        sbc     HL, BC
-        ld      B, H
-        ld      C, L            ; multiplicand = -multiplicand
-mul16_abs_multiplicand:
-        bit     7, D
-        jr      Z,  mul16_multiply
-        xor     A               ; AF.C=0
-        ld      H, A
-        ld      L, A
-        sbc     HL, DE
-        ld      D, H
-        ld      E, L            ; multiplier = -multiplier
-mul16_multiply:
-        call    umul16          ; HL = multiplicand * multiplier
-        pop     AF              ; A=high(multiplicand^multiplier)
-        bit     7, A
-        jr      Z, mul16_return
-        ld      A, H
-        cpl
-        ld      H, A
-        ld      A, L
-        cpl
-        ld      L, A
-        inc     HL              ; result = -result
-mul16_return:
         ret
 
 ;;; Unsigned division; dividend / divisor = quotient ... remainder
