@@ -222,6 +222,20 @@ arith:
         jsr     mul16
         jsr     answer          ; 20000
 
+        ldaa    #(-300) >> 8
+        ldab    #(-300) & $FF
+        ldx     #100
+        jsr     expr
+        jsr     mul16
+        jsr     answer          ; -30000
+
+        ldaa    #(3) >> 8
+        ldab    #(3) & $FF
+        ldx     #-32768
+        jsr     expr
+        jsr     mul16
+        jsr     answer          ; -32768
+
         ldaa    #'/'
         staa    exprop
         ldaa    #(30000) >> 8
