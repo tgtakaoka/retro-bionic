@@ -165,11 +165,34 @@ cmp16_end:
         sta     R0L
         rts
 
+;;; Signed multiplication: result = multiplicand * multiplier
+;;; @param R1 multiplicand
+;;; @param R2 multiplier
+;;; @return R0 result
+;;; @return X:A result
+;;; @clobber R1 R2
+;;; A 16-bit product is the same signed or unsigned; a negative
+;;; multiplier is negated only to shorten the loop.
+mul16:
+        lda     R2H             ; A=hi(multiplier)
+        bpl     umul16          ; branch if multiplier >= 0
+        nega
+        neg     R2L
+        sbc     #0
+        sta     R2H             ; negate multiplier
+        lda     R1H             ; A=hi(multiplicand)
+        nega
+        neg     R1L
+        sbc     #0
+        sta     R1H             ; negate multiplicand
+                                ; fall through to umul16
+
 ;;; Unsigned multiplication: result = multiplicand * multiplier
 ;;; @param R1 multiplicand
 ;;; @param R2 multiplier
 ;;; @return R0 result
-;;; @clobber A X R0 R1 R2
+;;; @return X:A result
+;;; @clobber R1 R2
 umul16:
         clr     R0L
         clra                    ; A=high(result)
@@ -206,41 +229,6 @@ umul16_next:
         tstx
         bne     umul16_loop     ; while low(multiplier) != 0
 umul16_end:
-        rts
-
-;;; Signed multiplication: result = multiplicand * multiplier
-;;; @param R1 multiplicand
-;;; @param R2 multiplier
-;;; @return R0 result
-;;; @return X:A result
-;;; @clobber R1 R2
-mul16:
-        lda     R1H
-        eor     R2H
-        sta     arith_work      ; save hi(multiplicand^multiplier)
-        lda     R2H             ; A=hi(multiplier)
-        bpl     mul16_multiplicand
-        nega
-        neg     R2L
-        sbc     #0
-        sta     R2H             ; negate multiplier
-mul16_multiplicand:
-        lda     R1H             ; A=hi(multiplicand)
-        bpl     mul16_multiply
-        nega
-        neg     R1L
-        sbc     #0
-        sta     R1H             ; negate multiplicand
-mul16_multiply:
-        bsr     umul16          ; R0=result
-        lda     arith_work      ; sign(result)
-        bpl     mul16_end
-        lda     R0H
-        nega
-        neg     R0L
-        sbc     #0
-        sta     R0H             ; negate result
-mul16_end:
         ldx     R0H
         lda     R0L
         rts
