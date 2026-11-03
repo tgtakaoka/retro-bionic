@@ -146,7 +146,7 @@ These boards run from a timer:
 | SCN2650 | `P46`, CLOCK | `P55`, `#OPACK` | 1.25 MHz |
 | INS8060, INS8070 | `P46`, XIN | `P52`, `#HOLD` | 4.05 MHz |
 | P8085 | `P50`, X1 | `P52`, READY | 10 MHz |
-| P8080 | `P46`, PHI1; `P47`, PHI2 | `P54`, READY | 2.5 MHz |
+| P8080 | `P53`, PHI1; `P47`, PHI2 | `P54`, READY | 3.125 MHz |
 | Z8018008, Z8018010 | `P47`, EXTAL | `P52`, `#WAIT` | 16.67 MHz |
 | HD64180S | `P47`, EXTAL | `P52`, `#WAIT` | 18.75 MHz |
 | NSC800 | `P50`, XIN | `P52`, `#WAIT` | 8.33 MHz |
@@ -154,8 +154,8 @@ These boards run from a timer:
 | P8086, D8087 | `P47`, CLK | `P52`, READY | 5 MHz |
 | HD641016 | `P47`, EXTAL | `P54`, `#WAIT` | 10 MHz |
 
-The P8080's two phases come from two FlexPWM modules whose counters are restarted
-together, and in a run its plain memory reads take no wait state. The Z180's internal
+The P8080's two phases come from the two outputs of one FlexPWM submodule (board rev 3),
+and in a run its plain memory reads take no wait state. The Z180's internal
 I/O cycles ignore `#WAIT`, so the firmware leaves them unheld. The KL5C80A12 honours ERDY
 only in the wait states SCR1 inserts, so it keeps one for memory and two for I/O.
 

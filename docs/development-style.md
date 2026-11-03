@@ -1569,13 +1569,17 @@ The NMOS 8080 is dynamic (tCY max 2 us). To rule clock stretching in or
 out, arm a pulse-width trigger on PHI1 during a failing run; it has never
 fired, so stretching is not a cause of such corruption. **[hw]**
 
-PHI1 and PHI2 run free from FlexPWM2 and FlexPWM3. An XBAR sync from one
-to the other's EXT_SYNC never started the second counter, so the two
-are restarted back to back with FORCE, and PHI2's edges are set 4 counts
-early for the gap between the writes. They reach the CPU through passive
-level shifters: a rise takes about 100 ns, PHI1 peaks near 8.4 V, and
-only fixed phases as wide as the bit-banged ones (PHI1 100 ns, PHI2 at
-least 227 ns) keep it working, which tops the clock at 2.5 MHz. **[hw]**
+PHI1 and PHI2 run free from the B and A outputs of FlexPWM3 submodule 1
+(P53 and P47, board rev 3), so one counter times both. On rev 2 they
+came from FlexPWM2 and FlexPWM3: an XBAR sync from one to the other's
+EXT_SYNC never started the second counter, so the two were restarted
+back to back with FORCE, and PHI2's edges were set 4 counts early for
+the gap between the writes. Rev 2's passive level shifters (a rise of
+about 100 ns, PHI1 peaking near 8.4 V) needed phases as wide as the
+bit-banged ones, which topped the clock at 2.5 MHz. **[hw]** Rev 3's gate
+driver delays both edges alike, so 150 MHz / 48 gives the 8080A-1's
+3.125 MHz with PHI1 60 ns, tD1 20 ns, PHI2 160 ns and tD2 80 ns at the
+Teensy; unbenched.
 
 - READY must change outside the window where PHI2's fall samples it:
   raised there, it missed tRS, and the CPU went on with part of its
