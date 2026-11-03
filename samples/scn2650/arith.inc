@@ -199,6 +199,8 @@ umul16_r3:
 ;;; @param @R2: multiplicand
 ;;; @param @R3: multiplier
 ;;; @clobber R0 R1 PSL
+;;; A 16-bit product is the same signed or unsigned; a negative
+;;; multiplier is negated only to shorten the loop.
 mulsi2:
         loda,r0 arith_work,r3
         iora,r0 arith_work+1,r3
@@ -207,36 +209,32 @@ mulsi2:
         stra,r0 arith_work+1,r2 ; multiplicand=0
         retc,un
 mulsi2_signed:
-        loda,r0 arith_work,r2
-        eora,r0 arith_work,r3
-        strr,r0 mulsi2_sign
-        loda,r0 arith_work+1,r2
-        strz    r1
-        loda,r0 arith_work,r2
-        bsta,lt negsi1          ; multiplicand=-multiplicand
-        strr,r0 umul16_multiplicand
-        lodz    r1
-        strr,r0 umul16_multiplicand+1
         loda,r0 arith_work+1,r3
         strz    r1
-        loda,r0 arith_work,r3
-        bsta,lt negsi1          ; multiplier=-multiplier
+        loda,r0 arith_work,r3   ; R0:R1=multiplier
+        bcfr,lt mulsi2_multiplier ; branch if multiplier >= 0
+        bsta,un negsi1          ; negate multiplier
         stra,r0 umul16_multiplier
-        lodz    r1
-        stra,r0 umul16_multiplier+1
+        stra,r1 umul16_multiplier+1
+        loda,r0 arith_work+1,r2
+        strz    r1
+        loda,r0 arith_work,r2   ; R0:R1=multiplicand
+        bsta,un negsi1          ; negate multiplicand
+        bctr,un mulsi2_multiply
+mulsi2_multiplier:
+        stra,r0 umul16_multiplier
+        stra,r1 umul16_multiplier+1
+        loda,r0 arith_work+1,r2
+        strz    r1
+        loda,r0 arith_work,r2   ; R0:R1=multiplicand
+mulsi2_multiply:
+        stra,r0 umul16_multiplicand
+        stra,r1 umul16_multiplicand+1
         bsta,un umul16          ; r0:r1=multiplicand*multiplier
-        strr,r2 mulsi2_r2
-        lodr,r2 mulsi2_sign
-        bsta,lt negsi1          ; result=-result
-        lodr,r2 mulsi2_r2
         stra,r0 arith_work,r2
         lodz    r1
         stra,r0 arith_work+1,r2
         retc,un
-mulsi2_sign:
-        res     1
-mulsi2_r2:
-        res     1
 
 ;;; Unsigned division: dividend / divisor = quotient ... remainder
 ;;; @param udiv16_dividend

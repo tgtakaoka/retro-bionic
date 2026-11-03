@@ -149,6 +149,8 @@ p32700: acon    32700
 p32600: acon    32600
 n32700: acon    -32700
 n32600: acon    -32600
+p3:     acon    3
+n32768: acon    -32768
 
         org     H'1000'
 ;;; Print each operation and its result; comments give the expected answer
@@ -243,6 +245,20 @@ arith:
         bsta,un expr
         bsta,un mulsi2
         bsta,un answer          ; 20000
+
+        lodi,r2 n300-arith_work
+        lodi,r3 p100-arith_work
+        lodi,r0 A'*'
+        bsta,un expr
+        bsta,un mulsi2
+        bsta,un answer          ; -30000
+
+        lodi,r2 p3-arith_work
+        lodi,r3 n32768-arith_work
+        lodi,r0 A'*'
+        bsta,un expr
+        bsta,un mulsi2
+        bsta,un answer          ; -32768
 
         lodi,r2 p30000-arith_work
         lodi,r3 p100-arith_work
