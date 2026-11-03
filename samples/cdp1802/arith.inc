@@ -132,6 +132,35 @@ load_R8:
         sex     R2
         sep     R6
 
+;;; Signed multiplication: multiplicand *= multiplier
+;;; @param R7 multiplicand
+;;; @param R8 multiplier
+;;; @return R7 multiplicand * multiplier
+;;;   SEP R5
+;;;   DC  A(mul16)
+;;; @clobber D R8 R15
+;;; A 16-bit product is the same signed or unsigned; a negative
+;;; multiplier is negated only to shorten the loop.
+mul16:
+        ghi     R8
+        ani     X'80'
+        bz      umul16          ; branch if multiplier >= 0
+        ghi     R8
+        xri     X'FF'
+        phi     R8
+        glo     R8
+        xri     X'FF'
+        plo     R8
+        inc     R8              ; negate multiplier
+        ghi     R7
+        xri     X'FF'
+        phi     R7
+        glo     R7
+        xri     X'FF'
+        plo     R7
+        inc     R7              ; negate multiplicand
+                                ; fall through to umul16
+
 ;;; Unsigned multiplication: result = multiplicand * multiplier
 ;;; @param R7 multiplicand
 ;;; @param R8 multiplier
@@ -179,57 +208,6 @@ umul16_check:
         glo     R15
         plo     R7              ; R7=result
         sep     R6              ; return
-
-;;; Signed multiplication: multiplicand *= multiplier
-;;; @param R7 multiplicand
-;;; @param R8 multiplier
-;;; @return R7 multiplicand * multiplier
-;;;   SEP R5
-;;;   DC  A(mul16)
-;;; @clobber D R8 R15
-mul16:
-        ghi     R8
-        str     R2
-        ghi     R7
-        xor
-        stxd                    ; push sign
-        ghi     R8
-        ani     X'80'
-        bz      mul16_multiplicand
-        ghi     R8
-        xri     X'FF'
-        phi     R8
-        glo     R8
-        xri     X'FF'
-        plo     R8
-        inc     R8              ; negate multiplier
-mul16_multiplicand:
-        ghi     R7
-        ani     X'80'
-        bz      mul16_multiply
-        ghi     R7
-        xri     X'FF'
-        phi     R7
-        glo     R7
-        xri     X'FF'
-        plo     R7
-        inc     R7              ; negate multiplicand
-mul16_multiply:
-        sep     R5
-        dc      A(umul16)       ; call umul16
-        irx
-        ldx                     ; sign
-        ani     X'80'
-        bz      mul16_return
-        ghi     R7
-        xri     X'FF'
-        phi     R7
-        glo     R7
-        xri     X'FF'
-        plo     R7
-        inc     R7              ; negate result
-mul16_return:
-        sep     R6
 
 ;;; Unsigned division: dividend / divisor = quotient ... remainder
 ;;; Non-restoring; R7 and R8 are unchanged if divisor is 0.
