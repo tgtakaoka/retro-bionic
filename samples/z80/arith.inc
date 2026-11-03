@@ -69,6 +69,30 @@ cmp16_return:
         pop     HL
         ret
 
+;;; Signed multiplication; result = multiplicand * multiplier
+;;; @param BC multiplicand
+;;; @param DE multiplier
+;;; @return HL result
+;;; @clobber A BC DE
+;;; A 16-bit product is the same signed or unsigned; a negative
+;;; multiplier is negated only to shorten the loop.
+mul16:
+        bit     7, D
+        jr      Z, umul16       ; if multiplier >= 0
+        xor     A               ; AF.C=0
+        ld      H, A
+        ld      L, A
+        sbc     HL, DE
+        ld      D, H
+        ld      E, L            ; multiplier = -multiplier
+        xor     A               ; AF.C=0
+        ld      H, A
+        ld      L, A
+        sbc     HL, BC
+        ld      B, H
+        ld      C, L            ; multiplicand = -multiplicand
+                                ; fall through to umul16
+
 ;;; Unsigned multiplication; result = multiplicand * multiplier
 ;;; @param BC multiplicand
 ;;; @param DE multiplier
@@ -90,47 +114,6 @@ umul16_next:
         ld      A, D
         or      E
         jr      NZ, umul16_loop ; while multiplier != 0
-        ret
-
-;;; Signed multiplication; result = multiplicand * multiplier
-;;; @param BC multiplicand
-;;; @param DE multiplier
-;;; @return HL result
-;;; @clobber A BC DE
-mul16:
-        ld      A, B
-        xor     A, D
-        push    AF              ; save high(multiplicand^multiplier)
-        bit     7, B
-        jr      Z, mul16_abs_multiplicand
-        xor     A               ; AF.C=0
-        ld      H, A
-        ld      L, A
-        sbc     HL, BC
-        ld      B, H
-        ld      C, L            ; multiplicand = -multiplicand
-mul16_abs_multiplicand:
-        bit     7, D
-        jr      Z,  mul16_multiply
-        xor     A               ; AF.C=0
-        ld      H, A
-        ld      L, A
-        sbc     HL, DE
-        ld      D, H
-        ld      E, L            ; multiplier = -multiplier
-mul16_multiply:
-        call    umul16          ; HL = multiplicand * multiplier
-        pop     AF              ; A=high(multiplicand^multiplier)
-        bit     7, A
-        jr      Z, mul16_return
-        ld      A, H
-        cpl
-        ld      H, A
-        ld      A, L
-        cpl
-        ld      L, A
-        inc     HL              ; result = -result
-mul16_return:
         ret
 
 ;;; Unsigned division; dividend / divisor = quotient ... remainder

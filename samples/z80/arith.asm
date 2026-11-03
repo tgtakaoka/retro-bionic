@@ -181,6 +181,20 @@ arith:
         call    mul16
         call    answer          ; 20000
 
+        ld      BC, -300
+        ld      DE, 100
+        ld      A, '*'
+        call    expr
+        call    mul16
+        call    answer          ; -30000
+
+        ld      BC, 3
+        ld      DE, -32768
+        ld      A, '*'
+        call    expr
+        call    mul16
+        call    answer          ; -32768
+
         ld      BC, 30000
         ld      DE, 100
         ld      A, '/'
