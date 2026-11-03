@@ -357,6 +357,32 @@ arith:
         pi      call
         da      answer          ; 20000
 
+        dci     -300
+        pi      store_2         ; vA=-300
+        dci     100
+        pi      store_3         ; vB=100
+        li      C'*'
+        lr      0, A
+        pi      call
+        da      expr
+        pi      call
+        da      mulsi2
+        pi      call
+        da      answer          ; -30000
+
+        dci     3
+        pi      store_2         ; vA=3
+        dci     -32768
+        pi      store_3         ; vB=-32768
+        li      C'*'
+        lr      0, A
+        pi      call
+        da      expr
+        pi      call
+        da      mulsi2
+        pi      call
+        da      answer          ; -32768
+
         dci     30000
         pi      store_2         ; vA=30000
         dci     100
