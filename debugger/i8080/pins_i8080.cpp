@@ -32,39 +32,43 @@ namespace i8080 {
 // clang-format on
 
 // The period in counts of the 150 MHz bus clock. PHI1 and PHI2 reach the
-// CPU through passive level shifters: a fall is quick, but a rise waits
-// on the 12 V pull-up, so a phase there is narrower than here and its gap
-// wider. The widths are fixed, and only tD2 follows the rate.
+// CPU through a gate driver, up to 40 ns late on either edge, so the
+// phases keep their widths there. PHI1, the gap to PHI2 and the gap after
+// it are fixed, and PHI2 takes the rest of the period. The status and
+// READY windows follow the slowest grade the rate allows: tCY 320 ns for
+// the 8080A-1, 380 ns for the 8080A-2 and 480 ns for the 8080A.
 struct Phases {
     uint16_t n;       // tCY
     uint16_t phi1;    // PHI1 high from 0
     uint16_t on2;     // PHI2 high from here
     uint16_t off2;    // to here
-    // The status is valid tDD (220 ns) after PHI2 rises at the CPU, up
-    // to 60 ns after it rises here; read earlier, D0-D7 still hold the
-    // last cycle's data, which may pass for a write's status.
+    // The status is valid tDD after PHI2 rises at the CPU, up to 40 ns
+    // after it rises here; read earlier, D0-D7 still hold the last
+    // cycle's data, which may pass for a write's status.
     uint16_t status;
-    // READY is sampled as PHI2 falls, 50 ns later at the CPU, with tRS
-    // 120 ns: it changes outside these counts.
+    // READY is sampled as PHI2 falls at the CPU, with tRS before it and
+    // up to 40 ns after it falls here: it changes outside these counts.
     uint16_t holdFrom;
     uint16_t holdTo;
 
-    // A shorter period takes tD2 down to 8 counts first, then PHI2 down
-    // to 30.
-    static constexpr uint16_t phi2Of(uint16_t counts) {
-        return counts >= 15 + 3 + 42 + 8   ? 42
-               : counts >= 15 + 3 + 30 + 8 ? counts - (15 + 3 + 8)
-                                           : 30;
+    static constexpr uint16_t counts(uint32_t ns) {
+        return (ns * 150 + 999) / 1000;
+    }
+    static constexpr uint32_t tDD(uint16_t n) {
+        return n >= counts(480) ? 220 : n >= counts(380) ? 200 : 180;
+    }
+    static constexpr uint32_t tRS(uint16_t n) {
+        return n >= counts(480) ? 120 : 90;
     }
 
-    constexpr Phases(uint16_t counts)
-        : n(counts),
-          phi1(15),     // 100 ns
-          on2(15 + 3),  // 20 ns
-          off2(15 + 3 + phi2Of(counts)),
-          status(15 + 3 + (320 * 150 + 999) / 1000),
-          holdFrom(15 + 3 + phi2Of(counts) - 12),
-          holdTo(15 + 3 + phi2Of(counts) + 12) {}
+    constexpr Phases(uint16_t n)
+        : n(n),
+          phi1(9),     // 60 ns
+          on2(9 + 3),  // 20 ns
+          off2(n - 12),
+          status(9 + 3 + counts(tDD(n) + 40)),
+          holdFrom(n - 12 - counts(tRS(n) - 10)),
+          holdTo(n - 12 + counts(40)) {}
     uint32_t hz() const { return F_BUS_ACTUAL / n; }
 };
 namespace {
@@ -87,26 +91,23 @@ namespace {
 //   tDD: max 220 ns; PHI2+ to data out
 //   tRS: min 120 ns; READY setup to PHI2-
 //    tH: min   0 ns; READY hold from PHI2-
-// PHI1 and PHI2 run free from two FlexPWM submodules, their counters
-// restarted together, and the CPU waits in each cycle with
-// READY low. SYNC starts a cycle, and READY goes low as it rises; the
-// status on D0-D7 is read once valid, before PHI2 of T2. READY goes high
-// once the cycle is served, and stays high until the next SYNC.
+// PHI1 and PHI2 run free from the two outputs of one FlexPWM submodule,
+// and the CPU waits in each cycle with READY low. SYNC starts a cycle,
+// and READY goes low as it rises; the status on D0-D7 is read once
+// valid, before PHI2 of T2. READY goes high once the cycle is served, and
+// stays high until the next SYNC.
 
-// 150 MHz / 60: tCY 400 ns, PHI2 34 counts, about 145 ns at the CPU.
-constexpr Phases phi_phases{60};
+// 150 MHz / 48: tCY 320 ns, PHI1 60 ns, PHI2 160 ns, tD2 80 ns.
+constexpr Phases phi_phases{48};
 // tCY max 2,000 ns.
 constexpr uint32_t phi_min_hz = 500000;
 #ifdef TUNE_CLOCK
 // K may narrow the phases past the CPU's limits, to find where it stops
 // keeping up.
-constexpr uint16_t phi_min_counts = 52;
+constexpr uint16_t phi_min_counts = 40;
 #else
-constexpr uint16_t phi_min_counts = 60;
+constexpr uint16_t phi_min_counts = 48;
 #endif
-// PHI2's counter starts this many counts after PHI1's, the two restart
-// writes apart; measured in a capture.
-constexpr uint16_t phi2_lag = 4;
 // Teensy cycles in a clock period at the slowest rate, so the waits
 // below hold at any rate.
 constexpr uint32_t phi_max_cycles = F_CPU / phi_min_hz;
@@ -265,26 +266,13 @@ uint32_t PinsI8080::phiCycles() const {
     return F_CPU / phases().hz();
 }
 
-// Both phases at the rate, and the two counters restarted together once
-// the rate has loaded, at the end of the period under way: at boot the
-// core's default, about 223 us.
+// Both phases at the rate, from the reload ending the period under way.
 void PinsI8080::setPhases() const {
     const auto &p = phases();
     _phi1.setRate(p.hz());
     _phi2.setRate(p.hz());
     Phi1::setEdges(0, p.phi1);
-    Phi2::setEdges(p.on2 - phi2_lag, p.off2 - phi2_lag);
-    delayMicroseconds(300);
-    const auto now1 = Phi1::restartNow();
-    const auto now2 = Phi2::restartNow();
-    const auto done1 = Phi1::restartDone();
-    const auto done2 = Phi2::restartDone();
-    noInterrupts();
-    Phi1::sm().CTRL2 = now1;
-    Phi2::sm().CTRL2 = now2;
-    interrupts();
-    Phi1::sm().CTRL2 = done1;
-    Phi2::sm().CTRL2 = done2;
+    Phi2::setEdges(p.on2, p.off2);
 }
 
 #ifdef TUNE_CLOCK
@@ -370,7 +358,7 @@ bool PinsI8080::latchCycle(const uint32_t *serviced) const {
             wait_dbin_or_wait(wait_periods * period);
             return true;
         }
-        // The data is due for T3, about 85 ns after DBIN rises at 2.5 MHz.
+        // The data is due for T3, about 50 ns after DBIN rises at 3.125 MHz.
         s->stageData();
         if (wait_level<PIN_DBIN>(HIGH, wait_periods * period)) {
             Signals::driveData();

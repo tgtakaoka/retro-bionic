@@ -53,12 +53,12 @@
 #define CNTL_WR 2     /* CNTL1 */
 #define CNTL_SYNC 4   /* CNTL2 */
 #define CNTL_HLDA 8   /* CNTL3 */
-#define PIN_PHI1 5    /* P9.08 */
+#define PIN_PHI1 28   /* P8.18 */
 #define PIN_PHI2 29   /* P9.31 */
 #define PIN_INT 6     /* P7.10 */
 #define PIN_INTE 9    /* P7.11 */
 #define PIN_HOLD 32   /* P7.12 */
-#define PIN_RESET 28  /* P8.18 */
+#define PIN_RESET 0   /* P6.03 */
 #define PIN_READY 31  /* P8.22 */
 #define PIN_WAIT 30   /* P8.23 */
 
