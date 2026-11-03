@@ -271,6 +271,24 @@ arith:
         call    mulsi2
         call    answer          ; 20000
 
+        ld      a, #HIGH -300
+        ld      a+1, #LOW -300
+        ld      b, #HIGH 100
+        ld      b+1, #LOW 100
+        ld      R0, #'*'
+        call    expr
+        call    mulsi2
+        call    answer          ; -30000
+
+        ld      a, #HIGH 3
+        ld      a+1, #LOW 3
+        ld      b, #HIGH -32768
+        ld      b+1, #LOW -32768
+        ld      R0, #'*'
+        call    expr
+        call    mulsi2
+        call    answer          ; -32768
+
         ld      a, #HIGH -200
         ld      a+1, #LOW -200
         ld      b, #HIGH 100
