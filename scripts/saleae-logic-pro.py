@@ -8,7 +8,8 @@ LogicAnalyzer interface in logic-analyzer.py.
                                    samples/<target>/bench/channels.toml;
                                    fill in each channel's empty pin
   load-sal SAL [SET_NAME]         the same from a saved capture, with its
-                                   trigger and Simple Parallel decoders
+                                   trigger, Simple Parallel decoders and
+                                   analog rows' voltage ranges
   name-sal SAL CHANNELS.toml SET_NAME OUT
                                    copy SAL to OUT with SET_NAME's channel
                                    names, and its Simple Parallel decoders
@@ -17,7 +18,9 @@ LogicAnalyzer interface in logic-analyzer.py.
                                    on its trigger, closing the last one
   save CHANNELS.toml SET_NAME OUT  wait for it, add SET_NAME's Simple
                                    Parallel decoders, save it as OUT, name
-                                   its channels and open OUT in Logic 2
+                                   its channels, scale its analog rows to
+                                   their `analog = [high, low]` volts, and
+                                   open OUT in Logic 2
 
 The preset is read from Logic 2's config file, $BIONIC_LOGIC_CONFIG
 (default ~/.config/Logic/config.json).
@@ -48,6 +51,7 @@ def load_preset_toml(preset, set_name=None):
 
 EDGES = ['rise', 'fall', 'dual']    # Simple Parallel's Clock State values
 ROW_HEIGHT = 50                     # a digital row's height, in pixels
+ANALOG_HEIGHT = 100                 # an analog row's
 
 
 def _sal_meta(path):
@@ -60,15 +64,32 @@ def _digital(row):
     return row.get('type') == 'channel' and ch.get('type') == 'Digital'
 
 
+def _analog(row):
+    ch = row.get('channel', {})
+    return row.get('type') == 'channel' and ch.get('type') == 'Analog'
+
+
 def load_sal_toml(path, set_name):
     """A saved capture's channel names, trigger and Simple Parallel
     decoders, as a TOML table; pins are left for the leads to fill in."""
     data = _sal_meta(path)['data']
+    rows = data.get('rowsSettings', [])
     names = {r['channel']['deviceChannel']: r['name']
-             for r in data.get('rowsSettings', []) if _digital(r) and r.get('name')}
+             for r in rows if _digital(r) and r.get('name')}
+    sampled = {c['index'] for c in data.get('legacySettings', {}).get('enabledChannels', [])
+               if c.get('type') == 'Analog'}
+    analog = {}
+    for r in rows:
+        if _analog(r) and r.get('name') and r['channel']['deviceChannel'] in sampled:
+            ch = r['channel']['deviceChannel']
+            names[ch] = r['name']
+            half = r.get('analogScalePerPixel', 0.2) * r.get('height', ANALOG_HEIGHT) / 2
+            mid = r.get('analogViewportCenterValue', 0)
+            analog[ch] = ', analog = [%g, %g]' % (round(mid + half, 2), round(mid - half, 2))
     lines = ['[%s]' % set_name]
     for ch, name in sorted(names.items()):
-        lines.append('%2d = { pin = "", signal = %s }' % (ch, _toml_string(name)))
+        lines.append('%2d = { pin = "", signal = %s%s }'
+                     % (ch, _toml_string(name), analog.get(ch, '')))
     t = data.get('captureSettings', {}).get('digitalTriggerSettings', {})
     ch = t.get('selectedChannel', {}).get('deviceChannel')
     edge = {'Rising': 'rise', 'Falling': 'fall'}.get(t.get('type', {}).get('name'))
@@ -115,6 +136,7 @@ def name_sal(path, channels_path, set_name, out):
     other entry of the zip is copied byte for byte; path is left as it
     is. No Logic 2 API names channels."""
     names = la.load_channels(channels_path, set_name)
+    analog = la.load_analog(channels_path, set_name)
     _, parallel = la.load_capture(channels_path, set_name)
     with open(channels_path, 'rb') as f:
         display = tomllib.load(f).get(set_name, {}).get('display', [])
@@ -123,12 +145,24 @@ def name_sal(path, channels_path, set_name, out):
     data = meta['data']
     rows = data.get('rowsSettings', [])
     for r in rows:
-        if _digital(r):
-            r['name'] = names.get(r['channel']['deviceChannel'], r.get('name', ''))
+        ch = r.get('channel', {}).get('deviceChannel')
+        if _digital(r) and ch not in analog:
+            r['name'] = names.get(ch, r.get('name', ''))
             r['height'] = ROW_HEIGHT
-    digital = sorted((r for r in rows if _digital(r)),
-                     key=lambda r: (rank.get(r['name'], len(rank)), r['channel']['deviceChannel']))
-    data['rowsSettings'] = digital + [r for r in rows if not _digital(r)]
+        elif _analog(r) and ch in analog:
+            high, low = analog[ch]
+            r['name'] = names[ch]
+            r['height'] = ANALOG_HEIGHT
+            r['analogScalePerPixel'] = (high - low) / ANALOG_HEIGHT
+            r['analogViewportCenterValue'] = (high + low) / 2
+            r['isMarkedHidden'] = False
+
+    def shown(r):
+        ch = r.get('channel', {}).get('deviceChannel')
+        return (_digital(r) and ch not in analog) or (_analog(r) and ch in analog)
+    named = sorted((r for r in rows if shown(r)),
+                   key=lambda r: (rank.get(r['name'], len(rank)), r['channel']['deviceChannel']))
+    data['rowsSettings'] = named + [r for r in rows if not shown(r)]
     if not data.get('analyzers'):
         data['analyzers'] = [_parallel_analyzer(n, *p) for n, p in enumerate(parallel)]
     with zipfile.ZipFile(path) as src, zipfile.ZipFile(out, 'w', zipfile.ZIP_DEFLATED) as dst:

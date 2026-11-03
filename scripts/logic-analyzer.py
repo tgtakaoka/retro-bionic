@@ -9,7 +9,9 @@ on any particular analyzer's own preset format at report time.
     logic-analyzer.py CHANNELS.toml SET_NAME
 
 exports the capture the last start_capture() left open that way and
-prints the CSV's path. A capture keeps at most MAX_WINDOW seconds, and
+prints the CSV's path. A channel is sampled digital unless its entry has
+`analog = [high, low]`, the volts its row spans; analog channels go to
+analog.csv beside digital.csv. A capture keeps at most MAX_WINDOW seconds, and
 one that never triggers is stopped and never exported: an untriggered
 capture's export once filled the disk.
 Environment: BIONIC_RUN_DIR (default /tmp/bionic-bench) for exported
@@ -36,6 +38,9 @@ MAX_WINDOW = 10e-3
 LONG_WINDOW = 40e-3
 # How long finish_capture() waits for the trigger, in seconds.
 TRIGGER_WAIT = 60
+# Sample rates with analog channels: the Logic Pro 16 takes 50 MS/s
+# analog beside 125 MS/s digital for 14 digital and 2 analog channels.
+ANALOG_RATES = (125000000, 50000000)
 bench = SourceFileLoader('bench', os.path.join(os.path.dirname(
         os.path.abspath(__file__)), 'bionic-bench.py')).load_module()
 
@@ -69,6 +74,13 @@ def load_channels(path, name):
     return {ch: lead['signal'] for ch, lead in load_leads(path, name).items()}
 
 
+def load_analog(path, name):
+    """{channel index: (high, low) volts} of the [name] table's channels
+    sampled analog."""
+    return {ch: tuple(lead['analog']) for ch, lead in load_leads(path, name).items()
+            if 'analog' in lead}
+
+
 def load_capture(path, name):
     """The [name] table's capture settings by channel index: its trigger,
     a dict of start_capture() arguments or None, and its Simple Parallel
@@ -87,6 +99,7 @@ def load_capture(path, name):
         trigger.update({k: t[k] for k in ('before', 'after') if k in t})
         if t.get('long'):
             trigger['limit'] = LONG_WINDOW
+        trigger['analog'] = sorted(load_analog(path, name))
     parallel = [([index[d] for d in p['data']], index[p['clock']], p.get('edge', 'rise'))
                 for p in table.get('parallel', [])]
     return trigger, parallel
@@ -94,6 +107,8 @@ def load_capture(path, name):
 
 def _relabel(path, channels):
     """Rewrite `Channel N` header columns in a captured CSV in place."""
+    if not os.path.exists(path):
+        return
     rows = list(csv.reader(open(path)))
     header = [channels.get(int(c.split()[-1]), c) if c.startswith('Channel ') else c
               for c in rows[0]]
@@ -157,16 +172,22 @@ class SaleaeLogicPro16(LogicAnalyzer):
         opened = self._open()
         if opened is None:
             sys.exit('no capture left open by start_capture')
-        path = self._export(opened['id'], opened['channels'], directory)
-        _relabel(path, load_channels(channels_path, set_name))
+        path = self._export(opened['id'], opened['channels'], directory,
+                            opened.get('analog', []))
+        names = load_channels(channels_path, set_name)
+        _relabel(path, names)
+        _relabel(os.path.join(directory, 'analog.csv'), names)
         print('capture id %d -> %s' % (opened['id'], path))
         return path
 
-    def _export(self, handle, channels, directory):
+    def _export(self, handle, channels, directory, analog=()):
         shutil.rmtree(directory, ignore_errors=True)
+        chosen = {'digitalChannels': channels}
+        if analog:
+            chosen['analogChannels'] = list(analog)
         self._call('export_raw_data_csv', {
             'captureId': handle, 'directory': directory, 'analogDownsampleRatio': 1,
-            'logicChannels': {'digitalChannels': channels}})
+            'logicChannels': chosen})
         return os.path.join(directory, 'digital.csv')
 
     def _call(self, name, args, timeout=120):
@@ -181,8 +202,8 @@ class SaleaeLogicPro16(LogicAnalyzer):
             raise RuntimeError('%s: %s' % (name, text[:300]))
         return text
 
-    # The capture left open, {"id": n, "channels": [...]}, so the next
-    # start can close it and an export knows what to take.
+    # The capture left open, {"id": n, "channels": [...], "analog": [...]},
+    # so the next start can close it and an export knows what to take.
     OPEN_ID = os.path.join(RUN_DIR, 'logic-open-capture.json')
 
     def _open(self):
@@ -203,16 +224,19 @@ class SaleaeLogicPro16(LogicAnalyzer):
 
     def start_capture(self, channels, trigger, edge='rise', before=20e-6,
                       after=200e-6, glitch=None, linked=(), min_width=None,
-                      max_width=None, limit=MAX_WINDOW):
+                      max_width=None, limit=MAX_WINDOW, analog=()):
         analyzer()
         if before + after > min(limit, LONG_WINDOW):
             raise RuntimeError('start_capture: %g s window over the %g s limit'
                                % (before + after, min(limit, LONG_WINDOW)))
         self._close_open()
         # The 3.3V threshold: the default one reads ringing as extra pulses.
+        digital = (set(channels) - set(analog)) | {trigger} | {ch for ch, _ in linked}
         device = {'digitalSampleRate': 100000000, 'digitalThresholdVolts': 3.3,
-                  'logicChannels': {'digitalChannels': sorted(
-                      set(channels) | {trigger} | {ch for ch, _ in linked})}}
+                  'logicChannels': {'digitalChannels': sorted(digital)}}
+        if analog:
+            device['digitalSampleRate'], device['analogSampleRate'] = ANALOG_RATES
+            device['logicChannels']['analogChannels'] = sorted(analog)
         if glitch:
             device['glitchFilters'] = [{'channelIndex': trigger, 'pulseWidthSeconds': glitch}]
         mode = {'triggerChannelIndex': trigger,
@@ -235,7 +259,8 @@ class SaleaeLogicPro16(LogicAnalyzer):
         handle = int(m.group(1))
         with open(self.OPEN_ID, 'w') as f:
             json.dump({'id': handle,
-                       'channels': device['logicChannels']['digitalChannels']}, f)
+                       'channels': device['logicChannels']['digitalChannels'],
+                       'analog': sorted(analog)}, f)
         return handle
 
     def wait_capture(self, handle):
@@ -273,7 +298,8 @@ class SaleaeLogicPro16(LogicAnalyzer):
         m = re.search(r'captureId\\*"?\s*:\s*(\d+)', text)
         if m and opened:
             with open(self.OPEN_ID, 'w') as f:
-                json.dump({'id': int(m.group(1)), 'channels': opened['channels']}, f)
+                json.dump({'id': int(m.group(1)), 'channels': opened['channels'],
+                           'analog': opened.get('analog', [])}, f)
 
     def finish_capture(self, handle, directory):
         self.wait_capture(handle)
@@ -281,7 +307,7 @@ class SaleaeLogicPro16(LogicAnalyzer):
         channels = opened['channels'] if opened and opened['id'] == handle else None
         if channels is None:
             raise RuntimeError('finish_capture: capture %d not the one left open' % handle)
-        return self._export(handle, channels, directory)
+        return self._export(handle, channels, directory, opened.get('analog', []))
 
     def preset_channels(self, preset):
         """Channel names from a Logic 2 preset, as {channel index: name}.
