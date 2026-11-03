@@ -182,6 +182,20 @@ arith:
         call    mul16          ; Rd=Rd*Rs
         call    answer         ; 20000
 
+        movw    #-300, vA
+        movw    #100, vB
+        mov     #'*', A
+        call    expr
+        call    mul16          ; Rd=Rd*Rs
+        call    answer         ; -30000
+
+        movw    #3, vA
+        movw    #-32768, vB
+        mov     #'*', A
+        call    expr
+        call    mul16          ; Rd=Rd*Rs
+        call    answer         ; -32768
+
         movw    #30000, vA
         movw    #100, vB
         mov     #'/', A

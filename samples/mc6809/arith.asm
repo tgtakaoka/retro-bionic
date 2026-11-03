@@ -188,6 +188,20 @@ arith:
         jsr     mul16           ; D=X*U
         jsr     answer          ; 20000
 
+        ldx     #-300
+        ldu     #100
+        lda     #'*'
+        jsr     expr
+        jsr     mul16           ; D=X*U
+        jsr     answer          ; -30000
+
+        ldx     #3
+        ldu     #-32768
+        lda     #'*'
+        jsr     expr
+        jsr     mul16           ; D=X*U
+        jsr     answer          ; -32768
+
         ldx     #30000
         ldu     #100
         lda     #'/'

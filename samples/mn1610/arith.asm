@@ -253,6 +253,28 @@ arith:
         bal     (I_mul16)
         bal     (I_answer)      ; 20000
 
+        mvi     R1, hi(-300)
+        bswp    R1, R1
+        mvi     R1, lo(-300)
+        mvi     R2, hi(100)
+        bswp    R2, R2
+        mvi     R2, lo(100)
+        mvi     R0, '*'
+        bal     (I_expr)
+        bal     (I_mul16)
+        bal     (I_answer)      ; -30000
+
+        mvi     R1, hi(3)
+        bswp    R1, R1
+        mvi     R1, lo(3)
+        mvi     R2, hi(-32768)
+        bswp    R2, R2
+        mvi     R2, lo(-32768)
+        mvi     R0, '*'
+        bal     (I_expr)
+        bal     (I_mul16)
+        bal     (I_answer)      ; -32768
+
         mvi     R1, hi(30000)
         bswp    R1, R1
         mvi     R1, lo(30000)

@@ -261,6 +261,22 @@ arith:
         call    answer         ; 20000
 
         call    expr
+        .word   -300
+        .word   100
+        .word   '*'
+        mpy     vB
+        pac
+        call    answer         ; -30000
+
+        call    expr
+        .word   3
+        .word   -32768
+        .word   '*'
+        mpy     vB
+        pac
+        call    answer         ; -32768
+
+        call    expr
         .word   30000
         .word   100
         .word   '/'

@@ -188,6 +188,22 @@ arith:
         mpys    R1
         blsk    R10, answer         ; 20000
 
+        li      R1, -300
+        li      R2, 100
+        li      R0, hibyte('*')
+        blsk    R10, expr
+        mov     R2, R0
+        mpys    R1
+        blsk    R10, answer         ; -30000
+
+        li      R1, 3
+        li      R2, -32768
+        li      R0, hibyte('*')
+        blsk    R10, expr
+        mov     R2, R0
+        mpys    R1
+        blsk    R10, answer         ; -32768
+
         li      R1, 30000
         li      R2, 100
         li      R0, hibyte('/')
