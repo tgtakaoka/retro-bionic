@@ -487,6 +487,34 @@ arith:
 
         sep     R5
         dc      A(set_R7)
+        dc      A(-300)         ; vA=-300
+        sep     R5
+        dc      A(set_R8)
+        dc      A(100)          ; vB=100
+        ldi     T'*'
+        sep     R5
+        dc      A(expr)
+        sep     R5              ; vA*=vB
+        dc      A(mul16)
+        sep     R5
+        dc      A(answer)       ; -30000
+
+        sep     R5
+        dc      A(set_R7)
+        dc      A(3)            ; vA=3
+        sep     R5
+        dc      A(set_R8)
+        dc      A(-32768)       ; vB=-32768
+        ldi     T'*'
+        sep     R5
+        dc      A(expr)
+        sep     R5              ; vA*=vB
+        dc      A(mul16)
+        sep     R5
+        dc      A(answer)       ; -32768
+
+        sep     R5
+        dc      A(set_R7)
         dc      A(30000)        ; vA=30000
         sep     R5
         dc      A(set_R8)
