@@ -38,11 +38,22 @@ print_uint16_zero:
 print_uint16_end:
         rts
 
+;;; Multiply; result = multiplicand * multiplier
+;;; Signed and unsigned products share the low 16 bits.
+;;; @param D multiplicand
+;;; @param X multiplier
+;;; @return D result
+;;; @clobber R0 R1 R2
+mul16:
+        std     R1
+        stx     R2
+                                ; fall through to umul16
+
 ;;; Unsigned multiplication: result = multiplicand * multiplier
 ;;; @param R1 multiplicand
 ;;; @param R2 multiplier
 ;;; @return R0 result
-;;; @clobber D
+;;; @return D result
 umul16:
         ldaa    R1L
         ldab    R2L
@@ -62,46 +73,7 @@ umul16_high:
         addb    R0H
         stab    R0H
 umul16_end:
-        rts
-
-;;; Signed multiplication: result = multiplicand * multiplier
-;;; @param D multiplicand
-;;; @param X multiplier
-;;; @return D result
-;;; @clobber R0 R1 R2
-mul16:
-        std     R1
-        beq     mul16_end       ; branch if multiplicand == 0
-        stx     R2
-        beq     mul16_zero      ; branch if multiplier == 0
-        eora    R2H
-        staa    sign            ; save hi(multiplicand^multiplier)
-        ldd     R2
-        bpl     mul16_multiplicand
-        coma
-        comb
-        addd    #1              ; negate multiplier
-        std     R2
-mul16_multiplicand:
-        ldd     R1
-        bpl     mul16_multiply
-        coma
-        comb
-        addd    #1              ; negate multiplicand
-        std     R1
-mul16_multiply:
-        bsr     umul16          ; R0=result
         ldd     R0
-        tst     sign            ; sign(result)
-        bpl     mul16_end
-        coma
-        comb
-        addd    #1              ; negate result
-mul16_end:
-        rts
-mul16_zero:
-        clra
-        clrb
         rts
 
 ;;; Unsigned division: dividend / divisor = quotient ... remainder
