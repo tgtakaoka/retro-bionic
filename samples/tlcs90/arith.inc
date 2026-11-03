@@ -38,11 +38,13 @@ print_uint16_zero:
         ld      A, '0'
         jp      putchar
 
-;;; Unsigned multiplication; product = multiplicand * multiplier
+;;; Multiply; product = multiplicand * multiplier
+;;; Signed and unsigned products share the low 16 bits.
 ;;; @param BC multiplicand
 ;;; @param DE multiplier
 ;;; @return HL product
-;;; @clobber BC DE HL A
+;;; @clobber A BC DE
+mul16:
 umul16:
         ld      L, B            ; L=high(multiplicand)
         mul     HL, E           ; HL=high(multiplicand)*low(multiplier)
@@ -57,38 +59,6 @@ umul16:
         add     A, E
         add     A, B
         ld      H, A            ; add cross terms to high(product)
-        ret
-
-
-;;; Signed multiplication; result = multiplicand * multiplier
-;;; @param BC multiplicand
-;;; @param DE multiplier
-;;; @return HL result
-;;; @clobber A BC DE
-mul16:
-        ld      A, B
-        xor     A, D
-        push    AF              ; push high(multiplicand^multiplier)
-        bit     7, B
-        jr      Z, mul16_abs_multiplicand
-        ld      HL, BC
-        xor     HL, 0FFFFH
-        inc     HL
-        ld      BC, HL          ; multiplicand = -multiplicand
-mul16_abs_multiplicand:
-        bit     7, D
-        jr      Z, mul16_multiply
-        ld      HL, DE
-        xor     HL, 0FFFFH
-        inc     HL
-        ld      DE, HL          ; multiplier = -multiplier
-mul16_multiply:
-        call    umul16          ; HL = multiplicand * multiplier
-        pop     AF              ; A=sign
-        bit     7, A
-        ret     Z
-        xor     HL, 0FFFFH
-        inc     HL              ; result = -result
         ret
 
 ;;; Unsigned division; dividend / divisor = quotient ... remainder
