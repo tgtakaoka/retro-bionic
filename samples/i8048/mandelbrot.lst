@@ -842,59 +842,45 @@
 (1)     3B0 :                    ;;; @param R2: &multiplicand
 (1)     3B0 :                    ;;; @param R3: &multiplier
 (1)     3B0 :                    ;;; @clobber A R0 R2 R3 R4 R5 R6 R7
+(1)     3B0 :                    ;;; A 16-bit product is the same signed or unsigned; a negative
+(1)     3B0 :                    ;;; multiplier is negated only to shorten the loop.
 (1)     3B0 :                    mulsi2:
 (1)     3B0 : FA                         mov     A, R2
 (1)     3B1 : C9                         dec     R1
 (1)     3B2 : 91                         movx    @R1, A          ; save &multiplicand
 (1)     3B3 : FB                         mov     A, R3
-(1)     3B4 : C9                         dec     R1
-(1)     3B5 : 91                         movx    @R1, A          ; save &multiplier
-(1)     3B6 : A8                         mov     R0, A           ; R0=&multiplier
-(1)     3B7 : F0                         mov     A, @R0
-(1)     3B8 : AC                         mov     R4, A
-(1)     3B9 : 18                         inc     R0
-(1)     3BA : F0                         mov     A, @R0
-(1)     3BB : AD                         mov     R5, A           ; R5:R4=multiplier
-(1)     3BC : 37                         cpl     A
-(1)     3BD : F2 C1                      jb      7, mulsi2_multiplicand
-(1)     3BF : 74 0B                      call    neg_R5R4
-(1)     3C1 :                    mulsi2_multiplicand:
-(1)     3C1 : FA                         mov     A, R2
-(1)     3C2 : A8                         mov     R0, A           ; R0=&multiplicand
-(1)     3C3 : F0                         mov     A, @R0
-(1)     3C4 : AA                         mov     R2, A
-(1)     3C5 : 18                         inc     R0
-(1)     3C6 : F0                         mov     A, @R0
-(1)     3C7 : AB                         mov     R3, A
-(1)     3C8 : 37                         cpl     A
-(1)     3C9 : F2 CD                      jb      7, mulsi2_multiply
-(1)     3CB : 74 00                      call    neg_R3R2
-(1)     3CD :                    mulsi2_multiply:
-(1)     3CD : 74 7E                      call    umul16
-(1)     3CF : 81                         movx    A, @R1
-(1)     3D0 : 19                         inc     R1
-(1)     3D1 : A8                         mov     R0, A           ; R0=&multiplier
-(1)     3D2 : 18                         inc     R0
-(1)     3D3 : F0                         mov     A, @R0          ; A=hi(multiplier)
-(1)     3D4 : AD                         mov     R5, A           ; R5=hi(multiplier)
-(1)     3D5 : 81                         movx    A, @R1
-(1)     3D6 : 19                         inc     R1
-(1)     3D7 : A8                         mov     R0, A           ; R0=&multiplicand
-(1)     3D8 : 18                         inc     R0
-(1)     3D9 : F0                         mov     A, @R0          ; A=hi(multiplicand)
-(1)     3DA : DD                         xrl     A, R5           ; A=hi(multiplicand^multiplier)
-(1)     3DB : 37                         cpl     A
-(1)     3DC : F2 E0                      jb      7, mulsi2_store
-(1)     3DE : 74 00                      call    neg_R3R2
-(1)     3E0 :                    mulsi2_store:
-(1)     3E0 : FB                         mov     A, R3
-(1)     3E1 : A0                         mov     @R0, A
-(1)     3E2 : C8                         dec     R0
-(1)     3E3 : FA                         mov     A, R2
-(1)     3E4 : A0                         mov     @R0, A
-(1)     3E5 : 83                         ret
-(1)     3E6 :
-(1)     3E6 :                    ;;; Conditional jumps stay in their page, so udiv16 starts one.
+(1)     3B4 : A8                         mov     R0, A           ; R0=&multiplier
+(1)     3B5 : F0                         mov     A, @R0
+(1)     3B6 : AC                         mov     R4, A
+(1)     3B7 : 18                         inc     R0
+(1)     3B8 : F0                         mov     A, @R0
+(1)     3B9 : AD                         mov     R5, A           ; R5:R4=multiplier
+(1)     3BA : FA                         mov     A, R2
+(1)     3BB : A8                         mov     R0, A           ; R0=&multiplicand
+(1)     3BC : F0                         mov     A, @R0
+(1)     3BD : AA                         mov     R2, A
+(1)     3BE : 18                         inc     R0
+(1)     3BF : F0                         mov     A, @R0
+(1)     3C0 : AB                         mov     R3, A           ; R3:R2=multiplicand
+(1)     3C1 : FD                         mov     A, R5
+(1)     3C2 : 37                         cpl     A
+(1)     3C3 : F2 C9                      jb      7, mulsi2_multiply ; branch if multiplier >= 0
+(1)     3C5 : 74 0B                      call    neg_R5R4        ; negate multiplier
+(1)     3C7 : 74 00                      call    neg_R3R2        ; negate multiplicand
+(1)     3C9 :                    mulsi2_multiply:
+(1)     3C9 : 74 7E                      call    umul16
+(1)     3CB : 81                         movx    A, @R1
+(1)     3CC : 19                         inc     R1
+(1)     3CD : A8                         mov     R0, A           ; R0=&multiplicand
+(1)     3CE : 18                         inc     R0
+(1)     3CF : FB                         mov     A, R3
+(1)     3D0 : A0                         mov     @R0, A
+(1)     3D1 : C8                         dec     R0
+(1)     3D2 : FA                         mov     A, R2
+(1)     3D3 : A0                         mov     @R0, A
+(1)     3D4 : 83                         ret
+(1)     3D5 :
+(1)     3D5 :                    ;;; Conditional jumps stay in their page, so udiv16 starts one.
 (1)     400 :                            org     ($ + 0FFH) & 0FF00H
 (1)     400 :
 (1)     400 :                    ;;; Unsigned division: dividend / divisor = quotient ... remainder
