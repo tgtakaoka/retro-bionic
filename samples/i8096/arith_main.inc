@@ -179,6 +179,20 @@ arith:
         mul     HL, DE
         scall   answer          ; 20000
 
+        ld      HL, #-300
+        ld      DE, #100
+        ldb     A, #'*'
+        scall   expr
+        mul     HL, DE
+        scall   answer          ; -30000
+
+        ld      HL, #3
+        ld      DE, #-32768
+        ldb     A, #'*'
+        scall   expr
+        mul     HL, DE
+        scall   answer          ; -32768
+
         ld      HL, #30000
         ld      DE, #100
         ldb     A, #'/'
