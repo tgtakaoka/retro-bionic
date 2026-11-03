@@ -14,8 +14,6 @@ struct Signals final : SignalsBase<Signals> {
     void getAddr24();
     void getData();
     void outData() const;
-    void stageData() const;
-    static void driveData();
     static void inputMode();
     void print() const;
 

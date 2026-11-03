@@ -311,10 +311,7 @@ the INS8060 and INS8070 on XIN (pin 5), the 8085 on X1 (pin 6), and
 the P8086 and D8087 boards' x86 and 8087 on CLK (pin 29), since their
 clock must not stop. The SCN2650
 is static, but runs from it on CLOCK (pin 5) too: the timer paces the
-cycles, where bit-banged edges needed a tuned delay for each. On the 6502
-board (rev 11) the CMOS parts run from it on PHI0 (P47) once reset has
-told the parts apart bit-banged; the NMOS 6502 ignores RDY on writes, so
-it stays bit-banged.
+cycles, where bit-banged edges needed a tuned delay for each.
 
 - Hold a bus cycle with the CPU's wait input (`#DSACK`, READY, `#OPACK`,
   `#HOLD`) instead of stopping the clock: withhold it until the cycle is
@@ -349,9 +346,6 @@ it stays bit-banged.
   TMS9980 takes `READY` up to 2tw+10 after the `#PHI3` rise, so raised
   just after a rise it is seen a clock early and the next cycle ends
   unserved. Measure where each change lands in a capture.
-- A CPU with no clock output takes its phase from the PWM counter: a
-  `count()` below the duty's count is the high half. The W65C816S does,
-  its PHI2 being the PWM itself; the 65C02s read PHI2O, which lags PHI0.
 - With the clock free-running, every read of the bus must follow the
   strobe or clock edge that makes it valid; one taken whenever, as a
   stopped clock allowed, catches the address changing. The 8086's write
@@ -1361,16 +1355,6 @@ constructor, and some targets build `_regs` before `_mems`.
 through `Pins`, because `Pins::_mems` is protected and only `Target` is a
 friend. Follow that pattern when a `Regs` needs memory, swapping the
 construction order first where `_regs` comes first. **[code]**
-
-**RDY under a free-running PHI0.** The parts disagree on where RDY is
-sampled: the W65Cxx at the PHI2 fall, the G65SC02 through phi1, the
-R65C02 through phi2, and the NMOS 6502 and UM6502 ignore it on writes.
-Changing RDY only early in PHI2 low satisfies all the CMOS parts: released
-there, the cycle ends at the next fall; asserted there, after tPCH, it
-holds the cycle that fall began. Drive RDY push-pull: through the base
-board's TXS0108E an open-drain rise takes 87-352 ns, a push-pull edge
-about 4 ns. A W65Cxx WAI pulls RDY low itself and will not stop while RDY
-is forced high, so under the PWM it runs as a no-op. **[doc]**
 
 ### F3850
 
