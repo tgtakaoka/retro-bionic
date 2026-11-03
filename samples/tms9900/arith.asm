@@ -196,6 +196,20 @@ arith:
         bl      @mul16
         bl      @answer         ; 20000
 
+        li      R1, -300
+        li      R2, 100
+        li      R0, hibyte('*')
+        bl      @expr
+        bl      @mul16
+        bl      @answer         ; -30000
+
+        li      R1, 3
+        li      R2, -32768
+        li      R0, hibyte('*')
+        bl      @expr
+        bl      @mul16
+        bl      @answer         ; -32768
+
         li      R1, 30000
         li      R2, 100
         li      R0, hibyte('/')

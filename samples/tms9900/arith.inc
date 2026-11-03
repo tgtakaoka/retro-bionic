@@ -50,18 +50,12 @@ print_uint16_return:
 
         *** Multiply
         *** R1 * R2 = R1
-        *** @clobber R0 R2
+        *** Signed and unsigned products share the low 16 bits.
+        *** @clobber R0
 mul16:
+umul16:
         mov     R2, R0
-        xor     R1, R2          R2=multiplicand^multiplier
-        abs     R0
-        abs     R1
         mpy     R1, R0          R0:R1=R0*R1
-        li      R0, >8000
-        szc     R2, R0          R0=0 if signs differ
-        jne     mul16_return
-        neg     R1
-mul16_return:
         rt
 
         *** Divide by positive divisor
