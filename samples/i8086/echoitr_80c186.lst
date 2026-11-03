@@ -1,0 +1,411 @@
+          0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+          0 :                    ;;; On the BionicN80C186/N80C187 boards: INT0 in cascade mode, and an
+          0 :                    ;;; End Of Interrupt after each handler.
+          0 :                            cpu     80186
+          0 :                            include "usart.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :                    ;;; i8251 Universal Synchronous/Asynchronous Receiver/Transmitter
+(1)       0 : =40                USART:          equ     40H
+(1)       0 : =40                USARTD:         equ     USART+0 ; Receive/Transmit data
+(1)       0 : =41                USARTS:         equ     USART+1 ; Status register
+(1)       0 : =41                USARTC:         equ     USART+1 ; Control register
+(1)       0 : =42                USARTRV:        equ     USART+2 ; Receive interrupt type
+(1)       0 : =43                USARTTV:        equ     USART+3 ; Transmit interrupt type
+(1)       0 :                            include "../i8080/i8251.inc"
+(2)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(2)       0 :
+(2)       0 :                    ;;; i8251 USART device emulator.
+(2)       0 :                    ;;; Bit definition of mode instruction (asynchronous)
+(2)       0 : =6                 MODE_STOP_gp:   equ     6
+(2)       0 : =C0                MODE_STOP_gm:   equ     11000000B
+(2)       0 : =40                MODE_STOP1_gc:  equ     (1 << MODE_STOP_gp)
+(2)       0 : =80                MODE_STOP15_gc: equ     (2 << MODE_STOP_gp)
+(2)       0 : =C0                MODE_STOP2_gc:  equ     (3 << MODE_STOP_gp)
+(2)       0 : =20                MODE_EVEN_bm:   equ     00100000B   ; Even parity
+(2)       0 : =10                MODE_PARITY_bm: equ     00010000B   ; Parity enable
+(2)       0 : =2                 MODE_LEN_gp:    equ     2
+(2)       0 : =C                 MODE_LEN_gm:    equ     00001100B
+(2)       0 : =0                 MODE_LEN5_gc:   equ     (0 << MODE_LEN_gp)
+(2)       0 : =4                 MODE_LEN6_gc:   equ     (1 << MODE_LEN_gp)
+(2)       0 : =8                 MODE_LEN7_gc:   equ     (2 << MODE_LEN_gp)
+(2)       0 : =C                 MODE_LEN8_gc:   equ     (3 << MODE_LEN_gp)
+(2)       0 : =0                 MODE_BAUD_gp:   equ     0
+(2)       0 : =3                 MODE_BAUD_gm:   equ     00000011B
+(2)       0 : =1                 MODE_BAUD_X1:   equ     (1 << MODE_BAUD_gp)
+(2)       0 : =2                 MODE_BAUD_X16:  equ (2 << MODE_BAUD_gp)
+(2)       0 : =3                 MODE_BAUD_X64:  equ (3 << MODE_BAUD_gp)
+(2)       0 :                    ;;; Bit Definition of command register
+(2)       0 : =80                CMD_EH_bm:      equ     10000000B   ; Enter hunt mode
+(2)       0 : =40                CMD_IR_bm:      equ     01000000B   ; Internal Reset
+(2)       0 : =20                CMD_RTS_bm:     equ     00100000B   ; Request To Send
+(2)       0 : =10                CMD_ER_bm:      equ     00010000B   ; Error Reset
+(2)       0 : =8                 CMD_SBRK_bm:    equ     00001000B   ; Send Break
+(2)       0 : =4                 CMD_RxEN_bm:    equ     00000100B   ; Receive Enable
+(2)       0 : =2                 CMD_DTR_bm:     equ     00000010B   ; Data Terminal Ready
+(2)       0 : =1                 CMD_TxEN_bm:    equ     00000001B   ; Transmit enable
+(2)       0 :
+(2)       0 :                    ;;; Bit definition of status register
+(2)       0 : =80                ST_DSR_bm:      equ     10000000B   ; Data Set Ready
+(2)       0 : =40                ST_BRK_bm:      equ     01000000B   ; BREAK detected
+(2)       0 : =20                ST_FE_bm:       equ     00100000B   ; Framing Error
+(2)       0 : =10                ST_OE_bm:       equ     00010000B   ; Overrun Error
+(2)       0 : =8                 ST_PE_bm:       equ     00001000B   ; Parity Error
+(2)       0 : =4                 ST_TxEMPTY_bm:  equ     00000100B   ; Transmitter empty
+(2)       0 : =2                 ST_RxRDY_bm:    equ     00000010B   ; Receiver ready
+(2)       0 : =1                 ST_TxRDY_bm:    equ     00000001B   ; Transmitter ready
+(1)       0 :                    ;;; Async 1stop 8data x16
+(1)       0 : =4E                ASYNC_MODE:     equ     MODE_STOP1_gc|MODE_LEN8_gc|MODE_BAUD_X16
+(1)       0 :                    ;;; RTS/DTR, error reset, Rx enable, Tx enable
+(1)       0 : =37                RX_EN_TX_EN:    equ     CMD_RTS_bm|CMD_DTR_bm|CMD_ER_bm|CMD_RxEN_bm|CMD_TxEN_bm
+(1)       0 : =36                RX_EN_TX_DIS:   equ     CMD_RTS_bm|CMD_DTR_bm|CMD_ER_bm|CMD_RxEN_bm
+(1)       0 :
+(1)       0 :                    ;;; Interrupt types the USART answers INTA with; the debugger owns
+(1)       0 :                    ;;; types 1-3.
+(1)       0 : =20                VEC_RX:         equ     20H
+(1)       0 : =21                VEC_TX:         equ     21H
+          0 :
+         80 :                            org     VEC_RX*4
+         80 : 60 11 00 00                dw      isr_rx_eoi, 0
+         84 : 68 11 00 00                dw      isr_tx_eoi, 0
+         88 :
+       1000 :                            org     1000H
+       1000 : =1000              stack:  equ     $
+       1000 :
+       1000 :                    init:
+       1000 : 31 C0                      xor     ax, ax
+       1002 : 8E D8                      mov     ds, ax
+       1004 : 8E D0                      mov     ss, ax
+       1006 : BC 00 10                   mov     sp, stack
+       1009 : E8 62 00                   call    init_io
+       100C : E8 61 01                   call    init_icu
+       100F : FB                         sti
+       1010 :
+       1010 :                            include "echoitr.inc"
+(1)    1010 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)    1010 :                    ;;; Print each character received as "<char> 0xXX 0bXXXXXXXX", through
+(1)    1010 :                    ;;; the interrupt console of io.inc. NUL halts.
+(1)    1010 :                    receive_loop:
+(1)    1010 : E8 79 00                   call    getchar
+(1)    1013 : 73 FB                      jnc     receive_loop
+(1)    1015 : 08 C0                      or      al, al
+(1)    1017 : 74 16                      jz      halt_to_system
+(1)    1019 :                    echo_back:
+(1)    1019 : 88 C2                      mov     dl, al          ; save character
+(1)    101B : E8 7A 00                   call    putchar         ; echo
+(1)    101E : E8 93 00                   call    putspace
+(1)    1021 : E8 0C 00                   call    put_hex8        ; print in hex
+(1)    1024 : E8 8D 00                   call    putspace
+(1)    1027 : E8 27 00                   call    put_bin8        ; print in binary
+(1)    102A : E8 7E 00                   call    newline
+(1)    102D : EB E1                      jmp     receive_loop
+(1)    102F :                    halt_to_system:
+(1)    102F : F4                         hlt
+(1)    1030 :
+(1)    1030 :                    ;;; Print uint8_t in hex
+(1)    1030 :                    ;;; @param DL uint8_t value to be printed in hex.
+(1)    1030 :                    ;;; @clobber AL CL
+(1)    1030 :                    put_hex8:
+(1)    1030 : B0 30                      mov     al, '0'
+(1)    1032 : E8 63 00                   call    putchar
+(1)    1035 : B0 78                      mov     al, 'x'
+(1)    1037 : E8 5E 00                   call    putchar
+(1)    103A : 88 D0                      mov     al, dl
+(1)    103C : B1 04                      mov     cl, 4
+(1)    103E : D2 E8                      shr     al, cl
+(1)    1040 : E8 02 00                   call    put_hex4
+(1)    1043 : 88 D0                      mov     al, dl
+(1)    1045 :                    put_hex4:
+(1)    1045 : 24 0F                      and     al, 0FH
+(1)    1047 : 3C 0A                      cmp     al, 10
+(1)    1049 : 72 02                      jb      put_hex4_digit
+(1)    104B : 04 07                      add     al, 'A'-'0'-10
+(1)    104D :                    put_hex4_digit:
+(1)    104D : 04 30                      add     al, '0'
+(1)    104F : EB 47                      jmp     putchar
+(1)    1051 :
+(1)    1051 :                    ;;; Print uint8_t in binary
+(1)    1051 :                    ;;; @param DL uint8_t value to be printed in binary.
+(1)    1051 :                    ;;; @clobber AL CX DH
+(1)    1051 :                    put_bin8:
+(1)    1051 : B0 30                      mov     al, '0'
+(1)    1053 : E8 42 00                   call    putchar
+(1)    1056 : B0 62                      mov     al, 'b'
+(1)    1058 : E8 3D 00                   call    putchar
+(1)    105B : 88 D6                      mov     dh, dl
+(1)    105D : B9 08 00                   mov     cx, 8
+(1)    1060 :                    put_bin8_loop:
+(1)    1060 : B0 30                      mov     al, '0'
+(1)    1062 : D0 E6                      shl     dh, 1           ; F.C=MSB
+(1)    1064 : 73 02                      jnc     put_bin8_bit
+(1)    1066 : FE C0                      inc     al
+(1)    1068 :                    put_bin8_bit:
+(1)    1068 : E8 2D 00                   call    putchar
+(1)    106B : E2 F3                      loop    put_bin8_loop
+(1)    106D : C3                         ret
+(1)    106E :
+       106E :                            include "io.inc"
+(1)    106E :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)    106E :                    ;;; Console through the USART's interrupts: received characters queue
+(1)    106E :                    ;;; at rx_queue, characters to send at tx_queue. The USART interrupts
+(1)    106E :                    ;;; with type VEC_RX or VEC_TX, which usart.inc defines. Handlers and
+(1)    106E :                    ;;; the routines called per character start at even addresses: a 16-bit
+(1)    106E :                    ;;; bus fetches an odd jump target's first byte alone. align leaves its
+(1)    106E :                    ;;; gap unwritten, so nothing falls through into them.
+(1)    106E : =2000              rx_queue:       equ     2000H
+(1)    106E : =80                rx_queue_size:  equ     128
+(1)    106E : =2080              tx_queue:       equ     2080H
+(1)    106E : =80                tx_queue_size:  equ     128
+(1)    106E :
+(1)    106E :                    ;;; Initialize the queues and the USART
+(1)    106E :                    ;;; @clobber AX BX CL
+(1)    106E :                    init_io:
+(1)    106E : BB 00 20                   mov     bx, rx_queue
+(1)    1071 : B1 80                      mov     cl, rx_queue_size
+(1)    1073 : E8 8A 00                   call    queue_init
+(1)    1076 : BB 80 20                   mov     bx, tx_queue
+(1)    1079 : B1 80                      mov     cl, tx_queue_size
+(1)    107B : E8 82 00                   call    queue_init
+(1)    107E : B4 36                      mov     ah, RX_EN_TX_DIS
+(1)    1080 : E8 64 00                   call    init_usart
+(1)    1083 : B0 20                      mov     al, VEC_RX
+(1)    1085 : E6 42                      out     USARTRV, al     ; RxRDY interrupt type
+(1)    1087 : B0 21                      mov     al, VEC_TX
+(1)    1089 : E6 43                      out     USARTTV, al     ; TxRDY interrupt type
+(1)    108B : C3                         ret
+(1)    108C :
+(1)    108C :                            align   2
+(1)    108C :                    ;;; Get character
+(1)    108C :                    ;;; @return AL
+(1)    108C :                    ;;; @return F.C 0 if no character
+(1)    108C :                    getchar:
+(1)    108C : 53                         push    bx
+(1)    108D : BB 00 20                   mov     bx, rx_queue
+(1)    1090 : FA                         cli
+(1)    1091 : E8 A6 00                   call    queue_remove
+(1)    1094 : FB                         sti
+(1)    1095 : 5B                         pop     bx
+(1)    1096 : C3                         ret
+(1)    1097 :
+(1)    1098 :                            align   2
+(1)    1098 :                    ;;; Put character
+(1)    1098 :                    ;;; @param AL
+(1)    1098 :                    putchar:
+(1)    1098 : 50                         push    ax
+(1)    1099 : 53                         push    bx
+(1)    109A : BB 80 20                   mov     bx, tx_queue
+(1)    109D :                    putchar_retry:
+(1)    109D : FA                         cli
+(1)    109E : E8 71 00                   call    queue_add
+(1)    10A1 : FB                         sti
+(1)    10A2 : 73 F9                      jnc     putchar_retry   ; branch if queue is full
+(1)    10A4 : B0 37                      mov     al, RX_EN_TX_EN ; enable Tx
+(1)    10A6 : E6 41                      out     USARTC, al
+(1)    10A8 : 5B                         pop     bx
+(1)    10A9 : 58                         pop     ax
+(1)    10AA : C3                         ret
+(1)    10AB :
+(1)    10AB :                    ;;; Put newline
+(1)    10AB :                    ;;; @clobber AL
+(1)    10AB :                    newline:
+(1)    10AB : B0 0D                      mov     al, 0DH
+(1)    10AD : E8 E8 FF                   call    putchar
+(1)    10B0 : B0 0A                      mov     al, 0AH
+(1)    10B2 : EB E4                      jmp     putchar
+(1)    10B4 :
+(1)    10B4 :                    ;;; Put space
+(1)    10B4 :                    ;;; @clobber AL
+(1)    10B4 :                    putspace:
+(1)    10B4 : B0 20                      mov     al, ' '
+(1)    10B6 : EB E0                      jmp     putchar
+(1)    10B8 :
+(1)    10B8 :                            align   2
+(1)    10B8 :                    ;;; RxRDY interrupt: queue the received character
+(1)    10B8 :                    isr_rx:
+(1)    10B8 : 50                         push    ax
+(1)    10B9 : 53                         push    bx
+(1)    10BA : E4 41                      in      al, USARTS
+(1)    10BC : A8 02                      test    al, ST_RxRDY_bm
+(1)    10BE : 74 08                      jz      isr_rx_exit
+(1)    10C0 : E4 40                      in      al, USARTD      ; receive character
+(1)    10C2 : BB 00 20                   mov     bx, rx_queue
+(1)    10C5 : E8 4A 00                   call    queue_add
+(1)    10C8 :                    isr_rx_exit:
+(1)    10C8 : 5B                         pop     bx
+(1)    10C9 : 58                         pop     ax
+(1)    10CA : CF                         iret
+(1)    10CB :
+(1)    10CC :                            align   2
+(1)    10CC :                    ;;; TxRDY interrupt: send the next queued character, or disable Tx
+(1)    10CC :                    ;;; when the queue is empty
+(1)    10CC :                    isr_tx:
+(1)    10CC : 50                         push    ax
+(1)    10CD : 53                         push    bx
+(1)    10CE : E4 41                      in      al, USARTS
+(1)    10D0 : A8 01                      test    al, ST_TxRDY_bm
+(1)    10D2 : 74 10                      jz      isr_tx_exit
+(1)    10D4 : BB 80 20                   mov     bx, tx_queue
+(1)    10D7 : E8 60 00                   call    queue_remove
+(1)    10DA : 73 04                      jnc     isr_tx_empty
+(1)    10DC : E6 40                      out     USARTD, al      ; send character
+(1)    10DE : EB 04                      jmp     isr_tx_exit
+(1)    10E0 :                    isr_tx_empty:
+(1)    10E0 : B0 36                      mov     al, RX_EN_TX_DIS
+(1)    10E2 : E6 41                      out     USARTC, al      ; disable Tx
+(1)    10E4 :                    isr_tx_exit:
+(1)    10E4 : 5B                         pop     bx
+(1)    10E5 : 58                         pop     ax
+(1)    10E6 : CF                         iret
+(1)    10E7 :
+(1)    10E7 :                            include "init_usart.inc"
+(2)    10E7 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(2)    10E7 :                    ;;; Initialize the USART, interrupts not yet enabled
+(2)    10E7 :                    ;;; @param AH the command, RX_EN_TX_EN or RX_EN_TX_DIS
+(2)    10E7 :                    ;;; @clobber AL
+(2)    10E7 :                    init_usart:
+(2)    10E7 : 30 C0                      xor     al, al          ; clear AL
+(2)    10E9 : E6 41                      out     USARTC, al
+(2)    10EB : E6 41                      out     USARTC, al
+(2)    10ED : E6 41                      out     USARTC, al      ; safest way to sync mode
+(2)    10EF : B0 40                      mov     al, CMD_IR_bm
+(2)    10F1 : E6 41                      out     USARTC, al      ; reset
+(2)    10F3 : 90                         nop
+(2)    10F4 : 90                         nop
+(2)    10F5 : B0 4E                      mov     al, ASYNC_MODE
+(2)    10F7 : E6 41                      out     USARTC, al
+(2)    10F9 : 90                         nop
+(2)    10FA : 90                         nop
+(2)    10FB : 88 E0                      mov     al, ah
+(2)    10FD : E6 41                      out     USARTC, al
+(2)    10FF : C3                         ret
+(1)    1100 :                            include "queue.inc"
+(2)    1100 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(2)    1100 :                    ;;; [queue] queue structure
+(2)    1100 : =0                 queue_len:      equ     0       ; queue length
+(2)    1100 : =1                 queue_size:     equ     1       ; buffer size
+(2)    1100 : =2                 queue_put:      equ     2       ; queue put index
+(2)    1100 : =3                 queue_get:      equ     3       ; queue get index
+(2)    1100 : =4                 queue_buf:      equ     4       ; buffer start offset
+(2)    1100 :
+(2)    1100 :                    ;;; [queue] Initialize queue
+(2)    1100 :                    ;;; @param BX queue work space pointer
+(2)    1100 :                    ;;; @param CL queue work space size, including the 4-byte header
+(2)    1100 :                    ;;; @clobber CL
+(2)    1100 :                    queue_init:
+(2)    1100 : 80 E9 04                   sub     cl, queue_buf
+(2)    1103 : C6 07 00                   mov     byte ptr [bx+queue_len], 0
+(2)    1106 : 88 4F 01                   mov     byte ptr [bx+queue_size], cl
+(2)    1109 : C6 47 02 00                mov     byte ptr [bx+queue_put], 0
+(2)    110D : C6 47 03 00                mov     byte ptr [bx+queue_get], 0
+(2)    1111 : C3                         ret
+(2)    1112 :
+(2)    1112 :                            align   2
+(2)    1112 :                    ;;; [queue] Add an element to queue
+(2)    1112 :                    ;;; @param BX queue work space pointer
+(2)    1112 :                    ;;; @param AL an element
+(2)    1112 :                    ;;; @return F.C 0 if queue is full
+(2)    1112 :                    queue_add:
+(2)    1112 : 56                         push    si
+(2)    1113 : 52                         push    dx
+(2)    1114 : 8A 17                      mov     dl, [bx+queue_len]
+(2)    1116 : 3A 57 01                   cmp     dl, [bx+queue_size]
+(2)    1119 : 72 03                      jb      queue_add_store ; queue_len < queue_size
+(2)    111B : F8                         clc
+(2)    111C : EB 19                      jmp     queue_add_exit
+(2)    111E :                    queue_add_store:
+(2)    111E : FE 07                      inc     byte ptr [bx+queue_len]
+(2)    1120 : 8A 57 02                   mov     dl, [bx+queue_put]
+(2)    1123 : 30 F6                      xor     dh, dh
+(2)    1125 : 89 D6                      mov     si, dx
+(2)    1127 : 88 40 04                   mov     [bx+si+queue_buf], al
+(2)    112A : FE C2                      inc     dl              ; queue_put++
+(2)    112C : 3A 57 01                   cmp     dl, [bx+queue_size]
+(2)    112F : 72 02                      jb      queue_add_update ; queue_put < queue_size
+(2)    1131 : 30 D2                      xor     dl, dl          ; wrap around
+(2)    1133 :                    queue_add_update:
+(2)    1133 : 88 57 02                   mov     [bx+queue_put], dl
+(2)    1136 : F9                         stc
+(2)    1137 :                    queue_add_exit:
+(2)    1137 : 5A                         pop     dx
+(2)    1138 : 5E                         pop     si
+(2)    1139 : C3                         ret
+(2)    113A :
+(2)    113A :                            align   2
+(2)    113A :                    ;;; [queue] Remove an element from queue
+(2)    113A :                    ;;; @param BX queue work space pointer
+(2)    113A :                    ;;; @return AL an element
+(2)    113A :                    ;;; @return F.C 0 if queue is empty
+(2)    113A :                    queue_remove:
+(2)    113A : 80 3F 00                   cmp     byte ptr [bx+queue_len], 0
+(2)    113D : 75 02                      jne     queue_remove_elem ; queue_len > 0
+(2)    113F : F8                         clc
+(2)    1140 : C3                         ret
+(2)    1141 :                    queue_remove_elem:
+(2)    1141 : 56                         push    si
+(2)    1142 : 52                         push    dx
+(2)    1143 : FE 0F                      dec     byte ptr [bx+queue_len]
+(2)    1145 : 8A 57 03                   mov     dl, [bx+queue_get]
+(2)    1148 : 30 F6                      xor     dh, dh
+(2)    114A : 89 D6                      mov     si, dx
+(2)    114C : 8A 40 04                   mov     al, [bx+si+queue_buf]
+(2)    114F : FE C2                      inc     dl              ; queue_get++
+(2)    1151 : 3A 57 01                   cmp     dl, [bx+queue_size]
+(2)    1154 : 72 02                      jb      queue_remove_update ; queue_get < queue_size
+(2)    1156 : 30 D2                      xor     dl, dl          ; wrap around
+(2)    1158 :                    queue_remove_update:
+(2)    1158 : 88 57 03                   mov     [bx+queue_get], dl
+(2)    115B : 5A                         pop     dx
+(2)    115C : 5E                         pop     si
+(2)    115D : F9                         stc
+(2)    115E : C3                         ret
+       115F :
+       1160 :                            align   2
+       1160 :                    isr_rx_eoi:
+       1160 : 9C                         pushf
+       1161 : 9A B8 10 00 00             callf   0:isr_rx
+       1166 : EB 10                      jmp     isr_eoi
+       1168 :
+       1168 :                            align   2
+       1168 :                    isr_tx_eoi:
+       1168 : 9C                         pushf
+       1169 : 9A CC 10 00 00             callf   0:isr_tx
+       116E : EB 08                      jmp     isr_eoi
+       1170 :
+       1170 :                            include "icu_80c186.inc"
+(1)    1170 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)    1170 :                    ;;; 80C186XL Interrupt Control Unit, in the Peripheral Control Block at
+(1)    1170 :                    ;;; I/O FF00H: INT0 in cascade mode runs two INTA cycles and reads the
+(1)    1170 :                    ;;; interrupt type from the bus, as the 8086's INTR does, so the USART
+(1)    1170 :                    ;;; picks VEC_RX or VEC_TX. Each handler must end with an End Of
+(1)    1170 :                    ;;; Interrupt: wrap a shared handler as
+(1)    1170 :                    ;;;     isr_x_eoi: pushf / callf 0:isr_x / jmp isr_eoi
+(1)    1170 : =FF22              PCB_EOI:        equ     0FF22H
+(1)    1170 : =FF38              PCB_I0CON:      equ     0FF38H
+(1)    1170 : =8000              EOI_NSPEC:      equ     8000H   ; non-specific end of interrupt
+(1)    1170 : =20                I0CON_CAS:      equ     0020H   ; cascade mode
+(1)    1170 : =10                I0CON_LVL:      equ     0010H   ; level triggered, as cascade mode wants
+(1)    1170 :                                                    ; MSK clear, priority 0
+(1)    1170 :
+(1)    1170 :                    ;;; Put INT0 in cascade mode, unmasked
+(1)    1170 :                    ;;; @clobber AX DX
+(1)    1170 :                    init_icu:
+(1)    1170 : BA 38 FF                   mov     dx, PCB_I0CON
+(1)    1173 : B8 30 00                   mov     ax, I0CON_CAS|I0CON_LVL
+(1)    1176 : EF                         out     dx, ax
+(1)    1177 : C3                         ret
+(1)    1178 :
+(1)    1178 :                            align   2
+(1)    1178 :                    ;;; End of interrupt, then back from it
+(1)    1178 :                    isr_eoi:
+(1)    1178 : 50                         push    ax
+(1)    1179 : 52                         push    dx
+(1)    117A : BA 22 FF                   mov     dx, PCB_EOI
+(1)    117D : B8 00 80                   mov     ax, EOI_NSPEC
+(1)    1180 : EF                         out     dx, ax
+(1)    1181 : 5A                         pop     dx
+(1)    1182 : 58                         pop     ax
+(1)    1183 : CF                         iret
+       1184 :
+      FFFF0 :                            org     0FFFF0H
+      FFFF0 : EA 00 10 00 00             jmpf    0:init
+      FFFF5 :
+      FFFF5 :                            end

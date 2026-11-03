@@ -481,6 +481,9 @@ ring, one sample per CLK, by DMA, so the bus loop never reads it.
 - Stop the ring at a known PWM phase, so the latest sample's time is
   exact; matching samples to bus cycles by a time a clock off misplaced
   bytes on the V30.
+- A static CPU needs no DMA: the Teensy clocks the 80C186XL's X1 itself,
+  and the GPIO9 read after each CLKOUT rise that gives #S2-#S0 gives
+  QS1:QS0 too, pushed to the same ring, one sample per CLKOUT.
 
 Decoding the samples (`debugger/i8086/qs_decode_i8086.h`, host-tested in
 `test/i8086/test_qs_decode`):

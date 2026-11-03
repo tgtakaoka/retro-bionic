@@ -9,8 +9,9 @@ namespace i8086 {
 // Little-endian, 1MB, byte-addressed on either bus; the 8086's even byte
 // rides AD0-AD7.
 struct MemsI8086 final : ExtMemory {
-    // |fpu|: the (dis)assembler takes 8087 instructions.
-    MemsI8086(bool fpu);
+    // |fpu|: the coprocessor the (dis)assembler takes, as libasm names it
+    // ("8087", "80C187"), or "off".
+    MemsI8086(const char *fpu);
 
     uint32_t maxAddr() const override { return 0xFFFFF; }
 
@@ -32,7 +33,7 @@ struct MemsI8086 final : ExtMemory {
     uint32_t disassemble(uint32_t addr, uint8_t numInsn) const override;
 
 private:
-    const bool _fpu;
+    const char *const _fpu;
     ProtectArea _emuArea{"8080EMU"};
 #ifdef WITH_ASSEMBLER
     libasm::Assembler *_asm8080;
