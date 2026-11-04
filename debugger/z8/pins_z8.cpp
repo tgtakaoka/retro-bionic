@@ -175,10 +175,12 @@ bool PinsZ8::fastEntry(const Signals *s) const {
 }
 #endif
 
+// The Super8 vectors end here; no code runs below it.
+constexpr uint16_t SUPER8_VECTOR_END = 0x0020;
+
 uint16_t PinsZ8::nextFetch() {
     // An interrupt already taken here shows as a discarded fetch and read,
     // then the Super8 fetches its vector, before the pushes.
-    constexpr uint16_t SUPER8_VECTOR_END = 0x0020;
     uint16_t pc = 0;
     Signals *s = nullptr;
     for (auto n = 0;; ++n) {
@@ -226,6 +228,13 @@ uint16_t PinsZ8::nextFetch() {
 
 bool PinsZ8::rawStep() {
     auto s = prepareCycle();
+    // The Super8 reads its vector before the pushes, so an acknowledge
+    // begun in the last instruction's cycles may still be reading it.
+    while (!fetchVectorAfterContextSave() && s->read() &&
+            s->addr < SUPER8_VECTOR_END) {
+        completeCycle(s);
+        s = prepareCycle();
+    }
     if (s->write()) {
         // An interrupt acknowledge is under way; let it push PC and FLAGS.
         while (s->write()) {
