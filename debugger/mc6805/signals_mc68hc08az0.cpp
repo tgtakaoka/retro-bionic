@@ -22,7 +22,7 @@ void SignalsMc68HC08AZ0::getData() {
 }
 
 void SignalsMc68HC08AZ0::outData() const {
-    busWrite(ED, data);
+    busWriteFast(ED, data);
     busMode(ED, OUTPUT);
 }
 

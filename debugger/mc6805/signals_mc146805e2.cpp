@@ -24,7 +24,7 @@ void SignalsMc146805E2::getData() {
 }
 
 void SignalsMc146805E2::outData() const {
-    busWrite(B, data);
+    busWriteFast(B, data);
     busMode(B, OUTPUT);
 }
 

@@ -23,7 +23,7 @@ void SignalsTms9995::getData() {
 }
 
 void SignalsTms9995::outData() const {
-    busWrite(DATA, data);
+    busWriteFast(DATA, data);
     busMode(DATA, OUTPUT);
 }
 

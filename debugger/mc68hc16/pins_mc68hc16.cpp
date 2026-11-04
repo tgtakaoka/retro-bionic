@@ -278,7 +278,7 @@ void PinsMc68hc16::resetPins() {
     assert_dsack1();
     for (auto i = 0; i < reset_cycles; i++)
         extal_cycle_reset();
-    busWrite(D, DATA_STRAPS);
+    busWriteFast(D, DATA_STRAPS);
     busMode(D, OUTPUT);
     for (auto i = 0; i < reset_cycles; i++)
         extal_cycle_reset();

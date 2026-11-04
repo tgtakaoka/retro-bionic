@@ -231,6 +231,15 @@ than 1. That is truthy but **not equal to `HIGH`**, so `read() == HIGH` fails
 on pins whose bit position is not 0. `LOW` is 0, so `== LOW` and `!= LOW` are
 exact. Write the test that way even where the current expansion is safe.
 
+### Change a coded input through a neutral code **[code]**
+
+`busWriteFast()` clears bits before it sets them, so for one store the
+port shows the old and new values ANDed. Data the CPU latches later
+doesn't mind, but a code the CPU samples every clock can: TMS9980 INT2-0
+codes 4 and 3 AND to 0, which resets. Go through the code that means
+none (7 on the TMS9980), or negate the strobe that qualifies the code
+(#INTREQ on the TMS99105) while it changes.
+
 ### Commented-out debug pin calls still count as time **[hw]**
 
 `assert_debug()` and `negate_debug()` cost about 10 ns of pin writes each, and

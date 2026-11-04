@@ -31,7 +31,7 @@ void Signals::getData() {
 }
 
 void Signals::outData() const {
-    busWrite(DATA, data);
+    busWriteFast(DATA, data);
     busMode(DATA, OUTPUT);
 }
 
@@ -41,11 +41,11 @@ void Signals::inputMode() {
 
 void Signals::outIoc(uint8_t val) {
     ioc() = val;
-    busWrite(IOC, ~val);
+    busWriteFast(IOC, ~val);
 }
 
 void Signals::resetIoc() {
-    busWrite(IOC, 0);
+    busWriteFast(IOC, 0);
 }
 
 }  // namespace hd6120

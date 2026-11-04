@@ -53,6 +53,7 @@ constexpr auto c3_hi_write = 20;     // 62.5
 constexpr auto c4_lo_capture = 30;   // 62.5
 constexpr auto c3_hi_internal = 20;  // 62.5
 constexpr auto c3_hi_inject = 4;     // 62.5
+constexpr auto c4_lo_read = 4;       // 62.5
 constexpr auto c1_lo_input = 20;     // 62.5
 
 inline void osc1_hi() {
@@ -222,6 +223,7 @@ Signals *PinsMc68HC05C0::completeCycle(Signals *signals) {
         // c4
         osc1_lo();
         s->outData();
+        delayNanoseconds(c4_lo_read);
     }
     if (s->fetch() && (s->data & 0xF0) == 0xD0)
         _dummyIn = 3;

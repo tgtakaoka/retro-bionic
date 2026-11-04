@@ -38,7 +38,7 @@ void Signals::getData() {
 }
 
 void Signals::outData() const {
-    busWrite(D, data);
+    busWriteFast(D, data);
     busMode(D, OUTPUT);
 }
 

@@ -29,7 +29,7 @@ void SignalsTms9900::getData() {
 }
 
 void SignalsTms9900::outData() const {
-    busWrite(DATA, data);
+    busWriteFast(DATA, data);
     busMode(DATA, OUTPUT);
 }
 
