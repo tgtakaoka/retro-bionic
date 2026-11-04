@@ -10,8 +10,9 @@ on any particular analyzer's own preset format at report time.
 
 exports the capture the last start_capture() left open that way and
 prints the CSV's path. A channel is sampled digital unless its entry has
-`analog = [high, low]`, the volts its row spans; analog channels go to
-analog.csv beside digital.csv. A capture keeps at most MAX_WINDOW seconds, and
+`analog = [high, low]`, the volts its row spans, and then digital as well
+only with `digital = true`; analog channels go to analog.csv beside
+digital.csv. A capture keeps at most MAX_WINDOW seconds, and
 one that never triggers is stopped and never exported: an untriggered
 capture's export once filled the disk.
 Environment: BIONIC_RUN_DIR (default /tmp/bionic-bench) for exported
@@ -39,8 +40,10 @@ LONG_WINDOW = 40e-3
 # How long finish_capture() waits for the trigger, in seconds.
 TRIGGER_WAIT = 60
 # Sample rates with analog channels: the Logic Pro 16 takes 50 MS/s
-# analog beside 125 MS/s digital for 14 digital and 2 analog channels.
+# analog beside 125 MS/s digital for 14 digital and 2 analog channels,
+# and beside 100 MS/s for more digital ones.
 ANALOG_RATES = (125000000, 50000000)
+ANALOG_RATES_WIDE = (100000000, 50000000)
 bench = SourceFileLoader('bench', os.path.join(os.path.dirname(
         os.path.abspath(__file__)), 'bionic-bench.py')).load_module()
 
@@ -81,6 +84,12 @@ def load_analog(path, name):
             if 'analog' in lead}
 
 
+def load_dual(path, name):
+    """Channel indices of the [name] table sampled analog and digital."""
+    return {ch for ch, lead in load_leads(path, name).items()
+            if 'analog' in lead and lead.get('digital')}
+
+
 def load_capture(path, name):
     """The [name] table's capture settings by channel index: its trigger,
     a dict of start_capture() arguments or None, and its Simple Parallel
@@ -100,6 +109,7 @@ def load_capture(path, name):
         if t.get('long'):
             trigger['limit'] = LONG_WINDOW
         trigger['analog'] = sorted(load_analog(path, name))
+        trigger['dual'] = sorted(load_dual(path, name))
     parallel = [([index[d] for d in p['data']], index[p['clock']], p.get('edge', 'rise'))
                 for p in table.get('parallel', [])]
     return trigger, parallel
@@ -224,18 +234,20 @@ class SaleaeLogicPro16(LogicAnalyzer):
 
     def start_capture(self, channels, trigger, edge='rise', before=20e-6,
                       after=200e-6, glitch=None, linked=(), min_width=None,
-                      max_width=None, limit=MAX_WINDOW, analog=()):
+                      max_width=None, limit=MAX_WINDOW, analog=(), dual=()):
         analyzer()
         if before + after > min(limit, LONG_WINDOW):
             raise RuntimeError('start_capture: %g s window over the %g s limit'
                                % (before + after, min(limit, LONG_WINDOW)))
         self._close_open()
         # The 3.3V threshold: the default one reads ringing as extra pulses.
-        digital = (set(channels) - set(analog)) | {trigger} | {ch for ch, _ in linked}
+        digital = ((set(channels) - set(analog)) | set(dual) | {trigger}
+                   | {ch for ch, _ in linked})
         device = {'digitalSampleRate': 100000000, 'digitalThresholdVolts': 3.3,
                   'logicChannels': {'digitalChannels': sorted(digital)}}
         if analog:
-            device['digitalSampleRate'], device['analogSampleRate'] = ANALOG_RATES
+            device['digitalSampleRate'], device['analogSampleRate'] = (
+                    ANALOG_RATES if len(digital) <= 14 else ANALOG_RATES_WIDE)
             device['logicChannels']['analogChannels'] = sorted(analog)
         if glitch:
             device['glitchFilters'] = [{'channelIndex': trigger, 'pulseWidthSeconds': glitch}]

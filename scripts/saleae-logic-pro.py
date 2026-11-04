@@ -9,7 +9,8 @@ LogicAnalyzer interface in logic-analyzer.py.
                                    fill in each channel's empty pin
   load-sal SAL [SET_NAME]         the same from a saved capture, with its
                                    trigger, Simple Parallel decoders and
-                                   analog rows' voltage ranges
+                                   analog rows' voltage ranges, and
+                                   whether they are sampled digital too
   name-sal SAL CHANNELS.toml SET_NAME OUT
                                    copy SAL to OUT with SET_NAME's channel
                                    names, and its Simple Parallel decoders
@@ -76,8 +77,9 @@ def load_sal_toml(path, set_name):
     rows = data.get('rowsSettings', [])
     names = {r['channel']['deviceChannel']: r['name']
              for r in rows if _digital(r) and r.get('name')}
-    sampled = {c['index'] for c in data.get('legacySettings', {}).get('enabledChannels', [])
-               if c.get('type') == 'Analog'}
+    enabled = data.get('legacySettings', {}).get('enabledChannels', [])
+    sampled = {c['index'] for c in enabled if c.get('type') == 'Analog'}
+    digital = {c['index'] for c in enabled if c.get('type') == 'Digital'}
     analog = {}
     for r in rows:
         if _analog(r) and r.get('name') and r['channel']['deviceChannel'] in sampled:
@@ -85,7 +87,8 @@ def load_sal_toml(path, set_name):
             names[ch] = r['name']
             half = r.get('analogScalePerPixel', 0.2) * r.get('height', ANALOG_HEIGHT) / 2
             mid = r.get('analogViewportCenterValue', 0)
-            analog[ch] = ', analog = [%g, %g]' % (round(mid + half, 2), round(mid - half, 2))
+            analog[ch] = ', analog = [%g, %g]%s' % (round(mid + half, 2), round(mid - half, 2),
+                                                     ', digital = true' if ch in digital else '')
     lines = ['[%s]' % set_name]
     for ch, name in sorted(names.items()):
         lines.append('%2d = { pin = "", signal = %s%s }'
@@ -137,6 +140,7 @@ def name_sal(path, channels_path, set_name, out):
     is. No Logic 2 API names channels."""
     names = la.load_channels(channels_path, set_name)
     analog = la.load_analog(channels_path, set_name)
+    only = set(analog) - la.load_dual(channels_path, set_name)
     _, parallel = la.load_capture(channels_path, set_name)
     with open(channels_path, 'rb') as f:
         display = tomllib.load(f).get(set_name, {}).get('display', [])
@@ -146,7 +150,7 @@ def name_sal(path, channels_path, set_name, out):
     rows = data.get('rowsSettings', [])
     for r in rows:
         ch = r.get('channel', {}).get('deviceChannel')
-        if _digital(r) and ch not in analog:
+        if _digital(r) and ch not in only:
             r['name'] = names.get(ch, r.get('name', ''))
             r['height'] = ROW_HEIGHT
         elif _analog(r) and ch in analog:
@@ -159,9 +163,10 @@ def name_sal(path, channels_path, set_name, out):
 
     def shown(r):
         ch = r.get('channel', {}).get('deviceChannel')
-        return (_digital(r) and ch not in analog) or (_analog(r) and ch in analog)
+        return (_digital(r) and ch not in only) or (_analog(r) and ch in analog)
     named = sorted((r for r in rows if shown(r)),
-                   key=lambda r: (rank.get(r['name'], len(rank)), r['channel']['deviceChannel']))
+                   key=lambda r: (rank.get(r['name'], len(rank)), r['channel']['deviceChannel'],
+                                  _digital(r)))
     data['rowsSettings'] = named + [r for r in rows if not shown(r)]
     if not data.get('analyzers'):
         data['analyzers'] = [_parallel_analyzer(n, *p) for n, p in enumerate(parallel)]
