@@ -37,7 +37,7 @@ it so a re-arm is explicit.
 
 | Script | What it does |
 |---|---|
-| `logic-analyzer.py` | The analyzer interface; exports the newest capture as a CSV labeled from `samples/<target>/bench/channels.toml`. Captures on the analyzer the session holds. A channel whose entry has `analog = [high, low]` is sampled analog, its row spanning those volts. |
+| `logic-analyzer.py` | The analyzer interface; exports the newest capture as a CSV labeled from `samples/<target>/bench/channels.toml`. Captures on the analyzer the session holds. A channel whose entry has `analog = [high, low]` is sampled analog, its row spanning those volts, and digital as well with `digital = true`. |
 | `saleae-logic-pro.py` | Dumps a Logic 2 preset's channel names, or a saved capture's names, trigger and Simple Parallel decoders, as a `channels.toml` table; names a saved capture from one. |
 
 ## Build and boards
