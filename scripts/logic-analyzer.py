@@ -39,11 +39,12 @@ MAX_WINDOW = 10e-3
 LONG_WINDOW = 40e-3
 # How long finish_capture() waits for the trigger, in seconds.
 TRIGGER_WAIT = 60
-# Sample rates with analog channels: the Logic Pro 16 takes 50 MS/s
-# analog beside 125 MS/s digital for 14 digital and 2 analog channels,
-# and beside 100 MS/s for more digital ones.
-ANALOG_RATES = (125000000, 50000000)
-ANALOG_RATES_WIDE = (100000000, 50000000)
+# Logic 2 rejects a sample rate a channel set cannot take with the list
+# of the (digital, analog) rate pairs it can: asking with this one reads
+# the list. On the Logic Pro 16 the fastest digital rate falls with the
+# channel count, 500 MS/s up to 6, 250 up to 12, 125 for more, and the
+# analog channels trade against it.
+NO_RATE = 1
 bench = SourceFileLoader('bench', os.path.join(os.path.dirname(
         os.path.abspath(__file__)), 'bionic-bench.py')).load_module()
 
@@ -232,6 +233,44 @@ class SaleaeLogicPro16(LogicAnalyzer):
             pass                        # closed by hand in the app
         os.remove(self.OPEN_ID)
 
+    def _rates(self, device):
+        """The (digital, analog) sample rate pairs Logic 2 allows for
+        device's channels, analog 0 when it has none."""
+        probe = dict(device, digitalSampleRate=NO_RATE)
+        if 'analogChannels' in device['logicChannels']:
+            probe['analogSampleRate'] = NO_RATE
+        try:
+            res = self._mcp('start_capture', {
+                    'captureConfiguration': {'manualCaptureMode': {}},
+                    'logicDeviceConfiguration': probe})
+        except (OSError, ValueError) as e:
+            raise RuntimeError('start_capture: %s' % e) from e
+        text = ''.join(c.get('text', '') for c in
+                       res.get('result', {}).get('content', []))
+        m = re.search(r'captureId\\*"?\s*:\s*(\d+)', text)
+        if m:   # taken after all: it would run until stopped
+            for op in ('stop_capture', 'close_capture'):
+                self._call(op, {'captureId': int(m.group(1))})
+            raise RuntimeError('start_capture: %d S/s taken, no rates listed'
+                               % NO_RATE)
+        pairs = []
+        for m in re.finditer(r'\{[^{}]*\}', text):
+            rate = json.loads(m.group(0))
+            pairs.append((rate.get('digital', 0), rate.get('analog', 0)))
+        if not pairs:
+            raise RuntimeError('start_capture: no sample rates in %s' % text[:300])
+        return pairs
+
+    def _fastest(self, device):
+        """Set device's fastest sample rates: the analog one first when it
+        has analog channels, then the digital one beside it."""
+        pairs = self._rates(device)
+        if 'analogChannels' in device['logicChannels']:
+            device['analogSampleRate'], device['digitalSampleRate'] = max(
+                    (a, d) for d, a in pairs)
+        else:
+            device['digitalSampleRate'] = max(d for d, _ in pairs)
+
     def start_capture(self, channels, trigger, edge='rise', before=20e-6,
                       after=200e-6, glitch=None, linked=(), min_width=None,
                       max_width=None, limit=MAX_WINDOW, analog=(), dual=()):
@@ -243,12 +282,11 @@ class SaleaeLogicPro16(LogicAnalyzer):
         # The 3.3V threshold: the default one reads ringing as extra pulses.
         digital = ((set(channels) - set(analog)) | set(dual) | {trigger}
                    | {ch for ch, _ in linked})
-        device = {'digitalSampleRate': 100000000, 'digitalThresholdVolts': 3.3,
+        device = {'digitalThresholdVolts': 3.3,
                   'logicChannels': {'digitalChannels': sorted(digital)}}
         if analog:
-            device['digitalSampleRate'], device['analogSampleRate'] = (
-                    ANALOG_RATES if len(digital) <= 14 else ANALOG_RATES_WIDE)
             device['logicChannels']['analogChannels'] = sorted(analog)
+        self._fastest(device)
         if glitch:
             device['glitchFilters'] = [{'channelIndex': trigger, 'pulseWidthSeconds': glitch}]
         mode = {'triggerChannelIndex': trigger,
