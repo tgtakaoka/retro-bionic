@@ -160,8 +160,8 @@ void PinsMc6809Base::loop() {
 void PinsMc6809Base::loop() {
     const auto vec_swi = _inst->vec_swi();
     while (true) {
-        _devs->loop();
-        const auto s = rawCycle();
+        const auto serviced = _devs->loop();
+        const auto s = cycle();
         if (s->vector() && s->addr == vec_swi) {
             cycle();  // read SWI low(vector);
             cycle();  // non-VMA
@@ -173,7 +173,7 @@ void PinsMc6809Base::loop() {
                 Cycles::discard(frame->prev(2));
                 return;
             }
-        } else if (haltSwitch()) {
+        } else if (serviced && haltSwitch()) {
             suspend(true);
             return;
         }

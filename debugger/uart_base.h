@@ -10,7 +10,7 @@ namespace debugger {
  */
 struct UartBase : Device {
     void reset() override;
-    void loop() override;
+    bool loop() override;
     // _base_addr+0*_step: the device's first register
     // _base_addr+1*_step: the device's second register
     // _base_addr+2*_step: Rx interrupt vector
@@ -39,7 +39,7 @@ protected:
     uint32_t _base_addr;
     uint8_t _rxIntr;
     uint8_t _txIntr;
-    uint8_t _delay;
+    uint32_t _serviced;
     bool _txDone;
 
     virtual void resetUart() = 0;

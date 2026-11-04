@@ -662,8 +662,8 @@ bool PinsTms7000::isTrap23Vector(const Signals *s) {
 #else
 void PinsTms7000::loop() {
     while (true) {
-        _devs->loop();
-        if (!rawStep() || haltSwitch())
+        const auto serviced = _devs->loop();
+        if (!rawStep() || (serviced && haltSwitch()))
             return;
     }
 }

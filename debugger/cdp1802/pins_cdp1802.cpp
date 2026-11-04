@@ -69,8 +69,6 @@ constexpr auto c60_nobus = 23;    // 88 ns
 constexpr auto c61_nobus = 72;    // 99 ns
 constexpr auto c70_nobus = 68;    // 97 ns
 constexpr auto c71_ns = 52;       // 92 ns
-// The halt switch and devices are polled at a fetch once in 10 us.
-constexpr uint32_t poll_cycles = F_CPU / 100000;
 
 inline void clock_hi() {
     digitalWriteFast(PIN_CLOCK, HIGH);
@@ -388,19 +386,13 @@ void PinsCdp1802::idle() {
 }
 
 void PinsCdp1802::loop() {
-    _devs->loop();
     auto s = startCycle();
-    auto polled = ARM_DWT_CYCCNT;
     while (true) {
         s = rawStep(s);
         if (s == nullptr)
             return;
-        if (ARM_DWT_CYCCNT - polled >= poll_cycles) {
-            polled = ARM_DWT_CYCCNT;
-            _devs->loop();
-            if (haltSwitch())
-                return;
-        }
+        if (_devs->loop() && haltSwitch())
+            return;
     }
 }
 

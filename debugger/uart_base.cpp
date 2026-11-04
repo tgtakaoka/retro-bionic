@@ -10,7 +10,7 @@ void UartBase::reset() {
     negateRxIntr();
     negateTxIntr();
     _rxVec = _txVec = 0;
-    _delay = 0;
+    _serviced = ARM_DWT_CYCCNT;
     _txDone = false;
     resetUart();
 }
@@ -22,9 +22,12 @@ void UartBase::setVector(uint8_t rx, uint8_t tx) {
     _txIntr = tx;
 }
 
-void UartBase::loop() {
-    if (_enabled && ++_delay == 0)
-        loopUart();
+bool UartBase::loop() {
+    if (!_enabled || ARM_DWT_CYCCNT - _serviced < SERVICE_CYCLES)
+        return false;
+    _serviced = ARM_DWT_CYCCNT;
+    loopUart();
+    return true;
 }
 
 void UartBase::assertRxIntr() {

@@ -482,8 +482,6 @@ Signals *PinsI8080::loop() const {
     uint32_t serviced = ARM_DWT_CYCCNT;
     while (true) {
         completeCycle(s, &serviced);
-        // The devices change INT only while the CPU waits.
-        _devs->loop();
         s = prepareCycle();
         if (s->halt()) {
             const auto halt = s->prev();
@@ -494,7 +492,8 @@ Signals *PinsI8080::loop() const {
         if (s->fetch() && !s->intAck() &&
                 ARM_DWT_CYCCNT - serviced >= service_cycles) {
             serviced = ARM_DWT_CYCCNT;
-            if (haltSwitch())
+            // The devices change INT only while the CPU waits, as here.
+            if (_devs->loop() && haltSwitch())
                 return nullptr;
         }
     }

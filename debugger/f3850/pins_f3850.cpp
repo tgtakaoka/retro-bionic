@@ -50,6 +50,7 @@ constexpr auto xtly_hi_noread = 210;     // 250
 constexpr auto xtly_lo_next = 200;       // 250
 constexpr auto xtly_nowrite_romc = 144;  // 250
 constexpr auto xtly_hi_write = 110;      // 250
+constexpr auto xtly_hi_nowrite = 60;     // 250
 constexpr auto xtly_idle_ns = 25;        // 250
 
 inline void xtly_hi() {
@@ -219,8 +220,11 @@ Signals *PinsF3850::cycle() {
     if (read) {
         delayNanoseconds(xtly_nowrite_romc);
     } else {
-        if (regs<RegsF3850>()->romc_write(signals->getData()))
+        if (regs<RegsF3850>()->romc_write(signals->getData())) {
             delayNanoseconds(xtly_hi_write);
+        } else {
+            delayNanoseconds(xtly_hi_nowrite);
+        }
     }
     // XTLY=H
 #ifdef PROFILE_CYCLES
@@ -305,8 +309,8 @@ void PinsF3850::loop() {
 #else
 void PinsF3850::loop() {
     while (true) {
-        _devs->loop();
-        if (!rawStep() || haltSwitch())
+        const auto serviced = _devs->loop();
+        if (!rawStep() || (serviced && haltSwitch()))
             return;
     }
 }

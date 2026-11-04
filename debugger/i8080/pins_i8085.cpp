@@ -68,9 +68,6 @@ constexpr auto x1_half_min_ns = 46;
 // Teensy cycles in an X1 clock at the slowest rate, so the waits below
 // hold at any rate.
 constexpr uint32_t x1_max_cycles = F_CPU / x1_min_hz;
-// The halt switch polls USB through yield(), longer than a cycle's
-// service; once in this many Teensy cycles is soon enough.
-constexpr uint32_t halt_poll_cycles = F_CPU / 100000;
 // #RESET_IN should be kept low for a minimum of three clock periods.
 constexpr auto reset_ns = 2 * 10 * (1000000000 / x1_min_hz);
 // The gap between ALEs, at most a fetch's T4-T6 and DAD's two bus idle
@@ -356,22 +353,17 @@ uint16_t PinsI8085::captureWrites(
 
 Signals *PinsI8085::loop(Trap &trap) const {
     auto s = resumeCycle(_regs->nextIp());
-    uint32_t polled = ARM_DWT_CYCCNT;
     while (true) {
         completeCycle(s);
-        _devs->loop();
         s = prepareCycle();
         if (s->halt()) {
             const auto halt = s->prev();
             Cycles::discard(halt);
             return halt;
         }
-        if (s->fetch() && ARM_DWT_CYCCNT - polled >= halt_poll_cycles) {
-            polled = ARM_DWT_CYCCNT;
-            if (haltSwitch()) {
-                suspend(s, trap);
-                return nullptr;
-            }
+        if (s->fetch() && _devs->loop() && haltSwitch()) {
+            suspend(s, trap);
+            return nullptr;
         }
     }
 }

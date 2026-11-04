@@ -22,8 +22,8 @@ void DevsMc6805::begin() {
     enableDevice(_acia);
 }
 
-void DevsMc6805::loop() {
-    _acia->loop();
+bool DevsMc6805::loopDevices() {
+    return _acia->loop();
 }
 
 bool DevsMc6805::isSelected(uint32_t addr) const {

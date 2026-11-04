@@ -11,7 +11,7 @@ struct SerialHandler : Device {
     SerialHandler() : _serialEnabled(false), _clockHz(0), _tickCycles(0) {}
 
     void reset() override;
-    void loop() override;
+    bool loop() override;
     /** A clock that runs free at |hz|: pace() counts it on the cycle counter. */
     void setClock(uint32_t hz);
     /** One loop() per prescaled tick of the free-running clock passed since the last. */

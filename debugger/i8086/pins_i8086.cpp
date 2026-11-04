@@ -309,9 +309,6 @@ inline bool status_passive() {
     return busRead(S01) == 3 && (busRead(CNTL) & 0x10) != 0;
 }
 
-// The halt switch polls USB through yield(), longer than a cycle's
-// service; once in this many Teensy cycles is soon enough.
-constexpr uint32_t halt_poll_cycles = F_CPU / 100000;
 // Bus cycles allowed for an injected sequence and for a step.
 constexpr auto exec_cycles = 512;
 constexpr auto step_cycles = 1024;
@@ -805,7 +802,6 @@ bool PinsI8086::untilTrap(Signals *s, Mode mode) {
     _vector = 0;
     _frameBytes = 0;
     auto nmi = false;
-    auto polled = ARM_DWT_CYCCNT;
     uint32_t guard = mode == STEP ? step_cycles : UINT32_MAX;
     for (uint32_t n = 0; guard; ++n, --guard) {
         if (s == nullptr) {
@@ -845,9 +841,7 @@ bool PinsI8086::untilTrap(Signals *s, Mode mode) {
         if (s->write() && s->memory() && !s->coproc())
             recordFrame(s);
         if (mode == RUN) {
-            _devs->loop();
-            if (ARM_DWT_CYCCNT - polled >= halt_poll_cycles && !nmi &&
-                    (polled = ARM_DWT_CYCCNT, haltSwitch())) {
+            if (_devs->loop() && !nmi && haltSwitch()) {
                 assert_nmi();
                 nmi = true;
             }

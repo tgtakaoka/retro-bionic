@@ -21,8 +21,8 @@ void DevsScn2650::begin() {
     enableDevice(_usart);
 }
 
-void DevsScn2650::loop() {
-    _usart->loop();
+bool DevsScn2650::loopDevices() {
+    return _usart->loop();
 }
 
 bool DevsScn2650::isSelected(uint32_t addr) const {

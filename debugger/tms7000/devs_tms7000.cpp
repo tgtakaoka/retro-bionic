@@ -43,8 +43,8 @@ void DevsTms7000::begin() {
     enableDevice(_acia);
 }
 
-void DevsTms7000::loop() {
-    _acia->loop();
+bool DevsTms7000::loopDevices() {
+    return _acia->loop();
 }
 
 void DevsTms7000::setIdle(bool idle) {

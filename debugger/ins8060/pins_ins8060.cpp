@@ -375,7 +375,7 @@ bool PinsIns8060::loop() {
 #else
     while (true) {
 #endif
-        _devs->loop();
+        const auto serviced = _devs->loop();
         auto s = prepareCycle();
         completeCycle(s);
         if (s->halt()) {
@@ -394,11 +394,11 @@ bool PinsIns8060::loop() {
             return true;
         }
 #ifdef PROFILE_CYCLES
-        if (n >= MAX_CYCLES || haltSwitch()) {
+        if (n >= MAX_CYCLES || (serviced && haltSwitch())) {
             negate_debug();
             cli.println(n >= MAX_CYCLES ? "?cycles" : "?halt");
 #else
-        if (haltSwitch()) {
+        if (serviced && haltSwitch()) {
 #endif
             return suspend();
         }

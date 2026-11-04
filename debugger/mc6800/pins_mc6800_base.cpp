@@ -113,8 +113,8 @@ void PinsMc6800Base::loop() {
 #else
 void PinsMc6800Base::loop() {
     while (true) {
-        _devs->loop();
-        rawCycle();
+        const auto serviced = _devs->loop();
+        cycle();
         // A context push: the vector read after it tells an SWI's.
         if (_writes == regs<RegsMc6800>()->contextLength()) {
             const auto frame = Signals::put()->prev(_writes);
@@ -136,7 +136,7 @@ void PinsMc6800Base::loop() {
             }
             // WAI idles on non-VMA cycles, which leave _writes as is.
             _writes = 0;
-        } else if (haltSwitch()) {
+        } else if (serviced && haltSwitch()) {
             suspend(true);
             return;
         }

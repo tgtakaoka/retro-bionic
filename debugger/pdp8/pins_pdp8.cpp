@@ -112,8 +112,7 @@ void PinsPdp8::loop() {
             return;
         }
         fetched(s);
-        _devs->loop();
-        if (haltSwitch()) {
+        if (_devs->loop() && haltSwitch()) {
             // A failed halt: keep the registers from the last good save.
             if (!suspend())
                 return;

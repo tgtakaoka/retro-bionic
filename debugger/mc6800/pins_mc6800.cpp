@@ -54,6 +54,7 @@ constexpr auto phi2_hi_write = 244;    // 500 ns
 constexpr auto phi2_hi_read = 238;     // 500 ns
 constexpr auto phi2_hi_capture = 336;  // 500 ns
 constexpr auto phi2_hi_inject = 60;    // 500 ns
+constexpr auto phi_lo_ns = 100;        // tCYC - tUT
 constexpr auto tpcs_ns = 200;
 
 inline void phi1_hi() {
@@ -162,6 +163,7 @@ void PinsMc6800::resetPins() {
 }
 
 Signals *PinsMc6800::cycle() {
+    delayNanoseconds(phi_lo_ns);
     return rawCycle();
 }
 

@@ -722,11 +722,11 @@ bool PinsZ380::loop() {
             return false;
         }
         completeCycle(s);
-        _devs->loop();
+        const auto serviced = _devs->loop();
         s = prepareCycle();
         // Only now, with a transaction recorded: suspend() opens with
         // resumeCycle(), which reads that slot back.
-        if (haltSwitch()) {
+        if (serviced && haltSwitch()) {
             // suspend() drops the #NMI push and vector fetch itself.
             if (suspend(s->addr))
                 return true;

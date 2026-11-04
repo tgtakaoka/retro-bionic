@@ -328,15 +328,16 @@ void PinsTms320C15::loop() {
 }
 #else
 void PinsTms320C15::loop() {
+    auto serviced = false;
     while (true) {
-        if (!rawStep() || haltSwitch()) {
+        if (!rawStep() || (serviced && haltSwitch())) {
             auto s = Signals::put();
             Cycles::Hold hold;
             _regs->save();
             Cycles::discard(s);
             return;
         }
-        _devs->loop();
+        serviced = _devs->loop();
     }
 }
 #endif

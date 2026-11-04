@@ -103,9 +103,9 @@ constexpr uint16_t VEC_DEBUG = 0x0000;
 // Microcycles to wait for the CPU to stop, start or resume; an
 // instruction takes far fewer.
 constexpr auto halt_cycles = 256;
-// The USART polls the console once in this many calls of its loop(), one
-// for each transaction; that and the halt switch use USB, whose interrupts
-// may outlast a BDRDY hold, so a run requests the bus for them as often.
+// The devices and the halt switch use USB, whose interrupts may outlast a
+// BDRDY hold, so a run requests the bus for them once in this many
+// transactions.
 constexpr uint32_t service_transactions = 256;
 
 const uint8_t PINS_LOW[] = {
@@ -710,8 +710,6 @@ bool PinsCp1610::loop() {
     // before it.
     auto parked = 0;
     uint16_t brk = 0;
-    // The devices count their own time in calls of loop(), one for each
-    // transaction, as when they ran between transactions.
     uint32_t transactions = 0;
     while (true) {
         if (s == nullptr) {
@@ -758,10 +756,9 @@ bool PinsCp1610::loop() {
         s = prepareCycle(64, false, requested);
         if (s == nullptr && requested && busak_asserted()) {
             interrupts();
-            do {
-                _devs->loop();
-            } while (transactions && --transactions);
-            const auto halt = stopping == 0 && haltSwitch();
+            transactions = 0;
+            const auto halt =
+                    _devs->loop() && stopping == 0 && haltSwitch();
             noInterrupts();
             if (halt) {
                 // The CPU stops after the instruction under way.
