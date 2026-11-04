@@ -60,6 +60,7 @@ constexpr auto clkin_hi_ns = 30;      // 41
 constexpr auto clkin_lo_inject = 20;  // 41
 constexpr auto clkin_lo_get = 5;      // 41
 constexpr auto clkin_hi_capture = 5;  // 41
+constexpr auto clkin_hi_read = 5;     // 41
 
 const uint8_t PINS_LOW[] = {
         PIN_CLKIN,
@@ -201,6 +202,7 @@ Signals *PinsTms9995::completeCycle(Signals *_s) {
         }
         clkin_hi();
         s->outData();
+        delayNanoseconds(clkin_hi_read);
         // phi1
         clkin_lo();
         Cycles::next();

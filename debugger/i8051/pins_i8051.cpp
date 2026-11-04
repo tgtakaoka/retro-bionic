@@ -60,6 +60,7 @@ constexpr auto xtal_hi_cntl = 0;     // 42 ns
 constexpr auto xtal_lo_inject = 0;   // 42 ns
 constexpr auto xtal_lo_output = 0;   // 42 ns
 constexpr auto xtal_hi_capture = 1;  // 42 ns
+constexpr auto xtal_hi_output = 17;  // 42 ns
 constexpr auto xtal_lo_data = 20;    // 42 ns
 constexpr auto xtal_hi_input = 0;    // 42 ns
 // delayNanoseconds(0) takes a bit longer than no delayNanoseconds() call.
@@ -308,6 +309,7 @@ Signals *PinsI8051::completeCycle(Signals *s) {
         // S3H2
         xtal_hi();
         s->setData();
+        delayNanoseconds(xtal_hi_output);
         // S1L1
         xtal_lo();
         Signals::outputMode();
@@ -337,6 +339,7 @@ Signals *PinsI8051::completeCycle(Signals *s) {
         // S2H1
         xtal_hi();
         s->setData();
+        delayNanoseconds(xtal_hi_output);
         // S2L2
         xtal_lo();
         Signals::outputMode();

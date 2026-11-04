@@ -168,13 +168,13 @@ void out_clock() {
 // LOAD, INTREQ, HOLD and IC0-IC3 are held in a 74HCT259 addressable latch:
 // SEL picks the bit, OUTCLK latches DATA into it.
 void control_low(uint_fast8_t sel) {
-    busWrite(SEL, sel);
+    busWriteFast(SEL, sel);
     digitalWriteFast(PIN_DATA, LOW);
     out_clock();
 }
 
 void control_high(uint_fast8_t sel) {
-    busWrite(SEL, sel);
+    busWriteFast(SEL, sel);
     digitalWriteFast(PIN_DATA, HIGH);
     out_clock();
 }

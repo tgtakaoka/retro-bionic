@@ -18,7 +18,7 @@ void Signals::getData() {
 }
 
 void Signals::outData() {
-    busWrite(DATA, data);
+    busWriteFast(DATA, data);
     busMode(DATA, OUTPUT);
 }
 
