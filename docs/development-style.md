@@ -511,12 +511,14 @@ The TMS9900 (four phases, 12 V), P8080 (two phases, 12 V) and CP1610 (two
 phases, 11 V) take clocks the Teensy's 5 V outputs can't reach, and the
 phases must never overlap.
 
-- The TMS9900 and P8080 boards level-shift each phase with a common-gate
+- The TMS9900 rev 1 and P8080 boards level-shift each phase with a common-gate
   2N7002 (gate at VCC, source driven by 5 V logic) and a 750 Ω pull-up to
   the 12 V rail: the pull-up alone makes the rising edge.
 - A dual low-side gate driver powered from the CPU's VDD drives both edges
   instead. The CP1610 board uses a UCC27324, with 33 Ω in series with each
-  output to damp ringing into the 20-30 pF clock inputs. The UCC27444 and
+  output to damp ringing into the 20-30 pF clock inputs. TMS9900 rev 2
+  uses two UCC27624s (PHI1/PHI2 and PHI3/PHI4) with 33 Ω as well, still
+  fed from the bit-banged 74ACT164 taps. The UCC27444 and
   UCC27624 fit the same footprint: their pins 1 and 8 are enables pulled
   up inside, so a board leaving them unconnected takes either.
 - The UCC27624 is the best of the three: its delay is the same for both
