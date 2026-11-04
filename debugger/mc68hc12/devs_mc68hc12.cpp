@@ -37,11 +37,12 @@ void DevsMc68hc12::begin() {
     enableDevice(_acia);
 }
 
-void DevsMc68hc12::loop() {
-    _acia->loop();
+bool DevsMc68hc12::loopDevices() {
+    auto ran = _acia->loop();
 #if defined(ENABLE_SERIAL_HANDLER)
-    _sci->loop();
+    ran |= _sci->loop();
 #endif
+    return ran;
 }
 
 void DevsMc68hc12::setIdle(bool idle) {

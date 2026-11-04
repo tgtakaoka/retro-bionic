@@ -62,7 +62,8 @@ constexpr auto osc_hi_inject = 38;   // 90
 constexpr auto osc_lo_out = 60;      // 90
 constexpr auto osc_hi_get = 50;      // 90
 constexpr auto osc_lo_capture = 56;  // 90
-constexpr auto osc_lo_next = 20;     // 90
+constexpr auto osc_lo_write = 40;    // 90
+constexpr auto osc_lo_next = 90;     // 90
 constexpr auto osc_hi_out = 60;      // 90
 constexpr auto osc_hi_end = 30;      // 90
 
@@ -252,6 +253,7 @@ bus_cycle:
         if (s->mem()) {
             if (s->writeMemory()) {
                 _mems->write(s->addr, s->data);
+                delayNanoseconds(osc_lo_write);
             } else {
                 delayNanoseconds(osc_lo_capture);
             }
@@ -274,6 +276,7 @@ bus_cycle:
         delayNanoseconds(osc_hi_ns);
     }
     osc_lo();
+    delayNanoseconds(osc_lo_next);
     // A held ring reuses this slot: poll a copy so its record stays intact
     auto next = *s;
     Cycles::next();

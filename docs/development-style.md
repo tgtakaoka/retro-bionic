@@ -112,7 +112,11 @@ wait loops are bounded.
 **It is serviced only from `yield()`.** **[code]** A run reaches `yield()`
 otherwise only through console I/O, so `Pins::haltSwitch()` calls `yield()`
 itself; without it a program that never enables the console device cannot be
-halted. A halt that never returns the CLI looks exactly like a wedged board, so
+halted. Its `yield()` stretches the cycle it runs in, so a bus loop takes it only
+when `_devs->loop()` returns true: on the cycle a device ran its slow service,
+which each paces by time (the UART once in 10 µs), or 10 µs after the last with
+none enabled. A loop that skips it pads the clock phase it used to fill.
+**[code]** A halt that never returns the CLI looks exactly like a wedged board, so
 try a program that uses the console before suspecting the board. **[hw]**
 
 **The handler must drain the byte.** The core re-calls `serialEventUSB1()` from
@@ -2348,10 +2352,9 @@ at most. **[doc]** The debugger holds a fetch with it where a stopped
 clock used to freeze the CPU. Device service, whose USB writes can take
 longer, waits on BUSRQ, which the CPU grants at an instruction boundary
 for as long as needed; BUSAK rises within the microcycle it resumes in,
-which may be an `INTAK`. The emulated UART counts time in calls of
-`loop()` and polls the console once in 256, so a pause comes every 256
-transactions and makes up one call for each; pausing on a timer every
-20 µs instead stopped the CPU for 3 µs in every 31. Only this pause
+which may be an `INTAK`. A pause comes every 256 transactions and runs
+the devices once; pausing on a timer every 20 µs instead stopped the
+CPU for 3 µs in every 31. Only this pause
 enables interrupts; a BDRDY hold never does, so USB cannot stretch it
 past 40 µs. **[code]**
 

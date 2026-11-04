@@ -17,7 +17,7 @@ struct NpxInt final : Device {
     void print() const override;
 
     void reset() override { _asserted = false; }
-    void loop() override;
+    bool loop() override;
     void enable(bool enabled) override;
     void setVector(uint8_t type, uint8_t) override;
     // The INTR type pending, 0 if none.
@@ -35,7 +35,7 @@ struct DevsD8087 final : DevsI8080 {
     ~DevsD8087();
 
     void reset() override;
-    void loop() override;
+    bool loopDevices() override;
     uint16_t vector() const override;
 
     Device *parseDevice(const char *name) const override;

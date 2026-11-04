@@ -10,7 +10,7 @@ namespace debugger {
 struct DevsNull final : Devs {
     void begin() override {}
     void reset() override {}
-    void loop() override {}
+    bool loopDevices() override { return false; }
 };
 
 struct MemsNull final : Mems {

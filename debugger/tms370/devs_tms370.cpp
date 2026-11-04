@@ -21,8 +21,8 @@ void DevsTms370::begin() {
     enableDevice(_acia);
 }
 
-void DevsTms370::loop() {
-    _acia->loop();
+bool DevsTms370::loopDevices() {
+    return _acia->loop();
 }
 
 bool DevsTms370::isSelected(uint32_t addr) const {

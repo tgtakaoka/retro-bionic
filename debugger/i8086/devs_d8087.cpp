@@ -14,9 +14,9 @@ void NpxInt::print() const {
 }
 
 // digitalReadFast() may return the port bit, not 1: compare with LOW.
-void NpxInt::loop() {
+bool NpxInt::loop() {
     if (!_enabled || _type == 0)
-        return;
+        return false;
     const auto high = digitalReadFast(PIN_INT) != LOW;
     if (high && !_asserted) {
         _asserted = true;
@@ -24,6 +24,7 @@ void NpxInt::loop() {
     } else if (!high) {
         negate();
     }
+    return false;
 }
 
 void NpxInt::enable(bool enabled) {
@@ -59,9 +60,9 @@ void DevsD8087::reset() {
     DevsI8080::reset();
 }
 
-void DevsD8087::loop() {
-    DevsI8080::loop();
-    _npx->loop();
+bool DevsD8087::loopDevices() {
+    const auto ran = DevsI8080::loopDevices();
+    return _npx->loop() || ran;
 }
 
 uint16_t DevsD8087::vector() const {

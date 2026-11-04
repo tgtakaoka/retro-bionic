@@ -25,7 +25,7 @@ struct Mc68hc11Init final : Device {
     void print() const override;
 
     void reset() override {}
-    void loop() override {}
+    bool loop() override { return false; }
     void setBaseAddr(uint32_t addr) override { set(addr); }
     uint32_t baseAddr() const override { return _dev_base + INIT; }
 

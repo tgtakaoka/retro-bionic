@@ -109,10 +109,6 @@ constexpr auto strobe_cycles = 4 * clk_max_cycles;
 constexpr auto skip_cycles = 16;
 // Bus cycles execute() takes before giving up on its injection.
 constexpr auto inject_cycles = 256;
-// Bus cycles between polls of the halt switch in a run: its yield()
-// services the USB while #WAIT holds the CPU, which would otherwise
-// stretch every cycle. The devices ration their own polling.
-constexpr auto halt_poll_cycles = 16;
 
 inline auto signal_clk() {
     return digitalReadFast(PIN_CLK);
@@ -427,18 +423,13 @@ bool PinsNsc800::isRst38Break(const Signals *org_rst) const {
 
 bool PinsNsc800::loop() {
     resumeCycle(_regs->nextIp());
-    auto poll = 0;
     while (true) {
         const auto s = prepareCycle();
         // #WAIT holds the CPU meanwhile, with the address taken.
-        _devs->loop();
-        if (++poll >= halt_poll_cycles) {
-            poll = 0;
-            if (haltSwitch()) {
-                // Serve the cycle held, then stop at an instruction.
-                completeCycle(s);
-                return suspend();
-            }
+        if (_devs->loop() && haltSwitch()) {
+            // Serve the cycle held, then stop at an instruction.
+            completeCycle(s);
+            return suspend();
         }
         if (s->addr == InstZ80::ORG_RST38H && s->fetch()) {
             if (isRst38Break(s)) {

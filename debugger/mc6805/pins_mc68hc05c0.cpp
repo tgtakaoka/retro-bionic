@@ -55,6 +55,7 @@ constexpr auto c3_hi_internal = 20;  // 62.5
 constexpr auto c3_hi_inject = 4;     // 62.5
 constexpr auto c4_lo_read = 4;       // 62.5
 constexpr auto c1_lo_input = 20;     // 62.5
+constexpr auto c1_hi_ns = 62;        // 62.5
 
 inline void osc1_hi() {
     digitalWriteFast(PIN_OSC1, HIGH);
@@ -235,6 +236,7 @@ Signals *PinsMc68HC05C0::completeCycle(Signals *signals) {
     delayNanoseconds(c1_lo_input);
     SignalsMc68HC05C0::inputMode();
     osc1_hi();
+    delayNanoseconds(c1_hi_ns);
     return s;
 }
 

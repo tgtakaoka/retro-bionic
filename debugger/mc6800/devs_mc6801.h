@@ -15,7 +15,7 @@ struct DevsMc6801 final : Devs {
 
     void begin() override;
     void reset() override;
-    void loop() override;
+    bool loopDevices() override;
     void setIdle(bool idle) override;
     bool isSelected(uint32_t addr) const override;
     uint16_t read(uint32_t addr) const override;

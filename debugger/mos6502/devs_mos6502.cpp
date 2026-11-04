@@ -21,8 +21,8 @@ void DevsMos6502::begin() {
     enableDevice(_acia);
 }
 
-void DevsMos6502::loop() {
-    _acia->loop();
+bool DevsMos6502::loopDevices() {
+    return _acia->loop();
 }
 
 bool DevsMos6502::isSelected(uint32_t addr) const {

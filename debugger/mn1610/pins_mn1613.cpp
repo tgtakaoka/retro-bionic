@@ -54,6 +54,7 @@ constexpr auto x2_hi_write = 5;     // 37.5 ns
 constexpr auto x2_hi_get = 0;       // 37.5 ns
 constexpr auto x2_lo_write = 10;    // 37.5 ns
 constexpr auto x2_hi_capture = 25;  // 37.5 ns
+constexpr auto x2_lo_next = 37;     // 37.5 ns
 
 const uint8_t PINS_LOW[] = {
         PIN_X2,
@@ -277,6 +278,7 @@ Signals *PinsMn1613::completeCycle(Signals *s) const {
         }
     }
     x2_lo();
+    delayNanoseconds(x2_lo_next);
     // X2=LOW
     return s;
 }
@@ -303,14 +305,14 @@ bool PinsMn1613::loop(bool &switched) {
             return true;
         }
         completeCycle(s);
-        if (stopping == 0 && haltSwitch()) {
+        const auto serviced = _devs->loop();
+        if (stopping == 0 && serviced && haltSwitch()) {
             assert_hlt();
             stopping = 1;
         } else if (stopping && ++stopping > halt_cycles) {
             cli.println("?halt: CPU ignored #HLT");
             return false;
         }
-        _devs->loop();
     }
 }
 

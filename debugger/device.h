@@ -1,9 +1,14 @@
 #ifndef __DEBUGGER_DEVICE_H__
 #define __DEBUGGER_DEVICE_H__
 
+#include <Arduino.h>
 #include <stdint.h>
 
 namespace debugger {
+
+// A device's slow service, such as a UART's console work, runs once in
+// 10 us.
+constexpr uint32_t SERVICE_CYCLES = F_CPU / 100000;
 
 // An emulated peripheral, selected by address on the target's bus.
 struct Device {
@@ -15,7 +20,10 @@ struct Device {
     virtual void print() const {}
 
     virtual void reset() = 0;
-    virtual void loop() = 0;
+    // Called from every bus cycle; runs a slow service at most once in
+    // SERVICE_CYCLES. True when it did, so the bus loop takes the halt
+    // switch on the same cycle.
+    virtual bool loop() = 0;
     virtual void enable(bool enabled) { _enabled = enabled; }
     virtual bool isEnabled() const { return _enabled; }
 

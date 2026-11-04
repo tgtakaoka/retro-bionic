@@ -80,6 +80,7 @@ constexpr auto osc_lo_next = 45;     // 90
 constexpr auto osc_lo_get = 0;       // 90
 constexpr auto osc_hi_capture = 50;  // 90
 constexpr auto osc_lo_xtc = 35;      // 90
+constexpr auto osc_lo_write = 90;    // 90
 
 inline void osc_hi() {
     digitalWriteFast(PIN_OSCOUT, HIGH);
@@ -319,6 +320,7 @@ pdp8::Signals *PinsIm6100::completeCycle(pdp8::Signals *_s) const {
             }
             osc_lo();
             Cycles::next();
+            delayNanoseconds(osc_lo_write);
             return n;
         }
         // negate_debug();

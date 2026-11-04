@@ -34,8 +34,8 @@ void DevsIns8070::begin() {
     enableDevice(_acia);
 }
 
-void DevsIns8070::loop() {
-    _acia->loop();
+bool DevsIns8070::loopDevices() {
+    return _acia->loop();
 }
 
 void DevsIns8070::setIdle(bool idle) {

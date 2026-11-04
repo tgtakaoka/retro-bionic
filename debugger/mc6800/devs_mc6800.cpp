@@ -20,8 +20,8 @@ void DevsMc6800::begin() {
     enableDevice(_acia);
 }
 
-void DevsMc6800::loop() {
-    _acia->loop();
+bool DevsMc6800::loopDevices() {
+    return _acia->loop();
 }
 
 bool DevsMc6800::isSelected(uint32_t addr) const {

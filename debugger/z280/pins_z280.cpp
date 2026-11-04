@@ -735,12 +735,12 @@ bool PinsZ280::loop() {
             return false;
         }
         completeCycle(s);
-        _devs->loop();
+        const auto serviced = _devs->loop();
         s = prepareCycle();
         // Only now, with a transaction under way: suspend() opens with
         // resumeCycle() on this slot, which before prepareCycle() holds
         // no cycle at all.
-        if (haltSwitch()) {
+        if (serviced && haltSwitch()) {
             const auto stop = s;
             if (suspend(s->addr)) {
                 // The #NMI push, vector fetch and injected RETN.

@@ -34,11 +34,12 @@ void DevsMc6801::begin() {
     enableDevice(_acia);
 }
 
-void DevsMc6801::loop() {
-    _acia->loop();
+bool DevsMc6801::loopDevices() {
+    auto ran = _acia->loop();
 #if defined(ENABLE_SERIAL_HANDLER)
-    _sci->loop();
+    ran |= _sci->loop();
 #endif
+    return ran;
 }
 
 void DevsMc6801::setIdle(bool idle) {

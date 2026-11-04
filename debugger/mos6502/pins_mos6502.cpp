@@ -40,6 +40,7 @@ constexpr auto phi0_lo_sync = 30;       // 500
 constexpr auto phi0_lo_ns = 218;        // 500
 constexpr auto phi0_lo_fetch = 90;      // 500
 constexpr auto phi0_lo_loop = 30;       // 500
+constexpr auto phi0_lo_poll = 128;      // phi0_lo_ns - phi0_lo_fetch
 constexpr auto phi0_lo_execute = 30;    // 500
 constexpr auto phi0_hi_read_pre = 240;  // 500
 constexpr auto phi0_hi_read_post = 50;  // 500
@@ -397,7 +398,9 @@ void PinsMos6502::idle() {
 
 bool PinsMos6502::loop() {
     while (true) {
-        _devs->loop();
+        const auto serviced = _devs->loop();
+        if (!serviced)
+            delayNanoseconds(phi0_lo_poll);
         delayNanoseconds(phi0_lo_fetch);
         auto s = rawPrepareCycle();
         if (s->fetch()) {
@@ -411,7 +414,7 @@ bool PinsMos6502::loop() {
             delayNanoseconds(phi0_lo_loop);
         }
         completeCycle(s);
-        if (haltSwitch())
+        if (serviced && haltSwitch())
             return suspend();
     }
 }

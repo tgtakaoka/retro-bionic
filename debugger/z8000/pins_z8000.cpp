@@ -60,8 +60,6 @@ constexpr auto no_as_periods = 2048;
 constexpr auto no_data_cycles = 256;
 // Half periods a strobe may take to come.
 constexpr auto strobe_halves = 256;
-// Bus cycles between halt switch polls while running.
-constexpr auto halt_poll_cycles = 16;
 // Bus cycles allowed for an acknowledge and its frame.
 constexpr auto nmi_cycles = 256;
 // The handler PC the debugger serves for its traps; injection answers
@@ -641,18 +639,17 @@ bool PinsZ8000::step(bool show) {
 // whether the registers can be saved.
 bool PinsZ8000::loop() {
     auto s = resumeCycle(this->regs<RegsZ8000>()->parkedAt());
-    for (uint_fast8_t n = 0;; ++n) {
+    while (true) {
         completeCycle(s);
         if (scBreak(s))
             return true;
-        _devs->loop();
+        const auto serviced = _devs->loop();
         s = prepareCycle();
         if (s == nullptr) {
             // Halted: take #NMI so the registers can be saved.
             return suspend(nullptr);
         }
-        // Not every cycle: it polls USB and stretches the clock.
-        if ((n % halt_poll_cycles) == 0 && haltSwitch())
+        if (serviced && haltSwitch())
             return suspend(s);
     }
 }

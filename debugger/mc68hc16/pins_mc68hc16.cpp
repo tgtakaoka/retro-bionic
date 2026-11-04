@@ -66,10 +66,6 @@ constexpr auto halt_clocks = 1024;
 // Clocks between polls of a CPU already stopped: short enough to service
 // the devices and the halt switch, and to tick the watchdog, often.
 constexpr auto wait_poll_clocks = 16;
-// Bus cycles between polls of the halt switch in a run: its yield()
-// services the USB while the CPU waits on #DSACK1, which would otherwise
-// stretch every cycle. The devices ration their own polling.
-constexpr auto halt_poll_cycles = 16;
 // Bus cycles allowed for an #IRQ7 acknowledge; generous.
 constexpr auto irq_ack_cycles = 1024;
 // Cycles before an exception's vector read that may hold its frame: two
@@ -862,7 +858,6 @@ bool PinsMc68hc16::maskSwi(Signals *s, const RegsMc68hc16::Frame &frame) {
 bool PinsMc68hc16::loop() {
     auto s = resumeCycle(regs<RegsMc68hc16>()->parkedAt());
     start_clock(_clock);
-    uint_fast8_t poll = 0;
     while (true) {
         const Signals *from;
         RegsMc68hc16::Frame frame;
@@ -875,8 +870,7 @@ bool PinsMc68hc16::loop() {
         }
         if (s->halt()) {
             // WAI or LPSTOP: no bus cycle until an interrupt.
-            _devs->loop();
-            if (haltSwitch()) {
+            if (_devs->loop() && haltSwitch()) {
                 stop_clock(_clock, _clockInput);
                 return suspend(UINT32_MAX);
             }
@@ -884,14 +878,13 @@ bool PinsMc68hc16::loop() {
             continue;
         }
         completeRun(s);
-        _devs->loop();
+        const auto serviced = _devs->loop();
         s = prepareRun(halt_clocks);
         // Only now, with a cycle recorded: suspend() opens with
         // resumeCycle(), which reads that slot back.
         // Not at an acknowledge: #AVEC ends it without waiting for us.
-        if (++poll < halt_poll_cycles || s->iack())
+        if (!serviced || s->iack())
             continue;
-        poll = 0;
         if (haltSwitch()) {
             stop_clock(_clock, _clockInput);
             return s->halt() ? suspend(UINT32_MAX) : suspend(s->addr);

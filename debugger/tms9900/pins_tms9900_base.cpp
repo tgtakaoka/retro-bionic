@@ -20,11 +20,6 @@ inline void negate_ready() {
     digitalWriteFast(PIN_READY, LOW);
 }
 
-// Bus cycles between polls of the halt switch in a run: its yield()
-// services the USB while the clock is held, which would otherwise stretch
-// every cycle. The devices ration their own polling.
-constexpr auto halt_poll_cycles = 16;
-
 }  // namespace
 
 bool PinsTms9900Base::waitEdge(bool rising, uint32_t ns) {
@@ -55,17 +50,13 @@ void PinsTms9900Base::idle() {
 
 void PinsTms9900Base::loop() {
     auto s = resumeCycle();
-    uint_fast8_t poll = 0;
     while (true) {
         completeCycle(s);
-        _devs->loop();
+        const auto serviced = _devs->loop();
         s = prepareCycle();
-        if (++poll >= halt_poll_cycles) {
-            poll = 0;
-            if (haltSwitch()) {
-                suspend(s->addr);
-                return;
-            }
+        if (serviced && haltSwitch()) {
+            suspend(s->addr);
+            return;
         }
         // A break is an XOP 15 whose vector holds its own address; its
         // fetch is among the last few cycles before the vector read.

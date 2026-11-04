@@ -19,9 +19,9 @@ void DevsMc68HC05C0::reset() {
     DevsMc6805::reset();
 }
 
-void DevsMc68HC05C0::loop() {
-    _sci->loop();
-    DevsMc6805::loop();
+bool DevsMc68HC05C0::loopDevices() {
+    const auto ran = _sci->loop();
+    return DevsMc6805::loopDevices() || ran;
 }
 
 void DevsMc68HC05C0::setIdle(bool idle) {

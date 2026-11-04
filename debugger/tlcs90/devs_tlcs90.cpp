@@ -34,8 +34,8 @@ void DevsTlcs90::begin() {
     enableDevice(_usart);
 }
 
-void DevsTlcs90::loop() {
-    _usart->loop();
+bool DevsTlcs90::loopDevices() {
+    return _usart->loop();
 }
 
 void DevsTlcs90::setIdle(bool idle) {

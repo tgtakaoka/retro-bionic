@@ -138,11 +138,11 @@ void PinsMc6805::loop() {
 void PinsMc6805::loop() {
     const auto vec_swi = mems<MemsMc6805>()->vecSwi();
     while (true) {
-        _devs->loop();
-        auto s = rawPrepareCycle();
+        const auto serviced = _devs->loop();
+        auto s = prepareCycle();
         if (s->addr == vec_swi && checkBreakPoint(s))
             return;
-        if (haltSwitch()) {
+        if (serviced && haltSwitch()) {
             restoreBreakInsts();
             s = suspend(s);
             if (is_internal(s->addr)) {

@@ -33,8 +33,8 @@ void DevsZ8::begin() {
     enableDevice(_usart);
 }
 
-void DevsZ8::loop() {
-    _usart->loop();
+bool DevsZ8::loopDevices() {
+    return _usart->loop();
 }
 
 void DevsZ8::setIdle(bool idle) {

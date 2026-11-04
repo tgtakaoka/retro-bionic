@@ -46,6 +46,7 @@ constexpr auto x1_lo_ns = 10;       // 50 ns
 constexpr auto x1_lo_clk = 40;      // 50 ns
 constexpr auto c1_lo_ns = 0;        // 50 ns
 constexpr auto c2_hi_ns = 2;        // 50 ns
+constexpr auto c2_lo_ns = 50;       // 50 ns
 constexpr auto c3_hi_read = 28;     // 50 ns
 constexpr auto c3_lo_read = 10;     // 50 ns
 constexpr auto c4_hi_read = 26;     // 50 ns
@@ -214,6 +215,7 @@ Signals *PinsTlcs90::prepareCycle() {
     // C2L
     x1_lo();
     s->getDirection();
+    delayNanoseconds(c2_lo_ns);
 
     return s;
 }
@@ -358,7 +360,7 @@ void PinsTlcs90::loop() {
 void PinsTlcs90::loop() {
     auto s = Signals::current();
     while (true) {
-        _devs->loop();
+        const auto serviced = _devs->loop();
         if (s->addr == InstTlcs90::ORG_SWI) {
             auto r = regs<RegsTlcs90>();
             if (r->saveContext(s->prev(4))) {
@@ -376,7 +378,7 @@ void PinsTlcs90::loop() {
         }
         completeCycle(s);
         s = prepareCycle();
-        if (haltSwitch()) {
+        if (serviced && haltSwitch()) {
             suspend(true);
             break;
         }

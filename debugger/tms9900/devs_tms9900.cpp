@@ -21,8 +21,8 @@ void DevsTms9900::begin() {
     enableDevice(_acia);
 }
 
-void DevsTms9900::loop() {
-    _acia->loop();
+bool DevsTms9900::loopDevices() {
+    return _acia->loop();
 }
 
 bool DevsTms9900::isSelected(uint32_t addr) const {

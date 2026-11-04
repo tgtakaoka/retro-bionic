@@ -38,12 +38,14 @@ void SerialHandler::pace() {
     rxloop(_rx);
 }
 
-void SerialHandler::loop() {
+// Its bit clock counts calls, one per bus cycle: never a slow service.
+bool SerialHandler::loop() {
     if (_enabled && --_prescaler == 0) {
         _prescaler = _pre_divider;
         txloop(_tx);
         rxloop(_rx);
     }
+    return false;
 }
 
 void SerialHandler::txloop(Transmitter &tx) const {

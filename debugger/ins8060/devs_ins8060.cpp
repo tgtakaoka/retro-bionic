@@ -34,8 +34,8 @@ void DevsIns8060::begin() {
     enableDevice(_acia);
 }
 
-void DevsIns8060::loop() {
-    _acia->loop();
+bool DevsIns8060::loopDevices() {
+    return _acia->loop();
 }
 
 void DevsIns8060::setIdle(bool idle) {

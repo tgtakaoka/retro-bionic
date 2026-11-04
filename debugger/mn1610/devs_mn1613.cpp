@@ -21,8 +21,8 @@ void DevsMn1613::begin() {
     enableDevice(_usart);
 }
 
-void DevsMn1613::loop() {
-    _usart->loop();
+bool DevsMn1613::loopDevices() {
+    return _usart->loop();
 }
 
 bool DevsMn1613::isSelected(uint32_t addr) const {

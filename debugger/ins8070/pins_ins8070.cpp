@@ -324,7 +324,7 @@ bool PinsIns8070::loop() {
 #else
     while (true) {
 #endif
-        _devs->loop();
+        const auto serviced = _devs->loop();
         auto s = prepareCycle();
         if (s->addr == InstIns8070::VEC_CALL15) {
             const auto call = isCall15(s);
@@ -346,11 +346,11 @@ bool PinsIns8070::loop() {
         }
         completeCycle(s);
 #ifdef PROFILE_CYCLES
-        if (n >= MAX_CYCLES || haltSwitch()) {
+        if (n >= MAX_CYCLES || (serviced && haltSwitch())) {
             negate_debug();
             cli.println(n >= MAX_CYCLES ? "?cycles" : "?halt");
 #else
-        if (haltSwitch()) {
+        if (serviced && haltSwitch()) {
 #endif
             return suspend();
         }

@@ -34,8 +34,8 @@ void DevsCdp1802::begin() {
     enableDevice(_acia);
 }
 
-void DevsCdp1802::loop() {
-    _acia->loop();
+bool DevsCdp1802::loopDevices() {
+    return _acia->loop();
 }
 
 void DevsCdp1802::setIdle(bool idle) {

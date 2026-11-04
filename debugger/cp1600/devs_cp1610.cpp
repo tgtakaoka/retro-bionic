@@ -21,8 +21,8 @@ void DevsCp1610::begin() {
     enableDevice(_usart);
 }
 
-void DevsCp1610::loop() {
-    _usart->loop();
+bool DevsCp1610::loopDevices() {
+    return _usart->loop();
 }
 
 bool DevsCp1610::isSelected(uint32_t addr) const {

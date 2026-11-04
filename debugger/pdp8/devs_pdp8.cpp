@@ -27,8 +27,8 @@ void DevsPdp8::begin() {
     enableDevice(_acia);
 }
 
-void DevsPdp8::loop() {
-    _acia->loop();
+bool DevsPdp8::loopDevices() {
+    return _acia->loop();
 }
 
 bool DevsPdp8::isSelected(uint32_t addr) const {

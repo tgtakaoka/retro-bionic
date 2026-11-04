@@ -11,7 +11,7 @@ struct NullDevice final : Device {
     const char *name() const override { return "null"; }
     const char *description() const override { return "null device"; }
     void reset() override {}
-    void loop() override {}
+    bool loop() override { return false; }
 } NullDevice;
 }  // namespace
 

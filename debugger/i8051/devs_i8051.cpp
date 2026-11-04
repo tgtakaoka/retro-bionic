@@ -34,8 +34,8 @@ void DevsI8051::begin() {
     enableDevice(_usart);
 }
 
-void DevsI8051::loop() {
-    _usart->loop();
+bool DevsI8051::loopDevices() {
+    return _usart->loop();
 }
 
 void DevsI8051::setIdle(bool idle) {

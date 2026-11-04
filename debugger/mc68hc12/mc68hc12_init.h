@@ -20,7 +20,7 @@ struct Mc68hc12Init final : Device {
     void print() const override;
 
     void reset() override {}
-    void loop() override {}
+    bool loop() override { return false; }
     uint32_t baseAddr() const override { return REG_BASE; }
 
     // Clears the reset's external access stretch and stops the COP.

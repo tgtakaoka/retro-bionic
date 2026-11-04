@@ -432,8 +432,8 @@ void PinsI8048::loop() {
 #else
 void PinsI8048::loop() {
     while (true) {
-        _devs->loop();
-        if (!rawStep() || haltSwitch()) {
+        const auto serviced = _devs->loop();
+        if (!rawStep() || (serviced && haltSwitch())) {
             return;
         }
     }

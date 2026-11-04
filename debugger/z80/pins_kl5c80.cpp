@@ -63,10 +63,6 @@ constexpr auto strobe_cycles = 4 * clk_max_cycles;
 constexpr auto asel_ns = 20;
 // Bus cycles execute() takes before giving up on its injection.
 constexpr auto inject_cycles = 256;
-// Bus cycles between polls of the halt switch in a run: its yield()
-// services the USB while ERDY holds the CPU, which would otherwise
-// stretch every cycle. The devices ration their own polling.
-constexpr auto halt_poll_cycles = 16;
 
 inline void assert_nmi() {
     digitalWriteFast(PIN_NMI, LOW);
@@ -323,7 +319,6 @@ bool PinsKl5c80::isRst38Break(const Signals *org_rst) const {
 
 Signals *PinsKl5c80::loop() {
     resumeCycle(_regs->nextIp());
-    auto poll = 0;
     while (true) {
         const auto s = prepareCycle();
         if (s->addr == InstZ80::ORG_RST38H && s->fetch()) {
@@ -338,12 +333,8 @@ Signals *PinsKl5c80::loop() {
             }
         }
         completeCycle(s);
-        _devs->loop();
-        if (++poll >= halt_poll_cycles) {
-            poll = 0;
-            if (haltSwitch())
-                return suspend();
-        }
+        if (_devs->loop() && haltSwitch())
+            return suspend();
     }
 }
 

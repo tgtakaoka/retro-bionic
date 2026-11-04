@@ -20,8 +20,8 @@ void DevsI8080::begin() {
     enableDevice(_usart);
 }
 
-void DevsI8080::loop() {
-    _usart->loop();
+bool DevsI8080::loopDevices() {
+    return _usart->loop();
 }
 
 bool DevsI8080::isSelected(uint32_t addr) const {

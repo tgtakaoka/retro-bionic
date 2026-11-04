@@ -21,8 +21,8 @@ void DevsF3850::begin() {
     enableDevice(_usart);
 }
 
-void DevsF3850::loop() {
-    _usart->loop();
+bool DevsF3850::loopDevices() {
+    return _usart->loop();
 }
 
 bool DevsF3850::isSelected(uint32_t addr) const {
