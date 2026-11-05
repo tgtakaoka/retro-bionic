@@ -712,6 +712,14 @@ vector's bytes, most significant first -- `PC = "[FFFE FFFF]"`, or
 `"[FFFD FFFC]"` on the 6502 -- and the reset case checks the PC against the
 value the loaded sample puts there.
 
+### A damaged record is rejected, not loaded **[hw]**
+
+The loader takes a record's length from its count field, so a line cut short
+on the way used to load whatever an earlier, longer line left in the buffer:
+an MC6809E ran into code from another record, with nothing reported. Each
+record's length and checksum are checked now; a bad one prints `?bad record`
+and loads nothing, and `upload_file()` uploads again when it sees that.
+
 ### Some CPUs report the PC one byte early **[hw]**
 
 The SC/MP (INS8060) and INS8070 increment PC *before* each fetch, so a stop at
