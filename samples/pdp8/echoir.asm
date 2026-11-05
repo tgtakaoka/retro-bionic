@@ -105,9 +105,10 @@ isr,
         jms     I I_queue_add
         rx_queue
 isr_exit,
-        cla
+        cla cll
         tad     isr_FLAGS
-        rtf                     / Restore FLAGS
-        cla
-        tad     isr_AC          / Restore AC
+        spa cla                 / Skip if the saved link is 0
+        cml                     / Restore L=1
+        tad     isr_AC          / Restore AC, leaving L as it is
+        ion                     / Enabled after the return
         jmp     I PC_INTR       / Return
