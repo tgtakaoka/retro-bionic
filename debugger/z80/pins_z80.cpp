@@ -91,7 +91,7 @@ constexpr auto clk_hi_io = 85;       // 125 ns
 constexpr auto clk_lo_input = 1;     // 125 ns
 constexpr auto clk_lo_refresh = 52;  // 125 ns
 constexpr auto clk_lo_exec = 6;      // 125 ns
-constexpr auto clk_lo_loop = 115;    // +clk_lo_addr; 125 ns
+constexpr auto clk_lo_loop = 25;     // +clk_lo_addr; 125 ns
 
 inline void clk_hi() {
     digitalWriteFast(PIN_CLK, HIGH);

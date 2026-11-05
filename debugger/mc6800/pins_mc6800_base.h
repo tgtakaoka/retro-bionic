@@ -48,6 +48,9 @@ protected:
 
     virtual Signals *rawCycle() = 0;
     virtual Signals *cycle() = 0;
+    // The cycle after _devs->loop(), whose time counts toward its first
+    // clock phase.
+    virtual Signals *loopCycle() { return cycle(); }
     virtual void suspend(bool show);
     Signals *injectCycle(uint8_t data);
     void loop();

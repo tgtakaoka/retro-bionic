@@ -114,7 +114,7 @@ void PinsMc6800Base::loop() {
 void PinsMc6800Base::loop() {
     while (true) {
         const auto serviced = _devs->loop();
-        cycle();
+        loopCycle();
         // A context push: the vector read after it tells an SWI's.
         if (_writes == regs<RegsMc6800>()->contextLength()) {
             const auto frame = Signals::put()->prev(_writes);
