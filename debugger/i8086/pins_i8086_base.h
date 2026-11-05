@@ -17,6 +17,8 @@ struct PinsI8086Base : Pins {
     bool vSeries() const { return _v_series; }
     // An 80C186, rather than an 8086, 8088, V20 or V30.
     bool i80186() const { return _qs_board == QsTracker::N80C186; }
+    // An 80C286.
+    bool i80286() const { return _qs_board == QsTracker::N80C286; }
     // The address bus: 20 bits, or the 80286's 24.
     uint32_t addrMask() const { return _addrMask; }
     uint32_t physical(uint16_t seg, uint16_t off) const {

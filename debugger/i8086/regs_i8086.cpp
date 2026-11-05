@@ -30,12 +30,16 @@ RegsI8086::RegsI8086(PinsI8086Base *pins)
     : _pins(pins), _buffer1(line1), _buffer2(line2) {}
 
 const char *RegsI8086::cpu() const {
+    if (_pins->i80286())
+        return "80286";
     if (_pins->i80186())
         return "80186";
     return _pins->vSeries() ? "V30" : "8086";
 }
 
 const char *RegsI8086::cpuName() const {
+    if (_pins->i80286())
+        return "80C286";
     if (_pins->i80186())
         return "80C186";
     if (_pins->vSeries())

@@ -314,6 +314,23 @@ The S80296SA's went this way:
    c40 low half shrank to about 30 ns: the CPU kept fetching the byte
    staged before, while the firmware went on as if each fetch were served.
 
+### Stopping a clock only where the datasheet allows **[hw][code]**
+
+The 80C286 is static, but its clock may stop only low in a phase 2
+(M80C286 datasheet, Figure 31); stopped elsewhere it may lose its
+registers. `debugger/i8086/pins_i80286.cpp` keeps every wait there: each
+step clocks a whole processor clock, phase 1 and back into phase 2, and
+a bus cycle is served stopped in Ts phase 2, where its address and a
+write's data hold. RESET does not tell the phase: the first edge after
+which the status reads active starts Ts phase 1, and the loop pairs edges
+from there.
+
+The 80286 resets with CS based at FF0000H, so its first fetch is at
+FFFFF0H and anything stored through CS there lands above 1MB. The
+debugger answers that fetch with `JMP F000:FFF0`, which reloads CS as
+CS*16, and parks at FFFF0H, the 8086's reset address; the injected save
+and restore then work as on the 8086.
+
 ### Clocking a run from a timer **[hw][code]**
 
 A CPU whose clock may stop can run from a free-running FlexPWM output

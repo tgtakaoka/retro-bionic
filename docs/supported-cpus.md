@@ -69,7 +69,7 @@ report several parts.
 <tr><td>🚧</td><td><code>V35</code></td><td><code>V25</code></td><td><code>D70330L-8</code>, <code>D70320GJ-8</code>; PLCC and QFP boards</td></tr>
 <tr><td>🚧</td><td><code>V53</code></td><td></td><td><code>D70236AGC-16</code></td></tr>
 <tr><td>🚧</td><td><code>80186</code></td><td></td><td><code>N80C186XL20</code>; static, X1 clocked edge by edge, queue status mode</td></tr>
-<tr><td>🚧</td><td><code>80286</code></td><td></td><td><code>N80C286-12</code></td></tr>
+<tr><td>🚧</td><td><code>80286</code></td><td></td><td><code>N80C286-12</code>; static, CLK clocked phase by phase, A0-A23 through 74HCS153 muxes</td></tr>
 <tr><td>🚧</td><td><code>80386SX</code></td><td></td><td><code>NG80386SX-25</code></td></tr>
 <tr><td>🚧</td><td><code>80486DX4</code></td><td></td><td><code>FC80486DX4-75</code>; 3.3 V core with 5 V-tolerant I/O</td></tr>
 <tr><td><code>i960</code></td><td></td><td>🚧</td><td><code>80960SA</code></td><td></td><td><code>N80960SA16</code></td></tr>
