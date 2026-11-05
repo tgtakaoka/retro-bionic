@@ -517,8 +517,8 @@ bool PinsZ8000::parkAfterFrame(Signals *push, Signals *from) {
         pc |= segmentOf(push->next()->data);
         fcw = push->next(2)->data;
     }
-    const uint16_t psa[] = {InstZ8000::SYS_FCW, PARK_PC};
-    const uint16_t psaSeg[] = {InstZ8000::SYS_FCW_SEG, 0, PARK_PC};
+    static constexpr uint16_t psa[] = {InstZ8000::SYS_FCW, PARK_PC};
+    static constexpr uint16_t psaSeg[] = {InstZ8000::SYS_FCW_SEG, 0, PARK_PC};
     const auto words = _segmented ? psaSeg : psa;
     const auto num = _segmented ? 3 : 2;
     for (auto i = 0; i < num; ++i) {
