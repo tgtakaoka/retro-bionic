@@ -707,6 +707,10 @@ void handleUploadFile(char *line, uintptr_t extra, State state) {
     } else if (c == ':') {
         context->size += loadIHexRecord(context->buffer, context->addr);
         cli.println();
+    } else if (c) {
+        // A record that lost its mark on the way.
+        badRecord();
+        cli.println();
     }
     cli.readLine(handleUploadFile, context->extra(), context->buffer,
             sizeof(context->buffer));
