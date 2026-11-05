@@ -63,6 +63,9 @@ init_usart:
         mov     A, #ORG_INT
         mov     R0, #USARTRV
         movx    @R0, A          ; enable RxRDY interrupt
+        inc     R0
+        clr     A
+        movx    @R0, A          ; disable TxRDY interrupt
         en      I
 
 receive_loop:

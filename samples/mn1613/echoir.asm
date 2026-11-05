@@ -54,6 +54,8 @@ init_usart:
         wt      R0, USARTC      Enable Rx/Tx
         mvi     R0, OPSW1+1     Use IRQ1 for Rx interrupt
         wt      R0, USARTRV
+        eor     R0, R0          Disable Tx interrupt
+        wt      R0, USARTTV
         ret
 
 loop:   bal     getchar
