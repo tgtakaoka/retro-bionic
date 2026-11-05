@@ -15,7 +15,7 @@ void NpxInt::print() const {
 
 // digitalReadFast() may return the port bit, not 1: compare with LOW.
 bool NpxInt::loop() {
-    if (!_enabled || _type == 0)
+    if (!_enabled || !_present || _type == 0)
         return false;
     const auto high = digitalReadFast(PIN_INT) != LOW;
     if (high && !_asserted) {
@@ -31,6 +31,17 @@ void NpxInt::enable(bool enabled) {
     if (!enabled)
         negate();
     Device::enable(enabled);
+}
+
+// Without the 8087, #TEST is held low so WAIT falls through; the level
+// shifter's pull-up outweighs the pulldown.
+void NpxInt::setPresent(bool present) {
+    _present = present;
+    if (!present) {
+        enable(false);
+        pinMode(PIN_TEST, OUTPUT);
+        digitalWriteFast(PIN_TEST, LOW);
+    }
 }
 
 void NpxInt::setVector(uint8_t type, uint8_t) {
@@ -80,7 +91,8 @@ Device *DevsD8087::parseDevice(const char *name) const {
 // NPX goes on and off by itself; the console stays as it is.
 void DevsD8087::enableDevice(Device *dev) {
     if (dev == _npx) {
-        _npx->enable(!_npx->isEnabled());
+        if (_npx->present())
+            _npx->enable(!_npx->isEnabled());
         return;
     }
     DevsI8080::enableDevice(dev);

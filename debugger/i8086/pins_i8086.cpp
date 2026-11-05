@@ -422,9 +422,11 @@ void PinsI8086::resetPins() {
     pinsMode(PINS_LOW, sizeof(PINS_LOW), OUTPUT, LOW);
     pinsMode(PINS_INPUT, sizeof(PINS_INPUT), INPUT);
     pinsMode(PINS_PULLUP, sizeof(PINS_PULLUP), INPUT_PULLUP);
-    // The 8087's BUSY, or low so WAIT falls through.
+    // The 8087's BUSY, or low so WAIT falls through. An empty 8087
+    // socket leaves BUSY and INT open: pulled low until reset knows.
     if (_fpu) {
-        pinMode(PIN_TEST, INPUT);
+        pinMode(PIN_TEST, INPUT_PULLDOWN);
+        pinMode(PIN_INT, INPUT_PULLDOWN);
     } else {
         pinMode(PIN_TEST, OUTPUT);
         digitalWriteFast(PIN_TEST, LOW);
@@ -638,6 +640,9 @@ bool PinsI8086::parkAtReset(Signals *s, bool bus8) {
     regs->parkAt(InstI8086::RESET_CS, InstI8086::RESET_IP);
     regs->save();
     _v_series = regs->probeVSeries();
+    _npx = _fpu && regs->probeNpx();
+    if (_fpu)
+        static_cast<DevsD8087 *>(_devs)->setNpx(_npx);
     return true;
 }
 
@@ -678,6 +683,10 @@ void PinsI8086::injectRead(
     auto injected = false;
     auto byteAt = [&](uint32_t a) -> uint8_t {
         const uint32_t off = (a - org) & 0xFFFFF;
+        if (npxAt(a)) {
+            injected = true;
+            return _npxImage->bytes[(a - _npxBase) & 0xFFFFF];
+        }
         if (off < len) {
             injected = true;
             return inst[off];
@@ -714,7 +723,15 @@ void PinsI8086::execInst(
                                            : (s->code() && s->addr == exit)))
             break;
         if (s->coproc()) {
-            // The 8087's own operand: memory's, as when running.
+            // The 8087's own operand: memory's, as when running, but in
+            // the debugger's image.
+            if (npxAt(s->addr)) {
+                if (s->read()) {
+                    injectNpx(s);
+                } else {
+                    s->capture();
+                }
+            }
         } else if (s->memory() && s->read()) {
             injectRead(s, inst, len, start);
             if (s->covers(last))
@@ -723,6 +740,8 @@ void PinsI8086::execInst(
             s->capture();
         }
         completeCycle(s);
+        if (npxAt(s->addr) && s->memory())
+            captureNpx(s);
         if (s->write() && s->memory() && !s->coproc()) {
             for (uint_fast8_t i = 0; i < 2; ++i) {
                 const auto a = (s->addr + i) & 0xFFFFF;
@@ -735,6 +754,40 @@ void PinsI8086::execInst(
     _next = s;
     if (s)
         org = s->addr;
+}
+
+bool PinsI8086::npxBusy() const {
+    return digitalReadFast(PIN_TEST) != LOW;
+}
+
+void PinsI8086::injectNpx(Signals *s) {
+    auto byteAt = [&](uint32_t a) -> uint8_t {
+        return npxAt(a) ? _npxImage->bytes[(a - _npxBase) & 0xFFFFF] : 0xFF;
+    };
+    uint16_t data;
+    if (s->wordAccess()) {
+        const auto l = byteAt(s->addr);
+        data = uint16(byteAt((s->addr + 1) & 0xFFFFF), l);
+    } else {
+        const auto b = byteAt(s->addr);
+        data = _bus8 ? b : uint16(b, b);
+    }
+    s->inject(data);
+}
+
+// Counts the image's bytes a cycle moved; a write's go into the image.
+void PinsI8086::captureNpx(const Signals *s) {
+    for (uint_fast8_t i = 0; i < 2; ++i) {
+        const auto a = (s->addr + i) & 0xFFFFF;
+        if (!s->covers(a) || !npxAt(a))
+            continue;
+        if (s->write()) {
+            _npxImage->bytes[(a - _npxBase) & 0xFFFFF] = s->byteAt(a);
+            ++_npxWritten;
+        } else {
+            ++_npxRead;
+        }
+    }
 }
 
 // Keeps the last 6 bytes written: a trap's frame, once it parks.
@@ -756,13 +809,19 @@ void PinsI8086::recordFrame(const Signals *s) {
 
 // |s| is the fetch at PARK after a trap's vector: the frame below holds
 // the program's IP, CS and FLAGS.
-bool PinsI8086::parkInTrap(Signals *s) {
+bool PinsI8086::parkInTrap(Signals *s, bool interrupted) {
     if (_frameBytes < 6)
         return false;
     uint32_t base = _frameAt[0];
     for (uint_fast8_t i = 1; i < 6; ++i) {
         if (((_frameAt[i] - base) & 0xFFFFF) > 0x80000)
             base = _frameAt[i];
+    }
+    // A step that took an interrupt left its frame just above the trap's,
+    // FLAGS with the step's TF: the handler's IRET would trap again.
+    if (interrupted && _vector == InstI8086::VEC_STEP) {
+        const auto tf = (base + 6 + 5) & 0xFFFFF;  // FLAGS' high byte
+        _mems->write(tf, _mems->read(tf) & ~(InstI8086::FLAGS_TF >> 8));
     }
     uint8_t bytes[6];
     for (uint_fast8_t k = 0; k < 6; ++k) {
@@ -802,6 +861,7 @@ bool PinsI8086::untilTrap(Signals *s, Mode mode) {
     _vector = 0;
     _frameBytes = 0;
     auto nmi = false;
+    auto interrupted = false;
     uint32_t guard = mode == STEP ? step_cycles : UINT32_MAX;
     for (uint32_t n = 0; guard; ++n, --guard) {
         if (s == nullptr) {
@@ -828,7 +888,7 @@ bool PinsI8086::untilTrap(Signals *s, Mode mode) {
         } else if (_vector && atPark(s)) {
             if (_frameBytes == 6) {
                 negate_nmi();
-                return parkInTrap(s);
+                return parkInTrap(s, interrupted);
             }
             // The CPU fetches at PARK before it pushes IP; the queue gets
             // NOPs until the frame is whole, and it parks at the next fetch.
@@ -836,6 +896,8 @@ bool PinsI8086::untilTrap(Signals *s, Mode mode) {
         } else if (s->halt() && !nmi) {
             assert_nmi();
             nmi = true;
+        } else if (s->intAck()) {
+            interrupted = true;
         }
         completeCycle(s);
         if (s->write() && s->memory() && !s->coproc())
@@ -932,6 +994,7 @@ bool PinsI8086::step(bool show) {
         Cycles::Hold hold;
         regs->restore(true);
     }
+    _resumed = ARM_DWT_CYCCNT;
     const auto trapped = untilTrap(_next, STEP);
     freezeQs();
     if (trapped) {
@@ -946,12 +1009,14 @@ bool PinsI8086::step(bool show) {
 
 void PinsI8086::run() {
     Cycles::reset();
+    // Sampling from before the fetch the run resumes with.
+    _qs.thaw();
     {
         Cycles::Hold hold;
         _regs->restore();
     }
     saveBreakInsts();
-    _qs.thaw();
+    _resumed = ARM_DWT_CYCCNT;
     startRunTimer();
     const auto stopped = untilTrap(_next, RUN);
     stopRunTimer();
@@ -1079,8 +1144,10 @@ bool PinsI8086::printExecuted(bool stats) {
             static_cast<const MemsI8086 *>(_mems)};
     const auto pairs = _qsMode == QS_PAIR;
     const auto regs = this->regs<RegsI8086>();
+    // The ring holds the run from the fetch it resumed with.
+    const auto fromStart = int32_t(_seenAt[g->pos()] - _resumed) < 0;
     QsDecoder<QsSource, Cycles::MAX_CYCLES * 2> dec(
-            src, pairs, regs->nextIp(), regs->emulation());
+            src, pairs, regs->nextIp(), regs->emulation(), fromStart);
     if (!dec.decode(_lineLimit))
         return false;
     if (pairs && stats) {

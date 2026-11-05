@@ -22,10 +22,14 @@ struct NpxInt final : Device {
     void setVector(uint8_t type, uint8_t) override;
     // The INTR type pending, 0 if none.
     uint16_t vector() const override;
+    // An empty 8087 socket leaves INT open: never enabled then.
+    void setPresent(bool present);
+    bool present() const { return _present; }
 
 private:
     uint8_t _type = InstI8086::VEC_NMI;
     bool _asserted = false;
+    bool _present = false;
 
     void negate();
 };
@@ -37,6 +41,7 @@ struct DevsD8087 final : DevsI8080 {
     void reset() override;
     bool loopDevices() override;
     uint16_t vector() const override;
+    void setNpx(bool present) { _npx->setPresent(present); }
 
     Device *parseDevice(const char *name) const override;
     void enableDevice(Device *dev) override;

@@ -391,6 +391,41 @@ void test_first_stream_only() {
     TEST_ASSERT_FALSE(dec.decode());
 }
 
+// Cycles held from the run's start: the first stream begins at its first
+// fetch, alone or before a jump.
+void test_from_start() {
+    Bus bus;
+    bus.len = {{100, 3}, {103, 1}, {104, 1}};
+    bus.fetch(0, 100);
+    bus.fetch(4, 102);
+    bus.qs(3, 1);  // 100
+    bus.qs(4, 3);
+    bus.qs(5, 3);
+    bus.qs(7, 1);  // 103
+    Decoder lone(bus, true, 104, false, true);
+    TEST_ASSERT_TRUE(lone.decode());
+    TEST_ASSERT_EQUAL_STRING("I100 I103 ", bus.log.c_str());
+    TEST_ASSERT_EQUAL(0, lone.bad);
+}
+
+void test_from_start_then_jump() {
+    Bus bus;
+    bus.len = {{100, 2}, {200, 1}, {201, 1}};
+    bus.fetch(0, 100);
+    bus.qs(3, 1);  // 100: a jump
+    bus.qs(4, 3);
+    bus.qs(6, 2);
+    bus.fetch(8, 200);
+    bus.qs(10, 1);  // 200
+    Decoder from(bus, true, 201, false, true);
+    TEST_ASSERT_TRUE(from.decode());
+    TEST_ASSERT_EQUAL_STRING("I100 I200 ", bus.log.c_str());
+    bus.log.clear();
+    Decoder before(bus, true, 201);
+    TEST_ASSERT_TRUE(before.decode());
+    TEST_ASSERT_EQUAL_STRING("I200 ", bus.log.c_str());
+}
+
 }  // namespace
 
 void setUp() {}
@@ -413,5 +448,7 @@ int main() {
     RUN_TEST(test_emulation_lookalikes);
     RUN_TEST(test_emulation_area);
     RUN_TEST(test_first_stream_only);
+    RUN_TEST(test_from_start);
+    RUN_TEST(test_from_start_then_jump);
     return UNITY_END();
 }
