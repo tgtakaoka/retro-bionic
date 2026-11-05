@@ -44,6 +44,8 @@ init_usart:
         stb     A, USARTC
         ldb     A, #1
         stb     A, USARTRV      ; enable receive interrupt
+        clrb    A
+        stb     A, USARTTV      ; disable transmit interrupt
         ei
 
         ld      HL, #rx_queue

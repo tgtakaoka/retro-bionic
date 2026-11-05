@@ -65,6 +65,9 @@ init_uart:
         inc     DPTR            ; DPTR=USARTRV
         mov     A, #ORG_IE0
         movx    @DPTR, A        ; enable Rx interrupt using INT0
+        inc     DPTR            ; DPTR=USARTTV
+        clr     A
+        movx    @DPTR, A        ; disable Tx interrupt
         setb    IE.EX0          ; enable INT0
         setb    IE.EA           ; enable interrupt
 
