@@ -44,7 +44,7 @@ const char *RegsI8086::cpuName() const {
 }
 
 uint32_t RegsI8086::nextIp() const {
-    return InstI8086::physical(_s[CS], _ip);
+    return _pins->physical(_s[CS], _ip);
 }
 
 void RegsI8086::setIp(uint32_t addr) {
@@ -67,10 +67,9 @@ void RegsI8086::parkInTrap(
     // INT 3 pushes the address after itself, and so does the NMI that
     // stops a HLT break point in 8080 code; continuing runs the
     // instruction it stood for.
-    const auto haltBreak = vector == InstI8086::VEC_NMI &&
-                           _pins->vSeries() && (flags & 0x8000) == 0 &&
-                           _pins->isBreakPoint(
-                                   InstI8086::physical(cs, ip - 1));
+    const auto haltBreak = vector == InstI8086::VEC_NMI && _pins->vSeries() &&
+                           (flags & 0x8000) == 0 &&
+                           _pins->isBreakPoint(_pins->physical(cs, ip - 1));
     _ip = (vector == InstI8086::VEC_BREAK || haltBreak) ? ip - 1 : ip;
     // The single step's TF is the debugger's.
     _flags = (vector == InstI8086::VEC_STEP) ? (flags & ~InstI8086::FLAGS_TF)
@@ -148,11 +147,11 @@ void RegsI8086::save() {
 
     auto &overlay = _pins->overlay();
     overlay.clear();
-    const auto park = InstI8086::physical(_parkCs, _parkIp);
+    const auto park = _pins->physical(_parkCs, _parkIp);
     auto org = park;
     _pins->execInst(seq, len, org, park);
     auto stored = [&](uint16_t disp) {
-        return overlay.wordAt(InstI8086::physical(_parkCs, disp));
+        return overlay.wordAt(_pins->physical(_parkCs, disp));
     };
     for (uint8_t i = 0; i < 8; ++i)
         _r[i] = stored(STORE_R + 2 * i);
@@ -187,11 +186,11 @@ bool RegsI8086::probeVSeries() {
     // clang-format on
     auto &overlay = _pins->overlay();
     overlay.clear();
-    const auto park = InstI8086::physical(_parkCs, _parkIp);
+    const auto park = _pins->physical(_parkCs, _parkIp);
     auto org = park;
     _pins->execInst(seq, sizeof(seq), org, park);
     // 1*16+1 on Intel's, 1*10+1 on NEC's.
-    return lo(overlay.wordAt(InstI8086::physical(_parkCs, STORE_R))) == 0x0B;
+    return lo(overlay.wordAt(_pins->physical(_parkCs, STORE_R))) == 0x0B;
 }
 
 void RegsI8086::restore(bool step) {
@@ -204,8 +203,8 @@ void RegsI8086::restore(bool step) {
     overlay.clear();
     const uint16_t frame[] = {_ip, _s[CS], flags};
     for (uint8_t i = 0; i < 3; ++i) {
-        overlay.put(InstI8086::physical(_s[SS], sp + 2 * i), lo(frame[i]));
-        overlay.put(InstI8086::physical(_s[SS], sp + 2 * i + 1), hi(frame[i]));
+        overlay.put(_pins->physical(_s[SS], sp + 2 * i), lo(frame[i]));
+        overlay.put(_pins->physical(_s[SS], sp + 2 * i + 1), hi(frame[i]));
     }
     uint8_t seq[40];
     auto len = 0u;
@@ -231,7 +230,7 @@ void RegsI8086::restore(bool step) {
     movImm(SP, sp);
     movImm(AX, _r[AX]);
     seq[len++] = InstI8086::IRET;
-    auto org = InstI8086::physical(_parkCs, _parkIp);
+    auto org = _pins->physical(_parkCs, _parkIp);
     _pins->execInst(seq, len, org, PinsI8086Base::EXIT_OVERLAY);
 }
 

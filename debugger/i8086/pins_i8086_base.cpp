@@ -36,8 +36,8 @@ bool isVector(const Signals *s) {
 }
 
 // A fetch the queue makes from PARK on.
-bool atPark(const Signals *s) {
-    return s->code() && ((s->addr - PARK) & 0xFFFFF) < 16;
+bool atPark(const Signals *s, uint32_t mask) {
+    return s->code() && ((s->addr - PARK) & mask) < 16;
 }
 
 }  // namespace
@@ -48,6 +48,8 @@ Signals *PinsI8086Base::resumeCycle(uint32_t addr) {
     s->addr = addr;
     s->setFetch(_bus8);
     s->setStatus(Signals::STATUS_CODE);
+    if (_addrMask > 0xFFFFF)
+        s->setWide();
     return s;
 }
 
@@ -83,7 +85,7 @@ bool PinsI8086Base::Overlay::get(uint32_t addr, uint8_t &data) const {
 uint16_t PinsI8086Base::Overlay::wordAt(uint32_t addr) const {
     uint8_t l = 0, h = 0;
     get(addr, l);
-    get((addr + 1) & 0xFFFFF, h);
+    get((addr + 1) & _mask, h);
     return uint16(h, l);
 }
 
@@ -138,7 +140,7 @@ void PinsI8086Base::injectRead(
         Signals *s, const uint8_t *inst, uint_fast8_t len, uint32_t org) {
     auto injected = false;
     auto byteAt = [&](uint32_t a) -> uint8_t {
-        const uint32_t off = (a - org) & 0xFFFFF;
+        const uint32_t off = (a - org) & _addrMask;
         if (off < len) {
             injected = true;
             return inst[off];
@@ -154,7 +156,7 @@ void PinsI8086Base::injectRead(
     uint16_t data;
     if (s->wordAccess()) {
         const auto l = byteAt(s->addr);
-        data = uint16(byteAt((s->addr + 1) & 0xFFFFF), l);
+        data = uint16(byteAt((s->addr + 1) & _addrMask), l);
     } else {
         const auto b = byteAt(s->addr);
         data = _bus8 ? b : uint16(b, b);
@@ -166,7 +168,7 @@ void PinsI8086Base::injectRead(
 
 void PinsI8086Base::execInst(
         const uint8_t *inst, uint_fast8_t len, uint32_t &org, uint32_t exit) {
-    const uint32_t last = (org + len - 1) & 0xFFFFF;
+    const uint32_t last = (org + len - 1) & _addrMask;
     const auto start = org;
     auto whole = false;
     auto s = resumeCycle(org);
@@ -186,7 +188,7 @@ void PinsI8086Base::execInst(
         completeCycle(s);
         if (s->write() && s->memory() && !s->coproc()) {
             for (uint_fast8_t i = 0; i < 2; ++i) {
-                const auto a = (s->addr + i) & 0xFFFFF;
+                const auto a = (s->addr + i) & _addrMask;
                 if (s->covers(a))
                     _overlay.put(a, s->byteAt(a));
             }
@@ -201,7 +203,7 @@ void PinsI8086Base::execInst(
 // Keeps the last 6 bytes written: a trap's frame, once it parks.
 void PinsI8086Base::recordFrame(const Signals *s) {
     for (uint_fast8_t i = 0; i < 2; ++i) {
-        const auto a = (s->addr + i) & 0xFFFFF;
+        const auto a = (s->addr + i) & _addrMask;
         if (!s->covers(a))
             continue;
         for (uint_fast8_t j = 1; j < 6; ++j) {
@@ -222,12 +224,12 @@ bool PinsI8086Base::parkInTrap(Signals *s) {
         return false;
     uint32_t base = _frameAt[0];
     for (uint_fast8_t i = 1; i < 6; ++i) {
-        if (((_frameAt[i] - base) & 0xFFFFF) > 0x80000)
+        if (((_frameAt[i] - base) & _addrMask) > (_addrMask >> 1))
             base = _frameAt[i];
     }
     uint8_t bytes[6];
     for (uint_fast8_t k = 0; k < 6; ++k) {
-        const auto a = (base + k) & 0xFFFFF;
+        const auto a = (base + k) & _addrMask;
         auto found = false;
         for (uint_fast8_t i = 0; i < 6; ++i) {
             if (_frameAt[i] == a) {
@@ -245,13 +247,14 @@ bool PinsI8086Base::parkInTrap(Signals *s) {
     auto from = s;
     for (uint_fast8_t i = 1; i <= 16 && i <= Signals::get()->diff(s); ++i) {
         const auto t = s->prev(i);
-        if (isVector(t) || (atPark(t) && t != s) ||
-                (t->write() && t->memory() && ((t->addr - base) & 0xFFFFF) < 6))
+        if (isVector(t) || (atPark(t, _addrMask) && t != s) ||
+                (t->write() && t->memory() &&
+                        ((t->addr - base) & _addrMask) < 6))
             from = t;
     }
     Cycles::discard(from);
     auto regs = this->regs<RegsI8086>();
-    const uint16_t parkIp = InstI8086::PARK_IP + ((s->addr - PARK) & 0xFFFFF);
+    const uint16_t parkIp = InstI8086::PARK_IP + ((s->addr - PARK) & _addrMask);
     regs->parkInTrap(cs, ip, flags, _vector, parkIp);
     return true;
 }
@@ -286,7 +289,7 @@ bool PinsI8086Base::untilTrap(Signals *s, Mode mode) {
             }
             if (_vector == InstI8086::VEC_NMI)
                 negateNmi();
-        } else if (_vector && atPark(s)) {
+        } else if (_vector && atPark(s, _addrMask)) {
             if (_frameBytes == 6) {
                 negateNmi();
                 return parkInTrap(s);

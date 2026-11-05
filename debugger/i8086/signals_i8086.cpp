@@ -68,13 +68,14 @@ void Signals::print() const {
 #endif
     //                              01234567890123456789012
     static constexpr char line[] = "R A=xxxxx D=xxxx S=x E=x";
+    static constexpr char line24[] = "R A=xxxxxx D=xxxx S=x E=x";
 #ifdef PROFILE_CYCLES
     constexpr auto suffix = true;
 #else
     const auto suffix = Debugger.verbose();
 #endif
     auto &buffer = Cycles::buffer();
-    buffer.set(line);
+    buffer.set(wide() ? line24 : line);
     if (halt()) {
         buffer[0] = 'H';
     } else if (intAck()) {
@@ -87,22 +88,28 @@ void Signals::print() const {
         buffer[0] = coproc() ? 'w' : 'W';
     }
     buffer[2] = memory() ? 'A' : 'P';
-    buffer.hex20(4, addr);
+    if (wide()) {
+        buffer.hex24(4, addr);
+    } else {
+        buffer.hex20(4, addr);
+    }
+    // A wide address puts the rest one column right.
+    const uint_fast8_t d = wide() ? 13 : 12;
     if (wordAccess()) {
-        buffer.hex16(12, data);
+        buffer.hex16(d, data);
     } else if (!bus8() && (addr & 1)) {
         // An odd byte rides AD8-AD15.
-        buffer.hex8(12, data >> 8);
-        buffer[14] = buffer[15] = ' ';
+        buffer.hex8(d, data >> 8);
+        buffer[d + 2] = buffer[d + 3] = ' ';
     } else {
-        buffer[12] = buffer[13] = ' ';
-        buffer.hex8(14, data);
+        buffer[d] = buffer[d + 1] = ' ';
+        buffer.hex8(d + 2, data);
     }
     if (suffix) {
-        buffer.hex4(19, segment());
-        buffer.hex4(23, interruptEnabled());
+        buffer.hex4(d + 7, segment());
+        buffer.hex4(d + 11, interruptEnabled());
     } else {
-        buffer[16] = 0;
+        buffer[d + 4] = 0;
     }
     cli.println(buffer);
 }
