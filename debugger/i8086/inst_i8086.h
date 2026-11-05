@@ -13,6 +13,7 @@ struct InstI8086 {
     static constexpr uint8_t IRET = 0xCF;
     static constexpr uint8_t JMPF = 0xEA;  // JMP ptr16:16
     static constexpr uint8_t NOP = 0x90;
+    static constexpr uint8_t WAIT = 0x9B;
     static constexpr uint8_t PUSHF = 0x9C;
 
     // Reset starts at FFFF:0000 (8086 datasheet, Table 2).

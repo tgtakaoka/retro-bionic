@@ -71,6 +71,7 @@
 #define S01_gm 0x3 /* P7.17-P7.18 */
 #define S01_vp 0   /* #S1, #S0 */
 
+#include "npx_i8086.h"
 #include "pins.h"
 #include "pwm_clock.h"
 #include "qs_i8086.h"
@@ -87,6 +88,8 @@ struct PinsI8086 final : Pins {
     PinsI8086(bool fpu);
     bool bus8() const { return _bus8; }
     bool vSeries() const { return _v_series; }
+    // Whether the D8087 board has its 8087 seated, as reset found.
+    bool npx() const { return _npx; }
 
     // The clock runs on; READY holds the parked CPU.
     void idle() override;
@@ -132,6 +135,17 @@ struct PinsI8086 final : Pins {
     static constexpr uint32_t EXIT_OVERLAY = UINT32_MAX;
     void execInst(const uint8_t *inst, uint_fast8_t len, uint32_t &org,
             uint32_t exit);
+    // Cycles from |base| on, while set, take |image|'s bytes, as the
+    // CPU's dummy read for the 8087 does, and the 8087's writes leave
+    // theirs there, not in memory; the bytes each way are counted.
+    void setNpxImage(NpxImage *image, uint32_t base) {
+        _npxImage = image;
+        _npxBase = base;
+        _npxRead = _npxWritten = 0;
+    }
+    uint_fast8_t npxRead() const { return _npxRead; }
+    uint_fast8_t npxWritten() const { return _npxWritten; }
+    bool npxBusy() const;
 
 private:
     const bool _fpu;
@@ -143,6 +157,16 @@ private:
 #endif
     bool _bus8 = false;
     bool _v_series = false;
+    bool _npx = false;
+    NpxImage *_npxImage = nullptr;
+    uint32_t _npxBase = 0;
+    uint_fast8_t _npxRead = 0;
+    uint_fast8_t _npxWritten = 0;
+    bool npxAt(uint32_t addr) const {
+        return _npxImage && ((addr - _npxBase) & 0xFFFFF) < NpxImage::SIZE;
+    }
+    void injectNpx(Signals *s);
+    void captureNpx(const Signals *s);
     // The next cycle's T1, read ahead by completeCycle().
     Signals _latch;
     uint8_t _latchStatus;
@@ -150,6 +174,9 @@ private:
     // its queue status samples are.
     uint32_t _latchSeen;
     uint32_t _seenAt[Cycles::MAX_CYCLES];
+    // When the last run or step took over from the restore; the fetch it
+    // resumed with was seen just before.
+    uint32_t _resumed = 0;
     bool _latched = false;
 
     void resetPins() override;
@@ -191,7 +218,7 @@ private:
         RUN,
     };
     bool untilTrap(Signals *s, Mode mode);
-    bool parkInTrap(Signals *s);
+    bool parkInTrap(Signals *s, bool interrupted);
     friend struct RegsI8086;
     void restoreNext(Signals *s) { _next = s; }
 };

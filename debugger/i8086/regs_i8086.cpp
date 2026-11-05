@@ -1,5 +1,6 @@
 #include "regs_i8086.h"
 
+#include <str_buffer.h>
 #include "debugger.h"
 #include "inst_i8086.h"
 #include "mems_i8086.h"
@@ -24,6 +25,11 @@ enum Sreg : uint8_t { ES = 0, CS, SS, DS };
 constexpr uint16_t STORE_R = 0x00;
 constexpr uint16_t STORE_S = 0x10;
 constexpr uint16_t STORE_F = 0x18;
+// The 8087's image, past the vectors and the park.
+constexpr uint16_t STORE_NPX = 0x0500;
+// Plenty of bus cycles for the 8087 to finish an instruction, or to read
+// an image in.
+constexpr auto npx_tries = 64;
 }  // namespace
 
 RegsI8086::RegsI8086(PinsI8086 *pins)
@@ -98,6 +104,9 @@ void RegsI8086::print() const {
     regs.hex16(51, _r[BP]);
     cli.println(regs);
     _pins->idle();
+    NpxImage npx;
+    if (_pins->npx() && readNpx(npx))
+        printNpx(npx);
     if (emulation()) {
         // The 8080's registers, as emulation maps them.
         cli.print("8080EMU: A=");
@@ -188,6 +197,119 @@ bool RegsI8086::probeVSeries() {
     _pins->execInst(seq, sizeof(seq), org, park);
     // 1*16+1 on Intel's, 1*10+1 on NEC's.
     return lo(overlay.wordAt(InstI8086::physical(_parkCs, STORE_R))) == 0x0B;
+}
+
+void RegsI8086::execAtPark(const uint8_t *inst, uint_fast8_t len) const {
+    uint8_t seq[20];
+    auto n = 0u;
+    for (; n < len; ++n)
+        seq[n] = inst[n];
+    seq[n++] = InstI8086::JMPF;
+    seq[n++] = lo(_parkIp);
+    seq[n++] = hi(_parkIp);
+    seq[n++] = lo(_parkCs);
+    seq[n++] = hi(_parkCs);
+    _pins->overlay().clear();
+    const auto park = InstI8086::physical(_parkCs, _parkIp);
+    auto org = park;
+    _pins->execInst(seq, n, org, park);
+}
+
+// No FWAIT: an empty socket leaves #TEST to whatever pulls it. The NOPs
+// outlast FNSTCW.
+bool RegsI8086::probeNpx() {
+    NpxImage image;
+    _pins->setNpxImage(&image, InstI8086::physical(_parkCs, STORE_NPX));
+    // clang-format off
+    static constexpr uint8_t seq[] = {
+            0x2E, 0xD9, 0x3E, lo(STORE_NPX), hi(STORE_NPX),  // FNSTCW CS:[]
+            InstI8086::NOP, InstI8086::NOP, InstI8086::NOP, InstI8086::NOP,
+            InstI8086::NOP, InstI8086::NOP, InstI8086::NOP, InstI8086::NOP,
+    };
+    // clang-format on
+    execAtPark(seq, sizeof(seq));
+    const auto written = _pins->npxWritten();
+    _pins->setNpxImage(nullptr, 0);
+    return written == 2;
+}
+
+// No FWAIT may wait on the 8087 while it holds an unmasked exception, as
+// BUSY stays high until cleared; bus cycles let it finish otherwise. Its
+// cycles stay out of the ring, which holds the stopped program's.
+bool RegsI8086::readNpx(NpxImage &image) const {
+    Cycles::Hold hold;
+    static constexpr uint8_t nops[] = {InstI8086::NOP, InstI8086::NOP,
+            InstI8086::NOP, InstI8086::NOP, InstI8086::NOP, InstI8086::NOP,
+            InstI8086::NOP, InstI8086::NOP};
+    for (auto i = 0; i < npx_tries && _pins->npxBusy(); ++i)
+        execAtPark(nops, sizeof(nops));
+    _pins->setNpxImage(&image, InstI8086::physical(_parkCs, STORE_NPX));
+    // FNSAVE initializes the 8087: BUSY falls once the image is out.
+    // clang-format off
+    static constexpr uint8_t save[] = {
+            0x2E, 0xDD, 0x36, lo(STORE_NPX), hi(STORE_NPX),  // FNSAVE CS:[]
+            InstI8086::WAIT,
+    };
+    // clang-format on
+    execAtPark(save, sizeof(save));
+    const auto written = _pins->npxWritten();
+    _pins->setNpxImage(&image, InstI8086::physical(_parkCs, STORE_NPX));
+    // clang-format off
+    static constexpr uint8_t load[] = {
+            0x2E, 0xDD, 0x26, lo(STORE_NPX), hi(STORE_NPX),  // FRSTOR CS:[]
+    };
+    // clang-format on
+    execAtPark(load, sizeof(load));
+    for (auto i = 0; i < npx_tries && _pins->npxRead() < NpxImage::SIZE; ++i)
+        execAtPark(nops, sizeof(nops));
+    const auto read = _pins->npxRead();
+    _pins->setNpxImage(nullptr, 0);
+    const auto saved = written == NpxImage::SIZE;
+    if (!saved || read < NpxImage::SIZE) {
+        cli.print("?NPX: saved ");
+        cli.printDec(written);
+        cli.print(" loaded ");
+        cli.printDec(read);
+        cli.println();
+    }
+    return saved;
+}
+
+void RegsI8086::printNpx(const NpxImage &npx) const {
+    cli.print("CW=");
+    cli.printHex(npx.cw(), 4);
+    cli.print(" SW=");
+    cli.printHex(npx.sw(), 4);
+    cli.print(" TW=");
+    cli.printHex(npx.tw(), 4);
+    cli.print(" IP=");
+    cli.printHex(npx.ip(), 5);
+    cli.print(" OP=");
+    cli.printHex(npx.op(), 5);
+    cli.print(" FOP=");
+    cli.printHex(npx.opcode(), 4);
+    cli.println();
+    _pins->idle();
+    auto shown = 0;
+    for (uint8_t i = 0; i < 8; ++i) {
+        if (npx.empty(i))
+            continue;
+        char buf[40];
+        libasm::StrBuffer str(buf, sizeof(buf));
+        str.float80(libasm::float80_t(npx.exp(i), npx.sig(i)));
+        if (shown % 2)
+            cli.print("  ");
+        cli.print("ST");
+        cli.print(char('0' + i));
+        cli.print('=');
+        cli.print(buf);
+        if (++shown % 2 == 0) {
+            cli.println();
+            _pins->idle();
+        }
+    }
+    if (shown % 2)
+        cli.println();
 }
 
 void RegsI8086::restore(bool step) {

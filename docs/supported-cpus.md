@@ -64,14 +64,14 @@ report several parts.
 <tr><td></td><td>✅</td><td><code>S80C196K</code></td><td><code>S80C196KB</code>, <code>S80C196KC</code></td><td>Runs on <code>S80C196KC20</code>; the KB is told apart at reset but untried</td></tr>
 <tr><td><code>i8096</code></td><td>✅</td><td><code>S80296SA</code></td><td></td><td>16-bit bus, 64-Kbyte mode; prefetches up to 12 bytes</td></tr>
 <tr><td></td><td>🚧</td><td><code>80C196NP</code></td><td></td><td><code>S80C196NP</code>; shares the S80296SA board, 64-Kbyte mode</td></tr>
-<tr><td rowspan="8"><code>i8086</code></td><td rowspan="8"></td><td>🚧</td><td><code>8086</code></td><td><code>8088</code></td><td><code>P80C86A-2</code>, <code>P80C88A-2</code>; shared DIP board</td></tr>
-<tr><td>🚧</td><td><code>V30</code></td><td><code>V20</code></td><td><code>D70116C-8</code>, <code>D70108HCZ-16</code></td></tr>
-<tr><td>🚧</td><td><code>V35</code></td><td><code>V25</code></td><td><code>D70330L-8</code>, <code>D70320GJ-8</code>; PLCC and QFP boards</td></tr>
-<tr><td>🚧</td><td><code>V53</code></td><td></td><td><code>D70236AGC-16</code></td></tr>
-<tr><td>🚧</td><td><code>80186</code></td><td></td><td><code>N80C186XL20</code></td></tr>
-<tr><td>🚧</td><td><code>80286</code></td><td></td><td><code>N80C286-12</code></td></tr>
-<tr><td>🚧</td><td><code>80386SX</code></td><td></td><td><code>NG80386SX-25</code></td></tr>
-<tr><td>🚧</td><td><code>80486DX4</code></td><td></td><td><code>FC80486DX4-75</code>; 3.3 V core with 5 V-tolerant I/O</td></tr>
+<tr><td rowspan="8"><code>i8086</code></td><td><code>i8086</code></td><td>✅</td><td><code>P8086</code></td><td><code>8086</code>, <code>8088</code>, <code>V30</code>, <code>V20</code></td><td>Runs on <code>P80C86A-2</code>, <code>P80C88A-2</code>, <code>D70116C-8</code>, <code>D70108HCZ-16</code></td></tr>
+<tr><td><code>i8086</code></td><td>✅</td><td><code>D8087</code></td><td><code>8086</code>, <code>8088</code></td><td>Runs on <code>P80C86A-2</code>, <code>P80C88A-2</code> with a <code>D8087</code> in maximum mode; the 8087's registers print at each stop, and an empty 8087 socket is detected</td></tr>
+<tr><td></td><td>🚧</td><td><code>V35</code></td><td><code>V25</code></td><td><code>D70330L-8</code>, <code>D70320GJ-8</code>; PLCC and QFP boards</td></tr>
+<tr><td></td><td>🚧</td><td><code>V53</code></td><td></td><td><code>D70236AGC-16</code></td></tr>
+<tr><td></td><td>🚧</td><td><code>80186</code></td><td></td><td><code>N80C186XL20</code></td></tr>
+<tr><td></td><td>🚧</td><td><code>80286</code></td><td></td><td><code>N80C286-12</code></td></tr>
+<tr><td></td><td>🚧</td><td><code>80386SX</code></td><td></td><td><code>NG80386SX-25</code></td></tr>
+<tr><td></td><td>🚧</td><td><code>80486DX4</code></td><td></td><td><code>FC80486DX4-75</code>; 3.3 V core with 5 V-tolerant I/O</td></tr>
 <tr><td><code>i960</code></td><td></td><td>🚧</td><td><code>80960SA</code></td><td></td><td><code>N80960SA16</code></td></tr>
 <tr><td rowspan="5"><code>tms9900</code></td><td rowspan="5"><code>tms9900</code></td><td>✅</td><td><code>TMS9900</code></td><td></td><td>Needs a non-overlapping four-phase 12 V clock</td></tr>
 <tr><td>✅</td><td><code>TMS9980</code></td><td></td><td></td></tr>

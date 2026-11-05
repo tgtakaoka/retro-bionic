@@ -2,6 +2,7 @@
 #define __REGS_I8086_H__
 
 #include "char_buffer.h"
+#include "npx_i8086.h"
 #include "regs.h"
 
 namespace debugger {
@@ -25,6 +26,9 @@ struct RegsI8086 final : Regs {
     // Whether the parked CPU is a V20 or V30: they take AAD's base as 10,
     // whatever its immediate says. AX and FLAGS are lost.
     bool probeVSeries();
+    // Whether an 8087 answers FNSTCW: the D8087 board's socket may be
+    // empty.
+    bool probeNpx();
 
     uint32_t nextIp() const override;
     // Stopped in 8080 code, on a V20/V30.
@@ -53,6 +57,13 @@ private:
     uint16_t _parkCs;
     uint16_t _parkIp;
     bool _frame = false;  // a trap frame lies below SP
+
+    // The 8087's state by FNSAVE, given back by FRSTOR; false if it
+    // never came whole.
+    bool readNpx(NpxImage &image) const;
+    void printNpx(const NpxImage &image) const;
+    // Runs |inst| from the park, back to it by a far jump.
+    void execAtPark(const uint8_t *inst, uint_fast8_t len) const;
 
     mutable CharBuffer _buffer1;
     mutable CharBuffer _buffer2;

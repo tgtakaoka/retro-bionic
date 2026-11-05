@@ -56,20 +56,33 @@ namespace i8086 {
  * a long run of code, ends where the CPU stopped: its last byte taken is
  * just before |stopAt|, or, a QS 01, at it. The one whose QS 01s fall where
  * the instructions' lengths say, up to |stopAt|, places the stream.
+ *
+ * With |fromStart|, the cycles hold the run from its start: the first
+ * stream begins at its first fetch, an instruction's start, in the samples.
  */
 template <typename S, int MAX_STREAMS>
 struct QsDecoder {
     QsDecoder(S &src, bool pairs, uint32_t stopAt = UINT32_MAX,
-            bool stopEmu = false)
-        : _src(src), _pairs(pairs), _stopAt(stopAt), _stopEmu(stopEmu) {}
+            bool stopEmu = false, bool fromStart = false)
+        : _src(src),
+          _pairs(pairs),
+          _stopAt(stopAt),
+          _stopEmu(stopEmu),
+          _fromStart(fromStart) {}
 
     /**
      * Shows the last |limit| instructions, and the cycles from the first of
-     * them on. False when the samples hold no stream but the first.
+     * them on. False when the samples hold no stream but the first, and it
+     * can't be placed.
      */
     bool decode(uint32_t limit = UINT32_MAX) {
-        if (!findStreams() && !placeFirst())
+        const auto found = findStreams();
+        if (_fromStart && _streams > 0) {
+            _placed = true;
+            _firstInsn = _start[0];
+        } else if (!found && !placeFirst()) {
             return false;
+        }
         // A quiet pass finds whether the last start is at |stopAt|, and
         // each stream's last start: the bytes taken, not the instructions'
         // lengths, place them.
@@ -95,6 +108,7 @@ private:
     const bool _pairs;
     const uint32_t _stopAt;
     const bool _stopEmu;
+    const bool _fromStart;
     int _streams = 0;
     // Each stream's first address, its first fetch's time, the flush that
     // began it (-1 for none), and its bytes taken so far.
