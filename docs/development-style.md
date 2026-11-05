@@ -704,7 +704,7 @@ that echoes a listing takes the widest limit.
 `R` before an upload stops the CPU, but resets from the vector already in
 memory -- the *previous* program's; uploading does not touch the PC. This shows
 when samples start at different addresses (on the MC6800, `mc68xx` starts at
-1000, the others at 0100): `G` then runs the stale program.
+9000, the others at 0100): `G` then runs the stale program.
 `bionic-regress.py`'s `load()` resets again after the upload.
 
 For a CPU that fetches its PC from a reset vector, `[reset]` names the
