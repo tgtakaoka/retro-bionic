@@ -62,6 +62,7 @@ struct PinsMc6800 final : PinsMc6800Base {
 
 protected:
     Signals *cycle() override;
+    Signals *loopCycle() override;
     Signals *rawCycle() override;
 };
 
