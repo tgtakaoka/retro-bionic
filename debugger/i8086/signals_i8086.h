@@ -35,6 +35,9 @@ struct Signals final : SignalsBase<Signals> {
     bool io() const { return !memory(); }
     bool bus8() const { return mode() & BUS8; }
     void setBus8(bool bus8) { mode() = bus8 ? BUS8 : 0; }
+    // The 80286's 24-bit address, printed with six digits.
+    void setWide() { mode() |= WIDE; }
+    bool wide() const { return mode() & WIDE; }
     // T1's #BHE: low for an 8086 word.
     bool bhe() const { return (cntl() & BHE) == 0; }
     // An 8086 word: #BHE low at an even address.
@@ -82,6 +85,7 @@ private:
     static constexpr uint8_t MIO = 0x10;
     // _signals[2]
     static constexpr uint8_t BUS8 = 0x01;
+    static constexpr uint8_t WIDE = 0x02;
 
     uint8_t cntl() const { return _signals[0]; }
     uint8_t &cntl() { return _signals[0]; }

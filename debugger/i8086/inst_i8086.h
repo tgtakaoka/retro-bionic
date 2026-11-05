@@ -19,6 +19,14 @@ struct InstI8086 {
     // Reset starts at FFFF:0000 (8086 datasheet, Table 2).
     static constexpr uint16_t RESET_CS = 0xFFFF;
     static constexpr uint16_t RESET_IP = 0x0000;
+    // The 80286 fetches first at FFFFF0H, CS=F000H based at FF0000H until
+    // a far jump; F000:FFF0 is the 8086's reset address (M80C286
+    // datasheet, Table 6).
+    static constexpr uint32_t RESET_286 = 0xFFFFF0;
+    static constexpr uint16_t RESET_CS_286 = 0xF000;
+    static constexpr uint16_t RESET_IP_286 = 0xFFF0;
+    // The 80286's A0-A23.
+    static constexpr uint32_t ADDR_MASK_24 = 0xFFFFFF;
 
     // The vectors the debugger serves: single step, NMI and INT 3.
     static constexpr uint8_t VEC_STEP = 1;

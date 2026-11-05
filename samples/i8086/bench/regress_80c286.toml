@@ -1,0 +1,89 @@
+# The BionicN80C286 board. See regress.toml for the P8086/D8087 boards;
+# the 80C286 runs the same samples: its interrupts take INTA cycles, as
+# the 8086's do.
+
+chips = ["80C286"]
+
+# Reset fetches at FFFFF0H; the debugger answers with JMP F000:FFF0 and
+# parks there (M80C286 datasheet, Table 6: CS=F000H, IP=FFF0H; DS, SS
+# and ES cleared).
+[reset]
+program_counter = "CS:IP"
+"CS:IP" = "F000FFF0"
+DS = "0000"
+ES = "0000"
+
+[arith]
+expect = """
+18000 + 28000 = -19536
+18000 + -18000 = 0
+-18000 + -18000 = 29536
+-18000 - -28000 = 10000
+100 * 300 = 30000
+300 * -200 = 5536
+100 * -300 = -30000
+-200 * -100 = 20000
+-300 * 100 = -30000
+3 * -32768 = -32768
+30000 / 100 = 300
+-200 / 100 = -2
+-30000 / -200 = 150
+-30000 / 78 = -384
+-48 < 30
+30 > -48
+5000 > 4000
+5000 = 5000
+4000 < 5000
+-5000 < -4000
+-5000 = -5000
+-4000 > -5000
+32700 > 32600
+32700 = 32700
+32600 < 32700
+-32700 < -32600
+-32700 = -32700
+-32600 > -32700
+18000 > -28000
+18000 = 18000
+-28000 < 18000"""
+
+[echo]
+feed = "ok\r"
+expect = "ok"
+
+[echoir]
+feed = "irq\r"
+expect = "irq"
+
+# Prints "<char> 0xXX 0bXXXXXXXX" per received byte, one line each
+# including the trailing \r.
+[echoitr]
+feed = "itr\r"
+expect = """
+i 0x69 0b01101001
+t 0x74 0b01110100
+r 0x72 0b01110010
+ 0x0D 0b00001101"""
+
+# One frame, checked whole.
+[mandelbrot]
+golden = "samples/arith/mandelbrot.golden"
+frames = 1
+
+# The mandelbrot with 80186 instructions, which the 80286 has.
+[mandelbrot_i80186]
+golden = "samples/arith/mandelbrot.golden"
+frames = 1
+
+[haltgo]
+program = "mandelbrot"
+
+# loop_y is reached once per row, so each go runs a whole row rather
+# than a single pixel.
+[breakpoint]
+program = "mandelbrot"
+break_at = "loop_y"
+
+[gountil]
+program = "mandelbrot"
+break_at = "loop_y"
