@@ -322,6 +322,19 @@ def parse_devices(txt):
     return found
 
 
+def upload_size(path):
+    """The byte count U reports for |path|: the data of every S1-S3 record,
+    and the count field of every Intel HEX record."""
+    size = 0
+    for line in open(path):
+        line = line.strip()
+        if line[:2] in ('S1', 'S2', 'S3'):
+            size += int(line[2:4], 16) - (int(line[1]) + 2)
+        elif line[:1] == ':':
+            size += int(line[1:3], 16)
+    return size
+
+
 # What the debugger prints for a record whose length or checksum is wrong.
 BAD_RECORD = '?bad record'
 UPLOAD_TRIES = 3
@@ -610,13 +623,16 @@ class Board:
         command is eaten as a malformed record.
         """
         # The debugger rejects a record whose length or checksum does
-        # not add up; upload again rather than run what got through.
+        # not add up; upload again rather than run what got through. A
+        # record lost whole shows only in the byte count.
+        want = upload_size(path)
         for _ in range(UPLOAD_TRIES):
             sent, text = self._upload_once(path)
-            if BAD_RECORD not in text:
+            got = re.findall(r'(\d+) bytes uploaded', text)
+            if BAD_RECORD not in text and got and int(got[-1]) == want:
                 return sent, text
-            note(text='upload %s: a record arrived damaged; again' % os.path.relpath(path, PROJ))
-        raise RuntimeError('upload %s: damaged records %d times running' % (path, UPLOAD_TRIES))
+            note(text='upload %s: a record arrived damaged or not at all; again' % os.path.relpath(path, PROJ))
+        raise RuntimeError('upload %s: damaged or lost records %d times running' % (path, UPLOAD_TRIES))
 
     def _upload_once(self, path):
         note(text='upload %s' % os.path.relpath(path, PROJ))

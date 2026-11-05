@@ -723,7 +723,9 @@ The loader takes a record's length from its count field, so a line cut short
 on the way used to load whatever an earlier, longer line left in the buffer:
 an MC6809E ran into code from another record, with nothing reported. Each
 record's length and checksum are checked now; a bad one prints `?bad record`
-and loads nothing, and `upload_file()` uploads again when it sees that.
+and loads nothing, as does a line that lost its `S` or `:`. A record lost
+whole shows only in the byte count, so `upload_file()` also checks the
+reported `bytes uploaded` against the file, and uploads again on either.
 
 ### Some CPUs report the PC one byte early **[hw]**
 
