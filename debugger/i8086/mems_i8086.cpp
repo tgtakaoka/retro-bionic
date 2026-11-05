@@ -8,8 +8,8 @@
 namespace debugger {
 namespace i8086 {
 
-MemsI8086::MemsI8086(const char *fpu)
-    : ExtMemory(Endian::ENDIAN_LITTLE), _fpu(fpu) {
+MemsI8086::MemsI8086(const char *fpu, uint32_t addrMask)
+    : ExtMemory(Endian::ENDIAN_LITTLE), _fpu(fpu), _addrMask(addrMask) {
 #ifdef WITH_ASSEMBLER
     _assembler = new libasm::i8086::AsmI8086();
     _asm8080 = new libasm::i8080::AsmI8080();
@@ -57,7 +57,7 @@ struct CodeMemory final : libasm::DisMemory {
         : libasm::DisMemory(addr), _mems(mems), _base(base), _max(max) {}
     bool hasNext() const override { return address() <= _max; }
     uint8_t nextByte() override {
-        return _mems->get_code((_base + address()) & 0xFFFFF);
+        return _mems->get_code((_base + address()) & _mems->maxAddr());
     }
 
 private:
@@ -123,7 +123,7 @@ uint8_t MemsI8086::insnLength(uint32_t addr, bool emu) const {
     if (dis) {
         const auto base = emu ? windowBase(addr) : 0;
         const uint32_t pc = emu ? (addr - base) & 0xFFFF : addr;
-        CodeMemory mem(this, base, pc, emu ? 0xFFFF : 0xFFFFF);
+        CodeMemory mem(this, base, pc, emu ? 0xFFFF : _addrMask);
         libasm::Insn insn(pc);
         char operands[80];
         dis->decode(mem, insn, operands, sizeof(operands));

@@ -20,6 +20,11 @@ struct PinsI8086Base : Pins {
     bool npx() const { return _npx; }
     // An 80C186, rather than an 8086, 8088, V20 or V30.
     bool i80186() const { return _qs_board == QsTracker::N80C186; }
+    // The address bus: 20 bits, or the 80286's 24.
+    uint32_t addrMask() const { return _addrMask; }
+    uint32_t physical(uint16_t seg, uint16_t off) const {
+        return ((uint32_t(seg) << 4) + off) & _addrMask;
+    }
 
     bool step(bool show) override;
     void run() override;
@@ -30,6 +35,7 @@ struct PinsI8086Base : Pins {
     // Bytes the CPU reads from, or writes to, the debugger instead of
     // memory while an injected sequence runs.
     struct Overlay {
+        Overlay(uint32_t mask) : _mask(mask) {}
         void clear() { _num = 0; }
         void put(uint32_t addr, uint8_t data);
         // Whether |addr| has a byte; it goes to |data|.
@@ -41,6 +47,7 @@ struct PinsI8086Base : Pins {
 
     private:
         static constexpr uint_fast8_t MAX = 40;
+        const uint32_t _mask;
         uint32_t _addr[MAX];
         uint8_t _data[MAX];
         bool _read[MAX];
@@ -70,12 +77,18 @@ struct PinsI8086Base : Pins {
     virtual bool npxBusy() const { return false; }
 
 protected:
-    PinsI8086Base(bool fpu, QsTracker::Board board = QsTracker::P8086)
-        : _fpu(fpu), _qs_board(board), _qs(board) {}
+    PinsI8086Base(bool fpu, QsTracker::Board board = QsTracker::P8086,
+            uint32_t addrMask = 0xFFFFF)
+        : _fpu(fpu),
+          _qs_board(board),
+          _qs(board),
+          _addrMask(addrMask),
+          _overlay(addrMask) {}
 
     const bool _fpu;
     const QsTracker::Board _qs_board;
     QsTracker _qs;
+    const uint32_t _addrMask;
     bool _bus8 = false;
     bool _v_series = false;
     bool _npx = false;

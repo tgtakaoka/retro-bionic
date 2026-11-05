@@ -10,10 +10,10 @@ namespace i8086 {
 // rides AD0-AD7.
 struct MemsI8086 final : ExtMemory {
     // |fpu|: the coprocessor the (dis)assembler takes, as libasm names it
-    // ("8087", "80C187"), or "off".
-    MemsI8086(const char *fpu);
+    // ("8087", "80C187"), or "off". |addrMask|: 1MB, or the 80286's 16MB.
+    MemsI8086(const char *fpu, uint32_t addrMask = 0xFFFFF);
 
-    uint32_t maxAddr() const override { return 0xFFFFF; }
+    uint32_t maxAddr() const override { return _addrMask; }
 
     // A V20/V30 runs native or 8080 code: P's 8080EMU area, from its code
     // segment's base and at most 64K long, holds the 8080 code. D, A,
@@ -34,6 +34,7 @@ struct MemsI8086 final : ExtMemory {
 
 private:
     const char *const _fpu;
+    const uint32_t _addrMask;
     ProtectArea _emuArea{"8080EMU"};
 #ifdef WITH_ASSEMBLER
     libasm::Assembler *_asm8080;
