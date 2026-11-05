@@ -15,6 +15,8 @@ struct QsTracker {
         P8086,
         // The board's clock loop, through push().
         N80C186,
+        // No queue status: nothing samples, and nothing freezes.
+        N80C286,
     };
     QsTracker(Board board = P8086) : _board(board) {}
     void begin();
