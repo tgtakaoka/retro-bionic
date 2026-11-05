@@ -322,6 +322,11 @@ def parse_devices(txt):
     return found
 
 
+# What the debugger prints for a record whose length or checksum is wrong.
+BAD_RECORD = '?bad record'
+UPLOAD_TRIES = 3
+
+
 class Board:
     """One open board session: the serial fd, and the target name once
     identify()/recover() has found it (None until then)."""
@@ -604,29 +609,40 @@ class Board:
         that sends the wrong one is left stuck in the loop and every later
         command is eaten as a malformed record.
         """
+        # The debugger rejects a record whose length or checksum does
+        # not add up; upload again rather than run what got through.
+        for _ in range(UPLOAD_TRIES):
+            sent, text = self._upload_once(path)
+            if BAD_RECORD not in text:
+                return sent, text
+            note(text='upload %s: a record arrived damaged; again' % os.path.relpath(path, PROJ))
+        raise RuntimeError('upload %s: damaged records %d times running' % (path, UPLOAD_TRIES))
+
+    def _upload_once(self, path):
         note(text='upload %s' % os.path.relpath(path, PROJ))
         self._write(b'\x03')                            # leave any half-finished prompt
         self._drain(1.5, 0.3)
         self._write(b'U')
         self._drain(3.0, 0.3)
-        sent = 0
+        sent, echoed = 0, b''
         for line in open(path):
             line = line.strip()
             if not line:
                 continue
             self._write(line.encode() + b'\r')
-            # No per-line wait: each line's echo is never read back for
-            # its own sake (only the final drain's text is), so there is
-            # nothing to synchronize on -- except the kernel's own input
-            # buffer, which this opportunistic, non-blocking read alone
-            # keeps from filling on a long upload.
+            # No per-line wait: each line's echo is only kept for the
+            # bad-record check, so there is nothing to synchronize on --
+            # except the kernel's own input buffer, which this
+            # opportunistic, non-blocking read alone keeps from filling
+            # on a long upload.
             try:
-                self._read()
+                echoed += self._read()
             except BlockingIOError:
                 pass
             sent += 1
         self._write(b'\x03')
-        return sent, self._drain(5.0, 0.5).decode('ascii', 'replace').replace('\r', '')
+        echoed += self._drain(5.0, 0.5)
+        return sent, echoed.decode('ascii', 'replace').replace('\r', '')
 
     @classmethod
     def converse(cls, cmds, wait=40.0, verbose=True):
