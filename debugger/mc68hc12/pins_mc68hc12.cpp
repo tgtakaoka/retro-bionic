@@ -214,7 +214,7 @@ void PinsMc68hc12::resetPins() {
     // The reset vector (VfPPP) points at the park.
     static constexpr uint8_t BRA_HERE[] = {
             InstMc68hc12::BRA, InstMc68hc12::BRA_HERE};
-    const uint8_t vec[] = {hi(PARK), lo(PARK)};
+    static constexpr uint8_t vec[] = {hi(PARK), lo(PARK)};
     const Window win{InstMc68hc12::VEC_RESET, vec, sizeof(vec)};
     execute(PARK, BRA_HERE, sizeof(BRA_HERE), nullptr, 0, EXIT_PARK, &win,
             false);
@@ -484,7 +484,7 @@ void PinsMc68hc12::execInst(const uint8_t *inst, uint8_t len, Capture *cap,
 void PinsMc68hc12::exception(Signals *s, bool breakTrap, Capture *stacked) {
     static constexpr uint8_t BRA_HERE[] = {
             InstMc68hc12::BRA, InstMc68hc12::BRA_HERE};
-    const uint8_t vec[] = {hi(PARK), lo(PARK)};
+    static constexpr uint8_t vec[] = {hi(PARK), lo(PARK)};
     const Window win{static_cast<uint16_t>(s->addr), vec, sizeof(vec)};
     uint8_t frame[RegsMc68hc12::FRAME];
     uint16_t sp;
