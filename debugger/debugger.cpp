@@ -549,10 +549,34 @@ uint32_t toInt32Hex(const char *text) {
     return ((uint32_t)toInt24Hex(text) << 8) | toInt8Hex(text + 6);
 }
 
+// Whether |pairs| hex byte pairs at |text| end the line and add up to |sum|.
+// A line cut short or garbled on the way fails: its byte count would
+// otherwise read past the line into what an earlier line left behind.
+bool checkRecord(const char *text, int pairs, uint8_t sum) {
+    if (strlen(text) != static_cast<size_t>(pairs) * 2)
+        return false;
+    uint8_t total = 0;
+    for (int i = 0; i < pairs * 2; i++) {
+        const auto c = text[i];
+        if (!isDigit(c) && (c < 'A' || c > 'F'))
+            return false;
+        if (i % 2)
+            total += toInt8Hex(text + i - 1);
+    }
+    return total == sum;
+}
+
+int badRecord() {
+    cli.print("?bad record");
+    return 0;
+}
+
 int loadIHexRecord(const char *line, uint32_t &addr) {
     const auto num = toInt8Hex(line + 1);
     const auto offset = toInt16Hex(line + 3);
     const auto type = toInt8Hex(line + 7);
+    if ((type == 0 || type == 4) && !checkRecord(line + 1, num + 5, 0))
+        return badRecord();
     if (type == 4) {
         // Extended linear address: the data field carries A31-A16.
         addr = static_cast<uint32_t>(toInt16Hex(line + 9)) << 16;
@@ -573,23 +597,31 @@ int loadIHexRecord(const char *line, uint32_t &addr) {
 }
 
 int loadS19Record(const char *line, uint32_t &addr) {
-    const int num = toInt8Hex(line + 2) - 3;
+    // The count covers the address, the data and the checksum.
+    const auto count = toInt8Hex(line + 2);
+    const auto record = line + 2;
+    int num;
     switch (line[1]) {
     case '1':
         addr = toInt16Hex(line + 4);
+        num = count - 3;
         line += 8;
         break;
     case '2':
         addr = toInt24Hex(line + 4);
+        num = count - 4;
         line += 10;
         break;
     case '3':
         addr = toInt32Hex(line + 4);
+        num = count - 5;
         line += 12;
         break;
     default:
         return 0;
     }
+    if (!checkRecord(record, count + 1, 0xFF))
+        return badRecord();
     uint8_t buffer[64];
     for (int i = 0; i < num; i++) {
         buffer[i] = toInt8Hex(line + i * 2);
