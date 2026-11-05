@@ -13,16 +13,18 @@ struct Devs {
 
     virtual void begin() = 0;
     virtual void reset() = 0;
-    // Called from every bus cycle. True when a device ran its slow
-    // service, or else once in SERVICE_CYCLES: the cycle on which the bus
+    // Called from every bus cycle; services the devices once in
+    // SERVICE_CYCLES and returns true then: the cycle on which the bus
     // loop takes the halt switch, so a run stops with no device enabled.
     bool loop() {
+        if (_everyCycle)
+            _everyCycle->loop();
         const auto now = ARM_DWT_CYCCNT;
-        if (loopDevices() || now - _serviced >= SERVICE_CYCLES) {
-            _serviced = now;
-            return true;
-        }
-        return false;
+        if (now - _serviced < SERVICE_CYCLES)
+            return false;
+        _serviced = now;
+        loopDevices();
+        return true;
     }
     // Whether the CPU is halted: false for the length of each run.
     virtual void setIdle(bool idle) {}
@@ -41,6 +43,9 @@ private:
     uint32_t _serviced = 0;
 
 protected:
+    // A device that counts bus cycles, called on every one.
+    Device *_everyCycle = nullptr;
+
     virtual bool loopDevices() = 0;
     void printDevice(const Device *dev) const;
 };

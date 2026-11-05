@@ -14,6 +14,9 @@ DevsMc6801::DevsMc6801()
 #endif
 {
     _acia->setBaseAddr(ACIA_BASE);
+#if defined(ENABLE_SERIAL_HANDLER)
+    _everyCycle = _sci;
+#endif
 }
 
 DevsMc6801::~DevsMc6801() {
@@ -35,11 +38,7 @@ void DevsMc6801::begin() {
 }
 
 bool DevsMc6801::loopDevices() {
-    auto ran = _acia->loop();
-#if defined(ENABLE_SERIAL_HANDLER)
-    ran |= _sci->loop();
-#endif
-    return ran;
+    return _acia->loop();
 }
 
 void DevsMc6801::setIdle(bool idle) {

@@ -17,6 +17,9 @@ DevsMc68hc11::DevsMc68hc11(Mc68hc11Init &init)
 #endif
 {
     _acia->setBaseAddr(ACIA_BASE);
+#if defined(ENABLE_SERIAL_HANDLER)
+    _everyCycle = _sci;
+#endif
 }
 
 DevsMc68hc11::~DevsMc68hc11() {
@@ -39,11 +42,7 @@ void DevsMc68hc11::begin() {
 }
 
 bool DevsMc68hc11::loopDevices() {
-    auto ran = _acia->loop();
-#if defined(ENABLE_SERIAL_HANDLER)
-    ran |= _sci->loop();
-#endif
-    return ran;
+    return _acia->loop();
 }
 
 void DevsMc68hc11::setIdle(bool idle) {
