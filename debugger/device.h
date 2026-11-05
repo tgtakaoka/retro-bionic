@@ -20,9 +20,8 @@ struct Device {
     virtual void print() const {}
 
     virtual void reset() = 0;
-    // Called from every bus cycle; runs a slow service at most once in
-    // SERVICE_CYCLES. True when it did, so the bus loop takes the halt
-    // switch on the same cycle.
+    // Devs calls it once in SERVICE_CYCLES, or on every bus cycle for a
+    // device that counts them. True when it ran its slow service.
     virtual bool loop() = 0;
     virtual void enable(bool enabled) { _enabled = enabled; }
     virtual bool isEnabled() const { return _enabled; }

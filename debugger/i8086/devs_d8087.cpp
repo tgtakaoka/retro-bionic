@@ -49,7 +49,9 @@ void NpxInt::negate() {
     }
 }
 
-DevsD8087::DevsD8087() : DevsI8080(), _npx(new NpxInt()) {}
+DevsD8087::DevsD8087() : DevsI8080(), _npx(new NpxInt()) {
+    _everyCycle = _npx;
+}
 
 DevsD8087::~DevsD8087() {
     delete _npx;
@@ -61,8 +63,7 @@ void DevsD8087::reset() {
 }
 
 bool DevsD8087::loopDevices() {
-    const auto ran = DevsI8080::loopDevices();
-    return _npx->loop() || ran;
+    return DevsI8080::loopDevices();
 }
 
 uint16_t DevsD8087::vector() const {

@@ -560,8 +560,6 @@ const Signals *PinsMc68hc12::loop() {
         completeCycle(s);
         track(s);
         const auto serviced = _devs->loop();
-        if (!serviced)
-            delayNanoseconds(extal_ns);  // the EXTAL half the poll filled
         if (tryHalt == 0) {
             if (serviced && haltSwitch()) {
                 assert_xirq();

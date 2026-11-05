@@ -39,7 +39,6 @@ protected:
     uint32_t _base_addr;
     uint8_t _rxIntr;
     uint8_t _txIntr;
-    uint32_t _serviced;
     bool _txDone;
 
     virtual void resetUart() = 0;

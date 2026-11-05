@@ -113,9 +113,10 @@ wait loops are bounded.
 otherwise only through console I/O, so `Pins::haltSwitch()` calls `yield()`
 itself; without it a program that never enables the console device cannot be
 halted. Its `yield()` stretches the cycle it runs in, so a bus loop takes it only
-when `_devs->loop()` returns true: on the cycle a device ran its slow service,
-which each paces by time (the UART once in 10 µs), or 10 µs after the last with
-none enabled. A loop that skips it pads the clock phase it used to fill.
+when `_devs->loop()` returns true: once in 10 µs, the cycle on which it services
+the devices. Every other cycle costs only that time check, plus the call of a
+device that counts bus cycles, such as a bit-banged serial clock. A loop that
+skips it pads the clock phase it used to fill.
 **[code]** A halt that never returns the CLI looks exactly like a wedged board, so
 try a program that uses the console before suspecting the board. **[hw]**
 
