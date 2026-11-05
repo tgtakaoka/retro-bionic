@@ -204,10 +204,12 @@ def pc_from(buf, name=None):
     mid-output leaves the dump appended straight onto a partial line,
     with no newline before "PC=" at all. A bank before the address, as
     in the W65C816's native "K:PC=00:11E2", is joined on: "0011E2".
+    Underscores standing for digits above the board's address lines, as
+    in the MC68000 family's "PC=__001000", are dropped.
     """
     text = buf.decode('ascii', 'replace').replace('\r', '') if isinstance(buf, bytes) else buf
     label = re.escape(name) if name else 'PC'
-    matches = re.findall(r'(?:%s)=((?:[0-9A-Fa-f]+:)?[0-9A-Fa-f]+)' % label, text)
+    matches = re.findall(r'(?:%s)=_*((?:[0-9A-Fa-f]+:)?[0-9A-Fa-f]+)' % label, text)
     return matches[-1].replace(':', '') if matches else None
 
 
