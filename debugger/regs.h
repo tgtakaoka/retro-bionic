@@ -14,6 +14,8 @@ struct Regs {
 
     /** Print CPU registers */
     virtual void print() const = 0;
+    // What r prints: print() and any registers it leaves out.
+    virtual void printAll() const { print(); }
     /** Reset sequence */
     virtual void reset() {}
     /** Save CPU registers */
