@@ -69,6 +69,11 @@ void Target::printRegisters(bool dis) const {
         disassemble(_regs->nextIp(), 1);
 }
 
+void Target::printAllRegisters() const {
+    _regs->printAll();
+    disassemble(_regs->nextIp(), 1);
+}
+
 uint_fast8_t Target::validRegister(const char *word, uint32_t &max) const {
     return _regs->validRegister(word, max);
 }

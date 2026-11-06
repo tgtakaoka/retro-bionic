@@ -45,6 +45,7 @@ struct Target {
     void putInst(uint32_t addr, uint16_t data) const;
 
     void printRegisters(bool dis = true) const;
+    void printAllRegisters() const;
     uint_fast8_t validRegister(const char *word, uint32_t &max) const;
     bool setRegister(uint_fast8_t reg, uint32_t value) const;
     void helpRegisters() const;

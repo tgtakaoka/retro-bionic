@@ -1017,7 +1017,7 @@ void Debugger::exec(char c) {
         break;
     case 'r':
         cli.println("Registers");
-        target().printRegisters();
+        target().printAllRegisters();
         break;
     case '=':
         cli.print("Set register? ");
