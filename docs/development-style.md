@@ -453,6 +453,12 @@ cycles, where bit-banged edges needed a tuned delay for each.
 - A multiplexed address needs its settle time even on a held cycle: the
   KL5C80A12's A16-A19 come through the ASEL mux about 20 ns after it
   switches, and read sooner they sent CALL operands to the wrong page.
+- A held cycle holds only after the address phase. When the address
+  shares pins with write data, nothing may run between serving one cycle
+  and reading the next address: service the devices while the cycle is
+  still held, and keep interrupts masked from its release until the next
+  address is in. The HD641016 drops its address at T2; a USB interrupt
+  fired on unmasking took a push's data 12B9H for its address 002572H.
 - A target moved to a timer adds its row to the table in
   [hardware.md](hardware.md#clocking-the-cpu) (clock input, the input that
   holds a cycle, default rate) in the same commit, and a cast recorded on
@@ -2208,6 +2214,51 @@ landing point below is marked `ATTENTION:` in `debugger/mc68hc16/`.
 - An interrupt stacks only PC and CCR, unlike the HC11 the samples were
   ported from: each sample's handler saves what it uses with `PSHM` and
   restores it with `PULM` before `RTI`. **[doc]**
+
+### H16 (HD641016)
+
+**Pitfalls.** The chip is dynamic: PHI is EXTAL/2 and no slower than
+1000 ns, so the clock never stops and every cycle is held with `#WAIT`
+instead. A1-A16 share pins with the data and hold only until the T2
+rise, half a state after `#AS` asserts, so the address is read the
+moment `#AS` falls. The data strobes assert before the CPU lets go of
+the bus, so read data waits for the T2 fall (Figure 17-4).
+
+Board for the HD641016CP (PLCC84), benched on an HD641016CP10: regress
+passes at EXTAL 10 MHz, mandelbrot 2.5 s/frame; at 10.7 MHz the debugger
+no longer keeps up.
+
+- `#HDS` and `#LDS` of a word cycle fall up to 8 ns apart: read them again
+  20 ns after the first, or a word looks like a byte and its other lane
+  goes unserved. **[hw]**
+- `#WAIT` is sampled at PHI falls (setup 35 ns, hold 7-10 ns): negate it
+  only while PHI is low. Negated at once, a write landed within 8 ns of a
+  fall in 10 of 79 cycles. **[hw]**
+- PF marks the prefetch queue's fetches, which run up to 8 bytes ahead,
+  not instruction starts. A fetch that does not follow the last one is a
+  flush, so the backtrace disassembles from there by length. **[hw]**
+
+- EXTAL (P47) runs free from FlexPWM3 from reset on, PHI comes back on
+  P46. `#WAIT` stays low; a served cycle negates it until `#AS` rises,
+  then it goes low again before the next T2 fall samples it. **[doc]**
+- Reset turns on DRAM refresh every 32 states, a Tp and 7 Tw in every
+  cycle (MCR H'F0E0, AWCR0 H'0047). Refresh cycles obey `#WAIT` too.
+  After the reset vector a sequence writes MCR H'8000 and AWCR0 H'0000.
+  **[doc]**
+- The reset vector (SSP, PC) comes in by prefetch, and the prefetch runs
+  on to 00000FH before the PC is taken. **[doc]**
+- Halt is `#NMI`; step sets T in the SR that RTE restores, and the trace
+  exception parks the CPU in its vector read. A breakpoint is H'C0, an
+  unimplemented opcode one byte long that stacks its own address; a
+  program ends with TRAPA #15, its vector pointing at itself. After a
+  trace, a break or a halt the debugger asserts `#NMI` while answering
+  the vector, so the save runs with every interrupt masked. **[doc]**
+- The frames and the save go through SSP: keep it off chip. The on-chip
+  RAM (FFF800H) and I/O (FFFE00H) never reach the bus. **[doc]**
+- Registers are saved with STM and STC through R15, which is SSP in
+  supervisor mode; STC has no SSP form. The restore stages USP, EBR,
+  R0-R14 and the RTE frame below SSP and loads them with LDC, LDM and
+  RTE. **[doc]**
 
 ### SCN2650
 
