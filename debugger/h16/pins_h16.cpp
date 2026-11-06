@@ -35,7 +35,9 @@ namespace h16 {
  *
  * EXTAL runs free from FlexPWM3: the chip is dynamic, PHI no slower than
  * 1000ns. #WAIT stays asserted, so every cycle waits in Tw until it is
- * served, and is negated only until #AS negates at the end of T3.
+ * served, and is negated only until #AS negates at the end of T3. It
+ * changes at a set phase after a PHI fall, timed from ARM_DWT_CYCCNT;
+ * the lookup and the release leave a memory cycle two Tw.
  */
 // clang-format on
 
@@ -72,8 +74,24 @@ constexpr auto strobe_clocks = 16;
 // #HDS and #LDS of a word cycle fall up to 8ns apart: read them again
 // this long after the first, or a word looks like a byte.
 constexpr auto strobe_skew_ns = 20;
+// Cycles between polls of the devices and the halt switch, a power of 2:
+// each poll holds its cycle longer.
+constexpr auto devs_poll_cycles = 8;
 // #WAIT hold after a PHI fall, 7-10ns, with margin.
 constexpr auto wait_hold_ns = 15;
+// From the release's last read of ARM_DWT_CYCCNT to #WAIT changing, as on
+// the bus, counted from a PHI fall as a read first sees it.
+constexpr auto release_lead_ns = 75;
+// Where a #WAIT change may land after a PHI fall: past its hold, and the
+// 35ns setup before the next fall, with margin.
+constexpr auto release_from_ns = 45;
+constexpr auto release_to_ns = 140;
+// PHI falls timed for its phase.
+constexpr auto phi_samples = 64;
+
+constexpr uint32_t cyclesOf(uint32_t ns) {
+    return ns * (F_CPU / 1000000) / 1000;
+}
 // Bus cycles allowed for an #NMI to be taken; generous.
 constexpr auto nmi_ack_cycles = 1024;
 // Cycles before an exception's vector read that may hold its frame: the
@@ -187,6 +205,14 @@ inline bool Signals::getStrobes() {
     return (strobes() & (HDS | LDS)) != (HDS | LDS);
 }
 
+inline void Signals::getLane() {
+    if (!getStrobes())
+        return;
+    addr &= ~UINT32_C(1);
+    if ((strobes() & HDS) != 0)
+        addr |= 1;  // #LDS alone: the odd byte
+}
+
 PinsH16::PinsH16() : _clock(extal_half_min_ns, clock_input_min_hz) {
     _devs = new DevsMc6800(ACIA_BASE_H16);
     // Memory first: RegsH16 stages its restore frame there.
@@ -204,6 +230,7 @@ bool PinsH16::setClockInput(uint32_t hz) {
         return false;
     _clockInput = rate;
     _clockCycles = F_CPU / rate;
+    calibratePhi();
     return true;
 }
 
@@ -211,11 +238,15 @@ void PinsH16::resetPins() {
     pinsMode(PINS_LOW, sizeof(PINS_LOW), OUTPUT, LOW);
     pinsMode(PINS_HIGH, sizeof(PINS_HIGH), OUTPUT, HIGH);
     pinsMode(PINS_INPUT, sizeof(PINS_INPUT), INPUT);
+    _adInput = PDDR(AD) & ~PORT_gm(AD);
+    _adOutput = _adInput | PORT_gm(AD);
     // A power-on reset: #NMI high while #RES and #BRTRY are low.
     assert_reset();
     // The clock runs from here on; nothing stops it.
     _clock.begin(_clockInput);
     _clock.start();
+    _phiKnown = false;
+    _pendingWrite = nullptr;
     delayMicroseconds(reset_us);
 
     Cycles::reset();
@@ -266,6 +297,8 @@ void PinsH16::resetPins() {
         printCycles();
         return;
     }
+    // PHI's phase for releaseWait(), while the CPU is parked.
+    calibratePhi();
     _regs->save();
     _regs->reset();
 }
@@ -300,33 +333,52 @@ Signals *PinsH16::prepareCycle() {
 // Wait for #AS and read the address at once, then for the data strobes,
 // which a byte cycle needs for A0. A refresh cycle has none. Masked
 // from completeCycle() until the address is in: A1-A16 carry it only
-// until T2, and #WAIT holds the CPU only after that.
+// until T2, and #WAIT holds the CPU only after that. A memory read is
+// looked up while the strobes are still to come. Only a data read, which
+// may be a vector read checked before it is served, waits out the strobes'
+// skew; any other cycle's A0 is read again before it is used.
 Signals *PinsH16::prepareCycle(uint_fast16_t clocks) {
     noInterrupts();
     auto s = Signals::put();
     s->clearMark();  // Cycles::next() keeps the slot's old mark
     const uint32_t start = ARM_DWT_CYCCNT;
     const uint32_t limit = clocks * _clockCycles;
+    _asTimed = false;
     while (!s->getControl()) {
+        _asTimed = true;
         if (ARM_DWT_CYCCNT - start >= limit) {
             interrupts();
+            flushWrite();
+            if (_phiKnown) {
+                const uint32_t period = 2 * _clockCycles;
+                _phiFall = start - (start - _phiFall) % period;
+            }
             s->markHalt();
             return s;
         }
     }
+    _asAt = ARM_DWT_CYCCNT;
     s->getAddr();
+#ifdef PROFILE_CYCLES
+    assert_debug();
+#endif
     interrupts();
+    flushWrite();
     if (s->memory()) {
+        if (s->read())
+            stageRead(s);
         const uint32_t from = ARM_DWT_CYCCNT;
         const uint32_t strobe = strobe_clocks * _clockCycles;
         while (!s->getStrobes()) {
             if (ARM_DWT_CYCCNT - from >= strobe)
                 break;
         }
-        delayNanoseconds(strobe_skew_ns);
-        s->getStrobes();
-        if ((s->strobes() & Signals::HDS) != 0)
-            s->addr |= 1;  // #LDS alone: the odd byte
+        if (s->read() && !s->programFetch()) {
+            delayNanoseconds(strobe_skew_ns);
+            s->getLane();
+        } else if ((s->strobes() & Signals::HDS) != 0) {
+            s->addr |= 1;  // #LDS alone, so far: read again when used
+        }
     } else {
         s->strobes() = Signals::NONE;
     }
@@ -337,6 +389,11 @@ Signals *PinsH16::prepareCycle(uint_fast16_t clocks) {
 // carry data by now, and the ring is a log that reset and discard
 // rewrite. The parked cycle still drives its status and strobes.
 Signals *PinsH16::resumeCycle(uint32_t addr) {
+    flushWrite();
+    // The phase may be a wrap of ARM_DWT_CYCCNT or more old.
+    if (_phiKnown)
+        calibratePhi();
+    _predicted = UINT32_MAX;  // memory may have changed since
     auto s = Signals::put();
     s->clearMark();
     s->getControl();
@@ -358,44 +415,36 @@ Signals *PinsH16::completeCycle(Signals *s) {
         return s;
     }
     if (memRead(s)) {
-        serveRead(s);
-        s->stageData();
-        // Past the T2 fall, the bus is ours.
-        const uint32_t start = ARM_DWT_CYCCNT;
-        const uint32_t limit = strobe_clocks * _clockCycles;
-        while (busRead(CNTL) & Signals::PHI) {
-            if (ARM_DWT_CYCCNT - start >= limit)
-                break;
+        // Injected data, or a device, replaces what was staged.
+        if (!s->staged() || !s->readMemory()) {
+            serveRead(s);
+            s->stageData();
         }
-        s->driveData();
+    }
+    noInterrupts();
+    releaseWait();
+    if (memRead(s))
+        PDDR(AD) = _adOutput;
+    negate_wait();
+#ifdef PROFILE_CYCLES
+    negate_debug();
+#endif
+    // The strobes hold until T3 ends. The bus holder keeps read data until
+    // the T3 fall latches it, and write data until the next cycle's
+    // address, so the bus is let go at once.
+    if (s->memory())
+        s->getLane();
+    if (memRead(s)) {
+        PDDR(AD) = _adInput;
+        if (s->programFetch() && s->readMemory())
+            predictFetch(s);
     } else if (memWrite(s)) {
-        // Write data is valid before the strobes assert (twDS).
         s->getData();
-        storeWrite(s);
+        _pendingWrite = s;
     }
     const uint32_t limit = strobe_clocks * _clockCycles;
-    noInterrupts();
-    // #WAIT must change outside its sampling window at a PHI fall (setup
-    // 35 ns, hold 7-10 ns), so only while PHI is low. A read gets here
-    // just past the T2 fall; a write, unsynchronized, landed within 8ns
-    // of a fall. PHI found low may have just fallen: wait out the hold.
-    const uint32_t phi = ARM_DWT_CYCCNT;
-    while (busRead(CNTL) & Signals::PHI) {
-        if (ARM_DWT_CYCCNT - phi >= limit)
-            break;
-    }
-    delayNanoseconds(wait_hold_ns);
-    negate_wait();
     const uint32_t start = ARM_DWT_CYCCNT;
-    // A read's data is released as the strobes negate.
     Signals probe;
-    if (memRead(s)) {
-        while (probe.getStrobes()) {
-            if (ARM_DWT_CYCCNT - start >= limit)
-                break;
-        }
-        s->inputMode();
-    }
     while (probe.getControl()) {
         if (ARM_DWT_CYCCNT - start >= limit)
             break;
@@ -404,6 +453,124 @@ Signals *PinsH16::completeCycle(Signals *s) {
     // Still masked: prepareCycle() unmasks once it has the next address.
     Cycles::next();
     return s;
+}
+
+// The earliest seen of a run of PHI falls, folded into one PHI period:
+// the least latency of the reads that saw them. The debug pin toggles at
+// each, for a capture of that latency.
+void PinsH16::calibratePhi() {
+    const uint32_t period = 2 * _clockCycles;
+    const uint32_t limit = 4 * _clockCycles;
+    noInterrupts();
+    uint32_t first = 0;
+    int32_t earliest = 0;
+    for (auto n = 0; n < phi_samples; ++n) {
+        const uint32_t start = ARM_DWT_CYCCNT;
+        while ((busRead(CNTL) & Signals::PHI) == 0) {
+            if (ARM_DWT_CYCCNT - start >= limit)
+                break;
+        }
+        while (busRead(CNTL) & Signals::PHI) {
+            if (ARM_DWT_CYCCNT - start >= limit)
+                break;
+        }
+        const uint32_t at = ARM_DWT_CYCCNT;
+#ifdef PROFILE_CYCLES
+        toggle_debug();
+#endif
+        if (n == 0) {
+            first = at;
+            continue;
+        }
+        auto off = static_cast<int32_t>((at - first) % period);
+        if (off > static_cast<int32_t>(period / 2))
+            off -= period;
+        if (off < earliest)
+            earliest = off;
+    }
+#ifdef PROFILE_CYCLES
+    negate_debug();
+#endif
+    interrupts();
+    _phiFall = first + earliest;
+    _phiKnown = true;
+}
+
+// Wait until #WAIT may change: outside its sampling window at a PHI fall
+// (setup 35 ns, hold 7-10 ns), and past the T2 fall, where the CPU has let
+// go of the bus for read data. Masked.
+void PinsH16::releaseWait() {
+    if (_asTimed && _phiKnown) {
+        // In the time of reads seeing a fall. #AS follows the T1 fall by
+        // some 8ns, and the poll sees it within a fraction of a period.
+        const uint32_t period = 2 * _clockCycles;
+        const uint32_t lead = cyclesOf(release_lead_ns);
+        const uint32_t from = cyclesOf(release_from_ns);
+        const uint32_t to = cyclesOf(release_to_ns);
+        // The latest fall: ARM_DWT_CYCCNT wraps in a number of cycles that
+        // is no multiple of the period.
+        _phiFall = _asAt - (_asAt - _phiFall) % period;
+        const uint32_t earliest = _phiFall + period + from - lead;
+        while (static_cast<int32_t>(ARM_DWT_CYCCNT - earliest) < 0)
+            ;
+        while (true) {
+            const uint32_t now = ARM_DWT_CYCCNT;
+            const auto phase = (now + lead - _phiFall) % period;
+            if (phase >= from && phase <= to)
+                return;
+        }
+    }
+    // No time for #AS: a PHI fall as seen. PHI found low may be late in its
+    // low half, and a release from there has landed after PHI rose: wait
+    // for the next fall. The strobes are in, so any fall is past T2's.
+    const uint32_t limit = strobe_clocks * _clockCycles;
+    const auto phiLow = (busRead(CNTL) & Signals::PHI) == 0;
+    const uint32_t phi = ARM_DWT_CYCCNT;
+    if (phiLow) {
+        while ((busRead(CNTL) & Signals::PHI) == 0) {
+            if (ARM_DWT_CYCCNT - phi >= limit)
+                break;
+        }
+    }
+    while (busRead(CNTL) & Signals::PHI) {
+        if (ARM_DWT_CYCCNT - phi >= limit)
+            break;
+    }
+    delayNanoseconds(wait_hold_ns);
+}
+
+// Stage a memory read from its address alone: the aligned pair, a byte
+// read taking its own lane of it. A device is left to serveRead(): its
+// reads have side effects, and the debugger may inject the cycle.
+void PinsH16::stageRead(Signals *s) {
+    const auto maddr = wrap(s->addr);
+    if ((maddr & ~UINT32_C(1)) == _predicted) {
+        s->data = _prediction;
+    } else if (_devs->isSelected(maddr)) {
+        return;
+    } else {
+        s->data = mems<MemsH16>()->read_bus(maddr & ~1);
+    }
+    s->stageData();
+    s->markStaged();
+}
+
+// Look up the word after the fetch |s|, while the cycle runs out.
+void PinsH16::predictFetch(const Signals *s) {
+    const auto next = wrap((s->addr & ~UINT32_C(1)) + 2);
+    if (_devs->isSelected(next)) {
+        _predicted = UINT32_MAX;
+        return;
+    }
+    _prediction = mems<MemsH16>()->read_bus(next);
+    _predicted = next;
+}
+
+void PinsH16::flushWrite() {
+    if (_pendingWrite) {
+        storeWrite(_pendingWrite);
+        _pendingWrite = nullptr;
+    }
 }
 
 // Look up the read. A word access is even, so its address alone
@@ -427,6 +594,8 @@ void PinsH16::storeWrite(Signals *s) {
         return;
     const auto mems = this->mems<MemsH16>();
     const auto maddr = wrap(s->addr);
+    if ((maddr & ~UINT32_C(1)) == _predicted)
+        _predicted = UINT32_MAX;
     if (_devs->isSelected(maddr)) {
         if (s->wordAccess()) {
             _devs->write(maddr, hi(s->data));
@@ -512,6 +681,7 @@ uint_fast8_t PinsH16::execute(const uint8_t *inst, uint_fast8_t len,
         // Recorded while #WAIT still holds the cycle: the next cycle's
         // address must be read before its T2.
         if (memWrite(s)) {
+            s->getLane();
             s->getData();
             const auto put = [&](uint32_t a, uint8_t v) {
                 if (cap < max) {
@@ -778,10 +948,13 @@ bool PinsH16::maskBreak(Signals *s, const RegsH16::Frame &frame) {
 // can be saved from. The ring is left holding the program's cycles only.
 bool PinsH16::loop() {
     auto s = resumeCycle(regs<RegsH16>()->parkedAt());
+    uint_fast8_t polls = 0;
     while (true) {
         const Signals *from;
         RegsH16::Frame frame;
-        if (isBreak(s, frame, from) || isHalt(s, frame, from)) {
+        // Both are vector reads: data, not a fetch.
+        if (memRead(s) && !s->programFetch() &&
+                (isBreak(s, frame, from) || isHalt(s, frame, from))) {
             const auto parked = maskBreak(s, frame);
             Cycles::discard(from);
             return parked;
@@ -798,10 +971,19 @@ bool PinsH16::loop() {
         // nothing may run between completeCycle() and prepareCycle().
         // suspend() opens with resumeCycle(), which reads this recorded
         // slot back.
-        if (_devs->loop() && haltSwitch())
+        if ((++polls & (devs_poll_cycles - 1)) == 0 && _devs->loop() &&
+                haltSwitch())
             return suspend(s->addr);
         completeCycle(s);
         s = prepareCycle();
+        // A staged fetch can be neither a break nor a halt: serve it
+        // straight away, but leave every few cycles to the polls above.
+        while (s->staged() && s->programFetch() &&
+                ((polls + 1) & (devs_poll_cycles - 1)) != 0) {
+            ++polls;
+            completeCycle(s);
+            s = prepareCycle();
+        }
     }
 }
 

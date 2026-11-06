@@ -2225,15 +2225,24 @@ moment `#AS` falls. The data strobes assert before the CPU lets go of
 the bus, so read data waits for the T2 fall (Figure 17-4).
 
 Board for the HD641016CP (PLCC84), benched on an HD641016CP10: regress
-passes at EXTAL 10 MHz, mandelbrot 2.5 s/frame; at 10.7 MHz the debugger
+passes at EXTAL 10 MHz, mandelbrot 2.4 s/frame; at 10.7 MHz the debugger
 no longer keeps up.
 
-- `#HDS` and `#LDS` of a word cycle fall up to 8 ns apart: read them again
-  20 ns after the first, or a word looks like a byte and its other lane
-  goes unserved. **[hw]**
-- `#WAIT` is sampled at PHI falls (setup 35 ns, hold 7-10 ns): negate it
-  only while PHI is low. Negated at once, a write landed within 8 ns of a
-  fall in 10 of 79 cycles. **[hw]**
+- `#HDS` and `#LDS` of a word cycle fall up to 8 ns apart: a data read
+  rereads them 20 ns later, other cycles reread A0 while still held.
+  **[hw]**
+- `#WAIT` is sampled at PHI falls (setup 35 ns, hold 7-10 ns), and pins
+  move 35-60 ns after a read sees a fall: released on PHI found low, it
+  landed in the next fall's setup. **[hw]**
+- EXTAL is a whole number of `ARM_DWT_CYCCNT` cycles, so the release is
+  timed from a calibrated PHI phase, rechecked on a fresh counter read.
+  The counter wraps in no multiple of the period: re-anchor every cycle.
+  **[doc]**
+- The bus holder keeps the data, so the bus is let go at the release. A
+  write is stored after the next address is read; stored at the release,
+  a slow store missed that address. **[doc]**
+- Reads are looked up before their strobes, and each fetch looks up the
+  next word ahead. **[doc]**
 - PF marks the prefetch queue's fetches, which run up to 8 bytes ahead,
   not instruction starts. A fetch that does not follow the last one is a
   flush, so the backtrace disassembles from there by length. **[hw]**
