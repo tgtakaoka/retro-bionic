@@ -125,12 +125,12 @@
        1043 :                    ;;; @return R0
        1043 :                    ;;; @return CCR.C 0 if no character
        1043 :                    getchar:
-       1043 : 72 6F 00 02                stm.l   r1, @-r15
+       1043 : 72 6F 00 02                stm.l   r1, @-sp
        1047 : F9 A0 72 07 00             orc     #$0700, sr      ; disable IRQ
        104C : 0E 72 20 00 41             mov.l   #rx_queue, r1
        1051 : A9 01 5C                   bsr     queue_remove
        1054 : F8 A0 72 F8 FF             andc    #~$0700, sr     ; enable IRQ
-       1059 : 76 5F 00 02                ldm.l   @r15+, r1
+       1059 : 76 5F 00 02                ldm.l   @sp+, r1
        105D : BB                         rts
        105E :
        105E :                    ;;; Put character
@@ -144,7 +144,7 @@
        1067 : A9 00 03                   bsr     putchar
        106A : 1C 0A 40                   mov.b   #$0A, r0
        106D :                    putchar:
-       106D : 72 6F 00 03                stm.l   r0-r1, @-r15
+       106D : 72 6F 00 03                stm.l   r0-r1, @-sp
        1071 : 0E 72 20 80 41             mov.l   #tx_queue, r1
        1076 :                    putchar_retry:
        1076 : F9 A0 72 07 00             orc     #$0700, sr      ; disable IRQ
@@ -153,7 +153,7 @@
        1083 : A5 04 FF EF                bcc     putchar_retry   ; branch if queue is full
        1087 : 1C B4 77 00 FF DF          mov.b   #RX_INT_TX_INT, @ACIA_control ; enable Tx interrupt
        108D : 00
-       108E : 76 5F 00 03                ldm.l   @r15+, r0-r1
+       108E : 76 5F 00 03                ldm.l   @sp+, r0-r1
        1092 : BB                         rts
        1093 :
        1093 :                            include "mandelbrot.inc"
@@ -270,7 +270,7 @@
 (1)    1170 :                    ;;; @param R0 an element
 (1)    1170 :                    ;;; @return CCR.C 0 if queue is full
 (1)    1170 :                    queue_add:
-(1)    1170 : 72 6F 00 04                stm.l   r2, @-r15       ; STM and LDM leave the flags alone
+(1)    1170 : 72 6F 00 04                stm.l   r2, @-sp        ; STM and LDM leave the flags alone
 (1)    1174 : 0D 01 42                   mov.w   @(queue_len, r1), r2
 (1)    1177 : 09 11 02 42                cmp.w   @(queue_size, r1), r2
 (1)    117B : A5 04 00 28                bhs     queue_add_full
@@ -284,11 +284,11 @@
 (1)    1197 : 1D 0A 42                   mov.w   #queue_buf, r2  ; wrap around
 (1)    119A :                    queue_add_put:
 (1)    119A : 0D 42 11 04                mov.w   r2, @(queue_put, r1)
-(1)    119E : 76 5F 00 04                ldm.l   @r15+, r2
+(1)    119E : 76 5F 00 04                ldm.l   @sp+, r2
 (1)    11A2 : F9 20 71 01                orc     #1, ccr         ; set carry
 (1)    11A6 : BB                         rts
 (1)    11A7 :                    queue_add_full:
-(1)    11A7 : 76 5F 00 04                ldm.l   @r15+, r2
+(1)    11A7 : 76 5F 00 04                ldm.l   @sp+, r2
 (1)    11AB : F8 20 71 FE                andc    #~1, ccr        ; clear carry
 (1)    11AF : BB                         rts
 (1)    11B0 :
@@ -302,7 +302,7 @@
 (1)    11B5 : F8 20 71 FE                andc    #~1, ccr        ; clear carry
 (1)    11B9 : BB                         rts
 (1)    11BA :                    queue_remove_elem:
-(1)    11BA : 72 6F 00 04                stm.l   r2, @-r15
+(1)    11BA : 72 6F 00 04                stm.l   r2, @-sp
 (1)    11BE : 0D 11 06 42                mov.w   @(queue_get, r1), r2
 (1)    11C2 : AD 02                      extu.l  r2
 (1)    11C4 : 0C FC 41 02                mov.b   @(r1, r2), r0   ; read an element
@@ -313,7 +313,7 @@
 (1)    11D6 : 1D 0A 42                   mov.w   #queue_buf, r2  ; wrap around
 (1)    11D9 :                    queue_remove_get:
 (1)    11D9 : 0D 42 11 06                mov.w   r2, @(queue_get, r1)
-(1)    11DD : 76 5F 00 04                ldm.l   @r15+, r2
+(1)    11DD : 76 5F 00 04                ldm.l   @sp+, r2
 (1)    11E1 : F9 20 71 01                orc     #1, ccr         ; set carry
 (1)    11E5 : BB                         rts
 (1)    11E6 :
@@ -335,7 +335,7 @@
 (1)    11EC :                    ;;; vim: set ft=asm et ts=4 sw=4:
        11EC :
        11EC :                    isr_irq:
-       11EC : 72 6F 00 07                stm.l   r0-r2, @-r15    ; an interrupt stacks only PC and SR
+       11EC : 72 6F 00 07                stm.l   r0-r2, @-sp     ; an interrupt stacks only PC and SR
        11F0 : 0C 77 00 FF DF 00          mov.b   @ACIA_status, r2
        11F6 : 42
        11F7 : 6C 67 42                   btst.b  #7, r2          ; IRQF
@@ -354,10 +354,10 @@
        1223 : 0C 40 77 00 FF DF          mov.b   r0, @ACIA_data  ; send character
        1229 : 01
        122A :                    isr_irq_exit:
-       122A : 76 5F 00 07                ldm.l   @r15+, r0-r2
+       122A : 76 5F 00 07                ldm.l   @sp+, r0-r2
        122E : F1                         rte
        122F :                    isr_irq_send_empty:
        122F : 1C 94 77 00 FF DF          mov.b   #RX_INT_TX_NO, @ACIA_control ; disable Tx interrupt
        1235 : 00
-       1236 : 76 5F 00 07                ldm.l   @r15+, r0-r2
+       1236 : 76 5F 00 07                ldm.l   @sp+, r0-r2
        123A : F1                         rte

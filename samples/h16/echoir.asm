@@ -62,7 +62,7 @@ putchar:
         include "queue.inc"
 
 isr_irq:
-        stm.l   r0-r1, @-r15    ; an interrupt stacks only PC and SR
+        stm.l   r0-r1, @-sp     ; an interrupt stacks only PC and SR
         btst.b  #7, @ACIA_status        ; IRQF
         beq     isr_irq_return
 isr_irq_receive:
@@ -72,5 +72,5 @@ isr_irq_receive:
         mov.l   #rx_queue, r1
         bsr     queue_add
 isr_irq_return:
-        ldm.l   @r15+, r0-r1
+        ldm.l   @sp+, r0-r1
         rte

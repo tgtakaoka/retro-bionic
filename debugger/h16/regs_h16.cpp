@@ -22,9 +22,10 @@ constexpr uint8_t POS[] = {4, 17, 30, 43, 56, 69};
 constexpr uint8_t BANK = 83;
 
 constexpr uint32_t ADDR_MASK = MemsH16::ADDR_MASK;
-// BMR's internal RAM enable and bank mode, ring banks (User's Manual
-// Figure 15-2).
+// BMR's internal RAM enable, bank permit, which lets the banks be read as
+// RAM, and bank mode, ring banks (User's Manual Figure 15-2).
 constexpr uint8_t BMR_RAME = 0x80;
+constexpr uint8_t BMR_BPM = 0x40;
 constexpr uint8_t BMR_BMD = 0x10;
 // Where an internal read is stored to, off chip and captured.
 constexpr uint32_t SCRATCH = 0xFFD000;
@@ -318,6 +319,95 @@ bool RegsH16::parkAtFetch() {
     _vector = false;
     _parkedAddr = InstH16::ORG_PARK;
     return true;
+}
+
+// Ring bank |bank|'s R0-R15 from the internal RAM, RB7 lowest, with BPM
+// set for the reads only: MOV.L each to |SCRATCH|, captured. Four at a
+// time keeps a sequence well inside the cycle ring execute() runs in.
+bool RegsH16::readRingBank(uint_fast8_t bank, uint32_t regs[16]) const {
+    auto self = const_cast<RegsH16 *>(this);
+    if (!self->parkAtFetch())
+        return false;
+    constexpr uint_fast8_t PER = 4;
+    const uint32_t base = (_rbr & 0xFFFC00) + (7 - bank) * 64;
+    for (uint_fast8_t r = 0; r < 16; r += PER) {
+        uint8_t seq[4 + PER * 11 + 4 + 3];
+        uint_fast8_t n = 0;
+        const auto ldcBmr = [&](uint8_t v) {  // LDC #v, BMR
+            seq[n++] = 0xFB;
+            seq[n++] = 0x80;
+            seq[n++] = 0x71;
+            seq[n++] = v;
+        };
+        ldcBmr(_bmr | BMR_BPM);
+        for (uint_fast8_t i = 0; i < PER; ++i) {
+            const auto a = base + 4 * (r + i);  // MOV.L @a, @SCRATCH
+            seq[n++] = 0x0E;
+            seq[n++] = 0x77;
+            seq[n++] = 0x00;
+            seq[n++] = a >> 16;
+            seq[n++] = a >> 8;
+            seq[n++] = a;
+            seq[n++] = 0x77;
+            seq[n++] = 0x00;
+            seq[n++] = SCRATCH >> 16;
+            seq[n++] = SCRATCH >> 8;
+            seq[n++] = SCRATCH;
+        }
+        ldcBmr(_bmr);
+        const uint16_t back = -(n + 3);  // BRA org: from the end of the BRA
+        seq[n++] = 0x99;
+        seq[n++] = back >> 8;
+        seq[n++] = back;
+        uint8_t buf[PER * 4];
+        uint32_t addrs[PER * 4];
+        auto org = self->_parkedAddr;
+        const auto got = _pins->captureWrites(
+                seq, n, buf, addrs, sizeof(buf), org, PinsH16::EXIT_ORG);
+        self->_parkedAddr = org;
+        if (got < sizeof(buf) || _pins->cutShort())
+            return false;
+        for (uint_fast8_t i = 0; i < PER; ++i) {
+            const auto b = buf + 4 * i;
+            regs[r + i] = static_cast<uint32_t>(b[0]) << 24 | b[1] << 16 |
+                          b[2] << 8 | b[3];
+        }
+    }
+    return true;
+}
+
+// Ring banks' registers are no stack pointers: CR15 and PR15 are plain,
+// though an overflow takes the low 16 bits of the bank's R15 as its
+// register list (Programming Manual 4.3.13, 16.3.37).
+void RegsH16::printAll() const {
+    print();
+    if ((_bmr & BMR_BMD) == 0)
+        return;
+    const uint_fast8_t current = _cbnr & 7;
+    const char prefix[] = {'C', 'P'};
+    for (uint_fast8_t b = 0; b < 2; ++b) {
+        uint32_t regs[16];
+        if (!readRingBank((current - b) & 7, regs)) {
+            cli.println("?ring bank not read");
+            return;
+        }
+        // Six to a line, each 14 columns, the labels right-aligned.
+        for (uint_fast8_t row = 0; row < 16; row += 6) {
+            for (uint_fast8_t i = row; i < row + 6 && i < 16; ++i) {
+                if (i != row)
+                    cli.print(' ');
+                if (i < 10)
+                    cli.print(' ');
+                cli.print(prefix[b]);
+                cli.print('R');
+                cli.printDec(i);
+                cli.print('=');
+                cli.printHex(regs[i], 8);
+            }
+            cli.println();
+            _pins->idle();
+        }
+    }
 }
 
 // ICBN or DCBN |count| times on the parked CPU, in ring mode only, with

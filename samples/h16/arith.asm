@@ -43,11 +43,11 @@ putchar:
 ;;; @param R0 op
 ;;; @return R0 v1
 expr:
-        mov.w   r0, @-r15
+        mov.w   r0, @-sp
         mov.w   r1, r0
         bsr     print_int16     ; print v1
         bsr     putspace
-        mov.w   @r15+, r0
+        mov.w   @sp+, r0
         bsr     putchar         ; print op
         bsr     putspace
         mov.w   r2, r0
@@ -59,12 +59,12 @@ expr:
 ;;; @param R0 v
 ;;; @clobber R0
 answer:
-        mov.w   r0, @-r15
+        mov.w   r0, @-sp
         bsr     putspace
         mov.b   #'=', r0
         bsr     putchar
         bsr     putspace
-        mov.w   @r15+, r0
+        mov.w   @sp+, r0
         bsr     print_int16     ; print v
         bra     newline
 

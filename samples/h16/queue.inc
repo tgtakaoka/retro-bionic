@@ -26,7 +26,7 @@ queue_init:
 ;;; @param R0 an element
 ;;; @return CCR.C 0 if queue is full
 queue_add:
-        stm.l   r2, @-r15       ; STM and LDM leave the flags alone
+        stm.l   r2, @-sp        ; STM and LDM leave the flags alone
         mov.w   @(queue_len, r1), r2
         cmp.w   @(queue_size, r1), r2
         bhs     queue_add_full
@@ -40,11 +40,11 @@ queue_add:
         mov.w   #queue_buf, r2  ; wrap around
 queue_add_put:
         mov.w   r2, @(queue_put, r1)
-        ldm.l   @r15+, r2
+        ldm.l   @sp+, r2
         orc     #1, ccr         ; set carry
         rts
 queue_add_full:
-        ldm.l   @r15+, r2
+        ldm.l   @sp+, r2
         andc    #~1, ccr        ; clear carry
         rts
 
@@ -58,7 +58,7 @@ queue_remove:
         andc    #~1, ccr        ; clear carry
         rts
 queue_remove_elem:
-        stm.l   r2, @-r15
+        stm.l   r2, @-sp
         mov.w   @(queue_get, r1), r2
         extu.l  r2
         mov.b   @(r1, r2), r0   ; read an element
@@ -69,7 +69,7 @@ queue_remove_elem:
         mov.w   #queue_buf, r2  ; wrap around
 queue_remove_get:
         mov.w   r2, @(queue_get, r1)
-        ldm.l   @r15+, r2
+        ldm.l   @sp+, r2
         orc     #1, ccr         ; set carry
         rts
 

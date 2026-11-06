@@ -52,12 +52,12 @@ loop:
 ;;; @return R0
 ;;; @return CCR.C 0 if no character
 getchar:
-        stm.l   r1, @-r15
+        stm.l   r1, @-sp
         orc     #$0700, sr      ; disable IRQ
         mov.l   #rx_queue, r1
         bsr     queue_remove
         andc    #~$0700, sr     ; enable IRQ
-        ldm.l   @r15+, r1
+        ldm.l   @sp+, r1
         rts
 
 ;;; Put character
@@ -71,7 +71,7 @@ newline:
         bsr     putchar
         mov.b   #$0A, r0
 putchar:
-        stm.l   r0-r1, @-r15
+        stm.l   r0-r1, @-sp
         mov.l   #tx_queue, r1
 putchar_retry:
         orc     #$0700, sr      ; disable IRQ
@@ -79,7 +79,7 @@ putchar_retry:
         andc    #~$0700, sr     ; enable IRQ
         bcc     putchar_retry   ; branch if queue is full
         mov.b   #RX_INT_TX_INT, @ACIA_control ; enable Tx interrupt
-        ldm.l   @r15+, r0-r1
+        ldm.l   @sp+, r0-r1
         rts
 
         include "mandelbrot.inc"
@@ -87,7 +87,7 @@ putchar_retry:
         include "queue_wait.inc"
 
 isr_irq:
-        stm.l   r0-r2, @-r15    ; an interrupt stacks only PC and SR
+        stm.l   r0-r2, @-sp     ; an interrupt stacks only PC and SR
         mov.b   @ACIA_status, r2
         btst.b  #7, r2          ; IRQF
         beq     isr_irq_exit
@@ -104,9 +104,9 @@ isr_irq_send:
         bcc     isr_irq_send_empty
         mov.b   r0, @ACIA_data  ; send character
 isr_irq_exit:
-        ldm.l   @r15+, r0-r2
+        ldm.l   @sp+, r0-r2
         rte
 isr_irq_send_empty:
         mov.b   #RX_INT_TX_NO, @ACIA_control ; disable Tx interrupt
-        ldm.l   @r15+, r0-r2
+        ldm.l   @sp+, r0-r2
         rte

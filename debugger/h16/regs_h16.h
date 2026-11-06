@@ -18,6 +18,8 @@ struct RegsH16 final : Regs {
     const char *cpuName() const override { return "HD641016"; }
 
     void print() const override;
+    // In ring mode, the current and previous ring banks as well.
+    void printAll() const override;
     // The state the program's reset vector sets, applied on resume.
     void reset() override;
     void save() override;
@@ -64,6 +66,7 @@ struct RegsH16 final : Regs {
     bool setRegister(uint_fast8_t reg, uint32_t value) override;
 
 private:
+    bool readRingBank(uint_fast8_t bank, uint32_t regs[16]) const;
     bool parkAtFetch();
     void stepBank(uint_fast8_t count, bool increment);
     PinsH16 *const _pins;
