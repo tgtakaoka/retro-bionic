@@ -34,6 +34,11 @@ struct RegsH16 final : Regs {
     }
     uint32_t ebr() const { return _ebr; }
 
+    // The on-chip RAM, while enabled, and I/O, as the registers place them.
+    bool isInternal(uint32_t addr) const;
+    uint8_t internalRead(uint32_t addr);
+    void internalWrite(uint32_t addr, uint8_t data);
+
     // The frame an exception stacked, as memory holds it.
     struct Frame {
         uint32_t pc;  // the program's PC to resume at
@@ -59,6 +64,8 @@ struct RegsH16 final : Regs {
     bool setRegister(uint_fast8_t reg, uint32_t value) override;
 
 private:
+    bool parkAtFetch();
+    void stepBank(uint_fast8_t count, bool increment);
     PinsH16 *const _pins;
     MemsH16 *const _mems;
 
@@ -84,7 +91,6 @@ private:
     mutable CharBuffer _buffer2;
     mutable CharBuffer _buffer3;
     mutable CharBuffer _buffer4;
-    mutable CharBuffer _buffer5;
 };
 
 }  // namespace h16

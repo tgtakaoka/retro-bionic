@@ -8,6 +8,9 @@ namespace h16 {
 
 struct InstH16 {
     static constexpr uint8_t NOP = 0xFF;
+    // Ring bank steps (Programming Manual 16.3.37, 16.3.30).
+    static constexpr uint8_t ICBN = 0xFD;
+    static constexpr uint8_t DCBN = 0xFE;
     // An unimplemented opcode (H'C0-H'C7), the breakpoint: one byte, and
     // its exception stacks its own address (User's Manual Table 4-16).
     static constexpr uint8_t BREAK = 0xC0;

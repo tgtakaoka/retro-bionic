@@ -33,7 +33,7 @@ struct CharBuffer final {
     uint_fast8_t text(uint_fast8_t pos, const char *value);
 
 private:
-    static constexpr auto _max = 79;
+    static constexpr auto _max = 95;
     char _str[_max + 1];
 };
 

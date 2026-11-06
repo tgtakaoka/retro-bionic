@@ -2268,6 +2268,15 @@ no longer keeps up.
   supervisor mode; STC has no SSP form. The restore stages USP, EBR,
   R0-R14 and the RTE frame below SSP and loads them with LDC, LDM and
   RTE. **[doc]**
+- In ring mode CRn and PRn are the current and previous ring banks'
+  registers, apart from the global bank's Rn; CR15 is no stack pointer,
+  but an overflow stacks the bank through BSP with its low 16 bits as the
+  register list. All 32 bits of CBNR count: 8 ICBN from 0 read 8.
+  **[hw]**
+- The on-chip RAM and I/O are reached by MOVs run on the parked CPU. The
+  register banks read as RAM only with BPM set; with it clear they read a
+  fixed pattern. Global bank 0 is the RAM's top 64 bytes, its R15 slot
+  holding USP. **[hw]**
 
 ### SCN2650
 

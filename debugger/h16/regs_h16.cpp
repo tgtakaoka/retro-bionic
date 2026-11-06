@@ -11,14 +11,23 @@ namespace {
 // clang-format off
 //                              1         2         3         4         5         6         7         8
 //                    012345678901234567890123456789012345678901234567890123456789012345678901234567890
-const char line1[] = " PC=xxxxxx   SSP=xxxxxxxx USP=xxxxxxxx  SR=T_SF I=x CCR=XNZVC";
-const char line2[] = " R0=xxxxxxxx  R1=xxxxxxxx  R2=xxxxxxxx  R3=xxxxxxxx  R4=xxxxxxxx  R5=xxxxxxxx";
-const char line3[] = " R6=xxxxxxxx  R7=xxxxxxxx  R8=xxxxxxxx  R9=xxxxxxxx R10=xxxxxxxx R11=xxxxxxxx";
-const char line4[] = "R12=xxxxxxxx R13=xxxxxxxx R14=xxxxxxxx EBR=xxxxxxxx RBR=xxxxxxxx IBR=xxxxxxxx";
-const char line5[] = "BSP=xxxxxxxx BMR=xx      GBNR=xx      VBNR=xx      CBNR=xxxxxxxx";
+const char line1[] = " PC=xxxxxxxx  SR=T_SF I=x CCR=XNZVC    EBR=xxxxxxxx RBR=xxxxxxxx IBR=xxxxxxxx BMR=xx";
+const char line2[] = " R0=xxxxxxxx  R1=xxxxxxxx  R2=xxxxxxxx  R3=xxxxxxxx  R4=xxxxxxxx  R5=xxxxxxxx GBNR=x";
+const char line3[] = " R6=xxxxxxxx  R7=xxxxxxxx  R8=xxxxxxxx  R9=xxxxxxxx R10=xxxxxxxx R11=xxxxxxxx VBNR=x";
+const char line4[] = "R12=xxxxxxxx R13=xxxxxxxx R14=xxxxxxxx  SP=xxxxxxxx USP=xxxxxxxx BSP=xxxxxxxx CBNR=x";
 // clang-format on
+// Every register's value starts 13 columns after the one above it, and
+// the bank registers' at the end of a line.
+constexpr uint8_t POS[] = {4, 17, 30, 43, 56, 69};
+constexpr uint8_t BANK = 83;
 
 constexpr uint32_t ADDR_MASK = MemsH16::ADDR_MASK;
+// BMR's internal RAM enable and bank mode, ring banks (User's Manual
+// Figure 15-2).
+constexpr uint8_t BMR_RAME = 0x80;
+constexpr uint8_t BMR_BMD = 0x10;
+// Where an internal read is stored to, off chip and captured.
+constexpr uint32_t SCRATCH = 0xFFD000;
 
 constexpr uint32_t wrap(uint32_t addr) {
     return addr & ADDR_MASK;
@@ -85,46 +94,44 @@ RegsH16::RegsH16(PinsH16 *pins, MemsH16 *mems)
       _buffer1(line1),
       _buffer2(line2),
       _buffer3(line3),
-      _buffer4(line4),
-      _buffer5(line5) {}
+      _buffer4(line4) {}
 
+// R15 shows as SP, the stack pointer in use, the other one beside it.
+// GBNR, VBNR and CBNR show the bank number bits only.
 void RegsH16::print() const {
     auto b1 = _buffer1;
-    b1.hex24(4, _pc);
-    b1.hex32(17, _ssp);
-    b1.hex32(30, _usp);
-    b1.bits(43, _sr >> 12, 0x8, line1 + 43);
-    b1.hex4(50, (_sr >> 8) & 7);
-    b1.bits(56, _sr, 0x10, line1 + 56);
+    b1.hex32(POS[0], _pc);
+    b1.bits(17, _sr >> 12, 0x8, line1 + 17);
+    b1.hex4(24, (_sr >> 8) & 7);
+    b1.bits(30, _sr, 0x10, line1 + 30);
+    b1.hex32(POS[3], _ebr);
+    b1.hex32(POS[4], _rbr);
+    b1.hex32(POS[5], _ibr);
+    b1.hex8(BANK - 1, _bmr);
     cli.println(b1);
     _pins->idle();
-    // Every register's value starts 13 columns after the one above it.
-    static constexpr uint8_t POS[] = {4, 17, 30, 43, 56, 69};
     auto b2 = _buffer2;
     for (uint_fast8_t i = 0; i < 6; ++i)
         b2.hex32(POS[i], _r[i]);
+    b2.hex4(BANK, _gbnr & 0xF);
     cli.println(b2);
     _pins->idle();
     auto b3 = _buffer3;
     for (uint_fast8_t i = 0; i < 6; ++i)
         b3.hex32(POS[i], _r[6 + i]);
+    b3.hex4(BANK, _vbnr & 7);
     cli.println(b3);
     _pins->idle();
+    const auto super = (_sr & InstH16::SR_S) != 0;
     auto b4 = _buffer4;
     for (uint_fast8_t i = 0; i < 3; ++i)
         b4.hex32(POS[i], _r[12 + i]);
-    b4.hex32(POS[3], _ebr);
-    b4.hex32(POS[4], _rbr);
-    b4.hex32(POS[5], _ibr);
+    b4.hex32(POS[3], super ? _ssp : _usp);
+    b4[POS[4] - 4] = super ? 'U' : 'S';
+    b4.hex32(POS[4], super ? _usp : _ssp);
+    b4.hex32(POS[5], _bsp);
+    b4.hex4(BANK, _cbnr & 7);
     cli.println(b4);
-    _pins->idle();
-    auto b5 = _buffer5;
-    b5.hex32(POS[0], _bsp);
-    b5.hex8(POS[1], _bmr);
-    b5.hex8(POS[2], _gbnr);
-    b5.hex8(POS[3], _vbnr);
-    b5.hex32(POS[4], _cbnr);
-    cli.println(b5);
     _pins->idle();
 }
 
@@ -249,7 +256,123 @@ void RegsH16::restore(bool trace) {
 }
 
 void RegsH16::helpRegisters() const {
-    cli.println("?Reg: PC SR CCR SSP USP EBR R0-R14");
+    cli.println("?Reg: PC SR CCR SSP USP EBR R0-R14 ICBN DCBN");
+}
+
+bool RegsH16::isInternal(uint32_t addr) const {
+    addr = wrap(addr);
+    if ((_bmr & BMR_RAME) && (addr & ~UINT32_C(0x3FF)) == (_rbr & 0xFFFC00))
+        return true;
+    return (addr & 0xFF0000) == (_ibr & 0xFF0000) && (addr & 0xFFFF) >= 0xFE00;
+}
+
+// A memory-to-memory MOV on the parked CPU, its registers untouched; a
+// read stores to |SCRATCH|, off chip, and the write is captured.
+uint8_t RegsH16::internalRead(uint32_t addr) {
+    // clang-format off
+    const uint8_t MOV[] = {
+        0x0C, 0x77, 0x00, uint8_t(addr >> 16), uint8_t(addr >> 8),
+        uint8_t(addr),                         // MOV:G.B @addr,
+        0x77, 0x00, uint8_t(SCRATCH >> 16), uint8_t(SCRATCH >> 8),
+        uint8_t(SCRATCH),                      //   @SCRATCH
+        0x99, 0xFF, 0xF2,                      // BRA org
+    };
+    // clang-format on
+    static_assert(sizeof(MOV) == 14, "BRA org: minus the length");
+    if (!parkAtFetch())
+        return 0;
+    uint8_t data = 0;
+    uint32_t at;
+    auto org = _parkedAddr;
+    const auto n = _pins->captureWrites(
+            MOV, sizeof(MOV), &data, &at, 1, org, PinsH16::EXIT_ORG);
+    _parkedAddr = org;
+    return n ? data : 0;
+}
+
+void RegsH16::internalWrite(uint32_t addr, uint8_t data) {
+    // clang-format off
+    const uint8_t MOV[] = {
+        0x1C, data,                            // MOV:Q.B #data,
+        0x77, 0x00, uint8_t(addr >> 16), uint8_t(addr >> 8),
+        uint8_t(addr),                         //   @addr
+        0x99, 0xFF, 0xF6,                      // BRA org
+    };
+    // clang-format on
+    static_assert(sizeof(MOV) == 10, "BRA org: minus the length");
+    if (!parkAtFetch())
+        return;
+    auto org = _parkedAddr;
+    _pins->execInst(MOV, sizeof(MOV), org, PinsH16::EXIT_ORG);
+    _parkedAddr = org;
+}
+
+// A sequence runs from a parked fetch: answer a vector read first.
+bool RegsH16::parkAtFetch() {
+    if (!_vector)
+        return true;
+    if (!_pins->answerVector(_vecAddr, InstH16::ORG_PARK)) {
+        cli.println("?internal: vector not answered");
+        return false;
+    }
+    _vector = false;
+    _parkedAddr = InstH16::ORG_PARK;
+    return true;
+}
+
+// ICBN or DCBN |count| times on the parked CPU, in ring mode only, with
+// R0-R14 and SSP loaded for them: an overflow stacks a bank through BSP,
+// with R15 as its register list. The new bank's registers are saved.
+void RegsH16::stepBank(uint_fast8_t count, bool increment) {
+    if ((_bmr & BMR_BMD) == 0) {
+        cli.println(increment ? "?ICBN: not in ring mode"
+                              : "?DCBN: not in ring mode");
+        return;
+    }
+    if (_vector && !_pins->answerVector(_vecAddr, InstH16::ORG_PARK)) {
+        cli.println("?bank: vector not answered");
+        return;
+    }
+    const auto general = wrap(_ssp - 15 * 4);
+    for (uint_fast8_t i = 0; i < 15; ++i) {
+        const auto a = general + 4 * i;
+        _mems->write_byte(wrap(a), _r[i] >> 24);
+        _mems->write_byte(wrap(a + 1), _r[i] >> 16);
+        _mems->write_byte(wrap(a + 2), _r[i] >> 8);
+        _mems->write_byte(wrap(a + 3), _r[i]);
+    }
+    uint8_t seq[32];
+    uint_fast8_t n = 0;
+    const auto movR15 = [&](uint32_t v) {  // MOV.L #v, R15
+        seq[n++] = 0x0E;
+        seq[n++] = 0x73;
+        seq[n++] = v >> 24;
+        seq[n++] = v >> 16;
+        seq[n++] = v >> 8;
+        seq[n++] = v;
+        seq[n++] = 0x4F;
+    };
+    movR15(general);
+    seq[n++] = 0x76;  // LDM.L @R15+, R0-R14
+    seq[n++] = 0x5F;
+    seq[n++] = 0x7F;
+    seq[n++] = 0xFF;
+    movR15(_ssp);
+    for (uint_fast8_t i = 0; i < count; ++i)
+        seq[n++] = increment ? InstH16::ICBN : InstH16::DCBN;
+    seq[n++] = 0x99;  // BRA org: the displacement is from its end
+    seq[n++] = 0xFF;
+    seq[n] = uint8_t(-(n + 1));
+    ++n;
+    auto org = _vector ? InstH16::ORG_PARK : _parkedAddr;
+    _pins->execStored(seq, n, org, PinsH16::EXIT_ORG);
+    _vector = false;
+    _parkedAddr = org;
+    if (_pins->cutShort()) {
+        cli.println("?bank: sequence cut short");
+        return;
+    }
+    save();
 }
 
 namespace {
@@ -261,6 +384,10 @@ constexpr const char *REGS16[] = {
 };
 constexpr const char *REGS24[] = {
         "PC",  // 3
+};
+constexpr const char *BANKS[] = {
+        "ICBN",  // 22
+        "DCBN",  // 23
 };
 constexpr const char *REGS32[] = {
         "SSP",  // 4
@@ -290,6 +417,7 @@ const Regs::RegList *RegsH16::listRegisters(uint_fast8_t n) const {
             {REGS16, 1, 2, UINT16_MAX},
             {REGS24, 1, 3, ADDR_MASK},
             {REGS32, 18, 4, UINT32_MAX},
+            {BANKS, 2, 22, 7},
     };
     return n < sizeof(REG_LIST) / sizeof(REG_LIST[0]) ? &REG_LIST[n] : nullptr;
 }
@@ -313,6 +441,10 @@ bool RegsH16::setRegister(uint_fast8_t reg, uint32_t value) {
         break;
     case 6:
         _ebr = value;
+        break;
+    case 22:
+    case 23:
+        stepBank(value, reg == 22);
         break;
     default:
         _r[reg - 7] = value;

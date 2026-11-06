@@ -107,6 +107,9 @@ struct PinsH16 final : Pins {
     // the prefetch runs up to 8 bytes past the instruction executing.
     void execInst(const uint8_t *inst, uint_fast8_t len, uint32_t &org,
             uint32_t exit);
+    // Likewise, but its writes go to memory.
+    void execStored(const uint8_t *inst, uint_fast8_t len, uint32_t &org,
+            uint32_t exit);
     uint_fast8_t captureWrites(const uint8_t *inst, uint_fast8_t len,
             uint8_t *buf, uint32_t *addrs, uint_fast8_t max, uint32_t &org,
             uint32_t exit);
@@ -168,7 +171,8 @@ private:
     void serveRead(Signals *s);
     void storeWrite(Signals *s);
     uint_fast8_t execute(const uint8_t *inst, uint_fast8_t len, uint8_t *buf,
-            uint32_t *addrs, uint_fast8_t max, uint32_t &org, uint32_t exit);
+            uint32_t *addrs, uint_fast8_t max, uint32_t &org, uint32_t exit,
+            bool store = false);
     bool suspend(uint32_t org);
 };
 

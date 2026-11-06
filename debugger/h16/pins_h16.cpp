@@ -218,6 +218,7 @@ PinsH16::PinsH16() : _clock(extal_half_min_ns, clock_input_min_hz) {
     // Memory first: RegsH16 stages its restore frame there.
     _mems = new MemsH16();
     _regs = new RegsH16(this, mems<MemsH16>());
+    mems<MemsH16>()->attach(regs<RegsH16>());
     _clockInput = clock_input_hz;
     _clockCycles = F_CPU / _clockInput;
 }
@@ -638,7 +639,7 @@ void injectWord(Signals *s, uint16_t word) {
 
 uint_fast8_t PinsH16::execute(const uint8_t *inst, uint_fast8_t len,
         uint8_t *buf, uint32_t *addrs, uint_fast8_t max, uint32_t &org,
-        uint32_t exit) {
+        uint32_t exit, bool store) {
     uint_fast8_t cap = 0;
     // |inst| is answered by address. |exit| is where the sequence ends --
     // a prefetch past the window looks just like falling through, so the
@@ -675,7 +676,7 @@ uint_fast8_t PinsH16::execute(const uint8_t *inst, uint_fast8_t len,
         // there, an LDM or an RTE, come from memory.
         if (inWindow || (reading && s->programFetch())) {
             injectWord(s, busWord(inst, len, org, s->addr));
-        } else if (memWrite(s)) {
+        } else if (memWrite(s) && !store) {
             s->capture();
         }
         // Recorded while #WAIT still holds the cycle: the next cycle's
@@ -712,6 +713,11 @@ uint_fast8_t PinsH16::execute(const uint8_t *inst, uint_fast8_t len,
 void PinsH16::execInst(
         const uint8_t *inst, uint_fast8_t len, uint32_t &org, uint32_t exit) {
     execute(inst, len, nullptr, nullptr, 0, org, exit);
+}
+
+void PinsH16::execStored(
+        const uint8_t *inst, uint_fast8_t len, uint32_t &org, uint32_t exit) {
+    execute(inst, len, nullptr, nullptr, 0, org, exit, true);
 }
 
 uint_fast8_t PinsH16::captureWrites(const uint8_t *inst, uint_fast8_t len,
