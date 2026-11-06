@@ -1,0 +1,119 @@
+# How each sample must be driven. See scripts/bionic-regress.py's
+# drive_table() for the key shapes this file can use.
+
+# The chips, as their banners name them, this file is for.
+chips = ["HD641016"]
+
+# Reset loads SSP from the long word at 000000 and PC from 000004.
+[reset]
+SSP = "[0000 0001 0002 0003]"
+PC = "[0004 0005 0006 0007]"
+
+[arith]
+expect = """
+18000 + 28000 = -19536
+18000 + -18000 = 0
+-18000 + -18000 = 29536
+-18000 - -28000 = 10000
+18000 - -18000 = -29536
+-28000 - -18000 = -10000
+100 * 300 = 30000
+200 * 100 = 20000
+300 * -200 = 5536
+100 * -300 = -30000
+-200 * -100 = 20000
+30000 / 100 = 300
+-200 / 100 = -2
+-30000 / -200 = 150
+-30000 / 78 = -384
+5000 > 4000
+5000 = 5000
+4000 < 5000
+-5000 < -4000
+-5000 = -5000
+-4000 > -5000
+32700 > 32600
+32700 = 32700
+32600 < 32700
+-32700 < -32600
+-32700 = -32700
+-32600 > -32700
+18000 > -28000
+-28000 = -28000
+-28000 < 18000"""
+
+[echo]
+feed = "ok\r"
+expect = "ok"
+
+[echoir]
+feed = "irq\r"
+expect = "irq"
+
+# Prints "<char> 0xXX 0bXXXXXXXX" per received byte, one line each
+# including the trailing \r.
+[echoitr]
+feed = "itr\r"
+expect = """
+i 0x69 0b01101001
+t 0x74 0b01110100
+r 0x72 0b01110010
+ 0x0D 0b00001101"""
+
+# The Programming Manual's readings. ASL reads "dadd 83" and "dsub 87"
+# as DADD/DSUB (R2=00000042, R2=00000023), "btst 66"/"bset 64" as
+# BTST/BSET (R2=00000010 Z=1, R2=00000018 Z=1) and "add:rq 31" as
+# #-1 (R2=00000013 C=1); a line like those means the chip agrees with
+# ASL, not the manual. "add:q 11" is what ASL emits for SUB.W #10,R2:
+# its C=1 against "sub:g 05"'s C=0 is the carry ASL flips. "stc ccr"
+# takes Table 16-9's word CCR, bits 15-8 reading 0 (Figure 4-12);
+# FFFFFF05 means Table 16-10's byte. "crn asl" runs ASL's bytes for
+# ADD:G.W @CR0,R2 in ring mode: they read the global R0's word, H'1111,
+# not CR0's H'2222. "bfext asl" runs ASL's three bytes for BFEXT
+# R1,R2,@R0,#5, which take the next byte as their destination. The
+# ILL+ and BNK+ offsets are where the chip stacked the PC; Table 4-16
+# allows anywhere from the 2nd to the last byte.
+[encoding]
+expect = """
+dadd A3 R2=00000042 Z=0 C=0
+dsub A7 R2=00000023 Z=0 C=0
+dadd 83 ILL+00
+dsub 87 ILL+00
+btst 6A R2=00000010 Z=1 C=0
+btst 66 R2=00000008 Z=0 C=0
+bset 68 R2=00000018 Z=1 C=0
+bset 64 R2=00000008 Z=0 C=0
+abs16 R2=FFFFFF5A Z=0 C=0
+imm16 R2=FFFF8000 Z=0 C=0
+imm16.b R2=FFFFFF94 Z=0 C=0
+add:rq 31 R2=00000023 Z=0 C=0
+sub:g 05 R2=0000000A Z=0 C=0
+add:q 11 R2=0000000A Z=0 C=1
+stc ccr R2=FFFF0005 Z=1 C=1
+crn glb BNK+02
+crn 70 R2=00002222 Z=0 C=0
+crn asl R2=00001111 Z=0 C=0
+bfext # ILL+05
+bfext asl R2=00000034 Z=0 C=0"""
+
+# Halts at the first completed frame, or once 6 rows are drawn and at
+# least 20 seconds have passed; checks everything drawn so far.
+[mandelbrot]
+golden = "samples/arith/mandelbrot.golden"
+lines = 6
+
+# A random halt point, not always the same one, catches a corrupted
+# resume that only shows up mid-instruction.
+[haltgo]
+program = "mandelbrot"
+halt_interval = [0.05, 0.3]
+
+[breakpoint]
+program = "mandelbrot"
+break_at = "loop_x"
+
+# loop_y is reached once per row, so each go runs a whole row rather
+# than a single pixel.
+[gountil]
+program = "mandelbrot"
+break_at = "loop_y"

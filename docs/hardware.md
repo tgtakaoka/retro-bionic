@@ -152,6 +152,7 @@ These boards run from a timer:
 | NSC800 | `P50`, XIN | `P52`, `#WAIT` | 8.33 MHz |
 | KL5C80A12 | `P47`, XIN | `P52`, ERDY | 18.75 MHz |
 | P8086, D8087 | `P47`, CLK | `P52`, READY | 5 MHz |
+| HD641016 | `P47`, EXTAL | `P54`, `#WAIT` | 10 MHz |
 
 The P8080's two phases come from two FlexPWM modules whose counters are restarted
 together, and in a run its plain memory reads take no wait state. The Z180's internal

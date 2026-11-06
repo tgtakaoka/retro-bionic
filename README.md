@@ -1,6 +1,6 @@
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE.md)
 [![PlatformIO CI](https://github.com/tgtakaoka/retro-bionic/actions/workflows/platformio-ci.yml/badge.svg)](https://github.com/tgtakaoka/retro-bionic/actions/workflows/platformio-ci.yml)
-[![Targets](https://img.shields.io/badge/CPU%20targets-49-orange.svg)](docs/supported-cpus.md)
+[![Targets](https://img.shields.io/badge/CPU%20targets-50-orange.svg)](docs/supported-cpus.md)
 [![Boards](https://img.shields.io/badge/KiCad%20boards-51-green.svg)](schematics)
 
 <div align="center">
@@ -33,7 +33,7 @@ cycle at a time, from a terminal on your desk.
 [Teensy 4.1](https://www.pjrc.com/store/teensy41.html) is wired to every pin of the target
 CPU and drives the whole system around it: the clock, every bus cycle, and the memory and
 peripherals the chip thinks it is talking to. One firmware image — about 470 kB including
-every assembler, disassembler and debugger — covers all **49 supported targets**, and the
+every assembler, disassembler and debugger — covers all **50 supported targets**, and the
 board tells the controller which one it is.
 
 <div align="center">
@@ -79,7 +79,7 @@ disassembly, single-stepping with the bus trace, then drawing the Mandelbrot set
 
 ## Supported CPUs
 
-All 49 targets, grouped by vendor and architecture:
+All 50 targets, grouped by vendor and architecture:
 
 <table>
 <thead>
@@ -112,6 +112,7 @@ All 49 targets, grouped by vendor and architecture:
 <tr><td>SC/MP III</td><td>INS8070</td></tr>
 <tr><td>Signetics</td><td>2650</td><td>SCN2650</td></tr>
 <tr><td>Toshiba</td><td>TLCS-90</td><td>TMP90C802</td></tr>
+<tr><td>Hitachi</td><td>H16</td><td>HD641016</td></tr>
 <tr><td>Panafacom</td><td>MN1610</td><td>MN1613 <em>MN1613A</em></td></tr>
 </tbody>
 </table>
