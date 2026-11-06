@@ -27,11 +27,12 @@ struct Signals final : SignalsBase<Signals> {
     void getAddr();
     // Whether #HDS or #LDS is asserted, which picks the byte lane.
     inline bool getStrobes();
+    // A0 from the strobes, while #WAIT holds them asserted.
+    inline void getLane();
     void getData();
-    // Read data in two steps: into the port while it is still an input,
-    // then the port driving it.
+    // Read data into the port while it is still an input; PinsH16 turns
+    // the port around.
     void stageData() const;
-    void driveData() const;
     void inputMode() const;
     void print() const;
 
@@ -49,6 +50,9 @@ struct Signals final : SignalsBase<Signals> {
     // No bus cycle for a long time: SLEEP, or halted on a double bus error.
     void markHalt() { cntl() = strobes() = NONE, mark() = HALT; }
     bool halt() const { return mark() == HALT; }
+    // A memory read whose data prepareCycle() looked up and staged.
+    void markStaged() { mark() = STAGED; }
+    bool staged() const { return mark() == STAGED; }
     void clearMark() { mark() = 0; }
 
 private:
@@ -63,7 +67,7 @@ private:
         NONE = 0x1F,
     };
     enum : uint8_t { PF = 0x08 };
-    enum : uint8_t { HALT = 1 };
+    enum : uint8_t { HALT = 1, STAGED = 2 };
     // As #AS opens the cycle.
     uint8_t cntl() const { return _signals[0]; }
     uint8_t &cntl() { return _signals[0]; }

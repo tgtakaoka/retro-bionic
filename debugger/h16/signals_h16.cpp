@@ -26,10 +26,6 @@ void Signals::stageData() const {
     busWrite(AD, data);
 }
 
-void Signals::driveData() const {
-    busMode(AD, OUTPUT);
-}
-
 void Signals::inputMode() const {
     busMode(AD, INPUT);
 }

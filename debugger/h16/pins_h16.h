@@ -118,6 +118,29 @@ struct PinsH16 final : Pins {
 
 private:
     bool _cutShort = false;
+    // A write released before it was stored: the bus holder keeps its
+    // data, and the next cycle stores it once its address is in.
+    Signals *_pendingWrite = nullptr;
+    void flushWrite();
+    // The word at the even address the next fetch most likely reads, the
+    // prefetch running on, looked up ahead; UINT32_MAX for none.
+    uint32_t _predicted = UINT32_MAX;
+    uint16_t _prediction;
+    void predictFetch(const Signals *s);
+    // ARM_DWT_CYCCNT as #AS was seen to fall, when it was.
+    uint32_t _asAt;
+    bool _asTimed = false;
+    // ARM_DWT_CYCCNT at a PHI fall, as soon as a read can see it. EXTAL is
+    // the Teensy's own PWM, a whole number of these cycles: PHI keeps
+    // this phase until the clock is set again.
+    uint32_t _phiFall;
+    bool _phiKnown = false;  // since the clock last started or changed
+    void calibratePhi();
+    void releaseWait();
+    // The port's direction register with A1/D0-A16/D15 in and out: one
+    // store each, where busMode() reads it back first.
+    uint32_t _adInput;
+    uint32_t _adOutput;
     // EXTAL's rate, and the Teensy cycles in one of its clocks.
     uint32_t _clockInput;
     uint32_t _clockCycles;
@@ -141,6 +164,7 @@ private:
     Signals *prepareCycle(uint_fast16_t clocks);
     Signals *resumeCycle(uint32_t addr);
     Signals *completeCycle(Signals *s);
+    void stageRead(Signals *s);
     void serveRead(Signals *s);
     void storeWrite(Signals *s);
     uint_fast8_t execute(const uint8_t *inst, uint_fast8_t len, uint8_t *buf,
