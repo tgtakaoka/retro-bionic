@@ -23,7 +23,8 @@ and streams its output to stdout live -- run it manually to watch or dry
 scenario.py SCENARIO"`) for more control over asciinema's own flags.
 
 --save PATH re-invokes itself under `asciinema rec`, saved locally to
-PATH (replaced only once the scenario reaches its end); not uploaded.
+PATH (replaced only once the scenario reaches its end, then retimed by
+retime-cast.py); not uploaded.
 --upload does the same but uploads it to asciinema.org instead,
 printing the resulting URL. Either replays the scenario in full at
 whatever pace applies -- neither is instant.
@@ -72,6 +73,8 @@ from importlib.machinery import SourceFileLoader
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 bc = SourceFileLoader('bc', os.path.join(HERE, 'bionic-control.py')).load_module()
+retime_cast = SourceFileLoader(
+    'retime_cast', os.path.join(HERE, 'retime-cast.py')).load_module()
 PROJ = bc.PROJ
 
 SCALE = 1.0   # set from --nopace in run_direct(); pace() reads this each call
@@ -349,6 +352,7 @@ def record(scenario, nopace, save):
         sys.exit('the scenario did not finish: %s kept, the recording is in %s'
                  % (save, part))
     os.remove(done)
+    retime_cast.retime(part)
     os.replace(part, save)
 
 
