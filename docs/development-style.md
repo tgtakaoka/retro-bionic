@@ -783,6 +783,65 @@ A CPU symbol shows every supply pin on its own, visible, with its number:
 stacking pins of one name behind a single visible pin hides which VCC and
 VSS pins a board actually ties.
 
+### Capturing reset, step and echoitr waves **[hw]**
+
+Every board keeps three captures per chip in
+`BusCycles/<debugger dir>/`: `<chip>-reset.sal`, `<chip>-step.sal` and
+`<chip>-echoitr.sal`, with `_<coprocessor>` after the chip on a board
+that carries one (`80c86_8087-reset.sal`). Their channel tables live in
+the target's `samples/<arch>/bench/channels.toml`, one table per board,
+chip and kind (`[p8086-v30-step]`), each with its trigger, window,
+`display` order and Simple Parallel decoders. To capture a board:
+
+1. Plan the leads. List the signals each kind needs: reset triggers on
+   the reset's negation, step on the edge that releases a parked CPU
+   (READY, a wait or hold line), echoitr on the interrupt request. Show
+   the channel table in pin order before asking for a lead move, and
+   order the chips and kinds so the leads move as few times as
+   possible.
+2. Moving a lead means powering the bench off, so every lead change and
+   every chip seated is a power cycle: wait for the board to answer,
+   read the banner's board and CPU, send one throwaway `R` (the first
+   reset after power-up resets twice), and upload the sample and set its
+   breakpoints again before arming.
+3. Check each channel against its label before saving anything: a clock
+   shows its period, RESET is flat outside a reset, a status line toggles
+   every cycle. A swapped pair shows as a signal on the wrong channel;
+   fix the leads or the table first. A channel that never toggles in the
+   captures it is meant for carries nothing; give its lead to something
+   that does, such as status bits multiplexed on the top address lines.
+   Take the pin-to-signal map from the board's netlist (`kicad-cli sch
+   export netlist`), not the pin tables alone.
+4. Open the console before arming, and keep that session open: open,
+   arm, then send the command. Opening sends `?`, and printing the
+   banner can drive the bus (on the D8087 board it reads the 8087
+   through FSAVE/FRSTOR, about 160 µs that a READY trigger fires on).
+   For the same reason, part of a reset capture is the register print,
+   not the reset itself.
+5. Probe once at the full window (10 ms; echoitr up to 40 ms), then end
+   the window just after the last bus cycle (reset, steps) or the last
+   interrupt (echoitr), with a margin only for the jitter between steps.
+   An idle tail is useless. A capture whose trigger never fires is
+   stopped and never exported. Each chip gets its own tables: an 8-bit
+   bus takes about twice the cycles of a 16-bit one.
+6. For steps, stop at a breakpoint in a sample's loop and send the steps
+   as one write (`SSSSSSSS`), a few of the CPU's own instructions and,
+   with a coprocessor, a few of its instructions too. One command per
+   step adds the host's round trip between them.
+7. For echoitr, run the sample, arm on the interrupt request, send one
+   character and then NUL; the window ends at the last transmit
+   interrupt of its echo.
+8. Save each capture with its table's channel names and decoders. The
+   user reviews a board's first reset capture (names, order, decoders)
+   before the rest are taken.
+
+Decoders show what the leads allow. A status code decodes on the clock
+edge where it is stable. A CPU without address-latch or write strobes on
+the connector (an 8086 in maximum mode) still decodes its low
+address/data nibble three ways: at the clock edge that ends T1 for the
+address, on the read strobe's rising edge for read data, and on READY's
+rising edge, the only strobe a write has, for write data.
+
 ### Order bench work by image, not by fix **[hw]**
 
 Seating a chip takes moments; flashing the Teensy takes minutes and wipes the
