@@ -6,6 +6,8 @@
 namespace debugger {
 namespace h16 {
 
+struct RegsH16;
+
 // A byte memory, big-endian: a word's even byte is its high one, on
 // D8-D15. Instructions are bytes at any address.
 struct MemsH16 final : ExtMemory {
@@ -23,6 +25,14 @@ struct MemsH16 final : ExtMemory {
     void write_bus(uint32_t addr, uint16_t data) const {
         write_word(addr >> 1, __builtin_bswap16(data));
     }
+
+    // The on-chip RAM and I/O never reach the bus: reached through the CPU.
+    uint16_t get_data(uint32_t addr) const override;
+    void put_data(uint32_t addr, uint16_t data) const override;
+    void attach(RegsH16 *regs) { _regs = regs; }
+
+private:
+    RegsH16 *_regs = nullptr;
 };
 
 }  // namespace h16
