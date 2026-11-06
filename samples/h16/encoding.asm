@@ -345,9 +345,9 @@ illegal:
 bank_violation:
         mov.b   #2, r7
 exception:
-        mov.l   @(2,r15), r6
+        mov.l   @(2,sp), r6
         sub.l   r13, r6
-        mov.l   r14, @(2,r15)   ; resume after the probe
+        mov.l   r14, @(2,sp)    ; resume after the probe
         rte
 
 ;;; Print R3 as 8 hex digits

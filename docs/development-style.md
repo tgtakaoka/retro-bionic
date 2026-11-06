@@ -2277,6 +2277,8 @@ no longer keeps up.
   register banks read as RAM only with BPM set; with it clear they read a
   fixed pattern. Global bank 0 is the RAM's top 64 bytes, its R15 slot
   holding USP. **[hw]**
+- `r` lists CR0-CR15 and PR0-PR15 in ring mode, read from the bank RAM
+  with BPM set for the reads only. **[doc]**
 
 ### SCN2650
 
