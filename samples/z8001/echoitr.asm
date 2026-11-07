@@ -18,7 +18,7 @@
 
         org     CODE+0100H
 init:
-        ldl     rr14, #STACK
+        ldl     sp, #STACK
         clr     r0
         ldctl   psapseg, r0
         ldctl   psapoff, r0     ; the Program Status Area at <<0>>0000H

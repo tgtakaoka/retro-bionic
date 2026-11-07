@@ -16,6 +16,8 @@ MemsZ8000::MemsZ8000(bool segmented)
 #endif
 #ifdef WITH_DISASSEMBLER
     _disassembler = new libasm::z8000::DisZ8000();
+    // R15 (RR14 when segmented) as the register dump names it
+    _disassembler->setOption("sp-alias", "on");
 #endif
 }
 

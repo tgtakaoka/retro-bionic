@@ -23,7 +23,7 @@ ustack: equ     3000H           ; normal mode
 
         org     0100H
 init:
-        ld      r15, #stack
+        ld      sp, #stack
         clr     r0
         ldctl   psap, r0        ; the Program Status Area at 0000H
         ld      r0, #ustack

@@ -124,7 +124,7 @@
          48 :
         100 :                            org     0100H
         100 :                    init:
-        100 : 210F 1000                  ld      r15, #stack
+        100 : 210F 1000                  ld      sp, #stack
         104 : 8D08                       clr     r0
         106 : 7D0D                       ldctl   psap, r0        ; the Program Status Area at 0000H
         108 : 2100 3000                  ld      r0, #ustack
@@ -185,7 +185,7 @@
 (1)     188 : 9246                       subl    rr6, rr4        ; A*A-B*B
 (1)     18A : 1B06 0032                  div     rr6, #Fv        ; R7=(A*A-B*B)/F
 (1)     18E : 4107 023C                  add     r7, vC          ; (A*A-B*B)/F+C
-(1)     192 : 93F7                       push    @r15, r7        ; push (A*A-B*B)/F+C
+(1)     192 : 93F7                       push    @sp, r7         ; push (A*A-B*B)/F+C
 (1)     194 : 6105 0240                  ld      r5, vA
 (1)     198 : 5904 0248                  mult    rr4, vS         ; RR4=A*S
 (1)     19C : 1B04 0032                  div     rr4, #Fv        ; R5=A*S/F
@@ -195,7 +195,7 @@
 (1)     1AA : 8177                       add     r7, r7          ; 2*(A*Q+A*S/F)
 (1)     1AC : 4107 023E                  add     r7, vD          ; 2*(A*Q+A*S/F)+D
 (1)     1B0 : 6F07 0242                  ld      vB, r7          ; B=2*(A*Q+A*S/F)+D
-(1)     1B4 : 97F7                       pop     r7, @r15        ; pop (A*A-B*B)/F+C
+(1)     1B4 : 97F7                       pop     r7, @sp         ; pop (A*A-B*B)/F+C
 (1)     1B6 : 6F07 0240                  ld      vA, r7          ; A=(A*A-B*B)/F+C
 (1)     1BA : B16A                       exts    rr6
 (1)     1BC : 1B06 0032                  div     rr6, #Fv        ; R7=A/F
@@ -303,12 +303,12 @@
 (1)     29C :                    ;;; @return RL0
 (1)     29C :                    ;;; @return FLAGS.C 0 if no character
 (1)     29C :                    getchar:
-(1)     29C : 93F1                       push    @r15, r1
+(1)     29C : 93F1                       push    @sp, r1
 (1)     29E : 2101 2000                  ld      r1, #rx_queue
 (1)     2A2 : 7C01                       di      vi
 (1)     2A4 : 5F00 03AC                  call    queue_remove
 (1)     2A8 : 7C05                       ei      vi
-(1)     2AA : 97F1                       pop     r1, @r15
+(1)     2AA : 97F1                       pop     r1, @sp
 (1)     2AC : 9E08                       ret
 (1)     2AE :
 (1)     2AE :                    ;;; Put newline
@@ -320,18 +320,18 @@
 (1)     2B6 :                    ;;; Put character
 (1)     2B6 :                    ;;; @param RL0
 (1)     2B6 :                    putchar:
-(1)     2B6 : 93F1                       push    @r15, r1
+(1)     2B6 : 93F1                       push    @sp, r1
 (1)     2B8 : 2101 2080                  ld      r1, #tx_queue
 (1)     2BC :                    putchar_retry:
 (1)     2BC : 7C01                       di      vi
 (1)     2BE : 5F00 0374                  call    queue_add
 (1)     2C2 : 7C05                       ei      vi
 (1)     2C4 : EFFB                       jr      nc, putchar_retry ; branch if queue is full
-(1)     2C6 : 97F1                       pop     r1, @r15
-(1)     2C8 : 93F0                       push    @r15, r0
+(1)     2C6 : 97F1                       pop     r1, @sp
+(1)     2C8 : 93F0                       push    @sp, r0
 (1)     2CA : C837                       ldb     rl0, #RX_EN_TX_EN ; enable Tx
 (1)     2CC : 3A86 0141                  outb    USARTC, rl0
-(1)     2D0 : 97F0                       pop     r0, @r15
+(1)     2D0 : 97F0                       pop     r0, @sp
 (1)     2D2 : 9E08                       ret
 (1)     2D4 :
 (1)     2D4 :                    ;;; Put space
@@ -342,8 +342,8 @@
 (1)     2D8 :
 (1)     2D8 :                    ;;; RxRDY interrupt: queue the received character
 (1)     2D8 :                    isr_rx:
-(1)     2D8 : 93F0                       push    @r15, r0
-(1)     2DA : 93F1                       push    @r15, r1
+(1)     2D8 : 93F0                       push    @sp, r0
+(1)     2DA : 93F1                       push    @sp, r1
 (1)     2DC : 3A84 0141                  inb     rl0, USARTS
 (1)     2E0 : A681                       bitb    rl0, #ST_RxRDY_bp
 (1)     2E2 : E606                       jr      z, isr_rx_exit
@@ -351,14 +351,14 @@
 (1)     2E8 : 2101 2000                  ld      r1, #rx_queue
 (1)     2EC : 5F00 0374                  call    queue_add
 (1)     2F0 :                    isr_rx_exit:
-(1)     2F0 : 97F1                       pop     r1, @r15
-(1)     2F2 : 97F0                       pop     r0, @r15
+(1)     2F0 : 97F1                       pop     r1, @sp
+(1)     2F2 : 97F0                       pop     r0, @sp
 (1)     2F4 : 5E08 03E6                  jp      isr_return
 (1)     2F8 :
 (1)     2F8 :                    ;;; TxRDY interrupt: send the next queued character, or disable Tx
 (1)     2F8 :                    isr_tx:
-(1)     2F8 : 93F0                       push    @r15, r0
-(1)     2FA : 93F1                       push    @r15, r1
+(1)     2F8 : 93F0                       push    @sp, r0
+(1)     2FA : 93F1                       push    @sp, r1
 (1)     2FC : 3A84 0141                  inb     rl0, USARTS
 (1)     300 : A680                       bitb    rl0, #ST_TxRDY_bp
 (1)     302 : E60B                       jr      z, isr_tx_exit
@@ -371,8 +371,8 @@
 (1)     314 : C836                       ldb     rl0, #RX_EN_TX_DIS
 (1)     316 : 3A86 0141                  outb    USARTC, rl0     ; disable Tx
 (1)     31A :                    isr_tx_exit:
-(1)     31A : 97F1                       pop     r1, @r15
-(1)     31C : 97F0                       pop     r0, @r15
+(1)     31A : 97F1                       pop     r1, @sp
+(1)     31C : 97F0                       pop     r0, @sp
 (1)     31E : 5E08 03E6                  jp      isr_return
 (1)     322 :
 (1)     322 :                    ;;; System calls for a program in normal mode, which may not do I/O:
@@ -384,8 +384,8 @@
 (1)     322 :                    ;;; The frame lies above R1 pushed here: the SC's identifier at 2, the
 (1)     322 :                    ;;; caller's FCW at 4, which getchar's carry goes back in.
 (1)     322 :                    isr_sc:
-(1)     322 : 93F1                       push    @r15, r1
-(1)     324 : 31F1 0002                  ld      r1, r15(#2)    ; SC #n: 7F00H|n
+(1)     322 : 93F1                       push    @sp, r1
+(1)     324 : 31F1 0002                  ld      r1, sp(#2)     ; SC #n: 7F00H|n
 (1)     328 : 0A09 0101                  cpb     rl1, #SC_GETCHAR
 (1)     32C : E60C                       jr      eq, isr_sc_getchar
 (1)     32E : 0A09 0202                  cpb     rl1, #SC_PUTCHAR
@@ -399,14 +399,14 @@
 (1)     344 : E809                       jr      isr_sc_exit
 (1)     346 :                    isr_sc_getchar:
 (1)     346 : 5F00 029C                  call    getchar
-(1)     34A : 31F1 0004                  ld      r1, r15(#4)
+(1)     34A : 31F1 0004                  ld      r1, sp(#4)
 (1)     34E : A317                       res     r1, #7          ; FCW C
 (1)     350 : EF01                       jr      nc, isr_sc_return
 (1)     352 : A517                       set     r1, #7
 (1)     354 :                    isr_sc_return:
-(1)     354 : 33F1 0004                  ld      r15(#4), r1
+(1)     354 : 33F1 0004                  ld      sp(#4), r1
 (1)     358 :                    isr_sc_exit:
-(1)     358 : 97F1                       pop     r1, @r15
+(1)     358 : 97F1                       pop     r1, @sp
 (1)     35A : 5E08 03E6                  jp      isr_return
 (1)     35E :
 (1)     35E :                            include "queue.inc"
@@ -435,11 +435,11 @@
 (2)     374 :                    ;;; @param RL0 an element
 (2)     374 :                    ;;; @return FLAGS.C 0 if queue is full
 (2)     374 :                    queue_add:
-(2)     374 : 93F2                       push    @r15, r2
+(2)     374 : 93F2                       push    @sp, r2
 (2)     376 : 601A 0000                  ldb     rl2, queue_len(r1)
 (2)     37A : 4A1A 0001                  cpb     rl2, queue_size(r1)
 (2)     37E : E703                       jr      c, queue_add_store ; queue_len < queue_size
-(2)     380 : 97F2                       pop     r2, @r15
+(2)     380 : 97F2                       pop     r2, @sp
 (2)     382 : 8D83                       resflg  c
 (2)     384 : 9E08                       ret
 (2)     386 :                    queue_add_store:
@@ -455,7 +455,7 @@
 (2)     3A0 : 8CA8                       clrb    rl2                 ; wrap around
 (2)     3A2 :                    queue_add_update:
 (2)     3A2 : 6E1A 0002                  ldb     queue_put(r1), rl2
-(2)     3A6 : 97F2                       pop     r2, @r15
+(2)     3A6 : 97F2                       pop     r2, @sp
 (2)     3A8 : 8D81                       setflg  c
 (2)     3AA : 9E08                       ret
 (2)     3AC :
@@ -469,7 +469,7 @@
 (2)     3B2 : 8D83                       resflg  c
 (2)     3B4 : 9E08                       ret
 (2)     3B6 :                    queue_remove_elem:
-(2)     3B6 : 93F2                       push    @r15, r2
+(2)     3B6 : 93F2                       push    @sp, r2
 (2)     3B8 : 6A10 0000                  decb    queue_len(r1), #1
 (2)     3BC : 8D28                       clr     r2
 (2)     3BE : 601A 0003                  ldb     rl2, queue_get(r1)
@@ -482,7 +482,7 @@
 (2)     3D2 : 8CA8                       clrb    rl2                    ; wrap around
 (2)     3D4 :                    queue_remove_update:
 (2)     3D4 : 6E1A 0003                  ldb     queue_get(r1), rl2
-(2)     3D8 : 97F2                       pop     r2, @r15
+(2)     3D8 : 97F2                       pop     r2, @sp
 (2)     3DA : 8D81                       setflg  c
 (2)     3DC : 9E08                       ret
         3DE :                            include "../z8002/queue_wait.inc"
@@ -499,7 +499,7 @@
         3E6 :                    ;;; at reset. LDPS switches the mode and the PC together; LDCTL FCW alone
         3E6 :                    ;;; does not reliably set SEG on an NMOS part.
         3E6 :                    isr_return:
-        3E6 : 93F1                       push    @r15, r1
+        3E6 : 93F1                       push    @sp, r1
         3E8 : 7900 03F0                  ldps    isr_return_ps
         3EC :                    isr_return_seg:
         3EC : 97E1                       word    97E1H           ; pop r1, @rr14

@@ -72,6 +72,7 @@ private:
     mutable CharBuffer _buffer1;
     mutable CharBuffer _buffer2;
     mutable CharBuffer _buffer3;
+    mutable CharBuffer _buffer3s;
 };
 
 }  // namespace z8000

@@ -39,7 +39,7 @@ loop_i:
         subl    rr6, rr4        ; A*A-B*B
         div     rr6, #Fv        ; R7=(A*A-B*B)/F
         add     r7, vC          ; (A*A-B*B)/F+C
-        push    @rr14, r7       ; push (A*A-B*B)/F+C
+        push    @sp, r7         ; push (A*A-B*B)/F+C
         ld      r5, vA
         mult    rr4, vS         ; RR4=A*S
         div     rr4, #Fv        ; R5=A*S/F
@@ -49,7 +49,7 @@ loop_i:
         add     r7, r7          ; 2*(A*Q+A*S/F)
         add     r7, vD          ; 2*(A*Q+A*S/F)+D
         ld      vB, r7          ; B=2*(A*Q+A*S/F)+D
-        pop     r7, @rr14       ; pop (A*A-B*B)/F+C
+        pop     r7, @sp         ; pop (A*A-B*B)/F+C
         ld      vA, r7          ; A=(A*A-B*B)/F+C
         exts    rr6
         div     rr6, #Fv        ; R7=A/F

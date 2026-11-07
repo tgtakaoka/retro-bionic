@@ -115,7 +115,7 @@
          48 :
       10100 :                            org     CODE+0100H
       10100 :                    init:
-      10100 : 140E 0300 1000             ldl     rr14, #STACK
+      10100 : 140E 0300 1000             ldl     sp, #STACK
       10106 : 8D08                       clr     r0
       10108 : 7D0C                       ldctl   psapseg, r0
       1010A : 7D0D                       ldctl   psapoff, r0     ; the Program Status Area at <<0>>0000H
@@ -224,12 +224,12 @@
 (1)   101F0 :                    ;;; @return RL0
 (1)   101F0 :                    ;;; @return FLAGS.C 0 if no character
 (1)   101F0 :                    getchar:
-(1)   101F0 : 93E1                       push    @rr14, r1
+(1)   101F0 : 93E1                       push    @sp, r1
 (1)   101F2 : 2101 2000                  ld      r1, #rx_queue
 (1)   101F6 : 7C01                       di      vi
 (1)   101F8 : 5F00 8100 0316             call    queue_remove
 (1)   101FE : 7C05                       ei      vi
-(1)   10200 : 97E1                       pop     r1, @rr14
+(1)   10200 : 97E1                       pop     r1, @sp
 (1)   10202 : 9E08                       ret
 (1)   10204 :
 (1)   10204 :                    ;;; Put newline
@@ -241,18 +241,18 @@
 (1)   1020E :                    ;;; Put character
 (1)   1020E :                    ;;; @param RL0
 (1)   1020E :                    putchar:
-(1)   1020E : 93E1                       push    @rr14, r1
+(1)   1020E : 93E1                       push    @sp, r1
 (1)   10210 : 2101 2080                  ld      r1, #tx_queue
 (1)   10214 :                    putchar_retry:
 (1)   10214 : 7C01                       di      vi
 (1)   10216 : 5F00 8100 02DE             call    queue_add
 (1)   1021C : 7C05                       ei      vi
 (1)   1021E : EFFA                       jr      nc, putchar_retry ; branch if queue is full
-(1)   10220 : 97E1                       pop     r1, @rr14
-(1)   10222 : 93E0                       push    @rr14, r0
+(1)   10220 : 97E1                       pop     r1, @sp
+(1)   10222 : 93E0                       push    @sp, r0
 (1)   10224 : C837                       ldb     rl0, #RX_EN_TX_EN ; enable Tx
 (1)   10226 : 3A86 0141                  outb    USARTC, rl0
-(1)   1022A : 97E0                       pop     r0, @rr14
+(1)   1022A : 97E0                       pop     r0, @sp
 (1)   1022C : 9E08                       ret
 (1)   1022E :
 (1)   1022E :                    ;;; Put space
@@ -263,8 +263,8 @@
 (1)   10232 :
 (1)   10232 :                    ;;; RxRDY interrupt: queue the received character
 (1)   10232 :                    isr_rx:
-(1)   10232 : 93E0                       push    @rr14, r0
-(1)   10234 : 93E1                       push    @rr14, r1
+(1)   10232 : 93E0                       push    @sp, r0
+(1)   10234 : 93E1                       push    @sp, r1
 (1)   10236 : 3A84 0141                  inb     rl0, USARTS
 (1)   1023A : A681                       bitb    rl0, #ST_RxRDY_bp
 (1)   1023C : E607                       jr      z, isr_rx_exit
@@ -272,14 +272,14 @@
 (1)   10242 : 2101 2000                  ld      r1, #rx_queue
 (1)   10246 : 5F00 8100 02DE             call    queue_add
 (1)   1024C :                    isr_rx_exit:
-(1)   1024C : 97E1                       pop     r1, @rr14
-(1)   1024E : 97E0                       pop     r0, @rr14
+(1)   1024C : 97E1                       pop     r1, @sp
+(1)   1024E : 97E0                       pop     r0, @sp
 (1)   10250 : 5E08 8100 0348             jp      isr_return
 (1)   10256 :
 (1)   10256 :                    ;;; TxRDY interrupt: send the next queued character, or disable Tx
 (1)   10256 :                    isr_tx:
-(1)   10256 : 93E0                       push    @rr14, r0
-(1)   10258 : 93E1                       push    @rr14, r1
+(1)   10256 : 93E0                       push    @sp, r0
+(1)   10258 : 93E1                       push    @sp, r1
 (1)   1025A : 3A84 0141                  inb     rl0, USARTS
 (1)   1025E : A680                       bitb    rl0, #ST_TxRDY_bp
 (1)   10260 : E60C                       jr      z, isr_tx_exit
@@ -292,8 +292,8 @@
 (1)   10274 : C836                       ldb     rl0, #RX_EN_TX_DIS
 (1)   10276 : 3A86 0141                  outb    USARTC, rl0     ; disable Tx
 (1)   1027A :                    isr_tx_exit:
-(1)   1027A : 97E1                       pop     r1, @rr14
-(1)   1027C : 97E0                       pop     r0, @rr14
+(1)   1027A : 97E1                       pop     r1, @sp
+(1)   1027C : 97E0                       pop     r0, @sp
 (1)   1027E : 5E08 8100 0348             jp      isr_return
 (1)   10284 :
 (1)   10284 :                    ;;; System calls for a program in normal mode, which may not do I/O:
@@ -305,8 +305,8 @@
 (1)   10284 :                    ;;; The frame lies above R1 pushed here: the SC's identifier at 2, the
 (1)   10284 :                    ;;; caller's FCW at 4, which getchar's carry goes back in.
 (1)   10284 :                    isr_sc:
-(1)   10284 : 93E1                       push    @rr14, r1
-(1)   10286 : 31E1 0002                  ld      r1, rr14(#2)    ; SC #n: 7F00H|n
+(1)   10284 : 93E1                       push    @sp, r1
+(1)   10286 : 31E1 0002                  ld      r1, sp(#2)      ; SC #n: 7F00H|n
 (1)   1028A : 0A09 0101                  cpb     rl1, #SC_GETCHAR
 (1)   1028E : E60E                       jr      eq, isr_sc_getchar
 (1)   10290 : 0A09 0202                  cpb     rl1, #SC_PUTCHAR
@@ -320,14 +320,14 @@
 (1)   102AA : E80A                       jr      isr_sc_exit
 (1)   102AC :                    isr_sc_getchar:
 (1)   102AC : 5F00 8100 01F0             call    getchar
-(1)   102B2 : 31E1 0004                  ld      r1, rr14(#4)
+(1)   102B2 : 31E1 0004                  ld      r1, sp(#4)
 (1)   102B6 : A317                       res     r1, #7          ; FCW C
 (1)   102B8 : EF01                       jr      nc, isr_sc_return
 (1)   102BA : A517                       set     r1, #7
 (1)   102BC :                    isr_sc_return:
-(1)   102BC : 33E1 0004                  ld      rr14(#4), r1
+(1)   102BC : 33E1 0004                  ld      sp(#4), r1
 (1)   102C0 :                    isr_sc_exit:
-(1)   102C0 : 97E1                       pop     r1, @rr14
+(1)   102C0 : 97E1                       pop     r1, @sp
 (1)   102C2 : 5E08 8100 0348             jp      isr_return
 (1)   102C8 :
 (1)   102C8 :                            include "queue.inc"
@@ -357,11 +357,11 @@
 (2)   102DE :                    ;;; @param RL0 an element
 (2)   102DE :                    ;;; @return FLAGS.C 0 if queue is full
 (2)   102DE :                    queue_add:
-(2)   102DE : 93E2                       push    @rr14, r2
+(2)   102DE : 93E2                       push    @sp, r2
 (2)   102E0 : 601A 0200                  ldb     rl2, DATA+queue_len(r1)
 (2)   102E4 : 4A1A 0201                  cpb     rl2, DATA+queue_size(r1)
 (2)   102E8 : E703                       jr      c, queue_add_store ; queue_len < queue_size
-(2)   102EA : 97E2                       pop     r2, @rr14
+(2)   102EA : 97E2                       pop     r2, @sp
 (2)   102EC : 8D83                       resflg  c
 (2)   102EE : 9E08                       ret
 (2)   102F0 :                    queue_add_store:
@@ -377,7 +377,7 @@
 (2)   1030A : 8CA8                       clrb    rl2                 ; wrap around
 (2)   1030C :                    queue_add_update:
 (2)   1030C : 6E1A 0202                  ldb     DATA+queue_put(r1), rl2
-(2)   10310 : 97E2                       pop     r2, @rr14
+(2)   10310 : 97E2                       pop     r2, @sp
 (2)   10312 : 8D81                       setflg  c
 (2)   10314 : 9E08                       ret
 (2)   10316 :
@@ -391,7 +391,7 @@
 (2)   1031C : 8D83                       resflg  c
 (2)   1031E : 9E08                       ret
 (2)   10320 :                    queue_remove_elem:
-(2)   10320 : 93E2                       push    @rr14, r2
+(2)   10320 : 93E2                       push    @sp, r2
 (2)   10322 : 6A10 0200                  decb    DATA+queue_len(r1), #1
 (2)   10326 : 8D28                       clr     r2
 (2)   10328 : 601A 0203                  ldb     rl2, DATA+queue_get(r1)
@@ -404,7 +404,7 @@
 (2)   1033C : 8CA8                       clrb    rl2                    ; wrap around
 (2)   1033E :                    queue_remove_update:
 (2)   1033E : 6E1A 0203                  ldb     DATA+queue_get(r1), rl2
-(2)   10342 : 97E2                       pop     r2, @rr14
+(2)   10342 : 97E2                       pop     r2, @sp
 (2)   10344 : 8D81                       setflg  c
 (2)   10346 : 9E08                       ret
       10348 :

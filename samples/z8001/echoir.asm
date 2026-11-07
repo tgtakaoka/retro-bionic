@@ -18,7 +18,7 @@ rx_queue_size:  equ     128
 
         org     CODE+0100H
 init:
-        ldl     rr14, #STACK
+        ldl     sp, #STACK
         clr     r0
         ldctl   psapseg, r0
         ldctl   psapoff, r0     ; the Program Status Area at <<0>>0000H
@@ -71,8 +71,8 @@ halt_to_system:
         include "queue.inc"
 
 isr_nvi:
-        push    @rr14, r0
-        push    @rr14, r1
+        push    @sp, r0
+        push    @sp, r1
         inb     rl0, USARTS
         bitb    rl0, #ST_RxRDY_bp
         jr      z, isr_nvi_exit
@@ -80,8 +80,8 @@ isr_nvi:
         ld      r1, #rx_queue
         call    queue_add
 isr_nvi_exit:
-        pop     r1, @rr14
-        pop     r0, @rr14
+        pop     r1, @sp
+        pop     r0, @sp
         jp      isr_return
 
 ;;; Return from an interrupt handler.
