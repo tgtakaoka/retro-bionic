@@ -2,6 +2,7 @@
         cpu     z8001
         include "z8001.inc"
         include "../z8002/usart.inc"
+DATA:           equ     SEGDATA
 
         org     ORG_RESET
         word    0
@@ -83,7 +84,7 @@ put_bin8_bit:
         dbjnz   rl2, put_bin8_loop
         ret
 
-        include "io.inc"
+        include "../z8002/io.inc"
 
 ;;; Return from an interrupt handler.
 isr_return:

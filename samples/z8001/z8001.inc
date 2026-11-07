@@ -28,7 +28,7 @@ FCW_NVIE:       equ     0800H   ; non-vectored interrupt enable
 ;;; Where the segmented samples live, each in a segment of its own.
 CODE:           equ     010000H ; code, segment 1
 CODE_SEG:       equ     0100H   ; its segment word: the number in bits 14-8
-DATA:           equ     020000H ; queues and variables, segment 2
+SEGDATA:        equ     020000H ; their DATA: queues and variables, segment 2
 STACK:          equ     03001000H ; RR14: segment 3, offset 1000H
 ;;; The normal mode stack, NSPSEG and NSPOFF: segment 4, offset 1000H.
 USTACK_SEG:     equ     0400H

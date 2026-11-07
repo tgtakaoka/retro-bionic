@@ -102,15 +102,15 @@ next_x:
         jp      lt, loop_y      ; if Y<13
         ret
 
-;;; workspace
-vC:     word    0
-vD:     word    0
-vA:     word    0
-vB:     word    0
-vP:     word    0
-vQ:     word    0
-vS:     word    0
-vT:     word    0
-vY:     word    0
-vX:     word    0
-vIter:  word    0
+;;; workspace, in the data area DATA
+vC:      equ     DATA+00H
+vD:      equ     DATA+02H
+vA:      equ     DATA+04H
+vB:      equ     DATA+06H
+vP:      equ     DATA+08H
+vQ:      equ     DATA+0AH
+vS:      equ     DATA+0CH
+vT:      equ     DATA+0EH
+vY:      equ     DATA+10H
+vX:      equ     DATA+12H
+vIter:   equ     DATA+14H

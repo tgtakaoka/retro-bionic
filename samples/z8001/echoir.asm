@@ -2,6 +2,7 @@
         cpu     z8001
         include "z8001.inc"
         include "../z8002/usart.inc"
+DATA:           equ     SEGDATA
 
 rx_queue:       equ     2000H
 rx_queue_size:  equ     128
@@ -68,7 +69,7 @@ transmit_data:
 halt_to_system:
         sc      #SC_EXIT
 
-        include "queue.inc"
+        include "../z8002/queue.inc"
 
 isr_nvi:
         push    @sp, r0

@@ -2,6 +2,7 @@
         cpu     z8002           ; nonsegmented: the Z8002's code
         include "z8001.inc"
         include "../z8002/usart.inc"
+DATA:           equ     4000H   ; the Z8002's
 
 stack:  equ     1000H           ; system mode
 ustack: equ     3000H           ; normal mode

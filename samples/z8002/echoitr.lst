@@ -22,6 +22,9 @@
 (1)       0 : =1000              FCW_VIE:        equ     1000H   ; vectored interrupt enable
 (1)       0 : =800               FCW_NVIE:       equ     0800H   ; non-vectored interrupt enable
 (1)       0 :
+(1)       0 :                    ;;; The data area: queues and variables.
+(1)       0 : =4000              DATA:           equ     4000H
+(1)       0 :
 (1)       0 :                    ;;; SC #SC_EXIT hands control back to the debugger, as a breakpoint does.
 (1)       0 : =FF                SC_EXIT:        equ     0FFH
           0 :                            include "usart.inc"
@@ -169,7 +172,8 @@
 (1)     182 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
 (1)     182 :                    ;;; Console through the USART's interrupts: received characters queue
 (1)     182 :                    ;;; at rx_queue, characters to send at tx_queue. The USART interrupts on
-(1)     182 :                    ;;; VI with identifier RX_ID or TX_ID, which usart.inc defines.
+(1)     182 :                    ;;; VI with identifier RX_ID or TX_ID, which usart.inc defines. The queues
+(1)     182 :                    ;;; are offsets in the data area DATA.
 (1)     182 : =2000              rx_queue:       equ     2000H
 (1)     182 : =80                rx_queue_size:  equ     128
 (1)     182 : =2080              tx_queue:       equ     2080H
@@ -290,7 +294,7 @@
 (1)     252 :                    ;;; caller's FCW at 4, which getchar's carry goes back in.
 (1)     252 :                    isr_sc:
 (1)     252 : 93F1                       push    @sp, r1
-(1)     254 : 31F1 0002                  ld      r1, sp(#2)     ; SC #n: 7F00H|n
+(1)     254 : 31F1 0002                  ld      r1, sp(#2)      ; SC #n: 7F00H|n
 (1)     258 : 0A09 0101                  cpb     rl1, #SC_GETCHAR
 (1)     25C : E60C                       jr      eq, isr_sc_getchar
 (1)     25E : 0A09 0202                  cpb     rl1, #SC_PUTCHAR
@@ -316,7 +320,8 @@
 (1)     28E :
 (1)     28E :                            include "queue.inc"
 (2)     28E :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
-(2)     28E :                    ;;; [queue] queue structure
+(2)     28E :                    ;;; [queue] queue structure: the queues live in the data area DATA, a
+(2)     28E :                    ;;; pointer their offset there
 (2)     28E : =0                 queue_len:      equ     0       ; queue length
 (2)     28E : =1                 queue_size:     equ     1       ; buffer size
 (2)     28E : =2                 queue_put:      equ     2       ; queue put index
@@ -328,11 +333,11 @@
 (2)     28E :                    ;;; @param RL0 queue work space size
 (2)     28E :                    ;;; @clobber RL0
 (2)     28E :                    queue_init:
-(2)     28E : 4C18 0000                  clrb    queue_len(r1)
+(2)     28E : 4C18 4000                  clrb    DATA+queue_len(r1)
 (2)     292 : 0208 0404                  subb    rl0, #queue_buf
-(2)     296 : 6E18 0001                  ldb     queue_size(r1), rl0
-(2)     29A : 4C18 0002                  clrb    queue_put(r1)
-(2)     29E : 4C18 0003                  clrb    queue_get(r1)
+(2)     296 : 6E18 4001                  ldb     DATA+queue_size(r1), rl0
+(2)     29A : 4C18 4002                  clrb    DATA+queue_put(r1)
+(2)     29E : 4C18 4003                  clrb    DATA+queue_get(r1)
 (2)     2A2 : 9E08                       ret
 (2)     2A4 :
 (2)     2A4 :                    ;;; [queue] Add an element to queue
@@ -341,25 +346,25 @@
 (2)     2A4 :                    ;;; @return FLAGS.C 0 if queue is full
 (2)     2A4 :                    queue_add:
 (2)     2A4 : 93F2                       push    @sp, r2
-(2)     2A6 : 601A 0000                  ldb     rl2, queue_len(r1)
-(2)     2AA : 4A1A 0001                  cpb     rl2, queue_size(r1)
+(2)     2A6 : 601A 4000                  ldb     rl2, DATA+queue_len(r1)
+(2)     2AA : 4A1A 4001                  cpb     rl2, DATA+queue_size(r1)
 (2)     2AE : E703                       jr      c, queue_add_store ; queue_len < queue_size
 (2)     2B0 : 97F2                       pop     r2, @sp
 (2)     2B2 : 8D83                       resflg  c
 (2)     2B4 : 9E08                       ret
 (2)     2B6 :                    queue_add_store:
-(2)     2B6 : 6810 0000                  incb    queue_len(r1), #1
+(2)     2B6 : 6810 4000                  incb    DATA+queue_len(r1), #1
 (2)     2BA : 8D28                       clr     r2
-(2)     2BC : 601A 0002                  ldb     rl2, queue_put(r1)
+(2)     2BC : 601A 4002                  ldb     rl2, DATA+queue_put(r1)
 (2)     2C0 : 8112                       add     r2, r1
-(2)     2C2 : 6E28 0004                  ldb     queue_buf(r2), rl0 ; store an element
+(2)     2C2 : 6E28 4004                  ldb     DATA+queue_buf(r2), rl0 ; store an element
 (2)     2C6 : 8312                       sub     r2, r1
 (2)     2C8 : A8A0                       incb    rl2, #1            ; queue_put++
-(2)     2CA : 4A1A 0001                  cpb     rl2, queue_size(r1)
+(2)     2CA : 4A1A 4001                  cpb     rl2, DATA+queue_size(r1)
 (2)     2CE : E701                       jr      c, queue_add_update ; queue_put < queue_size
 (2)     2D0 : 8CA8                       clrb    rl2                 ; wrap around
 (2)     2D2 :                    queue_add_update:
-(2)     2D2 : 6E1A 0002                  ldb     queue_put(r1), rl2
+(2)     2D2 : 6E1A 4002                  ldb     DATA+queue_put(r1), rl2
 (2)     2D6 : 97F2                       pop     r2, @sp
 (2)     2D8 : 8D81                       setflg  c
 (2)     2DA : 9E08                       ret
@@ -369,24 +374,24 @@
 (2)     2DC :                    ;;; @return RL0 an element
 (2)     2DC :                    ;;; @return FLAGS.C 0 if queue is empty
 (2)     2DC :                    queue_remove:
-(2)     2DC : 4C14 0000                  testb   queue_len(r1)
+(2)     2DC : 4C14 4000                  testb   DATA+queue_len(r1)
 (2)     2E0 : EE02                       jr      nz, queue_remove_elem
 (2)     2E2 : 8D83                       resflg  c
 (2)     2E4 : 9E08                       ret
 (2)     2E6 :                    queue_remove_elem:
 (2)     2E6 : 93F2                       push    @sp, r2
-(2)     2E8 : 6A10 0000                  decb    queue_len(r1), #1
+(2)     2E8 : 6A10 4000                  decb    DATA+queue_len(r1), #1
 (2)     2EC : 8D28                       clr     r2
-(2)     2EE : 601A 0003                  ldb     rl2, queue_get(r1)
+(2)     2EE : 601A 4003                  ldb     rl2, DATA+queue_get(r1)
 (2)     2F2 : 8112                       add     r2, r1
-(2)     2F4 : 6028 0004                  ldb     rl0, queue_buf(r2) ; read an element
+(2)     2F4 : 6028 4004                  ldb     rl0, DATA+queue_buf(r2) ; read an element
 (2)     2F8 : 8312                       sub     r2, r1
 (2)     2FA : A8A0                       incb    rl2, #1            ; queue_get++
-(2)     2FC : 4A1A 0001                  cpb     rl2, queue_size(r1)
+(2)     2FC : 4A1A 4001                  cpb     rl2, DATA+queue_size(r1)
 (2)     300 : E701                       jr      c, queue_remove_update ; queue_get < queue_size
 (2)     302 : 8CA8                       clrb    rl2                    ; wrap around
 (2)     304 :                    queue_remove_update:
-(2)     304 : 6E1A 0003                  ldb     queue_get(r1), rl2
+(2)     304 : 6E1A 4003                  ldb     DATA+queue_get(r1), rl2
 (2)     308 : 97F2                       pop     r2, @sp
 (2)     30A : 8D81                       setflg  c
 (2)     30C : 9E08                       ret
