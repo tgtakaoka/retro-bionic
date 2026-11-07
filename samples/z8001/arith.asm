@@ -10,7 +10,7 @@
 
         org     CODE+0100H
 init_usart:
-        ldl     rr14, #STACK
+        ldl     sp, #STACK
         clrb    rl0
         outb    USARTC, rl0
         outb    USARTC, rl0
@@ -33,29 +33,29 @@ halt_to_system:
 ;;; Put character
 ;;; @param RL0
 putchar:
-        push    @rr14, r0
+        push    @sp, r0
 putchar_loop:
         inb     rl0, USARTS
         bitb    rl0, #ST_TxRDY_bp
         jr      z, putchar_loop
-        pop     r0, @rr14
+        pop     r0, @sp
         outb    USARTD, rl0
         ret
 
 newline:
-        push    @rr14, r0
+        push    @sp, r0
         ldb     rl0, #0DH
         call    putchar
         ldb     rl0, #0AH
         call    putchar
-        pop     r0, @rr14
+        pop     r0, @sp
         ret
 
 putspace:
-        push    @rr14, r0
+        push    @sp, r0
         ldb     rl0, #' '
         call    putchar
-        pop     r0, @rr14
+        pop     r0, @sp
         ret
 
 ;;; Print "v1 op v2"
@@ -65,11 +65,11 @@ putspace:
 ;;; @return R1 v1
 ;;; @clobber R0 R2 R3
 expr:
-        push    @rr14, r0
+        push    @sp, r0
         ld      r1, r4
         call    print_int16
         call    putspace
-        pop     r0, @rr14
+        pop     r0, @sp
         call    putchar
         call    putspace
         ld      r1, r5
@@ -111,7 +111,7 @@ comp_out:
         call    expr
         jr      newline
 
-        include "arith.inc"
+        include "../z8002/arith.inc"
 
         org     CODE+1000H
 arith:

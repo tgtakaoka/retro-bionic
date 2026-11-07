@@ -41,12 +41,12 @@ init_io:
 ;;; @return RL0
 ;;; @return FLAGS.C 0 if no character
 getchar:
-        push    @rr14, r1
+        push    @sp, r1
         ld      r1, #rx_queue
         di      vi
         call    queue_remove
         ei      vi
-        pop     r1, @rr14
+        pop     r1, @sp
         ret
 
 ;;; Put newline
@@ -58,18 +58,18 @@ newline:
 ;;; Put character
 ;;; @param RL0
 putchar:
-        push    @rr14, r1
+        push    @sp, r1
         ld      r1, #tx_queue
 putchar_retry:
         di      vi
         call    queue_add
         ei      vi
         jr      nc, putchar_retry ; branch if queue is full
-        pop     r1, @rr14
-        push    @rr14, r0
+        pop     r1, @sp
+        push    @sp, r0
         ldb     rl0, #RX_EN_TX_EN ; enable Tx
         outb    USARTC, rl0
-        pop     r0, @rr14
+        pop     r0, @sp
         ret
 
 ;;; Put space
@@ -80,8 +80,8 @@ putspace:
 
 ;;; RxRDY interrupt: queue the received character
 isr_rx:
-        push    @rr14, r0
-        push    @rr14, r1
+        push    @sp, r0
+        push    @sp, r1
         inb     rl0, USARTS
         bitb    rl0, #ST_RxRDY_bp
         jr      z, isr_rx_exit
@@ -89,14 +89,14 @@ isr_rx:
         ld      r1, #rx_queue
         call    queue_add
 isr_rx_exit:
-        pop     r1, @rr14
-        pop     r0, @rr14
+        pop     r1, @sp
+        pop     r0, @sp
         jp      isr_return
 
 ;;; TxRDY interrupt: send the next queued character, or disable Tx
 isr_tx:
-        push    @rr14, r0
-        push    @rr14, r1
+        push    @sp, r0
+        push    @sp, r1
         inb     rl0, USARTS
         bitb    rl0, #ST_TxRDY_bp
         jr      z, isr_tx_exit
@@ -109,8 +109,8 @@ isr_tx_empty:
         ldb     rl0, #RX_EN_TX_DIS
         outb    USARTC, rl0     ; disable Tx
 isr_tx_exit:
-        pop     r1, @rr14
-        pop     r0, @rr14
+        pop     r1, @sp
+        pop     r0, @sp
         jp      isr_return
 
 ;;; System calls for a program in normal mode, which may not do I/O:
@@ -122,8 +122,8 @@ SC_NEWLINE:     equ     3       ; newline
 ;;; The frame lies above R1 pushed here: the SC's identifier at 2, the
 ;;; caller's FCW at 4, which getchar's carry goes back in.
 isr_sc:
-        push    @rr14, r1
-        ld      r1, rr14(#2)    ; SC #n: 7F00H|n
+        push    @sp, r1
+        ld      r1, sp(#2)      ; SC #n: 7F00H|n
         cpb     rl1, #SC_GETCHAR
         jr      eq, isr_sc_getchar
         cpb     rl1, #SC_PUTCHAR
@@ -137,14 +137,14 @@ isr_sc_putchar:
         jr      isr_sc_exit
 isr_sc_getchar:
         call    getchar
-        ld      r1, rr14(#4)
+        ld      r1, sp(#4)
         res     r1, #7          ; FCW C
         jr      nc, isr_sc_return
         set     r1, #7
 isr_sc_return:
-        ld      rr14(#4), r1
+        ld      sp(#4), r1
 isr_sc_exit:
-        pop     r1, @rr14
+        pop     r1, @sp
         jp      isr_return
 
         include "queue.inc"

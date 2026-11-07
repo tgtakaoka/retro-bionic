@@ -10,7 +10,7 @@
 
         org     CODE+0100H
 init:
-        ldl     rr14, #STACK
+        ldl     sp, #STACK
 init_usart:
         clrb    rl0
         outb    USARTC, rl0

@@ -21,7 +21,7 @@ stack:  equ     1000H
 
         org     0100H
 init:
-        ld      r15, #stack
+        ld      sp, #stack
         clr     r0
         ldctl   psap, r0        ; the Program Status Area at 0000H
         call    init_io
@@ -93,7 +93,7 @@ put_bin8_bit:
 ;;; at reset. LDPS switches the mode and the PC together; LDCTL FCW alone
 ;;; does not reliably set SEG on an NMOS part.
 isr_return:
-        push    @r15, r1
+        push    @sp, r1
         ldps    isr_return_ps
 isr_return_seg:
         word    97E1H           ; pop r1, @rr14

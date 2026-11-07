@@ -10,11 +10,13 @@ namespace {
 // clang-format off
 //                              1         2         3         4         5         6         7
 //                    01234567890123456789012345678901234567890123456789012345678901234567890
-const char line1[] = "PC=xxxx NSP=xxxx FCW=SEVN CZSPDH  PSAP=xxxx";
+const char line1[] = "PC=xxxx          FCW=SEVN CZSPDH  PSAP=xxxx                   NSP=xxxx";
 // The Z8001's, with segments; G is SEG.
-const char line1s[] = "PC=xx:xxxx NSP=xx:xxxx FCW=GSEVN CZSPDH  PSAP=xx:xxxx";
+const char line1s[] = "PC=xx:xxxx       FCW=GSEVN CZSPDH PSAP=xx:xxxx       NSP=xx:xxxx";
 const char line2[] = "R0=xxxx  R1=xxxx  R2=xxxx  R3=xxxx  R4=xxxx  R5=xxxx  R6=xxxx  R7=xxxx";
-const char line3[] = "R8=xxxx  R9=xxxx R10=xxxx R11=xxxx R12=xxxx R13=xxxx R14=xxxx R15=xxxx";
+const char line3[] = "R8=xxxx  R9=xxxx R10=xxxx R11=xxxx R12=xxxx R13=xxxx R14=xxxx  SP=xxxx";
+// Segmented mode's, SP is RR14.
+const char line3s[] = "R8=xxxx  R9=xxxx R10=xxxx R11=xxxx R12=xxxx R13=xxxx  SP=xx:xxxx";
 // clang-format on
 
 // Where the save sequences store; captured, never in memory.
@@ -42,7 +44,8 @@ RegsZ8000::RegsZ8000(PinsZ8000 *pins)
     : _pins(pins),
       _buffer1(pins->segmented() ? line1s : line1),
       _buffer2(line2),
-      _buffer3(line3) {}
+      _buffer3(line3),
+      _buffer3s(line3s) {}
 
 bool RegsZ8000::normalMode() const {
     return (_fcw & InstZ8000::FCW_SN) == 0;
@@ -80,36 +83,41 @@ void RegsZ8000::print() const {
     auto status = _buffer1;
     // The stack pointer the program can't see.
     const auto other = normalMode() ? ssp() : _nsp;
-    const auto label = _pins->segmented() ? 11 : 8;
+    // Its '=' under R7='s, the Z8001's under R6='s.
+    const auto label = _pins->segmented() ? 53 : 62;
     if (normalMode()) {
         status[label] = 'S';
         status[label + 1] = 'S';
     }
     if (_pins->segmented()) {
         segOff(status, 3, _pc);
-        segOff(status, 15, other);
-        status.bits(27, _fcw, 0x8000, "GSEVN");
-        status.bits(33, _fcw, 0x0080, "CZSPDH");
-        segOff(status, 46, _psap);
+        status.bits(21, _fcw, 0x8000, "GSEVN");
+        status.bits(27, _fcw, 0x0080, "CZSPDH");
+        segOff(status, 39, _psap);
+        segOff(status, 57, other);
     } else {
         status.hex16(3, _pc);
-        status.hex16(12, other);
         status.bits(21, _fcw, 0x4000, "SEVN");
         status.bits(26, _fcw, 0x0080, "CZSPDH");
         status.hex16(39, _psap);
+        status.hex16(66, other);
     }
     cli.println(status);
     _pins->idle();
     auto low = _buffer2;
-    auto high = _buffer3;
+    const auto segmented = _pins->segmented() && (_fcw & InstZ8000::FCW_SEG);
+    auto high = segmented ? _buffer3s : _buffer3;
     for (auto i = 0; i < 8; ++i) {
         low.hex16(3 + 9 * i, _r[i]);
-        high.hex16(3 + 9 * i, _r[8 + i]);
+        if (i < (segmented ? 6 : 7))
+            high.hex16(3 + 9 * i, _r[8 + i]);
     }
-    if (programR14())
-        high.hex16(3 + 9 * 6, _nspseg);
-    if (normalMode())
-        high.hex16(3 + 9 * 7, _nsp);
+    if (segmented) {
+        segOff(high, 57, normalMode() ? _nsp : ssp());
+    } else {
+        high.hex16(3 + 9 * 6, programR14() ? _nspseg : _r[14]);
+        high.hex16(3 + 9 * 7, normalMode() ? _nsp : _r[15]);
+    }
     cli.println(low);
     _pins->idle();
     cli.println(high);

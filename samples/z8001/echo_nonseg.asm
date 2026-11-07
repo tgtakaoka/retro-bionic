@@ -13,7 +13,7 @@ stack:  equ     1000H
 
         org     0100H
 init:
-        ld      r15, #stack
+        ld      sp, #stack
 init_usart:
         clrb    rl0
         outb    USARTC, rl0

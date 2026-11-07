@@ -18,7 +18,7 @@ stack:  equ     1000H
 
         org     0100H
 init:
-        ld      r15, #stack
+        ld      sp, #stack
         clr     r0
         ldctl   psap, r0        ; the Program Status Area at 0000H
         ld      r1, #rx_queue
@@ -70,8 +70,8 @@ halt_to_system:
         include "queue.inc"
 
 isr_nvi:
-        push    @r15, r0
-        push    @r15, r1
+        push    @sp, r0
+        push    @sp, r1
         inb     rl0, USARTS
         bitb    rl0, #ST_RxRDY_bp
         jr      z, isr_nvi_exit
@@ -79,8 +79,8 @@ isr_nvi:
         ld      r1, #rx_queue
         call    queue_add
 isr_nvi_exit:
-        pop     r1, @r15
-        pop     r0, @r15
+        pop     r1, @sp
+        pop     r0, @sp
         jp      isr_return
 
 ;;; Return from an interrupt handler.

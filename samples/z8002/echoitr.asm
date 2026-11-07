@@ -18,7 +18,7 @@ stack:  equ     1000H
 
         org     0100H
 init:
-        ld      r15, #stack
+        ld      sp, #stack
         clr     r0
         ldctl   psap, r0        ; the Program Status Area at 0000H
         call    init_io

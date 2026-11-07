@@ -23,11 +23,11 @@ queue_init:
 ;;; @param RL0 an element
 ;;; @return FLAGS.C 0 if queue is full
 queue_add:
-        push    @r15, r2
+        push    @sp, r2
         ldb     rl2, queue_len(r1)
         cpb     rl2, queue_size(r1)
         jr      c, queue_add_store ; queue_len < queue_size
-        pop     r2, @r15
+        pop     r2, @sp
         resflg  c
         ret
 queue_add_store:
@@ -43,7 +43,7 @@ queue_add_store:
         clrb    rl2                 ; wrap around
 queue_add_update:
         ldb     queue_put(r1), rl2
-        pop     r2, @r15
+        pop     r2, @sp
         setflg  c
         ret
 
@@ -57,7 +57,7 @@ queue_remove:
         resflg  c
         ret
 queue_remove_elem:
-        push    @r15, r2
+        push    @sp, r2
         decb    queue_len(r1), #1
         clr     r2
         ldb     rl2, queue_get(r1)
@@ -70,6 +70,6 @@ queue_remove_elem:
         clrb    rl2                    ; wrap around
 queue_remove_update:
         ldb     queue_get(r1), rl2
-        pop     r2, @r15
+        pop     r2, @sp
         setflg  c
         ret
