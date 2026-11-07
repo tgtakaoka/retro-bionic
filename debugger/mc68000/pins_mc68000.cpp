@@ -85,6 +85,18 @@ void PinsMc68000::resetPins() {
     resetCpu();
 }
 
+// MODE, on P37 in phase 10, is a strap: high or open for a 16-bit bus, low
+// (JP1 closed on the FN board) for an MC68HC001's 8-bit bus. The P and PS
+// boards tie it high. It must be known before the first cycle, whose A0
+// comes from the strobes on a 16-bit bus and from the mux on an 8-bit one.
+void PinsMc68000::readStraps() {
+    digitalWriteFast(PIN_ASEL1, HIGH);  // 10
+    delayNanoseconds(asel_delay_ns);
+    const uint32_t sel10 = PIN(ADDR);
+    digitalWriteFast(PIN_ASEL1, LOW);  // 00
+    _bus8 = (sel10 & (UINT32_C(1) << 19)) == 0;
+}
+
 // ASEL1:ASEL0 rests at 00. Stepped in gray order 00, 01, 11, 10 the muxes
 // hand out A0/A16, A4/A20, A8/-, A12/FC in turn, one select changing per
 // step, and the last step brings it back to 00. The CPU holds the address
@@ -116,8 +128,10 @@ void PinsMc68000::getAddr(Signals *s) const {
 }
 
 // Both strobes move a word; #UDS alone the even byte, #LDS alone the odd
-// one.
+// one. On an 8-bit bus #LDS strobes every byte and A0 is on the bus.
 void PinsMc68000::getLanes(Signals *s) const {
+    if (_bus8)
+        return;
     const auto uds = (s->cntl() & Signals::UDS) == 0;
     const auto lds = (s->cntl() & Signals::LDS) == 0;
     s->addr = (s->addr & ~UINT32_C(1)) | ((lds && !uds) ? 1 : 0);
@@ -128,7 +142,7 @@ void PinsMc68000::getData(Signals *s) const {
     const uint16_t data = busRead(D);
     if (s->wordAccess()) {
         s->data = data;
-    } else if ((s->cntl() & Signals::LDS) == 0) {
+    } else if (_bus8 || (s->cntl() & Signals::LDS) == 0) {
         s->data = data & 0xFF;
     } else {
         s->data = data >> 8;

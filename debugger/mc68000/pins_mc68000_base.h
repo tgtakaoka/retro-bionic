@@ -88,6 +88,8 @@ protected:
     uint32_t wrap(uint32_t addr) const;
 
     // What each board does its own way.
+    // The board's straps, read while #RESET is held.
+    virtual void readStraps() {}
     // Parked at the fetch of ORG_PARK after reset: what its address shows.
     virtual void detectBoard() {}
     // The address, FC, and for a read the byte lanes, as #AS opens a cycle.

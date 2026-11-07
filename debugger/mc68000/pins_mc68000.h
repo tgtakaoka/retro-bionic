@@ -24,8 +24,9 @@
 // A0-A23, FC2:FC0 and MODE share P30-P37 through four 74HCS153 selected
 // by ASEL1:ASEL0: AL carries A0-A3 (00), A4-A7 (01), A12-A15 (10) and
 // A8-A11 (11), AH A16-A19, A20-A23, FC2:FC0 with MODE on P37, and
-// nothing. A0 reads low: the P and PS boards tie it low, the FN board
-// pulls it down. One read of GPIO7 takes both nibbles.
+// nothing. A0 is real only on an MC68HC001 strapped for 8 bits; the P
+// and PS boards tie it low, the FN board pulls it down. One read of GPIO7
+// takes both nibbles.
 #define PORT_ADDR 7 /* GPIO7 */
 #define PIN_AL0 10  /* P7.00 */
 #define PIN_AL1 12  /* P7.01 */
@@ -53,12 +54,17 @@ namespace debugger {
 namespace mc68000 {
 
 // The MC68000P (DIP64), HD68000PS (SDIP64) and MC68000FN (PLCC68)
-// boards, for the MC68000 and MC68HC000: a 16-bit bus.
+// boards, for the MC68000, MC68HC000 and MC68HC001: a 16-bit bus, or an
+// 8-bit one from an MC68HC001 with MODE low.
 struct PinsMc68000 final : PinsMc68000Base {
     PinsMc68000();
 
 private:
+    // An MC68HC001 strapped for 8 bits: #LDS alone, A0 on the bus.
+    bool _bus8 = false;
+
     void resetPins() override;
+    void readStraps() override;
     void getAddr(Signals *s) const override;
     void getLanes(Signals *s) const override;
     void getData(Signals *s) const override;

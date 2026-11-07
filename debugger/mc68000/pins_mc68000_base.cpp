@@ -138,6 +138,7 @@ void PinsMc68000Base::resetCpu() {
     Cycles::reset();
     assert_reset();
     delay(reset_ms);
+    readStraps();
     release_reset();
 
     // The reset vector: SSP, then PC, read from 000000H. ATTENTION:
