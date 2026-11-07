@@ -127,6 +127,7 @@ private:
     void storeWrite(Signals *s);
     uint_fast8_t execute(const uint8_t *inst, uint_fast8_t len, uint8_t *buf,
             uint32_t *addrs, uint_fast8_t max, uint32_t &org, uint32_t exit);
+    uint_fast8_t frameBytes();
     bool findFrame(const Signals *s, RegsMc68000::Frame &frame,
             const Signals *&from) const;
     bool loop();

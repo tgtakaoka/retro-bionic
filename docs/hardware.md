@@ -154,7 +154,7 @@ These boards run from a timer:
 | P8086, D8087 | `P47`, CLK | `P52`, READY | 5 MHz |
 | HD641016 | `P47`, EXTAL | `P54`, `#WAIT` | 10 MHz |
 | MC68008 | `P47`, CLK | `P44`, `#DTACK` | 10 MHz |
-| MC68000 | `P47`, CLK | `P44`, `#DTACK` | 7.5 MHz |
+| MC68000, MC68010 | `P47`, CLK | `P44`, `#DTACK` | 7.5 MHz |
 
 The P8080's two phases come from two FlexPWM modules whose counters are restarted
 together, and in a run its plain memory reads take no wait state. The Z180's internal

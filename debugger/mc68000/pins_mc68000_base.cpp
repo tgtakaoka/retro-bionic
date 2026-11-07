@@ -177,9 +177,54 @@ void PinsMc68000Base::resetCpu() {
         return;
     }
     detectBoard();
+    // The size of an exception frame tells an MC68010 apart: it stacks a
+    // format/vector word below SR and PC.
+    const auto bytes = frameBytes();
+    if (bytes != 6 && bytes != 8) {
+        cli.println("?reset: no level 7 frame");
+        printCycles();
+        return;
+    }
+    regs<RegsMc68000>()->setMc68010(bytes == 8);
     _regs->setIp(InstMc68000::ORG_PARK);
     _regs->save();
     _regs->reset();
+}
+
+// Parked at a fetch with NOPs ahead: raise level 7, answer its acknowledge,
+// and count the frame's bytes, captured, never stored. Nothing else writes
+// in between. The CPU is parked at ORG_PARK again.
+uint_fast8_t PinsMc68000Base::frameBytes() {
+    // Reset cleared an MC68010's VBR.
+    _halting = true;
+    setIpl();
+    const auto vecAddr = InstMc68000::vecAddr(InstMc68000::VECNUM_HALT);
+    uint_fast8_t bytes = 0;
+    auto s = resumeCycle();
+    for (auto guard = irq_ack_cycles; guard && !s->halt(); --guard) {
+        if (memRead(s) && s->dataSpace() && (s->addr & ~1) == vecAddr) {
+            Cycles::reset();
+            if (!answerVector(vecAddr, InstMc68000::ORG_PARK))
+                return 0;
+            return bytes;
+        }
+        if (s->iack() && s->level() == 7) {
+            s->inject(InstMc68000::VECNUM_HALT);
+            _halting = false;
+            setIpl();
+        } else if (memRead(s)) {
+            s->inject(instData(s, nullptr, 0, 0));
+        } else if (memWrite(s)) {
+            s->capture();
+        }
+        completeCycle(s);
+        if (memWrite(s))
+            bytes += s->wordAccess() ? 2 : 1;
+        s = prepareCycle();
+    }
+    _halting = false;
+    setIpl();
+    return 0;
 }
 
 Signals *PinsMc68000Base::prepareCycle() {
@@ -403,11 +448,11 @@ bool PinsMc68000Base::answerVector(uint32_t vecAddr, uint32_t handler) {
 }
 
 // The frame an exception stacked right before its vector read |s|: SR,
-// then PC (M68000UM Figure 6-5), as the writes left them in memory. An
-// interrupt's acknowledge comes among them (6.3.2), and no other read: the
-// first one back ends the frame, so a push of the program's own, or the
-// frame of a TRAP stepped before a trace, is never taken for it. |from|
-// becomes the first of them.
+// then PC (M68000UM Figure 6-5), and on the MC68010 the format/vector word,
+// as the writes left them in memory. An interrupt's acknowledge comes
+// among them (6.3.2), and no other read: the first one back ends the
+// frame, so a push of the program's own, or the frame of a TRAP stepped
+// before a trace, is never taken for it. |from| becomes the first of them.
 bool PinsMc68000Base::findFrame(const Signals *s, RegsMc68000::Frame &frame,
         const Signals *&from) const {
     const auto size = regs<RegsMc68000>()->frameBytes();
@@ -540,6 +585,8 @@ bool PinsMc68000Base::step(bool show) {
 // be saved from: an ILLEGAL, the debugger's breakpoint, or a halt. The
 // ring is left holding the program's cycles only.
 bool PinsMc68000Base::loop() {
+    // ATTENTION: a program that moves VBR in a run hides its ILLEGAL from
+    // the debugger until the next stop.
     const auto vecAddr =
             regs<RegsMc68000>()->vecAddr(InstMc68000::VECNUM_ILLEGAL);
     auto s = resumeCycle();
