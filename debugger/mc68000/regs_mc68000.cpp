@@ -17,11 +17,12 @@ const char lineD0[] = "D0=xxxxxxxx D1=xxxxxxxx D2=xxxxxxxx D3=xxxxxxxx";
 const char lineD4[] = "D4=xxxxxxxx D5=xxxxxxxx D6=xxxxxxxx D7=xxxxxxxx";
 const char lineA0[] = "A0=xxxxxxxx A1=xxxxxxxx A2=xxxxxxxx A3=xxxxxxxx";
 const char lineA4[] = "A4=xxxxxxxx A5=xxxxxxxx A6=xxxxxxxx SP=xxxxxxxx";
+const char line10[] = "VBR=xxxxxxxx SFC=x DFC=x";
 // clang-format on
 
 // The restore's instructions, built word by word.
 struct Sequence {
-    uint8_t buf[6 + 2 + 6 * 8 + 6 * 8 + 2];
+    uint8_t buf[3 * (6 + 4) + 6 + 2 + 6 * 8 + 6 * 8 + 2];
     uint_fast8_t len = 0;
 
     void word(uint16_t v) {
@@ -46,10 +47,13 @@ RegsMc68000::RegsMc68000(PinsMc68000Base *pins, MemsMc68000 *mems)
       _ssp(0),
       _usp(0),
       _d{0, 0, 0, 0, 0, 0, 0, 0},
-      _a{0, 0, 0, 0, 0, 0, 0} {}
+      _a{0, 0, 0, 0, 0, 0, 0},
+      _vbr(0),
+      _sfc(0),
+      _dfc(0) {}
 
 uint32_t RegsMc68000::vecAddr(uint8_t vecNum) const {
-    return _mems->wrap(InstMc68000::vecAddr(vecNum));
+    return _mems->wrap(_vbr + InstMc68000::vecAddr(vecNum));
 }
 
 // A7 is SP, the stack pointer of the mode SR is in; the other one shows
@@ -83,6 +87,19 @@ void RegsMc68000::print() const {
     }
 }
 
+// The MC68010's VBR, SFC and DFC, which a step leaves alone.
+void RegsMc68000::printAll() const {
+    print();
+    if (_mc68010) {
+        CharBuffer b(line10);
+        b.hex32(4, _vbr);
+        b.hex4(17, _sfc);
+        b.hex4(23, _dfc);
+        cli.println(b);
+        _pins->idle();
+    }
+}
+
 // The pushes of SaveMc68000. SR is the program's only when the CPU was
 // parked at its own fetch, after reset; otherwise the exception frame
 // holds it.
@@ -92,15 +109,18 @@ void RegsMc68000::save() {
         return;
     }
     auto org = _vector ? InstMc68000::ORG_PARK : _parkedAddr;
-    constexpr auto bytes = SaveMc68000::BYTES;
-    uint8_t buf[bytes];
-    uint32_t addrs[bytes];
-    const auto n = _pins->captureWrites(SaveMc68000::SAVE,
-            sizeof(SaveMc68000::SAVE), buf, addrs, bytes, org,
-            PinsMc68000Base::EXIT_ORG);
+    const auto save = _mc68010 ? SaveMc68000::SAVE10 : SaveMc68000::SAVE;
+    const auto len =
+            _mc68010 ? sizeof(SaveMc68000::SAVE10) : sizeof(SaveMc68000::SAVE);
+    const auto bytes = SaveMc68000::bytes(_mc68010);
+    uint8_t buf[SaveMc68000::MAX_BYTES];
+    uint32_t addrs[SaveMc68000::MAX_BYTES];
+    const auto n = _pins->captureWrites(
+            save, len, buf, addrs, bytes, org, PinsMc68000Base::EXIT_ORG);
     SaveMc68000::Pushed p;
     if (n < bytes || _pins->cutShort() ||
-            !SaveMc68000::decode(buf, addrs, n, _mems->maxAddr(), p)) {
+            !SaveMc68000::decode(
+                    buf, addrs, n, _mems->maxAddr(), _mc68010, p)) {
         cli.println("?save: registers not pushed");
         return;
     }
@@ -109,6 +129,11 @@ void RegsMc68000::save() {
     for (uint_fast8_t i = 0; i < 7; ++i)
         _a[i] = p.a[i];
     _usp = p.usp;
+    if (_mc68010) {
+        _vbr = p.vbr;
+        _sfc = p.sfc;
+        _dfc = p.dfc;
+    }
     if (!_vector) {
         // Parked at the program's own fetch: the push was its SSP and SR.
         _pc = _parkedAddr;
@@ -124,11 +149,14 @@ void RegsMc68000::reset() {
     _ssp = _mems->read32(InstMc68000::VEC_RESET);
     _pc = _mems->wrap(_mems->read32(InstMc68000::VEC_RESET + 4)) & ~1;
     _sr = InstMc68000::SR_RESET;
+    _vbr = 0;
 }
 
-// Every register comes back as an immediate, USP through A0 first; then
+// Every register comes back as an immediate, the MC68010's VBR, SFC and
+// DFC and USP through A0 first; then
 // A7 points at a frame staged just below SSP, which RTE pulls as real
-// memory. Exceptions write there anyway, so it is free stack.
+// memory. Exceptions write there anyway, so it is free stack. The
+// MC68010's RTE reads a format/vector word too: format 0, a short frame.
 void RegsMc68000::restore(bool trace) {
     if (_vector && !_pins->answerVector(_vecAddr, InstMc68000::ORG_PARK)) {
         cli.println("?restore: vector not answered");
@@ -143,12 +171,27 @@ void RegsMc68000::restore(bool trace) {
     stageWord(frame, sr);
     stageWord(frame + 2, _pc >> 16);
     stageWord(frame + 4, _pc);
-    // MOVEA.L #usp,A0; MOVE A0,USP; MOVE.L #Dn x8; MOVEA.L #An x7, A7
-    // last; RTE.
+    if (_mc68010)
+        stageWord(frame + 6, 0x0000);
+    // MOVEA.L #,A0 and MOVEC A0,Rc for VBR, SFC, DFC; MOVEA.L #usp,A0;
+    // MOVE A0,USP; MOVE.L #Dn x8; MOVEA.L #An x7, A7 last; RTE.
     Sequence seq;
     constexpr uint16_t MOVE_L_IMM_D = 0x203C;   // MOVE.L #,Dn: n in bits 11-9
     constexpr uint16_t MOVEA_L_IMM_A = 0x207C;  // MOVEA.L #,An
     constexpr uint16_t MOVE_A0_USP = 0x4E60;
+    constexpr uint16_t MOVEC_TO_RC = 0x4E7B;  // MOVEC Rn,Rc
+    constexpr uint16_t A0_VBR = 0x8801, A0_SFC = 0x8000, A0_DFC = 0x8001;
+    if (_mc68010) {
+        seq.immediate(MOVEA_L_IMM_A, _vbr);
+        seq.word(MOVEC_TO_RC);
+        seq.word(A0_VBR);
+        seq.immediate(MOVEA_L_IMM_A, _sfc);
+        seq.word(MOVEC_TO_RC);
+        seq.word(A0_SFC);
+        seq.immediate(MOVEA_L_IMM_A, _dfc);
+        seq.word(MOVEC_TO_RC);
+        seq.word(A0_DFC);
+    }
     seq.immediate(MOVEA_L_IMM_A, _usp);
     seq.word(MOVE_A0_USP);
     for (uint_fast8_t i = 0; i < 8; ++i)
@@ -164,7 +207,8 @@ void RegsMc68000::restore(bool trace) {
 }
 
 void RegsMc68000::helpRegisters() const {
-    cli.println("?Reg: PC SR CCR D0-D7 A0-A6 SSP USP");
+    cli.print("?Reg: PC SR CCR D0-D7 A0-A6 SSP USP");
+    cli.println(_mc68010 ? " VBR SFC DFC" : "");
 }
 
 namespace {
@@ -195,6 +239,11 @@ constexpr const char *REGS32[] = {
         "A6",   // 18
         "SSP",  // 19
         "USP",  // 20
+        "VBR",  // 21
+};
+constexpr const char *REGS3[] = {
+        "SFC",  // 22
+        "DFC",  // 23
 };
 }  // namespace
 
@@ -204,8 +253,15 @@ const Regs::RegList *RegsMc68000::listRegisters(uint_fast8_t n) const {
             {REGS16, 1, 2, UINT16_MAX},
             {REGS24, 1, 3, 0xFFFFFF},
             {REGS32, 17, 4, UINT32_MAX},
+            {REGS32, 18, 4, UINT32_MAX},
+            {REGS3, 2, 22, 7},
     };
-    return n < sizeof(REG_LIST) / sizeof(REG_LIST[0]) ? &REG_LIST[n] : nullptr;
+    // The MC68010's list of longs takes VBR too.
+    static constexpr uint8_t LISTS[] = {0, 1, 2, 3};
+    static constexpr uint8_t LISTS10[] = {0, 1, 2, 4, 5};
+    if (_mc68010)
+        return n < sizeof(LISTS10) ? &REG_LIST[LISTS10[n]] : nullptr;
+    return n < sizeof(LISTS) ? &REG_LIST[LISTS[n]] : nullptr;
 }
 
 bool RegsMc68000::setRegister(uint_fast8_t reg, uint32_t value) {
@@ -225,6 +281,12 @@ bool RegsMc68000::setRegister(uint_fast8_t reg, uint32_t value) {
         _ssp = value;
     } else if (reg == 20) {
         _usp = value;
+    } else if (_mc68010 && reg == 21) {
+        _vbr = value;
+    } else if (_mc68010 && reg == 22) {
+        _sfc = value & 7;
+    } else if (_mc68010 && reg == 23) {
+        _dfc = value & 7;
     }
     return false;
 }
