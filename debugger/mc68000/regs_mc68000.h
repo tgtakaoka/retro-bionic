@@ -13,13 +13,19 @@ struct MemsMc68000;
 struct RegsMc68000 final : Regs {
     RegsMc68000(PinsMc68000Base *pins, MemsMc68000 *mems);
 
-    const char *cpu() const override { return "MC68000"; }
-    // An exception stacks SR and PC: six bytes.
-    uint_fast8_t frameBytes() const { return 6; }
-    // Where the CPU reads vector |vecNum|.
+    const char *cpu() const override {
+        return _mc68010 ? "MC68010" : "MC68000";
+    }
+    // An MC68010 stacks a format/vector word below SR and PC: a frame of
+    // eight bytes, not six.
+    void setMc68010(bool mc68010) { _mc68010 = mc68010; }
+    uint_fast8_t frameBytes() const { return _mc68010 ? 8 : 6; }
+    // Where the CPU reads vector |vecNum|: from VBR on the MC68010, which
+    // reset clears.
     uint32_t vecAddr(uint8_t vecNum) const;
 
     void print() const override;
+    void printAll() const override;
     // The state the program's reset vector sets, applied on resume.
     void reset() override;
     void save() override;
@@ -36,7 +42,8 @@ struct RegsMc68000 final : Regs {
         _parkedAddr = addr;
         _vector = false;
     }
-    // The frame an exception stacked (M68000UM Figure 6-5): SR, then PC.
+    // The frame an exception stacked (M68000UM Figure 6-5): SR, then PC,
+    // then on the MC68010 the format/vector word.
     struct Frame {
         uint32_t pc;   // the program's PC to resume at
         uint16_t sr;
@@ -62,6 +69,7 @@ struct RegsMc68000 final : Regs {
 private:
     PinsMc68000Base *const _pins;
     MemsMc68000 *const _mems;
+    bool _mc68010 = false;
 
     uint32_t _pc;
     uint32_t _parkedAddr;
@@ -72,6 +80,10 @@ private:
     uint32_t _usp;
     uint32_t _d[8];
     uint32_t _a[7];
+    // The MC68010's.
+    uint32_t _vbr;
+    uint8_t _sfc;
+    uint8_t _dfc;
 };
 
 }  // namespace mc68000

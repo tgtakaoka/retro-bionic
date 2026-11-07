@@ -13,8 +13,9 @@ struct InstMc68000 {
     static constexpr uint16_t RTE = 0x4E73;
 
     // Exception vectors (M68000UM Table 6-2): long words, the handler's
-    // address. The reset vector holds SSP, then PC, and is read as
-    // supervisor program at 0; the others as supervisor data.
+    // address, from VBR on the MC68010. The reset vector holds SSP, then
+    // PC, and is read as supervisor program at 0; the others as supervisor
+    // data.
     static constexpr uint32_t VEC_RESET = 0x000000;
     static constexpr uint8_t VECNUM_ILLEGAL = 4;
     static constexpr uint8_t VECNUM_TRACE = 9;

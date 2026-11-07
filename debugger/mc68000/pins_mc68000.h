@@ -54,8 +54,8 @@ namespace debugger {
 namespace mc68000 {
 
 // The MC68000P (DIP64), HD68000PS (SDIP64) and MC68000FN (PLCC68)
-// boards, for the MC68000, MC68HC000 and MC68HC001: a 16-bit bus, or an
-// 8-bit one from an MC68HC001 with MODE low.
+// boards, for the MC68000, MC68HC000, MC68HC001 and MC68010: a 16-bit
+// bus, or an 8-bit one from an MC68HC001 with MODE low.
 struct PinsMc68000 final : PinsMc68000Base {
     PinsMc68000();
 

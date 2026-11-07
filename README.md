@@ -91,7 +91,7 @@ All 57 targets, grouped by vendor and architecture:
 <tr><td>6809</td><td>MC6809 <em>HD6309</em>, MC6809E <em>HD6309E</em></td></tr>
 <tr><td>68HC12</td><td>MC68HC12B</td></tr>
 <tr><td>68HC16</td><td>MC68HC16Z</td></tr>
-<tr><td>68000</td><td>MC68008P, MC68008FN, MC68000P, MC68000FN</td></tr>
+<tr><td>68000</td><td>MC68008P, MC68008FN, MC68000P <em>MC68010</em>, MC68000FN <em>MC68010</em></td></tr>
 <tr><td>MOS Technology</td><td>6502</td><td>MOS6502 <em>G65SC02, R65C02, W65C02S, W65C816S</em></td></tr>
 <tr><td rowspan="6">Zilog</td><td>Z80</td><td>Z80, NSC800, KL5C80A12</td></tr>
 <tr><td>Z180</td><td>Z180, HD64180S</td></tr>
