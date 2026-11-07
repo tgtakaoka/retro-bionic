@@ -5,7 +5,7 @@
 namespace debugger {
 namespace mos6502 {
 
-MemsMos6502::MemsMos6502(Devs *devs)
+MemsMos6502::MemsMos6502(DevsMos6502 *devs)
     : ExtMemory(Endian::ENDIAN_LITTLE),
       _devs(devs),
       _longA(false),
@@ -16,18 +16,6 @@ MemsMos6502::MemsMos6502(Devs *devs)
 #ifdef WITH_DISASSEMBLER
     _disassembler = new libasm::mos6502::DisMos6502();
 #endif
-}
-
-uint16_t MemsMos6502::read(uint32_t addr) const {
-    return _devs->isSelected(addr) ? _devs->read(addr) : read_byte(addr);
-}
-
-void MemsMos6502::write(uint32_t addr, uint16_t data) const {
-    if (_devs->isSelected(addr)) {
-        _devs->write(addr, data);
-    } else {
-        write_byte(addr, data);
-    }
 }
 
 #ifdef WITH_ASSEMBLER
