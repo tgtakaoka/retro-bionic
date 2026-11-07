@@ -238,6 +238,7 @@ Signals *PinsMc68000Base::completeCycle(Signals *s) {
                 break;
         }
         s->cntl() = cntl;
+        getLanes(s);
         getData(s);
         storeWrite(s);
     }
