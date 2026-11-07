@@ -1,7 +1,8 @@
 ;;; -*- mode: asm; mode: flyspell-prog; -*-
 ;;; Console through the USART's interrupts: received characters queue
 ;;; at rx_queue, characters to send at tx_queue. The USART interrupts on
-;;; VI with identifier RX_ID or TX_ID, which usart.inc defines.
+;;; VI with identifier RX_ID or TX_ID, which usart.inc defines. The queues
+;;; are offsets in the data area DATA.
 rx_queue:       equ     2000H
 rx_queue_size:  equ     128
 tx_queue:       equ     2080H
@@ -122,7 +123,7 @@ SC_NEWLINE:     equ     3       ; newline
 ;;; caller's FCW at 4, which getchar's carry goes back in.
 isr_sc:
         push    @sp, r1
-        ld      r1, sp(#2)     ; SC #n: 7F00H|n
+        ld      r1, sp(#2)      ; SC #n: 7F00H|n
         cpb     rl1, #SC_GETCHAR
         jr      eq, isr_sc_getchar
         cpb     rl1, #SC_PUTCHAR

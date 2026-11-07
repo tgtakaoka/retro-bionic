@@ -2,6 +2,7 @@
         cpu     z8001
         include "z8001.inc"
         include "../z8002/usart.inc"
+DATA:           equ     SEGDATA
 
         org     ORG_RESET
         word    0
@@ -46,9 +47,9 @@ user_ps:
         word    FCW_SEG|FCW_VIE ; normal mode, vectored interrupts enabled
         word    CODE_SEG, loop-CODE
 
-        include "mandelbrot.inc"
-        include "io.inc"
-        include "queue_wait.inc"
+        include "../z8002/mandelbrot.inc"
+        include "../z8002/io.inc"
+        include "../z8002/queue_wait.inc"
 
 ;;; Return from an interrupt handler.
 isr_return:

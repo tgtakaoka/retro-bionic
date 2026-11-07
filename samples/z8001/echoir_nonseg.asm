@@ -2,6 +2,7 @@
         cpu     z8002           ; nonsegmented: the Z8002's code
         include "z8001.inc"
         include "../z8002/usart.inc"
+DATA:           equ     4000H   ; the Z8002's
 
 rx_queue:       equ     2000H
 rx_queue_size:  equ     128
