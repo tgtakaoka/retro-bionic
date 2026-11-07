@@ -90,8 +90,10 @@ protected:
     // What each board does its own way.
     // Parked at the fetch of ORG_PARK after reset: what its address shows.
     virtual void detectBoard() {}
-    // The address and FC, as #AS opens a cycle.
+    // The address, FC, and for a read the byte lanes, as #AS opens a cycle.
     virtual void getAddr(Signals *s) const = 0;
+    // A write's byte lanes, once its data strobes assert.
+    virtual void getLanes(Signals *s) const {}
     // A byte moves in bits 0-7 of |data|, whatever lane carries it.
     virtual void getData(Signals *s) const = 0;
     virtual void outData(const Signals *s) const = 0;

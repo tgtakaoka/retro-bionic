@@ -1,6 +1,6 @@
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE.md)
 [![PlatformIO CI](https://github.com/tgtakaoka/retro-bionic/actions/workflows/platformio-ci.yml/badge.svg)](https://github.com/tgtakaoka/retro-bionic/actions/workflows/platformio-ci.yml)
-[![Targets](https://img.shields.io/badge/CPU%20targets-55-orange.svg)](docs/supported-cpus.md)
+[![Targets](https://img.shields.io/badge/CPU%20targets-57-orange.svg)](docs/supported-cpus.md)
 [![Boards](https://img.shields.io/badge/KiCad%20boards-51-green.svg)](schematics)
 
 <div align="center">
@@ -33,7 +33,7 @@ cycle at a time, from a terminal on your desk.
 [Teensy 4.1](https://www.pjrc.com/store/teensy41.html) is wired to every pin of the target
 CPU and drives the whole system around it: the clock, every bus cycle, and the memory and
 peripherals the chip thinks it is talking to. One firmware image — about 470 kB including
-every assembler, disassembler and debugger — covers all **55 supported targets**, and the
+every assembler, disassembler and debugger — covers all **57 supported targets**, and the
 board tells the controller which one it is.
 
 <div align="center">
@@ -79,7 +79,7 @@ disassembly, single-stepping with the bus trace, then drawing the Mandelbrot set
 
 ## Supported CPUs
 
-All 55 targets, grouped by vendor and architecture:
+All 57 targets, grouped by vendor and architecture:
 
 <table>
 <thead>
@@ -91,7 +91,7 @@ All 55 targets, grouped by vendor and architecture:
 <tr><td>6809</td><td>MC6809 <em>HD6309</em>, MC6809E <em>HD6309E</em></td></tr>
 <tr><td>68HC12</td><td>MC68HC12B</td></tr>
 <tr><td>68HC16</td><td>MC68HC16Z</td></tr>
-<tr><td>68000</td><td>MC68008P, MC68008FN</td></tr>
+<tr><td>68000</td><td>MC68008P, MC68008FN, MC68000P, MC68000FN</td></tr>
 <tr><td>MOS Technology</td><td>6502</td><td>MOS6502 <em>G65SC02, R65C02, W65C02S, W65C816S</em></td></tr>
 <tr><td rowspan="6">Zilog</td><td>Z80</td><td>Z80, NSC800, KL5C80A12</td></tr>
 <tr><td>Z180</td><td>Z180, HD64180S</td></tr>
