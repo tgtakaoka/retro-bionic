@@ -252,6 +252,7 @@ Signals *PinsMc68000Base::completeCycle(Signals *s) {
                 break;
         }
         s->cntl() = cntl;
+        getLanes(s);
         getData(s);
         noInterrupts();
         assert_dtack();
@@ -308,6 +309,7 @@ Signals *PinsMc68000Base::completeTasWrite(const Signals *r, uint8_t cntl) {
         cntl = busRead(CNTL);
     }
     s->cntl() = cntl;
+    getLanes(s);
     getData(s);
     assert_dtack();
     Cycles::next();
