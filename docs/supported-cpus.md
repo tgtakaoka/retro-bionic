@@ -34,13 +34,12 @@ report several parts.
 <tr><td>✅</td><td><code>MC68HC08AZ0</code></td><td></td><td>No NMI pin; stepped by monitoring every bus cycle</td></tr>
 <tr><td rowspan="2"><code>mc6809</code></td><td rowspan="2"><code>mc6809</code></td><td>✅</td><td><code>MC6809</code></td><td><code>HD6309</code></td><td></td></tr>
 <tr><td>✅</td><td><code>MC6809E</code></td><td><code>HD6309E</code></td><td></td></tr>
-<tr><td rowspan="10"><code>mc68000</code></td><td rowspan="5"><code>mc68000</code></td><td>✅</td><td><code>MC68008P</code></td><td></td><td></td></tr>
+<tr><td rowspan="9"><code>mc68000</code></td><td rowspan="5"><code>mc68000</code></td><td>✅</td><td><code>MC68008P</code></td><td></td><td></td></tr>
 <tr><td>✅</td><td><code>MC68008FN</code></td><td></td><td></td></tr>
 <tr><td>✅</td><td><code>MC68000P</code></td><td></td><td><code>MC68000P</code>, <code>MC68HC000P</code></td></tr>
 <tr><td>🚧</td><td><code>HD68000PS</code></td><td></td><td><code>HD68HC000PS</code>; not yet run on a board</td></tr>
-<tr><td>✅</td><td><code>MC68000FN</code></td><td></td><td><code>MC68HC000FN</code></td></tr>
-<tr><td rowspan="5"></td><td>🚧</td><td><code>MC68HC001</code></td><td></td><td><code>MC68HC001FN10</code>, <code>MC68HC001FN16</code></td></tr>
-<tr><td>🚧</td><td><code>MC68010</code></td><td></td><td><code>MC68010P12</code>, <code>MC68010FN12</code></td></tr>
+<tr><td>✅</td><td><code>MC68000FN</code></td><td><code>MC68HC001</code></td><td><code>MC68HC000FN</code>, <code>MC68HC001FN</code>; the MC68HC001's 8-bit mode not yet run</td></tr>
+<tr><td rowspan="4"></td><td>🚧</td><td><code>MC68010</code></td><td></td><td><code>MC68010P12</code>, <code>MC68010FN12</code></td></tr>
 <tr><td>🚧</td><td><code>MC68020</code></td><td></td><td><code>MC68020FC16E</code></td></tr>
 <tr><td>🚧</td><td><code>MC68030</code></td><td></td><td><code>MC68030FE25C</code>, <code>MC68030FE33</code></td></tr>
 <tr><td>🚧</td><td><code>MC68040</code></td><td></td><td><code>MC68040FE33A</code>; needs a bus sizer</td></tr>

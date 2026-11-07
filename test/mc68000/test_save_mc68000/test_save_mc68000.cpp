@@ -143,6 +143,10 @@ void test_save_mc68008() {
     checkSave(ORG_PARK, MASK_20, true);
 }
 
+void test_save_hc001_8bit() {
+    checkSave(ORG_PARK, MASK_24, true);
+}
+
 // A stack just above 0 pushes across the top of the address space.
 void test_save_wraps() {
     checkSave(0x000020, MASK_24, false);
@@ -171,6 +175,7 @@ int main() {
     RUN_TEST(test_save_listing);
     RUN_TEST(test_save_mc68000);
     RUN_TEST(test_save_mc68008);
+    RUN_TEST(test_save_hc001_8bit);
     RUN_TEST(test_save_wraps);
     RUN_TEST(test_save_missing_byte);
     return UNITY_END();
