@@ -76,25 +76,14 @@
 #define W65C816_MX PIN_SO
 #define CNTL_VPA CNTL_SYNC
 
+#include <Arduino.h>
+#include "digital_bus.h"
+#include "inst_mos6502.h"
 #include "pins.h"
 #include "signals_mos6502.h"
 
 namespace debugger {
 namespace mos6502 {
-
-enum HardwareType : uint8_t {
-    HW_MOS6502 = 0,  // SW_MOS6502
-    HW_W65C02S = 3,  // SW_W65C02S
-    HW_W65C816 = 4,  // SW_W65C816
-};
-
-enum SoftwareType : uint8_t {
-    SW_MOS6502 = 0,  // HW_MOS6502
-    SW_G65SC02 = 1,  // HW_MOS6502
-    SW_R65C02 = 2,   // HW_MOS6502
-    SW_W65C02S = 3,  // HW_W65C02S
-    SW_W65C816 = 4,  // HW_W65C816
-};
 
 struct PinsMos6502 final : Pins {
     PinsMos6502();
@@ -114,6 +103,25 @@ struct PinsMos6502 final : Pins {
 
     Signals *inject(uint8_t data);
     bool native65816() const;
+#ifdef TUNE_CLOCK
+    uint32_t clockInput() const override;
+    bool setClockInput(uint32_t hz) override;
+#endif
+
+    // An engine's delays in ns.
+    struct Timing {
+        uint16_t lo;          // PHI0 fall to address and control
+        uint16_t loSync;      // control to address, 16-bit cycles
+        uint16_t loPoll;      // run loop, no device serviced
+        uint16_t loFetch;     // run loop
+        uint16_t loLoop;      // run loop, not a fetch
+        uint16_t loExecute;   // execute()'s cycles
+        uint16_t hiReadPre;   // PHI0 rise or memory read to data out
+        uint16_t hiReadPost;  // data out to PHI0 fall
+        uint16_t hiInject;    // in place of a memory read
+        uint16_t hiWrite;     // PHI0 rise to write data
+        uint16_t hiCapture;   // in place of a memory write
+    };
 
     // What the NMI that stopped the CPU stacked: PBR (native), PCH, PCL,
     // P, and the S they were pushed from; len is 0 without one.
@@ -131,25 +139,121 @@ private:
     static HardwareType _hardType;
     static SoftwareType _softType;
     Frame _frame = {};
+    // The engine bus cycles run on, one per SoftwareType: the hardware
+    // type's own (HW_ and SW_ values coincide) until the software type is
+    // known.
+    SoftwareType _engine = SW_MOS6502;
+    // What sets each engine's cycles apart, as constants.
+    template <SoftwareType E>
+    struct Traits;
+#ifdef TUNE_CLOCK
+    // The delays K scales: per mille of the part's rated clock.
+    uint16_t _clockPermille = 1000;
+    Timing _timing;
+    void setTiming();
+#endif
 
     void checkHardwareType();
+    template <SoftwareType E>
     void checkSoftwareType();
     bool stopInst(uint8_t inst) const;
+    void setEngine(SoftwareType engine);
+    template <SoftwareType E>
+    void resetCpu();
+    // Waits the engine's |F| delay; one the datasheet leaves at 0 costs
+    // nothing.
+    template <SoftwareType E, uint16_t Timing::*F>
+    void delay() const;
+    template <typename F>
+    auto withEngine(F f);
 
     friend struct RegsMos6502;
-    Signals *rawPrepareCycle();
+    template <SoftwareType E>
     Signals *prepareCycle();
+    template <SoftwareType E>
+    Signals *rawPrepareCycle();
+    template <SoftwareType E>
     Signals *completeCycle(Signals *signals);
+    template <SoftwareType E>
     Signals *cycle();
+    template <SoftwareType E>
+    Signals *inject(uint8_t data);
+    template <SoftwareType E>
     bool suspend();
+    template <SoftwareType E>
     bool loop();
+    template <SoftwareType E>
     bool rawStep();
+    template <SoftwareType E>
+    void execute(const uint8_t *inst, uint8_t len, uint16_t *addr, uint8_t *buf,
+            uint8_t max);
     void execute(const uint8_t *inst, uint8_t len, uint16_t *addr, uint8_t *buf,
             uint8_t max);
 
     const SignalsImpl *findBacktraceStart() override;
     void printBacktrace() override;
 };
+
+void Signals::getControl() {
+    cntl() = busRead(CNTL);
+}
+
+// Each port is read once: AM and AH share GPIO7, AL and BA GPIO6.
+void Signals::getAddr16() {
+    const auto p7 = PIN(AM);
+    addr = busRead(AL) | busValue(AM, p7) | busValue(AH, p7);
+}
+
+void Signals::getAddr24() {
+    const auto p6 = PIN(AL);
+    const auto p7 = PIN(AM);
+    addr = busValue(AL, p6) | busValue(BA, p6) | busValue(AM, p7) |
+           busValue(AH, p7);
+}
+
+void Signals::getData() {
+    data = busRead(D);
+}
+
+void Signals::stageData() const {
+    busWrite(D, data);
+}
+
+void Signals::outputMode() {
+    PDDR(D) = _dataOutput;
+}
+
+void Signals::inputMode() {
+    PDDR(D) = _dataInput;
+}
+
+bool Signals::read() const {
+    return cntl() & CNTL_RW;
+}
+
+bool Signals::write() const {
+    return (cntl() & CNTL_RW) == 0;
+}
+
+bool Signals::addr24() const {
+    return (cntl() & CNTL_E) == 0;
+}
+
+template <HardwareType H>
+bool Signals::fetch() const {
+    // The W65C816 has no SYNC; VPA and VDA (VPD) both high mark a fetch.
+    if constexpr (H == HW_W65C816)
+        return (cntl() & (CNTL_VPA | CNTL_VPD)) == (CNTL_VPA | CNTL_VPD);
+    return cntl() & CNTL_SYNC;
+}
+
+template <HardwareType H>
+bool Signals::vector() const {
+    // The 6502 pinout has no VP.
+    if constexpr (H == HW_MOS6502)
+        return read() && addr >= InstMos6502::VECTOR_NMI;
+    return (cntl() & CNTL_VP) == 0;
+}
 
 }  // namespace mos6502
 }  // namespace debugger

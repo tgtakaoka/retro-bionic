@@ -8,57 +8,24 @@
 namespace debugger {
 namespace mos6502 {
 
-void Signals::getControl() {
-    cntl() = busRead(CNTL);
-}
+uint32_t Signals::_dataInput;
+uint32_t Signals::_dataOutput;
 
-void Signals::getAddr16() {
-    getControl();
-    addr = busRead(AL) | busRead(AM) | busRead(AH);
-}
-
-void Signals::getAddr24() {
-    getAddr16();
-    addr |= busRead(BA);
-}
-
-bool Signals::read() const {
-    return cntl() & CNTL_RW;
-}
-
-bool Signals::write() const {
-    return (cntl() & CNTL_RW) == 0;
+void Signals::saveDataMode() {
+    _dataInput = PDDR(D) & ~PORT_gm(D);
+    _dataOutput = _dataInput | PORT_gm(D);
 }
 
 bool Signals::fetch() const {
-    // The W65C816 has no SYNC; VPA and VDA (VPD) both high mark a fetch.
     if (PinsMos6502::hardwareType() == HW_W65C816)
-        return (cntl() & (CNTL_VPA | CNTL_VPD)) == (CNTL_VPA | CNTL_VPD);
-    return cntl() & CNTL_SYNC;
+        return fetch<HW_W65C816>();
+    return fetch<HW_MOS6502>();
 }
 
 bool Signals::vector() const {
-    // The 6502 pinout has no VP.
     if (PinsMos6502::hardwareType() == HW_MOS6502)
-        return read() && addr >= InstMos6502::VECTOR_NMI;
-    return (cntl() & CNTL_VP) == 0;
-}
-
-bool Signals::addr24() const {
-    return (cntl() & CNTL_E) == 0;
-}
-
-void Signals::getData() {
-    data = busRead(D);
-}
-
-void Signals::outData() const {
-    busWrite(D, data);
-    busMode(D, OUTPUT);
-}
-
-void Signals::inputMode() {
-    busMode(D, INPUT);
+        return vector<HW_MOS6502>();
+    return vector<HW_W65C02S>();
 }
 
 void Signals::print() const {

@@ -1,6 +1,5 @@
 #include "devs_mos6502.h"
 #include <strings.h>
-#include "mc6850.h"
 
 namespace debugger {
 namespace mos6502 {
@@ -23,10 +22,6 @@ void DevsMos6502::begin() {
 
 bool DevsMos6502::loopDevices() {
     return _acia->loop();
-}
-
-bool DevsMos6502::isSelected(uint32_t addr) const {
-    return _acia->isSelected(addr);
 }
 
 uint16_t DevsMos6502::read(uint32_t addr) const {

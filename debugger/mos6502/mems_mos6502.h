@@ -1,24 +1,32 @@
 #ifndef __MEMS_MOS6502_H__
 #define __MEMS_MOS6502_H__
 
-#include "devs.h"
+#include "devs_mos6502.h"
 #include "mems.h"
 
 namespace debugger {
 namespace mos6502 {
 
 struct MemsMos6502 final : ExtMemory {
-    MemsMos6502(Devs *devs);
+    MemsMos6502(DevsMos6502 *devs);
 
     uint32_t maxAddr() const override { return UINT16_MAX; }
-    uint16_t read(uint32_t addr) const override;
-    void write(uint32_t addr, uint16_t data) const override;
+    uint16_t read(uint32_t addr) const override {
+        return _devs->isSelected(addr) ? _devs->read(addr) : read_byte(addr);
+    }
+    void write(uint32_t addr, uint16_t data) const override {
+        if (_devs->isSelected(addr)) {
+            _devs->write(addr, data);
+        } else {
+            write_byte(addr, data);
+        }
+    }
 
     void longA(bool enable) { _longA = enable; }
     void longI(bool enable) { _longI = enable; }
 
 private:
-    Devs *const _devs;
+    DevsMos6502 *const _devs;
     bool _longA;
     bool _longI;
 
