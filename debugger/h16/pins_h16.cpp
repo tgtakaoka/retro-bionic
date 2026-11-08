@@ -421,6 +421,10 @@ Signals *PinsH16::completeCycle(Signals *s) {
             serveRead(s);
             s->stageData();
         }
+        // While #WAIT still holds the CPU: a lookup missing the cache can
+        // outlast the next cycle's T2.
+        if (s->programFetch() && s->readMemory())
+            predictFetch(s);
     }
     noInterrupts();
     releaseWait();
@@ -437,8 +441,6 @@ Signals *PinsH16::completeCycle(Signals *s) {
         s->getLane();
     if (memRead(s)) {
         PDDR(AD) = _adInput;
-        if (s->programFetch() && s->readMemory())
-            predictFetch(s);
     } else if (memWrite(s)) {
         s->getData();
         _pendingWrite = s;
@@ -556,7 +558,7 @@ void PinsH16::stageRead(Signals *s) {
     s->markStaged();
 }
 
-// Look up the word after the fetch |s|, while the cycle runs out.
+// Look up the word after the fetch |s|, while #WAIT holds it.
 void PinsH16::predictFetch(const Signals *s) {
     const auto next = wrap((s->addr & ~UINT32_C(1)) + 2);
     if (_devs->isSelected(next)) {
