@@ -2278,7 +2278,7 @@ moment `#AS` falls. The data strobes assert before the CPU lets go of
 the bus, so read data waits for the T2 fall (Figure 17-4).
 
 Board for the HD641016CP (PLCC84), benched on an HD641016CP10: regress
-passes at EXTAL 10 MHz, mandelbrot 2.4 s/frame; at 10.7 MHz the debugger
+passes at EXTAL 10 MHz, mandelbrot 2.5 s/frame; at 10.7 MHz the debugger
 no longer keeps up.
 
 - `#HDS` and `#LDS` of a word cycle fall up to 8 ns apart: a data read
@@ -2302,6 +2302,18 @@ no longer keeps up.
 - PF marks the prefetch queue's fetches, which run up to 8 bytes ahead,
   not instruction starts. A fetch that does not follow the last one is a
   flush, so the backtrace disassembles from there by length. **[hw]**
+- A flush drops what the queue fetched past the instruction that caused
+  it. ANDC, ORC, XORC and LDC refetch right past themselves; ICBN does
+  not. A BSR's return PC writes come after the target's first fetches.
+  An interrupt refetches the instruction it takes, then stacks its
+  address. A taken branch to the word the queue fetches next shows no
+  flush at all. **[hw]**
+- The backtrace ends each run at a stacked return PC, the first
+  unconditional transfer, the first branch to the next flush, or ANDC,
+  ORC, XORC or LDC refetching it; the last run at the stop's PC. A
+  branch to a word already fetched may have skipped what lies before
+  its target: those lines are marked `?`. `G n` and `g addr n` keep
+  `n` printed lines. **[code]**
 
 - EXTAL (P47) runs free from FlexPWM3 from reset on, PHI comes back on
   P46. `#WAIT` stays low; a served cycle negates it until `#AS` rises,

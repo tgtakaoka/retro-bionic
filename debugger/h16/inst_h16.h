@@ -38,6 +38,18 @@ struct InstH16 {
     // never touches memory there. Clear of the reset vectors, the on-chip
     // RAM at FFF800H and the on-chip I/O at FFFE00H.
     static constexpr uint32_t ORG_PARK = 0xFFE000;
+
+    // How an instruction passes control on.
+    enum Flow : uint8_t {
+        FLOW_NEXT,    // to the next instruction
+        FLOW_BRANCH,  // to its target or the next, as a condition says
+        FLOW_JUMP,    // never to the next: branch, jump, call, return, trap
+        FLOW_SYNC,    // to the next, refetched: ANDC/LDC/ORC/XORC
+    };
+    // The flow of the |len| bytes of |code| at |addr|; a branch's target
+    // goes to |target|.
+    static Flow flow(const uint8_t *code, uint_fast8_t len, uint32_t addr,
+            uint32_t &target);
 };
 
 }  // namespace h16

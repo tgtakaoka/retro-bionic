@@ -69,6 +69,7 @@
 #define PIN_WAIT 31   /* P8.22 */
 #define PIN_BRTRY 30  /* P8.23 */
 
+#include "inst_h16.h"
 #include "pins.h"
 #include "pwm_clock.h"
 #include "regs_h16.h"
@@ -151,6 +152,15 @@ private:
     void resetPins() override;
     const SignalsImpl *findBacktraceStart() override;
     void printBacktrace() override;
+    // What ran of a run of fetches.
+    struct Executed {
+        uint32_t until;    // the end of what ran; UINT32_MAX if unknown
+        uint32_t fetched;  // past the run's last fetched byte
+        uint32_t target;   // the next run's start; UINT32_MAX for none
+    };
+    Executed executed(uint32_t from, uint32_t cycles) const;
+    InstH16::Flow flowAt(
+            uint32_t addr, uint_fast8_t len, uint32_t &target) const;
     void setupBus();
     bool loop();
     uint32_t isException(const Signals *s, RegsH16::Frame &frame,

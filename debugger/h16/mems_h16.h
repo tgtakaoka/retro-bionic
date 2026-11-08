@@ -31,6 +31,12 @@ struct MemsH16 final : ExtMemory {
     void put_data(uint32_t addr, uint16_t data) const override;
     void attach(RegsH16 *regs) { _regs = regs; }
 
+    // The length of the instruction at |addr|, at least 1.
+    uint_fast8_t insnLength(uint32_t addr) const;
+    // Shows the instruction at |addr|, with a "?" if it |maybe| never
+    // ran; returns the next.
+    uint32_t disassembleOne(uint32_t addr, bool maybe) const;
+
 private:
     RegsH16 *_regs = nullptr;
 };

@@ -1049,49 +1049,160 @@ struct FetchRun {
 };
 }  // namespace
 
-// The latest flush that leaves at least the limit's count of fetches
-// after it, so the disassembly starts on an instruction.
+// The latest flush that leaves at least the limit's count of lines that
+// printBacktrace() prints after it, so the disassembly starts on an
+// instruction.
 const SignalsImpl *PinsH16::findBacktraceStart() {
     const auto g = Signals::get();
     const auto cycles = g->diff(Signals::put());
-    uint32_t total = 0;
+    const auto mems = this->mems<MemsH16>();
+    // Each run's first cycle and the instructions it prints.
+    uint8_t starts[Cycles::MAX_CYCLES];
+    uint16_t lines[Cycles::MAX_CYCLES];
+    auto runs = 0u;
     FetchRun run;
     bool flush;
-    for (auto i = 0u; i < cycles; ++i)
-        total += run.next(g->next(i), flush);
-    run = FetchRun();
-    uint32_t before = 0;
-    auto start = 0u;
     for (auto i = 0u; i < cycles; ++i) {
-        if (!run.next(g->next(i), flush))
+        const auto s = g->next(i);
+        if (!run.next(s, flush) || !flush)
             continue;
-        if (flush && total - before >= _lineLimit)
-            start = i;
-        ++before;
+        const auto ran = executed(i, cycles);
+        const auto end = ran.until < ran.fetched ? ran.until : ran.fetched;
+        auto n = 0u;
+        for (auto addr = s->addr; addr < end; addr += mems->insnLength(addr))
+            ++n;
+        starts[runs] = i;
+        lines[runs++] = n;
+    }
+    auto start = runs ? starts[0] : 0u;
+    uint32_t total = 0;
+    while (runs--) {
+        total += lines[runs];
+        if (total >= _lineLimit) {
+            start = starts[runs];
+            break;
+        }
     }
     return g->next(start);
+}
+
+// How the instruction of |len| bytes at |addr| passes control on.
+InstH16::Flow PinsH16::flowAt(
+        uint32_t addr, uint_fast8_t len, uint32_t &target) const {
+    const auto mems = this->mems<MemsH16>();
+    uint8_t code[16];
+    for (auto n = 0u; n < len && n < sizeof(code); ++n)
+        code[n] = mems->get_code(addr + n);
+    return InstH16::flow(code, len, addr, target);
+}
+
+// What ran of the run of fetches starting at cycle |from|: the prefetch
+// reads up to 8 bytes past the instruction executing, and a flush drops
+// them. A return PC stacked by a call, trap or interrupt is exact, and its
+// writes may follow the next run's first fetches. Otherwise the first
+// unconditional transfer, branch to the next run's start or ANDC/LDC/ORC/
+// XORC refetching it ends the run. Without a flush, the stop's PC ends it.
+// ATTENTION: of two branches to the same target in one run, the first is
+// taken as the one that ran; a ring's first run may start mid-instruction.
+PinsH16::Executed PinsH16::executed(uint32_t from, uint32_t cycles) const {
+    const auto g = Signals::get();
+    FetchRun run;
+    bool flush;
+    run.next(g->next(from), flush);
+    const auto start = g->next(from)->addr;
+    auto i = from + 1;
+    Executed ran{UINT32_MAX, run.fetched, UINT32_MAX};
+    for (; i < cycles; ++i) {
+        if (run.next(g->next(i), flush) && flush)
+            break;
+        ran.fetched = run.fetched;
+    }
+    const auto flushed = i < cycles;
+    if (flushed)
+        ran.target = g->next(i)->addr;
+    // A long written as two words at ascending addresses, up to the end
+    // of the next run.
+    uint32_t stacked = UINT32_MAX;
+    const Signals *prev = nullptr;
+    for (auto j = from; j < cycles && stacked == UINT32_MAX; ++j) {
+        const auto s = g->next(j);
+        if (j > i && run.next(s, flush) && flush)
+            break;
+        if (!memWrite(s) || !s->wordAccess())
+            continue;
+        if (prev && prev->addr + 2 == s->addr) {
+            const auto pc = ((uint32_t(prev->data) << 16) | s->data) &
+                            MemsH16::ADDR_MASK;
+            if (pc >= start && pc <= ran.fetched)
+                stacked = pc;
+        }
+        prev = s;
+    }
+    if (!flushed) {
+        const auto pc = _regs->nextIp();
+        if (pc >= start && pc <= ran.fetched)
+            ran.until = pc;
+        return ran;
+    }
+    const auto mems = this->mems<MemsH16>();
+    uint32_t branched = UINT32_MAX;
+    for (auto addr = start; addr < ran.fetched;) {
+        const auto len = mems->insnLength(addr);
+        if (addr + len > ran.fetched)
+            break;  // not all fetched, so never ran
+        uint32_t to;
+        const auto flow = flowAt(addr, len, to);
+        addr += len;
+        if (flow == InstH16::FLOW_JUMP ||
+                (flow == InstH16::FLOW_BRANCH && to == ran.target) ||
+                (flow == InstH16::FLOW_SYNC && addr == ran.target)) {
+            branched = addr;
+            break;
+        }
+    }
+    if (stacked != UINT32_MAX && stacked <= branched) {
+        ran.until = stacked;
+    } else if (branched != UINT32_MAX) {
+        ran.until = branched;
+    } else if (ran.target == start) {
+        ran.until = start;  // refetched: an interrupt or #NMI took it first
+    }
+    return ran;
 }
 
 // PF marks the prefetch queue's fetches, which run ahead of execution.
 // A fetch that does not follow the last one is a queue flush, at a
 // branch target or a handler, so an instruction starts there; the ones
-// after it follow by length, each shown as its first byte is fetched.
-// ATTENTION: up to 8 bytes the queue fetched before a flush show as
-// instructions though they never ran.
+// after it follow by length, each shown as its first byte is fetched, up
+// to where the run's execution ended. A branch to a word the queue has
+// fetched anyway flushes nothing: what it may have skipped is marked.
 void PinsH16::printBacktrace() {
     const auto g = Signals::get();
     const auto cycles = g->diff(Signals::put());
+    const auto mems = this->mems<MemsH16>();
     FetchRun run;
     uint32_t next = 0;  // the next instruction's start
+    Executed ran{0, 0, UINT32_MAX};
+    uint32_t maybe = 0;  // a taken branch may have skipped up to here
     for (auto i = 0u; i < cycles; ++i) {
         const auto s = g->next(i);
         bool flush;
         const auto fetch = run.next(s, flush);
         if (fetch) {
-            if (flush)
+            if (flush) {
                 next = s->addr;
-            while (next < run.fetched)
-                next = _mems->disassemble(next, 1);
+                ran = executed(i, cycles);
+                maybe = 0;
+            }
+            while (next < run.fetched && next < ran.until) {
+                const auto addr = next;
+                next = mems->disassembleOne(addr, addr < maybe);
+                uint32_t to;
+                if (flowAt(addr, next - addr, to) == InstH16::FLOW_BRANCH &&
+                        to > next && to <= ran.fetched && to != ran.target &&
+                        to > maybe)
+                    maybe = to;
+            }
         }
         if (!fetch || Debugger.verbose())
             s->print();
