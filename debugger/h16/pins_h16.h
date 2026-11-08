@@ -157,6 +157,7 @@ private:
         uint32_t until;    // the end of what ran; UINT32_MAX if unknown
         uint32_t fetched;  // past the run's last fetched byte
         uint32_t target;   // the next run's start; UINT32_MAX for none
+        bool caused;       // |until| ends the instruction that ended it
     };
     Executed executed(uint32_t from, uint32_t cycles) const;
     InstH16::Flow flowAt(
