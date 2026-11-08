@@ -2306,14 +2306,19 @@ no longer keeps up.
   it. ANDC, ORC, XORC and LDC refetch right past themselves; ICBN does
   not. A BSR's return PC writes come after the target's first fetches.
   An interrupt refetches the instruction it takes, then stacks its
-  address. A taken branch to the word the queue fetches next shows no
+  address. IRQ0, TRAPA, an illegal instruction, a zero divide and a
+  trace all write the PC long, then the SR word below it, then read the
+  vector. A taken branch to the word the queue fetches next shows no
   flush at all. **[hw]**
-- The backtrace ends each run at a stacked return PC, the first
+- The backtrace ends each run at an exception frame's PC, the first
   unconditional transfer, the first branch to the next flush, or ANDC,
-  ORC, XORC or LDC refetching it; the last run at the stop's PC. A
-  branch to a word already fetched may have skipped what lies before
-  its target: those lines are marked `?`. `G n` and `g addr n` keep
-  `n` printed lines. **[code]**
+  ORC, XORC or LDC refetching it; the last run at the stop's PC. A frame
+  is a PC long with the SR word written 2 bytes below; a spilled ring
+  bank or an STM goes on 4 bytes below, and a spilled code address cut
+  its own run short. A branch to a word already fetched may have skipped
+  what lies before its target: those lines are marked `?`, unless the
+  run ended in there. `G n` and `g addr n` keep `n` printed lines.
+  **[code]**
 
 - EXTAL (P47) runs free from FlexPWM3 from reset on, PHI comes back on
   P46. `#WAIT` stays low; a served cycle negates it until `#AS` rises,
@@ -2339,8 +2344,9 @@ no longer keeps up.
 - In ring mode CRn and PRn are the current and previous ring banks'
   registers, apart from the global bank's Rn; CR15 is no stack pointer,
   but an overflow stacks the bank through BSP with its low 16 bits as the
-  register list. All 32 bits of CBNR count: 8 ICBN from 0 read 8.
-  **[hw]**
+  register list, CR15 itself always included: CR0 first, at the top,
+  and the fill reads CR15 back first. All 32 bits of CBNR count: 8 ICBN
+  from 0 read 8. **[hw]**
 - The on-chip RAM and I/O are reached by MOVs run on the parked CPU. The
   register banks read as RAM only with BPM set; with it clear they read a
   fixed pattern. Global bank 0 is the RAM's top 64 bytes, its R15 slot

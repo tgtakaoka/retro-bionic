@@ -1098,8 +1098,7 @@ InstH16::Flow PinsH16::flowAt(
 
 // What ran of the run of fetches starting at cycle |from|: the prefetch
 // reads up to 8 bytes past the instruction executing, and a flush drops
-// them. A return PC stacked by a call, trap or interrupt is exact, and its
-// writes may follow the next run's first fetches. Otherwise the first
+// them. The PC an exception stacks is exact. Otherwise the first
 // unconditional transfer, branch to the next run's start or ANDC/LDC/ORC/
 // XORC refetching it ends the run. Without a flush, the stop's PC ends it.
 // ATTENTION: of two branches to the same target in one run, the first is
@@ -1111,7 +1110,7 @@ PinsH16::Executed PinsH16::executed(uint32_t from, uint32_t cycles) const {
     run.next(g->next(from), flush);
     const auto start = g->next(from)->addr;
     auto i = from + 1;
-    Executed ran{UINT32_MAX, run.fetched, UINT32_MAX};
+    Executed ran{UINT32_MAX, run.fetched, UINT32_MAX, false};
     for (; i < cycles; ++i) {
         if (run.next(g->next(i), flush) && flush)
             break;
@@ -1120,23 +1119,24 @@ PinsH16::Executed PinsH16::executed(uint32_t from, uint32_t cycles) const {
     const auto flushed = i < cycles;
     if (flushed)
         ran.target = g->next(i)->addr;
-    // A long written as two words at ascending addresses, up to the end
-    // of the next run.
+    // An exception frame, written before the handler's first fetch: the
+    // PC long as two words at ascending addresses, then the SR word just
+    // below. A ring bank or an STM stacks its next long 4 bytes below.
     uint32_t stacked = UINT32_MAX;
-    const Signals *prev = nullptr;
-    for (auto j = from; j < cycles && stacked == UINT32_MAX; ++j) {
+    const Signals *hi = nullptr;
+    const Signals *lo = nullptr;
+    for (auto j = from; j < i && stacked == UINT32_MAX; ++j) {
         const auto s = g->next(j);
-        if (j > i && run.next(s, flush) && flush)
-            break;
         if (!memWrite(s) || !s->wordAccess())
             continue;
-        if (prev && prev->addr + 2 == s->addr) {
-            const auto pc = ((uint32_t(prev->data) << 16) | s->data) &
+        if (hi && hi->addr + 2 == lo->addr && s->addr + 2 == hi->addr) {
+            const auto pc = ((uint32_t(hi->data) << 16) | lo->data) &
                             MemsH16::ADDR_MASK;
             if (pc >= start && pc <= ran.fetched)
                 stacked = pc;
         }
-        prev = s;
+        hi = lo;
+        lo = s;
     }
     if (!flushed) {
         const auto pc = _regs->nextIp();
@@ -1164,6 +1164,7 @@ PinsH16::Executed PinsH16::executed(uint32_t from, uint32_t cycles) const {
         ran.until = stacked;
     } else if (branched != UINT32_MAX) {
         ran.until = branched;
+        ran.caused = true;
     } else if (ran.target == start) {
         ran.until = start;  // refetched: an interrupt or #NMI took it first
     }
@@ -1175,14 +1176,15 @@ PinsH16::Executed PinsH16::executed(uint32_t from, uint32_t cycles) const {
 // branch target or a handler, so an instruction starts there; the ones
 // after it follow by length, each shown as its first byte is fetched, up
 // to where the run's execution ended. A branch to a word the queue has
-// fetched anyway flushes nothing: what it may have skipped is marked.
+// fetched anyway flushes nothing: what it may have skipped is marked,
+// unless the run ended in there, which the branch would have jumped past.
 void PinsH16::printBacktrace() {
     const auto g = Signals::get();
     const auto cycles = g->diff(Signals::put());
     const auto mems = this->mems<MemsH16>();
     FetchRun run;
     uint32_t next = 0;  // the next instruction's start
-    Executed ran{0, 0, UINT32_MAX};
+    Executed ran{0, 0, UINT32_MAX, false};
     uint32_t maybe = 0;  // a taken branch may have skipped up to here
     for (auto i = 0u; i < cycles; ++i) {
         const auto s = g->next(i);
@@ -1198,9 +1200,13 @@ void PinsH16::printBacktrace() {
                 const auto addr = next;
                 next = mems->disassembleOne(addr, addr < maybe);
                 uint32_t to;
-                if (flowAt(addr, next - addr, to) == InstH16::FLOW_BRANCH &&
-                        to > next && to <= ran.fetched && to != ran.target &&
-                        to > maybe)
+                if (flowAt(addr, next - addr, to) != InstH16::FLOW_BRANCH ||
+                        to <= next || to > ran.fetched || to == ran.target)
+                    continue;
+                const auto endedIn =
+                        ran.until > next &&
+                        (ran.until < to || (ran.caused && ran.until == to));
+                if (!endedIn && to > maybe)
                     maybe = to;
             }
         }
