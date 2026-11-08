@@ -459,6 +459,8 @@ cycles, where bit-banged edges needed a tuned delay for each.
   still held, and keep interrupts masked from its release until the next
   address is in. The HD641016 drops its address at T2; a USB interrupt
   fired on unmasking took a push's data 12B9H for its address 002572H.
+  Nothing slow runs between the release and the next hold either: a
+  lookup that may miss the cache goes before the release.
 - A target moved to a timer adds its row to the table in
   [hardware.md](hardware.md#clocking-the-cpu) (clock input, the input that
   holds a cycle, default rate) in the same commit, and a cast recorded on
@@ -2293,7 +2295,10 @@ no longer keeps up.
   write is stored after the next address is read; stored at the release,
   a slow store missed that address. **[doc]**
 - Reads are looked up before their strobes, and each fetch looks up the
-  next word ahead. **[doc]**
+  next word ahead while `#WAIT` still holds it. Looked up after the
+  release, a cache miss outlasted the next T2: the CPU ran that fetch
+  unserved and took its own address, left by the bus holder, as an STM
+  register list. **[hw]**
 - PF marks the prefetch queue's fetches, which run up to 8 bytes ahead,
   not instruction starts. A fetch that does not follow the last one is a
   flush, so the backtrace disassembles from there by length. **[hw]**
