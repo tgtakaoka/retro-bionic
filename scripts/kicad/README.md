@@ -60,6 +60,10 @@ Then, in the board directory:
 Route only after the placement is agreed. Parts never go on the back
 between J1 and J2: they cannot be soldered there. Bypass capacitors sit
 at their supply pins, on the front where the pin rows leave room.
+Each glue chip has its part name (the value without "74", e.g. HCS153)
+on the silkscreen beside one of its pin rows. The name reads in its
+natural direction when the chip is turned with pin 1 at the bottom
+left, and may sit above or below the chip in that view.
 A board with one PLCC-68 socket centres its pad ring at (113.7, 98.5),
 as BionicN80C186 does.
 
