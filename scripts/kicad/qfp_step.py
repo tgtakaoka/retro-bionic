@@ -35,7 +35,8 @@ def pair(value):
 
 
 def qfp(out, label, body, span, pitch, per_side, lead_width, lead_thick, foot, standoff, thick,
-        lines=(), logo=None, pin1=None, marks=(), dots=(), rects=(), circled=(), font=None, index=None):
+        lines=(), logo=None, pin1=None, marks=(), dots=(), rects=(), circled=(), font=None, index=None,
+        bumpers=None, mark_rot=-90, bevel=None):
     """body, span (lead tip to tip) and per_side (leads on each side) are one value for a square
     package, or (x, y) in the footprint's frame for a rectangular one: per_side[0] leads on each
     X side, the side pin 1 starts.
@@ -47,7 +48,14 @@ def qfp(out, label, body, span, pitch, per_side, lead_width, lead_thick, foot, s
     dimples, e.g. ejector pin marks; dots: [(u, v, radius)] printed dots; rects: [(u, v, width,
     height)] printed rectangles, centred; circled: [(letter, u, v, ring radius)], e.g. (M) and (C)
     font: a font file for the text, else build123d's own
-    index: the pin 1 corner's 45 degree cut, its legs this long, through the body's full height"""
+    index: the pin 1 corner's 45 degree cut, its legs this long, through the body's full height
+    bumpers: (width, outer, cut) or (width, outer, cut, floor) corner bumpers of a bumpered PQFP:
+    arms width wide running diagonally out of the body corners to outer mm off the centre on
+    both axes, their tips cut cut mm in from the corner, from floor mm above the seating plane
+    (default: the body's underside) to the body top
+    mark_rot: the marking's turn, -90 for pin 1 at the lower left as read, 0 for the upper left
+    bevel: (side, size) a 45 degree bevel along the body's top edge on side '-x', '+x', '-y' or '+y'
+    (pin 1 is the top lead of the -X side), its legs size long, e.g. Intel's pin 1 side"""
     body_x, body_y = pair(body)
     span_x, span_y = pair(span)
     count_x, count_y = pair(per_side)
@@ -55,12 +63,31 @@ def qfp(out, label, body, span, pitch, per_side, lead_width, lead_thick, foot, s
     top = standoff + thick
     b = Box(body_x, body_y, thick, align=(Align.CENTER, Align.CENTER, Align.MIN))
     b = Pos(0, 0, standoff) * chamfer(b.edges().group_by(Axis.Z)[-1], 0.2)
+    if bevel:
+        side, size = bevel
+        sign = 1 if side[0] == '+' else -1
+        s = size * 2 ** 0.5
+        if side[1] == 'x':
+            b = b - Pos(sign * body_x / 2, 0, top) * Rot(0, 45, 0) * Box(s, body_y + 1, s)
+        else:
+            b = b - Pos(0, sign * body_y / 2, top) * Rot(45, 0, 0) * Box(body_x + 1, s, s)
+    if bumpers:
+        width, outer, cut, floor = (tuple(bumpers) + (standoff,))[:4]
+        h = top - floor
+        bound = Pos(0, 0, floor) * Box(2 * outer, 2 * outer, h, align=(Align.CENTER, Align.CENTER, Align.MIN))
+        for sx in (-1, 1):
+            for sy in (-1, 1):
+                d = outer / 2
+                arm = Pos(sx * d, sy * d, floor) * Rot(0, 0, 45 * sx * sy) * \
+                    Box(outer * 2 ** 0.5, width, h, align=(Align.CENTER, Align.CENTER, Align.MIN))
+                tip = Pos(sx * outer, sy * outer, 0) * Rot(0, 0, 45) * Box(cut * 2 ** 0.5, cut * 2 ** 0.5, 20)
+                b = b + ((arm & bound) - tip)
     if index:
         # pin 1 is the top lead of the -X side
         b = b - Pos(-body_x / 2, body_y / 2, 0) * Rot(0, 0, 45) * Box(index * 2 ** 0.5, index * 2 ** 0.5, 10)
     for u, v, r, depth in ([pin1 + (PIN1_DEPTH,)] if pin1 else []) + list(marks):
-        b = b - Rot(0, 0, -90) * (Pos(u, v, top - depth) *
-                                  Cylinder(r, depth + 0.05, align=(Align.CENTER, Align.CENTER, Align.MIN)))
+        b = b - Rot(0, 0, mark_rot) * (Pos(u, v, top - depth) *
+                                      Cylinder(r, depth + 0.05, align=(Align.CENTER, Align.CENTER, Align.MIN)))
 
     def gull_wing(body, span):
         """A lead pointing to -X, centred on y = 0."""
@@ -85,7 +112,7 @@ def qfp(out, label, body, span, pitch, per_side, lead_width, lead_thick, foot, s
                       for side in range(4) for lead, n in [sides[side % 2]] for i in range(n)])
 
     def ink(shape, u, v):
-        return Rot(0, 0, -90) * (Pos(u, v, top) * extrude(shape, 0.01))
+        return Rot(0, 0, mark_rot) * (Pos(u, v, top) * extrude(shape, 0.01))
 
     def text(t, size, style=FontStyle.REGULAR):
         return Text(t, font_size=size, font_path=font, font_style=style)
