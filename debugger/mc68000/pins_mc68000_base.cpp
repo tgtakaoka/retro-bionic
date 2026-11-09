@@ -4,6 +4,7 @@
 #include "digital_bus.h"
 #include "inst_mc68000.h"
 #include "mems_mc68000.h"
+#include "pins_mc68000_cycle.h"
 #include "regs_mc68000.h"
 #include "signals_mc68000.h"
 
@@ -29,29 +30,12 @@ namespace {
 // #RESET and #HALT held together this long: 100 ms at power-up (M68000UM
 // 5.5), and a reset can come at any time.
 constexpr auto reset_ms = 100;
-// No #AS for this many clocks: the CPU stopped in STOP, or halted on a
-// double bus fault. Long enough to clear the slowest instruction.
-constexpr auto halt_clocks = 1024;
-// Clocks between polls of a CPU already stopped: short enough to service
-// the devices and the halt switch, and to tick the watchdog, often.
-constexpr auto wait_poll_clocks = 16;
 // Bus cycles allowed for a level-7 acknowledge; generous.
 constexpr auto irq_ack_cycles = 1024;
 // ATTENTION: unverified. Cycles before an exception's vector read that may
 // hold its frame: up to eight byte writes, an interrupt's acknowledge
 // between them, and the reads between.
 constexpr auto frame_lookback = 16;
-// A cycle #DTACK ends negates #AS within a few clocks; this bounds the
-// wait, interrupts masked, when it doesn't. Bounds the wait for a
-// write's data strobes too.
-constexpr auto dtack_hold_clocks = 16;
-// The 10 MHz parts take 2-10 MHz with halves of at least 45 ns (M68000UM
-// 10.8, 10.9); K trusts the user with the grade.
-constexpr uint32_t clock_input_min_hz = 2000000;
-constexpr auto clock_half_min_ns = 45;
-// Teensy cycles in a clock at the slowest rate: timeouts that hold at any.
-constexpr uint32_t clock_cycles = F_CPU / clock_input_min_hz;
-
 // #RESET and #HALT are open drain both ways, with no pull-up on the board:
 // drive them low or let the level shifters' pull-ups have them, never
 // drive them high.
@@ -65,18 +49,6 @@ void assert_reset() {
 void release_reset() {
     pinMode(PIN_HALT, INPUT_PULLUP);
     pinMode(PIN_RESET, INPUT_PULLUP);
-}
-
-inline void assert_dtack() {
-    digitalWriteFast(PIN_DTACK, LOW);
-}
-
-inline void negate_dtack() {
-    digitalWriteFast(PIN_DTACK, HIGH);
-}
-
-inline bool memRead(const Signals *s) {
-    return s->read() && !s->iack();
 }
 
 inline bool memWrite(const Signals *s) {
@@ -229,29 +201,6 @@ Signals *PinsMc68000Base::prepareCycle() {
     return prepareCycle(halt_clocks);
 }
 
-Signals *PinsMc68000Base::prepareCycle(uint_fast16_t clocks) {
-    auto s = Signals::put();
-    s->clearMark();  // Cycles::next() keeps the slot's old mark
-    const uint32_t start = ARM_DWT_CYCCNT;
-    const uint32_t limit = clocks * clock_cycles;
-#ifdef PROFILE_CYCLES
-    assert_debug();  // polling for #AS
-#endif
-    uint8_t cntl;
-    while ((cntl = busRead(CNTL)) & Signals::AS) {
-        if (ARM_DWT_CYCCNT - start >= limit) {
-            s->markHalt();
-            return s;
-        }
-    }
-#ifdef PROFILE_CYCLES
-    negate_debug();  // #AS seen
-#endif
-    s->cntl() = cntl;
-    getAddr(s);
-    return s;
-}
-
 // The CPU waits in the cycle it is parked in, so its address and status
 // are read again from the bus.
 Signals *PinsMc68000Base::resumeCycle() {
@@ -263,106 +212,6 @@ Signals *PinsMc68000Base::resumeCycle() {
         return s;
     }
     getAddr(s);
-    return s;
-}
-
-Signals *PinsMc68000Base::completeCycle(Signals *s) {
-    if (s->halt()) {
-        // Nothing moves; not recorded, so s->prev() stays the previous
-        // real cycle.
-        inputMode();
-        return s;
-    }
-    const uint32_t limit = dtack_hold_clocks * clock_cycles;
-#ifdef PROFILE_CYCLES
-    assert_debug();  // the cycle served
-#endif
-    if (s->read()) {
-        serveRead(s);
-#ifdef PROFILE_CYCLES
-        negate_debug();  // looked up
-#endif
-        // The CPU latches read data a clock after it samples #DTACK, and
-        // wants it no later than #DTACK plus M68000UM parameter #31.
-        noInterrupts();
-        assert_dtack();
-        outData(s);
-    } else {
-        // ATTENTION: unmeasured. Write data is driven from S3, the data
-        // strobes asserted in S4, so the data and its lanes are read as a
-        // strobe is first seen low.
-        const uint32_t start = ARM_DWT_CYCCNT;
-        uint8_t cntl;
-        while (((cntl = busRead(CNTL)) & _strobes) == _strobes) {
-            if (ARM_DWT_CYCCNT - start >= limit)
-                break;
-        }
-        s->cntl() = cntl;
-        getLanes(s);
-        getData(s);
-        noInterrupts();
-        assert_dtack();
-    }
-    // Masked from #DTACK on, or an interrupt could outlast #AS high and the
-    // next cycle end on this #DTACK. #DTACK is negated about 50 ns after
-    // #AS rises, well before the next cycle's S4. The store waits until
-    // #DTACK is off: a device or an EXTMEM miss can outlast #AS.
-    Cycles::next();
-    const uint32_t start = ARM_DWT_CYCCNT;
-    uint8_t cntl;
-    while (((cntl = busRead(CNTL)) & Signals::AS) == 0) {
-        if (ARM_DWT_CYCCNT - start >= limit)
-            break;
-        // TAS holds #AS from its read through its write (M68000UM Figure
-        // 5-9): R/#W falls for the write, a clock before its data.
-        if ((cntl & Signals::RW) == 0 && s->read()) {
-            negate_dtack();
-            inputMode();
-            s = completeTasWrite(s, cntl);
-            break;
-        }
-    }
-    negate_dtack();
-#ifdef PROFILE_CYCLES
-    assert_debug();  // released
-#endif
-    interrupts();
-    if (s->read()) {
-        inputMode();  // only a read drove the bus
-    } else {
-        // Before the next cycle is looked up, so a read of the same
-        // address sees it.
-        storeWrite(s);
-    }
-#ifdef PROFILE_CYCLES
-    negate_debug();  // back to the run loop
-#endif
-    return s;
-}
-
-// TAS's write, at the address its read left on the bus: served as its
-// own cycle, from its strobes to #AS rising.
-Signals *PinsMc68000Base::completeTasWrite(const Signals *r, uint8_t cntl) {
-    const uint32_t limit = dtack_hold_clocks * clock_cycles;
-    auto s = Signals::put();
-    s->clearMark();
-    s->addr = r->addr;
-    s->setFc(r->fc(), false);
-    const uint32_t start = ARM_DWT_CYCCNT;
-    while ((cntl & _strobes) == _strobes) {
-        if (ARM_DWT_CYCCNT - start >= limit)
-            break;
-        cntl = busRead(CNTL);
-    }
-    s->cntl() = cntl;
-    getLanes(s);
-    getData(s);
-    assert_dtack();
-    Cycles::next();
-    while ((busRead(CNTL) & Signals::AS) == 0) {
-        if (ARM_DWT_CYCCNT - start >= 2 * limit)
-            break;
-    }
     return s;
 }
 
@@ -640,48 +489,6 @@ bool PinsMc68000Base::step(bool show) {
     if (show)
         printCycles();
     return true;
-}
-
-// Free-run. Returns whether the CPU stopped at a boundary its registers can
-// be saved from: an ILLEGAL, the debugger's breakpoint, or a halt. The
-// ring is left holding the program's cycles only.
-bool PinsMc68000Base::loop() {
-    // ATTENTION: a program that moves VBR in a run hides its ILLEGAL from
-    // the debugger until the next stop.
-    const auto vecAddr =
-            regs<RegsMc68000>()->vecAddr(InstMc68000::VECNUM_ILLEGAL);
-    auto s = resumeCycle();
-    while (true) {
-        // First: a slot that timed out holds the status and address of
-        // its use a ring ago.
-        if (s->halt()) {
-            // STOP: no bus cycle until an interrupt.
-            if (_devs->loop() && haltSwitch())
-                return suspend(nullptr);
-            s = prepareCycle(wait_poll_clocks);
-            continue;
-        }
-        if (memRead(s) && s->dataSpace() &&
-                (s->addr & ~1) == vecAddr) {
-            RegsMc68000::Frame frame;
-            const Signals *from = nullptr;
-            if (findFrame(s, frame, from)) {
-                // ILLEGAL stacks its own address.
-                regs<RegsMc68000>()->parkInVector(vecAddr, frame);
-                Cycles::discard(from);
-                return true;
-            }
-        }
-        completeCycle(s);
-        const auto serviced = _devs->loop();
-        s = prepareCycle();
-        // Only now, with a cycle recorded: suspend() completes it first.
-        // Not at an acknowledge: the program's own interrupt is under way.
-        if (!serviced || s->iack())
-            continue;
-        if (haltSwitch())
-            return suspend(s->halt() ? nullptr : s);
-    }
 }
 
 void PinsMc68000Base::run() {

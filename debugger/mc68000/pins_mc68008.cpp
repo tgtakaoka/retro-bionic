@@ -3,6 +3,7 @@
 #include "devs_mc68000.h"
 #include "digital_bus.h"
 #include "mems_mc68000.h"
+#include "pins_mc68000_cycle.h"
 #include "regs_mc68000.h"
 #include "signals_mc68000.h"
 
@@ -68,10 +69,11 @@ const uint8_t PINS_INPUT[] = {
 }  // namespace
 
 PinsMc68008::PinsMc68008(bool fn)
-    : PinsMc68000Base(Signals::LDS, clock_input_hz), _fn(fn) {
-    const auto mask = fn ? ADDR_MASK_FN : ADDR_MASK_P;
-    _devs = new DevsMc68000(mask);
-    _mems = new MemsMc68000(mask);
+    : PinsMc68000Base(Signals::LDS, clock_input_hz),
+      _fn(fn),
+      _addrMask(fn ? ADDR_MASK_FN : ADDR_MASK_P) {
+    _devs = new DevsMc68000(_addrMask);
+    _mems = new MemsMc68000(_addrMask);
     _regs = new RegsMc68000(this, mems<MemsMc68000>());
 }
 
@@ -100,21 +102,23 @@ void PinsMc68008::detectBoard() {
 
 // ASEL rests at 0. One read of GPIO6 gives A0-A7, and one of GPIO7 per
 // select A8-A11 and A16-A19 with FC2:FC0, then A12-A15 and, on the FN
-// board, A20-A21. The CPU holds the address until #DTACK.
+// board, A20-A21. Each select's AM and AH nibbles shift together by 8 and
+// 12, which puts A8-A15 in place and A16-A23 a byte high; the board's
+// address lines trim what its muxes don't carry. The CPU holds the
+// address until #DTACK.
 void PinsMc68008::getAddr(Signals *s) const {
+    constexpr uint32_t nibbles = 0x000F000F;
     const uint32_t al = busRead(AL);
     const uint32_t sel0 = PIN(ADDR);
     digitalWriteFast(PIN_ASEL, HIGH);
     // What select 0 gave is put away while the 157 settles.
-    uint32_t addr = al | (sel0 & 0xF) << 8 | ((sel0 >> 16) & 0xF) << 16;
+    uint32_t mux = (sel0 & nibbles) << 8;
     s->setFc((sel0 >> 10) & 7, false);
     delayNanoseconds(asel_delay_ns);
     const uint32_t sel1 = PIN(ADDR);
     digitalWriteFast(PIN_ASEL, LOW);
-    addr |= (sel1 & 0xF) << 12;
-    if (_fn)
-        addr |= ((sel1 >> 16) & 3) << 20;
-    s->addr = addr;
+    mux |= (sel1 & nibbles) << 12;
+    s->addr = (al | (mux & 0xFF00) | ((mux >> 8) & 0xFF0000)) & _addrMask;
 }
 
 void PinsMc68008::getData(Signals *s) const {
@@ -136,6 +140,18 @@ void PinsMc68008::setIpl() const {
     const auto level = iplLevel();
     digitalWriteFast(PIN_IPL20, (level & 5) ? LOW : HIGH);
     digitalWriteFast(PIN_IPL1, (level & 2) ? LOW : HIGH);
+}
+
+Signals *PinsMc68008::prepareCycle(uint_fast16_t clocks) {
+    return prepareCycleOf<PinsMc68008>(clocks);
+}
+
+Signals *PinsMc68008::completeCycle(Signals *s) {
+    return completeCycleOf<PinsMc68008>(s);
+}
+
+bool PinsMc68008::loop() {
+    return loopOf<PinsMc68008>();
 }
 
 }  // namespace mc68000

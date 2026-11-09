@@ -2288,9 +2288,11 @@ Plan, written before any of it runs; every timing it implies gets an
   (`bionic-mc68000p`, `bionic-hd68000ps`, `bionic-mc68000fn`),
   `PinsMc68008` for the MC68008 boards (`bionic-mc68008p`, `-fn`).
   Identities name the boards: `MC68000P`, `HD68000PS`, `MC68000FN`,
-  `MC68008P` and `MC68008FN`, all `TARGET_OVERLAY(mc68000)`. A byte moves
-  in bits 0-7 of a cycle's data whatever lane carries it; a byte read goes
-  out on both lanes. **[code]**
+  `MC68008P` and `MC68008FN`, all `TARGET_OVERLAY(mc68000)`. Each board
+  instantiates the cycle engine (`pins_mc68000_cycle.h`) with its own
+  class, so a cycle calls the board's hooks directly, not through the
+  vtable. A byte moves in bits 0-7 of a cycle's data whatever lane carries
+  it; a byte read goes out on both lanes. **[code]**
 - **Clock.** CLK (P47) comes from the shared `PwmClock<PIN>`, as the
   MC68HC16's EXTAL does. Every board starts at 150 MHz / 15 = 10 MHz, 50
   ns halves: the slowest chips they take are 10 MHz parts (2-10 MHz, 45
