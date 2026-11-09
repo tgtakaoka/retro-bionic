@@ -79,7 +79,7 @@ disassembly, single-stepping with the bus trace, then drawing the Mandelbrot set
 
 ## Supported CPUs
 
-All 50 targets, grouped by vendor and architecture:
+All 53 targets, grouped by vendor and architecture:
 
 <table>
 <thead>
@@ -92,17 +92,19 @@ All 50 targets, grouped by vendor and architecture:
 <tr><td>68HC12</td><td>MC68HC12B</td></tr>
 <tr><td>68HC16</td><td>MC68HC16Z</td></tr>
 <tr><td>MOS Technology</td><td>6502</td><td>MOS6502 <em>G65SC02, R65C02, W65C02S, W65C816S</em></td></tr>
-<tr><td rowspan="5">Zilog</td><td>Z80</td><td>Z80, Z180, NSC800, KL5C80A12, HD64180S</td></tr>
+<tr><td rowspan="6">Zilog</td><td>Z80</td><td>Z80, NSC800, KL5C80A12</td></tr>
+<tr><td>Z180</td><td>Z180, HD64180S</td></tr>
 <tr><td>Z280</td><td>Z280</td></tr>
 <tr><td>Z380</td><td>Z380</td></tr>
 <tr><td>Z8000</td><td>Z8001, Z8002</td></tr>
 <tr><td>Z8</td><td>Z86C91, Z88C00</td></tr>
-<tr><td rowspan="4">Intel</td><td>MCS-48</td><td>P8048 <em>P8039, MSM80C39</em></td></tr>
-<tr><td>MCS-51</td><td>P8051</td></tr>
+<tr><td rowspan="5">Intel</td><td>MCS-48</td><td>P8039 <em>MSM80C39</em></td></tr>
+<tr><td>MCS-51</td><td>P8051 <em>P80C51</em></td></tr>
 <tr><td>MCS-80/85</td><td>P8080, P8085</td></tr>
-<tr><td>MCS-96</td><td>P8095BH, N8097BH, S80C196K <em>S80C196KB, S80C196KC</em>, S80296SA</td></tr>
+<tr><td>x86</td><td>P8086 <em>P8088, V30, V20</em>, D8087</td></tr>
+<tr><td>MCS-96</td><td>P8095BH, N8097BH, S80C196KC, S80296SA</td></tr>
 <tr><td rowspan="4">Texas Instruments</td><td>TMS9900</td><td>TMS9900, TMS9980, TMS9981, TMS9995, TMS99105 <em>TMS99110</em></td></tr>
-<tr><td>TMS7000</td><td>TMS7000 <em>TMS7002</em></td></tr>
+<tr><td>TMS7000</td><td>TMS7000 <em>TMS7001, TMS7001NL4, TMS7002, TMS70C00, TMS70C02</em></td></tr>
 <tr><td>TMS370</td><td>TMS370Cx5x</td></tr>
 <tr><td>TMS320</td><td>TMS320C15</td></tr>
 <tr><td>DEC</td><td>PDP-8</td><td>IM6100, HD6120</td></tr>
@@ -111,9 +113,10 @@ All 50 targets, grouped by vendor and architecture:
 <tr><td rowspan="2">National</td><td>SC/MP II</td><td>INS8060</td></tr>
 <tr><td>SC/MP III</td><td>INS8070</td></tr>
 <tr><td>Signetics</td><td>2650</td><td>SCN2650</td></tr>
-<tr><td>Toshiba</td><td>TLCS-90</td><td>TMP90C802</td></tr>
+<tr><td>Toshiba</td><td>TLCS-90</td><td>TMP90C802 <em>TMP90P802</em></td></tr>
 <tr><td>Hitachi</td><td>H16</td><td>HD641016</td></tr>
 <tr><td>Panafacom</td><td>MN1610</td><td>MN1613 <em>MN1613A</em></td></tr>
+<tr><td>General Instrument</td><td>CP1600</td><td>CP1610</td></tr>
 </tbody>
 </table>
 
@@ -127,7 +130,7 @@ CPUs still to be supported.
 
 | Path | Contents |
 |---|---|
-| [`debugger/`](debugger) | Teensy 4.1 firmware — shared framework plus 25 per-family back ends |
+| [`debugger/`](debugger) | Teensy 4.1 firmware — shared framework plus 30 per-family back ends |
 | [`schematics/`](schematics) | KiCad projects: base, mezzanine, PLCC adapter and 54 CPU adapter boards, with gerbers and PDFs |
 | [`pinout/`](pinout) | Pin-map definitions consumed by [dip](https://github.com/tgtakaoka/dip) |
 | [`samples/`](samples) | Test programs — Mandelbrot, arithmetic suites, serial echo — ported to every CPU |

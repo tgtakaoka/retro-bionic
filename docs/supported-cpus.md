@@ -55,8 +55,8 @@ report several parts.
 <tr><td>✅</td><td><code>Z8002</code></td><td></td><td>Runs on <code>Z16C0210PSC</code></td></tr>
 <tr><td><code>z280</code></td><td><code>z280</code></td><td>✅</td><td><code>Z280</code></td><td></td><td><code>Z8028012VSC</code></td></tr>
 <tr><td><code>z380</code></td><td><code>z380</code></td><td>✅</td><td><code>Z380</code></td><td></td><td><code>Z8038018FSC</code></td></tr>
-<tr><td><code>i8048</code></td><td><code>i8048</code></td><td>✅</td><td><code>P8048</code></td><td><code>P8039</code>, <code>MSM80C39</code></td><td>No absolute addressing, subtract or compare</td></tr>
-<tr><td><code>i8051</code></td><td><code>i8051</code></td><td>✅</td><td><code>P8051</code></td><td><code>P80C51</code></td><td>Clock-to-control-signal delay is about half a cycle</td></tr>
+<tr><td><code>i8048</code></td><td><code>i8048</code></td><td>✅</td><td><code>P8048</code></td><td><code>P8039</code>, <code>MSM80C39</code></td><td>Runs on <code>P8039</code>, <code>MSM80C39</code>; a <code>P8048</code> is untried. No absolute addressing, subtract or compare</td></tr>
+<tr><td><code>i8051</code></td><td><code>i8051</code></td><td>✅</td><td><code>P8051</code></td><td><code>P80C51</code></td><td>Runs on <code>P8051</code>, <code>P80C51</code>. Clock-to-control-signal delay is about half a cycle</td></tr>
 <tr><td rowspan="2"><code>i8080</code></td><td rowspan="2"><code>i8080</code></td><td>✅</td><td><code>P8080</code></td><td></td><td>Non-overlapping two-phase 12 V clock; <code>RESET</code> resumes from a HALT breakpoint</td></tr>
 <tr><td>✅</td><td><code>P8085</code></td><td></td><td></td></tr>
 <tr><td rowspan="5"><code>i8096</code></td><td rowspan="2"><code>i8096</code></td><td>✅</td><td><code>P8095BH</code></td><td></td><td>16-bit bus; prefetches up to 4 bytes, so stepping uses TRAP</td></tr>
@@ -78,8 +78,8 @@ report several parts.
 <tr><td>✅</td><td><code>TMS9981</code></td><td></td><td>8-bit bus; registers live in main memory, so cycle counts are high</td></tr>
 <tr><td>✅</td><td><code>TMS9995</code></td><td></td><td>Optimised bus, 16-bit internal RAM</td></tr>
 <tr><td>✅</td><td><code>TMS99105</code></td><td><code>TMS99110</code></td><td>A TMS99110 is recognised by its Macrostore ROM</td></tr>
-<tr><td><code>tms7000</code></td><td><code>tms7000</code></td><td>✅</td><td><code>TMS7000</code></td><td><code>TMS7002</code>, <code>TMS70C00</code></td><td>Highly orthogonal instruction set</td></tr>
-<tr><td><code>tms370</code></td><td><code>tms370</code></td><td>✅</td><td><code>TMS370Cx5x</code></td><td></td><td>Oscillator monitor resets the CPU if the clock looks unstable, so CLKIN runs from a timer</td></tr>
+<tr><td><code>tms7000</code></td><td><code>tms7000</code></td><td>✅</td><td><code>TMS7000</code></td><td><code>TMS7001</code>, <code>TMS7001NL4</code>, <code>TMS7002</code>, <code>TMS70C00</code>, <code>TMS70C02</code></td><td>Highly orthogonal instruction set</td></tr>
+<tr><td><code>tms370</code></td><td><code>tms370</code></td><td>✅</td><td><code>TMS370Cx5x</code></td><td></td><td>Runs on <code>TMS370C250</code>. Oscillator monitor resets the CPU if the clock looks unstable, so CLKIN runs from a timer</td></tr>
 <tr><td rowspan="4"><code>tms320</code></td><td><code>tms320</code></td><td>✅</td><td><code>TMS320C15</code></td><td></td><td>So few bus signals that instructions are tracked by counting cycles</td></tr>
 <tr><td rowspan="3"></td><td>🚧</td><td><code>TMS320C25</code></td><td></td><td><code>TMS320C25FNL</code></td></tr>
 <tr><td>🚧</td><td><code>TMS320C51</code></td><td></td><td><code>TMS320C51PQ</code></td></tr>
