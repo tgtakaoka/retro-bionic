@@ -3,6 +3,7 @@
 #include "devs_mc68000.h"
 #include "digital_bus.h"
 #include "mems_mc68000.h"
+#include "pins_mc68000_cycle.h"
 #include "regs_mc68000.h"
 #include "signals_mc68000.h"
 
@@ -98,30 +99,34 @@ void PinsMc68000::readStraps() {
 
 // ASEL1:ASEL0 rests at 00. Stepped in gray order 00, 01, 11, 10 the muxes
 // hand out A0/A16, A4/A20, A8/-, A12/FC in turn, one select changing per
-// step, and the last step brings it back to 00. The CPU holds the address
-// until #DTACK. ATTENTION: unmeasured. The walk takes about four select
-// delays, after #AS is first seen low.
+// step, and the last step brings it back to 00. Each phase's AL and AH
+// nibbles shift together by 0, 4, 8 and 12: A0-A23 in bits 0-23, FC2:FC0
+// in 28-30. The CPU holds the address until #DTACK.
 void PinsMc68000::getAddr(Signals *s) const {
+    constexpr uint32_t nibbles = 0x000F000F;
     const uint32_t sel00 = PIN(ADDR);
+    // A read asserts its strobes with #AS: they are settled by now.
+    const uint8_t cntl = busRead(CNTL);
     digitalWriteFast(PIN_ASEL0, HIGH);  // 01
+    // Each phase is put away while the next select settles.
+    uint32_t addr = sel00 & nibbles;
     delayNanoseconds(asel_delay_ns);
     const uint32_t sel01 = PIN(ADDR);
     digitalWriteFast(PIN_ASEL1, HIGH);  // 11
+    addr |= (sel01 & nibbles) << 4;
     delayNanoseconds(asel_delay_ns);
     const uint32_t sel11 = PIN(ADDR);
     digitalWriteFast(PIN_ASEL0, LOW);  // 10
+    addr |= (sel11 & nibbles) << 8;
     delayNanoseconds(asel_delay_ns);
     const uint32_t sel10 = PIN(ADDR);
     digitalWriteFast(PIN_ASEL1, LOW);  // 00
-    const auto lo = [](uint32_t v) { return v & 0xF; };
-    const auto hi = [](uint32_t v) { return (v >> 16) & 0xF; };
-    s->addr = lo(sel00) | lo(sel01) << 4 | lo(sel11) << 8 | lo(sel10) << 12 |
-              hi(sel00) << 16 | hi(sel01) << 20;
-    s->setFc(hi(sel10) & 7, false);
-    // A read asserts its strobes with #AS; the walk gave them time to
-    // settle. A write's come later, for getLanes().
+    addr |= (sel10 & nibbles) << 12;
+    s->addr = addr & 0xFFFFFF;
+    s->setFc((addr >> 28) & 7, false);
+    // A write's strobes come later, for getLanes().
     if (s->read()) {
-        s->cntl() = busRead(CNTL);
+        s->cntl() = cntl;
         getLanes(s);
     }
 }
@@ -161,6 +166,18 @@ void PinsMc68000::inputMode() const {
 // The level on #IPL2-#IPL0, active low.
 void PinsMc68000::setIpl() const {
     busWrite(IPL, ~iplLevel() & 7);
+}
+
+Signals *PinsMc68000::prepareCycle(uint_fast16_t clocks) {
+    return prepareCycleOf<PinsMc68000>(clocks);
+}
+
+Signals *PinsMc68000::completeCycle(Signals *s) {
+    return completeCycleOf<PinsMc68000>(s);
+}
+
+bool PinsMc68000::loop() {
+    return loopOf<PinsMc68000>();
 }
 
 }  // namespace mc68000

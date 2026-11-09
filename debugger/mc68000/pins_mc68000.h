@@ -71,6 +71,12 @@ private:
     void outData(const Signals *s) const override;
     void inputMode() const override;
     void setIpl() const override;
+
+    // The engine, instantiated for this board.
+    friend struct PinsMc68000Base;
+    Signals *prepareCycle(uint_fast16_t clocks) override;
+    Signals *completeCycle(Signals *s) override;
+    bool loop() override;
 };
 
 }  // namespace mc68000

@@ -102,6 +102,23 @@ protected:
     virtual void inputMode() const = 0;
     virtual void setIpl() const = 0;
 
+    // The cycle engine: each board instantiates it, so a cycle calls the
+    // hooks above directly; elsewhere it is reached through these virtuals.
+    // Gives up after |clocks| without #AS: the CPU is stopped.
+    virtual Signals *prepareCycle(uint_fast16_t clocks) = 0;
+    virtual Signals *completeCycle(Signals *s) = 0;
+    // Free-run. Returns whether the CPU stopped at a boundary its registers
+    // can be saved from: an ILLEGAL, the debugger's breakpoint, or a halt.
+    virtual bool loop() = 0;
+    template <typename BOARD>
+    Signals *prepareCycleOf(uint_fast16_t clocks);
+    template <typename BOARD>
+    Signals *completeCycleOf(Signals *s);
+    template <typename BOARD>
+    bool loopOf();
+    template <typename BOARD>
+    Signals *completeTasWrite(const Signals *r, uint8_t cntl);
+
 private:
     PwmClock<PIN_CLK> _clock;
     const uint8_t _strobes;
@@ -118,12 +135,8 @@ private:
     uint32_t anchorAt(
             const FetchMc68000::Kind *kind, uint_fast8_t cycles) const;
     Signals *prepareCycle();
-    // Gives up after |clocks| without #AS: the CPU is stopped.
-    Signals *prepareCycle(uint_fast16_t clocks);
     // The cycle the CPU is parked in, read again.
     Signals *resumeCycle();
-    Signals *completeCycle(Signals *s);
-    Signals *completeTasWrite(const Signals *r, uint8_t cntl);
     void serveRead(Signals *s);
     void storeWrite(Signals *s);
     uint_fast8_t execute(const uint8_t *inst, uint_fast8_t len, uint8_t *buf,
@@ -131,7 +144,6 @@ private:
     uint_fast8_t frameBytes();
     bool findFrame(const Signals *s, RegsMc68000::Frame &frame,
             const Signals *&from) const;
-    bool loop();
     bool suspend(Signals *s);
 };
 
