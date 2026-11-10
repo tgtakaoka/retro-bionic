@@ -17,6 +17,8 @@ struct Mc9s12dInit final : Mc68hc12Init {
     // Stops the clock monitor first, then drops the external access
     // stretch and shows the free cycles on NOACC.
     void configSystem(RegsMc68hc12 *regs) const override;
+    // Lets E run on every cycle; NOACC must show the free ones by then.
+    void freeRunE(RegsMc68hc12 *regs) const;
 
     bool is_internal(uint16_t addr) const override;
     uint16_t sciBase() const override { return REG_BASE + SCI0BDH; }
@@ -27,6 +29,7 @@ struct Mc9s12dInit final : Mc68hc12Init {
     static constexpr uint16_t S12_RAM_SIZE = 0x2000;
     // Registers
     static constexpr uint16_t PEAR = 0x0A;
+    static constexpr uint16_t EBICTL = 0x0E;
     static constexpr uint16_t MISC = 0x13;
     static constexpr uint16_t PLLCTL = 0x3A;
     static constexpr uint16_t SCI0BDH = 0xC8;

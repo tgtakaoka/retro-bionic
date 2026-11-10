@@ -37,6 +37,12 @@ void Mc9s12dInit::configSystem(RegsMc68hc12 *regs) const {
     regs->internal_write(REG_BASE + PEAR, NOACCE | PIPOE | LSTRE | RDWE);
 }
 
+void Mc9s12dInit::freeRunE(RegsMc68hc12 *regs) const {
+    // ESTR=0: E runs on every cycle, free ones included, as on the
+    // MC68HC912BD32 (MEBI V3 3.1.12).
+    regs->internal_write(REG_BASE + EBICTL, 0x00);
+}
+
 }  // namespace mc68hc12
 }  // namespace debugger
 
