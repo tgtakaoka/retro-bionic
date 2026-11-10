@@ -13,7 +13,6 @@ struct DevsMc68HC05C0 final : mc6805::DevsMc6805 {
     ~DevsMc68HC05C0();
 
     void reset() override;
-    bool loopDevices() override;
     void setIdle(bool idle) override;
     bool isSelected(uint32_t addr) const override;
     uint16_t read(uint32_t addr) const override;

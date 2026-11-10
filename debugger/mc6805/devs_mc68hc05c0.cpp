@@ -8,7 +8,9 @@ namespace mc68hc05c0 {
 #if defined(ENABLE_SERIAL_HANDLER)
 
 DevsMc68HC05C0::DevsMc68HC05C0(uint16_t acia_base)
-    : DevsMc6805(acia_base), _sci(new Mc68HC05C0SciHandler()) {}
+    : DevsMc6805(acia_base), _sci(new Mc68HC05C0SciHandler()) {
+    _everyCycle = _sci;
+}
 
 DevsMc68HC05C0::~DevsMc68HC05C0() {
     delete _sci;
@@ -17,11 +19,6 @@ DevsMc68HC05C0::~DevsMc68HC05C0() {
 void DevsMc68HC05C0::reset() {
     _sci->reset();
     DevsMc6805::reset();
-}
-
-bool DevsMc68HC05C0::loopDevices() {
-    const auto ran = _sci->loop();
-    return DevsMc6805::loopDevices() || ran;
 }
 
 void DevsMc68HC05C0::setIdle(bool idle) {
