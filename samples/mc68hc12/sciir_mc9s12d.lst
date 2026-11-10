@@ -60,12 +60,12 @@
 (1)       0 :
 (1)       0 : =C8                SCI0_BASE:      equ     REG_BASE+$C8
 (1)       0 :
-(1)       0 :                    ;;; Where the samples go: data and queues in RAM from $1000; code, and the
-(1)       0 :                    ;;; stack below it, from $2000.
+(1)       0 :                    ;;; Where the samples go, the same on every part: data, queues and the
+(1)       0 :                    ;;; stack from $1000, inside or out; code from $4000, outside on all.
 (1)       0 : =1000              DATA_ORG:       equ     $1000
 (1)       0 : =1100              QUEUE_ORG:      equ     $1100
 (1)       0 : =2000              STACK_TOP:      equ     $2000   ; SP points at the last byte pushed
-(1)       0 : =2000              CODE_ORG:       equ     $2000
+(1)       0 : =4000              CODE_ORG:       equ     $4000
           0 :                            include "sciir.inc"
 (1)       0 :
 (1)    1100 :                            org     QUEUE_ORG
@@ -79,147 +79,147 @@
 (1)    1180 : =2000              stack:  equ     STACK_TOP           ; SP points at the last byte pushed
 (1)    1180 :
 (1)    FFD6 :                            org     VEC_SCI0
-(1)    FFD6 : 20 95                      fdb     isr_sci
+(1)    FFD6 : 40 95                      fdb     isr_sci
 (1)    FFD8 :
 (1)    FFF6 :                            org     VEC_SWI
 (1)    FFF6 : FF F6                      fdb     VEC_SWI         ; for halt to system
 (1)    FFF8 :
 (1)    FFFE :                            org     VEC_RESET
-(1)    FFFE : 20 02                      fdb     initialize
+(1)    FFFE : 40 02                      fdb     initialize
 (1)   10000 :
-(1)    2000 :                            org     CODE_ORG
-(1)    2000 :                    device_base:
-(1)    2000 : 00 C8                      fdb     SCI0_BASE      ; the chip wrapper sets it
-(1)    2002 :                    initialize:
-(1)    2002 : CF 20 00                   lds     #stack
-(1)    2005 : CE 11 00                   ldx     #rx_queue
-(1)    2008 : C6 80                      ldab    #rx_queue_size
-(1)    200A : 16 20 4A                   jsr     queue_init
-(1)    200D :                            ;; Initialize SCI
-(1)    200D : FE 20 00                   ldx     device_base
-(1)    2010 : 69 02                      clr     SC0CR1,x         ; 8bit 1stop
-(1)    2012 : 69 00                      clr     SC0BDH,x
-(1)    2014 : 86 01                      ldaa    #1              ; SBR=1: E/16
-(1)    2016 : 6A 01                      staa    SC0BDL,x
-(1)    2018 : 86 2C                      ldaa    #RX_INT_TX_NO
-(1)    201A : 6A 03                      staa    SC0CR2,x         ; Enable Tx and Rx/Interrupt
-(1)    201C : 10 EF                      cli                     ; Enable IRQ
-(1)    201E : CE 11 00                   ldx     #rx_queue
-(1)    2021 : 20 02                      bra     loop
-(1)    2023 :
-(1)    2023 :                    wait:
-(1)    2023 : 20 00                      bra     loop            ; spin, IRQ enabled: it comes in running code
-(1)    2025 :                    loop:
-(1)    2025 : 14 10                      sei                     ; Disable IRQ
-(1)    2027 : 16 20 75                   jsr     queue_remove
-(1)    202A : 10 EF                      cli                     ; Enable IRQ
-(1)    202C : 24 F5                      bcc     wait
-(1)    202E : 97                         tsta
-(1)    202F : 27 0C                      beq     halt_to_system
-(1)    2031 : 07 0B                      bsr     putchar
-(1)    2033 : 81 0D                      cmpa    #$0D
-(1)    2035 : 26 EE                      bne     loop
-(1)    2037 : 86 0A                      ldaa    #$0A
-(1)    2039 : 07 03                      bsr     putchar
-(1)    203B : 20 E8                      bra     loop
-(1)    203D :                    halt_to_system:
-(1)    203D : 3F                         swi                     ; halt_to_system
-(1)    203E :
-(1)    203E :                    putchar:
-(1)    203E : 34                         pshx
-(1)    203F : FE 20 00                   ldx     device_base
-(1)    2042 :                    ;;; Transmit Data Register Empty?
-(1)    2042 : 0F 04 80 F8                brclr   SC0SR1,x, #SC0SR1_TDRE_bm, putchar
-(1)    2046 : 6A 07                      staa    SC0DRL,x          ; transmit data
-(1)    2048 : 30                         pulx
-(1)    2049 : 3D                         rts
-(1)    204A :
-(1)    204A :
-(1)    204A :                            include "queue.inc"
-(2)    204A :                    ;;; [queue] queue structure
-(2)    204A : =0                 queue_len:      equ     0       ; queue length
-(2)    204A : =1                 queue_size:     equ     1       ; buffer size
-(2)    204A : =2                 queue_put:      equ     2       ; queue put index
-(2)    204A : =3                 queue_get:      equ     3       ; queue get index
-(2)    204A : =4                 queue_buf:      equ     4       ; buffer start offset
-(2)    204A :
-(2)    204A :                    ;;; [queue] Initialize queue
-(2)    204A :                    ;;; @param X queue work space pointer
-(2)    204A :                    ;;; @param B queue work space size
-(2)    204A :                    ;;; @clobber B
-(2)    204A :                    queue_init:
-(2)    204A : 37                         pshb
-(2)    204B : 34                         pshx
-(2)    204C :                    queue_init_loop:
-(2)    204C : 69 30                      clr     1,x+
-(2)    204E : 04 31 FB                   dbne    b,queue_init_loop
-(2)    2051 : 30                         pulx
-(2)    2052 : 33                         pulb
-(2)    2053 : C0 04                      subb    #queue_buf
-(2)    2055 : 6B 01                      stab    queue_size,x
-(2)    2057 : 3D                         rts
-(2)    2058 :
-(2)    2058 :                    ;;; [queue] Add an element to queue
-(2)    2058 :                    ;;; @param X queue work space pointer
-(2)    2058 :                    ;;; @param A an element
-(2)    2058 :                    ;;; @return CC.C 0 if queue is full
-(2)    2058 :                    queue_add:
-(2)    2058 : 37                         pshb
-(2)    2059 : E6 00                      ldab    queue_len,x
-(2)    205B : E1 01                      cmpb    queue_size,x
-(2)    205D : 24 14                      bhs     queue_add_return ; carry is cleared
-(2)    205F : E6 02                      ldab    queue_put,x
-(2)    2061 : CB 04                      addb    #queue_buf      ; 8 bits offset of the element
-(2)    2063 : 6A E5                      staa    b,x             ; store an element
-(2)    2065 : 62 00                      inc     queue_len,x
-(2)    2067 : C0 03                      subb    #queue_buf-1    ; the next put index
-(2)    2069 : 6B 02                      stab    queue_put,x
-(2)    206B : E1 01                      cmpb    queue_size,x
-(2)    206D : 25 04                      blo     queue_add_return ; carry is set
-(2)    206F : 69 02                      clr     queue_put,x
-(2)    2071 : 14 01                      sec                     ; set carry
-(2)    2073 :                    queue_add_return:
-(2)    2073 : 33                         pulb
-(2)    2074 : 3D                         rts
-(2)    2075 :
-(2)    2075 :                    ;;; [queue] Remove an element from queue
-(2)    2075 :                    ;;; @param X queue work space pointer
-(2)    2075 :                    ;;; @return A an element
-(2)    2075 :                    ;;; @return CC.C 0 if queue is empty
-(2)    2075 :                    queue_remove:
-(2)    2075 : E7 00                      tst     queue_len,x
-(2)    2077 : 26 03                      bne     queue_remove_elem
-(2)    2079 : 10 FE                      clc                     ; clear carry
-(2)    207B : 3D                         rts
-(2)    207C :                    queue_remove_elem:
-(2)    207C : 37                         pshb
-(2)    207D : E6 03                      ldab    queue_get,x
-(2)    207F : CB 04                      addb    #queue_buf      ; 8 bits offset of the element
-(2)    2081 : A6 E5                      ldaa    b,x             ; read an element
-(2)    2083 : 63 00                      dec     queue_len,x
-(2)    2085 : C0 03                      subb    #queue_buf-1    ; the next get index
-(2)    2087 : 6B 03                      stab    queue_get,x
-(2)    2089 : E1 01                      cmpb    queue_size,x
-(2)    208B : 25 04                      blo     queue_remove_return ; carry is set
-(2)    208D : 69 03                      clr     queue_get,x
-(2)    208F : 14 01                      sec                     ; set carry
-(2)    2091 :                    queue_remove_return:
-(2)    2091 : 33                         pulb
-(2)    2092 : 3D                         rts
-(2)    2093 :
-(2)    2093 :                    ;;; Local Variables:
-(2)    2093 :                    ;;; mode: asm
-(2)    2093 :                    ;;; End:
-(2)    2093 :                    ;;; vim: set ft=asm et ts=4 sw=4:
-(1)    2093 :
-(1)    2093 :                    isr_sci_error:
-(1)    2093 : E6 47                      ldab    SC0DRL,y          ; clear OR/NF/FE
-(1)    2095 :                    isr_sci:
-(1)    2095 : FD 20 00                   ldy     device_base
-(1)    2098 : 0E 44 0E F7                brset   SC0SR1,y, #SC0SR1_OR_bm|SC0SR1_NF_bm|SC0SR1_FE_bm, isr_sci_error
-(1)    209C : 0F 44 20 08                brclr   SC0SR1,y, #SC0SR1_RDRF_bm, isr_sci_return
-(1)    20A0 : A6 47                      ldaa    SC0DRL,y
-(1)    20A2 : CE 11 00                   ldx     #rx_queue
-(1)    20A5 : 16 20 58                   jsr     queue_add
-(1)    20A8 :                    isr_sci_return:
-(1)    20A8 : 0B                         rti
+(1)    4000 :                            org     CODE_ORG
+(1)    4000 :                    device_base:
+(1)    4000 : 00 C8                      fdb     SCI0_BASE      ; the chip wrapper sets it
+(1)    4002 :                    initialize:
+(1)    4002 : CF 20 00                   lds     #stack
+(1)    4005 : CE 11 00                   ldx     #rx_queue
+(1)    4008 : C6 80                      ldab    #rx_queue_size
+(1)    400A : 16 40 4A                   jsr     queue_init
+(1)    400D :                            ;; Initialize SCI
+(1)    400D : FE 40 00                   ldx     device_base
+(1)    4010 : 69 02                      clr     SC0CR1,x         ; 8bit 1stop
+(1)    4012 : 69 00                      clr     SC0BDH,x
+(1)    4014 : 86 01                      ldaa    #1              ; SBR=1: E/16
+(1)    4016 : 6A 01                      staa    SC0BDL,x
+(1)    4018 : 86 2C                      ldaa    #RX_INT_TX_NO
+(1)    401A : 6A 03                      staa    SC0CR2,x         ; Enable Tx and Rx/Interrupt
+(1)    401C : 10 EF                      cli                     ; Enable IRQ
+(1)    401E : CE 11 00                   ldx     #rx_queue
+(1)    4021 : 20 02                      bra     loop
+(1)    4023 :
+(1)    4023 :                    wait:
+(1)    4023 : 20 00                      bra     loop            ; spin, IRQ enabled: it comes in running code
+(1)    4025 :                    loop:
+(1)    4025 : 14 10                      sei                     ; Disable IRQ
+(1)    4027 : 16 40 75                   jsr     queue_remove
+(1)    402A : 10 EF                      cli                     ; Enable IRQ
+(1)    402C : 24 F5                      bcc     wait
+(1)    402E : 97                         tsta
+(1)    402F : 27 0C                      beq     halt_to_system
+(1)    4031 : 07 0B                      bsr     putchar
+(1)    4033 : 81 0D                      cmpa    #$0D
+(1)    4035 : 26 EE                      bne     loop
+(1)    4037 : 86 0A                      ldaa    #$0A
+(1)    4039 : 07 03                      bsr     putchar
+(1)    403B : 20 E8                      bra     loop
+(1)    403D :                    halt_to_system:
+(1)    403D : 3F                         swi                     ; halt_to_system
+(1)    403E :
+(1)    403E :                    putchar:
+(1)    403E : 34                         pshx
+(1)    403F : FE 40 00                   ldx     device_base
+(1)    4042 :                    ;;; Transmit Data Register Empty?
+(1)    4042 : 0F 04 80 F8                brclr   SC0SR1,x, #SC0SR1_TDRE_bm, putchar
+(1)    4046 : 6A 07                      staa    SC0DRL,x          ; transmit data
+(1)    4048 : 30                         pulx
+(1)    4049 : 3D                         rts
+(1)    404A :
+(1)    404A :
+(1)    404A :                            include "queue.inc"
+(2)    404A :                    ;;; [queue] queue structure
+(2)    404A : =0                 queue_len:      equ     0       ; queue length
+(2)    404A : =1                 queue_size:     equ     1       ; buffer size
+(2)    404A : =2                 queue_put:      equ     2       ; queue put index
+(2)    404A : =3                 queue_get:      equ     3       ; queue get index
+(2)    404A : =4                 queue_buf:      equ     4       ; buffer start offset
+(2)    404A :
+(2)    404A :                    ;;; [queue] Initialize queue
+(2)    404A :                    ;;; @param X queue work space pointer
+(2)    404A :                    ;;; @param B queue work space size
+(2)    404A :                    ;;; @clobber B
+(2)    404A :                    queue_init:
+(2)    404A : 37                         pshb
+(2)    404B : 34                         pshx
+(2)    404C :                    queue_init_loop:
+(2)    404C : 69 30                      clr     1,x+
+(2)    404E : 04 31 FB                   dbne    b,queue_init_loop
+(2)    4051 : 30                         pulx
+(2)    4052 : 33                         pulb
+(2)    4053 : C0 04                      subb    #queue_buf
+(2)    4055 : 6B 01                      stab    queue_size,x
+(2)    4057 : 3D                         rts
+(2)    4058 :
+(2)    4058 :                    ;;; [queue] Add an element to queue
+(2)    4058 :                    ;;; @param X queue work space pointer
+(2)    4058 :                    ;;; @param A an element
+(2)    4058 :                    ;;; @return CC.C 0 if queue is full
+(2)    4058 :                    queue_add:
+(2)    4058 : 37                         pshb
+(2)    4059 : E6 00                      ldab    queue_len,x
+(2)    405B : E1 01                      cmpb    queue_size,x
+(2)    405D : 24 14                      bhs     queue_add_return ; carry is cleared
+(2)    405F : E6 02                      ldab    queue_put,x
+(2)    4061 : CB 04                      addb    #queue_buf      ; 8 bits offset of the element
+(2)    4063 : 6A E5                      staa    b,x             ; store an element
+(2)    4065 : 62 00                      inc     queue_len,x
+(2)    4067 : C0 03                      subb    #queue_buf-1    ; the next put index
+(2)    4069 : 6B 02                      stab    queue_put,x
+(2)    406B : E1 01                      cmpb    queue_size,x
+(2)    406D : 25 04                      blo     queue_add_return ; carry is set
+(2)    406F : 69 02                      clr     queue_put,x
+(2)    4071 : 14 01                      sec                     ; set carry
+(2)    4073 :                    queue_add_return:
+(2)    4073 : 33                         pulb
+(2)    4074 : 3D                         rts
+(2)    4075 :
+(2)    4075 :                    ;;; [queue] Remove an element from queue
+(2)    4075 :                    ;;; @param X queue work space pointer
+(2)    4075 :                    ;;; @return A an element
+(2)    4075 :                    ;;; @return CC.C 0 if queue is empty
+(2)    4075 :                    queue_remove:
+(2)    4075 : E7 00                      tst     queue_len,x
+(2)    4077 : 26 03                      bne     queue_remove_elem
+(2)    4079 : 10 FE                      clc                     ; clear carry
+(2)    407B : 3D                         rts
+(2)    407C :                    queue_remove_elem:
+(2)    407C : 37                         pshb
+(2)    407D : E6 03                      ldab    queue_get,x
+(2)    407F : CB 04                      addb    #queue_buf      ; 8 bits offset of the element
+(2)    4081 : A6 E5                      ldaa    b,x             ; read an element
+(2)    4083 : 63 00                      dec     queue_len,x
+(2)    4085 : C0 03                      subb    #queue_buf-1    ; the next get index
+(2)    4087 : 6B 03                      stab    queue_get,x
+(2)    4089 : E1 01                      cmpb    queue_size,x
+(2)    408B : 25 04                      blo     queue_remove_return ; carry is set
+(2)    408D : 69 03                      clr     queue_get,x
+(2)    408F : 14 01                      sec                     ; set carry
+(2)    4091 :                    queue_remove_return:
+(2)    4091 : 33                         pulb
+(2)    4092 : 3D                         rts
+(2)    4093 :
+(2)    4093 :                    ;;; Local Variables:
+(2)    4093 :                    ;;; mode: asm
+(2)    4093 :                    ;;; End:
+(2)    4093 :                    ;;; vim: set ft=asm et ts=4 sw=4:
+(1)    4093 :
+(1)    4093 :                    isr_sci_error:
+(1)    4093 : E6 47                      ldab    SC0DRL,y          ; clear OR/NF/FE
+(1)    4095 :                    isr_sci:
+(1)    4095 : FD 40 00                   ldy     device_base
+(1)    4098 : 0E 44 0E F7                brset   SC0SR1,y, #SC0SR1_OR_bm|SC0SR1_NF_bm|SC0SR1_FE_bm, isr_sci_error
+(1)    409C : 0F 44 20 08                brclr   SC0SR1,y, #SC0SR1_RDRF_bm, isr_sci_return
+(1)    40A0 : A6 47                      ldaa    SC0DRL,y
+(1)    40A2 : CE 11 00                   ldx     #rx_queue
+(1)    40A5 : 16 40 58                   jsr     queue_add
+(1)    40A8 :                    isr_sci_return:
+(1)    40A8 : 0B                         rti

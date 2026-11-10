@@ -61,12 +61,12 @@
 (1)       0 :
 (1)       0 : =C0                SCI0_BASE:      equ     REG_BASE+$C0
 (1)       0 :
-(1)       0 :                    ;;; Where the samples go: data and queues in RAM from $1000; code, and the
-(1)       0 :                    ;;; stack below it, from $2000.
+(1)       0 :                    ;;; Where the samples go, the same on every part: data, queues and the
+(1)       0 :                    ;;; stack from $1000, inside or out; code from $4000, outside on all.
 (1)       0 : =1000              DATA_ORG:       equ     $1000
 (1)       0 : =1100              QUEUE_ORG:      equ     $1100
 (1)       0 : =2000              STACK_TOP:      equ     $2000   ; SP points at the last byte pushed
-(1)       0 : =2000              CODE_ORG:       equ     $2000
+(1)       0 : =4000              CODE_ORG:       equ     $4000
           0 :                            include "arith_main.inc"
 (1)       0 :
 (1)       0 :                    ;;; MC6850 Asynchronous Communication Interface Adapter
@@ -136,335 +136,335 @@
 (1)    FFF6 : FF F6                      fdb     VEC_SWI         ; for halt to system
 (1)    FFF8 :
 (1)    FFFE :                            org     VEC_RESET
-(1)    FFFE : 20 00                      fdb     initialize
+(1)    FFFE : 40 00                      fdb     initialize
 (1)   10000 :
-(1)    2000 :                            org     CODE_ORG
-(1)    2000 :                    initialize:
-(1)    2000 : CF 20 00                   lds     #stack
-(1)    2003 : 86 03                      ldaa    #CDS_RESET_gc   ; Master reset
-(1)    2005 : 7A DF 00                   staa    ACIA_control
-(1)    2008 : 86 14                      ldaa    #WSB_8N1_gc     ; 8 bits + No Parity + 1 Stop Bits
-(1)    200A :                                                    ; Transmit, Receive interrupts disabled
-(1)    200A : 7A DF 00                   staa    ACIA_control
-(1)    200D :
-(1)    200D : 16 20 7C                   jsr     arith
-(1)    2010 : 3F                         swi
-(1)    2011 :
-(1)    2011 :                    ;;; Print out char
-(1)    2011 :                    ;;; @param A char
-(1)    2011 :                    ;;; @clobber A
-(1)    2011 :                    putspace:
-(1)    2011 : 86 20                      ldaa    #' '
-(1)    2013 : 20 06                      bra     putchar
-(1)    2015 :                    newline:
-(1)    2015 : 86 0D                      ldaa    #$0D
-(1)    2017 : 07 02                      bsr     putchar
-(1)    2019 : 86 0A                      ldaa    #$0A
-(1)    201B :                    putchar:
-(1)    201B : 37                         pshb
-(1)    201C : F6 DF 00                   ldab    ACIA_status
-(1)    201F : C5 02                      bitb    #TDRE_bm
-(1)    2021 : 33                         pulb
-(1)    2022 : 27 F7                      beq     putchar
-(1)    2024 : 7A DF 01                   staa    ACIA_data
-(1)    2027 : 3D                         rts
-(1)    2028 :
-(1)    2028 :                    ;;; Print "v1 op v2"
-(1)    2028 :                    ;;; @param X v1
-(1)    2028 :                    ;;; @param Y v2
-(1)    2028 :                    ;;; @param A op
-(1)    2028 :                    ;;; @return D v1
-(1)    2028 :                    ;;; @return X v2
-(1)    2028 :                    ;;; @clobber R1 R2
-(1)    2028 :                    expr:
-(1)    2028 : 36                         psha
-(1)    2029 : 7E 10 02                   stx     R1
-(1)    202C : 7D 10 04                   sty     R2
-(1)    202F : FC 10 02                   ldd     R1
-(1)    2032 : 16 22 25                   jsr     print_int16     ; print v1
-(1)    2035 : 07 DA                      bsr     putspace
-(1)    2037 : 32                         pula
-(1)    2038 : 07 E1                      bsr     putchar         ; print op
-(1)    203A : 07 D5                      bsr     putspace
-(1)    203C : FC 10 04                   ldd     R2
-(1)    203F : 16 22 25                   jsr     print_int16     ; print v2
-(1)    2042 : FC 10 02                   ldd     R1
-(1)    2045 : FE 10 04                   ldx     R2
-(1)    2048 : 3D                         rts
-(1)    2049 :
-(1)    2049 :                    ;;; Print " = v\n"
-(1)    2049 :                    ;;; @param D v
-(1)    2049 :                    answer:
-(1)    2049 : 36                         psha
-(1)    204A : 07 C5                      bsr     putspace
-(1)    204C : 86 3D                      ldaa    #'='
-(1)    204E : 07 CB                      bsr     putchar
-(1)    2050 : 07 BF                      bsr     putspace
-(1)    2052 : 32                         pula
-(1)    2053 : 16 22 25                   jsr     print_int16     ; print v
-(1)    2056 : 20 BD                      bra     newline
-(1)    2058 :
-(1)    2058 :                    ;;; Print "v1 rel v2"
-(1)    2058 :                    ;;; @clobber R1 R2
-(1)    2058 :                    comp:
-(1)    2058 : 7E 10 02                   stx     R1
-(1)    205B : 7D 10 04                   sty     R2
-(1)    205E : FC 10 02                   ldd     R1
-(1)    2061 : B3 10 04                   subd    R2
-(1)    2064 : 27 0C                      beq     comp_eq
-(1)    2066 : 2D 0E                      blt     comp_lt
-(1)    2068 : 2E 04                      bgt     comp_gt
-(1)    206A : 86 3F                      ldaa    #'?'
-(1)    206C : 20 0A                      bra     comp_out
-(1)    206E :                    comp_gt:
-(1)    206E : 86 3E                      ldaa    #'>'
-(1)    2070 : 20 06                      bra     comp_out
-(1)    2072 :                    comp_eq:
-(1)    2072 : 86 3D                      ldaa    #'='
-(1)    2074 : 20 02                      bra     comp_out
-(1)    2076 :                    comp_lt:
-(1)    2076 : 86 3C                      ldaa    #'<'
-(1)    2078 :                    comp_out:
-(1)    2078 : 07 AE                      bsr     expr
-(1)    207A : 20 99                      bra     newline
-(1)    207C :
-(1)    207C :                    arith:
-(1)    207C : CE 46 50                   ldx     #18000
-(1)    207F : CD 6D 60                   ldy     #28000
-(1)    2082 : 86 2B                      ldaa    #'+'
-(1)    2084 : 16 20 28                   jsr     expr
-(1)    2087 : F3 10 04                   addd    R2
-(1)    208A : 16 20 49                   jsr     answer          ; -19536
-(1)    208D :
-(1)    208D : CE 46 50                   ldx     #18000
-(1)    2090 : CD B9 B0                   ldy     #-18000
-(1)    2093 : 86 2B                      ldaa    #'+'
-(1)    2095 : 16 20 28                   jsr     expr
-(1)    2098 : F3 10 04                   addd    R2
-(1)    209B : 16 20 49                   jsr     answer          ; 0
-(1)    209E :
-(1)    209E : CE B9 B0                   ldx     #-18000
-(1)    20A1 : CD B9 B0                   ldy     #-18000
-(1)    20A4 : 86 2B                      ldaa    #'+'
-(1)    20A6 : 16 20 28                   jsr     expr
-(1)    20A9 : F3 10 04                   addd    R2
-(1)    20AC : 16 20 49                   jsr     answer          ; 29536
-(1)    20AF :
-(1)    20AF : CE B9 B0                   ldx     #-18000
-(1)    20B2 : CD 92 A0                   ldy     #-28000
-(1)    20B5 : 86 2D                      ldaa    #'-'
-(1)    20B7 : 16 20 28                   jsr     expr
-(1)    20BA : B3 10 04                   subd    R2
-(1)    20BD : 16 20 49                   jsr     answer          ; 10000
-(1)    20C0 :
-(1)    20C0 : CE 46 50                   ldx     #18000
-(1)    20C3 : CD B9 B0                   ldy     #-18000
-(1)    20C6 : 86 2D                      ldaa    #'-'
-(1)    20C8 : 16 20 28                   jsr     expr
-(1)    20CB : B3 10 04                   subd    R2
-(1)    20CE : 16 20 49                   jsr     answer          ; -29536
-(1)    20D1 :
-(1)    20D1 : CE 92 A0                   ldx     #-28000
-(1)    20D4 : CD B9 B0                   ldy     #-18000
-(1)    20D7 : 86 2D                      ldaa    #'-'
-(1)    20D9 : 16 20 28                   jsr     expr
-(1)    20DC : B3 10 04                   subd    R2
-(1)    20DF : 16 20 49                   jsr     answer          ; -10000
-(1)    20E2 :
-(1)    20E2 : CE 00 64                   ldx     #100
-(1)    20E5 : CD 01 2C                   ldy     #300
-(1)    20E8 : 86 2A                      ldaa    #'*'
-(1)    20EA : 16 20 28                   jsr     expr
-(1)    20ED : 16 22 4F                   jsr     mul16
-(1)    20F0 : 16 20 49                   jsr     answer          ; 30000
-(1)    20F3 :
-(1)    20F3 : CE 00 C8                   ldx     #200
-(1)    20F6 : CD 00 64                   ldy     #100
-(1)    20F9 : 86 2A                      ldaa    #'*'
-(1)    20FB : 16 20 28                   jsr     expr
-(1)    20FE : 16 22 4F                   jsr     mul16
-(1)    2101 : 16 20 49                   jsr     answer          ; 20000
-(1)    2104 :
-(1)    2104 : CE 01 2C                   ldx     #300
-(1)    2107 : CD FF 38                   ldy     #-200
-(1)    210A : 86 2A                      ldaa    #'*'
-(1)    210C : 16 20 28                   jsr     expr
-(1)    210F : 16 22 4F                   jsr     mul16
-(1)    2112 : 16 20 49                   jsr     answer          ; 5536
-(1)    2115 :
-(1)    2115 : CE 00 64                   ldx     #100
-(1)    2118 : CD FE D4                   ldy     #-300
-(1)    211B : 86 2A                      ldaa    #'*'
-(1)    211D : 16 20 28                   jsr     expr
-(1)    2120 : 16 22 4F                   jsr     mul16
-(1)    2123 : 16 20 49                   jsr     answer          ; -30000
-(1)    2126 :
-(1)    2126 : CE FF 38                   ldx     #-200
-(1)    2129 : CD FF 9C                   ldy     #-100
-(1)    212C : 86 2A                      ldaa    #'*'
-(1)    212E : 16 20 28                   jsr     expr
-(1)    2131 : 16 22 4F                   jsr     mul16
-(1)    2134 : 16 20 49                   jsr     answer          ; 20000
-(1)    2137 :
-(1)    2137 : CE FE D4                   ldx     #-300
-(1)    213A : CD 00 64                   ldy     #100
-(1)    213D : 86 2A                      ldaa    #'*'
-(1)    213F : 16 20 28                   jsr     expr
-(1)    2142 : 16 22 4F                   jsr     mul16
-(1)    2145 : 16 20 49                   jsr     answer          ; -30000
-(1)    2148 :
-(1)    2148 : CE 00 03                   ldx     #3
-(1)    214B : CD 80 00                   ldy     #-32768
-(1)    214E : 86 2A                      ldaa    #'*'
-(1)    2150 : 16 20 28                   jsr     expr
-(1)    2153 : 16 22 4F                   jsr     mul16
-(1)    2156 : 16 20 49                   jsr     answer          ; -32768
-(1)    2159 :
-(1)    2159 : CE 75 30                   ldx     #30000
-(1)    215C : CD 00 64                   ldy     #100
-(1)    215F : 86 2F                      ldaa    #'/'
-(1)    2161 : 16 20 28                   jsr     expr
-(1)    2164 : 16 22 56                   jsr     div16           ; R0=R1/R2
-(1)    2167 : 16 20 49                   jsr     answer          ; 300
-(1)    216A :
-(1)    216A : CE FF 38                   ldx     #-200
-(1)    216D : CD 00 64                   ldy     #100
-(1)    2170 : 86 2F                      ldaa    #'/'
-(1)    2172 : 16 20 28                   jsr     expr
-(1)    2175 : 16 22 56                   jsr     div16           ; R0=R1/R2
-(1)    2178 : 16 20 49                   jsr     answer          ; -2
-(1)    217B :
-(1)    217B : CE 8A D0                   ldx     #-30000
-(1)    217E : CD FF 38                   ldy     #-200
-(1)    2181 : 86 2F                      ldaa    #'/'
-(1)    2183 : 16 20 28                   jsr     expr
-(1)    2186 : 16 22 56                   jsr     div16           ; R0=R1/R2
-(1)    2189 : 16 20 49                   jsr     answer          ; 150
-(1)    218C :
-(1)    218C : CE 8A D0                   ldx     #-30000
-(1)    218F : CD 00 4E                   ldy     #78
-(1)    2192 : 86 2F                      ldaa    #'/'
-(1)    2194 : 16 20 28                   jsr     expr
-(1)    2197 : 16 22 56                   jsr     div16           ; R0=R1/R2
-(1)    219A : 16 20 49                   jsr     answer          ; -384
-(1)    219D :
-(1)    219D : CE 13 88                   ldx     #5000
-(1)    21A0 : CD 0F A0                   ldy     #4000
-(1)    21A3 : 16 20 58                   jsr     comp
-(1)    21A6 :
-(1)    21A6 : CE 13 88                   ldx     #5000
-(1)    21A9 : CD 13 88                   ldy     #5000
-(1)    21AC : 16 20 58                   jsr     comp
-(1)    21AF :
-(1)    21AF : CE 0F A0                   ldx     #4000
-(1)    21B2 : CD 13 88                   ldy     #5000
-(1)    21B5 : 16 20 58                   jsr     comp
-(1)    21B8 :
-(1)    21B8 : CE EC 78                   ldx     #-5000
-(1)    21BB : CD F0 60                   ldy     #-4000
-(1)    21BE : 16 20 58                   jsr     comp
-(1)    21C1 :
-(1)    21C1 : CE EC 78                   ldx     #-5000
-(1)    21C4 : CD EC 78                   ldy     #-5000
-(1)    21C7 : 16 20 58                   jsr     comp
-(1)    21CA :
-(1)    21CA : CE F0 60                   ldx     #-4000
-(1)    21CD : CD EC 78                   ldy     #-5000
-(1)    21D0 : 16 20 58                   jsr     comp
-(1)    21D3 :
-(1)    21D3 : CE 7F BC                   ldx     #32700
-(1)    21D6 : CD 7F 58                   ldy     #32600
-(1)    21D9 : 16 20 58                   jsr     comp
-(1)    21DC :
-(1)    21DC : CE 7F BC                   ldx     #32700
-(1)    21DF : CD 7F BC                   ldy     #32700
-(1)    21E2 : 16 20 58                   jsr     comp
-(1)    21E5 :
-(1)    21E5 : CE 7F 58                   ldx     #32600
-(1)    21E8 : CD 7F BC                   ldy     #32700
-(1)    21EB : 16 20 58                   jsr     comp
-(1)    21EE :
-(1)    21EE : CE 80 44                   ldx     #-32700
-(1)    21F1 : CD 80 A8                   ldy     #-32600
-(1)    21F4 : 16 20 58                   jsr     comp
-(1)    21F7 :
-(1)    21F7 : CE 80 44                   ldx     #-32700
-(1)    21FA : CD 80 44                   ldy     #-32700
-(1)    21FD : 16 20 58                   jsr     comp
-(1)    2200 :
-(1)    2200 : CE 80 A8                   ldx     #-32600
-(1)    2203 : CD 80 44                   ldy     #-32700
-(1)    2206 : 16 20 58                   jsr     comp
-(1)    2209 :
-(1)    2209 : CE 46 50                   ldx     #18000
-(1)    220C : CD 92 A0                   ldy     #-28000
-(1)    220F : 16 20 58                   jsr     comp
-(1)    2212 :
-(1)    2212 : CE 92 A0                   ldx     #-28000
-(1)    2215 : CD 92 A0                   ldy     #-28000
-(1)    2218 : 16 20 58                   jsr     comp
-(1)    221B :
-(1)    221B : CE 92 A0                   ldx     #-28000
-(1)    221E : CD 46 50                   ldy     #18000
-(1)    2221 : 16 20 58                   jsr     comp
-(1)    2224 : 3D                         rts
-(1)    2225 :
-(1)    2225 :                            include "arith.inc"
-(2)    2225 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
-(2)    2225 :
-(2)    2225 :                    ;;; Print signed 16-bit integer as decimal
-(2)    2225 :                    ;;; @param D value
-(2)    2225 :                    ;;; @clobber D X
-(2)    2225 :                    print_int16:
-(2)    2225 : 97                         tsta
-(2)    2226 : 2A 0C                      bpl     print_uint16
-(2)    2228 : 36                         psha
-(2)    2229 : 86 2D                      ldaa    #'-'
-(2)    222B : 16 20 1B                   jsr     putchar
-(2)    222E : 32                         pula
-(2)    222F : 41                         coma
-(2)    2230 : 51                         comb
-(2)    2231 : C3 00 01                   addd    #1        ; negate value
-(2)    2234 :                    ;;; Print unsigned 16-bit integer as decimal
-(2)    2234 :                    ;;; @param D value
-(2)    2234 :                    ;;; @clobber D X
-(2)    2234 :                    print_uint16:
-(2)    2234 : C3 00 00                   addd    #0
-(2)    2237 : 27 10                      beq     print_uint16_zero
-(2)    2239 :                    print_uint16_loop:
-(2)    2239 : C3 00 00                   addd    #0
-(2)    223C : 27 10                      beq     print_uint16_end ; branch if value == 0
-(2)    223E : CE 00 0A                   ldx     #10
-(2)    2241 : 18 10                      idiv                    ; D/X, D=remainder, X=quotient
-(2)    2243 : 37                         pshb                    ; push remainder
-(2)    2244 : B7 C5                      xgdx                    ; D=quotient
-(2)    2246 : 07 F1                      bsr     print_uint16_loop
-(2)    2248 : 32                         pula
-(2)    2249 :                    print_uint16_zero:
-(2)    2249 : 8A 30                      oraa    #'0'
-(2)    224B : 06 20 1B                   jmp     putchar
-(2)    224E :                    print_uint16_end:
-(2)    224E : 3D                         rts
-(2)    224F :
-(2)    224F :                    ;;; Multiply; result = multiplicand * multiplier
-(2)    224F :                    ;;; @param D multiplicand
-(2)    224F :                    ;;; @param X multiplier
-(2)    224F :                    ;;; @return D result
-(2)    224F :                    ;;; @clobber X
-(2)    224F :                    mul16:
-(2)    224F :                    umul16:
-(2)    224F : 35                         pshy
-(2)    2250 : B7 56                      tfr     x,y
-(2)    2252 : 18 13                      emuls                   ; Y:D=D*Y, the low half for either sign
-(2)    2254 : 31                         puly
-(2)    2255 : 3D                         rts
-(2)    2256 :
-(2)    2256 :                    ;;; Division; dividend / divisor = quotient ... remainder
-(2)    2256 :                    ;;; @param D dividend
-(2)    2256 :                    ;;; @param X divisor
-(2)    2256 :                    ;;; @return D quotient
-(2)    2256 :                    ;;; @return X remainder
-(2)    2256 :                    div16:
-(2)    2256 : 18 15                      idivs                   ; D/X, X=quotient, D=remainder
-(2)    2258 : B7 C5                      xgdx
-(2)    225A : 3D                         rts
+(1)    4000 :                            org     CODE_ORG
+(1)    4000 :                    initialize:
+(1)    4000 : CF 20 00                   lds     #stack
+(1)    4003 : 86 03                      ldaa    #CDS_RESET_gc   ; Master reset
+(1)    4005 : 7A DF 00                   staa    ACIA_control
+(1)    4008 : 86 14                      ldaa    #WSB_8N1_gc     ; 8 bits + No Parity + 1 Stop Bits
+(1)    400A :                                                    ; Transmit, Receive interrupts disabled
+(1)    400A : 7A DF 00                   staa    ACIA_control
+(1)    400D :
+(1)    400D : 16 40 7C                   jsr     arith
+(1)    4010 : 3F                         swi
+(1)    4011 :
+(1)    4011 :                    ;;; Print out char
+(1)    4011 :                    ;;; @param A char
+(1)    4011 :                    ;;; @clobber A
+(1)    4011 :                    putspace:
+(1)    4011 : 86 20                      ldaa    #' '
+(1)    4013 : 20 06                      bra     putchar
+(1)    4015 :                    newline:
+(1)    4015 : 86 0D                      ldaa    #$0D
+(1)    4017 : 07 02                      bsr     putchar
+(1)    4019 : 86 0A                      ldaa    #$0A
+(1)    401B :                    putchar:
+(1)    401B : 37                         pshb
+(1)    401C : F6 DF 00                   ldab    ACIA_status
+(1)    401F : C5 02                      bitb    #TDRE_bm
+(1)    4021 : 33                         pulb
+(1)    4022 : 27 F7                      beq     putchar
+(1)    4024 : 7A DF 01                   staa    ACIA_data
+(1)    4027 : 3D                         rts
+(1)    4028 :
+(1)    4028 :                    ;;; Print "v1 op v2"
+(1)    4028 :                    ;;; @param X v1
+(1)    4028 :                    ;;; @param Y v2
+(1)    4028 :                    ;;; @param A op
+(1)    4028 :                    ;;; @return D v1
+(1)    4028 :                    ;;; @return X v2
+(1)    4028 :                    ;;; @clobber R1 R2
+(1)    4028 :                    expr:
+(1)    4028 : 36                         psha
+(1)    4029 : 7E 10 02                   stx     R1
+(1)    402C : 7D 10 04                   sty     R2
+(1)    402F : FC 10 02                   ldd     R1
+(1)    4032 : 16 42 25                   jsr     print_int16     ; print v1
+(1)    4035 : 07 DA                      bsr     putspace
+(1)    4037 : 32                         pula
+(1)    4038 : 07 E1                      bsr     putchar         ; print op
+(1)    403A : 07 D5                      bsr     putspace
+(1)    403C : FC 10 04                   ldd     R2
+(1)    403F : 16 42 25                   jsr     print_int16     ; print v2
+(1)    4042 : FC 10 02                   ldd     R1
+(1)    4045 : FE 10 04                   ldx     R2
+(1)    4048 : 3D                         rts
+(1)    4049 :
+(1)    4049 :                    ;;; Print " = v\n"
+(1)    4049 :                    ;;; @param D v
+(1)    4049 :                    answer:
+(1)    4049 : 36                         psha
+(1)    404A : 07 C5                      bsr     putspace
+(1)    404C : 86 3D                      ldaa    #'='
+(1)    404E : 07 CB                      bsr     putchar
+(1)    4050 : 07 BF                      bsr     putspace
+(1)    4052 : 32                         pula
+(1)    4053 : 16 42 25                   jsr     print_int16     ; print v
+(1)    4056 : 20 BD                      bra     newline
+(1)    4058 :
+(1)    4058 :                    ;;; Print "v1 rel v2"
+(1)    4058 :                    ;;; @clobber R1 R2
+(1)    4058 :                    comp:
+(1)    4058 : 7E 10 02                   stx     R1
+(1)    405B : 7D 10 04                   sty     R2
+(1)    405E : FC 10 02                   ldd     R1
+(1)    4061 : B3 10 04                   subd    R2
+(1)    4064 : 27 0C                      beq     comp_eq
+(1)    4066 : 2D 0E                      blt     comp_lt
+(1)    4068 : 2E 04                      bgt     comp_gt
+(1)    406A : 86 3F                      ldaa    #'?'
+(1)    406C : 20 0A                      bra     comp_out
+(1)    406E :                    comp_gt:
+(1)    406E : 86 3E                      ldaa    #'>'
+(1)    4070 : 20 06                      bra     comp_out
+(1)    4072 :                    comp_eq:
+(1)    4072 : 86 3D                      ldaa    #'='
+(1)    4074 : 20 02                      bra     comp_out
+(1)    4076 :                    comp_lt:
+(1)    4076 : 86 3C                      ldaa    #'<'
+(1)    4078 :                    comp_out:
+(1)    4078 : 07 AE                      bsr     expr
+(1)    407A : 20 99                      bra     newline
+(1)    407C :
+(1)    407C :                    arith:
+(1)    407C : CE 46 50                   ldx     #18000
+(1)    407F : CD 6D 60                   ldy     #28000
+(1)    4082 : 86 2B                      ldaa    #'+'
+(1)    4084 : 16 40 28                   jsr     expr
+(1)    4087 : F3 10 04                   addd    R2
+(1)    408A : 16 40 49                   jsr     answer          ; -19536
+(1)    408D :
+(1)    408D : CE 46 50                   ldx     #18000
+(1)    4090 : CD B9 B0                   ldy     #-18000
+(1)    4093 : 86 2B                      ldaa    #'+'
+(1)    4095 : 16 40 28                   jsr     expr
+(1)    4098 : F3 10 04                   addd    R2
+(1)    409B : 16 40 49                   jsr     answer          ; 0
+(1)    409E :
+(1)    409E : CE B9 B0                   ldx     #-18000
+(1)    40A1 : CD B9 B0                   ldy     #-18000
+(1)    40A4 : 86 2B                      ldaa    #'+'
+(1)    40A6 : 16 40 28                   jsr     expr
+(1)    40A9 : F3 10 04                   addd    R2
+(1)    40AC : 16 40 49                   jsr     answer          ; 29536
+(1)    40AF :
+(1)    40AF : CE B9 B0                   ldx     #-18000
+(1)    40B2 : CD 92 A0                   ldy     #-28000
+(1)    40B5 : 86 2D                      ldaa    #'-'
+(1)    40B7 : 16 40 28                   jsr     expr
+(1)    40BA : B3 10 04                   subd    R2
+(1)    40BD : 16 40 49                   jsr     answer          ; 10000
+(1)    40C0 :
+(1)    40C0 : CE 46 50                   ldx     #18000
+(1)    40C3 : CD B9 B0                   ldy     #-18000
+(1)    40C6 : 86 2D                      ldaa    #'-'
+(1)    40C8 : 16 40 28                   jsr     expr
+(1)    40CB : B3 10 04                   subd    R2
+(1)    40CE : 16 40 49                   jsr     answer          ; -29536
+(1)    40D1 :
+(1)    40D1 : CE 92 A0                   ldx     #-28000
+(1)    40D4 : CD B9 B0                   ldy     #-18000
+(1)    40D7 : 86 2D                      ldaa    #'-'
+(1)    40D9 : 16 40 28                   jsr     expr
+(1)    40DC : B3 10 04                   subd    R2
+(1)    40DF : 16 40 49                   jsr     answer          ; -10000
+(1)    40E2 :
+(1)    40E2 : CE 00 64                   ldx     #100
+(1)    40E5 : CD 01 2C                   ldy     #300
+(1)    40E8 : 86 2A                      ldaa    #'*'
+(1)    40EA : 16 40 28                   jsr     expr
+(1)    40ED : 16 42 4F                   jsr     mul16
+(1)    40F0 : 16 40 49                   jsr     answer          ; 30000
+(1)    40F3 :
+(1)    40F3 : CE 00 C8                   ldx     #200
+(1)    40F6 : CD 00 64                   ldy     #100
+(1)    40F9 : 86 2A                      ldaa    #'*'
+(1)    40FB : 16 40 28                   jsr     expr
+(1)    40FE : 16 42 4F                   jsr     mul16
+(1)    4101 : 16 40 49                   jsr     answer          ; 20000
+(1)    4104 :
+(1)    4104 : CE 01 2C                   ldx     #300
+(1)    4107 : CD FF 38                   ldy     #-200
+(1)    410A : 86 2A                      ldaa    #'*'
+(1)    410C : 16 40 28                   jsr     expr
+(1)    410F : 16 42 4F                   jsr     mul16
+(1)    4112 : 16 40 49                   jsr     answer          ; 5536
+(1)    4115 :
+(1)    4115 : CE 00 64                   ldx     #100
+(1)    4118 : CD FE D4                   ldy     #-300
+(1)    411B : 86 2A                      ldaa    #'*'
+(1)    411D : 16 40 28                   jsr     expr
+(1)    4120 : 16 42 4F                   jsr     mul16
+(1)    4123 : 16 40 49                   jsr     answer          ; -30000
+(1)    4126 :
+(1)    4126 : CE FF 38                   ldx     #-200
+(1)    4129 : CD FF 9C                   ldy     #-100
+(1)    412C : 86 2A                      ldaa    #'*'
+(1)    412E : 16 40 28                   jsr     expr
+(1)    4131 : 16 42 4F                   jsr     mul16
+(1)    4134 : 16 40 49                   jsr     answer          ; 20000
+(1)    4137 :
+(1)    4137 : CE FE D4                   ldx     #-300
+(1)    413A : CD 00 64                   ldy     #100
+(1)    413D : 86 2A                      ldaa    #'*'
+(1)    413F : 16 40 28                   jsr     expr
+(1)    4142 : 16 42 4F                   jsr     mul16
+(1)    4145 : 16 40 49                   jsr     answer          ; -30000
+(1)    4148 :
+(1)    4148 : CE 00 03                   ldx     #3
+(1)    414B : CD 80 00                   ldy     #-32768
+(1)    414E : 86 2A                      ldaa    #'*'
+(1)    4150 : 16 40 28                   jsr     expr
+(1)    4153 : 16 42 4F                   jsr     mul16
+(1)    4156 : 16 40 49                   jsr     answer          ; -32768
+(1)    4159 :
+(1)    4159 : CE 75 30                   ldx     #30000
+(1)    415C : CD 00 64                   ldy     #100
+(1)    415F : 86 2F                      ldaa    #'/'
+(1)    4161 : 16 40 28                   jsr     expr
+(1)    4164 : 16 42 56                   jsr     div16           ; R0=R1/R2
+(1)    4167 : 16 40 49                   jsr     answer          ; 300
+(1)    416A :
+(1)    416A : CE FF 38                   ldx     #-200
+(1)    416D : CD 00 64                   ldy     #100
+(1)    4170 : 86 2F                      ldaa    #'/'
+(1)    4172 : 16 40 28                   jsr     expr
+(1)    4175 : 16 42 56                   jsr     div16           ; R0=R1/R2
+(1)    4178 : 16 40 49                   jsr     answer          ; -2
+(1)    417B :
+(1)    417B : CE 8A D0                   ldx     #-30000
+(1)    417E : CD FF 38                   ldy     #-200
+(1)    4181 : 86 2F                      ldaa    #'/'
+(1)    4183 : 16 40 28                   jsr     expr
+(1)    4186 : 16 42 56                   jsr     div16           ; R0=R1/R2
+(1)    4189 : 16 40 49                   jsr     answer          ; 150
+(1)    418C :
+(1)    418C : CE 8A D0                   ldx     #-30000
+(1)    418F : CD 00 4E                   ldy     #78
+(1)    4192 : 86 2F                      ldaa    #'/'
+(1)    4194 : 16 40 28                   jsr     expr
+(1)    4197 : 16 42 56                   jsr     div16           ; R0=R1/R2
+(1)    419A : 16 40 49                   jsr     answer          ; -384
+(1)    419D :
+(1)    419D : CE 13 88                   ldx     #5000
+(1)    41A0 : CD 0F A0                   ldy     #4000
+(1)    41A3 : 16 40 58                   jsr     comp
+(1)    41A6 :
+(1)    41A6 : CE 13 88                   ldx     #5000
+(1)    41A9 : CD 13 88                   ldy     #5000
+(1)    41AC : 16 40 58                   jsr     comp
+(1)    41AF :
+(1)    41AF : CE 0F A0                   ldx     #4000
+(1)    41B2 : CD 13 88                   ldy     #5000
+(1)    41B5 : 16 40 58                   jsr     comp
+(1)    41B8 :
+(1)    41B8 : CE EC 78                   ldx     #-5000
+(1)    41BB : CD F0 60                   ldy     #-4000
+(1)    41BE : 16 40 58                   jsr     comp
+(1)    41C1 :
+(1)    41C1 : CE EC 78                   ldx     #-5000
+(1)    41C4 : CD EC 78                   ldy     #-5000
+(1)    41C7 : 16 40 58                   jsr     comp
+(1)    41CA :
+(1)    41CA : CE F0 60                   ldx     #-4000
+(1)    41CD : CD EC 78                   ldy     #-5000
+(1)    41D0 : 16 40 58                   jsr     comp
+(1)    41D3 :
+(1)    41D3 : CE 7F BC                   ldx     #32700
+(1)    41D6 : CD 7F 58                   ldy     #32600
+(1)    41D9 : 16 40 58                   jsr     comp
+(1)    41DC :
+(1)    41DC : CE 7F BC                   ldx     #32700
+(1)    41DF : CD 7F BC                   ldy     #32700
+(1)    41E2 : 16 40 58                   jsr     comp
+(1)    41E5 :
+(1)    41E5 : CE 7F 58                   ldx     #32600
+(1)    41E8 : CD 7F BC                   ldy     #32700
+(1)    41EB : 16 40 58                   jsr     comp
+(1)    41EE :
+(1)    41EE : CE 80 44                   ldx     #-32700
+(1)    41F1 : CD 80 A8                   ldy     #-32600
+(1)    41F4 : 16 40 58                   jsr     comp
+(1)    41F7 :
+(1)    41F7 : CE 80 44                   ldx     #-32700
+(1)    41FA : CD 80 44                   ldy     #-32700
+(1)    41FD : 16 40 58                   jsr     comp
+(1)    4200 :
+(1)    4200 : CE 80 A8                   ldx     #-32600
+(1)    4203 : CD 80 44                   ldy     #-32700
+(1)    4206 : 16 40 58                   jsr     comp
+(1)    4209 :
+(1)    4209 : CE 46 50                   ldx     #18000
+(1)    420C : CD 92 A0                   ldy     #-28000
+(1)    420F : 16 40 58                   jsr     comp
+(1)    4212 :
+(1)    4212 : CE 92 A0                   ldx     #-28000
+(1)    4215 : CD 92 A0                   ldy     #-28000
+(1)    4218 : 16 40 58                   jsr     comp
+(1)    421B :
+(1)    421B : CE 92 A0                   ldx     #-28000
+(1)    421E : CD 46 50                   ldy     #18000
+(1)    4221 : 16 40 58                   jsr     comp
+(1)    4224 : 3D                         rts
+(1)    4225 :
+(1)    4225 :                            include "arith.inc"
+(2)    4225 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(2)    4225 :
+(2)    4225 :                    ;;; Print signed 16-bit integer as decimal
+(2)    4225 :                    ;;; @param D value
+(2)    4225 :                    ;;; @clobber D X
+(2)    4225 :                    print_int16:
+(2)    4225 : 97                         tsta
+(2)    4226 : 2A 0C                      bpl     print_uint16
+(2)    4228 : 36                         psha
+(2)    4229 : 86 2D                      ldaa    #'-'
+(2)    422B : 16 40 1B                   jsr     putchar
+(2)    422E : 32                         pula
+(2)    422F : 41                         coma
+(2)    4230 : 51                         comb
+(2)    4231 : C3 00 01                   addd    #1        ; negate value
+(2)    4234 :                    ;;; Print unsigned 16-bit integer as decimal
+(2)    4234 :                    ;;; @param D value
+(2)    4234 :                    ;;; @clobber D X
+(2)    4234 :                    print_uint16:
+(2)    4234 : C3 00 00                   addd    #0
+(2)    4237 : 27 10                      beq     print_uint16_zero
+(2)    4239 :                    print_uint16_loop:
+(2)    4239 : C3 00 00                   addd    #0
+(2)    423C : 27 10                      beq     print_uint16_end ; branch if value == 0
+(2)    423E : CE 00 0A                   ldx     #10
+(2)    4241 : 18 10                      idiv                    ; D/X, D=remainder, X=quotient
+(2)    4243 : 37                         pshb                    ; push remainder
+(2)    4244 : B7 C5                      xgdx                    ; D=quotient
+(2)    4246 : 07 F1                      bsr     print_uint16_loop
+(2)    4248 : 32                         pula
+(2)    4249 :                    print_uint16_zero:
+(2)    4249 : 8A 30                      oraa    #'0'
+(2)    424B : 06 40 1B                   jmp     putchar
+(2)    424E :                    print_uint16_end:
+(2)    424E : 3D                         rts
+(2)    424F :
+(2)    424F :                    ;;; Multiply; result = multiplicand * multiplier
+(2)    424F :                    ;;; @param D multiplicand
+(2)    424F :                    ;;; @param X multiplier
+(2)    424F :                    ;;; @return D result
+(2)    424F :                    ;;; @clobber X
+(2)    424F :                    mul16:
+(2)    424F :                    umul16:
+(2)    424F : 35                         pshy
+(2)    4250 : B7 56                      tfr     x,y
+(2)    4252 : 18 13                      emuls                   ; Y:D=D*Y, the low half for either sign
+(2)    4254 : 31                         puly
+(2)    4255 : 3D                         rts
+(2)    4256 :
+(2)    4256 :                    ;;; Division; dividend / divisor = quotient ... remainder
+(2)    4256 :                    ;;; @param D dividend
+(2)    4256 :                    ;;; @param X divisor
+(2)    4256 :                    ;;; @return D quotient
+(2)    4256 :                    ;;; @return X remainder
+(2)    4256 :                    div16:
+(2)    4256 : 18 15                      idivs                   ; D/X, X=quotient, D=remainder
+(2)    4258 : B7 C5                      xgdx
+(2)    425A : 3D                         rts
