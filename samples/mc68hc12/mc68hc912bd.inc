@@ -12,9 +12,9 @@ EEPROM_BASE:    equ     $0D00  ; $0D00-$0FFF: EEPROM
 
 SCI0_BASE:      equ     REG_BASE+$C0
 
-;;; Where the samples go: data and queues in RAM from $1000; code, and the
-;;; stack below it, from $2000.
+;;; Where the samples go, the same on every part: data, queues and the
+;;; stack from $1000, inside or out; code from $4000, outside on all.
 DATA_ORG:       equ     $1000
 QUEUE_ORG:      equ     $1100
 STACK_TOP:      equ     $2000   ; SP points at the last byte pushed
-CODE_ORG:       equ     $2000
+CODE_ORG:       equ     $4000

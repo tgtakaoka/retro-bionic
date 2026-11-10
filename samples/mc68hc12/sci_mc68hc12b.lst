@@ -61,12 +61,12 @@
 (1)       0 :
 (1)       0 : =C0                SCI0_BASE:      equ     REG_BASE+$C0
 (1)       0 :
-(1)       0 :                    ;;; Where the samples go: data and queues in RAM from $1000; code, and the
-(1)       0 :                    ;;; stack below it, from $2000.
+(1)       0 :                    ;;; Where the samples go, the same on every part: data, queues and the
+(1)       0 :                    ;;; stack from $1000, inside or out; code from $4000, outside on all.
 (1)       0 : =1000              DATA_ORG:       equ     $1000
 (1)       0 : =1100              QUEUE_ORG:      equ     $1100
 (1)       0 : =2000              STACK_TOP:      equ     $2000   ; SP points at the last byte pushed
-(1)       0 : =2000              CODE_ORG:       equ     $2000
+(1)       0 : =4000              CODE_ORG:       equ     $4000
           0 :                            include "sci.inc"
 (1)       0 :
 (1)       0 :                    ;;; SCI: Enable Rx and Tx
@@ -78,46 +78,46 @@
 (1)    FFF6 : FF F6                      fdb     VEC_SWI         ; for halt to system
 (1)    FFF8 :
 (1)    FFFE :                            org     VEC_RESET
-(1)    FFFE : 20 02                      fdb     initialize
+(1)    FFFE : 40 02                      fdb     initialize
 (1)   10000 :
-(1)    2000 :                            org     CODE_ORG
-(1)    2000 :                    device_base:
-(1)    2000 : 00 C0                      fdb     SCI0_BASE      ; the chip wrapper sets it
-(1)    2002 :                    initialize:
-(1)    2002 : CF 20 00                   lds     #stack
-(1)    2005 :                    	;; Initialize SCI
-(1)    2005 : FE 20 00                   ldx     device_base
-(1)    2008 : 69 02                      clr     SC0CR1,x                    ; 8bit 1stop
-(1)    200A : 69 00                      clr     SC0BDH,x
-(1)    200C : 86 01                      ldaa    #1              ; SBR=1: E/16
-(1)    200E : 6A 01                      staa    SC0BDL,x
-(1)    2010 : 86 0C                      ldaa    #RX_ON_TX_ON
-(1)    2012 : 6A 03                      staa    SC0CR2,x
-(1)    2014 :
-(1)    2014 :                    loop:
-(1)    2014 : 07 10                      bsr     getchar
-(1)    2016 : 97                         tsta
-(1)    2017 : 27 0A                      beq     halt_to_system
-(1)    2019 : 07 16              echo:   bsr     putchar
-(1)    201B : 81 0D                      cmpa    #$0D
-(1)    201D : 26 F5                      bne     loop
-(1)    201F : 86 0A                      ldaa    #$0A
-(1)    2021 : 20 F6                      bra     echo
-(1)    2023 :                    halt_to_system:
-(1)    2023 : 3F                         swi
-(1)    2024 :
-(1)    2024 :                    getchar_error:
-(1)    2024 : A6 07                      ldaa    SC0DRL,x          ; Reset OR/NF/FE
-(1)    2026 :                    getchar:
-(1)    2026 :                    ;;; Overrun or noise or framing error?
-(1)    2026 : 0E 04 0E FA                brset   SC0SR1,x, #SC0SR1_OR_bm|SC0SR1_NF_bm|SC0SR1_FE_bm, getchar_error
-(1)    202A :                    ;;; Receive Data Register Full?
-(1)    202A : 0F 04 20 F8                brclr   SC0SR1,x, #SC0SR1_RDRF_bm, getchar
-(1)    202E : A6 07                      ldaa    SC0DRL,x          ; Received data
-(1)    2030 : 3D                         rts
-(1)    2031 :
-(1)    2031 :                    putchar:
-(1)    2031 :                    ;;; Transmit Data Register Empty?
-(1)    2031 : 0F 04 80 FC                brclr   SC0SR1,x, #SC0SR1_TDRE_bm, putchar
-(1)    2035 : 6A 07                      staa    SC0DRL,x          ; transmit data
-(1)    2037 : 3D                         rts
+(1)    4000 :                            org     CODE_ORG
+(1)    4000 :                    device_base:
+(1)    4000 : 00 C0                      fdb     SCI0_BASE      ; the chip wrapper sets it
+(1)    4002 :                    initialize:
+(1)    4002 : CF 20 00                   lds     #stack
+(1)    4005 :                    	;; Initialize SCI
+(1)    4005 : FE 40 00                   ldx     device_base
+(1)    4008 : 69 02                      clr     SC0CR1,x                    ; 8bit 1stop
+(1)    400A : 69 00                      clr     SC0BDH,x
+(1)    400C : 86 01                      ldaa    #1              ; SBR=1: E/16
+(1)    400E : 6A 01                      staa    SC0BDL,x
+(1)    4010 : 86 0C                      ldaa    #RX_ON_TX_ON
+(1)    4012 : 6A 03                      staa    SC0CR2,x
+(1)    4014 :
+(1)    4014 :                    loop:
+(1)    4014 : 07 10                      bsr     getchar
+(1)    4016 : 97                         tsta
+(1)    4017 : 27 0A                      beq     halt_to_system
+(1)    4019 : 07 16              echo:   bsr     putchar
+(1)    401B : 81 0D                      cmpa    #$0D
+(1)    401D : 26 F5                      bne     loop
+(1)    401F : 86 0A                      ldaa    #$0A
+(1)    4021 : 20 F6                      bra     echo
+(1)    4023 :                    halt_to_system:
+(1)    4023 : 3F                         swi
+(1)    4024 :
+(1)    4024 :                    getchar_error:
+(1)    4024 : A6 07                      ldaa    SC0DRL,x          ; Reset OR/NF/FE
+(1)    4026 :                    getchar:
+(1)    4026 :                    ;;; Overrun or noise or framing error?
+(1)    4026 : 0E 04 0E FA                brset   SC0SR1,x, #SC0SR1_OR_bm|SC0SR1_NF_bm|SC0SR1_FE_bm, getchar_error
+(1)    402A :                    ;;; Receive Data Register Full?
+(1)    402A : 0F 04 20 F8                brclr   SC0SR1,x, #SC0SR1_RDRF_bm, getchar
+(1)    402E : A6 07                      ldaa    SC0DRL,x          ; Received data
+(1)    4030 : 3D                         rts
+(1)    4031 :
+(1)    4031 :                    putchar:
+(1)    4031 :                    ;;; Transmit Data Register Empty?
+(1)    4031 : 0F 04 80 FC                brclr   SC0SR1,x, #SC0SR1_TDRE_bm, putchar
+(1)    4035 : 6A 07                      staa    SC0DRL,x          ; transmit data
+(1)    4037 : 3D                         rts
