@@ -16,6 +16,9 @@ DevsMc68hc12::DevsMc68hc12(Mc68hc12Init &init)
 #endif
 {
     _acia->setBaseAddr(ACIA_BASE);
+#if defined(ENABLE_SERIAL_HANDLER)
+    _everyCycle = _sci;
+#endif
 }
 
 DevsMc68hc12::~DevsMc68hc12() {
@@ -38,11 +41,7 @@ void DevsMc68hc12::begin() {
 }
 
 bool DevsMc68hc12::loopDevices() {
-    auto ran = _acia->loop();
-#if defined(ENABLE_SERIAL_HANDLER)
-    ran |= _sci->loop();
-#endif
-    return ran;
+    return _acia->loop();
 }
 
 void DevsMc68hc12::setIdle(bool idle) {
