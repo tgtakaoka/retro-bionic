@@ -43,7 +43,8 @@ def qfp(out, label, body, span, pitch, per_side, lead_width, lead_thick, foot, s
     Marking positions (u, v) are mm from the body centre as read with pin 1 at the lower left:
     lines: [(text, v, font_size)] centred, or [(text, v, font_size, u, width)] from u at the
     left, its glyphs spread evenly over width
-    logo: (letter, v) or (letter, v, ring radius) in a ring, or ('freescale', v, width) for its tiles
+    logo: (letter, v) or (letter, v, ring radius) in a ring, ('freescale', v, width) for its tiles, or
+    ('motorola', u, v, ring radius) for its batwing
     pin1: (u, v, radius) the pin 1 dimple, PIN1_DEPTH deep; marks: [(u, v, radius, depth)] other round
     dimples, e.g. ejector pin marks; dots: [(u, v, radius)] printed dots; rects: [(u, v, width,
     height)] printed rectangles, centred; circled: [(letter, u, v, ring radius)], e.g. (M) and (C)
@@ -134,6 +135,19 @@ def qfp(out, label, body, span, pitch, per_side, lead_width, lead_thick, foot, s
         s = size / 4
         for x, y in ((0, 1.5), (-0.5, 0.5), (0.5, 0.5), (-1, -0.5), (0, -0.5), (1, -0.5), (0, -1.5)):
             ink_parts.append(ink(Rot(0, 0, 45) * Rectangle(s * 0.95, s * 0.6), (x + y * 0.3) * s, v + y * s * 0.8))
+    elif logo and logo[0] == 'motorola':
+        # Motorola's batwing: two pointed arches in a ring, tapering to points at the bottom
+        _, u, v, r = logo
+        def bezier(p, c, q, n=8):
+            return [((1 - t) ** 2 * p[0] + 2 * (1 - t) * t * c[0] + t * t * q[0],
+                     (1 - t) ** 2 * p[1] + 2 * (1 - t) * t * c[1] + t * t * q[1]) for t in (i / n for i in range(n))]
+        tip, peak, notch, under, vee = (-0.56, -0.46), (-0.27, 0.48), (0, 0.02), (-0.26, 0.2), (0, -0.44)
+        outer = bezier(tip, (-0.6, 0.3), peak) + bezier(peak, (-0.1, 0.5), notch)
+        inner = bezier(tip, (-0.48, 0.12), under)[1:] + bezier(under, (-0.1, 0.2), vee)
+        mirror = [(-x, y) for x, y in outer[::-1] + inner]
+        wing = outer + [notch] + mirror + [vee] + inner[::-1]
+        ink_parts += [ink(Circle(r) - Circle(r * 0.87), u, v),
+                      ink(Polygon(*[(x * r, y * r) for x, y in reversed(wing)], align=None), u, v)]
     elif logo:
         ch, v, r = (tuple(logo) + (0.9,))[:3]
         ink_parts += ringed(ch, 0, v, r)
