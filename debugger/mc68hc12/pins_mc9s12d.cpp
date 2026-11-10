@@ -3,6 +3,7 @@
 #include "debugger.h"
 #include "mc9s12d_init.h"
 #include "queue_hcs12.h"
+#include "regs_mc68hc12.h"
 #include "signals_mc68hc12.h"
 
 namespace debugger {
@@ -105,7 +106,7 @@ constexpr uint8_t PINS_INPUT[] = {
 
 // The mode pins are latched at the #RESET rise: MODA/MODB turn into
 // IPIPE0/IPIPE1, BKGD into the BDM pin, XCLKS into NOACC (a port pin
-// until NOACCE is set; the board pulls it down) and ROMCTL into a port pin.
+// until NOACCE is set, under the port E pull-up) and ROMCTL into a port pin.
 void release_mode() {
     pinMode(PIN_MODA, INPUT);
     pinMode(PIN_MODB, INPUT);
@@ -194,6 +195,12 @@ void PinsMc9s12d::resetPins() {
     if (clock_e() != LOW)
         edge_pair();
     startPark();
+}
+
+// E runs free only once NOACC tells the free cycles.
+void PinsMc9s12d::systemConfigured() {
+    _noacc = true;
+    static_cast<const Mc9s12dInit &>(_init).freeRunE(regs<RegsMc68hc12>());
 }
 
 Signals *PinsMc9s12d::prepareCycle() {

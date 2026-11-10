@@ -55,7 +55,7 @@ private:
     void delay() const;
 
     void resetPins() override;
-    void systemConfigured() override { _noacc = true; }
+    void systemConfigured() override;
     Signals *prepareCycle() override;
     Signals *completeCycle(Signals *s) override;
     void replay(Signals *begin, uint_fast8_t cycles) override;
