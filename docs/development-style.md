@@ -1819,6 +1819,17 @@ code. **[code]**
 `PinsMc6802` builds a `MemsMc6802`; never cast a base `Mems` object to a
 derived type. **[code]**
 
+Internal reads show on the data bus, never on the address pins, and only
+in some modes. The MC6802 drives its internal RAM's data out whenever RE
+is high (data sheet, Data Bus), so the debugger leaves the bus to it
+there. The MC6801 and HD6301 do it only in mode 0, the multiplexed test
+mode (MC6801 Reference Manual, Port 3; HD6301/HD6303 Series Handbook); the
+MC68HC11 only with IRV in HPRIO set, which starts at 1 in special test and
+bootstrap modes and on most parts can't be set in normal ones (M68HC11RM
+2.9.2). The MC6801 board runs mode 2 and the MC68HC11 board normal
+expanded mode, so neither shows them: the debugger models their internal
+registers and RAM (`mems_mc6801.cpp`, `mems_mc68hc11.cpp`). **[doc]**
+
 `WAI` stacks the context up front and then idles, which a halt must allow
 for; a board that wedges past the halt port when halted in `WAI` breaks one
 of these: **[hw]**
@@ -2167,6 +2178,57 @@ to check first:
 - A cycle without E is taken as a free cycle until 64 in a row mean STOP:
   the manuals don't say whether a free cycle shows E. **[code]**
 
+Firmware for the MC9S12XDP512 (`pins_mc9s12x.cpp`, identity `MC9S12X`),
+written before a chip arrived; the `ATTENTION:` constants are the guesses
+to check first:
+
+- MODC:MODB:MODA=011, emulation expanded mode, with ROMCTL high and
+  EROMCTL (#LSTRB) low: emulation memory, the debugger's, in place of the
+  Flash, whose accesses take one cycle (S12XMMCV2 Table 17-10). Special
+  test mode shows only addresses: on the bench its ECLK low
+  phase carried the next address, not ACC, IQSTAT or IVD, which only the
+  emulation modes promise (S12XEBIV2 21.4.2). The S12X has no IVIS, NOACC
+  or PEAR to set. **[bench]**
+- The emulation modes read the port replacement registers (S12XMMCV2
+  Table 17-22) from the bus and write them inside and out, so the
+  debugger keeps them in its memory, injected sequences included, and
+  starts them at their reset values. COPCTL and SCME take one write.
+  **[doc]**
+- The cycle follows the emulation-mode timing (S12XEBIV2 4.2.2): ECLK high
+  first with the address; ACC, IQSTAT and the previous cycle's IVD
+  replace it in ECLK low. External read data is due one cycle late, in the
+  next ECLK high, so `completeCycle()` drives it in ECLK low and the next
+  access releases it. **[doc]**
+- A PRR access takes two cycles, any other external one EXSTR+2 (nine out
+  of reset, two once `configSystem()` clears EXSTR); the later cycles show
+  ACC=000. The cycle code folds them into the access: read data stays
+  driven through them, write data is taken in the last one, so a write
+  comes back only once the next access has started, and the first
+  repeat's IQSTAT stands for the next access's. **[doc]**
+- The bus shows global addresses; a read is external only for a CPU access
+  (ACC=001) to $7F_xxxx, whose low 16 bits are the local address with the
+  reset PPAGE. Internal ones map back to local through the reset RPAGE and
+  EPAGE (`Mc9s12xInit::local()`). **[doc]**
+- Internal read data comes out on ADDR15:0, not DATA: IVD follows its read
+  one cycle late, in ECLK low, and a byte read repeats the address byte in
+  the other half (S12XEBIV2 21.4.2, Table 21-16). The older 68-family
+  parts that show internal reads put them on the data bus. **[doc]**
+- Each address takes four mux selections in ECLK high, and IVD four more
+  in ECLK low; ACC and IQSTAT ride the high halves of selections 01 and
+  00. **[code]**
+- IQSTAT3:0 report the start of the cycle before and the ALD of the one
+  before that; the replay moves them back onto those cycles and runs the
+  HCS12 queue on them (`queue_hcs12x.cpp`, host test
+  `test/mc68hc12/test_queue_hcs12x`). **[doc]**
+- The CCR is 16 bits, U and IPL in CCRH, so the frame is 10 bytes and
+  `restore()` pushes the CCR with PSHD (`Mc68hc12Init::wideCcr()`).
+  **[doc]**
+- The samples are the MC68HC12B's, from `samples/mc68hc12`: code from
+  $4000, outside on every part, data and the stack in internal RAM from
+  $1000. The board has no SCI0 pins, so there are no SCI samples.
+  `samples/mc9s12x` adds a mandelbrot with the HCS12X's 16-bit X
+  arithmetic, same layout, same frame. **[code]**
+
 ### MC68HC16
 
 **Pitfalls.** The pin functions come from the data bus at reset: hold
@@ -2188,6 +2250,10 @@ Board for the MC68HC16Z1 (144-pin LQFP, case 918); built, not yet brought up.
   never high. **[doc]**
 - MODCLK is tied low, so EXTAL (P47) is the system clock with the PLL off;
   CLKOUT comes back on P52. **[doc]**
+- Show cycles (SHEN in SIMCR, %00 from reset) would put internal transfers
+  on the data bus with `#DS` but no `#AS` (User's Manual 5.6.6.1); the
+  debugger leaves them off, so only external cycles reach the bus.
+  **[doc]**
 - IPIPE1:0 encode phase 1 (START, FETCH) and phase 2 (ADVANCE,
   EXCEPTION) of the pipeline state; latch them on the `#AS` and `#DS`
   edges. Under FREEZE they become DSI (an input) and DSO. **[doc]**

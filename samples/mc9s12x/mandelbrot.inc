@@ -1,0 +1,150 @@
+;;; -*- mode: asm; mode: flyspell-prog; -*-
+;;; The CPU12 mandelbrot with the HCS12X's 16-bit X arithmetic (ASLX, ADDX)
+;;; in place of round trips through D; P and T stay in registers.
+
+        align   2
+;;; Print variable: "A=variable "
+;;; @param X variable
+;;; @param A variable letter
+print:
+        jsr     putchar         ; print variable letter
+        ldaa    #'='
+        jsr     putchar         ; '='
+        xgdx
+        jsr     print_int16
+        jmp     putspace
+
+        align   2
+mandelbrot:
+        ldaa    #-12
+        staa    vY              ; Y=-12
+loop_y:
+        ldaa    #-49
+        staa    vX              ; X=-49
+loop_x:
+        ldab    vX
+        sex     b,d
+        ldy     #229
+        emuls                   ; X*229
+        ldx     #100
+        idivs                   ; X=X*229/100
+        stx     vC              ; C=X*229/100
+        stx     vA              ; A=C
+        ldab    vY
+        sex     b,d
+        ldy     #416
+        emuls                   ; Y*416
+        ldx     #100
+        idivs                   ; X=Y*416/100
+        stx     vD              ; D=Y*416/100
+        stx     vB              ; B=D
+        clr     vI              ; I=0
+        ldd     vB
+        ldx     #F
+        idivs                   ; X=B/F, D=B-B/F*F
+        stx     vQ              ; Q=B/F
+        std     vS              ; S=B-Q*F
+        ;; ldaa    vY              ; Y
+        ;; sex     a,x
+        ;; ldaa    #'Y'
+        ;; jsr     print
+        ;; ldaa    vX              ; X
+        ;; sex     a,x
+        ;; ldaa    #'X'
+        ;; jsr     print
+        ;; ldx     vC              ; C
+        ;; ldaa    #'C'
+        ;; jsr     print
+        ;; ldx     vD              ; D
+        ;; ldaa    #'D'
+        ;; jsr     print
+        ;; jsr     newline
+loop_i:
+        ldd     vB
+        tfr     d,y
+        emuls                   ; B*B
+        pshd                    ; push B*B
+        ldd     vA
+        ldy     vS
+        emuls                   ; A*S
+        ldx     #F
+        idivs                   ; X=A*S/F
+        ldd     vA
+        ldy     vQ
+        emuls                   ; A*Q, EMULS keeps X
+        leax    d,x             ; X=A*Q+A*S/F
+        aslx                    ; 2*(A*Q+A*S/F)
+        addx    vD              ; 2*(A*Q+A*S/F)+D
+        stx     vB              ; B=2*(A*Q+A*S/F)+D
+        ldd     vA
+        tfr     d,y
+        emuls                   ; A*A
+        subd    2,sp+           ; A*A-B*B, pull B*B
+        ldx     #F
+        idivs                   ; X=(A*A-B*B)/F
+        addx    vC              ; (A*A-B*B)/F+C
+        stx     vA              ; A=(A*A-B*B)/F+C
+        tfr     x,d
+        ldx     #F
+        idivs                   ; X=P=A/F
+        tfr     x,y             ; Y=P, IDIVS keeps Y
+        ldd     vB
+        ldx     #F
+        idivs                   ; X=B/F, D=B-B/F*F
+        stx     vQ              ; Q=B/F
+        std     vS              ; S=B-Q*F, for the next iteration
+        tfr     y,d
+        emuls                   ; P*P, EMULS keeps X
+        xgdx                    ; X=P*P, D=Q
+        tfr     d,y
+        emuls                   ; Q*Q
+        leax    d,x             ; X=T=P*P+Q*Q
+        cpx     #4
+        bgt     print_i         ; if 4<T
+        inc     vI              ; I+=1
+        ldaa    vI
+        cmpa    #16
+        bpl     print_space
+        jmp     loop_i          ; if I<16
+print_space:
+        ldaa    #' '
+        bra     print_char
+print_i:
+        ldaa    vI
+        suba    #10
+        bpl     print_i2       ; if I>=10
+        adda    #10+'0'
+        bra     print_char
+print_i2:
+        adda    #'A'
+print_char:
+        ;; psha
+        ;; ldaa    #'@'
+        ;; jsr     putchar
+        ;; ldaa    #'='
+        ;; jsr     putchar
+        ;; pula
+        ;; jsr     putchar
+        ;; jsr     newline
+
+        jsr     putchar
+        jsr     getchar
+        bcc     next_x
+        tsta
+        bne     next_x
+        swi                     ; halt to system
+next_x:
+        inc     vX              ; X+=1
+        ldaa    vX
+        cmpa    #30
+        bpl     next_y
+        jmp     loop_x          ; if X<30
+next_y:
+        jsr     newline
+        inc     vY              ; Y+=1
+        ldaa    vY
+        cmpa    #13
+        bpl     mandelbrot_end
+        jmp     loop_y          ; if Y<13
+mandelbrot_end:
+        rts
