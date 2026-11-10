@@ -79,7 +79,7 @@
 (1)    1180 : =2000              stack:  equ     STACK_TOP           ; SP points at the last byte pushed
 (1)    1180 :
 (1)    FFD6 :                            org     VEC_SCI0
-(1)    FFD6 : 40 95                      fdb     isr_sci
+(1)    FFD6 : 40 98                      fdb     isr_sci
 (1)    FFD8 :
 (1)    FFF6 :                            org     VEC_SWI
 (1)    FFF6 : FF F6                      fdb     VEC_SWI         ; for halt to system
@@ -111,7 +111,7 @@
 (1)    4023 : 20 00                      bra     loop            ; spin, IRQ enabled: it comes in running code
 (1)    4025 :                    loop:
 (1)    4025 : 14 10                      sei                     ; Disable IRQ
-(1)    4027 : 16 40 75                   jsr     queue_remove
+(1)    4027 : 16 40 76                   jsr     queue_remove
 (1)    402A : 10 EF                      cli                     ; Enable IRQ
 (1)    402C : 24 F5                      bcc     wait
 (1)    402E : 97                         tsta
@@ -125,6 +125,7 @@
 (1)    403D :                    halt_to_system:
 (1)    403D : 3F                         swi                     ; halt_to_system
 (1)    403E :
+(1)    403E :                            align   2
 (1)    403E :                    putchar:
 (1)    403E : 34                         pshx
 (1)    403F : FE 40 00                   ldx     device_base
@@ -143,28 +144,30 @@
 (2)    404A : =3                 queue_get:      equ     3       ; queue get index
 (2)    404A : =4                 queue_buf:      equ     4       ; buffer start offset
 (2)    404A :
+(2)    404A :                            align   2
 (2)    404A :                    ;;; [queue] Initialize queue
 (2)    404A :                    ;;; @param X queue work space pointer
 (2)    404A :                    ;;; @param B queue work space size
 (2)    404A :                    ;;; @clobber B
 (2)    404A :                    queue_init:
-(2)    404A : 37                         pshb
+(2)    404A : 3B                         pshd
 (2)    404B : 34                         pshx
 (2)    404C :                    queue_init_loop:
 (2)    404C : 69 30                      clr     1,x+
 (2)    404E : 04 31 FB                   dbne    b,queue_init_loop
 (2)    4051 : 30                         pulx
-(2)    4052 : 33                         pulb
+(2)    4052 : 3A                         puld
 (2)    4053 : C0 04                      subb    #queue_buf
 (2)    4055 : 6B 01                      stab    queue_size,x
 (2)    4057 : 3D                         rts
 (2)    4058 :
+(2)    4058 :                            align   2
 (2)    4058 :                    ;;; [queue] Add an element to queue
 (2)    4058 :                    ;;; @param X queue work space pointer
 (2)    4058 :                    ;;; @param A an element
 (2)    4058 :                    ;;; @return CC.C 0 if queue is full
 (2)    4058 :                    queue_add:
-(2)    4058 : 37                         pshb
+(2)    4058 : 3B                         pshd
 (2)    4059 : E6 00                      ldab    queue_len,x
 (2)    405B : E1 01                      cmpb    queue_size,x
 (2)    405D : 24 14                      bhs     queue_add_return ; carry is cleared
@@ -179,47 +182,53 @@
 (2)    406F : 69 02                      clr     queue_put,x
 (2)    4071 : 14 01                      sec                     ; set carry
 (2)    4073 :                    queue_add_return:
-(2)    4073 : 33                         pulb
+(2)    4073 : 3A                         puld
 (2)    4074 : 3D                         rts
 (2)    4075 :
-(2)    4075 :                    ;;; [queue] Remove an element from queue
-(2)    4075 :                    ;;; @param X queue work space pointer
-(2)    4075 :                    ;;; @return A an element
-(2)    4075 :                    ;;; @return CC.C 0 if queue is empty
-(2)    4075 :                    queue_remove:
-(2)    4075 : E7 00                      tst     queue_len,x
-(2)    4077 : 26 03                      bne     queue_remove_elem
-(2)    4079 : 10 FE                      clc                     ; clear carry
-(2)    407B : 3D                         rts
-(2)    407C :                    queue_remove_elem:
-(2)    407C : 37                         pshb
-(2)    407D : E6 03                      ldab    queue_get,x
-(2)    407F : CB 04                      addb    #queue_buf      ; 8 bits offset of the element
-(2)    4081 : A6 E5                      ldaa    b,x             ; read an element
-(2)    4083 : 63 00                      dec     queue_len,x
-(2)    4085 : C0 03                      subb    #queue_buf-1    ; the next get index
-(2)    4087 : 6B 03                      stab    queue_get,x
-(2)    4089 : E1 01                      cmpb    queue_size,x
-(2)    408B : 25 04                      blo     queue_remove_return ; carry is set
-(2)    408D : 69 03                      clr     queue_get,x
-(2)    408F : 14 01                      sec                     ; set carry
-(2)    4091 :                    queue_remove_return:
-(2)    4091 : 33                         pulb
-(2)    4092 : 3D                         rts
-(2)    4093 :
-(2)    4093 :                    ;;; Local Variables:
-(2)    4093 :                    ;;; mode: asm
-(2)    4093 :                    ;;; End:
-(2)    4093 :                    ;;; vim: set ft=asm et ts=4 sw=4:
-(1)    4093 :
-(1)    4093 :                    isr_sci_error:
-(1)    4093 : E6 47                      ldab    SC0DRL,y          ; clear OR/NF/FE
-(1)    4095 :                    isr_sci:
-(1)    4095 : FD 40 00                   ldy     device_base
-(1)    4098 : 0E 44 0E F7                brset   SC0SR1,y, #SC0SR1_OR_bm|SC0SR1_NF_bm|SC0SR1_FE_bm, isr_sci_error
-(1)    409C : 0F 44 20 08                brclr   SC0SR1,y, #SC0SR1_RDRF_bm, isr_sci_return
-(1)    40A0 : A6 47                      ldaa    SC0DRL,y
-(1)    40A2 : CE 11 00                   ldx     #rx_queue
-(1)    40A5 : 16 40 58                   jsr     queue_add
-(1)    40A8 :                    isr_sci_return:
-(1)    40A8 : 0B                         rti
+(2)    4076 :                            align   2
+(2)    4076 :                    ;;; [queue] Remove an element from queue
+(2)    4076 :                    ;;; @param X queue work space pointer
+(2)    4076 :                    ;;; @return A an element
+(2)    4076 :                    ;;; @return CC.C 0 if queue is empty
+(2)    4076 :                    queue_remove:
+(2)    4076 : E7 00                      tst     queue_len,x
+(2)    4078 : 26 04                      bne     queue_remove_elem
+(2)    407A : 10 FE                      clc                     ; clear carry
+(2)    407C : 3D                         rts
+(2)    407E :                            align   2
+(2)    407E :                    queue_remove_elem:
+(2)    407E : 3B                         pshd
+(2)    407F : E6 03                      ldab    queue_get,x
+(2)    4081 : CB 04                      addb    #queue_buf      ; 8 bits offset of the element
+(2)    4083 : A6 E5                      ldaa    b,x             ; read an element
+(2)    4085 : 63 00                      dec     queue_len,x
+(2)    4087 : C0 03                      subb    #queue_buf-1    ; the next get index
+(2)    4089 : 6B 03                      stab    queue_get,x
+(2)    408B : E1 01                      cmpb    queue_size,x
+(2)    408D : 25 04                      blo     queue_remove_return ; carry is set
+(2)    408F : 69 03                      clr     queue_get,x
+(2)    4091 : 14 01                      sec                     ; set carry
+(2)    4093 :                    queue_remove_return:
+(2)    4093 : 6A 80                      staa    0,sp            ; keep the element, and C
+(2)    4095 : 3A                         puld
+(2)    4096 : 3D                         rts
+(2)    4097 :
+(2)    4097 :                    ;;; Local Variables:
+(2)    4097 :                    ;;; mode: asm
+(2)    4097 :                    ;;; End:
+(2)    4097 :                    ;;; vim: set ft=asm et ts=4 sw=4:
+(1)    4097 :
+(1)    4098 :                            align   2
+(1)    4098 :                    isr_sci:
+(1)    4098 : FD 40 00                   ldy     device_base
+(1)    409B :                    isr_sci_check:
+(1)    409B : 0E 44 0E 0D                brset   SC0SR1,y, #SC0SR1_OR_bm|SC0SR1_NF_bm|SC0SR1_FE_bm, isr_sci_error
+(1)    409F : 0F 44 20 08                brclr   SC0SR1,y, #SC0SR1_RDRF_bm, isr_sci_return
+(1)    40A3 : A6 47                      ldaa    SC0DRL,y
+(1)    40A5 : CE 11 00                   ldx     #rx_queue
+(1)    40A8 : 16 40 58                   jsr     queue_add
+(1)    40AB :                    isr_sci_return:
+(1)    40AB : 0B                         rti
+(1)    40AC :                    isr_sci_error:
+(1)    40AC : E6 47                      ldab    SC0DRL,y          ; clear OR/NF/FE
+(1)    40AE : 20 EB                      bra     isr_sci_check

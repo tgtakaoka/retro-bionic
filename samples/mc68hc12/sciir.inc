@@ -56,6 +56,7 @@ loop:
 halt_to_system:
         swi                     ; halt_to_system
 
+        align   2
 putchar:
         pshx
         ldx     device_base
@@ -68,10 +69,10 @@ putchar:
 
         include "queue.inc"
 
-isr_sci_error:
-        ldab    SC0DRL,y          ; clear OR/NF/FE
+        align   2
 isr_sci:
         ldy     device_base
+isr_sci_check:
         brset   SC0SR1,y, #SC0SR1_OR_bm|SC0SR1_NF_bm|SC0SR1_FE_bm, isr_sci_error
         brclr   SC0SR1,y, #SC0SR1_RDRF_bm, isr_sci_return
         ldaa    SC0DRL,y
@@ -79,3 +80,6 @@ isr_sci:
         jsr     queue_add
 isr_sci_return:
         rti
+isr_sci_error:
+        ldab    SC0DRL,y          ; clear OR/NF/FE
+        bra     isr_sci_check

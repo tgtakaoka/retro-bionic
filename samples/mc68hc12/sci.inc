@@ -36,8 +36,7 @@ echo:   bsr     putchar
 halt_to_system:
         swi
 
-getchar_error:
-        ldaa    SC0DRL,x          ; Reset OR/NF/FE
+        align   2
 getchar:
 ;;; Overrun or noise or framing error?
         brset   SC0SR1,x, #SC0SR1_OR_bm|SC0SR1_NF_bm|SC0SR1_FE_bm, getchar_error
@@ -45,7 +44,11 @@ getchar:
         brclr   SC0SR1,x, #SC0SR1_RDRF_bm, getchar
         ldaa    SC0DRL,x          ; Received data
         rts
+getchar_error:
+        ldaa    SC0DRL,x          ; Reset OR/NF/FE
+        bra     getchar
 
+        align   2
 putchar:
 ;;; Transmit Data Register Empty?
         brclr   SC0SR1,x, #SC0SR1_TDRE_bm, putchar

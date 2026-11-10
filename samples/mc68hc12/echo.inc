@@ -34,6 +34,7 @@ step_swi:
         stx     VEC_SWI
         swi                     ; halt to system
 
+        align   2
 getchar:
         ldaa    ACIA_status
         bita    #RDRF_bm
@@ -41,6 +42,7 @@ getchar:
         ldaa    ACIA_data
         rts
 
+        align   2
 putchar:
         ldab    ACIA_status
         bitb    #TDRE_bm

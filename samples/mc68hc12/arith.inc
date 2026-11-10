@@ -1,15 +1,16 @@
 ;;; -*- mode: asm; mode: flyspell-prog; -*-
 
+        align   2
 ;;; Print signed 16-bit integer as decimal
 ;;; @param D value
 ;;; @clobber D X
 print_int16:
         tsta
         bpl     print_uint16
-        psha
+        pshd
         ldaa    #'-'
         jsr     putchar
-        pula
+        puld
         coma
         comb
         addd    #1        ; negate value
@@ -24,16 +25,18 @@ print_uint16_loop:
         beq     print_uint16_end ; branch if value == 0
         ldx     #10
         idiv                    ; D/X, D=remainder, X=quotient
-        pshb                    ; push remainder
+        pshd                    ; push remainder
         xgdx                    ; D=quotient
         bsr     print_uint16_loop
-        pula
+        puld
+        tba
 print_uint16_zero:
         oraa    #'0'
         jmp     putchar
 print_uint16_end:
         rts
 
+        align   2
 ;;; Multiply; result = multiplicand * multiplier
 ;;; @param D multiplicand
 ;;; @param X multiplier
@@ -47,6 +50,7 @@ umul16:
         puly
         rts
 
+        align   2
 ;;; Division; dividend / divisor = quotient ... remainder
 ;;; @param D dividend
 ;;; @param X divisor

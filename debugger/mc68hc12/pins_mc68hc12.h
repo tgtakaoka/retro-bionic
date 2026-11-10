@@ -63,7 +63,23 @@ struct Mc68hc12Init;
 struct RegsMc68hc12;
 
 struct PinsMc68hc12 : Pins {
-    PinsMc68hc12(Mc68hc12Init &init) : PinsMc68hc12(init, 2) {}
+    PinsMc68hc12(Mc68hc12Init &init) : PinsMc68hc12(init, 2, RATED_HZ) {
+#ifdef TUNE_CLOCK
+        setClockInput(DEFAULT_HZ);
+#endif
+    }
+#ifdef TUNE_CLOCK
+    uint32_t clockInput() const override;
+    bool setClockInput(uint32_t hz) override;
+#endif
+
+    // The bus cycle's delays in ns, shared by the family.
+    struct Timing {
+        uint16_t addr;   // quiet edge to address, R/W, #LSTRB, NOACC
+        uint16_t extal;  // E rise to the quiet edge
+        uint16_t data;   // quiet edge to #DBE, write or internal read data
+        uint16_t setup;  // read data to the E fall
+    };
 
     // The CPU12 is fully static: the clock simply stops.
     void idle() override {}
@@ -106,8 +122,14 @@ struct PinsMc68hc12 : Pins {
 
 protected:
     // |stepAt|: the cycle after restore() at whose E fall a step asserts
-    // #XIRQ.
-    PinsMc68hc12(Mc68hc12Init &init, uint8_t stepAt);
+    // #XIRQ. |ratedHz|: the rated bus clock K's rate stands for.
+    PinsMc68hc12(Mc68hc12Init &init, uint8_t stepAt, uint32_t ratedHz);
+
+    // The MC68HC912BD32's rated bus clock.
+    static constexpr uint32_t RATED_HZ = 8000000;
+    // K's rate out of reset: the family's delays halved, as fast as the
+    // bench went.
+    static constexpr uint32_t DEFAULT_HZ = 16000000;
 
     // Where the CPU waits between injected sequences, and where it stores
     // what it reads for the debugger: both outside, away from any program.
@@ -115,6 +137,7 @@ protected:
 
     Mc68hc12Init &_init;
     const uint8_t _stepAt;
+    const uint32_t _ratedHz;
     // The CPU waits in the read |_heldSignals|, at |_park|.
     bool _held = false;
     // Until MISC clears the stretch, an external access holds E high for
@@ -123,6 +146,8 @@ protected:
     bool _xirq = false;
     // prepareCycle() saw the cycle end: a stretched free or internal read.
     bool _done = false;
+    // Cycles in a row without E while stretched.
+    uint16_t _noE = 0;
     // rawStep() waits for RTI's check to assert #XIRQ.
     bool _stepArm = false;
     uint8_t _stepCycles = 0;
@@ -135,16 +160,48 @@ protected:
     uint8_t _writes = 0;
     Capture _stacked;
 
+#ifdef TUNE_CLOCK
+    // The delays K scales: per mille of the rated bus clock.
+    uint16_t _clockPermille = 1000;
+    Timing _timing;
+    void setTiming();
+#endif
+    template <uint16_t Timing::*F>
+    void delay() const;
+
     void resetPins() override;
     // After reset: the reset vector points at the park, the system is set
     // up and the registers saved.
     void startPark();
-    // The cycles after configSystem() run without the reset's stretch.
+    // After configSystem(), the last cycles with the reset's stretch.
     virtual void systemConfigured() {}
+    // The cycle engine: each board instantiates it, so a cycle calls the
+    // hooks below directly; elsewhere it is reached through these virtuals.
     virtual Signals *prepareCycle();
     virtual Signals *completeCycle(Signals *s);
-    Signals *cycle() { return completeCycle(prepareCycle()); }
+    virtual const Signals *loop();
+    template <typename BOARD>
+    Signals *prepareCycleOf();
+    template <typename BOARD>
+    Signals *completeCycleOf(Signals *s);
+    template <typename BOARD>
+    const Signals *loopOf();
+    Signals *stopped(Signals *s);
     Signals *noBusCycle(Signals *s);
+
+    // The engine's hooks; a board hides them with its own.
+    // Cycles in a row without E, while stretched, before the CPU counts as
+    // stopped: E runs on every cycle.
+    static constexpr uint16_t STOP_CYCLES = 1;
+    // Before the E rise: whether the cycle is free.
+    bool sampleFree() const { return false; }
+    // After the E rise: whether the debugger answers the cycle.
+    void classify(Signals *s, bool) const { s->getDbe(); }
+    // Before the E fall, for a cycle the debugger doesn't drive.
+    void pickupData(Signals *s) const {
+        if (s->write())
+            s->getData();
+    }
     // Marks the instruction starts and program words of |cycles| cycles.
     virtual void replay(Signals *begin, uint_fast8_t cycles);
     // Asserts a step's #XIRQ at the |_stepAt|th cycle after restore().
@@ -161,7 +218,6 @@ protected:
             uint8_t max, uint32_t exit, const Window *win, bool vector);
     void exception(Signals *s, bool breakTrap, Capture *stacked = nullptr);
     void track(const Signals *s);
-    const Signals *loop();
     bool rawStep();
 
     void assert_xirq();
