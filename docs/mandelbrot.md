@@ -61,6 +61,8 @@ cast, 📄 the listing.
 |   z280   |    z280   |   Z8028012VSC  |   3.7 |   0.151 |   0.215 |   7.12&nbsp;🔨 | cache on                 |                         [▶️](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/z280/mandelbrot.cast&lst=samples/z280/mandelbrot.lst "mandelbrot.cast") [📄](../samples/z280/mandelbrot.lst "z280/mandelbrot.lst")                         |
 |   z380   |    z380   |   Z8038018FSC  |   3.9 |   0.157 |   0.046 |   2.95&nbsp;🔨 |                          |                         [▶️](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/z380/mandelbrot.cast&lst=samples/z380/mandelbrot.lst "mandelbrot.cast") [📄](../samples/z380/mandelbrot.lst "z380/mandelbrot.lst")                         |
 | mc68000  |  mc68000  |  MC68HC000P16  |   4.0 |   0.164 |   0.047 |  7.50&nbsp;⏱️ |                          |          [▶️](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/mc68000/mandelbrot_mc68000p.cast&lst=samples/mc68000/mandelbrot.lst "mandelbrot_mc68000p.cast") [📄](../samples/mc68000/mandelbrot.lst "mc68000/mandelbrot.lst")          |
+| mc68hc12 | mc68hcs12x |  MC9S12XDP512  |   3.2 |   0.132 |   0.036 |   1.26&nbsp;🔨 | non-mux addr/data        |                   [▶️](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/mc9s12x/mandelbrot.cast&lst=samples/mc9s12x/mandelbrot.lst "mandelbrot.cast") [📄](../samples/mc9s12x/mandelbrot.lst "mc9s12x/mandelbrot.lst")                   |
+| mc68hc12 | mc68hcs12x |  MC9S12XDP512  |   3.3 |   0.135 |   0.037 |   1.25&nbsp;🔨 | mc68hc12 code            |         [▶️](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/mc68hc12/mandelbrot_mc9s12x.cast&lst=samples/mc68hc12/mandelbrot.lst "mandelbrot_mc9s12x.cast") [📄](../samples/mc68hc12/mandelbrot.lst "mc68hc12/mandelbrot.lst")         |
 | mc68000  |  mc68000  |   MC68008P10   |   4.4 |   0.180 |   0.049 | 10.00&nbsp;⏱️ |                          |                   [▶️](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/mc68000/mandelbrot.cast&lst=samples/mc68000/mandelbrot.lst "mandelbrot.cast") [📄](../samples/mc68000/mandelbrot.lst "mc68000/mandelbrot.lst")                   |
 | mc68000  |  mc68000  |  MC68008FN10   |   4.4 |   0.181 |   0.049 | 10.00&nbsp;⏱️ |                          |         [▶️](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/mc68000/mandelbrot_mc68008fn.cast&lst=samples/mc68000/mandelbrot.lst "mandelbrot_mc68008fn.cast") [📄](../samples/mc68000/mandelbrot.lst "mc68000/mandelbrot.lst")         |
 |  i8086   |    v20    |  D70108HCZ-16  |   4.8 |   0.195 |   0.055 |  5.00&nbsp;⏱️ | i8086 code               |                   [▶️](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/i8086/mandelbrot_v20.cast&lst=samples/i8086/mandelbrot.lst "mandelbrot_v20.cast") [📄](../samples/i8086/mandelbrot.lst "i8086/mandelbrot.lst")                   |
@@ -210,10 +212,11 @@ the chip's.
 
 ### MC68HC12 family
 
-|   arch   |    core   |       CPU      |           MHz | Note                     | [mc68hc12](../samples/mc68hc12/mandelbrot.lst) |
-| :------: | :-------: | :------------: | ------------: | ------------------------ | ---------------------------------------------: |
-| mc68hc12 |  mc68hc12 |  MC68HC912BD32 |   2.16&nbsp;🔨 |                          |                                            2.1 |
-| mc68hc12 | mc68hcs12 |  MC9S12DG128B  |   2.11&nbsp;🔨 |                          |                                            2.2 |
+|   arch   |    core   |       CPU      |           MHz | Note                     | [mc68hc12](../samples/mc68hc12/mandelbrot.lst) | [mc9s12x](../samples/mc9s12x/mandelbrot.lst) |
+| :------: | :-------: | :------------: | ------------: | ------------------------ | ---------------------------------------------: | -------------------------------------------: |
+| mc68hc12 |  mc68hc12 |  MC68HC912BD32 |   2.16&nbsp;🔨 |                          |                                            2.1 |                                              |
+| mc68hc12 | mc68hcs12 |  MC9S12DG128B  |   2.11&nbsp;🔨 |                          |                                            2.2 |                                              |
+| mc68hc12 | mc68hcs12x |  MC9S12XDP512  |   1.25&nbsp;🔨 | non-mux addr/data        |                                            3.3 |                                          3.2 |
 
 ### MOS6502 family
 

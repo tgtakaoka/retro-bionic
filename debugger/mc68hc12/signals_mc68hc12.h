@@ -36,6 +36,14 @@ struct Signals final : SignalsBase<Signals> {
         cntl() = S_READ | S_DBE;
         data = 0;
     }
+    // A cycle a board without the M68HC12's bus pins read: |a| local, and
+    // the #LSTRB level; an external read until setExternal() says not.
+    void setAccess(uint16_t a, bool rd, bool lstrb) {
+        addr = a;
+        cntl() = (rd ? S_READ : 0) | (lstrb ? S_LSTRB : 0);
+        ipipe() = 0;
+        mark() = 0;
+    }
     // A bus cycle that didn't happen.
     void noCycle() { cntl() = S_NONE; }
     bool none() const { return cntl() == S_NONE; }
@@ -62,6 +70,13 @@ struct Signals final : SignalsBase<Signals> {
     // cycle.
     uint8_t beforeRise() const { return move(); }
     uint8_t beforeFall() const { return start(); }
+    void setQueue(uint8_t rise, uint8_t fall) {
+        ipipe() = (ipipe() & 0xF0) | (rise & 3) | ((fall & 3) << 2);
+    }
+    // The HCS12X's IQSTAT3:0 as sampled in this cycle; it refers to earlier
+    // ones.
+    uint8_t iqstat() const { return ipipe() >> 4; }
+    void setIqstat(uint8_t iq) { ipipe() = (ipipe() & 0xF) | (iq << 4); }
 
     // An instruction starts at this cycle, at |inst()|; set by replaying
     // the queue.

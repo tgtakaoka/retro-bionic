@@ -142,11 +142,13 @@ Signals *PinsMc68hc12::completeCycleOf(Signals *s) {
 
 template <typename BOARD>
 const Signals *PinsMc68hc12::loopOf() {
+    // A board with another bus hides the cycle templates with its own.
+    const auto board = static_cast<BOARD *>(this);
     _writes = 0;
     _stacked.n = 0;
     uint16_t tryHalt = 0;
     while (true) {
-        auto s = prepareCycleOf<BOARD>();
+        auto s = board->template prepareCycleOf<BOARD>();
         if (s->none())
             return s;
         if (s->external()) {
@@ -173,7 +175,7 @@ const Signals *PinsMc68hc12::loopOf() {
                 return s;
             }
         }
-        completeCycleOf<BOARD>(s);
+        board->template completeCycleOf<BOARD>(s);
         track(s);
         const auto serviced = _devs->loop();
         if (tryHalt == 0) {

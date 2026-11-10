@@ -41,46 +41,6 @@ namespace mc68hc12 {
  */
 // clang-format on
 
-namespace clock {
-
-uint8_t active_level = HIGH;
-
-bool wait_e(uint8_t level) {
-    const uint32_t start = ARM_DWT_CYCCNT;
-    do {
-        if (clock_e() == level)
-            return true;
-    } while (ARM_DWT_CYCCNT - start < e_wait_cycles);
-    // An interrupt may have taken the whole wait: look once more.
-    return clock_e() == level;
-}
-
-void edge_pair() {
-    quiet_edge();
-    delayNanoseconds(extal_ns);
-    const auto e = clock_e();
-    active_edge();
-    wait_e(!e);
-}
-
-bool sync_e() {
-    auto level = digitalReadFast(PIN_EXTAL);
-    auto e = clock_e();
-    for (auto n = 0; n < 16; ++n) {
-        level = !level;
-        digitalWriteFast(PIN_EXTAL, level);
-        if (wait_e(!e)) {
-            active_level = level;
-            for (auto i = 0; clock_e() != LOW && i < 8; ++i)
-                edge_pair();
-            return clock_e() == LOW;
-        }
-    }
-    return false;
-}
-
-}  // namespace clock
-
 using namespace clock;
 
 namespace {
@@ -340,6 +300,14 @@ void PinsMc68hc12::execute(uint16_t org, const uint8_t *inst, uint8_t len,
                 hold(s, leaves);
                 return;
             }
+            // An interrupt pending as an exit's RTI ends: the CPU reads a
+            // vector instead of |leaves|, which the program's table answers.
+            if (exit != EXIT_PARK && whole && seen && caps >= max &&
+                    from >= VECTORS &&
+                    static_cast<uint16_t>(from - org) >= len + PREFETCH) {
+                hold(s, from);
+                return;
+            }
             uint16_t word = 0;
             for (uint_fast8_t i = 0; i < s->bytes(); ++i) {
                 const uint16_t addr = from + i;
@@ -400,21 +368,22 @@ void PinsMc68hc12::exception(Signals *s, bool breakTrap, Capture *stacked) {
             InstMc68hc12::BRA, InstMc68hc12::BRA_HERE};
     static constexpr uint8_t vec[] = {hi(PARK), lo(PARK)};
     const Window win{static_cast<uint16_t>(s->addr), vec, sizeof(vec)};
-    uint8_t frame[RegsMc68hc12::FRAME];
+    const auto size = regs<RegsMc68hc12>()->frame();
+    uint8_t frame[RegsMc68hc12::MAX_FRAME];
     uint16_t sp;
     hold(s, s->addr);
-    if (_writes >= RegsMc68hc12::FRAME) {
+    if (_writes >= size) {
         // WAI stacked the context before it waited.
-        sp = _stacked.frame(frame, sizeof(frame));
+        sp = _stacked.frame(frame, size);
         if (stacked)
             *stacked = _stacked;
         execute(PARK, BRA_HERE, sizeof(BRA_HERE), nullptr, 0, EXIT_PARK, &win,
                 false);
     } else {
         Capture cap;
-        execute(PARK, BRA_HERE, sizeof(BRA_HERE), &cap, RegsMc68hc12::FRAME,
-                EXIT_PARK, &win, false);
-        sp = cap.frame(frame, sizeof(frame));
+        execute(PARK, BRA_HERE, sizeof(BRA_HERE), &cap, size, EXIT_PARK, &win,
+                false);
+        sp = cap.frame(frame, size);
         if (stacked)
             *stacked = cap;
     }

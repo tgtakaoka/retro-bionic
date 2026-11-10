@@ -36,13 +36,19 @@
 #define CNTL_IPIPE_gp 2     /* CNTL2-CNTL3 */
 #define PIN_BKGD 0          /* P6.03 */
 #define PIN_DIVBYP 1        /* P6.02 */
+#ifndef PIN_EXTAL
 #define PIN_EXTAL 5         /* P9.08 */
+#endif
+#ifndef PIN_E
 #define PIN_E 29            /* P9.31 */
+#endif
 #define PIN_IRQ 6           /* P7.10 */
 #define PIN_XIRQ 9          /* P7.11 */
 #define PIN_PT7 32          /* P7.12 */
 #define PIN_RESET 28        /* P8.18 */
+#ifndef PIN_LSTRB
 #define PIN_LSTRB 31        /* P8.22 */
+#endif
 #define PIN_PT0 30          /* P8.23 */
 #define PIN_RXD 10          /* P7.00 */
 #define PIN_TXD 12          /* P7.01 */
@@ -134,6 +140,9 @@ protected:
     // Where the CPU waits between injected sequences, and where it stores
     // what it reads for the debugger: both outside, away from any program.
     static constexpr uint16_t PARK = 0xFF80;
+    // The lowest vector, and how far past a sequence the queue fetches.
+    static constexpr uint16_t VECTORS = 0xFF10;
+    static constexpr uint16_t PREFETCH = 6;
 
     Mc68hc12Init &_init;
     const uint8_t _stepAt;
