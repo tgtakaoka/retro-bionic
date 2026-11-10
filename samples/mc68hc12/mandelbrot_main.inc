@@ -16,10 +16,6 @@ vS:     rmb     2
 vP:     rmb     2
 vQ:     rmb     2
 vT:     rmb     2
-vY:     rmb     1
-vX:     rmb     1
-vI:     rmb     1
-
 ;;; Working space for arith.inc
 R0:
 R0H:    rmb     1
@@ -30,6 +26,10 @@ R1L:    rmb     1
 R2:
 R2H:    rmb     1
 R2L:    rmb     1
+;;; Bytes after the words, so the words stay even
+vY:     rmb     1
+vX:     rmb     1
+vI:     rmb     1
 sign:   rmb     1
 
         org     QUEUE_ORG
@@ -72,6 +72,7 @@ loop:
         jsr     queue_wait_empty
         bra     loop
 
+        align   2
 ;;; Get character
 ;;; @return A
 ;;; @return CC.C 0 if no character
@@ -83,6 +84,7 @@ getchar:
         cli                     ; enable IRQ
         rts
 
+        align   2
 ;;; Put character
 ;;; @param A
 putspace:
@@ -93,9 +95,11 @@ newline:
         ldaa    #$0D
         bsr     putchar
         ldaa    #$0A
+        bra     putchar
+        align   2
 putchar:
         pshx
-        psha
+        pshd
         ldx     #tx_queue
 putchar_retry:
         sei                     ; disable IRQ
@@ -104,14 +108,16 @@ putchar_retry:
         bcc     putchar_retry   ; branch if queue is full
         ldaa    #RX_INT_TX_INT  ; enable Tx interrupt
         staa    ACIA_control
-        pula
+        puld
         pulx
         rts
 
         include "arith.inc"
         include "queue.inc"
+        align   2
         include "../mc6801/queue_wait.inc"
 
+        align   2
 isr_irq:
         ldab    ACIA_status
         bitb    #IRQF_bm

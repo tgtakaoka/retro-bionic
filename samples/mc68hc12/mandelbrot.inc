@@ -1,5 +1,6 @@
 ;;; -*- mode: asm; mode: flyspell-prog; -*-
 
+        align   2
 ;;; Print variable: "A=variable "
 ;;; @param X variable
 ;;; @param A variable letter
@@ -11,6 +12,7 @@ print:
         jsr     print_int16
         jmp     putspace
 
+        align   2
 mandelbrot:
         ldaa    #-12
         staa    vY              ; Y=-12

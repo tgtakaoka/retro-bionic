@@ -5,6 +5,7 @@
 #include "inst_mc68hc12.h"
 #include "mc68hc12_init.h"
 #include "mems_mc68hc12.h"
+#include "pins_mc68hc12_cycle.h"
 #include "queue_mc68hc12.h"
 #include "regs_mc68hc12.h"
 #include "signals_mc68hc12.h"
@@ -42,9 +43,6 @@ namespace mc68hc12 {
 
 namespace clock {
 
-// E follows EXTAL once in phase, so a bus cycle is four fixed edges; E is
-// polled only through reset's stretched cycles and to catch STOP. The
-// address and #DBE settle about 24ns after a quiet edge.
 uint8_t active_level = HIGH;
 
 bool wait_e(uint8_t level) {
@@ -142,13 +140,39 @@ void release_mode() {
 
 }  // namespace
 
-PinsMc68hc12::PinsMc68hc12(Mc68hc12Init &init, uint8_t stepAt)
-    : _init(init), _stepAt(stepAt), _park(PARK) {
+PinsMc68hc12::PinsMc68hc12(Mc68hc12Init &init, uint8_t stepAt, uint32_t ratedHz)
+    : _init(init), _stepAt(stepAt), _ratedHz(ratedHz), _park(PARK) {
+#ifdef TUNE_CLOCK
+    setTiming();
+#endif
     auto regs = new RegsMc68hc12(this, init);
     _regs = regs;
     _devs = new DevsMc68hc12(init);
     _mems = new MemsMc68hc12(regs, _devs, init);
 }
+
+#ifdef TUNE_CLOCK
+uint32_t PinsMc68hc12::clockInput() const {
+    return uint64_t(_ratedHz) * _clockPermille / 1000;
+}
+
+// Scales the bus cycle's delays as if the bus ran at |hz|.
+bool PinsMc68hc12::setClockInput(uint32_t hz) {
+    const auto permille = uint64_t(hz) * 1000 / _ratedHz;
+    if (permille < 100 || permille > 10000)
+        return false;
+    _clockPermille = permille;
+    setTiming();
+    return true;
+}
+
+void PinsMc68hc12::setTiming() {
+    const auto base = reinterpret_cast<const uint16_t *>(&TIMING);
+    auto ns = reinterpret_cast<uint16_t *>(&_timing);
+    for (auto i = 0u; i < sizeof(Timing) / sizeof(uint16_t); i++)
+        ns[i] = uint32_t(base[i]) * 1000 / _clockPermille;
+}
+#endif
 
 void PinsMc68hc12::resetPins() {
     pinsMode(PINS_LOW, sizeof(PINS_LOW), OUTPUT, LOW);
@@ -159,6 +183,7 @@ void PinsMc68hc12::resetPins() {
     _held = false;
     _done = false;
     _stretch = true;
+    _noE = 0;
     _writes = 0;
 
     // E runs in reset: find its phase there, before any bus cycle.
@@ -191,117 +216,36 @@ void PinsMc68hc12::startPark() {
     execute(PARK, BRA_HERE, sizeof(BRA_HERE), nullptr, 0, EXIT_PARK, &win,
             false);
     _init.configSystem(regs<RegsMc68hc12>());
-    _stretch = false;
     systemConfigured();
+    _stretch = false;
     _regs->reset();
     _regs->save();
     _regs->setIp(_mems->read16(InstMc68hc12::VEC_RESET));
 }
 
 Signals *PinsMc68hc12::prepareCycle() {
-    auto s = Signals::put();
-    if (_held) {
-        _held = false;
-        *s = _heldSignals;
-        return s;
-    }
-    if (!_stretch) {
-        quiet_edge();
-        delayNanoseconds(addr_ns);
-        s->getAddr();
-        active_edge();
-        delayNanoseconds(extal_ns);
-        quiet_edge();
-        delayNanoseconds(dbe_ns);
-        s->getDbe();
-        if (clock_e() != LOW)
-            return s;
-        // STOP froze E: walk until it comes back, then for the next cycle.
-        for (auto n = 0; clock_e() == LOW; ++n) {
-            if (n >= 1000)
-                return noBusCycle(s);
-            edge_pair();
-        }
-        for (auto n = 0; clock_e() != LOW && n < 8; ++n)
-            edge_pair();
-        return prepareCycle();
-    }
-    // E low
-    quiet_edge();
-    delayNanoseconds(addr_ns);
-    s->getAddr();
-    active_edge();
-    if (!wait_e(HIGH)) {
-        // STOP freezes E until an interrupt; walk until it comes back.
-        for (auto n = 0; clock_e() == LOW; ++n) {
-            if (n >= 1000)
-                return noBusCycle(s);
-            edge_pair();
-        }
-        // It came back high: wait for the next cycle.
-        for (auto n = 0; clock_e() != LOW && n < 8; ++n)
-            edge_pair();
-        return prepareCycle();
-    }
-    // E high
-    delayNanoseconds(extal_ns);
-    quiet_edge();
-    delayNanoseconds(dbe_ns);
-    s->getDbe();
-    if (_stretch && s->read() && !s->external()) {
-        // A stretched read asserts #DBE late; a free or internal one not
-        // at all, and ends with E.
-        for (auto n = 0; n < 8; ++n) {
-            s->getStart();
-            active_edge();
-            if (wait_e(LOW)) {
-                _done = true;
-                return s;
-            }
-            quiet_edge();
-            delayNanoseconds(dbe_ns);
-            s->getDbe();
-            if (s->external())
-                break;
-        }
-    }
-    return s;
+    return prepareCycleOf<PinsMc68hc12>();
 }
 
 Signals *PinsMc68hc12::completeCycle(Signals *s) {
-    if (_done) {
-        _done = false;
-    } else if (!s->none()) {
-        const auto drive = s->external();
-        if (drive) {
-            if (s->readMemory())
-                s->data = readBus(s);
-            s->outData();
-            delayNanoseconds(setup_ns);
-        } else if (s->write()) {
-            s->getData();
-        }
-        s->getStart();
-        // A step's #XIRQ: RTI checks for an interrupt by its second queue
-        // refill, the first instruction by the E fall that ends it.
-        armStep();
-        active_edge();
-        // A stretched cycle keeps E high; the data stays until E falls.
-        for (auto n = 0; _stretch && !wait_e(LOW) && n < 8; ++n) {
-            quiet_edge();
-            delayNanoseconds(dbe_ns);
-            if (s->write())
-                s->getData();
-            s->getStart();
-            active_edge();
-        }
-        if (drive)
-            Signals::inputMode();
-        if (s->write() && s->writeMemory())
-            writeBus(s);
+    return completeCycleOf<PinsMc68hc12>(s);
+}
+
+const Signals *PinsMc68hc12::loop() {
+    return loopOf<PinsMc68hc12>();
+}
+
+// STOP froze E: walk until it comes back, then for the next cycle.
+Signals *PinsMc68hc12::stopped(Signals *s) {
+    for (auto n = 0; clock_e() == LOW; ++n) {
+        if (n >= 1000)
+            return noBusCycle(s);
+        edge_pair();
     }
-    Cycles::next();
-    return s;
+    // It came back high: wait for the next cycle.
+    for (auto n = 0; clock_e() != LOW && n < 8; ++n)
+        edge_pair();
+    return prepareCycle();
 }
 
 // Gives up on a cycle rather than wedge the board, leaving the halt
@@ -491,55 +435,6 @@ void PinsMc68hc12::track(const Signals *s) {
                 _stacked.n++;
             }
             ++_writes;
-        }
-    }
-}
-
-const Signals *PinsMc68hc12::loop() {
-    _writes = 0;
-    _stacked.n = 0;
-    uint16_t tryHalt = 0;
-    while (true) {
-        auto s = prepareCycle();
-        if (s->none())
-            return s;
-        if (s->external()) {
-            if (s->addr == InstMc68hc12::VEC_SWI) {
-                // The queue may fetch a breakpoint's SWI long before it runs,
-                // so every SWI stops, and the stacked PC tells which it was.
-                Capture stacked;
-                exception(s, true, &stacked);
-                const auto handler = _mems->read16(InstMc68hc12::VEC_SWI);
-                if (isBreakPoint(_regs->nextIp()) ||
-                        handler == InstMc68hc12::VEC_SWI)
-                    return s;
-                // The program's own: put back what it stacked, and go on in
-                // its handler.
-                for (uint_fast8_t i = 0; i < stacked.n; ++i)
-                    _mems->write(stacked.addr[i], stacked.data[i]);
-                regs<RegsMc68hc12>()->vectored(handler);
-                _regs->restore();
-                continue;
-            }
-            if (tryHalt && s->addr == InstMc68hc12::VEC_XIRQ) {
-                negate_xirq();
-                exception(s, false);
-                return s;
-            }
-        }
-        completeCycle(s);
-        track(s);
-        const auto serviced = _devs->loop();
-        if (tryHalt == 0) {
-            if (serviced && haltSwitch()) {
-                assert_xirq();
-                tryHalt = 1;
-            }
-        } else if (++tryHalt >= 5000) {
-            cli.println("?halt: no #XIRQ");
-            negate_xirq();
-            resetPins();
-            return Signals::put();
         }
     }
 }

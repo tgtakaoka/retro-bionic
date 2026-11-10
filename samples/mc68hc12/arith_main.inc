@@ -35,6 +35,7 @@ initialize:
         jsr     arith
         swi
 
+        align   2
 ;;; Print out char
 ;;; @param A char
 ;;; @clobber A
@@ -45,15 +46,18 @@ newline:
         ldaa    #$0D
         bsr     putchar
         ldaa    #$0A
+        bra     putchar
+        align   2
 putchar:
-        pshb
+        pshd
         ldab    ACIA_status
         bitb    #TDRE_bm
-        pulb
+        puld
         beq     putchar
         staa    ACIA_data
         rts
 
+        align   2
 ;;; Print "v1 op v2"
 ;;; @param X v1
 ;;; @param Y v2
@@ -62,13 +66,13 @@ putchar:
 ;;; @return X v2
 ;;; @clobber R1 R2
 expr:
-        psha
+        pshd
         stx     R1
         sty     R2
         ldd     R1
         jsr     print_int16     ; print v1
         bsr     putspace
-        pula
+        puld
         bsr     putchar         ; print op
         bsr     putspace
         ldd     R2
@@ -77,18 +81,20 @@ expr:
         ldx     R2
         rts
 
+        align   2
 ;;; Print " = v\n"
 ;;; @param D v
 answer:
-        psha
+        pshd
         bsr     putspace
         ldaa    #'='
         bsr     putchar
         bsr     putspace
-        pula
+        puld
         jsr     print_int16     ; print v
         bra     newline
 
+        align   2
 ;;; Print "v1 rel v2"
 ;;; @clobber R1 R2
 comp:
@@ -113,6 +119,7 @@ comp_out:
         bsr     expr
         bra     newline
 
+        align   2
 arith:
         ldx     #18000
         ldy     #28000

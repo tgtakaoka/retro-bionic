@@ -26,39 +26,32 @@ struct Mc9s12dInit;
  */
 struct PinsMc9s12d final : PinsMc68hc12 {
     PinsMc9s12d(Mc9s12dInit &init);
-#ifdef TUNE_CLOCK
-    uint32_t clockInput() const override;
-    bool setClockInput(uint32_t hz) override;
-#endif
-
-    // The bus cycle's delays in ns.
-    struct Timing {
-        uint16_t addr;   // quiet edge to address, R/W, NOACC
-        uint16_t extal;  // E rise to the quiet edge
-        uint16_t data;   // quiet edge to write or internal read data
-        uint16_t setup;  // read data to the E fall
-    };
 
 private:
+    friend struct PinsMc68hc12;
+
+    const Mc9s12dInit &_s12dInit;
     // NOACC shows the free cycles once configSystem() set NOACCE.
     bool _noacc = false;
-    // Cycles in a row without E: free cycles may not show it, STOP holds it.
-    uint16_t _noE = 0;
 
-#ifdef TUNE_CLOCK
-    // The delays K scales: per mille of the rated bus clock.
-    uint16_t _clockPermille = 1000;
-    Timing _timing;
-    void setTiming();
-#endif
-    template <uint16_t Timing::*F>
-    void delay() const;
+    // The DG128B's rated bus clock.
+    static constexpr uint32_t RATED_HZ = 25000000;
+    // K's rate out of reset: the family's delays halved, as fast as the
+    // bench went.
+    static constexpr uint32_t DEFAULT_HZ = 50000000;
 
     void resetPins() override;
     void systemConfigured() override;
     Signals *prepareCycle() override;
     Signals *completeCycle(Signals *s) override;
+    const Signals *loop() override;
     void replay(Signals *begin, uint_fast8_t cycles) override;
+
+    // The engine's hooks. While stretched, E stays low on free cycles.
+    static constexpr uint16_t STOP_CYCLES = 64;
+    bool sampleFree() const;
+    void classify(Signals *s, bool free) const;
+    void pickupData(Signals *s) const { s->getData(); }
 };
 
 }  // namespace mc68hc12

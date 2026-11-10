@@ -14,9 +14,6 @@ namespace mc68hc12 {
 namespace clock {
 
 constexpr auto extal_ns = 25;    // an EXTAL half period, at least
-constexpr auto addr_ns = 40;     // quiet edge to address, R/W, #LSTRB
-constexpr auto dbe_ns = 40;      // quiet edge to #DBE, write data
-constexpr auto setup_ns = 25;    // read data to the E fall
 constexpr auto e_wait_ns = 200;  // active edge to E, at most
 constexpr uint32_t e_wait_cycles = F_CPU / 1000000 * e_wait_ns / 1000;
 

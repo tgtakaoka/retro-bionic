@@ -2,8 +2,8 @@
 #include "clock_mc68hc12.h"
 #include "debugger.h"
 #include "mc9s12d_init.h"
+#include "pins_mc68hc12_cycle.h"
 #include "queue_hcs12.h"
-#include "regs_mc68hc12.h"
 #include "signals_mc68hc12.h"
 
 namespace debugger {
@@ -31,7 +31,7 @@ namespace mc68hc12 {
  * - Read data is needed 13ns before the E fall; write data is valid 7ns
  *   after the E rise.
  * - Until MISC clears it, an external access stretches E high for three
- *   more cycles.
+ *   more cycles; until EBICTL clears ESTR, E stays low on free cycles.
  */
 // clang-format on
 
@@ -50,9 +50,6 @@ constexpr uint32_t clock_check_ms = 100;
 // ATTENTION: The CRG holds the internal reset for 192 SYSCLK cycles; hold
 // #RESET for more EXTAL periods than that.
 constexpr auto reset_hold_pairs = 256 * 2;
-// ATTENTION: Cycles in a row without E before the CPU counts as stopped:
-// free cycles may not show E.
-constexpr uint16_t stop_cycles = 64;
 // The cycle after restore() whose E fall asserts a step's #XIRQ, as on the
 // M68HC12, although an RTI with an interrupt pending is one cycle longer
 // on the HCS12 (uUUUUfVfPPP).
@@ -115,51 +112,12 @@ void release_mode() {
     pinMode(PIN_ROMCTL, INPUT);
 }
 
-// Half the MC68HC12B's: more bought no speed on the bench, where a tenth
-// still passed. The code between the edges pads each one.
-constexpr PinsMc9s12d::Timing TIMING = {20, 12, 20, 12};
-#ifdef TUNE_CLOCK
-// What K's rate stands for: the DG128B's rated bus clock, at TIMING.
-constexpr uint32_t RATED_HZ = 25000000;
-#endif
-
 }  // namespace
 
-PinsMc9s12d::PinsMc9s12d(Mc9s12dInit &init) : PinsMc68hc12(init, step_at) {
+PinsMc9s12d::PinsMc9s12d(Mc9s12dInit &init)
+    : PinsMc68hc12(init, step_at, RATED_HZ), _s12dInit(init) {
 #ifdef TUNE_CLOCK
-    setTiming();
-#endif
-}
-
-#ifdef TUNE_CLOCK
-uint32_t PinsMc9s12d::clockInput() const {
-    return uint64_t(RATED_HZ) * _clockPermille / 1000;
-}
-
-// Scales the bus cycle's delays as if the bus ran at |hz|.
-bool PinsMc9s12d::setClockInput(uint32_t hz) {
-    const auto permille = uint64_t(hz) * 1000 / RATED_HZ;
-    if (permille < 100 || permille > 10000)
-        return false;
-    _clockPermille = permille;
-    setTiming();
-    return true;
-}
-
-void PinsMc9s12d::setTiming() {
-    const auto base = reinterpret_cast<const uint16_t *>(&TIMING);
-    auto ns = reinterpret_cast<uint16_t *>(&_timing);
-    for (auto i = 0u; i < sizeof(Timing) / sizeof(uint16_t); i++)
-        ns[i] = uint32_t(base[i]) * 1000 / _clockPermille;
-}
-#endif
-
-template <uint16_t PinsMc9s12d::Timing::*F>
-inline void PinsMc9s12d::delay() const {
-#ifdef TUNE_CLOCK
-    delayNanoseconds(_timing.*F);
-#else
-    delayNanoseconds(TIMING.*F);
+    setClockInput(DEFAULT_HZ);
 #endif
 }
 
@@ -173,8 +131,8 @@ void PinsMc9s12d::resetPins() {
     _held = false;
     _done = false;
     _stretch = true;
-    _noacc = false;
     _noE = 0;
+    _noacc = false;
     _writes = 0;
 
     // EXTAL runs without a pause from here until configSystem() has
@@ -197,86 +155,32 @@ void PinsMc9s12d::resetPins() {
     startPark();
 }
 
-// E runs free only once NOACC tells the free cycles.
+// Until NOACCE is set, NOACC is a port pin under the port E pull-up.
+inline bool PinsMc9s12d::sampleFree() const {
+    return _noacc && digitalReadFast(PIN_NOACC) != LOW;
+}
+
+// E runs free only once NOACC tells the free cycles, still stretched, so
+// a free cycle without E is taken for one.
 void PinsMc9s12d::systemConfigured() {
     _noacc = true;
-    static_cast<const Mc9s12dInit &>(_init).freeRunE(regs<RegsMc68hc12>());
+    _s12dInit.freeRunE(regs<RegsMc68hc12>());
+}
+
+inline void PinsMc9s12d::classify(Signals *s, bool free) const {
+    s->setExternal(s->read() && !free && !_s12dInit.is_internal(s->addr));
 }
 
 Signals *PinsMc9s12d::prepareCycle() {
-    auto s = Signals::put();
-    if (_held) {
-        _held = false;
-        *s = _heldSignals;
-        return s;
-    }
-    quiet_edge();
-    delay<&Timing::addr>();
-    s->getAddr();
-    const auto free = _noacc && digitalReadFast(PIN_NOACC) != LOW;
-    active_edge();
-    if (!wait_e(HIGH)) {
-        // No E: a free cycle that doesn't show it, or STOP. Walk on until
-        // it comes back, a cycle at a time.
-        if (++_noE < stop_cycles) {
-            quiet_edge();
-            delay<&Timing::extal>();
-            s->setFree();
-            _done = true;
-            active_edge();
-            return s;
-        }
-        for (auto n = 0; clock_e() == LOW; ++n) {
-            if (n >= 1000)
-                return noBusCycle(s);
-            edge_pair();
-        }
-        for (auto n = 0; clock_e() != LOW && n < 8; ++n)
-            edge_pair();
-        _noE = 0;
-        return prepareCycle();
-    }
-    _noE = 0;
-    // E high
-    delay<&Timing::extal>();
-    quiet_edge();
-    delay<&Timing::data>();
-    s->setExternal(s->read() && !free && !_init.is_internal(s->addr));
-    return s;
+    return prepareCycleOf<PinsMc9s12d>();
 }
 
 Signals *PinsMc9s12d::completeCycle(Signals *s) {
-    if (_done) {
-        _done = false;
-    } else if (!s->none()) {
-        const auto drive = s->external();
-        if (drive) {
-            if (s->readMemory())
-                s->data = readBus(s);
-            s->outData();
-            delay<&Timing::setup>();
-        }
-        s->getStart();
-        armStep();
-        if (!drive)
-            s->getData();  // write data, or what an internal read shows
-        active_edge();
-        // A stretched cycle keeps E high; the data stays until E falls.
-        for (auto n = 0; !wait_e(LOW) && n < 8; ++n) {
-            quiet_edge();
-            delay<&Timing::data>();
-            if (!drive)
-                s->getData();
-            s->getStart();
-            active_edge();
-        }
-        if (drive)
-            Signals::inputMode();
-        if (s->write() && s->writeMemory())
-            writeBus(s);
-    }
-    Cycles::next();
-    return s;
+    return completeCycleOf<PinsMc9s12d>(s);
+}
+
+const Signals *PinsMc9s12d::loop() {
+    return loopOf<PinsMc9s12d>();
 }
 
 void PinsMc9s12d::replay(Signals *begin, uint_fast8_t cycles) {

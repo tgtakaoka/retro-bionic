@@ -5,28 +5,30 @@ queue_put:      equ     2       ; queue put index
 queue_get:      equ     3       ; queue get index
 queue_buf:      equ     4       ; buffer start offset
 
+        align   2
 ;;; [queue] Initialize queue
 ;;; @param X queue work space pointer
 ;;; @param B queue work space size
 ;;; @clobber B
 queue_init:
-        pshb
+        pshd
         pshx
 queue_init_loop:
         clr     1,x+
         dbne    b,queue_init_loop
         pulx
-        pulb
+        puld
         subb    #queue_buf
         stab    queue_size,x
         rts
 
+        align   2
 ;;; [queue] Add an element to queue
 ;;; @param X queue work space pointer
 ;;; @param A an element
 ;;; @return CC.C 0 if queue is full
 queue_add:
-        pshb
+        pshd
         ldab    queue_len,x
         cmpb    queue_size,x
         bhs     queue_add_return ; carry is cleared
@@ -41,9 +43,10 @@ queue_add:
         clr     queue_put,x
         sec                     ; set carry
 queue_add_return:
-        pulb
+        puld
         rts
 
+        align   2
 ;;; [queue] Remove an element from queue
 ;;; @param X queue work space pointer
 ;;; @return A an element
@@ -53,8 +56,9 @@ queue_remove:
         bne     queue_remove_elem
         clc                     ; clear carry
         rts
+        align   2
 queue_remove_elem:
-        pshb
+        pshd
         ldab    queue_get,x
         addb    #queue_buf      ; 8 bits offset of the element
         ldaa    b,x             ; read an element
@@ -66,7 +70,8 @@ queue_remove_elem:
         clr     queue_get,x
         sec                     ; set carry
 queue_remove_return:
-        pulb
+        staa    0,sp            ; keep the element, and C
+        puld
         rts
 
 ;;; Local Variables:

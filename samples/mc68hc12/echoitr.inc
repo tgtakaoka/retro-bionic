@@ -60,6 +60,7 @@ loop:
 halt_to_system:
         swi
 
+        align   2
 ;;; Put newline
 ;;; @clobber A
 newline:
@@ -68,6 +69,7 @@ newline:
         ldaa    #$0A
         bra     putchar
 
+        align   2
 ;;; Print uint8_t in hex
 ;;; @param B uint8_t value to be printed in hex.
 ;;; @clobber A
@@ -93,18 +95,19 @@ put_hex8_dec:
         adda    #'0'
         bra     putchar
 
+        align   2
 ;;; Print uint8_t in binary
 ;;; @param B uint8_t value to be printed in binary.
 ;;; @clobber A
 put_bin8:
-        pshb
+        pshd
         ldaa    #'0'
         bsr     putchar
         ldaa    #'b'
         bsr     putchar
         bsr     put_bin4
         bsr     put_bin4
-        pulb
+        puld
         rts
 put_bin4:
         bsr     put_bin2
@@ -117,6 +120,7 @@ put_bin1:
         inca                    ; MSB=1
         bra     putchar
 
+        align   2
 ;;; Get character
 ;;; @return A
 ;;; @return CC.C 0 if no character
@@ -129,10 +133,11 @@ getchar:
         pulx
         rts
 
+        align   2
 ;;; Put character
 ;;; @param A
 putchar:
-        psha
+        pshd
         pshx
         ldx     #tx_queue
 putchar_retry:
@@ -143,11 +148,12 @@ putchar_retry:
         ldaa    #RX_INT_TX_INT  ; enable Tx interrupt
         staa    ACIA_control
         pulx
-        pula
+        puld
         rts
 
         include "queue.inc"
 
+        align   2
 isr_irq:
         ldab    ACIA_status
         bitb    #IRQF_bm

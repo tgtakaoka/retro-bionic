@@ -53,6 +53,7 @@ loop:
 halt_to_system:
         swi                     ; halt_to_system
 
+        align   2
 putchar:
         ldab    ACIA_status
         bitb    #TDRE_bm
@@ -62,6 +63,7 @@ putchar:
 
         include "queue.inc"
 
+        align   2
 isr_irq:
         ldab    ACIA_status
         bitb    #IRQF_bm
