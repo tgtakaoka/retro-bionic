@@ -1,0 +1,640 @@
+          0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+          0 :                            include "../pdp11/pdp11.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :                    ;;; PDP-11: the samples use only the DCT11's instructions, which the
+(1)       0 :                    ;;; DCJ11 also has, so one image runs on both.
+(1)       0 :                            cpu     t11
+(1)       0 :
+(1)       0 :                    ;;; Processor Status Word
+(1)       0 : =340               PSW_PRI_gm      =       340     ; Priority
+(1)       0 : =340               PSW_PRI7        =       340     ; Priority 7, interrupts disabled
+(1)       0 : =0                 PSW_PRI0        =       000     ; Priority 0, interrupts enabled
+(1)       0 : =20                PSW_T           =       020     ; Trace trap
+(1)       0 : =10                PSW_N           =       010     ; Negative
+(1)       0 : =4                 PSW_Z           =       004     ; Zero
+(1)       0 : =2                 PSW_V           =       002     ; Overflow
+(1)       0 : =1                 PSW_C           =       001     ; Carry
+(1)       0 :
+(1)       0 :                    ;;; Trap vectors: a PC, then a PSW
+(1)       0 : =4                 VEC_BUS         =       004     ; Bus error, odd address
+(1)       0 : =10                VEC_RESINST     =       010     ; Reserved instruction
+(1)       0 : =14                VEC_BPT         =       014     ; BPT instruction, T bit
+(1)       0 : =20                VEC_IOT         =       020     ; IOT instruction
+(1)       0 : =24                VEC_PWRFAIL     =       024     ; Power fail
+(1)       0 : =30                VEC_EMT         =       030     ; EMT instruction
+(1)       0 : =34                VEC_TRAP        =       034     ; TRAP instruction
+(1)       0 :
+(1)       0 :                    ;;; Both start at 173000 with PSW 340: the DCT11 with mode register
+(1)       0 :                    ;;; start address 6, the DCJ11 with power-up mode 2. The DCJ11's power-up
+(1)       0 :                    ;;; mode 0 reads the PC and PSW from VEC_PWRFAIL instead.
+(1)       0 : =173000            ORG_RESET       =       173000
+(1)       0 :
+(1)       0 :                    ;;; BPT hands control back to the debugger: HALT acts differently on the
+(1)       0 :                    ;;; two chips.
+          0 :                    ;;; The DCJ11 only: EIS MUL and DIV.
+          0 :                            cpu     j11
+          0 :
+          0 :                    ;;; MC6850 Asynchronous Communication Interface Adapter
+          0 : =177560            ACIA    =       177560
+          0 : =60                ACIA_VEC =      60
+          0 :                            include "../pdp11/mc6850.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :                    ;;; MC6850 Asynchronous Communication Interface Adapter
+(1)       0 :                    ;;; One register per word, accessed by byte.
+(1)       0 : =177560            ACIA_control    =       ACIA+0
+(1)       0 : =177560            ACIA_status     =       ACIA+0
+(1)       0 : =177562            ACIA_data       =       ACIA+2
+(1)       0 : =177564            ACIA_intr       =       ACIA+4  ; Interrupt vector, for Rx and Tx
+(1)       0 :                    ;;;  Counter Divider Select Bits
+(1)       0 : =3                 CDS_gm          =       003     ; Group mask
+(1)       0 : =0                 CDS_DIV1_gc     =       000     ; /1
+(1)       0 : =1                 CDS_DIV16_gc    =       001     ; /16
+(1)       0 : =2                 CDS_DIV64_gc    =       002     ; /64
+(1)       0 : =3                 CDS_RESET_gc    =       003     ; Master Reset
+(1)       0 :                    ;;;  Word Select Bits
+(1)       0 : =34                WSB_gm          =       034     ; Group mask
+(1)       0 : =0                 WSB_7E2_gc      =       000     ; 7 Bits + Even Parity + 2 Stop Bits
+(1)       0 : =4                 WSB_7O2_gc      =       004     ; 7 bits + Odd Parity  + 2 Stop Bits
+(1)       0 : =10                WSB_7E1_gc      =       010     ; 7 bits + Even Parity + 1 Stop Bits
+(1)       0 : =14                WSB_7O1_gc      =       014     ; 7 bits + Odd Parity  + 1 Stop Bits
+(1)       0 : =20                WSB_8N2_gc      =       020     ; 8 bits + No Parity   + 2 Stop Bits
+(1)       0 : =24                WSB_8N1_gc      =       024     ; 8 bits + No Parity   + 1 Stop Bits
+(1)       0 : =30                WSB_8E1_gc      =       030     ; 8 bits + Even Parity + 1 Stop Bits
+(1)       0 : =34                WSB_8O1_gc      =       034     ; 8 bits + Odd Parity  + 1 Stop Bits
+(1)       0 :                    ;;;  Transmit Control Bits
+(1)       0 : =140               TCB_gm          =       140     ; Group mask
+(1)       0 : =0                 TCB_DI_gc       =       000     ; RTS=Low,  Tx Interrupt Disabled
+(1)       0 : =40                TCB_EI_gc       =       040     ; RTS=Low,  Tx Interrupt Enabled
+(1)       0 : =100               TCB_RTS_gc      =       100     ; RTS=High, Tx Interrupt Disabled
+(1)       0 : =140               TCB_BREAK_gc    =       140     ; RTS=Low,  Tx Interrupt Disabled
+(1)       0 :                                                    ; Transmit Break Level
+(1)       0 : =200               RIEB_bm         =       200     ; Receive Interrupt Enable Bit mask
+(1)       0 :                    ;;; Status register
+(1)       0 : =1                 RDRF_bm         =       001     ; Receive Data Register Full
+(1)       0 : =2                 TDRE_bm         =       002     ; Transmit Data Register Empty
+(1)       0 : =4                 DCDF_bm         =       004     ; Data Carrier Detect Flag
+(1)       0 : =10                CTSF_bm         =       010     ; Clear To Send Flag
+(1)       0 : =20                FERR_bm         =       020     ; Frame Error Flag
+(1)       0 : =40                OVRN_bm         =       040     ; Receiver Overrun Flag
+(1)       0 : =100               PERR_bm         =       100     ; Parity Error Flag
+(1)       0 : =200               IRQF_bm         =       200     ; Interrupt Request Flag
+          0 : =224               RX_INT_TX_NO    =       WSB_8N1_gc|RIEB_bm
+          0 : =264               RX_INT_TX_INT   =       WSB_8N1_gc|RIEB_bm|TCB_EI_gc
+          0 :
+         14 :                            org     VEC_BPT
+         14 : 000014 000340              .word   VEC_BPT, PSW_PRI7 ; for halt to system
+         20 :
+         24 :                            org     VEC_PWRFAIL
+         24 : 001000 000340              .word   initialize, PSW_PRI7
+         30 :
+         60 :                            org     ACIA_VEC
+         60 : 002566 000340              .word   isr_acia, PSW_PRI7
+         64 :
+     173000 :                            org     ORG_RESET
+     173000 : 000137 001000              jmp     @#initialize
+     173004 :
+       4000 :                            org     4000
+       4000 : =200               rx_queue_size   =       128.
+       4000 :                    rx_queue:       .blkb   rx_queue_size
+       4200 : =200               tx_queue_size   =       128.
+       4200 :                    tx_queue:       .blkb   tx_queue_size
+       4400 :
+       1000 :                            org     1000
+       1000 : =1000              stack   =       .
+       1000 :                    initialize:
+       1000 : 012706 001000              mov     #stack, sp
+       1004 : 012702 004000              mov     #rx_queue, r2
+       1010 : 012700 000200              mov     #rx_queue_size, r0
+       1014 : 004767 001362              jsr     pc, queue_init
+       1020 : 012702 004200              mov     #tx_queue, r2
+       1024 : 012700 000200              mov     #tx_queue_size, r0
+       1030 : 004767 001346              jsr     pc, queue_init
+       1034 :                            ;; Initialize ACIA
+       1034 : 112737 000003              movb    #CDS_RESET_gc, @#ACIA_control ; Master reset
+       1040 : 177560
+       1042 : 112737 000224              movb    #RX_INT_TX_NO, @#ACIA_control ; 8 bits + No Parity + 1 Stop Bits
+       1046 : 177560
+       1050 : 112737 000060              movb    #ACIA_VEC, @#ACIA_intr ; set the vector for MC6850 emulator
+       1054 : 177564
+       1056 : 106427 000000              mtps    #PSW_PRI0       ; Enable interrupt
+       1062 :
+       1062 :                    loop:
+       1062 : 004767 000234              jsr     pc, mandelbrot
+       1066 : 004767 000056              jsr     pc, newline
+       1072 : 012702 004200              mov     #tx_queue, r2
+       1076 : 004767 001456              jsr     pc, queue_wait_empty
+       1102 : 000767                     br      loop
+       1104 :
+       1104 :                    ;;; Get character
+       1104 :                    ;;; @return R0 character
+       1104 :                    ;;; @return PSW.C 0 if no character
+       1104 :                    getchar:
+       1104 : 010246                     mov     r2, -(sp)
+       1106 : 012702 004000              mov     #rx_queue, r2
+       1112 : 106427 000340              mtps    #PSW_PRI7       ; Disable interrupt
+       1116 : 004767 001360              jsr     pc, queue_remove
+       1122 : 103005                     bcc     getchar_empty
+       1124 : 106427 000000              mtps    #PSW_PRI0       ; Enable interrupt
+       1130 : 012602                     mov     (sp)+, r2
+       1132 : 000261                     sec
+       1134 : 000207                     rts     pc
+       1136 :                    getchar_empty:
+       1136 : 106427 000000              mtps    #PSW_PRI0       ; Enable interrupt
+       1142 : 012602                     mov     (sp)+, r2
+       1144 : 000241                     clc
+       1146 : 000207                     rts     pc
+       1150 :
+       1150 :                    ;;; Put newline
+       1150 :                    newline:
+       1150 : 010046                     mov     r0, -(sp)
+       1152 : 112700 000015              movb    #15, r0
+       1156 : 004767 000020              jsr     pc, putchar
+       1162 : 112700 000012              movb    #12, r0
+       1166 : 004767 000010              jsr     pc, putchar
+       1172 : 012600                     mov     (sp)+, r0
+       1174 : 000207                     rts     pc
+       1176 :
+       1176 :                    ;;; Put space
+       1176 :                    ;;; @clobber R0
+       1176 :                    putspace:
+       1176 : 112700 000040              movb    #' , r0
+       1202 :                    ;;; Put character
+       1202 :                    ;;; @param R0 character
+       1202 :                    putchar:
+       1202 : 010246                     mov     r2, -(sp)
+       1204 : 012702 004200              mov     #tx_queue, r2
+       1210 :                    putchar_retry:
+       1210 : 106427 000340              mtps    #PSW_PRI7       ; Disable interrupt
+       1214 : 004767 001204              jsr     pc, queue_add
+       1220 : 103403                     bcs     putchar_added
+       1222 : 106427 000000              mtps    #PSW_PRI0       ; Enable interrupt while the queue is full
+       1226 : 000770                     br      putchar_retry
+       1230 :                    putchar_added:
+       1230 : 112737 000264              movb    #RX_INT_TX_INT, @#ACIA_control ; Enable Tx interrupt
+       1234 : 177560
+       1236 : 106427 000000              mtps    #PSW_PRI0       ; Enable interrupt
+       1242 : 012602                     mov     (sp)+, r2
+       1244 : 000207                     rts     pc
+       1246 :
+       1246 :                            include "mandelbrot.inc"
+(1)    1246 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)    1246 :
+(1)    1246 :                    ;;; Print variable: "name=variable "
+(1)    1246 :                    ;;; @param R1 variable
+(1)    1246 :                    ;;; @param R0 variable name
+(1)    1246 :                    ;;; @clobber R0 R1
+(1)    1246 :                    print:
+(1)    1246 : 004767 177730              jsr     pc, putchar     ; print name
+(1)    1252 : 112700 000075              movb    #'=, r0
+(1)    1256 : 004767 177720              jsr     pc, putchar
+(1)    1262 : 010100                     mov     r1, r0
+(1)    1264 : 004767 000602              jsr     pc, print_int16
+(1)    1270 : 000167 177702              jmp     putspace
+(1)    1274 :
+(1)    1274 :                    ;;; Print the Mandelbrot set in fixed point scaled by F, on the EIS: MUL
+(1)    1274 :                    ;;; into an odd register keeps the low 16 bits, as mul16 does.
+(1)    1274 :                    ;;; A NUL from the console halts to system.
+(1)    1274 : =62                F       =       50.             ; fixed-point scale
+(1)    1274 :                    vC:     .blkw   1
+(1)    1276 :                    vD:     .blkw   1
+(1)    1300 :                    vA:     .blkw   1
+(1)    1302 :                    vB:     .blkw   1
+(1)    1304 :                    vS:     .blkw   1
+(1)    1306 :                    vP:     .blkw   1
+(1)    1310 :                    vQ:     .blkw   1
+(1)    1312 :                    vT:     .blkw   1
+(1)    1314 :                    vY:     .blkw   1
+(1)    1316 :                    vX:     .blkw   1
+(1)    1320 :                    vI:     .blkw   1
+(1)    1322 :
+(1)    1322 :                    mandelbrot:
+(1)    1322 : 012767 177764              mov     #-12., vY       ; Y=-12
+       1326 : 177764
+(1)    1330 :                    loop_y:
+(1)    1330 : 012767 177717              mov     #-49., vX       ; X=-49
+       1334 : 177760
+(1)    1336 :                    loop_x:
+(1)    1336 : 016701 177754              mov     vX, r1
+(1)    1342 : 012702 000345              mov     #229., r2
+(1)    1346 : 070102                     mul     r2, r1          ; R1=X*229
+(1)    1350 : 012702 000144              mov     #100., r2
+(1)    1354 : 005701                     tst     r1
+(1)    1356 : 006700                     sxt     r0              ; R0:R1=R1
+(1)    1360 : 071002                     div     r2, r0          ; R1=X*229/100
+(1)    1362 : 010001                     mov     r0, r1
+(1)    1364 : 010167 177704              mov     r1, vC          ; C=X*229/100
+(1)    1370 : 010167 177704              mov     r1, vA          ; A=C
+(1)    1374 : 016701 177714              mov     vY, r1
+(1)    1400 : 012702 000640              mov     #416., r2
+(1)    1404 : 070102                     mul     r2, r1          ; R1=Y*416
+(1)    1406 : 012702 000144              mov     #100., r2
+(1)    1412 : 005701                     tst     r1
+(1)    1414 : 006700                     sxt     r0              ; R0:R1=R1
+(1)    1416 : 071002                     div     r2, r0          ; R1=Y*416/100
+(1)    1420 : 010001                     mov     r0, r1
+(1)    1422 : 010167 177650              mov     r1, vD          ; D=Y*416/100
+(1)    1426 : 010167 177650              mov     r1, vB          ; B=D
+(1)    1432 : 005067 177662              clr     vI              ; I=0
+(1)    1436 :
+(1)    1436 :                            ;; mov     vY, r1
+(1)    1436 :                            ;; movb    #'Y, r0
+(1)    1436 :                            ;; jsr     pc, print
+(1)    1436 :                            ;; mov     vX, r1
+(1)    1436 :                            ;; movb    #'X, r0
+(1)    1436 :                            ;; jsr     pc, print
+(1)    1436 :                            ;; mov     vC, r1
+(1)    1436 :                            ;; movb    #'C, r0
+(1)    1436 :                            ;; jsr     pc, print
+(1)    1436 :                            ;; mov     vD, r1
+(1)    1436 :                            ;; movb    #'D, r0
+(1)    1436 :                            ;; jsr     pc, print
+(1)    1436 :                            ;; jsr     pc, newline
+(1)    1436 :
+(1)    1436 :                    loop_i:
+(1)    1436 : 016701 177640              mov     vB, r1
+(1)    1442 : 012702 000062              mov     #F, r2
+(1)    1446 : 005701                     tst     r1
+(1)    1450 : 006700                     sxt     r0              ; R0:R1=R1
+(1)    1452 : 071002                     div     r2, r0          ; R1=B/F
+(1)    1454 : 010001                     mov     r0, r1
+(1)    1456 : 010167 177626              mov     r1, vQ          ; Q=B/F
+(1)    1462 : 012702 177716              mov     #-F, r2
+(1)    1466 : 070102                     mul     r2, r1          ; R1=-Q*F
+(1)    1470 : 066701 177606              add     vB, r1          ; R1=B-Q*F
+(1)    1474 : 010167 177604              mov     r1, vS          ; S=B-Q*F
+(1)    1500 : 016701 177576              mov     vB, r1
+(1)    1504 : 010102                     mov     r1, r2
+(1)    1506 : 070102                     mul     r2, r1          ; R1=B*B
+(1)    1510 : 010103                     mov     r1, r3          ; R3=B*B
+(1)    1512 : 016701 177562              mov     vA, r1
+(1)    1516 : 010102                     mov     r1, r2
+(1)    1520 : 070102                     mul     r2, r1          ; R1=A*A
+(1)    1522 : 160301                     sub     r3, r1          ; R1=A*A-B*B
+(1)    1524 : 012702 000062              mov     #F, r2
+(1)    1530 : 005701                     tst     r1
+(1)    1532 : 006700                     sxt     r0              ; R0:R1=R1
+(1)    1534 : 071002                     div     r2, r0          ; R1=(A*A-B*B)/F
+(1)    1536 : 010001                     mov     r0, r1
+(1)    1540 : 066701 177530              add     vC, r1          ; R1=(A*A-B*B)/F+C
+(1)    1544 : 010103                     mov     r1, r3          ; R3=(A*A-B*B)/F+C
+(1)    1546 : 016701 177526              mov     vA, r1
+(1)    1552 : 016702 177532              mov     vQ, r2
+(1)    1556 : 070102                     mul     r2, r1          ; R1=A*Q
+(1)    1560 : 010104                     mov     r1, r4          ; R4=A*Q
+(1)    1562 : 016701 177512              mov     vA, r1
+(1)    1566 : 016702 177512              mov     vS, r2
+(1)    1572 : 070102                     mul     r2, r1          ; R1=A*S
+(1)    1574 : 012702 000062              mov     #F, r2
+(1)    1600 : 005701                     tst     r1
+(1)    1602 : 006700                     sxt     r0              ; R0:R1=R1
+(1)    1604 : 071002                     div     r2, r0          ; R1=A*S/F
+(1)    1606 : 010001                     mov     r0, r1
+(1)    1610 : 060401                     add     r4, r1          ; R1=A*Q+A*S/F
+(1)    1612 : 006301                     asl     r1              ; R1=2*(A*Q+A*S/F)
+(1)    1614 : 066701 177456              add     vD, r1          ; R1=2*(A*Q+A*S/F)+D
+(1)    1620 : 010167 177456              mov     r1, vB          ; B=2*(A*Q+A*S/F)+D
+(1)    1624 : 010301                     mov     r3, r1          ; R1=(A*A-B*B)/F+C
+(1)    1626 : 010167 177446              mov     r1, vA          ; A=(A*A-B*B)/F+C
+(1)    1632 : 012702 000062              mov     #F, r2
+(1)    1636 : 005701                     tst     r1
+(1)    1640 : 006700                     sxt     r0              ; R0:R1=R1
+(1)    1642 : 071002                     div     r2, r0          ; R1=A/F
+(1)    1644 : 010001                     mov     r0, r1
+(1)    1646 : 010167 177434              mov     r1, vP          ; P=A/F
+(1)    1652 : 010102                     mov     r1, r2
+(1)    1654 : 070102                     mul     r2, r1          ; R1=P*P
+(1)    1656 : 010103                     mov     r1, r3          ; R3=P*P
+(1)    1660 : 016701 177416              mov     vB, r1
+(1)    1664 : 012702 000062              mov     #F, r2
+(1)    1670 : 005701                     tst     r1
+(1)    1672 : 006700                     sxt     r0              ; R0:R1=R1
+(1)    1674 : 071002                     div     r2, r0          ; R1=B/F
+(1)    1676 : 010001                     mov     r0, r1
+(1)    1700 : 010167 177404              mov     r1, vQ          ; Q=B/F
+(1)    1704 : 010102                     mov     r1, r2
+(1)    1706 : 070102                     mul     r2, r1          ; R1=Q*Q
+(1)    1710 : 060301                     add     r3, r1          ; R1=P*P+Q*Q
+(1)    1712 : 010167 177374              mov     r1, vT          ; T=P*P+Q*Q
+(1)    1716 :
+(1)    1716 :                            ;; jsr     pc, putspace
+(1)    1716 :                            ;; mov     vI, r1
+(1)    1716 :                            ;; movb    #'I, r0
+(1)    1716 :                            ;; jsr     pc, print
+(1)    1716 :                            ;; mov     vA, r1
+(1)    1716 :                            ;; movb    #'A, r0
+(1)    1716 :                            ;; jsr     pc, print
+(1)    1716 :                            ;; mov     vB, r1
+(1)    1716 :                            ;; movb    #'B, r0
+(1)    1716 :                            ;; jsr     pc, print
+(1)    1716 :                            ;; mov     vP, r1
+(1)    1716 :                            ;; movb    #'P, r0
+(1)    1716 :                            ;; jsr     pc, print
+(1)    1716 :                            ;; mov     vQ, r1
+(1)    1716 :                            ;; movb    #'Q, r0
+(1)    1716 :                            ;; jsr     pc, print
+(1)    1716 :                            ;; mov     vT, r1
+(1)    1716 :                            ;; movb    #'T, r0
+(1)    1716 :                            ;; jsr     pc, print
+(1)    1716 :                            ;; jsr     pc, newline
+(1)    1716 :
+(1)    1716 : 026727 177370              cmp     vT, #4
+       1722 : 000004
+(1)    1724 : 003023                     bgt     print_i         ; if 4<P*P+Q*Q
+(1)    1726 : 005267 177366              inc     vI              ; I+=1
+(1)    1732 : 026727 177362              cmp     vI, #16.
+       1736 : 000020
+(1)    1740 : 002002                     bge     print_space     ; if I>=16
+(1)    1742 : 000167 177470              jmp     loop_i          ; if I<16
+(1)    1746 :                    print_space:
+(1)    1746 : 112700 000040              movb    #' , r0
+(1)    1752 : 000414                     br      print_char
+(1)    1754 :                    print_table:
+(1)    1754 : 030460 031462              .ascii  "0123456789ABCDEF"
+       1760 : 032464 033466
+       1764 : 034470 041101
+       1770 : 042103 043105
+(1)    1774 :                    print_i:
+(1)    1774 : 016701 177320              mov     vI, r1
+(1)    2000 : 116100 001754              movb    print_table(r1), r0
+(1)    2004 :                    print_char:
+(1)    2004 : 004767 177172              jsr     pc, putchar
+(1)    2010 :
+(1)    2010 :                            ;; mov     r0, r2
+(1)    2010 :                            ;; movb    #'@, r0
+(1)    2010 :                            ;; jsr     pc, putchar
+(1)    2010 :                            ;; movb    #'=, r0
+(1)    2010 :                            ;; jsr     pc, putchar
+(1)    2010 :                            ;; mov     r2, r0
+(1)    2010 :                            ;; jsr     pc, putchar
+(1)    2010 :                            ;; jsr     pc, newline
+(1)    2010 :
+(1)    2010 : 004767 177070              jsr     pc, getchar
+(1)    2014 : 103003                     bcc     next_x
+(1)    2016 : 105700                     tstb    r0
+(1)    2020 : 001001                     bne     next_x
+(1)    2022 : 000003                     bpt                     ; halt to system
+(1)    2024 :                    next_x:
+(1)    2024 : 005267 177266              inc     vX              ; X+=1
+(1)    2030 : 026727 177262              cmp     vX, #30.
+       2034 : 000036
+(1)    2036 : 001402                     beq     next_y
+(1)    2040 : 000167 177272              jmp     loop_x          ; if X<30
+(1)    2044 :                    next_y:
+(1)    2044 : 004767 177100              jsr     pc, newline
+(1)    2050 : 005267 177240              inc     vY              ; Y+=1
+(1)    2054 : 026727 177234              cmp     vY, #13.
+       2060 : 000015
+(1)    2062 : 001402                     beq     mandelbrot_end
+(1)    2064 : 000167 177240              jmp     loop_y          ; if Y<13
+(1)    2070 :                    mandelbrot_end:
+(1)    2070 : 000207                     rts     pc
+       2072 :                            include "../pdp11/arith.inc"
+(1)    2072 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)    2072 :                    ;;; The DCT11 has no MUL nor DIV.
+(1)    2072 :
+(1)    2072 :                    ;;; Print signed 16-bit integer as decimal
+(1)    2072 :                    ;;; @param R0 value
+(1)    2072 :                    print_int16:
+(1)    2072 : 010046                     mov     r0, -(sp)
+(1)    2074 : 010146                     mov     r1, -(sp)
+(1)    2076 : 010246                     mov     r2, -(sp)
+(1)    2100 : 010001                     mov     r0, r1
+(1)    2102 : 001416                     beq     print_int16_zero
+(1)    2104 : 100005                     bpl     print_uint16
+(1)    2106 : 112700 000055              movb    #'-, r0
+(1)    2112 : 004767 177064              jsr     pc, putchar
+(1)    2116 : 005401                     neg     r1
+(1)    2120 :                    print_uint16:
+(1)    2120 : 012702 000012              mov     #10., r2
+(1)    2124 : 004767 000022              jsr     pc, print_uint16_loop
+(1)    2130 :                    print_int16_return:
+(1)    2130 : 012602                     mov     (sp)+, r2
+(1)    2132 : 012601                     mov     (sp)+, r1
+(1)    2134 : 012600                     mov     (sp)+, r0
+(1)    2136 : 000207                     rts     pc
+(1)    2140 :                    print_int16_zero:
+(1)    2140 : 112700 000060              movb    #'0, r0
+(1)    2144 : 004767 177032              jsr     pc, putchar
+(1)    2150 : 000767                     br      print_int16_return
+(1)    2152 :
+(1)    2152 :                    ;;; @param R1 non-zero value
+(1)    2152 :                    ;;; @param R2 10
+(1)    2152 :                    ;;; @clobber R0 R1
+(1)    2152 :                    print_uint16_loop:
+(1)    2152 : 004767 000062              jsr     pc, udiv16      ; R1=quotient R0=remainder
+(1)    2156 : 010046                     mov     r0, -(sp)       ; push remainder
+(1)    2160 : 005701                     tst     r1
+(1)    2162 : 001402                     beq     print_uint16_digit
+(1)    2164 : 004767 177762              jsr     pc, print_uint16_loop
+(1)    2170 :                    print_uint16_digit:
+(1)    2170 : 012600                     mov     (sp)+, r0       ; pop remainder
+(1)    2172 : 062700 000060              add     #'0, r0
+(1)    2176 : 000167 177000              jmp     putchar
+(1)    2202 :
+(1)    2202 :                    ;;; Signed multiply
+(1)    2202 :                    ;;; R1 * R2 = R1
+(1)    2202 :                    ;;; @clobber R0 R2
+(1)    2202 :                    ;;; The low 16 bits of a product are the same signed or unsigned, and
+(1)    2202 :                    ;;; negating both operands keeps it: a negative multiplier is negated only
+(1)    2202 :                    ;;; so that the loop below, which ends when it is 0, takes fewer turns.
+(1)    2202 :                    mul16:
+(1)    2202 : 005702                     tst     r2
+(1)    2204 : 100002                     bpl     umul16
+(1)    2206 : 005402                     neg     r2              ; negate multiplier
+(1)    2210 : 005401                     neg     r1              ; negate multiplicand
+(1)    2212 :                    ;;; Unsigned multiply
+(1)    2212 :                    ;;; R1 * R2 = R1
+(1)    2212 :                    ;;; @clobber R0 R2
+(1)    2212 :                    umul16:
+(1)    2212 : 010100                     mov     r1, r0          ; R0=multiplicand
+(1)    2214 : 005001                     clr     r1              ; R1=product
+(1)    2216 : 000405                     br      umul16_enter
+(1)    2220 :                    umul16_loop:
+(1)    2220 : 000241                     clc
+(1)    2222 : 006002                     ror     r2              ; multiplier>>=1, C=lsb(multiplier)
+(1)    2224 : 103001                     bcc     umul16_next
+(1)    2226 : 060001                     add     r0, r1          ; product+=multiplicand
+(1)    2230 :                    umul16_next:
+(1)    2230 : 006300                     asl     r0              ; multiplicand<<=1
+(1)    2232 :                    umul16_enter:
+(1)    2232 : 005702                     tst     r2
+(1)    2234 : 001371                     bne     umul16_loop     ; branch if multiplier!=0
+(1)    2236 : 000207                     rts     pc
+(1)    2240 :
+(1)    2240 :                    ;;; Unsigned divide
+(1)    2240 :                    ;;; R1 / R2 = R1 ... R0
+(1)    2240 :                    ;;; The divisor is shifted up past the dividend first, so the loop takes
+(1)    2240 :                    ;;; only as many turns as the quotient has bits.
+(1)    2240 :                    udiv16:
+(1)    2240 : 010100                     mov     r1, r0          ; R0=dividend
+(1)    2242 : 005001                     clr     r1              ; R1=quotient
+(1)    2244 : 005702                     tst     r2
+(1)    2246 : 001426                     beq     udiv16_zero     ; divide by zero
+(1)    2250 : 010346                     mov     r3, -(sp)
+(1)    2252 : 010246                     mov     r2, -(sp)
+(1)    2254 : 012703 000001              mov     #1, r3          ; R3=bit
+(1)    2260 : 000402                     br      udiv16_prep
+(1)    2262 :                    udiv16_prep_loop:
+(1)    2262 : 006302                     asl     r2              ; divisor<<=1
+(1)    2264 : 006303                     asl     r3              ; bit<<=1
+(1)    2266 :                    udiv16_prep:
+(1)    2266 : 020200                     cmp     r2, r0
+(1)    2270 : 101002                     bhi     udiv16_loop     ; branch if dividend<divisor
+(1)    2272 : 005702                     tst     r2
+(1)    2274 : 100372                     bpl     udiv16_prep_loop        ; branch if msb(divisor)=0
+(1)    2276 :                    udiv16_loop:
+(1)    2276 : 020200                     cmp     r2, r0
+(1)    2300 : 101002                     bhi     udiv16_next     ; branch if dividend<divisor
+(1)    2302 : 160200                     sub     r2, r0          ; dividend-=divisor
+(1)    2304 : 050301                     bis     r3, r1          ; quotient|=bit
+(1)    2306 :                    udiv16_next:
+(1)    2306 : 000241                     clc
+(1)    2310 : 006002                     ror     r2              ; divisor>>=1
+(1)    2312 : 000241                     clc
+(1)    2314 : 006003                     ror     r3              ; bit>>=1
+(1)    2316 : 001367                     bne     udiv16_loop     ; branch if bit!=0
+(1)    2320 : 012602                     mov     (sp)+, r2
+(1)    2322 : 012603                     mov     (sp)+, r3
+(1)    2324 :                    udiv16_zero:
+(1)    2324 : 000207                     rts     pc
+(1)    2326 :
+(1)    2326 :                    ;;; Divide by positive divisor
+(1)    2326 :                    ;;; R1 / R2 = R1 (R2 > 0)
+(1)    2326 :                    ;;; @clobber R0
+(1)    2326 :                    divu16:
+(1)    2326 : 005701                     tst     r1
+(1)    2330 : 100343                     bpl     udiv16
+(1)    2332 : 005401                     neg     r1
+(1)    2334 : 004767 177700              jsr     pc, udiv16
+(1)    2340 : 005401                     neg     r1
+(1)    2342 : 000207                     rts     pc
+(1)    2344 :
+(1)    2344 :                    ;;; Divide
+(1)    2344 :                    ;;; R1 / R2 = R1 ... R0 (R0=|remainder|)
+(1)    2344 :                    ;;; @clobber R2
+(1)    2344 :                    div16:
+(1)    2344 : 010100                     mov     r1, r0
+(1)    2346 : 074200                     xor     r2, r0
+(1)    2350 : 010046                     mov     r0, -(sp)       ; push R1^R2
+(1)    2352 : 005701                     tst     r1
+(1)    2354 : 100001                     bpl     div16_divisor
+(1)    2356 : 005401                     neg     r1
+(1)    2360 :                    div16_divisor:
+(1)    2360 : 005702                     tst     r2
+(1)    2362 : 100001                     bpl     div16_divide
+(1)    2364 : 005402                     neg     r2
+(1)    2366 :                    div16_divide:
+(1)    2366 : 004767 177646              jsr     pc, udiv16
+(1)    2372 : 005726                     tst     (sp)+           ; pop R1^R2
+(1)    2374 : 100001                     bpl     div16_return
+(1)    2376 : 005401                     neg     r1
+(1)    2400 :                    div16_return:
+(1)    2400 : 000207                     rts     pc
+       2402 :                            include "../pdp11/queue.inc"
+(1)    2402 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)    2402 :                    ;;; [queue] queue structure
+(1)    2402 : =0                 queue_len       =       0       ; queue length
+(1)    2402 : =2                 queue_size      =       2       ; buffer size
+(1)    2402 : =4                 queue_put       =       4       ; queue put index
+(1)    2402 : =6                 queue_get       =       6       ; queue get index
+(1)    2402 : =10                queue_buf       =       10      ; buffer start offset
+(1)    2402 :
+(1)    2402 :                    ;;; [queue] Initialize queue
+(1)    2402 :                    ;;; @param R2 queue work space pointer
+(1)    2402 :                    ;;; @param R0 queue work space size
+(1)    2402 :                    ;;; @clobber R0 R2
+(1)    2402 :                    queue_init:
+(1)    2402 : 005022                     clr     (r2)+           ; clear queue_len
+(1)    2404 : 162700 000010              sub     #queue_buf, r0
+(1)    2410 : 010022                     mov     r0, (r2)+       ; set queue_size
+(1)    2412 : 005022                     clr     (r2)+           ; clear queue_put
+(1)    2414 : 005022                     clr     (r2)+           ; clear queue_get
+(1)    2416 :                    queue_init_loop:
+(1)    2416 : 105022                     clrb    (r2)+
+(1)    2420 : 077002                     sob     r0, queue_init_loop
+(1)    2422 : 000207                     rts     pc
+(1)    2424 :
+(1)    2424 :                    ;;; [queue] Add an element to queue
+(1)    2424 :                    ;;; @param R2 queue work space pointer
+(1)    2424 :                    ;;; @param R0 an element
+(1)    2424 :                    ;;; @return PSW.C 0 if queue is full
+(1)    2424 :                    queue_add:
+(1)    2424 : 021262 000002              cmp     (r2), queue_size(r2) ; check queue_len
+(1)    2430 : 103402                     blo     queue_add_element
+(1)    2432 : 000241                     clc                     ; queue is full
+(1)    2434 : 000207                     rts     pc
+(1)    2436 :                    queue_add_element:
+(1)    2436 : 010146                     mov     r1, -(sp)
+(1)    2440 : 010201                     mov     r2, r1
+(1)    2442 : 066201 000004              add     queue_put(r2), r1
+(1)    2446 : 110061 000010              movb    r0, queue_buf(r1)
+(1)    2452 : 012601                     mov     (sp)+, r1
+(1)    2454 : 005212                     inc     (r2)            ; update queue_len
+(1)    2456 : 005262 000004              inc     queue_put(r2)
+(1)    2462 : 026262 000004              cmp     queue_put(r2), queue_size(r2)
+       2466 : 000002
+(1)    2470 : 103402                     blo     queue_add_return
+(1)    2472 : 005062 000004              clr     queue_put(r2)
+(1)    2476 :                    queue_add_return:
+(1)    2476 : 000261                     sec
+(1)    2500 : 000207                     rts     pc
+(1)    2502 :
+(1)    2502 :                    ;;; [queue] Remove an element from queue
+(1)    2502 :                    ;;; @param R2 queue work space pointer
+(1)    2502 :                    ;;; @return R0 an element
+(1)    2502 :                    ;;; @return PSW.C 0 if queue is empty
+(1)    2502 :                    queue_remove:
+(1)    2502 : 005712                     tst     (r2)            ; check queue_len
+(1)    2504 : 001002                     bne     queue_remove_element
+(1)    2506 : 000241                     clc                     ; queue is empty
+(1)    2510 : 000207                     rts     pc
+(1)    2512 :                    queue_remove_element:
+(1)    2512 : 010146                     mov     r1, -(sp)
+(1)    2514 : 010201                     mov     r2, r1
+(1)    2516 : 066201 000006              add     queue_get(r2), r1
+(1)    2522 : 005000                     clr     r0
+(1)    2524 : 156100 000010              bisb    queue_buf(r1), r0 ; without sign extension
+(1)    2530 : 012601                     mov     (sp)+, r1
+(1)    2532 : 005312                     dec     (r2)            ; update queue_len
+(1)    2534 : 005262 000006              inc     queue_get(r2)
+(1)    2540 : 026262 000006              cmp     queue_get(r2), queue_size(r2)
+       2544 : 000002
+(1)    2546 : 103402                     blo     queue_remove_return
+(1)    2550 : 005062 000006              clr     queue_get(r2)
+(1)    2554 :                    queue_remove_return:
+(1)    2554 : 000261                     sec
+(1)    2556 : 000207                     rts     pc
+       2560 :                            include "../pdp11/queue_wait.inc"
+(1)    2560 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)    2560 :                    ;;; [queue] Wait until queue is empty
+(1)    2560 :                    ;;; @param R2 queue work space pointer
+(1)    2560 :                    queue_wait_empty:
+(1)    2560 : 005712                     tst     (r2)            ; check queue_len
+(1)    2562 : 001376                     bne     queue_wait_empty
+(1)    2564 : 000207                     rts     pc
+       2566 :
+       2566 :                    isr_acia:
+       2566 : 010046                     mov     r0, -(sp)
+       2570 : 010246                     mov     r2, -(sp)
+       2572 : 132737 000001              bitb    #RDRF_bm, @#ACIA_status
+       2576 : 177560
+       2600 : 001406                     beq     isr_acia_send
+       2602 : 113700 177562              movb    @#ACIA_data, r0
+       2606 : 012702 004000              mov     #rx_queue, r2
+       2612 : 004767 177606              jsr     pc, queue_add
+       2616 :                    isr_acia_send:
+       2616 : 132737 000002              bitb    #TDRE_bm, @#ACIA_status
+       2622 : 177560
+       2624 : 001407                     beq     isr_acia_exit
+       2626 : 012702 004200              mov     #tx_queue, r2
+       2632 : 004767 177644              jsr     pc, queue_remove
+       2636 : 103005                     bcc     isr_acia_send_empty
+       2640 : 110037 177562              movb    r0, @#ACIA_data
+       2644 :                    isr_acia_exit:
+       2644 : 012602                     mov     (sp)+, r2
+       2646 : 012600                     mov     (sp)+, r0
+       2650 : 000002                     rti
+       2652 :                    isr_acia_send_empty:
+       2652 : 112737 000224              movb    #RX_INT_TX_NO, @#ACIA_control ; Disable Tx interrupt
+       2656 : 177560
+       2660 : 000771                     br      isr_acia_exit

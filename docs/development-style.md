@@ -2804,10 +2804,45 @@ clock rests high and the pins are read at the end of a period: #RAS is
 seen in the period it falls in with the address still on DAL, and a read's
 lookup rides the period that brings #CAS. **[bench]**
 
-**The DCJ11 to come.** `RegsPdp11` reads a PS without a frame with
-`MFPS`, a byte; the J11's PS is 16 bits, so that path needs a per-chip
-hook.
 - The PS after power-up, as `MFPS` reads it.
+
+### DCJ11
+
+**Bus.** A cycle is four CLK1 periods, T0-T3; the board holds #MISS low,
+so every memory read stretches in T4 pairs until #CONT, sampled at T4's
+falling edges, ends it, and NIO cycles never do. A stretched cycle lasts
+at least eight periods. **[doc]** The address, AIO3-AIO0 and BS1-BS0 are
+valid while #ALE is low: DAL21-DAL16, BS and AIO reach the Teensy through
+two 74HCS153s on P30-P33, selected one select bit at a time, and AIO is
+the field that leaves first. **[doc][bench]**
+
+**Clock.** CLK1 comes from the PWM at 7.5MHz, every cycle other than NIO
+held in its stretch while it is served. The address leaves DAL about a
+period after #ALE falls, so at 8.33MHz the firmware's read of it and the
+mux misses it; 7.89MHz passes but runs slower, its #CONT landing a T4
+pair later. **[bench]**
+
+**Reads.** Read data is latched at T3's rise and again with DV in the
+stretch (User's Guide, 3.2), and the CPU lets DAL go with #BUFCTL, about
+a period after #ALE: the firmware looks the data up before #SCTL falls,
+drives it at #BUFCTL, and only asserts DV and releases #CONT at #SCTL.
+Interrupts are on from the address on, the stretch holding the CPU.
+**[doc][bench]**
+
+**Entries and power-up.** The power-up configuration read is answered
+with 015: POK, power-up mode 2 (start at 173000) and a kernel HALT that
+traps to 4. #PWRF halts through vector 24, BPT and the trace trap through
+14; the debugger answers either with 173004 and 340. HALT, the #EVENT and
+IRQ lines and #MISS come from a 74HCT259 that shares the 153s' selects.
+`RegsPdp11` saves the FP11's FPS and AC0-AC5. Without a trap frame it
+reads the PS with `MFPS`, a byte, so the J11's PS<15:8> (modes and
+register set) needs a per-chip hook. **[doc][code]**
+
+**Stack limit.** A kernel stack reference below 400, a trap's push
+among them, takes a yellow stack trap through vector 4 (DCJ11 User's
+Guide, 1.8), and a reset keeps SP (Figure 8-2), so after power-up SP may
+lie below it. A step's trace frame would trap there, so the step refuses
+while SP is below 400. **[doc][bench]**
 
 ### CP1600
 

@@ -10,11 +10,13 @@ namespace pdp11 {
 struct PinsPdp11;
 
 struct RegsPdp11 final : Regs {
-    RegsPdp11(PinsPdp11 *pins);
+    // |fpu|: the FP11's FPS and AC0-AC5 are saved and restored too.
+    RegsPdp11(PinsPdp11 *pins, bool fpu = false);
 
     const char *cpu() const override { return cpuName(); }
 
     void print() const override;
+    void printAll() const override;
     void save() override;
     void restore() override;
 
@@ -37,6 +39,9 @@ struct RegsPdp11 final : Regs {
     uint16_t parkedAt() const { return _parkedAt; }
     // The next restore() sets the T bit, to trap after one instruction.
     void setTrace(bool trace) { _trace = trace; }
+    // A kernel stack below 400, where the DCJ11's push of a trap frame
+    // takes a yellow stack trap (DCJ11 User's Guide, 1.8).
+    bool kernelStackLow() const { return (_ps & 0140000) == 0 && _sp < 0400; }
 
     void helpRegisters() const override;
     const RegList *listRegisters(uint_fast8_t n) const override;
@@ -44,6 +49,7 @@ struct RegsPdp11 final : Regs {
 
 private:
     PinsPdp11 *const _pins;
+    const bool _fpu;
 
     uint16_t _r[6];
     uint16_t _sp;
@@ -52,6 +58,12 @@ private:
     uint16_t _parkedAt;
     bool _frame = false;  // a trap frame lies below SP
     bool _trace = false;
+    uint16_t _fps;
+    // Double precision, the most significant word first.
+    uint16_t _ac[6][4];
+
+    void saveFpu();
+    void restoreFpu();
 
     mutable CharBuffer _buffer1;
     mutable CharBuffer _buffer2;

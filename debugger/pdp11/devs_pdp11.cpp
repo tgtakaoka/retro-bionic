@@ -25,9 +25,6 @@ bool DevsPdp11::loopDevices() {
     return _acia->loop();
 }
 
-bool DevsPdp11::isSelected(uint32_t addr) const {
-    return _acia->isSelected(addr);
-}
 
 uint16_t DevsPdp11::read(uint32_t addr) const {
     return _acia->read(addr);
