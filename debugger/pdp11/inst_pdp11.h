@@ -21,6 +21,17 @@ struct InstPdp11 {
     }
     static constexpr uint8_t SP = 6;
 
+    // FP11, in double precision after SETD.
+    static constexpr uint16_t SETD = 0170011;
+    static constexpr uint16_t LDFPS_ABS = 0170137;  // LDFPS @#addr
+    static constexpr uint16_t STFPS_ABS = 0170237;  // STFPS @#addr
+    static constexpr uint16_t LDD_ABS = 0172437;    // LDD @#addr, ACn
+    static constexpr uint16_t STD_ABS = 0174037;    // STD ACn, @#addr
+    static constexpr uint16_t LDD_AC4 = 0172404;    // LDD AC4, AC0
+    static constexpr uint16_t STD_AC4 = 0174004;    // STD AC0, AC4
+    static constexpr uint16_t lddAbs(uint8_t ac) { return LDD_ABS | (ac << 6); }
+    static constexpr uint16_t stdAbs(uint8_t ac) { return STD_ABS | (ac << 6); }
+
     // BPT and the T-bit trace trap.
     static constexpr uint16_t VEC_BPT = 0000014;
     static constexpr uint16_t PSW_T = 0000020;

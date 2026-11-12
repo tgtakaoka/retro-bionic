@@ -17,7 +17,9 @@ struct DevsPdp11 final : Devs {
     void begin() override;
     void reset() override;
     bool loopDevices() override;
-    bool isSelected(uint32_t addr) const override;
+    bool isSelected(uint32_t addr) const override {
+        return _acia->isSelected(addr);
+    }
     uint16_t read(uint32_t addr) const override;
     // What read() would return, without its side effects.
     uint16_t peek(uint32_t addr) const;
