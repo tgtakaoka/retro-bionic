@@ -324,6 +324,8 @@ def case_step(board, n=4, regress=None):
 
     Steps the first sample not marked `skip = true` in `regress`: a
     skipped one (e.g. a ROM patch) is not a program to step through.
+    `[step]`'s `set = { SP = "1000" }` sets registers with `=` first, for
+    a CPU that a reset leaves without a usable stack.
     """
     table = drive_table(regress)
     hexes = [p for p in samples(board.who)
@@ -332,6 +334,9 @@ def case_step(board, n=4, regress=None):
     if not hexes:
         return None, 'no samples to step through'
     start = pc_from(load(board, hexes[0]))
+    for reg, value in table.get('step', {}).get('set', {}).items():
+        board.send(b'=')
+        board.send(('%s %s\r' % (reg, value)).encode())
     seen = []
     for _ in range(n):
         seen.append(pc_from(board.send(b'S')))
@@ -393,7 +398,8 @@ def drive_table(regress=None):
     table's name.
 
     The top-level `chips` list, which chips_of() reads, is not a sample;
-    [reset], [haltgo], [breakpoint] and [gountil] configure those cases.
+    [reset], [step], [haltgo], [breakpoint] and [gountil] configure those
+    cases.
     """
     table = {}
     if regress:
