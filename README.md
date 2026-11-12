@@ -1,6 +1,6 @@
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE.md)
 [![PlatformIO CI](https://github.com/tgtakaoka/retro-bionic/actions/workflows/platformio-ci.yml/badge.svg)](https://github.com/tgtakaoka/retro-bionic/actions/workflows/platformio-ci.yml)
-[![Targets](https://img.shields.io/badge/CPU%20targets-57-orange.svg)](docs/supported-cpus.md)
+[![Targets](https://img.shields.io/badge/CPU%20targets-58-orange.svg)](docs/supported-cpus.md)
 [![Boards](https://img.shields.io/badge/KiCad%20boards-51-green.svg)](schematics)
 
 <div align="center">
@@ -108,7 +108,8 @@ All 58 targets, grouped by vendor and architecture:
 <tr><td>TMS7000</td><td>TMS7000 <em>TMS7001, TMS7001NL4, TMS7002, TMS70C00, TMS70C02</em></td></tr>
 <tr><td>TMS370</td><td>TMS370Cx5x</td></tr>
 <tr><td>TMS320</td><td>TMS320C15</td></tr>
-<tr><td>DEC</td><td>PDP-8</td><td>IM6100, HD6120</td></tr>
+<tr><td rowspan="2">DEC</td><td>PDP-8</td><td>IM6100, HD6120</td></tr>
+<tr><td>PDP-11</td><td>DCT11</td></tr>
 <tr><td>RCA</td><td>COSMAC</td><td>CDP1802 <em>CDP1804A</em></td></tr>
 <tr><td>Fairchild</td><td>F8</td><td>F3850</td></tr>
 <tr><td rowspan="2">National</td><td>SC/MP II</td><td>INS8060</td></tr>
