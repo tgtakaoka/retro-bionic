@@ -98,6 +98,14 @@ uint16_t Mc6850::read(uint32_t addr) {
     return _rxIntr;
 }
 
+uint16_t Mc6850::peek(uint32_t addr) const {
+    if (addr == _base_addr)
+        return _status;
+    if (addr == _base_addr + _step)
+        return _rxData;
+    return _rxIntr;
+}
+
 }  // namespace debugger
 
 // Local Variables:

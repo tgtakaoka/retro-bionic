@@ -76,7 +76,7 @@ void CharBuffer::oct15(uint_fast8_t pos, uint_fast16_t val) {
 
 void CharBuffer::oct18(uint_fast8_t pos, uint_fast32_t val) {
     oct6(pos, val >> 12);
-    oct12(pos + 4, val);
+    oct12(pos + 2, val);
 }
 
 void CharBuffer::oct24(uint_fast8_t pos, uint_fast32_t val) {

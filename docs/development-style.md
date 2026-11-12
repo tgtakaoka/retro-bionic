@@ -766,9 +766,11 @@ it at each power-on to see what is seated. Hold the board lock
 the board is back on USB, then open the console. A capture armed before
 the power cycle triggers on the power-off edges instead.
 
-Keep captures triggered and short. `trimDataSeconds` only trims after the
+Keep captures triggered and short. `trimDataSeconds` is the time kept
+before the trigger, not the whole window, and it only trims once the
 trigger fires, so a stopped, untriggered capture holds the whole run, and
 exporting one can fill the disk; closing the capture does not stop the export.
+Check that an export starts at minus the pre-trigger time.
 
 A channels table's `display` lists its signals in the order a saved
 capture shows them: clocks, then bus status (address latch, read,
@@ -803,10 +805,11 @@ chip and kind (`[p8086-v30-step]`), each with its trigger, window,
 
 1. Plan the leads. List the signals each kind needs: reset triggers on
    the reset's negation, step on the edge that releases a parked CPU
-   (READY, a wait or hold line), echoitr on the interrupt request. Show
-   the channel table in pin order before asking for a lead move, and
-   order the chips and kinds so the leads move as few times as
-   possible.
+   (READY, a wait or hold line, or the first strobe of a restore),
+   echoitr on the interrupt request. Moving leads is the user's work:
+   every request to move them carries the whole table, channel 0 to 15
+   with pin and signal, in pin order, not a list of changes. Order the
+   chips and kinds so the leads move as few times as possible.
 2. Moving a lead means powering the bench off, so every lead change and
    every chip seated is a power cycle: wait for the board to answer,
    read the banner's board and CPU, send one throwaway `R` (the first
@@ -826,22 +829,24 @@ chip and kind (`[p8086-v30-step]`), each with its trigger, window,
    through FSAVE/FRSTOR, about 160 µs that a READY trigger fires on).
    For the same reason, part of a reset capture is the register print,
    not the reset itself.
-5. Probe once at the full window (10 ms; echoitr up to 40 ms), then end
-   the window just after the last bus cycle (reset, steps) or the last
-   interrupt (echoitr), with a margin only for the jitter between steps.
-   An idle tail is useless. A capture whose trigger never fires is
-   stopped and never exported. Each chip gets its own tables: an 8-bit
-   bus takes about twice the cycles of a 16-bit one.
-6. For steps, stop at a breakpoint in a sample's loop and send the steps
-   as one write (`SSSSSSSS`), a few of the CPU's own instructions and,
-   with a coprocessor, a few of its instructions too. One command per
-   step adds the host's round trip between them.
-7. For echoitr, run the sample, arm on the interrupt request, send one
-   character and then NUL; the window ends at the last transmit
-   interrupt of its echo.
-8. Save each capture with its table's channel names and decoders. The
-   user reviews a board's first reset capture (names, order, decoders)
-   before the rest are taken.
+5. A wave is for a person to read: keep 50 µs before the trigger, and
+   end the window 50 µs after the sequence ends. Probe once at the full
+   window (10 ms; echoitr up to 40 ms) to find that end. A capture whose
+   trigger never fires is stopped and never exported. Each chip gets its
+   own tables: an 8-bit bus takes about twice the cycles of a 16-bit
+   one.
+6. A reset runs through the debugger's register save; trigger it on the
+   reset's negation, the edge the data sheet times the start from.
+7. For steps, run mandelbrot, halt it with the halt port, and send six
+   steps as one write (`SSSSSS`): each a restore, the instruction and the
+   save. With a coprocessor, step a few of its instructions too. One
+   command per step adds the host's round trip between them.
+8. For echoitr, run the sample, arm on the interrupt request, and send
+   one character: the window holds its receive interrupt and every
+   transmit interrupt of the echo.
+9. Save each capture with its table's channel names, every digital row
+   48 high, and its decoders. The user reviews a board's first reset
+   capture (names, order, decoders) before the rest are taken.
 
 Decoders show what the leads allow. A status code decodes on the clock
 edge where it is stable. A CPU without address-latch or write strobes on
@@ -2760,6 +2765,49 @@ saved IEFF is clear: `RTF` enables interrupts one instruction late, so the
 `IOF` turns them off before any request is taken. To check, halt and resume
 an `IOF`, `SKON`, `JMP .-1` loop: it must never fall through to a `HLT`
 after it. **[hw]**
+
+### DCT11
+
+**Entry.** A HALT instruction and the HALT input (AI7) push the PS and
+the PC and fetch the restart address with PS 340; BPT and a T-bit trace
+trap push the same frame and read the vector at 14. **[doc]** The
+debugger answers that vector with the restart address and 340, so every
+entry parks on the fetch of 173004 with the frame below SP. A BPT's PC
+is the pushed PC less 2; a step's is the pushed PC. A step sets the T
+bit and restores with `RTT`, which defers the trace trap past the next
+instruction. A step onto a BPT or HALT is refused: the trace trap would
+still be pending after its own trap. **[code]**
+
+**Mode register.** It is read from DAL15-DAL8 and DAL1-DAL0 while #BCLR
+is low, at power-up and on every `RESET` instruction, so the board drives
+it at both: 153377, start 173000, 16-bit, static memory, normal
+read/write so R/#WHB and R/#WLB are valid at the #RAS fall. **[doc]**
+
+**Read before write.** Every write is preceded by a read of the same
+address, except the pushes of a trap or interrupt. **[doc]** That read
+would take a received character from the ACIA's data register, so a
+device read returns `peek()` and takes effect only if the next
+transaction is not a write to the same word. **[code]**
+
+**Interrupts.** The ACIA requests level 4 with #VEC, and its vector is
+driven on DAL7-DAL0 at the IACK. The AI lines must not change while PI
+is high, so a request a device raises inside a transaction is driven
+after it. **[doc][code]**
+
+**Clock.** XTL1 is bit-banged: it needs T > 133 ns and each half > 60 ns
+at the pin (User's Guide 5.4.2), and the board's 48/48 ns delays give
+halves of 64 and 88 ns at least. **[doc]** A high half under about 70 ns
+at the connector leaves #RAS asserted through the transactions that
+follow an IACK; nothing in the manuals defines such a bus, so it is the
+clock to fix, not a transaction to serve. **[bench]** The
+clock rests high and the pins are read at the end of a period: #RAS is
+seen in the period it falls in with the address still on DAL, and a read's
+lookup rides the period that brings #CAS. **[bench]**
+
+**The DCJ11 to come.** `RegsPdp11` reads a PS without a frame with
+`MFPS`, a byte; the J11's PS is 16 bits, so that path needs a per-chip
+hook.
+- The PS after power-up, as `MFPS` reads it.
 
 ### CP1600
 
