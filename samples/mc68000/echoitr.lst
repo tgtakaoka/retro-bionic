@@ -1,0 +1,319 @@
+          0 :                            include "mc68000.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :                    ;;; MC68000 family
+(1)       0 :                            cpu     mc68000
+(1)       0 :
+(1)       0 :                    ;;; Status Register (SR)
+(1)       0 : =8000              SR_T:           equ     %1000000000000000 ; trace
+(1)       0 : =2000              SR_S:           equ     %0010000000000000 ; supervisor
+(1)       0 : =700               SR_I_gm:        equ     %0000011100000000 ; interrupt priority mask
+(1)       0 : =10                SR_X:           equ     %0000000000010000 ; extend
+(1)       0 : =8                 SR_N:           equ     %0000000000001000 ; negative
+(1)       0 : =4                 SR_Z:           equ     %0000000000000100 ; zero
+(1)       0 : =2                 SR_V:           equ     %0000000000000010 ; overflow
+(1)       0 : =1                 SR_C:           equ     %0000000000000001 ; carry
+(1)       0 :
+(1)       0 :                    ;;; Exception vectors with VBR 0 (M68000UM Table 6-2)
+(1)       0 : =0                 VEC_RESET:      equ     $000000 ; $000000: SSP, then PC
+(1)       0 : =8                 VEC_BERR:       equ     $000008 ; $000008: Bus Error
+(1)       0 : =C                 VEC_ADDR:       equ     $00000C ; $00000C: Address Error
+(1)       0 : =10                VEC_ILLEGAL:    equ     $000010 ; $000010: Illegal Instruction
+(1)       0 : =14                VEC_DIV0:       equ     $000014 ; $000014: Zero Divide
+(1)       0 : =18                VEC_CHK:        equ     $000018 ; $000018: CHK Instruction
+(1)       0 : =1C                VEC_TRAPV:      equ     $00001C ; $00001C: TRAPV Instruction
+(1)       0 : =20                VEC_PRIV:       equ     $000020 ; $000020: Privilege Violation
+(1)       0 : =24                VEC_TRACE:      equ     $000024 ; $000024: Trace
+(1)       0 : =3C                VEC_UNINIT:     equ     $00003C ; $00003C: Uninitialized Interrupt
+(1)       0 : =60                VEC_SPURIOUS:   equ     $000060 ; $000060: Spurious Interrupt
+(1)       0 : =64                VEC_LEVEL1:     equ     $000064 ; $000064: Level 1 Interrupt Autovector
+(1)       0 : =7C                VEC_LEVEL7:     equ     $00007C ; $00007C: Level 7 Interrupt Autovector
+(1)       0 : =80                VEC_TRAP0:      equ     $000080 ; $000080: TRAP #0
+(1)       0 : =100               VEC_USER:       equ     $000100 ; $000100: User Interrupt Vectors, 64-255
+(1)       0 :
+(1)       0 :                    ;;; Every interrupt is acknowledged with a vector number: the ACIA's is
+(1)       0 :                    ;;; the first user vector, as the regress wires it (I ACIA addr 64).
+(1)       0 : =40                VECNUM_ACIA:    equ     64
+(1)       0 : =100               VEC_ACIA:       equ     VECNUM_ACIA*4
+(1)       0 :
+(1)       0 :                    ;;; MC6850 Asynchronous Communication Interface Adapter at $FFFFF0,
+(1)       0 :                    ;;; reached as (ACIA_xxx).w on every board: a board with fewer address
+(1)       0 :                    ;;; lines sees it masked to them.
+(1)       0 : =FFFFF0            ACIA:           equ     $FFFFF0
+(1)       0 :                            include "../mc6800/mc6850.inc"
+(2)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(2)       0 :
+(2)       0 :                    ;;; MC6850
+(2)       0 :                    ;;; Asynchronous Communication Interface Adapter
+(2)       0 :
+(2)       0 :                    ;;; Control register (write)
+(2)       0 : =FFFFF0            ACIA_control:   equ     ACIA+0
+(2)       0 :                            ;; Counter Divider Select Bits
+(2)       0 : =3                 CDS_gm:         equ     %11    ; Group mask
+(2)       0 : =0                 CDS_DIV1_gc:    equ     %00000000 ; /1
+(2)       0 : =1                 CDS_DIV16_gc:   equ     %00000001 ; /16
+(2)       0 : =2                 CDS_DIV64_gc:   equ     %00000010 ; /64
+(2)       0 : =3                 CDS_RESET_gc:   equ     %00000011 ; Master Reset
+(2)       0 :                            ;; Word Select Bits
+(2)       0 : =1C                WSB_gm:         equ     %00011100 ; Group mask
+(2)       0 : =0                 WSB_7E2_gc:     equ     %00000000 ; 7 Bits + Even Parity + 2 Stop Bits
+(2)       0 : =4                 WSB_7O2_gc:     equ     %00000100 ; 7 bits + Odd Parity  + 2 Stop Bits
+(2)       0 : =8                 WSB_7E1_gc:     equ     %00001000 ; 7 bits + Even Parity + 1 Stop Bits
+(2)       0 : =C                 WSB_7O1_gc:     equ     %00001100 ; 7 bits + Odd Parity  + 1 Stop Bits
+(2)       0 : =10                WSB_8N2_gc:     equ     %00010000 ; 8 bits + No Parity   + 2 Stop Bits
+(2)       0 : =14                WSB_8N1_gc:     equ     %00010100 ; 8 bits + No Parity   + 1 Stop Bits
+(2)       0 : =18                WSB_8E1_gc:     equ     %00011000 ; 8 bits + Even Parity + 1 Stop Bits
+(2)       0 : =1C                WSB_8O1_gc:     equ     %00011100 ; 8 bits + Odd Parity  + 1 Stop Bits
+(2)       0 :                            ;; Transmit Control Bits
+(2)       0 : =60                TCB_gm:         equ     %01100000 ; Group mask
+(2)       0 : =0                 TCB_DI_gc:      equ     %00000000 ; RTS=Low,  Tx Interrupt Disabled
+(2)       0 : =20                TCB_EI_gc:      equ     %00100000 ; RTS=Low,  Tx Interrupt Enabled
+(2)       0 : =40                TCB_RTS_gc:     equ     %01000000 ; RTS=High, Tx Interrupt Disabled
+(2)       0 : =60                TCB_BREAK_gc:   equ     %01100000 ; RTS=Low,  Tx Interrupt Disabled
+(2)       0 :                                                      ; Transmit Break Level
+(2)       0 : =80                RIEB_bm:        equ     %10000000 ; Receive Interrupt Enable Bit mask
+(2)       0 :
+(2)       0 :                    ;;; Status register (read)
+(2)       0 : =FFFFF0            ACIA_status:    equ     ACIA+0
+(2)       0 : =1                 RDRF_bm:        equ     %00000001 ; Receive Data Register Full
+(2)       0 : =2                 TDRE_bm:        equ     %00000010 ; Transmit Data Register Empty
+(2)       0 : =4                 DCDF_bm:        equ     %00000100 ; Data Carrier Detect Flag
+(2)       0 : =8                 CTSF_bm:        equ     %00001000 ; Clear To Send Flag
+(2)       0 : =10                FERR_bm:        equ     %00010000 ; Frame Error Flag
+(2)       0 : =20                OVRN_bm:        equ     %00100000 ; Receiver Overrun Flag
+(2)       0 : =40                PERR_bm:        equ     %01000000 ; Parity Error Flag
+(2)       0 : =80                IRQF_bm:        equ     %10000000 ; Interrupt Request Flag
+(2)       0 :
+(2)       0 :                    ;;; Data register
+(2)       0 : =FFFFF1            ACIA_data:      equ     ACIA+1          ; Data register
+(1)       0 :
+(1)       0 :                    ;;; Interrupts on, all levels; and off again. Neither touches CCR.
+(1)       0 : =F8FF              INTR_ON:        equ     $F8FF   ; ANDI #INTR_ON,SR
+(1)       0 : =700               INTR_OFF:       equ     $0700   ; ORI  #INTR_OFF,SR
+          0 : =94                RX_INT_TX_NO:   equ     WSB_8N1_gc|RIEB_bm
+          0 : =B4                RX_INT_TX_INT:  equ     WSB_8N1_gc|RIEB_bm|TCB_EI_gc
+          0 :
+       2000 :                            org     $2000
+       2000 : =80                rx_queue_size:  equ     128
+       2000 :                    rx_queue:       ds.b    rx_queue_size
+       2080 : =80                tx_queue_size:  equ     128
+       2080 :                    tx_queue:       ds.b    tx_queue_size
+       2100 :
+       2100 : =1000              stack:  equ     $1000           ; SSP: a push decrements it first
+       2100 :
+        100 :                            org     VEC_ACIA
+        100 : 0000 1170                  dc.l    isr_acia
+        104 :
+          0 :                            org     VEC_RESET
+          0 : 0000 1000                  dc.l    stack
+          4 : 0000 1000                  dc.l    initialize
+          8 :
+       1000 :                            org     $1000
+       1000 :                    initialize:
+       1000 : 41F8 2000                  lea     (rx_queue).w,a0
+       1004 : 303C 0080                  move.w  #rx_queue_size,d0
+       1008 : 6100 00D6                  bsr.w   queue_init
+       100C : 41F8 2080                  lea     (tx_queue).w,a0
+       1010 : 303C 0080                  move.w  #tx_queue_size,d0
+       1014 : 6100 00CA                  bsr.w   queue_init
+       1018 :                            ;; initialize ACIA
+       1018 : 11FC 0003 FFF0             move.b  #CDS_RESET_gc,(ACIA_control).w ; master reset
+       101E : 11FC 0094 FFF0             move.b  #RX_INT_TX_NO,(ACIA_control).w
+       1024 : 027C F8FF                  andi    #INTR_ON,sr     ; enable interrupts
+       1028 :
+       1028 :                    loop:
+       1028 : 6172                       bsr.s   getchar
+       102A : 64FC                       bcc.s   loop            ; spin, interrupts on: one comes in running code
+       102C : 4A00                       tst.b   d0
+       102E : 671C                       beq.s   halt_to_system
+       1030 : 1200                       move.b  d0,d1
+       1032 : 6100 008E                  bsr.w   putchar         ; echo
+       1036 : 6100 007A                  bsr.w   putspace
+       103A : 6100 0012                  bsr.w   put_hex8        ; print in hex
+       103E : 6100 0072                  bsr.w   putspace
+       1042 : 6100 0034                  bsr.w   put_bin8        ; print in binary
+       1046 : 6100 0070                  bsr.w   newline
+       104A : 60DC                       bra.s   loop
+       104C :                    halt_to_system:
+       104C : 4AFC                       illegal                 ; halt to system
+       104E :
+       104E :                    ;;; Print uint8_t in hex
+       104E :                    ;;; @param D1.B uint8_t value to be printed in hex.
+       104E :                    ;;; @clobber D0
+       104E :                    put_hex8:
+       104E : 103C 0030                  move.b  #'0',d0
+       1052 : 616E                       bsr.s   putchar
+       1054 : 103C 0078                  move.b  #'x',d0
+       1058 : 6168                       bsr.s   putchar
+       105A : 1001                       move.b  d1,d0
+       105C : E808                       lsr.b   #4,d0
+       105E : 6102                       bsr.s   put_hex4
+       1060 : 1001                       move.b  d1,d0
+       1062 :                    put_hex4:
+       1062 : 0200 000F                  andi.b  #$0F,d0
+       1066 : 0C00 000A                  cmpi.b  #10,d0
+       106A : 6506                       blo.s   put_hex8_dec
+       106C : 0600 0037                  addi.b  #'A'-10,d0
+       1070 : 6050                       bra.s   putchar
+       1072 :                    put_hex8_dec:
+       1072 : 0600 0030                  addi.b  #'0',d0
+       1076 : 604A                       bra.s   putchar
+       1078 :
+       1078 :                    ;;; Print uint8_t in binary
+       1078 :                    ;;; @param D1.B uint8_t value to be printed in binary.
+       1078 :                    ;;; @clobber D0
+       1078 :                    put_bin8:
+       1078 : 2F02                       move.l  d2,-(sp)
+       107A : 103C 0030                  move.b  #'0',d0
+       107E : 6142                       bsr.s   putchar
+       1080 : 103C 0062                  move.b  #'b',d0
+       1084 : 613C                       bsr.s   putchar
+       1086 : 7407                       moveq   #8-1,d2
+       1088 :                    put_bin8_loop:
+       1088 : 103C 0030                  move.b  #'0',d0
+       108C : E309                       lsl.b   #1,d1           ; C=MSB
+       108E : 6402                       bcc.s   put_bin8_put    ; MSB=0
+       1090 : 5200                       addq.b  #1,d0           ; MSB=1
+       1092 :                    put_bin8_put:
+       1092 : 612E                       bsr.s   putchar
+       1094 : 51CA FFF2                  dbra    d2,put_bin8_loop
+       1098 : 241F                       move.l  (sp)+,d2
+       109A : 4E75                       rts
+       109C :
+       109C :                    ;;; Get character
+       109C :                    ;;; @return D0.B
+       109C :                    ;;; @return CCR.C 0 if no character
+       109C :                    getchar:
+       109C : 2F08                       move.l  a0,-(sp)
+       109E : 41F8 2000                  lea     (rx_queue).w,a0
+       10A2 : 007C 0700                  ori     #INTR_OFF,sr    ; disable interrupts
+       10A6 : 6100 008E                  bsr.w   queue_remove
+       10AA : 027C F8FF                  andi    #INTR_ON,sr     ; enable interrupts
+       10AE : 205F                       movea.l (sp)+,a0        ; MOVEA leaves CCR alone
+       10B0 : 4E75                       rts
+       10B2 :
+       10B2 :                    ;;; Put character
+       10B2 :                    ;;; @param D0.B
+       10B2 :                    putspace:
+       10B2 : 103C 0020                  move.b  #' ',d0
+       10B6 : 600A                       bra.s   putchar
+       10B8 :
+       10B8 :                    newline:
+       10B8 : 103C 000D                  move.b  #$0D,d0
+       10BC : 6104                       bsr.s   putchar
+       10BE : 103C 000A                  move.b  #$0A,d0
+       10C2 :                    putchar:
+       10C2 : 2F08                       move.l  a0,-(sp)
+       10C4 : 41F8 2080                  lea     (tx_queue).w,a0
+       10C8 :                    putchar_retry:
+       10C8 : 007C 0700                  ori     #INTR_OFF,sr    ; disable interrupts
+       10CC : 6100 0030                  bsr.w   queue_add
+       10D0 : 027C F8FF                  andi    #INTR_ON,sr     ; enable interrupts
+       10D4 : 64F2                       bcc.s   putchar_retry   ; branch if queue is full
+       10D6 : 11FC 00B4 FFF0             move.b  #RX_INT_TX_INT,(ACIA_control).w ; enable Tx interrupt
+       10DC : 205F                       movea.l (sp)+,a0
+       10DE : 4E75                       rts
+       10E0 :
+       10E0 :                            include "queue.inc"
+(1)    10E0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)    10E0 :
+(1)    10E0 :                    ;;; [queue] queue structure, in words
+(1)    10E0 : =0                 queue_len:      equ     0       ; queue length
+(1)    10E0 : =2                 queue_size:     equ     2       ; buffer size
+(1)    10E0 : =4                 queue_put:      equ     4       ; put offset from the work space, queue_buf..
+(1)    10E0 : =6                 queue_get:      equ     6       ; get offset from the work space, queue_buf..
+(1)    10E0 : =8                 queue_end:      equ     8       ; offset past the buffer
+(1)    10E0 : =A                 queue_buf:      equ     10      ; buffer start offset
+(1)    10E0 :
+(1)    10E0 :                    ;;; [queue] Initialize queue
+(1)    10E0 :                    ;;; @param A0 queue work space pointer
+(1)    10E0 :                    ;;; @param D0.W queue work space size
+(1)    10E0 :                    queue_init:
+(1)    10E0 : 3140 0008                  move.w  d0,(queue_end,a0)
+(1)    10E4 : 907C 000A                  sub.w   #queue_buf,d0
+(1)    10E8 : 3140 0002                  move.w  d0,(queue_size,a0)
+(1)    10EC : 4268 0000                  clr.w   (queue_len,a0)
+(1)    10F0 : 317C 000A 0004             move.w  #queue_buf,(queue_put,a0)
+(1)    10F6 : 317C 000A 0006             move.w  #queue_buf,(queue_get,a0)
+(1)    10FC : 4E75                       rts
+(1)    10FE :
+(1)    10FE :                    ;;; [queue] Add an element to queue
+(1)    10FE :                    ;;; @param A0 queue work space pointer
+(1)    10FE :                    ;;; @param D0.B an element
+(1)    10FE :                    ;;; @return CCR.C 0 if queue is full
+(1)    10FE :                    queue_add:
+(1)    10FE : 2F01                       move.l  d1,-(sp)
+(1)    1100 : 3228 0000                  move.w  (queue_len,a0),d1
+(1)    1104 : B268 0002                  cmp.w   (queue_size,a0),d1
+(1)    1108 : 6424                       bhs.s   queue_add_full
+(1)    110A : 3228 0004                  move.w  (queue_put,a0),d1
+(1)    110E : 1180 1000                  move.b  d0,(a0,d1.w)    ; store an element
+(1)    1112 : 5268 0000                  addq.w  #1,(queue_len,a0)
+(1)    1116 : 5241                       addq.w  #1,d1
+(1)    1118 : B268 0008                  cmp.w   (queue_end,a0),d1
+(1)    111C : 6504                       blo.s   queue_add_put
+(1)    111E : 323C 000A                  move.w  #queue_buf,d1   ; wrap around
+(1)    1122 :                    queue_add_put:
+(1)    1122 : 3141 0004                  move.w  d1,(queue_put,a0)
+(1)    1126 : 221F                       move.l  (sp)+,d1
+(1)    1128 : 003C 0001                  ori.b   #SR_C,ccr       ; set carry
+(1)    112C : 4E75                       rts
+(1)    112E :                    queue_add_full:
+(1)    112E : 221F                       move.l  (sp)+,d1
+(1)    1130 : 023C 00FE                  andi.b  #~SR_C,ccr      ; clear carry
+(1)    1134 : 4E75                       rts
+(1)    1136 :
+(1)    1136 :                    ;;; [queue] Remove an element from queue
+(1)    1136 :                    ;;; @param A0 queue work space pointer
+(1)    1136 :                    ;;; @return D0.B an element
+(1)    1136 :                    ;;; @return CCR.C 0 if queue is empty
+(1)    1136 :                    queue_remove:
+(1)    1136 : 4A68 0000                  tst.w   (queue_len,a0)
+(1)    113A : 6606                       bne.s   queue_remove_elem
+(1)    113C : 023C 00FE                  andi.b  #~SR_C,ccr      ; clear carry
+(1)    1140 : 4E75                       rts
+(1)    1142 :                    queue_remove_elem:
+(1)    1142 : 2F01                       move.l  d1,-(sp)
+(1)    1144 : 3228 0006                  move.w  (queue_get,a0),d1
+(1)    1148 : 1030 1000                  move.b  (a0,d1.w),d0    ; read an element
+(1)    114C : 5368 0000                  subq.w  #1,(queue_len,a0)
+(1)    1150 : 5241                       addq.w  #1,d1
+(1)    1152 : B268 0008                  cmp.w   (queue_end,a0),d1
+(1)    1156 : 6504                       blo.s   queue_remove_get
+(1)    1158 : 323C 000A                  move.w  #queue_buf,d1   ; wrap around
+(1)    115C :                    queue_remove_get:
+(1)    115C : 3141 0006                  move.w  d1,(queue_get,a0)
+(1)    1160 : 221F                       move.l  (sp)+,d1
+(1)    1162 : 003C 0001                  ori.b   #SR_C,ccr       ; set carry
+(1)    1166 : 4E75                       rts
+(1)    1168 :
+(1)    1168 :                    ;;; [queue] Wait until queue is empty
+(1)    1168 :                    ;;; @param A0 queue work space pointer
+(1)    1168 :                    queue_wait_empty:
+(1)    1168 : 4A68 0000                  tst.w   (queue_len,a0)
+(1)    116C : 66FA                       bne.s   queue_wait_empty
+(1)    116E : 4E75                       rts
+       1170 :
+       1170 :                    isr_acia:
+       1170 : 48E7 C080                  movem.l d0-d1/a0,-(sp)
+       1174 : 1238 FFF0                  move.b  (ACIA_status).w,d1
+       1178 : 0801 0007                  btst    #7,d1           ; IRQF
+       117C : 6726                       beq.s   isr_acia_exit
+       117E : 0801 0000                  btst    #0,d1           ; RDRF
+       1182 : 670C                       beq.s   isr_acia_send
+       1184 : 1038 FFF1                  move.b  (ACIA_data).w,d0 ; receive character
+       1188 : 41F8 2000                  lea     (rx_queue).w,a0
+       118C : 6100 FF70                  bsr.w   queue_add
+       1190 :                    isr_acia_send:
+       1190 : 0801 0001                  btst    #1,d1           ; TDRE
+       1194 : 670E                       beq.s   isr_acia_exit
+       1196 : 41F8 2080                  lea     (tx_queue).w,a0
+       119A : 6100 FF9A                  bsr.w   queue_remove
+       119E : 640A                       bcc.s   isr_acia_send_empty
+       11A0 : 11C0 FFF1                  move.b  d0,(ACIA_data).w ; send character
+       11A4 :                    isr_acia_exit:
+       11A4 : 4CDF 0103                  movem.l (sp)+,d0-d1/a0
+       11A8 : 4E73                       rte
+       11AA :                    isr_acia_send_empty:
+       11AA : 11FC 0094 FFF0             move.b  #RX_INT_TX_NO,(ACIA_control).w ; disable Tx interrupt
+       11B0 : 4CDF 0103                  movem.l (sp)+,d0-d1/a0
+       11B4 : 4E73                       rte

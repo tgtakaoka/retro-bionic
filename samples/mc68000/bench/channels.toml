@@ -61,21 +61,94 @@
 14 = "ASEL0"    # P54
 15 = "ASEL1"    # P55
 
-# Reset and a halt: the strobes, the interrupt level and the low data.
+# The 16-bit boards' bus waves, reset, echoitr and step, one layout: ch12
+# is #RESET, #IPL0 (level 5, the ACIA) or #IPL1 (level 7 only, a halt or
+# step). Each ASEL edge closes the selection before it:
+#   [0] ASEL0 rising, 00: A0-A3   [1] ASEL1 rising, 01: A4-A7
+#   [2] ASEL0 falling, 11: A8-A11 [3] ASEL1 falling, 10: A12-A15
+# Reset: trigger on the first bus cycle after #RESET rises.
 [mc68000-reset]
- 0 = "D0"       # P10
- 1 = "D1"       # P11
- 2 = "D8"       # P20
- 3 = "D9"       # P21
- 4 = "MUX0"     # P30: A0/A4/A12/A8 by ASEL1:ASEL0
- 5 = "#AS"      # P40
- 6 = "R/#W"     # P41
- 7 = "#UDS"     # P42
- 8 = "#LDS"     # P43
- 9 = "#DTACK"   # P44
-10 = "#HALT"    # P46
-11 = "CLK"      # P47
-12 = "#IPL0"    # P50
-13 = "#IPL2"    # P52
-14 = "#RESET"   # P53
-15 = "ASEL0"    # P54
+ 0 = { pin = "P10", signal = "D0" }
+ 1 = { pin = "P30", signal = "MUX0" }
+ 2 = { pin = "P31", signal = "MUX1" }
+ 3 = { pin = "P32", signal = "MUX2" }
+ 4 = { pin = "P33", signal = "MUX3" }
+ 5 = { pin = "P40", signal = "#AS" }
+ 6 = { pin = "P41", signal = "R/#W" }
+ 7 = { pin = "P42", signal = "#UDS" }
+ 8 = { pin = "P43", signal = "#LDS" }
+ 9 = { pin = "P44", signal = "#DTACK" }
+10 = { pin = "P46", signal = "#HALT" }
+11 = { pin = "P47", signal = "CLK" }
+12 = { pin = "P53", signal = "#RESET" }
+13 = { pin = "P52", signal = "#IPL2" }
+14 = { pin = "P54", signal = "ASEL0" }
+15 = { pin = "P55", signal = "ASEL1" }
+trigger = { signal = "#AS", edge = "fall", when = { "#RESET" = "high" }, before = 50e-6, after = 100e-6 }
+parallel = [
+  { data = ["MUX0", "MUX1", "MUX2", "MUX3"], clock = "ASEL0", edge = "rise" },
+  { data = ["MUX0", "MUX1", "MUX2", "MUX3"], clock = "ASEL1", edge = "rise" },
+  { data = ["MUX0", "MUX1", "MUX2", "MUX3"], clock = "ASEL0", edge = "fall" },
+  { data = ["MUX0", "MUX1", "MUX2", "MUX3"], clock = "ASEL1", edge = "fall" },
+]
+display = ["CLK", "#AS", "R/#W", "#UDS", "#LDS", "ASEL1", "ASEL0", "#DTACK",
+        "#HALT", "#RESET", "#IPL2", "MUX3", "MUX2", "MUX1", "MUX0", "D0"]
+
+# echoitr: the ACIA's receive interrupt at level 5, the handler and the
+# echo it queues for the transmit interrupt.
+[mc68000-echoitr]
+ 0 = { pin = "P10", signal = "D0" }
+ 1 = { pin = "P30", signal = "MUX0" }
+ 2 = { pin = "P31", signal = "MUX1" }
+ 3 = { pin = "P32", signal = "MUX2" }
+ 4 = { pin = "P33", signal = "MUX3" }
+ 5 = { pin = "P40", signal = "#AS" }
+ 6 = { pin = "P41", signal = "R/#W" }
+ 7 = { pin = "P42", signal = "#UDS" }
+ 8 = { pin = "P43", signal = "#LDS" }
+ 9 = { pin = "P44", signal = "#DTACK" }
+10 = { pin = "P46", signal = "#HALT" }
+11 = { pin = "P47", signal = "CLK" }
+12 = { pin = "P50", signal = "#IPL0" }
+13 = { pin = "P52", signal = "#IPL2" }
+14 = { pin = "P54", signal = "ASEL0" }
+15 = { pin = "P55", signal = "ASEL1" }
+trigger = { signal = "#IPL0", edge = "fall", before = 50e-6, after = 3.85e-3 }
+parallel = [
+  { data = ["MUX0", "MUX1", "MUX2", "MUX3"], clock = "ASEL0", edge = "rise" },
+  { data = ["MUX0", "MUX1", "MUX2", "MUX3"], clock = "ASEL1", edge = "rise" },
+  { data = ["MUX0", "MUX1", "MUX2", "MUX3"], clock = "ASEL0", edge = "fall" },
+  { data = ["MUX0", "MUX1", "MUX2", "MUX3"], clock = "ASEL1", edge = "fall" },
+]
+display = ["CLK", "#AS", "R/#W", "#UDS", "#LDS", "ASEL1", "ASEL0", "#DTACK",
+        "#HALT", "#IPL0", "#IPL2", "MUX3", "MUX2", "MUX1", "MUX0", "D0"]
+
+# Six steps from a halt, sent as one write: each restore returns to the
+# program with T set, and its trace exception parks the CPU again, in a
+# read #DTACK withholds: the first #AS rise is the first step.
+[mc68000-step]
+ 0 = { pin = "P10", signal = "D0" }
+ 1 = { pin = "P30", signal = "MUX0" }
+ 2 = { pin = "P31", signal = "MUX1" }
+ 3 = { pin = "P32", signal = "MUX2" }
+ 4 = { pin = "P33", signal = "MUX3" }
+ 5 = { pin = "P40", signal = "#AS" }
+ 6 = { pin = "P41", signal = "R/#W" }
+ 7 = { pin = "P42", signal = "#UDS" }
+ 8 = { pin = "P43", signal = "#LDS" }
+ 9 = { pin = "P44", signal = "#DTACK" }
+10 = { pin = "P46", signal = "#HALT" }
+11 = { pin = "P47", signal = "CLK" }
+12 = { pin = "P51", signal = "#IPL1" }
+13 = { pin = "P52", signal = "#IPL2" }
+14 = { pin = "P54", signal = "ASEL0" }
+15 = { pin = "P55", signal = "ASEL1" }
+trigger = { signal = "#AS", edge = "rise", before = 50e-6, after = 930e-6 }
+parallel = [
+  { data = ["MUX0", "MUX1", "MUX2", "MUX3"], clock = "ASEL0", edge = "rise" },
+  { data = ["MUX0", "MUX1", "MUX2", "MUX3"], clock = "ASEL1", edge = "rise" },
+  { data = ["MUX0", "MUX1", "MUX2", "MUX3"], clock = "ASEL0", edge = "fall" },
+  { data = ["MUX0", "MUX1", "MUX2", "MUX3"], clock = "ASEL1", edge = "fall" },
+]
+display = ["CLK", "#AS", "R/#W", "#UDS", "#LDS", "ASEL1", "ASEL0", "#DTACK",
+        "#HALT", "#IPL1", "#IPL2", "MUX3", "MUX2", "MUX1", "MUX0", "D0"]

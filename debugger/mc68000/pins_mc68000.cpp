@@ -101,24 +101,25 @@ void PinsMc68000::readStraps() {
 // hand out A0/A16, A4/A20, A8/-, A12/FC in turn, one select changing per
 // step, and the last step brings it back to 00. Each phase's AL and AH
 // nibbles shift together by 0, 4, 8 and 12: A0-A23 in bits 0-23, FC2:FC0
-// in 28-30. The CPU holds the address until #DTACK.
+// in 28-30. The CPU holds the address until #DTACK. The read right after
+// a select write still shows the old selection, the next one the new,
+// measured from the Teensy side: one other read settles a step, a
+// discarded one where there is nothing to read.
 void PinsMc68000::getAddr(Signals *s) const {
     constexpr uint32_t nibbles = 0x000F000F;
     const uint32_t sel00 = PIN(ADDR);
+    digitalWriteFast(PIN_ASEL0, HIGH);  // 01
     // A read asserts its strobes with #AS: they are settled by now.
     const uint8_t cntl = busRead(CNTL);
-    digitalWriteFast(PIN_ASEL0, HIGH);  // 01
-    // Each phase is put away while the next select settles.
     uint32_t addr = sel00 & nibbles;
-    delayNanoseconds(asel_delay_ns);
     const uint32_t sel01 = PIN(ADDR);
     digitalWriteFast(PIN_ASEL1, HIGH);  // 11
     addr |= (sel01 & nibbles) << 4;
-    delayNanoseconds(asel_delay_ns);
+    PIN(ADDR);
     const uint32_t sel11 = PIN(ADDR);
     digitalWriteFast(PIN_ASEL0, LOW);  // 10
     addr |= (sel11 & nibbles) << 8;
-    delayNanoseconds(asel_delay_ns);
+    PIN(ADDR);
     const uint32_t sel10 = PIN(ADDR);
     digitalWriteFast(PIN_ASEL1, LOW);  // 00
     addr |= (sel10 & nibbles) << 12;
