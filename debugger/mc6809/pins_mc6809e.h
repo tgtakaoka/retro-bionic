@@ -15,19 +15,27 @@ namespace mc6809e {
 
 using mc6809::InstMc6809;
 using mc6809::PinsMc6809Base;
+using mc6809::PinsMc6809Engine;
 using mc6809::RegsMc6809;
 
-struct PinsMc6809E final : PinsMc6809Base {
+struct PinsMc6809E final : PinsMc6809Engine<PinsMc6809E> {
     PinsMc6809E();
 
     void resetPins() override;
 
-protected:
+private:
+    friend PinsMc6809Engine<PinsMc6809E>;
     mc6809::Signals *rawCycle() const override;
     mc6809::Signals *cycle() const override;
+    template <uint8_t F>
+    uint16_t ns() const;
 };
 
 }  // namespace mc6809e
+
+namespace mc6809 {
+extern template struct PinsMc6809Engine<mc6809e::PinsMc6809E>;
+}  // namespace mc6809
 }  // namespace debugger
 #endif
 

@@ -1,47 +1,10 @@
 #include "signals_mc6809.h"
 #include "char_buffer.h"
 #include "debugger.h"
-#include "digital_bus.h"
 #include "pins_mc6809_base.h"
 
 namespace debugger {
 namespace mc6809 {
-
-void Signals::getHighAddr() {
-    addr = busRead(AM) | busRead(AH);
-}
-
-void Signals::getLowAddr() {
-    addr |= busRead(AL);
-}
-
-void Signals::getDirection() {
-    // The MC6809 has no VMA; CNTL0 is its XTAL pin, or AVMA on the
-    // MC6809E, which tells of the next cycle. Dummy cycles read FFFF,
-    // which the cycle sequences match as x.
-    cntl() = busRead(CNTL) | CNTL_VMA;
-}
-
-void Signals::getControl() {
-    clearFetch();
-}
-
-bool Signals::vector() const {
-    return (cntl() & (CNTL_BA | CNTL_BS)) == CNTL_BS;
-}
-
-void Signals::getData() {
-    data = busRead(D);
-}
-
-void Signals::outData() const {
-    busWrite(D, data);
-    busMode(D, OUTPUT);
-}
-
-void Signals::inputMode() {
-    busMode(D, INPUT);
-}
 
 void Signals::print() const {
     LOG_MATCH(cli.printDec(pos(), 3));
