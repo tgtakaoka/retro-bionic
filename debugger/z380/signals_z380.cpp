@@ -7,30 +7,27 @@
 namespace debugger {
 namespace z380 {
 
-namespace {
-
-// 74HCS153 select to output: 15ns typical at 5V; the outputs were seen to
-// follow within one 8ns capture sample.
-constexpr auto asel_delay_ns = 15;
-
-}  // namespace
-
 // ASEL1:ASEL0 rests at 00. Stepped in gray order 00, 01, 11, 10 the
 // muxes hand out A0/A16, A4/A20, A8/A24 and A12/A28 nibbles in turn, one
 // select changing per step, and the last step brings it back to 00.
+// The read right after a select write still shows the old selection, the
+// next one the new, measured from the Teensy side: one discarded read of
+// the port settles a step.
 void Signals::getAddr() {
     uint32_t a = busRead(ADDR);
     digitalWriteFast(PIN_ASEL0, HIGH);  // 01
-    delayNanoseconds(asel_delay_ns);
-    a |= busRead(ADDR) << 4;
+    PIN(ADDR);
+    const uint32_t sel01 = busRead(ADDR);
     digitalWriteFast(PIN_ASEL1, HIGH);  // 11
-    delayNanoseconds(asel_delay_ns);
-    a |= busRead(ADDR) << 8;
+    a |= sel01 << 4;
+    PIN(ADDR);
+    const uint32_t sel11 = busRead(ADDR);
     digitalWriteFast(PIN_ASEL0, LOW);  // 10
-    delayNanoseconds(asel_delay_ns);
-    a |= busRead(ADDR) << 12;
+    a |= sel11 << 8;
+    PIN(ADDR);
+    const uint32_t sel10 = busRead(ADDR);
     digitalWriteFast(PIN_ASEL1, LOW);  // 00
-    addr = a;
+    addr = a | sel10 << 12;
 }
 
 void Signals::getData() {
