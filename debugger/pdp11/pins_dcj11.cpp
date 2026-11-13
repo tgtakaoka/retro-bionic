@@ -792,6 +792,22 @@ const SignalsImpl *PinsDcj11::findBacktraceStart() {
     return backtraceStartByFetchCount<Signals>(_lineLimit);
 }
 
+// An IREQ the CPU threw away: a demand fetch comes next, as after a
+// taken branch, JMP, JSR, RTS or SOB, or none does, as the prefetch past
+// the stop PC.
+bool PinsDcj11::discarded(uint32_t i) const {
+    const auto g = Signals::get();
+    const auto cycles = g->diff(Signals::put());
+    if (!g->next(i)->request())
+        return false;
+    while (++i < cycles) {
+        const auto s = g->next(i);
+        if (s->fetch())
+            return !s->request();
+    }
+    return true;
+}
+
 // One line per instruction, then its data cycles; its operand words only
 // when verbose.
 void PinsDcj11::printBacktrace() {
@@ -801,12 +817,13 @@ void PinsDcj11::printBacktrace() {
     for (auto i = 0u; i < cycles; ++i) {
         const auto s = g->next(i);
         const uint16_t addr = s->addr16();
-        if (s->fetch() && (addr < from || addr >= to)) {
+        const auto outside = addr < from || addr >= to;
+        if (s->fetch() && outside && !discarded(i)) {
             if (Debugger.verbose())
                 s->print();
             from = addr;
             to = _mems->disassemble(addr, 1);
-        } else if (!s->read() || addr < from || addr >= to ||
+        } else if (!s->read() || (outside && !s->fetch()) ||
                    Debugger.verbose()) {
             s->print();
         }

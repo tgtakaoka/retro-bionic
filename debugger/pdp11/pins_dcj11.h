@@ -97,6 +97,7 @@ private:
     void resetPins() override;
     const SignalsImpl *findBacktraceStart() override;
     void printBacktrace() override;
+    bool discarded(uint32_t i) const;
 
     Signals *prepareCycle();
     Signals *resumeCycle();
