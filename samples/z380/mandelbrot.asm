@@ -97,7 +97,9 @@ newline:
         ld      A, 0DH
         call    putchar
         ld      A, 0AH
+        jr      putchar
 
+        align   2
 ;;; Put character
 ;;; @param A
 putchar:
