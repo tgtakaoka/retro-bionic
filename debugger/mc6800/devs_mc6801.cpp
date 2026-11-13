@@ -1,7 +1,5 @@
 #include "devs_mc6801.h"
 #include <strings.h>
-#include "mc6801_sci_handler.h"
-#include "mc6850.h"
 
 namespace debugger {
 namespace mc6801 {
@@ -44,14 +42,6 @@ bool DevsMc6801::loopDevices() {
 void DevsMc6801::setIdle(bool idle) {
 #if defined(ENABLE_SERIAL_HANDLER)
     _sci->setIdle(idle);
-#endif
-}
-
-bool DevsMc6801::isSelected(uint32_t addr) const {
-#if defined(ENABLE_SERIAL_HANDLER)
-    return _acia->isSelected(addr) || _sci->isSelected(addr);
-#else
-    return _acia->isSelected(addr);
 #endif
 }
 

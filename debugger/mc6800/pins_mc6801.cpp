@@ -46,22 +46,35 @@ namespace {
 //  tASL: min   60 ns; addr to as_lo
 // tASED: min   90 ns; as_lo to e_hi
 //  tPCS: min  200 ns; reset_hi to e_lo
-constexpr auto extal_hi_ns = 108;   // 125
-constexpr auto extal_lo_ns = 108;   // 125
-constexpr auto c1_lo_ns = 1;        // 125
-constexpr auto c1_hi_ns = 93;       // 125
-constexpr auto c2_lo_ns = 80;       // 125
-constexpr auto c2_hi_ns = 80;       // 125
-constexpr auto c3_lo_read = 1;      // 125
-constexpr auto c3_lo_inject = 84;   // 125
-constexpr auto c3_hi_read = 84;     // 125
-constexpr auto c4_lo_read = 68;     // 125
-constexpr auto c4_hi_read = 49;     // 125
-constexpr auto c3_lo_write = 83;    // 125
-constexpr auto c3_hi_write = 80;    // 125
-constexpr auto c4_lo_write = 1;     // 125
-constexpr auto c4_lo_capture = 87;  // 125
-constexpr auto c4_hi_write = 52;    // 125
+constexpr auto extal_hi_ns = 108;  // 125
+constexpr auto extal_lo_ns = 108;  // 125
+enum Delay : uint8_t {
+    c1_lo_ns,       // 125
+    c1_hi_ns,       // 125
+    c2_lo_ns,       // 125
+    c2_hi_ns,       // 125
+    c3_lo_read,     // 125
+    c3_lo_inject,   // 125
+    c3_hi_read,     // 125
+    c4_lo_read,     // 125
+    c4_hi_read,     // 125
+    c3_lo_write,    // 125
+    c3_hi_write,    // 125
+    c4_lo_write,    // 125
+    c4_lo_capture,  // 125
+    c4_hi_write,    // 125
+    DELAYS,
+};
+// Long enough that no EXTAL half runs under 125 ns, the 1 MHz part's
+// 4 MHz XTAL, so no E cycle runs under tCYC either.
+constexpr uint16_t DELAYS_NS[DELAYS] = {
+        37, 116, 100, 100, 70, 105, 105, 87, 61, 103, 100, 78, 108, 65};
+// MC6803-1 (1.25 MHz): no E cycle under 800 ns on the bench.
+// constexpr uint16_t DELAYS_NS[DELAYS] = {
+//         1, 74, 64, 64, 1, 67, 67, 54, 39, 66, 64, 1, 69, 41};
+// HD63B03 (2 MHz): E 1.67 MHz on the bench; 1.92 MHz fails the regress.
+// constexpr uint16_t DELAYS_NS[DELAYS] = {
+//         1, 31, 26, 26, 1, 28, 28, 22, 16, 27, 26, 1, 29, 17};
 constexpr auto tpcs_ns = 200;
 
 inline void extal_hi() {
@@ -152,10 +165,17 @@ constexpr uint8_t PINS_INPUT[] = {
 
 PinsMc6801::PinsMc6801() {
     auto regs = new RegsMc6801(this);
+    auto devs = new DevsMc6801();
     _regs = regs;
-    _devs = new DevsMc6801();
-    _mems = new MemsMc6801(regs, _devs);
+    _devs = devs;
+    _mems = new MemsMc6801(regs, devs);
     _inst = new InstMc6801(_mems);
+}
+
+template <uint8_t F>
+inline void PinsMc6801::delay() const {
+    if constexpr (DELAYS_NS[F] != 0)
+        delayNanoseconds(DELAYS_NS[F]);
 }
 
 void PinsMc6801::resetPins() {
@@ -209,7 +229,7 @@ void PinsMc6801::resetPins() {
 }
 
 mc6800::Signals *PinsMc6801::cycle() {
-    delayNanoseconds(c1_lo_ns);
+    delay<c1_lo_ns>();
     return rawCycle();
 }
 
@@ -219,53 +239,51 @@ mc6800::Signals *PinsMc6801::rawCycle() {
     // c1
     extal_hi();
     auto s = Signals::put();
-    delayNanoseconds(c1_hi_ns);
+    delay<c1_hi_ns>();
     // c2
     extal_lo();
-    delayNanoseconds(c2_lo_ns);
+    delay<c2_lo_ns>();
     s->getAddr();
     extal_hi();
-    delayNanoseconds(c2_hi_ns);
+    delay<c2_hi_ns>();
     s->getDirection();
     //  c3
     extal_lo();
     if (s->write()) {
         ++_writes;
-        delayNanoseconds(c3_lo_write);
+        delay<c3_lo_write>();
         extal_hi();
-        delayNanoseconds(c3_hi_write);
+        delay<c3_hi_write>();
         s->getData();
         // c4
         extal_lo();
         if (s->writeMemory()) {
-            _mems->write(s->addr, s->data);
-            if (c4_lo_write)
-                delayNanoseconds(c4_lo_write);
+            mems<MemsMc6801>()->write(s->addr, s->data);
+            delay<c4_lo_write>();
         } else {
-            delayNanoseconds(c4_lo_capture);
+            delay<c4_lo_capture>();
         }
         extal_hi();
         Cycles::next();
-        delayNanoseconds(c4_hi_write);
+        delay<c4_hi_write>();
     } else {
         if (s->readMemory()) {
-            s->data = _mems->read(s->addr);
-            if (c3_lo_read)
-                delayNanoseconds(c3_lo_read);
+            s->data = mems<MemsMc6801>()->read(s->addr);
+            delay<c3_lo_read>();
         } else {
-            delayNanoseconds(c3_lo_inject);
+            delay<c3_lo_inject>();
         }
         extal_hi();
-        delayNanoseconds(c3_hi_read);
+        delay<c3_hi_read>();
         s->setData();
         // c4
         extal_lo();
         Signals::outputMode();
-        delayNanoseconds(c4_lo_read);
+        delay<c4_lo_read>();
         extal_hi();
         _writes = 0;
         Cycles::next();
-        delayNanoseconds(c4_hi_read);
+        delay<c4_hi_read>();
     }
     // c1
     extal_lo();

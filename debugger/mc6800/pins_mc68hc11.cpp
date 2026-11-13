@@ -60,23 +60,33 @@ namespace {
 //   tMAD: min   145 ns: el_lo to muxed-addr
 //  tPCSU: min   300 ns; processor control setup to e_lo
 constexpr auto extal_e_ns = 50;
-constexpr auto extal_hi_ns = 100;   // 125
-constexpr auto extal_lo_ns = 100;   // 125
-constexpr auto c1_lo_ns = 1;        // 125
-constexpr auto c1_hi_ns = 100;      // 125
-constexpr auto c2_lo_ns = 72;       // 125
-constexpr auto c2_hi_read = 70;     // 125
-constexpr auto c3_lo_read = 0;      // 125
-constexpr auto c3_lo_inject = 90;   // 125
-constexpr auto c3_hi_read = 50;     // 125
-constexpr auto c4_lo_read = 80;     // 125
-constexpr auto c4_hi_read = 55;     // 125
-constexpr auto c2_hi_write = 60;    // 125
-constexpr auto c3_lo_write = 79;    // 125
-constexpr auto c3_hi_write = 75;    // 125
-constexpr auto c4_lo_write = 1;     // 125
-constexpr auto c4_lo_capture = 89;  // 125
-constexpr auto c4_hi_write = 64;    // 125
+constexpr auto extal_hi_ns = 100;  // 125
+constexpr auto extal_lo_ns = 100;  // 125
+enum Delay : uint8_t {
+    c1_lo_ns,       // 125
+    c1_hi_ns,       // 125
+    c2_lo_ns,       // 125
+    c2_hi_read,     // 125
+    c3_lo_read,     // 125
+    c3_lo_inject,   // 125
+    c3_hi_read,     // 125
+    c4_lo_read,     // 125
+    c4_hi_read,     // 125
+    c2_hi_write,    // 125
+    c3_lo_write,    // 125
+    c3_hi_write,    // 125
+    c4_lo_write,    // 125
+    c4_lo_capture,  // 125
+    c4_hi_write,    // 125
+    DELAYS,
+};
+// Long enough that no E cycle runs under tCYC, nor EXTAL faster than fXTAL,
+// the 1 MHz part's.
+constexpr uint16_t DELAYS_NS[DELAYS] = {
+        60, 121, 87, 84, 60, 109, 60, 96, 66, 72, 95, 90, 60, 107, 77};
+// 2 MHz part: E 1.55 MHz, EXTAL under 8 MHz on the bench.
+// constexpr uint16_t DELAYS_NS[DELAYS] = {
+//         1, 36, 26, 25, 0, 32, 18, 29, 20, 21, 28, 27, 1, 32, 23};
 constexpr auto tpcsu = 300;
 
 inline void extal_hi() {
@@ -180,10 +190,17 @@ void release_mode() {
 
 PinsMc68hc11::PinsMc68hc11(Mc68hc11Init &init) : _init(init) {
     auto regs = new RegsMc68hc11(this, init);
+    auto devs = new DevsMc68hc11(init);
     _regs = regs;
-    _devs = new DevsMc68hc11(init);
-    _mems = new MemsMc68hc11(regs, _devs, init);
+    _devs = devs;
+    _mems = new MemsMc68hc11(regs, devs, init);
     _inst = new InstMc68hc11(_mems);
+}
+
+template <uint8_t F>
+inline void PinsMc68hc11::delay() const {
+    if constexpr (DELAYS_NS[F] != 0)
+        delayNanoseconds(DELAYS_NS[F]);
 }
 
 void PinsMc68hc11::resetPins() {
@@ -242,7 +259,7 @@ void PinsMc68hc11::resetPins() {
 }
 
 mc6800::Signals *PinsMc68hc11::cycle() {
-    delayNanoseconds(c1_lo_ns);
+    delay<c1_lo_ns>();
     return rawCycle();
 }
 
@@ -251,34 +268,33 @@ mc6800::Signals *PinsMc68hc11::rawCycle() {
     // C1H
     Signals::inputMode();
     extal_hi();
-    delayNanoseconds(c1_hi_ns);
+    delay<c1_hi_ns>();
     // C2L
     extal_lo();
     auto s = Signals::put();
-    delayNanoseconds(c2_lo_ns);
+    delay<c2_lo_ns>();
     s->getAddr();
     // C2H
     extal_hi();
     s->getDirection();
     if (s->read()) {
         _writes = 0;
-        delayNanoseconds(c2_hi_read);
+        delay<c2_hi_read>();
         // C3L
         extal_lo();
         if (s->readMemory()) {
-            s->data = _mems->read(s->addr);
-            if (c3_lo_read)
-                delayNanoseconds(c3_lo_read);
+            s->data = mems<MemsMc68hc11>()->read(s->addr);
+            delay<c3_lo_read>();
         } else {
-            delayNanoseconds(c3_lo_inject);
+            delay<c3_lo_inject>();
         }
         // C3H
         extal_hi();
         s->outData();
-        delayNanoseconds(c3_hi_read);
+        delay<c3_hi_read>();
         // C4L
         extal_lo();
-        delayNanoseconds(c4_lo_read);
+        delay<c4_lo_read>();
         s->getControl();
         // E low where it must be high: a STOP froze it or shifted its
         // phase; stopped() resyncs.
@@ -287,17 +303,17 @@ mc6800::Signals *PinsMc68hc11::rawCycle() {
         // C4H
         extal_hi();
         Cycles::next();
-        delayNanoseconds(c4_hi_read);
+        delay<c4_hi_read>();
     } else {
         ++_writes;
-        delayNanoseconds(c2_hi_write);
+        delay<c2_hi_write>();
         // C3L
         extal_lo();
-        delayNanoseconds(c3_lo_write);
+        delay<c3_lo_write>();
         s->getControl();
         // C3H
         extal_hi();
-        delayNanoseconds(c3_hi_write);
+        delay<c3_hi_write>();
         if (clock_e() == LOW) {
             --_writes;
             return stopped(s);
@@ -306,16 +322,15 @@ mc6800::Signals *PinsMc68hc11::rawCycle() {
         // C4L
         extal_lo();
         if (s->writeMemory()) {
-            _mems->write(s->addr, s->data);
-            if (c4_lo_write)
-                delayNanoseconds(c4_lo_write);
+            mems<MemsMc68hc11>()->write(s->addr, s->data);
+            delay<c4_lo_write>();
         } else {
-            delayNanoseconds(c4_lo_capture);
+            delay<c4_lo_capture>();
         }
         // C4H
         extal_hi();
         Cycles::next();
-        delayNanoseconds(c4_hi_write);
+        delay<c4_hi_write>();
     }
     // C1L
     extal_lo();
