@@ -65,3 +65,89 @@
 13 = { pin = "P47", signal = "#PHI3" }
 14 = { pin = "P54", signal = "READY" }
 15 = { pin = "P52", signal = "INT0" }
+
+# The bus waves, reset, echoitr and step, one layout: ch15 is #RESET, or
+# #INTREQ or #LOAD probed at the CPU (pins 32 and 4: the 74HCT259 holds
+# them, off the connector). SEL0 rests high; each read takes that half,
+# lowers SEL0 for the other, then raises it again:
+#   [0] SEL0 falling: address bits 15-8 (MUX0-7 as A7-A0)
+#   [1] SEL0 rising: address bits 7-1 (MUX1-7 as A14-A8)
+# Reset: trigger on the first memory cycle after #RESET rises.
+[tms9900-reset]
+ 0 = { pin = "P17", signal = "D8" }
+ 1 = { pin = "P30", signal = "MUX0" }
+ 2 = { pin = "P31", signal = "MUX1" }
+ 3 = { pin = "P32", signal = "MUX2" }
+ 4 = { pin = "P33", signal = "MUX3" }
+ 5 = { pin = "P34", signal = "MUX4" }
+ 6 = { pin = "P35", signal = "MUX5" }
+ 7 = { pin = "P36", signal = "MUX6" }
+ 8 = { pin = "P37", signal = "MUX7" }
+ 9 = { pin = "P40", signal = "#MEMEN" }
+10 = { pin = "P41", signal = "DBIN" }
+11 = { pin = "P42", signal = "#WE" }
+12 = { pin = "P43", signal = "IAQ" }
+13 = { pin = "P47", signal = "phiclk" }
+14 = { pin = "P50", signal = "SEL0" }
+15 = { pin = "P53", signal = "#RESET" }
+trigger = { signal = "#MEMEN", edge = "fall", when = { "#RESET" = "high" }, before = 50e-6, after = 70e-6 }
+parallel = [
+  { data = ["MUX0", "MUX1", "MUX2", "MUX3", "MUX4", "MUX5", "MUX6", "MUX7"], clock = "SEL0", edge = "fall" },
+  { data = ["MUX0", "MUX1", "MUX2", "MUX3", "MUX4", "MUX5", "MUX6", "MUX7"], clock = "SEL0", edge = "rise" },
+]
+display = ["phiclk", "#MEMEN", "DBIN", "#WE", "IAQ", "SEL0", "#RESET",
+        "MUX7", "MUX6", "MUX5", "MUX4", "MUX3", "MUX2", "MUX1", "MUX0", "D8"]
+
+# echoitr: the ACIA's receive interrupt on #INTREQ (CPU pin 32), the
+# handler and the echo it queues for the transmit interrupt.
+[tms9900-echoitr]
+ 0 = { pin = "P17", signal = "D8" }
+ 1 = { pin = "P30", signal = "MUX0" }
+ 2 = { pin = "P31", signal = "MUX1" }
+ 3 = { pin = "P32", signal = "MUX2" }
+ 4 = { pin = "P33", signal = "MUX3" }
+ 5 = { pin = "P34", signal = "MUX4" }
+ 6 = { pin = "P35", signal = "MUX5" }
+ 7 = { pin = "P36", signal = "MUX6" }
+ 8 = { pin = "P37", signal = "MUX7" }
+ 9 = { pin = "P40", signal = "#MEMEN" }
+10 = { pin = "P41", signal = "DBIN" }
+11 = { pin = "P42", signal = "#WE" }
+12 = { pin = "P43", signal = "IAQ" }
+13 = { pin = "P47", signal = "phiclk" }
+14 = { pin = "P50", signal = "SEL0" }
+15 = { pin = "", signal = "#INTREQ" }
+trigger = { signal = "#INTREQ", edge = "fall", before = 50e-6, after = 13.8e-3, long = true }
+parallel = [
+  { data = ["MUX0", "MUX1", "MUX2", "MUX3", "MUX4", "MUX5", "MUX6", "MUX7"], clock = "SEL0", edge = "fall" },
+  { data = ["MUX0", "MUX1", "MUX2", "MUX3", "MUX4", "MUX5", "MUX6", "MUX7"], clock = "SEL0", edge = "rise" },
+]
+display = ["phiclk", "#MEMEN", "DBIN", "#WE", "IAQ", "SEL0", "#INTREQ",
+        "MUX7", "MUX6", "MUX5", "MUX4", "MUX3", "MUX2", "MUX1", "MUX0", "D8"]
+
+# Six steps from a halt, sent as one write: each #LOAD (CPU pin 4) parks
+# the CPU in the LOAD vector after one instruction.
+[tms9900-step]
+ 0 = { pin = "P17", signal = "D8" }
+ 1 = { pin = "P30", signal = "MUX0" }
+ 2 = { pin = "P31", signal = "MUX1" }
+ 3 = { pin = "P32", signal = "MUX2" }
+ 4 = { pin = "P33", signal = "MUX3" }
+ 5 = { pin = "P34", signal = "MUX4" }
+ 6 = { pin = "P35", signal = "MUX5" }
+ 7 = { pin = "P36", signal = "MUX6" }
+ 8 = { pin = "P37", signal = "MUX7" }
+ 9 = { pin = "P40", signal = "#MEMEN" }
+10 = { pin = "P41", signal = "DBIN" }
+11 = { pin = "P42", signal = "#WE" }
+12 = { pin = "P43", signal = "IAQ" }
+13 = { pin = "P47", signal = "phiclk" }
+14 = { pin = "P50", signal = "SEL0" }
+15 = { pin = "", signal = "#LOAD" }
+trigger = { signal = "#LOAD", edge = "fall", glitch = 1e-6, before = 50e-6, after = 500e-6 }
+parallel = [
+  { data = ["MUX0", "MUX1", "MUX2", "MUX3", "MUX4", "MUX5", "MUX6", "MUX7"], clock = "SEL0", edge = "fall" },
+  { data = ["MUX0", "MUX1", "MUX2", "MUX3", "MUX4", "MUX5", "MUX6", "MUX7"], clock = "SEL0", edge = "rise" },
+]
+display = ["phiclk", "#MEMEN", "DBIN", "#WE", "IAQ", "SEL0", "#LOAD",
+        "MUX7", "MUX6", "MUX5", "MUX4", "MUX3", "MUX2", "MUX1", "MUX0", "D8"]

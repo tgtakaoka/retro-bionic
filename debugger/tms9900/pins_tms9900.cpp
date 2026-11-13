@@ -166,17 +166,20 @@ void out_clock() {
 }
 
 // LOAD, INTREQ, HOLD and IC0-IC3 are held in a 74HCT259 addressable latch:
-// SEL picks the bit, OUTCLK latches DATA into it.
+// SEL picks the bit, OUTCLK latches DATA into it. SEL0 then goes back high,
+// where SignalsTms9900::getAddress() expects it.
 void control_low(uint_fast8_t sel) {
     busWrite(SEL, sel);
     digitalWriteFast(PIN_DATA, LOW);
     out_clock();
+    digitalWriteFast(PIN_SEL0, HIGH);
 }
 
 void control_high(uint_fast8_t sel) {
     busWrite(SEL, sel);
     digitalWriteFast(PIN_DATA, HIGH);
     out_clock();
+    digitalWriteFast(PIN_SEL0, HIGH);
 }
 
 void negate_reset() {
