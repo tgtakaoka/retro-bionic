@@ -282,6 +282,25 @@ On the i8096 at 100 MS/s:
 - Work done inside the phase (a pin read, a port read, a bus drive) counts
   toward it, often enough to need no delay at all.
 
+### A constant delay is not the same delay at run time **[hw][code]**
+
+With a constant argument the compiler works the cycle count out itself:
+`delayNanoseconds(0)` vanishes, and a small constant makes a shorter phase
+than the same value read from a table at run time, whose arithmetic alone
+holds a phase near 20 ns. Moving tuned values from a run-time table into
+`constexpr` constants therefore moves each phase by its own amount. On the
+P8051 the same table shifted XTAL phases by −2 to +12 ns, site by site, with
+no relation to the value.
+
+- Re-measure every entry on the bus after such a change. A calibration loop
+  that pulses a spare pin runs different code from the bus loop and predicts
+  neither.
+- An entry under about 20 sits on a floor where a raise does little, so a
+  phase found short wants 20 or more, not a few nanoseconds more.
+- Check the shortest phase and period over the whole capture, not at chosen
+  positions in a cycle: a short phase on a rarely taken path (the second
+  pass of a wait loop, a write cycle) is missed otherwise.
+
 ### Squeezing a Teensy-clocked bus cycle **[hw][code]**
 
 Where a bus cycle's time goes is found by measuring, not by reading the code.

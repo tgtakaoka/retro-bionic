@@ -1,7 +1,5 @@
 #include "devs_i8051.h"
 #include <strings.h>
-#include "i8051_uart_handler.h"
-#include "i8251.h"
 
 namespace debugger {
 namespace i8051 {
@@ -42,10 +40,6 @@ void DevsI8051::setIdle(bool idle) {
 #if defined(ENABLE_SERIAL_HANDLER)
     _uart->setIdle(idle);
 #endif
-}
-
-bool DevsI8051::isSelected(uint32_t addr) const {
-    return _usart->isSelected(addr);
 }
 
 uint16_t DevsI8051::read(uint32_t addr) const {

@@ -1,53 +1,13 @@
 #include "signals_i8051.h"
 #include "char_buffer.h"
 #include "debugger.h"
-#include "digital_bus.h"
 #include "pins_i8051.h"
 
 namespace debugger {
 namespace i8051 {
 
-void Signals::getAddress() {
-    addr = busRead(AD);
-}
-
-void Signals::getControl() {
-    cntl() = busRead(CNTL);
-#ifdef PROFILE_CYCLES
-    setMatched(0);
-#endif
-}
-
-void Signals::getData() {
-    data = busRead(DB);
-}
-
-void Signals ::setData() const {
-    busWrite(DB, data);
-}
-
-void Signals::outputMode() {
-    busMode(DB, OUTPUT);
-}
-
-void Signals::inputMode() {
-    busMode(DB, INPUT);
-}
-
 void Signals::noCycle() {
     cntl() = CNTL_PSEN | CNTL_WR;
-}
-
-bool Signals::read() const {
-    return (cntl() & CNTL_RD) == 0;
-}
-
-bool Signals::write() const {
-    return (cntl() & CNTL_WR) == 0;
-}
-
-bool Signals::fetch() const {
-    return (cntl() & CNTL_PSEN) == 0;
 }
 
 void Signals::clearFetch() {

@@ -63,8 +63,9 @@
 #define PIN_T0 30     /* P8.23 */
 #define PIN_T1 31     /* P8.22 */
 
+#include <Arduino.h>
+#include "digital_bus.h"
 #include "pins.h"
-#include "mems.h"
 #include "signals_i8051.h"
 
 namespace debugger {
@@ -74,6 +75,14 @@ enum IntrName : uint8_t {
     INTR_NONE = 0,     // ORG_RESET
     INTR_INT0 = 0x03,  // ORG_IE0
     INTR_INT1 = 0x13,  // ORG_IE1
+};
+
+struct DataI8051;
+
+// How the clock is driven; each has its own bus-cycle engine.
+enum ClockType : uint8_t {
+    CLK_XTAL2 = 0,  // P8051: XTAL2 with XTAL1 grounded
+    CLK_XTAL1 = 1,  // P80C51: XTAL1, the P8051's XTAL2 inverted
 };
 
 struct PinsI8051 final : Pins {
@@ -105,26 +114,90 @@ private:
     bool _idleReset = false;
     bool _idleFailed = false;
     bool _idleHalt = false;
-    Mems *_data;
+    DataI8051 *_data;
 
-    void (*_xtal_lo)();
-    void (*_xtal_hi)();
-    void xtal_lo() const { _xtal_lo(); }
-    void xtal_hi() const { _xtal_hi(); }
+    template <uint8_t D>
+    void delay() const;
+    // The engine bus cycles run on.
+    ClockType _engine = CLK_XTAL2;
+    // What sets each engine's cycles apart, as constants.
+    template <ClockType E>
+    struct Traits;
+    template <typename F>
+    auto withEngine(F f);
+
+    template <ClockType E>
+    void xtal_lo() const;
+    template <ClockType E>
+    void xtal_hi() const;
+    template <ClockType E>
     void xtal_cycle_lo() const;
+    template <ClockType E>
     void xtal_cycle() const;
+    template <ClockType E>
+    void resetCpu();
+    template <ClockType E>
     Signals *prepareCycle();
+    template <ClockType E>
     Signals *completeCycle(Signals *signals);
+    template <ClockType E>
     void loop();
+    template <ClockType E>
     Signals *inject(uint8_t data);
+    template <ClockType E>
     void inject(const uint8_t data[], uint8_t len);
+    template <ClockType E>
     bool rawStep();
+    template <ClockType E>
+    void park();
+    template <ClockType E>
+    uint8_t execute(const uint8_t *inst, uint8_t len, uint16_t *addr,
+            uint8_t *buf, uint8_t max);
     uint8_t execute(const uint8_t *inst, uint8_t len, uint16_t *addr,
             uint8_t *buf, uint8_t max);
 
     const SignalsImpl *findBacktraceStart() override;
     void printBacktrace() override;
 };
+
+void Signals::getAddress() {
+    addr = busRead(AD);
+}
+
+void Signals::getControl() {
+    cntl() = busRead(CNTL);
+#ifdef PROFILE_CYCLES
+    setMatched(0);
+#endif
+}
+
+void Signals::getData() {
+    data = busRead(DB);
+}
+
+void Signals::setData() const {
+    busWrite(DB, data);
+}
+
+void Signals::outputMode() {
+    busMode(DB, OUTPUT);
+}
+
+void Signals::inputMode() {
+    busMode(DB, INPUT);
+}
+
+bool Signals::read() const {
+    return (cntl() & CNTL_RD) == 0;
+}
+
+bool Signals::write() const {
+    return (cntl() & CNTL_WR) == 0;
+}
+
+bool Signals::fetch() const {
+    return (cntl() & CNTL_PSEN) == 0;
+}
 
 }  // namespace i8051
 }  // namespace debugger

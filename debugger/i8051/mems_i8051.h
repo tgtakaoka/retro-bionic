@@ -1,7 +1,7 @@
 #ifndef __MEMS_I8051_H__
 #define __MEMS_I8051_H__
 
-#include "devs.h"
+#include "devs_i8051.h"
 #include "mems.h"
 
 namespace debugger {
@@ -32,7 +32,7 @@ private:
 };
 
 struct DataI8051 final : DmaMemory {
-    DataI8051(RegsI8051 *regs, Devs *devs);
+    DataI8051(RegsI8051 *regs, DevsI8051 *devs);
 
     uint32_t maxAddr() const override { return UINT16_MAX; }
     uint16_t read_byte(uint32_t addr) const override {
@@ -41,14 +41,22 @@ struct DataI8051 final : DmaMemory {
     void write_byte(uint32_t addr, uint16_t data) const override {
         DmaMemory::write_byte(OFFSET + addr, data);
     }
-    uint16_t read(uint32_t addr) const override;
-    void write(uint32_t addr, uint16_t data) const override;
+    uint16_t read(uint32_t addr) const override {
+        return _devs->isSelected(addr) ? _devs->read(addr) : read_byte(addr);
+    }
+    void write(uint32_t addr, uint16_t data) const override {
+        if (_devs->isSelected(addr)) {
+            _devs->write(addr, data);
+        } else {
+            write_byte(addr, data);
+        }
+    }
     uint16_t get_data(uint32_t addr) const override;
     void put_data(uint32_t addr, uint16_t data) const override;
 
 private:
     RegsI8051 *const _regs;
-    Devs *const _devs;
+    DevsI8051 *const _devs;
 
     static constexpr auto OFFSET = UINT32_C(0x10000);  // above program memory
 };

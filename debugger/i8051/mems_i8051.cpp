@@ -15,20 +15,8 @@ ProgI8051::ProgI8051(Mems *data) : DmaMemory(Endian::ENDIAN_BIG), _data(data) {
 #endif
 }
 
-DataI8051::DataI8051(RegsI8051 *regs, Devs *devs)
+DataI8051::DataI8051(RegsI8051 *regs, DevsI8051 *devs)
     : DmaMemory(Endian::ENDIAN_BIG), _regs(regs), _devs(devs) {}
-
-uint16_t DataI8051::read(uint32_t addr) const {
-    return _devs->isSelected(addr) ? _devs->read(addr) : read_byte(addr);
-}
-
-void DataI8051::write(uint32_t addr, uint16_t data) const {
-    if (_devs->isSelected(addr)) {
-        _devs->write(addr, data);
-    } else {
-        write_byte(addr, data);
-    }
-}
 
 uint16_t DataI8051::get_data(uint32_t addr) const {
     if (addr < 0x100) {
