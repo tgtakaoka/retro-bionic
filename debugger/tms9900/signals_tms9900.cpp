@@ -8,13 +8,16 @@ namespace tms9900 {
 
 void SignalsTms9900::getAddress() {
     constexpr auto delay = 2;
-    // SEL0 low and high each select half of the address lines
+    // SEL0 low and high each select half of the address lines. It rests
+    // high, so that half is read first and put away while the other one
+    // settles.
+    const uint32_t sel1 = PIN(ADR2);
     digitalWriteFast(PIN_SEL0, LOW);
+    uint16_t a = busValue(ADR2, sel1) | busValue(ADR3, sel1);
     delayNanoseconds(delay);
-    addr = busRead(ADR0) | busRead(ADR1);
+    const uint32_t sel0 = PIN(ADR0);
     digitalWriteFast(PIN_SEL0, HIGH);
-    delayNanoseconds(delay);
-    addr |= busRead(ADR2) | busRead(ADR3);
+    addr = a | busValue(ADR0, sel0) | busValue(ADR1, sel0);
 }
 
 void SignalsTms9900::getControl() {
