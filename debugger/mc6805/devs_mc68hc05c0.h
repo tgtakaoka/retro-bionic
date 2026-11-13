@@ -2,7 +2,7 @@
 #define __DEVS_MC68HC05C0_H__
 
 #include "devs_mc6805.h"
-#include "serial_handler.h"
+#include "mc68hc05c0_sci_handler.h"
 
 namespace debugger {
 namespace mc68hc05c0 {
@@ -14,7 +14,10 @@ struct DevsMc68HC05C0 final : mc6805::DevsMc6805 {
 
     void reset() override;
     void setIdle(bool idle) override;
-    bool isSelected(uint32_t addr) const override;
+    // Inline for the bus cycles: Mc68HC05C0SciHandler is final.
+    bool isSelected(uint32_t addr) const override {
+        return _sci->isSelected(addr) || DevsMc6805::isSelected(addr);
+    }
     uint16_t read(uint32_t addr) const override;
     void write(uint32_t addr, uint16_t data) const override;
 
@@ -23,7 +26,7 @@ struct DevsMc68HC05C0 final : mc6805::DevsMc6805 {
     void printDevices() const override;
 
 private:
-    SerialHandler *_sci;
+    Mc68HC05C0SciHandler *const _sci;
 };
 #else
 struct DevsMc68HC05C0 final : mc6805::DevsMc6805 {

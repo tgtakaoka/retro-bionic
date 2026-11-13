@@ -48,14 +48,16 @@
 #define PIN_PB0 31     /* P8.22 */
 #define PIN_PB1 30     /* P8.23 */
 
-#include "pins_mc6805.h"
+#include "digital_bus.h"
+#include "pins_mc6805_base.h"
+#include "signals_mc68hc05c0.h"
 
 namespace debugger {
 namespace mc68hc05c0 {
 
 using mc6805::Signals;
 
-struct PinsMc68HC05C0 final : mc6805::PinsMc6805 {
+struct PinsMc68HC05C0 final : mc6805::PinsMc6805Base<PinsMc68HC05C0> {
     PinsMc68HC05C0();
 
     void idle() override;
@@ -63,16 +65,49 @@ struct PinsMc68HC05C0 final : mc6805::PinsMc6805 {
     bool is_internal(uint16_t addr) const override;
 
 private:
+    friend PinsMc6805Base<PinsMc68HC05C0>;
+
     uint16_t _addr;
     // Read cycles to a Dx instruction's dummy read, 0 when none is due.
     uint8_t _dummyIn;
 
-    void resetCpu() override;
-    Signals *currCycle(uint16_t pc) const override;
-    Signals *rawPrepareCycle() override;
-    Signals *prepareCycle() override { return rawPrepareCycle(); }
-    Signals *completeCycle(Signals *signals) override;
+    template <uint8_t F>
+    static void delay();
+    static void osc1CycleHi();
+    static void osc1Cycle();
+    void resetCpu();
+    Signals *currCycle(uint16_t pc = 0) const override;
+    Signals *rawPrepareCycle();
+    Signals *prepareCycle() { return rawPrepareCycle(); }
+    Signals *completeCycle(Signals *signals);
 };
+
+void SignalsMc68HC05C0::getControl() {
+#if CNTL_WRITE == CNTL_WR && CNTL_FETCH == CNTL_LIR && (CNTL_RD >> 3) == CNTL_READ
+    // #LIR turns into the active-high fetch flag; #RD moves down to READ.
+    cntl() = busRead(CNTL) ^ CNTL_LIR;
+    cntl() |= (cntl() & CNTL_RD) >> 3;
+#else
+#error "Check CNTL_ definitions"
+#endif
+}
+
+void SignalsMc68HC05C0::getAddr() {
+    addr = busRead(ADDR) ^ (1 << 15);
+}
+
+void SignalsMc68HC05C0::getData() {
+    data = busRead(AD);
+}
+
+void SignalsMc68HC05C0::outData() const {
+    busWrite(AD, data);
+    busMode(AD, OUTPUT);
+}
+
+void SignalsMc68HC05C0::inputMode() {
+    busMode(AD, INPUT);
+}
 
 }  // namespace mc68hc05c0
 }  // namespace debugger

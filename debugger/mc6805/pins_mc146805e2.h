@@ -48,14 +48,16 @@
 #define PIN_PB0 31     /* P8.22 */
 #define PIN_PB1 30     /* P8.23 */
 
-#include "pins_mc6805.h"
+#include "digital_bus.h"
+#include "pins_mc6805_base.h"
+#include "signals_mc146805e2.h"
 
 namespace debugger {
 namespace mc146805e2 {
 
 using mc6805::Signals;
 
-struct PinsMc146805E2 final : mc6805::PinsMc6805 {
+struct PinsMc146805E2 final : mc6805::PinsMc6805Base<PinsMc146805E2> {
     PinsMc146805E2();
 
     void idle() override;
@@ -63,13 +65,43 @@ struct PinsMc146805E2 final : mc6805::PinsMc6805 {
     bool is_internal(uint16_t addr) const override { return addr < 0x80; }
 
 protected:
-    void resetCpu() override;
+    friend PinsMc6805Base<PinsMc146805E2>;
+
+    template <uint8_t F>
+    static void delay();
+    void resetCpu();
     Signals *currCycle(uint16_t pc = 0) const override;
-    Signals *rawPrepareCycle() override;
-    Signals *prepareCycle() override;
-    Signals *completeCycle(Signals *signals) override;
-    void resyncBus(uint16_t clocks) override;
+    Signals *rawPrepareCycle();
+    Signals *prepareCycle();
+    Signals *completeCycle(Signals *signals);
+    void resyncBus(uint16_t clocks);
 };
+
+void SignalsMc146805E2::getControl() {
+#if CNTL_WRITE == CNTL_RW && CNTL_FETCH == CNTL_LI
+    // No read strobe: R/W tells a write, and the read flag is always set.
+    cntl() = busRead(CNTL) & ~CNTL_READ;
+#else
+#error "Check CNTL_ definitions"
+#endif
+}
+
+void SignalsMc146805E2::getAddr() {
+    addr = busRead(ADDR);
+}
+
+void SignalsMc146805E2::getData() {
+    data = busRead(B);
+}
+
+void SignalsMc146805E2::outData() const {
+    busWrite(B, data);
+    busMode(B, OUTPUT);
+}
+
+void SignalsMc146805E2::inputMode() {
+    busMode(B, INPUT);
+}
 
 }  // namespace mc146805e2
 }  // namespace debugger

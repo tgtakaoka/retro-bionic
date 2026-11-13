@@ -9,11 +9,12 @@ namespace mc146805e2 {
     using mc6805::Signals;
 
 struct SignalsMc146805E2 : SignalsBase<SignalsMc146805E2, Signals> {
-    void getControl();
-    void getAddr();
-    void getData();
-    void outData() const;
-    static void inputMode();
+    // Inline in the pins header, for the bus cycles.
+    inline void getControl();
+    inline void getAddr();
+    inline void getData();
+    inline void outData() const;
+    static inline void inputMode();
 };
 
 }  // namespace mc146805e2

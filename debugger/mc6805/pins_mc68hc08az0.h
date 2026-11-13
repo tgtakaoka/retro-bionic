@@ -63,14 +63,16 @@
 #define PIN_PTA0 31 /* P8.22 */
 #define PIN_PTC3 30 /* P8.23 */
 
-#include "pins_mc6805.h"
+#include "digital_bus.h"
+#include "pins_mc6805_base.h"
+#include "signals_mc68hc08az0.h"
 
 namespace debugger {
 namespace mc68hc08az0 {
 
 using mc6805::Signals;
 
-struct PinsMc68HC08AZ0 final : mc6805::PinsMc6805 {
+struct PinsMc68HC08AZ0 final : mc6805::PinsMc6805Base<PinsMc68HC08AZ0> {
     PinsMc68HC08AZ0();
 
     void idle() override;
@@ -78,27 +80,57 @@ struct PinsMc68HC08AZ0 final : mc6805::PinsMc6805 {
     bool is_internal(uint16_t addr) const override;
 
 private:
+    friend PinsMc6805Base<PinsMc68HC08AZ0>;
+
     uint16_t _addr;
     uint_fast8_t _writes;
     bool _slept;  // nextCycle() found the CPU sleeping
 
-    void resetCpu() override;
-    Signals *currCycle(uint16_t pc) const override;
-    Signals *rawPrepareCycle() override;
+    template <uint8_t F>
+    static void delay();
+    static void osc1CycleLo();
+    static void osc1Cycle();
+    void resetCpu();
+    Signals *currCycle(uint16_t pc = 0) const override;
+    Signals *rawPrepareCycle();
     Signals *awaitCycle(uint_fast16_t limit);
     Signals *sleep();
     Signals *nextCycle();
     void wakeUp();
-    Signals *prepareCycle() override { return rawPrepareCycle(); }
-    Signals *completeCycle(Signals *signals) override;
-    bool rawStep() override;
-    void loop() override;
+    Signals *prepareCycle() { return rawPrepareCycle(); }
+    Signals *completeCycle(Signals *signals);
+    bool rawStep();
+    void loop();
 
     template <typename Inst>
     Inst *inst() const {
         return static_cast<Inst *>(_inst);
     }
 };
+
+bool SignalsMc68HC08AZ0::getControl() {
+    // REB and WEB are active low
+    constexpr auto BUS_ACTIVE = CNTL_REB | CNTL_WEB;
+    cntl() = busRead(CNTL);
+    return (cntl() & BUS_ACTIVE) != BUS_ACTIVE;
+}
+
+void SignalsMc68HC08AZ0::getAddr() {
+    addr = busRead(EAL) | busRead(EAM) | busRead(EAH);
+}
+
+void SignalsMc68HC08AZ0::getData() {
+    data = busRead(ED);
+}
+
+void SignalsMc68HC08AZ0::outData() const {
+    busWrite(ED, data);
+    busMode(ED, OUTPUT);
+}
+
+void SignalsMc68HC08AZ0::inputMode() {
+    busMode(ED, INPUT);
+}
 
 }  // namespace mc68hc08az0
 }  // namespace debugger
