@@ -12,7 +12,7 @@ struct Mc68HC05C0SciHandler final : SerialHandler {
     const char *name() const override;
     const char *description() const override;
     uint32_t baseAddr() const override { return ADDR_SCBR; }
-    bool isSelected(uint32_t addr) const override;
+    bool isSelected(uint32_t addr) const override { return addr == ADDR_SCBR; }
     void write(uint32_t addr, uint16_t data) override;
 
 private:

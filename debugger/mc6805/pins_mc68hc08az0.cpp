@@ -35,8 +35,23 @@ namespace {
 
 //   fOSC: min  DC, max 16MHz
 
-constexpr auto osc1_hi_ns = 10;  // 32
 constexpr auto osc1_lo_ns = 20;  // 32
+
+// Bus cycle delays.
+enum Delay : uint8_t {
+    osc1_hi_ns,
+    osc1_lo_loop,
+    osc1_lo_active,
+    DELAYS,
+};
+
+constexpr uint16_t DELAY_NS[] = {
+        10,  // osc1_hi_ns 32
+        4,   // osc1_lo_loop 32
+        0,   // osc1_lo_active 32
+};
+static_assert(sizeof(DELAY_NS) / sizeof(DELAY_NS[0]) == DELAYS);
+
 
 inline void osc1_hi() {
     digitalWriteFast(PIN_OSC1, HIGH);
@@ -44,17 +59,6 @@ inline void osc1_hi() {
 
 inline void osc1_lo() {
     digitalWriteFast(PIN_OSC1, LOW);
-}
-
-void osc1_cycle_lo() {
-    osc1_hi();
-    delayNanoseconds(osc1_hi_ns);
-    osc1_lo();
-}
-
-void osc1_cycle() {
-    osc1_cycle_lo();
-    delayNanoseconds(osc1_lo_ns);
 }
 
 void negate_reset() {
@@ -110,12 +114,29 @@ constexpr uint8_t PINS_INPUT[] = {
 
 }  // namespace
 
+template <uint8_t F>
+inline void PinsMc68HC08AZ0::delay() {
+    if constexpr (DELAY_NS[F] != 0)
+        delayNanoseconds(DELAY_NS[F]);
+}
+
+void PinsMc68HC08AZ0::osc1CycleLo() {
+    osc1_hi();
+    delay<osc1_hi_ns>();
+    osc1_lo();
+}
+
+void PinsMc68HC08AZ0::osc1Cycle() {
+    osc1CycleLo();
+    delayNanoseconds(osc1_lo_ns);
+}
+
 PinsMc68HC08AZ0::PinsMc68HC08AZ0() {
     auto regs = new mc68hc08::RegsMc68HC08(this);
     _regs = regs;
     _devs = new mc6805::DevsMc6805(ACIA_BASE);
     _mems = new mc6805::MemsMc6805(this, regs, _devs, 16);
-    _inst = new InstMc68HC08(_mems);
+    _inst = new InstMc68HC08(mems<mc6805::MemsMc6805>());
 }
 
 void PinsMc68HC08AZ0::resetCpu() {
@@ -128,11 +149,11 @@ void PinsMc68HC08AZ0::resetCpu() {
     // #RESET low for at least one and one-half machine cycles; this holds
     // it for 10, of 4 OSC1 clocks each.
     for (uint_fast8_t i = 0; i < 4 * 10; ++i)
-        osc1_cycle();
+        osc1Cycle();
     negate_reset();
     // The chip keeps RST low until its own reset sequence ends.
     while (reset_asserted())
-        osc1_cycle();
+        osc1Cycle();
     Cycles::reset();
     prepareCycle();
     // Inject dummy reset vector and wait for the first instruction fetch.
@@ -159,7 +180,8 @@ Signals *PinsMc68HC08AZ0::rawPrepareCycle() {
             _addr = s->addr;
             return s;
         }
-        osc1_cycle_lo();
+        osc1CycleLo();
+        delay<osc1_lo_loop>();
     }
 }
 
@@ -173,7 +195,8 @@ Signals *PinsMc68HC08AZ0::awaitCycle(uint_fast16_t limit) {
             _addr = s->addr;
             return s;
         }
-        osc1_cycle_lo();
+        osc1CycleLo();
+        delay<osc1_lo_loop>();
     }
     return nullptr;
 }
@@ -228,7 +251,8 @@ Signals *PinsMc68HC08AZ0::completeCycle(Signals *signals) {
     if (s->write()) {
         s->getData();
         if (s->writeMemory()) {
-            _mems->write(s->addr, s->data);
+            mems<mc6805::MemsMc6805>()->write<mc6805::DevsMc6805>(
+                    s->addr, s->data);
         }
         _writes++;
     } else if (is_internal(s->addr)) {
@@ -236,7 +260,8 @@ Signals *PinsMc68HC08AZ0::completeCycle(Signals *signals) {
         _writes = 0;
     } else {
         if (s->readMemory()) {
-            s->data = _mems->read(s->addr);
+            s->data = mems<mc6805::MemsMc6805>()->read<mc6805::DevsMc6805>(
+                    s->addr);
         }
         s->outData();
         _writes = 0;
@@ -244,8 +269,10 @@ Signals *PinsMc68HC08AZ0::completeCycle(Signals *signals) {
     Cycles::next();
     s = SignalsMc68HC08AZ0::put();
     // Clock OSC1 to the end of this bus cycle.
+    delay<osc1_lo_active>();
     do {
-        osc1_cycle_lo();
+        osc1CycleLo();
+        delay<osc1_lo_loop>();
         SignalsMc68HC08AZ0::inputMode();
     } while (s->getControl());
     return s;
@@ -334,7 +361,8 @@ void PinsMc68HC08AZ0::loop() {
         auto prefetch = s;
         _slept = false;
         // WAIT and STOP sleep after their prefetch.
-        const auto sleeps = fetch->data == WAIT || _inst->isStop(fetch->data);
+        const auto sleeps = fetch->data == WAIT ||
+                            inst<InstMc68HC08>()->isStop(fetch->data);
         while (*seq) {
             if (seq[1] == 0 && *seq == 'N') {
                 // last cycle is prefetch; an SWI injected there would never

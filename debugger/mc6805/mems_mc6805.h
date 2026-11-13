@@ -19,6 +19,23 @@ struct MemsMc6805 final : DmaMemory {
 
     uint16_t read(uint32_t addr) const override;
     void write(uint32_t addr, uint16_t data) const override;
+    // For the bus cycles: DEVS is the exact class of the devices, so these
+    // make no virtual calls.
+    template <typename DEVS>
+    uint16_t read(uint32_t addr) const {
+        const auto devs = static_cast<const DEVS *>(_devs);
+        return devs->DEVS::isSelected(addr) ? devs->DEVS::read(addr)
+                                            : read_byte(addr);
+    }
+    template <typename DEVS>
+    void write(uint32_t addr, uint16_t data) const {
+        const auto devs = static_cast<const DEVS *>(_devs);
+        if (devs->DEVS::isSelected(addr)) {
+            devs->DEVS::write(addr, data);
+        } else {
+            write_byte(addr, data);
+        }
+    }
     uint16_t get_data(uint32_t addr) const override;
     void put_data(uint32_t addr, uint16_t data) const override;
 

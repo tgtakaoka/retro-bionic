@@ -51,20 +51,48 @@ namespace {
 constexpr auto osc1_ds_ns = 100;
 constexpr auto osc1_hi_ns = 84;    // 100
 constexpr auto osc1_lo_ns = 76;    // 100
-constexpr auto c1_lo_ns = 48;      // 100
-constexpr auto c1_hi_ns = 74;      // 100
-constexpr auto c2_lo_ns = 58;      // 100
-constexpr auto c2_hi_ns = 78;      // 100
-constexpr auto c3_lo_ns = 48;      // 100
-constexpr auto c3_hi_ns = 52;      // 100
-constexpr auto c4_lo_inject = 40;  // 100
-constexpr auto c4_hi_read = 28;    // 100
-constexpr auto c5_lo_read = 60;    // 100
-constexpr auto c4_lo_write = 34;   // 100
-constexpr auto c4_hi_write = 58;   // 100
-constexpr auto c5_lo_capture = 8;  // 100
-constexpr auto c5_hi_ns = 30;      // 100
 constexpr auto tpcs_ns = 200;
+
+// Bus cycle delays.
+enum Delay : uint8_t {
+    c1_lo_ns,
+    c1_hi_ns,
+    c2_lo_ns,
+    c2_hi_ns,
+    c3_lo_ns,
+    c3_hi_ns,
+    c4_lo_inject,
+    c4_hi_read,
+    c5_lo_read,
+    c4_lo_write,
+    c4_hi_write,
+    c5_lo_capture,
+    c5_hi_ns,
+    c4_lo_read,
+    c5_lo_write,
+    DELAYS,
+};
+
+// Long enough that no OSC1 cycle runs under tOLOL, nor a bus cycle under tCYC.
+constexpr uint16_t DELAY_NS[] = {
+        58,  // c1_lo_ns 100
+        90,  // c1_hi_ns 100
+        70,  // c2_lo_ns 100
+        95,  // c2_hi_ns 100
+        58,  // c3_lo_ns 100
+        75,  // c3_hi_ns 100
+        48,  // c4_lo_inject 100
+        44,  // c4_hi_read 100
+        73,  // c5_lo_read 100
+        41,  // c4_lo_write 100
+        70,  // c4_hi_write 100
+        52,  // c5_lo_capture 100
+        36,  // c5_hi_ns 100
+        40,  // c4_lo_read 100
+        40,  // c5_lo_write 100
+};
+static_assert(sizeof(DELAY_NS) / sizeof(DELAY_NS[0]) == DELAYS);
+
 
 inline void osc1_hi() {
     digitalWriteFast(PIN_OSC1, HIGH);
@@ -84,7 +112,6 @@ inline void clock_cycle() {
 inline auto signal_ds() {
     return digitalReadFast(PIN_DS);
 }
-
 
 void negate_reset() {
     digitalWriteFast(PIN_RESET, HIGH);
@@ -129,6 +156,12 @@ constexpr uint8_t PINS_INPUT[] = {
 };
 
 }  // namespace
+
+template <uint8_t F>
+inline void PinsMc146805E2::delay() {
+    if constexpr (DELAY_NS[F] != 0)
+        delayNanoseconds(DELAY_NS[F]);
+}
 
 PinsMc146805E2::PinsMc146805E2() {
     auto regs = new mc146805::RegsMc146805(this);
@@ -212,19 +245,19 @@ Signals *PinsMc146805E2::rawPrepareCycle() {
     // A bus cycle is five OSC1 clocks, c1-c5; this runs c1-c3.
     // c1
     osc1_hi();
-    delayNanoseconds(c1_hi_ns);
+    delay<c1_hi_ns>();
     osc1_lo();  // AS->LOW
     // c2
-    delayNanoseconds(c2_lo_ns);
+    delay<c2_lo_ns>();
     auto s = SignalsMc146805E2::put();
     osc1_hi();
-    delayNanoseconds(c2_hi_ns);
+    delay<c2_hi_ns>();
     // c3
     osc1_lo();  // AS->LOW
-    delayNanoseconds(c3_lo_ns);
+    delay<c3_lo_ns>();
     s->getAddr();
     osc1_hi();
-    delayNanoseconds(c3_hi_ns);
+    delay<c3_hi_ns>();
     s->getControl();
     // c4
     osc1_lo();
@@ -234,43 +267,47 @@ Signals *PinsMc146805E2::rawPrepareCycle() {
 }
 
 Signals *PinsMc146805E2::prepareCycle() {
-    delayNanoseconds(c1_lo_ns);
+    delay<c1_lo_ns>();
     return rawPrepareCycle();
 }
 
 Signals *PinsMc146805E2::completeCycle(Signals *signals) {
     auto s = static_cast<SignalsMc146805E2 *>(signals);
     if (s->write()) {
-        delayNanoseconds(c4_lo_write);
+        delay<c4_lo_write>();
         // c4
         osc1_hi();
         s->getData();
-        delayNanoseconds(c4_hi_write);
+        delay<c4_hi_write>();
         // c5
         osc1_lo();  // DS=HIGH
         if (s->writeMemory()) {
-            _mems->write(s->addr, s->data);
+            mems<mc6805::MemsMc6805>()->write<mc6805::DevsMc6805>(
+                    s->addr, s->data);
+            delay<c5_lo_write>();
         } else {
-            delayNanoseconds(c5_lo_capture);
+            delay<c5_lo_capture>();
         }
     } else {
         if (s->readMemory()) {
-            s->data = _mems->read(s->addr);
+            s->data = mems<mc6805::MemsMc6805>()->read<mc6805::DevsMc6805>(
+                    s->addr);
+            delay<c4_lo_read>();
         } else {
-            delayNanoseconds(c4_lo_inject);
+            delay<c4_lo_inject>();
         }
         // c4
         osc1_hi();
         s->outData();
-        delayNanoseconds(c4_hi_read);
+        delay<c4_hi_read>();
         // c5
         osc1_lo();  // DS=HIGH
-        delayNanoseconds(c5_lo_read);
+        delay<c5_lo_read>();
         SignalsMc146805E2::inputMode();
     }
     osc1_hi();
     Cycles::next();
-    delayNanoseconds(c5_hi_ns);
+    delay<c5_hi_ns>();
     // Data hold time will be done in next cycle().
     osc1_lo();  // DS->LOW
 
