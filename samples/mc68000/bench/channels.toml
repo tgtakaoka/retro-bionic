@@ -2,25 +2,89 @@
 # before trusting it -- a lead moved on the bench leaves this stale.
 # '# Pxx' comments are that channel's pin name on the Bionic Connector.
 
-# Reset and the first cycles: the strobes, #DTACK and the clock, with
-# enough address and FC to place each cycle.
+# The MC68008 boards' bus waves, reset, echoitr and step, one layout.
+# ASEL rising closes select 0 (A8-A11), falling select 1 (A12-A15).
+# #IPL2 and #IPL0 are tied: level 5 (the ACIA) lowers them alone, level
+# 7 #IPL1 as well. Reset: trigger on the first bus cycle after #RESET.
 [mc68008-reset]
- 0 = "A0"       # P20
- 1 = "A1"       # P21
- 2 = "MUX0"     # P30: A8/A12 by ASEL
- 3 = "A16"      # P34
- 4 = "D0"       # P10
- 5 = "D1"       # P11
- 6 = "#AS"      # P40
- 7 = "R/#W"     # P41
- 8 = "#IPL2/0"  # P42
- 9 = "#DS"      # P43
-10 = "#DTACK"   # P44
-11 = "#HALT"    # P46
-12 = "CLK"      # P47
-13 = "FC2"      # P52
-14 = "#RESET"   # P53
-15 = "ASEL"     # P54
+ 0 = { pin = "P10", signal = "D0" }
+ 1 = { pin = "P30", signal = "MUX0" }
+ 2 = { pin = "P31", signal = "MUX1" }
+ 3 = { pin = "P32", signal = "MUX2" }
+ 4 = { pin = "P33", signal = "MUX3" }
+ 5 = { pin = "P40", signal = "#AS" }
+ 6 = { pin = "P41", signal = "R/#W" }
+ 7 = { pin = "P42", signal = "#IPL2/0" }
+ 8 = { pin = "P43", signal = "#DS" }
+ 9 = { pin = "P44", signal = "#DTACK" }
+10 = { pin = "P46", signal = "#HALT" }
+11 = { pin = "P47", signal = "CLK" }
+12 = { pin = "P52", signal = "FC2" }
+13 = { pin = "P53", signal = "#RESET" }
+14 = { pin = "P54", signal = "ASEL" }
+15 = { pin = "P55", signal = "#IPL1" }
+trigger = { signal = "#AS", edge = "fall", when = { "#RESET" = "high" }, before = 50e-6, after = 120e-6 }
+parallel = [
+  { data = ["MUX0", "MUX1", "MUX2", "MUX3"], clock = "ASEL", edge = "rise" },
+  { data = ["MUX0", "MUX1", "MUX2", "MUX3"], clock = "ASEL", edge = "fall" },
+]
+display = ["CLK", "#AS", "R/#W", "#DS", "FC2", "ASEL", "#DTACK", "#HALT",
+        "#IPL2/0", "#IPL1", "#RESET", "MUX3", "MUX2", "MUX1", "MUX0", "D0"]
+
+# echoitr: the ACIA's receive interrupt at level 5, the handler and the
+# echo it queues for the transmit interrupt.
+[mc68008-echoitr]
+ 0 = { pin = "P10", signal = "D0" }
+ 1 = { pin = "P30", signal = "MUX0" }
+ 2 = { pin = "P31", signal = "MUX1" }
+ 3 = { pin = "P32", signal = "MUX2" }
+ 4 = { pin = "P33", signal = "MUX3" }
+ 5 = { pin = "P40", signal = "#AS" }
+ 6 = { pin = "P41", signal = "R/#W" }
+ 7 = { pin = "P42", signal = "#IPL2/0" }
+ 8 = { pin = "P43", signal = "#DS" }
+ 9 = { pin = "P44", signal = "#DTACK" }
+10 = { pin = "P46", signal = "#HALT" }
+11 = { pin = "P47", signal = "CLK" }
+12 = { pin = "P52", signal = "FC2" }
+13 = { pin = "P53", signal = "#RESET" }
+14 = { pin = "P54", signal = "ASEL" }
+15 = { pin = "P55", signal = "#IPL1" }
+trigger = { signal = "#IPL2/0", edge = "fall", before = 50e-6, after = 6.1e-3 }
+parallel = [
+  { data = ["MUX0", "MUX1", "MUX2", "MUX3"], clock = "ASEL", edge = "rise" },
+  { data = ["MUX0", "MUX1", "MUX2", "MUX3"], clock = "ASEL", edge = "fall" },
+]
+display = ["CLK", "#AS", "R/#W", "#DS", "FC2", "ASEL", "#DTACK", "#HALT",
+        "#IPL2/0", "#IPL1", "#RESET", "MUX3", "MUX2", "MUX1", "MUX0", "D0"]
+
+# Six steps from a halt, sent as one write: each restore returns to the
+# program with T set, and its trace exception parks the CPU again, in a
+# read #DTACK withholds: the first #AS rise is the first step.
+[mc68008-step]
+ 0 = { pin = "P10", signal = "D0" }
+ 1 = { pin = "P30", signal = "MUX0" }
+ 2 = { pin = "P31", signal = "MUX1" }
+ 3 = { pin = "P32", signal = "MUX2" }
+ 4 = { pin = "P33", signal = "MUX3" }
+ 5 = { pin = "P40", signal = "#AS" }
+ 6 = { pin = "P41", signal = "R/#W" }
+ 7 = { pin = "P42", signal = "#IPL2/0" }
+ 8 = { pin = "P43", signal = "#DS" }
+ 9 = { pin = "P44", signal = "#DTACK" }
+10 = { pin = "P46", signal = "#HALT" }
+11 = { pin = "P47", signal = "CLK" }
+12 = { pin = "P52", signal = "FC2" }
+13 = { pin = "P53", signal = "#RESET" }
+14 = { pin = "P54", signal = "ASEL" }
+15 = { pin = "P55", signal = "#IPL1" }
+trigger = { signal = "#AS", edge = "rise", before = 50e-6, after = 2.2e-3 }
+parallel = [
+  { data = ["MUX0", "MUX1", "MUX2", "MUX3"], clock = "ASEL", edge = "rise" },
+  { data = ["MUX0", "MUX1", "MUX2", "MUX3"], clock = "ASEL", edge = "fall" },
+]
+display = ["CLK", "#AS", "R/#W", "#DS", "FC2", "ASEL", "#DTACK", "#HALT",
+        "#IPL2/0", "#IPL1", "#RESET", "MUX3", "MUX2", "MUX1", "MUX0", "D0"]
 
 # A cycle's data against its strobes, and the interrupt lines for a halt.
 [mc68008-data]

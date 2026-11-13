@@ -105,16 +105,17 @@ void PinsMc68008::detectBoard() {
 // board, A20-A21. Each select's AM and AH nibbles shift together by 8 and
 // 12, which puts A8-A15 in place and A16-A23 a byte high; the board's
 // address lines trim what its muxes don't carry. The CPU holds the
-// address until #DTACK.
+// address until #DTACK. The read right after the select write still shows
+// select 0, the next one select 1, measured from the Teensy side: one
+// discarded read settles it.
 void PinsMc68008::getAddr(Signals *s) const {
     constexpr uint32_t nibbles = 0x000F000F;
     const uint32_t al = busRead(AL);
     const uint32_t sel0 = PIN(ADDR);
     digitalWriteFast(PIN_ASEL, HIGH);
-    // What select 0 gave is put away while the 157 settles.
     uint32_t mux = (sel0 & nibbles) << 8;
     s->setFc((sel0 >> 10) & 7, false);
-    delayNanoseconds(asel_delay_ns);
+    PIN(ADDR);
     const uint32_t sel1 = PIN(ADDR);
     digitalWriteFast(PIN_ASEL, LOW);
     mux |= (sel1 & nibbles) << 12;
