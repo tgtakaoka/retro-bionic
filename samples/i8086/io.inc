@@ -58,6 +58,7 @@ putchar_retry:
         pop     ax
         ret
 
+        align   2
 ;;; Put newline
 ;;; @clobber AL
 newline:
@@ -66,6 +67,7 @@ newline:
         mov     al, 0AH
         jmp     putchar
 
+        align   2
 ;;; Put space
 ;;; @clobber AL
 putspace:

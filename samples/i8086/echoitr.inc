@@ -18,6 +18,7 @@ echo_back:
 halt_to_system:
         hlt
 
+        align   2
 ;;; Print uint8_t in hex
 ;;; @param DL uint8_t value to be printed in hex.
 ;;; @clobber AL CL
@@ -40,6 +41,7 @@ put_hex4_digit:
         add     al, '0'
         jmp     putchar
 
+        align   2
 ;;; Print uint8_t in binary
 ;;; @param DL uint8_t value to be printed in binary.
 ;;; @clobber AL CX DH

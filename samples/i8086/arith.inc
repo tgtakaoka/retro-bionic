@@ -14,6 +14,7 @@ putchar_loop:
         out     USARTD, al
         ret
 
+        align   2
 newline:
         push    ax
         mov     al, 0DH
@@ -23,6 +24,7 @@ newline:
         pop     ax
         ret
 
+        align   2
 putspace:
         push    ax
         mov     al, ' '
