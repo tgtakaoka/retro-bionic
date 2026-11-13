@@ -12,11 +12,15 @@ constexpr auto NOREQ = CNTL_MREQ | CNTL_IORQ;
 constexpr auto NOBUS = CNTL_RD | CNTL_WR | CNTL_M1;
 
 void Signals::getAddr() {
-    addr = busRead(AL) | busRead(AM) | busRead(AH);
+    const uint32_t al = PIN(AL);
+    const uint32_t am = PIN(AM);
+    // select the extended address lines for getAddrHigh(), composing
+    // A0-A15 while they settle
+    digitalWriteFast(PIN_ASEL, HIGH);
+    addr = busValue(AL, al) | busValue(AM, am) | busValue(AH, am);
 }
 
 void Signals::getAddrHigh() {
-    digitalWriteFast(PIN_ASEL, HIGH);
     delayNanoseconds(ASEL_DELAY);
     addr |= busRead(AE);
     digitalWriteFast(PIN_ASEL, LOW);

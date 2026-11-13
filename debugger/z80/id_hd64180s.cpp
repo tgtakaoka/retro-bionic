@@ -6,13 +6,15 @@ namespace debugger {
 namespace hd64180s {
 
 // Its internal I/O is not the HD64180's: 32H and 36H are not DCNTL and
-// RCR. Zeroing 0AH (memory waits) and 18H (refresh, 80H at reset) runs
-// a loop in a third of the time, as fast as the Z180's setup does; found
-// by timing a loop after zeroing each port, with no register map at hand.
+// RCR. Zeroing WCRL (0AH, memory waits) and RCR (18H, refresh, 80H at
+// reset) runs a loop in a third of the time, as fast as the Z180's setup
+// does. The names are from Hitachi's NPU initialization in the HD64180
+// Family Application Handbook, which zeroes 0AH-0FH and RCR; its scan
+// reads RCR as 1BH, but 18H is the port timing found.
 constexpr uint8_t CONFIG[] = {
         0xAF,              // XOR A
-        0xED, 0x39, 0x0A,  // OUT0 (0AH), A
-        0xED, 0x39, 0x18,  // OUT0 (18H), A
+        0xED, 0x39, 0x0A,  // OUT0 (WCRL), A
+        0xED, 0x39, 0x18,  // OUT0 (RCR), A
         0x18, 0xF7         // JR $-7
 };
 
