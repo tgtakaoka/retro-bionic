@@ -61,6 +61,7 @@ loop:
 halt_to_system:
         trapa   #15             ; halt to system
 
+        align   2
 ;;; Put newline
 ;;; @clobber R0
 newline:
@@ -69,6 +70,7 @@ newline:
         mov.b   #$0A, r0
         bra     putchar
 
+        align   2
 ;;; Print uint8_t in hex
 ;;; @param R3 uint8_t value to be printed in hex.
 ;;; @clobber R0
@@ -91,6 +93,7 @@ put_hex8_dec:
         add.b   #'0', r0
         bra     putchar
 
+        align   2
 ;;; Print uint8_t in binary
 ;;; @param R3 uint8_t value to be printed in binary.
 ;;; @clobber R0
@@ -104,6 +107,7 @@ put_bin8:
         bsr     put_bin4
         ldm.l   @sp+, r3
         rts
+        align   2
 put_bin4:
         bsr     put_bin2
 put_bin2:
@@ -115,6 +119,7 @@ put_bin1:
         add.b   #1, r0          ; MSB=1
         bra     putchar
 
+        align   2
 ;;; Get character
 ;;; @return R0
 ;;; @return CCR.C 0 if no character
@@ -127,6 +132,7 @@ getchar:
         ldm.l   @sp+, r1
         rts
 
+        align   2
 ;;; Put character
 ;;; @param R0
 putchar:
@@ -143,6 +149,7 @@ putchar_retry:
 
         include "queue.inc"
 
+        align   2
 isr_irq:
         stm.l   r0-r2, @-sp     ; an interrupt stacks only PC and SR
         mov.b   @ACIA_status, r2

@@ -355,6 +355,7 @@ exception:
 put_hex32:
         mov.b   #8, r5
         bra     put_hex_loop
+        align   2
 ;;; Print R3's low byte as 2 hex digits
 ;;; @clobber R0 R3 R5
 put_hex8:
@@ -368,6 +369,7 @@ put_hex_loop:
         sub.b   #1, r5
         bne     put_hex_loop
         rts
+        align   2
 put_hex4:
         and.b   #$0F, r0
         cmp.b   #10, r0
@@ -389,10 +391,14 @@ puts:
 puts_end:
         rts
 
+        align   2
 newline:
         mov.b   #$0D, r0
         bsr     putchar
         mov.b   #$0A, r0
+        bra     putchar
+
+        align   2
 putchar:
         btst.b  #1, @ACIA_status        ; TDRE
         beq     putchar

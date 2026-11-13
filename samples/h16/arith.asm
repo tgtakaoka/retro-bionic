@@ -21,16 +21,21 @@ initialize:
         bsr     arith
         trapa   #15             ; halt to system
 
+        align   2
 ;;; Print out char
 ;;; @param R0 char
 ;;; @clobber R0
 putspace:
         mov.b   #' ', r0
         bra     putchar
+        align   2
 newline:
         mov.b   #$0D, r0
         bsr     putchar
         mov.b   #$0A, r0
+        bra     putchar
+
+        align   2
 putchar:
         btst.b  #1, @ACIA_status        ; TDRE
         beq     putchar

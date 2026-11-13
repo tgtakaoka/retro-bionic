@@ -21,6 +21,7 @@ queue_init:
         mov.w   #queue_buf, @(queue_get, r1)
         rts
 
+        align   2
 ;;; [queue] Add an element to queue
 ;;; @param R1 queue work space pointer
 ;;; @param R0 an element
@@ -48,6 +49,7 @@ queue_add_full:
         andc    #~1, ccr        ; clear carry
         rts
 
+        align   2
 ;;; [queue] Remove an element from queue
 ;;; @param R1 queue work space pointer
 ;;; @return R0 an element

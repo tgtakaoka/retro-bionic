@@ -30,12 +30,14 @@ step_trap:
         mov.l   #VEC_TRAPA15, @VEC_TRAPA15
         trapa   #15             ; halt to system
 
+        align   2
 getchar:
         btst.b  #0, @ACIA_status        ; RDRF
         beq     getchar
         mov.b   @ACIA_data, r0
         rts
 
+        align   2
 putchar:
         btst.b  #1, @ACIA_status        ; TDRE
         beq     putchar

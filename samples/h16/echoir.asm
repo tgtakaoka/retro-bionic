@@ -53,6 +53,7 @@ loop:
 halt_to_system:
         trapa   #15             ; halt to system
 
+        align   2
 putchar:
         btst.b  #1, @ACIA_status        ; TDRE
         beq     putchar
@@ -61,6 +62,7 @@ putchar:
 
         include "queue.inc"
 
+        align   2
 isr_irq:
         stm.l   r0-r1, @-sp     ; an interrupt stacks only PC and SR
         btst.b  #7, @ACIA_status        ; IRQF
