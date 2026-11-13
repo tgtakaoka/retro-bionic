@@ -55,15 +55,20 @@
 namespace debugger {
 namespace mc6800 {
 
-struct PinsMc6800 final : PinsMc6800Base {
+struct PinsMc6800 final : PinsMc6800Cycles<PinsMc6800> {
     PinsMc6800();
 
     void resetPins() override;
 
 protected:
-    Signals *cycle() override;
-    Signals *loopCycle() override;
-    Signals *rawCycle() override;
+    friend PinsMc6800Cycles<PinsMc6800>;
+    Signals *cycle();
+    Signals *loopCycle();
+    Signals *rawCycle();
+
+private:
+    template <uint8_t F>
+    void delay() const;
 };
 
 }  // namespace mc6800

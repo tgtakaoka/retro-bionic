@@ -2,7 +2,8 @@
 #define __DEVS_MC6801_H__
 
 #include "devs.h"
-#include "serial_handler.h"
+#include "mc6801_sci_handler.h"
+#include "mc6850.h"
 
 #define ACIA_BASE 0xDF00
 
@@ -17,7 +18,14 @@ struct DevsMc6801 final : Devs {
     void reset() override;
     bool loopDevices() override;
     void setIdle(bool idle) override;
-    bool isSelected(uint32_t addr) const override;
+    // Inline for the bus cycles: the devices are final.
+    bool isSelected(uint32_t addr) const override {
+#if defined(ENABLE_SERIAL_HANDLER)
+        return _acia->isSelected(addr) || _sci->isSelected(addr);
+#else
+        return _acia->isSelected(addr);
+#endif
+    }
     uint16_t read(uint32_t addr) const override;
     void write(uint32_t addr, uint16_t data) const override;
 
@@ -26,9 +34,9 @@ struct DevsMc6801 final : Devs {
     void printDevices() const override;
 
 private:
-    Device *_acia;
+    Mc6850 *const _acia;
 #if defined(ENABLE_SERIAL_HANDLER)
-    SerialHandler *_sci;
+    Mc6801SciHandler *const _sci;
 #endif
 };
 

@@ -44,7 +44,7 @@ namespace mc68hc11 {
 struct Mc68hc11Init;
 struct Signals;
 
-struct PinsMc68hc11 final : mc6800::PinsMc6800Base {
+struct PinsMc68hc11 final : mc6800::PinsMc6800Cycles<PinsMc68hc11> {
     PinsMc68hc11(Mc68hc11Init &init);
 
     void resetPins() override;
@@ -53,9 +53,12 @@ struct PinsMc68hc11 final : mc6800::PinsMc6800Base {
 
 private:
     Mc68hc11Init &_init;
+    template <uint8_t F>
+    void delay() const;
 
-    mc6800::Signals *cycle() override;
-    mc6800::Signals *rawCycle() override;
+    friend mc6800::PinsMc6800Cycles<PinsMc68hc11>;
+    mc6800::Signals *cycle();
+    mc6800::Signals *rawCycle();
     mc6800::Signals *stopped(Signals *s);
 
     void printBacktrace() override;

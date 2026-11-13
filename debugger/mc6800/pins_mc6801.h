@@ -55,10 +55,10 @@ namespace debugger {
 namespace mc6801 {
 
 using mc6800::ArchMc6800;
-using mc6800::PinsMc6800Base;
+using mc6800::PinsMc6800Cycles;
 using mc6800::RegsMc6800;
 
-struct PinsMc6801 final : PinsMc6800Base {
+struct PinsMc6801 final : PinsMc6800Cycles<PinsMc6801> {
     PinsMc6801();
 
     void resetPins() override;
@@ -66,11 +66,16 @@ struct PinsMc6801 final : PinsMc6800Base {
     void idle() override;
 
 protected:
-    mc6800::Signals *cycle() override;
-    mc6800::Signals *rawCycle() override;
+    friend PinsMc6800Cycles<PinsMc6801>;
+    mc6800::Signals *cycle();
+    mc6800::Signals *rawCycle();
     bool nonVmaAfterContextSave() const override { return !isHd63(); };
 
     bool isHd63() const;
+
+private:
+    template <uint8_t F>
+    void delay() const;
 };
 
 }  // namespace mc6801

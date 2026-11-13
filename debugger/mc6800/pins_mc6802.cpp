@@ -40,26 +40,36 @@ namespace {
 // tDSR: min   30 ns; data to e_lo
 // tDDW: max  225 ns; e_hi to data
 // tPCS: min  200 ns; reset_hi to e_lo
-constexpr auto extal_hi_ns = 108;   // 125
-constexpr auto extal_lo_ns = 108;   // 125
-constexpr auto c1_hi_ns = 7;        // 125
-constexpr auto c1_lo_ns = 71;       // 125
-constexpr auto c2_hi_ns = 32;       // 125
-constexpr auto c2_lo_ns = 77;       // 125
-constexpr auto c3_hi_novma = 81;    // 125
-constexpr auto c3_lo_novma = 100;   // 125
-constexpr auto c4_hi_novma = 51;    // 125
-constexpr auto c4_lo_novma = 100;   // 125
-constexpr auto c3_hi_read = 0;      // 125
-constexpr auto c3_hi_inject = 43;   // 125
-constexpr auto c3_lo_read = 44;     // 125
-constexpr auto c4_hi_read = 44;     // 125
-constexpr auto c4_lo_read = 94;     // 125
-constexpr auto c3_hi_write = 91;    // 125
-constexpr auto c3_lo_write = 87;    // 125
-constexpr auto c4_hi_write = 50;    // 125
-constexpr auto c4_lo_write = 0;     // 125
-constexpr auto c4_lo_capture = 54;  // 125
+constexpr auto extal_hi_ns = 108;  // 125
+constexpr auto extal_lo_ns = 108;  // 125
+enum Delay : uint8_t {
+    c1_hi_ns,       // 125
+    c1_lo_ns,       // 125
+    c2_hi_ns,       // 125
+    c2_lo_ns,       // 125
+    c3_hi_novma,    // 125
+    c3_lo_novma,    // 125
+    c4_hi_novma,    // 125
+    c4_lo_novma,    // 125
+    c3_hi_read,     // 125
+    c3_hi_inject,   // 125
+    c3_lo_read,     // 125
+    c4_hi_read,     // 125
+    c4_lo_read,     // 125
+    c3_hi_write,    // 125
+    c3_lo_write,    // 125
+    c4_hi_write,    // 125
+    c4_lo_write,    // 125
+    c4_lo_capture,  // 125
+    DELAYS,
+};
+// Long enough that no EXTAL half runs under 125 ns, the 1 MHz part's
+// 4 MHz XTAL, so no E cycle runs under tCYC either.
+constexpr uint16_t DELAYS_NS[DELAYS] = {72, 98, 47, 107, 112, 138, 71, 138, 74,
+        72, 69, 61, 130, 126, 120, 69, 58, 111};
+// MC68B02 (8 MHz EXTAL): no EXTAL cycle under 125 ns on the bench, E 1.6 MHz.
+// constexpr uint16_t DELAYS_NS[DELAYS] = {
+//         3, 31, 14, 34, 36, 44, 22, 44, 0, 19, 19, 19, 41, 40, 38, 22, 0, 24};
 constexpr auto tpcs_ns = 200;
 
 inline void extal_hi() {
@@ -152,6 +162,12 @@ PinsMc6802::PinsMc6802() {
     _inst = new mb8861::InstMb8861(mems);
 }
 
+template <uint8_t F>
+inline void PinsMc6802::delay() const {
+    if constexpr (DELAYS_NS[F] != 0)
+        delayNanoseconds(DELAYS_NS[F]);
+}
+
 void PinsMc6802::resetPins() {
     // Assert reset condition
     pinsMode(PINS_LOW, sizeof(PINS_LOW), OUTPUT, LOW);
@@ -197,7 +213,7 @@ void PinsMc6802::resetPins() {
 }
 
 mc6800::Signals *PinsMc6802::cycle() {
-    delayNanoseconds(c1_hi_ns);
+    delay<c1_hi_ns>();
     return rawCycle();
 }
 
@@ -207,67 +223,65 @@ mc6800::Signals *PinsMc6802::rawCycle() {
     extal_lo();
     Signals::inputMode();
     auto s = Signals::put();
-    delayNanoseconds(c1_lo_ns);
+    delay<c1_lo_ns>();
     // c2
     extal_hi();
-    delayNanoseconds(c2_hi_ns);
+    delay<c2_hi_ns>();
     s->getAddr();
     extal_lo();
     s->getDirection();
-    delayNanoseconds(c2_lo_ns);
+    delay<c2_lo_ns>();
     // c3
     extal_hi();
 
     if (!s->valid()) {
-        delayNanoseconds(c3_hi_novma);
+        delay<c3_hi_novma>();
         extal_lo();
-        delayNanoseconds(c3_lo_novma);
+        delay<c3_lo_novma>();
         // c4
         extal_hi();
         Cycles::next();
-        delayNanoseconds(c4_hi_novma);
+        delay<c4_hi_novma>();
         extal_lo();
-        delayNanoseconds(c4_lo_novma);
+        delay<c4_lo_novma>();
     } else if (s->read() && !mems<MemsMc6802>()->is_internal(s->addr)) {
         if (s->readMemory()) {
-            s->data = _mems->read(s->addr);
-            if (c3_hi_read)
-                delayNanoseconds(c3_hi_read);
+            s->data = mems<MemsMc6802>()->read(s->addr);
+            delay<c3_hi_read>();
         } else {
             // inject data from s->data
-            delayNanoseconds(c3_hi_inject);
+            delay<c3_hi_inject>();
         }
         extal_lo();
         s->outData();
-        delayNanoseconds(c3_lo_read);
+        delay<c3_lo_read>();
         // c4
         extal_hi();
         _writes = 0;
         Cycles::next();
-        delayNanoseconds(c4_hi_read);
+        delay<c4_hi_read>();
         extal_lo();
-        delayNanoseconds(c4_lo_read);
+        delay<c4_lo_read>();
     } else {
-        delayNanoseconds(c3_hi_write);
+        delay<c3_hi_write>();
         extal_lo();
         if (s->write()) {
             ++_writes;
         } else {
             _writes = 0;  // an internal RAM read the CPU drives out
         }
-        delayNanoseconds(c3_lo_write);
+        delay<c3_lo_write>();
         // c4
         extal_hi();
         Cycles::next();
-        delayNanoseconds(c4_hi_write);
+        delay<c4_hi_write>();
         extal_lo();
         if (s->writeMemory()) {
-            if (c4_lo_write)
-                delayNanoseconds(c4_lo_write);
+            delay<c4_lo_write>();
             s->getData();
-            _mems->write(s->addr, s->data);
+            mems<MemsMc6802>()->write(s->addr, s->data);
         } else {
-            delayNanoseconds(c4_lo_capture);
+            delay<c4_lo_capture>();
             s->getData();
         }
     }

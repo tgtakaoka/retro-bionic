@@ -47,15 +47,25 @@ namespace {
 // tDDW: max  225 ns; dbe_hi to data
 // tDBE: min  150 ns; dbe_lo
 // tPCS: min  200 ns; reset_hi to phi2_lo
-constexpr auto dbe_lo_ns = 108;        // 150 ns
-constexpr auto phi1_hi_ns = 147;       // 400 ns
-constexpr auto phi2_hi_novma = 386;    // 500 ns
-constexpr auto phi2_hi_write = 244;    // 500 ns
-constexpr auto phi2_hi_read = 238;     // 500 ns
-constexpr auto phi2_hi_capture = 336;  // 500 ns
-constexpr auto phi2_hi_inject = 60;    // 500 ns
-constexpr auto phi_lo_ns = 100;        // tCYC - tUT
-constexpr auto phi_lo_loop = 40;       // +Devs::loop(); tCYC - tUT
+enum Delay : uint8_t {
+    dbe_lo_ns,        // 150 ns
+    phi1_hi_ns,       // 400 ns
+    phi1_lo_ns,       // PHI1 low to PHI2 high
+    phi2_hi_novma,    // 500 ns
+    phi2_hi_write,    // 500 ns
+    phi2_hi_read,     // 500 ns
+    phi2_hi_capture,  // 500 ns
+    phi2_hi_inject,   // 500 ns
+    phi_lo_ns,        // tCYC - tUT
+    phi_lo_loop,      // +Devs::loop(); tCYC - tUT
+    DELAYS,
+};
+// Long enough that no PHI cycle runs under tCYC or tUT, the 1 MHz part's.
+constexpr uint16_t DELAYS_NS[DELAYS] = {
+        115, 157, 30, 411, 300, 294, 358, 104, 107, 43};
+// MC68B00 (2 MHz): no PHI cycle under 500 ns on the bench, 1.95 MHz.
+// constexpr uint16_t DELAYS_NS[DELAYS] = {
+//         27, 36, 0, 96, 61, 59, 84, 15, 25, 10};
 constexpr auto tpcs_ns = 200;
 
 inline void phi1_hi() {
@@ -63,8 +73,11 @@ inline void phi1_hi() {
     digitalWriteFast(PIN_DBE, LOW);
 }
 
-inline void phi2_hi() {
+inline void phi1_lo() {
     digitalWriteFast(PIN_PHI1, LOW);
+}
+
+inline void phi2_hi() {
     digitalWriteFast(PIN_PHI2, HIGH);
 }
 
@@ -138,6 +151,12 @@ PinsMc6800::PinsMc6800() {
     _inst = new mb8861::InstMb8861(_mems);
 }
 
+template <uint8_t F>
+inline void PinsMc6800::delay() const {
+    if constexpr (DELAYS_NS[F] != 0)
+        delayNanoseconds(DELAYS_NS[F]);
+}
+
 void PinsMc6800::resetPins() {
     // Assert reset condition
     pinsMode(PINS_LOW, sizeof(PINS_LOW), OUTPUT, LOW);
@@ -164,12 +183,12 @@ void PinsMc6800::resetPins() {
 }
 
 Signals *PinsMc6800::cycle() {
-    delayNanoseconds(phi_lo_ns);
+    delay<phi_lo_ns>();
     return rawCycle();
 }
 
 Signals *PinsMc6800::loopCycle() {
-    delayNanoseconds(phi_lo_loop);
+    delay<phi_lo_loop>();
     return rawCycle();
 }
 
@@ -177,37 +196,39 @@ Signals *PinsMc6800::rawCycle() {
     // PHI1=HIGH
     phi1_hi();
     Signals::inputMode();
-    delayNanoseconds(dbe_lo_ns);
+    delay<dbe_lo_ns>();
     assert_dbe();
-    delayNanoseconds(phi1_hi_ns);
+    delay<phi1_hi_ns>();
     auto s = Signals::put();
     s->getAddr();
     // PHI2=HIGH
+    phi1_lo();
+    delay<phi1_lo_ns>();
     phi2_hi();
     s->getDirection();
 
     if (!s->valid()) {
-        delayNanoseconds(phi2_hi_novma);
+        delay<phi2_hi_novma>();
     } else if (s->write()) {
         ++_writes;
         if (s->writeMemory()) {
-            delayNanoseconds(phi2_hi_write);
+            delay<phi2_hi_write>();
             s->getData();
-            _mems->write(s->addr, s->data);
+            mems<MemsMc6800>()->write(s->addr, s->data);
         } else {
-            delayNanoseconds(phi2_hi_capture);
+            delay<phi2_hi_capture>();
             s->getData();
         }
     } else {
         _writes = 0;
         if (s->readMemory()) {
-            s->data = _mems->read(s->addr);
+            s->data = mems<MemsMc6800>()->read(s->addr);
         } else {
             // inject data from s->data
-            delayNanoseconds(phi2_hi_inject);
+            delay<phi2_hi_inject>();
         }
         s->outData();
-        delayNanoseconds(phi2_hi_read);
+        delay<phi2_hi_read>();
     }
     Cycles::next();
     // PHI2=LOW

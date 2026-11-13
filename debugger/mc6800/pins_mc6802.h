@@ -59,17 +59,22 @@ namespace debugger {
 namespace mc6802 {
 
 using mc6800::ArchMc6800;
-using mc6800::PinsMc6800Base;
+using mc6800::PinsMc6800Cycles;
 using mc6800::Signals;
 
-struct PinsMc6802 final : PinsMc6800Base {
+struct PinsMc6802 final : PinsMc6800Cycles<PinsMc6802> {
     PinsMc6802();
 
     void resetPins() override;
 
 protected:
-    Signals *cycle() override;
-    Signals *rawCycle() override;
+    friend PinsMc6800Cycles<PinsMc6802>;
+    Signals *cycle();
+    Signals *rawCycle();
+
+private:
+    template <uint8_t F>
+    void delay() const;
 };
 
 }  // namespace mc6802

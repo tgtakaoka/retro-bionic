@@ -1,6 +1,5 @@
 #include "devs_mc6800.h"
 #include <strings.h>
-#include "mc6850.h"
 
 namespace debugger {
 
@@ -22,10 +21,6 @@ void DevsMc6800::begin() {
 
 bool DevsMc6800::loopDevices() {
     return _acia->loop();
-}
-
-bool DevsMc6800::isSelected(uint32_t addr) const {
-    return _acia->isSelected(addr);
 }
 
 uint16_t DevsMc6800::read(uint32_t addr) const {

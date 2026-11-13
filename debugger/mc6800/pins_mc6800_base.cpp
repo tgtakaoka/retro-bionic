@@ -10,9 +10,6 @@ namespace mc6800 {
 
 namespace {
 
-// Longest instruction plus a context save, with margin.
-constexpr auto SUSPEND_CYCLES = 64;
-
 inline void assert_irq() {
     digitalWriteFast(PIN_IRQ, LOW);
 }
@@ -21,213 +18,16 @@ inline void negate_irq() {
     digitalWriteFast(PIN_IRQ, HIGH);
 }
 
-inline bool irq_asserted() {
-    return (*portOutputRegister(PIN_IRQ) & digitalPinToBitMask(PIN_IRQ)) == 0;
-}
+}  // namespace
 
 // Open drain: #NMI may also be wired to another source or a switch.
-void assert_nmi() {
+void PinsMc6800Base::assert_nmi() {
     pinMode(PIN_NMI, OUTPUT_OPENDRAIN);
     digitalWriteFast(PIN_NMI, LOW);
 }
 
-void negate_nmi() {
+void PinsMc6800Base::negate_nmi() {
     pinMode(PIN_NMI, INPUT_PULLUP);
-}
-
-}  // namespace
-
-Signals *PinsMc6800Base::injectCycle(uint8_t data) {
-    Signals::put()->inject(data);
-    return cycle();
-}
-
-void PinsMc6800Base::injectReads(
-        const uint8_t *inst, uint8_t len, uint8_t cycles) {
-    for (auto inj = 0; inj < len; ++inj) {
-        injectCycle(inst[inj]);
-    }
-    for (auto inj = len; inj < cycles; ++inj) {
-        injectCycle(ArchMc6800::NOP);
-    }
-}
-
-void PinsMc6800Base::captureWrites(uint8_t *buf, uint8_t len, uint16_t *addr) {
-    for (auto cap = 0; cap < len;) {
-        auto s = Signals::put();
-        s->capture();
-        cycle();
-        if (s->write()) {
-            if (cap == 0 && addr)
-                *addr = s->addr;
-            buf[cap++] = s->data;
-        }
-    }
-}
-
-// A 4-cycle BRA $ keeps the PC while the bus stays clocked; its cycles
-// are dropped from the ring.
-void PinsMc6800Base::idle() {
-    auto s = Signals::put();
-    s->inject(ArchMc6800::BRA);
-    rawCycle();
-    injectCycle(ArchMc6800::BRA_HERE);
-    injectCycle(ArchMc6800::NOP);
-    injectCycle(ArchMc6800::NOP);
-    Cycles::discard(s);
-}
-
-#ifdef PROFILE_CYCLES
-// For scripts/record-cycles.py: stop at any SWI, keep every cycle of it,
-// and give up well before the ring wraps; the debug pin frames the run, to
-// trigger a capture on.
-void PinsMc6800Base::loop() {
-    constexpr auto MAX_CYCLES = 96;
-    _profileEnd = nullptr;
-    assert_debug();
-    for (auto n = 0;; ++n) {
-        _devs->loop();
-        rawCycle();
-        if (_writes == regs<RegsMc6800>()->contextLength()) {
-            const auto frame = Signals::put()->prev(_writes);
-            if (nonVmaAfterContextSave())
-                cycle();                  // non VMA cycle
-            const auto vec_hi = cycle();  // read interrupt high(vector)
-            if (vec_hi->addr == _inst->vec_swi()) {
-                negate_debug();
-                cycle();  // read interrupt low(vector)
-                regs<RegsMc6800>()->capture(frame, false);
-                // Match up to the SWI's opcode fetch, as the normal build does.
-                _profileEnd = frame->prev(nonVmaAfterContextSave() ? 1 : 2);
-                return;
-            }
-            _writes = 0;
-        } else if (n >= MAX_CYCLES || haltSwitch()) {
-            negate_debug();
-            cli.println(n >= MAX_CYCLES ? "?cycles" : "?halt");
-            suspend(true);
-            return;
-        }
-    }
-}
-#else
-void PinsMc6800Base::loop() {
-    while (true) {
-        const auto serviced = _devs->loop();
-        loopCycle();
-        // A context push: the vector read after it tells an SWI's.
-        if (_writes == regs<RegsMc6800>()->contextLength()) {
-            const auto frame = Signals::put()->prev(_writes);
-            if (nonVmaAfterContextSave())
-                cycle();                  // non VMA cycle
-            const auto vec_hi = cycle();  // read interrupt high(vector)
-            const auto vec_swi = _inst->vec_swi();
-            if (vec_hi->addr == vec_swi) {
-                cycle();  // read interrupt low(vector)
-                const auto pc = regs<RegsMc6800>()->capture(frame, false);
-                const auto swi_vector = _mems->read16(vec_swi);
-                // An SWI vector pointing at itself is a program's halt to
-                // system.
-                if (isBreakPoint(pc) || swi_vector == vec_swi) {
-                    const auto discard = nonVmaAfterContextSave() ? 1 : 2;
-                    Cycles::discard(frame->prev(discard));
-                    return;
-                }
-            }
-            // WAI idles on non-VMA cycles, which leave _writes as is.
-            _writes = 0;
-        } else if (serviced && haltSwitch()) {
-            suspend(true);
-            return;
-        }
-    }
-}
-#endif
-
-void PinsMc6800Base::suspend(bool show) {
-    assert_nmi();
-reentry:
-    _writes = 0;
-    // Wait for the NMI's context push, a write per stacked byte.
-    for (auto n = 0; _writes < regs<RegsMc6800>()->contextLength(); ++n) {
-        const auto s = cycle();
-        if (s->valid() && s->read() && s->addr == _inst->vec_nmi()) {
-            // In WAI the context is already stacked, so NMI fetches its
-            // vector without pushing. RTI back out of WAI, then take a
-            // fresh NMI edge.
-            negate_nmi();
-            cycle();  // NMI lo(vector)
-            injectCycle(ArchMc6800::RTI);
-            assert_nmi();
-            goto reentry;
-        }
-        if (n >= SUSPEND_CYCLES) {
-            negate_nmi();
-            cli.println("?halt: no context saved");
-            return;
-        }
-    }
-    // Capture registers pushed onto stack.
-    const auto frame = Signals::put()->prev(_writes);
-    // A push by WAI is followed by idle cycles until the NMI is taken,
-    // so find the vector read rather than counting cycles to it.
-    const Signals *v;
-    for (auto n = 0;; ++n) {
-        v = cycle();
-        if (v->valid() && v->read() &&
-                (v->addr == _inst->vec_swi() || v->addr == _inst->vec_nmi()))
-            break;
-        if (n >= SUSPEND_CYCLES) {
-            negate_nmi();
-            cli.println("?halt: no vector fetched");
-            return;
-        }
-    }
-    negate_nmi();
-    // An SWI pushed first: give NMI a fresh edge and wait for its push.
-    if (v->addr == _inst->vec_swi()) {
-        assert_nmi();
-        cycle();  // SWI lo(vector);
-        goto reentry;
-    }
-    cycle();  // NMI lo(vector)
-    regs<RegsMc6800>()->capture(frame);
-    if (show) {
-        const auto discard = nonVmaAfterContextSave() ? 1 : 2;
-        Cycles::discard(frame->prev(discard));
-    }
-}
-
-void PinsMc6800Base::run() {
-    _regs->restore();
-    Cycles::reset();
-    saveBreakInsts();
-    startRunTimer();
-    loop();
-    stopRunTimer();
-    restoreBreakInsts();
-    disassembleCycles();
-}
-
-bool PinsMc6800Base::step(bool show) {
-    Cycles::reset();
-    _regs->restore();
-    if (show)
-        Cycles::reset();
-    // A pending IRQ the restored CC lets in starts its entry before any
-    // instruction, and an NMI raised now would take the vector: let the
-    // IRQ fetch its vector first.
-    if (irq_asserted() && !regs<RegsMc6800>()->irqMasked()) {
-        for (auto n = 0; n < SUSPEND_CYCLES; ++n) {
-            const auto s = cycle();
-            if (s->valid() && s->read() && s->addr == _inst->vec_irq())
-                break;
-        }
-    }
-    suspend(show);
-    if (show)
-        printCycles(Signals::put()->prev());
-    return true;
 }
 
 void PinsMc6800Base::assertInt(uint8_t) {

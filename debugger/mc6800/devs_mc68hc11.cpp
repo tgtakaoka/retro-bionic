@@ -1,8 +1,6 @@
 #include "devs_mc68hc11.h"
 #include <strings.h>
-#include "mc6850.h"
 #include "mc68hc11_init.h"
-#include "mc68hc11_sci_handler.h"
 #include "regs_mc68hc11.h"
 
 namespace debugger {
@@ -48,14 +46,6 @@ bool DevsMc68hc11::loopDevices() {
 void DevsMc68hc11::setIdle(bool idle) {
 #if defined(ENABLE_SERIAL_HANDLER)
     _sci->setIdle(idle);
-#endif
-}
-
-bool DevsMc68hc11::isSelected(uint32_t addr) const {
-#if defined(ENABLE_SERIAL_HANDLER)
-    return _acia->isSelected(addr) || _sci->isSelected(addr);
-#else
-    return _acia->isSelected(addr);
 #endif
 }
 
