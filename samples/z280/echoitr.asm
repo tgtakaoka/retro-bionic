@@ -78,6 +78,7 @@ halt_to_system:
         ld      (HL), 0FFH      ; RST 38H at its vector: exit to the debugger
         rst     38h
 
+        align   2
 ;;; Print uint8_t in hex
 ;;; @param B uint8_t value to be printed in hex.
 ;;; @clobber A
@@ -101,6 +102,7 @@ put_hex4:
         daa                     ; A='0'-'9','A'-'F'
         jr      putchar
 
+        align   2
 ;;; Print uint8_t in binary
 ;;; @param B uint8_t value to be printed in binary.
 ;;; @clobber A
@@ -115,6 +117,7 @@ put_bin8:
         call    put_bin4
         pop     BC
         ret
+        align   2
 put_bin4:
         call    put_bin2
 put_bin2:
@@ -128,6 +131,7 @@ put_bin1:
         inc     A               ; F.C=1
         jr      putchar
 
+        align   2
 ;;; Get character
 ;;; @return A
 ;;; @return F.C 0 if no character
@@ -140,13 +144,16 @@ getchar:
         pop     HL
         ret
 
+        align   2
 ;;; Put newline
 ;;; @clobber A
 newline:
         ld      A, 0DH
         call    putchar
         ld      A, 0AH
+        jr      putchar
 
+        align   2
 ;;; Put character
 ;;; @param A
 putchar:
@@ -169,6 +176,7 @@ putchar_retry:
 
         include "queue.inc"
 
+        align   2
 isr_intr_rx:
         push    AF
         push    BC
@@ -189,6 +197,7 @@ isr_intr_rx_exit:
         ei
         reti
 
+        align   2
 isr_intr_tx:
         push    AF
         push    BC

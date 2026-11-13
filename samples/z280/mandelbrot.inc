@@ -173,6 +173,7 @@ print:
         jp      putspace
 
 ;;; workspace
+        align   2
 vC:     ds      2
 vD:     ds      2
 vA:     ds      2
