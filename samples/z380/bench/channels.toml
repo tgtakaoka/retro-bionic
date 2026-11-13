@@ -65,3 +65,96 @@
 13 = { pin = "P51", signal = "#NMI" }
 14 = { pin = "P52", signal = "#WAIT" }
 15 = { pin = "P55", signal = "#BHEN" }
+
+# The bus waves, reset, echoitr and step, one layout: ch13 is #RESET,
+# #INT0 or #NMI. Each ASEL edge closes the selection before it:
+#   [0] ASEL0 rising, 00: A0-A3   [1] ASEL1 rising, 01: A4-A7
+#   [2] ASEL0 falling, 11: A8-A11 [3] ASEL1 falling, 10: A12-A15
+# Reset: trigger on the first fetch after #RESET rises.
+[z380-reset]
+ 0 = { pin = "P10", signal = "D0" }
+ 1 = { pin = "P30", signal = "A0/4/12/8" }
+ 2 = { pin = "P31", signal = "A1/5/13/9" }
+ 3 = { pin = "P32", signal = "A2/6/14/10" }
+ 4 = { pin = "P33", signal = "A3/7/15/11" }
+ 5 = { pin = "P40", signal = "#M1" }
+ 6 = { pin = "P41", signal = "#MRD" }
+ 7 = { pin = "P42", signal = "#MWR" }
+ 8 = { pin = "P43", signal = "#IORD" }
+ 9 = { pin = "P44", signal = "ASEL0" }
+10 = { pin = "P45", signal = "ASEL1" }
+11 = { pin = "P47", signal = "CLKI" }
+12 = { pin = "P52", signal = "#WAIT" }
+13 = { pin = "P53", signal = "#RESET" }
+14 = { pin = "P54", signal = "#BLEN" }
+15 = { pin = "P55", signal = "#BHEN" }
+trigger = { signal = "#MRD", edge = "fall", when = { "#RESET" = "high" }, before = 50e-6, after = 400e-6 }
+parallel = [
+  { data = ["A0/4/12/8", "A1/5/13/9", "A2/6/14/10", "A3/7/15/11"], clock = "ASEL0", edge = "rise" },
+  { data = ["A0/4/12/8", "A1/5/13/9", "A2/6/14/10", "A3/7/15/11"], clock = "ASEL1", edge = "rise" },
+  { data = ["A0/4/12/8", "A1/5/13/9", "A2/6/14/10", "A3/7/15/11"], clock = "ASEL0", edge = "fall" },
+  { data = ["A0/4/12/8", "A1/5/13/9", "A2/6/14/10", "A3/7/15/11"], clock = "ASEL1", edge = "fall" },
+]
+display = ["CLKI", "#M1", "#MRD", "#MWR", "#IORD", "#BLEN", "#BHEN", "ASEL1",
+        "ASEL0", "#WAIT", "#RESET", "A3/7/15/11", "A2/6/14/10", "A1/5/13/9",
+        "A0/4/12/8", "D0"]
+
+# echoitr: the ACIA's receive interrupt on #INT0, the handler and the
+# echo it queues for the transmit interrupt.
+[z380-echoitr]
+ 0 = { pin = "P10", signal = "D0" }
+ 1 = { pin = "P30", signal = "A0/4/12/8" }
+ 2 = { pin = "P31", signal = "A1/5/13/9" }
+ 3 = { pin = "P32", signal = "A2/6/14/10" }
+ 4 = { pin = "P33", signal = "A3/7/15/11" }
+ 5 = { pin = "P40", signal = "#M1" }
+ 6 = { pin = "P41", signal = "#MRD" }
+ 7 = { pin = "P42", signal = "#MWR" }
+ 8 = { pin = "P43", signal = "#IORD" }
+ 9 = { pin = "P44", signal = "ASEL0" }
+10 = { pin = "P45", signal = "ASEL1" }
+11 = { pin = "P47", signal = "CLKI" }
+12 = { pin = "P52", signal = "#WAIT" }
+13 = { pin = "P50", signal = "#INT0" }
+14 = { pin = "P54", signal = "#BLEN" }
+15 = { pin = "P55", signal = "#BHEN" }
+trigger = { signal = "#INT0", edge = "fall", before = 50e-6, after = 3.65e-3 }
+parallel = [
+  { data = ["A0/4/12/8", "A1/5/13/9", "A2/6/14/10", "A3/7/15/11"], clock = "ASEL0", edge = "rise" },
+  { data = ["A0/4/12/8", "A1/5/13/9", "A2/6/14/10", "A3/7/15/11"], clock = "ASEL1", edge = "rise" },
+  { data = ["A0/4/12/8", "A1/5/13/9", "A2/6/14/10", "A3/7/15/11"], clock = "ASEL0", edge = "fall" },
+  { data = ["A0/4/12/8", "A1/5/13/9", "A2/6/14/10", "A3/7/15/11"], clock = "ASEL1", edge = "fall" },
+]
+display = ["CLKI", "#M1", "#MRD", "#MWR", "#IORD", "#BLEN", "#BHEN", "ASEL1",
+        "ASEL0", "#WAIT", "#INT0", "A3/7/15/11", "A2/6/14/10", "A1/5/13/9",
+        "A0/4/12/8", "D0"]
+
+# Six steps from a halt, sent as one write: #NMI is taken at the end of
+# each instruction, and its acknowledge parks the CPU again.
+[z380-step]
+ 0 = { pin = "P10", signal = "D0" }
+ 1 = { pin = "P30", signal = "A0/4/12/8" }
+ 2 = { pin = "P31", signal = "A1/5/13/9" }
+ 3 = { pin = "P32", signal = "A2/6/14/10" }
+ 4 = { pin = "P33", signal = "A3/7/15/11" }
+ 5 = { pin = "P40", signal = "#M1" }
+ 6 = { pin = "P41", signal = "#MRD" }
+ 7 = { pin = "P42", signal = "#MWR" }
+ 8 = { pin = "P43", signal = "#IORD" }
+ 9 = { pin = "P44", signal = "ASEL0" }
+10 = { pin = "P45", signal = "ASEL1" }
+11 = { pin = "P47", signal = "CLKI" }
+12 = { pin = "P52", signal = "#WAIT" }
+13 = { pin = "P51", signal = "#NMI" }
+14 = { pin = "P54", signal = "#BLEN" }
+15 = { pin = "P55", signal = "#BHEN" }
+trigger = { signal = "#NMI", edge = "fall", before = 50e-6, after = 4.4e-3 }
+parallel = [
+  { data = ["A0/4/12/8", "A1/5/13/9", "A2/6/14/10", "A3/7/15/11"], clock = "ASEL0", edge = "rise" },
+  { data = ["A0/4/12/8", "A1/5/13/9", "A2/6/14/10", "A3/7/15/11"], clock = "ASEL1", edge = "rise" },
+  { data = ["A0/4/12/8", "A1/5/13/9", "A2/6/14/10", "A3/7/15/11"], clock = "ASEL0", edge = "fall" },
+  { data = ["A0/4/12/8", "A1/5/13/9", "A2/6/14/10", "A3/7/15/11"], clock = "ASEL1", edge = "fall" },
+]
+display = ["CLKI", "#M1", "#MRD", "#MWR", "#IORD", "#BLEN", "#BHEN", "ASEL1",
+        "ASEL0", "#WAIT", "#NMI", "A3/7/15/11", "A2/6/14/10", "A1/5/13/9",
+        "A0/4/12/8", "D0"]
