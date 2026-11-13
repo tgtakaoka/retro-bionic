@@ -228,6 +228,7 @@ Signals *PinsZ180::prepareCycle() const {
             // Give up on a request that never moves data.
             cli.print("?halt: no data cycle ");
             s->getAddr();
+            s->getAddrHigh();
             s->print();
             s->noCycle();
             return s;
