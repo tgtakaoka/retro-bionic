@@ -725,6 +725,15 @@ vector's bytes, most significant first -- `PC = "[FFFE FFFF]"`, or
 `"[FFFD FFFC]"` on the 6502 -- and the reset case checks the PC against the
 value the loaded sample puts there.
 
+### A scenario opens with the board's banner **[hw]**
+
+Every `.scenario` starts with `key ?`, so the cast opens on the banner,
+`* BionicDCT11 * 1.0`: nothing else in a cast names the board, and every
+cast's title is just its scenario's file name. `?` prints the state
+before any reset, so on a freshly powered bench, where memory is still
+blank, load the sample once before recording; otherwise the cast opens
+on an undecodable PC.
+
 ### A damaged record is rejected, not loaded **[hw]**
 
 The loader takes a record's length from its count field, so a line cut short
