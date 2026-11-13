@@ -48,6 +48,7 @@ loop:
         bsr     queue_wait_empty
         bra     loop
 
+        align   2
 ;;; Get character
 ;;; @return R0
 ;;; @return CCR.C 0 if no character
@@ -60,16 +61,21 @@ getchar:
         ldm.l   @sp+, r1
         rts
 
+        align   2
 ;;; Put character
 ;;; @param R0
 putspace:
         mov.b   #' ', r0
         bra     putchar
 
+        align   2
 newline:
         mov.b   #$0D, r0
         bsr     putchar
         mov.b   #$0A, r0
+        bra     putchar
+
+        align   2
 putchar:
         stm.l   r0-r1, @-sp
         mov.l   #tx_queue, r1
@@ -86,6 +92,7 @@ putchar_retry:
         include "queue.inc"
         include "queue_wait.inc"
 
+        align   2
 isr_irq:
         stm.l   r0-r2, @-sp     ; an interrupt stacks only PC and SR
         mov.b   @ACIA_status, r2

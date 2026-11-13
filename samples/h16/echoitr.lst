@@ -86,7 +86,7 @@
        2100 : =1000              stack:  equ     $1000
        2100 :
          78 :                            org     VEC_IRQ0
-         78 : 00 00 11 96                .data.l isr_irq
+         78 : 00 00 11 9A                .data.l isr_irq
          7C :
          BC :                            org     VEC_TRAPA15
          BC : 00 00 00 BC                .data.l VEC_TRAPA15     ; for halt to system
@@ -99,10 +99,10 @@
        1000 :                    initialize:
        1000 : 0E 72 20 00 41             mov.l   #rx_queue, r1
        1005 : 0D F2 00 80                mov.w   #rx_queue_size, r0
-       1009 : A9 00 FE                   bsr     queue_init
+       1009 : A9 01 02                   bsr     queue_init
        100C : 0E 72 20 80 41             mov.l   #tx_queue, r1
        1011 : 0D F2 00 80                mov.w   #tx_queue_size, r0
-       1015 : A9 00 F2                   bsr     queue_init
+       1015 : A9 00 F6                   bsr     queue_init
        1018 :                            ;; initialize ACIA
        1018 : 1C 03 77 00 FF DF          mov.b   #CDS_RESET_gc, @ACIA_control ; master reset
        101E : 00
@@ -117,209 +117,218 @@
        1035 :                    wait:
        1035 : F5                         sleep                   ; an interrupt wakes it
        1036 :                    loop:
-       1036 : A9 00 90                   bsr     getchar
+       1036 : A9 00 93                   bsr     getchar
        1039 : A5 04 FF F8                bcc     wait
        103D : 58 40                      tst.b   r0
        103F : A1 00 1D                   beq     halt_to_system
        1042 : 2C 03                      mov.b   r0, r3
-       1044 : A9 00 9D                   bsr     putchar         ; echo
+       1044 : A9 00 A1                   bsr     putchar         ; echo
        1047 : 1C 20 40                   mov.b   #' ', r0        ; space
-       104A : A9 00 97                   bsr     putchar
-       104D : A9 00 1D                   bsr     put_hex8        ; print in hex
+       104A : A9 00 9B                   bsr     putchar
+       104D : A9 00 1E                   bsr     put_hex8        ; print in hex
        1050 : 1C 20 40                   mov.b   #' ', r0        ; space
-       1053 : A9 00 8E                   bsr     putchar
-       1056 : A9 00 40                   bsr     put_bin8        ; print in binary
-       1059 : A9 00 05                   bsr     newline
+       1053 : A9 00 92                   bsr     putchar
+       1056 : A9 00 41                   bsr     put_bin8        ; print in binary
+       1059 : A9 00 06                   bsr     newline
        105C : 99 FF D7                   bra     loop
        105F :                    halt_to_system:
        105F : F2 0F                      trapa   #15             ; halt to system
        1061 :
-       1061 :                    ;;; Put newline
-       1061 :                    ;;; @clobber R0
-       1061 :                    newline:
-       1061 : 1C 0D 40                   mov.b   #$0D, r0
-       1064 : A9 00 7D                   bsr     putchar
-       1067 : 1C 0A 40                   mov.b   #$0A, r0
-       106A : 99 00 77                   bra     putchar
-       106D :
-       106D :                    ;;; Print uint8_t in hex
-       106D :                    ;;; @param R3 uint8_t value to be printed in hex.
-       106D :                    ;;; @clobber R0
-       106D :                    put_hex8:
-       106D : 1C 30 40                   mov.b   #'0', r0
-       1070 : A9 00 71                   bsr     putchar
-       1073 : 1C 78 40                   mov.b   #'x', r0
-       1076 : A9 00 6B                   bsr     putchar
-       1079 : 2C 30                      mov.b   r3, r0
-       107B : 64 24 40                   shlr.b  #4, r0
-       107E : A9 00 02                   bsr     put_hex4
-       1081 : 2C 30                      mov.b   r3, r0
-       1083 :                    put_hex4:
-       1083 : 80 F1 0F                   and.b   #$0F, r0
-       1086 : 18 0A 40                   cmp.b   #10, r0
-       1089 : A5 05 00 06                blo     put_hex8_dec
-       108D : 10 37 40                   add.b   #'A'-10, r0
-       1090 : 99 00 51                   bra     putchar
-       1093 :                    put_hex8_dec:
-       1093 : 10 30 40                   add.b   #'0', r0
-       1096 : 99 00 4B                   bra     putchar
-       1099 :
-       1099 :                    ;;; Print uint8_t in binary
-       1099 :                    ;;; @param R3 uint8_t value to be printed in binary.
-       1099 :                    ;;; @clobber R0
-       1099 :                    put_bin8:
-       1099 : 72 6F 00 08                stm.l   r3, @-sp
-       109D : 1C 30 40                   mov.b   #'0', r0
-       10A0 : A9 00 41                   bsr     putchar
-       10A3 : 1C 62 40                   mov.b   #'b', r0
-       10A6 : A9 00 3B                   bsr     putchar
-       10A9 : A9 00 08                   bsr     put_bin4
-       10AC : A9 00 05                   bsr     put_bin4
-       10AF : 76 5F 00 08                ldm.l   @sp+, r3
-       10B3 : BB                         rts
-       10B4 :                    put_bin4:
-       10B4 : A9 00 00                   bsr     put_bin2
-       10B7 :                    put_bin2:
-       10B7 : A9 00 00                   bsr     put_bin1
-       10BA :                    put_bin1:
-       10BA : 1C 30 40                   mov.b   #'0', r0
-       10BD : 64 A1 43                   shll.b  #1, r3          ; C=MSB
-       10C0 : A5 04 00 20                bcc     putchar         ; MSB=0
-       10C4 : 30 01                      add.b   #1, r0          ; MSB=1
-       10C6 : 99 00 1B                   bra     putchar
-       10C9 :
-       10C9 :                    ;;; Get character
-       10C9 :                    ;;; @return R0
-       10C9 :                    ;;; @return CCR.C 0 if no character
-       10C9 :                    getchar:
-       10C9 : 72 6F 00 02                stm.l   r1, @-sp
-       10CD : F9 A0 72 07 00             orc     #$0700, sr      ; disable IRQ
-       10D2 : 0E 72 20 00 41             mov.l   #rx_queue, r1
-       10D7 : A9 00 86                   bsr     queue_remove
-       10DA : F8 A0 72 F8 FF             andc    #~$0700, sr     ; enable IRQ
-       10DF : 76 5F 00 02                ldm.l   @sp+, r1
-       10E3 : BB                         rts
-       10E4 :
-       10E4 :                    ;;; Put character
-       10E4 :                    ;;; @param R0
-       10E4 :                    putchar:
-       10E4 : 72 6F 00 03                stm.l   r0-r1, @-sp
-       10E8 : 0E 72 20 80 41             mov.l   #tx_queue, r1
-       10ED :                    putchar_retry:
-       10ED : F9 A0 72 07 00             orc     #$0700, sr      ; disable IRQ
-       10F2 : A9 00 2B                   bsr     queue_add
-       10F5 : F8 A0 72 F8 FF             andc    #~$0700, sr     ; enable IRQ
-       10FA : A5 04 FF EF                bcc     putchar_retry   ; branch if queue is full
-       10FE : 1C B4 77 00 FF DF          mov.b   #RX_INT_TX_INT, @ACIA_control ; enable Tx interrupt
-       1104 : 00
-       1105 : 76 5F 00 03                ldm.l   @sp+, r0-r1
-       1109 : BB                         rts
-       110A :
-       110A :                            include "queue.inc"
-(1)    110A :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
-(1)    110A :
-(1)    110A :                    ;;; [queue] queue structure, in words
-(1)    110A : =0                 queue_len:      equ     0       ; queue length
-(1)    110A : =2                 queue_size:     equ     2       ; buffer size
-(1)    110A : =4                 queue_put:      equ     4       ; put offset from the work space, queue_buf..
-(1)    110A : =6                 queue_get:      equ     6       ; get offset from the work space, queue_buf..
-(1)    110A : =8                 queue_end:      equ     8       ; offset past the buffer
-(1)    110A : =A                 queue_buf:      equ     10      ; buffer start offset
-(1)    110A :
-(1)    110A :                    ;;; [queue] Initialize queue
-(1)    110A :                    ;;; @param R1 queue work space pointer
-(1)    110A :                    ;;; @param R0 queue work space size
-(1)    110A :                    ;;; @clobber R0
-(1)    110A :                    queue_init:
-(1)    110A : 0D 40 11 08                mov.w   r0, @(queue_end, r1)
-(1)    110E : 35 0A                      sub.w   #queue_buf, r0
-(1)    1110 : 0D 40 11 02                mov.w   r0, @(queue_size, r1)
-(1)    1114 : 1D 00 01                   mov.w   #0, @(queue_len, r1)
-(1)    1117 : 1D 0A 11 04                mov.w   #queue_buf, @(queue_put, r1)
-(1)    111B : 1D 0A 11 06                mov.w   #queue_buf, @(queue_get, r1)
-(1)    111F : BB                         rts
-(1)    1120 :
-(1)    1120 :                    ;;; [queue] Add an element to queue
-(1)    1120 :                    ;;; @param R1 queue work space pointer
-(1)    1120 :                    ;;; @param R0 an element
-(1)    1120 :                    ;;; @return CCR.C 0 if queue is full
-(1)    1120 :                    queue_add:
-(1)    1120 : 72 6F 00 04                stm.l   r2, @-sp        ; STM and LDM leave the flags alone
-(1)    1124 : 0D 01 42                   mov.w   @(queue_len, r1), r2
-(1)    1127 : 09 11 02 42                cmp.w   @(queue_size, r1), r2
-(1)    112B : A5 04 00 28                bhs     queue_add_full
-(1)    112F : 0D 11 04 42                mov.w   @(queue_put, r1), r2
-(1)    1133 : AD 02                      extu.l  r2
-(1)    1135 : 0C 40 7C 41 02             mov.b   r0, @(r1, r2)   ; store an element
-(1)    113A : 11 01 01                   add.w   #1, @(queue_len, r1)
-(1)    113D : 31 21                      add.w   #1, r2
-(1)    113F : 09 11 08 42                cmp.w   @(queue_end, r1), r2
-(1)    1143 : A5 05 00 03                blo     queue_add_put
-(1)    1147 : 1D 0A 42                   mov.w   #queue_buf, r2  ; wrap around
-(1)    114A :                    queue_add_put:
-(1)    114A : 0D 42 11 04                mov.w   r2, @(queue_put, r1)
-(1)    114E : 76 5F 00 04                ldm.l   @sp+, r2
-(1)    1152 : F9 20 71 01                orc     #1, ccr         ; set carry
-(1)    1156 : BB                         rts
-(1)    1157 :                    queue_add_full:
-(1)    1157 : 76 5F 00 04                ldm.l   @sp+, r2
-(1)    115B : F8 20 71 FE                andc    #~1, ccr        ; clear carry
-(1)    115F : BB                         rts
-(1)    1160 :
-(1)    1160 :                    ;;; [queue] Remove an element from queue
-(1)    1160 :                    ;;; @param R1 queue work space pointer
-(1)    1160 :                    ;;; @return R0 an element
-(1)    1160 :                    ;;; @return CCR.C 0 if queue is empty
-(1)    1160 :                    queue_remove:
-(1)    1160 : 59 01                      tst.w   @(queue_len, r1)
-(1)    1162 : B1 00 05                   bne     queue_remove_elem
-(1)    1165 : F8 20 71 FE                andc    #~1, ccr        ; clear carry
-(1)    1169 : BB                         rts
-(1)    116A :                    queue_remove_elem:
-(1)    116A : 72 6F 00 04                stm.l   r2, @-sp
-(1)    116E : 0D 11 06 42                mov.w   @(queue_get, r1), r2
-(1)    1172 : AD 02                      extu.l  r2
-(1)    1174 : 0C FC 41 02                mov.b   @(r1, r2), r0   ; read an element
-(1)    1178 : 05 71 01 01                sub.w   #1, @(queue_len, r1)
-(1)    117C : 31 21                      add.w   #1, r2
-(1)    117E : 09 11 08 42                cmp.w   @(queue_end, r1), r2
-(1)    1182 : A5 05 00 03                blo     queue_remove_get
-(1)    1186 : 1D 0A 42                   mov.w   #queue_buf, r2  ; wrap around
-(1)    1189 :                    queue_remove_get:
-(1)    1189 : 0D 42 11 06                mov.w   r2, @(queue_get, r1)
-(1)    118D : 76 5F 00 04                ldm.l   @sp+, r2
-(1)    1191 : F9 20 71 01                orc     #1, ccr         ; set carry
-(1)    1195 : BB                         rts
-(1)    1196 :
-(1)    1196 :                    ;;; Local Variables:
-(1)    1196 :                    ;;; mode: asm
-(1)    1196 :                    ;;; End:
-(1)    1196 :                    ;;; vim: set ft=asm et ts=4 sw=4:
-       1196 :
-       1196 :                    isr_irq:
-       1196 : 72 6F 00 07                stm.l   r0-r2, @-sp     ; an interrupt stacks only PC and SR
-       119A : 0C 77 00 FF DF 00          mov.b   @ACIA_status, r2
-       11A0 : 42
-       11A1 : 6C 67 42                   btst.b  #7, r2          ; IRQF
-       11A4 : A1 00 2D                   beq     isr_irq_exit
-       11A7 : 6C 60 42                   btst.b  #0, r2          ; RDRF
-       11AA : A1 00 0E                   beq     isr_irq_send
-       11AD : 0C F7 00 FF DF 01          mov.b   @ACIA_data, r0  ; receive character
-       11B3 : 0E 72 20 00 41             mov.l   #rx_queue, r1
-       11B8 : A9 FF 65                   bsr     queue_add
-       11BB :                    isr_irq_send:
-       11BB : 6C 61 42                   btst.b  #1, r2          ; TDRE
-       11BE : A1 00 13                   beq     isr_irq_exit
-       11C1 : 0E 72 20 80 41             mov.l   #tx_queue, r1
-       11C6 : A9 FF 97                   bsr     queue_remove
-       11C9 : A5 04 00 0C                bcc     isr_irq_send_empty
-       11CD : 0C 40 77 00 FF DF          mov.b   r0, @ACIA_data  ; send character
-       11D3 : 01
-       11D4 :                    isr_irq_exit:
-       11D4 : 76 5F 00 07                ldm.l   @sp+, r0-r2
-       11D8 : F1                         rte
-       11D9 :                    isr_irq_send_empty:
-       11D9 : 1C 94 77 00 FF DF          mov.b   #RX_INT_TX_NO, @ACIA_control ; disable Tx interrupt
-       11DF : 00
-       11E0 : 76 5F 00 07                ldm.l   @sp+, r0-r2
-       11E4 : F1                         rte
+       1062 :                            align   2
+       1062 :                    ;;; Put newline
+       1062 :                    ;;; @clobber R0
+       1062 :                    newline:
+       1062 : 1C 0D 40                   mov.b   #$0D, r0
+       1065 : A9 00 80                   bsr     putchar
+       1068 : 1C 0A 40                   mov.b   #$0A, r0
+       106B : 99 00 7A                   bra     putchar
+       106E :
+       106E :                            align   2
+       106E :                    ;;; Print uint8_t in hex
+       106E :                    ;;; @param R3 uint8_t value to be printed in hex.
+       106E :                    ;;; @clobber R0
+       106E :                    put_hex8:
+       106E : 1C 30 40                   mov.b   #'0', r0
+       1071 : A9 00 74                   bsr     putchar
+       1074 : 1C 78 40                   mov.b   #'x', r0
+       1077 : A9 00 6E                   bsr     putchar
+       107A : 2C 30                      mov.b   r3, r0
+       107C : 64 24 40                   shlr.b  #4, r0
+       107F : A9 00 02                   bsr     put_hex4
+       1082 : 2C 30                      mov.b   r3, r0
+       1084 :                    put_hex4:
+       1084 : 80 F1 0F                   and.b   #$0F, r0
+       1087 : 18 0A 40                   cmp.b   #10, r0
+       108A : A5 05 00 06                blo     put_hex8_dec
+       108E : 10 37 40                   add.b   #'A'-10, r0
+       1091 : 99 00 54                   bra     putchar
+       1094 :                    put_hex8_dec:
+       1094 : 10 30 40                   add.b   #'0', r0
+       1097 : 99 00 4E                   bra     putchar
+       109A :
+       109A :                            align   2
+       109A :                    ;;; Print uint8_t in binary
+       109A :                    ;;; @param R3 uint8_t value to be printed in binary.
+       109A :                    ;;; @clobber R0
+       109A :                    put_bin8:
+       109A : 72 6F 00 08                stm.l   r3, @-sp
+       109E : 1C 30 40                   mov.b   #'0', r0
+       10A1 : A9 00 44                   bsr     putchar
+       10A4 : 1C 62 40                   mov.b   #'b', r0
+       10A7 : A9 00 3E                   bsr     putchar
+       10AA : A9 00 09                   bsr     put_bin4
+       10AD : A9 00 06                   bsr     put_bin4
+       10B0 : 76 5F 00 08                ldm.l   @sp+, r3
+       10B4 : BB                         rts
+       10B6 :                            align   2
+       10B6 :                    put_bin4:
+       10B6 : A9 00 00                   bsr     put_bin2
+       10B9 :                    put_bin2:
+       10B9 : A9 00 00                   bsr     put_bin1
+       10BC :                    put_bin1:
+       10BC : 1C 30 40                   mov.b   #'0', r0
+       10BF : 64 A1 43                   shll.b  #1, r3          ; C=MSB
+       10C2 : A5 04 00 22                bcc     putchar         ; MSB=0
+       10C6 : 30 01                      add.b   #1, r0          ; MSB=1
+       10C8 : 99 00 1D                   bra     putchar
+       10CB :
+       10CC :                            align   2
+       10CC :                    ;;; Get character
+       10CC :                    ;;; @return R0
+       10CC :                    ;;; @return CCR.C 0 if no character
+       10CC :                    getchar:
+       10CC : 72 6F 00 02                stm.l   r1, @-sp
+       10D0 : F9 A0 72 07 00             orc     #$0700, sr      ; disable IRQ
+       10D5 : 0E 72 20 00 41             mov.l   #rx_queue, r1
+       10DA : A9 00 87                   bsr     queue_remove
+       10DD : F8 A0 72 F8 FF             andc    #~$0700, sr     ; enable IRQ
+       10E2 : 76 5F 00 02                ldm.l   @sp+, r1
+       10E6 : BB                         rts
+       10E7 :
+       10E8 :                            align   2
+       10E8 :                    ;;; Put character
+       10E8 :                    ;;; @param R0
+       10E8 :                    putchar:
+       10E8 : 72 6F 00 03                stm.l   r0-r1, @-sp
+       10EC : 0E 72 20 80 41             mov.l   #tx_queue, r1
+       10F1 :                    putchar_retry:
+       10F1 : F9 A0 72 07 00             orc     #$0700, sr      ; disable IRQ
+       10F6 : A9 00 2B                   bsr     queue_add
+       10F9 : F8 A0 72 F8 FF             andc    #~$0700, sr     ; enable IRQ
+       10FE : A5 04 FF EF                bcc     putchar_retry   ; branch if queue is full
+       1102 : 1C B4 77 00 FF DF          mov.b   #RX_INT_TX_INT, @ACIA_control ; enable Tx interrupt
+       1108 : 00
+       1109 : 76 5F 00 03                ldm.l   @sp+, r0-r1
+       110D : BB                         rts
+       110E :
+       110E :                            include "queue.inc"
+(1)    110E :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)    110E :
+(1)    110E :                    ;;; [queue] queue structure, in words
+(1)    110E : =0                 queue_len:      equ     0       ; queue length
+(1)    110E : =2                 queue_size:     equ     2       ; buffer size
+(1)    110E : =4                 queue_put:      equ     4       ; put offset from the work space, queue_buf..
+(1)    110E : =6                 queue_get:      equ     6       ; get offset from the work space, queue_buf..
+(1)    110E : =8                 queue_end:      equ     8       ; offset past the buffer
+(1)    110E : =A                 queue_buf:      equ     10      ; buffer start offset
+(1)    110E :
+(1)    110E :                    ;;; [queue] Initialize queue
+(1)    110E :                    ;;; @param R1 queue work space pointer
+(1)    110E :                    ;;; @param R0 queue work space size
+(1)    110E :                    ;;; @clobber R0
+(1)    110E :                    queue_init:
+(1)    110E : 0D 40 11 08                mov.w   r0, @(queue_end, r1)
+(1)    1112 : 35 0A                      sub.w   #queue_buf, r0
+(1)    1114 : 0D 40 11 02                mov.w   r0, @(queue_size, r1)
+(1)    1118 : 1D 00 01                   mov.w   #0, @(queue_len, r1)
+(1)    111B : 1D 0A 11 04                mov.w   #queue_buf, @(queue_put, r1)
+(1)    111F : 1D 0A 11 06                mov.w   #queue_buf, @(queue_get, r1)
+(1)    1123 : BB                         rts
+(1)    1124 :
+(1)    1124 :                            align   2
+(1)    1124 :                    ;;; [queue] Add an element to queue
+(1)    1124 :                    ;;; @param R1 queue work space pointer
+(1)    1124 :                    ;;; @param R0 an element
+(1)    1124 :                    ;;; @return CCR.C 0 if queue is full
+(1)    1124 :                    queue_add:
+(1)    1124 : 72 6F 00 04                stm.l   r2, @-sp        ; STM and LDM leave the flags alone
+(1)    1128 : 0D 01 42                   mov.w   @(queue_len, r1), r2
+(1)    112B : 09 11 02 42                cmp.w   @(queue_size, r1), r2
+(1)    112F : A5 04 00 28                bhs     queue_add_full
+(1)    1133 : 0D 11 04 42                mov.w   @(queue_put, r1), r2
+(1)    1137 : AD 02                      extu.l  r2
+(1)    1139 : 0C 40 7C 41 02             mov.b   r0, @(r1, r2)   ; store an element
+(1)    113E : 11 01 01                   add.w   #1, @(queue_len, r1)
+(1)    1141 : 31 21                      add.w   #1, r2
+(1)    1143 : 09 11 08 42                cmp.w   @(queue_end, r1), r2
+(1)    1147 : A5 05 00 03                blo     queue_add_put
+(1)    114B : 1D 0A 42                   mov.w   #queue_buf, r2  ; wrap around
+(1)    114E :                    queue_add_put:
+(1)    114E : 0D 42 11 04                mov.w   r2, @(queue_put, r1)
+(1)    1152 : 76 5F 00 04                ldm.l   @sp+, r2
+(1)    1156 : F9 20 71 01                orc     #1, ccr         ; set carry
+(1)    115A : BB                         rts
+(1)    115B :                    queue_add_full:
+(1)    115B : 76 5F 00 04                ldm.l   @sp+, r2
+(1)    115F : F8 20 71 FE                andc    #~1, ccr        ; clear carry
+(1)    1163 : BB                         rts
+(1)    1164 :
+(1)    1164 :                            align   2
+(1)    1164 :                    ;;; [queue] Remove an element from queue
+(1)    1164 :                    ;;; @param R1 queue work space pointer
+(1)    1164 :                    ;;; @return R0 an element
+(1)    1164 :                    ;;; @return CCR.C 0 if queue is empty
+(1)    1164 :                    queue_remove:
+(1)    1164 : 59 01                      tst.w   @(queue_len, r1)
+(1)    1166 : B1 00 05                   bne     queue_remove_elem
+(1)    1169 : F8 20 71 FE                andc    #~1, ccr        ; clear carry
+(1)    116D : BB                         rts
+(1)    116E :                    queue_remove_elem:
+(1)    116E : 72 6F 00 04                stm.l   r2, @-sp
+(1)    1172 : 0D 11 06 42                mov.w   @(queue_get, r1), r2
+(1)    1176 : AD 02                      extu.l  r2
+(1)    1178 : 0C FC 41 02                mov.b   @(r1, r2), r0   ; read an element
+(1)    117C : 05 71 01 01                sub.w   #1, @(queue_len, r1)
+(1)    1180 : 31 21                      add.w   #1, r2
+(1)    1182 : 09 11 08 42                cmp.w   @(queue_end, r1), r2
+(1)    1186 : A5 05 00 03                blo     queue_remove_get
+(1)    118A : 1D 0A 42                   mov.w   #queue_buf, r2  ; wrap around
+(1)    118D :                    queue_remove_get:
+(1)    118D : 0D 42 11 06                mov.w   r2, @(queue_get, r1)
+(1)    1191 : 76 5F 00 04                ldm.l   @sp+, r2
+(1)    1195 : F9 20 71 01                orc     #1, ccr         ; set carry
+(1)    1199 : BB                         rts
+(1)    119A :
+(1)    119A :                    ;;; Local Variables:
+(1)    119A :                    ;;; mode: asm
+(1)    119A :                    ;;; End:
+(1)    119A :                    ;;; vim: set ft=asm et ts=4 sw=4:
+       119A :
+       119A :                            align   2
+       119A :                    isr_irq:
+       119A : 72 6F 00 07                stm.l   r0-r2, @-sp     ; an interrupt stacks only PC and SR
+       119E : 0C 77 00 FF DF 00          mov.b   @ACIA_status, r2
+       11A4 : 42
+       11A5 : 6C 67 42                   btst.b  #7, r2          ; IRQF
+       11A8 : A1 00 2D                   beq     isr_irq_exit
+       11AB : 6C 60 42                   btst.b  #0, r2          ; RDRF
+       11AE : A1 00 0E                   beq     isr_irq_send
+       11B1 : 0C F7 00 FF DF 01          mov.b   @ACIA_data, r0  ; receive character
+       11B7 : 0E 72 20 00 41             mov.l   #rx_queue, r1
+       11BC : A9 FF 65                   bsr     queue_add
+       11BF :                    isr_irq_send:
+       11BF : 6C 61 42                   btst.b  #1, r2          ; TDRE
+       11C2 : A1 00 13                   beq     isr_irq_exit
+       11C5 : 0E 72 20 80 41             mov.l   #tx_queue, r1
+       11CA : A9 FF 97                   bsr     queue_remove
+       11CD : A5 04 00 0C                bcc     isr_irq_send_empty
+       11D1 : 0C 40 77 00 FF DF          mov.b   r0, @ACIA_data  ; send character
+       11D7 : 01
+       11D8 :                    isr_irq_exit:
+       11D8 : 76 5F 00 07                ldm.l   @sp+, r0-r2
+       11DC : F1                         rte
+       11DD :                    isr_irq_send_empty:
+       11DD : 1C 94 77 00 FF DF          mov.b   #RX_INT_TX_NO, @ACIA_control ; disable Tx interrupt
+       11E3 : 00
+       11E4 : 76 5F 00 07                ldm.l   @sp+, r0-r2
+       11E8 : F1                         rte

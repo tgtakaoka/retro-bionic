@@ -205,6 +205,7 @@ putstr_loop:
 putstr_end:
         rts
 
+        align   2
 ;;; Print out char
 ;;; @param R0 char
 ;;; @clobber R0
@@ -212,6 +213,9 @@ newline:
         mov.b   #$0D, r0
         bsr     putchar
         mov.b   #$0A, r0
+        bra     putchar
+
+        align   2
 putchar:
         btst.b  #1, @ACIA_status        ; TDRE
         beq     putchar
