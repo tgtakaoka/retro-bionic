@@ -3,6 +3,9 @@
 ;;; The 8087 rounds every result to single precision, as float does in
 ;;; samples/arith/fmandel.cpp; CA and CB are worked out in double, as
 ;;; there, then stored as float. Exceptions and the 8087's INT masked.
+;;; Data starts at an even address so a 16-bit bus moves each word in
+;;; one cycle.
+        align   2
 cw_single:      dw      00FFH
 cw_double:      dw      02FFH
 kCA:    dq      0.0458
