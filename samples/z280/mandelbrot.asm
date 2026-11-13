@@ -82,6 +82,7 @@ loop:
         call    queue_wait_empty
         jr      loop
 
+        align   2
 ;;; Get character
 ;;; @return A
 ;;; @return F.C 0 if no character
@@ -94,13 +95,16 @@ getchar:
         pop     HL
         ret
 
+        align   2
 ;;; Put newline
 ;;; @clobber A
 newline:
         ld      A, 0DH
         call    putchar
         ld      A, 0AH
+        jr      putchar
 
+        align   2
 ;;; Put character
 ;;; @param A
 putchar:
@@ -122,6 +126,7 @@ putchar_exit:
         pop     AF
         ret
 
+        align   2
 ;;; Put space
 ;;; @clobber A
 putspace:
@@ -133,6 +138,7 @@ putspace:
         include "queue.inc"
         include "queue_wait.inc"
 
+        align   2
 isr_intr_rx:
         push    AF
         push    BC
@@ -152,6 +158,7 @@ isr_intr_rx_exit:
         ei
         reti
 
+        align   2
 isr_intr_tx:
         push    AF
         push    BC

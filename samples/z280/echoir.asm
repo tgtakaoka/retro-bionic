@@ -77,6 +77,7 @@ halt_to_system:
 
         include "queue.inc"
 
+        align   2
 isr_intr:
         push    AF
         push    BC

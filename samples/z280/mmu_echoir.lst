@@ -249,7 +249,7 @@
         146 : 3E 00                      ld      A, PDRP_USER
         148 : ED 79                      out     (C), A
         14A : 01 F4 00                   ld      BC, MMU_BMOVE
-        14D : DD 21 3E 02                ld      IX, user_pdrs
+        14D : DD 21 40 02                ld      IX, user_pdrs
         151 : 16 10                      ld      D, 16
         153 :                    load_pdr:
         153 : DD 6E 00                   ld      L, (IX+0)
@@ -274,6 +274,7 @@
         17D : E5                         push    HL
         17E : ED 55                      retil
         180 :
+        180 :                            align   2
         180 :                    ;;; System Call trap: (SP) = reason code, MSR, PC of the user program.
         180 :                    syscall:
         180 : E3                         ex      (SP), HL        ; HL = reason code, the user's HL kept
@@ -306,7 +307,7 @@
         1A0 : 21 00 08                   ld      HL, rx_queue
         1A3 :                    receive_loop:
         1A3 : F3                         di                      ; Disable INTR
-        1A4 : CD FB 01                   call    queue_remove
+        1A4 : CD FC 01                   call    queue_remove
         1A7 : FB                         ei                      ; Enable INTR
         1A8 : 30 F9                      jr      NC, receive_loop
         1AA : 18 DD                      jr      sys_return
@@ -316,6 +317,7 @@
         1AF : 36 FF                      ld      (HL), 0FFH      ; RST 38H at its vector: exit to the debugger
         1B1 : FF                         rst     38h
         1B2 :
+        1B2 :                            align   2
         1B2 :                    ;;; Any trap not expected: break in system mode with the trap's
         1B2 :                    ;;; status still on the stack for inspection.
         1B2 :                    trap_break:
@@ -352,6 +354,7 @@
 (1)     1C4 : F1                         pop     AF
 (1)     1C5 : C9                         ret
 (1)     1C6 :
+(1)     1C6 :                            align   2
 (1)     1C6 :                    ;;; [queue] Add an element to queue
 (1)     1C6 :                    ;;; @param HL queue work space pointer
 (1)     1C6 :                    ;;; @param A an element
@@ -386,68 +389,71 @@
 (1)     1F9 : B7                         or      A               ; clear carry
 (1)     1FA : C9                         ret
 (1)     1FB :
-(1)     1FB :                    ;;; [queue] Remove an element from queue
-(1)     1FB :                    ;;; @param HL queue work space pointer
-(1)     1FB :                    ;;; @return A an element
-(1)     1FB :                    ;;; @return F.C 0 if queue is empty
-(1)     1FB :                    queue_remove:
-(1)     1FB : 7E                         ld      A, (HL)         ; queue_len
-(1)     1FC : B7                         or      A               ; clear carry
-(1)     1FD : C8                         ret     Z               ; queue_len == 0
-(1)     1FE : E5                         push    HL
-(1)     1FF : DD E3                      ex      (SP), IX        ; IX points queue structure
-(1)     201 : DD 35 00                   dec     (IX+queue_len)
-(1)     204 : DD 7E 03                   ld      A, (IX+queue_get)
-(1)     207 : 21 04 00                   ld      HL, queue_buf
-(1)     20A : ED 6D                      add     HL, A           ; HL=offset of queue_buf[queue_get]; A unchanged
-(1)     20C : 3C                         inc     A               ; queue_get++
-(1)     20D : DD BE 01                   cp      (IX+queue_size)
-(1)     210 : 38 01                      jr      C, queue_remove_update ; queue_get < queue_size
-(1)     212 : AF                         xor     A                      ; wrap around
-(1)     213 :                    queue_remove_update:
-(1)     213 : DD 77 03                   ld      (IX+queue_get), A
-(1)     216 : DD 79                      ld      A, (HL+IX)      ; read an element
-(1)     218 : ED 2A 00 00                lda     HL, (IX+0)      ; restore HL, no stack access
-(1)     21C : DD E1                      pop     IX
-(1)     21E : 37                         scf                     ; set carry
-(1)     21F : C9                         ret
-        220 :
-        220 :                    ;;; Receive interrupt, interrupt mode 3: (SP) = identifier, MSR, PC.
-        220 :                    isr_inta:
-        220 : F5                         push    AF
-        221 : C5                         push    BC
-        222 : E5                         push    HL
-        223 : 01 41 01                   ld      BC, USARTS
-        226 : ED 78                      in      A, (C)          ; (USARTS)
-        228 : CB 4F                      bit     ST_RxRDY_bp, A
-        22A : 28 0B                      jr      Z, isr_inta_end
-        22C : 01 40 01                   ld      BC, USARTD
-        22F : ED 78                      in      A, (C)          ; (USARTD)
-        231 : 21 00 08                   ld      HL, rx_queue
-        234 : CD C6 01                   call    queue_add
-        237 :                    isr_inta_end:
-        237 : E1                         pop     HL
-        238 : C1                         pop     BC
-        239 : F1                         pop     AF
-        23A : 33                         inc     SP              ; drop the identifier word
-        23B : 33                         inc     SP
-        23C : ED 55                      retil
-        23E :
-        23E :                    ;;; User page descriptors: page 0 maps to USER_FRAME, the rest are invalid.
-        23E :                    user_pdrs:
-        23E : 58 0A                      dw      (USER_FRAME<<PDR_PFA_bp)|PDR_V_bm
-        240 : 00 00 00 00 00 00          dw      0, 0, 0, 0, 0, 0, 0
-        246 : 00 00 00 00 00 00
-        24C : 00 00
-        24E : 00 00 00 00 00 00          dw      0, 0, 0, 0, 0, 0, 0, 0
-        254 : 00 00 00 00 00 00
-        25A : 00 00 00 00
-        25E :
-        25E :                    ;;; Interrupt/Trap Vector Table: MSR then PC per entry (Table 6-5).
+(1)     1FC :                            align   2
+(1)     1FC :                    ;;; [queue] Remove an element from queue
+(1)     1FC :                    ;;; @param HL queue work space pointer
+(1)     1FC :                    ;;; @return A an element
+(1)     1FC :                    ;;; @return F.C 0 if queue is empty
+(1)     1FC :                    queue_remove:
+(1)     1FC : 7E                         ld      A, (HL)         ; queue_len
+(1)     1FD : B7                         or      A               ; clear carry
+(1)     1FE : C8                         ret     Z               ; queue_len == 0
+(1)     1FF : E5                         push    HL
+(1)     200 : DD E3                      ex      (SP), IX        ; IX points queue structure
+(1)     202 : DD 35 00                   dec     (IX+queue_len)
+(1)     205 : DD 7E 03                   ld      A, (IX+queue_get)
+(1)     208 : 21 04 00                   ld      HL, queue_buf
+(1)     20B : ED 6D                      add     HL, A           ; HL=offset of queue_buf[queue_get]; A unchanged
+(1)     20D : 3C                         inc     A               ; queue_get++
+(1)     20E : DD BE 01                   cp      (IX+queue_size)
+(1)     211 : 38 01                      jr      C, queue_remove_update ; queue_get < queue_size
+(1)     213 : AF                         xor     A                      ; wrap around
+(1)     214 :                    queue_remove_update:
+(1)     214 : DD 77 03                   ld      (IX+queue_get), A
+(1)     217 : DD 79                      ld      A, (HL+IX)      ; read an element
+(1)     219 : ED 2A 00 00                lda     HL, (IX+0)      ; restore HL, no stack access
+(1)     21D : DD E1                      pop     IX
+(1)     21F : 37                         scf                     ; set carry
+(1)     220 : C9                         ret
+        221 :
+        222 :                            align   2
+        222 :                    ;;; Receive interrupt, interrupt mode 3: (SP) = identifier, MSR, PC.
+        222 :                    isr_inta:
+        222 : F5                         push    AF
+        223 : C5                         push    BC
+        224 : E5                         push    HL
+        225 : 01 41 01                   ld      BC, USARTS
+        228 : ED 78                      in      A, (C)          ; (USARTS)
+        22A : CB 4F                      bit     ST_RxRDY_bp, A
+        22C : 28 0B                      jr      Z, isr_inta_end
+        22E : 01 40 01                   ld      BC, USARTD
+        231 : ED 78                      in      A, (C)          ; (USARTD)
+        233 : 21 00 08                   ld      HL, rx_queue
+        236 : CD C6 01                   call    queue_add
+        239 :                    isr_inta_end:
+        239 : E1                         pop     HL
+        23A : C1                         pop     BC
+        23B : F1                         pop     AF
+        23C : 33                         inc     SP              ; drop the identifier word
+        23D : 33                         inc     SP
+        23E : ED 55                      retil
+        240 :
+        240 :                            align   2
+        240 :                    ;;; User page descriptors: page 0 maps to USER_FRAME, the rest are invalid.
+        240 :                    user_pdrs:
+        240 : 58 0A                      dw      (USER_FRAME<<PDR_PFA_bp)|PDR_V_bm
+        242 : 00 00 00 00 00 00          dw      0, 0, 0, 0, 0, 0, 0
+        248 : 00 00 00 00 00 00
+        24E : 00 00
+        250 : 00 00 00 00 00 00          dw      0, 0, 0, 0, 0, 0, 0, 0
+        256 : 00 00 00 00 00 00
+        25C : 00 00 00 00
+        260 :
+        260 :                    ;;; Interrupt/Trap Vector Table: MSR then PC per entry (Table 6-5).
        2000 :                            org     IVT
        2000 : 00 00 00 00                dw      0, 0                            ; 00 reserved
        2004 : 00 00 66 00                dw      0, ORG_NMI                      ; 04 NMI: where the debugger expects it
-       2008 : 00 00 20 02                dw      0, isr_inta                     ; 08 interrupt line A: the USART
+       2008 : 00 00 22 02                dw      0, isr_inta                     ; 08 interrupt line A: the USART
        200C : 00 00 B2 01                dw      0, trap_break                   ; 0C interrupt line B
        2010 : 00 00 B2 01                dw      0, trap_break                   ; 10 interrupt line C
        2014 : 00 00 B2 01                dw      0, trap_break                   ; 14 counter/timer 0

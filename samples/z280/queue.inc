@@ -28,6 +28,7 @@ queue_init:
         pop     AF
         ret
 
+        align   2
 ;;; [queue] Add an element to queue
 ;;; @param HL queue work space pointer
 ;;; @param A an element
@@ -62,6 +63,7 @@ queue_add_full:
         or      A               ; clear carry
         ret
 
+        align   2
 ;;; [queue] Remove an element from queue
 ;;; @param HL queue work space pointer
 ;;; @return A an element

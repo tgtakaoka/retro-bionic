@@ -96,6 +96,7 @@ enter_user:
         push    HL
         retil
 
+        align   2
 ;;; System Call trap: (SP) = reason code, MSR, PC of the user program.
 syscall:
         ex      (SP), HL        ; HL = reason code, the user's HL kept
@@ -138,6 +139,7 @@ halt_to_system:
         ld      (HL), 0FFH      ; RST 38H at its vector: exit to the debugger
         rst     38h
 
+        align   2
 ;;; Any trap not expected: break in system mode with the trap's
 ;;; status still on the stack for inspection.
 trap_break:
@@ -145,6 +147,7 @@ trap_break:
 
         include "queue.inc"
 
+        align   2
 ;;; Receive interrupt, interrupt mode 3: (SP) = identifier, MSR, PC.
 isr_inta:
         push    AF
@@ -166,6 +169,7 @@ isr_inta_end:
         inc     SP
         retil
 
+        align   2
 ;;; User page descriptors: page 0 maps to USER_FRAME, the rest are invalid.
 user_pdrs:
         dw      (USER_FRAME<<PDR_PFA_bp)|PDR_V_bm
