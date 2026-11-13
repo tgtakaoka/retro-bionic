@@ -31,7 +31,7 @@ void RegsZ86::print() const {
 void RegsZ86::reset() {
     constexpr auto P3M = 247;
     constexpr auto P01M = 248;
-    write_reg(P3M, 0);
+    write_reg(P3M, 0x08);  // P34 = #DM
     // bit 2 selects the internal stack
     write_reg(P01M, 0x92 | ((1 - EXTERNAL_STACK) << 2));
     static constexpr uint8_t JP_RESET[] = {

@@ -14,7 +14,7 @@ struct RegsZ86;
  */
 
 struct MemsZ86 final : z8::MemsZ8 {
-    MemsZ86(RegsZ86 *regs, Devs *dev);
+    MemsZ86(RegsZ86 *regs, z8::DevsZ8 *devs);
     uint32_t maxData() const override { return maxAddr() + 0x100; }
     uint16_t get_data(uint32_t addr) const override;
     void put_data(uint32_t addr, uint16_t data) const override;

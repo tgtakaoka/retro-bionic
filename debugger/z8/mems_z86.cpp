@@ -4,7 +4,8 @@
 namespace debugger {
 namespace z86 {
 
-MemsZ86::MemsZ86(RegsZ86 *regs, Devs *devs) : MemsZ8(devs), _regs(regs) {};
+MemsZ86::MemsZ86(RegsZ86 *regs, z8::DevsZ8 *devs)
+    : MemsZ8(devs), _regs(regs) {};
 
 uint16_t MemsZ86::get_data(uint32_t addr) const {
     return (addr < 0x100) ? _regs->read_reg(addr) : read(addr);

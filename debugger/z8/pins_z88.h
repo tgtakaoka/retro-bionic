@@ -52,6 +52,8 @@ struct PinsZ88 final : z8::PinsZ8 {
     void startFast(uint16_t ip, bool enabled, bool fis);
 
 private:
+    friend struct z8::PinsZ8;
+
     // A fast interrupt pushes nothing, so the bus doesn't show it without
     // IP, the fast interrupt enable in SYM, and FIS in FLAGS: the restored
     // state, then what the program does.
@@ -60,8 +62,8 @@ private:
     bool _fis = false;
 
     void armFast();
-    void takeFast(z8::Signals *s) override;
-    uint8_t fastCycles(uint16_t addr, uint8_t inst, uint8_t cycles) override;
+    void takeFast(z8::Signals *s);
+    uint8_t fastCycles(uint16_t addr, uint8_t inst, uint8_t cycles);
 #endif
 };
 

@@ -4,7 +4,7 @@
 namespace debugger {
 namespace z88 {
 
-MemsZ88::MemsZ88(RegsZ88 *regs, Devs *devs) : MemsZ8(devs), _regs(regs) {}
+MemsZ88::MemsZ88(RegsZ88 *regs, z8::DevsZ8 *devs) : MemsZ8(devs), _regs(regs) {}
 
 uint16_t MemsZ88::get_data(uint32_t addr) const {
     if (addr < 0x100) {
