@@ -1,8 +1,6 @@
 #include "devs_tms7000.h"
 #include <strings.h>
-#include "mc6850.h"
 #include "pins_tms7000.h"
-#include "tms7002_serial_handler.h"
 
 namespace debugger {
 namespace tms7000 {
@@ -52,10 +50,6 @@ void DevsTms7000::setIdle(bool idle) {
     if (_serial)
         _serial->setIdle(idle);
 #endif
-}
-
-bool DevsTms7000::isSelected(uint32_t addr) const {
-    return _acia->isSelected(addr);
 }
 
 uint16_t DevsTms7000::read(uint32_t addr) const {

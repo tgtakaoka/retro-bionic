@@ -6,7 +6,7 @@
 namespace debugger {
 namespace tms7000 {
 
-MemsTms7000::MemsTms7000(RegsTms7000 *regs, Devs *devs)
+MemsTms7000::MemsTms7000(RegsTms7000 *regs, DevsTms7000 *devs)
     : DmaMemory(Endian::ENDIAN_BIG), _regs(regs), _devs(devs) {
 #ifdef WITH_ASSEMBLER
     _assembler = new libasm::tms7000::AsmTms7000();
@@ -15,18 +15,6 @@ MemsTms7000::MemsTms7000(RegsTms7000 *regs, Devs *devs)
     _disassembler = new libasm::tms7000::DisTms7000();
 
 #endif
-}
-
-uint16_t MemsTms7000::read(uint32_t addr) const {
-    return _devs->isSelected(addr) ? _devs->read(addr) : read_byte(addr);
-}
-
-void MemsTms7000::write(uint32_t addr, uint16_t data) const {
-    if (_devs->isSelected(addr)) {
-        _devs->write(addr, data);
-    } else {
-        write_byte(addr, data);
-    }
 }
 
 // The register and peripheral files below 0200H are on-chip, reached by

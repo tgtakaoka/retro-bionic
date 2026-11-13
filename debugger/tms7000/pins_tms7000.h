@@ -53,7 +53,9 @@
 #define PIN_PB1 31      /* P8.22 */
 #define PIN_PB2 30      /* P8.23 */
 
+#include <Arduino.h>
 #include "devs_tms7000.h"
+#include "digital_bus.h"
 #include "pins.h"
 #include "signals_tms7000.h"
 
@@ -70,6 +72,15 @@ enum ClockType : uint8_t {
     CLK_DIV2 = 0,  // NL2
     CLK_DIV4 = 1,  // NL4
     CLK_CMOS = 2,  // CMOS
+};
+
+// How the bus cycles are clocked; each has its own bus-cycle engine.
+enum EngineType : uint8_t {
+    ENG_DIV2 = 0,       // NMOS /2
+    ENG_DIV4 = 1,       // NMOS /4
+    ENG_CMOS = 2,       // CMOS /2, CLKIN inverted
+    ENG_DIV2_7002 = 3,  // TMS7002, ALATCH rising in the CLKIN low half
+    ENG_CMOS_7002 = 4,  // TMS70C02
 };
 
 enum IntrName : uint8_t {
@@ -104,34 +115,89 @@ private:
     // The fetch park() left prepared, for execute() to start from
     Signals *_parked = nullptr;
 
-    void (*_wait_alatch)(DevsTms7000 *devs);
-    Signals *(*_prepareCycle)(DevsTms7000 *devs);
-    void (PinsTms7000::*_completeCycle)(Signals *) const;
-    void wait_alatch() const { _wait_alatch(devs<DevsTms7000>()); }
-    Signals *prepareCycle() const { return _prepareCycle(devs<DevsTms7000>()); }
+    // The engine bus cycles run on.
+    EngineType _engine = ENG_DIV2;
+    template <typename F>
+    auto withEngine(F f) const;
+
+
+    template <EngineType E>
     void div2Complete(Signals *) const;
     void div4Complete(Signals *) const;
+    template <EngineType E>
+    Signals *prepareCycle() const;
+    template <EngineType E>
     Signals *completeCycle(Signals *s) const;
 
     void synchronizeClock();
+    template <EngineType E>
+    void resetCpu();
+    template <EngineType E>
     void checkHardwareType();
+    template <EngineType E>
     Signals *cycle() const;
+    template <EngineType E>
     Signals *inject(uint8_t data) const;
 #ifdef PROFILE_CYCLES
     const Signals *_profileEnd;
+    template <EngineType E>
     bool loop();
     static bool isTrap23Vector(const Signals *s);
     void markFetches(const Signals *end);
 #else
+    template <EngineType E>
     void loop();
 #endif
+    template <EngineType E>
     bool rawStep();
+    template <EngineType E>
+    void park();
+    template <EngineType E>
     uint16_t execute(const uint8_t *inst, uint8_t len, uint8_t *buf = nullptr,
             uint8_t max = 0);
 
     const SignalsImpl *findBacktraceStart() override;
     void printBacktrace() override;
 };
+
+void Signals::getAddress() {
+    addr = busRead(ADDR);
+}
+
+void Signals::getDirection() {
+    cntl() = busRead(CNTL);
+    markFetch(false);
+}
+
+bool Signals::external() const {
+    return (cntl() & CNTL_ENABLE) == 0;
+}
+
+bool Signals::read() const {
+    return (cntl() & (CNTL_ENABLE | CNTL_RW)) == CNTL_RW;
+}
+
+bool Signals::write() const {
+    return (cntl() & (CNTL_ENABLE | CNTL_RW)) == 0;
+}
+
+// Interrupt acknowledge: an internal read of address 0
+bool Signals::intack() const {
+    return addr == 0 && (cntl() & (CNTL_ENABLE | CNTL_RW)) == (CNTL_ENABLE | CNTL_RW);
+}
+
+void Signals::getData() {
+    data = busRead(AD);
+}
+
+void Signals::outData() const {
+    busWrite(AD, data);
+    busMode(AD, OUTPUT);
+}
+
+void Signals::inputMode() const {
+    busMode(AD, INPUT);
+}
 
 }  // namespace tms7000
 }  // namespace debugger
