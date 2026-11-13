@@ -1,50 +1,10 @@
 #include "signals_tms7000.h"
 #include "char_buffer.h"
 #include "debugger.h"
-#include "digital_bus.h"
 #include "pins_tms7000.h"
 
 namespace debugger {
 namespace tms7000 {
-
-void Signals::getAddress() {
-    addr = busRead(ADDR);
-}
-
-void Signals::getDirection() {
-    cntl() = busRead(CNTL);
-    markFetch(false);
-}
-
-bool Signals::external() const {
-    return (cntl() & CNTL_ENABLE) == 0;
-}
-
-bool Signals::read() const {
-    return (cntl() & (CNTL_ENABLE | CNTL_RW)) == CNTL_RW;
-}
-
-bool Signals::write() const {
-    return (cntl() & (CNTL_ENABLE | CNTL_RW)) == 0;
-}
-
-// Interrupt acknowledge: an internal read of address 0
-bool Signals::intack() const {
-    return addr == 0 && (cntl() & (CNTL_ENABLE | CNTL_RW)) == (CNTL_ENABLE | CNTL_RW);
-}
-
-void Signals::getData() {
-    data = busRead(AD);
-}
-
-void Signals::outData() const {
-    busWrite(AD, data);
-    busMode(AD, OUTPUT);
-}
-
-void Signals::inputMode() const {
-    busMode(AD, INPUT);
-}
 
 void Signals::print() const {
     //                              0123456789012

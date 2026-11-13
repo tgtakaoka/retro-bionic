@@ -7,23 +7,24 @@ namespace debugger {
 namespace tms7000 {
 
 struct Signals final : SignalsBase<Signals> {
-    void getAddress();
-    void getDirection();
-    void getData();
-    void outData() const;
-    void inputMode() const;
+    // Inline in pins_tms7000.h, for the bus engines.
+    inline void getAddress();
+    inline void getDirection();
+    inline void getData();
+    inline void outData() const;
+    inline void inputMode() const;
     void print() const;
 
-    bool external() const;
-    bool read() const;
-    bool write() const;
+    inline bool external() const;
+    inline bool read() const;
+    inline bool write() const;
     bool fetch() const { return _signals[1]; }
     void markFetch(bool fetch) { _signals[1] = fetch; }
 #ifdef PROFILE_CYCLES
     uint8_t matched() const { return _signals[2]; }
     void setMatched(uint8_t cycles) { _signals[2] = cycles; }
 #endif
-    bool intack() const;
+    inline bool intack() const;
 
 private:
     uint8_t cntl() const { return _signals[0]; }

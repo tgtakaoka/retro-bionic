@@ -2,7 +2,8 @@
 #define __DEVS_TMS7000_H__
 
 #include "devs.h"
-#include "serial_handler.h"
+#include "mc6850.h"
+#include "tms7002_serial_handler.h"
 
 #define ACIA_BASE 0x01F0  // P240
 
@@ -11,7 +12,7 @@ namespace tms7000 {
 
 enum HardwareType : uint8_t;
 
-struct DevsTms7000 : Devs {
+struct DevsTms7000 final : Devs {
     DevsTms7000();
     ~DevsTms7000();
 
@@ -19,7 +20,10 @@ struct DevsTms7000 : Devs {
     void reset() override;
     bool loopDevices() override;
     void setIdle(bool idle) override;
-    bool isSelected(uint32_t addr) const override;
+    // Inline for the bus cycles: Mc6850 is final.
+    bool isSelected(uint32_t addr) const override {
+        return _acia->isSelected(addr);
+    }
     uint16_t read(uint32_t addr) const override;
     void write(uint32_t addr, uint16_t data) const override;
 
@@ -36,9 +40,9 @@ struct DevsTms7000 : Devs {
     }
 
 private:
-    Device *_acia;
+    Mc6850 *const _acia;
 #if defined(ENABLE_SERIAL_HANDLER)
-    SerialHandler *_serial;
+    tms7002::Tms7002SerialHandler *_serial;
 #endif
 };
 
