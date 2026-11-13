@@ -95,8 +95,9 @@ def load_capture(path, name):
     """The [name] table's capture settings by channel index: its trigger,
     a dict of start_capture() arguments or None, and its Simple Parallel
     decoders as [(data channels, clock channel, edge)]. Settings name
-    signals; a trigger's `when` holds other signals "high" or "low", and
-    its `before`/`after` keep that many seconds around it."""
+    signals; a trigger's `when` holds other signals "high" or "low", its
+    `before`/`after` keep that many seconds around it, and `glitch` drops
+    the trigger channel's pulses shorter than that many seconds."""
     with open(path, 'rb') as f:
         table = tomllib.load(f).get(name, {})
     index = {v['signal']: int(k) for k, v in table.items() if k.isdigit()}
@@ -106,7 +107,7 @@ def load_capture(path, name):
         trigger = {'trigger': index[t['signal']], 'edge': t.get('edge', 'rise'),
                    'linked': [(index[s], v) for s, v in t.get('when', {}).items()],
                    'min_width': t.get('min_width'), 'max_width': t.get('max_width')}
-        trigger.update({k: t[k] for k in ('before', 'after') if k in t})
+        trigger.update({k: t[k] for k in ('before', 'after', 'glitch') if k in t})
         if t.get('long'):
             trigger['limit'] = LONG_WINDOW
         trigger['analog'] = sorted(load_analog(path, name))
