@@ -6,16 +6,17 @@
 namespace debugger {
 namespace mc6809 {
 struct Signals : SignalsBase<Signals, mc6800::Signals> {
-    void getHighAddr();
-    void getLowAddr();
-    void getDirection();
-    void getControl();
-    void getData();
-    void outData() const;
-    static void inputMode();
+    // Inline in pins_mc6809_base.h, for the bus cycles.
+    inline void getHighAddr();
+    inline void getLowAddr();
+    inline void getDirection();
+    inline void getControl();
+    inline void getData();
+    inline void outData() const;
+    static inline void inputMode();
     void print() const;
 
-    bool vector() const;
+    inline bool vector() const;
 };
 }  // namespace mc6809
 }  // namespace debugger

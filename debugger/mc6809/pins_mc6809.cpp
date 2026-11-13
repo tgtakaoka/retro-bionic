@@ -38,21 +38,62 @@ namespace {
 // tDSR: min    80 ns ; data to e_lo
 // tPCS: min   200 ns ; reset_hi to q_lo
 constexpr auto extal_hi_ns = 105;   // 125
-constexpr auto extal_lo_ns = 89;    // 125
-constexpr auto c1_lo_ns = 28;       // 125
-constexpr auto c1_hi_ns = 66;       // 125
-constexpr auto c2_lo_ns = 50;       // 125
-constexpr auto c2_hi_ns = 76;       // 125
-constexpr auto c3_lo_write = 72;    // 125
-constexpr auto c3_hi_write = 78;    // 125
-constexpr auto c4_lo_write = 1;     // 125
-constexpr auto c4_lo_capture = 85;  // 125
-constexpr auto c4_hi_write = 52;    // 125
-constexpr auto c3_lo_read = 70;     // 125
-constexpr auto c3_hi_read = 7;      // 125
-constexpr auto c3_hi_inject = 80;   // 125
-constexpr auto c4_lo_read = 50;     // 125
-constexpr auto c4_hi_read = 52;     // 125
+constexpr auto extal_lo_ns = 109;   // 125
+
+// The bus cycle's delays, each in an EXTAL half of 125 ns.
+enum Delay : uint8_t {
+    c1_lo_ns,
+    c1_hi_ns,
+    c2_lo_ns,
+    c2_hi_ns,
+    c3_lo_write,
+    c3_hi_write,
+    c4_lo_write,
+    c4_lo_capture,
+    c4_hi_write,
+    c3_lo_read,
+    c3_hi_read,
+    c3_hi_inject,
+    c4_lo_read,
+    c4_hi_read,
+    DELAYS,
+};
+
+// Long enough that no E cycle runs under tCYC, nor EXTAL faster than fXTAL,
+// the 1 MHz part's.
+constexpr uint16_t DELAY_NS[] = {
+        60,   // c1_lo_ns
+        91,   // c1_hi_ns
+        68,   // c2_lo_ns
+        104,  // c2_hi_ns
+        99,   // c3_lo_write
+        107,  // c3_hi_write
+        60,   // c4_lo_write
+        117,  // c4_lo_capture
+        71,   // c4_hi_write
+        96,   // c3_lo_read
+        60,   // c3_hi_read
+        110,  // c3_hi_inject
+        68,   // c4_lo_read
+        71,   // c4_hi_read
+};
+// MC68B09 (2 MHz): E 1.63 MHz, EXTAL under 8 MHz on the bench.
+// constexpr uint16_t DELAY_NS[] = {
+//         10,  // c1_lo_ns
+//         24,  // c1_hi_ns
+//         18,  // c2_lo_ns
+//         27,  // c2_hi_ns
+//         26,  // c3_lo_write
+//         28,  // c3_hi_write
+//         1,   // c4_lo_write
+//         30,  // c4_lo_capture
+//         18,  // c4_hi_write
+//         25,  // c3_lo_read
+//         2,   // c3_hi_read
+//         29,  // c3_hi_inject
+//         18,  // c4_lo_read
+//         18,  // c4_hi_read
+// };
 
 inline void extal_hi() {
     digitalWriteFast(PIN_EXTAL, HIGH);
@@ -130,10 +171,16 @@ inline void extal_cycle() {
 
 }  // namespace
 
+template <uint8_t F>
+inline uint16_t PinsMc6809::ns() const {
+    return DELAY_NS[F];
+}
+
 PinsMc6809::PinsMc6809() {
     _regs = new RegsMc6809(this);
-    _devs = new DevsMc6809();
-    _mems = new MemsMc6809(_devs);
+    auto devs = new DevsMc6809();
+    _devs = devs;
+    _mems = new MemsMc6809(devs);
     _inst = new hd6309::InstHd6309(_mems);
 }
 
@@ -160,7 +207,7 @@ void PinsMc6809::resetPins() {
         cycle();
     negate_reset();
 
-    PinsMc6809Base::resetPins();
+    PinsMc6809Engine::resetPins();
 }
 
 Signals *PinsMc6809::rawCycle() const {
@@ -168,55 +215,54 @@ Signals *PinsMc6809::rawCycle() const {
     extal_hi();
     Signals::inputMode();
     auto s = Signals::put();
-    delayNanoseconds(c1_hi_ns);
+    delayNanoseconds(ns<c1_hi_ns>());
     // C2L
     extal_lo();
-    delayNanoseconds(c2_lo_ns);
+    delayNanoseconds(ns<c2_lo_ns>());
     s->getHighAddr();
     // C2H
     extal_hi();
     s->getDirection();
-    delayNanoseconds(c2_hi_ns);
+    delayNanoseconds(ns<c2_hi_ns>());
     // C3L
     extal_lo();
     s->getLowAddr();
     if (s->write()) {
-        delayNanoseconds(c3_lo_write);
+        delayNanoseconds(ns<c3_lo_write>());
         // C3H
         extal_hi();
         s->getData();
-        delayNanoseconds(c3_hi_write);
+        delayNanoseconds(ns<c3_hi_write>());
         // C4L
         extal_lo();
         if (s->writeMemory()) {
-            _mems->write(s->addr, s->data);
-            if (c4_lo_write)
-                delayNanoseconds(c4_lo_write);
+            mems<MemsMc6809>()->write(s->addr, s->data);
+            delayNanoseconds(ns<c4_lo_write>());
         } else {
-            delayNanoseconds(c4_lo_capture);
+            delayNanoseconds(ns<c4_lo_capture>());
         }
         // C4H
         extal_hi();
         Cycles::next();
-        delayNanoseconds(c4_hi_write);
+        delayNanoseconds(ns<c4_hi_write>());
     } else {
-        delayNanoseconds(c3_lo_read);
+        delayNanoseconds(ns<c3_lo_read>());
         // C3H
         extal_hi();
         if (s->readMemory()) {
-            s->data = _mems->read(s->addr);
-            delayNanoseconds(c3_hi_read);
+            s->data = mems<MemsMc6809>()->read(s->addr);
+            delayNanoseconds(ns<c3_hi_read>());
         } else {
-            delayNanoseconds(c3_hi_inject);
+            delayNanoseconds(ns<c3_hi_inject>());
         }
         // C4L
         extal_lo();
         s->outData();
-        delayNanoseconds(c4_lo_read);
+        delayNanoseconds(ns<c4_lo_read>());
         // C4H
         extal_hi();
         Cycles::next();
-        delayNanoseconds(c4_hi_read);
+        delayNanoseconds(ns<c4_hi_read>());
     }
     s->getControl();
     // C1L
@@ -226,9 +272,11 @@ Signals *PinsMc6809::rawCycle() const {
 }
 
 Signals *PinsMc6809::cycle() const {
-    delayNanoseconds(c1_lo_ns);
+    delayNanoseconds(ns<c1_lo_ns>());
     return rawCycle();
 }
+
+template struct PinsMc6809Engine<PinsMc6809>;
 
 }  // namespace mc6809
 }  // namespace debugger

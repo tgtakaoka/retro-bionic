@@ -8,17 +8,6 @@ namespace debugger {
 namespace mc6809 {
 
 namespace {
-// Longest instruction (HD6309 DIVQ) plus a context push, with margin.
-constexpr auto SUSPEND_CYCLES = 100;
-
-void assert_nmi() {
-    digitalWriteFast(PIN_NMI, LOW);
-}
-
-void negate_nmi() {
-    digitalWriteFast(PIN_NMI, HIGH);
-}
-
 void assert_irq() {
     digitalWriteFast(PIN_IRQ, LOW);
 }
@@ -35,28 +24,7 @@ void negate_firq() {
     digitalWriteFast(PIN_FIRQ, HIGH);
 }
 
-inline bool asserted(uint8_t pin) {
-    return (*portOutputRegister(pin) & digitalPinToBitMask(pin)) == 0;
-}
-
 }  // namespace
-
-void PinsMc6809Base::resetPins() {
-    Cycles::reset();
-
-    // Clock up to the reset vector read.
-    while (!cycle()->vector())
-        ;
-    // lo(reset vector)
-    cycle();
-    cycle();  // non-VMA
-    _regs->reset();
-    // SoftwareType must be determined before context save.
-    auto softType = regs<RegsMc6809>()->checkSoftwareType();
-    _inst->setSoftwareType(softType);
-    _regs->save();
-    _regs->setIp(_mems->read16(InstMc6809::VEC_RESET));
-}
 
 Signals *PinsMc6809Base::injectCycle(uint8_t data) {
     Signals::put()->inject(data);
@@ -124,142 +92,6 @@ const Signals *PinsMc6809Base::stackFrame(const Signals *push) const {
     while (push->write())
         push = push->prev();
     return push->next();
-}
-
-#ifdef PROFILE_CYCLES
-// For scripts/record-cycles.py: stop at any SWI, keep every cycle of it,
-// and give up well before the ring wraps; the debug pin frames the run, to
-// trigger a capture on.
-void PinsMc6809Base::loop() {
-    constexpr auto MAX_CYCLES = 96;
-    const auto vec_swi = _inst->vec_swi();
-    _profileEnd = nullptr;
-    assert_debug();
-    for (auto n = 0;; ++n) {
-        _devs->loop();
-        const auto s = rawCycle();
-        if (s->vector() && s->addr == vec_swi) {
-            negate_debug();
-            cycle();  // read SWI low(vector);
-            cycle();  // non-VMA
-            const auto frame = stackFrame(s->prev(2));
-            regs<RegsMc6809>()->capture(frame);
-            // Match up to the SWI's opcode fetch, as the normal build does.
-            _profileEnd = frame->prev(2);
-            return;
-        }
-        if (n >= MAX_CYCLES || haltSwitch()) {
-            negate_debug();
-            cli.println(n >= MAX_CYCLES ? "?cycles" : "?halt");
-            suspend(true);
-            return;
-        }
-    }
-}
-#else
-void PinsMc6809Base::loop() {
-    const auto vec_swi = _inst->vec_swi();
-    while (true) {
-        const auto serviced = _devs->loop();
-        const auto s = cycle();
-        if (s->vector() && s->addr == vec_swi) {
-            cycle();  // read SWI low(vector);
-            cycle();  // non-VMA
-            const auto frame = stackFrame(s->prev(2));
-            const auto pc = uint16(frame->next()->data, frame->data);
-            const auto swi_vector = _mems->read16(vec_swi);
-            if (isBreakPoint(pc) || swi_vector == vec_swi) {
-                regs<RegsMc6809>()->capture(frame);
-                Cycles::discard(frame->prev(2));
-                return;
-            }
-        } else if (serviced && haltSwitch()) {
-            suspend(true);
-            return;
-        }
-    }
-}
-#endif
-
-void PinsMc6809Base::suspend(bool show) {
-    assert_nmi();
-reentry:
-    auto s = Signals::put();
-    for (auto n = 0;; ++n) {
-        s = cycle();
-        if (s->vector())  // NMI hi(vector)
-            break;
-        if (n >= SUSPEND_CYCLES) {
-            negate_nmi();
-            cli.println("?halt: no vector fetched");
-            return;
-        }
-    }
-    negate_nmi();
-    if (s->addr != InstMc6809::VEC_NMI) {
-        // SWI or an interrupt got in first; NMI follows at its handler.
-        cycle();  // lo(vector)
-        cycle();  // non-VMA
-        goto reentry;
-    }
-    const auto frame = stackFrame(s->prev(2));
-    if (!frame->write()) {
-        // CWAI stacks the context up front, so NMI fetches its vector
-        // without pushing. RTI back out of CWAI, then take a fresh NMI
-        // edge.
-        cycle();  // NMI lo(vector)
-        cycle();  // non-VMA
-        injectCycle(InstMc6809::RTI);
-        assert_nmi();
-        goto reentry;
-    }
-    cycle();  // NMI lo(vector)
-    cycle();  // non-VMA
-    regs<RegsMc6809>()->capture(frame, true);
-    if (show) {
-        // Keep prefetch cycle for bus cycle pattern matching.
-        const auto last =
-                frame->prev(regs<RegsMc6809>()->contextLength() == 14 ? 3 : 2);
-        Cycles::discard(last);
-    }
-}
-
-void PinsMc6809Base::run() {
-    _regs->restore();
-    Cycles::reset();
-    saveBreakInsts();
-    startRunTimer();
-    loop();
-    stopRunTimer();
-    restoreBreakInsts();
-    disassembleCycles();
-}
-
-bool PinsMc6809Base::step(bool show) {
-    Cycles::reset();
-    _regs->restore();
-    if (show)
-        Cycles::reset();
-    // With IRQ or FIRQ pending and unmasked, its entry begins right after
-    // the restoring RTI; the step's NMI would win and stay in place.
-    const auto r = regs<RegsMc6809>();
-    if ((asserted(PIN_IRQ) && !r->irqMasked()) ||
-            (asserted(PIN_FIRQ) && !r->firqMasked())) {
-        for (auto n = 0; n < SUSPEND_CYCLES; ++n) {
-            if (cycle()->vector()) {  // hi(vector)
-                cycle();              // lo(vector)
-                cycle();              // non-VMA
-                break;
-            }
-        }
-    }
-    suspend(show);
-    if (show) {
-        // Discard prefetch cycle.
-        const auto end = Signals::put()->prev(1);
-        printCycles(end);
-    }
-    return true;
 }
 
 void PinsMc6809Base::assertInt(uint8_t name) {

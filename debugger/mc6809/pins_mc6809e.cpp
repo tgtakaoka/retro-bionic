@@ -35,17 +35,65 @@ namespace {
 // tDDQ: max   200 ns ; q_hi to write data
 // tDSR: min    80 ns ; data to e_lo
 // tPCS: min   200 ns ; reset_hi to q_lo
-constexpr auto cycle_ns = 70;     // 250 EQ=LL
-constexpr auto c1_ns = 70;        // 250 EQ=LL
-constexpr auto c2_ns = 156;       // 250 EQ=LH
-constexpr auto c3_novma = 180;    // 250 EQ=HH
-constexpr auto c4_novma = 132;    // 250 EQ=HL
-constexpr auto c3_write = 162;    // 250 EQ=HH
-constexpr auto c4_write = 44;     // 250 EQ=HL
-constexpr auto c4_capture = 130;  // 250 EQ=HL
-constexpr auto c3_read = 90;      // 250 EQ=HH
-constexpr auto c3_inject = 188;   // 250 EQ=HH
-constexpr auto c4_read = 94;      // 250 EQ=HL
+
+// The bus cycle's delays, each in a quarter cycle of 250 ns.
+enum Delay : uint8_t {
+    cycle_ns,
+    c1_ns,
+    c2_ns,
+    c3_novma,
+    c4_novma,
+    c3_write,
+    c4_write,
+    c4_capture,
+    c3_read,
+    c3_inject,
+    c4_read,
+    DELAYS,
+};
+
+// Long enough that no E/Q cycle or phase runs under the 1 MHz part's minimum.
+constexpr uint16_t DELAY_NS[] = {
+        87,   // cycle_ns   EQ=LL
+        87,   // c1_ns      EQ=LL
+        195,  // c2_ns      EQ=LH
+        225,  // c3_novma   EQ=HH
+        165,  // c4_novma   EQ=HL
+        202,  // c3_write   EQ=HH
+        55,   // c4_write   EQ=HL
+        162,  // c4_capture EQ=HL
+        112,  // c3_read    EQ=HH
+        235,  // c3_inject  EQ=HH
+        117,  // c4_read    EQ=HL
+};
+// MC68B09E (2 MHz): E 1.91 MHz on the bench.
+// constexpr uint16_t DELAY_NS[] = {
+//         23,  // cycle_ns   EQ=LL
+//         23,  // c1_ns      EQ=LL
+//         52,  // c2_ns      EQ=LH
+//         60,  // c3_novma   EQ=HH
+//         44,  // c4_novma   EQ=HL
+//         54,  // c3_write   EQ=HH
+//         14,  // c4_write   EQ=HL
+//         43,  // c4_capture EQ=HL
+//         30,  // c3_read    EQ=HH
+//         62,  // c3_inject  EQ=HH
+//         31,  // c4_read    EQ=HL
+// };
+// HD63C09E (3 MHz): E 2.44 MHz on the bench, tEQ 68 ns of 65.
+// constexpr uint16_t DELAY_NS[] = {
+//         7,   // cycle_ns   EQ=LL
+//         7,   // c1_ns      EQ=LL
+//         15,  // c2_ns      EQ=LH
+//         18,  // c3_novma   EQ=HH
+//         13,  // c4_novma   EQ=HL
+//         16,  // c3_write   EQ=HH
+//         4,   // c4_write   EQ=HL
+//         13,  // c4_capture EQ=HL
+//         9,   // c3_read    EQ=HH
+//         18,  // c3_inject  EQ=HH
+//         9,   // c4_read    EQ=HL
+// };
 
 inline void c1_clock() {
     digitalWriteFast(PIN_E, LOW);
@@ -120,10 +168,16 @@ constexpr uint8_t PINS_INPUT[] = {
 
 }  // namespace
 
+template <uint8_t F>
+inline uint16_t PinsMc6809E::ns() const {
+    return DELAY_NS[F];
+}
+
 PinsMc6809E::PinsMc6809E() {
     _regs = new RegsMc6809E(this);
-    _devs = new mc6809::DevsMc6809();
-    _mems = new mc6809::MemsMc6809(_devs);
+    auto devs = new mc6809::DevsMc6809();
+    _devs = devs;
+    _mems = new mc6809::MemsMc6809(devs);
     _inst = new hd6309::InstHd6309(_mems);
 }
 
@@ -138,7 +192,7 @@ void PinsMc6809E::resetPins() {
         cycle();
     negate_reset();
 
-    PinsMc6809Base::resetPins();
+    PinsMc6809Engine::resetPins();
 }
 
 mc6809::Signals *PinsMc6809E::rawCycle() const {
@@ -147,45 +201,45 @@ mc6809::Signals *PinsMc6809E::rawCycle() const {
     // c1
     mc6809::Signals::inputMode();
     auto s = mc6809::Signals::put();
-    delayNanoseconds(c1_ns);
+    delayNanoseconds(ns<c1_ns>());
     // c2
     c2_clock();
-    delayNanoseconds(c2_ns);
+    delayNanoseconds(ns<c2_ns>());
     s->getDirection();
     s->getHighAddr();
     // c3
     c3_clock();
     s->getLowAddr();
     if (vma_next == LOW) {
-        delayNanoseconds(c3_novma);
+        delayNanoseconds(ns<c3_novma>());
         // c4
         c4_clock();
         Cycles::next();
-        delayNanoseconds(c4_novma);
+        delayNanoseconds(ns<c4_novma>());
     } else if (s->write()) {
-        delayNanoseconds(c3_write);
+        delayNanoseconds(ns<c3_write>());
         s->getData();
         // c4
         c4_clock();
         if (s->writeMemory()) {
-            _mems->write(s->addr, s->data);
-            delayNanoseconds(c4_write);
+            mems<mc6809::MemsMc6809>()->write(s->addr, s->data);
+            delayNanoseconds(ns<c4_write>());
         } else {
-            delayNanoseconds(c4_capture);
+            delayNanoseconds(ns<c4_capture>());
         }
         Cycles::next();
     } else {
         if (s->readMemory()) {
-            s->data = _mems->read(s->addr);
-            delayNanoseconds(c3_read);
+            s->data = mems<mc6809::MemsMc6809>()->read(s->addr);
+            delayNanoseconds(ns<c3_read>());
         } else {
-            delayNanoseconds(c3_inject);
+            delayNanoseconds(ns<c3_inject>());
         }
         // c4
         c4_clock();
         s->outData();
         Cycles::next();
-        delayNanoseconds(c4_read);
+        delayNanoseconds(ns<c4_read>());
     }
     s->getControl();
     vma_next = signal_avma();
@@ -196,11 +250,15 @@ mc6809::Signals *PinsMc6809E::rawCycle() const {
 }
 
 mc6809::Signals *PinsMc6809E::cycle() const {
-    delayNanoseconds(cycle_ns);
+    delayNanoseconds(ns<cycle_ns>());
     return rawCycle();
 }
 
 }  // namespace mc6809e
+
+namespace mc6809 {
+template struct PinsMc6809Engine<mc6809e::PinsMc6809E>;
+}  // namespace mc6809
 }  // namespace debugger
 
 // Local Variables:

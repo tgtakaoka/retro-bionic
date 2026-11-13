@@ -1,6 +1,5 @@
 #include "devs_mc6809.h"
 #include <strings.h>
-#include "mc6850.h"
 
 namespace debugger {
 namespace mc6809 {
@@ -23,10 +22,6 @@ void DevsMc6809::begin() {
 
 bool DevsMc6809::loopDevices() {
     return _acia->loop();
-}
-
-bool DevsMc6809::isSelected(uint32_t addr) const {
-    return _acia->isSelected(addr);
 }
 
 uint16_t DevsMc6809::read(uint32_t addr) const {

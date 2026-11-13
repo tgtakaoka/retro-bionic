@@ -13,15 +13,20 @@
 namespace debugger {
 namespace mc6809 {
 
-struct PinsMc6809 final : PinsMc6809Base {
+struct PinsMc6809 final : PinsMc6809Engine<PinsMc6809> {
     PinsMc6809();
 
     void resetPins() override;
 
 private:
+    friend PinsMc6809Engine<PinsMc6809>;
     Signals *rawCycle() const override;
     Signals *cycle() const override;
+    template <uint8_t F>
+    uint16_t ns() const;
 };
+
+extern template struct PinsMc6809Engine<PinsMc6809>;
 
 }  // namespace mc6809
 }  // namespace debugger
