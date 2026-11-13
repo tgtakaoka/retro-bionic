@@ -51,7 +51,7 @@ def load_preset_toml(preset, set_name=None):
 
 
 EDGES = ['rise', 'fall', 'dual']    # Simple Parallel's Clock State values
-ROW_HEIGHT = 50                     # a digital row's height, in pixels
+ROW_HEIGHT = 48                     # a digital row's height, in pixels
 ANALOG_HEIGHT = 100                 # an analog row's
 
 

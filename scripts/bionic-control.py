@@ -785,6 +785,9 @@ def main():
         board.send(b'R')          # a clean start -- upload alone leaves
                                    # whatever the CPU was already doing
         sent, txt = board.upload_file(a[1])
+        # Reset again so the PC comes from the uploaded reset vector, not
+        # the previous program's.
+        txt += board.send(b'R').decode('ascii', 'replace').replace('\r', '')
         for c in a[2:]:
             txt += board.send(c, wait=30.0, idle=2.0).decode('ascii', 'replace').replace('\r', '')
         board.close()
