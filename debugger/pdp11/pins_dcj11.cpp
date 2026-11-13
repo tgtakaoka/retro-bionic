@@ -512,7 +512,7 @@ bool PinsDcj11::parkAfterFrame(Signals *s, bool step) {
     const Signals *first = nullptr;
     const auto back = Cycles::cycles() < frame_cycles ? Cycles::cycles()
                                                       : frame_cycles;
-    for (auto i = 1; i <= back; ++i) {
+    for (auto i = 1U; i <= back; ++i) {
         const auto w = s->prev(i);
         if (w->read() && w->addr16() == vector)
             first = w;

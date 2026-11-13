@@ -19,7 +19,7 @@ void Signals::getAddr() {
 // ASEL rests high, on SN. SN0-SN3 shift up to A16-A19; SN4-SN6 shift out.
 void Signals::getSegAddr() {
     const uint32_t sn = busRead(SN);
-    addr = ((sn << 12) | sn) & 0x7F0000 | busRead(AD);
+    addr = (((sn << 12) | sn) & 0x7F0000) | busRead(AD);
 }
 
 void Signals::getStatus(uint32_t gpio7, uint8_t mode) {
