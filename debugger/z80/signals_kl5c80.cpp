@@ -10,9 +10,12 @@ namespace kl5c80 {
 constexpr auto NOBUS = CNTL_EMRD | CNTL_EMWR | CNTL_EIORD | CNTL_EIOWR;
 
 void Signals::getAddr() {
-    addr = busRead(AL) | busRead(AM) | busRead(AH);
-    // select the extended address lines for getAddrHigh()
+    const uint32_t al = PIN(AL);
+    const uint32_t am = PIN(AM);
+    // select the extended address lines for getAddrHigh(), composing
+    // A0-A15 while they settle
     digitalWriteFast(PIN_ASEL, HIGH);
+    addr = busValue(AL, al) | busValue(AM, am) | busValue(AH, am);
 }
 
 void Signals::getAddrHigh() {
