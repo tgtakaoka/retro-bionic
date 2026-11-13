@@ -7,17 +7,18 @@ namespace debugger {
 namespace i8051 {
 
 struct Signals final : SignalsBase<Signals> {
-    void getAddress();
-    void getControl();
-    void getData();
-    void setData() const;
-    static void outputMode();
-    static void inputMode();
+    // Inline in pins_i8051.h, for the bus engines.
+    inline void getAddress();
+    inline void getControl();
+    inline void getData();
+    inline void setData() const;
+    static inline void outputMode();
+    static inline void inputMode();
     void print() const;
 
-    bool read() const;
-    bool write() const;
-    bool fetch() const;
+    inline bool read() const;
+    inline bool write() const;
+    inline bool fetch() const;
     // A bus cycle that didn't happen: taken as a read, not a write.
     void noCycle();
     void clearFetch();

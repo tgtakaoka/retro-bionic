@@ -1,4 +1,5 @@
 #include "pins_i8051.h"
+#include <type_traits>
 #include "debugger.h"
 #include "devs_i8051.h"
 #include "inst_i8051.h"
@@ -51,19 +52,47 @@ namespace {
 //   TRHDZ: max  97 ns; Data float after #RD+
 //   TWHLH: max 123 ns; #RD/#WR+ to ALE+
 //   TWHQX: min  33 ns; Data hold after #WR+
-constexpr auto xtal_hi_ns = 17;      // 42 ns
-constexpr auto xtal_lo_ns = 17;      // 42 ns
-constexpr auto xtal_lo_addr = 4;     // 42 ns
-constexpr auto xtal_hi_ale = 7;      // 42 ns
-constexpr auto xtal_lo_cntl = 10;    // 42 ns
-constexpr auto xtal_hi_cntl = 0;     // 42 ns
-constexpr auto xtal_lo_inject = 0;   // 42 ns
-constexpr auto xtal_lo_output = 0;   // 42 ns
-constexpr auto xtal_hi_capture = 1;  // 42 ns
-constexpr auto xtal_hi_output = 17;  // 42 ns
-constexpr auto xtal_lo_data = 20;    // 42 ns
-constexpr auto xtal_hi_input = 0;    // 42 ns
-// delayNanoseconds(0) takes a bit longer than no delayNanoseconds() call.
+enum Delay : uint8_t {
+    xtal_hi_ns,
+    xtal_lo_ns,
+    xtal_lo_addr,
+    xtal_hi_ale,
+    xtal_lo_cntl,
+    xtal_hi_cntl,
+    xtal_lo_inject,
+    xtal_lo_output,
+    xtal_hi_capture,
+    xtal_hi_output,
+    xtal_lo_data,
+    xtal_hi_input,
+    // Phases with no delay of their own.
+    xtal_hi_rdwr,
+    xtal_lo_read,
+    xtal_hi_fetch,
+    xtal_lo_write,
+    xtal_lo_wait,
+    DELAYS,
+};
+constexpr uint16_t DELAYS_NS[] = {
+        30,  // xtal_hi_ns: 42 ns
+        32,  // xtal_lo_ns: 42 ns
+        30,  // xtal_lo_addr: 42 ns
+        20,  // xtal_hi_ale: 42 ns
+        25,  // xtal_lo_cntl: 42 ns
+        16,  // xtal_hi_cntl: 42 ns
+        8,   // xtal_lo_inject: 42 ns
+        17,  // xtal_lo_output: 42 ns
+        8,   // xtal_hi_capture: 42 ns
+        24,  // xtal_hi_output: 42 ns
+        20,  // xtal_lo_data: 42 ns
+        8,   // xtal_hi_input: 42 ns
+        20,  // xtal_hi_rdwr: 42 ns
+        8,   // xtal_lo_read: 42 ns
+        25,  // xtal_hi_fetch: 42 ns
+        8,   // xtal_lo_write: 42 ns
+        20,  // xtal_lo_wait: 42 ns
+};
+
 
 inline void assert_int0() {
     digitalWriteFast(PIN_INT0, LOW);
@@ -155,22 +184,39 @@ constexpr uint8_t PINS_INPUT[] = {
 
 }  // namespace
 
-// P8051 external clock
-void xtal2_hi() {
-    digitalWriteFast(PIN_XTAL, HIGH);
+template <ClockType E>
+struct PinsI8051::Traits {
+    // PIN_XTAL's level for XTAL2 high: the P80C51 takes it on XTAL1.
+    static constexpr uint8_t xtalHi = E == CLK_XTAL2 ? HIGH : LOW;
+    static constexpr uint8_t xtalLo = E == CLK_XTAL2 ? LOW : HIGH;
+};
+
+// Calls |f| with the engine as a compile-time constant.
+template <typename F>
+auto PinsI8051::withEngine(F f) {
+    switch (_engine) {
+    case CLK_XTAL1:
+        return f(std::integral_constant<ClockType, CLK_XTAL1>());
+    default:
+        return f(std::integral_constant<ClockType, CLK_XTAL2>());
+    }
 }
 
-void xtal2_lo() {
-    digitalWriteFast(PIN_XTAL, LOW);
+template <uint8_t D>
+inline void PinsI8051::delay() const {
+    if constexpr (DELAYS_NS[D] != 0)
+        delayNanoseconds(DELAYS_NS[D]);
 }
 
-// P80C51 external clock
-void xtal1_lo() {
-    digitalWriteFast(PIN_XTAL, LOW);
+
+template <ClockType E>
+inline void PinsI8051::xtal_hi() const {
+    digitalWriteFast(PIN_XTAL, Traits<E>::xtalHi);
 }
 
-void xtal1_hi() {
-    digitalWriteFast(PIN_XTAL, HIGH);
+template <ClockType E>
+inline void PinsI8051::xtal_lo() const {
+    digitalWriteFast(PIN_XTAL, Traits<E>::xtalLo);
 }
 
 PinsI8051::PinsI8051() {
@@ -185,17 +231,19 @@ PinsI8051::~PinsI8051() {
     delete _data;
 }
 
+template <ClockType E>
 inline void PinsI8051::xtal_cycle_lo() const {
-    xtal_hi();
-    delayNanoseconds(xtal_hi_ns);
-    xtal_lo();
+    xtal_hi<E>();
+    delay<xtal_hi_ns>();
+    xtal_lo<E>();
 }
 
+template <ClockType E>
 inline void PinsI8051::xtal_cycle() const {
-    xtal_hi();
-    delayNanoseconds(xtal_hi_ns);
-    xtal_lo();
-    delayNanoseconds(xtal_lo_ns);
+    xtal_hi<E>();
+    delay<xtal_hi_ns>();
+    xtal_lo<E>();
+    delay<xtal_lo_ns>();
 }
 
 void PinsI8051::resetPins() {
@@ -208,23 +256,21 @@ void PinsI8051::resetPins() {
     pinMode(PIN_XTAL, OUTPUT);
     digitalWriteFast(PIN_XTAL, HIGH);
     delayNanoseconds(1000);
-    if (signal_xtype() == LOW) {
-        // P8051: XTAL=XTAL2, XTAL_TYPE=XTAL1=GND
-        _xtal_hi = xtal2_hi;
-        _xtal_lo = xtal2_lo;
-    } else {
-        // P80C51: XTAL=XTAL1, XTAL_TYPE=XTAL1=XTAL
-        // XTAL1 is ~XTAL2 of P8051
-        _xtal_hi = xtal1_lo;
-        _xtal_lo = xtal1_hi;
-    }
-    pinMode(PIN_XTAL, OUTPUT);
-    xtal_lo();
+    // P8051: XTAL=XTAL2, XTAL_TYPE=XTAL1=GND
+    // P80C51: XTAL=XTAL1, XTAL_TYPE=XTAL1=XTAL
+    _engine = signal_xtype() == LOW ? CLK_XTAL2 : CLK_XTAL1;
+    withEngine([&](auto e) { resetCpu<decltype(e)::value>(); });
+}
+
+template <ClockType E>
+void PinsI8051::resetCpu() {
+    xtal_lo<E>();
+    delay<xtal_lo_ns>();
 
     // A reset is accomplished by holding the RST pin high for at
     // least two machine cycles (24 oscillator periods).
     for (auto i = 0; i < 30; ++i)
-        xtal_cycle();
+        xtal_cycle<E>();
     negate_reset();
     Cycles::reset();
     _regs->save();
@@ -233,6 +279,7 @@ void PinsI8051::resetPins() {
 // ALE-high oscillator periods taken for idle mode.
 constexpr auto idle_cycles = 1000;
 
+template <ClockType E>
 Signals *PinsI8051::prepareCycle() {
     auto s = Signals::put();
     // #PSEN:S1H2, #RD/#WR:S4H2
@@ -241,12 +288,12 @@ Signals *PinsI8051::prepareCycle() {
     // rather than wait for ever (in power-down ALE stays low instead).
     for (auto n = 0;; ++n) {
         // #PSEN:S2L1/S2L2, #RD/#WR:S5L1/S5L2
-        xtal_lo();  // S2L2/S5L2 triggers ALE-
-        delayNanoseconds(xtal_lo_addr);
+        xtal_lo<E>();  // S2L2/S5L2 triggers ALE-
+        delay<xtal_lo_addr>();
         s->getAddress();
         // #PSEN:S2H1/S2H2, #RD/#WR:S5H1/S5H2
-        xtal_hi();
-        delayNanoseconds(xtal_hi_ale);
+        xtal_hi<E>();
+        delay<xtal_hi_ale>();
         if (signal_ale() == LOW)
             break;
         if (n >= idle_cycles) {
@@ -273,55 +320,59 @@ Signals *PinsI8051::prepareCycle() {
         }
     }
     // #PSEN:S3L1, #RD/#WR:S6L1
-    xtal_lo();  // S3L1/S6L1 triggers #PSEN-
-    delayNanoseconds(xtal_lo_cntl);
+    xtal_lo<E>();  // S3L1/S6L1 triggers #PSEN-
+    delay<xtal_lo_cntl>();
     // #PSEN:S3H1, #RD/#WR:S6H1
-    xtal_hi();
-    delayNanoseconds(xtal_hi_cntl);
+    xtal_hi<E>();
+    delay<xtal_hi_cntl>();
     s->getControl();  // read #PSEN=L
     if (s->fetch()) {
         // #PSEN:S3H1
         return s;
     }
     // #RD/#WR:S6L2
-    xtal_lo();
-    delayNanoseconds(xtal_lo_ns);
+    xtal_lo<E>();
+    delay<xtal_lo_ns>();
     // #RD/#WR:S6H2/S1L1
-    xtal_cycle();  // S1L1 triggers #RD/WR-
+    xtal_cycle<E>();  // S1L1 triggers #RD/WR-
     // #RD/#WR:S1H1
-    xtal_hi();
-    s->getControl();  // read #RD/#WR read
+    xtal_hi<E>();
+    delay<xtal_hi_rdwr>();
+    s->getControl();  // read #RD/#WR, which fall with this edge
     // #RD/#WR:S1H1
     return s;
 }
 
+template <ClockType E>
 Signals *PinsI8051::completeCycle(Signals *s) {
     // #PSEN:S3H1
     auto d = devs<DevsI8051>();
     if (s->fetch()) {  // program read
         // S3L2
-        xtal_lo();
+        xtal_lo<E>();
         if (s->readMemory()) {
-            s->data = _mems->read_byte(s->addr);
+            s->data = mems<ProgI8051>()->read_byte(s->addr);
+            delay<xtal_lo_read>();
         } else {
-            delayNanoseconds(xtal_lo_inject);
+            delay<xtal_lo_inject>();
         }
         // S3H2
-        xtal_hi();
+        xtal_hi<E>();
         s->setData();
-        delayNanoseconds(xtal_hi_output);
+        delay<xtal_hi_output>();
         // S1L1
-        xtal_lo();
+        xtal_lo<E>();
         Signals::outputMode();
-        delayNanoseconds(xtal_lo_output);
+        delay<xtal_lo_output>();
         // S1H1
-        xtal_hi();
+        xtal_hi<E>();
         d->uartLoop();
+        delay<xtal_hi_fetch>();
         // S1L2
-        xtal_lo();  // S1L2 triggers #PSEN+ and ALE+
+        xtal_lo<E>();  // S1L2 triggers #PSEN+ and ALE+
         Cycles::next();
         // S1H2
-        xtal_hi();
+        xtal_hi<E>();
         Signals::inputMode();
         // ALE=H
         return s;
@@ -330,67 +381,74 @@ Signals *PinsI8051::completeCycle(Signals *s) {
     // #RD/#WR:S1H1
     if (s->read()) {  // external data read
         // S1L2
-        xtal_lo();
+        xtal_lo<E>();
         if (s->readMemory()) {
             s->data = _data->read(s->addr);
+            delay<xtal_lo_read>();
         } else {
-            delayNanoseconds(xtal_lo_inject);
+            delay<xtal_lo_inject>();
         }
         // S2H1
-        xtal_hi();
+        xtal_hi<E>();
         s->setData();
-        delayNanoseconds(xtal_hi_output);
+        delay<xtal_hi_output>();
         // S2L2
-        xtal_lo();
+        xtal_lo<E>();
         Signals::outputMode();
-        delayNanoseconds(xtal_lo_output);
+        delay<xtal_lo_output>();
     } else {  // external data write
         // S1L2
-        xtal_lo();
+        xtal_lo<E>();
         s->getData();
+        delay<xtal_lo_write>();
         //  S1H2
-        xtal_hi();
+        xtal_hi<E>();
         if (s->writeMemory()) {
             _data->write(s->addr, s->data);
         } else {
-            delayNanoseconds(xtal_hi_capture);
+            delay<xtal_hi_capture>();
         }
         // S2L1
-        xtal_lo();
-        delayNanoseconds(xtal_lo_ns);
+        xtal_lo<E>();
+        delay<xtal_lo_ns>();
     }
     // S2H1/S2L2
-    xtal_cycle();
+    xtal_cycle<E>();
     // S2H2/S3L1
-    xtal_cycle_lo();
-    _devs->loop();
+    xtal_cycle_lo<E>();
+    d->loop();
     d->uartLoop();
+    delay<xtal_lo_wait>();
     // S3H1/S3L2
-    xtal_cycle_lo();
+    xtal_cycle_lo<E>();
     d->uartLoop();
+    delay<xtal_lo_wait>();
     // S3H2/S1L1
-    xtal_cycle_lo();  // S1L1 triggers #RD/#WR+
+    xtal_cycle_lo<E>();  // S1L1 triggers #RD/#WR+
     Cycles::next();
+    delay<xtal_lo_wait>();
     // S1H1
-    xtal_hi();
+    xtal_hi<E>();
     Signals::inputMode();
-    delayNanoseconds(xtal_hi_input);
+    delay<xtal_hi_input>();
     // S1L2
-    xtal_lo();  // S1L2 triggers ALE+
-    delayNanoseconds(xtal_lo_data);
+    xtal_lo<E>();  // S1L2 triggers ALE+
+    delay<xtal_lo_data>();
     // S1H2
-    xtal_hi();
+    xtal_hi<E>();
     // ALE=H
     return s;
 }
 
+template <ClockType E>
 Signals *PinsI8051::inject(uint8_t data) {
-    return completeCycle(prepareCycle()->inject(data));
+    return completeCycle<E>(prepareCycle<E>()->inject(data));
 }
 
+template <ClockType E>
 void PinsI8051::inject(const uint8_t data[], uint8_t len) {
     for (auto i = 0; i < len; ++i)
-        Cycles::discard(inject(data[i]));
+        Cycles::discard(inject<E>(data[i]));
 }
 
 void PinsI8051::execInst(const uint8_t *inst, uint8_t len) {
@@ -404,6 +462,14 @@ uint8_t PinsI8051::captureWrites(const uint8_t *inst, uint8_t len,
 
 uint8_t PinsI8051::execute(const uint8_t *inst, uint8_t len, uint16_t *addr,
         uint8_t *buf, uint8_t max) {
+    return withEngine([&](auto e) {
+        return execute<decltype(e)::value>(inst, len, addr, buf, max);
+    });
+}
+
+template <ClockType E>
+uint8_t PinsI8051::execute(const uint8_t *inst, uint8_t len, uint16_t *addr,
+        uint8_t *buf, uint8_t max) {
     // Injected code is a few instructions; give up well before that many
     // cycles rather than wait for ever on a CPU that never writes.
     constexpr auto max_cycles = 64;
@@ -414,7 +480,7 @@ uint8_t PinsI8051::execute(const uint8_t *inst, uint8_t len, uint16_t *addr,
             cli.println("?halt: no writes");
             break;
         }
-        auto s = _parked ? _parked : prepareCycle();
+        auto s = _parked ? _parked : prepareCycle<E>();
         _parked = nullptr;
         if (inj == 0 && addr)
             *addr = s->addr;
@@ -422,7 +488,7 @@ uint8_t PinsI8051::execute(const uint8_t *inst, uint8_t len, uint16_t *addr,
             s->inject(inst[inj]);
         if (cap < max)
             s->capture();
-        completeCycle(s);
+        completeCycle<E>(s);
         if (s->fetch() || s->read())
             ++inj;
         if (s->write()) {
@@ -455,7 +521,12 @@ bool isVector(uint16_t addr) {
 // handler, with the program's PC stacked. Only the halt address and the next
 // get SJMP's bytes, so a vector fetch is never fed one.
 void PinsI8051::park() {
-    auto s = prepareCycle();
+    withEngine([&](auto e) { park<decltype(e)::value>(); });
+}
+
+template <ClockType E>
+void PinsI8051::park() {
+    auto s = prepareCycle<E>();
     const auto here = s->addr;
     auto jumps = 0;
     auto fed = false;  // SJMP's offset went in since the last fetch here
@@ -474,8 +545,8 @@ void PinsI8051::park() {
                 break;
             }
         }
-        completeCycle(s);
-        s = prepareCycle();
+        completeCycle<E>(s);
+        s = prepareCycle<E>();
     }
     _parked = s;
 }
@@ -487,7 +558,9 @@ void PinsI8051::idle() {
             InstI8051::SJMP_HERE,
             0,
     };
-    inject(JMP_HERE, sizeof(JMP_HERE));
+    withEngine([&](auto e) {
+        inject<decltype(e)::value>(JMP_HERE, sizeof(JMP_HERE));
+    });
 }
 
 #ifdef PROFILE_CYCLES
@@ -497,18 +570,19 @@ void PinsI8051::idle() {
 // after its first instruction; the trap's cycles are kept. Gives up well
 // before the ring wraps; the debug pin frames the run, to trigger a
 // capture on.
+template <ClockType E>
 void PinsI8051::loop() {
     constexpr auto MAX_CYCLES = 96;
     const auto first = Signals::put();
     assert_debug();
     for (auto n = 0;; ++n) {
         _devs->loop();
-        auto s = prepareCycle();
+        auto s = prepareCycle<E>();
         if (_idleHalt) {
             negate_debug();
             return;
         }
-        completeCycle(s);
+        completeCycle<E>(s);
         // Only MOVX writes, in its third cycle; the pattern may be one.
         if (s->write() && s->prev(2) != first) {
             negate_debug();
@@ -528,10 +602,12 @@ void PinsI8051::loop() {
     }
 }
 #else
+template <ClockType E>
 void PinsI8051::loop() {
+    const auto devs = this->devs<DevsI8051>();
     while (true) {
-        const auto serviced = _devs->loop();
-        if (!rawStep() || (serviced && haltSwitch())) {
+        const auto serviced = devs->loop();
+        if (!rawStep<E>() || (serviced && haltSwitch())) {
             return;
         }
     }
@@ -544,36 +620,42 @@ void PinsI8051::run() {
     saveBreakInsts();
     _idleHalt = false;
     startRunTimer();
-    loop();
+    withEngine([&](auto e) { loop<decltype(e)::value>(); });
     stopRunTimer();
     restoreBreakInsts();
+    {
+        // Save before printing: a print with no host reading blocks with
+        // XTAL stopped, longer than this NMOS part keeps its SFRs.
+        Cycles::Hold hold;
+        _regs->save();
+    }
     disassembleCycles();
-    _regs->save();
 }
 
+template <ClockType E>
 bool PinsI8051::rawStep() {
-    auto s = prepareCycle();
+    auto s = prepareCycle<E>();
     if (_idleHalt)
         return false;
-    const auto inst = _mems->read_byte(s->addr);
+    const auto inst = mems<ProgI8051>()->read_byte(s->addr);
     const auto cycles = InstI8051::busCycles(inst);
     if (cycles == 0) {
         // The break opcode (A5): feed SJMP $ in its place and stop.
-        completeCycle(s->inject(InstI8051::SJMP));
+        completeCycle<E>(s->inject(InstI8051::SJMP));
         static constexpr uint8_t JMP_HERE[] = {
                 0,
                 InstI8051::SJMP_HERE,
                 0,
         };
-        inject(JMP_HERE, sizeof(JMP_HERE));
+        inject<E>(JMP_HERE, sizeof(JMP_HERE));
         return false;
     }
-    completeCycle(s);
+    completeCycle<E>(s);
     for (auto i = 1; i < cycles; ++i) {
-        s = prepareCycle();
+        s = prepareCycle<E>();
         if (_idleHalt)
             return false;
-        completeCycle(s)->clearFetch();
+        completeCycle<E>(s)->clearFetch();
     }
     return true;
 }
@@ -584,10 +666,11 @@ bool PinsI8051::step(bool show) {
     _idleHalt = false;
     if (show)
         Cycles::reset();
-    if (rawStep()) {
+    if (withEngine([&](auto e) { return rawStep<decltype(e)::value>(); })) {
+        Cycles::Hold hold;  // keep the step's cycles for printCycles()
+        _regs->save();
         if (show)
             printCycles();
-        _regs->save();
         return true;
     }
     return false;
@@ -658,7 +741,7 @@ void PinsI8051::printBacktrace() {
 }
 
 bool PinsI8051::isCmos() const {
-    return _xtal_hi == xtal1_lo;
+    return _engine == CLK_XTAL1;
 }
 
 }  // namespace i8051

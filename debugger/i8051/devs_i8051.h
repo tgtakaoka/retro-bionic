@@ -2,7 +2,8 @@
 #define __DEVS_I8051_H__
 
 #include "devs.h"
-#include "serial_handler.h"
+#include "i8051_uart_handler.h"
+#include "i8251.h"
 
 #define USART_BASE 0xFFF0
 
@@ -17,7 +18,10 @@ struct DevsI8051 final : Devs {
     void reset() override;
     bool loopDevices() override;
     void setIdle(bool idle) override;
-    bool isSelected(uint32_t addr) const override;
+    // Inline for the bus cycles: I8251 is final.
+    bool isSelected(uint32_t addr) const override {
+        return _usart->isSelected(addr);
+    }
     uint16_t read(uint32_t addr) const override;
     void write(uint32_t addr, uint16_t data) const override;
 
@@ -32,9 +36,9 @@ struct DevsI8051 final : Devs {
     }
 
 private:
-    Device *_usart;
+    I8251 *const _usart;
 #if defined(ENABLE_SERIAL_HANDLER)
-    SerialHandler *_uart;
+    I8051UartHandler *const _uart;
 #endif
 };
 
