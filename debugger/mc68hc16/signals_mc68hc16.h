@@ -27,16 +27,20 @@ struct Signals final : SignalsBase<Signals> {
         uint8_t fc;
         uint8_t siz;
     };
+    // Each read's AL and AH nibbles shift together by 0, 4, 8 and 12:
+    // A0-A19 in bits 0-19, FC2:FC0 in 24-26 and SIZ1:SIZ0 in 28-29.
+    static constexpr uint32_t NIBBLES = 0x000F000F;
+    static Address unpack(uint32_t packed) {
+        Address a;
+        a.addr = packed & 0xFFFFF;
+        a.fc = (packed >> 24) & 7;
+        a.siz = (packed >> 28) & 3;
+        return a;
+    }
     static Address compose(
             uint32_t sel00, uint32_t sel01, uint32_t sel11, uint32_t sel10) {
-        const auto lo = [](uint32_t v) { return v & 0xF; };
-        const auto hi = [](uint32_t v) { return (v >> 16) & 0xF; };
-        Address a;
-        a.addr = lo(sel00) | lo(sel01) << 4 | lo(sel11) << 8 | lo(sel10) << 12 |
-                 hi(sel00) << 16;
-        a.fc = hi(sel11) & 7;
-        a.siz = hi(sel10) & 3;
-        return a;
+        return unpack((sel00 & NIBBLES) | (sel01 & NIBBLES) << 4 |
+                      (sel11 & NIBBLES) << 8 | (sel10 & NIBBLES) << 12);
     }
 
     bool strobe() const { return (cntl() & AS) == 0; }

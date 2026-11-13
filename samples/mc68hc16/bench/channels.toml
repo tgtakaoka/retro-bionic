@@ -1,23 +1,102 @@
 # Channel labels for the MC68HC16Z1 board. Verify against the wiring before
 # trusting it -- a lead moved on the bench leaves this stale.
 
+# The bus waves, reset, echoitr and step, one layout: ch12 is #RESET,
+# #IRQ1 or #IRQ7. The mux outputs read against ASEL1:ASEL0; each ASEL
+# edge closes the selection before it:
+#   [0] ASEL0 rising, 00: A16-A19 in MUX4-7 (not wired), A0-A3
+#   [1] ASEL1 rising, 01: A4-A7
+#   [2] ASEL0 falling, 11: A8-A11
+#   [3] ASEL1 falling, 10: A12-A15
 [mc68hc16-reset]
  0 = { pin = "P10", signal = "DATA0" }
- 1 = { pin = "P11", signal = "DATA1" }
- 2 = { pin = "P12", signal = "DATA2" }
- 3 = { pin = "P17", signal = "DATA7" }
- 4 = { pin = "P23", signal = "DATA11" }
- 5 = { pin = "P30", signal = "MUX0" }  # A0/A4/A12/A8 by ASEL1:ASEL0
- 6 = { pin = "P40", signal = "#AS" }
- 7 = { pin = "P41", signal = "R/#W" }
- 8 = { pin = "P42", signal = "IPIPE0" }
- 9 = { pin = "P43", signal = "IPIPE1" }
-10 = { pin = "P45", signal = "#DSACK1" }
-11 = { pin = "P46", signal = "#DS" }
-12 = { pin = "P47", signal = "EXTAL" }
+ 1 = { pin = "P30", signal = "MUX0" }
+ 2 = { pin = "P31", signal = "MUX1" }
+ 3 = { pin = "P32", signal = "MUX2" }
+ 4 = { pin = "P33", signal = "MUX3" }
+ 5 = { pin = "P40", signal = "#AS" }
+ 6 = { pin = "P41", signal = "R/#W" }
+ 7 = { pin = "P42", signal = "IPIPE0" }
+ 8 = { pin = "P43", signal = "IPIPE1" }
+ 9 = { pin = "P45", signal = "#DSACK1" }
+10 = { pin = "P46", signal = "#DS" }
+11 = { pin = "P47", signal = "EXTAL" }
+12 = { pin = "P53", signal = "#RESET" }
 13 = { pin = "P52", signal = "CLKOUT" }
-14 = { pin = "P53", signal = "#RESET" }
-15 = { pin = "P54", signal = "ASEL0" }
+14 = { pin = "P54", signal = "ASEL0" }
+15 = { pin = "P55", signal = "ASEL1" }
+# #RESET rises as the debugger lets go, then the MCU holds it 512 clocks
+# more: trigger on the first bus cycle after that stretch.
+trigger = { signal = "#AS", edge = "fall", when = { "#RESET" = "high" }, before = 50e-6, after = 85e-6 }
+parallel = [
+  { data = ["MUX0", "MUX1", "MUX2", "MUX3"], clock = "ASEL0", edge = "rise" },
+  { data = ["MUX0", "MUX1", "MUX2", "MUX3"], clock = "ASEL1", edge = "rise" },
+  { data = ["MUX0", "MUX1", "MUX2", "MUX3"], clock = "ASEL0", edge = "fall" },
+  { data = ["MUX0", "MUX1", "MUX2", "MUX3"], clock = "ASEL1", edge = "fall" },
+]
+display = ["EXTAL", "CLKOUT", "#AS", "R/#W", "#DS", "IPIPE1", "IPIPE0",
+        "ASEL1", "ASEL0", "#DSACK1", "#RESET",
+        "MUX3", "MUX2", "MUX1", "MUX0", "DATA0"]
+
+# echoitr: the ACIA's receive interrupt on #IRQ1, the handler and the
+# echo it queues for the transmit interrupt.
+[mc68hc16-echoitr]
+ 0 = { pin = "P10", signal = "DATA0" }
+ 1 = { pin = "P30", signal = "MUX0" }
+ 2 = { pin = "P31", signal = "MUX1" }
+ 3 = { pin = "P32", signal = "MUX2" }
+ 4 = { pin = "P33", signal = "MUX3" }
+ 5 = { pin = "P40", signal = "#AS" }
+ 6 = { pin = "P41", signal = "R/#W" }
+ 7 = { pin = "P42", signal = "IPIPE0" }
+ 8 = { pin = "P43", signal = "IPIPE1" }
+ 9 = { pin = "P45", signal = "#DSACK1" }
+10 = { pin = "P46", signal = "#DS" }
+11 = { pin = "P47", signal = "EXTAL" }
+12 = { pin = "P51", signal = "#IRQ1" }
+13 = { pin = "P52", signal = "CLKOUT" }
+14 = { pin = "P54", signal = "ASEL0" }
+15 = { pin = "P55", signal = "ASEL1" }
+trigger = { signal = "#IRQ1", edge = "fall", before = 50e-6, after = 3.52e-3 }
+parallel = [
+  { data = ["MUX0", "MUX1", "MUX2", "MUX3"], clock = "ASEL0", edge = "rise" },
+  { data = ["MUX0", "MUX1", "MUX2", "MUX3"], clock = "ASEL1", edge = "rise" },
+  { data = ["MUX0", "MUX1", "MUX2", "MUX3"], clock = "ASEL0", edge = "fall" },
+  { data = ["MUX0", "MUX1", "MUX2", "MUX3"], clock = "ASEL1", edge = "fall" },
+]
+display = ["EXTAL", "CLKOUT", "#AS", "R/#W", "#DS", "IPIPE1", "IPIPE0",
+        "ASEL1", "ASEL0", "#DSACK1", "#IRQ1",
+        "MUX3", "MUX2", "MUX1", "MUX0", "DATA0"]
+
+# Six steps from a halt, sent as one write: each restore returns to the
+# program, and the #IRQ7 the debugger asserts parks the CPU again.
+[mc68hc16-step]
+ 0 = { pin = "P10", signal = "DATA0" }
+ 1 = { pin = "P30", signal = "MUX0" }
+ 2 = { pin = "P31", signal = "MUX1" }
+ 3 = { pin = "P32", signal = "MUX2" }
+ 4 = { pin = "P33", signal = "MUX3" }
+ 5 = { pin = "P40", signal = "#AS" }
+ 6 = { pin = "P41", signal = "R/#W" }
+ 7 = { pin = "P42", signal = "IPIPE0" }
+ 8 = { pin = "P43", signal = "IPIPE1" }
+ 9 = { pin = "P45", signal = "#DSACK1" }
+10 = { pin = "P46", signal = "#DS" }
+11 = { pin = "P47", signal = "EXTAL" }
+12 = { pin = "P50", signal = "#IRQ7" }
+13 = { pin = "P52", signal = "CLKOUT" }
+14 = { pin = "P54", signal = "ASEL0" }
+15 = { pin = "P55", signal = "ASEL1" }
+trigger = { signal = "#IRQ7", edge = "fall", before = 50e-6, after = 600e-6 }
+parallel = [
+  { data = ["MUX0", "MUX1", "MUX2", "MUX3"], clock = "ASEL0", edge = "rise" },
+  { data = ["MUX0", "MUX1", "MUX2", "MUX3"], clock = "ASEL1", edge = "rise" },
+  { data = ["MUX0", "MUX1", "MUX2", "MUX3"], clock = "ASEL0", edge = "fall" },
+  { data = ["MUX0", "MUX1", "MUX2", "MUX3"], clock = "ASEL1", edge = "fall" },
+]
+display = ["EXTAL", "CLKOUT", "#AS", "R/#W", "#DS", "IPIPE1", "IPIPE0",
+        "ASEL1", "ASEL0", "#DSACK1", "#IRQ7",
+        "MUX3", "MUX2", "MUX1", "MUX0", "DATA0"]
 
 [mc68hc16-addr]
  0 = { pin = "P30", signal = "MUX0" }  # A0/A4/A12/A8 by ASEL1:ASEL0 00/01/10/11

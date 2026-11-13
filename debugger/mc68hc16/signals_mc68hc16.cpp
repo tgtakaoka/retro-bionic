@@ -9,9 +9,7 @@ namespace mc68hc16 {
 
 namespace {
 
-// 74HCS153 select to output: 15ns typical at 5V; the outputs were seen to
-// follow within one 10ns capture sample.
-constexpr auto asel_delay_ns = 15;
+static_assert(Signals::NIBBLES == ADDR_gm, "busRead(ADDR) gives what compose() takes");
 
 }  // namespace
 
@@ -19,19 +17,27 @@ constexpr auto asel_delay_ns = 15;
 // hand out A0/A16, A4/A20, A8/FC and A12/SIZ in turn, one select changing
 // per step, and the last step brings it back to 00. The CPU moves only on
 // our clock edges, so the address holds while the muxes are stepped.
+// The read right after a select write still shows the old selection, the
+// next one the new, measured from the Teensy side: one discarded read of
+// the port settles a step.
 void Signals::getAddr() {
     const uint32_t sel00 = busRead(ADDR);
     digitalWriteFast(PIN_ASEL0, HIGH);  // 01
-    delayNanoseconds(asel_delay_ns);
+    // Packed as compose() does.
+    uint32_t packed = sel00;
+    PIN(ADDR);
     const uint32_t sel01 = busRead(ADDR);
     digitalWriteFast(PIN_ASEL1, HIGH);  // 11
-    delayNanoseconds(asel_delay_ns);
+    packed |= sel01 << 4;
+    PIN(ADDR);
     const uint32_t sel11 = busRead(ADDR);
     digitalWriteFast(PIN_ASEL0, LOW);  // 10
-    delayNanoseconds(asel_delay_ns);
+    packed |= sel11 << 8;
+    PIN(ADDR);
     const uint32_t sel10 = busRead(ADDR);
     digitalWriteFast(PIN_ASEL1, LOW);  // 00
-    const auto a = compose(sel00, sel01, sel11, sel10);
+    packed |= sel10 << 12;
+    const auto a = unpack(packed);
     addr = a.addr;
     space() = a.fc | a.siz << 4;
 }
