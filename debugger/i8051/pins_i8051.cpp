@@ -222,8 +222,9 @@ inline void PinsI8051::xtal_lo() const {
 PinsI8051::PinsI8051() {
     auto regs = new RegsI8051(this);
     _regs = regs;
-    _devs = new DevsI8051();
-    _data = new DataI8051(regs, _devs);
+    auto devs = new DevsI8051();
+    _devs = devs;
+    _data = new DataI8051(regs, devs);
     _mems = new ProgI8051(_data);
 }
 

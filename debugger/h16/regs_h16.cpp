@@ -350,9 +350,9 @@ bool RegsH16::readRingBank(uint_fast8_t bank, uint32_t regs[16]) const {
             seq[n++] = a;
             seq[n++] = 0x77;
             seq[n++] = 0x00;
-            seq[n++] = SCRATCH >> 16;
-            seq[n++] = SCRATCH >> 8;
-            seq[n++] = SCRATCH;
+            seq[n++] = uint8_t(SCRATCH >> 16);
+            seq[n++] = uint8_t(SCRATCH >> 8);
+            seq[n++] = uint8_t(SCRATCH);
         }
         ldcBmr(_bmr);
         const uint16_t back = -(n + 3);  // BRA org: from the end of the BRA
