@@ -7,21 +7,6 @@
 namespace debugger {
 namespace z8 {
 
-void Signals::getAddr() {
-    addr = busRead(ADDR);
-    rw() = digitalReadFast(PIN_RW);
-    fetch() = false;
-}
-
-void Signals::getData() {
-    data = busRead(DATA);
-}
-
-void Signals::outData() {
-    busWrite(DATA, data);
-    busMode(DATA, OUTPUT);
-}
-
 void Signals::print() const {
     //                              0123456789012
     static constexpr char line[] = "R A=xxxx D=xx";

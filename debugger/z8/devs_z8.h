@@ -2,6 +2,7 @@
 #define __DEVS_Z8_H__
 
 #include "devs.h"
+#include "i8251.h"
 #include "serial_handler.h"
 
 #define USART_BASE 0xFF00
@@ -17,7 +18,10 @@ struct DevsZ8 final : Devs {
     void reset() override;
     bool loopDevices() override;
     void setIdle(bool idle) override;
-    bool isSelected(uint32_t addr) const override;
+    // Inline for the bus cycles: I8251 is final.
+    bool isSelected(uint32_t addr) const override {
+        return _usart->isSelected(addr);
+    }
     uint16_t read(uint32_t addr) const override;
     void write(uint32_t addr, uint16_t data) const override;
 
@@ -26,7 +30,7 @@ struct DevsZ8 final : Devs {
     void printDevices() const override;
 
 private:
-    Device *_usart;
+    I8251 *const _usart;
 #if defined(ENABLE_SERIAL_HANDLER)
     SerialHandler *_serial;
 #endif

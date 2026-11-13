@@ -7,9 +7,9 @@ namespace debugger {
 namespace z8 {
 
 struct Signals final : SignalsBase<Signals> {
-    void getAddr();
-    void getData();
-    void outData();
+    inline void getAddr();
+    inline void getData();
+    inline void outData();
     void print() const;
 
     bool read() const { return rw() != 0; }

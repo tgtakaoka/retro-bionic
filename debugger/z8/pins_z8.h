@@ -48,9 +48,10 @@
 #define PIN_DM 30      /* P8.23 */
 
 // Follows the Super8's fast interrupt, which pushes nothing; left out of
-// normal builds, since checking every bus cycle for one slows the Z8 bus.
+// normal builds, since checking every bus cycle for one slows the Super8 bus.
 // #define Z88_FAST_INTERRUPT
 
+#include "digital_bus.h"
 #include "inst_z8.h"
 #include "pins.h"
 #include "serial_handler.h"
@@ -66,6 +67,19 @@ enum IntrName : uint8_t {
     INTR_IRQ2 = 3,
 };
 
+// The part, one bus-cycle engine each.
+enum Variant : uint8_t {
+    VAR_Z86 = 0,
+    VAR_Z88 = 1,
+};
+
+// Bus-cycle delays, in ns, each engine's own.
+enum Delay : uint8_t {
+    xtal1_first_ns,
+    xtal1_second_ns,
+    DELAY_COUNT,
+};
+
 struct PinsZ8 : Pins {
     void resetPins() override;
     bool step(bool show) override;
@@ -76,7 +90,6 @@ struct PinsZ8 : Pins {
     void setBreakInst(uint32_t addr) const override;
     void printCycles() override;
 
-    Signals *cycle(uint8_t insn);
     // The next fetch's address, past an interrupt acknowledge under way.
     uint16_t nextFetch();
     void execInst(const uint8_t *inst, uint8_t len);
@@ -84,53 +97,83 @@ struct PinsZ8 : Pins {
             uint8_t *buf, uint8_t max);
 
 protected:
-    PinsZ8(bool fetchVectorAfterContextSave, void (*xtal1)(SerialHandler *),
-            SerialHandler *serial, const InstZ8 &inst)
-        : _fetchVectorAfterContextSave(fetchVectorAfterContextSave),
-          _xtal1_cycle(xtal1),
-          _serial(serial),
-          _inst(inst) {}
+    PinsZ8(Variant engine, SerialHandler *serial, const InstZ8 &inst)
+        : _engine(engine), _serial(serial), _inst(inst) {}
 
-    const bool _fetchVectorAfterContextSave;
-    void (*const _xtal1_cycle)(SerialHandler *);
+    // The engine bus cycles run on.
+    const Variant _engine;
     SerialHandler *const _serial;
     const InstZ8 &_inst;
     uint8_t _writes;
 
-    void xtal1_cycle() const { _xtal1_cycle(_serial); }
+    template <Variant E, Delay F>
+    void delay() const;
 
+    // What sets each engine's cycles apart, as constants.
+    template <Variant E>
+    struct Traits;
+    template <typename F>
+    auto withEngine(F f);
+
+    template <Variant E>
+    void xtal1_cycle() const;
+    template <Variant E>
+    void resetCpu();
+    template <Variant E>
     Signals *prepareCycle();
+    template <Variant E>
     Signals *completeCycle(Signals *signals);
+    template <Variant E>
     Signals *cycle();
+    template <Variant E>
+    Signals *cycle(uint8_t insn);
+    template <Variant E>
+    uint16_t nextFetch();
+    template <Variant E>
     void loop();
 #ifdef PROFILE_CYCLES
+    template <Variant E>
     Signals *awaitCycle(uint16_t clocks);
     void markFetches() const;
 #endif
-    bool fetchVectorAfterContextSave() const {
-        return _fetchVectorAfterContextSave;
-    }
+    template <Variant E>
     bool rawStep();
     void intrAck(Signals *frame) const;
+    template <Variant E>
+    void idle();
+    template <Variant E>
+    void execute(const uint8_t *inst, uint8_t len, uint16_t *addr, uint8_t *buf,
+            uint8_t max);
     void execute(const uint8_t *inst, uint8_t len, uint16_t *addr, uint8_t *buf,
             uint8_t max);
 
 #if defined(Z88_FAST_INTERRUPT)
     // The Super8's fast interrupt pushes nothing; PinsZ88 follows it, and
     // keeps here the fetch at IP one would make while it can be taken.
-    // Out of address range otherwise, as always on the Z86.
+    // Out of address range otherwise; the Z86 engine never checks it.
     static constexpr uint32_t NO_FAST = 0x10000;
     uint32_t _fastFetch = NO_FAST;
     bool fastEntry(const Signals *s) const;
-    virtual void takeFast(Signals *) {}
-    virtual uint8_t fastCycles(uint16_t, uint8_t, uint8_t cycles) {
-        return cycles;
-    }
 #endif
 
     const SignalsImpl *findBacktraceStart() override;
     void printBacktrace() override;
 };
+
+void Signals::getAddr() {
+    addr = busRead(ADDR);
+    rw() = digitalReadFast(PIN_RW);
+    fetch() = false;
+}
+
+void Signals::getData() {
+    data = busRead(DATA);
+}
+
+void Signals::outData() {
+    busWrite(DATA, data);
+    busMode(DATA, OUTPUT);
+}
 
 }  // namespace z8
 }  // namespace debugger

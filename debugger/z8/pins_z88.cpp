@@ -30,7 +30,7 @@ namespace z88 {
  *   #DM  __X___________________________________X___________________________________X
  */
 // clang-format on
-namespace {
+// The XTAL1 cycle is PinsZ8::Traits<VAR_Z88>'s.
 //   TpC: min  50 ns; XTAL1 cycle (20MHz)
 //   TwC: min  25 ns; XTAL1 width
 //  TwAS: min  65 ns; #AS width
@@ -42,33 +42,8 @@ namespace {
 //  TdDW: min  10 ns; write data to #DS-
 //  TdDS: min   0 ns; #DS+ to write data hold
 
-// XTAL1~10MHz
-constexpr auto xtal1_hi_ns = 20;  // 50 ns
-constexpr auto xtal1_lo_ns = 0;   // 50 ns
-
-inline void xtal1_hi() {
-    digitalWriteFast(PIN_XTAL1, HIGH);
-    delayNanoseconds(xtal1_hi_ns);
-}
-
-inline void xtal1_lo() {
-    digitalWriteFast(PIN_XTAL1, LOW);
-    if (xtal1_lo_ns)
-        delayNanoseconds(xtal1_lo_ns);
-}
-
-void z88_cycle(SerialHandler *serial) {
-    xtal1_hi();
-#if defined(ENABLE_SERIAL_HANDLER)
-    serial->loop();
-#endif
-    xtal1_lo();
-}
-
-}  // namespace
-
 PinsZ88::PinsZ88()
-    : PinsZ8(false, z88_cycle,
+    : PinsZ8(z8::VAR_Z88,
 #if defined(ENABLE_SERIAL_HANDLER)
               new Z88UartHandler(),
 #else
@@ -77,8 +52,9 @@ PinsZ88::PinsZ88()
               Inst) {
     auto regs = new RegsZ88(this);
     _regs = regs;
-    _devs = new z8::DevsZ8(_serial);
-    _mems = new MemsZ88(regs, _devs);
+    auto devs = new z8::DevsZ8(_serial);
+    _devs = devs;
+    _mems = new MemsZ88(regs, devs);
 }
 
 #if defined(Z88_FAST_INTERRUPT)

@@ -37,7 +37,7 @@ void RegsZ88::reset() {
     constexpr auto P0M = 240;  // Port 0 Mode
     write_reg(P0M, 0xFF);      // Port 0 = A15-A8
     constexpr auto PM = 241;   // Port 1 Mode
-    write_reg(PM, 2 << 4);
+    write_reg(PM, (2 << 4) | 0x08);  // P35 = #DM
     static constexpr uint8_t JP_RESET[] = {
             0x8D,  // JP ORG_RESET
             hi(InstZ88::ORG_RESET),

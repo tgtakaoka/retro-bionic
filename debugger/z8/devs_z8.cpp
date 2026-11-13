@@ -1,6 +1,5 @@
 #include "devs_z8.h"
 #include <strings.h>
-#include "i8251.h"
 
 namespace debugger {
 namespace z8 {
@@ -41,10 +40,6 @@ void DevsZ8::setIdle(bool idle) {
 #if defined(ENABLE_SERIAL_HANDLER)
     _serial->setIdle(idle);
 #endif
-}
-
-bool DevsZ8::isSelected(uint32_t addr) const {
-    return _usart->isSelected(addr);
 }
 
 uint16_t DevsZ8::read(uint32_t addr) const {
