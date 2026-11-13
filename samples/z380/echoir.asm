@@ -71,6 +71,7 @@ halt_to_system:
 
         include "queue.inc"
 
+        align   2
 isr_intr:
         ex      AF, AF'
         exall                   ; the ISR's own BC, DE, HL, IX and IY

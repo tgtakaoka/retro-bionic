@@ -32,6 +32,7 @@ halt_to_system:
         ld      (ORG_RST38), A  ; RST 38H at its vector: exit to the debugger
         rst     38h
 
+        align   2
 ;;; Put character, waiting for TxRDY
 ;;; @param A
 putchar:
@@ -44,6 +45,7 @@ putchar_loop:
         outa    (USARTD), A
         ret
 
+        align   2
 newline:
         push    AF
         ld      A, 0DH
@@ -53,6 +55,7 @@ newline:
         pop     AF
         ret
 
+        align   2
 putspace:
         push    AF
         ld      A, ' '
