@@ -523,10 +523,12 @@ bool PinsDcj11::parkAfterFrame(Signals *s, bool step) {
     }
     if (frame[1] == nullptr)
         return false;
-    // The PC lies below the PS.
-    const auto pc = frame[0]->addr < frame[1]->addr ? frame[0] : frame[1];
+    // The PC lies below the PS. DAL16-DAL19 may read wrong under the PWM,
+    // so compare the 16-bit addresses.
+    const auto pc =
+            frame[0]->addr16() < frame[1]->addr16() ? frame[0] : frame[1];
     const auto ps = pc == frame[0] ? frame[1] : frame[0];
-    if (pc->addr + 2 != ps->addr)
+    if (uint16_t(pc->addr16() + 2) != ps->addr16())
         return false;
     const uint16_t at =
             (vector == InstPdp11::VEC_BPT && !step) ? pc->data - 2 : pc->data;
