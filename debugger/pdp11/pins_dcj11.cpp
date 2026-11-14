@@ -788,8 +788,34 @@ void PinsDcj11::printCycles() {
     }
 }
 
+// Discarded prefetches and operand words are fetch()es too, so the
+// instructions are counted as printBacktrace() walks them.
 const SignalsImpl *PinsDcj11::findBacktraceStart() {
-    return backtraceStartByFetchCount<Signals>(_lineLimit);
+    const auto g = Signals::get();
+    const auto insns = walkInsns(UINT32_MAX);
+    if (insns <= _lineLimit)
+        return g;
+    return g->next(walkInsns(insns - _lineLimit));
+}
+
+// The cycle the |nth| instruction printBacktrace() shows starts at, or
+// with no such one, how many there are.
+uint32_t PinsDcj11::walkInsns(uint32_t nth) const {
+    const auto g = Signals::get();
+    const auto cycles = g->diff(Signals::put());
+    const auto mems = this->mems<MemsPdp11>();
+    uint32_t from = 0, to = 0, insns = 0;
+    for (auto i = 0u; i < cycles; ++i) {
+        const auto s = g->next(i);
+        const uint16_t addr = s->addr16();
+        if (s->fetch() && (addr < from || addr >= to) && !discarded(i)) {
+            if (insns++ == nth)
+                return i;
+            from = addr;
+            to = addr + mems->insnLength(addr);
+        }
+    }
+    return insns;
 }
 
 // An IREQ the CPU threw away: a demand fetch comes next, as after a

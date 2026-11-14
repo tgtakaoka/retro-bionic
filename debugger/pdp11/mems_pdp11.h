@@ -17,6 +17,9 @@ struct MemsPdp11 final : DmaMemory {
     void write(uint32_t addr, uint16_t data) const override {
         write16(addr & ~1, data);
     }
+
+    // How far disassemble() steps past |addr|, printing nothing.
+    uint_fast8_t insnLength(uint32_t addr) const;
 };
 
 }  // namespace pdp11

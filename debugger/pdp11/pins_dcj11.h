@@ -98,6 +98,7 @@ private:
     const SignalsImpl *findBacktraceStart() override;
     void printBacktrace() override;
     bool discarded(uint32_t i) const;
+    uint32_t walkInsns(uint32_t nth) const;
 
     Signals *prepareCycle();
     Signals *resumeCycle();
