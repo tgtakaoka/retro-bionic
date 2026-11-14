@@ -535,7 +535,7 @@ void PinsMc68000Base::classifyCycles(
 }
 
 // The latest instruction start that leaves at least the limit's count of
-// fetches after it.
+// instructions after it; printBacktrace() leaves out any extra.
 const SignalsImpl *PinsMc68000Base::findBacktraceStart() {
     const auto g = Signals::get();
     const auto cycles = g->diff(Signals::put());
@@ -550,12 +550,46 @@ const SignalsImpl *PinsMc68000Base::findBacktraceStart() {
         if (kind[i] == FetchMc68000::FLUSH) {
             start = i;
             _anchored = true;
+#ifdef WITH_DISASSEMBLER
+            if (countInsns(kind, cycles, i) >= _lineLimit)
+                break;
+#else
             if (fetches >= _lineLimit)
                 break;
+#endif
         }
     }
     return g->next(start);
 }
+
+#ifdef WITH_DISASSEMBLER
+// How many instructions start from the flush at |from| on, found by length
+// as printBacktrace() finds them.
+uint32_t PinsMc68000Base::countInsns(const FetchMc68000::Kind *kind,
+        uint_fast8_t cycles, uint_fast8_t from) const {
+    const auto g = Signals::get();
+    uint32_t next = 0;
+    uint32_t last = UINT32_MAX;
+    uint32_t insns = 0;
+    for (auto i = from; i < cycles; ++i) {
+        const auto s = g->next(i);
+        auto k = kind[i];
+        if (k == FetchMc68000::LOOSE && last != UINT32_MAX)
+            k = FetchMc68000::FETCH;
+        if (k == FetchMc68000::FLUSH && s->addr != last)
+            next = s->addr;
+        if (k == FetchMc68000::FLUSH || k == FetchMc68000::FETCH) {
+            const auto fetched = s->addr + (s->wordAccess() ? 2 : 1);
+            while (next < fetched) {
+                last = next;
+                next = skipInsn(next);
+                ++insns;
+            }
+        }
+    }
+    return insns;
+}
+#endif
 
 // No pin marks an instruction start, so one follows a flush; the ones
 // after it follow by length, each shown as its first byte is fetched. A
@@ -571,9 +605,28 @@ void PinsMc68000Base::printBacktrace() {
     FetchMc68000::Kind kind[Cycles::MAX_CYCLES];
     classifyCycles(kind, _anchored);
     _anchored = false;
+    uint32_t skip = 0;
+#ifdef WITH_DISASSEMBLER
+    // The ring starts at a flush, so it may hold more instructions than
+    // the limit asks for; leave out the oldest.
+    if (_lineLimit != UINT32_MAX) {
+        const auto insns = walkBacktrace(kind, cycles, UINT32_MAX);
+        if (insns > _lineLimit)
+            skip = insns - _lineLimit;
+    }
+#endif
+    walkBacktrace(kind, cycles, skip);
+}
+
+// Shows the ring's instructions, as printBacktrace() says, but the first
+// |skip| ones and their cycles; returns how many there are.
+uint32_t PinsMc68000Base::walkBacktrace(const FetchMc68000::Kind *kind,
+        uint_fast8_t cycles, uint32_t skip) {
+    const auto g = Signals::get();
     auto anchor = anchorAt(kind, cycles);
     uint32_t next = 0;  // the next instruction's start
     uint32_t last = UINT32_MAX;  // the start of the instruction shown last
+    uint32_t insns = 0;
     for (auto i = 0u; i < cycles; ++i) {
         const auto s = g->next(i);
         auto k = kind[i];
@@ -591,14 +644,26 @@ void PinsMc68000Base::printBacktrace() {
             const auto fetched = s->addr + (s->wordAccess() ? 2 : 1);
             while (next < fetched) {
                 last = next;
-                next = _mems->disassemble(next, 1);
+                next = insns++ < skip ? skipInsn(next)
+                                      : _mems->disassemble(next, 1);
             }
             if (!Debugger.verbose())
                 continue;
         }
-        s->print();
-        idle();
+        if (insns > skip) {
+            s->print();
+            idle();
+        }
     }
+    return insns;
+}
+
+uint32_t PinsMc68000Base::skipInsn(uint32_t addr) const {
+#ifdef WITH_DISASSEMBLER
+    return addr + mems<MemsMc68000>()->insnLength(addr);
+#else
+    return _mems->disassemble(addr, 1);
+#endif
 }
 
 // Where the ring's loose fetches start an instruction, found from the stop

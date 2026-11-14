@@ -132,6 +132,11 @@ private:
     void classifyCycles(FetchMc68000::Kind *kind, bool anchored) const;
     const SignalsImpl *findBacktraceStart() override;
     void printBacktrace() override;
+    uint32_t walkBacktrace(const FetchMc68000::Kind *kind, uint_fast8_t cycles,
+            uint32_t skip);
+    uint32_t skipInsn(uint32_t addr) const;
+    uint32_t countInsns(const FetchMc68000::Kind *kind, uint_fast8_t cycles,
+            uint_fast8_t from) const;
     uint32_t anchorAt(
             const FetchMc68000::Kind *kind, uint_fast8_t cycles) const;
     Signals *prepareCycle();
