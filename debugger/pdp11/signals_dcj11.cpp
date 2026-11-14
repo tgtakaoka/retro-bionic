@@ -38,6 +38,21 @@ void Signals::getAddr() {
     addr |= (v & 077) << 16;
 }
 
+// Select 1 straight to 2; DAL is read while the 153s settle.
+void Signals::getRunAddr() {
+    const uint32_t sel1 = PIN(MUX) & MUX_gm;
+    digitalWriteFast(PIN_ASEL0, LOW);
+    digitalWriteFast(PIN_ASEL1, HIGH);  // 2
+    addr = busRead(DAL);
+    delayNanoseconds(mux_ns);
+    _signals[0] = PIN(MUX) & MUX_gm;
+    digitalWriteFast(PIN_ASEL1, LOW);
+    digitalWriteFast(PIN_ASEL0, HIGH);  // 1
+    _signals[1] = sel1 >> 2;
+    const uint32_t hi = sel1 & 3;
+    addr |= ((hi << 4) | (hi == 3 ? 017 : 0)) << 16;
+}
+
 void Signals::getData() {
     data = busRead(DAL);
 }
