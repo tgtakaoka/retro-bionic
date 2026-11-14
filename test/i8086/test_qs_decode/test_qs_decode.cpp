@@ -306,6 +306,18 @@ void test_limit() {
     TEST_ASSERT_EQUAL_STRING("I103 D2001 I104 ", bus.log.c_str());
 }
 
+// Nothing but the instruction the CPU stopped at: no backtrace to show.
+void test_limit_nothing() {
+    Bus bus;
+    bus.len = {{100, 1}};
+    prologue(bus);
+    bus.qs(5, 1);  // 100, where the CPU stopped
+    bus.qs(7, 2);  // the stop
+    Decoder dec(bus, true, 100);
+    TEST_ASSERT_FALSE(dec.decode(5));
+    TEST_ASSERT_EQUAL_STRING("", bus.log.c_str());
+}
+
 // BRKEM enters 8080 code, an interrupt leaves it for a native handler,
 // and IRET's flags pop (MD 0) returns to it; 8080 code shows as E.
 void test_emulation() {
@@ -444,6 +456,7 @@ int main() {
     RUN_TEST(test_lone_stream_at_stop);
     RUN_TEST(test_lone_stream_unplaced);
     RUN_TEST(test_limit);
+    RUN_TEST(test_limit_nothing);
     RUN_TEST(test_emulation);
     RUN_TEST(test_emulation_lookalikes);
     RUN_TEST(test_emulation_area);
