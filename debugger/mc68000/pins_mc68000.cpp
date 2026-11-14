@@ -69,16 +69,31 @@ inline uint16_t bothLanes(uint8_t v) {
     return static_cast<uint16_t>(v) << 8 | v;
 }
 
+// The read right after a select write still shows the old selection, the
+// next one the new, measured from the Teensy side: one other read settles
+// a step, a discarded one where there is nothing to read. A board with
+// asel_delay waits asel_delay_ns instead.
+template <typename BOARD>
+inline void settle_asel(bool read) {
+    if constexpr (BOARD::asel_delay) {
+        delayNanoseconds(asel_delay_ns);
+    } else if (!read) {
+        PIN(ADDR);
+    }
+}
+
 }  // namespace
 
-PinsMc68000::PinsMc68000()
+template <typename BOARD>
+PinsMc68000<BOARD>::PinsMc68000()
     : PinsMc68000Base(Signals::UDS | Signals::LDS, clock_input_hz) {
     _devs = new DevsMc68000(ADDR_MASK);
     _mems = new MemsMc68000(ADDR_MASK);
     _regs = new RegsMc68000(this, mems<MemsMc68000>());
 }
 
-void PinsMc68000::resetPins() {
+template <typename BOARD>
+void PinsMc68000<BOARD>::resetPins() {
     pinsMode(PINS_LOW, sizeof(PINS_LOW), OUTPUT, LOW);
     pinsMode(PINS_HIGH, sizeof(PINS_HIGH), OUTPUT, HIGH);
     pinsMode(PINS_INPUT, sizeof(PINS_INPUT), INPUT);
@@ -89,7 +104,8 @@ void PinsMc68000::resetPins() {
 // (JP1 closed on the FN board) for an MC68HC001's 8-bit bus. The P and PS
 // boards tie it high. It must be known before the first cycle, whose A0
 // comes from the strobes on a 16-bit bus and from the mux on an 8-bit one.
-void PinsMc68000::readStraps() {
+template <typename BOARD>
+void PinsMc68000<BOARD>::readStraps() {
     digitalWriteFast(PIN_ASEL1, HIGH);  // 10
     delayNanoseconds(asel_delay_ns);
     const uint32_t sel10 = PIN(ADDR);
@@ -101,25 +117,32 @@ void PinsMc68000::readStraps() {
 // hand out A0/A16, A4/A20, A8/-, A12/FC in turn, one select changing per
 // step, and the last step brings it back to 00. Each phase's AL and AH
 // nibbles shift together by 0, 4, 8 and 12: A0-A23 in bits 0-23, FC2:FC0
-// in 28-30. The CPU holds the address until #DTACK. The read right after
-// a select write still shows the old selection, the next one the new,
-// measured from the Teensy side: one other read settles a step, a
-// discarded one where there is nothing to read.
-void PinsMc68000::getAddr(Signals *s) const {
+// in 28-30. The CPU holds the address until #DTACK.
+template <typename BOARD>
+void PinsMc68000<BOARD>::getAddr(Signals *s) const {
     constexpr uint32_t nibbles = 0x000F000F;
     const uint32_t sel00 = PIN(ADDR);
-    digitalWriteFast(PIN_ASEL0, HIGH);  // 01
     // A read asserts its strobes with #AS: they are settled by now.
-    const uint8_t cntl = busRead(CNTL);
+    uint8_t cntl;
+    if constexpr (BOARD::asel_delay) {
+        // ATTENTION: cause unknown. Read after the select write, bench1
+        // misreads device cycles.
+        cntl = busRead(CNTL);
+        digitalWriteFast(PIN_ASEL0, HIGH);  // 01
+    } else {
+        digitalWriteFast(PIN_ASEL0, HIGH);  // 01
+        cntl = busRead(CNTL);
+    }
     uint32_t addr = sel00 & nibbles;
+    settle_asel<BOARD>(true);
     const uint32_t sel01 = PIN(ADDR);
     digitalWriteFast(PIN_ASEL1, HIGH);  // 11
     addr |= (sel01 & nibbles) << 4;
-    PIN(ADDR);
+    settle_asel<BOARD>(false);
     const uint32_t sel11 = PIN(ADDR);
     digitalWriteFast(PIN_ASEL0, LOW);  // 10
     addr |= (sel11 & nibbles) << 8;
-    PIN(ADDR);
+    settle_asel<BOARD>(false);
     const uint32_t sel10 = PIN(ADDR);
     digitalWriteFast(PIN_ASEL1, LOW);  // 00
     addr |= (sel10 & nibbles) << 12;
@@ -134,7 +157,8 @@ void PinsMc68000::getAddr(Signals *s) const {
 
 // Both strobes move a word; #UDS alone the even byte, #LDS alone the odd
 // one. On an 8-bit bus #LDS strobes every byte and A0 is on the bus.
-void PinsMc68000::getLanes(Signals *s) const {
+template <typename BOARD>
+void PinsMc68000<BOARD>::getLanes(Signals *s) const {
     if (_bus8)
         return;
     const auto uds = (s->cntl() & Signals::UDS) == 0;
@@ -143,7 +167,8 @@ void PinsMc68000::getLanes(Signals *s) const {
     s->setFc(s->fc(), uds && lds);
 }
 
-void PinsMc68000::getData(Signals *s) const {
+template <typename BOARD>
+void PinsMc68000<BOARD>::getData(Signals *s) const {
     const uint16_t data = busRead(D);
     if (s->wordAccess()) {
         s->data = data;
@@ -155,31 +180,40 @@ void PinsMc68000::getData(Signals *s) const {
 }
 
 // A byte goes out on both lanes: the CPU takes the one it strobed.
-void PinsMc68000::outData(const Signals *s) const {
+template <typename BOARD>
+void PinsMc68000<BOARD>::outData(const Signals *s) const {
     busWrite(D, s->wordAccess() ? s->data : bothLanes(s->data));
     busMode(D, OUTPUT);
 }
 
-void PinsMc68000::inputMode() const {
+template <typename BOARD>
+void PinsMc68000<BOARD>::inputMode() const {
     busMode(D, INPUT);
 }
 
 // The level on #IPL2-#IPL0, active low.
-void PinsMc68000::setIpl() const {
+template <typename BOARD>
+void PinsMc68000<BOARD>::setIpl() const {
     busWrite(IPL, ~iplLevel() & 7);
 }
 
-Signals *PinsMc68000::prepareCycle(uint_fast16_t clocks) {
-    return prepareCycleOf<PinsMc68000>(clocks);
+template <typename BOARD>
+Signals *PinsMc68000<BOARD>::prepareCycle(uint_fast16_t clocks) {
+    return prepareCycleOf<BOARD>(clocks);
 }
 
-Signals *PinsMc68000::completeCycle(Signals *s) {
-    return completeCycleOf<PinsMc68000>(s);
+template <typename BOARD>
+Signals *PinsMc68000<BOARD>::completeCycle(Signals *s) {
+    return completeCycleOf<BOARD>(s);
 }
 
-bool PinsMc68000::loop() {
-    return loopOf<PinsMc68000>();
+template <typename BOARD>
+bool PinsMc68000<BOARD>::loop() {
+    return loopOf<BOARD>();
 }
+
+template struct PinsMc68000<PinsMc68000P>;
+template struct PinsMc68000<PinsMc68000Fn>;
 
 }  // namespace mc68000
 }  // namespace debugger
