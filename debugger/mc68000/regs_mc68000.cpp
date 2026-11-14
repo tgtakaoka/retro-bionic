@@ -37,9 +37,10 @@ struct Sequence {
 };
 }  // namespace
 
-RegsMc68000::RegsMc68000(PinsMc68000Base *pins, MemsMc68000 *mems)
+RegsMc68000::RegsMc68000(PinsMc68000Base *pins, MemsMc68000 *mems, bool mc68008)
     : _pins(pins),
       _mems(mems),
+      _mc68008(mc68008),
       _pc(InstMc68000::ORG_PARK),
       _parkedAddr(InstMc68000::ORG_PARK),
       _vecAddr(0),

@@ -11,10 +11,18 @@ struct PinsMc68000Base;
 struct MemsMc68000;
 
 struct RegsMc68000 final : Regs {
-    RegsMc68000(PinsMc68000Base *pins, MemsMc68000 *mems);
+    // |mc68008|: an MC68008 board, whose identity names its chip.
+    RegsMc68000(PinsMc68000Base *pins, MemsMc68000 *mems, bool mc68008);
 
     const char *cpu() const override {
         return _mc68010 ? "MC68010" : "MC68000";
+    }
+    // The chip in the socket: an MC68010 by its frame, an MC68008 by its
+    // board.
+    const char *cpuName() const override {
+        if (_mc68010)
+            return "MC68010";
+        return _mc68008 ? Regs::cpuName() : "MC68000";
     }
     // An MC68010 stacks a format/vector word below SR and PC: a frame of
     // eight bytes, not six.
@@ -69,6 +77,7 @@ struct RegsMc68000 final : Regs {
 private:
     PinsMc68000Base *const _pins;
     MemsMc68000 *const _mems;
+    const bool _mc68008;
     bool _mc68010 = false;
 
     uint32_t _pc;
