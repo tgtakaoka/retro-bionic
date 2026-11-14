@@ -10,6 +10,9 @@ namespace dcj11 {
 // Guide, Chapter 3). |addr| is the 22-bit physical address.
 struct Signals final : SignalsBase<Signals> {
     void getAddr();
+    // getAddr() without DAL16-DAL19, which leave DAL before the PWM's read
+    // gets to them; they follow DAL20/DAL21, as with the MMU off.
+    void getRunAddr();
     void getData();
     void outData() const;
     void inputMode() const;

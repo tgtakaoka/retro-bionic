@@ -523,8 +523,8 @@ bool PinsDcj11::parkAfterFrame(Signals *s, bool step) {
     }
     if (frame[1] == nullptr)
         return false;
-    // The PC lies below the PS. DAL16-DAL19 may read wrong under the PWM,
-    // so compare the 16-bit addresses.
+    // The PC lies below the PS, by the 16-bit addresses: the debugger runs
+    // with the MMU off.
     const auto pc =
             frame[0]->addr16() < frame[1]->addr16() ? frame[0] : frame[1];
     const auto ps = pc == frame[0] ? frame[1] : frame[0];
@@ -620,7 +620,7 @@ Signals *PinsDcj11::catchCycle(uint32_t cycles) {
         }
         auto s = Signals::put();
         s->clearMark();
-        s->getAddr();
+        s->getRunAddr();
         if (!s->nio()) {
             return s;
         }
