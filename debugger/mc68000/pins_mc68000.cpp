@@ -89,7 +89,7 @@ PinsMc68000<BOARD>::PinsMc68000()
     : PinsMc68000Base(Signals::UDS | Signals::LDS, clock_input_hz) {
     _devs = new DevsMc68000(ADDR_MASK);
     _mems = new MemsMc68000(ADDR_MASK);
-    _regs = new RegsMc68000(this, mems<MemsMc68000>());
+    _regs = new RegsMc68000(this, mems<MemsMc68000>(), false);
 }
 
 template <typename BOARD>
