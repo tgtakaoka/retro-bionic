@@ -1060,8 +1060,8 @@ void PinsI8086::printCycles() {
     }
 }
 
-// No status tells a fetch from a prefetch, so the backtrace prints every
-// cycle.
+// The queue status decode takes the whole ring; printBacktrace() limits
+// what it shows.
 const SignalsImpl *PinsI8086::findBacktraceStart() {
     return Cycles::tail();
 }
@@ -1069,6 +1069,10 @@ const SignalsImpl *PinsI8086::findBacktraceStart() {
 void PinsI8086::printBacktrace() {
     if (_qsMode != QS_RAW && _qs.frozen() && printExecuted(false))
         return;
+    // No status tells a fetch from a prefetch: the raw cycles from the
+    // last |_lineLimit| code fetches.
+    if (_lineLimit != UINT32_MAX)
+        Cycles::dispose(backtraceStartByFetchCount<Signals>(_lineLimit));
     printCycles();
 }
 
@@ -1100,7 +1104,7 @@ struct QsSource {
     }
     uint8_t qs(int k) const { return tracker.sampleAt(first - k); }
     uint32_t insn(uint32_t addr, bool emu) const {
-        return mems->disassembleAs(addr, emu);
+        return mems->disassembleInsn(addr, emu);
     }
     uint8_t length(uint32_t addr, bool emu) const {
         return mems->insnLength(addr, emu);

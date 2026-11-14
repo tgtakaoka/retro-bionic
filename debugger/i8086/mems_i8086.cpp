@@ -133,6 +133,25 @@ uint8_t MemsI8086::insnLength(uint32_t addr, bool emu) const {
     }
     return 1;
 }
+
+// A WAIT the next instruction can't merge with shows alone: after it, one
+// that can starts its own line.
+uint32_t MemsI8086::disassembleInsn(uint32_t addr, bool emu) const {
+    auto dis = emu ? nullptr : disassembler();
+    if (!dis)
+        return disassembleAs(addr, emu);
+    dis->setOption("uppercase", "true");
+    CodeMemory mem(this, 0, addr, 0xFFFFF);
+    libasm::Insn insn(addr);
+    char operands[80];
+    dis->decode(mem, insn, operands, sizeof(operands));
+    const auto at = insn.hasContinue() ? insn.continueOffset() : 0;
+    const auto len = at ? at : insn.length();
+    printInsn(dis, insn, operands, 0, len, true);
+    if (insn.getError())
+        printError(insn);
+    return (addr + (len ? len : 1)) & 0xFFFFF;
+}
 #endif
 
 }  // namespace i8086

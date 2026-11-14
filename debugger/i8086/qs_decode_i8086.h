@@ -72,8 +72,8 @@ struct QsDecoder {
 
     /**
      * Shows the last |limit| instructions, and the cycles from the first of
-     * them on. False when the samples hold no stream but the first, and it
-     * can't be placed.
+     * them on. False, showing nothing, when the samples hold no stream but
+     * the first and it can't be placed, or no instruction.
      */
     bool decode(uint32_t limit = UINT32_MAX) {
         const auto found = findStreams();
@@ -95,8 +95,7 @@ struct QsDecoder {
             skip = starts > limit ? starts - limit : 0;
         }
         restart();
-        run(SHOW, hide, skip);
-        return true;
+        return run(SHOW, hide, skip) > 0;
     }
 
     /** Taken bytes where QS 01 and the decode agree on a start, or not. */

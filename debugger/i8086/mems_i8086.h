@@ -27,6 +27,9 @@ struct MemsI8086 final : ExtMemory {
     // Shows the instruction at |addr|, as 8080 code if |emu|; returns the
     // next.
     uint32_t disassembleAs(uint32_t addr, bool emu) const;
+    // Shows the instruction at |addr| as insnLength() counts it; returns
+    // the next.
+    uint32_t disassembleInsn(uint32_t addr, bool emu) const;
 
     uint32_t assemble(uint32_t addr, const char *line) const override;
     uint32_t disassemble(uint32_t addr, uint8_t numInsn) const override;
