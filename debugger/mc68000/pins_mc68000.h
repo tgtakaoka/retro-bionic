@@ -55,8 +55,10 @@ namespace mc68000 {
 
 // The MC68000P (DIP64), HD68000PS (SDIP64) and MC68000FN (PLCC68)
 // boards, for the MC68000, MC68HC000, MC68HC001 and MC68010: a 16-bit
-// bus, or an 8-bit one from an MC68HC001 with MODE low.
-struct PinsMc68000 final : PinsMc68000Base {
+// bus, or an 8-bit one from an MC68HC001 with MODE low. |BOARD| tells how
+// a mux select settles.
+template <typename BOARD>
+struct PinsMc68000 : PinsMc68000Base {
     PinsMc68000();
 
 private:
@@ -77,6 +79,17 @@ private:
     Signals *prepareCycle(uint_fast16_t clocks) override;
     Signals *completeCycle(Signals *s) override;
     bool loop() override;
+};
+
+// The P and PS boards. One port read per select step misreads device
+// cycles on bench1, as on the FN board.
+struct PinsMc68000P final : PinsMc68000<PinsMc68000P> {
+    static constexpr bool asel_delay = true;
+};
+
+// The FN board: a select step waits asel_delay_ns.
+struct PinsMc68000Fn final : PinsMc68000<PinsMc68000Fn> {
+    static constexpr bool asel_delay = true;
 };
 
 }  // namespace mc68000

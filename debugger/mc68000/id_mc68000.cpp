@@ -5,15 +5,19 @@
 namespace debugger {
 namespace mc68000 {
 
-Pins *instance() {
-    return new PinsMc68000();
+Pins *instanceP() {
+    return new PinsMc68000P();
+}
+
+Pins *instanceFn() {
+    return new PinsMc68000Fn();
 }
 
 TARGET_OVERLAY(mc68000);
 
-const struct Identity MC68000P{"MC68000P", instance, overlay};
-const struct Identity HD68000PS{"HD68000PS", instance, overlay};
-const struct Identity MC68000FN{"MC68000FN", instance, overlay};
+const struct Identity MC68000P{"MC68000P", instanceP, overlay};
+const struct Identity HD68000PS{"HD68000PS", instanceP, overlay};
+const struct Identity MC68000FN{"MC68000FN", instanceFn, overlay};
 
 }  // namespace mc68000
 }  // namespace debugger
