@@ -29,6 +29,9 @@ Cases, named on the command line and run in this order:
   gountil  `g` a named label repeatedly, from [gountil] in the
            regress.toml file; needs program/break_at there too
   disasm   a halted run's backtrace is disassembled, at least n lines
+  backtrace  `g` a named label, and optionally `G` a sample that stops by
+           itself, with backtrace counts 0, n and none: exactly 0 and n
+           instruction lines, then more than n; from [backtrace]
 
 A regress.toml-style file (see drive_table()) is mandatory and always
 first: which arch/variant this run exercises is not inferred from the
@@ -43,7 +46,7 @@ with none, it lists the cases and the file's tables instead of guessing
   bionic-regress.py REGRESS.toml
        # no case named: lists the cases and the file's own samples,
        # runs nothing
-  bionic-regress.py REGRESS.toml reset step samples haltgo breakpoint gountil disasm
+  bionic-regress.py REGRESS.toml reset step samples haltgo breakpoint gountil disasm backtrace
        # every case, named explicitly
   bionic-regress.py REGRESS.toml haltgo     # one case
   bionic-regress.py REGRESS.toml haltgo=20  # with a repeat count
@@ -398,8 +401,8 @@ def drive_table(regress=None):
     table's name.
 
     The top-level `chips` list, which chips_of() reads, is not a sample;
-    [reset], [step], [haltgo], [breakpoint] and [gountil] configure those
-    cases.
+    [reset], [step], [haltgo], [breakpoint], [gountil] and [backtrace]
+    configure those cases.
     """
     table = {}
     if regress:
@@ -858,7 +861,25 @@ def case_gountil(board, n=3, regress=None):
         how['break_at'], addr, n, '; ' + ' '.join(notes) if notes else '')
 
 
-DISASM = re.compile(r'^[0-9A-F]{3,8}: ([0-9A-F]{2,6} )+ +\S+')
+DISASM = re.compile(r'[0-9A-F]{3,8}: ([0-9A-F]{2,6} )+ +\S+')
+
+
+def insn_lines(txt):
+    """How many `addr: bytes mnemonic` lines a halt's dump holds, not
+    counting the register dump's own, the run of them it ends with: two
+    for an 8086 WAIT and the ESC after it. The first can follow a
+    sample's unfinished output line, which never holds `: `."""
+    lines = [l for l in txt.split('\n') if l.strip() and l.strip() != '>'
+             and not l.startswith('Elapsed')]
+    while lines and DISASM.search(lines[-1]):
+        lines.pop()
+    return len([l for l in lines if DISASM.search(l)])
+
+
+def verbose_off(board):
+    txt = board.send(b'V', wait=2.0, idle=0.4).decode('ascii', 'replace')
+    if 'Verbose ON' in txt:
+        board.send(b'V', wait=2.0, idle=0.4)
 
 
 def case_disasm(board, n=10, regress=None):
@@ -871,25 +892,81 @@ def case_disasm(board, n=10, regress=None):
     """
     if _load_looping(board, regress=regress) is None:
         return None, 'no samples'
-    txt = board.send(b'V', wait=2.0, idle=0.4).decode('ascii', 'replace')
-    if 'Verbose ON' in txt:
-        board.send(b'V', wait=2.0, idle=0.4)
+    verbose_off(board)
     board.send(b'G\r', wait=0.5, idle=0.2, delay=1.5)
     board.abort()
     how, raw, _ = board.wait_run(cap=40.0, out=None)
     txt = raw.decode('ascii', 'replace').replace('\r', '')
     if how != 'prompt':
         return False, 'no prompt after the halt'
-    lines = [l for l in txt.split('\n') if DISASM.match(l)]
-    # The last such line is the register dump's own.
-    got = len(lines) - 1
+    got = insn_lines(txt)
     return got >= n, '%d instructions disassembled in the dump (need %d)' % (got, n)
+
+
+def _backtrace_lines(board, cmd, cap):
+    """Runs `cmd` to its stop; the instruction lines its backtrace shows,
+    or None if it never stopped."""
+    state, raw, _ = board.go(cmd=cmd, cap=cap, out=None)
+    if state != 'prompt':
+        board.abort()
+        board.send(wait=8.0, idle=1.0, delay=0.8)
+        return None
+    return insn_lines(raw.decode('ascii', 'replace').replace('\r', ''))
+
+
+def case_backtrace(board, n=None, regress=None):
+    """A stop's backtrace shows exactly as many instructions as asked.
+
+    `[backtrace]` in `regress`: `program = "name"` and `break_at =
+    "label"`, as for [gountil], which `g<addr> 0`, `g<addr> count` and an
+    Enter-only `g<addr>` run to: 0, `count` (default 3; a `backtrace=N`
+    on the command line wins) and more than `count` instruction lines.
+    `halting = "name"`, a sample that stops by itself, runs the same
+    checks with `G`, its own table's `cap` (default 120 s) bounding each.
+    """
+    how = drive_table(regress).get('backtrace', {})
+    if 'program' not in how or 'break_at' not in how:
+        return None, 'no [backtrace] program/break_at configured'
+    if n is None:
+        n = how.get('count', 3)
+    by_name = {os.path.basename(p).rsplit('.', 1)[0]: p for p in samples(board.who)}
+    path = by_name.get(how['program'])
+    if path is None:
+        return None, 'no samples'
+    addr = label_address(path.rsplit('.', 1)[0] + '.lst', how['break_at'])
+    if addr is None:
+        return False, '%s not found in %s.lst' % (how['break_at'], how['program'])
+    verbose_off(board)
+    board.clear_breaks()
+    notes = []
+
+    def check(prog, cmd, cap):
+        got = {}
+        for limit in (b' 0', b' %d' % n, b''):
+            load(board, prog)
+            got[limit] = _backtrace_lines(board, cmd + limit + b'\r', cap)
+        shown = '%s/%s/%s' % tuple(got.values())
+        if got[b' 0'] != 0 or got[b' %d' % n] != n or (got[b''] or 0) <= n:
+            notes.append('%s: %s' % (cmd.decode(), shown))
+        return shown
+
+    shown = check(path, b'g' + addr.encode(), 30.0)
+    note = 'g %s (%s) 0/%d/all -> %s' % (how['break_at'], addr, n, shown)
+    if how.get('halting'):
+        prog = by_name.get(how['halting'])
+        if prog is None:
+            notes.append('no %s sample' % how['halting'])
+        else:
+            cap = drive_table(regress).get(how['halting'], {}).get('cap', 120.0)
+            note += '; G %s -> %s' % (how['halting'], check(prog, b'G', cap))
+    board.clear_breaks()
+    return not notes, note + ('; FAIL ' + ' '.join(notes) if notes else '')
 
 
 CASES = (('reset', case_reset), ('step', case_step),
          ('samples', case_samples), ('haltgo', case_haltgo),
          ('breakpoint', case_breakpoint), ('gountil', case_gountil),
-         ('disasm', case_disasm))
+         ('disasm', case_disasm), ('backtrace', case_backtrace))
 
 
 def main():
@@ -967,7 +1044,7 @@ def main():
                 t0 = time.time()
                 kw = {} if want.get(name) is None else {'n': want[name]}
                 if name in ('reset', 'step', 'samples', 'haltgo', 'breakpoint', 'gountil',
-                            'disasm'):
+                            'disasm', 'backtrace'):
                     kw['regress'] = regress
                 if name in only:
                     kw['only'] = only[name]
