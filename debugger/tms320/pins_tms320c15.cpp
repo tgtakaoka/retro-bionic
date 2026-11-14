@@ -374,8 +374,30 @@ void PinsTms320C15::printCycles() {
     }
 }
 
+// Every program read is a fetch(), operand and table words too, so the
+// instructions are counted as printBacktrace() walks them.
 const SignalsImpl *PinsTms320C15::findBacktraceStart() {
-    return backtraceStartByFetchCount<Signals>(_lineLimit);
+    const auto g = Signals::get();
+    const auto cycles = g->diff(Signals::put());
+    uint32_t insns = 0;
+    for (auto i = 0u; i < cycles;) {
+        const auto s = g->next(i);
+        const auto cyc = s->fetch() ? InstTms3201X::cycles(s->data) : 0;
+        if (cyc)
+            ++insns;
+        i += cyc ? cyc : 1;
+    }
+    if (insns <= _lineLimit)
+        return g;
+    auto skip = insns - _lineLimit;
+    for (auto i = 0u; i < cycles;) {
+        const auto s = g->next(i);
+        const auto cyc = s->fetch() ? InstTms3201X::cycles(s->data) : 0;
+        if (cyc && skip-- == 0)
+            return s;
+        i += cyc ? cyc : 1;
+    }
+    return Signals::put();
 }
 
 #ifdef PROFILE_CYCLES
