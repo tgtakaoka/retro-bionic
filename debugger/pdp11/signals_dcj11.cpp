@@ -38,19 +38,25 @@ void Signals::getAddr() {
     addr |= (v & 077) << 16;
 }
 
-// Select 1 straight to 2; DAL is read while the 153s settle.
+// At #STRB's rise, before #ALE: the address and BS are valid from then
+// until a period after #ALE falls (J-11 Data Chip Specification, 1.5).
+// The 153s step 1, 0, then 2, left to settle for getAio().
 void Signals::getRunAddr() {
     const uint32_t sel1 = PIN(MUX) & MUX_gm;
-    digitalWriteFast(PIN_ASEL0, LOW);
-    digitalWriteFast(PIN_ASEL1, HIGH);  // 2
+    digitalWriteFast(PIN_ASEL0, LOW);  // 0
     addr = busRead(DAL);
     delayNanoseconds(mux_ns);
+    const uint32_t sel0 = PIN(MUX) & MUX_gm;
+    digitalWriteFast(PIN_ASEL1, HIGH);  // 2
+    _signals[1] = sel1 >> 2;
+    addr |= (((sel1 & 3) << 4) | sel0) << 16;
+}
+
+// AIO3-AIO0 once #ALE is low; back at 1 afterwards.
+void Signals::getAio() {
     _signals[0] = PIN(MUX) & MUX_gm;
     digitalWriteFast(PIN_ASEL1, LOW);
     digitalWriteFast(PIN_ASEL0, HIGH);  // 1
-    _signals[1] = sel1 >> 2;
-    const uint32_t hi = sel1 & 3;
-    addr |= ((hi << 4) | (hi == 3 ? 017 : 0)) << 16;
 }
 
 void Signals::getData() {
