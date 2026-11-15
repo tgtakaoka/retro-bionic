@@ -2841,14 +2841,16 @@ so every memory read stretches in T4 pairs until #CONT, sampled at T4's
 falling edges, ends it, and NIO cycles never do. A stretched cycle lasts
 at least eight periods. **[doc]** The address, AIO3-AIO0 and BS1-BS0 are
 valid while #ALE is low: DAL21-DAL16, BS and AIO reach the Teensy through
-two 74HCS153s on P30-P33, selected one select bit at a time, and AIO is
-the field that leaves first. **[doc][bench]**
+two 74HCS153s on P30-P33, selected one select bit at a time. The address
+and BS are driven from #STRB's rise until a period after #ALE falls, when
+DAL21-DAL16 turn to ALU status (J-11 Data Chip Specification, 1.5 and
+3.20); AIO is valid at #ALE. **[doc][bench]**
 
-**Clock.** CLK1 comes from the PWM at 7.5MHz, every cycle other than NIO
-held in its stretch while it is served. The address leaves DAL about a
-period after #ALE falls, so at 8.33MHz the firmware's read of it and the
-mux misses it; 7.89MHz passes but runs slower, its #CONT landing a T4
-pair later. **[bench]**
+**Clock.** CLK1 comes from the PWM at 10MHz, every cycle other than NIO
+held in its stretch while it is served. A run reads the address as #STRB
+rises and AIO once #ALE falls: read from #ALE alone, the firmware got to
+DAL19-DAL16 after they had left, even at 7.5MHz. 10.7MHz passes, 11.5MHz
+fails. **[bench]**
 
 **Reads.** Read data is latched at T3's rise and again with DV in the
 stretch (User's Guide, 3.2), and the CPU lets DAL go with #BUFCTL, about

@@ -53,10 +53,9 @@ constexpr auto clock_lo_ns = 20;
 constexpr auto clock_hi_ns = 25;
 constexpr auto lo_ns = clock_lo_ns;
 constexpr auto hi_ns = clock_hi_ns;
-// A run's PWM: the address leaves DAL about a period after #ALE falls,
-// and the read of it and the mux takes about 70ns; 8.33MHz misses it.
+// A run's PWM: the address is read from #STRB's rise; 11.5MHz fails.
 // The data chip's maximum is 20MHz (J-11 Data Chip Specification).
-constexpr uint32_t pwm_hz = 7500000;
+constexpr uint32_t pwm_hz = 10000000;
 constexpr uint32_t pwm_min_hz = 100000;
 constexpr uint32_t pwm_half_min_ns = 25;
 // A run's wait for a cycle other than NIO before it looks at the halt
@@ -185,6 +184,10 @@ inline bool sctl_asserted() {
 
 inline bool bufctl_asserted() {
     return digitalReadFast(PIN_BUFCTL) == LOW;
+}
+
+inline bool strb_asserted() {
+    return digitalReadFast(PIN_STRB) == LOW;
 }
 
 inline bool abort_asserted() {
@@ -609,24 +612,37 @@ void PinsDcj11::stopClock() {
 }
 
 // Under the PWM: the next cycle that isn't NIO within |cycles|, its
-// address taken at #ALE, with interrupts masked. Null when none comes.
+// address taken as #STRB rises and AIO at #ALE, with interrupts masked.
+// Null when none comes.
 Signals *PinsDcj11::catchCycle(uint32_t cycles) {
     const auto start = ARM_DWT_CYCCNT;
+    const auto expired = [start, cycles] {
+        return ARM_DWT_CYCCNT - start >= cycles;
+    };
     for (;;) {
-        // Twice low: a coupled spike lasts a few ns.
-        while (!(ale_asserted() && ale_asserted())) {
-            if (ARM_DWT_CYCCNT - start >= cycles)
+        // Twice high: a coupled spike lasts a few ns. The counter only
+        // every few polls.
+        for (auto n = 0;; ++n) {
+            if (!strb_asserted() && !strb_asserted())
+                break;
+            if ((n & 7) == 7 && expired())
                 return nullptr;
         }
         auto s = Signals::put();
         s->clearMark();
         s->getRunAddr();
-        if (!s->nio()) {
-            return s;
+        while (!(ale_asserted() && ale_asserted())) {
+            if (expired()) {
+                s->getAio();  // the 153s back at rest
+                return nullptr;
+            }
         }
-        // A NIO's #ALE stays low on a clock the mask stopped.
-        while (ale_asserted()) {
-            if (ARM_DWT_CYCCNT - start >= cycles)
+        s->getAio();
+        if (!s->nio())
+            return s;
+        // A NIO's #STRB falls a period after #ALE.
+        while (!strb_asserted()) {
+            if (expired())
                 return nullptr;
         }
     }

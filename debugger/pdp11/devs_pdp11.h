@@ -17,8 +17,9 @@ struct DevsPdp11 final : Devs {
     void begin() override;
     void reset() override;
     bool loopDevices() override;
+    // A byte's address selects its word.
     bool isSelected(uint32_t addr) const override {
-        return _acia->isSelected(addr);
+        return _acia->isSelected(addr & ~1);
     }
     uint16_t read(uint32_t addr) const override;
     // What read() would return, without its side effects.
