@@ -45,7 +45,9 @@ ignored.
                       'G [n]'/'g addr [n]' -- Enter alone, with no
                       digits, means unlimited
     type TEXT        type TEXT with no Enter and no wait, to open a
-                      sub-prompt (e.g. 'D') without answering it yet
+                      sub-prompt (e.g. 'D') without answering it yet; a
+                      \\r in TEXT is Enter, e.g. 'G\\r' starts a run and
+                      leaves it running for the next directives
     wait TEXT        block until TEXT appears in what the board sent
     pace SECONDS     a narration pause
     step N           'S' repeated N times, each waiting for the prompt
@@ -272,7 +274,7 @@ def run_scenario(con, path):
         elif word == 'key':
             do_key(con, rest)
         elif word == 'type':
-            con.type_line(rest, cr=False)
+            con.type_line(rest.replace('\\r', '\r'), cr=False)
         elif word == 'wait':
             if not con.wait_for(rest.encode(), anywhere=True):
                 sys.exit('%s:%d: timed out waiting for %r' % (path, lineno, rest))
