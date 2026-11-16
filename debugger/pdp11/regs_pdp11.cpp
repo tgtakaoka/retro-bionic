@@ -4,6 +4,7 @@
 #include <str_buffer.h>
 #include "debugger.h"
 #include "inst_pdp11.h"
+#include "mems_pdp11.h"
 #include "pins_pdp11.h"
 
 namespace debugger {
@@ -13,7 +14,7 @@ namespace {
 //                              1         2         3         4         5
 //                    0123456789012345678901234567890123456789012345678901234567890
 const char line1[] = "PC=xxxxxx SP=xxxxxx PS=xxx TNZVC";
-const char line1f[] = "PC=xxxxxx SP=xxxxxx PS=xxx TNZVC FPS=xxxxxx";
+const char line1f[] = "PC=xxxxxx SP=xxxxxx PS=xxx TNZVC FPS=xxxxxx DLT_NZVC";
 const char line2[] = "R0=xxxxxx R1=xxxxxx R2=xxxxxx R3=xxxxxx R4=xxxxxx R5=xxxxxx";
 // The left column of the accumulators, so the right one lines up.
 constexpr auto ac_width = 26;
@@ -24,8 +25,9 @@ constexpr auto ac_width = 26;
 constexpr uint16_t STORE = 0177000;
 }  // namespace
 
-RegsPdp11::RegsPdp11(PinsPdp11 *pins, bool fpu)
+RegsPdp11::RegsPdp11(PinsPdp11 *pins, MemsPdp11 *mems, bool fpu)
     : _pins(pins),
+      _mems(mems),
       _fpu(fpu),
       _buffer1(fpu ? line1f : line1),
       _buffer2(line2) {}
@@ -37,8 +39,10 @@ void RegsPdp11::print() const {
     status.oct3(23, _ps >> 6);
     status.oct6(24, _ps);
     status.bits(27, _ps, InstPdp11::PSW_T, "TNZVC");
-    if (_fpu)
+    if (_fpu) {
         status.oct18(37, _fps);
+        status.bits(44, _fps, InstPdp11::FPS_FD, "DLT_NZVC");
+    }
     cli.println(status);
     _pins->idle();
     auto regs = _buffer2;
@@ -104,6 +108,7 @@ void RegsPdp11::saveFpu() {
     auto org = _parkedAt;
     _pins->captureWrites(seq, n, buf, sizeof(buf) / sizeof(buf[0]), org);
     _fps = buf[0];
+    _mems->fpMode(_fps & InstPdp11::FPS_FD, _fps & InstPdp11::FPS_FL);
     for (auto ac = 0; ac < 6; ++ac) {
         for (auto i = 0; i < 4; ++i)
             _ac[ac][i] = buf[1 + 4 * ac + i];

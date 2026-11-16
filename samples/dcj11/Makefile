@@ -2,7 +2,7 @@ ASM=asm
 
 .PHONY: clean
 
-all: mandelbrot.hex fmandel.hex
+all: mandelbrot.hex fmandel.hex dmandel.hex
 
 %.hex:	%.asm
 	$(ASM) -l $*.lst -o $@ $<

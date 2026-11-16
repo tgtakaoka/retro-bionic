@@ -15,6 +15,15 @@ MemsPdp11::MemsPdp11() : DmaMemory(Endian::ENDIAN_LITTLE, true) {
 }
 
 #ifdef WITH_DISASSEMBLER
+libasm::Disassembler *MemsPdp11::disassembler() const {
+    auto dis = DmaMemory::disassembler();
+    if (dis) {
+        dis->setOption("fdmode", _fd ? "double" : "single");
+        dis->setOption("flmode", _fl ? "long" : "short");
+    }
+    return dis;
+}
+
 namespace {
 struct CodeMemory final : libasm::DisMemory {
     CodeMemory(const MemsPdp11 *mems, uint32_t addr)

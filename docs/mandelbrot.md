@@ -3,7 +3,8 @@
 Every architecture's samples run the same Mandelbrot algorithm, written in
 that chip's own assembly: [mandelbrot.c](../samples/arith/mandelbrot.c) in
 16-bit integers, and on chips with floating-point instructions,
-[fmandel.cpp](../samples/arith/fmandel.cpp) as well. Both draw 25 rows of 79
+[fmandel.cpp](../samples/arith/fmandel.cpp) as well, in single precision
+(fmandel) and double precision (dmandel). All draw 25 rows of 79
 pixels, each printed as its iteration count, `0`-`9` and `A`-`F`, or a space
 after 16. Each character goes into a queue that the serial port's
 transmit interrupt drains, so sending overlaps the next pixel's work.
@@ -169,19 +170,23 @@ cast, 📄 the listing.
 |   f3850  |   f3850   |     F3850PC    | 246.8 |  10.068 |   3.097 |   1.72&nbsp;🔨 |                          |                       [▶️](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/f3850/mandelbrot.cast&lst=samples/f3850/mandelbrot.lst "mandelbrot.cast") [📄](../samples/f3850/mandelbrot.lst "f3850/mandelbrot.lst")                       |
 |  ins8060 |  ins8060  |    INS8060N    | 250.2 |  10.144 |   2.212 |  4.05&nbsp;⏱️ |                          |                   [▶️](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/ins8060/mandelbrot.cast&lst=samples/ins8060/mandelbrot.lst "mandelbrot.cast") [📄](../samples/ins8060/mandelbrot.lst "ins8060/mandelbrot.lst")                   |
 
-## Floating point, fmandel
+## Floating point, fmandel and dmandel
 
 Icons: ⏱️ timer clock, 🔨 bit-banged clock (average), ▶️ play the
-cast, 📄 the listing.
+cast, 📄 the listing. The Note names each run's precision: single for
+fmandel, double for dmandel, which draws the same frame.
 
-|   arch   |    core   |       CPU      | frame | avg row | std dev |           MHz | Note                     |                                                                                                                          Links                                                                                                                         |
-| :------: | :-------: | :------------: | ----: | ------: | ------: | ------------: | ------------------------ | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------: |
-|   pdp11  |    j11    |     DCJ11      |   4.2 |   0.170 |   0.052 | 10.00&nbsp;⏱️ | with FP11                | [▶️](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/dcj11/fmandel.cast&lst=samples/dcj11/fmandel.lst "fmandel.cast") [📄](../samples/dcj11/fmandel.lst "dcj11/fmandel.lst") |
-|  i8086   |   i8086   |   P80C86A-2    |   7.0 |   0.284 |   0.094 |  5.00&nbsp;⏱️ | with D8087               |                   [▶️](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/i8087/fmandel_80c86_8087.cast&lst=samples/i8087/fmandel.lst "fmandel_80c86_8087.cast") [📄](../samples/i8087/fmandel.lst "i8087/fmandel.lst")                    |
-|  mn1610  |   mn1613  |     MN1613     |   8.2 |   0.336 |   0.131 |   9.08&nbsp;🔨 |                          |                             [▶️](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/mn1613/fmandel.cast&lst=samples/mn1613/fmandel.lst "fmandel.cast") [📄](../samples/mn1613/fmandel.lst "mn1613/fmandel.lst")                            |
-|  i8086   |   i8086   |   P80C88A-2    |   8.3 |   0.339 |   0.108 |  5.00&nbsp;⏱️ | with D8087               |                   [▶️](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/i8087/fmandel_80c88_8087.cast&lst=samples/i8087/fmandel.lst "fmandel_80c88_8087.cast") [📄](../samples/i8087/fmandel.lst "i8087/fmandel.lst")                    |
-|  mn1610  |   mn1613  |     MN1613A    |   8.3 |   0.341 |   0.133 |   8.99&nbsp;🔨 |                          |                     [▶️](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/mn1613/fmandel_mn1613a.cast&lst=samples/mn1613/fmandel.lst "fmandel_mn1613a.cast") [📄](../samples/mn1613/fmandel.lst "mn1613/fmandel.lst")                    |
-|  tms9900 |  tms99105 |  TMS99105AJDL  |  40.7 |   1.671 |   0.570 |   6.92&nbsp;🔨 | TMS99110 macrostore      |                         [▶️](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/tms99110/fmandel.cast&lst=samples/tms99110/fmandel.lst "fmandel.cast") [📄](../samples/tms99110/fmandel.lst "tms99110/fmandel.lst")                        |
+|   arch   |    core   |       CPU      | frame | avg row | std dev |           MHz | Note                         |                                                                                                                          Links                                                                                                                         |
+| :------: | :-------: | :------------: | ----: | ------: | ------: | ------------: | ---------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------: |
+|   pdp11  |    j11    |     DCJ11      |   4.2 |   0.170 |   0.052 | 10.00&nbsp;⏱️ | single, with FP11            | [▶️](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/dcj11/fmandel.cast&lst=samples/dcj11/fmandel.lst "fmandel.cast") [📄](../samples/dcj11/fmandel.lst "dcj11/fmandel.lst") |
+|  i8086   |   i8086   |   P80C86A-2    |   7.0 |   0.284 |   0.094 |  5.00&nbsp;⏱️ | single, with D8087           |                   [▶️](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/i8087/fmandel_80c86_8087.cast&lst=samples/i8087/fmandel.lst "fmandel_80c86_8087.cast") [📄](../samples/i8087/fmandel.lst "i8087/fmandel.lst")                    |
+|   pdp11  |    j11    |     DCJ11      |   7.6 |   0.309 |   0.103 | 10.00&nbsp;⏱️ | double, with FP11            | [▶️](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/dcj11/dmandel.cast&lst=samples/dcj11/dmandel.lst "dmandel.cast") [📄](../samples/dcj11/dmandel.lst "dcj11/dmandel.lst") |
+|  i8086   |   i8086   |   P80C86A-2    |   8.1 |   0.330 |   0.111 |  5.00&nbsp;⏱️ | double, with D8087           |                   [▶️](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/i8087/dmandel_80c86_8087.cast&lst=samples/i8087/dmandel.lst "dmandel_80c86_8087.cast") [📄](../samples/i8087/dmandel.lst "i8087/dmandel.lst")                    |
+|  mn1610  |   mn1613  |     MN1613     |   8.2 |   0.336 |   0.131 |   9.08&nbsp;🔨 | single                       |                             [▶️](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/mn1613/fmandel.cast&lst=samples/mn1613/fmandel.lst "fmandel.cast") [📄](../samples/mn1613/fmandel.lst "mn1613/fmandel.lst")                            |
+|  i8086   |   i8086   |   P80C88A-2    |   8.3 |   0.339 |   0.108 |  5.00&nbsp;⏱️ | single, with D8087           |                   [▶️](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/i8087/fmandel_80c88_8087.cast&lst=samples/i8087/fmandel.lst "fmandel_80c88_8087.cast") [📄](../samples/i8087/fmandel.lst "i8087/fmandel.lst")                    |
+|  mn1610  |   mn1613  |     MN1613A    |   8.3 |   0.341 |   0.133 |   8.99&nbsp;🔨 | single                       |                     [▶️](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/mn1613/fmandel_mn1613a.cast&lst=samples/mn1613/fmandel.lst "fmandel_mn1613a.cast") [📄](../samples/mn1613/fmandel.lst "mn1613/fmandel.lst")                    |
+|  i8086   |   i8086   |   P80C88A-2    |  10.2 |   0.417 |   0.138 |  5.00&nbsp;⏱️ | double, with D8087           |                   [▶️](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/i8087/dmandel_80c88_8087.cast&lst=samples/i8087/dmandel.lst "dmandel_80c88_8087.cast") [📄](../samples/i8087/dmandel.lst "i8087/dmandel.lst")                    |
+|  tms9900 |  tms99105 |  TMS99105AJDL  |  40.7 |   1.671 |   0.570 |   6.92&nbsp;🔨 | single, TMS99110 macrostore  |                         [▶️](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/tms99110/fmandel.cast&lst=samples/tms99110/fmandel.lst "fmandel.cast") [📄](../samples/tms99110/fmandel.lst "tms99110/fmandel.lst")                        |
 
 ## Binary compatibility: the same code on related chips
 

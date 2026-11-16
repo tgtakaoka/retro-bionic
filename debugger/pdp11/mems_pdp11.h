@@ -20,6 +20,21 @@ struct MemsPdp11 final : DmaMemory {
 
     // How far disassemble() steps past |addr|, printing nothing.
     uint_fast8_t insnLength(uint32_t addr) const;
+
+    // The FPS FD and FL bits pick how FP11 instructions disassemble.
+    void fpMode(bool fd, bool fl) {
+        _fd = fd;
+        _fl = fl;
+    }
+
+protected:
+#ifdef WITH_DISASSEMBLER
+    libasm::Disassembler *disassembler() const override;
+#endif
+
+private:
+    bool _fd = true;
+    bool _fl = true;
 };
 
 }  // namespace pdp11

@@ -37,6 +37,9 @@ struct InstPdp11 {
     static constexpr uint16_t PSW_T = 0000020;
     // The debugger's: priority 7, interrupts masked.
     static constexpr uint16_t PSW_PRI7 = 0000340;
+    // FPS double precision and long integer modes.
+    static constexpr uint16_t FPS_FD = 0000200;
+    static constexpr uint16_t FPS_FL = 0000100;
 };
 
 }  // namespace pdp11

@@ -8,10 +8,11 @@ namespace debugger {
 namespace pdp11 {
 
 struct PinsPdp11;
+struct MemsPdp11;
 
 struct RegsPdp11 final : Regs {
     // |fpu|: the FP11's FPS and AC0-AC5 are saved and restored too.
-    RegsPdp11(PinsPdp11 *pins, bool fpu = false);
+    RegsPdp11(PinsPdp11 *pins, MemsPdp11 *mems, bool fpu = false);
 
     const char *cpu() const override { return cpuName(); }
 
@@ -49,6 +50,7 @@ struct RegsPdp11 final : Regs {
 
 private:
     PinsPdp11 *const _pins;
+    MemsPdp11 *const _mems;
     const bool _fpu;
 
     uint16_t _r[6];
