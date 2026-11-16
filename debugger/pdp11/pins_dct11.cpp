@@ -223,7 +223,7 @@ void loadModeRegister() {
 PinsDct11::PinsDct11() {
     _devs = new DevsPdp11();
     _mems = new MemsPdp11();
-    _regs = new RegsPdp11(this);
+    _regs = new RegsPdp11(this, mems<MemsPdp11>());
 }
 
 #ifdef TUNE_CLOCK

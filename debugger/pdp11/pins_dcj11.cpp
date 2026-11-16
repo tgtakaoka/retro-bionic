@@ -233,7 +233,7 @@ bool clockUntil(COND cond) {
 PinsDcj11::PinsDcj11() : _clock(pwm_half_min_ns, pwm_min_hz), _clockHz(pwm_hz) {
     _devs = new DevsPdp11();
     _mems = new MemsPdp11();
-    _regs = new RegsPdp11(this, true);
+    _regs = new RegsPdp11(this, mems<MemsPdp11>(), true);
 }
 
 #ifdef TUNE_CLOCK

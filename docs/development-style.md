@@ -2864,7 +2864,9 @@ with 015: POK, power-up mode 2 (start at 173000) and a kernel HALT that
 traps to 4. #PWRF halts through vector 24, BPT and the trace trap through
 14; the debugger answers either with 173004 and 340. HALT, the #EVENT and
 IRQ lines and #MISS come from a 74HCT259 that shares the 153s' selects.
-`RegsPdp11` saves the FP11's FPS and AC0-AC5. Without a trap frame it
+`RegsPdp11` saves the FP11's FPS and AC0-AC5; its FD and FL bits pick
+how the disassembler spells FP11 instructions, as single and double (or
+short and long integer) forms share opcodes. Without a trap frame it
 reads the PS with `MFPS`, a byte, so the J11's PS<15:8> (modes and
 register set) needs a per-chip hook. **[doc][code]**
 
