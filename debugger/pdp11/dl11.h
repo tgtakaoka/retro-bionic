@@ -36,6 +36,7 @@ private:
     bool _txRequest;
     uint8_t _rxData;
     uint8_t _txData;
+    uint32_t _rxTime = 0;  // when the last character came, in CPU cycles
 
     static constexpr uint8_t RCSR = 0;
     static constexpr uint8_t RBUF = 2;

@@ -2829,7 +2829,9 @@ transaction is not a write to the same word. **[code]**
 request comes as DONE or READY rises with its interrupt enable set, or
 as the enable is set, and the acknowledge that reads its vector drops
 it: a level request would interrupt for as long as a program leaves the
-transmitter's enable set. **[doc][code]**
+transmitter's enable set. Received characters come a 9600 baud character
+time apart: all at once, pasted text overran the DCJ11's console ODT.
+**[doc][code][bench]**
 
 **Interrupts.** The DL11 requests level 4 with #VEC, and its vector is
 driven on DAL7-DAL0 at the IACK. The AI lines must not change while PI
