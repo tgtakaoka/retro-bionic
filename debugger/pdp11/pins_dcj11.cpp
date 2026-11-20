@@ -151,6 +151,18 @@ void clock_cycle() {
     delayNanoseconds(hi_ns);
 }
 
+// One period with |act| at its rising edge, half a period from the
+// falling edges either side. T4's falling edges sample #ABORT, and a DV
+// that latched 177777 next to one was taken for an abort.
+template <typename ACT>
+void clock_after_rise(ACT act) {
+    digitalWriteFast(PIN_CLK, LOW);
+    delayNanoseconds(lo_ns);
+    digitalWriteFast(PIN_CLK, HIGH);
+    act();
+    delayNanoseconds(hi_ns);
+}
+
 void assert_init() {
     digitalWriteFast(PIN_INIT, LOW);
 }
@@ -196,6 +208,27 @@ inline bool strb_asserted() {
 
 inline bool abort_asserted() {
     return digitalReadFast(PIN_ABORT) == LOW;
+}
+
+// #ABORT's falling edges latch in the port's edge status with no
+// interrupt taken, so a pulse between two looks at the pin shows.
+constexpr uint32_t ABORT_bm = CORE_PIN5_BITMASK;
+
+void watch_abort() {
+    GPIO9_IMR &= ~ABORT_bm;
+    GPIO9_ICR1 |= 3U << (2 * CORE_PIN5_BIT);  // falling edge
+    GPIO9_ISR = ABORT_bm;
+}
+
+inline void clear_abort() {
+    GPIO9_ISR = ABORT_bm;
+}
+
+// Low now, or with verbose on, a fall since clear_abort(): for the
+// bit-banged cycles, as the port access would slow a run's.
+inline bool abort_seen() {
+    return abort_asserted() ||
+           (Debugger.verbose() && (GPIO9_ISR & ABORT_bm) != 0);
 }
 
 // Sets output |q| of the 259 to |level|, and leaves the 153s at select 1.
@@ -262,6 +295,7 @@ void PinsDcj11::resetPins() {
     pinsMode(PINS_INPUT, sizeof(PINS_INPUT), INPUT);
     // The DCJ11's pull-up alone lets #ABORT glitch through the TXS0108E.
     pinMode(PIN_ABORT, INPUT_PULLUP);
+    watch_abort();
 
     // The 259 powers up random: set every output while #INIT is low.
     assert_init();
@@ -340,6 +374,7 @@ Signals *PinsDcj11::resumeCycle() {
 }
 
 Signals *PinsDcj11::completeCycle(Signals *s) {
+    clear_abort();
     settleDevRead(s);
     // GP and IACK cycles are known by AIO alone; their BS is undefined.
     const auto external = s->iack() || s->gpRead() || !s->internal();
@@ -365,23 +400,22 @@ Signals *PinsDcj11::completeCycle(Signals *s) {
         s->outData();
         if (!clockUntil(sctl_asserted))
             cli.println("?#SCTL read");
-        clock_cycle();
-        assert_dv();
+        clock_after_rise(assert_dv);
     } else if (!clockUntil(sctl_asserted)) {
         cli.println("?#SCTL internal");
     }
     // #BUFCTL rises only with the next cycle's address, about when its
     // #ALE comes: let DAL go once #SCTL rises, without waiting for it.
-    if (abort_asserted()) {
-        cli.print("?#ABORT ");
-        s->print();
-    }
-    assert_cont();
+    clock_after_rise(assert_cont);
     if (!clockUntil([] { return !sctl_asserted(); }))
         cli.println("?#CONT");
     negate_cont();
     negate_dv();
     s->inputMode();
+    if (abort_seen()) {
+        cli.print("?#ABORT ");
+        s->print();
+    }
     Cycles::next();
     return s;
 }
