@@ -12,7 +12,7 @@ namespace dct11 {
 
 using pdp11::DevsPdp11;
 using pdp11::InstPdp11;
-using pdp11::MemsPdp11;
+using pdp11::MemsDct11;
 using pdp11::RegsPdp11;
 
 // clang-format off
@@ -222,8 +222,8 @@ void loadModeRegister() {
 
 PinsDct11::PinsDct11() {
     _devs = new DevsPdp11();
-    _mems = new MemsPdp11();
-    _regs = new RegsPdp11(this, mems<MemsPdp11>());
+    _mems = new MemsDct11();
+    _regs = new RegsPdp11(this, mems<MemsDct11>());
 }
 
 #ifdef TUNE_CLOCK

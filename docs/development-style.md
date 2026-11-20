@@ -2868,7 +2868,7 @@ Interrupts are on from the address on, the stretch holding the CPU.
 **[doc][bench]**
 
 **Entries and power-up.** The power-up configuration read is answered
-with 015: POK, power-up mode 2 (start at 173000) and a kernel HALT that
+with 001017: POK, power-up mode 3 (start at 1000) and a kernel HALT that
 traps to 4. #PWRF halts through vector 24, BPT and the trace trap through
 14; the debugger answers either with 173004 and 340. HALT, the #EVENT and
 IRQ lines and #MISS come from a 74HCT259 that shares the 153s' selects.
@@ -2877,6 +2877,12 @@ how the disassembler spells FP11 instructions, as single and double (or
 short and long integer) forms share opcodes. Without a trap frame it
 reads the PS with `MFPS`, a byte, so the J11's PS<15:8> (modes and
 register set) needs a per-chip hook. **[doc][code]**
+
+**Memory.** The emulated memory is 22 bits wide, in EXTMEM: a cycle's
+word is found by DAL21-DAL00. The I/O page, which BS marks, has only its
+devices: elsewhere it reads 0. With the MMU off a program's 160000-177777
+is that page, so the CPU starts at 1000, in memory, and a sample's
+restart jump at 173000 loads into memory it does not reach. **[code]**
 
 **Stack limit.** A kernel stack reference below 400, a trap's push
 among them, takes a yellow stack trap through vector 4 (DCJ11 User's

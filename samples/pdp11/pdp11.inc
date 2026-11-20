@@ -22,9 +22,10 @@ VEC_PWRFAIL     =       024     ; Power fail
 VEC_EMT         =       030     ; EMT instruction
 VEC_TRAP        =       034     ; TRAP instruction
 
-;;; Both start at 173000 with PSW 340: the DCT11 with mode register
-;;; start address 6, the DCJ11 with power-up mode 2. The DCJ11's power-up
-;;; mode 0 reads the PC and PSW from VEC_PWRFAIL instead.
+;;; The DCT11 starts at 173000 with PSW 340, mode register start address
+;;; 6. The DCJ11 starts at 1000 with PSW 340, power-up mode 3: with the MMU
+;;; off its 173000 is in the I/O page, not in memory. Its power-up mode 0
+;;; reads the PC and PSW from VEC_PWRFAIL instead.
 ORG_RESET       =       173000
 
 ;;; BPT hands control back to the debugger: HALT acts differently on the

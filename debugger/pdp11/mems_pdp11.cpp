@@ -5,18 +5,21 @@
 namespace debugger {
 namespace pdp11 {
 
-MemsPdp11::MemsPdp11() : DmaMemory(Endian::ENDIAN_LITTLE, true) {
+template <typename MEM>
+MemsPdp11<MEM>::MemsPdp11(uint32_t maxAddr)
+    : MEM(Endian::ENDIAN_LITTLE, true), _maxAddr(maxAddr) {
 #ifdef WITH_ASSEMBLER
-    _assembler = new libasm::pdp11::AsmPdp11();
+    this->_assembler = new libasm::pdp11::AsmPdp11();
 #endif
 #ifdef WITH_DISASSEMBLER
-    _disassembler = new libasm::pdp11::DisPdp11();
+    this->_disassembler = new libasm::pdp11::DisPdp11();
 #endif
 }
 
 #ifdef WITH_DISASSEMBLER
-libasm::Disassembler *MemsPdp11::disassembler() const {
-    auto dis = DmaMemory::disassembler();
+template <typename MEM>
+libasm::Disassembler *MemsPdp11<MEM>::disassembler() const {
+    auto dis = MEM::disassembler();
     if (dis) {
         dis->setOption("fdmode", _fd ? "double" : "single");
         dis->setOption("flmode", _fl ? "long" : "short");
@@ -26,18 +29,19 @@ libasm::Disassembler *MemsPdp11::disassembler() const {
 
 namespace {
 struct CodeMemory final : libasm::DisMemory {
-    CodeMemory(const MemsPdp11 *mems, uint32_t addr)
+    CodeMemory(const Mems *mems, uint32_t addr)
         : libasm::DisMemory(addr), _mems(mems) {}
     bool hasNext() const override { return address() <= _mems->maxAddr(); }
     uint8_t nextByte() override { return _mems->get_code(address()); }
 
 private:
-    const MemsPdp11 *const _mems;
+    const Mems *const _mems;
 };
 }  // namespace
 #endif
 
-uint_fast8_t MemsPdp11::insnLength(uint32_t addr) const {
+template <typename MEM>
+uint_fast8_t MemsPdp11<MEM>::insnLength(uint32_t addr) const {
 #ifdef WITH_DISASSEMBLER
     auto dis = disassembler();
     if (dis) {
@@ -50,6 +54,9 @@ uint_fast8_t MemsPdp11::insnLength(uint32_t addr) const {
 #endif
     return 0;
 }
+
+template struct MemsPdp11<DmaMemory>;
+template struct MemsPdp11<ExtMemory>;
 
 }  // namespace pdp11
 }  // namespace debugger

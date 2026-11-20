@@ -25,7 +25,7 @@ constexpr auto ac_width = 26;
 constexpr uint16_t STORE = 0177000;
 }  // namespace
 
-RegsPdp11::RegsPdp11(PinsPdp11 *pins, MemsPdp11 *mems, bool fpu)
+RegsPdp11::RegsPdp11(PinsPdp11 *pins, FpMode *mems, bool fpu)
     : _pins(pins),
       _mems(mems),
       _fpu(fpu),
