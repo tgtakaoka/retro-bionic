@@ -1,12 +1,10 @@
 ;;; -*- mode: asm; mode: flyspell-prog; -*-
         include "pdp11.inc"
 
-;;; MC6850 Asynchronous Communication Interface Adapter
-ACIA    =       177560
-ACIA_VEC =      60
-        include "mc6850.inc"
-RX_INT_TX_NO    =       WSB_8N1_gc|RIEB_bm
-RX_INT_TX_INT   =       WSB_8N1_gc|RIEB_bm|TCB_EI_gc
+;;; DL11 Asynchronous Line Interface
+DL11    =       177560
+DL11_VEC =      60
+        include "dl11.inc"
 
         org     VEC_BPT
         .word   VEC_BPT, PSW_PRI7 ; for halt to system
@@ -14,8 +12,10 @@ RX_INT_TX_INT   =       WSB_8N1_gc|RIEB_bm|TCB_EI_gc
         org     VEC_PWRFAIL
         .word   initialize, PSW_PRI7
 
-        org     ACIA_VEC
-        .word   isr_acia, PSW_PRI7
+        org     DL11_RVEC
+        .word   isr_rx, PSW_PRI7
+        org     DL11_XVEC
+        .word   isr_tx, PSW_PRI7
 
         org     ORG_RESET
         jmp     @#initialize
@@ -36,10 +36,9 @@ initialize:
         mov     #tx_queue, r2
         mov     #tx_queue_size, r0
         jsr     pc, queue_init
-        ;; Initialize ACIA
-        movb    #CDS_RESET_gc, @#ACIA_control ; Master reset
-        movb    #RX_INT_TX_NO, @#ACIA_control ; 8 bits + No Parity + 1 Stop Bits
-        movb    #ACIA_VEC, @#ACIA_intr ; set the vector for MC6850 emulator
+        ;; Initialize DL11
+        movb    #RCSR_IE_bm, @#DL11_RCSR ; Enable Rx interrupt
+        clrb    @#DL11_XCSR     ; Disable Tx interrupt
         mtps    #PSW_PRI0       ; Enable interrupt
 
 wait:   wait                    ; until an interrupt
@@ -143,31 +142,33 @@ putchar_retry:
         mtps    #PSW_PRI0       ; Enable interrupt while the queue is full
         br      putchar_retry
 putchar_added:
-        movb    #RX_INT_TX_INT, @#ACIA_control ; Enable Tx interrupt
+        movb    #XCSR_IE_bm, @#DL11_XCSR ; Enable Tx interrupt
         mtps    #PSW_PRI0       ; Enable interrupt
         rts     pc
 
         include "queue.inc"
 
-isr_acia:
+isr_rx:
         mov     r0, -(sp)
         mov     r2, -(sp)
-        bitb    #RDRF_bm, @#ACIA_status
-        beq     isr_acia_send
-        movb    @#ACIA_data, r0
+        movb    @#DL11_RBUF, r0
         mov     #rx_queue, r2
         jsr     pc, queue_add
-isr_acia_send:
-        bitb    #TDRE_bm, @#ACIA_status
-        beq     isr_acia_exit
-        mov     #tx_queue, r2
-        jsr     pc, queue_remove
-        bcc     isr_acia_send_empty
-        movb    r0, @#ACIA_data
-isr_acia_exit:
         mov     (sp)+, r2
         mov     (sp)+, r0
         rti
-isr_acia_send_empty:
-        movb    #RX_INT_TX_NO, @#ACIA_control ; Disable Tx interrupt
-        br      isr_acia_exit
+
+isr_tx:
+        mov     r0, -(sp)
+        mov     r2, -(sp)
+        mov     #tx_queue, r2
+        jsr     pc, queue_remove
+        bcc     isr_tx_empty
+        movb    r0, @#DL11_XBUF
+isr_tx_exit:
+        mov     (sp)+, r2
+        mov     (sp)+, r0
+        rti
+isr_tx_empty:
+        clrb    @#DL11_XCSR     ; Disable Tx interrupt
+        br      isr_tx_exit

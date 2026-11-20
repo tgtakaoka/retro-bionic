@@ -33,49 +33,26 @@
 (1)       0 :                    ;;; BPT hands control back to the debugger: HALT acts differently on the
 (1)       0 :                    ;;; two chips.
           0 :
-          0 :                    ;;; MC6850 Asynchronous Communication Interface Adapter
-          0 : =177560            ACIA    =       177560
-          0 :                            include "mc6850.inc"
+          0 :                    ;;; DL11 Asynchronous Line Interface
+          0 : =177560            DL11    =       177560
+          0 : =60                DL11_VEC =      60
+          0 :                            include "dl11.inc"
 (1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
-(1)       0 :                    ;;; MC6850 Asynchronous Communication Interface Adapter
-(1)       0 :                    ;;; One register per word, accessed by byte.
-(1)       0 : =177560            ACIA_control    =       ACIA+0
-(1)       0 : =177560            ACIA_status     =       ACIA+0
-(1)       0 : =177562            ACIA_data       =       ACIA+2
-(1)       0 : =177564            ACIA_intr       =       ACIA+4  ; Interrupt vector, for Rx and Tx
-(1)       0 :                    ;;;  Counter Divider Select Bits
-(1)       0 : =3                 CDS_gm          =       003     ; Group mask
-(1)       0 : =0                 CDS_DIV1_gc     =       000     ; /1
-(1)       0 : =1                 CDS_DIV16_gc    =       001     ; /16
-(1)       0 : =2                 CDS_DIV64_gc    =       002     ; /64
-(1)       0 : =3                 CDS_RESET_gc    =       003     ; Master Reset
-(1)       0 :                    ;;;  Word Select Bits
-(1)       0 : =34                WSB_gm          =       034     ; Group mask
-(1)       0 : =0                 WSB_7E2_gc      =       000     ; 7 Bits + Even Parity + 2 Stop Bits
-(1)       0 : =4                 WSB_7O2_gc      =       004     ; 7 bits + Odd Parity  + 2 Stop Bits
-(1)       0 : =10                WSB_7E1_gc      =       010     ; 7 bits + Even Parity + 1 Stop Bits
-(1)       0 : =14                WSB_7O1_gc      =       014     ; 7 bits + Odd Parity  + 1 Stop Bits
-(1)       0 : =20                WSB_8N2_gc      =       020     ; 8 bits + No Parity   + 2 Stop Bits
-(1)       0 : =24                WSB_8N1_gc      =       024     ; 8 bits + No Parity   + 1 Stop Bits
-(1)       0 : =30                WSB_8E1_gc      =       030     ; 8 bits + Even Parity + 1 Stop Bits
-(1)       0 : =34                WSB_8O1_gc      =       034     ; 8 bits + Odd Parity  + 1 Stop Bits
-(1)       0 :                    ;;;  Transmit Control Bits
-(1)       0 : =140               TCB_gm          =       140     ; Group mask
-(1)       0 : =0                 TCB_DI_gc       =       000     ; RTS=Low,  Tx Interrupt Disabled
-(1)       0 : =40                TCB_EI_gc       =       040     ; RTS=Low,  Tx Interrupt Enabled
-(1)       0 : =100               TCB_RTS_gc      =       100     ; RTS=High, Tx Interrupt Disabled
-(1)       0 : =140               TCB_BREAK_gc    =       140     ; RTS=Low,  Tx Interrupt Disabled
-(1)       0 :                                                    ; Transmit Break Level
-(1)       0 : =200               RIEB_bm         =       200     ; Receive Interrupt Enable Bit mask
-(1)       0 :                    ;;; Status register
-(1)       0 : =1                 RDRF_bm         =       001     ; Receive Data Register Full
-(1)       0 : =2                 TDRE_bm         =       002     ; Transmit Data Register Empty
-(1)       0 : =4                 DCDF_bm         =       004     ; Data Carrier Detect Flag
-(1)       0 : =10                CTSF_bm         =       010     ; Clear To Send Flag
-(1)       0 : =20                FERR_bm         =       020     ; Frame Error Flag
-(1)       0 : =40                OVRN_bm         =       040     ; Receiver Overrun Flag
-(1)       0 : =100               PERR_bm         =       100     ; Parity Error Flag
-(1)       0 : =200               IRQF_bm         =       200     ; Interrupt Request Flag
+(1)       0 :                    ;;; DL11 Asynchronous Line Interface
+(1)       0 :                    ;;; One register per word; the status and data are in the low byte.
+(1)       0 : =177560            DL11_RCSR       =       DL11+0  ; Receiver status
+(1)       0 : =177562            DL11_RBUF       =       DL11+2  ; Receiver buffer
+(1)       0 : =177564            DL11_XCSR       =       DL11+4  ; Transmitter status
+(1)       0 : =177566            DL11_XBUF       =       DL11+6  ; Transmitter buffer
+(1)       0 :                    ;;; Receiver status
+(1)       0 : =200               RCSR_DONE_bm    =       200     ; Receiver Done
+(1)       0 : =100               RCSR_IE_bm      =       100     ; Receiver Interrupt Enable
+(1)       0 :                    ;;; Transmitter status
+(1)       0 : =200               XCSR_READY_bm   =       200     ; Transmitter Ready
+(1)       0 : =100               XCSR_IE_bm      =       100     ; Transmitter Interrupt Enable
+(1)       0 :                    ;;; Interrupt vectors
+(1)       0 : =60                DL11_RVEC       =       DL11_VEC+0      ; Receiver
+(1)       0 : =64                DL11_XVEC       =       DL11_VEC+4      ; Transmitter
           0 :
          14 :                            org     VEC_BPT
          14 : 000014 000340              .word   VEC_BPT, PSW_PRI7 ; for halt to system
@@ -90,403 +67,401 @@
        1000 : =1000              stack   =       .
        1000 :                    initialize:
        1000 : 012706 001000              mov     #stack, sp
-       1004 :                            ;; Initialize ACIA
-       1004 : 112737 000003              movb    #CDS_RESET_gc, @#ACIA_control ; Master reset
-       1010 : 177560
-       1012 : 112737 000024              movb    #WSB_8N1_gc, @#ACIA_control ; 8 bits + No Parity + 1 Stop Bits
-       1016 : 177560
-       1020 : 004767 000202              jsr     pc, arith
-       1024 : 000003                     bpt                     ; halt to system
-       1026 :
-       1026 :                    ;;; Put newline
-       1026 :                    newline:
-       1026 : 010046                     mov     r0, -(sp)
-       1030 : 112700 000015              movb    #15, r0
-       1034 : 004767 000020              jsr     pc, putchar
-       1040 : 112700 000012              movb    #12, r0
-       1044 : 004767 000010              jsr     pc, putchar
-       1050 : 012600                     mov     (sp)+, r0
-       1052 : 000207                     rts     pc
-       1054 :
-       1054 :                    ;;; Put space
-       1054 :                    ;;; @clobber R0
-       1054 :                    putspace:
-       1054 : 112700 000040              movb    #' , r0
-       1060 :                    ;;; Put character
-       1060 :                    ;;; @param R0 character
-       1060 :                    putchar:
-       1060 : 132737 000002              bitb    #TDRE_bm, @#ACIA_status
-       1064 : 177560
-       1066 : 001774                     beq     putchar
-       1070 : 110037 177562              movb    r0, @#ACIA_data
-       1074 : 000207                     rts     pc
-       1076 :
-       1076 :                    ;;; Print "R1 op R2"
-       1076 :                    ;;; @param R0 op letter
-       1076 :                    ;;; @clobber R0
-       1076 :                    expr:
-       1076 : 010046                     mov     r0, -(sp)
-       1100 : 010100                     mov     r1, r0
-       1102 : 004767 001222              jsr     pc, print_int16
-       1106 : 004767 177742              jsr     pc, putspace
-       1112 : 012600                     mov     (sp)+, r0
-       1114 : 004767 177740              jsr     pc, putchar     ; print op
-       1120 : 004767 177730              jsr     pc, putspace
-       1124 : 010200                     mov     r2, r0
-       1126 : 000167 001176              jmp     print_int16
-       1132 :
-       1132 :                    ;;; Print " = R1\n"
-       1132 :                    ;;; @clobber R0
-       1132 :                    answer:
-       1132 : 004767 177716              jsr     pc, putspace
-       1136 : 112700 000075              movb    #'=, r0
-       1142 : 004767 177712              jsr     pc, putchar
-       1146 : 004767 177702              jsr     pc, putspace
-       1152 : 010100                     mov     r1, r0
-       1154 : 004767 001150              jsr     pc, print_int16
-       1160 : 000722                     br      newline
-       1162 :
-       1162 :                    ;;; Print "R1 rel R2\n"
-       1162 :                    ;;; @clobber R0
-       1162 :                    comp:
-       1162 : 020102                     cmp     r1, r2
-       1164 : 001410                     beq     comp_eq
-       1166 : 002412                     blt     comp_lt
-       1170 : 003003                     bgt     comp_gt
-       1172 : 112700 000077              movb    #'?, r0
-       1176 : 000410                     br      comp_out
-       1200 :                    comp_gt:
-       1200 : 112700 000076              movb    #'>, r0
-       1204 : 000405                     br      comp_out
-       1206 :                    comp_eq:
-       1206 : 112700 000075              movb    #'=, r0
-       1212 : 000402                     br      comp_out
-       1214 :                    comp_lt:
-       1214 : 112700 000074              movb    #'<, r0
-       1220 :                    comp_out:
-       1220 : 004767 177652              jsr     pc, expr
-       1224 : 000700                     br      newline
-       1226 :
-       1226 :                    arith:
-       1226 : 012701 043120              mov     #18000., r1
-       1232 : 012702 066540              mov     #28000., r2
-       1236 : 112700 000053              movb    #'+, r0
-       1242 : 004767 177630              jsr     pc, expr
-       1246 : 060201                     add     r2, r1          ; R1+=R2
-       1250 : 004767 177656              jsr     pc, answer      ; -19536
-       1254 :
-       1254 : 012701 043120              mov     #18000., r1
-       1260 : 012702 134660              mov     #-18000., r2
-       1264 : 112700 000053              movb    #'+, r0
-       1270 : 004767 177602              jsr     pc, expr
-       1274 : 060201                     add     r2, r1          ; R1+=R2
-       1276 : 004767 177630              jsr     pc, answer      ; 0
-       1302 :
-       1302 : 012701 134660              mov     #-18000., r1
-       1306 : 012702 134660              mov     #-18000., r2
-       1312 : 112700 000053              movb    #'+, r0
-       1316 : 004767 177554              jsr     pc, expr
-       1322 : 060201                     add     r2, r1          ; R1+=R2
-       1324 : 004767 177602              jsr     pc, answer      ; 29536
-       1330 :
-       1330 : 012701 134660              mov     #-18000., r1
-       1334 : 012702 111240              mov     #-28000., r2
-       1340 : 112700 000055              movb    #'-, r0
-       1344 : 004767 177526              jsr     pc, expr
-       1350 : 160201                     sub     r2, r1          ; R1-=R2
-       1352 : 004767 177554              jsr     pc, answer      ; 10000
-       1356 :
-       1356 : 012701 043120              mov     #18000., r1
-       1362 : 012702 134660              mov     #-18000., r2
-       1366 : 112700 000055              movb    #'-, r0
-       1372 : 004767 177500              jsr     pc, expr
-       1376 : 160201                     sub     r2, r1          ; R1-=R2
-       1400 : 004767 177526              jsr     pc, answer      ; -29536
-       1404 :
-       1404 : 012701 111240              mov     #-28000., r1
-       1410 : 012702 134660              mov     #-18000., r2
-       1414 : 112700 000055              movb    #'-, r0
-       1420 : 004767 177452              jsr     pc, expr
-       1424 : 160201                     sub     r2, r1          ; R1-=R2
-       1426 : 004767 177500              jsr     pc, answer      ; -10000
-       1432 :
-       1432 : 012701 000144              mov     #100., r1
-       1436 : 012702 000454              mov     #300., r2
-       1442 : 112700 000052              movb    #'*, r0
-       1446 : 004767 177424              jsr     pc, expr
-       1452 : 004767 000762              jsr     pc, mul16
-       1456 : 004767 177450              jsr     pc, answer      ; 30000
-       1462 :
-       1462 : 012701 000310              mov     #200., r1
-       1466 : 012702 000144              mov     #100., r2
-       1472 : 112700 000052              movb    #'*, r0
-       1476 : 004767 177374              jsr     pc, expr
-       1502 : 004767 000732              jsr     pc, mul16
-       1506 : 004767 177420              jsr     pc, answer      ; 20000
-       1512 :
-       1512 : 012701 000454              mov     #300., r1
-       1516 : 012702 177470              mov     #-200., r2
-       1522 : 112700 000052              movb    #'*, r0
-       1526 : 004767 177344              jsr     pc, expr
-       1532 : 004767 000702              jsr     pc, mul16
-       1536 : 004767 177370              jsr     pc, answer      ; 5536
-       1542 :
-       1542 : 012701 000144              mov     #100., r1
-       1546 : 012702 177324              mov     #-300., r2
-       1552 : 112700 000052              movb    #'*, r0
-       1556 : 004767 177314              jsr     pc, expr
-       1562 : 004767 000652              jsr     pc, mul16
-       1566 : 004767 177340              jsr     pc, answer      ; -30000
-       1572 :
-       1572 : 012701 177470              mov     #-200., r1
-       1576 : 012702 177634              mov     #-100., r2
-       1602 : 112700 000052              movb    #'*, r0
-       1606 : 004767 177264              jsr     pc, expr
-       1612 : 004767 000622              jsr     pc, mul16
-       1616 : 004767 177310              jsr     pc, answer      ; 20000
-       1622 :
-       1622 : 012701 177324              mov     #-300., r1
-       1626 : 012702 000144              mov     #100., r2
-       1632 : 112700 000052              movb    #'*, r0
-       1636 : 004767 177234              jsr     pc, expr
-       1642 : 004767 000572              jsr     pc, mul16
-       1646 : 004767 177260              jsr     pc, answer      ; -30000
-       1652 :
-       1652 : 012701 000003              mov     #3, r1
-       1656 : 012702 100000              mov     #-32768., r2
-       1662 : 112700 000052              movb    #'*, r0
-       1666 : 004767 177204              jsr     pc, expr
-       1672 : 004767 000542              jsr     pc, mul16
-       1676 : 004767 177230              jsr     pc, answer      ; -32768
-       1702 :
-       1702 : 012701 072460              mov     #30000., r1
-       1706 : 012702 000144              mov     #100., r2
-       1712 : 112700 000057              movb    #'/, r0
-       1716 : 004767 177154              jsr     pc, expr
-       1722 : 004767 000654              jsr     pc, div16
-       1726 : 004767 177200              jsr     pc, answer      ; 300
-       1732 :
-       1732 : 012701 177470              mov     #-200., r1
-       1736 : 012702 000144              mov     #100., r2
-       1742 : 112700 000057              movb    #'/, r0
-       1746 : 004767 177124              jsr     pc, expr
-       1752 : 004767 000624              jsr     pc, div16
-       1756 : 004767 177150              jsr     pc, answer      ; -2
-       1762 :
-       1762 : 012701 105320              mov     #-30000., r1
-       1766 : 012702 177470              mov     #-200., r2
-       1772 : 112700 000057              movb    #'/, r0
-       1776 : 004767 177074              jsr     pc, expr
-       2002 : 004767 000574              jsr     pc, div16
-       2006 : 004767 177120              jsr     pc, answer      ; 150
-       2012 :
-       2012 : 012701 105320              mov     #-30000., r1
-       2016 : 012702 000116              mov     #78., r2
-       2022 : 112700 000057              movb    #'/, r0
-       2026 : 004767 177044              jsr     pc, expr
-       2032 : 004767 000544              jsr     pc, div16
-       2036 : 004767 177070              jsr     pc, answer      ; -384
-       2042 :
-       2042 : 012701 011610              mov     #5000., r1
-       2046 : 012702 007640              mov     #4000., r2
-       2052 : 004767 177104              jsr     pc, comp
-       2056 :
-       2056 : 012701 011610              mov     #5000., r1
-       2062 : 012702 011610              mov     #5000., r2
-       2066 : 004767 177070              jsr     pc, comp
-       2072 :
-       2072 : 012701 007640              mov     #4000., r1
-       2076 : 012702 011610              mov     #5000., r2
-       2102 : 004767 177054              jsr     pc, comp
-       2106 :
-       2106 : 012701 166170              mov     #-5000., r1
-       2112 : 012702 170140              mov     #-4000., r2
-       2116 : 004767 177040              jsr     pc, comp
-       2122 :
-       2122 : 012701 166170              mov     #-5000., r1
-       2126 : 012702 166170              mov     #-5000., r2
-       2132 : 004767 177024              jsr     pc, comp
-       2136 :
-       2136 : 012701 170140              mov     #-4000., r1
-       2142 : 012702 166170              mov     #-5000., r2
-       2146 : 004767 177010              jsr     pc, comp
-       2152 :
-       2152 : 012701 077674              mov     #32700., r1
-       2156 : 012702 077530              mov     #32600., r2
-       2162 : 004767 176774              jsr     pc, comp
-       2166 :
-       2166 : 012701 077674              mov     #32700., r1
-       2172 : 012702 077674              mov     #32700., r2
-       2176 : 004767 176760              jsr     pc, comp
-       2202 :
-       2202 : 012701 077530              mov     #32600., r1
-       2206 : 012702 077674              mov     #32700., r2
-       2212 : 004767 176744              jsr     pc, comp
-       2216 :
-       2216 : 012701 100104              mov     #-32700., r1
-       2222 : 012702 100250              mov     #-32600., r2
-       2226 : 004767 176730              jsr     pc, comp
-       2232 :
-       2232 : 012701 100104              mov     #-32700., r1
-       2236 : 012702 100104              mov     #-32700., r2
-       2242 : 004767 176714              jsr     pc, comp
-       2246 :
-       2246 : 012701 100250              mov     #-32600., r1
-       2252 : 012702 100104              mov     #-32700., r2
-       2256 : 004767 176700              jsr     pc, comp
-       2262 :
-       2262 : 012701 043120              mov     #18000., r1
-       2266 : 012702 111240              mov     #-28000., r2
-       2272 : 004767 176664              jsr     pc, comp
-       2276 :
-       2276 : 012701 111240              mov     #-28000., r1
-       2302 : 012702 111240              mov     #-28000., r2
-       2306 : 004767 176650              jsr     pc, comp
-       2312 :
-       2312 : 012701 111240              mov     #-28000., r1
-       2316 : 012702 043120              mov     #18000., r2
-       2322 : 004767 176634              jsr     pc, comp
-       2326 : 000207                     rts     pc
-       2330 :
-       2330 :                            include "arith.inc"
-(1)    2330 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
-(1)    2330 :                    ;;; The DCT11 has no MUL nor DIV.
-(1)    2330 :
-(1)    2330 :                    ;;; Print signed 16-bit integer as decimal
-(1)    2330 :                    ;;; @param R0 value
-(1)    2330 :                    print_int16:
-(1)    2330 : 010046                     mov     r0, -(sp)
-(1)    2332 : 010146                     mov     r1, -(sp)
-(1)    2334 : 010246                     mov     r2, -(sp)
-(1)    2336 : 010001                     mov     r0, r1
-(1)    2340 : 001416                     beq     print_int16_zero
-(1)    2342 : 100005                     bpl     print_uint16
-(1)    2344 : 112700 000055              movb    #'-, r0
-(1)    2350 : 004767 176504              jsr     pc, putchar
-(1)    2354 : 005401                     neg     r1
-(1)    2356 :                    print_uint16:
-(1)    2356 : 012702 000012              mov     #10., r2
-(1)    2362 : 004767 000022              jsr     pc, print_uint16_loop
-(1)    2366 :                    print_int16_return:
-(1)    2366 : 012602                     mov     (sp)+, r2
-(1)    2370 : 012601                     mov     (sp)+, r1
-(1)    2372 : 012600                     mov     (sp)+, r0
-(1)    2374 : 000207                     rts     pc
-(1)    2376 :                    print_int16_zero:
-(1)    2376 : 112700 000060              movb    #'0, r0
-(1)    2402 : 004767 176452              jsr     pc, putchar
-(1)    2406 : 000767                     br      print_int16_return
-(1)    2410 :
-(1)    2410 :                    ;;; @param R1 non-zero value
-(1)    2410 :                    ;;; @param R2 10
-(1)    2410 :                    ;;; @clobber R0 R1
-(1)    2410 :                    print_uint16_loop:
-(1)    2410 : 004767 000062              jsr     pc, udiv16      ; R1=quotient R0=remainder
-(1)    2414 : 010046                     mov     r0, -(sp)       ; push remainder
-(1)    2416 : 005701                     tst     r1
-(1)    2420 : 001402                     beq     print_uint16_digit
-(1)    2422 : 004767 177762              jsr     pc, print_uint16_loop
-(1)    2426 :                    print_uint16_digit:
-(1)    2426 : 012600                     mov     (sp)+, r0       ; pop remainder
-(1)    2430 : 062700 000060              add     #'0, r0
-(1)    2434 : 000167 176420              jmp     putchar
-(1)    2440 :
-(1)    2440 :                    ;;; Signed multiply
-(1)    2440 :                    ;;; R1 * R2 = R1
-(1)    2440 :                    ;;; @clobber R0 R2
-(1)    2440 :                    ;;; The low 16 bits of a product are the same signed or unsigned, and
-(1)    2440 :                    ;;; negating both operands keeps it: a negative multiplier is negated only
-(1)    2440 :                    ;;; so that the loop below, which ends when it is 0, takes fewer turns.
-(1)    2440 :                    mul16:
-(1)    2440 : 005702                     tst     r2
-(1)    2442 : 100002                     bpl     umul16
-(1)    2444 : 005402                     neg     r2              ; negate multiplier
-(1)    2446 : 005401                     neg     r1              ; negate multiplicand
-(1)    2450 :                    ;;; Unsigned multiply
-(1)    2450 :                    ;;; R1 * R2 = R1
-(1)    2450 :                    ;;; @clobber R0 R2
-(1)    2450 :                    umul16:
-(1)    2450 : 010100                     mov     r1, r0          ; R0=multiplicand
-(1)    2452 : 005001                     clr     r1              ; R1=product
-(1)    2454 : 000405                     br      umul16_enter
-(1)    2456 :                    umul16_loop:
-(1)    2456 : 000241                     clc
-(1)    2460 : 006002                     ror     r2              ; multiplier>>=1, C=lsb(multiplier)
-(1)    2462 : 103001                     bcc     umul16_next
-(1)    2464 : 060001                     add     r0, r1          ; product+=multiplicand
-(1)    2466 :                    umul16_next:
-(1)    2466 : 006300                     asl     r0              ; multiplicand<<=1
-(1)    2470 :                    umul16_enter:
-(1)    2470 : 005702                     tst     r2
-(1)    2472 : 001371                     bne     umul16_loop     ; branch if multiplier!=0
-(1)    2474 : 000207                     rts     pc
-(1)    2476 :
-(1)    2476 :                    ;;; Unsigned divide
-(1)    2476 :                    ;;; R1 / R2 = R1 ... R0
-(1)    2476 :                    ;;; The divisor is shifted up past the dividend first, so the loop takes
-(1)    2476 :                    ;;; only as many turns as the quotient has bits.
-(1)    2476 :                    udiv16:
-(1)    2476 : 010100                     mov     r1, r0          ; R0=dividend
-(1)    2500 : 005001                     clr     r1              ; R1=quotient
-(1)    2502 : 005702                     tst     r2
-(1)    2504 : 001426                     beq     udiv16_zero     ; divide by zero
-(1)    2506 : 010346                     mov     r3, -(sp)
-(1)    2510 : 010246                     mov     r2, -(sp)
-(1)    2512 : 012703 000001              mov     #1, r3          ; R3=bit
-(1)    2516 : 000402                     br      udiv16_prep
-(1)    2520 :                    udiv16_prep_loop:
-(1)    2520 : 006302                     asl     r2              ; divisor<<=1
-(1)    2522 : 006303                     asl     r3              ; bit<<=1
-(1)    2524 :                    udiv16_prep:
-(1)    2524 : 020200                     cmp     r2, r0
-(1)    2526 : 101002                     bhi     udiv16_loop     ; branch if dividend<divisor
-(1)    2530 : 005702                     tst     r2
-(1)    2532 : 100372                     bpl     udiv16_prep_loop        ; branch if msb(divisor)=0
-(1)    2534 :                    udiv16_loop:
-(1)    2534 : 020200                     cmp     r2, r0
-(1)    2536 : 101002                     bhi     udiv16_next     ; branch if dividend<divisor
-(1)    2540 : 160200                     sub     r2, r0          ; dividend-=divisor
-(1)    2542 : 050301                     bis     r3, r1          ; quotient|=bit
-(1)    2544 :                    udiv16_next:
+       1004 :                            ;; Initialize DL11
+       1004 : 105037 177560              clrb    @#DL11_RCSR     ; Disable Rx interrupt
+       1010 : 105037 177564              clrb    @#DL11_XCSR     ; Disable Tx interrupt
+       1014 : 004767 000202              jsr     pc, arith
+       1020 : 000003                     bpt                     ; halt to system
+       1022 :
+       1022 :                    ;;; Put newline
+       1022 :                    newline:
+       1022 : 010046                     mov     r0, -(sp)
+       1024 : 112700 000015              movb    #15, r0
+       1030 : 004767 000020              jsr     pc, putchar
+       1034 : 112700 000012              movb    #12, r0
+       1040 : 004767 000010              jsr     pc, putchar
+       1044 : 012600                     mov     (sp)+, r0
+       1046 : 000207                     rts     pc
+       1050 :
+       1050 :                    ;;; Put space
+       1050 :                    ;;; @clobber R0
+       1050 :                    putspace:
+       1050 : 112700 000040              movb    #' , r0
+       1054 :                    ;;; Put character
+       1054 :                    ;;; @param R0 character
+       1054 :                    putchar:
+       1054 : 132737 000200              bitb    #XCSR_READY_bm, @#DL11_XCSR
+       1060 : 177564
+       1062 : 001774                     beq     putchar
+       1064 : 110037 177566              movb    r0, @#DL11_XBUF
+       1070 : 000207                     rts     pc
+       1072 :
+       1072 :                    ;;; Print "R1 op R2"
+       1072 :                    ;;; @param R0 op letter
+       1072 :                    ;;; @clobber R0
+       1072 :                    expr:
+       1072 : 010046                     mov     r0, -(sp)
+       1074 : 010100                     mov     r1, r0
+       1076 : 004767 001222              jsr     pc, print_int16
+       1102 : 004767 177742              jsr     pc, putspace
+       1106 : 012600                     mov     (sp)+, r0
+       1110 : 004767 177740              jsr     pc, putchar     ; print op
+       1114 : 004767 177730              jsr     pc, putspace
+       1120 : 010200                     mov     r2, r0
+       1122 : 000167 001176              jmp     print_int16
+       1126 :
+       1126 :                    ;;; Print " = R1\n"
+       1126 :                    ;;; @clobber R0
+       1126 :                    answer:
+       1126 : 004767 177716              jsr     pc, putspace
+       1132 : 112700 000075              movb    #'=, r0
+       1136 : 004767 177712              jsr     pc, putchar
+       1142 : 004767 177702              jsr     pc, putspace
+       1146 : 010100                     mov     r1, r0
+       1150 : 004767 001150              jsr     pc, print_int16
+       1154 : 000722                     br      newline
+       1156 :
+       1156 :                    ;;; Print "R1 rel R2\n"
+       1156 :                    ;;; @clobber R0
+       1156 :                    comp:
+       1156 : 020102                     cmp     r1, r2
+       1160 : 001410                     beq     comp_eq
+       1162 : 002412                     blt     comp_lt
+       1164 : 003003                     bgt     comp_gt
+       1166 : 112700 000077              movb    #'?, r0
+       1172 : 000410                     br      comp_out
+       1174 :                    comp_gt:
+       1174 : 112700 000076              movb    #'>, r0
+       1200 : 000405                     br      comp_out
+       1202 :                    comp_eq:
+       1202 : 112700 000075              movb    #'=, r0
+       1206 : 000402                     br      comp_out
+       1210 :                    comp_lt:
+       1210 : 112700 000074              movb    #'<, r0
+       1214 :                    comp_out:
+       1214 : 004767 177652              jsr     pc, expr
+       1220 : 000700                     br      newline
+       1222 :
+       1222 :                    arith:
+       1222 : 012701 043120              mov     #18000., r1
+       1226 : 012702 066540              mov     #28000., r2
+       1232 : 112700 000053              movb    #'+, r0
+       1236 : 004767 177630              jsr     pc, expr
+       1242 : 060201                     add     r2, r1          ; R1+=R2
+       1244 : 004767 177656              jsr     pc, answer      ; -19536
+       1250 :
+       1250 : 012701 043120              mov     #18000., r1
+       1254 : 012702 134660              mov     #-18000., r2
+       1260 : 112700 000053              movb    #'+, r0
+       1264 : 004767 177602              jsr     pc, expr
+       1270 : 060201                     add     r2, r1          ; R1+=R2
+       1272 : 004767 177630              jsr     pc, answer      ; 0
+       1276 :
+       1276 : 012701 134660              mov     #-18000., r1
+       1302 : 012702 134660              mov     #-18000., r2
+       1306 : 112700 000053              movb    #'+, r0
+       1312 : 004767 177554              jsr     pc, expr
+       1316 : 060201                     add     r2, r1          ; R1+=R2
+       1320 : 004767 177602              jsr     pc, answer      ; 29536
+       1324 :
+       1324 : 012701 134660              mov     #-18000., r1
+       1330 : 012702 111240              mov     #-28000., r2
+       1334 : 112700 000055              movb    #'-, r0
+       1340 : 004767 177526              jsr     pc, expr
+       1344 : 160201                     sub     r2, r1          ; R1-=R2
+       1346 : 004767 177554              jsr     pc, answer      ; 10000
+       1352 :
+       1352 : 012701 043120              mov     #18000., r1
+       1356 : 012702 134660              mov     #-18000., r2
+       1362 : 112700 000055              movb    #'-, r0
+       1366 : 004767 177500              jsr     pc, expr
+       1372 : 160201                     sub     r2, r1          ; R1-=R2
+       1374 : 004767 177526              jsr     pc, answer      ; -29536
+       1400 :
+       1400 : 012701 111240              mov     #-28000., r1
+       1404 : 012702 134660              mov     #-18000., r2
+       1410 : 112700 000055              movb    #'-, r0
+       1414 : 004767 177452              jsr     pc, expr
+       1420 : 160201                     sub     r2, r1          ; R1-=R2
+       1422 : 004767 177500              jsr     pc, answer      ; -10000
+       1426 :
+       1426 : 012701 000144              mov     #100., r1
+       1432 : 012702 000454              mov     #300., r2
+       1436 : 112700 000052              movb    #'*, r0
+       1442 : 004767 177424              jsr     pc, expr
+       1446 : 004767 000762              jsr     pc, mul16
+       1452 : 004767 177450              jsr     pc, answer      ; 30000
+       1456 :
+       1456 : 012701 000310              mov     #200., r1
+       1462 : 012702 000144              mov     #100., r2
+       1466 : 112700 000052              movb    #'*, r0
+       1472 : 004767 177374              jsr     pc, expr
+       1476 : 004767 000732              jsr     pc, mul16
+       1502 : 004767 177420              jsr     pc, answer      ; 20000
+       1506 :
+       1506 : 012701 000454              mov     #300., r1
+       1512 : 012702 177470              mov     #-200., r2
+       1516 : 112700 000052              movb    #'*, r0
+       1522 : 004767 177344              jsr     pc, expr
+       1526 : 004767 000702              jsr     pc, mul16
+       1532 : 004767 177370              jsr     pc, answer      ; 5536
+       1536 :
+       1536 : 012701 000144              mov     #100., r1
+       1542 : 012702 177324              mov     #-300., r2
+       1546 : 112700 000052              movb    #'*, r0
+       1552 : 004767 177314              jsr     pc, expr
+       1556 : 004767 000652              jsr     pc, mul16
+       1562 : 004767 177340              jsr     pc, answer      ; -30000
+       1566 :
+       1566 : 012701 177470              mov     #-200., r1
+       1572 : 012702 177634              mov     #-100., r2
+       1576 : 112700 000052              movb    #'*, r0
+       1602 : 004767 177264              jsr     pc, expr
+       1606 : 004767 000622              jsr     pc, mul16
+       1612 : 004767 177310              jsr     pc, answer      ; 20000
+       1616 :
+       1616 : 012701 177324              mov     #-300., r1
+       1622 : 012702 000144              mov     #100., r2
+       1626 : 112700 000052              movb    #'*, r0
+       1632 : 004767 177234              jsr     pc, expr
+       1636 : 004767 000572              jsr     pc, mul16
+       1642 : 004767 177260              jsr     pc, answer      ; -30000
+       1646 :
+       1646 : 012701 000003              mov     #3, r1
+       1652 : 012702 100000              mov     #-32768., r2
+       1656 : 112700 000052              movb    #'*, r0
+       1662 : 004767 177204              jsr     pc, expr
+       1666 : 004767 000542              jsr     pc, mul16
+       1672 : 004767 177230              jsr     pc, answer      ; -32768
+       1676 :
+       1676 : 012701 072460              mov     #30000., r1
+       1702 : 012702 000144              mov     #100., r2
+       1706 : 112700 000057              movb    #'/, r0
+       1712 : 004767 177154              jsr     pc, expr
+       1716 : 004767 000654              jsr     pc, div16
+       1722 : 004767 177200              jsr     pc, answer      ; 300
+       1726 :
+       1726 : 012701 177470              mov     #-200., r1
+       1732 : 012702 000144              mov     #100., r2
+       1736 : 112700 000057              movb    #'/, r0
+       1742 : 004767 177124              jsr     pc, expr
+       1746 : 004767 000624              jsr     pc, div16
+       1752 : 004767 177150              jsr     pc, answer      ; -2
+       1756 :
+       1756 : 012701 105320              mov     #-30000., r1
+       1762 : 012702 177470              mov     #-200., r2
+       1766 : 112700 000057              movb    #'/, r0
+       1772 : 004767 177074              jsr     pc, expr
+       1776 : 004767 000574              jsr     pc, div16
+       2002 : 004767 177120              jsr     pc, answer      ; 150
+       2006 :
+       2006 : 012701 105320              mov     #-30000., r1
+       2012 : 012702 000116              mov     #78., r2
+       2016 : 112700 000057              movb    #'/, r0
+       2022 : 004767 177044              jsr     pc, expr
+       2026 : 004767 000544              jsr     pc, div16
+       2032 : 004767 177070              jsr     pc, answer      ; -384
+       2036 :
+       2036 : 012701 011610              mov     #5000., r1
+       2042 : 012702 007640              mov     #4000., r2
+       2046 : 004767 177104              jsr     pc, comp
+       2052 :
+       2052 : 012701 011610              mov     #5000., r1
+       2056 : 012702 011610              mov     #5000., r2
+       2062 : 004767 177070              jsr     pc, comp
+       2066 :
+       2066 : 012701 007640              mov     #4000., r1
+       2072 : 012702 011610              mov     #5000., r2
+       2076 : 004767 177054              jsr     pc, comp
+       2102 :
+       2102 : 012701 166170              mov     #-5000., r1
+       2106 : 012702 170140              mov     #-4000., r2
+       2112 : 004767 177040              jsr     pc, comp
+       2116 :
+       2116 : 012701 166170              mov     #-5000., r1
+       2122 : 012702 166170              mov     #-5000., r2
+       2126 : 004767 177024              jsr     pc, comp
+       2132 :
+       2132 : 012701 170140              mov     #-4000., r1
+       2136 : 012702 166170              mov     #-5000., r2
+       2142 : 004767 177010              jsr     pc, comp
+       2146 :
+       2146 : 012701 077674              mov     #32700., r1
+       2152 : 012702 077530              mov     #32600., r2
+       2156 : 004767 176774              jsr     pc, comp
+       2162 :
+       2162 : 012701 077674              mov     #32700., r1
+       2166 : 012702 077674              mov     #32700., r2
+       2172 : 004767 176760              jsr     pc, comp
+       2176 :
+       2176 : 012701 077530              mov     #32600., r1
+       2202 : 012702 077674              mov     #32700., r2
+       2206 : 004767 176744              jsr     pc, comp
+       2212 :
+       2212 : 012701 100104              mov     #-32700., r1
+       2216 : 012702 100250              mov     #-32600., r2
+       2222 : 004767 176730              jsr     pc, comp
+       2226 :
+       2226 : 012701 100104              mov     #-32700., r1
+       2232 : 012702 100104              mov     #-32700., r2
+       2236 : 004767 176714              jsr     pc, comp
+       2242 :
+       2242 : 012701 100250              mov     #-32600., r1
+       2246 : 012702 100104              mov     #-32700., r2
+       2252 : 004767 176700              jsr     pc, comp
+       2256 :
+       2256 : 012701 043120              mov     #18000., r1
+       2262 : 012702 111240              mov     #-28000., r2
+       2266 : 004767 176664              jsr     pc, comp
+       2272 :
+       2272 : 012701 111240              mov     #-28000., r1
+       2276 : 012702 111240              mov     #-28000., r2
+       2302 : 004767 176650              jsr     pc, comp
+       2306 :
+       2306 : 012701 111240              mov     #-28000., r1
+       2312 : 012702 043120              mov     #18000., r2
+       2316 : 004767 176634              jsr     pc, comp
+       2322 : 000207                     rts     pc
+       2324 :
+       2324 :                            include "arith.inc"
+(1)    2324 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)    2324 :                    ;;; The DCT11 has no MUL nor DIV.
+(1)    2324 :
+(1)    2324 :                    ;;; Print signed 16-bit integer as decimal
+(1)    2324 :                    ;;; @param R0 value
+(1)    2324 :                    print_int16:
+(1)    2324 : 010046                     mov     r0, -(sp)
+(1)    2326 : 010146                     mov     r1, -(sp)
+(1)    2330 : 010246                     mov     r2, -(sp)
+(1)    2332 : 010001                     mov     r0, r1
+(1)    2334 : 001416                     beq     print_int16_zero
+(1)    2336 : 100005                     bpl     print_uint16
+(1)    2340 : 112700 000055              movb    #'-, r0
+(1)    2344 : 004767 176504              jsr     pc, putchar
+(1)    2350 : 005401                     neg     r1
+(1)    2352 :                    print_uint16:
+(1)    2352 : 012702 000012              mov     #10., r2
+(1)    2356 : 004767 000022              jsr     pc, print_uint16_loop
+(1)    2362 :                    print_int16_return:
+(1)    2362 : 012602                     mov     (sp)+, r2
+(1)    2364 : 012601                     mov     (sp)+, r1
+(1)    2366 : 012600                     mov     (sp)+, r0
+(1)    2370 : 000207                     rts     pc
+(1)    2372 :                    print_int16_zero:
+(1)    2372 : 112700 000060              movb    #'0, r0
+(1)    2376 : 004767 176452              jsr     pc, putchar
+(1)    2402 : 000767                     br      print_int16_return
+(1)    2404 :
+(1)    2404 :                    ;;; @param R1 non-zero value
+(1)    2404 :                    ;;; @param R2 10
+(1)    2404 :                    ;;; @clobber R0 R1
+(1)    2404 :                    print_uint16_loop:
+(1)    2404 : 004767 000062              jsr     pc, udiv16      ; R1=quotient R0=remainder
+(1)    2410 : 010046                     mov     r0, -(sp)       ; push remainder
+(1)    2412 : 005701                     tst     r1
+(1)    2414 : 001402                     beq     print_uint16_digit
+(1)    2416 : 004767 177762              jsr     pc, print_uint16_loop
+(1)    2422 :                    print_uint16_digit:
+(1)    2422 : 012600                     mov     (sp)+, r0       ; pop remainder
+(1)    2424 : 062700 000060              add     #'0, r0
+(1)    2430 : 000167 176420              jmp     putchar
+(1)    2434 :
+(1)    2434 :                    ;;; Signed multiply
+(1)    2434 :                    ;;; R1 * R2 = R1
+(1)    2434 :                    ;;; @clobber R0 R2
+(1)    2434 :                    ;;; The low 16 bits of a product are the same signed or unsigned, and
+(1)    2434 :                    ;;; negating both operands keeps it: a negative multiplier is negated only
+(1)    2434 :                    ;;; so that the loop below, which ends when it is 0, takes fewer turns.
+(1)    2434 :                    mul16:
+(1)    2434 : 005702                     tst     r2
+(1)    2436 : 100002                     bpl     umul16
+(1)    2440 : 005402                     neg     r2              ; negate multiplier
+(1)    2442 : 005401                     neg     r1              ; negate multiplicand
+(1)    2444 :                    ;;; Unsigned multiply
+(1)    2444 :                    ;;; R1 * R2 = R1
+(1)    2444 :                    ;;; @clobber R0 R2
+(1)    2444 :                    umul16:
+(1)    2444 : 010100                     mov     r1, r0          ; R0=multiplicand
+(1)    2446 : 005001                     clr     r1              ; R1=product
+(1)    2450 : 000405                     br      umul16_enter
+(1)    2452 :                    umul16_loop:
+(1)    2452 : 000241                     clc
+(1)    2454 : 006002                     ror     r2              ; multiplier>>=1, C=lsb(multiplier)
+(1)    2456 : 103001                     bcc     umul16_next
+(1)    2460 : 060001                     add     r0, r1          ; product+=multiplicand
+(1)    2462 :                    umul16_next:
+(1)    2462 : 006300                     asl     r0              ; multiplicand<<=1
+(1)    2464 :                    umul16_enter:
+(1)    2464 : 005702                     tst     r2
+(1)    2466 : 001371                     bne     umul16_loop     ; branch if multiplier!=0
+(1)    2470 : 000207                     rts     pc
+(1)    2472 :
+(1)    2472 :                    ;;; Unsigned divide
+(1)    2472 :                    ;;; R1 / R2 = R1 ... R0
+(1)    2472 :                    ;;; The divisor is shifted up past the dividend first, so the loop takes
+(1)    2472 :                    ;;; only as many turns as the quotient has bits.
+(1)    2472 :                    udiv16:
+(1)    2472 : 010100                     mov     r1, r0          ; R0=dividend
+(1)    2474 : 005001                     clr     r1              ; R1=quotient
+(1)    2476 : 005702                     tst     r2
+(1)    2500 : 001426                     beq     udiv16_zero     ; divide by zero
+(1)    2502 : 010346                     mov     r3, -(sp)
+(1)    2504 : 010246                     mov     r2, -(sp)
+(1)    2506 : 012703 000001              mov     #1, r3          ; R3=bit
+(1)    2512 : 000402                     br      udiv16_prep
+(1)    2514 :                    udiv16_prep_loop:
+(1)    2514 : 006302                     asl     r2              ; divisor<<=1
+(1)    2516 : 006303                     asl     r3              ; bit<<=1
+(1)    2520 :                    udiv16_prep:
+(1)    2520 : 020200                     cmp     r2, r0
+(1)    2522 : 101002                     bhi     udiv16_loop     ; branch if dividend<divisor
+(1)    2524 : 005702                     tst     r2
+(1)    2526 : 100372                     bpl     udiv16_prep_loop        ; branch if msb(divisor)=0
+(1)    2530 :                    udiv16_loop:
+(1)    2530 : 020200                     cmp     r2, r0
+(1)    2532 : 101002                     bhi     udiv16_next     ; branch if dividend<divisor
+(1)    2534 : 160200                     sub     r2, r0          ; dividend-=divisor
+(1)    2536 : 050301                     bis     r3, r1          ; quotient|=bit
+(1)    2540 :                    udiv16_next:
+(1)    2540 : 000241                     clc
+(1)    2542 : 006002                     ror     r2              ; divisor>>=1
 (1)    2544 : 000241                     clc
-(1)    2546 : 006002                     ror     r2              ; divisor>>=1
-(1)    2550 : 000241                     clc
-(1)    2552 : 006003                     ror     r3              ; bit>>=1
-(1)    2554 : 001367                     bne     udiv16_loop     ; branch if bit!=0
-(1)    2556 : 012602                     mov     (sp)+, r2
-(1)    2560 : 012603                     mov     (sp)+, r3
-(1)    2562 :                    udiv16_zero:
-(1)    2562 : 000207                     rts     pc
-(1)    2564 :
-(1)    2564 :                    ;;; Divide by positive divisor
-(1)    2564 :                    ;;; R1 / R2 = R1 (R2 > 0)
-(1)    2564 :                    ;;; @clobber R0
-(1)    2564 :                    divu16:
-(1)    2564 : 005701                     tst     r1
-(1)    2566 : 100343                     bpl     udiv16
-(1)    2570 : 005401                     neg     r1
-(1)    2572 : 004767 177700              jsr     pc, udiv16
-(1)    2576 : 005401                     neg     r1
-(1)    2600 : 000207                     rts     pc
-(1)    2602 :
-(1)    2602 :                    ;;; Divide
-(1)    2602 :                    ;;; R1 / R2 = R1 ... R0 (R0=|remainder|)
-(1)    2602 :                    ;;; @clobber R2
-(1)    2602 :                    div16:
-(1)    2602 : 010100                     mov     r1, r0
-(1)    2604 : 074200                     xor     r2, r0
-(1)    2606 : 010046                     mov     r0, -(sp)       ; push R1^R2
-(1)    2610 : 005701                     tst     r1
-(1)    2612 : 100001                     bpl     div16_divisor
-(1)    2614 : 005401                     neg     r1
-(1)    2616 :                    div16_divisor:
-(1)    2616 : 005702                     tst     r2
-(1)    2620 : 100001                     bpl     div16_divide
-(1)    2622 : 005402                     neg     r2
-(1)    2624 :                    div16_divide:
-(1)    2624 : 004767 177646              jsr     pc, udiv16
-(1)    2630 : 005726                     tst     (sp)+           ; pop R1^R2
-(1)    2632 : 100001                     bpl     div16_return
-(1)    2634 : 005401                     neg     r1
-(1)    2636 :                    div16_return:
-(1)    2636 : 000207                     rts     pc
+(1)    2546 : 006003                     ror     r3              ; bit>>=1
+(1)    2550 : 001367                     bne     udiv16_loop     ; branch if bit!=0
+(1)    2552 : 012602                     mov     (sp)+, r2
+(1)    2554 : 012603                     mov     (sp)+, r3
+(1)    2556 :                    udiv16_zero:
+(1)    2556 : 000207                     rts     pc
+(1)    2560 :
+(1)    2560 :                    ;;; Divide by positive divisor
+(1)    2560 :                    ;;; R1 / R2 = R1 (R2 > 0)
+(1)    2560 :                    ;;; @clobber R0
+(1)    2560 :                    divu16:
+(1)    2560 : 005701                     tst     r1
+(1)    2562 : 100343                     bpl     udiv16
+(1)    2564 : 005401                     neg     r1
+(1)    2566 : 004767 177700              jsr     pc, udiv16
+(1)    2572 : 005401                     neg     r1
+(1)    2574 : 000207                     rts     pc
+(1)    2576 :
+(1)    2576 :                    ;;; Divide
+(1)    2576 :                    ;;; R1 / R2 = R1 ... R0 (R0=|remainder|)
+(1)    2576 :                    ;;; @clobber R2
+(1)    2576 :                    div16:
+(1)    2576 : 010100                     mov     r1, r0
+(1)    2600 : 074200                     xor     r2, r0
+(1)    2602 : 010046                     mov     r0, -(sp)       ; push R1^R2
+(1)    2604 : 005701                     tst     r1
+(1)    2606 : 100001                     bpl     div16_divisor
+(1)    2610 : 005401                     neg     r1
+(1)    2612 :                    div16_divisor:
+(1)    2612 : 005702                     tst     r2
+(1)    2614 : 100001                     bpl     div16_divide
+(1)    2616 : 005402                     neg     r2
+(1)    2620 :                    div16_divide:
+(1)    2620 : 004767 177646              jsr     pc, udiv16
+(1)    2624 : 005726                     tst     (sp)+           ; pop R1^R2
+(1)    2626 : 100001                     bpl     div16_return
+(1)    2630 : 005401                     neg     r1
+(1)    2632 :                    div16_return:
+(1)    2632 : 000207                     rts     pc

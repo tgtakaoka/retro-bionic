@@ -1,11 +1,10 @@
 ;;; -*- mode: asm; mode: flyspell-prog; -*-
         include "pdp11.inc"
 
-;;; MC6850 Asynchronous Communication Interface Adapter
-ACIA    =       177560
-ACIA_VEC =      60
-        include "mc6850.inc"
-RX_INT_TX_NO    =       WSB_8N1_gc|RIEB_bm
+;;; DL11 Asynchronous Line Interface
+DL11    =       177560
+DL11_VEC =      60
+        include "dl11.inc"
 
         org     VEC_BPT
         .word   VEC_BPT, PSW_PRI7 ; for halt to system
@@ -13,8 +12,8 @@ RX_INT_TX_NO    =       WSB_8N1_gc|RIEB_bm
         org     VEC_PWRFAIL
         .word   initialize, PSW_PRI7
 
-        org     ACIA_VEC
-        .word   isr_acia, PSW_PRI7
+        org     DL11_RVEC
+        .word   isr_rx, PSW_PRI7
 
         org     ORG_RESET
         jmp     @#initialize
@@ -30,10 +29,9 @@ initialize:
         mov     #rx_queue, r2
         mov     #rx_queue_size, r0
         jsr     pc, queue_init
-        ;; Initialize ACIA
-        movb    #CDS_RESET_gc, @#ACIA_control ; Master reset
-        movb    #RX_INT_TX_NO, @#ACIA_control ; 8 bits + No Parity + 1 Stop Bits
-        movb    #ACIA_VEC, @#ACIA_intr ; set the vector for MC6850 emulator
+        ;; Initialize DL11
+        movb    #RCSR_IE_bm, @#DL11_RCSR ; Enable Rx interrupt
+        clrb    @#DL11_XCSR     ; Disable Tx interrupt
         mtps    #PSW_PRI0       ; Enable interrupt
 
 loop:   jsr     pc, getchar
@@ -66,22 +64,19 @@ getchar_empty:
         rts     pc
 
 putchar:
-        bitb    #TDRE_bm, @#ACIA_status
+        bitb    #XCSR_READY_bm, @#DL11_XCSR
         beq     putchar
-        movb    r0, @#ACIA_data
+        movb    r0, @#DL11_XBUF
         rts     pc
 
         include "queue.inc"
 
-isr_acia:
+isr_rx:
         mov     r0, -(sp)
         mov     r2, -(sp)
-        bitb    #RDRF_bm, @#ACIA_status
-        beq     isr_acia_exit
-        movb    @#ACIA_data, r0
+        movb    @#DL11_RBUF, r0
         mov     #rx_queue, r2
         jsr     pc, queue_add
-isr_acia_exit:
         mov     (sp)+, r2
         mov     (sp)+, r0
         rti

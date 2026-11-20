@@ -444,8 +444,9 @@ void PinsDcj11::storeData(Signals *s) {
     if (!s->write() || !s->writeMemory())
         return;
     if (s->ioPage()) {
-        const uint16_t addr = s->addr16() & ~1;
-        if (_devs->isSelected(addr)) {
+        // A high byte keeps its odd address.
+        const uint16_t addr = s->addr16();
+        if (_devs->isSelected(addr & ~1)) {
             uint16_t val = s->data;
             if (s->byteWrite())
                 val = s->writeLow() ? lo(s->data) : hi(s->data);

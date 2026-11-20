@@ -365,7 +365,9 @@ void PinsDct11::storeData(Signals *s) {
         uint16_t val = s->data;
         if (s->byteWrite())
             val = s->writeLow() ? lo(s->data) : hi(s->data);
-        _devs->write(addr, val);
+        // A high byte keeps its odd address.
+        const auto high = s->byteWrite() && s->writeHigh();
+        _devs->write(high ? (addr | 1) : addr, val);
     } else if (!s->byteWrite()) {
         _mems->write16(addr, s->data);
     } else if (s->writeLow()) {
