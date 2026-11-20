@@ -2867,6 +2867,16 @@ drives it at #BUFCTL, and only asserts DV and releases #CONT at #SCTL.
 Interrupts are on from the address on, the stretch holding the CPU.
 **[doc][bench]**
 
+**#ABORT and DV.** An external #ABORT is taken in the stretch, sampled
+at T4's falling edges (User's Guide, 2.6.3). #ABORT dips as DV latches
+177777: a bit-banged read that asserted DV and #CONT just ahead of a
+falling edge took it for an abort and trapped through 4, most often in
+the first register restore after power-up, when the FP11's accumulators
+hold 000000 177777 000000 177777. The bit-banged cycle gives DV and
+#CONT a period each and changes them at its rising edge. With verbose
+on, a cycle reports any fall of #ABORT, not only a low one at its end.
+**[doc][bench]**
+
 **Entries and power-up.** The power-up configuration read is answered
 with 001017: POK, power-up mode 3 (start at 1000) and a kernel HALT that
 traps to 4. #PWRF halts through vector 24, BPT and the trace trap through
