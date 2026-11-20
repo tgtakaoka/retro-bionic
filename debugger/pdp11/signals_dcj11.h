@@ -45,6 +45,9 @@ struct Signals final : SignalsBase<Signals> {
         return ioPage() ? (0160000 | (addr & 017777)) : addr;
     }
 
+    // No cycle: the CPU was stopped between two, as in a WAIT.
+    void noCycle() { _signals[0] = AIO_NIO; }
+
     // The debugger's bookkeeping, not a pin: a cycle that is not the
     // program's.
     void mark() { _signals[2] = 1; }

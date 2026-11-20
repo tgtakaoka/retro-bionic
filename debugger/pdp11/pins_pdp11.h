@@ -25,6 +25,10 @@ struct PinsPdp11 : Pins {
     virtual void captureWrites(const uint16_t *inst, uint_fast8_t words,
             uint16_t *buf, uint_fast8_t max, uint16_t &org) = 0;
 
+    // The CPU's console ODT is the monitor: the debugger only serves the
+    // bus, and the registers are out of its reach.
+    virtual bool odt() const { return false; }
+
 protected:
     PinsPdp11() {}
 };

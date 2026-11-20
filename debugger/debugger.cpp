@@ -22,6 +22,7 @@
  *  L - load Intel Hex/Motorola S-record file
  *  U - upload Intel Hex/Motorola S-record
  *  I - show/select I/O device
+ *  O - show/set the target's option
  *  W - write identity EEPROM
  *  V - toggle verbose bus cycle printing
  *  ? - print help
@@ -88,6 +89,7 @@ constexpr char HELP2[] =
         "                 : likewise, and its Rx and Tx interrupt vectors\r\n"
         "                   (0: none; tx defaults to rx)\r\n"
         "  P [from to]    : show, or set, the target's memory area\r\n"
+        "  O [name]       : show, or set, the target's option\r\n"
         "  W +identity    : write identity EEPROM\r\n"
         "  V              : toggle verbose bus-cycle printing\r\n"
 #ifdef STRESS_HALTGO
@@ -839,6 +841,21 @@ void handleIo(char *line, uintptr_t extra, State state) {
     printPrompt();
 }
 
+void handleOption(char *line, uintptr_t, State state) {
+    if (state != State::CLI_CANCEL) {
+        cli.println();
+        if (*line) {
+            if (Debugger.target().setOption(line)) {
+                Debugger.target().reset();
+            } else {
+                cli.println("?option");
+            }
+        }
+        Debugger.target().printOptions();
+    }
+    printPrompt();
+}
+
 void handleProtectArea(uint32_t value, uintptr_t extra, State state) {
     const auto maxAddr = Debugger.target().maxAddr();
     const auto radix = Debugger.target().inputRadix();
@@ -1064,6 +1081,10 @@ void Debugger::exec(char c) {
         target().printDevices();
         cli.print("which? ");
         cli.readWord(handleIo, 0, str_buffer, sizeof(str_buffer));
+        return;
+    case 'O':
+        cli.print("Option? ");
+        cli.readWord(handleOption, 0, str_buffer, sizeof(str_buffer));
         return;
     case 'W':
         cli.print("Write identity? ");

@@ -16,6 +16,7 @@ struct RegsPdp11 final : Regs {
 
     const char *cpu() const override { return cpuName(); }
 
+    bool valid() const override;
     void print() const override;
     void printAll() const override;
     void save() override;

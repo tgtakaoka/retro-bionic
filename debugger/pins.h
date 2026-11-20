@@ -31,6 +31,12 @@ struct Pins {
     // take it, leaving the rate as it was.
     virtual bool setClockInput(uint32_t) { return false; }
 
+    // The target's options, which O sets by name: sets |name|, false for
+    // one it lacks. A reset follows, to put the option in force.
+    virtual bool setOption(const char *) { return false; }
+    // The option in force and the names O takes.
+    virtual void printOptions() const;
+
     // Control USER LED
     void setRun() const;
     void setHalt() const;

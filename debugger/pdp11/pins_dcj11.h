@@ -73,6 +73,10 @@ struct PinsDcj11 final : pdp11::PinsPdp11 {
     void assertInt(uint8_t name) override;
     void negateInt(uint8_t name) override;
     void setBreakInst(uint32_t addr) const override;
+    // "debugger", or "odt" for the DCJ11's console ODT as the monitor.
+    bool setOption(const char *name) override;
+    void printOptions() const override;
+    bool odt() const override { return _odt; }
 
     void execInst(const uint16_t *inst, uint_fast8_t words, uint16_t &org,
             uint32_t exit = EXIT_END, const uint16_t *stack = nullptr,
@@ -93,8 +97,14 @@ private:
     bool _devPending = false;
     // The trap vector the debugger answers, 0 for none.
     uint16_t _trapVector = 0;
+    bool _odt = false;
+    // The vectors the debugger answers: BPT and trace, and its #PWRF halt.
+    uint32_t _bptVector;
+    uint32_t _haltVector;
 
     void resetPins() override;
+    uint16_t powerUpConfig() const;
+    void enterOdt();
     const SignalsImpl *findBacktraceStart() override;
     void printBacktrace() override;
     bool discarded(uint32_t i) const;

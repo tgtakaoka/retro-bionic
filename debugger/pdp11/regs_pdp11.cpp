@@ -32,7 +32,15 @@ RegsPdp11::RegsPdp11(PinsPdp11 *pins, FpMode *mems, bool fpu)
       _buffer1(fpu ? line1f : line1),
       _buffer2(line2) {}
 
+bool RegsPdp11::valid() const {
+    return !_pins->odt();
+}
+
 void RegsPdp11::print() const {
+    if (!valid()) {
+        cli.println("Console ODT");
+        return;
+    }
     auto status = _buffer1;
     status.oct18(3, _pc);
     status.oct18(13, _sp);
@@ -173,7 +181,7 @@ void RegsPdp11::restore() {
 
 void RegsPdp11::printAll() const {
     print();
-    if (!_fpu)
+    if (!_fpu || !valid())
         return;
     for (auto ac = 0; ac < 6; ++ac) {
         const uint64_t bits = (uint64_t(_ac[ac][0]) << 48) |
@@ -223,6 +231,8 @@ const Regs::RegList *RegsPdp11::listRegisters(uint_fast8_t n) const {
 }
 
 bool RegsPdp11::setRegister(uint_fast8_t reg, uint32_t value) {
+    if (!valid())
+        return false;
     if (reg >= 1 && reg <= 6) {
         _r[reg - 1] = value;
     } else if (reg == 7 || reg == 9) {
