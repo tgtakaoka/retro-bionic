@@ -7,6 +7,9 @@ namespace pdp11 {
 namespace {
 constexpr uint8_t VEC_RX = 060;
 constexpr uint8_t VEC_TX = 064;
+// A character time at 9600 baud: received ones come no faster, as on a
+// line, so pasted text does not overrun a program that reads each.
+constexpr uint32_t CHAR_CYCLES = F_CPU / 960;
 }  // namespace
 
 Dl11::Dl11() : UartBase(2, VEC_RX) {
@@ -41,7 +44,8 @@ void Dl11::resetUart() {
 // A character is taken whether or not the program took the last one:
 // left on the console, it would reach the debugger's prompt after the run.
 void Dl11::loopUart() {
-    if (Console.available() > 0) {
+    if (Console.available() > 0 && ARM_DWT_CYCCNT - _rxTime >= CHAR_CYCLES) {
+        _rxTime = ARM_DWT_CYCCNT;
         _rxData = Console.read();
         _rxDone = true;
         if (_rxIe)

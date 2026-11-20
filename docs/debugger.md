@@ -126,6 +126,8 @@ alone; a reset clears only the device's own registers and pending interrupts.
 
 - **MC6850 ACIA** — `debugger/mc6850.cpp`
 - **i8251 USART** — `debugger/i8251.cpp`
+- **DL11** (DCT11, DCJ11) — `debugger/pdp11/dl11.cpp`: the console at 177560, its
+  vectors being the Rx and Tx interrupt names.
 - **8087 INT** (D8087 board) — `debugger/i8086/devs_d8087.cpp`: `NPX`, disabled at
   power-up, `I NPX` turns it on and off. While the 8087 holds INT high it requests
   interrupt type 2 by default, which raises NMI and stops the run in the debugger;
