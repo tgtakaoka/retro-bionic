@@ -257,11 +257,22 @@ def case_reset(board, n=4, regress=None):
     must equal the value it puts there. The PC compares as a value, so
     a segment the dump shows before it, as the Z8001's "PC=00:0100",
     is part of it.
+
+    Where the chips of a file reset differently, a register names each
+    chip's value, e.g. `PC = { DCT11 = "173000", DCJ11 = "1000" }`; a
+    chip it leaves out is not checked.
     """
     table = drive_table(regress)
     how = table.get('reset', {})
     settings = ('program_counter', 'program', 'radix')
     want = {k: v for k, v in how.items() if k not in settings}
+    for k, v in list(want.items()):
+        if isinstance(v, dict):
+            mine = [x for c, x in v.items() if c.upper() == (board.who or '').upper()]
+            if mine:
+                want[k] = mine[0]
+            else:
+                del want[k]
     vectored = {k: v for k, v in want.items()
                 if re.fullmatch(r'\[[0-9A-Fa-f]+( [0-9A-Fa-f]+)*\]', v)}
     if vectored:
