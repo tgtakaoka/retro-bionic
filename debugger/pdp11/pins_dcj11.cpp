@@ -13,7 +13,7 @@ namespace dcj11 {
 
 using pdp11::DevsPdp11;
 using pdp11::InstPdp11;
-using pdp11::MemsPdp11;
+using pdp11::MemsDcj11;
 using pdp11::RegsPdp11;
 
 // clang-format off
@@ -80,12 +80,16 @@ constexpr auto frame_cycles = 16;
 constexpr auto latch_ns = 30;
 
 // The power-up configuration (DCJ11 User's Guide, Figure 8-3): POK,
-// power-up mode 2 (start at 173000), and a kernel HALT traps to 4.
-constexpr uint16_t POWER_UP_CONFIG = 0000015;
-constexpr uint16_t ORG_START = 0173000;
+// power-up mode 3 (start at its bits 15-9), and a kernel HALT traps to 4.
+// With the MMU off 160000 and up is the I/O page, so the start is in
+// memory.
+constexpr uint16_t ORG_START = 0001000;
+constexpr uint16_t POWER_UP_CONFIG = ORG_START | 0000017;
 // The debugger's traps go here; the debugger answers its fetch.
 constexpr uint16_t ORG_RESTART = 0173004;
 constexpr uint16_t VEC_PWRFAIL = 0000024;
+// The emulated memory takes all of DAL21-DAL00.
+constexpr uint32_t MAX_ADDR = 017777777;
 
 // The 74HCT259's outputs.
 constexpr uint8_t Q_PWRF = 0;
@@ -232,8 +236,8 @@ bool clockUntil(COND cond) {
 
 PinsDcj11::PinsDcj11() : _clock(pwm_half_min_ns, pwm_min_hz), _clockHz(pwm_hz) {
     _devs = new DevsPdp11();
-    _mems = new MemsPdp11();
-    _regs = new RegsPdp11(this, mems<MemsPdp11>(), true);
+    _mems = new MemsDcj11(MAX_ADDR);
+    _regs = new RegsPdp11(this, mems<MemsDcj11>(), true);
 }
 
 #ifdef TUNE_CLOCK
@@ -383,7 +387,7 @@ Signals *PinsDcj11::completeCycle(Signals *s) {
 }
 
 // Reads are whole words; the CPU picks the byte it needs. The system
-// registers read 0.
+// registers and the I/O page outside its devices read 0.
 void PinsDcj11::retrieveData(Signals *s) {
     if (!s->readMemory())
         return;
@@ -393,9 +397,9 @@ void PinsDcj11::retrieveData(Signals *s) {
         s->data = devs->peek(addr);
         _devRead = addr;
         _devPending = true;
-    } else if (s->memory() || s->ioPage()) {
+    } else if (s->memory()) {
         // The little-endian word in one read.
-        s->data = mems<MemsPdp11>()->read_word(addr / 2);
+        s->data = mems<MemsDcj11>()->read_word(s->addr / 2);
     } else {
         s->data = 0;
     }
@@ -405,20 +409,25 @@ void PinsDcj11::retrieveData(Signals *s) {
 void PinsDcj11::storeData(Signals *s) {
     if (!s->write() || !s->writeMemory())
         return;
-    if (!s->memory() && !s->ioPage())
+    if (s->ioPage()) {
+        const uint16_t addr = s->addr16() & ~1;
+        if (_devs->isSelected(addr)) {
+            uint16_t val = s->data;
+            if (s->byteWrite())
+                val = s->writeLow() ? lo(s->data) : hi(s->data);
+            _devs->write(addr, val);
+        }
         return;
-    const uint16_t addr = s->addr16() & ~1;
-    if (s->ioPage() && _devs->isSelected(addr)) {
-        uint16_t val = s->data;
-        if (s->byteWrite())
-            val = s->writeLow() ? lo(s->data) : hi(s->data);
-        _devs->write(addr, val);
-    } else if (!s->byteWrite()) {
-        _mems->write16(addr, s->data);
+    }
+    if (!s->memory())
+        return;
+    const uint32_t at = s->addr & ~1;
+    if (!s->byteWrite()) {
+        _mems->write16(at, s->data);
     } else if (s->writeLow()) {
-        _mems->write_byte(addr, lo(s->data));
+        _mems->write_byte(at, lo(s->data));
     } else {
-        _mems->write_byte(addr | 1, hi(s->data));
+        _mems->write_byte(at | 1, hi(s->data));
     }
 }
 
@@ -821,7 +830,7 @@ const SignalsImpl *PinsDcj11::findBacktraceStart() {
 uint32_t PinsDcj11::walkInsns(uint32_t nth) const {
     const auto g = Signals::get();
     const auto cycles = g->diff(Signals::put());
-    const auto mems = this->mems<MemsPdp11>();
+    const auto mems = this->mems<MemsDcj11>();
     uint32_t from = 0, to = 0, insns = 0;
     for (auto i = 0u; i < cycles; ++i) {
         const auto s = g->next(i);
