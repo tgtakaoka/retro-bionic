@@ -1,59 +1,58 @@
 #include "devs_pdp11.h"
 #include <strings.h>
-#include "mc6850.h"
 
 namespace debugger {
 namespace pdp11 {
 
-DevsPdp11::DevsPdp11() : _acia(new Mc6850(2)) {
-    _acia->setBaseAddr(ACIA_BASE);
+DevsPdp11::DevsPdp11() : _dl11(new Dl11()) {
+    _dl11->setBaseAddr(DL11_BASE);
 }
 
 DevsPdp11::~DevsPdp11() {
-    delete _acia;
+    delete _dl11;
 }
 
 void DevsPdp11::reset() {
-    _acia->reset();
+    _dl11->reset();
 }
 
 void DevsPdp11::begin() {
-    enableDevice(_acia);
+    enableDevice(_dl11);
 }
 
 bool DevsPdp11::loopDevices() {
-    return _acia->loop();
+    return _dl11->loop();
 }
 
 
 uint16_t DevsPdp11::read(uint32_t addr) const {
-    return _acia->read(addr);
+    return _dl11->read(addr);
 }
 
 uint16_t DevsPdp11::peek(uint32_t addr) const {
-    return _acia->peek(addr);
+    return _dl11->peek(addr);
 }
 
 void DevsPdp11::write(uint32_t addr, uint16_t data) const {
-    _acia->write(addr, data);
+    _dl11->write(addr, data);
 }
 
 uint16_t DevsPdp11::vector() const {
-    return _acia->vector();
+    return _dl11->acknowledge();
 }
 
 Device *DevsPdp11::parseDevice(const char *name) const {
-    if (strcasecmp(name, _acia->name()) == 0)
-        return _acia;
+    if (strcasecmp(name, _dl11->name()) == 0)
+        return _dl11;
     return Devs::nullDevice();
 }
 
 void DevsPdp11::enableDevice(Device *dev) {
-    _acia->enable(dev == _acia);
+    _dl11->enable(dev == _dl11);
 }
 
 void DevsPdp11::printDevices() const {
-    printDevice(_acia);
+    printDevice(_dl11);
 }
 
 }  // namespace pdp11

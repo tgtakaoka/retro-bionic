@@ -33,49 +33,26 @@
 (1)       0 :                    ;;; BPT hands control back to the debugger: HALT acts differently on the
 (1)       0 :                    ;;; two chips.
           0 :
-          0 :                    ;;; MC6850 Asynchronous Communication Interface Adapter
-          0 : =177560            ACIA    =       177560
-          0 :                            include "mc6850.inc"
+          0 :                    ;;; DL11 Asynchronous Line Interface
+          0 : =177560            DL11    =       177560
+          0 : =60                DL11_VEC =      60
+          0 :                            include "dl11.inc"
 (1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
-(1)       0 :                    ;;; MC6850 Asynchronous Communication Interface Adapter
-(1)       0 :                    ;;; One register per word, accessed by byte.
-(1)       0 : =177560            ACIA_control    =       ACIA+0
-(1)       0 : =177560            ACIA_status     =       ACIA+0
-(1)       0 : =177562            ACIA_data       =       ACIA+2
-(1)       0 : =177564            ACIA_intr       =       ACIA+4  ; Interrupt vector, for Rx and Tx
-(1)       0 :                    ;;;  Counter Divider Select Bits
-(1)       0 : =3                 CDS_gm          =       003     ; Group mask
-(1)       0 : =0                 CDS_DIV1_gc     =       000     ; /1
-(1)       0 : =1                 CDS_DIV16_gc    =       001     ; /16
-(1)       0 : =2                 CDS_DIV64_gc    =       002     ; /64
-(1)       0 : =3                 CDS_RESET_gc    =       003     ; Master Reset
-(1)       0 :                    ;;;  Word Select Bits
-(1)       0 : =34                WSB_gm          =       034     ; Group mask
-(1)       0 : =0                 WSB_7E2_gc      =       000     ; 7 Bits + Even Parity + 2 Stop Bits
-(1)       0 : =4                 WSB_7O2_gc      =       004     ; 7 bits + Odd Parity  + 2 Stop Bits
-(1)       0 : =10                WSB_7E1_gc      =       010     ; 7 bits + Even Parity + 1 Stop Bits
-(1)       0 : =14                WSB_7O1_gc      =       014     ; 7 bits + Odd Parity  + 1 Stop Bits
-(1)       0 : =20                WSB_8N2_gc      =       020     ; 8 bits + No Parity   + 2 Stop Bits
-(1)       0 : =24                WSB_8N1_gc      =       024     ; 8 bits + No Parity   + 1 Stop Bits
-(1)       0 : =30                WSB_8E1_gc      =       030     ; 8 bits + Even Parity + 1 Stop Bits
-(1)       0 : =34                WSB_8O1_gc      =       034     ; 8 bits + Odd Parity  + 1 Stop Bits
-(1)       0 :                    ;;;  Transmit Control Bits
-(1)       0 : =140               TCB_gm          =       140     ; Group mask
-(1)       0 : =0                 TCB_DI_gc       =       000     ; RTS=Low,  Tx Interrupt Disabled
-(1)       0 : =40                TCB_EI_gc       =       040     ; RTS=Low,  Tx Interrupt Enabled
-(1)       0 : =100               TCB_RTS_gc      =       100     ; RTS=High, Tx Interrupt Disabled
-(1)       0 : =140               TCB_BREAK_gc    =       140     ; RTS=Low,  Tx Interrupt Disabled
-(1)       0 :                                                    ; Transmit Break Level
-(1)       0 : =200               RIEB_bm         =       200     ; Receive Interrupt Enable Bit mask
-(1)       0 :                    ;;; Status register
-(1)       0 : =1                 RDRF_bm         =       001     ; Receive Data Register Full
-(1)       0 : =2                 TDRE_bm         =       002     ; Transmit Data Register Empty
-(1)       0 : =4                 DCDF_bm         =       004     ; Data Carrier Detect Flag
-(1)       0 : =10                CTSF_bm         =       010     ; Clear To Send Flag
-(1)       0 : =20                FERR_bm         =       020     ; Frame Error Flag
-(1)       0 : =40                OVRN_bm         =       040     ; Receiver Overrun Flag
-(1)       0 : =100               PERR_bm         =       100     ; Parity Error Flag
-(1)       0 : =200               IRQF_bm         =       200     ; Interrupt Request Flag
+(1)       0 :                    ;;; DL11 Asynchronous Line Interface
+(1)       0 :                    ;;; One register per word; the status and data are in the low byte.
+(1)       0 : =177560            DL11_RCSR       =       DL11+0  ; Receiver status
+(1)       0 : =177562            DL11_RBUF       =       DL11+2  ; Receiver buffer
+(1)       0 : =177564            DL11_XCSR       =       DL11+4  ; Transmitter status
+(1)       0 : =177566            DL11_XBUF       =       DL11+6  ; Transmitter buffer
+(1)       0 :                    ;;; Receiver status
+(1)       0 : =200               RCSR_DONE_bm    =       200     ; Receiver Done
+(1)       0 : =100               RCSR_IE_bm      =       100     ; Receiver Interrupt Enable
+(1)       0 :                    ;;; Transmitter status
+(1)       0 : =200               XCSR_READY_bm   =       200     ; Transmitter Ready
+(1)       0 : =100               XCSR_IE_bm      =       100     ; Transmitter Interrupt Enable
+(1)       0 :                    ;;; Interrupt vectors
+(1)       0 : =60                DL11_RVEC       =       DL11_VEC+0      ; Receiver
+(1)       0 : =64                DL11_XVEC       =       DL11_VEC+4      ; Transmitter
           0 :
          14 :                            org     VEC_BPT
          14 : 000014 000340              .word   VEC_BPT, PSW_PRI7 ; for halt to system
@@ -90,33 +67,31 @@
        1000 : =1000              stack   =       .
        1000 :                    initialize:
        1000 : 012706 001000              mov     #stack, sp
-       1004 :                            ;; Initialize ACIA
-       1004 : 112737 000003              movb    #CDS_RESET_gc, @#ACIA_control ; Master reset
-       1010 : 177560
-       1012 : 112737 000024              movb    #WSB_8N1_gc, @#ACIA_control ; 8 bits + No Parity + 1 Stop Bits
-       1016 : 177560
-       1020 :
-       1020 : 004767 000026      loop:   jsr     pc, getchar
-       1024 : 105700                     tstb    r0
-       1026 : 001410                     beq     halt_to_system
-       1030 : 004767 000034      echo:   jsr     pc, putchar
-       1034 : 120027 000015              cmpb    r0, #15         ; Carriage return
-       1040 : 001367                     bne     loop
-       1042 : 112700 000012              movb    #12, r0         ; Line feed
-       1046 : 000770                     br      echo
-       1050 :                    halt_to_system:
-       1050 : 000003                     bpt
-       1052 :
-       1052 :                    getchar:
-       1052 : 132737 000001              bitb    #RDRF_bm, @#ACIA_status
-       1056 : 177560
-       1060 : 001774                     beq     getchar
-       1062 : 113700 177562              movb    @#ACIA_data, r0
-       1066 : 000207                     rts     pc
-       1070 :
-       1070 :                    putchar:
-       1070 : 132737 000002              bitb    #TDRE_bm, @#ACIA_status
-       1074 : 177560
-       1076 : 001774                     beq     putchar
-       1100 : 110037 177562              movb    r0, @#ACIA_data
-       1104 : 000207                     rts     pc
+       1004 :                            ;; Initialize DL11
+       1004 : 105037 177560              clrb    @#DL11_RCSR     ; Disable Rx interrupt
+       1010 : 105037 177564              clrb    @#DL11_XCSR     ; Disable Tx interrupt
+       1014 :
+       1014 : 004767 000026      loop:   jsr     pc, getchar
+       1020 : 105700                     tstb    r0
+       1022 : 001410                     beq     halt_to_system
+       1024 : 004767 000034      echo:   jsr     pc, putchar
+       1030 : 120027 000015              cmpb    r0, #15         ; Carriage return
+       1034 : 001367                     bne     loop
+       1036 : 112700 000012              movb    #12, r0         ; Line feed
+       1042 : 000770                     br      echo
+       1044 :                    halt_to_system:
+       1044 : 000003                     bpt
+       1046 :
+       1046 :                    getchar:
+       1046 : 132737 000200              bitb    #RCSR_DONE_bm, @#DL11_RCSR
+       1052 : 177560
+       1054 : 001774                     beq     getchar
+       1056 : 113700 177562              movb    @#DL11_RBUF, r0
+       1062 : 000207                     rts     pc
+       1064 :
+       1064 :                    putchar:
+       1064 : 132737 000200              bitb    #XCSR_READY_bm, @#DL11_XCSR
+       1070 : 177564
+       1072 : 001774                     beq     putchar
+       1074 : 110037 177566              movb    r0, @#DL11_XBUF
+       1100 : 000207                     rts     pc

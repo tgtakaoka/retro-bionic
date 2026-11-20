@@ -2821,11 +2821,17 @@ read/write so R/#WHB and R/#WLB are valid at the #RAS fall. **[doc]**
 
 **Read before write.** Every write is preceded by a read of the same
 address, except the pushes of a trap or interrupt. **[doc]** That read
-would take a received character from the ACIA's data register, so a
+would take a received character from the DL11's RBUF, so a
 device read returns `peek()` and takes effect only if the next
 transaction is not a write to the same word. **[code]**
 
-**Interrupts.** The ACIA requests level 4 with #VEC, and its vector is
+**Console.** Both chips have a DL11 at 177560, vectors 60 and 64. A
+request comes as DONE or READY rises with its interrupt enable set, or
+as the enable is set, and the acknowledge that reads its vector drops
+it: a level request would interrupt for as long as a program leaves the
+transmitter's enable set. **[doc][code]**
+
+**Interrupts.** The DL11 requests level 4 with #VEC, and its vector is
 driven on DAL7-DAL0 at the IACK. The AI lines must not change while PI
 is high, so a request a device raises inside a transaction is driven
 after it. **[doc][code]**

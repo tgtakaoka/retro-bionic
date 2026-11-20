@@ -2,10 +2,10 @@
 #define __DEVS_PDP11_H__
 
 #include "devs.h"
-#include "mc6850.h"
+#include "dl11.h"
 
-// The console's DL11 address; one register per word.
-#define ACIA_BASE 0177560
+// The console's address.
+#define DL11_BASE 0177560
 
 namespace debugger {
 namespace pdp11 {
@@ -19,12 +19,13 @@ struct DevsPdp11 final : Devs {
     bool loopDevices() override;
     // A byte's address selects its word.
     bool isSelected(uint32_t addr) const override {
-        return _acia->isSelected(addr & ~1);
+        return _dl11->isSelected(addr & ~1);
     }
     uint16_t read(uint32_t addr) const override;
     // What read() would return, without its side effects.
     uint16_t peek(uint32_t addr) const;
     void write(uint32_t addr, uint16_t data) const override;
+    // The vector an interrupt acknowledge reads; it drops that request.
     uint16_t vector() const override;
 
     Device *parseDevice(const char *name) const override;
@@ -32,7 +33,7 @@ struct DevsPdp11 final : Devs {
     void printDevices() const override;
 
 private:
-    Mc6850 *_acia;
+    Dl11 *_dl11;
 };
 
 }  // namespace pdp11

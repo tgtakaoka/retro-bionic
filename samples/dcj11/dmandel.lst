@@ -35,52 +35,26 @@
           0 :                    ;;; The DCJ11 only: FP11 floating point.
           0 :                            cpu     j11
           0 :
-          0 :                    ;;; MC6850 Asynchronous Communication Interface Adapter
-          0 : =177560            ACIA    =       177560
-          0 : =60                ACIA_VEC =      60
-          0 :                            include "../pdp11/mc6850.inc"
+          0 :                    ;;; DL11 Asynchronous Line Interface
+          0 : =177560            DL11    =       177560
+          0 : =60                DL11_VEC =      60
+          0 :                            include "../pdp11/dl11.inc"
 (1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
-(1)       0 :                    ;;; MC6850 Asynchronous Communication Interface Adapter
-(1)       0 :                    ;;; One register per word, accessed by byte.
-(1)       0 : =177560            ACIA_control    =       ACIA+0
-(1)       0 : =177560            ACIA_status     =       ACIA+0
-(1)       0 : =177562            ACIA_data       =       ACIA+2
-(1)       0 : =177564            ACIA_intr       =       ACIA+4  ; Interrupt vector, for Rx and Tx
-(1)       0 :                    ;;;  Counter Divider Select Bits
-(1)       0 : =3                 CDS_gm          =       003     ; Group mask
-(1)       0 : =0                 CDS_DIV1_gc     =       000     ; /1
-(1)       0 : =1                 CDS_DIV16_gc    =       001     ; /16
-(1)       0 : =2                 CDS_DIV64_gc    =       002     ; /64
-(1)       0 : =3                 CDS_RESET_gc    =       003     ; Master Reset
-(1)       0 :                    ;;;  Word Select Bits
-(1)       0 : =34                WSB_gm          =       034     ; Group mask
-(1)       0 : =0                 WSB_7E2_gc      =       000     ; 7 Bits + Even Parity + 2 Stop Bits
-(1)       0 : =4                 WSB_7O2_gc      =       004     ; 7 bits + Odd Parity  + 2 Stop Bits
-(1)       0 : =10                WSB_7E1_gc      =       010     ; 7 bits + Even Parity + 1 Stop Bits
-(1)       0 : =14                WSB_7O1_gc      =       014     ; 7 bits + Odd Parity  + 1 Stop Bits
-(1)       0 : =20                WSB_8N2_gc      =       020     ; 8 bits + No Parity   + 2 Stop Bits
-(1)       0 : =24                WSB_8N1_gc      =       024     ; 8 bits + No Parity   + 1 Stop Bits
-(1)       0 : =30                WSB_8E1_gc      =       030     ; 8 bits + Even Parity + 1 Stop Bits
-(1)       0 : =34                WSB_8O1_gc      =       034     ; 8 bits + Odd Parity  + 1 Stop Bits
-(1)       0 :                    ;;;  Transmit Control Bits
-(1)       0 : =140               TCB_gm          =       140     ; Group mask
-(1)       0 : =0                 TCB_DI_gc       =       000     ; RTS=Low,  Tx Interrupt Disabled
-(1)       0 : =40                TCB_EI_gc       =       040     ; RTS=Low,  Tx Interrupt Enabled
-(1)       0 : =100               TCB_RTS_gc      =       100     ; RTS=High, Tx Interrupt Disabled
-(1)       0 : =140               TCB_BREAK_gc    =       140     ; RTS=Low,  Tx Interrupt Disabled
-(1)       0 :                                                    ; Transmit Break Level
-(1)       0 : =200               RIEB_bm         =       200     ; Receive Interrupt Enable Bit mask
-(1)       0 :                    ;;; Status register
-(1)       0 : =1                 RDRF_bm         =       001     ; Receive Data Register Full
-(1)       0 : =2                 TDRE_bm         =       002     ; Transmit Data Register Empty
-(1)       0 : =4                 DCDF_bm         =       004     ; Data Carrier Detect Flag
-(1)       0 : =10                CTSF_bm         =       010     ; Clear To Send Flag
-(1)       0 : =20                FERR_bm         =       020     ; Frame Error Flag
-(1)       0 : =40                OVRN_bm         =       040     ; Receiver Overrun Flag
-(1)       0 : =100               PERR_bm         =       100     ; Parity Error Flag
-(1)       0 : =200               IRQF_bm         =       200     ; Interrupt Request Flag
-          0 : =224               RX_INT_TX_NO    =       WSB_8N1_gc|RIEB_bm
-          0 : =264               RX_INT_TX_INT   =       WSB_8N1_gc|RIEB_bm|TCB_EI_gc
+(1)       0 :                    ;;; DL11 Asynchronous Line Interface
+(1)       0 :                    ;;; One register per word; the status and data are in the low byte.
+(1)       0 : =177560            DL11_RCSR       =       DL11+0  ; Receiver status
+(1)       0 : =177562            DL11_RBUF       =       DL11+2  ; Receiver buffer
+(1)       0 : =177564            DL11_XCSR       =       DL11+4  ; Transmitter status
+(1)       0 : =177566            DL11_XBUF       =       DL11+6  ; Transmitter buffer
+(1)       0 :                    ;;; Receiver status
+(1)       0 : =200               RCSR_DONE_bm    =       200     ; Receiver Done
+(1)       0 : =100               RCSR_IE_bm      =       100     ; Receiver Interrupt Enable
+(1)       0 :                    ;;; Transmitter status
+(1)       0 : =200               XCSR_READY_bm   =       200     ; Transmitter Ready
+(1)       0 : =100               XCSR_IE_bm      =       100     ; Transmitter Interrupt Enable
+(1)       0 :                    ;;; Interrupt vectors
+(1)       0 : =60                DL11_RVEC       =       DL11_VEC+0      ; Receiver
+(1)       0 : =64                DL11_XVEC       =       DL11_VEC+4      ; Transmitter
           0 :
          14 :                            org     VEC_BPT
          14 : 000014 000340              .word   VEC_BPT, PSW_PRI7 ; for halt to system
@@ -88,9 +62,11 @@
          24 :                            org     VEC_PWRFAIL
          24 : 001000 000340              .word   initialize, PSW_PRI7
          30 :
-         60 :                            org     ACIA_VEC
-         60 : 001776 000340              .word   isr_acia, PSW_PRI7
-         64 :
+         60 :                            org     DL11_RVEC
+         60 : 001766 000340              .word   isr_rx, PSW_PRI7
+         64 :                            org     DL11_XVEC
+         64 : 002014 000340              .word   isr_tx, PSW_PRI7
+         70 :
      173000 :                            org     ORG_RESET
      173000 : 000137 001000              jmp     @#initialize
      173004 :
@@ -106,270 +82,266 @@
        1000 : 012706 001000              mov     #stack, sp
        1004 : 012702 004000              mov     #rx_queue, r2
        1010 : 012700 000200              mov     #rx_queue_size, r0
-       1014 : 004767 000572              jsr     pc, queue_init
+       1014 : 004767 000562              jsr     pc, queue_init
        1020 : 012702 004200              mov     #tx_queue, r2
        1024 : 012700 000200              mov     #tx_queue_size, r0
-       1030 : 004767 000556              jsr     pc, queue_init
-       1034 :                            ;; Initialize ACIA
-       1034 : 112737 000003              movb    #CDS_RESET_gc, @#ACIA_control ; Master reset
+       1030 : 004767 000546              jsr     pc, queue_init
+       1034 :                            ;; Initialize DL11
+       1034 : 112737 000100              movb    #RCSR_IE_bm, @#DL11_RCSR ; Enable Rx interrupt
        1040 : 177560
-       1042 : 112737 000224              movb    #RX_INT_TX_NO, @#ACIA_control ; 8 bits + No Parity + 1 Stop Bits
-       1046 : 177560
-       1050 : 112737 000060              movb    #ACIA_VEC, @#ACIA_intr ; set the vector for MC6850 emulator
-       1054 : 177564
-       1056 : 106427 000000              mtps    #PSW_PRI0       ; Enable interrupt
-       1062 :
-       1062 :                    loop:
-       1062 : 004767 000236              jsr     pc, dmandel
-       1066 : 004767 000056              jsr     pc, newline
-       1072 : 012702 004200              mov     #tx_queue, r2
-       1076 : 004767 000666              jsr     pc, queue_wait_empty
-       1102 : 000767                     br      loop
-       1104 :
-       1104 :                    ;;; Get character
-       1104 :                    ;;; @return R0 character
-       1104 :                    ;;; @return PSW.C 0 if no character
-       1104 :                    getchar:
-       1104 : 010246                     mov     r2, -(sp)
-       1106 : 012702 004000              mov     #rx_queue, r2
-       1112 : 106427 000340              mtps    #PSW_PRI7       ; Disable interrupt
-       1116 : 004767 000570              jsr     pc, queue_remove
-       1122 : 103005                     bcc     getchar_empty
-       1124 : 106427 000000              mtps    #PSW_PRI0       ; Enable interrupt
-       1130 : 012602                     mov     (sp)+, r2
-       1132 : 000261                     sec
-       1134 : 000207                     rts     pc
-       1136 :                    getchar_empty:
-       1136 : 106427 000000              mtps    #PSW_PRI0       ; Enable interrupt
-       1142 : 012602                     mov     (sp)+, r2
-       1144 : 000241                     clc
-       1146 : 000207                     rts     pc
-       1150 :
-       1150 :                    ;;; Put newline
-       1150 :                    newline:
-       1150 : 010046                     mov     r0, -(sp)
-       1152 : 112700 000015              movb    #15, r0
-       1156 : 004767 000020              jsr     pc, putchar
-       1162 : 112700 000012              movb    #12, r0
-       1166 : 004767 000010              jsr     pc, putchar
-       1172 : 012600                     mov     (sp)+, r0
-       1174 : 000207                     rts     pc
-       1176 :
-       1176 :                    ;;; Put space
-       1176 :                    ;;; @clobber R0
-       1176 :                    putspace:
-       1176 : 112700 000040              movb    #' , r0
-       1202 :                    ;;; Put character
-       1202 :                    ;;; @param R0 character
-       1202 :                    putchar:
-       1202 : 010246                     mov     r2, -(sp)
-       1204 : 012702 004200              mov     #tx_queue, r2
-       1210 :                    putchar_retry:
-       1210 : 106427 000340              mtps    #PSW_PRI7       ; Disable interrupt
-       1214 : 004767 000414              jsr     pc, queue_add
-       1220 : 103403                     bcs     putchar_added
-       1222 : 106427 000000              mtps    #PSW_PRI0       ; Enable interrupt while the queue is full
-       1226 : 000770                     br      putchar_retry
-       1230 :                    putchar_added:
-       1230 : 112737 000264              movb    #RX_INT_TX_INT, @#ACIA_control ; Enable Tx interrupt
-       1234 : 177560
-       1236 : 106427 000000              mtps    #PSW_PRI0       ; Enable interrupt
-       1242 : 012602                     mov     (sp)+, r2
-       1244 : 000207                     rts     pc
-       1246 :
-       1246 :                            include "dmandel.inc"
-(1)    1246 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
-(1)    1246 :
-(1)    1246 :                    ;;; Print the Mandelbrot set in double-precision floating point.
-(1)    1246 :                    ;;; A NUL from the console halts to system.
-(1)    1246 : 037073 114307      kCA:    .flt4   0.0458
-       1252 : 161202 040270
-(1)    1256 : 037252 124353      kCB:    .flt4   0.08333
-       1262 : 043064 113667
-(1)    1266 : 040600 000000      k4:     .flt4   4.0
-       1272 : 000000 000000
-(1)    1276 :                    vCA:    .blkw   4
-(1)    1306 :                    vCB:    .blkw   4
-(1)    1316 :                    vY:     .blkw   1
-(1)    1320 :                    vX:     .blkw   1
-(1)    1322 :                    vI:     .blkw   1
-(1)    1324 :
-(1)    1324 :                    ;;; AC0=A, AC1=B; AC2 and AC3 are scratch.
-(1)    1324 :                    dmandel:
-(1)    1324 : 170127 000200              ldfps   #200            ; double precision, short integer, rounding
-(1)    1330 : 012767 177764              mov     #-12., vY       ; Y=-12
-       1334 : 177760
-(1)    1336 :                    loop_y:
-(1)    1336 : 012767 177717              mov     #-49., vX       ; X=-49
-       1342 : 177754
-(1)    1344 :                    loop_x:
-(1)    1344 : 177067 177750              ldcid   vX, ac0
-(1)    1350 : 171067 177672              muld    kCA, ac0
-(1)    1354 : 174067 177716              std     ac0, vCA        ; A=CA=X*0.0458
-(1)    1360 : 177167 177732              ldcid   vY, ac1
-(1)    1364 : 171167 177666              muld    kCB, ac1
-(1)    1370 : 174167 177712              std     ac1, vCB        ; B=CB=Y*0.08333
-(1)    1374 : 005067 177722              clr     vI              ; I=0
-(1)    1400 :                    loop_i:
-(1)    1400 : 172601                     ldd     ac1, ac2
-(1)    1402 : 171201                     muld    ac1, ac2        ; B*B
-(1)    1404 : 172700                     ldd     ac0, ac3
-(1)    1406 : 171300                     muld    ac0, ac3        ; A*A
-(1)    1410 : 173302                     subd    ac2, ac3        ; A*A-B*B
-(1)    1412 : 172367 177660              addd    vCA, ac3        ; T=A*A-B*B+CA
-(1)    1416 : 171100                     muld    ac0, ac1        ; A*B
-(1)    1420 : 172101                     addd    ac1, ac1        ; 2*A*B
-(1)    1422 : 172167 177660              addd    vCB, ac1        ; B=2*A*B+CB
-(1)    1426 : 172403                     ldd     ac3, ac0        ; A=T
-(1)    1430 : 172600                     ldd     ac0, ac2
-(1)    1432 : 171200                     muld    ac0, ac2        ; A*A
-(1)    1434 : 172701                     ldd     ac1, ac3
-(1)    1436 : 171301                     muld    ac1, ac3        ; B*B
-(1)    1440 : 172203                     addd    ac3, ac2        ; A*A+B*B
-(1)    1442 : 173267 177620              subd    k4, ac2         ; A*A+B*B-4
-(1)    1446 : 170000                     cfcc
-(1)    1450 : 003021                     bgt     print_i         ; if 4<A*A+B*B
-(1)    1452 : 005267 177644              inc     vI              ; I+=1
-(1)    1456 : 026727 177640              cmp     vI, #16.
-       1462 : 000020
-(1)    1464 : 002745                     blt     loop_i          ; if I<16
-(1)    1466 : 112700 000040              movb    #' , r0
-(1)    1472 : 000414                     br      print_char
-(1)    1474 :                    print_table:
-(1)    1474 : 030460 031462              .ascii  "0123456789ABCDEF"
-       1500 : 032464 033466
-       1504 : 034470 041101
-       1510 : 042103 043105
-(1)    1514 :                    print_i:
-(1)    1514 : 016701 177602              mov     vI, r1
-(1)    1520 : 116100 001474              movb    print_table(r1), r0
-(1)    1524 :                    print_char:
-(1)    1524 : 004767 177452              jsr     pc, putchar
-(1)    1530 : 004767 177350              jsr     pc, getchar
-(1)    1534 : 103003                     bcc     next_x
-(1)    1536 : 105700                     tstb    r0
-(1)    1540 : 001001                     bne     next_x
-(1)    1542 : 000003                     bpt                     ; halt to system
-(1)    1544 :                    next_x:
-(1)    1544 : 005267 177550              inc     vX              ; X+=1
-(1)    1550 : 026727 177544              cmp     vX, #30.
-       1554 : 000036
-(1)    1556 : 001402                     beq     next_y
-(1)    1560 : 000167 177560              jmp     loop_x          ; if X<30
-(1)    1564 :                    next_y:
-(1)    1564 : 004767 177360              jsr     pc, newline
-(1)    1570 : 005267 177522              inc     vY              ; Y+=1
-(1)    1574 : 026727 177516              cmp     vY, #13.
-       1600 : 000015
-(1)    1602 : 001402                     beq     dmandel_end
-(1)    1604 : 000167 177526              jmp     loop_y          ; if Y<13
-(1)    1610 :                    dmandel_end:
-(1)    1610 : 000207                     rts     pc
-       1612 :                            include "../pdp11/queue.inc"
-(1)    1612 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
-(1)    1612 :                    ;;; [queue] queue structure
-(1)    1612 : =0                 queue_len       =       0       ; queue length
-(1)    1612 : =2                 queue_size      =       2       ; buffer size
-(1)    1612 : =4                 queue_put       =       4       ; queue put index
-(1)    1612 : =6                 queue_get       =       6       ; queue get index
-(1)    1612 : =10                queue_buf       =       10      ; buffer start offset
-(1)    1612 :
-(1)    1612 :                    ;;; [queue] Initialize queue
-(1)    1612 :                    ;;; @param R2 queue work space pointer
-(1)    1612 :                    ;;; @param R0 queue work space size
-(1)    1612 :                    ;;; @clobber R0 R2
-(1)    1612 :                    queue_init:
-(1)    1612 : 005022                     clr     (r2)+           ; clear queue_len
-(1)    1614 : 162700 000010              sub     #queue_buf, r0
-(1)    1620 : 010022                     mov     r0, (r2)+       ; set queue_size
-(1)    1622 : 005022                     clr     (r2)+           ; clear queue_put
-(1)    1624 : 005022                     clr     (r2)+           ; clear queue_get
-(1)    1626 :                    queue_init_loop:
-(1)    1626 : 105022                     clrb    (r2)+
-(1)    1630 : 077002                     sob     r0, queue_init_loop
-(1)    1632 : 000207                     rts     pc
-(1)    1634 :
-(1)    1634 :                    ;;; [queue] Add an element to queue
-(1)    1634 :                    ;;; @param R2 queue work space pointer
-(1)    1634 :                    ;;; @param R0 an element
-(1)    1634 :                    ;;; @return PSW.C 0 if queue is full
-(1)    1634 :                    queue_add:
-(1)    1634 : 021262 000002              cmp     (r2), queue_size(r2) ; check queue_len
-(1)    1640 : 103402                     blo     queue_add_element
-(1)    1642 : 000241                     clc                     ; queue is full
-(1)    1644 : 000207                     rts     pc
-(1)    1646 :                    queue_add_element:
-(1)    1646 : 010146                     mov     r1, -(sp)
-(1)    1650 : 010201                     mov     r2, r1
-(1)    1652 : 066201 000004              add     queue_put(r2), r1
-(1)    1656 : 110061 000010              movb    r0, queue_buf(r1)
-(1)    1662 : 012601                     mov     (sp)+, r1
-(1)    1664 : 005212                     inc     (r2)            ; update queue_len
-(1)    1666 : 005262 000004              inc     queue_put(r2)
-(1)    1672 : 026262 000004              cmp     queue_put(r2), queue_size(r2)
-       1676 : 000002
-(1)    1700 : 103402                     blo     queue_add_return
-(1)    1702 : 005062 000004              clr     queue_put(r2)
-(1)    1706 :                    queue_add_return:
-(1)    1706 : 000261                     sec
+       1042 : 105037 177564              clrb    @#DL11_XCSR     ; Disable Tx interrupt
+       1046 : 106427 000000              mtps    #PSW_PRI0       ; Enable interrupt
+       1052 :
+       1052 :                    loop:
+       1052 : 004767 000236              jsr     pc, dmandel
+       1056 : 004767 000056              jsr     pc, newline
+       1062 : 012702 004200              mov     #tx_queue, r2
+       1066 : 004767 000666              jsr     pc, queue_wait_empty
+       1072 : 000767                     br      loop
+       1074 :
+       1074 :                    ;;; Get character
+       1074 :                    ;;; @return R0 character
+       1074 :                    ;;; @return PSW.C 0 if no character
+       1074 :                    getchar:
+       1074 : 010246                     mov     r2, -(sp)
+       1076 : 012702 004000              mov     #rx_queue, r2
+       1102 : 106427 000340              mtps    #PSW_PRI7       ; Disable interrupt
+       1106 : 004767 000570              jsr     pc, queue_remove
+       1112 : 103005                     bcc     getchar_empty
+       1114 : 106427 000000              mtps    #PSW_PRI0       ; Enable interrupt
+       1120 : 012602                     mov     (sp)+, r2
+       1122 : 000261                     sec
+       1124 : 000207                     rts     pc
+       1126 :                    getchar_empty:
+       1126 : 106427 000000              mtps    #PSW_PRI0       ; Enable interrupt
+       1132 : 012602                     mov     (sp)+, r2
+       1134 : 000241                     clc
+       1136 : 000207                     rts     pc
+       1140 :
+       1140 :                    ;;; Put newline
+       1140 :                    newline:
+       1140 : 010046                     mov     r0, -(sp)
+       1142 : 112700 000015              movb    #15, r0
+       1146 : 004767 000020              jsr     pc, putchar
+       1152 : 112700 000012              movb    #12, r0
+       1156 : 004767 000010              jsr     pc, putchar
+       1162 : 012600                     mov     (sp)+, r0
+       1164 : 000207                     rts     pc
+       1166 :
+       1166 :                    ;;; Put space
+       1166 :                    ;;; @clobber R0
+       1166 :                    putspace:
+       1166 : 112700 000040              movb    #' , r0
+       1172 :                    ;;; Put character
+       1172 :                    ;;; @param R0 character
+       1172 :                    putchar:
+       1172 : 010246                     mov     r2, -(sp)
+       1174 : 012702 004200              mov     #tx_queue, r2
+       1200 :                    putchar_retry:
+       1200 : 106427 000340              mtps    #PSW_PRI7       ; Disable interrupt
+       1204 : 004767 000414              jsr     pc, queue_add
+       1210 : 103403                     bcs     putchar_added
+       1212 : 106427 000000              mtps    #PSW_PRI0       ; Enable interrupt while the queue is full
+       1216 : 000770                     br      putchar_retry
+       1220 :                    putchar_added:
+       1220 : 112737 000100              movb    #XCSR_IE_bm, @#DL11_XCSR ; Enable Tx interrupt
+       1224 : 177564
+       1226 : 106427 000000              mtps    #PSW_PRI0       ; Enable interrupt
+       1232 : 012602                     mov     (sp)+, r2
+       1234 : 000207                     rts     pc
+       1236 :
+       1236 :                            include "dmandel.inc"
+(1)    1236 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)    1236 :
+(1)    1236 :                    ;;; Print the Mandelbrot set in double-precision floating point.
+(1)    1236 :                    ;;; A NUL from the console halts to system.
+(1)    1236 : 037073 114307      kCA:    .flt4   0.0458
+       1242 : 161202 040270
+(1)    1246 : 037252 124353      kCB:    .flt4   0.08333
+       1252 : 043064 113667
+(1)    1256 : 040600 000000      k4:     .flt4   4.0
+       1262 : 000000 000000
+(1)    1266 :                    vCA:    .blkw   4
+(1)    1276 :                    vCB:    .blkw   4
+(1)    1306 :                    vY:     .blkw   1
+(1)    1310 :                    vX:     .blkw   1
+(1)    1312 :                    vI:     .blkw   1
+(1)    1314 :
+(1)    1314 :                    ;;; AC0=A, AC1=B; AC2 and AC3 are scratch.
+(1)    1314 :                    dmandel:
+(1)    1314 : 170127 000200              ldfps   #200            ; double precision, short integer, rounding
+(1)    1320 : 012767 177764              mov     #-12., vY       ; Y=-12
+       1324 : 177760
+(1)    1326 :                    loop_y:
+(1)    1326 : 012767 177717              mov     #-49., vX       ; X=-49
+       1332 : 177754
+(1)    1334 :                    loop_x:
+(1)    1334 : 177067 177750              ldcid   vX, ac0
+(1)    1340 : 171067 177672              muld    kCA, ac0
+(1)    1344 : 174067 177716              std     ac0, vCA        ; A=CA=X*0.0458
+(1)    1350 : 177167 177732              ldcid   vY, ac1
+(1)    1354 : 171167 177666              muld    kCB, ac1
+(1)    1360 : 174167 177712              std     ac1, vCB        ; B=CB=Y*0.08333
+(1)    1364 : 005067 177722              clr     vI              ; I=0
+(1)    1370 :                    loop_i:
+(1)    1370 : 172601                     ldd     ac1, ac2
+(1)    1372 : 171201                     muld    ac1, ac2        ; B*B
+(1)    1374 : 172700                     ldd     ac0, ac3
+(1)    1376 : 171300                     muld    ac0, ac3        ; A*A
+(1)    1400 : 173302                     subd    ac2, ac3        ; A*A-B*B
+(1)    1402 : 172367 177660              addd    vCA, ac3        ; T=A*A-B*B+CA
+(1)    1406 : 171100                     muld    ac0, ac1        ; A*B
+(1)    1410 : 172101                     addd    ac1, ac1        ; 2*A*B
+(1)    1412 : 172167 177660              addd    vCB, ac1        ; B=2*A*B+CB
+(1)    1416 : 172403                     ldd     ac3, ac0        ; A=T
+(1)    1420 : 172600                     ldd     ac0, ac2
+(1)    1422 : 171200                     muld    ac0, ac2        ; A*A
+(1)    1424 : 172701                     ldd     ac1, ac3
+(1)    1426 : 171301                     muld    ac1, ac3        ; B*B
+(1)    1430 : 172203                     addd    ac3, ac2        ; A*A+B*B
+(1)    1432 : 173267 177620              subd    k4, ac2         ; A*A+B*B-4
+(1)    1436 : 170000                     cfcc
+(1)    1440 : 003021                     bgt     print_i         ; if 4<A*A+B*B
+(1)    1442 : 005267 177644              inc     vI              ; I+=1
+(1)    1446 : 026727 177640              cmp     vI, #16.
+       1452 : 000020
+(1)    1454 : 002745                     blt     loop_i          ; if I<16
+(1)    1456 : 112700 000040              movb    #' , r0
+(1)    1462 : 000414                     br      print_char
+(1)    1464 :                    print_table:
+(1)    1464 : 030460 031462              .ascii  "0123456789ABCDEF"
+       1470 : 032464 033466
+       1474 : 034470 041101
+       1500 : 042103 043105
+(1)    1504 :                    print_i:
+(1)    1504 : 016701 177602              mov     vI, r1
+(1)    1510 : 116100 001464              movb    print_table(r1), r0
+(1)    1514 :                    print_char:
+(1)    1514 : 004767 177452              jsr     pc, putchar
+(1)    1520 : 004767 177350              jsr     pc, getchar
+(1)    1524 : 103003                     bcc     next_x
+(1)    1526 : 105700                     tstb    r0
+(1)    1530 : 001001                     bne     next_x
+(1)    1532 : 000003                     bpt                     ; halt to system
+(1)    1534 :                    next_x:
+(1)    1534 : 005267 177550              inc     vX              ; X+=1
+(1)    1540 : 026727 177544              cmp     vX, #30.
+       1544 : 000036
+(1)    1546 : 001402                     beq     next_y
+(1)    1550 : 000167 177560              jmp     loop_x          ; if X<30
+(1)    1554 :                    next_y:
+(1)    1554 : 004767 177360              jsr     pc, newline
+(1)    1560 : 005267 177522              inc     vY              ; Y+=1
+(1)    1564 : 026727 177516              cmp     vY, #13.
+       1570 : 000015
+(1)    1572 : 001402                     beq     dmandel_end
+(1)    1574 : 000167 177526              jmp     loop_y          ; if Y<13
+(1)    1600 :                    dmandel_end:
+(1)    1600 : 000207                     rts     pc
+       1602 :                            include "../pdp11/queue.inc"
+(1)    1602 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)    1602 :                    ;;; [queue] queue structure
+(1)    1602 : =0                 queue_len       =       0       ; queue length
+(1)    1602 : =2                 queue_size      =       2       ; buffer size
+(1)    1602 : =4                 queue_put       =       4       ; queue put index
+(1)    1602 : =6                 queue_get       =       6       ; queue get index
+(1)    1602 : =10                queue_buf       =       10      ; buffer start offset
+(1)    1602 :
+(1)    1602 :                    ;;; [queue] Initialize queue
+(1)    1602 :                    ;;; @param R2 queue work space pointer
+(1)    1602 :                    ;;; @param R0 queue work space size
+(1)    1602 :                    ;;; @clobber R0 R2
+(1)    1602 :                    queue_init:
+(1)    1602 : 005022                     clr     (r2)+           ; clear queue_len
+(1)    1604 : 162700 000010              sub     #queue_buf, r0
+(1)    1610 : 010022                     mov     r0, (r2)+       ; set queue_size
+(1)    1612 : 005022                     clr     (r2)+           ; clear queue_put
+(1)    1614 : 005022                     clr     (r2)+           ; clear queue_get
+(1)    1616 :                    queue_init_loop:
+(1)    1616 : 105022                     clrb    (r2)+
+(1)    1620 : 077002                     sob     r0, queue_init_loop
+(1)    1622 : 000207                     rts     pc
+(1)    1624 :
+(1)    1624 :                    ;;; [queue] Add an element to queue
+(1)    1624 :                    ;;; @param R2 queue work space pointer
+(1)    1624 :                    ;;; @param R0 an element
+(1)    1624 :                    ;;; @return PSW.C 0 if queue is full
+(1)    1624 :                    queue_add:
+(1)    1624 : 021262 000002              cmp     (r2), queue_size(r2) ; check queue_len
+(1)    1630 : 103402                     blo     queue_add_element
+(1)    1632 : 000241                     clc                     ; queue is full
+(1)    1634 : 000207                     rts     pc
+(1)    1636 :                    queue_add_element:
+(1)    1636 : 010146                     mov     r1, -(sp)
+(1)    1640 : 010201                     mov     r2, r1
+(1)    1642 : 066201 000004              add     queue_put(r2), r1
+(1)    1646 : 110061 000010              movb    r0, queue_buf(r1)
+(1)    1652 : 012601                     mov     (sp)+, r1
+(1)    1654 : 005212                     inc     (r2)            ; update queue_len
+(1)    1656 : 005262 000004              inc     queue_put(r2)
+(1)    1662 : 026262 000004              cmp     queue_put(r2), queue_size(r2)
+       1666 : 000002
+(1)    1670 : 103402                     blo     queue_add_return
+(1)    1672 : 005062 000004              clr     queue_put(r2)
+(1)    1676 :                    queue_add_return:
+(1)    1676 : 000261                     sec
+(1)    1700 : 000207                     rts     pc
+(1)    1702 :
+(1)    1702 :                    ;;; [queue] Remove an element from queue
+(1)    1702 :                    ;;; @param R2 queue work space pointer
+(1)    1702 :                    ;;; @return R0 an element
+(1)    1702 :                    ;;; @return PSW.C 0 if queue is empty
+(1)    1702 :                    queue_remove:
+(1)    1702 : 005712                     tst     (r2)            ; check queue_len
+(1)    1704 : 001002                     bne     queue_remove_element
+(1)    1706 : 000241                     clc                     ; queue is empty
 (1)    1710 : 000207                     rts     pc
-(1)    1712 :
-(1)    1712 :                    ;;; [queue] Remove an element from queue
-(1)    1712 :                    ;;; @param R2 queue work space pointer
-(1)    1712 :                    ;;; @return R0 an element
-(1)    1712 :                    ;;; @return PSW.C 0 if queue is empty
-(1)    1712 :                    queue_remove:
-(1)    1712 : 005712                     tst     (r2)            ; check queue_len
-(1)    1714 : 001002                     bne     queue_remove_element
-(1)    1716 : 000241                     clc                     ; queue is empty
-(1)    1720 : 000207                     rts     pc
-(1)    1722 :                    queue_remove_element:
-(1)    1722 : 010146                     mov     r1, -(sp)
-(1)    1724 : 010201                     mov     r2, r1
-(1)    1726 : 066201 000006              add     queue_get(r2), r1
-(1)    1732 : 005000                     clr     r0
-(1)    1734 : 156100 000010              bisb    queue_buf(r1), r0 ; without sign extension
-(1)    1740 : 012601                     mov     (sp)+, r1
-(1)    1742 : 005312                     dec     (r2)            ; update queue_len
-(1)    1744 : 005262 000006              inc     queue_get(r2)
-(1)    1750 : 026262 000006              cmp     queue_get(r2), queue_size(r2)
-       1754 : 000002
-(1)    1756 : 103402                     blo     queue_remove_return
-(1)    1760 : 005062 000006              clr     queue_get(r2)
-(1)    1764 :                    queue_remove_return:
-(1)    1764 : 000261                     sec
-(1)    1766 : 000207                     rts     pc
-       1770 :                            include "../pdp11/queue_wait.inc"
-(1)    1770 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
-(1)    1770 :                    ;;; [queue] Wait until queue is empty
-(1)    1770 :                    ;;; @param R2 queue work space pointer
-(1)    1770 :                    queue_wait_empty:
-(1)    1770 : 005712                     tst     (r2)            ; check queue_len
-(1)    1772 : 001376                     bne     queue_wait_empty
-(1)    1774 : 000207                     rts     pc
-       1776 :
-       1776 :                    isr_acia:
-       1776 : 010046                     mov     r0, -(sp)
-       2000 : 010246                     mov     r2, -(sp)
-       2002 : 132737 000001              bitb    #RDRF_bm, @#ACIA_status
-       2006 : 177560
-       2010 : 001406                     beq     isr_acia_send
-       2012 : 113700 177562              movb    @#ACIA_data, r0
-       2016 : 012702 004000              mov     #rx_queue, r2
-       2022 : 004767 177606              jsr     pc, queue_add
-       2026 :                    isr_acia_send:
-       2026 : 132737 000002              bitb    #TDRE_bm, @#ACIA_status
-       2032 : 177560
-       2034 : 001407                     beq     isr_acia_exit
-       2036 : 012702 004200              mov     #tx_queue, r2
-       2042 : 004767 177644              jsr     pc, queue_remove
-       2046 : 103005                     bcc     isr_acia_send_empty
-       2050 : 110037 177562              movb    r0, @#ACIA_data
-       2054 :                    isr_acia_exit:
-       2054 : 012602                     mov     (sp)+, r2
-       2056 : 012600                     mov     (sp)+, r0
-       2060 : 000002                     rti
-       2062 :                    isr_acia_send_empty:
-       2062 : 112737 000224              movb    #RX_INT_TX_NO, @#ACIA_control ; Disable Tx interrupt
-       2066 : 177560
-       2070 : 000771                     br      isr_acia_exit
+(1)    1712 :                    queue_remove_element:
+(1)    1712 : 010146                     mov     r1, -(sp)
+(1)    1714 : 010201                     mov     r2, r1
+(1)    1716 : 066201 000006              add     queue_get(r2), r1
+(1)    1722 : 005000                     clr     r0
+(1)    1724 : 156100 000010              bisb    queue_buf(r1), r0 ; without sign extension
+(1)    1730 : 012601                     mov     (sp)+, r1
+(1)    1732 : 005312                     dec     (r2)            ; update queue_len
+(1)    1734 : 005262 000006              inc     queue_get(r2)
+(1)    1740 : 026262 000006              cmp     queue_get(r2), queue_size(r2)
+       1744 : 000002
+(1)    1746 : 103402                     blo     queue_remove_return
+(1)    1750 : 005062 000006              clr     queue_get(r2)
+(1)    1754 :                    queue_remove_return:
+(1)    1754 : 000261                     sec
+(1)    1756 : 000207                     rts     pc
+       1760 :                            include "../pdp11/queue_wait.inc"
+(1)    1760 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)    1760 :                    ;;; [queue] Wait until queue is empty
+(1)    1760 :                    ;;; @param R2 queue work space pointer
+(1)    1760 :                    queue_wait_empty:
+(1)    1760 : 005712                     tst     (r2)            ; check queue_len
+(1)    1762 : 001376                     bne     queue_wait_empty
+(1)    1764 : 000207                     rts     pc
+       1766 :
+       1766 :                    isr_rx:
+       1766 : 010046                     mov     r0, -(sp)
+       1770 : 010246                     mov     r2, -(sp)
+       1772 : 113700 177562              movb    @#DL11_RBUF, r0
+       1776 : 012702 004000              mov     #rx_queue, r2
+       2002 : 004767 177616              jsr     pc, queue_add
+       2006 : 012602                     mov     (sp)+, r2
+       2010 : 012600                     mov     (sp)+, r0
+       2012 : 000002                     rti
+       2014 :
+       2014 :                    isr_tx:
+       2014 : 010046                     mov     r0, -(sp)
+       2016 : 010246                     mov     r2, -(sp)
+       2020 : 012702 004200              mov     #tx_queue, r2
+       2024 : 004767 177652              jsr     pc, queue_remove
+       2030 : 103005                     bcc     isr_tx_empty
+       2032 : 110037 177566              movb    r0, @#DL11_XBUF
+       2036 :                    isr_tx_exit:
+       2036 : 012602                     mov     (sp)+, r2
+       2040 : 012600                     mov     (sp)+, r0
+       2042 : 000002                     rti
+       2044 :                    isr_tx_empty:
+       2044 : 105037 177564              clrb    @#DL11_XCSR     ; Disable Tx interrupt
+       2050 : 000772                     br      isr_tx_exit

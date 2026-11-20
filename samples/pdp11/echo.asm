@@ -1,9 +1,10 @@
 ;;; -*- mode: asm; mode: flyspell-prog; -*-
         include "pdp11.inc"
 
-;;; MC6850 Asynchronous Communication Interface Adapter
-ACIA    =       177560
-        include "mc6850.inc"
+;;; DL11 Asynchronous Line Interface
+DL11    =       177560
+DL11_VEC =      60
+        include "dl11.inc"
 
         org     VEC_BPT
         .word   VEC_BPT, PSW_PRI7 ; for halt to system
@@ -18,9 +19,9 @@ ACIA    =       177560
 stack   =       .
 initialize:
         mov     #stack, sp
-        ;; Initialize ACIA
-        movb    #CDS_RESET_gc, @#ACIA_control ; Master reset
-        movb    #WSB_8N1_gc, @#ACIA_control ; 8 bits + No Parity + 1 Stop Bits
+        ;; Initialize DL11
+        clrb    @#DL11_RCSR     ; Disable Rx interrupt
+        clrb    @#DL11_XCSR     ; Disable Tx interrupt
 
 loop:   jsr     pc, getchar
         tstb    r0
@@ -34,13 +35,13 @@ halt_to_system:
         bpt
 
 getchar:
-        bitb    #RDRF_bm, @#ACIA_status
+        bitb    #RCSR_DONE_bm, @#DL11_RCSR
         beq     getchar
-        movb    @#ACIA_data, r0
+        movb    @#DL11_RBUF, r0
         rts     pc
 
 putchar:
-        bitb    #TDRE_bm, @#ACIA_status
+        bitb    #XCSR_READY_bm, @#DL11_XCSR
         beq     putchar
-        movb    r0, @#ACIA_data
+        movb    r0, @#DL11_XBUF
         rts     pc
