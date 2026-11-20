@@ -12,6 +12,7 @@ namespace debugger {
 namespace dcj11 {
 
 using pdp11::DevsPdp11;
+using pdp11::Kw11l;
 using pdp11::InstPdp11;
 using pdp11::MemsDcj11;
 using pdp11::RegsPdp11;
@@ -89,8 +90,9 @@ constexpr auto latch_ns = 30;
 // memory.
 constexpr uint16_t ORG_START = 0001000;
 constexpr uint16_t POWER_UP_CONFIG = ORG_START | 0000017;
-// General-purpose write code (DCJ11 User's Guide, Table 3-3).
+// General-purpose write codes (DCJ11 User's Guide, Table 3-3).
 constexpr uint8_t GP_BUS_RESET = 0014;
+constexpr uint8_t GP_EVENT_ACK = 0100;
 // The debugger's traps go here; the debugger answers its fetch.
 constexpr uint16_t ORG_RESTART = 0173004;
 constexpr uint16_t VEC_PWRFAIL = 0000024;
@@ -265,7 +267,7 @@ void negate_pwrf() {
 }  // namespace
 
 PinsDcj11::PinsDcj11() {
-    _devs = new DevsPdp11();
+    _devs = new DevsPdp11(true);
     _mems = new MemsDcj11(MAX_ADDR);
     _regs = new RegsPdp11(this, mems<MemsDcj11>(), true);
 }
@@ -481,9 +483,15 @@ void PinsDcj11::retrieveData(Signals *s) {
 // A byte write drives the byte on the half its address picks.
 void PinsDcj11::storeData(Signals *s) {
     if (!s->write() || !s->writeMemory()) {
-        // A RESET instruction, and the power-up microroutine.
-        if (s->gpWrite() && (s->addr & 0377) == GP_BUS_RESET)
+        if (!s->gpWrite())
+            return;
+        const auto code = s->addr & 0377;
+        if (code == GP_BUS_RESET) {
+            // A RESET instruction, and the power-up microroutine.
             _devs->reset();
+        } else if (code == GP_EVENT_ACK) {
+            devs<DevsPdp11>()->acknowledgeClock();
+        }
         return;
     }
     if (s->ioPage()) {
@@ -750,14 +758,22 @@ void PinsDcj11::setBreakInst(uint32_t addr) const {
     _mems->put_prog(addr, InstPdp11::BPT);
 }
 
-// Every request is IRQ0, level 4; the device's vector is served at the
-// IACK.
-void PinsDcj11::assertInt(uint8_t) {
-    write_latch(Q_IRQ0, HIGH);
+// The line clock's is #EVENT, level 6 through vector 100. Every other
+// request is IRQ0, level 4; the device's vector is served at the IACK.
+void PinsDcj11::assertInt(uint8_t name) {
+    if (name == Kw11l::VECTOR) {
+        write_latch(Q_EVENT, LOW);
+    } else {
+        write_latch(Q_IRQ0, HIGH);
+    }
 }
 
-void PinsDcj11::negateInt(uint8_t) {
-    write_latch(Q_IRQ0, LOW);
+void PinsDcj11::negateInt(uint8_t name) {
+    if (name == Kw11l::VECTOR) {
+        write_latch(Q_EVENT, HIGH);
+    } else {
+        write_latch(Q_IRQ0, LOW);
+    }
 }
 
 void PinsDcj11::printCycles() {

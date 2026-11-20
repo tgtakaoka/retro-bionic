@@ -129,6 +129,8 @@ alone; a reset clears only the device's own registers and pending interrupts.
 - **i8251 USART** — `debugger/i8251.cpp`
 - **DL11** (DCT11, DCJ11) — `debugger/pdp11/dl11.cpp`: the console at 177560, its
   vectors being the Rx and Tx interrupt names.
+- **KW11-L** (DCJ11) — `debugger/pdp11/kw11l.cpp`: `KW11L`, the 60 Hz line clock at
+  177546, which `I KW11L` turns off and on. Its interrupt is the CPU's #EVENT.
 - **Address mask** (Z380) — `debugger/z380/devs_z380.cpp`: `AMASK`, one port at
   0148H holding the number of address lines memory decodes, 32 after a reset. A 64K
   system writes 16, and an access above FFFFH then lands in its 64K.
