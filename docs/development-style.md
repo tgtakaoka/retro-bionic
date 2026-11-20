@@ -2937,6 +2937,13 @@ restart jump at 173000 loads into memory it does not reach. **[code]**
 **Bus reset.** The general-purpose write 014, a RESET instruction or
 the power-up microroutine, resets the devices. **[doc][code]**
 
+**Line clock.** The KW11-L's LKS is at 177546: MONITOR comes every
+60th of a second of a run, and with the interrupt enable set it pulls
+#EVENT low, level 6 through vector 100 with no IACK. The CPU answers
+with the general-purpose write 100, which lets #EVENT go. A tick missed
+while the CPU was halted is not made up. Only the DCJ11 has the clock.
+**[doc][code]**
+
 **Stack limit.** A kernel stack reference below 400, a trap's push
 among them, takes a yellow stack trap through vector 4 (DCJ11 User's
 Guide, 1.8), and a reset keeps SP (Figure 8-2), so after power-up SP may
