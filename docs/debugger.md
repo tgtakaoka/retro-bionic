@@ -129,17 +129,14 @@ alone; a reset clears only the device's own registers and pending interrupts.
 - **i8251 USART** — `debugger/i8251.cpp`
 - **DL11** (DCT11, DCJ11) — `debugger/pdp11/dl11.cpp`: the console at 177560, its
   vectors being the Rx and Tx interrupt names.
-- **Sector disk** (8080, 8085) — `debugger/sector_disk.cpp`: `DISK`, a paravirtual disk for
-  CP/M at I/O port 50H: drive, track, sector, DMA address, then a command that moves one
-  128-byte sector whole while the CPU waits in that cycle. Four drives of 8" single
-  density, 77 tracks of 26 sectors, are image files on the Teensy's SD card:
-  `L i8080/cpm80.hex` mounts `i8080/cpm80.dsk` as A: and `cpm80b.dsk`-`cpm80d.dsk`
-  beside it as B:-D:, and turns the disk on; `I DISK` turns it off and on. `O` changes
-  one drive at the prompt: `O` `work i8080/work.dsk` mounts that file under the label
-  `work` on the first free drive (or on the drive `work` already names), `O` `work`
-  unmounts it, and `O` with Enter lists each label with its drive and file. `L`
-  labels its set with the file names, such as `cpm80` on A: and `cpm80b` on B:. A file that is not there is
-  refused, never made. The next `L` remounts the set beside what it loads.
+- **Sector disk** (8080, 8085) — `debugger/sector_disk.cpp`: `DISK`, a paravirtual CP/M
+  disk at port 50H. A command moves one sector while the CPU waits; DMAX (+7) extends
+  DMA past 64K. Four drives are image files on the SD card, in the target's formats:
+  `ibm-3740` (8" floppy, any image up to 256256 bytes) or `hd8` (exactly 8 MB). Other
+  sizes are refused. DRIVE reads back the drive's format in bits 4-7.
+  `L i8080/cpm80.hex` mounts `cpm80.dsk` and `cpm80b.dsk`-`cpm80d.dsk` beside it as
+  A:-D:, labelled by file name; `O` mounts and unmounts single drives; `I DISK` turns
+  the disk off and on.
 - **8087 INT** (D8087 board) — `debugger/i8086/devs_d8087.cpp`: `NPX`, disabled at
   power-up, `I NPX` turns it on and off. While the 8087 holds INT high it requests
   interrupt type 2 by default, which raises NMI and stops the run in the debugger;

@@ -19,6 +19,7 @@ struct Disk {
         MOUNT_OK,
         MOUNT_NOT_FOUND,  // no such file, which is never made
         MOUNT_NO_UNIT,    // every unit carries another label
+        MOUNT_BAD_SIZE,   // no format has the file's size
     };
 
     virtual ~Disk() {}

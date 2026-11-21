@@ -678,6 +678,9 @@ void handleDisk(char *line, uintptr_t, State state) {
                 cli.println(" not found");
             } else if (mounted == Disk::MOUNT_NO_UNIT) {
                 cli.println("?no free drive");
+            } else if (mounted == Disk::MOUNT_BAD_SIZE) {
+                cli.print(path);
+                cli.println(": no disk format of its size");
             }
         }
     }
