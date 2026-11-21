@@ -13,8 +13,8 @@ tracks interleaved with skew 6.
 `make` writes an empty disk, with FILE... copied in as user 0. With
 --system, the Intel HEX files' bytes from CCP (E400) up to the end of
 track 1 go on the system tracks from track 0 sector 2, where the BIOS's
-warm boot and samples/i8080/cpm22.asm read them, unskewed: CCP and BDOS
-assembled for 64K, then samples/i8080/cpm22bios.hex. Bytes the HEX files
+warm boot and samples/i8080/cpm80.asm read them, unskewed: CCP and BDOS
+assembled for 64K, then samples/i8080/cpm80bios.hex. Bytes the HEX files
 leave out are E5.
 """
 import os
