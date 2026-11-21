@@ -27,7 +27,7 @@ struct DevsI8080 : Devs {
     Device *parseDevice(const char *name) const override;
     void enableDevice(Device *dev) override;
     void printDevices() const override;
-    void fileLoaded(const char *path) override;
+    Disk *disk() const override;
 
 protected:
     Device *_usart;

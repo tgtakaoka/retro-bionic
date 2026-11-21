@@ -34,6 +34,11 @@ const char *SectorDisk::description() const {
 }
 
 void SectorDisk::print() const {
+    printDrives();
+}
+
+void SectorDisk::printDrives() const {
+    auto none = true;
     for (auto d = 0; d < DRIVES; ++d) {
         if (*image_names[d] == 0)
             continue;
@@ -42,31 +47,50 @@ void SectorDisk::print() const {
         cli.print(": ");
         cli.print(image_names[d]);
         cli.println(images[d] ? "" : " closed");
+        none = false;
     }
+    if (none)
+        cli.println("  no disk mounted");
 }
 
-// As a file is loaded, never in a transfer, where a missing card would
-// hold the CPU for long. A file that is not there is not made.
-void SectorDisk::mount(const char *path) {
+// Mounting happens at the prompt, never in a transfer, where a missing
+// card would hold the CPU for long. A file that is not there is not made.
+bool SectorDisk::mount(uint8_t drive, const char *path) {
+    if (drive >= DRIVES)
+        return false;
+    unmount(drive);
+    if (strlen(path) >= sizeof(image_names[drive]) || !SD.exists(path))
+        return false;
+    images[drive] = SD.open(path, FILE_WRITE_BEGIN);
+    if (!images[drive])
+        return false;
+    strcpy(image_names[drive], path);
+    enable(true);
+    return true;
+}
+
+void SectorDisk::unmount(uint8_t drive) {
+    if (drive >= DRIVES)
+        return;
+    images[drive].close();
+    *image_names[drive] = 0;
+}
+
+void SectorDisk::mountBeside(const char *path) {
     const auto dot = strrchr(path, '.');
     const auto slash = strrchr(path, '/');
     const size_t stem = (dot && dot > slash) ? dot - path : strlen(path);
+    char name[sizeof(image_names[0])];
     for (auto d = 0; d < DRIVES; ++d) {
-        images[d].close();
-        auto name = image_names[d];
-        *name = 0;
-        if (stem + sizeof("b.dsk") > sizeof(image_names[d]))
+        unmount(d);
+        if (stem + sizeof("b.dsk") > sizeof(name))
             continue;
         memcpy(name, path, stem);
         name[stem] = 0;
         if (d)
             strncat(name, "abcd" + d, 1);
         strcat(name, ".dsk");
-        if (SD.exists(name)) {
-            images[d] = SD.open(name, FILE_WRITE_BEGIN);
-        } else {
-            *name = 0;
-        }
+        mount(d, name);
     }
     enable(images[0]);
 }

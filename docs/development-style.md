@@ -1651,8 +1651,9 @@ least 227 ns) keep it working, which tops the clock at 2.5 MHz. **[hw]**
 Teensy takes, so the sector disk moves a whole sector, an SD card
 access of milliseconds, inside the OUT to its command port; the next
 IN reads the status. A DMA address is a 16-bit memory address and
-wraps. The images open when `L` loads the cold boot, never in a
-transfer, and an image that is not there is not made. The BIOS's
+wraps. The images open at the prompt, when `L` loads the cold boot or
+`O` mounts one, never in a transfer; `L`'s set goes through `O`'s
+mount, and an image that is not there is not made. The BIOS's
 disk parameters and skew table are the 8" single-density ones of
 DRI's skeletal `CBIOS.ASM`, the format cpmtools calls
 `ibm-3740`. The disk's ports keep clear of the Z180's internal I/O below

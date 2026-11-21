@@ -23,10 +23,6 @@ void DevsI8080::reset() {
         _disk->reset();
 }
 
-void DevsI8080::fileLoaded(const char *path) {
-    if (_disk)
-        _disk->mount(path);
-}
 
 void DevsI8080::begin() {
     enableDevice(_usart);
@@ -52,6 +48,10 @@ void DevsI8080::write(uint32_t addr, uint16_t data) const {
     } else {
         _usart->write(addr, data);
     }
+}
+
+Disk *DevsI8080::disk() const {
+    return _disk;
 }
 
 uint16_t DevsI8080::vector() const {

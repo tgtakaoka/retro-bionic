@@ -1,6 +1,7 @@
 #include "devs.h"
 #include "debugger.h"
 #include "device.h"
+#include "disk.h"
 
 namespace debugger {
 
@@ -17,6 +18,11 @@ struct NullDevice final : Device {
 
 Device *Devs::nullDevice() {
     return &NullDevice;
+}
+
+void Devs::fileLoaded(const char *path) {
+    if (auto d = disk())
+        d->mountBeside(path);
 }
 
 namespace {
