@@ -44,11 +44,13 @@ user disk, an 8 MB `hd8` with `fmandel.bas`; C: and D: blank `ibm-3740` floppies
 (empty files), removable through `O` and `^C`.
 
 The CP/M binaries stay out of the repository: the first `make` downloads them
-with `debugger/i8080/tools/cpm80-fetch.py` into `samples/i8080/cpm80/`, checks each
-archive's sha256, and keeps the archives in `cpm80/dl/` so later builds work offline.
-It fetches CP/M 2.2 from [cpm.z80.de](http://www.cpm.z80.de/download/)
+with `debugger/i8080/tools/cpm80-fetch.py` into `samples/i8080/cpm80.fetch/`, checks
+each archive's sha256, and keeps the archives in its `dl/` so later builds work
+offline. It fetches CP/M 2.2 from [cpm.z80.de](http://www.cpm.z80.de/download/)
 ([license](http://www.cpm.z80.de/license.html)), BDS C and HI-TECH C. MBASIC is
-Microsoft's and isn't fetched: put your own `MBASIC.COM` in `samples/i8080/cpm80/a/`.
+Microsoft's and isn't fetched: put your own `MBASIC.COM` in
+`samples/i8080/cpm80.fetch/a/`. Every port's downloads are in a `*.fetch/` folder,
+so `rsync --exclude='*.fetch/'` keeps them off the SD card.
 Then:
 
 ```sh

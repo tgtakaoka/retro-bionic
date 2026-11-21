@@ -16,7 +16,7 @@ all: echo.hex echoir.hex echoitr.hex \
 # CP/M tools, BDS C, HI-TECH C and your MBASIC.COM if there. It is an
 # 8 MB hd8 disk unless FORMAT says otherwise. The DRI files and the
 # compilers are downloaded once into $(CPM80)/ by cpm80-fetch.py.
-CPM80 ?= cpm80
+CPM80 ?= cpm80.fetch
 FORMAT ?= hd8
 FETCH = ../../debugger/i8080/tools/cpm80-fetch.py
 $(CPM80)/.fetched: $(FETCH)
