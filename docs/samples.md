@@ -73,6 +73,13 @@ compiles on the 8080. Put `bdsc160/`'s files from `bdsc-all.zip` in
 Z80 (`LBREXT`, `UNCRUNCH`). `mandel.c` on B: is the integer mandelbrot:
 `A>SUBMIT BDSC MANDEL` (`bdsc.sub` on A:: `CC`, then `CLINK`), then `A>B:MANDEL`.
 
+**HI-TECH C 3.09** (free, copyright HI-TECH Software,
+[agn453/HI-TECH-Z80-C](https://github.com/agn453/HI-TECH-Z80-C)) needs a Z80; it fails
+on the Z380. Unpack `htc-bin.lbr` into `samples/i8080/cpm80/a/` with
+`debugger/i8080/tools/lbr.py`.
+`fmandel.c` on B: is the floating-point mandelbrot: `A>SUBMIT HITECHC FMANDEL`
+(`hitechc.sub`: `C309 -LF`), then `A>FMANDEL`; `mandel.c` builds too.
+
 ## The reference implementation
 
 [`samples/arith/`](../samples/arith) is the golden model, compiled and run on the host rather
