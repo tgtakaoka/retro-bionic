@@ -63,7 +63,7 @@ constexpr char HELP2[] =
 #if defined(ENABLE_SDCARD)
         "  F [path]       : list files on SD card\r\n"
         "  L file         : load an Intel HEX / S-record file from card\r\n"
-        "  O [label [file]]: list disks, mount file under label, unmount label\r\n"
+        "  O [drive [file]]: list disks, mount file on drive, unmount drive\r\n"
 #endif
         "  G [n]          : run freely, backtrace last n lines (default: all)\r\n"
         "  g addr [n]     : run until addr (a one-shot breakpoint), same backtrace\r\n"
@@ -638,8 +638,8 @@ int loadS19Record(const char *line, uint32_t &addr) {
 }
 
 #if defined(ENABLE_SDCARD)
-// "label file" mounts the file under that label, "label" alone unmounts
-// it, and an empty line lists the drives.
+// "drive file" mounts the file on that drive, "drive" alone unmounts it,
+// and an empty line lists the drives. The disk prints each change.
 void handleDisk(char *line, uintptr_t, State state) {
     if (state == State::CLI_CANCEL) {
         printPrompt();
@@ -660,11 +660,6 @@ void handleDisk(char *line, uintptr_t, State state) {
         while (*path == ' ')
             ++path;
         *end = 0;
-        if (strlen(line) > Disk::LABEL_MAX) {
-            cli.println("?label too long");
-            printPrompt();
-            return;
-        }
         SD.begin(BUILTIN_SDCARD);
         if (*path == 0) {
             if (!disk->unmount(line)) {
@@ -677,14 +672,16 @@ void handleDisk(char *line, uintptr_t, State state) {
                 cli.print(path);
                 cli.println(" not found");
             } else if (mounted == Disk::MOUNT_NO_UNIT) {
-                cli.println("?no free drive");
+                cli.print("?no drive ");
+                cli.println(line);
             } else if (mounted == Disk::MOUNT_BAD_SIZE) {
                 cli.print(path);
                 cli.println(": no disk format of its size");
             }
         }
+    } else {
+        disk->printDrives();
     }
-    disk->printDrives();
     printPrompt();
 }
 

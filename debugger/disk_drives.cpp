@@ -1,7 +1,6 @@
 #include "disk_drives.h"
 #include <SD.h>
 #include <string.h>
-#include <strings.h>
 #include "debugger.h"
 
 namespace debugger {
@@ -27,10 +26,26 @@ bool DiskDrives::place(
     return false;
 }
 
-Disk::Mounted DiskDrives::mountUnit(
-        uint8_t unit, const char *label, const char *path) {
+Disk::Mounted DiskDrives::mountUnit(uint8_t unit, const char *path) {
+    const auto was = _units[unit].mounted();
+    const auto mounted = mountImage(unit, path);
+    if (mounted == MOUNT_OK) {
+        printDrive(unit);
+    } else if (was) {
+        printUnmounted(unit);
+    }
+    return mounted;
+}
+
+void DiskDrives::unmountUnit(uint8_t unit) {
+    if (!_units[unit].mounted())
+        return;
     _units[unit].unmount();
-    *_labels[unit] = 0;
+    printUnmounted(unit);
+}
+
+Disk::Mounted DiskDrives::mountImage(uint8_t unit, const char *path) {
+    _units[unit].unmount();
     if (!SD.exists(path))
         return MOUNT_NOT_FOUND;
     uint32_t bytes;
@@ -45,58 +60,51 @@ Disk::Mounted DiskDrives::mountUnit(
         return MOUNT_BAD_SIZE;
     if (!_units[unit].mount(path, offset, format))
         return MOUNT_NOT_FOUND;
-    strncpy(_labels[unit], label, LABEL_MAX);
-    _labels[unit][LABEL_MAX] = 0;
     return MOUNT_OK;
 }
 
-Disk::Mounted DiskDrives::mount(const char *label, const char *path) {
-    auto unit = _count;
-    for (auto u = 0; u < _count; ++u) {
-        if (_units[u].mounted() && strcasecmp(_labels[u], label) == 0) {
-            unit = u;
-            break;
-        }
-        if (!_units[u].mounted() && unit == _count)
-            unit = u;
-    }
-    if (unit == _count)
-        return MOUNT_NO_UNIT;
-    return mountUnit(unit, label, path);
+Disk::Mounted DiskDrives::mount(const char *name, const char *path) {
+    const auto u = unitOf(name);
+    return u < _count ? mountUnit(u, path) : MOUNT_NO_UNIT;
 }
 
-bool DiskDrives::unmount(const char *label) {
-    for (auto u = 0; u < _count; ++u) {
-        if (_units[u].mounted() && strcasecmp(_labels[u], label) == 0) {
-            _units[u].unmount();
-            *_labels[u] = 0;
-            return true;
-        }
+bool DiskDrives::unmount(const char *name) {
+    const auto u = unitOf(name);
+    if (u >= _count || !_units[u].mounted())
+        return false;
+    unmountUnit(u);
+    return true;
+}
+
+void DiskDrives::printDrive(uint8_t u) const {
+    const auto &unit = _units[u];
+    cli.print("  ");
+    cli.printStr(unitName(u), -4);
+    cli.print(' ');
+    cli.printStr(unit.geometry()->name, -9);
+    cli.print(' ');
+    cli.print(unit.path());
+    if (unit.offset()) {
+        cli.print('+');
+        cli.print(unit.offset() / 1024);
+        cli.print('K');
     }
-    return false;
+    cli.println();
+}
+
+void DiskDrives::printUnmounted(uint8_t unit) const {
+    cli.print("  ");
+    cli.print(unitName(unit));
+    cli.println(" unmounted");
 }
 
 void DiskDrives::printDrives() const {
     auto none = true;
     for (auto u = 0; u < _count; ++u) {
-        const auto &unit = _units[u];
-        if (!unit.mounted())
-            continue;
-        cli.print("  ");
-        cli.printStr(_labels[u], -LABEL_MAX);
-        cli.print(' ');
-        cli.printStr(unitName(u), -4);
-        cli.print(' ');
-        cli.printStr(unit.geometry()->name, -9);
-        cli.print(' ');
-        cli.print(unit.path());
-        if (unit.offset()) {
-            cli.print('+');
-            cli.print(unit.offset() / 1024);
-            cli.print('K');
+        if (_units[u].mounted()) {
+            printDrive(u);
+            none = false;
         }
-        cli.println();
-        none = false;
     }
     if (none)
         cli.println("  no disk mounted");

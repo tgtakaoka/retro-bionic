@@ -8,27 +8,23 @@ namespace debugger {
 
 /**
  * Disk drives whose media are image files on the SD card, mounted at the
- * prompt: by O under a label its user picks, and by L as the set beside
- * the file it loaded. The device puts each on a unit of its own.
+ * prompt: by O on the drive it names, and by L as the set beside the file
+ * it loaded. A drive goes by its name in the OS, such as B or rk1.
  */
 struct Disk {
-    // The longest label, which has no spaces.
-    static constexpr size_t LABEL_MAX = 15;
-
     enum Mounted : uint8_t {
         MOUNT_OK,
         MOUNT_NOT_FOUND,  // no such file, which is never made
-        MOUNT_NO_UNIT,    // every unit carries another label
+        MOUNT_NO_UNIT,    // no drive has the name
         MOUNT_BAD_SIZE,   // no format has the file's size
     };
 
     virtual ~Disk() {}
 
-    // Mounts the image file at |path| under |label|: on the unit that
-    // already carries |label|, else on the first free one.
-    virtual Mounted mount(const char *label, const char *path) = 0;
-    // False when no unit carries |label|.
-    virtual bool unmount(const char *label) = 0;
+    // Mounts the image file at |path| on drive |name|.
+    virtual Mounted mount(const char *name, const char *path) = 0;
+    // False when drive |name| has no image.
+    virtual bool unmount(const char *name) = 0;
     // Mounts the images that go with |path|, a file loaded from the card.
     virtual void mountBeside(const char *path) = 0;
     virtual void printDrives() const = 0;

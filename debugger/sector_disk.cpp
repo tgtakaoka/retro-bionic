@@ -37,12 +37,17 @@ void SectorDisk::print() const {
 }
 
 const char *SectorDisk::unitName(uint8_t unit) const {
-    static constexpr const char *NAMES[DRIVES] = {"A:", "B:", "C:", "D:"};
+    static constexpr const char *NAMES[DRIVES] = {"A", "B", "C", "D"};
     return unit < DRIVES ? NAMES[unit] : "";
 }
 
-Disk::Mounted SectorDisk::mount(const char *label, const char *path) {
-    const auto mounted = DiskDrives::mount(label, path);
+uint8_t SectorDisk::unitOf(const char *name) const {
+    const auto d = (name[0] | 0x20) - 'a';
+    return name[1] == 0 && d >= 0 && d < DRIVES ? d : DRIVES;
+}
+
+Disk::Mounted SectorDisk::mount(const char *name, const char *path) {
+    const auto mounted = DiskDrives::mount(name, path);
     if (mounted == MOUNT_OK)
         enable(true);
     return mounted;
@@ -54,19 +59,16 @@ void SectorDisk::mountBeside(const char *path) {
     const size_t stem = (dot && dot > slash) ? dot - path : strlen(path);
     char name[64];
     for (auto d = 0; d < DRIVES; ++d) {
-        unit(d).unmount();
-        if (stem + sizeof("b.dsk") > sizeof(name))
+        if (stem + sizeof("b.dsk") > sizeof(name)) {
+            unmountUnit(d);
             continue;
+        }
         memcpy(name, path, stem);
         name[stem] = 0;
         if (d)
             strncat(name, "abcd" + d, 1);
-        const auto base = strrchr(name, '/');
-        char label[LABEL_MAX + 1];
-        strncpy(label, base ? base + 1 : name, LABEL_MAX);
-        label[LABEL_MAX] = 0;
         strcat(name, ".dsk");
-        if (mountUnit(d, label, name) == MOUNT_BAD_SIZE) {
+        if (mountUnit(d, name) == MOUNT_BAD_SIZE) {
             cli.print(name);
             cli.println(": no disk format of its size");
         }
