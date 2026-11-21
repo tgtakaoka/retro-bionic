@@ -1,50 +1,98 @@
 #!/usr/bin/env python3
 """Build and read CP/M 2.2 disk images for the debugger's sector disk.
 
-    scripts/cpm-disk.py make OUT.dsk [--system HEX...] [FILE...]
+    scripts/cpm-disk.py make OUT.dsk [--format NAME] [--system HEX...] [FILE...]
+    scripts/cpm-disk.py put IMAGE.dsk FILE...
+    scripts/cpm-disk.py era IMAGE.dsk NAME.TYP...
+    scripts/cpm-disk.py sys IMAGE.dsk HEX...
     scripts/cpm-disk.py list IMAGE.dsk
     scripts/cpm-disk.py get IMAGE.dsk NAME.TYP [OUT]
 
-The images are 8" single-sided single-density disks, the IBM 3740
-format that cpmtools calls ibm-3740: 77 tracks of 26 sectors of 128
-bytes, 1K blocks, 64 directory entries, two system tracks, and the data
-tracks interleaved with skew 6.
+The formats, with the DPB every CP/M shares for each:
+
+    ibm-3740  the 8" single-sided single-density disk that cpmtools calls
+              ibm-3740: 77 tracks of 26 sectors of 128 bytes, sectors from
+              1, 1K blocks, 64 directory entries, the data tracks
+              interleaved with skew 6. Any image up to 256256 bytes.
+    hd8       8 MB: 256 tracks of 256 sectors of 128 bytes, sectors from 0,
+              8K blocks, 1024 directory entries, no skew. An image of
+              exactly 8388608 bytes.
+
+Both keep two system tracks. An image of any other size is refused, as
+the debugger does, and `make` always writes a full-size image (ibm-3740
+unless --format says otherwise).
 
 `make` writes an empty disk, with FILE... copied in as user 0. With
 --system, the Intel HEX files' bytes from CCP (E400) up to the end of
-track 1 go on the system tracks from track 0 sector 2, where the BIOS's
-warm boot and samples/i8080/cpm80.asm read them, unskewed: CCP and BDOS
-assembled for 64K, then samples/i8080/cpm80bios.hex. Bytes the HEX files
-leave out are E5.
+the system go on the system tracks from track 0 sector 2, unskewed, at
+the track and sector numbers samples/i8080/cpm80.asm and the BIOS's warm
+boot read: CCP and BDOS assembled for 64K, then samples/i8080/cpm80bios.hex.
+Bytes the HEX files leave out are E5.
+
+`put` copies FILE... into an image as user 0, replacing files of the
+same name; `era` erases files of user 0 from it, as CP/M's ERA does.
+`sys` writes the HEX files' bytes over the system tracks as --system
+does, keeping the bytes they leave out: a new BIOS over an image's
+CCP and BDOS.
 """
 import os
 import sys
 
-SPT = 26
-TRACKS = 77
 SECTOR = 128
-OFF = 2
-BLOCK = 1024
-DSM = 242
-DRM = 63
-DIR_BLOCKS = 2
 CCP = 0xE400
+# The system's sectors: the boot sector, then CCP, BDOS and BIOS, at
+# ibm-3740's track and sector numbers whatever the format.
+SYSTEM_SPT = 26
+SYSTEM_SECTORS = 2 * SYSTEM_SPT - 1
+
+
+class Format:
+    def __init__(self, name, tracks, spt, first, skew, block, dsm, drm,
+                 dir_blocks, off):
+        self.name, self.tracks, self.spt, self.first = name, tracks, spt, first
+        self.skew, self.block, self.dsm, self.drm = skew, block, dsm, drm
+        self.dir_blocks, self.off = dir_blocks, off
+        self.size = tracks * spt * SECTOR
+        self.records_per_block = block // SECTOR
+        # A directory entry's block numbers are bytes up to 255 blocks.
+        self.wide = dsm > 255
+        self.exm = block // (2048 if self.wide else 1024) - 1
+        self.entry_records = (self.exm + 1) * 128
+
+    def offset(self, track, sector):
+        """The image offset of physical |sector| on |track|."""
+        return (track * self.spt + sector - self.first) * SECTOR
+
+    def record_offset(self, record):
+        """The offset of the data area's logical |record|."""
+        track, sector = divmod(record, self.spt)
+        physical = self.skew[sector] if self.skew else sector + self.first
+        return self.offset(self.off + track, physical)
+
+
 SKEW = [1, 7, 13, 19, 25, 5, 11, 17, 23, 3, 9, 15, 21,
         2, 8, 14, 20, 26, 6, 12, 18, 24, 4, 10, 16, 22]
-SIZE = TRACKS * SPT * SECTOR
-RECORDS_PER_BLOCK = BLOCK // SECTOR
-EXTENT_RECORDS = 128
+IBM3740 = Format('ibm-3740', 77, 26, 1, SKEW, 1024, 242, 63, 2, 2)
+HD8 = Format('hd8', 256, 256, 0, None, 8192, 1015, 1023, 4, 2)
+FORMATS = {f.name: f for f in (IBM3740, HD8)}
+
+# ibm-3740's, as before there were formats.
+SPT, TRACKS, OFF, BLOCK, DSM, DRM = (IBM3740.spt, IBM3740.tracks, IBM3740.off,
+                                     IBM3740.block, IBM3740.dsm, IBM3740.drm)
+DIR_BLOCKS = IBM3740.dir_blocks
+SIZE = IBM3740.size
+offset = IBM3740.offset
+record_offset = IBM3740.record_offset
 
 
-def offset(track, sector):
-    """The image offset of physical |sector| (1-26) on |track|."""
-    return (track * SPT + sector - 1) * SECTOR
-
-
-def record_offset(record):
-    """The offset of the data area's logical |record|, through the skew."""
-    track, sector = divmod(record, SPT)
-    return offset(OFF + track, SKEW[sector])
+def format_of(size, path='image'):
+    """The format an image of |size| bytes takes, as the debugger picks it."""
+    if size <= IBM3740.size:
+        return IBM3740
+    for f in FORMATS.values():
+        if size == f.size:
+            return f
+    sys.exit(f'{path}: no disk format of {size} bytes')
 
 
 def read_hex(path, memory):
@@ -61,17 +109,30 @@ def read_hex(path, memory):
                 break
 
 
-def put_system(image, hexes):
+def system_offsets(fmt):
+    for i in range(SYSTEM_SECTORS):
+        track, sector = divmod(i + 1, SYSTEM_SPT)
+        yield i, fmt.offset(track, sector + 1)
+
+
+def get_system(image, fmt=None):
+    """The system tracks from track 0 sector 2 as 64K memory from CCP."""
+    fmt = fmt or format_of(len(image))
     memory = bytearray(b'\xe5' * 0x10000)
+    for i, at in system_offsets(fmt):
+        memory[CCP + i * SECTOR:CCP + (i + 1) * SECTOR] = image[at:at + SECTOR]
+    return memory
+
+
+def put_system(image, hexes, memory=None, fmt=None):
+    fmt = fmt or format_of(len(image))
+    if memory is None:
+        memory = bytearray(b'\xe5' * 0x10000)
     for path in hexes:
         read_hex(path, memory)
-    sectors = OFF * SPT - 1
-    end = CCP + sectors * SECTOR
-    if end > 0x10000:
+    if CCP + SYSTEM_SECTORS * SECTOR > 0x10000:
         sys.exit('system tracks reach past 64K')
-    for i in range(sectors):
-        track, sector = divmod(i + 1, SPT)
-        at = offset(track, sector + 1)
+    for i, at in system_offsets(fmt):
         image[at:at + SECTOR] = memory[CCP + i * SECTOR:CCP + (i + 1) * SECTOR]
 
 
@@ -83,50 +144,110 @@ def cpm_name(path):
     return name.ljust(8).encode(), typ.ljust(3).encode()
 
 
-def directory(image):
-    for i in range(DRM + 1):
-        at = record_offset(i * 32 // SECTOR) + i * 32 % SECTOR
+def directory(image, fmt=None):
+    fmt = fmt or format_of(len(image))
+    for i in range(fmt.drm + 1):
+        at = fmt.record_offset(i * 32 // SECTOR) + i * 32 % SECTOR
         yield i, at, image[at:at + 32]
 
 
-def add_file(image, path, used, entries):
+def entry_blocks(e, fmt):
+    if fmt.wide:
+        return [e[16 + 2 * i] | (e[17 + 2 * i] << 8) for i in range(8)]
+    return list(e[16:32])
+
+
+def add_file(image, path, used, entries, fmt=None):
+    fmt = fmt or format_of(len(image))
     name, typ = cpm_name(path)
     with open(path, 'rb') as f:
         data = f.read()
     records = (len(data) + SECTOR - 1) // SECTOR
     data += b'\x1a' * (records * SECTOR - len(data))
-    for extent in range(max(1, (records + EXTENT_RECORDS - 1) // EXTENT_RECORDS)):
-        part = data[extent * EXTENT_RECORDS * SECTOR:
-                    (extent + 1) * EXTENT_RECORDS * SECTOR]
-        rc = len(part) // SECTOR
+    count = max(1, (records + fmt.entry_records - 1) // fmt.entry_records)
+    for n in range(count):
+        part = data[n * fmt.entry_records * SECTOR:
+                    (n + 1) * fmt.entry_records * SECTOR]
+        part_records = len(part) // SECTOR
         blocks = []
-        for b in range(0, len(part), BLOCK):
-            block = next((n for n in range(DIR_BLOCKS, DSM + 1) if n not in used), None)
+        for b in range(0, len(part), fmt.block):
+            block = next((k for k in range(fmt.dir_blocks, fmt.dsm + 1)
+                          if k not in used), None)
             if block is None:
                 sys.exit(f'{path}: disk full')
             used.add(block)
             blocks.append(block)
-            chunk = part[b:b + BLOCK]
+            chunk = part[b:b + fmt.block]
             for r in range(0, len(chunk), SECTOR):
-                at = record_offset(block * RECORDS_PER_BLOCK + r // SECTOR)
+                at = fmt.record_offset(block * fmt.records_per_block + r // SECTOR)
                 image[at:at + SECTOR] = chunk[r:r + SECTOR]
+        # The entry's last logical extent, and its records.
+        last = (part_records - 1) // 128 if part_records else 0
+        extent = n * (fmt.exm + 1) + last
+        rc = part_records - last * 128
+        if fmt.wide:
+            pointers = b''.join(k.to_bytes(2, 'little') for k in blocks)
+        else:
+            pointers = bytes(blocks)
         if not entries:
             sys.exit(f'{path}: directory full')
         at = entries.pop(0)
-        image[at:at + 32] = (bytes([0]) + name + typ + bytes([extent, 0, 0, rc])
-                             + bytes(blocks).ljust(16, b'\0'))
+        image[at:at + 32] = (bytes([0]) + name + typ
+                             + bytes([extent & 0x1F, 0, extent >> 5, rc])
+                             + pointers.ljust(16, b'\0'))
 
 
-def make(out, hexes, files):
-    image = bytearray(b'\xe5' * SIZE)
+def make(out, hexes, files, fmt=IBM3740):
+    image = bytearray(b'\xe5' * fmt.size)
     if hexes:
-        put_system(image, hexes)
-    entries = [at for _, at, _ in directory(image)]
-    used = set(range(DIR_BLOCKS))
+        put_system(image, hexes, fmt=fmt)
+    entries = [at for _, at, _ in directory(image, fmt)]
+    used = set(range(fmt.dir_blocks))
     for path in files:
-        add_file(image, path, used, entries)
+        add_file(image, path, used, entries, fmt)
     with open(out, 'wb') as f:
         f.write(image)
+
+
+def erase(image, path):
+    """Marks user 0's entries of |path|'s name erased; whether any were."""
+    name, typ = cpm_name(path)
+    found = False
+    for _, at, e in directory(image):
+        if e[0] == 0 and e[1:9] == name and bytes(c & 0x7F for c in e[9:12]) == typ:
+            image[at] = 0xE5
+            found = True
+    return found
+
+
+def save(path, image):
+    with open(path, 'r+b' if os.path.getsize(path) else 'wb') as f:
+        f.write(image)
+
+
+def era(path, names):
+    image = load(path)
+    for n in names:
+        if not erase(image, n):
+            sys.exit(f'{n}: not found')
+    save(path, image)
+
+
+def put(path, paths):
+    image = load(path)
+    fmt = format_of(len(image))
+    for p in paths:
+        erase(image, p)
+    used = set(range(fmt.dir_blocks))
+    entries = []
+    for _, at, e in directory(image, fmt):
+        if e[0] == 0xE5:
+            entries.append(at)
+        else:
+            used.update(b for b in entry_blocks(e, fmt) if b)
+    for p in paths:
+        add_file(image, p, used, entries, fmt)
+    save(path, image)
 
 
 def files(image):
@@ -144,29 +265,37 @@ def files(image):
 
 
 def contents(image, entries):
+    fmt = format_of(len(image))
     data = bytearray()
     for e in entries:
-        left = e[15]
-        for block in e[16:32]:
+        left = (e[12] & fmt.exm) * 128 + e[15]
+        for block in entry_blocks(e, fmt):
             if block == 0 or left == 0:
                 break
-            for r in range(min(left, RECORDS_PER_BLOCK)):
-                at = record_offset(block * RECORDS_PER_BLOCK + r)
+            for r in range(min(left, fmt.records_per_block)):
+                at = fmt.record_offset(block * fmt.records_per_block + r)
                 data += image[at:at + SECTOR]
-            left -= min(left, RECORDS_PER_BLOCK)
+            left -= min(left, fmt.records_per_block)
     return bytes(data)
 
 
 def load(path):
     with open(path, 'rb') as f:
         image = bytearray(f.read())
-    image += b'\xe5' * (SIZE - len(image))
+    fmt = format_of(len(image), path)
+    image += b'\xe5' * (fmt.size - len(image))
     return image
 
 
 def main(argv):
     if len(argv) >= 2 and argv[0] == 'make':
         out, rest = argv[1], argv[2:]
+        fmt = IBM3740
+        if rest[:1] == ['--format']:
+            if len(rest) < 2 or rest[1] not in FORMATS:
+                sys.exit('--format needs one of ' + ', '.join(FORMATS))
+            fmt = FORMATS[rest[1]]
+            rest = rest[2:]
         hexes = []
         if rest[:1] == ['--system']:
             rest = rest[1:]
@@ -174,7 +303,15 @@ def main(argv):
                 hexes.append(rest.pop(0))
             if not hexes:
                 sys.exit('--system needs HEX files')
-        make(out, hexes, rest)
+        make(out, hexes, rest, fmt)
+    elif len(argv) >= 3 and argv[0] == 'put':
+        put(argv[1], argv[2:])
+    elif len(argv) >= 3 and argv[0] == 'era':
+        era(argv[1], argv[2:])
+    elif len(argv) >= 3 and argv[0] == 'sys':
+        image = load(argv[1])
+        put_system(image, argv[2:], get_system(image))
+        save(argv[1], image)
     elif len(argv) == 2 and argv[0] == 'list':
         image = load(argv[1])
         for (user, name), es in sorted(files(image).items()):

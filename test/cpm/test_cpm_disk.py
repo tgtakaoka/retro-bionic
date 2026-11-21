@@ -24,6 +24,9 @@ spec.loader.exec_module(cpm_disk)
 DRI_TRANS = [1, 7, 13, 19, 25, 5, 11, 17, 23, 3, 9, 15, 21,
              2, 8, 14, 20, 26, 6, 12, 18, 24, 4, 10, 16, 22]
 DRI_DPB = bytes([26, 0, 3, 7, 0, 242, 0, 63, 0, 0xC0, 0x00, 16, 0, 2, 0])
+# hd8's, which every CP/M shares: SPT 256, BSH 6, BLM 63, EXM 3, DSM 1015,
+# DRM 1023, AL0 F0H, AL1 0, CKS 0, OFF 2.
+HD8_DPB = bytes([0, 1, 6, 63, 3, 0xF7, 0x03, 0xFF, 0x03, 0xF0, 0x00, 0, 0, 2, 0])
 
 
 def labels(lst):
@@ -31,7 +34,8 @@ def labels(lst):
     with open(lst) as f:
         lines = f.readlines()
     for line in lines:
-        m = re.match(r'\s*([0-9A-F]{4}) :\s+(?:[0-9A-F]{2} )*\s*(\w+):', line)
+        m = re.match(r'(?:\(\d+\))?\s*([0-9A-F]{4}) :\s+(?:[0-9A-F]{2} )*\s*(\w+):',
+                     line)
         if m:
             found[m.group(2)] = int(m.group(1), 16)
     return found
@@ -45,27 +49,51 @@ def memory(*hexes):
 
 
 class BiosTables(unittest.TestCase):
-    def setUp(self):
-        self.mem = memory(os.path.join(SAMPLES, 'cpm80bios.hex'))
-        self.at = labels(os.path.join(SAMPLES, 'cpm80bios.lst'))
+    # The BIOS builds.
+    BUILDS = [SAMPLES]
+
+    def builds(self):
+        for d in self.BUILDS:
+            with self.subTest(build=os.path.relpath(d, PROJ)):
+                yield (memory(os.path.join(d, 'cpm80bios.hex')),
+                       labels(os.path.join(d, 'cpm80bios.lst')), d)
 
     def test_skew(self):
-        xlt = self.at['xlt']
-        self.assertEqual(list(self.mem[xlt:xlt + 26]), DRI_TRANS)
+        for mem, at, _ in self.builds():
+            self.assertEqual(list(mem[at['xlt']:at['xlt'] + 26]), DRI_TRANS)
         self.assertEqual(cpm_disk.SKEW, DRI_TRANS)
 
     def test_dpb(self):
-        dpb = self.at['dpb']
-        self.assertEqual(bytes(self.mem[dpb:dpb + 15]), DRI_DPB)
+        for mem, at, _ in self.builds():
+            self.assertEqual(bytes(mem[at['dpb']:at['dpb'] + 15]), DRI_DPB)
         self.assertEqual((cpm_disk.SPT, cpm_disk.DSM, cpm_disk.DRM,
                           cpm_disk.OFF, cpm_disk.BLOCK),
                          (26, 242, 63, 2, 1024))
 
+    def test_hd8_dpb(self):
+        for mem, at, _ in self.builds():
+            self.assertEqual(bytes(mem[at['dpb_hd8']:at['dpb_hd8'] + 15]), HD8_DPB)
+        f = cpm_disk.HD8
+        self.assertEqual((f.spt, f.block, f.exm, f.dsm, f.drm, f.dir_blocks, f.off),
+                         (256, 8192, 3, 1015, 1023, 4, 2))
+        # The data tracks hold exactly DSM+1 blocks.
+        self.assertEqual((f.tracks - f.off) * f.spt * 128 // f.block, f.dsm + 1)
+
     def test_bios_fits_its_sectors(self):
         # cpm80.inc: the BIOS ends track 1, after the boot sector and the
-        # 44 sectors of CCP and BDOS.
-        self.assertLessEqual(self.at['dph0'] + 4 * 16, 0xFA00 + 7 * 128)
-        self.assertEqual(self.at['dirbuf'], 0xFA00 + 7 * 128)
+        # 44 sectors of CCP and BDOS; its scratch areas sit above it, up to
+        # the top of memory, with an hd8-sized allocation map a drive.
+        for _, at, d in self.builds():
+            self.assertLessEqual(at['alv'] + 4 * 127, 0x10000)
+            self.assertGreaterEqual(at['alv'] - at['dirbuf'], 128 + 4 * 16)
+            top = 0
+            with open(os.path.join(d, 'cpm80bios.hex')) as f:
+                for line in f:
+                    rec = bytes.fromhex(line.strip()[1:])
+                    if rec[3] == 0:
+                        top = max(top, ((rec[1] << 8) | rec[2]) + rec[0])
+            self.assertLessEqual(top, at['dirbuf'])
+            self.assertLessEqual(top, 0xFA00 + 7 * 128)
 
 
 class ImageLayout(unittest.TestCase):
@@ -103,6 +131,57 @@ class ImageLayout(unittest.TestCase):
         self.assertEqual(image[cpm_disk.offset(1, 26) + 127], 0x33)
         self.assertEqual(image[cpm_disk.offset(0, 1)], 0xE5)
 
+    def test_sys_keeps_uncovered_bytes(self):
+        image = bytearray(b'\xe5' * cpm_disk.SIZE)
+        with tempfile.TemporaryDirectory() as tmp:
+            first, second = (os.path.join(tmp, n) for n in ('1.hex', '2.hex'))
+            for path, addr, byte in ((first, 0xE400, 0x11), (first, 0xFA00, 0x22),
+                                     (second, 0xFA00, 0x33)):
+                rec = [1, addr >> 8, addr & 0xFF, 0, byte]
+                with open(path, 'a') as f:
+                    f.write(':' + bytes(rec + [-sum(rec) & 0xFF]).hex() + '\n')
+            cpm_disk.put_system(image, [first])
+            cpm_disk.put_system(image, [second], cpm_disk.get_system(image))
+        self.assertEqual(image[cpm_disk.offset(0, 2)], 0x11)  # CCP kept
+        self.assertEqual(image[cpm_disk.offset(1, 20)], 0x33)  # BIOS new
+
+    def test_format_by_size(self):
+        self.assertIs(cpm_disk.format_of(0), cpm_disk.IBM3740)
+        self.assertIs(cpm_disk.format_of(256256), cpm_disk.IBM3740)
+        self.assertIs(cpm_disk.format_of(8 * 1024 * 1024), cpm_disk.HD8)
+        for size in (256257, 8 * 1024 * 1024 - 1, 8 * 1024 * 1024 + 1):
+            with self.assertRaises(SystemExit):
+                cpm_disk.format_of(size)
+
+    def test_hd8_layout(self):
+        f = cpm_disk.HD8
+        # Sectors from 0, no skew: record n of track 2 is LSN 512 + n.
+        self.assertEqual(f.offset(0, 0), 0)
+        self.assertEqual(f.offset(255, 255), 8 * 1024 * 1024 - 128)
+        self.assertEqual(f.record_offset(0), 512 * 128)
+        self.assertEqual(f.record_offset(257), (512 + 257) * 128)
+        # The system at ibm-3740's numbers: sector 1 of track 1 is LSN 257.
+        offsets = dict(cpm_disk.system_offsets(f))
+        self.assertEqual(offsets[0], 2 * 128)
+        self.assertEqual(offsets[25], 257 * 128)
+
+    def test_hd8_files_round_trip(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            big = os.path.join(tmp, 'BIG.DAT')
+            data = bytes(range(256)) * 600  # 150K: three 64K entries
+            with open(big, 'wb') as f:
+                f.write(data)
+            out = os.path.join(tmp, 'h.dsk')
+            cpm_disk.make(out, [], [big], cpm_disk.HD8)
+            self.assertEqual(os.path.getsize(out), 8 * 1024 * 1024)
+            image = cpm_disk.load(out)
+        entries = cpm_disk.files(image)[(0, 'BIG.DAT')]
+        # 1200 records: 512 an entry; extents 3, 7 and the 10th (9).
+        self.assertEqual([e[12] for e in entries], [3, 7, 9])
+        self.assertEqual([e[15] for e in entries], [128, 128, 48])
+        self.assertEqual(cpm_disk.entry_blocks(entries[0], cpm_disk.HD8)[0], 4)
+        self.assertEqual(cpm_disk.contents(image, entries), data)
+
     def test_files_round_trip(self):
         with tempfile.TemporaryDirectory() as tmp:
             big = os.path.join(tmp, 'BIG.DAT')
@@ -118,6 +197,24 @@ class ImageLayout(unittest.TestCase):
         self.assertEqual([e[15] for e in entries], [128, 32])  # RC
         self.assertEqual(entries[0][16], 2)  # first block past the directory
         self.assertEqual(cpm_disk.contents(image, entries), data)
+
+    def test_put_and_era(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            paths = []
+            for name, size in (('KEEP.COM', 3000), ('MOVE.BAS', 700)):
+                paths.append(os.path.join(tmp, name))
+                with open(paths[-1], 'wb') as f:
+                    f.write(bytes([len(name)]) * size)
+            out = os.path.join(tmp, 'b.dsk')
+            open(out, 'wb').close()  # an empty image is a blank disk
+            cpm_disk.put(out, paths)
+            cpm_disk.era(out, ['MOVE.BAS'])
+            cpm_disk.put(out, [paths[0]])  # replaces, not duplicates
+            image = cpm_disk.load(out)
+        found = cpm_disk.files(image)
+        self.assertEqual(list(found), [(0, 'KEEP.COM')])
+        self.assertEqual(cpm_disk.contents(image, found[(0, 'KEEP.COM')])[:3000],
+                         bytes([8]) * 3000)
 
 
 if __name__ == '__main__':

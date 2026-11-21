@@ -9,5 +9,6 @@ DISK_DMAL:      equ     DISK+3  ; DMA address, low byte
 DISK_DMAH:      equ     DISK+4  ; high byte
 DISK_COMMAND:   equ     DISK+5  ; write a command, read its status
 DISK_MOUNTED:   equ     DISK+6  ; bit n: drive n has its image
+DISK_DMAX:      equ     DISK+7  ; DMA address bits 16-23
 CMD_READ:       equ     1
 CMD_WRITE:      equ     2

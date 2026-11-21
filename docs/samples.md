@@ -30,30 +30,33 @@ A few directories carry real vintage software as well:
 [`samples/mc6809/ASSIST09.S19`](../samples/mc6809/ASSIST09.S19) and
 [`samples/mc6809/BASIC9.S19`](../samples/mc6809/BASIC9.S19).
 
-## CP/M 2.2 on the 8080 and 8085
+## CP/M 2.2 on the 8080
 
-[`samples/i8080/cpm80bios.asm`](../samples/i8080/cpm80bios.asm) is a CP/M 2.2 BIOS
-in 8080 instructions, for the 8080 and 8085 boards: the console on the i8251 USART and four drives on the
-debugger's sector disk. [`cpm80.asm`](../samples/i8080/cpm80.asm) is the cold boot
-that `L` loads from the SD card; it reads CCP, BDOS and the BIOS from drive A's
-system tracks. The disks are the 8" IBM 3740 format, `ibm-3740` in cpmtools, and
-[`scripts/cpm-disk.py`](../scripts/cpm-disk.py) builds and reads them.
+[`samples/i8080/cpm80bios.inc`](../samples/i8080/cpm80bios.inc) is a CP/M 2.2 BIOS in
+8080 instructions: the console on the i8251 and four drives on the debugger's sector
+disk, reached through port routines its harness supplies (`cpm80io.inc`).
+[`cpm80.asm`](../samples/i8080/cpm80.asm) is the cold boot that `L` loads; it reads the
+system from A:'s system tracks. [`scripts/cpm-disk.py`](../scripts/cpm-disk.py) builds
+and reads the disks.
 
-The CP/M binaries stay out of the repository. To build the system disk, unpack
-[cpm2-asm.zip](http://www.cpm.z80.de/download/cpm2-asm.zip) (`CPM22.ASM`, the
-reconstructed CCP and BDOS) into `samples/i8080/cpm80/`, and put the files for A:,
-such as those of [cpm22-b.zip](http://www.cpm.z80.de/download/cpm22-b.zip), in
-`samples/i8080/cpm80/a/`. These are from [The Unofficial CP/M Web
-Site](http://www.cpm.z80.de/), under the license in
-[its license page](http://www.cpm.z80.de/license.html). Then:
+The disks: A: the system, an 8 MB `hd8` disk with the CP/M tools and MBASIC; B: the
+user disk, an 8 MB `hd8` with `fmandel.bas`; C: and D: blank `ibm-3740` floppies
+(empty files), removable through `O` and `^C`.
+
+The CP/M binaries stay out of the repository. Unpack
+[cpm2-asm.zip](http://www.cpm.z80.de/download/cpm2-asm.zip) (`CPM22.ASM`) into
+`samples/i8080/cpm80/`, and put the A: files, such as those of
+[cpm22-b.zip](http://www.cpm.z80.de/download/cpm22-b.zip) and `MBASIC.COM`, in
+`samples/i8080/cpm80/a/` ([license](http://www.cpm.z80.de/license.html); MBASIC is
+Microsoft's). Then:
 
 ```sh
 cd samples/i8080
-make cpm80.dsk
+make cpm80.dsk cpm80b.dsk cpm80c.dsk cpm80d.dsk
 ```
 
-and copy `cpm80.hex` and `cpm80.dsk` into an `i8080/` folder on the Teensy's SD
-card. `L i8080/cpm80.hex`, then `G` from 0000, boots to `A>`.
+copy `cpm80.hex` and the four disks into `i8080/` on the SD card, and `L i8080/cpm80.hex`,
+`R`, `G` boots to `A>`; `B>A:MBASIC FMANDEL` draws the set.
 
 ## The reference implementation
 
