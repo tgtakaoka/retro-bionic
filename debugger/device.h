@@ -10,6 +10,11 @@ namespace debugger {
 // 10 us.
 constexpr uint32_t SERVICE_CYCLES = F_CPU / 100000;
 
+// A character a device sends to the console. Devs::loop() flushes it
+// after a quiet millisecond: the USB serial's own flush can leave a
+// prompt's last character unsent while the CPU only polls.
+void consoleWrite(uint8_t c);
+
 // An emulated peripheral, selected by address on the target's bus.
 struct Device {
     Device() : _enabled(false) {}

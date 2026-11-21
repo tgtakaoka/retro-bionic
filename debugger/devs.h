@@ -23,6 +23,7 @@ struct Devs {
         if (now - _serviced < SERVICE_CYCLES)
             return false;
         _serviced = now;
+        consoleFlush(now);
         loopDevices();
         return true;
     }
@@ -40,6 +41,8 @@ struct Devs {
     virtual void fileLoaded(const char *path) {}
 
     static Device *nullDevice();
+    // Flushes what consoleWrite() left once the console has been quiet.
+    static void consoleFlush(uint32_t now);
 
 private:
     uint32_t _serviced = 0;
