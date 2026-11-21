@@ -325,6 +325,9 @@ void negate_nmi() {
 constexpr uint32_t PARK =
         InstI8086::physical(InstI8086::PARK_CS, InstI8086::PARK_IP);
 
+// The segment CP/M runs in, in 8080 emulation (samples/i8086/cpm22.asm).
+constexpr uint32_t CPM_SEGMENT = 0x1000;
+
 // The PARK vector's byte at |addr|, IP then CS.
 uint8_t parkVector(uint32_t addr) {
     switch (addr & 3) {
@@ -352,8 +355,9 @@ bool atPark(const Signals *s) {
 
 PinsI8086::PinsI8086(bool fpu)
     : _fpu(fpu), _clock(cmos.high_min_ns, clock_min_hz) {
-    _devs = fpu ? new DevsD8087() : new DevsI8080();
     _mems = new MemsI8086(fpu);
+    _devs = fpu ? new DevsD8087(_mems, CPM_SEGMENT << 4)
+                : new DevsI8080(_mems, CPM_SEGMENT << 4);
     _regs = new RegsI8086(this);
 #ifdef TUNE_CLOCK
     _clockInput = reset_hz;

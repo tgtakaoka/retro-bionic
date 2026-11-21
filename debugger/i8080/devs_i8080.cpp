@@ -5,8 +5,9 @@
 
 namespace debugger {
 
-DevsI8080::DevsI8080(const Mems *mems)
-    : _usart(new I8251()), _disk(mems ? new SectorDisk(mems) : nullptr) {
+DevsI8080::DevsI8080(const Mems *mems, uint32_t dmaBase)
+    : _usart(new I8251()),
+      _disk(mems ? new SectorDisk(mems, dmaBase) : nullptr) {
     _usart->setBaseAddr(USART_BASE);
     if (_disk)
         _disk->setBaseAddr(DISK_BASE);

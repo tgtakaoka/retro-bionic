@@ -35,7 +35,7 @@ private:
 };
 
 struct DevsD8087 final : DevsI8080 {
-    DevsD8087();
+    DevsD8087(const Mems *mems, uint32_t dmaBase);
     ~DevsD8087();
 
     void reset() override;

@@ -12,8 +12,8 @@ struct Mems;
 struct SectorDisk;
 
 struct DevsI8080 : Devs {
-    // With |mems|, the CP/M disk is there too.
-    DevsI8080(const Mems *mems = nullptr);
+    // With |mems|, the CP/M disk is there too, its DMA from |dmaBase|.
+    DevsI8080(const Mems *mems = nullptr, uint32_t dmaBase = 0);
     ~DevsI8080();
 
     void begin() override;

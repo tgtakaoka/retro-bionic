@@ -180,7 +180,7 @@ void SectorDisk::transfer(bool toDisk) {
             }
         }
         for (auto i = 0U; i < SECTOR_BYTES; ++i)
-            buffer[i] = _mems->read(uint16_t(_dma + i));
+            buffer[i] = _mems->read(_dma_base + uint16_t(_dma + i));
         if (!image.seek(at) || image.write(buffer, SECTOR_BYTES) != SECTOR_BYTES)
             return;
         image.flush();
@@ -189,7 +189,7 @@ void SectorDisk::transfer(bool toDisk) {
         for (auto i = got < 0 ? 0 : got; i < int(SECTOR_BYTES); ++i)
             buffer[i] = 0xE5;
         for (auto i = 0U; i < SECTOR_BYTES; ++i)
-            _mems->write(uint16_t(_dma + i), buffer[i]);
+            _mems->write(_dma_base + uint16_t(_dma + i), buffer[i]);
     }
     Watchdog::feed();
     _status = ST_OK;

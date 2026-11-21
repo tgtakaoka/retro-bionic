@@ -12,7 +12,8 @@ namespace debugger {
  * single-sided single-density geometry, 77 tracks of 26 sectors of 128
  * bytes. Each drive is an image file on the SD card. A write to COMMAND
  * moves one sector between the image and the memory at DMA, whole,
- * while the CPU waits in that bus cycle.
+ * while the CPU waits in that bus cycle. DMA is a 16-bit address, added
+ * to a base: the 64K segment a V20/V30 runs 8080 code in.
  *
  *   +0 DRIVE    0-3
  *   +1 TRACK    0-76
@@ -29,7 +30,8 @@ struct SectorDisk final : Device, Disk {
     static constexpr uint8_t SECTORS = 26;
     static constexpr uint16_t SECTOR_BYTES = 128;
 
-    SectorDisk(const Mems *mems) : _mems(mems) {}
+    SectorDisk(const Mems *mems, uint32_t dmaBase = 0)
+        : _mems(mems), _dma_base(dmaBase) {}
 
     const char *name() const override;
     const char *description() const override;
@@ -56,6 +58,7 @@ struct SectorDisk final : Device, Disk {
 
 private:
     const Mems *const _mems;
+    const uint32_t _dma_base;
     uint32_t _base_addr = 0;
     uint8_t _drive = 0;
     uint8_t _track = 0;

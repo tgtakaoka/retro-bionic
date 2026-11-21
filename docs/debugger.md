@@ -129,9 +129,10 @@ alone; a reset clears only the device's own registers and pending interrupts.
 - **i8251 USART** — `debugger/i8251.cpp`
 - **DL11** (DCT11, DCJ11) — `debugger/pdp11/dl11.cpp`: the console at 177560, its
   vectors being the Rx and Tx interrupt names.
-- **Sector disk** (8080, 8085, Z80 family) — `debugger/sector_disk.cpp`: `DISK`, a
-  paravirtual disk for CP/M 10H above the USART: port 50H, or 0150H on the Z180, Z280
-  and Z380. Drive, track, sector, DMA address, then a command that moves one
+- **Sector disk** (8080, 8085, Z80 family, 8086 family) — `debugger/sector_disk.cpp`:
+  `DISK`, a paravirtual disk for CP/M 10H above the USART: port 50H, or 0150H on the
+  Z180, Z280 and Z380. On the 8086 boards its DMA addresses are in segment 1000H, where
+  a V20/V30 runs CP/M in 8080 emulation. Drive, track, sector, DMA address, then a command that moves one
   128-byte sector whole while the CPU waits in that cycle. Four drives of 8" single
   density, 77 tracks of 26 sectors, are image files on the Teensy's SD card:
   `L i8080/cpm22.hex` mounts `i8080/cpm22.dsk` as A: and `cpm22b.dsk`-`cpm22d.dsk`
