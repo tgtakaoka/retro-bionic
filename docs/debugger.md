@@ -158,9 +158,10 @@ alone; a reset clears only the device's own registers and pending interrupts.
 - **Address mask** (Z380) — `debugger/z380/devs_z380.cpp`: `AMASK`, one port at
   0148H holding the number of address lines memory decodes, 32 after a reset. A 64K
   system writes 16, and an access above FFFFH then lands in its 64K.
-- **Sector disk** (8080, 8085, Z80 family, 8086 family) — `debugger/sector_disk.cpp`:
-  `DISK`, a paravirtual CP/M disk 10H above the USART: port 50H, or 0150H on the Z180,
-  HD64180S, Z280 and Z380. A command moves one sector while the CPU waits; DMAX (+7)
+- **Sector disk** (8080, 8085, Z80 family, 8086 family, 68000 family) —
+  `debugger/sector_disk.cpp`: `DISK`, a paravirtual CP/M disk 10H above the USART: port
+  50H, or 0150H on the Z180, HD64180S, Z280 and Z380; on the 68000 boards, byte registers
+  at FFFFE0H. A command moves one sector while the CPU waits; DMAX (+7)
   extends DMA past 64K. Four drives are image files on the SD card, in the target's formats:
   `ibm-3740` (8" floppy, any image up to 256256 bytes) or `hd8` (exactly 8 MB); the
   8086 family adds the DOS floppies `fd360`, `fd720`, `fd1200` and `fd1440` and the

@@ -44,6 +44,7 @@ mounts nothing, so the demos mount their disks with `O`. Images go through the
 | CP/M 2.2 | Z180, HD64180S, Z280, Z380 | `z180/cpm80.hex` | A: and B:, sector disk at 0150H | [Z380](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/z180/cpm80_z380.cast) |
 | CP/M 2.2, in 8080 emulation | P8086 with a V20 or V30 | `v30/cpm80.hex` | A: and B:, sector disk at 50H | |
 | [CP/M-86 1.1](#cpm-86-on-the-8086) | P8086, D8087 | `i8086/cpm86.hex` | A: and B:, sector disk at 50H | [80C86](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/i8086/cpm86_80c86.cast), [80C86 and 8087](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/i8086/cpm86_80c86_8087.cast) |
+| [CP/M-68K 1.3](#cpm-68k-on-the-68000) | MC68000P, MC68000FN, MC68008P, MC68008FN | `mc68000/cpm68k.s19` | A: and B:, sector disk at FFFFE0H | [MC68000P](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/mc68000/cpm68k_mc68000p.cast) |
 | [Unix V6](#unix-v6-on-the-dcj11) | DCJ11 | `dcj11/unix_v6.hex` | rk0-rk2, RK11 | [V6](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/dcj11/unix_v6.cast) |
 | [2.11BSD](#211bsd-on-the-dcj11) | DCJ11 | `dcj11/bsd211.hex` | ra0, MSCP | [2.11BSD](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/dcj11/bsd211.cast) |
 
@@ -176,6 +177,68 @@ on the P80C86A-2 and D8087: `U` uploads `cpm86.hex`, `O` mounts A: and B:, and C
 boots; Aztec C builds `fmandel.c` for the 8087 and DRI's C builds `imandel.c`, and each
 draws the set. [The same on the P80C86 alone](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/i8086/cpm86_80c86.cast)
 links `fmandel` with `M87S.LIB`, which falls back to software floating point.
+
+## CP/M-68K on the 68000
+
+[`samples/mc68000/cpm68kbios.asm`](../samples/mc68000/cpm68kbios.asm) is a CP/M-68K 1.3
+BIOS for the MC68000 and MC68008 boards, on the ACIA and the sector disk at FFFFE0H. DRI's
+CCP and BDOS, linked at 15000H, and the BIOS at 1B000H load with one `L`: no system tracks
+are read. The TPA runs from 1C000H to 64K below the top of the board's address space, at
+most 8 MB, which the BIOS finds at cold boot.
+
+DRI's binaries stay out of the repository: the first `make` downloads them from [The
+Unofficial CP/M Web Site](http://www.cpm.z80.de/), under the license in [its license
+page](http://www.cpm.z80.de/license.html), into `samples/mc68000/cpm68k.fetch/`, with
+`debugger/mc68000/tools/cpm68k-fetch.py`. They are CCP and BDOS (`DISK8/CPM15000.SR`) and
+the tools of [68kv1_3.zip](http://www.cpm.z80.de/download/68kv1_3.zip), the Alcyon C of
+CP/M-68K 1.2 from [68kv1_2.zip](http://www.cpm.z80.de/download/68kv1_2.zip), as the C068
+of 1.3 converts floating constants wrongly, and CBASIC from
+[cb68.zip](http://www.cpm.z80.de/download/cb68.zip); the command files are renamed from
+`.REL` to `.68K`. Then:
+
+```sh
+cd samples/mc68000
+make cpm68k     # the system and its disks; `make` alone builds the samples and the BIOS
+make cpm68k-sd  # puts them in mc68000/ on the SD card of the 68000 bench
+```
+
+`make cpm68k` makes `cpm68k.s19`, `cpm68ka.dsk` and `cpm68kb.dsk`; `make cpm68k-sd`, with the
+bench locked or the only one on USB and a 68000 at its prompt, puts them in `mc68000/` on its
+card, B: only onto a card without one so that files saved there stay (`NEWB=1` replaces it).
+A: and B: are 8 MB hd8 disks, which `L` mounts beside `cpm68k.s19`.
+`L mc68000/cpm68k.s19`, `R`, then `G` boots to `A>` on the MC68000, the MC68HC001 on its
+16-bit and 8-bit bus, the MC68008P and the MC68008FN. ILLEGAL stops in the debugger, which
+watches its vector fetch.
+
+On the first boot, `AS68 -I AS68INIT` at `A>` writes the assembler's `AS68SYMB.DAT` to A:.
+Then at `B>`, `CBASIC FMANDEL` compiles and runs
+[`fmandel.bas`](../samples/mc68000/fmandel.bas) with CBASIC, and `CCFFP FMANDEL` and
+`CCIEEE FMANDEL` [`fmandel.c`](../samples/mc68000/fmandel.c) with Alcyon C, in Motorola's
+fast floating point and in IEEE single precision. `CC MANDEL` builds
+[`mandel.c`](../samples/mc68000/mandel.c), the integer `mandelbrot` in 16-bit `int`,
+without floating point.
+[A demo](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/mc68000/cpm68k_mc68000p.cast)
+on the MC68000P10: `U` uploads `cpm68k.s19`, `O` mounts A: and B:, and CP/M-68K boots;
+Alcyon C's passes build `fmandel.c` with fast floating point and `mandel.c` without, and
+each draws the set.
+
+DRI linked `CPM15000.SR` for the 68000; on the MC68010 a program reading SR traps, as
+`MOVE from SR` is privileged there. The 68010 system links on CP/M-68K itself, since DRI's
+BDOS for it comes only as `CPMLIB`'s objects: with a 68000 or 68008 board at the bench,
+`make cpm68k10` runs `debugger/mc68000/tools/cpm68k10-build.py`, which puts `cpm68k`'s
+files on the card, boots, runs the steps of [`cpm68k10.sub`](../samples/mc68000/cpm68k10.sub)
+at `A>` (LO68's `-UM68010` adds the BDOS's handler that runs such instructions as `MOVE from
+CCR`), and takes `CPM68010.SYS` off A: into `cpm68k.fetch/`; the Makefile then wraps it with
+the BIOS as `cpm68k10.s19` and copies A: and B: as `cpm68k10a.dsk` and `cpm68k10b.dsk`.
+`make cpm68k10-sd` puts the three on the card, and `L mc68000/cpm68k10.s19`, `R`, `G` boot
+the MC68010 to `A>`, where AS68 and Alcyon C run.
+[A demo](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/mc68000/cpm68k10_build_mc68000p.cast)
+on the MC68000P10 runs that link
+([`cpm68k10_build.scenario`](../samples/mc68000/cpm68k10_build.scenario)): a minute and a
+half from the boot to `CPM68010.SYS` on A:.
+[Another](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/mc68000/cpm68k10_mc68010p.cast)
+boots that system on the MC68010P12 and builds and runs `fmandel.c` and `mandel.c` as the
+MC68000P demo does.
 
 ## MS-DOS 2.0 on the 8086
 

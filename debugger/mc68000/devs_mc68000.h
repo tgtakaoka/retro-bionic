@@ -3,6 +3,7 @@
 
 #include "devs.h"
 #include "mc6850.h"
+#include "cpm68k_disk.h"
 
 namespace debugger {
 namespace mc68000 {
@@ -11,20 +12,22 @@ namespace mc68000 {
 // board; a board with fewer address lines sees it at its masked address.
 // Every interrupt is acknowledged with a vector number, since #VPA is tied
 // high: the ACIA's is 64, the first user vector the samples use, unless
-// `I ACIA addr rx tx` sets another.
+// `I ACIA addr rx tx` sets another. The CP/M-68K disk's byte registers are
+// at FFFFE0H, $FFE0.W.
 struct DevsMc68000 final : Devs {
     static constexpr uint32_t ACIA_BASE = 0xFFFFF0;
     static constexpr uint8_t ACIA_VECTOR = 0x40;
+    static constexpr uint32_t DISK_BASE = 0xFFFFE0;
 
-    DevsMc68000(uint32_t addrMask);
+    DevsMc68000(uint32_t addrMask, const Mems *mems);
     ~DevsMc68000();
 
     void begin() override;
     void reset() override;
     bool loopDevices() override;
-    // Inline through the final Mc6850: the bus loop asks every cycle.
+    // Inline through the final devices: the bus loop asks every cycle.
     bool isSelected(uint32_t addr) const override {
-        return _acia->isSelected(addr);
+        return _acia->isSelected(addr) || _disk->isSelected(addr);
     }
     uint16_t read(uint32_t addr) const override;
     void write(uint32_t addr, uint16_t data) const override;
@@ -33,9 +36,11 @@ struct DevsMc68000 final : Devs {
     Device *parseDevice(const char *name) const override;
     void enableDevice(Device *dev) override;
     void printDevices() const override;
+    Disk *disk() const override { return _disk; }
 
 private:
     Mc6850 *_acia;
+    Cpm68kDisk *_disk;
 };
 
 }  // namespace mc68000

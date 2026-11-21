@@ -164,6 +164,61 @@ class Bios86Tables(unittest.TestCase):
         self.assertEqual(mem[0x2500], 0xE5)
 
 
+def srec_memory(path):
+    mem = {}
+    with open(path) as f:
+        for line in f.read().split():
+            n = int(line[2:4], 16)
+            record = bytes.fromhex(line[2:4 + 2 * n])
+            assert line.startswith('S2') and sum(record) & 0xFF == 0xFF
+            addr = int(line[4:10], 16)
+            for i, byte in enumerate(record[4:-1]):
+                mem[addr + i] = byte
+    return mem
+
+
+class Cpm68kSystem(unittest.TestCase):
+    def test_command_file(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            sys_ = os.path.join(tmp, 'CPM.SYS')
+            body = bytes(range(1, 256)) * 2
+            header = (b'\x60\x1a' + (400).to_bytes(4, 'big')
+                      + (110).to_bytes(4, 'big') + (36).to_bytes(4, 'big')
+                      + bytes(8) + (0x15000).to_bytes(4, 'big') + b'\xff\xff')
+            with open(sys_, 'wb') as f:
+                f.write(header + body[:510])
+            out = os.path.join(tmp, 'cpm.s19')
+            cpm_disk.cpm68k(sys_, out)
+            mem = srec_memory(out)
+        self.assertEqual(min(mem), 0x15000)
+        self.assertEqual(mem[0x15000], 1)
+        self.assertEqual(mem[0x15000 + 509], body[509])
+        self.assertEqual(mem[0x15000 + 510], 0)        # BSS
+        self.assertEqual(max(mem), 0x15000 + 510 + 36 - 1)
+
+    def test_still_relocatable(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            sys_ = os.path.join(tmp, 'CPM.REL')
+            with open(sys_, 'wb') as f:
+                f.write(b'\x60\x1a' + bytes(26))
+            with self.assertRaises(SystemExit):
+                cpm_disk.cpm68k(sys_, os.path.join(tmp, 'cpm.s19'))
+
+    def test_cpm15000_sr(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            sr = os.path.join(tmp, 'CPM15000.SR')
+            with open(sr, 'wb') as f:
+                f.write(b'S2080150004EF90001\r\nS9030000FC\r\n'
+                        b'\x1a\x1aS2240150')
+            out = os.path.join(tmp, 'cpm.s19')
+            cpm_disk.cpm68k(sr, out)
+            mem = srec_memory(out)
+        self.assertEqual([mem[0x15000 + i] for i in range(4)],
+                         [0x4E, 0xF9, 0x00, 0x01])
+        self.assertEqual(mem[cpm_disk.CPM15000_BSS[0]], 0)
+        self.assertEqual(max(mem), cpm_disk.CPM15000_BSS[1] - 1)
+
+
 class ImageLayout(unittest.TestCase):
     def test_sector_offset(self):
         # debugger/sector_disk.cpp: (track * 26 + sector - 1) * 128

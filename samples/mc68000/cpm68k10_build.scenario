@@ -1,0 +1,52 @@
+# Scenario for scripts/record-scenario.py, which cpm68k10-build.py runs:
+# CP/M-68K on a 68000 or 68008 board, L mc68000/cpm68k.s19 mounting A:
+# and B: beside it, links the MC68010 system at A> as cpm68k10.sub does, step
+# by step: AS68 assembles NOBIOSHI.S, the empty BIOS whose _init is at
+# 1B000H, LO68 links CCP and BDOS from CPMLIB with it, -UM68010 taking
+# the BDOS that runs a program's MOVE from SR, and RELOC fixes the result
+# at 15000H as CPM68010.SYS on A:, which the Makefile wraps with the
+# BIOS as cpm68k10.s19.
+#
+# Needs the SD card's mc68000/cpm68k.s19, cpm68ka.dsk and cpm68kb.dsk,
+# which cpm68k10-build.py puts there.
+
+key ?
+pace 2.0
+
+command L mc68000/cpm68k.s19
+
+key R
+type G
+wait backtrace?
+type 5\r
+waitfor 20 A>
+pace 1.5
+
+# AS68 wants its symbol file, which a fresh A: lacks.
+type AS68 -I AS68INIT\r
+waitfor 30 A>
+pace 1.0
+
+type TYPE CPM68K10.SUB\r
+wait A>
+pace 2.0
+
+# Each command's echo holds no prompt, so A> is the step's end.
+type A:AS68 -L -U -S A: NOBIOSHI.S\r
+waitfor 120 A>
+pace 1.0
+type A:LO68 -R -UCPM -UM68010 -O CPM68010.REL A:CPMLIB NOBIOSHI.O\r
+waitfor 300 A>
+pace 1.0
+type ERA NOBIOSHI.O\r
+wait A>
+type A:RELOC -B15000 CPM68010.REL CPM68010.SYS\r
+waitfor 120 A>
+pace 1.0
+type ERA CPM68010.REL\r
+wait A>
+type DIR CPM68010.SYS\r
+wait A>
+pace 2.0
+
+halt

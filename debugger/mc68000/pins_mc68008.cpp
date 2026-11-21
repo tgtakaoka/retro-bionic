@@ -72,8 +72,8 @@ PinsMc68008::PinsMc68008(bool fn)
     : PinsMc68000Base(Signals::LDS, clock_input_hz),
       _fn(fn),
       _addrMask(fn ? ADDR_MASK_FN : ADDR_MASK_P) {
-    _devs = new DevsMc68000(_addrMask);
     _mems = new MemsMc68000(_addrMask);
+    _devs = new DevsMc68000(_addrMask, _mems);
     _regs = new RegsMc68000(this, mems<MemsMc68000>(), true);
 }
 
