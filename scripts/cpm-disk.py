@@ -8,6 +8,7 @@
     scripts/cpm-disk.py list IMAGE.dsk
     scripts/cpm-disk.py get IMAGE.dsk NAME.TYP [OUT]
     scripts/cpm-disk.py ccp86 CPM.SYS OUT.hex
+    scripts/cpm-disk.py cpm68k SYSTEM OUT.s19
 
 The formats, with the DPB every CP/M shares for each:
 
@@ -41,6 +42,11 @@ CCP and BDOS.
 CPM.SYS's code, as Intel HEX at F0000H, the system segment of
 samples/i8086/cpm86.inc, below its BIOS at F2500H. The CCP's autoload
 command, which DRI's CompuPro CPM.SYS sets to MFORM, is cleared.
+
+`cpm68k` writes CP/M-68K's CCP and BDOS as S2 records, with their BSS
+as zeros, for samples/mc68000/cpm68kbios.s19 to follow: SYSTEM is a
+command file that RELOC fixed at its address, or DRI's
+DISK8/CPM15000.SR, whose BSS is that of DISK8/CPM15000.MAP.
 """
 import os
 import sys
@@ -316,6 +322,46 @@ def ccp86(cpm_sys, out):
         f.write(ihex(1, 0, b''))
 
 
+# DISK8/CPM15000.MAP: 19490+1436+2998 bytes from 15000H.
+CPM15000_BSS = (0x1A1BE, 0x1AD74)
+
+
+def cpm68k(system, out):
+    with open(system, 'rb') as f:
+        data = f.read()
+    chunks = []
+    if data[:2] == b'\x60\x1a':
+        # The command file header: sizes of text, data and BSS, then the
+        # text's address and FFFF once RELOC removed the relocation bits.
+        text, dseg, bss = (int.from_bytes(data[i:i + 4], 'big')
+                           for i in (2, 6, 10))
+        base = int.from_bytes(data[22:26], 'big')
+        if data[26:28] != b'\xff\xff':
+            sys.exit(f'{system}: still relocatable, RELOC it first')
+        chunks.append((base, data[28:28 + text + dseg]))
+        start = base + text + dseg
+        zeros = (start, start + bss)
+    else:
+        for line in data.replace(b'\r', b'').split(b'\n'):
+            if line.startswith(b'S9'):
+                break
+            if line.startswith(b'S2'):
+                n = int(line[2:4], 16)
+                chunks.append((int(line[4:10], 16),
+                               bytes.fromhex(line[10:2 + 2 * n].decode())))
+        zeros = CPM15000_BSS
+    chunks.append((zeros[0], bytes(zeros[1] - zeros[0])))
+    with open(out, 'w') as f:
+        for base, chunk in chunks:
+            for at in range(0, len(chunk), 32):
+                f.write(srec2(base + at, chunk[at:at + 32]))
+
+
+def srec2(addr, data):
+    record = bytes([len(data) + 4]) + addr.to_bytes(3, 'big') + data
+    return 'S2' + (record + bytes([~sum(record) & 0xFF])).hex().upper() + '\n'
+
+
 def ihex(kind, addr, data):
     record = bytes([len(data), addr >> 8, addr & 0xFF, kind]) + data
     return ':' + (record + bytes([-sum(record) & 0xFF])).hex().upper() + '\n'
@@ -371,6 +417,8 @@ def main(argv):
             f.write(contents(image, es))
     elif len(argv) == 3 and argv[0] == 'ccp86':
         ccp86(argv[1], argv[2])
+    elif len(argv) == 3 and argv[0] == 'cpm68k':
+        cpm68k(argv[1], argv[2])
     else:
         sys.exit(__doc__)
 

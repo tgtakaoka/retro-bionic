@@ -1,0 +1,450 @@
+          0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+          0 :                    ;;; CP/M-68K 1.3 BIOS: the console on the MC6850 ACIA and four drives on
+          0 :                    ;;; the debugger's sector disk, both reached by byte so the 8-bit-bus
+          0 :                    ;;; boards run it too. The BDOS calls TRAP #3 with the function in D0.W
+          0 :                    ;;; and its arguments in D1 and D2; the result comes back in D0. D1-D2
+          0 :                    ;;; and A0-A1 are scratch, as in DRI's C BIOS.
+          0 :                            include "mc68000.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :                    ;;; MC68000 family
+(1)       0 :                            cpu     mc68000
+(1)       0 :
+(1)       0 :                    ;;; Status Register (SR)
+(1)       0 : =8000              SR_T:           equ     %1000000000000000 ; trace
+(1)       0 : =2000              SR_S:           equ     %0010000000000000 ; supervisor
+(1)       0 : =700               SR_I_gm:        equ     %0000011100000000 ; interrupt priority mask
+(1)       0 : =10                SR_X:           equ     %0000000000010000 ; extend
+(1)       0 : =8                 SR_N:           equ     %0000000000001000 ; negative
+(1)       0 : =4                 SR_Z:           equ     %0000000000000100 ; zero
+(1)       0 : =2                 SR_V:           equ     %0000000000000010 ; overflow
+(1)       0 : =1                 SR_C:           equ     %0000000000000001 ; carry
+(1)       0 :
+(1)       0 :                    ;;; Exception vectors with VBR 0 (M68000UM Table 6-2)
+(1)       0 : =0                 VEC_RESET:      equ     $000000 ; $000000: SSP, then PC
+(1)       0 : =8                 VEC_BERR:       equ     $000008 ; $000008: Bus Error
+(1)       0 : =C                 VEC_ADDR:       equ     $00000C ; $00000C: Address Error
+(1)       0 : =10                VEC_ILLEGAL:    equ     $000010 ; $000010: Illegal Instruction
+(1)       0 : =14                VEC_DIV0:       equ     $000014 ; $000014: Zero Divide
+(1)       0 : =18                VEC_CHK:        equ     $000018 ; $000018: CHK Instruction
+(1)       0 : =1C                VEC_TRAPV:      equ     $00001C ; $00001C: TRAPV Instruction
+(1)       0 : =20                VEC_PRIV:       equ     $000020 ; $000020: Privilege Violation
+(1)       0 : =24                VEC_TRACE:      equ     $000024 ; $000024: Trace
+(1)       0 : =3C                VEC_UNINIT:     equ     $00003C ; $00003C: Uninitialized Interrupt
+(1)       0 : =60                VEC_SPURIOUS:   equ     $000060 ; $000060: Spurious Interrupt
+(1)       0 : =64                VEC_LEVEL1:     equ     $000064 ; $000064: Level 1 Interrupt Autovector
+(1)       0 : =7C                VEC_LEVEL7:     equ     $00007C ; $00007C: Level 7 Interrupt Autovector
+(1)       0 : =80                VEC_TRAP0:      equ     $000080 ; $000080: TRAP #0
+(1)       0 : =100               VEC_USER:       equ     $000100 ; $000100: User Interrupt Vectors, 64-255
+(1)       0 :
+(1)       0 :                    ;;; Every interrupt is acknowledged with a vector number: the ACIA's is
+(1)       0 :                    ;;; the first user vector, as the regress wires it (I ACIA addr 64).
+(1)       0 : =40                VECNUM_ACIA:    equ     64
+(1)       0 : =100               VEC_ACIA:       equ     VECNUM_ACIA*4
+(1)       0 :
+(1)       0 :                    ;;; MC6850 Asynchronous Communication Interface Adapter at $FFFFF0,
+(1)       0 :                    ;;; reached as (ACIA_xxx).w on every board: a board with fewer address
+(1)       0 :                    ;;; lines sees it masked to them.
+(1)       0 : =FFFFF0            ACIA:           equ     $FFFFF0
+(1)       0 :                            include "../mc6800/mc6850.inc"
+(2)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(2)       0 :
+(2)       0 :                    ;;; MC6850
+(2)       0 :                    ;;; Asynchronous Communication Interface Adapter
+(2)       0 :
+(2)       0 :                    ;;; Control register (write)
+(2)       0 : =FFFFF0            ACIA_control:   equ     ACIA+0
+(2)       0 :                            ;; Counter Divider Select Bits
+(2)       0 : =3                 CDS_gm:         equ     %11    ; Group mask
+(2)       0 : =0                 CDS_DIV1_gc:    equ     %00000000 ; /1
+(2)       0 : =1                 CDS_DIV16_gc:   equ     %00000001 ; /16
+(2)       0 : =2                 CDS_DIV64_gc:   equ     %00000010 ; /64
+(2)       0 : =3                 CDS_RESET_gc:   equ     %00000011 ; Master Reset
+(2)       0 :                            ;; Word Select Bits
+(2)       0 : =1C                WSB_gm:         equ     %00011100 ; Group mask
+(2)       0 : =0                 WSB_7E2_gc:     equ     %00000000 ; 7 Bits + Even Parity + 2 Stop Bits
+(2)       0 : =4                 WSB_7O2_gc:     equ     %00000100 ; 7 bits + Odd Parity  + 2 Stop Bits
+(2)       0 : =8                 WSB_7E1_gc:     equ     %00001000 ; 7 bits + Even Parity + 1 Stop Bits
+(2)       0 : =C                 WSB_7O1_gc:     equ     %00001100 ; 7 bits + Odd Parity  + 1 Stop Bits
+(2)       0 : =10                WSB_8N2_gc:     equ     %00010000 ; 8 bits + No Parity   + 2 Stop Bits
+(2)       0 : =14                WSB_8N1_gc:     equ     %00010100 ; 8 bits + No Parity   + 1 Stop Bits
+(2)       0 : =18                WSB_8E1_gc:     equ     %00011000 ; 8 bits + Even Parity + 1 Stop Bits
+(2)       0 : =1C                WSB_8O1_gc:     equ     %00011100 ; 8 bits + Odd Parity  + 1 Stop Bits
+(2)       0 :                            ;; Transmit Control Bits
+(2)       0 : =60                TCB_gm:         equ     %01100000 ; Group mask
+(2)       0 : =0                 TCB_DI_gc:      equ     %00000000 ; RTS=Low,  Tx Interrupt Disabled
+(2)       0 : =20                TCB_EI_gc:      equ     %00100000 ; RTS=Low,  Tx Interrupt Enabled
+(2)       0 : =40                TCB_RTS_gc:     equ     %01000000 ; RTS=High, Tx Interrupt Disabled
+(2)       0 : =60                TCB_BREAK_gc:   equ     %01100000 ; RTS=Low,  Tx Interrupt Disabled
+(2)       0 :                                                      ; Transmit Break Level
+(2)       0 : =80                RIEB_bm:        equ     %10000000 ; Receive Interrupt Enable Bit mask
+(2)       0 :
+(2)       0 :                    ;;; Status register (read)
+(2)       0 : =FFFFF0            ACIA_status:    equ     ACIA+0
+(2)       0 : =1                 RDRF_bm:        equ     %00000001 ; Receive Data Register Full
+(2)       0 : =2                 TDRE_bm:        equ     %00000010 ; Transmit Data Register Empty
+(2)       0 : =4                 DCDF_bm:        equ     %00000100 ; Data Carrier Detect Flag
+(2)       0 : =8                 CTSF_bm:        equ     %00001000 ; Clear To Send Flag
+(2)       0 : =10                FERR_bm:        equ     %00010000 ; Frame Error Flag
+(2)       0 : =20                OVRN_bm:        equ     %00100000 ; Receiver Overrun Flag
+(2)       0 : =40                PERR_bm:        equ     %01000000 ; Parity Error Flag
+(2)       0 : =80                IRQF_bm:        equ     %10000000 ; Interrupt Request Flag
+(2)       0 :
+(2)       0 :                    ;;; Data register
+(2)       0 : =FFFFF1            ACIA_data:      equ     ACIA+1          ; Data register
+(1)       0 :
+(1)       0 :                    ;;; Interrupts on, all levels; and off again. Neither touches CCR.
+(1)       0 : =F8FF              INTR_ON:        equ     $F8FF   ; ANDI #INTR_ON,SR
+(1)       0 : =700               INTR_OFF:       equ     $0700   ; ORI  #INTR_OFF,SR
+          0 :                            include "cpm68k.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :
+(1)       0 :                    ;;; CP/M-68K 1.3's CCP and BDOS linked at 15000H with an empty BIOS at
+(1)       0 :                    ;;; 1B000H: DRI's DISK8/CPM15000.SR for the 68000, or the 68010 system
+(1)       0 :                    ;;; cpm68010.sub links. Both end below 1B000H, with their entry points
+(1)       0 :                    ;;; at the same addresses, and the S-record image zeroes their BSS. The
+(1)       0 :                    ;;; BIOS follows, and the TPA is the memory above it, up to TPA_GAP
+(1)       0 :                    ;;; below the top of the board's address space, where the I/O devices
+(1)       0 :                    ;;; are.
+(1)       0 : =15000             CPM:            equ     $15000          ; cold start
+(1)       0 : =150BC             CCP:            equ     $150BC          ; warm start
+(1)       0 : =1B000             BIOS:           equ     $1B000          ; _init
+(1)       0 : =1C000             TPA:            equ     $1C000
+(1)       0 : =10000             TPA_GAP:        equ     $10000
+(1)       0 : =800000            MEM_MAX:        equ     $800000         ; Alcyon's AS68 fails with more
+(1)       0 : =1A                SPT:            equ     26              ; sectors a track
+          0 :
+          0 : =FFFFE0            DISK:   equ     $FFFFE0
+          0 :                            include "../i8080/sector_disk.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :
+(1)       0 :                    ;;; The debugger's paravirtual sector disk (debugger/sector_disk.h).
+(1)       0 :                    ;;; DISK is its base port.
+(1)       0 : =FFFFE0            DISK_DRIVE:     equ     DISK+0  ; 0-3
+(1)       0 : =FFFFE1            DISK_TRACK:     equ     DISK+1  ; 0-76
+(1)       0 : =FFFFE2            DISK_SECTOR:    equ     DISK+2  ; 1-26, physical
+(1)       0 : =FFFFE3            DISK_DMAL:      equ     DISK+3  ; DMA address, low byte
+(1)       0 : =FFFFE4            DISK_DMAH:      equ     DISK+4  ; high byte
+(1)       0 : =FFFFE5            DISK_COMMAND:   equ     DISK+5  ; write a command, read its status
+(1)       0 : =FFFFE6            DISK_MOUNTED:   equ     DISK+6  ; bit n: drive n has its image
+(1)       0 : =FFFFE7            DISK_DMAX:      equ     DISK+7  ; DMA address bits 16-23
+(1)       0 : =1                 CMD_READ:       equ     1
+(1)       0 : =2                 CMD_WRITE:      equ     2
+          0 : =4                 NDISKS: equ     4
+          0 : =1A                DPH_SIZE:       equ     26
+          0 : =0                 DPH_XLT:        equ     0
+          0 : =E                 DPH_DPB:        equ     14
+          0 : =7F                ALV_SIZE:       equ     127     ; hd8's 1016 blocks, a bit each
+          0 : =8C                VEC_TRAP3:      equ     VEC_TRAP0+3*4
+          0 :
+          0 :                            org     VEC_RESET
+          0 : 0001 B000                  dc.l    BIOS            ; SSP until the CCP sets its own
+          4 : 0001 5000                  dc.l    CPM             ; L zeroed CCP and BDOS's BSS
+          8 :
+          8 :                    ;;; CCP calls it once, from the cold start, before the BDOS. D0=0 logs
+          8 :                    ;;; in drive A: as user 0.
+      1B000 :                            org     BIOS
+      1B000 :                    init:
+      1B000 : 21FC 0001 B08A             move.l  #trap3,(VEC_TRAP3).w
+      1B006 : 008C
+      1B008 : 11FC 0003 FFF0             move.b  #CDS_RESET_gc,(ACIA_control).w
+      1B00E : 11FC 0014 FFF0             move.b  #WSB_8N1_gc,(ACIA_control).w
+      1B014 : 41FA 0062                  lea     (signon,pc),a0
+      1B018 :                    init_signon:
+      1B018 : 1218                       move.b  (a0)+,d1
+      1B01A : 6706                       beq.s   init_end
+      1B01C : 6100 0102                  bsr.w   conout
+      1B020 : 60F6                       bra.s   init_signon
+      1B022 :                    init_end:
+      1B022 : 4239 0001 B56C             clr.b   (iobyte).l
+      1B028 : 6110                       bsr.s   sizemem
+      1B02A : 92BC 0002 C000             sub.l   #TPA_GAP+TPA,d1
+      1B030 : 23C1 0001 B2AC             move.l  d1,(mrt_size).l
+      1B036 : 7000                       moveq   #0,d0
+      1B038 : 4E75                       rts
+      1B03A :
+      1B03A :                    ;;; D1=the size of the address space: where a write past TPA lands back
+      1B03A :                    ;;; on TPA, 1 MB on the MC68008P, 4 MB on the MC68008FN, else 16 MB, and
+      1B03A :                    ;;; at most MEM_MAX.
+      1B03A :                    sizemem:
+      1B03A : 41F9 0001 C000             lea     (TPA).l,a0
+      1B040 : 223C 0010 0000             move.l  #$100000,d1
+      1B046 :                    sizemem_loop:
+      1B046 : 43F0 1800                  lea     (a0,d1.l),a1
+      1B04A : 20BC 4350 4D31             move.l  #$43504D31,(a0)
+      1B050 : 22BC 4350 4D32             move.l  #$43504D32,(a1)
+      1B056 : 0C90 4350 4D32             cmpi.l  #$43504D32,(a0)
+      1B05C : 670A                       beq.s   sizemem_end
+      1B05E : E589                       lsl.l   #2,d1
+      1B060 : B2BC 0100 0000             cmp.l   #$1000000,d1
+      1B066 : 65DE                       bcs.s   sizemem_loop
+      1B068 :                    sizemem_end:
+      1B068 : B2BC 0080 0000             cmp.l   #MEM_MAX,d1
+      1B06E : 6306                       bls.s   sizemem_max
+      1B070 : 223C 0080 0000             move.l  #MEM_MAX,d1
+      1B076 :                    sizemem_max:
+      1B076 : 4E75                       rts
+      1B078 :
+      1B078 :
+      1B078 :                    signon:
+      1B078 : 0D0A 4350 2F4D             dc.b    $0D, $0A, 'CP/M-68K 1.3', $0D, $0A, 0
+      1B07E : 2D36 384B 2031
+      1B084 : 2E33 0D0A 00
+      1B08A :                            align   2
+      1B08A :
+      1B08A :                    trap3:
+      1B08A : B07C 0017                  cmp.w   #NFUNCS,d0
+      1B08E : 640A                       bcc.s   trap3_end
+      1B090 : D040                       add.w   d0,d0
+      1B092 : D040                       add.w   d0,d0
+      1B094 : 207B 0006                  movea.l (functions,pc,d0.w),a0
+      1B098 : 4E90                       jsr     (a0)
+      1B09A :                    trap3_end:
+      1B09A : 4E73                       rte
+      1B09C :
+      1B09C :                    functions:
+      1B09C : 0001 B000                  dc.l    init
+      1B0A0 : 0001 B0F8                  dc.l    wboot
+      1B0A4 : 0001 B0FE                  dc.l    const
+      1B0A8 : 0001 B110                  dc.l    conin
+      1B0AC : 0001 B120                  dc.l    conout
+      1B0B0 : 0001 B12E                  dc.l    list
+      1B0B4 : 0001 B12E                  dc.l    auxout
+      1B0B8 : 0001 B138                  dc.l    auxin
+      1B0BC : 0001 B16C                  dc.l    home
+      1B0C0 : 0001 B18C                  dc.l    seldsk
+      1B0C4 : 0001 B16E                  dc.l    settrk
+      1B0C8 : 0001 B174                  dc.l    setsec
+      1B0CC : 0001 B17A                  dc.l    setdma
+      1B0D0 : 0001 B1DA                  dc.l    read
+      1B0D4 : 0001 B1E2                  dc.l    write
+      1B0D8 : 0001 B130                  dc.l    listst
+      1B0DC : 0001 B1F4                  dc.l    sectran
+      1B0E0 : 0001 B12E                  dc.l    unused
+      1B0E4 : 0001 B152                  dc.l    getmrt
+      1B0E8 : 0001 B13C                  dc.l    getiob
+      1B0EC : 0001 B146                  dc.l    setiob
+      1B0F0 : 0001 B14E                  dc.l    flush
+      1B0F4 : 0001 B15A                  dc.l    setexc
+      1B0F8 : =17                NFUNCS: equ     (*-functions)/4
+      1B0F8 :
+      1B0F8 :                    ;;; CCP and BDOS stay in memory: no reload.
+      1B0F8 :                    wboot:
+      1B0F8 : 4EF9 0001 50BC             jmp     (CCP).l
+      1B0FE :
+      1B0FE :                    ;;; Console status: D0=FFH when a character is waiting, else 0.
+      1B0FE :                    const:
+      1B0FE : 7000                       moveq   #0,d0
+      1B100 : 0838 0000 FFF0             btst    #0,(ACIA_status).w      ; RDRF
+      1B106 : 6706                       beq.s   const_end
+      1B108 : 203C 0000 00FF             move.l  #$FF,d0
+      1B10E :                    const_end:
+      1B10E : 4E75                       rts
+      1B110 :
+      1B110 :                    conin:
+      1B110 : 0838 0000 FFF0             btst    #0,(ACIA_status).w      ; RDRF
+      1B116 : 67F8                       beq.s   conin
+      1B118 : 707F                       moveq   #$7F,d0
+      1B11A : C038 FFF1                  and.b   (ACIA_data).w,d0
+      1B11E : 4E75                       rts
+      1B120 :
+      1B120 :                    conout:
+      1B120 : 0838 0001 FFF0             btst    #1,(ACIA_status).w      ; TDRE
+      1B126 : 67F8                       beq.s   conout
+      1B128 : 11C1 FFF1                  move.b  d1,(ACIA_data).w
+      1B12C : 4E75                       rts
+      1B12E :
+      1B12E :                    ;;; No list, auxiliary or I/O byte device.
+      1B12E :                    list:
+      1B12E :                    auxout:
+      1B12E :                    unused:
+      1B12E : 4E75                       rts
+      1B130 :                    listst:
+      1B130 : 203C 0000 00FF             move.l  #$FF,d0                 ; ready, to drop the output
+      1B136 : 4E75                       rts
+      1B138 :                    auxin:
+      1B138 : 701A                       moveq   #$1A,d0                 ; end of file
+      1B13A : 4E75                       rts
+      1B13C :
+      1B13C :                    getiob:
+      1B13C : 7000                       moveq   #0,d0
+      1B13E : 1039 0001 B56C             move.b  (iobyte).l,d0
+      1B144 : 4E75                       rts
+      1B146 :
+      1B146 :                    setiob:
+      1B146 : 13C1 0001 B56C             move.b  d1,(iobyte).l
+      1B14C : 4E75                       rts
+      1B14E :
+      1B14E :                    ;;; Every sector is written through.
+      1B14E :                    flush:
+      1B14E : 7000                       moveq   #0,d0
+      1B150 : 4E75                       rts
+      1B152 :
+      1B152 :                    ;;; D0=the memory region table.
+      1B152 :                    getmrt:
+      1B152 : 203C 0001 B2A6             move.l  #mrt,d0
+      1B158 : 4E75                       rts
+      1B15A :
+      1B15A :                    ;;; Sets exception vector D1.W to D2 and returns the old one in D0.
+      1B15A :                    setexc:
+      1B15A : C2BC 0000 00FF             and.l   #$FF,d1
+      1B160 : D241                       add.w   d1,d1
+      1B162 : D241                       add.w   d1,d1
+      1B164 : 2041                       movea.l d1,a0
+      1B166 : 2010                       move.l  (a0),d0
+      1B168 : 2082                       move.l  d2,(a0)
+      1B16A : 4E75                       rts
+      1B16C :
+      1B16C :                    home:
+      1B16C : 7200                       moveq   #0,d1
+      1B16E :                    settrk:
+      1B16E : 11C1 FFE1                  move.b  d1,(DISK_TRACK).w
+      1B172 : 4E75                       rts
+      1B174 :
+      1B174 :                    setsec:
+      1B174 : 11C1 FFE2                  move.b  d1,(DISK_SECTOR).w
+      1B178 : 4E75                       rts
+      1B17A :
+      1B17A :                    setdma:
+      1B17A : 11C1 FFE3                  move.b  d1,(DISK_DMAL).w
+      1B17E : E089                       lsr.l   #8,d1
+      1B180 : 11C1 FFE4                  move.b  d1,(DISK_DMAH).w
+      1B184 : E089                       lsr.l   #8,d1
+      1B186 : 11C1 FFE7                  move.b  d1,(DISK_DMAX).w
+      1B18A : 4E75                       rts
+      1B18C :
+      1B18C :                    ;;; D0=the DPH of drive D1.B, or 0 when it has no image or a format
+      1B18C :                    ;;; this BIOS lacks. DRIVE reads back the drive's format in bits 4-7,
+      1B18C :                    ;;; whose DPB and skew go in its DPH.
+      1B18C :                    seldsk:
+      1B18C : 7000                       moveq   #0,d0
+      1B18E : B23C 0004                  cmp.b   #NDISKS,d1
+      1B192 : 6434                       bcc.s   seldsk_end
+      1B194 : 0338 FFE6                  btst    d1,(DISK_MOUNTED).w
+      1B198 : 672E                       beq.s   seldsk_end
+      1B19A : 11C1 FFE0                  move.b  d1,(DISK_DRIVE).w
+      1B19E : 1438 FFE0                  move.b  (DISK_DRIVE).w,d2
+      1B1A2 : E80A                       lsr.b   #4,d2
+      1B1A4 : B43C 0002                  cmp.b   #NFORMATS,d2
+      1B1A8 : 641E                       bcc.s   seldsk_end
+      1B1AA : 4882                       ext.w   d2
+      1B1AC : E74A                       lsl.w   #3,d2
+      1B1AE : 43FB 201A                  lea     (formats,pc,d2.w),a1
+      1B1B2 : 1001                       move.b  d1,d0
+      1B1B4 : C0FC 001A                  mulu.w  #DPH_SIZE,d0
+      1B1B8 : D0BC 0001 B23E             add.l   #dph0,d0
+      1B1BE : 2040                       movea.l d0,a0
+      1B1C0 : 2159 0000                  move.l  (a1)+,(DPH_XLT,a0)
+      1B1C4 : 2151 000E                  move.l  (a1),(DPH_DPB,a0)
+      1B1C8 :                    seldsk_end:
+      1B1C8 : 4E75                       rts
+      1B1CA :
+      1B1CA :                    ;;; Each format's skew table, or 0 for none, and DPB, by the index DRIVE
+      1B1CA :                    ;;; reads back.
+      1B1CA :                    formats:
+      1B1CA : 0001 B204 0001             dc.l    xlt, dpb        ; 0: 8" single density, IBM 3740
+      1B1D0 : B21E
+      1B1D2 : 0000 0000 0001             dc.l    0, dpb_hd8      ; 1: hd8, 8 MB
+      1B1D8 : B22E
+      1B1DA : =2                 NFORMATS:       equ     (*-formats)/8
+      1B1DA :
+      1B1DA :                    ;;; D0=0 when the sector moved, else 1.
+      1B1DA :                    read:
+      1B1DA : 11FC 0001 FFE5             move.b  #CMD_READ,(DISK_COMMAND).w
+      1B1E0 : 6006                       bra.s   status
+      1B1E2 :                    write:
+      1B1E2 : 11FC 0002 FFE5             move.b  #CMD_WRITE,(DISK_COMMAND).w
+      1B1E8 :                    status:
+      1B1E8 : 7000                       moveq   #0,d0
+      1B1EA : 4A38 FFE5                  tst.b   (DISK_COMMAND).w
+      1B1EE : 6702                       beq.s   status_end
+      1B1F0 : 7001                       moveq   #1,d0
+      1B1F2 :                    status_end:
+      1B1F2 : 4E75                       rts
+      1B1F4 :
+      1B1F4 :                    ;;; D0=the physical sector of logical sector D1.W, from 0, through the
+      1B1F4 :                    ;;; table at D2, or D1 itself when D2 is 0.
+      1B1F4 :                    sectran:
+      1B1F4 : 7000                       moveq   #0,d0
+      1B1F6 : 3001                       move.w  d1,d0
+      1B1F8 : 4A82                       tst.l   d2
+      1B1FA : 6706                       beq.s   sectran_end
+      1B1FC : 2042                       movea.l d2,a0
+      1B1FE : 1030 1000                  move.b  (a0,d1.w),d0
+      1B202 :                    sectran_end:
+      1B202 : 4E75                       rts
+      1B204 :
+      1B204 :                    ;;; Skew 6, the 8" standard.
+      1B204 :                    xlt:
+      1B204 : 0107 0D13 1905             dc.b    1, 7, 13, 19, 25, 5, 11, 17, 23, 3, 9, 15, 21
+      1B20A : 0B11 1703 090F
+      1B210 : 15
+      1B211 :   02 080E 141A 060C            dc.b    2, 8, 14, 20, 26, 6, 12, 18, 24, 4, 10, 16, 22
+      1B218 : 1218 040A 1016
+      1B21E :
+      1B21E :                    ;;; 8" single-density disk parameters: 1K blocks, 243 of them, 64
+      1B21E :                    ;;; directory entries, 2 system tracks.
+      1B21E :                    dpb:
+      1B21E : 001A                       dc.w    SPT             ; SPT, sectors a track
+      1B220 : 03                         dc.b    3               ; BSH, block shift
+      1B221 :   07                       dc.b    7               ; BLM, block mask
+      1B222 : 00                         dc.b    0               ; EXM, extent mask
+      1B223 :   00                       dc.b    0
+      1B224 : 00F2                       dc.w    242             ; DSM, last block
+      1B226 : 003F                       dc.w    63              ; DRM, last directory entry
+      1B228 : C0                         dc.b    $C0             ; AL0, the directory's blocks
+      1B229 :   00                       dc.b    0               ; AL1
+      1B22A : 0010                       dc.w    16              ; CKS, directory check size
+      1B22C : 0002                       dc.w    2               ; OFF, system tracks
+      1B22E :
+      1B22E :                    ;;; hd8, the debugger's 8 MB format: 256 tracks of 256 sectors from 0,
+      1B22E :                    ;;; no skew, 8K blocks, 1024 directory entries, 2 system tracks. The
+      1B22E :                    ;;; values are the format's, the same under every CP/M.
+      1B22E :                    dpb_hd8:
+      1B22E : 0100                       dc.w    256             ; SPT
+      1B230 : 06                         dc.b    6               ; BSH
+      1B231 :   3F                       dc.b    63              ; BLM
+      1B232 : 03                         dc.b    3               ; EXM
+      1B233 :   00                       dc.b    0
+      1B234 : 03F7                       dc.w    1015            ; DSM
+      1B236 : 03FF                       dc.w    1023            ; DRM
+      1B238 : F0                         dc.b    $F0             ; AL0
+      1B239 :   00                       dc.b    0               ; AL1
+      1B23A : 0000                       dc.w    0               ; CKS, a fixed disk
+      1B23C : 0002                       dc.w    2               ; OFF
+      1B23E :
+      1B23E :                    ;;; SELDSK sets each DPH's skew and DPB by the drive's format.
+      1B23E : 0001 B204          dph0:   dc.l    xlt
+      1B242 : 0000 0000 0000             dc.w    0, 0, 0
+      1B248 : 0001 B2B0 0001             dc.l    dirbuf, dpb, csv+16*0, alv+ALV_SIZE*0
+      1B24E : B21E 0001 B330
+      1B254 : 0001 B370
+      1B258 : 0001 B204                  dc.l    xlt
+      1B25C : 0000 0000 0000             dc.w    0, 0, 0
+      1B262 : 0001 B2B0 0001             dc.l    dirbuf, dpb, csv+16*1, alv+ALV_SIZE*1
+      1B268 : B21E 0001 B340
+      1B26E : 0001 B3EF
+      1B272 : 0001 B204                  dc.l    xlt
+      1B276 : 0000 0000 0000             dc.w    0, 0, 0
+      1B27C : 0001 B2B0 0001             dc.l    dirbuf, dpb, csv+16*2, alv+ALV_SIZE*2
+      1B282 : B21E 0001 B350
+      1B288 : 0001 B46E
+      1B28C : 0001 B204                  dc.l    xlt
+      1B290 : 0000 0000 0000             dc.w    0, 0, 0
+      1B296 : 0001 B2B0 0001             dc.l    dirbuf, dpb, csv+16*3, alv+ALV_SIZE*3
+      1B29C : B21E 0001 B360
+      1B2A2 : 0001 B4ED
+      1B2A6 :
+      1B2A6 :                    ;;; One region: the TPA, sized at cold boot.
+      1B2A6 : 0001               mrt:    dc.w    1
+      1B2A8 : 0001 C000                  dc.l    TPA
+      1B2AC :                    mrt_size:
+      1B2AC : 0000 0000                  dc.l    0
+      1B2B0 :
+      1B2B0 :                    ;;; Scratch areas.
+      1B2B0 :                    dirbuf: ds.b    128
+      1B330 :                    csv:    ds.b    16*NDISKS
+      1B370 :                    alv:    ds.b    ALV_SIZE*NDISKS
+      1B56C :                    iobyte: ds.b    1
+      1B56D :                    bios_end:
+      1B56D :
+      1B56D :                            end

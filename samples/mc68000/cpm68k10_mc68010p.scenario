@@ -1,0 +1,96 @@
+# Scenario for scripts/record-scenario.py: CP/M-68K 1.3 on the MC68010P12
+# on the MC68000P board: the MC68010 system, the one the board linked
+# with cpm68k10.sub, uploaded, its disks mounted from the SD card, then
+# fmandel.c with Alcyon C in Motorola's fast floating point and
+# mandel.c, the integer mandelbrot, in 16-bit int, step by step as
+# ccffp.sub and cc.sub run them.
+#
+# Needs a fresh samples/mc68000/cpm68k10.s19, and the SD card's
+# mc68000/cpm68k10a.dsk and cpm68k10b.dsk (docs/samples.md).
+
+key ?
+pace 2.0
+
+key R
+upload samples/mc68000/cpm68k10.s19
+
+# The disks: A: the system and tools, B: the sources.
+type O
+wait Disk?
+command A mc68000/cpm68k10a.dsk
+type O
+wait Disk?
+command B mc68000/cpm68k10b.dsk
+type O
+wait Disk?
+command
+pace 2.0
+
+# A short backtrace for the halt at the end.
+key R
+type G
+wait backtrace?
+type 5\r
+waitfor 20 A>
+type \r
+wait A>
+pace 1.5
+
+type DIR\r
+wait A>
+pace 2.0
+
+type DIR B:\r
+wait A>
+pace 2.0
+
+# The assembler's symbol file, written once to A:.
+type AS68 -I AS68INIT\r
+waitfor 30 A>
+pace 1.5
+
+# fmandel.c in Alcyon C, the steps of ccffp.sub: preprocessor, parser,
+# code generator, AS68, then LO68 with the fast floating point library.
+type B:\r
+wait B>
+type A:CP68 -I A: FMANDEL.C FMANDEL.I\r
+waitfor 120 B>
+pace 1.0
+type A:C068 FMANDEL.I FMANDEL.1 FMANDEL.2 FMANDEL.3 -F\r
+waitfor 300 B>
+pace 1.0
+type A:C168 FMANDEL.1 FMANDEL.2 FMANDEL.S\r
+waitfor 120 B>
+pace 1.0
+type A:AS68 -L -U -S A: FMANDEL.S\r
+waitfor 120 B>
+pace 1.0
+type A:LO68 -R -O FMANDEL.68K A:S.O FMANDEL.O A:CLIB A:LIBF.A\r
+waitfor 120 B>
+pace 1.5
+type FMANDEL\r
+waitfor 120 B>
+pace 2.0
+
+# mandel.c, the integer mandelbrot in 16-bit int, the steps of cc.sub:
+# no -F, and the link leaves floating point out.
+type A:CP68 -I A: MANDEL.C MANDEL.I\r
+waitfor 120 B>
+pace 1.0
+type A:C068 MANDEL.I MANDEL.1 MANDEL.2 MANDEL.3\r
+waitfor 300 B>
+pace 1.0
+type A:C168 MANDEL.1 MANDEL.2 MANDEL.S\r
+waitfor 120 B>
+pace 1.0
+type A:AS68 -L -U -S A: MANDEL.S\r
+waitfor 120 B>
+pace 1.0
+type A:LO68 -R -u_nofloat -O MANDEL.68K A:S.O MANDEL.O A:CLIB\r
+waitfor 120 B>
+pace 1.5
+type MANDEL\r
+waitfor 120 B>
+pace 2.0
+
+halt
