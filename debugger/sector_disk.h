@@ -46,13 +46,14 @@ struct SectorDisk final : Device, DiskDrives {
     void write(uint32_t addr, uint16_t data) override;
 
     // Turns the disk on.
-    Mounted mount(const char *label, const char *path) override;
-    // |path|'s .dsk, b.dsk, c.dsk and d.dsk as A:-D:.
+    Mounted mount(const char *name, const char *path) override;
+    // |path|'s .dsk, b.dsk, c.dsk and d.dsk as A-D.
     void mountBeside(const char *path) override;
 
 protected:
-    // A:-D:
+    // A-D
     const char *unitName(uint8_t unit) const override;
+    uint8_t unitOf(const char *name) const override;
 
 private:
     DiskUnit _drives[DRIVES];

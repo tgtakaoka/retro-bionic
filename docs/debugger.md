@@ -35,7 +35,7 @@ From the header of `debugger/debugger.cpp`:
 | `U` | Upload Intel HEX or Motorola S-record |
 | `L` | Load Intel HEX or S-record file from SD card |
 | `F` | List files on SD card |
-| `O` | Mount a disk image — `label file` mounts it under a label you pick, `label` unmounts, Enter lists |
+| `O` | Mount a disk image — `drive file` mounts it on that drive, `drive` unmounts, Enter lists |
 | `I` | Show/select I/O device — `dev [addr [vec]]` also sets its base and interrupt vector |
 | `W` | Write identity EEPROM |
 | `V` | Toggle verbose mode |
@@ -136,8 +136,9 @@ alone; a reset clears only the device's own registers and pending interrupts.
   `ibm-3740` (8" floppy, any image up to 256256 bytes) or `hd8` (exactly 8 MB). Other
   sizes are refused. DRIVE reads back the drive's format in bits 4-7.
   `L i8080/cpm80.hex` mounts `cpm80.dsk` and `cpm80b.dsk`-`cpm80d.dsk` beside it as
-  A:-D:, labelled by file name; `O` mounts and unmounts single drives; `I DISK` turns
-  the disk off and on.
+  A-D; `O B work.dsk` mounts a single drive and `O B` unmounts it; `I DISK` turns the
+  disk off and on. Each mount prints the drive's line as `O` lists it, such as
+  `A    ibm-3740  i8080/cpm80.dsk`, and each drive dropped prints `B unmounted`.
 - **8087 INT** (D8087 board) — `debugger/i8086/devs_d8087.cpp`: `NPX`, disabled at
   power-up, `I NPX` turns it on and off. While the 8087 holds INT high it requests
   interrupt type 2 by default, which raises NMI and stops the run in the debugger;
