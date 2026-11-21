@@ -7,6 +7,8 @@
 
 namespace debugger {
 
+struct Disk;
+
 // The emulated devices on a target's bus.
 struct Devs {
     virtual ~Devs() {}
@@ -37,8 +39,11 @@ struct Devs {
     virtual Device *parseDevice(const char *word) const { return nullDevice(); }
     virtual void enableDevice(Device *dev) {}
     virtual void printDevices() const {}
-    // |path| was loaded from the SD card.
-    virtual void fileLoaded(const char *path) {}
+    // |path| was loaded from the SD card: the disk mounts the images
+    // that go with it.
+    virtual void fileLoaded(const char *path);
+    // The disk drives, if the target has any.
+    virtual Disk *disk() const { return nullptr; }
 
     static Device *nullDevice();
     // Flushes what consoleWrite() left once the console has been quiet.

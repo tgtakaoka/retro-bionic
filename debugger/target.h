@@ -68,6 +68,7 @@ struct Target {
     void printDevices() const;
 
     void fileLoaded(const char *path);
+    Disk *disk() const;
     Device *parseDevice(const char *word) const;
     void enableDevice(Device *dev) const;
 

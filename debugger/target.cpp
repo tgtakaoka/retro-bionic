@@ -159,6 +159,10 @@ void Target::fileLoaded(const char *path) {
     _devs->fileLoaded(path);
 }
 
+Disk *Target::disk() const {
+    return _devs->disk();
+}
+
 Device *Target::parseDevice(const char *word) const {
     return _devs->parseDevice(word);
 }
