@@ -30,6 +30,31 @@ A few directories carry real vintage software as well:
 [`samples/mc6809/ASSIST09.S19`](../samples/mc6809/ASSIST09.S19) and
 [`samples/mc6809/BASIC9.S19`](../samples/mc6809/BASIC9.S19).
 
+## CP/M 2.2 on the 8080 and 8085
+
+[`samples/i8080/cpm22bios.asm`](../samples/i8080/cpm22bios.asm) is a CP/M 2.2 BIOS
+in 8080 instructions, for the 8080 and 8085 boards: the console on the i8251 USART and four drives on the
+debugger's sector disk. [`cpm22.asm`](../samples/i8080/cpm22.asm) is the cold boot
+that `L` loads from the SD card; it reads CCP, BDOS and the BIOS from drive A's
+system tracks. The disks are the 8" IBM 3740 format, `ibm-3740` in cpmtools, and
+[`scripts/cpm-disk.py`](../scripts/cpm-disk.py) builds and reads them.
+
+The CP/M binaries stay out of the repository. To build the system disk, unpack
+[cpm2-asm.zip](http://www.cpm.z80.de/download/cpm2-asm.zip) (`CPM22.ASM`, the
+reconstructed CCP and BDOS) into `samples/i8080/cpm22/`, and put the files for A:,
+such as those of [cpm22-b.zip](http://www.cpm.z80.de/download/cpm22-b.zip), in
+`samples/i8080/cpm22/a/`. These are from [The Unofficial CP/M Web
+Site](http://www.cpm.z80.de/), under the license in
+[its license page](http://www.cpm.z80.de/license.html). Then:
+
+```sh
+cd samples/i8080
+make cpm22.dsk
+```
+
+and copy `cpm22.hex` and `cpm22.dsk` into an `i8080/` folder on the Teensy's SD
+card. `L i8080/cpm22.hex`, then `G` from 0000, boots to `A>`.
+
 ## The reference implementation
 
 [`samples/arith/`](../samples/arith) is the golden model, compiled and run on the host rather
