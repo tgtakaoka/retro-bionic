@@ -60,18 +60,24 @@ cpm86.hex: cpm86bios.hex $(CPM86)/.fetched
 	rm -f $@.tmp
 
 # A: also takes the SUBMIT files, which compile from A:.
-CPM86A = cb.sub
+CPM86A = cb.sub cc.sub
 cpm86.dsk: $(CPM86A) $(CPM86)/.fetched $(wildcard $(CPM86)/a/*)
 	../../scripts/cpm-disk.py make $@ --format hd8 $(CPM86A) $(CPM86)/a/*
 
 # B: holds BASIC, an 8 MB hd8: fmandel.bas in CBASIC, whose compiler
 # CB86 goes on A: with cb.sub, and the 8080's fmandel.bas as
-# fmandel.pb for DRI's Personal BASIC, BASIC.CMD in $(CPM86)/b/.
-CPM86B = fmandel.bas fmandel.pb
+# fmandel.pb for DRI's Personal BASIC, BASIC.CMD in $(CPM86)/b/; and
+# fmandel.c and imandel.c for DRI's C compiler, which goes on A: with
+# cc.sub; imandel.c includes ../arith/imandel.c as imandel.inc, adding
+# the stdio.h DRI's putchar needs.
+CPM86B = fmandel.bas fmandel.pb fmandel.c imandel.c imandel.inc
 cpm86b.dsk: $(CPM86B) $(CPM86)/.fetched $(wildcard $(CPM86)/b/*)
 	../../scripts/cpm-disk.py make $@ --format hd8 $(CPM86B) $(CPM86)/b/*
 
 fmandel.pb: ../i8080/fmandel.bas
+	cp $< $@
+
+imandel.inc: ../arith/imandel.c
 	cp $< $@
 
 clean:
