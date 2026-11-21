@@ -49,6 +49,8 @@ ignored.
                       \\r in TEXT is Enter, e.g. 'G\\r' starts a run and
                       leaves it running for the next directives
     wait TEXT        block until TEXT appears in what the board sent
+                      since the last typed input, up to 5 seconds
+    waitfor S TEXT   the same, up to S seconds, for a slow program
     pace SECONDS     a narration pause
     step N           'S' repeated N times, each waiting for the prompt
     run N [TIMEOUT]  'G' capped to RUN_BACKTRACE_LIMIT lines, then wait
@@ -56,6 +58,8 @@ ignored.
                       redraws in a loop, then stop it with the halt port
                       and wait for the prompt. TIMEOUT (default 120s)
                       bounds the wait -- raise it for a slow target
+    halt             stop a program left running (e.g. by 'type G\\r')
+                      with the halt port, wait for the prompt, pace
     upload PATH      type 'U', wait for "Upload waiting...", paste the
                       Intel HEX/S-record file at PATH (relative to the
                       repo root), end with ^C, wait for the prompt
@@ -126,6 +130,8 @@ class Console:
         self.fd = fd
         self._buf = bytearray()
         self._frames = 0   # FRAME markers seen since start, not just in _buf
+        self._total = 0    # bytes received since start
+        self._mark = 0     # _total when input was last typed
         self._lock = threading.Lock()
         self._stop = False
         self._thread = threading.Thread(target=self._read_loop, daemon=True)
@@ -158,6 +164,7 @@ class Console:
                 seam = bytes(self._buf[-(len(bc.FRAME) - 1):])
                 self._frames += (seam + d).count(bc.FRAME) - seam.count(bc.FRAME)
                 self._buf += d
+                self._total += len(d)
                 del self._buf[:-4096]   # bounded tail, cheap to scan
 
     def close(self):
@@ -169,10 +176,19 @@ class Console:
         with self._lock:
             return bytes(self._buf[-n:])
 
+    def since_typed(self):
+        """What arrived since input was last typed, as far as the tail
+        holds it."""
+        with self._lock:
+            n = self._total - self._mark
+            return bytes(self._buf[-n:]) if n else b''
+
     def type_line(self, text, cr=True):
         """Type `text` one key at a time, then Enter unless `cr` is False."""
         bc.note((text + ('\r' if cr else '')).encode())
         pace(0.5)   # "about to type" beat
+        with self._lock:
+            self._mark = self._total
         for i, ch in enumerate(text):
             os.write(self.fd, ch.encode())
             pace(0.05 + 0.03 * (i % 3))   # human-ish jitter
@@ -190,7 +206,7 @@ class Console:
         """
         end = time.time() + timeout
         while time.time() < end:
-            seen = self.tail()
+            seen = self.since_typed() if anywhere else self.tail()
             if strip_cr:
                 seen = seen.replace(b'\r', b'')
             if (needle in seen) if anywhere else seen.endswith(needle):
@@ -275,9 +291,17 @@ def run_scenario(con, path):
             do_key(con, rest)
         elif word == 'type':
             con.type_line(rest.replace('\\r', '\r'), cr=False)
-        elif word == 'wait':
-            if not con.wait_for(rest.encode(), anywhere=True):
+        elif word in ('wait', 'waitfor'):
+            timeout = 5.0
+            if word == 'waitfor':
+                seconds, _, rest = rest.partition(' ')
+                timeout = float(seconds)
+            if not con.wait_for(rest.strip().encode(), timeout, anywhere=True):
                 sys.exit('%s:%d: timed out waiting for %r' % (path, lineno, rest))
+        elif word == 'halt':
+            bc.abort()
+            need(con.wait_prompt(10.0), 'the prompt after the halt')
+            pace(2.0)
         elif word == 'pace':
             pace(float(rest))
         elif word == 'step':
