@@ -3,7 +3,8 @@
 
 #include "i8080/devs_i8080.h"
 
-// The 8080's USART at I/O 40H; an odd register rides AD8-AD15.
+// The 8080's USART at I/O 40H and CP/M disk at 50H; an odd register
+// rides AD8-AD15.
 
 #endif /* __DEVS_I8086_H__ */
 

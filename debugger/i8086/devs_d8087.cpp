@@ -60,7 +60,7 @@ void NpxInt::negate() {
     }
 }
 
-DevsD8087::DevsD8087() : DevsI8080(), _npx(new NpxInt()) {
+DevsD8087::DevsD8087(const Mems *mems) : DevsI8080(mems), _npx(new NpxInt()) {
     _everyCycle = _npx;
 }
 

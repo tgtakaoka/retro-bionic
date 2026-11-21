@@ -715,6 +715,9 @@ mode (`samples/i8086/mandelbrot_8080emu.asm`):
   instruction after a segment register load: a step over MOV DS,AX would
   also run the next one. The harness loads DS early, so the instruction
   before its BRKEM steps alone; the V20's behaviour there is not tried.
+- CP/M runs the same way (`samples/i8086/cpm80.asm`) at 1000:0000; its
+  BIOS polls, so no native handlers. The harness sets DMAX to 1 so the
+  BIOS's 16-bit DMA addresses land in that segment.
 
 ### Reset keeps the board's wiring **[code]**
 
