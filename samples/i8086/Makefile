@@ -3,7 +3,7 @@ ASM=asm
 .PHONY: clean
 
 all: echo.hex echoir.hex echoitr.hex arith.hex mandelbrot.hex \
-	mandelbrot_8080emu.hex mandelbrot_i80186.hex cpm80.hex
+	mandelbrot_8080emu.hex mandelbrot_i80186.hex cpm80.hex cpm86bios.hex
 
 %.hex:	%.asm
 	$(ASM) -l $*.lst -o $@ $<
@@ -38,6 +38,29 @@ cpm80b.dsk: ../i8080/cpm80b.dsk
 # missing so a disk in use is kept.
 cpm80c.dsk cpm80d.dsk:
 	: > $@
+
+# The CP/M-86 BIOS's segment goes at F0000H (an extended linear address
+# record).
+cpm86bios.hex: cpm86bios.asm
+	$(ASM) -l cpm86bios.lst -o $@.tmp $<
+	(echo ':02000004000FEB'; cat $@.tmp) > $@
+	rm -f $@.tmp
+
+# CP/M-86 for L cpm86.hex: CCP and BDOS from CPM.SYS, DRI's CP/M-86 1.1,
+# with cpm86bios.hex, and an 8 MB hd8 A: of the files in $(CPM86)/a/.
+# DRI's files are downloaded once into $(CPM86)/ by cpm86-fetch.py.
+CPM86 ?= cpm86.fetch
+FETCH = ../../debugger/i8086/tools/cpm86-fetch.py
+$(CPM86)/.fetched: $(FETCH)
+	$(FETCH) $(CPM86)
+
+cpm86.hex: cpm86bios.hex $(CPM86)/.fetched
+	../../scripts/cpm-disk.py ccp86 $(CPM86)/CPM.SYS $@.tmp
+	(grep -v '^:00000001FF' $@.tmp; cat cpm86bios.hex) > $@
+	rm -f $@.tmp
+
+cpm86.dsk: $(CPM86)/.fetched $(wildcard $(CPM86)/a/*)
+	../../scripts/cpm-disk.py make $@ --format hd8 $(CPM86)/a/*
 
 clean:
 	-rm -f *.lst *.hex

@@ -719,6 +719,33 @@ mode (`samples/i8086/mandelbrot_8080emu.asm`):
   BIOS polls, so no native handlers. The harness sets DMAX to 1 so the
   BIOS's 16-bit DMA addresses land in that segment.
 
+### CP/M-86 on the 8086 **[code]**
+
+`samples/i8086/cpm86bios.asm` is a CP/M-86 1.1 BIOS on the 8080's
+sector disk and USART:
+
+- CCP, BDOS and the BIOS share one segment, F000H, at the top of memory,
+  so the reset vector at FFFF0H is F000:FFF0 in the BIOS's own source.
+  The BIOS assembles at segment offsets and the Makefile adds a type 04
+  record. The TPA runs from 0041H, past the debugger's park at
+  0400H-040FH, up to F000H.
+- `L` loads CCP, BDOS and the BIOS from one HEX file, and no system
+  tracks are read: warm boot jumps to CCP+6, as CP/M-86 never overlays
+  them.
+- asm makes a JMP in reach short, so the jump table's 3-byte entries are
+  spelled out with `db 0E9H` and `dw`.
+- SELDSK reads the selected drive's format back from DRIVE, bits 4-7,
+  and sets its DPH's XLT and DPB: the 8" disk, or hd8 with no skew.
+  Firmware without format bits reads 0 there, the 8" disk.
+- The debugger owns INT 1-3, so DDT86's breakpoints and trace stop in
+  the debugger instead.
+- The USART interrupts, on types 20H and 21H, while a character waits
+  and while it can take one with the transmitter on. CP/M polls with
+  interrupts off, but a program may turn them on, as CB86 does, and
+  take a vector the BIOS had left unset. The BIOS's handlers keep the
+  character and turn the transmitter off, which CONOUT turns on to
+  send.
+
 ### Reset keeps the board's wiring **[code]**
 
 A device's base address and interrupt vectors are the board's wiring, not

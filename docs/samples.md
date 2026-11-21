@@ -92,6 +92,30 @@ LINQ build `mandel.asm`, BDS C builds `imandel.c`, and each draws the set. It's 
 [The same on the Z380](https://tgtakaoka.github.io/retro-bionic/play.html?cast=samples/z180/cpm80_z380.cast),
 from `z180/`, and on [asciinema.org](https://asciinema.org/a/bZJg8ghJDnk8ugUM).
 
+## CP/M-86 on the 8086
+
+[`samples/i8086/cpm86bios.asm`](../samples/i8086/cpm86bios.asm) is a CP/M-86 1.1 BIOS
+for the P8086 and D8087 boards, on the same console and sector disk. CCP, BDOS and the
+BIOS sit in segment F000H, and `L` loads all three: no system tracks are read.
+
+DRI's binaries stay out of the repository: the first `make` downloads them with
+`debugger/i8086/tools/cpm86-fetch.py` into `samples/i8086/cpm86.fetch/`, checks each
+archive's sha256, and keeps the archives in `cpm86.fetch/dl/` so later builds work
+offline. It fetches `CPM.SYS` and the A: tools, such as `PIP.CMD`, `STAT.CMD` and
+`ED.CMD`, from [CPM-86.zip](http://www.cpm.z80.de/download/CPM-86.zip)'s `V1-1R/D2`
+([license](http://www.cpm.z80.de/license.html)), for an 8 MB `hd8` A:. Then:
+
+```sh
+cd samples/i8086
+make cpm86.hex cpm86.dsk
+```
+
+and copy both into an `i8086/` folder on the SD card. `L i8086/cpm86.hex`, `R`, then `G`
+boots to `A>`. DDT86's breakpoints and trace stop in the debugger, which owns INT 1-3.
+CP/M-86's CCP has no `SAVE`; DDT86's `W` writes back what `R` read, header and all, so
+`-RB:PROG.CMD`, a patch with `S` or `A`, then `-WB:PROG.CMD` keeps a loadable `.CMD`.
+`R` puts the file at its offsets, so the program's addresses are 80H further on.
+
 ## The reference implementation
 
 [`samples/arith/`](../samples/arith) is the golden model, compiled and run on the host rather
