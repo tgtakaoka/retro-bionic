@@ -939,6 +939,15 @@ keep every target in ITCM, but the rules below hold for all of them.
 - `teensy_size` counts only the shared ITCM code; the largest `.ovl_*`
   section in `arm-none-eabi-size -A` adds to it.
 
+### SD card libraries stay in flash **[code]**
+
+`ENABLE_SDCARD` is on: `F` lists and `L` loads files on the Teensy's SD
+card, and an emulated disk keeps its image there. Like libasm, SD, SdFat
+and the formatted output they pull in build without LTO and stay in
+flash (`scripts/teensy41.ld`, `scripts/teensy41_layout.py`), so they
+take no ITCM. After `L` loads a file, `Devs::fileLoaded(path)` lets a
+target's devices mount the images that go with it.
+
 ## Per architecture
 
 ### Z280

@@ -59,14 +59,14 @@ as built.
 `debugger/config_debugger.h` controls what is compiled in. By default:
 
 ```c
-// #define ENABLE_SDCARD
+#define ENABLE_SDCARD
 // #define WITH_ASSEMBLER
 #define WITH_DISASSEMBLER
 ```
 
-So the **disassembler is present but the assembler is not**, and the SD card commands are
-absent. `U` — upload over the serial link — is the working way to get code in. Enable the
-others by uncommenting and rebuilding; the firmware has room to spare.
+So the **disassembler is present but the assembler is not**. `U` — upload over the serial
+link — and `L`, from the SD card, get code in. Enable the assembler by uncommenting and
+rebuilding; the firmware has room to spare.
 
 ## Verbose mode
 

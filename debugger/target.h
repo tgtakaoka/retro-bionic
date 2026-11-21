@@ -66,6 +66,8 @@ struct Target {
     void setProtectArea(uint32_t begin, uint32_t end) const;
 
     void printDevices() const;
+
+    void fileLoaded(const char *path);
     Device *parseDevice(const char *word) const;
     void enableDevice(Device *dev) const;
 

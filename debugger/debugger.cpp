@@ -676,6 +676,7 @@ void handleLoadFile(char *line, uintptr_t, State state) {
             cli.println();
             cli.print(size);
             cli.println(" bytes loaded");
+            Debugger.target().fileLoaded(line);
         }
     }
     printPrompt();
