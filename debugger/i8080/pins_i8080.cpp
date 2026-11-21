@@ -244,7 +244,7 @@ const uint8_t PINS_INPUT[] = {
 PinsI8080::PinsI8080() : _phi1(0, phi_min_hz), _phi2(0, phi_min_hz) {
     _regs = new RegsI8080(this);
     _mems = new MemsI8080();
-    _devs = new DevsI8080();
+    _devs = new DevsI8080(_mems);
 #ifdef TUNE_CLOCK
     _counts = phi_phases.n;
 #endif

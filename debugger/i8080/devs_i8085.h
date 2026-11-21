@@ -10,7 +10,7 @@ namespace debugger {
 namespace i8085 {
 
 struct DevsI8085 final : DevsI8080 {
-    DevsI8085();
+    DevsI8085(const Mems *mems);
     ~DevsI8085();
 
     void reset() override;

@@ -171,7 +171,7 @@ const uint8_t PINS_INPUT[] = {
 PinsI8085::PinsI8085() : _clock(x1_half_min_ns, x1_min_hz) {
     _regs = new RegsI8085(this);
     _mems = new i8080::MemsI8080();
-    _devs = new DevsI8085();
+    _devs = new DevsI8085(_mems);
 #ifdef TUNE_CLOCK
     _clockInput = x1_hz;
 #endif

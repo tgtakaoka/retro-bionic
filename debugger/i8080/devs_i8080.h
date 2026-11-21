@@ -4,11 +4,16 @@
 #include "devs.h"
 
 #define USART_BASE 0x40
+#define DISK_BASE 0x50
 
 namespace debugger {
 
+struct Mems;
+struct SectorDisk;
+
 struct DevsI8080 : Devs {
-    DevsI8080();
+    // With |mems|, the CP/M disk is there too.
+    DevsI8080(const Mems *mems = nullptr);
     ~DevsI8080();
 
     void begin() override;
@@ -22,9 +27,11 @@ struct DevsI8080 : Devs {
     Device *parseDevice(const char *name) const override;
     void enableDevice(Device *dev) override;
     void printDevices() const override;
+    void fileLoaded(const char *path) override;
 
 protected:
     Device *_usart;
+    SectorDisk *_disk;
 };
 
 }  // namespace debugger

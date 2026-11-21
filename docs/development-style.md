@@ -1639,6 +1639,17 @@ least 227 ns) keep it working, which tops the clock at 2.5 MHz. **[hw]**
   held every 10 us to run the devices, which change INT only while the
   CPU waits, and to poll the halt switch. **[hw][code]**
 
+**CP/M disk.** An I/O cycle holds the CPU at READY for as long as the
+Teensy takes, so the sector disk moves a whole sector, an SD card
+access of milliseconds, inside the OUT to its command port; the next
+IN reads the status. A DMA address is a 16-bit memory address and
+wraps. The images open when `L` loads the cold boot, never in a
+transfer, and an image that is not there is not made. The BIOS's
+disk parameters and skew table are the 8" single-density ones of
+DRI's skeletal `CBIOS.ASM`, the format cpmtools calls
+`ibm-3740`. The disk's ports keep clear of the Z180's internal I/O below
+40H, for a Z80 port. **[code]**
+
 ### 8085
 
 **Pitfalls.** RST 5.5/6.5/7.5 make no INTA cycle.
