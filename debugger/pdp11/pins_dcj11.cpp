@@ -538,15 +538,37 @@ void PinsDcj11::captureWrites(const uint16_t *inst, uint_fast8_t words,
     execute(inst, words, buf, max, org, org, nullptr, 0, 0);
 }
 
+// Whether the BPT whose vector |s| reads is the debugger's: one at a
+// break point, its fetch or the prefetch after it just before |s|, or
+// any while the vector points at itself, as a program that halts to the
+// debugger leaves it.
+bool PinsDcj11::breakTrap(const Signals *s) const {
+    if (_mems->read(InstPdp11::VEC_BPT) == InstPdp11::VEC_BPT)
+        return true;
+    const auto back = Cycles::cycles() < 2U ? Cycles::cycles() : 2U;
+    for (auto i = 1U; i <= back; ++i) {
+        const auto w = s->prev(i);
+        if (!w->fetch())
+            break;
+        if (w->data == InstPdp11::BPT && isBreakPoint(w->addr16()))
+            return true;
+    }
+    return false;
+}
+
 // Whether |s|, a prepared cycle, enters the debugger. BPT and a T-bit
 // trace read the vector at 14, #PWRF the one at 24: the debugger answers
 // with the restart address and priority 7, and parks at its fetch. The
 // PC and PS the trap pushed are the two latest writes. A BPT's PC is its
-// own unless |step| ran it.
-bool PinsDcj11::parkAfterFrame(Signals *s, bool step) {
+// own unless |step| ran it. A program reads those words as data too, and
+// may handle BPT itself: the vector at 14 is answered only in a |step|
+// or for the debugger's BPT, the one at 24 only while |halting| holds
+// #PWRF.
+bool PinsDcj11::parkAfterFrame(Signals *s, bool step, bool halting) {
     if (s->read() && !s->fetch() && s->memory()) {
         const uint16_t addr = s->addr16();
-        if (addr == InstPdp11::VEC_BPT || addr == VEC_PWRFAIL) {
+        if ((addr == InstPdp11::VEC_BPT && (step || breakTrap(s))) ||
+                (addr == VEC_PWRFAIL && halting)) {
             s->inject(ORG_RESTART);
             _trapVector = addr;
             // Still asserted, #PWRF would trap again before the fetch.
@@ -598,7 +620,7 @@ bool PinsDcj11::suspend(Signals *s) {
     assert_pwrf();
     for (auto guard = trap_cycles; guard > 0; --guard) {
         if (s) {
-            if (parkAfterFrame(s, false))
+            if (parkAfterFrame(s, false, true))
                 return true;
             completeCycle(s);
         }
@@ -621,7 +643,7 @@ bool PinsDcj11::rawStep() {
         s = prepareCycle();
         if (s == nullptr)
             break;  // in WAIT
-        if (parkAfterFrame(s, true))
+        if (parkAfterFrame(s, true, false))
             return true;
     }
     return suspend(s);
@@ -790,7 +812,7 @@ bool PinsDcj11::loop() {
             // A WAIT ticks the watchdog only once per quiet stretch.
             Watchdog::feed();
         }
-        if (s && parkAfterFrame(s, false)) {
+        if (s && parkAfterFrame(s, false, false)) {
             if (!quiet)
                 stopClock();
             _parked = *s;  // where the next run resumes

@@ -2888,7 +2888,12 @@ on, a cycle reports any fall of #ABORT, not only a low one at its end.
 **Entries and power-up.** The power-up configuration read is answered
 with 001017: POK, power-up mode 3 (start at 1000) and a kernel HALT that
 traps to 4. #PWRF halts through vector 24, BPT and the trace trap through
-14; the debugger answers either with 173004 and 340. HALT, the #EVENT and
+14; the debugger answers either with 173004 and 340. A vector read has
+no bus code of its own, and a program reads those words as data (the
+Unix boot block copies itself through them) or handles BPT itself. The
+vector at 14 is answered only in a step, for a BPT at a break point, or
+while it points at itself, as the MC6800's SWI vector does to halt to
+the debugger; the one at 24 only while #PWRF is held. HALT, the #EVENT and
 IRQ lines and #MISS come from a 74HCT259 that shares the 153s' selects.
 `RegsPdp11` saves the FP11's FPS and AC0-AC5; its FD and FL bits pick
 how the disassembler spells FP11 instructions, as single and double (or

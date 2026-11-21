@@ -109,7 +109,8 @@ private:
     void execute(const uint16_t *inst, uint_fast8_t words, uint16_t *buf,
             uint_fast8_t max, uint16_t &org, uint32_t exit,
             const uint16_t *stack, uint16_t stackAt, uint_fast8_t stackWords);
-    bool parkAfterFrame(Signals *s, bool step);
+    bool breakTrap(const Signals *s) const;
+    bool parkAfterFrame(Signals *s, bool step, bool halting);
     bool suspend(Signals *s);
     bool rawStep();
     bool loop();
