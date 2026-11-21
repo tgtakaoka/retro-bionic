@@ -36,6 +36,8 @@ struct Devs {
     virtual Device *parseDevice(const char *word) const { return nullDevice(); }
     virtual void enableDevice(Device *dev) {}
     virtual void printDevices() const {}
+    // |path| was loaded from the SD card.
+    virtual void fileLoaded(const char *path) {}
 
     static Device *nullDevice();
 

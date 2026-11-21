@@ -155,6 +155,10 @@ void Target::printDevices() const {
     _devs->printDevices();
 }
 
+void Target::fileLoaded(const char *path) {
+    _devs->fileLoaded(path);
+}
+
 Device *Target::parseDevice(const char *word) const {
     return _devs->parseDevice(word);
 }

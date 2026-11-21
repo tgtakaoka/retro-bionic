@@ -1,4 +1,5 @@
-/* imxrt1062_t41.ld from the Teensy 4 core, with libasm kept in flash and
+/* imxrt1062_t41.ld from the Teensy 4 core, with libasm and the SD card's
+   libraries kept in flash and
    per-target ITCM overlays (see scripts/teensy41_layout.py) */
 
 MEMORY
@@ -40,6 +41,12 @@ SECTIONS
 	.text.progmem : {
 		*(.progmem*)
 		*libasm.a:*(.text .text.* .rodata .rodata.* .data.rel.ro .data.rel.ro.*)
+		*libSD.a:*(.text .text.* .rodata .rodata.* .data.rel.ro .data.rel.ro.*)
+		*libSdFat.a:*(.text .text.* .rodata .rodata.* .data.rel.ro .data.rel.ro.*)
+		/* the formatted output they pull in */
+		*libc*.a:*printf*(.text .text.* .rodata .rodata.*)
+		*libc*.a:*dtoa*(.text .text.* .rodata .rodata.*)
+		*libc*.a:*mprec*(.text .text.* .rodata .rodata.*)
 		. = ALIGN(4);
 	} > FLASH
 

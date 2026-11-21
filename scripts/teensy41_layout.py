@@ -2,6 +2,7 @@
 
 libasm builds without LTO so that the linker script can keep its code and
 tables in flash; it serves only the assembler and disassembler commands.
+So do the SD card's libraries, which serve an emulated disk's transfers.
 
 With ITCM_OVERLAY defined, each target directory's code goes to an ITCM
 overlay, which Identity::instance() loads for the one target a power-up
@@ -14,7 +15,7 @@ import re
 Import("env")
 
 for lb in env.GetLibBuilders():
-    if lb.name == "libasm":
+    if lb.name in ("libasm", "SD", "SdFat"):
         lb.env.Replace(CCFLAGS=[f for f in lb.env["CCFLAGS"] if "lto" not in f])
 
 overlay = "ITCM_OVERLAY" in env.get("CPPDEFINES", [])
