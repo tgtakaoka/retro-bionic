@@ -2912,6 +2912,13 @@ Specification asks: none of those three stopped the abort alone. With
 verbose on, a cycle reports any fall of #ABORT, not only a low one at
 its end. **[doc][bench]**
 
+**Bus timeout.** A read of 760000-760077, the I/O page's first words,
+is aborted: the debugger pulls #ABORT low in the cycle's stretch, as an
+abort from outside has to come (DCJ11 User's Guide, 2.6.3), and lets it
+go as #SCTL rises. The CPU traps through 4 with the timeout bit in its
+error register; Unix sizes its memory by that trap. The rest of the I/O
+page outside its devices still reads 0. **[doc][code]**
+
 **Entries and power-up.** The power-up configuration read is answered
 with 001017: POK, power-up mode 3 (start at 1000) and a kernel HALT that
 traps to 4. #PWRF halts through vector 24, BPT and the trace trap through

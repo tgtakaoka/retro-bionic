@@ -259,6 +259,25 @@ inline bool abort_seen() {
            (Debugger.verbose() && (GPIO9_ISR & ABORT_bm) != 0);
 }
 
+// The debugger's own #ABORT, open-collector as the DCJ11's is: a bus
+// timeout, which traps through 4.
+void assert_abort() {
+    digitalWriteFast(PIN_ABORT, LOW);
+    pinMode(PIN_ABORT, OUTPUT);
+}
+
+void negate_abort() {
+    digitalWriteFast(PIN_ABORT, HIGH);
+    pinMode(PIN_ABORT, INPUT_PULLUP);
+    clear_abort();
+}
+
+// Whether |s| reads where no device answers: Unix sizes its memory by
+// the bus timeout at the I/O page's first words, 760000-760077.
+inline bool bus_timeout(const Signals *s) {
+    return s->read() && !s->fetch() && s->ioPage() && (s->addr & 017700) == 0;
+}
+
 // Sets output |q| of the 259 to |level|, and leaves the 153s at select 1.
 void write_latch(uint8_t q, bool level) {
     digitalWriteFast(PIN_ASEL0, (q & 1) ? HIGH : LOW);
@@ -428,6 +447,8 @@ Signals *PinsDcj11::completeCycle(Signals *s) {
         clock_while_low([s] { s->outData(); });
         if (!clockUntil(sctl_asserted))
             cli.println("?#SCTL read");
+        if (bus_timeout(s))
+            assert_abort();
         clock_after_rise(assert_dv);
     } else if (!clockUntil(sctl_asserted)) {
         cli.println("?#SCTL internal");
@@ -440,7 +461,9 @@ Signals *PinsDcj11::completeCycle(Signals *s) {
     negate_cont();
     negate_dv();
     s->inputMode();
-    if (abort_seen()) {
+    if (bus_timeout(s)) {
+        negate_abort();
+    } else if (abort_seen()) {
         cli.print("?#ABORT ");
         s->print();
     }
@@ -806,6 +829,9 @@ void PinsDcj11::serve(Signals *s) {
         s->getData();
         storeData(s);
     } else if (read) {
+        // In the stretch, as an abort from outside has to come.
+        if (bus_timeout(s))
+            assert_abort();
         assert_dv();
     }
 }
@@ -813,7 +839,8 @@ void PinsDcj11::serve(Signals *s) {
 // Ends a held cycle with #CONT; interrupts stay masked until the next
 // address is in.
 void PinsDcj11::release(Signals *s) {
-    if (abort_asserted()) {
+    const auto timeout = abort_asserted() && bus_timeout(s);
+    if (abort_asserted() && !timeout) {
         cli.print("?#ABORT ");
         s->print();
     }
@@ -823,6 +850,8 @@ void PinsDcj11::release(Signals *s) {
     while (sctl_asserted() && ARM_DWT_CYCCNT - start < sctl_cycles)
         ;
     negate_cont();
+    if (timeout)
+        negate_abort();
     negate_dv();
     s->inputMode();
     Cycles::next();
