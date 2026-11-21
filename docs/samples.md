@@ -43,12 +43,13 @@ The disks: A: the system, an 8 MB `hd8` disk with the CP/M tools and MBASIC; B: 
 user disk, an 8 MB `hd8` with `fmandel.bas`; C: and D: blank `ibm-3740` floppies
 (empty files), removable through `O` and `^C`.
 
-The CP/M binaries stay out of the repository. Unpack
-[cpm2-asm.zip](http://www.cpm.z80.de/download/cpm2-asm.zip) (`CPM22.ASM`) into
-`samples/i8080/cpm80/`, and put the A: files, such as those of
-[cpm22-b.zip](http://www.cpm.z80.de/download/cpm22-b.zip) and `MBASIC.COM`, in
-`samples/i8080/cpm80/a/` ([license](http://www.cpm.z80.de/license.html); MBASIC is
-Microsoft's). Then:
+The CP/M binaries stay out of the repository: the first `make` downloads them
+with `debugger/i8080/tools/cpm80-fetch.py` into `samples/i8080/cpm80/`, checks each
+archive's sha256, and keeps the archives in `cpm80/dl/` so later builds work offline.
+It fetches CP/M 2.2 from [cpm.z80.de](http://www.cpm.z80.de/download/)
+([license](http://www.cpm.z80.de/license.html)), BDS C and HI-TECH C. MBASIC is
+Microsoft's and isn't fetched: put your own `MBASIC.COM` in `samples/i8080/cpm80/a/`.
+Then:
 
 ```sh
 cd samples/i8080
@@ -68,17 +69,17 @@ emulation at 1000:0000 with the 8080's cold boot, and mounts `i8086/cpm80.dsk`, 
 of the 8080's (`make cpm80.dsk cpm80b.dsk` in `samples/i8086`).
 
 **BDS C** (public domain, [bdsoft.com](https://www.bdsoft.com/resources/bdsc.html))
-compiles on the 8080. Put `bdsc160/`'s files from `bdsc-all.zip` in
-`samples/i8080/cpm80/a/`; its `.LBR` libraries are crunched and unpack only on a
+compiles on the 8080; A: has `bdsc160/`'s files from `bdsc-all.zip` and
+`extra/BCD.LBR`. Its `.LBR` libraries are crunched and unpack only on a
 Z80 (`LBREXT`, `UNCRUNCH`). `mandel.c` on B: is the integer mandelbrot:
 `A>SUBMIT BDSC MANDEL` (`bdsc.sub` on A:: `CC`, then `CLINK`), then `A>B:MANDEL`.
 
 **HI-TECH C 3.09** (free, copyright HI-TECH Software,
 [agn453/HI-TECH-Z80-C](https://github.com/agn453/HI-TECH-Z80-C)) needs a Z80; it fails
-on the Z380. Unpack `htc-bin.lbr` into `samples/i8080/cpm80/a/` with
-`debugger/i8080/tools/lbr.py`.
-`fmandel.c` on B: is the floating-point mandelbrot: `A>SUBMIT HITECHC FMANDEL`
-(`hitechc.sub`: `C309 -LF`), then `A>FMANDEL`; `mandel.c` builds too.
+on the Z380. A: has the files of `htc-bin.lbr`, unpacked with
+`debugger/i8080/tools/lbr.py`. `fmandel.c` on B: is the floating-point mandelbrot:
+`A>SUBMIT HITECHC FMANDEL` (`hitechc.sub`: `C309 -LF`), then `A>FMANDEL`; `mandel.c`
+builds too.
 
 ## The reference implementation
 
