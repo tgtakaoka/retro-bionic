@@ -56,7 +56,12 @@ make cpm80.dsk cpm80b.dsk cpm80c.dsk cpm80d.dsk
 ```
 
 copy `cpm80.hex` and the four disks into `i8080/` on the SD card, and `L i8080/cpm80.hex`,
-`R`, `G` boots to `A>`; `B>A:MBASIC FMANDEL` draws the set.
+`R`, `G` boots to `A>`; `B>A:MBASIC FMANDEL` draws the set. The Z80, NSC800 and
+KL5C80 boot the same files.
+
+The Z180, Z280 and Z380 decode 16-bit ports, so `samples/z180` has their port
+routines (0140H, 0150H, `OUT (C)`); `make cpm80.dsk` there puts that BIOS on a copy of
+the 8080's A:, and `L z180/cpm80.hex` boots it.
 
 ## The reference implementation
 
