@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Pins the CP/M disk layout that samples/i8080/cpm80bios.asm,
-scripts/cpm-disk.py and debugger/sector_disk.cpp share.
+samples/i8086/cpm86bios.asm, scripts/cpm-disk.py and
+debugger/sector_disk.cpp share.
 
     python3 -m unittest discover -s test/cpm
 """
@@ -12,6 +13,7 @@ import unittest
 
 PROJ = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 SAMPLES = os.path.join(PROJ, 'samples', 'i8080')
+SAMPLES86 = os.path.join(PROJ, 'samples', 'i8086')
 
 spec = importlib.util.spec_from_file_location(
     'cpm_disk', os.path.join(PROJ, 'scripts', 'cpm-disk.py'))
@@ -94,6 +96,72 @@ class BiosTables(unittest.TestCase):
                         top = max(top, ((rec[1] << 8) | rec[2]) + rec[0])
             self.assertLessEqual(top, at['dirbuf'])
             self.assertLessEqual(top, 0xFA00 + 7 * 128)
+
+
+class Bios86Tables(unittest.TestCase):
+    # read_hex() skips the extended address record, so the memory is the
+    # system segment.
+    def setUp(self):
+        self.mem = memory(os.path.join(SAMPLES86, 'cpm86bios.hex'))
+        self.at = labels(os.path.join(SAMPLES86, 'cpm86bios.lst'))
+
+    def test_skew(self):
+        xlt = self.at['xlt']
+        self.assertEqual(list(self.mem[xlt:xlt + 26]), DRI_TRANS)
+
+    def test_dpb(self):
+        dpb = self.at['dpb']
+        self.assertEqual(bytes(self.mem[dpb:dpb + 15]), DRI_DPB)
+
+    def test_hd8_dpb(self):
+        dpb = self.at['dpb_hd8']
+        self.assertEqual(bytes(self.mem[dpb:dpb + 15]), HD8_DPB)
+
+    def test_alv_fits_hd8(self):
+        # One bit a block: hd8's DSM 1015 takes 127 bytes a drive.
+        alv = [self.mem[self.at['dph0'] + 16 * d + 14] |
+               self.mem[self.at['dph0'] + 16 * d + 15] << 8 for d in range(4)]
+        self.assertEqual(alv[0], self.at['alv'])
+        self.assertTrue(all(b - a >= 1015 // 8 + 1 for a, b in zip(alv, alv[1:])))
+
+    def test_jump_table(self):
+        # CP/M-86 System Guide: 21 3-byte jumps at 2500H, INIT to SETIOB.
+        names = ['init', 'wboot', 'const', 'conin', 'conout', 'list',
+                 'punch', 'reader', 'home', 'seldsk', 'settrk', 'setsec',
+                 'setdma', 'read', 'write', 'listst', 'sectran', 'setdmab',
+                 'getsegb', 'getiob', 'setiob']
+        for i, name in enumerate(names):
+            at = 0x2500 + 3 * i
+            self.assertEqual(self.mem[at], 0xE9, name)
+            target = (at + 3 + (self.mem[at + 1] | self.mem[at + 2] << 8)) & 0xFFFF
+            self.assertEqual(target, self.at[name], name)
+
+    def test_reset_vector(self):
+        # F000:FFF0 is FFFF0H: JMPF F000:init.
+        init = self.at['init']
+        self.assertEqual(bytes(self.mem[0xFFF0:0xFFF5]),
+                         bytes([0xEA, init & 0xFF, init >> 8, 0x00, 0xF0]))
+        with open(os.path.join(SAMPLES86, 'cpm86bios.hex')) as f:
+            self.assertEqual(f.readline().strip(), ':02000004000FEB')
+        self.assertEqual(cpm_disk.CCP86_SEG, 0xF000)
+
+    def test_ccp86(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            sys_ = os.path.join(tmp, 'CPM.SYS')
+            code = bytearray(range(256)) * 0x26
+            code[0x0A] = 8  # an autoload command
+            with open(sys_, 'wb') as f:
+                f.write(bytes([1, 0x60, 0x02]).ljust(128, b'\0') + code)
+            out = os.path.join(tmp, 'ccp.hex')
+            cpm_disk.ccp86(sys_, out)
+            with open(out) as f:
+                lines = f.read().split()
+            mem = memory(out)
+        self.assertEqual(lines[0], ':02000004000FEB')
+        self.assertTrue(all(len(line) < 80 for line in lines))
+        self.assertEqual(mem[0x0A], 0)
+        self.assertEqual(mem[0x24FF], code[0x24FF])
+        self.assertEqual(mem[0x2500], 0xE5)
 
 
 class ImageLayout(unittest.TestCase):

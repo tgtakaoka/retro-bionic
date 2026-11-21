@@ -45,7 +45,7 @@ it so a re-arm is explicit.
 | Script | What it does |
 |---|---|
 | `asm-includes.py` | Lists the files an assembler source includes, for `samples/deps.mk`. |
-| `cpm-disk.py` | Builds the 8" CP/M 2.2 disk images the debugger's sector disk mounts from the SD card, and lists, extracts, adds and erases their files. |
+| `cpm-disk.py` | Builds the 8" CP/M 2.2 disk images the debugger's sector disk mounts from the SD card, lists, extracts, adds and erases their files, and turns CP/M-86's CPM.SYS into HEX. |
 | `route-length.py` | Compares routed track lengths in a KiCad board with straight-line pad distances. |
 | `kicad/` | Draws a new board's first schematic, PCB, `<chip>_bionic.toml` and a QFP CPU's STEP model, square or rectangular, marked as in a photo of the chip; see [kicad/README.md](kicad/README.md). |
 | `setup_compiledb.py` | PlatformIO extra script that refreshes `compile_commands.json` for clangd. |

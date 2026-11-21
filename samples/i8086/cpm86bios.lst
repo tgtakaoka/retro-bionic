@@ -1,0 +1,477 @@
+          0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+          0 :                    ;;; CP/M-86 1.1 BIOS: the console on the i8251 USART and four drives on
+          0 :                    ;;; the debugger's sector disk. Addresses are offsets in the system
+          0 :                    ;;; segment; the Makefile places it at F0000H. The BDOS calls it with
+          0 :                    ;;; DS=CS.
+          0 :                            cpu     8086
+          0 :                            include "cpm86.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :
+(1)       0 :                    ;;; CP/M-86 1.1 in one segment at the top of memory: CCP and BDOS from
+(1)       0 :                    ;;; CPM.SYS, then the BIOS at 2500H. The reset vector at FFFF0H is
+(1)       0 :                    ;;; F000:FFF0, in the same segment. Memory below it, past the
+(1)       0 :                    ;;; interrupt vectors and the debugger's park at 0400H-040FH, is the
+(1)       0 :                    ;;; TPA.
+(1)       0 : =F000              SYSSEG:         equ     0F000H
+(1)       0 : =0                 CCP:            equ     0000H
+(1)       0 : =6                 WARM_CCP:       equ     CCP+6           ; past the autoload command
+(1)       0 : =B00               BDOS:           equ     CCP+0B00H
+(1)       0 : =B06               BDOS_ENTRY:     equ     BDOS+6
+(1)       0 : =2500              BIOS:           equ     CCP+2500H
+(1)       0 : =E0                BDOS_INT:       equ     224             ; INT E0H calls BDOS
+(1)       0 : =41                TPA_SEG:        equ     0041H
+(1)       0 : =1A                SPT:            equ     26              ; sectors a track
+          0 :                            include "usart.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :                    ;;; i8251 Universal Synchronous/Asynchronous Receiver/Transmitter
+(1)       0 : =40                USART:          equ     40H
+(1)       0 : =40                USARTD:         equ     USART+0 ; Receive/Transmit data
+(1)       0 : =41                USARTS:         equ     USART+1 ; Status register
+(1)       0 : =41                USARTC:         equ     USART+1 ; Control register
+(1)       0 : =42                USARTRV:        equ     USART+2 ; Receive interrupt type
+(1)       0 : =43                USARTTV:        equ     USART+3 ; Transmit interrupt type
+(1)       0 :                            include "../i8080/i8251.inc"
+(2)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(2)       0 :
+(2)       0 :                    ;;; i8251 USART device emulator.
+(2)       0 :                    ;;; Bit definition of mode instruction (asynchronous)
+(2)       0 : =6                 MODE_STOP_gp:   equ     6
+(2)       0 : =C0                MODE_STOP_gm:   equ     11000000B
+(2)       0 : =40                MODE_STOP1_gc:  equ     (1 << MODE_STOP_gp)
+(2)       0 : =80                MODE_STOP15_gc: equ     (2 << MODE_STOP_gp)
+(2)       0 : =C0                MODE_STOP2_gc:  equ     (3 << MODE_STOP_gp)
+(2)       0 : =20                MODE_EVEN_bm:   equ     00100000B   ; Even parity
+(2)       0 : =10                MODE_PARITY_bm: equ     00010000B   ; Parity enable
+(2)       0 : =2                 MODE_LEN_gp:    equ     2
+(2)       0 : =C                 MODE_LEN_gm:    equ     00001100B
+(2)       0 : =0                 MODE_LEN5_gc:   equ     (0 << MODE_LEN_gp)
+(2)       0 : =4                 MODE_LEN6_gc:   equ     (1 << MODE_LEN_gp)
+(2)       0 : =8                 MODE_LEN7_gc:   equ     (2 << MODE_LEN_gp)
+(2)       0 : =C                 MODE_LEN8_gc:   equ     (3 << MODE_LEN_gp)
+(2)       0 : =0                 MODE_BAUD_gp:   equ     0
+(2)       0 : =3                 MODE_BAUD_gm:   equ     00000011B
+(2)       0 : =1                 MODE_BAUD_X1:   equ     (1 << MODE_BAUD_gp)
+(2)       0 : =2                 MODE_BAUD_X16:  equ (2 << MODE_BAUD_gp)
+(2)       0 : =3                 MODE_BAUD_X64:  equ (3 << MODE_BAUD_gp)
+(2)       0 :                    ;;; Bit Definition of command register
+(2)       0 : =80                CMD_EH_bm:      equ     10000000B   ; Enter hunt mode
+(2)       0 : =40                CMD_IR_bm:      equ     01000000B   ; Internal Reset
+(2)       0 : =20                CMD_RTS_bm:     equ     00100000B   ; Request To Send
+(2)       0 : =10                CMD_ER_bm:      equ     00010000B   ; Error Reset
+(2)       0 : =8                 CMD_SBRK_bm:    equ     00001000B   ; Send Break
+(2)       0 : =4                 CMD_RxEN_bm:    equ     00000100B   ; Receive Enable
+(2)       0 : =2                 CMD_DTR_bm:     equ     00000010B   ; Data Terminal Ready
+(2)       0 : =1                 CMD_TxEN_bm:    equ     00000001B   ; Transmit enable
+(2)       0 :
+(2)       0 :                    ;;; Bit definition of status register
+(2)       0 : =80                ST_DSR_bm:      equ     10000000B   ; Data Set Ready
+(2)       0 : =40                ST_BRK_bm:      equ     01000000B   ; BREAK detected
+(2)       0 : =20                ST_FE_bm:       equ     00100000B   ; Framing Error
+(2)       0 : =10                ST_OE_bm:       equ     00010000B   ; Overrun Error
+(2)       0 : =8                 ST_PE_bm:       equ     00001000B   ; Parity Error
+(2)       0 : =4                 ST_TxEMPTY_bm:  equ     00000100B   ; Transmitter empty
+(2)       0 : =2                 ST_RxRDY_bm:    equ     00000010B   ; Receiver ready
+(2)       0 : =1                 ST_TxRDY_bm:    equ     00000001B   ; Transmitter ready
+(1)       0 :                    ;;; Async 1stop 8data x16
+(1)       0 : =4E                ASYNC_MODE:     equ     MODE_STOP1_gc|MODE_LEN8_gc|MODE_BAUD_X16
+(1)       0 :                    ;;; RTS/DTR, error reset, Rx enable, Tx enable
+(1)       0 : =37                RX_EN_TX_EN:    equ     CMD_RTS_bm|CMD_DTR_bm|CMD_ER_bm|CMD_RxEN_bm|CMD_TxEN_bm
+(1)       0 : =36                RX_EN_TX_DIS:   equ     CMD_RTS_bm|CMD_DTR_bm|CMD_ER_bm|CMD_RxEN_bm
+(1)       0 :
+(1)       0 :                    ;;; Interrupt types the USART answers INTA with; the debugger owns
+(1)       0 :                    ;;; types 1-3.
+(1)       0 : =20                VEC_RX:         equ     20H
+(1)       0 : =21                VEC_TX:         equ     21H
+          0 :
+          0 : =50                DISK:   equ     50H
+          0 :                            include "../i8080/sector_disk.inc"
+(1)       0 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)       0 :
+(1)       0 :                    ;;; The debugger's paravirtual sector disk (debugger/sector_disk.h).
+(1)       0 :                    ;;; DISK is its base port.
+(1)       0 : =50                DISK_DRIVE:     equ     DISK+0  ; 0-3
+(1)       0 : =51                DISK_TRACK:     equ     DISK+1  ; 0-76
+(1)       0 : =52                DISK_SECTOR:    equ     DISK+2  ; 1-26, physical
+(1)       0 : =53                DISK_DMAL:      equ     DISK+3  ; DMA address, low byte
+(1)       0 : =54                DISK_DMAH:      equ     DISK+4  ; high byte
+(1)       0 : =55                DISK_COMMAND:   equ     DISK+5  ; write a command, read its status
+(1)       0 : =56                DISK_MOUNTED:   equ     DISK+6  ; bit n: drive n has its image
+(1)       0 : =57                DISK_DMAX:      equ     DISK+7  ; DMA address bits 16-23
+(1)       0 : =1                 CMD_READ:       equ     1
+(1)       0 : =2                 CMD_WRITE:      equ     2
+          0 : =4                 NDISKS: equ     4
+          0 :                    ;;; The format a drive's image has, IN DISK_DRIVE bits 4-7 once selected.
+          0 : =0                 FMT_3740:       equ     0       ; 8" single density
+          0 : =1                 FMT_HD8:        equ     1       ; 8 MB hard disk
+          0 : =80                ALV_BYTES:      equ     128     ; hd8's 1016 blocks
+          0 :
+          0 :                    ;;; The jump table's entries are 3 bytes apart; asm makes a JMP in reach
+          0 :                    ;;; short, so each is spelled out.
+       2500 :                            org     BIOS
+       2500 : E9                         db      0E9H
+       2501 : 4C 00                      dw      init-$-2
+       2503 : E9                         db      0E9H
+       2504 : 98 00                      dw      wboot-$-2
+       2506 : E9                         db      0E9H
+       2507 : D4 00                      dw      const-$-2
+       2509 : E9                         db      0E9H
+       250A : E1 00                      dw      conin-$-2
+       250C : E9                         db      0E9H
+       250D : FC 00                      dw      conout-$-2
+       250F : E9                         db      0E9H
+       2510 : 0B 01                      dw      list-$-2
+       2512 : E9                         db      0E9H
+       2513 : 08 01                      dw      punch-$-2
+       2515 : E9                         db      0E9H
+       2516 : 09 01                      dw      reader-$-2
+       2518 : E9                         db      0E9H
+       2519 : 16 01                      dw      home-$-2
+       251B : E9                         db      0E9H
+       251C : 29 01                      dw      seldsk-$-2
+       251E : E9                         db      0E9H
+       251F : 12 01                      dw      settrk-$-2
+       2521 : E9                         db      0E9H
+       2522 : 14 01                      dw      setsec-$-2
+       2524 : E9                         db      0E9H
+       2525 : 16 01                      dw      setdma-$-2
+       2527 : E9                         db      0E9H
+       2528 : 5D 01                      dw      read-$-2
+       252A : E9                         db      0E9H
+       252B : 5E 01                      dw      write-$-2
+       252D : E9                         db      0E9H
+       252E : EE 00                      dw      listst-$-2
+       2530 : E9                         db      0E9H
+       2531 : 85 01                      dw      sectran-$-2
+       2533 : E9                         db      0E9H
+       2534 : 0C 01                      dw      setdmab-$-2
+       2536 : E9                         db      0E9H
+       2537 : F4 00                      dw      getsegb-$-2
+       2539 : E9                         db      0E9H
+       253A : E8 00                      dw      getiob-$-2
+       253C : E9                         db      0E9H
+       253D : E9 00                      dw      setiob-$-2
+       253F :
+       253F :                    signon:
+       253F : 0D 0A 43 50 2F 4D          db      0DH, 0AH, 'CP/M-86 1.1', 0DH, 0AH, 0
+       2545 : 2D 38 36 20 31 2E
+       254B : 31 0D 0A 00
+       254F :
+       254F :                    init:
+       254F : FA                         cli
+       2550 : 8C C8                      mov     ax, cs
+       2552 : 8E D8                      mov     ds, ax
+       2554 : 8E D0                      mov     ss, ax
+       2556 : BC 49 2A                   mov     sp, stack
+       2559 : B4 36                      mov     ah, RX_EN_TX_DIS
+       255B : E8 43 00                   call    init_usart
+       255E : BB 3F 25                   mov     bx, signon
+       2561 : E8 56 00                   call    puts
+       2564 : 31 C0                      xor     ax, ax
+       2566 : 8E C0                      mov     es, ax
+       2568 : 26 C7 06 80 03 06          mov     word ptr es:[BDOS_INT*4], BDOS_ENTRY
+       256E : 0B
+       256F : 26 8C 0E 82 03             mov     es:[BDOS_INT*4+2], cs
+       2574 : 26 C7 06 80 00 C7          mov     word ptr es:[VEC_RX*4], isr_rx
+       257A : 25
+       257B : 26 8C 0E 82 00             mov     es:[VEC_RX*4+2], cs
+       2580 : 26 C7 06 84 00 D6          mov     word ptr es:[VEC_TX*4], isr_tx
+       2586 : 25
+       2587 : 26 8C 0E 86 00             mov     es:[VEC_TX*4+2], cs
+       258C : 8C C8                      mov     ax, cs
+       258E : 8E C0                      mov     es, ax
+       2590 : C6 06 42 27 00             mov     byte ptr [iobyte], 0
+       2595 : 8C 0E 47 27                mov     [dma_seg], cs
+       2599 : B1 00                      mov     cl, 0                   ; drive A:
+       259B : E9 62 DA                   jmp     CCP
+       259E :
+       259E :                    ;;; CCP and BDOS stay in memory: no reload.
+       259E :                    wboot:
+       259E : E9 65 DA                   jmp     WARM_CCP
+       25A1 :
+       25A1 :                            include "init_usart.inc"
+(1)    25A1 :                    ;;; -*- mode: asm; mode: flyspell-prog; -*-
+(1)    25A1 :                    ;;; Initialize the USART, interrupts not yet enabled
+(1)    25A1 :                    ;;; @param AH the command, RX_EN_TX_EN or RX_EN_TX_DIS
+(1)    25A1 :                    ;;; @clobber AL
+(1)    25A1 :                    init_usart:
+(1)    25A1 : 30 C0                      xor     al, al          ; clear AL
+(1)    25A3 : E6 41                      out     USARTC, al
+(1)    25A5 : E6 41                      out     USARTC, al
+(1)    25A7 : E6 41                      out     USARTC, al      ; safest way to sync mode
+(1)    25A9 : B0 40                      mov     al, CMD_IR_bm
+(1)    25AB : E6 41                      out     USARTC, al      ; reset
+(1)    25AD : 90                         nop
+(1)    25AE : 90                         nop
+(1)    25AF : B0 4E                      mov     al, ASYNC_MODE
+(1)    25B1 : E6 41                      out     USARTC, al
+(1)    25B3 : 90                         nop
+(1)    25B4 : 90                         nop
+(1)    25B5 : 88 E0                      mov     al, ah
+(1)    25B7 : E6 41                      out     USARTC, al
+(1)    25B9 : C3                         ret
+       25BA :
+       25BA :                    puts:
+       25BA : 8A 0F                      mov     cl, [bx]
+       25BC : 08 C9                      or      cl, cl
+       25BE : 74 06                      jz      puts_end
+       25C0 : E8 48 00                   call    conout
+       25C3 : 43                         inc     bx
+       25C4 : EB F4                      jmp     puts
+       25C6 :                    puts_end:
+       25C6 : C3                         ret
+       25C7 :
+       25C7 :                    ;;; The USART interrupts while a character waits, and while it can
+       25C7 :                    ;;; take one with the transmitter on. CP/M polls with interrupts off,
+       25C7 :                    ;;; but a program may turn them on: the Rx handler keeps the character
+       25C7 :                    ;;; for CONIN, and the Tx handler turns the transmitter off, which
+       25C7 :                    ;;; CONOUT turns on to send.
+       25C7 :                    isr_rx:
+       25C7 : 50                         push    ax
+       25C8 : E4 40                      in      al, USARTD
+       25CA : 2E A2 44 27                mov     cs:[rx_char], al
+       25CE : 2E C6 06 43 27 FF          mov     byte ptr cs:[rx_ready], 0FFH
+       25D4 : 58                         pop     ax
+       25D5 : CF                         iret
+       25D6 :
+       25D6 :                    isr_tx:
+       25D6 : 50                         push    ax
+       25D7 : B0 36                      mov     al, RX_EN_TX_DIS
+       25D9 : E6 41                      out     USARTC, al
+       25DB : 58                         pop     ax
+       25DC : CF                         iret
+       25DD :
+       25DD :                    ;;; Console status: AL=FFH when a character is waiting, else 0.
+       25DD :                    const:
+       25DD : A0 43 27                   mov     al, [rx_ready]
+       25E0 : 08 C0                      or      al, al
+       25E2 : 75 08                      jnz     const_end
+       25E4 : E4 41                      in      al, USARTS
+       25E6 : 24 02                      and     al, ST_RxRDY_bm
+       25E8 : 74 02                      jz      const_end
+       25EA : B0 FF                      mov     al, 0FFH
+       25EC :                    const_end:
+       25EC : C3                         ret
+       25ED :
+       25ED :                    conin:
+       25ED : E8 ED FF                   call    const
+       25F0 : 74 FB                      jz      conin
+       25F2 : 9C                         pushf
+       25F3 : FA                         cli
+       25F4 : 80 3E 43 27 00             cmp     byte ptr [rx_ready], 0
+       25F9 : 74 0A                      je      conin_port
+       25FB : C6 06 43 27 00             mov     byte ptr [rx_ready], 0
+       2600 : A0 44 27                   mov     al, [rx_char]
+       2603 : EB 02                      jmp     conin_end
+       2605 :                    conin_port:
+       2605 : E4 40                      in      al, USARTD
+       2607 :                    conin_end:
+       2607 : 9D                         popf
+       2608 : 24 7F                      and     al, 7FH
+       260A : C3                         ret
+       260B :
+       260B :                    conout:
+       260B : 9C                         pushf
+       260C : FA                         cli
+       260D : B0 37                      mov     al, RX_EN_TX_EN
+       260F : E6 41                      out     USARTC, al
+       2611 :                    conout_wait:
+       2611 : E4 41                      in      al, USARTS
+       2613 : A8 01                      test    al, ST_TxRDY_bm
+       2615 : 74 FA                      jz      conout_wait
+       2617 : 88 C8                      mov     al, cl
+       2619 : E6 40                      out     USARTD, al
+       261B : 9D                         popf
+       261C : C3                         ret
+       261D :
+       261D :                    ;;; No list, punch or reader device.
+       261D :                    list:
+       261D :                    punch:
+       261D : C3                         ret
+       261E :                    listst:
+       261E : 30 C0                      xor     al, al
+       2620 : C3                         ret
+       2621 :                    reader:
+       2621 : B0 1A                      mov     al, 1AH                 ; end of file
+       2623 : C3                         ret
+       2624 :
+       2624 :                    getiob:
+       2624 : A0 42 27                   mov     al, [iobyte]
+       2627 : C3                         ret
+       2628 :
+       2628 :                    setiob:
+       2628 : 88 0E 42 27                mov     [iobyte], cl
+       262C : C3                         ret
+       262D :
+       262D :                    ;;; BX=the memory region table.
+       262D :                    getsegb:
+       262D : BB 3D 27                   mov     bx, mrt
+       2630 : C3                         ret
+       2631 :
+       2631 :                    home:
+       2631 : 31 C9                      xor     cx, cx
+       2633 :                    settrk:
+       2633 : 88 C8                      mov     al, cl
+       2635 : E6 51                      out     DISK_TRACK, al
+       2637 : C3                         ret
+       2638 :
+       2638 :                    setsec:
+       2638 : 88 C8                      mov     al, cl
+       263A : E6 52                      out     DISK_SECTOR, al
+       263C : C3                         ret
+       263D :
+       263D :                    setdma:
+       263D : 89 0E 45 27                mov     [dma_off], cx
+       2641 : C3                         ret
+       2642 :
+       2642 :                    setdmab:
+       2642 : 89 0E 47 27                mov     [dma_seg], cx
+       2646 : C3                         ret
+       2647 :
+       2647 :                    ;;; BX=the drive's DPH, set for its image's format, or 0 when it has
+       2647 :                    ;;; no image or one of a format it does not know.
+       2647 :                    seldsk:
+       2647 : 31 DB                      xor     bx, bx
+       2649 : 80 F9 04                   cmp     cl, NDISKS
+       264C : 73 38                      jae     seldsk_end
+       264E : E4 56                      in      al, DISK_MOUNTED
+       2650 : D2 E8                      shr     al, cl
+       2652 : A8 01                      test    al, 1
+       2654 : 74 30                      jz      seldsk_end
+       2656 : 88 C8                      mov     al, cl
+       2658 : E6 50                      out     DISK_DRIVE, al
+       265A : E4 50                      in      al, DISK_DRIVE
+       265C : 88 CB                      mov     bl, cl                  ; BX=CL*16
+       265E : B1 04                      mov     cl, 4
+       2660 : D3 E3                      shl     bx, cl
+       2662 : 81 C3 FD 26                add     bx, dph0
+       2666 : D2 E8                      shr     al, cl
+       2668 : 3C 00                      cmp     al, FMT_3740
+       266A : 74 07                      je      seldsk_3740
+       266C : 3C 01                      cmp     al, FMT_HD8
+       266E : 74 0D                      je      seldsk_hd8
+       2670 : 31 DB                      xor     bx, bx
+       2672 : C3                         ret
+       2673 :                    seldsk_3740:
+       2673 : C7 07 C5 26                mov     word ptr [bx], xlt              ; XLT
+       2677 : C7 47 0A DF 26             mov     word ptr [bx+10], dpb           ; DPB
+       267C : C3                         ret
+       267D :                    seldsk_hd8:
+       267D : C7 07 00 00                mov     word ptr [bx], 0
+       2681 : C7 47 0A EE 26             mov     word ptr [bx+10], dpb_hd8
+       2686 :                    seldsk_end:
+       2686 : C3                         ret
+       2687 :
+       2687 :                    ;;; AL=0 when the sector moved, else 1.
+       2687 :                    read:
+       2687 : B4 01                      mov     ah, CMD_READ
+       2689 : EB 02                      jmp     transfer
+       268B :                    write:
+       268B : B4 02                      mov     ah, CMD_WRITE
+       268D :                    transfer:
+       268D : 8B 16 47 27                mov     dx, [dma_seg]           ; DMA=dma_seg*16+dma_off
+       2691 : B1 04                      mov     cl, 4
+       2693 : D3 C2                      rol     dx, cl
+       2695 : 89 D3                      mov     bx, dx
+       2697 : 81 E2 F0 FF                and     dx, 0FFF0H
+       269B : 83 E3 0F                   and     bx, 000FH
+       269E : 03 16 45 27                add     dx, [dma_off]
+       26A2 : 80 D3 00                   adc     bl, 0
+       26A5 : 88 D0                      mov     al, dl
+       26A7 : E6 53                      out     DISK_DMAL, al
+       26A9 : 88 F0                      mov     al, dh
+       26AB : E6 54                      out     DISK_DMAH, al
+       26AD : 88 D8                      mov     al, bl
+       26AF : E6 57                      out     DISK_DMAX, al
+       26B1 : 88 E0                      mov     al, ah
+       26B3 : E6 55                      out     DISK_COMMAND, al
+       26B5 : E4 55                      in      al, DISK_COMMAND
+       26B7 : C3                         ret
+       26B8 :
+       26B8 :                    ;;; BX=the physical sector of logical sector CX through the table at DX;
+       26B8 :                    ;;; without one, as hd8 has, they are the same.
+       26B8 :                    sectran:
+       26B8 : 89 CB                      mov     bx, cx
+       26BA : 09 D2                      or      dx, dx
+       26BC : 74 06                      jz      sectran_end
+       26BE : 01 D3                      add     bx, dx
+       26C0 : 8A 1F                      mov     bl, [bx]
+       26C2 : 30 FF                      xor     bh, bh
+       26C4 :                    sectran_end:
+       26C4 : C3                         ret
+       26C5 :
+       26C5 :                    ;;; Skew 6, the 8" standard of DRI's skeletal CBIOS.ASM.
+       26C5 :                    xlt:
+       26C5 : 01 07 0D 13 19 05          db      1, 7, 13, 19, 25, 5, 11, 17, 23, 3, 9, 15, 21
+       26CB : 0B 11 17 03 09 0F
+       26D1 : 15
+       26D2 : 02 08 0E 14 1A 06          db      2, 8, 14, 20, 26, 6, 12, 18, 24, 4, 10, 16, 22
+       26D8 : 0C 12 18 04 0A 10
+       26DE : 16
+       26DF :
+       26DF :                    ;;; 8" single-density disk parameters: 1K blocks, 243 of them, 64
+       26DF :                    ;;; directory entries, 2 system tracks.
+       26DF :                    dpb:
+       26DF : 1A 00                      dw      SPT             ; SPT, sectors a track
+       26E1 : 03                         db      3               ; BSH, block shift
+       26E2 : 07                         db      7               ; BLM, block mask
+       26E3 : 00                         db      0               ; EXM, extent mask
+       26E4 : F2 00                      dw      242             ; DSM, last block
+       26E6 : 3F 00                      dw      63              ; DRM, last directory entry
+       26E8 : C0                         db      0C0H            ; AL0, the directory's blocks
+       26E9 : 00                         db      0               ; AL1
+       26EA : 10 00                      dw      16              ; CKS, directory check size
+       26EC : 02 00                      dw      2               ; OFF, system tracks
+       26EE :
+       26EE :                    ;;; The 8 MB hard disk every CP/M shares: 256 tracks of 256 sectors from
+       26EE :                    ;;; 0, 8K blocks, 1024 directory entries, 2 system tracks.
+       26EE :                    dpb_hd8:
+       26EE : 00 01                      dw      256             ; SPT
+       26F0 : 06                         db      6               ; BSH
+       26F1 : 3F                         db      63              ; BLM
+       26F2 : 03                         db      3               ; EXM
+       26F3 : F7 03                      dw      1015            ; DSM
+       26F5 : FF 03                      dw      1023            ; DRM
+       26F7 : F0                         db      0F0H            ; AL0
+       26F8 : 00                         db      0               ; AL1
+       26F9 : 00 00                      dw      0               ; CKS, fixed
+       26FB : 02 00                      dw      2               ; OFF
+       26FD :
+       26FD :                    ;;; SELDSK sets each drive's XLT and DPB.
+       26FD : C5 26 00 00 00 00  dph0:   dw      xlt, 0, 0, 0, dirbuf, dpb, csv+16*0, alv+ALV_BYTES*0
+       2703 : 00 00 49 27 DF 26
+       2709 : C9 27 09 28
+       270D : C5 26 00 00 00 00          dw      xlt, 0, 0, 0, dirbuf, dpb, csv+16*1, alv+ALV_BYTES*1
+       2713 : 00 00 49 27 DF 26
+       2719 : D9 27 89 28
+       271D : C5 26 00 00 00 00          dw      xlt, 0, 0, 0, dirbuf, dpb, csv+16*2, alv+ALV_BYTES*2
+       2723 : 00 00 49 27 DF 26
+       2729 : E9 27 09 29
+       272D : C5 26 00 00 00 00          dw      xlt, 0, 0, 0, dirbuf, dpb, csv+16*3, alv+ALV_BYTES*3
+       2733 : 00 00 49 27 DF 26
+       2739 : F9 27 89 29
+       273D :
+       273D :                    ;;; One region: the TPA, up to the system segment.
+       273D : 01                 mrt:    db      1
+       273E : 41 00 BF EF                dw      TPA_SEG, SYSSEG-TPA_SEG
+       2742 :
+       2742 : 00                 iobyte: db      0
+       2743 :                    rx_ready:
+       2743 : 00                         db      0
+       2744 :                    rx_char:
+       2744 : 00                         db      0
+       2745 :                    dma_off:
+       2745 : 80 00                      dw      0080H
+       2747 :                    dma_seg:
+       2747 : 00 00                      dw      0
+       2749 :
+       2749 :                    ;;; Scratch areas.
+       2749 :                    dirbuf: ds      128
+       27C9 :                    csv:    ds      16*NDISKS
+       2809 :                    alv:    ds      ALV_BYTES*NDISKS
+       2A09 :                            ds      64
+       2A49 : =2A49              stack:  equ     $
+       2A49 :
+       FFF0 :                            org     0FFF0H
+       FFF0 : EA 4F 25 00 F0             jmpf    SYSSEG:init
+       FFF5 :
+       FFF5 :                            end

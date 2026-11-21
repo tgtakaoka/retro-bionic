@@ -7,6 +7,7 @@
     scripts/cpm-disk.py sys IMAGE.dsk HEX...
     scripts/cpm-disk.py list IMAGE.dsk
     scripts/cpm-disk.py get IMAGE.dsk NAME.TYP [OUT]
+    scripts/cpm-disk.py ccp86 CPM.SYS OUT.hex
 
 The formats, with the DPB every CP/M shares for each:
 
@@ -34,6 +35,11 @@ same name; `era` erases files of user 0 from it, as CP/M's ERA does.
 `sys` writes the HEX files' bytes over the system tracks as --system
 does, keeping the bytes they leave out: a new BIOS over an image's
 CCP and BDOS.
+
+`ccp86` writes CP/M-86 1.1's CCP and BDOS, the first 2500H bytes of
+CPM.SYS's code, as Intel HEX at F0000H, the system segment of
+samples/i8086/cpm86.inc, below its BIOS at F2500H. The CCP's autoload
+command, which DRI's CompuPro CPM.SYS sets to MFORM, is cleared.
 """
 import os
 import sys
@@ -287,6 +293,33 @@ def load(path):
     return image
 
 
+CCP86_SEG = 0xF000
+CCP86_SIZE = 0x2500
+CCP86_AUTOLOAD = 0x0A   # the length of the CCP's command buffer
+
+
+def ccp86(cpm_sys, out):
+    with open(cpm_sys, 'rb') as f:
+        cmd = f.read()
+    # The CMD header's first group descriptor: its form, 1 for code, and
+    # its length in paragraphs.
+    if cmd[0] != 1 or (cmd[1] | cmd[2] << 8) * 16 < CCP86_SIZE:
+        sys.exit(f'{cpm_sys}: no CCP and BDOS')
+    system = bytearray(cmd[128:128 + CCP86_SIZE])
+    system[CCP86_AUTOLOAD] = 0
+    base = CCP86_SEG << 4
+    with open(out, 'w') as f:
+        f.write(ihex(4, 0, bytes([base >> 24, (base >> 16) & 0xFF])))
+        for at in range(0, len(system), 32):
+            f.write(ihex(0, (base + at) & 0xFFFF, system[at:at + 32]))
+        f.write(ihex(1, 0, b''))
+
+
+def ihex(kind, addr, data):
+    record = bytes([len(data), addr >> 8, addr & 0xFF, kind]) + data
+    return ':' + (record + bytes([-sum(record) & 0xFF])).hex().upper() + '\n'
+
+
 def main(argv):
     if len(argv) >= 2 and argv[0] == 'make':
         out, rest = argv[1], argv[2:]
@@ -325,6 +358,8 @@ def main(argv):
             sys.exit(f'{want}: not found')
         with open(argv[3] if len(argv) == 4 else want.lower(), 'wb') as f:
             f.write(contents(image, es))
+    elif len(argv) == 3 and argv[0] == 'ccp86':
+        ccp86(argv[1], argv[2])
     else:
         sys.exit(__doc__)
 
