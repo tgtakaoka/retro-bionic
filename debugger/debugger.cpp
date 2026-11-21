@@ -20,6 +20,7 @@
  *  g - Go until address
  *  F - list files in SD card
  *  L - load Intel Hex/Motorola S-record file
+ *  O - mount/unmount disk image
  *  U - upload Intel Hex/Motorola S-record
  *  I - show/select I/O device
  *  W - write identity EEPROM
@@ -36,6 +37,7 @@
 
 #if defined(ENABLE_SDCARD)
 #include <SD.h>
+#include "disk.h"
 #endif
 
 namespace debugger {
@@ -61,6 +63,7 @@ constexpr char HELP2[] =
 #if defined(ENABLE_SDCARD)
         "  F [path]       : list files on SD card\r\n"
         "  L file         : load an Intel HEX / S-record file from card\r\n"
+        "  O [label [file]]: list disks, mount file under label, unmount label\r\n"
 #endif
         "  G [n]          : run freely, backtrace last n lines (default: all)\r\n"
         "  g addr [n]     : run until addr (a one-shot breakpoint), same backtrace\r\n"
@@ -635,6 +638,53 @@ int loadS19Record(const char *line, uint32_t &addr) {
 }
 
 #if defined(ENABLE_SDCARD)
+// "label file" mounts the file under that label, "label" alone unmounts
+// it, and an empty line lists the drives.
+void handleDisk(char *line, uintptr_t, State state) {
+    if (state == State::CLI_CANCEL) {
+        printPrompt();
+        return;
+    }
+    cli.println();
+    auto disk = Debugger.target().disk();
+    if (disk == nullptr) {
+        cli.println("?no disk");
+        printPrompt();
+        return;
+    }
+    if (*line) {
+        auto path = line;
+        while (*path && *path != ' ')
+            ++path;
+        const auto end = path;
+        while (*path == ' ')
+            ++path;
+        *end = 0;
+        if (strlen(line) > Disk::LABEL_MAX) {
+            cli.println("?label too long");
+            printPrompt();
+            return;
+        }
+        SD.begin(BUILTIN_SDCARD);
+        if (*path == 0) {
+            if (!disk->unmount(line)) {
+                cli.print(line);
+                cli.println(" not mounted");
+            }
+        } else {
+            const auto mounted = disk->mount(line, path);
+            if (mounted == Disk::MOUNT_NOT_FOUND) {
+                cli.print(path);
+                cli.println(" not found");
+            } else if (mounted == Disk::MOUNT_NO_UNIT) {
+                cli.println("?no free drive");
+            }
+        }
+    }
+    disk->printDrives();
+    printPrompt();
+}
+
 void handleLoadFile(char *line, uintptr_t, State state) {
     if (state == State::CLI_CANCEL) {
         printPrompt();
@@ -1050,6 +1100,10 @@ void Debugger::exec(char c) {
     case 'L':
         cli.print("Load? ");
         cli.readLine(handleLoadFile, 0, str_buffer, sizeof(str_buffer));
+        return;
+    case 'O':
+        cli.print("Disk? ");
+        cli.readLine(handleDisk, 0, str_buffer, sizeof(str_buffer));
         return;
 #endif
     case 'U':

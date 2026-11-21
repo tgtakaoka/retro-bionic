@@ -2,6 +2,7 @@
 #define __DEBUGGER_SECTOR_DISK_H__
 
 #include "device.h"
+#include "disk.h"
 #include "mems.h"
 
 namespace debugger {
@@ -22,7 +23,7 @@ namespace debugger {
  *               read: the last command's status, 0 when it succeeded
  *   +6 MOUNTED  read: bit n is set when drive n has its image
  */
-struct SectorDisk final : Device {
+struct SectorDisk final : Device, Disk {
     static constexpr uint8_t DRIVES = 4;
     static constexpr uint8_t TRACKS = 77;
     static constexpr uint8_t SECTORS = 26;
@@ -44,10 +45,13 @@ struct SectorDisk final : Device {
     uint16_t peek(uint32_t addr) const override;
     void write(uint32_t addr, uint16_t data) override;
 
-    // Mounts the images beside |path|, a file loaded from the SD card:
-    // its name with .dsk is drive A, and with b.dsk, c.dsk and d.dsk the
-    // others. Turns the disk on when drive A is there.
-    void mount(const char *path);
+    // On units 0-3, CP/M's A:-D:. Turns the disk on.
+    Mounted mount(const char *label, const char *path) override;
+    bool unmount(const char *label) override;
+    // |path|'s name with .dsk is A:, and with b.dsk, c.dsk and d.dsk B:-D:,
+    // each labelled with its file name. Turns the disk on when A: is there.
+    void mountBeside(const char *path) override;
+    void printDrives() const override;
 
 private:
     const Mems *const _mems;
@@ -59,6 +63,8 @@ private:
     uint8_t _status = 0;
 
     void transfer(bool toDisk);
+    bool mountUnit(uint8_t unit, const char *label, const char *path);
+    void unmountUnit(uint8_t unit);
 };
 
 }  // namespace debugger

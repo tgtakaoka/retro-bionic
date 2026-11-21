@@ -1,5 +1,6 @@
 #include "sector_disk.h"
 #include <SD.h>
+#include <strings.h>
 #include "debugger.h"
 #include "watchdog.h"
 
@@ -22,6 +23,7 @@ constexpr uint8_t ST_ERROR = 1;
 
 File images[SectorDisk::DRIVES];
 char image_names[SectorDisk::DRIVES][64];
+char labels[SectorDisk::DRIVES][Disk::LABEL_MAX + 1];
 uint8_t buffer[SectorDisk::SECTOR_BYTES];
 }  // namespace
 
@@ -34,39 +36,93 @@ const char *SectorDisk::description() const {
 }
 
 void SectorDisk::print() const {
+    printDrives();
+}
+
+void SectorDisk::printDrives() const {
+    auto none = true;
     for (auto d = 0; d < DRIVES; ++d) {
         if (*image_names[d] == 0)
             continue;
         cli.print("  ");
+        cli.print(labels[d]);
+        cli.print(" (");
         cli.print(char('A' + d));
-        cli.print(": ");
+        cli.print(":) ");
         cli.print(image_names[d]);
         cli.println(images[d] ? "" : " closed");
+        none = false;
     }
+    if (none)
+        cli.println("  no disk mounted");
 }
 
-// As a file is loaded, never in a transfer, where a missing card would
-// hold the CPU for long. A file that is not there is not made.
-void SectorDisk::mount(const char *path) {
+// Mounting happens at the prompt, never in a transfer, where a missing
+// card would hold the CPU for long. A file that is not there is not made.
+bool SectorDisk::mountUnit(uint8_t unit, const char *label, const char *path) {
+    unmountUnit(unit);
+    if (strlen(path) >= sizeof(image_names[unit]) || !SD.exists(path))
+        return false;
+    images[unit] = SD.open(path, FILE_WRITE_BEGIN);
+    if (!images[unit])
+        return false;
+    strcpy(image_names[unit], path);
+    strncpy(labels[unit], label, LABEL_MAX);
+    labels[unit][LABEL_MAX] = 0;
+    enable(true);
+    return true;
+}
+
+void SectorDisk::unmountUnit(uint8_t unit) {
+    images[unit].close();
+    *image_names[unit] = 0;
+    *labels[unit] = 0;
+}
+
+Disk::Mounted SectorDisk::mount(const char *label, const char *path) {
+    auto unit = DRIVES;
+    for (auto d = 0; d < DRIVES; ++d) {
+        if (*image_names[d] && strcasecmp(labels[d], label) == 0) {
+            unit = d;
+            break;
+        }
+        if (*image_names[d] == 0 && unit == DRIVES)
+            unit = d;
+    }
+    if (unit == DRIVES)
+        return MOUNT_NO_UNIT;
+    return mountUnit(unit, label, path) ? MOUNT_OK : MOUNT_NOT_FOUND;
+}
+
+bool SectorDisk::unmount(const char *label) {
+    for (auto d = 0; d < DRIVES; ++d) {
+        if (*image_names[d] && strcasecmp(labels[d], label) == 0) {
+            unmountUnit(d);
+            return true;
+        }
+    }
+    return false;
+}
+
+void SectorDisk::mountBeside(const char *path) {
     const auto dot = strrchr(path, '.');
     const auto slash = strrchr(path, '/');
     const size_t stem = (dot && dot > slash) ? dot - path : strlen(path);
+    char name[sizeof(image_names[0])];
     for (auto d = 0; d < DRIVES; ++d) {
-        images[d].close();
-        auto name = image_names[d];
-        *name = 0;
-        if (stem + sizeof("b.dsk") > sizeof(image_names[d]))
+        unmountUnit(d);
+        if (stem + sizeof("b.dsk") > sizeof(name))
             continue;
         memcpy(name, path, stem);
         name[stem] = 0;
         if (d)
             strncat(name, "abcd" + d, 1);
+        const auto base = strrchr(name, '/');
+        char label[LABEL_MAX + 1];
+        strncpy(label, base ? base + 1 : name, LABEL_MAX);
+        label[LABEL_MAX] = 0;
         strcat(name, ".dsk");
-        if (SD.exists(name)) {
-            images[d] = SD.open(name, FILE_WRITE_BEGIN);
-        } else {
-            *name = 0;
-        }
+        mountUnit(d, label, name);
     }
     enable(images[0]);
 }
