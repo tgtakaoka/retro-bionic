@@ -1457,6 +1457,13 @@ Byte bus, one byte per read, sequential-cursor injection, so the faked-POP
 idiom (`POP rr` followed inline by its payload) works and is used throughout
 `regs_z80.cpp`. **[code]**
 
+**CP/M disk.** `DevsZ80` puts the sector disk 10H above its USART: 50H on
+the 8-bit boards, which boot the 8080's CP/M unchanged, and 0150H on the
+Z180, Z280 and Z380, which decode 16 bits and need a BIOS using
+`OUT (C),A`. Their MMUs map one to one at reset, so DMA is physical. The
+Z280 runs uncached (reset leaves Cache Control at 60H), so sectors the
+disk writes behind the CPU are never stale. **[code]**
+
 The Z80, NSC800 and KL5C80 `completeCycle()` treat an I/O address as 8-bit and
 ignore the high byte; the Z180's decodes all 16 bits, its USART being at
 0140H. **[code]**

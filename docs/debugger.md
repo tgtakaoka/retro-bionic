@@ -129,8 +129,8 @@ alone; a reset clears only the device's own registers and pending interrupts.
 - **i8251 USART** — `debugger/i8251.cpp`
 - **DL11** (DCT11, DCJ11) — `debugger/pdp11/dl11.cpp`: the console at 177560, its
   vectors being the Rx and Tx interrupt names.
-- **Sector disk** (8080, 8085) — `debugger/sector_disk.cpp`: `DISK`, a paravirtual CP/M
-  disk at port 50H. A command moves one sector while the CPU waits; DMAX (+7) extends
+- **Sector disk** (8080, 8085, Z80 family) — `debugger/sector_disk.cpp`: `DISK`, a
+  paravirtual CP/M disk 10H above the USART: port 50H, or 0150H on the Z180, Z280 and Z380. A command moves one sector while the CPU waits; DMAX (+7) extends
   DMA past 64K. Four drives are image files on the SD card, in the target's formats:
   `ibm-3740` (8" floppy, any image up to 256256 bytes) or `hd8` (exactly 8 MB). Other
   sizes are refused. DRIVE reads back the drive's format in bits 4-7.
