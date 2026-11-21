@@ -4,6 +4,7 @@
 #include "devs.h"
 #include "dl11.h"
 #include "kw11l.h"
+#include "swr.h"
 
 // The console's address.
 #define DL11_BASE 0177560
@@ -14,7 +15,7 @@ namespace debugger {
 namespace pdp11 {
 
 struct DevsPdp11 final : Devs {
-    // |clock|: the board has the line clock.
+    // |clock|: the board has the line clock and the switch register.
     DevsPdp11(bool clock = false);
     ~DevsPdp11();
 
@@ -23,7 +24,8 @@ struct DevsPdp11 final : Devs {
     bool loopDevices() override;
     // A byte's address selects its word.
     bool isSelected(uint32_t addr) const override {
-        return _dl11->isSelected(addr & ~1) || _kw11l->isSelected(addr & ~1);
+        return _dl11->isSelected(addr & ~1) || _kw11l->isSelected(addr & ~1) ||
+               _swr->isSelected(addr & ~1);
     }
     uint16_t read(uint32_t addr) const override;
     // What read() would return, without its side effects.
@@ -41,11 +43,15 @@ struct DevsPdp11 final : Devs {
 private:
     Dl11 *_dl11;
     Kw11l *_kw11l;
+    Swr *_swr;
     const bool _clock;
 
     Device *select(uint32_t addr) const {
-        return _kw11l->isSelected(addr & ~1) ? static_cast<Device *>(_kw11l)
-                                             : _dl11;
+        if (_kw11l->isSelected(addr & ~1))
+            return _kw11l;
+        if (_swr->isSelected(addr & ~1))
+            return _swr;
+        return _dl11;
     }
 };
 
