@@ -12,3 +12,13 @@ TDRIVE: equ     0004H           ; current drive and user
 SPT:    equ     26              ; sectors a track
 CCP_SECTORS:    equ     (BIOS-CCP)/128          ; 44
 BIOS_SECTORS:   equ     2*SPT-1-CCP_SECTORS     ; 7, to the end of track 1
+NDISKS: equ     4
+
+ALV_BYTES:      equ     127     ; hd8's 1016 blocks; ibm-3740 needs 31
+
+;;; The BIOS's scratch areas, to the top of memory. The cold boot loads
+;;; the BIOS's sectors over their start, which nothing has used yet.
+        org     0FFFFH-128-16*NDISKS-ALV_BYTES*NDISKS   ; FD43
+dirbuf: ds      128
+csv:    ds      16*NDISKS
+alv:    ds      ALV_BYTES*NDISKS
