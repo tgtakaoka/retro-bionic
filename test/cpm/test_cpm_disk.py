@@ -49,8 +49,8 @@ def memory(*hexes):
 
 
 class BiosTables(unittest.TestCase):
-    # The BIOS builds.
-    BUILDS = [SAMPLES]
+    # The BIOS on 8-bit ports and the one on the Z180's 16-bit ports.
+    BUILDS = [SAMPLES, os.path.join(PROJ, 'samples', 'z180')]
 
     def builds(self):
         for d in self.BUILDS:
