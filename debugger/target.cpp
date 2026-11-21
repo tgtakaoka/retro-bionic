@@ -65,14 +65,13 @@ void Target::putInst(uint32_t addr, uint16_t data) const {
 
 void Target::printRegisters(bool dis) const {
     _regs->print();
-    if (dis && _regs->valid())
+    if (dis)
         disassemble(_regs->nextIp(), 1);
 }
 
 void Target::printAllRegisters() const {
     _regs->printAll();
-    if (_regs->valid())
-        disassemble(_regs->nextIp(), 1);
+    disassemble(_regs->nextIp(), 1);
 }
 
 uint_fast8_t Target::validRegister(const char *word, uint32_t &max) const {

@@ -2830,7 +2830,7 @@ request comes as DONE or READY rises with its interrupt enable set, or
 as the enable is set, and the acknowledge that reads its vector drops
 it: a level request would interrupt for as long as a program leaves the
 transmitter's enable set. Received characters come a 9600 baud character
-time apart: all at once, pasted text overran the DCJ11's console ODT.
+time apart: all at once, pasted text overruns a program that polls.
 **[doc][code][bench]**
 
 **Interrupts.** The DL11 requests level 4 with #VEC, and its vector is
@@ -2902,17 +2902,8 @@ devices: elsewhere it reads 0. With the MMU off a program's 160000-177777
 is that page, so the CPU starts at 1000, in memory, and a sample's
 restart jump at 173000 loads into memory it does not reach. **[code]**
 
-**Console ODT.** `O odt` answers the power-up configuration read with
-000003: POK, power-up mode 1 (enter console ODT) and a HALT that enters
-it. The reset parks after the general-purpose write 234, which signals
-the entry, and a run only serves the bus: the vectors are the program's,
-no register is saved or restored, and the halt switch holds the CPU
-where it is, between two cycles in a WAIT. It is the debugger's run loop
-with nothing added per cycle: a second loop left the cycle's service out
-of line in both, and slowed every run. ODT polls the DL11. `O
-debugger` goes back. The general-purpose write 014, a RESET instruction
-or the power-up microroutine, resets the devices in either mode.
-**[doc][code]**
+**Bus reset.** The general-purpose write 014, a RESET instruction or
+the power-up microroutine, resets the devices. **[doc][code]**
 
 **Stack limit.** A kernel stack reference below 400, a trap's push
 among them, takes a yellow stack trap through vector 4 (DCJ11 User's

@@ -65,8 +65,6 @@ struct Target {
     bool printProtectArea() const;
     void setProtectArea(uint32_t begin, uint32_t end) const;
 
-    bool setOption(const char *name) const { return _pins->setOption(name); }
-    void printOptions() const { _pins->printOptions(); }
     void printDevices() const;
     Device *parseDevice(const char *word) const;
     void enableDevice(Device *dev) const;

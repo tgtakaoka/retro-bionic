@@ -1,5 +1,4 @@
 #include "pins_dcj11.h"
-#include <strings.h>
 #include "debugger.h"
 #include "devs_pdp11.h"
 #include "digital_bus.h"
@@ -86,16 +85,11 @@ constexpr auto latch_ns = 30;
 // memory.
 constexpr uint16_t ORG_START = 0001000;
 constexpr uint16_t POWER_UP_CONFIG = ORG_START | 0000017;
-// POK, power-up mode 1 (enter console ODT), and a kernel HALT enters it.
-constexpr uint16_t ODT_CONFIG = 0000003;
-// General-purpose write codes (DCJ11 User's Guide, Table 3-3).
+// General-purpose write code (DCJ11 User's Guide, Table 3-3).
 constexpr uint8_t GP_BUS_RESET = 0014;
-constexpr uint8_t GP_ODT_ENTRY = 0234;
 // The debugger's traps go here; the debugger answers its fetch.
 constexpr uint16_t ORG_RESTART = 0173004;
 constexpr uint16_t VEC_PWRFAIL = 0000024;
-// No 16-bit address.
-constexpr uint32_t NO_VECTOR = UINT32_MAX;
 // The emulated memory takes all of DAL21-DAL00.
 constexpr uint32_t MAX_ADDR = 017777777;
 
@@ -319,13 +313,6 @@ void PinsDcj11::resetPins() {
     Cycles::reset();
     _devPending = false;
     _trapVector = 0;
-    // The vectors are the program's under console ODT.
-    _bptVector = _odt ? NO_VECTOR : InstPdp11::VEC_BPT;
-    _haltVector = _odt ? NO_VECTOR : VEC_PWRFAIL;
-    if (_odt) {
-        enterOdt();
-        return;
-    }
 
     // GP writes, the configuration read, register writes and memory
     // probes, then the first fetch.
@@ -347,27 +334,6 @@ void PinsDcj11::resetPins() {
     }
     _regs->setIp(ORG_START);
     _regs->save();
-}
-
-uint16_t PinsDcj11::powerUpConfig() const {
-    return _odt ? ODT_CONFIG : POWER_UP_CONFIG;
-}
-
-// Through the power-up microroutine to the cycle after the one that
-// signals the entry into console ODT, and parks there.
-void PinsDcj11::enterOdt() {
-    auto entered = false;
-    for (auto guard = power_up_cycles; guard > 0; --guard) {
-        const auto s = prepareCycle();
-        if (s == nullptr)
-            continue;  // the microroutine's long runs of NIO
-        if (entered)
-            return;
-        entered = s->gpWrite() && (s->addr & 0377) == GP_ODT_ENTRY;
-        completeCycle(s);
-    }
-    _parked.noCycle();
-    cli.println("?reset: no console ODT");
 }
 
 // Clocks to the next cycle that isn't NIO, parking at the end of the
@@ -424,7 +390,7 @@ Signals *PinsDcj11::completeCycle(Signals *s) {
             s->data = _devs->vector();
         } else if (s->gpRead()) {
             const auto code = s->addr & 0377;
-            s->data = (code == 0 || code == 2) ? powerUpConfig() : 0;
+            s->data = (code == 0 || code == 2) ? POWER_UP_CONFIG : 0;
         } else {
             retrieveData(s);
         }
@@ -579,8 +545,8 @@ void PinsDcj11::captureWrites(const uint16_t *inst, uint_fast8_t words,
 // own unless |step| ran it.
 bool PinsDcj11::parkAfterFrame(Signals *s, bool step) {
     if (s->read() && !s->fetch() && s->memory()) {
-        const uint32_t addr = s->addr16();
-        if (addr == _bptVector || addr == _haltVector) {
+        const uint16_t addr = s->addr16();
+        if (addr == InstPdp11::VEC_BPT || addr == VEC_PWRFAIL) {
             s->inject(ORG_RESTART);
             _trapVector = addr;
             // Still asserted, #PWRF would trap again before the fetch.
@@ -662,10 +628,6 @@ bool PinsDcj11::rawStep() {
 }
 
 bool PinsDcj11::step(bool show) {
-    if (_odt) {
-        cli.println("?step: console ODT");
-        return false;
-    }
     Cycles::reset();
     auto regs = this->regs<RegsPdp11>();
     // The step's trace trap pushes a frame; SP is left as the program has
@@ -775,7 +737,7 @@ void PinsDcj11::serve(Signals *s) {
             s->data = _devs->vector();
         } else if (s->gpRead()) {
             const auto code = s->addr & 0377;
-            s->data = (code == 0 || code == 2) ? powerUpConfig() : 0;
+            s->data = (code == 0 || code == 2) ? POWER_UP_CONFIG : 0;
         } else {
             retrieveData(s);
         }
@@ -814,19 +776,11 @@ void PinsDcj11::release(Signals *s) {
 
 // Runs under the PWM until a BPT or the halt switch, every cycle held in
 // its stretch while it is served. Returns whether the registers can be
-// saved. With console ODT the debugger answers no vector, and the halt
-// switch holds the CPU where it is, maybe between two cycles.
+// saved.
 bool PinsDcj11::loop() {
-    Signals *s;
-    if (_parked.nio()) {
-        noInterrupts();
-        startClock();
-        s = waitCycle();
-    } else {
-        s = resumeCycle();
-        clockUntil(sctl_asserted);
-        startClock();
-    }
+    Signals *s = resumeCycle();
+    clockUntil(sctl_asserted);
+    startClock();
     for (uint_fast8_t n = 0;; ++n) {
         // Quiet, as in a WAIT: interrupts come only on a stopped clock.
         const auto quiet = s == nullptr;
@@ -848,12 +802,9 @@ bool PinsDcj11::loop() {
         if ((serviced || quiet) && haltSwitch()) {
             if (!quiet)
                 stopClock();
-            if (s) {
+            if (s)
                 _parked = *s;  // suspend() may park in it
-            } else {
-                _parked.noCycle();
-            }
-            return !_odt && suspend(s);
+            return suspend(s);
         }
         if (quiet) {
             noInterrupts();
@@ -867,31 +818,7 @@ bool PinsDcj11::loop() {
     }
 }
 
-bool PinsDcj11::setOption(const char *name) {
-    if (strcasecmp(name, "odt") == 0) {
-        _odt = true;
-    } else if (strcasecmp(name, "debugger") == 0) {
-        _odt = false;
-    } else {
-        return false;
-    }
-    return true;
-}
-
-void PinsDcj11::printOptions() const {
-    cli.print("Option: ");
-    cli.print(_odt ? "odt" : "debugger");
-    cli.println(" (debugger, odt)");
-}
-
 void PinsDcj11::run() {
-    if (_odt) {
-        Cycles::reset();
-        startRunTimer();
-        loop();
-        stopRunTimer();
-        return;
-    }
     _regs->restore();
     Cycles::reset();
     saveBreakInsts();
