@@ -206,9 +206,9 @@ const uint8_t PINS_INPUT[] = {
 
 PinsNsc800::PinsNsc800()
     : PinsZ80Base(), _clock(xin_half_min_ns, xin_min_hz) {
-    _devs = new DevsZ80();
-    _regs = new z80::RegsZ80(this);
     _mems = new MemsZ80();
+    _devs = new DevsZ80(USART_BASE, _mems);
+    _regs = new z80::RegsZ80(this);
 #ifdef TUNE_CLOCK
     _clockInput = xin_hz;
 #endif

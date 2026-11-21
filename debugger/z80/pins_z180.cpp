@@ -163,9 +163,9 @@ PinsZ180::PinsZ180(const uint8_t *config, uint_fast8_t len, uint32_t extalHz,
       _internalIo(internalIo),
       _extalHz(extalHz),
       _holdsEarly(holdsEarly) {
-    _devs = new DevsZ80(USART_Z180);
-    _regs = new RegsZ180(this);
     _mems = new MemsZ80();
+    _devs = new DevsZ80(USART_Z180, _mems);
+    _regs = new RegsZ180(this);
     mems<MemsZ80>()->setMaxAddr(0xFFFFF);  // 1MB
 #ifdef TUNE_CLOCK
     _clockInput = extalHz;

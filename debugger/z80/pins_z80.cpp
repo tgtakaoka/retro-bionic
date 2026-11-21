@@ -210,9 +210,9 @@ inline void clk_cycle() {
 }  // namespace
 
 PinsZ80::PinsZ80() : PinsZ80Base() {
-    _devs = new DevsZ80();
-    _regs = new RegsZ80(this);
     _mems = new MemsZ80();
+    _devs = new DevsZ80(USART_BASE, _mems);
+    _regs = new RegsZ80(this);
 }
 
 void PinsZ80::resetPins() {

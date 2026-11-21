@@ -1,19 +1,30 @@
 #include "devs_z80.h"
 #include <strings.h>
 #include "i8251.h"
+#include "sector_disk.h"
 
 namespace debugger {
 
-DevsZ80::DevsZ80(uint16_t addr) : _usart(new I8251()) {
+DevsZ80::DevsZ80(uint16_t addr, const Mems *mems)
+    : _usart(new I8251()), _disk(mems ? new SectorDisk(mems) : nullptr) {
     _usart->setBaseAddr(addr);
+    if (_disk)
+        _disk->setBaseAddr(addr + 0x10);
 }
 
 DevsZ80::~DevsZ80() {
     delete _usart;
+    delete _disk;
 }
 
 void DevsZ80::reset() {
     _usart->reset();
+    if (_disk)
+        _disk->reset();
+}
+
+Disk *DevsZ80::disk() const {
+    return _disk;
 }
 
 void DevsZ80::begin() {
@@ -25,15 +36,21 @@ bool DevsZ80::loopDevices() {
 }
 
 bool DevsZ80::isSelected(uint32_t addr) const {
-    return _usart->isSelected(addr);
+    return _usart->isSelected(addr) || (_disk && _disk->isSelected(addr));
 }
 
 uint16_t DevsZ80::read(uint32_t addr) const {
+    if (_disk && _disk->isSelected(addr))
+        return _disk->read(addr);
     return _usart->read(addr);
 }
 
 void DevsZ80::write(uint32_t addr, uint16_t data) const {
-    _usart->write(addr, data);
+    if (_disk && _disk->isSelected(addr)) {
+        _disk->write(addr, data);
+    } else {
+        _usart->write(addr, data);
+    }
 }
 
 uint16_t DevsZ80::vector() const {
@@ -43,15 +60,25 @@ uint16_t DevsZ80::vector() const {
 Device *DevsZ80::parseDevice(const char *name) const {
     if (strcasecmp(name, _usart->name()) == 0)
         return _usart;
+    if (_disk && strcasecmp(name, _disk->name()) == 0)
+        return _disk;
     return Devs::nullDevice();
 }
 
+// The disk turns on as its images mount, and I DISK turns it off and on;
+// the console stays as it is.
 void DevsZ80::enableDevice(Device *dev) {
+    if (_disk && dev == _disk) {
+        _disk->enable(!_disk->isEnabled());
+        return;
+    }
     _usart->enable(dev == _usart);
 }
 
 void DevsZ80::printDevices() const {
     printDevice(_usart);
+    if (_disk)
+        printDevice(_disk);
 }
 
 }  // namespace debugger

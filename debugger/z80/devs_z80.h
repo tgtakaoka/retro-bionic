@@ -7,8 +7,12 @@
 
 namespace debugger {
 
+struct Mems;
+struct SectorDisk;
+
 struct DevsZ80 final : Devs {
-    DevsZ80(uint16_t addr = USART_BASE);
+    // With |mems|, the CP/M disk is there too, 10H above the USART.
+    DevsZ80(uint16_t addr = USART_BASE, const Mems *mems = nullptr);
     ~DevsZ80();
 
     void begin() override;
@@ -22,9 +26,11 @@ struct DevsZ80 final : Devs {
     Device *parseDevice(const char *name) const override;
     void enableDevice(Device *dev) override;
     void printDevices() const override;
+    Disk *disk() const override;
 
 private:
     Device *_usart;
+    SectorDisk *_disk;
 };
 
 }  // namespace debugger

@@ -216,9 +216,9 @@ inline uint16_t swapBytes(uint16_t v) {
 }  // namespace
 
 PinsZ280::PinsZ280() {
-    _devs = new DevsZ80(USART_BASE);
     // Memory first: RegsZ280 stages its AF restore word there.
     _mems = new MemsZ280();
+    _devs = new DevsZ80(USART_BASE, _mems);
     _regs = new RegsZ280(this, mems<MemsZ280>());
 }
 
