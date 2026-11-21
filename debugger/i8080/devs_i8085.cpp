@@ -1,12 +1,13 @@
 #include "devs_i8085.h"
 #include <strings.h>
 #include "i8085_sio_handler.h"
+#include "sector_disk.h"
 
 namespace debugger {
 namespace i8085 {
 
-DevsI8085::DevsI8085()
-    : DevsI8080()
+DevsI8085::DevsI8085(const Mems *mems)
+    : DevsI8080(mems)
 #if defined(ENABLE_SERIAL_HANDLER)
       ,
       _sio(new I8085SioHandler())
@@ -42,6 +43,10 @@ Device *DevsI8085::parseDevice(const char *name) const {
 }
 
 void DevsI8085::enableDevice(Device *dev) {
+    if (dev == _disk) {
+        DevsI8080::enableDevice(dev);
+        return;
+    }
 #if defined(ENABLE_SERIAL_HANDLER)
     _sio->enable(dev == _sio);
 #endif
