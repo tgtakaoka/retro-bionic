@@ -191,9 +191,9 @@ inline void Signals::getBen() {
 }
 
 PinsZ380::PinsZ380() {
-    _devs = new DevsZ80(USART_BASE);
     // Memory first: RegsZ380 stages its AF restore word there.
     _mems = new MemsZ380();
+    _devs = new DevsZ80(USART_BASE, _mems);
     _regs = new RegsZ380(this, mems<MemsZ380>());
 }
 

@@ -144,9 +144,9 @@ constexpr uint8_t PINS_INPUT[] = {
 
 PinsKl5c80::PinsKl5c80()
     : PinsZ80Base(), _clock(xin_half_min_ns, xin_min_hz) {
-    _devs = new DevsZ80();
-    _regs = new RegsZ80(this);
     _mems = new MemsZ80();
+    _devs = new DevsZ80(USART_BASE, _mems);
+    _regs = new RegsZ80(this);
     mems<MemsZ80>()->setMaxAddr(0x7FFFF);  // 512kB
 #ifdef TUNE_CLOCK
     _clockInput = xin_hz;
