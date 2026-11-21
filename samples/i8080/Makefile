@@ -17,18 +17,18 @@ all: echo.hex echoir.hex echoitr.hex \
 # otherwise.
 CPM80 ?= cpm80
 FORMAT ?= hd8
-cpm80.dsk: cpm80bios.hex $(CPM80)/CPM22.ASM $(wildcard $(CPM80)/a/*)
+cpm80.dsk: cpm80bios.hex $(CPM80)/CPM22.ASM bdsc.sub $(wildcard $(CPM80)/a/*)
 	tr -d '\r' < $(CPM80)/CPM22.ASM | \
 	    sed -e 's/^MEM\tEQU\t62/MEM\tEQU\t64/' \
 	        -e "s/^\tADI\t'a'/\tADI\t'A'/" > $(CPM80)/cpm80sys.inc
 	printf '\tcpu\t8080\n\tinclude\t"cpm80sys.inc"\n' > $(CPM80)/cpm80sys.asm
 	cd $(CPM80) && $(ASM) -o cpm80sys.hex cpm80sys.asm
 	../../scripts/cpm-disk.py make $@ --format $(FORMAT) \
-	    --system $(CPM80)/cpm80sys.hex cpm80bios.hex $(wildcard $(CPM80)/a/*)
+	    --system $(CPM80)/cpm80sys.hex cpm80bios.hex bdsc.sub $(wildcard $(CPM80)/a/*)
 
-# B:, the user disk: an 8 MB hd8 with fmandel.bas and the files in
-# $(CPM80)/b/.
-cpm80b.dsk: fmandel.bas $(wildcard $(CPM80)/b/*)
+# B:, the user disk: an 8 MB hd8 with fmandel.bas, mandel.c and the files
+# in $(CPM80)/b/.
+cpm80b.dsk: fmandel.bas mandel.c $(wildcard $(CPM80)/b/*)
 	../../scripts/cpm-disk.py make $@ --format hd8 $^
 
 # Blank floppies for C: and D:, which an empty file is; made only when
