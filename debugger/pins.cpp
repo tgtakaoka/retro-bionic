@@ -15,10 +15,6 @@ void Pins::reset() {
     resetPins();
 }
 
-void Pins::printOptions() const {
-    cli.println("Option: none");
-}
-
 void Pins::setRun() const {
     _halted = false;
 #ifdef PIN_USRLED

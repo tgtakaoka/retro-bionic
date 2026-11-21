@@ -13,8 +13,6 @@ struct Regs {
     virtual const char *cpuName() const;
 
     /** Print CPU registers */
-    // False while the CPU's registers are out of the debugger's reach.
-    virtual bool valid() const { return true; }
     virtual void print() const = 0;
     // What r prints: print() and any registers it leaves out.
     virtual void printAll() const { print(); }

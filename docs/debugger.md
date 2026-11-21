@@ -36,7 +36,6 @@ From the header of `debugger/debugger.cpp`:
 | `L` | Load Intel HEX or S-record file from SD card |
 | `F` | List files on SD card |
 | `I` | Show/select I/O device — `dev [addr [vec]]` also sets its base and interrupt vector |
-| `O` | Show/set the target's option — `[name]`; setting one resets the target |
 | `W` | Write identity EEPROM |
 | `V` | Toggle verbose mode |
 | `?` | Print version and usage |
