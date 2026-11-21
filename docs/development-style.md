@@ -939,6 +939,14 @@ keep every target in ITCM, but the rules below hold for all of them.
 - `teensy_size` counts only the shared ITCM code; the largest `.ovl_*`
   section in `arm-none-eabi-size -A` adds to it.
 
+### Devices send console output through consoleWrite() **[code]**
+
+A UART device's character goes out with `consoleWrite()`, never
+`Console.write()`: `Devs::loop()` flushes the USB serial once the console
+has been quiet for a millisecond. Without it the last character of a burst,
+such as the `>` of a CP/M prompt, could stay in the USB buffer while the
+CPU only polled the status, until the next character pushed it out.
+
 ### SD card libraries stay in flash **[code]**
 
 `ENABLE_SDCARD` is on: `F` lists and `L` loads files on the Teensy's SD

@@ -42,7 +42,7 @@ void Mc6850::loopUart() {
             assertTxIntr();
     }
     if (Console.availableForWrite() > 0 && !txReady()) {
-        Console.write(_txData);
+        consoleWrite(_txData);
         _txDone = true;     // defer Tx interrupt
     }
 }

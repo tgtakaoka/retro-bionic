@@ -58,7 +58,7 @@ void Dl11::loopUart() {
             requestTx();
     }
     if (!_txReady && Console.availableForWrite() > 0) {
-        Console.write(_txData);
+        consoleWrite(_txData);
         _txDone = true;  // READY comes on the next service
     }
 }

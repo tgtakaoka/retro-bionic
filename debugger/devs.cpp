@@ -19,6 +19,24 @@ Device *Devs::nullDevice() {
     return &NullDevice;
 }
 
+namespace {
+bool unflushed;
+uint32_t written;  // ARM_DWT_CYCCNT at the last consoleWrite()
+}  // namespace
+
+void consoleWrite(uint8_t c) {
+    Console.write(c);
+    unflushed = true;
+    written = ARM_DWT_CYCCNT;
+}
+
+void Devs::consoleFlush(uint32_t now) {
+    if (unflushed && now - written >= F_CPU / 1000) {
+        unflushed = false;
+        Console.flush();
+    }
+}
+
 void Devs::printDevice(const Device *dev) const {
     const auto radix = Debugger.target().inputRadix();
     const auto digits =

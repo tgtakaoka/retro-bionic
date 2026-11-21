@@ -94,7 +94,7 @@ void SerialHandler::rxloop(Receiver &rx) const {
                 rx.data |= 0x80;
             rx.delay = _rx_divider;
             if (--rx.bit == 1) {
-                Console.write(rx.data);
+                consoleWrite(rx.data);
             } else {
                 // Pins::negate_debug();
             }
