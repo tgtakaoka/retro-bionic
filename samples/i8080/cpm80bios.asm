@@ -4,7 +4,7 @@
 ;;; 8085 too. The image builder puts it on the system tracks after CCP
 ;;; and BDOS.
         include "i8080.inc"
-        include "cpm22.inc"
+        include "cpm80.inc"
 
 ;;; i8251 Universal Synchronous/Asynchronous Receiver/Transmitter
 USART:  equ     40H

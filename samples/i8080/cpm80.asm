@@ -1,9 +1,9 @@
 ;;; -*- mode: asm; mode: flyspell-prog; -*-
-;;; CP/M 2.2 cold boot: L cpm22.hex loads this and mounts cpm22.dsk as A:
-;;; (and cpm22b.dsk etc. as B:-D:). It reads CCP, BDOS and the BIOS from
+;;; CP/M 2.2 cold boot: L cpm80.hex loads this and mounts cpm80.dsk as A:
+;;; (and cpm80b.dsk etc. as B:-D:). It reads CCP, BDOS and the BIOS from
 ;;; the system tracks and enters the BIOS's cold boot.
         include "i8080.inc"
-        include "cpm22.inc"
+        include "cpm80.inc"
 
 DISK:   equ     50H
         include "sector_disk.inc"

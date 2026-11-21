@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Pins the CP/M disk layout that samples/i8080/cpm22bios.asm,
+"""Pins the CP/M disk layout that samples/i8080/cpm80bios.asm,
 scripts/cpm-disk.py and debugger/sector_disk.cpp share.
 
     python3 -m unittest discover -s test/cpm
@@ -46,8 +46,8 @@ def memory(*hexes):
 
 class BiosTables(unittest.TestCase):
     def setUp(self):
-        self.mem = memory(os.path.join(SAMPLES, 'cpm22bios.hex'))
-        self.at = labels(os.path.join(SAMPLES, 'cpm22bios.lst'))
+        self.mem = memory(os.path.join(SAMPLES, 'cpm80bios.hex'))
+        self.at = labels(os.path.join(SAMPLES, 'cpm80bios.lst'))
 
     def test_skew(self):
         xlt = self.at['xlt']
@@ -62,7 +62,7 @@ class BiosTables(unittest.TestCase):
                          (26, 242, 63, 2, 1024))
 
     def test_bios_fits_its_sectors(self):
-        # cpm22.inc: the BIOS ends track 1, after the boot sector and the
+        # cpm80.inc: the BIOS ends track 1, after the boot sector and the
         # 44 sectors of CCP and BDOS.
         self.assertLessEqual(self.at['dph0'] + 4 * 16, 0xFA00 + 7 * 128)
         self.assertEqual(self.at['dirbuf'], 0xFA00 + 7 * 128)
@@ -97,7 +97,7 @@ class ImageLayout(unittest.TestCase):
             with open(out, 'rb') as f:
                 image = f.read()
         # CCP from track 0 sector 2, the BIOS from track 1 sector 20, up
-        # to the end of track 1: what cpm22.asm and wboot read.
+        # to the end of track 1: what cpm80.asm and wboot read.
         self.assertEqual(image[cpm_disk.offset(0, 2)], 0x11)
         self.assertEqual(image[cpm_disk.offset(1, 20)], 0x22)
         self.assertEqual(image[cpm_disk.offset(1, 26) + 127], 0x33)

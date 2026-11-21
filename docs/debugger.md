@@ -132,7 +132,7 @@ alone; a reset clears only the device's own registers and pending interrupts.
   CP/M at I/O port 50H: drive, track, sector, DMA address, then a command that moves one
   128-byte sector whole while the CPU waits in that cycle. Four drives of 8" single
   density, 77 tracks of 26 sectors, are image files on the Teensy's SD card:
-  `L i8080/cpm22.hex` mounts `i8080/cpm22.dsk` as A: and `cpm22b.dsk`-`cpm22d.dsk`
+  `L i8080/cpm80.hex` mounts `i8080/cpm80.dsk` as A: and `cpm80b.dsk`-`cpm80d.dsk`
   beside it as B:-D:, and turns the disk on; `I DISK` turns it off and on.
 - **8087 INT** (D8087 board) — `debugger/i8086/devs_d8087.cpp`: `NPX`, disabled at
   power-up, `I NPX` turns it on and off. While the 8087 holds INT high it requests
