@@ -116,8 +116,8 @@ CP/M-86's CCP has no `SAVE`; DDT86's `W` writes back what `R` read, header and a
 `-RB:PROG.CMD`, a patch with `S` or `A`, then `-WB:PROG.CMD` keeps a loadable `.CMD`.
 `R` puts the file at its offsets, so the program's addresses are 80H further on.
 
-For BASIC, the fetch puts DRI's CBASIC compiler, `CB86.CMD`, `CB86.OR1`-`CB86.OR3`,
-`CB86.L86` and `LINK86.CMD` from
+For BASIC, the fetch puts DRI's CBASIC compiler, `CB86.CMD`, `CB86.OR1`-`CB86.OR3`
+and `CB86.L86` from
 [cbasic86.zip](http://www.cpm.z80.de/download/cbasic86.zip), on A:, and DRI's Personal
 BASIC, `BASIC.CMD` from [pbasic86.zip](http://www.cpm.z80.de/download/pbasic86.zip), on B:.
 `make cpm86.dsk cpm86b.dsk` makes A:, with `cb.sub`, and an `hd8` B: with
@@ -126,6 +126,16 @@ BASIC, `BASIC.CMD` from [pbasic86.zip](http://www.cpm.z80.de/download/pbasic86.z
 `OLD FMANDEL.PB` and `RUN`, draws the set. CB86 reads its overlays from the current
 drive, so `cb.sub` compiles and links from A:, then runs it on B::
 `A>SUBMIT CB FMANDEL`.
+
+For C, A: has Digital Research C 1.11 from
+[drc_86.zip](http://www.cpm.z80.de/download/drc_86.zip):
+`DISK1`'s `DRC.CMD`, `DRC860.CMD`-`DRC862.CMD`, `DRCRPP.CMD`, `R.CMD`, which runs its
+passes, `DRC.ERR` and `.H` headers, `DISK2`'s `CLEARS.L86`, and `DISK3`'s `LINK86.CMD`,
+which CBASIC uses too, and `RASM86.CMD`, with `cc.sub`. B: then also holds
+[`fmandel.c`](../samples/i8086/fmandel.c) and [`imandel.c`](../samples/i8086/imandel.c),
+which adds the `stdio.h` DRI's `putchar` needs to `samples/arith/imandel.c`, on B: as
+`imandel.inc`; `cc.sub` compiles and links from A: too: `A>SUBMIT CC FMANDEL`. DRC 1.32, the one with 8087 code,
+needs a CP/M-86 whose loader applies its programs' fixups, which 1.1's does not.
 
 ## The reference implementation
 

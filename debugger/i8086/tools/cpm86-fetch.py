@@ -33,10 +33,20 @@ SOURCES = [
     (CPM + 'cbasic86.zip',
      '8c3d2d75311aea4ec02b080aad28e94192c016653acfd81a399ee29e8013e23d',
      {n: 'a' for n in ('CB86.CMD', 'CB86.OR1', 'CB86.OR2', 'CB86.OR3',
-                       'CB86.L86', 'LINK86.CMD')}),
+                       'CB86.L86')}),
     (CPM + 'pbasic86.zip',
      'e14abc10536dd2eb08f5f694dc6d926588f59056a12aa178fc13694395d822a7',
      {'BASIC.CMD': 'b'}),
+    # DRC 1.11; DISK3's LINK86 1.4 links its objects, CBASIC's 1.02 does not.
+    (CPM + 'drc_86.zip',
+     '136916513514e7aca68698688d5a0c2f7459e17d237d068270605db07e307f33',
+     {**{'V1-11/DISK1/' + n: 'a' for n in (
+         'DRC.CMD', 'DRC860.CMD', 'DRC861.CMD', 'DRC862.CMD', 'DRCRPP.CMD',
+         'R.CMD', 'DRC.ERR', 'CTYPE.H', 'ERRNO.H', 'PORTAB.H', 'SETJMP.H',
+         'STDIO.H')},
+      'V1-11/DISK2/CLEARS.L86': 'a',
+      'V1-11/DISK3/LINK86.CMD': 'a',
+      'V1-11/DISK3/RASM86.CMD': 'a'}),
 ]
 
 
