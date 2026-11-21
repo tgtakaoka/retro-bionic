@@ -2,34 +2,34 @@
 #define __DEBUGGER_SECTOR_DISK_H__
 
 #include "device.h"
-#include "disk.h"
+#include "disk_drives.h"
 #include "mems.h"
 
 namespace debugger {
 
 /**
- * A paravirtual disk on eight I/O ports, for CP/M: four drives of 8"
- * single-sided single-density geometry, 77 tracks of 26 sectors of 128
- * bytes. Each drive is an image file on the SD card. A write to COMMAND
- * moves one sector between the image and the memory at DMA, whole,
- * while the CPU waits in that bus cycle.
+ * A paravirtual CP/M disk on eight byte-wide I/O ports, with four drives
+ * of SD card images. A COMMAND write moves one sector to or from DMA
+ * while the CPU waits.
  *
- *   +0 DRIVE    0-3
- *   +1 TRACK    0-76
- *   +2 SECTOR   1-26, physical
+ *   +0 DRIVE    write: 0-3
+ *               read: the drive in bits 0-3, its format's index in 4-7
+ *   +1 TRACK    cylinder x heads + head, from 0
+ *   +2 SECTOR   from the format's first sector
  *   +3 DMAL     DMA address, low byte
  *   +4 DMAH     high byte
  *   +5 COMMAND  write: 1 reads a sector, 2 writes one
  *               read: the last command's status, 0 when it succeeded
  *   +6 MOUNTED  read: bit n is set when drive n has its image
+ *   +7 DMAX     DMA address bits 16-23, past a 64K space
+ *
+ * The target gives the formats; see DiskDrives::place().
  */
-struct SectorDisk final : Device, Disk {
+struct SectorDisk final : Device, DiskDrives {
     static constexpr uint8_t DRIVES = 4;
-    static constexpr uint8_t TRACKS = 77;
-    static constexpr uint8_t SECTORS = 26;
-    static constexpr uint16_t SECTOR_BYTES = 128;
 
-    SectorDisk(const Mems *mems) : _mems(mems) {}
+    SectorDisk(const Mems *mems, const DiskGeometry *formats, uint8_t count)
+        : DiskDrives(_drives, DRIVES, formats, count), _mems(mems) {}
 
     const char *name() const override;
     const char *description() const override;
@@ -45,26 +45,27 @@ struct SectorDisk final : Device, Disk {
     uint16_t peek(uint32_t addr) const override;
     void write(uint32_t addr, uint16_t data) override;
 
-    // On units 0-3, CP/M's A:-D:. Turns the disk on.
+    // Turns the disk on.
     Mounted mount(const char *label, const char *path) override;
-    bool unmount(const char *label) override;
-    // |path|'s name with .dsk is A:, and with b.dsk, c.dsk and d.dsk B:-D:,
-    // each labelled with its file name. Turns the disk on when A: is there.
+    // |path|'s .dsk, b.dsk, c.dsk and d.dsk as A:-D:.
     void mountBeside(const char *path) override;
-    void printDrives() const override;
+
+protected:
+    // A:-D:
+    const char *unitName(uint8_t unit) const override;
 
 private:
+    DiskUnit _drives[DRIVES];
     const Mems *const _mems;
     uint32_t _base_addr = 0;
     uint8_t _drive = 0;
     uint8_t _track = 0;
     uint8_t _sector = 1;
-    uint16_t _dma = 0;
+    uint32_t _dma = 0;
     uint8_t _status = 0;
 
     void transfer(bool toDisk);
-    bool mountUnit(uint8_t unit, const char *label, const char *path);
-    void unmountUnit(uint8_t unit);
+    uint32_t dmaAt(uint16_t i) const { return (_dma + i) & _mems->maxAddr(); }
 };
 
 }  // namespace debugger

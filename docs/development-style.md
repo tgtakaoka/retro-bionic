@@ -939,6 +939,12 @@ keep every target in ITCM, but the rules below hold for all of them.
 - `teensy_size` counts only the shared ITCM code; the largest `.ovl_*`
   section in `arm-none-eabi-size -A` adds to it.
 
+### Disk images go through DiskUnit **[code]**
+
+`disk_image.h`'s `DiskUnit` is the only way to an image file; `DiskDrives`
+is the set `O` and `L` mount. Formats come from the target's devices.
+Transfers run inside a held bus cycle and flush once per transfer.
+
 ### Devices send console output through consoleWrite() **[code]**
 
 A UART device's character goes out with `consoleWrite()`, never
