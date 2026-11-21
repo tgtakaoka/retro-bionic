@@ -63,6 +63,10 @@ The Z180, Z280 and Z380 decode 16-bit ports, so `samples/z180` has their port
 routines (0140H, 0150H, `OUT (C)`); `make cpm80.dsk` there puts that BIOS on a copy of
 the 8080's A:, and `L z180/cpm80.hex` boots it.
 
+On a V20 or V30, `L i8086/cpm80.hex` loads a native harness that enters 8080
+emulation at 1000:0000 with the 8080's cold boot, and mounts `i8086/cpm80.dsk`, a copy
+of the 8080's (`make cpm80.dsk cpm80b.dsk` in `samples/i8086`).
+
 ## The reference implementation
 
 [`samples/arith/`](../samples/arith) is the golden model, compiled and run on the host rather
