@@ -3020,6 +3020,10 @@ with the general-purpose write 100, which lets #EVENT go. A tick missed
 while the CPU was halted is not made up. Only the DCJ11 has the clock.
 **[doc][code]**
 
+**Switches.** The switch register at 177570 reads 173030 at power-up,
+which starts Unix single-user; `I SWR value` sets it, and any setting
+but 0 lets the Unix kernel print. **[doc][code]**
+
 **Stack limit.** A kernel stack reference below 400, a trap's push
 among them, takes a yellow stack trap through vector 4 (DCJ11 User's
 Guide, 1.8), and a reset keeps SP (Figure 8-2), so after power-up SP may

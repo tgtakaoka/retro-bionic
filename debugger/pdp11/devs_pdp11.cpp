@@ -5,7 +5,7 @@ namespace debugger {
 namespace pdp11 {
 
 DevsPdp11::DevsPdp11(bool clock)
-    : _dl11(new Dl11()), _kw11l(new Kw11l()), _clock(clock) {
+    : _dl11(new Dl11()), _kw11l(new Kw11l()), _swr(new Swr()), _clock(clock) {
     _dl11->setBaseAddr(DL11_BASE);
     _kw11l->setBaseAddr(KW11L_BASE);
 }
@@ -13,6 +13,7 @@ DevsPdp11::DevsPdp11(bool clock)
 DevsPdp11::~DevsPdp11() {
     delete _dl11;
     delete _kw11l;
+    delete _swr;
 }
 
 void DevsPdp11::reset() {
@@ -23,6 +24,7 @@ void DevsPdp11::reset() {
 void DevsPdp11::begin() {
     enableDevice(_dl11);
     _kw11l->enable(_clock);
+    _swr->enable(_clock);
 }
 
 bool DevsPdp11::loopDevices() {
@@ -51,13 +53,16 @@ Device *DevsPdp11::parseDevice(const char *name) const {
         return _dl11;
     if (_clock && strcasecmp(name, _kw11l->name()) == 0)
         return _kw11l;
+    if (_clock && strcasecmp(name, _swr->name()) == 0)
+        return _swr;
     return Devs::nullDevice();
 }
 
-// The line clock goes on and off by itself; the console stays as it is.
+// The line clock and the switches go on and off by themselves; the
+// console stays as it is.
 void DevsPdp11::enableDevice(Device *dev) {
-    if (dev == _kw11l) {
-        _kw11l->enable(!_kw11l->isEnabled());
+    if (dev == _kw11l || dev == _swr) {
+        dev->enable(!dev->isEnabled());
         return;
     }
     _dl11->enable(dev == _dl11);
@@ -65,8 +70,10 @@ void DevsPdp11::enableDevice(Device *dev) {
 
 void DevsPdp11::printDevices() const {
     printDevice(_dl11);
-    if (_clock)
+    if (_clock) {
         printDevice(_kw11l);
+        printDevice(_swr);
+    }
 }
 
 }  // namespace pdp11
