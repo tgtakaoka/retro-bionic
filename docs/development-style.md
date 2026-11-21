@@ -745,6 +745,9 @@ sector disk and USART:
   take a vector the BIOS had left unset. The BIOS's handlers keep the
   character and turn the transmitter off, which CONOUT turns on to
   send.
+- Personal BASIC loads a program with `OLD`, not `LOAD`, and takes a
+  name with any type; `BASIC FMANDEL` starts it without loading one.
+  CB86 opens its overlays on the current drive.
 
 ### Reset keeps the board's wiring **[code]**
 

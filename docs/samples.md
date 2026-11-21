@@ -116,6 +116,17 @@ CP/M-86's CCP has no `SAVE`; DDT86's `W` writes back what `R` read, header and a
 `-RB:PROG.CMD`, a patch with `S` or `A`, then `-WB:PROG.CMD` keeps a loadable `.CMD`.
 `R` puts the file at its offsets, so the program's addresses are 80H further on.
 
+For BASIC, the fetch puts DRI's CBASIC compiler, `CB86.CMD`, `CB86.OR1`-`CB86.OR3`,
+`CB86.L86` and `LINK86.CMD` from
+[cbasic86.zip](http://www.cpm.z80.de/download/cbasic86.zip), on A:, and DRI's Personal
+BASIC, `BASIC.CMD` from [pbasic86.zip](http://www.cpm.z80.de/download/pbasic86.zip), on B:.
+`make cpm86.dsk cpm86b.dsk` makes A:, with `cb.sub`, and an `hd8` B: with
+[`fmandel.bas`](../samples/i8086/fmandel.bas), the `fmandel` program in CBASIC, and
+`samples/i8080/fmandel.bas` as `fmandel.pb` for Personal BASIC. On B:, `BASIC`, then
+`OLD FMANDEL.PB` and `RUN`, draws the set. CB86 reads its overlays from the current
+drive, so `cb.sub` compiles and links from A:, then runs it on B::
+`A>SUBMIT CB FMANDEL`.
+
 ## The reference implementation
 
 [`samples/arith/`](../samples/arith) is the golden model, compiled and run on the host rather
