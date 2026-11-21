@@ -47,10 +47,11 @@ using pdp11::RegsPdp11;
 
 namespace {
 
-// A half period with no work gets these: the work between edges keeps
-// the period above 100ns and each half above 35ns, inside the 20MHz part.
-constexpr auto clock_lo_ns = 20;
-constexpr auto clock_hi_ns = 25;
+// A half period gets these by itself, with no work between edges to pad
+// it: the clock's halves are 28ns at least and its period 67ns (J-11
+// Data Chip Specification).
+constexpr auto clock_lo_ns = 35;
+constexpr auto clock_hi_ns = 35;
 constexpr auto lo_ns = clock_lo_ns;
 constexpr auto hi_ns = clock_hi_ns;
 // A run's PWM: the address is read from #STRB's rise; 11.5MHz fails.
@@ -78,6 +79,8 @@ constexpr auto trap_cycles = 256;
 constexpr auto frame_cycles = 16;
 // The 74HCT259's address setup and enable pulse.
 constexpr auto latch_ns = 30;
+// From a bit-banged cycle's read data, DV or #CONT to the next CLK fall.
+constexpr auto settle_ns = 100;
 
 // The power-up configuration (DCJ11 User's Guide, Figure 8-3): POK,
 // power-up mode 3 (start at its bits 15-9), and a kernel HALT traps to 4.
@@ -153,15 +156,27 @@ void clock_cycle() {
     delayNanoseconds(hi_ns);
 }
 
-// One period with |act| at its rising edge, half a period from the
-// falling edges either side. T4's falling edges sample #ABORT, and a DV
-// that latched 177777 next to one was taken for an abort.
+// One period with |act| at its rising edge, and the high time stretched
+// to keep it clear of the falling edge after: T4's falling edges sample
+// #ABORT and #CONT.
 template <typename ACT>
 void clock_after_rise(ACT act) {
     digitalWriteFast(PIN_CLK, LOW);
     delayNanoseconds(lo_ns);
     digitalWriteFast(PIN_CLK, HIGH);
     act();
+    delayNanoseconds(settle_ns);
+}
+
+// One period with |act| in the middle of a long low half, clear of both
+// edges.
+template <typename ACT>
+void clock_while_low(ACT act) {
+    digitalWriteFast(PIN_CLK, LOW);
+    delayNanoseconds(settle_ns);
+    act();
+    delayNanoseconds(settle_ns);
+    digitalWriteFast(PIN_CLK, HIGH);
     delayNanoseconds(hi_ns);
 }
 
@@ -202,6 +217,15 @@ inline bool sctl_asserted() {
 
 inline bool bufctl_asserted() {
     return digitalReadFast(PIN_BUFCTL) == LOW;
+}
+
+// #BUFCTL is low twice in a read: from #STRB's fall to #ALE's rise, with
+// the address still out, then high again until the CPU lets DAL go for
+// the data. Only the second, with #ALE high, is the time to drive: on
+// the first, read data of 177777 fought the CPU's own for a quarter of a
+// microsecond, and the CPU aborted the cycle.
+inline bool dal_released() {
+    return bufctl_asserted() && !ale_asserted();
 }
 
 inline bool strb_asserted() {
@@ -397,9 +421,9 @@ Signals *PinsDcj11::completeCycle(Signals *s) {
         // The CPU lets DAL go with #BUFCTL, and has by the stretch; read
         // data is latched at T3's rise, and again as DV falls, held low
         // until the stretch ends.
-        if (!clockUntil([] { return bufctl_asserted() || sctl_asserted(); }))
+        if (!clockUntil([] { return dal_released() || sctl_asserted(); }))
             cli.println("?#BUFCTL");
-        s->outData();
+        clock_while_low([s] { s->outData(); });
         if (!clockUntil(sctl_asserted))
             cli.println("?#SCTL read");
         clock_after_rise(assert_dv);
@@ -763,7 +787,7 @@ void PinsDcj11::serve(Signals *s) {
         } else {
             retrieveData(s);
         }
-        while (!bufctl_asserted() && !sctl_asserted() &&
+        while (!dal_released() && !sctl_asserted() &&
                 ARM_DWT_CYCCNT - start < sctl_cycles)
             ;
         s->outData();

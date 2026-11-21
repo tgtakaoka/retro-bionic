@@ -2896,14 +2896,21 @@ Interrupts are on from the address on, the stretch holding the CPU.
 **[doc][bench]**
 
 **#ABORT and DV.** An external #ABORT is taken in the stretch, sampled
-at T4's falling edges (User's Guide, 2.6.3). #ABORT dips as DV latches
-177777: a bit-banged read that asserted DV and #CONT just ahead of a
-falling edge took it for an abort and trapped through 4, most often in
-the first register restore after power-up, when the FP11's accumulators
-hold 000000 177777 000000 177777. The bit-banged cycle gives DV and
-#CONT a period each and changes them at its rising edge. With verbose
-on, a cycle reports any fall of #ABORT, not only a low one at its end.
-**[doc][bench]**
+at T4's falling edges (User's Guide, 2.6.3); the debugger's read data is
+latched as DV falls. #BUFCTL is low twice in a read: from #STRB's fall to
+#ALE's rise, with the address still out, then high again, then low for
+the data. Read data driven on the first met the CPU's own on DAL until
+the second, and with 177777 against an address of zeros the CPU aborted
+the cycle and trapped through 4: most often in the first register restore
+after power-up, when the FP11's accumulators hold 000000 177777 000000
+177777, and on every go of a build that only moved the code. Data is
+driven only with #BUFCTL low and #ALE high. The bit-banged cycle puts it
+out in the middle of a long low half of CLK, gives DV and #CONT a period
+each at its rising edge with CLK held high 100 ns after, and its clock's
+halves are 35 ns by themselves, over the 28 ns the J-11 Data Chip
+Specification asks: none of those three stopped the abort alone. With
+verbose on, a cycle reports any fall of #ABORT, not only a low one at
+its end. **[doc][bench]**
 
 **Entries and power-up.** The power-up configuration read is answered
 with 001017: POK, power-up mode 3 (start at 1000) and a kernel HALT that
