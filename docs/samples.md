@@ -41,6 +41,7 @@ supplies, so one BIOS serves two port layouts:
 |---|---|---|
 | `samples/i8080/cpm22.asm`, `cpm22bios.asm` | 40H, 50H | 8080, 8085, Z80, NSC800, KL5C80 |
 | `samples/z180/cpm22.asm`, `cpm22bios.asm` | 0140H, 0150H, with `OUT (C)` | Z180, Z280, Z380 |
+| `samples/i8086/cpm22.asm`, then the 8080's | 40H, 50H | V20, V30 in 8080 emulation |
 
 `cpm22.asm` is the cold boot that `L` loads from the SD card; it reads CCP, BDOS
 and the BIOS from drive A's system tracks (`cpm22load.inc`, shared with the
@@ -67,7 +68,11 @@ blank ones, in each directory below too. `L i8080/cpm22.hex`,
 files in an image.
 
 For the Z180, Z280 and Z380, `make cpm22.dsk` in `samples/z180` puts its BIOS on a
-copy of that disk, and `L z180/cpm22.hex` boots it.
+copy of that disk, and `L z180/cpm22.hex` boots it. On a V20 or V30,
+`L i8086/cpm22.hex` loads a native harness that enters 8080 emulation at 1000:0000
+with the 8080's cold boot there, and mounts `i8086/cpm22.dsk`, a copy of the
+8080's disk (`make cpm22.dsk` in `samples/i8086`). Both directories'
+`make cpm22b.dsk` copy the 8080's BASIC disk beside it as B:.
 
 `make cpm22b.dsk` makes a B: of `fmandel.bas`, the `fmandel` program for
 Microsoft's MBASIC 5.21, and the files in `samples/i8080/cpm22/b/`. MBASIC is not
