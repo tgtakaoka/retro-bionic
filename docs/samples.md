@@ -53,7 +53,15 @@ make cpm22.dsk
 ```
 
 and copy `cpm22.hex` and `cpm22.dsk` into an `i8080/` folder on the Teensy's SD
-card. `L i8080/cpm22.hex`, then `G` from 0000, boots to `A>`.
+card, with `cpm22b.dsk`-`cpm22d.dsk` for B:-D:; `make cpm22c.dsk cpm22d.dsk` makes
+blank ones, in each directory below too. `L i8080/cpm22.hex`,
+`R`, then `G` boots to `A>`. `scripts/cpm-disk.py put` and `era` add and erase
+files in an image.
+
+`make cpm22b.dsk` makes a B: of `fmandel.bas`, the `fmandel` program for
+Microsoft's MBASIC 5.21, and the files in `samples/i8080/cpm22/b/`. MBASIC is not
+freely licensed, so it is not here either; with `MBASIC.COM` in
+`samples/i8080/cpm22/b/`, `B>MBASIC FMANDEL` draws the set.
 
 ## The reference implementation
 

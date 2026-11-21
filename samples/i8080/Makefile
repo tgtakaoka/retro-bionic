@@ -23,6 +23,15 @@ cpm22.dsk: cpm22bios.hex $(CPM22)/CPM22.ASM $(wildcard $(CPM22)/a/*)
 	../../scripts/cpm-disk.py make $@ \
 	    --system $(CPM22)/cpm22sys.hex cpm22bios.hex $(wildcard $(CPM22)/a/*)
 
+# B: holds BASIC: fmandel.bas, and the files in
+# $(CPM22)/b/, such as MBASIC.COM.
+cpm22b.dsk: fmandel.bas $(wildcard $(CPM22)/b/*)
+	../../scripts/cpm-disk.py make $@ $^
+
+# Blank C: and D:, made only when missing so a disk in use is kept.
+cpm22c.dsk cpm22d.dsk:
+	: > $@
+
 clean:
 	-rm -f *.lst *.hex
 

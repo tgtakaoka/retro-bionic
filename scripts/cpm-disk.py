@@ -2,6 +2,8 @@
 """Build and read CP/M 2.2 disk images for the debugger's sector disk.
 
     scripts/cpm-disk.py make OUT.dsk [--system HEX...] [FILE...]
+    scripts/cpm-disk.py put IMAGE.dsk FILE...
+    scripts/cpm-disk.py era IMAGE.dsk NAME.TYP...
     scripts/cpm-disk.py list IMAGE.dsk
     scripts/cpm-disk.py get IMAGE.dsk NAME.TYP [OUT]
 
@@ -16,6 +18,9 @@ track 1 go on the system tracks from track 0 sector 2, where the BIOS's
 warm boot and samples/i8080/cpm22.asm read them, unskewed: CCP and BDOS
 assembled for 64K, then samples/i8080/cpm22bios.hex. Bytes the HEX files
 leave out are E5.
+
+`put` copies FILE... into an image as user 0, replacing files of the
+same name; `era` erases files of user 0 from it, as CP/M's ERA does.
 """
 import os
 import sys
@@ -129,6 +134,46 @@ def make(out, hexes, files):
         f.write(image)
 
 
+def erase(image, path):
+    """Marks user 0's entries of |path|'s name erased; whether any were."""
+    name, typ = cpm_name(path)
+    found = False
+    for _, at, e in directory(image):
+        if e[0] == 0 and e[1:9] == name and bytes(c & 0x7F for c in e[9:12]) == typ:
+            image[at] = 0xE5
+            found = True
+    return found
+
+
+def save(path, image):
+    with open(path, 'r+b' if os.path.getsize(path) else 'wb') as f:
+        f.write(image)
+
+
+def era(path, names):
+    image = load(path)
+    for n in names:
+        if not erase(image, n):
+            sys.exit(f'{n}: not found')
+    save(path, image)
+
+
+def put(path, paths):
+    image = load(path)
+    for p in paths:
+        erase(image, p)
+    used = set(range(DIR_BLOCKS))
+    entries = []
+    for _, at, e in directory(image):
+        if e[0] == 0xE5:
+            entries.append(at)
+        else:
+            used.update(b for b in e[16:32] if b)
+    for p in paths:
+        add_file(image, p, used, entries)
+    save(path, image)
+
+
 def files(image):
     """{(user, NAME.TYP): [entry...]} sorted by extent."""
     found = {}
@@ -175,6 +220,10 @@ def main(argv):
             if not hexes:
                 sys.exit('--system needs HEX files')
         make(out, hexes, rest)
+    elif len(argv) >= 3 and argv[0] == 'put':
+        put(argv[1], argv[2:])
+    elif len(argv) >= 3 and argv[0] == 'era':
+        era(argv[1], argv[2:])
     elif len(argv) == 2 and argv[0] == 'list':
         image = load(argv[1])
         for (user, name), es in sorted(files(image).items()):

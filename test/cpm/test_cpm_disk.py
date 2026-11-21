@@ -119,6 +119,24 @@ class ImageLayout(unittest.TestCase):
         self.assertEqual(entries[0][16], 2)  # first block past the directory
         self.assertEqual(cpm_disk.contents(image, entries), data)
 
+    def test_put_and_era(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            paths = []
+            for name, size in (('KEEP.COM', 3000), ('MOVE.BAS', 700)):
+                paths.append(os.path.join(tmp, name))
+                with open(paths[-1], 'wb') as f:
+                    f.write(bytes([len(name)]) * size)
+            out = os.path.join(tmp, 'b.dsk')
+            open(out, 'wb').close()  # an empty image is a blank disk
+            cpm_disk.put(out, paths)
+            cpm_disk.era(out, ['MOVE.BAS'])
+            cpm_disk.put(out, [paths[0]])  # replaces, not duplicates
+            image = cpm_disk.load(out)
+        found = cpm_disk.files(image)
+        self.assertEqual(list(found), [(0, 'KEEP.COM')])
+        self.assertEqual(cpm_disk.contents(image, found[(0, 'KEEP.COM')])[:3000],
+                         bytes([8]) * 3000)
+
 
 if __name__ == '__main__':
     unittest.main()
