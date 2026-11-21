@@ -3024,6 +3024,18 @@ while the CPU was halted is not made up. Only the DCJ11 has the clock.
 which starts Unix single-user; `I SWR value` sets it, and any setting
 but 0 lets the Unix kernel print. **[doc][code]**
 
+**Disk.** The RK11's registers are at 177400, and its request is IRQ1,
+level 5 with vector 220: an IACK carries its level on DAL3-DAL0 (DCJ11
+User's Guide, Table 3-4), which picks the disk's vector or the
+console's. A transfer is done whole in the write that sets GO, with the
+CPU held in that cycle's stretch, between the image on the SD card and
+the memory at RKBA on the 18-bit bus; READY and the interrupt come at
+the next service. A disk comes with its bootstrap: `L` of a file from
+the card mounts the slots of the image of the same name with `.dsk`, as
+far as the file reaches, and nothing is mounted before, so no disk is
+written by chance. The drives are the shared disk layer's units, one
+file handle among them, flushed once a transfer. **[doc][code]**
+
 **Stack limit.** A kernel stack reference below 400, a trap's push
 among them, takes a yellow stack trap through vector 4 (DCJ11 User's
 Guide, 1.8), and a reset keeps SP (Figure 8-2), so after power-up SP may
