@@ -23,6 +23,11 @@ struct Signals final : SignalsBase<Signals> {
     // A prefetch the CPU may discard.
     bool request() const { return aio() == AIO_IREQ; }
     bool iack() const { return aio() == AIO_IACK; }
+    // The level an IACK acknowledges, 4 to 7, one of DAL3-DAL0 (DCJ11
+    // User's Guide, Table 3-4).
+    uint_fast8_t iackLevel() const {
+        return (addr & 010) ? 7 : (addr & 004) ? 6 : (addr & 002) ? 5 : 4;
+    }
     bool gpRead() const { return aio() == AIO_GPREAD; }
     bool gpWrite() const { return aio() == AIO_GPWRITE; }
     // Bus reads and writes, fetches among them.

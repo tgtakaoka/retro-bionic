@@ -16,6 +16,7 @@ using pdp11::Kw11l;
 using pdp11::InstPdp11;
 using pdp11::MemsDcj11;
 using pdp11::RegsPdp11;
+using pdp11::Rk11;
 
 // clang-format off
 /**
@@ -104,6 +105,7 @@ constexpr uint8_t Q_PWRF = 0;
 constexpr uint8_t Q_EVENT = 1;
 constexpr uint8_t Q_HALT = 2;
 constexpr uint8_t Q_IRQ0 = 3;
+constexpr uint8_t Q_IRQ1 = 4;
 constexpr uint8_t Q_IRQ3 = 6;
 constexpr uint8_t Q_MISS = 7;
 
@@ -267,8 +269,8 @@ void negate_pwrf() {
 }  // namespace
 
 PinsDcj11::PinsDcj11() {
-    _devs = new DevsPdp11(true);
     _mems = new MemsDcj11(MAX_ADDR);
+    _devs = new DevsPdp11(_mems);
     _regs = new RegsPdp11(this, mems<MemsDcj11>(), true);
 }
 
@@ -360,7 +362,7 @@ Signals *PinsDcj11::completeCycle(Signals *s) {
     const auto read = served_read(s);
     if (read) {
         if (s->iack()) {
-            s->data = _devs->vector();
+            s->data = devs<DevsPdp11>()->vector(s->iackLevel());
         } else if (s->gpRead()) {
             const auto code = s->addr & 0377;
             s->data = (code == 0 || code == 2) ? POWER_UP_CONFIG : 0;
@@ -758,13 +760,14 @@ void PinsDcj11::setBreakInst(uint32_t addr) const {
     _mems->put_prog(addr, InstPdp11::BPT);
 }
 
-// The line clock's is #EVENT, level 6 through vector 100. Every other
-// request is IRQ0, level 4; the device's vector is served at the IACK.
+// The line clock's is #EVENT, level 6 through vector 100, and the disk's
+// IRQ1, level 5. Every other request is IRQ0, level 4. An IRQ's vector is
+// served at the IACK.
 void PinsDcj11::assertInt(uint8_t name) {
     if (name == Kw11l::VECTOR) {
         write_latch(Q_EVENT, LOW);
     } else {
-        write_latch(Q_IRQ0, HIGH);
+        write_latch(name == Rk11::VECTOR ? Q_IRQ1 : Q_IRQ0, HIGH);
     }
 }
 
@@ -772,7 +775,7 @@ void PinsDcj11::negateInt(uint8_t name) {
     if (name == Kw11l::VECTOR) {
         write_latch(Q_EVENT, HIGH);
     } else {
-        write_latch(Q_IRQ0, LOW);
+        write_latch(name == Rk11::VECTOR ? Q_IRQ1 : Q_IRQ0, LOW);
     }
 }
 

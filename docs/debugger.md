@@ -131,6 +131,13 @@ alone; a reset clears only the device's own registers and pending interrupts.
   vectors being the Rx and Tx interrupt names.
 - **KW11-L** (DCJ11) — `debugger/pdp11/kw11l.cpp`: `KW11L`, the 60 Hz line clock at
   177546, which `I KW11L` turns off and on. Its interrupt is the CPU's #EVENT.
+- **RK11** (DCJ11) — `debugger/pdp11/rk11.cpp`: `RK11`, a disk controller at 177400
+  with eight RK05 drives, vector 220, which `I RK11` turns off and on. The drives are
+  image files on the Teensy's SD card. `L dcj11/unix_v6.hex` loads a bootstrap and
+  mounts the slots of `unix_v6.dsk` beside it as rk0 up: 1024 blocks of 512 bytes for
+  a drum, then 6144 blocks a drive, the layout of TangConsoleDCJ11MEM's disk images.
+  `O rk1 pack.dsk` mounts a single RK05 pack's file, up to 2494464 bytes, on a drive
+  and `O rk1` unmounts it.
 - **SWR** (DCJ11) — `debugger/pdp11/swr.h`: `SWR`, the console switch register at
   177570. `I SWR 173030` sets what it reads; that value, the default, starts Unix
   single-user.
